@@ -60,7 +60,7 @@ namespace Genode
 			 *                        be useful if you have registers that have
 			 *                        different means on reads and writes.
 			 *
-			 * \detail  See 'Genode::Register'
+			 * For details See 'Genode::Register'.
 			 */
 			template <off_t _OFFSET, unsigned long _ACCESS_WIDTH,
 			          bool _STRICT_WRITE = false>
@@ -79,7 +79,7 @@ namespace Genode
 				 *                 compound register
 				 * \param  _WIDTH  Bit width of the region
 				 *
-				 * \detail  See 'Genode::Register::Bitfield'
+				 * For details see 'Genode::Register::Bitfield'.
 				 */
 				template <unsigned long _SHIFT, unsigned long _WIDTH>
 				struct Bitfield :
@@ -111,17 +111,15 @@ namespace Genode
 			 *                        Please note that ACCESS_WIDTH is decisive
 			 *                        for the range of such strictness.
 			 *
-			 * \detail  The array takes all inner structures, wich are covered
-			 *          by an item width and iterates them successive. Such
-			 *          structures that are partially exceed an item range are
-			 *          read and written also partially. Structures that are
-			 *          completely out of the item range are read as '0' and
-			 *          trying to overwrite them has no effect. The array is
-			 *          not limited to its access width, it extends to the
-			 *          memory region of its successive items. Trying to read
-			 *          out read with an item index out of the array range
-			 *          returns '0', trying to write to such indices has no
-			 *          effect
+			 * The array takes all inner structures, wich are covered by an
+			 * item width and iterates them successive. Such structures that
+			 * are partially exceed an item range are read and written also
+			 * partially. Structures that are completely out of the item range
+			 * are read as '0' and trying to overwrite them has no effect. The
+			 * array is not limited to its access width, it extends to the
+			 * memory region of its successive items. Trying to read out read
+			 * with an item index out of the array range returns '0', trying
+			 * to write to such indices has no effect.
 			 */
 			template <off_t _OFFSET, unsigned long _ACCESS_WIDTH,
 			          unsigned long _ITEMS, unsigned long _ITEM_WIDTH,
@@ -156,7 +154,7 @@ namespace Genode
 				 * \param  _SHIFT  Bit shift of the first bit within an item
 				 * \param  _WIDTH  Bit width of the region
 				 *
-				 * \detail  See 'Genode::Register::Bitfield'
+				 * For details see 'Genode::Register::Bitfield'.
 				 */
 				template <unsigned long _SHIFT, unsigned long _SIZE>
 				struct Bitfield :

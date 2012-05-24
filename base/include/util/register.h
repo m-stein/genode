@@ -108,9 +108,9 @@ namespace Genode
 		 *                 register
 		 * \param  _WIDTH  Bit width of the region
 		 *
-		 * \detail  Bitfields are read and written according to their range,
-		 *          so if we have a 'Bitfield<2,3>' and write '0b11101' to it
-		 *          only '0b101' (shiftet by 2 bits) is written
+		 * Bitfields are read and written according to their range,
+		 * so if we have a 'Bitfield<2,3>' and write '0b11101' to it
+		 * only '0b101' (shiftet by 2 bits) is written.
 		 */
 		template <unsigned long _SHIFT, unsigned long _WIDTH>
 		struct Bitfield
@@ -137,8 +137,8 @@ namespace Genode
 			 * Get a register value with this bitfield set to 'value' and the
 			 * rest left zero
 			 *
-			 * \detail  Useful to combine successive access to multiple
-			 *          bitfields into one operation
+			 * Useful to combine successive access to multiple
+			 * bitfields into one operation.
 			 */
 			static inline access_t bits(access_t const value) {
 				return (value & MASK) << SHIFT; }
@@ -146,8 +146,8 @@ namespace Genode
 			/**
 			 * Get a register value 'reg' masked according to this bitfield
 			 *
-			 * \detail  E.g. '0x1234' masked according to a
-			 *          'Register<16>::Bitfield<5,7>' returns '0x0220'
+			 * E.g. '0x1234' masked according to a 'Register<16>::Bitfield<5,7>'
+			 * returns '0x0220'.
 			 */
 			static inline access_t masked(access_t const reg) { return reg & REG_MASK; }
 
