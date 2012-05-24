@@ -27,8 +27,8 @@ namespace Genode
 	/**
 	 * Base driver Texas instruments TL16C750 UART module
 	 *
-	 * In contrast to the abilities of the TL16C750, this driver targets only
-	 * the basic UART functionalities.
+	 * In contrast to the abilities of the TL16C750, this driver
+	 * offers only the basic UART functionalities.
 	 */
 	class Tl16c750_base : public Mmio
 	{
@@ -194,10 +194,7 @@ namespace Genode
 				write<Uart_dll::Clock_lsb>(divisor_uint);
 				write<Uart_dlh::Clock_msb>(divisor_uint>>Uart_dll::Clock_lsb::WIDTH);
 
-				/*
-				 * Configure protocol formatting and thereby return to
-				 * operational mode.
-				 */
+				/* configure protocol formatting, thereby return to operational mode */
 				write<Uart_lcr>(Uart_lcr::Char_length::bits(Uart_lcr::Char_length::_8_BIT)
 				              | Uart_lcr::Nb_stop::bits(Uart_lcr::Nb_stop::_1_STOP_BIT)
 				              | Uart_lcr::Parity_en::bits(0)
