@@ -1,35 +1,42 @@
+#
+# \brief   Test MMIO and register framework functionalities
+# \author  Martin Stein
+# \date    2012-05-29
+#
+
+# Build program images
 build "core init test/util_mmio"
 
+# Create directory where the boot files are written to
 create_boot_directory
 
+# Create XML configuration for init
 install_config {
-	<config>
-		<parent-provides>
-			<service name="ROM"/>
-			<service name="RAM"/>
-			<service name="CPU"/>
-			<service name="RM"/>
-			<service name="CAP"/>
-			<service name="PD"/>
-			<service name="LOG"/>
-		</parent-provides>
-		<default-route>
-			<any-service> <parent/> </any-service>
-		</default-route>
-		<start name="test-util_mmio">
-			<resource name="RAM" quantum="10M"/>
-		</start>
-	</config>
+<config>
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="RAM"/>
+		<service name="CPU"/>
+		<service name="RM"/>
+		<service name="CAP"/>
+		<service name="PD"/>
+		<service name="LOG"/>
+	</parent-provides>
+	<default-route>
+		<any-service> <parent/> </any-service>
+	</default-route>
+	<start name="test-util_mmio">
+		<resource name="RAM" quantum="10M"/>
+	</start>
+</config>
 }
 
+# Build boot files from the source binaries
 build_boot_image "core init test-util_mmio"
 
+# Configure Qemu
 append qemu_args "-nographic -m 64"
 
-run_genode_until {.*Test ended.*} 10
+# Execute test in Qemu
+run_genode_until "--- Test ended successfully ---" 10
 
-grep_output {\[init -\> test-util_mmio\]}
-
-compare_output_to {
-	[init -> test-util_mmio] Test ended successfully
-}

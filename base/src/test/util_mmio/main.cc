@@ -170,7 +170,7 @@ int compare_mem(uint8_t * base1, uint8_t * base2, size_t size)
  */
 int test_failed(unsigned test_id)
 {
-	PERR("Test ended, test %i failed", test_id);
+	PERR("--- Test ended, test %i failed ---", test_id);
 	printf("  mmio_mem:  0x ");
 	dump_mem(mmio_mem, sizeof(mmio_mem));
 	printf("\n  cpu_state: 0x%4X\n", cpu_state);
@@ -180,6 +180,8 @@ int test_failed(unsigned test_id)
 
 int main()
 {
+	printf("--- Test MMIO and register framework ---\n");
+
 	/************************************
 	 ** 'Genode::Mmio::Register' tests **
 	 ************************************/
@@ -405,7 +407,7 @@ int main()
 	if (compare_mem(mmio_mem, mmio_cmpr_15, sizeof(mmio_mem))) {
 		return test_failed(15); }
 
-	printf("Test ended successfully\n");
+	printf("--- Test ended successfully ---\n");
 	return 0;
 }
 
