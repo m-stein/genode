@@ -28,6 +28,12 @@ namespace Genode {
 		Ram_dataspace_capability alloc(size_t size, bool cached = true) {
 			return call<Rpc_alloc>(size, cached); }
 
+		addr_t phys_addr(Ram_dataspace_capability ds)
+		{
+			PWRN("Not supported via RPC");
+			return 0;
+		}
+
 		void free(Ram_dataspace_capability ds) { call<Rpc_free>(ds); }
 
 		int ref_account(Ram_session_capability ram_session) {
