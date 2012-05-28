@@ -117,6 +117,12 @@ class Context_area_ram_session : public Ram_session
 			return static_cap_cast<Ram_dataspace>(cap);
 		}
 
+		addr_t phys_addr(Ram_dataspace_capability ds)
+		{
+			PWRN("Not supported for context areas");
+			return 0;
+		}
+
 		void free(Ram_dataspace_capability ds) { PDBG("not yet implemented"); }
 
 		int ref_account(Ram_session_capability ram_session) { return 0; }

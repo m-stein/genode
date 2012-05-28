@@ -81,6 +81,12 @@ class Context_area_ram_session : public Genode::Ram_session
 		Genode::Ram_dataspace_capability alloc(Genode::size_t size) {
 			return Genode::Ram_dataspace_capability(); }
 
+		Genode::addr_t phys_addr(Genode::Ram_dataspace_capability ds)
+		{
+			PWRN("Not supported for context areas");
+			return 0;
+		}
+
 		void free(Genode::Ram_dataspace_capability) { }
 
 		int ref_account(Genode::Ram_session_capability) { return 0; }

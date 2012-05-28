@@ -153,6 +153,7 @@ namespace Genode {
 			 ***************************/
 
 			Ram_dataspace_capability alloc(size_t);
+			addr_t phys_addr(Ram_dataspace_capability ds);
 			void free(Ram_dataspace_capability);
 			int ref_account(Ram_session_capability);
 			int transfer_quota(Ram_session_capability, size_t);
