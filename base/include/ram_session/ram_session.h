@@ -71,6 +71,16 @@ namespace Genode {
 		virtual addr_t phys_addr(Ram_dataspace_capability ds) = 0;
 
 		/**
+		 * Get physical address of the RAM that backs a dataspace
+		 *
+		 * \param  ds  Targeted dataspace
+		 * \throw      Invalid_dataspace
+		 *
+		 * Not part of the RPC interface.
+		 */
+		virtual addr_t phys_addr(Ram_dataspace_capability ds) = 0;
+
+		/**
 		 * Free RAM dataspace
 		 *
 		 * \param ds  dataspace capability as returned by alloc

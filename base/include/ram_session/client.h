@@ -34,6 +34,12 @@ namespace Genode {
 			return 0;
 		}
 
+		addr_t phys_addr(Ram_dataspace_capability ds)
+		{
+			PWRN("Not supported via RPC");
+			return 0;
+		}
+
 		void free(Ram_dataspace_capability ds) { call<Rpc_free>(ds); }
 
 		int ref_account(Ram_session_capability ram_session) {
