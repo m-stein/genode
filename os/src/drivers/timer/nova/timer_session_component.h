@@ -104,7 +104,6 @@ namespace Timer {
 			: Genode::Thread<STACK_SIZE>("irq"), _platform_timer(pt)
 			{
 				_platform_timer->schedule_timeout(0);
-				PDBG("starting timeout scheduler");
 				start();
 			}
 
@@ -149,10 +148,7 @@ namespace Timer {
 				_session_cap(_entrypoint.manage(this)),
 				_barrier(Genode::Cancelable_lock::LOCKED),
 				_wake_up_alarm(&_barrier)
-			{
-				PDBG("created new session component, _session_cap.valid=%d",
-				 _session_cap.valid());
-			}
+			{ }
 
 			/**
 			 * Destructor
