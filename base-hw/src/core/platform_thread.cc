@@ -1,0 +1,136 @@
+/*
+ * \brief   Thread facility
+ * \author  Martin Stein
+ * \date    2012-02-12
+ */
+
+/*
+ * Copyright (C) 2009-2012 Genode Labs GmbH
+ *
+ * This file is part of the Genode OS framework, which is distributed
+ * under the terms of the GNU General Public License version 2.
+ */
+
+/* Core includes */
+#include <platform_thread.h>
+#include <core_env.h>
+#include <rm_session_component.h>
+
+using namespace Genode;
+
+namespace Kernel { unsigned core_id(); }
+
+
+Platform_thread::Platform_thread(bool const privileged,
+                                 Thread_base * const thread_base,
+                                 unsigned long const stack_size,
+                                 unsigned long const pd_id)
+:
+	_thread_base(thread_base), _stack_size(stack_size),
+	_pd_id(pd_id), _rm_client(0), _virt_utcb(0)
+{
+	/* Create UTCB for a core thread.
+	 * Allocate page aligned UTCB backing store */
+	Range_allocator * const ram = platform()->ram_alloc();
+	assert(ram->alloc_aligned(sizeof(Native_utcb), (void **)&_phys_utcb,
+	                          MIN_MAPPING_SIZE_LOG2));
+
+	/* Core is mapped 1:1 */
+	_virt_utcb = _phys_utcb;
+
+	/* Common constructor parts */
+	_init();
+}
+
+
+Platform_thread::Platform_thread(const char * name, unsigned int priority,
+                                 addr_t utcb)
+:
+	_thread_base(0), _stack_size(0), _pd_id(0), _rm_client(0),
+	_virt_utcb((Native_utcb *)utcb)
+{
+	/* Allocate UTCB backing store for a thread outside of core. Page alignment
+	 * is done by RAM session by default. It's save to use core env because
+	 * this cannot be its server activation thread */
+	try {
+		Ram_session * const ram = core_env()->ram_session();
+		_utcb = ram->alloc(sizeof(Native_utcb));
+		_phys_utcb = (Native_utcb *)ram->phys_addr(_utcb);
+	}
+	catch (...) { assert(0); }
+
+	/* Common constructor parts */
+	_init();
+}
+
+
+int Platform_thread::join_pd(unsigned long const pd_id,
+                                  bool const main_thread)
+{
+	/* Already in another PD? */
+	if (_pd_id && _pd_id != pd_id) return -1;
+
+	/* Denote configuration for start method */
+	_pd_id = pd_id;
+	_main_thread = main_thread;
+	return 0;
+}
+
+
+void Platform_thread::_init()
+{
+	/* Create kernel object */
+	void * kernel_thread;
+	Range_allocator * ram = platform()->ram_alloc();
+	assert(ram->alloc(Kernel::thread_size(), &kernel_thread));
+	_id = Kernel::new_thread(kernel_thread, this);
+	assert(_id);
+}
+
+
+int Platform_thread::start(void * ip, void * sp, unsigned int cpu_no)
+{
+	/* Check thread attributes */
+	assert(_pd_id);
+
+	/* If this is a main thread outside of core it'll not manage its
+	 * virtual context area by itself, as it is done for other threads
+	 * through a sub RM-session. Therefore we attach the UTCB to its
+	 * address space before it gets started */
+	if (_pd_id != Kernel::core_id() && _main_thread)
+	{
+		/* Declare page aligned virtual UTCB outside the context area.
+		 * Kernel offers this as bootstrap argument to the thread */
+		_virt_utcb = (Native_utcb *)((platform()->vm_start()
+					 + platform()->vm_size() - sizeof(Native_utcb))
+					 & ~((1<<MIN_MAPPING_SIZE_LOG2)-1));
+
+		/* Attach UTCB */
+		assert(_rm_client);
+		Rm_session_component * const rm = _rm_client->member_rm_session();
+		try { rm->attach(_utcb, 0, 0, true, _virt_utcb, 0); }
+		catch (...) { assert(0); }
+	}
+	/* Let thread participate in CPU scheduling */
+	_software_tlb = Kernel::start_thread(this, ip, sp, cpu_no);
+	return _software_tlb ? 0 : -1;
+}
+
+
+void Platform_thread::pager(Pager_object * const pager)
+{
+	/* Announce pager thread to kernel */
+	Kernel::set_pager(pager->cap().dst(), _id);
+
+	/* Get RM client from pager pointer */
+	_rm_client = dynamic_cast<Rm_client *>(pager);
+	assert(_rm_client);
+}
+
+
+Genode::Pager_object * Platform_thread::pager() const
+{
+	assert(_rm_client)
+	return static_cast<Pager_object *>(_rm_client);
+}
+
