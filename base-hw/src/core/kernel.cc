@@ -355,9 +355,10 @@ namespace Kernel
 			Ipc_node * origin;
 		};
 
-		Fifo<Message_buf> _request_queue; /* Requests that wait to be received by us */
-		Message_buf _inbuf; /* Buffers message we have received lastly */
-		Message_buf _outbuf; /* Buffers the message we aim to send */
+		Fifo<Message_buf> _request_queue; /* requests that waits to be
+		                                   * received by us */
+		Message_buf _inbuf; /* buffers message we have received lastly */
+		Message_buf _outbuf; /* buffers the message we aim to send */
 		State _state; /* Current node state */
 
 		/**
@@ -791,7 +792,7 @@ namespace Kernel
 	class Pd : public Object<Pd, MAX_PDS>,
 	           public Software_tlb
 	{
-		/* Keep ready some space for size aligned extra costs at construction */
+		/* keep ready memory for size aligned extra costs at construction */
 		enum { EXTRA_SPACE_SIZE = 2*Software_tlb::MAX_COSTS_PER_TRANSLATION };
 		char _extra_space[EXTRA_SPACE_SIZE];
 
@@ -803,10 +804,11 @@ namespace Kernel
 			Pd()
 			{
 				/* Try to add translation for mode transition region */
+				enum Mtc_attributes { W = 1, X = 1, K = 1, G = 1 };
 				unsigned const slog2 = insert_translation(mtc()->VIRT_BASE,
 				                                          mtc()->phys_base(),
 				                                          mtc()->SIZE_LOG2,
-				                                          1,1,1, 1);
+				                                          W, X, K, G);
 
 				/* Extra space needed to translate mode transition region */
 				if (slog2)
@@ -823,7 +825,7 @@ namespace Kernel
 
 					/* Translate mode transition region globally */
 					insert_translation(mtc()->VIRT_BASE, mtc()->phys_base(),
-					                   mtc()->SIZE_LOG2, 1,1,1, 1,
+					                   mtc()->SIZE_LOG2, W, X, K, G,
 					                   (void *)aligned_es);
 				}
 			}
@@ -956,7 +958,7 @@ namespace Kernel
 
 
 	/**
-	 * Enables exclusive ownership and handling of one IRQ per instance at a max
+	 * Exclusive ownership and handling of one IRQ per instance at a max
 	 */
 	class Irq_owner : public Object_pool<Irq_owner>::Entry
 	{
@@ -1149,8 +1151,8 @@ namespace Kernel
 			 * \retval  0  successful
 			 * \retval -1  thread could not be started
 			 */
-			int start(void *ip, void *sp, unsigned cpu_no, unsigned const pd_id,
-			          Native_utcb * const phys_utcb,
+			int start(void *ip, void *sp, unsigned cpu_no,
+			          unsigned const pd_id, Native_utcb * const phys_utcb,
 			          Native_utcb * const virt_utcb);
 
 			/**
@@ -1206,9 +1208,8 @@ namespace Kernel
 			 */
 			void wait_for_request()
 			{
-				Ipc_node::await_request(phys_utcb()->base(), phys_utcb()->size());
-				/* IPC node triggers thread state change via 'awaits_receipt'
-				 * and 'has_received '*/
+				Ipc_node::await_request(phys_utcb()->base(),
+				                        phys_utcb()->size());
 			}
 
 			/**
@@ -1219,8 +1220,6 @@ namespace Kernel
 				Ipc_node::send_reply_await_request(phys_utcb()->base(), size,
 				                                   phys_utcb()->base(),
 				                                   phys_utcb()->size());
-				/* IPC node triggers thread state change via 'awaits_receipt'
-				 * and 'has_received '*/
 			}
 
 			/**
@@ -1247,9 +1246,8 @@ namespace Kernel
 			 ** Accessors **
 			 ***************/
 
-			bool privileged() const { return _pd_id == core_id(); }
-
-			Platform_thread * platform_thread() const { return _platform_thread; }
+			Platform_thread * platform_thread() const {
+				return _platform_thread; }
 
 			void pager(Thread * const p) {
 				_pager = p; }
@@ -1341,7 +1339,7 @@ namespace Kernel
 	};
 
 	/**
-	 * Manage signal contexts and enable threads to trigger them or listen to them
+	 * Manage signal contexts and enable threads to trigger and await them
 	 */
 	class Signal_receiver :
 		public Object<Signal_receiver, MAX_SIGNAL_RECEIVERS>
@@ -1436,6 +1434,474 @@ namespace Kernel
 	size_t signal_context_size() { return sizeof(Signal_context); }
 	size_t signal_receiver_size() { return sizeof(Signal_receiver); }
 	unsigned pd_alignm_log2() { return Pd::ALIGNM_LOG2; }
+
+
+	/**
+	 * Handle the occurence of an unknown exception
+	 */
+	void handle_invalid_excpt(Thread * const) { assert(0); }
+
+
+	/**
+	 * Handle an interrupt request
+	 */
+	void handle_interrupt(Thread * const)
+	{
+		/* Determine handling for specific interrupt */
+		unsigned irq;
+		if (pic()->take_request(irq))
+		{
+			switch(irq)
+			{
+			case Timer::IRQ: {
+
+				/* Clear interrupt at timer */
+				timer()->clear_interrupt();
+				break; }
+
+			/* Irq is not owned by core */
+			default: {
+
+				/* Notify IRQ owner */
+				Irq_owner * const o = Irq_owner::owner(irq);
+				assert(o);
+				o->receive_irq(irq);
+				break; }
+			}
+		}
+		/* Disengage interrupt controller from IRQ */
+		pic()->finish_request();
+	}
+
+
+	/**
+	 * Handle an usermode pagefault
+	 *
+	 * \param  user  Thread that has caused the pagefault
+	 */
+	void handle_pagefault(Thread * const user)
+	{
+		/* Check out cause and attributes of abort */
+		addr_t va;
+		bool w;
+		assert(user->translation_miss(va, w));
+
+		/* The user might be able to resolve the pagefault */
+		user->pagefault(va, w);
+	}
+
+
+	/**
+	 * Handle request of an unknown signal type
+	 */
+	void handle_invalid_syscall(Thread * const) { assert(0); }
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_new_pd(Thread * const user)
+	{
+		/* Check permissions */
+		assert(user->pd_id() == core_id());
+
+		/* Create PD */
+		void * dst = (void *)user->user_arg_1();
+		Pd * const pd = new (dst) Pd();
+
+		/* Return success */
+		user->user_arg_0(pd->id());
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_new_thread(Thread * const user)
+	{
+		/* Check permissions */
+		assert(user->pd_id() == core_id());
+
+		/* Dispatch arguments */
+		Syscall_arg const arg1 = user->user_arg_1();
+		Syscall_arg const arg2 = user->user_arg_2();
+
+		/* Create thread */
+		Thread * const t = new ((void *)arg1)
+		Thread((Platform_thread *)arg2);
+
+		/* Return thread ID */
+		user->user_arg_0((Syscall_ret)t->id());
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_start_thread(Thread * const user)
+	{
+		/* Check permissions */
+		assert(user->pd_id() == core_id());
+
+		/* Dispatch arguments */
+		Platform_thread * pt = (Platform_thread *)user->user_arg_1();
+		void * const ip = (void *)user->user_arg_2();
+		void * const sp = (void *)user->user_arg_3();
+		unsigned const cpu = (unsigned)user->user_arg_4();
+
+		/* Get targeted thread */
+		Thread * const t = Thread::pool()->object(pt->id());
+		assert(t);
+
+		/* Start thread */
+		assert(!t->start(ip, sp, cpu, pt->pd_id(),
+		                 pt->phys_utcb(), pt->virt_utcb()))
+
+		/* Return software TLB that the thread is assigned to */
+		Pd::Pool * const pp = Pd::pool();
+		Pd * const pd = pp->object(t->pd_id());
+		assert(pd);
+		Software_tlb * const tlb = static_cast<Software_tlb *>(pd);
+		user->user_arg_0((Syscall_ret)tlb);
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_pause_thread(Thread * const user)
+	{
+		unsigned const tid = user->user_arg_1();
+
+		/* Shortcut for a thread to pause itself */
+		if (!tid) {
+			user->pause();
+			user->user_arg_0(0);
+			return;
+		}
+
+		/* Get targeted thread and check permissions */
+		Thread * const t = Thread::pool()->object(tid);
+		assert(t && (user->pd_id() == core_id() || user==t));
+
+		/* Pause targeted thread */
+		t->pause();
+		user->user_arg_0(0);
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_resume_thread(Thread * const user)
+	{
+		/* Get targeted thread */
+		Thread * const t = Thread::pool()->object(user->user_arg_1());
+		assert(t);
+
+		/* Check permissions */
+		assert(user->pd_id() == core_id() || user->pd_id() == t->pd_id());
+
+		/* Resume targeted thread */
+		user->user_arg_0(t->resume());
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_yield_thread(Thread * const user)
+	{
+		/* Get targeted thread */
+		Thread * const t = Thread::pool()->object(user->user_arg_1());
+
+		/* Invoke kernel object */
+		if (t) t->resume();
+		cpu_scheduler()->yield();
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_current_thread_id(Thread * const user)
+	{
+		user->user_arg_0((Syscall_ret)user->id());
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_get_thread(Thread * const user)
+	{
+		/* Get target */
+		unsigned const tid = (unsigned)user->user_arg_1();
+		Thread * t;
+
+		/* User targets a thread by ID */
+		if (tid) {
+			t = Thread::pool()->object(tid);
+			assert(t);
+
+		/* User targets itself */
+		} else t = user;
+
+		/* Return target platform thread */
+		user->user_arg_0((Syscall_ret)t->platform_thread());
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_wait_for_request(Thread * const user)
+	{
+		user->wait_for_request();
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_request_and_wait(Thread * const user)
+	{
+		/* Get IPC receiver */
+		Thread * const t = Thread::pool()->object(user->user_arg_1());
+		assert(t);
+
+		/* Do IPC */
+		user->request_and_wait(t, (size_t)user->user_arg_2());
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_reply_and_wait(Thread * const user)
+	{
+			user->reply_and_wait((size_t)user->user_arg_1());
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_set_pager(Thread * const user)
+	{
+		/* Assertions */
+		assert(user->pd_id() == core_id());
+
+		/* Get faulter and pager thread */
+		Thread * const p = Thread::pool()->object(user->user_arg_1());
+		Thread * const f = Thread::pool()->object(user->user_arg_2());
+		assert(p && f);
+
+		/* Assign pager */
+		f->pager(p);
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_update_pd(Thread * const user)
+	{
+		assert(user->pd_id() == core_id());
+		Cpu::flush_tlb_by_pid(user->user_arg_1());
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_allocate_irq(Thread * const user)
+	{
+		assert(user->pd_id() == core_id());
+		unsigned irq = user->user_arg_1();
+		user->user_arg_0(user->allocate_irq(irq));
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_free_irq(Thread * const user)
+	{
+		assert(user->pd_id() == core_id());
+		unsigned irq = user->user_arg_1();
+		user->user_arg_0(user->free_irq(irq));
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_await_irq(Thread * const user)
+	{
+			assert(user->pd_id() == core_id());
+			user->await_irq();
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_print_char(Thread * const user)
+	{
+		Genode::printf("%c", (char)user->user_arg_1());
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_read_register(Thread * const user)
+	{
+		/* Check permissions */
+		assert(user->pd_id() == core_id());
+
+		/* Get targeted thread */
+		Thread * const t = Thread::pool()->object(user->user_arg_1());
+		assert(t);
+
+		/* Return requested register */
+		unsigned gpr;
+		assert(t->get_gpr(user->user_arg_2(), gpr));
+		user->user_arg_0(gpr);
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_write_register(Thread * const user)
+	{
+		/* Check permissions */
+		assert(user->pd_id() == core_id());
+
+		/* Get targeted thread */
+		Thread * const t = Thread::pool()->object(user->user_arg_1());
+		assert(t);
+
+		/* Write to requested register */
+		unsigned const gpr = user->user_arg_3();
+		assert(t->set_gpr(user->user_arg_2(), gpr));
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_new_signal_receiver(Thread * const user)
+	{
+			/* Check permissions */
+			assert(user->pd_id() == core_id());
+
+			/* Create receiver */
+			void * dst = (void *)user->user_arg_1();
+			Signal_receiver * const r = new (dst) Signal_receiver();
+
+			/* Return success */
+			user->user_arg_0(r->id());
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_new_signal_context(Thread * const user)
+	{
+		/* Check permissions */
+		assert(user->pd_id() == core_id());
+
+		/* Lookup receiver */
+		unsigned rid = user->user_arg_2();
+		Signal_receiver * const r = Signal_receiver::pool()->object(rid);
+		assert(r);
+
+		/* Create context */
+		void * dst = (void *)user->user_arg_1();
+		unsigned imprint = user->user_arg_3();
+		Signal_context * const c = new (dst) Signal_context(r, imprint);
+
+		/* Return success */
+		user->user_arg_0(c->id());
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_await_signal(Thread * const user)
+	{
+		/* Lookup receiver */
+		unsigned rid = user->user_arg_2();
+		Signal_receiver * const r = Signal_receiver::pool()->object(rid);
+		assert(r);
+
+		/* Let user listen to receiver */
+		r->add_listener(user);
+	}
+
+
+	/**
+	 * Do specific syscall for 'user', for details see 'syscall.h'
+	 */
+	void do_submit_signal(Thread * const user)
+	{
+		/* Lookup context */
+		Signal_context * const c =
+			Signal_context::pool()->object(user->user_arg_1());
+		assert(c);
+
+		/* Trigger signal at context */
+		c->trigger_signal(user->user_arg_2());
+	}
+
+
+	/**
+	 * Handle a syscall request
+	 *
+	 * \param  user  Thread that called the syscall
+	 */
+	void handle_syscall(Thread * const user)
+	{
+		/* Map syscall types to the according handler functions */
+		typedef void (*Syscall_handler)(Thread * const);
+		static Syscall_handler const handle_sysc[] = {
+			/* 00 */ handle_invalid_syscall,
+			/* 01 */ do_new_thread,
+			/* 02 */ do_start_thread,
+			/* 03 */ do_pause_thread,
+			/* 04 */ do_resume_thread,
+			/* 05 */ do_get_thread,
+			/* 06 */ do_current_thread_id,
+			/* 07 */ do_yield_thread,
+			/* 08 */ do_request_and_wait,
+			/* 09 */ do_reply_and_wait,
+			/* 10 */ do_wait_for_request,
+			/* 11 */ do_set_pager,
+			/* 12 */ do_update_pd,
+			/* 13 */ do_new_pd,
+			/* 14 */ do_allocate_irq,
+			/* 15 */ do_await_irq,
+			/* 16 */ do_free_irq,
+			/* 17 */ do_print_char,
+			/* 18 */ do_read_register,
+			/* 19 */ do_write_register,
+			/* 20 */ do_new_signal_receiver,
+			/* 21 */ do_new_signal_context,
+			/* 22 */ do_await_signal,
+			/* 23 */ do_submit_signal,
+		};
+		enum { MAX_SYSCALL = sizeof(handle_sysc)/sizeof(handle_sysc[0]) - 1 };
+
+		/* Handle syscall that has been requested by the user */
+		unsigned syscall = user->user_arg_0();
+		if (syscall > MAX_SYSCALL) handle_sysc[INVALID_SYSCALL](user);
+		else handle_sysc[syscall](user);
+	}
 }
 
 
@@ -1448,366 +1914,28 @@ extern "C" void kernel()
 	static unsigned user_time = 0;
 	static bool initial_call = true;
 
-	/* Exception handling */
+	/* An exception occured */
 	if (!initial_call)
 	{
-		/* Update how much time the user has consumed */
+		/* Update how much time the last user has consumed */
 		user_time = timer_value < user_time ? user_time - timer_value : 0;
 
-		/* Get interrupted user */
+		/* Map exception types to exception-handler functions */
+		typedef void (*Exception_handler)(Thread * const);
+		static Exception_handler const handle_excpt[] = {
+			/* 0 */ handle_invalid_excpt,
+			/* 1 */ handle_interrupt,
+			/* 2 */ handle_pagefault,
+			/* 3 */ handle_syscall
+		};
+		/* Handle exception that interrupted the last user */
 		Thread * const user = cpu_scheduler()->current_entry();
-
-		/* Determine type of exception (Interrupt, Syscall, Abort, ...) */
-		switch(user->exception_type) {
-
-		case Cpu::INTERRUPT_REQUEST: {
-
-			/* Determine handling for specific interrupt */
-			unsigned irq;
-			if (pic()->take_request(irq))
-			{
-				switch(irq)
-				{
-				case Timer::IRQ: {
-
-					/* Clear interrupt at timer */
-					timer()->clear_interrupt();
-					break; }
-
-				/* Irq is not owned by core */
-				default: {
-
-					/* Notify IRQ owner */
-					Irq_owner * const o = Irq_owner::owner(irq);
-					assert(o);
-					o->receive_irq(irq);
-					break; }
-				}
-			} else assert(0);
-
-			/* Disengage interrupt controller from IRQ */
-			pic()->finish_request();
-			break; }
-
-		case Cpu::PREFETCH_ABORT: {
-
-			/* Check out cause and attributes of abort */
-			addr_t va;
-			bool w;
-			assert(Cpu::translation_miss(user, va, w));
-
-			/* It could be resolved, give user a chance to do so */
-			user->pagefault(va, w);
-			break; }
-
-		case Cpu::DATA_ABORT: {
-
-			/* Check out cause and attributes of abort */
-			addr_t va;
-			bool w;
-			assert(Cpu::translation_miss(user, va, w));
-
-			/* It could be resolved, leave user a chance to do so */
-			user->pagefault(va, w);
-			break; }
-
-		/**
-		 * Exception is a syscall
-		 */
-		case Cpu::SUPERVISOR_CALL: {
-
-			/**
-			 * Determine type of syscall
-			 *
-			 * For further documentation of the specific syscall
-			 * backends see the frontend doc in 'kernel/syscalls.h'
-			 */
-			switch(user->user_arg_0())
-			{
-			case NEW_PD: {
-
-				/* Assertion */
-				assert(user->privileged());
-
-				/* Create PD */
-				void * dst = (void *)user->user_arg_1();
-				Pd * const pd = new (dst) Pd();
-
-				/* Return success */
-				user->user_arg_0(pd->id());
-				break; }
-
-			case NEW_THREAD: {
-
-				/* Assertion */
-				assert(user->privileged());
-
-				/* Dispatch arguments */
-				Syscall_arg const arg1 = user->user_arg_1();
-				Syscall_arg const arg2 = user->user_arg_2();
-
-				/* Create thread */
-				Thread * const t = new ((void *)arg1)
-				Thread((Platform_thread *)arg2);
-
-				/* Return thread ID */
-				user->user_arg_0((Syscall_ret)t->id());
-				break; }
-
-			case START_THREAD: {
-
-				/* Assertions */
-				assert(user->privileged());
-
-				/* Dispatch arguments */
-				Platform_thread * pt = (Platform_thread *)user->user_arg_1();
-				void * const ip = (void *)user->user_arg_2();
-				void * const sp = (void *)user->user_arg_3();
-				unsigned const cpu = (unsigned)user->user_arg_4();
-
-				/* Get targeted thread */
-				Thread * const t = Thread::pool()->object(pt->id());
-				assert(t);
-
-				/* Start thread */
-				assert(!t->start(ip, sp, cpu, pt->pd_id(),
-				       pt->phys_utcb(), pt->virt_utcb()))
-
-				/* Return software TLB that the thread is assigned to */
-				Pd::Pool * const pp = Pd::pool();
-				Pd * const pd = pp->object(t->pd_id());
-				assert(pd);
-				Software_tlb * const tlb = static_cast<Software_tlb *>(pd);
-				user->user_arg_0((Syscall_ret)tlb);
-				break; }
-
-			case PAUSE_THREAD: {
-
-				unsigned const tid = user->user_arg_1();
-
-				/* Shortcut for a thread to pause itself */
-				if (!tid) {
-					user->pause();
-					user->user_arg_0(0);
-					break;
-				}
-
-				/* Get targeted thread and check permissions */
-				Thread * const t = Thread::pool()->object(tid);
-				assert(t && (user->privileged() || user==t));
-
-				/* Pause targeted thread */
-				t->pause();
-				user->user_arg_0(0);
-				break; }
-
-			case RESUME_THREAD: {
-
-				/* Get targeted thread */
-				Thread * const t = Thread::pool()->object(user->user_arg_1());
-				assert(t);
-
-				/* Check permissions */
-				assert(user->privileged() || user->pd_id() == t->pd_id());
-
-				/* Resume targeted thread */
-				user->user_arg_0(t->resume());
-				break; }
-
-			case YIELD_THREAD: {
-
-				/* Get targeted thread */
-				Thread * const t = Thread::pool()->object(user->user_arg_1());
-
-				/* Invoke kernel object */
-				if (t) t->resume();
-				cpu_scheduler()->yield();
-				break; }
-
-			case CURRENT_THREAD_ID: {
-
-				user->user_arg_0((Syscall_ret)user->id());
-				break; }
-
-			case GET_THREAD: {
-
-				/* Get target */
-				unsigned const tid = (unsigned)user->user_arg_1();
-				Thread * t;
-
-				/* User targets a thread by ID */
-				if (tid) {
-					t = Thread::pool()->object(tid);
-					assert(t);
-
-				/* User targets itself */
-				} else t = user;
-
-				/* Return target platform thread */
-				user->user_arg_0((Syscall_ret)t->platform_thread());
-				break; }
-
-			case WAIT_FOR_REQUEST: {
-
-				user->wait_for_request();
-				break; }
-
-			case REQUEST_AND_WAIT: {
-
-				/* Get IPC receiver */
-				Thread * const t = Thread::pool()->object(user->user_arg_1());
-				assert(t);
-
-				/* Do IPC */
-				user->request_and_wait(t, (size_t)user->user_arg_2());
-				break; }
-
-			case REPLY_AND_WAIT: {
-
-				user->reply_and_wait((size_t)user->user_arg_1());
-				break; }
-
-			case SET_PAGER: {
-
-				/* Assertions */
-				assert(user->privileged());
-
-				/* Get faulter and pager thread */
-				Thread * const p = Thread::pool()->object(user->user_arg_1());
-				Thread * const f = Thread::pool()->object(user->user_arg_2());
-				assert(p && f);
-
-				/* Assign pager */
-				f->pager(p);
-				break; }
-
-			case UPDATE_PD: {
-
-				/* Check permissions */
-				assert(user->privileged());
-
-				/* Invalidate TLB entries that refer to this PD */
-				Cpu::flush_tlb_by_pid(user->user_arg_1());
-				break; }
-
-			case ALLOCATE_IRQ: {
-
-				assert(user->privileged());
-				user->user_arg_0(
-					user->allocate_irq((unsigned)user->user_arg_1()));
-				break; }
-
-			case FREE_IRQ: {
-
-				assert(user->privileged());
-				user->user_arg_0(
-					user->free_irq((unsigned)user->user_arg_1()));
-				break; }
-
-			case AWAIT_IRQ: {
-
-				assert(user->privileged());
-				user->await_irq();
-				break; }
-
-			case PRINT_CHAR: {
-
-				Genode::printf("%c", (char)user->user_arg_1());
-				break; }
-
-			case READ_REGISTER: {
-
-				/* Check permissions */
-				assert(user->privileged());
-
-				/* Get targeted thread */
-				Thread * const t = Thread::pool()->object(user->user_arg_1());
-				assert(t);
-
-				/* Return requested register */
-				unsigned gpr;
-				assert(t->get_gpr(user->user_arg_2(), gpr));
-				user->user_arg_0(gpr);
-				break; }
-
-			case WRITE_REGISTER: {
-
-				/* Check permissions */
-				assert(user->privileged());
-
-				/* Get targeted thread */
-				Thread * const t = Thread::pool()->object(user->user_arg_1());
-				assert(t);
-
-				/* Write to requested register */
-				unsigned const gpr = user->user_arg_3();
-				assert(t->set_gpr(user->user_arg_2(), gpr));
-				break; }
-
-			case NEW_SIGNAL_RECEIVER: {
-
-				/* Check permissions */
-				assert(user->privileged());
-
-				/* Create receiver */
-				void * dst = (void *)user->user_arg_1();
-				Signal_receiver * const r = new (dst) Signal_receiver();
-
-				/* Return success */
-				user->user_arg_0(r->id());
-				break; }
-
-			case NEW_SIGNAL_CONTEXT: {
-
-				/* Check permissions */
-				assert(user->privileged());
-
-				/* Lookup receiver */
-				Signal_receiver * const r =
-					Signal_receiver::pool()->object(user->user_arg_2());
-				assert(r);
-
-				/* Create context */
-				void * dst = (void *)user->user_arg_1();
-				Signal_context * const c = new (dst)
-					Signal_context(r, user->user_arg_3());
-
-				/* Return success */
-				user->user_arg_0(c->id());
-				break; }
-
-			case AWAIT_SIGNAL: {
-
-				/* Lookup receiver */
-				Signal_receiver * const r =
-					Signal_receiver::pool()->object(user->user_arg_2());
-				assert(r);
-
-				/* Let user listen to receiver */
-				r->add_listener(user);
-				break; }
-
-			case SUBMIT_SIGNAL: {
-
-				/* Lookup context */
-				Signal_context * const c =
-					Signal_context::pool()->object(user->user_arg_1());
-				assert(c);
-
-				/* Trigger signal at context */
-				c->trigger_signal(user->user_arg_2());
-				break; }
-
-			default: assert(0);
-			}
-			break; }
-
-		case Cpu::UNDEFINED_INSTRUCTION: assert(0);
-
-		default: assert(0);
-		}
-
-	/* Core initialization */
+		enum { MAX_EXCPT = sizeof(handle_excpt)/sizeof(handle_excpt[0]) - 1 };
+		unsigned const e = user->exception();
+		if (e > MAX_EXCPT) handle_invalid_excpt(user);
+		else handle_excpt[e](user);
+
+	/* Kernel initialization */
 	} else {
 
 		/* Tell the code that has called kernel,
@@ -1826,7 +1954,8 @@ extern "C" void kernel()
 			if (mtc()->VIRT_END <= a || mtc()->VIRT_BASE > (a + SIZE - 1))
 			{
 				/* Map 1:1 with rwx permissions */
-				if (core()->insert_translation(a, a, SIZE_LOG2, 1,1,1, 0)) assert(0);
+				if (core()->insert_translation(a, a, SIZE_LOG2, 1, 1, 0, 0))
+					assert(0);
 			}
 			/* Check condition to continue */
 			addr_t const next_a = a + SIZE;
@@ -1855,14 +1984,14 @@ extern "C" void kernel()
 		            __attribute__((aligned(Cpu::DATA_ACCESS_ALIGNM)));
 		static Thread core_main((Platform_thread *)0);
 		_main_utcb = &cm_utcb;
+		enum { CM_STACK_SIZE = sizeof(cm_stack)/sizeof(cm_stack[0]) + 1 };
 		core_main.start((void *)&CORE_MAIN,
-		                (void *)&cm_stack[sizeof(cm_stack)/sizeof(cm_stack[0])],
+		                (void *)&cm_stack[CM_STACK_SIZE - 1],
 		                0, core_id(), &cm_utcb, &cm_utcb);
 
 		/* Kernel initialization finished */
 		initial_call = false;
 	}
-
 	/* Offer next user context to the mode transition PIC */
 	Thread * const next = cpu_scheduler()->next_entry(user_time);
 	mtc()->user_context(next);

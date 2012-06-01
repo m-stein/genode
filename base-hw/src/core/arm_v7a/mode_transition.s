@@ -14,7 +14,7 @@
 /**
  * Invalidate all entries of the branch predictor array
  */
-.macro _mt_flush_branch_predictor
+.macro _flush_branch_predictor
 	mcr p15, 0, sp, c7, c5, 6
 	isb
 .endm
@@ -26,7 +26,7 @@
  * \param  pc_adjust       Immediate value that gets subtracted from the
  *                         user PC before it gets saved
  */
-.macro _mt_user_to_kernel_pic exception_type, pc_adjust
+.macro _user_to_kernel_pic exception_type, pc_adjust
 
 	/**************************************************
 	 ** We're already in the user protection domain, **
@@ -37,13 +37,13 @@
 	adr sp, _mt_kernel_context_begin
 	ldr sp, [sp, #17*4]
 	mcr p15, 0, sp, c13, c0, 1
-	_mt_flush_branch_predictor
+	_flush_branch_predictor
 
 	/* Load kernel section table */
 	adr sp, _mt_kernel_context_begin
 	ldr sp, [sp, #19*4]
 	mcr p15, 0, sp, c2, c0, 0
-	_mt_flush_branch_predictor
+	_flush_branch_predictor
 
 	/*******************************************
 	 ** Now it's save to access kernel memory **
@@ -108,13 +108,13 @@
 			b _fiq_entry  /* Fast interrupt request */
 
 			/* PICs that switch from an user exception to the kernel */
-			_rst_entry: _mt_user_to_kernel_pic 1, 0
-			_und_entry: _mt_user_to_kernel_pic 2, 4
-			_svc_entry: _mt_user_to_kernel_pic 3, 0
-			_pab_entry: _mt_user_to_kernel_pic 4, 4
-			_dab_entry: _mt_user_to_kernel_pic 5, 8
-			_irq_entry: _mt_user_to_kernel_pic 6, 4
-			_fiq_entry: _mt_user_to_kernel_pic 7, 4
+			_rst_entry: _user_to_kernel_pic 1, 0
+			_und_entry: _user_to_kernel_pic 2, 4
+			_svc_entry: _user_to_kernel_pic 3, 0
+			_pab_entry: _user_to_kernel_pic 4, 4
+			_dab_entry: _user_to_kernel_pic 5, 8
+			_irq_entry: _user_to_kernel_pic 6, 4
+			_fiq_entry: _user_to_kernel_pic 7, 4
 
 		/* Kernel must jump to this point to switch to a user context */
 		.align 3
@@ -152,7 +152,7 @@
 			/* Apply user contextidr and section table */
 			mcr p15, 0, sp, c13, c0, 1
 			mcr p15, 0, lr, c2, c0, 0
-			_mt_flush_branch_predictor
+			_flush_branch_predictor
 
 			/* Load user pc (implies application of the user psr) */
 			adr lr, _mt_buffer

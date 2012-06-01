@@ -61,7 +61,8 @@ Native_region * Platform::_mmio_regions(unsigned const i)
 {
 	static Native_region _regions[] =
 	{
-		{ Panda_a2::L4_PER_BASE, Panda_a2::L4_PER_SIZE }
+		{ Panda_a2::L4_PER_BASE, Panda_a2::L4_PER_SIZE },
+		{ Panda_a2::L4_CFG_BASE, Panda_a2::L4_CFG_SIZE }
 	};
 	return i < sizeof(_regions)/sizeof(_regions[0]) ? &_regions[i] : 0;
 }

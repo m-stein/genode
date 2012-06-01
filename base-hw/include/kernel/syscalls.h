@@ -28,7 +28,7 @@ namespace Kernel
 {
 	enum Syscall_type
 	{
-		INVALID_SYCALL = 0,
+		INVALID_SYSCALL = 0,
 
 		/* Cpu management */
 		NEW_THREAD = 1,

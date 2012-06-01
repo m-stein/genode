@@ -60,9 +60,10 @@ void Ipc_pager::resolve_and_wait_for_fault()
 
 	/* Do we need extra space to resolve pagefault? */
 	Software_tlb * const tlb = _pagefault.software_tlb;
+	enum Mapping_attributes { X = 1, K = 0, G = 0 };
 	unsigned sl2 = tlb->insert_translation(_mapping.virt_address,
 	               _mapping.phys_address, _mapping.size_log2,
-	               1, _mapping.writable, 1, 0);
+	               _mapping.writable, X, K, G);
 	if (sl2)
 	{
 		/* Try to get some natural aligned space */
@@ -73,7 +74,7 @@ void Ipc_pager::resolve_and_wait_for_fault()
 		sl2 = tlb->insert_translation(_mapping.virt_address,
 		                              _mapping.phys_address,
 		                              _mapping.size_log2,
-		                              1, _mapping.writable, 1, 0, space);
+		                              _mapping.writable, X, K, G, space);
 		assert(!sl2);
 	}
 
