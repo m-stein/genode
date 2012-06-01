@@ -5,7 +5,7 @@
 #
 
 # Denote wich specs are also fullfilled by this spec
-SPECS += cortex_a9 tl16c750
+SPECS += cortex_a9 tl16c750 omap44xx
 
 # Add repository relative include paths
 REP_INC_DIR += include/platform/panda_a2
