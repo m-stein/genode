@@ -4,8 +4,8 @@
 # \date   2012-04-16
 #
 
-# Aad C++ sources
-SRC_CC += syscall.cc
+# add C++ sources
+SRC_CC += syscall.cc pager_support.cc
 
 # add assembly sources
 SRC_S += crt0.s mode_transition.s boot_modules.s

@@ -70,6 +70,16 @@ namespace Genode {
 			 */
 			virtual int pager(Ipc_pager &ps) = 0;
 
+			/**
+			 * Adjust faulter as if its faulting instruction has been processed
+			 *
+			 * \param  instr  Raw code of the faulting instruction
+			 * \param  read   If the instruction has implied a memory
+			 *                read access, this contains the resulting value
+			 */
+			void instruction_processed(unsigned long * const instr,
+			                           unsigned long const read);
+
 			void wake_up()
 			{
 				/* notify pager to wake up faulter */

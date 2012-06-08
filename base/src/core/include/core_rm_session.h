@@ -50,7 +50,7 @@ namespace Genode {
 
 			void detach(Local_addr local_addr) { }
 
-			Pager_capability add_client(Thread_capability thread) {
+			Pager_capability add_client(Thread_capability thread, unsigned) {
 				return Pager_capability(); }
 
 			void fault_handler(Signal_context_capability handler) { }

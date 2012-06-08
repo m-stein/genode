@@ -1,0 +1,54 @@
+build { core init vinit adder32 test/vinit }
+
+create_boot_directory
+
+install_config {
+<config verbose="yes">
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="RAM"/>
+		<service name="CAP"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="IO_MEM"/>
+		<service name="IRQ"/>
+		<service name="LOG"/>
+		<service name="SIGNAL"/>
+	</parent-provides>
+	<default-route><any-service><parent/></any-service></default-route>
+
+	<start name="vinit">
+		<resource name="RAM" quantum="20M"/>
+		<config verbose="yes">
+			<parent-provides>
+				<service name="ROM"/>
+				<service name="RAM"/>
+				<service name="CAP"/>
+				<service name="PD"/>
+				<service name="RM"/>
+				<service name="CPU"/>
+				<service name="IO_MEM"/>
+				<service name="IRQ"/>
+				<service name="LOG"/>
+				<service name="SIGNAL"/>
+			</parent-provides>
+			<default-route><any-service><parent/></any-service></default-route>
+
+			<start name="test_1">
+				<binary name="test-vinit"/>
+				<resource name="RAM" quantum="3M"/>
+			</start>
+
+		</config>
+	</start>
+
+</config>
+}
+
+build_boot_image { core init vinit adder32 test-vinit }
+
+if {[have_spec hw_vea9x4] || [have_spec hw_pbxa9]} {
+	run_genode_until forever
+}
+

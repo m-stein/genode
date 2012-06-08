@@ -159,7 +159,38 @@ namespace Genode {
  ** Region-manager client **
  ***************************/
 
-/*
+
+void Rm_client::lookup_attachment(Rm_session_component * & curr_rm,
+                                  addr_t & curr_rm_base,
+                                  Dataspace_component * & src_ds,
+                                  Rm_session_component::Fault_area & src_area,
+                                  Rm_session_component::Fault_area & dst_area,
+                                  unsigned & level,
+                                  bool & lookup)
+{
+	for (level = 0; level < MAX_NESTING_LEVELS; level++) {
+
+		lookup = curr_rm->reverse_lookup(curr_rm_base,
+		                                 &dst_area,
+		                                 &src_ds,
+		                                 &src_area);
+		if (!lookup)
+			break;
+
+		/* check if we need to traverse into a nested dataspace */
+		Rm_session_component *sub_rm_session = src_ds->sub_rm_session();
+		if (!sub_rm_session)
+			break;
+
+		/* set up next iteration */
+		curr_rm_base = dst_area.fault_addr()
+		             - src_area.fault_addr() + src_ds->map_src_addr();
+		curr_rm = sub_rm_session;
+	}
+}
+
+
+/**
  * This code is executed by the page-fault handler thread.
  */
 
@@ -178,31 +209,11 @@ int Rm_client::pager(Ipc_pager &pager)
 	Dataspace_component             *src_dataspace = 0;
 	Rm_session_component::Fault_area src_fault_area;
 	Rm_session_component::Fault_area dst_fault_area(pf_addr);
-	bool lookup;
+	bool                             lookup;
+	unsigned                         level;
 
-	/* traverse potentially nested dataspaces until we hit a leaf dataspace */
-	unsigned level;
-	enum { MAX_NESTING_LEVELS = 5 };
-	for (level = 0; level < MAX_NESTING_LEVELS; level++) {
-
-		lookup = curr_rm_session->reverse_lookup(curr_rm_base,
-		                                        &dst_fault_area,
-		                                        &src_dataspace,
-		                                        &src_fault_area);
-		if (!lookup)
-			break;
-
-		/* check if we need to traverse into a nested dataspace */
-		Rm_session_component *sub_rm_session = src_dataspace->sub_rm_session();
-		if (!sub_rm_session)
-			break;
-
-		/* set up next iteration */
-
-		curr_rm_base = dst_fault_area.fault_addr()
-		             - src_fault_area.fault_addr() + src_dataspace->map_src_addr();
-		curr_rm_session = sub_rm_session;
-	}
+	lookup_attachment(curr_rm_session, curr_rm_base, src_dataspace, 
+	                  src_fault_area, dst_fault_area, level, lookup);
 
 	if (level == MAX_NESTING_LEVELS) {
 		PWRN("Too many nesting levels of managed dataspaces");
@@ -222,8 +233,41 @@ int Rm_client::pager(Ipc_pager &pager)
 		if (curr_rm_session == member_rm_session())
 			print_page_fault("no RM attachment", pf_addr, pf_ip, pf_type, badge());
 
+		/* Determine if the faulting instruction can be emulated. If this is
+		 * the case, we transmit some extra information to the pager to enable
+		 * emulation. Otherwise we skip this for efficiency */
+		unsigned long   pf_writes = 0;
+		unsigned long * pf_instr  = 0;
+		if (level > 0 && (pf_type == Rm_session::WRITE_FAULT || pf_type == Rm_session::READ_FAULT))
+		{
+			/* Lookup attachment that maps the faulting IP */
+			Rm_session_component * ip_rm = member_rm_session();
+			addr_t ip_rm_base = 0;
+			Dataspace_component * ip_src_dsc = 0;
+			Rm_session_component::Fault_area ip_src_area;
+			Rm_session_component::Fault_area ip_dst_area(pf_ip);
+			bool ip_attached;
+			unsigned ip_level;
+			lookup_attachment(ip_rm, ip_rm_base, ip_src_dsc, ip_src_area,
+			                  ip_dst_area, ip_level, ip_attached);
+
+			/* Couldn't find attachment */
+			if(!ip_attached || ip_level >= MAX_NESTING_LEVELS) {
+				PERR("%s:%d: IP not attached", __FILE__, __LINE__);
+				while (1) ;
+			}
+			else if (pf_type == Rm_session::WRITE_FAULT)
+			{
+				if(!instruction_writes_word((unsigned long *)ip_src_area.fault_addr(), pf_writes, badge())) {
+					PERR("%s:%d: Not emulatable", __FILE__, __LINE__);
+					while (1) ;
+				}
+			}
+			pf_instr = (unsigned long *)ip_src_area.fault_addr();
+		}
 		/* register fault at responsible region-manager session */
-		curr_rm_session->fault(this, dst_fault_area.fault_addr() - curr_rm_base, pf_type);
+		curr_rm_session->fault(this, dst_fault_area.fault_addr() - curr_rm_base, 
+		                       pf_type, pf_writes, pf_instr);
 		/* there is no attachment return an error condition */
 		return 1;
 	}
@@ -287,6 +331,9 @@ void Rm_faulter::fault(Rm_session_component *faulting_rm_session,
 
 	_faulting_rm_session = faulting_rm_session;
 	_fault_state         = fault_state;
+
+	/* sign fault state to enable the RM session client to identify us */
+	_fault_state.imprint = _imprint;
 }
 
 
@@ -311,9 +358,49 @@ void Rm_faulter::continue_after_resolved_fault()
 }
 
 
+void Rm_faulter::continue_after_processed_fault(unsigned long const read)
+{
+	/* Serialize access */
+	using namespace Genode;
+	Lock::Guard lock_guard(_lock);
+
+	/* Update and continue faulter */
+	_pager_object->instruction_processed(_fault_state.instr, read);
+	_pager_object->wake_up();
+
+	/* Reset RM session */
+	_faulting_rm_session = 0;
+	_fault_state = Rm_session::State();
+}
+
+
 /**************************************
  ** Region-manager-session component **
  **************************************/
+
+
+void Rm_session_component::processed(Rm_session_component::State state)
+{
+	/* Serialize access */
+	Lock::Guard lock_guard(_lock);
+
+	/* Check if processed operation concerns any of our faulters */
+	for (Rm_faulter *faulter = _faulters.first(); faulter; )
+	{
+		/* Remember next faulter before possibly removing the current one */
+		Rm_faulter *next = faulter->next();
+
+		/* Reactivate faulter */
+		if (faulter->fault_state()==state) {
+
+			_faulters.remove(faulter);
+			faulter->continue_after_processed_fault(state.value);
+		}
+		/* Get next faulter */
+		faulter = next;
+	}
+}
+
 
 Rm_session::Local_addr
 Rm_session_component::attach(Dataspace_capability ds_cap, size_t size,
@@ -553,7 +640,7 @@ void Rm_session_component::detach(Local_addr local_addr)
 }
 
 
-Pager_capability Rm_session_component::add_client(Thread_capability thread)
+Pager_capability Rm_session_component::add_client(Thread_capability thread, unsigned imprint)
 {
 	/* serialize access */
 	Lock::Guard lock_guard(_lock);
@@ -567,7 +654,7 @@ Pager_capability Rm_session_component::add_client(Thread_capability thread)
 	unsigned long badge = cpu_thread->platform_thread()->pager_object_badge();
 
 	Rm_client *cl;
-	try { cl = new(&_client_slab) Rm_client(this, badge); }
+	try { cl = new(&_client_slab) Rm_client(this, badge, imprint); }
 	catch (Allocator::Out_of_memory) { throw Out_of_memory(); }
 
 	_clients.insert(cl);
@@ -632,14 +719,16 @@ bool Rm_session_component::reverse_lookup(addr_t                dst_base,
 
 
 void Rm_session_component::fault(Rm_faulter *faulter, addr_t pf_addr,
-                                 Rm_session::Fault_type pf_type)
+                                 Rm_session::Fault_type pf_type,
+                                 unsigned long const pf_writes,
+                                 unsigned long * const pf_instr)
 {
 
 	/* serialize access */
 	Lock::Guard lock_guard(_lock);
 
 	/* remeber fault state in faulting thread */
-	faulter->fault(this, Rm_session::State(pf_type, pf_addr));
+	faulter->fault(this, Rm_session::State(pf_type, pf_addr, 0, pf_writes, pf_instr));
 
 	/* enqueue faulter */
 	_faulters.insert(faulter);
