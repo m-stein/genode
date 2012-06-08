@@ -34,6 +34,17 @@
 
 namespace Genode {
 
+	/**
+	 * If instruction writes a word to the memory
+	 *
+	 * \param  code       Raw instruction code
+	 * \param  value      If call returns 1, this holds the value
+	 *                    that shall be written
+	 * \param  thread_id  ID of the faulter kernel-object
+	 */
+	bool instruction_writes_word(unsigned long * const code,
+	                             unsigned long & value,
+	                             unsigned long const thread_id);
 
 	class Dataspace_component;
 	class Rm_session_component;
@@ -109,6 +120,7 @@ namespace Genode {
 			Lock                  _lock;
 			Rm_session_component *_faulting_rm_session;
 			Rm_session::State     _fault_state;
+			unsigned              _imprint;
 
 		public:
 
@@ -116,11 +128,16 @@ namespace Genode {
 			 * Constructor
 			 *
 			 * \param Pager_object  pager object that corresponds to the faulter
+			 * \param imprint       signature that might be given by the RM
+			 *                      session client to match faults to faulters
+			 *                      through the RM state
 			 *
 			 * Currently, there is only one pager in core.
 			 */
-			Rm_faulter(Pager_object *pager_object) :
-				_pager_object(pager_object), _faulting_rm_session(0) { }
+			Rm_faulter(Pager_object *pager_object, unsigned imprint) :
+				_pager_object(pager_object), _faulting_rm_session(0),
+				_imprint(imprint)
+			{ }
 
 			/**
 			 * Assign fault state
@@ -151,6 +168,14 @@ namespace Genode {
 			 * Wake up faulter by answering the pending page fault
 			 */
 			void continue_after_resolved_fault();
+
+			/**
+			 * Continue faulter after its faulting instruction has been emulated
+			 *
+			 * \param read  If the instruction had implied a memory
+			 *              read access, this contains the read value
+			 */
+			void continue_after_processed_fault(unsigned long const read);
 	};
 
 
@@ -178,30 +203,6 @@ namespace Genode {
 			 * Return region-manager session that the RM client is member of
 			 */
 			Rm_session_component *member_rm_session() { return _rm_session; }
-	};
-
-
-	class Rm_client : public Pager_object, public Rm_member, public Rm_faulter,
-	                  public List<Rm_client>::Element
-	{
-		public:
-
-			/**
-			 * Constructor
-			 *
-			 * \param session  RM session to which the client belongs
-			 * \param badge    pager-object badge used of identifying the client
-			 *                 when a page-fault occurs
-			 */
-			Rm_client(Rm_session_component *session, unsigned long badge) :
-				Pager_object(badge), Rm_member(session), Rm_faulter(this) { }
-
-			int pager(Ipc_pager &pager);
-
-			/**
-			 * Flush memory mappings for the specified virtual address range
-			 */
-			void unmap(addr_t core_local_base, addr_t virt_base, size_t size);
 	};
 
 
@@ -316,7 +317,9 @@ namespace Genode {
 			 * \param  pf_type  type of page fault (read/write/execute)
 			 */
 			void fault(Rm_faulter *faulter, addr_t pf_addr,
-			           Rm_session::Fault_type pf_type);
+			           Rm_session::Fault_type pf_type,
+			           unsigned long pf_w_value = 0,
+			           unsigned long * pf_instr = 0);
 
 			/**
 			 * Dissolve faulter from region-manager session
@@ -346,11 +349,57 @@ namespace Genode {
 			 **************************************/
 
 			Local_addr       attach        (Dataspace_capability, size_t, off_t, bool, Local_addr, bool);
+			void             processed     (State state);
 			void             detach        (Local_addr);
-			Pager_capability add_client    (Thread_capability);
+			Pager_capability add_client    (Thread_capability, unsigned);
 			void             fault_handler (Signal_context_capability handler);
 			State            state         ();
 			Dataspace_capability dataspace () { return _ds_cap; }
+	};
+
+
+	class Rm_client : public Pager_object, public Rm_member, public Rm_faulter,
+	                  public List<Rm_client>::Element
+	{
+		public:
+
+			/**
+			 * Constructor
+			 *
+			 * \param session  RM session to which the client belongs
+			 * \param badge    pager-object badge used of identifying the client
+			 *                 when a page-fault occurs
+			 * \param imprint  signature that might be given by the RM session
+			 *                 client to match faults to faulters through the
+			 *                 RM state
+			 */
+			Rm_client(Rm_session_component *session, unsigned long badge,
+			          unsigned imprint)
+			:
+				Pager_object(badge), Rm_member(session),
+				Rm_faulter(this, imprint)
+			{ }
+
+			int pager(Ipc_pager &pager);
+
+			/**
+			 * Flush memory mappings for the specified virtual address range
+			 */
+			void unmap(addr_t core_local_base, addr_t virt_base, size_t size);
+
+			enum { MAX_NESTING_LEVELS = 5 };
+
+			/**
+			 * Lookup for an attachment through potentially nested dataspaces
+			 * until we hit a leaf dataspace or reach maximum level of nesting
+			 */
+			void lookup_attachment(Rm_session_component * & curr_rm,
+			                       addr_t & curr_rm_base,
+			                       Dataspace_component * & src_ds,
+			                       Rm_session_component::Fault_area & src_area,
+			                       Rm_session_component::Fault_area & dst_area,
+			                       unsigned & level,
+			                       bool & lookup);
 	};
 }
 

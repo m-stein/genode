@@ -5,7 +5,7 @@
 #
 
 # Add C++ sources
-SRC_CC += syscall.cc
+SRC_CC += syscall.cc pager_support.cc
 
 # Add assembly sources
 SRC_S += crt0.s mode_transition.s boot_modules.s

@@ -21,6 +21,7 @@
 #include <thread/capability.h>
 #include <pager/capability.h>
 #include <session/session.h>
+#include <base/printf.h>
 
 namespace Genode {
 
@@ -28,6 +29,8 @@ namespace Genode {
 	{
 		enum Fault_type {
 			READY = 0, READ_FAULT = 1, WRITE_FAULT = 2, EXEC_FAULT = 3 };
+
+		enum Access_format { LSB8, LSB16, LSB32 };
 
 		/**
 		 * State of region-manager session
@@ -47,20 +50,55 @@ namespace Genode {
 			Fault_type type;
 
 			/**
+			 * Format of memoryaccess
+			 */
+			Access_format format;
+
+			/**
 			 * Fault address
 			 */
 			addr_t addr;
 
 			/**
+			 * Might be used by a pager to identify a faulter
+			 */
+			unsigned imprint;
+
+			/**
+			 * Value wich is requested to be written, or in return read
+			 */
+			unsigned long value;
+
+			/**
+			 * Faulting instruction pointer within the 'core' space
+			 */
+			unsigned long * instr;
+
+			/**
 			 * Default constructor
 			 */
-			State() : type(READY), addr(0) { }
+			State() : type(READY), addr(0), value(0) { }
 
 			/**
 			 * Constructor
 			 */
-			State(Fault_type fault_type, addr_t fault_addr) :
-				type(fault_type), addr(fault_addr) { }
+			State(Fault_type fault_type, addr_t fault_addr,
+			      unsigned const imprint,
+			      unsigned long const fault_value = 0,
+			      unsigned long * const fault_instr = 0)
+			:
+				type(fault_type), addr(fault_addr), value(fault_value),
+				instr(fault_instr)
+			{ }
+
+			/**
+			 * Compare two states for eqality
+			 */
+			bool operator == (State & s)
+			{
+				return type == s.type && format == s.format &&
+				       addr == s.addr;
+			};
 		};
 
 
@@ -133,6 +171,18 @@ namespace Genode {
 		                          bool executable = false) = 0;
 
 		/**
+		 * Finish fault, assuming that the faulting instr. has been emulated
+		 *
+		 * \param  state  Fault attributes and emulation results that are
+		 *                needed to identify and continue the faulter.
+		 */
+		virtual void processed(State state)
+		{
+			PERR("%s:%d: Not implemented", __FILE__, __LINE__);
+			while(1);
+		};
+
+		/**
 		 * Shortcut for attaching a dataspace at a predefined local address
 		 */
 		Local_addr attach_at(Dataspace_capability ds, addr_t local_addr,
@@ -155,6 +205,8 @@ namespace Genode {
 		 * Add client to pager
 		 *
 		 * \param thread  thread that will be paged
+		 * \param imprint signature that might be given by the RM session
+		 *                client to match faults to faulters through the RM state
 		 * \throw         Invalid_thread
 		 * \throw         Out_of_memory
 		 * \return        capability to be used for handling page faults
@@ -163,7 +215,7 @@ namespace Genode {
 		 * communication channel between the pager part of the region manager
 		 * and the client thread.
 		 */
-		virtual Pager_capability add_client(Thread_capability thread) = 0;
+		virtual Pager_capability add_client(Thread_capability thread, unsigned imprint = 0) = 0;
 
 		/**
 		 * Register signal handler for region-manager faults
@@ -189,15 +241,16 @@ namespace Genode {
 		                 GENODE_TYPE_LIST(Invalid_dataspace, Region_conflict,
 		                                  Out_of_metadata, Invalid_args),
 		                 Dataspace_capability, size_t, off_t, bool, Local_addr, bool);
+		GENODE_RPC(Rpc_processed, void, processed, State);
 		GENODE_RPC(Rpc_detach, void, detach, Local_addr);
 		GENODE_RPC_THROW(Rpc_add_client, Pager_capability, add_client,
 		                 GENODE_TYPE_LIST(Invalid_thread, Out_of_memory),
-		                 Thread_capability);
+		                 Thread_capability, unsigned);
 		GENODE_RPC(Rpc_fault_handler, void, fault_handler, Signal_context_capability);
 		GENODE_RPC(Rpc_state, State, state);
 		GENODE_RPC(Rpc_dataspace, Dataspace_capability, dataspace);
 
-		GENODE_RPC_INTERFACE(Rpc_attach, Rpc_detach, Rpc_add_client,
+		GENODE_RPC_INTERFACE(Rpc_attach, Rpc_processed, Rpc_detach, Rpc_add_client,
 		                     Rpc_fault_handler, Rpc_state, Rpc_dataspace);
 	};
 }
