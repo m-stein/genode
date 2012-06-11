@@ -14,23 +14,8 @@
 # Create a fresh boot directory
 #
 proc create_boot_directory { } {
-
-	catch {
-		exec rm -rf [run_dir]
-		exec mkdir -p [run_dir]
-	}
-}
-
-
-#
-# Create a compressed but less debugable copy of an image
-#
-proc stripped_copy {binary} {
-
-	exec mkdir -p bin/stripped/
-	exec rm -rf bin/stripped/$binary
-	exec cp bin/${binary} bin/stripped/${binary}
-	catch {exec [cross_dev_prefix]strip bin/stripped/${binary}}
+	exec rm -rf   [run_dir]
+	exec mkdir -p [run_dir]/genode
 }
 
 
@@ -41,12 +26,8 @@ proc stripped_copy {binary} {
 #
 proc boot_modules_arm_v7a {{file} {binaries}} {
 
-	set config "bin/config"
 	set load_store_alignm 0x3
 	set min_page_alignm   12
-
-	# Append init configuration if it exists
-	if {[file exists $config] == 1} { append binaries " config" }
 
 	#
 	# Introduce boot modules and boot modules header
@@ -115,16 +96,9 @@ proc boot_modules_arm_v7a {{file} {binaries}} {
 
 		exec echo -e ".align ${min_page_alignm}" >> $file
 
-#
-# Stripped image modules are not tested on 'arm_v7a'
-#
-#		if { [catch {exec [cross_dev_prefix]readelf -h bin/${binary}}] } {
 		exec echo -e \
 			"mod${i}_start:" \
-			"\n.incbin \"bin/${binary}\"" >> $file
-#		} else {
-#			exec echo -e "mod${i}_start: .incbin \"../bin/stripped/${module}\"" >> $boot_modules_s
-#		}
+			"\n.incbin \"[run_dir]/genode/${binary}\"" >> $file
 		exec echo -e \
 			"mod${i}_end:" \
 			"\n" >> $file
@@ -227,6 +201,17 @@ proc build_boot_image {binaries} {
 	set boot_modules "[run_dir]/boot_modules.s"
 
 	#
+	# Strip binaries
+	#
+	copy_and_strip_genode_binaries_to_run_dir $binaries
+
+	# Append init configuration if it exists
+	if {[file exists "bin/config"] == 1} {
+		exec cp bin/config [run_dir]/genode
+		append binaries " config"
+	}
+
+	#
 	# Create platform specific 'boot_modules.s' wich contains additional
 	# images needed for this scenario
 	#
@@ -240,9 +225,15 @@ proc build_boot_image {binaries} {
 
 	# New 'core' image is the final program image
 	exec mv core/core [run_dir]/image.elf
+	exec [cross_dev_prefix]strip [run_dir]/image.elf
 
 	# Dummy core remains for debugging
 	exec mv core/core.dummy core/core
+
+	#
+	# Keep only the ELF boot image, but remove stripped binaries
+	#
+	exec rm -r [run_dir]/genode
 }
 
 
