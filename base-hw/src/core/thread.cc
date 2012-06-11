@@ -63,7 +63,7 @@ Thread_base::Thread_base(const char *name, size_t stack_size) :
 	_tid(0)
 {
 	_tid = new (platform()->core_mem_alloc())
-	Platform_thread(1, this, stack_size, Kernel::core_id());
+		Platform_thread(name, 1, this, stack_size, Kernel::core_id());
 }
 
 

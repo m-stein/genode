@@ -38,6 +38,8 @@ namespace Genode {
 	 */
 	class Platform_thread
 	{
+		enum { NAME_MAX_LEN = 32 };
+
 		Thread_base * _thread_base; /* Genode thread object we're belonging to */
 		unsigned long _stack_size; /* Size of our stack */
 		unsigned long _pd_id; /* ID of the kernel object of the PD we're assigned to */
@@ -48,6 +50,7 @@ namespace Genode {
 		Native_utcb * _virt_utcb; /* Virtual UTCB base */
 		Software_tlb * _software_tlb; /* TLB that this thread is assigned to after start */
 		Ram_dataspace_capability _utcb; /* UTCB dataspace */
+		char                     _name[NAME_MAX_LEN]; /* thread's name */
 
 		/**
 		 * Common construction part
@@ -59,7 +62,8 @@ namespace Genode {
 			/**
 			 * Constructor for core threads
 			 */
-			Platform_thread(bool const privileged,
+			Platform_thread(const char * name,
+			                bool const privileged,
 			                Thread_base * const thread_base,
 			                unsigned long const stack_size,
 			                unsigned long const pd_id);
@@ -143,9 +147,7 @@ namespace Genode {
 			 */
 			inline char const * name() const
 			{
-				kernel_log() << __PRETTY_FUNCTION__ << ": Not implemented\n";
-				while (1) ;
-				return 0;
+				return _name;
 			}
 
 
