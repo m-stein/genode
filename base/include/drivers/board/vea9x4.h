@@ -14,6 +14,9 @@
 #ifndef _INCLUDE__DRIVERS__BOARD__VEA9X4_H_
 #define _INCLUDE__DRIVERS__BOARD__VEA9X4_H_
 
+/* Genode includes */
+#include <util/mmio.h>
+
 namespace Genode
 {
 	/**
@@ -55,7 +58,35 @@ namespace Genode
 			/* RAM */
 			LOCAL_DDR2_BASE = 0x60000000,
 			LOCAL_DDR2_SIZE = 0x40000000,
+
+			/* System configuration controller */
+			SCC_BASE = 0x100e2000,
+			SCC_SIZE = 0x1000,
 		};
+	};
+
+
+	class Scc : Mmio
+	{
+		protected:
+
+			struct Cfgrw1 : public Register<0x4, 32>
+			{
+				struct Smc_tzasc : Bitfield<13,1>
+				{
+					enum { DISABLE, ENABLE };
+				};
+			};
+
+		public:
+
+			Scc(addr_t const base) : Mmio(base) {}
+
+			/**
+			 * Enable Trustzone address space controller
+			 */
+			void enable_tz_asc() {
+				write<Cfgrw1::Smc_tzasc>(Cfgrw1::Smc_tzasc::ENABLE); }
 	};
 }
 

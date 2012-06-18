@@ -30,6 +30,8 @@ namespace Genode
 				LOG_TL16C750_MMIO_BASE = TL16C750_3_MMIO_BASE,
 				LOG_TL16C750_CLOCK = TL16C750_3_CLOCK,
 			};
+
+			void enable_trustzone() {}
 	};
 }
 

@@ -15,6 +15,7 @@
 #include <drivers/board/vea9x4.h>
 #include <drivers/cpu/cortex_a9/core.h>
 #include <drivers/pic/pl390_base.h>
+#include <drivers/board.h>
 
 /* Core includes */
 #include <platform.h>
@@ -81,3 +82,16 @@ Native_region * Platform::_core_only_mmio_regions(unsigned const i)
 	return i < sizeof(_regions)/sizeof(_regions[0]) ? &_regions[i] : 0;
 }
 
+
+void Board::enable_trustzone()
+{
+	_scc.enable_tz_asc();
+	Cortex_a9::tz_monitor_mode_vba((addr_t)&_mm_vector_base);
+
+	/* enable co-processors from normal mode */
+	Cortex_a9::tz_access_cp_nonsecure();
+
+	/* set irq priority order */
+	//TODO
+	//CFGSDISABLE
+}

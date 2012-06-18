@@ -17,6 +17,9 @@
 /* Genode inlcudes */
 #include <drivers/board/vea9x4.h>
 
+extern void* _mm_vector_base;
+
+
 namespace Genode
 {
 	/**
@@ -24,14 +27,21 @@ namespace Genode
 	 */
 	class Board : public Vea9x4
 	{
+		private:
+
+			Scc _scc;
+
 		public:
 
 			enum {
 				LOG_PL011_MMIO_BASE = PL011_0_MMIO_BASE,
 				LOG_PL011_CLOCK = PL011_0_CLOCK,
 			};
+
+			Board() : _scc(Vea9x4::SCC_BASE) { }
+
+			void enable_trustzone();
 	};
 }
 
 #endif /* _BASE_HW__INCLUDE__PLATFORM__VEA9X4__DRIVERS__BOARD_H_ */
-

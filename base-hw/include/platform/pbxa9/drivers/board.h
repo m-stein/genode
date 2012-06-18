@@ -31,6 +31,8 @@ namespace Genode
 				LOG_PL011_MMIO_BASE = PL011_0_MMIO_BASE,
 				LOG_PL011_CLOCK = PL011_0_CLOCK,
 			};
+
+			void enable_trustzone() {}
 	};
 }
 

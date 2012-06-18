@@ -716,6 +716,31 @@ namespace Genode
 			              :: [asid]"r"(Contextidr::Asid::masked(process_id)) : );
 			flush_branch_prediction();
 		}
+
+
+		/*********************
+		 **  Trustzone API  **
+		 *********************/
+
+		/**
+		 * Set the exception-vector's base-address for the monitor mode
+		 * software stack.
+		 *
+		 * \param addr  address of the exception vector's base
+		 */
+		static inline void tz_monitor_mode_vba(addr_t addr)
+		{
+			asm volatile ("mcr p15, 0, %0, c12, c0, 1" : : "r" (addr));
+		}
+
+		/**
+		 * Enable access of co-processors cp10 and cp11 from non-secure mode.
+		 */
+		static inline void tz_access_cp_nonsecure(void)
+		{
+			uint32_t val = (1 << 10) | (1 << 11);
+			asm volatile ("mcr p15, 0, %0, c1, c1, 2" : : "r" (val));
+		}
 	};
 }
 

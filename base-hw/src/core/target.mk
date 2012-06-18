@@ -32,6 +32,8 @@ SRC_CC += main.cc _main.cc ram_session_component.cc \
           dump_alloc.cc cpu_session_component.cc \
           cpu_session_support.cc console.cc
 
+SRC_S   = monitor_vector.s
+
 # Declare file locations
 vpath _main.cc                    $(BASE_DIR)/src/platform
 vpath main.cc                     $(GEN_CORE_DIR)
@@ -45,5 +47,6 @@ vpath io_mem_session_support.cc   $(GEN_CORE_DIR)
 vpath dataspace_component.cc      $(GEN_CORE_DIR)
 vpath dump_alloc.cc               $(GEN_CORE_DIR)
 vpath console.cc                  $(REP_DIR)/src/base
+vpath monitor_vector.s            $(REP_DIR)/src/core/arm_v7a
 vpath %.cc                        $(REP_DIR)/src/core
 

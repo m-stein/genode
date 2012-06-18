@@ -1902,6 +1902,15 @@ namespace Kernel
 		if (syscall > MAX_SYSCALL) handle_sysc[INVALID_SYSCALL](user);
 		else handle_sysc[syscall](user);
 	}
+
+
+	/**
+	 * Access to board singleton
+	 */
+	static Genode::Board * board() {
+		static Genode::Board _board;
+		return &_board;
+	}
 }
 
 
@@ -1974,6 +1983,9 @@ extern "C" void kernel()
 
 		/* Offer the final kernel context to the mode transition page */
 		mtc()->fetch_kernel_context(&kernel_context);
+
+		/* Enable Trustzone support if available */
+		board()->enable_trustzone();
 
 		/* Switch to core address space */
 		Cpu::enable_mmu(core(), core_id());
