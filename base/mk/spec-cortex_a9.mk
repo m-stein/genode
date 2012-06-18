@@ -7,6 +7,11 @@
 # Denote wich specs are also fullfilled by this spec
 SPECS += arm_v7a pl390
 
+#
+# Configure target CPU
+#
+CC_OPT += -mcpu=cortex-a9
+
 # Add repository relative include paths
 REP_INC_DIR += include/cortex_a9
 
