@@ -16,6 +16,7 @@
 
 /* Local includes */
 #include <cortex_a9/kernel_support.h>
+#include <arm_v7a/trustzone.h>
 
 #endif /* _BASE_HW__SRC__CORE__VEA9X4__KERNEL_SUPPORT_H_ */
 

@@ -1,0 +1,22 @@
+/*
+ * \brief  Vm-session capability type
+ * \author Stefan Kalkowski
+ * \date   2012-06-22
+ */
+
+/*
+ * Copyright (C) 2008-2012 Genode Labs GmbH
+ *
+ * This file is part of the Genode OS framework, which is distributed
+ * under the terms of the GNU General Public License version 2.
+ */
+
+#ifndef _BASE_HW__INCLUDE__VM_SESSION__CAPABILITY_H_
+#define _BASE_HW__INCLUDE__VM_SESSION__CAPABILITY_H_
+
+#include <vm_session/vm_session.h>
+#include <base/capability.h>
+
+namespace Genode { typedef Capability<Vm_session> Vm_session_capability; }
+
+#endif /* _BASE_HW__INCLUDE__VM_SESSION__CAPABILITY_H_ */

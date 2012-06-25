@@ -66,6 +66,9 @@ namespace Kernel
 		NEW_SIGNAL_CONTEXT = 21,
 		AWAIT_SIGNAL = 22,
 		SUBMIT_SIGNAL = 23,
+
+		/* Virtual machine */
+		VM_SWITCH = 24,
 	};
 
 	/**
@@ -392,6 +395,14 @@ namespace Kernel
 	 */
 	inline void submit_signal(unsigned long context_id, int num) {
 		syscall(SUBMIT_SIGNAL, (Syscall_arg)context_id, (Syscall_arg)num); }
+
+	/**
+	 * Switch to a  virtual-machine
+	 *
+	 * \param vm_state state of the vm to load
+	 */
+	inline void switch_to_vm(void* vm_state) {
+		syscall(VM_SWITCH, (Syscall_arg)vm_state); }
 }
 
 #endif /* _BASE_HW__INCLUDE__KERNEL__SYSCALLS_H_ */

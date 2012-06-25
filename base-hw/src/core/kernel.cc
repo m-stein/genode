@@ -13,6 +13,7 @@
 
 /* Genode includes */
 #include <base/signal.h>
+#include <base/vm_state.h>
 #include <util/fifo.h>
 #include <util/avl_tree.h>
 
@@ -1860,6 +1861,14 @@ namespace Kernel
 	}
 
 
+	void do_switch_vm(Thread * const user)
+	{
+		Genode::Vm_state *state =
+			reinterpret_cast<Genode::Vm_state*>(user->user_arg_1());
+		tz_switch_to_normal_world(state);
+	}
+
+
 	/**
 	 * Handle a syscall request
 	 *
@@ -1894,6 +1903,7 @@ namespace Kernel
 			/* 21 */ do_new_signal_context,
 			/* 22 */ do_await_signal,
 			/* 23 */ do_submit_signal,
+			/* 24 */ do_switch_vm,
 		};
 		enum { MAX_SYSCALL = sizeof(handle_sysc)/sizeof(handle_sysc[0]) - 1 };
 

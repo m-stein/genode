@@ -33,6 +33,7 @@
 #include <io_port_root.h>
 #include <irq_root.h>
 #include <signal_root.h>
+#include <vm_root.h>
 
 using namespace Genode;
 
@@ -178,6 +179,8 @@ int main()
 	                                  platform()->irq_alloc(), &sliced_heap);
 	static Signal_root  signal_root  (&sliced_heap, core_env()->cap_session());
 
+	static Vm_root      vm_root      (e, e, &sliced_heap);
+
 	/*
 	 * Play our role as parent of init and declare our services.
 	 */
@@ -193,7 +196,8 @@ int main()
 		Local_service(Io_mem_session::service_name(),  &io_mem_root),
 		Local_service(Io_port_session::service_name(), &io_port_root),
 		Local_service(Irq_session::service_name(),     &irq_root),
-		Local_service(Signal_session::service_name(),  &signal_root)
+		Local_service(Signal_session::service_name(),  &signal_root),
+		Local_service(Vm_session::service_name(),      &vm_root)
 	};
 
 	/* make our local services known to service pool */
