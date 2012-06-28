@@ -46,6 +46,14 @@ namespace Genode
 			};
 
 			/**
+			 * Interrupt error clear register
+			 */
+			struct Uartecr : public Register<0x4, 8>
+			{
+				struct All : Bitfield<0,8> { };
+			};
+
+			/**
 			 * Flag register
 			 */
 			struct Uartfr : public Register<0x18, 16>
@@ -107,7 +115,17 @@ namespace Genode
 			 */
 			struct Uartimsc : public Register<0x38, 16>
 			{
-				struct Imsc : Bitfield<0,11> { };
+				struct All  : Bitfield<0,11> { };
+				struct Rxim : Bitfield<4,1>  { };
+				struct Rtim : Bitfield<6,1>  { };
+			};
+
+			/**
+			 * Interrupt Clear
+			 */
+			struct Uarticr : public Register<0x44, 16>
+			{
+				struct All : Bitfield<0,11> { };
 			};
 
 			/**
@@ -123,65 +141,71 @@ namespace Genode
 			 * \param  clock      device reference clock frequency
 			 * \param  baud_rate  targeted UART baud rate
 			 */
-			inline Pl011_base(addr_t const base, uint32_t const clock,
-			                  uint32_t const baud_rate);
+			Pl011_base(addr_t const base, uint32_t const clock,
+			           uint32_t const baud_rate)
+			: Mmio(base)
+			{
+				write<Uartcr>(Uartcr::Uarten::bits(1) |
+				              Uartcr::Txe::bits(1)    |
+				              Uartcr::Rxe::bits(1));
+
+				/*
+				 * We can't print an error or throw C++ exceptions because we
+				 * must expect both to be uninitialized yet, so its better to
+				 * hold the program counter in here for debugging.
+				 */
+				if (baud_rate > MAX_BAUD_RATE) while(1) ;
+
+				/*
+				 * Calculate fractional and integer part of baud rate divisor
+				 * to initialize IBRD and FBRD.
+				 */
+				uint32_t           const adjusted_br = baud_rate << 4;
+				double             const divisor = (double)clock / adjusted_br;
+				Uartibrd::access_t const ibrd = (Uartibrd::access_t)divisor;
+				Uartfbrd::access_t const fbrd = (Uartfbrd::access_t)(((divisor - ibrd)
+				                                                     * 64) + 0.5);
+
+				write<Uartfbrd::Fbrd>(fbrd);
+				write<Uartibrd::Ibrd>(ibrd);
+
+				write<Uartlcrh::Wlen>(Uartlcrh::Wlen::WORD_LENGTH_8BITS);
+
+				/* unmask all interrupts */
+				write<Uartimsc::All>(0);
+
+				/* clear all errors */
+				write<Uartecr::All>(0xff);
+
+				/* clear all interrupts */
+				write<Uarticr::All>(0x7ff);
+
+				_wait_until_ready();
+			}
 
 			/**
 			 * Send ASCII char 'c' over the UART interface
 			 */
-			inline void put_char(char const c);
+			void put_char(char const c)
+			{
+				/* wait as long as the transmission buffer is full */
+				while (read<Uartfr::Txff>()) ;
+
+				/* auto complete new line commands */
+				if (c == ASCII_LINE_FEED)
+					write<Uartdr::Data>(ASCII_CARRIAGE_RETURN);
+
+				/* transmit character */
+				write<Uartdr::Data>(c);
+				_wait_until_ready();
+			}
+
+			void enable_rx_irq()
+			{
+				write<Uartimsc>(read<Uartimsc>()
+				                | Uartimsc::Rxim::bits(1)
+				                | Uartimsc::Rtim::bits(1)); }
 	};
 }
-
-
-Genode::Pl011_base::Pl011_base(addr_t const base, uint32_t const clock,
-                               uint32_t const baud_rate) : Mmio(base)
-{
-	write<Uartcr>(Uartcr::Uarten::bits(1) |
-	              Uartcr::Txe::bits(1)    |
-	              Uartcr::Rxe::bits(1));
-
-	/*
-	 * We can't print an error or throw C++ exceptions because we must expect
-	 * both to be uninitialized yet, so its better to hold the program counter
-	 * in here for debugging.
-	 */
-	if (baud_rate > MAX_BAUD_RATE) while(1) ;
-
-	/*
-	 * Calculate fractional and integer part of baud rate divisor to initialize
-	 * IBRD and FBRD.
-	 */
-	uint32_t           const adjusted_br = baud_rate << 4;
-	double             const divisor = (double)clock / adjusted_br;
-	Uartibrd::access_t const ibrd = (Uartibrd::access_t)divisor;
-	Uartfbrd::access_t const fbrd = (Uartfbrd::access_t)(((divisor - ibrd)
-	                                * 64) + 0.5);
-
-	write<Uartfbrd::Fbrd>(fbrd);
-	write<Uartibrd::Ibrd>(ibrd);
-
-	write<Uartlcrh::Wlen>(Uartlcrh::Wlen::WORD_LENGTH_8BITS);
-
-	/* unmask all interrupts */
-	write<Uartimsc::Imsc>(0);
-
-	_wait_until_ready();
-}
-
-
-void Genode::Pl011_base::put_char(char const c)
-{
-	/* wait as long as the transmission buffer is full */
-	while (read<Uartfr::Txff>()) ;
-
-	/* auto complete new line commands */
-	if (c == ASCII_LINE_FEED) write<Uartdr::Data>(ASCII_CARRIAGE_RETURN);
-
-	/* transmit character */
-	write<Uartdr::Data>(c);
-	_wait_until_ready();
-}
-
 
 #endif /* _INCLUDE__DRIVERS__UART__PL011_BASE_H_ */
