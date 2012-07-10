@@ -35,16 +35,29 @@ void Rm_client::unmap(addr_t core_local_base, addr_t virt_base, size_t size)
 	Platform_thread * const pt = Kernel::get_thread(badge());
 	assert(pt);
 	Software_tlb * const tlb = pt->software_tlb();
-	assert(tlb);
+	if(tlb)
+	{
+		/* update all translation caches */
+		tlb->remove_region(virt_base, size);
+		Kernel::update_pd(pt->pd_id());
 
-	/* update all translation caches */
-	tlb->remove_region(virt_base, size);
-	Kernel::update_pd(pt->pd_id());
+		/* try to regain administrative memory that has been freed by unmap */
+		size_t s;
+		void * base;
+		while (tlb->regain_memory(base, s)) platform()->ram_alloc()->free(base, s);
+	} else {
 
-	/* try to regain administrative memory that has been freed by unmap */
-	size_t s;
-	void * base;
-	while (tlb->regain_memory(base, s)) platform()->ram_alloc()->free(base, s);
+		/*
+		 * For any reason a thread can be added as client to an
+		 * RM session before it gets bind to a PD. The questionable point is
+		 * located in 'Thread_base::start' within
+		 * 'base-hw/src/base/thread_support.cc'. As it has no further effects
+		 * for now, we simply ignore such unmap requests. PS: It seems to
+		 * result from a race condition, because it occured initially with the
+		 * entrypoint threads of two childs that started simultanously.
+		 */
+		PWRN("%s:%d: Unmap regards thread that is not bind to PD", __FILE__, __LINE__);
+	}
 }
 
 

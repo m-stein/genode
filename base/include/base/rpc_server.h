@@ -221,6 +221,8 @@ namespace Genode {
 	template <typename RPC_INTERFACE, typename SERVER = RPC_INTERFACE>
 	struct Rpc_object : Rpc_object_base, Rpc_dispatcher<RPC_INTERFACE, SERVER>
 	{
+		typedef RPC_INTERFACE Rpc_interface;
+
 		/*****************************
 		 ** Server-object interface **
 		 *****************************/

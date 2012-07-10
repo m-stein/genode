@@ -77,8 +77,8 @@ namespace Genode {
 			 * \param  read   If the instruction has implied a memory
 			 *                read access, this contains the resulting value
 			 */
-			void instruction_processed(unsigned long * const instr,
-			                           unsigned long const read);
+			void instruction_processed(unsigned * const instr,
+			                           unsigned const read);
 
 			void wake_up()
 			{

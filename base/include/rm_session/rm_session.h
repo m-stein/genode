@@ -67,12 +67,12 @@ namespace Genode {
 			/**
 			 * Value wich is requested to be written, or in return read
 			 */
-			unsigned long value;
+			unsigned value;
 
 			/**
 			 * Faulting instruction pointer within the 'core' space
 			 */
-			unsigned long * instr;
+			unsigned * instr;
 
 			/**
 			 * Default constructor
@@ -84,8 +84,8 @@ namespace Genode {
 			 */
 			State(Fault_type fault_type, addr_t fault_addr,
 			      unsigned const imprint,
-			      unsigned long const fault_value = 0,
-			      unsigned long * const fault_instr = 0)
+			      unsigned const fault_value = 0,
+			      unsigned * const fault_instr = 0)
 			:
 				type(fault_type), addr(fault_addr), value(fault_value),
 				instr(fault_instr)
@@ -96,7 +96,7 @@ namespace Genode {
 			 */
 			bool operator == (State & s)
 			{
-				return type == s.type && format == s.format &&
+				return type == s.type &&
 				       addr == s.addr;
 			};
 		};

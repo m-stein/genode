@@ -1,9 +1,9 @@
-build { core init vinit adder32 test/vinit }
+build { core init vinit test/vinit }
 
 create_boot_directory
 
 install_config {
-<config verbose="yes">
+<config verbose="no">
 	<parent-provides>
 		<service name="ROM"/>
 		<service name="RAM"/>
@@ -19,8 +19,8 @@ install_config {
 	<default-route><any-service><parent/></any-service></default-route>
 
 	<start name="vinit">
-		<resource name="RAM" quantum="20M"/>
-		<config verbose="yes">
+		<resource name="RAM" quantum="40M"/>
+		<config verbose="no">
 			<parent-provides>
 				<service name="ROM"/>
 				<service name="RAM"/>
@@ -35,7 +35,23 @@ install_config {
 			</parent-provides>
 			<default-route><any-service><parent/></any-service></default-route>
 
+			<emulator name="fpu">
+				<binary name="test-vinit-fpu"/>
+				<resource name="RAM" quantum="2M"/>
+			</emulator>
+
+			<emulated by="fpu">
+				<resource name="IO_MEM" base="0x71000000" size="0x1000" local="0x0"/>
+				<resource name="IO_MEM" base="0x71001000" size="0x1000" local="0x1000"/>
+				<resource name="IRQ" base="2000" size="1" local="1"/>
+			</emulated>
+
 			<start name="test_1">
+				<binary name="test-vinit"/>
+				<resource name="RAM" quantum="3M"/>
+			</start>
+
+			<start name="test_2">
 				<binary name="test-vinit"/>
 				<resource name="RAM" quantum="3M"/>
 			</start>
@@ -46,7 +62,7 @@ install_config {
 </config>
 }
 
-build_boot_image { core init vinit adder32 test-vinit }
+build_boot_image { core init vinit test-vinit-fpu test-vinit }
 
 if {[have_spec hw_vea9x4] || [have_spec hw_pbxa9]} {
 	run_genode_until forever

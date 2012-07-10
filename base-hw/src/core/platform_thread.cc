@@ -37,8 +37,8 @@ Platform_thread::Platform_thread(const char * name,
 	                          MIN_MAPPING_SIZE_LOG2));
 	_virt_utcb = _phys_utcb;
 
-	/* common constructor parts */
-	_init();
+	/* Common constructor parts */
+	_init("");
 }
 
 
@@ -64,8 +64,8 @@ Platform_thread::Platform_thread(const char * name, unsigned int priority,
 	}
 	catch (...) { assert(0); }
 
-	/* common constructor parts */
-	_init();
+	/* Common constructor parts */
+	_init(name);
 }
 
 
@@ -82,7 +82,7 @@ int Platform_thread::join_pd(unsigned long const pd_id,
 }
 
 
-void Platform_thread::_init()
+void Platform_thread::_init(const char * name)
 {
 	/* create kernel object */
 	void * kernel_thread;
