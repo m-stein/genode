@@ -16,6 +16,7 @@
 
 /* Genode includes */
 #include <kernel/syscalls.h>
+#include <base/native_capability.h>
 
 namespace Genode
 {
@@ -104,61 +105,15 @@ namespace Genode
 		unsigned long size() { return sizeof(bytes); }
 	};
 
-	/**
-	 * Describes an untyped Genode capability
-	 */
-	class Native_capability
+	struct Cap_dst_policy
 	{
-		public:
-
-			typedef Native_thread_id Dst;
-
-			/**
-			 * Essential capability data
-			 */
-			struct Raw
-			{
-				Dst dst; /* ID of the thread that serves the targeted RPC object */
-				long local_name; /* Server-local name of the targeted RPC object */
-
-				Raw(Native_thread_id const dst_arg, long const local_name_arg) :
-					dst(dst_arg), local_name(local_name_arg)
-				{ }
-			};
-
-		private:
-
-			Raw _raw;
-
-		public:
-
-			/**
-			 * Constructor
-			 */
-			Native_capability() : _raw(thread_invalid_id(), 0) { }
-
-			/**
-			 * Constructor
-			 */
-			Native_capability(Native_thread_id const dst,
-			                  long const local_name) :
-				_raw(dst, local_name)
-			{ }
-
-			/**
-			 * Returns wether this capability is valid
-			 */
-			bool valid() const { return _raw.dst != thread_invalid_id(); }
-
-
-			/***************
-			 ** Accessors **
-			 ***************/
-
-			int local_name() const { return _raw.local_name; }
-
-			Native_thread_id dst() const { return _raw.dst; }
+		typedef Native_thread_id Dst;
+		static bool valid(Dst pt) { return pt != 0; }
+		static Dst  invalid()     { return 0;       }
+		static void copy(void* dst, Native_capability_tpl<Cap_dst_policy>* src);
 	};
+
+	typedef Native_capability_tpl<Cap_dst_policy> Native_capability;
 
 	/**
 	 * A coherent address region

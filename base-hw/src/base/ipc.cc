@@ -152,8 +152,11 @@ Ipc_istream::~Ipc_istream()
 void Ipc_client::_call()
 {
 	/* Send request and receive reply */
-	copy_msgbuf_to_utcb(_snd_msg, _write_offset, _dst.local_name());
-	copy_utcb_to_msgbuf(_rcv_msg, Kernel::request_and_wait(_dst.dst(), _write_offset));
+	copy_msgbuf_to_utcb(_snd_msg, _write_offset,
+	                    Ipc_ostream::_dst.local_name());
+	copy_utcb_to_msgbuf(_rcv_msg,
+	                    Kernel::request_and_wait(Ipc_ostream::_dst.dst(),
+	                                             _write_offset));
 
 	/* Reset unmarshaller */
 	_write_offset = _read_offset = RPC_OBJECT_ID_SIZE;
@@ -215,7 +218,8 @@ void Ipc_server::_reply_wait()
 	}
 
 	/* Send reply and receive next request */
-	copy_msgbuf_to_utcb(_snd_msg, _write_offset, _dst.local_name());
+	copy_msgbuf_to_utcb(_snd_msg, _write_offset,
+	                    Ipc_ostream::_dst.local_name());
 	copy_utcb_to_msgbuf(_rcv_msg, Kernel::reply_and_wait(_write_offset));
 
 	/* Update server state */
