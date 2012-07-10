@@ -21,7 +21,8 @@ using namespace Genode;
 namespace Kernel { unsigned core_id(); }
 
 
-Platform_thread::Platform_thread(bool const privileged,
+Platform_thread::Platform_thread(const char * name,
+                                 bool const privileged,
                                  Thread_base * const thread_base,
                                  unsigned long const stack_size,
                                  unsigned long const pd_id)
@@ -29,6 +30,8 @@ Platform_thread::Platform_thread(bool const privileged,
 	_thread_base(thread_base), _stack_size(stack_size),
 	_pd_id(pd_id), _rm_client(0), _virt_utcb(0)
 {
+	strncpy(_name, name, NAME_MAX_LEN);
+
 	/* Create UTCB for a core thread.
 	 * Allocate page aligned UTCB backing store */
 	Range_allocator * const ram = platform()->ram_alloc();
@@ -49,6 +52,8 @@ Platform_thread::Platform_thread(const char * name, unsigned int priority,
 	_thread_base(0), _stack_size(0), _pd_id(0), _rm_client(0),
 	_virt_utcb((Native_utcb *)utcb)
 {
+	strncpy(_name, name, NAME_MAX_LEN);
+
 	/* Allocate UTCB backing store for a thread outside of core. Page alignment
 	 * is done by RAM session by default. It's save to use core env because
 	 * this cannot be its server activation thread */
