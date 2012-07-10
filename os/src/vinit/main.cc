@@ -13,938 +13,290 @@
 
 /* Genode includes */
 #include <base/sleep.h>
-#include <base/signal.h>
 #include <base/printf.h>
 #include <base/rpc_server.h>
-#include <base/child.h>
 #include <root/component.h>
 #include <root/client.h>
 #include <rm_session/client.h>
-#include <ram_session/connection.h>
-#include <cpu_session/connection.h>
 #include <cap_session/connection.h>
-#include <io_mem_session/io_mem_session.h>
-#include <emulator_session/capability.h>
-#include <emulator_session/client.h>
 #include <os/config.h>
+#include <emulation_session/client.h>
 
-/* init includes */
-#include <init/child_config.h>
-#include <init/child_policy.h>
-
-/**
- * Assert a condition
- *
- * \param  expression  Expression that must be true
- */
-#define assert(expression) \
-	do { \
-		if (!(expression)) { \
-			PERR("Assertion failed: "#expression""); \
-			PERR("  File: %s:%d", __FILE__, __LINE__); \
-			PERR("  Function: %s", __PRETTY_FUNCTION__); \
-			while (1) ; \
-		} \
-	} while (0) ;
-
+/* local includes */
+#include <emulated_child.h>
+#include <io_mem_session/root.h>
+#include <irq_session/root.h>
+#include <cpu_session/connection.h>
+#include <rm_session/connection.h>
 
 namespace Init
 {
-	/* import types from Genode */
-	typedef Genode::addr_t addr_t;
-	typedef Genode::size_t size_t;
-	typedef Genode::Xml_node Xml_node;
-	typedef Genode::Number_of_bytes Number_of_bytes;
-	typedef Genode::Cpu_session Cpu_session;
-	typedef Genode::Cpu_connection Cpu_connection;
-	typedef Genode::Ram_connection Ram_connection;
-	typedef Genode::Arg_string Arg_string;
-	typedef Genode::Service Service;
-	typedef Genode::Service_registry Service_registry;
-	typedef Genode::Session_capability Session_capability;
-	typedef Genode::Root_capability Root_capability;
-	typedef Genode::Allocator Allocator;
-	typedef Genode::Rpc_entrypoint Rpc_entrypoint;
-	typedef Genode::Sliced_heap Sliced_heap;
-	typedef Genode::Cap_connection Cap_connection;
-	typedef Genode::Server Server;
-	typedef Genode::Signal_receiver Signal_receiver;
-	typedef Genode::Signal_context Signal_context;
-	typedef Genode::Signal_context_capability Signal_context_capability;
+	using namespace Genode;
 
 	bool config_verbose = false;
 
-	enum {
-		MAX_RM_CLIENTS = 1024,
-		MAX_EMULATORS = 1024,
-	};
 
-
-	inline long read_priority(Xml_node start_node)
-	{
-		long priority = Cpu_session::DEFAULT_PRIORITY;
-		try { start_node.attribute("priority").value(&priority); }
-		catch (...) { }
-
-		/*
-		 * All priority declarations in the config file are
-		 * negative because child priorities can never be higher
-		 * than parent priorities. To simplify priority
-		 * calculations, we use inverted values. Lower values
-		 * correspond to higher priorities.
-		 */
-		return -priority;
-	}
-
-
-	inline size_t read_ram_quota(Xml_node start_node)
-	{
-		Number_of_bytes ram_quota = 0;
-		try {
-			Xml_node rsc = start_node.sub_node("resource");
-			for (;; rsc = rsc.next("resource")) {
-
-				try {
-					if (rsc.attribute("name").has_value("RAM")) {
-						rsc.attribute("quantum").value(&ram_quota);
-					}
-				} catch (...) { }
-			}
-		} catch (...) { }
-
-		/*
-		 * If the configured quota exceeds our own quota, we donate
-		 * all remaining quota to the child but we need to count in
-		 * our allocation of the child meta data from the heap.
-		 * Hence, we preserve some of our own quota.
-		 */
-		if (ram_quota > Genode::env()->ram_session()->avail() - 128*1024) {
-			ram_quota = Genode::env()->ram_session()->avail() - 128*1024;
-			if (config_verbose)
-				Genode::printf("Warning: Specified quota exceeds available quota.\n"
-				               "         Proceeding with a quota of %zd bytes.\n",
-				               (size_t)ram_quota);
-		}
-		return ram_quota;
-	}
-
+	/* vinit begin */
+	class Emulation_context;
 
 	/**
-	 * Return true if service XML node matches the specified service name
+	 * Holds informations about an emulated resource-region
 	 */
-	inline bool service_node_matches(Xml_node service_node, const char *service_name)
+	class Emulated_region : public Avl_node<Emulated_region>
 	{
-		if (service_node.has_type("any-service"))
-			return true;
-
-		return service_node.has_type("service")
-		    && service_node.attribute("name").has_value(service_name);
-	}
-
-
-	/**
-	 * Check if arguments satisfy the condition specified for the route
-	 */
-	inline bool service_node_args_condition_satisfied(Xml_node service_node,
-	                                                  const char *args)
-	{
-		try {
-			Xml_node if_arg = service_node.sub_node("if-arg");
-			enum { KEY_MAX_LEN = 64, VALUE_MAX_LEN = 64 };
-			char key[KEY_MAX_LEN];
-			char value[VALUE_MAX_LEN];
-			if_arg.attribute("key").value(key, sizeof(key));
-			if_arg.attribute("value").value(value, sizeof(value));
-
-			char arg_value[VALUE_MAX_LEN];
-			Arg_string::find_arg(args, key).string(arg_value, sizeof(arg_value), "");
-			return Genode::strcmp(value, arg_value) == 0;
-		} catch (...) { }
-
-		/* if no if-arg node exists, the condition is met */
-		return true;
-	}
-
-
-	/**
-	 * Init-specific representation of a child service
-	 *
-	 * For init, we introduce this 'Service' variant that distinguishes two
-	 * phases, declared and announced. A 'Routed_service' object is created
-	 * when a '<provides>' declaration is found in init's configuration.
-	 * At that time, however, no children including the server do yet exist.
-	 * If, at this stage, a client tries to open a session to this service,
-	 * the client get enqueued in a list of applicants and blocked. When
-	 * the server officially announces its service and passes over the root
-	 * capability, the 'Routed_service' enters the announced stage and any
-	 * applicants get unblocked.
-	 */
-	class Routed_service : public Service
-	{
-		private:
-
-			Root_capability _root;
-			bool                    _announced;
-			Server         *_server;
-
-			struct Applicant : public Genode::Cancelable_lock,
-			                   public Genode::List<Applicant>::Element
-			{
-				Applicant() : Cancelable_lock(Genode::Lock::LOCKED) { }
-			};
-
-			Genode::Lock            _applicants_lock;
-			Genode::List<Applicant> _applicants;
+		addr_t const _base;
+		addr_t const _end;
+		addr_t const _local;
+		Emulation_context * const _emu_context;
 
 		public:
 
 			/**
 			 * Constructor
 			 *
-			 * \param name    name of service
-			 * \param server  server providing the service
+			 * For parameter description see same-named members.
 			 */
-			Routed_service(const char     *name,
-			               Server *server)
-			: Service(name), _announced(false), _server(server) { }
-
-			Server *server() const { return _server; }
-
-			void announce(Root_capability root)
-			{
-				Genode::Lock::Guard guard(_applicants_lock);
-
-				_root = root;
-				_announced = true;
-
-				/* wake up aspiring clients */
-				for (Applicant *a; (a = _applicants.first()); ) {
-					_applicants.remove(a);
-					a->unlock();
-				}
-			}
-
-			Session_capability session(const char *args)
-			{
-				/*
-				 * This function is called from the context of the client's
-				 * activation thread. If the service is not yet announced,
-				 * we let the client block.
-				 */
-				_applicants_lock.lock();
-				if (!_announced) {
-					Applicant myself;
-					_applicants.insert(&myself);
-					_applicants_lock.unlock();
-					myself.lock();
-				} else
-					_applicants_lock.unlock();
-
-				Session_capability cap;
-				try { cap = Genode::Root_client(_root).session(args); }
-				catch (Genode::Root::Invalid_args)   { throw Invalid_args();   }
-				catch (Genode::Root::Unavailable)    { throw Unavailable();    }
-				catch (Genode::Root::Quota_exceeded) { throw Quota_exceeded(); }
-
-				if (!cap.valid())
-					throw Unavailable();
-
-				return cap;
-			}
-
-			void upgrade(Session_capability sc, const char *args)
-			{
-				Genode::Root_client(_root).upgrade(sc, args);
-			}
-
-			void close(Session_capability sc)
-			{
-				Genode::Root_client(_root).close(sc);
-			}
-	};
-
-	/**
-	 * Interface for name database
-	 */
-	struct Name_registry
-	{
-		virtual ~Name_registry() { }
-
-		/**
-		 * Check if specified name is unique
-		 *
-		 * \return false if name already exists
-		 */
-		virtual bool is_unique(const char *name) const = 0;
-
-		/**
-		 * Find server with specified name
-		 */
-		virtual Server *lookup_server(const char *name) const = 0;
-	};
-
-	/**
-	 * Map unique sortable IDs to object pointers
-	 *
-	 * \param  OBJECT_T  object type that should be inherited
-	 *                   from 'Object_pool::Entry'
-	 */
-	template <typename _OBJECT_T>
-	class Object_pool
-	{
-		typedef _OBJECT_T Object;
-
-		public:
-
-			enum { INVALID_ID = 0 };
-
-			/**
-			 * Objects that shall be managed by the object pool, should
-			 * inherit from this
-			 */
-			class Entry : public Genode::Avl_node<Entry>
-			{
-				protected:
-
-					unsigned _id;
-
-				public:
-
-					/**
-					 * Constructors
-					 */
-					Entry(unsigned const id) : _id(id) { }
-
-					/**
-					 * Find entry with 'object_id' within this AVL subtree
-					 */
-					Entry * find(unsigned const object_id)
-					{
-						if (object_id == id()) return this;
-
-						Entry * const subtree = child(object_id > id());
-
-						return subtree ? subtree->find(object_id) : 0;
-					}
-
-					/**
-					 * ID of this object
-					 */
-					unsigned const id() const { return _id; }
-
-					/************************
-					 * 'Avl_node' interface *
-					 ************************/
-
-					bool higher(Entry *e) { return e->id() > id(); }
-			};
-
-		private:
-
-			Genode::Avl_tree<Entry> _tree;
-
-		public:
-
-			/**
-			 * Add 'object' to pool
-			 */
-			void insert(Object * const object) { _tree.insert(object); }
-
-			/**
-			 * Remove 'object' from pool
-			 */
-			void remove(Object * const object) { _tree.remove(object); }
-
-			/**
-			 * Lookup object
-			 */
-			Object * object(unsigned const id)
-			{
-				Entry * object = _tree.first();
-				return (Object *)(object ? object->find(id) : 0);
-			}
-	};
-
-	/**
-	 * Manage allocation of a static set of IDs
-	 *
-	 * \param  _SIZE  How much IDs shall be assignable simultaneously
-	 */
-	template <unsigned _SIZE>
-	class Id_allocator
-	{
-		enum { MIN = 1, MAX = _SIZE };
-
-		bool _free[MAX + 1]; /* Assignability bitmap */
-		unsigned _first_free_id; /* Hint to optimze access */
-
-		/**
-		 * Update first free ID after assignment
-		 */
-		void _first_free_id_assigned()
-		{
-			_first_free_id++;
-			while (_first_free_id <= MAX) {
-				if(_free[_first_free_id]) break;
-				_first_free_id++;
-			}
-		}
-
-		/**
-		 * Validate ID
-		 */
-		bool _valid_id(unsigned const id) const { return id >= MIN && id <= MAX; }
-
-		public:
-
-			/**
-			 * Constructor, make all IDs unassigned
-			 */
-			Id_allocator() : _first_free_id(MIN) {
-				for (unsigned i = MIN; i <= MAX; i++) _free[i] = 1; }
-
-			/**
-			 * Allocate an unassigned ID
-			 *
-			 * \return  ID that has been allocated by the call
-			 */
-			unsigned alloc()
-			{
-				if (!_valid_id(_first_free_id)) assert(0);
-				_free[_first_free_id] = 0;
-				unsigned const id = _first_free_id;
-				_first_free_id_assigned();
-				return id;
-			}
-
-			/**
-			 * Free a given ID
-			 */
-			void free(unsigned const id)
-			{
-				if (!_valid_id(id)) return;
-				_free[id] = 1;
-				if (id < _first_free_id) _first_free_id = id;
-			}
-	};
-
-	/**
-	 * Holds informations about a client of the eveasdropping RM service
-	 */
-	class Rm_client : public Object_pool<Rm_client>::Entry
-	{
-		typedef Id_allocator<MAX_RM_CLIENTS> Id_alloc;
-
-		static Id_alloc * _id_alloc()
-		{
-			static Id_alloc _id_alloc;
-			return &_id_alloc;
-		}
-
-		public:
-
-			typedef Object_pool<Rm_client> Pool;
-
-			static Pool * pool()
-			{
-				static Pool _pool;
-				return &_pool;
-			}
-
-			Genode::Thread_capability const thread;
-
-			Rm_client(Genode::Thread_capability t) :
-				Object_pool<Rm_client>::Entry(_id_alloc()->alloc()), thread(t)
-			{ }
-	};
-
-	/**
-	 * Handles faults on eavesdropping RM sessions
-	 */
-	class Fault_handler : public Genode::Thread<8*1024>
-	{
-		Signal_context _fault;
-		Signal_receiver _src;
-		Signal_context_capability const _cap;
-		Genode::Signal_transmitter _dst;
-		Genode::Lock _dst_lock;
-		Genode::Rm_session_client * const _rm;
-
-		public:
-
-			Fault_handler(Genode::Rm_session_client * const rm, Signal_context_capability dst = Signal_context_capability()) :
-				_cap(_src.manage(&_fault)), _dst(dst), _rm(rm)
-			{ }
-
-			void dst(Signal_context_capability dst)
-			{
-				Genode::Lock::Guard guard(_dst_lock);
-				_dst.context(dst);
-			}
-
-			Signal_context_capability cap() const { return _cap; }
-
-			void entry()
-			{
-				while (1) {
-					Genode::Signal s = _src.wait_for_signal();
-					Genode::Rm_session::State state = _rm->state();
-					PERR("--- Fault handler %p: Client %u faulted ---", this, state.imprint);
-					Genode::Lock::Guard guard(_dst_lock);
-					_dst.submit(s.num());
-				}
-			}
-	};
-
-	/**
-	 * Session component of a eavesdropping RM service
-	 */
-	class Rm_session_component : public Genode::Rpc_object<Genode::Rm_session>
-	{
-		Genode::Rm_session_client _parent_rm;
-		Allocator * const _md_alloc;
-
-		public:
-
-			Rm_session_component(const char * args, Allocator * md) :
-				_parent_rm(Genode::env()->parent()->session<Rm_session>(args)),
-				_md_alloc(md)
-			{ }
-
-			~Rm_session_component() { }
-
-			/****************
-			 ** Rm_session **
-			 ****************/
-
-			void processed(State state) { _parent_rm.processed(state); }
-
-			Local_addr attach(Genode::Dataspace_capability ds,
-			                  size_t s, Genode::off_t o,
-			                  bool use_la, Genode::Rm_session::Local_addr la,
-			                  bool x)
-			{
-				return _parent_rm.attach(ds, s, o, use_la, la, x);
-			}
-
-			void detach(Local_addr la) { _parent_rm.detach(la); }
-
-			Genode::Pager_capability add_client(Genode::Thread_capability t,
-			                                    unsigned)
-			{
-				Rm_client * const c = new (_md_alloc) Rm_client(t);
-				Rm_client::pool()->insert(c);
-				return _parent_rm.add_client(t, c->id());
-			}
-
-			void fault_handler(Signal_context_capability handler) {
-				_parent_rm.fault_handler(handler); }
-
-			State state() { return _parent_rm.state(); }
-
-			Genode::Dataspace_capability dataspace() {
-				return _parent_rm.dataspace(); }
-	};
-
-	/**
-	 * Root component of a eavesdropping RM service
-	 */
-	class Rm_root : public Genode::Root_component<Rm_session_component>
-	{
-		protected:
-
-			Rm_session_component *_create_session(const char *args)
-			{
-				/* XXX This is not applied to the childs quota yet XXX */
-				Rm_session_component * session =
-					new (md_alloc()) Rm_session_component(args, md_alloc());
-				return session;
-			}
-
-		public:
-
-			Rm_root(Rpc_entrypoint * ep, Allocator * md) :
-				Genode::Root_component<Rm_session_component>(ep, md)
-			{ }
-	};
-
-	/**
-	 * Connection to a local eavesdropping RM service
-	 */
-	class Rm_connection
-	{
-		enum { FORMAT_STRING_SIZE = Genode::Parent::Session_args::MAX_SIZE };
-
-		Rm_root * _root;
-		Genode::Capability<Genode::Rm_session> _cap;
-
-		public:
-
-			Rm_connection(Rm_root * root, void * base, size_t size):
-				_root(root),
-				_cap(session("ram_quota=64K, start=0x%p, size=0x%x", base, size))
-			{ }
-
-			~Rm_connection() { _root->close(_cap); }
-
-			Genode::Rm_session_capability cap() const { return _cap; }
-
-			Genode::Rm_session_capability session(const char *format_args, ...)
-			{
-				char buf[FORMAT_STRING_SIZE];
-				va_list list;
-				va_start(list, format_args);
-				Genode::String_console sc(buf, FORMAT_STRING_SIZE);
-				sc.vprintf(format_args, list);
-				va_end(list);
-				return Genode::reinterpret_cap_cast<Genode::Rm_session>(_root->session(buf));
-			}
-	};
-
-	class Child_registry;
-
-	/**
-	 * Child that might use virtualized resources
-	 */
-	class Child : Genode::Child_policy
-	{
-		private:
-
-			friend class Child_registry;
-
-			Genode::List_element<Child> _list_element;
-
-			Xml_node _start_node;
-
-			Xml_node _default_route_node;
-
-			Name_registry *_name_registry;
-
-			/**
-			 * Unique child name and file name of ELF binary
-			 */
-			struct Name
-			{
-				enum { MAX_NAME_LEN = 64 };
-				char file[MAX_NAME_LEN];
-				char unique[MAX_NAME_LEN];
-
-				/**
-				 * Constructor
-				 *
-				 * Obtains file name and unique process name from XML node
-				 *
-				 * \param start_node XML start node
-				 * \param registry   registry tracking unique names
-				 */
-				Name(Xml_node start_node, Name_registry const *registry) {
-					try {
-						start_node.attribute("name").value(unique, sizeof(unique)); }
-					catch (Xml_node::Nonexistent_attribute) {
-						PWRN("Missing 'name' attribute in '<start>' entry.\n");
-						throw; }
-
-					/* check for a name confict with the other children */
-					if (!registry->is_unique(unique)) {
-						PERR("Child name \"%s\" is not unique", unique);
-						class Child_name_is_not_unique { };
-						throw Child_name_is_not_unique();
-					}
-
-					/* use name as default file name if not declared otherwise */
-					Genode::strncpy(file, unique, sizeof(file));
-
-					/* check for a binary declaration */
-					try {
-						Xml_node binary = start_node.sub_node("binary");
-						binary.attribute("name").value(file, sizeof(file));
-					} catch (...) { }
-				}
-			} _name;
-
-			/**
-			 * Resources assigned to the child
-			 */
-			struct Resources
-			{
-				long                   prio_levels_log2;
-				long                   priority;
-				size_t         ram_quota;
-				Ram_connection ram;
-				Cpu_connection cpu;
-				Rm_connection rm;
-
-				enum { RM_BASE = ~0UL, RM_SIZE = 0 };
-
-				Resources(Xml_node start_node, const char *label,
-				          long prio_levels_log2, Rm_root * rm_root)
-				:
-					prio_levels_log2(prio_levels_log2),
-					priority(read_priority(start_node)),
-					ram_quota(read_ram_quota(start_node)),
-					ram(label),
-					cpu(label, priority*(Cpu_session::PRIORITY_LIMIT >> prio_levels_log2)),
-					rm(rm_root, (void *)RM_BASE, RM_SIZE)
-				{
-					/* deduce session costs from usable ram quota */
-					size_t session_donations = Genode::Rm_connection::RAM_QUOTA +
-					                                   Cpu_connection::RAM_QUOTA +
-					                                   Ram_connection::RAM_QUOTA;
-
-					if (ram_quota > session_donations)
-						ram_quota -= session_donations;
-					else ram_quota = 0;
-
-					ram.ref_account(Genode::env()->ram_session_cap());
-					Genode::env()->ram_session()->transfer_quota(ram.cap(), ram_quota);
-				}
-			} _resources;
-
-			/*
-			 * Entry point used for serving the parent interface and the
-			 * locally provided ROM sessions for the 'config' and 'binary'
-			 * files.
-			 */
-			enum { ENTRYPOINT_STACK_SIZE = 12*1024 };
-			Rpc_entrypoint _entrypoint;
-
-			/**
-			 * ELF binary
-			 */
-			Genode::Rom_connection _binary_rom;
-
-			/**
-			 * Private child configuration
-			 */
-			Init::Child_config _config;
-
-			/**
-			 * Each child of init can act as a server
-			 */
-			Server _server;
-
-			Genode::Child _child;
-
-			Service_registry *_local_services;
-			Service_registry *_parent_services;
-			Service_registry *_child_services;
-
-			/**
-			 * Policy helpers
-			 */
-			Init::Child_policy_enforce_labeling      _labeling_policy;
-			Init::Child_policy_handle_cpu_priorities _priority_policy;
-			Init::Child_policy_provide_rom_file      _config_policy;
-			Init::Child_policy_provide_rom_file      _binary_policy;
-			Init::Child_policy_redirect_rom_file     _configfile_policy;
-
-		public:
-
-			Child(Xml_node          start_node,
-			      Xml_node          default_route_node,
-			      Name_registry            *name_registry,
-			      long                      prio_levels_log2,
-			      Service_registry *local_services,
-			      Service_registry *parent_services,
-			      Service_registry *child_services,
-			      Genode::Cap_session      *cap_session,
-			      Rm_root * rm_root)
+			Emulated_region(addr_t const base, size_t const size,
+			                addr_t const local,
+			                Emulation_context * const emu_context)
 			:
-				_list_element(this),
-				_start_node(start_node),
-				_default_route_node(default_route_node),
-				_name_registry(name_registry),
-				_name(start_node, name_registry),
-				_resources(start_node, _name.unique, prio_levels_log2, rm_root),
-				_entrypoint(cap_session, ENTRYPOINT_STACK_SIZE, _name.unique, false),
-				_binary_rom(_name.file, _name.unique),
-				_config(_resources.ram.cap(), start_node),
-				_server(_resources.ram.cap()),
-				_child(_binary_rom.dataspace(), _resources.ram.cap(),
-				       _resources.cpu.cap(), _resources.rm.cap(), &_entrypoint, this),
-				_local_services(local_services),
-				_parent_services(parent_services),
-				_child_services(child_services),
-				_labeling_policy(_name.unique),
-				_priority_policy(_resources.prio_levels_log2, _resources.priority),
-				_config_policy("config", _config.dataspace(), &_entrypoint),
-				_binary_policy("binary", _binary_rom.dataspace(), &_entrypoint),
-				_configfile_policy("config", _config.filename())
+				_base(base), _end(base + size), _local(local),
+				_emu_context(emu_context)
+			{ }
+
+			/**
+			 * Lookup region within this AVL subtree that covers 'addr'
+			 */
+			Emulated_region * find_by_addr(addr_t const addr)
 			{
-				using namespace Genode;
-
-				if (_resources.ram_quota == 0)
-					PWRN("no valid RAM resource for child \"%s\"", _name.unique);
-
-				if (config_verbose) {
-					Genode::printf("child \"%s\"\n", _name.unique);
-					Genode::printf("  RAM quota:  %zd\n", _resources.ram_quota);
-					Genode::printf("  ELF binary: %s\n", _name.file);
-					Genode::printf("  priority:   %ld\n", _resources.priority);
-				}
-
-				/*
-				 * Determine services provided by the child
-				 */
-				try {
-					Xml_node service_node = start_node.sub_node("provides").sub_node("service");
-
-					for (; ; service_node = service_node.next("service")) {
-
-						char name[Service::MAX_NAME_LEN];
-						service_node.attribute("name").value(name, sizeof(name));
-
-						if (config_verbose)
-							Genode::printf("  provides service %s\n", name);
-
-						child_services->insert(new (_child.heap())
-							Routed_service(name, &_server));
-
-					}
-				} catch (Xml_node::Nonexistent_sub_node) { }
+				if ((addr >= _base) && (addr < _end)) return this;
+				Emulated_region * region = child(addr > _base);
+				return region ? region->find_by_addr(addr) : 0;
 			}
 
-			virtual ~Child() { }
+			bool intersect_exists(addr_t const base,
+			                      addr_t const end)
+			{
+				if ((base < _end) && (end > _base)) return 1;
+				Emulated_region * region = child(base > _base);
+				return region ? region->intersect_exists(base, end) : 0;
+			}
+
+			/***************
+			 ** Accessors **
+			 ***************/
+
+			addr_t base() const { return _base; }
+			addr_t end() const { return _end; }
+			addr_t local() const { return _local; }
+			Emulation_context * emu_context() const { return _emu_context; }
+
+			/**************
+			 ** Avl_node **
+			 **************/
+
+			bool higher(Emulated_region * e) { return e->_base > _base; }
+	};
+
+	/**
+	 * Synchronous map of all emulated regions with the same resource type
+	 */
+	class Emulated_regions
+	{
+		Avl_tree<Emulated_region> _tree; /* maps adresses to regions */
+		Lock _tree_lock; /* sync access to '_tree' */
+
+		public:
+
+			Emulated_regions() : _tree_lock(Lock::UNLOCKED) { }
 
 			/**
-			 * Return true if the child has the specified name
+			 * Find emulated region that covers 'addr'
 			 */
-			bool has_name(const char *n) const { return !Genode::strcmp(name(), n); }
+			Emulated_region * find_by_addr(addr_t const addr)
+			{
+				Lock::Guard lock_guard(_tree_lock);
+				Emulated_region * region = _tree.first();
+				return region ? region->find_by_addr(addr) : 0;
+			}
 
-			Server *server() { return &_server; }
+			bool intersect_exists(addr_t const base,
+			                      size_t const end)
+			{
+				Lock::Guard lock_guard(_tree_lock);
+				Emulated_region * region = _tree.first();
+				return region ? region->intersect_exists(base, end) : 0;
+			}
 
-			/**
-			 * Start execution of child
-			 */
-			void start() { _entrypoint.activate(); }
+			void insert(Emulated_region * const region)
+			{
+				if (intersect_exists(region->base(), region->end())) {
+					PERR("%s:%d: Emulated regions overlap",
+					     __FILE__, __LINE__);
+					sleep_forever();
+				}
 
+				Lock::Guard lock_guard(_tree_lock);
+				_tree.insert(region);
+			}
+	};
+
+	/**
+	 * Map of all emulated 'IO_MEM' regions
+	 */
+	static Emulated_regions * emulated_io_mem()
+	{
+		static Emulated_regions _o;
+		return &_o;
+	}
+
+	/**
+	 * Map of all emulated 'IRQ' regions
+	 */
+	static Emulated_regions * emulated_irq()
+	{
+		static Emulated_regions _o;
+		return &_o;
+	}
+	/* vinit end */
+
+
+	/* vinit begin */
+	class Emulator_child : public Emulated_child,
+	                       public Emulator_childs::Entry
+	{
+		enum {
+			SESSION_ARGS_SIZE = 32,
+			SESSION_RAM = 8*1024,
+		};
+
+		Lock _service_announced;
+		Root_capability _root;
+		Root_client * _root_client;
+		Emulation::Session * _session;
+
+		public:
+
+			Emulator_child(
+			      Xml_node                  emulator_node,
+			      Xml_node                  default_route_node,
+			      Name_registry * const     name_registry,
+			      long const                prio_levels_log2,
+			      Service_registry * const  parent_services,
+			      Service_registry * const  child_services,
+			      Cap_session * const       cap_session,
+			      Cpu_root * const          cpu_root,
+			      Rm_root * const           rm_root,
+			      Emulation_context * const emu_context,
+			      Service_registry * const  spy_services,
+			      Service_registry * const  emulated_services)
+			:
+				Emulated_child(emulator_node, default_route_node,
+				               name_registry, prio_levels_log2,
+				               parent_services, child_services,
+				               cap_session, cpu_root, rm_root,
+				               spy_services, emulated_services),
+				Emulator_childs::Entry(emu_context),
+				_service_announced(Lock::LOCKED)
+			{
+				/* start child and await anouncement of emulation service */
+				start();
+				_service_announced.lock();
+
+				/* create a session to the childs emulation service */
+				_root_client = new (env()->heap()) Root_client(_root);
+				char args[SESSION_ARGS_SIZE];
+				snprintf(args, sizeof(args), "ram_quota=%i", SESSION_RAM);
+				Emulation::Session_capability cap;
+				cap = static_cap_cast<Emulation::Session>(_root_client->session(args));
+				_session = new (env()->heap()) Emulation::Session_client(cap);
+			}
+
+			Emulation::Session * session() const { return _session; }
 
 			/****************************
 			 ** Child-policy interface **
 			 ****************************/
 
-			const char *name() const { return _name.unique; }
-
-			Service *resolve_session_request(const char *service_name,
-			                                         const char *args)
+			virtual bool announce_service(const char * service_name,
+			                              Root_capability root,
+			                              Allocator * alloc,
+			                              Server * server)
 			{
-				Service *service = 0;
-
-				/* check for config file request */
-				if ((service = _config_policy.resolve_session_request(service_name, args)))
-					return service;
-
-				/* check for binary file request */
-				if ((service = _binary_policy.resolve_session_request(service_name, args)))
-					return service;
-
-				service = _local_services->find(service_name);
-				if (service) return service;
-
-				try {
-					Xml_node route_node = _default_route_node;
-					try {
-						route_node = _start_node.sub_node("route"); }
-					catch (...) { }
-					Xml_node service_node = route_node.sub_node();
-
-					for (; ; service_node = service_node.next()) {
-
-						bool service_wildcard = service_node.has_type("any-service");
-
-						if (!service_node_matches(service_node, service_name))
-							continue;
-
-						if (!service_node_args_condition_satisfied(service_node, args))
-							continue;
-
-						Xml_node target = service_node.sub_node();
-						for (; ; target = target.next()) {
-
-							if (target.has_type("parent")) {
-								service = _parent_services->find(service_name);
-								if (service)
-									return service;
-
-								if (!service_wildcard) {
-									PWRN("%s: service lookup for \"%s\" at parent failed", name(), service_name);
-									return 0;
-								}
-							}
-
-							if (target.has_type("child")) {
-								char server_name[Name::MAX_NAME_LEN];
-								server_name[0] = 0;
-								target.attribute("name").value(server_name, sizeof(server_name));
-
-								Server *server = _name_registry->lookup_server(server_name);
-								if (!server)
-									PWRN("%s: invalid route to non-existing server \"%s\"", name(), server_name);
-
-								service = _child_services->find(service_name, server);
-								if (service)
-									return service;
-
-								if (!service_wildcard) {
-									PWRN("%s: lookup to child service \"%s\" failed", name(), service_name);
-									return 0;
-								}
-							}
-
-							if (target.has_type("any-child")) {
-								if (_child_services->is_ambiguous(service_name)) {
-									PERR("%s: ambiguous routes to service \"%s\"", name(), service_name);
-									return 0;
-								}
-								service = _child_services->find(service_name);
-								if (service)
-									return service;
-
-								if (!service_wildcard) {
-									PWRN("%s: lookup for service \"%s\" failed", name(), service_name);
-									return 0;
-								}
-							}
-
-							if (target.is_last())
-								break;
-						}
-					}
-				} catch (...) {
-					PWRN("%s: no route to service \"%s\"", name(), service_name);
+				if (strcmp(service_name, Emulation::Session::service_name())) {
+					PERR("%s:%d: Unexpected service announcement", __FILE__, __LINE__);
+					return 0;
 				}
-				return service;
-			}
-
-			void filter_session_args(const char *service,
-			                         char *args, size_t args_len)
-			{
-				_labeling_policy.filter_session_args(service, args, args_len);
-				_priority_policy.filter_session_args(service, args, args_len);
-				_configfile_policy.filter_session_args(service, args, args_len);
-			}
-
-			bool announce_service(const char             *service_name,
-			                      Root_capability root,
-			                      Allocator      *alloc)
-			{
-				if (config_verbose)
-					Genode::printf("child \"%s\" announces service \"%s\"\n",
-					               name(), service_name);
-
-				Service *s = _child_services->find(service_name, &_server);
-				Routed_service *rs = dynamic_cast<Routed_service *>(s);
-				if (!s || !rs) {
-					PERR("%s: illegal announcement of service \"%s\"", name(), service_name);
-					return false;
-				}
-
-				rs->announce(root);
-				return true;
+				_root = root;
+				_service_announced.unlock();
+				return 1;
 			}
 	};
 
-	typedef Genode::List<Genode::List_element<Child> > Child_list;
+	const char * emulation_key()
+	{ return Emulation::Session::service_name(); }
+
+	enum { MAX_EMULATOR_CHILDS = 1024 };
+
+	/**
+	 * Set of resources that are assigned to one type of emulator
+	 *
+	 * Multiple emulation contexts can be assigned to the same
+	 * type of emulator. In the normal case the contained resources
+	 * should fit the resources that are managed by the emulator.
+	 * However, the result of access to any resource within an emulation
+	 * context depends on the implementation of the emulator it is
+	 * assigned to.
+	 */
+	class Emulation_context
+	{
+		Xml_node _emulator_node;
+		Allocator * const _md_alloc;
+
+		public:
+
+			Emulation_context(Xml_node xml_node, Xml_node emulator_node,
+			                  Allocator * const md_alloc)
+			: _emulator_node(emulator_node), _md_alloc(md_alloc)
+			{
+				/* look up resources that the emulation context contains */
+				Xml_node resource("<empty/>");
+				try { resource = xml_node.sub_node("resource"); }
+				catch (...) { assert(0); }
+				while (1) {
+					try
+					{
+						/* get emulated-region map by resource type */
+						Emulated_regions * regions = 0;
+						if (resource.attribute("name").has_value("IO_MEM"))
+							regions = emulated_io_mem();
+						else if (resource.attribute("name").has_value("IRQ"))
+							regions = emulated_irq();
+						if (!regions) assert(0);
+
+						/* remember the resource region */
+						addr_t base;
+						size_t size;
+						addr_t local;
+						resource.attribute("base").value(&base);
+						resource.attribute("size").value(&size);
+						resource.attribute("local").value(&local);
+						Emulated_region * region;
+						region = new (_md_alloc)
+							Emulated_region(base, size, local, this);
+						regions->insert(region);
+					} catch (...) { assert(0); }
+
+					/* get next resource or leave */
+					try { resource = resource.next("resource");
+					} catch (...) { break; }
+				}
+			}
+
+			Xml_node emulator_node() const { return _emulator_node; }
+	};
+
+	typedef Genode::List<Genode::List_element<Emulated_child> > Child_list;
 
 	class Child_registry : public Name_registry, Child_list
 	{
@@ -953,7 +305,7 @@ namespace Init
 			/**
 			 * Register child
 			 */
-			void insert(Child *child)
+			void insert(Emulated_child * child)
 			{
 				Child_list::insert(&child->_list_element);
 			}
@@ -962,7 +314,7 @@ namespace Init
 			 * Start execution of all children
 			 */
 			void start() {
-				Genode::List_element<Child> *curr = first();
+				Genode::List_element<Emulated_child> *curr = first();
 				for (; curr; curr = curr->next())
 					curr->object()->start();
 			}
@@ -974,7 +326,7 @@ namespace Init
 
 			bool is_unique(const char *name) const
 			{
-				Genode::List_element<Child> *curr = first();
+				Genode::List_element<Emulated_child> *curr = first();
 				for (; curr; curr = curr->next())
 					if (curr->object()->has_name(name))
 						return false;
@@ -982,9 +334,9 @@ namespace Init
 				return true;
 			}
 
-			Server *lookup_server(const char *name) const
+			Genode::Server *lookup_server(const char *name) const
 			{
-				Genode::List_element<Child> *curr = first();
+				Genode::List_element<Emulated_child> *curr = first();
 				for (; curr; curr = curr->next())
 					if (curr->object()->has_name(name))
 						return curr->object()->server();
@@ -993,308 +345,82 @@ namespace Init
 			}
 	};
 
-	/**
-	 * Child that emulates an adder through the emulator service
-	 */
-	class Emulator_child : public Genode::Child_policy,
-	                       public Init::Child_policy_enforce_labeling
-	{
-		enum { STACK_SIZE = 8*1024 };
 
-		/**
-		 * Wrapper for the childs raw ressources
-		 */
-		struct Resources
+	void Emulated_child::_interpose_emulation(const char * service,
+	                                          char * args, size_t args_len)
+	{
+		/* avoid false emulation requests */
+		assert(!Arg_string::find_arg(args, emulation_key()).valid());
+
+		/* check if request targets resource that might be emulated */
+		addr_t base;
+		size_t size;
+		enum { MAX_LOCAL_KEY_SIZE = 32 };
+		char local_key[MAX_LOCAL_KEY_SIZE];
+		Emulated_regions * regions = 0;
+		if (!strcmp(service, "IO_MEM"))
 		{
-			Ram_connection ram;
-			Cpu_connection cpu;
-			Genode::Rm_connection  rm;
+			/* get region map and targeted address range */
+			snprintf(local_key, sizeof(local_key), "base");
+			regions = emulated_io_mem();
+			Arg base_arg = Arg_string::find_arg(args, local_key);
+			Arg size_arg = Arg_string::find_arg(args, "size");
+			assert(base_arg.valid() && size_arg.valid());
+			base = base_arg.ulong_value(0);
+			size = size_arg.ulong_value(0);
+		} else if (!strcmp(service, "IRQ")) {
 
-			/* Session costs to be deduced from usable ram quota */
-			enum { DONATIONS = Genode::Rm_connection::RAM_QUOTA +
-							   Cpu_connection::RAM_QUOTA +
-							   Ram_connection::RAM_QUOTA };
+			/* get region map and targeted address range */
+			snprintf(local_key, sizeof(local_key), "irq_number");
+			regions = emulated_irq();
+			Arg irq_number = Arg_string::find_arg(args, local_key);
+			assert(irq_number.valid());
+			base = irq_number.ulong_value(0);
+			size = 1;
+		}
+		if (!regions) { return; }
 
-			/**
-			 * Constructor
-			 *
-			 * \param  label  Label for 'ram' and 'cpu'
-			 */
-			Resources(char const *label, size_t ram_quota) :
-				ram(label), cpu(label)
-			{
-				if (ram_quota > DONATIONS) ram_quota -= DONATIONS;
-				else ram_quota = 0;
-				ram.ref_account(Genode::env()->ram_session_cap());
-				Genode::env()->ram_session()->transfer_quota(ram.cap(), ram_quota);
-			}
-
-		} _resources;
-
-		const char * _name; /* name of the emulator process */
-		Rpc_entrypoint _entrypoint; /* to serve the parent interface */
-		Root_capability _root; /* root of the emulator service */
-		Genode::Lock _ready; /* to block till emulator service is available */
-		Genode::Child _child; /* emulator process and parent interface */
-		Service_registry _parent_services; /* services that shall be
-		                                            * routed to our parent */
-
-		public:
-
-			typedef Id_allocator<MAX_EMULATORS> Id_alloc;
-
-			/**
-			 * To assign unique IDs to emulators
-			 */
-			static Id_alloc * id_alloc()
-			{
-				static Id_alloc _id_alloc;
-				return &_id_alloc;
-			}
-
-			/**
-			 * Constructor
-			 */
-			Emulator_child(const char * name,
-						  Genode::Dataspace_capability elf_ds,
-						  size_t const ram_quota,
-						  Genode::Cap_session * const cap_session)
-			:
-				Init::Child_policy_enforce_labeling(name),
-				_resources(name, ram_quota),
-				_name(name),
-				_entrypoint(cap_session, STACK_SIZE, name, false),
-				_ready(Genode::Lock::LOCKED),
-				_child(elf_ds, _resources.ram.cap(), _resources.cpu.cap(),
-					   _resources.rm.cap(), &_entrypoint, this)
-			{
-				_entrypoint.activate();
-				_ready.lock();
-			}
-
-			/***************
-			 ** Accessors **
-			 ***************/
-
-			Root_capability root() { return _root; }
-
-			/**************************
-			 ** Genode::Child_policy **
-			 **************************/
-
-			bool announce_service(const char * name, Root_capability r,
-			                      Allocator * const a, Server *)
-			{
-				if (Genode::strcmp(name, "Emulator")) return 0;
-				_root = r;
-				_ready.unlock();
-				return 1;
-			}
-
-			const char * name() const { return _name; }
-
-			Service * resolve_session_request(const char * service,
-			                                          const char * args)
-			{
-				using namespace Genode;
-				Service * s = _parent_services.find(service);
-				if (!s) {
-					s = new (env()->heap()) Parent_service(service);
-					_parent_services.insert(s);
-				}
-				return s;
-			}
-
-			void filter_session_args(const char * service, char * args,
-			                         size_t const s)
-			{
-				using namespace Init;
-				Child_policy_enforce_labeling::filter_session_args(0, args, s);
-			}
-	};
-
-	/**
-	 * Fault handler for user MMIO that corresponds to an emulated adder
-	 */
-	class Io_mem_fault_handler : public Genode::Thread<8*1024>
-	{
-		Genode::Rm_session * const _rm; /* Nested RM wich backs the user IO_MEM */
-		Signal_receiver * const _sig_recvr; /* Receives fault signals */
-		Emulator::Session_client * const _emu; /* Session to emulate
-		                                        * sideeffects of the faults */
-
-		public:
-
-			/**
-			 * Constructor
-			 */
-			Io_mem_fault_handler(Genode::Rm_session * const rm,
-			                     Signal_receiver * const sr,
-			                     Emulator::Session_client * const emu)
-			:
-				_rm(rm), _sig_recvr(sr), _emu(emu)
-			{ }
-
-			/**
-			 * Process one pending fault
-			 */
-			void handle_fault()
-			{
-				/* Fetch fault attributes */
-				using namespace Genode;
-				Rm_session::State s = _rm->state();
-				if (s.type == Rm_session::READY) {
-					PWRN("Ignoring spurious fault signal");
-					return;
-				}
-				/* Emulate instruction through our emulator */
-				switch(s.type)
-				{
-				case Rm_session::WRITE_FAULT: {
-					_emu->write_mmio(s.addr, Emulator::Session::LSB32, s.value);
-					printf("Write to MMIO 0x%lx: 0x%lx\n", s.addr, s.value);
-					break; }
-				case Rm_session::READ_FAULT: {
-					s.value = _emu->read_mmio(s.addr, Emulator::Session::LSB32);
-					printf("Read from MMIO 0x%lx: 0x%lx\n", s.addr, s.value);
-					break; }
-				default: {
-					PERR("%s:%d: Invalid fault type", __FILE__, __LINE__);
-					return; }
-				}
-				/* End fault */
-				_rm->processed(s);
-			}
-
-			/**
-			 * Thread main routine
-			 */
-			void entry()
-			{
-				while (1) {
-					Genode::Signal s = _sig_recvr->wait_for_signal();
-					for (int i = 0; i < s.num(); i++) handle_fault();
-				}
-			}
-	};
-
-	/**
-	 * Session component of an IO_MEM service for emulated adder MMIO
-	 */
-	class Io_mem_session_component : public Genode::Rpc_object<Genode::Io_mem_session>
-	{
-		enum {
-			EMULATOR_RAM = 512*1024,
-			EMULATOR_SESSION_RAM = 8*1024
-		};
-
-		/* To receive pagefaults from the user RM-session */
-		Genode::Rm_connection _rm;
-		Signal_receiver _fault_recvr;
-		Signal_context _fault;
-		Io_mem_fault_handler * _fault_handler;
-
-		/* To start an emulator child */
-		Cap_connection _emu_cap;
-		Emulator_child * _emu;
-		Genode::Rom_connection * _emu_elf;
-		Genode::Dataspace_capability _emu_elf_ds;
-
-		/* To create a session to the service of our emulator child */
-		Genode::Root_client * _emu_root;
-		Emulator::Session_client * _emu_session;
-
-		public:
-
-			/**
-			 * Constructor
-			 */
-			Io_mem_session_component(Rm_root * const rm_root,
-			                         addr_t const base,
-			                         size_t const s) :
-				_rm(0, 0x1000)
-			{
-				/* get the emulator binary */
-				using namespace Genode;
-				enum { MAX_EMU_ELF_NAME_LENGTH = 32,
-				       MAX_EMU_NAME_LENGTH = 32 };
-				char const elf_name[MAX_EMU_ELF_NAME_LENGTH] = "adder32";
-				try {
-					_emu_elf = new (env()->heap()) Rom_connection(elf_name);
-					_emu_elf_ds = _emu_elf->dataspace();
-				} catch (...) {
-					PERR("%s:%d: Failed to load binary", __FILE__, __LINE__);
-					while (1);
-				}
-				/* start an emulator child */
-				unsigned const id = Emulator_child::id_alloc()->alloc();
-				char name[MAX_EMU_NAME_LENGTH];
-				Genode::snprintf(name, sizeof(name), "%s_%i", elf_name, id);
-				_emu = new (env()->heap())
-					Emulator_child(name, _emu_elf_ds, EMULATOR_RAM, &_emu_cap);
-
-				/* create a session to the service of our emulator child */
-				_emu_root = new (env()->heap()) Root_client(_emu->root());
-				char args[32];
-				snprintf(args, sizeof(args), "ram_quota=%i",
-				         EMULATOR_SESSION_RAM);
-				Emulator::Session_capability c;
-				c = static_cap_cast<Emulator::Session>(_emu_root->session(args));
-				_emu_session = new (env()->heap()) Emulator::Session_client(c);
-
-				/* set fault handler and start handling */
-				_fault_handler = new (env()->heap())
-					Io_mem_fault_handler(&_rm, &_fault_recvr, _emu_session);
-				_rm.fault_handler(_fault_recvr.manage(&_fault));
-				_fault_handler->start();
-			}
-
-			/**
-			 * Get emulated IO_MEM concealed as normal IO_MEM dataspace
-			 */
-			Genode::Io_mem_dataspace_capability dataspace()
-			{
-				using namespace Genode;
-				return static_cap_cast<Io_mem_dataspace>(_rm.dataspace());
-			}
-	};
-
-	/**
-	 * Root component of an IO_MEM service for emulated MMIO
-	 */
-	class Io_mem_root : public Genode::Root_component<Io_mem_session_component>
-	{
-		Rm_root * const _rm_root;
-
-		/**
-		 * Create a new session for the requested MMIO
-		 *
-		 * \param  args  Session-creation arguments
-		 */
-		Io_mem_session_component * _create_session(const char * args)
+		/* check if request fits an emulated region exactly */
+		Emulated_region * const region = regions->find_by_addr(base);
+		if (!region)
 		{
-			using namespace Genode;
-			addr_t b = Arg_string::find_arg(args, "base").ulong_value(0);
-			size_t s = Arg_string::find_arg(args, "size").ulong_value(0);
-			return new (md_alloc()) Io_mem_session_component(_rm_root, b, s);
+			/* we attempt to hand off the request to a native provider,
+			 * thus we must ensure that the requested address range
+			 * doesn't even overlap a region that is emulated by us */
+			assert(!regions->find_by_addr(base + size - 1));
+			return;
+		}
+		assert(region->base() == base && region->end() == base + size);
+
+		/* look for an existing emulator for this context and child */
+		Emulator_child * emu_child =
+			_emulator_childs.find_by_context(region->emu_context());
+		if (!emu_child)
+		{
+			/* create and remember an emulator child for the context */
+			try {
+				emu_child = new (env()->heap())
+					Emulator_child(region->emu_context()->emulator_node(),
+					               _default_route_node, _name_registry,
+					               _resources.prio_levels_log2,
+					               _parent_services, _child_services,
+					               _cap_session, _cpu_root, _rm_root,
+					               region->emu_context(),
+					               _spy_services, _emulated_services);
+				_emulator_childs.insert(emu_child);
+			} catch (...) { assert(0); }
 		}
 
-		public:
-
-			/**
-			 * Constructor
-			 *
-			 * \param  ep        Entrypoint for the root component
-			 * \param  md_alloc  Meta-data allocator for the root component
-			 */
-			Io_mem_root(Rpc_entrypoint * const ep,
-			            Allocator * const md,
-			            Rm_root * const rm_root)
-			:
-				Genode::Root_component<Io_mem_session_component>(ep, md),
-				_rm_root(rm_root)
-			{ }
-	};
+		/* redirect the request routing to the emulated service */
+		enum { HEX_TO_ASCII_SIZE_FACTOR = 2 };
+		Emulation::Session * const emu_session = emu_child->session();
+		char value[HEX_TO_ASCII_SIZE_FACTOR * sizeof(emu_session) +
+		           sizeof("0x")];
+		snprintf(value, sizeof(value), "0x%p", emu_session);
+		Arg_string::set_arg(args, args_len, emulation_key(), value);
+		Arg_string::set_arg(args, args_len, local_key, region->local());
+	}
+	/* vinit end */
 
 
 	/**
@@ -1342,30 +468,56 @@ namespace Init
 		}
 	}
 
-
-	template <typename SESSION_TYPE>
-	class Local_service : public Service
+	void determine_emulated_services(Xml_node default_route, Allocator * const md_alloc)
 	{
-		Genode::Root_component<SESSION_TYPE> * const _root;
+		enum { EMULATOR_NAME_SIZE = 64 };
 
-		public:
-
-			Local_service(Genode::Root_component<SESSION_TYPE> * const root) :
-				Service(SESSION_TYPE::service_name()), _root(root)
-			{ }
-
-			Session_capability session(const char *args) {
-				return _root->session(args); }
-
-			void upgrade(Session_capability, const char *)
+		/* look for available emulators and assigned emulation contexts */
+		try {
+			Xml_node emu_node = config()->xml_node().sub_node("emulator");
+			for (; ; emu_node = emu_node.next("emulator"))
 			{
-				PERR("%s:%d: Not implemented", __FILE__, __LINE__);
-				while (1) ;
-			}
+				/* get the name of the emulator */
+				char emu_name[EMULATOR_NAME_SIZE];
+				emu_name[0] = 0;
+				try { emu_node.attribute("name")
+							  .value(emu_name, sizeof(emu_name)); }
+				catch(...) {
+					PWRN("%s:%d: Invalid syntax", __FILE__, __LINE__);
+					continue;
+				}
 
-			void close(Session_capability session) {
-				_root->close(session); }
-	};
+				/* look up emulation contexts that are assigned to the emulator */
+				Xml_node emu_context = config()->xml_node().sub_node("emulated");
+				try {
+					for (; ; emu_context = emu_context.next("emulated"))
+					{
+						/* check if context is assigned to the emulator */
+						try {
+							if (!emu_context.attribute("by").has_value(emu_name))
+								continue;
+						}
+						catch(...) {
+							PWRN("%s:%d: Invalid syntax", __FILE__, __LINE__);
+							continue;
+						}
+
+						/*
+						 * Create context and emulator if they fit together.
+						 * Both are remembered through refernces that are contained
+						 * by the 'Emulated_region' objects, wich are created by
+						 * the constructor of 'Emulation_context'.
+						 */
+						try {
+							new (md_alloc)
+								Emulation_context(emu_context, emu_node,
+								                  md_alloc);
+						} catch (...) { assert(0); }
+					}
+				} catch (...) { }
+			}
+		} catch (...) { }
+	}
 }
 
 int main(int, char **)
@@ -1374,34 +526,48 @@ int main(int, char **)
 
 	try {
 		config_verbose =
-			Genode::config()->xml_node().attribute("verbose").has_value("yes"); }
+			config()->xml_node().attribute("verbose").has_value("yes"); }
 	catch (...) { }
 
 	/* look for dynamic linker */
 	try {
-		static Genode::Rom_connection rom("ld.lib.so");
-		Genode::Process::dynamic_linker(rom.dataspace());
+		static Rom_connection rom("ld.lib.so");
+		Process::dynamic_linker(rom.dataspace());
 	} catch (...) { }
 
+	static Cap_connection   cap;
+
+	/* vinit begin */
 	enum { ENTRYPOINT_STACK_SIZE = 8*1024 };
 
-	static Sliced_heap sliced_heap(Genode::env()->ram_session(), Genode::env()->rm_session());
-	static Cap_connection   cap;
+	static Sliced_heap sliced_heap(env()->ram_session(), env()->rm_session());
 	static Rpc_entrypoint   ep(&cap, ENTRYPOINT_STACK_SIZE, "entrypoint");
-	static Service_registry local_services;
+	static Rpc_entrypoint   io_mem_ep(&cap, ENTRYPOINT_STACK_SIZE, "io_mem_entrypoint");
+	static Service_registry spy_services;
+	static Service_registry emulated_services;
+	/* vinit end */
+
 	static Service_registry parent_services;
 	static Service_registry child_services;
-	static Child_registry           children;
+	static Child_registry   children;
 
-	/* provide eavesdropping RM service locally */
+	/* vinit begin */
+	static Cpu_root cpu_root(&ep, &sliced_heap);
+	static Local_service cpu(Cpu_session::service_name(), &cpu_root);
+	spy_services.insert(&cpu);
+
 	static Rm_root rm_root(&ep, &sliced_heap);
-	static Local_service<Rm_session_component> rm(&rm_root);
-	local_services.insert(&rm);
+	static Local_service rm(Rm_session::service_name(), &rm_root);
+	spy_services.insert(&rm);
 
-	/* provide virtualized IO MEM service locally */
-	static Io_mem_root io_mem_root(&ep, &sliced_heap, &rm_root);
-	static Local_service<Io_mem_session_component> io_mem(&io_mem_root);
-	local_services.insert(&io_mem);
+	static Io_mem_root io_mem_root(&io_mem_ep, &sliced_heap, &rm_root);
+	static Local_service io_mem(Io_mem_session::service_name(), &io_mem_root);
+	emulated_services.insert(&io_mem);
+
+	static Irq_root irq_root(&cap, &sliced_heap);
+	static Local_service irq(Irq_session::service_name(), &irq_root);
+	emulated_services.insert(&irq);
+	/* vinit end */
 
 	try { determine_parent_services(&parent_services); }
 	catch (...) { }
@@ -1410,19 +576,29 @@ int main(int, char **)
 	Xml_node default_route_node("<empty/>");
 	try {
 		default_route_node =
-			Genode::config()->xml_node().sub_node("default-route"); }
+			config()->xml_node().sub_node("default-route"); }
 	catch (...) { }
+
+	/* vinit begin */
+	determine_emulated_services(default_route_node, &sliced_heap);
+	/* vinit end */
 
 	/* create children */
 	try {
-		Xml_node start_node = Genode::config()->xml_node().sub_node("start");
+		Xml_node start_node = config()->xml_node().sub_node("start");
 		for (;; start_node = start_node.next("start")) {
 
-			children.insert(new (Genode::env()->heap())
-							Init::Child(start_node, default_route_node, &children,
-								  read_prio_levels_log2(), &local_services,
-								  &parent_services, &child_services, &cap, &rm_root));
+			Emulated_child * const child =
+				new (env()->heap())
+					Emulated_child(start_node, default_route_node, &children,
+					               read_prio_levels_log2(), &parent_services,
+					               &child_services, &cap,
 
+					               /* vinit begin */
+					               &cpu_root, &rm_root, &spy_services,
+					               &emulated_services);
+					               /* vinit end */
+			children.insert(child);
 			if (start_node.is_last("start")) break;
 		}
 	}
@@ -1433,7 +609,7 @@ int main(int, char **)
 	/* start children */
 	children.start();
 
-	Genode::sleep_forever();
+	sleep_forever();
 	return 0;
 }
 

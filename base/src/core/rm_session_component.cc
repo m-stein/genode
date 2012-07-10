@@ -236,35 +236,8 @@ int Rm_client::pager(Ipc_pager &pager)
 		/* Determine if the faulting instruction can be emulated. If this is
 		 * the case, we transmit some extra information to the pager to enable
 		 * emulation. Otherwise we skip this for efficiency */
-		unsigned long   pf_writes = 0;
-		unsigned long * pf_instr  = 0;
-		if (level > 0 && (pf_type == Rm_session::WRITE_FAULT || pf_type == Rm_session::READ_FAULT))
-		{
-			/* Lookup attachment that maps the faulting IP */
-			Rm_session_component * ip_rm = member_rm_session();
-			addr_t ip_rm_base = 0;
-			Dataspace_component * ip_src_dsc = 0;
-			Rm_session_component::Fault_area ip_src_area;
-			Rm_session_component::Fault_area ip_dst_area(pf_ip);
-			bool ip_attached;
-			unsigned ip_level;
-			lookup_attachment(ip_rm, ip_rm_base, ip_src_dsc, ip_src_area,
-			                  ip_dst_area, ip_level, ip_attached);
-
-			/* Couldn't find attachment */
-			if(!ip_attached || ip_level >= MAX_NESTING_LEVELS) {
-				PERR("%s:%d: IP not attached", __FILE__, __LINE__);
-				while (1) ;
-			}
-			else if (pf_type == Rm_session::WRITE_FAULT)
-			{
-				if(!instruction_writes_word((unsigned long *)ip_src_area.fault_addr(), pf_writes, badge())) {
-					PERR("%s:%d: Not emulatable", __FILE__, __LINE__);
-					while (1) ;
-				}
-			}
-			pf_instr = (unsigned long *)ip_src_area.fault_addr();
-		}
+		unsigned   pf_writes = 0;
+		unsigned * pf_instr  = 0;
 		/* register fault at responsible region-manager session */
 		curr_rm_session->fault(this, dst_fault_area.fault_addr() - curr_rm_base, 
 		                       pf_type, pf_writes, pf_instr);
@@ -358,7 +331,7 @@ void Rm_faulter::continue_after_resolved_fault()
 }
 
 
-void Rm_faulter::continue_after_processed_fault(unsigned long const read)
+void Rm_faulter::continue_after_processed_fault(unsigned const read)
 {
 	/* Serialize access */
 	using namespace Genode;
@@ -720,8 +693,8 @@ bool Rm_session_component::reverse_lookup(addr_t                dst_base,
 
 void Rm_session_component::fault(Rm_faulter *faulter, addr_t pf_addr,
                                  Rm_session::Fault_type pf_type,
-                                 unsigned long const pf_writes,
-                                 unsigned long * const pf_instr)
+                                 unsigned const pf_writes,
+                                 unsigned * const pf_instr)
 {
 
 	/* serialize access */

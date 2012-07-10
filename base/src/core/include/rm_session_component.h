@@ -42,9 +42,9 @@ namespace Genode {
 	 *                    that shall be written
 	 * \param  thread_id  ID of the faulter kernel-object
 	 */
-	bool instruction_writes_word(unsigned long * const code,
-	                             unsigned long & value,
-	                             unsigned long const thread_id);
+	bool instruction_writes_word(unsigned * const code,
+	                             unsigned & value,
+	                             unsigned const thread_id);
 
 	class Dataspace_component;
 	class Rm_session_component;
@@ -175,7 +175,7 @@ namespace Genode {
 			 * \param read  If the instruction had implied a memory
 			 *              read access, this contains the read value
 			 */
-			void continue_after_processed_fault(unsigned long const read);
+			void continue_after_processed_fault(unsigned const read);
 	};
 
 
@@ -318,8 +318,8 @@ namespace Genode {
 			 */
 			void fault(Rm_faulter *faulter, addr_t pf_addr,
 			           Rm_session::Fault_type pf_type,
-			           unsigned long pf_w_value = 0,
-			           unsigned long * pf_instr = 0);
+			           unsigned pf_w_value = 0,
+			           unsigned * pf_instr = 0);
 
 			/**
 			 * Dissolve faulter from region-manager session

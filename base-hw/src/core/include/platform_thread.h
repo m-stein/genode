@@ -19,6 +19,7 @@
 #include <base/native_types.h>
 #include <kernel/syscalls.h>
 #include <kernel/log.h>
+#include <base/thread_state.h>
 
 /* Core includes */
 #include <assert.h>
@@ -55,7 +56,7 @@ namespace Genode {
 		/**
 		 * Common construction part
 		 */
-		void _init();
+		void _init(const char * name);
 
 		public:
 
@@ -102,18 +103,21 @@ namespace Genode {
 			};
 
 			/**
-			 * Request thread state
-			 *
-			 * \param  state_dst  destination state buffer
-			 *
-			 * \retval  0 successful
-			 * \retval -1 thread state not accessible
+			 * Get thread state
 			 */
-			int state(Genode::Thread_state *state_dst)
+			Thread_state state()
 			{
-				kernel_log() << __PRETTY_FUNCTION__ << ": Not implemented\n";
-				while (1) ;
-				return -1;
+				Genode::Thread_state state;
+				state.fetch(id());
+				return state;
+			};
+
+			/**
+			 * Override thread state
+			 */
+			void state(Thread_state state)
+			{
+				state.override(id());
 			};
 
 			/**

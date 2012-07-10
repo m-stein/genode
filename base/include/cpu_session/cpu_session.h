@@ -47,6 +47,7 @@ namespace Genode {
 			 *********************/
 
 			class Thread_creation_failed : public Exception { };
+			class State_access_failed : public Exception { };
 
 			static const char *service_name() { return "CPU"; }
 
@@ -134,15 +135,23 @@ namespace Genode {
 			virtual void cancel_blocking(Thread_capability thread) = 0;
 
 			/**
-			 * Return thread state
+			 * Get the current state of a specific thread
 			 *
-			 * \param thread     thread to spy on
-			 * \param state_dst  result
-			 *
-			 * \return           0 on success
+			 * \param thread  targeted thread
+			 * \return        state of the targeted thread
+			 * \throw         State_access_failed
 			 */
-			virtual int state(Thread_capability thread,
-			                  Thread_state *state_dst) = 0;
+			virtual Thread_state state(Thread_capability thread) = 0;
+
+			/**
+			 * Override the current state of a specific thread
+			 *
+			 * \param thread  targeted thread
+			 * \param state   state that shall be applied
+			 * \throw         State_access_failed
+			 */
+			virtual void state(Thread_capability thread,
+			                   Thread_state state) = 0;
 
 			/**
 			 * Register signal handler for exceptions of the specified thread
@@ -207,7 +216,12 @@ namespace Genode {
 			GENODE_RPC(Rpc_pause, void, pause, Thread_capability);
 			GENODE_RPC(Rpc_resume, void, resume, Thread_capability);
 			GENODE_RPC(Rpc_cancel_blocking, void, cancel_blocking, Thread_capability);
-			GENODE_RPC(Rpc_state, int, state, Thread_capability, Thread_state *);
+			GENODE_RPC_THROW(Rpc_get_state, Thread_state, state,
+			                 GENODE_TYPE_LIST(State_access_failed),
+			                 Thread_capability);
+			GENODE_RPC_THROW(Rpc_set_state, void, state,
+			                 GENODE_TYPE_LIST(State_access_failed),
+			                 Thread_capability, Thread_state);
 			GENODE_RPC(Rpc_exception_handler, void, exception_handler,
 			                                  Thread_capability, Signal_context_capability);
 			GENODE_RPC(Rpc_single_step, void, single_step, Thread_capability, bool);
@@ -230,11 +244,12 @@ namespace Genode {
 			        Meta::Type_tuple<Rpc_pause,
 			        Meta::Type_tuple<Rpc_resume,
 			        Meta::Type_tuple<Rpc_cancel_blocking,
-			        Meta::Type_tuple<Rpc_state,
+			        Meta::Type_tuple<Rpc_set_state,
+			        Meta::Type_tuple<Rpc_get_state,
 			        Meta::Type_tuple<Rpc_exception_handler,
 			        Meta::Type_tuple<Rpc_single_step,
 			                         Meta::Empty>
-			        > > > > > > > > > > > > Rpc_functions;
+			        > > > > > > > > > > > > > Rpc_functions;
 	};
 }
 

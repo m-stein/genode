@@ -1,5 +1,5 @@
 /*
- * \brief  32-bit-adder-emulator
+ * \brief  FPU emulator
  * \author Martin stein
  * \date   2012-05-04
  */
@@ -15,14 +15,11 @@
 #include <base/sleep.h>
 #include <base/printf.h>
 #include <cap_session/connection.h>
-#include <kernel/log.h>
 
-/* Local includes */
-#include "adder32_root.h"
+/* local includes */
+#include <emulation_root.h>
 
 using namespace Genode;
-
-enum { STACK_SIZE = 8*1024 };
 
 
 /**
@@ -30,17 +27,19 @@ enum { STACK_SIZE = 8*1024 };
  */
 int main(int argc, char **argv)
 {
-	printf("--- emulator for a 32-bit adder ---\n");
+	printf("--- FPU emulator ---\n");
 
-	/*  Initialize ADDER32 service */
+	/* create emulation service */
+	enum { ENTRYPOINT_STACK_SIZE = 4 * 1024 };
 	static Cap_connection cap;
 	static Sliced_heap sliced_heap(env()->ram_session(),
 	                               env()->rm_session());
-	static Rpc_entrypoint adder32_ep(&cap, STACK_SIZE, "adder32_ep");
-	static Adder32_root adder32_root(&adder32_ep, &sliced_heap);
+	static Rpc_entrypoint emulation_ep(&cap, ENTRYPOINT_STACK_SIZE,
+	                                   "emulation_ep");
+	static Emulation::Root emulation_root(&emulation_ep, &sliced_heap);
 
-	/* Announce ADDER32 service and go to sleep */
-	env()->parent()->announce(adder32_ep.manage(&adder32_root));
+	/* announce emulation service and go to sleep */
+	env()->parent()->announce(emulation_ep.manage(&emulation_root));
 	sleep_forever();
 	return 0;
 }

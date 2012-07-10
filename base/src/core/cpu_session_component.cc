@@ -143,14 +143,20 @@ void Cpu_session_component::cancel_blocking(Thread_capability thread_cap)
 }
 
 
-int Cpu_session_component::state(Thread_capability thread_cap,
-                                 Thread_state *state_dst)
+Thread_state Cpu_session_component::state(Thread_capability thread_cap)
+{
+	Cpu_thread_component * thread = _lookup_thread(thread_cap);
+	if (!thread) throw State_access_failed();
+	Thread_state state = thread->platform_thread()->state();
+	return state;
+}
+
+
+void Cpu_session_component::state(Thread_capability thread_cap, Thread_state state)
 {
 	Cpu_thread_component *thread = _lookup_thread(thread_cap);
-	if (!thread) return -1;
-
-	thread->platform_thread()->state(state_dst);
-	return 0;
+	if (!thread) throw State_access_failed();
+	thread->platform_thread()->state(state);
 }
 
 

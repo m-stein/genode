@@ -42,7 +42,7 @@ Platform_thread::Platform_thread(const char * name,
 	_virt_utcb = _phys_utcb;
 
 	/* Common constructor parts */
-	_init();
+	_init("");
 }
 
 
@@ -65,7 +65,7 @@ Platform_thread::Platform_thread(const char * name, unsigned int priority,
 	catch (...) { assert(0); }
 
 	/* Common constructor parts */
-	_init();
+	_init(name);
 }
 
 
@@ -82,7 +82,7 @@ int Platform_thread::join_pd(unsigned long const pd_id,
 }
 
 
-void Platform_thread::_init()
+void Platform_thread::_init(const char * name)
 {
 	/* Create kernel object */
 	void * kernel_thread;
