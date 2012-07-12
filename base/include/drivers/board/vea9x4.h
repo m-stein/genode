@@ -33,6 +33,8 @@ namespace Genode
 			SMB_CS7_SIZE = 0x20000,
 			SMB_CS0_TO_CS6_BASE = 0x40000000,
 			SMB_CS0_TO_CS6_SIZE = 0x20000000,
+			SMB_ON_CHIP_PRPH_BASE = 0x10020000,
+			SMB_ON_CHIP_PRPH_SIZE = 0xdfe0000,
 
 			/* UART */
 			PL011_0_MMIO_BASE = SMB_CS7_BASE + 0x9000,
@@ -55,6 +57,10 @@ namespace Genode
 			CORTEX_A9_CLOCK = TCREF_CLOCK,
 			CORTEX_A9_SECURITY_EXTENSION = 1,
 
+			/* SRAM */
+			SRAM_BASE = 0x48000000,
+			SRAM_SIZE = 0x01ffffff,
+
 			/* RAM */
 			LOCAL_DDR2_BASE = 0x60000000,
 			LOCAL_DDR2_SIZE = 0x40000000,
@@ -72,10 +78,7 @@ namespace Genode
 
 			struct Cfgrw1 : public Register<0x4, 32>
 			{
-				struct Smc_tzasc : Bitfield<13,1>
-				{
-					enum { DISABLE, ENABLE };
-				};
+				struct Smc_tzasc : Bitfield<13,1> { };
 			};
 
 		public:
@@ -86,7 +89,7 @@ namespace Genode
 			 * Enable Trustzone address space controller
 			 */
 			void enable_tz_asc() {
-				write<Cfgrw1::Smc_tzasc>(Cfgrw1::Smc_tzasc::ENABLE); }
+				write<Cfgrw1::Smc_tzasc>(Cfgrw1::Smc_tzasc::bits(1)); }
 	};
 }
 

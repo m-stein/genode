@@ -7,6 +7,9 @@
 # Set program name
 TARGET = core
 
+# Put it into SRAM
+LD_TEXT_ADDR = 0x48000000
+
 # Use core specific startup library
 STARTUP_LIB = startup_core
 

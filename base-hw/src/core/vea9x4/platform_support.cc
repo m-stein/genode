@@ -27,7 +27,7 @@ Native_region * Platform::_ram_regions(unsigned const i)
 {
 	static Native_region _regions[] =
 	{
-		{ Vea9x4::LOCAL_DDR2_BASE, Vea9x4::LOCAL_DDR2_SIZE }
+		{ Vea9x4::SRAM_BASE, Vea9x4::SRAM_SIZE },
 	};
 	return i < sizeof(_regions)/sizeof(_regions[0]) ? &_regions[i] : 0;
 }
@@ -62,7 +62,8 @@ Native_region * Platform::_mmio_regions(unsigned const i)
 	static Native_region _regions[] =
 	{
 		{ Vea9x4::SMB_CS7_BASE, Vea9x4::SMB_CS7_SIZE },
-		{ Vea9x4::SMB_CS0_TO_CS6_BASE, Vea9x4::SMB_CS0_TO_CS6_SIZE }
+		{ Vea9x4::SMB_CS0_TO_CS6_BASE, Vea9x4::SMB_CS0_TO_CS6_SIZE },
+		{ Vea9x4::SMB_ON_CHIP_PRPH_BASE, Vea9x4::SMB_ON_CHIP_PRPH_SIZE }
 	};
 	return i < sizeof(_regions)/sizeof(_regions[0]) ? &_regions[i] : 0;
 }
