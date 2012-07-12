@@ -22,7 +22,7 @@ namespace Genode {
 	struct Vm_connection : Connection<Vm_session>, Vm_session_client
 	{
 			Vm_connection()
-			: Connection<Vm_session>(session("ram_quota=8K")),
+			: Connection<Vm_session>(session("ram_quota=12K")),
 			  Vm_session_client(cap()) { }
 	};
 
