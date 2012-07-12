@@ -50,8 +50,6 @@ namespace Genode {
 
       addr_t cp10_fpexc;
 
-      addr_t pfs;
-      addr_t pfa;
       addr_t exit_reason;
     };
 }
