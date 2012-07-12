@@ -1,3 +1,3 @@
 TARGET    = vmm
-LIBS      = env cxx
+LIBS      = env cxx elf
 SRC_CC    = main.cc

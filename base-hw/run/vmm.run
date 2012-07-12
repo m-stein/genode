@@ -4,7 +4,7 @@
 # \date   2012-06-25
 #
 
-build "core init server/vmm"
+build "core init server/vmm test/mini_kernel hello drivers/timer"
 create_boot_directory
 
 install_config {
@@ -19,17 +19,41 @@ install_config {
 		<service name="RM"/>
 		<service name="CPU"/>
 		<service name="LOG"/>
+		<service name="VM"/>
 	</parent-provides>
-	<default-route><any-service><parent/></any-service></default-route>
+	<default-route>
+		<any-service><any-child/><parent/></any-service>
+	</default-route>
 
-	<start name="vmm">
-		<resource name="RAM" quantum="2M"/>
+	<start name="timer">
+		<resource name="RAM" quantum="1M"/>
+		<provides><service name="Timer"/></provides>
 	</start>
 
+	<start name="vmm">
+		<resource name="RAM" quantum="1M"/>
+		<config image="mini_kernel">
+			<memory>
+				<region name="mainmem" start="0x60000000" size="0x20000000" />
+				<region name="uart3"   start="0x1000c000" size="0x1000"/>
+			</memory>
+			<interrupts>
+				<irq name="uart3" number="40"/>
+			</interrupts>
+		</config>
+	</start>
+
+	<start name="hello_server">
+		<resource name="RAM" quantum="1M"/>
+		<provides><service name="Hello"/></provides>
+	</start>
+	<start name="hello_client">
+		<resource name="RAM" quantum="1M"/>
+	</start>
 </config>
 }
 
-build_boot_image "core init vmm"
+build_boot_image "core init vmm mini_kernel hello_client hello_server timer"
 
 append qemu_args " -m 64 -nographic"
 
