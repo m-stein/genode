@@ -179,7 +179,8 @@ int main()
 	                                  platform()->irq_alloc(), &sliced_heap);
 	static Signal_root  signal_root  (&sliced_heap, core_env()->cap_session());
 
-	static Vm_root      vm_root      (e, e, &sliced_heap);
+	static Vm_root      vm_root      (e, e, platform()->ram_alloc(),
+	                                  platform()->io_mem_alloc(), &sliced_heap);
 
 	/*
 	 * Play our role as parent of init and declare our services.

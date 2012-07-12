@@ -15,7 +15,6 @@
 #define _CORE__INCLUDE__VM_SESSION_COMPONENT_H_
 
 /* Genode includes */
-#include <base/allocator_guard.h>
 #include <base/rpc_server.h>
 #include <base/vm_state.h>
 #include <vm_session/vm_session.h>
@@ -36,27 +35,28 @@ namespace Genode {
 
 			Dataspace_component      _ds;
 			Dataspace_capability     _ds_cap;
-			Allocator_guard          _alloc_guard;
-			Allocator_avl            _range_alloc;
+			Range_allocator         *_ram_alloc;
+			Range_allocator         *_io_alloc;
 			Rpc_entrypoint          *_ds_ep;
 
 		public:
 
-			Vm_session_component(Allocator      *allocator,
-			                     size_t          amount,
-			                     Rpc_entrypoint *ds_ep)
-			: _alloc_guard(allocator, amount),
-			  _range_alloc(&_alloc_guard),
-			  _ds_ep(ds_ep)
+			Vm_session_component(Range_allocator *ram_alloc,
+			                     Range_allocator *io_alloc,
+			                     size_t           amount,
+			                     Rpc_entrypoint  *ds_ep)
+			: _ram_alloc(ram_alloc), _io_alloc(io_alloc), _ds_ep(ds_ep)
 			{
 				addr_t ds_addr = 0;
 
 				/* align needed dataspace size to page-size */
 				size_t ds_size = align_addr(sizeof(Vm_state), get_page_size_log2());
+				if (ds_size > amount)
+					throw Root::Quota_exceeded();
 
 				/* alloc needed memory */
-				if (!_range_alloc.alloc_aligned(ds_size, (void**)&ds_addr,
-				                                get_page_size_log2()))
+				if (!_ram_alloc->alloc_aligned(ds_size, (void**)&ds_addr,
+				                                 get_page_size_log2()))
 					throw Root::Quota_exceeded();
 
 				/* construct dataspace object */
@@ -72,7 +72,7 @@ namespace Genode {
 				_ds_ep->dissolve(&_ds);
 
 				/* free region in allocator */
-				_range_alloc.free((void*)_ds.core_local_addr());
+				_ram_alloc->free((void*)_ds.core_local_addr());
 			}
 
 
@@ -84,6 +84,13 @@ namespace Genode {
 
 			void start() {
 				Kernel::switch_to_vm((void*)_ds.core_local_addr()); }
+
+			void add_region(addr_t addr, size_t sz)
+			{
+				if (_ram_alloc->remove_range(addr, sz))
+					throw Region_conflict();
+				_io_alloc->add_range(addr, sz);
+			}
 	};
 }
 

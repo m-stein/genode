@@ -16,6 +16,7 @@
 
 /* Genode includes */
 #include <base/capability.h>
+#include <base/exception.h>
 #include <session/session.h>
 #include <dataspace/capability.h>
 
@@ -32,6 +33,10 @@ namespace Genode
 		 */
 		static const char * service_name() { return "VM"; }
 
+
+		class Region_conflict : public Exception { };
+
+
 		/**
 		 * Destructor
 		 */
@@ -41,6 +46,8 @@ namespace Genode
 
 		virtual void start() = 0;
 
+		virtual void add_region(addr_t addr, size_t sz) = 0;
+
 
 		/*********************
 		 ** RPC declaration **
@@ -48,7 +55,9 @@ namespace Genode
 
 		GENODE_RPC(Rpc_dataspace, Genode::Dataspace_capability, dataspace);
 		GENODE_RPC(Rpc_start, void, start);
-		GENODE_RPC_INTERFACE(Rpc_dataspace, Rpc_start);
+		GENODE_RPC_THROW(Rpc_add_region, void, add_region,
+		                 GENODE_TYPE_LIST(Region_conflict), addr_t, size_t);
+		GENODE_RPC_INTERFACE(Rpc_dataspace, Rpc_start, Rpc_add_region);
 	};
 }
 

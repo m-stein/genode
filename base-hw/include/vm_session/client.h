@@ -40,7 +40,11 @@ namespace Genode
 		Genode::Dataspace_capability dataspace() {
 			return call<Rpc_dataspace>(); }
 
-		void start() { call<Rpc_start>(); }
+		void start() {
+			call<Rpc_start>(); }
+
+		void add_region(addr_t addr, size_t sz) {
+			call<Rpc_add_region>(addr, sz); }
 	};
 }
 

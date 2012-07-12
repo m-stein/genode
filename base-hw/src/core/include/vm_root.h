@@ -25,7 +25,9 @@ namespace Genode {
 
 		private:
 
-			Rpc_entrypoint  *_ds_ep;  /* entry point for managing dataspaces */
+			Range_allocator *_ram_alloc;
+			Range_allocator *_io_alloc;
+			Rpc_entrypoint  *_ds_ep;
 
 		protected:
 
@@ -38,7 +40,7 @@ namespace Genode {
 					throw Quota_exceeded();
 
 				return new (md_alloc())
-					Vm_session_component(md_alloc(),
+					Vm_session_component(_ram_alloc, _io_alloc,
 					                     ram_quota - sizeof(Vm_session_component),
 					                     _ds_ep);
 			}
@@ -50,12 +52,18 @@ namespace Genode {
 			 *
 			 * \param session_ep    entry point for managing vm session objects
 			 * \param ds_ep         entry point for managing dataspaces
+			 * \param ram_alloc     ram allocator
+			 * \param ram_alloc     io memory allocator
 			 * \param md_alloc      meta-data allocator to be used by root component
 			 */
 			Vm_root(Rpc_entrypoint  *session_ep,
 			        Rpc_entrypoint  *ds_ep,
+			        Range_allocator *ram_alloc,
+			        Range_allocator *io_alloc,
 			        Allocator       *md_alloc)
 			: Root_component<Vm_session_component>(session_ep, md_alloc),
+			  _ram_alloc(ram_alloc),
+			  _io_alloc(io_alloc),
 			  _ds_ep(ds_ep) { }
 	};
 }
