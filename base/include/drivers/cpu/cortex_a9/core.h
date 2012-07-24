@@ -503,10 +503,10 @@ namespace Genode
 			 */
 			User_context()
 			{
-				/* Execute in usermode with IRQ's enabled and FIQ's and
-				 * asynchronous aborts disabled */
-				psr = Cpsr::M::bits(Cpsr::M::USER) | Cpsr::F::bits(1) |
-				      Cpsr::I::bits(0) | Cpsr::A::bits(1);
+				/* Execute in usermode with FIQ's enabled, and
+				 * IRQ's, asynchronous aborts disabled */
+				psr = Cpsr::M::bits(Cpsr::M::USER) | Cpsr::F::bits(0) |
+				      Cpsr::I::bits(1) | Cpsr::A::bits(1);
 			}
 
 			/***************************************************
@@ -550,7 +550,7 @@ namespace Genode
 					PAGEFAULT, /* 4 */
 					PAGEFAULT, /* 5 */
 					INTERRUPT, /* 6 */
-					INVALID    /* 7 */
+					INTERRUPT  /* 7 */
 				};
 				/* determine exception type */
 				if (cpu_exception > MAX_CPU_EXCEPTION) return INVALID;
@@ -601,16 +601,6 @@ namespace Genode
 				}
 			}
 		};
-
-		/**
-		 * Enable interrupt requests
-		 */
-		static void enable_irqs()
-		{
-			Cpsr::access_t cpsr = Cpsr::read();
-			Cpsr::I::clear(cpsr);
-			Cpsr::write(cpsr);
-		}
 
 		/**
 		 * Set CPU exception entry to a given address

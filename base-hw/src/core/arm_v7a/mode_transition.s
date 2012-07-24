@@ -28,6 +28,10 @@
  */
 .macro _user_to_kernel_pic exception_type, pc_adjust
 
+	.if \exception_type != 7
+		cpsid f           /* disable FIQs */
+	.endif
+
 	/**************************************************
 	 ** We're already in the user protection domain, **
 	 ** so we must avoid access to kernel memory     **
@@ -53,7 +57,7 @@
 	ldr sp, _mt_user_context_ptr
 
 	/* Save user r0 ... r12 */
-	stmia sp, {r0-r12}
+	stmia sp, {r0-r12}^
 
 	/* Save user lr and sp */
 	add r0, sp, #13*4
@@ -72,6 +76,9 @@
 	/* Save type of exception that interrupted the user */
 	mov r0, #\exception_type
 	str r0, [sp, #18*4]
+
+	/* Switch to supervisor mode */
+	cps #19
 
 	/* Get kernel context pointer */
 	adr r0, _mt_kernel_context_begin
@@ -98,14 +105,22 @@
 		.global _mt_kernel_entry_pic
 		_mt_kernel_entry_pic:
 
-			b _rst_entry  /* Reset                  */
-			b _und_entry  /* Undefined instruction  */
-			b _svc_entry  /* Supervisor call        */
-			b _pab_entry  /* Prefetch abort         */
-			b _dab_entry  /* Data abort             */
-			nop           /* Reserved               */
-			b _irq_entry  /* Interrupt request      */
-			b _fiq_entry  /* Fast interrupt request */
+			b _rst_entry      /* Reset                                  */
+			b _und_entry      /* Undefined instruction                  */
+			b _svc_entry      /* Supervisor call                        */
+			b _pab_entry      /* Prefetch abort                         */
+			b _dab_entry      /* Data abort                             */
+			nop               /* Reserved                               */
+			b _irq_entry      /* Interrupt request                      */
+			mrs   r8, spsr    /* Fast-interrupt                         */
+			and   r8, #31
+			cmp   r8, #16     /* check whether we come from user-mode   */
+			beq   1f
+			mrs   r8, spsr    /* otherwise disable fast-interrupts      */
+			orr   r8, #64
+			msr   spsr, r8
+			subs  pc, lr, #4  /* resume previous exception              */
+		1:  _user_to_kernel_pic 7, 4
 
 			/* PICs that switch from an user exception to the kernel */
 			_rst_entry: _user_to_kernel_pic 1, 0
@@ -114,7 +129,6 @@
 			_pab_entry: _user_to_kernel_pic 4, 4
 			_dab_entry: _user_to_kernel_pic 5, 8
 			_irq_entry: _user_to_kernel_pic 6, 4
-			_fiq_entry: _user_to_kernel_pic 7, 4
 
 		/* Kernel must jump to this point to switch to a user context */
 		.align 3
