@@ -123,6 +123,8 @@
 	mov   lr, #\nr                  /* store exc. number in lr               */
 	_mm_save_normal_state
 	_mm_restore_secure_state
+	mov   lr, #0
+	mcr   p15, 0, lr, c1, c1, 0     /* disable all SCR flags                 */
 	mov   lr, r3
 	msr   spsr_cfsx, r4             /* write cfsx flags to spsr register     */
 	movs  pc, lr
@@ -143,23 +145,20 @@ _mm_vector_base:
 		b   _mm_data_abort_entry    /* data abort                            */
 		nop                         /* not used                              */
 		b   _mm_irq_entry           /* interrupt                             */
-		b   _mm_fiq_entry           /* fast interrupt                        */
-
-.globl _mm_switch_to_normal
-_mm_switch_to_normal:
-	_mm_save_secure_state
-	_mm_restore_normal_state
-	mov lr, #127
-#	mov lr, #125
-	mcr   p15, 0, lr, c1, c1, 0 /* enable AW, FW, EA, FIQ, and NS bit        */
-#	_mm_toggle_ns_bit lr, 1     /* switch to non-secure mode                 */
-	ldr   lr, [sp, #-4]
-	msr   spsr, lr              /* set spsr_mon with unsecure spsr           */
-	ldr   lr, [sp, #-8]         /* set lr_mon with unsecure ip               */
-	subs  pc, lr, #0
+		_mm_switch_to_secure 7 4    /* fast interrupt                        */
 
 _mm_smc_entry:        _mm_switch_to_secure 2 0
 _mm_pf_abort_entry:   _mm_switch_to_secure 3 4
 _mm_data_abort_entry: _mm_switch_to_secure 4 4
 _mm_irq_entry:        _mm_switch_to_secure 6 4
-_mm_fiq_entry:        _mm_switch_to_secure 7 4
+
+.globl _mm_switch_to_normal
+_mm_switch_to_normal:
+	_mm_save_secure_state
+	_mm_restore_normal_state
+	mov   lr, #13
+	mcr   p15, 0, lr, c1, c1, 0 /* enable EA, FIQ, and NS bit                */
+	ldr   lr, [sp, #-4]
+	msr   spsr, lr              /* set spsr_mon with unsecure spsr           */
+	ldr   lr, [sp, #-8]         /* set lr_mon with unsecure ip               */
+	subs  pc, lr, #0
