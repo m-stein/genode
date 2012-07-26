@@ -73,7 +73,7 @@ class Context_area_rm_session : public Rm_session
 			       (void *)local_addr);
 		}
 
-		Pager_capability add_client(Thread_capability) {
+		Pager_capability add_client(Thread_capability, unsigned) {
 			return Pager_capability(); }
 
 		void fault_handler(Signal_context_capability) { }

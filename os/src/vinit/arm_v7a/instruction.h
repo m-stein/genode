@@ -43,8 +43,9 @@ namespace Init
 			 */
 			static bool ld_st_w_ub(access_t const code)
 			{
-				return C1::get(code) == 1 &&
-				       (!C2::get(code) || !C3::get(code));
+				if (C1::get(code) != 1) return 0;
+				if (C2::get(code) != 0) if (C3::get(code) != 0) return 0;
+				return 1;
 			}
 		};
 
@@ -55,35 +56,66 @@ namespace Init
 		{
 			struct C1 : Bitfield<20, 1> { };
 			struct C2 : Bitfield<22, 1> { };
-			struct C3 : Bitfield<20, 3> { };
+			struct C3 : Bitfield<21, 1> { };
 			struct C4 : Bitfield<24, 1> { };
 
 			/**
-			 * If 'code' is of type 'Code_ldr_str' and "Store register"
+			 * If 'code' is of type "Store register"
 			 */
 			static bool str(access_t const code)
 			{
-				return !C1::get(code) && !C2::get(code) &&
-				       !((C3::get(code) == 2) && !C4::get(code));
+				if (C1::get(code) != 0) return 0;
+				if (C2::get(code) != 0) return 0;
+				if (C3::get(code) == 1) if (C4::get(code) == 0) return 0;
+				return 1;
 			}
 
 			/**
-			 * If 'code' is of type 'Code_ldr_str' and "Load register"
+			 * If 'code' is of type "Load register"
 			 */
 			static bool ldr(access_t const code)
 			{
-				return C1::get(code) && !C2::get(code) &&
-				       !((C3::get(code) == 3) && !C4::get(code));
+				if (C1::get(code) != 1) return 0;
+				if (C2::get(code) != 0) return 0;
+				if (C3::get(code) == 1) if (C4::get(code) == 0) return 0;
+				return 1;
+			}
+
+			/**
+			 * If 'code' is of type "Store register byte"
+			 */
+			static bool strb(access_t const code)
+			{
+				if (C1::get(code) != 0) return 0;
+				if (C2::get(code) != 1) return 0;
+				if (C3::get(code) == 1) if (C4::get(code) == 0) return 0;
+				return 1;
+			}
+
+			/**
+			 * If 'code' is of type "Load register byte"
+			 */
+			static bool ldrb(access_t const code)
+			{
+				if (C1::get(code) != 1) return 0;
+				if (C2::get(code) != 1) return 0;
+				if (C3::get(code) == 1) if (C4::get(code) == 0) return 0;
+				return 1;
 			}
 		};
 
 		/**
-		 * Encodings of type "Load/store register"
+		 * Type 1 encoding of the "Rt"-register ID field in instructions
 		 */
-		struct Code_ldr_str : Genode::Register<WIDTH>
+		struct Rt_1 : Genode::Register<WIDTH>
 		{
 			struct Rt : Bitfield<12, 4> { };
 		};
+
+		struct Code_ldr : Rt_1 { };
+		struct Code_str : Rt_1 { };
+		struct Code_strb : Rt_1 { };
+		struct Code_ldrb : Rt_1 { };
 
 		/**
 		 * If 'code' is a STR instruction get its attributes
@@ -94,7 +126,7 @@ namespace Init
 			bool const ret = Code::ld_st_w_ub(code) &&
 			                 Code_ld_st_w_ub::str(code);
 			if (ret) {
-				reg = Code_ldr_str::Rt::get(code);
+				reg = Code_str::Rt::get(code);
 				writes = 1;
 				format = Rm_session::LSB32;
 			}
@@ -110,11 +142,39 @@ namespace Init
 			bool const ret = Code::ld_st_w_ub(code) &&
 			                 Code_ld_st_w_ub::ldr(code);
 			if (ret) {
-				reg = Code_ldr_str::Rt::get(code);
+				reg = Code_str::Rt::get(code);
 				writes = 0;
 				format = Rm_session::LSB32;
 			}
 			return ret;
+		}
+
+		/**
+		 * If 'code' is a STRB instruction get its attributes
+		 */
+		static bool strb(Code::access_t const code, bool & writes,
+		                 Rm_session::Access_format & format, unsigned & reg)
+		{
+			if (!Code::ld_st_w_ub(code)) return 0;
+			if (!Code_ld_st_w_ub::strb(code)) return 0;
+			reg = Code_strb::Rt::get(code);
+			writes = 1;
+			format = Rm_session::LSB8;
+			return 1;
+		}
+
+		/**
+		 * If 'code' is a LDRB instruction get its attributes
+		 */
+		static bool ldrb(Code::access_t const code, bool & writes,
+		                 Rm_session::Access_format & format, unsigned & reg)
+		{
+			if (!Code::ld_st_w_ub(code)) return 0;
+			if (!Code_ld_st_w_ub::ldrb(code)) return 0;
+			reg = Code_ldrb::Rt::get(code);
+			writes = 0;
+			format = Rm_session::LSB8;
+			return 1;
 		}
 
 		/**
@@ -130,7 +190,9 @@ namespace Init
 		                       unsigned & reg)
 		{
 			return Instruction::str(code, writes, format, reg) ||
-		           Instruction::ldr(code, writes, format, reg);
+			       Instruction::ldr(code, writes, format, reg) ||
+			       Instruction::ldrb(code, writes, format, reg) ||
+			       Instruction::strb(code, writes, format, reg);
 		}
 	};
 }

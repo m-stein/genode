@@ -56,7 +56,7 @@ namespace Genode {
 		/**
 		 * Common construction part
 		 */
-		void _init();
+		void _init(char const * name);
 
 		public:
 

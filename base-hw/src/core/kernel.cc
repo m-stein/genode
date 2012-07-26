@@ -1516,6 +1516,7 @@ namespace Kernel
 
 		/* return success */
 		user->user_arg_0(pd->id());
+		Genode::printf("new pd %x by %x %x %x %x\n", pd->id(), user->id(), user->r13, user->r14, user->r15);
 	}
 
 
@@ -1568,6 +1569,7 @@ namespace Kernel
 		assert(pd);
 		Software_tlb * const tlb = static_cast<Software_tlb *>(pd);
 		user->user_arg_0((Syscall_ret)tlb);
+		Genode::printf("start thread %x %x %x %x %x by %x\n", t->id(), t->pd_id(), t->r13, t->r14, t->r15, user->id());
 	}
 
 
@@ -1753,6 +1755,11 @@ namespace Kernel
 	 */
 	void do_print_char(Thread * const user)
 	{
+		if((char)user->user_arg_1() == '~')
+		{
+			Genode::printf("Trace %x %x %x %x %x\n", user->id(), user->pd_id(), user->r13, user->r14, user->r15);
+			return;
+		}
 		Genode::printf("%c", (char)user->user_arg_1());
 	}
 

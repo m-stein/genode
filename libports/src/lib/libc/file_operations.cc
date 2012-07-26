@@ -64,7 +64,7 @@ inline File_descriptor *libc_fd_to_fd(int libc_fd, const char *func_name)
 {
 	File_descriptor *fd = file_descriptor_allocator()->find_by_libc_fd(libc_fd);
 	if (!fd)
-		PERR("no plugin found for %s(%d)", func_name, libc_fd);
+		PERR("1 no plugin found for %s(%d)", func_name, libc_fd);
 
 	return fd;
 }
@@ -89,7 +89,7 @@ inline File_descriptor *libc_fd_to_fd(int libc_fd, const char *func_name)
 #define FNAME_FUNC_WRAPPER(func_name, path, ...) \
 	Plugin *plugin  = plugin_registry()->get_plugin_for_##func_name(path, ##__VA_ARGS__); \
 	if (!plugin) { \
-		PERR("no plugin found for %s(\"%s\")", #func_name, path); \
+		PERR("2 no plugin found for %s(\"%s\")", #func_name, path); \
 		return -1; \
 	} \
 	return plugin->func_name(path, ##__VA_ARGS__);
@@ -201,7 +201,7 @@ extern "C" void freeaddrinfo(struct addrinfo *res)
 	plugin = plugin_registry()->get_plugin_for_freeaddrinfo(res);
 
 	if (!plugin) {
-		PERR("no plugin found for freeaddrinfo()");
+		PERR("3 no plugin found for freeaddrinfo()");
 		return;
 	}
 
@@ -240,7 +240,7 @@ extern "C" int getaddrinfo(const char *node, const char *service,
 	plugin = plugin_registry()->get_plugin_for_getaddrinfo(node, service, hints, res);
 
 	if (!plugin) {
-		PERR("no plugin found for getaddrinfo()");
+		PERR("4 no plugin found for getaddrinfo()");
 		return -1;
 	}
 
@@ -357,7 +357,7 @@ extern "C" int _open(const char *pathname, int flags, ::mode_t mode)
 	plugin = plugin_registry()->get_plugin_for_open(pathname, flags);
 
 	if (!plugin) {
-		PERR("no plugin found for open(\"%s\", int)", pathname, flags);
+		PERR("5 no plugin found for open(\"%s\", int)", pathname, flags);
 		return -1;
 	}
 
@@ -389,7 +389,7 @@ extern "C" int pipe(int pipefd[2])
 	plugin = plugin_registry()->get_plugin_for_pipe();
 
 	if (!plugin) {
-		PERR("no plugin found for pipe()");
+		PERR("6 no plugin found for pipe()");
 		return -1;
 	}
 
@@ -490,7 +490,7 @@ extern "C" int socket(int domain, int type, int protocol)
 	plugin = plugin_registry()->get_plugin_for_socket(domain, type, protocol);
 
 	if (!plugin) {
-		PERR("no plugin found for socket()");
+		PERR("7 no plugin found for socket()");
 		return -1;
 	}
 

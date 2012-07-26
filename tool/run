@@ -380,8 +380,8 @@ proc copy_and_strip_genode_binaries_to_run_dir { binaries } {
 
 	foreach binary $binaries {
 		exec cp bin/$binary [run_dir]/genode
-		catch {
-			exec [cross_dev_prefix]strip [run_dir]/genode/$binary || true }
+#		catch {
+#			exec [cross_dev_prefix]strip [run_dir]/genode/$binary || true }
 	}
 }
 

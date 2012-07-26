@@ -1,0 +1,63 @@
+build { core init vinit test/freehdl_joint }
+
+create_boot_directory
+
+install_config {
+<config verbose="no">
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="RAM"/>
+		<service name="CAP"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="IO_MEM"/>
+		<service name="IRQ"/>
+		<service name="LOG"/>
+		<service name="SIGNAL"/>
+	</parent-provides>
+	<default-route><any-service><parent/></any-service></default-route>
+
+	<start name="vinit">
+		<resource name="RAM" quantum="40M"/>
+		<config verbose="no">
+			<parent-provides>
+				<service name="ROM"/>
+				<service name="RAM"/>
+				<service name="CAP"/>
+				<service name="PD"/>
+				<service name="RM"/>
+				<service name="CPU"/>
+				<service name="IO_MEM"/>
+				<service name="IRQ"/>
+				<service name="LOG"/>
+				<service name="SIGNAL"/>
+			</parent-provides>
+			<default-route><any-service><parent/></any-service></default-route>
+
+			<emulator name="adder">
+				<binary name="test-freehdl_joint-adder"/>
+				<resource name="RAM" quantum="5M"/>
+			</emulator>
+
+			<emulated by="adder">
+				<resource name="IO_MEM" base="0x71000000" size="0x1000" local="0x0"/>
+			</emulated>
+
+			<start name="test_1">
+				<binary name="test-freehdl_joint"/>
+				<resource name="RAM" quantum="5M"/>
+			</start>
+
+		</config>
+	</start>
+
+</config>
+}
+
+build_boot_image { core init vinit test-freehdl_joint test-freehdl_joint-adder ld.lib.so libc.lib.so libc_log.lib.so }
+
+if {[have_spec hw_vea9x4] || [have_spec hw_pbxa9]} {
+	run_genode_until forever
+}
+

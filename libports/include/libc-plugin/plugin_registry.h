@@ -18,6 +18,7 @@
 #include <util/list.h>
 
 #include <libc-plugin/plugin.h>
+#include <base/printf.h>
 
 namespace Libc {
 

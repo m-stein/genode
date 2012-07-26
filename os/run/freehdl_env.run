@@ -1,0 +1,39 @@
+#
+# \brief   Test MMIO and register framework functionalities
+# \author  Martin Stein
+# \date    2012-05-29
+#
+
+# Build program images
+build "core init test/freehdl_env"
+
+# Create directory where the boot files are written to
+create_boot_directory
+
+# Create XML configuration for init
+install_config {
+<config>
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="RAM"/>
+		<service name="CPU"/>
+		<service name="RM"/>
+		<service name="CAP"/>
+		<service name="PD"/>
+		<service name="LOG"/>
+	</parent-provides>
+	<default-route>
+		<any-service> <parent/> </any-service>
+	</default-route>
+	<start name="test-freehdl_env">
+		<resource name="RAM" quantum="10M"/>
+	</start>
+</config>
+}
+
+# Build boot files from the source binaries
+build_boot_image "core init test-freehdl_env libc.lib.so ld.lib.so libc_log.lib.so"
+
+# Execute test in Qemu
+run_genode_until forever
+

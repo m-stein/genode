@@ -129,16 +129,20 @@ namespace Init {
 int main(int, char **)
 {
 	using namespace Init;
+	Genode::printf("--- init ---\n");
 
 	try {
 		config_verbose =
 			Genode::config()->xml_node().attribute("verbose").has_value("yes"); }
 	catch (...) { }
 
+	Genode::printf("look for dynamic linker\n");
 	/* look for dynamic linker */
 	try {
 		static Genode::Rom_connection rom("ld.lib.so");
+		Genode::printf("install dynamic linker\n");
 		Genode::Process::dynamic_linker(rom.dataspace());
+		Genode::printf("dynamic linker installed\n");
 	} catch (...) { }
 
 	static Genode::Service_registry parent_services;
@@ -159,6 +163,7 @@ int main(int, char **)
 	/* create children */
 	try {
 		Genode::Xml_node start_node = Genode::config()->xml_node().sub_node("start");
+		Genode::printf("start children\n");
 		for (;; start_node = start_node.next("start")) {
 
 			children.insert(new (Genode::env()->heap())

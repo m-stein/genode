@@ -95,7 +95,6 @@ namespace Genode {
 		virtual Ram_session *ref_ram_session() { return env()->ram_session(); }
 	};
 
-
 	/**
 	 * Implementation of the parent interface that supports resource trading
 	 *
