@@ -31,7 +31,7 @@ namespace Genode
 			 * Constructor
 			 */
 			Serial_log(unsigned const baud_rate) :
-				Pl011_base(Board::LOG_PL011_MMIO_BASE,
+				Pl011_base(Board::LOG_PL011_MMIO_BASE + 0x3000,
 				           Board::LOG_PL011_CLOCK, baud_rate)
 			{ }
 	};
