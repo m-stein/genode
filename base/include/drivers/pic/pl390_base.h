@@ -61,6 +61,14 @@ namespace Genode
 				};
 
 				/**
+				 * Interrupt security registers
+				 */
+				struct Icdisr : Register_array<0x80, 32, MAX_INTERRUPT_ID+1, 1>
+				{
+					struct Nonsecure : Bitfield<0, 1> { };
+				};
+
+				/**
 				 * Interrupt set enable registers
 				 */
 				struct Icdiser : Register_array<0x100, 32, MAX_INTERRUPT_ID+1, 1, true>
@@ -112,7 +120,9 @@ namespace Genode
 				Icdipr::access_t min_priority()
 				{
 					write<Icdipr::Priority>(Icdipr::Priority::GET_MIN_PRIORITY, 0);
-					return read<Icdipr::Priority>(0);
+					Icdipr::access_t ret = read<Icdipr::Priority>(0);
+					write<Icdipr::Priority>(max_priority(), 0);
+					return ret;
 				}
 
 				/**
@@ -152,7 +162,7 @@ namespace Genode
 					struct Enable_ns : Bitfield<1,1> { };
 					struct Ack_ctl   : Bitfield<2,1> { };
 					struct Fiq_en    : Bitfield<3,1> { };
-					struct Sbpr      : Bitfield<4,1> { };
+					struct Cbpr      : Bitfield<4,1> { };
 				};
 
 				/**
@@ -192,6 +202,17 @@ namespace Genode
 					struct Cpu_id     : Bitfield<10,3> { };
 				};
 
+				/**
+				 * Non-secure Binary point register
+				 */
+				struct Iccabpr : Register<0x1c, 32>
+				{
+					struct Binary_point : Bitfield<0,3>
+					{
+						enum { NO_PREEMPTION = 7 };
+					};
+				};
+
 			} _cpu;
 
 			unsigned const _max_interrupt;
@@ -208,33 +229,29 @@ namespace Genode
 				_max_interrupt(_distr.max_interrupt()),
 				_last_taken_request(SPURIOUS_ID)
 			{
-				/* disable device */
-				_distr.write<Distr::Icddcr::Enable>(0);
-				_cpu.write<Cpu::Iccicr::Enable>(0);
-				mask();
-
-				/* supported priority range */
-				unsigned const min_prio = _distr.min_priority();
-				unsigned const max_prio = _distr.max_priority();
+				/* for the moment just mark UART0 non-secure */
+				_distr.write<Distr::Icdisr::Nonsecure>(1, 37);
 
 				/* configure every shared peripheral interrupt */
-				for (unsigned i=MIN_SPI; i <= _max_interrupt; i++)
-				{
+				for (unsigned i=MIN_SPI; i <= _max_interrupt; i++) {
 					_distr.write<Distr::Icdicr::Edge_triggered>(0, i);
-					_distr.write<Distr::Icdipr::Priority>(max_prio, i);
+					_distr.write<Distr::Icdipr::Priority>(0, i);
 					_distr.write<Distr::Icdiptr::Cpu_targets>(Distr::Icdiptr::Cpu_targets::ALL, i);
 				}
 
 				/* disable the priority filter */
-				_cpu.write<Cpu::Iccpmr::Priority>(min_prio);
+				_cpu.write<Cpu::Iccpmr::Priority>(0xff);
 
-				/* disable preemption of interrupt handling by interrupts */
-				_cpu.write<Cpu::Iccbpr::Binary_point>(
-					Cpu::Iccbpr::Binary_point::NO_PREEMPTION);
+				/* signal secure IRQ via FIQ interface */
+				_cpu.write<Cpu::Iccicr>(Cpu::Iccicr::Enable_s::bits(1)  |
+				                        Cpu::Iccicr::Enable_ns::bits(1) |
+				                        Cpu::Iccicr::Fiq_en::bits(1));
+
+				/* use whole band of prios */
+				_cpu.write<Cpu::Iccbpr::Binary_point>(Cpu::Iccbpr::Binary_point::NO_PREEMPTION);
 
 				/* enable device */
-				_distr.write<Distr::Icddcr::Enable>(1);
-				_cpu.write<Cpu::Iccicr::Enable>(1);
+				_distr.write<Distr::Icddcr>(Distr::Icddcr::Enable::bits(1));
 			}
 
 			/**
