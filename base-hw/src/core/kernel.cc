@@ -1275,6 +1275,19 @@ namespace Kernel
 				_activate();
 			}
 
+			void dump()
+			{
+				Genode::printf("pd = %d id = %d\n", pd_id(), id());
+				Genode::printf("r0  = %08zx r1  = %08zx\n", r0, r1);
+				Genode::printf("r2  = %08zx r3  = %08zx\n", r2, r3);
+				Genode::printf("r4  = %08zx r5  = %08zx\n", r4, r5);
+				Genode::printf("r6  = %08zx r7  = %08zx\n", r6, r7);
+				Genode::printf("r8  = %08zx r9  = %08zx\n", r8, r9);
+				Genode::printf("r10 = %08zx r11 = %08zx\n", r10, r11);
+				Genode::printf("r12 = %08zx r13 = %08zx\n", r12, r13);
+				Genode::printf("r14 = %08zx r15 = %08zx\n", r14, r15);
+			}
+
 		private:
 
 			/**************
@@ -1865,6 +1878,10 @@ namespace Kernel
 	{
 		Genode::Vm_state *state =
 			reinterpret_cast<Genode::Vm_state*>(user->user_arg_1());
+
+		/* Limit vm execution in time */
+		timer()->start_one_shot(timer()->ms_to_tics(USER_TIME_SLICE_MS));
+		pic()->unmask(Timer::IRQ);
 		tz_switch_to_normal_world(state);
 	}
 
