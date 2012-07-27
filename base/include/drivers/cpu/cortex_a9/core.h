@@ -549,7 +549,7 @@ namespace Genode
 					SYSCALL,   /* 3 */
 					PAGEFAULT, /* 4 */
 					PAGEFAULT, /* 5 */
-					INTERRUPT, /* 6 */
+					INVALID,   /* 6 */
 					INTERRUPT  /* 7 */
 				};
 				/* determine exception type */
