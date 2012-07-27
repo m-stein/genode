@@ -4,16 +4,16 @@
 
 namespace Genode {
 
-	 /* UART 3 */
+	 /* UART 0 */
 	class Console : public Pl011_base
 	{
 		public:
 
-			enum { IRQ = 40 };
+			enum { IRQ = 37 };
 
 			Console()
-			: Pl011_base(Vea9x4::SMB_CS7_BASE + 0xc000,
-			             Vea9x4::PL011_0_CLOCK, 38400) { }
+			: Pl011_base(Vea9x4::SMB_CS7_BASE + 0x9000,
+			             Vea9x4::PL011_0_CLOCK, 115200) { enable_rx_irq(); }
 
 			void printk(const char *s)
 			{
@@ -33,7 +33,6 @@ namespace Genode {
 
 			enum {
 				MIN_SPI  = 32,
-				SPURIOUS_ID = 1023,
 			};
 
 			/**
@@ -58,14 +57,6 @@ namespace Genode {
 				{
 					struct It_lines_number : Bitfield<0,5>  { };
 					struct Cpu_number      : Bitfield<5,3>  { };
-				};
-
-				/**
-				 * Interrupt security registers
-				 */
-				struct Icdisr : Register_array<0x80, 32, MAX_INTERRUPT_ID+1, 1, true>
-				{
-					struct Unsecure : Bitfield<0, 1> { };
 				};
 
 				/**
@@ -115,20 +106,6 @@ namespace Genode {
 				};
 
 				/**
-				 * Minimum supported interrupt priority
-				 */
-				Icdipr::access_t min_priority()
-				{
-					write<Icdipr::Priority>(Icdipr::Priority::GET_MIN_PRIORITY, 0);
-					return read<Icdipr::Priority>(0);
-				}
-
-				/**
-				 * Maximum supported interrupt priority
-				 */
-				Icdipr::access_t max_priority() { return 0; }
-
-				/**
 				 * ID of the maximum supported interrupt
 				 */
 				Icdictr::access_t max_interrupt()
@@ -152,15 +129,7 @@ namespace Genode {
 				 */
 				struct Iccicr : Register<0x00, 32>
 				{
-					/* Without security extension */
 					struct Enable : Bitfield<0,1> { };
-
-					/* With security extension */
-					struct Enable_s  : Bitfield<0,1> { };
-					struct Enable_ns : Bitfield<1,1> { };
-					struct Ack_ctl   : Bitfield<2,1> { };
-					struct Fiq_en    : Bitfield<3,1> { };
-					struct Sbpr      : Bitfield<4,1> { };
 				};
 
 				/**
@@ -181,132 +150,38 @@ namespace Genode {
 						enum { NO_PREEMPTION = 7 };
 					};
 				};
-
-				/**
-				 * Interrupt acknowledge register
-				 */
-				struct Icciar : Register<0x0c, 32, true>
-				{
-					struct Ack_int_id : Bitfield<0,10> { };
-					struct Cpu_id     : Bitfield<10,3> { };
-				};
-
-				/**
-				 * End of interrupt register
-				 */
-				struct Icceoir : Register<0x10, 32, true>
-				{
-					struct Eoi_int_id : Bitfield<0,10> { };
-					struct Cpu_id     : Bitfield<10,3> { };
-				};
-
 			} _cpu;
 
 			unsigned const _max_interrupt;
-			unsigned long _last_taken_request;
 
 		public:
 
 			/**
 			 * Constructor, all interrupts get masked
 			 */
-			Pic() : _distr(Cortex_a9::PL390_DISTRIBUTOR_MMIO_BASE),
-			        _cpu(Cortex_a9::PL390_CPU_MMIO_BASE),
-			        _max_interrupt(_distr.max_interrupt()),
-			        _last_taken_request(SPURIOUS_ID)
+			Pic(bool init = true)
+			: _distr(Cortex_a9::PL390_DISTRIBUTOR_MMIO_BASE),
+			  _cpu(Cortex_a9::PL390_CPU_MMIO_BASE),
+			  _max_interrupt(_distr.max_interrupt())
 			{
-				/* disable device */
-				_distr.write<Distr::Icddcr::Enable>(0);
-				_cpu.write<Cpu::Iccicr::Enable>(0);
-				mask();
-
-				/* supported priority range */
-				unsigned const min_prio = _distr.min_priority();
-				unsigned const max_prio = _distr.max_priority();
-
 				/* configure every shared peripheral interrupt */
 				for (unsigned i=MIN_SPI; i <= _max_interrupt; i++)
 				{
 					_distr.write<Distr::Icdicr::Edge_triggered>(0, i);
-					_distr.write<Distr::Icdipr::Priority>(max_prio, i);
+					_distr.write<Distr::Icdipr::Priority>(0, i);
 					_distr.write<Distr::Icdiptr::Cpu_targets>(Distr::Icdiptr::Cpu_targets::ALL, i);
+
+					/* enable all irqs */
+					_distr.write<Distr::Icdiser::Set_enable>(1, i);
 				}
 
 				/* disable the priority filter */
-				_cpu.write<Cpu::Iccpmr::Priority>(min_prio);
-
-				/* disable preemption of interrupt handling by interrupts */
-				_cpu.write<Cpu::Iccbpr::Binary_point>(
-					Cpu::Iccbpr::Binary_point::NO_PREEMPTION);
+				_cpu.write<Cpu::Iccpmr::Priority>(0xff);
 
 				/* enable device */
-				_distr.write<Distr::Icddcr::Enable>(1);
 				_cpu.write<Cpu::Iccicr::Enable>(1);
-			}
-
-			/**
-			 * Get the ID of the last interrupt request
-			 *
-			 * \return  True if the request with ID 'i' is treated as accepted
-			 *          by the CPU and awaits an subsequently 'finish_request'
-			 *          call. Otherwise this returns false and the value of 'i'
-			 *          remains useless.
-			 */
-			bool take_request(unsigned & i)
-			{
-				_last_taken_request = _cpu.read<Cpu::Icciar::Ack_int_id>();
-				i = _last_taken_request;
-				return valid(i);
-			}
-
-			/**
-			 * Complete the last request that was taken via 'take_request'
-			 */
-			void finish_request()
-			{
-				if (!valid(_last_taken_request)) return;
-				_cpu.write<Cpu::Icceoir>(Cpu::Icceoir::Eoi_int_id::bits(_last_taken_request) |
-				                         Cpu::Icceoir::Cpu_id::bits(0) );
-				_last_taken_request = SPURIOUS_ID;
-			}
-
-			/**
-			 * Check if 'i' is a valid interrupt request ID at the device
-			 */
-			bool valid(unsigned const i) const { return i <= _max_interrupt; }
-
-			/**
-			 * Unmask all interrupts
-			 */
-			void unmask()
-			{
-				for (unsigned i=0; i <= _max_interrupt; i++)
-					_distr.write<Distr::Icdiser::Set_enable>(1, i);
-			}
-
-			/**
-			 * Unmask interrupt 'i'
-			 */
-			void unmask(unsigned const i)
-			{
-				_distr.write<Distr::Icdiser::Set_enable>(1, i);
-			}
-
-			/**
-			 * Mask all interrupts
-			 */
-			void mask()
-			{
-				for (unsigned i=0; i <= _max_interrupt; i++)
-					_distr.write<Distr::Icdicer::Clear_enable>(1, i);
-			}
-
-			/**
-			 * Mask interrupt 'i'
-			 */
-			void mask(unsigned const i)
-			{
-				_distr.write<Distr::Icdicer::Clear_enable>(1, i);
+				_cpu.write<Cpu::Iccbpr::Binary_point>(7);
+				_distr.write<Distr::Icddcr::Enable>(1);
 			}
 	};
 }
@@ -319,31 +194,61 @@ static Genode::Pic     *pic;
 
 
 extern "C" void exception_entry() {
-	console->printk("--------> exception <---------\n"); }
+	volatile int exc = 0;
+	asm volatile ("mov %0, r0\n" : "=r" (exc));
+
+	switch(exc) {
+	case 1:
+		console->printk("Reset\n");
+		break;
+	case 2:
+		console->printk("Undef\n");
+		break;
+	case 3:
+		console->printk("Smc\n");
+		break;
+	case 4:
+		console->printk("Prefetch abort\n");
+		break;
+	case 5:
+		console->printk("Data Abort\n");
+		break;
+	case 6:
+		console->printk("IRQ\n");
+		break;
+	case 7:
+		console->printk("FIQ\n");
+		break;
+	default:
+		console->printk("unknown exception\n");
+	}
+}
 
 
 static inline void set_vector_base(Genode::addr_t addr) {
 	asm volatile ("mcr p15, 0, %0, c12, c0, 0" : : "r" (addr)); }
 
+extern "C" void user_loop() {
+	while (true) ;
+}
+
 extern "C" void _main() {
+	set_vector_base((Genode::addr_t)&_exception_vector);
+
 	Genode::Console _console;
 	Genode::Pic     _pic;
 	console = &_console;
 	pic     = &_pic;
 
 	console->printk("Kernel started!\n");
-	set_vector_base((Genode::addr_t)&_exception_vector);
-	console->enable_rx_irq();
-	pic->unmask(Genode::Console::IRQ);
 
-	/* copy sp to system-mode, change to system-mode and enable IRQs */
-	asm volatile ("push {r0}      \n"
-	              "mov r0, sp     \n"
-	              "cps #31        \n"
-	              "mov sp, r0     \n"
-	              "pop {r0}       \n"
-	              "cpsie aif      \n");
-
-	console->printk("go into endless loop\n");
-	while (true) ;
+	/* change to user-mode and enable IRQs */
+	asm volatile ("mov  r0, #16       \n"
+	              "msr  spsr, r0      \n"
+	              "mov  r0, %[instr]  \n"
+	              "push {r0}          \n"
+	              "push {sp}          \n"
+	              "ldm  sp, {sp, pc}^ \n"
+	              :: [instr] "r" (&user_loop));
+	console->printk("exit kernel\n");
 }
