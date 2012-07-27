@@ -145,7 +145,7 @@ namespace Genode {
 			  _tsc(tsc), _tpc(tpc)
 			{
 				memset((void*)_state, 0, sizeof(Vm_state));
-				_state->cpsr = 0x1d3;
+				_state->cpsr = 0x193;
 			}
 
 			void add_region(const char *name, addr_t addr, size_t sz)
@@ -278,8 +278,8 @@ int main() {
 		vm.start();
 		while (true) {
 			vm.run();
-			Genode::printf("exited due to %d\n", vm.state()->exit_reason);
-//			vm.dump();
+			if (vm.state()->exit_reason != 7)
+				vm.dump();
 		}
 	} catch (Genode::Rm_session::Attach_failed) {
 		PERR("Rm_session::Attach_failed failed");
