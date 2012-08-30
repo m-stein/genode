@@ -14,40 +14,27 @@
 #ifndef _CORE__INCLUDE__CORTEX_A9__KERNEL_SUPPORT_H_
 #define _CORE__INCLUDE__CORTEX_A9__KERNEL_SUPPORT_H_
 
-/* Genode includes */
-#include <drivers/cpu/cortex_a9/core.h>
-#include <drivers/pic/pl390_base.h>
+/* core includes */
+#include <cortex_a9/cpu.h>
+#include <cortex_a9/timer.h>
+#include <cortex_a9/no_trustzone/pic.h>
 
 /**
  * CPU driver
  */
-class Cpu : public Genode::Cortex_a9 { };
+class Cpu : public Cortex_a9::Cpu { };
 
 namespace Kernel
 {
-	/* import Genode types */
-	typedef Genode::Cortex_a9 Cortex_a9;
-	typedef Genode::Pl390_base Pl390_base;
-
 	/**
-	 * Kernel interrupt-controller
+	 * Programmable interrupt controller
 	 */
-	class Pic : public Pl390_base
-	{
-		public:
-
-			/**
-			 * Constructor
-			 */
-			Pic() : Pl390_base(Cortex_a9::PL390_DISTRIBUTOR_MMIO_BASE,
-			                   Cortex_a9::PL390_CPU_MMIO_BASE)
-			{ }
-	};
+	class Pic : public Cortex_a9_no_trustzone::Pic { };
 
 	/**
 	 * Kernel timer
 	 */
-	class Timer : public Cortex_a9::Private_timer { };
+	class Timer : public Cortex_a9::Timer { };
 }
 
 #endif /* _CORE__INCLUDE__CORTEX_A9__KERNEL_SUPPORT_H_ */

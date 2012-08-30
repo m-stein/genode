@@ -24,6 +24,12 @@
 
 namespace Genode {
 
+	class Rpc_entrypoint;
+	class Sliced_heap;
+	class Core_env;
+	class Service_registry;
+
+
 	/**
 	 * Generic platform interface
 	 */
@@ -93,6 +99,13 @@ namespace Genode {
 			 * Return number of physical CPUs present in the platform
 			 */
 			virtual unsigned num_cpus() const { return 1; }
+
+			/**
+			 * Register platform-specific services at entrypoint, and service
+			 * registry
+			 */
+			virtual void add_local_services(Rpc_entrypoint*, Sliced_heap*,
+			                                Core_env *env, Service_registry*) {};
 	};
 
 

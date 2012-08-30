@@ -98,6 +98,9 @@ namespace Genode {
 
 			inline void wait_for_exit() { while (1) Kernel::pause_thread(); };
 
+			void add_local_services(Rpc_entrypoint*, Sliced_heap*,
+			                        Core_env *env, Service_registry*);
+
 			inline Range_allocator * region_alloc()
 			{
 				kernel_log() << __PRETTY_FUNCTION__ << ": Not implemented\n";
