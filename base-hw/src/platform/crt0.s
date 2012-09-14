@@ -17,25 +17,12 @@
 	.global _start
 	_start:
 
-		/* zero-fill BSS segment but don't pollute thread-entry arguments */
-		.extern _bss_start
-		ldr r4, =_bss_start
-		.extern _bss_end
-		ldr r3, =_bss_end
-		mov r2, #0
-		sub r3, r3, #4
-		1:
-		str r2, [r4]
-		add r4, r4, #4
-		cmp r4, r3
-		bne 1b
-
 		/* fetch thread-entry arguments to their destinations in BSS */
 		ldr r1, =_main_utcb
 		str r0, [r1]
 
 		/* call _main routine */
-		ldr sp, =_main_stack_high
+		ldr sp, =_stack_high
 		.extern _main
 		bl _main
 		1:
@@ -49,10 +36,12 @@
 .section .bss
 
 	/* main-thread stack */
-	.align 3
+	.p2align 2
+	.global _stack_low
+	_stack_low:
 	.space 64*1024
-	.global _main_stack_high
-	_main_stack_high:
+	.global _stack_high
+	_stack_high:
 
 	/* main-thread UTCB-pointer for the Genode thread-API */
 	.align 3
