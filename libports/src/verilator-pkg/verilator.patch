@@ -1,0 +1,72 @@
+From 696d2817dbda9f458d9a36546f40a113ce46898d Mon Sep 17 00:00:00 2001
+From: Martin Stein <martin.stein@genode-labs.com>
+Date: Wed, 25 Jul 2012 10:07:31 +0200
+Subject: [PATCH] Enable the use of verilated code in Genode.
+
+---
+ include/verilated.cpp |   21 ++++++++++++++++++---
+ 1 files changed, 18 insertions(+), 3 deletions(-)
+
+diff --git a/include/verilated.cpp b/include/verilated.cpp
+index 49d06ac..869436d 100644
+--- a/include/verilated.cpp
++++ b/include/verilated.cpp
+@@ -275,7 +275,9 @@ WDataOutP _vl_moddiv_w(int lbits, WDataOutP owp, WDataInP lwp, WDataInP rwp, boo
+ // Do a va_arg returning a quad, assuming input argument is anything less than wide
+ #define _VL_VA_ARG_Q(ap, bits) (((bits) <= VL_WORDSIZE) ? va_arg(ap,IData) : va_arg(ap,QData))
+ 
+-void _vl_vsformat(string& output, const char* formatp, va_list ap) {
++void _vl_vsformat(string& output, const char* formatp, ...) {
++	va_list ap;
++	va_start(ap, formatp);
+     // Format a Verilog $write style format into the output list
+     // The format must be pre-processed (and lower cased) by Verilator
+     // Arguments are in "width, arg-value (or WDataIn* if wide)" form
+@@ -447,6 +449,7 @@ void _vl_vsformat(string& output, const char* formatp, va_list ap) {
+ 	    } // switch
+ 	}
+     }
++	va_end(ap);
+ }
+ 
+ static inline bool _vl_vsss_eof(FILE* fp, int& floc) {
+@@ -528,7 +531,9 @@ static inline void _vl_vsss_based(WDataOutP owp, int obits, int baseLog2, const
+ 
+ IData _vl_vsscanf(FILE* fp,  // If a fscanf
+ 		  int fbits, WDataInP fromp,  // Else if a sscanf
+-		  const char* formatp, va_list ap) {
++		  const char* formatp, ...) {
++	va_list ap;
++	va_start(ap, formatp);
+     // Read a Verilog $sscanf/$fscanf style format into the output list
+     // The format must be pre-processed (and lower cased) by Verilator
+     // Arguments are in "width, arg-value (or WDataIn* if wide)" form
+@@ -662,6 +667,7 @@ IData _vl_vsscanf(FILE* fp,  // If a fscanf
+ 	}
+     }
+   done:
++	va_end(ap);
+     return got;
+ }
+ 
+@@ -860,7 +866,16 @@ void VL_READMEM_W(bool hex, int width, int depth, int array_lsb, int fnwords,
+     // with changing buffer sizes dynamically, etc.
+     while (1) {
+ 	int c = fgetc(fp);
+-	if (VL_UNLIKELY(c==EOF)) break;
++
++	/*
++	 * In Genode EOF currently doesn't indicate the end of the file
++	 * but the end of the according dataspace, wich may be not the
++	 * same due to mapping alignments. However a simple workaround is
++	 * to assume that any file is zero terminated, wich should be true
++	 * at least for all files targeted by 'readmemh'.
++	 */
++	if (VL_UNLIKELY(c==EOF || c==0)) break;
++
+ 	//printf("%d: Got '%c' Addr%x IN%d IgE%d IgC%d ninc%d\n", linenum, c, addr, innum, ignore_to_eol, ignore_to_cmt, needinc);
+ 	if (c=='\n') { linenum++; ignore_to_eol=false; if (innum) reading_addr=false; innum=false; }
+ 	else if (c=='\t' || c==' ' || c=='\r' || c=='\f') { if (innum) reading_addr=false; innum=false; }
+-- 
+1.7.5.4
+

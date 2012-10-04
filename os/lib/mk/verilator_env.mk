@@ -14,7 +14,7 @@ LIBS += server libm stdcxx libc libc_log libc_fs
 # add include paths
 LIB_DIR = $(REP_DIR)/src/lib/verilator_env
 INC_DIR += $(LIB_DIR)/include \
-           /usr/share/verilator/include
+           $(call select_from_repositories,tool/verilator/share/verilator/include)
 
 # add include paths
 vpath % $(LIB_DIR)

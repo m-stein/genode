@@ -1,0 +1,76 @@
+From 4d3ac41859b4d7e14e9c17cc8d645d5150df690f Mon Sep 17 00:00:00 2001
+From: Martin Stein <martin.stein@genode-labs.com>
+Date: Wed, 25 Jul 2012 10:07:31 +0200
+Subject: [PATCH] Enable the use of verilated code in Genode.
+
+---
+ include/verilated.cpp   |   11 ++++++++++-
+ include/verilated.mk.in |   30 +++++++++++++++++++++++++-----
+ 2 files changed, 35 insertions(+), 6 deletions(-)
+
+diff --git a/include/verilated.cpp b/include/verilated.cpp
+index 49d06ac..4c6d850 100644
+--- a/include/verilated.cpp
++++ b/include/verilated.cpp
+@@ -860,7 +860,16 @@ void VL_READMEM_W(bool hex, int width, int depth, int array_lsb, int fnwords,
+     // with changing buffer sizes dynamically, etc.
+     while (1) {
+ 	int c = fgetc(fp);
+-	if (VL_UNLIKELY(c==EOF)) break;
++
++	/*
++	 * In Genode EOF currently doesn't indicate the end of the file
++	 * but the end of the according dataspace, wich may be not the
++	 * same due to mapping alignments. However a simple workaround is
++	 * to assume that any file is zero terminated, wich should be true
++	 * at least for all files targeted by 'readmemh'.
++	 */
++	if (VL_UNLIKELY(c==EOF || c==0)) break;
++
+ 	//printf("%d: Got '%c' Addr%x IN%d IgE%d IgC%d ninc%d\n", linenum, c, addr, innum, ignore_to_eol, ignore_to_cmt, needinc);
+ 	if (c=='\n') { linenum++; ignore_to_eol=false; if (innum) reading_addr=false; innum=false; }
+ 	else if (c=='\t' || c==' ' || c=='\r' || c=='\f') { if (innum) reading_addr=false; innum=false; }
+diff --git a/include/verilated.mk.in b/include/verilated.mk.in
+index 9ab4ff4..24242f0 100644
+--- a/include/verilated.mk.in
++++ b/include/verilated.mk.in
+@@ -7,11 +7,31 @@
+ # General Public License Version 3 or the Perl Artistic License Version 2.0.
+ ######################################################################
+ 
+-PERL = @PERL@
+-CXX = @CXX@
+-LINK = @CXX@
+-AR     = ar
+-RANLIB = ranlib
++GENODE_DIR = /home/hyronimo/GenodeLabs/genode/master
++GENODE_GCC = /usr/local/genode-gcc/bin/genode-arm-
++GENODE_CXX = $(GENODE_GCC)g++
++GENODE_CXX_INC += $(shell echo "int main() {return 0;}" | \
++                  LANG=C $(GENODE_CXX) -x c++ -v -E - 2>&1 | \
++                  sed '/^\#include <\.\.\.> search starts here:/,/^End of search list/!d' | \
++                  grep "c++")
++
++GENODE_CXX_INC += $(GENODE_DIR)/libports/include/libc \
++                  $(GENODE_DIR)/libports/include/libc-genode \
++                  $(GENODE_DIR)/libports/include/libc-arm
++
++GENODE_CXX_OPT += $(addprefix -I, $(GENODE_CXX_INC))
++GENODE_CXX_OPT += -D_GLIBCXX_HAVE_MBSTATE_T \
++                  -D__FreeBSD__=8 \
++                  -fno-builtin-sin \
++                  -fno-builtin-cos \
++                  -fno-builtin-sinf \
++                  -fno-builtin-cosf
++
++PERL   = @PERL@
++CXX    = $(GENODE_CXX) $(GENODE_CXX_OPT)
++LINK   = $(GENODE_CXX)
++AR     = $(GENODE_GCC)ar
++RANLIB = $(GENODE_GCC)ranlib
+ 
+ CFG_WITH_CCWARN = @CFG_WITH_CCWARN@
+ CFG_WITH_LONGTESTS = @CFG_WITH_LONGTESTS@
+-- 
+1.7.5.4
+

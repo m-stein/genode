@@ -1,0 +1,12 @@
+# DESCRIPTION: Verilator output: Timestamp data for --skip-identical.  Delete at will.
+C "-Wall -Wno-lint --cc /home/hyronimo/GenodeLabs/milkymist/cores/monitor/rtl/monitor.v --exe build.verilate/main.cc -y /home/hyronimo/GenodeLabs/milkymist/cores/monitor/rtl/ --Mdir build.verilate"
+S      1917  1343813398 "/home/hyronimo/GenodeLabs/milkymist/cores/monitor/rtl/monitor.v"
+S   3952234  1344252838 "/home/hyronimo/LokaleDaten1/GenodeLabs/genode/master/libports/tool/verilator/bin/verilator_bin"
+T      8745  1344253367 "build.verilate/Vmonitor.cpp"
+T      2884  1344253367 "build.verilate/Vmonitor.h"
+T      2061  1344253367 "build.verilate/Vmonitor.mk"
+T       585  1344253367 "build.verilate/Vmonitor__Syms.cpp"
+T       969  1344253367 "build.verilate/Vmonitor__Syms.h"
+T       473  1344253367 "build.verilate/Vmonitor__ver.d"
+T         0  1344253368 "build.verilate/Vmonitor__verFiles.dat"
+T      1091  1344253367 "build.verilate/Vmonitor_classes.mk"

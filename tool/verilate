@@ -18,17 +18,21 @@ print_usage () {
 	echo "  Go to the directory where you want your Genode emulation-target"
 	echo "  to reside and run this tool as follows:"
 	echo ""
-	echo "    verilate <top_module> <bus_interface> [<modules_dir>]"
+	echo "    verilate <top_module> <bus_interface> <genode_dir> <arch> [<modules_dir>]"
 	echo ""
 	echo "  It is thereby recommended to use a fresh target directory, because"
 	echo "  the tool simply overrides files in the directory you call it from!"
 	echo ""
-	echo "  <top_module>    is the name of the top module of your design"
+	echo "  <top_module>    name of the top module of your design"
 	echo ""
-	echo "  <bus_interface> can be: 'no_bus'"
-	echo "                          'wishbone'"
+	echo "  <bus_interface> Slave bus interface of your top module."
+	echo "                  Can be: 'no_bus', 'wishbone'"
 	echo ""
-	echo "  <modules_dir>   Is the directory of all modules your design uses."
+	echo "  <genode_dir>    root directory of the genode sources"
+	echo ""
+	echo "  <arch>          targeted architecture, can be: 'x86', 'arm'"
+	echo ""
+	echo "  <modules_dir>   Directory of all modules your design uses."
 	echo "                  If not set the local directory is used instead."
 	echo "                  Module files must be named like '<module_name>.v'."
 	echo ""
@@ -55,20 +59,19 @@ program_not_found() {
 	exit 1
 }
 
-# initialize programs
-VERILATOR_PREFIX="/home/hyronimo/GenodeLabs/verilator/bin/"
-VERILATOR=$VERILATOR_PREFIX"verilator"
-
-# print the manual if no argument is given
-[ "$#" -ge 2 ] || print_usage
-
-# check if all program dependencies are fullfilled
-command -v $VERILATOR >/dev/null 2>&1 || program_not_found $VERILATOR
+# print the manual if not enough arguments are given
+[ "$#" -ge 4 ] || print_usage
 
 # fetch command line arguments
 TOP_MODULE=$1
 BUS_INTERFACE=$2
-MODULES_DIR=$3
+GENODE_DIR=$3
+ARCH=$4
+MODULES_DIR=$5
+
+# check wether all program dependencies are fullfilled
+VERILATOR=$GENODE_DIR"/libports/tool/verilator/bin/verilator"
+command -v $VERILATOR >/dev/null 2>&1 || program_not_found $VERILATOR
 
 # validate targeted bus interface
 case $BUS_INTERFACE in
@@ -117,7 +120,7 @@ sed -e 's/^\t\$(LINK).*/\t@echo "Target ´'$MAKE_TARGET'´ successfully build"/'
 mv patched.mk $MAKE_FILE
 
 # compile the simulation sourcecode to object files
-make -f $MAKE_FILE $MAKE_TARGET
+make -f $MAKE_FILE $MAKE_TARGET GENODE_DIR=$GENODE_DIR GENODE_GCC="genode-"$ARCH"-"
 
 # fetch files that are needed by the Genode emulation enviroment
 OBJECT_FILES=$OBJECT_FILES" verilated.o"

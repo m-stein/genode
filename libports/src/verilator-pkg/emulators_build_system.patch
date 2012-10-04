@@ -1,0 +1,99 @@
+From 696d2817dbda9f458d9a36546f40a113ce46898d Mon Sep 17 00:00:00 2001
+From: Martin Stein <martin.stein@genode-labs.com>
+Date: Wed, 25 Jul 2012 10:07:31 +0200
+Subject: [PATCH] Enable the use of verilated code in Genode.
+
+---
+ include/verilated.mk.in |   41 ++++++++++++++++++++++-------------------
+ 1 files changed, 22 insertions(+), 19 deletions(-)
+
+diff --git a/include/verilated.mk.in b/include/verilated.mk.in
+index 9ab4ff4..e698cbe 100644
+--- a/include/verilated.mk.in
++++ b/include/verilated.mk.in
+@@ -7,11 +7,12 @@
+ # General Public License Version 3 or the Perl Artistic License Version 2.0.
+ ######################################################################
+ 
+-PERL = @PERL@
+-CXX = @CXX@
+-LINK = @CXX@
+-AR     = ar
+-RANLIB = ranlib
++PERL      = $(GENODE_PERL)
++CXX       = $(GENODE_GCC_PREFIX)g++
++LINK      = $(GENODE_GCC_PREFIX)g++
++AR        = $(GENODE_GCC_PREFIX)ar
++RANLIB    = $(GENODE_GCC_PREFIX)ranlib
++CXXFLAGS += $(GENODE_CXX_OPT)
+ 
+ CFG_WITH_CCWARN = @CFG_WITH_CCWARN@
+ CFG_WITH_LONGTESTS = @CFG_WITH_LONGTESTS@
+@@ -114,8 +115,7 @@ ifeq ($(VM_SP),1)
+ 
+   # This rule is called manually by the upper level makefile
+   preproc:
+-	 @echo "      SP Preprocess" $(basename $(VM_CLASSES)) ...
+-	 $(SP_PREPROC) -M sp_preproc.d --tree $(VM_PREFIX).sp_tree \
++	$(GENODE_VERBOSE)$(SP_PREPROC) -M sp_preproc.d --tree $(VM_PREFIX).sp_tree \
+ 		--preproc $(VK_CLASSES_SP)
+ else
+  ifeq ($(VM_COVERAGE),1)
+@@ -157,31 +157,34 @@ ifneq ($(VM_PARALLEL_BUILDS),1)
+   VK_OBJS += $(VM_PREFIX)__ALLcls.o   $(VM_PREFIX)__ALLsup.o
+   all_cpp:   $(VM_PREFIX)__ALLcls.cpp $(VM_PREFIX)__ALLsup.cpp
+   $(VM_PREFIX)__ALLcls.cpp: $(VK_CLASSES_CPP)
+-	$(SP_INCLUDER) $^ > $@
++	$(GENODE_VERBOSE)$(SP_INCLUDER) $^ > $@
+   $(VM_PREFIX)__ALLsup.cpp: $(VK_SUPPORT_CPP)
+-	$(SP_INCLUDER) $^ > $@
++	$(GENODE_VERBOSE)$(SP_INCLUDER) $^ > $@
+ else
+   #Slow way of building... Each .cpp file by itself
+   VK_OBJS += $(addsuffix .o, $(VM_CLASSES) $(VM_SUPPORT))
+ endif
+ 
+ $(VM_PREFIX)__ALL.a: $(VK_OBJS)
+-	@echo "      Archiving" $@ ...
+-	$(AR) r $@ $^
+-	$(RANLIB) $@
++	$(GENODE_MSG_MERGE)$@
++	$(GENODE_VERBOSE)$(AR) rc $@ $^
++	$(GENODE_VERBOSE)$(RANLIB) $@
+ 
+ ######################################################################
+ ### Compile rules
+ 
+ #Default rule embedded in make:  (Not defined so user makefiles can override it)
+-#.cpp.o:
+-#	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $<
++.cpp.o:
++	$(GENODE_MSG_COMP)$@
++	$(GENODE_VERBOSE)$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $<
+ 
+ $(VM_PREFIX)__ALLsup.o: $(VM_PREFIX)__ALLsup.cpp
+-	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_SLOW) -c -o $@ $<
++	$(GENODE_MSG_COMP)$@
++	$(GENODE_VERBOSE)$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_SLOW) -c -o $@ $<
+ 
+ $(VM_PREFIX)__ALLcls.o: $(VM_PREFIX)__ALLcls.cpp
+-	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST) -c -o $@ $<
++	$(GENODE_MSG_COMP)$@
++	$(GENODE_VERBOSE)$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST) -c -o $@ $<
+ 
+ ######################################################################
+ ### Debugging
+@@ -200,7 +203,7 @@ debug-make::
+ ######################################################################
+ ### Detect out of date files and rebuild.
+ 
+-DEPS := $(wildcard *.d)
+-ifneq ($(DEPS),)
+-include $(DEPS)
++VERILATION_DEPS := $(wildcard *.d)
++ifneq ($(VERILATION_DEPS),)
++include $(VERILATION_DEPS)
+ endif
+-- 
+1.7.5.4
+

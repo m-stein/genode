@@ -47,17 +47,12 @@ install_config {
 				<any-service><parent/></any-service>
 			</default-route>
 
-			<emulator name="device">
-				<binary name="test-verilator_env-device"/>
+			<emulator name="monitor">
+				<binary name="monitor"/>
 				<resource name="RAM" quantum="5M"/>
 			</emulator>
 
-			<emulator name="milkymist_rom">
-				<binary name="test-vre-milkymist_rom"/>
-				<resource name="RAM" quantum="5M"/>
-			</emulator>
-
-			<emulated by="milkymist_rom">
+			<emulated by="monitor">
 				<resource name="IO_MEM" base="0x71000000" size="0x1000" local="0x0"/>
 			</emulated>
 
@@ -76,7 +71,7 @@ install_config {
 							</dir>
 						</dir>
 					</content>
-					<policy label="milkymist_rom" root="/" />
+					<policy label="monitor" root="/" />
 				</config>
 			</start>
 
@@ -92,10 +87,10 @@ install_config {
 }
 
 # Build boot files from the source binaries
-exec cp [genode_dir]/os/src/test/verilator_env/milkymist_rom/monitor.rom bin/
+exec cp [genode_dir]/os/src/test/verilator_env/monitor/monitor.rom bin/
 exec cp /usr/share/zoneinfo/UTC bin/
 exec cp /usr/share/zoneinfo/posixrules bin/
-build_boot_image "core init vinit ram_fs test-verilator_env test-vre-milkymist_rom ld.lib.so libc.lib.so libm.lib.so libc_log.lib.so libc_fs.lib.so monitor.rom UTC posixrules"
+build_boot_image "core init vinit ram_fs test-verilator_env monitor ld.lib.so libc.lib.so libm.lib.so libc_log.lib.so libc_fs.lib.so monitor.rom UTC posixrules"
 
 # Execute test in Qemu
 run_genode_until forever
