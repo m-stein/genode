@@ -33,7 +33,7 @@ namespace Genode {
 		Cpu_connection(const char *label = "", long priority = DEFAULT_PRIORITY)
 		:
 			Connection<Cpu_session>(
-				session("priority=0x%lx, ram_quota=32K, label=\"%s\"",
+				session("priority=0x%lx, ram_quota=128K, label=\"%s\"",
 				        priority, label)),
 			Cpu_session_client(cap()) { }
 	};

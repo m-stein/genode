@@ -188,6 +188,7 @@ namespace Genode
 			 */
 			void run_and_wrap(unsigned long value)
 			{
+				PINF("run and wrap %lx ", value);
 				enum { MIN_VALUE = 1 };
 
 				/* stop timer */
@@ -205,6 +206,12 @@ namespace Genode
 
 				/* start timer */
 				_unfreeze();
+//				while(1)
+//				{
+//					PINF("Timer CNT %x LDR %x IRQ %x", read<Tcrr>(), read<Tldr>(), read<Irqstatus::Ovf_it_flag>());
+//					if(read<Irqstatus::Ovf_it_flag>()) break;
+//					for(unsigned volatile i=0; i<1000000; i++);
+//				}
 			}
 
 			/**
@@ -261,6 +268,9 @@ class Platform_timer_base : public Genode::Io_mem_connection,
 			GP_TIMER_3_IRQ       = 39,
 			GP_TIMER_3_MMIO_BASE = 0x48034000,
 			GP_TIMER_3_MMIO_SIZE = 0x00001000,
+			GP_TIMER_9_IRQ       = 45,
+			GP_TIMER_9_MMIO_BASE = 0x4803e000,
+			GP_TIMER_9_MMIO_SIZE = 0x00001000,
 
 			IRQ = GP_TIMER_3_IRQ,
 		};

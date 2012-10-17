@@ -878,7 +878,7 @@ namespace Kernel
 			{
 				friend class Scheduler<ENTRY_T>;
 
-				unsigned _time; /* time wich remains for current lap */
+public:				unsigned _time; /* time wich remains for current lap */
 
 				/**
 				 * Apply consumption of 'time'
@@ -921,7 +921,7 @@ namespace Kernel
 				/* update current entry */
 				ENTRY_T * e = _entries.head();
 				if (!e) {
-					t = _idle->Entry::_time;
+					t = _lap_time;
 					return _idle;
 				}
 				e->Entry::_consume(t);
@@ -1059,6 +1059,7 @@ namespace Kernel
 			{
 				assert(_id);
 				unsigned const irq = id_to_irq(_id);
+				PINF("await_irq %u", irq);
 				pic()->unmask(irq);
 				_awaits_irq();
 			}
@@ -1466,6 +1467,8 @@ namespace Kernel
 		unsigned irq;
 		if (pic()->take_request(irq))
 		{
+//if(irq!=29)
+//PINF("Handle IRQ %u", irq);
 			switch (irq) {
 
 			case Timer::IRQ: {
@@ -1944,6 +1947,9 @@ namespace Kernel
  */
 extern "C" void kernel()
 {
+//	Genode::printf("\nX1 ");
+//	pic()->test();
+
 	unsigned const timer_value = timer()->stop();
 	static unsigned user_time = 0;
 	static bool initial_call = true;

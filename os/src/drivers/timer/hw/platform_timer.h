@@ -103,7 +103,7 @@ class Platform_timer : public Platform_timer_base,
 		/**
 		 * Await the lastly scheduled timeout
 		 */
-		void wait_for_timeout(Genode::Thread_base *) { wait_for_irq(); }
+		void wait_for_timeout(Genode::Thread_base *) { PINF("Await IRQ"); wait_for_irq(); PINF("Got IRQ"); }
 };
 
 #endif /* _OS__SRC__DRIVERS__TIMER__HW__PLATFORM_TIMER_H_ */

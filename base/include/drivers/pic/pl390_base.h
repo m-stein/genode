@@ -30,7 +30,7 @@ namespace Genode
 			enum { MAX_INTERRUPT_ID = 1023 };
 
 		protected:
-
+public:
 			enum {
 				MIN_SPI  = 32,
 				SPURIOUS_ID = 1023,
@@ -50,6 +50,13 @@ namespace Genode
 				{
 					struct Enable : Bitfield<0,1> { };
 				};
+
+				struct Icdabr0 : Register<0x300, 32> { };
+				struct Icdabr1 : Register<0x304, 32> { };
+				struct Icdabr2 : Register<0x308, 32> { };
+				struct Icdabr3 : Register<0x30c, 32> { };
+				struct Icdabr4 : Register<0x30c, 32> { };
+				struct Icdabr5 : Register<0x30c, 32> { };
 
 				/**
 				 * Interrupt controller type register
@@ -138,6 +145,10 @@ namespace Genode
 			struct Cpu : public Mmio
 			{
 				Cpu(addr_t const base) : Mmio(base) { }
+
+				struct Icchpir : Register<0x18, 32>
+				{
+				};
 
 				/**
 				 * CPU interface control register
@@ -249,6 +260,7 @@ namespace Genode
 			{
 				_last_taken_request = _cpu.read<Cpu::Icciar::Ack_int_id>();
 				i = _last_taken_request;
+if(i!=29) PINF("take_request %u", i);
 				return valid(i);
 			}
 
@@ -257,6 +269,7 @@ namespace Genode
 			 */
 			void finish_request()
 			{
+if(_last_taken_request!=29) PINF("finish request %lu", _last_taken_request);
 				if (!valid(_last_taken_request)) return;
 				_cpu.write<Cpu::Icceoir>(Cpu::Icceoir::Eoi_int_id::bits(_last_taken_request) |
 				                         Cpu::Icceoir::Cpu_id::bits(0) );
@@ -282,6 +295,7 @@ namespace Genode
 			 */
 			void unmask(unsigned const i)
 			{
+if(i!=29) PINF("unmask %u", i);
 				_distr.write<Distr::Icdiser::Set_enable>(1, i);
 			}
 
@@ -299,8 +313,15 @@ namespace Genode
 			 */
 			void mask(unsigned const i)
 			{
+if(i!=29) PINF("mask %u", i);
 				_distr.write<Distr::Icdicer::Clear_enable>(1, i);
 			}
+
+void test() {
+	unsigned i = _cpu.read<Cpu::Icciar::Ack_int_id>();
+	if(i!=0x3ff) PINF("PIC %x", i);
+	for(unsigned volatile i; i<100000; i++);
+}
 	};
 }
 

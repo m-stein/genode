@@ -16,6 +16,7 @@
 
 /* Genode includes */
 #include <util/mmio.h>
+#include <base/printf.h>
 
 namespace Genode
 {
@@ -106,6 +107,7 @@ void Genode::Cortex_a9_timer<CLOCK>::start_one_shot(uint32_t const tics)
 	/* load timer and start decrementing */
 	write<Load>(tics);
 	write<typename Control::Timer_enable>(1);
+	Genode::printf("\n%x:%x\n", read<Counter>(), read<typename Interrupt_status::Event>());
 }
 
 
