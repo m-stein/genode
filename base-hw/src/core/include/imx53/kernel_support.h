@@ -1,8 +1,7 @@
 /*
- * \brief  Kernel support for i.MX31
- * \author Norman Feske
- * \author Martin Stein
- * \date   2012-08-30
+ * \brief  Kernel support for i.MX53
+ * \author Stefan Kalkowski
+ * \date   2012-10-24
  */
 
 /*
@@ -12,23 +11,23 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _CORE__INCLUDE__IMX31__KERNEL_SUPPORT_H_
-#define _CORE__INCLUDE__IMX31__KERNEL_SUPPORT_H_
+#ifndef _CORE__INCLUDE__IMX53__KERNEL_SUPPORT_H_
+#define _CORE__INCLUDE__IMX53__KERNEL_SUPPORT_H_
 
 /* Genode includes */
 #include <drivers/board.h>
+#include <arm/v7/cpu.h>
 #include <drivers/timer/epit.h>
-#include <arm/v6/cpu.h>
-#include <imx31/pic.h>
+#include <pic.h>
 
-struct Cpu : Arm_v6::Cpu { };
+struct Cpu : Arm_v7::Cpu { };
 
 namespace Kernel
 {
 	/**
 	 * Programmable interrupt controller
 	 */
-	class Pic : public Imx31::Pic { };
+	class Pic : public Imx53::Pic { };
 
 
 	/**
@@ -47,5 +46,5 @@ namespace Kernel
 	};
 }
 
-#endif /* _CORE__INCLUDE__IMX31__KERNEL_SUPPORT_H_ */
+#endif /* _CORE__INCLUDE__IMX53__KERNEL_SUPPORT_H_ */
 
