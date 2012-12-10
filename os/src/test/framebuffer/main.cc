@@ -36,7 +36,7 @@ int main()
 
 	/* write pixeldata to framebuffer */
 	void * fb_base = env()->rm_session()->attach(fb_ds_cap);
-	unsigned j;
+	unsigned j = 0;
 	unsigned const fb_size = (unsigned)(mode.width()*mode.height())/2;
 	for(unsigned i = 0; i < fb_size; i++)
 	{
