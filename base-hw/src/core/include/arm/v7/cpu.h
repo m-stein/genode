@@ -185,6 +185,7 @@ namespace Arm_v7
 		 */
 		static void init_phys_kernel()
 		{
+			Board::prepare_kernel();
 			Psr::write(Psr::init_kernel());
 			flush_tlb();
 		}
