@@ -98,7 +98,8 @@ Platform_pd::Platform_pd(bool core)
 }
 
 
-Platform_pd::Platform_pd(signed pd_id, bool create) : _space_id(TASK_ID_INVALID)
+Platform_pd::Platform_pd(const char *, signed pd_id, bool create)
+: _space_id(TASK_ID_INVALID)
 {
 	_space_id = TASK_ID_INVALID;
 

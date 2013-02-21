@@ -39,7 +39,7 @@ namespace Genode {
 			/**
 			 * Constructors
 			 */
-			Platform_pd(signed pd_id = -1, bool create = true);
+			Platform_pd(const char *, signed pd_id = -1, bool create = true);
 
 			/**
 			 * Destructor
