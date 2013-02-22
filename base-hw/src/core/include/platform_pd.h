@@ -37,18 +37,18 @@ namespace Genode
 	 */
 	class Platform_pd : public Address_space
 	{
-		unsigned          _id;          /* ID of our kernel object */
-		Native_capability _parent;      /* our parent interface */
-		Native_thread_id  _main_thread; /* the first thread that gets
-		                                 * executed in this PD */
-		const char *      _label;       /* PD-connection label */
+		unsigned           _id;          /* ID of our kernel object */
+		Native_capability  _parent;      /* our parent interface */
+		Native_thread_id   _main_thread; /* the first thread that gets
+		                                  * executed in this PD */
+		char const * const _label;       /* PD-connection label */
 
 		public:
 
 			/**
 			 * Constructor
 			 */
-			Platform_pd(const char * label) : _main_thread(0), _label(label)
+			Platform_pd(char const * label) : _main_thread(0), _label(label)
 			{
 				/* get some aligned space for the kernel object */
 				void * kernel_pd;
@@ -57,7 +57,7 @@ namespace Genode
 				                          Kernel::pd_alignm_log2()).is_ok())
 
 				/* create kernel object */
-				_id = Kernel::new_pd(kernel_pd);
+				_id = Kernel::new_pd(kernel_pd, this);
 				assert(_id);
 			}
 
@@ -100,6 +100,13 @@ namespace Genode
 				_parent = parent;
 				return 0;
 			}
+
+
+			/***************
+			 ** Accessors **
+			 ***************/
+
+			char const * const label() { return _label; }
 
 
 			/*****************************
