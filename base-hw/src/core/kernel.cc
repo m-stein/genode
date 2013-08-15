@@ -511,6 +511,28 @@ void Kernel::Thread::_received_irq()
 	_schedule();
 }
 
+void ktrace_0(Thread * t)
+{
+	Pd * const pd = Pd::pool()->object(t->pd_id());
+	assert(pd);
+	if (!pd->platform_pd()) {
+		if (!t->platform_thread()) {
+			if (!t->phys_utcb()) {
+				Genode::printf("< core: idle");
+			} else {
+				Genode::printf("< core: main");
+			}
+		} else {
+			Genode::printf("< core: %s",
+			               t->platform_thread()->name());
+		}
+	} else {
+		assert(t->platform_thread());
+		Genode::printf("< %s: %s",
+		               pd->platform_pd()->label(),
+		               t->platform_thread()->name());
+	}
+}
 
 void Kernel::Thread::handle_exception()
 {
@@ -519,14 +541,23 @@ void Kernel::Thread::handle_exception()
 		handle_syscall(this);
 		return;
 	case PREFETCH_ABORT:
+		ktrace_0(this); Genode::printf(" p %lx %lx %lx\n", ip, lr, sp);
+		handle_pagefault(this);
+		return;
 	case DATA_ABORT:
+		ktrace_0(this); Genode::printf(" d %lx %lx %lx\n", ip, lr, sp);
 		handle_pagefault(this);
 		return;
 	case INTERRUPT_REQUEST:
+		ktrace_0(this); Genode::printf(" i %lx %lx %lx\n", ip, lr, sp);
+		handle_interrupt();
+		return;
 	case FAST_INTERRUPT_REQUEST:
+		ktrace_0(this); Genode::printf(" f %lx %lx %lx\n", ip, lr, sp);
 		handle_interrupt();
 		return;
 	default:
+		ktrace_0(this); Genode::printf(" ? %lx %lx %lx\n", ip, lr, sp);
 		handle_invalid_excpt();
 	}
 }
@@ -1416,8 +1447,13 @@ namespace Kernel
 
 		/* handle syscall that has been requested by the user */
 		unsigned syscall = user->user_arg_0();
-		if (syscall > MAX_SYSCALL) handle_sysc[INVALID_SYSCALL](user);
-		else handle_sysc[syscall](user);
+		if (syscall > MAX_SYSCALL) {
+			ktrace_0(user); Genode::printf(" s ?\n");
+			handle_sysc[INVALID_SYSCALL](user);
+		} else {
+			ktrace_0(user); Genode::printf(" s %ux%xx%xx%xx%xx%xx%xx%x\n", user->user_arg_0(), user->user_arg_1(), user->user_arg_2(), user->user_arg_3(), user->user_arg_4(), user->user_arg_5(), user->user_arg_6(), user->user_arg_7());
+			handle_sysc[syscall](user);
+		}
 	}
 }
 
