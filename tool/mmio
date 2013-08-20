@@ -1,0 +1,48 @@
+# !/bin/sh
+export MYSRC="$1";
+if [ "$MYSRC" == "" ]; then
+	echo "tool to generate MMIO-framework declarations from simple specs"
+	echo ""
+	echo "usage:"
+	echo ""
+	echo "  mmio <input_file>"
+	echo "  "
+	echo "  <input_file> content example:"
+	echo "    "
+	echo "    r My_register_a f4 32"
+	echo "    b My_bitfield_a1 0 2"
+	echo "    b My_bitfield_a2 6 11"
+	echo "    "
+	echo "    r My_register_b 2dc 16"
+	echo "    b My_bitfield_b1 9 3"
+	echo "    "
+	echo "    t My_regstencil_c 8"
+	echo "    b My_bitfield_c1 0 1"
+	echo "    b My_bitfield_c2 4 4"
+	echo "    "
+	echo "    x My_regoffprint_cx My_regtemplate_c 1e1c"
+	echo "    x My_regoffprint_cy My_regtemplate_c 2e1c"
+	echo "    "
+	echo "  take note:"
+	echo "    "
+	echo "    * bitfields directly follow their register or register stencil"
+	echo "    * register-bitfield bundles must be followed by an empty line each"
+	echo "    * register-stencil-bitfield bundles must be followed by an empty line each"
+	echo "    * hex values must not be prefixed by '0x'"
+	echo "    * strict-write option is not supported"
+elif [ ! -f "$MYSRC" ]; then
+	echo "error: can't find file $MYSRC";
+else
+	sed -e ":loop;/^b.*/{n;s/^$/};/;Tloop}" "$MYSRC" | \
+	sed -e ":loop;/^t.*/{n;s/^$/};/;Tloop}" | \
+	sed -e ":loop;/^r.*/{n;s/^$/};/;Tloop}" | \
+	sed -e "/^t \(.*\) 1/,/^$/{s/^b \(.*\) \(.*\) \(.*\)$/	struct \1 : Register<OFF, 1>::template Bitfield<\2, \3> { };/}" | \
+	sed -e "/^t \(.*\) 8/,/^$/{s/^b \(.*\) \(.*\) \(.*\)$/	struct \1 : Register<OFF, 8>::template Bitfield<\2, \3> { };/}" | \
+	sed -e "/^t \(.*\) 16/,/^$/{s/^b \(.*\) \(.*\) \(.*\)$/	struct \1 : Register<OFF, 16>::template Bitfield<\2, \3> { };/}" | \
+	sed -e "/^t \(.*\) 32/,/^$/{s/^b \(.*\) \(.*\) \(.*\)$/	struct \1 : Register<OFF, 32>::template Bitfield<\2, \3> { };/}" | \
+	sed -e "/^t \(.*\) 64/,/^$/{s/^b \(.*\) \(.*\) \(.*\)$/	struct \1 : Register<OFF, 64>::template Bitfield<\2, \3> { };/}" | \
+	sed -e "s/^t \(.*\) \(.*\)$/template <unsigned OFF>\nstruct \1 : Register<OFF, \2>\n{/" | \
+	sed -e "s/^r \(.*\) \(.*\) \(.*\)$/struct \1 : Register<0x\2, \3>\n{/" | \
+	sed -e "s/^b \(.*\) \(.*\) \(.*\)$/	struct \1 : Bitfield<\2, \3> { };/" | \
+	sed -e "s/^x \(.*\) \(.*\) \(.*\)$/struct \1 : \2<0x\3> { };/";
+fi
