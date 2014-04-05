@@ -603,9 +603,10 @@ void Thread::_call_update_region()
 {
 	assert(_core());
 
-	/* FIXME we don't handle instruction caches by now */
-	Processor::flush_data_caches_by_virt_region((addr_t)user_arg_1(),
-	                                            (size_t)user_arg_2());
+	addr_t base = (addr_t)user_arg_1();
+	size_t const size = (size_t)user_arg_2();
+	Processor::flush_data_caches_by_virt_region(base, size);
+	Processor::invalidate_instr_caches_by_virt_region(base, size);
 }
 
 
