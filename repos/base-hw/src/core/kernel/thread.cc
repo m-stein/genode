@@ -167,7 +167,7 @@ void Thread::init(Processor * const processor, Pd * const pd,
 	assert(_state == AWAITS_START)
 
 	/* store thread parameters */
-	Processor_client::_processor(processor);
+	Processor_client::_processor = processor;
 	_utcb_phys = utcb_phys;
 
 	/* join protection domain */
