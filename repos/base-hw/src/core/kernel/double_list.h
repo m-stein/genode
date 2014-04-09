@@ -145,6 +145,20 @@ class Kernel::Double_list
 			_tail = i;
 		}
 
+		/**
+		 * Call a function for each object in the list
+		 *
+		 * \param function  targeted function of type 'void function(T *)'
+		 */
+		template <typename Function>
+		void for_each(Function function)
+		{
+			Item * i = _head;
+			while (i) {
+				function(i->_object());
+				i = i->_next;
+			}
+		}
 
 		/***************
 		 ** Accessors **
