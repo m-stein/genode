@@ -86,7 +86,8 @@ void Thread_base::_init_platform_thread(Type type)
 		_tid.exc_pt_sel = 0;
 		_tid.ec_sel     = Nova::PT_SEL_MAIN_EC;
 
-		request_native_ec_cap(_pager_cap, _tid.ec_sel);
+		enum { DONT_MAP_PAGER_CAP = 0 };
+		request_native_ec_cap(_pager_cap, _tid.ec_sel, DONT_MAP_PAGER_CAP);
 		return;
 	}
 

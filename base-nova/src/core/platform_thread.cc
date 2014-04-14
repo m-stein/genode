@@ -110,7 +110,7 @@ int Platform_thread::start(void *ip, void *sp)
 
 		addr_t remap_src[] = { _pd->parent_pt_sel(),
 		                       _pager->Object_pool<Pager_object>::Entry::cap().local_name() };
-		addr_t remap_dst[] = { PT_SEL_PARENT, PT_SEL_PARENT + 1 };
+		addr_t remap_dst[] = { PT_SEL_PARENT, PT_SEL_MAIN_PAGER };
 
 		/* remap exception portals for first thread */
 		for (unsigned i = 0; i < sizeof(remap_dst)/sizeof(remap_dst[0]); i++) {
