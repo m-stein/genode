@@ -27,10 +27,10 @@ using namespace Genode;
 Signal_session_component::Signal_session_component(Allocator * const md,
                                                    size_t const ram_quota) :
 	_md_alloc(md, ram_quota),
-	_receivers_slab(Receiver::slab_size(), RECEIVERS_SLAB_SIZE,
-	                (Slab_block *)&_initial_receivers_sb, &_md_alloc),
-	_contexts_slab(Context::slab_size(), CONTEXTS_SLAB_SIZE,
-	               (Slab_block *)&_initial_contexts_sb, &_md_alloc)
+	_receivers_slab(Receiver::size(), Traits::_slab_size<Receiver>(),
+	                (Slab_block *)&_first_receivers_slab, &_md_alloc),
+	_contexts_slab(Context::size(), Traits::_slab_size<Context>(),
+	               (Slab_block *)&_first_contexts_slab, &_md_alloc)
 { }
 
 
@@ -53,7 +53,7 @@ Signal_receiver_capability Signal_session_component::alloc_receiver()
 {
 	/* allocate resources for receiver */
 	void * p;
-	if (!_receivers_slab.alloc(Receiver::slab_size(), &p)) {
+	if (!_receivers_slab.alloc(Receiver::size(), &p)) {
 		PERR("failed to allocate signal-receiver resources");
 		throw Out_of_metadata();
 	}
@@ -63,7 +63,7 @@ Signal_receiver_capability Signal_session_component::alloc_receiver()
 	if (!id)
 	{
 		/* clean up */
-		_receivers_slab.free(p, Receiver::slab_size());
+		_receivers_slab.free(p, Receiver::size());
 		PERR("failed to create signal receiver");
 		throw Create_receiver_failed();
 	}
@@ -87,7 +87,7 @@ void Signal_session_component::free_receiver(Signal_receiver_capability cap)
 	}
 	/* release resources */
 	_destruct_receiver(r);
-	_receivers_slab.free(r, Receiver::slab_size());
+	_receivers_slab.free(r, Receiver::size());
 }
 
 
@@ -97,7 +97,7 @@ Signal_session_component::alloc_context(Signal_receiver_capability r,
 {
 	/* allocate resources for context */
 	void * p;
-	if (!_contexts_slab.alloc(Context::slab_size(), &p)) {
+	if (!_contexts_slab.alloc(Context::size(), &p)) {
 		PERR("failed to allocate signal-context resources");
 		throw Out_of_metadata();
 	}
@@ -107,7 +107,7 @@ Signal_session_component::alloc_context(Signal_receiver_capability r,
 	if (!id)
 	{
 		/* clean up */
-		_contexts_slab.free(p, Context::slab_size());
+		_contexts_slab.free(p, Context::size());
 		PERR("failed to create signal context");
 		throw Create_context_failed();
 	}
@@ -130,7 +130,7 @@ void Signal_session_component::free_context(Signal_context_capability cap)
 	}
 	/* release resources */
 	_destruct_context(c);
-	_contexts_slab.free(c, Context::slab_size());
+	_contexts_slab.free(c, Context::size());
 }
 
 

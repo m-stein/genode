@@ -38,6 +38,15 @@ namespace Genode
 	class Signal_session_context;
 
 	/**
+	 * Traits that are used in signal session components
+	 *
+	 * FIXME: This class is merely necessary because GCC 4.7.2 appears to have
+	 *        a problem with using a static-constexpr method for the
+	 *        dimensioning of a member array within the same class.
+	 */
+	class Signal_session_traits;
+
+	/**
 	 * Server-sided implementation of a signal session
 	 */
 	class Signal_session_component;
@@ -62,9 +71,9 @@ class Genode::Signal_session_receiver
 		unsigned id() const { return Pool::Entry::cap().dst(); }
 
 		/**
-		 * Size of SLAB block occupied by resources and this resource info
+		 * Size of the data starting at the base of this object
 		 */
-		static constexpr size_t slab_size()
+		static constexpr size_t size()
 		{
 			return sizeof(Signal_session_receiver) + sizeof(Kernel::Signal_receiver);
 		}
@@ -99,9 +108,9 @@ class Genode::Signal_session_context
 		unsigned id() const { return Pool::Entry::cap().dst(); }
 
 		/**
-		 * Size of SLAB block occupied by resources and this resource info
+		 * Size of the data starting at the base of this object
 		 */
-		static constexpr size_t slab_size()
+		static constexpr size_t size()
 		{
 			return sizeof(Signal_session_context) + sizeof(Kernel::Signal_context);
 		}
@@ -117,33 +126,63 @@ class Genode::Signal_session_context
 		}
 };
 
-class Genode::Signal_session_component : public Rpc_object<Signal_session>
+class Genode::Signal_session_traits
+{
+	private:
+
+		/**
+		 * Return the raw size of a slab
+		 */
+		static constexpr size_t _slab_raw() { return get_page_size(); }
+
+		/**
+		 * Return the size of the static buffer for meta data per slab
+		 */
+		static constexpr size_t _slab_buffer() { return 128; }
+
+		/**
+		 * Return the size available for allocations per slab
+		 */
+		static constexpr size_t _slab_avail() { return _slab_raw() - _slab_buffer(); }
+
+		/**
+		 * Return the amount of allocatable slots per slab
+		 *
+		 * \param T  object type of the slab
+		 */
+		template <typename T>
+		static constexpr size_t _slab_slots() { return _slab_avail() / T::size(); }
+
+	protected:
+
+		/**
+		 * Return the size of allocatable space per slab
+		 *
+		 * \param T  object type of the slab
+		 */
+		template <typename T>
+		static constexpr size_t _slab_size() { return _slab_slots<T>() * T::size(); }
+};
+
+class Genode::Signal_session_component
+:
+	public Rpc_object<Signal_session>,
+	public Signal_session_traits
 {
 	private:
 
 		typedef Signal_session_receiver Receiver;
 		typedef Signal_session_context  Context;
-
-	public:
-
-		enum {
-			SLAB_ALLOC_BUF      = 128,
-			SLAB_AVAIL          = get_page_size() - SLAB_ALLOC_BUF,
-			RECEIVERS_SLAB_NUM  = SLAB_AVAIL / Receiver::slab_size(),
-			CONTEXTS_SLAB_NUM   = SLAB_AVAIL / Context::slab_size(),
-			RECEIVERS_SLAB_SIZE = RECEIVERS_SLAB_NUM * Receiver::slab_size(),
-			CONTEXTS_SLAB_SIZE  = CONTEXTS_SLAB_NUM * Context::slab_size(),
-		};
-
-	private:
+		typedef Signal_session_traits   Traits;
 
 		Allocator_guard _md_alloc;
 		Slab            _receivers_slab;
 		Receiver::Pool  _receivers;
 		Slab            _contexts_slab;
 		Context::Pool   _contexts;
-		char            _initial_receivers_sb [RECEIVERS_SLAB_SIZE];
-		char            _initial_contexts_sb  [CONTEXTS_SLAB_SIZE];
+
+		char _first_receivers_slab [Traits::_slab_size<Receiver>()];
+		char _first_contexts_slab  [Traits::_slab_size<Context>()];
 
 		/**
 		 * Destruct receiver 'r'
