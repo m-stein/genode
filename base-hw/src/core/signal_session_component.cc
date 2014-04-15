@@ -27,9 +27,9 @@ using namespace Genode;
 Signal_session_component::Signal_session_component(Allocator * const md,
                                                    size_t const ram_quota) :
 	_md_alloc(md, ram_quota),
-	_receivers_slab(Receiver::slab_size(), RECEIVERS_SB_SIZE,
+	_receivers_slab(Receiver::slab_size(), RECEIVERS_SLAB_SIZE,
 	                (Slab_block *)&_initial_receivers_sb, &_md_alloc),
-	_contexts_slab(Context::slab_size(), CONTEXTS_SB_SIZE,
+	_contexts_slab(Context::slab_size(), CONTEXTS_SLAB_SIZE,
 	               (Slab_block *)&_initial_contexts_sb, &_md_alloc)
 { }
 

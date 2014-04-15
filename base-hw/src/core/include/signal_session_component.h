@@ -21,6 +21,10 @@
 #include <base/allocator_guard.h>
 #include <base/object_pool.h>
 
+/* core includes */
+#include <kernel/signal_receiver.h>
+#include <util.h>
+
 namespace Genode
 {
 	/**
@@ -60,17 +64,17 @@ class Genode::Signal_session_receiver
 		/**
 		 * Size of SLAB block occupied by resources and this resource info
 		 */
-		static size_t slab_size()
+		static constexpr size_t slab_size()
 		{
-			return
-				sizeof(Signal_session_receiver) +
-				Kernel::signal_receiver_size();
+			return sizeof(Signal_session_receiver) + sizeof(Kernel::Signal_receiver);
 		}
 
 		/**
-		 * Base of region donated to the kernel
+		 * Base of the kernel donation associated with a specific SLAB address
+		 *
+		 * \param slab_addr  SLAB address
 		 */
-		static addr_t kernel_donation(void * const slab_addr)
+		static constexpr addr_t kernel_donation(void * const slab_addr)
 		{
 			return (addr_t)slab_addr + sizeof(Signal_session_receiver);
 		}
@@ -97,17 +101,17 @@ class Genode::Signal_session_context
 		/**
 		 * Size of SLAB block occupied by resources and this resource info
 		 */
-		static size_t slab_size()
+		static constexpr size_t slab_size()
 		{
-			return
-				sizeof(Signal_session_context) +
-				Kernel::signal_context_size();
+			return sizeof(Signal_session_context) + sizeof(Kernel::Signal_context);
 		}
 
 		/**
-		 * Base of region donated to the kernel
+		 * Base of the kernel donation associated with a specific SLAB address
+		 *
+		 * \param slab_addr  SLAB address
 		 */
-		static addr_t kernel_donation(void * const slab_addr)
+		static constexpr addr_t kernel_donation(void * const slab_addr)
 		{
 			return (addr_t)slab_addr + sizeof(Signal_session_context);
 		}
@@ -115,38 +119,31 @@ class Genode::Signal_session_context
 
 class Genode::Signal_session_component : public Rpc_object<Signal_session>
 {
-	public:
-
-		enum {
-			/**
-			 * Lastly Receiver::slab_size() was 112. Additionally we
-			 * have to take in account, that the backing store might add
-			 * its metadata and round up to next page size. So we choose
-			 * 35 * 112 which mostly is save to end up in one page only.
-			 */
-			RECEIVERS_SB_SIZE = 3920,
-
-			/**
-			 * Lastly Context::slab_size() size was 124. Additionally we
-			 * have to take in account, that the backing store might add
-			 * its metadata and round up to next page size. So we choose
-			 * 32 * 124 which mostly is save to end up in one page only.
-			 */
-			CONTEXTS_SB_SIZE  = 3968,
-		};
-
 	private:
 
 		typedef Signal_session_receiver Receiver;
 		typedef Signal_session_context  Context;
+
+	public:
+
+		enum {
+			SLAB_ALLOC_BUF      = 128,
+			SLAB_AVAIL          = get_page_size() - SLAB_ALLOC_BUF,
+			RECEIVERS_SLAB_NUM  = SLAB_AVAIL / Receiver::slab_size(),
+			CONTEXTS_SLAB_NUM   = SLAB_AVAIL / Context::slab_size(),
+			RECEIVERS_SLAB_SIZE = RECEIVERS_SLAB_NUM * Receiver::slab_size(),
+			CONTEXTS_SLAB_SIZE  = CONTEXTS_SLAB_NUM * Context::slab_size(),
+		};
+
+	private:
 
 		Allocator_guard _md_alloc;
 		Slab            _receivers_slab;
 		Receiver::Pool  _receivers;
 		Slab            _contexts_slab;
 		Context::Pool   _contexts;
-		char            _initial_receivers_sb [RECEIVERS_SB_SIZE];
-		char            _initial_contexts_sb  [CONTEXTS_SB_SIZE];
+		char            _initial_receivers_sb [RECEIVERS_SLAB_SIZE];
+		char            _initial_contexts_sb  [CONTEXTS_SLAB_SIZE];
 
 		/**
 		 * Destruct receiver 'r'
