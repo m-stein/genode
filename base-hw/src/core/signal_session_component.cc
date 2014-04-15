@@ -146,7 +146,7 @@ void Signal_session_component::_destruct_context(Context * const c)
 	}
 	/* release core resources */
 	_contexts.remove_locked(c);
-	c->~Context();
+	c->~Signal_session_context();
 }
 
 
@@ -162,5 +162,5 @@ void Signal_session_component::_destruct_receiver(Receiver * const r)
 	}
 	/* release core resources */
 	_receivers.remove_locked(r);
-	r->~Receiver();
+	r->~Signal_session_receiver();
 }
