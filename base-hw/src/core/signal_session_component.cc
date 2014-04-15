@@ -24,31 +24,6 @@
 using namespace Genode;
 
 
-Signal_session_component::Signal_session_component(Allocator * const md,
-                                                   size_t const ram_quota) :
-	_md_alloc(md, ram_quota),
-	_receivers_slab(Receiver::size(), Traits::_slab_size<Receiver>(),
-	                (Slab_block *)&_first_receivers_slab, &_md_alloc),
-	_contexts_slab(Context::size(), Traits::_slab_size<Context>(),
-	               (Slab_block *)&_first_contexts_slab, &_md_alloc)
-{ }
-
-
-Signal_session_component::~Signal_session_component()
-{
-	while (1) {
-		Context * const c = _contexts.first_locked();
-		if (!c) { break; }
-		_destruct_context(c);
-	}
-	while (1) {
-		Receiver * const r = _receivers.first_locked();
-		if (!r) { break; }
-		_destruct_receiver(r);
-	}
-}
-
-
 Signal_receiver_capability Signal_session_component::alloc_receiver()
 {
 	/* allocate resources for receiver */

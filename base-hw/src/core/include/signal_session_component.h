@@ -11,8 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _CORE__INCLUDE__SIGNAL_SESSION_COMPONENT_H_
-#define _CORE__INCLUDE__SIGNAL_SESSION_COMPONENT_H_
+#ifndef _SIGNAL_SESSION_COMPONENT_H_
+#define _SIGNAL_SESSION_COMPONENT_H_
 
 /* Genode includes */
 #include <signal_session/signal_session.h>
@@ -28,14 +28,18 @@
 namespace Genode
 {
 	/**
-	 * Maps a signal-receiver name to related core and kernel resources
+	 * Combines kernel data and core data of an object a signal session manages
+	 *
+	 * \param T  type of the kernel data
 	 */
-	class Signal_session_receiver;
+	template <typename T>
+	class Signal_session_object;
 
-	/**
-	 * Maps a signal-context name to related core and kernel resources
-	 */
-	class Signal_session_context;
+	typedef Signal_session_object<Kernel::Signal_receiver>
+		Signal_session_receiver;
+
+	typedef Signal_session_object<Kernel::Signal_context>
+		Signal_session_context;
 
 	/**
 	 * Traits that are used in signal session components
@@ -52,21 +56,22 @@ namespace Genode
 	class Signal_session_component;
 }
 
-class Genode::Signal_session_receiver
+template <typename T>
+class Genode::Signal_session_object
 :
-	public Object_pool<Signal_session_receiver>::Entry
+	public Object_pool<Signal_session_object<T> >::Entry
 {
 	public:
 
-		typedef Object_pool<Signal_session_receiver> Pool;
+		typedef Object_pool<Signal_session_object<T> > Pool;
 
 		/**
 		 * Constructor
 		 */
-		Signal_session_receiver(Untyped_capability cap) : Entry(cap) { }
+		Signal_session_object(Untyped_capability cap) : Pool::Entry(cap) { }
 
 		/**
-		 * Name of signal receiver
+		 * Kernel name of the object
 		 */
 		unsigned id() const { return Pool::Entry::cap().dst(); }
 
@@ -75,7 +80,7 @@ class Genode::Signal_session_receiver
 		 */
 		static constexpr size_t size()
 		{
-			return sizeof(Signal_session_receiver) + sizeof(Kernel::Signal_receiver);
+			return sizeof(Signal_session_object<T>) + sizeof(T);
 		}
 
 		/**
@@ -85,44 +90,7 @@ class Genode::Signal_session_receiver
 		 */
 		static constexpr addr_t kernel_donation(void * const slab_addr)
 		{
-			return (addr_t)slab_addr + sizeof(Signal_session_receiver);
-		}
-};
-
-class Genode::Signal_session_context
-:
-	public Object_pool<Signal_session_context>::Entry
-{
-	public:
-
-		typedef Object_pool<Signal_session_context> Pool;
-
-		/**
-		 * Constructor
-		 */
-		Signal_session_context(Untyped_capability cap) : Entry(cap) { }
-
-		/**
-		 * Name of signal context
-		 */
-		unsigned id() const { return Pool::Entry::cap().dst(); }
-
-		/**
-		 * Size of the data starting at the base of this object
-		 */
-		static constexpr size_t size()
-		{
-			return sizeof(Signal_session_context) + sizeof(Kernel::Signal_context);
-		}
-
-		/**
-		 * Base of the kernel donation associated with a specific SLAB address
-		 *
-		 * \param slab_addr  SLAB address
-		 */
-		static constexpr addr_t kernel_donation(void * const slab_addr)
-		{
-			return (addr_t)slab_addr + sizeof(Signal_session_context);
+			return (addr_t)slab_addr + sizeof(Signal_session_object<T>);
 		}
 };
 
@@ -175,7 +143,7 @@ class Genode::Signal_session_component
 		typedef Signal_session_context  Context;
 		typedef Signal_session_traits   Traits;
 
-		Allocator_guard _md_alloc;
+		Allocator_guard _allocator;
 		Slab            _receivers_slab;
 		Receiver::Pool  _receivers;
 		Slab            _contexts_slab;
@@ -199,21 +167,41 @@ class Genode::Signal_session_component
 		/**
 		 * Constructor
 		 *
-		 * \param md         Metadata allocator
-		 * \param ram_quota  Amount of RAM quota donated to this session
+		 * \param allocator  RAM allocator for meta data
+		 * \param quota      amount of RAM quota donated to this session
 		 */
-		Signal_session_component(Allocator * const md,
-		                         size_t const ram_quota);
+		Signal_session_component(Allocator * const allocator,
+		                         size_t const quota)
+		:
+			_allocator(allocator, quota),
+			_receivers_slab(Receiver::size(), Traits::_slab_size<Receiver>(),
+			                (Slab_block *)&_first_receivers_slab, &_allocator),
+			_contexts_slab(Context::size(), Traits::_slab_size<Context>(),
+			               (Slab_block *)&_first_contexts_slab, &_allocator)
+		{ }
 
 		/**
 		 * Destructor
 		 */
-		~Signal_session_component();
+		~Signal_session_component()
+		{
+			while (1) {
+				Context * const c = _contexts.first_locked();
+				if (!c) { break; }
+				_destruct_context(c);
+			}
+			while (1) {
+				Receiver * const r = _receivers.first_locked();
+				if (!r) { break; }
+				_destruct_receiver(r);
+			}
+		}
 
 		/**
 		 * Raise the quota of this session by 'q'
 		 */
-		void upgrade_ram_quota(size_t const q) { _md_alloc.upgrade(q); }
+		void upgrade_ram_quota(size_t const q) { _allocator.upgrade(q); }
+
 
 		/******************************
 		 ** Signal_session interface **
@@ -229,4 +217,4 @@ class Genode::Signal_session_component
 		void free_context(Signal_context_capability);
 };
 
-#endif /* _CORE__INCLUDE__CAP_SESSION_COMPONENT_H_ */
+#endif /* _SIGNAL_SESSION_COMPONENT_H_ */
