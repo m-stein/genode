@@ -210,11 +210,17 @@ void Thread::exception(unsigned const processor_id)
 	case FAST_INTERRUPT_REQUEST:
 		_interrupt(processor_id);
 		return;
+	case UNDEFINED_INSTRUCTION:
+		if (_processor->retry_undefined_instr(&_lazy_state)) { return; }
+		PWRN("undefined instruction");
+		_stop();
+		return;
 	case RESET:
 		return;
 	default:
 		PWRN("unknown exception");
 		_stop();
+		return;
 	}
 }
 
