@@ -71,6 +71,7 @@ class Kernel::Thread
 	public Processor_driver::User_context,
 	public Object<Thread, MAX_THREADS, Thread_ids, thread_ids, thread_pool>,
 	public Processor_client,
+	public Processor_broadcast,
 	public Ipc_node,
 	public Signal_context_killer,
 	public Signal_handler,
@@ -98,6 +99,8 @@ class Kernel::Thread
 		Native_utcb *      _utcb_phys;
 		Signal_receiver *  _signal_receiver;
 		char const * const _label;
+
+		unsigned _flush_tlb_pd_id;
 
 		/**
 		 * Notice that another thread yielded the CPU to this thread
@@ -285,6 +288,15 @@ class Kernel::Thread
 		void _send_request_failed();
 		void _await_request_succeeded();
 		void _await_request_failed();
+
+
+		/*************************
+		 ** Processor_broadcast **
+		 *************************/
+
+		void _processor_broadcast_blocks();
+		void _processor_broadcast_method();
+		void _processor_broadcast_unblocks();
 
 	public:
 

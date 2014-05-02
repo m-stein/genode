@@ -19,8 +19,6 @@
 #include <processor_driver.h>
 #include <kernel/scheduler.h>
 
-#include <util/list.h>
-
 namespace Kernel
 {
 	using Genode::Processor_driver;
@@ -30,6 +28,11 @@ namespace Kernel
 	 * A single user of a multiplexable processor
 	 */
 	class Processor_client;
+
+	/**
+	 * Ability to broadcast a method to all processors
+	 */
+	class Processor_broadcast;
 
 	/**
 	 * Multiplexes a single processor to multiple processor clients
@@ -42,18 +45,58 @@ namespace Kernel
 	class Processor;
 }
 
+class Kernel::Processor_broadcast
+:
+	public Double_list_item<Processor_broadcast>
+{
+	friend class Processor_broadcast_list;
+
+	private:
+
+		bool _pending[PROCESSORS];
+
+		/**
+		 * Perform the broadcast method on the executing processors
+		 */
+		void _perform_locally();
+
+	protected:
+
+		/**
+		 * Constructor
+		 */
+		Processor_broadcast()
+		{
+			for (unsigned i = 0; i < PROCESSORS; i++) { _pending[i] = false; }
+		}
+
+		/**
+		 * Perform the broadcast method on all processors
+		 */
+		void _perform();
+
+		/**
+		 * Method that shall be performed on all processors by the broadcast
+		 */
+		virtual void _processor_broadcast_method() = 0;
+
+		/**
+		 * Notice that the broadcast isn't pending on any processor anymore
+		 */
+		virtual void _processor_broadcast_unblocks() = 0;
+
+		/**
+		 * Notice that the broadcast is pending on other processors
+		 */
+		virtual void _processor_broadcast_blocks() = 0;
+};
+
 class Kernel::Processor_client : public Processor_scheduler::Item
 {
 	protected:
 
 		Processor *          _processor;
 		Processor_lazy_state _lazy_state;
-
-		using List_item = Genode::List_element<Processor_client>;
-
-		List_item _flush_tlb_li;     /* TLB maintainance work list item       */
-		unsigned  _flush_tlb_pd_id;  /* id of pd that TLB entries are flushed */
-		bool      _flush_tlb_ref_cnt[PROCESSORS]; /* reference counters */
 
 		/**
 		 * Handle an interrupt exception that occured during execution
@@ -94,18 +137,6 @@ class Kernel::Processor_client : public Processor_scheduler::Item
 		virtual void proceed(unsigned const processor_id) = 0;
 
 		/**
-		 * Enqueues TLB maintainance work into queue of the processors
-		 *
-		 * \param pd_id  protection domain kernel object's id
-		 */
-		void tlb_to_flush(unsigned pd_id);
-
-		/**
-		 * Flush TLB entries requested by this client on the current processor
-		 */
-		void flush_tlb_by_id();
-
-		/**
 		 * Constructor
 		 *
 		 * \param processor  kernel object of targeted processor
@@ -114,8 +145,7 @@ class Kernel::Processor_client : public Processor_scheduler::Item
 		Processor_client(Processor * const processor, Priority const priority)
 		:
 			Processor_scheduler::Item(priority),
-			_processor(processor),
-			_flush_tlb_li(this)
+			_processor(processor)
 		{ }
 
 		/**
@@ -157,24 +187,14 @@ class Kernel::Processor : public Processor_driver
 		{ }
 
 		/**
-		 * Perform outstanding TLB maintainance work
-		 */
-		void flush_tlb();
-
-		/**
 		 * Notice that the inter-processor interrupt isn't pending anymore
 		 */
-		void ip_interrupt()
-		{
-			/*
-			 * This interrupt solely denotes that another processor has
-			 * modified the scheduling plan of this processor and thus
-			 * a more prior user context than the current one might be
-			 * available.
-			 */
-			_ip_interrupt_pending = false;
-			flush_tlb();
-		}
+		void ip_interrupt_handled() { _ip_interrupt_pending = false; }
+
+		/**
+		 * Raise the inter-processor interrupt of the processor
+		 */
+		void trigger_ip_interrupt();
 
 		/**
 		 * Add a processor client to the scheduling plan of the processor

@@ -541,9 +541,22 @@ void Thread::_call_access_thread_regs()
 
 
 void Thread::_call_update_pd()
-{
-	tlb_to_flush(user_arg_1());
+ {
+	_flush_tlb_pd_id = user_arg_1();
+	Processor_broadcast::_perform();
 }
+
+
+void Thread::_processor_broadcast_method()
+{
+	Processor::flush_tlb_by_pid(_flush_tlb_pd_id);
+}
+
+
+void Thread::_processor_broadcast_blocks() { _pause(); }
+
+
+void Thread::_processor_broadcast_unblocks() { _resume(); }
 
 
 void Thread::_call_update_data_region()

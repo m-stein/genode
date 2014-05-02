@@ -20,24 +20,50 @@
 #include <pic.h>
 #include <timer.h>
 
-using namespace Kernel;
-
 namespace Kernel
 {
+	/**
+	 * Lists all pending processor broadcasts
+	 */
+	class Processor_broadcast_list;
+
 	Pic * pic();
 	Timer * timer();
 }
 
-using Tlb_list_item = Genode::List_element<Processor_client>;
-using Tlb_list      = Genode::List<Tlb_list_item>;
-
-
-static Tlb_list *tlb_list()
+class Kernel::Processor_broadcast_list
+:
+	public Double_list<Processor_broadcast>
 {
-	static Tlb_list tlb_list;
-	return &tlb_list;
+	public:
+
+		/**
+		 * Perform all pending broadcasts on the executing processor
+		 */
+		void for_each_perform_locally()
+		{
+			for_each([] (Processor_broadcast * const broadcast) {
+				broadcast->_perform_locally();
+			});
+		}
+};
+
+namespace Kernel
+{
+	/**
+	 * Return singleton processor-broadcast list
+	 */
+	Processor_broadcast_list * processor_broadcast_list()
+	{
+		static Processor_broadcast_list s;
+		return &s;
+	}
 }
 
+
+/**********************
+ ** Processor_client **
+ **********************/
 
 void Kernel::Processor_client::_interrupt(unsigned const processor_id)
 {
@@ -55,7 +81,8 @@ void Kernel::Processor_client::_interrupt(unsigned const processor_id)
 		/* check wether the interrupt is our inter-processor interrupt */
 		} else if (ic->is_ip_interrupt(irq_id, processor_id)) {
 
-			_processor->ip_interrupt();
+			processor_broadcast_list()->for_each_perform_locally();
+			_processor->ip_interrupt_handled();
 
 		/* after all it must be a user interrupt */
 		} else {
@@ -72,44 +99,9 @@ void Kernel::Processor_client::_interrupt(unsigned const processor_id)
 void Kernel::Processor_client::_schedule() { _processor->schedule(this); }
 
 
-void Kernel::Processor_client::tlb_to_flush(unsigned pd_id)
-{
-	/* initialize pd and reference counters, and remove client from scheduler */
-	_flush_tlb_pd_id   = pd_id;
-	for (unsigned i = 0; i < PROCESSORS; i++)
-		_flush_tlb_ref_cnt[i] = false;
-	_unschedule();
-
-	/* find the last working item in the TLB work queue */
-	Tlb_list_item * last = tlb_list()->first();
-	while (last && last->next()) last = last->next();
-
-	/* insert new work item at the end of the work list */
-	tlb_list()->insert(&_flush_tlb_li, last);
-
-	/* enforce kernel entry of other processors */
-	for (unsigned i = 0; i < PROCESSORS; i++)
-		pic()->trigger_ip_interrupt(i);
-
-	processor_pool()->processor(Processor::executing_id())->flush_tlb();
-}
-
-
-void Kernel::Processor_client::flush_tlb_by_id()
-{
-	/* flush TLB on current processor and adjust ref counter */
-	Processor::flush_tlb_by_pid(_flush_tlb_pd_id);
-	_flush_tlb_ref_cnt[Processor::executing_id()] = true;
-
-	/* check whether all processors are done */
-	for (unsigned i = 0; i < PROCESSORS; i++)
-		if (!_flush_tlb_ref_cnt[i]) return;
-
-	/* remove work item from the list and re-schedule thread */
-	tlb_list()->remove(&_flush_tlb_li);
-	_schedule();
-}
-
+/***************
+ ** Processor **
+ ***************/
 
 void Kernel::Processor::schedule(Processor_client * const client)
 {
@@ -127,14 +119,21 @@ void Kernel::Processor::schedule(Processor_client * const client)
 		 * Additionailly we omit the interrupt if the insertion doesn't
 		 * rescind the current scheduling choice of the processor.
 		 */
-		if (_scheduler.insert_and_check(client) && !_ip_interrupt_pending) {
-			pic()->trigger_ip_interrupt(_id);
-			_ip_interrupt_pending = true;
-		}
+		if (_scheduler.insert_and_check(client)) { trigger_ip_interrupt(); }
+
 	} else {
 
 		/* add client locally */
 		_scheduler.insert(client);
+	}
+}
+
+
+void Kernel::Processor::trigger_ip_interrupt()
+{
+	if (!_ip_interrupt_pending) {
+		pic()->trigger_ip_interrupt(_id);
+		_ip_interrupt_pending = true;
 	}
 }
 
@@ -153,12 +152,42 @@ void Kernel::Processor_client::_yield()
 }
 
 
-void Kernel::Processor::flush_tlb()
+/*************************
+ ** Processor_broadcast **
+ *************************/
+
+void Kernel::Processor_broadcast::_perform_locally()
 {
-	/* iterate through the list of TLB work items, and proceed them */
-	for (Tlb_list_item * cli = tlb_list()->first(); cli;) {
-		Tlb_list_item * current = cli;
-		cli = current->next();
-		current->object()->flush_tlb_by_id();
+	/* perform broadcast method locally and get pending bit */
+	unsigned const processor_id = Processor::executing_id();
+	if (!_pending[processor_id]) { return; }
+	_processor_broadcast_method();
+	_pending[processor_id] = false;
+
+	/* check wether there are still processors pending */
+	unsigned i = 0;
+	for (; i < PROCESSORS && !_pending[i]; i++) { }
+	if (i < PROCESSORS) { return; }
+
+	/* as no processors pending anymore, end the processor broadcast */
+	processor_broadcast_list()->remove(this);
+	_processor_broadcast_unblocks();
+}
+
+
+void Kernel::Processor_broadcast::_perform()
+{
+	/* perform locally and leave it at that if in uniprocessor mode */
+	_processor_broadcast_method();
+	if (PROCESSORS == 1) { return; }
+
+	/* inform other processors and block until they are done */
+	_processor_broadcast_blocks();
+	processor_broadcast_list()->insert_tail(this);
+	unsigned const processor_id = Processor::executing_id();
+	for (unsigned i = 0; i < PROCESSORS; i++) {
+		if (i == processor_id) { continue; }
+		_pending[i] = true;
+		processor_pool()->processor(i)->trigger_ip_interrupt();
 	}
 }
