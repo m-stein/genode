@@ -80,6 +80,13 @@
 .endm
 
 /**
+ * Constant values that are pretty commonly used
+ */
+.macro _common_constants
+	.set data_access_alignm_log2, 2
+.endm
+
+/**
  * Local data structures that the mode transition uses
  */
 .macro _mt_local_variables
