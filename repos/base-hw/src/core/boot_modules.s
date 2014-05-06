@@ -11,28 +11,22 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-/* core includes */
-.include "macros.s"
-
-_common_constants
-
 .section .data
 
-.align data_access_alignm_log2
-.global _boot_modules_begin
-_boot_modules_begin:
-.string "GROM"
+.global _boot_modules_headers_begin
+_boot_modules_headers_begin:
 
-.align data_access_alignm_log2
-.global _boot_module_headers_begin
-_boot_module_headers_begin:
+/* no headers */
 
-/* no module headers */
+.global _boot_modules_headers_end
+_boot_modules_headers_end:
 
-.global _boot_module_headers_end
-_boot_module_headers_end:
+.section .data.boot_modules_binaries
 
-/* no modules */
+.global _boot_modules_binaries_begin
+_boot_modules_binaries_begin:
 
-.global _boot_modules_end
-_boot_modules_end:
+/* no binaries */
+
+.global _boot_modules_binaries_end
+_boot_modules_binaries_end:
