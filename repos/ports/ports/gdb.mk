@@ -68,7 +68,7 @@ $(DOWNLOAD_DIR)/$(GDB_TBZ2).verified: $(DOWNLOAD_DIR)/$(GDB_TBZ2) \
 $(CONTRIB_DIR)/$(GDB): $(DOWNLOAD_DIR)/$(GDB_TBZ2).verified
 	$(VERBOSE)tar xfj $(<:.verified=) -C $(CONTRIB_DIR)
 
-include ../tool/tool_chain_gdb_patches.inc
+include ../../tool/tool_chain_gdb_patches.inc
 
 $(CONTRIB_DIR)/$(GDB)/configure:: $(CONTRIB_DIR)/$(GDB)
 	@#
