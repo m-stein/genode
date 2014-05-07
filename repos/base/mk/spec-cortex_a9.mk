@@ -5,7 +5,7 @@
 #
 
 # denote wich specs are also fullfilled by this spec
-SPECS += arm_v7a pl390 fpu_vfpv3_d16
+SPECS += arm_v7a pl390
 
 # add repository relative include paths
 REP_INC_DIR += include/cortex_a9
@@ -15,5 +15,4 @@ CC_OPT += -mcpu=cortex-a9
 # include implied specs
 include $(call select_from_repositories,mk/spec-arm_v7a.mk)
 include $(call select_from_repositories,mk/spec-pl390.mk)
-include $(call select_from_repositories,mk/spec-fpu_vfpv3_d16.mk)
 
