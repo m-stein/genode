@@ -191,7 +191,7 @@ foc_arndale::
 	@echo "SPECS = genode foc_arndale" > $(BUILD_DIR)/etc/specs.conf
 
 codezero_vpb926::
-	@echo "CODEZERO_DIR = $(GENODE_DIR)/base-codezero/contrib" > $(BUILD_DIR)/etc/codezero.conf
+	@echo "CODEZERO_DIR = $(GENODE_DIR)/repos/base-codezero/contrib" > $(BUILD_DIR)/etc/codezero.conf
 
 hw_pbxa9::
 	@echo "SPECS = genode hw_pbxa9" > $(BUILD_DIR)/etc/specs.conf
