@@ -3,7 +3,8 @@ VERSION   := git
 DOWNLOADS := nova.git
 
 URL(nova) := https://github.com/alex-ab/NOVA.git
-REV(nova) := r5
+# r6 branch
+REV(nova) := 8f1345cd8cbc3bbace8fafdd65c4333cff0e0c8c
 DIR(nova) := src/kernel/nova
 
 PATCHES   := $(wildcard $(REP_DIR)/patches/*.patch)
