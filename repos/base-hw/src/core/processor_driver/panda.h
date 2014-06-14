@@ -5,22 +5,20 @@
  */
 
 /*
- * Copyright (C) 2012-2013 Genode Labs GmbH
+ * Copyright (C) 2012-2014 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _PANDA__PROCESSOR_DRIVER_H_
-#define _PANDA__PROCESSOR_DRIVER_H_
+#ifndef _PROCESSOR_DRIVER__PANDA_H_
+#define _PROCESSOR_DRIVER__PANDA_H_
 
 /* core includes */
 #include <processor_driver/cortex_a9.h>
 
-namespace Genode
+namespace Panda
 {
-	using Cortex_a9::Processor_lazy_state;
-
 	/**
 	 * Processor driver for core
 	 */
@@ -40,5 +38,4 @@ namespace Genode
 	};
 }
 
-#endif /* _PANDA__PROCESSOR_DRIVER_H_ */
-
+#endif /* _PROCESSOR_DRIVER__PANDA_H_ */

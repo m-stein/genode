@@ -27,7 +27,8 @@ usage:
 	@echo "                  'nova_x86_32'"
 	@echo "                  'nova_x86_64'"
 	@echo "                  'codezero_vpb926'"
-	@echo "                  'hw_panda'"
+	@echo "                  'hw_panda_a'"
+	@echo "                  'hw_panda_b'"
 	@echo "                  'hw_vea9x4'"
 	@echo "                  'hw_pbxa9'"
 	@echo "                  'hw_imx31'"
@@ -156,7 +157,7 @@ endif
 #
 # Add ARM drivers repositories to ARM build directories
 #
-ifeq ($(filter-out foc_panda foc_arndale hw_panda hw_arndale hw_odroid_xu foc_imx53,$(PLATFORM)),)
+ifeq ($(filter-out foc_panda foc_arndale hw_panda hw_panda_b hw_arndale hw_odroid_xu foc_imx53,$(PLATFORM)),)
 $(BUILD_DIR)/etc/build.conf::
 	@cat $(BUILD_CONF).drivers_arm >> $@
 endif
@@ -214,8 +215,11 @@ hw_pbxa9::
 hw_vea9x4::
 	@echo "SPECS = genode hw_vea9x4" > $(BUILD_DIR)/etc/specs.conf
 
-hw_panda::
-	@echo "SPECS = genode hw_panda" > $(BUILD_DIR)/etc/specs.conf
+hw_panda_a::
+	@echo "SPECS = genode hw_panda_a" > $(BUILD_DIR)/etc/specs.conf
+
+hw_panda_b::
+	@echo "SPECS = genode hw_panda_b" > $(BUILD_DIR)/etc/specs.conf
 
 hw_imx31::
 	@echo "SPECS = genode hw_imx31" > $(BUILD_DIR)/etc/specs.conf

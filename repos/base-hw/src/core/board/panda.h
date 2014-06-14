@@ -1,5 +1,5 @@
 /*
- * \brief  Board driver for core on pandaboard
+ * \brief  Board driver for core
  * \author Stefan Kalkowski
  * \date   2014-06-02
  */
@@ -11,15 +11,17 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _PANDA__BOARD_H_
-#define _PANDA__BOARD_H_
+#ifndef _BOARD__PANDA_H_
+#define _BOARD__PANDA_H_
 
 /* core includes */
 #include <util/mmio.h>
 #include <drivers/board_base.h>
 
-namespace Genode
+namespace Panda
 {
+	using namespace Genode;
+
 	struct Board : Board_base
 	{
 		/**
@@ -116,5 +118,4 @@ namespace Genode
 	};
 }
 
-#endif /* _PANDA__BOARD_H_ */
-
+#endif /* _BOARD__PANDA_H_ */
