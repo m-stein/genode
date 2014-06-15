@@ -290,6 +290,19 @@ class Cortex_a9::Processor_driver : public Arm_v7::Processor_driver
 			}
 			return true;
 		}
+
+		/**
+		 * Return divider that is applied to CLK to create PERIPHCLK
+		 */
+		static constexpr unsigned clk_to_periphclk_divider() { return 2; }
+
+		/**
+		 * Return frequency of PERIPHCLK
+		 */
+		static unsigned periphclk()
+		{
+			return Board::mpu_clk() / clk_to_periphclk_divider();
+		}
 };
 
 

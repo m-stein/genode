@@ -16,6 +16,7 @@ INC_DIR += $(REP_DIR)/src/core/arm_v7
 # add C++ sources
 SRC_CC += platform_services.cc \
           platform_support/panda.cc \
+          board/omap4460.cc \
           cpu_support.cc
 
 # add assembly sources

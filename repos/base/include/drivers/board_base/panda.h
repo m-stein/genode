@@ -105,6 +105,18 @@ class Panda::Board_base
 
 			/* wether board provides security extension */
 			SECURITY_EXTENSION = 0,
+
+			/* clock managers */
+			CM1_REGION_A_MMIO_BASE = 0x4a004000,
+			CM1_REGION_A_MMIO_SIZE = 0x00001000,
+
+			/* system control */
+			SYSCTRL_GENERAL_CORE_MMIO_BASE = 0x4a002000,
+			SYSCTRL_GENERAL_CORE_MMIO_SIZE = 0x00002000,
+
+			/* power and reset manager */
+			PRM_MMIO_BASE = 0x4a306000,
+			PRM_MMIO_SIZE = 0x00002000,
 		};
 };
 

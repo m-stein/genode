@@ -1,6 +1,7 @@
 /*
  * \brief  Board driver for core
  * \author Stefan Kalkowski
+ * \author Martin Stein
  * \date   2014-06-02
  */
 
@@ -22,6 +23,14 @@ namespace Panda
 {
 	using namespace Genode;
 
+	/**
+	 * General system-controls of the board domain called core
+	 */
+	class Sysctrl_general_core;
+
+	/**
+	 * Board driver for core
+	 */
 	struct Board : Board_base
 	{
 		/**
@@ -110,12 +119,55 @@ namespace Panda
 			}
 		};
 
+		/**
+		 * Set the frequency of the MPU clock to the maximum
+		 */
+		static void setup_max_mpu_clk();
+
+		/**
+		 * Return the frequency of the MPU clock
+		 */
+		static unsigned mpu_clk();
+
+		/**
+		 * Do what the board must do on uniprocessor kernel-initialization
+		 */
+		static void init_kernel_uniprocessor() { setup_max_mpu_clk(); }
+
 		static void outer_cache_invalidate();
 		static void outer_cache_flush();
 		static void prepare_kernel();
-
 		static void secondary_processors_ip(void * const ip) { }
 	};
 }
+
+class Panda::Sysctrl_general_core : public Mmio
+{
+	private:
+
+		/********************
+		 ** MMIO structure **
+		 ********************/
+
+		struct Std_fuse_prod_id_1 : Register <0x218, 32>
+		{
+			struct Silicon_type : Bitfield<16, 2> { };
+		};
+
+	public:
+
+		/**
+		 * Constructor
+		 */
+		Sysctrl_general_core()
+		:
+			Mmio(Board::SYSCTRL_GENERAL_CORE_MMIO_BASE)
+		{ }
+
+		/**
+		 * Return maximum frequency of the MPU clock
+		 */
+		unsigned max_mpu_clk();
+};
 
 #endif /* _BOARD__PANDA_H_ */
