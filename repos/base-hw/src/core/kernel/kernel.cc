@@ -59,6 +59,7 @@ namespace Kernel
 
 	/* import Genode types */
 	typedef Genode::umword_t       umword_t;
+	typedef Genode::Board          Board;
 	typedef Genode::Core_thread_id Core_thread_id;
 }
 
@@ -227,6 +228,9 @@ extern "C" void init_kernel_uniprocessor()
 	 ** we must avoid the use of 'cmpxchg' by now (includes not using any  **
 	 ** local static objects.                                              **
 	 ************************************************************************/
+
+	/* hook for hardware specific initialization */
+	Board::init_kernel_uniprocessor();
 
 	/* calculate in advance as needed later when data writes aren't allowed */
 	core_tt_base = (addr_t) core_pd()->translation_table();

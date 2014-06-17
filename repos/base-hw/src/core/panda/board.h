@@ -20,6 +20,9 @@
 
 namespace Genode
 {
+	/**
+	 * Board driver for core
+	 */
 	struct Board : Board_base
 	{
 		/**
@@ -108,10 +111,40 @@ namespace Genode
 			}
 		};
 
+		/**
+		 * Supported versions of the OMAP SoC
+		 */
+		static constexpr unsigned omap4430() { return 0; }
+		static constexpr unsigned omap4460() { return 1; }
+
+		/**
+		 * Set the frequency of the MPU clock to the maximum
+		 */
+		static void setup_max_mpu_clk();
+
+		/**
+		 * Return maximum frequency of the MPU clock
+		 */
+		static unsigned max_mpu_clk();
+
+		/**
+		 * Return version of the OMAP SoC
+		 */
+		static unsigned omap_version();
+
+		/**
+		 * Return frequency of the MPU clock
+		 */
+		static unsigned mpu_clk() { return max_mpu_clk(); }
+
+		/**
+		 * Do what the board must do on uniprocessor kernel-initialization
+		 */
+		static void init_kernel_uniprocessor() { setup_max_mpu_clk(); }
+
 		static void outer_cache_invalidate();
 		static void outer_cache_flush();
 		static void prepare_kernel();
-
 		static void secondary_processors_ip(void * const ip) { }
 	};
 }

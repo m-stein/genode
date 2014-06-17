@@ -27,8 +27,6 @@ namespace Cortex_a9
 	 */
 	class Timer : public Mmio
 	{
-		enum { TICS_PER_MS = Processor_driver::PRIVATE_TIMER_CLK / 1000, };
-
 		/**
 		 * Load value register
 		 */
@@ -51,6 +49,8 @@ namespace Cortex_a9
 			struct Event : Bitfield<0,1> { }; /* if counter hit zero */
 		};
 
+		unsigned const _tics_per_ms;
+
 		void _clear_interrupt() { write<Interrupt_status::Event>(1); }
 
 		public:
@@ -58,7 +58,10 @@ namespace Cortex_a9
 			/**
 			 * Constructor, clears the interrupt output
 			 */
-			Timer() : Mmio(Processor_driver::PRIVATE_TIMER_MMIO_BASE)
+			Timer()
+			:
+				Mmio(Processor_driver::PRIVATE_TIMER_MMIO_BASE),
+				_tics_per_ms(Processor_driver::periphclk() / 1000)
 			{
 				write<Control::Timer_enable>(0);
 				_clear_interrupt();
@@ -93,9 +96,9 @@ namespace Cortex_a9
 			/**
 			 * Translate 'ms' milliseconds to a native timer value
 			 */
-			static uint32_t ms_to_tics(unsigned const ms)
+			unsigned ms_to_tics(unsigned const ms)
 			{
-				return ms * TICS_PER_MS;
+				return ms * _tics_per_ms;
 			}
 
 			/**

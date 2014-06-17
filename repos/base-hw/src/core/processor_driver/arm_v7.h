@@ -141,6 +141,22 @@ namespace Arm_v7
 	struct Processor_driver : Arm::Processor_driver
 	{
 		/**
+		 * Main ID Register
+		 */
+		struct Midr : Register<32>
+		{
+			/**
+			 * Read register value
+			 */
+			static access_t read()
+			{
+				access_t v;
+				asm volatile ("mrc p15, 0, %[v], c0, c0, 0" : [v] "=r" (v));
+				return v;
+			}
+		};
+
+		/**
 		 * Secure configuration register
 		 */
 		struct Scr : Register<32>

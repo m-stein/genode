@@ -1,11 +1,11 @@
 /*
- * \brief  Driver for the OMAP4 PandaBoard revision A2
+ * \brief  Base of the board driver
  * \author Martin stein
  * \date   2011-11-03
  */
 
 /*
- * Copyright (C) 2011-2013 Genode Labs GmbH
+ * Copyright (C) 2014 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU General Public License version 2.
@@ -17,7 +17,7 @@
 namespace Genode
 {
 	/**
-	 * Driver for the OMAP4 PandaBoard revision A2
+	 * Base of the board driver
 	 */
 	struct Board_base
 	{
@@ -101,9 +101,19 @@ namespace Genode
 			/* wether board provides security extension */
 			SECURITY_EXTENSION = 0,
 
+			/* clock managers */
+			CM1_REGION_A_MMIO_BASE = 0x4a004000,
+			CM1_REGION_A_MMIO_SIZE = 0x00001000,
+
+			/* system control */
+			SYSCTRL_GENERAL_CORE_MMIO_BASE = 0x4a002000,
+			SYSCTRL_GENERAL_CORE_MMIO_SIZE = 0x00002000,
+
+			/* power and reset manager */
+			PRM_MMIO_BASE = 0x4a306000,
+			PRM_MMIO_SIZE = 0x00002000,
 		};
 	};
 }
 
 #endif /* _INCLUDE__DRIVERS__BOARD_BASE_H_ */
-
