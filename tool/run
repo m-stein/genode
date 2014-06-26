@@ -91,6 +91,12 @@ proc install_config {config} {
 	set fh [open "[run_dir]/genode/config" "WRONLY CREAT TRUNC"]
 	puts $fh $config
 	close $fh
+
+	if { [catch { exec xmllint --noout [run_dir]/genode/config } result] } {
+		puts stderr $result
+		puts stderr "Error: invalid XML syntax in file [run_dir]/config"
+		exit 1
+	}
 }
 
 
