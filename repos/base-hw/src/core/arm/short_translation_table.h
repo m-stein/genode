@@ -448,7 +448,7 @@ class Arm::Section_table
 				access_t v = access_permission_bits<Section>(flags);
 				v |= memory_region_attr<Section>(flags);
 				v |= Domain::bits(DOMAIN);
-				v |= Processor_driver::is_smp();
+				v |= S::bits(Processor_driver::is_smp());
 				v |= Ng::bits(!flags.global);
 				v |= Pa::masked(pa);
 				Descriptor::type(v, Descriptor::SECTION);
