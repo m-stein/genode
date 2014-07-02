@@ -18,16 +18,7 @@ proc install_config {config} {
 	puts $fh $config
 	close $fh
 
-	if {![have_installed xmllint]} {
-		puts "Warning: Cannot validate config syntax (please install xmllint)"
-		return;
-	}
-
-	if {[catch {exec xmllint --noout [run_dir]/config} result]} {
-		puts stderr $result
-		puts stderr "Error: invalid XML syntax in file [run_dir]/config"
-		exit 1
-	}
+	check_xml_syntax [run_dir]/config
 }
 
 
