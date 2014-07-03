@@ -14,9 +14,6 @@
 #ifndef _IMX53__PIC_H_
 #define _IMX53__PIC_H_
 
-/* Genode includes */
-#include <util/mmio.h>
-
 /* core includes */
 #include <pic_base.h>
 
