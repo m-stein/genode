@@ -196,15 +196,17 @@ class Platform_timer
 			 * This quirk should be removed as soon as it is clear what
 			 * triggers the phenomenon.
 			 */
-			enum { QUIRK_TIMEOUT_US = 4000 };
+			enum { QUIRK_TIMEOUT_US = 2800 };
 
 			unsigned long now   = curr_time();
 			asm volatile ("":::"memory");
 			unsigned long later = curr_time();
 
-			if (later - now > QUIRK_TIMEOUT_US) {
-				PERR("apply timer quirk - %ld", later - now);
-				timeout_usec = max_timeout();
+			unsigned long diff = later - now;
+			if (diff > QUIRK_TIMEOUT_US) {
+				timeout_usec = diff * 4 > max_timeout() ? max_timeout() : diff * 4;
+				PERR("apply timer quirk - diff=%lu, timeout_usec=%lu",
+					 diff, timeout_usec);
 			}
 			/* XXX Quirk - end */
 
