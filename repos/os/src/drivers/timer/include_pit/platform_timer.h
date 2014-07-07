@@ -204,7 +204,7 @@ class Platform_timer
 
 			unsigned long diff = later - now;
 			if (diff > QUIRK_TIMEOUT_US) {
-				timeout_usec = diff * 4 > max_timeout() ? max_timeout() : diff * 4;
+				timeout_usec = diff * 6 > max_timeout() ? max_timeout() : diff * 6;
 				PERR("apply timer quirk - diff=%lu, timeout_usec=%lu",
 					 diff, timeout_usec);
 			}
