@@ -11,8 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _ODROID_XU__TIMER_H_
-#define _ODROID_XU__TIMER_H_
+#ifndef _TIMER_H_
+#define _TIMER_H_
 
 /* core includes */
 #include <board.h>
@@ -45,4 +45,4 @@ namespace Kernel
 	};
 }
 
-#endif /* _ODROID_XU__TIMER_H_ */
+#endif /* _TIMER_H_ */
