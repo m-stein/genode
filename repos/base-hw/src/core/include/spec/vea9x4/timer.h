@@ -1,5 +1,5 @@
 /*
- * \brief  Interrupt controller for kernel
+ * \brief  Timer for kernel
  * \author Martin Stein
  * \date   2012-04-23
  */
@@ -11,19 +11,18 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _VEA9X4__TRUSTZONE__PIC_H_
-#define _VEA9X4__TRUSTZONE__PIC_H_
+#ifndef _TIMER_H_
+#define _TIMER_H_
 
 /* core includes */
-#include <pic/vea9x4_trustzone.h>
+#include <timer/cortex_a9.h>
 
 namespace Kernel
 {
 	/**
-	 * Interrupt controller for kernel
+	 * Kernel timer
 	 */
-	class Pic : public Vea9x4_trustzone::Pic { };
+	class Timer : public Cortex_a9::Timer { };
 }
 
-#endif /* _VEA9X4__TRUSTZONE__PIC_H_ */
-
+#endif /* _TIMER_H_ */

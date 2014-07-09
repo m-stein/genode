@@ -6,7 +6,7 @@
 #
 
 # declare source paths
-vpath platform_support.cc   $(REP_DIR)/src/core/vea9x4
+vpath platform_support.cc   $(REP_DIR)/src/core/spec/vea9x4
 vpath platform_services.cc $(BASE_DIR)/src/core
 
 # include less specific library parts
