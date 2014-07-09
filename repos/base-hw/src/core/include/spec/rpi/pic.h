@@ -11,8 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _RPI__PIC_H_
-#define _RPI__PIC_H_
+#ifndef _PIC_H_
+#define _PIC_H_
 
 /* Genode includes */
 #include <util/mmio.h>
@@ -143,5 +143,4 @@ namespace Kernel
 	};
 }
 
-#endif /* _RPI__PIC_H_ */
-
+#endif /* _PIC_H_ */

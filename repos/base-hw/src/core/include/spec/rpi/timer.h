@@ -11,8 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _RPI__TIMER_H_
-#define _RPI__TIMER_H_
+#ifndef _TIMER_H_
+#define _TIMER_H_
 
 /* Genode includes */
 #include <util/mmio.h>
@@ -71,5 +71,4 @@ class Kernel::Timer : public Genode::Mmio
 		}
 };
 
-#endif /* _RPI__TIMER_H_ */
-
+#endif /* _TIMER_H_ */
