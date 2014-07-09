@@ -11,8 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _IMX31__PIC_H_
-#define _IMX31__PIC_H_
+#ifndef _PIC_H_
+#define _PIC_H_
 
 /* core includes */
 #include <pic/imx31.h>
@@ -25,5 +25,4 @@ namespace Kernel
 	class Pic : public Imx31::Pic { };
 }
 
-#endif /* _IMX31__PIC_H_ */
-
+#endif /* _PIC_H_ */

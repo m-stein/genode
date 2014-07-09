@@ -11,8 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _IMX31__PROCESSOR_DRIVER_H_
-#define _IMX31__PROCESSOR_DRIVER_H_
+#ifndef _PROCESSOR_DRIVER_H_
+#define _PROCESSOR_DRIVER_H_
 
 /* core includes */
 #include <processor_driver/arm_v6.h>
@@ -23,5 +23,4 @@ namespace Genode
 	using Arm_v6::Processor_driver;
 }
 
-#endif /* _IMX31__PROCESSOR_DRIVER_H_ */
-
+#endif /* _PROCESSOR_DRIVER_H_ */

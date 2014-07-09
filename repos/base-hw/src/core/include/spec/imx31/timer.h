@@ -11,8 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _IMX31__TIMER_H_
-#define _IMX31__TIMER_H_
+#ifndef _TIMER_H_
+#define _TIMER_H_
 
 /* core includes */
 #include <drivers/timer/epit_base.h>
@@ -39,5 +39,4 @@ namespace Kernel
 	};
 }
 
-#endif /* _IMX31__TIMER_H_ */
-
+#endif /* _TIMER_H_ */

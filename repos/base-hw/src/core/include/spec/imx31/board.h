@@ -4,8 +4,8 @@
  * \date   2012-11-01
  */
 
-#ifndef _BOARD__IMX31_H_
-#define _BOARD__IMX31_H_
+#ifndef _BOARD_H_
+#define _BOARD_H_
 
 /* Genode includes */
 #include <drivers/board_base.h>
@@ -98,4 +98,4 @@ namespace Genode
 	};
 }
 
-#endif /* _BOARD__IMX31_H_ */
+#endif /* _BOARD_H_ */
