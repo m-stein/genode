@@ -1,5 +1,5 @@
 /*
- * \brief  Timer for kernel
+ * \brief  Interrupt controller for kernel
  * \author Martin Stein
  * \date   2012-04-23
  */
@@ -11,19 +11,22 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _PANDA__TIMER_H_
-#define _PANDA__TIMER_H_
+#ifndef _PIC_H_
+#define _PIC_H_
 
 /* core includes */
-#include <timer/cortex_a9.h>
+#include <pic/cortex_a9.h>
 
 namespace Kernel
 {
 	/**
-	 * Kernel timer
+	 * Interrupt controller for kernel
 	 */
-	class Timer : public Cortex_a9::Timer { };
+	class Pic : public Cortex_a9::Pic { };
 }
 
-#endif /* _PANDA__TIMER_H_ */
 
+bool Arm_gic::Pic::_use_security_ext() { return 0; }
+
+
+#endif /* _PIC_H_ */

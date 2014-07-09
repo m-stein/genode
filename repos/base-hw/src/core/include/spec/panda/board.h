@@ -11,8 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _PANDA__BOARD_H_
-#define _PANDA__BOARD_H_
+#ifndef _BOARD_H_
+#define _BOARD_H_
 
 /* core includes */
 #include <util/mmio.h>
@@ -116,5 +116,4 @@ namespace Genode
 	};
 }
 
-#endif /* _PANDA__BOARD_H_ */
-
+#endif /* _BOARD_H_ */

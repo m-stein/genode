@@ -11,8 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _PANDA__PROCESSOR_DRIVER_H_
-#define _PANDA__PROCESSOR_DRIVER_H_
+#ifndef _PROCESSOR_DRIVER_H_
+#define _PROCESSOR_DRIVER_H_
 
 /* core includes */
 #include <processor_driver/cortex_a9.h>
@@ -40,5 +40,4 @@ namespace Genode
 	};
 }
 
-#endif /* _PANDA__PROCESSOR_DRIVER_H_ */
-
+#endif /* _PROCESSOR_DRIVER_H_ */
