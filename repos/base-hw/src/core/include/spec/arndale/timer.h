@@ -16,14 +16,14 @@
 
 /* core includes */
 #include <board.h>
-#include <timer/exynos_mct.h>
+#include <spec/exynos5/timer_base.h>
 
 namespace Kernel
 {
 	/**
 	 * Kernel timer
 	 */
-	class Timer : public Exynos_mct::Timer
+	class Timer : public Exynos5::Timer_base
 	{
 		public:
 
@@ -48,8 +48,8 @@ namespace Kernel
 			/**
 			 * Constructor
 			 */
-			Timer() : Exynos_mct::Timer(Genode::Board::MCT_MMIO_BASE,
-			                            Genode::Board::MCT_CLOCK) { }
+			Timer() : Exynos5::Timer_base(Genode::Board::MCT_MMIO_BASE,
+			                              Genode::Board::MCT_CLOCK) { }
 	};
 }
 

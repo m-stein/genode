@@ -11,20 +11,20 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _TIMER__EXYNOS_MCT_H_
-#define _TIMER__EXYNOS_MCT_H_
+#ifndef _SPEC__EXYNOS5__TIMER_BASE_H_
+#define _SPEC__EXYNOS5__TIMER_BASE_H_
 
 /* Genode includes */
 #include <util/mmio.h>
 
-namespace Exynos_mct
+namespace Exynos5
 {
 	using namespace Genode;
 
 	/**
 	 * Timer for core
 	 */
-	class Timer : public Mmio
+	class Timer_base : public Mmio
 	{
 		private:
 
@@ -175,7 +175,7 @@ namespace Exynos_mct
 			/**
 			 * Constructor
 			 */
-			Timer(addr_t const base, unsigned const clk)
+			Timer_base(addr_t const base, unsigned const clk)
 			: Mmio(base), _tics_per_ms(clk / (PRESCALER + 1) / (1 << DIV_MUX) / 1000)
 			{
 				Mct_cfg::access_t mct_cfg = 0;
@@ -265,4 +265,4 @@ namespace Exynos_mct
 	};
 }
 
-#endif /* _TIMER__EXYNOS_MCT_H_ */
+#endif /* _SPEC__EXYNOS5__TIMER_BASE_H_ */
