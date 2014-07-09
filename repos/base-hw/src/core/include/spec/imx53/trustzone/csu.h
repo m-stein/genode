@@ -11,15 +11,14 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _SRC__SERVER__VMM__INCLUDE__CSU_H_
-#define _SRC__SERVER__VMM__INCLUDE__CSU_H_
+#ifndef _CSU_H_
+#define _CSU_H_
 
 /* Genode includes */
 #include <util/mmio.h>
 #include <util/register.h>
 
-namespace Genode
-{
+namespace Genode {
 
 	class Csu : Mmio
 	{
@@ -219,7 +218,6 @@ namespace Genode
 				write<Master::Esdhc4>(Master::UNSECURE_UNLOCKED);
 			}
 	};
-
 }
 
-#endif /* _BASE_HW__SRC__SERVER__VMM__TSC_380_H_ */
+#endif /* _CSU_H_ */

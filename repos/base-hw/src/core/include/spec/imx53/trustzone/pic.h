@@ -11,11 +11,11 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _IMX53__PIC_H_
-#define _IMX53__PIC_H_
+#ifndef _PIC_H_
+#define _PIC_H_
 
 /* core includes */
-#include <pic_base.h>
+#include <spec/imx53/pic_base.h>
 
 namespace Imx53
 {
@@ -58,4 +58,4 @@ namespace Imx53
 
 namespace Kernel { class Pic : public Imx53::Pic { }; }
 
-#endif /* _IMX53__PIC_H_ */
+#endif /* _PIC_H_ */

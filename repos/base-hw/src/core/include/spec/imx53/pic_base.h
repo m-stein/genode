@@ -11,8 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _IMX53__PIC_BASE_H_
-#define _IMX53__PIC_BASE_H_
+#ifndef _SPEC__IMX53__PIC_BASE_H_
+#define _SPEC__IMX53__PIC_BASE_H_
 
 /* Genode includes */
 #include <util/mmio.h>
@@ -222,4 +222,4 @@ namespace Imx53
 	};
 }
 
-#endif /* _IMX53__PIC_BASE_H_ */
+#endif /* _SPEC__IMX53__PIC_BASE_H_ */

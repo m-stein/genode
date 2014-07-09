@@ -6,7 +6,7 @@
 #
 
 # declare source paths
-vpath platform_support.cc   $(REP_DIR)/src/core/imx53
+vpath platform_support.cc   $(REP_DIR)/src/core/spec/imx53
 vpath platform_services.cc $(BASE_DIR)/src/core
 
 # include less specific library parts

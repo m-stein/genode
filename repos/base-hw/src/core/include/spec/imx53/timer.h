@@ -11,8 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _IMX53__TIMER_H_
-#define _IMX53__TIMER_H_
+#ifndef _TIMER_H_
+#define _TIMER_H_
 
 /* core includes */
 #include <board.h>
@@ -44,5 +44,4 @@ namespace Imx53
 
 namespace Kernel { class Timer : public Imx53::Timer { }; }
 
-#endif /* _IMX53__TIMER_H_ */
-
+#endif /* _TIMER_H_ */

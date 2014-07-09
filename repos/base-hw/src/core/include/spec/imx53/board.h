@@ -11,12 +11,10 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _IMX53__BOARD_H_
-#define _IMX53__BOARD_H_
+#ifndef _BOARD_H_
+#define _BOARD_H_
 
-/**
- * Genode includes
- */
+/* Genode includes */
 #include <platform/imx53/drivers/board_base.h>
 #include <util/mmio.h>
 
@@ -109,5 +107,4 @@ namespace Imx53
 
 namespace Genode { class Board : public Imx53::Board { }; }
 
-#endif /* _IMX53__BOARD_H_ */
-
+#endif /* _BOARD_H_ */

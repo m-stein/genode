@@ -9,7 +9,7 @@
 LIBS += core-imx53_trustzone
 
 # add include paths
-INC_DIR += $(REP_DIR)/src/core/imx53
+INC_DIR += $(REP_DIR)/src/core/include/spec/imx53
 
 # include less specific library parts
 include $(REP_DIR)/lib/mk/arm_v7/core.inc
