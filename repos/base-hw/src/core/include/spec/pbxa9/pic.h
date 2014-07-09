@@ -11,8 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _PBXA9__PIC_H_
-#define _PBXA9__PIC_H_
+#ifndef _PIC_H_
+#define _PIC_H_
 
 /* core includes */
 #include <pic/cortex_a9.h>
@@ -29,5 +29,4 @@ namespace Kernel
 bool Arm_gic::Pic::_use_security_ext() { return 0; }
 
 
-#endif /* _PBXA9__PIC_H_ */
-
+#endif /* _PIC_H_ */
