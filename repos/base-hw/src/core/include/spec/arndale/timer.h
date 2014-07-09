@@ -11,8 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _ARNDALE__TIMER_H_
-#define _ARNDALE__TIMER_H_
+#ifndef _TIMER_H_
+#define _TIMER_H_
 
 /* core includes */
 #include <board.h>
@@ -53,4 +53,4 @@ namespace Kernel
 	};
 }
 
-#endif /* _ARNDALE__TIMER_H_ */
+#endif /* _TIMER_H_ */
