@@ -8,7 +8,7 @@
 INC_DIR += $(REP_DIR)/src/core/include/spec/arm_v7
 
 # declare source paths
-vpath mode_transition.s $(REP_DIR)/src/core/arm_v7
+vpath mode_transition.s $(REP_DIR)/src/core/spec/arm_v7
 
 # include less specific library parts
 include $(REP_DIR)/lib/mk/arm/core.inc
