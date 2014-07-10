@@ -15,27 +15,29 @@
 #define _PIC_H_
 
 /* core includes */
-#include <pic/corelink_gic400.h>
+#include <spec/corelink_gic400/pic_base.h>
 #include <board.h>
 
-namespace Kernel
+namespace Genode
 {
 	/**
 	 * Interrupt controller for kernel
 	 */
-	class Pic : public Corelink_gic400::Pic
+	class Pic : public Corelink_gic400::Pic_base
 	{
 		public:
 
 			/**
 			 * Constructor
 			 */
-			Pic() : Corelink_gic400::Pic(Genode::Board::GIC_CPU_MMIO_BASE) { }
+			Pic() : Corelink_gic400::Pic_base(Board::GIC_CPU_MMIO_BASE) { }
 	};
 }
 
 
 bool Arm_gic::Pic::_use_security_ext() { return 0; }
 
+
+namespace Kernel { class Pic : public Genode::Pic { }; }
 
 #endif /* _PIC_H_ */
