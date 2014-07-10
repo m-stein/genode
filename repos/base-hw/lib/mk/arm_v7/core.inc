@@ -5,7 +5,7 @@
 #
 
 # add include paths
-INC_DIR += $(REP_DIR)/src/core/arm_v7
+INC_DIR += $(REP_DIR)/src/core/include/spec/arm_v7
 
 # declare source paths
 vpath mode_transition.s $(REP_DIR)/src/core/arm_v7

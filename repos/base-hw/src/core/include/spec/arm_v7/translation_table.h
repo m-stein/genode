@@ -12,11 +12,11 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _ARM_V7__TRANSLATION_TABLE_H_
-#define _ARM_V7__TRANSLATION_TABLE_H_
+#ifndef _TRANSLATION_TABLE_H_
+#define _TRANSLATION_TABLE_H_
 
 /* core includes */
-#include <arm/short_translation_table.h>
+#include <spec/arm/short_translation_table.h>
 
 template <typename T>
 static typename T::access_t
@@ -35,4 +35,4 @@ Arm::memory_region_attr(Page_flags const & flags)
 	return 0;
 }
 
-#endif /* _ARM_V7__TRANSLATION_TABLE_H_ */
+#endif /* _TRANSLATION_TABLE_H_ */

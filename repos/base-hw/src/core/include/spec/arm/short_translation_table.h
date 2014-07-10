@@ -12,8 +12,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _ARM__SHORT_TRANSLATION_TABLE_H_
-#define _ARM__SHORT_TRANSLATION_TABLE_H_
+#ifndef _SPEC__ARM__SHORT_TRANSLATION_TABLE_H_
+#define _SPEC__ARM__SHORT_TRANSLATION_TABLE_H_
 
 /* Genode includes */
 #include <util/register.h>
@@ -686,5 +686,4 @@ class Arm::Section_table
 
 namespace Genode { using Translation_table = Arm::Section_table; }
 
-#endif /* _ARM__SHORT_TRANSLATION_TABLE_H_ */
-
+#endif /* _SPEC__ARM__SHORT_TRANSLATION_TABLE_H_ */
