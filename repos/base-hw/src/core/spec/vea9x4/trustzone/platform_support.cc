@@ -17,7 +17,7 @@
 #include <board.h>
 #include <processor_driver.h>
 #include <platform.h>
-#include <pic/vea9x4_trustzone.h>
+#include <pic.h>
 #include <trustzone.h>
 #include <pic.h>
 
