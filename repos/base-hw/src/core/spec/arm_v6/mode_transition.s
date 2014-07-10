@@ -11,7 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-.include "arm/mode_transition.s"
+/* core includes */
+.include "mode_transition.s"
 .include "macros.s"
 
 

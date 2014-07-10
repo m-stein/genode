@@ -11,6 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
+/* core includes */
+.include "spec/arm/macros_base.s"
 
 /**
  * Determine the kernel name of the executing processor

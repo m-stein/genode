@@ -11,6 +11,9 @@
  * under the terms of the GNU General Public License version 2.
  */
 
+#ifndef _CPU_SUPPORT_H_
+#define _CPU_SUPPORT_H_
+
 /* core includes */
 #include <kernel/thread_event.h>
 
@@ -39,3 +42,5 @@ class Kernel::Thread_cpu_support
 		 */
 		Thread_cpu_support(Thread * const t);
 };
+
+#endif /* _CPU_SUPPORT_H_ */

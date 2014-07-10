@@ -11,8 +11,6 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-.include "macros_arm.s"
-
 /**
  * Determine the top of the kernel stack of this processor and apply it as SP
  *
@@ -38,4 +36,3 @@
 /* alignment constraints */
 .set MIN_PAGE_SIZE_LOG2, 12
 .set DATA_ACCESS_ALIGNM_LOG2, 2
-
