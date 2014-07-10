@@ -15,14 +15,14 @@
 #define _TIMER_H_
 
 /* core includes */
-#include <timer/cortex_a9.h>
+#include <spec/cortex_a9/timer_base.h>
 
 namespace Kernel
 {
 	/**
 	 * Kernel timer
 	 */
-	class Timer : public Cortex_a9::Timer { };
+	class Timer : public Cortex_a9::Timer_base { };
 }
 
 #endif /* _TIMER_H_ */

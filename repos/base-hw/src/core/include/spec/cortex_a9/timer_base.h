@@ -11,8 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _TIMER__CORTEX_A9_H_
-#define _TIMER__CORTEX_A9_H_
+#ifndef _SPEC__CORTEX_A9__TIMER_BASE_H_
+#define _SPEC__CORTEX_A9__TIMER_BASE_H_
 
 /* Genode includes */
 #include <util/mmio.h>
@@ -25,7 +25,7 @@ namespace Cortex_a9
 	/**
 	 * Timer for core
 	 */
-	class Timer : public Mmio
+	class Timer_base : public Mmio
 	{
 		enum { TICS_PER_MS = Processor_driver::PRIVATE_TIMER_CLK / 1000, };
 
@@ -58,7 +58,7 @@ namespace Cortex_a9
 			/**
 			 * Constructor, clears the interrupt output
 			 */
-			Timer() : Mmio(Processor_driver::PRIVATE_TIMER_MMIO_BASE)
+			Timer_base() : Mmio(Processor_driver::PRIVATE_TIMER_MMIO_BASE)
 			{
 				write<Control::Timer_enable>(0);
 				_clear_interrupt();
@@ -105,5 +105,4 @@ namespace Cortex_a9
 	};
 }
 
-#endif /* _TIMER__CORTEX_A9_H_ */
-
+#endif /* _SPEC__CORTEX_A9__TIMER_BASE_H_ */
