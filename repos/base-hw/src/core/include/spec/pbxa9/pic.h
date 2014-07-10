@@ -15,14 +15,14 @@
 #define _PIC_H_
 
 /* core includes */
-#include <pic/cortex_a9.h>
+#include <spec/cortex_a9/pic_base.h>
 
 namespace Kernel
 {
 	/**
 	 * Interrupt controller for kernel
 	 */
-	class Pic : public Cortex_a9::Pic { };
+	class Pic : public Cortex_a9::Pic_base { };
 }
 
 

@@ -11,8 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _PIC__CORTEX_A9_H_
-#define _PIC__CORTEX_A9_H_
+#ifndef _SPEC__CORTEX_A9__PIC_BASE_H_
+#define _SPEC__CORTEX_A9__PIC_BASE_H_
 
 /* core includes */
 #include <pic/arm_gic.h>
@@ -23,17 +23,20 @@ namespace Cortex_a9
 	/**
 	 * Programmable interrupt controller for core
 	 */
-	class Pic : public Arm_gic::Pic
+	class Pic_base : public Arm_gic::Pic
 	{
+		private:
+
+			typedef Processor_driver Cpu;
+
 		public:
 
 			/**
 			 * Constructor
 			 */
-			Pic() : Arm_gic::Pic(Processor_driver::PL390_DISTRIBUTOR_MMIO_BASE,
-			                     Processor_driver::PL390_CPU_MMIO_BASE) { }
+			Pic_base() : Arm_gic::Pic(Cpu::PL390_DISTRIBUTOR_MMIO_BASE,
+			                          Cpu::PL390_CPU_MMIO_BASE) { }
 	};
 }
 
-#endif /* _PIC__CORTEX_A9_H_ */
-
+#endif /* _SPEC__CORTEX_A9__PIC_BASE_H_ */
