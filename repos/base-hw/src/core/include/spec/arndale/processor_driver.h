@@ -15,16 +15,14 @@
 #define _PROCESSOR_DRIVER_H_
 
 /* core includes */
-#include <processor_driver/cortex_a15.h>
+#include <spec/cortex_a15/processor_driver_support.h>
 
 namespace Genode
 {
-	using Cortex_a15::Processor_lazy_state;
-
 	/**
 	 * Processor driver for core
 	 */
-	class Processor_driver : public Cortex_a15::Processor_driver
+	class Processor_driver : public Cortex_a15
 	{
 		public:
 

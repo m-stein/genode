@@ -15,28 +15,26 @@
 #define _PROCESSOR_DRIVER_H_
 
 /* core includes */
-#include <processor_driver/cortex_a15.h>
+#include <spec/cortex_a15/processor_driver_support.h>
 
 namespace Genode
 {
-	using Cortex_a15::Processor_lazy_state;
-
 	/**
 	 * Processor driver for core
 	 */
-	class Processor_driver : public Cortex_a15::Processor_driver
+	class Processor_driver : public Cortex_a15
 	{
 		public:
 
 			/**
 			 * Return kernel name of the executing processor
 			 */
-			static unsigned executing_id() { return 0; }
+			static unsigned executing_id() { return primary_id(); }
 
 			/**
 			 * Return kernel name of the primary processor
 			 */
-			static unsigned primary_id() { return primary_id(); }
+			static unsigned primary_id() { return 0; }
 	};
 }
 
