@@ -15,7 +15,7 @@
 #define _SPEC__ARM_V7__PROCESSOR_DRIVER_SUPPORT_H_
 
 /* core includes */
-#include <processor_driver/arm.h>
+#include <spec/arm/processor_driver_support.h>
 #include <board.h>
 
 /**
@@ -139,7 +139,7 @@ namespace Genode
 	class Arm_v7;
 }
 
-class Genode::Arm_v7 : public Arm::Processor_driver
+class Genode::Arm_v7 : public Arm
 {
 	protected:
 
@@ -177,7 +177,7 @@ class Genode::Arm_v7 : public Arm::Processor_driver
 		/**
 		 * System control register
 		 */
-		struct Sctlr : Arm::Processor_driver::Sctlr
+		struct Sctlr : Arm::Sctlr
 		{
 			struct Unused_0 : Bitfield<3,4>  { }; /* shall be ~0 */
 			struct Sw       : Bitfield<10,1> { }; /* support SWP and SWPB */
@@ -212,7 +212,7 @@ class Genode::Arm_v7 : public Arm::Processor_driver
 			static access_t init_phys_kernel()
 			{
 				return base_value() |
-				       Arm::Processor_driver::Sctlr::init_phys_kernel() |
+				       Arm::Sctlr::init_phys_kernel() |
 				       Sw::bits(0) |
 				       Ha::bits(0) |
 				       Nmfi::bits(0) |
@@ -225,7 +225,7 @@ class Genode::Arm_v7 : public Arm::Processor_driver
 			static access_t init_virt_kernel()
 			{
 				return base_value() |
-				       Arm::Processor_driver::Sctlr::init_virt_kernel() |
+				       Arm::Sctlr::init_virt_kernel() |
 				       Sw::bits(0) |
 				       Ha::bits(0) |
 				       Nmfi::bits(0) |
@@ -236,7 +236,7 @@ class Genode::Arm_v7 : public Arm::Processor_driver
 		/**
 		 * Translation table base register 0
 		 */
-		struct Ttbr0 : Arm::Processor_driver::Ttbr0
+		struct Ttbr0 : Arm::Ttbr0
 		{
 			struct Nos : Bitfield<5,1> { }; /* not outer shareable */
 
@@ -250,7 +250,7 @@ class Genode::Arm_v7 : public Arm::Processor_driver
 			 */
 			static access_t init_virt_kernel(addr_t const sect_table)
 			{
-				return Arm::Processor_driver::Ttbr0::init_virt_kernel(sect_table) |
+				return Arm::Ttbr0::init_virt_kernel(sect_table) |
 				       Nos::bits(0) |
 				       Irgn_1::bits(0) |
 				       Irgn_0::bits(1);
@@ -260,7 +260,7 @@ class Genode::Arm_v7 : public Arm::Processor_driver
 		/**
 		 * Translation table base control register
 		 */
-		struct Ttbcr : Arm::Processor_driver::Ttbcr
+		struct Ttbcr : Arm::Ttbcr
 		{
 			struct Pd0 : Bitfield<4,1> { }; /* disable walk for TTBR0 */
 			struct Pd1 : Bitfield<5,1> { }; /* disable walk for TTBR1 */
@@ -270,7 +270,7 @@ class Genode::Arm_v7 : public Arm::Processor_driver
 			 */
 			static access_t init_virt_kernel()
 			{
-				return Arm::Processor_driver::Ttbcr::init_virt_kernel() |
+				return Arm::Ttbcr::init_virt_kernel() |
 				       Pd0::bits(0) |
 				       Pd1::bits(0);
 			}
@@ -378,11 +378,7 @@ class Genode::Arm_v7 : public Arm::Processor_driver
 };
 
 
-/***************************
- ** Arm::Processor_driver **
- ***************************/
-
-void Arm::Processor_driver::flush_data_caches()
+void Genode::Arm::flush_data_caches()
 {
 	asm volatile (
 		FOR_ALL_SET_WAY_OF_ALL_DATA_CACHES_0
@@ -392,7 +388,7 @@ void Arm::Processor_driver::flush_data_caches()
 }
 
 
-void Arm::Processor_driver::invalidate_data_caches()
+void Genode::Arm::invalidate_data_caches()
 {
 	asm volatile (
 		FOR_ALL_SET_WAY_OF_ALL_DATA_CACHES_0
@@ -402,8 +398,8 @@ void Arm::Processor_driver::invalidate_data_caches()
 }
 
 
-Arm::Processor_driver::Psr::access_t
-Arm::Processor_driver::Psr::init_user_with_trustzone()
+Genode::Arm::Psr::access_t
+Genode::Arm::Psr::init_user_with_trustzone()
 {
 	return M::bits(M::USER) |
 	       T::bits(T::ARM) |

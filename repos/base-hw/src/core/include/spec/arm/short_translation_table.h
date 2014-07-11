@@ -24,56 +24,22 @@
 #include <page_slab.h>
 #include <processor_driver.h>
 
-namespace Arm
+namespace Genode
 {
-	using namespace Genode;
-
-	/**
-	 * Check if 'p' is aligned to 1 << 'alignm_log2'
-	 */
-	inline bool aligned(addr_t const a, size_t const alignm_log2) {
-		return a == ((a >> alignm_log2) << alignm_log2); }
-
-	/**
-	 * Return permission configuration according to given mapping flags
-	 *
-	 * \param T      targeted translation-table-descriptor type
-	 * \param flags  mapping flags
-	 *
-	 * \return  descriptor value with AP and XN set and the rest left zero
-	 */
-	template <typename T>
-	static typename T::access_t
-	access_permission_bits(Page_flags const & flags)
-	{
-		typedef typename T::Xn Xn;
-		typedef typename T::Ap Ap;
-		typedef typename T::access_t access_t;
-		bool const w = flags.writeable;
-		bool const p = flags.privileged;
-		access_t ap;
-		if (w) { if (p) { ap = Ap::bits(0b001); }
-		         else   { ap = Ap::bits(0b011); }
-		} else { if (p) { ap = Ap::bits(0b101); }
-		         else   { ap = Ap::bits(0b010); }
-		}
-		return Xn::bits(!flags.executable) | ap;
-	}
-
 	/**
 	 * Memory region attributes for the translation descriptor 'T'
 	 */
 	template <typename T>
 	static typename T::access_t
-	memory_region_attr(Page_flags const & flags);
+	arm_memory_region_attr(Page_flags const & flags);
 
-	class Section_table;
+	/**
+	 * First level translation table
+	 */
+	class Translation_table;
 }
 
-/**
- * First level translation table
- */
-class Arm::Section_table
+class Genode::Translation_table
 {
 	public:
 
@@ -86,6 +52,38 @@ class Arm::Section_table
 		class Invalid_range {};
 
 	private:
+
+		/**
+		 * Check if 'p' is aligned to 1 << 'alignm_log2'
+		 */
+		static inline bool aligned(addr_t const a, size_t const alignm_log2) {
+			return a == ((a >> alignm_log2) << alignm_log2); }
+
+		/**
+		 * Return permission configuration according to given mapping flags
+		 *
+		 * \param T      targeted translation-table-descriptor type
+		 * \param flags  mapping flags
+		 *
+		 * \return  descriptor value with AP and XN set and the rest left zero
+		 */
+		template <typename T>
+		static typename T::access_t
+		access_permission_bits(Page_flags const & flags)
+		{
+			typedef typename T::Xn Xn;
+			typedef typename T::Ap Ap;
+			typedef typename T::access_t access_t;
+			bool const w = flags.writeable;
+			bool const p = flags.privileged;
+			access_t ap;
+			if (w) { if (p) { ap = Ap::bits(0b001); }
+					 else   { ap = Ap::bits(0b011); }
+			} else { if (p) { ap = Ap::bits(0b101); }
+					 else   { ap = Ap::bits(0b010); }
+			}
+			return Xn::bits(!flags.executable) | ap;
+		}
 
 		/**
 		 * Second level translation table
@@ -183,7 +181,7 @@ class Arm::Section_table
 					                       addr_t const pa)
 					{
 						access_t v = access_permission_bits<Small_page>(flags);
-						v |= memory_region_attr<Small_page>(flags);
+						v |= arm_memory_region_attr<Small_page>(flags);
 						v |= Ng::bits(!flags.global);
 						v |= S::bits(Processor_driver::is_smp());
 						v |= Pa::masked(pa);
@@ -451,7 +449,7 @@ class Arm::Section_table
 			                       addr_t const pa)
 			{
 				access_t v = access_permission_bits<Section>(flags);
-				v |= memory_region_attr<Section>(flags);
+				v |= arm_memory_region_attr<Section>(flags);
 				v |= Domain::bits(DOMAIN);
 				v |= S::bits(Processor_driver::is_smp());
 				v |= Ng::bits(!flags.global);
@@ -553,7 +551,7 @@ class Arm::Section_table
 		/**
 		 * Constructor
 		 */
-		Section_table()
+		Translation_table()
 		{
 			if (!aligned((addr_t)this, ALIGNM_LOG2))
 				throw Misaligned();
@@ -682,8 +680,6 @@ class Arm::Section_table
 				vo += sz;
 			}
 		}
-} __attribute__((aligned(1<<Section_table::ALIGNM_LOG2)));
-
-namespace Genode { using Translation_table = Arm::Section_table; }
+} __attribute__((aligned(1<<Translation_table::ALIGNM_LOG2)));
 
 #endif /* _SPEC__ARM__SHORT_TRANSLATION_TABLE_H_ */

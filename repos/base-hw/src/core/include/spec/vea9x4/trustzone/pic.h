@@ -34,8 +34,8 @@ class Genode::Pic : public Arm_gic
 		/**
 		 * Constructor
 		 */
-		Pic() : Arm_gic::Pic(Processor_driver::PL390_DISTRIBUTOR_MMIO_BASE,
-		                     Processor_driver::PL390_CPU_MMIO_BASE)
+		Pic() : Arm_gic(Processor_driver::PL390_DISTRIBUTOR_MMIO_BASE,
+		                Processor_driver::PL390_CPU_MMIO_BASE)
 		{
 			/* configure every shared peripheral interrupt */
 			for (unsigned i=MIN_SPI; i <= _max_interrupt; i++) {

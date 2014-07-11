@@ -16,7 +16,7 @@
 #define _PROCESSOR_DRIVER_H_
 
 /* core includes */
-#include <processor_driver/arm.h>
+#include <spec/arm/processor_driver_support.h>
 #include <assert.h>
 #include <board.h>
 
@@ -33,14 +33,14 @@ namespace Genode
 	class Processor_driver;
 }
 
-class Genode::Processor_driver : public Arm::Processor_driver
+class Genode::Processor_driver : public Arm
 {
 	public:
 
 		/**
 		 * Cache type register
 		 */
-		struct Ctr : Arm::Processor_driver::Ctr
+		struct Ctr : Arm::Ctr
 		{
 			struct P : Bitfield<23, 1> { }; /* page mapping restriction on */
 		};
@@ -48,7 +48,7 @@ class Genode::Processor_driver : public Arm::Processor_driver
 		/**
 		 * System control register
 		 */
-		struct Sctlr : Arm::Processor_driver::Sctlr
+		struct Sctlr : Arm::Sctlr
 		{
 			struct W : Bitfield<3,1> { };  /* enable write buffer */
 
@@ -81,7 +81,7 @@ class Genode::Processor_driver : public Arm::Processor_driver
 			static access_t init_virt_kernel()
 			{
 				return base_value() |
-				       Arm::Processor_driver::Sctlr::init_virt_kernel() |
+				       Arm::Sctlr::init_virt_kernel() |
 				       W::bits(0) |
 				       B::bits(B::LITTLE) |
 				       S::bits(0) |
@@ -99,7 +99,7 @@ class Genode::Processor_driver : public Arm::Processor_driver
 			static access_t init_phys_kernel()
 			{
 				return base_value() |
-				       Arm::Processor_driver::Sctlr::init_phys_kernel() |
+				       Arm::Sctlr::init_phys_kernel() |
 				       W::bits(0) |
 				       B::bits(B::LITTLE) |
 				       S::bits(0) |
@@ -115,7 +115,7 @@ class Genode::Processor_driver : public Arm::Processor_driver
 		/**
 		 * Translation table base control register 0
 		 */
-		struct Ttbr0 : Arm::Processor_driver::Ttbr0
+		struct Ttbr0 : Arm::Ttbr0
 		{
 			struct C : Bitfield<0,1> /* inner cachable mode */
 			{
@@ -131,7 +131,7 @@ class Genode::Processor_driver : public Arm::Processor_driver
 			 */
 			static access_t init_virt_kernel(addr_t const sect_table)
 			{
-				return Arm::Processor_driver::Ttbr0::init_virt_kernel(sect_table) |
+				return Arm::Ttbr0::init_virt_kernel(sect_table) |
 				       P::bits(0) |
 				       C::bits(C::NON_CACHEABLE);
 			}
@@ -249,13 +249,13 @@ class Genode::Processor_driver : public Arm::Processor_driver
 };
 
 
-void Arm::Processor_driver::flush_data_caches()
+void Genode::Arm::flush_data_caches()
 {
 	asm volatile ("mcr p15, 0, %[rd], c7, c14, 0" :: [rd]"r"(0) : );
 }
 
 
-void Arm::Processor_driver::invalidate_data_caches()
+void Genode::Arm::invalidate_data_caches()
 {
 	asm volatile ("mcr p15, 0, %[rd], c7, c6, 0" :: [rd]"r"(0) : );
 }

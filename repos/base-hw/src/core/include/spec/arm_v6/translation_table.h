@@ -20,7 +20,7 @@
 
 template <typename T>
 static typename T::access_t
-Arm::memory_region_attr(Page_flags const & flags)
+Genode::arm_memory_region_attr(Page_flags const & flags)
 {
 	typedef typename T::Tex Tex;
 	typedef typename T::C C;

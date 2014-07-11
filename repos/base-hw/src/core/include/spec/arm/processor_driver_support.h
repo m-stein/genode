@@ -12,8 +12,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _PROCESSOR_DRIVER__ARM_H_
-#define _PROCESSOR_DRIVER__ARM_H_
+#ifndef _SPEC__ARM__PROCESSOR_DRIVER_SUPPORT_H_
+#define _SPEC__ARM__PROCESSOR_DRIVER_SUPPORT_H_
 
 /* Genode includes */
 #include <util/register.h>
@@ -23,15 +23,18 @@
 #include <board.h>
 #include <util.h>
 
-namespace Arm
+namespace Genode
 {
-	using namespace Genode;
-
 	/**
 	 * CPU driver for core
 	 */
-	struct Processor_driver
-	{
+	class Arm;
+}
+
+class Genode::Arm
+{
+	public:
+
 		enum {
 			TTBCR_N = 0,
 			EXCEPTION_ENTRY = 0xffff0000,
@@ -710,8 +713,6 @@ namespace Arm
 		 * Return true if the processor support multiple cores
 		 */
 		static bool is_smp() { return PROCESSORS > 1; }
-	};
-}
+};
 
-#endif /* _PROCESSOR_DRIVER__ARM_H_ */
-
+#endif /* _SPEC__ARM__PROCESSOR_DRIVER_SUPPORT_H_ */
