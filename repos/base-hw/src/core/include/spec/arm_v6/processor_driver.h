@@ -12,20 +12,16 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _PROCESSOR_DRIVER__ARM_V6_H_
-#define _PROCESSOR_DRIVER__ARM_V6_H_
-
-/* Genode includes */
-#include <base/printf.h>
+#ifndef _PROCESSOR_DRIVER_H_
+#define _PROCESSOR_DRIVER_H_
 
 /* core includes */
 #include <processor_driver/arm.h>
+#include <assert.h>
 #include <board.h>
 
-namespace Arm_v6
+namespace Genode
 {
-	using namespace Genode;
-
 	/**
 	 * Part of processor state that is not switched on every mode transition
 	 */
@@ -34,8 +30,13 @@ namespace Arm_v6
 	/**
 	 * Processor driver for core
 	 */
-	struct Processor_driver : Arm::Processor_driver
-	{
+	class Processor_driver;
+}
+
+class Genode::Processor_driver : public Arm::Processor_driver
+{
+	public:
+
 		/**
 		 * Cache type register
 		 */
@@ -152,10 +153,7 @@ namespace Arm_v6
 			flush_tlb();
 
 			/* check for mapping restrictions */
-			if (restricted_page_mappings()) {
-				PDBG("Insufficient driver for page tables");
-				while (1) ;
-			}
+			assert(!restricted_page_mappings());
 		}
 
 		/**
@@ -182,7 +180,7 @@ namespace Arm_v6
 
 		static void start_secondary_processors(void * const ip)
 		{
-			if (is_smp()) { PERR("multiprocessing not implemented"); }
+			assert(!is_smp());
 		}
 
 		/**
@@ -232,25 +230,24 @@ namespace Arm_v6
 		bool retry_undefined_instr(Processor_lazy_state *) { return false; }
 
 		/**
-		 * The ARM1176JZF-S processor cannot page table walk from level one cache.
-		 * Therefore, as the page-tables lie in write-back cacheable memory we've
-		 * to clean the corresponding cache-lines even when a page table entry is added
+		 * Post processing after a translation was added to a translation table
+		 *
+		 * \param addr  virtual address of the translation
+		 * \param size  size of the translation
 		 */
-		static void translation_added(Genode::addr_t addr, Genode::size_t size)
+		static void translation_added(addr_t const addr, size_t const size)
 		{
 			/*
-			 * only clean lines as core, the kernel adds entries
-			 * before MMU and caches are enabled
+			 * The Cortex A8 processor can't use the L1 cache on page-table
+			 * walks. Therefore, as the page-tables lie in write-back cacheable
+			 * memory we've to clean the corresponding cache-lines even when a
+			 * page table entry is added. We only do this as core as the kernel
+			 * adds translations solely before MMU and caches are enabled.
 			 */
 			if (is_user()) Kernel::update_data_region(addr, size);
 		}
-	};
-}
+};
 
-
-/***************************
- ** Arm::Processor_driver **
- ***************************/
 
 void Arm::Processor_driver::flush_data_caches()
 {
@@ -264,5 +261,4 @@ void Arm::Processor_driver::invalidate_data_caches()
 }
 
 
-#endif /* _PROCESSOR_DRIVER__ARM_V6_H_ */
-
+#endif /* _PROCESSOR_DRIVER_H_ */
