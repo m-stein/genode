@@ -17,9 +17,7 @@
 /* Genode includes */
 #include <base/native_types.h>
 #include <irq_session/irq_session.h>
-
-/* base-hw includes */
-#include <placement_new.h>
+#include <unmanaged_singleton.h>
 
 /* core includes */
 #include <kernel/signal_receiver.h>

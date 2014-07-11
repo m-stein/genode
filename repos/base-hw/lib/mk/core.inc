@@ -11,16 +11,11 @@ CC_OPT += -DCORE_MAIN=_main
 LIBS += base-common perf_counter
 
 # add include paths
-INC_DIR +=  $(REP_DIR)/src/core
 INC_DIR +=  $(REP_DIR)/src/core/include
-INC_DIR +=  $(REP_DIR)/include
-INC_DIR +=  $(REP_DIR)/src/platform
-INC_DIR +=  $(REP_DIR)/src/base
 INC_DIR += $(BASE_DIR)/src/core/include
-INC_DIR += $(BASE_DIR)/include
-INC_DIR += $(BASE_DIR)/src/platform
-INC_DIR += $(BASE_DIR)/src/base/thread
 INC_DIR += $(BASE_DIR)/src/base/include
+INC_DIR += $(BASE_DIR)/src/base/thread
+INC_DIR += $(BASE_DIR)/src/platform
 
 # add C++ sources
 SRC_CC += console.cc
