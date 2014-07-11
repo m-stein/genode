@@ -15,7 +15,7 @@
 #define _SPEC__CORTEX_A9__PROCESSOR_DRIVER_SUPPORT_H_
 
 /* core includes */
-#include <processor_driver/arm_v7.h>
+#include <spec/arm_v7/processor_driver_support.h>
 #include <board.h>
 
 namespace Genode
@@ -53,7 +53,7 @@ class Genode::Processor_lazy_state
 		inline Processor_lazy_state();
 };
 
-class Genode::Cortex_a9 : public Arm_v7::Processor_driver
+class Genode::Cortex_a9 : public Arm_v7
 {
 	friend class Processor_lazy_state;
 
@@ -297,29 +297,17 @@ class Genode::Cortex_a9 : public Arm_v7::Processor_driver
 };
 
 
-/******************************
- ** Arm_v7::Processor_driver **
- ******************************/
-
-void Arm_v7::Processor_driver::finish_init_phys_kernel()
+void Genode::Arm_v7::finish_init_phys_kernel()
 {
 	Cortex_a9::init_advanced_fp_simd();
 }
 
-
-/*************************************
- ** Cortex_a9::Processor_lazy_state **
- *************************************/
 
 Genode::Processor_lazy_state::Processor_lazy_state()
 {
 	fpexc = Cortex_a9::Fpexc::En::bits(1);
 }
 
-
-/*****************
- ** Annotations **
- *****************/
 
 /*
  * Annotation 1

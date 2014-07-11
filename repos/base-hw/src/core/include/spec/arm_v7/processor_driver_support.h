@@ -11,8 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _PROCESSOR_DRIVER__ARM_V7_H_
-#define _PROCESSOR_DRIVER__ARM_V7_H_
+#ifndef _SPEC__ARM_V7__PROCESSOR_DRIVER_SUPPORT_H_
+#define _SPEC__ARM_V7__PROCESSOR_DRIVER_SUPPORT_H_
 
 /* core includes */
 #include <processor_driver/arm.h>
@@ -102,44 +102,47 @@
  */
 #define FOR_ALL_SET_WAY_OF_ALL_DATA_CACHES_1 \
  \
-		/* decrement the index */ \
-		"subs r7, r7, #1\n" \
+	/* decrement the index */ \
+	"subs r7, r7, #1\n" \
  \
-		/* end loop over indices */ \
-		"bge 3b\n" \
+	/* end loop over indices */ \
+	"bge 3b\n" \
  \
-		/* decrement the way number */ \
-		"subs r8, r8, #1\n" \
+	/* decrement the way number */ \
+	"subs r8, r8, #1\n" \
  \
-		/* end loop over way numbers */ \
-		"bge 2b\n" \
+	/* end loop over way numbers */ \
+	"bge 2b\n" \
  \
-		/* label to skip a cache number */ \
-		"4:\n" \
+	/* label to skip a cache number */ \
+	"4:\n" \
  \
-		/* increment the cache number */ \
-		"add r9, r9, #2\n" \
-		"cmp r3, r9\n" \
+	/* increment the cache number */ \
+	"add r9, r9, #2\n" \
+	"cmp r3, r9\n" \
  \
-		/* end loop over cache numbers */ \
-		"bgt 1b\n" \
+	/* end loop over cache numbers */ \
+	"bgt 1b\n" \
  \
-		/* synchronize data */ \
-		"dsb\n" \
+	/* synchronize data */ \
+	"dsb\n" \
  \
-		/* label to skip all */ \
-		"5:\n" \
-		::: "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9"
+	/* label to skip all */ \
+	"5:\n" \
+	::: "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9"
 
-namespace Arm_v7
+namespace Genode
 {
-	using namespace Genode;
-
 	/**
 	 * CPU driver for core
 	 */
-	struct Processor_driver : Arm::Processor_driver
-	{
+	class Arm_v7;
+}
+
+class Genode::Arm_v7 : public Arm::Processor_driver
+{
+	protected:
+
 		/**
 		 * Secure configuration register
 		 */
@@ -273,6 +276,8 @@ namespace Arm_v7
 			}
 		};
 
+	public:
+
 		/**
 		 * Switch to the virtual mode in kernel
 		 *
@@ -360,7 +365,7 @@ namespace Arm_v7
 		static void start_secondary_processors(void * const ip)
 		{
 			if (is_smp()) {
-				Genode::Board::secondary_processors_ip(ip);
+				Board::secondary_processors_ip(ip);
 				data_synchronization_barrier();
 				asm volatile ("sev\n");
 			}
@@ -370,8 +375,7 @@ namespace Arm_v7
 		 * Wait for the next interrupt as cheap as possible
 		 */
 		static void wait_for_interrupt() { asm volatile ("wfi"); }
-	};
-}
+};
 
 
 /***************************
@@ -398,7 +402,8 @@ void Arm::Processor_driver::invalidate_data_caches()
 }
 
 
-Arm::Processor_driver::Psr::access_t Arm::Processor_driver::Psr::init_user_with_trustzone()
+Arm::Processor_driver::Psr::access_t
+Arm::Processor_driver::Psr::init_user_with_trustzone()
 {
 	return M::bits(M::USER) |
 	       T::bits(T::ARM) |
@@ -410,5 +415,5 @@ Arm::Processor_driver::Psr::access_t Arm::Processor_driver::Psr::init_user_with_
 }
 
 
-#endif /* _PROCESSOR_DRIVER__ARM_V7_H_ */
+#endif /* _SPEC__ARM_V7__PROCESSOR_DRIVER_SUPPORT_H_ */
 

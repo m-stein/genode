@@ -15,7 +15,7 @@
 #define _SPEC__CORTEX_A15__PROCESSOR_DRIVER_SUPPORT_H_
 
 /* core includes */
-#include <processor_driver/arm_v7.h>
+#include <spec/arm_v7/processor_driver_support.h>
 
 namespace Genode
 {
@@ -30,7 +30,7 @@ namespace Genode
 	class Cortex_a15;
 }
 
-class Genode::Cortex_a15 : public Arm_v7::Processor_driver
+class Genode::Cortex_a15 : public Arm_v7
 {
 	public:
 
@@ -50,7 +50,7 @@ class Genode::Cortex_a15 : public Arm_v7::Processor_driver
 };
 
 
-void Arm_v7::Processor_driver::finish_init_phys_kernel() { }
+void Genode::Arm_v7::finish_init_phys_kernel() { }
 
 
 #endif /* _SPEC__CORTEX_A15__PROCESSOR_DRIVER_SUPPORT_H_ */
