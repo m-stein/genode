@@ -1,12 +1,11 @@
 #
 # \brief  Build config for parts of core that depend on Trustzone status
-# \author Stefan Kalkowski
 # \author Martin Stein
-# \date   2012-10-24
+# \date   2013-12-16
 #
 
 # add include paths
-INC_DIR += $(REP_DIR)/src/core/include/spec/vea9x4
+INC_DIR += $(REP_DIR)/src/core/include/spec/cortex_a9
 
 # include less specific library parts
-include $(REP_DIR)/lib/mk/cortex_a9/core-trustzone.inc
+include $(REP_DIR)/lib/mk/core-trustzone.inc

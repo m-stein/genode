@@ -16,7 +16,7 @@
 #define _PIC_H_
 
 /* core includes */
-#include <pic/arm_gic.h>
+#include <spec/arm_gic/pic_support.h>
 #include <processor_driver.h>
 
 namespace Genode
@@ -27,7 +27,7 @@ namespace Genode
 	class Pic;
 }
 
-class Genode::Pic : public Arm_gic::Pic
+class Genode::Pic : public Arm_gic
 {
 	public:
 
@@ -68,7 +68,7 @@ class Genode::Pic : public Arm_gic::Pic
 };
 
 
-bool Arm_gic::Pic::_use_security_ext() { return 1; }
+bool Genode::Arm_gic::_use_security_ext() { return 1; }
 
 
 namespace Kernel { class Pic : public Genode::Pic { }; }

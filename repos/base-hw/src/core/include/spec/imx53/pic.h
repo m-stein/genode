@@ -15,8 +15,8 @@
 #define _PIC_H_
 
 /* core includes */
-#include <spec/imx53/pic_base.h>
+#include <spec/imx53/pic_support.h>
 
-namespace Kernel { class Pic : public Imx53::Pic_base { }; }
+namespace Kernel { class Pic : public Genode::Imx53_pic { }; }
 
 #endif /* _PIC_H_ */

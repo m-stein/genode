@@ -17,4 +17,4 @@ vpath platform_services.cc $(BASE_DIR)/src/core
 vpath platform_support.cc   $(REP_DIR)/src/core/spec/panda
 
 # include less specific library parts
-include $(REP_DIR)/lib/mk/arm_v7/core.inc
+include $(REP_DIR)/lib/mk/cortex_a9/core.inc

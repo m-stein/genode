@@ -11,25 +11,21 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _PIC__ARM_GIC_H_
-#define _PIC__ARM_GIC_H_
+#ifndef _SPEC__ARM_GIC__PIC_SUPPORT_H_
+#define _SPEC__ARM_GIC__PIC_SUPPORT_H_
 
 /* Genode includes */
 #include <util/mmio.h>
 
-namespace Arm_gic
+namespace Genode
 {
-	using namespace Genode;
-
 	/**
 	 * Programmable interrupt controller for core
-	 *
-	 * ARM generic interrupt controller, Architecture version 2.0
 	 */
-	class Pic;
+	class Arm_gic;
 }
 
-class Arm_gic::Pic
+class Genode::Arm_gic
 {
 	public:
 
@@ -245,7 +241,7 @@ class Arm_gic::Pic
 		/**
 		 * Constructor
 		 */
-		Pic(addr_t const distr_base, addr_t const cpu_base)
+		Arm_gic(addr_t const distr_base, addr_t const cpu_base)
 		:
 			_distr(distr_base), _cpu(cpu_base),
 			_max_interrupt(_distr.max_interrupt()),
@@ -383,5 +379,4 @@ class Arm_gic::Pic
 		}
 };
 
-#endif /* _PIC__ARM_GIC_H_ */
-
+#endif /* _SPEC__ARM_GIC__PIC_SUPPORT_H_ */

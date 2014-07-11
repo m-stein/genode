@@ -15,47 +15,56 @@
 #define _PIC_H_
 
 /* core includes */
-#include <spec/imx53/pic_base.h>
+#include <spec/imx53/pic_support.h>
 
-namespace Imx53
+namespace Genode
 {
-	using namespace Genode;
-
 	/**
 	 * Programmable interrupt controller for core
 	 */
-	class Pic : public Pic_base
-	{
-		public:
-
-			Pic()
-			{
-				for (unsigned i = 0; i < NR_OF_IRQ; i++) {
-					write<Intsec::Nonsecure>(0, i);
-					write<Priority>(0, i);
-				}
-
-				write<Priomask::Mask>(0xff);
-			}
-
-			void unsecure(unsigned const i)
-			{
-				if (i < NR_OF_IRQ) {
-					write<Intsec::Nonsecure>(1, i);
-					write<Priority>(0x80, i);
-				}
-			}
-
-			void secure(unsigned const i)
-			{
-				if (i < NR_OF_IRQ) {
-					write<Intsec::Nonsecure>(0, i);
-					write<Priority>(0, i);
-				}
-			}
-	};
+	class Pic;
 }
 
-namespace Kernel { class Pic : public Imx53::Pic { }; }
+class Genode::Pic : public Imx53_pic
+{
+	public:
+
+		/**
+		 * Constructor
+		 */
+		Pic()
+		{
+			for (unsigned i = 0; i < NR_OF_IRQ; i++) { secure(i); }
+			write<Priomask::Mask>(0xff);
+		}
+
+		/**
+		 * Make an interrupt available for the unsecure world
+		 *
+		 * \param i  targeted interrupt
+		 */
+		void unsecure(unsigned const i)
+		{
+			if (i < NR_OF_IRQ) {
+				write<Intsec::Nonsecure>(1, i);
+				write<Priority>(0x80, i);
+			}
+		}
+
+		/**
+		 * Make an interrupt unavailable for the unsecure world
+		 *
+		 * \param i  targeted interrupt
+		 */
+		void secure(unsigned const i)
+		{
+			if (i < NR_OF_IRQ) {
+				write<Intsec::Nonsecure>(0, i);
+				write<Priority>(0, i);
+			}
+		}
+};
+
+namespace Kernel { class Pic : public Genode::Pic { }; }
 
 #endif /* _PIC_H_ */

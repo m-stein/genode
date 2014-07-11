@@ -163,15 +163,6 @@ class Genode::Pic : public Mmio
 			return i < NR_OF_IRQ; }
 
 		/**
-		 * Unmask all interrupts
-		 */
-		void unmask()
-		{
-			write<Intenablel>(~0);
-			write<Intenableh>(~0);
-		}
-
-		/**
 		 * Mask all interrupts
 		 */
 		void mask()
