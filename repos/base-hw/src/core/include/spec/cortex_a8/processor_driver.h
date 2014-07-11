@@ -11,13 +11,13 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _PROCESSOR_DRIVER__CORTEX_A8_H_
-#define _PROCESSOR_DRIVER__CORTEX_A8_H_
+#ifndef _PROCESSOR_DRIVER_H_
+#define _PROCESSOR_DRIVER_H_
 
 /* core includes */
 #include <processor_driver/arm_v7.h>
 
-namespace Cortex_a8
+namespace Genode
 {
 	/**
 	 * Part of processor state that is not switched on every mode transition
@@ -27,8 +27,13 @@ namespace Cortex_a8
 	/**
 	 * Processor driver for core
 	 */
-	struct Processor_driver : Arm_v7::Processor_driver
-	{
+	class Processor_driver;
+}
+
+class Genode::Processor_driver : public Arm_v7::Processor_driver
+{
+	public:
+
 		/**
 		 * Ensure that TLB insertions get applied
 		 */
@@ -46,27 +51,36 @@ namespace Cortex_a8
 		bool retry_undefined_instr(Processor_lazy_state *) { return false; }
 
 		/**
-		 * The Cortex A8 processor cannot page table walk from level one cache.
-		 * Therefore, as the page-tables lie in write-back cacheable memory we've
-		 * to clean the corresponding cache-lines even when a page table entry is added
+		 * Post processing after a translation was added to a translation table
+		 *
+		 * \param addr  virtual address of the translation
+		 * \param size  size of the translation
 		 */
-		static void translation_added(Genode::addr_t addr, Genode::size_t size)
+		static void translation_added(addr_t const addr, size_t const size)
 		{
 			/*
-			 * only clean lines as core, the kernel adds entries
-			 * before MMU and caches are enabled
+			 * The Cortex A8 processor can't use the L1 cache on page-table
+			 * walks. Therefore, as the page-tables lie in write-back cacheable
+			 * memory we've to clean the corresponding cache-lines even when a
+			 * page table entry is added. We only do this as core as the kernel
+			 * adds translations solely before MMU and caches are enabled.
 			 */
 			if (is_user()) Kernel::update_data_region(addr, size);
 		}
-	};
-}
 
+		/**
+		 * Return kernel name of the primary processor
+		 */
+		static unsigned primary_id() { return 0; }
 
-/******************************
- ** Arm_v7::Processor_driver **
- ******************************/
+		/**
+		 * Return kernel name of the executing processor
+		 */
+		static unsigned executing_id() { return primary_id(); }
+};
+
 
 void Arm_v7::Processor_driver::finish_init_phys_kernel() { }
 
-#endif /* _PROCESSOR_DRIVER__CORTEX_A8_H_ */
 
+#endif /* _PROCESSOR_DRIVER_H_ */

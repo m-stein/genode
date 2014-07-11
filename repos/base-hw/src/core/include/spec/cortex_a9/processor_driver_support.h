@@ -11,17 +11,15 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _PROCESSOR_DRIVER__CORTEX_A9_H_
-#define _PROCESSOR_DRIVER__CORTEX_A9_H_
+#ifndef _SPEC__CORTEX_A9__PROCESSOR_DRIVER_SUPPORT_H_
+#define _SPEC__CORTEX_A9__PROCESSOR_DRIVER_SUPPORT_H_
 
 /* core includes */
 #include <processor_driver/arm_v7.h>
 #include <board.h>
 
-namespace Cortex_a9
+namespace Genode
 {
-	using namespace Genode;
-
 	/**
 	 * Part of processor state that is not switched on every mode transition
 	 */
@@ -30,12 +28,12 @@ namespace Cortex_a9
 	/**
 	 * Processor driver for core
 	 */
-	class Processor_driver;
+	class Cortex_a9;
 }
 
-class Cortex_a9::Processor_lazy_state
+class Genode::Processor_lazy_state
 {
-	friend class Processor_driver;
+	friend class Cortex_a9;
 
 	private:
 
@@ -55,7 +53,7 @@ class Cortex_a9::Processor_lazy_state
 		inline Processor_lazy_state();
 };
 
-class Cortex_a9::Processor_driver : public Arm_v7::Processor_driver
+class Genode::Cortex_a9 : public Arm_v7::Processor_driver
 {
 	friend class Processor_lazy_state;
 
@@ -240,7 +238,7 @@ class Cortex_a9::Processor_driver : public Arm_v7::Processor_driver
 		/**
 		 * Constructor
 		 */
-		Processor_driver() : _advanced_fp_simd_state(0) { }
+		Cortex_a9() : _advanced_fp_simd_state(0) { }
 
 		/**
 		 * Ensure that TLB insertions get applied
@@ -305,7 +303,7 @@ class Cortex_a9::Processor_driver : public Arm_v7::Processor_driver
 
 void Arm_v7::Processor_driver::finish_init_phys_kernel()
 {
-	Cortex_a9::Processor_driver::init_advanced_fp_simd();
+	Cortex_a9::init_advanced_fp_simd();
 }
 
 
@@ -313,9 +311,9 @@ void Arm_v7::Processor_driver::finish_init_phys_kernel()
  ** Cortex_a9::Processor_lazy_state **
  *************************************/
 
-Cortex_a9::Processor_lazy_state::Processor_lazy_state()
+Genode::Processor_lazy_state::Processor_lazy_state()
 {
-	fpexc = Processor_driver::Fpexc::En::bits(1);
+	fpexc = Cortex_a9::Fpexc::En::bits(1);
 }
 
 
@@ -343,4 +341,4 @@ Cortex_a9::Processor_lazy_state::Processor_lazy_state()
  *  head branch as from 2014.04.17.
  */
 
-#endif /* _PROCESSOR_DRIVER__CORTEX_A9_H_ */
+#endif /* _SPEC__CORTEX_A9__PROCESSOR_DRIVER_SUPPORT_H_ */
