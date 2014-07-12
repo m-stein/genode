@@ -1,5 +1,5 @@
 /**
- * \brief  Platform specific parts of the thread API
+ * \brief  Implementations for the start of a thread
  * \author Martin Stein
  * \author Stefan Kalkowski
  * \date   2012-02-12

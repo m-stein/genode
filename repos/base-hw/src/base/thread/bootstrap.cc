@@ -1,5 +1,5 @@
 /*
- * \brief  Thread initialization
+ * \brief  Implementations for the initialization of a thread
  * \author Martin stein
  * \author Stefan Kalkowski
  * \date   2013-02-15
