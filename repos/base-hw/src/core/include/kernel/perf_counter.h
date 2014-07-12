@@ -11,21 +11,26 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _PERF_COUNTER_H_
-#define _PERF_COUNTER_H_
+#ifndef _KERNEL__PERF_COUNTER_H_
+#define _KERNEL__PERF_COUNTER_H_
 
-namespace Kernel {
-
+namespace Kernel
+{
+	/**
+	 * Performance counter
+	 */
 	class Perf_counter
 	{
 		public:
 
+			/**
+			 * Enable counting
+			 */
 			void enable();
 	};
 
 
-	extern Perf_counter *perf_counter();
-
+	extern Perf_counter * perf_counter();
 }
 
-#endif /* _PERF_COUNTER_H_ */
+#endif /* _KERNEL__PERF_COUNTER_H_ */

@@ -8,7 +8,7 @@
 CC_OPT += -DCORE_MAIN=_main
 
 # add library dependencies
-LIBS += base-common perf_counter
+LIBS += base-common
 
 # add include paths
 INC_DIR +=  $(REP_DIR)/src/core/include

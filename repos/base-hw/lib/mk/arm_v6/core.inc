@@ -4,6 +4,9 @@
 # \date   2012-10-04
 #
 
+# add library dependencies
+LIBS += core-arm_v6_perf_counter
+
 # add include paths
 INC_DIR += $(REP_DIR)/src/core/include/spec/arm_v6
 
