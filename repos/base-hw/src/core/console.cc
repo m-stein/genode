@@ -14,7 +14,9 @@
 /* Genode includes */
 #include <base/console.h>
 #include <base/printf.h>
-#include <drivers/serial_log.h>
+
+/* core includes */
+#include <serial.h>
 
 /* base includes */
 #include <unmanaged_singleton.h>
@@ -24,8 +26,7 @@ namespace Genode
 	/**
 	 * Platform specific Genode console
 	 */
-	class Platform_console : public Console,
-	                         public Serial_log
+	class Platform_console : public Console, public Serial
 	{
 		enum { BAUD_RATE = 115200 };
 
@@ -43,10 +44,10 @@ namespace Genode
 
 				/* auto complete new line commands */
 				if (c == ASCII_LINE_FEED)
-					Serial_log::put_char(ASCII_CARRIAGE_RETURN);
+					Serial::put_char(ASCII_CARRIAGE_RETURN);
 
 				/* print char */
-				Serial_log::put_char(c);
+				Serial::put_char(c);
 			}
 
 		public:
@@ -54,7 +55,7 @@ namespace Genode
 			/**
 			 * Constructor
 			 */
-			Platform_console() : Serial_log(BAUD_RATE) { }
+			Platform_console() : Serial(BAUD_RATE) { }
 	};
 }
 
@@ -84,5 +85,7 @@ void Genode::printf(const char *format, ...)
 
 
 void Genode::vprintf(const char *format, va_list list)
-{ platform_console()->vprintf(format, list); }
+{
+	platform_console()->vprintf(format, list);
+}
 

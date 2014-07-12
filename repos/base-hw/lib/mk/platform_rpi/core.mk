@@ -17,3 +17,4 @@ vpath platform_support.cc   $(REP_DIR)/src/core/spec/rpi
 
 # include less specific library parts
 include $(REP_DIR)/lib/mk/arm_v6/core.inc
+include $(REP_DIR)/lib/mk/pl011/core.inc

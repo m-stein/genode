@@ -18,3 +18,4 @@ vpath platform_support.cc   $(REP_DIR)/src/core/spec/pbxa9
 
 # include less specific library parts
 include $(REP_DIR)/lib/mk/cortex_a9/core.inc
+include $(REP_DIR)/lib/mk/pl011/core.inc

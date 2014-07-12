@@ -13,3 +13,4 @@ INC_DIR += $(REP_DIR)/src/core/include/spec/imx53
 
 # include less specific library parts
 include $(REP_DIR)/lib/mk/cortex_a8/core.inc
+include $(REP_DIR)/lib/mk/imx/core.inc

@@ -1,5 +1,5 @@
 /*
- * \brief  Serial output driver specific for the ARM PL011
+ * \brief  Serial output driver for core
  * \author Martin Stein
  * \date   2012-04-23
  */
@@ -11,19 +11,21 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _INCLUDE__PL011__DRIVERS__SERIAL_LOG_H_
-#define _INCLUDE__PL011__DRIVERS__SERIAL_LOG_H_
+#ifndef _SERIAL_H_
+#define _SERIAL_H_
+
+/* core includes */
+#include <board.h>
 
 /* Genode includes */
-#include <board.h>
 #include <drivers/uart/pl011_base.h>
 
 namespace Genode
 {
 	/**
-	 * Serial output driver specific for the ARM PL011
+	 * Serial output driver for core
 	 */
-	class Serial_log : public Pl011_base
+	class Serial : public Pl011_base
 	{
 		public:
 
@@ -32,12 +34,12 @@ namespace Genode
 			 *
 			 * \param baud_rate  targeted transfer baud-rate
 			 */
-			Serial_log(unsigned const baud_rate) :
+			Serial(unsigned const baud_rate)
+			:
 				Pl011_base(Board::PL011_0_MMIO_BASE,
 				           Board::PL011_0_CLOCK, baud_rate)
 			{ }
 	};
 }
 
-#endif /* _INCLUDE__PL011__DRIVERS__SERIAL_LOG_H_ */
-
+#endif /* _SERIAL_H_ */
