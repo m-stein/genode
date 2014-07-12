@@ -9,7 +9,7 @@
 LIBS += cxx
 
 # add C++ sources
-SRC_CC += ipc.cc
+SRC_CC += ipc/ipc.cc
 SRC_CC += ipc/ipc_marshal_cap.cc
 SRC_CC += avl_tree/avl_tree.cc
 SRC_CC += allocator/slab.cc

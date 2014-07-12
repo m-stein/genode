@@ -84,8 +84,8 @@ vpath trace_session_component.cc  $(BASE_DIR)/src/core
 vpath dump_alloc.cc               $(BASE_DIR)/src/core
 vpath context_area.cc             $(BASE_DIR)/src/core
 vpath core_mem_alloc.cc           $(BASE_DIR)/src/core
-vpath console.cc                   $(REP_DIR)/src/base
-vpath pager.cc                     $(REP_DIR)/src/base
+vpath console.cc                   $(REP_DIR)/src/core
+vpath pager.cc                     $(REP_DIR)/src/core
 vpath _main.cc                    $(BASE_DIR)/src/platform
 vpath thread.cc                   $(BASE_DIR)/src/base/thread
 vpath %                            $(REP_DIR)/src/core
