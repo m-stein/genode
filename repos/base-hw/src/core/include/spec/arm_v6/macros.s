@@ -12,7 +12,7 @@
  */
 
 /* core includes */
-.include "spec/arm/macros_base.s"
+.include "spec/arm/macros_support.s"
 
 /**
  * Determine the kernel name of the executing processor

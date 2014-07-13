@@ -11,8 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _SPEC__CORTEX_A9__PROCESSOR_DRIVER_SUPPORT_H_
-#define _SPEC__CORTEX_A9__PROCESSOR_DRIVER_SUPPORT_H_
+#ifndef _PROCESSOR_DRIVER_H_
+#define _PROCESSOR_DRIVER_H_
 
 /* core includes */
 #include <spec/arm_v7/processor_driver_support.h>
@@ -28,12 +28,12 @@ namespace Genode
 	/**
 	 * Processor driver for core
 	 */
-	class Cortex_a9;
+	class Processor_driver;
 }
 
 class Genode::Processor_lazy_state
 {
-	friend class Cortex_a9;
+	friend class Processor_driver;
 
 	private:
 
@@ -53,7 +53,7 @@ class Genode::Processor_lazy_state
 		inline Processor_lazy_state();
 };
 
-class Genode::Cortex_a9 : public Arm_v7
+class Genode::Processor_driver : public Arm_v7
 {
 	friend class Processor_lazy_state;
 
@@ -238,7 +238,7 @@ class Genode::Cortex_a9 : public Arm_v7
 		/**
 		 * Constructor
 		 */
-		Cortex_a9() : _advanced_fp_simd_state(0) { }
+		Processor_driver() : _advanced_fp_simd_state(0) { }
 
 		/**
 		 * Ensure that TLB insertions get applied
@@ -294,18 +294,28 @@ class Genode::Cortex_a9 : public Arm_v7
 		 */
 		static void translation_added(Genode::addr_t addr,
 		                              Genode::size_t size) { }
+
+		/**
+		 * Return kernel name of the primary processor
+		 */
+		static unsigned primary_id() { return 0; }
+
+		/**
+		 * Return kernel name of the executing processor
+		 */
+		static unsigned executing_id() { return primary_id(); }
 };
 
 
 void Genode::Arm_v7::finish_init_phys_kernel()
 {
-	Cortex_a9::init_advanced_fp_simd();
+	Processor_driver::init_advanced_fp_simd();
 }
 
 
 Genode::Processor_lazy_state::Processor_lazy_state()
 {
-	fpexc = Cortex_a9::Fpexc::En::bits(1);
+	fpexc = Processor_driver::Fpexc::En::bits(1);
 }
 
 
@@ -329,4 +339,4 @@ Genode::Processor_lazy_state::Processor_lazy_state()
  *  head branch as from 2014.04.17.
  */
 
-#endif /* _SPEC__CORTEX_A9__PROCESSOR_DRIVER_SUPPORT_H_ */
+#endif /* _PROCESSOR_DRIVER_H_ */

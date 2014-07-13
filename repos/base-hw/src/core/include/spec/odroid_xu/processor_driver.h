@@ -27,14 +27,14 @@ namespace Genode
 		public:
 
 			/**
-			 * Return kernel name of the executing processor
-			 */
-			static unsigned executing_id() { return primary_id(); }
-
-			/**
 			 * Return kernel name of the primary processor
 			 */
 			static unsigned primary_id() { return 0; }
+
+			/**
+			 * Return kernel name of the executing processor
+			 */
+			static unsigned executing_id() { return primary_id(); }
 	};
 }
 
