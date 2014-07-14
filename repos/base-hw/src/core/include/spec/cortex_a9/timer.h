@@ -1,5 +1,5 @@
 /*
- * \brief  Timer for core
+ * \brief  Timer driver for core
  * \author Martin stein
  * \date   2011-12-13
  */
@@ -11,8 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _SPEC__CORTEX_A9__TIMER_H_
-#define _SPEC__CORTEX_A9__TIMER_H_
+#ifndef _TIMER_H_
+#define _TIMER_H_
 
 /* Genode includes */
 #include <util/mmio.h>
@@ -23,7 +23,7 @@
 namespace Genode
 {
 	/**
-	 * Timer for core
+	 * Timer driver for core
 	 */
 	class Timer : public Mmio
 	{
@@ -107,4 +107,4 @@ namespace Genode
 
 namespace Kernel { class Timer : public Genode::Timer { }; }
 
-#endif /* _SPEC__CORTEX_A9__TIMER_H_ */
+#endif /* _TIMER_H_ */

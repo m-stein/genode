@@ -26,7 +26,7 @@ namespace Genode
 	class Timer;
 }
 
-class Timer : public Epit_base
+class Genode::Timer : public Epit_base
 {
 	public:
 
