@@ -22,8 +22,7 @@ void Arm_gic::_init()
 	for (unsigned i=MIN_SPI; i <= _max_interrupt; i++) {
 		_distr.write<Distr::Icfgr::Edge_triggered>(0, i);
 		_distr.write<Distr::Ipriorityr::Priority>(0, i);
-		_distr.write<Distr::Itargetsr::Cpu_targets>(
-			Distr::Itargetsr::ALL, i);
+		_distr.write<Distr::Itargetsr::Cpu_targets>(0xff, i);
 	}
 
 	/* disable the priority filter */

@@ -1,5 +1,5 @@
 /*
- * \brief  Processor driver for core
+ * \brief  CPU driver for core
  * \author Martin Stein
  * \date   2012-04-23
  */
@@ -11,18 +11,18 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _PROCESSOR_DRIVER_H_
-#define _PROCESSOR_DRIVER_H_
+#ifndef _CPU_H_
+#define _CPU_H_
 
 /* core includes */
-#include <spec/cortex_a15/processor_driver_support.h>
+#include <spec/cortex_a15/cpu_support.h>
 
 namespace Genode
 {
 	/**
-	 * Processor driver for core
+	 * CPU driver for core
 	 */
-	class Processor_driver : public Cortex_a15
+	class Cpu : public Cortex_a15
 	{
 		public:
 
@@ -41,4 +41,6 @@ namespace Genode
 	};
 }
 
-#endif /* _PROCESSOR_DRIVER_H_ */
+namespace Kernel { using Genode::Cpu; }
+
+#endif /* _CPU_H_ */
