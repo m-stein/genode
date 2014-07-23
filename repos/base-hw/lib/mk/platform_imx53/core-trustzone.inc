@@ -8,5 +8,8 @@
 # add include paths
 INC_DIR += $(REP_DIR)/src/core/imx53
 
+# add C++ sources
+SRC_CC += pic.cc
+
 # include less specific library parts
 include $(REP_DIR)/lib/mk/core-trustzone.inc

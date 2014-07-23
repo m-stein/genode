@@ -13,4 +13,3 @@ INC_DIR += $(BASE_DIR)/src/core/include
 # add C++ sources
 SRC_CC += platform_support.cc
 SRC_CC += platform_services.cc
-SRC_CC += pic.cc

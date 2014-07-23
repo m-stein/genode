@@ -6,7 +6,7 @@
 #
 
 # add library dependencies
-LIBS += core-imx53_trustzone
+LIBS += core-trustzone
 
 # add include paths
 INC_DIR += $(REP_DIR)/src/core/imx53
