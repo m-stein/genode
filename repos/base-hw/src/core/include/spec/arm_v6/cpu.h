@@ -17,7 +17,6 @@
 
 /* core includes */
 #include <spec/arm/cpu_support.h>
-#include <spec/uniprocessor/cpu_support.h>
 #include <assert.h>
 #include <board.h>
 
@@ -40,7 +39,7 @@ namespace Kernel
 	using Genode::Cpu;
 }
 
-class Genode::Cpu : public Arm, public Uniprocessor
+class Genode::Cpu : public Arm
 {
 	public:
 
@@ -209,6 +208,16 @@ class Genode::Cpu : public Arm, public Uniprocessor
 			 */
 			if (is_user()) Kernel::update_data_region(addr, size);
 		}
+
+		/**
+		 * Return kernel name of the executing processor
+		 */
+		static unsigned executing_id();
+
+		/**
+		 * Return kernel name of the primary processor
+		 */
+		static unsigned primary_id();
 
 		/*************
 		 ** Dummies **

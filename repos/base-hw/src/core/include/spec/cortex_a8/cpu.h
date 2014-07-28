@@ -15,7 +15,6 @@
 #define _CPU_H_
 
 /* core includes */
-#include <spec/uniprocessor/cpu_support.h>
 #include <spec/arm_v7/cpu_support.h>
 
 namespace Genode
@@ -37,7 +36,7 @@ namespace Kernel
 	using Genode::Cpu;
 }
 
-class Genode::Cpu : public Arm_v7, public Uniprocessor
+class Genode::Cpu : public Arm_v7
 {
 	public:
 
@@ -45,10 +44,6 @@ class Genode::Cpu : public Arm_v7, public Uniprocessor
 		 * Ensure that TLB insertions get applied
 		 */
 		static void tlb_insertions() { flush_tlb(); }
-
-		/**
-		 * Prepare for the proceeding of a user
-		 */
 
 		/**
 		 * Return wether to retry an undefined user instruction after this call
@@ -72,6 +67,16 @@ class Genode::Cpu : public Arm_v7, public Uniprocessor
 			 */
 			if (is_user()) Kernel::update_data_region(addr, size);
 		}
+
+		/**
+		 * Return kernel name of the executing processor
+		 */
+		static unsigned executing_id();
+
+		/**
+		 * Return kernel name of the primary processor
+		 */
+		static unsigned primary_id();
 
 		/*************
 		 ** Dummies **

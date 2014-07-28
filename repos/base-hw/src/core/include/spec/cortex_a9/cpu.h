@@ -15,7 +15,6 @@
 #define _CPU_H_
 
 /* core includes */
-#include <spec/uniprocessor/cpu_support.h>
 #include <spec/arm_v7/cpu_support.h>
 #include <board.h>
 
@@ -60,7 +59,7 @@ class Genode::Cpu_lazy_state
 		inline Cpu_lazy_state();
 };
 
-class Genode::Cpu : public Arm_v7, public Uniprocessor
+class Genode::Cpu : public Arm_v7
 {
 	friend class Cpu_lazy_state;
 
@@ -288,6 +287,16 @@ class Genode::Cpu : public Arm_v7, public Uniprocessor
 			}
 			return true;
 		}
+
+		/**
+		 * Return kernel name of the executing processor
+		 */
+		static unsigned executing_id();
+
+		/**
+		 * Return kernel name of the primary processor
+		 */
+		static unsigned primary_id();
 
 		/*************
 		 ** Dummies **

@@ -11,8 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _SPEC__CORTEX_A15__CPU_SUPPORT_H_
-#define _SPEC__CORTEX_A15__CPU_SUPPORT_H_
+#ifndef _CPU_H_
+#define _CPU_H_
 
 /* core includes */
 #include <spec/arm_v7/cpu_support.h>
@@ -27,12 +27,16 @@ namespace Genode
 	/**
 	 * CPU driver for core
 	 */
-	class Cortex_a15;
+	class Cpu;
 }
 
-namespace Kernel { using Genode::Cpu_lazy_state; }
+namespace Kernel
+{
+	using Genode::Cpu_lazy_state;
+	using Genode::Cpu;
+}
 
-class Genode::Cortex_a15 : public Arm_v7
+class Genode::Cpu : public Arm_v7
 {
 	public:
 
@@ -40,6 +44,16 @@ class Genode::Cortex_a15 : public Arm_v7
 		 * Return wether to retry an undefined user instruction after this call
 		 */
 		bool retry_undefined_instr(Cpu_lazy_state *) { return false; }
+
+		/**
+		 * Return kernel name of the executing processor
+		 */
+		static unsigned executing_id();
+
+		/**
+		 * Return kernel name of the primary processor
+		 */
+		static unsigned primary_id();
 
 		/*************
 		 ** Dummies **
@@ -52,4 +66,4 @@ class Genode::Cortex_a15 : public Arm_v7
 
 void Genode::Arm_v7::finish_init_phys_kernel() { }
 
-#endif /* _SPEC__CORTEX_A15__CPU_SUPPORT_H_ */
+#endif /* _CPU_H_ */
