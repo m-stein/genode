@@ -102,20 +102,6 @@ class Genode::Cpu : public Arm
 		};
 
 		/**
-		 * Translation table base register 0
-		 */
-		struct Ttbr0 : Arm::Ttbr0
-		{
-			/**
-			 * Return initialized value
-			 *
-			 * \param table  base of targeted translation table
-			 */
-			static access_t init(addr_t const table) {
-				return Ba::masked(table); }
-		};
-
-		/**
 		 * If page descriptor bits [13:12] are restricted
 		 */
 		static bool restricted_page_mappings() {
