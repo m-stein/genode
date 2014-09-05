@@ -74,14 +74,22 @@ inline void delegate_vcpu_portals(Genode::Native_capability const &cap,
 	/* save original receive window */
 	Nova::Crd orig_crd = utcb->crd_rcv;
 
-	Nova::Obj_crd obj_crd(sel, Nova::NUM_INITIAL_VCPU_PT_LOG2);
-
 	utcb->crd_rcv = Nova::Obj_crd();
 	utcb->set_msg_word(0);
-	Genode::uint8_t res = utcb->append_item(obj_crd, 0);
-	(void)res;
 
-	res = Nova::call(cap.local_name());
+	/* prepare translation items for every portal separately */
+	for (unsigned i = 0; i < 1U << Nova::NUM_INITIAL_VCPU_PT_LOG2; i++) {
+		Nova::Obj_crd obj_crd(sel + i, 0);
+
+		enum { TRANSLATE = true, THIS_PD = false, NON_GUEST = false, HOTSPOT = 0};
+		Genode::uint8_t res = utcb->append_item(obj_crd, HOTSPOT, THIS_PD,
+		                                        NON_GUEST, TRANSLATE);
+		if (!res)
+			nova_die();
+	}
+
+	/* trigger the translation */
+	Genode::uint8_t res = Nova::call(cap.local_name());
 
 	/* restore original receive window */
 	utcb->crd_rcv = orig_crd;
