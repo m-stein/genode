@@ -10,7 +10,7 @@ if {[is_qemu_available]} {
 }
 
 set use_usb_driver      [expr [have_spec omap4] || [have_spec exynos5]]
-set use_nic_driver      [expr !$use_usb_driver && ![have_spec platform_imx53]]
+set use_nic_driver      [expr !$use_usb_driver && ![have_spec platform_imx53] && ![have_spec platform_rpi]]
 set use_platform_driver [expr [have_spec platform_arndale] || [have_spec platform_imx53]]
 
 if {[expr !$use_usb_driver && !$use_nic_driver]} {
