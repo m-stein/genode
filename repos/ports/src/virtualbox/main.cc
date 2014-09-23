@@ -29,6 +29,8 @@
 #include <iprt/initterm.h>
 #include <iprt/err.h>
 
+#include <VBox/settings.h>
+
 void *operator new (Genode::size_t size)
 {
 	static Libc::Mem_alloc_impl heap(Genode::env()->rm_session());
@@ -77,54 +79,6 @@ namespace {
 			int argc() { return _argc; }
 	};
 } /* unnamed namespace  */
-
-
-extern "C" {
-
-/* make output of Virtualbox visible */
-size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
-{
-	if (!stream || !ptr ||
-	    !(fileno(stdout) == fileno(stream) || fileno(stderr) == fileno(stream)))
-		return EOF;
-
-	char const * cptr = reinterpret_cast<const char *>(ptr);
-	for (size_t j = 0; j < nmemb; j++)
-		for (size_t i = 0; i < size; i++)
-			Genode::printf("%c", cptr[j * size + i]);
-
-	return nmemb;
-}
-
-int fprintf(FILE *stream, const char *format, ...) /* called by RTAssertMsg1 */
-{
-	if (!stream ||
-	    !(fileno(stdout) == fileno(stream) || fileno(stderr) == fileno(stream)))
-		return EOF;
-
-	va_list list;
-	va_start(list, format);
-
-	Genode::vprintf(format, list);
-
-	va_end(list);
-
-	return 0;
-}
-
-int fputs(const char *s, FILE *stream) /* called by RTAssertMsg2Weak */
-{
-	if (!stream ||
-	    !(fileno(stdout) == fileno(stream) || fileno(stderr) == fileno(stream)))
-		return EOF;
-
-	fwrite(s, Genode::strlen(s), 1, stream);
-}
-
-/* our libc provides a _nanosleep function */
-int _nanosleep(const struct timespec *req, struct timespec *rem);
-int nanosleep(const struct timespec *req, struct timespec *rem) {
-	return _nanosleep(req, rem); }
 
 
 /*
@@ -207,13 +161,13 @@ int main()
 
 	/* disable acpi support if requested */
 	try {
-		Genode::Xml_node node = Genode::config()->xml_node().sub_node("noacpi");
+		Genode::config()->xml_node().sub_node("noacpi");
 		args.add("-noacpi");
 	} catch (...) { }
 
 	/* ioapic support */
 	try {
-		Genode::Xml_node node = Genode::config()->xml_node().sub_node("ioapic");
+		Genode::config()->xml_node().sub_node("ioapic");
 		args.add("-ioapic");
 	} catch (...) { }
 
@@ -263,6 +217,15 @@ int main()
 		}
 	} catch(Genode::Xml_node::Nonexistent_sub_node) { }
 
+PINF("in --------------");
+//	static char tag[] = "/test.vbox";
+//	static com::Utf8Str tag_utf(tag);
+	/* used for hidden global system settings file virtualbox.xml */
+//	new settings::MainConfigFile(&tag_utf);
+//	new settings::MachineConfigFile(&tag_utf);
+PINF("out --------------");
+
+
 	PINF("start %s image '%s' with %zu MB guest memory=%zu, %u shared folders,"
 	     " %u network connections",
 	     c_type, c_file, vm_size / 1024 / 1024,
@@ -275,5 +238,3 @@ int main()
 
 	return TrustedMain(args.argc(), *args.argvp(), NULL);
 }
-
-} /* extern "C" */

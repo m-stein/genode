@@ -8,9 +8,9 @@ alive but reads out the buffer with some delay.
   * @interface_method_impl{PDMIMOUSEPORT,pfnPutEvent}
   */
 +#include <base/printf.h>
- static DECLCALLBACK(int) drvMouseQueuePutEvent(PPDMIMOUSEPORT pInterface, int32_t iDeltaX, int32_t iDeltaY, int32_t iDeltaZ, int32_t iDeltaW, uint32_t fButtonStates)
- {
-     PDRVMOUSEQUEUE pDrv = IMOUSEPORT_2_DRVMOUSEQUEUE(pInterface);
+ static DECLCALLBACK(int) drvMouseQueuePutEvent(PPDMIMOUSEPORT pInterface,
+                                                int32_t dx, int32_t dy,
+                                                int32_t dz, int32_t dw,
 @@ -121,7 +122,8 @@
          PDMQueueInsert(pDrv->pQueue, &pItem->Core);
          return VINF_SUCCESS;

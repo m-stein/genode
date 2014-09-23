@@ -135,9 +135,16 @@ class Guest_memory
 				if (!_pfnWriteCallback)
 					return VERR_IOM_MMIO_RANGE_NOT_FOUND;
 
-//				PDBG("mmio_write(GCPhys=0x%lx, cb=%u)", GCPhys, cb);
+				int rc = PDMCritSectEnter(_pDevIns->CTX_SUFF(pCritSectRo),
+				                          VINF_IOM_R3_MMIO_READ);
+				if (rc != VINF_SUCCESS)
+					return rc;
 
-				return _pfnWriteCallback(_pDevIns, _pvUser, GCPhys, pv, cb);
+				rc = _pfnWriteCallback(_pDevIns, _pvUser, GCPhys, pv, cb);
+
+				PDMCritSectLeave(_pDevIns->CTX_SUFF(pCritSectRo));
+
+				return rc;
 			}
 
 			int mmio_read(RTGCPHYS GCPhys, void *pv, unsigned cb)
@@ -145,9 +152,14 @@ class Guest_memory
 				if (!_pfnReadCallback)
 					return VERR_IOM_MMIO_RANGE_NOT_FOUND;
 
-//				PDBG("mmio_read(GCPhys=0x%lx, cb=%u)", GCPhys, cb);
+				int rc = PDMCritSectEnter(_pDevIns->CTX_SUFF(pCritSectRo),
+				                          VINF_IOM_R3_MMIO_WRITE);
 
-				return _pfnReadCallback(_pDevIns, _pvUser, GCPhys, pv, cb);
+				rc = _pfnReadCallback(_pDevIns, _pvUser, GCPhys, pv, cb);
+
+				PDMCritSectLeave(_pDevIns->CTX_SUFF(pCritSectRo));
+
+				return rc;
 			}
 		};
 
@@ -333,9 +345,9 @@ class Guest_memory
 			Region *r = _lookup(GCPhys, cbValue);
 
 			if (!r) {
-				PERR("Guest_memory::mmio_write: lookup failed");
-				PERR("GCPhys=0x%x, u32Value=0x%x, cbValue=%zd",
-				     GCPhys, u32Value, cbValue);
+				PERR("Guest_memory::mmio_write: lookup failed - "
+				     "GCPhys=0x%llx, u32Value=0x%x, cbValue=%zd",
+				     (Genode::uint64_t)GCPhys, u32Value, cbValue);
 				return VERR_IOM_MMIO_RANGE_NOT_FOUND;
 			}
 
@@ -350,9 +362,9 @@ class Guest_memory
 			Region *r = _lookup(GCPhys, cbValue);
 
 			if (!r) {
-				PERR("Guest_memory::mmio_read: lookup failed");
-				PERR("GCPhys=0x%x, u32Value=0x%x, cbValue=%zd",
-				     GCPhys, u32Value, cbValue);
+				PERR("Guest_memory::mmio_read: lookup faile - "
+				     "GCPhys=0x%llx, u32Value=0x%p, cbValue=%zd",
+				     (Genode::uint64_t)GCPhys, u32Value, cbValue);
 				return VERR_IOM_MMIO_RANGE_NOT_FOUND;
 			}
 

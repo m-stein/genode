@@ -1,11 +1,12 @@
 /*
  * \brief  Console implementation of VirtualBox for Genode
  * \author Alexander Boettcher
+ * \author Norman Feske
  * \date   2013-10-16
  */
 
 /*
- * Copyright (C) 2013 Genode Labs GmbH
+ * Copyright (C) 2013-2014 Genode Labs GmbH
  *
  * This file is distributed under the terms of the GNU General Public License
  * version 2.
@@ -21,7 +22,7 @@
 #include <scan_code_set_1.h>
 
 /* VirtualBox includes */
-#include <ConsoleImpl.h>
+#include "ConsoleImpl.h"
 #include <base/printf.h>
 
 /* XXX */
@@ -102,14 +103,15 @@ class Scan_code
 };
 
 
-class SDLConsole : public Console {
+class GenodeConsole : public Console {
 
 	private:
 
-		Timer::Connection  timer;
-		Input::Connection  input;
-		Input::Event      *_ev_buf;
-		unsigned           _ax, _ay;
+		Input::Connection        _input;
+		Genode::Signal_receiver  _receiver;
+		Genode::Signal_context   _context;
+		Input::Event            *_ev_buf;
+		unsigned                 _ax, _ay;
 
 		bool _key_status[Input::KEY_MAX + 1];
 
@@ -122,64 +124,29 @@ class SDLConsole : public Console {
 
 	public:
 
-		SDLConsole()
+		GenodeConsole()
 		:
 			Console(),
-			_ev_buf(static_cast<Input::Event *>(Genode::env()->rm_session()->attach(input.dataspace()))),
+			_ev_buf(static_cast<Input::Event *>(Genode::env()->rm_session()->attach(_input.dataspace()))),
 			_ax(0), _ay(0)
 		{
 			for (unsigned i = 0; i <= Input::KEY_MAX; i++)
 				_key_status[i] = 0;
 
+			_input.sigh(_receiver.manage(&_context));
+/*
 			if (FAILED(gMouse->init(this))) {
 				PERR("mouse init failed");
 				return;
 			}
-
-			mfInitialized = true;
+*/
 		}
 
-		void updateTitlebar()
+		void eventWait(IKeyboard * gKeyboard, IMouse * gMouse)
 		{
-			PERR("%s:%s called", __FILE__, __FUNCTION__);
-		}
+			_receiver.wait_for_signal();
 
-		void updateTitlebarProgress(const char *, int)
-		{
-			PERR("%s:%s called", __FILE__, __FUNCTION__);
-		}
-
-		void inputGrabStart()
-		{
-			PERR("%s:%s called", __FILE__, __FUNCTION__);
-		}
-
-		void inputGrabEnd()
-		{
-			PERR("%s:%s called", __FILE__, __FUNCTION__);
-		}
-
-		void mouseSendEvent(int)
-		{
-			PERR("%s:%s called", __FILE__, __FUNCTION__);
-		}
-
-		void onMousePointerShapeChange(bool, bool, uint32_t, uint32_t,
-		                               uint32_t, uint32_t, void *)
-		{
-			PERR("%s:%s called", __FILE__, __FUNCTION__);
-		}
-
-		void progressInfo(PVM, unsigned, void *)
-		{
-			PERR("%s:%s called", __FILE__, __FUNCTION__);
-		}
-
-		CONEVENT eventWait()
-		{
-			while (!input.is_pending()) { timer.msleep(50); }
-
-			for (int i = 0, num_ev = input.flush(); i < num_ev; ++i) {
+			for (int i = 0, num_ev = _input.flush(); i < num_ev; ++i) {
 				Input::Event &ev = _ev_buf[i];
 
 				bool const is_press   = ev.type() == Input::Event::PRESS;
@@ -218,10 +185,9 @@ class SDLConsole : public Console {
 				bool const is_mouse_event = is_mouse_button_event || is_motion;
 
 				if (is_mouse_event) {
-					unsigned const buttons = (_key_status[Input::BTN_LEFT]   ? 0x1 : 0)
-					                       | (_key_status[Input::BTN_RIGHT]  ? 0x2 : 0)
-					                       | (_key_status[Input::BTN_MIDDLE] ? 0x4 : 0);
-
+					unsigned const buttons = (_key_status[Input::BTN_LEFT]   ? MouseButtonState_LeftButton : 0)
+					                       | (_key_status[Input::BTN_RIGHT]  ? MouseButtonState_RightButton : 0)
+					                       | (_key_status[Input::BTN_MIDDLE] ? MouseButtonState_MiddleButton : 0);
 					if (ev.is_absolute_motion()) {
 						int const rx = ev.ax() - _ax; _ax = ev.ax();
 						int const ry = ev.ay() - _ay; _ay = ev.ay();
@@ -235,12 +201,5 @@ class SDLConsole : public Console {
 						gMouse->PutMouseEvent(0, 0, 0, 0, buttons);
 				}
 			}
-
-			return CONEVENT_NONE;
 		}
-
-		void     eventQuit() { PERR("%s:%s called", __FILE__, __FUNCTION__); }
-		void     resetKeys(void) { PERR("%s:%s called", __FILE__, __FUNCTION__); }
-		VMMDev   *getVMMDev() { return gVMMDev; }
-		Display  *getDisplay() { return gDisplay; }
 };

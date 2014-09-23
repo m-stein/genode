@@ -23,14 +23,17 @@
 #include <unistd.h>
 #include <errno.h>
 
+
 /* libc memory allocator */
 #include <libc_mem_alloc.h>
 
 /* VirtualBox includes */
 #include <iprt/mem.h>
+#include <iprt/assert.h>
+
+static const bool verbose = false;
 
 using Genode::size_t;
-
 
 /*
  * We cannot use the libc's version of malloc because it does not satisfies
@@ -154,15 +157,67 @@ extern "C" int gettimeofday(struct timeval *tv, struct timezone *tz)
 	}
 }
 
-
-/**
- * Used by Shared Folders
- */
-extern "C" long pathconf(char const *path, int name)
+/* our libc provides a _nanosleep function */
+extern "C" int _nanosleep(const struct timespec *req, struct timespec *rem);
+extern "C" int nanosleep(const struct timespec *req, struct timespec *rem)
 {
-	if (name = _PC_NAME_MAX) return 255;
+	Assert(req);
+/*
+	if (req) { // && req->tv_sec == 0 && req->tv_nsec <= 10 *1000000) {
+		char _name[64];
+		Genode::Thread_base::myself()->name(_name, sizeof(_name));
+		PERR("%zd:%ld s:ns rip %p '%s'", req->tv_sec, req->tv_nsec,
+		     __builtin_return_address(0), _name);
+	}
+*/
+	return _nanosleep(req, rem);
+}
 
-	PERR("pathconf does not support config option %d", name);
-	errno = EINVAL;
+
+
+/* Some dummy implemention for LibC functions */
+
+extern "C" pid_t getpid(void)
+{
+	if (verbose)
+		PINF("%s called - rip %p", __func__, __builtin_return_address(0));
+
+	return 1345;
+}
+
+extern "C" int sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
+{
+	if (verbose)
+		PINF("%s called - rip %p", __func__, __builtin_return_address(0));
+
 	return -1;
+}
+
+extern "C" int _sigaction(int, const struct sigaction *, struct sigaction *)
+{
+	if (verbose)
+		PINF("%s called - rip %p", __func__, __builtin_return_address(0));
+
+	return -1;
+}
+
+extern "C" int futimes(int fd, const struct timeval tv[2])
+{
+	PINF("%s called - rip %p", __func__, __builtin_return_address(0));
+	return 0;
+}
+
+extern "C" int lutimes(const char *filename, const struct timeval tv[2])
+{
+	PINF("%s called - file '%s' - rip %p", __func__, filename,
+	     __builtin_return_address(0));
+	return 0;
+}
+
+extern "C" int _sigprocmask()
+{
+	if (verbose)
+		PINF("%s called - rip %p", __func__, __builtin_return_address(0));
+
+	return 0;
 }

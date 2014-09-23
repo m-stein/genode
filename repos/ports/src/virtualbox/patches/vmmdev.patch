@@ -1,5 +1,5 @@
 +++ src/app/virtualbox/src/VBox/Devices/VMMDev/VMMDev.cpp
-@@ -770,6 +770,10 @@
+@@ -2179,6 +2179,10 @@
                      ("%u\n", pReq->header.size), VERR_INVALID_PARAMETER);
  
      pReq->fEnabled = false;
@@ -10,23 +10,23 @@
      int rc = pThis->pDrv->pfnIsPageFusionEnabled(pThis->pDrv, &pReq->fEnabled);
      if (RT_FAILURE(rc))
          pReq->fEnabled = false;
-@@ -1854,7 +1858,6 @@
-             }
+@@ -2404,7 +2408,6 @@
+             pReqHdr->rc = vmmdevReqHandler_HGCMCall(pThis, pReqHdr, GCPhysReqHdr);
+             *pfDelayedUnlock = true;
              break;
-         }
 -#endif /* VBOX_WITH_HGCM */
  
          case VMMDevReq_HGCMCancel:
-         {
-@@ -1899,6 +1902,7 @@
-             }
+             pReqHdr->rc = vmmdevReqHandler_HGCMCancel(pThis, pReqHdr, GCPhysReqHdr);
+@@ -2414,6 +2417,7 @@
+         case VMMDevReq_HGCMCancel2:
+             pReqHdr->rc = vmmdevReqHandler_HGCMCancel2(pThis, pReqHdr);
              break;
-         }
 +#endif /* VBOX_WITH_HGCM */
  
          case VMMDevReq_VideoAccelEnable:
-         {
-@@ -3341,8 +3345,10 @@
+             pReqHdr->rc = vmmdevReqHandler_VideoAccelEnable(pThis, pReqHdr);
+@@ -3595,8 +3599,10 @@
      /* disabled statistics updating */
      pThis->u32LastStatIntervalSize = 0;
  
