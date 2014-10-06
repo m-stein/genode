@@ -27,18 +27,10 @@ namespace Genode
 			static void outer_cache_flush() { }
 			static void prepare_kernel() { }
 
-			/**
-			 * Tell secondary processors where to start execution from
-			 *
-			 * \param ip  initial instruction pointer of secondary processors
-			 */
-			static void secondary_processors_ip(void * const ip)
-			{
-				*(void * volatile *)IRAM_BASE = ip;
-			}
-
-			static bool is_smp() { return true; }
-	};
+			static void secondary_processors_ip(void * const ip) { }
+			static bool is_smp() { return false; }
+		};
 }
 
 #endif /* _BOARD_H_ */
+

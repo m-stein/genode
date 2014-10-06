@@ -159,9 +159,9 @@ class Genode::Arm
 			{
 				access_t v = Ba::masked((addr_t)table);
 				Rgn::set(v, CACHEABLE);
-				S::set(v, is_smp() ? 1 : 0);
-				C::set(v, 1);
-				if (is_smp()) Irgn::set(v, CACHEABLE);
+				S::set(v, Board::is_smp() ? 1 : 0);
+				if (Board::is_smp()) Irgn::set(v, CACHEABLE);
+				else C::set(v, 1);
 				return v;
 			}
 		};
@@ -508,11 +508,6 @@ class Genode::Arm
 			base &= line_align_mask;
 			for (; base < top; base += line_size) { Icimvau::write(base); }
 		}
-
-		/**
-		 * Return true if the CPU supports multiple cores
-		 */
-		static bool is_smp() { return PROCESSORS > 1; }
 };
 
 #endif /* _SPEC__ARM__CPU_SUPPORT_H_ */

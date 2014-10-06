@@ -296,7 +296,7 @@ class Genode::Arm_v7 : public Arm
 		 */
 		static void start_secondary_processors(void * const ip)
 		{
-			if (!is_smp()) { return; }
+			if (!(PROCESSORS > 1)) { return; }
 			Board::secondary_processors_ip(ip);
 			data_synchronization_barrier();
 			asm volatile ("sev\n");
