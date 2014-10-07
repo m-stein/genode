@@ -141,7 +141,7 @@ class Genode::Cpu : public Arm
 		 */
 		static void tlb_insertions() { flush_tlb(); }
 
-		static void start_secondary_processors(void *) { assert(!is_smp()); }
+		static void start_secondary_processors(void *) { assert(!Board::is_smp()); }
 
 		/**
 		 * Return wether to retry an undefined user instruction after this call
