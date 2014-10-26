@@ -58,7 +58,9 @@ namespace Genode
 			/* CPU */
 			CORTEX_A9_PRIVATE_MEM_BASE = 0x48240000,
 			CORTEX_A9_PRIVATE_MEM_SIZE = 0x00002000,
-			CORTEX_A9_CLOCK = MPU_DPLL_CLOCK,
+			CORTEX_A9_CLOCK            = MPU_DPLL_CLOCK,
+			CORTEX_A9_WUGEN_MMIO_BASE  = 0x48281000,
+			CORTEX_A9_SCU_MMIO_BASE    = 0x48240000,
 
 			/* L2 cache */
 			PL310_MMIO_BASE = 0x48242000,
@@ -100,7 +102,6 @@ namespace Genode
 
 			/* wether board provides security extension */
 			SECURITY_EXTENSION = 0,
-
 		};
 	};
 }

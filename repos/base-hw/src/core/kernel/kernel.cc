@@ -267,11 +267,12 @@ void init_kernel_mp_primary()
 		if (private_interrupt(i)) { continue; }
 		new (&_irqs[i * sizeof(Irq)]) Irq(i);
 	}
-	/* kernel initialization finished */
-	Genode::printf("kernel initialized\n");
+	/* call hook for kernel-internal tests */
 	test();
 }
 
+
+void board_init_mp(addr_t tt_base, unsigned pd_id);
 
 /**
  * Setup kernel enviroment after activating secondary CPUs
@@ -284,16 +285,7 @@ extern "C" void init_kernel_mp()
 	 * caches. Hence we must avoid write access to kernel data by now.
 	 */
 
-	/* synchronize data view of all CPUs */
-	Cpu::invalidate_data_caches();
-	Cpu::invalidate_instr_caches();
-	Cpu::data_synchronization_barrier();
-
-	/* initialize CPU in physical mode */
-	Cpu::init_phys_kernel();
-
-	/* switch to core address space */
-	Cpu::init_virt_kernel(core_tt_base, core_pd_id);
+	board_init_mp(core_tt_base, core_pd_id);
 
 	/*
 	 * Now it's safe to use 'cmpxchg'
@@ -325,8 +317,10 @@ extern "C" void init_kernel_mp()
 	pic()->unmask(Timer::interrupt_id(cpu), cpu);
 
 	/* do further initialization only as primary CPU */
-	if (Cpu::primary_id() != cpu) { return; }
-	init_kernel_mp_primary();
+	if (Cpu::primary_id() == cpu) { init_kernel_mp_primary(); }
+	
+	/* provide status message for the run environment and the user */
+	Genode::printf("kernel initialized on CPU %u\n", cpu);
 }
 
 
@@ -335,6 +329,7 @@ extern "C" void init_kernel_mp()
  */
 extern "C" void kernel()
 {
+	while (1) ;
 	data_lock().lock();
 	cpu_pool()->cpu(Cpu::executing_id())->exception();
 }

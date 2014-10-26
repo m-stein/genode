@@ -243,14 +243,17 @@ class Genode::Arm_v7 : public Arm
 
 		inline static void finish_init_phys_kernel();
 
+		static void init_phys_sctlr() { Sctlr::write(Sctlr::init_phys_kernel()); }
+		static void init_psr() { Psr::write(Psr::init_kernel()); }
+
 		/**
 		 * Configure this module appropriately for the first kernel run
 		 */
 		static void init_phys_kernel()
 		{
 			Board::prepare_kernel();
-			Sctlr::write(Sctlr::init_phys_kernel());
-			Psr::write(Psr::init_kernel());
+			init_phys_sctlr();
+			init_psr();
 			flush_tlb();
 			finish_init_phys_kernel();
 		}

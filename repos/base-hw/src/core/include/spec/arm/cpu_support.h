@@ -475,13 +475,16 @@ class Genode::Arm
 			asm volatile ("mcr p15, 0, %0, c8, c7, 2" :: "r" (pid) : );
 		}
 
+		static void flush_tlb_raw() {
+			asm volatile ("mcr p15, 0, %0, c8, c7, 0" :: "r" (0) : ); }
+
 		/**
 		 * Invalidate all TLB entries
 		 */
 		static void flush_tlb()
 		{
 			flush_caches();
-			asm volatile ("mcr p15, 0, %0, c8, c7, 0" :: "r" (0) : );
+			flush_tlb_raw();
 		}
 
 		static constexpr addr_t line_size = 1 << Board::CACHE_LINE_SIZE_LOG2;
