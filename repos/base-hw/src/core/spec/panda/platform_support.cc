@@ -18,8 +18,18 @@
 #include <pic.h>
 #include <unmanaged_singleton.h>
 #include <kernel/cpu.h>
+#include <trustzone.h>
+#include <kernel/perf_counter.h>
 
 using namespace Genode;
+
+namespace Kernel
+{
+	/**
+	 * Return interrupt-controller singleton
+	 */
+	Pic * pic() { return unmanaged_singleton<Pic>(); }
+}
 
 Native_region * Platform::_ram_regions(unsigned const i)
 {
@@ -97,13 +107,13 @@ class Wugen : Mmio
 static Wugen * wugen() {
 	return unmanaged_singleton<Wugen>(Board::CORTEX_A9_WUGEN_MMIO_BASE); }
 
-bool volatile board_init_mp_primary_done;
+unsigned volatile board_init_mp_prim_step;
 
 void Board::secondary_cpus_ip(void * const ip)
 {
 	using Kernel::Cpu;
 	wugen()->init_cpu_1(ip);
-	board_init_mp_primary_done = 0;
+	board_init_mp_prim_step = 0;
 	Cpu::flush_data_caches();
 }
 
@@ -169,44 +179,64 @@ void cpu_inval_l1_dcache()
 		FOR_ALL_SET_WAY_OF_ALL_DATA_CACHES_1);
 }
 
-void board_init_mp_primary(addr_t tt_base, unsigned pd_id)
+void board_init_mp_async_common()
 {
-	using Kernel::Cpu;
-	scu()->inval_dupl_tags_all_cpus();
-	cpu_inval_l1_dcache();
-	scu()->enable();
 	Actlr::access_t actlr = Actlr::read();
 	Actlr::Smp::set(actlr, 1);
 	Actlr::write(actlr);
 	Cpu::invalidate_instr_caches();
 	Cpu::data_synchronization_barrier();
+}
+
+void board_init_mp_async_prim(addr_t const core_tt, unsigned const core_id)
+{
+	/* step 1 */
+	scu()->inval_dupl_tags_all_cpus();
+	cpu_inval_l1_dcache();
+	board_init_mp_prim_step++;
+
+	/* step 2 */
+	scu()->enable();
+	board_init_mp_prim_step++;
+
+	/* step 3 */
+	board_init_mp_async_common();
 	Cpu::init_phys_kernel();
-	Cpu::init_virt_kernel(tt_base, pd_id);
-	board_init_mp_primary_done = 1;
+	Cpu::init_virt_kernel(core_tt, core_id);
+	board_init_mp_prim_step++;
 	Cpu::flush_data_caches();
 }
 
-void board_init_mp_secondary(addr_t tt_base, unsigned pd_id)
+void board_init_mp_async_secnd(addr_t const core_tt, unsigned const core_id)
 {
-	using Kernel::Cpu;
-	while (!board_init_mp_primary_done) { }
+	/* step 1 */
+	while (board_init_mp_prim_step < 1) { }
 	cpu_inval_l1_dcache();
+
+	/* step 2 */
+	while (board_init_mp_prim_step < 2) { }
 	scu()->wait_till_enabled();
-	Actlr::access_t actlr = Actlr::read();
-	Actlr::Smp::set(actlr, 1);
-	Actlr::write(actlr);
-	Cpu::invalidate_instr_caches();
-	Cpu::data_synchronization_barrier();
+
+	/* step 3 */
+	while (board_init_mp_prim_step < 3) { }
+	board_init_mp_async_common();
 	Cpu::init_psr();
 	Cpu::flush_tlb_raw();
 	Cpu::finish_init_phys_kernel();
-	Cpu::init_virt_kernel(tt_base, pd_id);
+	Cpu::init_virt_kernel(core_tt, core_id);
 }
 
-void board_init_mp(addr_t const pd_tt, unsigned const pd_id)
+void board_init_mp_async(bool const primary, addr_t const core_tt,
+                         unsigned const core_id)
 {
-	using Kernel::Cpu;
-	if (Cpu::executing_id() == Cpu::primary_id()) {
-		board_init_mp_primary(pd_tt, pd_id); }
-	else { board_init_mp_secondary(pd_tt, pd_id); }
+	if (primary) { board_init_mp_async_prim(core_tt, core_id); }
+	else { board_init_mp_async_secnd(core_tt, core_id); }
+}
+
+void board_init_mp_sync(unsigned const cpu)
+{
+	init_trustzone(Kernel::pic());
+	Kernel::perf_counter()->enable();
+	Kernel::pic()->init_cpu_local();
+	Kernel::pic()->unmask(Kernel::Timer::interrupt_id(cpu), cpu);
 }

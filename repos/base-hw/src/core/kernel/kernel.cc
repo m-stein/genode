@@ -27,7 +27,6 @@
 #include <kernel/pd.h>
 #include <kernel/vm.h>
 #include <platform_pd.h>
-#include <trustzone.h>
 #include <timer.h>
 #include <pic.h>
 #include <map_local.h>
@@ -38,7 +37,6 @@
 
 /* base-hw includes */
 #include <kernel/irq.h>
-#include <kernel/perf_counter.h>
 using namespace Kernel;
 
 extern Genode::Native_thread_id _main_thread_id;
@@ -51,11 +49,6 @@ Genode::Native_utcb * _main_thread_utcb;
 
 namespace Kernel
 {
-	/**
-	 * Return interrupt-controller singleton
-	 */
-	Pic * pic() { return unmanaged_singleton<Pic>(); }
-
 	/* import Genode types */
 	typedef Genode::umword_t       umword_t;
 	typedef Genode::Core_thread_id Core_thread_id;
@@ -198,8 +191,8 @@ namespace Kernel
 		return s;
 	}
 
-	addr_t   core_tt_base;
-	unsigned core_pd_id;
+	addr_t   core_tt;
+	unsigned core_id;
 }
 
 
@@ -210,9 +203,10 @@ unsigned kernel_stack_size = Kernel::STACK_SIZE;
 char     kernel_stack[NR_OF_CPUS][Kernel::STACK_SIZE]
          __attribute__((aligned(16)));
 
+bool volatile init_kernel_mp_prim_done;
 
 /**
- * Setup kernel environment before activating secondary CPUs
+ * Kernel initialization till the activation of secondary CPUs
  */
 extern "C" void init_kernel_up()
 {
@@ -223,11 +217,13 @@ extern "C" void init_kernel_up()
 	 */
 
 	/* calculate in advance as needed later when data writes aren't allowed */
-	core_tt_base = (addr_t) core_pd()->translation_table();
-	core_pd_id   = core_pd()->id();
+	core_tt = (addr_t) core_pd()->translation_table();
+	core_id = core_pd()->id();
 
 	/* initialize all CPU objects */
 	cpu_pool();
+
+	init_kernel_mp_prim_done = 0;
 
 	/* go multiprocessor mode */
 	Cpu::start_secondary_cpus(&_start_secondary_cpus);
@@ -235,9 +231,9 @@ extern "C" void init_kernel_up()
 
 
 /**
- * Setup kernel enviroment after activating secondary CPUs as primary CPU
+ * Kernel initialization as primary CPU after the activation of secondary CPUs
  */
-void init_kernel_mp_primary()
+void init_kernel_mp_prim()
 {
 	/* get stack memory that fullfills the constraints for core stacks */
 	enum {
@@ -269,58 +265,40 @@ void init_kernel_mp_primary()
 	}
 	/* call hook for kernel-internal tests */
 	test();
+
+	/* tell secondary CPUs that primary initialization is done */
+	init_kernel_mp_prim_done = 1;
 }
 
 
-void board_init_mp(addr_t tt_base, unsigned pd_id);
+void board_init_mp_async(bool const, addr_t const, unsigned const);
+void board_init_mp_sync(unsigned const);
 
 /**
- * Setup kernel enviroment after activating secondary CPUs
+ * Kernel initialization after the activation of secondary CPUs
  */
 extern "C" void init_kernel_mp()
 {
-	/*
-	 * As updates on a cached kernel lock might not be visible to CPUs that
-	 * have not enabled caches, we can't synchronize the activation of MMU and
-	 * caches. Hence we must avoid write access to kernel data by now.
-	 */
-
-	board_init_mp(core_tt_base, core_pd_id);
-
-	/*
-	 * Now it's safe to use 'cmpxchg'
-	 */
-
-	Lock::Guard guard(data_lock());
-
-	/*
-	 * Now it's save to write to kernel data
-	 */
-
-	/*
-	 * TrustZone initialization code
-	 *
-	 * FIXME This is a plattform specific feature
-	 */
-	init_trustzone(pic());
-
-	/*
-	 * Enable performance counter
-	 *
-	 * FIXME This is an optional CPU specific feature
-	 */
-	perf_counter()->enable();
-
-	/* locally initialize interrupt controller */
+	/* init mem system on each CPU for SMP-safe locks and sync. data access */
 	unsigned const cpu = Cpu::executing_id();
-	pic()->init_cpu_local();
-	pic()->unmask(Timer::interrupt_id(cpu), cpu);
+	bool const primary = Cpu::primary_id() == cpu;
+	board_init_mp_async(primary, core_tt, core_id);
 
-	/* do further initialization only as primary CPU */
-	if (Cpu::primary_id() == cpu) { init_kernel_mp_primary(); }
-	
+	/* locks are now SMP safe and access to kernel data gets synchronized */
+	data_lock().lock();
+
+	/* do the remaining core-local HW initialization like scheduling timers */
+	board_init_mp_sync(cpu);
+
+	/* as primary CPU do the remaining global initialization */
+	if (primary) { init_kernel_mp_prim(); }
+
 	/* provide status message for the run environment and the user */
 	Genode::printf("kernel initialized on CPU %u\n", cpu);
+
+	/* wait until the primary CPU has done the global initialization */
+	data_lock().unlock();
+	while (!init_kernel_mp_prim_done) { }
 }
 
 
