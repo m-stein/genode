@@ -271,9 +271,6 @@ void init_kernel_mp_prim()
 }
 
 
-void board_init_mp_async(bool const, addr_t const, unsigned const);
-void board_init_mp_sync(unsigned const);
-
 /**
  * Kernel initialization after the activation of secondary CPUs
  */
@@ -282,13 +279,13 @@ extern "C" void init_kernel_mp()
 	/* init mem system on each CPU for SMP-safe locks and sync. data access */
 	unsigned const cpu = Cpu::executing_id();
 	bool const primary = Cpu::primary_id() == cpu;
-	board_init_mp_async(primary, core_tt, core_id);
+	Genode::Board::init_mp_async(primary, core_tt, core_id);
 
 	/* locks are now SMP safe and access to kernel data gets synchronized */
 	data_lock().lock();
 
 	/* do the remaining core-local HW initialization like scheduling timers */
-	board_init_mp_sync(cpu);
+	Genode::Board::init_mp_sync(cpu);
 
 	/* as primary CPU do the remaining global initialization */
 	if (primary) { init_kernel_mp_prim(); }
@@ -307,7 +304,6 @@ extern "C" void init_kernel_mp()
  */
 extern "C" void kernel()
 {
-	while (1) ;
 	data_lock().lock();
 	cpu_pool()->cpu(Cpu::executing_id())->exception();
 }

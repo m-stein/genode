@@ -50,7 +50,7 @@ struct Spinning_thread : Genode::Thread<STACK_SIZE>
 
 	Spinning_thread(Genode::Affinity::Location location, char const *name)
 	:
-		Genode::Thread<STACK_SIZE>(name), _location(location), cnt(0ULL),
+		Genode::Thread<STACK_SIZE>(0, name), _location(location), cnt(0ULL),
 		barrier(Genode::Lock::LOCKED)
 	{
 		Genode::env()->cpu_session()->affinity(Thread_base::cap(), location);

@@ -33,7 +33,7 @@
  * Must be inserted directly before the targeted operation. Returns operand
  * for targeted operation in R6.
  */
-#define FOR_ALL_SET_WAY_OF_ALL_DATA_CACHES_0 \
+#define FOR_ALL_SET_WAY_IN_R6_0 \
  \
 	/* get the cache level value (Clidr::Loc) */ \
 	READ_CLIDR(r0) \
@@ -100,7 +100,7 @@
  *
  * Must be inserted directly after the targeted operation.
  */
-#define FOR_ALL_SET_WAY_OF_ALL_DATA_CACHES_1 \
+#define FOR_ALL_SET_WAY_IN_R6_1 \
  \
 	/* decrement the index */ \
 	"subs r7, r7, #1\n" \
@@ -180,40 +180,6 @@ class Genode::Arm_v7 : public Arm
 			struct Unnamed_1 : Bitfield<16,1> { }; /* shall be ones */
 			struct Unnamed_2 : Bitfield<18,1> { }; /* shall be ones */
 			struct Unnamed_3 : Bitfield<22,2> { }; /* shall be ones */
-
-			/**
-			 * Initialization that is common
-			 */
-			static void init_common(access_t & v)
-			{
-				Arm::Sctlr::init_common(v);
-				Unnamed_0::set(v, ~0);
-				Unnamed_1::set(v, ~0);
-				Unnamed_2::set(v, ~0);
-				Unnamed_3::set(v, ~0);
-			}
-
-			/**
-			 * Initialization for virtual kernel stage
-			 */
-			static access_t init_virt_kernel()
-			{
-				access_t v = 0;
-				init_common(v);
-				Arm::Sctlr::init_virt_kernel(v);
-				Z::set(v, 1);
-				return v;
-			}
-
-			/**
-			 * Initialization for physical kernel stage
-			 */
-			static access_t init_phys_kernel()
-			{
-				access_t v = 0;
-				init_common(v);
-				return v;
-			}
 		};
 
 	public:
@@ -223,6 +189,18 @@ class Genode::Arm_v7 : public Arm
 		 */
 		static void inval_branch_predicts() {
 			asm volatile ("mcr p15, 0, r0, c7, c5, 6" ::: "r0"); };
+
+		static void init_sctlr(bool const virt)
+		{
+			Sctlr::access_t v = 0;
+			Arm::init_sctlr(v, virt);
+			Sctlr::Unnamed_0::set(v, ~0);
+			Sctlr::Unnamed_1::set(v, ~0);
+			Sctlr::Unnamed_2::set(v, ~0);
+			Sctlr::Unnamed_3::set(v, ~0);
+			Sctlr::Z::set(v, virt);
+			Sctlr::write(v);
+		}
 
 		/**
 		 * Switch to the virtual mode in kernel
@@ -237,14 +215,11 @@ class Genode::Arm_v7 : public Arm
 			Dacr::write(Dacr::init_virt_kernel());
 			Ttbr0::write(Ttbr0::init(table));
 			Ttbcr::write(0);
-			Sctlr::write(Sctlr::init_virt_kernel());
+			init_sctlr(1);
 			inval_branch_predicts();
 		}
 
 		inline static void finish_init_phys_kernel();
-
-		static void init_phys_sctlr() { Sctlr::write(Sctlr::init_phys_kernel()); }
-		static void init_psr() { Psr::write(Psr::init_kernel()); }
 
 		/**
 		 * Configure this module appropriately for the first kernel run
@@ -252,8 +227,8 @@ class Genode::Arm_v7 : public Arm
 		static void init_phys_kernel()
 		{
 			Board::prepare_kernel();
-			init_phys_sctlr();
-			init_psr();
+			init_sctlr(0);
+			init_psr(1);
 			flush_tlb();
 			finish_init_phys_kernel();
 		}
@@ -309,15 +284,23 @@ class Genode::Arm_v7 : public Arm
 		 * Wait for the next interrupt as cheap as possible
 		 */
 		static void wait_for_interrupt() { asm volatile ("wfi"); }
+
+		static void dcisw_for_all_set_way()
+		{
+			asm volatile (
+				FOR_ALL_SET_WAY_IN_R6_0
+				WRITE_DCISW(r6)
+				FOR_ALL_SET_WAY_IN_R6_1);
+		}
 };
 
 
 void Genode::Arm::flush_data_caches()
 {
 	asm volatile (
-		FOR_ALL_SET_WAY_OF_ALL_DATA_CACHES_0
+		FOR_ALL_SET_WAY_IN_R6_0
 		WRITE_DCCSW(r6)
-		FOR_ALL_SET_WAY_OF_ALL_DATA_CACHES_1);
+		FOR_ALL_SET_WAY_IN_R6_1);
 	Board::outer_cache_flush();
 }
 
@@ -325,9 +308,9 @@ void Genode::Arm::flush_data_caches()
 void Genode::Arm::invalidate_data_caches()
 {
 	asm volatile (
-		FOR_ALL_SET_WAY_OF_ALL_DATA_CACHES_0
+		FOR_ALL_SET_WAY_IN_R6_0
 		WRITE_DCISW(r6)
-		FOR_ALL_SET_WAY_OF_ALL_DATA_CACHES_1);
+		FOR_ALL_SET_WAY_IN_R6_1);
 	Board::outer_cache_invalidate();
 }
 

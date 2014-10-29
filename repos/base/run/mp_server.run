@@ -5,7 +5,7 @@
 #
 
 if {
-	![have_spec hw_arndale] &&
+	!([have_spec hw_arndale] || [have_spec hw_panda]) &&
 	([have_spec platform_pbxa9] || (![have_spec nova] && ![have_spec foc]))
 } {
 	puts "Platform is unsupported."

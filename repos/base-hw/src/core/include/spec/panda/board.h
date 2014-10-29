@@ -113,6 +113,11 @@ namespace Genode
 		static void prepare_kernel();
 		static void secondary_cpus_ip(void * const ip);
 		static bool is_smp() { return true; }
+
+
+		static void init_mp_async(bool const primary, addr_t const core_tt,
+		                          unsigned const core_id);
+		static void init_mp_sync(unsigned const cpu);
 	};
 }
 

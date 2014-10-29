@@ -85,21 +85,6 @@ class Genode::Arm
 
 			static void write(access_t const v) {
 				asm volatile ("mcr p15, 0, %0, c1, c0, 0" :: "r" (v) : ); }
-
-			/**
-			 * Do initialization that is common on value 'v'
-			 */
-			static void init_common(access_t & v)
-			{
-				C::set(v, 1);
-				I::set(v, 1);
-				V::set(v, 1);
-			}
-
-			/**
-			 * Do initialization for virtual mode in kernel on value 'v'
-			 */
-			static void init_virt_kernel(access_t & v) { M::set(v, 1); }
 		};
 
 		/**
@@ -243,38 +228,6 @@ class Genode::Arm
 			 * Return value initialized for user execution with trustzone
 			 */
 			inline static access_t init_user_with_trustzone();
-
-			/**
-			 * Do common initialization on register value 'v'
-			 */
-			static void init_common(access_t & v)
-			{
-				F::set(v, 1);
-				A::set(v, 1);
-			}
-
-			/**
-			 * Return initial value for user execution
-			 */
-			static access_t init_user()
-			{
-				access_t v = 0;
-				init_common(v);
-				M::set(v, usr);
-				return v;
-			}
-
-			/**
-			 * Return initial value for the kernel
-			 */
-			static access_t init_kernel()
-			{
-				access_t v = 0;
-				init_common(v);
-				M::set(v, svc);
-				I::set(v, 1);
-				return v;
-			}
 		};
 
 		/**
@@ -442,10 +395,13 @@ class Genode::Arm
 		static bool is_user() { return Psr::M::get(Psr::read()) == Psr::usr; }
 
 		/**
-		 * Invalidate all entries of all instruction caches
+		 * Invalidate all instruction caches to point of unification
+		 *
+		 * If branch predictors are architecturally-visible, also flushes
+		 * branch predictors.
 		 */
-		__attribute__((always_inline)) static void invalidate_instr_caches() {
-			asm volatile ("mcr p15, 0, %0, c7, c5, 0" :: "r" (0) : ); }
+		__attribute__((always_inline))
+		static void iciallu() { asm volatile ("mcr p15, 0, r0, c7, c5, 0"); }
 
 		/**
 		 * Flush all entries of all data caches
@@ -463,7 +419,7 @@ class Genode::Arm
 		static void flush_caches()
 		{
 			flush_data_caches();
-			invalidate_instr_caches();
+			iciallu();
 		}
 
 		/**
@@ -511,6 +467,27 @@ class Genode::Arm
 			base &= line_align_mask;
 			for (; base < top; base += line_size) { Icimvau::write(base); }
 		}
+
+		static void init_sctlr(Sctlr::access_t & v, bool const virt)
+		{
+			Sctlr::C::set(v, 1);
+			Sctlr::I::set(v, 1);
+			Sctlr::V::set(v, 1);
+			Sctlr::M::set(v, virt);
+		}
+
+		static Psr::access_t init_psr_value(bool const kernel)
+		{
+			Psr::access_t v = 0;
+			Psr::F::set(v, 1);
+			Psr::A::set(v, 1);
+			Psr::M::set(v, kernel ? Psr::svc : Psr::usr);
+			Psr::I::set(v, kernel);
+			return v;
+		}
+
+		static void init_psr(bool const kernel) {
+			Psr::write(init_psr_value(kernel)); }
 };
 
 #endif /* _SPEC__ARM__CPU_SUPPORT_H_ */
