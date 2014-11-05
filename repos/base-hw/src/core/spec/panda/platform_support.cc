@@ -82,7 +82,6 @@ static Board::Pl310 * l2_cache() {
 
 void Board::outer_cache_invalidate() { l2_cache()->invalidate(); }
 void Board::outer_cache_flush()      { l2_cache()->flush();      }
-void Board::prepare_kernel()         { l2_cache()->invalidate(); }
 
 class Wugen : Mmio
 {
@@ -107,13 +106,13 @@ class Wugen : Mmio
 static Wugen * wugen() {
 	return unmanaged_singleton<Wugen>(Board::CORTEX_A9_WUGEN_MMIO_BASE); }
 
-unsigned volatile init_mp_prim_step;
+unsigned volatile start_init_mp_async_secnd;
 
 void Board::secondary_cpus_ip(void * const ip)
 {
 	using Kernel::Cpu;
 	wugen()->init_cpu_1(ip);
-	init_mp_prim_step = 0;
+	start_init_mp_async_secnd = 0;
 	Cpu::flush_data_caches();
 }
 
@@ -148,8 +147,6 @@ class Scu : Mmio
 		}
 
 		void enable() { write<Cr>(Cr::Enable::bits(1)); }
-
-		void wait_till_enabled() { while (!read<Cr::Enable>()) ; }
 };
 
 struct Actlr : Register<32>
@@ -170,77 +167,45 @@ struct Actlr : Register<32>
 static Scu * scu() {
 	return unmanaged_singleton<Scu>(Board::CORTEX_A9_SCU_MMIO_BASE); }
 
-void init_mp_async_local()
-{
-	Cpu::init_psr(1);
-	Cpu::init_sctlr(0);
-}
-
-void init_mp_async_step3()
-{
-	Actlr::access_t actlr = Actlr::read();
-	Actlr::Smp::set(actlr, 1);
-	Actlr::write(actlr);
-	Cpu::iciallu();
-}
 
 void init_mp_async_prim(addr_t const core_tt, unsigned const core_id)
 {
-	init_mp_async_local();
-
-	/* SMP L1 bring-up step 1 */
-	scu()->inval_dupl_tags_all_cpus();
+	l2_cache()->disable();
 	Cpu::dcisw_for_all_set_way();
-	init_mp_prim_step++;
-
-	/* SMP L1 bring-up step 2 */
+	Cpu::iciallu();
+	scu()->inval_dupl_tags_all_cpus();
+	l2_cache()->invalidate();
 	scu()->enable();
-	init_mp_prim_step++;
-
-	/* SMP L1 bring-up step 3 */
-	init_mp_async_step3();
-
-	/* Cpu::init_phys_kernel(); */
-	Board::prepare_kernel();
 	Cpu::flush_tlb();
-	Cpu::finish_init_phys_kernel();
-
 	Cpu::init_virt_kernel(core_tt, core_id);
-	init_mp_prim_step++;
+	l2_cache()->enable();
+	Actlr::access_t actlr = Actlr::read();
+	Actlr::Smp::set(actlr, 1);
+	Actlr::write(actlr);
+	start_init_mp_async_secnd = 1;
 	Cpu::flush_data_caches();
 }
 
 void init_mp_async_secnd(addr_t const core_tt, unsigned const core_id)
 {
-/*
- * Die Panda MPU ist r2p10 und die 3 steps Anleitung stammt von r3p0.
- * Für dieses Board muß die 7 steps Anleitung aus r2p0 genutzt werden.
- * Da wird auch der L2 cache initialisiert. r2p0 und r2p2 sind diesbezügl.
- * identisch.
- */
-	init_mp_async_local();
-
-	/* SMP L1 bring-up step 1 */
-	while (init_mp_prim_step < 1) { }
+	while(!start_init_mp_async_secnd) { }
 	Cpu::dcisw_for_all_set_way();
-
-	/* SMP L1 bring-up step 2 */
-	while (init_mp_prim_step < 2) { }
-	scu()->wait_till_enabled();
-
-	/* SMP L1 bring-up step 3 */
-	while (init_mp_prim_step < 3) { }
-	init_mp_async_step3();
+	Cpu::iciallu();
 	Cpu::flush_tlb_raw();
-	Cpu::finish_init_phys_kernel();
 	Cpu::init_virt_kernel(core_tt, core_id);
+	Actlr::access_t actlr = Actlr::read();
+	Actlr::Smp::set(actlr, 1);
+	Actlr::write(actlr);
 }
 
 void Board::init_mp_async(bool const primary, addr_t const core_tt,
                           unsigned const core_id)
 {
+	Cpu::init_psr(1);
+	Cpu::init_sctlr(0);
 	if (primary) { init_mp_async_prim(core_tt, core_id); }
 	else { init_mp_async_secnd(core_tt, core_id); }
+	Cpu::init_advanced_fp_simd();
 }
 
 void Board::init_mp_sync(unsigned const cpu)

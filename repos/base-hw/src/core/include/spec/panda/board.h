@@ -102,6 +102,13 @@ namespace Genode
 			{
 				trustzone_hypervisor_call(L2_CACHE_AUX_REG,
 				                          Pl310::Aux::init_value());
+			}
+
+			void disable() {
+				trustzone_hypervisor_call(L2_CACHE_ENABLE_REG, 0); }
+
+			void enable()
+			{
 				trustzone_hypervisor_call(L2_CACHE_ENABLE_REG, 1);
 				write<Irq_mask>(0);
 				write<Irq_clear>(0xffffffff);
