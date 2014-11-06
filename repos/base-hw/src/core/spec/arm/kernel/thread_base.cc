@@ -129,3 +129,48 @@ size_t cpu_state_regs_length()
 {
 	return sizeof(_cpu_state_regs)/sizeof(_cpu_state_regs[0]);
 }
+
+
+/*
+ * Taken from the ARM technical support Knowledge article "In what
+ * situations might I need to insert memory barrier instructions?"
+ */
+
+void Kernel::Lock::lock()
+{
+	asm volatile (
+
+		/* check if state is locked */
+		"1:\n"
+		"ldrex r1, [%0]\n"
+		"cmp r1, %2\n"
+
+		/* if locked, wait for other CPU to send us an event */
+		"wfene\n"
+
+		/* if unlocked, attempt to write 'locked' to state */
+		"strexeq r1, %1, [%0]\n"
+
+		/* if write failed, restart */
+		"cmpeq r1, #0\n"
+		"bne 1b\n"
+		:: "r"(&_state), "r"(_locked), "I"(_unlocked) : "cc", "r1");
+	Genode::memory_barrier();
+}
+
+
+void Kernel::Lock::unlock()
+{
+	Genode::memory_barrier();
+	asm volatile (
+
+		/* write 'unlocked' to state */
+		"mov r1, %1\n"
+		"str r1, [%0]\n"
+
+		/* make state change visible to all CPUs */
+		"dsb\n"
+
+		/* send event to wake any CPU waiting on using WFE instr. */
+		"sev\n" :: "r"(&_state), "I"(_unlocked) : "cc", "r1");
+}

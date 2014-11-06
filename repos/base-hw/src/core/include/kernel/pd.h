@@ -17,7 +17,6 @@
 
 /* Genode includes */
 #include <cpu/atomic.h>
-#include <cpu/memory_barrier.h>
 
 /* core includes */
 #include <kernel/early_translations.h>
@@ -39,7 +38,7 @@ extern Genode::addr_t _mt_master_context_end;
 namespace Kernel
 {
 	/**
-	 * Lock that enables synchronization inside the kernel
+	 * Enables synchronization of multiple CPUs inside the kernel
 	 */
 	class Lock;
 }
@@ -48,25 +47,24 @@ class Kernel::Lock
 {
 	private:
 
-		int volatile _locked;
+		static int constexpr _unlocked = 0;
+		static int constexpr _locked = 1;
+
+		int volatile _state;
 
 	public:
 
-		Lock() : _locked(0) { }
+		Lock() : _state(_unlocked) { }
 
 		/**
 		 * Request the lock
 		 */
-		void lock() { while (!Genode::cmpxchg(&_locked, 0, 1)); }
+		void lock();
 
 		/**
 		 * Free the lock
 		 */
-		void unlock()
-		{
-			Genode::memory_barrier();
-			_locked = 0;
-		}
+		void unlock();
 
 		/**
 		 * Provide guard semantic for this type of lock
