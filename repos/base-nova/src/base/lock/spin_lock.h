@@ -16,6 +16,7 @@
 
 /* Genode includes */
 #include <cpu/atomic.h>
+#include <cpu/barrier.h>
 #include <base/thread.h>
 
 /* local includes */
@@ -68,6 +69,7 @@ static inline void spinlock_lock(volatile T *lock_variable)
 		}
 	} while (!cmpxchg(lock_variable, (T)SPINLOCK_UNLOCKED,
 	                  (tid << RESERVED_BITS) | help_counter | SPINLOCK_LOCKED));
+	Genode::lock_acquire_barrier();
 }
 
 
@@ -81,6 +83,7 @@ static inline void spinlock_unlock(volatile T *lock_variable)
 
 	/* unlock */
 	T old;
+	Genode::lock_release_barrier();
 	do {
 		old = *lock_variable;
 	} while (!Genode::cmpxchg(lock_variable, old, (T)SPINLOCK_UNLOCKED));

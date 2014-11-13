@@ -17,6 +17,7 @@
 
 /* Genode includes */
 #include <cpu/atomic.h>
+#include <cpu/barrier.h>
 
 /* local includes */
 #include <lock_helper.h>
@@ -29,8 +30,6 @@
 
 enum State { SPINLOCK_LOCKED, SPINLOCK_UNLOCKED };
 
-static inline void memory_barrier() { asm volatile ("" : : : "memory"); }
-
 static inline void spinlock_lock(volatile int *lock_variable)
 {
 	while (!Genode::cmpxchg(lock_variable, SPINLOCK_UNLOCKED, SPINLOCK_LOCKED)) {
@@ -40,13 +39,14 @@ static inline void spinlock_lock(volatile int *lock_variable)
 		 */
 		thread_yield();
 	}
+	Genode::lock_acquire_barrier();
 }
 
 
 static inline void spinlock_unlock(volatile int *lock_variable)
 {
 	/* make sure all got written by compiler before releasing lock */
-	memory_barrier();
+	Genode::lock_release_barrier();
 	*lock_variable = SPINLOCK_UNLOCKED;
 }
 

@@ -14,6 +14,7 @@
 /* Genode includes */
 #include <base/cancelable_lock.h>
 #include <cpu/atomic.h>
+#include <cpu/barrier.h>
 #include <base/printf.h>
 
 /* L4/Fiasco includes */
@@ -41,10 +42,12 @@ void Cancelable_lock::lock()
 	while (!Genode::cmpxchg(&_lock, UNLOCKED, LOCKED))
 		if (Fiasco::l4_ipc_sleep(Fiasco::l4_ipc_timeout(0, 0, 500, 0)) != L4_IPC_RETIMEOUT)
 			throw Genode::Blocking_canceled();
+	lock_acquire_barrier();
 }
 
 
 void Cancelable_lock::unlock()
 {
+	lock_release_barrier();
 	_lock = UNLOCKED;
 }

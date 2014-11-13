@@ -13,6 +13,7 @@
 
 /* Genode includes */
 #include <base/cancelable_lock.h>
+#include <cpu/barrier.h>
 
 /* local includes */
 #include <spin_lock.h>
@@ -78,6 +79,7 @@ void Cancelable_lock::lock()
 	if (cmpxchg(&_state, UNLOCKED, LOCKED)) {
 
 		/* we got the lock */
+		lock_acquire_barrier();
 		_owner          =  myself;
 		_last_applicant = &_owner;
 		spinlock_unlock(&_spinlock_state);
