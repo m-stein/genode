@@ -260,6 +260,7 @@ GCC_CONFIG += $(COMMON_CONFIG) \
               --with-gnu-as --with-gnu-ld --disable-tls --disable-threads \
               --disable-libstdcxx-pch \
               --enable-shared \
+              --enable-multiarch \
               --with-gmp=$(LOCAL_LIB_INSTALL_LOCATION) \
               --with-mpfr=$(LOCAL_LIB_INSTALL_LOCATION) \
               --with-mpc=$(LOCAL_LIB_INSTALL_LOCATION) \
