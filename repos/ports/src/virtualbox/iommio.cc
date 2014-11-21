@@ -73,10 +73,10 @@ int IOMR3MmioRegisterR3(PVM pVM, PPDMDEVINS pDevIns, RTGCPHYS GCPhysStart,
                         uint32_t fFlags, const char *pszDesc)
 {
 	if (verbose)
-		PLOG("%s: GCPhys=0x%llx cb=0x%x pszDesc=%s rd=%p wr=%p fl=%p",
+		PLOG("%s: GCPhys=0x%llx cb=0x%x pszDesc=%s rd=%p wr=%p fl=%p flags=%x",
 		     __PRETTY_FUNCTION__,
 		     (Genode::uint64_t)GCPhysStart, cbRange, pszDesc,
-		     pfnWriteCallback, pfnReadCallback, pfnFillCallback);
+		     pfnWriteCallback, pfnReadCallback, pfnFillCallback, fFlags);
 
 	REMR3NotifyHandlerPhysicalRegister(pVM, PGMPHYSHANDLERTYPE_MMIO,
 	                                   GCPhysStart, cbRange, true);
@@ -112,7 +112,13 @@ VMMDECL(VBOXSTRICTRC) IOMMMIOWrite(PVM pVM, PVMCPU, RTGCPHYS GCPhys,
 	VBOXSTRICTRC rc = IOM_LOCK_SHARED(pVM);
 	Assert(rc == VINF_SUCCESS);
 
-	rc = guest_memory()->mmio_write(pVM, GCPhys, u32Value, cbValue);
+	rc = guest_memory()->mmio_write(GCPhys, u32Value, cbValue);
+
+	/*
+	 * Check whether access is unaligned or access width is less than device
+	 * supports. See original IOMMIOWrite & iomMMIODoComplicatedWrite of VBox.
+	 */
+	Assert(rc != VERR_IOM_NOT_MMIO_RANGE_OWNER);
 
 	IOM_UNLOCK_SHARED(pVM);
 
@@ -121,12 +127,34 @@ VMMDECL(VBOXSTRICTRC) IOMMMIOWrite(PVM pVM, PVMCPU, RTGCPHYS GCPhys,
 
 
 VMMDECL(VBOXSTRICTRC) IOMMMIORead(PVM pVM, PVMCPU, RTGCPHYS GCPhys,
-                                  uint32_t *pu32Value, size_t cbValue)
+                                  uint32_t *pvalue, size_t bytes)
 {
     VBOXSTRICTRC rc = IOM_LOCK_SHARED(pVM);
 	Assert(rc == VINF_SUCCESS);
 
-	rc = guest_memory()->mmio_read(pVM, GCPhys, pu32Value, cbValue);
+	rc = guest_memory()->mmio_read(GCPhys, pvalue, bytes);
+
+	/*
+	 * Check whether access is unaligned or access width is less than device
+	 * supports. See original IOMMIORead & iomMMIODoComplicatedRead of VBox.
+	 */
+	if (rc == VERR_IOM_NOT_MMIO_RANGE_OWNER) {
+		/* implement what we need to - extend by need */
+		Assert((GCPhys & 3U) == 0);
+		Assert(bytes == 1 || bytes == 2);
+		uint32_t value;
+		rc = guest_memory()->mmio_read(GCPhys, &value, sizeof(value));
+		Assert(rc == VINF_SUCCESS);
+
+		if (rc == VINF_SUCCESS) {
+			switch (bytes) {
+				case 1:
+					*(uint8_t *) pvalue = (uint8_t)value;
+				case 2:
+					*(uint16_t *)pvalue = (uint16_t)value;
+			}
+		}
+	}
 
 	IOM_UNLOCK_SHARED(pVM);
 

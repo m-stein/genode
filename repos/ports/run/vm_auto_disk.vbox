@@ -57,12 +57,9 @@
         <DeviceFilters/>
       </USB>
       <Network>
-        <Adapter slot="0" enabled="false" MACAddress="080027BCA045" cable="true" speed="0" type="Am79C973">
+        <Adapter slot="0" enabled="false" MACAddress="0800271D7901" cable="true" speed="0" type="82540EM">
+          <HostInterface/>
           <DisabledModes/>
-          <NAT>
-            <DNS pass-domain="true" use-proxy="false" use-host-resolver="false"/>
-            <Alias logging="false" proxy-only="false" use-same-ports="false"/>
-          </NAT>
         </Adapter>
         <Adapter slot="1" enabled="false" MACAddress="08002790A84B" cable="true" speed="0" type="Am79C973">
           <DisabledModes>

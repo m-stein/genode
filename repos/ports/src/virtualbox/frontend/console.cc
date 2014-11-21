@@ -70,7 +70,20 @@ void    Console::setVMRuntimeErrorCallback(PUVM, void *, uint32_t,
                                            const char *, const char *,
                                            va_list va)                          DUMMY()
 HRESULT Console::updateMachineState(MachineState_T aMachineState)               DUMMY(E_FAIL)
-HRESULT Console::attachToTapInterface(INetworkAdapter *networkAdapter)          DUMMY(E_FAIL)
+
+HRESULT Console::attachToTapInterface(INetworkAdapter *networkAdapter)
+{
+	HRESULT rc = S_OK;
+
+	ULONG slot = 0;
+	rc = networkAdapter->COMGETTER(Slot)(&slot);
+	AssertComRC(rc);
+
+	maTapFD[slot] = (RTFILE)1;
+
+	TRACE(S_OK)
+}
+
 HRESULT Console::detachFromTapInterface(INetworkAdapter *networkAdapter)        DUMMY(E_FAIL)
 HRESULT Console::saveState(Reason_T aReason, IProgress **aProgress)             DUMMY(E_FAIL)
 HRESULT Console::get_Debugger(MachineDebugger**)                                DUMMY(E_FAIL)
