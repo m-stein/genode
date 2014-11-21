@@ -16,7 +16,7 @@ PATCHES_LIST    += vga_fb vga_vbva vmdk vmmdev avoid_yield
 PATCHES         := $(addsuffix .patch, $(PATCHES_LIST))
 PATCHES         := $(addprefix src/virtualbox/patches/, $(PATCHES))
 
-
+$(call check_tool,xsltproc)
 
 VBOX_MAIN_GLUE := AutoLock EventQueue string xpcom/helpers
 
