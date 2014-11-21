@@ -61,8 +61,35 @@ int DisplayMakePNG(uint8_t *, uint32_t, uint32_t, uint8_t **, uint32_t *,
                    uint32_t *, uint32_t *, uint8_t)                             DUMMY(-1)
 
 ProgressErrorInfo::ProgressErrorInfo(Progress*) DUMMY()
+
+HRESULT ProgressProxy::init(VirtualBox*, IUnknown*, unsigned short const*,
+        bool)                                                                   DUMMY(E_FAIL)
+HRESULT ProgressProxy::init(VirtualBox*, void*, unsigned short const*, bool,
+                            unsigned int, unsigned short const*, unsigned int,
+                            unsigned int)                                       DUMMY(E_FAIL)
 HRESULT ProgressProxy::notifyComplete(HRESULT)                                  DUMMY(E_FAIL)
+HRESULT ProgressProxy::notifyComplete(HRESULT, GUID const&, char const*,
+                                      char const*, ...)                         DUMMY(E_FAIL)
 bool    ProgressProxy::setOtherProgressObject(Progress*)                        DUMMY(false)
+HRESULT ProgressProxy::FinalConstruct()                                         DUMMY(E_FAIL)
+STDMETHODIMP ProgressProxy::COMGETTER(Cancelable)(BOOL *)                       DUMMY(E_FAIL)
+STDMETHODIMP ProgressProxy::COMGETTER(Percent)(ULONG *)                         DUMMY(E_FAIL)
+STDMETHODIMP ProgressProxy::COMGETTER(TimeRemaining)(LONG *)                    DUMMY(E_FAIL)
+STDMETHODIMP ProgressProxy::COMGETTER(Completed)(BOOL *)                        DUMMY(E_FAIL)
+STDMETHODIMP ProgressProxy::COMGETTER(Canceled)(BOOL *)                         DUMMY(E_FAIL)
+STDMETHODIMP ProgressProxy::COMGETTER(ResultCode)(LONG *)                       DUMMY(E_FAIL)
+STDMETHODIMP ProgressProxy::COMGETTER(ErrorInfo)(IVirtualBoxErrorInfo **)       DUMMY(E_FAIL)
+STDMETHODIMP ProgressProxy::COMGETTER(Operation)(ULONG *)                       DUMMY(E_FAIL)
+STDMETHODIMP ProgressProxy::COMGETTER(OperationDescription)(BSTR *)             DUMMY(E_FAIL)
+STDMETHODIMP ProgressProxy::COMGETTER(OperationPercent)(ULONG *)                DUMMY(E_FAIL)
+STDMETHODIMP ProgressProxy::COMSETTER(Timeout)(ULONG)                           DUMMY(E_FAIL)
+STDMETHODIMP ProgressProxy::COMGETTER(Timeout)(ULONG *)                         DUMMY(E_FAIL)
+
+STDMETHODIMP ProgressProxy::WaitForCompletion(LONG aTimeout)                    DUMMY(E_FAIL)
+STDMETHODIMP ProgressProxy::WaitForOperationCompletion(ULONG, LONG)             DUMMY(E_FAIL)
+STDMETHODIMP ProgressProxy::Cancel()                                            DUMMY(E_FAIL)
+STDMETHODIMP ProgressProxy::SetCurrentOperationProgress(ULONG aPercent)         DUMMY(E_FAIL)
+STDMETHODIMP ProgressProxy::SetNextOperation(IN_BSTR, ULONG)                    DUMMY(E_FAIL)
 
 template<>
 void DummyClass<VirtualBox>::fireNATRedirectEvent(ComObjPtr<EventSource> const&,

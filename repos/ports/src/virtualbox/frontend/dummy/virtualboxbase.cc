@@ -72,6 +72,8 @@ HRESULT VirtualBoxBase::setError(HRESULT aResultCode)                           
 HRESULT VirtualBoxBase::setError(const com::ErrorInfo &ei)                      DUMMY(E_FAIL)
 HRESULT VirtualBoxBase::handleUnexpectedExceptions(VirtualBoxBase *const,
                                                    RT_SRC_POS_DECL)             TRACE(E_FAIL)
+HRESULT VirtualBoxBase::setErrorInternal(HRESULT, GUID const&, char const*,
+                                         com::Utf8Str, bool, bool)              DUMMY(E_FAIL)
 
 HRESULT VirtualBoxErrorInfo::init(HRESULT, const GUID &, const char *,
                                   const Utf8Str &, IVirtualBoxErrorInfo *)      DUMMY(E_FAIL)
