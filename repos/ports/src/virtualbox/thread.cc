@@ -45,11 +45,15 @@ static Genode::Cpu_session * get_cpu_session(RTTHREADTYPE type) {
 	long const prio = (RTTHREADTYPE_END - type) *
 	                  (Cpu_session::PRIORITY_LIMIT / RTTHREADTYPE_END);
 
-	char * data = new (env()->heap()) char[32];
+	char * data = new (env()->heap()) char[16];
 
-	snprintf(data, 32, "vbox %u", type);
+	snprintf(data, 16, "vbox %u", type);
 
 	con[type - 1] = new (env()->heap()) Cpu_connection(data, prio);
+
+	/* upgrade memory of cpu session for frequent used thread type */
+	if (type == RTTHREADTYPE_IO)
+		Genode::env()->parent()->upgrade(con[type - 1]->cap(), "ram_quota=4096");
 
 	return con[type - 1];
 }
