@@ -292,6 +292,7 @@ class Kernel::Thread
 		 ** Cpu_job **
 		 *************/
 
+		void print_cpu_share_id() { Genode::printf("t%u", id()); }
 		void exception(unsigned const cpu);
 		void proceed(unsigned const cpu);
 

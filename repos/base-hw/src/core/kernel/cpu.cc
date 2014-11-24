@@ -131,6 +131,8 @@ Cpu_idle::Cpu_idle(Cpu * const cpu) : Cpu_job(Cpu_priority::min, 0)
 
 void Cpu_idle::proceed(unsigned const cpu) { mtc()->continue_user(this, cpu); }
 
+void Cpu_idle::print_cpu_share_id() { Genode::printf("i%u", _cpu->id()); }
+
 
 /*********
  ** Cpu **

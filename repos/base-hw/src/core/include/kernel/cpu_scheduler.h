@@ -99,6 +99,11 @@ class Kernel::Cpu_share : public Cpu_claim, public Cpu_fill
 		 */
 		Cpu_share(signed const p, unsigned const q)
 		: _prio(p), _quota(q), _claim(q), _ready(0) { }
+
+		/**
+		 * Print readable identifier of the share for debugging purpose
+		 */
+		virtual void print_cpu_share_id() = 0;
 };
 
 class Kernel::Cpu_scheduler
