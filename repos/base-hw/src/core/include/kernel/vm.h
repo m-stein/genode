@@ -76,6 +76,8 @@ class Kernel::Vm : public Object<Vm, MAX_VMS, Vm_ids, vm_ids, vm_pool>,
 		 ** Cpu_job **
 		 *************/
 
+		void print_cpu_share_id() { Genode::printf("v%u", id()); }
+
 		void exception(unsigned const cpu)
 		{
 			switch(_state->cpu_exception) {

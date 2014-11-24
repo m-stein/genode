@@ -150,6 +150,14 @@ class Kernel::Cpu_job : public Cpu_share
 		 */
 		void affinity(Cpu * const cpu);
 
+
+		/***************
+		 ** Cpu_share **
+		 ***************/
+
+		virtual void print_cpu_share_id() = 0;
+
+
 		/***************
 		 ** Accessors **
 		 ***************/
@@ -194,6 +202,13 @@ class Kernel::Cpu_idle : public Genode::Cpu::User_context, public Cpu_job
 		 * Continue execution on CPU 'cpu_id'
 		 */
 		void proceed(unsigned const cpu_id);
+
+
+		/***************
+		 ** Cpu_share **
+		 ***************/
+
+		void print_cpu_share_id();
 };
 
 class Kernel::Cpu : public Genode::Cpu
