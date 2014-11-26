@@ -292,10 +292,15 @@ static size_t remaining_session_ram_quota(char const *args)
 
 int Cpu_session_component::transfer_quota(Cpu_session_capability c, size_t q)
 {
+	/* lookup targeted CPU-session */
 	Object_pool<Cpu_session_component>::Guard s(_session_ep->lookup_and_lock(c));
 	if (!s) { return -1; }
+
+	/* translate quota argument and check limits */
 	q = _local_to_global(q);
 	if (q > avail()) { return _insuff_for_transfer(q); }
+
+	/* transfer quota to targeted CPU-session */
 	if (s->_ref == this) { return _transfer_forth(s, q); }
 	if (s == _ref) { return _transfer_back(q); }
 	return -2;
@@ -305,13 +310,18 @@ int Cpu_session_component::transfer_quota(Cpu_session_capability c, size_t q)
 int Cpu_session_component::ref_account(Cpu_session_capability c)
 {
 	/*
+	 * Ensure that the ref account is set only once
+	 *
 	 * FIXME Add check for cycles along the tree of reference accounts
 	 */
-
 	if (_ref) { return -2; }
+
+	/* lookup targeted CPU-session */
 	Object_pool<Cpu_session_component>::Guard s(_session_ep->lookup_and_lock(c));
 	if (!s) { return -1; }
 	if (s == this) { return -3; }
+
+	/* establish ref-account relation from targeted CPU-session to us */
 	_ref = s;
 	_ref->_insert_ref_member(this);
 	return 0;
@@ -361,16 +371,22 @@ Cpu_session_component::~Cpu_session_component()
 
 void Cpu_session_component::_deinit_ref_account()
 {
-	if (_ref) { return; }
+	/* without a ref-account, nothing has do be done */
+	if (!_ref) { return; }
+
+	/* give back our remaining quota to our ref account */
 	_transfer_back(_quota);
+
+	/* remove ref-account relation between us and our ref-account */
 	Cpu_session_component * const orig_ref = _ref;
 	_ref->_remove_ref_member(this);
+
+	/* redirect ref-account relation of ref members to our prior ref account */
 	Lock::Guard lock_guard(_ref_members_lock);
 	for (Cpu_session_component * s; (s = _ref_members.first()); ) {
 		_unsync_remove_ref_member(s);
 		orig_ref->_insert_ref_member(s);
 	}
-	_ref = 0;
 }
 
 
