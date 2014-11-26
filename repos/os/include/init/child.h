@@ -392,8 +392,8 @@ namespace Init {
 				{
 					using namespace Genode;
 					if (!config_verbose) { return; }
-					printf("Warning: Specified quota exceeds available quota.\n");
-					printf("         Proceeding with a quota of %zu.\n", avail);
+					Genode::printf("Warning: Specified quota exceeds available quota.\n");
+					Genode::printf("         Proceeding with a quota of %zu.\n", avail);
 				}
 
 				Read_quota(Genode::Xml_node start_node, Genode::size_t & ram_quota,
