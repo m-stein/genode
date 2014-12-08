@@ -149,20 +149,6 @@ class Scu : Mmio
 		void enable() { write<Cr>(Cr::Enable::bits(1)); }
 };
 
-struct Actlr : Register<32>
-{
-	struct Smp : Bitfield<6, 1> { };
-
-	static access_t read()
-	{
-		access_t v;
-		asm volatile ("mrc p15, 0, %0, c1, c0, 1" : "=r" (v) :: );
-		return v;
-	}
-
-	static void write(access_t const v) {
-		asm volatile ("mcr p15, 0, %0, c1, c0, 1" :: "r" (v) : ); }
-};
 
 static Scu * scu() {
 	return unmanaged_singleton<Scu>(Board::CORTEX_A9_SCU_MMIO_BASE); }
@@ -179,9 +165,7 @@ void init_mp_async_prim(addr_t const core_tt, unsigned const core_id)
 	Cpu::flush_tlb();
 	Cpu::init_virt_kernel(core_tt, core_id);
 	l2_cache()->enable();
-	Actlr::access_t actlr = Actlr::read();
-	Actlr::Smp::set(actlr, 1);
-	Actlr::write(actlr);
+	Board::raise_actlr_smp_bit();
 	start_init_mp_async_secnd = 1;
 	Cpu::flush_data_caches();
 }
@@ -193,9 +177,7 @@ void init_mp_async_secnd(addr_t const core_tt, unsigned const core_id)
 	Cpu::iciallu();
 	Cpu::flush_tlb_raw();
 	Cpu::init_virt_kernel(core_tt, core_id);
-	Actlr::access_t actlr = Actlr::read();
-	Actlr::Smp::set(actlr, 1);
-	Actlr::write(actlr);
+	Board::raise_actlr_smp_bit();
 }
 
 void Board::init_mp_async(bool const primary, addr_t const core_tt,

@@ -22,26 +22,30 @@ namespace Genode
 {
 	struct Board : Board_base
 	{
+		enum Trustzone_hypervisor_syscalls {
+			RAISE_ACTLR_SMP_BIT    = 0x25,
+			L2_CACHE_SET_DEBUG_REG = 0x100,
+			L2_CACHE_ENABLE_REG    = 0x102,
+			L2_CACHE_AUX_REG       = 0x109,
+		};
+
+		static inline void
+		trustzone_hypervisor_call(addr_t func, addr_t val)
+		{
+			register addr_t _func asm("r12") = func;
+			register addr_t _val  asm("r0")  = val;
+			asm volatile("dsb; smc #0" :: "r" (_func), "r" (_val)
+						 : "memory", "cc", "r1", "r2", "r3", "r4", "r5",
+						   "r6", "r7", "r8", "r9", "r10", "r11");
+		}
+
+		static void raise_actlr_smp_bit() {
+			trustzone_hypervisor_call(RAISE_ACTLR_SMP_BIT, 0); }
+
 		/**
 		 * L2 outer cache controller
 		 */
 		struct Pl310 : Mmio {
-
-			enum Trustzone_hypervisor_syscalls {
-				L2_CACHE_SET_DEBUG_REG = 0x100,
-				L2_CACHE_ENABLE_REG    = 0x102,
-				L2_CACHE_AUX_REG       = 0x109,
-			};
-
-			static inline void
-			trustzone_hypervisor_call(addr_t func, addr_t val)
-			{
-				register addr_t _func asm("r12") = func;
-				register addr_t _val  asm("r0")  = val;
-				asm volatile("dsb; smc #0" :: "r" (_func), "r" (_val)
-				             : "memory", "cc", "r1", "r2", "r3", "r4", "r5",
-				               "r6", "r7", "r8", "r9", "r10", "r11");
-			}
 
 			struct Control   : Register <0x100, 32>
 			{
