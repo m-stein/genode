@@ -153,14 +153,20 @@ class Genode::Arm_gic_cpu_interface : public Mmio
 		/**
 		 * Interrupt acknowledge register
 		 */
-		struct Iar : Register<0x0c, 32, true> {
-			struct Irq_id : Bitfield<0,10> { }; };
+		struct Iar : Register<0x0c, 32, true>
+		{
+			struct Irq_id : Bitfield<0,10> { };
+			struct Cpu_id : Bitfield<10,3> { };
+		};
 
 		/**
 		 * End of interrupt register
 		 */
-		struct Eoir : Register<0x10, 32, true> {
-			struct Irq_id : Bitfield<0,10> { }; };
+		struct Eoir : Register<0x10, 32, true>
+		{
+			struct Irq_id : Bitfield<0,10> { };
+			struct Cpu_id : Bitfield<10,3> { };
+		};
 
 		/**
 		 * Constructor
@@ -178,10 +184,10 @@ class Genode::Arm_gic
 		static constexpr unsigned min_spi     = 32;
 		static constexpr unsigned spurious_id = 1023;
 
-		Distr          _distr;
-		Cpui           _cpui;
-		unsigned const _max_irq;
-		unsigned       _last_request;
+		Distr               _distr;
+		Cpui                _cpui;
+		unsigned const      _max_irq;
+		Cpui::Iar::access_t _last_iar;
 
 		/**
 		 * Return inter-processor IRQ of the CPU with kernel name 'cpu_id'
@@ -198,6 +204,9 @@ class Genode::Arm_gic
 		 */
 		bool _valid(unsigned const irq_id) const { return irq_id <= _max_irq; }
 
+		void _reset_last_iar() {
+			_last_iar = Cpui::Iar::Irq_id::bits(spurious_id); }
+
 	public:
 
 		enum { NR_OF_IRQ = Distr::nr_of_irq };
@@ -208,8 +217,11 @@ class Genode::Arm_gic
 		Arm_gic(addr_t const distr_base, addr_t const cpu_base)
 		:
 			_distr(distr_base), _cpui(cpu_base),
-			_max_irq(_distr.max_irq()),
-			_last_request(spurious_id) { _init(); }
+			_max_irq(_distr.max_irq())
+		{
+			_reset_last_iar();
+			_init();
+		}
 
 		/**
 		 * Initialize CPU local interface of the controller
@@ -229,13 +241,13 @@ class Genode::Arm_gic
 		/**
 		 * Try to take an IRQ and return wether it was successful
 		 *
-		 * \param irq_id  contains kernel name of taken IRQ on success
+		 * \param irq  contains kernel name of taken IRQ on success
 		 */
-		bool take_request(unsigned & irq_id)
+		bool take_request(unsigned & irq)
 		{
-			_last_request = _cpui.read<Cpui::Iar::Irq_id>();
-			irq_id = _last_request;
-			return _valid(irq_id);
+			_last_iar = _cpui.read<Cpui::Iar>();
+			irq = Cpui::Iar::Irq_id::get(_last_iar);
+			return _valid(irq);
 		}
 
 		/**
@@ -243,9 +255,8 @@ class Genode::Arm_gic
 		 */
 		void finish_request()
 		{
-			if (!_valid(_last_request)) { return; }
-			_cpui.write<Cpui::Eoir::Irq_id>(_last_request);
-			_last_request = spurious_id;
+			_cpui.write<Cpui::Eoir>(_last_iar);
+			_reset_last_iar();
 		}
 
 		/**
