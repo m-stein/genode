@@ -14,6 +14,7 @@ INC_DIR += $(REP_DIR)/src/core/include/spec/tl16c750
 SRC_CC += platform_services.cc
 SRC_CC += spec/panda/platform_support.cc
 SRC_CC += spec/cortex_a9/pic.cc
+SRC_CC += spec/cortex_a9/board.cc
 SRC_CC += spec/arm_gic/pic.cc
 SRC_CC += spec/panda/cpu.cc
 

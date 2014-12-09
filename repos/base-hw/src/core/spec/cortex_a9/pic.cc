@@ -13,6 +13,7 @@
 
 /* core includes */
 #include <pic.h>
+#include <board.h>
 
 using namespace Genode;
 

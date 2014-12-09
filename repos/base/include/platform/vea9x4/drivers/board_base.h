@@ -79,10 +79,13 @@ namespace Genode
 			/* CPU */
 			CORTEX_A9_PRIVATE_MEM_BASE = 0x1e000000,
 			CORTEX_A9_PRIVATE_MEM_SIZE = 0x2000,
-			CORTEX_A9_CLOCK = TCREF_CLOCK,
+			CORTEX_A9_CLOCK            = TCREF_CLOCK,
+			CORTEX_A9_SCU_MMIO_BASE    = 0x1e000000,
 
 			/* wether board provides security extension */
 			SECURITY_EXTENSION = 1,
+
+			SYSTEM_REGISTERS_MMIO_BASE = 0x10000000,
 
 			/* CPU cache */
 			CACHE_LINE_SIZE_LOG2 = 2, /* FIXME get correct value from board spec */

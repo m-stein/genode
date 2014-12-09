@@ -14,6 +14,9 @@
 #ifndef _BOARD_H_
 #define _BOARD_H_
 
+/* Genode includes */
+#include <base/stdint.h>
+
 /* core includes */
 #include <drivers/board_base.h>
 
@@ -22,28 +25,20 @@ namespace Genode
 	class Board : public Board_base
 	{
 		public:
-			static bool is_smp() { return false; }
-			static void init_mp_async(bool const primary, addr_t const core_tt,
-			                          unsigned const core_id);
-			static void init_mp_sync(unsigned const cpu);
-
-			/*
-			 * Dummies
-			 */
-
+			static bool is_smp() { return 1; }
 			static void outer_cache_invalidate() { }
 			static void outer_cache_flush() { }
 			static void prepare_kernel() { }
-			static void secondary_cpus_ip(void * const ip) { }
+			static void secondary_cpus_ip(void * const ip);
+			static void init_mp_sync(unsigned const cpu);
+			static void init_mp_async(bool const primary, addr_t const core_tt,
+			                          unsigned const core_id);
+			static void raise_actlr_smp_bit();
 	};
 
 	class L2_cache
 	{
 		public:
-
-			/*
-			 * Dummies
-			 */
 
 			void invalidate() { }
 			void disable() { }

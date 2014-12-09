@@ -298,6 +298,15 @@ class Genode::Arm_gic
 			Sgir::Cpu_target_list::set(sgir, 1 << cpu_id);
 			_distr.write<Sgir>(sgir);
 		}
+
+		void trigger_ip_interrupt_all_cpus()
+		{
+			typedef Distr::Sgir Sgir;
+			Sgir::access_t sgir = 0;
+			Sgir::Sgi_int_id::set(sgir, 7);
+			Sgir::Cpu_target_list::set(sgir, ~0);
+			_distr.write<Sgir>(sgir);
+		}
 };
 
 #endif /* _SPEC__ARM_GIC__PIC_SUPPORT_H_ */

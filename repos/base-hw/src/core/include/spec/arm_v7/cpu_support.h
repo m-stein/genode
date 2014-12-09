@@ -272,13 +272,7 @@ class Genode::Arm_v7 : public Arm
 		/**
 		 * Enable secondary CPUs with instr. pointer 'ip'
 		 */
-		static void start_secondary_cpus(void * const ip)
-		{
-			if (!(NR_OF_CPUS > 1)) { return; }
-			Board::secondary_cpus_ip(ip);
-			data_synchronization_barrier();
-			asm volatile ("sev\n");
-		}
+		static void start_secondary_cpus(void * const ip);
 
 		/**
 		 * Wait for the next interrupt as cheap as possible

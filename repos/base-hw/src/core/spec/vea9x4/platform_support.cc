@@ -19,7 +19,6 @@
 
 using namespace Genode;
 
-
 Native_region * Platform::_ram_regions(unsigned const i)
 {
 	static Native_region _regions[] =
