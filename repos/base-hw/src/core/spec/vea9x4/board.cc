@@ -26,6 +26,11 @@ extern unsigned volatile start_init_mp_async_secnd;
 
 namespace Kernel { Pic * pic(); }
 
+unsigned Cpu::executing_id() { return Mpidr::Aff_0::get(Mpidr::read()); }
+
+unsigned Cpu::primary_id() { return 0; }
+
+
 void Arm_v7::start_secondary_cpus(void * const ip)
 {
 	if (!(NR_OF_CPUS > 1)) { return; }

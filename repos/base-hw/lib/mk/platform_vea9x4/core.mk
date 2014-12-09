@@ -14,7 +14,6 @@ INC_DIR += $(REP_DIR)/src/core/include/spec/cortex_a9
 INC_DIR += $(REP_DIR)/src/core/include/spec/pl011
 
 # add C++ sources
-SRC_CC += cpu.cc
 SRC_CC += spec/cortex_a9/board.cc
 SRC_CC += spec/vea9x4/board.cc
 

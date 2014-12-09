@@ -101,6 +101,9 @@ void init_mp_async_prim(addr_t const core_tt, unsigned const core_id)
 	Cpu::flush_tlb();
 	Cpu::init_virt_kernel(core_tt, core_id);
 	l2_cache()->enable();
+	Board::raise_actlr_smp_bit();
+	start_init_mp_async_secnd = 1;
+	Cpu::flush_data_caches();
 }
 
 
