@@ -407,6 +407,7 @@ class Genode::Arm
 		 * Flush all entries of all data caches
 		 */
 		inline static void flush_data_caches();
+		inline static void flush_cpu_data_caches();
 
 		/**
 		 * Invalidate all entries of all data caches

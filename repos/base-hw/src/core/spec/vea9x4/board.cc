@@ -70,7 +70,7 @@ void Board::secondary_cpus_ip(void * const ip)
 {
 	system_registers()->flags((addr_t)ip);
 	start_init_mp_async_secnd = 0;
-	Cpu::flush_data_caches();
+	Cpu::flush_cpu_data_caches();
 }
 
 struct Actlr : Register<32>

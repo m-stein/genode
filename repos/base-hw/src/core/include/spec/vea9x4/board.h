@@ -97,7 +97,6 @@ class Genode::Pl310 : public Genode::Mmio
 		{
 			write<Invalidate_by_way::Way_bits>(~0);
 			_sync();
-
 		}
 };
 

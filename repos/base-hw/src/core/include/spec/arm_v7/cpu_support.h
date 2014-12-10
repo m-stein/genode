@@ -289,12 +289,17 @@ class Genode::Arm_v7 : public Arm
 };
 
 
-void Genode::Arm::flush_data_caches()
+void Genode::Arm::flush_cpu_data_caches()
 {
 	asm volatile (
 		FOR_ALL_SET_WAY_IN_R6_0
 		WRITE_DCCSW(r6)
 		FOR_ALL_SET_WAY_IN_R6_1);
+}
+
+void Genode::Arm::flush_data_caches()
+{
+	flush_cpu_data_caches();
 	Board::outer_cache_flush();
 }
 
