@@ -11,8 +11,11 @@
  * under the terms of the GNU General Public License version 2.
  */
 
+/* core includes */
+#include <drivers/board_base.h>
+
 /* base includes */
-#include <util/register.h>
+#include <util/mmio.h>
 #include <base/printf.h>
 
 using namespace Genode;
@@ -237,6 +240,66 @@ struct Csselr : Register<32>
 		asm volatile ("mcr p15, 2, %0, c0, c0, 0" :: "r" (v) : ); }
 };
 
+class Pl310 : public Mmio {
+
+	private:
+
+		struct Cache_id : Register<0x0, 32>
+		{
+			struct Rtl_release   : Bitfield<0, 6> { };
+			struct Part_number   : Bitfield<6, 4> { };
+			struct Cache_id_bits : Bitfield<10, 6> { };
+			struct Implementer   : Bitfield<24, 8> { };
+		};
+
+		struct Cache_type : Register<0x0, 32>
+		{
+			struct Line_length_0   : Bitfield<0, 2> { };
+			struct Associativity_0 : Bitfield<6, 1> { };
+			struct Isize           : Bitfield<7, 5> { };
+			struct Iway_size       : Bitfield<8, 3> { };
+			struct Line_length_1   : Bitfield<12, 2> { };
+			struct Associativity_1 : Bitfield<18, 1> { };
+			struct Dsize           : Bitfield<19, 5> { };
+			struct Dway_size       : Bitfield<20, 3> { };
+			struct H               : Bitfield<24, 1> { };
+			struct Ctype           : Bitfield<25, 4> { };
+			struct Data_banking    : Bitfield<31, 1> { };
+			
+		};
+
+	public:
+
+		Pl310(addr_t const base) : Mmio(base) { }
+
+		void info()
+		{
+			printf("------ CoreLink Level 2 Cache Controller L2C-310 ------\n");
+			printf(" \n");
+
+			printf(" Cache ID Register\n");
+			printf("   RTL release: 0x%x\n", read<Cache_id::Rtl_release>());
+			printf("   Part number: 0x%x\n", read<Cache_id::Part_number>());
+			printf("   Cache ID:    0x%x\n", read<Cache_id::Cache_id_bits>());
+			printf("   Implementer: 0x%x\n", read<Cache_id::Implementer>());
+			printf(" \n");
+
+			printf(" Cache Type Register\n");
+			printf("   Line_length_0  : 0x%x\n", read<Cache_type::Line_length_0  >());
+			printf("   Associativity_0: 0x%x\n", read<Cache_type::Associativity_0>());
+			printf("   Isize          : 0x%x\n", read<Cache_type::Isize          >());
+			printf("   Iway_size      : 0x%x\n", read<Cache_type::Iway_size      >());
+			printf("   Line_length_1  : 0x%x\n", read<Cache_type::Line_length_1  >());
+			printf("   Associativity_1: 0x%x\n", read<Cache_type::Associativity_1>());
+			printf("   Dsize          : 0x%x\n", read<Cache_type::Dsize          >());
+			printf("   Dway_size      : 0x%x\n", read<Cache_type::Dway_size      >());
+			printf("   H              : 0x%x\n", read<Cache_type::H              >());
+			printf("   Ctype          : 0x%x\n", read<Cache_type::Ctype          >());
+			printf("   Data_banking   : 0x%x\n", read<Cache_type::Data_banking   >());
+			printf(" \n");
+		}
+};
+
 
 void info_ccsidr()
 {
@@ -424,4 +487,7 @@ void info()
 	printf("   VFP half-precision FP conversion:   0x%x\n", Mvfr1::B6::get(Mvfr1::read()));
 	printf("   Fused multiply accumulate:          0x%x\n", Mvfr1::B7::get(Mvfr1::read()));
 	printf(" \n");
+
+	Pl310 pl310(Board_base::PL310_MMIO_BASE);
+	pl310.info();
 }
