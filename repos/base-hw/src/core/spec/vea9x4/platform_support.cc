@@ -51,7 +51,10 @@ Native_region * Platform::_core_only_mmio_regions(unsigned const i)
 		  Board::CORTEX_A9_PRIVATE_MEM_SIZE },
 
 		/* Core UART */
-		{ Board::PL011_0_MMIO_BASE, Board::PL011_0_MMIO_SIZE }
+		{ Board::PL011_0_MMIO_BASE, Board::PL011_0_MMIO_SIZE },
+
+		/* L2 Cache Controller */
+		{ Board::PL310_MMIO_BASE, Board::PL310_MMIO_SIZE }
 	};
 	return i < sizeof(_regions)/sizeof(_regions[0]) ? &_regions[i] : 0;
 }

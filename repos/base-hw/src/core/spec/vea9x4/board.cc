@@ -41,8 +41,8 @@ void Arm_v7::start_secondary_cpus(void * const ip)
 
 namespace Genode
 {
-	L2_cache * l2_cache() {
-		return unmanaged_singleton<L2_cache>(); }
+	Pl310 * l2_cache() {
+		return unmanaged_singleton<Pl310>(Board::PL310_MMIO_BASE); }
 }
 
 class System_registers : public Mmio
@@ -94,3 +94,6 @@ void Board::raise_actlr_smp_bit()
 	Actlr::Smp::set(actlr, 1);
 	Actlr::write(actlr);
 }
+
+void Board::outer_cache_invalidate() { l2_cache()->invalidate(); }
+void Board::outer_cache_flush() { l2_cache()->flush(); }

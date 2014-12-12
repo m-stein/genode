@@ -87,6 +87,10 @@ namespace Genode
 
 			SYSTEM_REGISTERS_MMIO_BASE = 0x10000000,
 
+			/* L2 Cache Controller */
+			PL310_MMIO_BASE =  0x1e00a000,
+			PL310_MMIO_SIZE =  0x00001000,
+
 			/* CPU cache */
 			CACHE_LINE_SIZE_LOG2 = 2, /* FIXME get correct value from board spec */
 		};
