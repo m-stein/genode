@@ -87,42 +87,52 @@ class Lx::Timer
 			if (!ctx)
 				return;
 
-			if (!ctx->programmed) {
-				ctx->programmed = true;
+			if (ctx->programmed)
+				return;
 
-				/* calculate relative microseconds for trigger */
-				unsigned long us = ctx->timeout > jiffies ?
-				                   jiffies_to_msecs(ctx->timeout - jiffies) * 1000 : 0;
-				_timer_conn.trigger_once(us);
-			}
+			/* calculate relative microseconds for trigger */
+			unsigned long us = ctx->timeout > jiffies ?
+			                   jiffies_to_msecs(ctx->timeout - jiffies) * 1000 : 0;
+			_timer_conn.trigger_once(us);
+
+			ctx->programmed = true;
 		}
 
 		/**
 		 * Schedule timer
+		 *
+		 * Add the context to the scheduling list depending on its timeout
+		 * and reprogram the actual timer if the list head has changed.
 		 */
 		void _schedule_timer(Context *ctx, unsigned long expires)
 		{
+			Context *old_first = _list.first();
+
 			_list.remove(ctx);
 
 			ctx->timeout = expires;
 			ctx->pending = true;
 
 			Context *c = _list.first();
-			do {
-				if (!c) {
-					_list.insert(ctx);
-					break;
+			if (c) {
+				while (c) {
+					if (ctx->timeout <= c->timeout)
+						break;
+
+					c = c->next();
 				}
+				_list.insert_before(ctx, c);
+			}
+			else
+				_list.insert(ctx);
 
-				if (ctx->timeout < c->timeout) {
-					_list.insert_before(ctx, c);
-					break;
-				}
+			if (old_first != _list.first()) {
+				_program_first_timer();
 
-				c = c->next();
-			} while (c);
-
-			_program_first_timer();
+				/* reset old head */
+				if (_list.first()->next())
+					_list.first()->next()->programmed = false;
+			}
 		}
 
 		/**
