@@ -80,6 +80,11 @@ class Lx::Timer
 
 		/**
 		 * Program the first timer in the list
+		 *
+		 * The first timer is programmed if the 'programmed' flag was not set
+		 * before. The second timer is flagged as not programmed as
+		 * 'Timer::trigger_once' invalidates former registered one-shot
+		 * timeouts.
 		 */
 		void _program_first_timer()
 		{
@@ -96,43 +101,33 @@ class Lx::Timer
 			_timer_conn.trigger_once(us);
 
 			ctx->programmed = true;
+
+			/* possibly programmed successor must be reprogrammed later */
+			if (Context *next = ctx->next())
+				next->programmed = false;
 		}
 
 		/**
 		 * Schedule timer
 		 *
 		 * Add the context to the scheduling list depending on its timeout
-		 * and reprogram the actual timer if the list head has changed.
+		 * and reprogram the first timer.
 		 */
 		void _schedule_timer(Context *ctx, unsigned long expires)
 		{
-			Context *old_first = _list.first();
-
 			_list.remove(ctx);
 
-			ctx->timeout = expires;
-			ctx->pending = true;
+			ctx->timeout    = expires;
+			ctx->pending    = true;
+			ctx->programmed = false;
 
-			Context *c = _list.first();
-			if (c) {
-				while (c) {
-					if (ctx->timeout <= c->timeout)
-						break;
+			Context *c;
+			for (c = _list.first(); c; c = c->next())
+				if (ctx->timeout <= c->timeout)
+					break;
+			_list.insert_before(ctx, c);
 
-					c = c->next();
-				}
-				_list.insert_before(ctx, c);
-			}
-			else
-				_list.insert(ctx);
-
-			if (old_first != _list.first()) {
-				_program_first_timer();
-
-				/* reset old head */
-				if (_list.first()->next())
-					_list.first()->next()->programmed = false;
-			}
+			_program_first_timer();
 		}
 
 		/**
