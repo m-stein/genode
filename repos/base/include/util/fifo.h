@@ -146,12 +146,6 @@ namespace Genode {
 
 				return result;
 			}
-
-			/**
-			 * Call function 'f' of type 'void (QT *)' for each queue element
-			 */
-			template <typename F> void for_each(F f) {
-				for (QT * e = _head; e; e = e->_next) { f(e); } }
 	};
 
 	/**
