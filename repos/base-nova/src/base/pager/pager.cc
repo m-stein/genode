@@ -466,6 +466,9 @@ Pager_capability Pager_entrypoint::manage(Pager_object *obj)
 	Native_capability cap_session =
 		_cap_session->alloc(pager_thread_cap, obj->handler_address());
 
+	/* disable PT_CTRL feature */
+	revoke(Obj_crd(cap_session.local_name(), 0, Obj_crd::RIGHT_PT_CTRL));
+
 	/* add server object to object pool */
 	obj->Object_pool<Pager_object>::Entry::cap(cap_session);
 	insert(obj);
