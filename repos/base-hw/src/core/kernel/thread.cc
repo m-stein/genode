@@ -186,33 +186,32 @@ void Thread::exception(unsigned const cpu)
 	switch (cpu_exception) {
 	case SUPERVISOR_CALL:
 		_call();
-		return;
+		break;
 	case PREFETCH_ABORT:
 		_mmu_exception();
-		return;
+		break;
 	case DATA_ABORT:
 		_mmu_exception();
-		return;
+		break;
 	case INTERRUPT_REQUEST:
 		_interrupt(cpu);
-		return;
+		break;
 	case FAST_INTERRUPT_REQUEST:
 		_interrupt(cpu);
-		return;
+		break;
 	case UNDEFINED_INSTRUCTION:
-		if (_cpu->retry_undefined_instr(&_lazy_state)) { return; }
+		if (_cpu->retry_undefined_instr(&_lazy_state)) { break; }
 		PWRN("undefined instruction");
 		_stop();
-		return;
+		break;
 	case RESET:
-		return;
+		break;
 	default:
 		PWRN("unknown exception");
 		_stop();
-		return;
+		break;
 	}
 }
-
 
 void Thread::_receive_yielded_cpu()
 {
@@ -584,6 +583,7 @@ void Thread::_print_activity_table()
 
 void Thread::_print_activity(bool const printing_thread)
 {
+	Genode::printf("pc %16llx ec %16llx ", _debug_cycles_payed, _debug_cycles_executed);
 	Genode::printf("\033[33m[%u] %s", pd_id(), pd_label());
 	Genode::printf(" (%u) %s:\033[0m", id(), label());
 	switch (_state) {

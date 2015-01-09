@@ -388,6 +388,7 @@ int main()
 		perform<Violation_test>(1000);
 
 		PINF("Tests finished successfully!");
+		Kernel::print_char(0);
 	} catch(Genode::Parent::Service_denied) {
 		PERR("Opening block session was denied!");
 		return -1;

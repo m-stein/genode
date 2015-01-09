@@ -193,6 +193,8 @@ class Kernel::Thread
 		 */
 		void _print_common_activity();
 
+		void _debug_end_of_userland_phase();
+
 
 		/*********************************************************
 		 ** Kernel-call back-ends, see kernel-interface headers **
