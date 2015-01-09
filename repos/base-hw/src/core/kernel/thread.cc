@@ -604,6 +604,7 @@ void Thread::_print_activity_table()
 
 void Thread::_print_activity(bool const printing_thread)
 {
+	Genode::printf("pc %16llx ec %16llx ", _debug_cycles_payed, _debug_cycles_executed);
 	Genode::printf("\033[33m[%u] %s", pd_id(), pd_label());
 	Genode::printf(" (%u) %s:\033[0m", id(), label());
 	switch (_state) {

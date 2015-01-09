@@ -19,6 +19,7 @@
 #include <timer.h>
 #include <cpu.h>
 #include <kernel/cpu_scheduler.h>
+#include <kernel/perf_counter.h>
 
 /* base includes */
 #include <unmanaged_singleton.h>
@@ -100,8 +101,10 @@ class Kernel::Cpu_job : public Cpu_share
 {
 	protected:
 
-		Cpu *          _cpu;
-		Cpu_lazy_state _lazy_state;
+		Cpu *            _cpu;
+		Cpu_lazy_state   _lazy_state;
+		Genode::uint64_t _debug_cycles_payed;
+		Genode::uint64_t _debug_cycles_executed;
 
 		/**
 		 * Handle interrupt exception that occured during execution on CPU 'id'
@@ -149,7 +152,10 @@ class Kernel::Cpu_job : public Cpu_share
 		 * Construct a job with scheduling priority 'p' and time quota 'q'
 		 */
 		Cpu_job(Cpu_priority const p, unsigned const q)
-		: Cpu_share(p, q), _cpu(0) { }
+		:
+			Cpu_share(p, q), _cpu(0), _debug_cycles_payed(0),
+			_debug_cycles_executed(0)
+		{ }
 
 		/**
 		 * Destructor
@@ -165,6 +171,20 @@ class Kernel::Cpu_job : public Cpu_share
 		 * Return wether our CPU-share is currently active
 		 */
 		bool own_share_active() { return Cpu_share::ready(); }
+
+		void debug_payed(unsigned const cycles)
+		{
+			if (cycles > (Genode::uint64_t)~0 - _debug_cycles_payed) {
+				PWRN("overflow in cycle counter of job"); }
+			_debug_cycles_payed += cycles;
+		}
+
+		void debug_executed(unsigned const cycles)
+		{
+			if (cycles > (Genode::uint64_t)~0 - _debug_cycles_executed) {
+				PWRN("overflow in cycle counter of job"); }
+			_debug_cycles_executed += cycles;
+		}
 
 		/***************
 		 ** Accessors **
@@ -226,8 +246,29 @@ class Kernel::Cpu : public Genode::Cpu
 
 		unsigned _quota() const { return _timer->ms_to_tics(cpu_quota_ms); }
 		unsigned _fill() const { return _timer->ms_to_tics(cpu_fill_ms); }
-		Job * _scheduled_job() const {
-			return static_cast<Job *>(_scheduler.head())->helping_sink(); }
+		Job * _paying_job() const {
+			return static_cast<Job *>(_scheduler.head()); }
+		Job * _executing_job() const { return _paying_job()->helping_sink(); }
+
+		void _debug_update(Job * const paying, Job * const executing)
+		{
+			static unsigned perf_counter_last[NR_OF_CPUS];
+			static bool init = 0;
+			if (!init) {
+				for (unsigned cpu = 0; cpu < NR_OF_CPUS; cpu++) {
+					perf_counter_last[cpu] = 0; }
+				init = 1;
+			}
+			bool o;
+			unsigned v0 = perf_counter_last[Cpu::executing_id()];
+			unsigned v1 = perf_counter()->value(o);
+			unsigned v2;
+			if (o) { v2 = (perf_counter()->max_value() - v0) + v1 ; }
+			else { v2 = v1 - v0; }
+			perf_counter_last[Cpu::executing_id()] = v1;
+			paying->debug_payed(v2);
+			executing->debug_executed(v2);
+		}
 
 	public:
 
@@ -266,7 +307,10 @@ class Kernel::Cpu : public Genode::Cpu
 		void exception()
 		{
 			/* update old job */
-			Job * const old_job = _scheduled_job();
+			Job * const old_job    = _executing_job();
+			Job * const paying_job = _paying_job();
+			_debug_update(paying_job, old_job);
+			perf_counter()->pause();
 			old_job->exception(_id);
 
 			/* update scheduler */
@@ -276,7 +320,7 @@ class Kernel::Cpu : public Genode::Cpu
 			_scheduler.update(quota);
 
 			/* get new job */
-			Job * const new_job = _scheduled_job();
+			Job * const new_job = _executing_job();
 			quota = _scheduler.head_quota();
 			assert(quota);
 			_timer->start_one_shot(quota, _id);
@@ -286,6 +330,7 @@ class Kernel::Cpu : public Genode::Cpu
 			Cpu_lazy_state * const new_state = new_job->lazy_state();
 			prepare_proceeding(old_state, new_state);
 
+			perf_counter()->resume();
 			/* resume new job */
 			new_job->proceed(_id);
 		}

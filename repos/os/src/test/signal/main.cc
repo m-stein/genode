@@ -632,6 +632,7 @@ int main(int, char **)
 	check_context_management();
 	synchronized_context_destruction_test();
 	many_managed_contexts();
+	Kernel::print_char(0);
 
 	printf("--- signalling test finished ---\n");
 	return 0;

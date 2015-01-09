@@ -27,6 +27,18 @@ namespace Kernel
 			 * Enable counting
 			 */
 			void enable();
+			void pause();
+			void resume();
+
+			/**
+			 * Return counter value and if it had an 'overflow' since last call
+			 */
+			unsigned value(bool & overflow);
+
+			/**
+			 * Return max counter value
+			 */
+			unsigned max_value();
 	};
 
 

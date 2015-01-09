@@ -167,6 +167,33 @@ struct Pmuseren : Register<32>
 };
 
 
+/**
+ * Performance Monitors Cycle Count Register
+ */
+struct Pmccntr : Register<32>
+{
+	static access_t read()
+	{
+		access_t v;
+		asm volatile("mrc p15, 0, %0, c9, c13, 0" : "=r" (v));
+		return v;
+	}
+};
+
+unsigned Kernel::Perf_counter::max_value() { return (Pmccntr::access_t)~0; }
+
+unsigned Kernel::Perf_counter::value(bool & overflow)
+{
+	unsigned volatile v = Pmccntr::read();
+	overflow = Pmovsr::C::get(Pmovsr::read());
+	if (!overflow) { return v; }
+	Pmovsr::write(Pmovsr::C::bits(1));
+	return Pmccntr::read();
+}
+
+void Kernel::Perf_counter::pause() { Pmcntenset::write(Pmcntenset::C::bits(0)); }
+void Kernel::Perf_counter::resume() { Pmcntenset::write(Pmcntenset::C::bits(1)); }
+
 void Kernel::Perf_counter::enable()
 {
 	/* program PMU and enable all counters */
