@@ -186,6 +186,23 @@ class Kernel::Cpu_job : public Cpu_share
 		Cpu_lazy_state * lazy_state() { return &_lazy_state; }
 };
 
+class Pl341 : public Genode::Mmio
+{
+	public:
+
+		Pl341() : Mmio(0x100E0000) { }
+
+		struct Memory_cfg : Register<0xc, 32>
+		{
+			enum { RESET = 0x00010020 };
+		};
+
+		struct Memc_status : Register<0x0, 32> { };
+		struct Memc_cmd : Register<0x4, 32> { };
+};
+
+Pl341 * pl341();
+
 class Kernel::Cpu_idle : public Genode::Cpu::User_context, public Cpu_job
 {
 	private:
@@ -328,19 +345,28 @@ class Kernel::Cpu : public Genode::Cpu
 			Cpu_lazy_state * const new_state = new_job->lazy_state();
 			prepare_proceeding(old_state, new_state);
 
-			bool o;
-			unsigned volatile v0 = perf_counter()->value(o);
+			bool reset;
+			unsigned volatile old_cycles = perf_counter()->value(reset);
+			Genode::uint64_t volatile total_cycles = 0;
 
-			static unsigned volatile xxx[1024];
-			for (unsigned volatile j = 0; j < 1024; j++) {
-				for (unsigned volatile i = 0; i < 1024; i++) { xxx[i] = j; }
+			static unsigned volatile data[1024];
+			enum { ROUNDS = 8 * 1024 };
+			enum { WRITES = ROUNDS * sizeof(data) / sizeof(data[0]) };
+			for (unsigned volatile j = 0; j < ROUNDS; j++) {
+				for (unsigned volatile i = 0; i < 1024; i++) { data[i] = j; }
+
+				unsigned volatile new_cycles = perf_counter()->value(reset);
+				unsigned volatile diff_cycles;
+				if (reset) {
+					unsigned volatile max_cycles = perf_counter()->max_value();
+					unsigned volatile reset_cycles = max_cycles - old_cycles;
+					diff_cycles = reset_cycles + new_cycles ;
+				} else { diff_cycles = new_cycles - old_cycles; }
+				total_cycles += diff_cycles;
+				old_cycles = perf_counter()->value(reset);
 			}
-
-			unsigned volatile v1 = perf_counter()->value(o);
-			unsigned volatile v2;
-			if (o) { v2 = (perf_counter()->max_value() - v0) + v1 ; }
-			else { v2 = v1 - v0; }
-			Genode::printf("mc %x\n", v2);
+			Genode::printf("mc %p %llu\n", data, total_cycles / WRITES);
+			while(1);
 
 //perf_counter()->resume();
 			/* resume new job */

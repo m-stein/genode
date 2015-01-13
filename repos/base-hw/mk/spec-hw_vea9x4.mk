@@ -11,7 +11,7 @@ SPECS += hw platform_vea9x4
 NR_OF_CPUS = 4
 
 # set address where to link text segment at
-LD_TEXT_ADDR ?= 0x01000000
+LD_TEXT_ADDR = 0x60000000
 
 # include implied specs
 include $(call select_from_repositories,mk/spec-hw.mk)

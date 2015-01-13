@@ -176,6 +176,11 @@ void Cpu_domain_update::_do()
 	_cpu_domain_update_unblocks();
 }
 
+Pl341 * pl341()
+{
+static Pl341 s;
+return &s;
+}
 
 bool Cpu_domain_update::_do_global(unsigned const domain_id)
 {
