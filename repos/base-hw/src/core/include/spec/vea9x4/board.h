@@ -42,6 +42,12 @@ namespace Genode
 	Pl310 * l2_cache();
 }
 
+enum {
+	ENABLE_L2_CACHE = 0,
+	ENABLE_SCU = 0,
+	ENABLE_ACTLR_SMP = 0,
+};
+
 class Genode::Pl310 : public Genode::Mmio
 {
 	private:
@@ -71,12 +77,14 @@ class Genode::Pl310 : public Genode::Mmio
 
 	public:
 
-		Pl310(Genode::addr_t const base) : Mmio(base) { }
+		Pl310(Genode::addr_t const base) : Mmio(base) {
+			if (!ENABLE_L2_CACHE) { disable(); } }
 
 		void disable() { write<Control::Enable>(0); }
 
 		void enable()
 		{
+			if (!ENABLE_L2_CACHE) { return; }
 			write<Control::Enable>(1);
 			write<Irq_mask>(0);
 			write<Irq_clear>(~0);
@@ -84,6 +92,7 @@ class Genode::Pl310 : public Genode::Mmio
 
 		void flush()
 		{
+			if (!ENABLE_L2_CACHE) { return; }
 			Debug::access_t debug = 0;
 			Debug::Dcl::set(debug, 1);
 			Debug::Dwb::set(debug, 1);
@@ -95,6 +104,7 @@ class Genode::Pl310 : public Genode::Mmio
 
 		void invalidate()
 		{
+			if (!ENABLE_L2_CACHE) { return; }
 			write<Invalidate_by_way::Way_bits>(~0);
 			_sync();
 		}

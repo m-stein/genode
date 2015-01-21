@@ -91,7 +91,7 @@ struct Actlr : Register<32>
 void Board::raise_actlr_smp_bit()
 {
 	Actlr::access_t actlr = Actlr::read();
-	Actlr::Smp::set(actlr, 1);
+	Actlr::Smp::set(actlr, ENABLE_ACTLR_SMP);
 	Actlr::write(actlr);
 }
 

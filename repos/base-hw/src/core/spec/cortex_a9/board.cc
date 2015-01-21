@@ -53,10 +53,12 @@ class Scu : public Mmio
 
 	public:
 
-		Scu(addr_t const base) : Mmio(base) { }
+		Scu(addr_t const base) : Mmio(base) {
+			if (!ENABLE_SCU) write<Cr>(Cr::Enable::bits(0)); }
 
 		void inval_dupl_tags_all_cpus()
 		{
+			if (!ENABLE_SCU) { return; }
 			Iassr::access_t iassr = 0;
 			for (Iassr::access_t way = 0; way <= Iassr::Cpu0_way::mask(); way++) {
 				Iassr::Cpu0_way::set(iassr, way);
@@ -69,6 +71,7 @@ class Scu : public Mmio
 
 		void enable()
 		{
+			if (!ENABLE_SCU) { return; }
 			/* enable SCU */
 			write<Cr>(Cr::Enable::bits(1)); }
 };
