@@ -345,10 +345,10 @@ class Kernel::Cpu : public Genode::Cpu
 			Cpu_lazy_state * const new_state = new_job->lazy_state();
 			prepare_proceeding(old_state, new_state);
 
+			/* test read performance */
 			bool reset;
-			unsigned volatile old_cycles = perf_counter()->value(reset);
 			Genode::uint64_t volatile total_cycles = 0;
-
+			unsigned volatile old_cycles = perf_counter()->value(reset);
 			static unsigned volatile data[1024];
 			enum { ROUNDS = 8 * 1024 };
 			enum { WRITES = ROUNDS * sizeof(data) / sizeof(data[0]) };
@@ -365,8 +365,28 @@ class Kernel::Cpu : public Genode::Cpu
 				total_cycles += diff_cycles;
 				old_cycles = perf_counter()->value(reset);
 			}
-			Genode::printf("mc %p %llu\n", data, total_cycles / WRITES);
+			Genode::printf("Avg. CPU cycles per WRITE 0x%p..0x%p: %llu\n", data, &data[1024], total_cycles / WRITES);
+
+			/* test write performance */
+			total_cycles = 0;
+			old_cycles = perf_counter()->value(reset);
+			unsigned volatile k;
+			for (unsigned volatile j = 0; j < ROUNDS; j++) {
+				for (unsigned volatile i = 0; i < 1024; i++) { k = data[i]; }
+
+				unsigned volatile new_cycles = perf_counter()->value(reset);
+				unsigned volatile diff_cycles;
+				if (reset) {
+					unsigned volatile max_cycles = perf_counter()->max_value();
+					unsigned volatile reset_cycles = max_cycles - old_cycles;
+					diff_cycles = reset_cycles + new_cycles ;
+				} else { diff_cycles = new_cycles - old_cycles; }
+				total_cycles += diff_cycles;
+				old_cycles = perf_counter()->value(reset);
+			}
+			Genode::printf("Avg. CPU cycles per READ 0x%p..0x%p: %llu\n", data, &data[1024], total_cycles / WRITES);
 			while(1);
+			Genode::printf("%u", k);
 
 //perf_counter()->resume();
 			/* resume new job */
