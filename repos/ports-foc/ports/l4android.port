@@ -2,7 +2,7 @@ LICENSE        := GPLv2
 VERSION        := git
 DOWNLOADS      := l4android.git
 URL(l4android) := https://github.com/skalk/l4linux.git
-REV(l4android) := 6005e4b36fefb1f8a383054fd01076082a6eb834
+REV(l4android) := cea6e7ab97a5ad421e53d456dd940893d5a14866
 DIR(l4android) := src/l4android
 sym_link       := src/l4android/arch/l4/drivers
 
