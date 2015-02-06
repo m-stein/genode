@@ -23,6 +23,16 @@ namespace Genode {
 
 	struct Cpu_state
 	{
+		enum Cpu_exception {
+			RESET                  = 1,
+			UNDEFINED_INSTRUCTION  = 2,
+			SUPERVISOR_CALL        = 3,
+			PREFETCH_ABORT         = 4,
+			DATA_ABORT             = 5,
+			INTERRUPT_REQUEST      = 6,
+			FAST_INTERRUPT_REQUEST = 7,
+		};
+
 		addr_t ip;
 		addr_t sp;
 		addr_t r8;
@@ -43,12 +53,15 @@ namespace Genode {
 		addr_t ss;
 		addr_t eflags;
 		addr_t trapno;
+		addr_t cpu_exception;     /* XXX remove; last hardware exception */
 
 		Cpu_state() : ip(0), sp(0), r8(0), r9(0), r10(0),
 		              r11(0), r12(0), r13(0), r14(0), r15(0),
 		              rax(0), rbx(0), rcx(0), rdx(0), rdi(0),
 		              rsi(0), rbp(0), ss(0), eflags(0), trapno(0) {}
 	};
+
+	struct Cpu_state_modes : Cpu_state { };
 }
 
 #endif /* _INCLUDE__X86_64__CPU__CPU_STATE_H_ */
