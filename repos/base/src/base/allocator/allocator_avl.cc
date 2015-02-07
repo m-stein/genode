@@ -28,7 +28,8 @@ inline void *operator new(size_t, void *at) { return at; }
  **************************/
 
 Allocator_avl_base::Block *
-Allocator_avl_base::Block::find_best_fit(size_t size, unsigned align)
+Allocator_avl_base::Block::find_best_fit(size_t size, unsigned align,
+                                         addr_t from, addr_t to)
 {
 	/* find child with lowest max_avail value */
 	bool side = _child_max_avail(1) < _child_max_avail(0);
@@ -39,7 +40,16 @@ Allocator_avl_base::Block::find_best_fit(size_t size, unsigned align)
 		if (_child_max_avail(side) < size)
 			continue;
 
-		Block *res = child(side) ? child(side)->find_best_fit(size, align) : 0;
+		if (!child(side))
+			continue;
+
+		Block *res = child(side);
+		if (res->addr() + res->size() <= from)
+			continue;
+		if (to < res->addr())
+			continue;
+
+		res = res->find_best_fit(size, align, from, to);
 
 		if (res)
 			return (_fits(size, align) && size < res->size()) ? this : res;
@@ -247,7 +257,7 @@ int Allocator_avl_base::remove_range(addr_t base, size_t size)
 }
 
 
-Range_allocator::Alloc_return Allocator_avl_base::alloc_aligned(size_t size, void **out_addr, int align)
+Range_allocator::Alloc_return Allocator_avl_base::alloc_aligned(size_t size, void **out_addr, int align, addr_t from, addr_t to)
 {
 	Block *dst1, *dst2;
 	if (!_alloc_two_blocks_metadata(&dst1, &dst2))
@@ -255,7 +265,7 @@ Range_allocator::Alloc_return Allocator_avl_base::alloc_aligned(size_t size, voi
 
 	/* find best fitting block */
 	Block *b = _addr_tree.first();
-	b = b ? b->find_best_fit(size, align) : 0;
+	b = b ? b->find_best_fit(size, align, from, to) : 0;
 
 	if (!b) {
 		_md_alloc->free(dst1, sizeof(Block));
