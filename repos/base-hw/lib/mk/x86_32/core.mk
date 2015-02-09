@@ -7,19 +7,13 @@
 
 # add include paths
 INC_DIR += $(REP_DIR)/src/core/include/spec/x86_32
-INC_DIR += $(REP_DIR)/src/core/include/spec/x86
 
 # add assembly sources
 SRC_S += spec/x86_32/mode_transition.s
 SRC_S += spec/x86_32/crt0.s
 
 # add C++ sources
-SRC_CC += platform_services.cc
-SRC_CC += spec/x86/platform_support.cc
 SRC_CC += spec/x86_32/kernel/thread_base.cc
 
-# use dummy boot-modules per default
-BOOT_MODULES_VPATH = $(REP_DIR)/src/core/spec/x86_32
-
 # include less specific configuration
-include $(REP_DIR)/lib/mk/core.inc
+include $(REP_DIR)/lib/mk/x86/core.inc
