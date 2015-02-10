@@ -57,10 +57,14 @@ namespace Genode {
 					 * \param align   alignment (power of two)
 					 * \return        true if block fits
 					 */
-					inline bool _fits(size_t n, unsigned align = 1) {
-						return ((align_addr(addr(), align) >= addr()) &&
-						        _sum_in_range(align_addr(addr(), align), n) &&
-						        (align_addr(addr(), align) - addr() + n <= avail())); }
+					inline bool _fits(size_t n, unsigned align = 1,
+					                  addr_t from = 0, addr_t to = ~0UL)
+					{
+						addr_t a = align_addr(addr() < from ? from : addr(),
+						                      align);
+						return (a >= addr()) && _sum_in_range(a, n) &&
+						       (a - addr() + n <= avail()) && (a + n - 1 <= to);
+					}
 
 				public:
 
