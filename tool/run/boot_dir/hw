@@ -10,7 +10,7 @@ proc run_boot_dir_hook { } {
 }
 
 
-run run_boot_string { } {
+proc run_boot_string { } {
 	return "kernel initialized"
 }
 
