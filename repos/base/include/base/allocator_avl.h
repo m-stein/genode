@@ -54,11 +54,13 @@ namespace Genode {
 					 * Query if block can hold a specified subblock
 					 *
 					 * \param n       number of bytes
+					 * \param from    minimum start address of subblock
+					 * \param to      maximum end address of subblock
 					 * \param align   alignment (power of two)
 					 * \return        true if block fits
 					 */
-					inline bool _fits(size_t n, unsigned align = 1,
-					                  addr_t from = 0, addr_t to = ~0UL)
+					inline bool _fits(size_t n, unsigned align,
+					                  addr_t from, addr_t to)
 					{
 						addr_t a = align_addr(addr() < from ? from : addr(),
 						                      align);

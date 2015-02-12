@@ -40,7 +40,7 @@ Allocator_avl_base::Block::find_best_fit(size_t size, unsigned align,
 		if (_child_max_avail(side) < size)
 			continue;
 
-		Block *res = child(side) ? child(side)->find_best_fit(size, align) : 0;
+		Block *res = child(side) ? child(side)->find_best_fit(size, align, from, to) : 0;
 
 		if (res)
 			return (_fits(size, align, from, to) && size < res->size()) ? this : res;
