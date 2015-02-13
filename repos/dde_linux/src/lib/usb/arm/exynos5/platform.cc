@@ -1,5 +1,5 @@
 /*
- * \brief  EHCI for Arndale initializaion code
+ * \brief  EHCI for board specific initializaion code
  * \author Sebastian Sumpf
  * \date   2013-02-20
  */
@@ -121,7 +121,7 @@ static void gpio_direction_output(Gpio_bank *bank, int gpio, int en)
 }
 
 
-static void arndale_ehci_init()
+static void exynos5_ehci_init()
 {
 	enum Gpio_offset { D1 = 0x180, X3 = 0xc60 };
 
@@ -272,7 +272,7 @@ struct Phy_usb3 : Genode::Mmio
 };
 
 
-static void arndale_xhci_init()
+static void exynos5_xhci_init()
 {
 	/* enable USB3 clock and power up */
 	static Regulator::Connection reg_clk(Regulator::CLK_USB30);
@@ -306,7 +306,7 @@ void ehci_setup(Services *services)
 	module_ehci_exynos_init();
 
 	/* setup controller */
-	arndale_ehci_init();
+	exynos5_ehci_init();
 
 	/* setup EHCI-controller platform device */
 	platform_device *pdev   = (platform_device *)kzalloc(sizeof(platform_device), 0);
@@ -332,7 +332,7 @@ void xhci_setup(Services *services)
 	module_dwc3_driver_init();
 	module_xhci_hcd_init();
 
-	arndale_xhci_init();
+	exynos5_xhci_init();
 
 	/* setup DWC3-controller platform device */
 	platform_device *pdev   = (platform_device *)kzalloc(sizeof(platform_device), 0);

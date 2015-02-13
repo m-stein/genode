@@ -11,7 +11,7 @@ if {[have_include "power_on/qemu"]} {
 
 set use_usb_driver      [expr [have_spec omap4] || [have_spec exynos5] || [have_spec platform_rpi]]
 set use_nic_driver      [expr !$use_usb_driver && ![have_spec platform_imx53]]
-set use_platform_driver [expr [have_spec platform_arndale] || [have_spec platform_imx53] || [have_spec platform_rpi]]
+set use_platform_driver [expr [have_spec exynos5] || [have_spec platform_imx53] || [have_spec platform_rpi]]
 
 if {[expr !$use_usb_driver && !$use_nic_driver]} {
 	puts "\n Run script is not supported on this platform. \n"; exit 0 }

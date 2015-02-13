@@ -1,5 +1,5 @@
 /*
- * \brief  Driver for Arndale specific platform devices (clocks, power, etc.)
+ * \brief  Driver for board specific platform devices (clocks, power, etc.)
  * \author Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
  * \date   2013-06-13
  */
@@ -54,10 +54,8 @@ int main(int, char **)
 {
 	using namespace Genode;
 
-	PINF("--- Arndale platform driver ---\n");
-
 	static Cap_connection cap;
-	static Rpc_entrypoint ep(&cap, 4096, "arndale_plat_ep");
+	static Rpc_entrypoint ep(&cap, 4096, "platform_drv_ep");
 	static ::Driver_factory driver_factory;
 	static Regulator::Root reg_root(&ep, env()->heap(), driver_factory);
 	env()->parent()->announce(ep.manage(&reg_root));

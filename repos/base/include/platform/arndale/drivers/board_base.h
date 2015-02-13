@@ -26,18 +26,6 @@ namespace Genode
 	{
 		enum
 		{
-			/* clock management unit */
-			CMU_MMIO_BASE = 0x10010000,
-			CMU_MMIO_SIZE = 0x24000,
-
-			/* power management unit */
-			PMU_MMIO_BASE = 0x10040000,
-			PMU_MMIO_SIZE = 0x5000,
-
-			/* USB */
-			USB_HOST20_IRQ = 103,
-			USB_DRD30_IRQ  = 104,
-
 			/* SATA/AHCI */
 			SATA_IRQ = 147,
 

@@ -10,9 +10,6 @@ SPECS += hw platform_arndale
 # configure multiprocessor mode
 NR_OF_CPUS = 2
 
-# add repository relative paths
-REP_INC_DIR += include/exynos5_uart
-
 # set address where to link the text segment at
 LD_TEXT_ADDR ?= 0x80000000
 

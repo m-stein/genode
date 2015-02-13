@@ -5,10 +5,10 @@
 #
 
 # denote specs that are fullfilled by this spec
-SPECS += exynos5
+SPECS += cortex_a15 framebuffer usb
 
 # add repository relative paths
-REP_INC_DIR += include/platform/odroid_xu
+REP_INC_DIR += include/exynos5
 
 # include implied specs
-include $(call select_from_repositories,mk/spec-exynos5.mk)
+include $(call select_from_repositories,mk/spec-cortex_a15.mk)

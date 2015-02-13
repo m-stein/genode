@@ -43,6 +43,18 @@ class Genode::Exynos5
 			UART_2_MMIO_BASE = 0x12C20000,
 			UART_2_IRQ       = 85,
 
+			/* clock management unit */
+			CMU_MMIO_BASE = 0x10010000,
+			CMU_MMIO_SIZE = 0x24000,
+
+			/* power management unit */
+			PMU_MMIO_BASE = 0x10040000,
+			PMU_MMIO_SIZE = 0x5000,
+
+			/* USB */
+			USB_HOST20_IRQ = 103,
+			USB_DRD30_IRQ  = 104,
+
 			/* pulse-width-modulation timer  */
 			PWM_MMIO_BASE = 0x12dd0000,
 			PWM_MMIO_SIZE = 0x1000,
