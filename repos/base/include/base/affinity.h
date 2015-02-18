@@ -178,7 +178,13 @@ namespace Genode {
 
 	Affinity::Location Affinity::Space::location_of_index(int index)
 	{
-		return Location(index % _width, index / _width, 1, 1);
+		/**
+		 * XXX
+		 * If index is larger than elements in space - should this result
+		 * in a valid Location or should a exception be thrown ?
+		 * Current implementation: there will be ever a valid location.
+		 */
+		return Location(index % _width, (index / _width) % _height, 1, 1);
 	}
 }
 
