@@ -7,7 +7,7 @@
 #
 # Enable floating point support in compiler
 #
-CC_MARCH    += -mfpu=vfpv3 -mfloat-abi=softfp
+CC_OPT      += -mfpu=vfpv3 -mfloat-abi=softfp
 
 #
 # Include floating-point unit code
