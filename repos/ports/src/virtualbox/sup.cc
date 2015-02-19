@@ -68,7 +68,7 @@ class Periodic_GIP : public Genode::Alarm {
 		ASMAtomicIncU32(&cpu->u32TransactionId);
 
 		cpu->u64TSC    = tsc_current;
-		cpu->u64NanoTS = (uint128_t)tsc_current * 1000 * 1000 * 1000 / genode_cpu_hz();
+		cpu->u64NanoTS = (double)tsc_current * 1000 * 1000 * 1000 / genode_cpu_hz();
 
 		/*
 		 * Transaction id must be incremented before and after update,
