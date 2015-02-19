@@ -62,9 +62,6 @@ Native_region * Platform::_core_only_mmio_regions(unsigned const i)
 }
 
 
-Cpu::User_context::User_context() { cpsr = Psr::init_user(); }
-
-
 static Board::Pl310 * l2_cache() {
 	return unmanaged_singleton<Board::Pl310>(Board::PL310_MMIO_BASE); }
 
