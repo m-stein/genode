@@ -252,12 +252,17 @@ void Pager_object::_invoke_handler(addr_t pager_obj)
 	if (utcb->crd_rcv.value())
 		nova_die();
 
-	/* check for translated vCPU portals */
-	if (utcb->msg_items() && utcb->msg_words() == 0 &&
-	    obj->_client_exc_vcpu != Native_thread::INVALID_INDEX) {
+	addr_t const event    = utcb->msg[0];
+	addr_t const logcount = utcb->msg[1];
 
-		unsigned const items = utcb->msg_items();
-		for (unsigned i = 0; i < items; i++) {
+	/* check for translated vCPU portals */
+	unsigned const items_count = 1U << (Nova::NUM_INITIAL_VCPU_PT_LOG2 - 1);
+
+	if ((obj->_client_exc_vcpu != Native_thread::INVALID_INDEX) &&
+	    (utcb->msg_items() == items_count) &&
+	    (utcb->msg_words() == 1 && (event == 0UL || event == 1UL))) {
+		/* check all translated item and remap if valid */
+		for (unsigned i = 0; i < items_count; i++) {
 			Nova::Utcb::Item * item = utcb->get_item(i);
 
 			if (!item)
@@ -273,7 +278,7 @@ void Pager_object::_invoke_handler(addr_t pager_obj)
 			 * in separate PD (non-colocated case)
 			 */
 			Obj_crd snd(cap.base(), 0);
-			Obj_crd rcv(obj->_client_exc_vcpu + i, 0);
+			Obj_crd rcv(obj->_client_exc_vcpu + event * items_count + i, 0);
 			if (map_local(utcb, snd, rcv))
 				PWRN("could not remap vCPU portal 0x%x", i);
 		}
@@ -285,10 +290,6 @@ void Pager_object::_invoke_handler(addr_t pager_obj)
 		utcb->set_msg_word(0);
 		reply(myself->stack_top());
 	}
-
-	/* send single portal as reply */
-	addr_t const event    = utcb->msg[0];
-	addr_t const logcount = utcb->msg[1];
 
 	utcb->mtd = 0;
 	utcb->set_msg_word(0);
