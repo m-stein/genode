@@ -1,16 +1,19 @@
 #
-# \brief  Test using netperf with a native driver or if not available for
-#         the platform using usb 2.0 by default
+# \brief  Test using netperf with the wifi_drv
 # \author Alexander Boettcher
 # \date   2013-07-08
 #
 
 # network configuration
 set use_nic_bridge      0
-set use_wifi_driver     0
+set use_wifi_driver     1
 set use_usb_11          "no"
-set use_usb_20          "yes"
+set use_usb_20          "no"
 set use_usb_30          "no"
+
+set wifi_ssid           $::env(GENODE_WIFI_SSID)
+set wifi_bssid          $::env(GENODE_WIFI_BSSID)
+set wifi_psk            $::env(GENODE_WIFI_PSK)
 
 source ${genode_dir}/repos/ports/run/netperf_lwip.inc
 source ${genode_dir}/repos/ports/run/netperf.inc
