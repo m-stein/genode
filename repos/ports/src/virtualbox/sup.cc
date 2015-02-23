@@ -23,6 +23,7 @@
 /* VirtualBox includes */
 #include <iprt/semaphore.h>
 #include <iprt/ldr.h>
+#include <iprt/uint128.h>
 #include <VBox/err.h>
 
 
@@ -59,6 +60,27 @@ class Periodic_GIP : public Genode::Alarm {
 
 		Genode::uint64_t tsc_current = Genode::Trace::timestamp() - tsc_reference;
 
+		/*
+		 * Convert tsc to nanoseconds.
+		 *
+		 * There is no 'uint128_t' type on x86_32, so we use the 128-bit type
+		 * and functions provided by VirtualBox.
+		 *
+		 * nanots128 = tsc_current * 1000*1000*1000 / genode_cpu_hz()
+		 *
+		 */
+
+		RTUINT128U nanots128;
+		RTUInt128AssignU64(&nanots128, tsc_current);
+
+		RTUINT128U multiplier;
+		RTUInt128AssignU32(&multiplier, 1000*1000*1000);
+		RTUInt128AssignMul(&nanots128, &multiplier);
+
+		RTUINT128U divisor;
+		RTUInt128AssignU64(&divisor, genode_cpu_hz());
+		RTUInt128AssignDiv(&nanots128, &divisor);
+
 		SUPGIPCPU *cpu = &g_pSUPGlobalInfoPage->aCPUs[0];
 
 		/*
@@ -68,7 +90,7 @@ class Periodic_GIP : public Genode::Alarm {
 		ASMAtomicIncU32(&cpu->u32TransactionId);
 
 		cpu->u64TSC    = tsc_current;
-		cpu->u64NanoTS = (double)tsc_current * 1000 * 1000 * 1000 / genode_cpu_hz();
+		cpu->u64NanoTS = nanots128.s.Lo;
 
 		/*
 		 * Transaction id must be incremented before and after update,
