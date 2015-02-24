@@ -69,3 +69,6 @@ static Board::Pl310 * l2_cache() {
 void Board::outer_cache_invalidate() { l2_cache()->invalidate(); }
 void Board::outer_cache_flush()      { l2_cache()->flush();      }
 void Board::prepare_kernel()         { l2_cache()->invalidate(); }
+
+
+Cpu::User_context::User_context() { cpsr = Psr::init_user(); }

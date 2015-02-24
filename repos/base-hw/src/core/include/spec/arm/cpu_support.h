@@ -375,7 +375,7 @@ class Genode::Arm
 			/**
 			 * Constructor
 			 */
-			User_context() { cpsr = Psr::init_user(); }
+			User_context();
 
 			/**
 			 * Support for kernel calls
