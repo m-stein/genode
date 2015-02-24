@@ -16,6 +16,13 @@ set use_platform_driver [expr [have_spec platform_arndale] || [have_spec platfor
 if {[expr !$use_usb_driver && !$use_nic_driver && !$use_wifi_driver]} {
 	puts "\n Run script is not supported on this platform. \n"; exit 0 }
 
+# provide wifi related variables in case we do not use the wifi driver
+if {!$use_wifi_driver} {
+	set wifi_ssid ""
+	set wifi_bssid ""
+	set wifi_psk ""
+}
+
 #
 # Build
 #
