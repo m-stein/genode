@@ -210,9 +210,10 @@ class Vm {
 		}
 
 		void run()                { if (_active) _vm_con.run();   }
-		void pause()              { if (_active) _vm_con.pause(); }
+		void pause()              { _vm_con.pause(); }
 		void wait_for_interrupt() { _active = false;              }
 		void interrupt()          { _active = true;               }
+		bool active()             { return _active;               }
 
 		void dump()
 		{
@@ -651,10 +652,8 @@ class Vmm
 					for (unsigned i = 0; i < State::NR_IRQ; i++) {
 						if (!(_vm->state()->gic_elrsr0 & (1 << i))) {
 							Gich_lr::access_t v = _vm->state()->gic_lr[i];
-							if (Gich_lr::Virt_id::get(v) == irq) {
-								PWRN("reinject IRQ %u %u", irq, i);
+							if (Gich_lr::Virt_id::get(v) == irq)
 								return;
-							}
 						}
 					}
 
@@ -855,7 +854,6 @@ class Vmm
 
 				void _timeout(unsigned)
 				{
-					_vm->pause();
 					_vm->state()->timer_ctrl = 5;
 					_vm->state()->timer_val  = 0xffffffff;
 					_gic.inject_irq(Board::VT_TIMER_IRQ);
@@ -1077,7 +1075,6 @@ class Vmm
 
 				unsigned char _get_char()
 				{
-					PINF("get char");
 					if (_rx_buf.empty()) return 0;
 					return _rx_buf.get();
 				}
@@ -1094,7 +1091,7 @@ class Vmm
 					case UARTPCELLID1:  return 0xf0;
 					case UARTPCELLID2:  return 0x5;
 					case UARTPCELLID3:  return 0xb1;
-					case UARTFR:        return _terminal.avail() ? 64 : 16;
+					case UARTFR:        return _rx_buf.empty() ? 16 : 64;
 					case UARTCR:        return _cr;
 					case UARTIMSC:      return _imsc;
 					case UARTMIS:       return _ris & _imsc;
@@ -1132,11 +1129,8 @@ class Vmm
 					_terminal.read(&c, 1);
 					_rx_buf.add(c);
 
-					if ((_imsc & (1 << 4)) && !(_ris & (1 << 4))) {
-						_vm->pause();
-						_gic.inject_irq(Board::PL011_0_IRQ);
-						_ris |= 1 << 4;
-					}
+					_gic.inject_irq(Board::PL011_0_IRQ);
+					_ris |= 1 << 4;
 				}
 
 				using Error = Vm::Exception;
@@ -1266,20 +1260,23 @@ class Vmm
 			};
 		}
 
-		void _handle_vm(unsigned)
+		void _handle_vm(unsigned num)
 		{
-			enum { IRQ = 6, TRAP = 8 };
+			if (_vm.active()) {
 
-			/* check exception reason */
-			switch (_vm.state()->cpu_exception) {
-			case IRQ:
-				_gic.irq_occured();
-				break;
-			case TRAP:
-				_handle_trap();
-				break;
-			default:
-				throw Vm::Exception("Curious exception occured");
+				enum { IRQ = 6, TRAP = 8 };
+
+				/* check exception reason */
+				switch (_vm.state()->cpu_exception) {
+				case IRQ:
+					_gic.irq_occured();
+					break;
+				case TRAP:
+					_handle_trap();
+					break;
+				default:
+					throw Vm::Exception("Curious exception occured");
+				}
 			}
 		}
 
@@ -1304,9 +1301,13 @@ class Vmm
 			_vm.start();
 
 			while (true) {
-				_vm.run();
+				if (_vm.active()) _vm.run();
 				Genode::Signal s = _sig_rcv.wait_for_signal();
-				static_cast<Signal_dispatcher *>(s.context())->dispatch(s.num());
+				if (_vm.active() && &_vm_handler != static_cast<Signal_dispatcher*>(s.context())) {
+					_vm.pause();
+					_handle_vm(1);
+				}
+				static_cast<Signal_dispatcher*>(s.context())->dispatch(s.num());
 			}
 		};
 

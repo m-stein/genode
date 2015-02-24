@@ -59,6 +59,16 @@ install_config {
 </config>
 }
 
+if {![file exists bin/linux]} {
+	puts "Download linux kernel ..."
+	exec >& /dev/null wget -c -O bin/linux http://genode.org/files/release-15.02/arm_vt/linux
+}
+
+if {![file exists bin/dtb]} {
+	puts "Download device tree blob ..."
+	exec >& /dev/null wget -c -O bin/dtb http://genode.org/files/release-15.02/arm_vt/dtb
+}
+
 set boot_modules {
 	core init
 	platform_drv
@@ -73,4 +83,8 @@ build_boot_image $boot_modules
 #
 # Execute test case
 #
-run_genode_until forever
+run_genode_until {.*\/ #.*} 220
+set serial_id [output_spawn_id]
+send -i $serial_id "ls\n"
+run_genode_until "var" 30 $serial_id
+exec rm bin/linux bin/dtb
