@@ -10,9 +10,7 @@ SPECS += arm_v7a
 # add repository relative include paths
 REP_INC_DIR += include/cortex_a15
 
-# include implied specs
-include $(call select_from_repositories,mk/spec-arm_v7a.mk)
-
+# configure compiler
 #
 # GCC versions up to 4.7.3 complain about conflicting command-line switches:
 #
@@ -22,5 +20,7 @@ include $(call select_from_repositories,mk/spec-arm_v7a.mk)
 #
 # Reference: https://github.com/genodelabs/genode/issues/810
 #
-CC_OPT   += -mcpu=cortex-a15
-CC_MARCH  =
+CC_MARCH += -mcpu=cortex-a15
+
+# include implied specs
+include $(call select_from_repositories,mk/spec-arm_v7a.mk)
