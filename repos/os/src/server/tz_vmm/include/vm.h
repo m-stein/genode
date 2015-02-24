@@ -23,22 +23,23 @@
 
 /* local includes */
 #include <mmu.h>
-#include <atag.h>
 
 class Vm {
 
 	private:
 
 		enum {
-			ATAG_OFFSET   = 0x100,
 			INITRD_OFFSET = 0x1000000,
+			DTB_OFFSET    = 0x2000000,
 		};
 
 		Genode::Vm_connection     _vm_con;
 		Genode::Rom_connection    _kernel_rom;
 		Genode::Rom_connection    _initrd_rom;
+		Genode::Rom_connection    _dtb_rom;
 		Genode::Dataspace_client  _kernel_cap;
 		Genode::Dataspace_client  _initrd_cap;
+		Genode::Dataspace_client  _dtb_cap;
 		const char*               _cmdline;
 		Genode::Vm_state         *_state;
 		Genode::Io_mem_connection _ram_iomem;
@@ -50,7 +51,9 @@ class Vm {
 		void _load_kernel()
 		{
 			using namespace Genode;
-
+			if (_ram.base() + _kernel_offset + _kernel_cap.size()
+			    > _ram.base() + INITRD_OFFSET)
+			{ PERR("not enough space for kernel"); }
 			addr_t addr = env()->rm_session()->attach(_kernel_cap);
 			memcpy((void*)(_ram.local() + _kernel_offset),
 			       (void*)addr, _kernel_cap.size());
@@ -61,22 +64,21 @@ class Vm {
 		void _load_initrd()
 		{
 			using namespace Genode;
-
+			if (_ram.base() + INITRD_OFFSET + _initrd_cap.size()
+			    > _ram.base() + DTB_OFFSET)
+			{ PERR("not enough space for initrd"); }
 			addr_t addr = env()->rm_session()->attach(_initrd_cap);
 			memcpy((void*)(_ram.local() + INITRD_OFFSET),
 			       (void*)addr, _initrd_cap.size());
 			env()->rm_session()->detach((void*)addr);
 		}
 
-		void _prepare_atag()
+		void _load_dtb()
 		{
-			Atag tag((void*)(_ram.local() + ATAG_OFFSET));
-			tag.setup_mem_tag(_ram.base(), _ram.size());
-			tag.setup_cmdline_tag(_cmdline);
-			tag.setup_initrd2_tag(_ram.base() + INITRD_OFFSET, _initrd_cap.size());
-			if (_board_rev)
-				tag.setup_rev_tag(_board_rev);
-			tag.setup_end_tag();
+			using namespace Genode;
+			addr_t addr = env()->rm_session()->attach(_dtb_cap);
+			memcpy((void*)(_ram.local() + DTB_OFFSET), (void*)addr, _dtb_cap.size());
+			env()->rm_session()->detach((void*)addr);
 		}
 
 	public:
@@ -87,8 +89,10 @@ class Vm {
 		   unsigned long board_rev = 0)
 		: _kernel_rom(kernel),
 		  _initrd_rom(initrd),
+		  _dtb_rom("dtb"),
 		  _kernel_cap(_kernel_rom.dataspace()),
 		  _initrd_cap(_initrd_rom.dataspace()),
+		  _dtb_cap(_dtb_rom.dataspace()),
 		  _cmdline(cmdline),
 		  _state((Genode::Vm_state*)Genode::env()->rm_session()->attach(_vm_con.cpu_state())),
 		  _ram_iomem(ram_base, ram_size),
@@ -102,10 +106,11 @@ class Vm {
 			Genode::memset((void*)_state, 0, sizeof(Genode::Vm_state));
 			_load_kernel();
 			_load_initrd();
-			_prepare_atag();
+			_load_dtb();
 			_state->cpsr = 0x93; /* SVC mode and IRQs disabled */
+			_state->r0   = 0;
 			_state->r1   = _mach_type;
-			_state->r2   = _ram.base() + ATAG_OFFSET; /* ATAG addr */
+			_state->r2   = _ram.base() + DTB_OFFSET; /* DTB addr */
 		}
 
 		void sig_handler(Genode::Signal_context_capability sig_cap) {
