@@ -4,11 +4,21 @@
 # \date   2013-07-08
 #
 
+if {[have_include "power_on/qemu"]} {
+	puts "\nNetperf WIFI running on Qemu is not supported.\n"
+	exit
+}
+
+if {[have_spec arm]} {
+	puts "\nNetperf WIFI running on ARM is not supported.\n"
+	exit
+}
+
 # network configuration
 set use_nic_bridge      0
 set use_wifi_driver     1
 set use_usb_11          "no"
-set use_usb_20          "yes"
+set use_usb_20          "no"
 set use_usb_30          "no"
 
 set wifi_ssid           $::env(GENODE_WIFI_SSID)
