@@ -375,6 +375,3 @@ foreach netperf_test $netperf_tests {
 	}
 	puts "              [lindex $throughput 1] MBit/s ok"
 }
-
-# remove firmware images
-exec sh -c "rm bin/*.ucode"
