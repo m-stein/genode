@@ -37,6 +37,25 @@ install_config {
 }
 
 set init_uri  "http://genode.org/files/images/imx53_qsb/initrd.gz"
+
+#
+# This Linux and DTB were build with this toolchain:
+#
+# ! http://releases.linaro.org/14.09/components/toolchain/binaries/gcc-linaro-arm-none-eabi-4.9-2014.09_linux.tar.xz
+#
+# From this sources:
+#
+# ! https://github.com/m-stein/linux/tree/usb_armory_genode_tz_vmm
+#
+# With the following commands:
+#
+# ! make ARCH=arm CROSS_COMPILE=$GCC/bin/arm-none-eabi- imx_v53_usb_armory_defconfig
+# ! make ARCH=arm CROSS_COMPILE=$GCC/bin/arm-none-eabi- zImage LOADADDR=0x80008000
+# ! make ARCH=arm CROSS_COMPILE=$GCC/bin/arm-none-eabi- dtbs
+#
+# Then 'arch/arm/boot/zImage' can be used as 'linux' and
+# 'arch/arm/boot/dts/imx53-qsb.dtb' can be used as 'dtb'.
+#
 set linux_uri "https://github.com/m-stein/genode_binaries/raw/master/tz_vmm/imx53/linux"
 set dtb_uri   "https://github.com/m-stein/genode_binaries/raw/master/tz_vmm/imx53/dtb"
 
