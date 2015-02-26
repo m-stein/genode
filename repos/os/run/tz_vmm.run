@@ -70,11 +70,16 @@ build_boot_image "core init tz_vmm linux initrd.gz dtb"
 run_genode_until {.*\/ #.*} 220
 set serial_id [output_spawn_id]
 
-# Wait for network to settle down
-send -i $serial_id "sleep 5\n"
-send -i $serial_id "wget http://genode.org/\n"
+#
+# slow down 'send' via '-s' because otherwise UART-RX gets frame errors
+#
+set send_slow {1 .001}
 
-run_genode_until "Connecting to genode.org" 10 $serial_id
+send -i $serial_id -s "sleep 1\n"
+run_genode_until {.*\/ #.*} 30 $serial_id
+
+send -i $serial_id -s "cat /proc/version\n"
+run_genode_until "Linux version 3.18.2" 10 $serial_id
 run_genode_until {.*\/ #.*} 30 $serial_id
 
 exec rm bin/initrd.gz bin/initrd.gz.md5 bin/linux bin/linux.md5
