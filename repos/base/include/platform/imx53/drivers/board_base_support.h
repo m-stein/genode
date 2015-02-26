@@ -11,8 +11,8 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _INCLUDE__PLATFORM__IMX53__DRIVERS__BOARD_BASE_H_
-#define _INCLUDE__PLATFORM__IMX53__DRIVERS__BOARD_BASE_H_
+#ifndef _INCLUDE__PLATFORM__IMX53__DRIVERS__BOARD_BASE_SUPPORT_H_
+#define _INCLUDE__PLATFORM__IMX53__DRIVERS__BOARD_BASE_SUPPORT_H_
 
 namespace Imx53
 {
@@ -113,5 +113,5 @@ namespace Imx53
 	};
 }
 
-#endif /* _INCLUDE__PLATFORM__IMX53__DRIVERS__BOARD_BASE_H_ */
+#endif /* _INCLUDE__PLATFORM__IMX53__DRIVERS__BOARD_BASE_SUPPORT_H_ */
 

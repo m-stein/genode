@@ -15,7 +15,7 @@
 #define _INCLUDE__PLATFORM__IMX53_QSB__DRIVERS__BOARD_BASE_H_
 
 /* Genode includes */
-#include <platform/imx53/drivers/board_base.h>
+#include <platform/imx53/drivers/board_base_support.h>
 
 namespace Genode
 {
