@@ -12,23 +12,24 @@
  */
 
 #include <vm_base.h>
+#include <atag.h>
 
-class Vm : public Genode::Rom_connection,
-		   public Genode::Dataspace_client,
-		   public Vm_base
+class Vm : public Vm_base
 {
 	private:
 
-		enum { DTB_OFFSET = 0x2000000 };
+		enum { ATAG_OFFSET = 0x100 };
 
 		Genode::addr_t _load_board_info()
 		{
-			using namespace Genode;
-
-			addr_t addr = env()->rm_session()->attach(*this);
-			memcpy((void*)(_ram.local() + DTB_OFFSET), (void*)addr, size());
-			env()->rm_session()->detach((void*)addr);
-			return DTB_OFFSET;
+			Atag tag((void*)(_ram.local() + ATAG_OFFSET));
+			tag.setup_mem_tag(_ram.base(), _ram.size());
+			tag.setup_cmdline_tag(_cmdline);
+			tag.setup_initrd2_tag(_ram.base() + INITRD_OFFSET, _initrd_cap.size());
+			if (_board_rev)
+				tag.setup_rev_tag(_board_rev);
+			tag.setup_end_tag();
+			return ATAG_OFFSET;
 		}
 
 	public:
@@ -37,8 +38,6 @@ class Vm : public Genode::Rom_connection,
 		   Genode::addr_t ram_base, Genode::size_t ram_size,
 		   Genode::addr_t kernel_offset, unsigned long mach_type,
 		   unsigned long board_rev = 0)
-		: Genode::Rom_connection("dtb"),
-		  Genode::Dataspace_client(dataspace()),
-		  Vm_base(kernel, initrd, cmdline, ram_base, ram_size,
+		: Vm_base(kernel, initrd, cmdline, ram_base, ram_size,
 		          kernel_offset, mach_type, board_rev) {}
 };
