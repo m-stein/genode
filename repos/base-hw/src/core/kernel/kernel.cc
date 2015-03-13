@@ -264,8 +264,8 @@ void init_kernel_mp_primary()
 	       (Native_utcb*)Genode::UTCB_MAIN_THREAD, 1);
 
 	/* initialize user interrupt objects */
-	static Genode::uint8_t _irqs[Pic::NR_OF_IRQ * sizeof(User_irq)];
-	for (unsigned i = 0; i < Pic::NR_OF_IRQ; i++) {
+	static Genode::uint8_t _irqs[Kernel::Pic::NR_OF_IRQ * sizeof(User_irq)];
+	for (unsigned i = 0; i < Kernel::Pic::NR_OF_IRQ; i++) {
 		if (private_interrupt(i)) { continue; }
 		new (&_irqs[i * sizeof(User_irq)]) User_irq(i);
 	}
