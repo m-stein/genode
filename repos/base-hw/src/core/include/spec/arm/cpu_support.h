@@ -467,12 +467,12 @@ class Genode::Arm
 		/**
 		 * Flush all entries of all data caches
 		 */
-		inline static void flush_data_caches();
+		static void flush_data_caches();
 
 		/**
 		 * Invalidate all entries of all data caches
 		 */
-		inline static void invalidate_data_caches();
+		static void invalidate_data_caches();
 
 		/**
 		 * Flush all caches

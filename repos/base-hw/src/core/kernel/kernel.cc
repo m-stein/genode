@@ -46,8 +46,6 @@ extern void * _start_secondary_cpus;
 extern int _prog_img_beg;
 extern int _prog_img_end;
 
-Genode::Native_utcb * _main_thread_utcb;
-
 namespace Kernel
 {
 	/* import Genode types */
