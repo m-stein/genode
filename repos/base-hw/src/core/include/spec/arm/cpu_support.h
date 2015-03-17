@@ -252,7 +252,7 @@ class Genode::Arm
 			/**
 			 * Return value initialized for user execution with trustzone
 			 */
-			inline static access_t init_user_with_trustzone();
+			static access_t init_user_with_trustzone();
 
 			/**
 			 * Do common initialization on register value 'v'
