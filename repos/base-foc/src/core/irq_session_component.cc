@@ -21,7 +21,6 @@
 
 /* core includes */
 #include <irq_root.h>
-#include <irq_proxy_component.h>
 #include <irq_session_component.h>
 #include <platform.h>
 #include <util.h>
@@ -39,6 +38,7 @@ using namespace Genode;
 namespace Genode {
 	class Interrupt_handler;
 	class Irq_proxy_component;
+	typedef Irq_proxy<Thread<1024 * sizeof(addr_t)> > Irq_proxy_base;
 }
 
 /**
@@ -123,16 +123,12 @@ class Genode::Irq_proxy_component : public Irq_proxy_base
 		:
 		 Irq_proxy_base(irq_number),
 		 _cap(cap_map()->insert(platform_specific()->cap_id_alloc()->alloc())),
-		 _sem(), _trigger(-1), _polarity(-1) { }
-
-		Semaphore *semaphore() { return &_sem; }
-
-		void start(long trigger, long polarity)
+		 _sem(), _trigger(-1), _polarity(-1)
 		{
-			_trigger    = trigger;
-			_polarity = polarity;
 			_start();
 		}
+
+		Semaphore *semaphore() { return &_sem; }
 
 		bool match_mode(long trigger, long polarity)
 		{
@@ -151,24 +147,29 @@ class Genode::Irq_proxy_component : public Irq_proxy_base
 };
 
 
-/********************************
- ** IRQ session implementation **
- ********************************/
+/***************************
+ ** IRQ session component **
+ ***************************/
 
 
-Irq_session_component::Irq_session_component(Cap_session     *cap_session,
-                                             Range_allocator *irq_alloc,
-                                             const char      *args)
-:
-	_ep(cap_session, STACK_SIZE, "irqctrl"),
-	_proxy(0)
+void Irq_session_component::ack_irq()
 {
-	using namespace Fiasco;
+	if (!_proxy) {
+		PERR("Expected to find IRQ proxy for IRQ %02x", _irq_number);
+		return;
+	}
 
+	_proxy->ack_irq();
+}
+
+
+Irq_session_component::Irq_session_component(Range_allocator *irq_alloc,
+                                             const char      *args)
+{
 	long irq_number = Arg_string::find_arg(args, "irq_number").long_value(-1);
 	if (irq_number == -1) {
-		PERR("Unavailable IRQ %lx requested", irq_number);
-		throw Root::Invalid_args();
+		PERR("invalid IRQ number requested");
+		throw Root::Unavailable();
 	}
 
 	long irq_trigger = Arg_string::find_arg(args, "irq_trigger").long_value(-1);
@@ -178,15 +179,16 @@ Irq_session_component::Irq_session_component(Cap_session     *cap_session,
 	irq_polarity = irq_polarity == -1 ? 0 : irq_polarity;
 
 	/*
-	 * temorary hack for fiasco.oc using the local-apic,
+	 * temporary hack for fiasco.oc using the local-apic,
 	 * where old pic-line 0 maps to 2
 	 */
 	if (irq_number == 0)
 		irq_number = 2;
 
-	if (!(_proxy = Irq_proxy_component::get_irq_proxy<Irq_proxy_component>(irq_number,
-	                                                                       irq_alloc))) {
-		PERR("No proxy for IRQ %lu found", irq_number);
+	/* check if IRQ thread was started before */
+	_proxy = Irq_proxy_component::get_irq_proxy<Irq_proxy_component>(irq_number, irq_alloc);
+	if (!_proxy) {
+		PERR("unavailable IRQ %lx requested", irq_number);
 		throw Root::Unavailable();
 	}
 
@@ -199,31 +201,35 @@ Irq_session_component::Irq_session_component(Cap_session     *cap_session,
 		throw Root::Unavailable();
 	}
 
-	/* set interrupt mode and start proxy */
-	_proxy->start(irq_trigger, irq_polarity);
-
-	if (!_proxy->add_sharer())
-		throw Root::Unavailable();
-
-	/* initialize capability */
-	_irq_cap = _ep.manage(this);
+	_irq_number = irq_number;
 }
 
 
-void Irq_session_component::wait_for_irq()
+Irq_session_component::~Irq_session_component()
 {
-	_proxy->wait_for_irq();
+	if (!_proxy) return;
+
+	if (_irq_sigh.valid())
+		_proxy->remove_sharer(&_irq_sigh);
 }
 
 
-Irq_session_component::~Irq_session_component() {
-	_proxy->remove_sharer(); }
-
-
-Irq_signal Irq_session_component::signal()
+void Irq_session_component::sigh(Genode::Signal_context_capability sigh)
 {
-	PDBG("not implemented;");
-	return Irq_signal();
+	if (!_proxy) {
+		PERR("signal handler got not registered - irq thread unavailable");
+		return;
+	}
+
+	Genode::Signal_context_capability old = _irq_sigh;
+
+	if (old.valid() && !sigh.valid())
+		_proxy->remove_sharer(&_irq_sigh);
+
+	_irq_sigh = sigh;
+
+	if (!old.valid() && sigh.valid())
+		_proxy->add_sharer(&_irq_sigh);
 }
 
 
