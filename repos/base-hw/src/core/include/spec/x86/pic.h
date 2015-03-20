@@ -70,7 +70,7 @@ class Genode::Pic : public Mmio
 				{
 					uint32_t entry = Board::VECTOR_REMAP_BASE + irq;
 
-					if (irq > 15) {
+					if (irq > Board::ISA_IRQ_END) {
 						/* Use level-triggered, high-active mode for non-legacy
 						 * IRQs */
 						entry |= 1 << IRTE_BIT_POL | 1 << IRTE_BIT_TRG;
@@ -92,8 +92,16 @@ class Genode::Pic : public Mmio
 				/* Set/unset mask bit of IRTE for given vector */
 				void toggle_mask(unsigned const vector, bool const set)
 				{
-					if (vector < Board::VECTOR_REMAP_BASE ||
-					    vector > Board::VECTOR_REMAP_BASE + IRTE_COUNT)
+					/*
+					 * Only mask existing RTEs and do *not* mask edge-triggered
+					 * interrupts to avoid losing them while masked, see Intel
+					 * 82093AA I/O Advanced Programmable Interrupt Controller
+					 * (IOAPIC) specification, section 3.4.2, "Interrupt Mask"
+					 * flag and edge-triggered interrupts or:
+					 * http://yarchive.net/comp/linux/edge_triggered_interrupts.html
+					 */
+					if (vector <= Board::VECTOR_REMAP_BASE + Board::ISA_IRQ_END
+							|| vector > Board::VECTOR_REMAP_BASE + IRTE_COUNT)
 						return;
 
 					write<Ioregsel>(IOREDTBL + (2 * (vector -
