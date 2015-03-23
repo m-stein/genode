@@ -78,6 +78,16 @@ class Genode::Pic : public Mmio
 					return entry;
 				}
 
+				/**
+				 * Return whether 'irq' is an edge-triggered interrupt
+				 */
+				bool _edge_triggered(unsigned const irq)
+				{
+					enum { REMAP_BASE = Board::VECTOR_REMAP_BASE };
+					return irq <= REMAP_BASE + Board::ISA_IRQ_END ||
+					       irq >  REMAP_BASE + IRTE_COUNT;
+				}
+
 			public:
 
 				Ioapic() : Mmio(Board::MMIO_IOAPIC_BASE)
@@ -100,9 +110,7 @@ class Genode::Pic : public Mmio
 					 * flag and edge-triggered interrupts or:
 					 * http://yarchive.net/comp/linux/edge_triggered_interrupts.html
 					 */
-					if (vector <= Board::VECTOR_REMAP_BASE + Board::ISA_IRQ_END
-							|| vector > Board::VECTOR_REMAP_BASE + IRTE_COUNT)
-						return;
+					if (_edge_triggered(vector)) { return; }
 
 					write<Ioregsel>(IOREDTBL + (2 * (vector -
 					                Board::VECTOR_REMAP_BASE)));
