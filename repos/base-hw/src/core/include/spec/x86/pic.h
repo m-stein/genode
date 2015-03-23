@@ -33,6 +33,8 @@ class Genode::Pic : public Mmio
 {
 	private:
 
+		enum { REMAP_BASE = Board::VECTOR_REMAP_BASE };
+
 		/* Registers */
 		struct EOI : Register<0x0b0, 32, true> { };
 		struct Svr : Register<0x0f0, 32>
@@ -65,10 +67,12 @@ class Genode::Pic : public Mmio
 					IOREDTBL  = 0x10,
 				};
 
-				/* Create redirection table entry for given IRQ */
-				uint64_t create_irt_entry(unsigned irq)
+				/**
+				 * Create redirection table entry for given IRQ
+				 */
+				uint64_t _create_irt_entry(unsigned irq)
 				{
-					uint32_t entry = Board::VECTOR_REMAP_BASE + irq;
+					uint32_t entry = REMAP_BASE + irq;
 
 					if (irq > Board::ISA_IRQ_END) {
 						/* Use level-triggered, high-active mode for non-legacy
@@ -83,7 +87,6 @@ class Genode::Pic : public Mmio
 				 */
 				bool _edge_triggered(unsigned const irq)
 				{
-					enum { REMAP_BASE = Board::VECTOR_REMAP_BASE };
 					return irq <= REMAP_BASE + Board::ISA_IRQ_END ||
 					       irq >  REMAP_BASE + IRTE_COUNT;
 				}
@@ -95,7 +98,7 @@ class Genode::Pic : public Mmio
 					/* Remap all supported IRQs */
 					for (unsigned i = 0; i <= IRTE_COUNT; i++) {
 						write<Ioregsel>(IOREDTBL + 2 * i);
-						write<Iowin>(create_irt_entry(i));
+						write<Iowin>(_create_irt_entry(i));
 					}
 				};
 
@@ -112,8 +115,7 @@ class Genode::Pic : public Mmio
 					 */
 					if (_edge_triggered(vector)) { return; }
 
-					write<Ioregsel>(IOREDTBL + (2 * (vector -
-					                Board::VECTOR_REMAP_BASE)));
+					write<Ioregsel>(IOREDTBL + (2 * (vector - REMAP_BASE)));
 
 					uint32_t val = read<Iowin>();
 					if (set) {
