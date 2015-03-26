@@ -1,3 +1,3 @@
 TARGET = nic_drv
-LIBS   = dde_ipxe_nic
+LIBS   = server dde_ipxe_nic
 SRC_CC = main.cc
