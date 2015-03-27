@@ -23,6 +23,8 @@
 #include <pci_session/connection.h>
 #include <pci_device/client.h>
 
+#include <irq_session/connection.h>
+
 namespace Dde_kit {
 
 	using namespace Genode;
@@ -43,11 +45,14 @@ namespace Dde_kit {
 			Pci::Device_client     _device;
 			unsigned short         _bdf;    /* bus:device:function */
 
+			Genode::Irq_session_client _irq;
+
 		public:
 
 			Pci_device(Pci::Device_capability device_cap)
 			:
-				_device(device_cap)
+				_device(device_cap),
+				_irq(_device.irq(0))
 			{
 				unsigned char bus = ~0, dev = ~0, fun = ~0;
 
@@ -128,6 +133,11 @@ namespace Dde_kit {
 				pci_drv.config_extended(_device);
 				return pci_drv.alloc_dma_buffer(_device, size);
 			}
+
+			void enable_irq(Genode::Signal_context_capability &sig_cap) {
+				_irq.sigh(sig_cap); }
+
+			void ack_irq() { _irq.ack_irq(); }
 	};
 
 	class Pci_tree
@@ -260,6 +270,25 @@ namespace Dde_kit {
 				unsigned short bdf = Pci_device::knit_bdf(bus, dev, fun);
 
 				return _lookup(bdf)->alloc_dma_buffer(_pci_drv, size);
+			}
+
+			void enable_irq(int bus, int dev, int fun,
+			                Genode::Signal_context_capability sigh)
+			{
+				Lock::Guard lock_guard(_lock);
+
+				unsigned short bdf = Pci_device::knit_bdf(bus, dev, fun);
+
+				return _lookup(bdf)->enable_irq(sigh);
+			}
+
+			void ack_irq(int bus, int dev, int fun)
+			{
+				Lock::Guard lock_guard(_lock);
+
+				unsigned short bdf = Pci_device::knit_bdf(bus, dev, fun);
+
+				return _lookup(bdf)->ack_irq();
 			}
 	};
 }

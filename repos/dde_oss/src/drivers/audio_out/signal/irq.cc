@@ -133,12 +133,13 @@ class Irq_context : public Driver_context,
 
 	public:
 
-		Irq_context(unsigned int irq)
+		Irq_context(unsigned int irq, oss_device_t *dev)
 		: _irq(irq),
 			_ctx_cap(_signal->receiver()->manage(this))
 		{
 			/* register at DDE (shared) */
-			int ret = dde_kit_interrupt_attach(_irq, 0, 0, _dde_handler, this);
+			int ret = dde_kit_interrupt_attach(_irq, 0, 0, _dde_handler, this,
+			                                   dev->bus, dev->dev, dev->fun);
 			if (ret)
 				PERR("Interrupt attach return %d for IRQ %u", ret, irq);
 
@@ -159,7 +160,7 @@ class Irq_context : public Driver_context,
 
 			/* if this IRQ is not registered */
 			if (!ctx)
-				ctx = new (Genode::env()->heap()) Irq_context(irq);
+				ctx = new (Genode::env()->heap()) Irq_context(irq, osdev);
 
 			/* register Linux handler */
 			ctx->_handler_list.insert(h);

@@ -29,6 +29,7 @@ extern "C" {
 }
 
 #include "pci_tree.h"
+#include "device.h"
 
 static const bool verbose = false;
 
@@ -39,6 +40,19 @@ static Dde_kit::Pci_tree *pci_tree(unsigned device_class = 0,
 	static Dde_kit::Pci_tree _pci_tree(device_class, class_mask);
 
 	return &_pci_tree;
+}
+
+
+void Dde_kit::Device::enable_irq(int bus, int dev, int fun,
+                               Genode::Signal_context_capability sigh)
+{
+	pci_tree()->enable_irq(bus, dev, fun, sigh);
+}
+
+
+void Dde_kit::Device::ack_irq(int bus, int dev, int fun)
+{
+	pci_tree()->ack_irq(bus, dev, fun);
 }
 
 

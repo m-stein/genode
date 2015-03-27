@@ -138,78 +138,6 @@ static void test_printf()
 }
 
 
-#include "i8042.h"
-
-static I8042 *i8042;
-
-static void test_interrupt_init(void *priv)
-{
-	static unsigned cnt = 0;
-	PDBG("%d: %s", cnt, (const char *) priv);
-	++cnt;
-}
-
-
-static void test_interrupt_handler(void *priv)
-{
-	static unsigned cnt = 0;
-	PDBG("%d: %s", cnt, (const char *) priv);
-	++cnt;
-
-	i8042->flush();
-}
-
-
-static void test_interrupt()
-{
-	PDBG("=== starting interrupt test ===");
-	PDBG("Please use keyboard or mouse to trigger interrupt handling!");
-
-	i8042 = new (Genode::env()->heap()) I8042();
-
-	int err0, err1;
-	err0 = dde_kit_interrupt_attach(1, 0, test_interrupt_init,
-	                                test_interrupt_handler, (void *)"kbd");
-
-	err1 = dde_kit_interrupt_attach(12, 0, test_interrupt_init,
-	                                test_interrupt_handler, (void *)"aux");
-
-	enum { DURATION = 2000 };
-
-	if (!err0 && !err1) {
-		dde_kit_interrupt_disable(12);
-		PDBG("IRQ12 disabled");
-
-		timer->msleep(DURATION);
-
-		dde_kit_interrupt_disable(1);
-		PDBG("IRQ1 disabled");
-
-		timer->msleep(DURATION);
-
-		dde_kit_interrupt_enable(12);
-		i8042->reset();
-		PDBG("IRQ12 enabled");
-
-		timer->msleep(DURATION);
-
-		dde_kit_interrupt_enable(1);
-		i8042->reset();
-		PDBG("IRQ1 enabled");
-
-		timer->msleep(DURATION);
-	} else
-		PERR("interrupt attach failed");
-
-	if (!err0) dde_kit_interrupt_detach(1);
-	if (!err1) dde_kit_interrupt_detach(12);
-
-	destroy(Genode::env()->heap(), i8042);
-
-	PDBG("=== finished interrupt test ===");
-}
-
-
 static int test_initcall_fn()
 {
 	PDBG("called");
@@ -689,7 +617,6 @@ int main(int argc, char **argv)
 	if (0) test_locks();
 	if (0) test_semaphores();
 	if (0) test_printf();
-	if (0) test_interrupt();
 	if (0) test_initcall();
 	if (0) test_pgtab();
 	if (0) test_memory();

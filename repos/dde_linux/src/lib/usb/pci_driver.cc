@@ -53,9 +53,12 @@ class Pci_driver
 		{
 			using namespace Pci;
 
-			_dev = new (Genode::env()->heap()) pci_dev;
 			Device_client client(_cap);
+			uint8_t bus, dev, func;
+			client.bus_address(&bus, &dev, &func);
 
+			_dev = new (Genode::env()->heap()) pci_dev;
+			_dev->devfn        = ((uint16_t)bus << 8) | (0xff & PCI_DEVFN(dev, func));
 			_dev->vendor       = client.vendor_id();
 			_dev->device       = client.device_id();
 			_dev->class_       = client.class_code();

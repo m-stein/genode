@@ -34,7 +34,9 @@
  * \retval !0          error
  */
 int dde_kit_interrupt_attach(int irq, int shared, void(*thread_init)(void *),
-                             void(*handler)(void *), void *priv);
+                             void(*handler)(void *), void *priv,
+                             unsigned char bus, unsigned char dev,
+                             unsigned char func);
 
 /**
  * Detach from a previously attached interrupt.

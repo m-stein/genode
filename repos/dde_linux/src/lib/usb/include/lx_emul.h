@@ -2296,8 +2296,10 @@ void local_irq_disable(void);
 
 typedef irqreturn_t (*irq_handler_t)(int, void *);
 
+struct pci_dev;
+
 int request_irq(unsigned int irq, irq_handler_t handler, unsigned long flags,
-                const char *name, void *dev);
+                const char *name, void *dev, struct pci_dev *);
 void free_irq(unsigned int, void *);
 
 
@@ -2382,8 +2384,6 @@ struct msix_entry
 	u16 entry;
 };
 
-struct pci_dev;
-
 int  pci_enable_msi(struct pci_dev *);
 void pci_disable_msi(struct pci_dev *);
 
@@ -2451,7 +2451,7 @@ struct pci_driver {
 };
 
 
-static inline uint32_t PCI_DEVFN(unsigned slot, unsigned func) {
+static inline uint8_t PCI_DEVFN(unsigned slot, unsigned func) {
 	return ((slot & 0x1f) << 3) | (func & 0x07); }
 
 int pci_bus_read_config_byte(struct pci_bus *bus, unsigned int devfn, int where, u8 *val);

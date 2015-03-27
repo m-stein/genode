@@ -142,12 +142,13 @@ class Irq_context : public Genode::List<Irq_context>::Element
 
 	public:
 
-		Irq_context(unsigned int irq)
+		Irq_context(unsigned int irq, uint8_t bus, uint8_t dev, uint8_t func)
 		: _irq(irq),
 		  _dispatcher(_signal->ep(), *this, &Irq_context::_handle)
 		{
 			/* register at DDE (shared) */
-			int ret = dde_kit_interrupt_attach(_irq, 0, 0, _dde_handler, this);
+			int ret = dde_kit_interrupt_attach(_irq, 0, 0, _dde_handler, this,
+			                                   bus, dev, func);
 			if (ret)
 				PERR("Interrupt attach return %d for IRQ %u", ret, irq);
 
@@ -161,14 +162,18 @@ class Irq_context : public Genode::List<Irq_context>::Element
 		/**
 		 * Request an IRQ
 		 */
-		static void request_irq(unsigned int irq, irq_handler_t handler, void *dev)
+		static void request_irq(unsigned int irq, irq_handler_t handler,
+		                        void *device, uint8_t bus, uint8_t dev,
+		                        uint8_t func)
 		{
-			Irq_handler *h   = new(Genode::env()->heap()) Irq_handler(dev, handler);
+			Irq_handler *h   = new(Genode::env()->heap()) Irq_handler(device,
+			                                                          handler);
 			Irq_context *ctx = _find_ctx(irq);
 
 			/* if this IRQ is not registered */
 			if (!ctx)
-				ctx = new (Genode::env()->heap()) Irq_context(irq);
+				ctx = new (Genode::env()->heap()) Irq_context(irq, bus, dev,
+				                                              func);
 
 			/* register Linux handler */
 			ctx->_handler_list.insert(h);
@@ -200,10 +205,15 @@ void Irq::check_irq()
  ***********************/
 
 int request_irq(unsigned int irq, irq_handler_t handler, unsigned long flags,
-                 const char *name, void *dev)
+                const char *name, void *device, struct pci_dev * pdev)
 {
 	dde_kit_log(DEBUG_IRQ, "Request irq %u handler %p", irq, handler);
-	Irq_context::request_irq(irq, handler, dev);
+
+	uint8_t bus  = (pdev->devfn >> 8) & 0xff;
+	uint8_t dev  = PCI_SLOT(pdev->devfn);
+	uint8_t func = pdev->devfn & 0x7;
+
+	Irq_context::request_irq(irq, handler, device, bus, dev, func);
 	return 0;
 }
 

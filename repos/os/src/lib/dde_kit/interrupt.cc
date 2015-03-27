@@ -35,6 +35,7 @@ extern "C" {
 }
 
 #include "thread.h"
+#include "device.h"
 
 using namespace Genode;
 
@@ -43,7 +44,6 @@ class Irq_handler : Dde_kit::Thread, public Avl_node<Irq_handler>
 	private:
 
 		unsigned       _irq_number;      /* IRQ number */
-		Irq_connection _irq;             /* IRQ connection */
 		char           _thread_name[10];
 
 		void (*_handler)(void *);        /* handler function */
@@ -57,6 +57,9 @@ class Irq_handler : Dde_kit::Thread, public Avl_node<Irq_handler>
 		Genode::Signal_receiver                _sig_rec;
 		Genode::Signal_dispatcher<Irq_handler> _irq_dispatcher;
 
+		uint8_t _bus;
+		uint8_t _dev;
+		uint8_t _func;
 
 		const char * _compose_thread_name(unsigned irq)
 		{
@@ -66,25 +69,27 @@ class Irq_handler : Dde_kit::Thread, public Avl_node<Irq_handler>
 
 		void _handle(unsigned)
 		{
-			_irq.ack_irq();
-
 			/* only call registered handler function, if IRQ is not disabled */
 			_lock.lock();
 			if (_handle_irq) _handler(_priv);
 			_lock.unlock();
+
+			Dde_kit::Device::ack_irq(_bus, _dev, _func);
 		}
 
 	public:
 
 		Irq_handler(unsigned irq, void (*handler)(void *), void *priv,
-		            void (*init)(void *) = 0, bool shared = false)
+		            void (*init)(void *), bool shared,
+		            uint8_t bus, uint8_t dev, uint8_t func)
 		:
 			Dde_kit::Thread(_compose_thread_name(irq)), _irq_number(irq),
-			_irq(irq), _handler(handler), _init(init), _priv(priv),
+			_handler(handler), _init(init), _priv(priv),
 			_shared(shared), _handle_irq(1), _lock(Lock::LOCKED),
-			_irq_dispatcher(_sig_rec, *this, &Irq_handler::_handle)
+			_irq_dispatcher(_sig_rec, *this, &Irq_handler::_handle),
+			_bus(bus), _dev(dev), _func(func)
 		{
-			_irq.sigh(_irq_dispatcher);
+			Dde_kit::Device::enable_irq(_bus, _dev, _func, _irq_dispatcher);
 
 			start();
 
@@ -92,7 +97,8 @@ class Irq_handler : Dde_kit::Thread, public Avl_node<Irq_handler>
 			Lock::Guard guard(_lock);
 
 			/* initial ack so that we will receive further interrupts */
-			_irq.ack_irq();
+			Dde_kit::Device::ack_irq(_bus, _dev, _func);
+
 		}
 
 		/** Enable IRQ handling */
@@ -185,12 +191,14 @@ static Irq_handler_database *irq_handlers()
 
 extern "C" int dde_kit_interrupt_attach(int irq, int shared,
                                         void(*thread_init)(void *),
-                                        void(*handler)(void *), void *priv)
+                                        void(*handler)(void *), void *priv,
+                                        uint8_t bus, uint8_t dev, uint8_t func)
 {
 	Irq_handler *h;
 
 	try {
-		h = new (env()->heap()) Irq_handler(irq, handler, priv, thread_init);
+		h = new (env()->heap()) Irq_handler(irq, handler, priv, thread_init,
+		                                    shared, bus, dev, func);
 	} catch (...) {
 		PERR("allocation failed (size=%zd)", sizeof(*h));
 		return -1;
