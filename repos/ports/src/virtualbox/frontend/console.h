@@ -127,7 +127,7 @@ class GenodeConsole : public Console {
 			Console(),
 			_ev_buf(static_cast<Input::Event *>(Genode::env()->rm_session()->attach(_input.dataspace()))),
 			_ax(0), _ay(0),
-			_last_received_motion_event_was_absolute(false),
+			_last_received_motion_event_was_absolute(false)
 		{
 			for (unsigned i = 0; i <= Input::KEY_MAX; i++)
 				_key_status[i] = 0;
