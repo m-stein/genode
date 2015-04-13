@@ -11,9 +11,12 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-/* Genode inludes */
-#include <ram_session/client.h>
+/* Genode base includes */
 #include <base/object_pool.h>
+#include <ram_session/client.h>
+#include <io_mem_session/client.h>
+
+/* Genode os includes */
 #include <pci_session/connection.h>
 #include <pci_device/client.h>
 
@@ -179,6 +182,11 @@ class Pci_driver
 		{
 			Pci::Device_client client(_cap);
 			client.config_write(devfn, val, _access_size(val));
+		}
+
+		Genode::Io_mem_session_capability io_mem(unsigned bar) {
+			Pci::Device_client client(_cap);
+			return client.io_mem(bar);
 		}
 };
 
@@ -406,4 +414,65 @@ void Backend_memory::free(Genode::Ram_dataspace_capability cap)
 	o->free();
 	memory_pool.remove_locked(o);
 	destroy(env()->heap(), o);
+}
+
+
+/******************
+ ** MMIO regions **
+ ******************/
+
+class Mem_range : public Genode::Io_mem_session_client
+{
+	private:
+
+		Genode::Io_mem_dataspace_capability _ds;
+		Genode::addr_t                      _vaddr;
+
+	public:
+
+		Mem_range(Genode::addr_t base,
+		          Genode::Io_mem_session_capability io_cap)
+		:
+			Io_mem_session_client(io_cap), _ds(dataspace()), _vaddr(0UL)
+		{
+			_vaddr  = Genode::env()->rm_session()->attach(_ds);
+			_vaddr |= base & 0xfffUL;
+		}
+
+		Genode::addr_t vaddr()     const { return _vaddr; }
+};
+
+
+void *ioremap(resource_size_t phys_addr, unsigned long size,
+              struct pci_dev *pdev)
+{
+	if (!pdev || !pdev->bus) {
+		PERR("Could not get io memory %zx:%lx - PCI device unknown",
+		     phys_addr, size);
+		return nullptr;
+	}
+
+	uint8_t bus  = (pdev->devfn >> 8) & 0xFF;
+	uint8_t dev  = PCI_SLOT(pdev->devfn);
+	uint8_t func = pdev->devfn & 0x7;
+
+	uint8_t bar = 0;
+	for (unsigned bar = 0; bar < PCI_ROM_RESOURCE; bar++) {
+		if ((pci_resource_flags(pdev, bar) & IORESOURCE_MEM) &&
+		    (pci_resource_start(pdev, bar) == phys_addr))
+				break;
+	}
+	if (bar >= PCI_ROM_RESOURCE) {
+		PERR("Could not find PCI Bar to physical address %zx", phys_addr);
+		return 0;
+	}
+
+	Pci_driver * pci_drv = reinterpret_cast<Pci_driver *>(pdev->bus);
+	Mem_range  * io_mem  = new (Genode::env()->heap()) Mem_range(phys_addr,
+	                                                     pci_drv->io_mem(bar));
+	if (!io_mem->vaddr())
+		PERR("Failed to request I/O memory: [%zx,%lx)", phys_addr,
+		     phys_addr + size);
+
+	return (void *)io_mem->vaddr();
 }

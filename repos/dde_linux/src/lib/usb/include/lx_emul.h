@@ -2215,18 +2215,14 @@ void kunmap(struct page *page);
  ** asm-generic/io.h **
  **********************/
 
-void *ioremap(resource_size_t offset, unsigned long size);
+struct pci_dev;
+
+void *ioremap(resource_size_t offset, unsigned long size, struct pci_dev *);
 void  iounmap(volatile void *addr);
 void *devm_ioremap(struct device *dev, resource_size_t offset,
                    unsigned long size);
 void *devm_ioremap_nocache(struct device *dev, resource_size_t offset,
                            unsigned long size);
-
-
-/**
- * Map I/O memory write combined
- */
-void *ioremap_wc(resource_size_t phys_addr, unsigned long size);
 
 #define ioremap_nocache ioremap
 
@@ -2295,8 +2291,6 @@ void local_irq_enable(void);
 void local_irq_disable(void);
 
 typedef irqreturn_t (*irq_handler_t)(int, void *);
-
-struct pci_dev;
 
 int request_irq(unsigned int irq, irq_handler_t handler, unsigned long flags,
                 const char *name, void *dev, struct pci_dev *);

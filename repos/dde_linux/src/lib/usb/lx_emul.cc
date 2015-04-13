@@ -693,29 +693,17 @@ void *_ioremap(resource_size_t phys_addr, unsigned long size, int wc)
 }
 
 
-void *ioremap_wc(resource_size_t phys_addr, unsigned long size)
-{
-	return _ioremap(phys_addr, size, 1);
-}
-
-
-void *ioremap(resource_size_t offset, unsigned long size)
-{
-	return _ioremap(offset, size, 0);
-}
-
-
 void *devm_ioremap(struct device *dev, resource_size_t offset,
                    unsigned long size)
 {
-	return ioremap(offset, size);
+	return _ioremap(offset, size, 0);
 }
 
 
 void *devm_ioremap_nocache(struct device *dev, resource_size_t offset,
                            unsigned long size)
 {
-	return ioremap(offset, size);
+	return _ioremap(offset, size, 0);
 }
 
 

@@ -1,0 +1,22 @@
+--- a/drivers/usb/core/hcd-pci.c
++++ b/drivers/usb/core/hcd-pci.c
+@@ -228,7 +228,7 @@
+ 			retval = -EBUSY;
+ 			goto put_hcd;
+ 		}
+-		hcd->regs = ioremap_nocache(hcd->rsrc_start, hcd->rsrc_len);
++		hcd->regs = ioremap_nocache(hcd->rsrc_start, hcd->rsrc_len, dev);
+ 		if (hcd->regs == NULL) {
+ 			dev_dbg(&dev->dev, "error mapping memory\n");
+ 			retval = -EFAULT;
+--- a/drivers/usb/host/pci-quirks.c
++++ b/drivers/usb/host/pci-quirks.c
+@@ -945,7 +945,7 @@
+ 	if (!mmio_resource_enabled(pdev, 0))
+ 		return;
+ 
+-	base = ioremap_nocache(pci_resource_start(pdev, 0), len);
++	base = ioremap_nocache(pci_resource_start(pdev, 0), len, pdev);
+ 	if (base == NULL)
+ 		return;
+ 
