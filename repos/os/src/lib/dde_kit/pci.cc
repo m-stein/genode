@@ -23,6 +23,8 @@
 #include <base/printf.h>
 #include <dataspace/client.h>
 
+#include <io_port_session/capability.h>
+
 extern "C" {
 #include <dde_kit/pci.h>
 #include <dde_kit/pgtab.h>
@@ -54,6 +56,9 @@ void Dde_kit::Device::ack_irq(int bus, int dev, int fun)
 {
 	pci_tree()->ack_irq(bus, dev, fun);
 }
+
+Genode::Io_port_session_capability Dde_kit::Device::io_port(int bus, int dev, int fun, unsigned short bda) {
+	return pci_tree()->io_port(bus, dev, fun, bda); }
 
 
 /********************************
