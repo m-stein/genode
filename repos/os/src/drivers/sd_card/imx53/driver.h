@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (C) 2012-2013 Genode Labs GmbH
+ * Copyright (C) 2012-2015 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU General Public License version 2.
@@ -20,6 +20,7 @@
 #include <timer_session/connection.h>
 #include <block/component.h>
 #include <drivers/board_base.h>
+#include <os/server.h>
 
 /* local includes */
 #include <esdhcv2.h>
@@ -49,11 +50,11 @@ class Block::Imx53_driver : public Block::Driver
 
 	public:
 
-		Imx53_driver(bool use_dma)
+		Imx53_driver(Server::Entrypoint &ep, bool use_dma)
 		:
 			_esdhcv2_1_mmio(Genode::Board_base::ESDHCV2_1_MMIO_BASE,
 			                Genode::Board_base::ESDHCV2_1_MMIO_SIZE),
-			_controller((addr_t)_esdhcv2_1_mmio.local_addr<void>(),
+			_controller(ep, (addr_t)_esdhcv2_1_mmio.local_addr<void>(),
 			            Genode::Board_base::ESDHCV2_1_IRQ, _delayer, use_dma),
 			_use_dma(use_dma)
 		{

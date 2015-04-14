@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (C) 2013 Genode Labs GmbH
+ * Copyright (C) 2015 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU General Public License version 2.
@@ -319,6 +319,8 @@ struct Exynos5_msh_controller : private Dwmmc, Sd_card::Host_controller
 		Sd_card::Card_info _card_info;
 
 		Genode::Irq_connection _irq;
+		bool                   _irq_handled;
+		Genode::Signal_rpc_member<Exynos5_msh_controller> _irq_dispatcher;
 
 		Sd_card::Card_info _init()
 		{
@@ -464,10 +466,18 @@ struct Exynos5_msh_controller : private Dwmmc, Sd_card::Host_controller
 			return true;
 		}
 
+		void _wait_for_irq()
+		{
+			while (!_irq_handled)
+				Server::wait_and_dispatch_one_signal();
+
+			_irq_handled = false;
+		}
+
 		bool _wait_for_transfer_complete()
 		{
 			while (1) {
-				_irq.wait_for_irq();
+				_wait_for_irq();
 
 				if (read<Rintsts::Data_transfer_over>()) {
 					write<Rintsts>(~0U);
@@ -491,11 +501,18 @@ struct Exynos5_msh_controller : private Dwmmc, Sd_card::Host_controller
 			}
 		}
 
+		void _handle_irq(unsigned)
+		{
+			_irq.ack_irq();
+			_irq_handled = true;
+		}
+
 	public:
 
 		enum { IRQ_NUMBER = Genode::Board_base::SDMMC0_IRQ };
 
-		Exynos5_msh_controller(Genode::addr_t const mmio_base, Delayer &delayer,
+		Exynos5_msh_controller(Server::Entrypoint &ep,
+		                       Genode::addr_t const mmio_base, Delayer &delayer,
 		                       bool use_dma)
 		: Dwmmc(mmio_base),
 			_idmac_desc_ds(Genode::env()->ram_session(),
@@ -503,8 +520,11 @@ struct Exynos5_msh_controller : private Dwmmc, Sd_card::Host_controller
 			               Genode::UNCACHED),
 			_idmac_desc(_idmac_desc_ds.local_addr<Idmac_desc>()),
 			_idmac_desc_phys(Genode::Dataspace_client(_idmac_desc_ds.cap()).phys_addr()),
-			_delayer(delayer), _card_info(_init()), _irq(IRQ_NUMBER)
+			_delayer(delayer), _card_info(_init()), _irq(IRQ_NUMBER),
+			_irq_dispatcher(ep, *this, &Exynos5_msh_controller::_handle_irq)
 		{
+			_irq.sigh(_irq_dispatcher);
+			_irq.ack_irq();
 		}
 
 

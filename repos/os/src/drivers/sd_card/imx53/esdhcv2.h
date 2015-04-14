@@ -415,10 +415,13 @@ struct Esdhcv2_controller : private Esdhcv2, public Sd_card::Host_controller
 		};
 
 		Genode::Irq_connection         _irq;
+		bool                           _irq_handled;
 		Delayer &                      _delayer;
 		Sd_card::Card_info             _card_info;
 		bool const                     _use_dma;
 		Adma2::Table                   _adma2_table;
+
+		Genode::Signal_rpc_member<Esdhcv2_controller> _irq_dispatcher;
 
 		/**
 		 * Print 'err' and throw detection-error exception
@@ -427,6 +430,15 @@ struct Esdhcv2_controller : private Esdhcv2, public Sd_card::Host_controller
 		{
 			PERR("%s", err);
 			throw Detection_failed();
+		}
+
+		/**
+		 * Handle IRQ signals
+		 */
+		void _handle_irq(unsigned)
+		{
+			_irq_handled = true;
+			_irq.ack_irq();
 		}
 
 		/**
@@ -569,6 +581,17 @@ struct Esdhcv2_controller : private Esdhcv2, public Sd_card::Host_controller
 			return card_info;
 		}
 
+		/**
+		 * Wait until we received the IRQ signal
+		 */
+		void _wait_for_irq()
+		{
+			while (!_irq_handled)
+				Server::wait_and_dispatch_one_signal();
+
+			_irq_handled = false;
+		}
+
 		/*
 		 * Wait till sending a new command is allowed
 		 *
@@ -596,7 +619,7 @@ struct Esdhcv2_controller : private Esdhcv2, public Sd_card::Host_controller
 		 */
 		bool _wait_for_cmd_complete()
 		{
-			_irq.wait_for_irq();
+			_wait_for_irq();
 			if (read<Irqstat>() != Irqstat::Cc::reg_mask()) {
 				PWRN("received unexpected host signal");
 				reset_command(_delayer);
@@ -634,7 +657,7 @@ struct Esdhcv2_controller : private Esdhcv2, public Sd_card::Host_controller
 		bool _wait_for_mbc_complete(bool const r)
 		{
 			/* wait for a signal */
-			_irq.wait_for_irq();
+			_wait_for_irq();
 			Irqstat::access_t const irq = read<Irqstat>();
 
 			/*
@@ -738,12 +761,17 @@ struct Esdhcv2_controller : private Esdhcv2, public Sd_card::Host_controller
 		 * \param delayer    delayer timing of MMIO accesses
 		 * \param use_dma    wether to use DMA or direct IO for transfers
 		 */
-		Esdhcv2_controller(addr_t const mmio_base, unsigned const irq,
+		Esdhcv2_controller(Server::Entrypoint &ep,
+		                   addr_t const mmio_base, unsigned const irq,
 		                   Delayer & delayer, bool const use_dma)
 		:
-			Esdhcv2(mmio_base), _irq(irq), _delayer(delayer),
-			_card_info(_init()), _use_dma(use_dma)
-		{ }
+			Esdhcv2(mmio_base), _irq(irq), _irq_handled(false),
+			_delayer(delayer), _card_info(_init()), _use_dma(use_dma),
+			_irq_dispatcher(ep, *this, &Esdhcv2_controller::_handle_irq)
+		{
+			_irq.sigh(_irq_dispatcher);
+			_irq.ack_irq();
+		}
 
 
 		/****************************************

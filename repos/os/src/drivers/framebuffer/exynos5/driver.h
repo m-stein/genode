@@ -17,6 +17,7 @@
 /* Genode includes */
 #include <base/stdint.h>
 #include <base/printf.h>
+#include <os/server.h>
 
 namespace Framebuffer
 {
@@ -37,6 +38,8 @@ class Framebuffer::Driver
 
 	private:
 
+		Server::Entrypoint &_ep;
+
 		size_t _fb_width;
 		size_t _fb_height;
 		Format _fb_format;
@@ -56,8 +59,9 @@ class Framebuffer::Driver
 		/**
 		 * Constructor
 		 */
-		Driver()
+		Driver(Server::Entrypoint &ep)
 		:
+			_ep(ep),
 			_fb_width(0),
 			_fb_height(0),
 			_fb_format(FORMAT_RGB565)

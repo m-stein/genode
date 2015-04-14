@@ -25,8 +25,12 @@ struct Main
 
 	struct Factory : Block::Driver_factory
 	{
+		Server::Entrypoint &ep;
+
+		Factory(Server::Entrypoint &ep) : ep(ep) { }
+
 		Block::Driver *create() {
-			return new (Genode::env()->heap()) Block::Imx53_driver(true); }
+			return new (Genode::env()->heap()) Block::Imx53_driver(ep, true); }
 
 		void destroy(Block::Driver *driver) {
 			Genode::destroy(Genode::env()->heap(),
@@ -36,7 +40,7 @@ struct Main
 	Block::Root root;
 
 	Main(Server::Entrypoint &ep)
-	: ep(ep), root(ep, Genode::env()->heap(), factory)
+	: ep(ep), factory(ep), root(ep, Genode::env()->heap(), factory)
 	{
 		Genode::printf("--- Imx53 SD card driver ---\n");
 

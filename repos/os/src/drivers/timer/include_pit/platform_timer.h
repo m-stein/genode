@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (C) 2009-2013 Genode Labs GmbH
+ * Copyright (C) 2009-2015 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU General Public License version 2.
@@ -14,8 +14,10 @@
 #ifndef _PLATFORM_TIMER_H_
 #define _PLATFORM_TIMER_H_
 
+/* Genode includes */
 #include <io_port_session/connection.h>
 #include <irq_session/connection.h>
+#include <os/server.h>
 
 class Platform_timer
 {
@@ -59,11 +61,24 @@ class Platform_timer
 			PIT_STAT_INT_LINE = 1 << 7,
 		};
 
+		typedef Genode::Signal_rpc_member<Platform_timer> Signal_rpc_member;
+
 		Genode::Io_port_connection _io_port;
 		Genode::Irq_connection     _timer_irq;
 		unsigned long mutable      _curr_time_usec;
 		Genode::uint16_t mutable   _counter_init_value;
 		bool          mutable      _handled_wrap;
+		bool mutable               _irq_handled;
+		Signal_rpc_member mutable  _irq_dispatcher;
+
+		/**
+		 * Handle IRQ signal
+		 */
+		void _handle_irq(unsigned)
+		{
+			_timer_irq.ack_irq();
+			_irq_handled = true;
+		}
 
 		/**
 		 * Set PIT counter value
@@ -100,17 +115,22 @@ class Platform_timer
 		/**
 		 * Constructor
 		 */
-		Platform_timer()
+		Platform_timer(Server::Entrypoint &ep)
 		:
 			_io_port(PIT_DATA_PORT_0, PIT_CMD_PORT - PIT_DATA_PORT_0 + 1),
 			_timer_irq(IRQ_PIT),
 			_curr_time_usec(0),
 			_counter_init_value(0),
-			_handled_wrap(false)
+			_handled_wrap(false),
+			_irq_handled(false),
+			_irq_dispatcher(ep, *this, &Platform_timer::_handle_irq)
 		{
 			/* operate PIT in one-shot mode */
 			_io_port.outb(PIT_CMD_PORT, PIT_CMD_SELECT_CHANNEL_0 |
 			              PIT_CMD_ACCESS_LO_HI | PIT_CMD_MODE_IRQ);
+
+			_timer_irq.sigh(_irq_dispatcher);
+			_timer_irq.ack_irq();
 		}
 
 		/**
@@ -188,7 +208,10 @@ class Platform_timer
 		 */
 		void wait_for_timeout(Genode::Thread_base *blocking_thread)
 		{
-			_timer_irq.wait_for_irq();
+			while (!_irq_handled)
+				Server::wait_and_dispatch_one_signal();
+
+			_irq_handled = false;
 		}
 };
 

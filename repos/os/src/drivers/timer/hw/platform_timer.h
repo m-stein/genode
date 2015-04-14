@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (C) 2012-2013 Genode Labs GmbH
+ * Copyright (C) 2012-2015 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU General Public License version 2.
@@ -16,6 +16,7 @@
 
 /* Genode includes */
 #include <irq_session/connection.h>
+#include <os/server.h>
 
 /* Local includes */
 #include <platform_timer_base.h>
@@ -30,22 +31,37 @@ class Platform_timer : public Platform_timer_base,
 
 		enum { MAX_TIMER_IRQS_PER_MS = 1 };
 
-		unsigned long   const _max_timeout_us;        /* maximum timeout in microsecs */
-		unsigned long mutable _curr_time_us;          /* accumulate already measured timeouts */
-		unsigned long mutable _init_value;            /* mark last processed timer value */
-		Genode::Lock  mutable _update_curr_time_lock; /* serialize curr_time access */
+		typedef Genode::Signal_rpc_member<Platform_timer> Signal_rpc_member;
+
+		unsigned long   const     _max_timeout_us;        /* maximum timeout in microsecs */
+		unsigned long mutable     _curr_time_us;          /* accumulate already measured timeouts */
+		unsigned long mutable     _init_value;            /* mark last processed timer value */
+		Genode::Lock  mutable     _update_curr_time_lock; /* serialize curr_time access */
+		bool mutable              _irq_handled;           /* flag handling of IRQ */
+		Signal_rpc_member mutable _irq_dispatcher;        /* handle IRQ signal */
+
+		void _handle_irq(unsigned)
+		{
+			Irq_connection::ack_irq();
+			_irq_handled = true;
+		}
 
 	public:
 
 		/**
 		 * Constructor
 		 */
-		Platform_timer()
+		Platform_timer(Server::Entrypoint &ep)
 		:
 			Irq_connection(Platform_timer_base::IRQ),
 			_max_timeout_us(tics_to_us(max_value())),
-			_curr_time_us(0), _init_value(0)
-		{ }
+			_curr_time_us(0), _init_value(0),
+			_irq_handled(false),
+			_irq_dispatcher(ep, *this, &Platform_timer::_handle_irq)
+		{
+			Irq_connection::sigh(_irq_dispatcher);
+			Irq_connection::ack_irq();
+		}
 
 		/**
 		 * Refresh and return our instance-own "now"-time in microseconds
@@ -109,7 +125,13 @@ class Platform_timer : public Platform_timer_base,
 		/**
 		 * Await the lastly scheduled timeout
 		 */
-		void wait_for_timeout(Genode::Thread_base *) { wait_for_irq(); }
+		void wait_for_timeout(Genode::Thread_base *)
+		{
+			while (!_irq_handled)
+				Server::wait_and_dispatch_one_signal();
+
+			_irq_handled = false;
+		}
 };
 
 #endif /* _OS__SRC__DRIVERS__TIMER__HW__PLATFORM_TIMER_H_ */

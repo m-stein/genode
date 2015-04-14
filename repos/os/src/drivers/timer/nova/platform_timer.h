@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (C) 2014-2014 Genode Labs GmbH
+ * Copyright (C) 2014-2015 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU General Public License version 2.
@@ -14,7 +14,9 @@
 #ifndef _PLATFORM_TIMER_H_
 #define _PLATFORM_TIMER_H_
 
+/* Genode includes */
 #include <os/attached_rom_dataspace.h>
+#include <os/server.h>
 #include <trace/timestamp.h>
 
 class Platform_timer
@@ -46,7 +48,7 @@ class Platform_timer
 		/**
 		 * Constructor
 		 */
-		Platform_timer()
+		Platform_timer(Server::Entrypoint &ep)
 		:
 			_sem(~0UL), _timeout(0),
 			_tsc_start(Genode::Trace::timestamp())

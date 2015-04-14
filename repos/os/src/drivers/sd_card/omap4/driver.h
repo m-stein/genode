@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (C) 2012-2013 Genode Labs GmbH
+ * Copyright (C) 2012-2015 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU General Public License version 2.
@@ -19,6 +19,7 @@
 #include <base/printf.h>
 #include <timer_session/connection.h>
 #include <block/component.h>
+#include <os/server.h>
 
 /* local includes */
 #include <mmchs.h>
@@ -57,10 +58,10 @@ class Block::Omap4_driver : public Block::Driver
 
 	public:
 
-		Omap4_driver(bool use_dma)
+		Omap4_driver(Server::Entrypoint &ep, bool use_dma)
 		:
 			_mmchs1_mmio(MMCHS1_MMIO_BASE, MMCHS1_MMIO_SIZE),
-			_controller((addr_t)_mmchs1_mmio.local_addr<void>(),
+			_controller(ep, (addr_t)_mmchs1_mmio.local_addr<void>(),
 			            _delayer, use_dma),
 			_use_dma(use_dma)
 		{
