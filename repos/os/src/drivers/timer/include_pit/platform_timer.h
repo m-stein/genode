@@ -61,24 +61,13 @@ class Platform_timer
 			PIT_STAT_INT_LINE = 1 << 7,
 		};
 
-		typedef Genode::Signal_rpc_member<Platform_timer> Signal_rpc_member;
-
 		Genode::Io_port_connection _io_port;
 		Genode::Irq_connection     _timer_irq;
 		unsigned long mutable      _curr_time_usec;
 		Genode::uint16_t mutable   _counter_init_value;
 		bool          mutable      _handled_wrap;
-		bool mutable               _irq_handled;
-		Signal_rpc_member mutable  _irq_dispatcher;
-
-		/**
-		 * Handle IRQ signal
-		 */
-		void _handle_irq(unsigned)
-		{
-			_timer_irq.ack_irq();
-			_irq_handled = true;
-		}
+		Genode::Signal_receiver    _irq_rec;
+		Genode::Signal_context     _irq_ctx;
 
 		/**
 		 * Set PIT counter value
@@ -121,17 +110,17 @@ class Platform_timer
 			_timer_irq(IRQ_PIT),
 			_curr_time_usec(0),
 			_counter_init_value(0),
-			_handled_wrap(false),
-			_irq_handled(false),
-			_irq_dispatcher(ep, *this, &Platform_timer::_handle_irq)
+			_handled_wrap(false)
 		{
 			/* operate PIT in one-shot mode */
 			_io_port.outb(PIT_CMD_PORT, PIT_CMD_SELECT_CHANNEL_0 |
 			              PIT_CMD_ACCESS_LO_HI | PIT_CMD_MODE_IRQ);
 
-			_timer_irq.sigh(_irq_dispatcher);
+			_timer_irq.sigh(_irq_rec.manage(&_irq_ctx));
 			_timer_irq.ack_irq();
 		}
+
+		~Platform_timer() { _irq_rec.dissolve(&_irq_ctx); }
 
 		/**
 		 * Return current time-counter value in microseconds
@@ -208,10 +197,8 @@ class Platform_timer
 		 */
 		void wait_for_timeout(Genode::Thread_base *blocking_thread)
 		{
-			while (!_irq_handled)
-				Server::wait_and_dispatch_one_signal();
-
-			_irq_handled = false;
+			_irq_rec.wait_for_signal();
+			_timer_irq.ack_irq();
 		}
 };
 
