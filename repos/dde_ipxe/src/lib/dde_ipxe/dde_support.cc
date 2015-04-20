@@ -272,8 +272,8 @@ struct Irq_handler
 
 	void handle(unsigned)
 	{
-		irq.ack_irq();
 		handler(priv);
+		irq.ack_irq();
 	}
 
 	Irq_handler(Server::Entrypoint &ep, int irqnr,

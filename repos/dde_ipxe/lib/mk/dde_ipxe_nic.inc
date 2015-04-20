@@ -1,8 +1,6 @@
 LIB_DIR          := $(REP_DIR)/src/lib/dde_ipxe
 IPXE_CONTRIB_DIR := $(call select_from_ports,dde_ipxe)/src/lib/dde_ipxe/src
 
-LIBS = base
-
 SRC_CC = dde_support.cc
 SRC_C  = nic.c dde.c dummies.c
 
