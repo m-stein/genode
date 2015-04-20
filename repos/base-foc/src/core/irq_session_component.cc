@@ -69,10 +69,10 @@ class Genode::Irq_proxy_component : public Irq_proxy_base
 {
 	private:
 
-		Cap_index *_cap;
-		Semaphore  _sem;
-		long       _trigger;    /* interrupt trigger */
-		long       _polarity; /* interrupt polarity */
+		Cap_index             *_cap;
+		Semaphore              _sem;
+		Irq_session::Trigger   _trigger;  /* interrupt trigger */
+		Irq_session::Polarity  _polarity; /* interrupt polarity */
 
 		Native_thread _capability() const { return _cap->kcap(); }
 
@@ -123,7 +123,8 @@ class Genode::Irq_proxy_component : public Irq_proxy_base
 		:
 		 Irq_proxy_base(irq_number),
 		 _cap(cap_map()->insert(platform_specific()->cap_id_alloc()->alloc())),
-		 _sem(), _trigger(-1), _polarity(-1)
+		 _sem(), _trigger(Irq_session::TRIGGER_UNCHANGED),
+		 _polarity(Irq_session::POLARITY_UNCHANGED)
 		{
 			_start();
 		}
@@ -200,6 +201,9 @@ Irq_session_component::Irq_session_component(Range_allocator *irq_alloc,
 		     irq_trigger, irq_polarity);
 		throw Root::Unavailable();
 	}
+
+	/* set interrupt mode */
+	Platform::setup_irq_mode(irq_number, irq_trigger, irq_polarity);
 
 	_irq_number = irq_number;
 }
