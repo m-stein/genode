@@ -132,8 +132,6 @@ class Lx::Irq
 				 */
 				void _handle(unsigned)
 				{
-					_irq_conn.ack_irq();
-
 					_task.unblock();
 
 					/* kick off scheduling */
@@ -176,6 +174,8 @@ class Lx::Irq
 						if ((handled = _handle_one(h)))
 							break;
 					}
+
+					_irq_conn.ack_irq();
 				}
 
 				/**
