@@ -113,19 +113,18 @@ class I2c_interface : public Attached_mmio
 			TX_DELAY_US = 1,
 		};
 
-		Irq_connection                   _irq;
-		bool                             _irq_handled;
-		Signal_rpc_member<I2c_interface> _irq_dispatcher;
+		Irq_connection          _irq;
+		Genode::Signal_receiver _irq_rec;
+		Genode::Signal_context  _irq_ctx;
 
 		/**
 		 * Wait until the IRQ signal was received
 		 */
 		void _wait_for_irq()
 		{
-			while (!_irq_handled)
-				Server::wait_and_dispatch_one_signal();
+			_irq_rec.wait_for_signal();
 
-			_irq_handled = false;
+			_irq.ack_irq();
 		}
 
 		/**
@@ -209,11 +208,6 @@ class I2c_interface : public Attached_mmio
 			return 0;
 		}
 
-		void _handle_irq(unsigned)
-		{
-			_irq.ack_irq();
-			_irq_handled = true;
-		}
 
 	public:
 
@@ -223,10 +217,9 @@ class I2c_interface : public Attached_mmio
 		 * \param base  physical MMIO base
 		 * \param irq   interrupt name
 		 */
-		I2c_interface(Server::Entrypoint &ep, addr_t base, unsigned irq)
+		I2c_interface(addr_t base, unsigned irq)
 		:
-			Attached_mmio(base, 0x10000), _irq(irq), _irq_handled(false),
-			_irq_dispatcher(ep, *this, &I2c_interface::_handle_irq)
+			Attached_mmio(base, 0x10000), _irq(irq)
 		{
 			/* FIXME: is this a correct slave address? */
 			write<Add::Slave_addr>(0);
@@ -245,9 +238,11 @@ class I2c_interface : public Attached_mmio
 			Lc::Filter_en::set(lc, 1);
 			write<Lc>(lc);
 
-			_irq.sigh(_irq_dispatcher);
+			_irq.sigh(_irq_rec.manage(&_irq_ctx));
 			_irq.ack_irq();
 		}
+
+		~I2c_interface() { _irq_rec.dissolve(&_irq_ctx); }
 
 		/**
 		 * Transmit an I2C message as master
@@ -581,8 +576,8 @@ class I2c_hdmi : public I2c_interface
 		/**
 		 * Constructor
 		 */
-		I2c_hdmi(Server::Entrypoint &ep)
-		: I2c_interface(ep, 0x12ce0000, Genode::Board_base::I2C_HDMI_IRQ) { }
+		I2c_hdmi()
+		: I2c_interface(0x12ce0000, Genode::Board_base::I2C_HDMI_IRQ) { }
 
 		/**
 		 * Stop HDMI PHY from operating
@@ -964,8 +959,8 @@ class Hdmi : public Attached_mmio
 		/**
 		 * Constructor
 		 */
-		Hdmi(Server::Entrypoint &ep)
-		: Attached_mmio(0x14530000, 0xa0000), _i2c_hdmi(ep) { }
+		Hdmi()
+		: Attached_mmio(0x14530000, 0xa0000), _i2c_hdmi() { }
 
 		/**
 		 * Initialize HDMI controller for video output only
@@ -1149,7 +1144,7 @@ int Framebuffer::Driver::_init_hdmi(addr_t fb_phys)
 	if (err) { return -1; }
 
 	/* set-up HDMI to feed connected device */
-	static Hdmi hdmi(_ep);
+	static Hdmi hdmi;
 	err = hdmi.init_hdmi(_fb_width, _fb_height);
 	if (err) { return -1; }
 	return 0;

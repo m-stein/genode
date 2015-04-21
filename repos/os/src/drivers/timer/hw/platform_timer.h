@@ -31,37 +31,30 @@ class Platform_timer : public Platform_timer_base,
 
 		enum { MAX_TIMER_IRQS_PER_MS = 1 };
 
-		typedef Genode::Signal_rpc_member<Platform_timer> Signal_rpc_member;
+		unsigned long   const   _max_timeout_us;        /* maximum timeout in microsecs */
+		unsigned long mutable   _curr_time_us;          /* accumulate already measured timeouts */
+		unsigned long mutable   _init_value;            /* mark last processed timer value */
+		Genode::Lock  mutable   _update_curr_time_lock; /* serialize curr_time access */
 
-		unsigned long   const     _max_timeout_us;        /* maximum timeout in microsecs */
-		unsigned long mutable     _curr_time_us;          /* accumulate already measured timeouts */
-		unsigned long mutable     _init_value;            /* mark last processed timer value */
-		Genode::Lock  mutable     _update_curr_time_lock; /* serialize curr_time access */
-		bool mutable              _irq_handled;           /* flag handling of IRQ */
-		Signal_rpc_member mutable _irq_dispatcher;        /* handle IRQ signal */
-
-		void _handle_irq(unsigned)
-		{
-			Irq_connection::ack_irq();
-			_irq_handled = true;
-		}
+		Genode::Signal_receiver _irq_rec;
+		Genode::Signal_context  _irq_ctx;
 
 	public:
 
 		/**
 		 * Constructor
 		 */
-		Platform_timer(Server::Entrypoint &ep)
+		Platform_timer()
 		:
 			Irq_connection(Platform_timer_base::IRQ),
 			_max_timeout_us(tics_to_us(max_value())),
-			_curr_time_us(0), _init_value(0),
-			_irq_handled(false),
-			_irq_dispatcher(ep, *this, &Platform_timer::_handle_irq)
+			_curr_time_us(0), _init_value(0)
 		{
-			Irq_connection::sigh(_irq_dispatcher);
+			Irq_connection::sigh(_irq_rec.manage(&_irq_ctx));
 			Irq_connection::ack_irq();
 		}
+
+		~Platform_timer() { _irq_rec.dissolve(&_irq_ctx); }
 
 		/**
 		 * Refresh and return our instance-own "now"-time in microseconds
@@ -127,10 +120,8 @@ class Platform_timer : public Platform_timer_base,
 		 */
 		void wait_for_timeout(Genode::Thread_base *)
 		{
-			while (!_irq_handled)
-				Server::wait_and_dispatch_one_signal();
-
-			_irq_handled = false;
+			_irq_rec.wait_for_signal();
+			Irq_connection::ack_irq();
 		}
 };
 

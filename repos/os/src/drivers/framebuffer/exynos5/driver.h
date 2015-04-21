@@ -38,8 +38,6 @@ class Framebuffer::Driver
 
 	private:
 
-		Server::Entrypoint &_ep;
-
 		size_t _fb_width;
 		size_t _fb_height;
 		Format _fb_format;
@@ -59,9 +57,8 @@ class Framebuffer::Driver
 		/**
 		 * Constructor
 		 */
-		Driver(Server::Entrypoint &ep)
+		Driver()
 		:
-			_ep(ep),
 			_fb_width(0),
 			_fb_height(0),
 			_fb_format(FORMAT_RGB565)

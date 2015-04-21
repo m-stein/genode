@@ -104,7 +104,7 @@ class Platform_timer
 		/**
 		 * Constructor
 		 */
-		Platform_timer(Server::Entrypoint &ep)
+		Platform_timer()
 		:
 			_io_port(PIT_DATA_PORT_0, PIT_CMD_PORT - PIT_DATA_PORT_0 + 1),
 			_timer_irq(IRQ_PIT),

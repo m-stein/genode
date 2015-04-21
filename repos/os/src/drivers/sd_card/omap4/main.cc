@@ -30,7 +30,7 @@ struct Main
 		Factory(Server::Entrypoint &ep) : ep(ep) { }
 
 		Block::Driver *create() {
-			return new (Genode::env()->heap()) Block::Omap4_driver(ep, true); }
+			return new (Genode::env()->heap()) Block::Omap4_driver(true); }
 
 		void destroy(Block::Driver *driver) {
 			Genode::destroy(Genode::env()->heap(),

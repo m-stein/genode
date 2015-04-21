@@ -64,7 +64,6 @@ class Timer::Root_component : public Genode::Root_component<Session_component>
 		               Genode::Cap_session *cap)
 		:
 			Genode::Root_component<Session_component>(&ep.rpc_ep(), md_alloc),
-			_platform_timer(ep),
 			_timeout_scheduler(&_platform_timer, &ep.rpc_ep())
 		{ }
 };

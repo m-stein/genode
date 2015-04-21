@@ -87,7 +87,7 @@ struct Main
 
 		bool const use_dma = false;
 
-		static Block::Omap4_driver driver(ep, use_dma);
+		static Block::Omap4_driver driver(use_dma);
 
 		static Timer::Connection timer;
 

@@ -30,7 +30,7 @@ struct Main
 		Factory(Server::Entrypoint &ep) : ep(ep) { }
 
 		Block::Driver *create() {
-			return new (Genode::env()->heap()) Block::Imx53_driver(ep, true); }
+			return new (Genode::env()->heap()) Block::Imx53_driver(true); }
 
 		void destroy(Block::Driver *driver) {
 			Genode::destroy(Genode::env()->heap(),
@@ -58,4 +58,3 @@ namespace Server {
 	size_t stack_size()            { return 2*1024*sizeof(long); }
 	void construct(Entrypoint &ep) { static Main server(ep);     }
 }
-

@@ -97,7 +97,7 @@ struct Main
 
 		bool const use_dma = true;
 
-		static Block::Imx53_driver driver(ep, use_dma);
+		static Block::Imx53_driver driver(use_dma);
 
 		static Timer::Connection timer;
 

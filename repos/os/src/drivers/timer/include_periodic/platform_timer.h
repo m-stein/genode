@@ -37,7 +37,7 @@ class Platform_timer
 		/**
 		 * Constructor
 		 */
-		Platform_timer(Server::Entrypoint &ep) : _next_timeout_usec(max_timeout()), _curr_time_usec(0) { }
+		Platform_timer() : _next_timeout_usec(max_timeout()), _curr_time_usec(0) { }
 
 		/**
 		 * Set next relative timeout

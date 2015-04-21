@@ -48,7 +48,7 @@ class Platform_timer
 		/**
 		 * Constructor
 		 */
-		Platform_timer(Server::Entrypoint &ep)
+		Platform_timer()
 		:
 			_sem(~0UL), _timeout(0),
 			_tsc_start(Genode::Trace::timestamp())

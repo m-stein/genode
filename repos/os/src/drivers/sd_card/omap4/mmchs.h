@@ -500,9 +500,9 @@ struct Omap4_hsmmc_controller : private Mmchs, public Sd_card::Host_controller
 		Adma_desc::access_t *    const _adma_desc;
 		Genode::addr_t           const _adma_desc_phys;
 
-		Genode::Irq_connection _irq;
-		bool                   _irq_handled;
-		Genode::Signal_rpc_member<Omap4_hsmmc_controller> _irq_dispatcher;
+		Genode::Irq_connection  _irq;
+		Genode::Signal_receiver _irq_rec;
+		Genode::Signal_context  _irq_ctx;
 
 		Sd_card::Card_info _init()
 		{
@@ -690,14 +690,6 @@ struct Omap4_hsmmc_controller : private Mmchs, public Sd_card::Host_controller
 			return true;
 		}
 
-		void _wait_for_irq()
-		{
-			while (!_irq_handled)
-				Server::wait_and_dispatch_one_signal();
-
-			_irq_handled = false;
-		}
-
 		bool _wait_for_transfer_complete()
 		{
 			if (!wait_for<Stat::Tc>(1, _delayer, 1000*1000, 0)
@@ -739,7 +731,12 @@ struct Omap4_hsmmc_controller : private Mmchs, public Sd_card::Host_controller
 			 *     running processes.
 			 */
 			for (;;) {
-				_wait_for_irq();
+				/*
+				 * We ack the IRQ first to implicitly active receiving
+				 * IRQ signals when entering this loop for the first time.
+				 */
+				_irq.ack_irq();
+				_irq_rec.wait_for_signal();
 
 				/* check for transfer completion */
 				if (read<Stat::Tc>() == 1) {
@@ -758,11 +755,6 @@ struct Omap4_hsmmc_controller : private Mmchs, public Sd_card::Host_controller
 			}
 		}
 
-		void _handle_irq(unsigned)
-		{
-			_irq_handled = true;
-			_irq.ack_irq();
-		}
 
 	public:
 
@@ -773,8 +765,7 @@ struct Omap4_hsmmc_controller : private Mmchs, public Sd_card::Host_controller
 		 *
 		 * \param mmio_base  local base address of MMIO registers
 		 */
-		Omap4_hsmmc_controller(Server::Entrypoint &ep,
-		                       Genode::addr_t const mmio_base, Delayer &delayer,
+		Omap4_hsmmc_controller(Genode::addr_t const mmio_base, Delayer &delayer,
 		                       bool use_dma)
 		:
 			Mmchs(mmio_base), _delayer(delayer), _card_info(_init()),
@@ -784,12 +775,12 @@ struct Omap4_hsmmc_controller : private Mmchs, public Sd_card::Host_controller
 			              Genode::UNCACHED),
 			_adma_desc(_adma_desc_ds.local_addr<Adma_desc::access_t>()),
 			_adma_desc_phys(Genode::Dataspace_client(_adma_desc_ds.cap()).phys_addr()),
-			_irq(IRQ_NUMBER), _irq_handled(false),
-			_irq_dispatcher(ep, *this, &Omap4_hsmmc_controller::_handle_irq)
+			_irq(IRQ_NUMBER)
 		{
-			_irq.sigh(_irq_dispatcher);
-			_irq.ack_irq();
+			_irq.sigh(_irq_rec.manage(&_irq_ctx));
 		}
+
+		~Omap4_hsmmc_controller() { _irq_rec.dissolve(&_irq_ctx); }
 
 
 		/****************************************

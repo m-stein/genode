@@ -50,11 +50,11 @@ class Block::Imx53_driver : public Block::Driver
 
 	public:
 
-		Imx53_driver(Server::Entrypoint &ep, bool use_dma)
+		Imx53_driver(bool use_dma)
 		:
 			_esdhcv2_1_mmio(Genode::Board_base::ESDHCV2_1_MMIO_BASE,
 			                Genode::Board_base::ESDHCV2_1_MMIO_SIZE),
-			_controller(ep, (addr_t)_esdhcv2_1_mmio.local_addr<void>(),
+			_controller((addr_t)_esdhcv2_1_mmio.local_addr<void>(),
 			            Genode::Board_base::ESDHCV2_1_IRQ, _delayer, use_dma),
 			_use_dma(use_dma)
 		{

@@ -118,7 +118,7 @@ struct Main
 	Framebuffer::Driver  driver;
 
 	Main(Server::Entrypoint &ep)
-	: ep(ep), driver(ep)
+	: ep(ep), driver()
 	{
 		using namespace Framebuffer;
 

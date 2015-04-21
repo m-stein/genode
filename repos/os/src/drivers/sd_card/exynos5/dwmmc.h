@@ -318,9 +318,9 @@ struct Exynos5_msh_controller : private Dwmmc, Sd_card::Host_controller
 		Delayer           &_delayer;
 		Sd_card::Card_info _card_info;
 
-		Genode::Irq_connection _irq;
-		bool                   _irq_handled;
-		Genode::Signal_rpc_member<Exynos5_msh_controller> _irq_dispatcher;
+		Genode::Irq_connection  _irq;
+		Genode::Signal_receiver _irq_rec;
+		Genode::Signal_context  _irq_ctx;
 
 		Sd_card::Card_info _init()
 		{
@@ -468,10 +468,13 @@ struct Exynos5_msh_controller : private Dwmmc, Sd_card::Host_controller
 
 		void _wait_for_irq()
 		{
-			while (!_irq_handled)
-				Server::wait_and_dispatch_one_signal();
-
-			_irq_handled = false;
+			/*
+			 * Acknowledge the IRQ first to implicitly activate
+			 * receiving of further IRQ signals on the first usage
+			 * of this method.
+			 */
+			_irq.ack_irq();
+			_irq_rec.wait_for_signal();
 		}
 
 		bool _wait_for_transfer_complete()
@@ -501,11 +504,6 @@ struct Exynos5_msh_controller : private Dwmmc, Sd_card::Host_controller
 			}
 		}
 
-		void _handle_irq(unsigned)
-		{
-			_irq.ack_irq();
-			_irq_handled = true;
-		}
 
 	public:
 
@@ -520,13 +518,12 @@ struct Exynos5_msh_controller : private Dwmmc, Sd_card::Host_controller
 			               Genode::UNCACHED),
 			_idmac_desc(_idmac_desc_ds.local_addr<Idmac_desc>()),
 			_idmac_desc_phys(Genode::Dataspace_client(_idmac_desc_ds.cap()).phys_addr()),
-			_delayer(delayer), _card_info(_init()), _irq(IRQ_NUMBER),
-			_irq_dispatcher(ep, *this, &Exynos5_msh_controller::_handle_irq)
+			_delayer(delayer), _card_info(_init()), _irq(IRQ_NUMBER)
 		{
-			_irq.sigh(_irq_dispatcher);
-			_irq.ack_irq();
+			_irq.sigh(_irq_rec.manage(&_irq_ctx));
 		}
 
+		~Exynos5_msh_controller() { _irq_rec.dissolve(&_irq_ctx); }
 
 		bool _issue_command(Sd_card::Command_base const &command)
 		{

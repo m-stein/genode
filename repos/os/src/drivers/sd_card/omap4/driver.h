@@ -58,10 +58,10 @@ class Block::Omap4_driver : public Block::Driver
 
 	public:
 
-		Omap4_driver(Server::Entrypoint &ep, bool use_dma)
+		Omap4_driver(bool use_dma)
 		:
 			_mmchs1_mmio(MMCHS1_MMIO_BASE, MMCHS1_MMIO_SIZE),
-			_controller(ep, (addr_t)_mmchs1_mmio.local_addr<void>(),
+			_controller((addr_t)_mmchs1_mmio.local_addr<void>(),
 			            _delayer, use_dma),
 			_use_dma(use_dma)
 		{
