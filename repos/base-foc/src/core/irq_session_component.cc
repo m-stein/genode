@@ -131,20 +131,17 @@ class Genode::Irq_proxy_component : public Irq_proxy_base
 
 		Semaphore *semaphore() { return &_sem; }
 
-		bool match_mode(long trigger, long polarity)
+		Irq_session::Trigger  trigger()  const { return _trigger; }
+		Irq_session::Polarity polarity() const { return _polarity; }
+
+		void setup_irq_mode(Irq_session::Trigger t, Irq_session::Polarity p)
 		{
-			if (trigger == Irq_session::TRIGGER_UNCHANGED &&
-			    polarity == Irq_session::POLARITY_UNCHANGED)
-			 return true;
+			_trigger  = t;
+			_polarity = p;
 
-			if (_trigger < 0 && _polarity < 0)
-				return true;
-
-			return _trigger == trigger && _polarity == polarity;
+			/* set interrupt mode */
+			Platform::setup_irq_mode(_irq_number, _trigger, _polarity);
 		}
-
-		long trigger()  const { return _trigger; }
-		long polarity() const { return _polarity; }
 };
 
 
@@ -173,11 +170,41 @@ Irq_session_component::Irq_session_component(Range_allocator *irq_alloc,
 		throw Root::Unavailable();
 	}
 
-	long irq_trigger = Arg_string::find_arg(args, "irq_trigger").long_value(-1);
-	irq_trigger = irq_trigger == -1 ? 0 : irq_trigger;
+	long irq_t = Arg_string::find_arg(args, "irq_trigger").long_value(-1);
+	long irq_p = Arg_string::find_arg(args, "irq_polarity").long_value(-1);
 
-	long irq_polarity = Arg_string::find_arg(args, "irq_polarity").long_value(-1);
-	irq_polarity = irq_polarity == -1 ? 0 : irq_polarity;
+	Irq_session::Trigger irq_trigger;
+	Irq_session::Polarity irq_polarity;
+
+	switch(irq_t) {
+		case -1:
+		case Irq_session::TRIGGER_UNCHANGED:
+			irq_trigger = Irq_session::TRIGGER_UNCHANGED;
+			break;
+		case Irq_session::TRIGGER_EDGE:
+			irq_trigger = Irq_session::TRIGGER_EDGE;
+			break;
+		case Irq_session::TRIGGER_LEVEL:
+			irq_trigger = Irq_session::TRIGGER_LEVEL;
+			break;
+		default:
+			throw Root::Unavailable();
+	}
+
+	switch(irq_p) {
+		case -1:
+		case POLARITY_UNCHANGED:
+			irq_polarity = POLARITY_UNCHANGED;
+			break;
+		case POLARITY_HIGH:
+			irq_polarity = POLARITY_HIGH;
+			break;
+		case POLARITY_LOW:
+			irq_polarity = POLARITY_LOW;
+			break;
+		default:
+			throw Root::Unavailable();
+	}
 
 	/*
 	 * temporary hack for fiasco.oc using the local-apic,
@@ -193,17 +220,35 @@ Irq_session_component::Irq_session_component(Range_allocator *irq_alloc,
 		throw Root::Unavailable();
 	}
 
+	bool setup = false;
+	bool fail  = false;
+
 	/* sanity check  */
-	if (!_proxy->match_mode(irq_trigger, irq_polarity)) {
-		PERR("Interrupt mode mismatch: IRQ %ld current mode: t: %ld p: %ld"
-		     "request mode: trg: %ld p: %ld",
+	if (irq_trigger != TRIGGER_UNCHANGED && _proxy->trigger() != irq_trigger) {
+		if (_proxy->trigger() == TRIGGER_UNCHANGED)
+			setup = true;
+		else
+			fail = true;
+	}
+
+	if (irq_polarity != POLARITY_UNCHANGED && _proxy->polarity() != irq_polarity) {
+		if (_proxy->polarity() == POLARITY_UNCHANGED)
+			setup = true;
+		else
+			fail = true;
+	}
+
+	if (fail) {
+		PERR("Interrupt mode mismatch: IRQ %ld current mode: t: %d p: %d "
+		     "request mode: trg: %d p: %d",
 		     irq_number, _proxy->trigger(), _proxy->polarity(),
 		     irq_trigger, irq_polarity);
 		throw Root::Unavailable();
 	}
 
-	/* set interrupt mode */
-	Platform::setup_irq_mode(irq_number, irq_trigger, irq_polarity);
+	if (setup)
+		/* set interrupt mode */
+		_proxy->setup_irq_mode(irq_trigger, irq_polarity);
 
 	_irq_number = irq_number;
 }
