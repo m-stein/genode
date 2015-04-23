@@ -739,7 +739,7 @@ struct Omap4_hsmmc_controller : private Mmchs, public Sd_card::Host_controller
 				_irq_rec.wait_for_signal();
 
 				/* check for transfer completion */
-				if (read<Stat::Tc>() == 1) {
+				if (wait_for<Stat::Tc>(1, _delayer, 1000, 1)) {
 
 					/* clear transfer-completed bit */
 					write<Stat::Tc>(1);
