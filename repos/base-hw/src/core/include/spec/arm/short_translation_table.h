@@ -67,14 +67,27 @@ class Genode::Translation
 			T::Xn::set(v, !f.executable);
 			if (f.device) { T::Tex::set(v, _device_tex()); }
 			else {
-			switch (f.cacheable) {
-			case         CACHED: T::Tex::set(v, 5);
-			case WRITE_COMBINED: T::B::set(v, 1);   break;
-			case       UNCACHED: T::Tex::set(v, 1); break; } }
-			if (f.writeable) if (f.privileged) T::Ap::set(v, 1);
-				             else              T::Ap::set(v, 3);
-			else             if (f.privileged) T::Ap::set(v, 5);
-				             else              T::Ap::set(v, 2);
+				switch (f.cacheable) {
+				case CACHED:
+					T::Tex::set(v, 5);
+					T::B::set(v, 1);
+					break;
+				case WRITE_COMBINED:
+					T::Tex::set(v, 1);
+					break;
+				case UNCACHED:
+					if (Board::is_smp()) { T::B::set(v, 1); }
+					else { T::Tex::set(v, 2); }
+					break;
+				}
+			}
+			if (f.writeable) {
+				if (f.privileged) { T::Ap::set(v, 1); }
+				else              { T::Ap::set(v, 3); }
+			} else {
+				if (f.privileged) { T::Ap::set(v, 5); }
+				else              { T::Ap::set(v, 2); }
+			}
 			return v;
 		}
 };
