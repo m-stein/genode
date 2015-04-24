@@ -44,10 +44,9 @@ namespace Init {
 
 	static void warn_insuff_quota(Genode::size_t const avail)
 	{
-		using namespace Genode;
 		if (!config_verbose) { return; }
-		printf("Warning: Specified quota exceeds available quota.\n");
-		printf("         Proceeding with a quota of %zu.\n", avail);
+		Genode::printf("Warning: Specified quota exceeds available quota.\n");
+		Genode::printf("         Proceeding with a quota of %zu.\n", avail);
 	}
 
 	inline long read_priority(Genode::Xml_node start_node)
