@@ -33,6 +33,9 @@ namespace File_system {
 			Node(char const *name) : _name(name) { }
 
 			char   const *name()  const { return _name.base(); }
+
+			virtual size_t read(char *dst, size_t len, seek_off_t) = 0;
+			virtual size_t write(char const *src, size_t len, seek_off_t) = 0;
 	};
 
 }

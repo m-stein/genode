@@ -34,9 +34,6 @@ namespace File_system {
 					_listeners.remove(_listeners.first());
 			}
 
-			virtual size_t read(char *dst, size_t len, seek_off_t) = 0;
-			virtual size_t write(char const *src, size_t len, seek_off_t) = 0;
-
 			void lock()   { _lock.lock(); }
 			void unlock() { _lock.unlock(); }
 

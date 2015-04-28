@@ -36,7 +36,24 @@
 static bool const verbose = false;
 #define PDBGV(...) if (verbose) PDBG(__VA_ARGS__)
 
+/**
+ * Return true if 'str' is a valid file name
+ */
+static inline bool valid_filename(char const *str)
+{
+	if (!str) return false;
 
+	/* must have at least one character */
+	if (str[0] == 0) return false;
+
+	/* must not contain '/' or '\' or ':' */
+	if (string_contains(str, '/') ||
+		string_contains(str, '\\') ||
+		string_contains(str, ':'))
+		return false;
+
+	return true;
+}
 
 /**
  * This class updates the file system

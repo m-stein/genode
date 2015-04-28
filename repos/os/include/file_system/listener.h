@@ -13,17 +13,15 @@
 #include <base/lock.h>
 #include <base/signal.h>
 
-using namespace Genode;
-
 namespace File_system {
 
-	class Listener : public List<Listener>::Element
+	class Listener : public Genode::List<Listener>::Element
 	{
 		private:
 
-			Lock                      _lock;
-			Signal_context_capability _sigh;
-			bool                      _marked_as_updated;
+			Genode::Lock                      _lock;
+			Genode::Signal_context_capability _sigh;
+			bool                 _marked_as_updated;
 
 		public:
 
@@ -34,7 +32,7 @@ namespace File_system {
 
 			void notify()
 			{
-				Lock::Guard guard(_lock);
+				Genode::Lock::Guard guard(_lock);
 
 				if (_marked_as_updated && _sigh.valid())
 					Signal_transmitter(_sigh).submit();
@@ -44,7 +42,7 @@ namespace File_system {
 
 			void mark_as_updated()
 			{
-				Lock::Guard guard(_lock);
+				Genode::Lock::Guard guard(_lock);
 
 				_marked_as_updated = true;
 			}
