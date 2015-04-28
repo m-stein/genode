@@ -20,3 +20,43 @@
  	if (base == NULL)
  		return;
  
+--- a/drivers/usb/host/xhci-plat.c
++++ b/drivers/usb/host/xhci-plat.c
+@@ -130,7 +130,7 @@
+ 		goto put_hcd;
+ 	}
+ 
+-	hcd->regs = ioremap_nocache(hcd->rsrc_start, hcd->rsrc_len);
++	hcd->regs = ioremap_nocache(hcd->rsrc_start, hcd->rsrc_len, to_pci_dev(&pdev->dev));
+ 	if (!hcd->regs) {
+ 		dev_dbg(&pdev->dev, "error mapping memory\n");
+ 		ret = -EFAULT;
+--- a/drivers/usb/host/dwc_otg/dwc_otg/dwc_otg_driver.c
++++ b/drivers/usb/host/dwc_otg/dwc_otg/dwc_otg_driver.c
+@@ -800,7 +800,7 @@ static int dwc_otg_driver_probe(
+ 
+ 	dwc_otg_device->os_dep.base = ioremap_nocache(_dev->resource[0].start,
+                                                       _dev->resource[0].end -
+-                                                      _dev->resource[0].start+1);
++                                                      _dev->resource[0].start+1, 0);
+ 	if (fiq_enable)
+ 	{
+ 		if (!request_mem_region(_dev->resource[1].start,
+@@ -813,7 +813,7 @@ static int dwc_otg_driver_probe(
+ 
+ 		dwc_otg_device->os_dep.mphi_base = ioremap_nocache(_dev->resource[1].start,
+ 							    _dev->resource[1].end -
+-							    _dev->resource[1].start + 1);
++							    _dev->resource[1].start + 1, 0);
+ 	}
+ 
+ #else
+@@ -911,7 +911,7 @@ static int dwc_otg_driver_probe(
+ 	dev_dbg(&_dev->dev, "Calling request_irq(%d)\n", devirq);
+ 	retval = request_irq(devirq, dwc_otg_common_irq,
+                              IRQF_SHARED,
+-                             "dwc_otg", dwc_otg_device);
++                             "dwc_otg", dwc_otg_device, 0);
+ 	if (retval) {
+ 		DWC_ERROR("request of irq%d failed\n", devirq);
+ 		retval = -EBUSY;
