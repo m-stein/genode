@@ -16,14 +16,12 @@
 #define _KERNEL__CPU_H_
 
 /* core includes */
-#include <translation_table.h>
 #include <timer.h>
 #include <cpu.h>
 #include <kernel/cpu_scheduler.h>
 #include <kernel/irq.h>
 
-/* base includes */
-#include <unmanaged_singleton.h>
+namespace Genode { class Translation_table; }
 
 namespace Kernel
 {

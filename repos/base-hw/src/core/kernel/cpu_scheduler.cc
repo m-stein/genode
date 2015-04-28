@@ -11,9 +11,12 @@
  * under the terms of the GNU General Public License version 2.
  */
 
+/* core includes */
 #include <kernel/cpu_scheduler.h>
+#include <assert.h>
 
 using namespace Kernel;
+
 
 void Cpu_scheduler::_reset(Claim * const c) {
 	_share(c)->_claim = _share(c)->_quota; }

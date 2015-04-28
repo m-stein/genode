@@ -17,7 +17,6 @@
 /* core includes */
 #include <kernel/fifo.h>
 #include <kernel/interface.h>
-#include <assert.h>
 
 namespace Kernel
 {

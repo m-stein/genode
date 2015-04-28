@@ -15,7 +15,6 @@
 #define _KERNEL__SIGNAL_RECEIVER_H_
 
 /* Genode includes */
-#include <util/fifo.h>
 #include <base/signal.h>
 
 /* core include */

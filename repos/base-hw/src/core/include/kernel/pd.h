@@ -19,8 +19,6 @@
 #include <kernel/early_translations.h>
 #include <kernel/object.h>
 #include <kernel/cpu.h>
-#include <assert.h>
-#include <page_slab.h>
 
 namespace Kernel
 {

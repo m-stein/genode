@@ -11,8 +11,12 @@
  * under the terms of the GNU General Public License version 2.
  */
 
+/* Genode includes */
 #include <util/string.h>
+
+/* core includes */
 #include <kernel/ipc_node.h>
+#include <assert.h>
 
 using namespace Kernel;
 

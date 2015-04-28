@@ -16,7 +16,6 @@
 
 /* core includes */
 #include <util.h>
-#include <assert.h>
 #include <kernel/configuration.h>
 #include <kernel/double_list.h>
 

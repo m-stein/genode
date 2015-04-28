@@ -11,6 +11,7 @@
  * under the terms of the GNU General Public License version 2.
  */
 
+/* core includes */
 #include <kernel/double_list.h>
 
 using namespace Kernel;
