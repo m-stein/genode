@@ -121,6 +121,12 @@ namespace Genode {
 			 */
 			static long irq(long const user_irq);
 
+			/**
+			 * Set interrupt trigger mode and polarity.
+			 */
+			static void setup_irq_mode(unsigned irq_number, unsigned trigger,
+									   unsigned polarity);
+
 			/********************************
 			 ** Platform_generic interface **
 			 ********************************/
