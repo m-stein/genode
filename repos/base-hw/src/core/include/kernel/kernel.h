@@ -31,11 +31,6 @@ namespace Kernel {
 	Pd                      * core_pd();
 	Mode_transition_control * mtc();
 	Pic                     * pic();
-
-	/**
-	 * Hook that enables automated testing of kernel internals
-	 */
-	void test();
 }
 
 #endif /* _KERNEL__KERNEL_H_ */

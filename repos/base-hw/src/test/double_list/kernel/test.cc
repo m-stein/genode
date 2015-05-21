@@ -17,7 +17,7 @@
 
 /* core includes */
 #include <kernel/double_list.h>
-#include <kernel/kernel.h>
+#include <kernel/test.h>
 
 
 /*

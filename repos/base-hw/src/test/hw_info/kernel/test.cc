@@ -15,7 +15,7 @@
 #include <base/printf.h>
 
 /* core includes */
-#include <kernel/kernel.h>
+#include <kernel/test.h>
 
 using namespace Genode;
 

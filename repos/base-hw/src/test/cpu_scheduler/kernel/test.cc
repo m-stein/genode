@@ -13,7 +13,7 @@
 
 /* core includes */
 #include <kernel/cpu_scheduler.h>
-#include <kernel/kernel.h>
+#include <kernel/test.h>
 
 /*
  * Utilities

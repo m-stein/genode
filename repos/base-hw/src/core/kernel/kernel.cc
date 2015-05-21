@@ -27,6 +27,7 @@
 #include <kernel/lock.h>
 #include <kernel/pd.h>
 #include <kernel/kernel.h>
+#include <kernel/test.h>
 #include <platform_pd.h>
 #include <trustzone.h>
 #include <timer.h>
