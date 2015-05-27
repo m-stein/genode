@@ -80,7 +80,7 @@ long Platform::irq(long const user_irq)
 
 
 void Platform::setup_irq_mode(unsigned irq_number, unsigned trigger,
-							  unsigned polarity)
+                              unsigned polarity)
 {
 	Kernel::pic()->ioapic.setup_irq_mode(irq_number, trigger, polarity);
 }

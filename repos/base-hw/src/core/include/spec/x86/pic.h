@@ -71,7 +71,7 @@ class Genode::Ioapic : public Mmio
 		};
 
 		/**
-		 * IRQ mode specifies trigger mode and polarity of an IRQ.
+		 * IRQ mode specifies trigger mode and polarity of an IRQ
 		 */
 		struct Irq_mode
 		{
@@ -90,10 +90,11 @@ class Genode::Ioapic : public Mmio
 		}
 
 		/**
-		 * Update IRT entry of given IRQ.
+		 * Update IRT entry of given IRQ
 		 *
-		 * Note: The polarity and trigger flags are located in the lower 32 bits
-		 *       so only the necessary half of the IRT entry is updated.
+		 * Note: The polarity and trigger flags are located in the lower
+		 *       32 bits so only the necessary half of the IRT entry is
+		 *       updated.
 		 */
 		void _update_irt_entry(unsigned irq)
 		{
@@ -129,7 +130,7 @@ class Genode::Ioapic : public Mmio
 		{
 			for (unsigned i = 0; i < IRQ_COUNT; i++)
 			{
-				/* Set legacy/ISA IRQs to edge, high */
+				/* set legacy/ISA IRQs to edge, high */
 				if (i <= Board::ISA_IRQ_END) {
 					_irq_mode[i].trigger_mode = TRIGGER_EDGE;
 					_irq_mode[i].polarity = POLARITY_HIGH;
@@ -138,7 +139,7 @@ class Genode::Ioapic : public Mmio
 					_irq_mode[i].polarity = POLARITY_LOW;
 				}
 
-				/* Remap all IRQs managed by I/O APIC */
+				/* remap all IRQs managed by I/O APIC */
 				if (i <= IRTE_COUNT) {
 					Irte::access_t irte = _create_irt_entry(i);
 					write<Ioregsel>(IOREDTBL + 2 * i + 1);
@@ -149,7 +150,12 @@ class Genode::Ioapic : public Mmio
 			}
 		};
 
-		/* Set/unset mask bit of IRTE for given vector */
+		/**
+		 * Set/unset mask bit of IRTE for given vector
+		 *
+		 * \param vector  targeted vector
+		 * \param set     whether to set or to unset the mask bit
+		 */
 		void toggle_mask(unsigned const vector, bool const set)
 		{
 			const unsigned irq = vector - REMAP_BASE;
@@ -171,13 +177,19 @@ class Genode::Ioapic : public Mmio
 		}
 
 		/**
-		 * Setup mode of IRQ with given number to specified trigger mode and
-		 * polarity.
+		 * Setup mode of an IRQ to specified trigger mode and polarity
+		 *
+		 * \param irq_number  ID of targeted interrupt
+		 * \param trigger     new interrupt trigger mode
+		 * \param polarity    new interrupt polarity setting
 		 */
 		void setup_irq_mode(unsigned irq_number, unsigned trigger,
-							unsigned polarity);
+		                    unsigned polarity);
 
-		/* Registers */
+		/*
+		 * Registers
+		 */
+
 		struct Ioregsel : Register<0x00, 32> { };
 		struct Iowin    : Register<0x10, 32> { };
 };
@@ -186,7 +198,10 @@ class Genode::Pic : public Mmio
 {
 	private:
 
-		/* Registers */
+		/*
+		 * Registers
+		 */
+
 		struct EOI : Register<0x0b0, 32, true> { };
 		struct Svr : Register<0x0f0, 32>
 		{
@@ -194,11 +209,11 @@ class Genode::Pic : public Mmio
 		};
 
 		/*
-		 * ISR register, see Intel SDM Vol. 3A, section 10.8.4. Each of the 8
-		 * 32-bit ISR values is followed by 12 bytes of padding.
+		 * ISR register, see Intel SDM Vol. 3A, section 10.8.4.
+		 *
+		 * Each of the 8 32-bit ISR values is followed by 12 bytes of padding.
 		 */
 		struct Isr : Register_array<0x100, 32, 8 * 4, 32> { };
-
 
 		/**
 		 * Determine lowest pending interrupt in ISR register
@@ -221,6 +236,7 @@ class Genode::Pic : public Mmio
 		}
 
 	public:
+
 		enum {
 			/*
 			 * FIXME: dummy ipi value on non-SMP platform, should be removed
