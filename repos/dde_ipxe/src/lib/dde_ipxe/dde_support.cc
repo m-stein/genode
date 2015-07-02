@@ -76,8 +76,7 @@ extern "C" void dde_udelay(unsigned long usecs)
 {
 	/*
 	 * This function is called only once during rdtsc calibration (usecs will be
-	 * 10000, see dde.c 'udelay'. We do not use DDE timers here, since Genode's
-	 * timer connection is the most precise one around.
+	 * 10000, see dde.c 'udelay'.
 	 */
 	static Timer::Connection timer;
 	timer.usleep(usecs);

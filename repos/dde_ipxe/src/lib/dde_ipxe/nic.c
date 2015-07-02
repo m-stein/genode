@@ -306,7 +306,6 @@ int dde_ipxe_nic_init(void *ep)
 	/* find iPXE NIC device */
 	net_dev = find_netdev_by_location(BUS_TYPE_PCI, location);
 
-
 	/* open iPXE NIC device */
 	if (netdev_open(net_dev)) {
 		LOG("opening device " FMT_BUSDEVFN " failed",
