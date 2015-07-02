@@ -82,7 +82,7 @@ static bool object_is_constructed;
 struct Object : Genode::Weak_object<Object>
 {
 	Object() { object_is_constructed = true; }
-	
+
 	~Object()
 	{
 		Weak_object<Object>::lock_for_destruction();
@@ -263,7 +263,7 @@ struct Object_with_delayed_destruction
 	Timer::Connection timer;
 
 	Object_with_delayed_destruction() { object_is_constructed = true; }
-	
+
 	~Object_with_delayed_destruction()
 	{
 		Weak_object<Object_with_delayed_destruction>::lock_for_destruction();
