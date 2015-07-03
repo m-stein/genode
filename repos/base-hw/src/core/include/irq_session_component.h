@@ -28,7 +28,7 @@ class Genode::Irq_session_component : public Rpc_object<Irq_session>,
 {
 	private:
 
-		unsigned         _irq_number;
+		addr_t           _irq_number;
 		Range_allocator *_irq_alloc;
 		Genode::uint8_t  _kernel_object[sizeof(Kernel::User_irq)];
 

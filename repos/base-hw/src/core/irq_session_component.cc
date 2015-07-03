@@ -41,14 +41,14 @@ void Irq_session_component::ack_irq()
 void Irq_session_component::sigh(Signal_context_capability cap)
 {
 	if (_sig_cap.valid()) {
-		PWRN("signal handler already registered for IRQ %u", _irq_number);
+		PWRN("signal handler already registered for IRQ %lu", _irq_number);
 		return;
 	}
 
 	_sig_cap = cap;
 
 	if (Kernel::new_irq((addr_t)&_kernel_object, _irq_number, _sig_cap.dst()))
-		PWRN("invalid signal handler for IRQ %u", _irq_number);
+		PWRN("invalid signal handler for IRQ %lu", _irq_number);
 }
 
 
@@ -74,7 +74,7 @@ Irq_session_component::Irq_session_component(Range_allocator * const irq_alloc,
 
 	/* allocate interrupt */
 	if (_irq_alloc->alloc_addr(1, _irq_number).is_error()) {
-		PERR("unavailable interrupt %d requested", _irq_number);
+		PERR("unavailable interrupt %lu requested", _irq_number);
 		throw Root::Invalid_args();
 	}
 
@@ -96,7 +96,7 @@ Irq_session_component::Irq_session_component(Range_allocator * const irq_alloc,
 		irq_trigger = Irq_session::TRIGGER_LEVEL;
 		break;
 	default:
-		PERR("invalid trigger mode %ld specified for IRQ %u", irq_trg,
+		PERR("invalid trigger mode %ld specified for IRQ %lu", irq_trg,
 		     _irq_number);
 		throw Root::Unavailable();
 	}
@@ -113,7 +113,7 @@ Irq_session_component::Irq_session_component(Range_allocator * const irq_alloc,
 		irq_polarity = POLARITY_LOW;
 		break;
 	default:
-		PERR("invalid polarity %ld specified for IRQ %u", irq_pol,
+		PERR("invalid polarity %ld specified for IRQ %lu", irq_pol,
 		     _irq_number);
 		throw Root::Unavailable();
 	}
