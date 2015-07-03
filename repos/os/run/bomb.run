@@ -35,6 +35,6 @@ build_boot_image "core init bomb timer"
 
 append qemu_args "-nographic -m 128"
 
-run_genode_until "Done\. Going to sleep\." 150
+run_genode_until "Done\. Going to sleep\." 300
 
 puts "Test succeeded."
