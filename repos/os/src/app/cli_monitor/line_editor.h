@@ -618,7 +618,7 @@ class Line_editor
 		}
 
 		void _list_matching_arguments(char const *str, size_t str_len,
-		                              unsigned pad, Command const &command) const
+		                              unsigned pad, Command const &command)
 		{
 			auto argument_fn = [&] (Argument const &arg) {
 
