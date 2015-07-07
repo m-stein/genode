@@ -118,7 +118,7 @@ void Cpu_job::quota(unsigned const q)
 
 
 Cpu_job::Cpu_job(Cpu_priority const p, unsigned const q)
-: Cpu_share(p, q), _cpu(0) { }
+: Cpu_share(p, q), _cpu(0), _spent(0), _used(0) { }
 
 
 Cpu_job::~Cpu_job()
@@ -181,13 +181,18 @@ void Cpu::exception()
 {
 	/* update old job */
 	Job * const old_job = scheduled_job();
-
 	old_job->exception(_id);
 
-	/* update scheduler */
+	/* determine quota consumption */
 	unsigned const old_time = _scheduler.head_quota();
 	unsigned const new_time = _timer->value(_id);
 	unsigned quota = old_time > new_time ? old_time - new_time : 1;
+
+	/* update quota stats */
+	old_job->used(quota);
+	scheduled_helper()->spent(quota);
+
+	/* update scheduler */
 	_scheduler.update(quota);
 
 	/* get new job */

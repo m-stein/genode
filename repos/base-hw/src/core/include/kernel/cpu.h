@@ -124,6 +124,10 @@ class Kernel::Cpu_job : public Cpu_share
 		Cpu *          _cpu;
 		Cpu_lazy_state _lazy_state;
 
+		/* quota stats */
+		unsigned long long _spent;
+		unsigned long long _used;
+
 		/**
 		 * Handle interrupt exception that occured during execution on CPU 'id'
 		 */
@@ -160,6 +164,15 @@ class Kernel::Cpu_job : public Cpu_share
 		 * Continue execution on CPU 'id'
 		 */
 		virtual void proceed(unsigned const id) = 0;
+
+		void used(unsigned const quota) {
+			_used = quota > (~0ULL - _used) ? ~0ULL : _used + quota; };
+
+		void spent(unsigned const quota) {
+			_spent = quota > (~0ULL - _spent) ? ~0ULL : _spent + quota; };
+
+		unsigned long long spent() const { return _spent; }
+		unsigned long long used() const { return _used; }
 
 		/**
 		 * Return which job currently uses our CPU-share
@@ -315,6 +328,9 @@ class Kernel::Cpu : public Genode::Cpu,
 		 */
 		Job * scheduled_job() const {
 			return static_cast<Job *>(_scheduler.head())->helping_sink(); }
+
+		Job * scheduled_helper() const {
+			return static_cast<Job *>(_scheduler.head()); }
 
 		unsigned id() const { return _id; }
 		Cpu_scheduler * scheduler() { return &_scheduler; }
