@@ -188,6 +188,8 @@ size_t Thread::_core_to_kernel_quota(size_t const quota) const
 	return Cpu_session::quota_lim_downscale<sizet_arithm_t>(quota, tics);
 }
 
+Thread_list * thread_list() {
+	return unmanaged_singleton<Thread_list>(); }
 
 void Thread::_call_new_thread()
 {
@@ -197,6 +199,9 @@ void Thread::_call_new_thread()
 	char const * const label    = (char *)user_arg_4();
 	Core_object<Thread> * co =
 		Genode::construct_at<Core_object<Thread> >(p, priority, quota, label);
+	Thread * const t = dynamic_cast<Thread *>(co);
+	assert(t);
+	thread_list()->insert(t);
 	user_arg_0(co->core_capid());
 }
 
@@ -709,7 +714,12 @@ void Thread::_call()
 	switch (call_id) {
 	case call_id_new_thread():             _call_new_thread(); return;
 	case call_id_thread_quota():           _call_thread_quota(); return;
-	case call_id_delete_thread():          _call_delete<Thread>(); return;
+	case call_id_delete_thread():
+
+thread_list()->remove(reinterpret_cast<Thread *>(user_arg_1()));
+_call_delete<Thread>();
+return;
+
 	case call_id_start_thread():           _call_start_thread(); return;
 	case call_id_resume_thread():          _call_resume_thread(); return;
 	case call_id_access_thread_regs():     _call_access_thread_regs(); return;

@@ -26,6 +26,8 @@ namespace Kernel
 {
 	class Thread;
 
+	typedef Genode::List<Thread> Thread_list;
+
 	/**
 	 * Kernel backend for userland execution-contexts
 	 */
@@ -38,7 +40,8 @@ class Kernel::Thread
 : public Kernel::Object,
   public Cpu::User_context,
   public Cpu_domain_update, public Ipc_node, public Signal_context_killer,
-  public Signal_handler, public Thread_base, public Cpu_job
+  public Signal_handler, public Thread_base, public Cpu_job,
+  public Thread_list::Element
 {
 	friend class Thread_event;
 	friend class Core_thread;
