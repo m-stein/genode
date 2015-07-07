@@ -637,5 +637,6 @@ int main(int, char **)
 	many_managed_contexts();
 
 	printf("--- signalling test finished ---\n");
+	Kernel::print_char(0);
 	return 0;
 }
