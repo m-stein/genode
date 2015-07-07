@@ -506,7 +506,24 @@ void Thread::_print_activity_when_awaits_ipc()
 }
 
 
-void Thread::_call_print_char() { Genode::printf("%c", (char)user_arg_1()); }
+void Thread::_call_print_char()
+{
+	char const c = (char)user_arg_1();
+	if (!c) {
+		Genode::printf("--- spent quota stats ---\n");
+		for (Thread * t = thread_list()->first(); t; t = t->Thread_list::Element::next())
+		{
+			Genode::printf("%llu   [%s] %s\n", t->spent(), t->pd_label(), t->label());
+		}
+		Genode::printf("\n");
+		Genode::printf("--- used quota stats ---\n");
+		for (Thread * t = thread_list()->first(); t; t = t->Thread_list::Element::next())
+		{
+			Genode::printf("%llu   [%s] %s\n", t->used(), t->pd_label(), t->label());
+		}
+	}
+	Genode::printf("%c", c);
+}
 
 
 void Thread::_call_await_signal()
