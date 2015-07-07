@@ -167,9 +167,14 @@ void Cpu::Ipi::trigger(unsigned const cpu_id)
 
 Cpu::Ipi::Ipi(Irq::Pool &p) : Irq(Pic::IPI, p) { }
 
+enum { THREAD_QUOTA_STATS_IRQ = ~0UL };
+
+void print_thread_quota_stats();
 
 bool Cpu::interrupt(unsigned const irq_id)
 {
+	if (irq_id == THREAD_QUOTA_STATS_IRQ) {
+		print_thread_quota_stats(); }
 	Irq * const irq = object(irq_id);
 	if (!irq) return false;
 	irq->occurred();
