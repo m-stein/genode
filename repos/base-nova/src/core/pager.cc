@@ -918,7 +918,7 @@ void Pager_entrypoint::dissolve(Pager_object *obj)
 	/* revoke cap selector locally */
 	revoke(pager_obj.dst(), true);
 	/* remove object from pool */
-	remove_locked(obj);
+	remove(obj);
 	/* take care that no faults are in-flight */
 	obj->cleanup_call();
 }

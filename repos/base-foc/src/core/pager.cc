@@ -42,13 +42,11 @@ void Pager_entrypoint::entry()
 
 		reply_pending = false;
 
-		/* lookup referenced object */
-		Object_pool<Pager_object>::Guard obj(lookup_and_lock(_pager.badge()));
-
+		apply(_pager.badge(), [&] (Pager_object *obj) {
 		/* the pager_object might be destroyed, while we got the message */
 		if (!obj) {
 			PWRN("No pager object found!");
-			continue;
+			return;
 		}
 
 		switch (_pager.msg_type()) {
@@ -62,7 +60,7 @@ void Pager_entrypoint::entry()
 					obj->state.exceptions++;
 					obj->state.in_exception = true;
 					obj->submit_exception_signal();
-					continue;
+					return;
 				}
 
 				/* handle request */
@@ -73,7 +71,7 @@ void Pager_entrypoint::entry()
 				} else {
 					_pager.set_reply_dst(obj->badge());
 					reply_pending = true;
-					continue;
+					return;
 				}
 				break;
 			}
@@ -132,6 +130,7 @@ void Pager_entrypoint::entry()
 		default:
 			PERR("Got unknown message type %x!", _pager.msg_type());
 		}
+		});
 	};
 }
 
@@ -141,7 +140,7 @@ void Pager_entrypoint::dissolve(Pager_object *obj)
 	/* cleanup at cap session */
 	_cap_session->free(obj->Object_pool<Pager_object>::Entry::cap());
 
-	remove_locked(obj);
+	remove(obj);
 }
 
 
