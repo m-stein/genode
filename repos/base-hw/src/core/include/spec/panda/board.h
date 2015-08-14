@@ -18,6 +18,8 @@
 #include <util/mmio.h>
 #include <spec/cortex_a9/board_support.h>
 
+namespace Kernel { class Pd; }
+
 namespace Genode
 {
 	struct Board : Cortex_a9::Board
@@ -25,9 +27,12 @@ namespace Genode
 		static void outer_cache_invalidate();
 		static void outer_cache_flush();
 		static void prepare_kernel();
-		static void secondary_cpus_ip(void * const ip) { }
+		static void secondary_cpus_ip(void * const ip);
 		static bool is_smp() { return true; }
 	};
+
+	void board_init_mp_async(bool const primary, Kernel::Pd * const core_pd);
+	void board_init_mp_sync(unsigned const cpu);
 }
 
 #endif /* _BOARD_H_ */

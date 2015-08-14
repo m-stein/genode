@@ -397,7 +397,7 @@ void Thread::_call_update_instr_region()
 	 */
 	if (!_core()) {
 		Cpu::flush_data_caches();
-		Cpu::invalidate_instr_caches();
+		Cpu::iciallu();
 		return;
 	}
 	auto base = (addr_t)user_arg_1();

@@ -45,7 +45,7 @@ struct Sctlr : Arm::Sctlr
  * Must be inserted directly before the targeted operation. Returns operand
  * for targeted operation in R6.
  */
-#define FOR_ALL_SET_WAY_OF_ALL_DATA_CACHES_0 \
+#define FOR_ALL_SET_WAY_IN_R6_0 \
  \
 	/* get the cache level value (Clidr::Loc) */ \
 	READ_CLIDR(r0) \
@@ -112,7 +112,7 @@ struct Sctlr : Arm::Sctlr
  *
  * Must be inserted directly after the targeted operation.
  */
-#define FOR_ALL_SET_WAY_OF_ALL_DATA_CACHES_1 \
+#define FOR_ALL_SET_WAY_IN_R6_1 \
  \
 	/* decrement the index */ \
 	"subs r7, r7, #1\n" \
@@ -154,12 +154,40 @@ void Genode::Arm::flush_data_caches()
 }
 
 
-void Genode::Arm::invalidate_data_caches()
+/**
+ * Data Cache Invalidate by Set/Way for all Set/Way
+ */
+static void dcisw_for_all_set_way()
 {
 	asm volatile (
-		FOR_ALL_SET_WAY_OF_ALL_DATA_CACHES_0
+		FOR_ALL_SET_WAY_IN_R6_0
 		WRITE_DCISW(r6)
-		FOR_ALL_SET_WAY_OF_ALL_DATA_CACHES_1);
+		FOR_ALL_SET_WAY_IN_R6_1);
+}
+
+
+/**
+ * Data Cache Clean by Set/Way for all Set/Way
+ */
+static void dccsw_for_all_set_way()
+{
+	asm volatile (
+		FOR_ALL_SET_WAY_IN_R6_0
+		WRITE_DCCSW(r6)
+		FOR_ALL_SET_WAY_IN_R6_1);
+}
+
+
+void Genode::Arm::flush_data_caches()
+{
+	dccsw_for_all_set_way();
+	Board::outer_cache_flush();
+}
+
+
+void Genode::Arm::invalidate_data_caches()
+{
+	dcisw_for_all_set_way
 	Board::outer_cache_invalidate();
 }
 
@@ -201,7 +229,7 @@ void Arm_v7::init_phys_kernel()
 {
 	Board::prepare_kernel();
 	init_sctlr(false);
-	Psr::write(Psr::init_kernel());
+	init_psr(true);
 	flush_tlb();
 	finish_init_phys_kernel();
 }

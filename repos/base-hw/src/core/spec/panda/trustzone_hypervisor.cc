@@ -13,14 +13,16 @@
 
 /* core includes */
 #include <pl310.h>
+#include <cpu.h>
 
 using namespace Genode;
 
 enum Trustzone_hypervisor_syscalls
 {
-	PL310_DEBUG_WRITE  = 0x100,
-	PL310_ENABLE_WRITE = 0x102,
-	PL310_AUX_WRITE    = 0x109,
+	CPU_ACTLR_SMP_BIT_RAISE =  0x25,
+	PL310_DEBUG_WRITE       = 0x100,
+	PL310_ENABLE_WRITE      = 0x102,
+	PL310_AUX_WRITE         = 0x109,
 };
 
 static inline void trustzone_hypervisor_call(addr_t func, addr_t val)
@@ -42,4 +44,8 @@ void Genode::pl310_aux(Pl310::Aux::access_t const v) {
 
 
 void Genode::pl310_debug(Pl310::Debug::access_t const v) {
-	trustzone_hypervisor_call(PL310_DEBUG_WRITE, v); }
+	trustzone_hypervisor_call(PL310_DEBUG_WRITE
+
+
+void Genode::cpu_actlr_smp_bit_raise() {
+	trustzone_hypervisor_call(CPU_ACTLR_SMP_BIT_RAISE, 0); }

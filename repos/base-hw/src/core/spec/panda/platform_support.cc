@@ -17,7 +17,7 @@
 #include <pl310.h>
 #include <cpu.h>
 #include <pic.h>
-#include <unmanaged_singleton.h>
+#include <cortex_a9_wugen.h>
 
 using namespace Genode;
 
@@ -69,7 +69,16 @@ static Pl310 * l2_cache() {
 
 void Board::outer_cache_invalidate() { l2_cache()->invalidate(); }
 void Board::outer_cache_flush()      { l2_cache()->flush();      }
-void Board::prepare_kernel()         { l2_cache()->invalidate(); }
 
 
-Cpu::User_context::User_context() { cpsr = Psr::init_user(); }
+extern bool volatile board_start_init_mp_async_sec;
+
+
+void board_secondary_cpus_ip(void * const ip)
+{
+	Cortex_a9_wugen::singleton()->init_cpu_1(ip);
+	board_start_init_mp_async_secnd = false;
+}
+
+
+Cpu::User_context::User_context() { cpsr = Cpu::init_psr_value(0); }

@@ -29,6 +29,11 @@ namespace Genode
 	 * CPU driver for core
 	 */
 	class Cpu;
+
+	/**
+	 * Raise the SMP bit of the Auxiliary Control Register
+	 */
+	void cpu_actlr_smp_bit_raise();
 }
 
 namespace Kernel { using Genode::Cpu_lazy_state; }

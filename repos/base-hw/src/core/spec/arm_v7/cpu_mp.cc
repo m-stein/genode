@@ -39,6 +39,7 @@ void Kernel::cpu_start_secondary(void * const ip)
 {
 	using namespace Genode;
 	Board::secondary_cpus_ip(ip);
+	Cpu::dccsw_for_all_set_way();
 	Cpu::data_synchronization_barrier();
 	asm volatile ("sev\n");
 }

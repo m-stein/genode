@@ -22,13 +22,35 @@ namespace Genode
 	class Board : public Board_base
 	{
 		public:
+			static bool is_smp() { return false; }
+			static void init_mp_async(bool const primary, addr_t const core_tt,
+			                          unsigned const core_id);
+			static void init_mp_sync(unsigned const cpu);
+
+			/*
+			 * Dummies
+			 */
 
 			static void outer_cache_invalidate() { }
 			static void outer_cache_flush() { }
 			static void prepare_kernel() { }
 			static void secondary_cpus_ip(void * const ip) { }
-			static bool is_smp() { return false; }
 	};
+
+	class L2_cache
+	{
+		public:
+
+			/*
+			 * Dummies
+			 */
+
+			void invalidate() { }
+			void disable() { }
+			void enable() { }
+	};
+
+	L2_cache * l2_cache();
 }
 
 #endif /* _BOARD_H_ */

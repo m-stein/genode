@@ -29,7 +29,6 @@
 #include <kernel/kernel.h>
 #include <kernel/test.h>
 #include <platform_pd.h>
-#include <trustzone.h>
 #include <timer.h>
 #include <pic.h>
 #include <platform_thread.h>
@@ -37,9 +36,6 @@
 /* base includes */
 #include <unmanaged_singleton.h>
 #include <base/native_types.h>
-
-/* base-hw includes */
-#include <kernel/perf_counter.h>
 
 using namespace Kernel;
 
@@ -57,11 +53,12 @@ Pd * Kernel::core_pd() {
 
 Pic * Kernel::pic() { return unmanaged_singleton<Pic>(); }
 
+unsigned volatile kernel_init_mp_done;
 
 /**
- * Setup kernel environment before activating secondary CPUs
+ * Kernel initialization till the activation of secondary CPUs
  */
-extern "C" void init_kernel_up()
+extern "C" void kernel_init_up()
 {
 	/*
 	 * As atomic operations are broken in physical mode on some platforms
@@ -79,14 +76,15 @@ extern "C" void init_kernel_up()
 	pic();
 
 	/* go multiprocessor mode */
+	kernel_init_mp_done = 0;
 	cpu_start_secondary(&_start_secondary_cpus);
 }
 
 
 /**
- * Setup kernel enviroment after activating secondary CPUs as primary CPU
+ * Kernel initialization as primary CPU after the activation of secondary CPUs
  */
-void init_kernel_mp_primary()
+void kernel_init_mp_primary()
 {
 	Core_thread::singleton();
 	Genode::printf("kernel initialized\n");
@@ -95,61 +93,20 @@ void init_kernel_mp_primary()
 
 
 /**
- * Setup kernel enviroment after activating secondary CPUs
+ * Kernel initialization after the activation of secondary CPUs
  */
-extern "C" void init_kernel_mp()
+extern "C" void kernel_init_mp()
 {
-	/*
-	 * As updates on a cached kernel lock might not be visible to CPUs that
-	 * have not enabled caches, we can't synchronize the activation of MMU and
-	 * caches. Hence we must avoid write access to kernel data by now.
-	 */
-
-	/* synchronize data view of all CPUs */
-	Cpu::invalidate_data_caches();
-	Cpu::invalidate_instr_caches();
-	Cpu::data_synchronization_barrier();
-
-	/* locally initialize interrupt controller */
-	pic()->init_cpu_local();
-
-	/* initialize CPU in physical mode */
-	Cpu::init_phys_kernel();
-
-	/* switch to core address space */
-	Cpu::init_virt_kernel(core_pd());
-
-	/*
-	 * Now it's safe to use 'cmpxchg'
-	 */
-
-	Lock::Guard guard(data_lock());
-
-	/*
-	 * Now it's save to write to kernel data
-	 */
-
-	/*
-	 * TrustZone initialization code
-	 *
-	 * FIXME This is a plattform specific feature
-	 */
-	init_trustzone(pic());
-
-	/*
-	 * Enable performance counter
-	 *
-	 * FIXME This is an optional CPU specific feature
-	 */
-	perf_counter()->enable();
-
-	/* enable timer interrupt */
 	unsigned const cpu = cpu_executing_id();
-	pic()->unmask(Timer::interrupt_id(cpu), cpu);
-
-	/* do further initialization only as primary CPU */
-	if (cpu_primary_id() != cpu) { return; }
-	init_kernel_mp_primary();
+	bool const primary = cpu_primary_id() == cpu;
+	board_init_mp_async(primary, core_pd());
+	data_lock().lock();
+	board_init_mp_sync(cpu);
+	if (primary) { kernel_init_mp_primary(); }
+	kernel_init_mp_done++;
+	board_init_mp_done();
+	data_lock().unlock();
+	while (kernel_init_mp_done < NR_OF_CPUS) { }
 }
 
 
