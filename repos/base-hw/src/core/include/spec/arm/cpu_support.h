@@ -55,42 +55,6 @@ class Genode::Arm
 		};
 
 		/**
-		 * System control register
-		 */
-		struct Sctlr : Register<32>
-		{
-			struct M : Bitfield<0,1>  { }; /* enable MMU */
-			struct C : Bitfield<2,1>  { }; /* enable data cache */
-			struct I : Bitfield<12,1> { }; /* enable instruction caches */
-			struct V : Bitfield<13,1> { }; /* select exception entry */
-
-			static access_t read()
-			{
-				access_t v;
-				asm volatile ("mrc p15, 0, %0, c1, c0, 0" : "=r" (v) :: );
-				return v;
-			}
-
-			static void write(access_t const v) {
-				asm volatile ("mcr p15, 0, %0, c1, c0, 0" :: "r" (v) : ); }
-
-			/**
-			 * Do initialization that is common on value 'v'
-			 */
-			static void init_common(access_t & v)
-			{
-				C::set(v, 1);
-				I::set(v, 1);
-				V::set(v, 1);
-			}
-
-			/**
-			 * Do initialization for virtual mode in kernel on value 'v'
-			 */
-			static void init_virt_kernel(access_t & v) { M::set(v, 1); }
-		};
-
-		/**
 		 * Translation table base control register
 		 */
 		struct Ttbcr : Register<32>
@@ -523,5 +487,24 @@ class Genode::Arm
 			for (; base < top; base += line_size) { Icimvau::write(base); }
 		}
 };
+
+namespace Arm { struct Sctlr; }
+
+/**
+ * System control register
+ */
+struct Arm::Sctlr : Genode::Register<32>
+{
+	struct M : Bitfield<0,1>  { }; /* enable MMU */
+	struct C : Bitfield<2,1>  { }; /* enable data caches */
+	struct I : Bitfield<12,1> { }; /* enable instruction caches */
+	struct V : Bitfield<13,1> { }; /* select exception entry */
+};
+
+namespace Arm
+{
+	Sctlr::access_t sctlr();
+	void init_sctlr(Sctlr::access_t & v, bool const virt);
+}
 
 #endif /* _SPEC__ARM__CPU_SUPPORT_H_ */

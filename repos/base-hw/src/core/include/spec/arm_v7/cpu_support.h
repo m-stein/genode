@@ -83,53 +83,6 @@ class Genode::Arm_v7 : public Arm
 		};
 
 		/**
-		 * System control register
-		 */
-		struct Sctlr : Arm::Sctlr
-		{
-			struct Z : Bitfield<11,1> { }; /* enable program flow prediction */
-			struct Unnamed_0 : Bitfield<3,4>  { }; /* shall be ones */
-			struct Unnamed_1 : Bitfield<16,1> { }; /* shall be ones */
-			struct Unnamed_2 : Bitfield<18,1> { }; /* shall be ones */
-			struct Unnamed_3 : Bitfield<22,2> { }; /* shall be ones */
-
-			/**
-			 * Initialization that is common
-			 */
-			static void init_common(access_t & v)
-			{
-				Arm::Sctlr::init_common(v);
-				Unnamed_0::set(v, ~0);
-				Unnamed_1::set(v, ~0);
-				Unnamed_2::set(v, ~0);
-				Unnamed_3::set(v, ~0);
-			}
-
-			/**
-			 * Initialization for virtual kernel stage
-			 */
-			static access_t init_virt_kernel()
-			{
-				access_t v = 0;
-				init_common(v);
-				Arm::Sctlr::init_virt_kernel(v);
-				Z::set(v, 1);
-				return v;
-			}
-
-			/**
-			 * Initialization for physical kernel stage
-			 */
-			static access_t init_phys_kernel()
-			{
-				access_t v = 0;
-				init_common(v);
-				return v;
-			}
-		};
-
-
-		/**
 		 * Memory attribute indirection register 0
 		 */
 		struct Mair0 : Register<32>
@@ -162,14 +115,7 @@ class Genode::Arm_v7 : public Arm
 		/**
 		 * Configure this module appropriately for the first kernel run
 		 */
-		static void init_phys_kernel()
-		{
-			Board::prepare_kernel();
-			Sctlr::write(Sctlr::init_phys_kernel());
-			Psr::write(Psr::init_kernel());
-			flush_tlb();
-			finish_init_phys_kernel();
-		}
+		static void init_phys_kernel();
 
 		/**
 		 * Finish all previous data transfers

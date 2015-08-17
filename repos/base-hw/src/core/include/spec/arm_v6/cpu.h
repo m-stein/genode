@@ -52,56 +52,6 @@ class Genode::Cpu : public Arm
 		};
 
 		/**
-		 * System control register
-		 */
-		struct Sctlr : Arm::Sctlr
-		{
-			struct W  : Bitfield<3,1>  { }; /* enable write buffer */
-			struct Dt : Bitfield<16,1> { }; /* global data TCM enable */
-			struct It : Bitfield<18,1> { }; /* global instruction TCM enable */
-			struct U  : Bitfield<22,1> { }; /* enable unaligned data access */
-			struct Xp : Bitfield<23,1> { }; /* disable subpage AP bits */
-			struct Unnamed_0 : Bitfield<4,3>  { }; /* shall be ones */
-			struct Unnamed_1 : Bitfield<26,6> { }; /* shall not be modified */
-
-			/**
-			 * Initialization that is common
-			 */
-			static void init_common(access_t & v)
-			{
-				Arm::Sctlr::init_common(v);
-				W::set(v, 1);
-				Dt::set(v, 1);
-				It::set(v, 1);
-				U::set(v, 1);
-				Xp::set(v, 1);
-				Unnamed_0::set(v, ~0);
-				Unnamed_1::set(v, Unnamed_1::masked(read()));
-			}
-
-			/**
-			 * Initialization for physical kernel stage
-			 */
-			static access_t init_virt_kernel()
-			{
-				access_t v = 0;
-				init_common(v);
-				Arm::Sctlr::init_virt_kernel(v);
-				return v;
-			}
-
-			/**
-			 * Initialization for physical kernel stage
-			 */
-			static access_t init_phys_kernel()
-			{
-				access_t v = 0;
-				init_common(v);
-				return v;
-			}
-		};
-
-		/**
 		 * If page descriptor bits [13:12] are restricted
 		 */
 		static bool restricted_page_mappings() {
@@ -110,15 +60,7 @@ class Genode::Cpu : public Arm
 		/**
 		 * Configure this module appropriately for the first kernel run
 		 */
-		static void init_phys_kernel()
-		{
-			Board::prepare_kernel();
-			Sctlr::write(Sctlr::init_phys_kernel());
-			flush_tlb();
-
-			/* check for mapping restrictions */
-			assert(!restricted_page_mappings());
-		}
+		static void init_phys_kernel();
 
 		/**
 		 * Switch to the virtual mode in kernel

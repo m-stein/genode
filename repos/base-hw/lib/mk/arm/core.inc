@@ -12,6 +12,7 @@ SRC_CC += spec/arm/kernel/thread.cc
 SRC_CC += spec/arm/kernel/cpu.cc
 SRC_CC += spec/arm/kernel/pd.cc
 SRC_CC += spec/arm/platform_support.cc
+SRC_CC += spec/arm/cpu.cc
 
 # add assembly sources
 SRC_S += spec/arm/kernel/crt0.s

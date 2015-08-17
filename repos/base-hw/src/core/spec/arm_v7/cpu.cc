@@ -15,6 +15,21 @@
 #include <kernel/cpu.h>
 #include <kernel/pd.h>
 
+using namespace Genode;
+
+/**
+ * System control register
+ */
+struct Sctlr : Arm::Sctlr
+{
+	struct Z : Bitfield<11,1> { }; /* enable program flow prediction */
+	struct Unnamed_0 : Bitfield<3,4>  { }; /* SBOP */
+	struct Unnamed_1 : Bitfield<16,1> { }; /* SBOP */
+	struct Unnamed_2 : Bitfield<18,1> { }; /* SBOP */
+	struct Unnamed_3 : Bitfield<22,2> { }; /* SBOP */
+};
+
+
 /**
  * Helpers that increase readability of MCR and MRC commands
  */
@@ -159,12 +174,34 @@ Genode::Arm::Psr::access_t Genode::Arm::Psr::init_user_with_trustzone()
 }
 
 
-void Genode::Arm_v7::init_virt_kernel(Kernel::Pd * pd)
+static void init_sctlr(bool const virt)
+{
+	Sctlr::access_t v = 0;
+	Sctlr::Unnamed_0::set(v, ~0);
+	Sctlr::Unnamed_1::set(v, ~0);
+	Sctlr::Unnamed_2::set(v, ~0);
+	Sctlr::Unnamed_3::set(v, ~0);
+	Sctlr::Z::set(v, virt);
+	Arm::init_sctlr(v, virt);
+}
+
+
+void Arm_v7::init_virt_kernel(Kernel::Pd * pd)
 {
 	Cidr::write(pd->asid);
 	Dacr::write(Dacr::init_virt_kernel());
 	Ttbr0::write(Ttbr0::init((Genode::addr_t)pd->translation_table()));
 	Ttbcr::write(0);
-	Sctlr::write(Sctlr::init_virt_kernel());
+	init_sctlr(true);
 	inval_branch_predicts();
+}
+
+
+void Arm_v7::init_phys_kernel()
+{
+	Board::prepare_kernel();
+	init_sctlr(false);
+	Psr::write(Psr::init_kernel());
+	flush_tlb();
+	finish_init_phys_kernel();
 }
