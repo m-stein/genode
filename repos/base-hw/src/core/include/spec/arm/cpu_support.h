@@ -42,21 +42,6 @@ class Genode::Arm
 		static constexpr addr_t data_access_align = 4;
 
 		/**
-		 * Multiprocessor affinity register
-		 */
-		struct Mpidr : Register<32>
-		{
-			struct Aff_0 : Bitfield<0, 8> { }; /* affinity value 0 */
-
-			static access_t read()
-			{
-				access_t v;
-				asm volatile ("mrc p15, 0, %0, c0, c0, 5" : "=r" (v) :: );
-				return v;
-			}
-		};
-
-		/**
 		 * Cache type register
 		 */
 		struct Ctr : Register<32>

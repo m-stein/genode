@@ -179,18 +179,7 @@ class Genode::Cpu
 
 	public:
 
-		Cpu() : _fpu_state(0)
-		{
-			if (primary_id() == executing_id()) {
-				_idt = new (&_mt_idt) Idt();
-				_idt->setup(Cpu::exception_entry);
-
-				_tss = new (&_mt_tss) Tss();
-				_tss->load();
-			}
-			_idt->load(Cpu::exception_entry);
-			_tss->setup(Cpu::exception_entry);
-		}
+		Cpu();
 
 		static constexpr addr_t exception_entry = 0xffff0000;
 		static constexpr addr_t mtc_size        = 1 << 13;
@@ -429,16 +418,6 @@ class Genode::Cpu
 			}
 			return true;
 		}
-
-		/**
-		 * Return kernel name of the executing CPU
-		 */
-		static unsigned executing_id() { return 0; }
-
-		/**
-		 * Return kernel name of the primary CPU
-		 */
-		static unsigned primary_id() { return 0; }
 
 		/**
 		 * Prepare for the proceeding of a user

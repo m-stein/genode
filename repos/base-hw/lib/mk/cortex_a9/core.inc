@@ -9,7 +9,7 @@ INC_DIR += $(REP_DIR)/src/core/include/spec/cortex_a9
 INC_DIR += $(REP_DIR)/src/core/include/spec/arm_gic
 
 # add C++ sources
-SRC_CC += spec/arm/cpu.cc
+SRC_CC += cpu_mp.cc
 SRC_CC += spec/arm_gic/pic.cc
 SRC_CC += spec/arm/kernel/cpu_context.cc
 SRC_CC += kernel/vm_thread.cc

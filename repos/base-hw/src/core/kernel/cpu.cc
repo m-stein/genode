@@ -71,14 +71,14 @@ void Cpu_job::_activate_own_share() { _cpu->schedule(this); }
 
 void Cpu_job::_deactivate_own_share()
 {
-	assert(_cpu->id() == Cpu::executing_id());
+	assert(_cpu->id() == cpu_executing_id());
 	_cpu->scheduler()->unready(this);
 }
 
 
 void Cpu_job::_yield()
 {
-	assert(_cpu->id() == Cpu::executing_id());
+	assert(_cpu->id() == cpu_executing_id());
 	_cpu->scheduler()->yield();
 }
 
@@ -144,7 +144,7 @@ void Cpu_idle::_main() { while (1) { Genode::Cpu::wait_for_interrupt(); } }
 
 void Cpu::schedule(Job * const job)
 {
-	if (_id == executing_id()) { _scheduler.ready(job); }
+	if (_id == cpu_executing_id()) { _scheduler.ready(job); }
 	else if (_scheduler.ready_check(job)) { trigger_ip_interrupt(); }
 }
 
@@ -220,7 +220,7 @@ Cpu::Cpu(unsigned const id, Timer * const timer)
 void Cpu_domain_update::_do()
 {
 	/* perform domain update locally and get pending bit */
-	unsigned const id = Cpu::executing_id();
+	unsigned const id = cpu_executing_id();
 	if (!_pending[id]) { return; }
 	_domain_update();
 	_pending[id] = false;
@@ -245,7 +245,7 @@ bool Cpu_domain_update::_do_global(unsigned const domain_id)
 
 	/* inform other CPUs and block until they are done */
 	cpu_domain_update_list()->insert_tail(this);
-	unsigned const cpu_id = Cpu::executing_id();
+	unsigned const cpu_id = cpu_executing_id();
 	for (unsigned i = 0; i < NR_OF_CPUS; i++) {
 		if (i == cpu_id) { continue; }
 		_pending[i] = true;

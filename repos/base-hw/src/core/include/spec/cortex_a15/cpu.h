@@ -413,16 +413,6 @@ class Genode::Cpu : public Arm_v7
 		bool retry_undefined_instr(Cpu_lazy_state *) { return false; }
 
 		/**
-		 * Return kernel name of the executing CPU
-		 */
-		static unsigned executing_id();
-
-		/**
-		 * Return kernel name of the primary CPU
-		 */
-		static unsigned primary_id();
-
-		/**
 		 * Switch to the virtual mode in kernel
 		 *
 		 * \param pd  kernel pd object pointer

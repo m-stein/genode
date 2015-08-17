@@ -160,7 +160,7 @@ int Platform_thread::start(void * const ip, void * const sp)
 	}
 
 	unsigned const cpu =
-		_location.valid() ? _location.xpos() : Cpu::primary_id();
+		_location.valid() ? _location.xpos() : Kernel::cpu_primary_id();
 
 	Native_utcb * utcb = Thread_base::myself()->utcb();
 

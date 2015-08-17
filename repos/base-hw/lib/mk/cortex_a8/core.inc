@@ -8,7 +8,7 @@
 INC_DIR += $(REP_DIR)/src/core/include/spec/cortex_a8
 
 # add C++ sources
-SRC_CC += spec/arm/cpu.cc
+SRC_CC += cpu_mp.cc
 SRC_CC += spec/arm/kernel/cpu_context.cc
 
 # include less specific configuration

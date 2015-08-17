@@ -139,7 +139,7 @@ struct Kernel::Virtual_timer
 	static Virtual_timer& timer()
 	{
 		static Virtual_timer timer[NR_OF_CPUS];
-		return timer[Cpu::executing_id()];
+		return timer[cpu_executing_id()];
 	}
 
 	/**

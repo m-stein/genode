@@ -144,11 +144,11 @@ extern "C" void init_kernel_mp()
 	perf_counter()->enable();
 
 	/* enable timer interrupt */
-	unsigned const cpu = Cpu::executing_id();
+	unsigned const cpu = cpu_executing_id();
 	pic()->unmask(Timer::interrupt_id(cpu), cpu);
 
 	/* do further initialization only as primary CPU */
-	if (Cpu::primary_id() != cpu) { return; }
+	if (cpu_primary_id() != cpu) { return; }
 	init_kernel_mp_primary();
 }
 
@@ -156,5 +156,5 @@ extern "C" void init_kernel_mp()
 extern "C" void kernel()
 {
 	data_lock().lock();
-	cpu_pool()->cpu(Cpu::executing_id())->exception();
+	cpu_pool()->cpu(cpu_executing_id())->exception();
 }

@@ -16,6 +16,7 @@ SRC_CC += spec/x86/bios_data_area.cc
 SRC_CC += kernel/vm_thread.cc
 SRC_CC += x86/io_port_session_component.cc
 SRC_CC += x86/platform_services.cc
+SRC_CC += cpu_mp.cc
 
 # include less specific configuration
 include $(REP_DIR)/lib/mk/core.inc

@@ -59,6 +59,16 @@ namespace Kernel
 	 * Return singleton of CPU pool
 	 */
 	Cpu_pool * cpu_pool();
+
+	/**
+	 * Return name of the primary CPU
+	 */
+	unsigned cpu_primary_id();
+
+	/**
+	 * Return name of the executing CPU
+	 */
+	unsigned cpu_executing_id();
 }
 
 class Kernel::Cpu_context : Genode::Cpu::Context
@@ -339,12 +349,12 @@ class Kernel::Cpu_pool
 		/**
 		 * Return object of primary CPU
 		 */
-		Cpu * primary_cpu() const { return cpu(Cpu::primary_id()); }
+		Cpu * primary_cpu() const { return cpu(cpu_primary_id()); }
 
 		/**
 		 * Return object of current CPU
 		 */
-		Cpu * executing_cpu() const { return cpu(Cpu::executing_id()); }
+		Cpu * executing_cpu() const { return cpu(cpu_executing_id()); }
 
 		/*
 		 * Accessors

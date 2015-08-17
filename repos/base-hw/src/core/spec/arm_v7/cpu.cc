@@ -12,7 +12,7 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#include <cpu.h>
+#include <kernel/cpu.h>
 #include <kernel/pd.h>
 
 /**

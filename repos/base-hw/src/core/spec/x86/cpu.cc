@@ -50,3 +50,17 @@ void Genode::Cpu::_disable_fpu() { Cr0::write(Cr0::read() | Cr0::Ts::bits(1)); }
 
 
 bool Genode::Cpu::_fpu_enabled() { return !Cr0::Ts::get(Cr0::read()); }
+
+
+Genode::Cpu::Cpu() : _fpu_state(0)
+{
+	if (Kernel::cpu_primary_id() == Kernel::cpu_executing_id()) {
+		_idt = new (&_mt_idt) Idt();
+		_idt->setup(Cpu::exception_entry);
+
+		_tss = new (&_mt_tss) Tss();
+		_tss->load();
+	}
+	_idt->load(Cpu::exception_entry);
+	_tss->setup(Cpu::exception_entry);
+}

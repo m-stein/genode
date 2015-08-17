@@ -65,16 +65,6 @@ class Genode::Cpu : public Arm_v7
 			else flush_data_caches();
 		}
 
-		/**
-		 * Return kernel name of the executing CPU
-		 */
-		static unsigned executing_id();
-
-		/**
-		 * Return kernel name of the primary CPU
-		 */
-		static unsigned primary_id();
-
 		/*************
 		 ** Dummies **
 		 *************/
