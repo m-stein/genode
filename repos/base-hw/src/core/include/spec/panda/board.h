@@ -20,28 +20,16 @@
 
 namespace Genode
 {
+	void l2_cache_enable(bool const v);
+	void l2_cache_aux_reg(addr_t const v);
+	void l2_cache_debug_reg(addr_t const v);
+
 	struct Board : Cortex_a9::Board
 	{
 		/**
 		 * L2 outer cache controller
 		 */
 		struct Pl310 : Mmio {
-
-			enum Trustzone_hypervisor_syscalls {
-				L2_CACHE_SET_DEBUG_REG = 0x100,
-				L2_CACHE_ENABLE_REG    = 0x102,
-				L2_CACHE_AUX_REG       = 0x109,
-			};
-
-			static inline void
-			trustzone_hypervisor_call(addr_t func, addr_t val)
-			{
-				register addr_t _func asm("r12") = func;
-				register addr_t _val  asm("r0")  = val;
-				asm volatile("dsb; smc #0" :: "r" (_func), "r" (_val)
-				             : "memory", "cc", "r1", "r2", "r3", "r4", "r5",
-				               "r6", "r7", "r8", "r9", "r10", "r11");
-			}
 
 			struct Control   : Register <0x100, 32>
 			{
@@ -92,17 +80,16 @@ namespace Genode
 
 			void flush()
 			{
-				trustzone_hypervisor_call(L2_CACHE_SET_DEBUG_REG, 0x3);
+				l2_cache_debug_reg(3);
 				write<Clean_invalidate_by_way>((1 << 16) - 1);
 				sync();
-				trustzone_hypervisor_call(L2_CACHE_SET_DEBUG_REG, 0x0);
+				l2_cache_debug_reg(0);
 			}
 
 			Pl310(addr_t const base) : Mmio(base)
 			{
-				trustzone_hypervisor_call(L2_CACHE_AUX_REG,
-				                          Pl310::Aux::init_value());
-				trustzone_hypervisor_call(L2_CACHE_ENABLE_REG, 1);
+				l2_cache_aux_reg(Pl310::Aux::init_value());
+				l2_cache_enable(true);
 				write<Irq_mask>(0);
 				write<Irq_clear>(0xffffffff);
 			}
