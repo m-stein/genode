@@ -54,6 +54,12 @@ struct Genode::Pl310 : Mmio
 		}
 	};
 
+	struct Debug : Register<0xf40, 32>
+	{
+		struct Dcl : Bitfield<0,1> { };
+		struct Dwb : Bitfield<1,1> { };
+	};
+
 	struct Irq_mask                : Register <0x214, 32> {};
 	struct Irq_clear               : Register <0x220, 32> {};
 	struct Cache_sync              : Register <0x730, 32> {};
