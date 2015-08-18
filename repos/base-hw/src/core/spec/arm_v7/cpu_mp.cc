@@ -33,3 +33,12 @@ static Mpidr::access_t mpidr()
 unsigned Kernel::cpu_primary_id() { return 0; }
 
 unsigned Kernel::cpu_executing_id() { return Mpidr::Aff_0::get(mpidr()); }
+
+
+void Kernel::cpu_start_secondary(void * const ip)
+{
+	using namespace Genode;
+	Board::secondary_cpus_ip(ip);
+	Cpu::data_synchronization_barrier();
+	asm volatile ("sev\n");
+}

@@ -69,6 +69,11 @@ namespace Kernel
 	 * Return name of the executing CPU
 	 */
 	unsigned cpu_executing_id();
+
+	/**
+	 * Enable secondary CPUs with instruction pointer 'ip'
+	 */
+	void cpu_start_secondary(void * const ip);
 }
 
 class Kernel::Cpu_context : Genode::Cpu::Context

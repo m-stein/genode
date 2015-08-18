@@ -386,11 +386,6 @@ class Genode::Cpu
 		static void data_synchronization_barrier() { }
 
 		/**
-		 * Enable secondary CPUs with instr. pointer 'ip'
-		 */
-		static void start_secondary_cpus(void * const ip) { }
-
-		/**
 		 * Wait for the next interrupt as cheap as possible
 		 */
 		static void wait_for_interrupt() { asm volatile ("pause"); }

@@ -79,7 +79,7 @@ extern "C" void init_kernel_up()
 	pic();
 
 	/* go multiprocessor mode */
-	Cpu::start_secondary_cpus(&_start_secondary_cpus);
+	cpu_start_secondary(&_start_secondary_cpus);
 }
 
 

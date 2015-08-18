@@ -18,3 +18,5 @@
 unsigned Kernel::cpu_primary_id() { return 0; }
 
 unsigned Kernel::cpu_executing_id() { return cpu_primary_id(); }
+
+void Kernel::cpu_start_secondary(void *) { }

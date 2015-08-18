@@ -177,17 +177,6 @@ class Genode::Arm_v7 : public Arm
 		static void data_synchronization_barrier() { asm volatile ("dsb"); }
 
 		/**
-		 * Enable secondary CPUs with instr. pointer 'ip'
-		 */
-		static void start_secondary_cpus(void * const ip)
-		{
-			if (!(NR_OF_CPUS > 1)) { return; }
-			Board::secondary_cpus_ip(ip);
-			data_synchronization_barrier();
-			asm volatile ("sev\n");
-		}
-
-		/**
 		 * Wait for the next interrupt as cheap as possible
 		 */
 		static void wait_for_interrupt() { asm volatile ("wfi"); }
