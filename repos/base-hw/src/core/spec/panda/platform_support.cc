@@ -14,6 +14,7 @@
 /* core includes */
 #include <platform.h>
 #include <board.h>
+#include <pl310.h>
 #include <cpu.h>
 #include <pic.h>
 #include <unmanaged_singleton.h>
@@ -62,8 +63,8 @@ Native_region * Platform::_core_only_mmio_regions(unsigned const i)
 }
 
 
-static Board::Pl310 * l2_cache() {
-	return unmanaged_singleton<Board::Pl310>(Board::PL310_MMIO_BASE); }
+static Pl310 * l2_cache() {
+	return unmanaged_singleton<Pl310>(Board::PL310_MMIO_BASE); }
 
 
 void Board::outer_cache_invalidate() { l2_cache()->invalidate(); }

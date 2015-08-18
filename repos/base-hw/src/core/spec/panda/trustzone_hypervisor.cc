@@ -12,7 +12,7 @@
  */
 
 /* core includes */
-#include <board.h>
+#include <pl310.h>
 
 using namespace Genode;
 
