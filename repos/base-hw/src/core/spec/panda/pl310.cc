@@ -16,8 +16,8 @@
 
 Genode::Pl310::Pl310(addr_t const base) : Mmio(base)
 {
-	l2_cache_aux_reg(Aux::init_value());
-	l2_cache_enable(true);
+	pl310_aux(Aux::init_value());
+	pl310_enable(true);
 	write<Irq_mask>(0);
 	write<Irq_clear>(0xffffffff);
 }
@@ -28,11 +28,11 @@ void Genode::Pl310::flush()
 	Debug::access_t debug = 0;
 	Debug::Dwb::set(debug, 1);
 	Debug::Dcl::set(debug, 1);
-	l2_cache_debug_reg(debug);
+	pl310_debug(debug);
 
 	write<Clean_invalidate_by_way>((1 << 16) - 1);
 	sync();
-	l2_cache_debug_reg(0);
+	pl310_debug(0);
 }
 
 

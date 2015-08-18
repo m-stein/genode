@@ -76,7 +76,7 @@ struct Genode::Pl310 : Mmio
 };
 
 namespace Genode {
-	void l2_cache_enable(bool const v);
-	void l2_cache_aux_reg(addr_t const v);
-	void l2_cache_debug_reg(addr_t const v);
+	void pl310_enable(bool const v);
+	void pl310_aux(Pl310::Aux::access_t const v);
+	void pl310_debug(Pl310::Debug::access_t const v);
 }

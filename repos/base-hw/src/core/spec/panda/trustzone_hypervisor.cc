@@ -18,9 +18,9 @@ using namespace Genode;
 
 enum Trustzone_hypervisor_syscalls
 {
-	L2_CACHE_SET_DEBUG_REG = 0x100,
-	L2_CACHE_ENABLE_REG    = 0x102,
-	L2_CACHE_AUX_REG       = 0x109,
+	PL310_DEBUG_WRITE  = 0x100,
+	PL310_ENABLE_WRITE = 0x102,
+	PL310_AUX_WRITE    = 0x109,
 };
 
 static inline void trustzone_hypervisor_call(addr_t func, addr_t val)
@@ -33,13 +33,13 @@ static inline void trustzone_hypervisor_call(addr_t func, addr_t val)
 }
 
 
-void Genode::l2_cache_enable(bool const enable) {
-	trustzone_hypervisor_call(L2_CACHE_ENABLE_REG, enable); }
+void Genode::pl310_enable(bool const v) {
+	trustzone_hypervisor_call(PL310_ENABLE_WRITE, v); }
 
 
-void Genode::l2_cache_aux_reg(addr_t const v) {
-	trustzone_hypervisor_call(L2_CACHE_AUX_REG, v); }
+void Genode::pl310_aux(Pl310::Aux::access_t const v) {
+	trustzone_hypervisor_call(PL310_AUX_WRITE, v); }
 
 
-void Genode::l2_cache_debug_reg(addr_t const v) {
-	trustzone_hypervisor_call(L2_CACHE_SET_DEBUG_REG, v); }
+void Genode::pl310_debug(Pl310::Debug::access_t const v) {
+	trustzone_hypervisor_call(PL310_DEBUG_WRITE, v); }
