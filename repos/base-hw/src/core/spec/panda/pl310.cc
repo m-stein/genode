@@ -19,7 +19,7 @@ Genode::Pl310::Pl310(addr_t const base) : Mmio(base)
 	pl310_aux(Aux::init_value());
 	pl310_enable(true);
 	write<Irq_mask>(0);
-	write<Irq_clear>(0xffffffff);
+	write<Irq_clear>(~0);
 }
 
 
@@ -30,7 +30,7 @@ void Genode::Pl310::flush()
 	Debug::Dcl::set(debug, 1);
 	pl310_debug(debug);
 
-	write<Clean_invalidate_by_way>((1 << 16) - 1);
+	write<Clean_invalidate_by_way::Way_bits>(~0);
 	sync();
 	pl310_debug(0);
 }
@@ -38,6 +38,6 @@ void Genode::Pl310::flush()
 
 void Genode::Pl310::invalidate()
 {
-	write<Invalidate_by_way>((1 << 16) - 1);
+	write<Invalidate_by_way::Way_bits>(~0);
 	sync();
 }

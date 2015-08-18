@@ -63,8 +63,14 @@ struct Genode::Pl310 : Mmio
 	struct Irq_mask                : Register <0x214, 32> {};
 	struct Irq_clear               : Register <0x220, 32> {};
 	struct Cache_sync              : Register <0x730, 32> {};
-	struct Invalidate_by_way       : Register <0x77c, 32> {};
-	struct Clean_invalidate_by_way : Register <0x7fc, 32> {};
+
+	template <off_t OFF> struct By_way : Register<OFF, 32>
+	{
+		struct Way_bits : Register<OFF, 32>::template Bitfield<0,16> {};
+	};
+
+	struct Invalidate_by_way       : By_way<0x77c> {};
+	struct Clean_invalidate_by_way : By_way<0x7fc> {};
 
 	inline void sync() { while (read<Cache_sync>()) ; }
 
