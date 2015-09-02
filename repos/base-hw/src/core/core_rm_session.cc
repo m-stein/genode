@@ -50,18 +50,18 @@ Core_rm_session::attach(Dataspace_capability ds_cap, size_t size,
 		/* allocate range in core's virtual address space */
 		void *virt_addr;
 		if (!platform()->region_alloc()->alloc_aligned(page_rounded_size,
-													   &virt_addr,
-													   get_page_size_log2()).is_ok()) {
+			                                           &virt_addr,
+			                                           get_page_size_log2()).is_ok()) {
 			PERR("Could not allocate virtual address range in core of size %zd\n",
-				 page_rounded_size);
+			     page_rounded_size);
 			return nullptr;
 		}
 
 		/* map the dataspace's physical pages to corresponding virtual addresses */
 		unsigned num_pages = page_rounded_size >> get_page_size_log2();
 		Page_flags const flags = Page_flags::apply_mapping(ds->writable(),
-														   ds->cacheability(),
-														   ds->is_io_mem());
+		                                                   ds->cacheability(),
+		                                                   ds->is_io_mem());
 		if (!map_local(ds->phys_addr(), (addr_t)virt_addr, num_pages, flags))
 			return nullptr;
 

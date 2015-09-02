@@ -67,13 +67,13 @@ void Rpc_entrypoint::entry()
 		/* set default return value */
 		srv.ret(Ipc_client::ERR_INVALID_OBJECT);
 
-		Pool::apply(srv.badge(),
-			 [&] (Rpc_object_base *obj) {
-				if (!obj) { PDBG(""); return;}
-				try {
-					srv.ret(obj->dispatch(opcode, srv, srv));
-				} catch(Blocking_canceled&) { }
-			});
+		Pool::apply(srv.badge(), [&] (Rpc_object_base *obj)
+		{
+			if (!obj) { return;}
+			try {
+				srv.ret(obj->dispatch(opcode, srv, srv));
+			} catch(Blocking_canceled&) { }
+		});
 	}
 
 	/* answer exit call, thereby wake up '~Rpc_entrypoint' */

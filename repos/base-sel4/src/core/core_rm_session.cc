@@ -51,7 +51,7 @@ Core_rm_session::attach(Dataspace_capability ds_cap, size_t size,
 		void *virt_addr;
 		if (!platform()->region_alloc()->alloc(page_rounded_size, &virt_addr)) {
 			PERR("Could not allocate virtual address range in core of size %zd\n",
-				 page_rounded_size);
+			     page_rounded_size);
 			return nullptr;
 		}
 

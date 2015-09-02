@@ -96,7 +96,7 @@ class Genode::Object_pool
 		}
 
 		template <typename FUNC, typename RET>
-		struct Handle_functor
+		struct Apply_functor
 		{
 			RET operator()(OBJ_TYPE *obj, FUNC f)
 			{
@@ -115,7 +115,7 @@ class Genode::Object_pool
 		};
 
 		template <typename FUNC>
-		struct Handle_functor<FUNC, void>
+		struct Apply_functor<FUNC, void>
 		{
 			void operator()(OBJ_TYPE *obj, FUNC f)
 			{
@@ -170,7 +170,7 @@ class Genode::Object_pool
 				if (obj) obj->_lock.lock();
 			}
 
-			Handle_functor<FUNC, typename Functor::Return_type> hf;
+			Apply_functor<FUNC, typename Functor::Return_type> hf;
 			return hf(obj, func);
 		}
 

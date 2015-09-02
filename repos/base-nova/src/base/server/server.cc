@@ -131,8 +131,7 @@ void Rpc_entrypoint::_activation_entry()
 			 */
 			if (!srv.badge())
 				PERR("could not look up server object, "
-					 " return from call id_pt=%lx",
-					 id_pt);
+				     " return from call id_pt=%lx", id_pt);
 			return;
 		}
 

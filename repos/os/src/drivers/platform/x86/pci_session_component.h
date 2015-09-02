@@ -519,7 +519,7 @@ namespace Platform {
 
 						/* check that policy permit access to the matched device */
 						if (permit_device(bus, device, function,
-									config.class_code()))
+						    config.class_code()))
 							break;
 					}
 
@@ -538,15 +538,15 @@ namespace Platform {
 
 						/* if more than one driver uses the device - warn about */
 						if (bdf_in_use.get(Device_config::MAX_BUSES * bus +
-									Device_config::MAX_DEVICES * device +
-									function, 1))
+						    Device_config::MAX_DEVICES * device +
+						    function, 1))
 							PERR("Device %2x:%2x.%u is used by more than one "
-									"driver - session '%s'.", bus, device, function,
-									_label.string());
+							     "driver - session '%s'.", bus, device, function,
+							     _label.string());
 						else
 							bdf_in_use.set(Device_config::MAX_BUSES * bus +
-									Device_config::MAX_DEVICES * device +
-									function, 1);
+							               Device_config::MAX_DEVICES * device +
+							               function, 1);
 
 						_device_list.insert(dev);
 						return _ep->manage(dev);
@@ -569,7 +569,7 @@ namespace Platform {
 					unsigned const func = device->config().function_number();
 
 					bdf_in_use.clear(Device_config::MAX_BUSES * bus +
-							Device_config::MAX_DEVICES * dev + func, 1);
+					                 Device_config::MAX_DEVICES * dev + func, 1);
 
 					_device_list.remove(device);
 					_ep->dissolve(device);

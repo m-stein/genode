@@ -196,9 +196,9 @@ class Noux::Rm_session_component : public Rpc_object<Rm_session>
 					}
 
 					Rm_session_client(dst_rm).attach(ds, curr->size,
-							curr->offset,
-							true,
-							curr->local_addr);
+					                  curr->offset,
+					                  true,
+					                  curr->local_addr);
 				};
 				_ds_registry.apply(curr->ds, lambda);
 			};

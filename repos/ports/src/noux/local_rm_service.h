@@ -141,8 +141,8 @@ namespace Noux {
 					_ds_registry.apply(ds_cap, [&] (Dataspace_info *di) {
 						info = di;
 						if (!info) {
-						PWRN("Could not lookup dataspace info for local RM session");
-						return;
+							PWRN("Could not lookup dataspace info for local RM session");
+							return;
 						}
 
 						_ds_registry.remove(info);

@@ -234,7 +234,7 @@ void Child::_close(Session* s)
 	try { s->service()->close(s->cap()); }
 	catch (Blocking_canceled) {
 		PDBG("Got Blocking_canceled exception during %s->close call\n",
-			 s->ident()); }
+		     s->ident()); }
 
 	/*
 	 * If the session was provided by a child of us,
@@ -248,7 +248,7 @@ void Child::_close(Session* s)
 	if (s->service()->ram_session_cap().valid()) {
 		Ram_session_client server_ram(s->service()->ram_session_cap());
 		if (server_ram.transfer_quota(env()->ram_session_cap(),
-									  s->donated_ram_quota())) {
+		                              s->donated_ram_quota())) {
 			PERR("Misbehaving server '%s'!", s->service()->name());
 		}
 	}
@@ -375,31 +375,31 @@ void Child::upgrade(Session_capability to_session, Parent::Upgrade_args const &a
 		targeted_service = &_pd_service;
 
 	/* check if upgrade refers to server */
-	_session_pool.apply(to_session,
-		[&] (Session *session) {
+	_session_pool.apply(to_session, [&] (Session *session)
+	{
 		if (session)
-		targeted_service = session->service();
+			targeted_service = session->service();
 
 		if (!targeted_service) {
-		PWRN("could not lookup service for session upgrade");
-		return;
+			PWRN("could not lookup service for session upgrade");
+			return;
 		}
 
 		if (!args.is_valid_string()) {
-		PWRN("no valid session-upgrade arguments");
-		return;
+			PWRN("no valid session-upgrade arguments");
+			return;
 		}
 
 		size_t const ram_quota =
-		Arg_string::find_arg(args.string(), "ram_quota").ulong_value(0);
+			Arg_string::find_arg(args.string(), "ram_quota").ulong_value(0);
 
 		/* transfer quota from client to ourself */
 		Transfer donation_from_child(ram_quota, _ram,
-									 env()->ram_session_cap());
+		                             env()->ram_session_cap());
 
 		/* transfer session quota from ourself to the service provider */
 		Transfer donation_to_service(ram_quota, env()->ram_session_cap(),
-									 targeted_service->ram_session_cap());
+		                             targeted_service->ram_session_cap());
 
 		try { targeted_service->upgrade(to_session, args.string()); }
 		catch (Service::Quota_exceeded) { throw Quota_exceeded(); }
@@ -411,7 +411,7 @@ void Child::upgrade(Session_capability to_session, Parent::Upgrade_args const &a
 		/* finish transaction */
 		donation_from_child.acknowledge();
 		donation_to_service.acknowledge();
-		});
+	});
 }
 
 
@@ -425,10 +425,11 @@ void Child::close(Session_capability session_cap)
 		return;
 
 	Session *session = nullptr;
-	_session_pool.apply(session_cap, [&] (Session *s) {
-						 session = s;
-						 if (s) _session_pool.remove(s);
-						 });
+	_session_pool.apply(session_cap, [&] (Session *s)
+	{
+		session = s;
+		if (s) _session_pool.remove(s);
+	});
 	_close(session);
 }
 

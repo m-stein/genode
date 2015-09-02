@@ -90,7 +90,7 @@ void Signal_session_component::free_context(Signal_context_capability context_ca
 	auto lambda = [&] (Signal_context_component *context) {
 		if (!context) {
 			PWRN("%p - specified signal-context capability has wrong type %lx",
-				 this, context_cap.local_name());
+			     this, context_cap.local_name());
 			return;
 		}
 

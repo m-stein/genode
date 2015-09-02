@@ -28,7 +28,7 @@ Untyped_capability Cpu_session_component::server_sd(Thread_capability thread_cap
 		enum { DUMMY_LOCAL_NAME = 0 };
 		typedef Native_capability::Dst Dst;
 		return Untyped_capability(Dst(thread->platform_thread()->server_sd()),
-								  DUMMY_LOCAL_NAME);
+		                          DUMMY_LOCAL_NAME);
 	};
 	return _thread_ep->apply(thread_cap, lambda);
 }
@@ -42,7 +42,7 @@ Untyped_capability Cpu_session_component::client_sd(Thread_capability thread_cap
 		enum { DUMMY_LOCAL_NAME = 0 };
 		typedef Native_capability::Dst Dst;
 		return Untyped_capability(Dst(thread->platform_thread()->client_sd()),
-								  DUMMY_LOCAL_NAME);
+		                          DUMMY_LOCAL_NAME);
 	};
 	return _thread_ep->apply(thread_cap, lambda);
 }

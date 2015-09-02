@@ -339,20 +339,20 @@ int Cpu_session_component::transfer_quota(Cpu_session_capability dst_cap,
 	auto lambda = [&] (Cpu_session_component *dst) {
 		if (!dst) {
 			PWRN("Transfer CPU quota, %s, targeted session not found",
-				 _label.string());
+			     _label.string());
 			return -1;
 		}
 		/* check reference relationship */
 		if (dst->_ref != this && dst != _ref) {
 			PWRN("Transfer CPU quota, %s -> %s, no reference relation",
-				 _label.string(), dst->_label.string());
+			     _label.string(), dst->_label.string());
 			return -2;
 		}
 		/* check quota availability */
 		size_t const quota = quota_lim_downscale(_quota, amount);
 		if (quota > _quota) {
 			PWRN("Transfer CPU quota, %s -> %s, insufficient quota %zu, need %zu",
-				 _label.string(), dst->_label.string(), _quota, quota);
+			     _label.string(), dst->_label.string(), _quota, quota);
 			return -3;
 		}
 		/* transfer quota */
@@ -379,12 +379,12 @@ int Cpu_session_component::ref_account(Cpu_session_capability ref_cap)
 	auto lambda = [&] (Cpu_session_component *ref) {
 		if (!ref) {
 			PWRN("Set ref account, %s, targeted session not found",
-				 _label.string());
+			     _label.string());
 			return -1;
 		}
 		if (ref == this) {
 			PWRN("Set ref account, %s, self reference not allowed",
-				 _label.string());
+			     _label.string());
 			return -3;
 		}
 		/* establish ref-account relation from targeted CPU-session to us */

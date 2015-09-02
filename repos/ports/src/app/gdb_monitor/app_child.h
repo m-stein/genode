@@ -212,7 +212,7 @@ namespace Gdb_monitor {
 
 							Genode::size_t ram_quota =
 								Arg_string::find_arg(args.string(),
-													 "ram_quota").ulong_value(0);
+								                     "ram_quota").ulong_value(0);
 
 							/* forward session quota to child */
 							env()->ram_session()->transfer_quota(_child_ram, ram_quota);

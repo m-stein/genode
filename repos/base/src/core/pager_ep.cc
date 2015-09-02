@@ -1,5 +1,5 @@
 /*
- * \brief  Generic implmentation of pager entrypoint
+ * \brief  Generic implementation of pager entrypoint
  * \author Norman Feske
  * \author Stefan Kalkowski
  * \date   2009-03-31
@@ -33,48 +33,48 @@ void Pager_entrypoint::entry()
 
 		reply_pending = false;
 
-		Pool::apply(_pager.badge(),
-			 [&] (Pager_object *obj) {
-			 	if (obj) {
-					if (_pager.is_exception())
-						obj->submit_exception_signal();
-					else
-						/* send reply if page-fault handling succeeded */
-						reply_pending = !obj->pager(_pager);
-				} else {
+		Pool::apply(_pager.badge(), [&] (Pager_object *obj) {
+			if (obj) {
+				if (_pager.is_exception())
+					obj->submit_exception_signal();
+				else
+					/* send reply if page-fault handling succeeded */
+					reply_pending = !obj->pager(_pager);
+			} else {
+
+				/*
+				 * Prevent threads outside of core to mess with our wake-up
+				 * interface. This condition can trigger if a process gets
+				 * destroyed which triggered a page fault shortly before getting
+				 * killed. In this case, 'wait_for_fault()' returns (because of
+				 * the page fault delivery) but the pager-object lookup will fail
+				 * (because core removed the process already).
+				 */
+				if (_pager.request_from_core()) {
+
 					/*
-					 * Prevent threads outside of core to mess with our wake-up
-					 * interface. This condition can trigger if a process gets
-					 * destroyed which triggered a page fault shortly before getting
-					 * killed. In this case, 'wait_for_fault()' returns (because of
-					 * the page fault delivery) but the pager-object lookup will fail
-					 * (because core removed the process already).
+					 * We got a request from one of cores region-manager sessions
+					 * to answer the pending page fault of a resolved region-manager
+					 * client. Hence, we have to send the page-fault reply to the
+					 * specified thread and answer the call of the region-manager
+					 * session.
+					 *
+					 * When called from a region-manager session, we receive the
+					 * core-local address of the targeted pager object via the
+					 * first message word, which corresponds to the 'fault_ip'
+					 * argument of normal page-fault messages.
 					 */
-					if (_pager.request_from_core()) {
+					obj = reinterpret_cast<Pager_object *>(_pager.fault_ip());
 
-						/*
-						 * We got a request from one of cores region-manager sessions
-						 * to answer the pending page fault of a resolved region-manager
-						 * client. Hence, we have to send the page-fault reply to the
-						 * specified thread and answer the call of the region-manager
-						 * session.
-						 *
-						 * When called from a region-manager session, we receive the
-						 * core-local address of the targeted pager object via the
-						 * first message word, which corresponds to the 'fault_ip'
-						 * argument of normal page-fault messages.
-						 */
-						obj = reinterpret_cast<Pager_object *>(_pager.fault_ip());
+					/* send reply to the calling region-manager session */
+					_pager.acknowledge_wakeup();
 
-						/* send reply to the calling region-manager session */
-						_pager.acknowledge_wakeup();
-
-						/* answer page fault of resolved pager object */
-						_pager.set_reply_dst(obj->cap());
-						_pager.acknowledge_wakeup();
-					}
+					/* answer page fault of resolved pager object */
+					_pager.set_reply_dst(obj->cap());
+					_pager.acknowledge_wakeup();
 				}
-			 });
+			}
+		});
 	}
 }
 

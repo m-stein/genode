@@ -54,13 +54,13 @@ Core_rm_session::attach(Dataspace_capability ds_cap, size_t size,
 		void *virt_addr;
 		if (!platform()->region_alloc()->alloc(page_rounded_size, &virt_addr)) {
 			PERR("Could not allocate virtual address range in core of size %zd\n",
-				 page_rounded_size);
+			     page_rounded_size);
 			return nullptr;
 		}
 
 		if (!map_local(ds->phys_addr(), (addr_t)virt_addr, num_pages)) {
 			PERR("core-local memory mapping failed virt=%lx, phys=%lx\n",
-				 (addr_t)virt_addr, ds->phys_addr());
+			     (addr_t)virt_addr, ds->phys_addr());
 			return nullptr;
 		}
 

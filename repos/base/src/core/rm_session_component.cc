@@ -178,7 +178,8 @@ int Rm_client::pager(Ipc_pager &pager)
 	auto lambda = [&] (Rm_session_component *rm_session,
 	                   Rm_region            *region,
 	                   addr_t                ds_offset,
-					   addr_t                region_offset) -> int {
+	                   addr_t                region_offset) -> int
+	{
 		Dataspace_component * dsc = region ? region->dataspace() : nullptr;
 		if (!dsc) {
 
