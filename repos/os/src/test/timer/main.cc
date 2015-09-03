@@ -149,7 +149,7 @@ int main(int argc, char **argv)
 		elapsed_ms = main_timer.elapsed_ms() - elapsed_ms;
 		unsigned const min_ms     = ((i - 1) * period_us) / 1000;
 		unsigned const max_us     = i * period_us;
-		unsigned const max_err_us = max_us / 1000;
+		unsigned const max_err_us = max_us / 100;
 		unsigned const max_ms     = (max_us + max_err_us) / 1000;
 		if (min_ms > elapsed_ms || max_ms < elapsed_ms) {
 			PERR("Timing %u ms period %u times failed: %u ms (min %u, max %u)",
