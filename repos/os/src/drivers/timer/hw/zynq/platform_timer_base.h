@@ -93,9 +93,9 @@ class Platform_timer_base
 			_disable();
 
 			/* configure prescaler */
-			Clock::access_t clock = read<Clcok>();
+			Clock::access_t clock = read<Clock>();
 			Clock::Prescale::set(clock, PRESCALER - 1);
-			Clock::Prescale_en::set(clock, 1)
+			Clock::Prescale_en::set(clock, 1);
 			write<Clock>(clock);
 
 			/* enable all interrupts */
