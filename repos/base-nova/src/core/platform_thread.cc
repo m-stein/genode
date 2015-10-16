@@ -57,7 +57,7 @@ int Platform_thread::start(void *ip, void *sp)
 		return -1;
 	}
 
-	if (!_pd) {
+	if (!_pd || _pd->parent_pt_sel() == Native_thread::INVALID_INDEX) {
 		PERR("protection domain undefined");
 		return -2;
 	}
