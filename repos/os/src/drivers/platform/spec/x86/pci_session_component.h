@@ -22,6 +22,8 @@
 #include <root/component.h>
 #include <root/client.h>
 
+#include <util/retry.h>
+
 /* os */
 #include <io_mem_session/connection.h>
 #include <os/session_policy.h>
@@ -35,7 +37,49 @@
 namespace Platform {
 	bool bus_valid(int bus = 0);
 	unsigned short bridge_bdf(unsigned char bus);
+
+	class Rmrr;
 }
+
+class Platform::Rmrr : public Genode::List<Platform::Rmrr>::Element
+{
+	private:
+
+		Genode::uint64_t _start, _end;
+		Genode::Io_mem_dataspace_capability _cap;
+		Genode::uint8_t _bus, _dev, _func;
+
+	public:
+
+		Rmrr(Genode::uint64_t start, Genode::uint64_t end,
+		     Genode::uint8_t bus, Genode::uint8_t dev, Genode::uint8_t func)
+		: _start(start), _end(end), _bus(bus), _dev(dev), _func(func)
+		{ }
+
+		Genode::Io_mem_dataspace_capability match(Device_config config) {
+			Genode::uint8_t bus      = config.bus_number();
+			Genode::uint8_t device   = config.device_number();
+			Genode::uint8_t function = config.function_number();
+
+			if (!(_bus == bus && _dev == device && _func == function))
+				return Genode::Io_mem_dataspace_capability();
+
+			if (_cap.valid())
+				return _cap;
+
+			Genode::Io_mem_connection io_mem(_start, _end - _start + 1);
+			io_mem.on_destruction(Genode::Io_mem_connection::KEEP_OPEN);
+			_cap = io_mem.dataspace();
+
+			return _cap;
+		}
+
+		static Genode::List<Rmrr> *list()
+		{
+			static Genode::List<Rmrr> _list;
+			return &_list;
+		}
+};
 
 namespace Platform {
 
@@ -602,8 +646,16 @@ namespace Platform {
 
 				Io_mem_dataspace_capability io_mem = device->get_config_space();
 
-				if (_child.valid())
-					_child.assign_pci(io_mem);
+				if (!_child.valid())
+					return Io_mem_dataspace_capability();
+
+				_child.assign_pci(io_mem);
+
+				for (Rmrr *r = Rmrr::list()->first(); r; r = r->next()) {
+					Io_mem_dataspace_capability rmrr_cap = r->match(device->config());
+					if (rmrr_cap.valid())
+						_child.attach_dma_mem(rmrr_cap);
+				}
 
 				/*
 				 * By now forbid usage of extended pci config space dataspace,
@@ -639,14 +691,18 @@ namespace Platform {
 
 				Ram_capability ram_cap;
 				try {
+					ram_cap = Genode::retry<Genode::Ram_session::Out_of_metadata>(
+						[&] () { return _ram->alloc(size, Genode::UNCACHED); },
+						[&] () { Genode::env()->parent()->upgrade(_ram->cap(), "ram_quota=4K"); });
+				} catch (Genode::Ram_session::Quota_exceeded) { }
 
-					ram_cap = _ram->alloc(size, Genode::UNCACHED);
-				} catch (Genode::Ram_session::Quota_exceeded) {
+				if (!ram_cap.valid()) {
+					_ram->transfer_quota(Genode::env()->ram_session_cap(), size);
 					_md_alloc.upgrade(size);
-					return Ram_capability();
+					return ram_cap;
 				}
 
-				if (!ram_cap.valid() || !_child.valid())
+				if (!_child.valid())
 					return ram_cap;
 
 				_child.attach_dma_mem(ram_cap);
@@ -715,6 +771,41 @@ namespace Platform {
 
 							using Platform::Irq_override;
 							Irq_override::list()->insert(new (env()->heap()) Irq_override(irq, gsi, flags));
+						}
+
+						if (node.has_type("rmrr")) {
+							uint64_t mem_start, mem_end;
+							node.attribute("start").value(&mem_start);
+							node.attribute("end").value(&mem_end);
+
+							if (node.num_sub_nodes() == 0)
+								throw 2;
+
+							for (unsigned s = 0; s < node.num_sub_nodes(); s++) {
+								Xml_node scope = node.sub_node(s);
+								if (scope.num_sub_nodes() == 0 ||
+								    !scope.has_type("scope"))
+									throw 3;
+
+								unsigned bus, dev, func;
+								scope.attribute("bus_start").value(&bus);
+
+								for (unsigned p = 0; p < scope.num_sub_nodes(); p++) {
+									Xml_node path = scope.sub_node(p);
+									if (!path.has_type("path"))
+										throw 4;
+
+									path.attribute("dev").value(&dev);
+									path.attribute("func").value(&func);
+
+									Device_config bridge(bus, dev, func, &config_access);
+									if (bridge.is_pci_bridge())
+										/* PCI bridge spec 3.2.5.3, 3.2.5.4 */
+										bus = bridge.read(&config_access, 0x19, Device::ACCESS_8BIT);
+								}
+
+								Rmrr::list()->insert(new (env()->heap()) Rmrr(mem_start, mem_end, bus, dev, func));
+							}
 						}
 
 						if (node.has_type("routing")) {
