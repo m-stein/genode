@@ -56,7 +56,21 @@ class Vfs::Vfs_handle
 		Directory_service &ds() { return _ds; }
 		File_io_service   &fs() { return _fs; }
 
-		int status_flags() const { return _status_flags; }
+		int  status_flags() const { return _status_flags; }
+
+		/**
+		 * Change status flags
+		 *
+		 * \param flags   status flags to be changed
+		 * \param remove  true for deleting flags, false for appending flags
+		 */
+		void status_flags(int flags, bool remove = false)
+		{
+			if (remove)
+				_status_flags &= ~flags;
+			else
+				_status_flags |= flags; 
+		}
 
 		/**
 		 * Return seek offset in bytes
