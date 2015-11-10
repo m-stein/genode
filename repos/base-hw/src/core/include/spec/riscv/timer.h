@@ -62,7 +62,7 @@ struct Genode::Timer
 		void start_one_shot(unsigned const tics, unsigned /* cpu */)
 		{
 			_timeout = _stime() + tics;
-			asm volatile ("csrw stimecmp, %0" : : "r"(_timeout));
+			Machine::call(Machine::SET_SYS_TIMER,  _timeout);
 		}
 
 		/**

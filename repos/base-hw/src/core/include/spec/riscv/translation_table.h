@@ -17,6 +17,7 @@
 #include <util/misc_math.h>
 #include <util/register.h>
 
+#include <cpu.h>
 #include <page_flags.h>
 #include <translation_table_allocator.h>
 
@@ -186,6 +187,9 @@ class Sv39::Level_x_translation_table
 
 				func(vo, pa, sz, _entries[i]);
 
+				/* flush cached table entry address */
+				Cpu::translation_added((addr_t)&_entries[i], sz);
+
 				/* check whether we wrap */
 				if (end < vo) return;
 
@@ -215,7 +219,7 @@ class Sv39::Level_x_translation_table
 					typename Descriptor::access_t blk_desc =
 						Block_descriptor::create(flags, pa);
 
-					if (Descriptor::valid(desc) && desc != blk_desc)
+					if (Descriptor::valid(desc) && desc == blk_desc)
 						throw Double_insertion();
 
 					desc = blk_desc;
@@ -372,7 +376,7 @@ namespace Sv39 {
 				Descriptor::access_t blk_desc =
 					Block_descriptor::create(flags, pa);
 
-				if (Descriptor::valid(desc) && desc != blk_desc)
+				if (Descriptor::valid(desc) && desc == blk_desc)
 					throw Double_insertion();
 
 				desc = blk_desc;
