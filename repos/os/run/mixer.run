@@ -53,8 +53,9 @@ append config {
 		</start>
 
 		<start name="audio_drv">
-			<resource name="RAM" quantum="6M"/>
+			<resource name="RAM" quantum="8M"/>
 			<provides><service name="Audio_out"/></provides>
+			<config/>
 		</start>
 
 		<start name="report_rom">
@@ -75,7 +76,6 @@ append config {
 			<provides><service name="ROM"/></provides>
 			<config verbose="yes">
 				<rom name="mixer.config">
-					<sleep milliseconds="10000" />
 					<inline description="client1 plays">
 <mixer.config>
 	<default out_volume="75" volume="42" muted="0"/>
@@ -117,6 +117,7 @@ append config {
 	</channel_list>
 </mixer.config>
 					</inline>
+					<sleep milliseconds="10000" />
 				</rom>
 			</config>
 		</start>
@@ -124,6 +125,7 @@ append config {
 		<start name="mixer">
 			<resource name="RAM" quantum="1M"/>
 			<provides><service name="Audio_out"/></provides>
+			<configfile name="mixer.config"/>
 			<route>
 				<service name="Audio_out"> <child name="audio_drv"/> </service>
 				<service name="Report"> <child name="report_rom"/> </service>

@@ -25,7 +25,7 @@
 
 /* Genode includes */
 #include <mixer/channel.h>
-#include <os/attached_rom_dataspace.h>
+#include <os/config.h>
 #include <os/reporter.h>
 #include <os/server.h>
 #include <root/component.h>
@@ -137,11 +137,6 @@ class Audio_out::Mixer
 		 */
 		Genode::Signal_rpc_member<Audio_out::Mixer> _dispatcher;
 		Genode::Signal_rpc_member<Audio_out::Mixer> _dispatcher_config;
-
-		/*
-		 * Mixer configuration
-		 */
-		Genode::Attached_rom_dataspace _config_rom { "mixer.config" };
 
 		/*
 		 * Mixer output Audio_out connection
@@ -440,19 +435,14 @@ class Audio_out::Mixer
 		{
 			using namespace Genode;
 
-			_config_rom.update();
-
-			if (!_config_rom.is_valid())
-				return;
+			config()->reload();
 
 			try {
-				Xml_node config_node(_config_rom.local_addr<char>(), _config_rom.size());
+				Xml_node config_node = config()->xml_node();
 				try { verbose = config_node.attribute("verbose").has_value("yes"); }
 				catch (...) { }
 
-				/* initial update */
-				if (sig_num == 0)
-					_set_default_config(config_node);
+				_set_default_config(config_node);
 
 				Xml_node channel_list_node = config_node.sub_node("channel_list");
 
@@ -518,7 +508,7 @@ class Audio_out::Mixer
 			_out_volume[LEFT]  = _default_out_volume;
 			_out_volume[RIGHT] = _default_out_volume;
 
-			_config_rom.sigh(_dispatcher_config);
+			Genode::config()->sigh(_dispatcher_config);
 			_handle_config_update(0);
 
 			_report_channels();
