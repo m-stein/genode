@@ -440,7 +440,7 @@ class Audio_out::Mixer
 			try {
 				Xml_node config_node = config()->xml_node();
 				try { verbose = config_node.attribute("verbose").has_value("yes"); }
-				catch (...) { }
+				catch (...) { verbose = false; }
 
 				_set_default_config(config_node);
 
