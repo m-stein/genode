@@ -234,6 +234,24 @@ int main(int argc, char *argv[])
 			sleep(2);
 	}
 
+	for (unsigned round = 0; round < 4; ++round) {
+		char const *file_name = "rw_8mib.tst";
+		unlink(file_name);
+
+		int fd = open(file_name, O_CREAT | O_RDWR);
+
+		static char buf[32*1024];
+		memset(buf, round, sizeof(buf));
+
+		/* write/read 256 times 32 KiB (8 MiB) */
+		for (unsigned i = 0; i < 256; ++i) write(fd, buf, sizeof(buf));
+		lseek(fd, SEEK_SET, 0);
+		for (unsigned i = 0; i < 256; ++i) read(fd, buf, sizeof(buf));
+
+		close(fd);
+		printf("finished write-read round %u\n", round);
+	}
+
 	printf("test finished\n");
 
 	return 0;
