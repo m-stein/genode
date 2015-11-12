@@ -121,7 +121,12 @@ struct Ahci
 				continue;
 
 			Port port(hba, platform_hba, i);
-			bool enabled = port.enable();
+			port.reset();
+
+			bool enabled = false;
+			try { enabled = port.enable(); }
+			catch (Port::Not_ready) { PERR("Could not enable port %u", i); }
+
 			unsigned sig = port.read<Port::Sig>();
 
 			PINF("\t\t#%u: %s", i, enabled ?
