@@ -39,6 +39,7 @@ namespace Platform {
 	unsigned short bridge_bdf(unsigned char bus);
 
 	class Rmrr;
+	class Root;
 }
 
 class Platform::Rmrr : public Genode::List<Platform::Rmrr>::Element
@@ -718,194 +719,196 @@ namespace Platform {
 
 			Device_capability device(String const &name) override;
 	};
-
-
-	class Root : public Genode::Root_component<Session_component>
-	{
-		private:
-
-			Genode::Root_capability _device_pd_root;
-			/* Ram_session for allocation of dma capable dataspaces */
-			Genode::Ram_connection _ram;
-
-			void _parse_report_rom(const char * acpi_rom)
-			{
-				using namespace Genode;
-
-				Config_access config_access;
-
-				Xml_node xml_acpi(acpi_rom);
-				if (!xml_acpi.has_type("acpi"))
-					throw 1;
-
-				unsigned i;
-
-				for (i = 0; i < xml_acpi.num_sub_nodes(); i++)
-				{
-					Xml_node node = xml_acpi.sub_node(i);
-
-					if (node.has_type("bdf")) {
-
-						uint32_t bdf_start  = 0;
-						uint32_t func_count = 0;
-						addr_t   base       = 0;
-
-						node.attribute("start").value(&bdf_start);
-						node.attribute("count").value(&func_count);
-						node.attribute("base").value(&base);
-
-						Session_component::add_config_space(bdf_start,
-						                                    func_count,
-						                                    base);
-					}
-
-					if (node.has_type("irq_override")) {
-						unsigned irq = 0xff;
-						unsigned gsi = 0xff;
-						unsigned flags = 0xff;
-
-						node.attribute("irq").value(&irq);
-						node.attribute("gsi").value(&gsi);
-						node.attribute("flags").value(&flags);
-
-						using Platform::Irq_override;
-						Irq_override::list()->insert(new (env()->heap()) Irq_override(irq, gsi, flags));
-					}
-
-					if (node.has_type("rmrr")) {
-						uint64_t mem_start, mem_end;
-						node.attribute("start").value(&mem_start);
-						node.attribute("end").value(&mem_end);
-
-						if (node.num_sub_nodes() == 0)
-							throw 2;
-
-						for (unsigned s = 0; s < node.num_sub_nodes(); s++) {
-							Xml_node scope = node.sub_node(s);
-							if (scope.num_sub_nodes() == 0 ||
-							    !scope.has_type("scope"))
-								throw 3;
-
-							unsigned bus, dev, func;
-							scope.attribute("bus_start").value(&bus);
-
-							for (unsigned p = 0; p < scope.num_sub_nodes(); p++) {
-								Xml_node path = scope.sub_node(p);
-								if (!path.has_type("path"))
-									throw 4;
-
-								path.attribute("dev").value(&dev);
-								path.attribute("func").value(&func);
-
-								Device_config bridge(bus, dev, func, &config_access);
-								if (bridge.is_pci_bridge())
-									/* PCI bridge spec 3.2.5.3, 3.2.5.4 */
-									bus = bridge.read(&config_access, 0x19, Device::ACCESS_8BIT);
-							}
-
-							Rmrr::list()->insert(new (env()->heap()) Rmrr(mem_start, mem_end, bus, dev, func));
-						}
-					}
-
-					if (node.has_type("routing")) {
-						unsigned gsi;
-						unsigned bridge_bdf;
-						unsigned device;
-						unsigned device_pin;
-
-						node.attribute("gsi").value(&gsi);
-						node.attribute("bridge_bdf").value(&bridge_bdf);
-						node.attribute("device").value(&device);
-						node.attribute("device_pin").value(&device_pin);
-
-						/* check that bridge bdf is actually a valid device */
-						Device_config config((bridge_bdf >> 8 & 0xff),
-						                     (bridge_bdf >> 3) & 0x1f,
-						                      bridge_bdf & 0x7,
-						                     &config_access);
-
-						if (config.valid()) {
-							if (!config.is_pci_bridge() && bridge_bdf != 0)
-								/**
-								 * If the bridge bdf has not a type header
-								 * of a bridge in the pci config space,
-								 * then it should be the host bridge
-								 * device. The host bridge device need not
-								 * to be necessarily at 0:0.0, it may be
-								 * on another location. The irq routing
-								 * information for the host bridge however
-								 * contain entries for the bridge bdf to be
-								 * 0:0.0 - therefore we override it here
-								 * for the irq rerouting information of
-								 * host bridge devices.
-								 */
-								bridge_bdf = 0;
-
-							Irq_routing::list()->insert(new (env()->heap()) Irq_routing(gsi, bridge_bdf, device, device_pin));
-						}
-					}
-				}
-			}
-
-		protected:
-
-			Session_component *_create_session(const char *args)
-			{
-				try {
-					return new (md_alloc()) Session_component(ep(), md_alloc(),
-					                                          _device_pd_root,
-					                                          &_ram, args);
-				} catch (Genode::Session_policy::No_policy_defined) {
-					PERR("Invalid session request, no matching policy for '%s'",
-					     Genode::Session_label(args).string());
-					throw Genode::Root::Unavailable();
-				}
-			}
-
-
-			void _upgrade_session(Session_component *s, const char *args) override
-			{
-				long ram_quota = Genode::Arg_string::find_arg(args, "ram_quota").long_value(0);
-				s->upgrade_ram_quota(ram_quota);
-			}
-
-
-		public:
-
-			/**
-			 * Constructor
-			 *
-			 * \param ep        entry point to be used for serving the PCI session and
-			 *                  PCI device interface
-			 * \param md_alloc  meta-data allocator for allocating PCI-session
-			 *                  components and PCI-device components
-			 */
-			Root(Genode::Rpc_entrypoint *ep, Genode::Allocator *md_alloc,
-			     Genode::size_t pci_device_pd_ram_quota,
-			     Genode::Root_capability &device_pd_root,
-			     const char *acpi_rom)
-			:
-				Genode::Root_component<Session_component>(ep, md_alloc),
-				_device_pd_root(device_pd_root),
-				/* restrict physical address to 3G on 32bit with device_pd */
-				_ram("dma", 0, (device_pd_root.valid() && sizeof(void *) == 4) ?
-				               0xc0000000UL : 0x100000000ULL)
-			{
-				/* enforce initial bus scan */
-				bus_valid();
-
-				if (acpi_rom) {
-					try {
-						_parse_report_rom(acpi_rom);
-					} catch (...) {
-						PERR("PCI config space data could not be parsed.");
-					}
-				}
-
-				/* associate _ram session with ram_session of process */
-				_ram.ref_account(Genode::env()->ram_session_cap());
-				Genode::env()->ram_session()->transfer_quota(_ram.cap(), 0x1000);
-			}
-	};
-
 }
+
+class Platform::Root : public Genode::Root_component<Session_component>
+{
+	private:
+
+		Genode::Root_capability _device_pd_root;
+		/* Ram_session for allocation of dma capable dataspaces */
+		Genode::Ram_connection _ram;
+
+		void _parse_report_rom(const char * acpi_rom)
+		{
+			using namespace Genode;
+
+			Config_access config_access;
+
+			Xml_node xml_acpi(acpi_rom);
+			if (!xml_acpi.has_type("acpi"))
+				throw 1;
+
+			for (unsigned i = 0; i < xml_acpi.num_sub_nodes(); i++) {
+				Xml_node node = xml_acpi.sub_node(i);
+
+				if (node.has_type("bdf")) {
+
+					uint32_t bdf_start  = 0;
+					uint32_t func_count = 0;
+					addr_t   base       = 0;
+
+					node.attribute("start").value(&bdf_start);
+					node.attribute("count").value(&func_count);
+					node.attribute("base").value(&base);
+
+					Session_component::add_config_space(bdf_start, func_count,
+					                                    base);
+				}
+
+				if (node.has_type("irq_override")) {
+					unsigned irq = 0xff;
+					unsigned gsi = 0xff;
+					unsigned flags = 0xff;
+
+					node.attribute("irq").value(&irq);
+					node.attribute("gsi").value(&gsi);
+					node.attribute("flags").value(&flags);
+
+					using Platform::Irq_override;
+					Irq_override * o = new (env()->heap()) Irq_override(irq,
+					                                                    gsi,
+					                                                    flags);
+					Irq_override::list()->insert(o);
+				}
+
+				if (node.has_type("rmrr")) {
+					uint64_t mem_start, mem_end;
+					node.attribute("start").value(&mem_start);
+					node.attribute("end").value(&mem_end);
+
+					if (node.num_sub_nodes() == 0)
+						throw 2;
+
+					for (unsigned s = 0; s < node.num_sub_nodes(); s++) {
+						Xml_node scope = node.sub_node(s);
+						if (!scope.num_sub_nodes() || !scope.has_type("scope"))
+							throw 3;
+
+						unsigned bus, dev, func;
+						scope.attribute("bus_start").value(&bus);
+
+						for (unsigned p = 0; p < scope.num_sub_nodes(); p++) {
+							Xml_node path = scope.sub_node(p);
+							if (!path.has_type("path"))
+								throw 4;
+
+							path.attribute("dev").value(&dev);
+							path.attribute("func").value(&func);
+
+							Device_config bridge(bus, dev, func,
+							                     &config_access);
+							if (bridge.is_pci_bridge())
+								/* PCI bridge spec 3.2.5.3, 3.2.5.4 */
+								bus = bridge.read(&config_access, 0x19,
+								                  Device::ACCESS_8BIT);
+						}
+
+						Rmrr * rmrr = new (env()->heap()) Rmrr(mem_start,
+						                                       mem_end, bus,
+						                                       dev, func);
+						Rmrr::list()->insert(rmrr);
+					}
+				}
+
+				if (!node.has_type("routing"))
+					continue;
+
+				unsigned gsi;
+				unsigned bridge_bdf;
+				unsigned device;
+				unsigned device_pin;
+
+				node.attribute("gsi").value(&gsi);
+				node.attribute("bridge_bdf").value(&bridge_bdf);
+				node.attribute("device").value(&device);
+				node.attribute("device_pin").value(&device_pin);
+
+				/* check that bridge bdf is actually a valid device */
+				Device_config config((bridge_bdf >> 8 & 0xff),
+				                     (bridge_bdf >> 3) & 0x1f,
+				                      bridge_bdf & 0x7, &config_access);
+
+				if (!config.valid())
+					continue;
+
+				if (!config.is_pci_bridge() && bridge_bdf != 0)
+					/**
+					 * If the bridge bdf has not a type header of a bridge in
+					 * the pci config space, then it should be the host bridge
+					 * device. The host bridge device need not to be
+					 * necessarily at 0:0.0, it may be on another location. The
+					 * irq routing information for the host bridge however
+					 * contain entries for the bridge bdf to be 0:0.0 -
+					 * therefore we override it here for the irq rerouting
+					 * information of host bridge devices.
+					 */
+					bridge_bdf = 0;
+
+				Irq_routing * r = new (env()->heap()) Irq_routing(gsi,
+				                                                  bridge_bdf,
+				                                                  device,
+				                                                  device_pin);
+				Irq_routing::list()->insert(r);
+			}
+		}
+
+	protected:
+
+		Session_component *_create_session(const char *args)
+		{
+			try {
+				return new (md_alloc()) Session_component(ep(), md_alloc(),
+				                                          _device_pd_root,
+				                                          &_ram, args);
+			} catch (Genode::Session_policy::No_policy_defined) {
+				PERR("Invalid session request, no matching policy for '%s'",
+				     Genode::Session_label(args).string());
+				throw Genode::Root::Unavailable();
+			}
+		}
+
+
+		void _upgrade_session(Session_component *s, const char *args) override
+		{
+			long ram_quota = Genode::Arg_string::find_arg(args, "ram_quota").long_value(0);
+			s->upgrade_ram_quota(ram_quota);
+		}
+
+
+	public:
+
+		/**
+		 * Constructor
+		 *
+		 * \param ep        entry point to be used for serving the PCI session
+		 *                  and PCI device interface
+		 * \param md_alloc  meta-data allocator for allocating PCI-session
+		 *                  components and PCI-device components
+		 */
+		Root(Genode::Rpc_entrypoint *ep, Genode::Allocator *md_alloc,
+		     Genode::size_t pci_device_pd_ram_quota,
+		     Genode::Root_capability &device_pd_root, const char *acpi_rom)
+		:
+			Genode::Root_component<Session_component>(ep, md_alloc),
+			_device_pd_root(device_pd_root),
+			/* restrict physical address to 3G on 32bit with device_pd */
+			_ram("dma", 0, (device_pd_root.valid() && sizeof(void *) == 4) ?
+			               0xc0000000UL : 0x100000000ULL)
+		{
+			/* enforce initial bus scan */
+			bus_valid();
+
+			if (acpi_rom) {
+				try {
+					_parse_report_rom(acpi_rom);
+				} catch (...) {
+					PERR("PCI config space data could not be parsed.");
+				}
+			}
+
+			/* associate _ram session with ram_session of process */
+			_ram.ref_account(Genode::env()->ram_session_cap());
+			Genode::env()->ram_session()->transfer_quota(_ram.cap(), 0x1000);
+		}
+};
