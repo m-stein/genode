@@ -267,7 +267,7 @@ namespace Noux {
 
 		enum Fcntl_error     { FCNTL_ERR_CMD_INVALID = Vfs::Directory_service::NUM_GENERAL_ERRORS };
 		enum Execve_error    { EXECVE_NONEXISTENT    = Vfs::Directory_service::NUM_GENERAL_ERRORS, EXECVE_NOMEM };
-		enum Fork_error      { FORK_NONEXISTENT    = Vfs::Directory_service::NUM_GENERAL_ERRORS, FORK_NOMEM };
+		enum Fork_error      { FORK_NOMEM = Vfs::Directory_service::NUM_GENERAL_ERRORS };
 		enum Select_error    { SELECT_ERR_INTERRUPT };
 
 		/**
