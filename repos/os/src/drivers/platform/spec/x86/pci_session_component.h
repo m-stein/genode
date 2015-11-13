@@ -734,120 +734,116 @@ namespace Platform {
 
 				Config_access config_access;
 
-				try {
-					Xml_node xml_acpi(acpi_rom);
-					if (!xml_acpi.has_type("acpi"))
-						throw 1;
+				Xml_node xml_acpi(acpi_rom);
+				if (!xml_acpi.has_type("acpi"))
+					throw 1;
 
-					unsigned i;
+				unsigned i;
 
-					for (i = 0; i < xml_acpi.num_sub_nodes(); i++)
-					{
-						Xml_node node = xml_acpi.sub_node(i);
+				for (i = 0; i < xml_acpi.num_sub_nodes(); i++)
+				{
+					Xml_node node = xml_acpi.sub_node(i);
 
-						if (node.has_type("bdf")) {
+					if (node.has_type("bdf")) {
 
-							uint32_t bdf_start  = 0;
-							uint32_t func_count = 0;
-							addr_t   base       = 0;
+						uint32_t bdf_start  = 0;
+						uint32_t func_count = 0;
+						addr_t   base       = 0;
 
-							node.attribute("start").value(&bdf_start);
-							node.attribute("count").value(&func_count);
-							node.attribute("base").value(&base);
+						node.attribute("start").value(&bdf_start);
+						node.attribute("count").value(&func_count);
+						node.attribute("base").value(&base);
 
-							Session_component::add_config_space(bdf_start,
-							                                    func_count,
-							                                    base);
-						}
+						Session_component::add_config_space(bdf_start,
+						                                    func_count,
+						                                    base);
+					}
 
-						if (node.has_type("irq_override")) {
-							unsigned irq = 0xff;
-							unsigned gsi = 0xff;
-							unsigned flags = 0xff;
+					if (node.has_type("irq_override")) {
+						unsigned irq = 0xff;
+						unsigned gsi = 0xff;
+						unsigned flags = 0xff;
 
-							node.attribute("irq").value(&irq);
-							node.attribute("gsi").value(&gsi);
-							node.attribute("flags").value(&flags);
+						node.attribute("irq").value(&irq);
+						node.attribute("gsi").value(&gsi);
+						node.attribute("flags").value(&flags);
 
-							using Platform::Irq_override;
-							Irq_override::list()->insert(new (env()->heap()) Irq_override(irq, gsi, flags));
-						}
+						using Platform::Irq_override;
+						Irq_override::list()->insert(new (env()->heap()) Irq_override(irq, gsi, flags));
+					}
 
-						if (node.has_type("rmrr")) {
-							uint64_t mem_start, mem_end;
-							node.attribute("start").value(&mem_start);
-							node.attribute("end").value(&mem_end);
+					if (node.has_type("rmrr")) {
+						uint64_t mem_start, mem_end;
+						node.attribute("start").value(&mem_start);
+						node.attribute("end").value(&mem_end);
 
-							if (node.num_sub_nodes() == 0)
-								throw 2;
+						if (node.num_sub_nodes() == 0)
+							throw 2;
 
-							for (unsigned s = 0; s < node.num_sub_nodes(); s++) {
-								Xml_node scope = node.sub_node(s);
-								if (scope.num_sub_nodes() == 0 ||
-								    !scope.has_type("scope"))
-									throw 3;
+						for (unsigned s = 0; s < node.num_sub_nodes(); s++) {
+							Xml_node scope = node.sub_node(s);
+							if (scope.num_sub_nodes() == 0 ||
+							    !scope.has_type("scope"))
+								throw 3;
 
-								unsigned bus, dev, func;
-								scope.attribute("bus_start").value(&bus);
+							unsigned bus, dev, func;
+							scope.attribute("bus_start").value(&bus);
 
-								for (unsigned p = 0; p < scope.num_sub_nodes(); p++) {
-									Xml_node path = scope.sub_node(p);
-									if (!path.has_type("path"))
-										throw 4;
+							for (unsigned p = 0; p < scope.num_sub_nodes(); p++) {
+								Xml_node path = scope.sub_node(p);
+								if (!path.has_type("path"))
+									throw 4;
 
-									path.attribute("dev").value(&dev);
-									path.attribute("func").value(&func);
+								path.attribute("dev").value(&dev);
+								path.attribute("func").value(&func);
 
-									Device_config bridge(bus, dev, func, &config_access);
-									if (bridge.is_pci_bridge())
-										/* PCI bridge spec 3.2.5.3, 3.2.5.4 */
-										bus = bridge.read(&config_access, 0x19, Device::ACCESS_8BIT);
-								}
-
-								Rmrr::list()->insert(new (env()->heap()) Rmrr(mem_start, mem_end, bus, dev, func));
+								Device_config bridge(bus, dev, func, &config_access);
+								if (bridge.is_pci_bridge())
+									/* PCI bridge spec 3.2.5.3, 3.2.5.4 */
+									bus = bridge.read(&config_access, 0x19, Device::ACCESS_8BIT);
 							}
-						}
 
-						if (node.has_type("routing")) {
-							unsigned gsi;
-							unsigned bridge_bdf;
-							unsigned device;
-							unsigned device_pin;
-
-							node.attribute("gsi").value(&gsi);
-							node.attribute("bridge_bdf").value(&bridge_bdf);
-							node.attribute("device").value(&device);
-							node.attribute("device_pin").value(&device_pin);
-
-							/* check that bridge bdf is actually a valid device */
-							Device_config config((bridge_bdf >> 8 & 0xff),
-							                     (bridge_bdf >> 3) & 0x1f,
-							                      bridge_bdf & 0x7,
-							                     &config_access);
-
-							if (config.valid()) {
-								if (!config.is_pci_bridge() && bridge_bdf != 0)
-									/**
-									 * If the bridge bdf has not a type header
-									 * of a bridge in the pci config space,
-									 * then it should be the host bridge
-									 * device. The host bridge device need not
-									 * to be necessarily at 0:0.0, it may be
-									 * on another location. The irq routing
-									 * information for the host bridge however
-									 * contain entries for the bridge bdf to be
-									 * 0:0.0 - therefore we override it here
-									 * for the irq rerouting information of
-									 * host bridge devices.
-									 */
-									bridge_bdf = 0;
-
-								Irq_routing::list()->insert(new (env()->heap()) Irq_routing(gsi, bridge_bdf, device, device_pin));
-							}
+							Rmrr::list()->insert(new (env()->heap()) Rmrr(mem_start, mem_end, bus, dev, func));
 						}
 					}
-				} catch (...) {
-					PERR("PCI config space data could not be parsed.");
+
+					if (node.has_type("routing")) {
+						unsigned gsi;
+						unsigned bridge_bdf;
+						unsigned device;
+						unsigned device_pin;
+
+						node.attribute("gsi").value(&gsi);
+						node.attribute("bridge_bdf").value(&bridge_bdf);
+						node.attribute("device").value(&device);
+						node.attribute("device_pin").value(&device_pin);
+
+						/* check that bridge bdf is actually a valid device */
+						Device_config config((bridge_bdf >> 8 & 0xff),
+						                     (bridge_bdf >> 3) & 0x1f,
+						                      bridge_bdf & 0x7,
+						                     &config_access);
+
+						if (config.valid()) {
+							if (!config.is_pci_bridge() && bridge_bdf != 0)
+								/**
+								 * If the bridge bdf has not a type header
+								 * of a bridge in the pci config space,
+								 * then it should be the host bridge
+								 * device. The host bridge device need not
+								 * to be necessarily at 0:0.0, it may be
+								 * on another location. The irq routing
+								 * information for the host bridge however
+								 * contain entries for the bridge bdf to be
+								 * 0:0.0 - therefore we override it here
+								 * for the irq rerouting information of
+								 * host bridge devices.
+								 */
+								bridge_bdf = 0;
+
+							Irq_routing::list()->insert(new (env()->heap()) Irq_routing(gsi, bridge_bdf, device, device_pin));
+						}
+					}
 				}
 			}
 
@@ -898,8 +894,13 @@ namespace Platform {
 				/* enforce initial bus scan */
 				bus_valid();
 
-				if (acpi_rom)
-					_parse_report_rom(acpi_rom);
+				if (acpi_rom) {
+					try {
+						_parse_report_rom(acpi_rom);
+					} catch (...) {
+						PERR("PCI config space data could not be parsed.");
+					}
+				}
 
 				/* associate _ram session with ram_session of process */
 				_ram.ref_account(Genode::env()->ram_session_cap());
