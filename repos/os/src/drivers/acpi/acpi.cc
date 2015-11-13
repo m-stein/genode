@@ -1292,7 +1292,30 @@ void Acpi::generate_report()
 			});
 		}
 
-		for (Dmar_entry *entry = Dmar_entry::list()->first(); entry; entry = entry->next()) {
+		/* lambda definition for scope evaluation in rmrr */
+		auto func_scope = [&] (Device_scope const &scope)
+		{
+			xml.node("scope", [&] () {
+				char number[8];
+				Genode::snprintf(number, sizeof(number), "%u",
+				                 scope.read<Device_scope::Bus>());
+				xml.attribute("bus_start", number);
+				for (unsigned j = 0 ; j < scope.count(); j++) {
+					xml.node("path", [&] () {
+						char number[8];
+						Genode::snprintf(number, sizeof(number), "0x%x",
+						                 scope.read<Device_scope::Path::Dev>(j));
+						xml.attribute("dev", number);
+						Genode::snprintf(number, sizeof(number), "0x%x",
+						                 scope.read<Device_scope::Path::Func>(j));
+						xml.attribute("func", number);
+					});
+				}
+			});
+		};
+
+		for (Dmar_entry *entry = Dmar_entry::list()->first();
+		     entry; entry = entry->next()) {
 
 			entry->apply([&] (Dmar_common const &dmar) {
 				if (dmar.read<Dmar_common::Type>() != Dmar_common::Type::RMRR)
@@ -1302,27 +1325,14 @@ void Acpi::generate_report()
 
 				xml.node("rmrr", [&] () {
 					char number[20];
-					Genode::snprintf(number, sizeof(number), "0x%llx", rmrr.read<Dmar_rmrr::Base>());
+					Genode::snprintf(number, sizeof(number), "0x%llx",
+					                 rmrr.read<Dmar_rmrr::Base>());
 					xml.attribute("start", number);
-					Genode::snprintf(number, sizeof(number), "0x%llx", rmrr.read<Dmar_rmrr::Limit>());
+					Genode::snprintf(number, sizeof(number), "0x%llx",
+					                 rmrr.read<Dmar_rmrr::Limit>());
 					xml.attribute("end", number);
 
-					rmrr.apply([&] (Device_scope const &scope) {
-						xml.node("scope", [&] () {
-							char number[8];
-							Genode::snprintf(number, sizeof(number), "%u", scope.read<Device_scope::Bus>());
-							xml.attribute("bus_start", number);
-							for (unsigned j = 0 ; j < scope.count(); j++) {
-								xml.node("path", [&] () {
-									char number[8];
-									Genode::snprintf(number, sizeof(number), "0x%x", scope.read<Device_scope::Path::Dev>(j));
-									xml.attribute("dev", number);
-									Genode::snprintf(number, sizeof(number), "0x%x", scope.read<Device_scope::Path::Func>(j));
-									xml.attribute("func", number);
-								});
-							}
-						});
-					});
+					rmrr.apply(func_scope);
 				});
 			});
 		}
