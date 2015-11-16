@@ -252,6 +252,22 @@ void Thread::_call_resume_thread() {
 	user_arg_0(reinterpret_cast<Thread*>(user_arg_1())->_resume()); }
 
 
+void Thread::_call_delete_thread()
+{
+	if (!reinterpret_cast<Thread *>(user_arg_1())->_delete(this)) { return; }
+	_become_inactive(AWAITS_THREAD_DELETE);
+}
+
+Thread::delete_thread_done()
+{
+	_become_active();
+}
+
+void Thread::_delete()
+{
+	
+	call_delete<Thread>();
+
 void Thread::_call_resume_local_thread()
 {
 	if (!pd()) return;
@@ -642,7 +658,7 @@ void Thread::_call()
 	switch (call_id) {
 	case call_id_new_thread():             _call_new_thread(); return;
 	case call_id_thread_quota():           _call_thread_quota(); return;
-	case call_id_delete_thread():          _call_delete<Thread>(); return;
+	case call_id_delete_thread():          _call_delete_thread(); return;
 	case call_id_start_thread():           _call_start_thread(); return;
 	case call_id_resume_thread():          _call_resume_thread(); return;
 	case call_id_route_thread_event():     _call_route_thread_event(); return;

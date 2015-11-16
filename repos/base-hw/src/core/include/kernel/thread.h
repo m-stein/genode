@@ -96,7 +96,8 @@ class Kernel::Thread
 			AWAITS_RESUME               = 4,
 			AWAITS_SIGNAL               = 5,
 			AWAITS_SIGNAL_CONTEXT_KILL  = 6,
-			STOPPED                     = 7,
+			AWAITS_THREAD_DELETE        = 7,
+			STOPPED                     = 8,
 		};
 
 		Thread_event       _fault;
