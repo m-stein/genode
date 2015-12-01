@@ -56,6 +56,7 @@ struct Upgradeable_client : CLIENT
 		char buf[128];
 		Genode::snprintf(buf, sizeof(buf), "ram_quota=%zu", quota);
 
+Kernel::log() << __FILE__ << __LINE__ << __builtin_return_address(0) << "\n";
 		Genode::env()->parent()->upgrade(_cap, buf);
 	}
 };
@@ -161,7 +162,7 @@ struct Emergency_ram_reserve
 {
 	virtual void release() = 0;
 };
-
+#include <kernel/log.h>
 
 class Genode::Expanding_parent_client : public Parent_client
 {
@@ -260,6 +261,7 @@ class Genode::Expanding_parent_client : public Parent_client
 			 * 'Parent::Quota_exceeded' exception. Now, it is the job of the
 			 * caller to issue (and respond to) a resource request.
 			 */
+Kernel::log() << __FILE__ << __LINE__ << __builtin_return_address(0) << "\n";
 			enum { NUM_ATTEMPTS = 2 };
 			retry<Parent::Quota_exceeded>(
 				[&] () { Parent_client::upgrade(to_session, args); },

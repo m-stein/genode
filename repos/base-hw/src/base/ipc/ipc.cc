@@ -94,7 +94,7 @@ Ipc_istream::~Ipc_istream() { }
 /****************
  ** Ipc_client **
  ****************/
-
+#include <kernel/log.h>
 void Ipc_client::_call()
 {
 	retry<Genode::Allocator::Out_of_memory>(
@@ -118,7 +118,10 @@ void Ipc_client::_call()
 			}
 
 		},
-		[&] () { upgrade_pd_session_quota(3*4096); });
+		[&] () {
+
+Kernel::log() << __FILE__ << __LINE__ << __builtin_return_address(0) << "\n";
+upgrade_pd_session_quota(3*4096); });
 }
 
 
@@ -171,7 +174,9 @@ void Ipc_server::_wait()
 			}
 
 		},
-		[&] () { upgrade_pd_session_quota(3*4096); });
+		[&] () {
+Kernel::log() << __FILE__ << __LINE__ << __builtin_return_address(0) << "\n";
+upgrade_pd_session_quota(3*4096); });
 }
 
 
@@ -208,5 +213,7 @@ void Ipc_server::_reply_wait()
 			}
 
 		},
-		[&] () { upgrade_pd_session_quota(3*4096); });
+		[&] () {
+Kernel::log() << __FILE__ << __LINE__ << __builtin_return_address(0) << "\n";
+upgrade_pd_session_quota(3*4096); });
 }

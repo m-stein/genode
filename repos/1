@@ -43,7 +43,7 @@ install_config {
 
 	<start name="init_1" priority="-1">
 		<binary name="init"/>
-		<resource name="RAM" quantum="60M"/>
+		<resource name="RAM" quantum="40M"/>
 		<resource name="CPU" quantum="10"/>
 		<config>
 			<parent-provides>
@@ -76,7 +76,7 @@ install_config {
 
 	<start name="init_2" priority="-2">
 		<binary name="init"/>
-		<resource name="RAM" quantum="80M"/>
+		<resource name="RAM" quantum="60M"/>
 		<resource name="CPU" quantum="80"/>
 		<config prio_levels="2">
 			<parent-provides>
@@ -128,7 +128,7 @@ build_boot_image "core init timer test-cpu_quota test-sync"
 # Execution
 #
 
-append qemu_args "-nographic -m 256"
+append qemu_args "-nographic -m 128"
 
 run_genode_until ".*done.*\n.*done.*\n.*done.*\n" 100
 

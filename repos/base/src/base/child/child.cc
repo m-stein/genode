@@ -167,6 +167,7 @@ class Child::Session : public Object_pool<Session>::Entry,
 		const char        *ident()             const { return _ident; }
 };
 
+#include <kernel/log.h>
 
 /***********
  ** Child **
@@ -400,6 +401,8 @@ void Child::upgrade(Session_capability to_session, Parent::Upgrade_args const &a
 		Transfer donation_to_service(ram_quota, _policy->ref_ram_cap(),
 		                             targeted_service->ram_session_cap());
 
+	/* check if upgrade refers to server */
+Kernel::log() << __builtin_return_address(0) << "\n";
 		try { targeted_service->upgrade(to_session, args.string()); }
 		catch (Service::Quota_exceeded) { throw Quota_exceeded(); }
 

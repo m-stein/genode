@@ -73,7 +73,7 @@ class Sync::Signal
 		}
 };
 
-class Counter : private Thread<8 * 1024>
+class Counter : private Thread<1024 * sizeof(Genode::addr_t)>
 {
 	private:
 

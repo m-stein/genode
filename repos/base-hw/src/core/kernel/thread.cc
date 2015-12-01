@@ -77,12 +77,15 @@ void Thread::_send_request_succeeded()
 	assert(_state == AWAITS_IPC);
 	user_arg_0(0);
 	_state = ACTIVE;
+
+Genode::printf(" ---> %s ~%s)\n", pd_label(), label());
 	if (!Cpu_job::own_share_active()) { _activate_used_shares(); }
 }
 
 
 void Thread::_send_request_failed()
 {
+Genode::printf(" ---x %s ~%s)\n", pd_label(), label());
 	assert(_state == AWAITS_IPC);
 	user_arg_0(-1);
 	_state = ACTIVE;
@@ -311,9 +314,11 @@ void Thread::_call_send_request_msg()
 		_become_inactive(AWAITS_IPC);
 		return;
 	}
+
 	bool const help = Cpu_job::_helping_possible(dst);
 	oir = oir->find(dst->pd());
 
+Genode::printf("IPC --- %s ~%s <--- %s ~%s)\n", dst->pd_label(), dst->label(), pd_label(), label());
 	Ipc_node::send_request(dst, oir ? oir->capid() : cap_id_invalid(),
 	                       help, user_arg_2());
 	_state = AWAITS_IPC;
@@ -323,6 +328,7 @@ void Thread::_call_send_request_msg()
 
 void Thread::_call_send_reply_msg()
 {
+Genode::printf("IPC --- %s ~%s", pd_label(), label());
 	Ipc_node::send_reply();
 	bool const await_request_msg = user_arg_2();
 	if (await_request_msg) { _call_await_request_msg(); }
@@ -460,7 +466,14 @@ void Thread::_print_activity_when_awaits_ipc()
 }
 
 
-void Thread::_call_print_char() { Genode::printf("%c", (char)user_arg_1()); }
+void Thread::_call_print_char() {
+
+if (user_arg_1()==0) while(1);
+if ((char)user_arg_1() == '\n') {
+Genode::printf(" %s", pd_label());
+}
+Genode::printf("%c", (char)user_arg_1()); 
+}
 
 
 void Thread::_call_await_signal()

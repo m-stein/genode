@@ -35,7 +35,7 @@ namespace Init {
 	class Child_registry;
 	class Child;
 }
-
+#include <kernel/log.h>
 
 /***************
  ** Utilities **
@@ -318,6 +318,7 @@ class Init::Routed_service : public Genode::Service
 
 		void upgrade(Genode::Session_capability sc, const char *args)
 		{
+Kernel::log() << __FILE__ << __builtin_return_address(0) << "\n";
 			try { Genode::Root_client(_root).upgrade(sc, args); }
 			catch (Genode::Root::Invalid_args) { throw Invalid_args(); }
 			catch (Genode::Ipc_error)          { throw Unavailable(); }

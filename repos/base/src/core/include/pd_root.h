@@ -24,6 +24,7 @@ namespace Genode {
 	class Pd_root;
 }
 
+#include <kernel/log.h>
 
 class Genode::Pd_root
 : public Genode::Root_component<Genode::Pd_session_component>
@@ -43,6 +44,7 @@ class Genode::Pd_root
 
 		void _upgrade_session(Pd_session_component *p, const char *args)
 		{
+Kernel::log() << __builtin_return_address(0) << "\n";
 			size_t ram_quota =
 				Arg_string::find_arg(args, "ram_quota").ulong_value(0);
 			p->upgrade_ram_quota(ram_quota);

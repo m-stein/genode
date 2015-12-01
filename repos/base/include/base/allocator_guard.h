@@ -17,10 +17,11 @@
 #include <base/allocator.h>
 #include <base/printf.h>
 #include <base/stdint.h>
+#include <kernel/interface.h>
 
 namespace Genode { class Allocator_guard; }
 
-
+#include <kernel/log.h>
 /**
  * This class acts as guard for arbitrary allocators to limit
  * memory exhaustion
@@ -71,8 +72,10 @@ class Genode::Allocator_guard : public Allocator
 		bool alloc(size_t size, void **out_addr) override
 		{
 			if ((_amount - _consumed) < (size + _allocator->overhead(size))) {
+Kernel::log() << __FILE__ << __LINE__ << __builtin_return_address(0) << "\n";
 				PWRN("Quota exceeded! amount=%zu, size=%zu, consumed=%zu",
 				     _amount, (size + _allocator->overhead(size)), _consumed);
+Kernel::print_char(0);
 				return false;
 			}
 			bool b = _allocator->alloc(size, out_addr);

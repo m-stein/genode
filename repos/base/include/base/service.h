@@ -173,6 +173,7 @@ class Genode::Service : public List<Service>::Element
 };
 
 
+#include <kernel/log.h>
 /**
  * Representation of a locally implemented service
  */
@@ -198,6 +199,8 @@ class Genode::Local_service : public Service
 
 		void upgrade(Session_capability session, const char *args) override
 		{
+
+Kernel::log() << __FILE__ << __LINE__ << __builtin_return_address(0) << "\n";
 			try { _root->upgrade(session, args); }
 			catch (Genode::Ipc_error)      { throw Unavailable();    }
 		}
@@ -232,6 +235,7 @@ class Genode::Parent_service : public Service
 
 		void upgrade(Session_capability session, const char *args) override
 		{
+Kernel::log() << __FILE__ << __LINE__ << __builtin_return_address(0) << "\n";
 			try { env()->parent()->upgrade(session, args); }
 			catch (Genode::Ipc_error)    { throw Unavailable();    }
 		}
@@ -288,6 +292,7 @@ class Genode::Child_service : public Service
 			if (!_root_cap.valid())
 				throw Unavailable();
 
+Kernel::log() << __FILE__ << __LINE__ << __builtin_return_address(0) << "\n";
 			try { _root.upgrade(sc, args); }
 			catch (Root::Invalid_args)   { throw Invalid_args();   }
 			catch (Root::Unavailable)    { throw Unavailable();    }

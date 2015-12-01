@@ -55,7 +55,7 @@ class Genode::Single_client
 
 		void release() { _used = false; }
 };
-
+#include <kernel/log.h>
 
 /**
  * Session-creation policy for a multi-client service
@@ -251,6 +251,7 @@ class Genode::Root_component : public Rpc_object<Typed_root<SESSION_TYPE> >,
 			_ep->apply(session, [&] (SESSION_TYPE *s) {
 				if (!s) return;
 
+Kernel::log() << __builtin_return_address(0) << "\n";
 				_upgrade_session(s, args.string());
 			});
 		}
