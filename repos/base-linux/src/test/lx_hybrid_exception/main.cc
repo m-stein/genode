@@ -11,16 +11,23 @@
  * under the terms of the GNU General Public License version 2.
  */
 
+/* Genode includes */
+#include <base/component.h>
 #include <base/printf.h>
+
 
 using namespace Genode;
 
 class Test_exception { };
 
-/**
- * Main program
+Genode::size_t Component::stack_size() { return 16*1024*sizeof(long); }
+char const * Component::name()         { return "lx_hybrid_exception"; }
+
+
+/*
+ * Component implements classical main function in construct.
  */
-int main(int, char **)
+void Component::construct(Genode::Environment &env)
 {
 	printf("--- lx_hybrid exception test ---\n");
 
@@ -32,6 +39,4 @@ int main(int, char **)
 	}
 
 	printf("--- returning from main ---\n");
-
-	return 0;
 }

@@ -5,6 +5,7 @@
  */
 
 /* Genode includes */
+#include <base/component.h>
 #include <base/thread.h>
 #include <base/printf.h>
 
@@ -40,7 +41,16 @@ struct Thread : Genode::Thread<STACK_SIZE>
 };
 
 
-int main(int, char **)
+Genode::size_t Component::stack_size() { return 16*1024*sizeof(long); }
+char const * Component::name()         { return "lx_hybrid_errno"; }
+
+
+struct Unexpected_errno_change { };
+
+/*
+ * Component implements classical main function in construct.
+ */
+void Component::construct(Genode::Environment &env)
 {
 	Genode::printf("--- thread-local errno test ---\n");
 
@@ -60,9 +70,8 @@ int main(int, char **)
 
 	if (orig_errno != errno) {
 		PERR("unexpected change of main thread's errno value");
-		return -1;
+		throw Unexpected_errno_change();
 	}
 
 	Genode::printf("--- finished thread-local errno test ---\n");
-	return 0;
 }

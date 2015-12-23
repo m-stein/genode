@@ -11,9 +11,11 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-
+/* Genode includes */
+#include <base/component.h>
 #include <base/printf.h>
 
+/* local includes */
 #include "testlib.h"
 
 using namespace Genode;
@@ -35,7 +37,14 @@ extern Testlib_testclass testlib_testobject;
 Testapp_testclass testapp_testobject;
 
 
-int main(int argc, char *argv[])
+Genode::size_t Component::stack_size() { return 16*1024*sizeof(long); }
+char const * Component::name()         { return "lx_hybrid_ctors"; }
+
+
+/*
+ * Component implements classical main function in construct.
+ */
+void Component::construct(Genode::Environment &env)
 {
 	printf("--- lx_hybrid global static constructor test ---\n");
 
@@ -47,6 +56,4 @@ int main(int argc, char *argv[])
 	testapp_testobject.dummy();
 
 	printf("--- returning from main ---\n");
-
-	return 0;
 }
