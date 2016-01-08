@@ -18,7 +18,8 @@ extern "C" {
 #include <errno.h>
 }
 
-extern "C" int sigprocmask(int how, const sigset_t *set, sigset_t *old_set)
+
+extern "C" int __attribute__((weak)) sigprocmask(int how, const sigset_t *set, sigset_t *old_set)
 {
 	/* no signals should be expected, so report all signals blocked */
 	if (old_set != NULL)
@@ -36,7 +37,7 @@ extern "C" int sigprocmask(int how, const sigset_t *set, sigset_t *old_set)
 	return -1;
 }
 
-extern "C" int _sigprocmask(int how, const sigset_t *set, sigset_t *old_set)
+extern "C" int __attribute__((weak)) _sigprocmask(int how, const sigset_t *set, sigset_t *old_set)
 {
 	return sigprocmask(how, set, old_set);
 }
