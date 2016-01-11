@@ -7,7 +7,7 @@
  */
 
 /*
- * Copyright (C) 2014-2015 Genode Labs GmbH
+ * Copyright (C) 2014-2016 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU General Public License version 2.
@@ -54,6 +54,19 @@ Native_region * Platform::_core_only_mmio_regions(unsigned const i)
 }
 
 
-bool Imx::Board::is_smp() { return true; }
-
 Cpu::User_context::User_context() { cpsr = Psr::init_user(); }
+
+
+bool Cortex_a9::Board::errata(Cortex_a9::Board::Errata err)
+{
+	switch (err) {
+		case Cortex_a9::Board::ARM_754322:
+		case Cortex_a9::Board::ARM_764369:
+		case Cortex_a9::Board::ARM_775420:
+		case Cortex_a9::Board::PL310_588369:
+		case Cortex_a9::Board::PL310_727915:
+		case Cortex_a9::Board::PL310_769419:
+			return true;
+	};
+	return false;
+}
