@@ -39,7 +39,8 @@ namespace Abi {
 	/**
 	 * On x86 a call will result in a growth of the stack by machine word size
 	 */
-	static constexpr Genode::size_t stack_adjustment() { return sizeof(Genode::addr_t); }
+	static Genode::addr_t stack_align(Genode::addr_t addr) {
+		return (addr  & ~0xf) - sizeof(Genode::addr_t); }
 
 	/**
 	 * Do ABI specific initialization to a freshly created stack

@@ -114,10 +114,7 @@ class Genode::Thread_base
 			 * sufficient for the AMD64 ABI (stack top + adjustment is 16-byte
 			 * aligned).
 			 */
-			addr_t stack_top() const
-			{
-				return ((addr_t)_stack & ~0xf) - Abi::stack_adjustment();
-			}
+			addr_t stack_top() const { return Abi::stack_align((addr_t)_stack); }
 
 			/**
 			 * Ensure that the stack has a given size at the minimum
