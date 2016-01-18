@@ -110,9 +110,7 @@ class Genode::Thread_base
 			/**
 			 * Top of stack
 			 *
-			 * The alignment matches an initial stack frame, which is
-			 * sufficient for the AMD64 ABI (stack top + adjustment is 16-byte
-			 * aligned).
+			 * The alignment constrains are enforced by the CPU-specific ABI.
 			 */
 			addr_t stack_top() const { return Abi::stack_align((addr_t)_stack); }
 
