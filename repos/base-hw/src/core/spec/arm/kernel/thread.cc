@@ -30,14 +30,10 @@ void Thread::exception(unsigned const cpu)
 		_call();
 		return;
 	case PREFETCH_ABORT:
-		_mmu_exception();
-		return;
 	case DATA_ABORT:
 		_mmu_exception();
 		return;
 	case INTERRUPT_REQUEST:
-		_interrupt(cpu);
-		return;
 	case FAST_INTERRUPT_REQUEST:
 		_interrupt(cpu);
 		return;
@@ -76,7 +72,10 @@ void Thread::_mmu_exception()
 		_fault.submit();
 		return;
 	}
-	PERR("unknown MMU exception");
+	PERR("%s -> %s: raised unhandled %s DFSR=0x%08x ISFR=0x%08x "
+	     "DFAR=0x%08x ip=0x%08lx sp=0x%08lx", pd_label(), label(),
+	     cpu_exception == DATA_ABORT ? "data abort" : "prefetch abort",
+	     Cpu::Dfsr::read(), Cpu::Ifsr::read(), Cpu::Dfar::read(), ip, sp);
 }
 
 

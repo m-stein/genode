@@ -80,6 +80,7 @@ class Genode::Arm
 		struct Sctlr : Register<32>
 		{
 			struct M : Bitfield<0,1>  { }; /* enable MMU */
+			struct A : Bitfield<1,1>  { }; /* enable alignment checks */
 			struct C : Bitfield<2,1>  { }; /* enable data cache */
 			struct I : Bitfield<12,1> { }; /* enable instruction caches */
 			struct V : Bitfield<13,1> { }; /* select exception entry */
@@ -96,8 +97,12 @@ class Genode::Arm
 
 			static void init()
 			{
-				/* set exception vector to 0xffff0000 */
 				access_t v = read();
+
+				/* disable alignment checks */
+				A::set(v, 0);
+
+				/* set exception vector to 0xffff0000 */
 				V::set(v, 1);
 				write(v);
 			}

@@ -63,6 +63,7 @@ class Genode::Cpu : public Arm
 			static void init()
 			{
 				access_t v = read();
+				A::set(v, 0);
 				V::set(v, 1);
 				W::set(v, 1);
 				Dt::set(v, 1);

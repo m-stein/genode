@@ -94,6 +94,7 @@ class Genode::Arm_v7 : public Arm
 				C::set(v, 1);
 				I::set(v, 1);
 				V::set(v, 1);
+				A::set(v, 0);
 				M::set(v, 1);
 				Z::set(v, 1);
 				return v;
