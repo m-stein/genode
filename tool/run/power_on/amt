@@ -22,7 +22,7 @@ proc power_on_amt_password { } {
 # Reset via Intel AMT (works up to version smaller Intel AMT 9)
 #
 proc amt_reset_soap_eoi { } {
-	set timeout 20
+	set timeout 200
 	set exit_result 1
 
 	#

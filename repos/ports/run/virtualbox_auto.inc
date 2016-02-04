@@ -94,7 +94,7 @@ append config {
 		<resource name="RAM" quantum="10M"/>
 		<provides><service name="Block"/></provides>
 		<config>
-			<policy label_prefix="part_blk" device="0" writeable="yes"/>
+			<policy label_prefix="part_blk" device="2" writeable="yes"/>
 		</config>
 	</start>
 	<start name="part_blk" priority="-1">
@@ -103,9 +103,9 @@ append config {
 		<route>
 			<any-service><child name="ahci_drv"/> <parent/><any-child/></any-service>
 		</route>
-		<config>}
+		<config use_gpt="yes">}
 append_if [expr $use_rumpfs] config {
-			<policy label_prefix="rump_fs" partition="4" writeable="yes"/>}
+			<policy label_prefix="rump_fs" partition="5" writeable="yes"/>}
 append_if [expr !$use_rumpfs] config {
 			<policy label_prefix="vbox1 -> raw" partition="3" writeable="yes"/>}
 append config {
@@ -231,7 +231,7 @@ append_if [expr $use_usb] config {
 				<inline name="usb_drv.config">}
 
 append_if [expr $use_usb && ![have_spec muen]] config {
-<config uhci="yes" ohci="yes" ehci="yes" xhci="yes">}
+<config uhci="yes" ohci="yes" ehci="yes" xhci="yes" bios_handoff="no">}
 
 append_if [expr $use_usb && [have_spec muen]] config {
 <config uhci="no" ehci="no" xhci="yes">}
@@ -322,7 +322,7 @@ append_if [expr $use_usb] config {
 
 append_if [have_spec framebuffer] config {
 	<start name="fb_drv" priority="-1" caps="150">
-		<resource name="RAM" quantum="8M"/>
+		<resource name="RAM" quantum="10M"/>
 		<provides><service name="Framebuffer"/></provides>
 		<config buffered="yes"/>
 	</start>}
