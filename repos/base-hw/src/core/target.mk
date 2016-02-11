@@ -12,3 +12,7 @@ LIBS += core
 
 # add C++ sources
 SRC_CC += kernel/test.cc
+
+ifneq ($(filter riscv, $(SPECS)),)
+LD_TEXT_ADDR = $(CORE_LD_TEXT_ADDR)
+endif
