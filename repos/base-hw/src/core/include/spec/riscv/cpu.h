@@ -123,7 +123,7 @@ class Genode::Cpu
 			asm volatile ("csrrw t0, sasid, x0\n"
 			              "sfence.vm\n"
 			              "csrw sasid, t0\n"
-			              : : :"t0");
+			              : : : "t0");
 		}
 
 		/**
@@ -134,11 +134,7 @@ class Genode::Cpu
 		 */
 		static void translation_added(addr_t const addr, size_t const size);
 
-
-		static void invalidate_tlb_by_pid(unsigned const pid)
-		{
-			sfence();
-		}
+		static void invalidate_tlb_by_pid(unsigned const pid) { sfence(); }
 
 		/**
 		 * Return kernel name of the executing CPU

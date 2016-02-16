@@ -14,9 +14,11 @@
 #ifndef _TRANSLATION_TABLE_H_
 #define _TRANSLATION_TABLE_H_
 
+/* Genode includes */
 #include <util/misc_math.h>
 #include <util/register.h>
 
+/* Core includes */
 #include <cpu.h>
 #include <page_flags.h>
 #include <translation_table_allocator.h>
@@ -386,7 +388,7 @@ namespace Sv39 {
 	template <> template <>
 	struct Level_3_translation_table::Remove_func<None>
 	{
-		Remove_func(Translation_table_allocator * /* alloc */) { }
+		Remove_func(Translation_table_allocator *) { }
 
 		void operator () (addr_t const          vo,
 		                  addr_t const          pa,
@@ -404,12 +406,12 @@ namespace Genode {
 
 			enum {
 				TABLE_LEVEL_X_SIZE_LOG2 = Sv39::SIZE_LOG2_4K,
-				CORE_VM_AREA_SIZE  = 128 * 1024 * 1024,
-				CORE_TRANS_TABLE_COUNT  =
-				_count(CORE_VM_AREA_SIZE, Sv39::SIZE_LOG2_1G)
-				+ _count(CORE_VM_AREA_SIZE, Sv39::SIZE_LOG2_2M),
+				CORE_VM_AREA_SIZE = 128 * 1024 * 1024,
+				CORE_TRANS_TABLE_COUNT =
+					_count(CORE_VM_AREA_SIZE, Sv39::SIZE_LOG2_1G) +
+					_count(CORE_VM_AREA_SIZE, Sv39::SIZE_LOG2_2M),
 			};
 	};
-} /* namespace Genode */
+}
 
 #endif /* _TRANSLATION_TABLE_H_ */

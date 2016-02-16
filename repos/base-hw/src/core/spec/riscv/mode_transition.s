@@ -351,6 +351,12 @@ _mt_kernel_entry_pic:
 	csrw sasid, x29
 	csrw sptbr, x30
 
+	#
+	# FIXME
+	# A TLB flush. Might be necessary to add this in the near future again
+	# because on real hardware we currently get problems without.
+	#
+
 	# sfence.vm x0
 
 	# save x29 - x31 in user context 
@@ -421,6 +427,12 @@ _mt_user_entry_pic:
 
 	csrw sasid, x31
 	csrw sptbr, x30
+
+	#
+	# FIXME
+	# A TLB flush. Might be necessary to add this in the near future again
+	# because on real hardware we currently get problems without.
+	#
 
 	# sfence.vm x0
 

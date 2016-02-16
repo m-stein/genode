@@ -1,4 +1,4 @@
-/**
+/*
  * \brief  CPU state
  * \author Sebastian Sumpf
  * \date   2015-06-01
