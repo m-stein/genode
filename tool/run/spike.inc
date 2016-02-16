@@ -1,1 +1,1 @@
-set spike_spawn_id    ""
+set spike_spawn_id ""
