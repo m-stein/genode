@@ -1,6 +1,7 @@
 #
 # \brief  Build config for Genodes core process
 # \author Martin Stein
+# \author Sebastian Sumpf
 # \date   2011-12-16
 #
 

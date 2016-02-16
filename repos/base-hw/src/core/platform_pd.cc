@@ -2,6 +2,7 @@
  * \brief   Protection-domain facility
  * \author  Martin Stein
  * \author  Stefan Kalkowski
+ * \author  Sebastian Sumpf
  * \date    2012-02-12
  */
 

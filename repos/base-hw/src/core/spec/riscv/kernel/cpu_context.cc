@@ -11,19 +11,16 @@
  * under the terms of the GNU General Public License version 2.
  */
 
+/* Core includes */
 #include <kernel/cpu.h>
-
-
-/*************************
- ** Kernel::Cpu_context **
- *************************/
 
 void Kernel::Cpu_context::_init(size_t const stack_size, addr_t const table)
 {
 	/*
-	 * the stack pointer already contains the stack base address
-	 * of all CPU's kernel stacks, on this uni-processor platform
-	 * it is sufficient to increase it by the stack's size
+	 * The stack pointer currently contains the base address of the
+	 * kernel stack area that contains the kernel stacks of all CPUs. As this
+	 * is a uni-processor platform, we merely have to select the first kernel
+	 * stack, i.e. increasing sp by the size of one stack.
 	 */
 	sp = sp + stack_size;
 }

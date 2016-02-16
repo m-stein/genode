@@ -14,11 +14,10 @@
 #ifndef _INCLUDE__RISCV__CPU__CPU_STATE_H_
 #define _INCLUDE__RISCV__CPU__CPU_STATE_H_
 
+/* Genode includes */
 #include <base/stdint.h>
 
-namespace Genode {
-	struct Cpu_state;
-}
+namespace Genode { struct Cpu_state; }
 
 struct Genode::Cpu_state
 {
@@ -35,39 +34,9 @@ struct Genode::Cpu_state
 		IRQ_FLAG               = 1UL << 63,
 	};
 
-	addr_t ip;
-	addr_t cpu_exception;
-	addr_t ra;
-	addr_t sp;
-	addr_t gp;
-	addr_t tp;
-	addr_t t0;
-	addr_t t1;
-	addr_t t2;
-	addr_t s0;
-	addr_t s1;
-	addr_t a0;
-	addr_t a1;
-	addr_t a2;
-	addr_t a3;
-	addr_t a4;
-	addr_t a5;
-	addr_t a6;
-	addr_t a7;
-	addr_t s2;
-	addr_t s3;
-	addr_t s4;
-	addr_t s5;
-	addr_t s6;
-	addr_t s7;
-	addr_t s8;
-	addr_t s9;
-	addr_t s10;
-	addr_t s11;
-	addr_t t3;
-	addr_t t4;
-	addr_t t5;
-	addr_t t6;
+	addr_t ip, cpu_exception, ra, sp, gp, tp, t0, t1, t2, s0, s1, a0, a1, a2,
+	       a3, a4, a5, a6, a7, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, t3,
+	       t4, t5, t6;
 
 	bool      is_irq() { return cpu_exception & IRQ_FLAG; }
 	unsigned  irq()    { return cpu_exception ^ IRQ_FLAG; }

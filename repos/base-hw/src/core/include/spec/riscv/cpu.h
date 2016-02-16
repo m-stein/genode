@@ -1,11 +1,11 @@
 /*
  * \brief  CPU driver for core
- * \author Martin stein
- * \date   2011-11-03
+ * \author Sebastian Sumpf
+ * \date   2015-06-02
  */
 
 /*
- * Copyright (C) 2011-2013 Genode Labs GmbH
+ * Copyright (C) 2015-2016 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU General Public License version 2.
@@ -14,6 +14,7 @@
 #ifndef _CPU_H_
 #define _CPU_H_
 
+/* Genode includes */
 #include <base/stdint.h>
 #include <cpu/cpu_state.h>
 
@@ -27,10 +28,7 @@ namespace Genode
 	typedef __uint128_t sizet_arithm_t;
 }
 
-namespace Kernel 
-{
-	class Pd;
-}
+namespace Kernel { class Pd; }
 
 class Genode::Cpu
 {
@@ -50,20 +48,17 @@ class Genode::Cpu
 			/**
 			 * Return base of assigned translation table
 			 */
-			addr_t translation_table() const {
-				return sptbr; }
+			addr_t translation_table() const { return sptbr; }
 
 			/**
 			 * Assign translation-table base 'table'
 			 */
-			void translation_table(addr_t const table) {
-				sptbr = table; }
+			void translation_table(addr_t const table) { sptbr = table; }
 
 			/**
 			 * Assign protection domain
 			 */
-			void protection_domain(Genode::uint8_t const id) {
-				sasid = id; }
+			void protection_domain(Genode::uint8_t const id) { sasid = id; }
 		};
 
 		struct Pd
@@ -91,17 +86,11 @@ class Genode::Cpu
 			void user_arg_2(unsigned const arg) { a2  = arg; }
 			void user_arg_3(unsigned const arg) { a3  = arg; }
 			void user_arg_4(unsigned const arg) { a4  = arg; }
-			void user_arg_5(unsigned const arg) { a5  = arg; }
-			void user_arg_6(unsigned const arg) { a6  = arg; }
-			void user_arg_7(unsigned const arg) { a7  = arg; }
 			addr_t user_arg_0() const { return a0; }
 			addr_t user_arg_1() const { return a1; }
 			addr_t user_arg_2() const { return a2; }
 			addr_t user_arg_3() const { return a3; }
 			addr_t user_arg_4() const { return a4; }
-			addr_t user_arg_5() const { return a5; }
-			addr_t user_arg_6() const { return a6; }
-			addr_t user_arg_7() const { return a7; }
 
 			/**
 			 * Initialize thread context
@@ -151,27 +140,20 @@ class Genode::Cpu
 			return addr;
 		}
 
+		static void data_synchronization_barrier() {
+			asm volatile ("fence\n" : : : "memory"); }
+
 		/*************
 		 ** Dummies **
 		 *************/
 
 		void switch_to(User_context&) { }
 		static void prepare_proceeding(Cpu_lazy_state *, Cpu_lazy_state *) { }
-
 		static void invalidate_instr_caches() { }
-
 		static void invalidate_data_caches() { }
 		static void flush_data_caches() { }
-		static void
-		flush_data_caches_by_virt_region(addr_t base, size_t const size) { }
-		static void
-		invalidate_instr_caches_by_virt_region(addr_t base, size_t const size) { }
-
-		static void data_synchronization_barrier()
-		{
-			asm volatile ("fence\n" : : : "memory");
-		}
-
+		static void flush_data_caches_by_virt_region(addr_t, size_t) { }
+		static void invalidate_instr_caches_by_virt_region(addr_t, size_t) { }
 };
 
 #endif /* _CPU_H_ */

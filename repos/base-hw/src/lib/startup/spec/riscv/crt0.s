@@ -1,3 +1,16 @@
+/**
+ * \brief   Startup code for Genode applications
+ * \author  Sebastian Sumpf
+ * \date    2016-02-16
+ */
+
+/*
+ * Copyright (C) 2016 Genode Labs GmbH
+ *
+ * This file is part of the Genode OS framework, which is distributed
+ * under the terms of the GNU General Public License version 2.
+ */
+
 .section ".text"
 
 .global _start

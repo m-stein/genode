@@ -14,6 +14,7 @@
 #ifndef _INCLUDE__RISCV__CPU__ATOMIC_H_
 #define _INCLUDE__RISCV__CPU__ATOMIC_H_
 
+/* Genode includes */
 #include <cpu/memory_barrier.h>
 
 namespace Genode {

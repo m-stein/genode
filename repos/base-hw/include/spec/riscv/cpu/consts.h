@@ -14,13 +14,14 @@
 #ifndef _INCLUDE__RISCV__CPU__CONSTS_H_
 #define _INCLUDE__RISCV__CPU__CONSTS_H_
 
+/* Genode includes */
 #include <base/stdint.h>
 
 namespace Abi {
 
 	/*
-	 * On RISC-V we align the stack top to 16-byte. As a call (or branch) will not
-	 * change the stack pointer, we need no further stack adjustment.
+	 * On RISC-V we align the stack top to 16-byte. As a call (or branch) will
+	 * not change the stack pointer, we need no further stack adjustment.
 	 */
 	static Genode::addr_t stack_align(Genode::addr_t addr) {
 		return (addr & ~0xf); }

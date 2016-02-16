@@ -331,14 +331,14 @@ class Kernel::Cpu_pool
 {
 	private:
 
-		Timer  _timer;
+		Timer _timer;
 
 		/*
 		 * Align to machine word size, otherwise load/stores might fail on some
 		 * platforms.
 		 */
-		char   _cpus[NR_OF_CPUS][sizeof(Cpu)]
-		       __attribute__((aligned(sizeof(addr_t))));
+		char _cpus[NR_OF_CPUS][sizeof(Cpu)]
+		     __attribute__((aligned(sizeof(addr_t))));
 
 	public:
 

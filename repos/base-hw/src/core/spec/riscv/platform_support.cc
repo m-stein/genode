@@ -2,7 +2,6 @@
  * \brief   Platform implementations specific for RISC-V
  * \author  Sebastian Sumpf
  * \date    2015-06-02
- *
  */
 
 /*
