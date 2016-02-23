@@ -17,6 +17,8 @@
 #include <base/env.h>
 #include <base/log.h>
 #include <vfs/dir_file_system.h>
+#include <vfs/lxfb_io.h>
+#include <os/attached_dataspace.h>
 
 /* libc includes */
 #include <errno.h>
@@ -781,6 +783,20 @@ int Libc::Vfs_plugin::ioctl(Libc::File_descriptor *fd, int request, char *argp)
 			break;
 		}
 
+	case FBIOGET_VSCREENINFO:
+		{
+			opcode = Opcode::IOCTL_OP_FBIOGET_VSCREENINFO;
+			arg    = (unsigned long)argp;
+			break;
+		}
+
+	case FBIOGET_FSCREENINFO:
+		{
+			opcode = Opcode::IOCTL_OP_FBIOGET_FSCREENINFO;
+			arg    = (unsigned long)argp;
+			break;
+		}
+
 	default:
 		Genode::warning("unsupported ioctl (request=", Genode::Hex(request), ")");
 		break;
@@ -832,6 +848,9 @@ int Libc::Vfs_plugin::ioctl(Libc::File_descriptor *fd, int request, char *argp)
 			*disk_size = out.diocgmediasize.size;
 			return 0;
 		}
+
+	case FBIOGET_VSCREENINFO: return 0;
+	case FBIOGET_FSCREENINFO: return 0;
 
 	default:
 		break;
@@ -1177,6 +1196,19 @@ void *Libc::Vfs_plugin::mmap(void *addr_in, ::size_t length, int prot, int flags
 		return (void *)-1;
 	}
 
+	typedef Vfs::File_io_service::Mmap_type Type;
+	Vfs::Vfs_handle * handle = vfs_handle(fd);
+	switch(handle->fs().mmap_type()) {
+	case Type::MMAP_COPY:   return _mmap_copy(length, fd, offset);
+	case Type::MMAP_DIRECT: return _mmap_direct(handle);
+	}
+	return (void *)-1;
+}
+
+
+void *Libc::Vfs_plugin::_mmap_copy(::size_t length, Libc::File_descriptor *fd,
+                                   ::off_t offset)
+{
 	/*
 	 * XXX attempt to obtain memory mapping via
 	 *     'Vfs::Directory_service::dataspace'.
@@ -1208,6 +1240,19 @@ void *Libc::Vfs_plugin::mmap(void *addr_in, ::size_t length, int prot, int flags
 	}
 
 	return addr;
+}
+
+
+void *Libc::Vfs_plugin::_mmap_direct(Vfs::Vfs_handle * handle)
+{
+	try {
+		static Genode::Attached_dataspace attached(handle->fs().mmap_direct_ds());
+		return attached.local_addr<void *>();
+	} catch (...) { }
+
+	PERR("mmap failed to attach dataspace");
+	errno = EINVAL;
+	return (void *)-1;
 }
 
 

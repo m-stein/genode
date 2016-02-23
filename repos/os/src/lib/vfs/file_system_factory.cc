@@ -21,6 +21,7 @@
 #include <fs_file_system.h>
 #include <inline_file_system.h>
 #include <log_file_system.h>
+#include <vfs/lxfb_file_system.h>
 #include <null_file_system.h>
 #include <ram_file_system.h>
 #include <rom_file_system.h>
