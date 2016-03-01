@@ -44,15 +44,10 @@ if {[have_spec arm]} {
 }
 
 if {[have_spec x86]} {
-	set platform_base_dir   "base-nova"
+	set platform_base_dir   "base-hw"
 	set noux_boot_timeout   100
 	set tool_chain_timeout  600
-
-	if {[have_spec 32bit]} {
-		set platform          "nova_x86_32"
-	} else {
-		set platform          "nova_x86_64"
-	}
+	set platform            "hw_x86_64"
 }
 
 source ${genode_dir}/repos/ports/run/noux_tool_chain.inc
