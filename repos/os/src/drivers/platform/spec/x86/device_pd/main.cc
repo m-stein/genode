@@ -77,7 +77,7 @@ static bool map_eager(Genode::addr_t const page, unsigned log2_order)
 	Nova::Utcb * utcb = reinterpret_cast<Nova::Utcb *>(myself->utcb());
 	Nova::Rights const mapping_rw(true, true, false);
 
-	addr_t const page_fault_portal = myself->tid().exc_pt_sel + 14;
+	addr_t const page_fault_portal = myself->native_thread().exc_pt_sel + 14;
 
 	/* setup faked page fault information */
 	utcb->set_msg_word(((addr_t)&utcb->qual[2] - (addr_t)utcb->msg) / sizeof(addr_t));
