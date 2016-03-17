@@ -57,6 +57,13 @@
 
 #define __noreturn    __attribute__((noreturn))
 
+#define WRITE_ONCE(x, val) \
+({                                                      \
+        barrier(); \
+        __builtin_memcpy((void *)&(x), (const void *)&(val), sizeof(x)); \
+        barrier(); \
+})
+
 
 /**************************
  ** linux/compiler-gcc.h **

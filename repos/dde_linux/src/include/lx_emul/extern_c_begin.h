@@ -23,8 +23,11 @@ extern "C" {
 #pragma GCC diagnostic ignored "-Wsign-compare"
 
 /* deal with C++ keywords used for identifiers etc. */
-#define private private_
-#define class   class_
-#define new     new_
+#define private   private_
+#define class     class_
+#define new       new_
+#define delete    delete_
+#define namespace namespace_
+#define virtual   virtual_
 
 #endif /* __cplusplus */
