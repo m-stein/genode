@@ -23,6 +23,7 @@
 #include <os/config.h>
 
 #include <trace/timestamp.h>
+#include <nova/native_thread.h>
 
 #include "server.h"
 
