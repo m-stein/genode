@@ -23,6 +23,8 @@
 #include <util/flex_iterator.h>
 #include <util/retry.h>
 
+#include <nova/native_thread.h>
+
 #include "../pci_device_pd_ipc.h"
 
 /**
