@@ -76,17 +76,27 @@ class Genode::Timer
 			return Board::TIMER_VECTOR_KERNEL;
 		}
 
-		inline void start_one_shot(uint32_t const tics, unsigned)
+		inline void start_one_shot(duration_t const tics, unsigned)
 		{
 			_timer_page->value = rdtsc() + tics;
 		}
 
-		uint32_t ms_to_tics(unsigned const ms)
+		duration_t tics_to_us(duration_t const tics) const
 		{
-			return ms * _tics_per_ms;
+			return (tics / _tics_per_ms) * 1000;
 		}
 
-		unsigned value(unsigned)
+		duration_t us_to_tics(duration_t const us) const
+		{
+			return (us / 1000) * _tics_per_ms;
+		}
+
+		duration_t max_value()
+		{
+			return (duration_t)~0;
+		}
+
+		duration_t value(unsigned)
 		{
 			const uint64_t now = rdtsc();
 			if (_timer_page->value != TIMER_DISABLED

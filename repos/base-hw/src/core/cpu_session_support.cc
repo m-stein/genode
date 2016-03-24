@@ -35,7 +35,7 @@ Cpu_session_component::utcb(Thread_capability thread_cap)
 
 Cpu_session::Quota Cpu_session_component::quota()
 {
-	size_t const spu = Kernel::cpu_quota_ms * 1000;
+	size_t const spu = Kernel::cpu_quota_us;
 	size_t const u = quota_lim_downscale<sizet_arithm_t>(_quota, spu);
 	return { spu, u };
 }

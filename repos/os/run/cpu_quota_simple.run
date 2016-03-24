@@ -1,0 +1,184 @@
+#
+# Check platform
+#
+# HW is the only kernel that provides appliance of quota to the scheduling.
+#
+assert_spec hw
+
+#
+# Build
+#
+
+build "core init drivers/timer test/cpu_quota_simple"
+
+#
+# Boot image
+#
+
+create_boot_directory
+
+install_config {
+<config prio_levels="4">
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="RAM"/>
+		<service name="IRQ"/>
+		<service name="IO_MEM"/>
+		<service name="IO_PORT"/>
+		<service name="CAP"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="LOG"/>
+		<service name="SIGNAL"/>
+	</parent-provides>
+	<default-route>
+		<any-service><parent/><any-child/></any-service>
+	</default-route>
+
+	<start name="timer" priority="0">
+		<resource name="RAM" quantum="10M"/>
+		<resource name="CPU" quantum="20"/>
+		<provides><service name="Timer"/></provides>
+	</start>
+
+	<start name="test-sync" priority="0">
+		<resource name="RAM" quantum="10M"/>
+		<provides><service name="Sync"/></provides>
+	</start>
+
+	<start name="test_slow" priority="-1">
+		<binary name="test-cpu_quota"/>
+		<resource name="RAM" quantum="10M"/>
+		<resource name="CPU" quantum="20"/>
+	</start>
+
+	<start name="test_fast" priority="-2">
+		<binary name="test-cpu_quota"/>
+		<resource name="RAM" quantum="10M"/>
+		<resource name="CPU" quantum="60"/>
+	</start>
+
+</config>
+}
+
+build_boot_image "core init timer test-cpu_quota test-sync"
+
+#
+# Execution
+#
+
+append qemu_args "-nographic -m 128"
+
+run_genode_until ".*done.*\n.*done.*\n" 100
+
+#
+# Conclusion
+#
+set err_cnt 0
+
+proc check_counter { name opt cnt total_cnt } {
+
+	global err_cnt
+	set    bad   0
+	set    class "Good: "
+	set    tol   0.01
+	set    is    0
+
+	#
+	# On X86, the timer driver uses the PIT with a maximum timeout of 54 ms.
+	# Thus, the driver frequently interrupts the counters with highest
+	# priority to update the timer. This is why we need a higher error
+	# tolerance as for ARM where the driver, once configured, can sleep for
+	# the whole test timeout.
+	#
+	if {[have_spec x86]} { set tol 0.02 }
+
+	#
+	# Zynq is currently tested merely in Qemu and most likely because of
+	# that, the results are less precise.
+	#
+	if {[have_spec zynq_qemu]} { set tol 0.03 }
+
+	#
+	# FIXME: There is no reasonable explanation by now why the test results
+	# are less stable on these platforms. We have tried several things that
+	# did not lead to an explanation or improvement:
+	#
+	#   * changing the timing parameters of the scheduler
+	#   * switching off SMP
+	#   * double-checking the speed of userland and kernel timers
+	#
+	if {[have_spec hw_odroid_xu]} { set tol 0.04 }
+	if {[have_spec hw_arndale]}   { set tol 0.04 }
+
+	if {[expr $total_cnt != 0]} { set is [expr double($cnt) / $total_cnt ] }
+
+	set err      [expr $is - $opt]
+	set is_fmt   [format {%0.3f} [expr $is  * 100]]
+	set opt_fmt  [format {%0.3f} [expr $opt * 100]]
+	set err_fmt  [format {%0.3f} [expr $err * 100]]
+	set tol_fmt  [format {%0.3f} [expr $tol * 100]]
+
+	if {[expr abs($err) > $tol]} {
+
+		set class   "Bad:  "
+		set err_cnt [expr $err_cnt + 1]
+	}
+	puts "$class$name received $is_fmt% CPU (goal $opt_fmt% tol $tol_fmt% err $err_fmt%)"
+}
+
+proc check_quota { name opt_sp quota_sp opt quota } {
+
+	global err_cnt
+	if {[expr $quota != $opt]} {
+		puts "Bad:  $name has quota $quota us (goal $opt us)"
+		set err_cnt [expr $err_cnt + 1]
+	}
+	if {[expr $quota_sp != $opt_sp]} {
+		puts "Bad:  $name has super period $quota_sp us (goal $opt_sp us)"
+		set err_cnt [expr $err_cnt + 1]
+	}
+}
+
+# pre-define variables if regexp does not match
+set slow_quota "";    set fast_quota ""
+set slow_quota_sp ""; set fast_quota_sp ""
+
+regexp {[0-9]+} [regexp -inline {slow. quota [0-9]+} $output] slow_quota
+regexp {[0-9]+} [regexp -inline {fast. quota [0-9]+} $output] fast_quota
+
+regexp {[0-9]+} [regexp -inline {slow. quota super period [0-9]+} $output] slow_quota_sp
+regexp {[0-9]+} [regexp -inline {fast. quota super period [0-9]+} $output] fast_quota_sp
+
+#
+# We have to consider the rounding errors as the two translations from init to
+# core and then from core to the user are distinct.
+#
+# Slow quota (1000000 * (0x8000 * 20 / 100)) / 0x8000 = 199981
+# Fast quota (1000000 * (0x8000 * 60 / 100)) / 0x8000 = 599975
+#
+check_quota "Slow test" 1000000 $slow_quota_sp 199981 $slow_quota
+check_quota "Fast test" 1000000 $fast_quota_sp 599975 $fast_quota
+
+regexp {[0-9]+} [regexp -inline {slow. counter A [0-9]+} $output] slow_a_cnt
+regexp {[0-9]+} [regexp -inline {fast. counter A [0-9]+} $output] fast_a_cnt
+
+set total_cnt [expr $fast_a_cnt + $slow_a_cnt]
+
+#
+# Slow   20 % claim + 10 % fill = 30 %
+#
+check_counter "Slow counter A" 0.30 $slow_a_cnt $total_cnt
+
+#
+# Fast   60 % claim + 10 % fill = 70 %
+#
+check_counter "Fast counter A" 0.70 $fast_a_cnt $total_cnt
+
+# final conclusion and return
+if {[expr $err_cnt > 0]} {
+	puts "Test failed because of $err_cnt errors"
+	exit -1
+}
+puts "Test succeeded"

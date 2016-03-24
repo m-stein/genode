@@ -63,7 +63,7 @@ proc generate_tftp_config { } {
 		}
 
 		set fh [open "$tftp_base_dir$tftp_offset_dir/config-00-00-00-00-00-00" "WRONLY CREAT TRUNC"]
-		puts $fh " root $tftp_base$tftp_offset_dir/[run_dir]"
+		puts $fh " root /tftpboot$tftp_offset_dir/[run_dir]"
 		puts $fh " config config-52-54-00-12-34-56"
 		close $fh
 	} else {

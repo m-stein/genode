@@ -1,0 +1,198 @@
+kernel initialized
+Genode 16.02-114-gda0c467
+int main(): --- create local services ---
+int main(): --- start init ---
+int main(): transferred 2031 MB to init
+int main(): --- init created, waiting for exit condition ---
+[init] parent provides
+[init]   service "ROM"
+[init]   service "LOG"
+[init]   service "CAP"
+[init]   service "RAM"
+[init]   service "RM"
+[init]   service "CPU"
+[init]   service "PD"
+[init]   service "IRQ"
+[init]   service "IO_MEM"
+[init]   service "IO_PORT"
+[init]   service "SIGNAL"
+[init] child "timer"
+[init]   RAM quota:  749568
+[init]   ELF binary: timer
+[init]   priority:   0
+[init]   provides service Timer
+[init] child "terminal"
+[init]   RAM quota:  749568
+[init]   ELF binary: log_terminal
+[init]   priority:   0
+[init]   provides service Terminal
+[init] child "noux"
+[init]   RAM quota:  1073442816
+[init]   ELF binary: noux
+[init]   priority:   0
+[init] child "terminal" announces service "Terminal"
+[init] child "timer" announces service "Timer"
+[init -> noux] --- noux started ---
+[init -> noux] tar archive 'coreutils.tar' local at f0000000, size is 8970240
+[init -> noux] arg(0): "/bin/ls"
+[init -> noux] arg(1): "-Rla"
+[init -> noux] stdin VFS path not defined, connecting to Terminal session
+[init -> noux] stdout VFS path not defined, connecting to Terminal session
+[init -> noux] stderr VFS path not defined, connecting to Terminal session
+[init -> terminal] .:
+[init -> noux -> /bin/ls] int _nsdispatch(): _nsdispatch not implemented
+[init -> terminal] total 0
+[init -> terminal] drwxr-xr-x 0 root 0 0 Jan  1  1970 .
+[init -> terminal] drwxr-xr-x 0 root 0 0 Jan  1  1970 ..
+[init -> terminal] drwxrwxr-x 0 root 0 0 Jan  1  1970 bin
+[init -> terminal] drwxr-xr-x 0 root 0 0 Jan  1  1970 lib
+[init -> terminal] drwxrwxr-x 0 root 0 0 Jan  1  1970 share
+[init -> terminal] 
+[init -> terminal] ./bin:
+[init -> terminal] total 3973
+[init -> terminal] drwxrwxr-x 0 root 0      0 Jan  1  1970 .
+[init -> terminal] drwxr-xr-x 0 root 0      0 Jan  1  1970 ..
+[init -> terminal] -rwxr-xr-x 0 root 0  67132 Jan  1  1970 [
+[init -> terminal] -rwxr-xr-x 0 root 0  67128 Jan  1  1970 base64
+[init -> terminal] -rwxr-xr-x 0 root 0  63016 Jan  1  1970 basename
+[init -> terminal] -rwxr-xr-x 0 root 0  67192 Jan  1  1970 cat
+[init -> terminal] -rwxr-xr-x 0 root 0  87676 Jan  1  1970 chcon
+[init -> terminal] -rwxr-xr-x 0 root 0  91808 Jan  1  1970 chgrp
+[init -> terminal] -rwxr-xr-x 0 root 0  87696 Jan  1  1970 chmod
+[init -> terminal] -rwxr-xr-x 0 root 0  91820 Jan  1  1970 chown
+[init -> terminal] -rwxr-xr-x 0 root 0  67160 Jan  1  1970 chroot
+[init -> terminal] -rwxr-xr-x 0 root 0  63016 Jan  1  1970 cksum
+[init -> terminal] -rwxr-xr-x 0 root 0  67140 Jan  1  1970 comm
+[init -> terminal] -rwxr-xr-x 0 root 0 120604 Jan  1  1970 cp
+[init -> terminal] -rwxr-xr-x 0 root 0 136868 Jan  1  1970 csplit
+[init -> terminal] -rwxr-xr-x 0 root 0  75340 Jan  1  1970 cut
+[init -> terminal] -rwxr-xr-x 0 root 0  95840 Jan  1  1970 date
+[init -> terminal] -rwxr-xr-x 0 root 0  83608 Jan  1  1970 dd
+[init -> terminal] -rwxr-xr-x 0 root 0  91808 Jan  1  1970 df
+[init -> terminal] -rwxr-xr-x 0 root 0 153592 Jan  1  1970 dir
+[init -> terminal] -rwxr-xr-x 0 root 0  71236 Jan  1  1970 dircolors
+[init -> terminal] -rwxr-xr-x 0 root 0  63008 Jan  1  1970 dirname
+[init -> terminal] -rwxr-xr-x 0 root 0 132852 Jan  1  1970 du
+[init -> terminal] -rwxr-xr-x 0 root 0  58900 Jan  1  1970 echo
+[init -> terminal] -rwxr-xr-x 0 root 0  63016 Jan  1  1970 env
+[init -> terminal] -rwxr-xr-x 0 root 0  63032 Jan  1  1970 expand
+[init -> terminal] -rwxr-xr-x 0 root 0 128600 Jan  1  1970 expr
+[init -> terminal] -rwxr-xr-x 0 root 0  67116 Jan  1  1970 factor
+[init -> terminal] -rwxr-xr-x 0 root 0  54796 Jan  1  1970 false
+[init -> terminal] -rwxr-xr-x 0 root 0  71224 Jan  1  1970 fmt
+[init -> terminal] -rwxr-xr-x 0 root 0  63028 Jan  1  1970 fold
+[init -> terminal] -rwxr-xr-x 0 root 0  63036 Jan  1  1970 groups
+[init -> terminal] -rwxr-xr-x 0 root 0  71236 Jan  1  1970 head
+[init -> terminal] -rwxr-xr-x 0 root 0  63012 Jan  1  1970 hostid
+[init -> terminal] -rwxr-xr-x 0 root 0  67144 Jan  1  1970 id
+[init -> terminal] -rwxr-xr-x 0 root 0 120648 Jan  1  1970 install
+[init -> terminal] -rwxr-xr-x 0 root 0  75360 Jan  1  1970 join
+[init -> terminal] -rwxr-xr-x 0 root 0  63440 Jan  1  1970 kill
+[init -> terminal] -rwxr-xr-x 0 root 0  63020 Jan  1  1970 link
+[init -> terminal] -rwxr-xr-x 0 root 0  87716 Jan  1  1970 ln
+[init -> terminal] -rwxr-xr-x 0 root 0  63016 Jan  1  1970 logname
+[init -> terminal] -rwxr-xr-x 0 root 0 153592 Jan  1  1970 ls
+[init -> terminal] -rwxr-xr-x 0 root 0  71232 Jan  1  1970 md5sum
+[init -> terminal] -rwxr-xr-x 0 root 0  71288 Jan  1  1970 mkdir
+[init -> terminal] -rwxr-xr-x 0 root 0  63016 Jan  1  1970 mkfifo
+[init -> terminal] -rwxr-xr-x 0 root 0  67124 Jan  1  1970 mknod
+[init -> terminal] -rwxr-xr-x 0 root 0  71308 Jan  1  1970 mktemp
+[init -> terminal] -rwxr-xr-x 0 root 0 124692 Jan  1  1970 mv
+[init -> terminal] -rwxr-xr-x 0 root 0  63028 Jan  1  1970 nice
+[init -> terminal] -rwxr-xr-x 0 root 0 128680 Jan  1  1970 nl
+[init -> terminal] -rwxr-xr-x 0 root 0  63044 Jan  1  1970 nohup
+[init -> terminal] -rwxr-xr-x 0 root 0  63032 Jan  1  1970 nproc
+[init -> terminal] -rwxr-xr-x 0 root 0  87664 Jan  1  1970 od
+[init -> terminal] -rwxr-xr-x 0 root 0  63016 Jan  1  1970 paste
+[init -> terminal] -rwxr-xr-x 0 root 0  63028 Jan  1  1970 pathchk
+[init -> terminal] -rwxr-xr-x 0 root 0  67168 Jan  1  1970 pinky
+[init -> terminal] -rwxr-xr-x 0 root 0 100032 Jan  1  1970 pr
+[init -> terminal] -rwxr-xr-x 0 root 0  63008 Jan  1  1970 printenv
+[init -> terminal] -rwxr-xr-x 0 root 0  67144 Jan  1  1970 printf
+[init -> terminal] -rwxr-xr-x 0 root 0 140952 Jan  1  1970 ptx
+[init -> terminal] -rwxr-xr-x 0 root 0  67156 Jan  1  1970 pwd
+[init -> terminal] -rwxr-xr-x 0 root 0  71248 Jan  1  1970 readlink
+[init -> terminal] -rwxr-xr-x 0 root 0  95920 Jan  1  1970 rm
+[init -> terminal] -rwxr-xr-x 0 root 0  71292 Jan  1  1970 rmdir
+[init -> terminal] -rwxr-xr-x 0 root 0  63020 Jan  1  1970 runcon
+[init -> terminal] -rwxr-xr-x 0 root 0  67136 Jan  1  1970 seq
+[init -> terminal] -rwxr-xr-x 0 root 0  75328 Jan  1  1970 sha1sum
+[init -> terminal] -rwxr-xr-x 0 root 0  79424 Jan  1  1970 sha224sum
+[init -> terminal] -rwxr-xr-x 0 root 0  79424 Jan  1  1970 sha256sum
+[init -> terminal] -rwxr-xr-x 0 root 0 140864 Jan  1  1970 sha384sum
+[init -> terminal] -rwxr-xr-x 0 root 0 140864 Jan  1  1970 sha512sum
+[init -> terminal] -rwxr-xr-x 0 root 0  91848 Jan  1  1970 shred
+[init -> terminal] -rwxr-xr-x 0 root 0  71284 Jan  1  1970 shuf
+[init -> terminal] -rwxr-xr-x 0 root 0  67144 Jan  1  1970 sleep
+[init -> terminal] -rwxr-xr-x 0 root 0 128992 Jan  1  1970 sort
+[init -> terminal] -rwxr-xr-x 0 root 0  79480 Jan  1  1970 split
+[init -> terminal] -rwxr-xr-x 0 root 0  95928 Jan  1  1970 stat
+[init -> terminal] -rwxr-xr-x 0 root 0  83552 Jan  1  1970 stty
+[init -> terminal] -rwxr-xr-x 0 root 0  67136 Jan  1  1970 sum
+[init -> terminal] -rwxr-xr-x 0 root 0  58916 Jan  1  1970 sync
+[init -> terminal] -rwxr-xr-x 0 root 0 128676 Jan  1  1970 tac
+[init -> terminal] -rwxr-xr-x 0 root 0  87704 Jan  1  1970 tail
+[init -> terminal] -rwxr-xr-x 0 root 0  63040 Jan  1  1970 tee
+[init -> terminal] -rwxr-xr-x 0 root 0  63028 Jan  1  1970 test
+[init -> terminal] -rwxr-xr-x 0 root 0  67596 Jan  1  1970 timeout
+[init -> terminal] -rwxr-xr-x 0 root 0  91808 Jan  1  1970 touch
+[init -> terminal] -rwxr-xr-x 0 root 0  75320 Jan  1  1970 tr
+[init -> terminal] -rwxr-xr-x 0 root 0  54796 Jan  1  1970 true
+[init -> terminal] -rwxr-xr-x 0 root 0  71252 Jan  1  1970 truncate
+[init -> terminal] -rwxr-xr-x 0 root 0  67132 Jan  1  1970 tsort
+[init -> terminal] -rwxr-xr-x 0 root 0  63020 Jan  1  1970 tty
+[init -> terminal] -rwxr-xr-x 0 root 0  63040 Jan  1  1970 uname
+[init -> terminal] -rwxr-xr-x 0 root 0  63032 Jan  1  1970 unexpand
+[init -> terminal] -rwxr-xr-x 0 root 0  71244 Jan  1  1970 uniq
+[init -> terminal] -rwxr-xr-x 0 root 0  63020 Jan  1  1970 unlink
+[init -> terminal] -rwxr-xr-x 0 root 0  75348 Jan  1  1970 uptime
+[init -> terminal] -rwxr-xr-x 0 root 0  63028 Jan  1  1970 users
+[init -> terminal] -rwxr-xr-x 0 root 0 153592 Jan  1  1970 vdir
+[init -> terminal] -rwxr-xr-x 0 root 0  75400 Jan  1  1970 wc
+[init -> terminal] -rwxr-xr-x 0 root 0  67180 Jan  1  1970 who
+[init -> terminal] -rwxr-xr-x 0 root 0  63020 Jan  1  1970 whoami
+[init -> terminal] -rwxr-xr-x 0 root 0  63012 Jan  1  1970 yes
+[init -> terminal] 
+[init -> terminal] ./lib:
+[init -> terminal] total 1
+[init -> terminal] drwxr-xr-x 0 root 0   0 Jan  1  1970 .
+[init -> terminal] drwxr-xr-x 0 root 0   0 Jan  1  1970 ..
+[init -> terminal] -rw-r--r-- 0 root 0 193 Jan  1  1970 charset.alias
+[init -> terminal] drwxrwxr-x 0 root 0   0 Jan  1  1970 coreutils
+[init -> terminal] 
+[init -> terminal] ./lib/coreutils:
+[init -> terminal] total 0
+[init -> terminal] drwxrwxr-x 0 root 0 0 Jan  1  1970 .
+[init -> terminal] drwxr-xr-x 0 root 0 0 Jan  1  1970 ..
+[init -> terminal] 
+[init -> terminal] ./share:
+[init -> terminal] total 0
+[init -> terminal] drwxrwxr-x 0 root 0 0 Jan  1  1970 .
+[init -> terminal] drwxr-xr-x 0 root 0 0 Jan  1  1970 ..
+[init -> terminal] drwxrwxr-x 0 root 0 0 Jan  1  1970 info
+[init -> terminal] drwxrwxr-x 0 root 0 0 Jan  1  1970 man
+[init -> terminal] 
+[init -> terminal] ./share/info:
+[init -> terminal] total 376
+[init -> terminal] drwxrwxr-x 0 root 0      0 Jan  1  1970 .
+[init -> terminal] drwxrwxr-x 0 root 0      0 Jan  1  1970 ..
+[init -> terminal] -rw-r--r-- 0 root 0 760059 Jan  1  1970 coreutils.info
+[init -> terminal] -rw-rw-r-- 0 root 0   8144 Jan  1  1970 dir
+[init -> terminal] 
+[init -> terminal] ./share/man:
+[init -> terminal] total 0
+[init -> terminal] drwxrwxr-x 0 root 0 0 Jan  1  1970 .
+[init -> terminal] drwxrwxr-x 0 root 0 0 Jan  1  1970 ..
+[init -> terminal] drwxrwxr-x 0 root 0 0 Jan  1  1970 man1
+[init -> terminal] 
+[init -> terminal] ./share/man/man1:
+[init -> terminal] total 0
+[init -> terminal] drwxrwxr-x 0 root 0 0 Jan  1  1970 .
+[init -> terminal] drwxrwxr-x 0 root 0 0 Jan  1  1970 ..
+[init -> noux] child /bin/ls exited with exit value 0
+virtual void Genode::Rm_session_component::detach(Genode::Rm_session::Local_addr): no attachment at 3ff000
+[init -> noux] --- exiting noux ---
+virtual void Genode::Rm_session_component::detach(Genode::Rm_session::Local_addr): no attachment at 1ff000
+virtual void Genode::Rm_session_component::detach(Genode::Rm_session::Local_addr): no attachment at 4ff000
+virtual void Genode::Rm_session_component::detach(Genode::Rm_session::Local_addr): no attachment at 2ff000
+[init] virtual void Genode::Child_policy::exit(int): child "noux" exited with exit value 0

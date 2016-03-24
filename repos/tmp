@@ -1,0 +1,7 @@
+		core_perf.lazy	core_perf.new	core_perf.old	cpu_quota	timer
+pbxa9	?				?				?				0			1
+panda	71679			72444			?				1			1
+imx53	81065			82815			?				1			1
+arndale	76573			80334			?				1			1
+odroid	81455			87348			?				1			1
+x86		62212						?				1			1

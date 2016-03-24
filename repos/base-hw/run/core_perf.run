@@ -1,0 +1,125 @@
+#
+# Build
+#
+
+build "core init drivers/timer test/core_perf"
+
+#
+# Boot image
+#
+
+create_boot_directory
+
+install_config {
+<config>
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="RAM"/>
+		<service name="IRQ"/>
+		<service name="IO_MEM"/>
+		<service name="IO_PORT"/>
+		<service name="CAP"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="LOG"/>
+		<service name="SIGNAL"/>
+	</parent-provides>
+	<default-route>
+		<any-service><parent/><any-child/></any-service>
+	</default-route>
+
+	<start name="test-core_perf-srv">
+		<resource name="RAM" quantum="10M"/>
+		<provides><service name="Dummy"/></provides>
+	</start>
+
+	<start name="init_1">
+		<binary name="init"/>
+		<resource name="RAM" quantum="20M"/>
+		<config>
+			<parent-provides>
+				<service name="ROM"/>
+				<service name="RAM"/>
+				<service name="IRQ"/>
+				<service name="IO_MEM"/>
+				<service name="IO_PORT"/>
+				<service name="CAP"/>
+				<service name="PD"/>
+				<service name="RM"/>
+				<service name="CPU"/>
+				<service name="LOG"/>
+				<service name="SIGNAL"/>
+				<service name="Timer"/>
+				<service name="Dummy"/>
+			</parent-provides>
+			<default-route>
+				<any-service><parent/><any-child/></any-service>
+			</default-route>
+
+			<start name="test_1">
+				<binary name="test-core_perf"/>
+				<resource name="RAM" quantum="10M"/>
+			</start>
+
+		</config>
+	</start>
+
+	<start name="init_2">
+		<binary name="init"/>
+		<resource name="RAM" quantum="30M"/>
+		<config>
+			<parent-provides>
+				<service name="ROM"/>
+				<service name="RAM"/>
+				<service name="IRQ"/>
+				<service name="IO_MEM"/>
+				<service name="IO_PORT"/>
+				<service name="CAP"/>
+				<service name="PD"/>
+				<service name="RM"/>
+				<service name="CPU"/>
+				<service name="LOG"/>
+				<service name="SIGNAL"/>
+				<service name="Timer"/>
+				<service name="Dummy"/>
+			</parent-provides>
+			<default-route>
+				<any-service><parent/></any-service>
+			</default-route>
+
+			<start name="test_2">
+				<binary name="test-core_perf"/>
+				<resource name="RAM" quantum="10M"/>
+			</start>
+
+			<start name="test_3">
+				<binary name="test-core_perf"/>
+				<resource name="RAM" quantum="10M"/>
+			</start>
+
+		</config>
+	</start>
+
+	<start name="timer">
+		<resource name="RAM" quantum="10M"/>
+		<provides><service name="Timer"/></provides>
+	</start>
+
+</config>
+}
+
+build_boot_image "core init timer test-core_perf test-core_perf-srv"
+
+#
+# Execution
+#
+
+append qemu_args "-nographic -m 128"
+
+run_genode_until ".*--- start init ---.*\n" 30
+set serial_id [output_spawn_id]
+set time_start [ clock milliseconds ]
+run_genode_until ".*done.*\n.*done.*\n.*done.*\n" 300 $serial_id
+set time_end [ clock milliseconds ]
+puts "Test succeeded, runtime [expr $time_end - $time_start ] milliseconds"

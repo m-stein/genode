@@ -15,16 +15,11 @@
 #define _INCLUDE__KERNEL__INTERFACE_H_
 
 /* base-hw includes */
+#include <kernel/types.h>
 #include <kernel/interface_support.h>
 
 namespace Kernel
 {
-	using addr_t      = Genode::addr_t;
-	using size_t      = Genode::size_t;
-	using capid_t     = Genode::uint16_t;
-
-	constexpr capid_t cap_id_invalid() { return 0; }
-
 	/**
 	 * Kernel names of the kernel calls
 	 */
@@ -43,6 +38,9 @@ namespace Kernel
 	constexpr Call_arg call_id_update_instr_region()  { return 12; }
 	constexpr Call_arg call_id_ack_cap()              { return 13; }
 	constexpr Call_arg call_id_delete_cap()           { return 14; }
+	constexpr Call_arg call_id_timeout()              { return 100; }
+	constexpr Call_arg call_id_timeout_age_us()       { return 101; }
+	constexpr Call_arg call_id_timeout_max()          { return 102; }
 
 
 	/*****************************************************************
@@ -79,6 +77,23 @@ namespace Kernel
 	              Call_arg arg_3,
 	              Call_arg arg_4,
 	              Call_arg arg_5);
+
+
+	inline int timeout(duration_t const duration_us, capid_t const sigid)
+	{
+		return call(call_id_timeout(), duration_us, sigid);
+	}
+
+
+	inline duration_t timeout_age_us()
+	{
+		return call(call_id_timeout_age_us());
+	}
+
+	inline duration_t timeout_max()
+	{
+		return call(call_id_timeout_max());
+	}
 
 
 	/**
