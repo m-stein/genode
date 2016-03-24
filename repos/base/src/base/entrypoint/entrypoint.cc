@@ -15,6 +15,8 @@
 #include <base/entrypoint.h>
 #include <base/component.h>
 #include <cap_session/connection.h>
+#include <util/retry.h>
+
 
 using namespace Genode;
 
@@ -57,9 +59,10 @@ void Entrypoint::_process_incoming_signals()
 			 * destroyed. In that case we will get an ipc error exception
 			 * as result, which has to be caught.
 			 */
-			try {
-				_signal_proxy_cap.call<Signal_proxy::Rpc_signal>();
-			} catch (Genode::Ipc_error) { }
+			retry<Genode::Blocking_canceled>(
+				[&] () { _signal_proxy_cap.call<Signal_proxy::Rpc_signal>(); },
+				[]  () { PWRN("Catched Blocking_canceled on signal processing"); }
+			);
 
 		} while (!_suspended_callback);
 
@@ -160,7 +163,12 @@ Entrypoint::Entrypoint(Environment &env)
 	Capability<Constructor> constructor_cap =
 		_rpc_ep->manage(&constructor);
 
-	constructor_cap.call<Constructor::Rpc_construct>();
+	try {
+		constructor_cap.call<Constructor::Rpc_construct>();
+	} catch (Genode::Blocking_canceled) {
+		PWRN("Catched Blocking_canceled in Entrypoint constructor");
+	}
+
 	_rpc_ep->dissolve(&constructor);
 
 	/*
