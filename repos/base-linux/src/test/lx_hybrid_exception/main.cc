@@ -15,10 +15,17 @@
 #include <base/component.h>
 #include <base/printf.h>
 
+/* Linux includes */
+#include <stdlib.h>
 
 using namespace Genode;
 
+
 class Test_exception { };
+
+static int exit_status;
+static void exit_on_suspended() { exit(exit_status); }
+
 
 Genode::size_t Component::stack_size() { return 16*1024*sizeof(long); }
 char const * Component::name()         { return "lx_hybrid_exception"; }
@@ -34,9 +41,11 @@ void Component::construct(Genode::Environment &env)
 	try {
 		printf("Throwing Test_exception\n");
 		throw Test_exception();
-	} catch(Test_exception) {
+	} catch (Test_exception) {
 		printf("Caught Test_exception\n");
 	}
 
 	printf("--- returning from main ---\n");
+	exit_status = 0;
+	env.ep().schedule_suspend(exit_on_suspended, nullptr);
 }

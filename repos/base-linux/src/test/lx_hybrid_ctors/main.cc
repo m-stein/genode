@@ -18,6 +18,9 @@
 /* local includes */
 #include "testlib.h"
 
+/* Linux includes */
+#include <stdlib.h>
+
 using namespace Genode;
 
 
@@ -35,6 +38,10 @@ struct Testapp_testclass
 extern Testlib_testclass testlib_testobject;
 
 Testapp_testclass testapp_testobject;
+
+
+static int exit_status;
+static void exit_on_suspended() { exit(exit_status); }
 
 
 Genode::size_t Component::stack_size() { return 16*1024*sizeof(long); }
@@ -56,4 +63,6 @@ void Component::construct(Genode::Environment &env)
 	testapp_testobject.dummy();
 
 	printf("--- returning from main ---\n");
+	exit_status = 0;
+	env.ep().schedule_suspend(exit_on_suspended, nullptr);
 }

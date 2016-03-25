@@ -18,6 +18,8 @@
 
 /* libc includes */
 #include <pthread.h>
+#include <stdlib.h>
+
 
 
 static Genode::Lock *main_wait_lock()
@@ -47,6 +49,10 @@ static void *pthread_entry(void *)
 }
 
 
+static int exit_status;
+static void exit_on_suspended() { exit(exit_status); }
+
+
 Genode::size_t Component::stack_size() { return 16*1024*sizeof(long); }
 char const * Component::name()         { return "lx_hybrid_pthread_ipc"; }
 
@@ -66,4 +72,6 @@ void Component::construct(Genode::Environment &env)
 	main_wait_lock()->lock();
 
 	Genode::printf("--- finished pthread IPC test ---\n");
+	exit_status = 0;
+	env.ep().schedule_suspend(exit_on_suspended, nullptr);
 }

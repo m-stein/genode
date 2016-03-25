@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <errno.h>
+#include <stdlib.h>
 
 enum { STACK_SIZE = 4096 };
 
@@ -39,6 +40,10 @@ struct Thread : Genode::Thread<STACK_SIZE>
 		_barrier.unlock();
 	}
 };
+
+
+static int exit_status;
+static void exit_on_suspended() { exit(exit_status); }
 
 
 Genode::size_t Component::stack_size() { return 16*1024*sizeof(long); }
@@ -74,4 +79,6 @@ void Component::construct(Genode::Environment &env)
 	}
 
 	Genode::printf("--- finished thread-local errno test ---\n");
+	exit_status = 0;
+	env.ep().schedule_suspend(exit_on_suspended, nullptr);
 }
