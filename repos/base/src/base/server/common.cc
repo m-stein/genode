@@ -28,10 +28,10 @@ void Rpc_entrypoint::_dissolve(Rpc_object_base *obj)
 	/* make sure nobody is able to find this object */
 	remove(obj);
 
+	_free_rpc_cap(_pd_session, obj->cap());
+
 	/* effectively invalidate the capability used before */
 	obj->cap(Untyped_capability());
-
-	_free_rpc_cap(_pd_session, obj->cap());
 
 	/* now the object may be safely destructed */
 }
