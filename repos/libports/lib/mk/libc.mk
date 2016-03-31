@@ -20,6 +20,9 @@ SRC_CC = atexit.cc dummies.cc rlimit.cc sysctl.cc \
 INC_DIR += $(REP_DIR)/src/lib/libc
 INC_DIR += $(REP_DIR)/src/lib/libc/include
 
+# needed for base/internal/unmanaged_singleton.h
+INC_DIR += $(BASE_DIR)/src/include
+
 #
 # Files from string library that are not included in libc-raw_string because
 # they depend on the locale library.

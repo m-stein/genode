@@ -20,6 +20,7 @@
 
 /* libc-internal includes */
 #include <internal/call_func.h>
+#include <base/internal/unmanaged_singleton.h>
 
 
 #define P(fmt,...)                                                    \
@@ -89,6 +90,8 @@ class Libc::Task : public Genode::Rpc_object<Task_resume, Libc::Task>
 
 		Task(Genode::Environment &env) : _env(env) { }
 
+		~Task() { PERR("%s should not be executed!", __PRETTY_FUNCTION__); }
+
 		void run()
 		{
 			/* save continuation of libc task (incl. current stack) */
@@ -152,8 +155,13 @@ void Libc::Task::_app_entry(Task *task)
 
 /**
  * Libc task singleton
+ *
+ * The singleton is implemented with the unmanaged-singleton utility to ensure
+ * it is never destructed like normal static global objects. Otherwise, the
+ * task object may be destructed in a RPC to Rpc_resume, which would result in
+ * a deadlock.
  */
-static Genode::Lazy_volatile_object<Libc::Task> task;
+static Libc::Task *task;
 
 
 void Libc::Task::_resumed_callback() { task->resumed(); }
@@ -177,7 +185,7 @@ namespace Genode { extern void (*call_component_construct)(Genode::Environment &
 
 void Libc::call_component_construct(Genode::Environment &env)
 {
-	task.construct(env);
+	task = unmanaged_singleton<Libc::Task>(env);
 	task->run();
 }
 
