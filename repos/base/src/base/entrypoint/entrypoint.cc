@@ -51,7 +51,7 @@ void Entrypoint::_process_incoming_signals()
 	for (;;) {
 
 		do {
-			_sig_rec.block_for_signal();
+			_sig_rec->block_for_signal();
 
 			/*
 			 * It might happen that we try to forward a signal to the
@@ -67,6 +67,7 @@ void Entrypoint::_process_incoming_signals()
 		} while (!_suspended_callback);
 
 		_suspend_dispatcher.destruct();
+		_sig_rec.destruct();
 		dissolve(_signal_proxy);
 		_signal_proxy_cap = Capability<Signal_proxy>();
 		_rpc_ep.destruct();
@@ -78,6 +79,7 @@ void Entrypoint::_process_incoming_signals()
 		init_signal_thread();
 		_rpc_ep.construct(&_env.pd(), Component::stack_size(), Component::name());
 		_signal_proxy_cap = manage(_signal_proxy);
+		_sig_rec.construct();
 
 		/*
 		 * Before calling the resumed callback, we reset the callback pointer
@@ -111,13 +113,13 @@ void Entrypoint::schedule_suspend(void (*suspended)(), void (*resumed)())
 
 Signal_context_capability Entrypoint::manage(Signal_dispatcher_base &dispatcher)
 {
-	return _sig_rec.manage(&dispatcher);
+	return _sig_rec->manage(&dispatcher);
 }
 
 
 void Genode::Entrypoint::dissolve(Signal_dispatcher_base &dispatcher)
 {
-	_sig_rec.dissolve(&dispatcher);
+	_sig_rec->dissolve(&dispatcher);
 }
 
 
