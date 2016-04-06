@@ -47,7 +47,7 @@ class Genode::Entrypoint : Genode::Noncopyable
 			void signal()
 			{
 				try {
-					Signal sig = ep._sig_rec.pending_signal();
+					Signal sig = ep._sig_rec->pending_signal();
 					ep._dispatch_signal(sig);
 				} catch (Signal_receiver::Signal_not_pending) { }
 			}
@@ -73,7 +73,8 @@ class Genode::Entrypoint : Genode::Noncopyable
 
 		Signal_proxy_component   _signal_proxy {*this};
 		Capability<Signal_proxy> _signal_proxy_cap = _rpc_ep->manage(&_signal_proxy);
-		Signal_receiver          _sig_rec;
+
+		Volatile_object<Signal_receiver> _sig_rec;
 
 		void (*_suspended_callback) () = nullptr;
 		void (*_resumed_callback)   () = nullptr;
@@ -143,7 +144,7 @@ class Genode::Entrypoint : Genode::Noncopyable
 		 */
 		void wait_and_dispatch_one_signal()
 		{
-			Signal sig = _sig_rec.wait_for_signal();
+			Signal sig = _sig_rec->wait_for_signal();
 			_dispatch_signal(sig);
 		}
 
