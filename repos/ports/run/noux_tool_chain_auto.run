@@ -4,10 +4,10 @@
 # \date   2012-11-26
 #
 
-if {[have_include "power_on/qemu"]} {
-	puts "\nAuto test running on Qemu is not recommended.\n"
-	exit 0
-}
+#if {[have_include "power_on/qemu"]} {
+#	puts "\nAuto test running on Qemu is not recommended.\n"
+#	exit 0
+#}
 if {[have_spec pistachio]} {
 	puts "Pistachio is unsupported."
 	exit 0
@@ -64,7 +64,7 @@ set serial_id [output_spawn_id]
 
 # start the measurement
 set time_start [ clock seconds ]
-run_genode_until {child /bin/bash exited with exit value 234} $tool_chain_timeout $serial_id
+run_genode_until {child /bin/bash exited with exit value 234} 99999999 $serial_id
 
 set time_end [ clock seconds ]
 
