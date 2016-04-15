@@ -128,6 +128,7 @@ DUMMY(mode_t,  0, umask, (mode_t))
 DUMMY(int   ,  0, utimes, (const char *, const timeval *))
 DUMMY(pid_t , -1, vfork, (void))
 DUMMY(pid_t , -1, _wait4, (pid_t, int *, int, struct rusage *))
+DUMMY(int   , -1, sysctlbyname, (const char *, void*, size_t*, void*, size_t))
 
 
 void ksem_init(void)

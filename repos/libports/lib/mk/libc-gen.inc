@@ -1,7 +1,7 @@
 LIBC_GEN_DIR = $(LIBC_DIR)/lib/libc/gen
 
 # this file produces a warning about a missing header file, lets drop it
-FILTER_OUT_C += getosreldate.c sem.c valloc.c getpwent.c
+FILTER_OUT_C += getosreldate.c sem.c valloc.c getpwent.c sysctlbyname.c
 
 SRC_C = $(filter-out $(FILTER_OUT_C),$(notdir $(wildcard $(LIBC_GEN_DIR)/*.c)))
 
