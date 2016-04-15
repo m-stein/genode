@@ -11,13 +11,16 @@
  * under the terms of the GNU General Public License version 2.
  */
 
+/* local includes */
 #include <linker.h>
 #include <base/internal/page_size.h>
 
-#include <base/allocator_avl.h>
-#include <os/attached_rom_dataspace.h>
-#include <rm_session/connection.h>
+/* Genode includes */
 #include <util/construct_at.h>
+#include <base/allocator_avl.h>
+#include <base/env.h>
+#include <os/attached_rom_dataspace.h>
+#include <region_map/client.h>
 
 char const *Linker::ELFMAG = "\177ELF";
 
@@ -33,12 +36,9 @@ namespace Linker
 /**
  * Managed dataspace for ELF files (singelton)
  */
-class Linker::Rm_area : public Rm_connection
+class Linker::Rm_area : public Region_map_client
 {
 	private:
-
-		/* size of dataspace */
-		enum { RESERVATION = 160 * 1024 * 1024 };
 
 		addr_t        _base;  /* base address of dataspace */
 		Allocator_avl _range; /* VM range allocator */
@@ -46,12 +46,10 @@ class Linker::Rm_area : public Rm_connection
 	protected:
 
 		Rm_area(addr_t base)
-		: Rm_connection(0, RESERVATION), _range(env()->heap())
+		: Region_map_client(env()->pd_session()->linker_area()), _range(env()->heap())
 		{
-			on_destruction(KEEP_OPEN);
-
 			_base = (addr_t) env()->rm_session()->attach_at(dataspace(), base);
-			_range.add_range(base, RESERVATION);
+			_range.add_range(base, Pd_session::LINKER_AREA_SIZE);
 		}
 
 	public:
@@ -96,21 +94,21 @@ class Linker::Rm_area : public Rm_connection
 		void free_region(addr_t vaddr) { _range.free((void *)vaddr); }
 
 		/**
-		 * Overwritten from 'Rm_connection'
+		 * Overwritten from 'Region_map_client'
 		 */
 		Local_addr attach_at(Dataspace_capability ds, addr_t local_addr,
 		                     size_t size = 0, off_t offset = 0) {
-			return Rm_connection::attach_at(ds, local_addr - _base, size, offset); }
+			return Region_map_client::attach_at(ds, local_addr - _base, size, offset); }
 
 		/**
-		 * Overwritten from 'Rm_connection'
+		 * Overwritten from 'Region_map_client'
 		 */
 		Local_addr attach_executable(Dataspace_capability ds, addr_t local_addr,
 		                             size_t size = 0, off_t offset = 0) {
-			return Rm_connection::attach_executable(ds, local_addr - _base, size, offset); }
+			return Region_map_client::attach_executable(ds, local_addr - _base, size, offset); }
 
 		void detach(Local_addr local_addr) {
-			Rm_connection::detach((addr_t)local_addr - _base); }
+			Region_map_client::detach((addr_t)local_addr - _base); }
 };
 
 
