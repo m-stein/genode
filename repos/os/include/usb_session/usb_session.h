@@ -76,7 +76,7 @@ struct Usb::Packet_descriptor : Genode::Packet_descriptor
 		};
 	};
 
-	enum Error { NO_ERROR, TRANSACTION_ERROR, STALL_ERROR, BABBLE_ERROR };
+	enum Error { NO_ERROR, STALL_ERROR };
 
 	Error error = NO_ERROR;
 
