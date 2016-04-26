@@ -134,8 +134,6 @@ class Noux::Region_map_component : public Rpc_object<Region_map>,
 			_ds_registry.remove(this);
 			_ep.dissolve(this);
 
-			Lock::Guard guard(_region_lock);
-
 			Region *curr;
 			while ((curr = _regions.first()))
 				detach(curr->local_addr);
