@@ -65,6 +65,16 @@ void Double_list::insert_head(Item * const i)
 }
 
 
+void Double_list::insert_behind_head(Item * const i)
+{
+	if (_head->_next) { _head->_next->_prev = i; }
+	else { _tail = i; }
+	i->_next = _head->_next;
+	i->_prev = _head;
+	_head->_next = i;
+}
+
+
 void Double_list::remove(Item * const i)
 {
 	if (i == _tail) { _tail = i->_prev; }

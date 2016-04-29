@@ -172,7 +172,7 @@ Cpu_job & Cpu::schedule()
 	duration_t quota = _clock.update();
 	Job & old_job = scheduled_job();
 	old_job.exception(id());
-	_scheduler.update(quota);
+//	_scheduler.update(quota);
 
 	/* get new job */
 	Job & new_job = scheduled_job();

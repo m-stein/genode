@@ -111,6 +111,10 @@ class Kernel::Cpu_share : public Cpu_claim, public Cpu_fill
 
 class Kernel::Cpu_scheduler
 {
+	public:
+
+		struct Turn_effect { enum Enum { NONE, TIMEOUT, SHARE }; };
+
 	private:
 
 		typedef Cpu_share                Share;
@@ -128,9 +132,12 @@ class Kernel::Cpu_scheduler
 		unsigned       _head_quota;
 		bool           _head_claims;
 		bool           _head_yields;
+		unsigned       _head_consumed;
 		unsigned const _quota;
 		unsigned       _residual;
 		unsigned const _fill;
+
+		Turn_effect::Enum _turn_effect;
 
 		template <typename F> void _for_each_prio(F f) {
 			for (signed p = Prio::MAX; p > Prio::MIN - 1; p--) { f(p); } }
@@ -166,6 +173,12 @@ class Kernel::Cpu_scheduler
 		 */
 		void _quota_adaption(Share * const s, unsigned const q);
 
+		void _head_flush_consumed();
+
+void _turn_effect_share(unsigned const q, bool const c, Share * const s);
+void _turn_effect_timeout(unsigned const q, bool const c);
+void _idle_for_head();
+
 	public:
 
 		/**
@@ -178,10 +191,17 @@ class Kernel::Cpu_scheduler
 		 */
 		Cpu_scheduler(Share * const i, unsigned const q, unsigned const f);
 
+		Turn_effect::Enum end_turn();
+
 		/**
 		 * Update head according to the consumption of quota 'q'
 		 */
-		void update(unsigned q);
+//		void update(unsigned q);
+
+		void head_consumed(unsigned q);
+
+		void head_timeout();
+
 
 		/**
 		 * Set 's1' ready and return wether this outdates current head

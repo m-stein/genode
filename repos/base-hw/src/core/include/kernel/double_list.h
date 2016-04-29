@@ -77,6 +77,11 @@ class Kernel::Double_list
 		void insert_head(Item * const i);
 
 		/**
+		 * Insert item 'i' behind the list head
+		 */
+		void insert_behind_head(Item * const i);
+
+		/**
 		 * Remove item 'i' from list
 		 */
 		void remove(Item * const i);
@@ -120,6 +125,7 @@ template <typename T> class Kernel::Double_list_typed : public Double_list
 
 		void to_tail(T * const t) { Double_list::to_tail(t); }
 		void insert_tail(T * const t) { Double_list::insert_tail(t); }
+		void insert_behind_head(T * const t) { Double_list::insert_behind_head(t); }
 		void insert_head(T * const t) { Double_list::insert_head(t); }
 		void remove(T * const t) { Double_list::remove(t); }
 		static T * next(T * const t) { return _typed(Double_list::next(t)); }
