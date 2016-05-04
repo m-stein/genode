@@ -84,6 +84,13 @@ void Double_list::remove(Item * const i)
 }
 
 
+void Double_list::remove_all()
+{
+	_tail = 0;
+	_head = 0;
+}
+
+
 void Double_list::head_to_tail()
 {
 	if (!_head || _head == _tail) { return; }

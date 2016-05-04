@@ -36,6 +36,9 @@ namespace Kernel
 	 */
 	class Cpu_fill  : public Double_list_item { };
 
+
+	class Cpu_share_ready_remote : public Double_list_item { };
+
 	/**
 	 * Scheduling context that is both claim and fill
 	 */
@@ -78,7 +81,8 @@ class Kernel::Cpu_priority
 		operator signed() const { return _value; }
 };
 
-class Kernel::Cpu_share : public Cpu_claim, public Cpu_fill
+class Kernel::Cpu_share : public Cpu_claim, public Cpu_fill,
+	public Cpu_share_ready_remote
 {
 	friend class Cpu_scheduler;
 
@@ -89,6 +93,7 @@ class Kernel::Cpu_share : public Cpu_claim, public Cpu_fill
 		unsigned     _claim;
 		unsigned     _fill;
 		bool         _ready;
+		bool         _ready_remote;
 
 	public:
 
@@ -99,7 +104,9 @@ class Kernel::Cpu_share : public Cpu_claim, public Cpu_fill
 		 * \param q  claimed quota
 		 */
 		Cpu_share(signed const p, unsigned const q)
-		: _prio(p), _quota(q), _claim(q), _ready(0) { }
+		: _prio(p), _quota(q), _claim(q), _ready(false), _ready_remote(false) { }
+
+		~Cpu_share() { }
 
 		/*
 		 * Accessors
@@ -107,6 +114,7 @@ class Kernel::Cpu_share : public Cpu_claim, public Cpu_fill
 
 		bool ready() const { return _ready; }
 		void quota(unsigned const q) { _quota = q; }
+		virtual void print_label() { Genode::printf("%p", this); }
 };
 
 class Kernel::Cpu_scheduler
@@ -124,14 +132,19 @@ class Kernel::Cpu_scheduler
 		typedef Double_list_typed<Fill>  Fill_list;
 		typedef Cpu_priority             Prio;
 
-		Claim_list     _rcl[Prio::MAX + 1]; /* ready claims */
-		Claim_list     _ucl[Prio::MAX + 1]; /* unready claims */
-		Fill_list      _fills;              /* ready fills */
+		typedef Double_list_typed<Cpu_share_ready_remote> Ready_remote_list;
+
+		/* internal state */
+		Claim_list _rcl[Prio::MAX + 1]; /* ready claims */
+		Claim_list _ucl[Prio::MAX + 1]; /* unready claims */
+		Fill_list  _fills;              /* ready fills */
+		Ready_remote_list _rrl;         /* ready remote shares */
+
+		/* public state */
 		Share * const  _idle;
 		Share *        _head;
 		unsigned       _head_quota;
 		bool           _head_claims;
-		bool           _head_yields;
 		unsigned       _head_consumed;
 		unsigned const _quota;
 		unsigned       _residual;
@@ -178,6 +191,7 @@ class Kernel::Cpu_scheduler
 void _turn_effect_share(unsigned const q, bool const c, Share * const s);
 void _turn_effect_timeout(unsigned const q, bool const c);
 void _idle_for_head();
+		void _head_select();
 
 	public:
 
@@ -206,7 +220,7 @@ void _idle_for_head();
 		/**
 		 * Set 's1' ready and return wether this outdates current head
 		 */
-		bool ready_check(Share * const s1);
+		bool ready_remote(Share * const s1);
 
 		/**
 		 * Set share 's' ready
@@ -221,12 +235,14 @@ void _idle_for_head();
 		/**
 		 * Current head looses its current claim/fill for this round
 		 */
-		void yield();
+		void head_yields();
 
 		/**
 		 * Remove share 's' from scheduler
 		 */
 		void remove(Share * const s);
+
+		void dump();
 
 		/**
 		 * Insert share 's' into scheduler

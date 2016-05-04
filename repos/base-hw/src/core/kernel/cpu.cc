@@ -68,7 +68,7 @@ void Cpu_job::_deactivate_own_share()
 void Cpu_job::_yield()
 {
 	assert(_cpu->id() == Cpu::executing_id());
-	_cpu->scheduler()->yield();
+	_cpu->scheduler()->head_yields();
 }
 
 
@@ -153,7 +153,7 @@ duration_t Cpu::timeout_max() const
 void Cpu::schedule(Job * const job)
 {
 	if (_id == executing_id()) { _scheduler.ready(job); }
-	else if (_scheduler.ready_check(job)) { trigger_ip_interrupt(); }
+	else if (_scheduler.ready_remote(job)) { trigger_ip_interrupt(); }
 }
 
 

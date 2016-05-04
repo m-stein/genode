@@ -126,9 +126,7 @@ void Cpu_scheduler::_idle_for_head()
 unsigned Cpu_scheduler::_trim_consumption(unsigned & q)
 {
 	q = Genode::min(Genode::min(q, _head_quota), _residual);
-	if (!_head_yields) { return _head_quota - q; }
-	_head_yields = 0;
-	return 0;
+	return _head_quota - q;
 }
 
 
@@ -153,28 +151,44 @@ void Cpu_scheduler::_quota_adaption(Share * const s, unsigned const q)
 }
 
 
-void Cpu_scheduler::head_consumed(unsigned q) { _head_consumed += q; }
-
-
-void Cpu_scheduler::head_timeout()
+void Cpu_scheduler::head_consumed(unsigned q)
 {
-	_head_flush_consumed();
+	_head_consumed += q;
+}
+
+
+void Cpu_scheduler::_head_select()
+{
 	if (_claim_for_head()) { return; }
 	if (_fill_for_head()) { return; }
 	_idle_for_head();
 }
 
 
-
-bool Cpu_scheduler::ready_check(Share * const s1)
+void Cpu_scheduler::head_timeout()
 {
-	ready(s1);
+	_head_flush_consumed();
+	_head_select();
+}
+
+
+bool Cpu_scheduler::ready_remote(Share * const s1)
+{
+	_rrl.insert_tail(s1);
+
+	/* share might be of any kind */
 	Share * s2 = _head;
 	if (!s1->_claim) { return s2 == _idle; }
-	if (!_head_claims) { return 1; }
-	if (s1->_prio != s2->_prio) { return s1->_prio > s2->_prio; }
-	for (; s2 && s2 != s1; s2 = _share(Claim_list::next(s2))) ;
-	return !s2;
+
+	/* share has a claim */
+	if (!_head_claims) { return true; }
+
+	/* share and head have a different priority */
+	if (s1->_prio < s2->_prio) { return false; }
+	if (s1->_prio > s2->_prio) { return true; }
+
+	/* share and head have the same priority */
+	return false;
 }
 
 
@@ -191,7 +205,7 @@ void Cpu_scheduler::_head_flush_consumed()
 
 void Cpu_scheduler::ready(Share * const s1)
 {
-	assert(!s1->_ready && s1 != _idle);
+	assert(!s1->_ready && !s1->_ready_remote && s1 != _idle);
 	s1->_ready = true;
 
 	/* add fill to round robin */
@@ -253,7 +267,8 @@ void Cpu_scheduler::ready(Share * const s1)
 
 void Cpu_scheduler::unready(Share * const s)
 {
-	assert(s->_ready && s != _idle);
+	assert(s->_ready && !s->_ready_remote && s != _idle);
+
 	s->_ready = 0;
 
 	/* remove fill */
@@ -270,14 +285,68 @@ void Cpu_scheduler::unready(Share * const s)
 }
 
 
-void Cpu_scheduler::yield() { _head_yields = 1; }
+void Cpu_scheduler::head_yields()
+{
+	unsigned q = _head_consumed;
+	_trim_consumption(q);
+	if (_head_claims) { _head_claimed(0); }
+	else              { _head_filled(0); }
+	_consumed(q);
+	_head_consumed = 0;
+	_head_select();
+}
+
+
+void Cpu_scheduler::dump()
+{
+	Genode::printf("  H time %u head ", _quota - _residual);
+	_head->print_label();
+	Genode::printf(" %s %u consumed %u effect %s\n",
+		_head_claims ? "claims" : "fills",
+		_head_quota, _head_consumed,
+		_turn_effect == Turn_effect::NONE    ? "NONE"    :
+		_turn_effect == Turn_effect::TIMEOUT ? "TIMEOUT" :
+		_turn_effect == Turn_effect::SHARE   ? "SHARE"   : "?" );
+
+	Genode::printf("  C ");
+	_for_each_prio([&] (unsigned const p) {
+		_rcl[p].for_each([&] (Claim * const c) {
+			_share(c)->print_label();
+			Genode::printf(":%u ", _share(c)->_claim);
+		});
+		_ucl[p].for_each([&] (Claim * const c) {
+			_share(c)->print_label();
+			Genode::printf(".%u ", _share(c)->_claim);
+		});
+		Genode::printf("- ");
+	});
+	Genode::printf("\n  F ");
+	_fills.for_each([&] (Fill * const f) {
+		_share(f)->print_label();
+		if (f == _fills.head()) {
+			Genode::printf("%s%u",
+				_share(f)->_ready ? ":" : ".", _share(f)->_fill);
+		}
+		Genode::printf(" ");
+	});
+	Genode::printf("\n");
+}
 
 
 Cpu_scheduler::Turn_effect::Enum Cpu_scheduler::end_turn()
 {
-	Turn_effect::Enum te = _turn_effect;
+	/* flush ready remote list */
+	_rrl.for_each([&] (Cpu_share_ready_remote * const r) {
+		Share * const s = _share(r);
+		ready(s);
+		s->_ready_remote = false;
+	});
+	_rrl.remove_all();
+
+	/* read and reset turn effect */
+	Turn_effect::Enum e = _turn_effect;
 	_turn_effect = Turn_effect::NONE;
-	return te;
+	return e;
 }
 
 
@@ -295,6 +364,7 @@ void Cpu_scheduler::remove(Share * const s)
 		PERR("Removing the head of the CPU scheduler isn't supported by now.");
 		while (1) ;
 	}
+	if (s->_ready_remote) { _rrl.remove(s); }
 	if (s->_ready) { _fills.remove(s); }
 	if (!s->_quota) { return; }
 	if (s->_ready) { _rcl[s->_prio].remove(s); }
@@ -323,7 +393,7 @@ void Cpu_scheduler::quota(Share * const s, unsigned const q)
 Cpu_scheduler::Cpu_scheduler(Share * const i, unsigned const q,
                              unsigned const f)
 :
-	_idle(i), _head_yields(0), _head_consumed(0), _quota(q), _residual(q),
+	_idle(i), _head_consumed(0), _quota(q), _residual(q),
 	_fill(f), _turn_effect(Turn_effect::SHARE)
 {
 	_set_head(i, f, 0);
