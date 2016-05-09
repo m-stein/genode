@@ -23,7 +23,7 @@
 #include <cpu_session/connection.h>
 
 /* base-internal includes */
-#include <base/internal/globals.h> 
+#include <base/internal/globals.h>
 
 /* core includes */
 #include <platform.h>
