@@ -17,6 +17,30 @@
 
 using namespace Kernel;
 
+#define _state_prim_to_sec() { \
+	PINF("%p %s %u", this, __func__, _state); \
+	assert(_state == State::PRIMARY); \
+	_state = State::SECONDARY; };
+
+#define _state_prim_sec_to_sec() { \
+	PINF("%p %s %u", this, __func__, _state); \
+	assert(_state == State::PRIMARY || _state == State::SECONDARY); \
+	_state = State::SECONDARY; };
+
+#define _state_prim_sec_to_rem() { \
+	PINF("%p %s %u", this, __func__, _state); \
+	assert(_state == State::PRIMARY || _state == State::SECONDARY); \
+	_state = State::REMOTE; };
+
+#define _state_rem_to_rem() { \
+	PINF("%p %s %u", this, __func__, _state); \
+	assert(_state == State::REMOTE); \
+	_state = State::REMOTE; };
+
+#define _state_rem_to_prim() { \
+	PINF("%p %s %u", this, __func__, _state); \
+	assert(_state == State::REMOTE); \
+	_state = State::PRIMARY; };
 
 void Cpu_scheduler::_reset(Claim * const c) {
 	_share(c)->_claim = _share(c)->_quota; }
@@ -130,8 +154,9 @@ unsigned Cpu_scheduler::_trim_consumption(unsigned & q)
 }
 
 
-void Cpu_scheduler::_quota_introduction(Share * const s)
+void Cpu_scheduler::_quota_introduction(Share * const s, unsigned const q)
 {
+	s->_quota = q;
 	if (s->_ready) { _rcl[s->_prio].insert_tail(s); }
 	else { _ucl[s->_prio].insert_tail(s); }
 }
@@ -139,20 +164,37 @@ void Cpu_scheduler::_quota_introduction(Share * const s)
 
 void Cpu_scheduler::_quota_revokation(Share * const s)
 {
-	if (s->_ready) { _rcl[s->_prio].remove(s); }
+	s->_quota = 0;
+	if (s->_ready) {
+		_rcl[s->_prio].remove(s);
+		if (s == _head) { _head_timeout(); }
+	}
 	else { _ucl[s->_prio].remove(s); }
 }
 
 
 void Cpu_scheduler::_quota_adaption(Share * const s, unsigned const q)
 {
-	if (q) { if (s->_claim > q) { s->_claim = q; } }
-	else { _quota_revokation(s); }
+	if (s != _head) {
+		if (s->_claim > q) { s->_claim = q; }
+	} else {
+		unsigned       c = _head_consumed;
+		unsigned const r = _trim_consumption(c);
+		if (r > q) {
+			_consumed(c);
+			_head_consumed = 0;
+			_head_quota  = q;
+			_turn_effect = Turn_effect::TIMEOUT;
+			s->_claim = q;
+		}
+	}
+	s->_quota = q;
 }
 
 
 void Cpu_scheduler::head_consumed(unsigned q)
 {
+	_state_rem_to_prim();
 	_head_consumed += q;
 }
 
@@ -165,15 +207,22 @@ void Cpu_scheduler::_head_select()
 }
 
 
-void Cpu_scheduler::head_timeout()
+void Cpu_scheduler::_head_timeout()
 {
 	_head_flush_consumed();
 	_head_select();
 }
 
+void Cpu_scheduler::head_timeout()
+{
+	_state_prim_to_sec();
+	_head_timeout();
+}
+
 
 bool Cpu_scheduler::ready_remote(Share * const s1)
 {
+	_state_rem_to_rem();
 	_rrl.insert_tail(s1);
 
 	/* share might be of any kind */
@@ -202,8 +251,13 @@ void Cpu_scheduler::_head_flush_consumed()
 	_head_consumed = 0;
 }
 
-
 void Cpu_scheduler::ready(Share * const s1)
+{
+	_state_prim_sec_to_sec();
+	_ready(s1);
+}
+
+void Cpu_scheduler::_ready(Share * const s1)
 {
 	assert(!s1->_ready && !s1->_ready_remote && s1 != _idle);
 	s1->_ready = true;
@@ -267,6 +321,7 @@ void Cpu_scheduler::ready(Share * const s1)
 
 void Cpu_scheduler::unready(Share * const s)
 {
+	_state_prim_sec_to_sec();
 	assert(s->_ready && !s->_ready_remote && s != _idle);
 
 	s->_ready = 0;
@@ -281,12 +336,14 @@ void Cpu_scheduler::unready(Share * const s)
 	}
 
 	if (s != _head) { return; }
-	head_timeout();
+	_head_timeout();
 }
 
 
 void Cpu_scheduler::head_yields()
 {
+	_state_prim_to_sec();
+
 	unsigned q = _head_consumed;
 	_trim_consumption(q);
 	if (_head_claims) { _head_claimed(0); }
@@ -312,11 +369,11 @@ void Cpu_scheduler::dump()
 	_for_each_prio([&] (unsigned const p) {
 		_rcl[p].for_each([&] (Claim * const c) {
 			_share(c)->print_label();
-			Genode::printf(":%u ", _share(c)->_claim);
+			Genode::printf(":%u/%u ", _share(c)->_claim, _share(c)->_quota);
 		});
 		_ucl[p].for_each([&] (Claim * const c) {
 			_share(c)->print_label();
-			Genode::printf(".%u ", _share(c)->_claim);
+			Genode::printf(".%u/%u ", _share(c)->_claim, _share(c)->_quota);
 		});
 		Genode::printf("- ");
 	});
@@ -335,10 +392,12 @@ void Cpu_scheduler::dump()
 
 Cpu_scheduler::Turn_effect::Enum Cpu_scheduler::end_turn()
 {
+	_state_prim_sec_to_rem();
+
 	/* flush ready remote list */
 	_rrl.for_each([&] (Cpu_share_ready_remote * const r) {
 		Share * const s = _share(r);
-		ready(s);
+		_ready(s);
 		s->_ready_remote = false;
 	});
 	_rrl.remove_all();
@@ -352,6 +411,7 @@ Cpu_scheduler::Turn_effect::Enum Cpu_scheduler::end_turn()
 
 void Cpu_scheduler::remove(Share * const s)
 {
+	_state_prim_to_sec();
 	assert(s != _idle);
 
 	/*
@@ -374,6 +434,7 @@ void Cpu_scheduler::remove(Share * const s)
 
 void Cpu_scheduler::insert(Share * const s)
 {
+	_state_prim_to_sec();
 	assert(!s->_ready);
 	if (!s->_quota) { return; }
 	s->_claim = s->_quota;
@@ -383,10 +444,13 @@ void Cpu_scheduler::insert(Share * const s)
 
 void Cpu_scheduler::quota(Share * const s, unsigned const q)
 {
+	_state_prim_to_sec();
 	assert(s != _idle);
-	if (s->_quota) { _quota_adaption(s, q); }
-	else if (q) { _quota_introduction(s); }
-	s->_quota = q;
+	if (s->_quota == q) { return; }
+	if (s->_quota) {
+		if (q)     { _quota_adaption(s, q); }
+		else       { _quota_revokation(s); }
+	} else         { _quota_introduction(s, q); }
 }
 
 

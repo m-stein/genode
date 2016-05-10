@@ -294,6 +294,8 @@ class Kernel::Cpu : public Genode::Cpu, public Irq::Pool, private Timeout
 		 */
 		void init(Pic &pic, Kernel::Pd &core_pd, Genode::Board & board);
 
+		void init2();
+
 		/**
 		 * Raise the IPI of the CPU
 		 */

@@ -61,6 +61,8 @@ extern "C" void init_kernel()
 
 	Core_thread::singleton();
 
+	cpu_pool()->cpu(Cpu::executing_id())->init2();
+
 	Genode::printf("kernel initialized\n");
 
 	test();

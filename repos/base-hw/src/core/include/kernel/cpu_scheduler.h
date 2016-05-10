@@ -19,6 +19,10 @@
 #include <kernel/configuration.h>
 #include <kernel/double_list.h>
 
+#define KERNEL__CPU_SCHEDULER__STATE \
+	struct State { enum Enum { REMOTE = 1, PRIMARY = 2, SECONDARY = 3 }; }; \
+	State::Enum _state = State::PRIMARY;
+
 namespace Kernel
 {
 	/**
@@ -117,6 +121,14 @@ class Kernel::Cpu_share : public Cpu_claim, public Cpu_fill,
 		virtual void print_label() { Genode::printf("%p", this); }
 };
 
+/*
+ * It is not allowed to ...
+ * ... remove a share from a scheduler that is ...
+ *     ... not in the scheduler
+ *     ... head of the scheduler
+ *     ... idle of the scheduler
+ * ... insert a share into the scheduler that is in the scheduler
+ */
 class Kernel::Cpu_scheduler
 {
 	public:
@@ -124,6 +136,8 @@ class Kernel::Cpu_scheduler
 		struct Turn_effect { enum Enum { NONE, TIMEOUT, SHARE }; };
 
 	private:
+
+		KERNEL__CPU_SCHEDULER__STATE
 
 		typedef Cpu_share                Share;
 		typedef Cpu_fill                 Fill;
@@ -174,7 +188,7 @@ class Kernel::Cpu_scheduler
 		/**
 		 * Fill 's' becomes a claim due to a quota donation
 		 */
-		void _quota_introduction(Share * const s);
+		void _quota_introduction(Share * const s, unsigned const q);
 
 		/**
 		 * Claim 's' looses its state as claim due to quota revokation
@@ -192,6 +206,8 @@ void _turn_effect_share(unsigned const q, bool const c, Share * const s);
 void _turn_effect_timeout(unsigned const q, bool const c);
 void _idle_for_head();
 		void _head_select();
+		void _head_timeout();
+		void _ready(Share * const s);
 
 	public:
 

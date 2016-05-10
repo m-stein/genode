@@ -166,17 +166,25 @@ bool Cpu::interrupt(unsigned const irq_id)
 }
 
 
+void Cpu::init2()
+{
+	_scheduler.end_turn();
+}
+
+
 Cpu_job & Cpu::schedule()
 {
 	/* update scheduler */
 	duration_t quota = _clock.update();
+	_scheduler.head_consumed(quota);
 	Job & old_job = scheduled_job();
 	old_job.exception(id());
-//	_scheduler.update(quota);
 
 	/* get new job */
 	Job & new_job = scheduled_job();
 	quota = _scheduler.head_quota();
+
+	_scheduler.end_turn();
 
 	_clock.set_timeout(this, quota);
 
