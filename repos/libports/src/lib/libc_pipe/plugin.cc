@@ -51,7 +51,7 @@ namespace Libc_pipe {
 			Pipe_buffer *_buffer;
 
 			Libc::File_descriptor *_partner;
-			Genode::Lock *_write_avail_lock;
+			Genode::Semaphore *_write_avail_sem;
 
 			bool _nonblock = false;
 
@@ -69,11 +69,11 @@ namespace Libc_pipe {
 
 			~Plugin_context();
 
-			Type type() const                      { return _type; }
-			Pipe_buffer *buffer() const            { return _buffer; }
-			Libc::File_descriptor *partner() const { return _partner; }
-			Genode::Lock *write_avail_lock() const { return _write_avail_lock; }
-			bool nonblock() const                  { return _nonblock; }
+			Type type() const                          { return _type; }
+			Pipe_buffer *buffer() const                { return _buffer; }
+			Libc::File_descriptor *partner() const     { return _partner; }
+			Genode::Semaphore *write_avail_sem() const { return _write_avail_sem; }
+			bool nonblock() const                      { return _nonblock; }
 
 			void set_partner(Libc::File_descriptor *partner) { _partner = partner; }
 			void set_nonblock(bool nonblock) { _nonblock = nonblock; }
@@ -142,14 +142,14 @@ namespace Libc_pipe {
 			/* allocate shared resources */
 
 			_buffer = new (Genode::env()->heap()) Pipe_buffer;
-			_write_avail_lock = new (Genode::env()->heap()) Genode::Lock;
+			_write_avail_sem = new (Genode::env()->heap()) Genode::Semaphore(PIPE_BUF_SIZE);
 
 		} else {
 
 			/* get shared resource pointers from partner */
 
 			_buffer     = context(_partner)->buffer();
-			_write_avail_lock = context(_partner)->write_avail_lock();
+			_write_avail_sem = context(_partner)->write_avail_sem();
 		}
 	}
 
@@ -165,7 +165,7 @@ namespace Libc_pipe {
 
 			/* partner fd is already destroyed -> free shared resources */
 			destroy(Genode::env()->heap(), _buffer);
-			destroy(Genode::env()->heap(), _write_avail_lock);
+			destroy(Genode::env()->heap(), _write_avail_sem);
 		}
 	}
 
@@ -310,7 +310,7 @@ namespace Libc_pipe {
 
 			num_bytes_read++;
 
-			context(fdo)->write_avail_lock()->unlock();
+			context(fdo)->write_avail_sem()->up();
 
 		} while ((num_bytes_read < (ssize_t)count) &&
 		         !context(fdo)->buffer()->empty());
@@ -381,30 +381,25 @@ namespace Libc_pipe {
 		::size_t num_bytes_written = 0;
 		while (num_bytes_written < count) {
 
-			try {
+			if (context(fdo)->buffer()->avail_capacity() == 0) {
 
-				context(fdo)->buffer()->add(((unsigned char*)buf)[num_bytes_written]);
-				num_bytes_written++;
+				if (context(fdo)->nonblock())
+					return num_bytes_written;
 
-			} catch (Pipe_buffer::Overflow) {
-
-				/* reset the 'write_avail_lock' to the 'locked' state */
-				context(fdo)->write_avail_lock()->unlock();
-				context(fdo)->write_avail_lock()->lock();
-
-				/* notify the partner */
 				if (libc_select_notify)
 					libc_select_notify();
-
-				/* wait until the partner has read from the buffer */
-				context(fdo)->write_avail_lock()->lock();
 			}
+
+			context(fdo)->write_avail_sem()->down();
+		
+			context(fdo)->buffer()->add(((unsigned char*)buf)[num_bytes_written]);
+			num_bytes_written++;
 		}
 
 		if (libc_select_notify)
 			libc_select_notify();
 
-		return count;
+		return num_bytes_written;
 	}
 }
 
