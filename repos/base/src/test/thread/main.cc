@@ -18,6 +18,7 @@
 #include <base/thread.h>
 #include <base/component.h>
 #include <base/heap.h>
+#include <os/config.h>
 #include <util/volatile_object.h>
 #include <cpu_session/connection.h>
 
@@ -339,12 +340,17 @@ void Component::construct(Env &env)
 {
 	log("--- thread test started ---");
 
+	Xml_node config = Genode::config()->xml_node();
+
 	try {
 		test_stack_alloc(env);
 		test_stack_alignment(env);
 		test_main_thread();
 		test_cpu_session(env);
-		test_pause_resume(env);
+
+		if (config.has_sub_node("pause_resume"))
+			test_pause_resume(env);
+
 		test_create_as_many_threads(env);
 	} catch (int error) {
 		Genode::error("error ", error);
