@@ -69,8 +69,7 @@ class Vmm::Vcpu_other_pd : public Vmm::Vcpu_thread
 
 			Thread_capability vcpu_vm =
 				_cpu_session->create_thread(_pd_session, "vCPU",
-				                            Affinity::Location(),
-				                            Cpu_session::Weight());
+				                            _location, Cpu_session::Weight());
 
 			/* tell parent that this will be a vCPU */
 			Thread_state state;
