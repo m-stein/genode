@@ -21,7 +21,7 @@ struct Thread : Genode::Thread_deprecated<STACK_SIZE>
 {
 	Genode::Lock &_barrier;
 
-	Thread_deprecated(Genode::Lock &barrier)
+	Thread(Genode::Lock &barrier)
 	: Genode::Thread_deprecated<STACK_SIZE>("stat"), _barrier(barrier) { start(); }
 
 	void entry()
