@@ -64,7 +64,7 @@ Ipv4_packet::Ipv4_address Ipv4_packet::ip_from_string(const char *ip)
 
 Genode::uint16_t Ipv4_packet::calculate_checksum(Ipv4_packet const &packet)
 {
-	Genode::uint16_t const *data = packet.data<Genode::uint16_t>();
+	Genode::uint16_t const *data = packet.header<Genode::uint16_t>();
 	Genode::uint32_t const sum = host_to_big_endian(data[0])
 	                           + host_to_big_endian(data[1])
 	                           + host_to_big_endian(data[2])
