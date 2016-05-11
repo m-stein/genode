@@ -187,8 +187,14 @@ struct File_system::Status
 	unsigned      mode;
 	unsigned long inode;
 
-	bool is_directory() const { return mode & MODE_DIRECTORY; }
-	bool is_symlink()   const { return mode & MODE_SYMLINK; }
+	bool directory() const { return mode & MODE_DIRECTORY; }
+	bool symlink()   const { return mode & MODE_SYMLINK; }
+
+	/*
+	 * \deprecated  use 'directory' and 'symlink' instead
+	 */
+	bool is_directory() const { return directory(); }
+	bool is_symlink()   const { return symlink(); }
 };
 
 
