@@ -38,7 +38,7 @@ struct Audio_in::Connection : Genode::Connection<Session>, Audio_in::Session_cli
 	 */
 	Connection(Genode::Env &env, char const *channel, bool progress_signal = false)
 	:
-		Genode::Connection<Session>(env, session(env.parent(), channel)),
+		Genode::Connection<Session>(env, _session(env.parent(), channel)),
 		Session_client(cap(), progress_signal)
 	{ }
 
@@ -51,7 +51,7 @@ struct Audio_in::Connection : Genode::Connection<Session>, Audio_in::Session_cli
 	 */
 	Connection(char const *channel, bool progress_signal = false)
 	:
-		Genode::Connection<Session>(session(*Genode::env()->parent(), channel)),
+		Genode::Connection<Session>(_session(*Genode::env()->parent(), channel)),
 		Session_client(cap(), progress_signal)
 	{ }
 };

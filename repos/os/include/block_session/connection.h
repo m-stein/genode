@@ -41,7 +41,7 @@ struct Block::Connection : Genode::Connection<Session>, Session_client
 	           Genode::size_t           tx_buf_size = 128*1024,
 	           const char              *label = "")
 	:
-		Genode::Connection<Session>(env, session(env.parent(), label, tx_buf_size)),
+		Genode::Connection<Session>(env, _session(env.parent(), label, tx_buf_size)),
 		Session_client(cap(), tx_block_alloc)
 	{ }
 
@@ -56,7 +56,7 @@ struct Block::Connection : Genode::Connection<Session>, Session_client
 	           Genode::size_t           tx_buf_size = 128*1024,
 	           const char              *label = "")
 	:
-		Genode::Connection<Session>(session(*Genode::env()->parent(), label, tx_buf_size)),
+		Genode::Connection<Session>(_session(*Genode::env()->parent(), label, tx_buf_size)),
 		Session_client(cap(), tx_block_alloc)
 	{ }
 };
