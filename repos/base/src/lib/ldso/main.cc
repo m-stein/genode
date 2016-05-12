@@ -552,12 +552,12 @@ void Component::construct(Genode::Env &env)
 		Ld::linker()->load_phdr();
 
 	/* read configuration, release ROM afterwards */
-	{
+	try {
 		Genode::Attached_rom_dataspace config(env, "config");
 
 		bind_now = config.xml().attribute_value("ld_bind_now", false);
 		verbose  = config.xml().attribute_value("ld_verbose",  false);
-	}
+	} catch (Genode::Rom_connection::Rom_connection_failed) { }
 
 	/* load binary and all dependencies */
 	try {
