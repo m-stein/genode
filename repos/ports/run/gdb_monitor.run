@@ -54,7 +54,10 @@ set config {
 	</start>
 	<start name="uart_drv">
 		<resource name="RAM" quantum="2M"/>
-		<provides> <service name="Terminal"/> </provides>
+		<provides>
+			<service name="Terminal"/>
+			<service name="Uart"/>
+		</provides>
 		<config>
 			<policy label="gdb_monitor" uart="1"/>
 		</config>
