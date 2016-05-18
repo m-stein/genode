@@ -56,7 +56,7 @@ append config {
 	<start name="usb_drv">
 		<resource name="RAM" quantum="10M"/>
 		<provides><service name="Input"/></provides>
-		<config uhci="yes" ehci="yes" xhci="yes">
+		<config uhci="yes" ehci="yes" xhci="no">
 			<hid/>
 		</config>
 	</start>
