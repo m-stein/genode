@@ -92,7 +92,7 @@ extern "C" pid_t waitpid(pid_t pid, int *status, int flags)
 	Cpu_session_component *csc = genode_child_resources()->cpu_session_component();
 
 	while(1) {
-		
+
 		FD_ZERO (&readset);
 
 		if (remote_desc != -1)
@@ -176,12 +176,12 @@ extern "C" pid_t waitpid(pid_t pid, int *status, int flags)
 				if (signal == SIGTRAP) {
 
 					sigtrap_lwpid = lwpid;
-					
+
 				} else if (signal == SIGSTOP) {
 
 					/*
 					 * Check if a SIGTRAP is pending
-					 * 
+					 *
 					 * This can happen if a single-stepped thread gets paused while gdbserver
 					 * handles a signal of a different thread and the exception signal after
 					 * the single step has not arrived yet. In this case, the SIGTRAP must be
@@ -666,8 +666,8 @@ int genode_read_memory(CORE_ADDR memaddr, unsigned char *myaddr, int len)
 		} catch (No_memory_at_address) {
 			return EFAULT;
 		}
-		
-  return 0;
+
+	return 0;
 }
 
 

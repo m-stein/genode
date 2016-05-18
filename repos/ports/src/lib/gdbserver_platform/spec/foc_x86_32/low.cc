@@ -64,21 +64,21 @@ extern "C" int genode_fetch_register(int regno, unsigned long *value)
 				if (in_syscall(ts)) {
 
 					/* When in a syscall, the user EBX has been pushed onto the stack at address ESP+4 */
-					*value = genode_read_memory_byte((void*)(ts.sp + 4)) +
-				               	   (genode_read_memory_byte((void*)(ts.sp + 5)) << 8) +
-				               	   (genode_read_memory_byte((void*)(ts.sp + 6)) << 16) +
-				               	   (genode_read_memory_byte((void*)(ts.sp + 7)) << 24);
+					*value = genode_read_memory_byte((void*)(ts.sp + 4))
+					       + (genode_read_memory_byte((void*)(ts.sp + 5)) << 8)
+					       + (genode_read_memory_byte((void*)(ts.sp + 6)) << 16)
+					       + (genode_read_memory_byte((void*)(ts.sp + 7)) << 24);
 
-				    /* for the debug output, if enabled */
-				    fetch_register("EBX", *value, *value);
-				    
-				    return 0;
+					/* for the debug output, if enabled */
+					fetch_register("EBX", *value, *value);
+
+					return 0;
 
 				} else {
 
-				   cannot_fetch_register("EBX");
+					cannot_fetch_register("EBX");
 
-				   return -1;
+					return -1;
 				}
 
 			case UESP: fetch_register("ESP", ts.sp, *value); return 0;
@@ -88,15 +88,15 @@ extern "C" int genode_fetch_register(int regno, unsigned long *value)
 				if (in_syscall(ts)) {
 
 					/* When in a syscall, the user EBP has been pushed onto the stack at address ESP+0 */
-					*value = genode_read_memory_byte((void*)(ts.sp + 0)) +
-							   	   (genode_read_memory_byte((void*)(ts.sp + 1)) << 8) +
-							   	   (genode_read_memory_byte((void*)(ts.sp + 2)) << 16) +
-							   	   (genode_read_memory_byte((void*)(ts.sp + 3)) << 24);
+					*value = genode_read_memory_byte((void*)(ts.sp + 0))
+					       + (genode_read_memory_byte((void*)(ts.sp + 1)) << 8)
+					       + (genode_read_memory_byte((void*)(ts.sp + 2)) << 16)
+					       + (genode_read_memory_byte((void*)(ts.sp + 3)) << 24);
 
-				    /* for the debug output, if enabled */
-				    fetch_register("EBP", *value, *value);
-				    
-				    return 0;
+					/* for the debug output, if enabled */
+					fetch_register("EBP", *value, *value);
+
+					return 0;
 
 				} else {
 

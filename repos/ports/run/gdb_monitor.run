@@ -125,7 +125,7 @@ set gdb_cmds ""
 append gdb_cmds {-ex "target remote localhost:$local_port" }
 append gdb_cmds [gdb_main_breakpoint_cmds $gdb_target_binary]
 
-# run GDB and redirect stderr to stdio to get the relevant output into the expect buffer  
+# run GDB and redirect stderr to stdio to get the relevant output into the expect buffer
 eval spawn [gdb] bin/ld.lib.so -n $gdb_cmds 2&>1
 set gdb_id [list $spawn_id $genode_id]
 
@@ -272,8 +272,8 @@ if {![have_spec arm]} {
 	run_genode_until {\(gdb\)} 20 $gdb_id
 
 	if {![regexp {Genode::Cancelable_lock::lock\(\)} $output] ||
-    	![regexp {Genode::Thread::join\(\)} $output] ||
-    	![regexp {in main \(\)} $output]} {
+		![regexp {Genode::Thread::join\(\)} $output] ||
+		![regexp {in main \(\)} $output]} {
 
 		puts stderr "*** Error: Stack trace when in syscall is not as expected"
 		exit -1

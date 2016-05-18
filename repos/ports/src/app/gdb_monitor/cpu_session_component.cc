@@ -209,7 +209,7 @@ void Cpu_session_component::pause_all_threads()
 
 void Cpu_session_component::resume_all_threads()
 {
-   	Lock::Guard stop_new_threads_guard(stop_new_threads_lock());
+Lock::Guard stop_new_threads_guard(stop_new_threads_lock());
 
 	stop_new_threads(false);
 

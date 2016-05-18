@@ -30,10 +30,10 @@ static bool in_syscall(Thread_state const &ts)
 {
 	try {
 		/* looking for syscall pattern:
-	 	 * (PC-8:  e1a0e00f mov lr, pc)
-	 	 *  PC-4:  e3e0f00b mvn pc, #11
-	 	 * (PC:    e1a02004 mov r2, r4)
-	 	 */
+		 * (PC-8:  e1a0e00f mov lr, pc)
+		 *  PC-4:  e3e0f00b mvn pc, #11
+		 * (PC:    e1a02004 mov r2, r4)
+		 */
 		if ((genode_read_memory_byte((void*)(ts.ip - 1)) == 0xe3) &&
 			(genode_read_memory_byte((void*)(ts.ip - 2)) == 0xe0) &&
 			(genode_read_memory_byte((void*)(ts.ip - 3)) == 0xf0) &&

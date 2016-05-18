@@ -32,7 +32,7 @@ class Gdb_monitor::Native_cpu_component : public Rpc_object<Foc_native_cpu,
                                                             Native_cpu_component>
 {
 	private:
-		
+
 		Cpu_session_component &_cpu_session_component;
 		Foc_native_cpu_client  _foc_native_cpu;
 
