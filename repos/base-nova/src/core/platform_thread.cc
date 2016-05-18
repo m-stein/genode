@@ -251,11 +251,11 @@ void Platform_thread::state(Thread_state s)
 		/* you can do it only once */
 
 		/*
-	 	 * s.sel_exc_base exception base of thread in caller
-	 	 *                protection domain - not in Core !
-	 	 * s.is_vcpu      If true it will run as vCPU,
-	 	 *                otherwise it will be a thread.
-	 	 */
+		 * s.sel_exc_base exception base of thread in caller
+		 *                protection domain - not in Core !
+		 * s.is_vcpu      If true it will run as vCPU,
+		 *                otherwise it will be a thread.
+		 */
 		if (!main_thread())
 			_sel_exc_base = s.sel_exc_base;
 

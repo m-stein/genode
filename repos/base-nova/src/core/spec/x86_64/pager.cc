@@ -57,7 +57,7 @@ void Pager_object::_copy_state_to_utcb(Nova::Utcb * utcb)
 	utcb->bp     = _state.thread.rbp;
 	utcb->si     = _state.thread.rsi;
 	utcb->di     = _state.thread.rdi;
-                      
+
 	utcb->r8     = _state.thread.r8;
 	utcb->r9     = _state.thread.r9;
 	utcb->r10    = _state.thread.r10;
