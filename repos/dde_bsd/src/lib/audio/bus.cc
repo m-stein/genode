@@ -74,7 +74,7 @@ class Pci_driver : public Bsd::Bus_driver
 			Dma_region_manager(Genode::Env       &env,
 			                   Genode::Allocator &alloc,
 			                   Pci_driver &drv)
-			: env(env), Genode::Allocator_avl(&alloc), _drv(drv) { }
+			: Genode::Allocator_avl(&alloc), env(env), _drv(drv) { }
 
 			Genode::addr_t alloc(Genode::size_t size, int align)
 			{
