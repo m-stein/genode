@@ -125,7 +125,7 @@ namespace Genode {
 
 			addr_t sel_pt_cleanup()     const { return _selectors; }
 			addr_t sel_sm_block_pause() const { return _selectors + 1; }
-			addr_t sel_sm_block()       const { return _selectors + 2; }
+			addr_t sel_sm_block_oom()   const { return _selectors + 2; }
 			addr_t sel_oom_portal()     const { return _selectors + 3; }
 
 			__attribute__((regparm(1)))

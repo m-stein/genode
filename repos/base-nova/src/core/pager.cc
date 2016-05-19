@@ -111,7 +111,7 @@ void Pager_object::_page_fault_handler(addr_t pager_obj)
 		utcb->mtd = 0;
 
 		/* block the faulting thread until region manager is done */
-		ipc_pager.reply_and_wait_for_fault(obj->sel_sm_block());
+		ipc_pager.reply_and_wait_for_fault(obj->sel_sm_block_pause());
 	}
 
 	/* unhandled case */
@@ -607,8 +607,8 @@ Pager_object::Pager_object(Cpu_session_capability cpu_session_cap,
 		throw Region_map::Invalid_thread();
 	}
 
-	/* semaphore used to block paged thread during page fault or recall */
-	res = Nova::create_sm(sel_sm_block(), pd_sel, 0);
+	/* semaphore used to block paged thread during OOM memory revoke */
+	res = Nova::create_sm(sel_sm_block_oom(), pd_sel, 0);
 	if (res != Nova::NOVA_OK) {
 		throw Region_map::Invalid_thread();
 	}
@@ -688,7 +688,7 @@ uint8_t Pager_object::handle_oom(addr_t transfer_from,
 	/* if nothing helps try to revoke memory */
 	enum { REMOTE_REVOKE = true, PD_SELF = true };
 	Mem_crd crd_all(0, ~0U, Rights(true, true, true));
-	Nova::revoke(crd_all, PD_SELF, REMOTE_REVOKE, pd_sel(), sel_sm_block());
+	Nova::revoke(crd_all, PD_SELF, REMOTE_REVOKE, pd_sel(), sel_sm_block_oom());
 
 	/* re-request current kernel quota usage of target pd */
 	addr_t limit_after = 0, usage_after = 0;
@@ -763,7 +763,7 @@ void Pager_object::_oom_handler(addr_t pager_dst, addr_t pager_src,
 	if (policy == STOP) {
 		PERR("PD has insufficient kernel memory left - stop thread");
 		utcb->set_msg_word(0);
-		reply(myself->stack_top(), obj_dst->sel_sm_block());
+		reply(myself->stack_top(), obj_dst->sel_sm_block_pause());
 	}
 
 	char const * src_pd     = "core";
@@ -818,7 +818,7 @@ void Pager_object::_oom_handler(addr_t pager_dst, addr_t pager_src,
 	/* else: caller will get blocked until RCU period is over */
 
 	/* block caller in semaphore */
-	reply(myself->stack_top(), obj_dst->sel_sm_block());
+	reply(myself->stack_top(), obj_dst->sel_sm_block_pause());
 }
 
 
