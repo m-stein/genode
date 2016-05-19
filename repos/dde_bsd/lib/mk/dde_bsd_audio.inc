@@ -26,7 +26,7 @@ CC_OPT += -fno-builtin-printf -fno-builtin-snprintf -fno-builtin-vsnprintf \
 CC_OPT += -D_KERNEL
 
 # disable false warning in audio.c:786
-CC_WARN = -Wno-maybe-uninitialized
+CC_C_OPT += -Wno-maybe-uninitialized
 
 # enable when debugging
 # CC_OPT += -DAUDIO_DEBUG
