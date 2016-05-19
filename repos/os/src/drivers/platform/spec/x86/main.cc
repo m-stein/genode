@@ -77,5 +77,4 @@ struct Platform::Main
 };
 
 Genode::size_t Component::stack_size()      { return STACK_SIZE; }
-char const * Component::name()              { return "platform_ep"; }
 void Component::construct(Genode::Env &env) { static Platform::Main main(env); }
