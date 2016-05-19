@@ -30,11 +30,12 @@ class Ec : Acpica::Callback<Ec> {
 		/* 12.2.1 Embedded Controller Status, EC_SC (R) */
 		struct State : Genode::Register<8> {
 			struct Out_ful: Bitfield<0,1> { };
+			struct In_ful : Bitfield<1,1> { };
 			struct Sci_evt: Bitfield<5,1> { };
 		};
 
 		/* 12.3. Embedded Controller Command Set */
-		enum { QR_EC = 0x84 };
+		enum { RD_EC = 0x80, WR_EC = 0x81, QR_EC = 0x84 };
 
 		/* track data items reported by controller */
 		struct Data : Genode::List<Data>::Element {
@@ -78,8 +79,6 @@ class Ec : Acpica::Callback<Ec> {
 			}
 
 			ec->ec_cmdsta->outb(ec->ec_port_cmdsta, QR_EC);
-
-			/* XXX see ACPI spec - 12.7 - loop required ?! XXX */
 			do {
 				state = ec->ec_cmdsta->inb(ec->ec_port_cmdsta);
 			} while (!(State::Out_ful::get(state)));
@@ -135,7 +134,10 @@ class Ec : Acpica::Callback<Ec> {
 			      resource->Data.Io.Maximum);
 */
 			/* first port is data, second is status/cmd */
-			/* XXX consider resource->Data.Io.AddressLength for inb/inw/inl resp out* */
+			if (resource->Data.Io.AddressLength != 1)
+				PERR("unsupported address length of %u",
+				     resource->Data.Io.AddressLength);
+
 			if (!ec->ec_data) {
 				ec->ec_port_data = resource->Data.Io.Minimum;
 				ec->ec_data = new (Genode::env()->heap()) Genode::Io_port_connection(ec->ec_port_data, 1);
@@ -149,17 +151,93 @@ class Ec : Acpica::Callback<Ec> {
 			return AE_OK;
 		}
 
+		static ACPI_STATUS handler_ec(UINT32 function,
+		                              ACPI_PHYSICAL_ADDRESS phys_addr,
+		                              UINT32 bitwidth, UINT64 *value, void *,
+		                              void *ec_void)
+		{
+			unsigned const bytes = bitwidth / 8;
+			/* bitwidth can be larger than 64bit - use char array */
+			unsigned char *result = reinterpret_cast<unsigned char *>(value);
+
+			if (bytes * 8 != bitwidth) {
+				PERR("unsupport bit width of %u", bitwidth);
+				return AE_BAD_PARAMETER;
+			}
+
+			Ec * ec = reinterpret_cast<Ec *>(ec_void);
+
+			switch (function & ACPI_IO_MASK) {
+			case ACPI_READ:
+				for (unsigned i = 0; i < bytes; i++) {
+					State::access_t state;
+
+					/* write command */
+					ec->ec_cmdsta->outb(ec->ec_port_cmdsta, RD_EC);
+					do {
+						state = ec->ec_cmdsta->inb(ec->ec_port_cmdsta);
+					} while (State::In_ful::get(state));
+
+					/* write address */
+					ec->ec_data->outb(ec->ec_port_data, phys_addr + i);
+					do {
+						state = ec->ec_cmdsta->inb(ec->ec_port_cmdsta);
+					} while (!(State::Out_ful::get(state)));
+
+					/* read value */
+					result[i] = ec->ec_data->inb(ec->ec_port_data);
+				}
+				return AE_OK;
+			case ACPI_WRITE:
+				for (unsigned i = 0; i < bytes; i++) {
+					State::access_t state;
+
+					/* write command */
+					ec->ec_cmdsta->outb(ec->ec_port_cmdsta, WR_EC);
+					do {
+						state = ec->ec_cmdsta->inb(ec->ec_port_cmdsta);
+					} while (State::In_ful::get(state));
+
+					/* write address */
+					ec->ec_data->outb(ec->ec_port_data, phys_addr + i);
+					do {
+						state = ec->ec_cmdsta->inb(ec->ec_port_cmdsta);
+					} while (State::In_ful::get(state));
+
+					/* write value */
+					ec->ec_data->outb(ec->ec_port_data, result[i]);
+					do {
+						state = ec->ec_cmdsta->inb(ec->ec_port_cmdsta);
+					} while (State::In_ful::get(state));
+				}
+				return AE_OK;
+			}
+
+			return AE_BAD_PARAMETER;
+		}
+
 		static ACPI_STATUS detect(ACPI_HANDLE ec, UINT32, void *report, void **)
 		{
 			Ec *ec_obj = new (Genode::env()->heap()) Ec(report);
 
-			AcpiWalkResources(ec, ACPI_STRING("_CRS"), Ec::detect_io_ports,
-			                  ec_obj);
+			ACPI_STATUS res = AcpiWalkResources(ec, ACPI_STRING("_CRS"),
+			                                    Ec::detect_io_ports, ec_obj);
+			if (ACPI_FAILURE(res)) {
+				PERR("failed   - '%s' _CRS res=0x%x", __func__, res);
+				return AE_OK;
+			}
+
+			res = AcpiInstallAddressSpaceHandler(ec, ACPI_ADR_SPACE_EC,
+			                                     handler_ec, nullptr,
+			                                     ec_obj);
+			if (ACPI_FAILURE(res)) {
+				PERR("failed   - '%s' spacehandler res=0x%x", __func__, res);
+				return AE_OK;
+			}
 
 			Acpica::Buffer<ACPI_OBJECT> sta;
-			ACPI_STATUS res = AcpiEvaluateObjectTyped(ec, ACPI_STRING("_GPE"),
-			                                          nullptr, &sta,
-			                                          ACPI_TYPE_INTEGER);
+			res = AcpiEvaluateObjectTyped(ec, ACPI_STRING("_GPE"), nullptr,
+			                              &sta, ACPI_TYPE_INTEGER);
 			if (ACPI_FAILURE(res)) {
 				PERR("failed   - '%s' _STA res=0x%x", __func__, res);
 				return AE_OK;

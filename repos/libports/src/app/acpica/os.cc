@@ -74,6 +74,19 @@ static void init_acpica(Acpica::Reportstate *report) {
 		return;
 	}
 
+	status = AcpiInitializeObjects(ACPI_NO_DEVICE_INIT);
+	if (status != AE_OK) {
+		PERR("%s:%u failed %u", __func__, __LINE__, status);
+		return;
+	}
+
+	/* Embedded controller */
+	status = AcpiGetDevices(ACPI_STRING("PNP0C09"), Ec::detect, report, nullptr);
+	if (status != AE_OK) {
+		PERR("%s:%u failed %u", __func__, __LINE__, status);
+		return;
+	}
+
 	status = AcpiInitializeObjects(ACPI_FULL_INITIALIZATION);
 	if (status != AE_OK) {
 		PERR("%s:%u failed %u", __func__, __LINE__, status);
@@ -128,14 +141,6 @@ static void init_acpica(Acpica::Reportstate *report) {
 		PERR("%s:%u failed %u", __func__, __LINE__, status);
 		return;
 	}
-
-	/* Embedded controller */
-	status = AcpiGetDevices(ACPI_STRING("PNP0C09"), Ec::detect, report, nullptr);
-	if (status != AE_OK) {
-		PERR("%s:%u failed %u", __func__, __LINE__, status);
-		return;
-	}
-
 }
 
 struct Acpica::Statechange
