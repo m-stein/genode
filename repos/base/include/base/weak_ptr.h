@@ -426,13 +426,15 @@ Genode::Locked_ptr_base::Locked_ptr_base(Weak_ptr_base &weak_ptr)
 : curr(nullptr)
 {
 
+	unsigned lr = 0;
+	if (!lr) { lr = (unsigned)__builtin_return_address(0); }
 //				Kernel::log() << entry << "y\n";
 	Lock::Guard guard(weak_ptr._lock);
 
 	if (!weak_ptr.obj()) return;
 
 	curr = weak_ptr.obj();
-	curr->_lock.lock();
+	curr->_lock.lock(lr);
 }
 
 

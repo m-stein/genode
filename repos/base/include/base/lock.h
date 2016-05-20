@@ -26,11 +26,12 @@ struct Genode::Lock : Cancelable_lock
 	 */
 	explicit Lock(State initial = UNLOCKED) : Cancelable_lock(initial) { }
 
-	void lock()
+	void lock(unsigned lr = 0)
 	{
+		if (!lr) { lr = (unsigned)__builtin_return_address(0); }
 		while (1)
 			try {
-				Cancelable_lock::lock();
+				Cancelable_lock::lock(lr);
 				return;
 			} catch (Blocking_canceled) { }
 	}

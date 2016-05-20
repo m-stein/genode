@@ -213,7 +213,7 @@ void Thread::debug_exception()
 
 				/* if we found one, print pattern and stop pattern check */
 				if (!cmp_failed) {
-					PINF("pattern width %u cmp %u dump:", width, nr_of_cmps);
+					PINF("Kernel found pattern: width %u cmp %u dump:", width, nr_of_cmps);
 					Genode::printf("  ");
 					for (unsigned i = 0; i < width; i++) {
 						Genode::printf("<%u", buf[i] & 0xffff);

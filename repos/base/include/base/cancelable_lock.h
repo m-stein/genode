@@ -83,7 +83,7 @@ class Genode::Cancelable_lock
 		 *
 		 * \throw  Genode::Blocking_canceled
 		 */
-		void lock();
+		void lock(unsigned lr = 0);
 
 		/**
 		 * Release lock

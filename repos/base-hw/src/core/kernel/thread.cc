@@ -413,7 +413,7 @@ void Thread::_print_activity_when_awaits_ipc()
 void Thread::_call_print_char()
 {
 	if (user_arg_1() == 0) {
-		PINF("%s (%s) %x %x", pd_label(), label(), user_arg_2(), user_arg_3());
+		PINF("Recursive lock %s (%s) inner lr %x outer lr %x", pd_label(), label(), user_arg_2(), user_arg_3());
 	}
 
 	static char last = 0;

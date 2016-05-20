@@ -68,7 +68,7 @@ namespace Noux {
 
 			~Rom_session_component()
 			{
-				Kernel::log() << &_ds_registry << _name << "R\n";
+				Kernel::log() << __func__ << &_ds_registry << _name << "\n";
 				/*
 				 * Lookup and lock ds info instead of directly accessing
 				 * the '_ds_info' member.
@@ -80,10 +80,10 @@ namespace Noux {
 					}
 
 					_ds_registry.remove(&_ds_info);
-					Kernel::log() << info << "R\n";
+//					Kernel::log() << info << "R\n";
 
 					info->dissolve_users();
-					Kernel::log() << "R\n";
+//					Kernel::log() << "R\n";
 				});
 			}
 
