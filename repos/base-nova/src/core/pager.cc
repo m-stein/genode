@@ -818,7 +818,7 @@ void Pager_object::_oom_handler(addr_t pager_dst, addr_t pager_src,
 	/* else: caller will get blocked until RCU period is over */
 
 	/* block caller in semaphore */
-	reply(myself->stack_top(), obj_dst->sel_sm_block_pause());
+	reply(myself->stack_top(), obj_dst->sel_sm_block_oom());
 }
 
 
