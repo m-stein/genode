@@ -55,7 +55,9 @@ long find_next_zero_bit_le(const void *addr,
 
 
 #include <asm-generic/bitops/__ffs.h>
+#if BITS_PER_LONG == 64UL
 #include <asm-generic/bitops/__fls.h>
+#endif
 #include <asm-generic/bitops/ffs.h>
 #include <asm-generic/bitops/fls.h>
 #include <asm-generic/bitops/fls64.h>
