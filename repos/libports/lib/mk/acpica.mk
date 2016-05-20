@@ -1,3 +1,5 @@
+REQUIRES := x86
+
 ACPICA_DIR := $(call select_from_ports,acpica)/src/lib/acpica
 ACPICA_COMP := $(ACPICA_DIR)/source/components
 
