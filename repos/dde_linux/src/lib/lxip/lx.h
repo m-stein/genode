@@ -25,6 +25,6 @@ namespace Lx {
 	void timer_update_jiffies();
 }
 
-extern "C" int lxip_init(char *address_config);
+extern "C" int lxip_init(char const *address_config);
 
 #endif /* _LX_H_ */

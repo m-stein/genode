@@ -474,13 +474,13 @@ void late_tcp_congestion_default(void);
 /**
  * Initialize sub-systems
  */
-int lxip_init(char *address_config)
+int lxip_init(char const *address_config)
 {
 	/* init data */
 	INIT_LIST_HEAD(&init_net.dev_base_head);
 
 	/* call __setup stuff */
-	__ip_auto_config_setup(address_config);
+	__ip_auto_config_setup((char *)address_config);
 
 	core_sock_init();
 	core_netlink_proto_init();

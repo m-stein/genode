@@ -635,7 +635,7 @@ class Net::Socketcall : public Genode::Signal_dispatcher_base,
 };
 
 
-Lxip::Socketcall & Lxip::init(char *address_config)
+Lxip::Socketcall & Lxip::init(char const *address_config)
 {
 	static Genode::Signal_receiver sig_rec;
 
