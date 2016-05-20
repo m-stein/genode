@@ -590,4 +590,7 @@ DUMMY_STOP(0, netif_rx_ni)
 DUMMY_STOP(0, netif_tx_start_all_queues)
 DUMMY_STOP(0, netif_tx_stop_all_queues)
 
+DUMMY(0, peernet_has_id)
+DUMMY(0, peernet2id_alloc)
+
 } /* extern "C" */
