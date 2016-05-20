@@ -45,7 +45,7 @@
 
 #define __attribute_const__
 #undef  __always_inline
-#define __always_inline
+#define __always_inline inline
 #undef __unused
 
 #define noinline     __attribute__((noinline))
