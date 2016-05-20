@@ -102,7 +102,7 @@ void *Lx::ioremap(addr_t phys_addr, unsigned long size,
 		}
 	}
 
-	addr_t offset;
+	addr_t offset = 0;
 	Io_mem_dataspace_capability ds_cap =
 		Lx::pci_dev_registry()->io_mem(phys_addr, cache_attribute,
 		                               size, offset);
