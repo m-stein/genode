@@ -18,7 +18,8 @@ SRC_C   += $(notdir $(wildcard $(LX_CONTRIB_DIR)/lib/*.c))
 #
 CC_WARN = -Wall -Wno-uninitialized -Wno-unused-but-set-variable \
           -Wno-unused-variable -Wno-unused-function \
-          -Wno-pointer-arith -Wno-pointer-sign
+          -Wno-pointer-arith -Wno-pointer-sign \
+          -Wno-int-to-pointer-cast
 
 vpath %.c $(LX_CONTRIB_DIR)/drivers/char/agp
 vpath %.c $(LX_CONTRIB_DIR)/drivers/i2c

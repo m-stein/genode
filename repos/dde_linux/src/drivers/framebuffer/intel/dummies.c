@@ -1200,3 +1200,26 @@ void backlight_device_unregister(struct backlight_device *bd)
 {
 	TRACE_AND_STOP;
 }
+int  ww_mutex_lock_interruptible(struct ww_mutex *lock, struct ww_acquire_ctx *ctx)
+{
+	TRACE_AND_STOP;
+	return -1;
+}
+
+struct page *virt_to_page(void *addr)
+{
+	TRACE_AND_STOP;
+	return NULL;
+}
+
+void ClearPageReserved(struct page *page)
+{
+	TRACE_AND_STOP;
+}
+
+const char *acpi_dev_name(struct acpi_device *adev)
+{
+	TRACE_AND_STOP;
+	return NULL;
+}
+
