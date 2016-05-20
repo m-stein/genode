@@ -678,4 +678,6 @@ DUMMY_SKIP(0, spin_unlock)
 DUMMY_SKIP(0, spin_lock_bh)
 DUMMY_SKIP(0, spin_unlock_bh)
 
+DUMMY(0, peernet_has_id)
+
 } /* extern "C" */
