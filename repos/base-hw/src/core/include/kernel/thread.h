@@ -233,6 +233,7 @@ class Kernel::Thread
 		void _call_await_signal();
 		void _call_submit_signal();
 		void _call_ack_signal();
+		void _call_ack_pf();
 		void _call_kill_signal_context();
 		void _call_new_vm();
 		void _call_delete_vm();
@@ -335,6 +336,8 @@ class Kernel::Thread
 		static void syscall_destroy(Thread * thread) {
 			call(call_id_delete_thread(), (Call_arg)thread); }
 
+		void debug_exception();
+		void debug_call();
 
 		/*************
 		 ** Cpu_job **

@@ -119,7 +119,7 @@ class Genode::Object_pool
 		}
 
 		template <typename FUNC>
-		auto apply(unsigned long capid, FUNC func)
+		auto apply(unsigned long capid, FUNC func, bool debug = false)
 		-> typename Trait::Functor<decltype(&FUNC::operator())>::Return_type
 		{
 			using Functor        = Trait::Functor<decltype(&FUNC::operator())>;
@@ -136,10 +136,12 @@ class Genode::Object_pool
 					_tree.first()->find_by_obj_id(capid) : nullptr;
 
 				if (entry) ptr = entry->_lock.weak_ptr();
+//				if (debug) { Kernel::log() << entry << "y\n"; }
 			}
 
 			{
 				Locked_ptr lock_ptr(ptr);
+//				if (debug) { Kernel::log() << "y\n"; }
 				Object_pointer op = lock_ptr.is_valid()
 					? dynamic_cast<Object_pointer>(&lock_ptr->obj) : nullptr;
 				return func(op);
@@ -147,10 +149,10 @@ class Genode::Object_pool
 		}
 
 		template <typename FUNC>
-		auto apply(Untyped_capability cap, FUNC func)
+		auto apply(Untyped_capability cap, FUNC func, bool debug = false)
 		-> typename Trait::Functor<decltype(&FUNC::operator())>::Return_type
 		{
-			return apply(cap.local_name(), func);
+			return apply(cap.local_name(), func, debug);
 		}
 
 		template <typename FUNC>
@@ -169,7 +171,9 @@ class Genode::Object_pool
 
 					Weak_ptr ptr = obj->_lock.weak_ptr();
 					{
+//						Kernel::log() << obj << "z\n";
 						Locked_ptr lock_ptr(ptr);
+//						Kernel::log() << "z\n";
 						if (!lock_ptr.is_valid()) return;
 
 						_tree.remove(obj);

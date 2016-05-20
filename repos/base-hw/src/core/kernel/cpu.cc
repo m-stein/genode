@@ -134,6 +134,9 @@ Cpu_job & Cpu::schedule()
 	/* get new job */
 	Job & old_job = scheduled_job();
 
+	old_job.debug_exception();
+	old_job.exception(_id);
+
 	/* update scheduler */
 	unsigned const old_time = _scheduler.head_quota();
 	unsigned const new_time = _timer->value(_id);

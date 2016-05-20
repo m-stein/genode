@@ -23,6 +23,12 @@
 
 namespace Genode { class Translation_table; }
 
+enum {
+	PRINT_EXCEPTIONS  = 0,
+	CHECK_PATTERNS    = 1, /* only thread exceptions */
+	PATTERN_BUF_ITEMS = 1024,
+};
+
 namespace Kernel
 {
 	/**
@@ -195,6 +201,8 @@ class Kernel::Cpu_job : public Genode::Cpu::User_context, public Cpu_share
 		 ***************/
 
 		void cpu(Cpu * const cpu) { _cpu = cpu; }
+
+		virtual void debug_exception() { };
 };
 
 class Kernel::Cpu_idle : public Cpu_job
@@ -225,6 +233,8 @@ class Kernel::Cpu_idle : public Cpu_job
 		void exception(unsigned const cpu);
 		void proceed(unsigned const cpu_id);
 		Cpu_job * helping_sink() { return this; }
+
+		void debug_exception();
 };
 
 class Kernel::Cpu : public Genode::Cpu,

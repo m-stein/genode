@@ -39,3 +39,15 @@ void Cpu_idle::exception(unsigned const cpu)
 	case RESET:                                   return;
 	default: assert(0); }
 }
+
+
+void Cpu_idle::debug_exception()
+{
+	if (PRINT_EXCEPTIONS) {
+		switch (cpu_exception) {
+		case INTERRUPT_REQUEST:      Genode::printf("xi"); return;
+		case FAST_INTERRUPT_REQUEST: Genode::printf("xf"); return;
+		case RESET:                  Genode::printf("xr"); return;
+		default:                     Genode::printf("?x"); return; }
+	}
+}

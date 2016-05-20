@@ -17,7 +17,7 @@
 /* Genode includes */
 #include <rom_session/connection.h>
 #include <base/rpc_server.h>
-
+#include <kernel/log.h>
 namespace Noux {
 
 	struct Rom_dataspace_info : Dataspace_info
@@ -53,6 +53,8 @@ namespace Noux {
 
 			Rom_dataspace_info _ds_info;
 
+			char _name[32];
+
 		public:
 
 			Rom_session_component(Dataspace_registry &ds_registry,
@@ -60,11 +62,13 @@ namespace Noux {
 			:
 				_rom(name), _ds_registry(ds_registry), _ds_info(_rom.dataspace())
 			{
+				Genode::strncpy(_name, name, sizeof(_name));
 				_ds_registry.insert(&_ds_info);
 			}
 
 			~Rom_session_component()
 			{
+				Kernel::log() << &_ds_registry << _name << "R\n";
 				/*
 				 * Lookup and lock ds info instead of directly accessing
 				 * the '_ds_info' member.
@@ -76,8 +80,10 @@ namespace Noux {
 					}
 
 					_ds_registry.remove(&_ds_info);
+					Kernel::log() << info << "R\n";
 
 					info->dissolve_users();
+					Kernel::log() << "R\n";
 				});
 			}
 

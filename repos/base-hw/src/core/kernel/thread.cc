@@ -34,7 +34,6 @@ extern "C" void _core_start(void);
 
 using namespace Kernel;
 
-
 bool Thread::_core() const { return pd() == core_pd(); }
 
 void Thread::_signal_context_kill_pending()
@@ -411,7 +410,18 @@ void Thread::_print_activity_when_awaits_ipc()
 }
 
 
-void Thread::_call_print_char() { Genode::printf("%c", (char)user_arg_1()); }
+void Thread::_call_print_char()
+{
+	if (user_arg_1() == 0) {
+		PINF("%s (%s) %x %x", pd_label(), label(), user_arg_2(), user_arg_3());
+	}
+
+	static char last = 0;
+	if (last == '\n') {
+		Genode::printf("%s (%s) %lx %lx ", pd_label(), label(), ip, sp); }
+	Genode::printf("%c", (char)user_arg_1());
+	last = (char)user_arg_1();
+}
 
 
 void Thread::_call_await_signal()
@@ -456,6 +466,20 @@ void Thread::_call_submit_signal()
 
 
 void Thread::_call_ack_signal()
+{
+	/* lookup signal context */
+	Signal_context * const c = pd()->cap_tree().find<Signal_context>(user_arg_1());
+	if (!c) {
+		PWRN("%s -> %s: cannot ack unknown signal context",
+		     pd_label(), label());
+		return;
+	}
+
+	/* acknowledge */
+	c->ack();
+}
+
+void Thread::_call_ack_pf()
 {
 	/* lookup signal context */
 	Signal_context * const c = pd()->cap_tree().find<Signal_context>(user_arg_1());
@@ -573,6 +597,7 @@ void Thread::_call()
 	case call_id_submit_signal():        _call_submit_signal(); return;
 	case call_id_await_signal():         _call_await_signal(); return;
 	case call_id_ack_signal():           _call_ack_signal(); return;
+	case call_id_ack_pf():               _call_ack_pf(); return;
 	case call_id_print_char():           _call_print_char(); return;
 	case call_id_ack_cap():              _call_ack_cap(); return;
 	case call_id_delete_cap():           _call_delete_cap(); return;
@@ -680,4 +705,52 @@ Thread & Core_thread::singleton()
 {
 	static Core_thread ct;
 	return ct;
+}
+
+
+void Thread::debug_call()
+{
+	unsigned const call_id = user_arg_0();
+	switch (call_id) {
+	case call_id_update_data_region():     Genode::printf("Ud"); return;
+	case call_id_update_instr_region():    Genode::printf("Ui"); return;
+	case call_id_pause_current_thread():   Genode::printf("Tc"); return;
+	case call_id_resume_local_thread():    Genode::printf("Tl"); return;
+	case call_id_yield_thread():           Genode::printf("Ty"); return;
+	case call_id_send_request_msg():       Genode::printf("Mq"); return;
+	case call_id_send_reply_msg():         Genode::printf("Mr"); return;
+	case call_id_await_request_msg():      Genode::printf("Mw"); return;
+	case call_id_kill_signal_context():    Genode::printf("Sk"); return;
+	case call_id_submit_signal():          Genode::printf("Ss"); return;
+	case call_id_await_signal():           Genode::printf("Sw"); return;
+	case call_id_ack_signal():             Genode::printf("Sa"); return;
+	case call_id_ack_pf():                 Genode::printf("Fa"); return;
+	case call_id_print_char():             return;
+	case call_id_ack_cap():                Genode::printf("ca"); return;
+	case call_id_delete_cap():             Genode::printf("cd"); return;
+	case call_id_new_thread():             Genode::printf("Tn"); return;
+	case call_id_thread_quota():           Genode::printf("Tq"); return;
+	case call_id_delete_thread():          Genode::printf("Td"); return;
+	case call_id_start_thread():           Genode::printf("Ts"); return;
+	case call_id_resume_thread():          Genode::printf("Tr"); return;
+	case call_id_route_thread_event():     Genode::printf("Te"); return;
+	case call_id_update_pd():              Genode::printf("Pu"); return;
+	case call_id_new_pd():                 Genode::printf("Pn"); return;
+	case call_id_delete_pd():              Genode::printf("Pd"); return;
+	case call_id_new_signal_receiver():    Genode::printf("SN"); return;
+	case call_id_new_signal_context():     Genode::printf("Sn"); return;
+	case call_id_delete_signal_context():  Genode::printf("Sd"); return;
+	case call_id_delete_signal_receiver(): Genode::printf("SD"); return;
+	case call_id_new_vm():                 Genode::printf("Vn"); return;
+	case call_id_delete_vm():              Genode::printf("Vd"); return;
+	case call_id_run_vm():                 Genode::printf("Vr"); return;
+	case call_id_pause_vm():               Genode::printf("Vp"); return;
+	case call_id_pause_thread():           Genode::printf("Tp"); return;
+	case call_id_new_irq():                Genode::printf("In"); return;
+	case call_id_delete_irq():             Genode::printf("Id"); return;
+	case call_id_ack_irq():                Genode::printf("Ia"); return;
+	case call_id_new_obj():                Genode::printf("On"); return;
+	case call_id_delete_obj():             Genode::printf("Od"); return;
+	default:                               Genode::printf("?T"); return;
+	}
 }

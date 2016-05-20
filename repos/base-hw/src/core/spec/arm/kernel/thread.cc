@@ -141,3 +141,98 @@ void Thread_event::_signal_acknowledged()
 	_thread->_resume();
 }
 
+
+void Thread::debug_exception()
+{
+	/* remember last thread that called ack_signal */
+	static Thread * ack_signal_thread = nullptr;
+	if (cpu_exception == SUPERVISOR_CALL) {
+		if (user_arg_0() == 9) {
+			ack_signal_thread = this;
+		}
+		if (user_arg_0() == 16) {
+			Thread * t = reinterpret_cast<Thread*>(user_arg_1());
+			if (t == ack_signal_thread) {
+				ack_signal_thread = nullptr;
+			}
+		}
+	}
+
+	if (PRINT_EXCEPTIONS) {
+		switch (cpu_exception) {
+		case SUPERVISOR_CALL:        debug_call(); break;
+		case PREFETCH_ABORT:         Genode::printf("p"); break;
+		case DATA_ABORT:             Genode::printf("d"); break;
+		case INTERRUPT_REQUEST:      Genode::printf("i"); break;
+		case FAST_INTERRUPT_REQUEST: Genode::printf("f"); break;
+		case UNDEFINED_INSTRUCTION:  Genode::printf("u"); break;
+		case RESET:                  Genode::printf("r"); break;
+		default:                     Genode::printf("?t"); break;
+		}
+	}
+
+//	if (!Genode::strcmp(pd_label(), "init -> timer")) { return; }
+
+	if (CHECK_PATTERNS) {
+
+		/* initialization */
+		static unsigned buf[PATTERN_BUF_ITEMS];
+		static unsigned id;
+		static bool first = true;
+		enum { MAX_WIDTH = PATTERN_BUF_ITEMS/2 };
+		if (first) {
+			for (unsigned i = 0; i < PATTERN_BUF_ITEMS; i++) {
+				buf[i] = ~0; }
+			first = false;
+		}
+
+		/* write to buf */
+		buf[id] = cpu_exception;
+		if (cpu_exception == SUPERVISOR_CALL) { buf[id] = buf[id] | (user_arg_0() << 16); }
+		id++;
+
+		/* if buf is full, check for patterns and go back to the beginning */
+		if (id == PATTERN_BUF_ITEMS) {
+			id = 0;
+			for (unsigned width = 1; width <= MAX_WIDTH; width++) {
+				unsigned const nr_of_cmps = (PATTERN_BUF_ITEMS / width) - 1;
+				bool cmp_failed = false;
+				for (unsigned cmp = 0; cmp < nr_of_cmps; cmp++) {
+					for (unsigned i = 0; i < width; i++) {
+						unsigned base1 = width * cmp;
+						unsigned base2 = width * (cmp + 1);
+						unsigned i1 = base1 + i;
+						unsigned i2 = base2 + i;
+						if (buf[i1] != buf[i2]) {
+							cmp_failed = true;
+							break;
+						}
+					}
+					if (cmp_failed) { break; }
+				}
+
+				/* if we found one, print pattern and stop pattern check */
+				if (!cmp_failed) {
+					PINF("pattern width %u cmp %u dump:", width, nr_of_cmps);
+					Genode::printf("  ");
+					for (unsigned i = 0; i < width; i++) {
+						Genode::printf("<%u", buf[i] & 0xffff);
+						if ((buf[i] & 0xffff) == SUPERVISOR_CALL) {
+							Genode::printf(">%u", (buf[i] >> 16)); }
+					}
+					Genode::printf("\n  ");
+					for (unsigned i = width * (nr_of_cmps + 1); i < PATTERN_BUF_ITEMS; i++) {
+						Genode::printf("<%u", buf[i] & 0xffff);
+						if ((buf[i] & 0xffff) == SUPERVISOR_CALL) {
+							Genode::printf(">%u", (buf[i] >> 16)); }
+					}
+					Genode::printf("\n");
+					if (ack_signal_thread) { Genode::printf("%s %s %lx %lx", ack_signal_thread->pd_label(), ack_signal_thread->label(), ack_signal_thread->ip, ack_signal_thread->sp); }
+					else { Genode::printf("?"); }
+					Genode::printf("\n");
+					break;
+				}
+			}
+		}
+	}
+}

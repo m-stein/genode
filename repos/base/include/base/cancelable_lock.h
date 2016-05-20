@@ -37,8 +37,10 @@ class Genode::Cancelable_lock
 
 			public:
 
-				explicit Applicant(Thread *thread_base)
-				: _thread_base(thread_base), _to_wake_up(0) { }
+				unsigned _lr;
+
+				explicit Applicant(Thread *thread_base, unsigned lr)
+				: _thread_base(thread_base), _to_wake_up(0), _lr(lr) { }
 
 				void applicant_to_wake_up(Applicant *to_wake_up) {
 					_to_wake_up = to_wake_up; }

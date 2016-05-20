@@ -27,9 +27,10 @@ extern "C" void kernel()
 	{
 		Lock::Guard guard(data_lock());
 
+		if (PRINT_EXCEPTIONS) { Genode::printf("`"); }
+
 		cpu_id = Cpu::executing_id();
 		Cpu * const cpu  = cpu_pool()->cpu(cpu_id);
-		cpu->scheduled_job().exception(cpu_id);
 		new_job = &cpu->schedule();
 	}
 

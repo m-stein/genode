@@ -420,10 +420,13 @@ Genode::Weak_ptr<T> Genode::Weak_object_base::_weak_ptr()
 	return *static_cast<Weak_ptr<T> *>(&result);
 }
 
+#include <kernel/log.h>
 
 Genode::Locked_ptr_base::Locked_ptr_base(Weak_ptr_base &weak_ptr)
 : curr(nullptr)
 {
+
+//				Kernel::log() << entry << "y\n";
 	Lock::Guard guard(weak_ptr._lock);
 
 	if (!weak_ptr.obj()) return;
@@ -437,6 +440,7 @@ Genode::Locked_ptr_base::~Locked_ptr_base()
 {
 	if (curr)
 		curr->_lock.unlock();
+//				Kernel::log() << entry << "y\n";
 }
 
 #endif /* _INCLUDE__BASE__WEAK_PTR_H_ */

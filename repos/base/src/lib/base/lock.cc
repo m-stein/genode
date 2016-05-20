@@ -59,16 +59,18 @@ void Cancelable_lock::Applicant::wake_up()
 /*********************
  ** Cancelable lock **
  *********************/
-
+#include <kernel/log.h>
 void Cancelable_lock::lock()
 {
-	Applicant myself(Thread::myself());
+	Applicant myself(Thread::myself(), (unsigned)__builtin_return_address(0));
 
 	spinlock_lock(&_spinlock_state);
 
 	/* reset ownership if one thread 'lock' twice */
-	if (_owner == myself)
-		_owner = Applicant(invalid_thread_base());
+	if (_owner == myself) {
+		Kernel::call(Kernel::call_id_print_char(), 0, (unsigned)__builtin_return_address(0), _owner._lr);
+		_owner = Applicant(invalid_thread_base(), 0);
+	}
 
 	if (cmpxchg(&_state, UNLOCKED, LOCKED)) {
 
@@ -156,7 +158,7 @@ void Cancelable_lock::unlock()
 	} else {
 
 		/* there is no further applicant, leave the lock alone */
-		_owner          = Applicant(invalid_thread_base());
+		_owner          = Applicant(invalid_thread_base(), 0);
 		_last_applicant = 0;
 		_state          = UNLOCKED;
 
@@ -170,7 +172,7 @@ Cancelable_lock::Cancelable_lock(Cancelable_lock::State initial)
 	_spinlock_state(SPINLOCK_UNLOCKED),
 	_state(UNLOCKED),
 	_last_applicant(0),
-	_owner(invalid_thread_base())
+	_owner(invalid_thread_base(), 0)
 {
 	if (initial == LOCKED)
 		lock();

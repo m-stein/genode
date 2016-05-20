@@ -24,6 +24,7 @@
 #include <base/rpc_server.h>
 #include <util/retry.h>
 #include <pd_session/capability.h>
+#include <kernel/log.h>
 
 namespace Noux { class Region_map_component; }
 
@@ -287,9 +288,10 @@ class Noux::Region_map_component : public Rpc_object<Region_map>,
 
 				_regions.remove(region);
 			}
-
+//			Kernel::log() << __LINE__ << "x\n";
 			_ds_registry.apply(region->ds, [&] (Dataspace_info *info) {
-				if (info) info->unregister_user(*region); });
+				if (info) info->unregister_user(*region); }, true);
+//			Kernel::log() << __LINE__ << "x\n";
 
 			destroy(env()->heap(), region);
 

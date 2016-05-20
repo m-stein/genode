@@ -38,6 +38,7 @@ namespace Kernel
 	constexpr Call_arg call_id_submit_signal()        { return 7; }
 	constexpr Call_arg call_id_await_signal()         { return 8; }
 	constexpr Call_arg call_id_ack_signal()           { return 9; }
+	constexpr Call_arg call_id_ack_pf()               { return 99; }
 	constexpr Call_arg call_id_print_char()           { return 10; }
 	constexpr Call_arg call_id_update_data_region()   { return 11; }
 	constexpr Call_arg call_id_update_instr_region()  { return 12; }
@@ -251,6 +252,11 @@ namespace Kernel
 	inline void ack_signal(capid_t const context)
 	{
 		call(call_id_ack_signal(), context);
+	}
+
+	inline void ack_pf(capid_t const context)
+	{
+		call(call_id_ack_pf(), context);
 	}
 
 
