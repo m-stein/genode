@@ -402,11 +402,6 @@ class Genode::Cpu : public Arm_v7
 		static unsigned executing_id() { return Mpidr::Aff_0::get(Mpidr::read()); }
 
 		/**
-		 * Return kernel name of the primary CPU
-		 */
-		static unsigned primary_id();
-
-		/**
 		 * Switch to the virtual mode in kernel
 		 *
 		 * \param pd  kernel pd object pointer

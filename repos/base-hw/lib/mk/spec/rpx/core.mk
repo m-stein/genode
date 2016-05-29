@@ -5,12 +5,12 @@
 #
 
 # add include paths
-INC_DIR += $(REP_DIR)/src/core/include/spec/rpi
+INC_DIR += $(REP_DIR)/src/core/include/spec/rpx
 INC_DIR += $(REP_DIR)/src/core/include/spec/pl011
 
 # add C++ sources
 SRC_CC += platform_services.cc
-SRC_CC += spec/rpi/platform_support.cc
+SRC_CC += spec/rpx/platform_support.cc
 
 # include less specific configuration
-include $(REP_DIR)/lib/mk/spec/arm_v6/core.inc
+include $(REP_DIR)/lib/mk/spec/cortex_a7/core.inc

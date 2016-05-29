@@ -123,7 +123,9 @@ class Genode::Arm_gic_distributor : public Mmio
 		 */
 		unsigned min_priority()
 		{
+PINF("%s %u", __func__, __LINE__);
 			write<Ipriorityr::Priority>(~0, 0);
+PINF("%s %u", __func__, __LINE__);
 			return read<Ipriorityr::Priority>(0);
 		}
 
@@ -236,6 +238,8 @@ class Genode::Pic
 		{
 			_last_iar = _cpui.read<Cpui::Iar>();
 			irq = Cpui::Iar::Irq_id::get(_last_iar);
+PINF("irq %u", irq);
+mask(irq);
 			return _valid(irq);
 		}
 

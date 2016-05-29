@@ -28,6 +28,14 @@
 
 	.global _start
 	_start:
+/*
+	ldr r0, =_uart_addr
+	ldr r0, [r0]
+	mov r1, #48
+	str r1, [r0]
+	_uart_addr:
+	.word 0x3f201000
+	.word 0x10009000*/
 
 	/* idle a little initially because U-Boot likes it this way */
 	mov r8, r8

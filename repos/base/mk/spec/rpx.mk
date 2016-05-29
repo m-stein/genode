@@ -5,11 +5,11 @@
 #
 
 # denote wich specs are also fullfilled by this spec
-SPECS += arm_v6 usb framebuffer gpio
+SPECS += cortex_a7 usb framebuffer gpio
 
 # add repository relative include paths
-REP_INC_DIR += include/spec/rpi
+REP_INC_DIR += include/spec/rpx
 
 # include implied specs
-include $(call select_from_repositories,mk/spec/arm_v6.mk)
+include $(call select_from_repositories,mk/spec/cortex_a7.mk)
 include $(call select_from_repositories,mk/spec/pl011.mk)

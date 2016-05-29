@@ -5,18 +5,15 @@
 #
 
 # add include paths
-INC_DIR += $(REP_DIR)/src/core/include/spec/cortex_a15
-INC_DIR += $(REP_DIR)/src/core/include/spec/arm_gic
+INC_DIR += $(REP_DIR)/src/core/include/spec/cortex_a7
 
 # add C++ sources
-SRC_CC += spec/cortex_a15/cpu.cc
-SRC_CC += spec/cortex_a15/kernel/cpu.cc
-SRC_CC += spec/arm/smp/kernel/thread_update_pd.cc
-SRC_CC += spec/arm/smp/kernel/cpu.cc
-
-# add assembler sources
-SRC_S  += spec/arm/smp/kernel/crt0.s
+SRC_CC += spec/cortex_a7/cpu.cc
+SRC_CC += spec/cortex_a7/kernel/cpu.cc
+SRC_CC += spec/arm/kernel/thread_update_pd.cc
+SRC_CC += spec/arm/kernel/cpu.cc
+SRC_CC += kernel/vm_thread.cc
+SRC_CC += kernel/kernel.cc
 
 # include less specific configuration
-include $(REP_DIR)/lib/mk/spec/smp/core.inc
 include $(REP_DIR)/lib/mk/spec/arm_v7/core.inc

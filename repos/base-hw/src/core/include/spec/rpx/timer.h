@@ -40,7 +40,11 @@ class Genode::Timer : public Mmio
 
 	public:
 
-		Timer() : Mmio(Board::SYSTEM_TIMER_MMIO_BASE) { }
+		Timer() : Mmio(Board::SYSTEM_TIMER_MMIO_BASE) {
+
+//		start_one_shot(ms_to_tics(10000), 0);
+//		while(1) { PINF("%u %u %u", read<Clo>(), read<Cmp>(), read<Cs>()); }
+}
 
 		static unsigned interrupt_id(int) { return Board::SYSTEM_TIMER_IRQ; }
 
