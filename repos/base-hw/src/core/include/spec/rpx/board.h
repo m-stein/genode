@@ -26,7 +26,7 @@ namespace Genode
 
 			void init() { }
 
-			static bool is_smp() { return false; }
+			static bool is_smp() { return true; }
 	};
 }
 

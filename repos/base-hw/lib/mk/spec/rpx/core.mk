@@ -8,6 +8,8 @@
 INC_DIR += $(REP_DIR)/src/core/include/spec/rpx
 INC_DIR += $(REP_DIR)/src/core/include/spec/pl011
 
+BASE_HW_DIR := $(REP_DIR)
+
 # add C++ sources
 SRC_CC += platform_services.cc
 SRC_CC += spec/rpx/platform_support.cc
