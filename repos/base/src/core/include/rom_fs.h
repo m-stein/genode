@@ -70,6 +70,7 @@ namespace Genode {
 
 			Rom_module * find(const char *name)
 			{
+				PINF("%s", name);
 				return first() ? (Rom_module *)first()->find_by_name(name) : 0;
 			}
 

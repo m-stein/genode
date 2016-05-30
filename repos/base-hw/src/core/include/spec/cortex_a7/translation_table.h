@@ -15,6 +15,8 @@
 #define _CORE__INCLUDE__SPEC__CORTEX_A15__TRANSLATION_TABLE_H_
 
 /* core includes */
-#include <long_translation_table.h>
+#include <short_translation_table.h>
+
+constexpr unsigned Genode::Translation::_device_tex() { return 2; }
 
 #endif /* _CORE__INCLUDE__SPEC__CORTEX_A15__TRANSLATION_TABLE_H_ */

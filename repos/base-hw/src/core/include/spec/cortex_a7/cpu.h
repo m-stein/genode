@@ -422,6 +422,9 @@ class Genode::Cpu : public Arm_v7
 
 		void translation_table_insertions() { invalidate_branch_predicts(); }
 
+static void translation_added(Genode::addr_t const addr,
+                                    Genode::size_t const size);
+
 		/**
 		 * Hook function called at the very beginning
 		 * of the local cpu initialization
