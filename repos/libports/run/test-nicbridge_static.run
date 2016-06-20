@@ -108,7 +108,6 @@ set boot_modules {
 
 # platform-specific modules
 lappend_if [have_spec       linux] boot_modules fb_sdl
-lappend_if [have_spec         ps2] boot_modules ps2_drv
 
 append_platform_drv_boot_modules
 
