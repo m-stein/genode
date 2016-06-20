@@ -1,0 +1,11 @@
+
+Final goal: A component that does source NAT with dynamic routing and
+destination NAT with static routing.
+
+1) Create a component that does simple port forwarding.
+	1.1) Find test that can be easily adapted to act as port forwarding test.
+		1.1.1) network_test*: Deprecated, remove
+		1.1.2) test-nicbridge_static: Looks good
+	1.2) Rename nic_bridge in the test nat 
+	1.3) Learn how the bridge works to be able to modify it in a way that it
+	     does port forwarding

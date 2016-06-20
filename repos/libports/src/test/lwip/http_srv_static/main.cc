@@ -86,8 +86,10 @@ int main()
 	lwip_tcpip_init();
 
 	/* Initialize network stack  */
-	if (lwip_nic_init(inet_addr("10.0.2.55"), inet_addr("255.255.255.0"),
-	                  inet_addr("10.0.2.1"), BUF_SIZE, BUF_SIZE)) {
+//	if (lwip_nic_init(inet_addr("10.0.2.55"), inet_addr("255.255.255.0"),
+//	                  inet_addr("10.0.2.1"), BUF_SIZE, BUF_SIZE)) {
+	if (lwip_nic_init(inet_addr("192.168.1.18"), inet_addr("255.255.255.0"),
+	                  inet_addr("192.168.1.1"), BUF_SIZE, BUF_SIZE)) {
 		PERR("We got no IP address!");
 		return -1;
 	}
