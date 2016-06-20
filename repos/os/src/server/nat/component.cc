@@ -19,40 +19,41 @@
 #include <component.h>
 
 using namespace Net;
+using namespace Genode;
 
 static const int verbose = 1;
 
 
-bool Session_component::handle_arp(Ethernet_frame *eth, Genode::size_t size)
+bool Session_component::handle_arp(Ethernet_frame *eth, size_t eth_size)
 {
-	Arp_packet *arp =
-		new (eth->data<void>()) Arp_packet(size - sizeof(Ethernet_frame));
-	if (arp->ethernet_ipv4() &&
-		arp->opcode() == Arp_packet::REQUEST) {
+	/* ignore broken packets */
+	size_t arp_size = eth_size - sizeof(Ethernet_frame);
+	Arp_packet *arp = new (eth->data<void>()) Arp_packet(arp_size);
+	if (!arp->ethernet_ipv4()) { return false; }
 
-		/*
-		 * 'Gratuitous ARP' broadcast messages are used to announce newly created
-		 * IP<->MAC address mappings to other hosts. nic_bridge-internal hosts
-		 * would expect a nic_bridge-internal MAC address in this message, whereas
-		 * external hosts would expect the NIC's MAC address in this message.
-		 * The simplest solution to this problem is to just drop those messages,
-		 * since they are not really necessary.
-		 */
-		 if (arp->src_ip() == arp->dst_ip())
-			return false;
+	/* ignore operations other than REQUEST */
+	if (arp->opcode() != Arp_packet::REQUEST) { return false; }
 
-		Ipv4_address_node *node = vlan().ip_tree()->first();
-		if (node)
-			node = node->find_by_address(arp->dst_ip());
-		if (!node) {
-			arp->src_mac(_nic.mac());
-		}
-	}
-	return true;
+	/* interchange source and destination MAC and IP addresses */
+	Ipv4_packet::Ipv4_address old_dst_ip = arp->dst_ip();
+	arp->dst_ip(arp->src_ip());
+	arp->dst_mac(arp->src_mac());
+	eth->dst(eth->src());
+	arp->src_ip(old_dst_ip);
+	arp->src_mac(_nic.mac());
+	eth->src(_nic.mac());
+
+	/* mark packet as REPLY */
+	arp->opcode(Arp_packet::REPLY);
+
+	/* send packet back to its sender */
+	send(eth, eth_size);
+	return false;
+
 }
 
 
-bool Session_component::handle_ip(Ethernet_frame *eth, Genode::size_t size)
+bool Session_component::handle_ip(Ethernet_frame *eth, size_t size)
 {
 	Ipv4_packet *ip =
 		new (eth->data<void>()) Ipv4_packet(size - sizeof(Ethernet_frame));
@@ -74,8 +75,8 @@ bool Session_component::handle_ip(Ethernet_frame *eth, Genode::size_t size)
 }
 
 
-void Session_component::finalize_packet(Ethernet_frame *eth,
-                                                    Genode::size_t size)
+void Session_component::finalize_packet(Ethernet_frame * eth,
+                                        size_t size)
 {
 	Mac_address_node *node = vlan().mac_tree()->first();
 	if (node)
@@ -129,10 +130,10 @@ void Session_component::set_ipv4_address(Ipv4_packet::Ipv4_address ip_addr)
 }
 
 
-Session_component::Session_component(Genode::Allocator          *allocator,
-                                     Genode::size_t              amount,
-                                     Genode::size_t              tx_buf_size,
-                                     Genode::size_t              rx_buf_size,
+Session_component::Session_component(Allocator                  *allocator,
+                                     size_t                      amount,
+                                     size_t                      tx_buf_size,
+                                     size_t                      rx_buf_size,
                                      Ethernet_frame::Mac_address vmac,
                                      Server::Entrypoint         &ep,
                                      Net::Nic                   &nic,
@@ -153,7 +154,7 @@ Session_component::Session_component(Genode::Allocator          *allocator,
 	vlan().mac_list()->insert(&_mac_node);
 
 	/* static ip parsing */
-	if (ip_addr != 0 && Genode::strlen(ip_addr)) {
+	if (ip_addr != 0 && strlen(ip_addr)) {
 		Ipv4_packet::Ipv4_address ip = Ipv4_packet::ip_from_string(ip_addr);
 
 		if (ip == Ipv4_packet::Ipv4_address() || port == 0) {
