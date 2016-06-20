@@ -17,6 +17,7 @@
 #include <net/ethernet.h>
 #include <net/ipv4.h>
 #include <net/udp.h>
+#include <net/dump.h>
 
 #include <component.h>
 #include <packet_handler.h>
@@ -80,6 +81,10 @@ void Packet_handler::broadcast_to_clients(Ethernet_frame *eth, Genode::size_t si
 
 void Packet_handler::handle_ethernet(void* src, Genode::size_t size)
 {
+	if (verbose) {
+		PINF("Receive");
+		dump_eth(src, size, "  ");
+	}
 	try {
 		/* parse ethernet frame header */
 		Ethernet_frame *eth = new (src) Ethernet_frame(size);
@@ -112,6 +117,10 @@ void Packet_handler::handle_ethernet(void* src, Genode::size_t size)
 
 void Packet_handler::send(Ethernet_frame *eth, Genode::size_t size)
 {
+	if (verbose) {
+		PINF("Send");
+		dump_eth(eth, size, "  ");
+	}
 	try {
 		/* copy and submit packet */
 		Packet_descriptor packet  = source()->alloc_packet(size);
