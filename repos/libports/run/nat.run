@@ -6,6 +6,7 @@ set build_components {
 	core init
 	drivers/timer drivers/nic
 	server/nat
+	server/nic_bridge
 	test/lwip/http_srv_static
 	test/lwip/http_clnt
 
@@ -54,7 +55,18 @@ append config {
 		<resource name="RAM" quantum="24M"/>
 		<provides><service name="Nic"/></provides>
 		<config>
-			<policy label="test-lwip_httpsrv_static" ip_addr="10.0.2.55"/>
+			<policy label="test-lwip_httpsrv_static" ip_addr="192.168.1.18" port="80" />
+		</config>
+		<route>
+			<service name="Nic"> <child name="nic_bridge"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+	<start name="nic_bridge">
+		<resource name="RAM" quantum="24M"/>
+		<provides><service name="Nic"/></provides>
+		<config>
+			<policy label="nat" ip_addr="10.0.2.55"/>
 		</config>
 		<route>
 			<service name="Nic"> <child name="nic_drv"/> </service>
@@ -76,7 +88,7 @@ append config {
 	<start name="test-http_clnt">
 		<resource name="RAM" quantum="32M"/>
 		<route>
-			<service name="Nic"> <child name="nat"/> </service>
+			<service name="Nic"> <child name="nic_bridge"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config>
@@ -97,7 +109,7 @@ install_config $config
 set boot_modules {
 	core init
 	timer nic_drv
-	nat
+	nat nic_bridge
 	ld.lib.so
 	libc.lib.so
 	lwip.lib.so
