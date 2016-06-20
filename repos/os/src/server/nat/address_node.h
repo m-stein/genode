@@ -95,6 +95,64 @@ namespace Net {
 			}
 	};
 
+	class Route_node : public Genode::Avl_node<Route_node>
+	{
+		public:
+
+			typedef unsigned Address;
+
+		private:
+
+			Address            _addr;       /* port */
+			Session_component *_component;  /* client's component */
+
+		public:
+
+			/**
+			 * Constructor
+			 *
+			 * \param addr  Network address acting as sorting criteria.
+			 * \param component  pointer to client's session component.
+			 */
+			Route_node(Address addr, Session_component *component)
+			: _addr(addr), _component(component) { }
+
+
+			/***************
+			 ** Accessors **
+			 ***************/
+
+			Address            addr()      { return _addr;      }
+			Session_component *component() { return _component; }
+
+
+			/************************
+			 ** Avl node interface **
+			 ************************/
+
+			bool higher(Route_node *c)
+			{
+				using namespace Genode;
+
+				return c->_addr > _addr;
+			}
+
+			/**
+			 * Find by address
+			 */
+			Route_node *find_by_address(Address addr)
+			{
+				using namespace Genode;
+
+				if (addr == _addr)
+					return this;
+
+				bool side = addr > _addr;
+				Route_node *c = Avl_node<Route_node>::child(side);
+				return c ? c->find_by_address(addr) : 0;
+			}
+	};
+
 
 	typedef Address_node<Ipv4_packet::ADDR_LEN>    Ipv4_address_node;
 	typedef Address_node<Ethernet_frame::ADDR_LEN> Mac_address_node;
