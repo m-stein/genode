@@ -105,10 +105,12 @@ namespace Net {
 
 			Mac_address_node                  _mac_node;
 			Ipv4_address_node                *_ipv4_node;
+			Route_node                       *_route_node;
 			Net::Nic                         &_nic;
 			Genode::Signal_context_capability _link_state_sigh;
 
 			void _free_ipv4_node();
+			void _free_route_node();
 
 		public:
 
@@ -129,7 +131,8 @@ namespace Net {
 			                  Ethernet_frame::Mac_address vmac,
 			                  Server::Entrypoint         &ep,
 			                  Net::Nic                   &nic,
-			                  char                       *ip_addr = 0);
+			                  char                       *ip_addr,
+			                  unsigned                    port);
 
 			~Session_component();
 
@@ -141,6 +144,12 @@ namespace Net {
 				return m;
 			}
 
+			Ipv4_packet::Ipv4_address ipv4_address()
+			{
+				if (!_ipv4_node) { return Ipv4_packet::Ipv4_address((Genode::uint8_t)0); }
+				return Ipv4_packet::Ipv4_address(_ipv4_node->addr());
+			}
+
 			void link_state_changed()
 			{
 				if (_link_state_sigh.valid())
@@ -148,6 +157,7 @@ namespace Net {
 			}
 
 			void set_ipv4_address(Ipv4_packet::Ipv4_address ip_addr);
+			void set_route(unsigned port);
 
 			/****************************************
 			 ** Nic::Driver notification interface **
@@ -197,15 +207,17 @@ namespace Net {
 				using namespace Genode;
 
 				memset(ip_addr, 0, MAX_IP_ADDR_LENGTH);
+				unsigned port = 0;
 
 				 try {
 					Session_label  label(args);
 					Session_policy policy(label);
 					policy.attribute("ip_addr").value(ip_addr, sizeof(ip_addr));
+					policy.attribute("port").value(&port);
 
-					if (verbose) PLOG("policy: %s ip_addr = %s", label.string(), ip_addr);
+					if (verbose) PLOG("policy: %s ip_addr = %s port = %u", label.string(), ip_addr, port);
 				} catch (Xml_node::Nonexistent_attribute) {
-					if (verbose) PLOG("Missing \"ip_addr\" attribute in policy definition");
+					if (verbose) PLOG("Missing attribute in policy definition");
 				} catch (Session_policy::No_policy_defined) {
 					if (verbose) PLOG("Invalid session request, no matching policy");;
 				}
@@ -243,7 +255,8 @@ namespace Net {
 					                                          _mac_alloc.alloc(),
 					                                          _ep,
 					                                          _nic,
-					                                          ip_addr);
+					                                          ip_addr,
+					                                          port);
 				} catch(Mac_allocator::Alloc_failed) {
 					PWRN("Mac address allocation failed!");
 					return (Session_component*) 0;

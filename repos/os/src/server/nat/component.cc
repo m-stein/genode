@@ -102,6 +102,24 @@ void Session_component::_free_ipv4_node()
 bool Session_component::link_state() { return _nic.link_state(); }
 
 
+void Session_component::set_route(unsigned port)
+{
+	_free_route_node();
+	_route_node = new (this->guarded_allocator())
+		Route_node(port, this);
+	vlan().route_tree()->insert(_route_node);
+}
+
+
+void Session_component::_free_route_node()
+{
+	if (_route_node) {
+		vlan().route_tree()->remove(_route_node);
+		destroy(this->guarded_allocator(), _route_node);
+	}
+}
+
+
 void Session_component::set_ipv4_address(Ipv4_packet::Ipv4_address ip_addr)
 {
 	_free_ipv4_node();
@@ -118,7 +136,8 @@ Session_component::Session_component(Genode::Allocator          *allocator,
                                      Ethernet_frame::Mac_address vmac,
                                      Server::Entrypoint         &ep,
                                      Net::Nic                   &nic,
-                                     char                       *ip_addr)
+                                     char                       *ip_addr,
+                                     unsigned                    port)
 : Guarded_range_allocator(allocator, amount),
   Tx_rx_communication_buffers(tx_buf_size, rx_buf_size),
   Session_rpc_object(Tx_rx_communication_buffers::tx_ds(),
@@ -127,6 +146,7 @@ Session_component::Session_component(Genode::Allocator          *allocator,
   Packet_handler(ep, nic.vlan()),
   _mac_node(vmac, this),
   _ipv4_node(0),
+  _route_node(0),
   _nic(nic)
 {
 	vlan().mac_tree()->insert(&_mac_node);
@@ -136,10 +156,11 @@ Session_component::Session_component(Genode::Allocator          *allocator,
 	if (ip_addr != 0 && Genode::strlen(ip_addr)) {
 		Ipv4_packet::Ipv4_address ip = Ipv4_packet::ip_from_string(ip_addr);
 
-		if (ip == Ipv4_packet::Ipv4_address()) {
-			PWRN("Empty or error ip address. Skipped.");
+		if (ip == Ipv4_packet::Ipv4_address() || port == 0) {
+			PWRN("Empty or error ip address or port. Skipped.");
 		} else {
 			set_ipv4_address(ip);
+			set_route(port);
 
 			if (verbose)
 				PLOG("vmac=%02x:%02x:%02x:%02x:%02x:%02x ip=%d.%d.%d.%d",
@@ -160,4 +181,5 @@ Session_component::~Session_component() {
 	vlan().mac_tree()->remove(&_mac_node);
 	vlan().mac_list()->remove(&_mac_node);
 	_free_ipv4_node();
+	_free_route_node();
 }

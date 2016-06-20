@@ -33,20 +33,23 @@ namespace Net {
 			typedef Avl_tree_safe<Mac_address_node>  Mac_address_tree;
 			typedef Avl_tree_safe<Ipv4_address_node> Ipv4_address_tree;
 			typedef List_safe<Mac_address_node>      Mac_address_list;
+			typedef Avl_tree_safe<Route_node>        Route_tree;
 
 		private:
 
 			Mac_address_tree  _mac_tree;
 			Mac_address_list  _mac_list;
 			Ipv4_address_tree _ip_tree;
+			Route_tree        _route_tree;
 
 		public:
 
 			Vlan() {}
 
-			Mac_address_tree  *mac_tree() { return &_mac_tree; }
-			Mac_address_list  *mac_list() { return &_mac_list; }
-			Ipv4_address_tree *ip_tree()  { return &_ip_tree;  }
+			Mac_address_tree  *mac_tree()   { return &_mac_tree;   }
+			Mac_address_list  *mac_list()   { return &_mac_list;   }
+			Ipv4_address_tree *ip_tree()    { return &_ip_tree;    }
+			Route_tree        *route_tree() { return &_route_tree; }
 	};
 }
 
