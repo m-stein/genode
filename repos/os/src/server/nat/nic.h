@@ -34,7 +34,8 @@ class Net::Nic : public Net::Packet_handler
 		::Nic::Packet_allocator     _tx_block_alloc;
 		::Nic::Connection           _nic;
 		Ethernet_frame::Mac_address _mac;
-		Ipv4_packet::Ipv4_address   _ip;
+		Ipv4_packet::Ipv4_address   _public_ip;
+		Ipv4_packet::Ipv4_address   _private_ip;
 
 	public:
 
@@ -42,7 +43,9 @@ class Net::Nic : public Net::Packet_handler
 
 		::Nic::Connection          *nic() { return &_nic; }
 		Ethernet_frame::Mac_address mac() { return _mac; }
-		Ipv4_packet::Ipv4_address   ip()  { return _ip; }
+
+		Ipv4_packet::Ipv4_address   public_ip()  { return _public_ip; }
+		Ipv4_packet::Ipv4_address   private_ip() { return _private_ip; }
 
 		bool link_state() { return _nic.link_state(); }
 

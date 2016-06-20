@@ -36,13 +36,13 @@ bool Net::Nic::handle_arp(Ethernet_frame * eth, size_t eth_size) {
 	if (arp->opcode() != Arp_packet::REQUEST) { return false; }
 
 	/* ignore packets that do not target the NAT IP */
-	if (!(arp->dst_ip() == ip())) { return false; }
+	if (!(arp->dst_ip() == public_ip())) { return false; }
 
 	/* interchange source and destination MAC and IP addresses */
 	arp->dst_ip(arp->src_ip());
 	arp->dst_mac(arp->src_mac());
 	eth->dst(eth->src());
-	arp->src_ip(ip());
+	arp->src_ip(public_ip());
 	arp->src_mac(mac());
 	eth->src(mac());
 
@@ -56,12 +56,6 @@ bool Net::Nic::handle_arp(Ethernet_frame * eth, size_t eth_size) {
 
 
 bool Net::Nic::handle_ip(Ethernet_frame * eth, size_t eth_size) {
-
-	Net::Ipv4_packet::Ipv4_address nat_private_ip;
-	nat_private_ip.addr[0] = 192;
-	nat_private_ip.addr[1] = 168;
-	nat_private_ip.addr[2] =   1;
-	nat_private_ip.addr[3] =   1;
 
 	size_t ip_size = eth_size - sizeof(Ethernet_frame);
 	Ipv4_packet * ip = new (eth->data<void>()) Ipv4_packet(ip_size);
@@ -129,10 +123,14 @@ Net::Nic::Nic(Server::Entrypoint &ep, Net::Vlan &vlan)
 	_nic(&_tx_block_alloc, BUF_SIZE, BUF_SIZE),
 	_mac(_nic.mac_address().addr)
 {
-	_ip.addr[0] = 10;
-	_ip.addr[1] =  0;
-	_ip.addr[2] =  2;
-	_ip.addr[3] = 55;
+	_public_ip.addr[0]  =  10;
+	_public_ip.addr[1]  =   0;
+	_public_ip.addr[2]  =   2;
+	_public_ip.addr[3]  =  55;
+	_private_ip.addr[0] = 192;
+	_private_ip.addr[1] = 168;
+	_private_ip.addr[2] =   1;
+	_private_ip.addr[3] =   1;
 	_nic.rx_channel()->sigh_ready_to_ack(_sink_ack);
 	_nic.rx_channel()->sigh_packet_avail(_sink_submit);
 	_nic.tx_channel()->sigh_ack_avail(_source_ack);
