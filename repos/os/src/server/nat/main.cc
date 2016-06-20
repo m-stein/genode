@@ -65,7 +65,7 @@ struct Main
 	void read_mac()
 	{
 		Net::Ethernet_frame::Mac_address mac(nic.mac());
-		Genode::printf("--- NIC bridge started "
+		Genode::printf("--- NAT started "
 		               "(mac=%02x:%02x:%02x:%02x:%02x:%02x) ---\n",
 		               mac.addr[0], mac.addr[1], mac.addr[2],
 		               mac.addr[3], mac.addr[4], mac.addr[5]);
@@ -90,9 +90,9 @@ struct Main
 
 namespace Server {
 
-	char const *name() { return "nic_bridge_ep"; }
+	char const *name() { return "nat_ep"; }
 
 	size_t stack_size() { return 2048*sizeof(Genode::addr_t); }
 
-	void construct(Entrypoint &ep) { static Main nic_bridge(ep); }
+	void construct(Entrypoint &ep) { static Main nat(ep); }
 }
