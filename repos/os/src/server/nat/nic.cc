@@ -16,14 +16,23 @@
 #include <net/arp.h>
 #include <net/ipv4.h>
 #include <net/udp.h>
+#include <net/tcp.h>
 #include <net/dhcp.h>
 
 #include <component.h>
 
 using namespace Net;
+using size_t = Genode::size_t;
 
 
 bool Net::Nic::handle_arp(Ethernet_frame *eth, Genode::size_t size) {
+
+	Net::Ipv4_packet::Ipv4_address nat_public_ip;
+	nat_public_ip.addr[0] = 10;
+	nat_public_ip.addr[1] =  0;
+	nat_public_ip.addr[2] =  2;
+	nat_public_ip.addr[3] = 55;
+
 	Arp_packet *arp = new (eth->data<void>())
 		Arp_packet(size - sizeof(Ethernet_frame));
 
@@ -31,93 +40,93 @@ bool Net::Nic::handle_arp(Ethernet_frame *eth, Genode::size_t size) {
 	if (!arp->ethernet_ipv4())
 		return true;
 
-	/* look whether the IP address is one of our client's */
-	Ipv4_address_node *node = vlan().ip_tree()->first();
-	if (node)
-		node = node->find_by_address(arp->dst_ip());
-	if (node) {
-		if (arp->opcode() == Arp_packet::REQUEST) {
-			/*
-			 * The ARP packet gets re-written, we interchange source
-			 * and destination MAC and IP addresses, and set the opcode
-			 * to reply, and then push the packet back to the NIC driver.
-			 */
-			Ipv4_packet::Ipv4_address old_src_ip = arp->src_ip();
-			arp->opcode(Arp_packet::REPLY);
-			arp->dst_mac(arp->src_mac());
-			arp->src_mac(mac());
-			arp->src_ip(arp->dst_ip());
-			arp->dst_ip(old_src_ip);
-			eth->dst(arp->dst_mac());
+	/* look whether the IP address is ours */
+	if (arp->dst_ip() == nat_public_ip && arp->opcode() == Arp_packet::REQUEST) {
+		/*
+		 * The ARP packet gets re-written, we interchange source
+		 * and destination MAC and IP addresses, and set the opcode
+		 * to reply, and then push the packet back to the NIC driver.
+		 */
+		Ipv4_packet::Ipv4_address old_src_ip = arp->src_ip();
+		arp->opcode(Arp_packet::REPLY);
+		arp->dst_mac(arp->src_mac());
+		arp->src_mac(mac());
+		arp->src_ip(arp->dst_ip());
+		arp->dst_ip(old_src_ip);
+		eth->dst(arp->dst_mac());
 
-			/* set our MAC as sender */
-			eth->src(mac());
-			send(eth, size);
-		} else {
-			/* overwrite destination MAC */
-			arp->dst_mac(node->component()->mac_address().addr);
-			eth->dst(node->component()->mac_address().addr);
-			node->component()->send(eth, size);
-		}
-		return false;
+		/* set our MAC as sender */
+		eth->src(mac());
+		send(eth, size);
 	}
-	return true;
+	return false;
 }
 
 
-bool Net::Nic::handle_ip(Ethernet_frame *eth, Genode::size_t size) {
-	Ipv4_packet *ip = new (eth->data<void>())
-		Ipv4_packet(size - sizeof(Ethernet_frame));
+bool Net::Nic::handle_ip(Ethernet_frame * eth, Genode::size_t eth_size) {
 
-	/* is it an UDP packet ? */
-	if (ip->protocol() == Udp_packet::IP_ID)
-	{
-		Udp_packet *udp = new (ip->data<void>())
-			Udp_packet(size - sizeof(Ipv4_packet));
+	Net::Ipv4_packet::Ipv4_address nat_private_ip;
+	nat_private_ip.addr[0] = 192;
+	nat_private_ip.addr[1] = 168;
+	nat_private_ip.addr[2] =   1;
+	nat_private_ip.addr[3] =   1;
 
-		/* is it a DHCP packet ? */
-		if (Dhcp_packet::is_dhcp(udp)) {
-			Dhcp_packet *dhcp = new (udp->data<void>())
-				Dhcp_packet(size - sizeof(Ipv4_packet) - sizeof(Udp_packet));
+	size_t ip_size = eth_size - sizeof(Ethernet_frame);
+	Ipv4_packet * ip = new (eth->data<void>()) Ipv4_packet(ip_size);
 
-			/* check for DHCP ACKs containing new client ips */
-			if (dhcp->op() == Dhcp_packet::REPLY) {
-				Dhcp_packet::Option *ext = dhcp->option(Dhcp_packet::MSG_TYPE);
-				if (ext) {
-					/*
-					 * extract the IP address and set it in the
-					 * client's session-component
-					 */
-					Genode::uint8_t *msg_type =	(Genode::uint8_t*) ext->value();
-					if (*msg_type == Dhcp_packet::DHCP_ACK) {
-						Mac_address_node *node =
-							vlan().mac_tree()->first();
-						if (node)
-							node = node->find_by_address(dhcp->client_mac());
-						if (node)
-							node->component()->set_ipv4_address(dhcp->yiaddr());
-					}
-				}
-			}
-		}
-	}
+	/* try to get a TCP/UDP port from the packet */
+	unsigned dst_port = 0;
+	switch (ip->protocol())
+	{ case Tcp_packet::IP_ID: {
 
-	/* is it an unicast message to one of our clients ? */
-	if (eth->dst() == mac()) {
-		Ipv4_address_node *node = vlan().ip_tree()->first();
-		if (node) {
-			node = node->find_by_address(ip->dst());
-			if (node) {
-				/* overwrite destination MAC */
-				eth->dst(node->component()->mac_address().addr);
+			size_t tcp_size = ip_size - sizeof(Ipv4_packet);
+			Tcp_packet * tcp = new (ip->data<void>()) Tcp_packet(tcp_size);
+			dst_port = tcp->dst_port();
+			break;
 
-				/* deliver the packet to the client */
-				node->component()->send(eth, size);
-				return false;
-			}
-		}
-	}
-	return true;
+	} case Udp_packet::IP_ID: {
+
+			size_t udp_size = ip_size - sizeof(Ipv4_packet);
+			Udp_packet * udp = new (ip->data<void>()) Udp_packet(udp_size);
+			dst_port = udp->dst_port();
+			break;
+
+	} default: ; }
+	if (!dst_port) { return false; }
+
+	/* for the found port, try to find a route to a client of the NAT */
+	Route_node * node = vlan().route_tree()->first();
+	if (!node) { return false; }
+	node = node->find_by_address(dst_port);
+	if (!node) { return false; }
+
+	/* set the NATs MAC as source and the clients MAC and IP as destination */
+	eth->src(_mac);
+	eth->dst(node->component()->mac_address().addr);
+	ip->dst(node->component()->ipv4_address().addr);
+
+	/* re-calculate TCP/UDP checksum and IP header checksum */
+	switch (ip->protocol())
+	{ case Tcp_packet::IP_ID: {
+
+			size_t tcp_size = ip_size - sizeof(Ipv4_packet);
+			Tcp_packet * tcp = new (ip->data<void>()) Tcp_packet(tcp_size);
+			tcp->update_checksum(ip->src(), ip->dst(), tcp_size);
+			break;
+
+	} case Udp_packet::IP_ID: {
+
+			size_t udp_size = ip_size - sizeof(Ipv4_packet);
+			Udp_packet * udp = new (ip->data<void>()) Udp_packet(udp_size);
+			udp->calc_checksum(ip->src(), ip->dst());
+			break;
+
+	} default: ; }
+	ip->checksum(Ipv4_packet::calculate_checksum(*ip));
+
+	/* deliver the modified packet to the client */
+	node->component()->send(eth, eth_size);
+	return false;
 }
 
 
