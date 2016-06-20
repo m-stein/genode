@@ -22,48 +22,40 @@
 #include <component.h>
 
 using namespace Net;
-using size_t = Genode::size_t;
+using namespace Genode;
 
 
-bool Net::Nic::handle_arp(Ethernet_frame *eth, Genode::size_t size) {
-
-	Net::Ipv4_packet::Ipv4_address nat_public_ip;
-	nat_public_ip.addr[0] = 10;
-	nat_public_ip.addr[1] =  0;
-	nat_public_ip.addr[2] =  2;
-	nat_public_ip.addr[3] = 55;
-
-	Arp_packet *arp = new (eth->data<void>())
-		Arp_packet(size - sizeof(Ethernet_frame));
+bool Net::Nic::handle_arp(Ethernet_frame * eth, size_t eth_size) {
 
 	/* ignore broken packets */
-	if (!arp->ethernet_ipv4())
-		return true;
+	size_t arp_size = eth_size - sizeof(Ethernet_frame);
+	Arp_packet *arp = new (eth->data<void>()) Arp_packet(arp_size);
+	if (!arp->ethernet_ipv4()) { return false; }
 
-	/* look whether the IP address is ours */
-	if (arp->dst_ip() == nat_public_ip && arp->opcode() == Arp_packet::REQUEST) {
-		/*
-		 * The ARP packet gets re-written, we interchange source
-		 * and destination MAC and IP addresses, and set the opcode
-		 * to reply, and then push the packet back to the NIC driver.
-		 */
-		Ipv4_packet::Ipv4_address old_src_ip = arp->src_ip();
-		arp->opcode(Arp_packet::REPLY);
-		arp->dst_mac(arp->src_mac());
-		arp->src_mac(mac());
-		arp->src_ip(arp->dst_ip());
-		arp->dst_ip(old_src_ip);
-		eth->dst(arp->dst_mac());
+	/* ignore operations other than REQUEST */
+	if (arp->opcode() != Arp_packet::REQUEST) { return false; }
 
-		/* set our MAC as sender */
-		eth->src(mac());
-		send(eth, size);
-	}
+	/* ignore packets that do not target the NAT IP */
+	if (!(arp->dst_ip() == ip())) { return false; }
+
+	/* interchange source and destination MAC and IP addresses */
+	arp->dst_ip(arp->src_ip());
+	arp->dst_mac(arp->src_mac());
+	eth->dst(eth->src());
+	arp->src_ip(ip());
+	arp->src_mac(mac());
+	eth->src(mac());
+
+	/* mark packet as REPLY */
+	arp->opcode(Arp_packet::REPLY);
+
+	/* send packet back to its sender */
+	send(eth, eth_size);
 	return false;
 }
 
 
-bool Net::Nic::handle_ip(Ethernet_frame * eth, Genode::size_t eth_size) {
+bool Net::Nic::handle_ip(Ethernet_frame * eth, size_t eth_size) {
 
 	Net::Ipv4_packet::Ipv4_address nat_private_ip;
 	nat_private_ip.addr[0] = 192;
@@ -131,11 +123,16 @@ bool Net::Nic::handle_ip(Ethernet_frame * eth, Genode::size_t eth_size) {
 
 
 Net::Nic::Nic(Server::Entrypoint &ep, Net::Vlan &vlan)
-: Packet_handler(ep, vlan),
-  _tx_block_alloc(Genode::env()->heap()),
-  _nic(&_tx_block_alloc, BUF_SIZE, BUF_SIZE),
-  _mac(_nic.mac_address().addr)
+:
+	Packet_handler(ep, vlan),
+	_tx_block_alloc(env()->heap()),
+	_nic(&_tx_block_alloc, BUF_SIZE, BUF_SIZE),
+	_mac(_nic.mac_address().addr)
 {
+	_ip.addr[0] = 10;
+	_ip.addr[1] =  0;
+	_ip.addr[2] =  2;
+	_ip.addr[3] = 55;
 	_nic.rx_channel()->sigh_ready_to_ack(_sink_ack);
 	_nic.rx_channel()->sigh_packet_avail(_sink_submit);
 	_nic.tx_channel()->sigh_ack_avail(_source_ack);
