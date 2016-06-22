@@ -30,45 +30,52 @@
 #include <nic.h>
 #include <packet_handler.h>
 
-namespace Net {
-
-	/**
-	 * Helper class.
-	 *
-	 */
+namespace Net
+{
 	class Guarded_range_allocator
 	{
 		private:
+
+			using Allocator       = Genode::Allocator;
+			using size_t          = Genode::size_t;
+			using Allocator_guard = Genode::Allocator_guard;
+			using Range_allocator = Genode::Range_allocator;
 
 			Genode::Allocator_guard _guarded_alloc;
 			::Nic::Packet_allocator _range_alloc;
 
 		public:
 
-			Guarded_range_allocator(Genode::Allocator *backing_store,
-			                        Genode::size_t     amount)
-			: _guarded_alloc(backing_store, amount),
-			  _range_alloc(&_guarded_alloc) {}
+			Guarded_range_allocator(Allocator * backing_store, size_t amount)
+			:
+				_guarded_alloc(backing_store, amount),
+				_range_alloc(&_guarded_alloc)
+			{ }
 
-			Genode::Allocator_guard *guarded_allocator() {
-				return &_guarded_alloc; }
+			Allocator_guard * guarded_allocator() { return &_guarded_alloc; }
 
-			Genode::Range_allocator *range_allocator() {
-				return static_cast<Genode::Range_allocator *>(&_range_alloc); }
+			Range_allocator * range_allocator() {
+				return static_cast<Range_allocator *>(&_range_alloc); }
 	};
 
 
 	class Communication_buffer : Genode::Ram_dataspace_capability
 	{
+		private:
+
+			using size_t                   = Genode::size_t;
+			using Ram_dataspace_capability = Genode::Ram_dataspace_capability;
+			using Dataspace_capability     = Genode::Dataspace_capability;
+
 		public:
 
-			Communication_buffer(Genode::size_t size)
-			: Genode::Ram_dataspace_capability(Genode::env()->ram_session()->alloc(size))
+			Communication_buffer(size_t size)
+			: Ram_dataspace_capability(Genode::env()->ram_session()->alloc(size))
 			{ }
 
 			~Communication_buffer() { Genode::env()->ram_session()->free(*this); }
 
-			Genode::Dataspace_capability dataspace() { return *this; }
+			Dataspace_capability dataspace() { return * this; }
 	};
 
 
@@ -76,18 +83,19 @@ namespace Net {
 	{
 		private:
 
+			using size_t               = Genode::size_t;
+			using Dataspace_capability = Genode::Dataspace_capability;
+
 			Communication_buffer _tx_buf, _rx_buf;
 
 		public:
 
-			Tx_rx_communication_buffers(Genode::size_t tx_size,
-			                            Genode::size_t rx_size)
+			Tx_rx_communication_buffers(size_t tx_size, size_t rx_size)
 			: _tx_buf(tx_size), _rx_buf(rx_size) { }
 
-			Genode::Dataspace_capability tx_ds() { return _tx_buf.dataspace(); }
-			Genode::Dataspace_capability rx_ds() { return _rx_buf.dataspace(); }
+			Dataspace_capability tx_ds() { return _tx_buf.dataspace(); }
+			Dataspace_capability rx_ds() { return _rx_buf.dataspace(); }
 	};
-
 
 	/**
 	 * Nic-session component class
@@ -103,14 +111,21 @@ namespace Net {
 	{
 		private:
 
-			Mac_address_node                  _mac_node;
-			Ipv4_address_node                *_ipv4_node;
-			Route_node                       *_route_node;
-			Net::Nic                         &_nic;
-			Genode::Signal_context_capability _link_state_sigh;
+			using Ipv4_address =              Ipv4_packet::Ipv4_address;
+			using uint8_t =                   Genode::uint8_t;
+			using size_t =                    Genode::size_t;
+			using Signal_context_capability = Genode::Signal_context_capability;
+			using Allocator =                 Genode::Allocator;
+			using Signal_transmitter =        Genode::Signal_transmitter;
+
+			Mac_address_node            _mac_node;
+			Ipv4_address_node         * _ipv4_node;
+			Port_node                 * _port_node;
+			Nic                       & _nic;
+			Signal_context_capability   _link_state_sigh;
 
 			void _free_ipv4_node();
-			void _free_route_node();
+			void _free_port_node();
 
 		public:
 
@@ -124,40 +139,35 @@ namespace Net {
 			 * \param vmac         virtual mac address
 			 * \param ep           entry point used for packet stream
 			 */
-			Session_component(Genode::Allocator          *allocator,
-			                  Genode::size_t              amount,
-			                  Genode::size_t              tx_buf_size,
-			                  Genode::size_t              rx_buf_size,
-			                  Ethernet_frame::Mac_address vmac,
-			                  Server::Entrypoint         &ep,
-			                  Net::Nic                   &nic,
-			                  char                       *ip_addr,
-			                  unsigned                    port);
+			Session_component(Allocator          * allocator,
+			                  size_t               amount,
+			                  size_t               tx_buf_size,
+			                  size_t               rx_buf_size,
+			                  Mac_address          vmac,
+			                  Server::Entrypoint & ep,
+			                  Nic                & nic,
+			                  char               * ip_addr,
+			                  unsigned             port);
 
 			~Session_component();
 
-			::Nic::Mac_address mac_address()
-			{
-				::Nic::Mac_address m;
-				Mac_address_node::Address mac = _mac_node.addr();
-				Genode::memcpy(&m, mac.addr, sizeof(m.addr));
-				return m;
-			}
+			Mac_address mac_address() { return _mac_node.addr(); }
 
-			Ipv4_packet::Ipv4_address ipv4_address()
+			Ipv4_address ipv4_address()
 			{
-				if (!_ipv4_node) { return Ipv4_packet::Ipv4_address((Genode::uint8_t)0); }
-				return Ipv4_packet::Ipv4_address(_ipv4_node->addr());
+				if (!_ipv4_node) { return Ipv4_address((uint8_t)0); }
+				return Ipv4_address(_ipv4_node->addr());
 			}
 
 			void link_state_changed()
 			{
-				if (_link_state_sigh.valid())
-					Genode::Signal_transmitter(_link_state_sigh).submit();
+				if (!_link_state_sigh.valid()) { return; }
+				Signal_transmitter(_link_state_sigh).submit();
 			}
 
-			void set_ipv4_address(Ipv4_packet::Ipv4_address ip_addr);
-			void set_route(unsigned port);
+			void set_ipv4_address(Ipv4_address ip_addr);
+
+			void set_port(unsigned port);
 
 			/****************************************
 			 ** Nic::Driver notification interface **
@@ -165,7 +175,7 @@ namespace Net {
 
 			bool link_state();
 
-			void link_state_sigh(Genode::Signal_context_capability sigh) {
+			void link_state_sigh(Signal_context_capability sigh) {
 				_link_state_sigh = sigh; }
 
 			/******************************
@@ -178,9 +188,9 @@ namespace Net {
 			Packet_stream_source< ::Nic::Session::Policy> * source() {
 				return _rx.source(); }
 
-			bool handle_arp(Ethernet_frame *eth,      Genode::size_t size);
-			bool handle_ip(Ethernet_frame *eth,       Genode::size_t size);
-			void finalize_packet(Ethernet_frame *eth, Genode::size_t size);
+			bool handle_arp(Ethernet_frame *eth, size_t size);
+			bool handle_ip(Ethernet_frame *eth, size_t size);
+			void finalize_packet(Ethernet_frame *eth, size_t size);
 	};
 
 

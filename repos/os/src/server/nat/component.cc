@@ -103,20 +103,20 @@ void Session_component::_free_ipv4_node()
 bool Session_component::link_state() { return _nic.link_state(); }
 
 
-void Session_component::set_route(unsigned port)
+void Session_component::set_port(unsigned port)
 {
-	_free_route_node();
-	_route_node = new (this->guarded_allocator())
-		Route_node(port, this);
-	vlan().route_tree()->insert(_route_node);
+	_free_port_node();
+	_port_node = new (this->guarded_allocator())
+		Port_node(port, this);
+	vlan().port_tree()->insert(_port_node);
 }
 
 
-void Session_component::_free_route_node()
+void Session_component::_free_port_node()
 {
-	if (_route_node) {
-		vlan().route_tree()->remove(_route_node);
-		destroy(this->guarded_allocator(), _route_node);
+	if (_port_node) {
+		vlan().port_tree()->remove(_port_node);
+		destroy(this->guarded_allocator(), _port_node);
 	}
 }
 
@@ -147,7 +147,7 @@ Session_component::Session_component(Allocator                  *allocator,
   Packet_handler(ep, nic.vlan()),
   _mac_node(vmac, this),
   _ipv4_node(0),
-  _route_node(0),
+  _port_node(0),
   _nic(nic)
 {
 	vlan().mac_tree()->insert(&_mac_node);
@@ -161,7 +161,7 @@ Session_component::Session_component(Allocator                  *allocator,
 			PWRN("Empty or error ip address or port. Skipped.");
 		} else {
 			set_ipv4_address(ip);
-			set_route(port);
+			set_port(port);
 
 			if (verbose)
 				PLOG("vmac=%02x:%02x:%02x:%02x:%02x:%02x ip=%d.%d.%d.%d",
@@ -182,5 +182,5 @@ Session_component::~Session_component() {
 	vlan().mac_tree()->remove(&_mac_node);
 	vlan().mac_list()->remove(&_mac_node);
 	_free_ipv4_node();
-	_free_route_node();
+	_free_port_node();
 }

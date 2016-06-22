@@ -31,21 +31,29 @@ class Net::Nic : public Net::Packet_handler
 			BUF_SIZE    = ::Nic::Session::QUEUE_SIZE * PACKET_SIZE,
 		};
 
-		::Nic::Packet_allocator     _tx_block_alloc;
-		::Nic::Connection           _nic;
-		Ethernet_frame::Mac_address _mac;
-		Ipv4_packet::Ipv4_address   _public_ip;
-		Ipv4_packet::Ipv4_address   _private_ip;
+		::Nic::Packet_allocator   _tx_block_alloc;
+		::Nic::Connection         _nic;
+		Mac_address               _mac;
+		Ipv4_packet::Ipv4_address _public_ip;
+		Ipv4_packet::Ipv4_address _private_ip;
+
+		Tcp_link_node * _new_tcp_link(Ethernet_frame::Mac_address cm, Ipv4_packet::Ipv4_address ci, Genode::uint16_t cp,
+		                              Ethernet_frame::Mac_address sm, Ipv4_packet::Ipv4_address si, Genode::uint16_t sp);
+
+		void _handle_udp(Ethernet_frame * eth, Genode::size_t eth_size,
+		                 Ipv4_packet * ip, Genode::size_t ip_size);
+
+		void _handle_tcp(Ethernet_frame * eth, Genode::size_t eth_size,
+		                 Ipv4_packet * ip, Genode::size_t ip_size);
 
 	public:
 
 		Nic(Server::Entrypoint&, Vlan&);
 
-		::Nic::Connection          *nic() { return &_nic; }
-		Ethernet_frame::Mac_address mac() { return _mac; }
-
-		Ipv4_packet::Ipv4_address   public_ip()  { return _public_ip; }
-		Ipv4_packet::Ipv4_address   private_ip() { return _private_ip; }
+		::Nic::Connection *              nic()        { return &_nic; }
+		Mac_address                      mac()        { return _mac; }
+		Ipv4_packet::Ipv4_address        public_ip()  { return _public_ip; }
+		Ipv4_packet::Ipv4_address        private_ip() { return _private_ip; }
 
 		bool link_state() { return _nic.link_state(); }
 
@@ -59,9 +67,9 @@ class Net::Nic : public Net::Packet_handler
 		Packet_stream_source< ::Nic::Session::Policy> * source() {
 			return _nic.tx(); }
 
-		bool handle_arp(Ethernet_frame *eth,      Genode::size_t size);
-		bool handle_ip(Ethernet_frame *eth,       Genode::size_t size);
-		void finalize_packet(Ethernet_frame *eth, Genode::size_t size) {}
+		bool handle_arp(Ethernet_frame * eth, Genode::size_t eth_size);
+		bool handle_ip(Ethernet_frame * eth, Genode::size_t eth_size);
+		void finalize_packet(Ethernet_frame * eth, Genode::size_t eth_size) { }
 };
 
 #endif /* _SRC__SERVER__NIC_BRIDGE__NIC_H_ */

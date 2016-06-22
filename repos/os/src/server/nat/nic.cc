@@ -23,6 +23,7 @@
 
 using namespace Net;
 using namespace Genode;
+using Ipv4_address = Net::Ipv4_packet::Ipv4_address;
 
 
 bool Net::Nic::handle_arp(Ethernet_frame * eth, size_t eth_size) {
@@ -55,63 +56,85 @@ bool Net::Nic::handle_arp(Ethernet_frame * eth, size_t eth_size) {
 }
 
 
-bool Net::Nic::handle_ip(Ethernet_frame * eth, size_t eth_size) {
+Tcp_link_node * Net::Nic::_new_tcp_link(Mac_address cm, Ipv4_address ci, uint16_t cp,
+                                        Mac_address sm, Ipv4_address si, uint16_t sp)
+{
+	Allocator * alloc = env()->heap();
+	Tcp_link_node * n = new (alloc) Tcp_link_node(cm, ci, cp, sm, si, sp);
+	vlan().tcp_link_list()->insert(n);
+	return n;
+}
 
-	size_t ip_size = eth_size - sizeof(Ethernet_frame);
-	Ipv4_packet * ip = new (eth->data<void>()) Ipv4_packet(ip_size);
 
-	/* try to get a TCP/UDP port from the packet */
-	unsigned dst_port = 0;
-	switch (ip->protocol())
-	{ case Tcp_packet::IP_ID: {
+void Net::Nic::_handle_tcp(Ethernet_frame * eth, size_t eth_size,
+                           Ipv4_packet * ip, size_t ip_size)
+{
+	/* get ports */
+	size_t tcp_size = ip_size - sizeof(Ipv4_packet);
+	Tcp_packet * tcp = new (ip->data<void>()) Tcp_packet(tcp_size);
+	uint16_t dst_port = tcp->dst_port();
+	uint16_t src_port = tcp->src_port();
 
-			size_t tcp_size = ip_size - sizeof(Ipv4_packet);
-			Tcp_packet * tcp = new (ip->data<void>()) Tcp_packet(tcp_size);
-			dst_port = tcp->dst_port();
-			break;
+	/* for the found port, try to find a port to a client of the NAT */
+	Port_node * port = vlan().port_tree()->first();
+	if (port) { port = port->find_by_address(dst_port); }
+	if (!port) { return; }
+	Session_component * client = port->component();
 
-	} case Udp_packet::IP_ID: {
+	/* try to find an existing link info or create a new one */
+	Tcp_link_node * link = vlan().tcp_link_list()->first();
+	if (link) { link = link->find(ip->src(), src_port, client->ipv4_address(), dst_port); }
+	if (!link) { link = _new_tcp_link(eth->src(), ip->src(), tcp->src_port(), client->mac_address(), client->ipv4_address(), tcp->dst_port()); }
 
-			size_t udp_size = ip_size - sizeof(Ipv4_packet);
-			Udp_packet * udp = new (ip->data<void>()) Udp_packet(udp_size);
-			dst_port = udp->dst_port();
-			break;
+	/* set the NATs MAC as source and the clients MAC and IP as destination */
+	eth->src(_mac);
+	eth->dst(client->mac_address().addr);
+	ip->dst(client->ipv4_address().addr);
 
-	} default: ; }
-	if (!dst_port) { return false; }
+	/* re-calculate affected checksums */
+	tcp->update_checksum(ip->src(), ip->dst(), tcp_size);
+	ip->checksum(Ipv4_packet::calculate_checksum(*ip));
 
-	/* for the found port, try to find a route to a client of the NAT */
-	Route_node * node = vlan().route_tree()->first();
-	if (!node) { return false; }
-	node = node->find_by_address(dst_port);
-	if (!node) { return false; }
+	/* deliver the modified packet to the client */
+	client->send(eth, eth_size);
+}
+
+
+void Net::Nic::_handle_udp(Ethernet_frame * eth, size_t eth_size,
+                           Ipv4_packet * ip, size_t ip_size)
+{
+	/* get destination port */
+	size_t udp_size = ip_size - sizeof(Ipv4_packet);
+	Udp_packet * udp = new (ip->data<void>()) Udp_packet(udp_size);
+	uint16_t dst_port = udp->dst_port();
+
+	/* for the found port, try to find a port to a client of the NAT */
+	Port_node * node = vlan().port_tree()->first();
+	if (node) { node = node->find_by_address(dst_port); }
+	if (!node) { return; }
 
 	/* set the NATs MAC as source and the clients MAC and IP as destination */
 	eth->src(_mac);
 	eth->dst(node->component()->mac_address().addr);
 	ip->dst(node->component()->ipv4_address().addr);
 
-	/* re-calculate TCP/UDP checksum and IP header checksum */
-	switch (ip->protocol())
-	{ case Tcp_packet::IP_ID: {
-
-			size_t tcp_size = ip_size - sizeof(Ipv4_packet);
-			Tcp_packet * tcp = new (ip->data<void>()) Tcp_packet(tcp_size);
-			tcp->update_checksum(ip->src(), ip->dst(), tcp_size);
-			break;
-
-	} case Udp_packet::IP_ID: {
-
-			size_t udp_size = ip_size - sizeof(Ipv4_packet);
-			Udp_packet * udp = new (ip->data<void>()) Udp_packet(udp_size);
-			udp->calc_checksum(ip->src(), ip->dst());
-			break;
-
-	} default: ; }
+	/* re-calculate affected checksums */
+	udp->calc_checksum(ip->src(), ip->dst());
 	ip->checksum(Ipv4_packet::calculate_checksum(*ip));
 
 	/* deliver the modified packet to the client */
 	node->component()->send(eth, eth_size);
+}
+
+
+bool Net::Nic::handle_ip(Ethernet_frame * eth, size_t eth_size)
+{
+	size_t ip_size = eth_size - sizeof(Ethernet_frame);
+	Ipv4_packet * ip = new (eth->data<void>()) Ipv4_packet(ip_size);
+	switch (ip->protocol()) {
+	case Tcp_packet::IP_ID: _handle_tcp(eth, eth_size, ip, ip_size); break;
+	case Udp_packet::IP_ID: _handle_udp(eth, eth_size, ip, ip_size); break;
+	default: ; }
 	return false;
 }
 
