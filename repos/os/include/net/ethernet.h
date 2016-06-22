@@ -19,7 +19,7 @@
 #include <util/string.h>
 
 #include <util/endian.h>
-#include <net/netaddress.h>
+#include <net/mac_address.h>
 
 namespace Net { class Ethernet_frame; }
 
@@ -43,7 +43,7 @@ class Net::Ethernet_frame
 			ADDR_LEN  = 6, /* MAC address length in bytes */
 		};
 
-		typedef Network_address<ADDR_LEN> Mac_address;
+		using Mac_address = Net::Mac_address;
 
 		static const Mac_address BROADCAST;  /* broadcast address */
 
