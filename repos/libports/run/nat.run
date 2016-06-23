@@ -2,6 +2,8 @@
 # Build
 #
 
+set two_clients_and_servers 0
+
 set build_components {
 	core init
 	drivers/timer drivers/nic
@@ -90,6 +92,21 @@ append config {
 			</libc>
 		</config>
 	</start>
+	<start name="http_clnt_1">
+		<binary name="test-http_clnt"/>
+		<resource name="RAM" quantum="32M"/>
+		<route>
+			<service name="Nic"> <child name="nic_bridge"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+		<config>
+			<libc stdout="/dev/log" stderr="/dev/log" http_port="80">
+				<vfs> <dir name="dev"> <log/> </dir> </vfs>
+			</libc>
+		</config>
+	</start>}
+
+append_if $two_clients_and_servers config {
 	<start name="http_srv_2">
 		<binary name="test-lwip_httpsrv_static"/>
 		<resource name="RAM" quantum="32M"/>
@@ -106,19 +123,6 @@ append config {
 			</libc>
 		</config>
 	</start>
-	<start name="http_clnt_1">
-		<binary name="test-http_clnt"/>
-		<resource name="RAM" quantum="32M"/>
-		<route>
-			<service name="Nic"> <child name="nic_bridge"/> </service>
-			<any-service> <parent/> <any-child/> </any-service>
-		</route>
-		<config>
-			<libc stdout="/dev/log" stderr="/dev/log" http_port="80">
-				<vfs> <dir name="dev"> <log/> </dir> </vfs>
-			</libc>
-		</config>
-	</start>
 	<start name="http_clnt_2">
 		<binary name="test-http_clnt"/>
 		<resource name="RAM" quantum="32M"/>
@@ -131,7 +135,9 @@ append config {
 				<vfs> <dir name="dev"> <log/> </dir> </vfs>
 			</libc>
 		</config>
-	</start>
+	</start>}
+
+append config {
 </config>}
 
 install_config $config
