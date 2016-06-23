@@ -41,7 +41,8 @@ class Net::Tcp_packet
 		uint16_t _dst_port;
 		uint32_t _seq_nr;
 		uint32_t _ack_nr;
-		uint16_t _unused;
+		uint8_t  _data_offset;
+		uint8_t  _flags;
 		uint16_t _window_size;
 		uint16_t _checksum;
 		uint16_t _urgent_ptr;
@@ -49,12 +50,28 @@ class Net::Tcp_packet
 
 	public:
 
+		struct Flags : Register<8>
+		{
+			struct Fin : Bitfield<0, 1> { };
+			struct Syn : Bitfield<1, 1> { };
+			struct Rst : Bitfield<2, 1> { };
+			struct Psh : Bitfield<3, 1> { };
+			struct Ack : Bitfield<4, 1> { };
+			struct Urg : Bitfield<5, 1> { };
+		};
+
+		struct Data_offset : Register<8>
+		{
+			struct Value : Bitfield<4, 4> { };
+		};
+
 		enum Protocol_id { IP_ID = 6 };
 
 		class No_tcp_packet : Exception {};
 
 		uint16_t src_port() { return host_to_big_endian(_src_port); }
 		uint16_t dst_port() { return host_to_big_endian(_dst_port); }
+		uint16_t flags()    { return host_to_big_endian(_flags); }
 
 		Tcp_packet(size_t size) {
 			if (size < sizeof(Tcp_packet)) { throw No_tcp_packet(); } }
