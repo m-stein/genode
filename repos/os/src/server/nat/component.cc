@@ -66,9 +66,10 @@ void Session_component::_handle_tcp(Ethernet_frame * eth, size_t eth_size,
 	/* try to find an existing link info or create a new one */
 	Tcp_link_node * link = vlan().tcp_link_list()->first();
 	if (link) { link = link->find(ip->dst(), dst_port, ip->src(), src_port); }
-	if (!link) { PERR("BÄH"); return; }
-	PINF("YEAH");
-
+	if (!link) {
+		PERR("Failed to find link info for TCP packet");
+		return;
+	}
 	/* set the NATs MAC as source and the clients MAC and IP as destination */
 	eth->src(_nic.mac());
 	ip->src(_nic.public_ip());

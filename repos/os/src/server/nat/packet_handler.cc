@@ -82,8 +82,9 @@ void Packet_handler::broadcast_to_clients(Ethernet_frame *eth, Genode::size_t si
 void Packet_handler::handle_ethernet(void* src, Genode::size_t size)
 {
 	if (verbose) {
-		PINF("Receive");
-		dump_eth(src, size, "  ");
+		Genode::printf("<< ");
+		dump_eth(src, size);
+		Genode::printf("\n");
 	}
 	try {
 		/* parse ethernet frame header */
@@ -118,8 +119,9 @@ void Packet_handler::handle_ethernet(void* src, Genode::size_t size)
 void Packet_handler::send(Ethernet_frame *eth, Genode::size_t size)
 {
 	if (verbose) {
-		PINF("Send");
-		dump_eth(eth, size, "  ");
+		Genode::printf(">> ");
+		dump_eth(eth, size);
+		Genode::printf("\n");
 	}
 	try {
 		/* copy and submit packet */

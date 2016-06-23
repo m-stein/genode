@@ -18,6 +18,7 @@
 #include <util/string.h>
 #include <timer_session/connection.h>
 #include <nic/packet_allocator.h>
+#include <os/config.h>
 
 extern "C" {
 #include <lwip/sockets.h>
@@ -39,6 +40,8 @@ static const char *http_get_request =
  */
 int main()
 {
+	using namespace Genode;
+
 	enum { BUF_SIZE = Nic::Packet_allocator::DEFAULT_PACKET_SIZE * 128 };
 
 	static Timer::Connection _timer;
@@ -64,8 +67,17 @@ int main()
 		}
 
 		PDBG("Connect to server ...");
+
+		unsigned port = 0;
+		Xml_node libc_node = config()->xml_node().sub_node("libc");
+		try { libc_node.attribute("http_port").value(&port); }
+		catch (...) {
+			PERR("Missing \"http_port\" attribute.");
+			throw Xml_node::Nonexistent_attribute();
+		}
+
 		struct sockaddr_in addr;
-		addr.sin_port = htons(80);
+		addr.sin_port = htons(port);
 		addr.sin_family = AF_INET;
 		addr.sin_addr.s_addr = inet_addr(serv_addr);
 
