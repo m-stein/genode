@@ -22,6 +22,7 @@
 #include <base/thread.h>
 #include <util/string.h>
 #include <nic/packet_allocator.h>
+#include <os/config.h>
 
 /* LwIP includes */
 extern "C" {
@@ -79,17 +80,56 @@ void http_server_serve(int conn) {
 
 int main()
 {
+	using namespace Genode;
+
 	enum { BUF_SIZE = Nic::Packet_allocator::DEFAULT_PACKET_SIZE * 128 };
 
 	int s;
 
 	lwip_tcpip_init();
 
+	enum { ADDR_STR_SZ = 16 };
+
+	char ip_addr_str[ADDR_STR_SZ] = { 0 };
+	char netmask_str[ADDR_STR_SZ] = { 0 };
+	char gateway_str[ADDR_STR_SZ] = { 0 };
+
+	uint32_t ip = 0;
+	uint32_t nm = 0;
+	uint32_t gw = 0;
+
+	Xml_node libc_node = config()->xml_node().sub_node("libc");
+
+	try { libc_node.attribute("ip_addr").value(ip_addr_str, ADDR_STR_SZ); }
+	catch(...) {
+		PERR("Missing \"ip_addr\" attribute.");
+		throw Xml_node::Nonexistent_attribute();
+	}
+	try { libc_node.attribute("netmask").value(netmask_str, ADDR_STR_SZ); }
+	catch(...) {
+		PERR("Missing \"netmask\" attribute.");
+		throw Xml_node::Nonexistent_attribute();
+	}
+	try { libc_node.attribute("gateway").value(gateway_str, ADDR_STR_SZ); }
+	catch(...) {
+		PERR("Missing \"gateway\" attribute.");
+		throw Xml_node::Nonexistent_attribute();
+	}
+
+	PDBG("static network interface: ip_addr=%s netmask=%s gateway=%s ",
+		ip_addr_str, netmask_str, gateway_str);
+
+	ip = inet_addr(ip_addr_str);
+	nm = inet_addr(netmask_str);
+	gw = inet_addr(gateway_str);
+
+	if (ip == INADDR_NONE || nm == INADDR_NONE || gw == INADDR_NONE) {
+		PERR("Invalid network interface config.");
+		throw -1;
+	}
+
 	/* Initialize network stack  */
-	if (lwip_nic_init(inet_addr("10.0.2.55"), inet_addr("255.255.255.0"),
-	                  inet_addr("10.0.2.1"), BUF_SIZE, BUF_SIZE)) {
-//	if (lwip_nic_init(inet_addr("192.168.1.18"), inet_addr("255.255.255.0"),
-//	                  inet_addr("192.168.1.1"), BUF_SIZE, BUF_SIZE)) {
+	if (lwip_nic_init(ip, nm, gw, BUF_SIZE, BUF_SIZE)) {
 		PERR("We got no IP address!");
 		return -1;
 	}

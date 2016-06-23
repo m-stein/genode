@@ -68,7 +68,10 @@ append config {
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config>
-			<libc stdout="/dev/log" stderr="/dev/log">
+			<libc stdout="/dev/log" stderr="/dev/log"
+			      ip_addr="10.0.2.55" netmask="255.255.255.0"
+			      gateway="10.0.2.1"
+			>
 				<vfs> <dir name="dev"> <log/> </dir> </vfs>
 			</libc>
 		</config>
