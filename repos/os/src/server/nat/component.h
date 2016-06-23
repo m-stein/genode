@@ -127,6 +127,12 @@ namespace Net
 			void _free_ipv4_node();
 			void _free_port_node();
 
+			void _handle_udp(Ethernet_frame * eth, Genode::size_t eth_size,
+			                 Ipv4_packet * ip, Genode::size_t ip_size);
+
+			void _handle_tcp(Ethernet_frame * eth, Genode::size_t eth_size,
+			                 Ipv4_packet * ip, Genode::size_t ip_size);
+
 		public:
 
 			/**

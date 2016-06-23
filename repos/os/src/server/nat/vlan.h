@@ -22,22 +22,31 @@
 
 namespace Net {
 
-	struct Tcp_peer
+	class Tcp_peer
 	{
-		using Mac_address  = Net::Ethernet_frame::Mac_address;
-		using Ipv4_address = Net::Ipv4_packet::Ipv4_address;
-		using uint16_t     = Genode::uint16_t;
+		private:
 
-		Mac_address  mac;
-		Ipv4_address ip;
-		uint16_t     port;
+			using Ipv4_address = Net::Ipv4_packet::Ipv4_address;
+			using uint16_t     = Genode::uint16_t;
+
+			Mac_address  const _mac;
+			Ipv4_address const _ip;
+			uint16_t     const _port;
+
+		public:
+
+			Tcp_peer(Mac_address mac, Ipv4_address ip, uint16_t port)
+			: _mac(mac), _ip(ip), _port(port) { }
+
+			Mac_address  mac()  { return _mac; }
+			Ipv4_address ip()   { return _ip; }
+			uint16_t     port() { return _port; }
 	};
 
 	class Tcp_link_node : public Genode::List<Tcp_link_node>::Element
 	{
 		private:
 
-			using Mac_address  = Net::Ethernet_frame::Mac_address;
 			using Ipv4_address = Net::Ipv4_packet::Ipv4_address;
 			using uint16_t     = Genode::uint16_t;
 
@@ -48,20 +57,22 @@ namespace Net {
 
 			Tcp_link_node(Mac_address cm, Ipv4_address ci, uint16_t cp,
 			              Mac_address sm, Ipv4_address si, uint16_t sp)
-			{
-				_client = { cm, ci, cp };
-				_server = { sm, si, sp };
-			}
+			:
+				_client(cm, ci, cp), _server(sm, si, sp)
+			{ }
 
 			Tcp_link_node * find(Ipv4_address ci, uint16_t cp,
 			                     Ipv4_address si, uint16_t sp)
 			{
 				using namespace Genode;
-				if (cp == _client.port && sp == _server.port &&
-				    ci == _client.ip   && si == _server.ip) { return this; }
+				if (cp == _client.port() && sp == _server.port() &&
+				    ci == _client.ip()   && si == _server.ip()) { return this; }
 				Tcp_link_node * const n = List<Tcp_link_node>::Element::next();
 				return n ? n->find(ci, cp, si, sp) : nullptr;
 			}
+
+			Tcp_peer & client() { return _client; }
+			Tcp_peer & server() { return _server; }
 	};
 
 	/*

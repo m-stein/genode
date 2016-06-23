@@ -15,6 +15,7 @@
 #include <net/arp.h>
 #include <net/dhcp.h>
 #include <net/udp.h>
+#include <net/tcp.h>
 
 #include <component.h>
 
@@ -53,25 +54,50 @@ bool Session_component::handle_arp(Ethernet_frame *eth, size_t eth_size)
 }
 
 
-bool Session_component::handle_ip(Ethernet_frame *eth, size_t size)
+void Session_component::_handle_tcp(Ethernet_frame * eth, size_t eth_size,
+                                    Ipv4_packet * ip, size_t ip_size)
 {
-	Ipv4_packet *ip =
-		new (eth->data<void>()) Ipv4_packet(size - sizeof(Ethernet_frame));
+	/* get ports */
+	size_t tcp_size = ip_size - sizeof(Ipv4_packet);
+	Tcp_packet * tcp = new (ip->data<void>()) Tcp_packet(tcp_size);
+	uint16_t dst_port = tcp->dst_port();
+	uint16_t src_port = tcp->src_port();
 
-	if (ip->protocol() == Udp_packet::IP_ID)
-	{
-		Udp_packet *udp = new (ip->data<void>())
-			Udp_packet(size - sizeof(Ipv4_packet));
-		if (Dhcp_packet::is_dhcp(udp)) {
-			Dhcp_packet *dhcp = new (udp->data<void>())
-				Dhcp_packet(size - sizeof(Ipv4_packet) - sizeof(Udp_packet));
-			if (dhcp->op() == Dhcp_packet::REQUEST) {
-				dhcp->broadcast(true);
-				udp->calc_checksum(ip->src(), ip->dst());
-			}
-		}
-	}
-	return true;
+	/* try to find an existing link info or create a new one */
+	Tcp_link_node * link = vlan().tcp_link_list()->first();
+	if (link) { link = link->find(ip->dst(), dst_port, ip->src(), src_port); }
+	if (!link) { PERR("BÄH"); return; }
+	PINF("YEAH");
+
+	/* set the NATs MAC as source and the clients MAC and IP as destination */
+	eth->src(_nic.mac());
+	ip->src(_nic.public_ip());
+	eth->dst(link->client().mac().addr);
+
+	/* re-calculate affected checksums */
+	tcp->update_checksum(_nic.public_ip(), ip->dst(), tcp_size);
+	ip->checksum(Ipv4_packet::calculate_checksum(*ip));
+
+	/* deliver the modified packet */
+	_nic.send(eth, eth_size);
+}
+
+
+void Session_component::_handle_udp(Ethernet_frame * eth, size_t eth_size,
+                                    Ipv4_packet * ip, size_t ip_size)
+{
+}
+
+
+bool Session_component::handle_ip(Ethernet_frame *eth, size_t eth_size)
+{
+	size_t ip_size = eth_size - sizeof(Ethernet_frame);
+	Ipv4_packet * ip = new (eth->data<void>()) Ipv4_packet(ip_size);
+	switch (ip->protocol()) {
+	case Tcp_packet::IP_ID: _handle_tcp(eth, eth_size, ip, ip_size); break;
+	case Udp_packet::IP_ID: _handle_udp(eth, eth_size, ip, ip_size); break;
+	default: ; }
+	return false;
 }
 
 
