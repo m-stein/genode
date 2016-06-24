@@ -18,6 +18,7 @@
 #include <net/udp.h>
 #include <net/tcp.h>
 #include <net/dhcp.h>
+#include <os/config.h>
 
 #include <component.h>
 
@@ -56,35 +57,21 @@ bool Net::Nic::handle_arp(Ethernet_frame * eth, size_t eth_size) {
 }
 
 
-Tcp_link_node * Net::Nic::_new_tcp_link(Mac_address cm, Ipv4_address ci, uint16_t cp,
-                                        Mac_address sm, Ipv4_address si, uint16_t sp)
-{
-	Allocator * alloc = env()->heap();
-	Tcp_link_node * n = new (alloc) Tcp_link_node(cm, ci, cp, sm, si, sp);
-	vlan().tcp_link_list()->insert(n);
-	return n;
-}
-
-
 void Net::Nic::_handle_tcp(Ethernet_frame * eth, size_t eth_size,
                            Ipv4_packet * ip, size_t ip_size)
 {
-	/* get ports */
-	size_t tcp_size = ip_size - sizeof(Ipv4_packet);
-	Tcp_packet * tcp = new (ip->data<void>()) Tcp_packet(tcp_size);
-	uint16_t dst_port = tcp->dst_port();
-	uint16_t src_port = tcp->src_port();
+	using Protocol = Tcp_packet;
 
-	/* for the found port, try to find a port to a client of the NAT */
-	Port_node * port = vlan().port_tree()->first();
-	if (port) { port = port->find_by_address(dst_port); }
-	if (!port) { return; }
-	Session_component * client = port->component();
+	/* get destination port */
+	size_t prot_size = ip_size - sizeof(Ipv4_packet);
+	Protocol * prot = new (ip->data<void>()) Protocol(prot_size);
+	uint16_t dst_port = prot->dst_port();
 
-	/* try to find an existing link info or create a new one */
-	Tcp_link_node * link = vlan().tcp_link_list()->first();
-	if (link) { link = link->find(ip->src(), src_port, client->ipv4_address(), dst_port); }
-	if (!link) { link = _new_tcp_link(eth->src(), ip->src(), tcp->src_port(), client->mac_address(), client->ipv4_address(), tcp->dst_port()); }
+	/* for the found port, try to find a route to a client of the NAT */
+	Port_node * node = vlan().port_tree()->first();
+	if (node) { node = node->find_by_address(dst_port); }
+	if (!node) { return; }
+	Session_component * client = node->component();
 
 	/* set the NATs MAC as source and the clients MAC and IP as destination */
 	eth->src(_mac);
@@ -92,7 +79,7 @@ void Net::Nic::_handle_tcp(Ethernet_frame * eth, size_t eth_size,
 	ip->dst(client->ipv4_address().addr);
 
 	/* re-calculate affected checksums */
-	tcp->update_checksum(ip->src(), ip->dst(), tcp_size);
+	prot->update_checksum(ip->src(), ip->dst(), prot_size);
 	ip->checksum(Ipv4_packet::calculate_checksum(*ip));
 
 	/* deliver the modified packet to the client */
@@ -103,27 +90,30 @@ void Net::Nic::_handle_tcp(Ethernet_frame * eth, size_t eth_size,
 void Net::Nic::_handle_udp(Ethernet_frame * eth, size_t eth_size,
                            Ipv4_packet * ip, size_t ip_size)
 {
-	/* get destination port */
-	size_t udp_size = ip_size - sizeof(Ipv4_packet);
-	Udp_packet * udp = new (ip->data<void>()) Udp_packet(udp_size);
-	uint16_t dst_port = udp->dst_port();
+	using Protocol = Udp_packet;
 
-	/* for the found port, try to find a port to a client of the NAT */
+	/* get destination port */
+	size_t prot_size = ip_size - sizeof(Ipv4_packet);
+	Protocol * prot = new (ip->data<void>()) Protocol(prot_size);
+	uint16_t dst_port = prot->dst_port();
+
+	/* for the found port, try to find a route to a client of the NAT */
 	Port_node * node = vlan().port_tree()->first();
 	if (node) { node = node->find_by_address(dst_port); }
 	if (!node) { return; }
+	Session_component * client = node->component();
 
 	/* set the NATs MAC as source and the clients MAC and IP as destination */
 	eth->src(_mac);
-	eth->dst(node->component()->mac_address().addr);
-	ip->dst(node->component()->ipv4_address().addr);
+	eth->dst(client->mac_address().addr);
+	ip->dst(client->ipv4_address().addr);
 
 	/* re-calculate affected checksums */
-	udp->calc_checksum(ip->src(), ip->dst());
+	prot->update_checksum(ip->src(), ip->dst());
 	ip->checksum(Ipv4_packet::calculate_checksum(*ip));
 
 	/* deliver the modified packet to the client */
-	node->component()->send(eth, eth_size);
+	client->send(eth, eth_size);
 }
 
 
@@ -154,6 +144,45 @@ Net::Nic::Nic(Server::Entrypoint &ep, Net::Vlan &vlan)
 	_private_ip.addr[1] = 168;
 	_private_ip.addr[2] =   1;
 	_private_ip.addr[3] =   1;
+
+
+	class Bad_ip_addr_attr : Genode::Exception { };
+	class Bad_netmask_attr : Genode::Exception { };
+	class Bad_gateway_attr : Genode::Exception { };
+
+	try {
+		Xml_node xn_route = config()->xml_node().sub_node("route");
+		for (;;) {
+			enum { ADDR_STR_SZ = 16 };
+
+			Ipv4_address ip_addr;
+			char ip_addr_str[ADDR_STR_SZ] = { 0 };
+			xn_route.attribute("ip_addr").value(ip_addr_str, ADDR_STR_SZ);
+			if (ip_addr_str == 0 || !Genode::strlen(ip_addr_str)) { throw Bad_ip_addr_attr(); }
+			ip_addr = Ipv4_packet::ip_from_string(ip_addr_str);
+			if (ip_addr == Ipv4_packet::Ipv4_address()) { throw Bad_ip_addr_attr(); }
+
+			Ipv4_address netmask;
+			char netmask_str[ADDR_STR_SZ] = { 0 };
+			xn_route.attribute("netmask").value(netmask_str, ADDR_STR_SZ);
+			if (netmask_str == 0 || !Genode::strlen(netmask_str)) { throw Bad_netmask_attr(); }
+			netmask = Ipv4_packet::ip_from_string(netmask_str);
+			if (netmask == Ipv4_packet::Ipv4_address()) { throw Bad_netmask_attr(); }
+
+			Ipv4_address gateway;
+			char gateway_str[ADDR_STR_SZ] = { 0 };
+			xn_route.attribute("gateway").value(gateway_str, ADDR_STR_SZ);
+			if (gateway_str == 0 || !Genode::strlen(gateway_str)) { throw Bad_gateway_attr(); }
+			gateway = Ipv4_packet::ip_from_string(gateway_str);
+			if (gateway == Ipv4_packet::Ipv4_address()) { throw Bad_gateway_attr(); }
+
+			Route_node route = * new (Genode::env()->heap()) Route_node(ip_addr, netmask, gateway);
+			xn_route = xn_route.next("route");
+		}
+	}
+	catch (Xml_node::Nonexistent_sub_node) { }
+
+
 	_nic.rx_channel()->sigh_ready_to_ack(_sink_ack);
 	_nic.rx_channel()->sigh_packet_avail(_sink_submit);
 	_nic.tx_channel()->sigh_ack_avail(_source_ack);

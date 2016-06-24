@@ -59,6 +59,9 @@ append config {
 		<config>
 			<policy label="http_srv_1" ip_addr="192.168.1.18" port="80" />
 			<policy label="http_srv_2" ip_addr="192.168.1.72" port="8080" />
+			<route ip_addr="10.0.2.0" netmask="255.255.255.0" gateway="10.0.2.1" />
+			<route ip_addr="10.0.3.0" netmask="255.255.254.0" gateway="10.0.2.1" />
+			<route ip_addr="10.0.2.128" netmask="255.255.255.128" gateway="10.0.2.1" />
 		</config>
 		<route>
 			<service name="Nic"> <child name="nic_bridge"/> </service>

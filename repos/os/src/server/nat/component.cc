@@ -50,37 +50,31 @@ bool Session_component::handle_arp(Ethernet_frame *eth, size_t eth_size)
 	/* send packet back to its sender */
 	send(eth, eth_size);
 	return false;
-
 }
 
 
 void Session_component::_handle_tcp(Ethernet_frame * eth, size_t eth_size,
                                     Ipv4_packet * ip, size_t ip_size)
 {
-	/* get ports */
-	size_t tcp_size = ip_size - sizeof(Ipv4_packet);
-	Tcp_packet * tcp = new (ip->data<void>()) Tcp_packet(tcp_size);
-	uint16_t dst_port = tcp->dst_port();
-	uint16_t src_port = tcp->src_port();
-
-	/* try to find an existing link info or create a new one */
-	Tcp_link_node * link = vlan().tcp_link_list()->first();
-	if (link) { link = link->find(ip->dst(), dst_port, ip->src(), src_port); }
-	if (!link) {
-		PERR("Failed to find link info for TCP packet");
-		return;
-	}
-	/* set the NATs MAC as source and the clients MAC and IP as destination */
-	eth->src(_nic.mac());
-	ip->src(_nic.public_ip());
-	eth->dst(link->client().mac().addr);
-
-	/* re-calculate affected checksums */
-	tcp->update_checksum(_nic.public_ip(), ip->dst(), tcp_size);
-	ip->checksum(Ipv4_packet::calculate_checksum(*ip));
-
-	/* deliver the modified packet */
-	_nic.send(eth, eth_size);
+//	/* find routing rule */
+//
+//
+//	/* try to find an existing link info or create a new one */
+//	Arp_node * arp_node = vlan().arp_tree()->first();
+//	if (node) { node = node->find(next_hop); }
+//	if (!node) { return; }
+//
+//	/* set the NATs MAC as source and the clients MAC and IP as destination */
+//	eth->src(_nic.mac());
+//	ip->src(_nic.public_ip());
+//	eth->dst(link->client().mac().addr);
+//
+//	/* re-calculate affected checksums */
+//	tcp->update_checksum(_nic.public_ip(), ip->dst(), tcp_size);
+//	ip->checksum(Ipv4_packet::calculate_checksum(*ip));
+//
+//	/* deliver the modified packet */
+//	_nic.send(eth, eth_size);
 }
 
 

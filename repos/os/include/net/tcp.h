@@ -20,6 +20,7 @@
 #include <util/endian.h>
 #include <net/ethernet.h>
 #include <net/ipv4.h>
+#include <util/register.h>
 
 namespace Net { class Tcp_packet; }
 
@@ -50,20 +51,20 @@ class Net::Tcp_packet
 
 	public:
 
-		struct Flags : Register<8>
-		{
-			struct Fin : Bitfield<0, 1> { };
-			struct Syn : Bitfield<1, 1> { };
-			struct Rst : Bitfield<2, 1> { };
-			struct Psh : Bitfield<3, 1> { };
-			struct Ack : Bitfield<4, 1> { };
-			struct Urg : Bitfield<5, 1> { };
-		};
-
-		struct Data_offset : Register<8>
-		{
-			struct Value : Bitfield<4, 4> { };
-		};
+//		struct Flags : Genode::Register<8>
+//		{
+//			struct Fin : Genode::Bitfield<0, 1> { };
+//			struct Syn : Genode::Bitfield<1, 1> { };
+//			struct Rst : Genode::Bitfield<2, 1> { };
+//			struct Psh : Genode::Bitfield<3, 1> { };
+//			struct Ack : Genode::Bitfield<4, 1> { };
+//			struct Urg : Genode::Bitfield<5, 1> { };
+//		};
+//
+//		struct Data_offset : Genode::Register<8>
+//		{
+//			struct Value : Genode::Bitfield<4, 4> { };
+//		};
 
 		enum Protocol_id { IP_ID = 6 };
 

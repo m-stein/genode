@@ -37,9 +37,6 @@ class Net::Nic : public Net::Packet_handler
 		Ipv4_packet::Ipv4_address _public_ip;
 		Ipv4_packet::Ipv4_address _private_ip;
 
-		Tcp_link_node * _new_tcp_link(Ethernet_frame::Mac_address cm, Ipv4_packet::Ipv4_address ci, Genode::uint16_t cp,
-		                              Ethernet_frame::Mac_address sm, Ipv4_packet::Ipv4_address si, Genode::uint16_t sp);
-
 		void _handle_udp(Ethernet_frame * eth, Genode::size_t eth_size,
 		                 Ipv4_packet * ip, Genode::size_t ip_size);
 
