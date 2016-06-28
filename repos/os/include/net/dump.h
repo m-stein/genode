@@ -81,15 +81,27 @@ namespace Net
 	{
 		Arp_packet * arp = new (base) Arp_packet(size);
 
-		Genode::printf("\033[32mARP\033[0m %3u.%3u.%3u.%3u > %3u.%3u.%3u.%3u ",
+		Genode::printf("\033[32mARP\033[0m %3u.%3u.%3u.%3u %2x:%2x:%2x:%2x:%2x:%2x > %3u.%3u.%3u.%3u %2x:%2x:%2x:%2x:%2x:%2x ",
 			arp->src_ip().addr[0],
 			arp->src_ip().addr[1],
 			arp->src_ip().addr[2],
 			arp->src_ip().addr[3],
+			arp->src_mac().addr[0],
+			arp->src_mac().addr[1],
+			arp->src_mac().addr[2],
+			arp->src_mac().addr[3],
+			arp->src_mac().addr[4],
+			arp->src_mac().addr[5],
 			arp->dst_ip().addr[0],
 			arp->dst_ip().addr[1],
 			arp->dst_ip().addr[2],
-			arp->dst_ip().addr[3]);
+			arp->dst_ip().addr[3],
+			arp->dst_mac().addr[0],
+			arp->dst_mac().addr[1],
+			arp->dst_mac().addr[2],
+			arp->dst_mac().addr[3],
+			arp->dst_mac().addr[4],
+			arp->dst_mac().addr[5]);
 	}
 
 	void dump_eth(void * base, Genode::size_t size)

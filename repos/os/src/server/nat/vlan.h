@@ -43,16 +43,19 @@ namespace Net
 			Ipv4_address_tree _ip_tree;
 			Port_tree         _port_tree;
 			Arp_tree          _arp_tree;
+			Route_list        _ip_routes;
+			Arp_waiter_list   _Arp_waiter;
 
 		public:
 
 			Vlan() {}
 
-			Mac_address_tree  * mac_tree()  { return &_mac_tree;  }
-			Mac_address_list  * mac_list()  { return &_mac_list;  }
-			Ipv4_address_tree * ip_tree()   { return &_ip_tree;   }
-			Port_tree         * port_tree() { return &_port_tree; }
-			Arp_tree          * arp_tree()  { return &_arp_tree;  }
+			Mac_address_tree  * mac_tree()   { return &_mac_tree;  }
+			Mac_address_list  * mac_list()   { return &_mac_list;  }
+			Ipv4_address_tree * ip_tree()    { return &_ip_tree;   }
+			Port_tree         * port_tree()  { return &_port_tree; }
+			Arp_tree          * arp_tree()   { return &_arp_tree;  }
+			Route_list        * ip_routes()  { return &_ip_routes; }
 	};
 }
 

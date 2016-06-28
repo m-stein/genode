@@ -56,25 +56,72 @@ bool Session_component::handle_arp(Ethernet_frame *eth, size_t eth_size)
 void Session_component::_handle_tcp(Ethernet_frame * eth, size_t eth_size,
                                     Ipv4_packet * ip, size_t ip_size)
 {
-//	/* find routing rule */
-//
-//
-//	/* try to find an existing link info or create a new one */
-//	Arp_node * arp_node = vlan().arp_tree()->first();
-//	if (node) { node = node->find(next_hop); }
-//	if (!node) { return; }
-//
-//	/* set the NATs MAC as source and the clients MAC and IP as destination */
-//	eth->src(_nic.mac());
-//	ip->src(_nic.public_ip());
-//	eth->dst(link->client().mac().addr);
-//
-//	/* re-calculate affected checksums */
-//	tcp->update_checksum(_nic.public_ip(), ip->dst(), tcp_size);
-//	ip->checksum(Ipv4_packet::calculate_checksum(*ip));
-//
-//	/* deliver the modified packet */
-//	_nic.send(eth, eth_size);
+	/* find routing rule */
+	Route_node * ip_route = vlan().ip_routes()->longest_prefix_match(ip->dst());
+	if (!ip_route) { return; }
+
+	/* try to find an existing link info or create a new one */
+	Arp_node * arp_node = vlan().arp_tree()->first();
+	if (arp_node) { arp_node = arp_node->find_by_ip(ip_route->ip_addr()); }
+	if (!arp_node) {
+
+		/* create ethernet frame */
+		Ethernet_frame_sized<sizeof(Arp_packet)>
+			eth_arp(Mac_address(0xff), _nic.mac(), Ethernet_frame::ARP);
+		Arp_packet * arp = new (eth_arp.data<void>()) Arp_packet(sizeof(Arp_packet));
+
+		arp->hardware_address_type(Arp_packet::ETHERNET);
+		arp->protocol_address_type(Arp_packet::IPV4);
+		arp->hardware_address_size(sizeof(Mac_address));
+		arp->protocol_address_size(sizeof(Ipv4_address));
+		arp->opcode(Arp_packet::REQUEST);
+		arp->src_mac(_nic.mac());
+		arp->src_ip(_nic.public_ip());
+		arp->dst_mac(Mac_address(0xff));
+		arp->dst_ip(ip_route->gateway());
+		_nic.send(&eth_arp, sizeof(eth_arp));
+
+		Arp_waiter arp_waiter = new (this->guarded_allocator())
+			Arp_waiter();
+
+		return;
+	}
+	_handle_tcp_2(arp_node);
+}
+
+void Session_component::handle_tcp_2(Arp_node * arp_node)
+{
+	size_t ip_size = eth_size - sizeof(Ethernet_frame);
+	Ipv4_packet * ip = new (eth->data<void>()) Ipv4_packet(ip_size);
+	switch (ip->protocol()) {
+	case Tcp_packet::IP_ID: _handle_tcp(eth, eth_size, ip, ip_size); break;
+	case Udp_packet::IP_ID: _handle_udp(eth, eth_size, ip, ip_size); break;
+	default: ; }
+	return false;
+	_handle_tcp_2(arp_node);
+}
+
+void Session_component::_handle_tcp_2(Arp_node * arp_node)
+{
+	PINF("Found ARP node %x.%x.%x.%x.%x.%x",
+		arp_node->mac().addr[0],
+		arp_node->mac().addr[1],
+		arp_node->mac().addr[2],
+		arp_node->mac().addr[3],
+		arp_node->mac().addr[4],
+		arp_node->mac().addr[5]);
+
+	/* set the NATs MAC as source and the clients MAC and IP as destination */
+	eth->src(_nic.mac());
+	ip->src(_nic.public_ip());
+	eth->dst(link->client().mac().addr);
+
+	/* re-calculate affected checksums */
+	tcp->update_checksum(_nic.public_ip(), ip->dst(), tcp_size);
+	ip->checksum(Ipv4_packet::calculate_checksum(*ip));
+
+	/* deliver the modified packet */
+	_nic.send(eth, eth_size);
 }
 
 

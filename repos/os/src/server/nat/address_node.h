@@ -101,31 +101,12 @@ class Net::Ipv4_address_node : public Genode::Avl_node<Ipv4_address_node>
 		}
 };
 
-class Net::Route_list : public Genode::List<Route_node>
-{
-	public:
-
-//		Route_node * find_longest_prefix_match(Ipv4_address ip_addr)
-//		{
-//			Route_node * node = first();
-//			if (!node) { return node; }
-//			node->
-//
-//			using namespace Genode;
-//			if (addr == _addr) { return this; }
-//			bool side = memcmp(&addr.addr, _addr.addr, sizeof(_addr.addr)) > 0;
-//			Route_node * c = Avl_node<Route_node>::child(side);
-//			return c ? c->find_by_address(addr) : 0;
-//		}
-};
-
 class Net::Route_node : public Genode::List<Route_node>::Element
 {
 	private:
 
 		using Ipv4_address = Ipv4_packet::Ipv4_address;
 		using size_t = Genode::size_t;
-		using uint8_t = Genode::uint8_t;
 
 		Ipv4_address        _ip_addr;
 		Ipv4_address        _netmask;
@@ -135,47 +116,28 @@ class Net::Route_node : public Genode::List<Route_node>::Element
 
 	public:
 
-		Route_node(Ipv4_address ip_addr, Ipv4_address netmask, Ipv4_address gateway)
-		: _ip_addr(ip_addr), _netmask(netmask), _gateway(gateway)
-		{
-			/* calculate prefix width (bits) and prefix size (bytes) for given netmask */
-			unsigned i = 0;
-			for (; i < sizeof(_netmask.addr); i++) {
-				if (_netmask.addr[i] != (uint8_t)~0) { break; }
-				_prefix_size  += 1;
-				_prefix_width += 8;
-			}
-			for (unsigned j; j < 8; j++) {
-				if ((_netmask.addr[i] >> j) & 1) {
-					_prefix_width += 8 - j;
-					break;
-				}
-			}
-			PINF("Route %u.%u.%u.%u %u.%u.%u.%u %u.%u.%u.%u %u %u",
-			      _ip_addr.addr[0],
-			      _ip_addr.addr[0],
-			      _ip_addr.addr[0],
-			      _ip_addr.addr[0],
-			      _netmask.addr[0],
-			      _netmask.addr[0],
-			      _netmask.addr[0],
-			      _netmask.addr[0],
-			      _gateway.addr[0],
-			      _gateway.addr[0],
-			      _gateway.addr[0],
-			      _gateway.addr[0],
-			      _prefix_size,
-			      _prefix_width);
-		}
+		Route_node(Ipv4_address ip_addr, Ipv4_address netmask,
+		           Ipv4_address gateway);
 
+		void dump();
+
+		bool matches(Ipv4_address ip_addr);
+
+		Ipv4_address ip_addr() { return _ip_addr; }
 		Ipv4_address gateway() { return _gateway; }
+		size_t prefix_width() { return _prefix_width; }
+};
 
-//		size_t matches(Ipv4_address ip_addr)
-//		{
-//			if (memcmp(&ip_addr.addr, _ip_addr.addr, prefix_size)) { return 0; }
-//			if ((ip_addr.addr[_prefix_size] & _netmask.addr[_prefix_size]) != _ip_addr.addr[_prefix_size]) { return 0; }
-//			return _prefix_width;
-//		}
+class Net::Route_list : public Genode::List<Route_node>
+{
+	private:
+
+		using Ipv4_address = Ipv4_packet::Ipv4_address;
+
+	public:
+
+		Route_node * longest_prefix_match(Ipv4_address ip_addr);
+		void insert(Route_node * route);
 };
 
 class Net::Arp_node : public Genode::Avl_node<Arp_node>
@@ -243,6 +205,24 @@ class Net::Mac_address_node : public Genode::Avl_node<Mac_address_node>,
 			Mac_address_node * c = Avl_node<Mac_address_node>::child(side);
 			return c ? c->find_by_address(addr) : 0;
 		}
+};
+
+class Net::Arp_waiter : public Genode::List<Arp_waiter>::Element
+{
+	private:
+
+		Ethernet_frame const _eth;
+		Genode::size_t const _eth_size;
+		Session_component * const _component;
+
+	public:
+
+		Arp_waiter(Session_component * component, Ethernet_frame * eth,
+		           Genode::size_t eth_size);
+
+		Session_component * component() { return _component; }
+		Ethernet_frame * eth() { return _eth; }
+		Genode::size_t eth_size() { return _eth_size; }
 };
 
 #endif /* _ADDRESS_NODE_H_ */

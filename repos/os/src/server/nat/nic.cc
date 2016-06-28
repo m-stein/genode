@@ -176,12 +176,12 @@ Net::Nic::Nic(Server::Entrypoint &ep, Net::Vlan &vlan)
 			gateway = Ipv4_packet::ip_from_string(gateway_str);
 			if (gateway == Ipv4_packet::Ipv4_address()) { throw Bad_gateway_attr(); }
 
-			Route_node route = * new (Genode::env()->heap()) Route_node(ip_addr, netmask, gateway);
+			Route_node * route = new (Genode::env()->heap()) Route_node(ip_addr, netmask, gateway);
+			vlan.ip_routes()->insert(route);
 			xn_route = xn_route.next("route");
 		}
 	}
 	catch (Xml_node::Nonexistent_sub_node) { }
-
 
 	_nic.rx_channel()->sigh_ready_to_ack(_sink_ack);
 	_nic.rx_channel()->sigh_packet_avail(_sink_submit);
