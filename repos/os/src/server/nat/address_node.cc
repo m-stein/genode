@@ -73,11 +73,10 @@ void Route_list::insert(Route_node * route)
 	Genode::List<Route_node>::insert(route, behind);
 }
 
-Arp_waiter::Arp_waiter(Session_component * const component,
-                       Ethernet_frame * const eth,
-                       Genode::size_t const eth_size)
+Arp_waiter::Arp_waiter
+(
+	Session_component * const component, Ipv4_address ip_addr,
+	Ethernet_frame * const eth, Genode::size_t const eth_size)
 :
-	_component(component),
-	_eth(eth),
-	_eth_size(eth_size)
+	_component(component), _ip_addr(ip_addr), _eth(eth), _eth_size(eth_size)
 { }

@@ -82,7 +82,7 @@ void Session_component::_handle_tcp_unknown_arp
 {
 	_arp_broadcast(ip_addr);
 	vlan().arp_waiters()->insert(new (this->guarded_allocator())
-		Arp_waiter(this, eth, eth_size));
+		Arp_waiter(this, ip_addr, eth, eth_size));
 }
 
 

@@ -228,12 +228,14 @@ class Net::Arp_waiter : public Genode::List<Arp_waiter>::Element
 	private:
 
 		Session_component * const _component;
+		Ipv4_address _ip_addr;
 		Ethernet_frame * const _eth;
 		Genode::size_t const _eth_size;
 
 	public:
 
 		Arp_waiter(Session_component * const component,
+		           Ipv4_address ip_addr,
 		           Ethernet_frame * const eth,
 		           Genode::size_t const eth_size);
 
