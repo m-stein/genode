@@ -48,6 +48,8 @@ class Net::Interface_node : public Genode::Avl_string_base
 
 		Interface_node(Packet_handler * handler, char const * name)
 		: Avl_string_base(name), _handler(handler) { }
+
+		Packet_handler * handler() { return _handler; }
 };
 
 class Net::Port_node : public Genode::Avl_node<Port_node>

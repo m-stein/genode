@@ -130,7 +130,7 @@ bool Net::Nic::handle_ip(Ethernet_frame * eth, size_t eth_size)
 
 Net::Nic::Nic(Server::Entrypoint &ep, Net::Vlan &vlan)
 :
-	Packet_handler(ep, vlan, "uplink")
+	Packet_handler(ep, vlan, "uplink", mac(), public_ip())
 {
 	class Bad_ip_addr_attr : Genode::Exception { };
 	class Bad_netmask_attr : Genode::Exception { };

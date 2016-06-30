@@ -41,8 +41,8 @@ bool Session_component::handle_arp(Ethernet_frame *eth, size_t eth_size)
 	arp->dst_mac(arp->src_mac());
 	eth->dst(eth->src());
 	arp->src_ip(old_dst_ip);
-	arp->src_mac(_nic.mac());
-	eth->src(_nic.mac());
+	arp->src_mac(nat_mac());
+	eth->src(nat_mac());
 
 	/* mark packet as REPLY */
 	arp->opcode(Arp_packet::REPLY);
@@ -53,10 +53,14 @@ bool Session_component::handle_arp(Ethernet_frame *eth, size_t eth_size)
 }
 
 
-void Session_component::_arp_broadcast(Ipv4_address ip_addr)
+void Session_component::_arp_broadcast
+(
+	Packet_handler * handler, Ipv4_address ip_addr)
 {
+	Mac_address nat_mac = handler->nat_mac();
+	Ipv4_address nat_ip = handler->nat_ip();
 	using Ethernet_arp = Ethernet_frame_sized<sizeof(Arp_packet)>;
-	Ethernet_arp eth_arp(Mac_address(0xff), _nic.mac(), Ethernet_frame::ARP);
+	Ethernet_arp eth_arp(Mac_address(0xff), nat_mac, Ethernet_frame::ARP);
 
 	void * const eth_data = eth_arp.data<void>();
 	size_t const arp_size = sizeof(eth_arp) - sizeof(Ethernet_frame);
@@ -67,20 +71,21 @@ void Session_component::_arp_broadcast(Ipv4_address ip_addr)
 	arp->hardware_address_size(sizeof(Mac_address));
 	arp->protocol_address_size(sizeof(Ipv4_address));
 	arp->opcode(Arp_packet::REQUEST);
-	arp->src_mac(_nic.mac());
-	arp->src_ip(_nic.public_ip());
+	arp->src_mac(nat_mac);
+	arp->src_ip(nat_ip);
 	arp->dst_mac(Mac_address(0xff));
 	arp->dst_ip(ip_addr);
 
-	_nic.send(&eth_arp, sizeof(eth_arp));
+	handler->send(&eth_arp, sizeof(eth_arp));
 }
 
 
 void Session_component::_handle_tcp_unknown_arp
 (
-	Ethernet_frame * eth, size_t eth_size, Ipv4_address ip_addr)
+	Ethernet_frame * eth, size_t eth_size, Ipv4_address ip_addr,
+	Packet_handler * handler)
 {
-	_arp_broadcast(ip_addr);
+	_arp_broadcast(handler, ip_addr);
 	vlan().arp_waiters()->insert(new (this->guarded_allocator())
 		Arp_waiter(this, ip_addr, eth, eth_size));
 }
@@ -89,7 +94,7 @@ void Session_component::_handle_tcp_unknown_arp
 void Session_component::_handle_tcp_known_arp
 (
 	Ethernet_frame * const eth, size_t const eth_size, Ipv4_packet * const ip,
-	size_t const ip_size, Arp_node * const arp_node)
+	size_t const ip_size, Arp_node * const arp_node, Packet_handler * handler)
 {
 	PINF("Found ARP node %x.%x.%x.%x.%x.%x",
 		arp_node->mac().addr[0],
@@ -102,17 +107,20 @@ void Session_component::_handle_tcp_known_arp
 	size_t tcp_size = ip_size - sizeof(Ipv4_packet);
 	Tcp_packet * tcp = new (ip->data<void>()) Tcp_packet(tcp_size);
 
+	Mac_address nat_mac = handler->nat_mac();
+	Ipv4_address nat_ip = handler->nat_ip();
+
 	/* set the NATs MAC as source and the next hops MAC and IP as destination */
-	eth->src(_nic.mac());
-	ip->src(_nic.public_ip());
+	eth->src(nat_mac);
+	ip->src(nat_ip);
 	eth->dst(arp_node->mac().addr);
 
 	/* re-calculate affected checksums */
-	tcp->update_checksum(_nic.public_ip(), ip->dst(), tcp_size);
+	tcp->update_checksum(nat_ip, ip->dst(), tcp_size);
 	ip->checksum(Ipv4_packet::calculate_checksum(*ip));
 
 	/* deliver the modified packet */
-	_nic.send(eth, eth_size);
+	handler->send(eth, eth_size);
 }
 
 
@@ -129,17 +137,18 @@ void Session_component::_handle_tcp
 	if (ip_route->gateway() == Ipv4_address()) {  ip_addr = ip->dst(); }
 	else { ip_addr = ip_route->gateway(); }
 
-	/* try to find the given interface */
+	/* try to find the packet handler behind the given interface name */
 	Interface_node * interface = static_cast<Interface_node *>(vlan().interfaces()->first());
 	if (!interface) { return; }
 	interface = static_cast<Interface_node *>(interface->find_by_name(ip_route->interface().string()));
 	if (!interface) { return; }
+	Packet_handler * handler = interface->handler();
 
 	/* for the found IP find an ARP rule or send an ARP request */
 	Arp_node * arp_node = vlan().arp_tree()->first();
 	if (arp_node) { arp_node = arp_node->find_by_ip(ip_addr); }
-	if (arp_node) { _handle_tcp_known_arp(eth, eth_size, ip, ip_size, arp_node); }
-	else { _handle_tcp_unknown_arp(eth, eth_size, ip_addr); }
+	if (arp_node) { _handle_tcp_known_arp(eth, eth_size, ip, ip_size, arp_node, handler); }
+	else { _handle_tcp_unknown_arp(eth, eth_size, ip_addr, handler); }
 }
 
 bool Session_component::handle_ip
@@ -231,7 +240,7 @@ Session_component::Session_component(Allocator                  *allocator,
   Session_rpc_object(Tx_rx_communication_buffers::tx_ds(),
                      Tx_rx_communication_buffers::rx_ds(),
                      this->range_allocator(), ep.rpc_ep()),
-  Packet_handler(ep, nic.vlan(), label),
+  Packet_handler(ep, nic.vlan(), label, nic.mac(), nic.private_ip()),
   _mac_node(vmac, this),
   _ipv4_node(0),
   _port_node(0),
