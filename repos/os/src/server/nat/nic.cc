@@ -130,20 +130,8 @@ bool Net::Nic::handle_ip(Ethernet_frame * eth, size_t eth_size)
 
 Net::Nic::Nic(Server::Entrypoint &ep, Net::Vlan &vlan)
 :
-	Packet_handler(ep, vlan, "uplink"),
-	_tx_block_alloc(env()->heap()),
-	_nic(&_tx_block_alloc, BUF_SIZE, BUF_SIZE),
-	_mac(_nic.mac_address().addr)
+	Packet_handler(ep, vlan, "uplink")
 {
-	_public_ip.addr[0]  =  10;
-	_public_ip.addr[1]  =   0;
-	_public_ip.addr[2]  =   2;
-	_public_ip.addr[3]  =  55;
-	_private_ip.addr[0] = 192;
-	_private_ip.addr[1] = 168;
-	_private_ip.addr[2] =   1;
-	_private_ip.addr[3] =   1;
-
 	class Bad_ip_addr_attr : Genode::Exception { };
 	class Bad_netmask_attr : Genode::Exception { };
 	class Bad_gateway_attr : Genode::Exception { };
@@ -187,4 +175,21 @@ Net::Nic::Nic(Server::Entrypoint &ep, Net::Vlan &vlan)
 	_nic.tx_channel()->sigh_ack_avail(_source_ack);
 	_nic.tx_channel()->sigh_ready_to_submit(_source_submit);
 	_nic.link_state_sigh(_client_link_state);
+}
+
+
+Nic_base::Nic_base()
+:
+	_tx_block_alloc(env()->heap()),
+	_nic(&_tx_block_alloc, BUF_SIZE, BUF_SIZE),
+ 	_mac(_nic.mac_address().addr)
+{
+	_public_ip.addr[0]  =  10;
+	_public_ip.addr[1]  =   0;
+	_public_ip.addr[2]  =   2;
+	_public_ip.addr[3]  =  55;
+	_private_ip.addr[0] = 192;
+	_private_ip.addr[1] = 168;
+	_private_ip.addr[2] =   1;
+	_private_ip.addr[3] =   1;
 }
