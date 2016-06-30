@@ -131,7 +131,7 @@ bool Net::Nic::handle_ip(Ethernet_frame * eth, size_t eth_size)
 
 Net::Nic::Nic(Server::Entrypoint &ep, Net::Vlan &vlan)
 :
-	Packet_handler(ep, vlan),
+	Packet_handler(ep, vlan, "uplink"),
 	_tx_block_alloc(env()->heap()),
 	_nic(&_tx_block_alloc, BUF_SIZE, BUF_SIZE),
 	_mac(_nic.mac_address().addr)
@@ -144,7 +144,6 @@ Net::Nic::Nic(Server::Entrypoint &ep, Net::Vlan &vlan)
 	_private_ip.addr[1] = 168;
 	_private_ip.addr[2] =   1;
 	_private_ip.addr[3] =   1;
-
 
 	class Bad_ip_addr_attr : Genode::Exception { };
 	class Bad_netmask_attr : Genode::Exception { };
@@ -160,23 +159,24 @@ Net::Nic::Nic(Server::Entrypoint &ep, Net::Vlan &vlan)
 			xn_route.attribute("ip_addr").value(ip_addr_str, ADDR_STR_SZ);
 			if (ip_addr_str == 0 || !Genode::strlen(ip_addr_str)) { throw Bad_ip_addr_attr(); }
 			ip_addr = Ipv4_packet::ip_from_string(ip_addr_str);
-			if (ip_addr == Ipv4_packet::Ipv4_address()) { throw Bad_ip_addr_attr(); }
 
 			Ipv4_address netmask;
 			char netmask_str[ADDR_STR_SZ] = { 0 };
 			xn_route.attribute("netmask").value(netmask_str, ADDR_STR_SZ);
 			if (netmask_str == 0 || !Genode::strlen(netmask_str)) { throw Bad_netmask_attr(); }
 			netmask = Ipv4_packet::ip_from_string(netmask_str);
-			if (netmask == Ipv4_packet::Ipv4_address()) { throw Bad_netmask_attr(); }
 
 			Ipv4_address gateway;
 			char gateway_str[ADDR_STR_SZ] = { 0 };
 			xn_route.attribute("gateway").value(gateway_str, ADDR_STR_SZ);
 			if (gateway_str == 0 || !Genode::strlen(gateway_str)) { throw Bad_gateway_attr(); }
 			gateway = Ipv4_packet::ip_from_string(gateway_str);
-			if (gateway == Ipv4_packet::Ipv4_address()) { throw Bad_gateway_attr(); }
 
-			Route_node * route = new (Genode::env()->heap()) Route_node(ip_addr, netmask, gateway);
+			char const * interface = xn_route.attribute("interface").value_base();
+			size_t interface_size = xn_route.attribute("interface").value_size();
+
+			Route_node * route = new (Genode::env()->heap())
+				Route_node(ip_addr, netmask, gateway, interface, interface_size);
 			vlan.ip_routes()->insert(route);
 			xn_route = xn_route.next("route");
 		}

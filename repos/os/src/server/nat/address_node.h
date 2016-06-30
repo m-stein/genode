@@ -16,6 +16,7 @@
 
 /* Genode */
 #include <util/avl_tree.h>
+#include <util/avl_string.h>
 #include <util/list.h>
 #include <nic_session/nic_session.h>
 #include <net/netaddress.h>
@@ -24,14 +25,30 @@
 
 namespace Net
 {
+	class Packet_handler;
 	class Session_component;
 	class Mac_address_node;
 	class Ipv4_address_node;
 	class Port_node;
+	class Interface_node;
 	class Route_node;
 	class Route_list;
 	class Arp_node;
+	class Arp_waiter;
+
 }
+
+class Net::Interface_node : public Genode::Avl_string_base
+{
+	private:
+
+		Packet_handler * _handler;
+
+	public:
+
+		Interface_node(Packet_handler * handler, char const * name)
+		: Avl_string_base(name), _handler(handler) { }
+};
 
 class Net::Port_node : public Genode::Avl_node<Port_node>
 {
@@ -105,19 +122,25 @@ class Net::Route_node : public Genode::List<Route_node>::Element
 {
 	private:
 
+		enum { MAX_INTERFACE_SIZE = 64 };
+
 		using Ipv4_address = Ipv4_packet::Ipv4_address;
 		using size_t = Genode::size_t;
+		using Interface = Genode::String<MAX_INTERFACE_SIZE>;
 
-		Ipv4_address        _ip_addr;
-		Ipv4_address        _netmask;
-		Ipv4_address        _gateway;
-		size_t              _prefix_size = 0;
-		size_t              _prefix_width = 0;
+
+		Ipv4_address _ip_addr;
+		Ipv4_address _netmask;
+		Ipv4_address _gateway;
+		size_t       _prefix_size = 0;
+		size_t       _prefix_width = 0;
+		Interface    _interface;
 
 	public:
 
 		Route_node(Ipv4_address ip_addr, Ipv4_address netmask,
-		           Ipv4_address gateway);
+		           Ipv4_address gateway, char const * interface,
+		           size_t interface_size);
 
 		void dump();
 
@@ -126,6 +149,7 @@ class Net::Route_node : public Genode::List<Route_node>::Element
 		Ipv4_address ip_addr() { return _ip_addr; }
 		Ipv4_address gateway() { return _gateway; }
 		size_t prefix_width() { return _prefix_width; }
+		Interface & interface() { return _interface; }
 };
 
 class Net::Route_list : public Genode::List<Route_node>
@@ -211,18 +235,19 @@ class Net::Arp_waiter : public Genode::List<Arp_waiter>::Element
 {
 	private:
 
-		Ethernet_frame const _eth;
-		Genode::size_t const _eth_size;
 		Session_component * const _component;
+		Ethernet_frame * const _eth;
+		Genode::size_t const _eth_size;
 
 	public:
 
-		Arp_waiter(Session_component * component, Ethernet_frame * eth,
-		           Genode::size_t eth_size);
+		Arp_waiter(Session_component * const component,
+		           Ethernet_frame * const eth,
+		           Genode::size_t const eth_size);
 
-		Session_component * component() { return _component; }
-		Ethernet_frame * eth() { return _eth; }
-		Genode::size_t eth_size() { return _eth_size; }
+		Session_component * component() const { return _component; }
+		Ethernet_frame * eth() const { return _eth; }
+		Genode::size_t eth_size() const { return _eth_size; }
 };
 
 #endif /* _ADDRESS_NODE_H_ */

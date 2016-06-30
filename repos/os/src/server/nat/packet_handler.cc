@@ -136,11 +136,14 @@ void Packet_handler::send(Ethernet_frame *eth, Genode::size_t size)
 }
 
 
-Packet_handler::Packet_handler(Server::Entrypoint &ep, Vlan &vlan)
-: _vlan(vlan),
+Packet_handler::Packet_handler(Server::Entrypoint &ep, Vlan &vlan, char const * name)
+: Interface_node(this, name),
+  _vlan(vlan),
   _sink_ack(ep, *this, &Packet_handler::_ack_avail),
   _sink_submit(ep, *this, &Packet_handler::_ready_to_submit),
   _source_ack(ep, *this, &Packet_handler::_ready_to_ack),
   _source_submit(ep, *this, &Packet_handler::_packet_avail),
   _client_link_state(ep, *this, &Packet_handler::_link_state)
-{ }
+{
+	vlan.interfaces()->insert(this);
+}

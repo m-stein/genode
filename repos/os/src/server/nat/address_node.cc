@@ -16,12 +16,13 @@ bool Route_node::matches(Ipv4_address ip_addr)
 
 void Route_node::dump()
 {
-	PINF("IP Route %u.%u.%u.%u:%u > %u.%u.%u.%u",
+	PINF("IP Route %u.%u.%u.%u:%u > %s via %u.%u.%u.%u",
 	      _ip_addr.addr[0],
 	      _ip_addr.addr[1],
 	      _ip_addr.addr[2],
 	      _ip_addr.addr[3],
 	      _prefix_width,
+	      _interface.string(),
 	      _gateway.addr[0],
 	      _gateway.addr[1],
 	      _gateway.addr[2],
@@ -29,10 +30,13 @@ void Route_node::dump()
 }
 
 
-Route_node::Route_node(Ipv4_address ip_addr, Ipv4_address netmask,
-                       Ipv4_address gateway)
+Route_node::Route_node
+(
+	Ipv4_address ip_addr, Ipv4_address netmask, Ipv4_address gateway,
+	char const * interface, size_t interface_size)
 :
-	_ip_addr(ip_addr), _netmask(netmask), _gateway(gateway)
+	_ip_addr(ip_addr), _netmask(netmask), _gateway(gateway),
+	_interface(interface, interface_size)
 {
 	size_t i = 0;
 	for (; i < sizeof(_netmask.addr); i++) {
@@ -68,3 +72,12 @@ void Route_list::insert(Route_node * route)
 	}
 	Genode::List<Route_node>::insert(route, behind);
 }
+
+Arp_waiter::Arp_waiter(Session_component * const component,
+                       Ethernet_frame * const eth,
+                       Genode::size_t const eth_size)
+:
+	_component(component),
+	_eth(eth),
+	_eth_size(eth_size)
+{ }

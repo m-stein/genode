@@ -36,7 +36,7 @@ namespace Net {
 /**
  * Generic packet handler used as base for NIC and client packet handlers.
  */
-class Net::Packet_handler
+class Net::Packet_handler : public Interface_node
 {
 	private:
 
@@ -84,7 +84,7 @@ class Net::Packet_handler
 
 	public:
 
-		Packet_handler(Server::Entrypoint&, Vlan&);
+		Packet_handler(Server::Entrypoint&, Vlan&, char const * name);
 
 		virtual Packet_stream_sink< ::Nic::Session::Policy>   * sink()   = 0;
 		virtual Packet_stream_source< ::Nic::Session::Policy> * source() = 0;

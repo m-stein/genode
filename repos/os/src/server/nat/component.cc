@@ -53,55 +53,43 @@ bool Session_component::handle_arp(Ethernet_frame *eth, size_t eth_size)
 }
 
 
-void Session_component::_handle_tcp(Ethernet_frame * eth, size_t eth_size,
-                                    Ipv4_packet * ip, size_t ip_size)
+void Session_component::_arp_broadcast(Ipv4_address ip_addr)
 {
-	/* find routing rule */
-	Route_node * ip_route = vlan().ip_routes()->longest_prefix_match(ip->dst());
-	if (!ip_route) { return; }
+	using Ethernet_arp = Ethernet_frame_sized<sizeof(Arp_packet)>;
+	Ethernet_arp eth_arp(Mac_address(0xff), _nic.mac(), Ethernet_frame::ARP);
 
-	/* try to find an existing link info or create a new one */
-	Arp_node * arp_node = vlan().arp_tree()->first();
-	if (arp_node) { arp_node = arp_node->find_by_ip(ip_route->ip_addr()); }
-	if (!arp_node) {
+	void * const eth_data = eth_arp.data<void>();
+	size_t const arp_size = sizeof(eth_arp) - sizeof(Ethernet_frame);
+	Arp_packet * const arp = new (eth_data) Arp_packet(arp_size);
 
-		/* create ethernet frame */
-		Ethernet_frame_sized<sizeof(Arp_packet)>
-			eth_arp(Mac_address(0xff), _nic.mac(), Ethernet_frame::ARP);
-		Arp_packet * arp = new (eth_arp.data<void>()) Arp_packet(sizeof(Arp_packet));
+	arp->hardware_address_type(Arp_packet::ETHERNET);
+	arp->protocol_address_type(Arp_packet::IPV4);
+	arp->hardware_address_size(sizeof(Mac_address));
+	arp->protocol_address_size(sizeof(Ipv4_address));
+	arp->opcode(Arp_packet::REQUEST);
+	arp->src_mac(_nic.mac());
+	arp->src_ip(_nic.public_ip());
+	arp->dst_mac(Mac_address(0xff));
+	arp->dst_ip(ip_addr);
 
-		arp->hardware_address_type(Arp_packet::ETHERNET);
-		arp->protocol_address_type(Arp_packet::IPV4);
-		arp->hardware_address_size(sizeof(Mac_address));
-		arp->protocol_address_size(sizeof(Ipv4_address));
-		arp->opcode(Arp_packet::REQUEST);
-		arp->src_mac(_nic.mac());
-		arp->src_ip(_nic.public_ip());
-		arp->dst_mac(Mac_address(0xff));
-		arp->dst_ip(ip_route->gateway());
-		_nic.send(&eth_arp, sizeof(eth_arp));
-
-		Arp_waiter arp_waiter = new (this->guarded_allocator())
-			Arp_waiter();
-
-		return;
-	}
-	_handle_tcp_2(arp_node);
+	_nic.send(&eth_arp, sizeof(eth_arp));
 }
 
-void Session_component::handle_tcp_2(Arp_node * arp_node)
+
+void Session_component::_handle_tcp_unknown_arp
+(
+	Ethernet_frame * eth, size_t eth_size, Ipv4_address ip_addr)
 {
-	size_t ip_size = eth_size - sizeof(Ethernet_frame);
-	Ipv4_packet * ip = new (eth->data<void>()) Ipv4_packet(ip_size);
-	switch (ip->protocol()) {
-	case Tcp_packet::IP_ID: _handle_tcp(eth, eth_size, ip, ip_size); break;
-	case Udp_packet::IP_ID: _handle_udp(eth, eth_size, ip, ip_size); break;
-	default: ; }
-	return false;
-	_handle_tcp_2(arp_node);
+	_arp_broadcast(ip_addr);
+	vlan().arp_waiters()->insert(new (this->guarded_allocator())
+		Arp_waiter(this, eth, eth_size));
 }
 
-void Session_component::_handle_tcp_2(Arp_node * arp_node)
+
+void Session_component::_handle_tcp_known_arp
+(
+	Ethernet_frame * const eth, size_t const eth_size, Ipv4_packet * const ip,
+	size_t const ip_size, Arp_node * const arp_node)
 {
 	PINF("Found ARP node %x.%x.%x.%x.%x.%x",
 		arp_node->mac().addr[0],
@@ -111,10 +99,13 @@ void Session_component::_handle_tcp_2(Arp_node * arp_node)
 		arp_node->mac().addr[4],
 		arp_node->mac().addr[5]);
 
-	/* set the NATs MAC as source and the clients MAC and IP as destination */
+	size_t tcp_size = ip_size - sizeof(Ipv4_packet);
+	Tcp_packet * tcp = new (ip->data<void>()) Tcp_packet(tcp_size);
+
+	/* set the NATs MAC as source and the next hops MAC and IP as destination */
 	eth->src(_nic.mac());
 	ip->src(_nic.public_ip());
-	eth->dst(link->client().mac().addr);
+	eth->dst(arp_node->mac().addr);
 
 	/* re-calculate affected checksums */
 	tcp->update_checksum(_nic.public_ip(), ip->dst(), tcp_size);
@@ -125,13 +116,35 @@ void Session_component::_handle_tcp_2(Arp_node * arp_node)
 }
 
 
-void Session_component::_handle_udp(Ethernet_frame * eth, size_t eth_size,
-                                    Ipv4_packet * ip, size_t ip_size)
+void Session_component::_handle_tcp
+(
+	Ethernet_frame * eth, size_t eth_size, Ipv4_packet * ip, size_t ip_size)
 {
+	/* try to find IP routing rule */
+	Route_node * ip_route = vlan().ip_routes()->longest_prefix_match(ip->dst());
+	if (!ip_route) { return; }
+
+	/* if a via ip is specified, use it, otherwise use the packet destination */
+	Ipv4_address ip_addr;
+	if (ip_route->gateway() == Ipv4_address()) {  ip_addr = ip->dst(); }
+	else { ip_addr = ip_route->gateway(); }
+
+	/* try to find the given interface */
+	Interface_node * interface = static_cast<Interface_node *>(vlan().interfaces()->first());
+	if (!interface) { return; }
+	interface = static_cast<Interface_node *>(interface->find_by_name(ip_route->interface().string()));
+	if (!interface) { return; }
+
+	/* for the found IP find an ARP rule or send an ARP request */
+	Arp_node * arp_node = vlan().arp_tree()->first();
+	if (arp_node) { arp_node = arp_node->find_by_ip(ip_addr); }
+	if (arp_node) { _handle_tcp_known_arp(eth, eth_size, ip, ip_size, arp_node); }
+	else { _handle_tcp_unknown_arp(eth, eth_size, ip_addr); }
 }
 
-
-bool Session_component::handle_ip(Ethernet_frame *eth, size_t eth_size)
+bool Session_component::handle_ip
+(
+	Ethernet_frame * eth, Genode::size_t eth_size)
 {
 	size_t ip_size = eth_size - sizeof(Ethernet_frame);
 	Ipv4_packet * ip = new (eth->data<void>()) Ipv4_packet(ip_size);
@@ -140,6 +153,12 @@ bool Session_component::handle_ip(Ethernet_frame *eth, size_t eth_size)
 	case Udp_packet::IP_ID: _handle_udp(eth, eth_size, ip, ip_size); break;
 	default: ; }
 	return false;
+}
+
+
+void Session_component::_handle_udp(Ethernet_frame * eth, size_t eth_size,
+                                    Ipv4_packet * ip, size_t ip_size)
+{
 }
 
 
@@ -206,13 +225,13 @@ Session_component::Session_component(Allocator                  *allocator,
                                      Server::Entrypoint         &ep,
                                      Net::Nic                   &nic,
                                      char                       *ip_addr,
-                                     unsigned                    port)
+                                     unsigned                    port, char const * label)
 : Guarded_range_allocator(allocator, amount),
   Tx_rx_communication_buffers(tx_buf_size, rx_buf_size),
   Session_rpc_object(Tx_rx_communication_buffers::tx_ds(),
                      Tx_rx_communication_buffers::rx_ds(),
                      this->range_allocator(), ep.rpc_ep()),
-  Packet_handler(ep, nic.vlan()),
+  Packet_handler(ep, nic.vlan(), label),
   _mac_node(vmac, this),
   _ipv4_node(0),
   _port_node(0),

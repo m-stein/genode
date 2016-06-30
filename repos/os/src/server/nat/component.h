@@ -133,6 +133,18 @@ namespace Net
 			void _handle_tcp(Ethernet_frame * eth, Genode::size_t eth_size,
 			                 Ipv4_packet * ip, Genode::size_t ip_size);
 
+			void _arp_broadcast(Ipv4_address ip_addr);
+
+			void _handle_tcp_unknown_arp(Ethernet_frame * const eth,
+			                             size_t const eth_size,
+			                             Ipv4_address ip_addr);
+
+			void _handle_tcp_known_arp(Ethernet_frame * eth,
+			                           Genode::size_t eth_size,
+			                           Ipv4_packet * ip,
+			                           Genode::size_t const ip_size,
+			                           Arp_node * arp_node);
+
 		public:
 
 			/**
@@ -153,7 +165,7 @@ namespace Net
 			                  Server::Entrypoint & ep,
 			                  Nic                & nic,
 			                  char               * ip_addr,
-			                  unsigned             port);
+			                  unsigned             port, char const * label);
 
 			~Session_component();
 
@@ -225,8 +237,9 @@ namespace Net
 				memset(ip_addr, 0, MAX_IP_ADDR_LENGTH);
 				unsigned port = 0;
 
+				Session_label  label;
 				 try {
-					Session_label  label(args);
+					label = Session_label(args);
 					Session_policy policy(label);
 					policy.attribute("ip_addr").value(ip_addr, sizeof(ip_addr));
 					policy.attribute("port").value(&port);
@@ -272,7 +285,7 @@ namespace Net
 					                                          _ep,
 					                                          _nic,
 					                                          ip_addr,
-					                                          port);
+					                                          port, label.string());
 				} catch(Mac_allocator::Alloc_failed) {
 					PWRN("Mac address allocation failed!");
 					return (Session_component*) 0;
