@@ -111,7 +111,6 @@ namespace Net
 	{
 		private:
 
-			using Ipv4_address =              Ipv4_packet::Ipv4_address;
 			using uint8_t =                   Genode::uint8_t;
 			using size_t =                    Genode::size_t;
 			using Signal_context_capability = Genode::Signal_context_capability;
@@ -133,17 +132,20 @@ namespace Net
 			void _handle_tcp(Ethernet_frame * eth, Genode::size_t eth_size,
 			                 Ipv4_packet * ip, Genode::size_t ip_size);
 
-			void _arp_broadcast(Ipv4_address ip_addr);
+			void _arp_broadcast(Packet_handler * handler,
+			                    Ipv4_address ip_addr);
 
 			void _handle_tcp_unknown_arp(Ethernet_frame * const eth,
 			                             size_t const eth_size,
-			                             Ipv4_address ip_addr);
+			                             Ipv4_address ip_addr,
+			                             Packet_handler * handler);
 
 			void _handle_tcp_known_arp(Ethernet_frame * eth,
 			                           Genode::size_t eth_size,
 			                           Ipv4_packet * ip,
 			                           Genode::size_t const ip_size,
-			                           Arp_node * arp_node);
+			                           Arp_node * arp_node,
+			                           Packet_handler * handler);
 
 		public:
 

@@ -102,7 +102,7 @@ void Session_component::_free_ipv4_node()
 bool Session_component::link_state() { return _nic.link_state(); }
 
 
-void Session_component::set_ipv4_address(Ipv4_packet::Ipv4_address ip_addr)
+void Session_component::set_ipv4_address(Ipv4_address ip_addr)
 {
 	_free_ipv4_node();
 	_ipv4_node = new (this->guarded_allocator())
@@ -134,9 +134,9 @@ Session_component::Session_component(Genode::Allocator          *allocator,
 
 	/* static ip parsing */
 	if (ip_addr != 0 && Genode::strlen(ip_addr)) {
-		Ipv4_packet::Ipv4_address ip = Ipv4_packet::ip_from_string(ip_addr);
+		Ipv4_address ip = Ipv4_packet::ip_from_string(ip_addr);
 
-		if (ip == Ipv4_packet::Ipv4_address()) {
+		if (ip == Ipv4_address()) {
 			PWRN("Empty or error ip address. Skipped.");
 		} else {
 			set_ipv4_address(ip);
