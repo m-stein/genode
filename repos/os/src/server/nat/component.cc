@@ -36,7 +36,7 @@ bool Session_component::handle_arp(Ethernet_frame *eth, size_t eth_size)
 	if (arp->opcode() != Arp_packet::REQUEST) { return false; }
 
 	/* interchange source and destination MAC and IP addresses */
-	Ipv4_packet::Ipv4_address old_dst_ip = arp->dst_ip();
+	Ipv4_address old_dst_ip = arp->dst_ip();
 	arp->dst_ip(arp->src_ip());
 	arp->dst_mac(arp->src_mac());
 	eth->dst(eth->src());
@@ -208,7 +208,7 @@ void Session_component::_free_port_node()
 }
 
 
-void Session_component::set_ipv4_address(Ipv4_packet::Ipv4_address ip_addr)
+void Session_component::set_ipv4_address(Ipv4_address ip_addr)
 {
 	_free_ipv4_node();
 	_ipv4_node = new (this->guarded_allocator())
@@ -242,9 +242,9 @@ Session_component::Session_component(Allocator                  *allocator,
 
 	/* static ip parsing */
 	if (ip_addr != 0 && strlen(ip_addr)) {
-		Ipv4_packet::Ipv4_address ip = Ipv4_packet::ip_from_string(ip_addr);
+		Ipv4_address ip = Ipv4_packet::ip_from_string(ip_addr);
 
-		if (ip == Ipv4_packet::Ipv4_address() || port == 0) {
+		if (ip == Ipv4_address() || port == 0) {
 			PWRN("Empty or error ip address or port. Skipped.");
 		} else {
 			set_ipv4_address(ip);

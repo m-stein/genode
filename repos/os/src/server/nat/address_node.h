@@ -88,8 +88,6 @@ class Net::Ipv4_address_node : public Genode::Avl_node<Ipv4_address_node>
 {
 	private:
 
-		using Ipv4_address = Ipv4_packet::Ipv4_address;
-
 		Ipv4_address        _addr;
 		Session_component * _component;
 
@@ -124,7 +122,6 @@ class Net::Route_node : public Genode::List<Route_node>::Element
 
 		enum { MAX_INTERFACE_SIZE = 64 };
 
-		using Ipv4_address = Ipv4_packet::Ipv4_address;
 		using size_t = Genode::size_t;
 		using Interface = Genode::String<MAX_INTERFACE_SIZE>;
 
@@ -154,10 +151,6 @@ class Net::Route_node : public Genode::List<Route_node>::Element
 
 class Net::Route_list : public Genode::List<Route_node>
 {
-	private:
-
-		using Ipv4_address = Ipv4_packet::Ipv4_address;
-
 	public:
 
 		Route_node * longest_prefix_match(Ipv4_address ip_addr);
@@ -168,7 +161,6 @@ class Net::Arp_node : public Genode::Avl_node<Arp_node>
 {
 	private:
 
-		using Ipv4_address = Ipv4_packet::Ipv4_address;
 		using uint8_t = Genode::uint8_t;
 
 		Ipv4_address _ip;

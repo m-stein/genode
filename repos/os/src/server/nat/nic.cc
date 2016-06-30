@@ -24,7 +24,6 @@
 
 using namespace Net;
 using namespace Genode;
-using Ipv4_address = Net::Ipv4_packet::Ipv4_address;
 
 
 bool Net::Nic::handle_arp(Ethernet_frame * eth, size_t eth_size) {

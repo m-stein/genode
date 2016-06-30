@@ -111,7 +111,6 @@ namespace Net
 	{
 		private:
 
-			using Ipv4_address =              Ipv4_packet::Ipv4_address;
 			using uint8_t =                   Genode::uint8_t;
 			using size_t =                    Genode::size_t;
 			using Signal_context_capability = Genode::Signal_context_capability;

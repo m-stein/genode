@@ -34,8 +34,8 @@ class Net::Nic : public Net::Packet_handler
 		::Nic::Packet_allocator   _tx_block_alloc;
 		::Nic::Connection         _nic;
 		Mac_address               _mac;
-		Ipv4_packet::Ipv4_address _public_ip;
-		Ipv4_packet::Ipv4_address _private_ip;
+		Ipv4_address _public_ip;
+		Ipv4_address _private_ip;
 
 		void _handle_udp(Ethernet_frame * eth, Genode::size_t eth_size,
 		                 Ipv4_packet * ip, Genode::size_t ip_size);
@@ -49,8 +49,8 @@ class Net::Nic : public Net::Packet_handler
 
 		::Nic::Connection *              nic()        { return &_nic; }
 		Mac_address                      mac()        { return _mac; }
-		Ipv4_packet::Ipv4_address        public_ip()  { return _public_ip; }
-		Ipv4_packet::Ipv4_address        private_ip() { return _private_ip; }
+		Ipv4_address        public_ip()  { return _public_ip; }
+		Ipv4_address        private_ip() { return _private_ip; }
 
 		bool link_state() { return _nic.link_state(); }
 
