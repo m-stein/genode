@@ -60,12 +60,15 @@ append config {
 			<policy label="http_srv_1" ip_addr="192.168.1.18" port="80" />
 			<policy label="http_srv_2" ip_addr="192.168.1.72" port="8080" />
 
-			<route ip_addr="10.0.2.0"   netmask="255.255.255.0"   gateway="10.0.5.1" />
-			<route ip_addr="10.0.3.0"   netmask="255.255.254.0"   gateway="10.0.4.1" />
-			<route ip_addr="10.0.2.128" netmask="255.255.255.128" gateway="10.0.3.1" />
-			<route ip_addr="10.0.2.0"   netmask="255.255.255.192" gateway="10.0.2.1" />
-			<route ip_addr="10.0.2.0"   netmask="255.255.255.128" gateway="10.0.6.1" />
-			<route ip_addr="10.1.0.0"   netmask="255.255.0.0"     gateway="10.0.3.1" />
+			<route ip_addr="0.0.0.0"      netmask="0.0.0.0"         interface="uplink"     gateway="10.0.5.1" />
+			<route ip_addr="10.0.2.0"     netmask="255.255.255.0"   interface="uplink"     gateway="0.0.0.0" />
+			<route ip_addr="10.0.3.0"     netmask="255.255.254.0"   interface="uplink"     gateway="10.0.4.1" />
+			<route ip_addr="10.0.2.128"   netmask="255.255.255.128" interface="uplink"     gateway="10.0.3.1" />
+			<route ip_addr="10.0.0.0"     netmask="255.255.192.0"   interface="uplink"     gateway="10.0.2.1" />
+			<route ip_addr="10.0.0.0"     netmask="255.255.0.0"     interface="uplink"     gateway="10.0.6.1" />
+			<route ip_addr="10.1.0.0"     netmask="255.255.0.0"     interface="uplink"     gateway="10.0.3.1" />
+			<route ip_addr="192.168.1.18" netmask="255.255.255.255" interface="http_srv_1" gateway="0.0.0.0"  />
+			<route ip_addr="192.168.1.72" netmask="255.255.255.255" interface="http_srv_2" gateway="0.0.0.0"  />
 		</config>
 		<route>
 			<service name="Nic"> <child name="nic_bridge"/> </service>
