@@ -36,6 +36,7 @@ class Net::Tcp_packet
 		using uint32_t     = Genode::uint32_t;
 		using size_t       = Genode::size_t;
 		using Exception    = Genode::Exception;
+		using Ipv4_address = Ipv4_packet::Ipv4_address;
 
 		uint16_t _src_port;
 		uint16_t _dst_port;
@@ -87,8 +88,8 @@ class Net::Tcp_packet
 		 * |  4 bytes   |  4 bytes   |   1 byte   |  1 byte  |  2 bytes   |
 		 *  --------------------------------------------------------------
 		 */
-		void update_checksum(Ipv4_address ip_src,
-		                     Ipv4_address ip_dst,
+		void update_checksum(Ipv4_packet::Ipv4_address ip_src,
+		                     Ipv4_packet::Ipv4_address ip_dst,
 		                     size_t tcp_size)
 		{
 			/* have to reset the checksum field for calculation */

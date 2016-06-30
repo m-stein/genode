@@ -82,18 +82,9 @@ class Net::Packet_handler : public Interface_node
 		Genode::Signal_rpc_member<Packet_handler> _source_submit;
 		Genode::Signal_rpc_member<Packet_handler> _client_link_state;
 
-		using Mac_address = Ethernet_frame::Mac_address;
-
-		Mac_address       _nat_mac;
-		Ipv4_address      _nat_ip;
-
 	public:
 
-		Mac_address  nat_mac()    {return _nat_mac;}
-		Ipv4_address nat_ip()     {return _nat_ip;}
-
-		Packet_handler(Server::Entrypoint&, Vlan&, char const * name,
-		               Mac_address nat_mac, Ipv4_address nat_ip);
+		Packet_handler(Server::Entrypoint&, Vlan&, char const * name);
 
 		virtual Packet_stream_sink< ::Nic::Session::Policy>   * sink()   = 0;
 		virtual Packet_stream_source< ::Nic::Session::Policy> * source() = 0;

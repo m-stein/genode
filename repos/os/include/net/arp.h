@@ -208,8 +208,8 @@ class Net::Arp_packet
 		/**
 		 * \return source IP address.
 		 */
-		Ipv4_address src_ip() {
-			return Ipv4_address(&_src_ip_addr); }
+		Ipv4_packet::Ipv4_address src_ip() {
+			return Ipv4_packet::Ipv4_address(&_src_ip_addr); }
 
 		/**
 		 * \return destination MAC address.
@@ -220,8 +220,8 @@ class Net::Arp_packet
 		/**
 		 * \return destination IP address.
 		 */
-		Ipv4_address dst_ip() {
-			return Ipv4_address(&_dst_ip_addr); }
+		Ipv4_packet::Ipv4_address dst_ip() {
+			return Ipv4_packet::Ipv4_address(&_dst_ip_addr); }
 
 
 		/******************************
@@ -271,7 +271,7 @@ class Net::Arp_packet
 		 *
 		 * \param src_ip_addr  IP address to set.
 		 */
-		void src_ip(Ipv4_address src_ip_addr) {
+		void src_ip(Ipv4_packet::Ipv4_address src_ip_addr) {
 			src_ip_addr.copy(&_src_ip_addr); }
 
 		/**
@@ -287,7 +287,7 @@ class Net::Arp_packet
 		 *
 		 * \param src_ip_addr  IP address to set.
 		 */
-		void dst_ip(Ipv4_address dst_ip_addr) {
+		void dst_ip(Ipv4_packet::Ipv4_address dst_ip_addr) {
 			dst_ip_addr.copy(&_dst_ip_addr); }
 
 

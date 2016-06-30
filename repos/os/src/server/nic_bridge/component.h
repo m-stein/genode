@@ -147,7 +147,7 @@ namespace Net {
 					Genode::Signal_transmitter(_link_state_sigh).submit();
 			}
 
-			void set_ipv4_address(Ipv4_address ip_addr);
+			void set_ipv4_address(Ipv4_packet::Ipv4_address ip_addr);
 
 			/****************************************
 			 ** Nic::Driver notification interface **

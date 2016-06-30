@@ -48,8 +48,6 @@ class Net::Interface_node : public Genode::Avl_string_base
 
 		Interface_node(Packet_handler * handler, char const * name)
 		: Avl_string_base(name), _handler(handler) { }
-
-		Packet_handler * handler() { return _handler; }
 };
 
 class Net::Port_node : public Genode::Avl_node<Port_node>
@@ -90,6 +88,8 @@ class Net::Ipv4_address_node : public Genode::Avl_node<Ipv4_address_node>
 {
 	private:
 
+		using Ipv4_address = Ipv4_packet::Ipv4_address;
+
 		Ipv4_address        _addr;
 		Session_component * _component;
 
@@ -124,6 +124,7 @@ class Net::Route_node : public Genode::List<Route_node>::Element
 
 		enum { MAX_INTERFACE_SIZE = 64 };
 
+		using Ipv4_address = Ipv4_packet::Ipv4_address;
 		using size_t = Genode::size_t;
 		using Interface = Genode::String<MAX_INTERFACE_SIZE>;
 
@@ -153,6 +154,10 @@ class Net::Route_node : public Genode::List<Route_node>::Element
 
 class Net::Route_list : public Genode::List<Route_node>
 {
+	private:
+
+		using Ipv4_address = Ipv4_packet::Ipv4_address;
+
 	public:
 
 		Route_node * longest_prefix_match(Ipv4_address ip_addr);
@@ -163,6 +168,7 @@ class Net::Arp_node : public Genode::Avl_node<Arp_node>
 {
 	private:
 
+		using Ipv4_address = Ipv4_packet::Ipv4_address;
 		using uint8_t = Genode::uint8_t;
 
 		Ipv4_address _ip;
@@ -230,14 +236,12 @@ class Net::Arp_waiter : public Genode::List<Arp_waiter>::Element
 	private:
 
 		Session_component * const _component;
-		Ipv4_address _ip_addr;
 		Ethernet_frame * const _eth;
 		Genode::size_t const _eth_size;
 
 	public:
 
 		Arp_waiter(Session_component * const component,
-		           Ipv4_address ip_addr,
 		           Ethernet_frame * const eth,
 		           Genode::size_t const eth_size);
 
