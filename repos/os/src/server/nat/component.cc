@@ -83,11 +83,12 @@ void Session_component::_arp_broadcast
 void Session_component::_handle_tcp_unknown_arp
 (
 	Ethernet_frame * eth, size_t eth_size, Ipv4_address ip_addr,
-	Packet_handler * handler)
+	Packet_handler * handler, bool & ack, Packet_descriptor * p)
 {
 	_arp_broadcast(handler, ip_addr);
 	vlan().arp_waiters()->insert(new (this->guarded_allocator())
-		Arp_waiter(this, ip_addr, eth, eth_size));
+		Arp_waiter(this, ip_addr, eth, eth_size, p));
+	ack = false;
 }
 
 
@@ -126,7 +127,7 @@ void Session_component::_handle_tcp_known_arp
 
 void Session_component::_handle_tcp
 (
-	Ethernet_frame * eth, size_t eth_size, Ipv4_packet * ip, size_t ip_size)
+	Ethernet_frame * eth, size_t eth_size, Ipv4_packet * ip, size_t ip_size, bool & ack, Packet_descriptor * p)
 {
 	/* try to find IP routing rule */
 	Route_node * ip_route = vlan().ip_routes()->longest_prefix_match(ip->dst());
@@ -148,25 +149,25 @@ void Session_component::_handle_tcp
 	Arp_node * arp_node = vlan().arp_tree()->first();
 	if (arp_node) { arp_node = arp_node->find_by_ip(ip_addr); }
 	if (arp_node) { _handle_tcp_known_arp(eth, eth_size, ip, ip_size, arp_node, handler); }
-	else { _handle_tcp_unknown_arp(eth, eth_size, ip_addr, handler); }
+	else { _handle_tcp_unknown_arp(eth, eth_size, ip_addr, handler, ack, p); }
 }
 
 bool Session_component::handle_ip
 (
-	Ethernet_frame * eth, Genode::size_t eth_size)
+	Ethernet_frame * eth, Genode::size_t eth_size, bool & ack, Packet_descriptor * p)
 {
 	size_t ip_size = eth_size - sizeof(Ethernet_frame);
 	Ipv4_packet * ip = new (eth->data<void>()) Ipv4_packet(ip_size);
 	switch (ip->protocol()) {
-	case Tcp_packet::IP_ID: _handle_tcp(eth, eth_size, ip, ip_size); break;
-	case Udp_packet::IP_ID: _handle_udp(eth, eth_size, ip, ip_size); break;
+	case Tcp_packet::IP_ID: _handle_tcp(eth, eth_size, ip, ip_size, ack, p); break;
+	case Udp_packet::IP_ID: _handle_udp(eth, eth_size, ip, ip_size, ack, p); break;
 	default: ; }
 	return false;
 }
 
 
 void Session_component::_handle_udp(Ethernet_frame * eth, size_t eth_size,
-                                    Ipv4_packet * ip, size_t ip_size)
+                                    Ipv4_packet * ip, size_t ip_size, bool & ack, Packet_descriptor * p)
 {
 }
 

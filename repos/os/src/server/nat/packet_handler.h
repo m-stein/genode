@@ -30,7 +30,6 @@ namespace Net {
 
 	using ::Nic::Packet_stream_sink;
 	using ::Nic::Packet_stream_source;
-	typedef ::Nic::Packet_descriptor Packet_descriptor;
 }
 
 /**
@@ -124,7 +123,9 @@ class Net::Packet_handler : public Interface_node
 		 * \param src   ethernet frame's address
 		 * \param size  ethernet frame's size.
 		 */
-		void handle_ethernet(void* src, Genode::size_t size);
+		void handle_ethernet(void* src, Genode::size_t size, bool & ack, Packet_descriptor * p);
+
+void continue_handle_ethernet(void* src, Genode::size_t size, Packet_descriptor * p);
 
 		/*
 		 * Handle an ARP packet
@@ -142,7 +143,7 @@ class Net::Packet_handler : public Interface_node
 		 * \param size  ethernet frame's size.
 		 */
 		virtual bool handle_ip(Ethernet_frame *eth,
-		                       Genode::size_t size)    = 0;
+		                       Genode::size_t size, bool & ack, Packet_descriptor * p)    = 0;
 
 		/*
 		 * Finalize handling of ethernet frame.

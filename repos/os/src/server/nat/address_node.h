@@ -25,6 +25,7 @@
 
 namespace Net
 {
+	typedef ::Nic::Packet_descriptor Packet_descriptor;
 	class Packet_handler;
 	class Session_component;
 	class Mac_address_node;
@@ -35,7 +36,6 @@ namespace Net
 	class Route_list;
 	class Arp_node;
 	class Arp_waiter;
-
 }
 
 class Net::Interface_node : public Genode::Avl_string_base
@@ -233,17 +233,19 @@ class Net::Arp_waiter : public Genode::List<Arp_waiter>::Element
 		Ipv4_address _ip_addr;
 		Ethernet_frame * const _eth;
 		Genode::size_t const _eth_size;
+		Packet_descriptor * _packet;
 
 	public:
 
 		Arp_waiter(Session_component * const component,
 		           Ipv4_address ip_addr,
 		           Ethernet_frame * const eth,
-		           Genode::size_t const eth_size);
+		           Genode::size_t const eth_size, Packet_descriptor * p);
 
 		Session_component * component() const { return _component; }
 		Ethernet_frame * eth() const { return _eth; }
 		Genode::size_t eth_size() const { return _eth_size; }
+		bool new_arp_node(Arp_node * arp_node);
 };
 
 #endif /* _ADDRESS_NODE_H_ */

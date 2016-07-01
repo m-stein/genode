@@ -26,27 +26,6 @@ using namespace Net;
 using namespace Genode;
 
 
-void Net::Nic::_remove_arp_waiter(Arp_waiter * arp_waiter)
-{
-	PINF("%s %u %p", __func__, __LINE__, arp_waiter);
-	vlan().arp_waiters()->remove(arp_waiter);
-	PINF("%s %u %p", __func__, __LINE__, arp_waiter);
-	destroy(arp_waiter->component()->guarded_allocator(), arp_waiter);
-	PINF("%s %u %p", __func__, __LINE__, arp_waiter);
-}
-
-
-Arp_waiter * Net::Nic::_new_arp_node(Arp_waiter * arp_waiter, Arp_node * arp_node)
-{
-	PINF("%s %u %p %p", __func__, __LINE__, arp_waiter, arp_node);
-	Arp_waiter * next_arp_waiter = arp_waiter->next();
-	PINF("%s %u %p %p", __func__, __LINE__, arp_waiter, arp_node);
-	if (arp_waiter->new_arp_node(arp_node)) { _remove_arp_waiter(arp_waiter); }
-	PINF("%s %u %p %p", __func__, __LINE__, arp_waiter, arp_node);
-	return next_arp_waiter;
-}
-
-
 void Net::Nic::_handle_arp_reply(Arp_packet * const arp)
 {
 	/* if an appropriate ARP node doesn't exist jet, create one */
@@ -54,12 +33,22 @@ void Net::Nic::_handle_arp_reply(Arp_packet * const arp)
 	Arp_node * arp_node = vlan().arp_tree()->first();
 	if (arp_node) { arp_node = arp_node->find_by_ip(arp->src_ip()); }
 	if (arp_node) { return; }
-	arp_node = new (env()->heap()) Arp_node(arp->src_ip(), arp->src_mac());
-	vlan().arp_tree()->insert(arp_node);
+	vlan().arp_tree()->insert(new (env()->heap())
+		Arp_node(arp->src_ip(), arp->src_mac()));
 
 	/* announce the existence of a new ARP node */
-	Arp_waiter * arp_waiter = vlan().arp_waiters()->first();
-	for (; arp_waiter; arp_waiter = _new_arp_node(arp_waiter, arp_node)) { }
+	for (Arp_waiter * arp_waiter = vlan().arp_waiters()->first();
+	     arp_waiter; )
+	{
+		if (arp_waiter->new_arp_node(arp_node)) {
+			Arp_waiter * next_arp_waiter = arp_waiter->next();
+			vlan().arp_waiters()->remove(arp_waiter);
+			destroy(arp_waiter->component()->guarded_allocator(), arp_waiter);
+			arp_waiter = next_arp_waiter;
+		} else {
+			arp_waiter = arp_waiter->next();
+		}
+	}
 }
 
 

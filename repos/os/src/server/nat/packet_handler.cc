@@ -32,7 +32,10 @@ void Packet_handler::_ready_to_submit(unsigned)
 	while (sink()->packet_avail()) {
 		_packet = sink()->get_packet();
 		if (!_packet.size()) continue;
-		handle_ethernet(sink()->packet_content(_packet), _packet.size());
+		bool ack = true;
+		handle_ethernet(sink()->packet_content(_packet), _packet.size(), ack, &_packet);
+
+		if (!ack) { continue; }
 
 		if (!sink()->ready_to_ack()) {
 			if (verbose)
@@ -42,6 +45,20 @@ void Packet_handler::_ready_to_submit(unsigned)
 
 		sink()->acknowledge_packet(_packet);
 	}
+}
+
+void Packet_handler::continue_handle_ethernet(void* src, Genode::size_t size, Packet_descriptor * p)
+{
+	bool ack = true;
+	handle_ethernet(src, size, ack, p);
+	if (!ack) { PERR("Failed to continue eth handling"); return; }
+
+	if (!sink()->ready_to_ack()) {
+		if (verbose)
+			PWRN("ack state FULL");
+		return;
+	}
+	sink()->acknowledge_packet(*p);
 }
 
 
@@ -79,7 +96,7 @@ void Packet_handler::broadcast_to_clients(Ethernet_frame *eth, Genode::size_t si
 }
 
 
-void Packet_handler::handle_ethernet(void* src, Genode::size_t size)
+void Packet_handler::handle_ethernet(void* src, Genode::size_t size, bool & ack, Packet_descriptor * p)
 {
 	if (verbose) {
 		Genode::printf("<< ");
@@ -94,7 +111,7 @@ void Packet_handler::handle_ethernet(void* src, Genode::size_t size)
 			if (!handle_arp(eth, size)) return;
 			break;
 		case Ethernet_frame::IPV4:
-			if(!handle_ip(eth, size)) return;
+			if(!handle_ip(eth, size, ack, p)) return;
 			break;
 		default:
 			;
