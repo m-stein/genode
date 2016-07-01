@@ -23,8 +23,75 @@
 #include <packet_handler.h>
 
 using namespace Net;
+using namespace Genode;
 
 static const bool verbose = true;
+
+void Packet_handler::_remove_arp_waiter(Arp_waiter * arp_waiter)
+{
+	vlan().arp_waiters()->remove(arp_waiter);
+	destroy(arp_waiter->component()->guarded_allocator(), arp_waiter);
+}
+
+
+Arp_waiter * Packet_handler::_new_arp_node(Arp_waiter * arp_waiter, Arp_node * arp_node)
+{
+	Arp_waiter * next_arp_waiter = arp_waiter->next();
+	if (arp_waiter->new_arp_node(arp_node)) { _remove_arp_waiter(arp_waiter); }
+	return next_arp_waiter;
+}
+
+
+void Packet_handler::_handle_arp_reply(Arp_packet * const arp)
+{
+	/* if an appropriate ARP node doesn't exist jet, create one */
+	Arp_node * arp_node = vlan().arp_tree()->first();
+	if (arp_node) { arp_node = arp_node->find_by_ip(arp->src_ip()); }
+	if (arp_node) { return; }
+	arp_node = new (env()->heap()) Arp_node(arp->src_ip(), arp->src_mac());
+	vlan().arp_tree()->insert(arp_node);
+
+	/* announce the existence of a new ARP node */
+	Arp_waiter * arp_waiter = vlan().arp_waiters()->first();
+	for (; arp_waiter; arp_waiter = _new_arp_node(arp_waiter, arp_node)) { }
+}
+
+
+void Packet_handler::_handle_arp_request
+(
+	Ethernet_frame * const eth, size_t const eth_size, Arp_packet * const arp)
+{
+	/* ignore packets that do not target the NAT */
+	if (arp->dst_ip() != nat_ip()) { return; }
+
+	/* interchange source and destination MAC and IP addresses */
+	arp->dst_ip(arp->src_ip());
+	arp->dst_mac(arp->src_mac());
+	eth->dst(eth->src());
+	arp->src_ip(nat_ip());
+	arp->src_mac(nat_mac());
+	eth->src(nat_mac());
+
+	/* mark packet as reply and send it back to its sender */
+	arp->opcode(Arp_packet::REPLY);
+	send(eth, eth_size);
+}
+
+
+bool Packet_handler::_handle_arp(Ethernet_frame * eth, size_t eth_size)
+{
+	/* ignore ARP regarding protocols other than IPv4 via ethernet */
+	size_t arp_size = eth_size - sizeof(Ethernet_frame);
+	Arp_packet *arp = new (eth->data<void>()) Arp_packet(arp_size);
+	if (!arp->ethernet_ipv4()) { return false; }
+
+	switch (arp->opcode()) {
+	case Arp_packet::REPLY:   _handle_arp_reply(arp);
+	case Arp_packet::REQUEST: _handle_arp_request(eth, eth_size, arp);
+	default: ; }
+	return false;
+}
+
 
 void Packet_handler::_ready_to_submit(unsigned)
 {
@@ -33,6 +100,12 @@ void Packet_handler::_ready_to_submit(unsigned)
 		_packet = sink()->get_packet();
 		if (!_packet.size()) continue;
 		bool ack = true;
+
+		if (verbose) {
+			Genode::printf("<< ");
+			dump_eth(sink()->packet_content(_packet), _packet.size());
+			Genode::printf("\n");
+		}
 		handle_ethernet(sink()->packet_content(_packet), _packet.size(), ack, &_packet);
 
 		if (!ack) { continue; }
@@ -98,17 +171,12 @@ void Packet_handler::broadcast_to_clients(Ethernet_frame *eth, Genode::size_t si
 
 void Packet_handler::handle_ethernet(void* src, Genode::size_t size, bool & ack, Packet_descriptor * p)
 {
-	if (verbose) {
-		Genode::printf("<< ");
-		dump_eth(src, size);
-		Genode::printf("\n");
-	}
 	try {
 		/* parse ethernet frame header */
 		Ethernet_frame *eth = new (src) Ethernet_frame(size);
 		switch (eth->type()) {
 		case Ethernet_frame::ARP:
-			if (!handle_arp(eth, size)) return;
+			if (!_handle_arp(eth, size)) return;
 			break;
 		case Ethernet_frame::IPV4:
 			if(!handle_ip(eth, size, ack, p)) return;

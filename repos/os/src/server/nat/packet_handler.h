@@ -26,6 +26,7 @@
 
 namespace Net {
 
+	class Arp_packet;
 	class Packet_handler;
 
 	using ::Nic::Packet_stream_sink;
@@ -72,6 +73,25 @@ class Net::Packet_handler : public Interface_node
 		 * the link-state of changed
 		 */
 		void _link_state(unsigned);
+
+
+		void _handle_arp_reply(Arp_packet * const arp);
+
+		void _handle_arp_request(Ethernet_frame * const eth,
+		                         Genode::size_t const eth_size,
+		                         Arp_packet * const arp);
+
+		Arp_waiter * _new_arp_node(Arp_waiter * arp_waiter, Arp_node * arp_node);
+
+		void _remove_arp_waiter(Arp_waiter * arp_waiter);
+
+		/*
+		 * Handle an ARP packet
+		 *
+		 * \param eth   ethernet frame containing the ARP packet.
+		 * \param size  ethernet frame's size.
+		 */
+		bool _handle_arp(Ethernet_frame *eth, Genode::size_t size);
 
 	protected:
 
@@ -124,15 +144,6 @@ class Net::Packet_handler : public Interface_node
 		void handle_ethernet(void* src, Genode::size_t size, bool & ack, Packet_descriptor * p);
 
 void continue_handle_ethernet(void* src, Genode::size_t size, Packet_descriptor * p);
-
-		/*
-		 * Handle an ARP packet
-		 *
-		 * \param eth   ethernet frame containing the ARP packet.
-		 * \param size  ethernet frame's size.
-		 */
-		virtual bool handle_arp(Ethernet_frame *eth,
-		                        Genode::size_t size)   = 0;
 
 		/*
 		 * Handle an IP packet

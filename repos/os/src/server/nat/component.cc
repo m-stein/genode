@@ -24,35 +24,6 @@ using namespace Genode;
 
 static const int verbose = 1;
 
-
-bool Session_component::handle_arp(Ethernet_frame *eth, size_t eth_size)
-{
-	/* ignore broken packets */
-	size_t arp_size = eth_size - sizeof(Ethernet_frame);
-	Arp_packet *arp = new (eth->data<void>()) Arp_packet(arp_size);
-	if (!arp->ethernet_ipv4()) { return false; }
-
-	/* ignore operations other than REQUEST */
-	if (arp->opcode() != Arp_packet::REQUEST) { return false; }
-
-	/* interchange source and destination MAC and IP addresses */
-	Ipv4_address old_dst_ip = arp->dst_ip();
-	arp->dst_ip(arp->src_ip());
-	arp->dst_mac(arp->src_mac());
-	eth->dst(eth->src());
-	arp->src_ip(old_dst_ip);
-	arp->src_mac(nat_mac());
-	eth->src(nat_mac());
-
-	/* mark packet as REPLY */
-	arp->opcode(Arp_packet::REPLY);
-
-	/* send packet back to its sender */
-	send(eth, eth_size);
-	return false;
-}
-
-
 void Session_component::_arp_broadcast
 (
 	Packet_handler * handler, Ipv4_address ip_addr)

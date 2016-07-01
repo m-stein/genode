@@ -13,7 +13,6 @@
 
 #include <base/env.h>
 #include <net/ethernet.h>
-#include <net/arp.h>
 #include <net/ipv4.h>
 #include <net/udp.h>
 #include <net/tcp.h>
@@ -24,75 +23,6 @@
 
 using namespace Net;
 using namespace Genode;
-
-
-void Net::Nic::_remove_arp_waiter(Arp_waiter * arp_waiter)
-{
-	PINF("%s %u %p", __func__, __LINE__, arp_waiter);
-	vlan().arp_waiters()->remove(arp_waiter);
-	PINF("%s %u %p", __func__, __LINE__, arp_waiter);
-	destroy(arp_waiter->component()->guarded_allocator(), arp_waiter);
-	PINF("%s %u %p", __func__, __LINE__, arp_waiter);
-}
-
-
-Arp_waiter * Net::Nic::_new_arp_node(Arp_waiter * arp_waiter, Arp_node * arp_node)
-{
-	PINF("%s %u %p %p", __func__, __LINE__, arp_waiter, arp_node);
-	Arp_waiter * next_arp_waiter = arp_waiter->next();
-	PINF("%s %u %p %p", __func__, __LINE__, arp_waiter, arp_node);
-	if (arp_waiter->new_arp_node(arp_node)) { _remove_arp_waiter(arp_waiter); }
-	PINF("%s %u %p %p", __func__, __LINE__, arp_waiter, arp_node);
-	return next_arp_waiter;
-}
-
-
-void Net::Nic::_handle_arp_reply(Arp_packet * const arp)
-{
-	/* if an appropriate ARP node doesn't exist jet, create one */
-	PERR("ARP reply %u %u %u %u", arp->src_ip().addr[0], arp->src_ip().addr[1], arp->src_ip().addr[2], arp->src_ip().addr[3]);
-	Arp_node * arp_node = vlan().arp_tree()->first();
-	if (arp_node) { arp_node = arp_node->find_by_ip(arp->src_ip()); }
-	if (arp_node) { return; }
-	arp_node = new (env()->heap()) Arp_node(arp->src_ip(), arp->src_mac());
-	vlan().arp_tree()->insert(arp_node);
-
-	/* announce the existence of a new ARP node */
-	Arp_waiter * arp_waiter = vlan().arp_waiters()->first();
-	for (; arp_waiter; arp_waiter = _new_arp_node(arp_waiter, arp_node)) { }
-}
-
-
-bool Net::Nic::handle_arp(Ethernet_frame * eth, size_t eth_size) {
-
-	/* ignore broken packets */
-	size_t arp_size = eth_size - sizeof(Ethernet_frame);
-	Arp_packet *arp = new (eth->data<void>()) Arp_packet(arp_size);
-	if (!arp->ethernet_ipv4()) { return false; }
-
-	if (arp->opcode() == Arp_packet::REPLY) { _handle_arp_reply(arp); }
-
-	/* ignore operations other than REQUEST */
-	if (arp->opcode() != Arp_packet::REQUEST) { return false; }
-
-	/* ignore packets that do not target the NAT IP */
-	if (!(arp->dst_ip() == public_ip())) { return false; }
-
-	/* interchange source and destination MAC and IP addresses */
-	arp->dst_ip(arp->src_ip());
-	arp->dst_mac(arp->src_mac());
-	eth->dst(eth->src());
-	arp->src_ip(public_ip());
-	arp->src_mac(mac());
-	eth->src(mac());
-
-	/* mark packet as REPLY */
-	arp->opcode(Arp_packet::REPLY);
-
-	/* send packet back to its sender */
-	send(eth, eth_size);
-	return false;
-}
 
 
 void Net::Nic::_handle_tcp(Ethernet_frame * eth, size_t eth_size,

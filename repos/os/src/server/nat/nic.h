@@ -57,12 +57,6 @@ class Net::Nic
 		void _handle_tcp(Ethernet_frame * eth, Genode::size_t eth_size,
 		                 Ipv4_packet * ip, Genode::size_t ip_size);
 
-		void _handle_arp_reply(Arp_packet * const arp);
-
-		Arp_waiter * _new_arp_node(Arp_waiter * arp_waiter, Arp_node * arp_node);
-
-		void _remove_arp_waiter(Arp_waiter * arp_waiter);
-
 	public:
 
 		Nic(Server::Entrypoint&, Vlan&);
@@ -84,7 +78,6 @@ class Net::Nic
 		Packet_stream_source< ::Nic::Session::Policy> * source() {
 			return _nic.tx(); }
 
-		bool handle_arp(Ethernet_frame * eth, Genode::size_t eth_size);
 		bool handle_ip(Ethernet_frame * eth, Genode::size_t eth_size, bool & ack, Packet_descriptor * p);
 		void finalize_packet(Ethernet_frame * eth, Genode::size_t eth_size) { }
 };
