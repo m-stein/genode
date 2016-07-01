@@ -64,7 +64,7 @@ struct Main
 
 	void read_mac()
 	{
-		Net::Ethernet_frame::Mac_address mac(nic.mac());
+		Net::Mac_address mac(nic.mac());
 		Genode::printf("--- NAT started "
 		               "(mac=%02x:%02x:%02x:%02x:%02x:%02x) ---\n",
 		               mac.addr[0], mac.addr[1], mac.addr[2],

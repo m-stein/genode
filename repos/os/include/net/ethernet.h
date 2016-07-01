@@ -49,7 +49,6 @@ class Net::Ethernet_frame
 			ADDR_LEN  = 6, /* MAC address length in bytes */
 		};
 
-		using Mac_address = Net::Mac_address;
 
 		static const Mac_address BROADCAST;  /* broadcast address */
 

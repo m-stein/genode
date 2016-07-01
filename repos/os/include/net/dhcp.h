@@ -204,8 +204,8 @@ class Net::Dhcp_packet
 		Ipv4_address giaddr() {
 			return Ipv4_address(&_giaddr);  }
 
-		Ethernet_frame::Mac_address client_mac() {
-			return Ethernet_frame::Mac_address(&_chaddr); }
+		Mac_address client_mac() {
+			return Mac_address(&_chaddr); }
 
 		const char* server_name()  { return (const char*) &_sname; }
 		const char* file()         { return (const char*) &_file;  }
@@ -248,7 +248,7 @@ class Net::Dhcp_packet
 		void giaddr(Ipv4_address giaddr) {
 			giaddr.copy(&_giaddr); }
 
-		void client_mac(Ethernet_frame::Mac_address mac) {
+		void client_mac(Mac_address mac) {
 			mac.copy(&_chaddr); }
 
 

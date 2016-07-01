@@ -81,8 +81,6 @@ class Net::Packet_handler : public Interface_node
 		Genode::Signal_rpc_member<Packet_handler> _source_submit;
 		Genode::Signal_rpc_member<Packet_handler> _client_link_state;
 
-		using Mac_address = Ethernet_frame::Mac_address;
-
 		Mac_address       _nat_mac;
 		Ipv4_address      _nat_ip;
 

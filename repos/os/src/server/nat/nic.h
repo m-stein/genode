@@ -35,8 +35,6 @@ class Net::Nic_base
 			BUF_SIZE    = ::Nic::Session::QUEUE_SIZE * PACKET_SIZE,
 		};
 
-		using Mac_address = Ethernet_frame::Mac_address;
-
 		::Nic::Packet_allocator   _tx_block_alloc;
 		::Nic::Connection         _nic;
 		Mac_address  _mac;
@@ -70,7 +68,7 @@ class Net::Nic
 		Nic(Server::Entrypoint&, Vlan&);
 
 		::Nic::Connection *              nic()        { return &_nic; }
-		Ethernet_frame::Mac_address      mac()        { return _mac; }
+		Mac_address      mac()        { return _mac; }
 		Ipv4_address        public_ip()  { return _public_ip; }
 		Ipv4_address        private_ip() { return _private_ip; }
 

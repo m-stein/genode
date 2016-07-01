@@ -126,7 +126,7 @@ namespace Net {
 			                  Genode::size_t              amount,
 			                  Genode::size_t              tx_buf_size,
 			                  Genode::size_t              rx_buf_size,
-			                  Ethernet_frame::Mac_address vmac,
+			                  Mac_address vmac,
 			                  Server::Entrypoint         &ep,
 			                  Net::Nic                   &nic,
 			                  char                       *ip_addr = 0);
