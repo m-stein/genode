@@ -126,23 +126,11 @@ namespace Net
 			void _free_ipv4_node();
 			void _free_port_node();
 
-			void _handle_tcp(Ethernet_frame * eth, Genode::size_t eth_size,
-			                 Ipv4_packet * ip, Genode::size_t ip_size, bool & ack, Packet_descriptor * p);
+			void _handle_tcp(Ethernet_frame * eth, size_t eth_size,
+			                 Ipv4_packet * ip, size_t ip_size, bool & ack, Packet_descriptor * p);
 
 			void _arp_broadcast(Packet_handler * handler,
 			                    Ipv4_address ip_addr);
-
-			void _handle_tcp_unknown_arp(Ethernet_frame * const eth,
-			                             size_t const eth_size,
-			                             Ipv4_address ip_addr,
-			                             Packet_handler * handler, bool & ack, Packet_descriptor * p);
-
-			void _handle_tcp_known_arp(Ethernet_frame * eth,
-			                           Genode::size_t eth_size,
-			                           Ipv4_packet * ip,
-			                           Genode::size_t const ip_size,
-			                           Arp_node * arp_node,
-			                           Packet_handler * handler);
 
 		public:
 

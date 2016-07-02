@@ -59,7 +59,7 @@ void Net::Nic::_handle_tcp
 
 Net::Nic::Nic(Server::Entrypoint &ep, Net::Vlan &vlan)
 :
-	Packet_handler(ep, vlan, "uplink", mac(), public_ip())
+	Packet_handler(ep, vlan, "uplink", mac(), public_ip(), env()->heap())
 {
 	class Bad_ip_addr_attr : Genode::Exception { };
 	class Bad_netmask_attr : Genode::Exception { };

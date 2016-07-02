@@ -76,15 +76,15 @@ void Route_list::insert(Route_node * route)
 
 Arp_waiter::Arp_waiter
 (
-	Session_component * const component, Ipv4_address ip_addr,
+	Packet_handler * handler, Ipv4_address ip_addr,
 	Ethernet_frame * const eth, Genode::size_t const eth_size, Packet_descriptor * packet)
 :
-	_component(component), _ip_addr(ip_addr), _eth(eth), _eth_size(eth_size), _packet(packet)
+	_handler(handler), _ip_addr(ip_addr), _eth(eth), _eth_size(eth_size), _packet(packet)
 { }
 
 bool Arp_waiter::new_arp_node(Arp_node * arp_node)
 {
 	if (!(arp_node->ip() == _ip_addr)) { return false; }
-	_component->continue_handle_ethernet(_eth, _eth_size, _packet);
+	_handler->continue_handle_ethernet(_eth, _eth_size, _packet);
 	return true;
 }

@@ -24,25 +24,14 @@ using namespace Genode;
 static const int verbose = 1;
 
 
-void Session_component::_handle_tcp_unknown_arp
-(
-	Ethernet_frame * eth, size_t eth_size, Ipv4_address ip_addr,
-	Packet_handler * handler, bool & ack, Packet_descriptor * p)
-{
-	handler->arp_broadcast(ip_addr);
-	vlan().arp_waiters()->insert(new (this->guarded_allocator())
-		Arp_waiter(this, ip_addr, eth, eth_size, p));
-	ack = false;
-}
-
-
-void Session_component::_handle_tcp_known_arp
+template <typename PROT>
+static void handle_prot_known_arp
 (
 	Ethernet_frame * const eth, size_t const eth_size, Ipv4_packet * const ip,
 	size_t const ip_size, Arp_node * const arp_node, Packet_handler * handler)
 {
-	size_t tcp_size = ip_size - sizeof(Ipv4_packet);
-	Tcp_packet * tcp = new (ip->data<void>()) Tcp_packet(tcp_size);
+	size_t prot_size = ip_size - sizeof(Ipv4_packet);
+	PROT * prot = new (ip->data<void>()) PROT(prot_size);
 
 	Mac_address nat_mac = handler->nat_mac();
 	Ipv4_address nat_ip = handler->nat_ip();
@@ -53,7 +42,7 @@ void Session_component::_handle_tcp_known_arp
 	eth->dst(arp_node->mac().addr);
 
 	/* re-calculate affected checksums */
-	tcp->update_checksum(nat_ip, ip->dst(), tcp_size);
+	prot->update_checksum(nat_ip, ip->dst(), prot_size);
 	ip->checksum(Ipv4_packet::calculate_checksum(*ip));
 
 	/* deliver the modified packet */
@@ -72,8 +61,8 @@ void Session_component::_handle_tcp
 	/* for the found IP find an ARP rule or send an ARP request */
 	Arp_node * arp_node = vlan().arp_tree()->first();
 	if (arp_node) { arp_node = arp_node->find_by_ip(ip_addr); }
-	if (arp_node) { _handle_tcp_known_arp(eth, eth_size, ip, ip_size, arp_node, handler); }
-	else { _handle_tcp_unknown_arp(eth, eth_size, ip_addr, handler, ack, p); }
+	if (arp_node) { handle_prot_known_arp<Tcp_packet>(eth, eth_size, ip, ip_size, arp_node, handler); }
+	else { _handle_unknown_arp(eth, eth_size, ip_addr, handler, ack, p); }
 }
 
 
@@ -146,7 +135,7 @@ Session_component::Session_component(Allocator                  *allocator,
   Session_rpc_object(Tx_rx_communication_buffers::tx_ds(),
                      Tx_rx_communication_buffers::rx_ds(),
                      this->range_allocator(), ep.rpc_ep()),
-  Packet_handler(ep, nic.vlan(), label, nic.mac(), nic.private_ip()),
+  Packet_handler(ep, nic.vlan(), label, nic.mac(), nic.private_ip(), guarded_allocator()),
   _mac_node(vmac, this),
   _ipv4_node(0),
   _port_node(0),

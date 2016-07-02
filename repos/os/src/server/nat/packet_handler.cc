@@ -28,6 +28,17 @@ using namespace Genode;
 static const bool verbose = true;
 
 
+void Packet_handler::_handle_unknown_arp
+(
+	Ethernet_frame * eth, size_t eth_size, Ipv4_address ip_addr,
+	Packet_handler * handler, bool & ack, Packet_descriptor * p)
+{
+	handler->arp_broadcast(ip_addr);
+	vlan().arp_waiters()->insert(new (_allocator) Arp_waiter(this, ip_addr, eth, eth_size, p));
+	ack = false;
+}
+
+
 bool Packet_handler::_handle_ip
 (
 	Ethernet_frame * eth, Genode::size_t eth_size, bool & ack, Packet_descriptor * p)
@@ -68,7 +79,7 @@ void Packet_handler::arp_broadcast(Ipv4_address ip_addr)
 void Packet_handler::_remove_arp_waiter(Arp_waiter * arp_waiter)
 {
 	vlan().arp_waiters()->remove(arp_waiter);
-	destroy(arp_waiter->component()->guarded_allocator(), arp_waiter);
+	destroy(arp_waiter->handler()->allocator(), arp_waiter);
 }
 
 
@@ -331,7 +342,7 @@ void Packet_handler::send(Ethernet_frame *eth, Genode::size_t size)
 }
 
 
-Packet_handler::Packet_handler(Server::Entrypoint &ep, Vlan &vlan, char const * name, Mac_address nat_mac, Ipv4_address nat_ip)
+Packet_handler::Packet_handler(Server::Entrypoint &ep, Vlan &vlan, char const * name, Mac_address nat_mac, Ipv4_address nat_ip, Genode::Allocator * allocator)
 : Interface_node(this, name),
   _vlan(vlan),
   _sink_ack(ep, *this, &Packet_handler::_ack_avail),
@@ -339,7 +350,8 @@ Packet_handler::Packet_handler(Server::Entrypoint &ep, Vlan &vlan, char const * 
   _source_ack(ep, *this, &Packet_handler::_ready_to_ack),
   _source_submit(ep, *this, &Packet_handler::_packet_avail),
   _client_link_state(ep, *this, &Packet_handler::_link_state),
-  _nat_mac(nat_mac), _nat_ip(nat_ip)
+  _nat_mac(nat_mac), _nat_ip(nat_ip),
+  _allocator(allocator)
 {
 	vlan.interfaces()->insert(this);
 }

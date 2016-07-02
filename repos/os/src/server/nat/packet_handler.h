@@ -118,6 +118,10 @@ class Net::Packet_handler : public Interface_node
 
 	protected:
 
+		void _handle_unknown_arp(Ethernet_frame * eth, size_t eth_size,
+		                         Ipv4_address ip_addr, Packet_handler * handler,
+		                         bool & ack, Packet_descriptor * p);
+
 		Packet_handler * _ip_routing(Ipv4_address & ip_addr, Ipv4_packet * ip);
 
 		Genode::Signal_rpc_member<Packet_handler> _sink_ack;
@@ -126,8 +130,9 @@ class Net::Packet_handler : public Interface_node
 		Genode::Signal_rpc_member<Packet_handler> _source_submit;
 		Genode::Signal_rpc_member<Packet_handler> _client_link_state;
 
-		Mac_address       _nat_mac;
-		Ipv4_address      _nat_ip;
+		Mac_address         _nat_mac;
+		Ipv4_address        _nat_ip;
+		Genode::Allocator * _allocator;
 
 	public:
 
@@ -137,7 +142,8 @@ class Net::Packet_handler : public Interface_node
 		Ipv4_address nat_ip()     {return _nat_ip;}
 
 		Packet_handler(Server::Entrypoint&, Vlan&, char const * name,
-		               Mac_address nat_mac, Ipv4_address nat_ip);
+		               Mac_address nat_mac, Ipv4_address nat_ip,
+		               Genode::Allocator * allocator);
 
 		virtual Packet_stream_sink< ::Nic::Session::Policy>   * sink()   = 0;
 		virtual Packet_stream_source< ::Nic::Session::Policy> * source() = 0;
@@ -180,6 +186,8 @@ class Net::Packet_handler : public Interface_node
 		 */
 		virtual void finalize_packet(Ethernet_frame *eth,
 		                             size_t size) = 0;
+
+		Genode::Allocator * allocator() const { return _allocator; }
 };
 
 #endif /* _PACKET_HANDLER_H_ */
