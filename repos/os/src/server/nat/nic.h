@@ -52,10 +52,12 @@ class Net::Nic
 	private:
 
 		void _handle_udp(Ethernet_frame * eth, Genode::size_t eth_size,
-		                 Ipv4_packet * ip, Genode::size_t ip_size);
+		                 Ipv4_packet * ip, Genode::size_t ip_size,
+		                 bool & ack, Packet_descriptor * p);
 
 		void _handle_tcp(Ethernet_frame * eth, Genode::size_t eth_size,
-		                 Ipv4_packet * ip, Genode::size_t ip_size);
+		                 Ipv4_packet * ip, Genode::size_t ip_size, bool & ack,
+		                 Packet_descriptor * p);
 
 	public:
 
@@ -78,7 +80,6 @@ class Net::Nic
 		Packet_stream_source< ::Nic::Session::Policy> * source() {
 			return _nic.tx(); }
 
-		bool handle_ip(Ethernet_frame * eth, Genode::size_t eth_size, bool & ack, Packet_descriptor * p);
 		void finalize_packet(Ethernet_frame * eth, Genode::size_t eth_size) { }
 };
 

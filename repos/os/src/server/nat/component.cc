@@ -96,19 +96,6 @@ void Session_component::_handle_tcp
 	else { _handle_tcp_unknown_arp(eth, eth_size, ip_addr, handler, ack, p); }
 }
 
-bool Session_component::handle_ip
-(
-	Ethernet_frame * eth, Genode::size_t eth_size, bool & ack, Packet_descriptor * p)
-{
-	size_t ip_size = eth_size - sizeof(Ethernet_frame);
-	Ipv4_packet * ip = new (eth->data<void>()) Ipv4_packet(ip_size);
-	switch (ip->protocol()) {
-	case Tcp_packet::IP_ID: _handle_tcp(eth, eth_size, ip, ip_size, ack, p); break;
-	case Udp_packet::IP_ID: _handle_udp(eth, eth_size, ip, ip_size, ack, p); break;
-	default: ; }
-	return false;
-}
-
 
 void Session_component::_handle_udp(Ethernet_frame * eth, size_t eth_size,
                                     Ipv4_packet * ip, size_t ip_size, bool & ack, Packet_descriptor * p)

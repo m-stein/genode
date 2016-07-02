@@ -25,8 +25,10 @@ using namespace Net;
 using namespace Genode;
 
 
-void Net::Nic::_handle_tcp(Ethernet_frame * eth, size_t eth_size,
-                           Ipv4_packet * ip, size_t ip_size)
+void Net::Nic::_handle_tcp
+(
+	Ethernet_frame * eth, size_t eth_size, Ipv4_packet * ip, size_t ip_size,
+	bool & ack, Packet_descriptor * p)
 {
 	using Protocol = Tcp_packet;
 
@@ -55,8 +57,10 @@ void Net::Nic::_handle_tcp(Ethernet_frame * eth, size_t eth_size,
 }
 
 
-void Net::Nic::_handle_udp(Ethernet_frame * eth, size_t eth_size,
-                           Ipv4_packet * ip, size_t ip_size)
+void Net::Nic::_handle_udp
+(
+	Ethernet_frame * eth, size_t eth_size, Ipv4_packet * ip, size_t ip_size,
+	bool & ack, Packet_descriptor * p)
 {
 	using Protocol = Udp_packet;
 
@@ -82,18 +86,6 @@ void Net::Nic::_handle_udp(Ethernet_frame * eth, size_t eth_size,
 
 	/* deliver the modified packet to the client */
 	client->send(eth, eth_size);
-}
-
-
-bool Net::Nic::handle_ip(Ethernet_frame * eth, size_t eth_size, bool & ack, Packet_descriptor * p)
-{
-	size_t ip_size = eth_size - sizeof(Ethernet_frame);
-	Ipv4_packet * ip = new (eth->data<void>()) Ipv4_packet(ip_size);
-	switch (ip->protocol()) {
-	case Tcp_packet::IP_ID: _handle_tcp(eth, eth_size, ip, ip_size); break;
-	case Udp_packet::IP_ID: _handle_udp(eth, eth_size, ip, ip_size); break;
-	default: ; }
-	return false;
 }
 
 

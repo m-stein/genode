@@ -38,6 +38,10 @@ namespace Net {
  */
 class Net::Packet_handler : public Interface_node
 {
+	protected:
+
+		using size_t = Genode::size_t;
+
 	private:
 
 		Packet_descriptor _packet;
@@ -78,7 +82,7 @@ class Net::Packet_handler : public Interface_node
 		void _handle_arp_reply(Arp_packet * const arp);
 
 		void _handle_arp_request(Ethernet_frame * const eth,
-		                         Genode::size_t const eth_size,
+		                         size_t const eth_size,
 		                         Arp_packet * const arp);
 
 		Arp_waiter * _new_arp_node(Arp_waiter * arp_waiter, Arp_node * arp_node);
@@ -91,7 +95,19 @@ class Net::Packet_handler : public Interface_node
 		 * \param eth   ethernet frame containing the ARP packet.
 		 * \param size  ethernet frame's size.
 		 */
-		bool _handle_arp(Ethernet_frame *eth, Genode::size_t size);
+		bool _handle_arp(Ethernet_frame *eth, size_t size);
+
+		bool _handle_ip(Ethernet_frame * eth, size_t eth_size,
+		                bool & ack, Packet_descriptor * p);
+
+		virtual void _handle_tcp(Ethernet_frame * eth, size_t eth_size,
+		                         Ipv4_packet * ip, size_t ip_size,
+		                         bool & ack, Packet_descriptor * p) = 0;
+
+
+		virtual void _handle_udp(Ethernet_frame * eth, size_t eth_size,
+		                         Ipv4_packet * ip, size_t ip_size, bool & ack,
+		                         Packet_descriptor * p) = 0;
 
 	protected:
 
@@ -127,7 +143,7 @@ class Net::Packet_handler : public Interface_node
 		 * \param size  ethernet frame's size.
 		 */
 		void inline broadcast_to_clients(Ethernet_frame *eth,
-		                                 Genode::size_t size);
+		                                 size_t size);
 
 		/**
 		 * Send ethernet frame
@@ -135,7 +151,7 @@ class Net::Packet_handler : public Interface_node
 		 * \param eth   ethernet frame to send.
 		 * \param size  ethernet frame's size.
 		 */
-		void send(Ethernet_frame *eth, Genode::size_t size);
+		void send(Ethernet_frame *eth, size_t size);
 
 		/**
 		 * Handle an ethernet packet
@@ -143,18 +159,9 @@ class Net::Packet_handler : public Interface_node
 		 * \param src   ethernet frame's address
 		 * \param size  ethernet frame's size.
 		 */
-		void handle_ethernet(void* src, Genode::size_t size, bool & ack, Packet_descriptor * p);
+		void handle_ethernet(void* src, size_t size, bool & ack, Packet_descriptor * p);
 
-void continue_handle_ethernet(void* src, Genode::size_t size, Packet_descriptor * p);
-
-		/*
-		 * Handle an IP packet
-		 *
-		 * \param eth   ethernet frame containing the IP packet.
-		 * \param size  ethernet frame's size.
-		 */
-		virtual bool handle_ip(Ethernet_frame *eth,
-		                       Genode::size_t size, bool & ack, Packet_descriptor * p)    = 0;
+		void continue_handle_ethernet(void* src, size_t size, Packet_descriptor * p);
 
 		/*
 		 * Finalize handling of ethernet frame.
@@ -163,7 +170,7 @@ void continue_handle_ethernet(void* src, Genode::size_t size, Packet_descriptor 
 		 * \param size  ethernet frame's size.
 		 */
 		virtual void finalize_packet(Ethernet_frame *eth,
-		                             Genode::size_t size) = 0;
+		                             size_t size) = 0;
 };
 
 #endif /* _PACKET_HANDLER_H_ */

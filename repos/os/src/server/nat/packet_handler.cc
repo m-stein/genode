@@ -28,6 +28,20 @@ using namespace Genode;
 static const bool verbose = true;
 
 
+bool Packet_handler::_handle_ip
+(
+	Ethernet_frame * eth, Genode::size_t eth_size, bool & ack, Packet_descriptor * p)
+{
+	size_t ip_size = eth_size - sizeof(Ethernet_frame);
+	Ipv4_packet * ip = new (eth->data<void>()) Ipv4_packet(ip_size);
+	switch (ip->protocol()) {
+	case Tcp_packet::IP_ID: _handle_tcp(eth, eth_size, ip, ip_size, ack, p); break;
+	case Udp_packet::IP_ID: _handle_udp(eth, eth_size, ip, ip_size, ack, p); break;
+	default: ; }
+	return false;
+}
+
+
 void Packet_handler::arp_broadcast(Ipv4_address ip_addr)
 {
 	using Ethernet_arp = Ethernet_frame_sized<sizeof(Arp_packet)>;
@@ -203,7 +217,7 @@ void Packet_handler::handle_ethernet(void* src, Genode::size_t size, bool & ack,
 			if (!_handle_arp(eth, size)) return;
 			break;
 		case Ethernet_frame::IPV4:
-			if(!handle_ip(eth, size, ack, p)) return;
+			if(!_handle_ip(eth, size, ack, p)) return;
 			break;
 		default:
 			;

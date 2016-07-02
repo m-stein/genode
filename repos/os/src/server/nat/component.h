@@ -208,7 +208,6 @@ namespace Net
 			Packet_stream_source< ::Nic::Session::Policy> * source() {
 				return _rx.source(); }
 
-			bool handle_ip(Ethernet_frame *eth, size_t size, bool & ack, Packet_descriptor * p);
 			void finalize_packet(Ethernet_frame *eth, size_t size);
 	};
 
