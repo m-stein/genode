@@ -104,12 +104,21 @@ class Net::Packet_handler : public Interface_node
 		                         Ipv4_packet * ip, size_t ip_size,
 		                         bool & ack, Packet_descriptor * p) = 0;
 
+		void _handle_udp_to_others(Ethernet_frame * eth, size_t eth_size,
+		                           Ipv4_packet * ip, size_t ip_size,
+		                           bool & ack, Packet_descriptor * p);
+
+		void _handle_udp_to_nat(Ethernet_frame * eth, size_t eth_size,
+		                        Ipv4_packet * ip, size_t ip_size,
+		                        bool & ack, Packet_descriptor * p);
 
 		void _handle_udp(Ethernet_frame * eth, size_t eth_size,
 		                 Ipv4_packet * ip, size_t ip_size, bool & ack,
 		                 Packet_descriptor * p);
 
 	protected:
+
+		Packet_handler * _ip_routing(Ipv4_address & ip_addr, Ipv4_packet * ip);
 
 		Genode::Signal_rpc_member<Packet_handler> _sink_ack;
 		Genode::Signal_rpc_member<Packet_handler> _sink_submit;

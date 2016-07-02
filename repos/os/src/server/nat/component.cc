@@ -41,14 +41,6 @@ void Session_component::_handle_tcp_known_arp
 	Ethernet_frame * const eth, size_t const eth_size, Ipv4_packet * const ip,
 	size_t const ip_size, Arp_node * const arp_node, Packet_handler * handler)
 {
-	PINF("Found ARP node %x.%x.%x.%x.%x.%x",
-		arp_node->mac().addr[0],
-		arp_node->mac().addr[1],
-		arp_node->mac().addr[2],
-		arp_node->mac().addr[3],
-		arp_node->mac().addr[4],
-		arp_node->mac().addr[5]);
-
 	size_t tcp_size = ip_size - sizeof(Ipv4_packet);
 	Tcp_packet * tcp = new (ip->data<void>()) Tcp_packet(tcp_size);
 
@@ -73,21 +65,9 @@ void Session_component::_handle_tcp
 (
 	Ethernet_frame * eth, size_t eth_size, Ipv4_packet * ip, size_t ip_size, bool & ack, Packet_descriptor * p)
 {
-	/* try to find IP routing rule */
-	Route_node * ip_route = vlan().ip_routes()->longest_prefix_match(ip->dst());
-	if (!ip_route) { return; }
-
-	/* if a via ip is specified, use it, otherwise use the packet destination */
 	Ipv4_address ip_addr;
-	if (ip_route->gateway() == Ipv4_address()) {  ip_addr = ip->dst(); }
-	else { ip_addr = ip_route->gateway(); }
-
-	/* try to find the packet handler behind the given interface name */
-	Interface_node * interface = static_cast<Interface_node *>(vlan().interfaces()->first());
-	if (!interface) { return; }
-	interface = static_cast<Interface_node *>(interface->find_by_name(ip_route->interface().string()));
-	if (!interface) { return; }
-	Packet_handler * handler = interface->handler();
+	Packet_handler * handler = _ip_routing(ip_addr, ip);
+	if (!handler) { return; }
 
 	/* for the found IP find an ARP rule or send an ARP request */
 	Arp_node * arp_node = vlan().arp_tree()->first();

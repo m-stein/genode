@@ -206,7 +206,8 @@ void Packet_handler::broadcast_to_clients(Ethernet_frame *eth, Genode::size_t si
 	}
 }
 
-void Packet_handler::_handle_udp
+
+void Packet_handler::_handle_udp_to_nat
 (
 	Ethernet_frame * eth, size_t eth_size, Ipv4_packet * ip, size_t ip_size,
 	bool & ack, Packet_descriptor * p)
@@ -233,6 +234,48 @@ void Packet_handler::_handle_udp
 
 	/* deliver the modified packet to the client */
 	client->send(eth, eth_size);
+}
+
+
+Packet_handler * Packet_handler::_ip_routing
+(
+	Ipv4_address & ip_addr, Ipv4_packet * ip)
+{
+	/* try to find IP routing rule */
+	Route_node * ip_route = vlan().ip_routes()->longest_prefix_match(ip->dst());
+	if (!ip_route) { return nullptr; }
+
+	/* if a via ip is specified, use it, otherwise use the packet destination */
+	if (ip_route->gateway() == Ipv4_address()) { ip_addr = ip->dst(); }
+	else { ip_addr = ip_route->gateway(); }
+
+	/* try to find the packet handler behind the given interface name */
+	Interface_node * interface = static_cast<Interface_node *>(vlan().interfaces()->first());
+	if (!interface) { return nullptr; }
+	interface = static_cast<Interface_node *>(interface->find_by_name(ip_route->interface().string()));
+	if (!interface) { return nullptr; }
+	return interface->handler();
+}
+
+
+void Packet_handler::_handle_udp_to_others
+(
+	Ethernet_frame * eth, size_t eth_size, Ipv4_packet * ip, size_t ip_size,
+	bool & ack, Packet_descriptor * p)
+{
+	Ipv4_address ip_addr;
+	Packet_handler * handler = _ip_routing(ip_addr, ip);
+	if (!handler) { return; }
+}
+
+
+void Packet_handler::_handle_udp
+(
+	Ethernet_frame * eth, size_t eth_size, Ipv4_packet * ip, size_t ip_size,
+	bool & ack, Packet_descriptor * p)
+{
+	if (ip->dst() == _nat_ip) { _handle_udp_to_nat(eth, eth_size, ip, ip_size, ack, p); }
+	else { _handle_udp_to_others(eth, eth_size, ip, ip_size, ack, p); }
 }
 
 
