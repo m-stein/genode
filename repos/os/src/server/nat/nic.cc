@@ -57,38 +57,6 @@ void Net::Nic::_handle_tcp
 }
 
 
-void Net::Nic::_handle_udp
-(
-	Ethernet_frame * eth, size_t eth_size, Ipv4_packet * ip, size_t ip_size,
-	bool & ack, Packet_descriptor * p)
-{
-	using Protocol = Udp_packet;
-
-	/* get destination port */
-	size_t prot_size = ip_size - sizeof(Ipv4_packet);
-	Protocol * prot = new (ip->data<void>()) Protocol(prot_size);
-	uint16_t dst_port = prot->dst_port();
-
-	/* for the found port, try to find a route to a client of the NAT */
-	Port_node * node = vlan().port_tree()->first();
-	if (node) { node = node->find_by_address(dst_port); }
-	if (!node) { return; }
-	Session_component * client = node->component();
-
-	/* set the NATs MAC as source and the clients MAC and IP as destination */
-	eth->src(_mac);
-	eth->dst(client->mac_address().addr);
-	ip->dst(client->ipv4_address().addr);
-
-	/* re-calculate affected checksums */
-	prot->update_checksum(ip->src(), ip->dst());
-	ip->checksum(Ipv4_packet::calculate_checksum(*ip));
-
-	/* deliver the modified packet to the client */
-	client->send(eth, eth_size);
-}
-
-
 Net::Nic::Nic(Server::Entrypoint &ep, Net::Vlan &vlan)
 :
 	Packet_handler(ep, vlan, "uplink", mac(), public_ip())

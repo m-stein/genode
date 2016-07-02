@@ -97,12 +97,6 @@ void Session_component::_handle_tcp
 }
 
 
-void Session_component::_handle_udp(Ethernet_frame * eth, size_t eth_size,
-                                    Ipv4_packet * ip, size_t ip_size, bool & ack, Packet_descriptor * p)
-{
-}
-
-
 void Session_component::finalize_packet(Ethernet_frame * eth,
                                         size_t size)
 {

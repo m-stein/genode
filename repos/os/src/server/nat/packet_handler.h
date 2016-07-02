@@ -105,9 +105,9 @@ class Net::Packet_handler : public Interface_node
 		                         bool & ack, Packet_descriptor * p) = 0;
 
 
-		virtual void _handle_udp(Ethernet_frame * eth, size_t eth_size,
-		                         Ipv4_packet * ip, size_t ip_size, bool & ack,
-		                         Packet_descriptor * p) = 0;
+		void _handle_udp(Ethernet_frame * eth, size_t eth_size,
+		                 Ipv4_packet * ip, size_t ip_size, bool & ack,
+		                 Packet_descriptor * p);
 
 	protected:
 

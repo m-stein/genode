@@ -206,6 +206,35 @@ void Packet_handler::broadcast_to_clients(Ethernet_frame *eth, Genode::size_t si
 	}
 }
 
+void Packet_handler::_handle_udp
+(
+	Ethernet_frame * eth, size_t eth_size, Ipv4_packet * ip, size_t ip_size,
+	bool & ack, Packet_descriptor * p)
+{
+	/* get destination port */
+	size_t udp_size = ip_size - sizeof(Ipv4_packet);
+	Udp_packet * udp = new (ip->data<void>()) Udp_packet(udp_size);
+	uint16_t dst_port = udp->dst_port();
+
+	/* for the found port, try to find a route to a client of the NAT */
+	Port_node * node = vlan().port_tree()->first();
+	if (node) { node = node->find_by_address(dst_port); }
+	if (!node) { return; }
+	Session_component * client = node->component();
+
+	/* set the NATs MAC as source and the clients MAC and IP as destination */
+	eth->src(_nat_mac);
+	eth->dst(client->mac_address().addr);
+	ip->dst(client->ipv4_address().addr);
+
+	/* re-calculate affected checksums */
+	udp->update_checksum(ip->src(), ip->dst());
+	ip->checksum(Ipv4_packet::calculate_checksum(*ip));
+
+	/* deliver the modified packet to the client */
+	client->send(eth, eth_size);
+}
+
 
 void Packet_handler::handle_ethernet(void* src, Genode::size_t size, bool & ack, Packet_descriptor * p)
 {
