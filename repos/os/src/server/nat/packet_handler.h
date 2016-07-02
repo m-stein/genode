@@ -106,6 +106,8 @@ class Net::Packet_handler : public Interface_node
 
 	public:
 
+		void arp_broadcast(Ipv4_address ip_addr);
+
 		Mac_address  nat_mac()    {return _nat_mac;}
 		Ipv4_address nat_ip()     {return _nat_ip;}
 

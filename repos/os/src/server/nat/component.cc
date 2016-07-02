@@ -12,7 +12,6 @@
  */
 
 /* Genode */
-#include <net/arp.h>
 #include <net/dhcp.h>
 #include <net/udp.h>
 #include <net/tcp.h>
@@ -24,39 +23,13 @@ using namespace Genode;
 
 static const int verbose = 1;
 
-void Session_component::_arp_broadcast
-(
-	Packet_handler * handler, Ipv4_address ip_addr)
-{
-	Mac_address nat_mac = handler->nat_mac();
-	Ipv4_address nat_ip = handler->nat_ip();
-	using Ethernet_arp = Ethernet_frame_sized<sizeof(Arp_packet)>;
-	Ethernet_arp eth_arp(Mac_address(0xff), nat_mac, Ethernet_frame::ARP);
-
-	void * const eth_data = eth_arp.data<void>();
-	size_t const arp_size = sizeof(eth_arp) - sizeof(Ethernet_frame);
-	Arp_packet * const arp = new (eth_data) Arp_packet(arp_size);
-
-	arp->hardware_address_type(Arp_packet::ETHERNET);
-	arp->protocol_address_type(Arp_packet::IPV4);
-	arp->hardware_address_size(sizeof(Mac_address));
-	arp->protocol_address_size(sizeof(Ipv4_address));
-	arp->opcode(Arp_packet::REQUEST);
-	arp->src_mac(nat_mac);
-	arp->src_ip(nat_ip);
-	arp->dst_mac(Mac_address(0xff));
-	arp->dst_ip(ip_addr);
-
-	handler->send(&eth_arp, sizeof(eth_arp));
-}
-
 
 void Session_component::_handle_tcp_unknown_arp
 (
 	Ethernet_frame * eth, size_t eth_size, Ipv4_address ip_addr,
 	Packet_handler * handler, bool & ack, Packet_descriptor * p)
 {
-	_arp_broadcast(handler, ip_addr);
+	handler->arp_broadcast(ip_addr);
 	vlan().arp_waiters()->insert(new (this->guarded_allocator())
 		Arp_waiter(this, ip_addr, eth, eth_size, p));
 	ack = false;

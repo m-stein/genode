@@ -27,6 +27,30 @@ using namespace Genode;
 
 static const bool verbose = true;
 
+
+void Packet_handler::arp_broadcast(Ipv4_address ip_addr)
+{
+	using Ethernet_arp = Ethernet_frame_sized<sizeof(Arp_packet)>;
+	Ethernet_arp eth_arp(Mac_address(0xff), _nat_mac, Ethernet_frame::ARP);
+
+	void * const eth_data = eth_arp.data<void>();
+	size_t const arp_size = sizeof(eth_arp) - sizeof(Ethernet_frame);
+	Arp_packet * const arp = new (eth_data) Arp_packet(arp_size);
+
+	arp->hardware_address_type(Arp_packet::ETHERNET);
+	arp->protocol_address_type(Arp_packet::IPV4);
+	arp->hardware_address_size(sizeof(Mac_address));
+	arp->protocol_address_size(sizeof(Ipv4_address));
+	arp->opcode(Arp_packet::REQUEST);
+	arp->src_mac(_nat_mac);
+	arp->src_ip(_nat_ip);
+	arp->dst_mac(Mac_address(0xff));
+	arp->dst_ip(ip_addr);
+
+	send(&eth_arp, sizeof(eth_arp));
+}
+
+
 void Packet_handler::_remove_arp_waiter(Arp_waiter * arp_waiter)
 {
 	vlan().arp_waiters()->remove(arp_waiter);
