@@ -361,35 +361,20 @@ void Packet_handler::_handle_tcp_to_nat
 }
 
 
-void Packet_handler::handle_ethernet(void* src, Genode::size_t size, bool & ack, Packet_descriptor * p)
+void Packet_handler::handle_ethernet(void * src, size_t size, bool & ack, Packet_descriptor * p)
 {
 	try {
-		/* parse ethernet frame header */
-		Ethernet_frame *eth = new (src) Ethernet_frame(size);
+		Ethernet_frame * const eth = new (src) Ethernet_frame(size);
 		switch (eth->type()) {
-		case Ethernet_frame::ARP:
-			if (!_handle_arp(eth, size)) return;
-			break;
-		case Ethernet_frame::IPV4:
-			if(!_handle_ip(eth, size, ack, p)) return;
-			break;
-		default:
-			;
-		}
-
-		broadcast_to_clients(eth, size);
-		finalize_packet(eth, size);
-	} catch(Arp_packet::No_arp_packet) {
-		PWRN("Invalid ARP packet!");
-	} catch(Ethernet_frame::No_ethernet_frame) {
-		PWRN("Invalid ethernet frame");
-	} catch(Dhcp_packet::No_dhcp_packet) {
-		PWRN("Invalid IPv4 packet!");
-	} catch(Ipv4_packet::No_ip_packet) {
-		PWRN("Invalid IPv4 packet!");
-	} catch(Udp_packet::No_udp_packet) {
-		PWRN("Invalid UDP packet!");
+		case Ethernet_frame::ARP:  _handle_arp(eth, size); break;
+		case Ethernet_frame::IPV4: _handle_ip(eth, size, ack, p); break;
+		default: ; }
 	}
+	catch(Arp_packet::No_arp_packet)         { PWRN("Invalid ARP packet!"); }
+	catch(Ethernet_frame::No_ethernet_frame) { PWRN("Invalid ethernet frame"); }
+	catch(Dhcp_packet::No_dhcp_packet)       { PWRN("Invalid IPv4 packet!"); }
+	catch(Ipv4_packet::No_ip_packet)         { PWRN("Invalid IPv4 packet!"); }
+	catch(Udp_packet::No_udp_packet)         { PWRN("Invalid UDP packet!"); }
 }
 
 
