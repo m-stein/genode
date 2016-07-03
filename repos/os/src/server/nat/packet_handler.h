@@ -125,11 +125,24 @@ class Net::Packet_handler : public Interface_node
 		                 Ipv4_packet * ip, size_t ip_size, bool & ack,
 		                 Packet_descriptor * p);
 
-	protected:
+
+		void _handle_known_arp
+		(
+			Ethernet_frame * const eth, size_t const eth_size,
+			Ipv4_packet * const ip, size_t const ip_size,
+			Arp_node * const arp_node, Packet_handler * handler);
+
+		void _handle_to_others
+		(
+			Ethernet_frame * eth, size_t eth_size, Ipv4_packet * ip,
+			size_t ip_size, bool & ack, Packet_descriptor * p);
+
 
 		void _handle_unknown_arp(Ethernet_frame * eth, size_t eth_size,
 		                         Ipv4_address ip_addr, Packet_handler * handler,
 		                         bool & ack, Packet_descriptor * p);
+
+	protected:
 
 		Packet_handler * _ip_routing(Ipv4_address & ip_addr, Ipv4_packet * ip);
 
