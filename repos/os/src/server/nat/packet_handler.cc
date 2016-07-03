@@ -28,6 +28,32 @@ using namespace Genode;
 static const bool verbose = true;
 
 
+template <typename PROT>
+static void handle_prot_known_arp
+(
+	Ethernet_frame * const eth, size_t const eth_size, Ipv4_packet * const ip,
+	size_t const ip_size, Arp_node * const arp_node, Packet_handler * handler)
+{
+	size_t prot_size = ip_size - sizeof(Ipv4_packet);
+	PROT * prot = new (ip->data<void>()) PROT(prot_size);
+
+	Mac_address nat_mac = handler->nat_mac();
+	Ipv4_address nat_ip = handler->nat_ip();
+
+	/* set the NATs MAC as source and the next hops MAC and IP as destination */
+	eth->src(nat_mac);
+	ip->src(nat_ip);
+	eth->dst(arp_node->mac().addr);
+
+	/* re-calculate affected checksums */
+	prot->update_checksum(nat_ip, ip->dst(), prot_size);
+	ip->checksum(Ipv4_packet::calculate_checksum(*ip));
+
+	/* deliver the modified packet */
+	handler->send(eth, eth_size);
+}
+
+
 void Packet_handler::_handle_unknown_arp
 (
 	Ethernet_frame * eth, size_t eth_size, Ipv4_address ip_addr,
@@ -287,6 +313,63 @@ void Packet_handler::_handle_udp
 {
 	if (ip->dst() == _nat_ip) { _handle_udp_to_nat(eth, eth_size, ip, ip_size, ack, p); }
 	else { _handle_udp_to_others(eth, eth_size, ip, ip_size, ack, p); }
+}
+
+
+void Packet_handler::_handle_tcp
+(
+	Ethernet_frame * eth, size_t eth_size, Ipv4_packet * ip, size_t ip_size,
+	bool & ack, Packet_descriptor * p)
+{
+	if (ip->dst() == nat_ip()) { _handle_tcp_to_nat(eth, eth_size, ip, ip_size, ack, p); }
+	else { _handle_tcp_to_others(eth, eth_size, ip, ip_size, ack, p); }
+}
+
+
+void Packet_handler::_handle_tcp_to_others
+(
+	Ethernet_frame * eth, size_t eth_size, Ipv4_packet * ip, size_t ip_size, bool & ack, Packet_descriptor * p)
+{
+	Ipv4_address ip_addr;
+	Packet_handler * handler = _ip_routing(ip_addr, ip);
+	if (!handler) { return; }
+
+	/* for the found IP find an ARP rule or send an ARP request */
+	Arp_node * arp_node = vlan().arp_tree()->first();
+	if (arp_node) { arp_node = arp_node->find_by_ip(ip_addr); }
+	if (arp_node) { handle_prot_known_arp<Tcp_packet>(eth, eth_size, ip, ip_size, arp_node, handler); }
+	else { _handle_unknown_arp(eth, eth_size, ip_addr, handler, ack, p); }
+}
+
+void Packet_handler::_handle_tcp_to_nat
+(
+	Ethernet_frame * eth, size_t eth_size, Ipv4_packet * ip, size_t ip_size,
+	bool & ack, Packet_descriptor * p)
+{
+	using Protocol = Tcp_packet;
+
+	/* get destination port */
+	size_t prot_size = ip_size - sizeof(Ipv4_packet);
+	Protocol * prot = new (ip->data<void>()) Protocol(prot_size);
+	uint16_t dst_port = prot->dst_port();
+
+	/* for the found port, try to find a route to a client of the NAT */
+	Port_node * node = vlan().port_tree()->first();
+	if (node) { node = node->find_by_address(dst_port); }
+	if (!node) { return; }
+	Session_component * client = node->component();
+
+	/* set the NATs MAC as source and the clients MAC and IP as destination */
+	eth->src(nat_mac());
+	eth->dst(client->mac_address().addr);
+	ip->dst(client->ipv4_address().addr);
+
+	/* re-calculate affected checksums */
+	prot->update_checksum(ip->src(), ip->dst(), prot_size);
+	ip->checksum(Ipv4_packet::calculate_checksum(*ip));
+
+	/* deliver the modified packet to the client */
+	client->send(eth, eth_size);
 }
 
 

@@ -126,9 +126,6 @@ namespace Net
 			void _free_ipv4_node();
 			void _free_port_node();
 
-			void _handle_tcp(Ethernet_frame * eth, size_t eth_size,
-			                 Ipv4_packet * ip, size_t ip_size, bool & ack, Packet_descriptor * p);
-
 			void _arp_broadcast(Packet_handler * handler,
 			                    Ipv4_address ip_addr);
 

@@ -49,12 +49,6 @@ class Net::Nic
 :
 	public Nic_base, public Net::Packet_handler
 {
-	private:
-
-		void _handle_tcp(Ethernet_frame * eth, Genode::size_t eth_size,
-		                 Ipv4_packet * ip, Genode::size_t ip_size, bool & ack,
-		                 Packet_descriptor * p);
-
 	public:
 
 		Nic(Server::Entrypoint&, Vlan&);

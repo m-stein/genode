@@ -100,10 +100,6 @@ class Net::Packet_handler : public Interface_node
 		bool _handle_ip(Ethernet_frame * eth, size_t eth_size,
 		                bool & ack, Packet_descriptor * p);
 
-		virtual void _handle_tcp(Ethernet_frame * eth, size_t eth_size,
-		                         Ipv4_packet * ip, size_t ip_size,
-		                         bool & ack, Packet_descriptor * p) = 0;
-
 		void _handle_udp_to_others(Ethernet_frame * eth, size_t eth_size,
 		                           Ipv4_packet * ip, size_t ip_size,
 		                           bool & ack, Packet_descriptor * p);
@@ -113,6 +109,19 @@ class Net::Packet_handler : public Interface_node
 		                        bool & ack, Packet_descriptor * p);
 
 		void _handle_udp(Ethernet_frame * eth, size_t eth_size,
+		                 Ipv4_packet * ip, size_t ip_size, bool & ack,
+		                 Packet_descriptor * p);
+
+
+		void _handle_tcp_to_others(Ethernet_frame * eth, size_t eth_size,
+		                           Ipv4_packet * ip, size_t ip_size,
+		                           bool & ack, Packet_descriptor * p);
+
+		void _handle_tcp_to_nat(Ethernet_frame * eth, size_t eth_size,
+		                        Ipv4_packet * ip, size_t ip_size,
+		                        bool & ack, Packet_descriptor * p);
+
+		void _handle_tcp(Ethernet_frame * eth, size_t eth_size,
 		                 Ipv4_packet * ip, size_t ip_size, bool & ack,
 		                 Packet_descriptor * p);
 
