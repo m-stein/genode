@@ -19,10 +19,33 @@
 #include <nic/xml_node.h>
 #include <os/config.h>
 #include <os/server.h>
+#include <net/ethernet.h>
 
 /* local includes */
 #include <component.h>
 
+namespace Net { class Nat_mac; }
+
+class Net::Nat_mac
+{
+	private:
+
+		Mac_address _mac;
+
+	public:
+
+		class Bad_mac_attr : public Genode::Exception { };
+
+		Nat_mac() {
+			enum { MAC_STR_SZ = 18 };
+			char mac_str[MAC_STR_SZ] = { 0 };
+			Genode::config()->xml_node().attribute("mac_addr").value(mac_str, MAC_STR_SZ);
+			if (mac_str == 0 || !Genode::strlen(mac_str)) { throw Bad_mac_attr(); }
+			_mac = mac_from_string(mac_str);
+		}
+
+		Mac_address mac() { return _mac; }
+};
 
 struct Main
 {
@@ -38,18 +61,20 @@ struct Main
 	 */
 	Net::Vlan vlan;
 
+	Net::Nat_mac nat_mac;
+
 	/*
 	 * Proxy-ARP NIC session handler that holds a NIC session to the nic_drv
 	 * as back end and is a Net::Packet_handler at the front end.
 	 * Implementation is local.
 	 */
-	Net::Nic  nic  = { ep, vlan };
+	Net::Nic  nic  = { ep, vlan, nat_mac.mac() };
 
 	/*
 	 * Root component, handling new NIC session requests. The declaration and
 	 * implementation of both Root and Session_component is local.
 	 */
-	Net::Root root = { ep, nic, Genode::env()->heap() };
+	Net::Root root = { ep, nic, Genode::env()->heap(), nat_mac.mac() };
 
 	void handle_config()
 	{

@@ -38,8 +38,8 @@ class Net::Nic_base
 		::Nic::Packet_allocator   _tx_block_alloc;
 		::Nic::Connection         _nic;
 		Mac_address  _mac;
-		Ipv4_address _public_ip;
-		Ipv4_address _private_ip;
+		Ipv4_address _nat_ip;
+		Mac_address  _nat_mac;
 
 		Nic_base();
 };
@@ -51,12 +51,10 @@ class Net::Nic
 {
 	public:
 
-		Nic(Server::Entrypoint&, Vlan&);
+		Nic(Server::Entrypoint&, Vlan&, Mac_address nat_mac);
 
 		::Nic::Connection *              nic()        { return &_nic; }
 		Mac_address      mac()        { return _mac; }
-		Ipv4_address        public_ip()  { return _public_ip; }
-		Ipv4_address        private_ip() { return _private_ip; }
 
 		bool link_state() { return _nic.link_state(); }
 

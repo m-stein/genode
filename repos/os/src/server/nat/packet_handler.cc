@@ -398,16 +398,32 @@ void Packet_handler::send(Ethernet_frame *eth, Genode::size_t size)
 }
 
 
-Packet_handler::Packet_handler(Server::Entrypoint &ep, Vlan &vlan, char const * name, Mac_address nat_mac, Ipv4_address nat_ip, Genode::Allocator * allocator)
-: Interface_node(this, name),
-  _vlan(vlan),
-  _sink_ack(ep, *this, &Packet_handler::_ack_avail),
-  _sink_submit(ep, *this, &Packet_handler::_ready_to_submit),
-  _source_ack(ep, *this, &Packet_handler::_ready_to_ack),
-  _source_submit(ep, *this, &Packet_handler::_packet_avail),
-  _client_link_state(ep, *this, &Packet_handler::_link_state),
-  _nat_mac(nat_mac), _nat_ip(nat_ip),
-  _allocator(allocator)
+Packet_handler::Packet_handler
+(
+	Server::Entrypoint &ep, Vlan &vlan, char const * name, Mac_address nat_mac,
+	Ipv4_address nat_ip, Genode::Allocator * allocator)
+:
+	Interface_node(this, name), _vlan(vlan),
+	_sink_ack(ep, *this, &Packet_handler::_ack_avail),
+	_sink_submit(ep, *this, &Packet_handler::_ready_to_submit),
+	_source_ack(ep, *this, &Packet_handler::_ready_to_ack),
+	_source_submit(ep, *this, &Packet_handler::_packet_avail),
+	_client_link_state(ep, *this, &Packet_handler::_link_state),
+	_nat_mac(nat_mac), _nat_ip(nat_ip),
+	_allocator(allocator)
 {
+	PINF("Packet_handler %s %x:%x:%x:%x:%x:%x %u.%u.%u.%u",
+		name,
+		_nat_mac.addr[0],
+		_nat_mac.addr[1],
+		_nat_mac.addr[2],
+		_nat_mac.addr[3],
+		_nat_mac.addr[4],
+		_nat_mac.addr[5],
+		_nat_ip.addr[0],
+		_nat_ip.addr[1],
+		_nat_ip.addr[2],
+		_nat_ip.addr[3]);
+
 	vlan.interfaces()->insert(this);
 }

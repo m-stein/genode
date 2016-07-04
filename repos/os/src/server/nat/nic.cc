@@ -25,9 +25,9 @@ using namespace Net;
 using namespace Genode;
 
 
-Net::Nic::Nic(Server::Entrypoint &ep, Net::Vlan &vlan)
+Net::Nic::Nic(Server::Entrypoint &ep, Net::Vlan &vlan, Mac_address nat_mac)
 :
-	Packet_handler(ep, vlan, "uplink", mac(), public_ip(), env()->heap())
+	Packet_handler(ep, vlan, "uplink", nat_mac, Net::Nic_base::_nat_ip, env()->heap())
 {
 	class Bad_ip_addr_attr : Genode::Exception { };
 	class Bad_netmask_attr : Genode::Exception { };
@@ -79,14 +79,20 @@ Nic_base::Nic_base()
 :
 	_tx_block_alloc(env()->heap()),
 	_nic(&_tx_block_alloc, BUF_SIZE, BUF_SIZE),
- 	_mac(_nic.mac_address().addr)
+ 	_mac(_nic.mac_address().addr),
+	_nat_mac(_nic.mac_address().addr)
 {
-	_public_ip.addr[0]  =  10;
-	_public_ip.addr[1]  =   0;
-	_public_ip.addr[2]  =   2;
-	_public_ip.addr[3]  =  55;
-	_private_ip.addr[0] = 192;
-	_private_ip.addr[1] = 168;
-	_private_ip.addr[2] =   1;
-	_private_ip.addr[3] =   1;
+	enum { MAX_IP_ADDR_LENGTH  = 16, };
+	char nat_ip_addr[MAX_IP_ADDR_LENGTH];
+	memset(nat_ip_addr, 0, MAX_IP_ADDR_LENGTH);
+	Session_label label("label=\"uplink\"");
+	Session_policy policy(label);
+	policy.attribute("nat_ip_addr").value(nat_ip_addr, sizeof(nat_ip_addr));
+
+	if (nat_ip_addr != 0 && strlen(nat_ip_addr)) {
+		_nat_ip = Ipv4_packet::ip_from_string(nat_ip_addr);
+		if (_nat_ip == Ipv4_address()) {
+			PWRN("Empty or error nat ip address. Skipped.");
+		}
+	}
 }

@@ -149,6 +149,8 @@ namespace Net
 			                  Server::Entrypoint & ep,
 			                  Nic                & nic,
 			                  char               * ip_addr,
+						Mac_address nat_mac,
+			                  Ipv4_address nat_ip,
 			                  unsigned             port, char const * label);
 
 			~Session_component();
@@ -206,81 +208,21 @@ namespace Net
 			Mac_allocator       _mac_alloc;
 			Server::Entrypoint &_ep;
 			Net::Nic           &_nic;
+			Mac_address         _nat_mac;
 
 		protected:
 
 			enum { MAX_IP_ADDR_LENGTH  = 16, };
 			char ip_addr[MAX_IP_ADDR_LENGTH];
+			char nat_ip_addr[MAX_IP_ADDR_LENGTH];
 
-			Session_component *_create_session(const char *args)
-			{
-				using namespace Genode;
-
-				memset(ip_addr, 0, MAX_IP_ADDR_LENGTH);
-				unsigned port = 0;
-
-				Session_label  label;
-				 try {
-					label = Session_label(args);
-					Session_policy policy(label);
-					policy.attribute("ip_addr").value(ip_addr, sizeof(ip_addr));
-					policy.attribute("port").value(&port);
-
-					if (verbose) PLOG("policy: %s ip_addr = %s port = %u", label.string(), ip_addr, port);
-				} catch (Xml_node::Nonexistent_attribute) {
-					if (verbose) PLOG("Missing attribute in policy definition");
-				} catch (Session_policy::No_policy_defined) {
-					if (verbose) PLOG("Invalid session request, no matching policy");;
-				}
-
-				size_t ram_quota =
-					Arg_string::find_arg(args, "ram_quota"  ).ulong_value(0);
-				size_t tx_buf_size =
-					Arg_string::find_arg(args, "tx_buf_size").ulong_value(0);
-				size_t rx_buf_size =
-					Arg_string::find_arg(args, "rx_buf_size").ulong_value(0);
-
-				/* delete ram quota by the memory needed for the session */
-				size_t session_size = max((size_t)4096, sizeof(Session_component));
-				if (ram_quota < session_size)
-					throw Root::Quota_exceeded();
-
-				/*
-				 * Check if donated ram quota suffices for both
-				 * communication buffers. Also check both sizes separately
-				 * to handle a possible overflow of the sum of both sizes.
-				 */
-				if (tx_buf_size                  > ram_quota - session_size
-					|| rx_buf_size               > ram_quota - session_size
-					|| tx_buf_size + rx_buf_size > ram_quota - session_size) {
-					PERR("insufficient 'ram_quota', got %zd, need %zd",
-					     ram_quota, tx_buf_size + rx_buf_size + session_size);
-					throw Root::Quota_exceeded();
-				}
-
-				try {
-					return new (md_alloc()) Session_component(env()->heap(),
-					                                          ram_quota - session_size,
-					                                          tx_buf_size,
-					                                          rx_buf_size,
-					                                          _mac_alloc.alloc(),
-					                                          _ep,
-					                                          _nic,
-					                                          ip_addr,
-					                                          port, label.string());
-				} catch(Mac_allocator::Alloc_failed) {
-					PWRN("Mac address allocation failed!");
-					return (Session_component*) 0;
-				}
-			}
+			Session_component *_create_session(const char *args);
 
 		public:
 
 			Root(Server::Entrypoint &ep,
 			     Net::Nic           &nic,
-			     Genode::Allocator  *md_alloc)
-			: Genode::Root_component<Session_component>(&ep.rpc_ep(), md_alloc),
-			  _ep(ep), _nic(nic) { }
+			     Genode::Allocator  *md_alloc, Mac_address nat_mac);
 	};
 
 } /* namespace Net */
