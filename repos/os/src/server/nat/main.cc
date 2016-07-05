@@ -68,13 +68,13 @@ struct Main
 	 * as back end and is a Net::Packet_handler at the front end.
 	 * Implementation is local.
 	 */
-	Net::Nic  nic  = { ep, vlan, nat_mac.mac() };
+	Net::Uplink uplink = { ep, vlan, nat_mac.mac() };
 
 	/*
 	 * Root component, handling new NIC session requests. The declaration and
 	 * implementation of both Root and Session_component is local.
 	 */
-	Net::Root root = { ep, nic, Genode::env()->heap(), nat_mac.mac() };
+	Net::Root root = { ep, uplink, Genode::env()->heap(), nat_mac.mac() };
 
 	void handle_config()
 	{
@@ -89,7 +89,7 @@ struct Main
 
 	void read_mac()
 	{
-		Net::Mac_address mac(nic.mac());
+		Net::Mac_address mac(uplink.mac());
 		Genode::printf("--- NAT started "
 		               "(mac=%02x:%02x:%02x:%02x:%02x:%02x) ---\n",
 		               mac.addr[0], mac.addr[1], mac.addr[2],

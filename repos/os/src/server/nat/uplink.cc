@@ -25,9 +25,9 @@ using namespace Net;
 using namespace Genode;
 
 
-Net::Nic::Nic(Server::Entrypoint &ep, Net::Vlan &vlan, Mac_address nat_mac)
+Net::Uplink::Uplink(Server::Entrypoint &ep, Net::Vlan &vlan, Mac_address nat_mac)
 :
-	Packet_handler(ep, vlan, "uplink", nat_mac, Net::Nic_base::_nat_ip, env()->heap())
+	Packet_handler(ep, vlan, "uplink", nat_mac, Uplink_base::_nat_ip, env()->heap())
 {
 	_nic.rx_channel()->sigh_ready_to_ack(_sink_ack);
 	_nic.rx_channel()->sigh_packet_avail(_sink_submit);
@@ -37,7 +37,7 @@ Net::Nic::Nic(Server::Entrypoint &ep, Net::Vlan &vlan, Mac_address nat_mac)
 }
 
 
-Nic_base::Nic_base()
+Uplink_base::Uplink_base()
 :
 	_tx_block_alloc(env()->heap()),
 	_nic(&_tx_block_alloc, BUF_SIZE, BUF_SIZE),

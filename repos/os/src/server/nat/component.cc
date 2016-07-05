@@ -35,7 +35,7 @@ void Session_component::finalize_packet(Ethernet_frame * eth,
 	else {
 		/* set our MAC as sender */
 		eth->src(nat_mac());
-		_nic.send(eth, size);
+		_uplink.send(eth, size);
 	}
 }
 
@@ -49,7 +49,7 @@ void Session_component::_free_ipv4_node()
 }
 
 
-bool Session_component::link_state() { return _nic.link_state(); }
+bool Session_component::link_state() { return _uplink.link_state(); }
 
 
 void Session_component::set_port(unsigned port)
@@ -85,7 +85,7 @@ Session_component::Session_component(Allocator                  *allocator,
                                      size_t                      rx_buf_size,
                                      Mac_address vmac,
                                      Server::Entrypoint         &ep,
-                                     Net::Nic                   &nic,
+                                     Uplink                     &uplink,
                                      char                       *ip_addr,
 			                         Mac_address nat_mac,
 			                         Ipv4_address nat_ip,
@@ -95,11 +95,11 @@ Session_component::Session_component(Allocator                  *allocator,
   Session_rpc_object(Tx_rx_communication_buffers::tx_ds(),
                      Tx_rx_communication_buffers::rx_ds(),
                      this->range_allocator(), ep.rpc_ep()),
-  Packet_handler(ep, nic.vlan(), label, nat_mac, nat_ip, guarded_allocator()),
+  Packet_handler(ep, uplink.vlan(), label, nat_mac, nat_ip, guarded_allocator()),
   _mac_node(vmac, this),
   _ipv4_node(0),
   _port_node(0),
-  _nic(nic)
+  _uplink(uplink)
 {
 	vlan().mac_tree()->insert(&_mac_node);
 	vlan().mac_list()->insert(&_mac_node);
@@ -138,10 +138,10 @@ Session_component::~Session_component() {
 
 Net::Root::Root
 (
-	Server::Entrypoint & ep, Nic & nic, Allocator * md_alloc, Mac_address nat_mac)
+	Server::Entrypoint & ep, Uplink & uplink, Allocator * md_alloc, Mac_address nat_mac)
 :
 	Root_component<Session_component>(&ep.rpc_ep(), md_alloc),
-	_ep(ep), _nic(nic), _nat_mac(nat_mac)
+	_ep(ep), _uplink(uplink), _nat_mac(nat_mac)
 { }
 
 
@@ -204,7 +204,7 @@ Session_component * Net::Root::_create_session(char const * args)
 	try {
 		return new (md_alloc()) Session_component(
 			env()->heap(), ram_quota - session_size, tx_buf_size, rx_buf_size, _mac_alloc.alloc(),
-			_ep, _nic, ip_addr, _nat_mac, nat_ip, port, label.string());
+			_ep, _uplink, ip_addr, _nat_mac, nat_ip, port, label.string());
 
 	} catch(Mac_allocator::Alloc_failed) {
 		PWRN("Mac address allocation failed!");
