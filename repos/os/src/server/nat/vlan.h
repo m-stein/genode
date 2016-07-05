@@ -55,8 +55,6 @@ namespace Net
 
 			void _read_route(Xml_node & route_xn);
 
-			Ipv4_address _read_ip_attr(char const * attr, Xml_node & node);
-
 		public:
 
 			Vlan();

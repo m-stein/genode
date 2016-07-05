@@ -21,19 +21,15 @@
 /* local includes */
 #include <packet_handler.h>
 
-namespace Net
-{
-	class Arp_packet;
-	class Uplink;
-}
+namespace Net { class Uplink; }
 
 class Net::Uplink : public Net::Packet_handler
 {
 	private:
 
 		enum {
-			PACKET_SIZE = Nic::Packet_allocator::DEFAULT_PACKET_SIZE,
-			BUF_SIZE    = Nic::Session::QUEUE_SIZE * PACKET_SIZE,
+			PKT_SIZE = Nic::Packet_allocator::DEFAULT_PACKET_SIZE,
+			BUF_SIZE = Nic::Session::QUEUE_SIZE * PKT_SIZE,
 		};
 
 		Nic::Packet_allocator _tx_block_alloc;
@@ -47,7 +43,6 @@ class Net::Uplink : public Net::Packet_handler
 		Uplink(Server::Entrypoint&, Vlan&, Mac_address nat_mac);
 
 		Nic::Connection * nic()        { return &_nic; }
-		Mac_address       mac() const  { return _mac; }
 		bool              link_state() { return _nic.link_state(); }
 
 		/******************************

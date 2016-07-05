@@ -2,7 +2,7 @@
 #include <os/config.h>
 
 #include <vlan.h>
-#include <read_ip_attr.h>
+#include <read_net_attr.h>
 
 using namespace Net;
 using namespace Genode;
