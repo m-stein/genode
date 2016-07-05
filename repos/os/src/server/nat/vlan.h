@@ -19,6 +19,7 @@
 #include <address_node.h>
 #include <avl_safe.h>
 #include <list_safe.h>
+#include <util/xml_node.h>
 
 namespace Net
 {
@@ -41,6 +42,8 @@ namespace Net
 
 		private:
 
+			using Xml_node = Genode::Xml_node;
+
 			Mac_address_tree  _mac_tree;
 			Mac_address_list  _mac_list;
 			Ipv4_address_tree _ip_tree;
@@ -50,9 +53,13 @@ namespace Net
 			Route_list        _ip_routes;
 			Arp_waiter_list   _arp_waiters;
 
+			void _read_route(Xml_node & route_xn);
+
+			Ipv4_address _read_ip_attr(char const * attr, Xml_node & node);
+
 		public:
 
-			Vlan() {}
+			Vlan();
 
 			Mac_address_tree  * mac_tree()    { return &_mac_tree;    }
 			Mac_address_list  * mac_list()    { return &_mac_list;    }
