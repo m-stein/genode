@@ -41,8 +41,7 @@ Uplink_base::Uplink_base()
 :
 	_tx_block_alloc(env()->heap()),
 	_nic(&_tx_block_alloc, BUF_SIZE, BUF_SIZE),
- 	_mac(_nic.mac_address().addr),
-	_nat_mac(_nic.mac_address().addr)
+ 	_mac(_nic.mac_address().addr)
 {
 	enum { MAX_IP_ADDR_LENGTH  = 16, };
 	char nat_ip_addr[MAX_IP_ADDR_LENGTH];

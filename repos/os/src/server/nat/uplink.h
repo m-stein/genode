@@ -41,7 +41,6 @@ class Net::Uplink_base
 		Nic::Connection       _nic;
 		Mac_address           _mac;
 		Ipv4_address          _nat_ip;
-		Mac_address           _nat_mac;
 
 		Uplink_base();
 };
