@@ -24,13 +24,12 @@
 namespace Net
 {
 	class Arp_packet;
-	class Uplink_base;
 	class Uplink;
 }
 
-class Net::Uplink_base
+class Net::Uplink : public Net::Packet_handler
 {
-	protected:
+	private:
 
 		enum {
 			PACKET_SIZE = Nic::Packet_allocator::DEFAULT_PACKET_SIZE,
@@ -40,13 +39,9 @@ class Net::Uplink_base
 		Nic::Packet_allocator _tx_block_alloc;
 		Nic::Connection       _nic;
 		Mac_address           _mac;
-		Ipv4_address          _nat_ip;
 
-		Uplink_base();
-};
+		Ipv4_address _read_nat_ip_attr();
 
-class Net::Uplink : public Uplink_base, public Net::Packet_handler
-{
 	public:
 
 		Uplink(Server::Entrypoint&, Vlan&, Mac_address nat_mac);
