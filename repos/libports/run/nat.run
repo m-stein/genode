@@ -2,7 +2,9 @@
 # Build
 #
 
-set two_clients_and_servers 0
+set uplink_to_downlink_1 0
+set uplink_to_downlink_2 0
+set downlink_to_uplink 1
 
 set build_components {
 	core init
@@ -57,9 +59,11 @@ append config {
 		<resource name="RAM" quantum="24M"/>
 		<provides><service name="Nic"/></provides>
 		<config mac_addr="02:02:02:02:02:00">
-			<policy label="uplink"     nat_ip_addr="10.0.2.55"   ip_addr="192.168.1.72" port="8080" />
-			<policy label="http_srv_1" nat_ip_addr="192.168.1.1" ip_addr="192.168.1.18" port="80" />
-			<policy label="http_srv_2" nat_ip_addr="192.168.1.1" ip_addr="192.168.1.72" port="8080" />
+
+			<policy label="uplink"      nat_ip_addr="10.0.2.55"   ip_addr="192.168.1.72"  port="8080" />
+			<policy label="http_srv_1"  nat_ip_addr="192.168.1.1" ip_addr="192.168.1.18"  port="80"   />
+			<policy label="http_srv_2"  nat_ip_addr="192.168.1.1" ip_addr="192.168.1.72"  port="8080" />
+			<policy label="http_clnt_3" nat_ip_addr="100.200.0.1" ip_addr="100.200.0.128" port="2345" />
 
 			<route ip_addr="0.0.0.0"      netmask="0.0.0.0"         interface="uplink"     gateway="10.0.5.1" />
 			<route ip_addr="10.0.2.0"     netmask="255.255.255.0"   interface="uplink"     gateway="0.0.0.0" />
@@ -70,6 +74,7 @@ append config {
 			<route ip_addr="10.1.0.0"     netmask="255.255.0.0"     interface="uplink"     gateway="10.0.3.1" />
 			<route ip_addr="192.168.1.18" netmask="255.255.255.255" interface="http_srv_1" gateway="0.0.0.0"  />
 			<route ip_addr="192.168.1.72" netmask="255.255.255.255" interface="http_srv_2" gateway="0.0.0.0"  />
+
 		</config>
 		<route>
 			<service name="Nic"> <child name="nic_bridge"/> </service>
@@ -80,13 +85,16 @@ append config {
 		<resource name="RAM" quantum="24M"/>
 		<provides><service name="Nic"/></provides>
 		<config>
-			<policy label="nat" ip_addr="10.0.2.55"/>
+			<policy label="nat"        ip_addr="10.0.2.55"/>
+			<policy label="http_srv_3" ip_addr="10.0.2.11"/>
 		</config>
 		<route>
 			<service name="Nic"> <child name="nic_drv"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
-	</start>
+	</start>}
+
+append_if $uplink_to_downlink_1 config {
 	<start name="http_srv_1">
 		<binary name="test-lwip_httpsrv_static"/>
 		<resource name="RAM" quantum="32M"/>
@@ -95,9 +103,9 @@ append config {
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config>
-			<libc stdout="/dev/log" stderr="/dev/log"
-			      ip_addr="192.168.1.18" netmask="255.255.255.0"
-			      gateway="192.168.1.1" http_port="80"
+			<libc
+				stdout="/dev/log" stderr="/dev/log" ip_addr="192.168.1.18"
+				netmask="255.255.255.0" gateway="192.168.1.1" http_port="80"
 			>
 				<vfs> <dir name="dev"> <log/> </dir> </vfs>
 			</libc>
@@ -120,7 +128,7 @@ append config {
 		</config>
 	</start>}
 
-append_if $two_clients_and_servers config {
+append_if $uplink_to_downlink_2 config {
 	<start name="http_srv_2">
 		<binary name="test-lwip_httpsrv_static"/>
 		<resource name="RAM" quantum="32M"/>
@@ -129,9 +137,9 @@ append_if $two_clients_and_servers config {
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config>
-			<libc stdout="/dev/log" stderr="/dev/log"
-			      ip_addr="192.168.1.72" netmask="255.255.255.0"
-			      gateway="192.168.1.1" http_port="8080"
+			<libc
+				stdout="/dev/log" stderr="/dev/log" ip_addr="192.168.1.72"
+				netmask="255.255.255.0" gateway="192.168.1.1" http_port="8080"
 			>
 				<vfs> <dir name="dev"> <log/> </dir> </vfs>
 			</libc>
@@ -148,6 +156,41 @@ append_if $two_clients_and_servers config {
 			<libc
 				stdout="/dev/log" stderr="/dev/log" server_ip="10.0.2.55"
 				http_port="8080"
+			>
+				<vfs> <dir name="dev"> <log/> </dir> </vfs>
+			</libc>
+		</config>
+	</start>}
+
+append_if $downlink_to_uplink config {
+	<start name="http_srv_3">
+		<binary name="test-lwip_httpsrv_static"/>
+		<resource name="RAM" quantum="32M"/>
+		<route>
+			<service name="Nic"> <child name="nic_bridge"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+		<config>
+			<libc
+				stdout="/dev/log" stderr="/dev/log" ip_addr="10.0.2.11"
+				netmask="255.255.255.0" gateway="10.0.2.1"  http_port="2345"
+			>
+				<vfs> <dir name="dev"> <log/> </dir> </vfs>
+			</libc>
+		</config>
+	</start>
+	<start name="http_clnt_3">
+		<binary name="test-http_clnt"/>
+		<resource name="RAM" quantum="32M"/>
+		<route>
+			<service name="Nic"> <child name="nat"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+		<config>
+			<libc
+				stdout="/dev/log" stderr="/dev/log" ip_addr="100.200.0.128"
+				netmask="255.255.0.0" gateway="100.200.0.1"
+				server_ip="10.0.2.11" http_port="2345"
 			>
 				<vfs> <dir name="dev"> <log/> </dir> </vfs>
 			</libc>
