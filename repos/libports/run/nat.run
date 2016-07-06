@@ -111,7 +111,10 @@ append config {
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config>
-			<libc stdout="/dev/log" stderr="/dev/log" http_port="80">
+			<libc
+				stdout="/dev/log" stderr="/dev/log" server_ip="10.0.2.55"
+				http_port="80"
+			>
 				<vfs> <dir name="dev"> <log/> </dir> </vfs>
 			</libc>
 		</config>
@@ -142,7 +145,10 @@ append_if $two_clients_and_servers config {
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config>
-			<libc stdout="/dev/log" stderr="/dev/log" http_port="8080">
+			<libc
+				stdout="/dev/log" stderr="/dev/log" server_ip="10.0.2.55"
+				http_port="8080"
+			>
 				<vfs> <dir name="dev"> <log/> </dir> </vfs>
 			</libc>
 		</config>
