@@ -39,6 +39,7 @@ namespace Net
 			typedef List_safe<Arp_waiter>            Arp_waiter_list;
 
 			typedef Avl_tree_safe<Genode::Avl_string_base> Interface_tree;
+			typedef List_safe<Proxy_role> Proxy_role_list;
 
 		private:
 
@@ -52,6 +53,7 @@ namespace Net
 			Arp_tree          _arp_tree;
 			Route_list        _ip_routes;
 			Arp_waiter_list   _arp_waiters;
+			Proxy_role_list   _proxy_roles;
 
 			void _read_route(Xml_node & route_xn);
 
@@ -67,6 +69,7 @@ namespace Net
 			Route_list        * ip_routes()   { return &_ip_routes;   }
 			Arp_waiter_list   * arp_waiters() { return &_arp_waiters; }
 			Interface_tree    * interfaces()  { return &_interfaces;  }
+			Proxy_role_list   * proxy_roles() { return &_proxy_roles; }
 	};
 }
 

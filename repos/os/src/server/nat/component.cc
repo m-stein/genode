@@ -79,27 +79,23 @@ void Session_component::set_ipv4_address(Ipv4_address ip_addr)
 }
 
 
-Session_component::Session_component(Allocator                  *allocator,
-                                     size_t                      amount,
-                                     size_t                      tx_buf_size,
-                                     size_t                      rx_buf_size,
-                                     Mac_address vmac,
-                                     Server::Entrypoint         &ep,
-                                     Uplink                     &uplink,
-                                     char                       *ip_addr,
-			                         Mac_address nat_mac,
-			                         Ipv4_address nat_ip,
-                                     unsigned                    port, char const * label)
-: Guarded_range_allocator(allocator, amount),
-  Tx_rx_communication_buffers(tx_buf_size, rx_buf_size),
-  Session_rpc_object(Tx_rx_communication_buffers::tx_ds(),
-                     Tx_rx_communication_buffers::rx_ds(),
-                     this->range_allocator(), ep.rpc_ep()),
-  Packet_handler(ep, uplink.vlan(), label, nat_mac, nat_ip, guarded_allocator()),
-  _mac_node(vmac, this),
-  _ipv4_node(0),
-  _port_node(0),
-  _uplink(uplink)
+Session_component::Session_component
+(
+	Allocator * allocator, size_t amount, size_t tx_buf_size,
+	size_t rx_buf_size, Mac_address vmac, Server::Entrypoint & ep,
+	Uplink & uplink, char * ip_addr, Mac_address nat_mac, Ipv4_address nat_ip,
+	unsigned port, Session_label & label, Port_allocator & port_alloc)
+:
+	Guarded_range_allocator(allocator, amount),
+	Tx_rx_communication_buffers(tx_buf_size, rx_buf_size),
+	Session_rpc_object(
+		Tx_rx_communication_buffers::tx_ds(),
+		Tx_rx_communication_buffers::rx_ds(),
+		this->range_allocator(), ep.rpc_ep()),
+	Packet_handler(
+		ep, uplink.vlan(), nat_mac, nat_ip, guarded_allocator(), label,
+		port_alloc),
+	_mac_node(vmac, this), _ipv4_node(0), _port_node(0), _uplink(uplink)
 {
 	vlan().mac_tree()->insert(&_mac_node);
 	vlan().mac_list()->insert(&_mac_node);
@@ -113,6 +109,7 @@ Session_component::Session_component(Allocator                  *allocator,
 		} else {
 			set_ipv4_address(ip);
 			set_port(port);
+			port_alloc.alloc_index(port);
 
 			if (verbose)
 				PLOG("vmac=%02x:%02x:%02x:%02x:%02x:%02x ip=%d.%d.%d.%d",
@@ -138,10 +135,11 @@ Session_component::~Session_component() {
 
 Net::Root::Root
 (
-	Server::Entrypoint & ep, Uplink & uplink, Allocator * md_alloc, Mac_address nat_mac)
+	Server::Entrypoint & ep, Uplink & uplink, Allocator * md_alloc,
+	Mac_address nat_mac, Port_allocator & port_alloc)
 :
 	Root_component<Session_component>(&ep.rpc_ep(), md_alloc),
-	_ep(ep), _uplink(uplink), _nat_mac(nat_mac)
+	_ep(ep), _uplink(uplink), _nat_mac(nat_mac), _port_alloc(port_alloc)
 { }
 
 
@@ -153,7 +151,7 @@ Session_component * Net::Root::_create_session(char const * args)
 	memset(ip_addr, 0, MAX_IP_ADDR_LENGTH);
 	unsigned port = 0;
 
-	Session_label  label;
+	Session_label label;
 	 try {
 		label = Session_label(args);
 		Session_policy policy(label);
@@ -203,8 +201,9 @@ Session_component * Net::Root::_create_session(char const * args)
 
 	try {
 		return new (md_alloc()) Session_component(
-			env()->heap(), ram_quota - session_size, tx_buf_size, rx_buf_size, _mac_alloc.alloc(),
-			_ep, _uplink, ip_addr, _nat_mac, nat_ip, port, label.string());
+			env()->heap(), ram_quota - session_size, tx_buf_size, rx_buf_size,
+			_mac_alloc.alloc(), _ep, _uplink, ip_addr, _nat_mac, nat_ip, port,
+			label, _port_alloc);
 
 	} catch(Mac_allocator::Alloc_failed) {
 		PWRN("Mac address allocation failed!");

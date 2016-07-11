@@ -23,6 +23,7 @@
 #include <net/ipv4.h>
 
 #include <vlan.h>
+#include <port_allocator.h>
 
 namespace Net {
 
@@ -125,22 +126,23 @@ class Net::Packet_handler : public Interface_node
 		                 Ipv4_packet * ip, size_t ip_size, bool & ack,
 		                 Packet_descriptor * p);
 
+		void _apply_proxy(
+			Ipv4_packet * ip, size_t ip_size, Ipv4_address proxy_ip);
 
-		void _handle_known_arp
-		(
+
+		void _handle_to_others_known_arp(
 			Ethernet_frame * const eth, size_t const eth_size,
 			Ipv4_packet * const ip, size_t const ip_size,
 			Arp_node * const arp_node, Packet_handler * handler);
 
-		void _handle_to_others
-		(
+		void _handle_to_others(
 			Ethernet_frame * eth, size_t eth_size, Ipv4_packet * ip,
 			size_t ip_size, bool & ack, Packet_descriptor * p);
 
 
-		void _handle_unknown_arp(Ethernet_frame * eth, size_t eth_size,
-		                         Ipv4_address ip_addr, Packet_handler * handler,
-		                         bool & ack, Packet_descriptor * p);
+		void _handle_to_others_unknown_arp(
+			Ethernet_frame * eth, size_t eth_size, Ipv4_address ip_addr,
+			Packet_handler * handler, bool & ack, Packet_descriptor * p);
 
 	protected:
 
@@ -155,6 +157,10 @@ class Net::Packet_handler : public Interface_node
 		Mac_address         _nat_mac;
 		Ipv4_address        _nat_ip;
 		Genode::Allocator * _allocator;
+		Genode::Session_policy _policy;
+		bool                _proxy;
+		unsigned            _proxy_ports;
+		Port_allocator &    _port_alloc;
 
 	public:
 
@@ -163,9 +169,10 @@ class Net::Packet_handler : public Interface_node
 		Mac_address  nat_mac()    {return _nat_mac;}
 		Ipv4_address nat_ip()     {return _nat_ip;}
 
-		Packet_handler(Server::Entrypoint&, Vlan&, char const * name,
-		               Mac_address nat_mac, Ipv4_address nat_ip,
-		               Genode::Allocator * allocator);
+		Packet_handler(
+			Server::Entrypoint & ep, Vlan & vlan, Mac_address nat_mac,
+			Ipv4_address nat_ip, Genode::Allocator * allocator,
+			Genode::Session_label & label, Port_allocator & port_alloc);
 
 		virtual Packet_stream_sink< ::Nic::Session::Policy>   * sink()   = 0;
 		virtual Packet_stream_source< ::Nic::Session::Policy> * source() = 0;

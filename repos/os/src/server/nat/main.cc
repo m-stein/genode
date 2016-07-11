@@ -9,7 +9,8 @@
 
 /* local includes */
 #include <component.h>
-#include <read_net_attr.h>
+#include <attribute.h>
+#include <port_allocator.h>
 
 using namespace Genode;
 using namespace Net;
@@ -18,6 +19,7 @@ struct Main
 {
 	private:
 
+		Port_allocator       _port_alloc;
 		Server::Entrypoint & _ep;
 		Vlan                 _vlan;
 		Mac_address          _nat_mac;
@@ -45,8 +47,9 @@ void Main::_handle_config()
 
 Main::Main(Server::Entrypoint & ep)
 :
-	_ep(ep), _nat_mac(read_mac_attr("mac_addr", config()->xml_node())),
-	_uplink(_ep, _vlan, _nat_mac), _root(_ep, _uplink, env()->heap(), _nat_mac)
+	_ep(ep), _nat_mac(mac_attr("mac_addr", config()->xml_node())),
+	_uplink(_ep, _vlan, _nat_mac, _port_alloc),
+	_root(_ep, _uplink, env()->heap(), _nat_mac, _port_alloc)
 {
 	_handle_config();
 	env()->parent()->announce(ep.manage(_root));

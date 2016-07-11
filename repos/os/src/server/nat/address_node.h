@@ -36,6 +36,7 @@ namespace Net
 	class Route_list;
 	class Arp_node;
 	class Arp_waiter;
+	class Proxy_role;
 }
 
 class Net::Interface_node : public Genode::Avl_string_base
@@ -247,5 +248,37 @@ class Net::Arp_waiter : public Genode::List<Arp_waiter>::Element
 		Genode::size_t eth_size() const { return _eth_size; }
 		bool new_arp_node(Arp_node * arp_node);
 };
+
+
+class Net::Proxy_role : public Genode::List<Proxy_role>::Element
+{
+	private:
+
+		Genode::uint16_t const _client_port;
+		Genode::uint16_t const _proxy_port;
+		Ipv4_address const _client_ip;
+		Ipv4_address const _proxy_ip;
+		Packet_handler * const _client;
+
+	public:
+
+		Proxy_role(
+			Genode::uint16_t client_port, Genode::uint16_t proxy_port,
+			Ipv4_address client_ip, Ipv4_address proxy_ip,
+			Packet_handler * client);
+
+		Genode::uint16_t client_port() const { return _client_port; }
+		Genode::uint16_t proxy_port()  const { return _proxy_port; }
+		Ipv4_address     client_ip()   const { return _client_ip; }
+		Ipv4_address     proxy_ip()    const { return _proxy_ip; }
+		Packet_handler * client()      const { return _client; }
+
+		bool matches_client(
+			Ipv4_address client_ip, Genode::uint16_t client_port);
+
+		bool matches_proxy(
+			Ipv4_address proxy_ip, Genode::uint16_t proxy_port);
+};
+
 
 #endif /* _ADDRESS_NODE_H_ */

@@ -88,3 +88,29 @@ bool Arp_waiter::new_arp_node(Arp_node * arp_node)
 	_handler->continue_handle_ethernet(_eth, _eth_size, _packet);
 	return true;
 }
+
+
+Proxy_role::Proxy_role
+(
+	uint16_t client_port, uint16_t proxy_port, Ipv4_address client_ip,
+	Ipv4_address proxy_ip, Packet_handler * client)
+:
+	_client_port(client_port), _proxy_port(proxy_port), _client_ip(client_ip),
+	_proxy_ip(proxy_ip), _client(client)
+{ }
+
+
+bool Proxy_role::matches_client
+(
+	Ipv4_address client_ip, uint16_t client_port)
+{
+	return client_ip == _client_ip && client_port == _client_port;
+}
+
+
+bool Proxy_role::matches_proxy
+(
+	Ipv4_address proxy_ip, uint16_t proxy_port)
+{
+	return proxy_ip == _proxy_ip && proxy_port == _proxy_port;
+}

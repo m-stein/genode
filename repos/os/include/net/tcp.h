@@ -69,6 +69,9 @@ class Net::Tcp_packet
 
 		class No_tcp_packet : Exception {};
 
+		void src_port(Genode::uint16_t p) { _src_port = host_to_big_endian(p); }
+		void dst_port(Genode::uint16_t p) { _dst_port = host_to_big_endian(p); }
+
 		uint16_t src_port() { return host_to_big_endian(_src_port); }
 		uint16_t dst_port() { return host_to_big_endian(_dst_port); }
 		uint16_t flags()    { return host_to_big_endian(_flags); }

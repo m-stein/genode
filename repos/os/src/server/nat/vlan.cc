@@ -2,16 +2,16 @@
 #include <os/config.h>
 
 #include <vlan.h>
-#include <read_net_attr.h>
+#include <attribute.h>
 
 using namespace Net;
 using namespace Genode;
 
 void Vlan::_read_route(Xml_node & route_xn)
 {
-	Ipv4_address ip = read_ip_attr("ip_addr", route_xn);
-	Ipv4_address nm = read_ip_attr("netmask", route_xn);
-	Ipv4_address gw = read_ip_attr("gateway", route_xn);
+	Ipv4_address ip = ip_attr("ip_addr", route_xn);
+	Ipv4_address nm = ip_attr("netmask", route_xn);
+	Ipv4_address gw = ip_attr("gateway", route_xn);
 	char const * in = route_xn.attribute("interface").value_base();
 	size_t in_sz    = route_xn.attribute("interface").value_size();
 	Route_node * route = new (env()->heap()) Route_node(ip, nm, gw, in, in_sz);

@@ -21,6 +21,7 @@
 
 #include <component.h>
 #include <packet_handler.h>
+#include <attribute.h>
 
 using namespace Net;
 using namespace Genode;
@@ -28,7 +29,7 @@ using namespace Genode;
 static const bool verbose = true;
 
 
-void Packet_handler::_handle_unknown_arp
+void Packet_handler::_handle_to_others_unknown_arp
 (
 	Ethernet_frame * eth, size_t eth_size, Ipv4_address ip_addr,
 	Packet_handler * handler, bool & ack, Packet_descriptor * p)
@@ -36,6 +37,76 @@ void Packet_handler::_handle_unknown_arp
 	handler->arp_broadcast(ip_addr);
 	vlan().arp_waiters()->insert(new (_allocator) Arp_waiter(this, ip_addr, eth, eth_size, p));
 	ack = false;
+}
+
+
+void Packet_handler::_apply_proxy
+(
+	Ipv4_packet * ip, size_t ip_size, Ipv4_address proxy_ip)
+{
+	/* get src info of packet */
+	uint16_t src_port;
+	uint8_t ip_prot = ip->protocol();
+	switch (ip_prot) {
+	case Udp_packet::IP_ID: {
+
+		size_t udp_size = ip_size - sizeof(Ipv4_packet);
+		Udp_packet * udp = new (ip->data<void>()) Udp_packet(udp_size);
+		src_port = udp->src_port();
+		break; }
+
+	case Tcp_packet::IP_ID: {
+
+		size_t tcp_size = ip_size - sizeof(Ipv4_packet);
+		Tcp_packet * tcp = new (ip->data<void>()) Tcp_packet(tcp_size);
+		src_port = tcp->src_port();
+		break; }
+
+	default: {
+
+		PERR("unknown protocol");
+		class Unknown_protocol : public Exception { };
+		throw Unknown_protocol(); }
+	}
+	/* try to find proxy role that matches the src info */
+	Proxy_role * role = vlan().proxy_roles()->first();
+
+//Proxy_role 100.200.0.128:49153 10.0.2.55:1
+
+	while (role) {
+		if (role->matches_client(ip->src(), src_port)) { break; }
+		role = role->next();
+	}
+	/* no matching proxy role found, create a new one */
+	if (!role) {
+		unsigned proxy_port = _port_alloc.alloc();
+		role = new (_allocator)
+			Proxy_role(src_port, proxy_port, ip->src(), proxy_ip, this);
+		vlan().proxy_roles()->insert(role);
+	}
+	/* modify src info of packet according to proxy role */
+	switch (ip->protocol()) {
+	case Udp_packet::IP_ID: {
+
+		size_t udp_size = ip_size - sizeof(Ipv4_packet);
+		Udp_packet * udp = new (ip->data<void>()) Udp_packet(udp_size);
+		udp->src_port(role->proxy_port());
+		break; }
+
+	case Tcp_packet::IP_ID: {
+
+		size_t tcp_size = ip_size - sizeof(Ipv4_packet);
+		Tcp_packet * tcp = new (ip->data<void>()) Tcp_packet(tcp_size);
+		tcp->src_port(role->proxy_port());
+		break; }
+
+	default: {
+
+		PERR("unknown protocol");
+		class Unknown_protocol : public Exception { };
+		throw Unknown_protocol(); }
+	}
+	ip->src(role->proxy_ip());
 }
 
 
@@ -238,6 +309,7 @@ void Packet_handler::_handle_udp_to_nat
 	eth->src(_nat_mac);
 	eth->dst(client->mac_address().addr);
 	ip->dst(client->ipv4_address().addr);
+	if (_proxy) { _apply_proxy(ip, ip_size, client->nat_ip()); }
 
 	/* re-calculate affected checksums */
 	udp->update_checksum(ip->src(), ip->dst());
@@ -288,7 +360,7 @@ void Packet_handler::_handle_tcp
 	else { _handle_to_others(eth, eth_size, ip, ip_size, ack, p); }
 }
 
-void Packet_handler::_handle_known_arp
+void Packet_handler::_handle_to_others_known_arp
 (
 	Ethernet_frame * const eth, size_t const eth_size, Ipv4_packet * const ip,
 	size_t const ip_size, Arp_node * const arp_node, Packet_handler * handler)
@@ -298,8 +370,8 @@ void Packet_handler::_handle_known_arp
 
 	/* set the NATs MAC as source and the next hops MAC and IP as destination */
 	eth->src(nat_mac);
-	ip->src(nat_ip);
 	eth->dst(arp_node->mac().addr);
+	if (_proxy) { _apply_proxy(ip, ip_size, handler->nat_ip()); }
 
 	/* re-calculate affected checksums */
 	switch (ip->protocol()) {
@@ -324,8 +396,8 @@ void Packet_handler::_handle_to_others
 	/* for the found IP find an ARP rule or send an ARP request */
 	Arp_node * arp_node = vlan().arp_tree()->first();
 	if (arp_node) { arp_node = arp_node->find_by_ip(ip_addr); }
-	if (arp_node) { _handle_known_arp(eth, eth_size, ip, ip_size, arp_node, handler); }
-	else { _handle_unknown_arp(eth, eth_size, ip_addr, handler, ack, p); }
+	if (arp_node) { _handle_to_others_known_arp(eth, eth_size, ip, ip_size, arp_node, handler); }
+	else { _handle_to_others_unknown_arp(eth, eth_size, ip_addr, handler, ack, p); }
 }
 
 
@@ -342,22 +414,43 @@ void Packet_handler::_handle_tcp_to_nat
 	uint16_t dst_port = prot->dst_port();
 
 	/* for the found port, try to find a route to a client of the NAT */
+	Packet_handler * handler;
 	Port_node * node = vlan().port_tree()->first();
 	if (node) { node = node->find_by_address(dst_port); }
-	if (!node) { return; }
-	Session_component * client = node->component();
+	if (!node) {
 
-	/* set the NATs MAC as source and the clients MAC and IP as destination */
+		/* no port route found, try to find a matching proxy role instead */
+		Proxy_role * role = vlan().proxy_roles()->first();
+		while (role) {
+			if (role->matches_proxy(ip->dst(), dst_port)) { break; }
+			role = role->next();
+		}
+		if (!role) {
+			if (verbose) { PWRN("Drop unroutable TCP packet"); }
+			return;
+		}
+		handler = role->client();
+		prot->dst_port(role->client_port());
+	} else { handler = node->component(); }
+
+	/* XXX we should not depend on the fact that the handler is a component */
+	Session_component * comp = dynamic_cast<Session_component *>(handler);
+	if (!comp) {
+		if (verbose) { PWRN("Drop unroutable TCP packet"); }
+		return;
+	}
+	/* set the NATs MAC as source and the handler MAC and IP as destination */
 	eth->src(nat_mac());
-	eth->dst(client->mac_address().addr);
-	ip->dst(client->ipv4_address().addr);
+	eth->dst(comp->mac_address().addr);
+	ip->dst(comp->ipv4_address().addr);
+	if (_proxy) { _apply_proxy(ip, ip_size, handler->nat_ip()); }
 
 	/* re-calculate affected checksums */
 	prot->update_checksum(ip->src(), ip->dst(), prot_size);
 	ip->checksum(Ipv4_packet::calculate_checksum(*ip));
 
-	/* deliver the modified packet to the client */
-	client->send(eth, eth_size);
+	/* deliver the modified packet to the handler */
+	handler->send(eth, eth_size);
 }
 
 
@@ -400,20 +493,23 @@ void Packet_handler::send(Ethernet_frame *eth, Genode::size_t size)
 
 Packet_handler::Packet_handler
 (
-	Server::Entrypoint &ep, Vlan &vlan, char const * name, Mac_address nat_mac,
-	Ipv4_address nat_ip, Genode::Allocator * allocator)
+	Server::Entrypoint & ep, Vlan & vlan, Mac_address nat_mac,
+	Ipv4_address nat_ip, Allocator * allocator, Session_label & label,
+	Port_allocator & port_alloc)
 :
-	Interface_node(this, name), _vlan(vlan),
+	Interface_node(this, label.string()), _vlan(vlan),
 	_sink_ack(ep, *this, &Packet_handler::_ack_avail),
 	_sink_submit(ep, *this, &Packet_handler::_ready_to_submit),
 	_source_ack(ep, *this, &Packet_handler::_ready_to_ack),
 	_source_submit(ep, *this, &Packet_handler::_packet_avail),
 	_client_link_state(ep, *this, &Packet_handler::_link_state),
-	_nat_mac(nat_mac), _nat_ip(nat_ip),
-	_allocator(allocator)
+	_nat_mac(nat_mac), _nat_ip(nat_ip), _allocator(allocator),
+	_policy(label), _proxy(uint_attr("proxy", _policy)),
+	_proxy_ports(_proxy ? uint_attr("proxy_ports", _policy) : 0),
+	_port_alloc(port_alloc)
 {
-	PINF("Packet_handler %s %x:%x:%x:%x:%x:%x %u.%u.%u.%u",
-		name,
+	PINF("Packet_handler %s %x:%x:%x:%x:%x:%x %u.%u.%u.%u proxy %u ports %u",
+		label.string(),
 		_nat_mac.addr[0],
 		_nat_mac.addr[1],
 		_nat_mac.addr[2],
@@ -423,7 +519,8 @@ Packet_handler::Packet_handler
 		_nat_ip.addr[0],
 		_nat_ip.addr[1],
 		_nat_ip.addr[2],
-		_nat_ip.addr[3]);
+		_nat_ip.addr[3],
+		_proxy, _proxy_ports);
 
 	vlan.interfaces()->insert(this);
 }

@@ -20,23 +20,28 @@
 #include <os/config.h>
 
 #include <component.h>
-#include <read_net_attr.h>
+#include <attribute.h>
 
 using namespace Net;
 using namespace Genode;
 
 
-Ipv4_address Net::Uplink::_read_nat_ip_attr() {
+Ipv4_address Net::Uplink::_nat_ip_attr() {
 
-	Session_label label("label=\"uplink\"");
-	Session_policy policy(label);
-	return read_ip_attr("nat_ip_addr", policy);
+	Session_policy policy(*this);
+	return ip_attr("nat_ip_addr", policy);
 }
 
 
-Net::Uplink::Uplink(Server::Entrypoint &ep, Net::Vlan &vlan, Mac_address nat_mac)
+Net::Uplink::Uplink
+(
+	Server::Entrypoint &ep, Net::Vlan &vlan, Mac_address nat_mac,
+	Port_allocator & port_alloc)
 :
-	Packet_handler(ep, vlan, "uplink", nat_mac, _read_nat_ip_attr(), env()->heap()),
+	Session_label("label=\"uplink\""),
+	Packet_handler(
+		ep, vlan, nat_mac, _nat_ip_attr(), env()->heap(), *this,
+		port_alloc),
 	_tx_block_alloc(env()->heap()),
 	_nic(&_tx_block_alloc, BUF_SIZE, BUF_SIZE),
 	_mac(_nic.mac_address().addr)

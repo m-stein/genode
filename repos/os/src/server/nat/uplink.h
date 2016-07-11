@@ -20,10 +20,11 @@
 
 /* local includes */
 #include <packet_handler.h>
+#include <port_allocator.h>
 
 namespace Net { class Uplink; }
 
-class Net::Uplink : public Net::Packet_handler
+class Net::Uplink : public Genode::Session_label, public Net::Packet_handler
 {
 	private:
 
@@ -36,11 +37,13 @@ class Net::Uplink : public Net::Packet_handler
 		Nic::Connection       _nic;
 		Mac_address           _mac;
 
-		Ipv4_address _read_nat_ip_attr();
+		Ipv4_address _nat_ip_attr();
 
 	public:
 
-		Uplink(Server::Entrypoint&, Vlan&, Mac_address nat_mac);
+		Uplink(
+			Server::Entrypoint&, Vlan&, Mac_address nat_mac,
+			Port_allocator & port_alloc);
 
 		Nic::Connection * nic()        { return &_nic; }
 		bool              link_state() { return _nic.link_state(); }

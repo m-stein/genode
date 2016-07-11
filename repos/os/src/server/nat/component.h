@@ -30,6 +30,7 @@
 #include <mac.h>
 #include <uplink.h>
 #include <packet_handler.h>
+#include <port_allocator.h>
 
 namespace Net
 {
@@ -159,7 +160,8 @@ class Net::Session_component : public  Guarded_range_allocator,
 		                  char               * ip_addr,
 					Mac_address nat_mac,
 		                  Ipv4_address nat_ip,
-		                  unsigned             port, char const * label);
+		                  unsigned             port, Genode::Session_label & label,
+		Port_allocator & port_alloc);
 
 		~Session_component();
 
@@ -214,6 +216,7 @@ class Net::Root : public Genode::Root_component<Session_component>
 		Server::Entrypoint &_ep;
 		Uplink             &_uplink;
 		Mac_address         _nat_mac;
+		Port_allocator &    _port_alloc;
 
 	protected:
 
@@ -227,7 +230,8 @@ class Net::Root : public Genode::Root_component<Session_component>
 
 		Root(Server::Entrypoint &ep,
 		     Uplink             &uplink,
-		     Genode::Allocator  *md_alloc, Mac_address nat_mac);
+		     Genode::Allocator  *md_alloc, Mac_address nat_mac,
+			Port_allocator & port_alloc);
 };
 
 #endif /* _COMPONENT_H_ */
