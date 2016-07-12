@@ -144,6 +144,14 @@ class Net::Packet_handler : public Interface_node
 			Ethernet_frame * eth, size_t eth_size, Ipv4_address ip_addr,
 			Packet_handler * handler, bool & ack, Packet_descriptor * p);
 
+		Proxy_role * _new_proxy_role(
+			unsigned const client_port, Ipv4_address client_ip,
+			Ipv4_address proxy_ip);
+
+		void _too_many_proxy_roles();
+
+		void _delete_proxy_role(Proxy_role * const role);
+
 	protected:
 
 		Packet_handler * _ip_routing(Ipv4_address & ip_addr, Ipv4_packet * ip);
@@ -158,8 +166,9 @@ class Net::Packet_handler : public Interface_node
 		Ipv4_address        _nat_ip;
 		Genode::Allocator * _allocator;
 		Genode::Session_policy _policy;
-		bool                _proxy;
-		unsigned            _proxy_ports;
+		bool const          _proxy;
+		unsigned const      _proxy_ports;
+		unsigned            _proxy_ports_used;
 		Port_allocator &    _port_alloc;
 
 	public:

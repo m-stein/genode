@@ -40,6 +40,38 @@ void Packet_handler::_handle_to_others_unknown_arp
 }
 
 
+void Packet_handler::_delete_proxy_role(Proxy_role * const role)
+{
+	vlan().proxy_roles()->remove(role);
+	unsigned const proxy_port = role->proxy_port();
+	destroy(_allocator, role);
+	_port_alloc.free(proxy_port);
+	_proxy_ports_used--;
+}
+
+
+void Packet_handler::_too_many_proxy_roles()
+{
+	PERR("To many proxy roles requested");
+	class Too_many_proxy_roles : public Exception { };
+	throw Too_many_proxy_roles();
+}
+
+
+Proxy_role * Packet_handler::_new_proxy_role
+(
+	unsigned const client_port, Ipv4_address client_ip, Ipv4_address proxy_ip)
+{
+	if (_proxy_ports_used == _proxy_ports) { _too_many_proxy_roles(); }
+	_proxy_ports_used++;
+	unsigned const proxy_port = _port_alloc.alloc();
+	Proxy_role * const role = new (_allocator)
+		Proxy_role(client_port, proxy_port, client_ip, proxy_ip, this);
+	vlan().proxy_roles()->insert(role);
+	return role;
+}
+
+
 void Packet_handler::_apply_proxy
 (
 	Ipv4_packet * ip, size_t ip_size, Ipv4_address proxy_ip)
@@ -76,22 +108,14 @@ void Packet_handler::_apply_proxy
 			return;
 		}
 	}
-	/* try to find proxy role that matches the src info */
+	/* find a proxy role that matches the src info or create a new one */
 	Proxy_role * role = vlan().proxy_roles()->first();
-
-//Proxy_role 100.200.0.128:49153 10.0.2.55:1
-
 	while (role) {
 		if (role->matches_client(ip->src(), src_port)) { break; }
 		role = role->next();
 	}
-	/* no matching proxy role found, create a new one */
-	if (!role) {
-		unsigned proxy_port = _port_alloc.alloc();
-		role = new (_allocator)
-			Proxy_role(src_port, proxy_port, ip->src(), proxy_ip, this);
-		vlan().proxy_roles()->insert(role);
-	}
+	if (!role) { role = _new_proxy_role(src_port, ip->src(), proxy_ip); }
+
 	/* modify src info of packet according to proxy role */
 	switch (ip->protocol()) {
 	case Udp_packet::IP_ID: {
@@ -514,7 +538,7 @@ Packet_handler::Packet_handler
 	_nat_mac(nat_mac), _nat_ip(nat_ip), _allocator(allocator),
 	_policy(label), _proxy(uint_attr("proxy", _policy)),
 	_proxy_ports(_proxy ? uint_attr("proxy_ports", _policy) : 0),
-	_port_alloc(port_alloc)
+	_proxy_ports_used(0), _port_alloc(port_alloc)
 {
 	PINF("Packet_handler %s %x:%x:%x:%x:%x:%x %u.%u.%u.%u proxy %u ports %u",
 		label.string(),
