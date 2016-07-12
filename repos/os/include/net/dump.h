@@ -12,15 +12,16 @@ namespace Net
 	void dump_tcp(void * base, Genode::size_t size)
 	{
 		Tcp_packet * tcp = new (base) Tcp_packet(size);
-		Genode::printf("\033[32mTCP\033[0m f%u%u%u%u%u%u %u > %u ",
-			(tcp->flags() >> 0) & 1,
-			(tcp->flags() >> 1) & 1,
-			(tcp->flags() >> 2) & 1,
-			(tcp->flags() >> 3) & 1,
-			(tcp->flags() >> 4) & 1,
-			(tcp->flags() >> 5) & 1,
+		Genode::printf("\033[32mTCP\033[0m %u > %u ",
 			tcp->src_port(),
 			tcp->dst_port());
+
+		if (tcp->fin()) { Genode::printf("f"); }
+		if (tcp->syn()) { Genode::printf("s"); }
+		if (tcp->rst()) { Genode::printf("r"); }
+		if (tcp->psh()) { Genode::printf("p"); }
+		if (tcp->ack()) { Genode::printf("a"); }
+		if (tcp->urg()) { Genode::printf("u"); }
 	}
 
 

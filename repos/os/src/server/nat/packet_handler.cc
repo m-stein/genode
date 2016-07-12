@@ -115,6 +115,12 @@ void Packet_handler::_apply_proxy
 		role = role->next();
 	}
 	if (!role) { role = _new_proxy_role(src_port, ip->src(), proxy_ip); }
+	if (ip_prot == Tcp_packet::IP_ID) {
+
+		size_t tcp_size = ip_size - sizeof(Ipv4_packet);
+		Tcp_packet * tcp = new (ip->data<void>()) Tcp_packet(tcp_size);
+		role->tcp_packet(ip, tcp);
+	}
 
 	/* modify src info of packet according to proxy role */
 	switch (ip->protocol()) {
@@ -461,6 +467,7 @@ void Packet_handler::_handle_tcp_to_nat
 			if (verbose) { PWRN("Drop unroutable TCP packet"); }
 			return;
 		}
+		role->tcp_packet(ip, prot);
 		handler = role->client();
 		prot->dst_port(role->client_port());
 	} else { handler = node->component(); }

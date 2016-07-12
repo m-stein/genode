@@ -22,7 +22,11 @@
 #include <net/ipv4.h>
 #include <util/register.h>
 
-namespace Net { class Tcp_packet; }
+namespace Net
+{
+	class Tcp_state;
+	class Tcp_packet;
+}
 
 /**
  * Data layout of this class conforms to an TCP packet (RFC 768)
@@ -48,18 +52,25 @@ class Net::Tcp_packet
 		uint16_t _urgent_ptr;
 		uint32_t _data[];
 
+		struct Flags : Genode::Register<8>
+		{
+			struct Fin : Bitfield<0, 1> { };
+			struct Syn : Bitfield<1, 1> { };
+			struct Rst : Bitfield<2, 1> { };
+			struct Psh : Bitfield<3, 1> { };
+			struct Ack : Bitfield<4, 1> { };
+			struct Urg : Bitfield<5, 1> { };
+		};
+
 	public:
 
-//		struct Flags : Genode::Register<8>
-//		{
-//			struct Fin : Genode::Bitfield<0, 1> { };
-//			struct Syn : Genode::Bitfield<1, 1> { };
-//			struct Rst : Genode::Bitfield<2, 1> { };
-//			struct Psh : Genode::Bitfield<3, 1> { };
-//			struct Ack : Genode::Bitfield<4, 1> { };
-//			struct Urg : Genode::Bitfield<5, 1> { };
-//		};
-//
+		bool fin() const { return Flags::Fin::get(_flags); };
+		bool syn() const { return Flags::Syn::get(_flags); };
+		bool rst() const { return Flags::Rst::get(_flags); };
+		bool psh() const { return Flags::Psh::get(_flags); };
+		bool ack() const { return Flags::Ack::get(_flags); };
+		bool urg() const { return Flags::Urg::get(_flags); };
+
 //		struct Data_offset : Genode::Register<8>
 //		{
 //			struct Value : Genode::Bitfield<4, 4> { };
@@ -131,5 +142,36 @@ class Net::Tcp_packet
 		void * operator new(size_t size, void * addr) { return addr; }
 
 } __attribute__((packed));
+
+
+class Tcp_state
+{
+	public:
+
+		enum Enum {
+
+			CLOSED,
+			ESTABLISHED,
+
+			/* open: responder */
+			LISTEN,
+			SYN_RECEIVED,
+
+			/* open: initiator */
+			SYN_SENT,
+
+			/* close: responder */
+			CLOSE_WAIT,
+			LAST_ACK,
+
+			/* close: initiator */
+			FIN_WAIT_1,
+			FIN_WAIT_2,
+
+			/* close: simultaneous */
+			CLOSING,
+			TIME_WAIT,
+		};
+};
 
 #endif /* _TCP_H_ */

@@ -1,6 +1,7 @@
 
 #include <address_node.h>
 #include <component.h>
+#include <net/tcp.h>
 
 using namespace Net;
 using namespace Genode;
@@ -113,4 +114,22 @@ bool Proxy_role::matches_proxy
 	Ipv4_address proxy_ip, uint16_t proxy_port)
 {
 	return proxy_ip == _proxy_ip && proxy_port == _proxy_port;
+}
+
+
+void Proxy_role::tcp_packet(Ipv4_packet * const ip, Tcp_packet * const tcp)
+{
+	PERR("tcp_packet");
+	bool from_client;
+	if (tcp->src_port() == _client_port) { from_client = true; PERR("from_client 1");}
+	else {                                 from_client = false; PERR("from_client 0");}
+	if (tcp->fin()) {
+		if (from_client) { _client_fin = true; PERR("client_fin"); }
+		else {             _other_fin  = true; PERR("other_fin"); }
+	}
+	if (tcp->ack()) {
+		if (from_client  && _other_fin)  { _other_fin_acked  = true; PERR("other_fin_acked"); }
+		if (!from_client && _client_fin) { _client_fin_acked = true; PERR("client_fin_acked"); }
+		if (_other_fin_acked && _client_fin_acked) { _destroy = true; PERR("Destroy!"); }
+	}
 }

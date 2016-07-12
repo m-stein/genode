@@ -37,6 +37,7 @@ namespace Net
 	class Arp_node;
 	class Arp_waiter;
 	class Proxy_role;
+	class Tcp_packet;
 }
 
 class Net::Interface_node : public Genode::Avl_string_base
@@ -260,6 +261,12 @@ class Net::Proxy_role : public Genode::List<Proxy_role>::Element
 		Ipv4_address const _proxy_ip;
 		Packet_handler * const _client;
 
+		bool _client_fin = false;
+		bool _other_fin = false;
+		bool _client_fin_acked = false;
+		bool _other_fin_acked = false;
+		bool _destroy = false;
+
 	public:
 
 		Proxy_role(
@@ -278,6 +285,8 @@ class Net::Proxy_role : public Genode::List<Proxy_role>::Element
 
 		bool matches_proxy(
 			Ipv4_address proxy_ip, Genode::uint16_t proxy_port);
+
+		void tcp_packet(Ipv4_packet * const ip, Tcp_packet * const tcp);
 };
 
 
