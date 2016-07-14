@@ -118,7 +118,7 @@ Session_component::Session_component(Genode::Allocator          *allocator,
                                      Mac_address vmac,
                                      Server::Entrypoint         &ep,
                                      Net::Nic                   &nic,
-                                     char                       *ip_addr)
+                                     Ipv4_address ip)
 : Guarded_range_allocator(allocator, amount),
   Tx_rx_communication_buffers(tx_buf_size, rx_buf_size),
   Session_rpc_object(Tx_rx_communication_buffers::tx_ds(),
@@ -132,22 +132,7 @@ Session_component::Session_component(Genode::Allocator          *allocator,
 	vlan().mac_tree()->insert(&_mac_node);
 	vlan().mac_list()->insert(&_mac_node);
 
-	/* static ip parsing */
-	if (ip_addr != 0 && Genode::strlen(ip_addr)) {
-		Ipv4_address ip = Ipv4_packet::ip_from_string(ip_addr);
-
-		if (ip == Ipv4_address()) {
-			PWRN("Empty or error ip address. Skipped.");
-		} else {
-			set_ipv4_address(ip);
-
-			if (verbose)
-				PLOG("vmac=%02x:%02x:%02x:%02x:%02x:%02x ip=%d.%d.%d.%d",
-				     vmac.addr[0], vmac.addr[1], vmac.addr[2],
-				     vmac.addr[3], vmac.addr[4], vmac.addr[5],
-				     ip.addr[0], ip.addr[1], ip.addr[2], ip.addr[3]);
-		}
-	}
+	if (ip != Ipv4_address()) { set_ipv4_address(ip); }
 
 	_tx.sigh_ready_to_ack(_sink_ack);
 	_tx.sigh_packet_avail(_sink_submit);

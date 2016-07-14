@@ -129,7 +129,7 @@ namespace Net {
 			                  Mac_address vmac,
 			                  Server::Entrypoint         &ep,
 			                  Net::Nic                   &nic,
-			                  char                       *ip_addr = 0);
+			                  Ipv4_address ip);
 
 			~Session_component();
 
@@ -198,17 +198,14 @@ namespace Net {
 
 				memset(ip_addr, 0, MAX_IP_ADDR_LENGTH);
 
-				 try {
-					Session_label  label(args);
+				Session_label  label(args);
+				try {
 					Session_policy policy(label);
 					policy.attribute("ip_addr").value(ip_addr, sizeof(ip_addr));
 
-					if (verbose) PLOG("policy: %s ip_addr = %s", label.string(), ip_addr);
 				} catch (Xml_node::Nonexistent_attribute) {
 					if (verbose) PLOG("Missing \"ip_addr\" attribute in policy definition");
-				} catch (Session_policy::No_policy_defined) {
-					if (verbose) PLOG("Invalid session request, no matching policy");;
-				}
+				} catch (Session_policy::No_policy_defined) { }
 
 				size_t ram_quota =
 					Arg_string::find_arg(args, "ram_quota"  ).ulong_value(0);
@@ -235,15 +232,30 @@ namespace Net {
 					throw Root::Quota_exceeded();
 				}
 
+				Mac_address vmac = _mac_alloc.alloc();
+
+				Ipv4_address ip;
+
+				/* static ip parsing */
+				if (ip_addr != 0 && Genode::strlen(ip_addr)) {
+					ip = Ipv4_packet::ip_from_string(ip_addr); }
+
+				if (verbose)
+					PLOG("Client: \"%s\" mac %02x:%02x:%02x:%02x:%02x:%02x ip %d.%d.%d.%d",
+						label.string(),
+						vmac.addr[0], vmac.addr[1], vmac.addr[2],
+						vmac.addr[3], vmac.addr[4], vmac.addr[5],
+						ip.addr[0], ip.addr[1], ip.addr[2], ip.addr[3]);
+
 				try {
 					return new (md_alloc()) Session_component(env()->heap(),
 					                                          ram_quota - session_size,
 					                                          tx_buf_size,
 					                                          rx_buf_size,
-					                                          _mac_alloc.alloc(),
+					                                          vmac,
 					                                          _ep,
 					                                          _nic,
-					                                          ip_addr);
+					                                          ip);
 				} catch(Mac_allocator::Alloc_failed) {
 					PWRN("Mac address allocation failed!");
 					return (Session_component*) 0;
