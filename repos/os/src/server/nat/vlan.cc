@@ -19,7 +19,7 @@ void Vlan::_read_route(Xml_node & route_xn)
 }
 
 
-Vlan::Vlan()
+Vlan::Vlan() : _rtt_sec(uint_attr("rtt_sec", config()->xml_node()))
 {
 	try {
 		Xml_node route = config()->xml_node().sub_node("route");

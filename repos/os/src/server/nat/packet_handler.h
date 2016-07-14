@@ -21,6 +21,7 @@
 #include <os/server.h>
 #include <net/ethernet.h>
 #include <net/ipv4.h>
+#include <os/session_policy.h>
 
 #include <vlan.h>
 #include <port_allocator.h>
@@ -45,8 +46,9 @@ class Net::Packet_handler : public Interface_node
 
 	private:
 
-		Packet_descriptor _packet;
-		Net::Vlan        &_vlan;
+		Packet_descriptor    _packet;
+		Net::Vlan &          _vlan;
+		Genode::Entrypoint & _ep;
 
 		/**
 		 * submit queue not empty anymore
@@ -151,6 +153,8 @@ class Net::Packet_handler : public Interface_node
 		void _too_many_proxy_roles();
 
 		void _delete_proxy_role(Proxy_role * const role);
+
+		bool _chk_delete_proxy_role(Proxy_role * & role);
 
 	protected:
 

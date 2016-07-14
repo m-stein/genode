@@ -21,6 +21,8 @@
 #include <list_safe.h>
 #include <util/xml_node.h>
 
+#include <proxy_role.h>
+
 namespace Net
 {
 	/*
@@ -54,6 +56,7 @@ namespace Net
 			Route_list        _ip_routes;
 			Arp_waiter_list   _arp_waiters;
 			Proxy_role_list   _proxy_roles;
+			unsigned const    _rtt_sec;
 
 			void _read_route(Xml_node & route_xn);
 
@@ -70,6 +73,8 @@ namespace Net
 			Arp_waiter_list   * arp_waiters() { return &_arp_waiters; }
 			Interface_tree    * interfaces()  { return &_interfaces;  }
 			Proxy_role_list   * proxy_roles() { return &_proxy_roles; }
+
+			unsigned rtt_sec() const { return _rtt_sec; }
 	};
 }
 

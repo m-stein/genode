@@ -22,6 +22,7 @@
 #include <component.h>
 #include <packet_handler.h>
 #include <attribute.h>
+#include <proxy_role.h>
 
 using namespace Net;
 using namespace Genode;
@@ -65,10 +66,21 @@ Proxy_role * Packet_handler::_new_proxy_role
 	if (_proxy_ports_used == _proxy_ports) { _too_many_proxy_roles(); }
 	_proxy_ports_used++;
 	unsigned const proxy_port = _port_alloc.alloc();
-	Proxy_role * const role = new (_allocator)
-		Proxy_role(client_port, proxy_port, client_ip, proxy_ip, this);
+	Proxy_role * const role = new (_allocator) Proxy_role(
+		client_port, proxy_port, client_ip, proxy_ip, *this, _ep,
+		vlan().rtt_sec());
 	vlan().proxy_roles()->insert(role);
 	return role;
+}
+
+
+bool Packet_handler::_chk_delete_proxy_role(Proxy_role * & role)
+{
+	if (!role->del()) { return false; }
+	Proxy_role * const next_role = role->next();
+	_delete_proxy_role(role);
+	role = next_role;
+	return true;
 }
 
 
@@ -111,6 +123,7 @@ void Packet_handler::_apply_proxy
 	/* find a proxy role that matches the src info or create a new one */
 	Proxy_role * role = vlan().proxy_roles()->first();
 	while (role) {
+		if (_chk_delete_proxy_role(role)) { continue; }
 		if (role->matches_client(ip->src(), src_port)) { break; }
 		role = role->next();
 	}
@@ -460,6 +473,13 @@ void Packet_handler::_handle_tcp_to_nat
 		/* no port route found, try to find a matching proxy role instead */
 		Proxy_role * role = vlan().proxy_roles()->first();
 		while (role) {
+			if (role->del()) {
+				Proxy_role * const next_role = role->next();
+				_delete_proxy_role(role);
+				role = next_role;
+				continue;
+			}
+			if (_chk_delete_proxy_role(role)) { continue; }
 			if (role->matches_proxy(ip->dst(), dst_port)) { break; }
 			role = role->next();
 		}
@@ -468,7 +488,7 @@ void Packet_handler::_handle_tcp_to_nat
 			return;
 		}
 		role->tcp_packet(ip, prot);
-		handler = role->client();
+		handler = &role->client();
 		prot->dst_port(role->client_port());
 	} else { handler = node->component(); }
 
@@ -536,7 +556,7 @@ Packet_handler::Packet_handler
 	Ipv4_address nat_ip, Allocator * allocator, Session_label & label,
 	Port_allocator & port_alloc)
 :
-	Interface_node(this, label.string()), _vlan(vlan),
+	Interface_node(this, label.string()), _vlan(vlan), _ep(ep),
 	_sink_ack(ep, *this, &Packet_handler::_ack_avail),
 	_sink_submit(ep, *this, &Packet_handler::_ready_to_submit),
 	_source_ack(ep, *this, &Packet_handler::_ready_to_ack),
