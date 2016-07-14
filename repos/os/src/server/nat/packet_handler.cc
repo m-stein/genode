@@ -554,7 +554,8 @@ Packet_handler::Packet_handler
 (
 	Server::Entrypoint & ep, Vlan & vlan, Mac_address nat_mac,
 	Ipv4_address nat_ip, Allocator * allocator, Session_label & label,
-	Port_allocator & port_alloc)
+	Port_allocator & port_alloc, Mac_address mac, Ipv4_address ip,
+	unsigned port)
 :
 	Interface_node(this, label.string()), _vlan(vlan), _ep(ep),
 	_sink_ack(ep, *this, &Packet_handler::_ack_avail),
@@ -567,19 +568,19 @@ Packet_handler::Packet_handler
 	_proxy_ports(_proxy ? uint_attr("proxy_ports", _policy) : 0),
 	_proxy_ports_used(0), _port_alloc(port_alloc)
 {
-	PINF("Packet_handler %s %x:%x:%x:%x:%x:%x %u.%u.%u.%u proxy %u ports %u",
-		label.string(),
-		_nat_mac.addr[0],
-		_nat_mac.addr[1],
-		_nat_mac.addr[2],
-		_nat_mac.addr[3],
-		_nat_mac.addr[4],
-		_nat_mac.addr[5],
-		_nat_ip.addr[0],
-		_nat_ip.addr[1],
-		_nat_ip.addr[2],
-		_nat_ip.addr[3],
-		_proxy, _proxy_ports);
+	if (verbose) {
+		PLOG("Interface \"%s\"", label.string());
+		PLOG("  mac    %2x:%2x:%2x:%2x:%2x:%2x ip    %u.%u.%u.%u",
+			mac.addr[0], mac.addr[1], mac.addr[2], mac.addr[3], mac.addr[4],
+			mac.addr[5], ip.addr[0], ip.addr[1], ip.addr[2], ip.addr[3]);
+		PLOG("  natmac %2x:%2x:%2x:%2x:%2x:%2x natip %u.%u.%u.%u",
+			_nat_mac.addr[0], _nat_mac.addr[1], _nat_mac.addr[2],
+			_nat_mac.addr[3], _nat_mac.addr[4], _nat_mac.addr[5],
+			_nat_ip.addr[0], _nat_ip.addr[1], _nat_ip.addr[2],
+			_nat_ip.addr[3]);
+		PLOG("  port %u proxy %u proxy_ports %u",
+			port, _proxy, _proxy_ports);
+	}
 
 	vlan.interfaces()->insert(this);
 }

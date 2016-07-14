@@ -83,8 +83,9 @@ Session_component::Session_component
 (
 	Allocator * allocator, size_t amount, size_t tx_buf_size,
 	size_t rx_buf_size, Mac_address vmac, Server::Entrypoint & ep,
-	Uplink & uplink, char * ip_addr, Mac_address nat_mac, Ipv4_address nat_ip,
-	unsigned port, Session_label & label, Port_allocator & port_alloc)
+	Uplink & uplink, Ipv4_address ip_addr, Mac_address nat_mac,
+	Ipv4_address nat_ip, unsigned port, Session_label & label,
+	Port_allocator & port_alloc)
 :
 	Guarded_range_allocator(allocator, amount),
 	Tx_rx_communication_buffers(tx_buf_size, rx_buf_size),
@@ -94,31 +95,16 @@ Session_component::Session_component
 		this->range_allocator(), ep.rpc_ep()),
 	Packet_handler(
 		ep, uplink.vlan(), nat_mac, nat_ip, guarded_allocator(), label,
-		port_alloc),
+		port_alloc, vmac, ip_addr, port),
 	_mac_node(vmac, this), _ipv4_node(0), _port_node(0), _uplink(uplink)
 {
 	vlan().mac_tree()->insert(&_mac_node);
 	vlan().mac_list()->insert(&_mac_node);
-
-	/* static ip parsing */
-	if (ip_addr != 0 && strlen(ip_addr)) {
-		Ipv4_address ip = Ipv4_packet::ip_from_string(ip_addr);
-
-		if (ip == Ipv4_address() || port == 0) {
-			PWRN("Empty or error ip address or port. Skipped.");
-		} else {
-			set_ipv4_address(ip);
-			set_port(port);
-			port_alloc.alloc_index(port);
-
-			if (verbose)
-				PLOG("vmac=%02x:%02x:%02x:%02x:%02x:%02x ip=%d.%d.%d.%d",
-				     vmac.addr[0], vmac.addr[1], vmac.addr[2],
-				     vmac.addr[3], vmac.addr[4], vmac.addr[5],
-				     ip.addr[0], ip.addr[1], ip.addr[2], ip.addr[3]);
-		}
+	if (ip_addr != Ipv4_address()) { set_ipv4_address(ip_addr); }
+	if (port) {
+		set_port(port);
+		port_alloc.alloc_index(port);
 	}
-
 	_tx.sigh_ready_to_ack(_sink_ack);
 	_tx.sigh_packet_avail(_sink_submit);
 	_rx.sigh_ack_avail(_source_ack);
@@ -159,12 +145,9 @@ Session_component * Net::Root::_create_session(char const * args)
 		policy.attribute("ip_addr").value(ip_addr, sizeof(ip_addr));
 		policy.attribute("port").value(&port);
 
-		if (verbose) PLOG("policy: %s nat_ip_addr = %s ip_addr = %s port = %u", label.string(), nat_ip_addr, ip_addr, port);
 	} catch (Xml_node::Nonexistent_attribute) {
 		if (verbose) PLOG("Missing attribute in policy definition");
-	} catch (Session_policy::No_policy_defined) {
-		if (verbose) PLOG("Invalid session request, no matching policy");;
-	}
+	} catch (Session_policy::No_policy_defined) { }
 
 	size_t ram_quota =
 		Arg_string::find_arg(args, "ram_quota"  ).ulong_value(0);
@@ -198,15 +181,14 @@ Session_component * Net::Root::_create_session(char const * args)
 			PWRN("Empty or error nat ip address. Skipped.");
 		}
 	}
-
-	try {
-		return new (md_alloc()) Session_component(
-			env()->heap(), ram_quota - session_size, tx_buf_size, rx_buf_size,
-			_mac_alloc.alloc(), _ep, _uplink, ip_addr, _nat_mac, nat_ip, port,
-			label, _port_alloc);
-
-	} catch(Mac_allocator::Alloc_failed) {
-		PWRN("Mac address allocation failed!");
-		return (Session_component*) 0;
+	Mac_address mac;
+	Ipv4_address ip;
+	try { mac = _mac_alloc.alloc(); }
+	catch (Mac_allocator::Alloc_failed) { return nullptr; };
+	if (ip_addr != 0 && Genode::strlen(ip_addr)) {
+		ip = Ipv4_packet::ip_from_string(ip_addr);
 	}
+	return new (md_alloc()) Session_component(
+		env()->heap(), ram_quota - session_size, tx_buf_size, rx_buf_size,
+		mac, _ep, _uplink, ip, _nat_mac, nat_ip, port, label, _port_alloc);
 }
