@@ -68,6 +68,14 @@ void Packet_handler::_apply_proxy
 		class Unknown_protocol : public Exception { };
 		throw Unknown_protocol(); }
 	}
+	/* if the source port matches a port forwarding rule, do not proxy */
+	Port_node * node = vlan().port_tree()->first();
+	if (node) {
+		if (node->find_by_address(src_port)) {
+			ip->src(proxy_ip);
+			return;
+		}
+	}
 	/* try to find proxy role that matches the src info */
 	Proxy_role * role = vlan().proxy_roles()->first();
 
