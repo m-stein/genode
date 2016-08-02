@@ -173,8 +173,8 @@ class Net::Packet_handler : public Interface_node
 		Ipv4_address        _nat_ip;
 		Genode::Allocator * _allocator;
 		Genode::Session_policy _policy;
-		bool const          _proxy;
-		unsigned const      _proxy_ports;
+		bool                _proxy;
+		unsigned            _proxy_ports;
 		unsigned            _proxy_ports_used;
 		Port_allocator &    _port_alloc;
 

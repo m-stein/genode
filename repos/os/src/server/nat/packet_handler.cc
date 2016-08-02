@@ -577,10 +577,15 @@ Packet_handler::Packet_handler
 	_source_submit(ep, *this, &Packet_handler::_packet_avail),
 	_client_link_state(ep, *this, &Packet_handler::_link_state),
 	_nat_mac(nat_mac), _nat_ip(nat_ip), _allocator(allocator),
-	_policy(label), _proxy(uint_attr("proxy", _policy)),
-	_proxy_ports(_proxy ? uint_attr("proxy_ports", _policy) : 0),
+	_policy(label), _proxy(false), _proxy_ports(0),
 	_proxy_ports_used(0), _port_alloc(port_alloc)
 {
+	try {
+		_proxy_ports = uint_attr("proxy", _policy);
+		_proxy = true;
+	}
+	catch (Bad_attr) { }
+
 	if (verbose) {
 		PLOG("Interface \"%s\"", label.string());
 		PLOG("  mac    %2x:%2x:%2x:%2x:%2x:%2x ip    %u.%u.%u.%u",

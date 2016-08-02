@@ -9,7 +9,6 @@ using namespace Genode;
 static void cant_read_attr(char const * attr, Xml_node const & node)
 {
 	PERR("Can't read attribute %s in node %s", attr, node.type().string());
-	class Bad_attr : public Exception { };
 	throw Bad_attr();
 }
 
