@@ -49,6 +49,9 @@ class Net::Packet_handler : public Interface_node
 		Packet_descriptor    _packet;
 		Net::Vlan &          _vlan;
 		Genode::Entrypoint & _ep;
+		Route_list           _ip_routes;
+
+		void _read_route(Genode::Xml_node & route_xn);
 
 		/**
 		 * submit queue not empty anymore
