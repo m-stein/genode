@@ -8,6 +8,10 @@
 
 namespace Net
 {
+	void ip_prefix_attr(
+		char const * attr, Genode::Xml_node const & node, Ipv4_address & ip,
+		Genode::uint8_t & prefix);
+
 	Ipv4_address ip_attr(char const * attr, Genode::Xml_node const & node);
 	Mac_address mac_attr(char const * attr, Genode::Xml_node const & node);
 	unsigned uint_attr(char const * attr, Genode::Xml_node const & node);

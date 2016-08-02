@@ -552,12 +552,13 @@ void Packet_handler::send(Ethernet_frame *eth, Genode::size_t size)
 
 void Packet_handler::_read_route(Xml_node & route_xn)
 {
-	Ipv4_address ip = ip_attr("ip_addr", route_xn);
-	Ipv4_address nm = ip_attr("netmask", route_xn);
+	Ipv4_address ip;
+	uint8_t prefix;
+	ip_prefix_attr("dst", route_xn, ip, prefix);
 	Ipv4_address gw = ip_attr("gateway", route_xn);
 	char const * in = route_xn.attribute("interface").value_base();
 	size_t in_sz    = route_xn.attribute("interface").value_size();
-	Route_node * route = new (env()->heap()) Route_node(ip, nm, gw, in, in_sz);
+	Route_node * route = new (env()->heap()) Route_node(ip, prefix, gw, in, in_sz);
 	_ip_routes.insert(route);
 }
 
@@ -580,11 +581,6 @@ Packet_handler::Packet_handler
 	_proxy_ports(_proxy ? uint_attr("proxy_ports", _policy) : 0),
 	_proxy_ports_used(0), _port_alloc(port_alloc)
 {
-	try {
-		Xml_node route = _policy.sub_node("route");
-		for (; ; route = route.next("route")) { _read_route(route); }
-	} catch (Xml_node::Nonexistent_sub_node) { }
-
 	if (verbose) {
 		PLOG("Interface \"%s\"", label.string());
 		PLOG("  mac    %2x:%2x:%2x:%2x:%2x:%2x ip    %u.%u.%u.%u",
@@ -598,6 +594,11 @@ Packet_handler::Packet_handler
 		PLOG("  port %u proxy %u proxy_ports %u",
 			port, _proxy, _proxy_ports);
 	}
+
+	try {
+		Xml_node route = _policy.sub_node("route");
+		for (; ; route = route.next("route")) { _read_route(route); }
+	} catch (Xml_node::Nonexistent_sub_node) { }
 
 	vlan.interfaces()->insert(this);
 }

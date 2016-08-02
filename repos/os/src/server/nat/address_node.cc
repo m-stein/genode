@@ -9,21 +9,24 @@ using namespace Genode;
 
 bool Route_node::matches(Ipv4_address ip_addr)
 {
-	if (memcmp(&ip_addr.addr, _ip_addr.addr, _prefix_size)) { return false; }
-	if ((ip_addr.addr[_prefix_size] & _netmask.addr[_prefix_size]) !=
-	    _ip_addr.addr[_prefix_size]) { return false; }
+	if (memcmp(&ip_addr.addr, _ip_addr.addr, _prefix_bytes)) { return false; }
+	if (!_prefix_tail) { return true; }
+	uint8_t ip_tail = ip_addr.addr[_prefix_bytes] & _prefix_tail;
+	if (ip_tail != _ip_addr.addr[_prefix_bytes]) { return false; }
 	return true;
 }
 
 
 void Route_node::dump()
 {
-	PINF("IP Route %u.%u.%u.%u:%u > %s via %u.%u.%u.%u",
+	PLOG("IP Route %u.%u.%u.%u:%u %u %x > %s via %u.%u.%u.%u",
 	      _ip_addr.addr[0],
 	      _ip_addr.addr[1],
 	      _ip_addr.addr[2],
 	      _ip_addr.addr[3],
-	      _prefix_width,
+	      _prefix,
+	      _prefix_bytes,
+	      _prefix_tail,
 	      _interface.string(),
 	      _gateway.addr[0],
 	      _gateway.addr[1],
@@ -34,24 +37,13 @@ void Route_node::dump()
 
 Route_node::Route_node
 (
-	Ipv4_address ip_addr, Ipv4_address netmask, Ipv4_address gateway,
+	Ipv4_address ip_addr, uint8_t prefix, Ipv4_address gateway,
 	char const * interface, size_t interface_size)
 :
-	_ip_addr(ip_addr), _netmask(netmask), _gateway(gateway),
-	_interface(interface, interface_size)
+	_ip_addr(ip_addr), _prefix(prefix), _prefix_bytes(_prefix / 8),
+	_prefix_tail(~(((uint8_t)~0) >> (_prefix - (_prefix_bytes * 8)))),
+	_gateway(gateway), _interface(interface, interface_size)
 {
-	size_t i = 0;
-	for (; i < sizeof(_netmask.addr); i++) {
-		if (_netmask.addr[i] != (uint8_t)~0) { break; }
-		_prefix_size  += 1;
-		_prefix_width += 8;
-	}
-	for (size_t j = 0; j < 8; j++) {
-		if ((_netmask.addr[i] >> j) & 1) {
-			_prefix_width += 8 - j;
-			break;
-		}
-	}
 	dump();
 }
 
@@ -69,7 +61,7 @@ void Route_list::insert(Route_node * route)
 {
 	Route_node * behind = nullptr;
 	for (Route_node * curr = first(); curr; curr = curr->next()) {
-		if (route->prefix_width() >= curr->prefix_width()) { break; }
+		if (route->prefix() >= curr->prefix()) { break; }
 		behind = curr;
 	}
 	Genode::List<Route_node>::insert(route, behind);

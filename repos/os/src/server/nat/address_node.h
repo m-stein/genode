@@ -129,16 +129,16 @@ class Net::Route_node : public Genode::List<Route_node>::Element
 		using Interface = Genode::String<MAX_INTERFACE_SIZE>;
 
 
-		Ipv4_address _ip_addr;
-		Ipv4_address _netmask;
-		Ipv4_address _gateway;
-		size_t       _prefix_size = 0;
-		size_t       _prefix_width = 0;
-		Interface    _interface;
+		Ipv4_address    _ip_addr;
+		Genode::uint8_t _prefix;
+		Genode::uint8_t _prefix_bytes;
+		Genode::uint8_t _prefix_tail;
+		Ipv4_address    _gateway;
+		Interface       _interface;
 
 	public:
 
-		Route_node(Ipv4_address ip_addr, Ipv4_address netmask,
+		Route_node(Ipv4_address ip_addr, Genode::uint8_t prefix,
 		           Ipv4_address gateway, char const * interface,
 		           size_t interface_size);
 
@@ -148,7 +148,7 @@ class Net::Route_node : public Genode::List<Route_node>::Element
 
 		Ipv4_address ip_addr() { return _ip_addr; }
 		Ipv4_address gateway() { return _gateway; }
-		size_t prefix_width() { return _prefix_width; }
+		size_t prefix() { return _prefix; }
 		Interface & interface() { return _interface; }
 };
 
