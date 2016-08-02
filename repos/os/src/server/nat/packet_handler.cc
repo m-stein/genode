@@ -555,7 +555,8 @@ void Packet_handler::_read_route(Xml_node & route_xn)
 	Ipv4_address ip;
 	uint8_t prefix;
 	ip_prefix_attr("dst", route_xn, ip, prefix);
-	Ipv4_address gw = ip_attr("gateway", route_xn);
+	Ipv4_address gw;
+	try { gw = ip_attr("gateway", route_xn); } catch (Bad_attr) { }
 	char const * in = route_xn.attribute("interface").value_base();
 	size_t in_sz    = route_xn.attribute("interface").value_size();
 	Route_node * route = new (env()->heap()) Route_node(ip, prefix, gw, in, in_sz);
