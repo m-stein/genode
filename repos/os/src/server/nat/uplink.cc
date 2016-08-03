@@ -29,7 +29,7 @@ using namespace Genode;
 Ipv4_address Net::Uplink::_nat_ip_attr() {
 
 	Session_policy policy(*this);
-	return ip_attr("nat_ip_addr", policy);
+	return ip_attr("src", policy);
 }
 
 

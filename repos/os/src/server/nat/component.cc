@@ -141,7 +141,7 @@ Session_component * Net::Root::_create_session(char const * args)
 	 try {
 		label = Session_label(args);
 		Session_policy policy(label);
-		policy.attribute("nat_ip_addr").value(nat_ip_addr, sizeof(nat_ip_addr));
+		policy.attribute("src").value(nat_ip_addr, sizeof(nat_ip_addr));
 		policy.attribute("ip_addr").value(ip_addr, sizeof(ip_addr));
 		policy.attribute("port").value(&port);
 
