@@ -171,6 +171,8 @@ class Net::Packet_handler : public Interface_node
 
 		Mac_address         _nat_mac;
 		Ipv4_address        _nat_ip;
+		Mac_address _mac;
+		Ipv4_address _ip;
 		Genode::Allocator * _allocator;
 		Genode::Session_policy _policy;
 		bool                _proxy;
@@ -184,12 +186,14 @@ class Net::Packet_handler : public Interface_node
 
 		Mac_address  nat_mac()    {return _nat_mac;}
 		Ipv4_address nat_ip()     {return _nat_ip;}
+		Mac_address  mac_addr()    {return _mac;}
+		Ipv4_address ip_addr()     {return _ip;}
 
 		Packet_handler(
 			Server::Entrypoint & ep, Vlan & vlan, Mac_address nat_mac,
 			Ipv4_address nat_ip, Genode::Allocator * allocator,
 			Genode::Session_label & label, Port_allocator & port_alloc,
-			Mac_address mac, Ipv4_address ip, unsigned port);
+			Mac_address mac, Ipv4_address ip);
 
 		virtual Packet_stream_sink< ::Nic::Session::Policy>   * sink()   = 0;
 		virtual Packet_stream_source< ::Nic::Session::Policy> * source() = 0;

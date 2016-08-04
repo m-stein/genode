@@ -52,24 +52,6 @@ void Session_component::_free_ipv4_node()
 bool Session_component::link_state() { return _uplink.link_state(); }
 
 
-void Session_component::set_port(unsigned port)
-{
-	_free_port_node();
-	_port_node = new (this->guarded_allocator())
-		Port_node(port, this);
-	vlan().port_tree()->insert(_port_node);
-}
-
-
-void Session_component::_free_port_node()
-{
-	if (_port_node) {
-		vlan().port_tree()->remove(_port_node);
-		destroy(this->guarded_allocator(), _port_node);
-	}
-}
-
-
 void Session_component::set_ipv4_address(Ipv4_address ip_addr)
 {
 	_free_ipv4_node();
@@ -84,8 +66,7 @@ Session_component::Session_component
 	Allocator * allocator, size_t amount, size_t tx_buf_size,
 	size_t rx_buf_size, Mac_address vmac, Server::Entrypoint & ep,
 	Uplink & uplink, Ipv4_address ip_addr, Mac_address nat_mac,
-	Ipv4_address nat_ip, unsigned port, Session_label & label,
-	Port_allocator & port_alloc)
+	Ipv4_address nat_ip, Session_label & label, Port_allocator & port_alloc)
 :
 	Guarded_range_allocator(allocator, amount),
 	Tx_rx_communication_buffers(tx_buf_size, rx_buf_size),
@@ -95,16 +76,12 @@ Session_component::Session_component
 		this->range_allocator(), ep.rpc_ep()),
 	Packet_handler(
 		ep, uplink.vlan(), nat_mac, nat_ip, guarded_allocator(), label,
-		port_alloc, vmac, ip_addr, port),
-	_mac_node(vmac, this), _ipv4_node(0), _port_node(0), _uplink(uplink)
+		port_alloc, vmac, ip_addr),
+	_mac_node(vmac, this), _ipv4_node(0), _uplink(uplink)
 {
 	vlan().mac_tree()->insert(&_mac_node);
 	vlan().mac_list()->insert(&_mac_node);
 	if (ip_addr != Ipv4_address()) { set_ipv4_address(ip_addr); }
-	if (port) {
-		set_port(port);
-		port_alloc.alloc_index(port);
-	}
 	_tx.sigh_ready_to_ack(_sink_ack);
 	_tx.sigh_packet_avail(_sink_submit);
 	_rx.sigh_ack_avail(_source_ack);
@@ -116,7 +93,6 @@ Session_component::~Session_component() {
 	vlan().mac_tree()->remove(&_mac_node);
 	vlan().mac_list()->remove(&_mac_node);
 	_free_ipv4_node();
-	_free_port_node();
 }
 
 Net::Root::Root
@@ -135,7 +111,6 @@ Session_component * Net::Root::_create_session(char const * args)
 
 	memset(nat_ip_addr, 0, MAX_IP_ADDR_LENGTH);
 	memset(ip_addr, 0, MAX_IP_ADDR_LENGTH);
-	unsigned port = 0;
 
 	Session_label label;
 	 try {
@@ -143,7 +118,6 @@ Session_component * Net::Root::_create_session(char const * args)
 		Session_policy policy(label);
 		policy.attribute("src").value(nat_ip_addr, sizeof(nat_ip_addr));
 		policy.attribute("ip_addr").value(ip_addr, sizeof(ip_addr));
-		policy.attribute("port").value(&port);
 
 	} catch (Xml_node::Nonexistent_attribute) {
 		if (verbose) PLOG("Missing attribute in policy definition");
@@ -177,7 +151,7 @@ Session_component * Net::Root::_create_session(char const * args)
 	Ipv4_address nat_ip;
 	if (nat_ip_addr != 0 && strlen(nat_ip_addr)) {
 		nat_ip = Ipv4_packet::ip_from_string(nat_ip_addr);
-		if (nat_ip == Ipv4_address() || port == 0) {
+		if (nat_ip == Ipv4_address()) {
 			PWRN("Empty or error nat ip address. Skipped.");
 		}
 	}
@@ -190,5 +164,5 @@ Session_component * Net::Root::_create_session(char const * args)
 	}
 	return new (md_alloc()) Session_component(
 		env()->heap(), ram_quota - session_size, tx_buf_size, rx_buf_size,
-		mac, _ep, _uplink, ip, _nat_mac, nat_ip, port, label, _port_alloc);
+		mac, _ep, _uplink, ip, _nat_mac, nat_ip, label, _port_alloc);
 }

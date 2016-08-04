@@ -15,13 +15,16 @@
 #define _ADDRESS_NODE_H_
 
 /* Genode */
-#include <util/avl_tree.h>
+#include <avl_safe.h>
 #include <util/avl_string.h>
 #include <util/list.h>
 #include <nic_session/nic_session.h>
 #include <net/netaddress.h>
 #include <net/ethernet.h>
 #include <net/ipv4.h>
+#include <util/xml_node.h>
+
+enum { MAX_LABEL_SIZE = 64 };
 
 namespace Net
 {
@@ -37,6 +40,7 @@ namespace Net
 	class Arp_node;
 	class Arp_waiter;
 	class Tcp_packet;
+	typedef Avl_tree_safe<Port_node> Port_tree;
 }
 
 class Net::Interface_node : public Genode::Avl_string_base
@@ -58,32 +62,29 @@ class Net::Port_node : public Genode::Avl_node<Port_node>
 	private:
 
 		using uint16_t = Genode::uint16_t;
+		using Label = Genode::String<MAX_LABEL_SIZE>;
 
-		uint16_t            _addr;
-		Session_component * _component;
+		uint16_t _nr;
+		Label    _label;
 
 	public:
 
-		Port_node(uint16_t addr, Session_component *component)
-		: _addr(addr), _component(component) { }
+		Port_node(uint16_t nr, char const * label, Genode::size_t label_size)
+		: _nr(nr), _label(label, label_size) { }
 
-		uint16_t addr() { return _addr; }
+		uint16_t nr() { return _nr; }
 
-		Session_component *component() { return _component; }
+		Label & label() { return _label; }
 
-		bool higher(Port_node *c)
+		bool higher(Port_node * p) { return p->_nr > _nr; }
+
+		Port_node * find_by_nr(uint16_t nr)
 		{
 			using namespace Genode;
-			return c->_addr > _addr;
-		}
-
-		Port_node * find_by_address(uint16_t addr)
-		{
-			using namespace Genode;
-			if (addr == _addr) { return this; }
-			bool side = addr > _addr;
+			if (nr == _nr) { return this; }
+			bool side = nr > _nr;
 			Port_node *c = Avl_node<Port_node>::child(side);
-			return c ? c->find_by_address(addr) : 0;
+			return c ? c->find_by_nr(nr) : 0;
 		}
 };
 
@@ -123,11 +124,8 @@ class Net::Route_node : public Genode::List<Route_node>::Element
 {
 	private:
 
-		enum { MAX_INTERFACE_SIZE = 64 };
-
 		using size_t = Genode::size_t;
-		using Interface = Genode::String<MAX_INTERFACE_SIZE>;
-
+		using Interface = Genode::String<MAX_LABEL_SIZE>;
 
 		Ipv4_address    _ip_addr;
 		Genode::uint8_t _prefix;
@@ -135,12 +133,16 @@ class Net::Route_node : public Genode::List<Route_node>::Element
 		Genode::uint8_t _prefix_tail;
 		Ipv4_address    _gateway;
 		Interface       _interface;
+		Port_tree       _port_tree;
+
+		void _read_port(Genode::Xml_node & port, Genode::Allocator * alloc);
 
 	public:
 
 		Route_node(Ipv4_address ip_addr, Genode::uint8_t prefix,
 		           Ipv4_address gateway, char const * interface,
-		           size_t interface_size);
+		           size_t interface_size, Genode::Allocator * alloc,
+		Genode::Xml_node & route);
 
 		void dump();
 
@@ -150,6 +152,7 @@ class Net::Route_node : public Genode::List<Route_node>::Element
 		Ipv4_address gateway() { return _gateway; }
 		size_t prefix() { return _prefix; }
 		Interface & interface() { return _interface; }
+		Port_tree * port_tree() { return &_port_tree; }
 };
 
 class Net::Route_list : public Genode::List<Route_node>

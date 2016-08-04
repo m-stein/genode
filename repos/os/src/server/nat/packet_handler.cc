@@ -113,9 +113,14 @@ void Packet_handler::_apply_proxy
 		throw Unknown_protocol(); }
 	}
 	/* if the source port matches a port forwarding rule, do not proxy */
-	Port_node * node = vlan().port_tree()->first();
+	Route_node * route = _ip_routes.longest_prefix_match(ip->dst());
+	if (!route) {
+		if (verbose) { PWRN("Drop unroutable TCP packet"); }
+		return;
+	}
+	Port_node * node = route->port_tree()->first();
 	if (node) {
-		if (node->find_by_address(src_port)) {
+		if (node->find_by_nr(src_port)) {
 			ip->src(proxy_ip);
 			return;
 		}
@@ -351,23 +356,40 @@ void Packet_handler::_handle_udp_to_nat
 	uint16_t dst_port = udp->dst_port();
 
 	/* for the found port, try to find a route to a client of the NAT */
-	Port_node * node = vlan().port_tree()->first();
-	if (node) { node = node->find_by_address(dst_port); }
+	Route_node * route = _ip_routes.longest_prefix_match(ip->dst());
+	if (!route) {
+		if (verbose) { PWRN("Drop unroutable TCP packet"); }
+		return;
+	}
+	Port_node * node = route->port_tree()->first();
+	if (node) { node = node->find_by_nr(dst_port); }
 	if (!node) { return; }
-	Session_component * client = node->component();
+
+	/* try to find the packet handler behind the given interface name */
+	Interface_node * interface = static_cast<Interface_node *>(vlan().interfaces()->first());
+	if (!interface) {
+		PWRN("Unknown interface");
+		return;
+	}
+	interface = static_cast<Interface_node *>(interface->find_by_name(node->label().string()));
+	if (!interface) {
+		PWRN("Unknown interface");
+		return;
+	}
+	Packet_handler * handler = interface->handler();
 
 	/* set the NATs MAC as source and the clients MAC and IP as destination */
 	eth->src(_nat_mac);
-	eth->dst(client->mac_address().addr);
-	ip->dst(client->ipv4_address().addr);
-	if (_proxy) { _apply_proxy(ip, ip_size, client->nat_ip()); }
+	eth->dst(handler->mac_addr().addr);
+	ip->dst(handler->ip_addr().addr);
+	if (_proxy) { _apply_proxy(ip, ip_size, handler->nat_ip()); }
 
 	/* re-calculate affected checksums */
 	udp->update_checksum(ip->src(), ip->dst());
 	ip->checksum(Ipv4_packet::calculate_checksum(*ip));
 
 	/* deliver the modified packet to the client */
-	client->send(eth, eth_size);
+	handler->send(eth, eth_size);
 }
 
 
@@ -466,8 +488,13 @@ void Packet_handler::_handle_tcp_to_nat
 
 	/* for the found port, try to find a route to a client of the NAT */
 	Packet_handler * handler;
-	Port_node * node = vlan().port_tree()->first();
-	if (node) { node = node->find_by_address(dst_port); }
+	Route_node * route = _ip_routes.longest_prefix_match(ip->dst());
+	if (!route) {
+		if (verbose) { PWRN("Drop unroutable TCP packet"); }
+		return;
+	}
+	Port_node * node = route->port_tree()->first();
+	if (node) { node = node->find_by_nr(dst_port); }
 	if (!node) {
 
 		/* no port route found, try to find a matching proxy role instead */
@@ -490,7 +517,20 @@ void Packet_handler::_handle_tcp_to_nat
 		role->tcp_packet(ip, prot);
 		handler = &role->client();
 		prot->dst_port(role->client_port());
-	} else { handler = node->component(); }
+	} else {
+
+		Interface_node * interface = static_cast<Interface_node *>(vlan().interfaces()->first());
+		if (!interface) {
+			PWRN("Unknown interface");
+			return;
+		}
+		interface = static_cast<Interface_node *>(interface->find_by_name(node->label().string()));
+		if (!interface) {
+			PWRN("Unknown interface");
+			return;
+		}
+		handler = interface->handler();
+	}
 
 	/* XXX we should not depend on the fact that the handler is a component */
 	Session_component * comp = dynamic_cast<Session_component *>(handler);
@@ -559,7 +599,9 @@ void Packet_handler::_read_route(Xml_node & route_xn)
 	try { gw = ip_attr("gateway", route_xn); } catch (Bad_attr) { }
 	char const * in = route_xn.attribute("label").value_base();
 	size_t in_sz    = route_xn.attribute("label").value_size();
-	Route_node * route = new (env()->heap()) Route_node(ip, prefix, gw, in, in_sz);
+	Route_node * route = new (_allocator)
+		Route_node(ip, prefix, gw, in, in_sz, _allocator,
+		route_xn);
 	_ip_routes.insert(route);
 }
 
@@ -568,8 +610,7 @@ Packet_handler::Packet_handler
 (
 	Server::Entrypoint & ep, Vlan & vlan, Mac_address nat_mac,
 	Ipv4_address nat_ip, Allocator * allocator, Session_label & label,
-	Port_allocator & port_alloc, Mac_address mac, Ipv4_address ip,
-	unsigned port)
+	Port_allocator & port_alloc, Mac_address mac, Ipv4_address ip)
 :
 	Interface_node(this, label.string()), _vlan(vlan), _ep(ep),
 	_sink_ack(ep, *this, &Packet_handler::_ack_avail),
@@ -577,7 +618,7 @@ Packet_handler::Packet_handler
 	_source_ack(ep, *this, &Packet_handler::_ready_to_ack),
 	_source_submit(ep, *this, &Packet_handler::_packet_avail),
 	_client_link_state(ep, *this, &Packet_handler::_link_state),
-	_nat_mac(nat_mac), _nat_ip(nat_ip), _allocator(allocator),
+	_nat_mac(nat_mac), _nat_ip(nat_ip), _mac(mac), _ip(ip), _allocator(allocator),
 	_policy(label), _proxy(false), _proxy_ports(0),
 	_proxy_ports_used(0), _port_alloc(port_alloc)
 {
@@ -597,8 +638,8 @@ Packet_handler::Packet_handler
 			_nat_mac.addr[3], _nat_mac.addr[4], _nat_mac.addr[5],
 			_nat_ip.addr[0], _nat_ip.addr[1], _nat_ip.addr[2],
 			_nat_ip.addr[3]);
-		PLOG("  port %u proxy %u proxy_ports %u",
-			port, _proxy, _proxy_ports);
+		PLOG("  proxy %u proxy_ports %u",
+			_proxy, _proxy_ports);
 	}
 
 	try {

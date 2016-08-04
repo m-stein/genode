@@ -159,8 +159,7 @@ class Net::Session_component : public  Guarded_range_allocator,
 		                  Uplink             & uplink,
 		                  Ipv4_address ip_addr,
 					Mac_address nat_mac,
-		                  Ipv4_address nat_ip,
-		                  unsigned             port, Genode::Session_label & label,
+		                  Ipv4_address nat_ip, Genode::Session_label & label,
 		Port_allocator & port_alloc);
 
 		~Session_component();

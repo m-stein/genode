@@ -41,7 +41,7 @@ Net::Uplink::Uplink
 	Session_label("label=\"uplink\""),
 	Packet_handler(
 		ep, vlan, nat_mac, _nat_ip_attr(), env()->heap(), *this,
-		port_alloc, Mac_address(), Ipv4_address(), 0),
+		port_alloc, Mac_address(), Ipv4_address()),
 	_tx_block_alloc(env()->heap()),
 	_nic(&_tx_block_alloc, BUF_SIZE, BUF_SIZE),
 	_mac(_nic.mac_address().addr)

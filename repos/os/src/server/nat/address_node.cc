@@ -2,6 +2,7 @@
 #include <address_node.h>
 #include <component.h>
 #include <net/tcp.h>
+#include <attribute.h>
 
 using namespace Net;
 using namespace Genode;
@@ -35,16 +36,35 @@ void Route_node::dump()
 }
 
 
+void Route_node::_read_port
+(
+	Xml_node & port, Allocator * alloc)
+{
+	uint16_t const nr = uint_attr("nr", port);
+	char const * label = port.attribute("label").value_base();
+	size_t label_size = port.attribute("label").value_size();
+	Port_node * port_node = new (alloc) Port_node(nr, label, label_size);
+	_port_tree.insert(port_node);
+	PLOG("Port Route %u %s", port_node->nr(), port_node->label().string());
+}
+
+
+
 Route_node::Route_node
 (
 	Ipv4_address ip_addr, uint8_t prefix, Ipv4_address gateway,
-	char const * interface, size_t interface_size)
+	char const * interface, size_t interface_size, Allocator * alloc,
+	Xml_node & route)
 :
 	_ip_addr(ip_addr), _prefix(prefix), _prefix_bytes(_prefix / 8),
 	_prefix_tail(~(((uint8_t)~0) >> (_prefix - (_prefix_bytes * 8)))),
 	_gateway(gateway), _interface(interface, interface_size)
 {
 	dump();
+	try {
+		Xml_node port = route.sub_node("port");
+		for (; ; port = port.next("port")) { _read_port(port, alloc); }
+	} catch (Xml_node::Nonexistent_sub_node) { }
 }
 
 

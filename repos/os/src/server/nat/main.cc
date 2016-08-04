@@ -47,7 +47,7 @@ void Main::_handle_config()
 
 Main::Main(Server::Entrypoint & ep)
 :
-	_ep(ep), _nat_mac(mac_attr("mac_addr", config()->xml_node())),
+	_ep(ep), _vlan(_port_alloc), _nat_mac(mac_attr("mac_addr", config()->xml_node())),
 	_uplink(_ep, _vlan, _nat_mac, _port_alloc),
 	_root(_ep, _uplink, env()->heap(), _nat_mac, _port_alloc)
 {
