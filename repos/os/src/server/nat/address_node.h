@@ -41,9 +41,13 @@ namespace Net
 	class Arp_waiter;
 	class Tcp_packet;
 	typedef Avl_tree_safe<Port_node> Port_tree;
+	enum { INTERFACE_LABEL_SIZE = 64 };
 }
 
-class Net::Interface_node : public Genode::Avl_string_base
+class Net::Interface_node
+:
+	public Genode::String<INTERFACE_LABEL_SIZE>,
+	public Genode::Avl_string_base
 {
 	private:
 
@@ -52,7 +56,7 @@ class Net::Interface_node : public Genode::Avl_string_base
 	public:
 
 		Interface_node(Packet_handler * handler, char const * name)
-		: Avl_string_base(name), _handler(handler) { }
+		: Genode::String<INTERFACE_LABEL_SIZE>(name), Avl_string_base(string()), _handler(handler) { }
 
 		Packet_handler * handler() { return _handler; }
 };

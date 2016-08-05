@@ -28,7 +28,7 @@ using namespace Genode;
 
 Ipv4_address Net::Uplink::_nat_ip_attr() {
 
-	Session_policy policy(*this);
+	Session_policy policy(*static_cast<Session_label *>(this));
 	return ip_attr("src", policy);
 }
 

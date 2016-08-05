@@ -210,6 +210,8 @@ class Net::Packet_handler : public Interface_node
 		void inline broadcast_to_clients(Ethernet_frame *eth,
 		                                 size_t size);
 
+		Route_list * routes() { return &_ip_routes; }
+
 		/**
 		 * Send ethernet frame
 		 *

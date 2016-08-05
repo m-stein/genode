@@ -112,15 +112,33 @@ void Packet_handler::_apply_proxy
 		class Unknown_protocol : public Exception { };
 		throw Unknown_protocol(); }
 	}
-	/* if the source port matches a port forwarding rule, do not proxy */
+
+	/*
+	 * If the source port matches a port forwarding rule of the destination
+	 * interface, do not use a proxy port
+	 */
 	Route_node * route = _ip_routes.longest_prefix_match(ip->dst());
 	if (!route) {
 		if (verbose) { PWRN("Drop unroutable TCP packet"); }
 		return;
 	}
-	Port_node * node = route->port_tree()->first();
-	if (node) {
-		if (node->find_by_nr(src_port)) {
+
+	Interface_node * interface = static_cast<Interface_node *>(vlan().interfaces()->first());
+	if (!interface) {
+		if (verbose) { PWRN("Drop unroutable TCP packet"); }
+		return;
+	}
+	interface = static_cast<Interface_node *>(interface->find_by_name(route->interface().string()));
+	if (!interface) {
+		if (verbose) { PWRN("Drop unroutable TCP packet"); }
+		return;
+	}
+	Packet_handler * handler = interface->handler();
+
+	route = handler->routes()->first();
+	Port_node * port = route->port_tree()->first();
+	if (port) {
+		if (port->find_by_nr(src_port)) {
 			ip->src(proxy_ip);
 			return;
 		}
