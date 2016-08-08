@@ -4,7 +4,7 @@
 
 set uplink_to_downlink_1 1
 set uplink_to_downlink_2 0
-set downlink_to_uplink 1
+set downlink_to_uplink 0
 
 set build_components {
 	core init
@@ -63,7 +63,7 @@ append config {
 			<policy label="uplink" src="10.0.2.55" ip_addr="192.168.1.72" port="8080">
 				<route dst="192.168.1.18/32" label="http_srv_1" />
 				<route dst="192.168.1.72/32" label="http_srv_2" />
-				<route dst="10.0.2.55/32" label="http_srv_1">
+				<route dst="10.0.2.55/32">
 					<port nr="80"   label="http_srv_1"/>
 					<port nr="8080" label="http_srv_2"/>
 					<port nr="2345" label="http_clnt_3"/>

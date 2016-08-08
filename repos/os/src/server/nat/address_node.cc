@@ -28,7 +28,7 @@ void Route_node::dump()
 	      _prefix,
 	      _prefix_bytes,
 	      _prefix_tail,
-	      _interface.string(),
+	      _label.string(),
 	      _gateway.addr[0],
 	      _gateway.addr[1],
 	      _gateway.addr[2],
@@ -53,12 +53,12 @@ void Route_node::_read_port
 Route_node::Route_node
 (
 	Ipv4_address ip_addr, uint8_t prefix, Ipv4_address gateway,
-	char const * interface, size_t interface_size, Allocator * alloc,
+	char const * label, size_t label_size, Allocator * alloc,
 	Xml_node & route)
 :
 	_ip_addr(ip_addr), _prefix(prefix), _prefix_bytes(_prefix / 8),
 	_prefix_tail(~(((uint8_t)~0) >> (_prefix - (_prefix_bytes * 8)))),
-	_gateway(gateway), _interface(interface, interface_size)
+	_gateway(gateway), _label(label, label_size)
 {
 	dump();
 	try {

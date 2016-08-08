@@ -123,17 +123,11 @@ void Packet_handler::_apply_proxy
 		return;
 	}
 
-	Interface_node * interface = static_cast<Interface_node *>(vlan().interfaces()->first());
-	if (!interface) {
+	Packet_handler * handler = _find_by_label(route->label().string());
+	if (!handler) {
 		if (verbose) { PWRN("Drop unroutable TCP packet"); }
 		return;
 	}
-	interface = static_cast<Interface_node *>(interface->find_by_name(route->interface().string()));
-	if (!interface) {
-		if (verbose) { PWRN("Drop unroutable TCP packet"); }
-		return;
-	}
-	Packet_handler * handler = interface->handler();
 
 	route = handler->routes()->first();
 	Port_node * port = route->port_tree()->first();
@@ -411,6 +405,17 @@ void Packet_handler::_handle_udp_to_nat
 }
 
 
+Packet_handler * Packet_handler::_find_by_label(char const * label)
+{
+	if (!strcmp(label, "")) { return nullptr; }
+	Interface_node * interface = static_cast<Interface_node *>(_vlan.interfaces()->first());
+	if (!interface) { return nullptr; }
+	interface = static_cast<Interface_node *>(interface->find_by_name(label));
+	if (!interface) { return nullptr; }
+	return interface->handler();
+}
+
+
 Packet_handler * Packet_handler::_ip_routing
 (
 	Ipv4_address & ip_addr, Ipv4_packet * ip)
@@ -423,12 +428,7 @@ Packet_handler * Packet_handler::_ip_routing
 	if (ip_route->gateway() == Ipv4_address()) { ip_addr = ip->dst(); }
 	else { ip_addr = ip_route->gateway(); }
 
-	/* try to find the packet handler behind the given interface name */
-	Interface_node * interface = static_cast<Interface_node *>(vlan().interfaces()->first());
-	if (!interface) { return nullptr; }
-	interface = static_cast<Interface_node *>(interface->find_by_name(ip_route->interface().string()));
-	if (!interface) { return nullptr; }
-	return interface->handler();
+	return _find_by_label(ip_route->label().string());
 }
 
 
@@ -511,9 +511,9 @@ void Packet_handler::_handle_tcp_to_nat
 		if (verbose) { PWRN("Drop unroutable TCP packet"); }
 		return;
 	}
-	Port_node * node = route->port_tree()->first();
-	if (node) { node = node->find_by_nr(dst_port); }
-	if (!node) {
+	Port_node * port = route->port_tree()->first();
+	if (port) { port = port->find_by_nr(dst_port); }
+	if (!port) {
 
 		/* no port route found, try to find a matching proxy role instead */
 		Proxy_role * role = vlan().proxy_roles()->first();
@@ -536,18 +536,11 @@ void Packet_handler::_handle_tcp_to_nat
 		handler = &role->client();
 		prot->dst_port(role->client_port());
 	} else {
-
-		Interface_node * interface = static_cast<Interface_node *>(vlan().interfaces()->first());
-		if (!interface) {
+		handler = _find_by_label(port->label().string());
+		if (!handler) {
 			PWRN("Unknown interface");
 			return;
 		}
-		interface = static_cast<Interface_node *>(interface->find_by_name(node->label().string()));
-		if (!interface) {
-			PWRN("Unknown interface");
-			return;
-		}
-		handler = interface->handler();
 	}
 
 	/* XXX we should not depend on the fact that the handler is a component */
@@ -615,11 +608,16 @@ void Packet_handler::_read_route(Xml_node & route_xn)
 	ip_prefix_attr("dst", route_xn, ip, prefix);
 	Ipv4_address gw;
 	try { gw = ip_attr("gateway", route_xn); } catch (Bad_attr) { }
-	char const * in = route_xn.attribute("label").value_base();
-	size_t in_sz    = route_xn.attribute("label").value_size();
-	Route_node * route = new (_allocator)
-		Route_node(ip, prefix, gw, in, in_sz, _allocator,
-		route_xn);
+	Route_node * route;
+	try {
+		char const * in = route_xn.attribute("label").value_base();
+		size_t in_sz    = route_xn.attribute("label").value_size();
+		route = new (_allocator)
+			Route_node(ip, prefix, gw, in, in_sz, _allocator, route_xn);
+	} catch (Xml_attribute::Nonexistent_attribute) {
+		route = new (_allocator)
+			Route_node(ip, prefix, gw, "", 0, _allocator, route_xn);
+	}
 	_ip_routes.insert(route);
 }
 

@@ -159,6 +159,8 @@ class Net::Packet_handler : public Interface_node
 
 		bool _chk_delete_proxy_role(Proxy_role * & role);
 
+		Packet_handler * _find_by_label(char const * label);
+
 	protected:
 
 		Packet_handler * _ip_routing(Ipv4_address & ip_addr, Ipv4_packet * ip);

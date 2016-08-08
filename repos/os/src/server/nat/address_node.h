@@ -129,14 +129,14 @@ class Net::Route_node : public Genode::List<Route_node>::Element
 	private:
 
 		using size_t = Genode::size_t;
-		using Interface = Genode::String<MAX_LABEL_SIZE>;
+		using Label = Genode::String<MAX_LABEL_SIZE>;
 
 		Ipv4_address    _ip_addr;
 		Genode::uint8_t _prefix;
 		Genode::uint8_t _prefix_bytes;
 		Genode::uint8_t _prefix_tail;
 		Ipv4_address    _gateway;
-		Interface       _interface;
+		Label           _label;
 		Port_tree       _port_tree;
 
 		void _read_port(Genode::Xml_node & port, Genode::Allocator * alloc);
@@ -144,8 +144,8 @@ class Net::Route_node : public Genode::List<Route_node>::Element
 	public:
 
 		Route_node(Ipv4_address ip_addr, Genode::uint8_t prefix,
-		           Ipv4_address gateway, char const * interface,
-		           size_t interface_size, Genode::Allocator * alloc,
+		           Ipv4_address gateway, char const * label,
+		           size_t label_size, Genode::Allocator * alloc,
 		Genode::Xml_node & route);
 
 		void dump();
@@ -155,7 +155,7 @@ class Net::Route_node : public Genode::List<Route_node>::Element
 		Ipv4_address ip_addr() { return _ip_addr; }
 		Ipv4_address gateway() { return _gateway; }
 		size_t prefix() { return _prefix; }
-		Interface & interface() { return _interface; }
+		Label & label() { return _label; }
 		Port_tree * port_tree() { return &_port_tree; }
 };
 
