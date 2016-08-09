@@ -84,6 +84,8 @@ class Net::Packet_handler : public Interface_node
 		 */
 		void _link_state(unsigned);
 
+		Proxy_role * _find_proxy_role_by_client(Ipv4_address ip, Genode::uint16_t port);
+
 
 		void _handle_arp_reply(Arp_packet * const arp);
 
@@ -101,10 +103,10 @@ class Net::Packet_handler : public Interface_node
 		 * \param eth   ethernet frame containing the ARP packet.
 		 * \param size  ethernet frame's size.
 		 */
-		bool _handle_arp(Ethernet_frame *eth, size_t size);
+		void _handle_arp(Ethernet_frame *eth, size_t size);
 
-		bool _handle_ip(Ethernet_frame * eth, size_t eth_size,
-		                bool & ack, Packet_descriptor * p);
+		void _handle_ip(Ethernet_frame * eth, size_t eth_size,
+		                bool & ack_packet, Packet_descriptor * packet);
 
 		void _handle_udp_to_others(Ethernet_frame * eth, size_t eth_size,
 		                           Ipv4_packet * ip, size_t ip_size,

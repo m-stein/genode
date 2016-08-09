@@ -40,7 +40,7 @@ namespace Net
 	class Arp_node;
 	class Arp_waiter;
 	class Tcp_packet;
-	typedef Avl_tree_safe<Port_node> Port_tree;
+	class Port_tree;
 	enum { INTERFACE_LABEL_SIZE = 64 };
 }
 
@@ -68,13 +68,18 @@ class Net::Port_node : public Genode::Avl_node<Port_node>
 		using uint16_t = Genode::uint16_t;
 		using Label = Genode::String<MAX_LABEL_SIZE>;
 
-		uint16_t _nr;
-		Label    _label;
+		uint16_t     _nr;
+		Label        _label;
+		Ipv4_address _via;
 
 	public:
 
-		Port_node(uint16_t nr, char const * label, Genode::size_t label_size)
-		: _nr(nr), _label(label, label_size) { }
+		Port_node(
+			uint16_t nr, char const * label, Genode::size_t label_size,
+			Ipv4_address via)
+		:
+			_nr(nr), _label(label, label_size), _via(via)
+		{ }
 
 		uint16_t nr() { return _nr; }
 
@@ -90,6 +95,8 @@ class Net::Port_node : public Genode::Avl_node<Port_node>
 			Port_node *c = Avl_node<Port_node>::child(side);
 			return c ? c->find_by_nr(nr) : 0;
 		}
+
+		Ipv4_address via() { return _via; }
 };
 
 class Net::Ipv4_address_node : public Genode::Avl_node<Ipv4_address_node>
@@ -124,6 +131,20 @@ class Net::Ipv4_address_node : public Genode::Avl_node<Ipv4_address_node>
 		}
 };
 
+
+class Net::Port_tree : public Avl_tree_safe<Port_node>
+{
+	public:
+
+		Port_node * find_by_nr(Genode::uint16_t nr)
+		{
+			Port_node * port = first();
+			if (!port) { return port; }
+			port = port->find_by_nr(nr);
+			return port;
+		}
+};
+
 class Net::Route_node : public Genode::List<Route_node>::Element
 {
 	private:
@@ -135,16 +156,18 @@ class Net::Route_node : public Genode::List<Route_node>::Element
 		Genode::uint8_t _prefix;
 		Genode::uint8_t _prefix_bytes;
 		Genode::uint8_t _prefix_tail;
-		Ipv4_address    _gateway;
+		Ipv4_address    _via;
 		Label           _label;
-		Port_tree       _port_tree;
+		Port_tree       _udp_port_tree;
+		Port_tree       _tcp_port_tree;
 
-		void _read_port(Genode::Xml_node & port, Genode::Allocator * alloc);
+		void _read_tcp_port(Genode::Xml_node & port, Genode::Allocator * alloc);
+		void _read_udp_port(Genode::Xml_node & port, Genode::Allocator * alloc);
 
 	public:
 
 		Route_node(Ipv4_address ip_addr, Genode::uint8_t prefix,
-		           Ipv4_address gateway, char const * label,
+		           Ipv4_address via, char const * label,
 		           size_t label_size, Genode::Allocator * alloc,
 		Genode::Xml_node & route);
 
@@ -153,10 +176,10 @@ class Net::Route_node : public Genode::List<Route_node>::Element
 		bool matches(Ipv4_address ip_addr);
 
 		Ipv4_address ip_addr() { return _ip_addr; }
-		Ipv4_address gateway() { return _gateway; }
+		Ipv4_address via() { return _via; }
 		size_t prefix() { return _prefix; }
 		Label & label() { return _label; }
-		Port_tree * port_tree() { return &_port_tree; }
+		Port_tree * tcp_port_tree() { return &_tcp_port_tree; }
 };
 
 class Net::Route_list : public Genode::List<Route_node>

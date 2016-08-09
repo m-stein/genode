@@ -26,6 +26,18 @@
 
 namespace Net
 {
+	class Arp_tree : public Avl_tree_safe<Arp_node>
+	{
+		public:
+
+			Arp_node * find_by_ip(Ipv4_address ip_addr)
+			{
+				Arp_node * arp_node = first();
+				if (!arp_node) { return arp_node; }
+				return arp_node->find_by_ip(ip_addr);
+			}
+	};
+
 	/*
 	 * The Vlan is a database containing all clients
 	 * sorted by IP and MAC addresses.
@@ -37,7 +49,6 @@ namespace Net
 			typedef Avl_tree_safe<Mac_address_node>  Mac_address_tree;
 			typedef Avl_tree_safe<Ipv4_address_node> Ipv4_address_tree;
 			typedef List_safe<Mac_address_node>      Mac_address_list;
-			typedef Avl_tree_safe<Arp_node>          Arp_tree;
 			typedef List_safe<Arp_waiter>            Arp_waiter_list;
 
 			typedef Avl_tree_safe<Genode::Avl_string_base> Interface_tree;

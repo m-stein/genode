@@ -29,41 +29,71 @@ void Route_node::dump()
 	      _prefix_bytes,
 	      _prefix_tail,
 	      _label.string(),
-	      _gateway.addr[0],
-	      _gateway.addr[1],
-	      _gateway.addr[2],
-	      _gateway.addr[3]);
+	      _via.addr[0],
+	      _via.addr[1],
+	      _via.addr[2],
+	      _via.addr[3]);
 }
 
 
-void Route_node::_read_port
+void Route_node::_read_tcp_port
 (
 	Xml_node & port, Allocator * alloc)
 {
 	uint16_t const nr = uint_attr("nr", port);
 	char const * label = port.attribute("label").value_base();
 	size_t label_size = port.attribute("label").value_size();
-	Port_node * port_node = new (alloc) Port_node(nr, label, label_size);
-	_port_tree.insert(port_node);
-	PLOG("Port Route %u %s", port_node->nr(), port_node->label().string());
+	Ipv4_address via;
+	try { via = ip_attr("via", port); } catch (Bad_attr) { }
+	Port_node * port_node = new (alloc) Port_node(nr, label, label_size, via);
+	_tcp_port_tree.insert(port_node);
+	PLOG("TCP Port Route %u %s %u.%u.%u.%u", port_node->nr(), port_node->label().string(),
+		port_node->via().addr[0],
+		port_node->via().addr[1],
+		port_node->via().addr[2],
+		port_node->via().addr[3]
+	);
+}
+
+void Route_node::_read_udp_port
+(
+	Xml_node & port, Allocator * alloc)
+{
+	uint16_t const nr = uint_attr("nr", port);
+	char const * label = port.attribute("label").value_base();
+	size_t label_size = port.attribute("label").value_size();
+	Ipv4_address via;
+	try { via = ip_attr("via", port); } catch (Bad_attr) { }
+	Port_node * port_node = new (alloc) Port_node(nr, label, label_size, via);
+	_udp_port_tree.insert(port_node);
+	PLOG("UDP Port Route %u %s %u.%u.%u.%u", port_node->nr(), port_node->label().string(),
+		port_node->via().addr[0],
+		port_node->via().addr[1],
+		port_node->via().addr[2],
+		port_node->via().addr[3]
+	);
 }
 
 
 
 Route_node::Route_node
 (
-	Ipv4_address ip_addr, uint8_t prefix, Ipv4_address gateway,
+	Ipv4_address ip_addr, uint8_t prefix, Ipv4_address via,
 	char const * label, size_t label_size, Allocator * alloc,
 	Xml_node & route)
 :
 	_ip_addr(ip_addr), _prefix(prefix), _prefix_bytes(_prefix / 8),
 	_prefix_tail(~(((uint8_t)~0) >> (_prefix - (_prefix_bytes * 8)))),
-	_gateway(gateway), _label(label, label_size)
+	_via(via), _label(label, label_size)
 {
 	dump();
 	try {
-		Xml_node port = route.sub_node("port");
-		for (; ; port = port.next("port")) { _read_port(port, alloc); }
+		Xml_node port = route.sub_node("tcp-port");
+		for (; ; port = port.next("tcp-port")) { _read_tcp_port(port, alloc); }
+	} catch (Xml_node::Nonexistent_sub_node) { }
+	try {
+		Xml_node port = route.sub_node("udp-port");
+		for (; ; port = port.next("udp-port")) { _read_udp_port(port, alloc); }
 	} catch (Xml_node::Nonexistent_sub_node) { }
 }
 
