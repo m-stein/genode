@@ -24,7 +24,10 @@
 
 namespace Net { class Uplink; }
 
-class Net::Uplink : public Genode::Session_label, public Net::Packet_handler
+class Net::Uplink
+:
+	public Genode::Session_label, public Nic::Packet_allocator,
+	public Nic::Connection, public Net::Packet_handler
 {
 	private:
 
@@ -33,27 +36,18 @@ class Net::Uplink : public Genode::Session_label, public Net::Packet_handler
 			BUF_SIZE = Nic::Session::QUEUE_SIZE * PKT_SIZE,
 		};
 
-		Nic::Packet_allocator _tx_block_alloc;
-		Nic::Connection       _nic;
-		Mac_address           _mac;
-
 		Ipv4_address _nat_ip_attr();
 
 	public:
 
-		Uplink(
-			Server::Entrypoint&, Vlan&, Mac_address nat_mac,
-			Port_allocator & port_alloc);
-
-		Nic::Connection * nic()        { return &_nic; }
-		bool              link_state() { return _nic.link_state(); }
+		Uplink(Server::Entrypoint&, Net::Vlan &vlan, Port_allocator & port_alloc);
 
 		/******************************
 		 ** Packet_handler interface **
 		 ******************************/
 
-		Packet_stream_sink<Nic::Session::Policy> *   sink()   { return _nic.rx(); }
-		Packet_stream_source<Nic::Session::Policy> * source() { return _nic.tx(); }
+		Packet_stream_sink<Nic::Session::Policy> *   sink()   { return rx(); }
+		Packet_stream_source<Nic::Session::Policy> * source() { return tx(); }
 
 		void finalize_packet(Ethernet_frame * eth, Genode::size_t eth_size) { }
 };

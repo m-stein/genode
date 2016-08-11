@@ -22,7 +22,6 @@ struct Main
 		Port_allocator       _port_alloc;
 		Server::Entrypoint & _ep;
 		Vlan                 _vlan;
-		Mac_address          _nat_mac;
 		Uplink               _uplink;
 		Net::Root            _root;
 
@@ -47,9 +46,8 @@ void Main::_handle_config()
 
 Main::Main(Server::Entrypoint & ep)
 :
-	_ep(ep), _vlan(_port_alloc), _nat_mac(mac_attr("mac_addr", config()->xml_node())),
-	_uplink(_ep, _vlan, _nat_mac, _port_alloc),
-	_root(_ep, _uplink, env()->heap(), _nat_mac, _port_alloc)
+	_ep(ep), _vlan(_port_alloc), _uplink(_ep, _vlan, _port_alloc),
+	_root(_ep, _uplink, env()->heap(), _uplink.nat_mac(), _port_alloc)
 {
 	_handle_config();
 	env()->parent()->announce(ep.manage(_root));

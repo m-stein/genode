@@ -35,20 +35,18 @@ Ipv4_address Net::Uplink::_nat_ip_attr() {
 
 Net::Uplink::Uplink
 (
-	Server::Entrypoint &ep, Net::Vlan &vlan, Mac_address nat_mac,
-	Port_allocator & port_alloc)
+	Server::Entrypoint &ep, Net::Vlan &vlan, Port_allocator & port_alloc)
 :
 	Session_label("label=\"uplink\""),
+	Nic::Packet_allocator(env()->heap()),
+	Nic::Connection(this, BUF_SIZE, BUF_SIZE),
 	Packet_handler(
-		ep, vlan, nat_mac, _nat_ip_attr(), env()->heap(), *this,
-		port_alloc, Mac_address(), Ipv4_address()),
-	_tx_block_alloc(env()->heap()),
-	_nic(&_tx_block_alloc, BUF_SIZE, BUF_SIZE),
-	_mac(_nic.mac_address().addr)
+		ep, vlan, mac_address().addr, _nat_ip_attr(), env()->heap(),
+		*this, port_alloc, Mac_address(), Ipv4_address())
 {
-	_nic.rx_channel()->sigh_ready_to_ack(_sink_ack);
-	_nic.rx_channel()->sigh_packet_avail(_sink_submit);
-	_nic.tx_channel()->sigh_ack_avail(_source_ack);
-	_nic.tx_channel()->sigh_ready_to_submit(_source_submit);
-	_nic.link_state_sigh(_client_link_state);
+	rx_channel()->sigh_ready_to_ack(_sink_ack);
+	rx_channel()->sigh_packet_avail(_sink_submit);
+	tx_channel()->sigh_ack_avail(_source_ack);
+	tx_channel()->sigh_ready_to_submit(_source_submit);
+	link_state_sigh(_client_link_state);
 }

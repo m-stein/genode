@@ -58,7 +58,7 @@ append config {
 	<start name="nat">
 		<resource name="RAM" quantum="24M"/>
 		<provides><service name="Nic"/></provides>
-		<config mac_addr="02:02:02:02:02:AA" rtt_sec="3">
+		<config rtt_sec="3">
 
 			<policy label="uplink" src="10.0.2.55" ip_addr="192.168.1.72" port="8080">
 				<route dst="192.168.1.18/32" label="http_srv_1" />
