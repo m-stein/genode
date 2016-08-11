@@ -41,6 +41,7 @@ namespace Net
 	class Arp_waiter;
 	class Tcp_packet;
 	class Port_tree;
+	using Port_list = Genode::List<Port_node>;
 	enum { INTERFACE_LABEL_SIZE = 64 };
 }
 
@@ -61,7 +62,8 @@ class Net::Interface_node
 		Packet_handler * handler() { return _handler; }
 };
 
-class Net::Port_node : public Genode::Avl_node<Port_node>
+class Net::Port_node : public Genode::Avl_node<Port_node>,
+                       public Port_list::Element
 {
 	private:
 
@@ -152,6 +154,8 @@ class Net::Route_node : public Genode::List<Route_node>::Element
 		Label           _label;
 		Port_tree       _udp_port_tree;
 		Port_tree       _tcp_port_tree;
+		Port_list       _udp_port_list;
+		Port_list       _tcp_port_list;
 
 		void _read_tcp_port(Genode::Xml_node & port, Genode::Allocator * alloc);
 		void _read_udp_port(Genode::Xml_node & port, Genode::Allocator * alloc);
@@ -173,6 +177,8 @@ class Net::Route_node : public Genode::List<Route_node>::Element
 		Label & label() { return _label; }
 		Port_tree * tcp_port_tree() { return &_tcp_port_tree; }
 		Port_tree * udp_port_tree() { return &_udp_port_tree; }
+		Port_list * tcp_port_list() { return &_tcp_port_list; }
+		Port_list * udp_port_list() { return &_udp_port_list; }
 };
 
 class Net::Route_list : public Genode::List<Route_node>

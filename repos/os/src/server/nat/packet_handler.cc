@@ -80,6 +80,15 @@ Port_tree * tlp_port_tree(uint8_t tlp, Route_node * route)
 }
 
 
+Port_list * tlp_port_list(uint8_t tlp, Route_node * route)
+{
+	switch (tlp) {
+	case Tcp_packet::IP_ID: return route->tcp_port_list();
+	case Udp_packet::IP_ID: return route->udp_port_list();
+	default: log("Unknown transport protocol"); return nullptr; }
+}
+
+
 void Packet_handler::tlp_port_proxy
 (
 	uint8_t tlp, void * ptr, Ipv4_packet * ip, Ipv4_address client_ip,
@@ -186,7 +195,6 @@ void Packet_handler::_handle_ip
 	Ipv4_packet * ip;
 	try { ip = new (eth->data<void>()) Ipv4_packet(ip_size); }
 	catch (Ipv4_packet::No_ip_packet) { log("Invalid IP packet"); return; }
-	Route_node * route = _ip_routes.longest_prefix_match(ip->dst());
 	uint8_t tlp = ip->protocol();
 	size_t  tlp_size = ip_size - sizeof(Ipv4_packet);
 	void *  tlp_ptr = tlp_packet(tlp, ip, tlp_size);
@@ -194,29 +202,45 @@ void Packet_handler::_handle_ip
 	Packet_handler * handler = nullptr;
 	Ipv4_address ip_dst = ip->dst();
 
-	/* try to route packet: first by port, then by IP route, then by proxy role */
-	if (route) {
-		Port_node * port = tlp_port_tree(tlp, route)->find_by_nr(dst_port);
-		if (port) {
+	/* go through all matching IP routes ... */
+	Route_node * route = _ip_routes.first();
+	for (; route; route = route->next()) {
+
+		/* ... first try all port routes of the current IP route ... */
+		if (!route->matches(ip->dst())) { continue; }
+		Port_node * port = tlp_port_list(tlp, route)->first();
+		for (; port; port = port->next()) {
+
+			if (port->nr() != dst_port) { continue; }
 			handler = _find_by_label(port->label().string());
-			if (handler && port->via() != Ipv4_address()) { ip_dst = port->via(); }
+			if (handler) {
+
+				if (port->via() != Ipv4_address()) { ip_dst = port->via(); }
+				break;
+			}
 		}
-		if (!handler) {
-			handler = _find_by_label(route->label().string());
-			if (handler && route->via() != Ipv4_address()) {  ip_dst = route->via(); }
+		if (handler) { break; }
+
+		/* ... then try the IP route itself ... */
+		handler = _find_by_label(route->label().string());
+		if (handler) {
+			if (route->via() != Ipv4_address()) { ip_dst = route->via(); }
+			break;
 		}
 	}
+	/* ... if no port or IP route helps, try to find a matching proxy route ... */
 	if (!handler) {
 		handler = _tlp_proxy_route(tlp, tlp_ptr, dst_port, ip, ip_dst);
 	}
+	/* ... and give up if this also fails */
 	if (!handler) {
 		log("Unroutable packet");
 		return;
 	}
-	/* adapt destination MAC address to matching ARP entry or send ARP request */
+
+	/* send ARP request if there is no ARP entry for the destination IP */
 	Arp_node * arp_node = _vlan.arp_tree()->find_by_ip(ip_dst);
-	if (arp_node) { eth->dst(arp_node->mac().addr); }
-	else {
+	if (!arp_node) {
 		handler->arp_broadcast(ip_dst);
 		_vlan.arp_waiters()->insert(new (_allocator)
 			Arp_waiter(this, ip_dst, eth, eth_size, packet));
@@ -224,27 +248,27 @@ void Packet_handler::_handle_ip
 		log("Matching ARP entry requested");
 		return;
 	}
-
-	tlp_dst_port(tlp, tlp_ptr, dst_port);
+	/* adapt packet to the collected info */
+	eth->dst(arp_node->mac().addr);
 	eth->src(handler->nat_mac());
 	ip->dst(ip_dst);
+	tlp_dst_port(tlp, tlp_ptr, dst_port);
 
 	/* if configured, use proxy source IP */
 	if (_proxy) {
 		Ipv4_address client_ip = ip->src();
 		ip->src(handler->nat_ip());
 
-		/* if source port doesn't match any port forwarding, use a proxy port */
+		/* if the source port additionally doesn't match any port forwarding, use a proxy port */
 		uint16_t src_port = tlp_src_port(tlp, tlp_ptr);
 		Route_node * dst_route = handler->routes()->first();
 		for (; dst_route; dst_route = dst_route->next()) {
 			if (tlp_port_tree(tlp, dst_route)->find_by_nr(src_port)) { break; } }
 		if (!dst_route) { tlp_port_proxy(tlp, tlp_ptr, ip, client_ip, src_port); }
 	}
+	/* update checksums and deliver packet */
 	tlp_update_checksum(tlp, tlp_ptr, ip->src(), ip->dst(), tlp_size);
 	ip->checksum(Ipv4_packet::calculate_checksum(*ip));
-
-	/* deliver the modified packet */
 	handler->send(eth, eth_size);
 }
 
@@ -518,15 +542,15 @@ Packet_handler::Packet_handler
 
 	if (verbose) {
 		PLOG("Interface \"%s\"", label.string());
-		PLOG("  mac    %2x:%2x:%2x:%2x:%2x:%2x ip    %u.%u.%u.%u",
+		PLOG("  MAC     %2x:%2x:%2x:%2x:%2x:%2x IP     %u.%u.%u.%u",
 			mac.addr[0], mac.addr[1], mac.addr[2], mac.addr[3], mac.addr[4],
 			mac.addr[5], ip.addr[0], ip.addr[1], ip.addr[2], ip.addr[3]);
-		PLOG("  natmac %2x:%2x:%2x:%2x:%2x:%2x natip %u.%u.%u.%u",
+		PLOG("  NAT MAC %2x:%2x:%2x:%2x:%2x:%2x NAT IP %u.%u.%u.%u",
 			_nat_mac.addr[0], _nat_mac.addr[1], _nat_mac.addr[2],
 			_nat_mac.addr[3], _nat_mac.addr[4], _nat_mac.addr[5],
 			_nat_ip.addr[0], _nat_ip.addr[1], _nat_ip.addr[2],
 			_nat_ip.addr[3]);
-		PLOG("  proxy %u proxy_ports %u", _proxy, _proxy_ports);
+		PLOG("  Proxy %u Proxy ports %u", _proxy, _proxy_ports);
 	}
 	try {
 		Xml_node route = _policy.sub_node("route");
