@@ -72,14 +72,13 @@ class Net::Port_node : public Genode::Avl_node<Port_node>
 		Label        _label;
 		Ipv4_address _via;
 
+		void _dump(char const * type);
+
 	public:
 
 		Port_node(
 			uint16_t nr, char const * label, Genode::size_t label_size,
-			Ipv4_address via)
-		:
-			_nr(nr), _label(label, label_size), _via(via)
-		{ }
+			Ipv4_address via, char const * type);
 
 		uint16_t nr() { return _nr; }
 
@@ -87,14 +86,7 @@ class Net::Port_node : public Genode::Avl_node<Port_node>
 
 		bool higher(Port_node * p) { return p->_nr > _nr; }
 
-		Port_node * find_by_nr(uint16_t nr)
-		{
-			using namespace Genode;
-			if (nr == _nr) { return this; }
-			bool side = nr > _nr;
-			Port_node *c = Avl_node<Port_node>::child(side);
-			return c ? c->find_by_nr(nr) : 0;
-		}
+		Port_node * find_by_nr(uint16_t nr);
 
 		Ipv4_address via() { return _via; }
 };

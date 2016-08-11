@@ -8,7 +8,10 @@
 
 namespace Net
 {
-	class Bad_attr : public Genode::Exception { };
+	class Bad_ip_prefix_attr : public Genode::Exception { };
+	class Bad_ip_attr : public Genode::Exception { };
+	class Bad_mac_attr : public Genode::Exception { };
+	class Bad_uint_attr : public Genode::Exception { };
 
 	void ip_prefix_attr(
 		char const * attr, Genode::Xml_node const & node, Ipv4_address & ip,

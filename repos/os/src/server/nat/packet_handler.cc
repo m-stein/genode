@@ -27,14 +27,20 @@
 using namespace Net;
 using namespace Genode;
 
-static const bool verbose = true;
+static const bool verbose = false;
+
+void log(char const * s)
+{
+	if (!verbose) { return; }
+	PLOG("%s", s);
+}
 
 uint16_t tlp_dst_port(uint8_t tlp, void * ptr)
 {
 	switch (tlp) {
 	case Tcp_packet::IP_ID: return ((Tcp_packet *)ptr)->dst_port();
 	case Udp_packet::IP_ID: return ((Tcp_packet *)ptr)->dst_port();
-	default: PLOG("Unknown transport protocol"); return 0; }
+	default: log("Unknown transport protocol"); return 0; }
 }
 
 
@@ -43,7 +49,7 @@ uint16_t tlp_src_port(uint8_t tlp, void * ptr)
 	switch (tlp) {
 	case Tcp_packet::IP_ID: return ((Tcp_packet *)ptr)->src_port();
 	case Udp_packet::IP_ID: return ((Tcp_packet *)ptr)->src_port();
-	default: PLOG("Unknown transport protocol"); return 0; }
+	default: log("Unknown transport protocol"); return 0; }
 }
 
 
@@ -52,7 +58,7 @@ void * tlp_packet(uint8_t tlp, Ipv4_packet * ip, size_t size)
 	switch (tlp) {
 	case Tcp_packet::IP_ID: return new (ip->data<void>()) Tcp_packet(size);
 	case Udp_packet::IP_ID: return new (ip->data<void>()) Udp_packet(size);
-	default: PLOG("Unknown transport protocol"); return nullptr; }
+	default: log("Unknown transport protocol"); return nullptr; }
 }
 
 
@@ -61,7 +67,7 @@ Port_tree * tlp_port_tree(uint8_t tlp, Route_node * route)
 	switch (tlp) {
 	case Tcp_packet::IP_ID: return route->tcp_port_tree();
 	case Udp_packet::IP_ID: return route->udp_port_tree();
-	default: PLOG("Unknown transport protocol"); return nullptr; }
+	default: log("Unknown transport protocol"); return nullptr; }
 }
 
 
@@ -80,8 +86,8 @@ void Packet_handler::tlp_port_proxy
 		tcp->src_port(role->proxy_port());
 		return;
 	}
-	case Udp_packet::IP_ID: PLOG("Can not use proxy ports on UDP"); return;
-	default: PLOG("Unknown transport protocol"); return; }
+	case Udp_packet::IP_ID: log("Can not use proxy ports on UDP"); return;
+	default: log("Unknown transport protocol"); return; }
 }
 
 
@@ -92,7 +98,7 @@ void tlp_update_checksum
 	switch (tlp) {
 	case Tcp_packet::IP_ID: ((Tcp_packet *)ptr)->update_checksum(src, dst, size); return;
 	case Udp_packet::IP_ID: ((Udp_packet *)ptr)->update_checksum(src, dst); return;
-	default: PLOG("Unknown transport protocol"); return; }
+	default: log("Unknown transport protocol"); return; }
 }
 
 
@@ -168,7 +174,7 @@ void Packet_handler::_handle_ip
 	size_t ip_size = eth_size - sizeof(Ethernet_frame);
 	Ipv4_packet * ip;
 	try { ip = new (eth->data<void>()) Ipv4_packet(ip_size); }
-	catch (Ipv4_packet::No_ip_packet) { PLOG("Invalid IP packet"); return; }
+	catch (Ipv4_packet::No_ip_packet) { log("Invalid IP packet"); return; }
 	Route_node * route = _ip_routes.longest_prefix_match(ip->dst());
 	uint8_t tlp = ip->protocol();
 	size_t  tlp_size = ip_size - sizeof(Ipv4_packet);
@@ -191,7 +197,7 @@ void Packet_handler::_handle_ip
 	}
 	if (!handler) { handler = _tlp_proxy_route(tlp, tlp_ptr, dst_port, ip); }
 	if (!handler) {
-		PLOG("Unroutable packet");
+		log("Unroutable packet");
 		return;
 	}
 	/* adapt destination MAC address to matching ARP entry or send ARP request */
@@ -202,7 +208,7 @@ void Packet_handler::_handle_ip
 		_vlan.arp_waiters()->insert(new (_allocator)
 			Arp_waiter(this, ip_dst, eth, eth_size, packet));
 		ack_packet = false;
-		PLOG("Matching ARP entry requested");
+		log("Matching ARP entry requested");
 		return;
 	}
 
@@ -296,7 +302,7 @@ void Packet_handler::_handle_arp_reply(Arp_packet * const arp)
 	/* if an appropriate ARP node doesn't exist jet, create one */
 	Arp_node * arp_node = _vlan.arp_tree()->find_by_ip(arp->src_ip());
 	if (arp_node) {
-		PLOG("ARP entry already exists");
+		log("ARP entry already exists");
 		return;
 	}
 	arp_node = new (env()->heap()) Arp_node(arp->src_ip(), arp->src_mac());
@@ -313,7 +319,7 @@ void Packet_handler::_handle_arp_request
 	Ethernet_frame * const eth, size_t const eth_size, Arp_packet * const arp)
 {
 	/* ignore packets that do not target the NAT */
-	if (arp->dst_ip() != nat_ip()) { PLOG("ARP does not target NAT"); return; }
+	if (arp->dst_ip() != nat_ip()) { log("ARP does not target NAT"); return; }
 
 	/* interchange source and destination MAC and IP addresses */
 	arp->dst_ip(arp->src_ip());
@@ -334,12 +340,12 @@ void Packet_handler::_handle_arp(Ethernet_frame * eth, size_t eth_size)
 	/* ignore ARP regarding protocols other than IPv4 via ethernet */
 	size_t arp_size = eth_size - sizeof(Ethernet_frame);
 	Arp_packet *arp = new (eth->data<void>()) Arp_packet(arp_size);
-	if (!arp->ethernet_ipv4()) { PLOG("ARP for unknown protocol"); return; }
+	if (!arp->ethernet_ipv4()) { log("ARP for unknown protocol"); return; }
 
 	switch (arp->opcode()) {
 	case Arp_packet::REPLY:   _handle_arp_reply(arp); break;
 	case Arp_packet::REQUEST: _handle_arp_request(eth, eth_size, arp); break;
-	default: PLOG("unknown ARP operation"); }
+	default: log("unknown ARP operation"); }
 }
 
 
@@ -457,7 +463,7 @@ void Packet_handler::_read_route(Xml_node & route_xn)
 	uint8_t prefix;
 	ip_prefix_attr("dst", route_xn, ip, prefix);
 	Ipv4_address gw;
-	try { gw = ip_attr("via", route_xn); } catch (Bad_attr) { }
+	try { gw = ip_attr("via", route_xn); } catch (Bad_ip_attr) { }
 	Route_node * route;
 	try {
 		char const * in = route_xn.attribute("label").value_base();
@@ -492,7 +498,7 @@ Packet_handler::Packet_handler
 		_proxy_ports = uint_attr("proxy", _policy);
 		_proxy = true;
 	}
-	catch (Bad_attr) { }
+	catch (Bad_uint_attr) { }
 
 	if (verbose) {
 		PLOG("Interface \"%s\"", label.string());
@@ -504,10 +510,8 @@ Packet_handler::Packet_handler
 			_nat_mac.addr[3], _nat_mac.addr[4], _nat_mac.addr[5],
 			_nat_ip.addr[0], _nat_ip.addr[1], _nat_ip.addr[2],
 			_nat_ip.addr[3]);
-		PLOG("  proxy %u proxy_ports %u",
-			_proxy, _proxy_ports);
+		PLOG("  proxy %u proxy_ports %u", _proxy, _proxy_ports);
 	}
-
 	try {
 		Xml_node route = _policy.sub_node("route");
 		for (; ; route = route.next("route")) { _read_route(route); }
