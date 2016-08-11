@@ -39,8 +39,17 @@ uint16_t tlp_dst_port(uint8_t tlp, void * ptr)
 {
 	switch (tlp) {
 	case Tcp_packet::IP_ID: return ((Tcp_packet *)ptr)->dst_port();
-	case Udp_packet::IP_ID: return ((Tcp_packet *)ptr)->dst_port();
+	case Udp_packet::IP_ID: return ((Udp_packet *)ptr)->dst_port();
 	default: log("Unknown transport protocol"); return 0; }
+}
+
+
+void tlp_dst_port(uint8_t tlp, void * ptr, uint16_t port)
+{
+	switch (tlp) {
+	case Tcp_packet::IP_ID: ((Tcp_packet *)ptr)->dst_port(port); return;
+	case Udp_packet::IP_ID: ((Udp_packet *)ptr)->dst_port(port); return;
+	default: log("Unknown transport protocol"); }
 }
 
 
@@ -48,7 +57,7 @@ uint16_t tlp_src_port(uint8_t tlp, void * ptr)
 {
 	switch (tlp) {
 	case Tcp_packet::IP_ID: return ((Tcp_packet *)ptr)->src_port();
-	case Udp_packet::IP_ID: return ((Tcp_packet *)ptr)->src_port();
+	case Udp_packet::IP_ID: return ((Udp_packet *)ptr)->src_port();
 	default: log("Unknown transport protocol"); return 0; }
 }
 
@@ -87,7 +96,7 @@ void Packet_handler::tlp_port_proxy
 		return;
 	}
 	case Udp_packet::IP_ID: log("Can not use proxy ports on UDP"); return;
-	default: log("Unknown transport protocol"); return; }
+	default: log("Unknown transport protocol"); }
 }
 
 
@@ -98,13 +107,14 @@ void tlp_update_checksum
 	switch (tlp) {
 	case Tcp_packet::IP_ID: ((Tcp_packet *)ptr)->update_checksum(src, dst, size); return;
 	case Udp_packet::IP_ID: ((Udp_packet *)ptr)->update_checksum(src, dst); return;
-	default: log("Unknown transport protocol"); return; }
+	default: log("Unknown transport protocol"); }
 }
 
 
 Packet_handler * Packet_handler::_tlp_proxy_route
 (
-	uint8_t tlp, void * ptr, uint16_t dst_port, Ipv4_packet * ip)
+	uint8_t tlp, void * ptr, uint16_t & dst_port, Ipv4_packet * ip,
+	Ipv4_address & ip_dst)
 {
 	switch (tlp) {
 	case Tcp_packet::IP_ID: {
@@ -113,7 +123,8 @@ Packet_handler * Packet_handler::_tlp_proxy_route
 		Proxy_role * role = _find_proxy_role_by_proxy(ip->dst(), dst_port);
 		if (!role) { return nullptr; }
 		role->tcp_packet(ip, tcp);
-		tcp->dst_port(role->client_port());
+		dst_port = role->client_port();
+		ip_dst = role->client_ip();
 		return &role->client();
 	}
 	case Udp_packet::IP_ID: return nullptr;
@@ -195,7 +206,9 @@ void Packet_handler::_handle_ip
 			if (handler && route->via() != Ipv4_address()) {  ip_dst = route->via(); }
 		}
 	}
-	if (!handler) { handler = _tlp_proxy_route(tlp, tlp_ptr, dst_port, ip); }
+	if (!handler) {
+		handler = _tlp_proxy_route(tlp, tlp_ptr, dst_port, ip, ip_dst);
+	}
 	if (!handler) {
 		log("Unroutable packet");
 		return;
@@ -212,6 +225,7 @@ void Packet_handler::_handle_ip
 		return;
 	}
 
+	tlp_dst_port(tlp, tlp_ptr, dst_port);
 	eth->src(handler->nat_mac());
 	ip->dst(ip_dst);
 
@@ -379,6 +393,8 @@ void Packet_handler::_ready_to_submit(unsigned)
 void Packet_handler::continue_handle_ethernet(void* src, Genode::size_t size, Packet_descriptor * p)
 {
 	bool ack = true;
+
+	if (verbose) { dump_eth(src, size); }
 	handle_ethernet(src, size, ack, p);
 	if (!ack) { PERR("Failed to continue eth handling"); return; }
 

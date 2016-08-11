@@ -87,8 +87,8 @@ class Net::Packet_handler : public Interface_node
 		Proxy_role * _find_proxy_role_by_client(Ipv4_address ip, Genode::uint16_t port);
 
 		Packet_handler * _tlp_proxy_route(
-			Genode::uint8_t tlp, void * ptr, Genode::uint16_t dst_port,
-			Ipv4_packet * ip);
+			Genode::uint8_t tlp, void * ptr, Genode::uint16_t & dst_port,
+			Ipv4_packet * ip, Ipv4_address & ip_dst);
 
 		void tlp_port_proxy(
 			Genode::uint8_t tlp, void * tlp_ptr, Ipv4_packet * ip,

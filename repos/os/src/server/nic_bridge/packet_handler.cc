@@ -24,7 +24,7 @@
 
 using namespace Net;
 
-static const bool verbose = true;
+static const bool verbose = false;
 
 void Packet_handler::_ready_to_submit(unsigned)
 {

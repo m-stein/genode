@@ -3,8 +3,8 @@
 #
 
 set uplink_to_downlink_1 1
-set uplink_to_downlink_2 0
-set downlink_to_uplink 0
+set uplink_to_downlink_2 1
+set downlink_to_uplink 1
 
 set build_components {
 	core init
