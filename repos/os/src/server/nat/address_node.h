@@ -180,6 +180,7 @@ class Net::Route_node : public Genode::List<Route_node>::Element
 		size_t prefix() { return _prefix; }
 		Label & label() { return _label; }
 		Port_tree * tcp_port_tree() { return &_tcp_port_tree; }
+		Port_tree * udp_port_tree() { return &_udp_port_tree; }
 };
 
 class Net::Route_list : public Genode::List<Route_node>

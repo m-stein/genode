@@ -86,6 +86,16 @@ class Net::Packet_handler : public Interface_node
 
 		Proxy_role * _find_proxy_role_by_client(Ipv4_address ip, Genode::uint16_t port);
 
+		Packet_handler * _tlp_proxy_route(
+			Genode::uint8_t tlp, void * ptr, Genode::uint16_t dst_port,
+			Ipv4_packet * ip);
+
+		void tlp_port_proxy(
+			Genode::uint8_t tlp, void * tlp_ptr, Ipv4_packet * ip,
+			Ipv4_address client_ip, Genode::uint16_t src_port);
+
+		Proxy_role * _find_proxy_role_by_proxy(
+			Ipv4_address ip, Genode::uint16_t port);
 
 		void _handle_arp_reply(Arp_packet * const arp);
 
@@ -108,49 +118,6 @@ class Net::Packet_handler : public Interface_node
 		void _handle_ip(Ethernet_frame * eth, size_t eth_size,
 		                bool & ack_packet, Packet_descriptor * packet);
 
-		void _handle_udp_to_others(Ethernet_frame * eth, size_t eth_size,
-		                           Ipv4_packet * ip, size_t ip_size,
-		                           bool & ack, Packet_descriptor * p);
-
-		void _handle_udp_to_nat(Ethernet_frame * eth, size_t eth_size,
-		                        Ipv4_packet * ip, size_t ip_size,
-		                        bool & ack, Packet_descriptor * p);
-
-		void _handle_udp(Ethernet_frame * eth, size_t eth_size,
-		                 Ipv4_packet * ip, size_t ip_size, bool & ack,
-		                 Packet_descriptor * p);
-
-
-		void _handle_tcp_to_others(Ethernet_frame * eth, size_t eth_size,
-		                           Ipv4_packet * ip, size_t ip_size,
-		                           bool & ack, Packet_descriptor * p);
-
-		void _handle_tcp_to_nat(Ethernet_frame * eth, size_t eth_size,
-		                        Ipv4_packet * ip, size_t ip_size,
-		                        bool & ack, Packet_descriptor * p);
-
-		void _handle_tcp(Ethernet_frame * eth, size_t eth_size,
-		                 Ipv4_packet * ip, size_t ip_size, bool & ack,
-		                 Packet_descriptor * p);
-
-		void _apply_proxy(
-			Ipv4_packet * ip, size_t ip_size, Ipv4_address proxy_ip);
-
-
-		void _handle_to_others_known_arp(
-			Ethernet_frame * const eth, size_t const eth_size,
-			Ipv4_packet * const ip, size_t const ip_size,
-			Arp_node * const arp_node, Packet_handler * handler);
-
-		void _handle_to_others(
-			Ethernet_frame * eth, size_t eth_size, Ipv4_packet * ip,
-			size_t ip_size, bool & ack, Packet_descriptor * p);
-
-
-		void _handle_to_others_unknown_arp(
-			Ethernet_frame * eth, size_t eth_size, Ipv4_address ip_addr,
-			Packet_handler * handler, bool & ack, Packet_descriptor * p);
-
 		Proxy_role * _new_proxy_role(
 			unsigned const client_port, Ipv4_address client_ip,
 			Ipv4_address proxy_ip);
@@ -164,8 +131,6 @@ class Net::Packet_handler : public Interface_node
 		Packet_handler * _find_by_label(char const * label);
 
 	protected:
-
-		Packet_handler * _ip_routing(Ipv4_address & ip_addr, Ipv4_packet * ip);
 
 		Genode::Signal_rpc_member<Packet_handler> _sink_ack;
 		Genode::Signal_rpc_member<Packet_handler> _sink_submit;
@@ -203,16 +168,6 @@ class Net::Packet_handler : public Interface_node
 		virtual Packet_stream_source< ::Nic::Session::Policy> * source() = 0;
 
 		Net::Vlan & vlan() { return _vlan; }
-
-		/**
-		 * Broadcasts ethernet frame to all clients,
-		 * as long as its really a broadcast packtet.
-		 *
-		 * \param eth   ethernet frame to send.
-		 * \param size  ethernet frame's size.
-		 */
-		void inline broadcast_to_clients(Ethernet_frame *eth,
-		                                 size_t size);
 
 		Route_list * routes() { return &_ip_routes; }
 
