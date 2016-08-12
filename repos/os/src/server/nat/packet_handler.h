@@ -164,6 +164,8 @@ class Net::Packet_handler : public Interface_node
 			Genode::Session_label & label, Port_allocator & port_alloc,
 			Mac_address mac);
 
+		void dump();
+
 		virtual Packet_stream_sink< ::Nic::Session::Policy>   * sink()   = 0;
 		virtual Packet_stream_source< ::Nic::Session::Policy> * source() = 0;
 

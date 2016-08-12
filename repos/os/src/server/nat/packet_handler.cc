@@ -518,6 +518,21 @@ void Packet_handler::_read_route(Xml_node & route_xn)
 }
 
 
+void Packet_handler::dump()
+{
+	PLOG("Interface \"%s\"", label.string());
+	PLOG("  MAC     %2x:%2x:%2x:%2x:%2x:%2x",
+		mac.addr[0], mac.addr[1], mac.addr[2], mac.addr[3], mac.addr[4],
+		mac.addr[5]);
+	PLOG("  NAT MAC %2x:%2x:%2x:%2x:%2x:%2x NAT IP %u.%u.%u.%u",
+		_nat_mac.addr[0], _nat_mac.addr[1], _nat_mac.addr[2],
+		_nat_mac.addr[3], _nat_mac.addr[4], _nat_mac.addr[5],
+		_nat_ip.addr[0], _nat_ip.addr[1], _nat_ip.addr[2],
+		_nat_ip.addr[3]);
+	PLOG("  Proxy %u Proxy ports %u", _proxy, _proxy_ports);
+}
+
+
 Packet_handler::Packet_handler
 (
 	Server::Entrypoint & ep, Vlan & vlan, Mac_address nat_mac,
@@ -539,23 +554,10 @@ Packet_handler::Packet_handler
 		_proxy = true;
 	}
 	catch (Bad_uint_attr) { }
-
-	if (verbose) {
-		PLOG("Interface \"%s\"", label.string());
-		PLOG("  MAC     %2x:%2x:%2x:%2x:%2x:%2x",
-			mac.addr[0], mac.addr[1], mac.addr[2], mac.addr[3], mac.addr[4],
-			mac.addr[5]);
-		PLOG("  NAT MAC %2x:%2x:%2x:%2x:%2x:%2x NAT IP %u.%u.%u.%u",
-			_nat_mac.addr[0], _nat_mac.addr[1], _nat_mac.addr[2],
-			_nat_mac.addr[3], _nat_mac.addr[4], _nat_mac.addr[5],
-			_nat_ip.addr[0], _nat_ip.addr[1], _nat_ip.addr[2],
-			_nat_ip.addr[3]);
-		PLOG("  Proxy %u Proxy ports %u", _proxy, _proxy_ports);
-	}
+	if (verbose) { dump(); }
 	try {
 		Xml_node route = _policy.sub_node("route");
 		for (; ; route = route.next("route")) { _read_route(route); }
 	} catch (Xml_node::Nonexistent_sub_node) { }
-
 	vlan.interfaces()->insert(this);
 }
