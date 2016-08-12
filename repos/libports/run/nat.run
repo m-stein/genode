@@ -60,7 +60,7 @@ append config {
 		<provides><service name="Nic"/></provides>
 		<config rtt_sec="3">
 
-			<policy label="uplink" src="10.0.2.55" ip_addr="192.168.1.72" port="8080">
+			<policy label="uplink" src="10.0.2.55">
 				<route dst="192.168.1.18/32" label="http_srv_1" />
 				<route dst="10.0.2.0/24">
 					<tcp-port nr="29"   label="commander"/>
@@ -81,17 +81,17 @@ append config {
 				</route>
 			</policy>
 
-			<policy label="http_srv_1" src="192.168.1.1" proxy="3" ip_addr="192.168.1.18">
+			<policy label="http_srv_1" src="192.168.1.1" proxy="4">
 				<route dst="10.0.0.0/19"   label="uplink" via="10.0.6.1" />
 				<route dst="10.0.2.128/25" label="uplink" via="10.0.3.1" />
 				<route dst="10.0.2.0/24"   label="uplink" />
 			</policy>
 
-			<policy label="http_srv_2" src="192.168.1.1" proxy="3" ip_addr="192.168.1.72">
+			<policy label="http_srv_2" src="192.168.1.1" proxy="2">
 				<route dst="10.0.2.0/24" label="uplink" />
 			</policy>
 
-			<policy label="http_clnt_3" src="100.200.0.1" proxy="3" ip_addr="100.200.0.128">
+			<policy label="http_clnt_3" src="100.200.0.1" proxy="3">
 				<route dst="10.0.6.0/23" label="uplink" via="10.0.4.1" />
 				<route dst="10.0.0.0/16" />
 				<route dst="10.0.2.0/24" label="uplink" />

@@ -47,7 +47,6 @@ namespace Net
 		public:
 
 			typedef Avl_tree_safe<Mac_address_node>  Mac_address_tree;
-			typedef Avl_tree_safe<Ipv4_address_node> Ipv4_address_tree;
 			typedef List_safe<Mac_address_node>      Mac_address_list;
 			typedef List_safe<Arp_waiter>            Arp_waiter_list;
 
@@ -60,7 +59,6 @@ namespace Net
 
 			Mac_address_tree  _mac_tree;
 			Mac_address_list  _mac_list;
-			Ipv4_address_tree _ip_tree;
 			Interface_tree    _interfaces;
 			Arp_tree          _arp_tree;
 			Arp_waiter_list   _arp_waiters;
@@ -73,7 +71,6 @@ namespace Net
 
 			Mac_address_tree  * mac_tree()    { return &_mac_tree;    }
 			Mac_address_list  * mac_list()    { return &_mac_list;    }
-			Ipv4_address_tree * ip_tree()     { return &_ip_tree;     }
 			Arp_tree          * arp_tree()    { return &_arp_tree;    }
 			Arp_waiter_list   * arp_waiters() { return &_arp_waiters; }
 			Interface_tree    * interfaces()  { return &_interfaces;  }

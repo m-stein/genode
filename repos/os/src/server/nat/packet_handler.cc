@@ -522,7 +522,7 @@ Packet_handler::Packet_handler
 (
 	Server::Entrypoint & ep, Vlan & vlan, Mac_address nat_mac,
 	Ipv4_address nat_ip, Allocator * allocator, Session_label & label,
-	Port_allocator & port_alloc, Mac_address mac, Ipv4_address ip)
+	Port_allocator & port_alloc, Mac_address mac)
 :
 	Interface_node(this, label.string()), _vlan(vlan), _ep(ep),
 	_sink_ack(ep, *this, &Packet_handler::_ack_avail),
@@ -530,7 +530,7 @@ Packet_handler::Packet_handler
 	_source_ack(ep, *this, &Packet_handler::_ready_to_ack),
 	_source_submit(ep, *this, &Packet_handler::_packet_avail),
 	_client_link_state(ep, *this, &Packet_handler::_link_state),
-	_nat_mac(nat_mac), _nat_ip(nat_ip), _mac(mac), _ip(ip), _allocator(allocator),
+	_nat_mac(nat_mac), _nat_ip(nat_ip), _mac(mac), _allocator(allocator),
 	_policy(label), _proxy(false), _proxy_ports(0),
 	_proxy_ports_used(0), _port_alloc(port_alloc)
 {
@@ -542,9 +542,9 @@ Packet_handler::Packet_handler
 
 	if (verbose) {
 		PLOG("Interface \"%s\"", label.string());
-		PLOG("  MAC     %2x:%2x:%2x:%2x:%2x:%2x IP     %u.%u.%u.%u",
+		PLOG("  MAC     %2x:%2x:%2x:%2x:%2x:%2x",
 			mac.addr[0], mac.addr[1], mac.addr[2], mac.addr[3], mac.addr[4],
-			mac.addr[5], ip.addr[0], ip.addr[1], ip.addr[2], ip.addr[3]);
+			mac.addr[5]);
 		PLOG("  NAT MAC %2x:%2x:%2x:%2x:%2x:%2x NAT IP %u.%u.%u.%u",
 			_nat_mac.addr[0], _nat_mac.addr[1], _nat_mac.addr[2],
 			_nat_mac.addr[3], _nat_mac.addr[4], _nat_mac.addr[5],

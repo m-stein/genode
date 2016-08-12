@@ -40,33 +40,15 @@ void Session_component::finalize_packet(Ethernet_frame * eth,
 }
 
 
-void Session_component::_free_ipv4_node()
-{
-	if (_ipv4_node) {
-		vlan().ip_tree()->remove(_ipv4_node);
-		destroy(this->guarded_allocator(), _ipv4_node);
-	}
-}
-
-
 bool Session_component::link_state() { return _uplink.link_state(); }
-
-
-void Session_component::set_ipv4_address(Ipv4_address ip_addr)
-{
-	_free_ipv4_node();
-	_ipv4_node = new (this->guarded_allocator())
-		Ipv4_address_node(ip_addr, this);
-	vlan().ip_tree()->insert(_ipv4_node);
-}
 
 
 Session_component::Session_component
 (
 	Allocator * allocator, size_t amount, size_t tx_buf_size,
 	size_t rx_buf_size, Mac_address vmac, Server::Entrypoint & ep,
-	Uplink & uplink, Ipv4_address ip_addr, Mac_address nat_mac,
-	Ipv4_address nat_ip, Session_label & label, Port_allocator & port_alloc)
+	Uplink & uplink, Mac_address nat_mac, Ipv4_address nat_ip,
+	Session_label & label, Port_allocator & port_alloc)
 :
 	Guarded_range_allocator(allocator, amount),
 	Tx_rx_communication_buffers(tx_buf_size, rx_buf_size),
@@ -76,12 +58,11 @@ Session_component::Session_component
 		this->range_allocator(), ep.rpc_ep()),
 	Packet_handler(
 		ep, uplink.vlan(), nat_mac, nat_ip, guarded_allocator(), label,
-		port_alloc, vmac, ip_addr),
-	_mac_node(vmac, this), _ipv4_node(0), _uplink(uplink)
+		port_alloc, vmac),
+	_mac_node(vmac, this), _uplink(uplink)
 {
 	vlan().mac_tree()->insert(&_mac_node);
 	vlan().mac_list()->insert(&_mac_node);
-	if (ip_addr != Ipv4_address()) { set_ipv4_address(ip_addr); }
 	_tx.sigh_ready_to_ack(_sink_ack);
 	_tx.sigh_packet_avail(_sink_submit);
 	_rx.sigh_ack_avail(_source_ack);
@@ -92,7 +73,6 @@ Session_component::Session_component
 Session_component::~Session_component() {
 	vlan().mac_tree()->remove(&_mac_node);
 	vlan().mac_list()->remove(&_mac_node);
-	_free_ipv4_node();
 }
 
 Net::Root::Root
@@ -110,14 +90,12 @@ Session_component * Net::Root::_create_session(char const * args)
 	using namespace Genode;
 
 	memset(nat_ip_addr, 0, MAX_IP_ADDR_LENGTH);
-	memset(ip_addr, 0, MAX_IP_ADDR_LENGTH);
 
 	Session_label label;
 	 try {
 		label = Session_label(args);
 		Session_policy policy(label);
 		policy.attribute("src").value(nat_ip_addr, sizeof(nat_ip_addr));
-		policy.attribute("ip_addr").value(ip_addr, sizeof(ip_addr));
 
 	} catch (Xml_node::Nonexistent_attribute) {
 		if (verbose) PLOG("Missing attribute in policy definition");
@@ -156,13 +134,9 @@ Session_component * Net::Root::_create_session(char const * args)
 		}
 	}
 	Mac_address mac;
-	Ipv4_address ip;
 	try { mac = _mac_alloc.alloc(); }
 	catch (Mac_allocator::Alloc_failed) { return nullptr; };
-	if (ip_addr != 0 && Genode::strlen(ip_addr)) {
-		ip = Ipv4_packet::ip_from_string(ip_addr);
-	}
 	return new (md_alloc()) Session_component(
 		env()->heap(), ram_quota - session_size, tx_buf_size, rx_buf_size,
-		mac, _ep, _uplink, ip, _nat_mac, nat_ip, label, _port_alloc);
+		mac, _ep, _uplink, _nat_mac, nat_ip, label, _port_alloc);
 }

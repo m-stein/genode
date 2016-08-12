@@ -32,7 +32,6 @@ namespace Net
 	class Packet_handler;
 	class Session_component;
 	class Mac_address_node;
-	class Ipv4_address_node;
 	class Port_node;
 	class Interface_node;
 	class Route_node;
@@ -91,38 +90,6 @@ class Net::Port_node : public Genode::Avl_node<Port_node>,
 		Port_node * find_by_nr(uint16_t nr);
 
 		Ipv4_address via() { return _via; }
-};
-
-class Net::Ipv4_address_node : public Genode::Avl_node<Ipv4_address_node>
-{
-	private:
-
-		Ipv4_address        _addr;
-		Session_component * _component;
-
-	public:
-
-		Ipv4_address_node(Ipv4_address a, Session_component * c)
-		: _addr(a), _component(c) { }
-
-		Ipv4_address addr() { return _addr; }
-
-		Session_component * component() { return _component; }
-
-		bool higher(Ipv4_address_node * n)
-		{
-			using namespace Genode;
-			return (memcmp(&n->_addr.addr, &_addr.addr, sizeof(_addr.addr)) > 0);
-		}
-
-		Ipv4_address_node * find_by_address(Ipv4_address addr)
-		{
-			using namespace Genode;
-			if (addr == _addr) { return this; }
-			bool side = memcmp(&addr.addr, _addr.addr, sizeof(_addr.addr)) > 0;
-			Ipv4_address_node *c = Avl_node<Ipv4_address_node>::child(side);
-			return c ? c->find_by_address(addr) : 0;
-		}
 };
 
 

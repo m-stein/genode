@@ -162,7 +162,7 @@ class Net::Packet_handler : public Interface_node
 			Server::Entrypoint & ep, Vlan & vlan, Mac_address nat_mac,
 			Ipv4_address nat_ip, Genode::Allocator * allocator,
 			Genode::Session_label & label, Port_allocator & port_alloc,
-			Mac_address mac, Ipv4_address ip);
+			Mac_address mac);
 
 		virtual Packet_stream_sink< ::Nic::Session::Policy>   * sink()   = 0;
 		virtual Packet_stream_source< ::Nic::Session::Policy> * source() = 0;

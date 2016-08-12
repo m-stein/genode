@@ -127,12 +127,10 @@ class Net::Session_component : public  Guarded_range_allocator,
 		using Signal_transmitter =        Genode::Signal_transmitter;
 
 		Mac_address_node            _mac_node;
-		Ipv4_address_node         * _ipv4_node;
 		Port_node                 * _port_node;
 		Uplink                     &_uplink;
 		Signal_context_capability   _link_state_sigh;
 
-		void _free_ipv4_node();
 		void _free_port_node();
 
 		void _arp_broadcast(Packet_handler * handler,
@@ -157,7 +155,6 @@ class Net::Session_component : public  Guarded_range_allocator,
 		                  Mac_address          vmac,
 		                  Server::Entrypoint & ep,
 		                  Uplink             & uplink,
-		                  Ipv4_address ip_addr,
 					Mac_address nat_mac,
 		                  Ipv4_address nat_ip, Genode::Session_label & label,
 		Port_allocator & port_alloc);
@@ -166,19 +163,11 @@ class Net::Session_component : public  Guarded_range_allocator,
 
 		Mac_address mac_address() { return _mac_node.addr(); }
 
-		Ipv4_address ipv4_address()
-		{
-			if (!_ipv4_node) { return Ipv4_address((uint8_t)0); }
-			return Ipv4_address(_ipv4_node->addr());
-		}
-
 		void link_state_changed()
 		{
 			if (!_link_state_sigh.valid()) { return; }
 			Signal_transmitter(_link_state_sigh).submit();
 		}
-
-		void set_ipv4_address(Ipv4_address ip_addr);
 
 		void set_port(unsigned port);
 
@@ -220,7 +209,6 @@ class Net::Root : public Genode::Root_component<Session_component>
 	protected:
 
 		enum { MAX_IP_ADDR_LENGTH  = 16, };
-		char ip_addr[MAX_IP_ADDR_LENGTH];
 		char nat_ip_addr[MAX_IP_ADDR_LENGTH];
 
 		Session_component *_create_session(const char *args);

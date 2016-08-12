@@ -42,7 +42,7 @@ Net::Uplink::Uplink
 	Nic::Connection(this, BUF_SIZE, BUF_SIZE),
 	Packet_handler(
 		ep, vlan, mac_address().addr, _nat_ip_attr(), env()->heap(),
-		*this, port_alloc, Mac_address(), Ipv4_address())
+		*this, port_alloc, Mac_address())
 {
 	rx_channel()->sigh_ready_to_ack(_sink_ack);
 	rx_channel()->sigh_packet_avail(_sink_submit);
