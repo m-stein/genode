@@ -1,0 +1,258 @@
+#
+# Build
+#
+
+set uplink_to_downlink_1 1
+set uplink_to_downlink_2 1
+set downlink_to_uplink 1
+
+set build_components {
+	core init
+	drivers/timer drivers/nic
+	server/nat
+	server/nic_bridge
+	test/lwip/http_srv_static
+	test/lwip/http_clnt
+
+}
+
+source ${genode_dir}/repos/base/run/platform_drv.inc
+append_platform_drv_build_components
+
+build $build_components
+
+create_boot_directory
+
+#
+# Generate config
+#
+
+append config {
+<config>
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="RAM"/>
+		<service name="IRQ"/>
+		<service name="IO_MEM"/>
+		<service name="IO_PORT"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="LOG"/>
+	</parent-provides>
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>}
+
+append_platform_drv_config
+
+append config {
+	<start name="timer">
+		<resource name="RAM" quantum="1M"/>
+		<provides><service name="Timer"/></provides>
+	</start>
+	<start name="nic_drv">
+		<resource name="RAM" quantum="2M"/>
+		<provides><service name="Nic"/></provides>
+	</start>
+	<start name="nat">
+		<resource name="RAM" quantum="24M"/>
+		<provides><service name="Nic"/></provides>
+		<config rtt_sec="3">
+
+			<policy label="uplink" src="10.0.2.55">
+				<route dst="192.168.1.18/32" label="http_srv_1" />
+				<route dst="10.0.2.0/24">
+					<tcp-port nr="29"   label="commander"/>
+					<tcp-port nr="80"   label="keen" via="192.168.1.18" />
+					<tcp-port nr="8080"              via="192.168.1.72" />
+					<tcp-port nr="10"   label="earthworm"/>
+					<tcp-port nr="2345" label="jim"/>
+				</route>
+				<route dst="10.0.0.0/16"     label="link" />
+				<route dst="192.168.1.72/32" label="http_srv_2" />
+				<route dst="10.0.2.55/32">
+					<tcp-port nr="132"  label="samus"      via="192.168.1.72" />
+					<tcp-port nr="80"   label="http_srv_1" via="192.168.1.18" />
+					<tcp-port nr="80"   label="pacman" />
+					<tcp-port nr="8080" />
+					<tcp-port nr="8080" label="http_srv_2" via="192.168.1.72" />
+					<tcp-port nr="2345" label="http_clnt_3" />
+				</route>
+			</policy>
+
+			<policy label="http_srv_1" src="192.168.1.1" proxy="4">
+				<route dst="10.0.0.0/19"   label="uplink" via="10.0.6.1" />
+				<route dst="10.0.2.128/25" label="uplink" via="10.0.3.1" />
+				<route dst="10.0.2.0/24"   label="uplink" />
+			</policy>
+
+			<policy label="http_srv_2" src="192.168.1.1" proxy="2">
+				<route dst="10.0.2.0/24" label="uplink" />
+			</policy>
+
+			<policy label="http_clnt_3" src="100.200.0.1" proxy="3">
+				<route dst="10.0.6.0/23" label="uplink" via="10.0.4.1" />
+				<route dst="10.0.0.0/16" />
+				<route dst="10.0.2.0/24" label="uplink" />
+			</policy>
+
+		</config>
+		<route>
+			<service name="Nic"> <child name="nic_bridge"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+	<start name="nic_bridge">
+		<resource name="RAM" quantum="24M"/>
+		<provides><service name="Nic"/></provides>
+		<config>
+			<policy label="nat"        ip_addr="10.0.2.55"/>
+			<policy label="http_srv_3" ip_addr="10.0.2.11"/>
+		</config>
+		<route>
+			<service name="Nic"> <child name="nic_drv"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>}
+
+append_if $uplink_to_downlink_1 config {
+	<start name="http_srv_1">
+		<binary name="test-lwip_httpsrv_static"/>
+		<resource name="RAM" quantum="32M"/>
+		<route>
+			<service name="Nic"> <child name="nat"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+		<config>
+			<libc
+				stdout="/dev/log" stderr="/dev/log" ip_addr="192.168.1.18"
+				netmask="255.255.255.0" gateway="192.168.1.1" http_port="80"
+			>
+				<vfs> <dir name="dev"> <log/> </dir> </vfs>
+			</libc>
+		</config>
+	</start>
+	<start name="http_clnt_1">
+		<binary name="test-http_clnt"/>
+		<resource name="RAM" quantum="32M"/>
+		<route>
+			<service name="Nic"> <child name="nic_bridge"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+		<config>
+			<libc
+				stdout="/dev/log" stderr="/dev/log" server_ip="10.0.2.55"
+				http_port="80"
+			>
+				<vfs> <dir name="dev"> <log/> </dir> </vfs>
+			</libc>
+		</config>
+	</start>}
+
+append_if $uplink_to_downlink_2 config {
+	<start name="http_srv_2">
+		<binary name="test-lwip_httpsrv_static"/>
+		<resource name="RAM" quantum="32M"/>
+		<route>
+			<service name="Nic"> <child name="nat"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+		<config>
+			<libc
+				stdout="/dev/log" stderr="/dev/log" ip_addr="192.168.1.72"
+				netmask="255.255.255.0" gateway="192.168.1.1" http_port="8080"
+			>
+				<vfs> <dir name="dev"> <log/> </dir> </vfs>
+			</libc>
+		</config>
+	</start>
+	<start name="http_clnt_2">
+		<binary name="test-http_clnt"/>
+		<resource name="RAM" quantum="32M"/>
+		<route>
+			<service name="Nic"> <child name="nic_bridge"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+		<config>
+			<libc
+				stdout="/dev/log" stderr="/dev/log" server_ip="10.0.2.55"
+				http_port="8080"
+			>
+				<vfs> <dir name="dev"> <log/> </dir> </vfs>
+			</libc>
+		</config>
+	</start>}
+
+append_if $downlink_to_uplink config {
+	<start name="http_srv_3">
+		<binary name="test-lwip_httpsrv_static"/>
+		<resource name="RAM" quantum="32M"/>
+		<route>
+			<service name="Nic"> <child name="nic_bridge"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+		<config>
+			<libc
+				stdout="/dev/log" stderr="/dev/log" ip_addr="10.0.2.11"
+				netmask="255.255.255.0" gateway="10.0.2.1"  http_port="2345"
+			>
+				<vfs> <dir name="dev"> <log/> </dir> </vfs>
+			</libc>
+		</config>
+	</start>
+	<start name="http_clnt_3">
+		<binary name="test-http_clnt"/>
+		<resource name="RAM" quantum="32M"/>
+		<route>
+			<service name="Nic"> <child name="nat"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+		<config>
+			<libc
+				stdout="/dev/log" stderr="/dev/log" ip_addr="100.200.0.128"
+				netmask="255.255.0.0" gateway="100.200.0.1"
+				server_ip="10.0.2.11" http_port="2345"
+			>
+				<vfs> <dir name="dev"> <log/> </dir> </vfs>
+			</libc>
+		</config>
+	</start>}
+
+append config {
+</config>}
+
+install_config $config
+
+#
+# Boot modules
+#
+
+# generic modules
+set boot_modules {
+	core init
+	timer nic_drv
+	nat nic_bridge
+	ld.lib.so
+	libc.lib.so
+	lwip.lib.so
+	test-http_clnt
+	test-lwip_httpsrv_static
+}
+
+
+# platform-specific modules
+lappend_if [have_spec       linux] boot_modules fb_sdl
+
+append_platform_drv_boot_modules
+
+build_boot_image $boot_modules
+
+append qemu_args " -m 512 "
+
+append_if [have_spec x86]     qemu_args " -net nic,model=pcnet "
+append_if [have_spec lan9118] qemu_args " -net nic,model=lan9118 "
+
+append qemu_args " -net user "
+
+run_genode_until forever
