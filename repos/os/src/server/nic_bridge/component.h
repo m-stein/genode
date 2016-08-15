@@ -126,7 +126,7 @@ namespace Net {
 			                  Genode::size_t              amount,
 			                  Genode::size_t              tx_buf_size,
 			                  Genode::size_t              rx_buf_size,
-			                  Ethernet_frame::Mac_address vmac,
+			                  Mac_address                 vmac,
 			                  Server::Entrypoint         &ep,
 			                  Net::Nic                   &nic,
 			                  char                       *ip_addr = 0);
@@ -147,7 +147,7 @@ namespace Net {
 					Genode::Signal_transmitter(_link_state_sigh).submit();
 			}
 
-			void set_ipv4_address(Ipv4_packet::Ipv4_address ip_addr);
+			void set_ipv4_address(Ipv4_address ip_addr);
 
 			/****************************************
 			 ** Nic::Driver notification interface **

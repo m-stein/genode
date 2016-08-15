@@ -21,7 +21,13 @@
 #include <util/endian.h>
 #include <net/netaddress.h>
 
-namespace Net { class Ipv4_packet; }
+namespace Net
+{
+	enum { IPV4_ADDR_LEN = 4 };
+	typedef Network_address<IPV4_ADDR_LEN> Ipv4_address;
+
+	class Ipv4_packet;
+}
 
 
 /**
@@ -50,10 +56,8 @@ class Net::Ipv4_packet
 	public:
 
 		enum Size {
-			ADDR_LEN = 4, /* Ip address length in bytes */
+			ADDR_LEN = IPV4_ADDR_LEN, /* Ip address length in bytes */
 		};
-
-		typedef Network_address<ADDR_LEN> Ipv4_address;
 
 		static const Ipv4_address CURRENT;    /* current network   */
 		static const Ipv4_address BROADCAST;  /* broadcast address */
