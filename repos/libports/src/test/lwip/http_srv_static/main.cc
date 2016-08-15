@@ -22,6 +22,8 @@
 #include <base/thread.h>
 #include <util/string.h>
 #include <nic/packet_allocator.h>
+#include <os/config.h>
+#include <base/snprintf.h>
 
 /* LwIP includes */
 extern "C" {
@@ -35,8 +37,9 @@ extern "C" {
 const static char http_html_hdr[] =
 	"HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n"; /* HTTP response header */
 
-const static char http_index_html[] =
-	"<html><head><title>Congrats!</title></head><body><h1>Welcome to our lwIP HTTP server!</h1><p>This is a small test page.</body></html>"; /* HTML page */
+enum { HTTP_INDEX_HTML_SZ = 1024 };
+
+static char http_index_html[HTTP_INDEX_HTML_SZ]; /* HTML page */
 
 
 /**
@@ -79,15 +82,62 @@ void http_server_serve(int conn) {
 
 int main()
 {
+	using namespace Genode;
+
 	enum { BUF_SIZE = Nic::Packet_allocator::DEFAULT_PACKET_SIZE * 128 };
 
 	int s;
 
 	lwip_tcpip_init();
 
+	enum { ADDR_STR_SZ = 16 };
+
+	char ip_addr_str[ADDR_STR_SZ] = { 0 };
+	char netmask_str[ADDR_STR_SZ] = { 0 };
+	char gateway_str[ADDR_STR_SZ] = { 0 };
+
+	uint32_t ip = 0;
+	uint32_t nm = 0;
+	uint32_t gw = 0;
+	unsigned port = 0;
+
+	Xml_node libc_node = config()->xml_node().sub_node("libc");
+
+	try { libc_node.attribute("ip_addr").value(ip_addr_str, ADDR_STR_SZ); }
+	catch(...) {
+		PERR("Missing \"ip_addr\" attribute.");
+		throw Xml_node::Nonexistent_attribute();
+	}
+	try { libc_node.attribute("netmask").value(netmask_str, ADDR_STR_SZ); }
+	catch(...) {
+		PERR("Missing \"netmask\" attribute.");
+		throw Xml_node::Nonexistent_attribute();
+	}
+	try { libc_node.attribute("gateway").value(gateway_str, ADDR_STR_SZ); }
+	catch(...) {
+		PERR("Missing \"gateway\" attribute.");
+		throw Xml_node::Nonexistent_attribute();
+	}
+	try { libc_node.attribute("http_port").value(&port); }
+	catch(...) {
+		PERR("Missing \"http_port\" attribute.");
+		throw Xml_node::Nonexistent_attribute();
+	}
+
+	PDBG("static network interface: ip_addr=%s netmask=%s gateway=%s ",
+		ip_addr_str, netmask_str, gateway_str);
+
+	ip = inet_addr(ip_addr_str);
+	nm = inet_addr(netmask_str);
+	gw = inet_addr(gateway_str);
+
+	if (ip == INADDR_NONE || nm == INADDR_NONE || gw == INADDR_NONE) {
+		PERR("Invalid network interface config.");
+		throw -1;
+	}
+
 	/* Initialize network stack  */
-	if (lwip_nic_init(inet_addr("10.0.2.55"), inet_addr("255.255.255.0"),
-	                  inet_addr("10.0.2.1"), BUF_SIZE, BUF_SIZE)) {
+	if (lwip_nic_init(ip, nm, gw, BUF_SIZE, BUF_SIZE)) {
 		PERR("We got no IP address!");
 		return -1;
 	}
@@ -98,10 +148,17 @@ int main()
 		return -1;
 	}
 
+	Genode::snprintf(
+		http_index_html, HTTP_INDEX_HTML_SZ,
+		"<html><head><title>Congrats!</title></head><body>"
+		"<h1>Welcome to our lwIP HTTP server %s port %u!</h1>"
+		"<p>This is a small test page.</body></html>",
+		ip_addr_str, port);
+
 	PLOG("Now, I will bind ...");
 	struct sockaddr_in in_addr;
 	in_addr.sin_family = AF_INET;
-	in_addr.sin_port = htons(80);
+	in_addr.sin_port = htons(port);
 	in_addr.sin_addr.s_addr = INADDR_ANY;
 	if(lwip_bind(s, (struct sockaddr*)&in_addr, sizeof(in_addr))) {
 		PERR("bind failed!");

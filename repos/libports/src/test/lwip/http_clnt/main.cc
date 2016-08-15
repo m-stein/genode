@@ -18,6 +18,7 @@
 #include <util/string.h>
 #include <timer_session/connection.h>
 #include <nic/packet_allocator.h>
+#include <os/config.h>
 
 extern "C" {
 #include <lwip/sockets.h>
@@ -31,6 +32,28 @@ extern "C" {
 static const char *http_get_request =
 "GET / HTTP/1.0\r\nHost: localhost:80\r\n\r\n"; /* simple HTTP request header */
 
+using namespace Genode;
+
+bool static_ip_config(uint32_t & ip, uint32_t & nm, uint32_t & gw)
+{
+	enum { STR_SZ = 16 };
+	char ip_str[STR_SZ] = { 0 };
+	char nm_str[STR_SZ] = { 0 };
+	char gw_str[STR_SZ] = { 0 };
+	Xml_node libc_node = config()->xml_node().sub_node("libc");
+	try {
+		libc_node.attribute("ip_addr").value(ip_str, STR_SZ);
+		libc_node.attribute("netmask").value(nm_str, STR_SZ);
+		libc_node.attribute("gateway").value(gw_str, STR_SZ);
+	} catch(...) { return false; }
+	ip = inet_addr(ip_str);
+	nm = inet_addr(nm_str);
+	gw = inet_addr(gw_str);
+	if (ip == INADDR_NONE || nm == INADDR_NONE || gw == INADDR_NONE) { return false; }
+	PINF("static ip config: ip=%s nm=%s gw=%s ", ip_str, nm_str, gw_str);
+	return true;
+}
+
 
 /**
  * The client thread simply loops endless,
@@ -39,17 +62,38 @@ static const char *http_get_request =
  */
 int main()
 {
+	using namespace Genode;
+
 	enum { BUF_SIZE = Nic::Packet_allocator::DEFAULT_PACKET_SIZE * 128 };
 
 	static Timer::Connection _timer;
 	lwip_tcpip_init();
 
-	char serv_addr[] = "10.0.2.55";
+	uint32_t ip = 0;
+	uint32_t nm = 0;
+	uint32_t gw = 0;
+	bool static_ip = static_ip_config(ip, nm, gw);
 
-	if( lwip_nic_init(0, 0, 0, BUF_SIZE, BUF_SIZE))
-	{
-		PERR("We got no IP address!");
-		return 0;
+	enum { ADDR_STR_SZ = 16 };
+	char serv_addr[ADDR_STR_SZ] = { 0 };
+	Xml_node libc_node = config()->xml_node().sub_node("libc");
+	try { libc_node.attribute("server_ip").value(serv_addr, ADDR_STR_SZ); }
+	catch(...) {
+		PERR("Missing \"server_ip\" attribute.");
+		throw Xml_node::Nonexistent_attribute();
+	}
+
+	if (static_ip) {
+		if (lwip_nic_init(ip, nm, gw, BUF_SIZE, BUF_SIZE)) {
+			PERR("We got no IP address!");
+			return 0;
+		}
+	} else {
+		if( lwip_nic_init(0, 0, 0, BUF_SIZE, BUF_SIZE))
+		{
+			PERR("We got no IP address!");
+			return 0;
+		}
 	}
 
 	for(int j = 0; j != 5; ++j) {
@@ -64,8 +108,16 @@ int main()
 		}
 
 		PDBG("Connect to server ...");
+
+		unsigned port = 0;
+		try { libc_node.attribute("http_port").value(&port); }
+		catch (...) {
+			PERR("Missing \"http_port\" attribute.");
+			throw Xml_node::Nonexistent_attribute();
+		}
+
 		struct sockaddr_in addr;
-		addr.sin_port = htons(80);
+		addr.sin_port = htons(port);
 		addr.sin_family = AF_INET;
 		addr.sin_addr.s_addr = inet_addr(serv_addr);
 
