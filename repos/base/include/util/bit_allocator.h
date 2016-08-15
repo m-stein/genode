@@ -52,6 +52,7 @@ class Genode::Bit_allocator
 	public:
 
 		class Out_of_indices : Exception {};
+		class Already_allocated : Exception {};
 
 		Bit_allocator() : _next(0) {
 			_reserve(BITS, BITS_ALIGNED - BITS); }
@@ -80,6 +81,13 @@ class Genode::Bit_allocator
 			} while (max != 0);
 
 			throw Out_of_indices();
+		}
+
+		void alloc_index(addr_t const index)
+		{
+			if (_array.get(index, 1UL)) { throw Already_allocated(); }
+			_array.set(index, 1UL);
+			if (index == _next) { _next++; }
 		}
 
 		void free(addr_t const bit_start, size_t const num_log2 = 0)
