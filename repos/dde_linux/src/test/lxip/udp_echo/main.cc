@@ -21,7 +21,9 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <os/config.h>
 
+using namespace Genode;
 
 int main(void)
 {
@@ -33,10 +35,17 @@ int main(void)
 		return -1;
 	}
 
+	unsigned port = 0;
+	Xml_node libc_node = config()->xml_node().sub_node("libc");
+	try { libc_node.attribute("port").value(&port); }
+	catch (...) {
+		PERR("Missing \"port\" attribute.");
+		throw Xml_node::Nonexistent_attribute();
+	}
 	PLOG("Now, I will bind ...");
 	struct sockaddr_in in_addr;
 	in_addr.sin_family = AF_INET;
-	in_addr.sin_port = htons(1337);
+	in_addr.sin_port = htons(port);
 	in_addr.sin_addr.s_addr = INADDR_ANY;
 	if(bind(s, (struct sockaddr*)&in_addr, sizeof(in_addr))) {
 		PERR("bind failed!");
@@ -50,7 +59,7 @@ int main(void)
 		socklen_t len = sizeof(addr);
 
 		char buf[4096];
-		memset(buf, 0, sizeof(buf));
+		::memset(buf, 0, sizeof(buf));
 
 		ssize_t n = recvfrom(s, buf, sizeof(buf), 0, (struct sockaddr*)&addr, &len);
 
@@ -60,13 +69,13 @@ int main(void)
 		}
 
 		if (n < 0) {
-			PERR("Error %lld", n);
+			PERR("Error %lld", (long long)n);
 			break;
 		}
 
-		PLOG("Received %lld bytes", n);
+		PLOG("Received %lld bytes", (long long)n);
 		n = sendto(s, buf, n, 0, (struct sockaddr*)&addr, len);
-		PLOG("Send %lld bytes back", n);
+		PLOG("Send %lld bytes back", (long long)n);
 	}
 	return 0;
 }
