@@ -72,10 +72,7 @@ int main(void)
 			PERR("Error %lld", (long long)n);
 			break;
 		}
-
-		PLOG("Received %lld bytes", (long long)n);
 		n = sendto(s, buf, n, 0, (struct sockaddr*)&addr, len);
-		PLOG("Send %lld bytes back", (long long)n);
 	}
 	return 0;
 }
