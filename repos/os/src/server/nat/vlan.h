@@ -1,0 +1,96 @@
+/*
+ * \brief  Virtual local network.
+ * \author Stefan Kalkowski
+ * \date   2010-08-18
+ *
+ * A database containing all clients sorted by IP and MAC addresses.
+ */
+
+/*
+ * Copyright (C) 2010-2013 Genode Labs GmbH
+ *
+ * This file is part of the Genode OS framework, which is distributed
+ * under the terms of the GNU General Public License version 2.
+ */
+
+#ifndef _VLAN_H_
+#define _VLAN_H_
+
+/* Genode includes */
+#include <address_node.h>
+#include <avl_safe.h>
+#include <list_safe.h>
+#include <util/xml_node.h>
+
+/* local includes */
+#include <proxy_role.h>
+#include <port_allocator.h>
+#include <arp_waiter.h>
+
+namespace Net
+{
+	class Arp_tree : public Avl_tree_safe<Arp_node>
+	{
+		public:
+
+			Arp_node * find_by_ip(Ipv4_address ip_addr)
+			{
+				Arp_node * arp_node = first();
+				if (!arp_node) { return arp_node; }
+				return arp_node->find_by_ip(ip_addr);
+			}
+	};
+
+	class Interface_tree : public Avl_tree_safe<Genode::Avl_string_base>
+	{
+		public:
+
+			Interface * find_by_label(char const * label);
+	};
+
+	/*
+	 * The Vlan is a database containing all clients
+	 * sorted by IP and MAC addresses.
+	 */
+	class Vlan
+	{
+		public:
+
+			typedef Avl_tree_safe<Mac_address_node>  Mac_address_tree;
+			typedef List_safe<Mac_address_node>      Mac_address_list;
+			typedef List_safe<Tcp_proxy_role> Tcp_proxy_role_list;
+			typedef List_safe<Udp_proxy_role> Udp_proxy_role_list;
+
+		private:
+
+			using Xml_node = Genode::Xml_node;
+
+			Mac_address_tree  _mac_tree;
+			Mac_address_list  _mac_list;
+			Interface_tree    _interfaces;
+			Arp_tree          _arp_tree;
+			Arp_waiter_list   _arp_waiters;
+			Tcp_proxy_role_list   _tcp_proxy_roles;
+			Udp_proxy_role_list   _udp_proxy_roles;
+			unsigned const    _rtt_sec;
+
+			void _read_ports(Genode::Xml_node & route, char const * name,
+			                 Port_allocator & _port_alloc);
+
+		public:
+
+			Vlan(Port_allocator & tcp_port_alloc, Port_allocator & udp_port_alloc);
+
+			Mac_address_tree  * mac_tree()    { return &_mac_tree;    }
+			Mac_address_list  * mac_list()    { return &_mac_list;    }
+			Arp_tree          * arp_tree()    { return &_arp_tree;    }
+			Arp_waiter_list   * arp_waiters() { return &_arp_waiters; }
+			Interface_tree    * interfaces()  { return &_interfaces;  }
+			Tcp_proxy_role_list   * tcp_proxy_roles() { return &_tcp_proxy_roles; }
+			Udp_proxy_role_list   * udp_proxy_roles() { return &_udp_proxy_roles; }
+
+			unsigned rtt_sec() const { return _rtt_sec; }
+	};
+}
+
+#endif /* _VLAN_H_ */
