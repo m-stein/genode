@@ -54,7 +54,6 @@ void http_server_serve(int conn) {
 	/* Read the data from the port, blocking if nothing yet there.
 	   We assume the request (the part we care about) is in one packet */
 	buflen = lwip_recv(conn, buf, 1024, 0);
-	PLOG("Packet received!");
 
 	/* Ignore all receive errors */
 	if (buflen > 0) {
@@ -68,7 +67,6 @@ void http_server_serve(int conn) {
 			buf[3] == ' ' &&
 			buf[4] == '/' ) {
 
-			PLOG("Will send response");
 
 			/* Send http header */
 			lwip_send(conn, http_html_hdr, Genode::strlen(http_html_hdr), 0);
@@ -150,8 +148,8 @@ int main()
 
 	Genode::snprintf(
 		http_index_html, HTTP_INDEX_HTML_SZ,
-		"<html><head><title>Congrats!</title></head><body>"
-		"<h1>Welcome to our lwIP HTTP server %s port %u!</h1>"
+		"<html><head></head><body>"
+		"<h1>HTTP server at %s:%u</h1>"
 		"<p>This is a small test page.</body></html>",
 		ip_addr_str, port);
 

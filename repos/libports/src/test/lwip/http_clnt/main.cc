@@ -67,6 +67,7 @@ int main()
 	enum { BUF_SIZE = Nic::Packet_allocator::DEFAULT_PACKET_SIZE * 128 };
 
 	static Timer::Connection _timer;
+	_timer.msleep(2000);
 	lwip_tcpip_init();
 
 	uint32_t ip = 0;
@@ -100,14 +101,11 @@ int main()
 		_timer.msleep(2000);
 
 
-		PDBG("Create new socket ...");
 		int s = lwip_socket(AF_INET, SOCK_STREAM, 0 );
 		if (s < 0) {
 			PERR("No socket available!");
 			continue;
 		}
-
-		PDBG("Connect to server ...");
 
 		unsigned port = 0;
 		try { libc_node.attribute("http_port").value(&port); }
@@ -127,7 +125,6 @@ int main()
 			continue;
 		}
 
-		PDBG("Send request...");
 		unsigned long bytes = lwip_send(s, (char*)http_get_request,
 		                                Genode::strlen(http_get_request), 0);
 		if ( bytes < 0 ) {
@@ -142,9 +139,8 @@ int main()
 			ssize_t buflen;
 			buflen = lwip_recv(s, buf, 1024, 0);
 			if(buflen > 0) {
-				buf[buflen] = 0;
-				PDBG("Packet received!");
-				PDBG("Packet content:\n%s", buf);
+				 buf[buflen] = 0;
+				log("Received \"", String<64>(buf), " ...\"");
 			} else
 				break;
 		}
@@ -153,5 +149,6 @@ int main()
 		lwip_close(s);
 	}
 
+	_timer.msleep(2000);
 	return 0;
 }
