@@ -110,7 +110,8 @@ class Net::Interface
 		                         size_t const eth_size,
 		                         Arp_packet * const arp);
 
-		Arp_waiter * _new_arp_node(Arp_waiter * arp_waiter, Arp_node * arp_node);
+		Arp_waiter * _new_arp_entry(Arp_waiter * arp_waiter,
+		                                  Arp_cache_entry * entry);
 
 		void _remove_arp_waiter(Arp_waiter * arp_waiter);
 

@@ -28,7 +28,7 @@ namespace Net
 	using Packet_descriptor = ::Nic::Packet_descriptor;
 	class Interface;
 	class Arp_waiter;
-	class Arp_node;
+	class Arp_cache_entry;
 	using Arp_waiter_list = List_safe<Arp_waiter>;
 }
 
@@ -50,7 +50,7 @@ class Net::Arp_waiter : public Genode::List<Arp_waiter>::Element
 		           Genode::size_t const eth_size,
 		           Packet_descriptor * p);
 
-		bool new_arp_node(Arp_node * arp_node);
+		bool new_arp_cache_entry(Arp_cache_entry * entry);
 
 		Interface * handler() const { return _handler; }
 		Ethernet_frame * eth() const { return _eth; }

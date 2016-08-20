@@ -28,9 +28,9 @@ Arp_waiter::Arp_waiter(Interface * handler, Ipv4_address ip_addr,
 { }
 
 
-bool Arp_waiter::new_arp_node(Arp_node * arp_node)
+bool Arp_waiter::new_arp_cache_entry(Arp_cache_entry * entry)
 {
-	if (!(arp_node->ip() == _ip_addr)) { return false; }
+	if (!(entry->ip() == _ip_addr)) { return false; }
 	_handler->continue_handle_ethernet(_eth, _eth_size, _packet);
 	return true;
 }

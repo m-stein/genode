@@ -33,41 +33,9 @@ namespace Net
 	class Session_component;
 	class Mac_address_node;
 	class Interface;
-	class Arp_node;
 	class Tcp_packet;
 	class Vlan;
 }
-
-class Net::Arp_node : public Genode::Avl_node<Arp_node>
-{
-	private:
-
-		Ipv4_address _ip;
-		Mac_address  _mac;
-
-	public:
-
-		Arp_node(Ipv4_address a, Mac_address m)
-		: _ip(a), _mac(m) { }
-
-		Ipv4_address ip() { return _ip; }
-		Mac_address mac() { return _mac; }
-
-		bool higher(Arp_node * n)
-		{
-			using namespace Genode;
-			return (memcmp(&n->_ip.addr, &_ip.addr, sizeof(_ip.addr)) > 0);
-		}
-
-		Arp_node * find_by_ip(Ipv4_address ip)
-		{
-			using namespace Genode;
-			if (ip == _ip) { return this; }
-			bool side = memcmp(&ip.addr, _ip.addr, sizeof(_ip.addr)) > 0;
-			Arp_node *c = Avl_node<Arp_node>::child(side);
-			return c ? c->find_by_ip(ip) : 0;
-		}
-};
 
 class Net::Mac_address_node : public Genode::Avl_node<Mac_address_node>,
                               public Genode::List<Mac_address_node>::Element

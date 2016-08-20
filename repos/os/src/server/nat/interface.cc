@@ -329,8 +329,8 @@ void Interface::_handle_ip
 	}
 
 	/* send ARP request if there is no ARP entry for the destination IP */
-	Arp_node * arp_node = _vlan.arp_tree()->find_by_ip(via);
-	if (!arp_node) {
+	Arp_cache_entry * arp_entry = _vlan.arp_cache()->find_by_ip(via);
+	if (!arp_entry) {
 		handler->arp_broadcast(via);
 		_vlan.arp_waiters()->insert(new (_allocator)
 			Arp_waiter(this, via, eth, eth_size, packet));
@@ -338,7 +338,7 @@ void Interface::_handle_ip
 		return;
 	}
 	/* adapt packet to the collected info */
-	eth->dst(arp_node->mac().addr);
+	eth->dst(arp_entry->mac().addr);
 	eth->src(handler->nat_mac());
 	ip->dst(to);
 	tlp_dst_port(tlp, tlp_ptr, dst_port);
@@ -439,10 +439,13 @@ void Interface::_remove_arp_waiter(Arp_waiter * arp_waiter)
 }
 
 
-Arp_waiter * Interface::_new_arp_node(Arp_waiter * arp_waiter, Arp_node * arp_node)
+Arp_waiter * Interface::_new_arp_entry(Arp_waiter * arp_waiter,
+                                             Arp_cache_entry * arp_entry)
 {
 	Arp_waiter * next_arp_waiter = arp_waiter->next();
-	if (arp_waiter->new_arp_node(arp_node)) { _remove_arp_waiter(arp_waiter); }
+	if (arp_waiter->new_arp_cache_entry(arp_entry)) {
+		_remove_arp_waiter(arp_waiter);
+	}
 	return next_arp_waiter;
 }
 
@@ -450,17 +453,18 @@ Arp_waiter * Interface::_new_arp_node(Arp_waiter * arp_waiter, Arp_node * arp_no
 void Interface::_handle_arp_reply(Arp_packet * const arp)
 {
 	/* if an appropriate ARP node doesn't exist jet, create one */
-	Arp_node * arp_node = _vlan.arp_tree()->find_by_ip(arp->src_ip());
-	if (arp_node) {
+	Arp_cache_entry * arp_entry = _vlan.arp_cache()->find_by_ip(arp->src_ip());
+	if (arp_entry) {
 		if (verbose) { log("ARP entry already exists"); }
 		return;
 	}
-	arp_node = new (env()->heap()) Arp_node(arp->src_ip(), arp->src_mac());
-	_vlan.arp_tree()->insert(arp_node);
+	arp_entry =
+		new (env()->heap()) Arp_cache_entry(arp->src_ip(), arp->src_mac());
+	_vlan.arp_cache()->insert(arp_entry);
 
 	/* announce the existence of a new ARP node */
 	Arp_waiter * arp_waiter = vlan().arp_waiters()->first();
-	for (; arp_waiter; arp_waiter = _new_arp_node(arp_waiter, arp_node)) { }
+	for (; arp_waiter; arp_waiter = _new_arp_entry(arp_waiter, arp_entry)) { }
 }
 
 

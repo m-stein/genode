@@ -26,21 +26,10 @@
 #include <proxy_role.h>
 #include <port_allocator.h>
 #include <arp_waiter.h>
+#include <arp_cache.h>
 
 namespace Net
 {
-	class Arp_tree : public Avl_tree_safe<Arp_node>
-	{
-		public:
-
-			Arp_node * find_by_ip(Ipv4_address ip_addr)
-			{
-				Arp_node * arp_node = first();
-				if (!arp_node) { return arp_node; }
-				return arp_node->find_by_ip(ip_addr);
-			}
-	};
-
 	class Interface_tree : public Avl_tree_safe<Genode::Avl_string_base>
 	{
 		public:
@@ -68,7 +57,7 @@ namespace Net
 			Mac_address_tree  _mac_tree;
 			Mac_address_list  _mac_list;
 			Interface_tree    _interfaces;
-			Arp_tree          _arp_tree;
+			Arp_cache          _arp_cache;
 			Arp_waiter_list   _arp_waiters;
 			Tcp_proxy_role_list   _tcp_proxy_roles;
 			Udp_proxy_role_list   _udp_proxy_roles;
@@ -83,7 +72,7 @@ namespace Net
 
 			Mac_address_tree  * mac_tree()    { return &_mac_tree;    }
 			Mac_address_list  * mac_list()    { return &_mac_list;    }
-			Arp_tree          * arp_tree()    { return &_arp_tree;    }
+			Arp_cache          * arp_cache()    { return &_arp_cache;    }
 			Arp_waiter_list   * arp_waiters() { return &_arp_waiters; }
 			Interface_tree    * interfaces()  { return &_interfaces;  }
 			Tcp_proxy_role_list   * tcp_proxy_roles() { return &_tcp_proxy_roles; }
