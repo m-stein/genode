@@ -43,14 +43,8 @@ class Net::Uplink
 		Uplink(Server::Entrypoint&, Net::Vlan &vlan, Port_allocator & tcp_port_alloc,
 		       Port_allocator & udp_port_alloc);
 
-		/******************************
-		 ** Interface interface **
-		 ******************************/
-
 		Packet_stream_sink<Nic::Session::Policy> *   sink()   { return rx(); }
 		Packet_stream_source<Nic::Session::Policy> * source() { return tx(); }
-
-		void finalize_packet(Ethernet_frame * eth, Genode::size_t eth_size) { }
 };
 
 #endif /* _UPLINK_H_ */

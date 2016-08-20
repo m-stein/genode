@@ -48,5 +48,4 @@ Net::Uplink::Uplink
 	rx_channel()->sigh_packet_avail(_sink_submit);
 	tx_channel()->sigh_ack_avail(_source_ack);
 	tx_channel()->sigh_ready_to_submit(_source_submit);
-	link_state_sigh(_client_link_state);
 }

@@ -22,18 +22,22 @@
 #include <net/ethernet.h>
 #include <net/ipv4.h>
 #include <os/session_policy.h>
+#include <util/avl_string.h>
 
 /* local includes */
-#include <vlan.h>
 #include <port_allocator.h>
 #include <arp_waiter.h>
 #include <ip_route.h>
+#include <proxy_role.h>
+#include <avl_safe.h>
 
-namespace Net {
-
+namespace Net
+{
 	class Arp_packet;
+	class Vlan;
 	class Interface;
-
+	class Interface_tree;
+	using Interface_list = List_safe<Interface>;
 	using ::Nic::Packet_stream_sink;
 	using ::Nic::Packet_stream_source;
 }
@@ -81,11 +85,6 @@ class Net::Interface
 		 *       to the other side, that's why we ignore this signal.
 		 */
 		void _packet_avail(unsigned) { }
-
-		/**
-		 * the link-state of changed
-		 */
-		void _link_state(unsigned);
 
 		Tcp_proxy_role * _find_tcp_proxy_role_by_client(Ipv4_address ip, Genode::uint16_t port);
 		Udp_proxy_role * _find_udp_proxy_role_by_client(Ipv4_address ip, Genode::uint16_t port);
@@ -150,7 +149,6 @@ class Net::Interface
 		Genode::Signal_rpc_member<Interface> _sink_submit;
 		Genode::Signal_rpc_member<Interface> _source_ack;
 		Genode::Signal_rpc_member<Interface> _source_submit;
-		Genode::Signal_rpc_member<Interface> _client_link_state;
 
 		Mac_address         _nat_mac;
 		Ipv4_address        _nat_ip;
@@ -211,16 +209,16 @@ class Net::Interface
 
 		void continue_handle_ethernet(void* src, size_t size, Packet_descriptor * p);
 
-		/*
-		 * Finalize handling of ethernet frame.
-		 *
-		 * \param eth   ethernet frame to handle.
-		 * \param size  ethernet frame's size.
-		 */
-		virtual void finalize_packet(Ethernet_frame *eth,
-		                             size_t size) = 0;
-
 		Genode::Allocator * allocator() const { return _allocator; }
+};
+
+class Net::Interface_tree
+:
+	public Avl_tree_safe<Genode::Avl_string_base>
+{
+	public:
+
+		Interface * find_by_label(char const * label);
 };
 
 #endif /* _INTERFACE_H_ */

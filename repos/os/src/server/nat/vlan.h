@@ -27,15 +27,10 @@
 #include <port_allocator.h>
 #include <arp_waiter.h>
 #include <arp_cache.h>
+#include <interface.h>
 
 namespace Net
 {
-	class Interface_tree : public Avl_tree_safe<Genode::Avl_string_base>
-	{
-		public:
-
-			Interface * find_by_label(char const * label);
-	};
 
 	/*
 	 * The Vlan is a database containing all clients
@@ -45,18 +40,12 @@ namespace Net
 	{
 		public:
 
-			typedef Avl_tree_safe<Mac_address_node>  Mac_address_tree;
-			typedef List_safe<Mac_address_node>      Mac_address_list;
-			typedef List_safe<Tcp_proxy_role> Tcp_proxy_role_list;
-			typedef List_safe<Udp_proxy_role> Udp_proxy_role_list;
 
 		private:
 
 			using Xml_node = Genode::Xml_node;
 
-			Mac_address_tree  _mac_tree;
-			Mac_address_list  _mac_list;
-			Interface_tree    _interfaces;
+			Interface_tree    _interface_tree;
 			Arp_cache          _arp_cache;
 			Arp_waiter_list   _arp_waiters;
 			Tcp_proxy_role_list   _tcp_proxy_roles;
@@ -70,11 +59,9 @@ namespace Net
 
 			Vlan(Port_allocator & tcp_port_alloc, Port_allocator & udp_port_alloc);
 
-			Mac_address_tree  * mac_tree()    { return &_mac_tree;    }
-			Mac_address_list  * mac_list()    { return &_mac_list;    }
 			Arp_cache          * arp_cache()    { return &_arp_cache;    }
 			Arp_waiter_list   * arp_waiters() { return &_arp_waiters; }
-			Interface_tree    * interfaces()  { return &_interfaces;  }
+			Interface_tree    * interface_tree()  { return &_interface_tree;  }
 			Tcp_proxy_role_list   * tcp_proxy_roles() { return &_tcp_proxy_roles; }
 			Udp_proxy_role_list   * udp_proxy_roles() { return &_udp_proxy_roles; }
 

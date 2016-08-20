@@ -11,6 +11,7 @@
  * under the terms of the GNU General Public License version 2.
  */
 
+/* Genode includes */
 #include <base/lock.h>
 #include <net/arp.h>
 #include <net/dhcp.h>
@@ -19,10 +20,12 @@
 #include <net/udp.h>
 #include <net/dump.h>
 
+/* local includes */
 #include <component.h>
 #include <interface.h>
 #include <attribute.h>
 #include <proxy_role.h>
+#include <vlan.h>
 
 using namespace Net;
 using namespace Genode;
@@ -285,7 +288,7 @@ void Interface::_handle_ip
 		for (; port; port = port->next()) {
 
 			if (port->nr() != dst_port) { continue; }
-			handler = _vlan.interfaces()->find_by_label(port->label().string());
+			handler = _vlan.interface_tree()->find_by_label(port->label().string());
 			if (handler) {
 
 				bool const to_set = port->to() != Ipv4_address();
@@ -303,7 +306,7 @@ void Interface::_handle_ip
 		if (handler) { break; }
 
 		/* ... then try the IP route itself ... */
-		handler = _vlan.interfaces()->find_by_label(route->label().string());
+		handler = _vlan.interface_tree()->find_by_label(route->label().string());
 		if (handler) {
 
 			bool const to_set = route->to() != Ipv4_address();
@@ -558,15 +561,6 @@ void Interface::_ready_to_ack(unsigned)
 }
 
 
-void Interface::_link_state(unsigned)
-{
-	Mac_address_node *node = _vlan.mac_list()->first();
-	while (node) {
-		node->component()->link_state_changed();
-		node = node->next();
-	}
-}
-
 void Interface::handle_ethernet(void * src, size_t size, bool & ack, Packet_descriptor * p)
 {
 	try {
@@ -641,7 +635,6 @@ Interface::Interface
 	_sink_submit(ep, *this, &Interface::_ready_to_submit),
 	_source_ack(ep, *this, &Interface::_ready_to_ack),
 	_source_submit(ep, *this, &Interface::_packet_avail),
-	_client_link_state(ep, *this, &Interface::_link_state),
 	_nat_mac(nat_mac), _nat_ip(nat_ip), _mac(mac), _allocator(allocator),
 	_policy(label),
 	_tcp_proxy(false),
@@ -674,7 +667,7 @@ Interface::Interface
 		Xml_node route = _policy.sub_node("route");
 		for (; ; route = route.next("route")) { _read_route(route); }
 	} catch (Xml_node::Nonexistent_sub_node) { }
-	vlan.interfaces()->insert(this);
+	vlan.interface_tree()->insert(this);
 }
 
 Interface::~Interface()
@@ -685,4 +678,5 @@ Interface::~Interface()
 		if (arp_waiter->handler() != this) { _remove_arp_waiter(arp_waiter); }
 		arp_waiter = next_arp_waiter;
 	}
+	_vlan.interface_tree()->remove(this);
 }

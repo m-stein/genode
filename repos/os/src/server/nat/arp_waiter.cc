@@ -13,6 +13,7 @@
 
 /* local includes */
 #include <arp_waiter.h>
+#include <arp_cache.h>
 #include <interface.h>
 
 using namespace Net;

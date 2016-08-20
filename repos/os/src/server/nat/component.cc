@@ -23,25 +23,9 @@ using namespace Genode;
 
 static const int verbose = 1;
 
+bool Session_component::link_state() { Genode::error("link_state not implemented"); return false; }
 
-void Session_component::finalize_packet(Ethernet_frame * eth,
-                                        size_t size)
-{
-	Mac_address_node *node = vlan().mac_tree()->first();
-	if (node)
-		node = node->find_by_address(eth->dst());
-	if (node)
-		node->component()->send(eth, size);
-	else {
-		/* set our MAC as sender */
-		eth->src(nat_mac());
-		_uplink.send(eth, size);
-	}
-}
-
-
-bool Session_component::link_state() { return _uplink.link_state(); }
-
+void Session_component::link_state_sigh(Signal_context_capability sigh) { Genode::error("link_state_sigh not implemented"); }
 
 Session_component::Session_component
 (
@@ -62,19 +46,12 @@ Session_component::Session_component
 		tcp_port_alloc, udp_port_alloc, vmac),
 	_mac_node(vmac, this), _uplink(uplink)
 {
-	vlan().mac_tree()->insert(&_mac_node);
-	vlan().mac_list()->insert(&_mac_node);
 	_tx.sigh_ready_to_ack(_sink_ack);
 	_tx.sigh_packet_avail(_sink_submit);
 	_rx.sigh_ack_avail(_source_ack);
 	_rx.sigh_ready_to_submit(_source_submit);
 }
 
-
-Session_component::~Session_component() {
-	vlan().mac_tree()->remove(&_mac_node);
-	vlan().mac_list()->remove(&_mac_node);
-}
 
 Net::Root::Root
 (

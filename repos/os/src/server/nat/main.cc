@@ -11,6 +11,7 @@
 #include <component.h>
 #include <attribute.h>
 #include <port_allocator.h>
+#include <vlan.h>
 
 using namespace Genode;
 using namespace Net;

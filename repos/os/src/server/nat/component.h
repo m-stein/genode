@@ -128,7 +128,6 @@ class Net::Session_component : public  Guarded_range_allocator,
 
 		Mac_address_node            _mac_node;
 		Uplink                     &_uplink;
-		Signal_context_capability   _link_state_sigh;
 
 		void _arp_broadcast(Interface * handler,
 		                    Ipv4_address ip_addr);
@@ -161,12 +160,6 @@ class Net::Session_component : public  Guarded_range_allocator,
 
 		Mac_address mac_address() { return _mac_node.addr(); }
 
-		void link_state_changed()
-		{
-			if (!_link_state_sigh.valid()) { return; }
-			Signal_transmitter(_link_state_sigh).submit();
-		}
-
 		void set_port(unsigned port);
 
 		/****************************************
@@ -175,8 +168,7 @@ class Net::Session_component : public  Guarded_range_allocator,
 
 		bool link_state();
 
-		void link_state_sigh(Signal_context_capability sigh) {
-			_link_state_sigh = sigh; }
+		void link_state_sigh(Signal_context_capability sigh);
 
 		/******************************
 		 ** Interface interface **
@@ -184,8 +176,6 @@ class Net::Session_component : public  Guarded_range_allocator,
 
 		Packet_stream_sink<Nic::Session::Policy>   * sink()   { return _tx.sink(); }
 		Packet_stream_source<Nic::Session::Policy> * source() { return _rx.source(); }
-
-		void finalize_packet(Ethernet_frame *eth, size_t size);
 };
 
 
