@@ -17,7 +17,6 @@
 #define _VLAN_H_
 
 /* Genode includes */
-#include <address_node.h>
 #include <avl_safe.h>
 #include <list_safe.h>
 #include <util/xml_node.h>

@@ -16,16 +16,28 @@
 #include <net/udp.h>
 #include <net/tcp.h>
 
+/* local includes */
 #include <component.h>
+#include <vlan.h>
 
 using namespace Net;
 using namespace Genode;
 
 static const int verbose = 1;
 
-bool Session_component::link_state() { Genode::error("link_state not implemented"); return false; }
 
-void Session_component::link_state_sigh(Signal_context_capability sigh) { Genode::error("link_state_sigh not implemented"); }
+bool Session_component::link_state()
+{
+	warning(__func__, " not implemented");
+	return false;
+}
+
+
+void Session_component::link_state_sigh(Signal_context_capability sigh)
+{
+	warning(__func__, " not implemented");
+}
+
 
 Session_component::Session_component
 (
@@ -43,8 +55,7 @@ Session_component::Session_component
 		this->range_allocator(), ep.rpc_ep()),
 	Interface(
 		ep, uplink.vlan(), nat_mac, nat_ip, guarded_allocator(), label,
-		tcp_port_alloc, udp_port_alloc, vmac),
-	_mac_node(vmac, this), _uplink(uplink)
+		tcp_port_alloc, udp_port_alloc, vmac), _uplink(uplink)
 {
 	_tx.sigh_ready_to_ack(_sink_ack);
 	_tx.sigh_packet_avail(_sink_submit);
@@ -52,6 +63,8 @@ Session_component::Session_component
 	_rx.sigh_ready_to_submit(_source_submit);
 }
 
+
+Session_component::~Session_component() { }
 
 Net::Root::Root
 (

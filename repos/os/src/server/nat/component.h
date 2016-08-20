@@ -26,7 +26,6 @@
 #include <os/session_policy.h>
 
 /* local includes */
-#include <address_node.h>
 #include <mac.h>
 #include <uplink.h>
 #include <interface.h>
@@ -126,7 +125,6 @@ class Net::Session_component : public  Guarded_range_allocator,
 		using Allocator =                 Genode::Allocator;
 		using Signal_transmitter =        Genode::Signal_transmitter;
 
-		Mac_address_node            _mac_node;
 		Uplink                     &_uplink;
 
 		void _arp_broadcast(Interface * handler,
@@ -158,7 +156,7 @@ class Net::Session_component : public  Guarded_range_allocator,
 
 		~Session_component();
 
-		Mac_address mac_address() { return _mac_node.addr(); }
+		Mac_address mac_address() { return mac_addr(); }
 
 		void set_port(unsigned port);
 
