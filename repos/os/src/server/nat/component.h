@@ -27,7 +27,6 @@
 
 /* local includes */
 #include <mac.h>
-#include <uplink.h>
 #include <interface.h>
 #include <port_allocator.h>
 
@@ -125,34 +124,28 @@ class Net::Session_component : public  Guarded_range_allocator,
 		using Allocator =                 Genode::Allocator;
 		using Signal_transmitter =        Genode::Signal_transmitter;
 
-		Uplink                     &_uplink;
-
 		void _arp_broadcast(Interface * handler,
 		                    Ipv4_address ip_addr);
 
 	public:
 
-		/**
-		 * Constructor
-		 *
-		 * \param allocator    backing store for guarded allocator
-		 * \param amount       amount of memory managed by guarded allocator
-		 * \param tx_buf_size  buffer size for tx channel
-		 * \param rx_buf_size  buffer size for rx channel
-		 * \param vmac         virtual mac address
-		 * \param ep           entry point used for packet stream
-		 */
-		Session_component(Allocator          * allocator,
-		                  size_t               amount,
-		                  size_t               tx_buf_size,
-		                  size_t               rx_buf_size,
-		                  Mac_address          vmac,
-		                  Server::Entrypoint & ep,
-		                  Uplink             & uplink,
-					Mac_address nat_mac,
-		                  Ipv4_address nat_ip, Genode::Session_label & label,
-			Port_allocator & tcp_port_alloc,
-			Port_allocator & udp_port_alloc);
+		Session_component(Allocator             &allocator,
+		                  size_t                 amount,
+		                  size_t                 tx_buf_size,
+		                  size_t                 rx_buf_size,
+		                  Mac_address            vmac,
+		                  Server::Entrypoint    &ep,
+		                  Mac_address            nat_mac,
+		                  Ipv4_address           nat_ip,
+		                  Genode::Session_label &label,
+		                  Port_allocator        &tcp_port_alloc,
+		                  Port_allocator        &udp_port_alloc,
+		                  Tcp_proxy_role_list   &tcp_proxy_roles,
+		                  Udp_proxy_role_list   &udp_proxy_roles,
+		                  unsigned               rtt_sec,
+		                  Interface_tree        &interface_tree,
+		                  Arp_cache             &arp_cache,
+		                  Arp_waiter_list       &arp_waiters);
 
 		~Session_component();
 
@@ -160,53 +153,58 @@ class Net::Session_component : public  Guarded_range_allocator,
 
 		void set_port(unsigned port);
 
-		/****************************************
-		 ** Nic::Driver notification interface **
-		 ****************************************/
+		/*****************
+		 ** Nic::Driver **
+		 *****************/
 
 		bool link_state();
-
 		void link_state_sigh(Signal_context_capability sigh);
 
-		/******************************
-		 ** Interface interface **
-		 ******************************/
+		/***************
+		 ** Interface **
+		 ***************/
 
 		Packet_stream_sink<Nic::Session::Policy>   * sink()   { return _tx.sink(); }
 		Packet_stream_source<Nic::Session::Policy> * source() { return _rx.source(); }
 };
 
 
-/*
- * Root component, handling new session requests.
- */
 class Net::Root : public Genode::Root_component<Session_component>
 {
 	private:
 
-		enum { verbose = 1 };
-
-		Mac_allocator       _mac_alloc;
-		Server::Entrypoint &_ep;
-		Uplink             &_uplink;
-		Mac_address         _nat_mac;
-		Port_allocator &    _tcp_port_alloc;
-		Port_allocator &    _udp_port_alloc;
+		Mac_allocator          _mac_alloc;
+		Server::Entrypoint   & _ep;
+		Mac_address            _nat_mac;
+		Port_allocator       & _tcp_port_alloc;
+		Port_allocator       & _udp_port_alloc;
+		Tcp_proxy_role_list  & _tcp_proxy_roles;
+		Udp_proxy_role_list  & _udp_proxy_roles;
+		unsigned               _rtt_sec;
+		Interface_tree       & _interface_tree;
+		Arp_cache            & _arp_cache;
+		Arp_waiter_list      & _arp_waiters;
 
 	protected:
 
 		enum { MAX_IP_ADDR_LENGTH  = 16, };
 		char nat_ip_addr[MAX_IP_ADDR_LENGTH];
 
-		Session_component *_create_session(const char *args);
+		Session_component * _create_session(const char * args);
 
 	public:
 
-		Root(Server::Entrypoint &ep,
-		     Uplink             &uplink,
-		     Genode::Allocator  *md_alloc, Mac_address nat_mac,
-			Port_allocator & tcp_port_alloc,
-			Port_allocator & udp_port_alloc);
+		Root(Server::Entrypoint  & ep,
+		     Genode::Allocator   & md_alloc,
+		     Mac_address           nat_mac,
+		     Port_allocator      & tcp_port_alloc,
+		     Port_allocator      & udp_port_alloc,
+		     Tcp_proxy_role_list & tcp_proxy_roles,
+		     Udp_proxy_role_list & udp_proxy_roles,
+		     unsigned              rtt_sec,
+		     Interface_tree      & interface_tree,
+		     Arp_cache           & arp_cache,
+		     Arp_waiter_list     & arp_waiters);
 };
 
 #endif /* _COMPONENT_H_ */

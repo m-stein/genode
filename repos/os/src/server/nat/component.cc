@@ -18,7 +18,7 @@
 
 /* local includes */
 #include <component.h>
-#include <vlan.h>
+#include <arp_cache.h>
 
 using namespace Net;
 using namespace Genode;
@@ -39,23 +39,34 @@ void Session_component::link_state_sigh(Signal_context_capability sigh)
 }
 
 
-Session_component::Session_component
-(
-	Allocator * allocator, size_t amount, size_t tx_buf_size,
-	size_t rx_buf_size, Mac_address vmac, Server::Entrypoint & ep,
-	Uplink & uplink, Mac_address nat_mac, Ipv4_address nat_ip,
-	Session_label & label, Port_allocator & tcp_port_alloc,
-	Port_allocator & udp_port_alloc)
+Net::Session_component::Session_component(Allocator             &allocator,
+                                          size_t                 amount,
+                                          size_t                 tx_buf_size,
+                                          size_t                 rx_buf_size,
+                                          Mac_address            vmac,
+                                          Server::Entrypoint    &ep,
+                                          Mac_address            nat_mac,
+                                          Ipv4_address           nat_ip,
+                                          Genode::Session_label &label,
+                                          Port_allocator        &tcp_port_alloc,
+                                          Port_allocator        &udp_port_alloc,
+                                          Tcp_proxy_role_list   &tcp_proxy_roles,
+                                          Udp_proxy_role_list   &udp_proxy_roles,
+                                          unsigned               rtt_sec,
+                                          Interface_tree        &interface_tree,
+                                          Arp_cache             &arp_cache,
+                                          Arp_waiter_list       &arp_waiters)
 :
-	Guarded_range_allocator(allocator, amount),
+	Guarded_range_allocator(&allocator, amount),
 	Tx_rx_communication_buffers(tx_buf_size, rx_buf_size),
 	Session_rpc_object(
 		Tx_rx_communication_buffers::tx_ds(),
 		Tx_rx_communication_buffers::rx_ds(),
 		this->range_allocator(), ep.rpc_ep()),
 	Interface(
-		ep, uplink.vlan(), nat_mac, nat_ip, guarded_allocator(), label,
-		tcp_port_alloc, udp_port_alloc, vmac), _uplink(uplink)
+		ep, nat_mac, nat_ip, *guarded_allocator(), label, tcp_port_alloc,
+		udp_port_alloc, vmac, tcp_proxy_roles, udp_proxy_roles, rtt_sec,
+		interface_tree, arp_cache, arp_waiters)
 {
 	_tx.sigh_ready_to_ack(_sink_ack);
 	_tx.sigh_packet_avail(_sink_submit);
@@ -66,15 +77,27 @@ Session_component::Session_component
 
 Session_component::~Session_component() { }
 
-Net::Root::Root
-(
-	Server::Entrypoint & ep, Uplink & uplink, Allocator * md_alloc,
-	Mac_address nat_mac, Port_allocator & tcp_port_alloc,
-	Port_allocator & udp_port_alloc)
+Net::Root::Root(Server::Entrypoint  &ep,
+                Genode::Allocator   &md_alloc,
+                Mac_address          nat_mac,
+                Port_allocator      &tcp_port_alloc,
+                Port_allocator      &udp_port_alloc,
+                Tcp_proxy_role_list &tcp_proxy_roles,
+                Udp_proxy_role_list &udp_proxy_roles,
+                unsigned             rtt_sec,
+                Interface_tree      &interface_tree,
+                Arp_cache           &arp_cache,
+                Arp_waiter_list     &arp_waiters)
 :
-	Root_component<Session_component>(&ep.rpc_ep(), md_alloc),
-	_ep(ep), _uplink(uplink), _nat_mac(nat_mac), _tcp_port_alloc(tcp_port_alloc),
-	_udp_port_alloc(udp_port_alloc)
+	Root_component<Session_component>(&ep.rpc_ep(), &md_alloc),
+	_ep(ep), _nat_mac(nat_mac), _tcp_port_alloc(tcp_port_alloc),
+	_udp_port_alloc(udp_port_alloc),
+	_tcp_proxy_roles(tcp_proxy_roles),
+	_udp_proxy_roles(udp_proxy_roles),
+	_rtt_sec(rtt_sec),
+	_interface_tree(interface_tree),
+	_arp_cache(arp_cache),
+	_arp_waiters(arp_waiters)
 { }
 
 
@@ -135,6 +158,8 @@ Session_component * Net::Root::_create_session(char const * args)
 	try { mac = _mac_alloc.alloc(); }
 	catch (Mac_allocator::Alloc_failed) { return nullptr; };
 	return new (md_alloc()) Session_component(
-		env()->heap(), ram_quota - session_size, tx_buf_size, rx_buf_size,
-		mac, _ep, _uplink, _nat_mac, nat_ip, label, _tcp_port_alloc, _udp_port_alloc);
+		*env()->heap(), ram_quota - session_size, tx_buf_size, rx_buf_size,
+		mac, _ep, _nat_mac, nat_ip, label, _tcp_port_alloc,
+		_udp_port_alloc, _tcp_proxy_roles, _udp_proxy_roles, _rtt_sec,
+		_interface_tree, _arp_cache, _arp_waiters);
 }

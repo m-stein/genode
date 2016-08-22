@@ -45,7 +45,7 @@ void Ip_route::print(Output & output) const
 
 void Ip_route::_read_tcp_port
 (
-	Xml_node & port, Allocator * alloc)
+	Xml_node & port, Allocator & alloc)
 {
 	uint16_t nr;
 	try { nr = uint_attr("nr", port); }
@@ -58,7 +58,7 @@ void Ip_route::_read_tcp_port
 		Ipv4_address to;
 		try { via = ip_attr("via", port); } catch (Bad_ip_attr) { }
 		try { to = ip_attr("to", port); } catch (Bad_ip_attr) { }
-		port_route = new (alloc) Port_route(nr, label, label_size, via, to);
+		port_route = new (&alloc) Port_route(nr, label, label_size, via, to);
 	} catch (Xml_attribute::Nonexistent_attribute) {
 		Ipv4_address via;
 		Ipv4_address to;
@@ -73,7 +73,7 @@ void Ip_route::_read_tcp_port
 
 void Ip_route::_read_udp_port
 (
-	Xml_node & port, Allocator * alloc)
+	Xml_node & port, Allocator & alloc)
 {
 	uint16_t const nr = uint_attr("nr", port);
 	char const * label = port.attribute("label").value_base();
@@ -94,7 +94,7 @@ void Ip_route::_read_udp_port
 Ip_route::Ip_route
 (
 	Ipv4_address ip_addr, uint8_t prefix, Ipv4_address via, Ipv4_address to,
-	char const * label, size_t label_size, Allocator * alloc,
+	char const * label, size_t label_size, Allocator & alloc,
 	Xml_node & route)
 :
 	_ip_addr(ip_addr), _prefix(prefix), _prefix_bytes(_prefix / 8),

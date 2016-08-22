@@ -34,7 +34,7 @@
 namespace Net
 {
 	class Arp_packet;
-	class Vlan;
+	class Arp_cache;
 	class Interface;
 	class Interface_tree;
 	using Interface_list = List_safe<Interface>;
@@ -54,7 +54,6 @@ class Net::Interface
 	private:
 
 		Packet_descriptor    _packet;
-		Net::Vlan &          _vlan;
 		Genode::Entrypoint & _ep;
 		Ip_route_list        _ip_routes;
 
@@ -145,26 +144,32 @@ class Net::Interface
 
 	protected:
 
-		Genode::Signal_rpc_member<Interface> _sink_ack;
-		Genode::Signal_rpc_member<Interface> _sink_submit;
-		Genode::Signal_rpc_member<Interface> _source_ack;
-		Genode::Signal_rpc_member<Interface> _source_submit;
+		using Signal_rpc_member = Genode::Signal_rpc_member<Interface>;
 
-		Mac_address         _nat_mac;
-		Ipv4_address        _nat_ip;
-		Mac_address _mac;
-		Ipv4_address _ip;
-		Genode::Allocator * _allocator;
-		Genode::Session_policy _policy;
-		bool                _tcp_proxy;
-		unsigned            _tcp_proxy_ports;
-		unsigned            _tcp_proxy_ports_used;
-		Port_allocator &    _tcp_port_alloc;
-
-		bool                _udp_proxy;
-		unsigned            _udp_proxy_ports;
-		unsigned            _udp_proxy_ports_used;
-		Port_allocator &    _udp_port_alloc;
+		Signal_rpc_member        _sink_ack;
+		Signal_rpc_member        _sink_submit;
+		Signal_rpc_member        _source_ack;
+		Signal_rpc_member        _source_submit;
+		Mac_address              _nat_mac;
+		Ipv4_address             _nat_ip;
+		Mac_address              _mac;
+		Ipv4_address             _ip;
+		Genode::Allocator      & _allocator;
+		Genode::Session_policy   _policy;
+		bool                     _tcp_proxy;
+		unsigned                 _tcp_proxy_ports;
+		unsigned                 _tcp_proxy_ports_used;
+		Tcp_proxy_role_list    & _tcp_proxy_roles;
+		Port_allocator         & _tcp_port_alloc;
+		bool                     _udp_proxy;
+		unsigned                 _udp_proxy_ports;
+		unsigned                 _udp_proxy_ports_used;
+		Udp_proxy_role_list    & _udp_proxy_roles;
+		Port_allocator         & _udp_port_alloc;
+		unsigned                 _rtt_sec;
+		Interface_tree         & _interface_tree;
+		Arp_cache              & _arp_cache;
+		Arp_waiter_list        & _arp_waiters;
 
 	public:
 
@@ -175,19 +180,25 @@ class Net::Interface
 		Mac_address  mac_addr()    {return _mac;}
 		Ipv4_address ip_addr()     {return _ip;}
 
-		Interface(
-			Server::Entrypoint & ep, Vlan & vlan, Mac_address nat_mac,
-			Ipv4_address nat_ip, Genode::Allocator * allocator,
-			Genode::Session_label & label, Port_allocator & tcp_port_alloc,
-			Port_allocator & udp_port_alloc,
-			Mac_address mac);
+		Interface(Server::Entrypoint    &ep,
+		          Mac_address            nat_mac,
+		          Ipv4_address           nat_ip,
+		          Genode::Allocator     &allocator,
+		          Genode::Session_label &label,
+		          Port_allocator        &tcp_port_alloc,
+		          Port_allocator        &udp_port_alloc,
+		          Mac_address            mac,
+		          Tcp_proxy_role_list   &tcp_proxy_roles,
+		          Udp_proxy_role_list   &udp_proxy_roles,
+		          unsigned               rtt_sec,
+		          Interface_tree        &interface_tree,
+		          Arp_cache             &arp_cache,
+		          Arp_waiter_list       &arp_waiters);
 
 		~Interface();
 
 		virtual Packet_stream_sink< ::Nic::Session::Policy>   * sink()   = 0;
 		virtual Packet_stream_source< ::Nic::Session::Policy> * source() = 0;
-
-		Net::Vlan & vlan() { return _vlan; }
 
 		Ip_route_list * routes() { return &_ip_routes; }
 
@@ -209,7 +220,7 @@ class Net::Interface
 
 		void continue_handle_ethernet(void* src, size_t size, Packet_descriptor * p);
 
-		Genode::Allocator * allocator() const { return _allocator; }
+		Genode::Allocator & allocator() const { return _allocator; }
 };
 
 class Net::Interface_tree

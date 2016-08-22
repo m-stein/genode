@@ -50,15 +50,15 @@ class Net::Ip_route : public Genode::List<Ip_route>::Element
 		Port_route_list _udp_port_list;
 		Port_route_list _tcp_port_list;
 
-		void _read_tcp_port(Genode::Xml_node & port, Genode::Allocator * alloc);
+		void _read_tcp_port(Genode::Xml_node & port, Genode::Allocator & alloc);
 
-		void _read_udp_port(Genode::Xml_node & port, Genode::Allocator * alloc);
+		void _read_udp_port(Genode::Xml_node & port, Genode::Allocator & alloc);
 
 	public:
 
 		Ip_route(Ipv4_address ip_addr, Genode::uint8_t prefix,
 		         Ipv4_address via, Ipv4_address to, char const * label,
-		         Genode::size_t label_size, Genode::Allocator * alloc,
+		         Genode::size_t label_size, Genode::Allocator & alloc,
 		         Genode::Xml_node & route);
 
 		void print(Genode::Output & output) const;

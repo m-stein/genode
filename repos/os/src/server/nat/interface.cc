@@ -25,7 +25,7 @@
 #include <interface.h>
 #include <attribute.h>
 #include <proxy_role.h>
-#include <vlan.h>
+#include <arp_cache.h>
 
 using namespace Net;
 using namespace Genode;
@@ -188,7 +188,7 @@ Interface * Interface::_tlp_proxy_route
 
 void Interface::_delete_tcp_proxy_role(Tcp_proxy_role * const role)
 {
-	vlan().tcp_proxy_roles()->remove(role);
+	_tcp_proxy_roles.remove(role);
 	unsigned const proxy_port = role->proxy_port();
 	destroy(_allocator, role);
 	_tcp_port_alloc.free(proxy_port);
@@ -198,7 +198,7 @@ void Interface::_delete_tcp_proxy_role(Tcp_proxy_role * const role)
 
 void Interface::_delete_udp_proxy_role(Udp_proxy_role * const role)
 {
-	vlan().udp_proxy_roles()->remove(role);
+	_udp_proxy_roles.remove(role);
 	unsigned const proxy_port = role->proxy_port();
 	destroy(_allocator, role);
 	_udp_port_alloc.free(proxy_port);
@@ -216,9 +216,8 @@ Tcp_proxy_role * Interface::_new_tcp_proxy_role
 	_tcp_proxy_ports_used++;
 	unsigned const proxy_port = _tcp_port_alloc.alloc();
 	Tcp_proxy_role * const role = new (_allocator) Tcp_proxy_role(
-		client_port, proxy_port, client_ip, proxy_ip, *this, _ep,
-		vlan().rtt_sec());
-	vlan().tcp_proxy_roles()->insert(role);
+		client_port, proxy_port, client_ip, proxy_ip, *this, _ep, _rtt_sec);
+	_tcp_proxy_roles.insert(role);
 	return role;
 }
 
@@ -234,8 +233,8 @@ Udp_proxy_role * Interface::_new_udp_proxy_role
 	unsigned const proxy_port = _udp_port_alloc.alloc();
 	Udp_proxy_role * const role = new (_allocator) Udp_proxy_role(
 		client_port, proxy_port, client_ip, proxy_ip, *this, _ep,
-		vlan().rtt_sec());
-	vlan().udp_proxy_roles()->insert(role);
+		_rtt_sec);
+	_udp_proxy_roles.insert(role);
 	return role;
 }
 
@@ -288,7 +287,7 @@ void Interface::_handle_ip
 		for (; port; port = port->next()) {
 
 			if (port->nr() != dst_port) { continue; }
-			handler = _vlan.interface_tree()->find_by_label(port->label().string());
+			handler = _interface_tree.find_by_label(port->label().string());
 			if (handler) {
 
 				bool const to_set = port->to() != Ipv4_address();
@@ -306,7 +305,7 @@ void Interface::_handle_ip
 		if (handler) { break; }
 
 		/* ... then try the IP route itself ... */
-		handler = _vlan.interface_tree()->find_by_label(route->label().string());
+		handler = _interface_tree.find_by_label(route->label().string());
 		if (handler) {
 
 			bool const to_set = route->to() != Ipv4_address();
@@ -332,10 +331,10 @@ void Interface::_handle_ip
 	}
 
 	/* send ARP request if there is no ARP entry for the destination IP */
-	Arp_cache_entry * arp_entry = _vlan.arp_cache()->find_by_ip(via);
+	Arp_cache_entry * arp_entry = _arp_cache.find_by_ip(via);
 	if (!arp_entry) {
 		handler->arp_broadcast(via);
-		_vlan.arp_waiters()->insert(new (_allocator)
+		_arp_waiters.insert(new (_allocator)
 			Arp_waiter(this, via, eth, eth_size, packet));
 		ack_packet = false;
 		return;
@@ -367,7 +366,7 @@ void Interface::_handle_ip
 
 Tcp_proxy_role * Interface::_find_tcp_proxy_role_by_client(Ipv4_address ip, uint16_t port)
 {
-	Tcp_proxy_role * role = vlan().tcp_proxy_roles()->first();
+	Tcp_proxy_role * role = _tcp_proxy_roles.first();
 	while (role) {
 		if (_chk_delete_tcp_proxy_role(role)) { continue; }
 		if (role->matches_client(ip, port)) { break; }
@@ -379,7 +378,7 @@ Tcp_proxy_role * Interface::_find_tcp_proxy_role_by_client(Ipv4_address ip, uint
 
 Tcp_proxy_role * Interface::_find_tcp_proxy_role_by_proxy(Ipv4_address ip, uint16_t port)
 {
-	Tcp_proxy_role * role = vlan().tcp_proxy_roles()->first();
+	Tcp_proxy_role * role = _tcp_proxy_roles.first();
 	while (role) {
 		if (_chk_delete_tcp_proxy_role(role)) { continue; }
 		if (role->matches_proxy(ip, port)) { break; }
@@ -390,7 +389,7 @@ Tcp_proxy_role * Interface::_find_tcp_proxy_role_by_proxy(Ipv4_address ip, uint1
 
 Udp_proxy_role * Interface::_find_udp_proxy_role_by_client(Ipv4_address ip, uint16_t port)
 {
-	Udp_proxy_role * role = vlan().udp_proxy_roles()->first();
+	Udp_proxy_role * role = _udp_proxy_roles.first();
 	while (role) {
 		if (_chk_delete_udp_proxy_role(role)) { continue; }
 		if (role->matches_client(ip, port)) { break; }
@@ -402,7 +401,7 @@ Udp_proxy_role * Interface::_find_udp_proxy_role_by_client(Ipv4_address ip, uint
 
 Udp_proxy_role * Interface::_find_udp_proxy_role_by_proxy(Ipv4_address ip, uint16_t port)
 {
-	Udp_proxy_role * role = vlan().udp_proxy_roles()->first();
+	Udp_proxy_role * role = _udp_proxy_roles.first();
 	while (role) {
 		if (_chk_delete_udp_proxy_role(role)) { continue; }
 		if (role->matches_proxy(ip, port)) { break; }
@@ -437,7 +436,7 @@ void Interface::arp_broadcast(Ipv4_address ip_addr)
 
 void Interface::_remove_arp_waiter(Arp_waiter * arp_waiter)
 {
-	vlan().arp_waiters()->remove(arp_waiter);
+	_arp_waiters.remove(arp_waiter);
 	destroy(arp_waiter->handler()->allocator(), arp_waiter);
 }
 
@@ -456,17 +455,17 @@ Arp_waiter * Interface::_new_arp_entry(Arp_waiter * arp_waiter,
 void Interface::_handle_arp_reply(Arp_packet * const arp)
 {
 	/* if an appropriate ARP node doesn't exist jet, create one */
-	Arp_cache_entry * arp_entry = _vlan.arp_cache()->find_by_ip(arp->src_ip());
+	Arp_cache_entry * arp_entry = _arp_cache.find_by_ip(arp->src_ip());
 	if (arp_entry) {
 		if (verbose) { log("ARP entry already exists"); }
 		return;
 	}
 	arp_entry =
 		new (env()->heap()) Arp_cache_entry(arp->src_ip(), arp->src_mac());
-	_vlan.arp_cache()->insert(arp_entry);
+	_arp_cache.insert(arp_entry);
 
 	/* announce the existence of a new ARP node */
-	Arp_waiter * arp_waiter = vlan().arp_waiters()->first();
+	Arp_waiter * arp_waiter = _arp_waiters.first();
 	for (; arp_waiter; arp_waiter = _new_arp_entry(arp_waiter, arp_entry)) { }
 }
 
@@ -620,17 +619,23 @@ void Interface::_read_route(Xml_node & route_xn)
 	if (verbose) { log("  IP route: ", *route); }
 }
 
-
-Interface::Interface
-(
-	Server::Entrypoint & ep, Vlan & vlan, Mac_address nat_mac,
-	Ipv4_address nat_ip, Allocator * allocator, Session_label & label,
-	Port_allocator & tcp_port_alloc, Port_allocator & udp_port_alloc,
-	Mac_address mac)
+Interface::Interface(Server::Entrypoint    &ep,
+                     Mac_address            nat_mac,
+                     Ipv4_address           nat_ip,
+                     Genode::Allocator     &allocator,
+                     Genode::Session_label &label,
+                     Port_allocator        &tcp_port_alloc,
+                     Port_allocator        &udp_port_alloc,
+                     Mac_address            mac,
+                     Tcp_proxy_role_list   &tcp_proxy_roles,
+                     Udp_proxy_role_list   &udp_proxy_roles,
+                     unsigned               rtt_sec,
+                     Interface_tree        &interface_tree,
+                     Arp_cache             &arp_cache,
+                     Arp_waiter_list       &arp_waiters)
 :
 	Interface_label(label.string()),
-	Avl_string_base(Interface_label::string()),
-	_vlan(vlan), _ep(ep),
+	Avl_string_base(Interface_label::string()), _ep(ep),
 	_sink_ack(ep, *this, &Interface::_ack_avail),
 	_sink_submit(ep, *this, &Interface::_ready_to_submit),
 	_source_ack(ep, *this, &Interface::_ready_to_ack),
@@ -640,11 +645,17 @@ Interface::Interface
 	_tcp_proxy(false),
 	_tcp_proxy_ports(0),
 	_tcp_proxy_ports_used(0),
+	_tcp_proxy_roles(tcp_proxy_roles),
 	_tcp_port_alloc(tcp_port_alloc),
 	_udp_proxy(false),
 	_udp_proxy_ports(0),
 	_udp_proxy_ports_used(0),
-	_udp_port_alloc(udp_port_alloc)
+	_udp_proxy_roles(udp_proxy_roles),
+	_udp_port_alloc(udp_port_alloc),
+	_rtt_sec(rtt_sec),
+	_interface_tree(interface_tree),
+	_arp_cache(arp_cache),
+	_arp_waiters(arp_waiters)
 {
 	try {
 		_tcp_proxy_ports = uint_attr("tcp-proxy", _policy);
@@ -667,16 +678,26 @@ Interface::Interface
 		Xml_node route = _policy.sub_node("route");
 		for (; ; route = route.next("route")) { _read_route(route); }
 	} catch (Xml_node::Nonexistent_sub_node) { }
-	vlan.interface_tree()->insert(this);
+	_interface_tree.insert(this);
 }
 
 Interface::~Interface()
 {
-	Arp_waiter * arp_waiter = vlan().arp_waiters()->first();
+	Arp_waiter * arp_waiter = _arp_waiters.first();
 	while (arp_waiter) {
 		Arp_waiter * next_arp_waiter = arp_waiter->next();
 		if (arp_waiter->handler() != this) { _remove_arp_waiter(arp_waiter); }
 		arp_waiter = next_arp_waiter;
 	}
-	_vlan.interface_tree()->remove(this);
+	_interface_tree.remove(this);
+}
+
+
+Interface * Interface_tree::find_by_label(char const * label)
+{
+	if (!strcmp(label, "")) { return nullptr; }
+	Interface * interface = static_cast<Interface *>(first());
+	if (!interface) { return nullptr; }
+	interface = static_cast<Interface *>(interface->find_by_name(label));
+	return interface;
 }

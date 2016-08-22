@@ -40,8 +40,15 @@ class Net::Uplink
 
 	public:
 
-		Uplink(Server::Entrypoint&, Net::Vlan &vlan, Port_allocator & tcp_port_alloc,
-		       Port_allocator & udp_port_alloc);
+		Uplink(Server::Entrypoint  &ep,
+		       Port_allocator      &tcp_port_alloc,
+		       Port_allocator      &udp_port_alloc,
+		       Tcp_proxy_role_list &tcp_proxy_roles,
+		       Udp_proxy_role_list &udp_proxy_roles,
+		       unsigned             rtt_sec,
+		       Interface_tree      &interface_tree,
+		       Arp_cache           &arp_cache,
+		       Arp_waiter_list     &arp_waiters);
 
 		Packet_stream_sink<Nic::Session::Policy> *   sink()   { return rx(); }
 		Packet_stream_source<Nic::Session::Policy> * source() { return tx(); }
