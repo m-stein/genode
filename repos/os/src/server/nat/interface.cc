@@ -675,8 +675,8 @@ Interface::Interface(Server::Entrypoint    &ep,
 		log("  UDP proxy: active ", _udp_proxy, " ports ", _udp_proxy_ports);
 	}
 	try {
-		Xml_node route = _policy.sub_node("route");
-		for (; ; route = route.next("route")) { _read_route(route); }
+		Xml_node route = _policy.sub_node("ip");
+		for (; ; route = route.next("ip")) { _read_route(route); }
 	} catch (Xml_node::Nonexistent_sub_node) { }
 	_interface_tree.insert(this);
 }

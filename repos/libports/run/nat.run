@@ -65,17 +65,17 @@ append config {
 		<config rtt_sec="3">
 
 			<policy label="uplink" src="10.0.2.55">
-				<route dst="192.168.1.18/32" label="http_srv_1" />
-				<route dst="10.0.2.0/24">
+				<ip dst="192.168.1.18/32" label="http_srv_1" />
+				<ip dst="10.0.2.0/24">
 					<tcp-port nr="29"   label="commander"/>
 					<tcp-port nr="80"   label="keen" via="192.168.1.18" />
 					<tcp-port nr="8080"              via="192.168.1.72" />
 					<tcp-port nr="10"   label="earthworm"/>
 					<tcp-port nr="2345" label="jim"/>
-				</route>
-				<route dst="10.0.0.0/16"     label="link" />
-				<route dst="192.168.1.72/31" label="http_srv_2" />
-				<route dst="10.0.2.55/32">
+				</ip>
+				<ip dst="10.0.0.0/16"     label="link" />
+				<ip dst="192.168.1.72/31" label="http_srv_2" />
+				<ip dst="10.0.2.55/32">
 					<tcp-port nr="132"  label="samus"      to="192.168.1.72" via="192.168.1.14" />
 					<tcp-port nr="80"   label="pacman" />
 					<tcp-port nr="80"   label="http_srv_1" to="192.168.1.18" />
@@ -84,42 +84,42 @@ append config {
 					<udp-port nr="1"    label="udp_srv_2"  to="18.17.16.15" />
 					<tcp-port nr="8080" label="http_srv_2" to="192.168.1.72" />
 					<tcp-port nr="2345" label="http_clnt_3" />
-				</route>
+				</ip>
 			</policy>
 
 			<policy label="http_srv_1" src="192.168.1.1" tcp-proxy="4">
-				<route dst="10.0.0.0/19"   label="uplink" via="10.0.6.1" />
-				<route dst="10.0.2.128/25" label="uplink" via="10.0.3.1" />
-				<route dst="10.0.2.0/24"   label="uplink" />
+				<ip dst="10.0.0.0/19"   label="uplink" via="10.0.6.1" />
+				<ip dst="10.0.2.128/25" label="uplink" via="10.0.3.1" />
+				<ip dst="10.0.2.0/24"   label="uplink" />
 			</policy>
 
 			<policy label="http_srv_2" src="192.168.1.1" tcp-proxy="2">
-				<route dst="10.0.2.0/24" label="uplink" />
+				<ip dst="10.0.2.0/24" label="uplink" />
 			</policy>
 
 			<policy label="http_clnt_3" src="100.200.0.1" tcp-proxy="3">
-				<route dst="10.0.6.0/23" label="uplink" via="10.0.4.1" />
-				<route dst="10.0.0.0/16" />
-				<route dst="10.0.2.0/24" label="uplink" />
+				<ip dst="10.0.6.0/23" label="uplink" via="10.0.4.1" />
+				<ip dst="10.0.0.0/16" />
+				<ip dst="10.0.2.0/24" label="uplink" />
 			</policy>
 
 			<policy label="udp_srv_1" src="10.0.99.33" udp-proxy="1">
-				<route dst="10.0.2.0/24" label="uplink" />
-				<route dst="10.0.98.0/24" label="udp_clnt_1" />
+				<ip dst="10.0.2.0/24" label="uplink" />
+				<ip dst="10.0.98.0/24" label="udp_clnt_1" />
 			</policy>
 
 			<policy label="udp_srv_2" src="18.17.15.14">
-				<route dst="10.0.2.0/24" label="uplink" />
+				<ip dst="10.0.2.0/24" label="uplink" />
 			</policy>
 
 			<policy label="udp_clnt_1" src="10.0.98.33">
-				<route dst="10.0.98.33/32">
+				<ip dst="10.0.98.33/32">
 					<udp-port nr="1337" label="udp_srv_1" to="10.0.99.55" via="10.0.99.55"/>
-				</route>
+				</ip>
 			</policy>
 
 			<policy label="udp_clnt_3" src="217.13.192.1" udp-proxy="2">
-				<route dst="10.0.0.0/18" label="uplink" />
+				<ip dst="10.0.0.0/18" label="uplink" />
 			</policy>
 
 		</config>

@@ -77,8 +77,8 @@ Main::Main(Server::Entrypoint & ep)
 		Xml_node policy = config()->xml_node().sub_node("policy");
 		for (; ; policy = policy.next("policy")) {
 			try {
-				Xml_node route = policy.sub_node("route");
-				for (; ; route = route.next("route")) {
+				Xml_node route = policy.sub_node("ip");
+				for (; ; route = route.next("ip")) {
 					_read_ports(route, "tcp-port", _tcp_port_alloc);
 					_read_ports(route, "udp-port", _udp_port_alloc);
 				}
