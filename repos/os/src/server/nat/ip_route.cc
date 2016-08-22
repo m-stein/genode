@@ -48,7 +48,7 @@ void Ip_route::_read_tcp_port
 	Xml_node & port, Allocator & alloc)
 {
 	uint16_t nr;
-	try { nr = uint_attr("nr", port); }
+	try { nr = uint_attr("dst", port); }
 	catch (Bad_uint_attr) { return; }
 	Port_route * port_route;
 	try {
@@ -75,7 +75,7 @@ void Ip_route::_read_udp_port
 (
 	Xml_node & port, Allocator & alloc)
 {
-	uint16_t const nr = uint_attr("nr", port);
+	uint16_t const nr = uint_attr("dst", port);
 	char const * label = port.attribute("label").value_base();
 	size_t label_size = port.attribute("label").value_size();
 	Ipv4_address via;

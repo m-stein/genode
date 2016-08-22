@@ -51,7 +51,7 @@ void Main::_read_ports(Xml_node & route, char const * name, Port_allocator & por
 		Xml_node port = route.sub_node(name);
 		for (; ; port = port.next(name)) {
 			uint16_t nr;
-			try { nr = uint_attr("nr", port); }
+			try { nr = uint_attr("dst", port); }
 			catch (Bad_uint_attr) { continue; }
 			try { port_alloc.alloc_index(nr); }
 			catch (Port_allocator::Already_allocated) { continue; }
