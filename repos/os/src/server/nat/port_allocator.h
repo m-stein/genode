@@ -5,8 +5,8 @@
 #include <util/bit_allocator.h>
 #include <base/lock.h>
 
-namespace Net
-{
+namespace Net {
+
 	enum { NR_OF_PORTS = ((Genode::uint16_t)~0) + 1 };
 
 	class Port_allocator;

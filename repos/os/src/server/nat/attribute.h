@@ -6,8 +6,8 @@
 #include <net/ipv4.h>
 #include <net/ethernet.h>
 
-namespace Net
-{
+namespace Net {
+
 	class Bad_ip_prefix_attr : public Genode::Exception { };
 	class Bad_ip_attr : public Genode::Exception { };
 	class Bad_mac_attr : public Genode::Exception { };

@@ -31,8 +31,8 @@
 #include <proxy_role.h>
 #include <avl_safe.h>
 
-namespace Net
-{
+namespace Net {
+
 	class Arp_packet;
 	class Arp_cache;
 	class Interface;

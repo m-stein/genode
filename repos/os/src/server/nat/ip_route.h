@@ -22,14 +22,14 @@
 #ifndef _IP_ROUTE_H_
 #define _IP_ROUTE_H_
 
-namespace Genode
-{
+namespace Genode {
+
 	class Xml_node;
 	class Allocator;
 }
 
-namespace Net
-{
+namespace Net {
+
 	class Ip_route;
 	class Ip_route_list;
 }

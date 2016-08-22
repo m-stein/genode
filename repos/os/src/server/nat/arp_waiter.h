@@ -23,8 +23,8 @@
 #ifndef _ARP_WAITER_H_
 #define _ARP_WAITER_H_
 
-namespace Net
-{
+namespace Net {
+
 	using Packet_descriptor = ::Nic::Packet_descriptor;
 	class Interface;
 	class Arp_waiter;

@@ -30,8 +30,8 @@
 #include <interface.h>
 #include <port_allocator.h>
 
-namespace Net
-{
+namespace Net {
+
 	class Guarded_range_allocator;
 	class Communication_buffer;
 	class Tx_rx_communication_buffers;

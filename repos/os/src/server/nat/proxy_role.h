@@ -11,8 +11,8 @@
 /* local includes */
 #include <list_safe.h>
 
-namespace Net
-{
+namespace Net {
+
 	class Interface;
 	class Tcp_proxy_role;
 	class Udp_proxy_role;

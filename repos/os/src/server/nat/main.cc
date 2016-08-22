@@ -95,8 +95,8 @@ Main::Main(Server::Entrypoint & ep)
  ** Server **
  ************/
 
-namespace Server
-{
+namespace Server {
+
 	char const * name() { return "nat_ep"; }
 	size_t stack_size() { return 2048 * sizeof(addr_t); }
 	void construct(Entrypoint & ep) { static Main nat(ep); }

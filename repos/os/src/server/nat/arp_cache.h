@@ -21,8 +21,8 @@
 #ifndef _ARP_CACHE_H_
 #define _ARP_CACHE_H_
 
-namespace Net
-{
+namespace Net {
+
 	class Arp_cache;
 	class Arp_cache_entry;
 }

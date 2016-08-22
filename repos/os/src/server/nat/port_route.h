@@ -22,8 +22,8 @@
 #ifndef _PORT_ROUTE_H_
 #define _PORT_ROUTE_H_
 
-namespace Net
-{
+namespace Net {
+
 	class Port_route;
 	class Port_route_tree;
 	using Port_route_list = Genode::List<Port_route>;
