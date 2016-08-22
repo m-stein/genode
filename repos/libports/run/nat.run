@@ -10,17 +10,13 @@ set udp_up_to_down_1   1
 set udp_down_to_up_1   1
 
 set build_components {
-	core init
-	drivers/timer drivers/nic
-	server/nat
-	server/nic_bridge
-	test/lwip/http_srv_static
-	test/lwip/http_clnt
-	test/lxip/udp_echo
+	core init drivers/timer drivers/nic server/nat server/nic_bridge
+	test/lwip/http_srv_static test/lwip/http_clnt test/lxip/udp_echo
 	test/lxip/udp_client
 }
 
 source ${genode_dir}/repos/base/run/platform_drv.inc
+
 append_platform_drv_build_components
 
 build $build_components
@@ -51,14 +47,17 @@ append config {
 append_platform_drv_config
 
 append config {
+
 	<start name="timer">
 		<resource name="RAM" quantum="1M"/>
 		<provides><service name="Timer"/></provides>
 	</start>
+
 	<start name="nic_drv">
 		<resource name="RAM" quantum="2M"/>
 		<provides><service name="Nic"/></provides>
 	</start>
+
 	<start name="nat">
 		<resource name="RAM" quantum="10M"/>
 		<provides><service name="Nic"/></provides>
@@ -76,11 +75,15 @@ append config {
 				<ip dst="10.0.0.0/16"     label="link" />
 				<ip dst="192.168.1.72/31" label="http_srv_2" />
 				<ip dst="10.0.2.55/32">
-					<tcp dst="132"  label="samus"      to="192.168.1.72" via="192.168.1.14" />
+					<tcp dst="132"  label="samus"      to="192.168.1.72"
+					     via="192.168.1.14" />
+
 					<tcp dst="80"   label="pacman" />
 					<tcp dst="80"   label="http_srv_1" to="192.168.1.18" />
 					<tcp dst="8080" />
-					<udp dst="1337" label="udp_srv_1"  to="10.0.99.55"   via="10.0.99.55" />
+					<udp dst="1337" label="udp_srv_1"  to="10.0.99.55"
+					     via="10.0.99.55" />
+
 					<udp dst="1"    label="udp_srv_2"  to="18.17.16.15" />
 					<tcp dst="8080" label="http_srv_2" to="192.168.1.72" />
 					<tcp dst="2345" label="http_clnt_3" />
@@ -114,7 +117,8 @@ append config {
 
 			<policy label="udp_clnt_1" src="10.0.98.33">
 				<ip dst="10.0.98.33/32">
-					<udp dst="1337" label="udp_srv_1" to="10.0.99.55" via="10.0.99.55"/>
+					<udp dst="1337" label="udp_srv_1" to="10.0.99.55"
+					     via="10.0.99.55"/>
 				</ip>
 			</policy>
 
@@ -128,6 +132,7 @@ append config {
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>
+
 	<start name="nic_bridge">
 		<resource name="RAM" quantum="10M"/>
 		<provides><service name="Nic"/></provides>
@@ -153,12 +158,10 @@ append_if $udp_down_to_down_1 config {
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config ld_verbose="yes">
-			<libc
-				stdout="/dev/log" stderr="/dev/log"
-				ip_addr="10.0.98.55" gateway="10.0.98.33"
-				netmask="255.255.255.0" server_ip="10.0.98.33"
-				server_port="1337"
-			>
+			<libc stdout="/dev/log" stderr="/dev/log" ip_addr="10.0.98.55"
+			      gateway="10.0.98.33" netmask="255.255.255.0"
+			      server_ip="10.0.98.33" server_port="1337">
+
 				<vfs> <dir name="dev"> <log/> </dir> </vfs>
 			</libc>
 		</config>
@@ -172,11 +175,9 @@ append_if $udp_down_to_down_1 config {
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config ld_verbose="yes">
-			<libc
-				stdout="/dev/log" stderr="/dev/log"
-				ip_addr="10.0.99.55" gateway="10.0.99.33"
-				netmask="255.255.255.0" port="1337"
-			>
+			<libc stdout="/dev/log" stderr="/dev/log" ip_addr="10.0.99.55"
+			      gateway="10.0.99.33" netmask="255.255.255.0" port="1337">
+
 				<vfs> <dir name="dev"> <log/> </dir> </vfs>
 			</libc>
 		</config>
@@ -192,12 +193,10 @@ append_if $udp_up_to_down_1 config {
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config ld_verbose="yes">
-			<libc
-				stdout="/dev/log" stderr="/dev/log"
-				ip_addr="10.0.2.123" gateway="10.0.2.55"
-				netmask="255.255.255.0" server_ip="10.0.2.55"
-				server_port="1"
-			>
+			<libc stdout="/dev/log" stderr="/dev/log" ip_addr="10.0.2.123"
+			      gateway="10.0.2.55" netmask="255.255.255.0"
+			      server_ip="10.0.2.55" server_port="1">
+
 				<vfs> <dir name="dev"> <log/> </dir> </vfs>
 			</libc>
 		</config>
@@ -211,11 +210,9 @@ append_if $udp_up_to_down_1 config {
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config ld_verbose="yes">
-			<libc
-				stdout="/dev/log" stderr="/dev/log"
-				ip_addr="18.17.16.15" gateway="18.17.15.14"
-				netmask="255.255.0.0" port="1"
-			>
+			<libc stdout="/dev/log" stderr="/dev/log" ip_addr="18.17.16.15"
+			      gateway="18.17.15.14" netmask="255.255.0.0" port="1">
+
 				<vfs> <dir name="dev"> <log/> </dir> </vfs>
 			</libc>
 		</config>
@@ -231,12 +228,10 @@ append_if $udp_down_to_up_1 config {
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config ld_verbose="yes">
-			<libc
-				stdout="/dev/log" stderr="/dev/log"
-				ip_addr="217.13.192.2" gateway="217.13.192.1"
-				netmask="255.255.192.0" server_ip="10.0.2.70"
-				server_port="65535"
-			>
+			<libc stdout="/dev/log" stderr="/dev/log" ip_addr="217.13.192.2"
+			      gateway="217.13.192.1" netmask="255.255.192.0"
+			      server_ip="10.0.2.70" server_port="65535">
+
 				<vfs> <dir name="dev"> <log/> </dir> </vfs>
 			</libc>
 		</config>
@@ -251,14 +246,15 @@ append_if $udp_down_to_up_1 config {
 		</route>
 		<config ld_verbose="yes">
 			<libc stdout="/dev/log" stderr="/dev/log" ip_addr="10.0.2.70"
-			      netmask="255.255.255.0" gateway="10.0.2.1" port="65535"
-			>
+			      netmask="255.255.255.0" gateway="10.0.2.1" port="65535">
+
 				<vfs> <dir name="dev"> <log/> </dir> </vfs>
 			</libc>
 		</config>
 	</start>}
 
 append_if $tcp_up_to_down_1 config {
+
 	<start name="http_srv_1">
 		<binary name="test-lwip_httpsrv_static"/>
 		<resource name="RAM" quantum="2M"/>
@@ -267,10 +263,9 @@ append_if $tcp_up_to_down_1 config {
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config>
-			<libc
-				stdout="/dev/log" stderr="/dev/log" ip_addr="192.168.1.18"
-				netmask="255.255.255.0" gateway="192.168.1.1" http_port="80"
-			>
+			<libc stdout="/dev/log" stderr="/dev/log" ip_addr="192.168.1.18"
+			      netmask="255.255.255.0" gateway="192.168.1.1" http_port="80">
+
 				<vfs> <dir name="dev"> <log/> </dir> </vfs>
 			</libc>
 		</config>
@@ -283,16 +278,16 @@ append_if $tcp_up_to_down_1 config {
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config>
-			<libc
-				stdout="/dev/log" stderr="/dev/log" server_ip="10.0.2.55"
-				http_port="80"
-			>
+			<libc stdout="/dev/log" stderr="/dev/log" server_ip="10.0.2.55"
+			      http_port="80">
+
 				<vfs> <dir name="dev"> <log/> </dir> </vfs>
 			</libc>
 		</config>
 	</start>}
 
 append_if $tcp_up_to_down_2 config {
+
 	<start name="http_srv_2">
 		<binary name="test-lwip_httpsrv_static"/>
 		<resource name="RAM" quantum="2M"/>
@@ -301,10 +296,10 @@ append_if $tcp_up_to_down_2 config {
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config>
-			<libc
-				stdout="/dev/log" stderr="/dev/log" ip_addr="192.168.1.72"
-				netmask="255.255.255.0" gateway="192.168.1.1" http_port="8080"
-			>
+			<libc stdout="/dev/log" stderr="/dev/log" ip_addr="192.168.1.72"
+			      netmask="255.255.255.0" gateway="192.168.1.1"
+			      http_port="8080">
+
 				<vfs> <dir name="dev"> <log/> </dir> </vfs>
 			</libc>
 		</config>
@@ -317,16 +312,16 @@ append_if $tcp_up_to_down_2 config {
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config>
-			<libc
-				stdout="/dev/log" stderr="/dev/log" server_ip="10.0.2.55"
-				http_port="8080"
-			>
+			<libc stdout="/dev/log" stderr="/dev/log" server_ip="10.0.2.55"
+			      http_port="8080">
+
 				<vfs> <dir name="dev"> <log/> </dir> </vfs>
 			</libc>
 		</config>
 	</start>}
 
 append_if $tcp_down_to_up_1 config {
+
 	<start name="http_srv_3">
 		<binary name="test-lwip_httpsrv_static"/>
 		<resource name="RAM" quantum="2M"/>
@@ -335,10 +330,9 @@ append_if $tcp_down_to_up_1 config {
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config>
-			<libc
-				stdout="/dev/log" stderr="/dev/log" ip_addr="10.0.2.11"
-				netmask="255.255.255.0" gateway="10.0.2.1"  http_port="2345"
-			>
+			<libc stdout="/dev/log" stderr="/dev/log" ip_addr="10.0.2.11"
+			      netmask="255.255.255.0" gateway="10.0.2.1"  http_port="2345">
+
 				<vfs> <dir name="dev"> <log/> </dir> </vfs>
 			</libc>
 		</config>
@@ -351,18 +345,16 @@ append_if $tcp_down_to_up_1 config {
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config>
-			<libc
-				stdout="/dev/log" stderr="/dev/log" ip_addr="100.200.0.128"
-				netmask="255.255.0.0" gateway="100.200.0.1"
-				server_ip="10.0.2.11" http_port="2345"
-			>
+			<libc stdout="/dev/log" stderr="/dev/log" ip_addr="100.200.0.128"
+			      netmask="255.255.0.0" gateway="100.200.0.1"
+			      server_ip="10.0.2.11" http_port="2345">
+
 				<vfs> <dir name="dev"> <log/> </dir> </vfs>
 			</libc>
 		</config>
 	</start>}
 
-append config {
-</config>}
+append config { </config> }
 
 install_config $config
 
@@ -372,26 +364,15 @@ install_config $config
 
 # generic modules
 set boot_modules {
-	core
-	init
-	timer
-	nic_drv
-	nat
-	nic_bridge
-	ld.lib.so
-	libc.lib.so
-	libc_resolv.lib.so
-	lwip.lib.so
-	lxip.lib.so
-	test-http_clnt
-	test-lwip_httpsrv_static
-	test-lxip_udp_echo
-	test-lxip_udp_client
+
+	core init timer nic_drv nat nic_bridge ld.lib.so libc.lib.so
+	libc_resolv.lib.so lwip.lib.so lxip.lib.so test-http_clnt
+	test-lwip_httpsrv_static test-lxip_udp_echo test-lxip_udp_client
 }
 
 
 # platform-specific modules
-lappend_if [have_spec       linux] boot_modules fb_sdl
+lappend_if [have_spec linux] boot_modules fb_sdl
 
 append_platform_drv_boot_modules
 
