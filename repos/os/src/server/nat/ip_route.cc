@@ -104,12 +104,12 @@ Ip_route::Ip_route
 	if (_prefix_bytes < sizeof(ip_addr.addr)) {
 		_ip_addr.addr[_prefix_bytes] &= _prefix_tail; }
 	try {
-		Xml_node port = route.sub_node("tcp-port");
-		for (; ; port = port.next("tcp-port")) { _read_tcp_port(port, alloc); }
+		Xml_node port = route.sub_node("tcp");
+		for (; ; port = port.next("tcp")) { _read_tcp_port(port, alloc); }
 	} catch (Xml_node::Nonexistent_sub_node) { }
 	try {
-		Xml_node port = route.sub_node("udp-port");
-		for (; ; port = port.next("udp-port")) { _read_udp_port(port, alloc); }
+		Xml_node port = route.sub_node("udp");
+		for (; ; port = port.next("udp")) { _read_udp_port(port, alloc); }
 	} catch (Xml_node::Nonexistent_sub_node) { }
 }
 

@@ -79,8 +79,8 @@ Main::Main(Server::Entrypoint & ep)
 			try {
 				Xml_node route = policy.sub_node("ip");
 				for (; ; route = route.next("ip")) {
-					_read_ports(route, "tcp-port", _tcp_port_alloc);
-					_read_ports(route, "udp-port", _udp_port_alloc);
+					_read_ports(route, "tcp", _tcp_port_alloc);
+					_read_ports(route, "udp", _udp_port_alloc);
 				}
 			} catch (Xml_node::Nonexistent_sub_node) { }
 		}
