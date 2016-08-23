@@ -20,18 +20,18 @@ using namespace Net;
 using namespace Genode;
 
 
-Arp_waiter::Arp_waiter(Interface * handler, Ipv4_address ip_addr,
-                       Ethernet_frame * const eth, size_t const eth_size,
-                       Packet_descriptor * packet)
+Arp_waiter::Arp_waiter(Interface &interface, Ipv4_address ip_addr,
+                       Ethernet_frame &eth, size_t const eth_size,
+                       Packet_descriptor &packet)
 :
-	_handler(handler), _ip_addr(ip_addr), _eth(eth), _eth_size(eth_size),
+	_interface(interface), _ip_addr(ip_addr), _eth(eth), _eth_size(eth_size),
 	_packet(packet)
 { }
 
 
-bool Arp_waiter::new_arp_cache_entry(Arp_cache_entry * entry)
+bool Arp_waiter::new_arp_cache_entry(Arp_cache_entry &entry)
 {
-	if (!(entry->ip() == _ip_addr)) { return false; }
-	_handler->continue_handle_ethernet(_eth, _eth_size, _packet);
+	if (!(entry.ip_addr() == _ip_addr)) { return false; }
+	_interface.continue_handle_ethernet(&_eth, _eth_size, &_packet);
 	return true;
 }

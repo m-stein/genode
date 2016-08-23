@@ -18,30 +18,40 @@ using namespace Net;
 using namespace Genode;
 
 
-Arp_cache_entry::Arp_cache_entry(Ipv4_address ip, Mac_address mac)
+Arp_cache_entry::Arp_cache_entry(Ipv4_address ip_addr, Mac_address mac_addr)
 :
-	_ip(ip), _mac(mac)
+	_ip_addr(ip_addr), _mac_addr(mac_addr)
 { }
 
 
-bool Arp_cache_entry::higher(Arp_cache_entry * entry)
+bool Arp_cache_entry::higher(Arp_cache_entry *entry)
 {
-	return (memcmp(&entry->_ip.addr, &_ip.addr, sizeof(_ip.addr)) > 0);
+	return (memcmp(&entry->_ip_addr.addr, &_ip_addr.addr,
+	               sizeof(_ip_addr.addr)) > 0);
 }
 
 
-Arp_cache_entry * Arp_cache_entry::find_by_ip(Ipv4_address ip)
+Arp_cache_entry &Arp_cache_entry::find_by_ip_addr(Ipv4_address ip_addr)
 {
-	if (ip == _ip) { return this; }
-	bool side = memcmp(&ip.addr, _ip.addr, sizeof(_ip.addr)) > 0;
+	if (ip_addr == _ip_addr) {
+		return *this; }
+
+	bool const side =
+		memcmp(&ip_addr.addr, _ip_addr.addr, sizeof(_ip_addr.addr)) > 0;
+
 	Arp_cache_entry * entry = Avl_node<Arp_cache_entry>::child(side);
-	return entry ? entry->find_by_ip(ip) : 0;
+	if (!entry) {
+		throw Arp_cache::No_matching_entry(); }
+
+	return entry->find_by_ip_addr(ip_addr);
 }
 
 
-Arp_cache_entry * Arp_cache::find_by_ip(Ipv4_address ip)
+Arp_cache_entry &Arp_cache::find_by_ip_addr(Ipv4_address ip_addr)
 {
-	Arp_cache_entry * entry = first();
-	if (!entry) { return entry; }
-	return entry->find_by_ip(ip);
+	Arp_cache_entry * const entry = first();
+	if (!entry) {
+		throw No_matching_entry(); }
+
+	return entry->find_by_ip_addr(ip_addr);
 }

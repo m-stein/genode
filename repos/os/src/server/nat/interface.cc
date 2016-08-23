@@ -331,16 +331,19 @@ void Interface::_handle_ip
 	}
 
 	/* send ARP request if there is no ARP entry for the destination IP */
-	Arp_cache_entry * arp_entry = _arp_cache.find_by_ip(via);
-	if (!arp_entry) {
+	try {
+		Arp_cache_entry &arp_entry = _arp_cache.find_by_ip_addr(via);
+		eth->dst(arp_entry.mac_addr().addr);
+
+	} catch (Arp_cache::No_matching_entry) {
+
 		handler->arp_broadcast(via);
 		_arp_waiters.insert(new (_allocator)
-			Arp_waiter(this, via, eth, eth_size, packet));
+			Arp_waiter(*this, via, *eth, eth_size, *packet));
 		ack_packet = false;
 		return;
 	}
 	/* adapt packet to the collected info */
-	eth->dst(arp_entry->mac().addr);
 	eth->src(handler->nat_mac());
 	ip->dst(to);
 	tlp_dst_port(tlp, tlp_ptr, dst_port);
@@ -437,7 +440,7 @@ void Interface::arp_broadcast(Ipv4_address ip_addr)
 void Interface::_remove_arp_waiter(Arp_waiter * arp_waiter)
 {
 	_arp_waiters.remove(arp_waiter);
-	destroy(arp_waiter->handler()->allocator(), arp_waiter);
+	destroy(arp_waiter->interface().allocator(), arp_waiter);
 }
 
 
@@ -445,7 +448,7 @@ Arp_waiter * Interface::_new_arp_entry(Arp_waiter * arp_waiter,
                                              Arp_cache_entry * arp_entry)
 {
 	Arp_waiter * next_arp_waiter = arp_waiter->next();
-	if (arp_waiter->new_arp_cache_entry(arp_entry)) {
+	if (arp_waiter->new_arp_cache_entry(*arp_entry)) {
 		_remove_arp_waiter(arp_waiter);
 	}
 	return next_arp_waiter;
@@ -454,19 +457,26 @@ Arp_waiter * Interface::_new_arp_entry(Arp_waiter * arp_waiter,
 
 void Interface::_handle_arp_reply(Arp_packet * const arp)
 {
-	/* if an appropriate ARP node doesn't exist jet, create one */
-	Arp_cache_entry * arp_entry = _arp_cache.find_by_ip(arp->src_ip());
-	if (arp_entry) {
+	try {
+		_arp_cache.find_by_ip_addr(arp->src_ip());
 		if (verbose) { log("ARP entry already exists"); }
 		return;
-	}
-	arp_entry =
-		new (env()->heap()) Arp_cache_entry(arp->src_ip(), arp->src_mac());
-	_arp_cache.insert(arp_entry);
+	} catch (Arp_cache::No_matching_entry) {
+		try {
+			Arp_cache_entry *arp_entry =
+				new (env()->heap())
+				    Arp_cache_entry(arp->src_ip(), arp->src_mac());
 
-	/* announce the existence of a new ARP node */
-	Arp_waiter * arp_waiter = _arp_waiters.first();
-	for (; arp_waiter; arp_waiter = _new_arp_entry(arp_waiter, arp_entry)) { }
+			_arp_cache.insert(arp_entry);
+			Arp_waiter * arp_waiter = _arp_waiters.first();
+			for (; arp_waiter; arp_waiter = _new_arp_entry(arp_waiter, arp_entry)) { }
+
+		} catch (Allocator::Out_of_memory) {
+
+			if (verbose) { error("failed to allocate new ARP cache entry"); }
+			return;
+		}
+	}
 }
 
 
@@ -686,7 +696,9 @@ Interface::~Interface()
 	Arp_waiter * arp_waiter = _arp_waiters.first();
 	while (arp_waiter) {
 		Arp_waiter * next_arp_waiter = arp_waiter->next();
-		if (arp_waiter->handler() != this) { _remove_arp_waiter(arp_waiter); }
+		if (&arp_waiter->interface() != this) {
+			_remove_arp_waiter(arp_waiter); }
+
 		arp_waiter = next_arp_waiter;
 	}
 	_interface_tree.remove(this);

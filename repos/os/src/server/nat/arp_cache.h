@@ -31,26 +31,36 @@ class Net::Arp_cache_entry : public Genode::Avl_node<Arp_cache_entry>
 {
 	private:
 
-		Ipv4_address const _ip;
-		Mac_address const _mac;
+		Ipv4_address const _ip_addr;
+		Mac_address const  _mac_addr;
 
 	public:
 
-		Arp_cache_entry(Ipv4_address ip, Mac_address mac);
+		Arp_cache_entry(Ipv4_address ip_addr, Mac_address mac_addr);
 
-		Arp_cache_entry * find_by_ip(Ipv4_address ip);
+		Arp_cache_entry &find_by_ip_addr(Ipv4_address ip_addr);
 
-		bool higher(Arp_cache_entry * entry);
 
-		Ipv4_address ip() const { return _ip; }
-		Mac_address mac() const { return _mac; }
+		/**************
+		 ** Avl_node **
+		 **************/
+
+		bool higher(Arp_cache_entry *entry);
+
+
+		/***************
+		 ** Accessors **
+		 ***************/
+
+		Ipv4_address ip_addr()  const { return _ip_addr; }
+		Mac_address  mac_addr() const { return _mac_addr; }
 };
 
-class Net::Arp_cache : public Avl_tree_safe<Arp_cache_entry>
+struct Net::Arp_cache : Avl_tree_safe<Arp_cache_entry>
 {
-	public:
+	struct No_matching_entry : Genode::Exception { };
 
-		Arp_cache_entry * find_by_ip(Ipv4_address ip);
+	Arp_cache_entry &find_by_ip_addr(Ipv4_address ip_addr);
 };
 
 #endif /* _ARP_CACHE_H_ */
