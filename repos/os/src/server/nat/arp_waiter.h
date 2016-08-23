@@ -14,9 +14,7 @@
 /* Genode includes */
 #include <net/ipv4.h>
 #include <nic_session/nic_session.h>
-
-/* local includes */
-#include <list_safe.h>
+#include <util/list.h>
 
 #ifndef _ARP_WAITER_H_
 #define _ARP_WAITER_H_
@@ -28,7 +26,7 @@ namespace Net {
 	class Ethernet_frame;
 	class Arp_waiter;
 	class Arp_cache_entry;
-	using Arp_waiter_list = List_safe<Arp_waiter>;
+	using Arp_waiter_list = Genode::List<Arp_waiter>;
 }
 
 class Net::Arp_waiter : public Genode::List<Arp_waiter>::Element

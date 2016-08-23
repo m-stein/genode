@@ -14,9 +14,7 @@
 /* Genode includes */
 #include <net/ipv4.h>
 #include <net/ethernet.h>
-
-/* local includes */
-#include <avl_safe.h>
+#include <util/avl_tree.h>
 
 #ifndef _ARP_CACHE_H_
 #define _ARP_CACHE_H_
@@ -56,7 +54,7 @@ class Net::Arp_cache_entry : public Genode::Avl_node<Arp_cache_entry>
 		Mac_address  mac_addr() const { return _mac_addr; }
 };
 
-struct Net::Arp_cache : Avl_tree_safe<Arp_cache_entry>
+struct Net::Arp_cache : Genode::Avl_tree<Arp_cache_entry>
 {
 	struct No_matching_entry : Genode::Exception { };
 

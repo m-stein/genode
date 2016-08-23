@@ -23,13 +23,13 @@
 #include <net/ipv4.h>
 #include <os/session_policy.h>
 #include <util/avl_string.h>
+#include <util/avl_tree.h>
 
 /* local includes */
 #include <port_allocator.h>
 #include <arp_waiter.h>
 #include <ip_route.h>
 #include <proxy_role.h>
-#include <avl_safe.h>
 
 namespace Net {
 
@@ -37,7 +37,7 @@ namespace Net {
 	class Arp_cache;
 	class Interface;
 	class Interface_tree;
-	using Interface_list = List_safe<Interface>;
+	using Interface_list = Genode::List<Interface>;
 	using ::Nic::Packet_stream_sink;
 	using ::Nic::Packet_stream_source;
 }
@@ -221,13 +221,9 @@ class Net::Interface
 		Genode::Allocator & allocator() const { return _allocator; }
 };
 
-class Net::Interface_tree
-:
-	public Avl_tree_safe<Genode::Avl_string_base>
+struct Net::Interface_tree : Genode::Avl_tree<Genode::Avl_string_base>
 {
-	public:
-
-		Interface * find_by_label(char const * label);
+	Interface * find_by_label(char const * label);
 };
 
 #endif /* _INTERFACE_H_ */

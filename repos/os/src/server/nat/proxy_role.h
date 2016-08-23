@@ -7,9 +7,7 @@
 #include <net/ipv4.h>
 #include <net/tcp.h>
 #include <net/udp.h>
-
-/* local includes */
-#include <list_safe.h>
+#include <util/list.h>
 
 namespace Net {
 
@@ -17,8 +15,8 @@ namespace Net {
 	class Tcp_proxy_role;
 	class Udp_proxy_role;
 
-	using Tcp_proxy_role_list = List_safe<Tcp_proxy_role>;
-	using Udp_proxy_role_list = List_safe<Udp_proxy_role>;
+	using Tcp_proxy_role_list = Genode::List<Tcp_proxy_role>;
+	using Udp_proxy_role_list = Genode::List<Udp_proxy_role>;
 }
 
 class Net::Tcp_proxy_role : public Genode::List<Tcp_proxy_role>::Element

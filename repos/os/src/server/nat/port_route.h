@@ -12,12 +12,12 @@
  */
 
 /* Genode includes */
+#include <util/avl_tree.h>
 #include <util/list.h>
 #include <net/ipv4.h>
 
 /* local includes */
 #include <interface_label.h>
-#include <avl_safe.h>
 
 #ifndef _PORT_ROUTE_H_
 #define _PORT_ROUTE_H_
@@ -57,11 +57,9 @@ class Net::Port_route : public Genode::Avl_node<Port_route>,
 		Genode::uint16_t nr() { return _nr; }
 };
 
-class Net::Port_route_tree : public Avl_tree_safe<Port_route>
+struct Net::Port_route_tree : Genode::Avl_tree<Port_route>
 {
-	public:
-
-		Port_route * find_by_nr(Genode::uint16_t nr);
+	Port_route * find_by_nr(Genode::uint16_t nr);
 };
 
 #endif /* _PORT_ROUTE_H_ */
