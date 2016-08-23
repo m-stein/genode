@@ -138,35 +138,4 @@ class Net::Tcp_packet
 
 } __attribute__((packed));
 
-
-class Tcp_state
-{
-	public:
-
-		enum Enum {
-
-			CLOSED,
-			ESTABLISHED,
-
-			/* open: responder */
-			LISTEN,
-			SYN_RECEIVED,
-
-			/* open: initiator */
-			SYN_SENT,
-
-			/* close: responder */
-			CLOSE_WAIT,
-			LAST_ACK,
-
-			/* close: initiator */
-			FIN_WAIT_1,
-			FIN_WAIT_2,
-
-			/* close: simultaneous */
-			CLOSING,
-			TIME_WAIT,
-		};
-};
-
 #endif /* _TCP_H_ */
