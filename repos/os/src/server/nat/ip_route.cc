@@ -12,13 +12,13 @@
  */
 
 /* Genode includes */
+#include <net/ipv4.h>
 #include <util/xml_node.h>
 #include <base/allocator.h>
 #include <base/log.h>
 
 /* local includes */
 #include <ip_route.h>
-#include <attribute.h>
 
 using namespace Net;
 using namespace Genode;
@@ -47,23 +47,20 @@ void Ip_route::_read_tcp_port
 (
 	Xml_node & port, Allocator & alloc)
 {
-	uint16_t nr;
-	try { nr = uint_attr("dst", port); }
-	catch (Bad_uint_attr) { return; }
+	uint16_t const nr = port.attribute_value("dst", 0UL);
+	if (!nr) {
+		return; }
+
 	Port_route * port_route;
 	try {
 		char const * label = port.attribute("label").value_base();
 		size_t label_size = port.attribute("label").value_size();
-		Ipv4_address via;
-		Ipv4_address to;
-		try { via = ip_attr("via", port); } catch (Bad_ip_attr) { }
-		try { to = ip_attr("to", port); } catch (Bad_ip_attr) { }
+		Ipv4_address const via = port.attribute_value("via", Ipv4_address());
+		Ipv4_address const to = port.attribute_value("to", Ipv4_address());
 		port_route = new (&alloc) Port_route(nr, label, label_size, via, to);
 	} catch (Xml_attribute::Nonexistent_attribute) {
-		Ipv4_address via;
-		Ipv4_address to;
-		try { via = ip_attr("via", port); } catch (Bad_ip_attr) { }
-		try { to = ip_attr("to", port); } catch (Bad_ip_attr) { }
+		Ipv4_address const via = port.attribute_value("via", Ipv4_address());
+		Ipv4_address const to = port.attribute_value("to", Ipv4_address());
 		port_route = new (alloc) Port_route(nr, "", 0, via, to);
 	}
 	_tcp_port_tree.insert(port_route);
@@ -75,13 +72,15 @@ void Ip_route::_read_udp_port
 (
 	Xml_node & port, Allocator & alloc)
 {
-	uint16_t const nr = uint_attr("dst", port);
+	uint16_t const nr = port.attribute_value("dst", 0UL);
+	if (!nr) {
+		warning("missing 'dst' attribute in port route");
+		return;
+	}
 	char const * label = port.attribute("label").value_base();
 	size_t label_size = port.attribute("label").value_size();
-	Ipv4_address via;
-	Ipv4_address to;
-	try { via = ip_attr("via", port); } catch (Bad_ip_attr) { }
-	try { to = ip_attr("to", port); } catch (Bad_ip_attr) { }
+	Ipv4_address const via = port.attribute_value("via", Ipv4_address());
+	Ipv4_address const to = port.attribute_value("to", Ipv4_address());
 	Port_route * port_route = new (alloc)
 		Port_route(nr, label, label_size, via, to);
 	_udp_port_tree.insert(port_route);

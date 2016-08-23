@@ -23,7 +23,6 @@
 /* local includes */
 #include <component.h>
 #include <interface.h>
-#include <attribute.h>
 #include <proxy_role.h>
 #include <arp_cache.h>
 
@@ -192,7 +191,7 @@ void Interface::_delete_tcp_proxy_role(Tcp_proxy_role * const role)
 	unsigned const proxy_port = role->proxy_port();
 	destroy(_allocator, role);
 	_tcp_port_alloc.free(proxy_port);
-	_tcp_proxy_ports_used--;
+	_tcp_proxy_used--;
 }
 
 
@@ -202,7 +201,7 @@ void Interface::_delete_udp_proxy_role(Udp_proxy_role * const role)
 	unsigned const proxy_port = role->proxy_port();
 	destroy(_allocator, role);
 	_udp_port_alloc.free(proxy_port);
-	_udp_proxy_ports_used--;
+	_udp_proxy_used--;
 }
 
 
@@ -211,9 +210,9 @@ Tcp_proxy_role * Interface::_new_tcp_proxy_role
 	unsigned const client_port, Ipv4_address client_ip, Ipv4_address proxy_ip)
 {
 	class Too_many_proxy_roles : public Exception { };
-	if (_tcp_proxy_ports_used == _tcp_proxy_ports) {
+	if (_tcp_proxy_used == _tcp_proxy) {
 		throw Too_many_proxy_roles(); }
-	_tcp_proxy_ports_used++;
+	_tcp_proxy_used++;
 	unsigned const proxy_port = _tcp_port_alloc.alloc();
 	Tcp_proxy_role * const role = new (_allocator) Tcp_proxy_role(
 		client_port, proxy_port, client_ip, proxy_ip, *this, _ep, _rtt_sec);
@@ -227,9 +226,9 @@ Udp_proxy_role * Interface::_new_udp_proxy_role
 	unsigned const client_port, Ipv4_address client_ip, Ipv4_address proxy_ip)
 {
 	class Too_many_proxy_roles : public Exception { };
-	if (_udp_proxy_ports_used == _udp_proxy_ports) {
+	if (_udp_proxy_used == _udp_proxy) {
 		throw Too_many_proxy_roles(); }
-	_udp_proxy_ports_used++;
+	_udp_proxy_used++;
 	unsigned const proxy_port = _udp_port_alloc.alloc();
 	Udp_proxy_role * const role = new (_allocator) Udp_proxy_role(
 		client_port, proxy_port, client_ip, proxy_ip, *this, _ep,
@@ -608,22 +607,19 @@ void Interface::send(Ethernet_frame *eth, Genode::size_t size)
 
 void Interface::_read_route(Xml_node & route_xn)
 {
-	Ipv4_address ip;
-	uint8_t prefix;
-	ip_prefix_attr("dst", route_xn, ip, prefix);
-	Ipv4_address via;
-	Ipv4_address to;
-	try { via = ip_attr("via", route_xn); } catch (Bad_ip_attr) { }
-	try { to = ip_attr("to", route_xn); } catch (Bad_ip_attr) { }
+	Ipv4_address_prefix dst =
+		route_xn.attribute_value("dst", Ipv4_address_prefix());
+	Ipv4_address const via = route_xn.attribute_value("via", Ipv4_address());
+	Ipv4_address const to = route_xn.attribute_value("to", Ipv4_address());
 	Ip_route * route;
 	try {
 		char const * in = route_xn.attribute("label").value_base();
 		size_t in_sz    = route_xn.attribute("label").value_size();
 		route = new (_allocator)
-			Ip_route(ip, prefix, via, to, in, in_sz, _allocator, route_xn);
+			Ip_route(dst.address, dst.prefix, via, to, in, in_sz, _allocator, route_xn);
 	} catch (Xml_attribute::Nonexistent_attribute) {
 		route = new (_allocator)
-			Ip_route(ip, prefix, via, to, "", 0, _allocator, route_xn);
+			Ip_route(dst.address, dst.prefix, via, to, "", 0, _allocator, route_xn);
 	}
 	_ip_routes.insert(route);
 	if (verbose) { log("  IP route: ", *route); }
@@ -652,14 +648,12 @@ Interface::Interface(Server::Entrypoint    &ep,
 	_source_submit(ep, *this, &Interface::_packet_avail),
 	_nat_mac(nat_mac), _nat_ip(nat_ip), _mac(mac), _allocator(allocator),
 	_policy(label),
-	_tcp_proxy(false),
-	_tcp_proxy_ports(0),
-	_tcp_proxy_ports_used(0),
+	_tcp_proxy(_policy.attribute_value("tcp-proxy", 0UL)),
+	_tcp_proxy_used(0),
 	_tcp_proxy_roles(tcp_proxy_roles),
 	_tcp_port_alloc(tcp_port_alloc),
-	_udp_proxy(false),
-	_udp_proxy_ports(0),
-	_udp_proxy_ports_used(0),
+	_udp_proxy(_policy.attribute_value("udp-proxy", 0UL)),
+	_udp_proxy_used(0),
 	_udp_proxy_roles(udp_proxy_roles),
 	_udp_port_alloc(udp_port_alloc),
 	_rtt_sec(rtt_sec),
@@ -667,22 +661,11 @@ Interface::Interface(Server::Entrypoint    &ep,
 	_arp_cache(arp_cache),
 	_arp_waiters(arp_waiters)
 {
-	try {
-		_tcp_proxy_ports = uint_attr("tcp-proxy", _policy);
-		_tcp_proxy = true;
-	}
-	catch (Bad_uint_attr) { }
-	try {
-		_udp_proxy_ports = uint_attr("udp-proxy", _policy);
-		_udp_proxy = true;
-	}
-	catch (Bad_uint_attr) { }
 	if (verbose) {
 		log("Interface \"", *static_cast<Interface *>(this), "\"");
 		log("  MAC ", _mac);
 		log("  NAT identity: MAC ", _nat_mac, " IP ", _nat_ip);
-		log("  TCP proxy: active ", _tcp_proxy, " ports ", _tcp_proxy_ports);
-		log("  UDP proxy: active ", _udp_proxy, " ports ", _udp_proxy_ports);
+		log("  Proxy TCP: ", _tcp_proxy, " UDP: ", _udp_proxy);
 	}
 	try {
 		Xml_node route = _policy.sub_node("ip");

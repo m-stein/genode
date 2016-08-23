@@ -9,7 +9,6 @@
 
 /* local includes */
 #include <component.h>
-#include <attribute.h>
 #include <port_allocator.h>
 #include <arp_cache.h>
 #include <uplink.h>
@@ -50,9 +49,11 @@ void Main::_read_ports(Xml_node & route, char const * name, Port_allocator & por
 	try {
 		Xml_node port = route.sub_node(name);
 		for (; ; port = port.next(name)) {
-			uint16_t nr;
-			try { nr = uint_attr("dst", port); }
-			catch (Bad_uint_attr) { continue; }
+			uint16_t const nr = port.attribute_value("dst", 0UL);
+			if (!nr) {
+				warning("missing 'dst' attribute in port route");
+				continue;
+			}
 			try { port_alloc.alloc_index(nr); }
 			catch (Port_allocator::Already_allocated) { continue; }
 			if (verbose) { log("Reserve ", name, " ", nr); }
@@ -64,7 +65,7 @@ void Main::_read_ports(Xml_node & route, char const * name, Port_allocator & por
 Main::Main(Server::Entrypoint & ep)
 :
 	_ep(ep),
-	_rtt_sec(uint_attr("rtt_sec", config()->xml_node())),
+	_rtt_sec(config()->xml_node().attribute_value("rtt_sec", 0UL)),
 	_uplink(_ep, _tcp_port_alloc, _udp_port_alloc, _tcp_proxy_roles,
 	        _udp_proxy_roles, _rtt_sec, _interface_tree, _arp_cache,
 	        _arp_waiters),
@@ -72,6 +73,8 @@ Main::Main(Server::Entrypoint & ep)
 	      _udp_port_alloc, _tcp_proxy_roles, _udp_proxy_roles,
 	      _rtt_sec, _interface_tree, _arp_cache, _arp_waiters)
 {
+	if (!_rtt_sec) { warning("missing 'rtt_sec' attribute in config tag"); }
+
 	/* reserve all ports that are used in port routes */
 	try {
 		Xml_node policy = config()->xml_node().sub_node("policy");

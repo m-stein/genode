@@ -22,7 +22,6 @@
 
 /* local includes */
 #include <component.h>
-#include <attribute.h>
 #include <uplink.h>
 
 using namespace Net;
@@ -32,7 +31,10 @@ using namespace Genode;
 Ipv4_address Net::Uplink::_nat_ip_attr() {
 
 	Session_policy policy(*static_cast<Session_label *>(this));
-	return ip_attr("src", policy);
+	Ipv4_address const ip_addr = policy.attribute_value("src", Ipv4_address());
+	if (ip_addr == Ipv4_address()) {
+		warning("missing 'src' attribute in policy"); }
+	return ip_addr;
 }
 
 

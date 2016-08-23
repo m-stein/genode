@@ -156,14 +156,12 @@ class Net::Interface
 		Ipv4_address             _ip;
 		Genode::Allocator      & _allocator;
 		Genode::Session_policy   _policy;
-		bool                     _tcp_proxy;
-		unsigned                 _tcp_proxy_ports;
-		unsigned                 _tcp_proxy_ports_used;
+		unsigned                 _tcp_proxy;
+		unsigned                 _tcp_proxy_used;
 		Tcp_proxy_role_list    & _tcp_proxy_roles;
 		Port_allocator         & _tcp_port_alloc;
-		bool                     _udp_proxy;
-		unsigned                 _udp_proxy_ports;
-		unsigned                 _udp_proxy_ports_used;
+		unsigned                 _udp_proxy;
+		unsigned                 _udp_proxy_used;
 		Udp_proxy_role_list    & _udp_proxy_roles;
 		Port_allocator         & _udp_port_alloc;
 		unsigned                 _rtt_sec;
