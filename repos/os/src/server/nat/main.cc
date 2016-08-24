@@ -1,15 +1,22 @@
+/*
+ * \brief  Server component for Network Address Translation on NIC sessions
+ * \author Martin Stein
+ * \date   2016-08-24
+ */
+
+/*
+ * Copyright (C) 2016 Genode Labs GmbH
+ *
+ * This file is part of the Genode OS framework, which is distributed
+ * under the terms of the GNU General Public License version 2.
+ */
 
 /* Genode */
-#include <base/env.h>
-#include <cap_session/connection.h>
-#include <nic_session/connection.h>
-#include <nic/packet_allocator.h>
 #include <nic/xml_node.h>
 #include <os/server.h>
 
 /* local includes */
 #include <component.h>
-#include <port_allocator.h>
 #include <arp_cache.h>
 #include <uplink.h>
 
@@ -18,37 +25,37 @@ using namespace Genode;
 
 static bool const verbose = 0;
 
-struct Main
+
+class Main
 {
 	private:
 
-		Port_allocator       _tcp_port_alloc;
-		Port_allocator       _udp_port_alloc;
-		Server::Entrypoint & _ep;
-		Interface_tree       _interface_tree;
-		Arp_cache            _arp_cache;
-		Arp_waiter_list      _arp_waiters;
-		Tcp_proxy_list       _tcp_proxys;
-		Udp_proxy_list       _udp_proxys;
-		unsigned             _rtt_sec;
-		Uplink               _uplink;
-		Net::Root            _root;
+		Port_allocator      _tcp_port_alloc;
+		Port_allocator      _udp_port_alloc;
+		Server::Entrypoint &_ep;
+		Interface_tree      _interface_tree;
+		Arp_cache           _arp_cache;
+		Arp_waiter_list     _arp_waiters;
+		Tcp_proxy_list      _tcp_proxys;
+		Udp_proxy_list      _udp_proxys;
+		unsigned            _rtt_sec;
+		Uplink              _uplink;
+		Net::Root           _root;
 
-
-		void _read_ports(Genode::Xml_node & route, char const * name,
-		                 Port_allocator & _port_alloc);
+		void _read_ports(Genode::Xml_node &route, char const *name,
+		                 Port_allocator &_port_alloc);
 
 	public:
 
-		Main(Server::Entrypoint & ep);
+		Main(Server::Entrypoint &ep);
 };
 
 
-void Main::_read_ports(Xml_node & route, char const * name, Port_allocator & port_alloc)
+void Main::_read_ports(Xml_node &route, char const *name,
+                       Port_allocator &port_alloc)
 {
 	try {
-		Xml_node port = route.sub_node(name);
-		for (; ; port = port.next(name)) {
+		for (Xml_node port = route.sub_node(name); ; port = port.next(name)) {
 			uint16_t const nr = port.attribute_value("dst", 0UL);
 			if (!nr) {
 				warning("missing 'dst' attribute in port route");
@@ -56,19 +63,21 @@ void Main::_read_ports(Xml_node & route, char const * name, Port_allocator & por
 			}
 			try { port_alloc.alloc_index(nr); }
 			catch (Port_allocator::Already_allocated) { continue; }
-			if (verbose) { log("Reserve ", name, " ", nr); }
+			if (verbose) {
+				log("Reserve ", name, " ", nr); }
 		}
 	} catch (Xml_node::Nonexistent_sub_node) { }
 }
 
 
-Main::Main(Server::Entrypoint & ep)
+Main::Main(Server::Entrypoint &ep)
 :
-	_ep(ep),
-	_rtt_sec(config()->xml_node().attribute_value("rtt_sec", 0UL)),
+	_ep(ep), _rtt_sec(config()->xml_node().attribute_value("rtt_sec", 0UL)),
+
 	_uplink(_ep, _tcp_port_alloc, _udp_port_alloc, _tcp_proxys,
 	        _udp_proxys, _rtt_sec, _interface_tree, _arp_cache,
 	        _arp_waiters),
+
 	_root(_ep, *env()->heap(), _uplink.nat_mac(), _tcp_port_alloc,
 	      _udp_port_alloc, _tcp_proxys, _udp_proxys,
 	      _rtt_sec, _interface_tree, _arp_cache, _arp_waiters)
@@ -100,7 +109,9 @@ Main::Main(Server::Entrypoint & ep)
 
 namespace Server {
 
-	char const * name() { return "nat_ep"; }
-	size_t stack_size() { return 2048 * sizeof(addr_t); }
-	void construct(Entrypoint & ep) { static Main nat(ep); }
+	char const *name() { return "nat_ep"; }
+
+	size_t stack_size() { return 4096 *sizeof(addr_t); }
+
+	void construct(Entrypoint &ep) { static Main nat(ep); }
 }
