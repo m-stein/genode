@@ -120,7 +120,7 @@ class Net::Session_component : public  Guarded_range_allocator,
 		 ** Nic::Session **
 		 ******************/
 
-		Mac_address mac_address() { return mac_addr(); }
+		Mac_address mac_address() { return Interface::mac(); }
 		bool link_state();
 		void link_state_sigh(Genode::Signal_context_capability sigh);
 

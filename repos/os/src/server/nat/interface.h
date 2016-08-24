@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (C) 2010-2013 Genode Labs GmbH
+ * Copyright (C) 2016 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU General Public License version 2.
@@ -14,40 +14,42 @@
 #ifndef _INTERFACE_H_
 #define _INTERFACE_H_
 
-/* Genode */
-#include <base/semaphore.h>
-#include <base/thread.h>
-#include <nic_session/connection.h>
+/* Genode includes */
 #include <os/server.h>
-#include <net/ethernet.h>
-#include <net/ipv4.h>
 #include <os/session_policy.h>
 #include <util/avl_string.h>
-#include <util/avl_tree.h>
+#include <nic_session/nic_session.h>
 
 /* local includes */
-#include <port_allocator.h>
-#include <arp_waiter.h>
 #include <ip_route.h>
-#include <proxy.h>
 
 namespace Net {
 
-	class Arp_packet;
-	class Arp_cache;
-	class Interface;
-	class Interface_tree;
-	using Interface_list = Genode::List<Interface>;
 	using ::Nic::Packet_stream_sink;
 	using ::Nic::Packet_stream_source;
+	using ::Nic::Packet_descriptor;
+
+	class Arp_packet;
+	class Arp_waiter;
+	class Arp_cache;
+	class Arp_cache_entry;
+	class Port_allocator;
+	class Tcp_proxy;
+	class Udp_proxy;
+	class Interface;
+	class Interface_tree;
+
+	using Interface_list    = Genode::List<Interface>;
+	using Arp_waiter_list   = Genode::List<Arp_waiter>;
+	using Tcp_proxy_list    = Genode::List<Tcp_proxy>;
+	using Udp_proxy_list    = Genode::List<Udp_proxy>;
+	using Signal_rpc_member = Genode::Signal_rpc_member<Interface>;
 }
 
-class Net::Interface : public Interface_label,
-                       public Genode::Avl_string_base
+
+class Net::Interface : public Interface_label, public Genode::Avl_string_base
 {
 	protected:
-
-		using Signal_rpc_member = Genode::Signal_rpc_member<Interface>;
 
 		Signal_rpc_member _sink_ack;
 		Signal_rpc_member _sink_submit;
@@ -62,16 +64,15 @@ class Net::Interface : public Interface_label,
 		Mac_address const       _nat_mac;
 		Ipv4_address const      _nat_ip;
 		Mac_address const       _mac;
-		Ipv4_address const      _ip;
 		Genode::Allocator      &_allocator;
 		Genode::Session_policy  _policy;
 		unsigned const          _tcp_proxy;
 		unsigned                _tcp_proxy_used;
-		Tcp_proxy_list         &_tcp_proxys;
+		Tcp_proxy_list         &_tcp_proxies;
 		Port_allocator         &_tcp_port_alloc;
 		unsigned const          _udp_proxy;
 		unsigned                _udp_proxy_used;
-		Udp_proxy_list         &_udp_proxys;
+		Udp_proxy_list         &_udp_proxies;
 		Port_allocator         &_udp_port_alloc;
 		unsigned const          _rtt_sec;
 		Interface_tree         &_interface_tree;
@@ -86,20 +87,20 @@ class Net::Interface : public Interface_label,
 		Udp_proxy *_find_udp_proxy_by_client(Ipv4_address ip,
 		                                     Genode::uint16_t port);
 
-		Interface *_tlp_proxy_route(Genode::uint8_t tlp, void * ptr,
-		                            Genode::uint16_t & dst_port,
-		                            Ipv4_packet * ip, Ipv4_address & to,
-		                            Ipv4_address & via);
+		Interface *_tlp_proxy_route(Genode::uint8_t tlp, void *ptr,
+		                            Genode::uint16_t &dst_port,
+		                            Ipv4_packet *ip, Ipv4_address &to,
+		                            Ipv4_address &via);
 
-		void tlp_port_proxy(Genode::uint8_t tlp, void * tlp_ptr,
-		                    Ipv4_packet * ip, Ipv4_address client_ip,
-		                    Genode::uint16_t src_port);
+		void _tlp_apply_port_proxy(Genode::uint8_t tlp, void *tlp_ptr,
+		                           Ipv4_packet *ip, Ipv4_address client_ip,
+		                           Genode::uint16_t src_port);
 
-		Tcp_proxy * _find_tcp_proxy_by_proxy(Ipv4_address ip,
-		                                     Genode::uint16_t port);
+		Tcp_proxy *_find_tcp_proxy_by_proxy(Ipv4_address ip,
+		                                    Genode::uint16_t port);
 
-		Udp_proxy * _find_udp_proxy_by_proxy(
-			Ipv4_address ip, Genode::uint16_t port);
+		Udp_proxy *_find_udp_proxy_by_proxy(Ipv4_address ip,
+		                                    Genode::uint16_t port);
 
 		void _handle_arp_reply(Arp_packet * const arp);
 
@@ -107,39 +108,33 @@ class Net::Interface : public Interface_label,
 		                         Genode::size_t const eth_size,
 		                         Arp_packet * const arp);
 
-		Arp_waiter * _new_arp_entry(Arp_waiter * arp_waiter,
-		                                  Arp_cache_entry * entry);
+		Arp_waiter *_new_arp_entry(Arp_waiter *arp_waiter,
+		                           Arp_cache_entry *entry);
 
-		void _remove_arp_waiter(Arp_waiter * arp_waiter);
+		void _remove_arp_waiter(Arp_waiter *arp_waiter);
 
-		/*
-		 * Handle an ARP packet
-		 *
-		 * \param eth   ethernet frame containing the ARP packet.
-		 * \param size  ethernet frame's size.
-		 */
 		void _handle_arp(Ethernet_frame *eth, Genode::size_t size);
 
-		void _handle_ip(Ethernet_frame * eth, Genode::size_t eth_size,
-		                bool & ack_packet, Packet_descriptor * packet);
+		void _handle_ip(Ethernet_frame *eth, Genode::size_t eth_size,
+		                bool &ack_packet, Packet_descriptor *packet);
 
-		Tcp_proxy * _new_tcp_proxy(
-			unsigned const client_port, Ipv4_address client_ip,
-			Ipv4_address proxy_ip);
+		Tcp_proxy *_new_tcp_proxy(unsigned const client_port,
+		                          Ipv4_address client_ip,
+		                          Ipv4_address proxy_ip);
 
-		Udp_proxy * _new_udp_proxy(
-			unsigned const client_port, Ipv4_address client_ip,
-			Ipv4_address proxy_ip);
+		Udp_proxy *_new_udp_proxy(unsigned const client_port,
+		                          Ipv4_address client_ip,
+		                          Ipv4_address proxy_ip);
 
-		void _delete_tcp_proxy(Tcp_proxy * const role);
+		void _delete_tcp_proxy(Tcp_proxy * const proxy);
 
-		bool _chk_delete_tcp_proxy(Tcp_proxy * & role);
+		bool _chk_delete_tcp_proxy(Tcp_proxy * &proxy);
 
-		void _delete_udp_proxy(Udp_proxy * const role);
+		void _delete_udp_proxy(Udp_proxy * const proxy);
 
-		bool _chk_delete_udp_proxy(Udp_proxy * & role);
+		bool _chk_delete_udp_proxy(Udp_proxy * &proxy);
 
-		bool _tlp_proxy(Genode::uint8_t tlp);
+		bool _tlp_proxy(Genode::uint8_t tlp) const;
 
 
 		/***********************************
@@ -153,59 +148,55 @@ class Net::Interface : public Interface_label,
 
 	public:
 
-		void arp_broadcast(Ipv4_address ip_addr);
-
-		Mac_address  nat_mac()    {return _nat_mac;}
-		Ipv4_address nat_ip()     {return _nat_ip;}
-		Mac_address  mac_addr()    {return _mac;}
-		Ipv4_address ip_addr()     {return _ip;}
+		class Too_many_tcp_proxies : public Genode::Exception { };
+		class Too_many_udp_proxies : public Genode::Exception { };
 
 		Interface(Server::Entrypoint    &ep,
-		          Mac_address            nat_mac,
-		          Ipv4_address           nat_ip,
+		          Mac_address const      nat_mac,
+		          Ipv4_address const     nat_ip,
 		          Genode::Allocator     &allocator,
 		          Genode::Session_label &label,
 		          Port_allocator        &tcp_port_alloc,
 		          Port_allocator        &udp_port_alloc,
-		          Mac_address            mac,
-		          Tcp_proxy_list        &tcp_proxys,
-		          Udp_proxy_list        &udp_proxys,
-		          unsigned               rtt_sec,
+		          Mac_address const      mac,
+		          Tcp_proxy_list        &tcp_proxies,
+		          Udp_proxy_list        &udp_proxies,
+		          unsigned const         rtt_sec,
 		          Interface_tree        &interface_tree,
 		          Arp_cache             &arp_cache,
 		          Arp_waiter_list       &arp_waiters);
 
 		~Interface();
 
-		virtual Packet_stream_sink< ::Nic::Session::Policy>   * sink()   = 0;
-		virtual Packet_stream_source< ::Nic::Session::Policy> * source() = 0;
+		void arp_broadcast(Ipv4_address ip_addr);
 
-		Ip_route_list * routes() { return &_ip_routes; }
+		void send(Ethernet_frame *eth, Genode::size_t eth_size);
 
-		/**
-		 * Send ethernet frame
-		 *
-		 * \param eth   ethernet frame to send.
-		 * \param size  ethernet frame's size.
-		 */
-		void send(Ethernet_frame *eth, Genode::size_t size);
+		void handle_ethernet(void *src, Genode::size_t size, bool &ack,
+		                     Packet_descriptor *packet);
 
-		/**
-		 * Handle an ethernet packet
-		 *
-		 * \param src   ethernet frame's address
-		 * \param size  ethernet frame's size.
-		 */
-		void handle_ethernet(void* src, Genode::size_t size, bool & ack, Packet_descriptor * p);
+		void continue_handle_ethernet(void *src, Genode::size_t size,
+		                              Packet_descriptor *packet);
 
-		void continue_handle_ethernet(void* src, Genode::size_t size, Packet_descriptor * p);
 
-		Genode::Allocator & allocator() const { return _allocator; }
+		/***************
+		 ** Accessors **
+		 ***************/
+
+		Mac_address        nat_mac()   const { return _nat_mac; }
+		Mac_address        mac()       const { return _mac; }
+		Ipv4_address       nat_ip()    const { return _nat_ip; }
+		Ip_route_list     &ip_routes()       { return _ip_routes; }
+		Genode::Allocator &allocator() const { return _allocator; }
+
+		virtual Packet_stream_sink< ::Nic::Session::Policy>   *sink()   = 0;
+		virtual Packet_stream_source< ::Nic::Session::Policy> *source() = 0;
 };
+
 
 struct Net::Interface_tree : Genode::Avl_tree<Genode::Avl_string_base>
 {
-	Interface * find_by_label(char const * label);
+	Interface *find_by_label(char const *label);
 };
 
 #endif /* _INTERFACE_H_ */

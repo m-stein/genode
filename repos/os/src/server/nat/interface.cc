@@ -1,30 +1,29 @@
 /*
- * \brief  Packet handler handling network packets.
- * \author Stefan Kalkowski
- * \date   2010-08-18
+ * \brief  A net interface in form of a signal-driven NIC-packet handler
+ * \author Martin Stein
+ * \date   2016-08-24
  */
 
 /*
- * Copyright (C) 2010-2013 Genode Labs GmbH
+ * Copyright (C) 2016 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU General Public License version 2.
  */
 
 /* Genode includes */
-#include <base/lock.h>
 #include <net/arp.h>
-#include <net/dhcp.h>
 #include <net/ethernet.h>
 #include <net/ipv4.h>
 #include <net/udp.h>
 #include <net/dump.h>
 
 /* local includes */
-#include <component.h>
 #include <interface.h>
+#include <port_allocator.h>
 #include <proxy.h>
 #include <arp_cache.h>
+#include <arp_waiter.h>
 
 using namespace Net;
 using namespace Genode;
@@ -32,7 +31,24 @@ using namespace Genode;
 static const bool verbose = 0;
 
 
-uint16_t tlp_dst_port(uint8_t tlp, void * ptr)
+static void tlp_update_checksum(uint8_t tlp, void *ptr, Ipv4_address src,
+                                Ipv4_address dst, size_t size)
+{
+	switch (tlp) {
+	case Tcp_packet::IP_ID:
+		((Tcp_packet *)ptr)->update_checksum(src, dst, size);
+		return;
+	case Udp_packet::IP_ID:
+		((Udp_packet *)ptr)->update_checksum(src, dst);
+		return;
+	default:
+		if (verbose) {
+			log("Unknown transport protocol"); }
+	}
+}
+
+
+static uint16_t tlp_dst_port(uint8_t tlp, void *ptr)
 {
 	switch (tlp) {
 	case Tcp_packet::IP_ID: return ((Tcp_packet *)ptr)->dst_port();
@@ -42,7 +58,7 @@ uint16_t tlp_dst_port(uint8_t tlp, void * ptr)
 }
 
 
-void tlp_dst_port(uint8_t tlp, void * ptr, uint16_t port)
+static void tlp_dst_port(uint8_t tlp, void *ptr, uint16_t port)
 {
 	switch (tlp) {
 	case Tcp_packet::IP_ID: ((Tcp_packet *)ptr)->dst_port(port); return;
@@ -51,17 +67,7 @@ void tlp_dst_port(uint8_t tlp, void * ptr, uint16_t port)
 }
 
 
-bool Interface::_tlp_proxy(uint8_t tlp)
-{
-	switch (tlp) {
-	case Tcp_packet::IP_ID: return _tcp_proxy;
-	case Udp_packet::IP_ID: return _udp_proxy;
-	default: if (verbose) { log("Unknown transport protocol"); } }
-	return false;
-}
-
-
-uint16_t tlp_src_port(uint8_t tlp, void * ptr)
+static uint16_t tlp_src_port(uint8_t tlp, void *ptr)
 {
 	switch (tlp) {
 	case Tcp_packet::IP_ID: return ((Tcp_packet *)ptr)->src_port();
@@ -71,7 +77,7 @@ uint16_t tlp_src_port(uint8_t tlp, void * ptr)
 }
 
 
-void * tlp_packet(uint8_t tlp, Ipv4_packet * ip, size_t size)
+static void *tlp_packet(uint8_t tlp, Ipv4_packet *ip, size_t size)
 {
 	switch (tlp) {
 	case Tcp_packet::IP_ID: return new (ip->data<void>()) Tcp_packet(size);
@@ -81,7 +87,7 @@ void * tlp_packet(uint8_t tlp, Ipv4_packet * ip, size_t size)
 }
 
 
-Port_route_tree * tlp_port_tree(uint8_t tlp, Ip_route * route)
+static Port_route_tree *tlp_port_tree(uint8_t tlp, Ip_route *route)
 {
 	switch (tlp) {
 	case Tcp_packet::IP_ID: return route->tcp_port_tree();
@@ -91,7 +97,7 @@ Port_route_tree * tlp_port_tree(uint8_t tlp, Ip_route * route)
 }
 
 
-Port_route_list * tlp_port_list(uint8_t tlp, Ip_route * route)
+static Port_route_list *tlp_port_list(uint8_t tlp, Ip_route *route)
 {
 	switch (tlp) {
 	case Tcp_packet::IP_ID: return route->tcp_port_list();
@@ -101,193 +107,206 @@ Port_route_list * tlp_port_list(uint8_t tlp, Ip_route * route)
 }
 
 
-void Interface::tlp_port_proxy
-(
-	uint8_t tlp, void * ptr, Ipv4_packet * ip, Ipv4_address client_ip,
-	uint16_t client_port)
+bool Interface::_tlp_proxy(uint8_t tlp) const
 {
 	switch (tlp) {
-	case Tcp_packet::IP_ID: {
-
-		Tcp_packet * tcp = (Tcp_packet *)ptr;
-		Tcp_proxy * role =
-			_find_tcp_proxy_by_client(client_ip, client_port);
-		if (!role) {
-			role = _new_tcp_proxy(client_port, client_ip, ip->src()); }
-		role->tcp_packet(ip, tcp);
-		tcp->src_port(role->proxy_port());
-		return;
-	}
-	case Udp_packet::IP_ID: {
-
-		Udp_packet * udp = (Udp_packet *)ptr;
-		Udp_proxy * role =
-			_find_udp_proxy_by_client(client_ip, client_port);
-		if (!role) {
-			role = _new_udp_proxy(client_port, client_ip, ip->src()); }
-		role->udp_packet(ip, udp);
-		udp->src_port(role->proxy_port());
-		return;
-	}
+	case Tcp_packet::IP_ID: return _tcp_proxy;
+	case Udp_packet::IP_ID: return _udp_proxy;
 	default: if (verbose) { log("Unknown transport protocol"); } }
+	return false;
 }
 
 
-void tlp_update_checksum
-(
-	uint8_t tlp, void * ptr, Ipv4_address src, Ipv4_address dst, size_t size)
-{
-	switch (tlp) {
-	case Tcp_packet::IP_ID:
-		((Tcp_packet *)ptr)->update_checksum(src, dst, size);
-		return;
-	case Udp_packet::IP_ID:
-		((Udp_packet *)ptr)->update_checksum(src, dst);
-		return;
-	default: if (verbose) { log("Unknown transport protocol"); } }
-}
-
-
-Interface * Interface::_tlp_proxy_route
-(
-	uint8_t tlp, void * ptr, uint16_t & dst_port, Ipv4_packet * ip,
-	Ipv4_address & to, Ipv4_address & via)
+void Interface::_tlp_apply_port_proxy(uint8_t tlp, void *ptr, Ipv4_packet *ip,
+                                      Ipv4_address client_ip,
+                                      uint16_t client_port)
 {
 	switch (tlp) {
 	case Tcp_packet::IP_ID:
 		{
-			Tcp_packet * tcp = (Tcp_packet *)ptr;
-			Tcp_proxy * role =
-				_find_tcp_proxy_by_proxy(ip->dst(), dst_port);
-			if (!role) { return nullptr; }
-			role->tcp_packet(ip, tcp);
-			dst_port = role->client_port();
-			to = role->client_ip();
-			via = to;
-			if(verbose) { log("Matching TCP proxy role: ", *role); }
-			return &role->client();
+			Tcp_packet *tcp = (Tcp_packet *)ptr;
+			Tcp_proxy *proxy =
+				_find_tcp_proxy_by_client(client_ip, client_port);
+			if (!proxy) {
+				proxy = _new_tcp_proxy(client_port, client_ip, ip->src()); }
+			proxy->tcp_packet(ip, tcp);
+			tcp->src_port(proxy->proxy_port());
+			return;
 		}
 	case Udp_packet::IP_ID:
 		{
-			Udp_packet * udp = (Udp_packet *)ptr;
-			Udp_proxy * role =
-				_find_udp_proxy_by_proxy(ip->dst(), dst_port);
-			if (!role) { return nullptr; }
-			role->udp_packet(ip, udp);
-			dst_port = role->client_port();
-			to = role->client_ip();
-			via = to;
-			if (verbose) { log("Matching UDP proxy role: ", *role); }
-			return &role->client();
+			Udp_packet *udp = (Udp_packet *)ptr;
+			Udp_proxy *proxy =
+				_find_udp_proxy_by_client(client_ip, client_port);
+			if (!proxy) {
+				proxy = _new_udp_proxy(client_port, client_ip, ip->src()); }
+			proxy->udp_packet(ip, udp);
+			udp->src_port(proxy->proxy_port());
+			return;
 		}
-	default: if (verbose) { log("Unknown transport protocol"); } }
+	default:
+		if (verbose) {
+			log("Unknown transport protocol"); }
+	}
+}
+
+
+Interface *Interface::_tlp_proxy_route(uint8_t tlp, void *ptr,
+                                       uint16_t &dst_port, Ipv4_packet *ip,
+                                       Ipv4_address &to, Ipv4_address &via)
+{
+	switch (tlp) {
+	case Tcp_packet::IP_ID:
+		{
+			Tcp_packet *tcp = (Tcp_packet *)ptr;
+			Tcp_proxy *proxy = _find_tcp_proxy_by_proxy(ip->dst(), dst_port);
+			if (!proxy) {
+				return nullptr; }
+
+			proxy->tcp_packet(ip, tcp);
+			dst_port = proxy->client_port();
+			to = proxy->client_ip();
+			via = to;
+			if(verbose) {
+				log("Matching TCP proxy proxy: ", *proxy); }
+
+			return &proxy->client();
+		}
+	case Udp_packet::IP_ID:
+		{
+			Udp_packet *udp = (Udp_packet *)ptr;
+			Udp_proxy *proxy = _find_udp_proxy_by_proxy(ip->dst(), dst_port);
+			if (!proxy) {
+				return nullptr; }
+
+			proxy->udp_packet(ip, udp);
+			dst_port = proxy->client_port();
+			to = proxy->client_ip();
+			via = to;
+			if (verbose) {
+				log("Matching UDP proxy proxy: ", *proxy); }
+
+			return &proxy->client();
+		}
+	default:
+		if (verbose) {
+			log("Unknown transport protocol"); }
+	}
 	return nullptr;
 }
 
 
-void Interface::_delete_tcp_proxy(Tcp_proxy * const role)
+void Interface::_delete_tcp_proxy(Tcp_proxy * const proxy)
 {
-	_tcp_proxys.remove(role);
-	unsigned const proxy_port = role->proxy_port();
-	destroy(_allocator, role);
+	_tcp_proxies.remove(proxy);
+	unsigned const proxy_port = proxy->proxy_port();
+	destroy(_allocator, proxy);
 	_tcp_port_alloc.free(proxy_port);
 	_tcp_proxy_used--;
 }
 
 
-void Interface::_delete_udp_proxy(Udp_proxy * const role)
+void Interface::_delete_udp_proxy(Udp_proxy * const proxy)
 {
-	_udp_proxys.remove(role);
-	unsigned const proxy_port = role->proxy_port();
-	destroy(_allocator, role);
+	_udp_proxies.remove(proxy);
+	unsigned const proxy_port = proxy->proxy_port();
+	destroy(_allocator, proxy);
 	_udp_port_alloc.free(proxy_port);
 	_udp_proxy_used--;
 }
 
 
-Tcp_proxy * Interface::_new_tcp_proxy
-(
-	unsigned const client_port, Ipv4_address client_ip, Ipv4_address proxy_ip)
+Tcp_proxy *Interface::_new_tcp_proxy(unsigned const client_port,
+                                     Ipv4_address client_ip,
+                                     Ipv4_address proxy_ip)
 {
-	class Too_many_proxys : public Exception { };
 	if (_tcp_proxy_used == _tcp_proxy) {
-		throw Too_many_proxys(); }
-	_tcp_proxy_used++;
+		throw Too_many_tcp_proxies(); }
+
 	unsigned const proxy_port = _tcp_port_alloc.alloc();
-	Tcp_proxy * const role = new (_allocator) Tcp_proxy(
-		client_port, proxy_port, client_ip, proxy_ip, *this, _ep, _rtt_sec);
-	_tcp_proxys.insert(role);
-	return role;
+	Tcp_proxy * const proxy =
+		new (_allocator) Tcp_proxy(client_port, proxy_port, client_ip,
+		                           proxy_ip, *this, _ep, _rtt_sec);
+	_tcp_proxies.insert(proxy);
+	_tcp_proxy_used++;
+	return proxy;
 }
 
 
-Udp_proxy * Interface::_new_udp_proxy
-(
-	unsigned const client_port, Ipv4_address client_ip, Ipv4_address proxy_ip)
+Udp_proxy *Interface::_new_udp_proxy(unsigned const client_port,
+                                     Ipv4_address client_ip,
+                                     Ipv4_address proxy_ip)
 {
-	class Too_many_proxys : public Exception { };
 	if (_udp_proxy_used == _udp_proxy) {
-		throw Too_many_proxys(); }
-	_udp_proxy_used++;
+		throw Too_many_udp_proxies(); }
+
 	unsigned const proxy_port = _udp_port_alloc.alloc();
-	Udp_proxy * const role = new (_allocator) Udp_proxy(
-		client_port, proxy_port, client_ip, proxy_ip, *this, _ep,
-		_rtt_sec);
-	_udp_proxys.insert(role);
-	return role;
+	Udp_proxy * const proxy =
+		new (_allocator) Udp_proxy(client_port, proxy_port, client_ip,
+		                           proxy_ip, *this, _ep, _rtt_sec);
+	_udp_proxies.insert(proxy);
+	_udp_proxy_used++;
+	return proxy;
 }
 
 
-bool Interface::_chk_delete_tcp_proxy(Tcp_proxy * & role)
+bool Interface::_chk_delete_tcp_proxy(Tcp_proxy * &proxy)
 {
-	if (!role->del()) { return false; }
-	Tcp_proxy * const next_role = role->next();
-	_delete_tcp_proxy(role);
-	role = next_role;
-	return true;
-}
+	if (!proxy->del()) {
+		return false; }
 
-bool Interface::_chk_delete_udp_proxy(Udp_proxy * & role)
-{
-	if (!role->del()) { return false; }
-	Udp_proxy * const next_role = role->next();
-	_delete_udp_proxy(role);
-	role = next_role;
+	Tcp_proxy * const next_proxy = proxy->next();
+	_delete_tcp_proxy(proxy);
+	proxy = next_proxy;
 	return true;
 }
 
 
+bool Interface::_chk_delete_udp_proxy(Udp_proxy * &proxy)
+{
+	if (!proxy->del()) {
+		return false; }
 
-void Interface::_handle_ip
-(
-	Ethernet_frame * eth, Genode::size_t eth_size, bool & ack_packet,
-	Packet_descriptor * packet)
+	Udp_proxy * const next_proxy = proxy->next();
+	_delete_udp_proxy(proxy);
+	proxy = next_proxy;
+	return true;
+}
+
+
+void Interface::_handle_ip(Ethernet_frame *eth, Genode::size_t eth_size,
+                           bool &ack_packet, Packet_descriptor *packet)
 {
 	/* prepare routing information */
 	size_t ip_size = eth_size - sizeof(Ethernet_frame);
-	Ipv4_packet * ip;
+	Ipv4_packet *ip;
 	try { ip = new (eth->data<void>()) Ipv4_packet(ip_size); }
 	catch (Ipv4_packet::No_ip_packet) { log("Invalid IP packet"); return; }
-	uint8_t tlp = ip->protocol();
-	size_t  tlp_size = ip_size - sizeof(Ipv4_packet);
-	void *  tlp_ptr = tlp_packet(tlp, ip, tlp_size);
-	uint16_t dst_port = tlp_dst_port(tlp, tlp_ptr);
-	Interface * handler = nullptr;
-	Ipv4_address to = ip->dst();
-	Ipv4_address via = ip->dst();
+
+	uint8_t      tlp      = ip->protocol();
+	size_t       tlp_size = ip_size - sizeof(Ipv4_packet);
+	void        *tlp_ptr  = tlp_packet(tlp, ip, tlp_size);
+	uint16_t     dst_port = tlp_dst_port(tlp, tlp_ptr);
+	Interface   *interface  = nullptr;
+	Ipv4_address to       = ip->dst();
+	Ipv4_address via      = ip->dst();
 
 	/* go through all matching IP routes ... */
 	Ip_route * route = _ip_routes.first();
 	for (; route; route = route->next()) {
 
 		/* ... first try all port routes of the current IP route ... */
-		if (!route->matches(ip->dst())) { continue; }
-		Port_route * port = tlp_port_list(tlp, route)->first();
+		if (!route->matches(ip->dst())) {
+			continue; }
+
+		Port_route *port = tlp_port_list(tlp, route)->first();
 		for (; port; port = port->next()) {
 
-			if (port->nr() != dst_port) { continue; }
-			handler = _interface_tree.find_by_label(port->label().string());
-			if (handler) {
+			if (port->nr() != dst_port) {
+				continue; }
+
+			interface = _interface_tree.find_by_label(port->label().string());
+			if (interface) {
 
 				bool const to_set = port->to() != Ipv4_address();
 				bool const via_set = port->via() != Ipv4_address();
@@ -296,16 +315,21 @@ void Interface::_handle_ip
 					via = port->to();
 					break;
 				}
-				if (via_set) { via = port->via(); }
-				if (to_set) { to = port->to(); }
+				if (via_set) {
+					via = port->via(); }
+
+				if (to_set) {
+					to = port->to(); }
+
 				break;
 			}
 		}
-		if (handler) { break; }
+		if (interface) {
+			break; }
 
 		/* ... then try the IP route itself ... */
-		handler = _interface_tree.find_by_label(route->label().string());
-		if (handler) {
+		interface = _interface_tree.find_by_label(route->label().string());
+		if (interface) {
 
 			bool const to_set = route->to() != Ipv4_address();
 			bool const via_set = route->via() != Ipv4_address();
@@ -314,17 +338,21 @@ void Interface::_handle_ip
 				via = route->to();
 				break;
 			}
-			if (via_set) { via = route->via(); }
-			if (to_set) { to = route->to(); }
+			if (via_set) {
+				via = route->via(); }
+
+			if (to_set) {
+				to = route->to(); }
+
 			break;
 		}
 	}
 	/* ... if no port or IP route helps, try to find a matching proxy route ... */
-	if (!handler) {
-		handler = _tlp_proxy_route(tlp, tlp_ptr, dst_port, ip, to, via);
-	}
+	if (!interface) {
+		interface = _tlp_proxy_route(tlp, tlp_ptr, dst_port, ip, to, via); }
+
 	/* ... and give up if this also fails */
-	if (!handler) {
+	if (!interface) {
 		if (verbose) { log("Unroutable packet"); }
 		return;
 	}
@@ -336,80 +364,104 @@ void Interface::_handle_ip
 
 	} catch (Arp_cache::No_matching_entry) {
 
-		handler->arp_broadcast(via);
-		_arp_waiters.insert(new (_allocator)
-			Arp_waiter(*this, via, *eth, eth_size, *packet));
+		interface->arp_broadcast(via);
+		_arp_waiters.insert(new (_allocator) Arp_waiter(*this, via, *eth,
+		                                                eth_size, *packet));
+
 		ack_packet = false;
 		return;
 	}
 	/* adapt packet to the collected info */
-	eth->src(handler->nat_mac());
+	eth->src(interface->nat_mac());
 	ip->dst(to);
 	tlp_dst_port(tlp, tlp_ptr, dst_port);
 
 	/* if configured, use proxy source IP */
 	if (_tlp_proxy(tlp)) {
 		Ipv4_address client_ip = ip->src();
-		ip->src(handler->nat_ip());
+		ip->src(interface->nat_ip());
 
-		/* if the source port additionally doesn't match any port forwarding, use a proxy port */
+		/* if also the source port doesn't match port routes, use proxy port */
 		uint16_t src_port = tlp_src_port(tlp, tlp_ptr);
-		Ip_route * dst_route = handler->routes()->first();
+		Ip_route *dst_route = interface->ip_routes().first();
 		for (; dst_route; dst_route = dst_route->next()) {
-			if (tlp_port_tree(tlp, dst_route)->find_by_nr(src_port)) { break; } }
-		if (!dst_route) { tlp_port_proxy(tlp, tlp_ptr, ip, client_ip, src_port); }
+			if (tlp_port_tree(tlp, dst_route)->find_by_nr(src_port)) {
+				break; }
+		}
+		if (!dst_route) {
+			_tlp_apply_port_proxy(tlp, tlp_ptr, ip, client_ip, src_port); }
 	}
 	/* update checksums and deliver packet */
 	tlp_update_checksum(tlp, tlp_ptr, ip->src(), ip->dst(), tlp_size);
 	ip->checksum(Ipv4_packet::calculate_checksum(*ip));
-	handler->send(eth, eth_size);
+	interface->send(eth, eth_size);
 }
 
 
-Tcp_proxy * Interface::_find_tcp_proxy_by_client(Ipv4_address ip, uint16_t port)
+Tcp_proxy *Interface::_find_tcp_proxy_by_client(Ipv4_address ip, uint16_t port)
 {
-	Tcp_proxy * role = _tcp_proxys.first();
-	while (role) {
-		if (_chk_delete_tcp_proxy(role)) { continue; }
-		if (role->matches_client(ip, port)) { break; }
-		role = role->next();
+	Tcp_proxy *proxy = _tcp_proxies.first();
+	while (proxy) {
+
+		if (_chk_delete_tcp_proxy(proxy)) {
+			continue; }
+
+		if (proxy->matches_client(ip, port)) {
+			break; }
+
+		proxy = proxy->next();
 	}
-	return role;
+	return proxy;
 }
 
 
-Tcp_proxy * Interface::_find_tcp_proxy_by_proxy(Ipv4_address ip, uint16_t port)
+Tcp_proxy *Interface::_find_tcp_proxy_by_proxy(Ipv4_address ip, uint16_t port)
 {
-	Tcp_proxy * role = _tcp_proxys.first();
-	while (role) {
-		if (_chk_delete_tcp_proxy(role)) { continue; }
-		if (role->matches_proxy(ip, port)) { break; }
-		role = role->next();
+	Tcp_proxy *proxy = _tcp_proxies.first();
+	while (proxy) {
+
+		if (_chk_delete_tcp_proxy(proxy)) {
+			continue; }
+
+		if (proxy->matches_proxy(ip, port)) {
+			break; }
+
+		proxy = proxy->next();
 	}
-	return role;
+	return proxy;
 }
 
-Udp_proxy * Interface::_find_udp_proxy_by_client(Ipv4_address ip, uint16_t port)
+Udp_proxy *Interface::_find_udp_proxy_by_client(Ipv4_address ip, uint16_t port)
 {
-	Udp_proxy * role = _udp_proxys.first();
-	while (role) {
-		if (_chk_delete_udp_proxy(role)) { continue; }
-		if (role->matches_client(ip, port)) { break; }
-		role = role->next();
+	Udp_proxy *proxy = _udp_proxies.first();
+	while (proxy) {
+
+		if (_chk_delete_udp_proxy(proxy)) {
+			continue; }
+
+		if (proxy->matches_client(ip, port)) {
+			break; }
+
+		proxy = proxy->next();
 	}
-	return role;
+	return proxy;
 }
 
 
-Udp_proxy * Interface::_find_udp_proxy_by_proxy(Ipv4_address ip, uint16_t port)
+Udp_proxy *Interface::_find_udp_proxy_by_proxy(Ipv4_address ip, uint16_t port)
 {
-	Udp_proxy * role = _udp_proxys.first();
-	while (role) {
-		if (_chk_delete_udp_proxy(role)) { continue; }
-		if (role->matches_proxy(ip, port)) { break; }
-		role = role->next();
+	Udp_proxy *proxy = _udp_proxies.first();
+	while (proxy) {
+
+		if (_chk_delete_udp_proxy(proxy)) {
+			continue; }
+
+		if (proxy->matches_proxy(ip, port)) {
+			break; }
+
+		proxy = proxy->next();
 	}
-	return role;
+	return proxy;
 }
 
 
@@ -436,20 +488,20 @@ void Interface::arp_broadcast(Ipv4_address ip_addr)
 }
 
 
-void Interface::_remove_arp_waiter(Arp_waiter * arp_waiter)
+void Interface::_remove_arp_waiter(Arp_waiter *arp_waiter)
 {
 	_arp_waiters.remove(arp_waiter);
 	destroy(arp_waiter->interface().allocator(), arp_waiter);
 }
 
 
-Arp_waiter * Interface::_new_arp_entry(Arp_waiter * arp_waiter,
-                                             Arp_cache_entry * arp_entry)
+Arp_waiter *Interface::_new_arp_entry(Arp_waiter *arp_waiter,
+                                      Arp_cache_entry *arp_entry)
 {
-	Arp_waiter * next_arp_waiter = arp_waiter->next();
+	Arp_waiter *next_arp_waiter = arp_waiter->next();
 	if (arp_waiter->new_arp_cache_entry(*arp_entry)) {
-		_remove_arp_waiter(arp_waiter);
-	}
+		_remove_arp_waiter(arp_waiter); }
+
 	return next_arp_waiter;
 }
 
@@ -458,37 +510,42 @@ void Interface::_handle_arp_reply(Arp_packet * const arp)
 {
 	try {
 		_arp_cache.find_by_ip_addr(arp->src_ip());
-		if (verbose) { log("ARP entry already exists"); }
+		if (verbose) {
+			log("ARP entry already exists"); }
+
 		return;
 	} catch (Arp_cache::No_matching_entry) {
 		try {
 			Arp_cache_entry *arp_entry =
-				new (env()->heap())
-				    Arp_cache_entry(arp->src_ip(), arp->src_mac());
+				new (env()->heap()) Arp_cache_entry(arp->src_ip(),
+				                                    arp->src_mac());
 
 			_arp_cache.insert(arp_entry);
-			Arp_waiter * arp_waiter = _arp_waiters.first();
+			Arp_waiter *arp_waiter = _arp_waiters.first();
 			for (; arp_waiter; arp_waiter = _new_arp_entry(arp_waiter, arp_entry)) { }
 
 		} catch (Allocator::Out_of_memory) {
 
-			if (verbose) { error("failed to allocate new ARP cache entry"); }
+			if (verbose) {
+				error("failed to allocate new ARP cache entry"); }
+
 			return;
 		}
 	}
 }
 
 
-void Interface::_handle_arp_request
-(
-	Ethernet_frame * const eth, size_t const eth_size, Arp_packet * const arp)
+void Interface::_handle_arp_request(Ethernet_frame * const eth,
+                                    size_t const eth_size,
+                                    Arp_packet * const arp)
 {
 	/* ignore packets that do not target the NAT */
 	if (arp->dst_ip() != nat_ip()) {
-		if (verbose) { log("ARP does not target NAT"); }
+		if (verbose) {
+			log("ARP does not target NAT"); }
+
 		return;
 	}
-
 	/* interchange source and destination MAC and IP addresses */
 	arp->dst_ip(arp->src_ip());
 	arp->dst_mac(arp->src_mac());
@@ -503,15 +560,17 @@ void Interface::_handle_arp_request
 }
 
 
-void Interface::_handle_arp(Ethernet_frame * eth, size_t eth_size)
+void Interface::_handle_arp(Ethernet_frame *eth, size_t eth_size)
 {
 	/* ignore ARP regarding protocols other than IPv4 via ethernet */
 	size_t arp_size = eth_size - sizeof(Ethernet_frame);
 	Arp_packet *arp = new (eth->data<void>()) Arp_packet(arp_size);
 	if (!arp->ethernet_ipv4()) {
-		if (verbose) { log("ARP for unknown protocol"); return; }
+		if (verbose) {
+			log("ARP for unknown protocol");
+			return;
+		}
 	}
-
 	switch (arp->opcode()) {
 	case Arp_packet::REPLY:   _handle_arp_reply(arp); break;
 	case Arp_packet::REQUEST: _handle_arp_request(eth, eth_size, arp); break;
@@ -521,34 +580,38 @@ void Interface::_handle_arp(Ethernet_frame * eth, size_t eth_size)
 
 void Interface::_ready_to_submit(unsigned)
 {
-	/* as long as packets are available, and we can ack them */
 	while (sink()->packet_avail()) {
+
 		_packet = sink()->get_packet();
-		if (!_packet.size()) continue;
-		bool ack = true;
+		if (!_packet.size()) {
+			continue; }
 
 		if (verbose) {
 			Genode::printf("<< %s ", Interface::string());
 			dump_eth(sink()->packet_content(_packet), _packet.size());
 			Genode::printf("\n");
 		}
+		bool ack = true;
 		handle_ethernet(sink()->packet_content(_packet), _packet.size(), ack, &_packet);
 
-		if (!ack) { continue; }
+		if (!ack) {
+			continue; }
 
 		if (!sink()->ready_to_ack()) {
-			if (verbose) { log("Ack state FULL"); }
+			if (verbose) {
+				log("Ack state FULL"); }
+
 			return;
 		}
-
 		sink()->acknowledge_packet(_packet);
 	}
 }
 
-void Interface::continue_handle_ethernet(void* src, Genode::size_t size, Packet_descriptor * p)
+void Interface::continue_handle_ethernet(void *src, Genode::size_t size,
+                                         Packet_descriptor *packet)
 {
 	bool ack = true;
-	handle_ethernet(src, size, ack, p);
+	handle_ethernet(src, size, ack, packet);
 	if (!ack) {
 		if (verbose) { log("Failed to continue eth handling"); }
 		return;
@@ -557,32 +620,31 @@ void Interface::continue_handle_ethernet(void* src, Genode::size_t size, Packet_
 		if (verbose) { log("Ack state FULL"); }
 		return;
 	}
-	sink()->acknowledge_packet(*p);
+	sink()->acknowledge_packet(*packet);
 }
 
 
 void Interface::_ready_to_ack(unsigned)
 {
-	/* check for acknowledgements */
-	while (source()->ack_avail())
-		source()->release_packet(source()->get_acked_packet());
+	while (source()->ack_avail()) {
+		source()->release_packet(source()->get_acked_packet()); }
 }
 
 
-void Interface::handle_ethernet(void * src, size_t size, bool & ack, Packet_descriptor * p)
+void Interface::handle_ethernet(void *src, size_t size, bool &ack,
+                                Packet_descriptor *packet)
 {
 	try {
 		Ethernet_frame * const eth = new (src) Ethernet_frame(size);
 		switch (eth->type()) {
 		case Ethernet_frame::ARP:  _handle_arp(eth, size); break;
-		case Ethernet_frame::IPV4: _handle_ip(eth, size, ack, p); break;
+		case Ethernet_frame::IPV4: _handle_ip(eth, size, ack, packet); break;
 		default: ; }
 	}
-	catch (Arp_packet::No_arp_packet)         { if (verbose) { log("Invalid ARP packet!"); } }
-	catch (Ethernet_frame::No_ethernet_frame) { if (verbose) { log("Invalid ethernet frame"); } }
-	catch (Dhcp_packet::No_dhcp_packet)       { if (verbose) { log("Invalid IPv4 packet!"); } }
-	catch (Ipv4_packet::No_ip_packet)         { if (verbose) { log("Invalid IPv4 packet!"); } }
-	catch (Udp_packet::No_udp_packet)         { if (verbose) { log("Invalid UDP packet!"); } }
+	catch (Ethernet_frame::No_ethernet_frame) {
+		if (verbose) {
+			log("Invalid ethernet frame"); }
+	}
 }
 
 
@@ -597,45 +659,50 @@ void Interface::send(Ethernet_frame *eth, Genode::size_t size)
 		/* copy and submit packet */
 		Packet_descriptor packet  = source()->alloc_packet(size);
 		char             *content = source()->packet_content(packet);
-		Genode::memcpy((void*)content, (void*)eth, size);
+		Genode::memcpy((void *)content, (void *)eth, size);
 		source()->submit_packet(packet);
-	} catch(Packet_stream_source< ::Nic::Session::Policy>::Packet_alloc_failed) {
-		if (verbose) { log("Failed to allocate packet"); }
+
+	} catch (Packet_stream_source< ::Nic::Session::Policy>::Packet_alloc_failed) {
+		if (verbose) {
+			log("Failed to allocate packet"); }
 	}
 }
 
 
-void Interface::_read_route(Xml_node & route_xn)
+void Interface::_read_route(Xml_node &route_xn)
 {
 	Ipv4_address_prefix dst =
 		route_xn.attribute_value("dst", Ipv4_address_prefix());
+
 	Ipv4_address const via = route_xn.attribute_value("via", Ipv4_address());
 	Ipv4_address const to = route_xn.attribute_value("to", Ipv4_address());
-	Ip_route * route;
+	Ip_route *route;
 	try {
-		char const * in = route_xn.attribute("label").value_base();
+		char const *in = route_xn.attribute("label").value_base();
 		size_t in_sz    = route_xn.attribute("label").value_size();
-		route = new (_allocator)
-			Ip_route(dst.address, dst.prefix, via, to, in, in_sz, _allocator, route_xn);
+		route = new (_allocator) Ip_route(dst.address, dst.prefix, via, to, in,
+		                                  in_sz, _allocator, route_xn);
+
 	} catch (Xml_attribute::Nonexistent_attribute) {
-		route = new (_allocator)
-			Ip_route(dst.address, dst.prefix, via, to, "", 0, _allocator, route_xn);
+		route = new (_allocator) Ip_route(dst.address, dst.prefix, via, to,
+		                                  "", 0, _allocator, route_xn);
 	}
 	_ip_routes.insert(route);
-	if (verbose) { log("  IP route: ", *route); }
+	if (verbose) {
+		log("  IP route: ", *route); }
 }
 
 Interface::Interface(Server::Entrypoint    &ep,
-                     Mac_address            nat_mac,
-                     Ipv4_address           nat_ip,
+                     Mac_address const      nat_mac,
+                     Ipv4_address const     nat_ip,
                      Genode::Allocator     &allocator,
                      Genode::Session_label &label,
                      Port_allocator        &tcp_port_alloc,
                      Port_allocator        &udp_port_alloc,
-                     Mac_address            mac,
-                     Tcp_proxy_list        &tcp_proxys,
-                     Udp_proxy_list        &udp_proxys,
-                     unsigned               rtt_sec,
+                     Mac_address const      mac,
+                     Tcp_proxy_list        &tcp_proxies,
+                     Udp_proxy_list        &udp_proxies,
+                     unsigned const         rtt_sec,
                      Interface_tree        &interface_tree,
                      Arp_cache             &arp_cache,
                      Arp_waiter_list       &arp_waiters)
@@ -647,22 +714,16 @@ Interface::Interface(Server::Entrypoint    &ep,
 	_source_ack(ep, *this, &Interface::_ready_to_ack),
 	_source_submit(ep, *this, &Interface::_packet_avail), _ep(ep),
 	_nat_mac(nat_mac), _nat_ip(nat_ip), _mac(mac), _allocator(allocator),
-	_policy(label),
-	_tcp_proxy(_policy.attribute_value("tcp-proxy", 0UL)),
-	_tcp_proxy_used(0),
-	_tcp_proxys(tcp_proxys),
+	_policy(label), _tcp_proxy(_policy.attribute_value("tcp-proxy", 0UL)),
+	_tcp_proxy_used(0), _tcp_proxies(tcp_proxies),
 	_tcp_port_alloc(tcp_port_alloc),
-	_udp_proxy(_policy.attribute_value("udp-proxy", 0UL)),
-	_udp_proxy_used(0),
-	_udp_proxys(udp_proxys),
-	_udp_port_alloc(udp_port_alloc),
-	_rtt_sec(rtt_sec),
-	_interface_tree(interface_tree),
-	_arp_cache(arp_cache),
+	_udp_proxy(_policy.attribute_value("udp-proxy", 0UL)), _udp_proxy_used(0),
+	_udp_proxies(udp_proxies), _udp_port_alloc(udp_port_alloc),
+	_rtt_sec(rtt_sec), _interface_tree(interface_tree), _arp_cache(arp_cache),
 	_arp_waiters(arp_waiters)
 {
 	if (verbose) {
-		log("Interface \"", *static_cast<Interface *>(this), "\"");
+		log("Interface \"", *static_cast<Interface_label *>(this), "\"");
 		log("  MAC ", _mac);
 		log("  NAT identity: MAC ", _nat_mac, " IP ", _nat_ip);
 		log("  Proxy TCP: ", _tcp_proxy, " UDP: ", _udp_proxy);
@@ -676,9 +737,10 @@ Interface::Interface(Server::Entrypoint    &ep,
 
 Interface::~Interface()
 {
-	Arp_waiter * arp_waiter = _arp_waiters.first();
+	Arp_waiter *arp_waiter = _arp_waiters.first();
 	while (arp_waiter) {
-		Arp_waiter * next_arp_waiter = arp_waiter->next();
+
+		Arp_waiter *next_arp_waiter = arp_waiter->next();
 		if (&arp_waiter->interface() != this) {
 			_remove_arp_waiter(arp_waiter); }
 
@@ -688,11 +750,15 @@ Interface::~Interface()
 }
 
 
-Interface * Interface_tree::find_by_label(char const * label)
+Interface *Interface_tree::find_by_label(char const *label)
 {
-	if (!strcmp(label, "")) { return nullptr; }
-	Interface * interface = static_cast<Interface *>(first());
-	if (!interface) { return nullptr; }
+	if (!strcmp(label, "")) {
+		return nullptr; }
+
+	Interface *interface = static_cast<Interface *>(first());
+	if (!interface) {
+		return nullptr; }
+
 	interface = static_cast<Interface *>(interface->find_by_name(label));
 	return interface;
 }

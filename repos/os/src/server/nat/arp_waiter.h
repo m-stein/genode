@@ -21,7 +21,7 @@
 
 namespace Net {
 
-	using Packet_descriptor = ::Nic::Packet_descriptor;
+	using ::Nic::Packet_descriptor;
 	class Interface;
 	class Ethernet_frame;
 	class Arp_waiter;
