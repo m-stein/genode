@@ -1,31 +1,34 @@
+/*
+ * \brief  Allocator for UDP/TCP ports
+ * \author Martin Stein
+ * \date   2016-08-19
+ */
+
+/*
+ * Copyright (C) 2016 Genode Labs GmbH
+ *
+ * This file is part of the Genode OS framework, which is distributed
+ * under the terms of the GNU General Public License version 2.
+ */
 
 #ifndef _PORT_ALLOCATOR_H_
 #define _PORT_ALLOCATOR_H_
 
+/* Genode includes */
 #include <util/bit_allocator.h>
-#include <base/lock.h>
 
 namespace Net {
 
 	enum { NR_OF_PORTS = ((Genode::uint16_t)~0) + 1 };
 
-	class Port_allocator;
+	struct Port_allocator;
 }
 
-class Net::Port_allocator : public Genode::Bit_allocator<NR_OF_PORTS>
+struct Net::Port_allocator : Genode::Bit_allocator<NR_OF_PORTS>
 {
-	private:
+	struct Failed_to_reserve_port_0 : Genode::Exception { };
 
-		Genode::Lock _lock;
-
-	public:
-
-		Port_allocator();
-
-		Genode::addr_t alloc(Genode::size_t const num_log2 = 0);
-
-		void free(
-			Genode::addr_t const bit_start, Genode::size_t const num_log2 = 0);
+	Port_allocator();
 };
 
 #endif /* _PORT_ALLOCATOR_H_ */
