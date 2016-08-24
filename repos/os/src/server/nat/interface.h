@@ -29,6 +29,7 @@ namespace Net {
 	using ::Nic::Packet_stream_source;
 	using ::Nic::Packet_descriptor;
 
+	class Ethernet_frame;
 	class Arp_packet;
 	class Arp_waiter;
 	class Arp_cache;

@@ -19,6 +19,7 @@
 #include <component.h>
 #include <arp_cache.h>
 #include <uplink.h>
+#include <port_allocator.h>
 
 using namespace Net;
 using namespace Genode;

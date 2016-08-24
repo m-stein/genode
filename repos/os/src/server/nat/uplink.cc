@@ -51,11 +51,11 @@ Net::Uplink::Uplink(Server::Entrypoint  &ep,
 	Session_label(label_from_args("label=\"uplink\"")),
 	Nic::Packet_allocator(env()->heap()),
 	Nic::Connection(this, BUF_SIZE, BUF_SIZE),
-	Interface(ep, mac_address(), _nat_ip_attr(), *env()->heap(),
-	          *static_cast<Session_label *>(this),
-	          tcp_port_alloc, udp_port_alloc, Mac_address(),
-	          tcp_proxys, udp_proxys, rtt_sec,
-	          interface_tree, arp_cache, arp_waiters)
+
+	Interface(ep, mac_address(), _read_nat_ip_attr(), *env()->heap(),
+	          *static_cast<Session_label *>(this), tcp_port_alloc,
+	          udp_port_alloc, Mac_address(), tcp_proxys, udp_proxys,
+	          rtt_sec, interface_tree, arp_cache, arp_waiters)
 {
 	rx_channel()->sigh_ready_to_ack(_sink_ack);
 	rx_channel()->sigh_packet_avail(_sink_submit);

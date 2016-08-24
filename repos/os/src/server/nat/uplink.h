@@ -1,11 +1,11 @@
 /*
- * \brief  Proxy-ARP NIC session handler
- * \author Stefan Kalkowski
- * \date   2010-08-18
+ * \brief  Uplink interface in form of a NIC session component
+ * \author Martin Stein
+ * \date   2016-08-23
  */
 
 /*
- * Copyright (C) 2010-2013 Genode Labs GmbH
+ * Copyright (C) 2016 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU General Public License version 2.
@@ -16,18 +16,18 @@
 
 /* Genode includes */
 #include <nic_session/connection.h>
-#include <nic/packet_allocator.h>
 
 /* local includes */
 #include <interface.h>
-#include <port_allocator.h>
 
-namespace Net { class Uplink; }
+namespace Net {
 
-class Net::Uplink
-:
-	public Genode::Session_label, public Nic::Packet_allocator,
-	public Nic::Connection, public Net::Interface
+	class Port_allocator;
+	class Uplink;
+}
+
+class Net::Uplink : public Genode::Session_label, public Nic::Packet_allocator,
+                    public Nic::Connection, public Net::Interface
 {
 	private:
 
@@ -36,22 +36,27 @@ class Net::Uplink
 			BUF_SIZE = Nic::Session::QUEUE_SIZE * PKT_SIZE,
 		};
 
-		Ipv4_address _nat_ip_attr();
+		Ipv4_address _read_nat_ip_attr();
 
 	public:
 
-		Uplink(Server::Entrypoint  &ep,
-		       Port_allocator      &tcp_port_alloc,
-		       Port_allocator      &udp_port_alloc,
-		       Tcp_proxy_list &tcp_proxys,
-		       Udp_proxy_list &udp_proxys,
-		       unsigned             rtt_sec,
-		       Interface_tree      &interface_tree,
-		       Arp_cache           &arp_cache,
-		       Arp_waiter_list     &arp_waiters);
+		Uplink(Server::Entrypoint &ep,
+		       Port_allocator     &tcp_port_alloc,
+		       Port_allocator     &udp_port_alloc,
+		       Tcp_proxy_list     &tcp_proxys,
+		       Udp_proxy_list     &udp_proxys,
+		       unsigned            rtt_sec,
+		       Interface_tree     &interface_tree,
+		       Arp_cache          &arp_cache,
+		       Arp_waiter_list    &arp_waiters);
 
-		Packet_stream_sink<Nic::Session::Policy> *   sink()   { return rx(); }
-		Packet_stream_source<Nic::Session::Policy> * source() { return tx(); }
+
+		/********************
+		 ** Net::Interface **
+		 ********************/
+
+		Packet_stream_sink<Nic::Session::Policy>   *sink()   { return rx(); }
+		Packet_stream_source<Nic::Session::Policy> *source() { return tx(); }
 };
 
 #endif /* _UPLINK_H_ */

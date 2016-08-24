@@ -1,11 +1,29 @@
+/*
+ * \brief  UDP/TCP proxy session
+ * \author Martin Stein
+ * \date   2016-08-19
+ */
 
+/*
+ * Copyright (C) 2016 Genode Labs GmbH
+ *
+ * This file is part of the Genode OS framework, which is distributed
+ * under the terms of the GNU General Public License version 2.
+ */
+
+/* Genode includes */
+#include <net/tcp.h>
+#include <net/udp.h>
+#include <base/log.h>
+
+/* local includes */
 #include <proxy.h>
-#include <interface.h>
 
 using namespace Net;
 using namespace Genode;
 
 static bool verbose = 0;
+
 
 void Tcp_proxy::_del_timeout_handle()
 {
@@ -15,11 +33,10 @@ void Tcp_proxy::_del_timeout_handle()
 }
 
 
-Tcp_proxy::Tcp_proxy
-(
-	uint16_t client_port, uint16_t proxy_port, Ipv4_address client_ip,
-	Ipv4_address proxy_ip, Interface & client, Genode::Entrypoint &ep,
-	unsigned const rtt_sec)
+Tcp_proxy::Tcp_proxy(uint16_t client_port, uint16_t proxy_port,
+                     Ipv4_address client_ip, Ipv4_address proxy_ip,
+                     Interface &client, Genode::Entrypoint &ep,
+                     unsigned const rtt_sec)
 :
 	_client_port(client_port), _proxy_port(proxy_port), _client_ip(client_ip),
 	_proxy_ip(proxy_ip), _client(client),
@@ -31,17 +48,13 @@ Tcp_proxy::Tcp_proxy
 }
 
 
-bool Tcp_proxy::matches_client
-(
-	Ipv4_address client_ip, uint16_t client_port)
+bool Tcp_proxy::matches_client(Ipv4_address client_ip, uint16_t client_port)
 {
 	return client_ip == _client_ip && client_port == _client_port;
 }
 
 
-bool Tcp_proxy::matches_proxy
-(
-	Ipv4_address proxy_ip, uint16_t proxy_port)
+bool Tcp_proxy::matches_proxy(Ipv4_address proxy_ip, uint16_t proxy_port)
 {
 	return proxy_ip == _proxy_ip && proxy_port == _proxy_port;
 }
@@ -80,24 +93,24 @@ void Udp_proxy::_del_timeout_handle()
 }
 
 
-void Udp_proxy::print(Output & out) const
+void Udp_proxy::print(Output &out) const
 {
 	Genode::print(out, _client_ip, ":", _client_port, " -> ",
 	              _proxy_ip, ":", _proxy_port);
 }
 
-void Tcp_proxy::print(Output & out) const
+
+void Tcp_proxy::print(Output &out) const
 {
 	Genode::print(out, _client_ip, ":", _client_port, " -> ",
 	              _proxy_ip,  ":", _proxy_port);
 }
 
 
-Udp_proxy::Udp_proxy
-(
-	uint16_t client_port, uint16_t proxy_port, Ipv4_address client_ip,
-	Ipv4_address proxy_ip, Interface & client, Genode::Entrypoint &ep,
-	unsigned const rtt_sec)
+Udp_proxy::Udp_proxy(uint16_t client_port, uint16_t proxy_port,
+                     Ipv4_address client_ip, Ipv4_address proxy_ip,
+                     Interface &client, Genode::Entrypoint &ep,
+                     unsigned const rtt_sec)
 :
 	_client_port(client_port), _proxy_port(proxy_port), _client_ip(client_ip),
 	_proxy_ip(proxy_ip), _client(client),
@@ -110,17 +123,13 @@ Udp_proxy::Udp_proxy
 }
 
 
-bool Udp_proxy::matches_client
-(
-	Ipv4_address client_ip, uint16_t client_port)
+bool Udp_proxy::matches_client(Ipv4_address client_ip, uint16_t client_port)
 {
 	return client_ip == _client_ip && client_port == _client_port;
 }
 
 
-bool Udp_proxy::matches_proxy
-(
-	Ipv4_address proxy_ip, uint16_t proxy_port)
+bool Udp_proxy::matches_proxy(Ipv4_address proxy_ip, uint16_t proxy_port)
 {
 	return proxy_ip == _proxy_ip && proxy_port == _proxy_port;
 }
