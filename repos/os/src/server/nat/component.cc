@@ -46,8 +46,8 @@ Net::Session_component::Session_component(Allocator           &allocator,
                                           Session_label       &label,
                                           Port_allocator      &tcp_port_alloc,
                                           Port_allocator      &udp_port_alloc,
-                                          Tcp_proxy_role_list &tcp_proxy_roles,
-                                          Udp_proxy_role_list &udp_proxy_roles,
+                                          Tcp_proxy_list      &tcp_proxys,
+                                          Udp_proxy_list      &udp_proxys,
                                           unsigned const       rtt_sec,
                                           Interface_tree      &interface_tree,
                                           Arp_cache           &arp_cache,
@@ -63,8 +63,8 @@ Net::Session_component::Session_component(Allocator           &allocator,
 
 	Interface(
 		ep, nat_mac, nat_ip, guarded_allocator(), label, tcp_port_alloc,
-		udp_port_alloc, mac, tcp_proxy_roles, udp_proxy_roles, rtt_sec,
-		interface_tree, arp_cache, arp_waiters)
+		udp_port_alloc, mac, tcp_proxys, udp_proxys, rtt_sec, interface_tree,
+		arp_cache, arp_waiters)
 {
 	_tx.sigh_ready_to_ack(_sink_ack);
 	_tx.sigh_packet_avail(_sink_submit);
@@ -76,22 +76,22 @@ Net::Session_component::Session_component(Allocator           &allocator,
 Session_component::~Session_component() { }
 
 
-Net::Root::Root(Server::Entrypoint  &ep,
-                Allocator           &md_alloc,
-                Mac_address          nat_mac,
-                Port_allocator      &tcp_port_alloc,
-                Port_allocator      &udp_port_alloc,
-                Tcp_proxy_role_list &tcp_proxy_roles,
-                Udp_proxy_role_list &udp_proxy_roles,
-                unsigned             rtt_sec,
-                Interface_tree      &interface_tree,
-                Arp_cache           &arp_cache,
-                Arp_waiter_list     &arp_waiters)
+Net::Root::Root(Server::Entrypoint &ep,
+                Allocator          &md_alloc,
+                Mac_address         nat_mac,
+                Port_allocator     &tcp_port_alloc,
+                Port_allocator     &udp_port_alloc,
+                Tcp_proxy_list     &tcp_proxys,
+                Udp_proxy_list     &udp_proxys,
+                unsigned            rtt_sec,
+                Interface_tree     &interface_tree,
+                Arp_cache          &arp_cache,
+                Arp_waiter_list    &arp_waiters)
 :
 	Root_component<Session_component>(&ep.rpc_ep(), &md_alloc),
 	_ep(ep), _nat_mac(nat_mac), _tcp_port_alloc(tcp_port_alloc),
-	_udp_port_alloc(udp_port_alloc), _tcp_proxy_roles(tcp_proxy_roles),
-	_udp_proxy_roles(udp_proxy_roles), _rtt_sec(rtt_sec),
+	_udp_port_alloc(udp_port_alloc), _tcp_proxys(tcp_proxys),
+	_udp_proxys(udp_proxys), _rtt_sec(rtt_sec),
 	_interface_tree(interface_tree), _arp_cache(arp_cache),
 	_arp_waiters(arp_waiters)
 { }
@@ -147,8 +147,8 @@ Session_component *Net::Root::_create_session(char const *args)
 		Session_component(*env()->heap(), ram_quota - session_size,
 		                  tx_buf_size, rx_buf_size, mac, _ep, _nat_mac,
 		                  src, label, _tcp_port_alloc, _udp_port_alloc,
-		                  _tcp_proxy_roles, _udp_proxy_roles, _rtt_sec,
-		                  _interface_tree, _arp_cache, _arp_waiters);
+		                  _tcp_proxys, _udp_proxys, _rtt_sec, _interface_tree,
+		                  _arp_cache, _arp_waiters);
 }
 
 

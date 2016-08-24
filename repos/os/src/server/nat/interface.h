@@ -1,7 +1,7 @@
 /*
- * \brief  Signal driven NIC packet handler
- * \author Stefan Kalkowski
- * \date   2010-08-18
+ * \brief  A net interface in form of a signal-driven NIC-packet handler
+ * \author Martin Stein
+ * \date   2016-08-24
  */
 
 /*
@@ -29,7 +29,7 @@
 #include <port_allocator.h>
 #include <arp_waiter.h>
 #include <ip_route.h>
-#include <proxy_role.h>
+#include <proxy.h>
 
 namespace Net {
 
@@ -42,70 +42,69 @@ namespace Net {
 	using ::Nic::Packet_stream_source;
 }
 
-class Net::Interface
-:
-	public Interface_label,
-	public Genode::Avl_string_base
+class Net::Interface : public Interface_label,
+                       public Genode::Avl_string_base
 {
 	protected:
 
-		using size_t = Genode::size_t;
+		using Signal_rpc_member = Genode::Signal_rpc_member<Interface>;
+
+		Signal_rpc_member _sink_ack;
+		Signal_rpc_member _sink_submit;
+		Signal_rpc_member _source_ack;
+		Signal_rpc_member _source_submit;
 
 	private:
 
-		Packet_descriptor    _packet;
-		Genode::Entrypoint & _ep;
-		Ip_route_list        _ip_routes;
+		Packet_descriptor       _packet;
+		Genode::Entrypoint     &_ep;
+		Ip_route_list           _ip_routes;
+		Mac_address const       _nat_mac;
+		Ipv4_address const      _nat_ip;
+		Mac_address const       _mac;
+		Ipv4_address const      _ip;
+		Genode::Allocator      &_allocator;
+		Genode::Session_policy  _policy;
+		unsigned const          _tcp_proxy;
+		unsigned                _tcp_proxy_used;
+		Tcp_proxy_list         &_tcp_proxys;
+		Port_allocator         &_tcp_port_alloc;
+		unsigned const          _udp_proxy;
+		unsigned                _udp_proxy_used;
+		Udp_proxy_list         &_udp_proxys;
+		Port_allocator         &_udp_port_alloc;
+		unsigned const          _rtt_sec;
+		Interface_tree         &_interface_tree;
+		Arp_cache              &_arp_cache;
+		Arp_waiter_list        &_arp_waiters;
 
-		void _read_route(Genode::Xml_node & route_xn);
+		void _read_route(Genode::Xml_node &route_xn);
 
-		/**
-		 * submit queue not empty anymore
-		 */
-		void _ready_to_submit(unsigned);
+		Tcp_proxy *_find_tcp_proxy_by_client(Ipv4_address ip,
+		                                     Genode::uint16_t port);
 
-		/**
-		 * acknoledgement queue not full anymore
-		 *
-		 * TODO: by now, we assume ACK and SUBMIT queue to be equally
-		 *       dimensioned. That's why we ignore this signal by now.
-		 */
-		void _ack_avail(unsigned) { }
+		Udp_proxy *_find_udp_proxy_by_client(Ipv4_address ip,
+		                                     Genode::uint16_t port);
 
-		/**
-		 * acknoledgement queue not empty anymore
-		 */
-		void _ready_to_ack(unsigned);
+		Interface *_tlp_proxy_route(Genode::uint8_t tlp, void * ptr,
+		                            Genode::uint16_t & dst_port,
+		                            Ipv4_packet * ip, Ipv4_address & to,
+		                            Ipv4_address & via);
 
-		/**
-		 * submit queue not full anymore
-		 *
-		 * TODO: by now, we just drop packets that cannot be transferred
-		 *       to the other side, that's why we ignore this signal.
-		 */
-		void _packet_avail(unsigned) { }
+		void tlp_port_proxy(Genode::uint8_t tlp, void * tlp_ptr,
+		                    Ipv4_packet * ip, Ipv4_address client_ip,
+		                    Genode::uint16_t src_port);
 
-		Tcp_proxy_role * _find_tcp_proxy_role_by_client(Ipv4_address ip, Genode::uint16_t port);
-		Udp_proxy_role * _find_udp_proxy_role_by_client(Ipv4_address ip, Genode::uint16_t port);
+		Tcp_proxy * _find_tcp_proxy_by_proxy(Ipv4_address ip,
+		                                     Genode::uint16_t port);
 
-		Interface * _tlp_proxy_route(
-			Genode::uint8_t tlp, void * ptr, Genode::uint16_t & dst_port,
-			Ipv4_packet * ip, Ipv4_address & to, Ipv4_address & via);
-
-		void tlp_port_proxy(
-			Genode::uint8_t tlp, void * tlp_ptr, Ipv4_packet * ip,
-			Ipv4_address client_ip, Genode::uint16_t src_port);
-
-		Tcp_proxy_role * _find_tcp_proxy_role_by_proxy(
-			Ipv4_address ip, Genode::uint16_t port);
-
-		Udp_proxy_role * _find_udp_proxy_role_by_proxy(
+		Udp_proxy * _find_udp_proxy_by_proxy(
 			Ipv4_address ip, Genode::uint16_t port);
 
 		void _handle_arp_reply(Arp_packet * const arp);
 
 		void _handle_arp_request(Ethernet_frame * const eth,
-		                         size_t const eth_size,
+		                         Genode::size_t const eth_size,
 		                         Arp_packet * const arp);
 
 		Arp_waiter * _new_arp_entry(Arp_waiter * arp_waiter,
@@ -119,55 +118,38 @@ class Net::Interface
 		 * \param eth   ethernet frame containing the ARP packet.
 		 * \param size  ethernet frame's size.
 		 */
-		void _handle_arp(Ethernet_frame *eth, size_t size);
+		void _handle_arp(Ethernet_frame *eth, Genode::size_t size);
 
-		void _handle_ip(Ethernet_frame * eth, size_t eth_size,
+		void _handle_ip(Ethernet_frame * eth, Genode::size_t eth_size,
 		                bool & ack_packet, Packet_descriptor * packet);
 
-		Tcp_proxy_role * _new_tcp_proxy_role(
+		Tcp_proxy * _new_tcp_proxy(
 			unsigned const client_port, Ipv4_address client_ip,
 			Ipv4_address proxy_ip);
 
-		Udp_proxy_role * _new_udp_proxy_role(
+		Udp_proxy * _new_udp_proxy(
 			unsigned const client_port, Ipv4_address client_ip,
 			Ipv4_address proxy_ip);
 
-		void _delete_tcp_proxy_role(Tcp_proxy_role * const role);
+		void _delete_tcp_proxy(Tcp_proxy * const role);
 
-		bool _chk_delete_tcp_proxy_role(Tcp_proxy_role * & role);
+		bool _chk_delete_tcp_proxy(Tcp_proxy * & role);
 
-		void _delete_udp_proxy_role(Udp_proxy_role * const role);
+		void _delete_udp_proxy(Udp_proxy * const role);
 
-		bool _chk_delete_udp_proxy_role(Udp_proxy_role * & role);
+		bool _chk_delete_udp_proxy(Udp_proxy * & role);
 
 		bool _tlp_proxy(Genode::uint8_t tlp);
 
-	protected:
 
-		using Signal_rpc_member = Genode::Signal_rpc_member<Interface>;
+		/***********************************
+		 ** Packet-stream signal handlers **
+		 ***********************************/
 
-		Signal_rpc_member        _sink_ack;
-		Signal_rpc_member        _sink_submit;
-		Signal_rpc_member        _source_ack;
-		Signal_rpc_member        _source_submit;
-		Mac_address              _nat_mac;
-		Ipv4_address             _nat_ip;
-		Mac_address              _mac;
-		Ipv4_address             _ip;
-		Genode::Allocator      & _allocator;
-		Genode::Session_policy   _policy;
-		unsigned                 _tcp_proxy;
-		unsigned                 _tcp_proxy_used;
-		Tcp_proxy_role_list    & _tcp_proxy_roles;
-		Port_allocator         & _tcp_port_alloc;
-		unsigned                 _udp_proxy;
-		unsigned                 _udp_proxy_used;
-		Udp_proxy_role_list    & _udp_proxy_roles;
-		Port_allocator         & _udp_port_alloc;
-		unsigned                 _rtt_sec;
-		Interface_tree         & _interface_tree;
-		Arp_cache              & _arp_cache;
-		Arp_waiter_list        & _arp_waiters;
+		void _ready_to_submit(unsigned);
+		void _ack_avail(unsigned) { }
+		void _ready_to_ack(unsigned);
+		void _packet_avail(unsigned) { }
 
 	public:
 
@@ -186,8 +168,8 @@ class Net::Interface
 		          Port_allocator        &tcp_port_alloc,
 		          Port_allocator        &udp_port_alloc,
 		          Mac_address            mac,
-		          Tcp_proxy_role_list   &tcp_proxy_roles,
-		          Udp_proxy_role_list   &udp_proxy_roles,
+		          Tcp_proxy_list        &tcp_proxys,
+		          Udp_proxy_list        &udp_proxys,
 		          unsigned               rtt_sec,
 		          Interface_tree        &interface_tree,
 		          Arp_cache             &arp_cache,
@@ -206,7 +188,7 @@ class Net::Interface
 		 * \param eth   ethernet frame to send.
 		 * \param size  ethernet frame's size.
 		 */
-		void send(Ethernet_frame *eth, size_t size);
+		void send(Ethernet_frame *eth, Genode::size_t size);
 
 		/**
 		 * Handle an ethernet packet
@@ -214,9 +196,9 @@ class Net::Interface
 		 * \param src   ethernet frame's address
 		 * \param size  ethernet frame's size.
 		 */
-		void handle_ethernet(void* src, size_t size, bool & ack, Packet_descriptor * p);
+		void handle_ethernet(void* src, Genode::size_t size, bool & ack, Packet_descriptor * p);
 
-		void continue_handle_ethernet(void* src, size_t size, Packet_descriptor * p);
+		void continue_handle_ethernet(void* src, Genode::size_t size, Packet_descriptor * p);
 
 		Genode::Allocator & allocator() const { return _allocator; }
 };

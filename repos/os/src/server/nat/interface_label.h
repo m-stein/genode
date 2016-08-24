@@ -19,9 +19,7 @@
 
 namespace Net {
 
-	enum { MAX_INTERFACE_LABEL_SIZE = 64 };
-
-	using Interface_label = Genode::String<MAX_INTERFACE_LABEL_SIZE>;
+	using Interface_label = Genode::String<64>;
 }
 
 #endif /* _INTERFACE_LABEL_H_ */

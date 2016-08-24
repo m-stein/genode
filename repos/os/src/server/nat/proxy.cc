@@ -1,5 +1,5 @@
 
-#include <proxy_role.h>
+#include <proxy.h>
 #include <interface.h>
 
 using namespace Net;
@@ -7,7 +7,7 @@ using namespace Genode;
 
 static bool verbose = 0;
 
-void Tcp_proxy_role::_del_timeout_handle()
+void Tcp_proxy::_del_timeout_handle()
 {
 	_del = true;
 	if (verbose) { log("Deprecate TCP proxy ", *this); }
@@ -15,7 +15,7 @@ void Tcp_proxy_role::_del_timeout_handle()
 }
 
 
-Tcp_proxy_role::Tcp_proxy_role
+Tcp_proxy::Tcp_proxy
 (
 	uint16_t client_port, uint16_t proxy_port, Ipv4_address client_ip,
 	Ipv4_address proxy_ip, Interface & client, Genode::Entrypoint &ep,
@@ -23,7 +23,7 @@ Tcp_proxy_role::Tcp_proxy_role
 :
 	_client_port(client_port), _proxy_port(proxy_port), _client_ip(client_ip),
 	_proxy_ip(proxy_ip), _client(client),
-	_del_timeout(ep, *this, &Tcp_proxy_role::_del_timeout_handle),
+	_del_timeout(ep, *this, &Tcp_proxy::_del_timeout_handle),
 	_del_timeout_us(rtt_sec * 2 * 1000 * 1000)
 {
 	if (verbose) { log("Create TCP proxy ", *this); }
@@ -31,7 +31,7 @@ Tcp_proxy_role::Tcp_proxy_role
 }
 
 
-bool Tcp_proxy_role::matches_client
+bool Tcp_proxy::matches_client
 (
 	Ipv4_address client_ip, uint16_t client_port)
 {
@@ -39,7 +39,7 @@ bool Tcp_proxy_role::matches_client
 }
 
 
-bool Tcp_proxy_role::matches_proxy
+bool Tcp_proxy::matches_proxy
 (
 	Ipv4_address proxy_ip, uint16_t proxy_port)
 {
@@ -47,7 +47,7 @@ bool Tcp_proxy_role::matches_proxy
 }
 
 
-void Tcp_proxy_role::tcp_packet(Ipv4_packet * const ip, Tcp_packet * const tcp)
+void Tcp_proxy::tcp_packet(Ipv4_packet * const ip, Tcp_packet * const tcp)
 {
 	/* find out which side sent the packet */
 	bool from_client;
@@ -72,7 +72,7 @@ void Tcp_proxy_role::tcp_packet(Ipv4_packet * const ip, Tcp_packet * const tcp)
 	}
 }
 
-void Udp_proxy_role::_del_timeout_handle()
+void Udp_proxy::_del_timeout_handle()
 {
 	_del = true;
 	if (verbose) { log("Deprecate UDP proxy ", *this); }
@@ -80,20 +80,20 @@ void Udp_proxy_role::_del_timeout_handle()
 }
 
 
-void Udp_proxy_role::print(Output & out) const
+void Udp_proxy::print(Output & out) const
 {
 	Genode::print(out, _client_ip, ":", _client_port, " -> ",
 	              _proxy_ip, ":", _proxy_port);
 }
 
-void Tcp_proxy_role::print(Output & out) const
+void Tcp_proxy::print(Output & out) const
 {
 	Genode::print(out, _client_ip, ":", _client_port, " -> ",
 	              _proxy_ip,  ":", _proxy_port);
 }
 
 
-Udp_proxy_role::Udp_proxy_role
+Udp_proxy::Udp_proxy
 (
 	uint16_t client_port, uint16_t proxy_port, Ipv4_address client_ip,
 	Ipv4_address proxy_ip, Interface & client, Genode::Entrypoint &ep,
@@ -101,7 +101,7 @@ Udp_proxy_role::Udp_proxy_role
 :
 	_client_port(client_port), _proxy_port(proxy_port), _client_ip(client_ip),
 	_proxy_ip(proxy_ip), _client(client),
-	_del_timeout(ep, *this, &Udp_proxy_role::_del_timeout_handle),
+	_del_timeout(ep, *this, &Udp_proxy::_del_timeout_handle),
 	_del_timeout_us(rtt_sec * 2 * 1000 * 1000)
 {
 	if (verbose) { log("Create UDP proxy ", *this); }
@@ -110,7 +110,7 @@ Udp_proxy_role::Udp_proxy_role
 }
 
 
-bool Udp_proxy_role::matches_client
+bool Udp_proxy::matches_client
 (
 	Ipv4_address client_ip, uint16_t client_port)
 {
@@ -118,7 +118,7 @@ bool Udp_proxy_role::matches_client
 }
 
 
-bool Udp_proxy_role::matches_proxy
+bool Udp_proxy::matches_proxy
 (
 	Ipv4_address proxy_ip, uint16_t proxy_port)
 {
@@ -126,7 +126,7 @@ bool Udp_proxy_role::matches_proxy
 }
 
 
-void Udp_proxy_role::udp_packet(Ipv4_packet * const ip, Udp_packet * const udp)
+void Udp_proxy::udp_packet(Ipv4_packet * const ip, Udp_packet * const udp)
 {
 	_timer.trigger_once(_del_timeout_us);
 }

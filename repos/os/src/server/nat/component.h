@@ -106,8 +106,8 @@ class Net::Session_component : public  Guarded_range_allocator,
 		                  Genode::Session_label &label,
 		                  Port_allocator        &tcp_port_alloc,
 		                  Port_allocator        &udp_port_alloc,
-		                  Tcp_proxy_role_list   &tcp_proxy_roles,
-		                  Udp_proxy_role_list   &udp_proxy_roles,
+		                  Tcp_proxy_list        &tcp_proxys,
+		                  Udp_proxy_list        &udp_proxys,
 		                  unsigned               rtt_sec,
 		                  Interface_tree        &interface_tree,
 		                  Arp_cache             &arp_cache,
@@ -138,17 +138,17 @@ class Net::Root : public Genode::Root_component<Session_component>
 {
 	private:
 
-		Mac_allocator         _mac_alloc;
-		Server::Entrypoint   &_ep;
-		Mac_address           _nat_mac;
-		Port_allocator       &_tcp_port_alloc;
-		Port_allocator       &_udp_port_alloc;
-		Tcp_proxy_role_list  &_tcp_proxy_roles;
-		Udp_proxy_role_list  &_udp_proxy_roles;
-		unsigned              _rtt_sec;
-		Interface_tree       &_interface_tree;
-		Arp_cache            &_arp_cache;
-		Arp_waiter_list      &_arp_waiters;
+		Mac_allocator       _mac_alloc;
+		Server::Entrypoint &_ep;
+		Mac_address         _nat_mac;
+		Port_allocator     &_tcp_port_alloc;
+		Port_allocator     &_udp_port_alloc;
+		Tcp_proxy_list     &_tcp_proxys;
+		Udp_proxy_list     &_udp_proxys;
+		unsigned            _rtt_sec;
+		Interface_tree     &_interface_tree;
+		Arp_cache          &_arp_cache;
+		Arp_waiter_list    &_arp_waiters;
 
 
 		/********************
@@ -159,17 +159,17 @@ class Net::Root : public Genode::Root_component<Session_component>
 
 	public:
 
-		Root(Server::Entrypoint  &ep,
-		     Genode::Allocator   &md_alloc,
-		     Mac_address          nat_mac,
-		     Port_allocator      &tcp_port_alloc,
-		     Port_allocator      &udp_port_alloc,
-		     Tcp_proxy_role_list &tcp_proxy_roles,
-		     Udp_proxy_role_list &udp_proxy_roles,
-		     unsigned             rtt_sec,
-		     Interface_tree      &interface_tree,
-		     Arp_cache           &arp_cache,
-		     Arp_waiter_list     &arp_waiters);
+		Root(Server::Entrypoint &ep,
+		     Genode::Allocator  &md_alloc,
+		     Mac_address         nat_mac,
+		     Port_allocator     &tcp_port_alloc,
+		     Port_allocator     &udp_port_alloc,
+		     Tcp_proxy_list     &tcp_proxys,
+		     Udp_proxy_list     &udp_proxys,
+		     unsigned            rtt_sec,
+		     Interface_tree     &interface_tree,
+		     Arp_cache          &arp_cache,
+		     Arp_waiter_list    &arp_waiters);
 };
 
 #endif /* _COMPONENT_H_ */

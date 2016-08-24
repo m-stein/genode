@@ -41,8 +41,8 @@ Ipv4_address Net::Uplink::_nat_ip_attr() {
 Net::Uplink::Uplink(Server::Entrypoint  &ep,
                     Port_allocator      &tcp_port_alloc,
                     Port_allocator      &udp_port_alloc,
-                    Tcp_proxy_role_list &tcp_proxy_roles,
-                    Udp_proxy_role_list &udp_proxy_roles,
+                    Tcp_proxy_list &tcp_proxys,
+                    Udp_proxy_list &udp_proxys,
                     unsigned             rtt_sec,
                     Interface_tree      &interface_tree,
                     Arp_cache           &arp_cache,
@@ -54,7 +54,7 @@ Net::Uplink::Uplink(Server::Entrypoint  &ep,
 	Interface(ep, mac_address(), _nat_ip_attr(), *env()->heap(),
 	          *static_cast<Session_label *>(this),
 	          tcp_port_alloc, udp_port_alloc, Mac_address(),
-	          tcp_proxy_roles, udp_proxy_roles, rtt_sec,
+	          tcp_proxys, udp_proxys, rtt_sec,
 	          interface_tree, arp_cache, arp_waiters)
 {
 	rx_channel()->sigh_ready_to_ack(_sink_ack);

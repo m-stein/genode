@@ -1,6 +1,6 @@
 
-#ifndef _PROXY_ROLE_H_
-#define _PROXY_ROLE_H_
+#ifndef _PROXY_H_
+#define _PROXY_H_
 
 /* Genode includes */
 #include <timer_session/connection.h>
@@ -12,18 +12,18 @@
 namespace Net {
 
 	class Interface;
-	class Tcp_proxy_role;
-	class Udp_proxy_role;
+	class Tcp_proxy;
+	class Udp_proxy;
 
-	using Tcp_proxy_role_list = Genode::List<Tcp_proxy_role>;
-	using Udp_proxy_role_list = Genode::List<Udp_proxy_role>;
+	using Tcp_proxy_list = Genode::List<Tcp_proxy>;
+	using Udp_proxy_list = Genode::List<Udp_proxy>;
 }
 
-class Net::Tcp_proxy_role : public Genode::List<Tcp_proxy_role>::Element
+class Net::Tcp_proxy : public Genode::List<Tcp_proxy>::Element
 {
 	private:
 
-		using Signal_handler = Genode::Signal_handler<Tcp_proxy_role>;
+		using Signal_handler = Genode::Signal_handler<Tcp_proxy>;
 
 		Genode::uint16_t const _client_port;
 		Genode::uint16_t const _proxy_port;
@@ -44,7 +44,7 @@ class Net::Tcp_proxy_role : public Genode::List<Tcp_proxy_role>::Element
 
 	public:
 
-		Tcp_proxy_role(
+		Tcp_proxy(
 			Genode::uint16_t client_port, Genode::uint16_t proxy_port,
 			Ipv4_address client_ip, Ipv4_address proxy_ip,
 			Interface & client, Genode::Entrypoint & ep,
@@ -68,11 +68,11 @@ class Net::Tcp_proxy_role : public Genode::List<Tcp_proxy_role>::Element
 		void tcp_packet(Ipv4_packet * const ip, Tcp_packet * const tcp);
 };
 
-class Net::Udp_proxy_role : public Genode::List<Udp_proxy_role>::Element
+class Net::Udp_proxy : public Genode::List<Udp_proxy>::Element
 {
 	private:
 
-		using Signal_handler = Genode::Signal_handler<Udp_proxy_role>;
+		using Signal_handler = Genode::Signal_handler<Udp_proxy>;
 
 		Genode::uint16_t const _client_port;
 		Genode::uint16_t const _proxy_port;
@@ -88,7 +88,7 @@ class Net::Udp_proxy_role : public Genode::List<Udp_proxy_role>::Element
 
 	public:
 
-		Udp_proxy_role(
+		Udp_proxy(
 			Genode::uint16_t client_port, Genode::uint16_t proxy_port,
 			Ipv4_address client_ip, Ipv4_address proxy_ip,
 			Interface & client, Genode::Entrypoint & ep,
@@ -112,4 +112,4 @@ class Net::Udp_proxy_role : public Genode::List<Udp_proxy_role>::Element
 		void udp_packet(Ipv4_packet * const ip, Udp_packet * const udp);
 };
 
-#endif /* _PROXY_ROLE_H_ */
+#endif /* _PROXY_H_ */

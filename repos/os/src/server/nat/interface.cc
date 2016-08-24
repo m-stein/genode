@@ -23,7 +23,7 @@
 /* local includes */
 #include <component.h>
 #include <interface.h>
-#include <proxy_role.h>
+#include <proxy.h>
 #include <arp_cache.h>
 
 using namespace Net;
@@ -110,10 +110,10 @@ void Interface::tlp_port_proxy
 	case Tcp_packet::IP_ID: {
 
 		Tcp_packet * tcp = (Tcp_packet *)ptr;
-		Tcp_proxy_role * role =
-			_find_tcp_proxy_role_by_client(client_ip, client_port);
+		Tcp_proxy * role =
+			_find_tcp_proxy_by_client(client_ip, client_port);
 		if (!role) {
-			role = _new_tcp_proxy_role(client_port, client_ip, ip->src()); }
+			role = _new_tcp_proxy(client_port, client_ip, ip->src()); }
 		role->tcp_packet(ip, tcp);
 		tcp->src_port(role->proxy_port());
 		return;
@@ -121,10 +121,10 @@ void Interface::tlp_port_proxy
 	case Udp_packet::IP_ID: {
 
 		Udp_packet * udp = (Udp_packet *)ptr;
-		Udp_proxy_role * role =
-			_find_udp_proxy_role_by_client(client_ip, client_port);
+		Udp_proxy * role =
+			_find_udp_proxy_by_client(client_ip, client_port);
 		if (!role) {
-			role = _new_udp_proxy_role(client_port, client_ip, ip->src()); }
+			role = _new_udp_proxy(client_port, client_ip, ip->src()); }
 		role->udp_packet(ip, udp);
 		udp->src_port(role->proxy_port());
 		return;
@@ -157,8 +157,8 @@ Interface * Interface::_tlp_proxy_route
 	case Tcp_packet::IP_ID:
 		{
 			Tcp_packet * tcp = (Tcp_packet *)ptr;
-			Tcp_proxy_role * role =
-				_find_tcp_proxy_role_by_proxy(ip->dst(), dst_port);
+			Tcp_proxy * role =
+				_find_tcp_proxy_by_proxy(ip->dst(), dst_port);
 			if (!role) { return nullptr; }
 			role->tcp_packet(ip, tcp);
 			dst_port = role->client_port();
@@ -170,8 +170,8 @@ Interface * Interface::_tlp_proxy_route
 	case Udp_packet::IP_ID:
 		{
 			Udp_packet * udp = (Udp_packet *)ptr;
-			Udp_proxy_role * role =
-				_find_udp_proxy_role_by_proxy(ip->dst(), dst_port);
+			Udp_proxy * role =
+				_find_udp_proxy_by_proxy(ip->dst(), dst_port);
 			if (!role) { return nullptr; }
 			role->udp_packet(ip, udp);
 			dst_port = role->client_port();
@@ -185,9 +185,9 @@ Interface * Interface::_tlp_proxy_route
 }
 
 
-void Interface::_delete_tcp_proxy_role(Tcp_proxy_role * const role)
+void Interface::_delete_tcp_proxy(Tcp_proxy * const role)
 {
-	_tcp_proxy_roles.remove(role);
+	_tcp_proxys.remove(role);
 	unsigned const proxy_port = role->proxy_port();
 	destroy(_allocator, role);
 	_tcp_port_alloc.free(proxy_port);
@@ -195,9 +195,9 @@ void Interface::_delete_tcp_proxy_role(Tcp_proxy_role * const role)
 }
 
 
-void Interface::_delete_udp_proxy_role(Udp_proxy_role * const role)
+void Interface::_delete_udp_proxy(Udp_proxy * const role)
 {
-	_udp_proxy_roles.remove(role);
+	_udp_proxys.remove(role);
 	unsigned const proxy_port = role->proxy_port();
 	destroy(_allocator, role);
 	_udp_port_alloc.free(proxy_port);
@@ -205,53 +205,53 @@ void Interface::_delete_udp_proxy_role(Udp_proxy_role * const role)
 }
 
 
-Tcp_proxy_role * Interface::_new_tcp_proxy_role
+Tcp_proxy * Interface::_new_tcp_proxy
 (
 	unsigned const client_port, Ipv4_address client_ip, Ipv4_address proxy_ip)
 {
-	class Too_many_proxy_roles : public Exception { };
+	class Too_many_proxys : public Exception { };
 	if (_tcp_proxy_used == _tcp_proxy) {
-		throw Too_many_proxy_roles(); }
+		throw Too_many_proxys(); }
 	_tcp_proxy_used++;
 	unsigned const proxy_port = _tcp_port_alloc.alloc();
-	Tcp_proxy_role * const role = new (_allocator) Tcp_proxy_role(
+	Tcp_proxy * const role = new (_allocator) Tcp_proxy(
 		client_port, proxy_port, client_ip, proxy_ip, *this, _ep, _rtt_sec);
-	_tcp_proxy_roles.insert(role);
+	_tcp_proxys.insert(role);
 	return role;
 }
 
 
-Udp_proxy_role * Interface::_new_udp_proxy_role
+Udp_proxy * Interface::_new_udp_proxy
 (
 	unsigned const client_port, Ipv4_address client_ip, Ipv4_address proxy_ip)
 {
-	class Too_many_proxy_roles : public Exception { };
+	class Too_many_proxys : public Exception { };
 	if (_udp_proxy_used == _udp_proxy) {
-		throw Too_many_proxy_roles(); }
+		throw Too_many_proxys(); }
 	_udp_proxy_used++;
 	unsigned const proxy_port = _udp_port_alloc.alloc();
-	Udp_proxy_role * const role = new (_allocator) Udp_proxy_role(
+	Udp_proxy * const role = new (_allocator) Udp_proxy(
 		client_port, proxy_port, client_ip, proxy_ip, *this, _ep,
 		_rtt_sec);
-	_udp_proxy_roles.insert(role);
+	_udp_proxys.insert(role);
 	return role;
 }
 
 
-bool Interface::_chk_delete_tcp_proxy_role(Tcp_proxy_role * & role)
+bool Interface::_chk_delete_tcp_proxy(Tcp_proxy * & role)
 {
 	if (!role->del()) { return false; }
-	Tcp_proxy_role * const next_role = role->next();
-	_delete_tcp_proxy_role(role);
+	Tcp_proxy * const next_role = role->next();
+	_delete_tcp_proxy(role);
 	role = next_role;
 	return true;
 }
 
-bool Interface::_chk_delete_udp_proxy_role(Udp_proxy_role * & role)
+bool Interface::_chk_delete_udp_proxy(Udp_proxy * & role)
 {
 	if (!role->del()) { return false; }
-	Udp_proxy_role * const next_role = role->next();
-	_delete_udp_proxy_role(role);
+	Udp_proxy * const next_role = role->next();
+	_delete_udp_proxy(role);
 	role = next_role;
 	return true;
 }
@@ -366,11 +366,11 @@ void Interface::_handle_ip
 }
 
 
-Tcp_proxy_role * Interface::_find_tcp_proxy_role_by_client(Ipv4_address ip, uint16_t port)
+Tcp_proxy * Interface::_find_tcp_proxy_by_client(Ipv4_address ip, uint16_t port)
 {
-	Tcp_proxy_role * role = _tcp_proxy_roles.first();
+	Tcp_proxy * role = _tcp_proxys.first();
 	while (role) {
-		if (_chk_delete_tcp_proxy_role(role)) { continue; }
+		if (_chk_delete_tcp_proxy(role)) { continue; }
 		if (role->matches_client(ip, port)) { break; }
 		role = role->next();
 	}
@@ -378,22 +378,22 @@ Tcp_proxy_role * Interface::_find_tcp_proxy_role_by_client(Ipv4_address ip, uint
 }
 
 
-Tcp_proxy_role * Interface::_find_tcp_proxy_role_by_proxy(Ipv4_address ip, uint16_t port)
+Tcp_proxy * Interface::_find_tcp_proxy_by_proxy(Ipv4_address ip, uint16_t port)
 {
-	Tcp_proxy_role * role = _tcp_proxy_roles.first();
+	Tcp_proxy * role = _tcp_proxys.first();
 	while (role) {
-		if (_chk_delete_tcp_proxy_role(role)) { continue; }
+		if (_chk_delete_tcp_proxy(role)) { continue; }
 		if (role->matches_proxy(ip, port)) { break; }
 		role = role->next();
 	}
 	return role;
 }
 
-Udp_proxy_role * Interface::_find_udp_proxy_role_by_client(Ipv4_address ip, uint16_t port)
+Udp_proxy * Interface::_find_udp_proxy_by_client(Ipv4_address ip, uint16_t port)
 {
-	Udp_proxy_role * role = _udp_proxy_roles.first();
+	Udp_proxy * role = _udp_proxys.first();
 	while (role) {
-		if (_chk_delete_udp_proxy_role(role)) { continue; }
+		if (_chk_delete_udp_proxy(role)) { continue; }
 		if (role->matches_client(ip, port)) { break; }
 		role = role->next();
 	}
@@ -401,11 +401,11 @@ Udp_proxy_role * Interface::_find_udp_proxy_role_by_client(Ipv4_address ip, uint
 }
 
 
-Udp_proxy_role * Interface::_find_udp_proxy_role_by_proxy(Ipv4_address ip, uint16_t port)
+Udp_proxy * Interface::_find_udp_proxy_by_proxy(Ipv4_address ip, uint16_t port)
 {
-	Udp_proxy_role * role = _udp_proxy_roles.first();
+	Udp_proxy * role = _udp_proxys.first();
 	while (role) {
-		if (_chk_delete_udp_proxy_role(role)) { continue; }
+		if (_chk_delete_udp_proxy(role)) { continue; }
 		if (role->matches_proxy(ip, port)) { break; }
 		role = role->next();
 	}
@@ -633,28 +633,28 @@ Interface::Interface(Server::Entrypoint    &ep,
                      Port_allocator        &tcp_port_alloc,
                      Port_allocator        &udp_port_alloc,
                      Mac_address            mac,
-                     Tcp_proxy_role_list   &tcp_proxy_roles,
-                     Udp_proxy_role_list   &udp_proxy_roles,
+                     Tcp_proxy_list        &tcp_proxys,
+                     Udp_proxy_list        &udp_proxys,
                      unsigned               rtt_sec,
                      Interface_tree        &interface_tree,
                      Arp_cache             &arp_cache,
                      Arp_waiter_list       &arp_waiters)
 :
 	Interface_label(label.string()),
-	Avl_string_base(Interface_label::string()), _ep(ep),
+	Avl_string_base(Interface_label::string()),
 	_sink_ack(ep, *this, &Interface::_ack_avail),
 	_sink_submit(ep, *this, &Interface::_ready_to_submit),
 	_source_ack(ep, *this, &Interface::_ready_to_ack),
-	_source_submit(ep, *this, &Interface::_packet_avail),
+	_source_submit(ep, *this, &Interface::_packet_avail), _ep(ep),
 	_nat_mac(nat_mac), _nat_ip(nat_ip), _mac(mac), _allocator(allocator),
 	_policy(label),
 	_tcp_proxy(_policy.attribute_value("tcp-proxy", 0UL)),
 	_tcp_proxy_used(0),
-	_tcp_proxy_roles(tcp_proxy_roles),
+	_tcp_proxys(tcp_proxys),
 	_tcp_port_alloc(tcp_port_alloc),
 	_udp_proxy(_policy.attribute_value("udp-proxy", 0UL)),
 	_udp_proxy_used(0),
-	_udp_proxy_roles(udp_proxy_roles),
+	_udp_proxys(udp_proxys),
 	_udp_port_alloc(udp_port_alloc),
 	_rtt_sec(rtt_sec),
 	_interface_tree(interface_tree),
