@@ -148,8 +148,8 @@ class Net::Interface : public Interface_label, public Genode::Avl_string_base
 
 	public:
 
-		class Too_many_tcp_proxies : public Genode::Exception { };
-		class Too_many_udp_proxies : public Genode::Exception { };
+		struct Too_many_tcp_proxies : Genode::Exception { };
+		struct Too_many_udp_proxies : Genode::Exception { };
 
 		Interface(Server::Entrypoint    &ep,
 		          Mac_address const      nat_mac,

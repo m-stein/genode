@@ -41,7 +41,7 @@ namespace Net {
 
 		public:
 
-			class Alloc_failed : Genode::Exception {};
+			struct Alloc_failed : Genode::Exception {};
 
 
 			/* reference MAC address */
