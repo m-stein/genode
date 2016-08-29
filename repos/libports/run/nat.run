@@ -99,7 +99,7 @@ append config {
 				<ip dst="10.0.2.0/24" label="uplink" />
 			</policy>
 
-			<policy label="http_clnt_3" src="100.200.0.1" tcp-proxy="3">
+			<policy label="http_clnt_3" src="100.200.0.1" tcp-proxy="4">
 				<ip dst="10.0.6.0/23" label="uplink" via="10.0.4.1" />
 				<ip dst="10.0.0.0/16" />
 				<ip dst="10.0.2.0/24" label="uplink" />
