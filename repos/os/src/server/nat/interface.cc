@@ -287,74 +287,77 @@ void Interface::_handle_ip(Ethernet_frame *eth, Genode::size_t eth_size,
 	catch (Ipv4_packet::No_ip_packet) { log("Invalid IP packet"); return; }
 
 	uint8_t      tlp      = ip->protocol();
-	size_t       tlp_size = ip->total_length() - ip->header_length()*4;
+	size_t       tlp_size = ip->total_length() - ip->header_length() * 4;
 	void        *tlp_ptr  = tlp_packet(tlp, ip, tlp_size);
 	uint16_t     dst_port = tlp_dst_port(tlp, tlp_ptr);
 	Interface   *interface  = nullptr;
 	Ipv4_address to       = ip->dst();
 	Ipv4_address via      = ip->dst();
 
-	/* go through all matching IP routes ... */
-	Ip_route * route = _ip_routes.first();
-	for (; route; route = route->next()) {
+	/* ... first try to find a matching proxy route ... */
+	interface = _tlp_proxy_route(tlp, tlp_ptr, dst_port, ip, to, via);
 
-		/* ... first try all port routes of the current IP route ... */
-		if (!route->matches(ip->dst())) {
-			continue; }
+	/* ... if that fails go through all matching IP routes ... */
+	if (!interface) {
 
-		Port_route *port = tlp_port_list(tlp, route)->first();
-		for (; port; port = port->next()) {
+		Ip_route * route = _ip_routes.first();
+		for (; route; route = route->next()) {
 
-			if (port->dst() != dst_port) {
+			/* ... try all port routes of the current IP route ... */
+			if (!route->matches(ip->dst())) {
 				continue; }
 
-			interface = _interface_tree.find_by_label(port->label().string());
+			Port_route *port = tlp_port_list(tlp, route)->first();
+			for (; port; port = port->next()) {
+
+				if (port->dst() != dst_port) {
+					continue; }
+
+				interface = _interface_tree.find_by_label(port->label().string());
+				if (interface) {
+
+					bool const to_set = port->to() != Ipv4_address();
+					bool const via_set = port->via() != Ipv4_address();
+					if (to_set && !via_set) {
+						to = port->to();
+						via = port->to();
+						break;
+					}
+					if (via_set) {
+						via = port->via(); }
+
+					if (to_set) {
+						to = port->to(); }
+
+					break;
+				}
+			}
+			if (interface) {
+				break; }
+
+			/* ... then try the IP route itself ... */
+			interface = _interface_tree.find_by_label(route->label().string());
 			if (interface) {
 
-				bool const to_set = port->to() != Ipv4_address();
-				bool const via_set = port->via() != Ipv4_address();
+				bool const to_set = route->to() != Ipv4_address();
+				bool const via_set = route->via() != Ipv4_address();
 				if (to_set && !via_set) {
-					to = port->to();
-					via = port->to();
+					to = route->to();
+					via = route->to();
 					break;
 				}
 				if (via_set) {
-					via = port->via(); }
+					via = route->via(); }
 
 				if (to_set) {
-					to = port->to(); }
+					to = route->to(); }
 
 				break;
 			}
-		}
-		if (interface) {
-			break; }
-
-		/* ... then try the IP route itself ... */
-		interface = _interface_tree.find_by_label(route->label().string());
-		if (interface) {
-
-			bool const to_set = route->to() != Ipv4_address();
-			bool const via_set = route->via() != Ipv4_address();
-			if (to_set && !via_set) {
-				to = route->to();
-				via = route->to();
-				break;
-			}
-			if (via_set) {
-				via = route->via(); }
-
-			if (to_set) {
-				to = route->to(); }
-
-			break;
 		}
 	}
-	/* ... if no port or IP route helps, try to find a matching proxy route ... */
-	if (!interface) {
-		interface = _tlp_proxy_route(tlp, tlp_ptr, dst_port, ip, to, via); }
 
-	/* ... and give up if this also fails */
+	/* ... and give up if no IP and port route matches */
 	if (!interface) {
 		if (_verbose) { log("Unroutable packet"); }
 		return;
@@ -647,9 +650,10 @@ void Interface::handle_ethernet(void *src, size_t size, bool &ack,
 		default: ; }
 	}
 	catch (Ethernet_frame::No_ethernet_frame) {
-		if (_verbose) {
-			log("Invalid ethernet frame"); }
-	}
+		error("Invalid ethernet frame at ", label()); }
+
+	catch (Too_many_tcp_proxies) {
+		error("Too many TCP proxies requested by ", label()); }
 }
 
 

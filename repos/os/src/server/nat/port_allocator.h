@@ -22,9 +22,11 @@ namespace Net { class Port_allocator; }
 
 class Net::Port_allocator
 {
-	private:
+	public:
 
 		enum { FIRST = 49152, COUNT = 16384 };
+
+	private:
 
 		Genode::Bit_allocator<COUNT> _alloc;
 
@@ -32,7 +34,7 @@ class Net::Port_allocator
 
 		Genode::uint16_t alloc() { return _alloc.alloc() + FIRST; }
 
-		void free(Genode::uint16_t port) { _alloc.free(port-FIRST); }
+		void free(Genode::uint16_t port) { _alloc.free(port - FIRST); }
 };
 
 #endif /* _PORT_ALLOCATOR_H_ */

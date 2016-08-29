@@ -61,7 +61,7 @@ append config {
 	<start name="nat">
 		<resource name="RAM" quantum="10M"/>
 		<provides><service name="Nic"/></provides>
-		<config rtt_sec="3" verbose="false">
+		<config rtt_sec="3" verbose="no">
 
 			<policy label="uplink" src="10.0.2.55">
 				<ip dst="192.168.1.18/32" label="http_srv_1" />
@@ -86,7 +86,6 @@ append config {
 
 					<udp dst="1"    label="udp_srv_2"  to="18.17.16.15" />
 					<tcp dst="8080" label="http_srv_2" to="192.168.1.72" />
-					<tcp dst="2345" label="http_clnt_3" />
 				</ip>
 			</policy>
 
@@ -107,7 +106,7 @@ append config {
 			</policy>
 
 			<policy label="udp_srv_1" src="10.0.99.33" udp-proxy="1">
-				<ip dst="10.0.2.0/24" label="uplink" />
+				<ip dst="10.0.2.0/24"  label="uplink" />
 				<ip dst="10.0.98.0/24" label="udp_clnt_1" />
 			</policy>
 

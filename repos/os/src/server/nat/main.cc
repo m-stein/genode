@@ -42,7 +42,8 @@ class Main
 		Uplink              _uplink;
 		Net::Root           _root;
 
-		void _read_ports(Genode::Xml_node &route, char const *name);
+		void _read_ports(Genode::Xml_node &route, char const *name,
+		                 Port_allocator &_port_alloc);
 
 	public:
 
@@ -50,17 +51,20 @@ class Main
 };
 
 
-void Main::_read_ports(Xml_node &route, char const *name)
+void Main::_read_ports(Xml_node &route, char const *name,
+                       Port_allocator &port_alloc)
 {
 	try {
 		for (Xml_node port = route.sub_node(name); ; port = port.next(name)) {
-			uint16_t const dst = port.attribute_value("dst", 0UL);
+			uint32_t const dst = port.attribute_value("dst", 0UL);
 			if (!dst) {
 				warning("missing 'dst' attribute in port route");
 				continue;
 			}
-			if (_verbose) {
-				log("Reserve ", name, " ", dst); }
+			if (dst >= Port_allocator::FIRST &&
+			    dst <  Port_allocator::FIRST + Port_allocator::COUNT)
+			{
+				error("port forwarding clashes with dynamic port range"); }
 		}
 	} catch (Xml_node::Nonexistent_sub_node) { }
 }
@@ -88,8 +92,8 @@ Main::Main(Server::Entrypoint &ep)
 			try {
 				Xml_node route = policy.sub_node("ip");
 				for (; ; route = route.next("ip")) {
-					_read_ports(route, "tcp");
-					_read_ports(route, "udp");
+					_read_ports(route, "tcp", _tcp_port_alloc);
+					_read_ports(route, "udp", _udp_port_alloc);
 				}
 			} catch (Xml_node::Nonexistent_sub_node) { }
 		}

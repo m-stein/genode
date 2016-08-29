@@ -191,6 +191,7 @@ class Net::Interface : public Genode::Session_label, public Genode::Avl_string_b
 		Ipv4_address       nat_ip()    const { return _nat_ip; }
 		Ip_route_list     &ip_routes()       { return _ip_routes; }
 		Genode::Allocator &allocator() const { return _allocator; }
+		Session_label     &label()           { return *this; }
 
 		virtual Packet_stream_sink< ::Nic::Session::Policy>   *sink()   = 0;
 		virtual Packet_stream_source< ::Nic::Session::Policy> *source() = 0;
