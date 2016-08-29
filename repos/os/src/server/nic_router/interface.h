@@ -62,16 +62,17 @@ class Net::Interface : public Genode::Session_label, public Genode::Avl_string_b
 		Packet_descriptor       _packet;
 		Genode::Entrypoint     &_ep;
 		Ip_route_list           _ip_routes;
-		Mac_address const       _nat_mac;
-		Ipv4_address const      _nat_ip;
+		Mac_address const       _router_mac;
+		Ipv4_address const      _router_ip;
 		Mac_address const       _mac;
 		Genode::Allocator      &_allocator;
 		Genode::Session_policy  _policy;
-		unsigned const          _tcp_proxy;
+		bool const              _proxy;
+		unsigned                _tcp_proxy;
 		unsigned                _tcp_proxy_used;
 		Tcp_proxy_list         &_tcp_proxies;
 		Port_allocator         &_tcp_port_alloc;
-		unsigned const          _udp_proxy;
+		unsigned                _udp_proxy;
 		unsigned                _udp_proxy_used;
 		Udp_proxy_list         &_udp_proxies;
 		Port_allocator         &_udp_port_alloc;
@@ -136,8 +137,6 @@ class Net::Interface : public Genode::Session_label, public Genode::Avl_string_b
 
 		bool _chk_delete_udp_proxy(Udp_proxy * &proxy);
 
-		bool _tlp_proxy(Genode::uint8_t tlp) const;
-
 
 		/***********************************
 		 ** Packet-stream signal handlers **
@@ -154,8 +153,8 @@ class Net::Interface : public Genode::Session_label, public Genode::Avl_string_b
 		struct Too_many_udp_proxies : Genode::Exception { };
 
 		Interface(Server::Entrypoint    &ep,
-		          Mac_address const      nat_mac,
-		          Ipv4_address const     nat_ip,
+		          Mac_address const      router_mac,
+		          Ipv4_address const     router_ip,
 		          Genode::Allocator     &allocator,
 		          char const            *args,
 		          Port_allocator        &tcp_port_alloc,
@@ -186,12 +185,12 @@ class Net::Interface : public Genode::Session_label, public Genode::Avl_string_b
 		 ** Accessors **
 		 ***************/
 
-		Mac_address        nat_mac()   const { return _nat_mac; }
-		Mac_address        mac()       const { return _mac; }
-		Ipv4_address       nat_ip()    const { return _nat_ip; }
-		Ip_route_list     &ip_routes()       { return _ip_routes; }
-		Genode::Allocator &allocator() const { return _allocator; }
-		Session_label     &label()           { return *this; }
+		Mac_address        router_mac() const { return _router_mac; }
+		Mac_address        mac()        const { return _mac; }
+		Ipv4_address       router_ip()  const { return _router_ip; }
+		Ip_route_list     &ip_routes()        { return _ip_routes; }
+		Genode::Allocator &allocator()  const { return _allocator; }
+		Session_label     &label()            { return *this; }
 
 		virtual Packet_stream_sink< ::Nic::Session::Policy>   *sink()   = 0;
 		virtual Packet_stream_source< ::Nic::Session::Policy> *source() = 0;

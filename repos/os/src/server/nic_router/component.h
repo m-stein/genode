@@ -101,8 +101,8 @@ class Net::Session_component : public  Guarded_range_allocator,
 		                  Genode::size_t      rx_buf_size,
 		                  Mac_address         vmac,
 		                  Server::Entrypoint &ep,
-		                  Mac_address         nat_mac,
-		                  Ipv4_address        nat_ip,
+		                  Mac_address         router_mac,
+		                  Ipv4_address        router_ip,
 		                  char const         *args,
 		                  Port_allocator     &tcp_port_alloc,
 		                  Port_allocator     &udp_port_alloc,
@@ -141,7 +141,7 @@ class Net::Root : public Genode::Root_component<Session_component>
 
 		Mac_allocator       _mac_alloc;
 		Server::Entrypoint &_ep;
-		Mac_address         _nat_mac;
+		Mac_address         _router_mac;
 		Port_allocator     &_tcp_port_alloc;
 		Port_allocator     &_udp_port_alloc;
 		Tcp_proxy_list     &_tcp_proxys;
@@ -163,7 +163,7 @@ class Net::Root : public Genode::Root_component<Session_component>
 
 		Root(Server::Entrypoint &ep,
 		     Genode::Allocator  &md_alloc,
-		     Mac_address         nat_mac,
+		     Mac_address         router_mac,
 		     Port_allocator     &tcp_port_alloc,
 		     Port_allocator     &udp_port_alloc,
 		     Tcp_proxy_list     &tcp_proxys,

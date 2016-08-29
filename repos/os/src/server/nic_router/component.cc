@@ -39,8 +39,8 @@ Net::Session_component::Session_component(Allocator           &allocator,
                                           size_t const         rx_buf_size,
                                           Mac_address          mac,
                                           Server::Entrypoint  &ep,
-                                          Mac_address          nat_mac,
-                                          Ipv4_address         nat_ip,
+                                          Mac_address          router_mac,
+                                          Ipv4_address         router_ip,
                                           char const          *args,
                                           Port_allocator      &tcp_port_alloc,
                                           Port_allocator      &udp_port_alloc,
@@ -61,7 +61,7 @@ Net::Session_component::Session_component(Allocator           &allocator,
 		&range_allocator(), ep.rpc_ep()),
 
 	Interface(
-		ep, nat_mac, nat_ip, guarded_allocator(), args, tcp_port_alloc,
+		ep, router_mac, router_ip, guarded_allocator(), args, tcp_port_alloc,
 		udp_port_alloc, mac, tcp_proxys, udp_proxys, rtt_sec, interface_tree,
 		arp_cache, arp_waiters, verbose)
 {
@@ -77,7 +77,7 @@ Session_component::~Session_component() { }
 
 Net::Root::Root(Server::Entrypoint &ep,
                 Allocator          &md_alloc,
-                Mac_address         nat_mac,
+                Mac_address         router_mac,
                 Port_allocator     &tcp_port_alloc,
                 Port_allocator     &udp_port_alloc,
                 Tcp_proxy_list     &tcp_proxys,
@@ -89,7 +89,7 @@ Net::Root::Root(Server::Entrypoint &ep,
                 bool                verbose)
 :
 	Root_component<Session_component>(&ep.rpc_ep(), &md_alloc),
-	_ep(ep), _nat_mac(nat_mac), _tcp_port_alloc(tcp_port_alloc),
+	_ep(ep), _router_mac(router_mac), _tcp_port_alloc(tcp_port_alloc),
 	_udp_port_alloc(udp_port_alloc), _tcp_proxys(tcp_proxys),
 	_udp_proxys(udp_proxys), _rtt_sec(rtt_sec),
 	_interface_tree(interface_tree), _arp_cache(arp_cache),
@@ -143,7 +143,7 @@ Session_component *Net::Root::_create_session(char const *args)
 	}
 	return new (md_alloc())
 		Session_component(*env()->heap(), ram_quota - session_size,
-		                  tx_buf_size, rx_buf_size, mac, _ep, _nat_mac,
+		                  tx_buf_size, rx_buf_size, mac, _ep, _router_mac,
 		                  src, args, _tcp_port_alloc, _udp_port_alloc,
 		                  _tcp_proxys, _udp_proxys, _rtt_sec, _interface_tree,
 		                  _arp_cache, _arp_waiters, _verbose);

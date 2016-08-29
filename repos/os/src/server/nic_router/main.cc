@@ -79,7 +79,7 @@ Main::Main(Server::Entrypoint &ep)
 	        _udp_proxys, _rtt_sec, _interface_tree, _arp_cache,
 	        _arp_waiters, _verbose),
 
-	_root(_ep, *env()->heap(), _uplink.nat_mac(), _tcp_port_alloc,
+	_root(_ep, *env()->heap(), _uplink.router_mac(), _tcp_port_alloc,
 	      _udp_port_alloc, _tcp_proxys, _udp_proxys,
 	      _rtt_sec, _interface_tree, _arp_cache, _arp_waiters, _verbose)
 {
@@ -110,9 +110,9 @@ Main::Main(Server::Entrypoint &ep)
 
 namespace Server {
 
-	char const *name() { return "nat_ep"; }
+	char const *name() { return "nic_router_ep"; }
 
 	size_t stack_size() { return 4096 *sizeof(addr_t); }
 
-	void construct(Entrypoint &ep) { static Main nat(ep); }
+	void construct(Entrypoint &ep) { static Main router(ep); }
 }

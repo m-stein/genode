@@ -102,16 +102,6 @@ static Port_route_list *tlp_port_list(uint8_t tlp, Ip_route *route)
 }
 
 
-bool Interface::_tlp_proxy(uint8_t tlp) const
-{
-	switch (tlp) {
-	case Tcp_packet::IP_ID: return _tcp_proxy;
-	case Udp_packet::IP_ID: return _udp_proxy;
-	default: error("unknown transport protocol"); }
-	return false;
-}
-
-
 void Interface::_tlp_apply_port_proxy(uint8_t tlp, void *ptr, Ipv4_packet *ip,
                                       Ipv4_address client_ip,
                                       uint16_t client_port)
@@ -164,7 +154,7 @@ Interface *Interface::_tlp_proxy_route(uint8_t tlp, void *ptr,
 			to = proxy->client_ip();
 			via = to;
 			if(_verbose) {
-				log("Matching TCP proxy proxy: ", *proxy); }
+				log("Matching TCP NAT link: ", *proxy); }
 
 			return &proxy->client();
 		}
@@ -180,7 +170,7 @@ Interface *Interface::_tlp_proxy_route(uint8_t tlp, void *ptr,
 			to = proxy->client_ip();
 			via = to;
 			if (_verbose) {
-				log("Matching UDP proxy proxy: ", *proxy); }
+				log("Matching UDP NAT link: ", *proxy); }
 
 			return &proxy->client();
 		}
@@ -197,7 +187,7 @@ void Interface::_delete_tcp_proxy(Tcp_proxy * const proxy)
 	_tcp_port_alloc.free(proxy_port);
 	_tcp_proxy_used--;
 	if (_verbose) {
-		log("Delete TCP proxy ", *proxy); }
+		log("Delete TCP NAT link: ", *proxy); }
 }
 
 
@@ -209,7 +199,7 @@ void Interface::_delete_udp_proxy(Udp_proxy * const proxy)
 	_udp_port_alloc.free(proxy_port);
 	_udp_proxy_used--;
 	if (_verbose) {
-		log("Delete UDP proxy ", *proxy); }
+		log("Delete UDP NAT link: ", *proxy); }
 }
 
 
@@ -227,7 +217,7 @@ Tcp_proxy *Interface::_new_tcp_proxy(unsigned const client_port,
 	_tcp_proxies.insert(proxy);
 	_tcp_proxy_used++;
 	if (_verbose) {
-		log("New TCP proxy ", *proxy); }
+		log("New TCP NAT link: ", *proxy); }
 
 	return proxy;
 }
@@ -247,7 +237,7 @@ Udp_proxy *Interface::_new_udp_proxy(unsigned const client_port,
 	_udp_proxies.insert(proxy);
 	_udp_proxy_used++;
 	if (_verbose) {
-		log("New UDP proxy ", *proxy); }
+		log("New UDP NAT link: ", *proxy); }
 
 	return proxy;
 }
@@ -378,14 +368,14 @@ void Interface::_handle_ip(Ethernet_frame *eth, Genode::size_t eth_size,
 		return;
 	}
 	/* adapt packet to the collected info */
-	eth->src(interface->nat_mac());
+	eth->src(interface->router_mac());
 	ip->dst(to);
 	tlp_dst_port(tlp, tlp_ptr, dst_port);
 
 	/* if configured, use proxy source IP */
-	if (_tlp_proxy(tlp)) {
+	if (_proxy) {
 		Ipv4_address client_ip = ip->src();
-		ip->src(interface->nat_ip());
+		ip->src(interface->router_ip());
 
 		/* if also the source port doesn't match port routes, use proxy port */
 		uint16_t src_port = tlp_src_port(tlp, tlp_ptr);
@@ -475,7 +465,7 @@ Udp_proxy *Interface::_find_udp_proxy_by_proxy(Ipv4_address ip, uint16_t port)
 void Interface::arp_broadcast(Ipv4_address ip_addr)
 {
 	using Ethernet_arp = Ethernet_frame_sized<sizeof(Arp_packet)>;
-	Ethernet_arp eth_arp(Mac_address(0xff), _nat_mac, Ethernet_frame::ARP);
+	Ethernet_arp eth_arp(Mac_address(0xff), _router_mac, Ethernet_frame::ARP);
 
 	void * const eth_data = eth_arp.data<void>();
 	size_t const arp_size = sizeof(eth_arp) - sizeof(Ethernet_frame);
@@ -486,8 +476,8 @@ void Interface::arp_broadcast(Ipv4_address ip_addr)
 	arp->hardware_address_size(sizeof(Mac_address));
 	arp->protocol_address_size(sizeof(Ipv4_address));
 	arp->opcode(Arp_packet::REQUEST);
-	arp->src_mac(_nat_mac);
-	arp->src_ip(_nat_ip);
+	arp->src_mac(_router_mac);
+	arp->src_ip(_router_ip);
 	arp->dst_mac(Mac_address(0xff));
 	arp->dst_ip(ip_addr);
 
@@ -546,10 +536,10 @@ void Interface::_handle_arp_request(Ethernet_frame * const eth,
                                     size_t const eth_size,
                                     Arp_packet * const arp)
 {
-	/* ignore packets that do not target the NAT */
-	if (arp->dst_ip() != nat_ip()) {
+	/* ignore packets that do not target the router */
+	if (arp->dst_ip() != router_ip()) {
 		if (_verbose) {
-			log("ARP does not target NAT"); }
+			log("ARP does not target router"); }
 
 		return;
 	}
@@ -557,9 +547,9 @@ void Interface::_handle_arp_request(Ethernet_frame * const eth,
 	arp->dst_ip(arp->src_ip());
 	arp->dst_mac(arp->src_mac());
 	eth->dst(eth->src());
-	arp->src_ip(nat_ip());
-	arp->src_mac(nat_mac());
-	eth->src(nat_mac());
+	arp->src_ip(router_ip());
+	arp->src_mac(router_mac());
+	eth->src(router_mac());
 
 	/* mark packet as reply and send it back to its sender */
 	arp->opcode(Arp_packet::REPLY);
@@ -599,7 +589,8 @@ void Interface::_ready_to_submit(unsigned)
 			Genode::printf("\n");
 		}
 		bool ack = true;
-		handle_ethernet(sink()->packet_content(_packet), _packet.size(), ack, &_packet);
+		handle_ethernet(sink()->packet_content(_packet), _packet.size(), ack,
+		                &_packet);
 
 		if (!ack) {
 			continue; }
@@ -653,7 +644,7 @@ void Interface::handle_ethernet(void *src, size_t size, bool &ack,
 		error("Invalid ethernet frame at ", label()); }
 
 	catch (Too_many_tcp_proxies) {
-		error("Too many TCP proxies requested by ", label()); }
+		error("Too many TCP NAT links requested by ", label()); }
 }
 
 
@@ -705,8 +696,8 @@ void Interface::_read_route(Xml_node &route_xn)
 
 
 Interface::Interface(Server::Entrypoint    &ep,
-                     Mac_address const      nat_mac,
-                     Ipv4_address const     nat_ip,
+                     Mac_address const      router_mac,
+                     Ipv4_address const     router_ip,
                      Genode::Allocator     &allocator,
                      char const            *args,
                      Port_allocator        &tcp_port_alloc,
@@ -726,20 +717,29 @@ Interface::Interface(Server::Entrypoint    &ep,
 	_sink_submit(ep, *this, &Interface::_ready_to_submit),
 	_source_ack(ep, *this, &Interface::_ready_to_ack),
 	_source_submit(ep, *this, &Interface::_packet_avail), _ep(ep),
-	_nat_mac(nat_mac), _nat_ip(nat_ip), _mac(mac), _allocator(allocator),
-	_policy(*static_cast<Session_label *>(this)), _tcp_proxy(_policy.attribute_value("tcp-proxy", 0UL)),
-	_tcp_proxy_used(0), _tcp_proxies(tcp_proxies),
-	_tcp_port_alloc(tcp_port_alloc),
-	_udp_proxy(_policy.attribute_value("udp-proxy", 0UL)), _udp_proxy_used(0),
-	_udp_proxies(udp_proxies), _udp_port_alloc(udp_port_alloc),
-	_rtt_sec(rtt_sec), _interface_tree(interface_tree), _arp_cache(arp_cache),
+	_router_mac(router_mac), _router_ip(router_ip), _mac(mac),
+	_allocator(allocator), _policy(*static_cast<Session_label *>(this)),
+	_proxy(_policy.attribute_value("nat", false)), _tcp_proxies(tcp_proxies),
+	_tcp_port_alloc(tcp_port_alloc), _udp_proxies(udp_proxies),
+	_udp_port_alloc(udp_port_alloc), _rtt_sec(rtt_sec),
+	_interface_tree(interface_tree), _arp_cache(arp_cache),
 	_arp_waiters(arp_waiters), _verbose(verbose)
 {
+	if (_proxy) {
+		_tcp_proxy      = _policy.attribute_value("nat-tcp-ports", 0UL);
+		_tcp_proxy_used = 0;
+		_udp_proxy      = _policy.attribute_value("nat-udp-ports", 0UL);
+		_udp_proxy_used = 0;
+	}
 	if (_verbose) {
 		log("Interface \"", *static_cast<Session_label *>(this), "\"");
 		log("  MAC ", _mac);
-		log("  NAT identity: MAC ", _nat_mac, " IP ", _nat_ip);
-		log("  Proxy TCP: ", _tcp_proxy, " UDP: ", _udp_proxy);
+		log("  Router identity: MAC ", _router_mac, " IP ", _router_ip);
+		if (_proxy) {
+			log("  NAT TCP ports: ", _tcp_proxy, " UDP ports: ", _udp_proxy);
+		} else {
+			log("  NAT off");
+		}
 	}
 	try {
 		Xml_node route = _policy.sub_node("ip");

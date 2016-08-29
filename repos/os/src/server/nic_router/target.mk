@@ -1,4 +1,4 @@
-TARGET = nat
+TARGET = nic_router
 
 LIBS += base net config server
 

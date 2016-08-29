@@ -10,7 +10,7 @@ set udp_up_to_down_1   1
 set udp_down_to_up_1   1
 
 set build_components {
-	core init drivers/timer drivers/nic server/nat server/nic_bridge
+	core init drivers/timer drivers/nic server/nic_router server/nic_bridge
 	test/lwip/http_srv_static test/lwip/http_clnt test/lxip/udp_echo
 	test/lxip/udp_client
 }
@@ -58,7 +58,7 @@ append config {
 		<provides><service name="Nic"/></provides>
 	</start>
 
-	<start name="nat">
+	<start name="nic_router">
 		<resource name="RAM" quantum="10M"/>
 		<provides><service name="Nic"/></provides>
 		<config rtt_sec="3" verbose="no">
@@ -89,23 +89,23 @@ append config {
 				</ip>
 			</policy>
 
-			<policy label="http_srv_1" src="192.168.1.1" tcp-proxy="4">
+			<policy label="http_srv_1" src="192.168.1.1" nat="yes" nat-tcp-ports="4">
 				<ip dst="10.0.0.0/19"   label="uplink" via="10.0.6.1" />
 				<ip dst="10.0.2.128/25" label="uplink" via="10.0.3.1" />
 				<ip dst="10.0.2.0/24"   label="uplink" />
 			</policy>
 
-			<policy label="http_srv_2" src="192.168.1.1" tcp-proxy="2">
+			<policy label="http_srv_2" src="192.168.1.1" nat="yes" nat-tcp-ports="2">
 				<ip dst="10.0.2.0/24" label="uplink" />
 			</policy>
 
-			<policy label="http_clnt_3" src="100.200.0.1" tcp-proxy="4">
+			<policy label="http_clnt_3" src="100.200.0.1" nat="yes" nat-tcp-ports="4">
 				<ip dst="10.0.6.0/23" label="uplink" via="10.0.4.1" />
 				<ip dst="10.0.0.0/16" />
 				<ip dst="10.0.2.0/24" label="uplink" />
 			</policy>
 
-			<policy label="udp_srv_1" src="10.0.99.33" udp-proxy="1">
+			<policy label="udp_srv_1" src="10.0.99.33" nat="yes" nat-udp-ports="1">
 				<ip dst="10.0.2.0/24"  label="uplink" />
 				<ip dst="10.0.98.0/24" label="udp_clnt_1" />
 			</policy>
@@ -121,7 +121,7 @@ append config {
 				</ip>
 			</policy>
 
-			<policy label="udp_clnt_3" src="217.13.192.1" udp-proxy="2">
+			<policy label="udp_clnt_3" src="217.13.192.1" nat="yes" nat-udp-ports="2">
 				<ip dst="10.0.0.0/18" label="uplink" />
 			</policy>
 
@@ -136,7 +136,7 @@ append config {
 		<resource name="RAM" quantum="10M"/>
 		<provides><service name="Nic"/></provides>
 		<config>
-			<policy label="nat"        ip_addr="10.0.2.55"/>
+			<policy label="nic_router" ip_addr="10.0.2.55"/>
 			<policy label="http_srv_3" ip_addr="10.0.2.11"/>
 			<policy label="udp_clnt_2" ip_addr="10.0.2.123"/>
 			<policy label="udp_srv_3"  ip_addr="10.0.2.70"/>
@@ -153,7 +153,7 @@ append_if $udp_down_to_down_1 config {
 		<binary  name="test-lxip_udp_client" />
 		<resource name="RAM" quantum="2M"/>
 		<route>
-			<service name="Nic"> <child name="nat"/> </service>
+			<service name="Nic"> <child name="nic_router"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config ld_verbose="yes">
@@ -170,7 +170,7 @@ append_if $udp_down_to_down_1 config {
 		<binary  name="test-lxip_udp_echo" />
 		<resource name="RAM" quantum="2M"/>
 		<route>
-			<service name="Nic"> <child name="nat"/> </service>
+			<service name="Nic"> <child name="nic_router"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config ld_verbose="yes">
@@ -205,7 +205,7 @@ append_if $udp_up_to_down_1 config {
 		<binary  name="test-lxip_udp_echo" />
 		<resource name="RAM" quantum="2M"/>
 		<route>
-			<service name="Nic"> <child name="nat"/> </service>
+			<service name="Nic"> <child name="nic_router"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config ld_verbose="yes">
@@ -223,7 +223,7 @@ append_if $udp_down_to_up_1 config {
 		<binary  name="test-lxip_udp_client" />
 		<resource name="RAM" quantum="2M"/>
 		<route>
-			<service name="Nic"> <child name="nat"/> </service>
+			<service name="Nic"> <child name="nic_router"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config ld_verbose="yes">
@@ -258,7 +258,7 @@ append_if $tcp_up_to_down_1 config {
 		<binary name="test-lwip_httpsrv_static"/>
 		<resource name="RAM" quantum="2M"/>
 		<route>
-			<service name="Nic"> <child name="nat"/> </service>
+			<service name="Nic"> <child name="nic_router"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config ld_verbose="yes">
@@ -291,7 +291,7 @@ append_if $tcp_up_to_down_2 config {
 		<binary name="test-lwip_httpsrv_static"/>
 		<resource name="RAM" quantum="2M"/>
 		<route>
-			<service name="Nic"> <child name="nat"/> </service>
+			<service name="Nic"> <child name="nic_router"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config>
@@ -340,7 +340,7 @@ append_if $tcp_down_to_up_1 config {
 		<binary name="test-http_clnt"/>
 		<resource name="RAM" quantum="2M"/>
 		<route>
-			<service name="Nic"> <child name="nat"/> </service>
+			<service name="Nic"> <child name="nic_router"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config>
@@ -364,7 +364,7 @@ install_config $config
 # generic modules
 set boot_modules {
 
-	core init timer nic_drv nat nic_bridge ld.lib.so libc.lib.so
+	core init timer nic_drv nic_router nic_bridge ld.lib.so libc.lib.so
 	libc_resolv.lib.so lwip.lib.so lxip.lib.so test-http_clnt
 	test-lwip_httpsrv_static test-lxip_udp_echo test-lxip_udp_client
 }
@@ -386,9 +386,9 @@ append_if [have_spec lan9118] qemu_args " -net nic,model=lan9118 "
 append qemu_args " -net user -redir udp:5555::1337 "
 
 #
-# FIXME: For unknown reasons, there seems to be a problem in the NAT with the
-#        destruction of NIC sessions that had TCP connections running. This is
-#        why sometimes not all HTTP clients exit properly. Thus, look merely
-#        for 4 client exits (at least 3xUDP 1xTCP) by now.
+# FIXME: For unknown reasons, there seems to be a problem in the NIC router
+#        with the destruction of NIC sessions that had TCP connections running.
+#        This is why sometimes not all HTTP clients exit properly. Thus, look
+#        merely for 4 client exits (at least 3xUDP 1xTCP) by now.
 #
 run_genode_until ".*child \".*_clnt_.\" exited with exit value 0.*\n.*child \".*_clnt_.\" exited with exit value 0.*\n.*child \".*_clnt_.\" exited with exit value 0.*\n.*child \".*_clnt_.\" exited with exit value 0.*\n" 100
