@@ -78,7 +78,7 @@ append config {
 
 append_platform_drv_config
 
-append_if [have_spec framebuffer] config {
+append_if [expr [have_spec framebuffer] && ![get_cmd_switch --autopilot]] config {
 	<start name="fb_drv">
 		<resource name="RAM" quantum="4M"/>
 		<provides><service name="Framebuffer"/></provides>
