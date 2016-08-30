@@ -1,0 +1,37 @@
+Virtual networking and support for TOR
+######################################
+
+For sharing one network interface among multiple applications, Genode comes
+with a component called nic_bridge, which implements proxy ARP. Through this
+component, each application receives a distinct virtual network interface that
+is visible to the outer network. However, in networks with more complex
+requirements, like different subnets, routing rules, and masquerading, the
+nic_bridge component is not the tool of choice. The idea of a component for
+virtual Network Address Translation (NAT) between multiple NIC sessions came up
+and was discussed quite some time before development started. During the
+inspiring discussions, that went on while developing, requirements gathered
+from different sides and use cases.
+
+Slow but steady, the concept of the new component was found to have potential
+beyond common NAT. The implementation and configuration of our NAT server
+seemed to be easily combinable with features of managed switches and layer-3
+routers such as:
+
+* routing without NAT
+* client-bound routing rules
+* translation between virtual LANs
+* on and off turning of ports
+* IP clustering
+
+This is why at some point we renamed the component nic_router and treated the
+initiating NAT functionality only as subset of the new feature set.
+
+One use case that influenced the development of the nic_router in particular
+was the seamless integration of Tor into Genode scenarios. For this, a Tor
+component shall be slot in ahead NIC clients and exclusively given access to
+the outer network. Especially in combination with a virtual machine component
+like 'virtualbox' this setup could be used to comprehensively anonymize the
+network traffic of a whole custom user OS. To achieve this goal, the nic_router
+is set between uplink, Tor and the client as controlling component. In this
+position, network services must be allowed "behind" the router while only
+certain clients, in this case Tor, reach the outer network.
