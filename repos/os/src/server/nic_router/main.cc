@@ -25,6 +25,18 @@ using namespace Net;
 using namespace Genode;
 
 
+unsigned read_rtt_sec()
+{
+	unsigned rtt_sec = config()->xml_node().attribute_value("rtt_sec", 0UL);
+	if (!rtt_sec) {
+		rtt_sec = 3;
+		warning("missing 'rtt_sec' attribute in config tag,",
+		        "using default value \"3\"");
+	}
+	return rtt_sec;
+}
+
+
 class Main
 {
 	private:
@@ -44,6 +56,7 @@ class Main
 
 		void _read_ports(Genode::Xml_node &route, char const *name,
 		                 Port_allocator &_port_alloc);
+
 
 	public:
 
@@ -73,7 +86,7 @@ void Main::_read_ports(Xml_node &route, char const *name,
 Main::Main(Server::Entrypoint &ep)
 :
 	_verbose(config()->xml_node().attribute_value("verbose", false)),
-	_ep(ep), _rtt_sec(config()->xml_node().attribute_value("rtt_sec", 0UL)),
+	_ep(ep), _rtt_sec(read_rtt_sec()),
 
 	_uplink(_ep, _tcp_port_alloc, _udp_port_alloc, _tcp_proxys,
 	        _udp_proxys, _rtt_sec, _interface_tree, _arp_cache,
@@ -83,8 +96,6 @@ Main::Main(Server::Entrypoint &ep)
 	      _udp_port_alloc, _tcp_proxys, _udp_proxys,
 	      _rtt_sec, _interface_tree, _arp_cache, _arp_waiters, _verbose)
 {
-	if (!_rtt_sec) { warning("missing 'rtt_sec' attribute in config tag"); }
-
 	/* reserve all ports that are used in port routes */
 	try {
 		Xml_node policy = config()->xml_node().sub_node("policy");
