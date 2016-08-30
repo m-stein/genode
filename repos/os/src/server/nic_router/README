@@ -1,52 +1,50 @@
 
-             ==============================================
-             Server for virtual Network Address Translation
-             ==============================================
+             =================================
+             Component for routing NIC packets
+             =================================
 
 
 Brief
 #####
 
-The NAT server can be used to individually route Ethernet packets between
-multiple NIC sessions. The routing considers the IPv4, UDP and TCP headers of
-a packet as well as the session that sent it. The NAT server can also be
-configured to act as IPv4, TCP and UDP proxy for certain NIC sessions.
-Furthermore, it implements a flavor of the Proxy-ARP protocol (rfc1027). That
-means it allocates a virtual MAC address for each NIC client.
+The nic_router component can be used to individually route IPv4 packets between
+multiple NIC sessions. Thereby, it can translate between different IP subnets.
+The component supports port forwarding, as well as the partitioning of the TCP
+and UDP port spaces.
 
 
 Basic routing
 #############
 
-The NAT server provides multiple sessions of the 'NIC' service (downlinks)
-while requesting one 'NIC' session (the uplink) itself. Through common Genode
-session routing, the uplink can be connected to any other NIC server. Inside
-the NAT, uplink and downlinks are treated the same. The NAT routing algorithm
-is ultimately controlled through the NAT configuration. For each NIC session
-there must be a policy:
+The nic_router component provides multiple sessions of the 'NIC' service
+(downlinks) while requesting one 'NIC' session (the uplink) itself. Through
+common Genode session routing, the uplink can be connected to any other NIC
+server. Inside the component, uplink and downlinks are almost treated the same.
+Its routing algorithm is ultimately controlled through the configuration. For
+each NIC session there must be a policy:
 
 ! <policy label="uplink"       src="192.168.1.3" />
 ! <policy label="http_servers" src="10.0.2.1"    />
 
-The 'label' attribute must match the session label respectively 'uplink' for
-the uplink session. The 'src' attribute contains a static IPv4 identity for
-the NAT at this session. The NAT can use this identity when acting as IPv4
-proxy for a packet to this session. A policy tag may contain multiple 'ip'
-sub-tags:
+The 'label' attribute must match the session label respectively 'uplink' for the
+uplink session. The 'src' attribute contains a static IPv4 identity that
+represents the nic_router with respect to that session. This identity is used
+when doing Network-Address-Translation to the session. Moreover, a policy tag
+may contain multiple 'ip' sub-tags:
 
 ! <ip dst="192.168.1.0/24" label="uplink"       />
 ! <ip dst="10.0.0.0/16"    label="http_servers" />
 
-Each 'ip' tag defines a routing rule for IPv4 packets that the NAT receives
-through the session of the surrounding policy. Such a rule needs at least a
-'dst' attribute that contains an IPv4 address prefix. When the NAT receives an
-IPv4 packet, (and there are no matching proxy links) it goes top-down through
-all the rules of the session, checking whether the packet destination matches
-the 'dst' attribute. The first rule that matches is inspected deeper. The
-next thing to be read is the 'label' attribute that names the target session
-of the rule. If the label points to a valid session, the packet could now be
-routed via this rule. But the IP rule is only remembered as fallback yet
-because it may contain sub-tags for preferred UDP and TCP routing:
+Each 'ip' tag defines a routing rule for IPv4 packets that are sent by the
+session of the surrounding policy. Such a rule needs at least a 'dst' attribute
+that contains an IPv4 address prefix. When the nic_router receives an IPv4
+packet, it goes top-down through all the rules of the session, checking whether
+the packet destination matches the 'dst' attribute. The first rule that matches
+is inspected deeper. The next thing to be read is the 'label' attribute that
+names the target session of the rule. If the label points to a valid session,
+the packet could now be routed via this rule. But the IP rule is only remembered
+as fallback yet because it may contain sub-tags for preferred UDP and TCP
+routing:
 
 ! <udp dst="443" label="udp_servers"  />
 ! <tcp dst="80"  label="http_servers" />
@@ -66,7 +64,7 @@ All three, the 'ip', 'udp', and 'tcp' tag may have further attributes 'to'
 and/or 'via'. Both attributes define an IPv4 address. The address in the 'to'
 attribute replaces the IPv4 destination of an affected packet. The address in
 the 'via' attribute is the gateway for that rule. This means, when searching
-for the next Ethernet destination of an affected packet, the NAT uses the
+for the next Ethernet destination of an affected packet, the nic_router uses the
 'via' address as criterion. If not set, the 'via' address is always the IPv4
 destination of the packet. Hence, if only the 'to' attribute is set for a
 rule, the value is also used as 'via' address.
@@ -76,71 +74,75 @@ rule, the value is also used as 'via' address.
 ! <tcp ... to="10.0.2.234"                   />
 
 
-Act as proxy
-############
+Network address translation
+###########################
 
-The NAT server can be configured to act as UDP and/or TCP proxy for certain
-NIC sessions. For packets that are affected by this proxy functionality, the
-NAT server acts implicitly also as IPv4 proxy. Now, let's say you activate the
-TCP proxy for a session. Then, for all TCP packets from this session, the NAT
-server replaces the IPv4 source address by the 'src' value of the target
-session and the TCP source port by one of its own TCP ports. There is an
-exception from the latter. If the source port of the packet matches a TCP rule
-of the target session the packet is assumed to be a reply to a port-forwarded
-request from the counterside. In this case, the source port remains unchanged
-to enable the receiver to correlate the packet correctly. UDP proxies on
-UDP packets work the same.
+The nic_router component can translate between different IPv4 subnets of clients,
+and "uplink". When enabled within the policy of a client:
 
-The proxy functionality can be activated for a session by adding the
-'tcp-proxy' and/or the 'udp-proxy' attribute to the corresponding policy:
+! <policy ... nat="yes" />
 
-! <policy ...                udp-proxy="1001" />
-! <policy ... tcp-proxy="43" udp-proxy="21"   />
-! <policy ... tcp-proxy="3"                   />
+the source address of all IPv4 packets of that client is replaced by the 'src'
+value of the corresponding target session. And the TCP/UDP source port is
+replaced by one of dynamically allocated source ports of the related target
+session. There is an exception from the latter. If the source port of the packet
+matches a TCP/UDP rule of the target session the packet is assumed to be a reply
+to a port-forwarded request from the counterside. In this case, the source port
+remains unchanged to enable the receiver to correlate the packet correctly.
 
-A proxy attribute contains the maximum number of ports that the NAT server
-assigns from its own port pool to proxy activities for the given session.
+For partitioning the TCP/UDP port space, e.g., the source ports regarding the
+'uplink' session between different client sessions, one can configure how many
+ports can be used concurrently per client session:
+
+! <policy ... nat="yes"                    nat-udp-ports="1001" />
+! <policy ... nat="yes" nat-tcp-ports="43" nat-udp-ports="21"   />
+! <policy ... nat="yes" nat-tcp-ports="3"                       />
+
+The ports attribute contains the maximum number of ports that the nic_router
+assigns from its own port pool to the given session.
 This is necessary to avoid that a NIC session can run Denial-of-Service
-attacks against the NAT server by occupying all of its ports.
+attacks against the nic_router by occupying all of its ports.
 
-For both, UDP and TCP proxies, the NAT server holds link states. The link
-states enable the NAT to re-direct related packets from the counterside
-correctly without the need for additional routing rules. Such link states are
-the most preferred way of routing. Before the NAT starts looking for IP, UDP,
-or TCP rules for a packet, it tries to find a matching proxy link.
+For both, UDP and TCP activities, the nic_router holds link states. The link
+states enable the nic_router to re-direct related packets from the counterside
+correctly without the need for additional routing rules. Such link state rules
+are the most preferred way of routing. Before the NAT starts looking for IP,
+UDP, or TCP rules for a packet, it tries to find a matching rule in the link
+state.
 
-As proxy link states are created on demand and are bound to an active
+As link state rules are created on demand and are bound to an active
 connection between two peers, it is desirable to clear them away as soon as
 they are not needed anymore. A precise algorithm for that enables the NIC
-sessions to get the maximum out their resources at the NAT (ports, RAM).  A
-TCP proxy states is held until the NAT server observes the four-way
-termination handshake of TCP and two times the estimated round-trip time has
-passed. The NAT server currently doesn't estimate any round-trip times by
-itself. Instead it expects an attribute 'rtt_sec' in its 'config' tag:
+sessions to get the maximum out of their resources (ports, RAM). A TCP state
+rule is held until the nic_router observes the four-way termination handshake of
+TCP and two times the estimated round-trip time has passed. The nic_router
+currently doesn't estimate any round-trip times by itself. Instead it expects an
+attribute 'rtt_sec' in its 'config' tag:
 
 ! <config rtt_sec="3"> ... </config>
 
-This would set the round-trip time to three seconds which means that proxy
-states wait six seconds before they close themselves. As UDP has no notion of
-connections, UDP proxy states are simply held for a duration of two times the
-round-trip time after the last packet. This way, the peers can keep alive a
-UDP pseudo-connection by frequently sending empty packets.
+This would set the round-trip time to three seconds which means that link
+state rules wait six seconds before they close themselves. As UDP has no notion
+of connections, UDP state rules are simply held for a duration of two times the
+round-trip time after the last packet. This way, the peers can keep alive a UDP
+pseudo-connection by frequently sending empty packets.
 
 
 Examples
 ########
 
 This paragraph will list and explain some interesting configuration snippets.
-A comprehensive example of how to use the NAT server can be found in the test
-script 'libports/run/nat.run' .
+A comprehensive example of how to use the nic_router can be found in the test
+script 'libports/run/nic_router.run' .
 
 
 Accessing a private server network
 ==================================
 
-In this example, we assume that two HTTP servers are "behind" the NAT
+In this example, we assume that two HTTP servers are "behind" the nic_router
 (downlinks). One listening at port 80 and the other at port 8080. Several
-clients may ask the NAT for HTTP. The NAT has the following configuration:
+clients may ask the nic_router for HTTP. The nic_router has the following
+configuration:
 
 ! <policy label="uplink" src="10.0.2.55">
 !    <ip dst="10.0.2.55/32">
@@ -152,23 +154,23 @@ clients may ask the NAT for HTTP. The NAT has the following configuration:
 !    <ip dst="10.0.2.0/24" label="uplink" />
 ! </policy>
 
-The uplink IP rule matches only packets that directly address the NATs uplink
-identity. Amongst those packets, the ones to TCP port 80 also match the TCP
-sub-rule. The TCP sub-rule is rated higher than the surrounding IP rule and
-thus gets applied. Consequently, the NAT replaces the IPv4 destination of the
-packets with the 'to' value (which is the local server address), then looks up
-and installs the next Ethernet destination for the given server address, and
-finally sends the packet on the servers NIC session. All other packets from
-the uplink are dropped. Even those that address the NAT directly but with
-another port. This is because, although the IP rule still matches, it
-specifies no target session.
+The uplink IP rule matches only packets that directly address the nic_router's
+uplink identity. Amongst those packets, the ones to TCP port 80 also match the
+TCP sub-rule. The TCP sub-rule is rated higher than the surrounding IP rule and
+thus gets applied. Consequently, the nic_router replaces the IPv4 destination of
+the packets with the 'to' value (which is the local server address), then looks
+up and installs the next Ethernet destination for the given server address, and
+finally sends the packet on the servers NIC session. All other packets from the
+uplink are dropped. Even those that address the nic_router directly but with
+another port. This is because, although the IP rule still matches, it specifies
+no target session.
 
 If the server sends back reply packets to the client, they address the clients
 public IP because the IPv4 source of the previous request wasn't modified.
 Thus, these packets match the IP rule in the server policy and get forwarded
-to the uplink. But furthermore the NAT is configured to act as proxy for the
-servers TCP (with 30 simultaneous connections allowed at a max). Hence, the
-NAT replaces the IPv4 source in the server replies by its uplink identity
+to the uplink. But furthermore the nic_router is configured to act as proxy for
+the servers TCP (with 30 simultaneous connections allowed at a max). Hence, the
+nic_router replaces the IPv4 source in the server replies by its uplink identity
 '10.0.2.55'. The source port, at the other hand, is not replaced because it
 matches a TCP rule in the uplink policy. This way, the client is able to
 associate the replies to its TCP connection with the server.
@@ -177,7 +179,7 @@ associate the replies to its TCP connection with the server.
 Using public servers from a private network
 ===========================================
 
-Let's assume we have a UDP client "behind" the NAT and like to talk to an
+Let's assume we have a UDP client "behind" the nic_router and like to talk to an
 "outside" server. An example configuration for that would be:
 
 ! <policy label="uplink" src="10.0.2.55" />
@@ -189,8 +191,16 @@ Let's assume we have a UDP client "behind" the NAT and like to talk to an
 UDP packets from the client to the public network match the clients IP rule
 and therefore are forwarded to the uplink. Because of the UDP proxy attribute,
 they are modified to have '10.0.2.55' as IPv4 source and a free UDP port of
-the NAT as source port. The client is allowed to open a maximum of two such
-connections at a time. The uplink doesn't need any rules to forward the
+the nic_router as source port. The client is allowed to open a maximum of two
+such connections at a time. The uplink doesn't need any rules to forward the
 replies for the UDP client correctly as long as the server replies in time.
-This is because the NAT still holds the proxy state of the initial UDP packet
-from the client and can use it to map back IP address and port.
+This is because the nic_router still holds the proxy state of the initial UDP
+packet from the client and can use it to map back IP address and port.
+
+
+Limitations
+###########
+
+Currently, different client sessions should not share the same subnet to be able
+to communicate with each other, because forwarding broadcast packets (e.g., ARP
+packets) between different clients of the same subnet is not supported yet.
