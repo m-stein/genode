@@ -87,9 +87,9 @@ void Pager_object::unresolved_page_fault_occurred()
 	Platform_thread * const pt = (Platform_thread *)badge();
 	if (pt && pt->pd())
 		error(pt->pd()->label(), " -> ", pt->label(), ": unresolved pagefault at "
-		      "ip=", pt->kernel_object()->ip, " "
-		      "sp=", pt->kernel_object()->sp, " "
-		      "fault address=", pt->kernel_object()->fault_addr());
+		      "ip=", Hex(pt->kernel_object()->ip), " "
+		      "sp=", Hex(pt->kernel_object()->sp), " "
+		      "fault address=", Hex(pt->kernel_object()->fault_addr()));
 }
 
 Pager_object::Pager_object(Cpu_session_capability cpu_session_cap,
