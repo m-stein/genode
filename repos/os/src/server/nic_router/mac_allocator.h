@@ -21,8 +21,7 @@
 namespace Net {
 
 	/**
-	 * The MAC allocator is used to administer MAC addresses for
-	 * the proxy-ARP's client's.
+	 * The MAC allocator is used to administer MAC addresses for the NIC clients
 	 */
 	class Mac_allocator
 	{
