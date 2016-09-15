@@ -73,7 +73,8 @@ Child::Process::Loaded_executable::Loaded_executable(Dataspace_capability elf_ds
 	Elf_segment seg;
 
 	for (unsigned n = 0; (seg = elf.get_segment(n)).valid(); ++n) {
-		if (seg.flags().skip) continue;
+		if (seg.flags().skip)    continue;
+		if (seg.mem_size() == 0) continue;
 
 		/* same values for r/o and r/w segments */
 		addr_t const addr = (addr_t)seg.start();
@@ -143,6 +144,7 @@ Child::Process::Loaded_executable::Loaded_executable(Dataspace_capability elf_ds
 			if (seg.file_size() != seg.mem_size())
 				warning("filesz and memsz for read-only segment differ");
 
+			if (!seg.mem_size()) error("boeses segment");
 			off_t const offset = seg.file_offset();
 			try {
 				if (exec)
