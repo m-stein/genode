@@ -93,10 +93,10 @@ class Kernel::Thread
 			ACTIVE                      = 1,
 			AWAITS_START                = 2,
 			AWAITS_IPC                  = 3,
-			AWAITS_RESUME               = 4,
+			AWAITS_RESTART              = 4,
 			AWAITS_SIGNAL               = 5,
 			AWAITS_SIGNAL_CONTEXT_KILL  = 6,
-			STOPPED                     = 7,
+			DEAD                        = 7,
 		};
 
 		Thread_event       _fault;
@@ -108,6 +108,7 @@ class Kernel::Thread
 		Signal_receiver *  _signal_receiver;
 		char const * const _label;
 		capid_t            _timeout_sigid = 0;
+		bool               _paused = false;
 
 		void _init();
 
@@ -164,21 +165,19 @@ class Kernel::Thread
 		void _deactivate_used_shares();
 
 		/**
-		 * Pause execution
+		 * Inhibit further execution (doesn't affect thread state)
 		 */
 		void _pause();
 
 		/**
-		 * Suspend unrecoverably from execution
+		 * Allow execution again (doesn't affect thread state)
 		 */
-		void _stop();
+		void _resume();
 
 		/**
-		 * Cancel blocking if possible
-		 *
-		 * \return  wether thread was in a cancelable blocking beforehand
+		 * Suspend unrecoverably from execution
 		 */
-		bool _resume();
+		void _die();
 
 		/**
 		 * Handle an exception thrown by the memory management unit
@@ -212,6 +211,10 @@ class Kernel::Thread
 		 */
 		void _print_common_activity();
 
+		void _cancel_blocking();
+
+		bool _restart();
+
 
 		/*********************************************************
 		 ** Kernel-call back-ends, see kernel-interface headers **
@@ -220,10 +223,11 @@ class Kernel::Thread
 		void _call_new_thread();
 		void _call_thread_quota();
 		void _call_start_thread();
-		void _call_pause_current_thread();
+		void _call_stop_thread();
 		void _call_pause_thread();
 		void _call_resume_thread();
-		void _call_resume_local_thread();
+		void _call_cancel_thread_blocking();
+		void _call_restart_thread();
 		void _call_yield_thread();
 		void _call_await_request_msg();
 		void _call_send_request_msg();

@@ -23,8 +23,8 @@ namespace Kernel
 	/**
 	 * Kernel names of the kernel calls
 	 */
-	constexpr Call_arg call_id_pause_current_thread() { return  0; }
-	constexpr Call_arg call_id_resume_local_thread()  { return  1; }
+	constexpr Call_arg call_id_stop_thread()          { return  0; }
+	constexpr Call_arg call_id_restart_thread()       { return  1; }
 	constexpr Call_arg call_id_yield_thread()         { return  2; }
 	constexpr Call_arg call_id_send_request_msg()     { return  3; }
 	constexpr Call_arg call_id_send_reply_msg()       { return  4; }
@@ -118,38 +118,33 @@ namespace Kernel
 
 
 	/**
-	 * Pause execution of calling thread
+	 * Let thread switch to the stopped state in wich it gets not scheduled
 	 */
-	inline void pause_current_thread()
+	inline void stop_thread()
 	{
-		call(call_id_pause_current_thread());
+		call(call_id_stop_thread());
 	}
 
 
 	/**
-	 * Cancel blocking of a thread of the current domain if possible
+	 * Get a local thread from the stopped state back to active state
 	 *
 	 * \param thread_id  capability id of the targeted thread
 	 *
-	 * \return  wether thread was in a cancelable blocking beforehand
+	 * \return  wether thread was in the stopped state beforehand
 	 */
-	inline bool resume_local_thread(capid_t const thread_id)
+	inline bool restart_thread(capid_t const thread_id)
 	{
-		return call(call_id_resume_local_thread(), thread_id);
+		return call(call_id_restart_thread(), thread_id);
 	}
 
 
 	/**
 	 * Let the current thread give up its remaining timeslice
-	 *
-	 * \param thread_id  capability id of the benefited thread
-	 *
-	 * If thread_id is valid the call will resume the targeted thread
-	 * additionally.
 	 */
-	inline void yield_thread(capid_t const thread_id)
+	inline void yield_thread()
 	{
-		call(call_id_yield_thread(), thread_id);
+		call(call_id_yield_thread());
 	}
 
 	/**

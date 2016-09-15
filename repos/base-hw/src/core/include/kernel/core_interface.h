@@ -58,6 +58,7 @@ namespace Kernel
 	constexpr Call_arg call_id_ack_irq()                { return 120; }
 	constexpr Call_arg call_id_new_obj()                { return 121; }
 	constexpr Call_arg call_id_delete_obj()             { return 122; }
+	constexpr Call_arg call_id_cancel_thread_blocking() { return 123; }
 
 	/**
 	 * Update locally effective domain configuration to in-memory state
@@ -126,6 +127,17 @@ namespace Kernel
 	inline bool resume_thread(Thread * const thread)
 	{
 		return call(call_id_resume_thread(), (Call_arg)thread);
+	}
+
+
+	/**
+	 * Cancel blocking of a thread if it is in a cancelable blocking state
+	 *
+	 * \param thread  pointer to thread kernel object
+	 */
+	inline void cancel_thread_blocking(Thread * const thread)
+	{
+		call(call_id_cancel_thread_blocking(), (Call_arg)thread);
 	}
 
 
