@@ -15,6 +15,7 @@
 #define _INCLUDE__UTIL__AVL_TREE_H_
 
 #include <util/misc_math.h>
+#include <base/exception.h>
 
 namespace Genode {
 	
@@ -205,6 +206,8 @@ class Genode::Avl_tree : Avl_node<NT>
 		} _policy;
 
 	public:
+
+		struct No_match : Genode::Exception { };
 
 		/**
 		 * Insert node into AVL tree
