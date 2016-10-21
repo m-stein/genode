@@ -258,9 +258,13 @@ static void init_core_page_fault_handler()
 static bool cpuid_invariant_tsc()
 {
 	unsigned long cpuid = 0x80000007, edx = 0;
+#ifdef __x86_64__
+	asm volatile ("cpuid" : "+a" (cpuid), "=d" (edx) : : "rbx", "rcx");
+#else
 	asm volatile ("push %%ebx  \n"
 	              "cpuid       \n"
 	              "pop  %%ebx" : "+a" (cpuid), "=d" (edx) : : "ecx");
+#endif
 	return edx & 0x100;
 }
 
