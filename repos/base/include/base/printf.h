@@ -55,10 +55,8 @@ namespace Genode {
  * Suppress debug messages in release version
  */
 #ifdef GENODE_RELEASE
-#define DO_PDBG false
 #define DO_PWRN false
 #else
-#define DO_PDBG true
 #define DO_PWRN true
 #endif /* GENODE_RELEASE */
 
