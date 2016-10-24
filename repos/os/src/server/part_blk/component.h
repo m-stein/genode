@@ -139,6 +139,7 @@ class Block::Session_component : public Block::Session_rpc_object,
 			_tx.sigh_packet_avail(_sink_submit);
 		}
 
+		Ram_dataspace_capability const rq_ds() const { return _rq_ds; }
 		Partition *partition() { return _partition; }
 
 		void dispatch(Packet_descriptor &request, Packet_descriptor &reply)
@@ -204,10 +205,17 @@ class Block::Root :
 
 	protected:
 
+		void _destroy_session(Session_component *session) override
+		{
+			Ram_dataspace_capability rq_ds = session->rq_ds();
+			Genode::Root_component<Session_component>::_destroy_session(session);
+			_env.ram().free(rq_ds);
+		}
+
 		/**
 		 * Always returns the singleton block-session component
 		 */
-		Session_component *_create_session(const char *args)
+		Session_component *_create_session(const char *args) override
 		{
 			long num = -1;
 
