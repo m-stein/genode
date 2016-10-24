@@ -89,11 +89,11 @@ proc bin_dir { } {
 set fiasco_serial_esc_arg "-serial_esc "
 
 proc core_link_address { } {
-	if {[have_spec x86      ]} { return "0x00500000" }
+	if {[have_spec x86      ]} { return "0x01100000" }
 	if {[have_spec arndale  ]} { return "0x80100000" }
 	if {[have_spec rpi      ]} { return "0x00800000" }
-	if {[have_spec panda    ]} { return "0x80140000" }
-	if {[have_spec pbxa9    ]} { return "0x72000000" }
+	if {[have_spec panda    ]} { return "0x84000000" }
+	if {[have_spec pbxa9    ]} { return "0x74000000" }
 	if {[have_spec odroid_x2]} { return "0x80100000" }
 	if {[have_spec imx53    ]} { return "0x70140000" }
 

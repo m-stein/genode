@@ -106,7 +106,7 @@ proc run_boot_dir {binaries} {
 		puts $fh "default 0"
 		puts $fh "\ntitle Genode on L4/Fiasco"
 		puts $fh " kernel /boot/bender"
-		puts $fh " module /fiasco/bootstrap -serial -modaddr=0x02000000"
+		puts $fh " module /fiasco/bootstrap -serial"
 		puts $fh " module /fiasco/fiasco -serial -jdb_cmd=JH $fiasco_serial_esc_arg"
 		puts $fh " module /fiasco/sigma0"
 		puts $fh " module /image.elf"
@@ -127,7 +127,7 @@ proc run_boot_dir {binaries} {
 		#
 		set fh [open "[run_dir]/config-52-54-00-12-34-56" "WRONLY CREAT TRUNC"]
 		puts $fh " exec /boot/bender"
-		puts $fh " load /fiasco/bootstrap -serial -modaddr=0x02000000"
+		puts $fh " load /fiasco/bootstrap -serial"
 		puts $fh " load /fiasco/fiasco -serial -serial_esc -jdb_cmd=JH"
 		puts $fh " load /fiasco/sigma0"
 		puts $fh " load /image.elf"
