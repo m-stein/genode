@@ -67,7 +67,7 @@ proc run_boot_string { } {
 	return "\n\r\033\\\[1m\033\\\[33mL4Ka::Pistachio -"
 }
 
-proc core_link_address { } { return "0x01000000" }
+proc core_link_address { } { return "0x02000000" }
 
 ##
 # Populdate boot directory with binaries on pistachio
