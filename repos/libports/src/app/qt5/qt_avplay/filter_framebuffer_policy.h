@@ -57,20 +57,15 @@ class Filter_framebuffer_policy : public Genode::Slave_policy
 			return Slave_policy::resolve_session_request(service_name, args);
 		}
 
-		bool announce_service(const char *name,
-		                      Genode::Root_capability root,
-		                      Genode::Allocator *alloc,
-		                      Genode::Server *server)
+		void announce_service(Genode::Service::Name const &name) override
 		{
-			if (strcmp(name, "Framebuffer") == 0) {
+			if (name == "Framebuffer") {
 				_framebuffer_out.insert(new (alloc) Genode::Child_service(name, root, server));
 				return true;
 			}
 
-			return Slave_policy::announce_service(name, root, alloc, server);
+			return Slave_policy::announce_service(name);
 		}
-
-
 };
 
 #endif /* _FILTER_FRAMEBUFFER_POLICY_H_ */

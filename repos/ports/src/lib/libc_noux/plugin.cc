@@ -115,10 +115,10 @@ class Noux_connection
 };
 
 
-Noux_connection *noux_connection()
+Genode::Volatile_object<Noux_connection> &noux_connection()
 {
-	static Noux_connection inst;
-	return &inst;
+	static Genode::Volatile_object<Noux_connection> inst;
+	return inst;
 }
 
 
@@ -532,12 +532,8 @@ extern "C" void fork_trampoline()
 	/* reinitialize standard-output connection */
 	stdout_reconnect();
 
-	/* reinitialize config */
-	Genode::Config *config = Genode::config();
-	construct_at<Genode::Config>(config);
-
 	/* reinitialize noux connection */
-	construct_at<Noux_connection>(noux_connection());
+	noux_connection().construct();
 
 	/* reinitialize main-thread object which implies reinit of stack area */
 	auto stack_area_rm = noux_connection()->stack_area_region_map(in_stack_area);
@@ -562,6 +558,8 @@ static void suspended_callback()
 	/* stack used for executing 'fork_trampoline' */
 	enum { STACK_SIZE = 8 * 1024 };
 	static long stack[STACK_SIZE];
+
+	Genode::config().destruct();
 
 	if (setjmp(fork_jmp_buf)) {
 
@@ -596,6 +594,9 @@ static void suspended_callback()
 
 		fork_result = sysio()->fork_out.pid;
 	}
+
+	/* reinitialize config */
+	Genode::config().construct();
 }
 
 

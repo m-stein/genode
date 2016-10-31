@@ -341,10 +341,9 @@ class Gdb_monitor::App_child : public Child_policy,
 			return service;
 		}
 
-		bool announce_service(const char     *name,
-							  Root_capability root,
-							  Allocator      *alloc,
-							  Server         *server)
+		// XXX adjust to API change, need to serve a "session_requests" rom
+		// to the child
+		void announce_service(Service::Name const &name) override
 		{
 			/* create and announce proxy for the child's root interface */
 			Child_service_root *r = new (alloc)
