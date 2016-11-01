@@ -27,6 +27,52 @@
 #include "../pci_device_pd_ipc.h"
 
 
+/**
+ * Custom handling of PD-session depletion during attach operations
+ *
+ * The default implementation of 'env().rm()' automatically issues a resource
+ * request if the PD session quota gets exhausted. For the device PD, we don't
+ * want to issue resource requests but let the platform driver reflect this
+ * condition to its client.
+ */
+struct Expanding_region_map_client : Genode::Region_map_client
+{
+	Genode::Env &_env;
+
+	Expanding_region_map_client(Genode::Env &env)
+	:
+		Region_map_client(env.pd().address_space()), _env(env)
+	{ }
+
+	Local_addr attach(Genode::Dataspace_capability ds,
+	                  Genode::size_t size, Genode::off_t offset,
+	                  bool use_local_addr,
+	                  Local_addr local_addr,
+	                  bool executable) override
+	{
+		return Genode::retry<Genode::Region_map::Out_of_metadata>(
+			[&] () {
+				return Region_map_client::attach(ds, size, offset,
+				                                 use_local_addr,
+				                                 local_addr,
+				                                 executable); },
+			[&] () {
+				enum { UPGRADE_QUOTA = 4096 };
+
+				if (Genode::env()->ram_session()->avail() < UPGRADE_QUOTA)
+					throw;
+
+				char buf[32];
+				Genode::snprintf(buf, sizeof(buf), "ram_quota=%u",
+				UPGRADE_QUOTA);
+
+				_env.parent().upgrade(_env.pd_session_cap(), buf);
+			}
+		);
+	}
+};
+
+
 static bool map_eager(Genode::addr_t const page, unsigned log2_order)
 {
 	using Genode::addr_t;
@@ -91,7 +137,8 @@ void Platform::Device_pd_component::attach_dma_mem(Genode::Dataspace_capability 
 	}
 }
 
-void Platform::Device_pd_component::assign_pci(Genode::Io_mem_dataspace_capability io_mem_cap, Genode::uint16_t rid)
+void Platform::Device_pd_component::assign_pci(Genode::Io_mem_dataspace_capability io_mem_cap,
+                                               Genode::uint16_t rid)
 {
 	using namespace Genode;
 
@@ -138,7 +185,9 @@ struct Main
 {
 	Genode::Env &env;
 
-	Platform::Device_pd_component pd_component { env.rm() };
+	Expanding_region_map_client rm { env };
+
+	Platform::Device_pd_component pd_component { rm };
 
 	Genode::Static_root<Platform::Device_pd> root { env.ep().manage(pd_component) };
 
