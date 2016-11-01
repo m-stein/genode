@@ -144,7 +144,6 @@ Child::Process::Loaded_executable::Loaded_executable(Dataspace_capability elf_ds
 			if (seg.file_size() != seg.mem_size())
 				warning("filesz and memsz for read-only segment differ");
 
-			if (!seg.mem_size()) error("boeses segment");
 			off_t const offset = seg.file_offset();
 			try {
 				if (exec)
