@@ -23,7 +23,6 @@ set build_components {
 	core init
 	drivers/timer
 	drivers/usb
-	server/report_rom
 	test/smartcard
 }
 
@@ -71,28 +70,14 @@ append config {
 		<resource name="RAM" quantum="1M"/>
 		<provides><service name="Timer"/></provides>
 	</start>
-	<start name="report_rom">
-		<resource name="RAM" quantum="1M"/>
-		<provides> <service name="Report"/> <service name="ROM"/> </provides>
-		<config verbose="no">
-			<rom>
-				<policy label="test-libusb -> usb_devices" report="usb_drv -> usb_devices"/>
-			</rom>
-		</config>
-	</start>
 	<start name="usb_drv">
 		<resource name="RAM" quantum="16M"/>
 		<provides><service name="Usb"/></provides>
 		<config uhci="yes" ehci="yes" xhci="yes" bios_handoff="no">
 			<raw>
-				<report devices="no"/>
 				<policy label="test-smartcard -> usb_device" vendor_id="0x04e6" product_id="0x5116"/>
 			</raw>
 		</config>
-		<route>
-			<service name="Report"> <child name="report_rom"/> </service>
-			<any-service> <parent/> <any-child/> </any-service>
-		</route>
 	</start>
 	<start name="test-smartcard">
 		<resource name="RAM" quantum="4M"/>
