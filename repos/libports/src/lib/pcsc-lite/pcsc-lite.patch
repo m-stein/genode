@@ -4,26 +4,33 @@ From: Christian Prochaska <christian.prochaska@genode-labs.com>
 
 
 ---
- src/debug.c         |    2 
- src/readerfactory.c |    4 -
- src/winscard_clnt.c |  370 +++++++++++++++++++++++++++++++++++++++++++++++++--
- 3 files changed, 360 insertions(+), 16 deletions(-)
+ src/debug.c         |    3 
+ src/readerfactory.c |    2 
+ src/winscard_clnt.c |  377 ++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 374 insertions(+), 8 deletions(-)
 
 diff --git a/src/debug.c b/src/debug.c
-index d2fb5bf..4ae1195 100644
+index d2fb5bf..1f6bccc 100644
 --- a/src/debug.c
 +++ b/src/debug.c
-@@ -101,7 +101,7 @@ static void log_init(void)
+@@ -101,6 +101,7 @@ static void log_init(void)
  	}
  } /* log_init */
  
--void log_msg(const int priority, const char *fmt, ...)
-+void log_msg_client(const int priority, const char *fmt, ...)
++#ifndef GENODE
+ void log_msg(const int priority, const char *fmt, ...)
  {
  	char DebugBuffer[DEBUG_BUF_SIZE];
- 	va_list argptr;
+@@ -150,6 +151,6 @@ void log_msg(const int priority, const char *fmt, ...)
+ 			fprintf(stderr, "%s\n", DebugBuffer);
+ 	}
+ } /* log_msg */
+-
++#endif
+ #endif
+ 
 diff --git a/src/readerfactory.c b/src/readerfactory.c
-index 4f97892..bf1baf4 100644
+index 4f97892..3bec158 100644
 --- a/src/readerfactory.c
 +++ b/src/readerfactory.c
 @@ -1399,7 +1399,7 @@ void RFCleanupReaders(void)
@@ -31,21 +38,12 @@ index 4f97892..bf1baf4 100644
   * inserted card.
   */
 -#ifdef USE_USB
-+//#ifdef USE_USB
++#if defined(USE_USB) || defined(GENODE)
  void RFWaitForReaderInit(void)
  {
  	int i, need_to_wait;
-@@ -1427,7 +1427,7 @@ void RFWaitForReaderInit(void)
- 			SYS_USleep(10*1000); /* 10 ms */
- 	} while (need_to_wait);
- }
--#endif
-+//#endif
- 
- #ifdef USE_SERIAL
- int RFStartSerialReaders(const char *readerconf)
 diff --git a/src/winscard_clnt.c b/src/winscard_clnt.c
-index 94d4cf5..3889805 100644
+index 94d4cf5..bf18c7c 100644
 --- a/src/winscard_clnt.c
 +++ b/src/winscard_clnt.c
 @@ -113,6 +113,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
@@ -56,14 +54,16 @@ index 94d4cf5..3889805 100644
  
  #include "misc.h"
  #include "pcscd.h"
-@@ -141,8 +142,49 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- #define FALSE 0
- #endif
+@@ -143,6 +144,52 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-+static int event_pipe[2];
-+
  static char sharing_shall_block = TRUE;
  
++#ifdef GENODE
++
++static int event_pipe[2];
++
++extern void initialize_pcsc_lite();
++
 +LONG MSGSignalClient(uint32_t filedes, LONG rv)
 +{
 +	ssize_t bytes_written = write(filedes, &rv, sizeof(rv));
@@ -102,39 +102,47 @@ index 94d4cf5..3889805 100644
 +                              LPCBYTE pbSendBuffer, DWORD cbSendLength,
 +                              SCARD_IO_REQUEST *pioRecvPci, LPBYTE pbRecvBuffer,
 +                              LPDWORD pcbRecvLength);
++#endif
 +
  #define COLOR_RED "\33[01;31m"
  #define COLOR_GREEN "\33[32m"
  #define COLOR_BLUE "\33[34m"
-@@ -355,7 +397,8 @@ static pthread_mutex_t clientMutex = PTHREAD_MUTEX_INITIALIZER;
+@@ -355,7 +402,11 @@ static pthread_mutex_t clientMutex = PTHREAD_MUTEX_INITIALIZER;
  /**
   * Area used to read status information about the readers.
   */
--static READER_STATE readerStates[PCSCLITE_MAX_READERS_CONTEXTS];
-+//static READER_STATE readerStates[PCSCLITE_MAX_READERS_CONTEXTS];
++#ifndef GENODE
+ static READER_STATE readerStates[PCSCLITE_MAX_READERS_CONTEXTS];
++#else
 +extern READER_STATE readerStates[PCSCLITE_MAX_READERS_CONTEXTS];
++#endif
  
  /** Protocol Control Information for T=0 */
  PCSC_API const SCARD_IO_REQUEST g_rgSCardT0Pci = { SCARD_PROTOCOL_T0, sizeof(SCARD_IO_REQUEST) };
-@@ -451,17 +494,11 @@ LONG SCardEstablishContext(DWORD dwScope, LPCVOID pvReserved1,
+@@ -451,17 +502,22 @@ LONG SCardEstablishContext(DWORD dwScope, LPCVOID pvReserved1,
  	API_TRACE_IN("%ld, %p, %p", dwScope, pvReserved1, pvReserved2)
  	PROFILE_START
  
--	/* Check if the server is running */
--	rv = SCardCheckDaemonAvailability();
--	if (rv != SCARD_S_SUCCESS)
--		goto end;
--
++#ifndef GENODE
+ 	/* Check if the server is running */
+ 	rv = SCardCheckDaemonAvailability();
+ 	if (rv != SCARD_S_SUCCESS)
+ 		goto end;
++#endif
+ 
  	(void)SCardLockThread();
  	rv = SCardEstablishContextTH(dwScope, pvReserved1,
  		pvReserved2, phContext);
  	(void)SCardUnlockThread();
  
--end:
++#ifndef GENODE
+ end:
++#endif
++
  	PROFILE_END(rv)
  	API_TRACE_OUT("%ld", *phContext)
  
-@@ -548,7 +585,7 @@ static LONG SCardEstablishContextTH(DWORD dwScope,
+@@ -548,7 +604,7 @@ static LONG SCardEstablishContextTH(DWORD dwScope,
  		isExecuted = 1;
  	}
  
@@ -143,11 +151,13 @@ index 94d4cf5..3889805 100644
  	/* Establishes a connection to the server */
  	if (ClientSetupSession(&dwClientID) != 0)
  	{
-@@ -582,6 +619,15 @@ static LONG SCardEstablishContextTH(DWORD dwScope,
+@@ -582,6 +638,17 @@ static LONG SCardEstablishContextTH(DWORD dwScope,
  		if (veStr.rv != SCARD_S_SUCCESS)
  			return veStr.rv;
  	}
 +#else
++
++	initialize_pcsc_lite();
 +
 +	rv = pipe(event_pipe);
 +	if (rv < 0) {
@@ -159,7 +169,7 @@ index 94d4cf5..3889805 100644
  
  again:
  	/*
-@@ -591,6 +637,7 @@ again:
+@@ -591,6 +658,7 @@ again:
  	scEstablishStruct.hContext = 0;
  	scEstablishStruct.rv = SCARD_S_SUCCESS;
  
@@ -167,7 +177,7 @@ index 94d4cf5..3889805 100644
  	rv = MessageSendWithHeader(SCARD_ESTABLISH_CONTEXT, dwClientID,
  		sizeof(scEstablishStruct), (void *) &scEstablishStruct);
  
-@@ -605,6 +652,21 @@ again:
+@@ -605,6 +673,21 @@ again:
  
  	if (rv != SCARD_S_SUCCESS)
  		return rv;
@@ -189,7 +199,7 @@ index 94d4cf5..3889805 100644
  
  	if (scEstablishStruct.rv != SCARD_S_SUCCESS)
  		return scEstablishStruct.rv;
-@@ -669,6 +731,7 @@ LONG SCardReleaseContext(SCARDCONTEXT hContext)
+@@ -669,6 +752,7 @@ LONG SCardReleaseContext(SCARDCONTEXT hContext)
  	scReleaseStruct.hContext = hContext;
  	scReleaseStruct.rv = SCARD_S_SUCCESS;
  
@@ -197,7 +207,7 @@ index 94d4cf5..3889805 100644
  	rv = MessageSendWithHeader(SCARD_RELEASE_CONTEXT,
  		currentContextMap->dwClientID,
  		sizeof(scReleaseStruct), (void *) &scReleaseStruct);
-@@ -684,9 +747,23 @@ LONG SCardReleaseContext(SCARDCONTEXT hContext)
+@@ -684,9 +768,23 @@ LONG SCardReleaseContext(SCARDCONTEXT hContext)
  
  	if (rv != SCARD_S_SUCCESS)
  		goto end;
@@ -221,7 +231,7 @@ index 94d4cf5..3889805 100644
  	(void)pthread_mutex_unlock(&currentContextMap->mMutex);
  
  	/*
-@@ -805,6 +882,8 @@ LONG SCardConnect(SCARDCONTEXT hContext, LPCSTR szReader,
+@@ -805,6 +903,8 @@ LONG SCardConnect(SCARDCONTEXT hContext, LPCSTR szReader,
  	scConnectStruct.dwActiveProtocol = 0;
  	scConnectStruct.rv = SCARD_S_SUCCESS;
  
@@ -230,7 +240,7 @@ index 94d4cf5..3889805 100644
  	rv = MessageSendWithHeader(SCARD_CONNECT, currentContextMap->dwClientID,
  		sizeof(scConnectStruct), (void *) &scConnectStruct);
  
-@@ -820,6 +899,29 @@ LONG SCardConnect(SCARDCONTEXT hContext, LPCSTR szReader,
+@@ -820,6 +920,29 @@ LONG SCardConnect(SCARDCONTEXT hContext, LPCSTR szReader,
  	if (rv != SCARD_S_SUCCESS)
  		goto end;
  
@@ -260,7 +270,7 @@ index 94d4cf5..3889805 100644
  	*phCard = scConnectStruct.hCard;
  	*pdwActiveProtocol = scConnectStruct.dwActiveProtocol;
  
-@@ -833,7 +935,10 @@ LONG SCardConnect(SCARDCONTEXT hContext, LPCSTR szReader,
+@@ -833,7 +956,10 @@ LONG SCardConnect(SCARDCONTEXT hContext, LPCSTR szReader,
  	else
  		rv = scConnectStruct.rv;
  
@@ -271,7 +281,7 @@ index 94d4cf5..3889805 100644
  	(void)pthread_mutex_unlock(&currentContextMap->mMutex);
  
  	PROFILE_END(rv)
-@@ -948,6 +1053,7 @@ retry:
+@@ -948,6 +1074,7 @@ retry:
  	scReconnectStruct.dwActiveProtocol = *pdwActiveProtocol;
  	scReconnectStruct.rv = SCARD_S_SUCCESS;
  
@@ -279,7 +289,7 @@ index 94d4cf5..3889805 100644
  	rv = MessageSendWithHeader(SCARD_RECONNECT, currentContextMap->dwClientID,
  		sizeof(scReconnectStruct), (void *) &scReconnectStruct);
  
-@@ -962,6 +1068,21 @@ retry:
+@@ -962,6 +1089,21 @@ retry:
  
  	if (rv != SCARD_S_SUCCESS)
  		goto end;
@@ -301,7 +311,7 @@ index 94d4cf5..3889805 100644
  
  	rv = scReconnectStruct.rv;
  
-@@ -974,7 +1095,9 @@ retry:
+@@ -974,7 +1116,9 @@ retry:
  
  	*pdwActiveProtocol = scReconnectStruct.dwActiveProtocol;
  
@@ -311,7 +321,7 @@ index 94d4cf5..3889805 100644
  	(void)pthread_mutex_unlock(&currentContextMap->mMutex);
  
  	PROFILE_END(rv)
-@@ -1039,6 +1162,7 @@ LONG SCardDisconnect(SCARDHANDLE hCard, DWORD dwDisposition)
+@@ -1039,6 +1183,7 @@ LONG SCardDisconnect(SCARDHANDLE hCard, DWORD dwDisposition)
  	scDisconnectStruct.dwDisposition = dwDisposition;
  	scDisconnectStruct.rv = SCARD_S_SUCCESS;
  
@@ -319,7 +329,7 @@ index 94d4cf5..3889805 100644
  	rv = MessageSendWithHeader(SCARD_DISCONNECT, currentContextMap->dwClientID,
  		sizeof(scDisconnectStruct), (void *) &scDisconnectStruct);
  
-@@ -1053,12 +1177,25 @@ LONG SCardDisconnect(SCARDHANDLE hCard, DWORD dwDisposition)
+@@ -1053,12 +1198,25 @@ LONG SCardDisconnect(SCARDHANDLE hCard, DWORD dwDisposition)
  
  	if (rv != SCARD_S_SUCCESS)
  		goto end;
@@ -345,7 +355,7 @@ index 94d4cf5..3889805 100644
  	(void)pthread_mutex_unlock(&currentContextMap->mMutex);
  
  error:
-@@ -1132,6 +1269,7 @@ LONG SCardBeginTransaction(SCARDHANDLE hCard)
+@@ -1132,6 +1290,7 @@ LONG SCardBeginTransaction(SCARDHANDLE hCard)
  		scBeginStruct.hCard = hCard;
  		scBeginStruct.rv = SCARD_S_SUCCESS;
  
@@ -353,7 +363,7 @@ index 94d4cf5..3889805 100644
  		rv = MessageSendWithHeader(SCARD_BEGIN_TRANSACTION,
  			currentContextMap->dwClientID,
  			sizeof(scBeginStruct), (void *) &scBeginStruct);
-@@ -1147,6 +1285,17 @@ LONG SCardBeginTransaction(SCARDHANDLE hCard)
+@@ -1147,6 +1306,17 @@ LONG SCardBeginTransaction(SCARDHANDLE hCard)
  
  		if (rv != SCARD_S_SUCCESS)
  			break;
@@ -371,7 +381,7 @@ index 94d4cf5..3889805 100644
  
  		rv = scBeginStruct.rv;
  
-@@ -1227,6 +1376,7 @@ LONG SCardEndTransaction(SCARDHANDLE hCard, DWORD dwDisposition)
+@@ -1227,6 +1397,7 @@ LONG SCardEndTransaction(SCARDHANDLE hCard, DWORD dwDisposition)
  	scEndStruct.dwDisposition = dwDisposition;
  	scEndStruct.rv = SCARD_S_SUCCESS;
  
@@ -379,7 +389,7 @@ index 94d4cf5..3889805 100644
  	rv = MessageSendWithHeader(SCARD_END_TRANSACTION,
  		currentContextMap->dwClientID,
  		sizeof(scEndStruct), (void *) &scEndStruct);
-@@ -1242,6 +1392,18 @@ LONG SCardEndTransaction(SCARDHANDLE hCard, DWORD dwDisposition)
+@@ -1242,6 +1413,18 @@ LONG SCardEndTransaction(SCARDHANDLE hCard, DWORD dwDisposition)
  
  	if (rv != SCARD_S_SUCCESS)
  		goto end;
@@ -398,7 +408,7 @@ index 94d4cf5..3889805 100644
  
  	/*
  	 * This helps prevent starvation
-@@ -1250,7 +1412,9 @@ LONG SCardEndTransaction(SCARDHANDLE hCard, DWORD dwDisposition)
+@@ -1250,7 +1433,9 @@ LONG SCardEndTransaction(SCARDHANDLE hCard, DWORD dwDisposition)
  	(void)SYS_USleep(randnum);
  	rv = scEndStruct.rv;
  
@@ -408,7 +418,7 @@ index 94d4cf5..3889805 100644
  	(void)pthread_mutex_unlock(&currentContextMap->mMutex);
  
  	PROFILE_END(rv)
-@@ -1426,6 +1590,7 @@ retry:
+@@ -1426,6 +1611,7 @@ retry:
  	memset(&scStatusStruct, 0, sizeof(scStatusStruct));
  	scStatusStruct.hCard = hCard;
  
@@ -416,7 +426,7 @@ index 94d4cf5..3889805 100644
  	rv = MessageSendWithHeader(SCARD_STATUS, currentContextMap->dwClientID,
  		sizeof(scStatusStruct), (void *) &scStatusStruct);
  
-@@ -1440,6 +1605,19 @@ retry:
+@@ -1440,6 +1626,19 @@ retry:
  
  	if (rv != SCARD_S_SUCCESS)
  		goto end;
@@ -436,7 +446,7 @@ index 94d4cf5..3889805 100644
  
  	rv = scStatusStruct.rv;
  
-@@ -2036,7 +2214,7 @@ LONG SCardGetStatusChange(SCARDCONTEXT hContext, DWORD dwTimeout,
+@@ -2036,7 +2235,7 @@ LONG SCardGetStatusChange(SCARDCONTEXT hContext, DWORD dwTimeout,
  
  				/* another thread can do SCardCancel() */
  				currentContextMap->cancellable = TRUE;
@@ -445,7 +455,7 @@ index 94d4cf5..3889805 100644
  				rv = MessageSendWithHeader(CMD_WAIT_READER_STATE_CHANGE,
  					currentContextMap->dwClientID,
  					sizeof(waitStatusStruct), &waitStatusStruct);
-@@ -2050,13 +2228,45 @@ LONG SCardGetStatusChange(SCARDCONTEXT hContext, DWORD dwTimeout,
+@@ -2050,13 +2249,45 @@ LONG SCardGetStatusChange(SCARDCONTEXT hContext, DWORD dwTimeout,
  				rv = MessageReceiveTimeout(CMD_WAIT_READER_STATE_CHANGE,
  					&waitStatusStruct, sizeof(waitStatusStruct),
  					currentContextMap->dwClientID, dwTime);
@@ -455,7 +465,7 @@ index 94d4cf5..3889805 100644
 +
 +				fd_set readfds;
 +				struct timeval timeout;
-+
+ 
 +				timeout.tv_sec = dwTime / 1000;
 +				timeout.tv_usec = (dwTime % 1000) * 1000;
 +
@@ -463,7 +473,7 @@ index 94d4cf5..3889805 100644
 +				FD_SET(event_pipe[0], &readfds);
 +
 +				rv = select(event_pipe[0] + 1, &readfds, NULL, NULL, &timeout);
- 
++
 +				if ((rv > 0) && (FD_ISSET(event_pipe[0], &readfds))) {
 +					/* got an event */
 +					rv = read(event_pipe[0], &waitStatusStruct.rv, sizeof(waitStatusStruct.rv));
@@ -491,7 +501,7 @@ index 94d4cf5..3889805 100644
  					/* ask server to remove us from the event list */
  					rv = MessageSendWithHeader(CMD_STOP_WAITING_READER_STATE_CHANGE,
  						currentContextMap->dwClientID,
-@@ -2072,6 +2282,18 @@ LONG SCardGetStatusChange(SCARDCONTEXT hContext, DWORD dwTimeout,
+@@ -2072,6 +2303,18 @@ LONG SCardGetStatusChange(SCARDCONTEXT hContext, DWORD dwTimeout,
  
  					if (rv != SCARD_S_SUCCESS)
  						goto end;
@@ -510,7 +520,7 @@ index 94d4cf5..3889805 100644
  				}
  
  				if (rv != SCARD_S_SUCCESS)
-@@ -2222,6 +2444,7 @@ LONG SCardControl(SCARDHANDLE hCard, DWORD dwControlCode, LPCVOID pbSendBuffer,
+@@ -2222,6 +2465,7 @@ LONG SCardControl(SCARDHANDLE hCard, DWORD dwControlCode, LPCVOID pbSendBuffer,
  	scControlStruct.dwBytesReturned = 0;
  	scControlStruct.rv = 0;
  
@@ -518,7 +528,7 @@ index 94d4cf5..3889805 100644
  	rv = MessageSendWithHeader(SCARD_CONTROL, currentContextMap->dwClientID,
  		sizeof(scControlStruct), &scControlStruct);
  
-@@ -2255,6 +2478,26 @@ LONG SCardControl(SCARDHANDLE hCard, DWORD dwControlCode, LPCVOID pbSendBuffer,
+@@ -2255,6 +2499,26 @@ LONG SCardControl(SCARDHANDLE hCard, DWORD dwControlCode, LPCVOID pbSendBuffer,
  
  	}
  
@@ -545,7 +555,7 @@ index 94d4cf5..3889805 100644
  	if (NULL != lpBytesReturned)
  		*lpBytesReturned = scControlStruct.dwBytesReturned;
  
-@@ -2519,6 +2762,7 @@ static LONG SCardGetSetAttrib(SCARDHANDLE hCard, int command, DWORD dwAttrId,
+@@ -2519,6 +2783,7 @@ static LONG SCardGetSetAttrib(SCARDHANDLE hCard, int command, DWORD dwAttrId,
  		/* we can get up to the communication buffer size */
  		scGetSetStruct.cbAttrLen = sizeof scGetSetStruct.pbAttr;
  
@@ -553,7 +563,7 @@ index 94d4cf5..3889805 100644
  	rv = MessageSendWithHeader(command, currentContextMap->dwClientID,
  		sizeof(scGetSetStruct), &scGetSetStruct);
  
-@@ -2533,6 +2777,38 @@ static LONG SCardGetSetAttrib(SCARDHANDLE hCard, int command, DWORD dwAttrId,
+@@ -2533,6 +2798,38 @@ static LONG SCardGetSetAttrib(SCARDHANDLE hCard, int command, DWORD dwAttrId,
  
  	if (rv != SCARD_S_SUCCESS)
  		goto end;
@@ -592,7 +602,7 @@ index 94d4cf5..3889805 100644
  
  	if ((SCARD_S_SUCCESS == scGetSetStruct.rv) && (SCARD_GET_ATTRIB == command))
  	{
-@@ -2679,6 +2955,7 @@ retry:
+@@ -2679,6 +2976,7 @@ retry:
  		scTransmitStruct.ioRecvPciLength = sizeof(SCARD_IO_REQUEST);
  	}
  
@@ -600,7 +610,7 @@ index 94d4cf5..3889805 100644
  	rv = MessageSendWithHeader(SCARD_TRANSMIT, currentContextMap->dwClientID,
  		sizeof(scTransmitStruct), (void *) &scTransmitStruct);
  
-@@ -2700,16 +2977,51 @@ retry:
+@@ -2700,16 +2998,51 @@ retry:
  
  	if (rv != SCARD_S_SUCCESS)
  		goto end;
@@ -653,7 +663,7 @@ index 94d4cf5..3889805 100644
  		if (pioRecvPci)
  		{
  			pioRecvPci->dwProtocol = scTransmitStruct.ioRecvPciProtocol;
-@@ -3070,7 +3382,9 @@ LONG SCardCancel(SCARDCONTEXT hContext)
+@@ -3070,7 +3403,9 @@ LONG SCardCancel(SCARDCONTEXT hContext)
  {
  	SCONTEXTMAP * currentContextMap;
  	LONG rv = SCARD_S_SUCCESS;
@@ -663,7 +673,7 @@ index 94d4cf5..3889805 100644
  	struct cancel_struct scCancelStruct;
  
  	PROFILE_START
-@@ -3092,16 +3406,18 @@ LONG SCardCancel(SCARDCONTEXT hContext)
+@@ -3092,16 +3427,18 @@ LONG SCardCancel(SCARDCONTEXT hContext)
  		goto error;
  	}
  
@@ -683,7 +693,7 @@ index 94d4cf5..3889805 100644
  	rv = MessageSendWithHeader(SCARD_CANCEL, dwClientID,
  		sizeof(scCancelStruct), (void *) &scCancelStruct);
  
-@@ -3115,11 +3431,29 @@ LONG SCardCancel(SCARDCONTEXT hContext)
+@@ -3115,11 +3452,29 @@ LONG SCardCancel(SCARDCONTEXT hContext)
  
  	if (rv != SCARD_S_SUCCESS)
  		goto end;
@@ -714,7 +724,7 @@ index 94d4cf5..3889805 100644
  error:
  	PROFILE_END(rv)
  	API_TRACE_OUT("")
-@@ -3314,7 +3648,12 @@ static LONG SCardCleanContext(SCONTEXTMAP * targetContextMap)
+@@ -3314,7 +3669,12 @@ static LONG SCardCleanContext(SCONTEXTMAP * targetContextMap)
  	CHANNEL_MAP * currentChannelMap;
  
  	targetContextMap->hContext = 0;
@@ -727,7 +737,7 @@ index 94d4cf5..3889805 100644
  	targetContextMap->dwClientID = 0;
  	(void)pthread_mutex_destroy(&targetContextMap->mMutex);
  
-@@ -3490,6 +3829,7 @@ LONG SCardCheckDaemonAvailability(void)
+@@ -3490,6 +3850,7 @@ LONG SCardCheckDaemonAvailability(void)
  
  static LONG getReaderStates(SCONTEXTMAP * currentContextMap)
  {
@@ -735,7 +745,7 @@ index 94d4cf5..3889805 100644
  	int32_t dwClientID = currentContextMap->dwClientID;
  	LONG rv;
  
-@@ -3501,7 +3841,11 @@ static LONG getReaderStates(SCONTEXTMAP * currentContextMap)
+@@ -3501,7 +3862,11 @@ static LONG getReaderStates(SCONTEXTMAP * currentContextMap)
  	rv = MessageReceive(&readerStates, sizeof(readerStates), dwClientID);
  	if (rv != SCARD_S_SUCCESS)
  		return rv;
