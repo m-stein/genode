@@ -22,7 +22,10 @@
 
 Genode::Output &Genode::Raw::_output()
 {
-	struct Write_fn { void operator () (char const *s) { raw_write_string(s); } };
+	struct Write_fn
+	{
+		void operator () (char const *s) { Genode::raw_write_string(s); }
+	};
 
 	typedef Buffered_output<256, Write_fn> Buffered_raw_output;
 

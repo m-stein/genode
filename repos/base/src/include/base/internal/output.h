@@ -14,7 +14,7 @@
 #ifndef _INCLUDE__BASE__INTERNAL__OUTPUT_H_
 #define _INCLUDE__BASE__INTERNAL__OUTPUT_H_
 
-
+/* Genode includes */
 #include <base/output.h>
 
 
