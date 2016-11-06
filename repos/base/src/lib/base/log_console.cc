@@ -26,10 +26,12 @@ class Log_console : public Console
 
 		enum { _BUF_SIZE = Log_session::MAX_STRING_LEN };
 
-		Log_connection _log;
-		char           _buf[_BUF_SIZE];
-		unsigned       _num_chars;
-		Lock           _lock;
+		Session_capability _log_cap { env()->parent()->session_cap(Parent::Env::log()) };
+		Log_session_client _log { reinterpret_cap_cast<Log_session>(_log_cap) };
+
+		char     _buf[_BUF_SIZE];
+		unsigned _num_chars;
+		Lock     _lock;
 
 		void _flush()
 		{

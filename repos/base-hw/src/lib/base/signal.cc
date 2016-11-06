@@ -21,6 +21,7 @@
 /* base-internal includes */
 #include <base/internal/native_utcb.h>
 #include <base/internal/capability_space.h>
+#include <base/internal/globals.h>
 
 using namespace Genode;
 
@@ -68,7 +69,7 @@ Signal_receiver::Signal_receiver()
 		},
 		[&] () {
 			log("upgrading quota donation for PD session");
-			env()->parent()->upgrade(env()->pd_session_cap(), "ram_quota=8K");
+			internal_env().upgrade(Parent::Env::pd(), "ram_quota=8K");
 		}
 	);
 }
@@ -106,7 +107,7 @@ Signal_context_capability Signal_receiver::manage(Signal_context * const c)
 		},
 		[&] () {
 			log("upgrading quota donation for PD session");
-			env()->parent()->upgrade(env()->pd_session_cap(), "ram_quota=8K");
+			internal_env().upgrade(Parent::Env::pd(), "ram_quota=8K");
 		}
 	);
 
