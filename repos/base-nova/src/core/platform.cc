@@ -404,10 +404,27 @@ Platform::Platform() :
 	_core_mem_alloc.virt_alloc()->add_range(virt_beg, virt_end - virt_beg);
 
 	/* exclude core image from core's virtual address allocator */
-	addr_t core_virt_beg = trunc_page((addr_t)&_prog_img_beg);
-	addr_t core_virt_end = round_page((addr_t)&_prog_img_end);
-	size_t core_size     = core_virt_end - core_virt_beg;
+	addr_t const core_virt_beg = trunc_page((addr_t)&_prog_img_beg);
+	addr_t const core_virt_end = round_page((addr_t)&_prog_img_end);
+	addr_t const binaries_beg  = trunc_page((addr_t)&_boot_modules_binaries_begin);
+	addr_t const binaries_end  = round_page((addr_t)&_boot_modules_binaries_end);
+
+	size_t const core_size     = binaries_beg - core_virt_beg;
 	region_alloc()->remove_range(core_virt_beg, core_size);
+
+	if (verbose_boot_info || binaries_end != core_virt_end) {
+		log("core     image  ",
+		    Hex_range<addr_t>(core_virt_beg, core_virt_end - core_virt_beg));
+		log("binaries region ",
+		    Hex_range<addr_t>(binaries_beg,  binaries_end - binaries_beg),
+		    " free for reuse");
+	}
+	if (binaries_end != core_virt_end)
+		nova_die();
+
+	/* ROM modules are un-used by core - de-detach region */
+	addr_t const binaries_size  = binaries_end - binaries_beg;
+	unmap_local(__main_thread_utcb, binaries_beg, binaries_size >> 12);
 
 	/* preserve Bios Data Area (BDA) in core's virtual address space */
 	region_alloc()->remove_range(BDA_VIRT_ADDR, 0x1000);
