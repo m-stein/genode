@@ -120,3 +120,5 @@ append_platform_drv_boot_modules
 build_boot_image $boot_modules
 
 run_genode_until { Response: 62 0A 82 01 38 83 02 3F 00 8A 01 05 90 00} 30
+
+exec rm bin/Info.plist
