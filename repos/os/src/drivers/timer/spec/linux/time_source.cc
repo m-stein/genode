@@ -11,15 +11,16 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-/* Linux syscall bindings */
-#include <linux_syscalls.h>
-
-/* local includes */
-#include "timer_session_component.h"
-
 /* Linux includes */
 #include <linux_syscalls.h>
 #include <sys/time.h>
+
+/* local includes */
+#include <time_source.h>
+
+using namespace Timer;
+using Microseconds = Time_source::Microseconds;
+
 
 inline int lx_gettimeofday(struct timeval *tv, struct timeval *tz)
 {
@@ -27,14 +28,14 @@ inline int lx_gettimeofday(struct timeval *tv, struct timeval *tz)
 }
 
 
-unsigned long Platform_timer::max_timeout()
+Microseconds Time_source::max_timeout() const
 {
 	Genode::Lock::Guard lock_guard(_lock);
 	return 1000*1000;
 }
 
 
-unsigned long Platform_timer::curr_time() const
+Microseconds Time_source::curr_time() const
 {
 	struct timeval tv;
 	lx_gettimeofday(&tv, 0);
@@ -42,7 +43,7 @@ unsigned long Platform_timer::curr_time() const
 }
 
 
-void Platform_timer::_usleep(unsigned long usecs)
+void Time_source::_usleep(unsigned long usecs)
 {
 	struct timespec ts;
 	ts.tv_sec  =  usecs / (1000*1000);

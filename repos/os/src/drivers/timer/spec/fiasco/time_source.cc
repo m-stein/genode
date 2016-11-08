@@ -14,7 +14,6 @@
 
 /* Genode includes */
 #include <util/misc_math.h>
-#include <base/printf.h>
 #include <os/attached_rom_dataspace.h>
 
 /* Fiasco includes */
@@ -36,10 +35,11 @@ namespace Fiasco {
 #endif /* L4_SYS_KIP_H__ */
 
 /* local includes */
-#include "timer_session_component.h"
+#include <time_source.h>
 
 using namespace Fiasco;
-
+using namespace Timer;
+using Microseconds = Genode::Time_source::Microseconds;
 
 static l4_timeout_s mus_to_timeout(unsigned long mus)
 {
@@ -56,7 +56,7 @@ static l4_timeout_s mus_to_timeout(unsigned long mus)
 
 	/* check corner case */
 	if ((e > 31 ) || (m > 1023)) {
-		PWRN("invalid timeout %ld, using max. values\n", mus);
+		Genode::warning("invalid timeout ", mus, ", using max. values");
 		e = 0;
 		m = 1023;
 	}
@@ -65,7 +65,7 @@ static l4_timeout_s mus_to_timeout(unsigned long mus)
 }
 
 
-unsigned long Platform_timer::max_timeout()
+Microseconds Time_source::max_timeout() const
 {
 	Genode::Lock::Guard lock_guard(_lock);
 
@@ -73,7 +73,7 @@ unsigned long Platform_timer::max_timeout()
 }
 
 
-unsigned long Platform_timer::curr_time() const
+Microseconds Time_source::curr_time() const
 {
 	Genode::Lock::Guard lock_guard(_lock);
 
@@ -85,7 +85,7 @@ unsigned long Platform_timer::curr_time() const
 }
 
 
-void Platform_timer::_usleep(unsigned long usecs)
+void Time_source::_usleep(unsigned long usecs)
 {
 	l4_ipc_sleep(l4_timeout(L4_IPC_TIMEOUT_NEVER, mus_to_timeout(usecs)));
 }
