@@ -146,7 +146,7 @@ namespace Nova {
 			return cpu_num;
 		}
 
-		Cpu_desc const * const cpu_desc_of_cpu(unsigned i) const {
+		Cpu_desc const * cpu_desc_of_cpu(unsigned i) const {
 			if (i >= cpu_max())
 				return nullptr;
 

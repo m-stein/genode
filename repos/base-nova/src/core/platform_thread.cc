@@ -82,7 +82,7 @@ int Platform_thread::start(void *ip, void *sp)
 
 		uint8_t res;
 		do {
-			unsigned const kernel_cpu_id = Platform::kernel_cpu_id(_location.xpos());
+			unsigned const kernel_cpu_id = platform_specific()->kernel_cpu_id(_location.xpos());
 			res = create_ec(_sel_ec(), _pd->pd_sel(), kernel_cpu_id,
 			                utcb, initial_sp, _sel_exc_base, !worker());
 			if (res == Nova::NOVA_PD_OOM && Nova::NOVA_OK != _pager->handle_oom()) {
@@ -148,7 +148,7 @@ int Platform_thread::start(void *ip, void *sp)
 	/* create first thread in task */
 	enum { THREAD_GLOBAL = true };
 	res = create_ec(_sel_ec(), pd_sel,
-	                Platform::kernel_cpu_id(_location.xpos()), pd_utcb, 0, 0,
+	                platform_specific()->kernel_cpu_id(_location.xpos()), pd_utcb, 0, 0,
 	                THREAD_GLOBAL);
 	if (res != NOVA_OK) {
 		error("create_ec returned ", res);

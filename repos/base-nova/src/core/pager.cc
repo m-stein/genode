@@ -511,7 +511,7 @@ void Exception_handlers::register_handler(Pager_object *obj, Mtd mtd,
                                           void (* __attribute__((regparm(1))) func)(addr_t))
 {
 	unsigned const genode_cpu_id = obj->location().xpos();
-	unsigned const kernel_cpu_id = Platform::kernel_cpu_id(genode_cpu_id);
+	unsigned const kernel_cpu_id = platform_specific()->kernel_cpu_id(genode_cpu_id);
 
 	if (!kernel_hip()->is_cpu_enabled(kernel_cpu_id) ||
 	    !pager_threads[genode_cpu_id]) {
@@ -607,14 +607,14 @@ Pager_object::Pager_object(Cpu_session_capability cpu_session_cap,
 
 	/* place Pager_object on specified CPU by selecting proper pager thread */
 	unsigned const genode_cpu_id = location.xpos();
-	unsigned const kernel_cpu_id = Platform::kernel_cpu_id(genode_cpu_id);
+	unsigned const kernel_cpu_id = platform_specific()->kernel_cpu_id(genode_cpu_id);
 	if (!kernel_hip()->is_cpu_enabled(kernel_cpu_id) ||
 	    !pager_threads[genode_cpu_id]) {
 		warning("invalid CPU parameter used in pager object");
 		throw Region_map::Invalid_thread();
 	}
 
-	addr_t ec_sel    = pager_threads[genode_cpu_id]->native_thread().ec_sel;
+	addr_t ec_sel = pager_threads[genode_cpu_id]->native_thread().ec_sel;
 
 	/* create portal for page-fault handler - 14 */
 	_exceptions.register_handler<14>(this, Mtd::QUAL | Mtd::EIP,
@@ -876,7 +876,7 @@ addr_t Pager_object::get_oom_portal()
 {
 	addr_t   const pt_oom        = sel_oom_portal();
 	unsigned const genode_cpu_id = _location.xpos();
-	unsigned const kernel_cpu_id = Platform::kernel_cpu_id(genode_cpu_id);
+	unsigned const kernel_cpu_id = platform_specific()->kernel_cpu_id(genode_cpu_id);
 
 	if (kernel_hip()->is_cpu_enabled(kernel_cpu_id) &&
 	    pager_threads[genode_cpu_id]) {
@@ -947,7 +947,7 @@ Pager_entrypoint::Pager_entrypoint(Rpc_cap_factory &cap_factory)
 	Pager * pager_of_cpu = reinterpret_cast<Pager *>(&pager_activation_mem);
 
 	for (unsigned i = 0; i < kernel_hip()->cpus(); i++, pager_of_cpu++) {
-		unsigned const kernel_cpu_id = Platform::kernel_cpu_id(i);
+		unsigned const kernel_cpu_id = platform_specific()->kernel_cpu_id(i);
 		if (!kernel_hip()->is_cpu_enabled(kernel_cpu_id))
 			continue;
 
@@ -962,7 +962,7 @@ Pager_capability Pager_entrypoint::manage(Pager_object *obj)
 {
 	/* let handle pager_object of pager thread on same CPU */
 	unsigned const genode_cpu_id = obj->location().xpos();
-	unsigned const kernel_cpu_id = Platform::kernel_cpu_id(genode_cpu_id);
+	unsigned const kernel_cpu_id = platform_specific()->kernel_cpu_id(genode_cpu_id);
 	if (!kernel_hip()->is_cpu_enabled(kernel_cpu_id) ||
 	    !pager_threads[genode_cpu_id]) {
 		warning("invalid CPU parameter used in pager object");

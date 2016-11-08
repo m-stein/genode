@@ -64,11 +64,6 @@ Utcb *__main_thread_utcb;
 extern unsigned _prog_img_beg, _prog_img_end;
 
 /**
- * Translation map of genode cpu ids to kernel cpu ids
- */
-uint8_t Platform::map_cpu_ids[MAX_SUPPORTED_CPUS];
-
-/**
  *  Capability selector of root PD
  */
 addr_t __core_pd_sel;

@@ -103,7 +103,7 @@ void Thread::start()
 
 	/* create local EC */
 	enum { LOCAL_THREAD = false };
-	unsigned const kernel_cpu_id = Platform::kernel_cpu_id(location.xpos());
+	unsigned const kernel_cpu_id = platform_specific()->kernel_cpu_id(location.xpos());
 	uint8_t res = create_ec(native_thread().ec_sel, pd_sel, kernel_cpu_id,
 	                        utcb, sp, native_thread().exc_pt_sel, LOCAL_THREAD);
 	if (res != NOVA_OK) {
