@@ -79,6 +79,7 @@ namespace Genode {
 			addr_t  _pd_core;
 			addr_t  _fault_ip;
 			addr_t  _fault_addr;
+			addr_t  _sp;
 			uint8_t _fault_type;
 			uint8_t _syscall_res;
 
@@ -134,7 +135,22 @@ namespace Genode {
 				return false;
 			}
 
+			/**
+			 * Return result of delegate syscall
+			 */
 			uint8_t syscall_result() const { return _syscall_res; }
+
+			/**
+			 * Return low level fault type info
+			 * Intel manual: 6.15 EXCEPTION AND INTERRUPT REFERENCE
+			 *                    Interrupt 14—Page-Fault Exception (#PF)
+			 */
+			addr_t fault_type() { return _fault_type; }
+
+			/**
+			 * Return stack pointer address valid during page-fault
+			 */
+			addr_t sp() { return _sp; }
 	};
 }
 

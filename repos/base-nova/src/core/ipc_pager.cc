@@ -29,7 +29,9 @@ Ipc_pager::Ipc_pager(Nova::Utcb * utcb, addr_t pd_dst, addr_t pd_core)
 	_pd_core(pd_core),
 	_fault_ip(utcb->ip),
 	_fault_addr(utcb->qual[1]),
-	_fault_type(utcb->qual[0])
+	_sp(utcb->sp),
+	_fault_type(utcb->qual[0]),
+	_syscall_res(Nova::NOVA_OK)
 {
 	/*
 	 * When this function is called from the page-fault handler EC, a page

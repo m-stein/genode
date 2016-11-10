@@ -78,11 +78,13 @@ struct Page_fault_info
 	char const * const pd;
 	char const * const thread;
 	unsigned const cpu;
-	addr_t const ip, addr;
+	addr_t const ip, addr, sp;
+	uint8_t const pf_type;
 
 	Page_fault_info(char const *pd, char const *thread, unsigned cpu,
-	                addr_t ip, addr_t addr)
-	: pd(pd), thread(thread), cpu(cpu), ip(ip), addr(addr) { }
+	                addr_t ip, addr_t addr, addr_t sp, unsigned type)
+	: pd(pd), thread(thread), cpu(cpu), ip(ip), addr(addr),
+	  sp(sp), pf_type(type) { }
 
 	void print(Genode::Output &out) const
 	{
@@ -90,7 +92,14 @@ struct Page_fault_info
 		                   "thread='", thread,  "' "
 		                   "cpu=",     cpu,     " "
 		                   "ip=",      Hex(ip), " "
-		                   "address=", Hex(addr));
+		                   "address=", Hex(addr), " "
+		                   "stack pointer=", Hex(sp), " "
+		                   "qualifiers=", Hex(pf_type), " ",
+		                   pf_type & Ipc_pager::ERR_I ? "I" : "i",
+		                   pf_type & Ipc_pager::ERR_R ? "R" : "r",
+		                   pf_type & Ipc_pager::ERR_U ? "U" : "u",
+		                   pf_type & Ipc_pager::ERR_W ? "W" : "w",
+		                   pf_type & Ipc_pager::ERR_P ? "P" : "p");
 	}
 };
 
@@ -150,7 +159,9 @@ void Pager_object::_page_fault_handler(addr_t pager_obj)
 	Page_fault_info const fault_info(client_pd, client_thread,
 	                                 which_cpu(pager_thread),
 	                                 ipc_pager.fault_ip(),
-	                                 ipc_pager.fault_addr());
+	                                 ipc_pager.fault_addr(),
+	                                 ipc_pager.sp(),
+	                                 ipc_pager.fault_type());
 
 	/* region manager fault - to be handled */
 	log("page fault, ", fault_info, " reason=", error);
