@@ -23,17 +23,19 @@
 
 using namespace Genode;
 
-void Ipc_pager::wait_for_fault()
+Ipc_pager::Ipc_pager(Nova::Utcb * utcb, addr_t pd_dst, addr_t pd_core)
+:
+	_pd_dst(pd_dst),
+	_pd_core(pd_core),
+	_fault_ip(utcb->ip),
+	_fault_addr(utcb->qual[1]),
+	_fault_type(utcb->qual[0])
 {
 	/*
 	 * When this function is called from the page-fault handler EC, a page
 	 * fault already occurred. So we never wait but immediately read the
 	 * page-fault information from our UTCB.
 	 */
-	Nova::Utcb *utcb = (Nova::Utcb *)Thread::myself()->utcb();
-	_fault_type = utcb->qual[0];
-	_fault_addr = utcb->qual[1];
-	_fault_ip   = utcb->ip;
 }
 
 
@@ -45,10 +47,22 @@ void Ipc_pager::set_reply_mapping(Mapping m)
 	                             false, m.dma(), m.write_combined());
 	/* one item ever fits on the UTCB */
 	(void)res;
+
+	/* receive window in destination pd */
+	Nova::Mem_crd crd_mem(0, ~0U, Nova::Rights(true, true, true));
+	/* asynchronously map memory */
+	_syscall_res = Nova::delegate(_pd_core, _pd_dst, crd_mem);
 }
 
 
-void Ipc_pager::reply_and_wait_for_fault(unsigned sm)
+void Ipc_pager::reply_and_wait_for_fault(addr_t sm)
 {
-	Nova::reply(Thread::myself()->stack_top(), sm);
+	Thread * myself = Thread::myself();
+	Nova::Utcb * utcb = reinterpret_cast<Nova::Utcb *>(myself->utcb());
+
+	/* nothing left to be delegated - it is done asynchronously beforehand */
+	utcb->set_msg_word(0);
+	utcb->mtd = 0;
+
+	Nova::reply(myself->stack_top(), sm);
 }

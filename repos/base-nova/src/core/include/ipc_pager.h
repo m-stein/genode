@@ -75,11 +75,16 @@ namespace Genode {
 	{
 		private:
 
+			addr_t  _pd_dst;
+			addr_t  _pd_core;
 			addr_t  _fault_ip;
 			addr_t  _fault_addr;
 			uint8_t _fault_type;
+			uint8_t _syscall_res;
 
 		public:
+
+			Ipc_pager (Nova::Utcb *, addr_t pd_dst, addr_t pd_core);
 
 			/*
 			 * Intel manual: 6.15 EXCEPTION AND INTERRUPT REFERENCE
@@ -94,17 +99,9 @@ namespace Genode {
 			};
 
 			/**
-			 * Wait for page-fault info
-			 *
-			 * After returning from this call, 'fault_ip' and 'fault_addr'
-			 * have a defined state.
-			 */
-			void wait_for_fault();
-
-			/**
 			 * Answer current page fault
 			 */
-			void reply_and_wait_for_fault(unsigned sm = 0);
+			void reply_and_wait_for_fault(addr_t sm = 0UL);
 
 			/**
 			 * Request instruction pointer of current fault
@@ -136,6 +133,8 @@ namespace Genode {
 				 */
 				return false;
 			}
+
+			uint8_t syscall_result() const { return _syscall_res; }
 	};
 }
 
