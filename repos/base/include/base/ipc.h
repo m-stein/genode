@@ -66,14 +66,14 @@ class Genode::Ipc_unmarshaller : Noncopyable
 		template <typename IT>
 		void extract(Capability<IT> &typed_cap)
 		{
-			typed_cap = extract( Meta::Overload_selector< Capability<IT> >() );
+			typed_cap = extract(Meta::Overload_selector<Capability<IT> >());
 		}
 
-		template< typename IT>
-		Capability<IT> extract( Meta::Overload_selector< Capability<IT> > )
+		template<typename IT>
+		Capability<IT> extract(Meta::Overload_selector<Capability<IT> >)
 		{
-			Native_capability untyped_cap = extract(
-					Meta::Overload_selector<Native_capability>() );
+			Native_capability untyped_cap =
+				extract(Meta::Overload_selector<Native_capability>());
 			return reinterpret_cap_cast<IT>(untyped_cap);
 		}
 
@@ -82,13 +82,13 @@ class Genode::Ipc_unmarshaller : Noncopyable
 		 */
 		void extract(Native_capability &cap)
 		{
-			cap = extract( Meta::Overload_selector<Native_capability>() );
+			cap = extract(Meta::Overload_selector<Native_capability>());
 		}
 
-		Native_capability extract( Meta::Overload_selector<Native_capability> )
+		Native_capability extract(Meta::Overload_selector<Native_capability>)
 		{
 			Native_capability cap = _read_cap_index < _rcv_msg.used_caps()
-			    ? _rcv_msg.cap(_read_cap_index) : Native_capability();
+			                      ? _rcv_msg.cap(_read_cap_index) : Native_capability();
 			_read_cap_index++;
 			return cap;
 		}
@@ -106,25 +106,23 @@ class Genode::Ipc_unmarshaller : Noncopyable
 			 *
 			 * Note: The addr of the Rpc_in_buffer_base is a null pointer when this
 			 *       condition triggers.
-			 *
-			 * This solution does not look cool
 			 */
 			try {
-				b = extract( Meta::Overload_selector<Rpc_in_buffer<SIZE> >() );
-			} catch ( Ipc_error ) {}
+				b = extract(Meta::Overload_selector<Rpc_in_buffer<SIZE> >());
+			} catch (Ipc_error) { }
 		}
 
-		template< size_t SIZE >
-		Rpc_in_buffer<SIZE> extract( Meta::Overload_selector<Rpc_in_buffer<SIZE> > )
+		template<size_t SIZE>
+		Rpc_in_buffer<SIZE> extract(Meta::Overload_selector<Rpc_in_buffer<SIZE> >)
 		{
-			size_t size = extract( Meta::Overload_selector<size_t>() );
+			size_t size = extract(Meta::Overload_selector<size_t>());
 			if (_read_offset + size > _rcv_buf_size) {
 				error("message buffer overrun");
 				throw Ipc_error();
 			}
 
-			Rpc_in_buffer<SIZE> buf( &_rcv_buf[_read_offset], size );
-			_read_offset += align_natural( size );
+			Rpc_in_buffer<SIZE> buf(&_rcv_buf[_read_offset], size);
+			_read_offset += align_natural(size);
 			return buf;
 		}
 
@@ -134,11 +132,11 @@ class Genode::Ipc_unmarshaller : Noncopyable
 		template <typename T>
 		void extract(T &value)
 		{
-			value = extract( Meta::Overload_selector<T>() );
+			value = extract(Meta::Overload_selector<T>());
 		}
 
 		template <typename T>
-		T extract( Meta::Overload_selector<T> )
+		T extract(Meta::Overload_selector<T>)
 		{
 			/* check receive buffer range */
 			if (_read_offset + sizeof(T) > _rcv_buf_size) throw Ipc_error();

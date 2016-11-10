@@ -63,41 +63,41 @@ class Genode::Rpc_dispatcher : public RPC_INTERFACE
 	protected:
 
 		template <typename ARG_LIST>
-		ARG_LIST _read_args( Ipc_unmarshaller &msg,
-		                     Meta::Overload_selector<ARG_LIST> )
+		ARG_LIST _read_args(Ipc_unmarshaller &msg,
+		                    Meta::Overload_selector<ARG_LIST>)
 		{
 			typename Trait::Rpc_direction<typename ARG_LIST::Head>::Type direction;
 			typedef typename ARG_LIST::Stored_head Arg;
-			Arg arg = _read_arg<Arg>( msg, direction );
+			Arg arg = _read_arg<Arg>(msg, direction);
 
 			Meta::Overload_selector<typename ARG_LIST::Tail> tail_selector;
-			typename ARG_LIST::Tail subsequent_args = _read_args( msg,
-			                                                      tail_selector );
+			typename ARG_LIST::Tail subsequent_args = _read_args(msg,
+			                                                     tail_selector);
 
 			ARG_LIST args { arg, subsequent_args };
 			return args;
 		}
 
-		Meta::Empty _read_args( Ipc_unmarshaller &msg,
-		                        Meta::Overload_selector<Meta::Empty> )
+		Meta::Empty _read_args(Ipc_unmarshaller &msg,
+		                       Meta::Overload_selector<Meta::Empty>)
 		{
 			return Meta::Empty();
 		}
 
 		template <typename ARG>
-		ARG _read_arg( Ipc_unmarshaller &msg, Rpc_arg_in )
+		ARG _read_arg(Ipc_unmarshaller &msg, Rpc_arg_in)
 		{
-			return msg.extract( Meta::Overload_selector<ARG>() );
+			return msg.extract(Meta::Overload_selector<ARG>());
 		}
 
 		template <typename ARG>
-		ARG _read_arg( Ipc_unmarshaller &msg, Rpc_arg_inout )
+		ARG _read_arg(Ipc_unmarshaller &msg, Rpc_arg_inout)
 		{
-			return _read_arg<ARG>( msg, Rpc_arg_in() );
+			return _read_arg<ARG>(msg, Rpc_arg_in());
 		}
 
 		template <typename ARG>
-		ARG _read_arg( Ipc_unmarshaller &msg, Rpc_arg_out )
+		ARG _read_arg(Ipc_unmarshaller &msg, Rpc_arg_out)
 		{
 			return ARG();
 		}
@@ -115,8 +115,8 @@ class Genode::Rpc_dispatcher : public RPC_INTERFACE
 
 		template <typename RPC_FUNCTION, typename EXC_TL>
 		typename RPC_FUNCTION::Ret_type
-		_do_serve( typename RPC_FUNCTION::Server_args &args,
-		           Meta::Overload_selector<RPC_FUNCTION, EXC_TL> )
+		_do_serve(typename RPC_FUNCTION::Server_args &args,
+		           Meta::Overload_selector<RPC_FUNCTION, EXC_TL>)
 		{
 			enum { EXCEPTION_CODE = Rpc_exception_code::EXCEPTION_BASE
 			                      - Meta::Length<EXC_TL>::Value };
@@ -136,12 +136,12 @@ class Genode::Rpc_dispatcher : public RPC_INTERFACE
 
 		template <typename RPC_FUNCTION>
 		typename RPC_FUNCTION::Ret_type
-		_do_serve( typename RPC_FUNCTION::Server_args &args,
-		           Meta::Overload_selector<RPC_FUNCTION, Meta::Empty> )
+		_do_serve(typename RPC_FUNCTION::Server_args &args,
+		          Meta::Overload_selector<RPC_FUNCTION, Meta::Empty>)
 		{
 			typedef typename RPC_FUNCTION::Ret_type Ret_type;
-			SERVER *me = static_cast<SERVER *>( this );
-			return RPC_FUNCTION::template serve<SERVER, Ret_type>( *me, args );
+			SERVER *me = static_cast<SERVER *>(this);
+			return RPC_FUNCTION::template serve<SERVER, Ret_type>(*me, args);
 		}
 
 		template <typename RPC_FUNCTIONS_TO_CHECK>
@@ -158,7 +158,7 @@ class Genode::Rpc_dispatcher : public RPC_INTERFACE
 				/* read arguments from incoming message */
 				typedef typename This_rpc_function::Server_args Server_args;
 				Meta::Overload_selector<Server_args> arg_selector;
-				Server_args args = _read_args( in, arg_selector );
+				Server_args args = _read_args(in, arg_selector);
 
 				{
 					Trace::Rpc_dispatch trace_event(This_rpc_function::name());
@@ -171,15 +171,15 @@ class Genode::Rpc_dispatcher : public RPC_INTERFACE
 				 */
 
 				typedef typename This_rpc_function::Ret_type Ret_type;
-				Rpc_exception_code exc( Rpc_exception_code::SUCCESS );
+				Rpc_exception_code exc(Rpc_exception_code::SUCCESS);
 				try {
 					typedef typename This_rpc_function::Exceptions Exceptions;
 					Overload_selector<This_rpc_function, Exceptions> overloader;
-					Ret_type ret = _do_serve( args, overloader );
+					Ret_type ret = _do_serve(args, overloader);
 
 					_write_results(out, args);
-					out.insert( ret );
-				} catch ( Rpc_exception_code thrown ) {
+					out.insert(ret);
+				} catch (Rpc_exception_code thrown) {
 					/**
 					 * Output arguments may be modified although an exception was thrown.
 					 * However, a return value does not exist. So we do not insert one.

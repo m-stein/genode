@@ -293,8 +293,9 @@ namespace Genode {
 		 * Tuple holding raw (plain old) data
 		 *
 		 * Has to be an aggregate type to allow non-default-constructible RPC
-		 * arguments. But aggregate types must not derive from a base class in Cx11.
-		 * So we do not derive from Meta::Type_tuple although it is an empty class.
+		 * arguments. But aggregate types must not derive from a base class in
+		 * C++11. So we do not derive from Meta::Type_tuple although it is an
+		 * empty class.
 		 */
 		template <typename HEAD, typename TAIL>
 		struct Pod_tuple
@@ -460,12 +461,12 @@ namespace Genode {
 		template <typename RET_TYPE, typename SERVER, typename ARGS>
 		static inline RET_TYPE call_member(SERVER &server, ARGS &,
 		                               void (SERVER::*func)())
-		{ (server.*func)(); return Empty();}
+		{ (server.*func)(); return Empty(); }
 
 		template <typename RET_TYPE, typename SERVER, typename ARGS>
 		static inline RET_TYPE call_member(SERVER &server, ARGS &,
 		                               void (SERVER::*func)() const)
-		{ (server.*func)(); return Empty();}
+		{ (server.*func)(); return Empty(); }
 
 		/* 1 */
 		template <typename RET_TYPE, typename SERVER, typename ARGS>
@@ -476,7 +477,7 @@ namespace Genode {
 		template <typename RET_TYPE, typename SERVER, typename ARGS>
 		static inline RET_TYPE call_member(SERVER &server, ARGS &args,
 		                               void (SERVER::*func)(typename Type_at<ARGS, 0>::Type))
-		{ (server.*func)(args.get()); return Empty();}
+		{ (server.*func)(args.get()); return Empty(); }
 
 		/* 2 */
 		template <typename RET_TYPE, typename SERVER, typename ARGS>
@@ -489,7 +490,7 @@ namespace Genode {
 		static inline RET_TYPE call_member(SERVER &server, ARGS &args,
 		                               void (SERVER::*func)(typename Type_at<ARGS, 0>::Type,
 		                                                    typename Type_at<ARGS, 1>::Type))
-		{ (server.*func)(args.get(), args._2.get()); return Empty();}
+		{ (server.*func)(args.get(), args._2.get()); return Empty(); }
 
 		/* 3 */
 		template <typename RET_TYPE, typename SERVER, typename ARGS>
@@ -504,7 +505,7 @@ namespace Genode {
 		                               void (SERVER::*func)(typename Type_at<ARGS, 0>::Type,
 		                                                    typename Type_at<ARGS, 1>::Type,
 		                                                    typename Type_at<ARGS, 2>::Type))
-		{ (server.*func)(args.get(), args._2.get(), args._2._2.get()); return Empty();}
+		{ (server.*func)(args.get(), args._2.get(), args._2._2.get()); return Empty(); }
 
 		/* 4 */
 		template <typename RET_TYPE, typename SERVER, typename ARGS>
@@ -521,7 +522,7 @@ namespace Genode {
 		                                                    typename Type_at<ARGS, 1>::Type,
 		                                                    typename Type_at<ARGS, 2>::Type,
 		                                                    typename Type_at<ARGS, 3>::Type))
-		{ (server.*func)(args.get(), args._2.get(), args._2._2.get(), args._2._2._2.get()); return Empty();}
+		{ (server.*func)(args.get(), args._2.get(), args._2._2.get(), args._2._2._2.get()); return Empty(); }
 
 		/* 5 */
 		template <typename RET_TYPE, typename SERVER, typename ARGS>
@@ -540,7 +541,7 @@ namespace Genode {
 		                                                    typename Type_at<ARGS, 2>::Type,
 		                                                    typename Type_at<ARGS, 3>::Type,
 		                                                    typename Type_at<ARGS, 4>::Type))
-		{ (server.*func)(args.get(), args._2.get(), args._2._2.get(), args._2._2._2.get(), args._2._2._2._2.get()); return Empty();}
+		{ (server.*func)(args.get(), args._2.get(), args._2._2.get(), args._2._2._2.get(), args._2._2._2._2.get()); return Empty(); }
 
 		/* 6 */
 		template <typename RET_TYPE, typename SERVER, typename ARGS>
@@ -563,7 +564,7 @@ namespace Genode {
 		                                                    typename Type_at<ARGS, 4>::Type,
 		                                                    typename Type_at<ARGS, 5>::Type))
 		{ (server.*func)(args.get(), args._2.get(), args._2._2.get(), args._2._2._2.get(),
-		                 args._2._2._2._2.get(), args._2._2._2._2._2.get()); return Empty();}
+		                 args._2._2._2._2.get(), args._2._2._2._2._2.get()); return Empty(); }
 
 		/* 7 */
 		template <typename RET_TYPE, typename SERVER, typename ARGS>
@@ -588,7 +589,7 @@ namespace Genode {
 		                                                    typename Type_at<ARGS, 5>::Type,
 		                                                    typename Type_at<ARGS, 6>::Type))
 		{ (server.*func)(args.get(), args._2.get(), args._2._2.get(), args._2._2._2.get(),
-		                 args._2._2._2._2.get(), args._2._2._2._2._2.get(), args._2._2._2._2._2._2.get()); return Empty();}
+		                 args._2._2._2._2.get(), args._2._2._2._2._2.get(), args._2._2._2._2._2._2.get()); return Empty(); }
 
 
 		/********************

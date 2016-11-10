@@ -115,7 +115,7 @@ class Genode::Capability : public Untyped_capability
 		 * Perform RPC call, arguments passed a as nested 'Ref_tuple' object
 		 */
 		template <typename IF>
-		typename IF::Ret_type _call(typename IF::Client_args &args ) const;
+		typename IF::Ret_type _call(typename IF::Client_args &args) const;
 
 		/**
 		 * Shortcut for querying argument types used in 'call' methods

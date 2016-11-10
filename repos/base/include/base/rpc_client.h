@@ -158,7 +158,7 @@ namespace Genode {
 
 		/* the return value does only exist if no exception was thrown */
 		Meta::Overload_selector<typename IF::Ret_type> ret_overloader;
-		return unmarshaller.extract( ret_overloader );
+		return unmarshaller.extract(ret_overloader);
 	}
 }
 
