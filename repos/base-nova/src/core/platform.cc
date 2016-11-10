@@ -306,8 +306,6 @@ Platform::Platform() :
 	 */
 	init_log();
 
-	error ("Hello");
-
 	/*
 	 * remap main utcb to default utcb address
 	 * we do this that early, because Core_mem_allocator uses
