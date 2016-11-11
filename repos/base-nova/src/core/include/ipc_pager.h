@@ -82,6 +82,7 @@ namespace Genode {
 			addr_t  _sp;
 			uint8_t _fault_type;
 			uint8_t _syscall_res;
+			uint8_t _normal_ipc;
 
 		public:
 

@@ -31,8 +31,11 @@ Ipc_pager::Ipc_pager(Nova::Utcb * utcb, addr_t pd_dst, addr_t pd_core)
 	_fault_addr(utcb->qual[1]),
 	_sp(utcb->sp),
 	_fault_type(utcb->qual[0]),
-	_syscall_res(Nova::NOVA_OK)
+	_syscall_res(Nova::NOVA_OK),
+	_normal_ipc((((addr_t)&utcb->qual[2] - (addr_t)utcb->msg) / sizeof(addr_t))
+	            == utcb->msg_words())
 {
+
 	/*
 	 * When this function is called from the page-fault handler EC, a page
 	 * fault already occurred. So we never wait but immediately read the
@@ -62,9 +65,13 @@ void Ipc_pager::reply_and_wait_for_fault(addr_t sm)
 	Thread * myself = Thread::myself();
 	Nova::Utcb * utcb = reinterpret_cast<Nova::Utcb *>(myself->utcb());
 
-	/* nothing left to be delegated - it is done asynchronously beforehand */
-	utcb->set_msg_word(0);
 	utcb->mtd = 0;
+
+	/*
+	 * If it was a normal IPC and the mapping failed, caller may re-try.
+	 * Otherwise nothing left to be delegated - done asynchronously beforehand.
+	 */
+	utcb->set_msg_word((_normal_ipc && _syscall_res != Nova::NOVA_OK) ? 1 : 0);
 
 	Nova::reply(myself->stack_top(), sm);
 }
