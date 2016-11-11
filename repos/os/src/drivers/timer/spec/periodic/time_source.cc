@@ -1,5 +1,5 @@
 /*
- * \brief  Time source based on spinning usleep
+ * \brief  Time source that uses sleeping by the means of the kernel
  * \author Norman Feske
  * \author Martin Stein
  * \date   2009-06-16

@@ -28,7 +28,7 @@ namespace Timer {
 }
 
 
-class Timer::Threaded_time_source : public    Genode::Time_source,
+class Timer::Threaded_time_source : public Genode::Time_source,
                                     protected Genode::Thread_deprecated<STACK_SIZE>
 {
 	private:
@@ -41,9 +41,8 @@ class Timer::Threaded_time_source : public    Genode::Time_source,
 			GENODE_RPC_INTERFACE(Rpc_do_dispatch);
 		};
 
-		struct Irq_dispatcher_component
-		:
-			Genode::Rpc_object<Irq_dispatcher, Irq_dispatcher_component>
+		struct Irq_dispatcher_component : Genode::Rpc_object<Irq_dispatcher,
+		                                                     Irq_dispatcher_component>
 		{
 				Timeout_handler *handler = nullptr;
 
@@ -79,11 +78,9 @@ class Timer::Threaded_time_source : public    Genode::Time_source,
 
 	public:
 
-		using Thread = Genode::Thread_deprecated<STACK_SIZE>;
-
 		Threaded_time_source(Genode::Entrypoint &ep)
 		:
-			Thread("threaded_time_source"),
+			Thread_deprecated<STACK_SIZE>("threaded_time_source"),
 			_irq_dispatcher_cap(ep.rpc_ep().manage(&_irq_dispatcher_component))
 		{ }
 

@@ -26,8 +26,8 @@
 namespace Timer { class Session_component; }
 
 
-class Timer::Session_component : public  Genode::Rpc_object<Session>,
-                                 public  Genode::List<Session_component>::Element,
+class Timer::Session_component : public Genode::Rpc_object<Session>,
+                                 public Genode::List<Session_component>::Element,
                                  private Genode::Timeout::Handler
 {
 	private:

@@ -19,12 +19,13 @@
 #include <timer.h>
 
 using namespace Genode;
-using Microseconds = Genode::Timer::Microseconds;
 
 
 class Main
 {
 	private:
+
+		using Microseconds = Genode::Timer::Microseconds;
 
 		void _handle(Microseconds now, Cstring name) {
 			log(now.value / 1000, " ms: ", name, " timeout triggered"); }
@@ -46,8 +47,8 @@ class Main
 		Main(Env &env) : _timer_connection(env),
 		                 _timer(_timer_connection, env.ep())
 		{
-			_ot1.trigger(Microseconds(3000000));
-			_ot2.trigger(Microseconds(5000000));
+			_ot1.start(Microseconds(3000000));
+			_ot2.start(Microseconds(5000000));
 		}
 };
 

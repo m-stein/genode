@@ -1,7 +1,8 @@
 /*
- * \brief  Fiasco-specific sleep implementation
+ * \brief  Time source that uses sleeping by the means of the kernel
  * \author Christian Helmuth
  * \author Norman Feske
+ * \author Martin Stein
  * \date   2006-08-30
  */
 

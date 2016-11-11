@@ -1,6 +1,7 @@
 /*
- * \brief  Platform timer based on the Programmable Interval Timer (PIT)
+ * \brief  Time source that uses the Programmable Interval Timer (PIT)
  * \author Norman Feske
+ * \author Martin Stein
  * \date   2009-06-16
  */
 
@@ -95,12 +96,10 @@ Microseconds Timer::Time_source::curr_time() const
 		else
 			passed_ticks = PIT_MAX_COUNT + 1 - curr_counter;
 	}
-
 	_curr_time_us += (passed_ticks*1000)/PIT_TICKS_PER_MSEC;
 
 	/* use current counter as the reference for the next update */
 	_counter_init_value = curr_counter;
-
 	return Microseconds(_curr_time_us);
 }
 

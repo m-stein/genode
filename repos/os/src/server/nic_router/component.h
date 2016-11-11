@@ -84,6 +84,7 @@ class Net::Session_component : public Session_component_base,
 	public:
 
 		Session_component(Genode::Allocator    &alloc,
+		                  Genode::Timer        &timer,
 		                  Genode::size_t const  amount,
 		                  Genode::Ram_session  &buf_ram,
 		                  Genode::size_t const  tx_buf_size,
@@ -108,6 +109,7 @@ class Net::Root : public Genode::Root_component<Session_component>
 {
 	private:
 
+		Genode::Timer       &_timer;
 		Mac_allocator        _mac_alloc;
 		Genode::Entrypoint  &_ep;
 		Mac_address const    _router_mac;
@@ -124,6 +126,7 @@ class Net::Root : public Genode::Root_component<Session_component>
 	public:
 
 		Root(Genode::Entrypoint  &ep,
+		     Genode::Timer       &timer,
 		     Genode::Allocator   &alloc,
 		     Mac_address const   &router_mac,
 		     Configuration       &config,

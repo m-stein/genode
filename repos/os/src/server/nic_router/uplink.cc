@@ -24,12 +24,13 @@ using namespace Genode;
 
 
 Net::Uplink::Uplink(Entrypoint        &ep,
+                    Genode::Timer     &timer,
                     Genode::Allocator &alloc,
                     Configuration     &config)
 :
 	Nic::Packet_allocator(&alloc),
 	Nic::Connection(this, BUF_SIZE, BUF_SIZE),
-	Interface(ep, mac_address(), alloc, Mac_address(),
+	Interface(ep, timer, mac_address(), alloc, Mac_address(),
 	          config.policies().find_by_label(Cstring("uplink")))
 {
 	rx_channel()->sigh_ready_to_ack(_sink_ack);

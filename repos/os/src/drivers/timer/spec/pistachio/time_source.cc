@@ -1,6 +1,7 @@
 /*
- * \brief  Pistachio-specific sleep implementation
+ * \brief  Time source that uses sleeping by the means of the kernel
  * \author Julian Stecklina
+ * \author Martin Stein
  * \date   2008-03-19
  */
 

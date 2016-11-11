@@ -1,6 +1,7 @@
 /*
- * \brief  Linux-specific sleep implementation
+ * \brief  Time source that uses sleeping by the means of the kernel
  * \author Norman Feske
+ * \author Martin Stein
  * \date   2006-08-15
  */
 
@@ -18,6 +19,7 @@
 /* local includes */
 #include <time_source.h>
 
+using namespace Genode;
 using Microseconds = Genode::Time_source::Microseconds;
 
 
@@ -27,7 +29,7 @@ inline int lx_gettimeofday(struct timeval *tv, struct timeval *tz) {
 
 Microseconds Timer::Time_source::max_timeout() const
 {
-	Genode::Lock::Guard lock_guard(_lock);
+	Lock::Guard lock_guard(_lock);
 	return Microseconds(1000 * 1000);
 }
 
@@ -47,5 +49,5 @@ void Timer::Time_source::_usleep(unsigned long us)
 	ts.tv_nsec = (us % (1000 * 1000)) * 1000;
 
 	if (lx_nanosleep(&ts, &ts) != 0)
-		throw Genode::Blocking_canceled();
+		throw Blocking_canceled();
 }

@@ -115,7 +115,7 @@ Link::Link(Interface                           &cln_interface,
            Pointer<Port_allocator_guard> const  srv_port_alloc,
            Interface                           &srv_interface,
            Link_side_id                  const &srv_id,
-           Entrypoint                          &ep,
+           Genode::Timer                       &timer,
            Configuration                       &config,
            uint8_t                       const  protocol)
 :
@@ -123,16 +123,15 @@ Link::Link(Interface                           &cln_interface,
 	_client(cln_interface, cln_id, *this),
 	_server_port_alloc(srv_port_alloc),
 	_server(srv_interface, srv_id, *this),
-	_close_timeout(ep, *this, &Link::_close_timeout_handle),
+	_close_timeout(timer, *this, &Link::_handle_close_timeout),
 	_close_timeout_us(_config.rtt_sec() * 2 * 1000 * 1000),
 	_protocol(protocol)
 {
-	_timer.sigh(_close_timeout);
-	_timer.trigger_once(_close_timeout_us);
+	_close_timeout.start(_close_timeout_us);
 }
 
 
-void Link::_close_timeout_handle()
+void Link::_handle_close_timeout(Genode::Timer::Microseconds)
 {
 	dissolve();
 	_client._interface.link_closed(*this, _protocol);
@@ -160,7 +159,7 @@ void Link::dissolve()
 
 void Link::_packet()
 {
-	_timer.trigger_once(_close_timeout_us);
+	_close_timeout.start(_close_timeout_us);
 }
 
 
@@ -173,11 +172,11 @@ Tcp_link::Tcp_link(Interface                           &cln_interface,
                    Pointer<Port_allocator_guard> const  srv_port_alloc,
                    Interface                           &srv_interface,
                    Link_side_id                  const &srv_id,
-                   Entrypoint                          &ep,
+                   Genode::Timer                       &timer,
                    Configuration                       &config,
                    uint8_t                       const  protocol)
 :
-	Link(cln_interface, cln_id, srv_port_alloc, srv_interface, srv_id, ep,
+	Link(cln_interface, cln_id, srv_port_alloc, srv_interface, srv_id, timer,
 	     config, protocol)
 { }
 
@@ -185,7 +184,7 @@ Tcp_link::Tcp_link(Interface                           &cln_interface,
 void Tcp_link::_fin_acked()
 {
 	if (_server_fin_acked && _client_fin_acked) {
-		_timer.trigger_once(_close_timeout_us);
+		_close_timeout.start(_close_timeout_us);
 		_closed = true;
 	}
 }
@@ -234,10 +233,10 @@ Udp_link::Udp_link(Interface                           &cln_interface,
                    Pointer<Port_allocator_guard> const  srv_port_alloc,
                    Interface                           &srv_interface,
                    Link_side_id                  const &srv_id,
-                   Entrypoint                          &ep,
+                   Genode::Timer                       &timer,
                    Configuration                       &config,
                    uint8_t                       const  protocol)
 :
-	Link(cln_interface, cln_id, srv_port_alloc, srv_interface, srv_id, ep,
+	Link(cln_interface, cln_id, srv_port_alloc, srv_interface, srv_id, timer,
 	     config, protocol)
 { }

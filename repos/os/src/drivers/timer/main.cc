@@ -1,5 +1,5 @@
 /*
- * \brief  Timer service
+ * \brief  Provides the Timer service to multiple clients
  * \author Norman Feske
  * \author Martin Stein
  * \date   2006-08-15
@@ -31,9 +31,8 @@ class Main
 
 	public:
 
-		Main(Env &env)
-		:
-			_sliced_heap(env.ram(), env.rm()), _root(env.ep(), _sliced_heap)
+		Main(Env &env) : _sliced_heap(env.ram(), env.rm()),
+		                 _root(env.ep(), _sliced_heap)
 		{
 			env.parent().announce(env.ep().manage(_root));
 		}

@@ -1,6 +1,7 @@
 /*
- * \brief  Platform timer based on the Programmable Interval Timer (PIT)
+ * \brief  Time source that uses the Programmable Interval Timer (PIT)
  * \author Norman Feske
+ * \author Martin Stein
  * \date   2009-06-16
  */
 

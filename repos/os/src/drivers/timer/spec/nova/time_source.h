@@ -1,6 +1,7 @@
 /*
- * \brief  Platform timer using Nova timed semaphore down
+ * \brief  Time source using Nova timed semaphore down
  * \author Alexander Boettcher
+ * \author Martin Stein
  * \date   2014-06-24
  */
 

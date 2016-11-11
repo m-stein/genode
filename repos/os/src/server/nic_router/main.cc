@@ -16,11 +16,13 @@
 #include <base/heap.h>
 #include <os/config.h>
 #include <nic/xml_node.h>
+#include <timer_session/connection.h>
 
 /* local includes */
 #include <component.h>
 #include <uplink.h>
 #include <configuration.h>
+#include <timer.h>
 
 using namespace Net;
 using namespace Genode;
@@ -30,10 +32,12 @@ class Main
 {
 	private:
 
-		Genode::Heap  _heap;
-		Configuration _config;
-		Uplink        _uplink;
-		Net::Root     _root;
+		Timer::Connection _timer_connection;
+		Genode::Timer     _timer;
+		Genode::Heap      _heap;
+		Configuration     _config;
+		Uplink            _uplink;
+		Net::Root         _root;
 
 	public:
 
@@ -43,9 +47,10 @@ class Main
 
 Main::Main(Env &env)
 :
+	_timer_connection(env), _timer(_timer_connection, env.ep()),
 	_heap(&env.ram(), &env.rm()), _config(config()->xml_node(), _heap),
-	_uplink(env.ep(), _heap, _config),
-	_root(env.ep(), _heap, _uplink.router_mac(), _config, env.ram())
+	_uplink(env.ep(), _timer, _heap, _config),
+	_root(env.ep(), _timer, _heap, _uplink.router_mac(), _config, env.ram())
 {
 	env.parent().announce(env.ep().manage(_root));
 }

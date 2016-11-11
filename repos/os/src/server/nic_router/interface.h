@@ -52,7 +52,7 @@ class Net::Interface
 
 	private:
 
-		Genode::Entrypoint &_ep;
+		Genode::Timer      &_timer;
 		Genode::Allocator  &_alloc;
 		Net::Policy        &_policy;
 		Arp_cache           _arp_cache;
@@ -150,6 +150,7 @@ class Net::Interface
 		struct Packet_postponed       : Genode::Exception { };
 
 		Interface(Genode::Entrypoint &ep,
+		          Genode::Timer      &timer,
 		          Mac_address const   router_mac,
 		          Genode::Allocator  &alloc,
 		          Mac_address const   mac,

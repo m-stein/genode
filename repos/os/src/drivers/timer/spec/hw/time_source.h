@@ -1,5 +1,5 @@
 /*
- * \brief  Platform-specific timer back end
+ * \brief  Time source that uses the timeout syscalls of the HW kernel
  * \author Martin Stein
  * \date   2012-05-03
  */

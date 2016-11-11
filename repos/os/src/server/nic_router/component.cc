@@ -52,6 +52,7 @@ Session_component_base(Allocator    &guarded_alloc_backing,
  ***********************/
 
 Net::Session_component::Session_component(Allocator         &alloc,
+                                          Genode::Timer     &timer,
                                           size_t      const  amount,
                                           Ram_session       &buf_ram,
                                           size_t      const  tx_buf_size,
@@ -63,7 +64,7 @@ Net::Session_component::Session_component(Allocator         &alloc,
 :
 	Session_component_base(alloc, amount, buf_ram, tx_buf_size, rx_buf_size),
 	Session_rpc_object(_tx_buf, _rx_buf, &_range_alloc, ep.rpc_ep()),
-	Interface(ep, router_mac, _guarded_alloc, mac, policy)
+	Interface(ep, timer, router_mac, _guarded_alloc, mac, policy)
 {
 	_tx.sigh_ready_to_ack(_sink_ack);
 	_tx.sigh_packet_avail(_sink_submit);
@@ -90,12 +91,13 @@ void Session_component::link_state_sigh(Signal_context_capability sigh)
  **********/
 
 Net::Root::Root(Entrypoint        &ep,
+                Genode::Timer     &timer,
                 Allocator         &alloc,
                 Mac_address const &router_mac,
                 Configuration     &config,
                 Ram_session       &buf_ram)
 :
-	Root_component<Session_component>(&ep.rpc_ep(), &alloc),
+	Root_component<Session_component>(&ep.rpc_ep(), &alloc), _timer(timer),
 	_ep(ep), _router_mac(router_mac), _config(config), _buf_ram(buf_ram)
 { }
 
@@ -129,7 +131,7 @@ Session_component *Net::Root::_create_session(char const *args)
 			throw Root::Quota_exceeded();
 		}
 		return new (md_alloc())
-			Session_component(*md_alloc(), ram_quota - session_size,
+			Session_component(*md_alloc(), _timer, ram_quota - session_size,
 			                  _buf_ram, tx_buf_size, rx_buf_size,
 			                  _mac_alloc.alloc(), _ep, _router_mac,
 			                  policy);

@@ -192,7 +192,7 @@ Interface::_new_link(uint8_t                       const  protocol,
 		{
 			Tcp_link &link = *new (_alloc)
 				Tcp_link(*this, local, remote_port_alloc, remote_interface,
-				         remote, _ep, _config(), protocol);
+				         remote, _timer, _config(), protocol);
 			_tcp_links.insert(&link.client());
 			remote_interface._tcp_links.insert(&link.server());
 			if (_config().verbose()) {
@@ -206,7 +206,7 @@ Interface::_new_link(uint8_t                       const  protocol,
 		{
 			Udp_link &link = *new (_alloc)
 				Udp_link(*this, local, remote_port_alloc, remote_interface,
-				         remote, _ep, _config(), protocol);
+				         remote, _timer, _config(), protocol);
 			_udp_links.insert(&link.client());
 			remote_interface._udp_links.insert(&link.server());
 			if (_config().verbose()) {
@@ -572,6 +572,7 @@ void Interface::_send(Ethernet_frame &eth, Genode::size_t const size)
 
 
 Interface::Interface(Entrypoint        &ep,
+                     Genode::Timer     &timer,
                      Mac_address const  router_mac,
                      Genode::Allocator &alloc,
                      Mac_address const  mac,
@@ -581,7 +582,7 @@ Interface::Interface(Entrypoint        &ep,
 	_sink_submit(ep, *this, &Interface::_ready_to_submit),
 	_source_ack(ep, *this, &Interface::_ready_to_ack),
 	_source_submit(ep, *this, &Interface::_packet_avail),
-	_router_mac(router_mac), _mac(mac), _ep(ep), _alloc(alloc),
+	_router_mac(router_mac), _mac(mac), _timer(timer), _alloc(alloc),
 	_policy(policy)
 {
 	if (_config().verbose()) {

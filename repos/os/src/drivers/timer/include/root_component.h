@@ -52,8 +52,7 @@ class Timer::Root_component : public Genode::Root_component<Session_component>
 
 	public:
 
-		Root_component(Genode::Entrypoint  &ep,
-		               Genode::Allocator   &md_alloc)
+		Root_component(Genode::Entrypoint &ep, Genode::Allocator &md_alloc)
 		:
 			Genode::Root_component<Session_component>(&ep.rpc_ep(), &md_alloc),
 			_time_source(ep), _timeout_scheduler(_time_source)

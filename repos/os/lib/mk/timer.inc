@@ -1,6 +1,6 @@
 SRC_CC += main.cc
 
-LIBS += base alarm
+LIBS += base timeout
 
 INC_DIR += $(REP_DIR)/src/drivers/timer/include
 
