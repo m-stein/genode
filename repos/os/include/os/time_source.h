@@ -21,24 +21,13 @@ namespace Genode { class Time_source; }
 
 struct Genode::Time_source
 {
-	class Microseconds
+	struct Microseconds
 	{
-		private:
+		unsigned long value;
 
-			unsigned long _value;
+		explicit Microseconds(unsigned long const value) : value(value) { }
 
-		public:
-
-			Microseconds() : _value(0) { }
-
-			Microseconds(unsigned long const value) : _value(value) { }
-
-			operator unsigned long() const { return _value; }
-
-			void operator -= (Microseconds const &other) { _value -= other._value; }
-			void operator += (Microseconds const &other) { _value += other._value; }
-
-			void print(Output &output) const { Genode::print(output, _value); }
+		void print(Output &output) const { Genode::print(output, value); }
 	};
 
 	struct Timeout_handler
@@ -50,8 +39,7 @@ struct Genode::Time_source
 
 	virtual Microseconds max_timeout() const = 0;
 
-	virtual void schedule_timeout(Microseconds     duration,
-	                              Timeout_handler &handler) = 0;
+	virtual void schedule_timeout(Microseconds duration, Timeout_handler &handler) = 0;
 };
 
 #endif /* _OS__TIME_SOURCE_H_ */

@@ -1,5 +1,5 @@
 /*
- * \brief  Multiplexes a timer connection amongst different timeout subjects
+ * \brief  Multiplexes a timer session amongst different timeout subjects
  * \author Martin Stein
  * \date   2016-11-04
  */
@@ -15,7 +15,7 @@
 #define _TIMER_H_
 
 /* Genode includes */
-#include <timer_session/connection.h>
+#include <timer_session/timer_session.h>
 #include <os/time_source.h>
 #include <os/timeout.h>
 
@@ -35,9 +35,9 @@ class Genode::Timer : public Timeout_scheduler
 				using Signal_handler =
 					Genode::Signal_handler<Time_source>;
 
-				::Timer::Connection  _connection;
-				Signal_handler       _signal_handler;
-				Timeout_handler     *_handler = nullptr;
+				::Timer::Session &_session;
+				Signal_handler    _signal_handler;
+				Timeout_handler  *_handler = nullptr;
 
 				void _handle_timeout()
 				{
@@ -47,38 +47,32 @@ class Genode::Timer : public Timeout_scheduler
 
 			public:
 
-				Time_source(Env &env, Entrypoint &ep)
+				Time_source(::Timer::Session &session, Entrypoint &ep)
 				:
-					_connection(env),
+					_session(session),
 					_signal_handler(ep, *this, &Time_source::_handle_timeout)
 				{
-					_connection.sigh(_signal_handler);
+					_session.sigh(_signal_handler);
 				}
 
-
-				/*************************
-				 ** Genode::Time_source **
-				 *************************/
-
-				Microseconds curr_time() const override
-				{
-					return (unsigned long long)_connection.elapsed_ms() * 1000;
-				}
+				Microseconds curr_time() const {
+					return Microseconds(1000ULL * _session.elapsed_ms()); }
 
 				void schedule_timeout(Microseconds     duration,
-				                      Timeout_handler &handler) override
+				                      Timeout_handler &handler)
 				{
-					if (duration < MIN_TIMEOUT_US) {
-						duration = MIN_TIMEOUT_US; }
+					if (duration.value < MIN_TIMEOUT_US) {
+						duration.value = MIN_TIMEOUT_US; }
 
-					if (duration > max_timeout()) {
-						duration = max_timeout(); }
+					if (duration.value > max_timeout().value) {
+						duration.value = max_timeout().value; }
 
 					_handler = &handler;
-					_connection.trigger_once(duration);
+					_session.trigger_once(duration.value);
 				}
 
-				Microseconds max_timeout() const override { return ~0UL; }
+				Microseconds max_timeout() const {
+					return Microseconds(~0UL); }
 
 		} _time_source;
 
@@ -86,34 +80,25 @@ class Genode::Timer : public Timeout_scheduler
 
 	public:
 
-		Timer(Env &env, Entrypoint &ep) : _time_source(env, ep) { }
+		Timer(::Timer::Session &session, Entrypoint &ep)
+		: _time_source(session, ep) { }
 
 
 		/***********************
 		 ** Timeout_scheduler **
 		 ***********************/
 
-		void schedule_periodic(Timeout            &timeout,
-		                       Microseconds const  duration) override
-		{
-			_timeout_scheduler.schedule_periodic(timeout, duration);
-		}
+		void schedule_periodic(Timeout &timeout, Microseconds duration) override {
+			_timeout_scheduler.schedule_periodic(timeout, duration); }
 
-		void schedule_one_shot(Timeout            &timeout,
-		                       Microseconds const  duration) override
-		{
-			_timeout_scheduler.schedule_one_shot(timeout, duration);
-		}
+		void schedule_one_shot(Timeout &timeout, Microseconds duration) override {
+			_timeout_scheduler.schedule_one_shot(timeout, duration); }
 
-		Microseconds curr_time() const override
-		{
-			return _timeout_scheduler.curr_time();
-		}
+		Microseconds curr_time() const override {
+			return _timeout_scheduler.curr_time(); }
 
-		void discard(Timeout &timeout) override
-		{
-			_timeout_scheduler.discard(timeout);
-		}
+		void discard(Timeout &timeout) override {
+			_timeout_scheduler.discard(timeout); }
 };
 
 #endif /* _TIMER_H_ */

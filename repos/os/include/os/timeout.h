@@ -22,9 +22,8 @@
 namespace Genode {
 
 	class Timeout_scheduler;
-	class Alarm_timeout_scheduler;
-	class Timeout_handler;
 	class Timeout;
+	class Alarm_timeout_scheduler;
 	template <typename> class Periodic_timeout;
 	template <typename> class One_shot_timeout;
 }
@@ -36,27 +35,26 @@ struct Genode::Timeout_scheduler
 
 	virtual Microseconds curr_time() const = 0;
 
-	virtual void schedule_one_shot(Timeout            &timeout,
-	                               Microseconds const  duration) = 0;
+	virtual void schedule_one_shot(Timeout &timeout, Microseconds duration) = 0;
 
-	virtual void schedule_periodic(Timeout            &timeout,
-	                               Microseconds const  duration) = 0;
+	virtual void schedule_periodic(Timeout &timeout, Microseconds duration) = 0;
 
 	virtual void discard(Timeout &timeout) = 0;
 };
 
 
-struct Genode::Timeout_handler
-{
-	using Microseconds = Time_source::Microseconds;
-
-	virtual void handle_timeout(Microseconds curr_time) = 0;
-};
-
-
-class Genode::Timeout
+class Genode::Timeout : private Noncopyable
 {
 	friend class Alarm_timeout_scheduler;
+
+	public:
+
+		struct Handler
+		{
+			using Microseconds = Time_source::Microseconds;
+
+			virtual void handle_timeout(Microseconds curr_time) = 0;
+		};
 
 	private:
 
@@ -66,16 +64,16 @@ class Genode::Timeout
 		struct Alarm : Genode::Alarm
 		{
 			Timeout_scheduler &timeout_scheduler;
-			Timeout_handler   *handler = nullptr;
+			Handler           *handler = nullptr;
 			bool               periodic;
 
 			Alarm(Timeout_scheduler &timeout_scheduler)
 			: timeout_scheduler(timeout_scheduler) { }
 
 
-			/***********
-			 ** Alarm **
-			 ***********/
+			/*******************
+			 ** Genode::Alarm **
+			 *******************/
 
 			bool on_alarm(unsigned) override
 			{
@@ -93,14 +91,14 @@ class Genode::Timeout
 
 		~Timeout() { _alarm.timeout_scheduler.discard(*this); }
 
-		void trigger_periodic(Microseconds duration, Timeout_handler &handler)
+		void schedule_periodic(Microseconds duration, Handler &handler)
 		{
 			_alarm.handler = &handler;
 			_alarm.periodic = true;
 			_alarm.timeout_scheduler.schedule_periodic(*this, duration);
 		}
 
-		void trigger_once(Microseconds duration, Timeout_handler &handler)
+		void schedule_one_shot(Microseconds duration, Handler &handler)
 		{
 			_alarm.handler = &handler;
 			_alarm.periodic = false;
@@ -110,7 +108,7 @@ class Genode::Timeout
 
 
 template <typename HANDLER_TYPE>
-struct Genode::Periodic_timeout : public Timeout_handler
+struct Genode::Periodic_timeout : public Timeout::Handler
 {
 	private:
 
@@ -120,24 +118,30 @@ struct Genode::Periodic_timeout : public Timeout_handler
 		HANDLER_TYPE         &_object;
 		Handler_method const  _method;
 
-		void handle_timeout(Microseconds curr_time) { (_object.*_method)(curr_time); }
+
+		/**********************
+		 ** Timeout::Handler **
+		 **********************/
+
+		void handle_timeout(Microseconds curr_time) override {
+			(_object.*_method)(curr_time); }
 
 	public:
 
-		Periodic_timeout(Timeout_scheduler  &timeout_scheduler,
-		                 HANDLER_TYPE       &object,
-		                 Handler_method      method,
-		                 Microseconds const  duration)
+		Periodic_timeout(Timeout_scheduler &timeout_scheduler,
+		                 HANDLER_TYPE      &object,
+		                 Handler_method     method,
+		                 Microseconds       duration)
 		:
 			_timeout(timeout_scheduler), _object(object), _method(method)
 		{
-			_timeout.trigger_periodic(duration, *this);
+			_timeout.schedule_periodic(duration, *this);
 		}
 };
 
 
 template <typename HANDLER_TYPE>
-class Genode::One_shot_timeout : public Timeout_handler
+class Genode::One_shot_timeout : public Timeout::Handler
 {
 	private:
 
@@ -147,21 +151,23 @@ class Genode::One_shot_timeout : public Timeout_handler
 		HANDLER_TYPE         &_object;
 		Handler_method const  _method;
 
-		void handle_timeout(Microseconds curr_time) { (_object.*_method)(curr_time); }
+
+		/**********************
+		 ** Timeout::Handler **
+		 **********************/
+
+		void handle_timeout(Microseconds curr_time) override {
+			(_object.*_method)(curr_time); }
 
 	public:
 
 		One_shot_timeout(Timeout_scheduler &timeout_scheduler,
 		                 HANDLER_TYPE      &object,
 		                 Handler_method     method)
-		:
-			_timeout(timeout_scheduler), _object(object), _method(method)
-		{ }
+		: _timeout(timeout_scheduler), _object(object), _method(method) { }
 
-		void trigger(Microseconds const duration)
-		{
-			_timeout.trigger_once(duration, *this);
-		}
+		void trigger(Microseconds duration) {
+			_timeout.schedule_one_shot(duration, *this); }
 };
 
 
@@ -175,34 +181,33 @@ class Genode::Alarm_timeout_scheduler : private Noncopyable,
 		Alarm_scheduler  _alarm_scheduler;
 
 
-		/*********************
-		 ** Timeout_handler **
-		 *********************/
+		/**********************************
+		 ** Time_source::Timeout_handler **
+		 **********************************/
 
 		void handle_timeout(Microseconds curr_time) override
 		{
-			_alarm_scheduler.handle(curr_time);
+			_alarm_scheduler.handle(curr_time.value);
 
-			Microseconds sleep_time;
-			Alarm::Time deadline;
-			if (_alarm_scheduler.next_deadline(&deadline)) {
-				sleep_time = deadline - curr_time;
+			unsigned long sleep_time_us;
+			Alarm::Time deadline_us;
+			if (_alarm_scheduler.next_deadline(&deadline_us)) {
+				sleep_time_us = deadline_us - curr_time.value;
 			} else {
-				sleep_time = _time_source.max_timeout(); }
+				sleep_time_us = _time_source.max_timeout().value; }
 
-			if (sleep_time == 0) {
-				sleep_time = 1; }
+			if (sleep_time_us == 0) {
+				sleep_time_us = 1; }
 
-			_time_source.schedule_timeout(sleep_time, *this);
+			_time_source.schedule_timeout(Microseconds(sleep_time_us), *this);
 		}
 
 	public:
 
 		Alarm_timeout_scheduler(Time_source &time_source)
-		:
-			_time_source(time_source)
+		: _time_source(time_source)
 		{
-			_time_source.schedule_timeout(0, *this);
+			time_source.schedule_timeout(Microseconds(0), *this);
 		}
 
 
@@ -210,33 +215,29 @@ class Genode::Alarm_timeout_scheduler : private Noncopyable,
 		 ** Timeout_scheduler **
 		 ***********************/
 
-		Microseconds curr_time() const override
-		{
-			return _time_source.curr_time();
-		}
+		Microseconds curr_time() const override {
+			return _time_source.curr_time(); }
 
-		void schedule_one_shot(Timeout            &timeout,
-		                       Microseconds const  duration) override
+		void schedule_one_shot(Timeout &timeout, Microseconds duration) override
 		{
-			_alarm_scheduler.schedule_absolute(
-				&timeout._alarm, _time_source.curr_time() + duration);
+			_alarm_scheduler.schedule_absolute(&timeout._alarm,
+			                                   _time_source.curr_time().value +
+			                                   duration.value);
+
 			if (_alarm_scheduler.head_timeout(&timeout._alarm)) {
-				_time_source.schedule_timeout(0, *this); }
+				_time_source.schedule_timeout(Microseconds(0), *this); }
 		}
 
-		void schedule_periodic(Timeout            &timeout,
-		                       Microseconds const  duration) override
+		void schedule_periodic(Timeout &timeout, Microseconds duration) override
 		{
-			_alarm_scheduler.handle(_time_source.curr_time());
-			_alarm_scheduler.schedule(&timeout._alarm, duration);
+			_alarm_scheduler.handle(_time_source.curr_time().value);
+			_alarm_scheduler.schedule(&timeout._alarm, duration.value);
 			if (_alarm_scheduler.head_timeout(&timeout._alarm)) {
-				_time_source.schedule_timeout(0, *this); }
+				_time_source.schedule_timeout(Microseconds(0), *this); }
 		}
 
-		void discard(Timeout &timeout) override
-		{
-			_alarm_scheduler.discard(&timeout._alarm);
-		}
+		void discard(Timeout &timeout) override {
+			_alarm_scheduler.discard(&timeout._alarm); }
 };
 
 #endif /* _OS__TIMEOUT_H_ */

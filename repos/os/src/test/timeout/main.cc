@@ -13,91 +13,42 @@
 
 /* Genode includes */
 #include <base/component.h>
+#include <timer_session/connection.h>
 
 /* local includes */
 #include <timer.h>
 
 using namespace Genode;
-
-
-class Test_periodic_timeout : public Periodic_timeout<Test_periodic_timeout>
-{
-	private:
-
-		String<64> _name;
-		unsigned   _count = 0;
-
-
-		/*************
-		 ** Timeout **
-		 *************/
-
-		void _handle_timeout(Microseconds curr_time)
-		{
-			_count++;
-			log("Timeout ", _name, " triggered ", _count, " times, current time: ", curr_time);
-		}
-
-	public:
-
-		Test_periodic_timeout(char              const *name,
-		                      Timeout_scheduler       &timer,
-		                      Microseconds      const  duration)
-		:
-			Periodic_timeout(timer, *this, &Test_periodic_timeout::_handle_timeout, duration),
-			_name(name)
-		{
-			log("Timeout ", _name, ": ", (unsigned)duration, " us");
-		}
-};
-
-
-class Test_one_shot_timeout : public One_shot_timeout<Test_one_shot_timeout>
-{
-	private:
-
-		String<64> _name;
-		unsigned   _count = 0;
-
-
-		/*************
-		 ** Timeout **
-		 *************/
-
-		void _handle_timeout(Microseconds curr_time)
-		{
-			_count++;
-			log("Timeout ", _name, " triggered ", _count, " times, current time: ", curr_time);
-		}
-
-	public:
-
-		Test_one_shot_timeout(char              const *name,
-		                      Timeout_scheduler       &timer,
-		                      Microseconds      const  duration)
-		:
-			One_shot_timeout(timer, *this, &Test_one_shot_timeout::_handle_timeout),
-			_name(name)
-		{
-			log("Timeout ", _name, ": ", (unsigned)duration, " us");
-			trigger(duration);
-		}
-};
+using Microseconds = Genode::Timer::Microseconds;
 
 
 class Main
 {
 	private:
 
-		Genode::Timer _timer;
-		Test_periodic_timeout _periodic_1 { "Periodic_1s",    _timer, 1000000 };
-		Test_periodic_timeout _periodic_2 { "Periodic_700ms", _timer, 700000  };
-		Test_one_shot_timeout _one_shot_1 { "One_shot_3s",    _timer, 3000000 };
-		Test_one_shot_timeout _one_shot_2 { "One_shot_5s",    _timer, 5000000 };
+		void _handle(Microseconds now, Cstring name) {
+			log(now.value / 1000, " ms: ", name, " timeout triggered"); }
+
+		void _handle_pt1(Microseconds now) { _handle(now, "Periodic 1s"); }
+		void _handle_pt2(Microseconds now) { _handle(now, "Periodic 700ms"); }
+		void _handle_ot1(Microseconds now) { _handle(now, "One-shot 3s"); }
+		void _handle_ot2(Microseconds now) { _handle(now, "One-shot 5s"); }
+
+		Timer::Connection      _timer_connection;
+		Genode::Timer          _timer;
+		Periodic_timeout<Main> _pt1 { _timer, *this, &Main::_handle_pt1, Microseconds(1000000) };
+		Periodic_timeout<Main> _pt2 { _timer, *this, &Main::_handle_pt2, Microseconds(700000)  };
+		One_shot_timeout<Main> _ot1 { _timer, *this, &Main::_handle_ot1 };
+		One_shot_timeout<Main> _ot2 { _timer, *this, &Main::_handle_ot2 };
 
 	public:
 
-		Main(Env &env) : _timer(env, env.ep()) { }
+		Main(Env &env) : _timer_connection(env),
+		                 _timer(_timer_connection, env.ep())
+		{
+			_ot1.trigger(Microseconds(3000000));
+			_ot2.trigger(Microseconds(5000000));
+		}
 };
 
 
