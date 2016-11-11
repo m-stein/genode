@@ -27,24 +27,22 @@ class Timer::Time_source : public Threaded_time_source
 {
 	private:
 
-		Genode::addr_t           _sem;
-		Microseconds             _timeout;
-		Genode::Trace::Timestamp _tsc_start;
-		Microseconds             _tsc_khz;
+		Genode::addr_t           _sem = ~0UL;
+		unsigned long            _timeout_us = 0;
+		Genode::Trace::Timestamp _tsc_start = Genode::Trace::timestamp();
+		unsigned long            _tsc_khz;
 
 		/* 1 / ((us / (1000 * 1000)) * (tsc_khz * 1000)) */
 		enum { TSC_FACTOR = 1000ULL };
 
-		/**
-		 * Convenience function to calculate time in us value out of tsc
-		 */
-		inline unsigned long _time_in_us(unsigned long long tsc,
-		                                 bool sub_tsc_start = true) const
+		inline Microseconds _tsc_to_us(unsigned long long tsc,
+		                               bool sub_tsc_start = true) const
 		{
 			if (sub_tsc_start) {
-				return (tsc - _tsc_start) / (_tsc_khz / TSC_FACTOR); }
-
-			return (tsc) / (_tsc_khz / TSC_FACTOR);
+				return Microseconds((tsc - _tsc_start) /
+				                    (_tsc_khz / TSC_FACTOR));
+			}
+			return Microseconds((tsc) / (_tsc_khz / TSC_FACTOR));
 		}
 
 
@@ -63,10 +61,10 @@ class Timer::Time_source : public Threaded_time_source
 		 ** Genode::Time_source **
 		 *************************/
 
-		Microseconds curr_time() const override;
-		Microseconds max_timeout() const override { return _time_in_us(~0UL); }
-		void schedule_timeout(Microseconds     duration,
-		                      Timeout_handler &handler) override;
+		Microseconds max_timeout() const override { return _tsc_to_us(~0UL); }
+		void schedule_timeout(Microseconds duration, Timeout_handler &handler) override;
+		Microseconds curr_time() const override {
+			return _tsc_to_us(Genode::Trace::timestamp()); }
 };
 
 #endif /* _TIME_SOURCE_H_ */

@@ -26,16 +26,13 @@ using namespace Nova;
 using Microseconds = Genode::Time_source::Microseconds;
 
 
-Timer::Time_source::Time_source(Entrypoint &ep)
-:
-	Threaded_time_source(ep), _sem(~0UL), _timeout(0),
-	_tsc_start(Trace::timestamp())
+Timer::Time_source::Time_source(Entrypoint &ep) : Threaded_time_source(ep)
 {
 	/* read out the tsc frequenzy once */
 	Attached_rom_dataspace _ds("hypervisor_info_page");
 	Nova::Hip * const hip = _ds.local_addr<Nova::Hip>();
 	_tsc_khz = hip->tsc_freq;
-	Thread::start();
+	start();
 }
 
 
@@ -45,19 +42,13 @@ void Timer::Time_source::schedule_timeout(Microseconds     duration,
 	Threaded_time_source::handler(handler);
 
 	/* check whether to cancel last timeout */
-	if (duration == 0 && _sem != ~0UL) {
+	if (duration.value == 0 && _sem != ~0UL) {
 		uint8_t res = Nova::sm_ctrl(_sem, Nova::SEMAPHORE_UP);
 		if (res != Nova::NOVA_OK)
 			nova_die();
 	}
 	/* remember timeout to be set during wait_for_timeout call */
-	_timeout = duration;
-}
-
-
-Microseconds Timer::Time_source::curr_time() const
-{
-	return _time_in_us(Trace::timestamp());
+	_timeout_us = duration.value;
 }
 
 
@@ -70,9 +61,9 @@ void Timer::Time_source::_wait_for_irq()
 
 	/* calculate absolute timeout */
 	Trace::Timestamp now   = Trace::timestamp();
-	Trace::Timestamp us_64 = _timeout;
+	Trace::Timestamp us_64 = _timeout_us;
 
-	if (_timeout == max_timeout()) {
+	if (_timeout_us == max_timeout().value) {
 
 		/* tsc_absolute == 0 means blocking without timeout */
 		uint8_t res = sm_ctrl(sem, SEMAPHORE_DOWN, 0);

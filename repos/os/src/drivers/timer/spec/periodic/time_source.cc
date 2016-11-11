@@ -23,36 +23,28 @@ void Timer::Time_source::schedule_timeout(Microseconds     duration,
 {
 	Genode::Lock::Guard lock_guard(_lock);
 	Threaded_time_source::handler(handler);
-	_next_timeout = duration;
-}
-
-
-Timer::Time_source::Time_source(Entrypoint &ep)
-:
-	Threaded_time_source(ep), _next_timeout(max_timeout())
-{
-	Thread::start();
+	_next_timeout_us = duration.value;
 }
 
 
 void Timer::Time_source::_wait_for_irq()
 {
 	enum { SLEEP_GRANULARITY_US = 1000UL };
-	Microseconds last_time = curr_time();
+	unsigned long last_time_us = curr_time().value;
 	_lock.lock();
-	while (_next_timeout > 0) {
+	while (_next_timeout_us > 0) {
 		_lock.unlock();
 
 		try { _usleep(SLEEP_GRANULARITY_US); }
 		catch (Blocking_canceled) { }
 
-		Microseconds now_time       = curr_time();
-		Microseconds sleep_duration = now_time - last_time;
-		last_time = now_time;
+		unsigned long curr_time_us = curr_time().value;
+		unsigned long sleep_duration_us = curr_time_us - last_time_us;
+		last_time_us = curr_time_us;
 
 		_lock.lock();
-		if (_next_timeout >= sleep_duration)
-			_next_timeout -= sleep_duration;
+		if (_next_timeout_us >= sleep_duration_us)
+			_next_timeout_us -= sleep_duration_us;
 		else
 			break;
 	}

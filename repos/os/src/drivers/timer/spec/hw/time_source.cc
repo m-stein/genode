@@ -23,7 +23,6 @@
 #include <kernel/interface.h>
 
 using namespace Genode;
-using namespace Timer;
 using Microseconds = Genode::Time_source::Microseconds;
 
 enum { MIN_TIMEOUT_US = 1000 };
@@ -32,9 +31,9 @@ enum { MIN_TIMEOUT_US = 1000 };
 Timer::Time_source::Time_source(Entrypoint &ep)
 :
 	Signalled_time_source(ep),
-	_max_timeout(Kernel::timeout_max_us())
+	_max_timeout_us(Kernel::timeout_max_us())
 {
-	if (_max_timeout < MIN_TIMEOUT_US) {
+	if (_max_timeout_us < MIN_TIMEOUT_US) {
 		error("minimum timeout greater then maximum timeout");
 		throw Genode::Exception();
 	}
@@ -44,22 +43,27 @@ Timer::Time_source::Time_source(Entrypoint &ep)
 void Timer::Time_source::schedule_timeout(Microseconds     duration,
                                           Timeout_handler &handler)
 {
-	if (duration < MIN_TIMEOUT_US) { duration = MIN_TIMEOUT_US; }
-	if (duration > max_timeout())  { duration = max_timeout(); }
+	unsigned long duration_us = duration.value;
+	if (duration_us < MIN_TIMEOUT_US) {
+		duration_us = MIN_TIMEOUT_US; }
+
+	if (duration_us > max_timeout().value) {
+		duration_us = max_timeout().value; }
+
 	_handler = &handler;
-	_last_timeout_age = 0;
-	Kernel::timeout(duration, (addr_t)_signal_handler.data());
+	_last_timeout_age_us = 0;
+	Kernel::timeout(duration_us, (addr_t)_signal_handler.data());
 }
 
 
 Microseconds Timer::Time_source::curr_time() const
 {
-	Microseconds const timeout_age = Kernel::timeout_age_us();
-	if (timeout_age > _last_timeout_age) {
+	unsigned long const timeout_age_us = Kernel::timeout_age_us();
+	if (timeout_age_us > _last_timeout_age_us) {
 
 		/* increment time by the difference since the last update */
-		_curr_time += timeout_age - _last_timeout_age;
-		_last_timeout_age = timeout_age;
+		_curr_time_us += timeout_age_us - _last_timeout_age_us;
+		_last_timeout_age_us = timeout_age_us;
 	}
-	return _curr_time;
+	return Microseconds(_curr_time_us);
 }

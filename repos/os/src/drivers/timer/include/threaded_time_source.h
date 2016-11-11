@@ -35,7 +35,9 @@ class Timer::Threaded_time_source : public    Genode::Time_source,
 
 		struct Irq_dispatcher
 		{
-			GENODE_RPC(Rpc_do_dispatch, void, do_dispatch, Microseconds);
+			#warning "The argument to do_dispatch should be of type Microseconds"
+
+			GENODE_RPC(Rpc_do_dispatch, void, do_dispatch, unsigned long);
 			GENODE_RPC_INTERFACE(Rpc_do_dispatch);
 		};
 
@@ -50,10 +52,10 @@ class Timer::Threaded_time_source : public    Genode::Time_source,
 				 ** Irq_dispatcher **
 				 ********************/
 
-				void do_dispatch(Microseconds const duration)
+				void do_dispatch(unsigned long duration)
 				{
 					if (handler) {
-						handler->handle_timeout(duration); }
+						handler->handle_timeout(Microseconds(duration)); }
 				}
 
 		} _irq_dispatcher_component;
@@ -71,7 +73,7 @@ class Timer::Threaded_time_source : public    Genode::Time_source,
 		{
 			while (true) {
 				_wait_for_irq();
-				_irq_dispatcher_cap.call<Irq_dispatcher::Rpc_do_dispatch>(curr_time());
+				_irq_dispatcher_cap.call<Irq_dispatcher::Rpc_do_dispatch>(curr_time().value);
 			}
 		}
 

@@ -38,8 +38,8 @@ namespace Fiasco {
 #include <time_source.h>
 
 using namespace Fiasco;
-using namespace Timer;
 using Microseconds = Genode::Time_source::Microseconds;
+
 
 static l4_timeout_s mus_to_timeout(unsigned long mus)
 {
@@ -50,7 +50,6 @@ static l4_timeout_s mus_to_timeout(unsigned long mus)
 
 	long e = Genode::log2(mus) - 7;
 	unsigned long m;
-
 	if (e < 0) e = 0;
 	m = mus / (1UL << e);
 
@@ -60,32 +59,27 @@ static l4_timeout_s mus_to_timeout(unsigned long mus)
 		e = 0;
 		m = 1023;
 	}
-
 	return l4_timeout_rel(m, e);
 }
 
 
-Microseconds Time_source::max_timeout() const
+Microseconds Timer::Time_source::max_timeout() const
 {
 	Genode::Lock::Guard lock_guard(_lock);
-
-	return 1000*1000*100;
+	return Microseconds(1000 * 1000 * 100);
 }
 
 
-Microseconds Time_source::curr_time() const
+Microseconds Timer::Time_source::curr_time() const
 {
 	Genode::Lock::Guard lock_guard(_lock);
-
-	static Genode::Attached_rom_dataspace   kip_ds("l4v2_kip");
+	static Genode::Attached_rom_dataspace kip_ds("l4v2_kip");
 	static Fiasco::l4_kernel_info_t * const kip =
 		kip_ds.local_addr<Fiasco::l4_kernel_info_t>();
 
-	return kip->clock;
+	return Microseconds(kip->clock);
 }
 
 
-void Time_source::_usleep(unsigned long usecs)
-{
-	l4_ipc_sleep(l4_timeout(L4_IPC_TIMEOUT_NEVER, mus_to_timeout(usecs)));
-}
+void Timer::Time_source::_usleep(unsigned long usecs) {
+	l4_ipc_sleep(l4_timeout(L4_IPC_TIMEOUT_NEVER, mus_to_timeout(usecs))); }

@@ -24,11 +24,9 @@ class Timer::Time_source : public Genode::Signalled_time_source
 {
 	private:
 
-		using Microseconds = Genode::Time_source::Microseconds;
-
-		Microseconds mutable _curr_time = 0;
-		Microseconds mutable _last_timeout_age = 0;
-		Microseconds const   _max_timeout;
+		unsigned long mutable _curr_time_us = 0;
+		unsigned long mutable _last_timeout_age_us = 0;
+		unsigned long const   _max_timeout_us;
 
 	public:
 
@@ -39,10 +37,10 @@ class Timer::Time_source : public Genode::Signalled_time_source
 		 ** Genode::Time_source **
 		 *************************/
 
-		Microseconds max_timeout() const override { return _max_timeout; };
 		Microseconds curr_time() const override;
-		void schedule_timeout(Microseconds     duration,
-		                      Timeout_handler &handler) override;
+		void schedule_timeout(Microseconds duration, Timeout_handler &handler) override;
+		Microseconds max_timeout() const override {
+			return Microseconds(_max_timeout_us); };
 };
 
 #endif /* _TIME_SOURCE_H_ */
