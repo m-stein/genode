@@ -140,7 +140,7 @@ void Launchpad::process_config()
 		}
 
 		/* add launchpad entry */
-		add_launcher(name->string(), default_ram_quota, config_ds);
+		add_launcher(*name, default_ram_quota, config_ds);
 	});
 }
 
