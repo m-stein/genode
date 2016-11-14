@@ -173,9 +173,6 @@ class Genode::Parent
 		 * session capability can be picked up by calling 'session_cap'.
 		 *
 		 * \throw Unavailable
-		 *
-		 * The use of this method is discouraged. Please use the type safe
-		 * 'session()' template instead.
 		 */
 		virtual Session_capability session(Client::Id          id,
 		                                   Service_name const &service_name,
