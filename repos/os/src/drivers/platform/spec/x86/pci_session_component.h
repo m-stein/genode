@@ -247,8 +247,6 @@ class Platform::Session_component : public Genode::Rpc_object<Session>
 					return _child.ram_session_cap(); }
 		};
 
-		bool x = (Genode::log("_device_pd_policy"), true);
-
 		Device_pd *_device_pd = nullptr;
 
 		/**
