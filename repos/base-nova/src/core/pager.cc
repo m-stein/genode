@@ -122,34 +122,21 @@ void Pager_object::_page_fault_handler(addr_t pager_obj)
 	if (utcb->crd_rcv.value())
 		nova_die();
 
-	/* dst pd has not enough kernel quota ? - try to recover */
-	uint8_t retry = 0;
-	while (!error && ipc_pager.syscall_result() == Nova::NOVA_PD_OOM) {
-		/* limit attempts to re-cover */
-		if (retry++ > 10) {
-			error = 4;
-			break;
-		}
-
-		uint8_t res = obj->handle_oom();
-		if (res == Nova::NOVA_PD_OOM)
-			/* reply but block caller in-kernel until oom revoke is due */
-			ipc_pager.reply_and_wait_for_fault(obj->sel_sm_block_oom());
-
-		if (res == Nova::NOVA_OK) {
-			/* succeeded to recover - re-try */
-			error = obj->pager(ipc_pager);
-			continue;
-		}
-
-		/* we give up here */
-		error = 5;
-		break;
-	}
-
-	if (!error && ipc_pager.syscall_result() != Nova::NOVA_OK)
+	if (!error && ipc_pager.syscall_result() != Nova::NOVA_OK) {
 		/* something went wrong - by default don't answer the page fault */
-		error = 6;
+		error = 4;
+
+		/* dst pd has not enough kernel quota ? - try to recover */
+		if (ipc_pager.syscall_result() == Nova::NOVA_PD_OOM) {
+			uint8_t res = obj->handle_oom();
+			if (res == Nova::NOVA_PD_OOM)
+				/* block until revoke is due */
+				ipc_pager.reply_and_wait_for_fault(obj->sel_sm_block_oom());
+			else if (res == Nova::NOVA_OK)
+				/* succeeded to recover - continue normally */
+				error = 0;
+		}
+	}
 
 	/* good case - found a valid region which is mappable */
 	if (!error)
