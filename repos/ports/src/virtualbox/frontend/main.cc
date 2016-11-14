@@ -15,6 +15,7 @@
 
 /* Genode includes */
 #include <base/log.h>
+#include <base/component.h>
 #include <os/config.h>
 
 /* Virtualbox includes */
