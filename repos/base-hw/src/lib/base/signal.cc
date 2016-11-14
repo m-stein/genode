@@ -106,8 +106,13 @@ Signal_context_capability Signal_receiver::manage(Signal_context * const c)
 			return c->_cap;
 		},
 		[&] () {
-			log("upgrading quota donation for PD session");
-			internal_env().upgrade(Parent::Env::pd(), "ram_quota=8K");
+			size_t const quota = 1024*sizeof(long);
+			char buf[64];
+			snprintf(buf, sizeof(buf), "ram_quota=%ld", quota);
+
+			log("upgrading quota donation for PD session (", quota, " bytes)");
+
+			env()->parent()->upgrade(Parent::Env::pd(), buf);
 		}
 	);
 
