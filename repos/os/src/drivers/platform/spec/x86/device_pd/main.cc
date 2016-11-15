@@ -177,7 +177,7 @@ void Platform::Device_pd_component::assign_pci(Genode::Io_mem_dataspace_capabili
 		              "phys=", Genode::Hex(ds_client.phys_addr()), " "
 		              "virt=", Genode::Hex(page));
 	else
-		Genode::log("assignment of ", rid, " succeeded");
+		Genode::log("assignment of PCI device ", Rid(rid), " succeeded");
 
 	/* we don't need the mapping anymore */
 	_address_space.detach(page);
