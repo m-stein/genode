@@ -386,16 +386,13 @@ Child::Close_result Child::_close(Session_state &session)
 	 * asynchonous handling.
 	 */
 
-	if (session.phase == Session_state::CLOSE_REQUESTED) {
-		session.service().wakeup();
-		session.discard_id_at_client();
-	}
-
-	if (session.phase == Session_state::CLOSED
-	 || session.phase == Session_state::INVALID_ARGS) {
+	if (session.phase == Session_state::CLOSED) {
 		_revert_quota_and_destroy(session);
 		return CLOSE_DONE;
 	}
+
+	session.discard_id_at_client();
+	session.service().wakeup();
 
 	return CLOSE_PENDING;
 }
