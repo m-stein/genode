@@ -41,9 +41,10 @@ struct Genode::Cpu_session : Session
 	 ** Exception types **
 	 *********************/
 
-	class Thread_creation_failed : public Exception { };
-	class Quota_exceeded         : public Thread_creation_failed { };
-	class Out_of_metadata        : public Exception { };
+	class Thread_creation_failed    : public Exception { };
+	class Set_exception_sigh_failed : public Exception { };
+	class Quota_exceeded            : public Thread_creation_failed { };
+	class Out_of_metadata           : public Exception { };
 
 
 	enum { THREAD_NAME_LEN = 32 };
@@ -227,7 +228,9 @@ struct Genode::Cpu_session : Session
 	                 Capability<Pd_session>, Name const &, Affinity::Location,
 	                 Weight, addr_t);
 	GENODE_RPC(Rpc_kill_thread, void, kill_thread, Thread_capability);
-	GENODE_RPC(Rpc_exception_sigh, void, exception_sigh, Signal_context_capability);
+	GENODE_RPC_THROW(Rpc_exception_sigh, void, exception_sigh,
+	                 GENODE_TYPE_LIST(Set_exception_sigh_failed),
+	                 Signal_context_capability);
 	GENODE_RPC(Rpc_affinity_space, Affinity::Space, affinity_space);
 	GENODE_RPC(Rpc_trace_control, Dataspace_capability, trace_control);
 	GENODE_RPC(Rpc_ref_account, int, ref_account, Cpu_session_capability);

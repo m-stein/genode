@@ -50,7 +50,13 @@ class Genode::Irq_object
 		Genode::addr_t msi_address() const { return _msi_addr; }
 		Genode::addr_t msi_value()   const { return _msi_data; }
 
-		void sigh(Genode::Signal_context_capability cap) { _sig_cap = cap; }
+		void sigh(Signal_context_capability cap)
+		{
+			try { _sig_cap = cap; }
+			catch (Native_capability::Reference_count_overflow) {
+				throw Irq_session::Set_sigh_failed(); }
+		}
+
 		void notify() { Genode::Signal_transmitter(_sig_cap).submit(1); }
 
 		bool associate(unsigned irq, bool msi, Irq_session::Trigger,

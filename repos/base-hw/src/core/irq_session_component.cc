@@ -48,8 +48,9 @@ void Irq_session_component::sigh(Signal_context_capability cap)
 		warning("signal handler already registered for IRQ ", _irq_number);
 		return;
 	}
-
-	_sig_cap = cap;
+	try { _sig_cap = cap; }
+	catch (Native_capability::Reference_count_overflow) {
+		throw Set_sigh_failed(); }
 
 	if (Kernel::new_irq((addr_t)&_kernel_object, _irq_number,
 	                    Capability_space::capid(_sig_cap)))

@@ -38,6 +38,8 @@ struct Genode::Irq_session : Session
 		unsigned long value;
 	};
 
+	struct Set_sigh_failed : Exception { } ;
+
 	/**
 	 * Interrupt trigger
 	 */
@@ -81,7 +83,8 @@ struct Genode::Irq_session : Session
 	 *********************/
 
 	GENODE_RPC(Rpc_ack_irq, void, ack_irq);
-	GENODE_RPC(Rpc_sigh, void, sigh, Genode::Signal_context_capability);
+	GENODE_RPC_THROW(Rpc_sigh, void, sigh, GENODE_TYPE_LIST(Set_sigh_failed),
+	                 Genode::Signal_context_capability);
 	GENODE_RPC(Rpc_info, Info, info);
 	GENODE_RPC_INTERFACE(Rpc_ack_irq, Rpc_sigh, Rpc_info);
 };

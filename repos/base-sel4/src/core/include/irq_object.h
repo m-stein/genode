@@ -37,7 +37,13 @@ class Genode::Irq_object : public Thread_deprecated<4096> {
 
 		Irq_object(unsigned irq);
 
-		void sigh(Signal_context_capability cap) { _sig_cap = cap; }
+		void sigh(Signal_context_capability cap)
+		{
+			try { _sig_cap = cap; }
+			catch (Native_capability::Reference_count_overflow) {
+				throw Irq_session::Set_sigh_failed(); }
+		}
+
 		void notify() { Genode::Signal_transmitter(_sig_cap).submit(1); }
 		void ack_irq();
 
