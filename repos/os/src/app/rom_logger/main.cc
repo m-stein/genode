@@ -17,7 +17,6 @@
 #include <util/print_lines.h>
 #include <base/component.h>
 #include <util/volatile_object.h>
-#include <base/debug.h>
 
 namespace Rom_logger { struct Main; }
 
@@ -45,8 +44,8 @@ struct Rom_logger::Main
 	 */
 	void _handle_update();
 
-	Genode::Signal_handler<Main> _update_handler =
-		{ _env.ep(), *this, &Main::_handle_update };
+	Genode::Signal_handler<Main> _update_handler {
+		_env.ep(), *this, &Main::_handle_update };
 
 	Main(Genode::Env &env) : _env(env)
 	{
@@ -63,8 +62,6 @@ inline Genode::Hex mkhex(T value) {
 
 void Rom_logger::Main::_handle_update()
 {
-	using namespace Genode;
-
 	_config_rom.update();
 
 	/*
@@ -91,39 +88,38 @@ void Rom_logger::Main::_handle_update()
 		_rom_name = rom_name;
 	}
 
+	if (!_rom_ds.constructed())
+		return;
+
 	/*
 	 * Update ROM module and print content to LOG
 	 */
-	if (_rom_ds.constructed()) {
-		_rom_ds->update();
+	_rom_ds->update();
 
-		if (_rom_ds->valid()) {
-			log("ROM '", _rom_name, "':");
+	if (!_rom_ds->valid()) {
+		Genode::log("ROM '", _rom_name, "' is invalid");
+		return;
+	}
 
-			if (format == "text") {
-				Genode::print_lines<200>(_rom_ds->local_addr<char>(), _rom_ds->size(),
-				                         [&] (char const *line) { Genode::log("  ", line); });
-			} else if (format == "hexdump") {
-				uint16_t const *data = _rom_ds->local_addr<uint16_t const>();
-				/* dataspaces are always page aligned, therefore multiples of 2*8 bytes */
-				Genode::size_t const data_len = _rom_ds->size() / sizeof(uint16_t);
-				for (size_t i = 0; i < data_len; i += 8)
-					log(mkhex(i)," ",mkhex(data[i+0])," ",mkhex(data[i+1]),
-					             " ",mkhex(data[i+2])," ",mkhex(data[i+3]),
-					             " ",mkhex(data[i+4])," ",mkhex(data[i+5]),
-					             " ",mkhex(data[i+6])," ",mkhex(data[i+7]));
-			} else {
-				error("unknown format specified by '", _config_rom.xml(),"'");
-			}
-		} else {
-			Genode::log("ROM '", _rom_name, "' is invalid");
-		}
+	log("ROM '", _rom_name, "':");
+
+	if (format == "text") {
+		Genode::print_lines<200>(_rom_ds->local_addr<char>(), _rom_ds->size(),
+		                         [&] (char const *line) { Genode::log("  ", line); });
+	} else if (format == "hexdump") {
+		short const *data = _rom_ds->local_addr<short const>();
+		/* dataspaces are always page aligned, therefore multiples of 2*8 bytes */
+		Genode::size_t const data_len = _rom_ds->size() / sizeof(short);
+		for (Genode::size_t i = 0; i < data_len; i += 8)
+			log(mkhex(i)," ",mkhex(data[i+0])," ",mkhex(data[i+1]),
+			             " ",mkhex(data[i+2])," ",mkhex(data[i+3]),
+			             " ",mkhex(data[i+4])," ",mkhex(data[i+5]),
+			             " ",mkhex(data[i+6])," ",mkhex(data[i+7]));
+	} else {
+		error("unknown format specified by '", _config_rom.xml(),"'");
 	}
 }
 
 
-Genode::size_t Component::stack_size() {
-	return 4*1024*sizeof(long); }
-
-void Component::construct(Genode::Env &env) {
-	static Rom_logger::Main main(env); }
+Genode::size_t Component::stack_size()      { return 4*1024*sizeof(long); }
+void Component::construct(Genode::Env &env) { static Rom_logger::Main main(env); }
