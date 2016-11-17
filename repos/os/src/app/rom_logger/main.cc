@@ -12,20 +12,21 @@
  */
 
 /* Genode includes */
-#include <rom_session/connection.h>
 #include <base/signal.h>
-#include <os/config.h>
-#include <os/attached_rom_dataspace.h>
+#include <base/attached_rom_dataspace.h>
 #include <util/print_lines.h>
-#include <os/server.h>
+#include <base/component.h>
 #include <util/volatile_object.h>
+#include <base/debug.h>
 
 namespace Rom_logger { struct Main; }
 
 
 struct Rom_logger::Main
 {
-	Server::Entrypoint &_ep;
+	Genode::Env &_env;
+
+	Genode::Attached_rom_dataspace _config_rom { _env, "config" };
 
 	Genode::Lazy_volatile_object<Genode::Attached_rom_dataspace> _rom_ds;
 
@@ -42,43 +43,51 @@ struct Rom_logger::Main
 	 * Signal handler that is invoked when the configuration or the ROM module
 	 * changes.
 	 */
-	void _handle_update(unsigned);
+	void _handle_update();
 
-	Genode::Signal_rpc_member<Main> _update_dispatcher =
-		{ _ep, *this, &Main::_handle_update };
+	Genode::Signal_handler<Main> _update_handler =
+		{ _env.ep(), *this, &Main::_handle_update };
 
-	Main(Server::Entrypoint &ep) : _ep(ep)
+	Main(Genode::Env &env) : _env(env)
 	{
-		Genode::config()->sigh(_update_dispatcher);
-		_handle_update(0);
+		_config_rom.sigh(_update_handler);
+		_handle_update();
 	}
 };
 
 
-void Rom_logger::Main::_handle_update(unsigned)
-{
-	using Genode::config;
+template <typename T>
+inline Genode::Hex mkhex(T value) {
+	return Genode::Hex(value, Genode::Hex::OMIT_PREFIX, Genode::Hex::PAD); }
 
-	config()->reload();
+
+void Rom_logger::Main::_handle_update()
+{
+	using namespace Genode;
+
+	_config_rom.update();
 
 	/*
 	 * Query name of ROM module from config
 	 */
 	Rom_name rom_name;
 	try {
-		rom_name = config()->xml_node().attribute_value("rom", rom_name);
-
+		_config_rom.xml().attribute("rom").value(&rom_name);
 	} catch (...) {
 		Genode::warning("could not determine ROM name from config");
 		return;
 	}
+
+	typedef Genode::String<8> Format_string;
+	Format_string format =
+		_config_rom.xml().attribute_value("format", Format_string("text"));
 
 	/*
 	 * If ROM name changed, reconstruct '_rom_ds'
 	 */
 	if (rom_name != _rom_name) {
 		_rom_ds.construct(rom_name.string());
-		_rom_ds->sigh(_update_dispatcher);
+		_rom_ds->sigh(_update_handler);
 		_rom_name = rom_name;
 	}
 
@@ -91,8 +100,21 @@ void Rom_logger::Main::_handle_update(unsigned)
 		if (_rom_ds->valid()) {
 			log("ROM '", _rom_name, "':");
 
-			Genode::print_lines<200>(_rom_ds->local_addr<char>(), _rom_ds->size(),
-			                         [&] (char const *line) { Genode::log("  ", line); });
+			if (format == "text") {
+				Genode::print_lines<200>(_rom_ds->local_addr<char>(), _rom_ds->size(),
+				                         [&] (char const *line) { Genode::log("  ", line); });
+			} else if (format == "hexdump") {
+				uint16_t const *data = _rom_ds->local_addr<uint16_t const>();
+				/* dataspaces are always page aligned, therefore multiples of 2*8 bytes */
+				Genode::size_t const data_len = _rom_ds->size() / sizeof(uint16_t);
+				for (size_t i = 0; i < data_len; i += 8)
+					log(mkhex(i)," ",mkhex(data[i+0])," ",mkhex(data[i+1]),
+					             " ",mkhex(data[i+2])," ",mkhex(data[i+3]),
+					             " ",mkhex(data[i+4])," ",mkhex(data[i+5]),
+					             " ",mkhex(data[i+6])," ",mkhex(data[i+7]));
+			} else {
+				error("unknown format specified by '", _config_rom.xml(),"'");
+			}
 		} else {
 			Genode::log("ROM '", _rom_name, "' is invalid");
 		}
@@ -100,14 +122,8 @@ void Rom_logger::Main::_handle_update(unsigned)
 }
 
 
-namespace Server {
+Genode::size_t Component::stack_size() {
+	return 4*1024*sizeof(long); }
 
-	char const *name() { return "ep"; }
-
-	size_t stack_size() { return 4*1024*sizeof(long); }
-
-	void construct(Entrypoint &ep)
-	{
-		static Rom_logger::Main main(ep);
-	}
-}
+void Component::construct(Genode::Env &env) {
+	static Rom_logger::Main main(env); }
