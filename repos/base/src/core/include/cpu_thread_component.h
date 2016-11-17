@@ -76,8 +76,9 @@ class Genode::Cpu_thread_component : public Rpc_object<Cpu_thread>,
 			Trace_control_slot(Trace::Control_area &trace_control_area)
 			: trace_control_area(trace_control_area)
 			{
-				if (!trace_control_area.alloc(index))
-					throw Cpu_session::Out_of_metadata();
+				try  { trace_control_area.alloc(index); }
+				catch (Trace::Control_area::Alloc_failed) {
+					throw Cpu_session::Thread_creation_failed(); }
 			}
 
 			~Trace_control_slot()

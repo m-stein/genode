@@ -126,12 +126,16 @@ void Cpu_session_component::kill_thread(Thread_capability thread_cap)
 
 void Cpu_session_component::exception_sigh(Signal_context_capability sigh)
 {
-	_exception_sigh = sigh;
+	try {
+		_exception_sigh = sigh;
 
-	Lock::Guard lock_guard(_thread_list_lock);
+		Lock::Guard lock_guard(_thread_list_lock);
 
-	for (Cpu_thread_component *t = _thread_list.first(); t; t = t->next())
-		t->session_exception_sigh(_exception_sigh);
+		for (Cpu_thread_component *t = _thread_list.first(); t; t = t->next())
+			t->session_exception_sigh(_exception_sigh);
+	}
+	catch (Native_capability::Reference_count_overflow) {
+		warning("failed to set CPU exception handler"); }
 }
 
 

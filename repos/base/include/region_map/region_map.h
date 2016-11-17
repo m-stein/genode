@@ -87,14 +87,15 @@ struct Genode::Region_map
 	 ** Exception types **
 	 *********************/
 
-	class Attach_failed     : public Exception     { };
-	class Invalid_args      : public Attach_failed { };
-	class Invalid_dataspace : public Attach_failed { };
-	class Region_conflict   : public Attach_failed { };
-	class Out_of_metadata   : public Attach_failed { };
+	class Set_fault_handler_failed : public Exception     { };
+	class Attach_failed            : public Exception     { };
+	class Invalid_args             : public Attach_failed { };
+	class Invalid_dataspace        : public Attach_failed { };
+	class Region_conflict          : public Attach_failed { };
+	class Out_of_metadata          : public Attach_failed { };
 
-	class Invalid_thread    : public Exception { };
-	class Unbound_thread    : public Exception { };
+	class Invalid_thread           : public Exception { };
+	class Unbound_thread           : public Exception { };
 
 
 	/**
@@ -171,7 +172,9 @@ struct Genode::Region_map
 	                                  Out_of_metadata, Invalid_args),
 	                 Dataspace_capability, size_t, off_t, bool, Local_addr, bool);
 	GENODE_RPC(Rpc_detach, void, detach, Local_addr);
-	GENODE_RPC(Rpc_fault_handler, void, fault_handler, Signal_context_capability);
+	GENODE_RPC_THROW(Rpc_fault_handler, void, fault_handler,
+	                 GENODE_TYPE_LIST(Set_fault_handler_failed),
+	                 Signal_context_capability);
 	GENODE_RPC(Rpc_state, State, state);
 	GENODE_RPC(Rpc_dataspace, Dataspace_capability, dataspace);
 

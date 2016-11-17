@@ -588,7 +588,9 @@ void Region_map_component::discard_faulter(Rm_faulter *faulter, bool do_lock)
 
 void Region_map_component::fault_handler(Signal_context_capability handler)
 {
-	_fault_notifier.context(handler);
+	try { _fault_notifier.context(handler); }
+	catch (Native_capability::Reference_count_overflow) {
+		throw Set_fault_handler_failed(); }
 }
 
 

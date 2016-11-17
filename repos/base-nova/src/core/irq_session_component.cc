@@ -122,7 +122,9 @@ void Irq_object::sigh(Signal_context_capability cap)
 		return;
 	}
 
-	_sigh_cap = cap;
+	try { _sigh_cap = cap; }
+	catch (Native_capability::Reference_count_overflow) {
+		warning("failed to set IRQ handler"); }
 }
 
 

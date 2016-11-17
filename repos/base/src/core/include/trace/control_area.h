@@ -53,6 +53,8 @@ class Genode::Trace::Control_area
 
 	public:
 
+		struct Alloc_failed : Exception { };
+
 		Control_area()
 		:
 			_ds(_try_alloc(SIZE)),
@@ -67,7 +69,7 @@ class Genode::Trace::Control_area
 
 		Dataspace_capability dataspace() const { return _ds; }
 
-		bool alloc(unsigned &index_out)
+		void alloc(unsigned &index_out)
 		{
 			for (unsigned index = 0; _index_valid(index); index++) {
 				if (!_local_base[index].is_free()) {
@@ -76,11 +78,9 @@ class Genode::Trace::Control_area
 
 				_local_base[index].alloc();
 				index_out = index;
-				return true;
+				return;
 			}
-
-			error("trace-control allocaton failed");
-			return false;
+			throw Alloc_failed();
 		}
 
 		void free(unsigned index)

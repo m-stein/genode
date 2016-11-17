@@ -15,6 +15,7 @@
 #define _CORE__INCLUDE__IRQ_OBJECT_H_
 
 #include <base/thread.h>
+#include <irq_session/irq_session.h>
 
 namespace Genode { class Irq_object; }
 
@@ -36,7 +37,13 @@ class Genode::Irq_object : public Thread_deprecated<4096> {
 
 		Irq_object(unsigned irq);
 
-		void sigh(Signal_context_capability cap) { _sig_cap = cap; }
+		void sigh(Signal_context_capability cap)
+		{
+			try { _sig_cap = cap; }
+			catch (Native_capability::Reference_count_overflow) {
+				warning("failed to set IRQ handler"); }
+		}
+
 		void ack_irq() { _sync_ack.unlock(); }
 
 		void start() override;
