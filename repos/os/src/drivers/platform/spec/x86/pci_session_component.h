@@ -136,6 +136,7 @@ class Platform::Session_component : public Genode::Rpc_object<Session>
 		Genode::Session_label    const _label;
 		Genode::Session_policy   const _policy { _label };
 		Genode::List<Device_component> _device_list;
+		bool                           _no_device_pd = false;
 
 		/**
 		 * Registry of RAM dataspaces allocated by the session
@@ -270,7 +271,7 @@ class Platform::Session_component : public Genode::Rpc_object<Session>
 		 */
 		void _try_init_device_pd()
 		{
-			if (_device_pd)
+			if (_device_pd || _no_device_pd)
 				return;
 
 			try {
@@ -287,7 +288,9 @@ class Platform::Session_component : public Genode::Rpc_object<Session>
 
 			catch (...) {
 				Genode::warning("PCI device protection domain for IOMMU support "
-				                "is not available"); }
+				                "is not available");
+				_no_device_pd = true;
+			}
 		}
 
 		enum { MAX_PCI_DEVICES = Device_config::MAX_BUSES *
