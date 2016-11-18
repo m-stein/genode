@@ -109,8 +109,8 @@ void Rom_logger::Main::_handle_update()
 	} else if (format == "hexdump") {
 		short const *data = _rom_ds->local_addr<short const>();
 		/* dataspaces are always page aligned, therefore multiples of 2*8 bytes */
-		Genode::size_t const data_len = _rom_ds->size() / sizeof(short);
-		for (Genode::size_t i = 0; i < data_len; i += 8)
+		Genode::uint32_t const data_len = _rom_ds->size() / sizeof(short);
+		for (Genode::uint32_t i = 0; i < data_len; i += 8)
 			log(mkhex(i)," ",mkhex(data[i+0])," ",mkhex(data[i+1]),
 			             " ",mkhex(data[i+2])," ",mkhex(data[i+3]),
 			             " ",mkhex(data[i+4])," ",mkhex(data[i+5]),
