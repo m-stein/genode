@@ -877,6 +877,13 @@ class Platform::Session_component : public Genode::Rpc_object<Session>
 
 		Genode::Ram_dataspace_capability alloc_dma_buffer(Genode::size_t const size) override
 		{
+			/*
+			 * We always try to create the device PD first because
+			 * otherwise we might consume the requested size multiple
+			 * times which breaks our accounting.
+			 */
+			_try_init_device_pd();
+
 			if (!_md_alloc.withdraw(size))
 				throw Out_of_metadata();
 
@@ -906,7 +913,6 @@ class Platform::Session_component : public Genode::Rpc_object<Session>
 			if (!ram_cap.valid())
 				return ram_cap;
 
-			_try_init_device_pd();
 			if (_device_pd) {
 				Genode::retry<Genode::Rm_session::Out_of_metadata>(
 					[&] () { _device_pd->session().attach_dma_mem(ram_cap); },
