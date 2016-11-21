@@ -12,16 +12,15 @@
  */
 
 /* Genode includes */
-#include <pd_session/client.h>
 #include <base/env.h>
 
 /* base-internal includes */
-#include <base/internal/native_env.h>
 #include <base/internal/globals.h>
+#include <base/internal/native_env.h>
 
-
-void Genode::upgrade_pd_session_quota(Genode::size_t quota)
+void Genode::upgrade_pd_quota_non_blocking(size_t quota)
 {
-	internal_env().upgrade(Parent::Env::pd(),
-	                       String<128>("ram_quota=", quota).string());
+	log("upgrading quota donation for PD session (", quota, " bytes)");
+	internal_env().parent().upgrade(Parent::Env::pd(),
+	                                String<64>("ram_quota=", quota).string());
 }
