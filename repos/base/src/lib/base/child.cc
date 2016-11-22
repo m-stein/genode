@@ -271,7 +271,7 @@ Session_capability Child::session_cap(Client::Id id)
 			throw Parent::Service_denied();
 		}
 
-		if (session.phase != Session_state::AVAILABLE)
+		if (!session.alive())
 			warning(_policy.name(), ": attempt to request cap for unavailable session: ", session);
 
 		if (session.cap.valid())
