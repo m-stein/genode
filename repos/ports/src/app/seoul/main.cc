@@ -1498,14 +1498,14 @@ void Component::construct(Genode::Env &env)
 	static Machine machine(env, boot_modules, guest_memory, colocate);
 
 	/* create console thread */
-	Vancouver_console vcon(machine.motherboard(), fb_size, guest_memory.fb_ds());
+	static Vancouver_console vcon(machine.motherboard(), fb_size, guest_memory.fb_ds());
 
 	vcon.register_host_operations(machine.unsynchronized_motherboard());
 
 	/* create disk thread */
-	Vancouver_disk vdisk(machine.motherboard(),
-	                     guest_memory.backing_store_local_base(),
-	                     guest_memory.backing_store_size());
+	static Vancouver_disk vdisk(machine.motherboard(),
+	                            guest_memory.backing_store_local_base(),
+	                            guest_memory.backing_store_size());
 
 	vdisk.register_host_operations(machine.unsynchronized_motherboard());
 
