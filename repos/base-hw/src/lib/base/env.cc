@@ -20,7 +20,6 @@
 
 void Genode::upgrade_pd_quota_non_blocking(size_t quota)
 {
-	log("upgrading quota donation for PD session (", quota, " bytes)");
 	internal_env().parent().upgrade(Parent::Env::pd(),
 	                                String<64>("ram_quota=", quota).string());
 }
