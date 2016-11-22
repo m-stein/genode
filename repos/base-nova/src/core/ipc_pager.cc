@@ -48,13 +48,14 @@ void Ipc_pager::set_reply_mapping(Mapping m)
 {
 	Nova::Utcb *utcb = (Nova::Utcb *)Thread::myself()->utcb();
 	utcb->set_msg_word(0);
-	bool res = utcb->append_item(m.mem_crd(), m.dst_addr(), true, false,
+	bool res = utcb->append_item(m.mem_crd(), 0, true, false,
 	                             false, m.dma(), m.write_combined());
 	/* one item ever fits on the UTCB */
 	(void)res;
 
 	/* receive window in destination pd */
-	Nova::Mem_crd crd_mem(0, ~0U, Nova::Rights(true, true, true));
+	Nova::Mem_crd crd_mem(m.dst_addr() >> 12, m.mem_crd().order(),
+	                      Nova::Rights(true, true, true));
 	/* asynchronously map memory */
 	_syscall_res = Nova::delegate(_pd_core, _pd_dst, crd_mem);
 }
