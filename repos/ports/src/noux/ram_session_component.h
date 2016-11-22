@@ -40,7 +40,7 @@ namespace Noux {
 		: Dataspace_info(ds_cap) { }
 
 		Dataspace_capability fork(Ram_session        &ram,
-		                          Dataspace_registry &,
+		                          Dataspace_registry &ds_registry,
 		                          Rpc_entrypoint     &) override
 		{
 			size_t const size = Dataspace_client(ds_cap()).size();
@@ -70,6 +70,8 @@ namespace Noux {
 				ram.free(dst_ds);
 				return Dataspace_capability();
 			}
+
+			ds_registry.insert(new (env()->heap()) Ram_dataspace_info(dst_ds));
 
 			return dst_ds;
 		}
@@ -177,11 +179,7 @@ namespace Noux {
 			}
 
 			int ref_account(Ram_session_capability) { return 0; }
-			int transfer_quota(Ram_session_capability, size_t)
-			{
-				log("Ram_session_component transfer_quota called");
-				return 0;
-			}
+			int transfer_quota(Ram_session_capability, size_t) { return 0; }
 			size_t quota() { return env()->ram_session()->quota(); }
 			size_t used() { return _used_quota; }
 	};

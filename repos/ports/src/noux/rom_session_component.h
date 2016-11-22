@@ -32,9 +32,10 @@ struct Noux::Rom_dataspace_info : Dataspace_info
 	~Rom_dataspace_info() { }
 
 	Dataspace_capability fork(Ram_session        &,
-	                          Dataspace_registry &,
+	                          Dataspace_registry &ds_registry,
 	                          Rpc_entrypoint     &) override
 	{
+		ds_registry.insert(new (env()->heap()) Rom_dataspace_info(ds_cap()));
 		return ds_cap();
 	}
 
@@ -116,7 +117,6 @@ class Noux::Rom_session_component : public Rpc_object<Rom_session>
 		}
 
 		Dataspace_capability const _ds_cap;
-		Rom_dataspace_info         _ds_info { _ds_cap };
 
 	public:
 
@@ -127,7 +127,7 @@ class Noux::Rom_session_component : public Rpc_object<Rom_session>
 			_ds_cap(_init_ds_cap(name))
 		{
 			_ep.manage(this);
-			_ds_registry.insert(&_ds_info);
+			_ds_registry.insert(new (env()->heap()) Rom_dataspace_info(_ds_cap));
 		}
 
 		~Rom_session_component()
@@ -136,14 +136,14 @@ class Noux::Rom_session_component : public Rpc_object<Rom_session>
 			 * Lookup and lock ds info instead of directly accessing
 			 * the '_ds_info' member.
 			 */
-			_ds_registry.apply(_ds_info.ds_cap(), [this] (Dataspace_info *info) {
+			_ds_registry.apply(_ds_cap, [this] (Dataspace_info *info) {
 
 				if (!info) {
 					error("~Rom_session_component: unexpected !info");
 					return;
 				}
 
-				_ds_registry.remove(&_ds_info);
+				_ds_registry.remove(info);
 
 				info->dissolve_users();
 			});
@@ -157,7 +157,7 @@ class Noux::Rom_session_component : public Rpc_object<Rom_session>
 
 		Rom_dataspace_capability dataspace()
 		{
-			return static_cap_cast<Rom_dataspace>(_ds_info.ds_cap());
+			return static_cap_cast<Rom_dataspace>(_ds_cap);
 		}
 
 		void sigh(Signal_context_capability) { }
