@@ -187,6 +187,8 @@ void Root_proxy::_handle_session_request(Xml_node request)
 			_env.parent().session_response(id, Parent::INVALID_ARGS); }
 		catch (Root::Quota_exceeded) {
 			_env.parent().session_response(id, Parent::INVALID_ARGS); }
+		catch (Root::Unavailable) {
+			_env.parent().session_response(id, Parent::INVALID_ARGS); }
 	}
 
 	if (request.has_type("upgrade")) {
