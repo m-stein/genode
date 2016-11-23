@@ -91,8 +91,6 @@ class Noux_connection
 
 		Genode::Attached_dataspace _sysio_ds { _connection.sysio_dataspace() };
 
-		Noux::Sysio &_sysio = *_sysio_ds.local_addr<Noux::Sysio>();
-
 	public:
 
 		/**
@@ -106,14 +104,33 @@ class Noux_connection
 		}
 
 		Noux::Session *session() { return &_connection; }
-		Noux::Sysio   *sysio()   { return &_sysio; }
+		Noux::Sysio   *sysio()   { return _sysio_ds.local_addr<Noux::Sysio>(); }
+
+		void reconnect()
+		{
+			using namespace Genode;
+
+			/*
+			 * Release Id_space<Parent::Client>::Element of the local ID space.
+			 */
+			_connection.discard_session_id();
+
+			/*
+			 * Obtain new noux connection. Note that we cannot reconstruct
+			 * the connection via a 'Volatile_object' because this would
+			 * result in an inconsistent referernce count when attempting
+			 * to destruct the session capability in the just-cleared
+			 * capability space.
+			 */
+			construct_at<Noux_connection>(this);
+		}
 };
 
 
-Genode::Volatile_object<Noux_connection> &noux_connection()
+Noux_connection *noux_connection()
 {
-	static Genode::Volatile_object<Noux_connection> inst;
-	return inst;
+	static Noux_connection inst;
+	return &inst;
 }
 
 
@@ -528,7 +545,7 @@ extern "C" void fork_trampoline()
 	stdout_reconnect();
 
 	/* reinitialize noux connection */
-	noux_connection().construct();
+	noux_connection()->reconnect();
 
 	/* reinitialize main-thread object which implies reinit of stack area */
 	auto stack_area_rm = noux_connection()->stack_area_region_map(in_stack_area);
