@@ -36,7 +36,7 @@ class Log_console : public Console
 			{ }
 		};
 
-		Volatile_object<Log> _log;
+		Log _log;
 
 		char     _buf[_BUF_SIZE];
 		unsigned _num_chars;
@@ -46,7 +46,7 @@ class Log_console : public Console
 		{
 			/* null-terminate string */
 			_buf[_num_chars] = 0;
-			_log->write(_buf);
+			_log.write(_buf);
 
 			/* restart with empty buffer */
 			_num_chars = 0;
@@ -88,14 +88,21 @@ class Log_console : public Console
 		/**
 		 * Return LOG session interface
 		 */
-		Log_session &log_session() { return *_log; }
+		Log_session &log_session() { return _log; }
 
 		/**
 		 * Re-establish LOG session
 		 */
 		void reconnect()
 		{
-			_log.construct();
+			/*
+			 * We cannot use a 'Volatile_object' because we have to skip
+			 * the object destruction inside a freshly forked process.
+			 * Otherwise, the attempt to destruct the capability contained
+			 * in the 'Log' object would result in an inconsistent ref counter
+			 * of the respective capability-space element.
+			 */
+			construct_at<Log>(&_log);
 		}
 };
 
