@@ -16,24 +16,41 @@
 
 #include <base/service.h>
 
-struct Single_session_service : Genode::Service
+template <typename SESSION>
+class Single_session_service
 {
-	Genode::Session_capability session_cap;
+	public:
 
-	Single_session_service(char const *service_name,
-	                       Genode::Session_capability session_cap)
-	:
-		Service(service_name), session_cap(session_cap)
-	{ }
+		typedef Genode::Capability<SESSION> Session_capability;
 
-	Genode::Session_capability
-	session(const char *, Genode::Affinity const &) override
-	{
-		return session_cap;
-	}
+	private:
 
-	void upgrade(Genode::Session_capability, const char *) override { }
-	void close(Genode::Session_capability) override { }
+		/*
+		 * Wrap client object to be compabile with 'Rpc_object::cap' calls
+		 *
+		 * We hand out the capability via 'cap' method to be compatible with
+		 * the interface normally provided by server-side component objects.
+		 * The 'Single_session_factory' requests the capability via this
+		 * method.
+		 */
+		struct Client : SESSION::Client
+		{
+			Client(Session_capability cap) : SESSION::Client(cap) { }
+			Session_capability cap() const { return *this; }
+		};
+
+		typedef Genode::Local_service<Client>            Service;
+		typedef typename Service::Single_session_factory Factory;
+
+		Client  _client;
+		Factory _factory { _client };
+		Service _service { _factory };
+
+	public:
+
+		Single_session_service(Session_capability cap) : _client(cap) { }
+
+		Genode::Service &service() { return _service; }
 };
 
 #endif /* _INCLUDE__GEMS__SINGLE_SESSION_SERVICE_H_ */

@@ -32,18 +32,21 @@ namespace Framebuffer {
 	}
 
 
-	static inline long session_arg(const char *arg, const char *key)
+	static inline long session_arg(Session_state::Args const &args, const char *key)
 	{
-		return Genode::Arg_string::find_arg(arg, key).long_value(0);
+		return Genode::Arg_string::find_arg(args.string(), key).long_value(0);
 	}
 
 
-	Session_component::Session_component(const char *args,
+	Session_component::Session_component(Genode::Env &env,
+	                                     Genode::Rpc_entrypoint &ep,
+	                                     Session_state::Args const &args,
 	                                     QNitpickerViewWidget &nitpicker_view_widget,
 	                                     int max_width,
 	                                     int max_height)
-	:
-		_framebuffer(_nitpicker.framebuffer_session())
+	: _ep(ep),
+	  _nitpicker(env),
+	  _framebuffer(_nitpicker.framebuffer_session())
 	{
 		Framebuffer::Mode const
 			mode(_limited_size(session_arg(args, "fb_width"), max_width),
@@ -69,6 +72,14 @@ namespace Framebuffer {
 		                                       0, 0,
 		                                       _mode.width(),
 		                                       _mode.height());
+
+		_ep.manage(this);
+	}
+
+
+	Session_component::~Session_component()
+	{
+		_ep.dissolve(this);
 	}
 
 

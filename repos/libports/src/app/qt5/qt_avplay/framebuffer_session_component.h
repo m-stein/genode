@@ -17,41 +17,46 @@
 
 /* Genode includes */
 #include <base/rpc_server.h>
+#include <base/service.h>
 #include <framebuffer_session/client.h>
 #include <nitpicker_session/connection.h>
 
 /* Qt includes */
 #include <qnitpickerviewwidget/qnitpickerviewwidget.h>
 
-
 namespace Framebuffer {
-
-	class Session_component : public Genode::Rpc_object<Session>
-	{
-		private:
-
-			Nitpicker::Connection  _nitpicker;
-			Session_client         _framebuffer;
-
-			int _limited_size(int requested_size, int max_size);
-
-		public:
-
-			/**
-			 * Constructor
-			 */
-			Session_component(const char *args,
-			                  QNitpickerViewWidget &nitpicker_view_widget,
-			                  int max_width = 0,
-			                  int max_height = 0);
-
-			Genode::Dataspace_capability dataspace() override;
-			Mode mode() const override;
-			void mode_sigh(Genode::Signal_context_capability) override;
-			void sync_sigh(Genode::Signal_context_capability) override;
-			void refresh(int, int, int, int) override;
-	};
-
+	class Session_component;
+	using namespace Genode;
 }
+
+class Framebuffer::Session_component : public Genode::Rpc_object<Session>
+{
+	private:
+
+		Genode::Rpc_entrypoint &_ep;
+
+		Nitpicker::Connection   _nitpicker;
+		Session_client          _framebuffer;
+
+		int _limited_size(int requested_size, int max_size);
+
+	public:
+
+		/**
+		 * Constructor
+		 */
+		Session_component(Genode::Env &env,
+		                  Genode::Rpc_entrypoint &ep,
+		                  Session_state::Args const &args,
+			              QNitpickerViewWidget &nitpicker_view_widget,
+			              int max_width = 0,
+			              int max_height = 0);
+		~Session_component();
+		Genode::Dataspace_capability dataspace() override;
+		Mode mode() const override;
+		void mode_sigh(Genode::Signal_context_capability) override;
+		void sync_sigh(Genode::Signal_context_capability) override;
+		void refresh(int, int, int, int) override;
+};
 
 #endif /* _FRAMEBUFFER_SESSION_COMPONENT_H_ */
