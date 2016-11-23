@@ -247,14 +247,17 @@ void *operator new [] (__SIZE_TYPE__, Genode::Allocator &);
  */
 void operator delete (void *, Genode::Deallocator *);
 void operator delete (void *, Genode::Deallocator &);
+
+
 /**
  * The compiler looks for a delete operator signature matching the one of the
- * new operator. If none is found it omits (silently!) the generation of
- * implicitly delete calls which are used when an exception is thrown within
+ * new operator. If none is found, it omits (silently!) the generation of
+ * implicitly delete calls, which are needed when an exception is thrown within
  * the constructor of the object.
  */
 inline void operator delete (void *ptr, Genode::Allocator *a) {
 	operator delete (ptr, static_cast<Genode::Deallocator *>(a)); }
+
 inline void operator delete (void *ptr, Genode::Allocator &a) {
 	operator delete (ptr, *static_cast<Genode::Deallocator *>(&a)); }
 
