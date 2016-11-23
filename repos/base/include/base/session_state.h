@@ -37,8 +37,8 @@ class Genode::Session_state : public Parent::Client, public Parent::Server,
 
 		class Factory;
 
-		typedef String<32>   Name;
-		typedef String<1024> Args;
+		typedef String<32>  Name;
+		typedef String<256> Args;
 
 		struct Ready_callback
 		{
