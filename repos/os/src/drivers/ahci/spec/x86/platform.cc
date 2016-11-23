@@ -43,11 +43,10 @@ struct X86_hba : Platform::Hba
 
 	X86_hba(Genode::Env &env) : env(env)
 	{
-		size_t donate = 4096;
 		pci_device_cap = retry<Platform::Session::Out_of_metadata>(
 			[&] () { return pci.next_device(pci_device_cap, AHCI_DEVICE,
 				                            CLASS_MASK); },
-			[&] () { pci.upgrade_ram(donate); donate *= 2; });
+			[&] () { pci.upgrade_ram(4096); });
 
 		if (!pci_device_cap.valid()) {
 			Genode::error("no AHCI controller found");
@@ -127,24 +126,13 @@ struct X86_hba : Platform::Hba
 	Ram_dataspace_capability
 	alloc_dma_buffer(Genode::size_t size) override
 	{
-		/*
-		 * Upgrade session quota by the allocation size if the allocation fails
-		 * at the first attempt. If the session quota still does not suffice
-		 * after the first upgrade, increase donation for each iteration.
-		 */
-		bool first_upgrade = true;
-		size_t donate = 4096;
+		size_t donate = size;
 
 		return retry<Platform::Session::Out_of_metadata>(
 			[&] () { return pci.alloc_dma_buffer(size); },
 			[&] () {
-				if (first_upgrade) {
-					pci.upgrade_ram(size);
-					first_upgrade = false;
-				} else {
-					pci.upgrade_ram(donate);
-					donate *= 2;
-				}
+				pci.upgrade_ram(donate);
+				donate = donate * 2 > size ? 4096 : donate * 2;
 			});
 	}
 
