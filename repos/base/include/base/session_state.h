@@ -21,7 +21,6 @@
 #include <base/id_space.h>
 #include <base/env.h>
 #include <base/log.h>
-#include <base/debug.h>
 
 namespace Genode {
 

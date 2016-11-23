@@ -19,7 +19,6 @@
 #include <base/env.h>
 #include <base/session_state.h>
 #include <base/log.h>
-#include <base/debug.h>
 #include <base/registry.h>
 
 namespace Genode {
