@@ -24,9 +24,6 @@ struct Framebuffer_filter
 	enum { MAX_FILTER_NAME_SIZE = 32 };
 	char                      name[MAX_FILTER_NAME_SIZE];
 	Genode::Number_of_bytes   ram_quota;
-
-	Framebuffer_service      *framebuffer_service;
-	Rpc_entrypoint           *ep;
 	Filter_framebuffer_slave *slave;
 };
 
@@ -39,8 +36,6 @@ Main_window::Main_window(Genode::Env &env)
 	_input_session_component.event_queue().enabled(true);
 	_ep.manage(&_input_session_component);
 
-	/* FIXME */
-#if 0
 	/* find out which filtering framebuffer services to start and sort them in reverse order */
 
 	static QList<Framebuffer_filter*> framebuffer_filters;
@@ -55,20 +50,21 @@ Main_window::Main_window(Genode::Env &env)
 		}
 	} catch (Xml_node::Nonexistent_sub_node) { }
 
+	Framebuffer_service_factory *framebuffer_service_factory =
+		&_nitpicker_framebuffer_service_factory;
+
 	/* start the filtering framebuffer services */
 
 	Q_FOREACH(Framebuffer_filter *framebuffer_filter, framebuffer_filters) {
-		framebuffer_filter->ep = new Rpc_entrypoint(&_cap, STACK_SIZE, "filter_fb_ep");
 		framebuffer_filter->slave = new Filter_framebuffer_slave(_env.pd(), _env.rm(),
 		                                                         _env.ram_session_cap(),
 		                                                         framebuffer_filter->name,
 		                                                         framebuffer_filter->ram_quota,
-		                                                         *framebuffer_filter->framebuffer_service);
-		//Slave::Connection<Framebuffer::Connection> _framebuffer_connection;
-
-		//framebuffer_service = framebuffer_filter->framebuffer_service;
+		                                                         *framebuffer_service_factory);
+		framebuffer_service_factory =
+			new Filter_framebuffer_service_factory(framebuffer_filter->slave->policy());
 	}
-#endif
+
 	/* add widgets to layout */
 
 	_layout->addWidget(_avplay_widget);
@@ -76,11 +72,10 @@ Main_window::Main_window(Genode::Env &env)
 
 	/* start avplay */
 
-	/* XXX: don't create with new */
 	Avplay_slave *avplay_slave = new Avplay_slave(_env.pd(), _env.rm(),
 	                                              _env.ram_session_cap(),
 	                                              _input_service,
-	                                              _nitpicker_framebuffer_service,
+	                                              *framebuffer_service_factory,
 	                                              _mediafile_name.buf);
 
 	connect(_control_bar, SIGNAL(volume_changed(int)), avplay_slave, SLOT(volume_changed(int)));

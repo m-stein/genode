@@ -33,14 +33,13 @@
 /* local includes */
 #include "avplay_slave.h"
 #include "control_bar.h"
+#include "framebuffer_service_factory.h"
 
 class Main_window : public Compound_widget<QWidget, QVBoxLayout>
 {
 	Q_OBJECT
 
 	private:
-
-		Genode::Env &_env;
 
 		struct Mediafile_name
 		{
@@ -58,21 +57,25 @@ class Main_window : public Compound_widget<QWidget, QVBoxLayout>
 					Genode::warning("no <mediafile> config node found, using \"mediafile\"");
 				}
 			}
-		} _mediafile_name;
+		};
 
-		QMember<QNitpickerViewWidget> _avplay_widget;
-		QMember<Control_bar>          _control_bar;
+		Genode::Env                          &_env;
 
-		enum { STACK_SIZE = 2*sizeof(Genode::addr_t)*1024 };
-		Genode::Cap_connection _cap;
-		Genode::Rpc_entrypoint _ep { &_cap, STACK_SIZE, "avplay_ep" };
+		Mediafile_name                        _mediafile_name;
 
-		Framebuffer::Local_framebuffer_factory _framebuffer_factory { _env, _ep, *_avplay_widget, 640, 480 };
-		Framebuffer_service                    _nitpicker_framebuffer_service { _framebuffer_factory };
+		QMember<QNitpickerViewWidget>         _avplay_widget;
+		QMember<Control_bar>                  _control_bar;
 
-		Input::Session_component               _input_session_component { _env, _env.ram() };
-		Input_service::Single_session_factory  _input_factory { _input_session_component };
-		Input_service                          _input_service { _input_factory };
+		Genode::size_t const                  _ep_stack_size { 2*sizeof(Genode::addr_t)*1024 };
+		Genode::Rpc_entrypoint                _ep { &_env.pd(), _ep_stack_size, "avplay_ep" };
+
+		Nitpicker_framebuffer_service_factory _nitpicker_framebuffer_service_factory { _env,
+		                                                                               *_avplay_widget,
+		                                                                               640, 480 };
+
+		Input::Session_component              _input_session_component { _env, _env.ram() };
+		Input_service::Single_session_factory _input_factory { _input_session_component };
+		Input_service                         _input_service { _input_factory };
 
 	public:
 

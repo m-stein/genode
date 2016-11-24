@@ -26,8 +26,7 @@
 #include <os/slave.h>
 
 /* local includes */
-#include "local_framebuffer_service.h"
-
+#include "framebuffer_service_factory.h"
 
 typedef Genode::Local_service<Input::Session_component> Input_service;
 
@@ -41,8 +40,8 @@ class Avplay_slave : public QObject
 		{
 			private:
 
-				Input_service       &_input_service;
-				Framebuffer_service &_framebuffer_service;
+				Input_service               &_input_service;
+				Framebuffer_service_factory &_framebuffer_service_factory;
 
 				const char *_mediafile;
 				int _sdl_audio_volume;
@@ -111,12 +110,12 @@ class Avplay_slave : public QObject
 				       Genode::Region_map             &rm,
 				       Genode::Ram_session_capability  ram,
 				       Input_service                  &input_service,
-				       Framebuffer_service            &framebuffer_service,
+				       Framebuffer_service_factory    &framebuffer_service_factory,
 				       char const                     *mediafile)
 				: Genode::Slave::Policy(_name(), _name(), entrypoint, rm, ram,
 				                        _quota()),
 		  	  	  _input_service(input_service),
-		  	  	  _framebuffer_service(framebuffer_service),
+		  	  	  _framebuffer_service_factory(framebuffer_service_factory),
 		  	  	  _mediafile(mediafile),
 		  	  	  _sdl_audio_volume(100)
 				{
@@ -130,7 +129,7 @@ class Avplay_slave : public QObject
 						return _input_service;
 
 					if (service_name == "Framebuffer")
-						return _framebuffer_service;
+						return _framebuffer_service_factory.create(args);
 
 					return Genode::Slave::Policy::resolve_session_request(service_name, args);
 				}
@@ -157,11 +156,11 @@ class Avplay_slave : public QObject
 		             Genode::Region_map             &rm,
 		             Genode::Ram_session_capability  ram,
 		             Input_service                  &input_service,
-		             Framebuffer_service            &framebuffer_service,
+		             Framebuffer_service_factory    &framebuffer_service_factory,
 		             char const                     *mediafile)
 		:
 			_ep(&pd, _ep_stack_size, "avplay_ep"),
-			_policy(_ep, rm, ram, input_service, framebuffer_service, mediafile),
+			_policy(_ep, rm, ram, input_service, framebuffer_service_factory, mediafile),
 			_child(rm, _ep, _policy)
 		{ }
 
