@@ -57,7 +57,7 @@ class Gdb_monitor::App_child : public Child_policy
 
 		Genode::Region_map                 &_rm;
 
-		size_t                              _ram_quota;
+		Genode::size_t                      _ram_quota;
 
 		Rpc_entrypoint                      _entrypoint;
 
@@ -254,7 +254,7 @@ class Gdb_monitor::App_child : public Child_policy
 		          const char                     *unique_name,
 				  Genode::Pd_session             &pd,
 				  Genode::Region_map             &rm,
-				  size_t                          ram_quota,
+				  Genode::size_t                  ram_quota,
 				  Signal_receiver                *signal_receiver,
 				  Xml_node                        target_node)
 		: _labeling_policy(unique_name),
