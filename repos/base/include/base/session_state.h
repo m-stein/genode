@@ -75,12 +75,12 @@ class Genode::Session_state : public Parent::Client, public Parent::Server,
 		Parent::Client parent_client;
 
 		enum Phase { CREATE_REQUESTED,
-			         INVALID_ARGS,
-			         AVAILABLE,
-			         CAP_HANDED_OUT,
-			         UPGRADE_REQUESTED,
-			         CLOSE_REQUESTED,
-			         CLOSED };
+		             INVALID_ARGS,
+		             AVAILABLE,
+		             CAP_HANDED_OUT,
+		             UPGRADE_REQUESTED,
+		             CLOSE_REQUESTED,
+		             CLOSED };
 
 		/**
 		 * If set, the server reponds asynchronously to the session request.
