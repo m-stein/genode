@@ -91,16 +91,8 @@ namespace Genode {
 	inline Session_label prefixed_label(String<N1> const &prefix,
 	                                    String<N2> const &label)
 	{
-		if (!prefix.valid() || prefix == "")
-			return Session_label(label.string());
-
-		if (!label.valid() || label == "")
-			return Session_label(prefix.string());
-
-		char buf[Session_label::capacity()];
-		snprintf(buf, sizeof(buf), "%s -> %s", prefix.string(), label.string());
-
-		return Session_label(Cstring(buf));
+		String<N1 + N2 + 4> const prefixed_label(prefix, " -> ", label);
+		return Session_label(prefixed_label);
 	}
 }
 
