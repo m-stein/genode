@@ -42,9 +42,11 @@ struct Genode::Session_label : String<160>
 			if (full_len < _separator_len())
 				return full;
 
-			for (unsigned i = full_len - _separator_len(); i > 0; --i)
+			unsigned i = full_len - _separator_len();
+			do {
 				if (!strcmp(_separator(), full + i, _separator_len()))
 					return full + i + _separator_len();
+			} while (i-- > 0);
 
 			return Session_label(Cstring(full));
 		}
