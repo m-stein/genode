@@ -284,7 +284,7 @@ void Interface::_nat_link_and_pass(Ethernet_frame      &eth,
 
 		_src_port(prot, prot_base, nat.port_alloc(prot).alloc());
 		ip.src(interface._router_ip());
-		remote_port_alloc = nat.port_alloc(prot);
+		remote_port_alloc.set(nat.port_alloc(prot));
 	}
 	catch (Nat_rule_tree::No_match) { }
 	Link_side_id const remote = { ip.dst(), _dst_port(prot, prot_base),
@@ -591,7 +591,7 @@ Interface::Interface(Entrypoint        &ep,
 		log("  Router identity: MAC ", _router_mac, " IP ",
 		    _router_ip(), "/", _domain.interface_attr().prefix);
 	}
-	_domain.interface() = *this;
+	_domain.interface().set(*this);
 }
 
 
@@ -615,7 +615,7 @@ void Interface::_cancel_arp_waiting(Arp_waiter &waiter)
 
 Interface::~Interface()
 {
-	_domain.interface().invalidate();
+	_domain.interface().unset();
 	if (_config().verbose()) {
 		log("Interface disconnected", *this); }
 

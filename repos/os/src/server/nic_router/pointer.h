@@ -28,11 +28,10 @@ class Net::Pointer
 
 	public:
 
+		struct Valid   : Genode::Exception { };
 		struct Invalid : Genode::Exception { };
 
 		Pointer() : _ptr(nullptr) { }
-
-		Pointer(T &ptr) : _ptr(&ptr) { }
 
 		T &deref() const
 		{
@@ -42,7 +41,15 @@ class Net::Pointer
 			return *_ptr;
 		}
 
-		void invalidate() { _ptr = nullptr; }
+		void set(T &ptr)
+		{
+			if (_ptr != nullptr) {
+				throw Valid(); }
+
+			_ptr = &ptr;
+		}
+
+		void unset() { _ptr = nullptr; }
 };
 
 #endif /* _POINTER_H_ */

@@ -155,5 +155,8 @@ Session_component *Net::Root::_create_session(char const *args)
 	catch (Xml_node::Nonexistent_attribute) {
 		error("missing domain attribute in policy");
 	}
+	catch (Pointer<Interface>::Valid) {
+		error("one session per domain only");
+	}
 	throw Root::Unavailable();
 }
