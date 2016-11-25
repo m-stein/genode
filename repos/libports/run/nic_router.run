@@ -66,7 +66,6 @@ append config {
 		<provides><service name="Nic"/></provides>
 		<config rtt_sec="3" verbose="no">
 
-			<policy label_prefix="uplink"        domain="uplink"        />
 			<policy label_prefix="udp_client_1"  domain="udp_client_1"  />
 			<policy label_prefix="http_client_3" domain="http_client_3" />
 			<policy label_prefix="udp_client_3"  domain="udp_client_3"  />
