@@ -69,6 +69,4 @@ append qemu_args "-nographic -m 64"
 # 6000 ms -> check for 1000 ms
 #
 
-run_genode_until ".*700ms timeout.*\n.*1000ms timeout.*\n.*700ms timeout.*\n.*700ms timeout.*\n.*1000ms timeout.*\n.*3250ms timeout.*\n.*700ms timeout.*\n.*1000ms timeout.*\n.*700ms timeout.*\n.*5200ms timeout.*\n.*700ms timeout.*\n.*1000ms timeout" 20
-
-puts "Test succeeded"
+run_genode_until ".*700ms timeout.*\n.*1000ms timeout.*\n.*700ms timeout.*\n.*700ms timeout.*\n.*1000ms timeout.*\n.*3250ms timeout.*\n.*700ms timeout.*\n.*1000ms timeout.*\n.*700ms timeout.*\n.*5200ms timeout.*\n.*700ms timeout.*\n.*1000ms timeout.*\n" 20
