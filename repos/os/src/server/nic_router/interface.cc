@@ -586,7 +586,7 @@ Interface::Interface(Entrypoint        &ep,
 	_domain(domain)
 {
 	if (_config().verbose()) {
-		log("Interface connected", *this);
+		log("Interface connected ", *this);
 		log("  MAC ", _mac);
 		log("  Router identity: MAC ", _router_mac, " IP ",
 		    _router_ip(), "/", _domain.interface_attr().prefix);
@@ -617,7 +617,7 @@ Interface::~Interface()
 {
 	_domain.interface().unset();
 	if (_config().verbose()) {
-		log("Interface disconnected", *this); }
+		log("Interface disconnected ", *this); }
 
 	/* destroy ARP waiters */
 	while (_own_arp_waiters.first()) {
