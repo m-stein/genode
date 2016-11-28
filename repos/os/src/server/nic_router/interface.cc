@@ -196,7 +196,7 @@ Interface::_new_link(uint8_t                       const  protocol,
 			_tcp_links.insert(&link.client());
 			remote_interface._tcp_links.insert(&link.server());
 			if (_config().verbose()) {
-				log("Mew TCP client link: ", link.client(), " at ", *this);
+				log("New TCP client link: ", link.client(), " at ", *this);
 				log("New TCP server link: ", link.server(),
 				    " at ", remote_interface._domain);
 			}
@@ -210,7 +210,7 @@ Interface::_new_link(uint8_t                       const  protocol,
 			_udp_links.insert(&link.client());
 			remote_interface._udp_links.insert(&link.server());
 			if (_config().verbose()) {
-				log("Mew UDP client link: ", link.client(), " at ", *this);
+				log("New UDP client link: ", link.client(), " at ", *this);
 				log("New UDP server link: ", link.server(),
 				    " at ", remote_interface._domain);
 			}
