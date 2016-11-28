@@ -40,10 +40,16 @@ Domain_avl_member::Domain_avl_member(Domain_name const &name,
  *****************/
 
 Domain_base::Domain_base(Xml_node const &node)
-:
-	_name(Cstring(node.attribute("name").value_base(),
-	              node.attribute("name").value_size()))
-{ }
+:_name(Cstring(""))
+{
+
+error("X1 ", _name);
+	_name=Cstring(node.attribute("name").value_base(),
+	              node.attribute("name").value_size());
+error("X2 ", _name);
+	_interface_attr=node.attribute_value("interface", Ipv4_address_prefix());
+error("X3 ", _name);
+}
 
 
 /************
@@ -92,9 +98,9 @@ void Domain::print(Output &output) const
 
 Domain::Domain(Configuration &config, Xml_node const &node, Allocator &alloc)
 :
-	Domain_base(node), _avl_member(_name, *this), _config(config),
+	Domain_base(node),
+	_avl_member(_name, *this), _config(config),
 	_node(node), _alloc(alloc),
-	_interface_attr(node.attribute_value("interface", Ipv4_address_prefix())),
 	_gateway(node.attribute_value("gateway", Ipv4_address())),
 	_gateway_valid(_gateway.valid())
 {

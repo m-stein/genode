@@ -64,7 +64,8 @@ class Net::Domain_base
 {
 	protected:
 
-		Domain_name const _name;
+		Domain_name  _name;
+		Ipv4_address_prefix     _interface_attr;
 
 		Domain_base(Genode::Xml_node const &node);
 };
@@ -78,7 +79,6 @@ class Net::Domain : public Domain_base
 		Configuration          &_config;
 		Genode::Xml_node        _node;
 		Genode::Allocator      &_alloc;
-		Ipv4_address_prefix     _interface_attr;
 		Ipv4_address const      _gateway;
 		bool         const      _gateway_valid;
 		Ip_rule_list            _ip_rules;

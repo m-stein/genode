@@ -180,7 +180,7 @@ class Genode::Xml_attribute
 		Xml_attribute next() const { return Xml_attribute(_next()); }
 };
 
-
+#include <base/log.h>
 /**
  * Representation of an XML node
  */
@@ -882,10 +882,13 @@ class Genode::Xml_node
 		 * user from implementing the exception handling manually.
 		 */
 		template <typename T>
-		inline T attribute_value(char const *type, T default_value) const
+		inline T attribute_value(char const *type, T default_value, char * x = 0) const
 		{
+if (x) { error("Y ", Cstring(x)); }
 			T result = default_value;
+if (x) { error("Y ", Cstring(x)); }
 			try { attribute(type).value(&result); } catch (...) { }
+if (x) { error("Y ", Cstring(x)); }
 			return result;
 		}
 

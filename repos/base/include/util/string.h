@@ -560,7 +560,7 @@ template <Genode::size_t CAPACITY>
 class Genode::String
 {
 	private:
-
+public:
 		char _buf[CAPACITY];
 
 		/**
