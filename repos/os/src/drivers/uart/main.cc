@@ -35,10 +35,7 @@ struct Main
 };
 
 
-namespace Component {
-	Genode::size_t stack_size() { return 2048*sizeof(Genode::addr_t); }
-	void           construct(Genode::Env &env) { static Main uart_drv(env); }
-}
+void Component::construct(Genode::Env &env) { static Main uart_drv(env); }
 
 
 Uart::Driver & Uart::Driver_factory::create(unsigned index, unsigned baudrate,

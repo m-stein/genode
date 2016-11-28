@@ -39,9 +39,4 @@ class Main
 };
 
 
-/***************
- ** Component **
- ***************/
-
-size_t Component::stack_size()        { return 2 * 1024 * sizeof(addr_t); }
-void   Component::construct(Env &env) { static Main main(env);            }
+void Component::construct(Env &env) { static Main main(env); }
