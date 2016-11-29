@@ -297,7 +297,7 @@ following configuration:
 ! <policy label_prefix="virtnet_a" domain="virtnet_a" />
 ! <policy label_prefix="virtnet_b" domain="virtnet_b" />
 !
-! <domain name="uplink" interface="10.0.2.55/24" gateway="10.0.2.1/24">
+! <domain name="uplink" interface="10.0.2.55/24" gateway="10.0.2.1">
 !    <ip dst="192.168.1.0/24" domain="virtnet_a"/>
 !    <ip dst="192.168.2.0/24" domain="virtnet_b"/>
 ! </domain>
@@ -336,7 +336,7 @@ internet. The router would have the following configuration:
 ! <policy label_prefix="virtnet_a" domain="virtnet_a" />
 ! <policy label_prefix="virtnet_b" domain="virtnet_b" />
 !
-! <domain name="uplink" interface="10.0.2.55/24" gateway="10.0.2.1/24">
+! <domain name="uplink" interface="10.0.2.55/24" gateway="10.0.2.1">
 !    <nat domain="virtnet_a" tcp_ports="1000" udp_ports="1000">
 ! </domain>
 !
