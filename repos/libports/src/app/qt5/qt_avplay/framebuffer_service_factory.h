@@ -18,7 +18,7 @@
 #include <base/service.h>
 #include <os/slave.h>
 #include <framebuffer_session/connection.h>
-#include <gems/single_session_service.h>
+#include <os/single_session_service.h>
 #include <nitpicker_session/connection.h>
 
 /* Qt includes */
@@ -29,6 +29,8 @@
 struct Framebuffer_service_factory
 {
 	virtual Genode::Service &create(Genode::Session_state::Args const &args) = 0;
+
+	typedef Genode::Single_session_service<Framebuffer::Session> Session_service;
 };
 
 
@@ -36,13 +38,13 @@ class Nitpicker_framebuffer_service_factory : public Framebuffer_service_factory
 {
 	private:
 
-		Nitpicker::Connection                         _nitpicker;
+		Nitpicker::Connection  _nitpicker;
 
-		Single_session_service<Framebuffer::Session>  _service;
+		Session_service        _service;
 
-		QNitpickerViewWidget                         &_nitpicker_view_widget;
-		int                                           _max_width;
-		int                                           _max_height;
+		QNitpickerViewWidget  &_nitpicker_view_widget;
+		int                    _max_width;
+		int                    _max_height;
 
 		int _limited_size(int requested_size, int max_size)
 		{
@@ -107,12 +109,11 @@ class Filter_framebuffer_service_factory : public Framebuffer_service_factory
 	private:
 
 		typedef Genode::Slave::Connection<Framebuffer::Connection> Framebuffer_connection;
-		typedef Single_session_service<Framebuffer::Session>       Framebuffer_service;
 
 		Genode::Slave::Policy  &_policy;
 
 		Framebuffer_connection *_slave_connection { nullptr };
-		Framebuffer_service    *_service { nullptr };
+		Session_service        *_service { nullptr };
 
 	public:
 
@@ -130,7 +131,7 @@ class Filter_framebuffer_service_factory : public Framebuffer_service_factory
 		{
 			_slave_connection = new Framebuffer_connection(_policy, args);
 
-			_service = new Framebuffer_service(*_slave_connection);
+			_service = new Session_service(*_slave_connection);
 
 			return _service->service();
 		}

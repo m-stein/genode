@@ -11,17 +11,22 @@
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _INCLUDE__GEMS__SINGLE_SESSION_SERVICE_H_
-#define _INCLUDE__GEMS__SINGLE_SESSION_SERVICE_H_
+#ifndef _INCLUDE__OS__SINGLE_SESSION_SERVICE_H_
+#define _INCLUDE__OS__SINGLE_SESSION_SERVICE_H_
 
+/* Genode includes */
 #include <base/service.h>
 
+
+namespace Genode { template <typename> class Single_session_service; }
+
+
 template <typename SESSION>
-class Single_session_service
+class Genode::Single_session_service
 {
 	public:
 
-		typedef Genode::Capability<SESSION> Session_capability;
+		typedef Capability<SESSION> Session_capability;
 
 	private:
 
@@ -39,7 +44,7 @@ class Single_session_service
 			Session_capability cap() const { return *this; }
 		};
 
-		typedef Genode::Local_service<Client>            Service;
+		typedef Local_service<Client>            Service;
 		typedef typename Service::Single_session_factory Factory;
 
 		Client  _client;
@@ -50,7 +55,7 @@ class Single_session_service
 
 		Single_session_service(Session_capability cap) : _client(cap) { }
 
-		Genode::Service &service() { return _service; }
+		Service &service() { return _service; }
 };
 
-#endif /* _INCLUDE__GEMS__SINGLE_SESSION_SERVICE_H_ */
+#endif /* _INCLUDE__OS__SINGLE_SESSION_SERVICE_H_ */

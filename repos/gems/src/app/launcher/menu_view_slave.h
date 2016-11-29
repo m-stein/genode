@@ -19,7 +19,7 @@
 #include <nitpicker_session/nitpicker_session.h>
 
 /* gems includes */
-#include <gems/single_session_service.h>
+#include <os/single_session_service.h>
 
 /* local includes */
 #include <types.h>
@@ -39,9 +39,9 @@ class Launcher::Menu_view_slave
 		{
 			private:
 
-				Single_session_service<Nitpicker::Session>  _nitpicker;
-				Single_session_service<Genode::Rom_session> _dialog_rom;
-				Single_session_service<Report::Session>     _hover_report;
+				Genode::Single_session_service<Nitpicker::Session>  _nitpicker;
+				Genode::Single_session_service<Genode::Rom_session> _dialog_rom;
+				Genode::Single_session_service<Report::Session>     _hover_report;
 
 				Position _position;
 
