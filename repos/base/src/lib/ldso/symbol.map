@@ -88,6 +88,7 @@
 
 		/* Pistachio */
 		__L4_ThreadSwitch;
+		__L4_Ipc;
 
 	local:
 
