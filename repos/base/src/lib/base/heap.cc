@@ -23,7 +23,7 @@ using namespace Genode;
 namespace {
 
 	enum {
-		MIN_CHUNK_SIZE =   4*1024,  /* in machine words */
+		MIN_CHUNK_SIZE =     1024,  /* in machine words */
 		MAX_CHUNK_SIZE = 256*1024,
 		/*
 		 * Allocation sizes >= this value are considered as big
