@@ -79,6 +79,7 @@ append config {
 		<config>
 			<policy label_prefix="test-loader">
 				<parent-rom name="testnit"/>
+				<parent-rom name="ld.lib.so"/>
 			</policy>
 		</config>
 	</start>

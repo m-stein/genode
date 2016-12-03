@@ -51,6 +51,7 @@ install_config {
 			<config>
 				<policy label_prefix="test-fault_detection">
 					<parent-rom name="test-segfault"/>
+					<parent-rom name="ld.lib.so"/>
 					<parent-rom name="init"/>
 				</policy>
 			</config>
