@@ -242,9 +242,10 @@ inline Nova::uint8_t async_map(Genode::Pager_object &pager,
 {
 	/* asynchronously map capabilities */
 	utcb->set_msg_word(0);
-	bool ok = utcb->append_item(source_initial_caps, 0);
-	/* one item ever fits on the utcb */
-	(void) ok;
+
+	/* ignore return value as one item always fits into the utcb */
+	bool const ok = utcb->append_item(source_initial_caps, 0);
+	(void)ok;
 
 	return syscall_retry(pager,
 		[&]() {
