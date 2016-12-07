@@ -165,16 +165,6 @@ class Kernel::Thread
 		void _deactivate_used_shares();
 
 		/**
-		 * Inhibit further execution (doesn't affect thread state)
-		 */
-		void _pause();
-
-		/**
-		 * Allow execution again (doesn't affect thread state)
-		 */
-		void _resume();
-
-		/**
 		 * Suspend unrecoverably from execution
 		 */
 		void _die();
@@ -287,7 +277,7 @@ class Kernel::Thread
 		 ** Cpu_domain_update **
 		 ***********************/
 
-		void _cpu_domain_update_unblocks() { _resume(); }
+		void _cpu_domain_update_unblocks() { _restart(); }
 
 	public:
 

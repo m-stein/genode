@@ -202,27 +202,21 @@ void Thread::_call_start_thread()
 
 void Thread::_call_pause_thread()
 {
-	reinterpret_cast<Thread*>(user_arg_1())->_pause();
-}
+	Thread &thread = *reinterpret_cast<Thread*>(user_arg_1());
+	if (thread._state == ACTIVE && !thread._paused) {
+		thread._deactivate_used_shares(); }
 
-
-void Thread::_pause()
-{
-	if (_state == ACTIVE && !_paused) { _deactivate_used_shares(); }
-	_paused = true;
+	thread._paused = true;
 }
 
 
 void Thread::_call_resume_thread()
 {
-	reinterpret_cast<Thread*>(user_arg_1())->_resume();
-}
+	Thread &thread = *reinterpret_cast<Thread*>(user_arg_1());
+	if (thread._state == ACTIVE && thread._paused) {
+		thread._activate_used_shares(); }
 
-
-void Thread::_resume()
-{
-	if (_state == ACTIVE && _paused) { _activate_used_shares(); }
-	_paused = false;
+	thread._paused = false;
 }
 
 
