@@ -367,7 +367,7 @@ class Genode::Region_map_component : public Genode::Weak_object<Genode::Region_m
 		/**
 		 * Dissolve faulter from region map
 		 */
-		void discard_faulter(Rm_faulter *faulter, bool do_lock = true);
+		void discard_faulter(Rm_faulter *faulter, bool do_lock);
 
 		List<Rm_client> *clients() { return &_clients; }
 
