@@ -2,10 +2,8 @@
  * \brief  Fork bomb to stress Genode
  * \author Christian Helmuth
  * \author Norman Feske
+ * \author Alexander Böttcher
  * \date   2007-08-16
- *
- * The better part of this code is derived from the original init
- * implementation by Norman.
  */
 
 /*
@@ -150,24 +148,25 @@ unique_child_name(Children const &children, Bomb_child::Name const &binary_name,
 }
 
 
-struct Bomb {
+struct Bomb
+{
 	Genode::Env &env;
 
 	Constructible<Timer::Connection> timer;
 
-	Genode::Signal_handler<Bomb> signal_timeout;
-	Genode::Signal_handler<Bomb> signal_resource;
+	Genode::Signal_handler<Bomb> signal_timeout  { env.ep(), *this, &Bomb::destruct_children };
+	Genode::Signal_handler<Bomb> signal_resource { env.ep(), *this, &Bomb::resource_request };
 
-	Attached_rom_dataspace config;
+	Attached_rom_dataspace config { env, "config" };
 
 	unsigned round = 0;
-	unsigned const rounds = config.xml().attribute_value("rounds", 1U);
-	unsigned const generation = config.xml().attribute_value("generations", 1U);
-	unsigned const children = config.xml().attribute_value("children", 2U);
-	unsigned const sleeptime = config.xml().attribute_value("sleep", 2000U);
+	unsigned const rounds      = config.xml().attribute_value("rounds", 1U);
+	unsigned const generation  = config.xml().attribute_value("generations", 1U);
+	unsigned const children    = config.xml().attribute_value("children", 2U);
+	unsigned const sleeptime   = config.xml().attribute_value("sleep", 2000U);
 	unsigned long const demand = config.xml().attribute_value("demand", 1024UL * 1024);
 
-	Heap heap;
+	Heap heap { env.ram(), env.rm() };
 
 	Children child_registry;
 
@@ -216,11 +215,11 @@ struct Bomb {
 
 		log("[", round, "] Done.");
 
+		++round;
+
 		/* master if we have a timer connection */
 		if (round == rounds && timer.constructed())
 			log("Done. Going to sleep");
-
-		round ++;
 
 		construct_children();
 	}
@@ -230,13 +229,7 @@ struct Bomb {
 		Genode::error("resource request");
 	}
 
-	Bomb(Genode::Env &env)
-	:
-		env(env),
-		signal_timeout(env.ep(), *this, &Bomb::destruct_children),
-		signal_resource(env.ep(), *this, &Bomb::resource_request),
-		config(env, "config"),
-		heap(env.ram(), env.rm())
+	Bomb(Genode::Env &env) : env(env)
 	{
 		for (unsigned i = 0; names[i]; i++)
 			new (heap) Registered<Parent_service>(parent_services, names[i]);
