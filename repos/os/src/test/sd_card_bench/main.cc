@@ -55,8 +55,8 @@ static void run_benchmark(Block::Driver  &driver,
 	/*
 	 * Trim number of requests if it would take to much time
 	 */
-	if (num_requests > 1280) {
-		buffer_size = 1280 * request_size;
+	if (num_requests > 320) {
+		buffer_size = 320 * request_size;
 		num_requests = buffer_size / request_size;
 	}
 
@@ -93,7 +93,7 @@ struct Main
 	{
 		using namespace Genode;
 
-		log("--- i.MX53 SD card benchmark ---");
+		log("--- i.MX SD card benchmark ---");
 
 		bool const use_dma = true;
 
@@ -163,7 +163,7 @@ struct Main
 			run_benchmark(driver, timer, buffer_virt, buffer_phys, buffer_size,
 			              request_sizes[i], write_operation);
 
-		log("\n--- i.MX53 SD card benchmark finished ---");
+		log("\n--- i.MX SD card benchmark finished ---");
 	}
 };
 
