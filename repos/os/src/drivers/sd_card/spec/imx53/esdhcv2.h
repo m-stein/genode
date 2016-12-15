@@ -54,16 +54,28 @@ struct Genode::Esdhcv2 : Mmio
 	struct Rsp136_1 : Bitset_2<Cmdrsp0::Rsp136_0_8, Cmdrsp1::Rsp136_8_24> { };
 	struct Rsp136_2 : Bitset_2<Cmdrsp1::Rsp136_0_8, Cmdrsp2::Rsp136_8_24> { };
 	struct Rsp136_3 : Bitset_2<Cmdrsp2::Rsp136_0_8, Cmdrsp3::Rsp136_8_24> { };
-	struct Xfertyp  : Register<0xc, 32>
+
+	template <off_t OFFSET>
+	struct Xfertyp_base : Register<OFFSET, 32>
 	{
-		struct Dmaen  : Bitfield<0, 1> { };
-		struct Bcen   : Bitfield<1, 1> { };
-		struct Ac12en : Bitfield<2, 1> { };
-		struct Dtdsel : Bitfield<4, 1>
+		struct Dmaen  : Register<OFFSET, 32>::template Bitfield<0, 1> { };
+		struct Bcen   : Register<OFFSET, 32>::template Bitfield<1, 1> { };
+		struct Ac12en : Register<OFFSET, 32>::template Bitfield<2, 1> { };
+		struct Dtdsel : Register<OFFSET, 32>::template Bitfield<4, 1>
 		{
 			enum { WRITE = 0, READ  = 1, };
 		};
-		struct Msbsel : Bitfield<5, 1> { };
+		struct Msbsel : Register<OFFSET, 32>::template Bitfield<5, 1> { };
+	};
+	struct Mixctrl : Xfertyp_base<0x48>
+	{
+		struct Ddren       : Bitfield<3, 1> { };
+		struct Nibblepos   : Bitfield<6, 1> { };
+		struct Ac23en      : Bitfield<7, 1> { };
+		struct Always_ones : Bitfield<31, 1> { };
+	};
+	struct Xfertyp : Xfertyp_base<0xc>
+	{
 		struct Rsptyp : Bitfield<16, 2>
 		{
 			enum {
@@ -82,12 +94,12 @@ struct Genode::Esdhcv2 : Mmio
 		};
 		struct Cmdinx : Bitfield<24, 6> { };
 	};
-	struct Prsstat     : Register<0x24, 32> { };
-	struct Prsstat_lhw : Register<0x24, 16>
+	struct Prsstat     : Register<0x24, 32>
 	{
+		struct Cihb  : Bitfield<0, 1> { };
+		struct Cdihb : Bitfield<1, 1> { };
+		struct Dla   : Bitfield<2, 1> { };
 		struct Sdstb : Bitfield<3, 1> { };
-
-		static constexpr access_t cmd_allowed() { return Sdstb::reg_mask(); }
 	};
 	struct Proctl : Register<0x28, 32>
 	{
@@ -112,11 +124,16 @@ struct Genode::Esdhcv2 : Mmio
 		};
 		struct Dtocv : Bitfield<16, 4>
 		{
-			enum { SDCLK_TIMES_2_POW_27 = 0xe };
+			enum {
+				SDCLK_TIMES_2_POW_28 = 0xf,
+				SDCLK_TIMES_2_POW_27 = 0xe,
+				SDCLK_TIMES_2_POW_13 = 0x0,
+			};
 		};
-		struct Rsta : Bitfield<24, 1> { };
-		struct Rstc : Bitfield<25, 1> { };
-		struct Rstd : Bitfield<26, 1> { };
+		struct Ipp_rst_n : Bitfield<23, 1> { };
+		struct Rsta      : Bitfield<24, 1> { };
+		struct Rstc      : Bitfield<25, 1> { };
+		struct Rstd      : Bitfield<26, 1> { };
 	};
 
 	template <off_t OFFSET>
@@ -153,8 +170,23 @@ struct Genode::Esdhcv2 : Mmio
 		struct Wr_wml      : Bitfield<16, 8> { };
 		struct Wr_brst_len : Bitfield<24, 5> { };
 	};
+	struct Vendspec : Register<0xc0, 32>
+	{
+		struct Frc_sdclk_on : Bitfield<8, 1> { };
+	};
 
-	Esdhcv2(addr_t const mmio_base) : Mmio(mmio_base) { }
+	Esdhcv2(addr_t const mmio_base) : Mmio(mmio_base) {
+//		_read_verbose=1; _write_verbose=1;
+	}
+
+//		struct Delay
+//		{
+//			Delayer  &delayer;
+//			unsigned  attempts, us;
+//
+//			Delay(Delayer &delayer, unsigned attempts = 500, unsigned us = 1000)
+//			: delayer(delayer), attempts(attempts), us(us) { }
+//		};
 };
 
 /**
@@ -166,15 +198,13 @@ struct Genode::Esdhcv2_controller
 {
 	private:
 
-		enum {
-			BLOCK_SIZE      = 512,
-			WATERMARK_WORDS = 16,
-			BURST_WORDS     = 8,
-		};
+		enum { BLOCK_SIZE = 512 };
 
 		enum Bus_width { BUS_WIDTH_1, BUS_WIDTH_4 };
 
-		enum Clock_divider { CLOCK_DIV_8, CLOCK_DIV_512 };
+		enum Clock { CLOCK_INITIAL, CLOCK_OPERATIONAL };
+
+		enum Clock_divider { CLOCK_DIV_4, CLOCK_DIV_8, CLOCK_DIV_512 };
 
 		Irq_connection     _irq;
 		Signal_receiver    _irq_rec;
@@ -184,21 +214,34 @@ struct Genode::Esdhcv2_controller
 		bool const         _use_dma;
 		Adma2::Table       _adma2_table;
 
+		static bool _supported_host_version(Hostver::access_t hostver);
+		static void _watermark_level(Wml::access_t &wml);
+
 		void _detect_err(char const * const err);
 		void _disable_irqs();
 		void _enable_irqs();
 		void _bus_width(Bus_width bus_width);
 		void _disable_clock();
-		void _enable_clock(Clock_divider divider, Delayer &delayer);
-		void _clock(enum Clock_divider divider, Delayer &delayer);
+		void _disable_clock_preparation();
+		void _enable_clock(Clock_divider divider);
+		void _enable_clock_finish();
+		void _clock(Clock clock);
+		void _clock_finish(Clock clock);
 		void _wait_for_irq();
 		int  _reset(Delayer & delayer);
+		void _reset_amendments();
 		int  _wait_for_cmd_allowed();
 		int  _wait_for_cmd_complete();
 		int  _wait_for_card_ready_mbw();
-		int  _stop_transmission_mbw();
+		int  _stop_transmission();
+		void _stop_transmission_finish_xfertyp(Xfertyp::access_t &xfertyp);
 		int  _wait_for_cmd_complete_mb(bool const r);
+		int  _wait_for_cmd_complete_mb_finish(bool const reading);
 		int  _prepare_dma_mb(size_t blk_cnt, addr_t buf_phys);
+		bool _issue_cmd_finish_xfertyp(Xfertyp::access_t &xfertyp,
+		                               bool const         transfer,
+		                               bool const         multiblock,
+		                               bool const         reading);
 
 		Sd_card::Card_info _init();
 

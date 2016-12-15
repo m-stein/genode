@@ -40,6 +40,11 @@ struct Genode::Board_base
 		UART_1_MMIO_BASE = 0x02020000,
 		UART_1_MMIO_SIZE = 0x00004000,
 
+		/* SD host controller */
+		ESDHCV2_1_IRQ       = 54,
+		ESDHCV2_1_MMIO_BASE = 0x02190000,
+		ESDHCV2_1_MMIO_SIZE = 0x00004000,
+
 		/* timer */
 		EPIT_2_IRQ       = 89,
 		EPIT_2_MMIO_BASE = 0x020d4000,
