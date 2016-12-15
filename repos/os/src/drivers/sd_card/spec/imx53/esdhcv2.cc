@@ -112,11 +112,10 @@ int Esdhcv2_controller::_wait_for_cmd_complete_mb(bool const r)
 	 * Poll for missing signal because interrupts are edge-triggered
 	 * and could thus got lost in the meantime.
 	 */
-	if (irq != irq_goal) {
-		if (!wait_for<Irqstat>(irq_goal, _delayer)) {
-			error("Completion host signal timed out");
-			return -1;
-		}
+	try { wait_for(_delayer, Irqstat::Equal(irq_goal)); }
+	catch (Polling_timeout) {
+		error("Completion host signal timed out");
+		return -1;
 	}
 	/* acknowledge completion signals */
 	write<Irqstat>(irq_goal);
@@ -290,8 +289,9 @@ int Esdhcv2_controller::_wait_for_cmd_allowed()
 	 * Command 12", waiting only for "Command Inhibit" isn't sufficient as
 	 * "Data Line Active" and "Data Inhibit" may also be active.
 	 */
-	if (!wait_for<Prsstat_lhw>(Prsstat_lhw::cmd_allowed(), _delayer)) {
-		error("wait till issuing a new command is allowed timed out");
+	try { wait_for(_delayer, Prsstat_lhw::Equal(Prsstat_lhw::cmd_allowed())); }
+	catch (Polling_timeout) {
+		error("wait till issuing a new command is allowed timed out ");
 		return -1;
 	}
 	return 0;
@@ -470,7 +470,8 @@ int Esdhcv2_controller::_reset(Delayer & delayer)
 	write<Sysctl>(sysctl);
 
 	/* wait for reset completion */
-	if (!wait_for<Sysctl::Rsta>(0, delayer)) {
+	try { wait_for(delayer, Sysctl::Rsta::Equal(0)); }
+	catch (Polling_timeout) {
 		error("Reset timed out");
 		return -1;
 	}

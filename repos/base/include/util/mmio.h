@@ -16,6 +16,7 @@
 
 /* Genode includes */
 #include <util/register.h>
+#include <base/exception.h>
 
 namespace Genode { class Mmio; }
 
@@ -51,6 +52,79 @@ class Genode::Mmio
 		return value;
 	}
 
+	private:
+
+		/**
+		 * Return wether one IO condition is met
+		 *
+		 * \param CONDITION  A condition subtype of Register, Bitfield, or
+		 *                   such (for example the Bitfield::Equal type)
+		 * \param condition  the condition instance
+		 */
+		template <typename CONDITION>
+		inline bool _conditions_met(CONDITION condition) {
+			return condition.met(read<typename CONDITION::Io_type>()); }
+
+		/**
+		 * Return wether a list of IO conditions is met
+		 *
+		 * \param CONDITION   The type of the head of the condition list.
+		 *                    A condition subtype of Register, Bitfield, or
+		 *                    such (for example the Bitfield::Equal type).
+		 * \param CONDITIONS  The types of the tail of the condition list.
+		 *                    condition subtypes of Register, Bitfield, or
+		 *                    such (for example the Bitfield::Equal type)
+		 * \param head        the condition instance
+		 */
+		template <typename CONDITION, typename... CONDITIONS>
+		inline bool _conditions_met(CONDITION head, CONDITIONS... tail) {
+			return _conditions_met(head) ? _conditions_met(tail...) : false; }
+
+		/**
+		 * This template equips IO types with condition subtypes for polling
+		 *
+		 * \param IO_TYPE  IO type that the conditions shall be about
+		 *
+		 * The condition subtypes enable us to poll for a variable amount of
+		 * IO conditions for different IO types at once. They are used as
+		 * input to the 'wait_for' template.
+		 */
+		template <typename IO_TYPE>
+		struct Conditions
+		{
+			/**
+			 * Condition that the IO type equals a value
+			 */
+			class Equal
+			{
+				private:
+
+					typedef typename IO_TYPE::access_t io_access_t;
+
+					io_access_t const _reference_val;
+
+				public:
+
+					typedef IO_TYPE Io_type;
+
+					/**
+					 * Constructor
+					 *
+					 * \param reference_val  reference value
+					 */
+					explicit Equal(io_access_t const reference_val)
+					: _reference_val(reference_val) { }
+
+					/**
+					 * Return whether the condition is met
+					 *
+					 * \param actual_val  actual IO value
+					 */
+					bool met(io_access_t const actual_val) const {
+						return _reference_val == actual_val; }
+			};
+		};
+
 	public:
 
 		enum { BYTE_WIDTH_LOG2 = 3, BYTE_WIDTH = 1 << BYTE_WIDTH_LOG2 };
@@ -76,7 +150,10 @@ class Genode::Mmio
 		template <off_t _OFFSET, unsigned long _ACCESS_WIDTH,
 		          bool _STRICT_WRITE = false>
 
-		struct Register : public Genode::Register<_ACCESS_WIDTH>
+		struct Register
+		:
+			public Genode::Register<_ACCESS_WIDTH>,
+			public Conditions<Register<_OFFSET, _ACCESS_WIDTH, _STRICT_WRITE> >
 		{
 			enum {
 				OFFSET       = _OFFSET,
@@ -97,6 +174,9 @@ class Genode::Mmio
 			typedef Register<_OFFSET, _ACCESS_WIDTH, _STRICT_WRITE>
 				Register_base;
 
+			typedef typename Genode::Register<_ACCESS_WIDTH>::access_t
+				access_t;
+
 			/**
 			 * A region within a register
 			 *
@@ -107,8 +187,11 @@ class Genode::Mmio
 			 * For details see 'Genode::Register::Bitfield'.
 			 */
 			template <unsigned long _SHIFT, unsigned long _WIDTH>
-			struct Bitfield : public Genode::Register<ACCESS_WIDTH>::
-			                         template Bitfield<_SHIFT, _WIDTH>
+			struct Bitfield
+			:
+				public Genode::Register<ACCESS_WIDTH>::
+				       template Bitfield<_SHIFT, _WIDTH>,
+				public Conditions<Bitfield<_SHIFT, _WIDTH> >
 			{
 				/* analogous to 'Mmio::Register::Register_base' */
 				typedef Bitfield<_SHIFT, _WIDTH> Bitfield_base;
@@ -116,6 +199,8 @@ class Genode::Mmio
 				/* back reference to containing register */
 				typedef Register<_OFFSET, _ACCESS_WIDTH, _STRICT_WRITE>
 					Compound_reg;
+
+				typedef Compound_reg::access_t access_t;
 			};
 		};
 
@@ -552,53 +637,41 @@ class Genode::Mmio
 			virtual void usleep(unsigned us) = 0;
 		};
 
+		struct Polling_timeout : Exception { };
+
 		/**
-		 * Wait until register 'T' contains the specified 'value'
+		 * Wait until a list of IO conditions is met
 		 *
-		 * \param value         value to wait for
-		 * \param delayer       sleeping facility to be used when the
-		 *                      value is not reached yet
-		 * \param max_attempts  number of register probing attempts
+		 * \param CONDITIONS    Types of the of conditions in the condition
+		 *                      list. Condition subtypes of the IO types. For
+		 *                      example the Bitfield::Equal type.
+		 * \param delayer       Sleeping facility to be used when the
+		 *                      conditions are not met
+		 * \param attempts      maximum number of probing attempts
 		 * \param us            number of microseconds between attempts
+		 * \param conditions    condition list
+		 *
+		 * \throw Polling_timeout
 		 */
-		template <typename T>
-		inline bool
-		wait_for(typename T::Register_base::access_t const value,
-		         Delayer & delayer,
-		         unsigned max_attempts = 500,
-		         unsigned us           = 1000)
+		template <typename... CONDITIONS>
+		inline void wait_for(Delayer      &delayer,
+		                     unsigned      attempts,
+		                     unsigned      us,
+		                     CONDITIONS... conditions)
 		{
-			typedef typename T::Register_base Register;
-			for (unsigned i = 0; i < max_attempts; i++, delayer.usleep(us))
-			{
-				if (read<Register>() == value) return true;
+			for (unsigned i = 0; i < attempts; i++, delayer.usleep(us)) {
+				if (_conditions_met(conditions...)) {
+					return; }
 			}
-			return false;
+			throw Polling_timeout();
 		}
 
 		/**
-		 * Wait until bitfield 'T' contains the specified 'value'
-		 *
-		 * \param value         value to wait for
-		 * \param delayer       sleeping facility to be used when the
-		 *                      value is not reached yet
-		 * \param max_attempts  number of bitfield probing attempts
-		 * \param us            number of microseconds between attempts
+		 * Shortcut for 'wait_for' with 'us = 500' and 'attempts = 1000'
 		 */
-		template <typename T>
-		inline bool
-		wait_for(typename T::Bitfield_base::Compound_reg::access_t const value,
-		         Delayer & delayer,
-		         unsigned max_attempts = 500,
-		         unsigned us           = 1000)
-		{
-			typedef typename T::Bitfield_base Bitfield;
-			for (unsigned i = 0; i < max_attempts; i++, delayer.usleep(us))
-			{
-				if (read<Bitfield>() == value) return true;
-			}
-			return false;
-		}
+		template <typename... CONDITIONS>
+		inline void wait_for(Delayer &delayer, CONDITIONS... conditions) {
+			wait_for<CONDITIONS...>(delayer, 500, 1000, conditions...); }
 };
 
 #endif /* _INCLUDE__UTIL__MMIO_H_ */
