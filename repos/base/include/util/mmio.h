@@ -645,18 +645,18 @@ class Genode::Mmio
 		 * \param CONDITIONS    Types of the of conditions in the condition
 		 *                      list. Condition subtypes of the IO types. For
 		 *                      example the Bitfield::Equal type.
-		 * \param delayer       Sleeping facility to be used when the
-		 *                      conditions are not met
 		 * \param attempts      maximum number of probing attempts
 		 * \param us            number of microseconds between attempts
+		 * \param delayer       Sleeping facility to be used when the
+		 *                      conditions are not met
 		 * \param conditions    condition list
 		 *
 		 * \throw Polling_timeout
 		 */
 		template <typename... CONDITIONS>
-		inline void wait_for(Delayer      &delayer,
-		                     unsigned      attempts,
+		inline void wait_for(unsigned      attempts,
 		                     unsigned      us,
+		                     Delayer      &delayer,
 		                     CONDITIONS... conditions)
 		{
 			for (unsigned i = 0; i < attempts; i++, delayer.usleep(us)) {
@@ -671,7 +671,55 @@ class Genode::Mmio
 		 */
 		template <typename... CONDITIONS>
 		inline void wait_for(Delayer &delayer, CONDITIONS... conditions) {
-			wait_for<CONDITIONS...>(delayer, 500, 1000, conditions...); }
+			wait_for<CONDITIONS...>(500, 1000, delayer, conditions...); }
+
+		/**
+		 * Wait until register 'T' contains the specified 'value'
+		 *
+		 * \param value         value to wait for
+		 * \param delayer       sleeping facility to be used when the
+		 *                      value is not reached yet
+		 * \param max_attempts  number of register probing attempts
+		 * \param us            number of microseconds between attempts
+		 */
+		template <typename T>
+		inline bool
+		wait_forx(typename T::Register_base::access_t const value,
+		         Delayer & delayer,
+		         unsigned max_attempts = 500,
+		         unsigned us           = 1000)
+		{
+			typedef typename T::Register_base Register;
+			for (unsigned i = 0; i < max_attempts; i++, delayer.usleep(us))
+			{
+				if (read<Register>() == value) return true;
+			}
+			return false;
+		}
+
+		/**
+		 * Wait until bitfield 'T' contains the specified 'value'
+		 *
+		 * \param value         value to wait for
+		 * \param delayer       sleeping facility to be used when the
+		 *                      value is not reached yet
+		 * \param max_attempts  number of bitfield probing attempts
+		 * \param us            number of microseconds between attempts
+		 */
+		template <typename T>
+		inline bool
+		wait_forx(typename T::Bitfield_base::Compound_reg::access_t const value,
+		         Delayer & delayer,
+		         unsigned max_attempts = 500,
+		         unsigned us           = 1000)
+		{
+			typedef typename T::Bitfield_base Bitfield;
+			for (unsigned i = 0; i < max_attempts; i++, delayer.usleep(us))
+			{
+				if (read<Bitfield>() == value) return true;
+			}
+			return false;
+		}
 };
 
 #endif /* _INCLUDE__UTIL__MMIO_H_ */

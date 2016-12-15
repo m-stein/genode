@@ -170,7 +170,8 @@ struct Sdhci_controller : private Sdhci, public Sd_card::Host_controller
 
 			write<Control1>(v);
 
-			if (!wait_for<Control1::Clk_internal_stable>(1, _delayer)) {
+			try { wait_for(_delayer, Control1::Clk_internal_stable::Equal(1)); }
+			catch (Polling_timeout) {
 				Genode::error("could not set internal clock");
 				throw Detection_failed();
 			}
@@ -195,7 +196,8 @@ struct Sdhci_controller : private Sdhci, public Sd_card::Host_controller
 				write<Control1>(v);
 			}
 
-			if (!wait_for<Control1::Srst_hc>(0, _delayer)) {
+			try { wait_for(_delayer, Control1::Srst_hc::Equal(0)); }
+			catch (Polling_timeout) {
 				Genode::error("host-controller soft reset timed out");
 				throw Detection_failed();
 			}
@@ -324,11 +326,15 @@ struct Sdhci_controller : private Sdhci, public Sd_card::Host_controller
 		bool _poll_and_wait_for(unsigned value)
 		{
 			/* poll for a while */
-			if (wait_for<REG>(value, _delayer, 5000, 0))
-				return true;
+			try { wait_for(5000, 0, _delayer, typename REG::Equal(value)); }
+			catch (Polling_timeout) {
 
-			/* if the value were not reached while polling, start sleeping */
-			return wait_for<REG>(value, _delayer);
+				/* if the value was not reached while polling, start sleeping */
+				try { wait_for(_delayer, typename REG::Equal(value)); }
+				catch (Polling_timeout) { return false; }
+			}
+			return true;
+
 		}
 
 	public:
