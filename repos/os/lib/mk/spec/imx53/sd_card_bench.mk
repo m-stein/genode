@@ -3,6 +3,6 @@ SRC_CC  += adma2.cc
 SRC_CC  += spec/imx/driver.cc
 SRC_CC  += spec/imx53/driver.cc
 
-vpath main.cc $(REP_DIR)/src/test/sd_card_bench
+vpath component.cc $(REP_DIR)/src/test/sd_card_bench
 
 include $(REP_DIR)/lib/mk/sd_card.inc
