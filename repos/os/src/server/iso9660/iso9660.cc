@@ -320,11 +320,11 @@ class Volume_descriptor : public Iso::Iso_base
 		bool terminator() { return type() == TERMINATOR; }
 
 		/* copy the root record */
-		Directory_record *copy_root_record()
+		Directory_record *copy_root_record(Genode::Allocator &alloc)
 		{
 			Directory_record *buf;
 
-			if (!(env()->heap()->alloc(ROOT_SIZE, &buf)))
+			if (!(alloc.alloc(ROOT_SIZE, &buf)))
 				throw Root::Quota_exceeded();
 
 			memcpy(buf, root_record(), ROOT_SIZE);
@@ -337,7 +337,8 @@ class Volume_descriptor : public Iso::Iso_base
 /**
  * Locate the root-directory record in the primary volume descriptor
  */
-static Directory_record *locate_root(Block::Connection &block)
+static Directory_record *locate_root(Genode::Allocator &alloc,
+                                     Block::Connection &block)
 {
 	/* volume descriptors in ISO9660 start at block 16 */
 	for (unsigned long blk_nr = 16;; blk_nr++) {
@@ -345,7 +346,7 @@ static Directory_record *locate_root(Block::Connection &block)
 		Volume_descriptor *vol = sec.addr<Volume_descriptor *>();
 
 		if (vol->primary())
-			return vol->copy_root_record();
+			return vol->copy_root_record(alloc);
 
 		if (vol->terminator())
 			return nullptr;
@@ -356,9 +357,10 @@ static Directory_record *locate_root(Block::Connection &block)
 /**
  * Return root directory record
  */
-static Directory_record *root_dir(Block::Connection &block)
+static Directory_record *root_dir(Genode::Allocator &alloc,
+                                  Block::Connection &block)
 {
-	Directory_record *root = locate_root(block);
+	Directory_record *root = locate_root(alloc, block);
 
 	if (!root) { throw Iso::Non_data_disc(); }
 
@@ -390,7 +392,7 @@ Iso::File_info *Iso::file_info(Genode::Allocator &alloc, Block::Connection &bloc
 	Token t(path);
 
 	if (!_root_dir) {
-		_root_dir = root_dir(block);
+		_root_dir = root_dir(alloc, block);
 	}
 
 	Directory_record *dir = _root_dir;
