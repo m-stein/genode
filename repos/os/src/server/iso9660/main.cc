@@ -162,7 +162,7 @@ class Iso::Root : public Iso::Root_component
 
 		Root(Genode::Env &env, Allocator &alloc)
 		:
-			Root_component(&_env.ep().rpc_ep(), &alloc),
+			Root_component(&env.ep().rpc_ep(), &alloc),
 			_env(env), _alloc(alloc)
 		{ }
 };
