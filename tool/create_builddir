@@ -201,7 +201,6 @@ HOST_SPEC_ARCH := ${SPEC_ARCH(${UNAME_MACHINE})}
 #
 # SPECS definitions
 #
-#
 
 SPECS(x86_32)       := x86_32
 SPECS(x86_64)       := x86_64
