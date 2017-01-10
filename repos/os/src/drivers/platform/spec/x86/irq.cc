@@ -123,13 +123,13 @@ class Platform::Irq_component : public Platform::Irq_proxy
 
 	public:
 
-		Irq_component(Genode::Entrypoint &ep, unsigned gsi,
+		Irq_component(Genode::Env &env, unsigned gsi,
 		              Genode::Irq_session::Trigger trigger,
 		              Genode::Irq_session::Polarity polarity)
 		:
 			Irq_proxy(gsi),
-			_irq(gsi, trigger, polarity),
-			_irq_dispatcher(ep, *this, &Platform::Irq_proxy::notify_about_irq),
+			_irq(env, gsi, trigger, polarity),
+			_irq_dispatcher(env.ep(), *this, &Platform::Irq_proxy::notify_about_irq),
 			_associated(false)
 		{ }
 
@@ -137,7 +137,7 @@ class Platform::Irq_component : public Platform::Irq_proxy
 		                                    Irq_allocator *irq_alloc = nullptr,
 		                                    Genode::Irq_session::Trigger trigger = Genode::Irq_session::TRIGGER_UNCHANGED,
 		                                    Genode::Irq_session::Polarity polarity = Genode::Irq_session::POLARITY_UNCHANGED,
-		                                    Genode::Entrypoint *ep = nullptr,
+		                                    Genode::Env *env = nullptr,
 		                                    Genode::Allocator *heap = nullptr)
 		{
 			static Genode::List<Irq_proxy> proxies;
@@ -151,10 +151,10 @@ class Platform::Irq_component : public Platform::Irq_proxy
 					return static_cast<Irq_component *>(p);
 
 			/* try to create proxy */
-			if (!irq_alloc || !ep || !heap || !irq_alloc->alloc_irq(irq_number))
+			if (!irq_alloc || !env || !heap || !irq_alloc->alloc_irq(irq_number))
 				return 0;
 
-			Irq_component *new_proxy = new (heap) Irq_component(*ep, irq_number, trigger,
+			Irq_component *new_proxy = new (heap) Irq_component(*env, irq_number, trigger,
 			                                                    polarity);
 			proxies.insert(new_proxy);
 			return new_proxy;
@@ -188,7 +188,7 @@ void Platform::Irq_session_component::ack_irq()
 
 Platform::Irq_session_component::Irq_session_component(unsigned irq,
                                                        addr_t pci_config_space,
-                                                       Genode::Entrypoint &ep,
+                                                       Genode::Env       &env,
                                                        Genode::Allocator &heap)
 :
 	_gsi(irq)
@@ -204,7 +204,7 @@ Platform::Irq_session_component::Irq_session_component(unsigned irq,
 			try {
 				using namespace Genode;
 
-				_irq_conn.construct(msi, Irq_session::TRIGGER_UNCHANGED,
+				_irq_conn.construct(env, msi, Irq_session::TRIGGER_UNCHANGED,
 				                    Irq_session::POLARITY_UNCHANGED,
 				                    pci_config_space);
 
@@ -233,7 +233,7 @@ Platform::Irq_session_component::Irq_session_component(unsigned irq,
 	try {
 		/* check if shared IRQ object was used before */
 		if (Irq_component::get_irq_proxy(_gsi, &irq_alloc, trigger,
-		                                 polarity, &ep, &heap))
+		                                 polarity, &env, &heap))
 			return;
 	} catch (Genode::Parent::Service_denied) { }
 

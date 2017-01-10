@@ -43,7 +43,7 @@ class Platform::Irq_session_component : public Genode::Rpc_object<Genode::Irq_se
 
 		enum { INVALID_IRQ = 0xffU };
 
-		Irq_session_component(unsigned, Genode::addr_t, Genode::Entrypoint &ep,
+		Irq_session_component(unsigned, Genode::addr_t, Genode::Env &,
 		                      Genode::Allocator &heap);
 		~Irq_session_component();
 
