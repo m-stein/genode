@@ -39,7 +39,9 @@ class Genode::Vm_handler
 
 	public:
 
-		Vm_handler()
+		Vm_handler(Genode::Env &env)
+		:
+			_vm_session(env)
 		{
 			_sig_cap = _sig_rcv.manage(&_sig_ctx);
 			_sig_xmit.context(_sig_cap);

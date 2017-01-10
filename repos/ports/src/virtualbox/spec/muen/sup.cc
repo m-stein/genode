@@ -75,8 +75,6 @@ enum {
 	cur_state->REG.base  = pCtx->REG.u64Base; \
 	cur_state->REG.access = pCtx->REG.Attr.u ? : VMCS_SEG_UNUSABLE
 
-static Genode::Vm_handler vm_handler;
-
 struct Subject_state *cur_state;
 
 Genode::Guest_interrupts *guest_interrupts;
@@ -92,7 +90,7 @@ static Genode::Sinfo * sinfo()
 
 	if (!ptr) {
 		try {
-			static Rom_connection sinfo_rom("subject_info_page");
+			static Rom_connection sinfo_rom(genode_env(), "subject_info_page");
 			static Sinfo sinfo(
 					(addr_t)genode_env().rm().attach(sinfo_rom.dataspace()));
 			ptr = &sinfo;
@@ -394,6 +392,8 @@ int SUPR3QueryVTxSupported(void) { return VINF_SUCCESS; }
 
 int SUPR3CallVMMR0Fast(PVMR0 pVMR0, unsigned uOperation, VMCPUID idCpu)
 {
+	static Genode::Vm_handler vm_handler(genode_env());
+
 	switch (uOperation) {
 
 	case SUP_VMMR0_DO_HM_RUN:
@@ -720,7 +720,7 @@ void genode_update_tsc(void (*update_func)(void), unsigned long update_us)
 {
 	using namespace Genode;
 
-	Timer::Connection timer;
+	Timer::Connection timer(genode_env());
 	Signal_context    sig_ctx;
 	Signal_receiver   sig_rec;
 	Signal_context_capability sig_cap = sig_rec.manage(&sig_ctx);
