@@ -228,7 +228,14 @@ struct Noux::Main
 
 	Destruct_queue _destruct_queue { _destruct_handler };
 
-	void _handle_destruct() { _destruct_queue.flush(); }
+	void _handle_destruct()
+	{
+		_destruct_queue.flush();
+
+		/* let noux exit if the init process exited */
+		if (!init_child)
+			_env.parent().exit(exit_value);
+	}
 
 	struct Kill_broadcaster_impl: Kill_broadcaster
 	{
@@ -289,6 +296,8 @@ struct Noux::Main
 		_init_child.add_io_channel(_channel_2, 2);
 
 		_kill_broadcaster.init_process = &_init_child;
+
+		init_child = &_init_child;
 
 		_init_child.start();
 	}
