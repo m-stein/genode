@@ -21,17 +21,20 @@
 #include <timer_session/connection.h>
 
 
-namespace Xray_trigger { struct Main; }
+namespace Xray_trigger {
+	struct Main;
+	using namespace Genode;
+}
 
 
 struct Xray_trigger::Main
 {
-	Genode::Env &_env;
+	Env &_env;
 
 	/**
 	 * Configuration buffer
 	 */
-	Genode::Attached_rom_dataspace _config { _env, "config" };
+	Attached_rom_dataspace _config { _env, "config" };
 
 	/**
 	 * Nitpicker connection to obtain user input
@@ -41,7 +44,7 @@ struct Xray_trigger::Main
 	/**
 	 * Input-event buffer
 	 */
-	Genode::Attached_dataspace _ev_ds { _env.rm(), _nitpicker.input()->dataspace() };
+	Attached_dataspace _ev_ds { _env.rm(), _nitpicker.input()->dataspace() };
 
 	/**
 	 * Number of pressed keys, used to distinguish primary keys from key
@@ -52,12 +55,12 @@ struct Xray_trigger::Main
 	/**
 	 * Hover model as reported by nitpicker
 	 */
-	Genode::Constructible<Genode::Attached_rom_dataspace> _hover_ds;
+	Constructible<Attached_rom_dataspace> _hover_ds;
 
 	/**
 	 * Reporter for posting the result of our policy decision
 	 */
-	Genode::Reporter _xray_reporter { "xray" };
+	Reporter _xray_reporter { _env, "xray" };
 
 	/**
 	 * Timer to delay the xray report
@@ -77,7 +80,7 @@ struct Xray_trigger::Main
 	bool _xray() const { return _key_xray || _hover_xray; }
 
 	bool _evaluate_input(bool, unsigned, Input::Event const [], unsigned &) const;
-	bool _evaluate_hover(Genode::Xml_node) const;
+	bool _evaluate_hover(Xml_node) const;
 
 	/**
 	 * Handler that is called on config changes, on hover-model changes, or on
@@ -85,12 +88,12 @@ struct Xray_trigger::Main
 	 */
 	void _handle_update();
 
-	Genode::Signal_handler<Main> _update_handler =
+	Signal_handler<Main> _update_handler =
 		{ _env.ep(), *this, &Main::_handle_update };
 
 	void _report_xray()
 	{
-		Genode::Reporter::Xml_generator xml(_xray_reporter, [&] () {
+		Reporter::Xml_generator xml(_xray_reporter, [&] () {
 			xml.attribute("enabled", _xray() ? "yes" : "no");
 		});
 	}
@@ -98,10 +101,10 @@ struct Xray_trigger::Main
 	/**
 	 * Handler that is called after the xray report delay
 	 */
-	Genode::Signal_handler<Main> _timeout_handler =
+	Signal_handler<Main> _timeout_handler =
 		{ _env.ep(), *this, &Main::_report_xray };
 
-	Main(Genode::Env &env) : _env(env)
+	Main(Env &env) : _env(env)
 	{
 		_config.sigh(_update_handler);
 
@@ -136,10 +139,10 @@ bool Xray_trigger::Main::_evaluate_input(bool key_xray, unsigned num_ev,
 		/* ignore key combinations */
 		if (key_cnt > 1) continue;
 
-		typedef Genode::String<32> Key_name;
+		typedef String<32> Key_name;
 		Key_name const ev_key_name(Input::key_name(ev.keycode()));
 
-		typedef Genode::Xml_node Xml_node;
+		typedef Xml_node Xml_node;
 
 		auto lambda = [&] (Xml_node node) {
 
@@ -183,7 +186,7 @@ bool Xray_trigger::Main::_evaluate_input(bool key_xray, unsigned num_ev,
 }
 
 
-bool Xray_trigger::Main::_evaluate_hover(Genode::Xml_node nitpicker_hover) const
+bool Xray_trigger::Main::_evaluate_hover(Xml_node nitpicker_hover) const
 {
 	bool hover_xray = false;
 
@@ -218,7 +221,7 @@ void Xray_trigger::Main::_handle_update()
 	if (_config.xml().has_sub_node("hover")) {
 
 		if (!_hover_ds.constructed()) {
-			_hover_ds.construct("hover");
+			_hover_ds.construct(_env, "hover");
 			_hover_ds->sigh(_update_handler);
 		}
 
@@ -226,8 +229,8 @@ void Xray_trigger::Main::_handle_update()
 	}
 
 	try {
-		_hover_xray = _evaluate_hover(Genode::Xml_node(_hover_ds->local_addr<char>(),
-		                                               _hover_ds->size()));
+		_hover_xray = _evaluate_hover(Xml_node(_hover_ds->local_addr<char>(),
+		                                       _hover_ds->size()));
 	} catch (...) { }
 
 	/* generate new X-Ray report if the X-Ray mode changed */
@@ -239,9 +242,6 @@ void Xray_trigger::Main::_handle_update()
 /***************
  ** Component **
  ***************/
-
-Genode::size_t Component::stack_size() {
-	return 16*1024*sizeof(long); }
 
 void Component::construct(Genode::Env &env) {
 	static Xray_trigger::Main main(env); }
