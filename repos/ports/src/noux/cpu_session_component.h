@@ -68,12 +68,13 @@ class Noux::Cpu_session_component : public Rpc_object<Cpu_session>
 		 * The 'forked' parameter controls the policy applied to the
 		 * startup of the main thread.
 		 */
-		Cpu_session_component(Rpc_entrypoint           &ep,
+		Cpu_session_component(Env                      &env,
+		                      Rpc_entrypoint           &ep,
 		                      Child_policy::Name const &label,
 		                      bool                      forked,
 		                      Dataspace_registry       &registry)
 		:
-			_ep(ep), _forked(forked), _cpu(label.string()), _registry(registry)
+			_ep(ep), _forked(forked), _cpu(env, label.string()), _registry(registry)
 		{
 			_ep.manage(this);
 		}

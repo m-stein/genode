@@ -122,7 +122,7 @@ class Noux::Child : public Rpc_object<Session>,
 		Parent_execve     &_parent_execve;
 		Pid_allocator     &_pid_allocator;
 
-		Entrypoint &_env_ep;
+		Env &_env;
 
 		Vfs::Dir_file_system &_root_dir;
 
@@ -131,18 +131,16 @@ class Noux::Child : public Rpc_object<Session>,
 		void _handle_destruct() { _destruct_queue.insert(this); }
 
 		Signal_handler<Child> _destruct_handler {
-			_env_ep, *this, &Child::_handle_destruct };
+			_env.ep(), *this, &Child::_handle_destruct };
 
-		Pd_session &_env_pd;   /* used for creating 'Rpc_entrypoint' */
-		Region_map &_local_rm; /* local address space */
-		Allocator  &_heap;
+		Allocator &_heap;
 
 		/**
 		 * Entrypoint used to serve the RPC interfaces of the
 		 * locally-provided services
 		 */
 		enum { STACK_SIZE = 8*1024*sizeof(long) };
-		Rpc_entrypoint _ep { &_env_pd, STACK_SIZE, "noux_process", false };
+		Rpc_entrypoint _ep { &_env.pd(), STACK_SIZE, "noux_process", false };
 
 		Ram_session                 &_ref_ram;
 		Ram_session_capability const _ref_ram_cap;
@@ -156,7 +154,7 @@ class Noux::Child : public Rpc_object<Session>,
 		 * Locally-provided PD service
 		 */
 		typedef Local_service<Pd_session_component> Pd_service;
-		Pd_session_component _pd { _heap, _ep, _name, _ds_registry };
+		Pd_session_component _pd { _heap, _env, _ep, _name, _ds_registry };
 		Pd_service::Single_session_factory _pd_factory { _pd };
 		Pd_service                         _pd_service { _pd_factory };
 
@@ -172,7 +170,7 @@ class Noux::Child : public Rpc_object<Session>,
 		 * Locally-provided CPU service
 		 */
 		typedef Local_service<Cpu_session_component> Cpu_service;
-		Cpu_session_component _cpu { _ep, _name, false, _ds_registry };
+		Cpu_session_component _cpu { _env, _ep, _name, false, _ds_registry };
 		Cpu_service::Single_session_factory _cpu_factory { _cpu };
 		Cpu_service                         _cpu_service { _cpu_factory };
 
@@ -189,7 +187,7 @@ class Noux::Child : public Rpc_object<Session>,
 		/*
 		 * Locally-provided ROM service
 		 */
-		Local_rom_factory _rom_factory { _heap, _ep, _root_dir, _ds_registry };
+		Local_rom_factory _rom_factory { _heap, _env, _ep, _root_dir, _ds_registry };
 		Local_rom_service _rom_service { _rom_factory };
 
 		/**
@@ -200,17 +198,17 @@ class Noux::Child : public Rpc_object<Session>,
 		/**
 		 * Environment variables
 		 */
-		Environment _env;
+		Environment _sysio_env;
 
 		/*
 		 * Child configuration
 		 */
-		Child_config _config { _ref_ram, _local_rm, _verbose };
+		Child_config _config { _ref_ram, _env.rm(), _verbose };
 
 		enum { PAGE_SIZE = 4096, PAGE_MASK = ~(PAGE_SIZE - 1) };
 		enum { SYSIO_DS_SIZE = PAGE_MASK & (sizeof(Sysio) + PAGE_SIZE - 1) };
 
-		Attached_ram_dataspace _sysio_ds { _ref_ram, _local_rm, SYSIO_DS_SIZE };
+		Attached_ram_dataspace _sysio_ds { _ref_ram, _env.rm(), SYSIO_DS_SIZE };
 		Sysio &_sysio = *_sysio_ds.local_addr<Sysio>();
 
 		typedef Ring_buffer<enum Sysio::Signal, Sysio::SIGNAL_QUEUE_SIZE>
@@ -221,7 +219,7 @@ class Noux::Child : public Rpc_object<Session>,
 
 		Static_dataspace_info _sysio_ds_info;
 		Static_dataspace_info _args_ds_info;
-		Static_dataspace_info _env_ds_info;
+		Static_dataspace_info _sysio_env_ds_info;
 		Static_dataspace_info _config_ds_info;
 
 		Child_policy _child_policy;
@@ -328,12 +326,10 @@ class Noux::Child : public Rpc_object<Session>,
 		      Parent_execve            &parent_execve,
 		      Pid_allocator            &pid_allocator,
 		      int                       pid,
-		      Entrypoint               &env_ep,
+		      Env                      &env,
 		      Vfs::Dir_file_system     &root_dir,
 		      Args               const &args,
-		      Sysio::Env         const &env,
-		      Pd_session               &env_pd,
-		      Region_map               &local_rm,
+		      Sysio::Env         const &sysio_env,
 		      Allocator                &heap,
 		      Ram_session              &ref_ram,
 		      Ram_session_capability    ref_ram_cap,
@@ -351,29 +347,27 @@ class Noux::Child : public Rpc_object<Session>,
 			_timeout_scheduler(timeout_scheduler),
 			_parent_execve(parent_execve),
 			_pid_allocator(pid_allocator),
-			_env_ep(env_ep),
+			_env(env),
 			_root_dir(root_dir),
 			_destruct_queue(destruct_queue),
-			_env_pd(env_pd),
-			_local_rm(local_rm),
 			_heap(heap),
 			_ref_ram(ref_ram), _ref_ram_cap(ref_ram_cap),
-			_args(ref_ram, local_rm, ARGS_DS_SIZE, args),
-			_env(_ref_ram, _local_rm, env),
+			_args(ref_ram, _env.rm(), ARGS_DS_SIZE, args),
+			_sysio_env(_ref_ram, _env.rm(), sysio_env),
 			_parent_services(parent_services),
 			_sysio_ds_info(_ds_registry, _sysio_ds.cap()),
 			_args_ds_info(_ds_registry, _args.cap()),
-			_env_ds_info(_ds_registry, _env.cap()),
+			_sysio_env_ds_info(_ds_registry, _sysio_env.cap()),
 			_config_ds_info(_ds_registry, _config.cap()),
 			_child_policy(name,
 			              forked ? Rom_session_component::forked_magic_binary_name()
 			                     : name,
-			              _args.cap(), _env.cap(), _config.cap(),
+			              _args.cap(), _sysio_env.cap(), _config.cap(),
 			              _ep, _pd_service, _ram_service, _cpu_service,
 			              _noux_service, _rom_service, _parent_services,
 			              *this, parent_exit, *this, _destruct_handler,
 			              ref_ram, ref_ram_cap, _verbose.enabled()),
-			_child(_local_rm, _ep, _child_policy)
+			_child(_env.rm(), _ep, _child_policy)
 		{
 			if (_verbose.enabled())
 				_args.dump();
@@ -393,7 +387,7 @@ class Noux::Child : public Rpc_object<Session>,
 			/* poke parent_cap_addr into child's address space */
 			Capability<Parent>::Raw const raw = _child.parent_cap().raw();
 
-			_pd.poke(_local_rm, parent_cap_addr, (char *)&raw, sizeof(raw));
+			_pd.poke(_env.rm(), parent_cap_addr, (char *)&raw, sizeof(raw));
 
 			/* start execution of new main thread at supplied trampoline */
 			_cpu.start_main_thread(ip, sp);
@@ -533,12 +527,10 @@ class Noux::Child : public Rpc_object<Session>,
 			                                 _parent_execve,
 			                                 _pid_allocator,
 			                                 pid(),
-			                                 _env_ep,
+			                                 _env,
 			                                 _root_dir,
 			                                 args,
 			                                 env,
-			                                 _env_pd,
-			                                 _local_rm,
 			                                 _heap,
 			                                 _ref_ram, _ref_ram_cap,
 			                                 _parent_services,

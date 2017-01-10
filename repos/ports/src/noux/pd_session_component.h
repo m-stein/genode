@@ -42,11 +42,11 @@ class Noux::Pd_session_component : public Rpc_object<Pd_session>
 		/**
 		 * Constructor
 		 */
-		Pd_session_component(Allocator &alloc, Rpc_entrypoint &ep,
+		Pd_session_component(Allocator &alloc, Env &env, Rpc_entrypoint &ep,
 		                     Child_policy::Name const &name,
 		                     Dataspace_registry &ds_registry)
 		:
-			_ep(ep), _pd(name.string()),
+			_ep(ep), _pd(env, name.string()),
 			_address_space(alloc, _ep, ds_registry, _pd, _pd.address_space()),
 			_stack_area   (alloc, _ep, ds_registry, _pd, _pd.stack_area()),
 			_linker_area  (alloc, _ep, ds_registry, _pd, _pd.linker_area())

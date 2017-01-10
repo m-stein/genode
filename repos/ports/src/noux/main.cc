@@ -251,7 +251,6 @@ struct Noux::Main
 	Dataspace_registry    _ref_ram_ds_registry { _heap };
 	Ram_session_component _ref_ram { _env.ram(), _heap, _env.ep().rpc_ep(), _ref_ram_ds_registry };
 
-
 	Noux::Child _init_child { _name_of_init_process(),
 	                          _verbose,
 	                          _user_info,
@@ -261,12 +260,10 @@ struct Noux::Main
 	                          _init_child,
 	                          _pid_allocator,
 	                          _pid_allocator.alloc(),
-	                          _env.ep(),
+	                          _env,
 	                          _root_dir,
 	                          _args_of_init_process(),
 	                          env_string_of_init_process(_config.xml()),
-	                          _env.pd(),
-	                          _env.rm(),
 	                          _heap,
 	                          _ref_ram,
 	                          Ram_session_capability(),

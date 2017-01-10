@@ -198,7 +198,7 @@ bool Noux::Child::syscall(Noux::Session::Syscall sc)
 				Shared_pointer<Io_channel>
 					channel(new (_heap) Vfs_io_channel(_sysio.open_in.path,
 					                                   leaf_path, &_root_dir,
-					                                   vfs_handle, _env_ep),
+					                                   vfs_handle, _env.ep()),
 					_heap);
 
 				_sysio.open_out.fd = add_io_channel(channel);
@@ -244,7 +244,7 @@ bool Noux::Child::syscall(Noux::Session::Syscall sc)
 				}
 
 				Child_env<sizeof(_sysio.execve_in.args)>
-					child_env(_local_rm,
+					child_env(_env.rm(),
 					          _sysio.execve_in.filename, binary_ds,
 					          _sysio.execve_in.args, _sysio.execve_in.env);
 
@@ -493,12 +493,10 @@ bool Noux::Child::syscall(Noux::Session::Syscall sc)
 					                          *this,
 					                          _pid_allocator,
 					                          new_pid,
-					                          _env_ep,
+					                          _env,
 					                          _root_dir,
 					                          _args,
-					                          _env.env(),
-					                          _env_pd,
-					                          _local_rm,
+					                          _sysio_env.env(),
 					                          _heap,
 					                          _ref_ram, _ref_ram_cap,
 					                          _parent_services,
@@ -515,7 +513,7 @@ bool Noux::Child::syscall(Noux::Session::Syscall sc)
 
 				/* copy our address space into the new child */
 				try {
-					_pd.replay(child->ram(), child->pd(), _local_rm, _heap,
+					_pd.replay(child->ram(), child->pd(), _env.rm(), _heap,
 					           child->ds_registry(), _ep);
 
 					/* start executing the main thread of the new process */
@@ -566,9 +564,9 @@ bool Noux::Child::syscall(Noux::Session::Syscall sc)
 
 		case SYSCALL_PIPE:
 			{
-				Shared_pointer<Pipe>       pipe       (new (_heap) Pipe,                                  _heap);
-				Shared_pointer<Io_channel> pipe_sink  (new (_heap) Pipe_sink_io_channel  (pipe, _env_ep), _heap);
-				Shared_pointer<Io_channel> pipe_source(new (_heap) Pipe_source_io_channel(pipe, _env_ep), _heap);
+				Shared_pointer<Pipe>       pipe       (new (_heap) Pipe,                                    _heap);
+				Shared_pointer<Io_channel> pipe_sink  (new (_heap) Pipe_sink_io_channel  (pipe, _env.ep()), _heap);
+				Shared_pointer<Io_channel> pipe_source(new (_heap) Pipe_source_io_channel(pipe, _env.ep()), _heap);
 
 				_sysio.pipe_out.fd[0] = add_io_channel(pipe_source);
 				_sysio.pipe_out.fd[1] = add_io_channel(pipe_sink);

@@ -103,7 +103,7 @@ class Noux::Rom_session_component : public Rpc_object<Rom_session>
 		 */
 		Constructible<Rom_connection> _rom_from_parent;
 
-		Dataspace_capability _init_ds_cap(Name const &name)
+		Dataspace_capability _init_ds_cap(Env &env, Name const &name)
 		{
 			if (name.string()[0] == '/') {
 				_rom_from_vfs.construct(_root_dir, name);
@@ -113,7 +113,7 @@ class Noux::Rom_session_component : public Rpc_object<Rom_session>
 			if (name == forked_magic_binary_name())
 				return Dataspace_capability();
 
-			_rom_from_parent.construct(name.string());
+			_rom_from_parent.construct(env, name.string());
 			Dataspace_capability ds = _rom_from_parent->dataspace();
 			return ds;
 		}
@@ -122,12 +122,12 @@ class Noux::Rom_session_component : public Rpc_object<Rom_session>
 
 	public:
 
-		Rom_session_component(Allocator &alloc, Rpc_entrypoint &ep,
+		Rom_session_component(Allocator &alloc, Env &env, Rpc_entrypoint &ep,
 		                      Vfs::Dir_file_system &root_dir,
 		                      Dataspace_registry &ds_registry, Name const &name)
 		:
 			_ep(ep), _root_dir(root_dir), _ds_registry(ds_registry),
-			_ds_cap(_init_ds_cap(name))
+			_ds_cap(_init_ds_cap(env, name))
 		{
 			_ep.manage(this);
 			_ds_registry.insert(new (alloc) Rom_dataspace_info(_ds_cap));
