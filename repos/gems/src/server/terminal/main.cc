@@ -328,6 +328,7 @@ namespace Terminal {
 			 * Constructor
 			 */
 			Session_component(Genode::Env             &env,
+			                  Genode::Allocator       &alloc,
 			                  Read_buffer             &read_buffer,
 			                  Framebuffer::Session    &framebuffer,
 			                  Genode::size_t           io_buffer_size,
@@ -350,8 +351,8 @@ namespace Terminal {
 				_columns(_fb_mode.width()/_char_width),
 				_lines(_fb_mode.height()/_char_height),
 
-				_fb_addr(Genode::env()->rm_session()->attach(_fb_ds_cap)),
-				_char_cell_array(_columns, _lines, Genode::env()->heap()),
+				_fb_addr(env.rm().attach(_fb_ds_cap)),
+				_char_cell_array(_columns, _lines, &alloc),
 				_char_cell_array_character_screen(_char_cell_array),
 				_decoder(_char_cell_array_character_screen),
 
@@ -488,7 +489,7 @@ namespace Terminal {
 				Genode::size_t io_buffer_size = 4096;
 
 				Session_component *session =
-					new (md_alloc()) Session_component(_env,
+					new (md_alloc()) Session_component(_env, *md_alloc(),
 					                                   _read_buffer,
 					                                   _framebuffer,
 					                                   io_buffer_size,
