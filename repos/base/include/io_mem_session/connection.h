@@ -59,6 +59,22 @@ struct Genode::Io_mem_connection : Connection<Io_mem_session>, Io_mem_session_cl
 		Connection<Io_mem_session>(_session(*env_deprecated()->parent(), base, size, write_combined)),
 		Io_mem_session_client(cap())
 	{ }
+
+	/**
+	 * Constructor
+	 *
+	 * \noapi
+	 * \deprecated  Use the constructor with 'Env &' as first
+	 *              argument instead
+	 *
+	 * This variant is solely meant to be called from deprecated functions.
+	 * It will be removed along with these functions.
+	 */
+	Io_mem_connection(bool, addr_t base, size_t size, bool write_combined = false)
+	:
+		Connection<Io_mem_session>(_session(*env_deprecated()->parent(), base, size, write_combined)),
+		Io_mem_session_client(cap())
+	{ }
 };
 
 #endif /* _INCLUDE__IO_MEM_SESSION__CONNECTION_H_ */
