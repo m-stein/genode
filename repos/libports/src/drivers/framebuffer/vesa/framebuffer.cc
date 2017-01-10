@@ -23,6 +23,7 @@
 #include "hw_emul.h"
 #include "vesa.h"
 #include "vbe.h"
+#include "genode_env.h"
 
 using namespace Genode;
 using namespace Vesa;
@@ -153,15 +154,15 @@ int Framebuffer::map_io_mem(addr_t base, size_t size, bool write_combined,
                             void **out_addr, addr_t addr,
                             Dataspace_capability *out_io_ds)
 {
-	Io_mem_connection &io_mem = *new (env()->heap())
-		Io_mem_connection(base, size, write_combined);
+	Io_mem_connection &io_mem = *new (alloc())
+		Io_mem_connection(genode_env(), base, size, write_combined);
 
 	Io_mem_dataspace_capability io_ds = io_mem.dataspace();
 	if (!io_ds.valid())
 		return -2;
 
 	try {
-		*out_addr = env()->rm_session()->attach(io_ds, size, 0, addr != 0, addr);
+		*out_addr = genode_env().rm().attach(io_ds, size, 0, addr != 0, addr);
 	} catch (Rm_session::Attach_failed) {
 		return -3;
 	}
@@ -261,13 +262,15 @@ int Framebuffer::set_mode(unsigned &width, unsigned &height, unsigned mode)
 
 void Framebuffer::init(Genode::Env &env, Genode::Allocator &heap)
 {
+	local_init_genode_env(env, heap);
+
 	{
 		/*
 		 * Wait until Acpi/Pci driver initialization is done to avoid
 		 * potentially concurrent access by this driver and the Acpi/Pci driver
 		 * to the graphics device, i.e., to the PCI config space.
 		 */
-		Platform::Connection sync;
+		Platform::Connection sync(env);
 	}
 
 	hw_emul_init(env);

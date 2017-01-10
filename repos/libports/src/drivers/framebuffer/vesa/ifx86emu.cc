@@ -28,6 +28,7 @@
 #include "framebuffer.h"
 #include "vesa.h"
 #include "hw_emul.h"
+#include "genode_env.h"
 
 
 namespace X86emu {
@@ -281,7 +282,7 @@ static int map_code_area(void)
 
 	/* alloc code pages in RAM */
 	try {
-		static Attached_ram_dataspace ram_ds(env()->ram_session(), CODESIZE);
+		static Attached_ram_dataspace ram_ds(genode_env().ram(), genode_env().rm(), CODESIZE);
 		dummy = ram_ds.local_addr<void>();
 		x86_mem.data_addr(dummy);
 	} catch (...) {
@@ -509,6 +510,8 @@ void X86emu::printk(const char *format, ...)
 
 void X86emu::init(Genode::Env &env, Allocator &heap)
 {
+	local_init_genode_env(env, heap);
+
 	port_region_db.construct(env, heap);
 	mem_region_db.construct(env, heap);
 
