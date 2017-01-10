@@ -147,6 +147,7 @@ class Timeouts
 		Timeouts(Genode::Env &env, Synced_motherboard &mb,
 		             Synced_timeout_list &timeouts)
 		:
+		  _timer(env),
 		  _motherboard(mb),
 		  _timeouts(timeouts),
 		  _timeout_sigh(env.ep(), *this, &Timeouts::check_timeouts)
@@ -868,6 +869,7 @@ class Machine : public StaticReceiver<Machine>
 		Genode::Env           &_env;
 		Genode::Heap          &_heap;
 		Attached_rom_dataspace _hip_rom = { _env, "hypervisor_info_page" };
+		Genode::Cpu_connection _cpu_session = { _env, "Seoul vCPUs", Genode::Cpu_session::PRIORITY_LIMIT / 16 };
 		Hip * const            _hip;
 		Clock                  _clock;
 		Genode::Lock           _motherboard_lock;
@@ -959,19 +961,17 @@ class Machine : public StaticReceiver<Machine>
 
 					_vcpus_up ++;
 
-					long const prio = Genode::Cpu_session::PRIORITY_LIMIT / 16;
-					static Genode::Cpu_connection * cpu_session = new (_heap) Genode::Cpu_connection("Seoul vCPUs", prio);
-					Genode::Affinity::Space cpu_space = cpu_session->affinity_space();
+					Genode::Affinity::Space cpu_space = _cpu_session.affinity_space();
 					Genode::Affinity::Location location = cpu_space.location_of_index(_vcpus_up);
 
 					Vmm::Vcpu_thread * vcpu_thread;
 					if (_colocate_vm_vmm)
-						vcpu_thread = new Vmm::Vcpu_same_pd(cpu_session, location, _env.pd_session_cap(), Vcpu_dispatcher::STACK_SIZE);
+						vcpu_thread = new Vmm::Vcpu_same_pd(&_cpu_session, location, _env.pd_session_cap(), Vcpu_dispatcher::STACK_SIZE);
 					else {
 						if (!_pd_vcpus)
-							_pd_vcpus = new Genode::Pd_connection("VM");
+							_pd_vcpus = new Genode::Pd_connection(_env, "VM");
 
-						vcpu_thread = new Vmm::Vcpu_other_pd(cpu_session, location, *_pd_vcpus);
+						vcpu_thread = new Vmm::Vcpu_other_pd(&_cpu_session, location, *_pd_vcpus);
 					}
 
 					Vcpu_dispatcher *vcpu_dispatcher =
@@ -983,7 +983,7 @@ class Machine : public StaticReceiver<Machine>
 						                    _hip->has_feature_svm(),
 						                    _hip->has_feature_vmx(),
 						                    vcpu_thread,
-						                    cpu_session,
+						                    &_cpu_session,
 						                    location);
 
 					msg.value = vcpu_dispatcher->sel_sm_ec();
@@ -1036,7 +1036,7 @@ class Machine : public StaticReceiver<Machine>
 					 */
 					Genode::size_t data_len = 0;
 					try {
-						data_len = _boot_modules.data(_env.rm(), index,
+						data_len = _boot_modules.data(_env, index,
 						                              data_dst, dst_len);
 					} catch (Boot_module_provider::Destination_buffer_too_small) {
 						Logging::panic("could not load module, destination buffer too small\n");
@@ -1092,7 +1092,7 @@ class Machine : public StaticReceiver<Machine>
 					}
 
 					try {
-						_nic = new (_heap) Seoul::Network(_env.ep(), _heap,
+						_nic = new (_heap) Seoul::Network(_env, _heap,
 						                                  _motherboard);
 					} catch (...) {
 						Logging::printf("Creating network connection failed\n");
@@ -1165,7 +1165,7 @@ class Machine : public StaticReceiver<Machine>
 
 			if (!_rtc) {
 				try {
-					_rtc = new Rtc::Connection;
+					_rtc = new Rtc::Connection(_env);
 				} catch (...) {
 					Logging::printf("No RTC present, returning dummy time.\n");
 					msg.wallclocktime = msg.timestamp = 0;

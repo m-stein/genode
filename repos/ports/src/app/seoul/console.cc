@@ -368,7 +368,8 @@ Seoul::Console::Console(Genode::Env &env, Synced_motherboard &mb,
 	_input.sigh(_signal_input);
 
 	try {
-		_framebuffer.construct();
+		using Framebuffer::Mode;
+		_framebuffer.construct(_env, Mode(0, 0, Mode::INVALID));
 	} catch (...) {
 		Genode::error("Headless mode - no framebuffer session available");
 		return;

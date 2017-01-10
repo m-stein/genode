@@ -53,6 +53,7 @@ struct Vmm::Virtual_reservation : private Rm_connection, Region_map_client
 
 	Virtual_reservation(Genode::Env &env, addr_t vm_size)
 	:
+		Rm_connection(env),
 		Region_map_client(Rm_connection::create(vm_size)),
 		_env(env)
 	{

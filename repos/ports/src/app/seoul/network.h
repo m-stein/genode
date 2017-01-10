@@ -47,7 +47,7 @@ class Seoul::Network
 
 		Synced_motherboard   &_motherboard;
 		Nic::Packet_allocator _tx_block_alloc;
-		Nic::Connection       _nic = { &_tx_block_alloc, BUF_SIZE, BUF_SIZE };
+		Nic::Connection       _nic;
 
 		Genode::Signal_handler<Network> const _packet_avail;
 		void const *                          _forward_pkt = nullptr;
@@ -56,7 +56,7 @@ class Seoul::Network
 
 	public:
 
-		Network(Genode::Entrypoint &, Genode::Heap &, Synced_motherboard &);
+		Network(Genode::Env &, Genode::Heap &, Synced_motherboard &);
 
 		Nic::Mac_address mac_address() { return _nic.mac_address(); }
 

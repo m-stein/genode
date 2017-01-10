@@ -23,11 +23,12 @@
 #include "network.h"
 
 
-Seoul::Network::Network(Genode::Entrypoint &ep, Genode::Heap &heap,
+Seoul::Network::Network(Genode::Env &env, Genode::Heap &heap,
                         Synced_motherboard &mb)
 :
 	_motherboard(mb), _tx_block_alloc(&heap),
-	_packet_avail(ep, *this, &Network::_handle_packets)
+	_nic(env, &_tx_block_alloc, BUF_SIZE, BUF_SIZE),
+	_packet_avail(env.ep(), *this, &Network::_handle_packets)
 {
 	_nic.rx_channel()->sigh_packet_avail(_packet_avail);
 }

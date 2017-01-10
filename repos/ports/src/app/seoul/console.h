@@ -52,7 +52,7 @@ class Seoul::Console : public StaticReceiver<Seoul::Console>
 		Synced_motherboard          &_motherboard;
 		Genode::Constructible<Framebuffer::Connection> _framebuffer;
 		Genode::Constructible<Genode::Surface<Genode::Pixel_rgb565> > _surface;
-		Input::Connection            _input;
+		Input::Connection            _input = { _env };
 		Keyboard                     _vkeyb = { _motherboard };
 		short                       *_pixels   = nullptr;
 		char                        *_guest_fb = nullptr;
