@@ -3,11 +3,11 @@
 #
 
 set tcp_up_to_down_1   1
-set tcp_up_to_down_2   1
-set tcp_down_to_up_1   1
-set udp_down_to_down_1 1
-set udp_up_to_down_1   1
-set udp_down_to_up_1   1
+set tcp_up_to_down_2   0
+set tcp_down_to_up_1   0
+set udp_down_to_down_1 0
+set udp_up_to_down_1   0
+set udp_down_to_up_1   0
 
 set use_usb_driver [expr [have_spec omap4] || [have_spec arndale] || [have_spec rpi]]
 set use_nic_driver [expr !$use_usb_driver && ![have_spec imx53] && ![have_spec riscv] && ![have_spec odroid_xu] && ![have_spec linux] && ![have_spec wand_quad]]
@@ -371,7 +371,8 @@ set boot_modules {
 
 	core init timer nic_router nic_bridge ld.lib.so libc.lib.so
 	libc_resolv.lib.so lwip.lib.so lxip.lib.so test-http_clnt
-	test-lwip_httpsrv_static test-lxip_udp_echo test-lxip_udp_client
+	libm.lib.so test-lwip_httpsrv_static test-lxip_udp_echo
+	test-lxip_udp_client
 }
 
 # platform-specific modules

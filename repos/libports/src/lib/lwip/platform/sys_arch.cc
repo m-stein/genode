@@ -539,7 +539,7 @@ extern "C" {
 			ret = SYS_MBOX_EMPTY;
 		} catch (...) {
 			Genode::error(__func__, ": unknown exception occured!");
-			ret = SYS_ARCH_TIMEOUT;
+			ret = 0x12345678;
 		}
 
 		return ret;
