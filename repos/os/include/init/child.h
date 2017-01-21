@@ -134,11 +134,6 @@ namespace Init {
 	{
 		size_t const child_name_len = strlen(child_name);
 
-		/*
-		 * If the method was called with a valid "label" string, the
-		 * following condition should be always satisfied. See the
-		 * comment in 'service_node_args_condition_satisfied'.
-		 */
 		if (strcmp(child_name, label, child_name_len) != 0)
 			return nullptr;
 
@@ -190,32 +185,6 @@ namespace Init {
 		Session_label const session_label(scoped_label);
 
 		return !Xml_node_label_score(service_node, session_label).conflict();
-	}
-
-
-	/**
-	 * Check if arguments satisfy the condition specified for the route
-	 */
-	inline bool service_node_args_condition_satisfied(Xml_node service_node,
-	                                                  Session_state::Args const &args,
-	                                                  Child_policy::Name  const &child_name)
-	{
-		try {
-			Xml_node if_arg = service_node.sub_node("if-arg");
-			enum { KEY_MAX_LEN = 64, VALUE_MAX_LEN = 64 };
-			char key[KEY_MAX_LEN];
-			char value[VALUE_MAX_LEN];
-			if_arg.attribute("key").value(key, sizeof(key));
-			if_arg.attribute("value").value(value, sizeof(value));
-
-			char arg_value[VALUE_MAX_LEN];
-			Arg_string::find_arg(args.string(), key).string(arg_value, sizeof(arg_value), "");
-
-			return strcmp(value, arg_value) == 0;
-		} catch (...) { }
-
-		/* if no if-arg node exists, the condition is met */
-		return true;
 	}
 
 
@@ -646,9 +615,6 @@ class Init::Child : Child_policy, Child_service::Wakeup
 					bool service_wildcard = service_node.has_type("any-service");
 
 					if (!service_node_matches(service_node, args.string(), name(), service_name))
-						continue;
-
-					if (!service_node_args_condition_satisfied(service_node, args, name()))
 						continue;
 
 					Xml_node target = service_node.sub_node();

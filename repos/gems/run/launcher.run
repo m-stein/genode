@@ -280,9 +280,7 @@ append config {
 
 		</config>
 		<route>
-			<service name="ROM"> <if-arg key="label" value="focus"/>
-				<child name="report_rom" />
-			</service>
+			<service name="ROM" label="focus"> <child name="report_rom" /> </service>
 			<any-service> <child name="wm"/> <parent/> <any-child/> </any-service>
 		</route>
 	</start>
