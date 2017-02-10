@@ -269,11 +269,25 @@ class Genode::Page_table_registry
 			} catch (...) { }
 		}
 
-
-		void flush_cache()
+		/**
+		 * Replaces former 'flush_cache' method
+		 *
+		 * It does the same as 'flush_cache', except that it calls the function
+		 * 'void FN(unsigned sel)' for each entry of each page table - with the
+		 * selectors stored in the entries as argument - before flushing the page
+		 * table.
+		 */
+		template <typename FN>
+		void apply_to_and_flush_all(FN const &fn)
 		{
-			for (Page_table *pt = _page_tables.first(); pt; pt = pt->next())
+			for (Page_table *pt = _page_tables.first(); pt; pt = pt->next()) {
+
+				Page_table::Entry *entry = pt->first();
+				for (; entry; entry = entry->next())
+					fn(entry->sel);
+
 				pt->flush_all(_page_table_entry_alloc);
+			}
 		}
 
 		/**

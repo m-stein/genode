@@ -282,7 +282,11 @@ class Genode::Vm_space
 
 			Lock::Guard guard(_lock);
 
-			_page_table_registry.flush_cache();
+			/* delete copy of the mapping's page-frame selectors */
+			_page_table_registry.apply_to_and_flush_all([&] (unsigned idx) {
+				_leaf_cnode(idx).remove(_leaf_cnode_entry(idx));
+				_sel_alloc.free(idx);
+			});
 		}
 
 		/**
