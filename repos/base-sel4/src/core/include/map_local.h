@@ -32,10 +32,9 @@ namespace Genode {
 	 */
 	inline bool map_local(addr_t from_phys, addr_t to_virt, size_t num_pages)
 	{
-		enum { DONT_FLUSH = false };
 		try {
 			platform_specific()->core_vm_space().map(from_phys, to_virt,
-			                                         num_pages, DONT_FLUSH);
+			                                         num_pages, Vm_space::Type::CORE);
 		} catch (Page_table_registry::Mapping_cache_full) {
 			return false;
 		}

@@ -32,6 +32,10 @@ namespace Genode { class Vm_space; }
 
 class Genode::Vm_space
 {
+	public:
+
+		struct Type { enum Enum { CORE, USER }; };
+
 	private:
 
 		Session_label _pd_label;
@@ -153,7 +157,7 @@ class Genode::Vm_space
 		 */
 		unsigned _idx_to_sel(unsigned idx) const { return (_id << 20) | idx; }
 
-		bool _map_page(addr_t from_phys, addr_t to_virt, bool flush_support)
+		bool _map_page(addr_t from_phys, addr_t to_virt, Type::Enum type)
 		{
 			/* allocate page-table entry selector */
 			unsigned pte_idx = _sel_alloc.alloc();
@@ -172,7 +176,7 @@ class Genode::Vm_space
 			try {
 				_page_table_registry.insert_page_table_entry(to_virt, pte_idx);
 			} catch (Page_table_registry::Mapping_cache_full) {
-				if (!flush_support)
+				if (type == Type::CORE)
 					throw;
 
 				warning("flush page table entries - mapping cache full - PD: ",
@@ -238,7 +242,7 @@ class Genode::Vm_space
 		 *
 		 * \throw Alloc_page_table_failed
 		 */
-		void _alloc_and_map_page_table(addr_t to_virt, bool core_vm)
+		void _alloc_and_map_page_table(addr_t to_virt, Type::Enum type)
 		{
 			/* allocate page-table selector */
 			unsigned const pt_idx = _sel_alloc.alloc();
@@ -247,17 +251,17 @@ class Genode::Vm_space
 
 			try {
 				/* XXX evil manual unlock/lock pattern */
-				if (core_vm)
+				if (type == Type::CORE)
 					_lock.unlock();
 
 				create<Page_table_kobj>(_phys_alloc,
 				                        _leaf_cnode(pt_idx).sel(),
 				                        _leaf_cnode_entry(pt_idx));
 
-				if (core_vm)
+				if (type == Type::CORE)
 					_lock.lock();
 			} catch (...) {
-				if (core_vm)
+				if (type == Type::CORE)
 					_lock.lock();
 				 throw Alloc_page_table_failed();
 			}
@@ -349,8 +353,7 @@ class Genode::Vm_space
 
 		}
 
-		void map(addr_t from_phys, addr_t to_virt, size_t num_pages,
-		         bool flush_support = true)
+		void map(addr_t from_phys, addr_t to_virt, size_t num_pages, Type::Enum type)
 		{
 			Lock::Guard guard(_lock);
 
@@ -359,9 +362,9 @@ class Genode::Vm_space
 
 				/* check if we need to add a page table to core's VM space */
 				if (!_page_table_registry.has_page_table_at(to_virt + offset))
-					_alloc_and_map_page_table(to_virt + offset, !flush_support);
+					_alloc_and_map_page_table(to_virt + offset, type);
 
-				if (_map_page(from_phys + offset, to_virt + offset, flush_support))
+				if (_map_page(from_phys + offset, to_virt + offset, type))
 					continue;
 
 				/* XXX - Why this quirk is necessary - shouldn't happen ?!? */
@@ -370,9 +373,9 @@ class Genode::Vm_space
 				      " -> ", Hex(to_virt + offset));
 
 				_page_table_registry.forget_page_table_entry(to_virt + offset);
-				_alloc_and_map_page_table(to_virt + offset, !flush_support);
+				_alloc_and_map_page_table(to_virt + offset, type);
 
-				_map_page(from_phys + offset, to_virt + offset, flush_support);
+				_map_page(from_phys + offset, to_virt + offset, type);
 			}
 		}
 
