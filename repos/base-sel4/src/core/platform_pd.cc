@@ -88,12 +88,31 @@ bool Platform_pd::bind_thread(Platform_thread *thread)
 	 *     session aware to the mapping. This code is missing.
 	 */
 	if (thread->_utcb) {
-		_vm_space.map(thread->_info.ipc_buffer_phys, thread->_utcb, 1,
-			      Vm_space::Type::USER);
+
+		try {
+			_vm_space.map(thread->_info.ipc_buffer_phys, thread->_utcb, 1,
+			              Vm_space::Type::USER);
+
+		} catch (Page_table_registry::Mapping_cache_full) {
+
+			_vm_space.mapping_cache_full();
+			_vm_space.map(thread->_info.ipc_buffer_phys, thread->_utcb, 1,
+			              Vm_space::Type::USER);
+		}
 	} else {
-		_vm_space.map(thread->_info.ipc_buffer_phys,
-		              thread->INITIAL_IPC_BUFFER_VIRT, 1,
-			      Vm_space::Type::USER);
+
+		try {
+			_vm_space.map(thread->_info.ipc_buffer_phys,
+			              thread->INITIAL_IPC_BUFFER_VIRT, 1,
+			              Vm_space::Type::USER);
+
+		} catch (Page_table_registry::Mapping_cache_full) {
+
+			_vm_space.mapping_cache_full();
+			_vm_space.map(thread->_info.ipc_buffer_phys,
+			              thread->INITIAL_IPC_BUFFER_VIRT, 1,
+			              Vm_space::Type::USER);
+		}
 	}
 	return true;
 }
@@ -168,8 +187,16 @@ void Platform_pd::free_sel(Cap_sel sel)
 
 void Platform_pd::install_mapping(Mapping const &mapping)
 {
-	_vm_space.map(mapping.from_phys(), mapping.to_virt(),
-	              mapping.num_pages(), Vm_space::Type::USER);
+	try {
+		_vm_space.map(mapping.from_phys(), mapping.to_virt(),
+		              mapping.num_pages(), Vm_space::Type::USER);
+
+	} catch (Page_table_registry::Mapping_cache_full) {
+
+		_vm_space.mapping_cache_full();
+		_vm_space.map(mapping.from_phys(), mapping.to_virt(),
+		              mapping.num_pages(), Vm_space::Type::USER);
+	}
 }
 
 

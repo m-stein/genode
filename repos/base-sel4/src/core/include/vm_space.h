@@ -157,7 +157,7 @@ class Genode::Vm_space
 		 */
 		unsigned _idx_to_sel(unsigned idx) const { return (_id << 20) | idx; }
 
-		bool _map_page(addr_t from_phys, addr_t to_virt, Type::Enum type)
+		bool _map_page(addr_t from_phys, addr_t to_virt)
 		{
 			/* allocate page-table entry selector */
 			unsigned pte_idx = _sel_alloc.alloc();
@@ -175,17 +175,17 @@ class Genode::Vm_space
 			/* remember relationship between pte_sel and the virtual address */
 			try {
 				_page_table_registry.insert_page_table_entry(to_virt, pte_idx);
+
 			} catch (Page_table_registry::Mapping_cache_full) {
-				if (type == Type::CORE)
-					throw;
 
-				warning("flush page table entries - mapping cache full - PD: ",
-				        _pd_label.string());
-
-				_page_table_registry.flush_cache();
-
-				/* re-try once */
-				_page_table_registry.insert_page_table_entry(to_virt, pte_idx);
+				/*
+				 * Clean up locals and forward exception, flushing the cache
+				 * ('mapping_cache_full' method) and retry may be done from outside
+				 * of the surrounding 'map' call.
+				 */
+				_leaf_cnode(pte_idx).remove(_leaf_cnode_entry(pte_idx));
+				_sel_alloc.free(pte_idx);
+				throw Page_table_registry::Mapping_cache_full();
 			}
 
 			/*
@@ -274,6 +274,16 @@ class Genode::Vm_space
 		}
 
 	public:
+
+		void mapping_cache_full()
+		{
+			warning("flush page table entries - mapping cache full - PD: ",
+			        _pd_label.string());
+
+			Lock::Guard guard(_lock);
+
+			_page_table_registry.flush_cache();
+		}
 
 		/**
 		 * Constructor
@@ -364,7 +374,7 @@ class Genode::Vm_space
 				if (!_page_table_registry.has_page_table_at(to_virt + offset))
 					_alloc_and_map_page_table(to_virt + offset, type);
 
-				if (_map_page(from_phys + offset, to_virt + offset, type))
+				if (_map_page(from_phys + offset, to_virt + offset))
 					continue;
 
 				/* XXX - Why this quirk is necessary - shouldn't happen ?!? */
@@ -375,7 +385,7 @@ class Genode::Vm_space
 				_page_table_registry.forget_page_table_entry(to_virt + offset);
 				_alloc_and_map_page_table(to_virt + offset, type);
 
-				_map_page(from_phys + offset, to_virt + offset, type);
+				_map_page(from_phys + offset, to_virt + offset);
 			}
 		}
 
