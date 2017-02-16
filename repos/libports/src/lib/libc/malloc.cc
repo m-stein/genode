@@ -25,6 +25,48 @@ extern "C" {
 #include <string.h>
 #include <stdlib.h>
 }
+void inline fill_backtrace(void **dst, size_t dst_items)
+{
+	Genode::addr_t *fp;
+	unsigned i = 0;
+
+		asm volatile ("movq %%rbp, %0" : "=r"(fp) : :);
+
+		while (fp && *(fp + 1)) {
+
+			if (i == dst_items) { return; }
+			dst[i] = (void*)(*(fp + 1));
+			i++;
+
+			fp = (Genode::addr_t*)*fp;
+		}
+		for (; i < dst_items; i++) {
+			dst[i] = nullptr;
+		}
+}
+
+struct Alloc_info
+{
+	void *backtrace[32];
+	void *ptr;
+};
+
+struct Alloc_infos
+{
+	Alloc_info infos[1024];
+
+	Alloc_infos()
+	{
+		for (unsigned i = 0; i < 1024; i++) {
+			infos[i].ptr = nullptr;
+		}
+	}
+};
+
+struct Alloc_infos_full     : Genode::Exception { };
+struct Alloc_info_not_found : Genode::Exception { };
+
+static Alloc_infos infos;
 
 typedef unsigned long Block_header;
 
@@ -42,21 +84,56 @@ namespace Genode {
 				return align_addr(block_size, 12);
 			}
 
+			size_t _alloc_cnt = 0;
+			size_t _free_cnt  = 0;
+
 		public:
 
 			Slab_alloc(size_t object_size, Allocator *backing_store)
 			:
 				Slab(object_size, _calculate_block_size(object_size), 0, backing_store),
-				_object_size(object_size)
-			{ }
+				_object_size(object_size) { }
 
 			void *alloc()
 			{
+				++_alloc_cnt;
+
 				void *result;
-				return (Slab::alloc(_object_size, &result) ? result : 0);
+				void *ptr = (Slab::alloc(_object_size, &result) ? result : 0);
+
+				unsigned i = 0;
+				for (; i < 1024; i++) {
+					if (infos.infos[i].ptr != nullptr) { continue; }
+					infos.infos[i].ptr = ptr;
+					fill_backtrace(infos.infos[i].backtrace, 32);
+					break;
+				}
+				if (i == 1024) { throw Alloc_infos_full(); }
+
+				return ptr;
 			}
 
-			void free(void *ptr) { Slab::free(ptr, _object_size); }
+			void free(void *ptr)
+			{
+
+				unsigned i = 0;
+				for (; i < 1024; i++) {
+					if (infos.infos[i].ptr != ptr) { continue; }
+					infos.infos[i].ptr = nullptr;
+					break;
+				}
+				if (i == 1024) { throw Alloc_info_not_found(); }
+
+				++_free_cnt;
+
+				Slab::free(ptr, _object_size);
+			}
+
+			void print_info()
+			{
+				Genode::log("L ", _object_size, " ", _alloc_cnt, " ", _free_cnt,
+				            " ", _alloc_cnt - _free_cnt);
+			}
 	};
 }
 
@@ -94,6 +171,9 @@ class Malloc : public Genode::Allocator
 			return msb;
 		}
 
+		size_t _alloc_cnt = 0;
+		size_t _free_cnt  = 0;
+
 	public:
 
 		Malloc(Genode::Allocator *backing_store) : _backing_store(backing_store)
@@ -105,6 +185,26 @@ class Malloc : public Genode::Allocator
 		}
 
 		~Malloc() { Genode::warning(__func__, " unexpectedly called"); }
+
+		void print_info()
+		{
+			for (unsigned i = SLAB_START; i <= SLAB_STOP; i++) {
+				_allocator[i - SLAB_START]->print_info();
+			}
+
+			Genode::log("L large ", _alloc_cnt, " ", _free_cnt, " ", _alloc_cnt - _free_cnt);
+
+				int i = 1024 - 1;
+				for (; i > -1; i--) {
+					if (infos.infos[i].ptr == nullptr) { continue; }
+					Genode::log(" B backtrace for allocation ", infos.infos[i].ptr, ":");
+					for (unsigned j = 0; j < 32; j++) {
+						if (infos.infos[i].backtrace[j] == nullptr) { return; }
+						Genode::log(" B   ", infos.infos[i].backtrace[j]);
+					}
+					break;
+				}
+		}
 
 		/**
 		 * Allocator interface
@@ -132,6 +232,7 @@ class Malloc : public Genode::Allocator
 
 				if (!(_backing_store->alloc(real_size, &addr)))
 					return false;
+				++_alloc_cnt;
 			}
 			else
 				if (!(addr = _allocator[msb - SLAB_START]->alloc()))
@@ -149,9 +250,10 @@ class Malloc : public Genode::Allocator
 			unsigned long *addr = ((unsigned long *)ptr) - 1;
 			unsigned long  real_size = *addr;
 
-			if (real_size > (1U << SLAB_STOP))
+			if (real_size > (1U << SLAB_STOP)) {
 				_backing_store->free(addr, real_size);
-			else {
+				++_free_cnt;
+			} else {
 				unsigned long msb = _slab_log2(real_size);
 				_allocator[msb - SLAB_START]->free(addr);
 			}
@@ -181,6 +283,13 @@ static Genode::Allocator *allocator()
 	}
 
 	return reinterpret_cast<Malloc *>(placeholder);
+}
+
+
+extern "C" void malloc_print_info()
+{
+	Genode::Allocator *alloc = allocator();
+	reinterpret_cast<Malloc*>(alloc)->print_info();
 }
 
 

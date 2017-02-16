@@ -20,6 +20,7 @@ __stdoutp D 8
 __swbuf T
 __xuname T
 _exit T
+malloc_print_info T
 a64l T
 abort T
 abs T

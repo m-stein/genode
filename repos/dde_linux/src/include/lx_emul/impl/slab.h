@@ -26,6 +26,10 @@ void *kmalloc(size_t size, gfp_t flags)
 
 	void *addr = nullptr;
 
+	bool const s64  = (size >= 32 && size <= 64) && false;
+	bool const s256 = (size >= 128 && size <= 256) && false;
+	bool const s512 = (size >= 256 && size <= 512) && false;
+
 	addr = (flags & GFP_LX_DMA)
 		? Lx::Malloc::dma().alloc(size, 12)
 		: Lx::Malloc::mem().alloc(size);
@@ -35,6 +39,10 @@ void *kmalloc(size_t size, gfp_t flags)
 
 	if (flags & __GFP_ZERO)
 		Genode::memset(addr, 0, size);
+
+	if (!(flags & GFP_LX_DMA) && (s64 || s256 || s512)) {
+		Genode::log("kmalloc: size: ", size, " addr: ", addr, " from: ", __builtin_return_address(0));
+	}
 
 	return addr;
 }

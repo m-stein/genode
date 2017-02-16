@@ -23,6 +23,7 @@
 
 /* Linux kit includes */
 #include <lx_kit/types.h>
+#include <lx_kit/env.h>
 #include <lx_kit/backend_alloc.h>
 #include <lx_kit/malloc.h>
 
@@ -103,6 +104,9 @@ class Lx_kit::Slab_backend_alloc : public Lx::Slab_backend_alloc,
 			if (done)
 				return done;
 
+			static unsigned back_cnt = 0;
+			Genode::error("Alloc backend block ", ++back_cnt);
+			Genode::error(__func__, ": ram: ", Lx_kit::env().env().ram().quota(), " ", Lx_kit::env().env().ram().used());
 			done = _alloc_block();
 			if (!done) {
 				Genode::error("backend allocator exhausted");
@@ -168,6 +172,13 @@ class Lx_kit::Malloc : public Lx::Malloc
 		typedef Lx::Slab_alloc         Slab_alloc;
 		typedef Lx::Slab_backend_alloc Slab_backend_alloc;
 
+		size_t _large_alloc_cnt = 0;
+		size_t _large_free_cnt  = 0;
+		unsigned _cnt = 0;
+
+		char const * _name;
+
+
 		Slab_backend_alloc                &_back_allocator;
 		Genode::Constructible<Slab_alloc>  _allocator[NUM_SLABS];
 		Genode::Cache_attribute            _cached; /* cached or un-cached memory */
@@ -217,14 +228,23 @@ class Lx_kit::Malloc : public Lx::Malloc
 
 	public:
 
-		Malloc(Slab_backend_alloc &alloc, Genode::Cache_attribute cached)
+		Malloc(Slab_backend_alloc &alloc, Genode::Cache_attribute cached, char const *name = "")
 		:
-			_back_allocator(alloc), _cached(cached), _start(alloc.start()),
+			_name(name), _back_allocator(alloc), _cached(cached), _start(alloc.start()),
 			_end(alloc.end())
 		{
 			/* init slab allocators */
 			for (unsigned i = SLAB_START_LOG2; i <= SLAB_STOP_LOG2; i++)
 				_allocator[i - SLAB_START_LOG2].construct(1U << i, alloc);
+		}
+
+
+		void print_info()
+		{
+			for (unsigned i = SLAB_START_LOG2; i <= SLAB_STOP_LOG2; i++)
+				_allocator[i - SLAB_START_LOG2]->print_info(_name);
+
+			Genode::log(_name, " large ", _large_alloc_cnt, " ", _large_free_cnt);
 		}
 
 
@@ -234,6 +254,12 @@ class Lx_kit::Malloc : public Lx::Malloc
 
 		void *alloc(Genode::size_t size, int align = 0, Genode::addr_t *phys = 0)
 		{
+			if (++_cnt == 10000) {
+				print_info();
+				Genode::error(__func__, ": ram: ", Lx_kit::env().env().ram().quota(), " ", Lx_kit::env().env().ram().used());
+				_cnt = 0;
+			}
+
 			using namespace Genode;
 
 			/* save requested size */
@@ -346,8 +372,8 @@ void Lx::malloc_init(Genode::Env &env, Genode::Allocator &md_alloc)
 	_mem_backend_alloc.construct(env, md_alloc, Genode::CACHED);
 	_dma_backend_alloc.construct(env, md_alloc, Genode::UNCACHED);
 
-	_mem_alloc.construct(*_mem_backend_alloc, Genode::CACHED);
-	_dma_alloc.construct(*_dma_backend_alloc, Genode::UNCACHED);
+	_mem_alloc.construct(*_mem_backend_alloc, Genode::CACHED, "M");
+	_dma_alloc.construct(*_dma_backend_alloc, Genode::UNCACHED, "D");
 }
 
 

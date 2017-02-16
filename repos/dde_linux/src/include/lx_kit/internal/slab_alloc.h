@@ -17,6 +17,7 @@
 #define _LX_KIT__INTERAL__SLAB_ALLOC_H_
 
 /* Genode includes */
+#include <base/log.h>
 #include <base/slab.h>
 #include <util/misc_math.h>
 
@@ -47,6 +48,9 @@ class Lx::Slab_alloc : public Genode::Slab
 			return Genode::align_addr(block_size, 12);
 		}
 
+		size_t alloc_cnt = 0;
+		size_t free_cnt  = 0;
+
 	public:
 
 		Slab_alloc(size_t object_size, Slab_backend_alloc &allocator)
@@ -57,13 +61,22 @@ class Lx::Slab_alloc : public Genode::Slab
 
 		Genode::addr_t alloc()
 		{
+			++alloc_cnt;
+
 			Genode::addr_t result;
 			return (Slab::alloc(_object_size, (void **)&result) ? result : 0);
 		}
 
 		void free(void *ptr)
 		{
+			++free_cnt;
+
 			Slab::free(ptr, _object_size);
+		}
+
+		void print_info(char const * const prefix)
+		{
+			Genode::log(prefix, " ", _object_size, " ", alloc_cnt, " ", free_cnt, " ", alloc_cnt - free_cnt);
 		}
 };
 
