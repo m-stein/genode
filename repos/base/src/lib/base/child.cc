@@ -142,9 +142,15 @@ void Child::session_sigh(Signal_context_capability sigh)
 	 * needs asynchronous handling.
 	 */
 	_id_space.for_each<Session_state const>([&] (Session_state const &session) {
-		if (session.phase == Session_state::AVAILABLE
-		 && sigh.valid() && session.async_client_notify)
-			Signal_transmitter(sigh).submit(); });
+
+		if (session.phase == Session_state::AVAILABLE ||
+		    session.phase == Session_state::QUOTA_EXCEEDED ||
+		    session.phase == Session_state::INVALID_ARGS) {
+
+			if (sigh.valid() && session.async_client_notify)
+				Signal_transmitter(sigh).submit();
+		}
+	});
 }
 
 
