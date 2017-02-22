@@ -7,7 +7,7 @@ Configuration
 An input-filter configuration consists of two parts, a declaration of
 input sources ("Input" connections) that the component should request,
 and the definition of a filter chain. Each input source is defined via
-an '<input>' nod with the name of the input source as 'name' attribute and
+an '<input>' node with the name of the input source as 'name' attribute and
 the session label as 'label' attribute. The latter can be used to route
 several input sources to different components, i.e, input device drivers.
 
