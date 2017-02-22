@@ -178,8 +178,12 @@ class Vfs::Fs_file_system : public File_system
 			handle.queued_read_state  = Handle_state::Queued_state::IDLE;
 			handle.queued_read_packet = Packet_descriptor();
 
-			if (!packet_out.succeeded())
-				Genode::warning("unexpected failure on file-system read");
+			if (!packet_out.succeeded()) {
+				/* could be EOF or a real error */
+				::File_system::Status status = _fs.status(handle.file_handle());
+				if (seek_offset < status.size)
+					Genode::warning("unexpected failure on file-system read");
+			}
 
 			file_size const read_num_bytes = min(packet_out.length(), count);
 
