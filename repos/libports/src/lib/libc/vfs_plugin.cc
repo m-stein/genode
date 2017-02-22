@@ -17,7 +17,6 @@
 #include <base/env.h>
 #include <base/log.h>
 #include <vfs/dir_file_system.h>
-#include <os/config.h>
 
 /* libc includes */
 #include <errno.h>
@@ -78,12 +77,20 @@ static void vfs_stat_to_libc_stat_struct(Vfs::Directory_service::Stat const &src
 }
 
 
+static Genode::Xml_node *_config_node;
+
+
 namespace Libc {
+
+	void libc_config_init(Genode::Xml_node node)
+	{
+		_config_node = &node;
+	}
 
 	Genode::Xml_node config() __attribute__((weak));
 	Genode::Xml_node config()
 	{
-		return Genode::config()->xml_node().sub_node("libc");
+		return _config_node->sub_node("libc");
 	}
 
 	class Config_attr
