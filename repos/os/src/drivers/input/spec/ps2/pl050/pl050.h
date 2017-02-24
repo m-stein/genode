@@ -74,7 +74,8 @@ class Pl050
 			 */
 			Genode::uint32_t *_attach(Genode::Io_mem_session &ios)
 			{
-				return Genode::env()->rm_session()->attach(ios.dataspace());
+				return Genode::env_deprecated()->rm_session()->
+				                                 attach(ios.dataspace());
 			}
 
 			/**
