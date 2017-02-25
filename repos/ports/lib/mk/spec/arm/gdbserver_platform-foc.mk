@@ -10,4 +10,6 @@ CC_OPT_linux-arm-low += -Wno-unused-function
 
 LIBS += syscall-foc
 
+SHARED_LIB = yes
+
 include $(REP_DIR)/lib/mk/gdbserver_platform.inc

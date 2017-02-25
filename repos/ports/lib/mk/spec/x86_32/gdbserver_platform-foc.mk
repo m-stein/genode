@@ -5,4 +5,6 @@ SRC_CC = spec/foc_x86_32/low.cc \
 
 LIBS += syscall-foc
 
-include $(REP_DIR)/lib/mk/spec/x86_32/gdbserver_platform_x86_32.inc
+SHARED_LIB = yes
+
+include $(REP_DIR)/lib/mk/spec/x86_32/gdbserver_platform-x86_32.inc
