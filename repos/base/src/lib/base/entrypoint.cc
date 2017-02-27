@@ -90,6 +90,11 @@ void Entrypoint::_process_incoming_signals()
 				 * block for next signal
 				 */
 				_sig_rec->unblock_signal_waiter(*_rpc_ep);
+
+				/*
+				 * wait for the acknowledgment by the entrypoint
+				 */
+				_signal_pending_ack_lock.lock();
 			}
 		} while (!_suspended);
 
@@ -136,6 +141,8 @@ void Entrypoint::wait_and_dispatch_one_signal()
 			cmpxchg(&_signal_recipient, ENTRYPOINT, NONE);
 
 			_signal_pending_lock.unlock();
+
+			_signal_pending_ack_lock.unlock();
 
 			_dispatch_signal(sig);
 			break;
