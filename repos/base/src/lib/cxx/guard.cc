@@ -30,25 +30,25 @@ static Genode::Registry<Block> blocked;
 
 namespace __cxxabiv1 
 {
+	enum State { INIT_NONE = 0, INIT_DONE = 1, IN_INIT = 0x100, WAITERS = 0x200 };
 
 	/*
 	 * A guarded variable can be in three states:
 	 *
-	 *   1) not initialized
-	 *   2) in initialization (transient)
-	 *   3) initialized
+	 *   1) not initialized               - INIT_NONE
+	 *   2) in initialization (transient) - IN_INIT and optionally WAITERS
+	 *   3) initialized                   - INIT_DONE
 	 *
 	 * The generic ABI uses the first byte of a 64-bit guard variable for state
 	 * 1), 2) and 3). ARM-EABI uses the first byte of a 32-bit guard variable.
 	 * Therefore we define '__guard' as a 32-bit type and use the least
 	 * significant byte for 1) and 3) and the following byte for 2) and let the
-	 * other threads spin until the guard is released by the thread in
-	 * initialization.
+	 * other threads block until the guard is released by the thread in
+	 * initialization. All waiting threads are stored in the 'blocked'
+	 * registry and will be woken up by the thread releasing a guard.
 	 */
 
 	typedef int __guard;
-
-	enum State { INIT_NONE = 0, INIT_DONE = 1, IN_INIT = 0x100, WAITERS = 0x200 };
 
 	extern "C" int __cxa_guard_acquire(__guard *guard)
 	{
