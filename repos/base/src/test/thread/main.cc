@@ -221,7 +221,7 @@ struct Pause_helper : Thread
 	volatile unsigned loop = 0;
 	volatile bool beep = false;
 
-	enum { STACK_SIZE = 0x1000 };
+	enum { STACK_SIZE = 0x2000 };
 
 	Pause_helper(Env &env, const char * name, Cpu_session &cpu)
 	: Thread(env, name, STACK_SIZE, Thread::Location(), Thread::Weight(), cpu) { }
@@ -339,7 +339,7 @@ static void test_create_as_many_threads(Env &env)
 
 struct Lock_helper : Thread
 {
-	enum { STACK_SIZE = 0x1000 };
+	enum { STACK_SIZE = 0x2000 };
 
 	Lock &lock;
 	bool &lock_is_free;
@@ -430,7 +430,7 @@ static void test_locks(Genode::Env &env)
 
 struct Cxa_helper : Thread
 {
-	enum { STACK_SIZE = 0x1000 };
+	enum { STACK_SIZE = 0x2000 };
 
 	Lock &in_cxa;
 	Lock &sync_startup;
