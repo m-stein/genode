@@ -36,18 +36,30 @@ class Main
 
 		Timer::Connection      _timer_connection;
 		Genode::Timer          _timer;
-		Periodic_timeout<Main> _pt1 { _timer, *this, &Main::_handle_pt1, Microseconds(700000) };
-		Periodic_timeout<Main> _pt2 { _timer, *this, &Main::_handle_pt2, Microseconds(1000000)  };
-		One_shot_timeout<Main> _ot1 { _timer, *this, &Main::_handle_ot1 };
-		One_shot_timeout<Main> _ot2 { _timer, *this, &Main::_handle_ot2 };
+//		Periodic_timeout<Main> _pt1 { _timer, *this, &Main::_handle_pt1, Microseconds(700000) };
+//		Periodic_timeout<Main> _pt2 { _timer, *this, &Main::_handle_pt2, Microseconds(1000000)  };
+//		One_shot_timeout<Main> _ot1 { _timer, *this, &Main::_handle_ot1 };
+//		One_shot_timeout<Main> _ot2 { _timer, *this, &Main::_handle_ot2 };
 
 	public:
 
 		Main(Env &env) : _timer_connection(env),
 		                 _timer(_timer_connection, env.ep())
 		{
-			_ot1.start(Microseconds(3250000));
-			_ot2.start(Microseconds(5300000));
+//			_ot1.start(Microseconds(3250000));
+//			_ot2.start(Microseconds(5300000));
+
+			unsigned us[1000];
+			for (unsigned i = 0; i < 1000; i++) {
+				for (unsigned volatile j = 0; j < 1000; j++) { }
+				us[i] = _timer.curr_time().value;
+			}
+			for (unsigned i = 0; i < 1000 - 1; i++) {
+				if (us[i] >= us[i + 1]) {
+					error("value ", i,     ": ", us[i],
+					    ", value ", i + 1, ": ", us[i + 1]); }
+			}
+			env.parent().exit(0);
 		}
 };
 

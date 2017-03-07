@@ -32,13 +32,16 @@ namespace Genode {
  */
 class Genode::Timer_time_source : public Genode::Time_source
 {
+	protected:
+
+		::Timer::Session &_session;
+
 	private:
 
 		enum { MIN_TIMEOUT_US = 5000 };
 
 		using Signal_handler = Genode::Signal_handler<Timer_time_source>;
 
-		::Timer::Session &_session;
 		Signal_handler    _signal_handler;
 		Timeout_handler  *_handler = nullptr;
 
@@ -58,7 +61,7 @@ class Genode::Timer_time_source : public Genode::Time_source
 			_session.sigh(_signal_handler);
 		}
 
-		Microseconds curr_time() const {
+		virtual Microseconds curr_time() const {
 			return Microseconds(1000UL * _session.elapsed_ms()); }
 
 		void schedule_timeout(Microseconds     duration,
@@ -75,6 +78,20 @@ class Genode::Timer_time_source : public Genode::Time_source
 		}
 
 		Microseconds max_timeout() const { return Microseconds::max(); }
+};
+
+#include <trace/timestamp.h>
+
+class Timer_time_source_interpolated : protected Timer_time_sourc
+{
+		Microseconds real_time_us { 0 };
+		Microseconds interpolated_time_us { 0 };
+
+		
+
+		virtual Microseconds curr_time() const {
+
+			return Microseconds(1000UL * _session.elapsed_ms()); }
 };
 
 
