@@ -1,3 +1,7 @@
+##
+# NOVA specific boot_dir handling
+#
+
 proc binary_name_ld_lib_so { } { return "ld-nova.lib.so" }
 proc binary_name_core_o    { } { return "nova/core.o" }
 proc binary_name_timer     { } { return "nova_timer_drv" }
@@ -52,6 +56,20 @@ proc run_boot_dir {binaries} {
 		build { lib/ld/nova kernel }
 	} else {
 		build { lib/ld/nova }
+	}
+
+	if {[have_include "power_on/qemu"]} {
+		# detect qemu version
+		catch {exec qemu-system-x86_64 --version} qemu_version
+		set qemu_version [regexp -inline {version[ ][0-9]+\.[0-9]+[\.0-9]*} $qemu_version]
+		set qemu_version [regexp -inline {[0-9]+\.[0-9]+[\.0-9]*} $qemu_version]
+
+		if {[string compare $qemu_version "2.7"] != -1} {
+			puts "\nYour Qemu version '$qemu_version' is not working with"
+			puts "Genode/NOVA. IRQs are not delivered to the kernel properly."
+			puts "Last good known Qemu versions are before 2.7\n"
+			exit
+		}
 	}
 
 	#
