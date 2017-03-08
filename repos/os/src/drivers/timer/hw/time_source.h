@@ -37,7 +37,7 @@ class Timer::Time_source : public Genode::Signalled_time_source
 		 ** Genode::Time_source **
 		 *************************/
 
-		Microseconds curr_time() const override;
+		Microseconds curr_time() override;
 		void schedule_timeout(Microseconds duration, Timeout_handler &handler) override;
 		Microseconds max_timeout() const override {
 			return Microseconds(_max_timeout_us); };

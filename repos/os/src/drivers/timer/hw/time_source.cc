@@ -56,7 +56,7 @@ void Timer::Time_source::schedule_timeout(Microseconds     duration,
 }
 
 
-Microseconds Timer::Time_source::curr_time() const
+Microseconds Timer::Time_source::curr_time()
 {
 	unsigned long const timeout_age_us = Kernel::timeout_age_us();
 	if (timeout_age_us > _last_timeout_age_us) {

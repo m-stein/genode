@@ -44,7 +44,7 @@ struct Genode::Time_source
 	/**
 	 * Return the current time of the source
 	 */
-	virtual Microseconds curr_time() const = 0;
+	virtual Microseconds curr_time() = 0;
 
 	/**
 	 * Return the maximum timeout duration that the source can handle

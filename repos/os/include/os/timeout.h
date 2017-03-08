@@ -74,7 +74,7 @@ class Genode::Timeout_scheduler
 		/**
 		 *  Read out the now time of the scheduler
 		 */
-		virtual Microseconds curr_time() const = 0;
+		virtual Microseconds curr_time() = 0;
 };
 
 
@@ -271,7 +271,7 @@ class Genode::Alarm_timeout_scheduler : private Noncopyable,
 		 ** Timeout_scheduler **
 		 ***********************/
 
-		Microseconds curr_time() const override {
+		Microseconds curr_time() override {
 			return _time_source.curr_time(); }
 };
 

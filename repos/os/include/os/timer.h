@@ -18,10 +18,13 @@
 #include <timer_session/timer_session.h>
 #include <os/time_source.h>
 #include <os/timeout.h>
+#include <trace/timestamp.h>
 
 namespace Genode {
+
 	class Timer;
 	class Timer_time_source;
+	class Timer_time_source_interpolated;
 }
 
 
@@ -61,11 +64,11 @@ class Genode::Timer_time_source : public Genode::Time_source
 			_session.sigh(_signal_handler);
 		}
 
-		virtual Microseconds curr_time() const {
+		virtual Microseconds curr_time() override {
 			return Microseconds(1000UL * _session.elapsed_ms()); }
 
 		void schedule_timeout(Microseconds     duration,
-		                      Timeout_handler &handler)
+		                      Timeout_handler &handler) override
 		{
 			if (duration.value < MIN_TIMEOUT_US)
 				duration.value = MIN_TIMEOUT_US;
@@ -77,21 +80,43 @@ class Genode::Timer_time_source : public Genode::Time_source
 			_session.trigger_once(duration.value);
 		}
 
-		Microseconds max_timeout() const { return Microseconds::max(); }
+		Microseconds max_timeout() const override { return Microseconds::max(); }
 };
 
 #include <trace/timestamp.h>
 
-class Timer_time_source_interpolated : protected Timer_time_sourc
+class Genode::Timer_time_source_interpolated : protected Timer_time_source
 {
-		Microseconds real_time_us { 0 };
-		Microseconds interpolated_time_us { 0 };
+	private:
 
-		
+		Microseconds real_time       { 0 };
+		Trace::Timestamp time_stamp  { 0 };
+		Microseconds interpol_time   { 0 };
+		Microseconds interpol_factor { 0 };
 
-		virtual Microseconds curr_time() const {
+	public:
 
-			return Microseconds(1000UL * _session.elapsed_ms()); }
+		Timer_time_source_interpolated(::Timer::Session &session,
+		                               Entrypoint       &ep)
+		: Timer_time_source(session, ep) { }
+
+		Microseconds curr_time() override
+		{
+
+	enum { QUOTA_LIMIT_LOG2 = 15 };
+	enum { QUOTA_LIMIT = 1 << QUOTA_LIMIT_LOG2 };
+
+			using namespace Trace;
+			Microseconds new_real_time = Microseconds(1000UL * _session.elapsed_ms());
+			Timestamp new_time_stamp   = timestamp();
+			unsigned real_time_diff    = new_real_time.value - real_time.value;
+			unsigned time_stamp_diff   = new_time_stamp - time_stamp;
+			Trace Timestamp =  * time_stamp_diff / real_time_diff
+			log("ts diff ", time_stamp_diff, " us diff ", real_time_diff, " factor ", );
+			time_stamp = new_time_stamp;
+			real_time  = new_real_time;
+			return real_time;
+		}
 };
 
 
@@ -100,7 +125,7 @@ class Timer_time_source_interpolated : protected Timer_time_sourc
  *
  * Multiplexes a timer session amongst different timeouts.
  */
-struct Genode::Timer : private Genode::Timer_time_source,
+struct Genode::Timer : private Genode::Timer_time_source_interpolated,
                        public  Genode::Alarm_timeout_scheduler
 {
 	using Time_source::Microseconds;
@@ -108,7 +133,7 @@ struct Genode::Timer : private Genode::Timer_time_source,
 
 	Timer(::Timer::Session &session, Entrypoint &ep)
 	:
-		Timer_time_source(session, ep),
+		Timer_time_source_interpolated(session, ep),
 		Alarm_timeout_scheduler(*(Time_source*)this)
 	{ }
 };
