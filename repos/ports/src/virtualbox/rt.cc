@@ -14,7 +14,7 @@
 /* Genode includes */
 #include <base/log.h>
 #include <base/allocator_avl.h>
-
+#include <util/misc_math.h>
 
 /* VirtualBox includes */
 #include <iprt/initterm.h>
@@ -156,8 +156,7 @@ class Avl_ds : public Genode::Avl_node<Avl_ds>
 
 		static void free_memory(void * pv, size_t cb)
 		{
-			if (cb % 0x1000)
-				cb = (cb & ~0xFFFUL) + 0x1000UL;
+			cb = Genode::align_addr(cb, 12);
 
 			Avl_ds * ds_obj = Avl_ds::_runtime_ds.first();
 			if (ds_obj)
@@ -171,6 +170,18 @@ class Avl_ds : public Genode::Avl_node<Avl_ds>
 				              ")+", Genode::Hex(cb), "(",
 				              Genode::Hex(ds_obj ? ds_obj->_size : 0), ")");
 			}
+		}
+
+		static Genode::addr_t max_size_at(void * p)
+		{
+			Avl_ds * ds_obj = Avl_ds::_runtime_ds.first();
+			if (ds_obj)
+				ds_obj = ds_obj->find_virt(reinterpret_cast<Genode::addr_t>(p));
+
+			if (!ds_obj)
+				return 0;
+
+			return ds_obj->_size;
 		}
 };
 
@@ -193,8 +204,7 @@ static void *alloc_mem(size_t cb, const char *pszTag, bool executable = false)
 	if (!cb)
 		return nullptr;
 
-	if (cb % 0x1000)
-		cb = (cb & ~0xFFFUL) + 0x1000UL;
+	cb = Genode::align_addr(cb, 12);
 
 	Lock::Guard guard(lock_ds);
 
@@ -254,10 +264,6 @@ void *RTMemExecAllocTag(size_t cb, const char *pszTag) RT_NO_THROW
 
 void *RTMemPageAllocZTag(size_t cb, const char *pszTag) RT_NO_THROW
 {
-	/*
-	 * The RAM dataspace freshly allocated by 'RTMemExecAllocTag' is zeroed
-	 * already.
-	 */
 	void * addr = alloc_mem(cb, pszTag);
 	if (addr)
 		Genode::memset(addr, 0, cb);
@@ -276,6 +282,66 @@ void RTMemPageFree(void *pv, size_t cb) RT_NO_THROW
 	Genode::Lock::Guard guard(lock_ds);
 
 	Avl_ds::free_memory(pv, cb);
+}
+
+
+void * RTMemTCGAlloc(size_t cb) RT_NO_THROW
+{
+	return alloc_mem(cb, __func__);
+}
+
+
+void * RTMemTCGAllocZ(size_t cb) RT_NO_THROW
+{
+	void * ptr = RTMemTCGAlloc(cb);
+	if (ptr)
+		Genode::memset(ptr, 0, cb);
+
+	return ptr;
+}
+
+void * RTMemTCGRealloc(void *ptr, size_t size) RT_NO_THROW
+{
+	if (!ptr && size)
+		return RTMemTCGAllocZ(size);
+
+	if (!size) {
+		if (ptr)
+			RTMemTCGFree(ptr);
+		return nullptr;
+	}
+
+	Genode::addr_t max_size = 0;
+	{
+		Genode::Lock::Guard guard(lock_ds);
+
+		max_size = Avl_ds::max_size_at(ptr);
+		if (!max_size) {
+			Genode::error("bug - unknown pointer");
+			return nullptr;
+		}
+
+		if (size <= max_size)
+			return ptr;
+	}
+
+	void * new_ptr = RTMemTCGAllocZ(size);
+	if (!new_ptr) {
+		Genode::error("no memory left ", size);
+		return nullptr;
+	}
+	Genode::memcpy(new_ptr, ptr, max_size);
+
+	RTMemTCGFree(ptr);
+
+	return new_ptr;
+}
+
+void RTMemTCGFree(void *pv) RT_NO_THROW
+{
+	Genode::Lock::Guard guard(lock_ds);
+
+	Avl_ds::free_memory(pv, Avl_ds::max_size_at(pv));
 }
 
 #include <iprt/buildconfig.h>
