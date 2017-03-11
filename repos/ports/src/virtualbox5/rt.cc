@@ -132,6 +132,18 @@ class Avl_ds : public Genode::Avl_node<Avl_ds>
 			              : head->find_size(size);
 		}
 
+		static Genode::addr_t max_size_at(void * p)
+		{
+			Avl_ds * ds_obj = Avl_ds::_runtime_ds.first();
+			if (ds_obj)
+				ds_obj = ds_obj->find_virt(reinterpret_cast<Genode::addr_t>(p));
+
+			if (!ds_obj)
+				return 0;
+
+			return ds_obj->_size;
+		}
+
 		Genode::addr_t ds_virt() const { return _virt; }
 
 		static void memory_freeup(Genode::addr_t const cb)
@@ -271,6 +283,65 @@ void RTMemPageFree(void *pv, size_t cb)
 	Genode::Lock::Guard guard(lock_ds);
 
 	Avl_ds::free_memory(pv, cb);
+}
+
+void * RTMemTCGAlloc(size_t cb)
+{
+	return alloc_mem(cb, __func__);
+}
+
+
+void * RTMemTCGAllocZ(size_t cb)
+{
+	void * ptr = RTMemTCGAlloc(cb);
+	if (ptr)
+		Genode::memset(ptr, 0, cb);
+
+	return ptr;
+}
+
+void * RTMemTCGRealloc(void *ptr, size_t size)
+{
+	if (!ptr && size)
+		return RTMemTCGAllocZ(size);
+
+	if (!size) {
+		if (ptr)
+			RTMemTCGFree(ptr);
+		return nullptr;
+	}
+
+	Genode::addr_t max_size = 0;
+	{
+		Genode::Lock::Guard guard(lock_ds);
+
+		max_size = Avl_ds::max_size_at(ptr);
+		if (!max_size) {
+			Genode::error("bug - unknown pointer");
+			return nullptr;
+		}
+
+		if (size <= max_size)
+			return ptr;
+	}
+
+	void * new_ptr = RTMemTCGAllocZ(size);
+	if (!new_ptr) {
+		Genode::error("no memory left ", size);
+		return nullptr;
+	}
+	Genode::memcpy(new_ptr, ptr, max_size);
+
+	RTMemTCGFree(ptr);
+
+	return new_ptr;
+}
+
+void RTMemTCGFree(void *pv)
+{
+	Genode::Lock::Guard guard(lock_ds);
+
+	Avl_ds::free_memory(pv, Avl_ds::max_size_at(pv));
 }
 
 #include <iprt/buildconfig.h>
