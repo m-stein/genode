@@ -67,7 +67,7 @@ void Timer::Time_source::schedule_timeout(Microseconds     duration,
 }
 
 
-Microseconds Timer::Time_source::curr_time() const
+Microseconds Timer::Time_source::curr_time()
 {
 	uint32_t passed_ticks;
 
