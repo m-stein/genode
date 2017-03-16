@@ -191,6 +191,7 @@ void Component::construct(Genode::Env &)
 {
 	using ::Cpu_state;
 
+for(unsigned volatile i = 0; ; i++) {}
 
 	/************************************
 	 ** 'Genode::Mmio::Register' tests **

@@ -49,16 +49,12 @@ class Main
 //			_ot1.start(Microseconds(3250000));
 //			_ot2.start(Microseconds(5300000));
 
-			unsigned us[1000];
-			for (unsigned i = 0; i < 1000; i++) {
-				for (unsigned volatile j = 0; j < 1000000; j++) { }
-				us[i] = _timer.curr_time().value;
-			}
-//			for (unsigned i = 0; i < 10 - 1; i++) {
+//			for (unsigned i = 0; i < 1000 - 1; i++) {
 //				if (us[i] >= us[i + 1]) {
 //					error("value ", i,     ": ", us[i],
 //					    ", value ", i + 1, ": ", us[i + 1]); }
 //			}
+			_timer.test();
 			env.parent().exit(0);
 		}
 };

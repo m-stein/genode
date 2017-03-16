@@ -71,7 +71,7 @@ Microseconds Timer::Time_source::max_timeout() const
 }
 
 
-Microseconds Timer::Time_source::curr_time() const
+Microseconds Timer::Time_source::curr_time()
 {
 	Genode::Lock::Guard lock_guard(_lock);
 	static Genode::Attached_rom_dataspace kip_ds(_env, "l4v2_kip");

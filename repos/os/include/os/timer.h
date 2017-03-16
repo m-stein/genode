@@ -87,12 +87,31 @@ class Genode::Timer_time_source : public Genode::Time_source
 
 class Genode::Timer_time_source_interpolated : protected Timer_time_source
 {
-	private:
+	public:
 
-		Microseconds real_time       { 0 };
-		Trace::Timestamp time_stamp  { 0 };
-		Microseconds interpol_time   { 0 };
-		Microseconds interpol_factor { 0 };
+		using Timestamp = Trace::Timestamp;
+
+		unsigned  _local_ms        { 0 };
+		Timestamp _local_ms_ts     { 0 };
+		unsigned  _remote_ms       { 0 };
+		Timestamp _remote_ms_ts    { 0 };
+		unsigned  _ms_to_ts_factor { 0 };
+
+enum { DMAX = 500, DMASK = 0x3, DLAY = 20};
+unsigned _dms[DMAX];
+unsigned _dtd[DMAX];
+unsigned _dmd[DMAX];
+
+		unsigned _curr_time_local(unsigned ts) const
+		{
+			unsigned local_ms_ts_diff = ts - _local_ms_ts;
+			unsigned local_ms = _local_ms + (local_ms_ts_diff / _ms_to_ts_factor);
+
+			if (local_ms < _local_ms) {
+				return _local_ms + ((_local_ms - local_ms) >> 1); }
+			else {
+				return local_ms; }
+		}
 
 	public:
 
@@ -102,20 +121,77 @@ class Genode::Timer_time_source_interpolated : protected Timer_time_source
 
 		Microseconds curr_time() override
 		{
+			return Microseconds(1);
+		}
 
-	enum { QUOTA_LIMIT_LOG2 = 15 };
-	enum { QUOTA_LIMIT = 1 << QUOTA_LIMIT_LOG2 };
 
-			using namespace Trace;
-			Microseconds new_real_time = Microseconds(1000UL * _session.elapsed_ms());
-			Timestamp new_time_stamp   = timestamp();
-			unsigned real_time_diff    = new_real_time.value - real_time.value;
-			unsigned time_stamp_diff   = new_time_stamp - time_stamp;
-			Trace Timestamp =  * time_stamp_diff / real_time_diff
-			log("ts diff ", time_stamp_diff, " us diff ", real_time_diff, " factor ", );
-			time_stamp = new_time_stamp;
-			real_time  = new_real_time;
-			return real_time;
+		Microseconds curr_time_remote(unsigned i)
+		{
+unsigned old_local_ms = _local_ms;
+
+			unsigned  remote_ms         = _session.elapsed_ms();
+			Timestamp ts                = Trace::timestamp();
+			unsigned  remote_ms_diff    = remote_ms - _remote_ms;
+			unsigned  remote_ms_ts_diff = ts - _remote_ms_ts;
+			unsigned  ms_to_ts_factor   = remote_ms_ts_diff / remote_ms_diff;
+
+			if (remote_ms < _local_ms) {
+				_local_ms = _curr_time_local(ts); }
+			else {
+				_local_ms = remote_ms; }
+
+if (i > DMAX) { throw -1; }
+_dtd[i] = ts - _local_ms_ts;
+_dms[i] = _local_ms;
+_dmd[i] = _local_ms - old_local_ms;
+
+			_ms_to_ts_factor = (_ms_to_ts_factor + ms_to_ts_factor) >> 1;
+			_remote_ms       = remote_ms;
+			_remote_ms_ts    = ts;
+			_local_ms_ts     = ts;
+
+			return Microseconds(1000UL * _local_ms);
+		}
+
+		Microseconds curr_time_local(unsigned i)
+		{
+unsigned old_local_ms = _local_ms;
+
+			Timestamp ts = Trace::timestamp();
+			_local_ms    = _curr_time_local(ts);
+
+if (i > DMAX) { throw -1; }
+_dtd[i] = ts - _local_ms_ts;
+_dms[i] = _local_ms;
+_dmd[i] = _local_ms - old_local_ms;
+
+			_local_ms_ts = ts;
+
+			return Microseconds(1000UL * _local_ms);
+		}
+
+		void test()
+		{
+			using namespace Genode;
+			::Timer::Connection timer;
+			timer.msleep(1);
+			for (unsigned i = 0; i < DMAX; i++) {
+				timer.msleep(DLAY);
+				if ((i & DMASK) == 0) { curr_time_remote(i).value; }
+				else                  { curr_time_local(i).value; }
+			}
+			for (unsigned i = 1; i < DMAX; i++) {
+				char const * prefix = "";
+				int diff = (int)_dms[i] - _dms[i-1];
+
+				if ((i & DMASK) == 0) { if (diff < 0) { prefix = "===== "; }
+				                        else          { prefix = "----- "; } }
+				else                  { if (diff < 0) { prefix = "ooooo "; }
+				                        else          { prefix = "..... "; } }
+
+//				log(dtd[i], " ", prefix, i, ": ", drms[i], " - ", dms[i], " (", diff, "/", dfac[i], ")");
+				log(_dtd[i], " ", prefix, i, ": ", _dmd[i], " ", _dms[i]);
+			}
 		}
 };
 
@@ -125,8 +201,8 @@ class Genode::Timer_time_source_interpolated : protected Timer_time_source
  *
  * Multiplexes a timer session amongst different timeouts.
  */
-struct Genode::Timer : private Genode::Timer_time_source_interpolated,
-                       public  Genode::Alarm_timeout_scheduler
+struct Genode::Timer : public Genode::Timer_time_source_interpolated,
+                       public Genode::Alarm_timeout_scheduler
 {
 	using Time_source::Microseconds;
 	using Alarm_timeout_scheduler::curr_time;

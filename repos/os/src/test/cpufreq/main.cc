@@ -22,7 +22,7 @@ using namespace Genode;
 
 struct Main
 {
-	enum { PERIOD_US = 8 * 1000 * 1000 };
+	enum { PERIOD_US = 2 * 1000 * 1000 };
 
 	Env                   &env;
 	Timer::Connection      timer         { env };
@@ -41,6 +41,9 @@ struct Main
 
 	Main(Env &env) : env(env)
 	{
+		cpu_regulator.level(high ? Regulator::CPU_FREQ_200 :
+		                           Regulator::CPU_FREQ_1600);
+		high = !high;
 		timer.sigh(timer_handler);
 		timer.trigger_once(PERIOD_US);
 	}
