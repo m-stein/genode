@@ -42,6 +42,7 @@ namespace Kernel
 	constexpr Call_arg call_id_timeout()                  { return 16; }
 	constexpr Call_arg call_id_timeout_age_us()           { return 17; }
 	constexpr Call_arg call_id_timeout_max_us()           { return 18; }
+	constexpr Call_arg call_id_time_us()                  { return 19; }
 
 
 	/*****************************************************************
@@ -103,6 +104,18 @@ namespace Kernel
 	inline time_t timeout_age_us()
 	{
 		return call(call_id_timeout_age_us());
+	}
+
+
+	/**
+	 * Return value of a free-running microseconds counter
+	 *
+	 * The counter has a constant frequency of 1Mhz and wraps after
+	 * 'timeout_age_us()' microseconds.
+	 */
+	inline time_t time_us()
+	{
+		return call(call_id_time_us());
 	}
 
 
