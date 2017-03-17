@@ -102,6 +102,8 @@ class Kernel::Clock
 		time_t timeout_age_us(Timeout const * const timeout) const;
 
 		time_t timeout_max_us() const;
+
+		time_t time() const { return _time; }
 };
 
 #endif /* _CORE__INCLUDE__KERNEL__CLOCK_H_ */
