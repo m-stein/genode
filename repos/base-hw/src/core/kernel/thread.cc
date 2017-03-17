@@ -564,7 +564,6 @@ void Thread::_call()
 	case call_id_timeout():                  _call_timeout(); return;
 	case call_id_timeout_age_us():           _call_timeout_age_us(); return;
 	case call_id_timeout_max_us():           _call_timeout_max_us(); return;
-	case call_id_time_us():                  user_arg_0(Cpu_job::time_us()); return;
 	default:
 		/* check wether this is a core thread */
 		if (!_core()) {
