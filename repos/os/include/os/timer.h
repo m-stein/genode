@@ -96,16 +96,18 @@ class Genode::Timer_time_source_interpolated : protected Timer_time_source
 		Timestamp _local_us_ts     { 0 };
 		unsigned  _remote_us       { 0 };
 		Timestamp _remote_us_ts    { 0 };
+		unsigned  _us_to_ts_factor { 0 };
 
-enum { DMAX = 1000, DMASK = 0xf, DLAY = 1};
+enum { DMAX = 2000, DMASK = 0x1ff, DLAY = 1000 };
 unsigned _dus[DMAX];
 unsigned _dtd[DMAX];
 unsigned _dmd[DMAX];
+unsigned _dfac[DMAX];
 
 		unsigned _curr_time_local(unsigned ts) const
 		{
 			unsigned local_us_ts_diff = ts - _local_us_ts;
-			unsigned local_us = _local_us + local_us_ts_diff;
+			unsigned local_us = _local_us + ((local_us_ts_diff << 10) / _us_to_ts_factor);
 
 			if (local_us < _local_us) {
 				return _local_us + ((_local_us - local_us) >> 1); }
@@ -129,8 +131,16 @@ unsigned _dmd[DMAX];
 		{
 unsigned old_local_us = _local_us;
 
-			unsigned remote_us = _session.elapsed_ms() * 1000UL;
-			unsigned ts        = Kernel::time_us();
+			unsigned volatile remote_ms = _session.elapsed_ms();
+			unsigned volatile ts        = Kernel::time();
+			if (remote_ms > ~(unsigned)0 / 1000) {
+				error("elapsed ms value too high"); }
+
+			unsigned remote_us         = remote_ms * 1000UL;
+			unsigned remote_us_diff    = remote_us - _remote_us;
+			unsigned remote_us_ts_diff = ts - _remote_us_ts;
+			unsigned us_to_ts_factor   = (remote_us_ts_diff << 10) /
+			                             (remote_us_diff ? remote_us_diff : 1);
 
 			if (remote_us < _local_us) {
 				_local_us = _curr_time_local(ts); }
@@ -141,10 +151,12 @@ if (i > DMAX) { throw -1; }
 _dtd[i] = ts - _local_us_ts;
 _dus[i] = _local_us;
 _dmd[i] = _local_us - old_local_us;
+_dfac[i] = _us_to_ts_factor;
 
-			_remote_us    = remote_us;
-			_remote_us_ts = ts;
-			_local_us_ts  = ts;
+			_us_to_ts_factor = (_us_to_ts_factor + us_to_ts_factor) >> 1;
+			_remote_us       = remote_us;
+			_remote_us_ts    = ts;
+			_local_us_ts     = ts;
 
 			return Microseconds(_local_us);
 		}
@@ -153,13 +165,14 @@ _dmd[i] = _local_us - old_local_us;
 		{
 unsigned old_local_us = _local_us;
 
-			unsigned ts = Kernel::time_us();
+			unsigned ts = Kernel::time();
 			_local_us   = _curr_time_local(ts);
 
 if (i > DMAX) { throw -1; }
 _dtd[i] = ts - _local_us_ts;
 _dus[i] = _local_us;
 _dmd[i] = _local_us - old_local_us;
+_dfac[i] = _us_to_ts_factor;
 
 			_local_us_ts = ts;
 
@@ -169,9 +182,19 @@ _dmd[i] = _local_us - old_local_us;
 		void test()
 		{
 			using namespace Genode;
-//			::Timer::Connection timer;
+			::Timer::Connection timer;
 //			timer.usleep(1);
+
+//			unsigned y = 0;
+//			for (unsigned i = 0; ; i++) {
+//				unsigned x = Kernel::time();
+//				Genode::raw(x - y);
+//				y = x;
+//				timer.usleep(1000000);
+//			}
+
 			for (unsigned i = 0; i < DMAX; i++) {
+				timer.usleep(1000);
 //				for (unsigned volatile i = 0; i < DLAY; i++) { }
 				if ((i & DMASK) == 0) { curr_time_remote(i).value; }
 				else                  { curr_time_local(i).value; }
@@ -186,7 +209,7 @@ _dmd[i] = _local_us - old_local_us;
 				                        else          { prefix = "..... "; } }
 
 //				log(dtd[i], " ", prefix, i, ": ", drus[i], " - ", dus[i], " (", diff, "/", dfac[i], ")");
-				log(_dtd[i], " ", prefix, i, ": ", _dmd[i], " ", _dus[i]);
+				log(Hex(_dtd[i], Hex::PREFIX, Hex::PAD), " ", prefix, i, ": ", _dmd[i], " ", _dus[i], " ", _dfac[i]);
 			}
 		}
 };
@@ -207,7 +230,8 @@ struct Genode::Timer : public Genode::Timer_time_source_interpolated,
 	:
 		Timer_time_source_interpolated(session, ep),
 		Alarm_timeout_scheduler(*(Time_source*)this)
-	{ }
+	{
+	}
 };
 
 #endif /* _TIMER_H_ */
