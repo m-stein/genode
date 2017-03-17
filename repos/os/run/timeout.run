@@ -26,29 +26,27 @@ install_config {
 		<default-route>
 			<any-service><parent/><any-child/></any-service>
 		</default-route>
-		<start name="platform_drv">
-			<resource name="RAM" quantum="1M"/>
-			<provides><service name="Regulator"/></provides>
-		</start>
 		<start name="timer">
 			<resource name="RAM" quantum="10M"/>
 			<provides><service name="Timer"/></provides>
-		</start>
-		<start name="test-util_mmio">
-			<resource name="RAM" quantum="10M"/>
 		</start>
 		<start name="test">
 			<binary name="test-timeout"/>
 			<resource name="RAM" quantum="10M"/>
 		</start>
 
-		<start name="test-cpufreq">
-			<resource name="RAM" quantum="10M"/>
-		</start>
 	</config>
 }
 
-build_boot_image "core ld.lib.so platform_drv init timer test-timeout test-cpufreq test-util_mmio"
+#		<start name="test-cpufreq">
+#			<resource name="RAM" quantum="10M"/>
+#		</start>
+#		<start name="platform_drv">
+#			<resource name="RAM" quantum="1M"/>
+#			<provides><service name="Regulator"/></provides>
+#		</start>
+
+build_boot_image "core ld.lib.so init timer test-timeout"
 
 #
 # Execution

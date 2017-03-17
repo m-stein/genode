@@ -84,6 +84,7 @@ class Genode::Timer_time_source : public Genode::Time_source
 };
 
 #include <trace/timestamp.h>
+#include <kernel/interface.h>
 
 class Genode::Timer_time_source_interpolated : protected Timer_time_source
 {
@@ -91,26 +92,25 @@ class Genode::Timer_time_source_interpolated : protected Timer_time_source
 
 		using Timestamp = Trace::Timestamp;
 
-		unsigned  _local_ms        { 0 };
-		Timestamp _local_ms_ts     { 0 };
-		unsigned  _remote_ms       { 0 };
-		Timestamp _remote_ms_ts    { 0 };
-		unsigned  _ms_to_ts_factor { 0 };
+		unsigned  _local_us        { 0 };
+		Timestamp _local_us_ts     { 0 };
+		unsigned  _remote_us       { 0 };
+		Timestamp _remote_us_ts    { 0 };
 
-enum { DMAX = 500, DMASK = 0x3, DLAY = 20};
-unsigned _dms[DMAX];
+enum { DMAX = 1000, DMASK = 0xf, DLAY = 1};
+unsigned _dus[DMAX];
 unsigned _dtd[DMAX];
 unsigned _dmd[DMAX];
 
 		unsigned _curr_time_local(unsigned ts) const
 		{
-			unsigned local_ms_ts_diff = ts - _local_ms_ts;
-			unsigned local_ms = _local_ms + (local_ms_ts_diff / _ms_to_ts_factor);
+			unsigned local_us_ts_diff = ts - _local_us_ts;
+			unsigned local_us = _local_us + local_us_ts_diff;
 
-			if (local_ms < _local_ms) {
-				return _local_ms + ((_local_ms - local_ms) >> 1); }
+			if (local_us < _local_us) {
+				return _local_us + ((_local_us - local_us) >> 1); }
 			else {
-				return local_ms; }
+				return local_us; }
 		}
 
 	public:
@@ -127,70 +127,66 @@ unsigned _dmd[DMAX];
 
 		Microseconds curr_time_remote(unsigned i)
 		{
-unsigned old_local_ms = _local_ms;
+unsigned old_local_us = _local_us;
 
-			unsigned  remote_ms         = _session.elapsed_ms();
-			Timestamp ts                = Trace::timestamp();
-			unsigned  remote_ms_diff    = remote_ms - _remote_ms;
-			unsigned  remote_ms_ts_diff = ts - _remote_ms_ts;
-			unsigned  ms_to_ts_factor   = remote_ms_ts_diff / remote_ms_diff;
+			unsigned remote_us = _session.elapsed_ms() * 1000UL;
+			unsigned ts        = Kernel::time_us();
 
-			if (remote_ms < _local_ms) {
-				_local_ms = _curr_time_local(ts); }
+			if (remote_us < _local_us) {
+				_local_us = _curr_time_local(ts); }
 			else {
-				_local_ms = remote_ms; }
+				_local_us = remote_us; }
 
 if (i > DMAX) { throw -1; }
-_dtd[i] = ts - _local_ms_ts;
-_dms[i] = _local_ms;
-_dmd[i] = _local_ms - old_local_ms;
+_dtd[i] = ts - _local_us_ts;
+_dus[i] = _local_us;
+_dmd[i] = _local_us - old_local_us;
 
-			_ms_to_ts_factor = (_ms_to_ts_factor + ms_to_ts_factor) >> 1;
-			_remote_ms       = remote_ms;
-			_remote_ms_ts    = ts;
-			_local_ms_ts     = ts;
+			_remote_us    = remote_us;
+			_remote_us_ts = ts;
+			_local_us_ts  = ts;
 
-			return Microseconds(1000UL * _local_ms);
+			return Microseconds(_local_us);
 		}
 
 		Microseconds curr_time_local(unsigned i)
 		{
-unsigned old_local_ms = _local_ms;
+unsigned old_local_us = _local_us;
 
-			Timestamp ts = Trace::timestamp();
-			_local_ms    = _curr_time_local(ts);
+			unsigned ts = Kernel::time_us();
+			_local_us   = _curr_time_local(ts);
 
 if (i > DMAX) { throw -1; }
-_dtd[i] = ts - _local_ms_ts;
-_dms[i] = _local_ms;
-_dmd[i] = _local_ms - old_local_ms;
+_dtd[i] = ts - _local_us_ts;
+_dus[i] = _local_us;
+_dmd[i] = _local_us - old_local_us;
 
-			_local_ms_ts = ts;
+			_local_us_ts = ts;
 
-			return Microseconds(1000UL * _local_ms);
+			return Microseconds(_local_us);
 		}
 
 		void test()
 		{
 			using namespace Genode;
-			::Timer::Connection timer;
-			timer.msleep(1);
+//			::Timer::Connection timer;
+//			timer.usleep(1);
 			for (unsigned i = 0; i < DMAX; i++) {
-				timer.msleep(DLAY);
+//				for (unsigned volatile i = 0; i < DLAY; i++) { }
 				if ((i & DMASK) == 0) { curr_time_remote(i).value; }
 				else                  { curr_time_local(i).value; }
 			}
 			for (unsigned i = 1; i < DMAX; i++) {
 				char const * prefix = "";
-				int diff = (int)_dms[i] - _dms[i-1];
+				int diff = (int)_dus[i] - _dus[i-1];
 
 				if ((i & DMASK) == 0) { if (diff < 0) { prefix = "===== "; }
 				                        else          { prefix = "----- "; } }
 				else                  { if (diff < 0) { prefix = "ooooo "; }
 				                        else          { prefix = "..... "; } }
 
-//				log(dtd[i], " ", prefix, i, ": ", drms[i], " - ", dms[i], " (", diff, "/", dfac[i], ")");
-				log(_dtd[i], " ", prefix, i, ": ", _dmd[i], " ", _dms[i]);
+//				log(dtd[i], " ", prefix, i, ": ", drus[i], " - ", dus[i], " (", diff, "/", dfac[i], ")");
+				log(_dtd[i], " ", prefix, i, ": ", _dmd[i], " ", _dus[i]);
 			}
 		}
 };
