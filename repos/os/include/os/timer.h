@@ -19,12 +19,12 @@
 #include <os/time_source.h>
 #include <os/timeout.h>
 #include <trace/timestamp.h>
+#include <kernel/interface.h>
 
 namespace Genode {
 
 	class Timer;
 	class Timer_time_source;
-	class Timer_hd_time_source;
 }
 
 
@@ -35,65 +35,18 @@ namespace Genode {
  */
 class Genode::Timer_time_source : public Genode::Time_source
 {
-	protected:
-
-		::Timer::Session &_session;
-
 	private:
-
-		enum { MIN_TIMEOUT_US = 5000 };
-
-		Signal_handler<Timer_time_source>  _signal_handler;
-		Timeout_handler                   *_handler = nullptr;
-
-		void _handle_timeout()
-		{
-			if (_handler)
-				_handler->handle_timeout(curr_time());
-		}
-
-	public:
-
-		Timer_time_source(::Timer::Session &session, Entrypoint &ep)
-		:
-			_session(session),
-			_signal_handler(ep, *this, &Timer_time_source::_handle_timeout)
-		{
-			_session.sigh(_signal_handler);
-		}
-
-		virtual Microseconds curr_time() override {
-			return Microseconds(1000UL * _session.elapsed_ms()); }
-
-		void schedule_timeout(Microseconds     duration,
-		                      Timeout_handler &handler) override
-		{
-			if (duration.value < MIN_TIMEOUT_US)
-				duration.value = MIN_TIMEOUT_US;
-
-			if (duration.value > max_timeout().value)
-				duration.value = max_timeout().value;
-
-			_handler = &handler;
-			_session.trigger_once(duration.value);
-		}
-
-		Microseconds max_timeout() const override { return Microseconds::max(); }
-};
-
-#include <trace/timestamp.h>
-#include <kernel/interface.h>
-
-class Genode::Timer_hd_time_source : protected Timer_time_source
-{
-	public:
 
 		using Timestamp = Trace::Timestamp;
 
-		enum { FACTOR_SHIFT = 10 };
+		enum { FACTOR_SHIFT   = 10 };
+		enum { MIN_TIMEOUT_US = 5000 };
 
+		::Timer::Session                     &_session;
 		::Timer::Session                     &_tic_session;
-		Signal_handler<Timer_hd_time_source>  _tic;
+		Signal_handler<Timer_time_source>     _signal_handler;
+		Signal_handler<Timer_time_source>     _tic;
+		Timeout_handler                      *_handler = nullptr;
 
 		unsigned  _tic_us          { 10 };
 		unsigned  _remote_us       { _tic_session.elapsed_ms() * 1000UL };
@@ -103,7 +56,7 @@ class Genode::Timer_hd_time_source : protected Timer_time_source
 		unsigned  _us_to_ts_factor { 1 << FACTOR_SHIFT };
 
 unsigned _tests { 0 };
-Signal_handler<Timer_hd_time_source>  _test;
+Signal_handler<Timer_time_source> _test;
 ::Timer::Connection _timer;
 enum { DMAX = 1000, DLAY = 1000 };
 unsigned _dus[DMAX];
@@ -128,7 +81,7 @@ unsigned _dfac[DMAX];
 		{
 			unsigned volatile remote_ms = _tic_session.elapsed_ms();
 			unsigned volatile ts        = Kernel::time();
-			if (remote_ms > ~(unsigned)0 / 1000) {
+			if (remote_ms > ~(unsigned)0 >> 10) {
 				error("elapsed ms value too high"); }
 
 			unsigned remote_us         = remote_ms * 1000UL;
@@ -148,20 +101,48 @@ unsigned _dfac[DMAX];
 			_local_us_ts     = ts;
 		}
 
+		void _handle_timeout()
+		{
+			if (_handler)
+				_handler->handle_timeout(curr_time());
+		}
+
 	public:
 
-		Timer_hd_time_source(::Timer::Session &session,
-		                     ::Timer::Session &tic_session,
-		                     Entrypoint       &ep)
-		: Timer_time_source(session, ep), _tic_session(tic_session),
-		  _tic(ep, *this, &Timer_hd_time_source::_handle_tic)
+		Timer_time_source(::Timer::Session &session,
+		                  ::Timer::Session &tic_session,
+		                  Entrypoint       &ep)
+		:
+			_session(session),
+			_tic_session(tic_session),
+			_signal_handler(ep, *this, &Timer_time_source::_handle_timeout),
+			_tic(ep, *this, &Timer_time_source::_handle_tic)
 
-, _test(ep, *this, &Timer_hd_time_source::_handle_test)
-
+, _test(ep, *this, &Timer_time_source::_handle_test)
 		{
+			_session.sigh(_signal_handler);
+
 			_tic_session.sigh(_tic);
 			_tic_session.trigger_periodic(_tic_us);
 		}
+
+		virtual Microseconds curr_time() override {
+			return Microseconds(1000UL * _session.elapsed_ms()); }
+
+		void schedule_timeout(Microseconds     duration,
+		                      Timeout_handler &handler) override
+		{
+			if (duration.value < MIN_TIMEOUT_US)
+				duration.value = MIN_TIMEOUT_US;
+
+			if (duration.value > max_timeout().value)
+				duration.value = max_timeout().value;
+
+			_handler = &handler;
+			_session.trigger_once(duration.value);
+		}
+
+		Microseconds max_timeout() const override { return Microseconds::max(); }
 
 		Microseconds curr_time_local(unsigned i)
 		{
@@ -214,7 +195,7 @@ _dfac[i] = _us_to_ts_factor;
  *
  * Multiplexes a timer session amongst different timeouts.
  */
-struct Genode::Timer : public Genode::Timer_hd_time_source,
+struct Genode::Timer : public Genode::Timer_time_source,
                        public Genode::Alarm_timeout_scheduler
 {
 	using Time_source::Microseconds;
@@ -222,7 +203,7 @@ struct Genode::Timer : public Genode::Timer_hd_time_source,
 
 	Timer(::Timer::Session &session, ::Timer::Session &tic_session, Entrypoint &ep)
 	:
-		Timer_hd_time_source(session, tic_session, ep),
+		Timer_time_source(session, tic_session, ep),
 		Alarm_timeout_scheduler(*static_cast<Time_source*>(this))
 	{ }
 };
