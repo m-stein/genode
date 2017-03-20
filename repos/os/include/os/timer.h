@@ -41,63 +41,35 @@ class Genode::Timer_time_source : public Genode::Time_source
 
 		enum { FACTOR_SHIFT   = 10 };
 		enum { MIN_TIMEOUT_US = 5000 };
-		enum { TIC_US         = 100 };
+		enum { TIC_US         = 100000 };
 
 		::Timer::Session                                   &_session;
 		Signal_handler<Timer_time_source>                   _signal_handler;
 		Timeout_handler                                    *_handler = nullptr;
 		Constructible<Periodic_timeout<Timer_time_source> > _tic;
 
-		unsigned     _remote_us       { _session.elapsed_ms() * 1000UL };
-		Timestamp    _remote_us_ts    { Kernel::time() };
-		unsigned     _local_us        { _remote_us };
-		Timestamp    _local_us_ts     { _remote_us_ts };
+		unsigned     _us              { _session.elapsed_ms() * 1000UL };
+		unsigned     _interpolated_us { 0 };
+		Timestamp    _ts              { Kernel::time() };
 		unsigned     _us_to_ts_factor { 1 << FACTOR_SHIFT };
-
-unsigned _tests { 0 };
-Signal_handler<Timer_time_source> _test;
-::Timer::Connection _timer;
-enum { DMAX = 1000, DLAY = 1000 };
-unsigned _dus[DMAX];
-unsigned _dtd[DMAX];
-unsigned _dmd[DMAX];
-unsigned _dfac[DMAX];
-
-		unsigned _ts_to_local_us(unsigned ts) const
-		{
-			unsigned local_us_ts_diff = ts - _local_us_ts;
-			unsigned local_us = _local_us +
-			                    ((local_us_ts_diff << FACTOR_SHIFT) /
-			                     _us_to_ts_factor);
-
-			if (local_us < _local_us) {
-				return _local_us + ((_local_us - local_us) >> 1); }
-			else {
-				return local_us; }
-		}
 
 		void _handle_tic(Microseconds)
 		{
-			unsigned volatile remote_ms = _session.elapsed_ms();
-			unsigned volatile ts        = Kernel::time();
-			if (remote_ms > ((~0UL) >> 10)) {
+			unsigned volatile ms = _session.elapsed_ms();
+			unsigned volatile ts = Kernel::time();
+
+			if (ms > ((~0UL) >> 10)) {
 				error("elapsed ms value too high"); }
 
-			unsigned remote_us         = remote_ms * 1000UL;
-			unsigned remote_us_diff    = remote_us - _remote_us;
-			unsigned remote_us_ts_diff = ts - _remote_us_ts;
-			unsigned us_to_ts_factor   = (remote_us_ts_diff << FACTOR_SHIFT) /
-			                             (remote_us_diff ? remote_us_diff : 1);
+			unsigned us      = ms * 1000UL;
+			unsigned us_diff = us - _us;
+			unsigned ts_diff = ts - _ts;
+			unsigned us_to_ts_factor = (ts_diff << FACTOR_SHIFT) /
+			                           (us_diff ? us_diff : 1);
 
-			if (remote_us < _local_us) {
-				_local_us = _ts_to_local_us(ts); }
-			else {
-				_local_us = remote_us; }
-
-			_us_to_ts_factor = (_us_to_ts_factor + us_to_ts_factor) >> 1;
-			_remote_us       = remote_us;
-			_remote_us_ts    = ts;
-			_local_us_ts     = ts;
+			_us = us;
+			_ts = ts;
+			_us_to_ts_factor = us_to_ts_factor;
 		}
 
 		void _handle_timeout()
@@ -113,14 +85,9 @@ unsigned _dfac[DMAX];
 		:
 			_session(session),
 			_signal_handler(ep, *this, &Timer_time_source::_handle_timeout)
-
-, _test(ep, *this, &Timer_time_source::_handle_test)
 		{
 			_session.sigh(_signal_handler);
 		}
-
-		virtual Microseconds curr_time() override {
-			return Microseconds(1000UL * _session.elapsed_ms()); }
 
 		void schedule_timeout(Microseconds     duration,
 		                      Timeout_handler &handler) override
@@ -137,22 +104,14 @@ unsigned _dfac[DMAX];
 
 		Microseconds max_timeout() const override { return Microseconds::max(); }
 
-		Microseconds curr_time_local(unsigned i)
+		Microseconds curr_time() override
 		{
-unsigned old_local_us = _local_us;
-
-			unsigned ts = Kernel::time();
-			_local_us   = _ts_to_local_us(ts);
-
-if (i > DMAX) { throw -1; }
-_dtd[i] = ts - _local_us_ts;
-_dus[i] = _local_us;
-_dmd[i] = _local_us - old_local_us;
-_dfac[i] = _us_to_ts_factor;
-
-			_local_us_ts = ts;
-
-			return Microseconds(_local_us);
+			unsigned ts_diff = Kernel::time() - _ts;
+			unsigned us_diff = (ts_diff << FACTOR_SHIFT) / _us_to_ts_factor;
+			unsigned us      = _us + us_diff;
+			if (_interpolated_us < us) {
+				_interpolated_us = us; }
+			return Microseconds(_interpolated_us);
 		}
 
 		void schedule_tic(Timeout_scheduler &scheduler) override
@@ -162,32 +121,6 @@ _dfac[i] = _us_to_ts_factor;
 
 			_tic.construct(scheduler, *this, &Timer_time_source::_handle_tic,
 			               Microseconds(TIC_US));
-		}
-
-		void _handle_test()
-		{
-			using namespace Genode;
-			if (_tests < DMAX) {
-				curr_time_local(_tests);
-				_tests++;
-			} else {
-				for (unsigned i = 0; i < DMAX; i++) {
-					char const * prefix = "";
-					int diff = (int)_dus[i] - _dus[i-1];
-					if (diff < 0) { prefix = "ooo "; }
-					else          { prefix = "... "; }
-
-					log(Hex(_dtd[i], Hex::PREFIX, Hex::PAD), " ", prefix, i, ": ", _dmd[i], " ", _dus[i], " ", _dfac[i]);
-				}
-				while(1);
-			}
-		}
-
-		void test()
-		{
-			using namespace Genode;
-			_timer.sigh(_test);
-			_timer.trigger_periodic(1000);
 		}
 };
 
