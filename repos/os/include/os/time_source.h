@@ -14,7 +14,11 @@
 #ifndef _OS__TIME_SOURCE_H_
 #define _OS__TIME_SOURCE_H_
 
-namespace Genode { class Time_source; }
+namespace Genode {
+
+	class Time_source;
+	class Timeout_scheduler;
+}
 
 /**
  * Interface of a time source that can handle one timeout at a time
@@ -59,6 +63,14 @@ struct Genode::Time_source
 	 */
 	virtual void schedule_timeout(Microseconds     duration,
 	                              Timeout_handler &handler) = 0;
+
+	/**
+	 * Install a timeout, overrides the last timeout if any
+	 *
+	 * \param duration  timeout duration
+	 * \param handler   timeout callback
+	 */
+	virtual void schedule_tic(Timeout_scheduler &scheduler) { };
 };
 
 #endif /* _OS__TIME_SOURCE_H_ */

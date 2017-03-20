@@ -84,6 +84,7 @@ Alarm_timeout_scheduler::Alarm_timeout_scheduler(Time_source &time_source)
 :
 	_time_source(time_source)
 {
+	time_source.schedule_tic(*this);
 	time_source.schedule_timeout(Microseconds(0), *this);
 }
 

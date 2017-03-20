@@ -41,19 +41,18 @@ class Genode::Timer_time_source : public Genode::Time_source
 
 		enum { FACTOR_SHIFT   = 10 };
 		enum { MIN_TIMEOUT_US = 5000 };
+		enum { TIC_US         = 100 };
 
-		::Timer::Session                     &_session;
-		::Timer::Session                     &_tic_session;
-		Signal_handler<Timer_time_source>     _signal_handler;
-		Signal_handler<Timer_time_source>     _tic;
-		Timeout_handler                      *_handler = nullptr;
+		::Timer::Session                                   &_session;
+		Signal_handler<Timer_time_source>                   _signal_handler;
+		Timeout_handler                                    *_handler = nullptr;
+		Constructible<Periodic_timeout<Timer_time_source> > _tic;
 
-		unsigned  _tic_us          { 10 };
-		unsigned  _remote_us       { _tic_session.elapsed_ms() * 1000UL };
-		Timestamp _remote_us_ts    { Kernel::time() };
-		unsigned  _local_us        { _remote_us };
-		Timestamp _local_us_ts     { _remote_us_ts };
-		unsigned  _us_to_ts_factor { 1 << FACTOR_SHIFT };
+		unsigned     _remote_us       { _session.elapsed_ms() * 1000UL };
+		Timestamp    _remote_us_ts    { Kernel::time() };
+		unsigned     _local_us        { _remote_us };
+		Timestamp    _local_us_ts     { _remote_us_ts };
+		unsigned     _us_to_ts_factor { 1 << FACTOR_SHIFT };
 
 unsigned _tests { 0 };
 Signal_handler<Timer_time_source> _test;
@@ -77,11 +76,11 @@ unsigned _dfac[DMAX];
 				return local_us; }
 		}
 
-		void _handle_tic()
+		void _handle_tic(Microseconds)
 		{
-			unsigned volatile remote_ms = _tic_session.elapsed_ms();
+			unsigned volatile remote_ms = _session.elapsed_ms();
 			unsigned volatile ts        = Kernel::time();
-			if (remote_ms > ~(unsigned)0 >> 10) {
+			if (remote_ms > ((~0UL) >> 10)) {
 				error("elapsed ms value too high"); }
 
 			unsigned remote_us         = remote_ms * 1000UL;
@@ -110,20 +109,14 @@ unsigned _dfac[DMAX];
 	public:
 
 		Timer_time_source(::Timer::Session &session,
-		                  ::Timer::Session &tic_session,
 		                  Entrypoint       &ep)
 		:
 			_session(session),
-			_tic_session(tic_session),
-			_signal_handler(ep, *this, &Timer_time_source::_handle_timeout),
-			_tic(ep, *this, &Timer_time_source::_handle_tic)
+			_signal_handler(ep, *this, &Timer_time_source::_handle_timeout)
 
 , _test(ep, *this, &Timer_time_source::_handle_test)
 		{
 			_session.sigh(_signal_handler);
-
-			_tic_session.sigh(_tic);
-			_tic_session.trigger_periodic(_tic_us);
 		}
 
 		virtual Microseconds curr_time() override {
@@ -160,6 +153,15 @@ _dfac[i] = _us_to_ts_factor;
 			_local_us_ts = ts;
 
 			return Microseconds(_local_us);
+		}
+
+		void schedule_tic(Timeout_scheduler &scheduler) override
+		{
+			if (_tic.constructed()) {
+				return; }
+
+			_tic.construct(scheduler, *this, &Timer_time_source::_handle_tic,
+			               Microseconds(TIC_US));
 		}
 
 		void _handle_test()
@@ -201,9 +203,9 @@ struct Genode::Timer : public Genode::Timer_time_source,
 	using Time_source::Microseconds;
 	using Alarm_timeout_scheduler::curr_time;
 
-	Timer(::Timer::Session &session, ::Timer::Session &tic_session, Entrypoint &ep)
+	Timer(::Timer::Session &session, Entrypoint &ep)
 	:
-		Timer_time_source(session, tic_session, ep),
+		Timer_time_source(session, ep),
 		Alarm_timeout_scheduler(*static_cast<Time_source*>(this))
 	{ }
 };
