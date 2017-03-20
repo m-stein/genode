@@ -24,7 +24,7 @@ namespace Genode {
 
 	class Timer;
 	class Timer_time_source;
-	class Timer_time_source_interpolated;
+	class Timer_hd_time_source;
 }
 
 
@@ -43,10 +43,8 @@ class Genode::Timer_time_source : public Genode::Time_source
 
 		enum { MIN_TIMEOUT_US = 5000 };
 
-		using Signal_handler = Genode::Signal_handler<Timer_time_source>;
-
-		Signal_handler    _signal_handler;
-		Timeout_handler  *_handler = nullptr;
+		Signal_handler<Timer_time_source>  _signal_handler;
+		Timeout_handler                   *_handler = nullptr;
 
 		void _handle_timeout()
 		{
@@ -86,28 +84,39 @@ class Genode::Timer_time_source : public Genode::Time_source
 #include <trace/timestamp.h>
 #include <kernel/interface.h>
 
-class Genode::Timer_time_source_interpolated : protected Timer_time_source
+class Genode::Timer_hd_time_source : protected Timer_time_source
 {
 	public:
 
 		using Timestamp = Trace::Timestamp;
 
-		unsigned  _local_us        { 0 };
-		Timestamp _local_us_ts     { 0 };
-		unsigned  _remote_us       { 0 };
-		Timestamp _remote_us_ts    { 0 };
-		unsigned  _us_to_ts_factor { 0 };
+		enum { FACTOR_SHIFT = 10 };
 
-enum { DMAX = 2000, DMASK = 0x1ff, DLAY = 1000 };
+		::Timer::Session                     &_tic_session;
+		Signal_handler<Timer_hd_time_source>  _tic;
+
+		unsigned  _tic_us          { 10 };
+		unsigned  _remote_us       { _tic_session.elapsed_ms() * 1000UL };
+		Timestamp _remote_us_ts    { Kernel::time() };
+		unsigned  _local_us        { _remote_us };
+		Timestamp _local_us_ts     { _remote_us_ts };
+		unsigned  _us_to_ts_factor { 1 << FACTOR_SHIFT };
+
+unsigned _tests { 0 };
+Signal_handler<Timer_hd_time_source>  _test;
+::Timer::Connection _timer;
+enum { DMAX = 1000, DLAY = 1000 };
 unsigned _dus[DMAX];
 unsigned _dtd[DMAX];
 unsigned _dmd[DMAX];
 unsigned _dfac[DMAX];
 
-		unsigned _curr_time_local(unsigned ts) const
+		unsigned _ts_to_local_us(unsigned ts) const
 		{
 			unsigned local_us_ts_diff = ts - _local_us_ts;
-			unsigned local_us = _local_us + ((local_us_ts_diff << 10) / _us_to_ts_factor);
+			unsigned local_us = _local_us +
+			                    ((local_us_ts_diff << FACTOR_SHIFT) /
+			                     _us_to_ts_factor);
 
 			if (local_us < _local_us) {
 				return _local_us + ((_local_us - local_us) >> 1); }
@@ -115,23 +124,9 @@ unsigned _dfac[DMAX];
 				return local_us; }
 		}
 
-	public:
-
-		Timer_time_source_interpolated(::Timer::Session &session,
-		                               Entrypoint       &ep)
-		: Timer_time_source(session, ep) { }
-
-		Microseconds curr_time() override
+		void _handle_tic()
 		{
-			return Microseconds(1);
-		}
-
-
-		Microseconds curr_time_remote(unsigned i)
-		{
-unsigned old_local_us = _local_us;
-
-			unsigned volatile remote_ms = _session.elapsed_ms();
+			unsigned volatile remote_ms = _tic_session.elapsed_ms();
 			unsigned volatile ts        = Kernel::time();
 			if (remote_ms > ~(unsigned)0 / 1000) {
 				error("elapsed ms value too high"); }
@@ -139,26 +134,33 @@ unsigned old_local_us = _local_us;
 			unsigned remote_us         = remote_ms * 1000UL;
 			unsigned remote_us_diff    = remote_us - _remote_us;
 			unsigned remote_us_ts_diff = ts - _remote_us_ts;
-			unsigned us_to_ts_factor   = (remote_us_ts_diff << 10) /
+			unsigned us_to_ts_factor   = (remote_us_ts_diff << FACTOR_SHIFT) /
 			                             (remote_us_diff ? remote_us_diff : 1);
 
 			if (remote_us < _local_us) {
-				_local_us = _curr_time_local(ts); }
+				_local_us = _ts_to_local_us(ts); }
 			else {
 				_local_us = remote_us; }
-
-if (i > DMAX) { throw -1; }
-_dtd[i] = ts - _local_us_ts;
-_dus[i] = _local_us;
-_dmd[i] = _local_us - old_local_us;
-_dfac[i] = _us_to_ts_factor;
 
 			_us_to_ts_factor = (_us_to_ts_factor + us_to_ts_factor) >> 1;
 			_remote_us       = remote_us;
 			_remote_us_ts    = ts;
 			_local_us_ts     = ts;
+		}
 
-			return Microseconds(_local_us);
+	public:
+
+		Timer_hd_time_source(::Timer::Session &session,
+		                     ::Timer::Session &tic_session,
+		                     Entrypoint       &ep)
+		: Timer_time_source(session, ep), _tic_session(tic_session),
+		  _tic(ep, *this, &Timer_hd_time_source::_handle_tic)
+
+, _test(ep, *this, &Timer_hd_time_source::_handle_test)
+
+		{
+			_tic_session.sigh(_tic);
+			_tic_session.trigger_periodic(_tic_us);
 		}
 
 		Microseconds curr_time_local(unsigned i)
@@ -166,7 +168,7 @@ _dfac[i] = _us_to_ts_factor;
 unsigned old_local_us = _local_us;
 
 			unsigned ts = Kernel::time();
-			_local_us   = _curr_time_local(ts);
+			_local_us   = _ts_to_local_us(ts);
 
 if (i > DMAX) { throw -1; }
 _dtd[i] = ts - _local_us_ts;
@@ -179,38 +181,30 @@ _dfac[i] = _us_to_ts_factor;
 			return Microseconds(_local_us);
 		}
 
+		void _handle_test()
+		{
+			using namespace Genode;
+			if (_tests < DMAX) {
+				curr_time_local(_tests);
+				_tests++;
+			} else {
+				for (unsigned i = 0; i < DMAX; i++) {
+					char const * prefix = "";
+					int diff = (int)_dus[i] - _dus[i-1];
+					if (diff < 0) { prefix = "ooo "; }
+					else          { prefix = "... "; }
+
+					log(Hex(_dtd[i], Hex::PREFIX, Hex::PAD), " ", prefix, i, ": ", _dmd[i], " ", _dus[i], " ", _dfac[i]);
+				}
+				while(1);
+			}
+		}
+
 		void test()
 		{
 			using namespace Genode;
-			::Timer::Connection timer;
-//			timer.usleep(1);
-
-//			unsigned y = 0;
-//			for (unsigned i = 0; ; i++) {
-//				unsigned x = Kernel::time();
-//				Genode::raw(x - y);
-//				y = x;
-//				timer.usleep(1000000);
-//			}
-
-			for (unsigned i = 0; i < DMAX; i++) {
-				timer.usleep(1000);
-//				for (unsigned volatile i = 0; i < DLAY; i++) { }
-				if ((i & DMASK) == 0) { curr_time_remote(i).value; }
-				else                  { curr_time_local(i).value; }
-			}
-			for (unsigned i = 1; i < DMAX; i++) {
-				char const * prefix = "";
-				int diff = (int)_dus[i] - _dus[i-1];
-
-				if ((i & DMASK) == 0) { if (diff < 0) { prefix = "===== "; }
-				                        else          { prefix = "----- "; } }
-				else                  { if (diff < 0) { prefix = "ooooo "; }
-				                        else          { prefix = "..... "; } }
-
-//				log(dtd[i], " ", prefix, i, ": ", drus[i], " - ", dus[i], " (", diff, "/", dfac[i], ")");
-				log(Hex(_dtd[i], Hex::PREFIX, Hex::PAD), " ", prefix, i, ": ", _dmd[i], " ", _dus[i], " ", _dfac[i]);
-			}
+			_timer.sigh(_test);
+			_timer.trigger_periodic(1000);
 		}
 };
 
@@ -220,18 +214,17 @@ _dfac[i] = _us_to_ts_factor;
  *
  * Multiplexes a timer session amongst different timeouts.
  */
-struct Genode::Timer : public Genode::Timer_time_source_interpolated,
+struct Genode::Timer : public Genode::Timer_hd_time_source,
                        public Genode::Alarm_timeout_scheduler
 {
 	using Time_source::Microseconds;
 	using Alarm_timeout_scheduler::curr_time;
 
-	Timer(::Timer::Session &session, Entrypoint &ep)
+	Timer(::Timer::Session &session, ::Timer::Session &tic_session, Entrypoint &ep)
 	:
-		Timer_time_source_interpolated(session, ep),
-		Alarm_timeout_scheduler(*(Time_source*)this)
-	{
-	}
+		Timer_hd_time_source(session, tic_session, ep),
+		Alarm_timeout_scheduler(*static_cast<Time_source*>(this))
+	{ }
 };
 
 #endif /* _TIMER_H_ */
