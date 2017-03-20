@@ -250,6 +250,7 @@ class Genode::Register_set : Noncopyable
 		 * \param _ITEMS         How many times the item gets iterated
 		 *                       successively.
 		 * \param _ITEM_WIDTH    bit width of an item
+		 * \param _SPACING       space between two consecutive access units
 		 * \param _STRICT_WRITE  If set to 0, when writing a bitfield, we
 		 *                       read the register value, update the bits
 		 *                       on it, and write it back to the register.
@@ -275,7 +276,8 @@ class Genode::Register_set : Noncopyable
 		          unsigned long _ACCESS_WIDTH,
 		          unsigned long _ITEMS,
 		          unsigned long _ITEM_WIDTH,
-		          bool          _STRICT_WRITE = false>
+		          bool          _STRICT_WRITE = false,
+		          off_t         _SPACING      = 0>
 
 		struct Register_array : public Register<_OFFSET, _ACCESS_WIDTH,
 		                                        _STRICT_WRITE>
@@ -293,6 +295,7 @@ class Genode::Register_set : Noncopyable
 				MAX_INDEX       = ITEMS - 1,
 				ITEM_MASK       = ITEM_WIDTH < ACCESS_WIDTH ?
 				                  (1ULL << ITEM_WIDTH) - 1 : ~0ULL,
+				SPACING         = _SPACING,
 			};
 
 			/* analogous to 'Register_set::Register::Register_base' */
@@ -344,7 +347,7 @@ class Genode::Register_set : Noncopyable
 				offset  = (off_t) ((bit_off >> BYTE_WIDTH_LOG2)
 				          & ~(sizeof(access_t)-1) );
 				shift   = bit_off - ( offset << BYTE_WIDTH_LOG2 );
-				offset += OFFSET;
+				offset += OFFSET + (SPACING * index);
 			}
 
 			/**
@@ -358,7 +361,7 @@ class Genode::Register_set : Noncopyable
 			                              unsigned long const index)
 			{
 				offset  = (index << ITEM_WIDTH_LOG2) >> BYTE_WIDTH_LOG2;
-				offset += OFFSET;
+				offset += OFFSET + (SPACING * index);
 			}
 		};
 
