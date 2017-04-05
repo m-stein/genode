@@ -293,7 +293,8 @@ class Genode::Register_set : Noncopyable
 				ITEM_WIDTH      = _ITEM_WIDTH,
 				ITEM_WIDTH_LOG2 = Item::WIDTH_LOG2,
 				MAX_INDEX       = ITEMS - 1,
-				ITEM_MASK       = (1ULL << ITEM_WIDTH) - 1,
+				ITEM_MASK       = ITEM_WIDTH < ACCESS_WIDTH ?
+				                  (1ULL << ITEM_WIDTH) - 1 : ~0ULL,
 				SPACING         = _SPACING,
 			};
 

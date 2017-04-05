@@ -71,11 +71,11 @@ class Tx_buffer_descriptor : public Buffer_descriptor
 
 			memcpy(_current_buffer(), packet, size);
 
-			_current_descriptor().status &=  Status::Length::clear_mask();
+			_current_descriptor().status &=  Status::Length::CLEAR_MASK
 			_current_descriptor().status |=  Status::Length::bits(size);
 
 			/* unset the unset bit */
-			_current_descriptor().status &=  Status::Used::clear_mask();
+			_current_descriptor().status &=  Status::Used::CLEAR_MASK;
 
 			_increment_descriptor_index();
 		}
