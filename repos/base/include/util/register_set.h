@@ -92,6 +92,38 @@ class Genode::Register_set : Noncopyable
 
 		enum { BYTE_WIDTH_LOG2 = 3, BYTE_WIDTH = 1 << BYTE_WIDTH_LOG2 };
 
+		template <typename Register, typename Bitfield>
+		void _write_bitfield(typename Register::access_t const value)
+		{
+			typedef typename Register::access_t access_t;
+
+			/* initialize the pattern written finally to the register */
+			access_t write_value;
+			if (Register::STRICT_WRITE)
+			{
+				/* apply the bitfield to an empty write pattern */
+				write_value = 0;
+			} else {
+
+				/* apply the bitfield to the old register value */
+				write_value = read<Register>();
+				Bitfield::clear(write_value);
+			}
+			/* apply bitfield value and override register */
+			Bitfield::set(write_value, value);
+			write<Register>(write_value);
+		}
+
+		template <typename Register, typename Bitfield>
+		typename Register::access_t _read_bitfield() const
+		{
+			typedef typename Register::access_t access_t;
+
+			return
+				Bitfield::get(Plain_access::read<access_t>(_plain_access,
+				                                           Register::OFFSET));
+		}
+
 		/**
 		 * Return wether one IO condition is met
 		 *
@@ -403,6 +435,7 @@ class Genode::Register_set : Noncopyable
 			                              value);
 		}
 
+
 		/******************************************
 		 ** Access to bitfields within registers **
 		 ******************************************/
@@ -414,12 +447,8 @@ class Genode::Register_set : Noncopyable
 		inline typename T::Bitfield_base::Compound_reg::access_t
 		read() const
 		{
-			typedef typename T::Bitfield_base Bitfield;
-			typedef typename Bitfield::Compound_reg Register;
-			typedef typename Register::access_t access_t;
-			return
-				Bitfield::get(Plain_access::read<access_t>(_plain_access,
-				                                           Register::OFFSET));
+			return _read_bitfield<typename T::Bitfield_base::Compound_reg,
+			                      typename T::Bitfield_base>();
 		}
 
 		/**
@@ -431,25 +460,35 @@ class Genode::Register_set : Noncopyable
 		inline void
 		write(typename T::Bitfield_base::Compound_reg::access_t const value)
 		{
-			typedef typename T::Bitfield_base Bitfield;
-			typedef typename Bitfield::Compound_reg Register;
-			typedef typename Register::access_t access_t;
+			_write_bitfield<typename T::Bitfield_base::Compound_reg,
+			                typename T::Bitfield_base>(value);
+		}
 
-			/* initialize the pattern written finally to the register */
-			access_t write_value;
-			if (Register::STRICT_WRITE)
-			{
-				/* apply the bitfield to an empty write pattern */
-				write_value = 0;
-			} else {
 
-				/* apply the bitfield to the old register value */
-				write_value = read<Register>();
-				Bitfield::clear(write_value);
-			}
-			/* apply bitfield value and override register */
-			Bitfield::set(write_value, value);
-			write<Register>(write_value);
+		/********************************************************************
+		 ** Access to foreign bitfields projected to a register of the set **
+		 ********************************************************************/
+
+		/**
+		 * Return value of bitfield 'BT' projected to register 'RT'
+		 */
+		template <typename RT, typename BT>
+		inline typename RT::Register_base::access_t
+		read() const
+		{
+			return _read_bitfield<typename RT::Register_base,
+			                      typename BT::Bitfield_base>();
+		}
+
+		/**
+		 * Write 'value' to bitfield 'BT' projected to register 'RT'
+		 */
+		template <typename RT, typename BT>
+		inline void
+		write(typename RT::Register_base::access_t const value)
+		{
+			_write_bitfield<typename RT::Register_base,
+			                typename BT::Bitfield_base>(value);
 		}
 
 
@@ -563,7 +602,7 @@ class Genode::Register_set : Noncopyable
 		template <typename T>
 		inline void
 		write(typename T::Array_bitfield_base::Compound_array::access_t const value,
-		      long unsigned const index)
+		      unsigned long const index)
 		{
 			typedef typename T::Array_bitfield_base Bitfield;
 			typedef typename Bitfield::Compound_array Array;

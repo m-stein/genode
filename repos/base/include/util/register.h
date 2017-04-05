@@ -150,6 +150,8 @@ struct Genode::Register
 			CLEAR_MASK     = ~REG_MASK,
 		};
 
+		typedef Bitfield<SHIFT, WIDTH> Bitfield_base;
+
 		/**
 		 * Back reference to containing register
 		 */
