@@ -132,7 +132,7 @@ int Driver::_wait_for_cmd_complete()
 		error("command timed out");
 		return -1;
 	}
-	Mmio::write<Irqstat>(Irqstat::Cc::reg_mask());
+	Mmio::write<Irqstat>(Irqstat::Cc::REG_MASK);
 	return 0;
 }
 

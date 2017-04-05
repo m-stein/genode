@@ -72,7 +72,7 @@ struct Scu : Genode::Mmio
 	void invalidate()
 	{
 		Iassr::access_t iassr = 0;
-		for (Iassr::access_t way = 0; way <= Iassr::Cpu0_way::mask();
+		for (Iassr::access_t way = 0; way <= Iassr::Cpu0_way::MASK;
 		     way++) {
 			Iassr::Cpu0_way::set(iassr, way);
 			Iassr::Cpu1_way::set(iassr, way);

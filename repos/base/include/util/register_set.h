@@ -271,9 +271,11 @@ class Genode::Register_set : Noncopyable
 		 * with an item index out of the array range returns '0', trying
 		 * to write to such indices has no effect.
 		 */
-		template <off_t _OFFSET, unsigned long _ACCESS_WIDTH,
-		          unsigned long _ITEMS, unsigned long _ITEM_WIDTH,
-		          bool _STRICT_WRITE = false>
+		template <off_t         _OFFSET,
+		          unsigned long _ACCESS_WIDTH,
+		          unsigned long _ITEMS,
+		          unsigned long _ITEM_WIDTH,
+		          bool          _STRICT_WRITE = false>
 
 		struct Register_array : public Register<_OFFSET, _ACCESS_WIDTH,
 		                                        _STRICT_WRITE>
@@ -289,7 +291,8 @@ class Genode::Register_set : Noncopyable
 				ITEM_WIDTH      = _ITEM_WIDTH,
 				ITEM_WIDTH_LOG2 = Item::WIDTH_LOG2,
 				MAX_INDEX       = ITEMS - 1,
-				ITEM_MASK       = (1ULL << ITEM_WIDTH) - 1,
+				ITEM_MASK       = ITEM_WIDTH < ACCESS_WIDTH ?
+				                  (1ULL << ITEM_WIDTH) - 1 : ~0ULL,
 			};
 
 			/* analogous to 'Register_set::Register::Register_base' */

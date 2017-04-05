@@ -143,23 +143,12 @@ struct Genode::Register
 			 */
 			SHIFT          = _SHIFT,
 			WIDTH          = _WIDTH,
+			ACCESS_WIDTH   = _ACCESS_WIDTH,
 			BITFIELD_WIDTH = WIDTH,
+			MASK           = WIDTH < ACCESS_WIDTH ? (1ULL << WIDTH) - 1 : ~0ULL,
+			REG_MASK       = SHIFT < ACCESS_WIDTH ? MASK << SHIFT : 0ULL,
+			CLEAR_MASK     = ~REG_MASK,
 		};
-
-		/**
-		 * Get an unshifted mask of this field
-		 */
-		static constexpr access_t mask() { return ((access_t)1 << WIDTH) - 1; }
-
-		/**
-		 * Get a mask of this field shifted by its shift in the register
-		 */
-		static constexpr access_t reg_mask() { return (access_t)(mask() << SHIFT); }
-
-		/**
-		 * Get the bitwise negation of 'reg_mask'
-		 */
-		static constexpr access_t clear_mask() { return (access_t)~reg_mask(); }
 
 		/**
 		 * Back reference to containing register
@@ -173,7 +162,7 @@ struct Genode::Register
 		 * bitfields into one operation.
 		 */
 		static inline access_t bits(access_t const value) {
-			return (value & mask()) << SHIFT; }
+			return SHIFT < ACCESS_WIDTH ? (value & MASK) << SHIFT : 0ULL; }
 
 		/**
 		 * Get a register value 'reg' masked according to this bitfield
@@ -181,27 +170,27 @@ struct Genode::Register
 		 * E.g. '0x1234' masked according to a
 		 * 'Register<16>::Bitfield<5,7>' returns '0x0220'.
 		 */
-		static inline access_t masked(access_t const reg)
-		{ return reg & reg_mask(); }
+		static inline access_t masked(access_t const reg) {
+			return reg & REG_MASK; }
 
 		/**
 		 * Get value of this bitfield from 'reg'
 		 */
-		static inline access_t get(access_t const reg)
-		{ return (reg >> SHIFT) & mask(); }
+		static inline access_t get(access_t const reg) {
+			return SHIFT < ACCESS_WIDTH ? (reg >> SHIFT) & MASK : 0ULL; }
 
 		/**
 		 * Get register value 'reg' with this bitfield set to zero
 		 */
-		static inline void clear(access_t & reg) { reg &= clear_mask(); }
+		static inline void clear(access_t & reg) { reg &= CLEAR_MASK; }
 
 		/**
 		 * Get register value 'reg' with this bitfield set to 'value'
 		 */
-		static inline void set(access_t & reg, access_t const value = ~0)
+		static inline void set(access_t & reg, access_t const value = MASK)
 		{
 			clear(reg);
-			reg |= (value & mask()) << SHIFT;
+			reg |= bits(value);
 		};
 	};
 };
