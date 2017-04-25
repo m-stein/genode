@@ -444,6 +444,9 @@ extern "C" int socket_fs_accept(int libc_fd, sockaddr *addr, socklen_t *addrlen)
 	Socket_fs::Context *context = dynamic_cast<Socket_fs::Context *>(fd->context);
 	if (!context) return Errno(ENOTSOCK);
 
+	/* TODO EOPNOTSUPP - no SOCK_STREAM */
+	/* TODO ECONNABORTED */
+
 	char accept_socket[10];
 	{
 		int n = 0;
@@ -480,23 +483,25 @@ extern "C" int socket_fs_accept(int libc_fd, sockaddr *addr, socklen_t *addrlen)
 
 extern "C" int socket_fs_bind(int libc_fd, sockaddr const *addr, socklen_t addrlen)
 {
-	if (addr->sa_family != AF_INET) {
-		Genode::error(__func__, ": family not supported");
-		return Errno(EAFNOSUPPORT);
-	}
-
 	Libc::File_descriptor *fd = Libc::file_descriptor_allocator()->find_by_libc_fd(libc_fd);
 	if (!fd) return Errno(EBADF);
 
 	Socket_fs::Context *context = dynamic_cast<Socket_fs::Context *>(fd->context);
 	if (!context) return Errno(ENOTSOCK);
 
+	if (!addr) return Errno(EFAULT);
+
+	if (addr->sa_family != AF_INET) {
+		Genode::error(__func__, ": family not supported");
+		return Errno(EAFNOSUPPORT);
+	}
+
 	Sockaddr_string addr_string(host_string(*(sockaddr_in *)addr),
 	                            port_string(*(sockaddr_in *)addr));
 
 	int const len = strlen(addr_string.base());
 	int const n   = write(context->bind_fd(), addr_string.base(), len);
-	if (n != len) return Errno(EIO);
+	if (n != len) return Errno(EACCES);
 
 	return 0;
 }
@@ -504,19 +509,22 @@ extern "C" int socket_fs_bind(int libc_fd, sockaddr const *addr, socklen_t addrl
 
 extern "C" int socket_fs_connect(int libc_fd, sockaddr const *addr, socklen_t addrlen)
 {
-	/* TODO EISCONN */
-	/* TODO maybe EALREADY, EINPROGRESS, ETIMEDOUT */
+	Libc::File_descriptor *fd = Libc::file_descriptor_allocator()->find_by_libc_fd(libc_fd);
+	if (!fd) return Errno(EBADF);
+
+	Socket_fs::Context *context = dynamic_cast<Socket_fs::Context *>(fd->context);
+	if (!context) return Errno(ENOTSOCK);
+
+	if (!addr) return Errno(EFAULT);
 
 	if (addr->sa_family != AF_INET) {
 		Genode::error(__func__, ": family not supported");
 		return Errno(EAFNOSUPPORT);
 	}
 
-	Libc::File_descriptor *fd = Libc::file_descriptor_allocator()->find_by_libc_fd(libc_fd);
-	if (!fd) return Errno(EBADF);
-
-	Socket_fs::Context *context = dynamic_cast<Socket_fs::Context *>(fd->context);
-	if (!context) return Errno(ENOTSOCK);
+	/* TODO EISCONN */
+	/* TODO ECONNREFUSED */
+	/* TODO maybe EALREADY, EINPROGRESS, ETIMEDOUT */
 
 	Sockaddr_string addr_string(host_string(*(sockaddr_in const *)addr),
 	                            port_string(*(sockaddr_in const *)addr));
@@ -540,7 +548,7 @@ extern "C" int socket_fs_listen(int libc_fd, int backlog)
 	char buf[10];
 	int const len = snprintf(buf, sizeof(buf), "%d", backlog);
 	int const n   = write(context->listen_fd(), buf, len);
-	if (n != len) return Errno(EIO);
+	if (n != len) return Errno(EOPNOTSUPP);
 
 	context->accept_only();
 	return 0;
@@ -552,16 +560,21 @@ static ssize_t do_recvfrom(Libc::File_descriptor *fd,
                            struct sockaddr *src_addr, socklen_t *src_addrlen)
 {
 	Socket_fs::Context *context = dynamic_cast<Socket_fs::Context *>(fd->context);
-	if (!context)     return Errno(ENOTSOCK);
-	if (!buf || !len) return Errno(EINVAL);
+	if (!context) return Errno(ENOTSOCK);
+	if (!buf)     return Errno(EFAULT);
+	if (!len)     return Errno(EINVAL);
 
 	/* TODO if "remote" is empty we have to block for the next packet */
 	/* FIXME O_NONBLOCK */
+
 	if (src_addr) {
 		Socket_fs::Remote_functor func(*context, false);
 		int const res = read_sockaddr_in(func, (sockaddr_in *)src_addr, src_addrlen);
 		if (res < 0) return res;
 	}
+
+	/* TODO ENOTCONN */
+	/* TODO ECONNREFUSED */
 
 	try {
 		lseek(context->data_fd(), 0, 0);
@@ -602,8 +615,12 @@ static ssize_t do_sendto(Libc::File_descriptor *fd,
                          sockaddr const *dest_addr, socklen_t dest_addrlen)
 {
 	Socket_fs::Context *context = dynamic_cast<Socket_fs::Context *>(fd->context);
-	if (!context)     return Errno(ENOTSOCK);
-	if (!buf || !len) return Errno(EINVAL);
+	if (!context) return Errno(ENOTSOCK);
+	if (!buf)     return Errno(EFAULT);
+	if (!len)     return Errno(EINVAL);
+
+	/* TODO ENOTCONN, EISCONN, EDESTADDRREQ */
+	/* TODO ECONNRESET */
 
 	if (dest_addr) {
 		Sockaddr_string addr_string(host_string(*(sockaddr_in const *)dest_addr),
@@ -644,33 +661,65 @@ extern "C" ssize_t socket_fs_send(int libc_fd, void const *buf, ::size_t len, in
 extern "C" int socket_fs_getsockopt(int libc_fd, int level, int optname,
                                     void *optval, socklen_t *optlen)
 {
-	Genode::warning("##########  TODO  ########## ", __func__);
-	return 0;
+	Libc::File_descriptor *fd = Libc::file_descriptor_allocator()->find_by_libc_fd(libc_fd);
+	if (!fd) return Errno(EBADF);
+
+	Socket_fs::Context *context = dynamic_cast<Socket_fs::Context *>(fd->context);
+	if (!context) return Errno(ENOTSOCK);
+
+	if (!optval) return Errno(EFAULT);
+
+	switch (level) {
+	case SOL_SOCKET:
+		switch (optname) {
+		case SO_REUSEADDR:
+			Genode::log("getsockopt: SO_REUSEADDR not yet implemented - return true");
+			*(int *)optval = 1;
+			return 0;
+		default: return Errno(ENOPROTOOPT);
+		}
+
+	default: return Errno(EINVAL);
+	}
 }
 
 
 extern "C" int socket_fs_setsockopt(int libc_fd, int level, int optname,
                                     void const *optval, socklen_t optlen)
 {
-	Genode::warning("##########  TODO  ########## ", __func__);
-	return 0;
-}
-
-
-extern "C" int socket_fs_shutdown(int libc_fd, int how)
-{
-	/* TODO ENOTCONN */
-
-	if (how != SHUT_RDWR) {
-		Genode::error("function '", __func__ , "' only implemented for 'how",
-		              "value 'SHUT_RDWR'");
-	}
-
 	Libc::File_descriptor *fd = Libc::file_descriptor_allocator()->find_by_libc_fd(libc_fd);
 	if (!fd) return Errno(EBADF);
 
 	Socket_fs::Context *context = dynamic_cast<Socket_fs::Context *>(fd->context);
 	if (!context) return Errno(ENOTSOCK);
+
+	if (!optval) return Errno(EFAULT);
+
+	switch (level) {
+	case SOL_SOCKET:
+		switch (optname) {
+		case SO_REUSEADDR:
+			Genode::log("setsockopt: SO_REUSEADDR not yet implemented - always true");
+			return 0;
+		default: return Errno(ENOPROTOOPT);
+		}
+
+	default: return Errno(EINVAL);
+	}
+}
+
+
+extern "C" int socket_fs_shutdown(int libc_fd, int how)
+{
+	Libc::File_descriptor *fd = Libc::file_descriptor_allocator()->find_by_libc_fd(libc_fd);
+	if (!fd) return Errno(EBADF);
+
+	Socket_fs::Context *context = dynamic_cast<Socket_fs::Context *>(fd->context);
+	if (!context) return Errno(ENOTSOCK);
+
+	/* TODO ENOTCONN */
+	/* TODO EINVAL - returned if 'how' is not supported but we don't support
+	   shutdown at all currently */
 
 	return 0;
 }
@@ -726,7 +775,7 @@ extern "C" int socket_fs_socket(int domain, int type, int protocol)
 		Genode::String<16> socket_path = new_socket(proto_path);
 		path.append("/");
 		path.append(socket_path.string());
-	} catch (New_socket_failed) { return Errno(EINVAL); }
+	} catch (New_socket_failed) { return Errno(EACCES); }
 
 	Socket_fs::Context *context =
 		new (&global_allocator) Socket_fs::Context(proto, path);
@@ -750,22 +799,36 @@ int Socket_fs::Plugin::fcntl(Libc::File_descriptor *fd, int cmd, long arg)
 	case F_GETFL:
 		return context->fd_flags();
 	case F_SETFL:
-		context->fd_flags(arg); return 0;
+		context->fd_flags(arg);
+		return 0;
 	default:
 		Genode::error(__func__, " command ", cmd, " not supported on sockets");
-		return Errno(EBADF);
+		return Errno(EINVAL);
 	}
 }
 
 ssize_t Socket_fs::Plugin::read(Libc::File_descriptor *fd, void *buf, ::size_t count)
 {
-	return do_recvfrom(fd, buf, count, 0, nullptr, nullptr);
+	ssize_t const ret = do_recvfrom(fd, buf, count, 0, nullptr, nullptr);
+	if (ret != -1) return ret;
+
+	/* TODO map recvfrom errno to write errno */
+	switch (errno) {
+	default: return Errno(errno);
+	}
 }
 
 
 ssize_t Socket_fs::Plugin::write(Libc::File_descriptor *fd, const void *buf, ::size_t count)
 {
-	return do_sendto(fd, buf, count, 0, nullptr, 0);
+
+	ssize_t const ret = do_sendto(fd, buf, count, 0, nullptr, 0);
+	if (ret != -1) return ret;
+
+	/* TODO map sendto errno to write errno */
+	switch (errno) {
+	default: return Errno(errno);
+	}
 }
 
 
