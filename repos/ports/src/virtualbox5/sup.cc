@@ -17,6 +17,7 @@
 
 /* Genode/Virtualbox includes */
 #include "sup.h"
+#include "vmm.h"
 
 /* VirtualBox includes */
 #include <iprt/ldr.h>
@@ -24,8 +25,6 @@
 #include <iprt/timer.h>
 #include <iprt/uint128.h>
 #include <VBox/err.h>
-
-#include "vmm.h"
 
 static PFNRTTIMER rttimer_func = nullptr;
 static void *     rttimer_obj  = nullptr;
