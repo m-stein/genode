@@ -657,6 +657,8 @@ class Vfs::Lxip_remote_file : public Vfs::Lxip_file
 						_parent.trigger_io_response(context);
 					return true;
 				}
+				return false;
+
 			case Lxip::Protocol_dir::TYPE_STREAM:
 				if (trigger_io_response)
 					_parent.trigger_io_response(context);
@@ -1602,7 +1604,6 @@ class Vfs::Lxip_file_system : public Vfs::File_system,
 			Lxip_vfs_handle *handle =
 				static_cast<Vfs::Lxip_vfs_handle *>(vfs_handle);
 
-			/* TODO when to _polling_handles.remove(handle); ? */
 			return handle->file.poll(false, nullptr);
 		}
 };
