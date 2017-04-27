@@ -56,6 +56,7 @@ _ZN6Genode10EntrypointC1ERNS_3EnvE T
 _ZN6Genode10EntrypointC1ERNS_3EnvEmPKc T
 _ZN6Genode10EntrypointC2ERNS_3EnvE T
 _ZN6Genode10EntrypointC2ERNS_3EnvEmPKc T
+_ZN6Genode10Entrypoint22Signal_proxy_component6signalEv T
 _ZN6Genode10Ipc_serverC1Ev T
 _ZN6Genode10Ipc_serverC2Ev T
 _ZN6Genode10Ipc_serverD1Ev T
