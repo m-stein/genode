@@ -369,13 +369,13 @@ static int read_sockaddr_in(Socket_fs::Sockaddr_functor &func,
 	Sockaddr_string addr_string;
 	int const n = read(func.fd(), addr_string.base(), addr_string.capacity() - 1);
 
+	if (n == -1) return Errno(errno);
 	if (!n)
 		switch (func.context.proto()) {
 		case Socket_fs::Context::Proto::UDP: return Errno(EAGAIN);
 		case Socket_fs::Context::Proto::TCP: return Errno(ENOTCONN);
 		}
-	if (n == -1 || !n || n >= (int)addr_string.capacity() - 1)
-		return Errno(EINVAL);
+	if (n >= (int)addr_string.capacity() - 1) return Errno(EINVAL);
 
 	addr_string.terminate(n);
 	addr_string.remove_trailing_newline();
@@ -564,11 +564,8 @@ static ssize_t do_recvfrom(Libc::File_descriptor *fd,
 	if (!buf)     return Errno(EFAULT);
 	if (!len)     return Errno(EINVAL);
 
-	/* TODO if "remote" is empty we have to block for the next packet */
-	/* FIXME O_NONBLOCK */
-
 	if (src_addr) {
-		Socket_fs::Remote_functor func(*context, false);
+		Socket_fs::Remote_functor func(*context, context->fd_flags() & O_NONBLOCK);
 		int const res = read_sockaddr_in(func, (sockaddr_in *)src_addr, src_addrlen);
 		if (res < 0) return res;
 	}
