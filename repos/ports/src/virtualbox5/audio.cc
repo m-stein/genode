@@ -219,8 +219,9 @@ static uint32_t write_samples(GenodeVoiceOut *out,
 }
 
 
-static int drvHostOSSAudioControlIn(PPDMIHOSTAUDIO, PPDMAUDIOHSTSTRMIN data,
-                                    PDMAUDIOSTREAMCMD cmd)
+static DECLCALLBACK(int) drvHostOSSAudioControlIn(PPDMIHOSTAUDIO,
+                                                  PPDMAUDIOHSTSTRMIN data,
+                                                  PDMAUDIOSTREAMCMD cmd)
 {
 	LogFlowFuncEnter();
 
@@ -242,8 +243,9 @@ static int drvHostOSSAudioControlIn(PPDMIHOSTAUDIO, PPDMAUDIOHSTSTRMIN data,
 	}
 }
 
-static int drvHostOSSAudioControlOut(PPDMIHOSTAUDIO, PPDMAUDIOHSTSTRMOUT data,
-                                     PDMAUDIOSTREAMCMD cmd)
+static DECLCALLBACK(int) drvHostOSSAudioControlOut(PPDMIHOSTAUDIO,
+                                                   PPDMAUDIOHSTSTRMOUT data,
+                                                   PDMAUDIOSTREAMCMD cmd)
 {
 	LogFlowFuncEnter();
 
@@ -295,14 +297,15 @@ static int drvHostOSSAudioControlOut(PPDMIHOSTAUDIO, PPDMAUDIOHSTSTRMOUT data,
     }
 }
 
-static int drvHostOSSAudioInit(PPDMIHOSTAUDIO)
+static DECLCALLBACK(int) drvHostOSSAudioInit(PPDMIHOSTAUDIO)
 {
 	LogFlowFuncEnter();
 	return VINF_SUCCESS;
 }
 
-static int drvHostOSSAudioCaptureIn(PPDMIHOSTAUDIO, PPDMAUDIOHSTSTRMIN data,
-                                    uint32_t * const samples)
+static DECLCALLBACK(int) drvHostOSSAudioCaptureIn(PPDMIHOSTAUDIO,
+                                                  PPDMAUDIOHSTSTRMIN data,
+                                                  uint32_t * const samples)
 {
 	AssertPtrReturn(data, VERR_INVALID_POINTER);
 	GenodeVoiceIn * const in = reinterpret_cast<GenodeVoiceIn *>(data);
@@ -321,7 +324,8 @@ static int drvHostOSSAudioCaptureIn(PPDMIHOSTAUDIO, PPDMAUDIOHSTSTRMIN data,
 	return VINF_SUCCESS;
 }
 
-static int drvHostOSSAudioFiniIn(PPDMIHOSTAUDIO, PPDMAUDIOHSTSTRMIN data)
+static DECLCALLBACK(int) drvHostOSSAudioFiniIn(PPDMIHOSTAUDIO,
+                                               PPDMAUDIOHSTSTRMIN data)
 {
 	LogFlowFuncEnter();
 	AssertPtrReturn(data, VERR_INVALID_POINTER);
@@ -329,7 +333,8 @@ static int drvHostOSSAudioFiniIn(PPDMIHOSTAUDIO, PPDMAUDIOHSTSTRMIN data)
 	return VINF_SUCCESS;
 }
 
-static int drvHostOSSAudioFiniOut(PPDMIHOSTAUDIO, PPDMAUDIOHSTSTRMOUT data)
+static DECLCALLBACK(int) drvHostOSSAudioFiniOut(PPDMIHOSTAUDIO,
+                                                PPDMAUDIOHSTSTRMOUT data)
 {
 	LogFlowFuncEnter();
 	AssertPtrReturn(data, VERR_INVALID_POINTER);
@@ -337,7 +342,8 @@ static int drvHostOSSAudioFiniOut(PPDMIHOSTAUDIO, PPDMAUDIOHSTSTRMOUT data)
 	return VINF_SUCCESS;
 }
 
-static int drvHostOSSAudioGetConf(PPDMIHOSTAUDIO, PPDMAUDIOBACKENDCFG cfg)
+static DECLCALLBACK(int) drvHostOSSAudioGetConf(PPDMIHOSTAUDIO,
+                                                PPDMAUDIOBACKENDCFG cfg)
 {
 	cfg->cbStreamOut = sizeof(GenodeVoiceOut);
 	cfg->cbStreamIn  = sizeof(GenodeVoiceIn);
@@ -347,10 +353,12 @@ static int drvHostOSSAudioGetConf(PPDMIHOSTAUDIO, PPDMAUDIOBACKENDCFG cfg)
 	return VINF_SUCCESS;
 }
 
-static int drvHostOSSAudioInitIn(PPDMIHOSTAUDIO, PPDMAUDIOHSTSTRMIN const data,
-                                 PPDMAUDIOSTREAMCFG const cfg,
-                                 PPDMAUDIOSTREAMCFG, PDMAUDIORECSOURCE,
-                                 uint32_t *samples)
+static DECLCALLBACK(int) drvHostOSSAudioInitIn(PPDMIHOSTAUDIO,
+                                               PPDMAUDIOHSTSTRMIN const data,
+                                               PPDMAUDIOSTREAMCFG const cfg,
+                                               PPDMAUDIOSTREAMCFG,
+                                               PDMAUDIORECSOURCE,
+                                               uint32_t *samples)
 {
 	LogFlowFuncEnter();
 
@@ -378,11 +386,11 @@ static int drvHostOSSAudioInitIn(PPDMIHOSTAUDIO, PPDMAUDIOHSTSTRMIN const data,
 	return VINF_SUCCESS;
 }
 
-static int drvHostOSSAudioInitOut(PPDMIHOSTAUDIO,
-                                  PPDMAUDIOHSTSTRMOUT const data,
-                                  PPDMAUDIOSTREAMCFG const cfg,
-                                  PPDMAUDIOSTREAMCFG, 
-                                  uint32_t *samples)
+static DECLCALLBACK(int) drvHostOSSAudioInitOut(PPDMIHOSTAUDIO,
+                                                PPDMAUDIOHSTSTRMOUT const data,
+                                                PPDMAUDIOSTREAMCFG const cfg,
+                                                PPDMAUDIOSTREAMCFG, 
+                                                uint32_t *samples)
 {
 	LogFlowFuncEnter();
 
@@ -427,14 +435,14 @@ static int drvHostOSSAudioInitOut(PPDMIHOSTAUDIO,
 	return VINF_SUCCESS;
 }
 
-static bool drvHostOSSAudioIsEnabled(PPDMIHOSTAUDIO, PDMAUDIODIR)
+static DECLCALLBACK(bool) drvHostOSSAudioIsEnabled(PPDMIHOSTAUDIO, PDMAUDIODIR)
 {
 	return true;
 }
 
-static int drvHostOSSAudioPlayOut(PPDMIHOSTAUDIO,
-                                  PPDMAUDIOHSTSTRMOUT const data,
-                                  uint32_t *samples)
+static DECLCALLBACK(int) drvHostOSSAudioPlayOut(PPDMIHOSTAUDIO,
+                                                PPDMAUDIOHSTSTRMOUT const data,
+                                                uint32_t *samples)
 {
 	AssertPtrReturn(data, VERR_INVALID_POINTER);
 	GenodeVoiceOut * const out = reinterpret_cast<GenodeVoiceOut *>(data);
@@ -449,13 +457,13 @@ static int drvHostOSSAudioPlayOut(PPDMIHOSTAUDIO,
 	return VINF_SUCCESS;
 }
 
-static void drvHostOSSAudioShutdown(PPDMIHOSTAUDIO)
+static DECLCALLBACK(void) drvHostOSSAudioShutdown(PPDMIHOSTAUDIO)
 {
 	LogFlowFuncEnter();
 }
 
-static void * drvHostOSSAudioQueryInterface(PPDMIBASE pInterface,
-                                            const char *pszIID)
+static DECLCALLBACK(void *) drvHostOSSAudioQueryInterface(PPDMIBASE pInterface,
+                                                          const char *pszIID)
 {
 	LogFlowFuncEnter();
 
@@ -467,7 +475,8 @@ static void * drvHostOSSAudioQueryInterface(PPDMIBASE pInterface,
 	return NULL;
 }
 
-static int drvHostOSSAudioConstruct(PPDMDRVINS pDrvIns, PCFGMNODE, uint32_t)
+static DECLCALLBACK(int) drvHostOSSAudioConstruct(PPDMDRVINS pDrvIns,
+                                                  PCFGMNODE, uint32_t)
 {
 	PDRVHOSTOSSAUDIO pThis = PDMINS_2_DATA(pDrvIns, PDRVHOSTOSSAUDIO);
 	LogFlowFuncEnter();
