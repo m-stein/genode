@@ -80,6 +80,7 @@ DUMMY(pgmR3SyncPTResolveConflictPAE)
 DUMMY(PGMR3HandlerVirtualRegister)
 
 DUMMY(MMPagePhys2PageEx)
+DUMMY(PGMR3DbgReadGCPtr)
 DUMMY(PGMR3DbgR3Ptr2GCPhys)
 
 DUMMY(PGMR3MappingsUnfix)
