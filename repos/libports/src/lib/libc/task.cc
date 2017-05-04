@@ -366,7 +366,7 @@ struct Libc::Kernel
 		Env_implementation   _libc_env { _env, _heap, _io_response_handler };
 		Vfs_plugin           _vfs { _libc_env, _heap };
 
-		Genode::Reconstructible<Genode::Signal_handler<Kernel>> _resume_main_handler {
+		Genode::Reconstructible<Genode::Io_signal_handler<Kernel>> _resume_main_handler {
 			_env.ep(), *this, &Kernel::_resume_main };
 
 		jmp_buf _kernel_context;
