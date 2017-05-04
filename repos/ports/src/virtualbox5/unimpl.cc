@@ -71,8 +71,6 @@ DUMMY(PDMR3LdrGetInterfaceSymbols)
 DUMMY(PDMR3LdrQueryRCModFromPC)
 DUMMY(PDMCritSectBothFF)
 
-DUMMY(pgmMapActivateCR3)
-DUMMY(pgmMapDeactivateCR3)
 DUMMY(pgmMapResolveConflicts)
 DUMMY(pgmR3SyncPTResolveConflict)
 DUMMY(pgmR3SyncPTResolveConflictPAE)
