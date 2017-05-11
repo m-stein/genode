@@ -147,76 +147,71 @@ int Vcpu_handler::map_memory(RTGCPHYS GCPhys, size_t cbWrite,
 		);
 */
 
-	bool map_small_page = true;
+	/* setup mapping for just a page as standard */
+	fli = Flexpage_iterator(PGM_PAGE_GET_HCPHYS(pPage), 4096,
+	                        GCPhys & ~0xFFFUL, 4096, GCPhys & ~0xFFFUL);
 
-	if (PGM_PAGE_GET_PDE_TYPE(pPage) == PGM_PAGE_PDE_TYPE_PDE) {
-		Genode::addr_t const max_pages = pRam->cb >> PAGE_SHIFT;
-		Genode::addr_t const superpage_pages = (1UL << 21) / 4096;
-		Genode::addr_t const mask  = (1UL << 21) - 1;
-		Genode::addr_t const super_gcphys = GCPhys & ~mask;
+	if (PGM_PAGE_GET_PDE_TYPE(pPage) != PGM_PAGE_PDE_TYPE_PDE)
+		return VINF_SUCCESS; /* one page mapping */
 
-		RTGCPHYS max_off = super_gcphys - pRam->GCPhys;
-		Assert (max_off < pRam->cb);
+	Genode::addr_t const superpage_log2 = 21;
+	Genode::addr_t const max_pages = pRam->cb >> PAGE_SHIFT;
+	Genode::addr_t const superpage_pages = (1UL << superpage_log2) / 4096;
+	Genode::addr_t const mask  = (1UL << superpage_log2) - 1;
+	Genode::addr_t const super_gcphys = GCPhys & ~mask;
 
-		Genode::addr_t super_hcphys = PGM_PAGE_GET_HCPHYS(pPage) & ~mask;
+	RTGCPHYS max_off = super_gcphys - pRam->GCPhys;
+	if (max_off > pRam->cb)
+		return VINF_SUCCESS;
 
-		unsigned const i_s = max_off >> PAGE_SHIFT;
+	Genode::addr_t super_hcphys = PGM_PAGE_GET_HCPHYS(pPage) & ~mask;
 
-		Assert (i_s + superpage_pages <= max_pages);
+	unsigned const i_s = max_off >> PAGE_SHIFT;
 
-		if (VERBOSE_PGM)
-			Vmm::log(Genode::Hex(PGM_PAGE_GET_HCPHYS(pPage)), "->",
-			         Genode::Hex(GCPhys), " - iPage ", iPage, " [",
-			         i_s, ",", i_s + superpage_pages, ")", " "
-			         "range_size=", Genode::Hex(pRam->cb));
+	if (i_s + superpage_pages > max_pages)
+		return VINF_SUCCESS; /* one page mapping */
 
-		bool map_super_page = true;
+	if (VERBOSE_PGM)
+		Vmm::log(Genode::Hex(PGM_PAGE_GET_HCPHYS(pPage)), "->",
+		         Genode::Hex(GCPhys), " - iPage ", iPage, " [",
+		         i_s, ",", i_s + superpage_pages, ")", " "
+		         "range_size=", Genode::Hex(pRam->cb));
 
-		/* paranoia sanity checks */
-		for (Genode::addr_t i = i_s; i < i_s + superpage_pages; i++) {
-			PPGMPAGE page = &pRam->aPages[i];
+	/* paranoia sanity checks */
+	for (Genode::addr_t i = i_s; i < i_s + superpage_pages; i++) {
+		PPGMPAGE page = &pRam->aPages[i];
 
-			Genode::addr_t const gcpage = pRam->GCPhys + (i << PAGE_SHIFT);
+		Genode::addr_t const gcpage = pRam->GCPhys + (i << PAGE_SHIFT);
 
-			if (!(super_hcphys == (PGM_PAGE_GET_HCPHYS(page) & ~mask)) ||
-			    !(super_gcphys == (gcpage & ~mask)) ||
-			    !(PGM_PAGE_GET_PDE_TYPE(page) == PGM_PAGE_PDE_TYPE_PDE) ||
-			    !(PGM_PAGE_GET_TYPE(page) == PGM_PAGE_GET_TYPE(pPage)) ||
-			    !(PGM_PAGE_GET_STATE(page) == PGM_PAGE_GET_STATE(pPage)))
-			{
-				Vmm::error(Genode::Hex(PGM_PAGE_GET_HCPHYS(pPage)), "->",
-				           Genode::Hex(GCPhys), " - iPage ", iPage, " i ", i, " [",
-				           i_s, ",", i_s + superpage_pages, ")", " "
-				           "range_size=", Genode::Hex(pRam->cb), " "
-				           "super_hcphys=", Genode::Hex(super_hcphys), "?=", Genode::Hex((PGM_PAGE_GET_HCPHYS(page) & ~mask)), " "
-				           "super_gcphys=", Genode::Hex(super_gcphys), "?=", Genode::Hex((gcpage & ~mask)), " ",
-				           (int)(PGM_PAGE_GET_PDE_TYPE(page)), "?=", (int)PGM_PAGE_PDE_TYPE_PDE, " ",
-				           (int)(PGM_PAGE_GET_TYPE(page)), "?=", (int)PGM_PAGE_GET_TYPE(pPage), " ",
-			               (int)(PGM_PAGE_GET_STATE(page)), "?=", PGM_PAGE_GET_STATE(pPage));
-				map_super_page = false;
-			}
-		}
-
-		if (map_super_page) {
-			map_small_page = false;
-
-			/* fill iterator */
-			fli = Flexpage_iterator(super_hcphys, 1 << 21,
-			                        super_gcphys, 1 << 21, super_gcphys);
-
-			/* revoke old mappings, e.g. less permissions or small pages */
-			Nova::Rights const revoke_rwx(true, true, true);
-			Nova::Crd crd = Nova::Mem_crd(super_hcphys >> 12, 21 - 12,
-			                              revoke_rwx);
-			Nova::revoke(crd, false);
+		if (!(super_hcphys == (PGM_PAGE_GET_HCPHYS(page) & ~mask)) ||
+		    !(super_gcphys == (gcpage & ~mask)) ||
+		    !(PGM_PAGE_GET_PDE_TYPE(page) == PGM_PAGE_PDE_TYPE_PDE) ||
+		    !(PGM_PAGE_GET_TYPE(page) == PGM_PAGE_GET_TYPE(pPage)) ||
+		    !(PGM_PAGE_GET_STATE(page) == PGM_PAGE_GET_STATE(pPage)))
+		{
+			Vmm::error(Genode::Hex(PGM_PAGE_GET_HCPHYS(pPage)), "->",
+			           Genode::Hex(GCPhys), " - iPage ", iPage, " i ", i, " [",
+			           i_s, ",", i_s + superpage_pages, ")", " "
+			           "range_size=", Genode::Hex(pRam->cb), " "
+			           "super_hcphys=", Genode::Hex(super_hcphys), "?=", Genode::Hex((PGM_PAGE_GET_HCPHYS(page) & ~mask)), " "
+			           "super_gcphys=", Genode::Hex(super_gcphys), "?=", Genode::Hex((gcpage & ~mask)), " ",
+			           (int)(PGM_PAGE_GET_PDE_TYPE(page)), "?=", (int)PGM_PAGE_PDE_TYPE_PDE, " ",
+			           (int)(PGM_PAGE_GET_TYPE(page)), "?=", (int)PGM_PAGE_GET_TYPE(pPage), " ",
+			           (int)(PGM_PAGE_GET_STATE(page)), "?=", PGM_PAGE_GET_STATE(pPage));
+			return VINF_SUCCESS; /* one page mapping */
 		}
 	}
 
-	if (map_small_page)
-		fli = Flexpage_iterator(PGM_PAGE_GET_HCPHYS(pPage), 4096,
-		                        GCPhys & ~0xFFFUL, 4096, GCPhys & ~0xFFFUL);
+	/* overwrite one-page mapping with super page mapping */
+	fli = Flexpage_iterator(super_hcphys, 1 << superpage_log2,
+	                        super_gcphys, 1 << superpage_log2, super_gcphys);
 
-	return VINF_SUCCESS;
+	/* revoke old mappings, e.g. less permissions or small pages */
+	Nova::Rights const revoke_rwx(true, true, true);
+	Nova::Crd crd = Nova::Mem_crd(super_hcphys >> 12, superpage_log2 - 12, revoke_rwx);
+	Nova::revoke(crd, false);
+
+	return VINF_SUCCESS; /* super page mapping */
 }
 
 
