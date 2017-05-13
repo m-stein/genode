@@ -27,7 +27,7 @@ Timer_driver::Timer_driver(unsigned)
 }
 
 
-void Timer::_start_one_shot(time_t const tics)
+void Timer::_start_one_shot(time_t const ticks)
 {
 	enum { PRESCALER = Board::CORTEX_A9_PRIVATE_TIMER_DIV - 1 };
 
@@ -39,12 +39,12 @@ void Timer::_start_one_shot(time_t const tics)
 	_driver.write<Driver::Control>(control);
 
 	/* load timer and start decrementing */
-	_driver.write<Driver::Load>(tics);
+	_driver.write<Driver::Load>(ticks);
 	_driver.write<Driver::Control::Timer_enable>(1);
 }
 
 
-time_t Timer::_tics_to_us(time_t const tics) const
+time_t Timer::_ticks_to_us(time_t const ticks) const
 {
 	/*
 	 * If we would do the translation with one division and
@@ -63,9 +63,9 @@ time_t Timer::_tics_to_us(time_t const tics) const
 		MSB_RSHIFT = 10,
 		LSB_LSHIFT = HALF_WIDTH - MSB_RSHIFT,
 	};
-	time_t const msb = (((tics >> MSB_RSHIFT)
+	time_t const msb = (((ticks >> MSB_RSHIFT)
 	                     * 1000) / Driver::TICS_PER_MS) << MSB_RSHIFT;
-	time_t const lsb = ((((tics & LSB_MASK) << LSB_LSHIFT)
+	time_t const lsb = ((((ticks & LSB_MASK) << LSB_LSHIFT)
 	                     * 1000) / Driver::TICS_PER_MS) >> LSB_LSHIFT;
 	return (msb & MSB_MASK) | lsb;
 }
@@ -75,7 +75,7 @@ unsigned Timer::interrupt_id() const {
 	return Board::Cpu_mmio::PRIVATE_TIMER_IRQ; }
 
 
-time_t Timer::us_to_tics(time_t const us) const {
+time_t Timer::us_to_ticks(time_t const us) const {
 	return (us / 1000) * Driver::TICS_PER_MS; }
 
 

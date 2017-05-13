@@ -34,7 +34,7 @@ unsigned Timer::interrupt_id() const
 Timer_driver::Timer_driver(unsigned cpu_id)
 :
 	Mmio(Platform::mmio_to_virt(Board::MCT_MMIO_BASE)),
-	tics_per_ms(calc_tics_per_ms(Board::MCT_CLOCK)),
+	ticks_per_ms(calc_ticks_per_ms(Board::MCT_CLOCK)),
 	cpu_id(cpu_id)
 {
 	Mct_cfg::access_t mct_cfg = 0;
@@ -46,19 +46,19 @@ Timer_driver::Timer_driver(unsigned cpu_id)
 }
 
 
-void Timer::_start_one_shot(time_t const tics)
+void Timer::_start_one_shot(time_t const ticks)
 {
 	switch (_driver.cpu_id) {
 	case 0:
 		_driver.write<Driver::L0_int_cstat::Frcnt>(1);
 		_driver.run_0(0);
-		_driver.acked_write<Driver::L0_frcntb, Driver::L0_wstat::Frcntb>(tics);
+		_driver.acked_write<Driver::L0_frcntb, Driver::L0_wstat::Frcntb>(ticks);
 		_driver.run_0(1);
 		return;
 	case 1:
 		_driver.write<Driver::L1_int_cstat::Frcnt>(1);
 		_driver.run_1(0);
-		_driver.acked_write<Driver::L1_frcntb, Driver::L1_wstat::Frcntb>(tics);
+		_driver.acked_write<Driver::L1_frcntb, Driver::L1_wstat::Frcntb>(ticks);
 		_driver.run_1(1);
 		return;
 	default: return;
@@ -76,12 +76,12 @@ time_t Timer::_value()
 }
 
 
-time_t Timer::_tics_to_us(time_t const tics) const {
-	return (tics / _driver.tics_per_ms) * 1000; }
+time_t Timer::_ticks_to_us(time_t const ticks) const {
+	return (ticks / _driver.ticks_per_ms) * 1000; }
 
 
-time_t Timer::us_to_tics(time_t const us) const {
-	return (us / 1000) * _driver.tics_per_ms; }
+time_t Timer::us_to_ticks(time_t const us) const {
+	return (us / 1000) * _driver.ticks_per_ms; }
 
 
 time_t Timer::_max_value() const {

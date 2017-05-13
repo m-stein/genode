@@ -63,7 +63,7 @@ struct Kernel::Timer_driver : Genode::Mmio
 		};
 	};
 
-	Genode::uint32_t tics_per_ms = 0;
+	Genode::uint32_t ticks_per_ms = 0;
 
 	/* Measure LAPIC timer frequency using PIT channel 2 */
 	Genode::uint32_t pit_calc_timer_freq(void);

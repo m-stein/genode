@@ -275,8 +275,8 @@ class Kernel::Cpu : public Genode::Cpu, public Irq::Pool, private Timeout
 		Ipi            _ipi_irq;
 		Irq            _timer_irq; /* timer IRQ implemented as empty event */
 
-		unsigned _quota() const { return _timer.us_to_tics(cpu_quota_us); }
-		unsigned _fill() const  { return _timer.us_to_tics(cpu_fill_us); }
+		unsigned _quota() const { return _timer.us_to_ticks(cpu_quota_us); }
+		unsigned _fill() const  { return _timer.us_to_ticks(cpu_fill_us); }
 
 	public:
 
@@ -336,7 +336,7 @@ class Kernel::Cpu : public Genode::Cpu, public Irq::Pool, private Timeout
 		unsigned id() const { return _id; }
 		Cpu_scheduler * scheduler() { return &_scheduler; }
 
-		time_t us_to_tics(time_t const us) const { return _timer.us_to_tics(us); };
+		time_t us_to_ticks(time_t const us) const { return _timer.us_to_ticks(us); };
 
 		unsigned timer_interrupt_id() const { return _timer.interrupt_id(); }
 };

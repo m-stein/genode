@@ -63,7 +63,7 @@ Timer_driver::Timer_driver(unsigned)
 	write<Tmr_lvt::Timer_mode>(0);
 
 	/* Calculate timer frequency */
-	tics_per_ms = pit_calc_timer_freq();
+	ticks_per_ms = pit_calc_timer_freq();
 }
 
 
@@ -79,16 +79,16 @@ void Timer::init_cpu_local()
 }
 
 
-void Timer::_start_one_shot(time_t const tics) {
-	_driver.write<Driver::Tmr_initial>(tics); }
+void Timer::_start_one_shot(time_t const ticks) {
+	_driver.write<Driver::Tmr_initial>(ticks); }
 
 
-time_t Timer::_tics_to_us(time_t const tics) const {
-	return (tics / _driver.tics_per_ms) * 1000; }
+time_t Timer::_ticks_to_us(time_t const ticks) const {
+	return (ticks / _driver.ticks_per_ms) * 1000; }
 
 
-time_t Timer::us_to_tics(time_t const us) const {
-	return (us / 1000) * _driver.tics_per_ms; }
+time_t Timer::us_to_ticks(time_t const us) const {
+	return (us / 1000) * _driver.ticks_per_ms; }
 
 
 time_t Timer::_max_value() const {

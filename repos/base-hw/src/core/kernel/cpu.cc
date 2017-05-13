@@ -132,7 +132,7 @@ void Cpu_idle::_main() { while (1) { Genode::Cpu::wait_for_interrupt(); } }
  *********/
 
 void Cpu::set_timeout(Timeout * const timeout, time_t const duration_us) {
-	_timer.set_timeout(timeout, _timer.us_to_tics(duration_us)); }
+	_timer.set_timeout(timeout, _timer.us_to_ticks(duration_us)); }
 
 
 time_t Cpu::timeout_age_us(Timeout const * const timeout) const {

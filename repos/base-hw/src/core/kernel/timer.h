@@ -71,9 +71,9 @@ class Kernel::Timer
 
 		bool _time_overflow(time_t const duration) const;
 
-		void _start_one_shot(time_t const tics);
+		void _start_one_shot(time_t const ticks);
 
-		time_t _tics_to_us(time_t const tics) const;
+		time_t _ticks_to_us(time_t const ticks) const;
 
 		time_t _value();
 
@@ -90,7 +90,7 @@ class Kernel::Timer
 
 		void set_timeout(Timeout * const timeout, time_t const duration);
 
-		time_t us_to_tics(time_t const us) const;
+		time_t us_to_ticks(time_t const us) const;
 
 		time_t timeout_age_us(Timeout const * const timeout) const;
 

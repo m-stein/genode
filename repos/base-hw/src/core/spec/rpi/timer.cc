@@ -25,20 +25,20 @@ Timer_driver::Timer_driver(unsigned)
 : Mmio(Platform::mmio_to_virt(Board::SYSTEM_TIMER_MMIO_BASE)) { }
 
 
-void Timer::_start_one_shot(time_t const tics)
+void Timer::_start_one_shot(time_t const ticks)
 {
 	_driver.write<Driver::Cs::M1>(1);
 	_driver.read<Driver::Cs>();
 	_driver.write<Driver::Clo>(0);
-	_driver.write<Driver::Cmp>(_driver.read<Driver::Clo>() + tics);
+	_driver.write<Driver::Cmp>(_driver.read<Driver::Clo>() + ticks);
 }
 
 
-time_t Timer::_tics_to_us(time_t const tics) const {
-	return (tics / Driver::TICS_PER_MS) * 1000; }
+time_t Timer::_ticks_to_us(time_t const ticks) const {
+	return (ticks / Driver::TICS_PER_MS) * 1000; }
 
 
-time_t Timer::us_to_tics(time_t const us) const {
+time_t Timer::us_to_ticks(time_t const us) const {
 	return (us / 1000) * Driver::TICS_PER_MS; }
 
 

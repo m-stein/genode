@@ -27,18 +27,18 @@ Timer_driver::Timer_driver(unsigned)
 }
 
 
-void Timer::_start_one_shot(time_t const tics, unsigned const)
+void Timer::_start_one_shot(time_t const ticks, unsigned const)
 {
-	_driver.timeout = _driver.stime() + tics;
+	_driver.timeout = _driver.stime() + ticks;
 	Machine::set_sys_timer(_driver.timeout);
 }
 
 
-time_t Timer::_tics_to_us(time_t const tics) const {
-	return (tics / Driver::TICS_PER_MS) * 1000; }
+time_t Timer::_ticks_to_us(time_t const ticks) const {
+	return (ticks / Driver::TICS_PER_MS) * 1000; }
 
 
-time_t Timer::us_to_tics(time_t const us) const {
+time_t Timer::us_to_ticks(time_t const us) const {
 	return (us / 1000) * Driver::TICS_PER_MS; }
 
 

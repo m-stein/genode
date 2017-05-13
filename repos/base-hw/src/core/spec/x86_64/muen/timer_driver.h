@@ -24,7 +24,7 @@ struct Kernel::Timer_driver
 {
 	enum { TIMER_DISABLED = ~0ULL };
 
-	Genode::uint64_t tics_per_ms;
+	Genode::uint64_t ticks_per_ms;
 
 	struct Subject_timed_event
 	{

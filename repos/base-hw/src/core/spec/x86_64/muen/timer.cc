@@ -25,7 +25,7 @@ using namespace Genode;
 using namespace Kernel;
 
 
-Timer_driver::Timer_driver(unsigned) : tics_per_ms(sinfo()->get_tsc_khz())
+Timer_driver::Timer_driver(unsigned) : ticks_per_ms(sinfo()->get_tsc_khz())
 {
 	/* first sinfo instance, output status */
 	sinfo()->log_status();
@@ -39,7 +39,7 @@ Timer_driver::Timer_driver(unsigned) : tics_per_ms(sinfo()->get_tsc_khz())
 	event_page = (Subject_timed_event *)Platform::mmio_to_virt(region.address);
 	event_page->event_nr = Board::TIMER_EVENT_KERNEL;
 	log("muen-timer: Page @", Hex(region.address), ", "
-	    "frequency ", tics_per_ms, " kHz, "
+	    "frequency ", ticks_per_ms, " kHz, "
 	    "event ", (unsigned)event_page->event_nr);
 
 	if (sinfo()->get_memregion_info("monitor_timed_event", &region)) {
@@ -55,9 +55,9 @@ unsigned Timer::interrupt_id() const {
 	return Board::TIMER_VECTOR_KERNEL; }
 
 
-void Timer::_start_one_shot(time_t const tics, unsigned)
+void Timer::_start_one_shot(time_t const ticks, unsigned)
 {
-	const uint64_t t = _driver.rdtsc() + tics;
+	const uint64_t t = _driver.rdtsc() + ticks;
 	_driver.event_page->tsc_trigger = t;
 
 	if (_driver.guest_event_page)
@@ -65,12 +65,12 @@ void Timer::_start_one_shot(time_t const tics, unsigned)
 }
 
 
-time_t Timer::_tics_to_us(time_t const tics) const {
-	return (tics / _driver.tics_per_ms) * 1000; }
+time_t Timer::_ticks_to_us(time_t const ticks) const {
+	return (ticks / _driver.ticks_per_ms) * 1000; }
 
 
-time_t Timer::us_to_tics(time_t const us) const {
-	return (us / 1000) * _driver.tics_per_ms; }
+time_t Timer::us_to_ticks(time_t const us) const {
+	return (us / 1000) * _driver.ticks_per_ms; }
 
 
 time_t Timer::_max_value() {

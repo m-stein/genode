@@ -166,14 +166,14 @@ struct Kernel::Timer_driver : Genode::Mmio
 	}
 
 	/**
-	 * Calculate amount of tics per ms for specific input clock
+	 * Calculate amount of ticks per ms for specific input clock
 	 *
 	 * \param clock  input clock
 	 */
-	time_t static calc_tics_per_ms(unsigned const clock) {
+	time_t static calc_ticks_per_ms(unsigned const clock) {
 		return clock / (PRESCALER + 1) / (1 << DIV_MUX) / 1000; }
 
-	unsigned const tics_per_ms;
+	unsigned const ticks_per_ms;
 	unsigned const cpu_id;
 
 	Timer_driver(unsigned cpu_id);

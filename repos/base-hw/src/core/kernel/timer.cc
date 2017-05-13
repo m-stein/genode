@@ -22,13 +22,13 @@ using namespace Kernel;
 time_t Timer::timeout_age_us(Timeout const * const timeout) const
 {
 	time_t const age = (time_t)_time - timeout->_start;
-	return _tics_to_us(age);
+	return _ticks_to_us(age);
 }
 
 
 time_t Timer::timeout_max_us() const
 {
-	return _tics_to_us(_max_value());
+	return _ticks_to_us(_max_value());
 }
 
 
@@ -137,7 +137,7 @@ Timer::Timer(unsigned cpu_id) : _cpu_id(cpu_id), _driver(cpu_id)
 	 * The timer frequency should allow a good accuracy on the smallest
 	 * timeout syscall value (1 us).
 	 */
-	assert(_tics_to_us(1) < 1 || _tics_to_us(_max_value()) == _max_value());
+	assert(_ticks_to_us(1) < 1 || _ticks_to_us(_max_value()) == _max_value());
 
 	/*
 	 * The maximum measurable timeout is also the maximum age of a timeout
@@ -149,5 +149,5 @@ Timer::Timer(unsigned cpu_id) : _cpu_id(cpu_id), _driver(cpu_id)
 	 * said, the maximum timeout should be at least two times the super
 	 * period).
 	 */
-	assert(_tics_to_us(_max_value()) > 2 * cpu_quota_us);
+	assert(_ticks_to_us(_max_value()) > 2 * cpu_quota_us);
 }
