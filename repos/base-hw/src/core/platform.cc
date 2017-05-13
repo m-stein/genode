@@ -106,7 +106,7 @@ Platform::Platform()
 	/* make all non-kernel interrupts available to the interrupt allocator */
 	for (unsigned i = 0; i < Kernel::Pic::NR_OF_IRQ; i++) {
 		bool kernel_resource = false;
-		Kernel::cpu_pool()->for_each_cpu([&] (Kernel::Cpu const &cpu) {
+		Kernel::cpu_pool().for_each_cpu([&] (Kernel::Cpu const &cpu) {
 			if (i == cpu.timer_interrupt_id()) {
 				kernel_resource = true;
 			}

@@ -81,7 +81,7 @@ void Thread::_mmu_exception()
 
 void Kernel::Thread::_call_update_data_region()
 {
-	Cpu * const cpu  = cpu_pool()->cpu(Cpu::executing_id());
+	Cpu &cpu = cpu_pool().current_cpu();
 
 	/*
 	 * FIXME: If the caller is not a core thread, the kernel operates in a
@@ -93,19 +93,19 @@ void Kernel::Thread::_call_update_data_region()
 	 *        until then we apply operations to caches as a whole instead.
 	 */
 	if (!_core()) {
-		cpu->clean_invalidate_data_cache();
+		cpu.clean_invalidate_data_cache();
 		return;
 	}
-	auto base = (addr_t)user_arg_1();
-	auto const size = (size_t)user_arg_2();
-	cpu->clean_invalidate_data_cache_by_virt_region(base, size);
-	cpu->invalidate_instr_cache();
+	addr_t const base = (addr_t)user_arg_1();
+	size_t const size = (size_t)user_arg_2();
+	cpu.clean_invalidate_data_cache_by_virt_region(base, size);
+	cpu.invalidate_instr_cache();
 }
 
 
 void Kernel::Thread::_call_update_instr_region()
 {
-	Cpu * const cpu  = cpu_pool()->cpu(Cpu::executing_id());
+	Cpu &cpu = cpu_pool().current_cpu();
 
 	/*
 	 * FIXME: If the caller is not a core thread, the kernel operates in a
@@ -117,12 +117,12 @@ void Kernel::Thread::_call_update_instr_region()
 	 *        until then we apply operations to caches as a whole instead.
 	 */
 	if (!_core()) {
-		cpu->clean_invalidate_data_cache();
-		cpu->invalidate_instr_cache();
+		cpu.clean_invalidate_data_cache();
+		cpu.invalidate_instr_cache();
 		return;
 	}
-	auto base = (addr_t)user_arg_1();
-	auto const size = (size_t)user_arg_2();
-	cpu->clean_invalidate_data_cache_by_virt_region(base, size);
-	cpu->invalidate_instr_cache_by_virt_region(base, size);
+	addr_t const base = (addr_t)user_arg_1();
+	size_t const size = (size_t)user_arg_2();
+	cpu.clean_invalidate_data_cache_by_virt_region(base, size);
+	cpu.invalidate_instr_cache_by_virt_region(base, size);
 }

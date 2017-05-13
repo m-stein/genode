@@ -44,19 +44,19 @@ extern Genode::addr_t _vt_vm_context_ptr;
 
 struct Kernel::Vm_irq : Kernel::Irq
 {
-		Vm_irq(unsigned const irq) : Kernel::Irq(irq, *cpu_pool()->executing_cpu()) {}
+		Vm_irq(unsigned const irq) : Kernel::Irq(irq, cpu_pool().current_cpu()) {}
 
 	/**
 	 * A VM interrupt gets injected into the VM scheduled on the current CPU
 	 */
 	void occurred()
 	{
-		Cpu_job & job = cpu_pool()->executing_cpu()->scheduled_job();
-		Vm *vm = dynamic_cast<Vm*>(&job);
-		if (!vm)
+		Vm *vm = dynamic_cast<Vm*>(&cpu_pool().current_cpu().scheduled_job());
+		if (!vm) {
 			Genode::error("VM timer interrupt while VM is not runnning!");
-		else
+		} else {
 			vm->inject_irq(_irq_nr);
+		}
 	}
 };
 
@@ -198,7 +198,7 @@ Kernel::Vm::Vm(void                   * const state,
   _context(context),
   _table(table)
 {
-	affinity(cpu_pool()->primary_cpu());
+	affinity(&cpu_pool().primary_cpu());
 	Virtual_pic::pic().irq.enable();
 }
 

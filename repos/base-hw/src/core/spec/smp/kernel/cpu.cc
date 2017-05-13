@@ -98,11 +98,11 @@ bool Cpu_domain_update::_do_global(unsigned const domain_id)
 
 	/* inform other CPUs and block until they are done */
 	cpu_domain_update_list().insert_tail(this);
-	unsigned const cpu_id = Cpu::executing_id();
-	for (unsigned i = 0; i < NR_OF_CPUS; i++) {
-		if (i == cpu_id) continue;
-		_pending[i] = true;
-		cpu_pool()->cpu(i)->trigger_ip_interrupt();
-	}
+	cpu_pool().for_each_cpu([&] (Cpu &cpu) {
+		if (!cpu_pool().is_current_cpu(cpu)) {
+			cpu.trigger_ip_interrupt();
+			_pending[cpu.id()] = true;
+		}
+	});
 	return true;
 }

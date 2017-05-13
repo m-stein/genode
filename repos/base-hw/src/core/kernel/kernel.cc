@@ -15,20 +15,20 @@
 /* core includes */
 #include <kernel/cpu.h>
 
+using namespace Kernel;
+
 
 extern "C" void kernel()
 {
-	using namespace Kernel;
-
-	Cpu * const cpu = cpu_pool()->cpu(Cpu::executing_id());
-	cpu->schedule().proceed(cpu->id());
+	Cpu &cpu = cpu_pool().current_cpu();
+	cpu.schedule().proceed(cpu.id());
 }
 
 
-void Kernel::Cpu::Ipi::occurred() { }
+void Cpu::Ipi::occurred() { }
 
 
-void Kernel::Cpu::Ipi::trigger(unsigned const cpu_id) { }
+void Cpu::Ipi::trigger(unsigned const cpu_id) { }
 
 
-Kernel::Cpu::Ipi::Ipi(Kernel::Irq::Pool &p) : Kernel::Irq(Kernel::Pic::IPI, p) { }
+Cpu::Ipi::Ipi(Irq::Pool &p) : Irq(Pic::IPI, p) { }

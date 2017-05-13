@@ -40,9 +40,9 @@ Kernel::Pd::~Pd() {
 		oir->~Object_identity_reference();
 
 	/* clean up buffers of memory management */
-	Cpu * const cpu  = cpu_pool()->cpu(Cpu::executing_id());
-	cpu->clean_invalidate_data_cache();
-	cpu->invalidate_instr_cache();
+	Cpu &cpu = cpu_pool().current_cpu();
+	cpu.clean_invalidate_data_cache();
+	cpu.invalidate_instr_cache();
 	Cpu::Tlbiasid::write(asid); /* flush TLB by ASID */
 	alloc().free(asid);
 }

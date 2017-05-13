@@ -26,10 +26,7 @@
 
 using namespace Kernel;
 
-namespace Kernel
-{
-	Cpu_pool * cpu_pool() { return unmanaged_singleton<Cpu_pool>(); }
-}
+Cpu_pool &Kernel::cpu_pool() { return *unmanaged_singleton<Cpu_pool>(); }
 
 
 /*************
@@ -195,18 +192,20 @@ Cpu::Cpu(unsigned const id)
  ** Cpu_pool **
  **************/
 
-Cpu * Cpu_pool::cpu(unsigned const id) const
+Cpu_pool::Cpu_pool()
 {
-	assert(id < NR_OF_CPUS);
-	char * const p = const_cast<char *>(_cpus[id]);
-	return reinterpret_cast<Cpu *>(p);
+	for (unsigned idx = 0; idx < sizeof(_cpus)/sizeof(_cpus[0]); idx++) {
+		_cpus[idx].construct(idx);
+	}
 }
 
 
-Cpu_pool::Cpu_pool()
+Cpu &Cpu_pool::cpu_by_userland_name(unsigned name)
 {
-	for (unsigned id = 0; id < NR_OF_CPUS; id++) {
-		new (_cpus[id]) Cpu(id); }
+	if (name >= sizeof(_cpus)/sizeof(_cpus[0])) {
+		throw Cpu_not_found();
+	}
+	return *_cpus[name];
 }
 
 

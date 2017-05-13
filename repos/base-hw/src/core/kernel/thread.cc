@@ -179,25 +179,26 @@ void Thread::_call_thread_quota()
 
 void Thread::_call_start_thread()
 {
-	/* lookup CPU */
-	Cpu * const cpu = cpu_pool()->cpu(user_arg_2());
-	if (!cpu) {
+	try {
+		/* lookup CPU */
+		Cpu &cpu = cpu_pool().cpu_by_userland_name(user_arg_2());
+		user_arg_0(0);
+		Thread * const thread = (Thread*) user_arg_1();
+
+		assert(thread->_state == AWAITS_START)
+
+		thread->affinity(&cpu);
+
+		/* join protection domain */
+		thread->_pd = (Pd *) user_arg_3();
+		thread->_pd->admit(thread);
+		thread->Ipc_node::_init((Native_utcb *)user_arg_4(), this);
+		thread->_become_active();
+	}
+	catch (Cpu_pool::Cpu_not_found) {
 		Genode::warning("failed to lookup CPU");
 		user_arg_0(-2);
-		return;
 	}
-	user_arg_0(0);
-	Thread * const thread = (Thread*) user_arg_1();
-
-	assert(thread->_state == AWAITS_START)
-
-	thread->affinity(cpu);
-
-	/* join protection domain */
-	thread->_pd = (Pd *) user_arg_3();
-	thread->_pd->admit(thread);
-	thread->Ipc_node::_init((Native_utcb *)user_arg_4(), this);
-	thread->_become_active();
 }
 
 
@@ -660,7 +661,7 @@ Core_thread::Core_thread()
 	sp = (addr_t)&__initial_stack_base[0] + DEFAULT_STACK_SIZE;
 	ip = (addr_t)&_core_start;
 
-	affinity(cpu_pool()->primary_cpu());
+	affinity(&cpu_pool().primary_cpu());
 	_utcb       = utcb;
 	Thread::_pd = core_pd();
 	Thread::_pd->admit(this);

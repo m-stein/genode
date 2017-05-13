@@ -16,21 +16,16 @@
 #include <kernel/cpu.h>
 #include <kernel/lock.h>
 
+using namespace Kernel;
+
 
 extern "C" void kernel()
 {
-	using namespace Kernel;
-
 	Cpu_job * new_job;
-	unsigned cpu_id;
-
+	Cpu &cpu = cpu_pool().current_cpu();
 	{
 		Lock::Guard guard(data_lock());
-
-		cpu_id = Cpu::executing_id();
-		Cpu * const cpu  = cpu_pool()->cpu(cpu_id);
-		new_job = &cpu->schedule();
+		new_job = &cpu.schedule();
 	}
-
-	new_job->proceed(cpu_id);
+	new_job->proceed(cpu.id());
 }

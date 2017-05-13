@@ -48,11 +48,8 @@ extern "C" void _start()
 		Genode::log("kernel initialized");
 	}
 
-	/* initialize cpu pool */
-	cpu_pool();
-
-	/* initialize current cpu */
-	cpu_pool()->cpu(Cpu::executing_id())->init(*pic());
+	/* initialize CPU pool and current CPU */
+	cpu_pool().current_cpu().init(*pic());
 
 	Core_thread::singleton();
 

@@ -15,6 +15,9 @@
 #ifndef _CORE__KERNEL__CPU_H_
 #define _CORE__KERNEL__CPU_H_
 
+/* Genode includes */
+#include <util/reconstructible.h>
+
 /* core includes */
 #include <kernel/timer.h>
 #include <cpu.h>
@@ -58,7 +61,7 @@ namespace Kernel
 	/**
 	 * Return singleton of CPU pool
 	 */
-	Cpu_pool * cpu_pool();
+	Cpu_pool &cpu_pool();
 }
 
 class Kernel::Cpu_context : public Genode::Cpu::Context
@@ -345,37 +348,35 @@ class Kernel::Cpu_pool
 {
 	private:
 
-		/*
-		 * Align to machine word size, otherwise load/stores might fail on some
-		 * platforms.
-		 */
-		char _cpus[NR_OF_CPUS][sizeof(Cpu)]
-		     __attribute__((aligned(sizeof(addr_t))));
+		Genode::Constructible<Cpu> _cpus[NR_OF_CPUS];
 
 	public:
 
+		struct Cpu_not_found : Genode::Exception { };
+
 		Cpu_pool();
 
-		/**
-		 * Return object of CPU 'id'
-		 */
-		Cpu * cpu(unsigned const id) const;
+		Cpu &primary_cpu() { return *_cpus[Cpu::primary_id()]; }
 
-		/**
-		 * Return object of primary CPU
-		 */
-		Cpu * primary_cpu() const { return cpu(Cpu::primary_id()); }
+		bool is_current_cpu(Cpu &cpu) { return cpu.id() == Cpu::executing_id(); }
 
-		/**
-		 * Return object of current CPU
-		 */
-		Cpu * executing_cpu() const { return cpu(Cpu::executing_id()); }
+		Cpu &current_cpu() { return *_cpus[Cpu::executing_id()]; }
+
+		Cpu &cpu_by_userland_name(unsigned name);
 
 		template <typename FUNC>
 		void for_each_cpu(FUNC const &func) const
 		{
-			for (unsigned i = 0; i < sizeof(_cpus)/sizeof(_cpus[i]); i++) {
-				func(*cpu(i));
+			for (unsigned idx = 0; idx < sizeof(_cpus)/sizeof(_cpus[0]); idx++) {
+				func(*_cpus[idx]);
+			}
+		}
+
+		template <typename FUNC>
+		void for_each_cpu(FUNC const &func)
+		{
+			for (unsigned idx = 0; idx < sizeof(_cpus)/sizeof(_cpus[0]); idx++) {
+				func(*_cpus[idx]);
 			}
 		}
 };
