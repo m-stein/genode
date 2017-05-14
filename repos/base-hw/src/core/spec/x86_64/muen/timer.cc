@@ -51,11 +51,14 @@ Timer_driver::Timer_driver(unsigned) : ticks_per_ms(sinfo()->get_tsc_khz())
 }
 
 
+void Timer::init_cpu_local() { }
+
+
 unsigned Timer::interrupt_id() const {
 	return Board::TIMER_VECTOR_KERNEL; }
 
 
-void Timer::_start_one_shot(time_t const ticks, unsigned)
+void Timer::_start_one_shot(time_t const ticks)
 {
 	const uint64_t t = _driver.rdtsc() + ticks;
 	_driver.event_page->tsc_trigger = t;
@@ -73,11 +76,11 @@ time_t Timer::us_to_ticks(time_t const us) const {
 	return (us / 1000) * _driver.ticks_per_ms; }
 
 
-time_t Timer::_max_value() {
+time_t Timer::_max_value() const {
 	return (time_t)~0; }
 
 
-time_t Timer::_value(unsigned)
+time_t Timer::_value()
 {
 	const uint64_t now = _driver.rdtsc();
 	if (_driver.event_page->tsc_trigger != Driver::TIMER_DISABLED
