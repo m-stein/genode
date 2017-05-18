@@ -341,6 +341,8 @@ struct Read_check : Libc::Suspend_functor {
 ssize_t Libc::Vfs_plugin::read(Libc::File_descriptor *fd, void *buf,
                                ::size_t count)
 {
+	Libc::dispatch_pending_io_signals();
+
 	Vfs::Vfs_handle *handle = vfs_handle(fd);
 
 	Vfs::file_size out_count  = 0;

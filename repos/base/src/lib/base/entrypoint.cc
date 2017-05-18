@@ -172,7 +172,7 @@ void Entrypoint::_process_incoming_signals()
 }
 
 
-void Entrypoint::wait_and_dispatch_one_io_signal()
+bool Entrypoint::wait_and_dispatch_one_io_signal(bool const dont_block)
 {
 	for (;;) {
 
@@ -198,6 +198,7 @@ void Entrypoint::wait_and_dispatch_one_io_signal()
 
 		} catch (Signal_receiver::Signal_not_pending) {
 			_signal_pending_lock.unlock();
+			if (dont_block) return false;
 			_sig_rec->block_for_signal();
 		}
 	}
@@ -212,6 +213,8 @@ void Entrypoint::wait_and_dispatch_one_io_signal()
 			                                   &Entrypoint::_handle_deferred_signals);
 		Signal_transmitter(*_deferred_signal_handler).submit();
 	}
+
+	return true;
 }
 
 

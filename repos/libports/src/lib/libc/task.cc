@@ -371,7 +371,8 @@ struct Libc::Kernel
 
 		jmp_buf _kernel_context;
 		jmp_buf _user_context;
-		bool    _valid_user_context = false;
+		bool    _valid_user_context          = false;
+		bool    _dispatch_pending_io_signals = false;
 
 		Genode::Thread &_myself { *Genode::Thread::myself() };
 
@@ -541,7 +542,7 @@ struct Libc::Kernel
 			}
 
 			/*
-			 * During the supension of the application code a nested
+			 * During the suspension of the application code a nested
 			 * Libc::with_libc() call took place, which will be executed
 			 * before returning to the first Libc::with_libc() call.
 			 */
@@ -598,7 +599,12 @@ struct Libc::Kernel
 			/* _setjmp() returned after _longjmp() - user context suspended */
 
 			while ((!_app_returned) && (!_suspend_scheduled)) {
-				_env.ep().wait_and_dispatch_one_io_signal();
+				bool dispatched = false;
+				do {
+					bool const dont_block = _dispatch_pending_io_signals;
+
+					dispatched = _env.ep().wait_and_dispatch_one_io_signal(dont_block);
+				} while (dispatched && _dispatch_pending_io_signals);
 
 				if (_resume_main_once && !_setjmp(_kernel_context))
 					_switch_to_user();
@@ -658,6 +664,21 @@ struct Libc::Kernel
 
 			return _main_context() ? _suspend_main(check, timeout_ms)
 			                       : _pthreads.suspend_myself(check, timeout_ms);
+		}
+
+		void dispatch_pending_io_signals()
+		{
+			if (!_main_context()) return;
+
+			if (!_setjmp(_user_context)) {
+				_valid_user_context          = true;
+				_dispatch_pending_io_signals = true;
+				_resume_main_once            = true; /* afterwards resume main */
+				_switch_to_kernel();
+			} else {
+				_valid_user_context          = false;
+				_dispatch_pending_io_signals = false;
+			}
 		}
 
 		unsigned long current_time()
@@ -782,6 +803,13 @@ unsigned long Libc::suspend(Suspend_functor &s,
 {
 	return kernel->suspend(s, timeout_ms);
 }
+
+
+void Libc::dispatch_pending_io_signals()
+{
+	kernel->dispatch_pending_io_signals();
+}
+
 
 unsigned long Libc::current_time()
 {
