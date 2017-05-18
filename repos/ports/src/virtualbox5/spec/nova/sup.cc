@@ -214,9 +214,6 @@ int SUPR3PageAllocEx(::size_t cPages, uint32_t fFlags, void **ppvPages,
 	Assert(ppvPages);
 	Assert(!fFlags);
 
-	Genode::log(__func__, " cPages ", cPages, " flags=", Genode::Hex(fFlags),
-	            " r3=", ppvPages, " r0=", pR0Ptr);
-
 	using Genode::Attached_ram_dataspace;
 	Attached_ram_dataspace * ds = new Attached_ram_dataspace(genode_env().ram(),
 	                                                         genode_env().rm(),
@@ -227,8 +224,6 @@ int SUPR3PageAllocEx(::size_t cPages, uint32_t fFlags, void **ppvPages,
 	*ppvPages = ds->local_addr<void>();
 	if (pR0Ptr)
 		*pR0Ptr = vmm_local;
-
-	Genode::log(__func__, " cPages ", cPages, " alloc=", *ppvPages, " done");
 
 	if (!paPages)
 		return VINF_SUCCESS;
@@ -670,10 +665,8 @@ int SUPR3CallVMMR0Ex(PVMR0 pVMR0, VMCPUID idCpu, unsigned uOperation,
 		return VINF_SUCCESS;
 	}
 	case VMMR0_DO_GMM_INITIAL_RESERVATION:
-		Genode::log("VMMR0_DO_GMM_INITIAL_RESERVATION called");
 		return VINF_SUCCESS;
 	case VMMR0_DO_GMM_UPDATE_RESERVATION:
-		Genode::log("VMMR0_DO_GMM_UPDATE_RESERVATION called");
 		return VINF_SUCCESS;
 	default:
 		Genode::error("SUPR3CallVMMR0Ex: unhandled uOperation ", uOperation,
