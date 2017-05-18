@@ -60,7 +60,6 @@ DUMMY(HMR3PatchTprInstr)
 DUMMY(MMHyperR0ToCC)
 DUMMY(MMHyperRCToCC)
 
-DUMMY(MMR3HeapAPrintfV)
 DUMMY(MMR3HyperRealloc)
 DUMMY(MMR3LockCall)
 DUMMY(MMR3PageDummyHCPhys)
