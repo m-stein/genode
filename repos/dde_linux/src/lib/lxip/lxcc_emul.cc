@@ -621,7 +621,7 @@ size_t csum_and_copy_from_iter(void *addr, size_t bytes, __wsum *csum, struct io
 		if (iov->iov_len) {
 			size_t copy_len = (size_t)len < iov->iov_len ? len : iov->iov_len;
 			int err = 0;
-			__wsum next = csum_and_copy_from_user(iov->iov_base, kdata, copy_len, 0, &err);
+			__wsum next = csum_and_copy_from_user(iov->iov_base + i->iov_offset, kdata, copy_len, 0, &err);
 
 			if (err) {
 				Genode::error(__func__, ": err: ", err, " - sleeping");
@@ -633,6 +633,7 @@ size_t csum_and_copy_from_iter(void *addr, size_t bytes, __wsum *csum, struct io
 			len   -= copy_len;
 			kdata += copy_len;
 
+			i->iov_offset += copy_len;
 			i->count -= copy_len; /* XXX the vanilla macro does that */
 		}
 		iov++;
@@ -661,7 +662,7 @@ size_t csum_and_copy_to_iter(void *addr, size_t bytes, __wsum *csum, struct iov_
 		if (iov->iov_len) {
 			size_t copy_len = (size_t)len < iov->iov_len ? len : iov->iov_len;
 			int err = 0;
-			__wsum next = csum_and_copy_to_user(kdata, iov->iov_base, copy_len, 0, &err);
+			__wsum next = csum_and_copy_to_user(kdata, iov->iov_base + i->iov_offset, copy_len, 0, &err);
 
 			if (err) {
 				Genode::error(__func__, ": err: ", err, " - sleeping");
@@ -673,6 +674,7 @@ size_t csum_and_copy_to_iter(void *addr, size_t bytes, __wsum *csum, struct iov_
 			len   -= copy_len;
 			kdata += copy_len;
 
+			i->iov_offset += copy_len;
 			i->count -= copy_len; /* XXX the vanilla macro does that */
 		}
 		iov++;
