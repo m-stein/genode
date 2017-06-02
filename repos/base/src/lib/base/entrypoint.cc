@@ -198,7 +198,11 @@ bool Entrypoint::wait_and_dispatch_one_io_signal(bool const dont_block)
 
 		} catch (Signal_receiver::Signal_not_pending) {
 			_signal_pending_lock.unlock();
-			if (dont_block) return false;
+			if (dont_block) {
+				/* indicate that we leave wait_and_dispatch_one_io_signal */
+				cmpxchg(&_signal_recipient, ENTRYPOINT, NONE);
+				return false;
+			}
 			_sig_rec->block_for_signal();
 		}
 	}
