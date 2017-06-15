@@ -12,9 +12,9 @@
 # time instead. On QEMU, the time emulation is not precise enough.
 #
 proc high_precision_time { } {
-	if {[get_cmd_switch --autopilot] && [have_include "power_on/qemu"]} { return false }
+	if {[have_include "power_on/qemu"]} { return false }
 	if {[expr [have_spec arm] && ![have_spec hw]]}                      { return false }
-	return true
+	return false
 }
 
 build "core init drivers/platform drivers/timer test/timeout test/cpufreq"
@@ -26,7 +26,7 @@ build "core init drivers/platform drivers/timer test/timeout test/cpufreq"
 create_boot_directory
 
 append config {
-	<config>
+	<config prio_levels="2">
 		<parent-provides>
 			<service name="ROM"/>
 			<service name="IRQ"/>
@@ -41,11 +41,11 @@ append config {
 			<any-service><parent/><any-child/></any-service>
 		</default-route>
 		<default caps="100"/>
-		<start name="timer">
+		<start name="timer" priority="-1">
 			<resource name="RAM" quantum="10M"/>
 			<provides><service name="Timer"/></provides>
 		</start>
-		<start name="test">
+		<start name="test" priority="0">
 			<binary name="test-timeout"/>
 			<resource name="RAM" quantum="250M"/>
 			<config high_precision_time="} [high_precision_time] {"/>

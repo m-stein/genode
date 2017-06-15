@@ -71,104 +71,135 @@ struct Mixed_timeouts : Test
 {
 	static constexpr char const *brief = "schedule multiple timeouts simultaneously";
 
-	enum { NR_OF_EVENTS   = 20 };
-	enum { NR_OF_TIMEOUTS = 4 };
-	enum { MAX_ERROR_PC   = 10 };
+//	enum { NR_OF_EVENTS   = 20 };
+//	enum { NR_OF_TIMEOUTS = 4 };
+//	enum { MAX_ERROR_PC   = 10 };
+//
+//	struct Timeout
+//	{
+//		char         const *const name;
+//		Microseconds const        us;
+//	};
+//
+//	struct Event
+//	{
+//		Timeout  const *const timeout;
+//		Duration const        time;
+//	};
+//
+//	Timeout const timeouts[NR_OF_TIMEOUTS] {
+//		{ "Periodic  700 ms", Microseconds( 700000) },
+//		{ "Periodic 1000 ms", Microseconds(1000000) },
+//		{ "One-shot 3250 ms", Microseconds(3250000) },
+//		{ "One-shot 5200 ms", Microseconds(5200000) }
+//	};
+//
+//	/*
+//	 * We want to check only timeouts that have a distance of at least
+//	 * 200ms to each other timeout. Thus, the items in this array that
+//	 * have an empty name are treated as wildcards and match any timeout.
+//	 */
+//	Event const events[NR_OF_EVENTS] {
+//		{ nullptr,      Duration(Milliseconds(0))    },
+//		{ nullptr,      Duration(Milliseconds(0))    },
+//		{ &timeouts[0], Duration(Milliseconds(700))  },
+//		{ &timeouts[1], Duration(Milliseconds(1000)) },
+//		{ &timeouts[0], Duration(Milliseconds(1400)) },
+//		{ nullptr,      Duration(Milliseconds(2000)) },
+//		{ nullptr,      Duration(Milliseconds(2100)) },
+//		{ &timeouts[0], Duration(Milliseconds(2800)) },
+//		{ &timeouts[1], Duration(Milliseconds(3000)) },
+//		{ &timeouts[2], Duration(Milliseconds(3250)) },
+//		{ &timeouts[0], Duration(Milliseconds(3500)) },
+//		{ &timeouts[1], Duration(Milliseconds(4000)) },
+//		{ &timeouts[0], Duration(Milliseconds(4200)) },
+//		{ nullptr,      Duration(Milliseconds(4900)) },
+//		{ nullptr,      Duration(Milliseconds(5000)) },
+//		{ &timeouts[3], Duration(Milliseconds(5200)) },
+//		{ &timeouts[0], Duration(Milliseconds(5600)) },
+//		{ &timeouts[1], Duration(Milliseconds(6000)) },
+//		{ &timeouts[0], Duration(Milliseconds(6300)) },
+//		{ &timeouts[2], Duration(Milliseconds(6500)) }
+//	};
+//
+//	Duration init_time { Microseconds(0) };
+//	unsigned event_id  { 0 };
+//
+//	Timer::Periodic_timeout<Mixed_timeouts> pt1 { timer, *this, &Mixed_timeouts::handle_pt1, timeouts[0].us };
+//	Timer::Periodic_timeout<Mixed_timeouts> pt2 { timer, *this, &Mixed_timeouts::handle_pt2, timeouts[1].us };
+//	Timer::One_shot_timeout<Mixed_timeouts> ot1 { timer, *this, &Mixed_timeouts::handle_ot1 };
+//	Timer::One_shot_timeout<Mixed_timeouts> ot2 { timer, *this, &Mixed_timeouts::handle_ot2 };
+//
+//	void handle_pt1(Duration time) { handle(time, timeouts[0]); }
+//	void handle_pt2(Duration time) { handle(time, timeouts[1]); }
+//	void handle_ot1(Duration time) { handle(time, timeouts[2]); ot1.schedule(timeouts[2].us); }
+//	void handle_ot2(Duration time) { handle(time, timeouts[3]); }
+//
+//	void handle(Duration time, Timeout const &timeout)
+//	{
+//		if (event_id == NR_OF_EVENTS) {
+//			return; }
+//
+//		if (!event_id) {
+//			init_time = time; }
+//
+//		Event const &event = events[event_id++];
+//		unsigned long time_us = time.trunc_to_plain_us().value -
+//		                        init_time.trunc_to_plain_us().value;
+//
+//		unsigned long event_time_us = event.time.trunc_to_plain_us().value;
+//		unsigned long error_us      = max(time_us, event_time_us) -
+//		                              min(time_us, event_time_us);
+//
+//		float const error_pc = percentage(error_us, timeout.us.value);
+//
+//		log(time_us / 1000UL, " ms: ", timeout.name, " timeout triggered,"
+//		    " error ", error_us, " us (", error_pc, " %)");
+//
+//		if (error_pc > MAX_ERROR_PC) {
+//
+//			error("absolute timeout error greater than ", (unsigned)MAX_ERROR_PC, " %");
+//			error_cnt++;
+//		}
+//		if (event.timeout && event.timeout != &timeout) {
+//
+//			error("expected timeout ", timeout.name);
+//			error_cnt++;
+//		}
+//		if (event_id == NR_OF_EVENTS) {
+//			done.submit(); }
+//	}
 
-	struct Timeout
-	{
-		char         const *const name;
-		Microseconds const        us;
-	};
 
-	struct Event
-	{
-		Timeout  const *const timeout;
-		Duration const        time;
-	};
 
-	Timeout const timeouts[NR_OF_TIMEOUTS] {
-		{ "Periodic  700 ms", Microseconds( 700000) },
-		{ "Periodic 1000 ms", Microseconds(1000000) },
-		{ "One-shot 3250 ms", Microseconds(3250000) },
-		{ "One-shot 5200 ms", Microseconds(5200000) }
-	};
+	void handle_sigh() {
 
-	/*
-	 * We want to check only timeouts that have a distance of at least
-	 * 200ms to each other timeout. Thus, the items in this array that
-	 * have an empty name are treated as wildcards and match any timeout.
-	 */
-	Event const events[NR_OF_EVENTS] {
-		{ nullptr,      Duration(Milliseconds(0))    },
-		{ nullptr,      Duration(Milliseconds(0))    },
-		{ &timeouts[0], Duration(Milliseconds(700))  },
-		{ &timeouts[1], Duration(Milliseconds(1000)) },
-		{ &timeouts[0], Duration(Milliseconds(1400)) },
-		{ nullptr,      Duration(Milliseconds(2000)) },
-		{ nullptr,      Duration(Milliseconds(2100)) },
-		{ &timeouts[0], Duration(Milliseconds(2800)) },
-		{ &timeouts[1], Duration(Milliseconds(3000)) },
-		{ &timeouts[2], Duration(Milliseconds(3250)) },
-		{ &timeouts[0], Duration(Milliseconds(3500)) },
-		{ &timeouts[1], Duration(Milliseconds(4000)) },
-		{ &timeouts[0], Duration(Milliseconds(4200)) },
-		{ nullptr,      Duration(Milliseconds(4900)) },
-		{ nullptr,      Duration(Milliseconds(5000)) },
-		{ &timeouts[3], Duration(Milliseconds(5200)) },
-		{ &timeouts[0], Duration(Milliseconds(5600)) },
-		{ &timeouts[1], Duration(Milliseconds(6000)) },
-		{ &timeouts[0], Duration(Milliseconds(6300)) },
-		{ &timeouts[2], Duration(Milliseconds(6500)) }
-	};
+//	static Attached_rom_dataspace _ds(env, "hypervisor_info_page");
+//	static Nova::Hip * hip = _ds.local_addr<Nova::Hip>();
+//	static unsigned long _tsc_khz = hip->tsc_freq;
+//
+//	Trace::Timestamp volatile x = Trace::timestamp();
+//
+//	static Trace::Timestamp last = 0ULL;
+//	log("x ", ((unsigned long long)x - last) / 700ULL, " ", _tsc_khz);
+//	last = x;
 
-	Duration init_time { Microseconds(0) };
-	unsigned event_id  { 0 };
+unsigned long volatile ms = timer_connection.elapsed_ms();
 
-	Timer::Periodic_timeout<Mixed_timeouts> pt1 { timer, *this, &Mixed_timeouts::handle_pt1, timeouts[0].us };
-	Timer::Periodic_timeout<Mixed_timeouts> pt2 { timer, *this, &Mixed_timeouts::handle_pt2, timeouts[1].us };
-	Timer::One_shot_timeout<Mixed_timeouts> ot1 { timer, *this, &Mixed_timeouts::handle_ot1 };
-	Timer::One_shot_timeout<Mixed_timeouts> ot2 { timer, *this, &Mixed_timeouts::handle_ot2 };
+static unsigned long xms = 0;
 
-	void handle_pt1(Duration time) { handle(time, timeouts[0]); }
-	void handle_pt2(Duration time) { handle(time, timeouts[1]); }
-	void handle_ot1(Duration time) { handle(time, timeouts[2]); ot1.schedule(timeouts[2].us); }
-	void handle_ot2(Duration time) { handle(time, timeouts[3]); }
+		unsigned long error_ms      = max(ms, xms) -
+		                              min(ms, xms);
 
-	void handle(Duration time, Timeout const &timeout)
-	{
-		if (event_id == NR_OF_EVENTS) {
-			return; }
+		float const error_pc = percentage(error_ms, 1000);
+//log("x ", time.trunc_to_plain_us().value * 1000, " - ", ms);
+log("x ", ms, " ", error_ms, " ", error_pc);
 
-		if (!event_id) {
-			init_time = time; }
-
-		Event const &event = events[event_id++];
-		unsigned long time_us = time.trunc_to_plain_us().value -
-		                        init_time.trunc_to_plain_us().value;
-
-		unsigned long event_time_us = event.time.trunc_to_plain_us().value;
-		unsigned long error_us      = max(time_us, event_time_us) -
-		                              min(time_us, event_time_us);
-
-		float const error_pc = percentage(error_us, timeout.us.value);
-
-		log(time_us / 1000UL, " ms: ", timeout.name, " timeout triggered,"
-		    " error ", error_us, " us (", error_pc, " %)");
-
-		if (error_pc > MAX_ERROR_PC) {
-
-			error("absolute timeout error greater than ", (unsigned)MAX_ERROR_PC, " %");
-			error_cnt++;
-		}
-		if (event.timeout && event.timeout != &timeout) {
-
-			error("expected timeout ", timeout.name);
-			error_cnt++;
-		}
-		if (event_id == NR_OF_EVENTS) {
-			done.submit(); }
+xms += 1000;
 	}
+	Genode::Signal_handler<Mixed_timeouts> sigh { env.ep(), *this, &Mixed_timeouts::handle_sigh };
+
+
 
 	Mixed_timeouts(Env                       &env,
 	               unsigned                  &error_cnt,
@@ -177,8 +208,10 @@ struct Mixed_timeouts : Test
 	:
 		Test(env, error_cnt, done, id, brief)
 	{
-		ot1.schedule(timeouts[2].us);
-		ot2.schedule(timeouts[3].us);
+		timer_connection.sigh(sigh);
+		timer_connection.trigger_periodic(1000000);
+//		ot1.schedule(timeouts[2].us);
+//		ot2.schedule(timeouts[3].us);
 	}
 };
 

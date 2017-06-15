@@ -186,9 +186,29 @@ int compare_mem(uint8_t * base1, uint8_t * base2, size_t size)
  */
 void error(unsigned line) { error("Test in line ", line, " failed"); }
 
+#include <nova/native_thread.h>
+#include <base/attached_rom_dataspace.h>
+#include <trace/timestamp.h>
 
-void Component::construct(Genode::Env &)
+void Component::construct(Genode::Env &env)
 {
+
+	static Genode::Attached_rom_dataspace _ds(env, "hypervisor_info_page");
+	static ::Nova::Hip * hip = _ds.local_addr<Nova::Hip>();
+	static unsigned long _tsc_khz = hip->tsc_freq;
+
+
+	while(1) {
+		for (unsigned volatile i = 0; i < 100000000; i ++);
+
+		Trace::Timestamp volatile x = Trace::timestamp();
+
+		static Trace::Timestamp last = 0ULL;
+		log("x ", ((unsigned long long)x - last) / _tsc_khz, " ", _tsc_khz);
+		last = x;
+	}
+
+
 	using ::Cpu_state;
 
 
