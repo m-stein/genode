@@ -41,11 +41,11 @@ append config {
 			<any-service><parent/><any-child/></any-service>
 		</default-route>
 		<default caps="100"/>
-		<start name="timer" priority="-1">
+		<start name="timer" priority="0">
 			<resource name="RAM" quantum="10M"/>
 			<provides><service name="Timer"/></provides>
 		</start>
-		<start name="test" priority="0">
+		<start name="test" priority="-1">
 			<binary name="test-timeout"/>
 			<resource name="RAM" quantum="250M"/>
 			<config high_precision_time="} [high_precision_time] {"/>

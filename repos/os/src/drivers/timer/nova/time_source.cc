@@ -64,6 +64,7 @@ void Timer::Time_source::_wait_for_irq()
 
 	if (_timeout_us == max_timeout().value) {
 
+error("----");
 		/* tsc_absolute == 0 means blocking without timeout */
 		uint8_t res = sm_ctrl(sem, SEMAPHORE_DOWN, 0);
 		if (res != Nova::NOVA_OK && res != Nova::NOVA_TIMEOUT) {
@@ -74,6 +75,8 @@ void Timer::Time_source::_wait_for_irq()
 		/* block until timeout fires or it gets canceled */
 		unsigned long long tsc_absolute = now + us_64 * (_tsc_khz / TSC_FACTOR);
 		uint8_t res = sm_ctrl(sem, SEMAPHORE_DOWN, tsc_absolute);
+	unsigned long long x = Trace::timestamp() / _tsc_khz;
+log("y ", now / _tsc_khz, " ", us_64 / 1000, " ",  x, " ", x - (now / _tsc_khz), " --- ", now, " ", tsc_absolute);
 		if (res != Nova::NOVA_OK && res != Nova::NOVA_TIMEOUT) {
 			nova_die(); }
 	}
