@@ -21,6 +21,7 @@ using namespace Genode::Trace;
 
 void Timer::Connection::_update_real_time()
 {
+error("AAAAAAAAAAAaaaaaaaaaaaaahhhhhhhhhhhhhhh");
 	Lock_guard<Lock> lock_guard(_real_time_lock);
 
 	Timestamp     ts      = 0UL;
