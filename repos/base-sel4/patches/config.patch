@@ -13,7 +13,14 @@
  DEFINES += -DCONFIG_DEBUG_BUILD
 --- src/kernel/sel4/src/plat/pc99/linker.lds
 +++ src/kernel/sel4/src/plat/pc99/linker.lds
-@@ -22,7 +22,7 @@
+@@ -16,13 +16,13 @@
+ #if defined(CONFIG_ARCH_IA32)
+ #undef i386
+ PADDR_BASE = 0x00000000;
+-PADDR_LOAD = 0x00100000;
++PADDR_LOAD = 0x00200000;
+ KERNEL_BASE  = 0xe0000000;
+ OUTPUT_ARCH(i386)
  OUTPUT_FORMAT(elf32-i386)
  #elif defined(CONFIG_ARCH_X86_64)
  PADDR_BASE = 0x00000000;
