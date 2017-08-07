@@ -77,6 +77,9 @@ struct Genode::Pd_session : Session, Ram_allocator
 	 *
 	 * \param virt virtual address within the address space to start
 	 * \param size the virtual size of the region
+	 *
+	 * \throw Out_of_ram
+	 * \throw Out_of_caps
 	 */
 	virtual void map(addr_t virt, addr_t size) = 0;
 
