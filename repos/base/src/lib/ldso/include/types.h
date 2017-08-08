@@ -21,7 +21,7 @@
 #include <util/fifo.h>
 #include <util/misc_math.h>
 #include <util/string.h>
-
+#include <base/internal/globals.h>
 namespace Linker {
 
 	using namespace Genode;
@@ -31,8 +31,43 @@ namespace Linker {
 	 */
 	class Incompatible : Exception  { };
 	class Invalid_file : Exception  { };
-	class Not_found    : Exception  { };
 	class Fatal        : Exception  { };
+
+	class Not_found    : Exception
+	{
+		private:
+
+			enum { CAPACITY = 128 };
+			char _buf[CAPACITY];
+
+		public:
+
+			Not_found() : _buf("<unkown>") { }
+			Not_found(char const *str)
+			{
+				cxx_demangle(str, _buf, CAPACITY);
+			}
+
+			char const *string() { return _buf; }
+
+	};
+
+	class Current_exception
+	{
+		private:
+
+			enum { CAPACITY = 128 };
+			char _buf[CAPACITY];
+
+		public:
+
+			Current_exception() : _buf("<unkown>")
+			{
+				cxx_current_exception(_buf, CAPACITY);
+			}
+
+			char const *string() { return _buf; }
+	};
 
 	enum Keep { DONT_KEEP = Shared_object::DONT_KEEP,
 	            KEEP      = Shared_object::KEEP };
