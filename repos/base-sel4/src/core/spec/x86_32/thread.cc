@@ -37,7 +37,7 @@ void Genode::start_sel4_thread(Cap_sel tcb_sel, addr_t ip, addr_t sp,
 	                                         num_regs, &regs);
 	ASSERT(ret == 0);
 
-	affinity_seL4_thread(tcb_sel, cpu);
+	affinity_sel4_thread(tcb_sel, cpu);
 
 	seL4_TCB_Resume(tcb_sel.value());
 }
