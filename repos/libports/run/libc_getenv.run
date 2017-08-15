@@ -38,7 +38,7 @@ build_boot_image {
 
 append qemu_args " -nographic  "
 
-run_genode_until "child .* exited with exit value 0.*\n" 10
+run_genode_until "child .* exited with exit value 0.*\n" 20
 
 grep_output {\[init -\> test-libc_getenv\]}
 
