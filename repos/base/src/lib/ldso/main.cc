@@ -291,11 +291,11 @@ Elf::Addr Ld::jmp_slot(Dependency const &dep, Elf::Size index)
 		Reloc_jmpslot slot(dep, dep.obj().dynamic().pltrel_type(), 
 		                   dep.obj().dynamic().pltrel(), index);
 		return slot.target_addr();
-	} catch(Linker::Not_found &symbol) {
-		error("LD: jump slot relocation failed for symbol: '", symbol.string(), "'");
+	} catch (Linker::Not_found &symbol) {
+		error("LD: jump slot relocation failed for symbol: '", symbol, "'");
 		throw;
 	} catch (...) {
-		error("LD: jump slot relcation failed:: '", Current_exception().string(), "'");
+		error("LD: jump slot relocation failed:: '", Current_exception(), "'");
 		throw;
 	}
 
@@ -665,10 +665,10 @@ void Component::construct(Genode::Env &env)
 	try {
 		binary_ptr = unmanaged_singleton<Binary>(env, *heap(), config.bind());
 	} catch(Linker::Not_found &symbol) {
-		error("LD: symbol not found: '", symbol.string(), "'");
+		error("LD: symbol not found: '", symbol, "'");
 		throw;
 	} catch (...) {
-		error("LD: exception during program load: '", Current_exception().string(), "'");
+		error("LD: exception during program load: '", Current_exception(), "'");
 		throw;
 	}
 

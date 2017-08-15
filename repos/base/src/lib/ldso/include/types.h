@@ -22,6 +22,7 @@
 #include <util/misc_math.h>
 #include <util/string.h>
 #include <base/internal/globals.h>
+
 namespace Linker {
 
 	using namespace Genode;
@@ -48,8 +49,10 @@ namespace Linker {
 				cxx_demangle(str, _buf, CAPACITY);
 			}
 
-			char const *string() { return _buf; }
-
+			void print(Output &out) const
+			{
+				Genode::print(out, Cstring(_buf, CAPACITY));
+			}
 	};
 
 	class Current_exception
@@ -66,7 +69,10 @@ namespace Linker {
 				cxx_current_exception(_buf, CAPACITY);
 			}
 
-			char const *string() { return _buf; }
+			void print(Output &out) const
+			{
+				Genode::print(out, Cstring(_buf, CAPACITY));
+			}
 	};
 
 	enum Keep { DONT_KEEP = Shared_object::DONT_KEEP,
