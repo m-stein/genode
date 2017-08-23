@@ -103,6 +103,10 @@ class Net::Dhcp_packet
 
 	public:
 
+		Genode::uint32_t  magic_cookie() const { return _magic_cookie; }
+		Genode::uint16_t  flags() const { return _flags; }
+
+
 		/**
 		 * This class represents the data layout of an DHCP option.
 		 */
@@ -127,7 +131,6 @@ class Net::Dhcp_packet
 				 */
 				void * operator new(__SIZE_TYPE__, void* addr) { return addr; }
 		} __attribute__((packed));
-
 
 		enum Opcode {
 			REQUEST = 1,
@@ -158,17 +161,43 @@ class Net::Dhcp_packet
 			END            = 255
 		};
 
-		enum Message_type {
-			DHCP_DISCOVER  = 1,
-			DHCP_OFFER     = 2,
-			DHCP_REQUEST   = 3,
-			DHCP_DECLINE   = 4,
-			DHCP_ACK       = 5,
-			DHCP_NAK       = 6,
-			DHCP_RELEASE   = 7,
-			DHCP_INFORM    = 8
+		template <typename T>
+		class Option_tpl
+		{
+			private:
+
+				Genode::uint8_t _code;
+				Genode::uint8_t _len { sizeof(T) };
+				T               _value;
+
+			public:
+
+				Option_tpl(Option_type code, T value)
+				: _code(code), _value(value) { }
+
+		} __attribute__((packed));
+
+		struct Message_type : Option_tpl<Genode::uint8_t>
+		{
+			enum Value : Genode::uint8_t {
+				DHCP_DISCOVER  = 1,
+				DHCP_OFFER     = 2,
+				DHCP_REQUEST   = 3,
+				DHCP_DECLINE   = 4,
+				DHCP_ACK       = 5,
+				DHCP_NAK       = 6,
+				DHCP_RELEASE   = 7,
+				DHCP_INFORM    = 8
+			};
+
+			Message_type(Value value) : Option_tpl(MSG_TYPE, value) { }
 		};
 
+		struct Dns_server_ipv4 : Option_tpl<Genode::uint32_t>
+		{
+			Dns_server_ipv4(Ipv4_address value)
+			: Option_tpl(MSG_TYPE, value.to_uint32()) { }
+		};
 
 		/*****************
 		 ** Constructor **
@@ -194,20 +223,22 @@ class Net::Dhcp_packet
 
 		bool broadcast() { return _flags & BROADCAST;    }
 
-		Ipv4_address ciaddr() {
-			return Ipv4_address(&_ciaddr);  }
-		Ipv4_address yiaddr() {
-			return Ipv4_address(&_yiaddr);  }
+		Ipv4_address ciaddr() const {
+			return Ipv4_address(_ciaddr, true);  }
+		Ipv4_address yiaddr() const {
+			return Ipv4_address(_yiaddr, true);  }
 		Ipv4_address siaddr() const {
-			return Ipv4_address((void *)&_siaddr);  }
-		Ipv4_address giaddr() {
-			return Ipv4_address(&_giaddr);  }
+			return Ipv4_address(_siaddr, true);  }
+		Ipv4_address giaddr() const {
+			return Ipv4_address(_giaddr, true);  }
 
 		Mac_address client_mac() const {
 			return Mac_address((void *)&_chaddr); }
 
-		const char* server_name()  { return (const char*) &_sname; }
-		const char* file()         { return (const char*) &_file;  }
+		const char* server_name() const { return (const char*) &_sname; }
+		const char* file()        const { return (const char*) &_file;  }
+
+		void file(const char* f) { Genode::memcpy(_file, f, sizeof(_file));  }
 
 		Option *option(Option_type op)
 		{

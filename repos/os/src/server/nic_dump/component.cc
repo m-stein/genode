@@ -92,6 +92,7 @@ void Session_component::_print_state()
 
 void Session_component::_handle_link_state()
 {
+log("\033[33m(",__func__,")\033[0m");
 	_print_state();
 	if (!_link_state_sigh.valid()) {
 		warning("failed to forward signal");

@@ -46,6 +46,7 @@ class Net::Udp_packet
 		Genode::uint16_t _src_port;
 		Genode::uint16_t _dst_port;
 		Genode::uint16_t _length;
+public:
 		Genode::uint16_t _checksum;
 		unsigned         _data[0];
 

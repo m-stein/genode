@@ -15,6 +15,7 @@
 #include <net/tcp.h>
 #include <net/udp.h>
 #include <net/arp.h>
+#include <net/dhcp.h>
 
 /* local includes */
 #include <interface.h>
@@ -156,6 +157,11 @@ void Interface::_pass_ip(Ethernet_frame &eth,
 {
 	_update_checksum(prot, prot_base, prot_size, ip.src(), ip.dst());
 	ip.checksum(Ipv4_packet::calculate_checksum(ip));
+	if (prot == Udp_packet::IP_ID) {
+//		((Udp_packet*)prot_base)->_checksum = 1;
+//		ip.checksum(1);
+//		log("xxx ", (int)((Udp_packet*)prot_base)->_checksum, " ", ip.checksum());
+	}
 	_send(eth, eth_size);
 }
 
@@ -306,6 +312,60 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 	uint8_t       const prot      = ip.protocol();
 	size_t        const prot_size = ip.total_length() - ip.header_length() * 4;
 	void         *const prot_base = _prot_base(prot, prot_size, ip);
+
+	if (_router_ip() == Ipv4_packet::ip_from_string("10.0.1.1")) {
+		if (ip.protocol() == Udp_packet::IP_ID) {
+
+			Udp_packet &udp = *new (ip.data<void>()) Udp_packet(eth_size - sizeof(Ipv4_packet));
+
+			if (Dhcp_packet::is_dhcp(&udp)) {
+
+				Dhcp_packet &dhcp = *new (udp.data<void>()) Dhcp_packet(eth_size - sizeof(Ipv4_packet) - sizeof(Udp_packet));
+
+				if (dhcp.op() == Dhcp_packet::REQUEST) {
+
+					/* ETH */
+					eth.dst(eth.src());
+					eth.src(_router_mac);
+
+					/* IP */
+					ip.src(_router_ip());
+					ip.dst(Ipv4_packet::ip_from_string("10.0.1.72"));
+					ip.time_to_live(ip.time_to_live() * 2);
+
+					/* UDP */
+					Port const src_port = udp.src_port();
+					udp.src_port(udp.dst_port());
+					udp.dst_port(src_port);
+
+					/* DHCP */
+					dhcp.op(Dhcp_packet::REPLY);
+					dhcp.yiaddr(Ipv4_packet::ip_from_string("10.0.1.72"));
+					dhcp.siaddr(_router_ip());
+					dhcp.file("/tftpboot/hosts/test2-x201.pxe");
+
+//					/* DHCP options */
+//					Dhcp_packet::Option *msg_type = dhcp.option(Dhcp_packet::MSG_TYPE);
+//					if (!msg_type) { throw -1; }
+//					uint8_t &msg_type_val = *(uint8_t*)msg_type->value();
+//					switch (msg_type_val) {
+//					case Dhcp_packet::DHCP_DISCOVER: msg_type_val = Dhcp_packet::DHCP_OFFER; break;
+//					case Dhcp_packet::DHCP_REQUEST:  msg_type_val = Dhcp_packet::DHCP_ACK; break;
+//					default: throw -1; }
+
+//					Dhcp_packet::Option_tpl<Dhcp_packet::Message_type>
+//						opt_msg_type(Dhcp_packet::MSG_TYPE, Dhcp_packet::DHCP_OFFER);
+
+					Dhcp_packet::Message_type    msg_type(Dhcp_packet::Message_type::DHCP_OFFER);
+					Dhcp_packet::Dns_server_ipv4 dns_server(Ipv4_packet::ip_from_string("10.0.0.2"));
+
+					_pass_ip(eth, eth_size, ip, prot, prot_base, prot_size);
+					return;
+				}
+			}
+		}
+	}
+
 	Link_side_id  const local     = { ip.src(), _src_port(prot, prot_base),
 	                                  ip.dst(), _dst_port(prot, prot_base) };
 
@@ -448,18 +508,24 @@ void Interface::_handle_arp_request(Ethernet_frame &eth,
                                     size_t const    eth_size,
                                     Arp_packet     &arp)
 {
-	/* ignore packets that do not target the router */
-	if (arp.dst_ip() != _router_ip()) {
+	/*
+	 * Handle packet only if it asks for an address of a foreign subnet and
+	 * we are this subnets gateway or if it asks for the routers IP.
+	 */
+	if (arp.dst_ip() != _router_ip() &&
+	    (_domain.gateway_valid() || _domain.interface_attr().prefix_matches(arp.dst_ip())))
+	{
 		if (_config().verbose()) {
-			log("ARP request for unknown IP"); }
+			log("Ignore ARP request"); }
 
 		return;
 	}
 	/* interchange source and destination MAC and IP addresses */
+	Ipv4_address dst_ip = arp.dst_ip();
 	arp.dst_ip(arp.src_ip());
 	arp.dst_mac(arp.src_mac());
 	eth.dst(eth.src());
-	arp.src_ip(_router_ip());
+	arp.src_ip(dst_ip);
 	arp.src_mac(_router_mac);
 	eth.src(_router_mac);
 
@@ -548,6 +614,9 @@ void Interface::_handle_eth(void              *const  eth_base,
 
 	catch (Pointer<Interface>::Invalid) {
 		error("no interface connected to domain"); }
+
+	catch (int) {
+		error("failed to handle packet"); }
 }
 
 

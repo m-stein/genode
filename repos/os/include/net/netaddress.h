@@ -38,9 +38,11 @@ struct Net::Network_address
 	Network_address(Genode::uint8_t value = 0) {
 		Genode::memset(&addr, value, LEN); }
 
-	Network_address(void *src) {
+	Network_address(Genode::uint8_t const *src) {
 		Genode::memcpy(&addr, src, LEN); }
 
+	Network_address(void *src) {
+		Genode::memcpy(&addr, src, LEN); }
 
 	/*********************
 	 ** Helper methods  **

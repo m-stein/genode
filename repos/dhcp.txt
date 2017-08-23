@@ -1,0 +1,141 @@
+---init---
+
+[init -> nic_dump] (nic <- vbx) ETH f0:de:f1:04:97:0f > ff:ff:ff:ff:ff:ff IPV4 0.0.0.0 > 255.255.255.255 UDP 68 > 67 DHCP f0:de:f1:04:97:0f > 0.0.0.0 cmd 1
+[init -> nic_dump] (vbx <- nic) ETH 00:fd:45:fc:6f:80 > f0:de:f1:04:97:0f IPV4 10.0.0.2 > 10.0.0.72 UDP 67 > 68 DHCP f0:de:f1:04:97:0f > 10.0.0.2 cmd 2
+[init -> nic_dump] (nic <- vbx) ETH f0:de:f1:04:97:0f > ff:ff:ff:ff:ff:ff IPV4 0.0.0.0 > 255.255.255.255 UDP 68 > 67 DHCP f0:de:f1:04:97:0f > 0.0.0.0 cmd 1
+[init -> nic_dump] (vbx <- nic) ETH 00:fd:45:fc:6f:80 > f0:de:f1:04:97:0f IPV4 10.0.0.2 > 10.0.0.72 UDP 67 > 68 DHCP f0:de:f1:04:97:0f > 10.0.0.2 cmd 2
+
+---ping 10.0.0.1---
+
+[init -> nic_dump] (nic <- vbx) ETH f0:de:f1:04:97:0f > ff:ff:ff:ff:ff:ff ARP f0:de:f1:04:97:0f 10.0.0.72 > 00:00:00:00:00:00 10.0.0.1 cmd 1
+[init -> nic_dump] (vbx <- nic) ETH 00:1d:aa:aa:ad:d0 > f0:de:f1:04:97:0f ARP 00:1d:aa:aa:ad:d0 10.0.0.1 > f0:de:f1:04:97:0f 10.0.0.72 cmd 2
+[init -> nic_dump] (nic <- vbx) ETH f0:de:f1:04:97:0f > 00:1d:aa:aa:ad:d0 IPV4 10.0.0.72 > 10.0.0.1 
+[init -> nic_dump] (vbx <- nic) ETH 00:1d:aa:aa:ad:d0 > f0:de:f1:04:97:0f IPV4 10.0.0.1 > 10.0.0.72 
+[init -> nic_dump] (nic <- vbx) ETH f0:de:f1:04:97:0f > 00:1d:aa:aa:ad:d0 IPV4 10.0.0.72 > 10.0.0.1 
+[init -> nic_dump] (vbx <- nic) ETH 00:1d:aa:aa:ad:d0 > f0:de:f1:04:97:0f IPV4 10.0.0.1 > 10.0.0.72 
+[init -> nic_dump] (nic <- vbx) ETH f0:de:f1:04:97:0f > 00:1d:aa:aa:ad:d0 IPV4 10.0.0.72 > 10.0.0.1 
+[init -> nic_dump] (vbx <- nic) ETH 00:1d:aa:aa:ad:d0 > f0:de:f1:04:97:0f IPV4 10.0.0.1 > 10.0.0.72 
+[init -> nic_dump] (nic <- vbx) ETH f0:de:f1:04:97:0f > 00:1d:aa:aa:ad:d0 IPV4 10.0.0.72 > 10.0.0.1 
+[init -> nic_dump] (vbx <- nic) ETH 00:1d:aa:aa:ad:d0 > f0:de:f1:04:97:0f IPV4 10.0.0.1 > 10.0.0.72
+
+[init -> nic_dump] (nic <- vbx) ETH 02:02:02:02:02:00 > ff:ff:ff:ff:ff:ff IPV4 0.0.0.0 > 255.255.255.255 UDP 68 > 67 DHCP 02:02:02:02:02:00 > 0.0.0.0 cmd 1
+[init -> nic_dump] (vbx <- nic) ETH f0:de:f1:04:97:0f > 02:02:02:02:02:00 IPV4 192.168.1.1 > 192.168.1.27 UDP 67 > 68 DHCP 02:02:02:02:02:00 > 192.168.1.1 cmd 2
+[init -> nic_dump] (nic <- vbx) ETH 02:02:02:02:02:00 > ff:ff:ff:ff:ff:ff IPV4 0.0.0.0 > 255.255.255.255 UDP 68 > 67 DHCP 02:02:02:02:02:00 > 0.0.0.0 cmd 1
+[init -> nic_dump] (vbx <- nic) ETH f0:de:f1:04:97:0f > 02:02:02:02:02:00 IPV4 192.168.1.1 > 192.168.1.27 UDP 67 > 68 DHCP 02:02:02:02:02:00 > 192.168.1.1 cmd 2
+
+(nic <- vbx) ETH f0:de:f1:04:97:0f > ff:ff:ff:ff:ff:ff IPV4 0.0.0.0 > 255.255.255.255 UDP 68 > 67 DHCP f0:de:f1:04:97:0f > 0.0.0.0 cmd 1
+  op           1
+  htype        1
+  hlen         6
+  hops         0
+  xid          2327262030
+  secs         3
+  flags        0
+  ciaddr       0.0.0.0
+  yiaddr       0.0.0.0
+  siaddr       0.0.0.0
+  giaddr       0.0.0.0
+  chaddr       f0:de:f1:04:97:0f
+  sname        
+  file         
+  magic_cookie 1666417251
+
+(vbx <- nic) ETH 00:fd:45:fc:6f:80 > f0:de:f1:04:97:0f IPV4 10.0.0.2 > 10.0.0.72 UDP 67 > 68 DHCP f0:de:f1:04:97:0f > 10.0.0.2 cmd 2
+  op           2
+  htype        1
+  hlen         6
+  hops         0
+  xid          2327262030
+  secs         3
+  flags        0
+  ciaddr       0.0.0.0
+  yiaddr       10.0.0.72
+  siaddr       10.0.0.2
+  giaddr       0.0.0.0
+  chaddr       f0:de:f1:04:97:0f
+  sname        
+  file         /tftpboot/hosts/test2-x201.pxe
+  magic_cookie 1666417251
+
+(nic <- vbx) ETH f0:de:f1:04:97:0f > ff:ff:ff:ff:ff:ff IPV4 0.0.0.0 > 255.255.255.255 UDP 68 > 67 DHCP f0:de:f1:04:97:0f > 0.0.0.0 cmd 1
+  op           1
+  htype        1
+  hlen         6
+  hops         0
+  xid          2327262030
+  secs         3
+  flags        0
+  ciaddr       0.0.0.0
+  yiaddr       0.0.0.0
+  siaddr       0.0.0.0
+  giaddr       0.0.0.0
+  chaddr       f0:de:f1:04:97:0f
+  sname        
+  file         
+  magic_cookie 1666417251
+
+(vbx <- nic) ETH 00:fd:45:fc:6f:80 > f0:de:f1:04:97:0f IPV4 10.0.0.2 > 10.0.0.72 UDP 67 > 68 DHCP f0:de:f1:04:97:0f > 10.0.0.2 cmd 2
+  op           2
+  htype        1
+  hlen         6
+  hops         0
+  xid          2327262030
+  secs         3
+  flags        0
+  ciaddr       0.0.0.0
+  yiaddr       10.0.0.72
+  siaddr       10.0.0.2
+  giaddr       0.0.0.0
+  chaddr       f0:de:f1:04:97:0f
+  sname        
+  file         /tftpboot/hosts/test2-x201.pxe
+  magic_cookie 1666417251
+
+
+with nic_router
+without nic_router
+
+(nic <- vbx) ETH 02:02:02:02:02:00 > ff:ff:ff:ff:ff:ff IPV4 0.0.0.0 > 255.255.255.255 UDP 68 > 67 DHCP 02:02:02:02:02:00 > 0.0.0.0 cmd 1
+(nic <- vbx) ETH f0:de:f1:04:97:0f > ff:ff:ff:ff:ff:ff IPV4 0.0.0.0 > 255.255.255.255 UDP 68 > 67 DHCP f0:de:f1:04:97:0f > 0.0.0.0 cmd 1
+
+ op 1 ht 1 hl 6 ho 0 xi 4111351085 se 3 fl 0 ci 0.0.0.0 yi 0.0.0.0 si 0.0.0.0 gi 0.0.0.0 ch 02:02:02:02:02:00 sn  fi  ma 1666417251
+ op 1 ht 1 hl 6 ho 0 xi 2485917997 se 3 fl 0 ci 0.0.0.0 yi 0.0.0.0 si 0.0.0.0 gi 0.0.0.0 ch f0:de:f1:04:97:0f sn  fi  ma 1666417251
+
+(vbx <- nic) ETH f0:de:f1:04:97:0f > 02:02:02:02:02:00 IPV4 192.168.1.1 > 192.168.1.27 UDP 67 > 68 DHCP 02:02:02:02:02:00 > 192.168.1.1 cmd 2
+(vbx <- nic) ETH 00:fd:45:fc:6f:80 > f0:de:f1:04:97:0f IPV4 10.0.0.2    > 10.0.0.72    UDP 67 > 68 DHCP f0:de:f1:04:97:0f > 10.0.0.2 cmd 2
+
+ op 2 ht 1 hl 6 ho 0 xi 4111351085 se 3 fl 0 ci 0.0.0.0 yi 192.168.1.27 si 192.168.1.1 gi 0.0.0.0 ch 02:02:02:02:02:00 sn  fi /tftpboot/hosts/test2-x201.pxe ma 1666417251
+ op 2 ht 1 hl 6 ho 0 xi 2485917997 se 3 fl 0 ci 0.0.0.0 yi 10.0.0.72    si 10.0.0.2    gi 0.0.0.0 ch f0:de:f1:04:97:0f sn  fi /tftpboot/hosts/test2-x201.pxe ma 1666417251
+
+(nic <- vbx) ETH 02:02:02:02:02:00 > ff:ff:ff:ff:ff:ff IPV4 0.0.0.0 > 255.255.255.255 UDP 68 > 67 DHCP 02:02:02:02:02:00 > 0.0.0.0 cmd 1
+(nic <- vbx) ETH f0:de:f1:04:97:0f > ff:ff:ff:ff:ff:ff IPV4 0.0.0.0 > 255.255.255.255 UDP 68 > 67 DHCP f0:de:f1:04:97:0f > 0.0.0.0 cmd 1
+
+ op 1 ht 1 hl 6 ho 0 xi 4111351085 se 6 fl 0 ci 0.0.0.0 yi 0.0.0.0 si 0.0.0.0 gi 0.0.0.0 ch 02:02:02:02:02:00 sn  fi  ma 1666417251
+ op 1 ht 1 hl 6 ho 0 xi 2485917997 se 3 fl 0 ci 0.0.0.0 yi 0.0.0.0 si 0.0.0.0 gi 0.0.0.0 ch f0:de:f1:04:97:0f sn  fi  ma 1666417251
+
+(vbx <- nic) ETH f0:de:f1:04:97:0f > 02:02:02:02:02:00 IPV4 192.168.1.1 > 192.168.1.27 UDP 67 > 68 DHCP 02:02:02:02:02:00 > 192.168.1.1 cmd 2
+(vbx <- nic) ETH 00:fd:45:fc:6f:80 > f0:de:f1:04:97:0f IPV4 10.0.0.2    > 10.0.0.72    UDP 67 > 68 DHCP f0:de:f1:04:97:0f > 10.0.0.2 cmd 2
+
+ op 2 ht 1 hl 6 ho 0 xi 4111351085 se 6 fl 0 ci 0.0.0.0 yi 192.168.1.27 si 192.168.1.1 gi 0.0.0.0 ch 02:02:02:02:02:00 sn  fi /tftpboot/hosts/test2-x201.pxe ma 1666417251
+ op 2 ht 1 hl 6 ho 0 xi 2485917997 se 3 fl 0 ci 0.0.0.0 yi 10.0.0.72    si 10.0.0.2    gi 0.0.0.0 ch f0:de:f1:04:97:0f sn  fi /tftpboot/hosts/test2-x201.pxe ma 1666417251
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+nic_router
+nic_dump
+
+

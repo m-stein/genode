@@ -22,6 +22,7 @@
 
 #include <dde_ipxe/support.h>
 #include <dde_ipxe/nic.h>
+#include <net/ethernet.h>
 
 using namespace Genode;
 
@@ -51,6 +52,8 @@ class Ipxe_session_component  : public Nic::Session_component
 
 		bool _send()
 		{
+//static unsigned x = 0;
+//log("send ", x++);
 			using namespace Genode;
 
 			if (!_tx.sink()->ready_to_ack())
@@ -60,6 +63,9 @@ class Ipxe_session_component  : public Nic::Session_component
 				return false;
 
 			Packet_descriptor packet = _tx.sink()->get_packet();
+
+//Net::Ethernet_frame &eth = *new (_tx.sink()->packet_content(packet)) Net::Ethernet_frame(packet.size());
+//log("\033[33msnd\033[0m ", eth);
 			if (!packet.size()) {
 				Genode::warning("Invalid tx packet");
 				return true;
@@ -74,6 +80,9 @@ class Ipxe_session_component  : public Nic::Session_component
 
 		void _receive(const char *packet, unsigned packet_len)
 		{
+//static unsigned x = 0;
+//log("receive ", x++);
+
 			_handle_packet_stream();
 
 			if (!_rx.source()->ready_to_submit())
@@ -81,7 +90,12 @@ class Ipxe_session_component  : public Nic::Session_component
 
 			try {
 				Nic::Packet_descriptor p = _rx.source()->alloc_packet(packet_len);
+
 				Genode::memcpy(_rx.source()->packet_content(p), packet, packet_len);
+
+//Net::Ethernet_frame &eth = *new (_rx.source()->packet_content(p)) Net::Ethernet_frame(p.size());
+//log("\033[33mrcv\033[0m ", eth);
+
 				_rx.source()->submit_packet(p);
 			} catch (...) {
 				Genode::warning(__func__, ": failed to process received packet");

@@ -38,11 +38,21 @@ namespace Net
 
 struct Net::Ipv4_address : Network_address<IPV4_ADDR_LEN, '.', false>
 {
+	Ipv4_address(const Genode::uint8_t *src, bool) : Network_address(src) { }
+
 	Ipv4_address(Genode::uint8_t value = 0) : Network_address(value) { }
 
 	Ipv4_address(void *src) : Network_address(src) { }
 
 	bool valid() const { return *this != Ipv4_address(); }
+
+	Genode::uint32_t to_uint32()
+	{
+		return addr[3] |
+		       addr[2] << 8 |
+		       addr[1] << 16 |
+		       addr[0] << 24;
+	}
 }
 __attribute__((packed));
 
