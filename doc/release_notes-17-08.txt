@@ -735,37 +735,23 @@ legacy BIOS support (called CSM).
 RISC-V
 ------
 
-commit 1c4c42b7a40325365259e6fc3d4b06f37fba4c4d
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Aug 24 16:17:54 2017 +0200
+With Genode release 17.05 we updated base-hw's RISC-V support to privileged ISA
+revision 1.9.1. By doing so we unfortunately broke dynamic linking support for
+the RISC-V architecture. Since, dynamic linking is now required for almost all
+Genode applications this became a sever problem. Therefore, we revisited our
+RISC-V implementation and fixed  the bugs, for example in the kernel entry code,
+that caused Genode's dynamic linker to stop working properly.
 
-    run: update RISC-V run script support
-    
-    * fix build error for bbl upon intial build
-    * set memory to 128 MB in spike
-    * support 'forever' timeout
-    
-    issue #2423
+Additionally, we integrated the Berkeley Boot Loader (BBL), which bootstraps the
+system and implements machine mode, more closely into our build infrastructure.
+We also added a new timer implementation to base-hw by using the set timeout SBI
+call of BBL.
 
-commit 973c19cc4d1267d06cd0e87dcad8bc92995e7566
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Aug 24 16:22:02 2017 +0200
-
-    base-hw: RISC-V save/restore 'x29' correctly
-    
-    * register x29/t4 was not saved and therefore not restored correctly
-    * change 'warning' to 'error' before '_die' is called
-    
-    issue #2423
-
-commit 169b8e3b1f960fd97bdd6474d98b2c47dfe871ac
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Aug 24 16:24:04 2017 +0200
-
-    ldso: export symbols required by RISC-V
-    
-    issue #2423
-
+What still remains missing is proper FPU support. While we are building the
+Genode tool chain with soft float support, we still encounter occasions where
+FPU code is generated which in turn trigger compile time errors. We will have to
+investigate this behavior more thoroughly, but ultimately we want to add FPU
+support to our kernel and enable hardware floating point in the tool chain.
 
 Muen separation kernel
 ======================
