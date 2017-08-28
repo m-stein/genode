@@ -673,50 +673,47 @@ Platforms
 Genode as Xen DomU
 ==================
 
-;@cproc
+We want to widen the application scope of Genode by enabling users to easily
+deploy Genode scenarios on Xen-based cloud platforms.
 
-commit f57cd0b4ae06eadb592a7396c2dead37946c9fc4
-Author: Christian Prochaska <christian.prochaska@genode-labs.com>
-Date:   Mon Aug 7 15:24:40 2017 +0200
+As a first step towards this goal, we enhanced our run tool to support running
+Genode scenarios as a local Xen DomU, managed from within the Genode build
+system on Linux running as Xen Dom0.
 
-    run: add Xen support
+The Xen DomU runs in HVM mode (full virtualization) and loads Genode from an
+ISO image. Serial log output is printed to the text console and graphical
+output is shown in an SDL window.
+
+To use this new target platform, the following run options should be defined in
+the 'build/x86_*/etc/build.conf' file:
+
+! RUN_OPT = --include boot_dir/$(KERNEL) --include image/iso --include power_on/xen --include log/xen --include power_off/xen
     
-    When building Genode on a Linux system running in a Xen Dom0, the 'xen'
-    run target can run a Genode scenario in a Xen DomU.
+The Xen DomU ist managed using the 'xl' command line tool and it is possible to
+add configuration options in the 'xen_args' variable in a run script. Common
+options are:
     
-    Usage: in build/x86_*/etc/build.conf, define:
+* disabling the graphical output:
     
-    RUN_OPT = --include boot_dir/$(KERNEL) --include image/iso --include power_on/xen --include log/xen --include power_off/xen
+  ! append xen_args { sdl="0" }
     
-    The Xen DomU runs in HVM mode and loads Genode from an ISO image. Serial
-    log output is printed to the console and graphical output is shown in an
-    SDL window.
+* configuring a network device:
     
-    The Xen DomU ist managed using the 'xl' command line tool and it is
-    possible to add configuration options in the 'xen_args' variable in a run
-    script. Common options are:
+  ! append xen_args { vif=\["model=e1000,mac=02:00:00:00:01:01,bridge=xenbr0"\] }
     
-    - disabling the graphical output:
+* configuring USB input devices:
     
-      append xen_args { sdl="0" }
+  ! append xen_args { usbdevice=\["mouse","keyboard"\] }
     
-    - configuring a network device:
-    
-      append xen_args { vif=\["model=e1000,mac=02:00:00:00:01:01,bridge=xenbr0"\] }
-    
-    - configuring USB input devices:
-    
-      append xen_args { usbdevice=\["mouse","keyboard"\] }
-    
-    Note: the 'xl' tool requires super-user permissions and interactive
-    password input can be troublesome in combination with 'expect' and is not
-    practical for automatic tests. For this reason, the current implementation
-    assumes that no password input is needed when running 'sudo xl', which can
-    be achieved by creating a file '/etc/sudoers.d/xl' with the content
-    'user ALL=(root) NOPASSWD: /usr/sbin/xl'
-    (where 'user' is the Linux user name).
-    
-    Fixes #2504
+Note that the 'xl' tool requires super-user permissions and interactive
+password input can be complicated in combination with 'expect' and is not
+practical for automated tests. For this reason, the current implementation
+assumes that no password input is needed when running 'sudo xl', which can
+be achieved by creating a file '/etc/sudoers.d/xl' with the content
+
+! user ALL=(root) NOPASSWD: /usr/sbin/xl
+
+where 'user' is the Linux user name.
 
 
 Execution on bare hardware (base-hw)
