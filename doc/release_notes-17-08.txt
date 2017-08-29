@@ -331,230 +331,36 @@ configurations without "writeable" policies_.
 Refined time handling
 =====================
 
-;@m-stein
+With the 17.05 release, a
+[https://genode.org/documentation/release-notes/17.05#New_API_for_user-level_timing - new API for user-lavel timing]
+named Timeout framework was introduced. Together with this new framework also
+came the Timeout test that aims to stress all aspects of the interface.
+During the last months, this test turned out to be an enrichment for Genode
+far beyond its original subject, the code of the Timeout framework. As it
+significantly raised the standards in user-level timing, it also sharpened our
+view on the precision of the output of timer drivers and timestamps which acts
+as input for the framework. This revealed several problems that were
+previously not identifiable.  For instance, we improved the accuracy and
+stability of the time values provided by the drivers for the Raspberry-PI
+timer, the Cortex-A9 timer, the PIT, and the LAPIC. We also were able to
+further optimize the calibration of the TSC in the NOVA kernel.
 
-commit 685f509a4335a63680cd1ce7d508900d0c95ac08
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Wed May 31 15:24:56 2017 +0200
+But the test also helped us to refine the Timeout framework itself. The
+initial calibration of the framework, that previously took about 1.5 seconds,
+is now done much faster. This makes microseconds-precise time normally
+available immediately after the Timer Connection switched to Modern Mode,
+which is a prerequisite for hardware drivers that need such precision already
+during their initialization phase. The calculations inside the framework were
+also made more flexible to better fit the characteristics of all the hardware
+and kernels that Genode runs on.
 
-    timer connection: no interpolation on arm w/o hw
-    
-    On ARM, we do not have a component-local hardware time-source. The ARM
-    performance counter has no reliable frequency as the ARM idle command
-    halts the counter. Thus, we do not do local time interpolation on ARM.
-    Except we're on the HW kernel. In this case we can read out the kernel
-    time instead.
-    
-    Ref #2435
-
-commit 23337eb6e77c74258e2e613a26203d2347bca41d
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Wed May 31 16:08:08 2017 +0200
-
-    run/timeout: run also on arm w/o hw and qemu
-    
-    On platforms were we do not have local time interpolation we can simply
-    skip the first test stage in the timeout test. This way, we can at least
-    test the rest.
-    
-    Fixes #2435
-
-commit 94095a27acd33368a60207a3b3de688af78fe6d7
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Fri Jun 16 13:45:43 2017 +0200
-
-    nova: adjust calibration time
-    
-    Extend the calibration time of CPUs with Local-APIC that does not support the
-    TSC-Deadline mode. Improves the accuracy of timeouts.
-    
-    Issue #2400
-
-commit 9b1c26ab7f0eea15fb1e311bbb902b468508f9f7
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Mon Jun 19 12:56:16 2017 +0200
-
-    timeout lib: dynamic interpolation-factor shift
-    
-    In the timeout framework, we maintain a translation factor value to
-    translate between time and timestamps. To raise precision we scale-up
-    the factor when we calculate it and scale-down the result of its
-    appliance later again. This up and down scaling is achieved through
-    left and right shifting. Until now, the shift width was statically
-    choosen. However, some platforms need a big shift width and others a
-    smaller one. The one static shift width couldn't cover all platforms
-    which caused overflows or precision problems.
-    
-    Now, the shift width is choosen optimally for the actual translation
-    factor each time it gets re-calculated. This way, we can take care that
-    the shift always renders the best precision level without the risk for
-    overflows.
-    
-    Ref #2400
-
-commit 67a1cb92f24db35946ef1e7b66009762dee6b012
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed Jun 21 11:06:45 2017 +0200
-
-    nova: handle instable TSC calibration
-    
-    Issue #2400
-
-commit 8750e373a00c4871c719cf4038b37886325ad069
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Fri Aug 4 15:11:27 2017 +0200
-
-    timer session: add elapsed_us method
-    
-    As timer sessions are not expected to be microseconds precise (because
-    of RPC latency and scheduling), the session interface provided only a
-    method 'elapsed_ms' although the back end of this method in the timer
-    driver works with microseconds.
-    
-    However, in some cases it makes sense to have a method 'elapsed_us'. The
-    values it returns might be milliseconds away from the "real" time but it
-    allows you to work with delays smaller than a millisecond without
-    getting a zero delta value.
-    
-    This commit is motivated by the need for fast bursts of calibration
-    steps for the time interpolation in the new timer connection.
-    
-    Ref #2400
-
-commit 6dfb903bd0a8b69d0b6d69dd9d817417503f2df0
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Fri Aug 4 15:28:56 2017 +0200
-
-    timer connection: always work with microseconds
-    
-    As the timer session now provides a method 'elapsed_us', there is no more need
-    for doing any internal calculations with values of milliseconds.
-    
-    Ref #2400
-
-commit 31af206a8c2fdd340b9b9e8fda29316ce047a482
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Mon Aug 7 14:27:55 2017 +0200
-
-    hw rpi: fix bug that caused bad timer precision
-    
-    The kernel timer on RPI is able to measure time microseconds-precise.
-    Howeer, due to a bug, we dropped precision during the ticks-to-time
-    translation and return only milliseconds-precise time.
-    
-    Ref #2400
-
-commit adaad64fbb7cc07b2bc63fe777454e85059083a6
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Tue Aug 8 14:32:50 2017 +0200
-
-    timer connection: relax factor shifting
-    
-    When in modern mode (with local time interpolation), the timer
-    connection used to maximize the left shifting of its
-    timestamp-to-microseconds factor. The higher the shift the more precise
-    is the translation from timestamps to microseconds. If the timestamp
-    values used for determining the best shift were small - i.e.  the delay
-    between the calibration steps were small - we may got a pretty big
-    shift.  If we then used the shift with bigger timestamp values - i.e.
-    called curr_time seldom or raised calibration delays - the big shift
-    value became a problem. The framework had to scale down all measured
-    timestamps and time values temporarily to stay operative until the next
-    calibration step.
-    
-    Thus, we now raise the shift only that much that the resulting factor
-    fullfills a given minimum. This keeps it as low as possible according
-    to the precision requirement. Currently, this requirement is set to 8
-    meaning that the shifted factor shall be at least 2^8 = 256.
-    
-    Ref #2400
-
-commit b6efa7f6f98fab1ab306ca08196c48e93433cec8
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Tue Aug 8 15:18:14 2017 +0200
-
-    timer connection: fast initial calibration
-    
-    The calibration of the interpolation parameters was previously only done
-    periodically every 500 ms. Together with the fact that the parameters
-    had to be stable for at least 3 calibration steps to enable
-    interpolation, it took at least 1.5 seconds after establishing a
-    connection to get microseconds-precise time values.
-    
-    This is a problem for some drivers that directly start to poll time.
-    Thus, the timer connection now does a calibration burst as soon as it
-    switches to the modern mode (the mode with microseconds precision).
-    During this phase it does several (currently 9) calibration steps
-    without a delay inbetween. It is assumed that this is fast enough to not
-    get interrupted by scheduling. Thus, despite being small, the measured
-    values should be very stable which is why the burst should in most cases
-    be sufficient to get the interpolation initialized.
-    
-    Ref #2400
-
-commit 47dc70888795d8798aa7cdefe8f008897bf49d1b
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Tue Aug 8 15:46:53 2017 +0200
-
-    usb rpi: get rid of local hardware timer
-    
-    We used a hardware timer locally in the RPI USB driver because a timer
-    connection was not precise enough to fullfill the host controllers
-    requirements.
-    
-    With the modern timer connection interface, however, reading out time at
-    a connection is microseconds precise and we can remove the local timer.
-    But we cannot use the same timer connection for doing legacy-interface
-    stuff like usleep (currently used in LX kit) and modern-interface stuff
-    like curr_time. Thus, we open two connections for now.
-    
-    Ref #2400
-
-commit 4b6904ff34e537955c12855a9375516a15a2eecd
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Wed Aug 23 18:38:24 2017 +0200
-
-    timer pit: fix precision reduction to milliseconds
-    
-    Due to the simplicity of the algorithm that translated from timer ticks
-    to time, we lost microseconds precision although the timer allows for it.
-    
-    Ref #2400
-
-commit a68ce0c0668f9d8a95f96b3a075e725baadd663c
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Wed Aug 23 19:16:27 2017 +0200
-
-    timer: generic timer_ticks_to_us implementation
-    
-    There are hardware timers whose frequency can't be expressed as
-    ticks-per-microsecond integer-value because only a ticks-per-millisecond
-    integer-value is precise enough. We don't want to use expensive
-    floating-point values here but nonetheless want to translate from ticks
-    to time with microseconds precision. Thus, we split the input in two and
-    translate both parts separately. This way, we can raise precision by
-    shifting the values to their optimal bit position. Afterwards, the results
-    are shifted back and merged together again.
-    
-    As this algorithm is not so trivial anymore and used by at least three
-    timer drivers (base-hw/x86_64, base-hw/cortex_a9, timer/pit), move it to a
-    generic header to avoid redundancy.
-    
-    Ref #2400
-
-commit 7cab53acb5af29f5cecc0c43d4b092432780f78f
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Thu Aug 24 13:30:22 2017 +0200
-
-    hw lapic: find best frequency dynamically
-    
-    Some x86 machines do have a LAPIC speed < 1000 ticks per millisecond
-    when configured to use the maximum divider (as it was always the case).
-    But we need microseconds precision for the timeout framework. Thus,
-    reduce the divider dynamically until the frequency fullfills our
-    requirements.
-    
-    Ref #2400
+Finally, we were able to extend the appliance of the Timeout framework. Most
+notably, our LibC now uses it as timing source and therefore also every LibC
+component. Another noteworthy case is the USB driver on the Raspberry PI. It
+previously couldn't build on the default Genode timing but required a local
+hardware timer to reach the precision that the host controller expected from
+software. With the Timeout framework, this workaround could be fixed and the
+driver now does timing just as other Genode components.
 
 
 FatFS-based VFS plugin
