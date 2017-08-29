@@ -16,7 +16,7 @@ Hardware-accelerated graphics for Intel Gen-8 GPUs
 ##################################################
 
 The ability to leverage hardware-accelerated graphics is generally taken for
-granted when modern commodity operating systems. The user experience of
+granted in modern commodity operating systems. The user experience of
 modern desktop environments, web-browser performance, and obviously games
 depend on it. On the other hand, the benefits of hardware-accelerated graphics
 comes at the expense of tremendous added complexity in the lower software
@@ -42,9 +42,9 @@ than retaining the softpipe implementation, we now use swrast. In addition, we
 changed the available OpenGL implementation from OpenGL ES 2.x to the fully
 fledged OpenGL 4.5 profile, including the corresponding shader language version.
 As with the previous Mesa port, EGL serves as front end API for system
-integration and loads a DRI back end driver (i965 or swrast). EGL always request
-the back end driver 'egl_drv.lib.so' in form of a shared object. Genode's
-relabeling features is used to select the proper back end via a route
+integration and loads a DRI back-end driver (i965 or swrast). EGL always requests
+the back-end driver 'egl_drv.lib.so' in form of a shared object. Genode's
+relabeling features are used to select the proper back end via a route
 configuration. The following snippet illustrates such a configuration for
 software rendering:
 
@@ -58,7 +58,7 @@ software rendering:
 !   </route>
 ! </start>
 
-With the graphics-stack front end in place, it was time to take care of the
+With the graphics-stack front-end in place, it was time to take care of the
 GPU driver. In our case this meant implementing the DRM interface in our
 ported version of the Intel i915 DRM driver. Up to now, this driver was solely
 used for mode setting while we completely omitted supporting the render
@@ -74,7 +74,7 @@ During this work, we gathered valuable insights into the architecture of a moder
 We found that the Intel-specific Mesa driver itself is far more complex than
 its kernel counter part. The DRM driver is mainly concerned with resource and
 execution management whereas the Mesa driver programs the GPU. For example,
-amongst others, Mesa compiles the OpenGL shaders into a GPU specific machine
+amongst others, Mesa compiles the OpenGL shaders into a GPU-specific machine
 code that is passed on to the kernel for execution.
 
 While inspecting the DRM driver, it became obvious that one of the reasons for
@@ -104,7 +104,7 @@ each session, the driver creates a context consisting of a hardware context, a
 set of page tables (PPGTT), and a part of the aperture. The client may use the
 session to allocate and map memory buffers used by the GPU. Each buffer is
 always eagerly mapped 1:1 into the PPGTT by using the local virtual address of
-the client. Special memory buffers like a image buffer are additionally mapped
+the client. Special memory buffers like an image buffer are additionally mapped
 through the aperture to make use of the hardware-provided de-tiling mechanism.
 As is essential in Genode components, the client must donate all resources that
 the driver might need to fulfill the request, i.e., quota for memory and
@@ -137,14 +137,14 @@ We started this line of work with upgrading the kernel from version 3.2.0 to
 5.2.0 and finally to seL4 6.0. With the upgrade, we were able to drop several
 Genode-specific seL4 patches, which were required in the 16.08 release. One
 major improvement of version 6.0 compared to earlier versions is the handling
-of the announcement of device memory by the kernel to Genode's roottask
+of the announcement of device memory by the kernel to Genode's root task
 'core'.
 
 With the kernel update in place, we inspected the x86-specific part thoroughly
 and split and separated it properly into architecture-agnostic and
 architecture-dependent parts. Upon this work, we added the
 architecture-specific counterparts for x86_64 and ARM. One major work item was
-to make the page table handling in Genode's core aware and generic enough to
+to make the page-table handling in Genode's core aware and generic enough to
 handle the differences in the page table sizes between the three
 architectures.
 
@@ -182,22 +182,22 @@ When IOMMUs are used on x86,
 all host memory targeted via direct memory accesses (DMA) by devices must be eagerly
 registered in the respective I/O page table of the device.
 Up to now, Genode supports IOMMUs on NOVA only. On this kernel, a device
-protection domain is represented as a regular protection
+protection-domain is represented as a regular protection
 domain with its virtual memory layout being used for both the CPU's MMU and
 the device. Traditionally, mappings into such virtual memory spaces are
 inserted on demand as responses to page faults. However, as there are no
 page faults for DMA transactions, DMA buffers must always be eagerly mapped.
-The so-called device-PD hid this gap for NOVA. In anticipation of adding
+The so-called device PD hid this gap for NOVA. In anticipation of adding
 IOMMU support for more kernels, we desired to generalize the device-PD
 mechanism by introducing an explicit way to trigger the insertion of DMA
-memory into the right page-tables.
+memory into the right page tables.
 
 The PD-session interface got extended by a 'map' function, which takes a
 virtual region of the calling process as argument. The page frames of the
 previously attached dataspace or dataspaces are added eagerly by core to
 the IOMMU page-tables.
-With this explicit 'map' support, we were able to replace the Genode/NOVA
-specific device-PD implementation with a generic one, which will easily
+With this explicit 'map' support, we were able to replace the Genode/NOVA-specific
+device-PD implementation with a generic one, which will easily
 accommodate other kernels in the future.
 
 
@@ -206,7 +206,7 @@ New report server for capturing reports to files
 
 The *Report* session is a simple mechanism for components to publish structured data
 without the complexity of a file-system layer. In the simplest case, a client component
-will produce a report and communicate it directly to component acting as a server.
+will produce a report and communicate it directly to the component acting as server.
 The disadvantage is that the report client becomes reliant on the liveliness and
 presence of the consumer component. So in the more robust case, the *report_rom*
 component acts as the server hosting the *Report* service as well as a *ROM* service
@@ -231,7 +231,7 @@ The *init* component is a prime example of software with emphasis on function ov
 features. It is the fundamental building block for combining components yet its
 behavior is simple and without heuristics. Like other contemporary init managers,
 it starts components in parallel, but to a more extreme degree in that it has no
-concept of "runlevels" or "targets", all components are started as soon a possible.
+concept of "runlevels" or "targets", all components are started as soon as possible.
 The concrete sequence of execution is instead determined by when server components
 make service announcements and how quickly they respond to requests by clients.
 
@@ -280,7 +280,7 @@ Instead of booting in VGA text mode and leaving the switch to a graphics mode
 (via real-mode SVGA BIOS subroutines) to the booted OS, UEFI employs the
 so-called graphics output protocol to set up a reasonable default graphics
 mode prior booting the operating system. In order to produce graphical output,
-the operating system merely has no know the physical address and layout of the
+the operating system merely has no to know the physical address and layout of the
 frame buffer. Genode's core exposes this information as a so-called
 "platform_info" ROM module. The new _fb_boot_drv_ driver picks up this
 information to provide a Genode framebuffer session interface. Hence, on
@@ -318,8 +318,8 @@ The most important changes are:
 
 * The 'write()' function does not wait for signals anymore. This can have the
   effect that data written by a VFS library user has not been processed by a
-  file system server yet when the library user asks for the size of the file or
-  closes it (both done with RPC functions at the file system server). For this
+  file-system server yet when the library user asks for the size of the file or
+  closes it (both done with RPC functions at the file-system server). For this
   reason, a user of the VFS library should request synchronization before
   calling 'stat()' or 'close()'. To make sure that a file system server has
   processed all write request packets that a client submitted prior the
@@ -341,7 +341,7 @@ by policy. This release introduces a similar restriction to the AHCI driver and
 partition multiplexer. Clients of these servers require an affirmative "writeable"
 attribute on policies to permit the writing of blocks. Write permission at these
 servers may also be revoked by components that forward *Block* session requests
-by placing _writeable="no"_ into session request arguments.
+by placing _writeable="no"_ into session-request arguments.
 
 _All users of *ahci_drv* and *part_blk* are advised that this change may break
 existing configurations without "writeable" policies_.
@@ -351,7 +351,7 @@ Refined time handling
 =====================
 
 With the 17.05 release, a
-[https://genode.org/documentation/release-notes/17.05#New_API_for_user-level_timing - new API for user-lavel timing]
+[https://genode.org/documentation/release-notes/17.05#New_API_for_user-level_timing - new API for user-level timing]
 named *timeout framework* was introduced. Together with this new framework also
 came a comprehensive test that stresses all aspects of the interface.
 During the last months, this test turned out to be an enrichment for Genode
@@ -446,7 +446,7 @@ The growing number of ported applications used on Genode is
 accompanied by the requirement of extensive POSIX compatibility of our
 C runtime. Therefore, we enhanced our implementation by half a dozen
 features (e.g., O_ACCMODE tracking) during the past release cycle. We
-thank the contributors of patches or test cases and will continue our
+thank the contributors of patches and test cases and will continue our
 efforts to accommodate more ported open-source components in the
 future.
 
@@ -514,7 +514,11 @@ output is shown in an SDL window.
 To use this new target platform, the following run options should be defined in
 the 'build/x86_*/etc/build.conf' file:
 
-! RUN_OPT = --include boot_dir/$(KERNEL) --include image/iso --include power_on/xen --include log/xen --include power_off/xen
+! RUN_OPT  = --include boot_dir/$(KERNEL)
+! RUN_OPT += --include image/iso
+! RUN_OPT += --include power_on/xen
+! RUN_OPT += --include log/xen
+! RUN_OPT += --include power_off/xen
 
 The Xen DomU is managed using the 'xl' command line tool and it is possible to
 add configuration options in the 'xen_args' variable in a run script. Common
@@ -559,22 +563,22 @@ RISC-V
 ------
 
 With Genode version 17.05, we updated base-hw's RISC-V support to privileged ISA
-revision 1.9.1. By doing so, we unfortunately broke dynamic linking support for
-the RISC-V architecture. Since dynamic linking is now required for almost all
+revision 1.9.1. Unfortunately, this implied that dynamic linking was not supported
+on the RISC-V architecture anymore. Since dynamic linking is now required for almost all
 Genode applications by default, this became a severe limitation. Therefore, we revisited our
 RISC-V implementation - in particular the kernel entry code -
 to lift the limitation to statically linked binaries.
 
 Additionally, we integrated the Berkeley Boot Loader (BBL), which bootstraps the
 system and implements machine mode, more closely into our build infrastructure.
-We also added a new timer implementation to base-hw by using the set timeout SBI
+We also added a new timer implementation to base-hw by using the *set timeout SBI*
 call of BBL.
 
 What still remains missing is proper FPU support. While we are building the
 Genode tool chain with soft float support, we still encounter occasions where
 FPU code is generated, which in turn triggers compile time errors. We will have to
 investigate this behavior more thoroughly, but ultimately we want to add FPU
-support to our kernel and enable hardware floating point in the tool chain.
+support for RISC-V to our kernel and enable hardware floating point in the tool chain.
 
 
 Muen separation kernel
@@ -605,12 +609,12 @@ module to our "run-tool" infrastructure. The run option 'image/uefi' can be
 used instead of 'image/iso' to create a raw image that contains a
 EFI system partition in a GUID partition table (GPT). The image is equipped by
 the new 'image/uefi' module with the GRUB2 boot loader, a GRUB2 configuration
-and the Genode run scenario. The final image can be copied with 'dd' to an
+and the Genode run scenario. The final image can be copied with 'dd' to a
 bootable USB stick. Additionally, we added support to boot
-such an image on Qemu leveraging Tianocores (http://www.tianocore.org) UEFI
+such an image on Qemu leveraging Tianocore's (http://www.tianocore.org) UEFI
 firmware.
 
 As a side project, minor virtualization support for AMD has been added to
-Virtualbox4 and to the NOVA kernel on Genode. This enables us to run 32-bit
+Virtualbox 4 and to the NOVA kernel on Genode. This enables us to run a 32-bit
 Windows 7 VM on a 32-bit Genode/NOVA host on an (oldish) AMD Phenom II X4 test
 machine.
