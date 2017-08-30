@@ -46,12 +46,12 @@ struct Net::Ipv4_address : Network_address<IPV4_ADDR_LEN, '.', false>
 
 	bool valid() const { return *this != Ipv4_address(); }
 
-	Genode::uint32_t to_uint32()
+	Genode::uint32_t to_uint32_big_endian()
 	{
-		return addr[3] |
-		       addr[2] << 8 |
-		       addr[1] << 16 |
-		       addr[0] << 24;
+		return addr[0] |
+		       addr[1] << 8 |
+		       addr[2] << 16 |
+		       addr[3] << 24;
 	}
 }
 __attribute__((packed));

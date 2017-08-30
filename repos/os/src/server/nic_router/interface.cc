@@ -157,11 +157,11 @@ void Interface::_pass_ip(Ethernet_frame &eth,
 {
 	_update_checksum(prot, prot_base, prot_size, ip.src(), ip.dst());
 	ip.checksum(Ipv4_packet::calculate_checksum(ip));
-	if (prot == Udp_packet::IP_ID) {
+//	if (prot == Udp_packet::IP_ID) {
 //		((Udp_packet*)prot_base)->_checksum = 1;
 //		ip.checksum(1);
 //		log("xxx ", (int)((Udp_packet*)prot_base)->_checksum, " ", ip.checksum());
-	}
+//	}
 	_send(eth, eth_size);
 }
 
@@ -345,19 +345,35 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 					dhcp.file("/tftpboot/hosts/test2-x201.pxe");
 
 //					/* DHCP options */
-//					Dhcp_packet::Option *msg_type = dhcp.option(Dhcp_packet::MSG_TYPE);
-//					if (!msg_type) { throw -1; }
-//					uint8_t &msg_type_val = *(uint8_t*)msg_type->value();
-//					switch (msg_type_val) {
-//					case Dhcp_packet::DHCP_DISCOVER: msg_type_val = Dhcp_packet::DHCP_OFFER; break;
-//					case Dhcp_packet::DHCP_REQUEST:  msg_type_val = Dhcp_packet::DHCP_ACK; break;
-//					default: throw -1; }
+					Dhcp_packet::Option *msg_type = dhcp.option(Dhcp_packet::MSG_TYPE);
+					if (!msg_type) { throw -1; }
+					Dhcp_packet::Message_type::Value msg_type_val = *(Dhcp_packet::Message_type::Value*)msg_type->value();
+					switch (msg_type_val) {
+					case Dhcp_packet::Message_type::DISCOVER: msg_type_val = Dhcp_packet::Message_type::OFFER; break;
+					case Dhcp_packet::Message_type::REQUEST:  msg_type_val = Dhcp_packet::Message_type::ACK;   break;
+					default: throw -1; }
 
 //					Dhcp_packet::Option_tpl<Dhcp_packet::Message_type>
 //						opt_msg_type(Dhcp_packet::MSG_TYPE, Dhcp_packet::DHCP_OFFER);
 
-					Dhcp_packet::Message_type    msg_type(Dhcp_packet::Message_type::DHCP_OFFER);
-					Dhcp_packet::Dns_server_ipv4 dns_server(Ipv4_packet::ip_from_string("10.0.0.2"));
+					struct Dhcp_options {
+
+						Dhcp_packet::Message_type    _msg_type;
+						Dhcp_packet::Server_ipv4     _server         { Ipv4_packet::ip_from_string("10.0.1.1") };
+						Dhcp_packet::Ip_lease_time   _ip_lease_time  { 0x093a80 };
+						Dhcp_packet::Subnet_mask     _subnet_mask    { Ipv4_packet::ip_from_string("255.255.255.0") };
+						Dhcp_packet::Router_ipv4     _router         { Ipv4_packet::ip_from_string("10.0.1.1") };
+						Dhcp_packet::Dns_server_ipv4 _dns_server     { Ipv4_packet::ip_from_string("10.0.0.2") };
+						Dhcp_packet::Broadcast_addr  _broadcast_addr { Ipv4_packet::ip_from_string("10.0.1.255") };
+						Dhcp_packet::Options_end     _opts_end;
+
+						Dhcp_options(Dhcp_packet::Message_type::Value msg_type) : _msg_type(msg_type) { };
+
+						void * operator new(__SIZE_TYPE__, void* addr) { return addr; }
+
+					}  __attribute__((packed));
+
+					new (dhcp.opts()) Dhcp_options(msg_type_val);
 
 					_pass_ip(eth, eth_size, ip, prot, prot_base, prot_size);
 					return;

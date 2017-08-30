@@ -144,11 +144,15 @@ class Net::Dhcp_packet
 		};
 
 		enum Option_type {
+			SUBNET_MASK    = 1,
+			ROUTER         = 3,
+			DNS_SERVER     = 6,
+			BROADCAST_ADDR = 28,
 			REQ_IP_ADDR    = 50,
 			IP_LEASE_TIME  = 51,
 			OPT_OVERLOAD   = 52,
 			MSG_TYPE       = 53,
-			SRV_ID         = 54,
+			SERVER         = 54,
 			REQ_PARAMETER  = 55,
 			MESSAGE        = 56,
 			MAX_MSG_SZ     = 57,
@@ -161,43 +165,72 @@ class Net::Dhcp_packet
 			END            = 255
 		};
 
+		class Option_header
+		{
+			private:
+
+				Genode::uint8_t _code;
+				Genode::uint8_t _len;
+
+			public:
+
+				Option_header(Option_type code, Genode::uint8_t len)
+				: _code(code), _len(len) { }
+		} __attribute__((packed));
+
 		template <typename T>
 		class Option_tpl
 		{
 			private:
 
-				Genode::uint8_t _code;
-				Genode::uint8_t _len { sizeof(T) };
-				T               _value;
+				Option_header _header;
+				T             _value;
 
 			public:
 
 				Option_tpl(Option_type code, T value)
-				: _code(code), _value(value) { }
+				: _header(code, sizeof(T)), _value(value) { }
+		} __attribute__((packed));
 
+		struct Ip_lease_time : Option_tpl<Genode::uint32_t>
+		{
+			Ip_lease_time(Genode::uint32_t time)
+			: Option_tpl(IP_LEASE_TIME, time) { }
 		} __attribute__((packed));
 
 		struct Message_type : Option_tpl<Genode::uint8_t>
 		{
 			enum Value : Genode::uint8_t {
-				DHCP_DISCOVER  = 1,
-				DHCP_OFFER     = 2,
-				DHCP_REQUEST   = 3,
-				DHCP_DECLINE   = 4,
-				DHCP_ACK       = 5,
-				DHCP_NAK       = 6,
-				DHCP_RELEASE   = 7,
-				DHCP_INFORM    = 8
+				DISCOVER  = 1,
+				OFFER     = 2,
+				REQUEST   = 3,
+				DECLINE   = 4,
+				ACK       = 5,
+				NAK       = 6,
+				RELEASE   = 7,
+				INFORM    = 8
 			};
 
 			Message_type(Value value) : Option_tpl(MSG_TYPE, value) { }
-		};
+		} __attribute__((packed));
 
-		struct Dns_server_ipv4 : Option_tpl<Genode::uint32_t>
+		template <Option_type CODE>
+		struct Ipv4_option : Option_tpl<Genode::uint32_t>
 		{
-			Dns_server_ipv4(Ipv4_address value)
-			: Option_tpl(MSG_TYPE, value.to_uint32()) { }
-		};
+			Ipv4_option(Ipv4_address value)
+			: Option_tpl(CODE, value.to_uint32_big_endian()) { }
+		} __attribute__((packed));
+
+		using Dns_server_ipv4 = Ipv4_option<DNS_SERVER>;
+		using Subnet_mask     = Ipv4_option<SUBNET_MASK>;
+		using Broadcast_addr  = Ipv4_option<BROADCAST_ADDR>;
+		using Router_ipv4     = Ipv4_option<ROUTER>;
+		using Server_ipv4     = Ipv4_option<SERVER>;
+
+		struct Options_end : Option_header
+		{
+			Options_end() : Option_header(END, 0) { }
+		} __attribute__((packed));
 
 		/*****************
 		 ** Constructor **
@@ -239,6 +272,8 @@ class Net::Dhcp_packet
 		const char* file()        const { return (const char*) &_file;  }
 
 		void file(const char* f) { Genode::memcpy(_file, f, sizeof(_file));  }
+
+		void * opts() const { return (void *)_opts; }
 
 		Option *option(Option_type op)
 		{

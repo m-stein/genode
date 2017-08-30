@@ -94,12 +94,35 @@ append_if [expr $use_net] config {
 		<provides><service name="Nic"/></provides>
 	</start>
 
+	<start name="nic_router" caps="200">
+		<resource name="RAM" quantum="10M"/>
+		<provides><service name="Nic"/></provides>
+		<config rtt_sec="3" verbose="no">
+
+			<policy label_prefix="nic_dump" domain="vbox"/>
+
+			<domain name="vbox" interface="10.0.1.1/24">
+				<tcp dst="0.0.0.0/0"><permit-any domain="uplink"/></tcp>
+				<udp dst="0.0.0.0/0"><permit-any domain="uplink"/></udp>
+			</domain>
+
+			<domain name="uplink" interface="10.0.0.72/24" gateway="10.0.0.1">
+				<nat domain="vbox" tcp-ports="999" udp-ports="999"/>
+			</domain>
+
+		</config>
+		<route>
+			<service name="Nic"> <child name="nic_drv"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
 	<start name="nic_dump">
 		<resource name="RAM" quantum="6M"/>
 		<provides><service name="Nic"/></provides>
 		<config uplink="nic" downlink="vbx" time="no"/>
 		<route>
-			<service name="Nic"> <child name="nic_drv"/> </service>
+			<service name="Nic"> <child name="nic_router"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>

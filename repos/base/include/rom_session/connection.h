@@ -28,7 +28,7 @@ class Genode::Rom_connection : public Connection<Rom_session>,
 
 		class Rom_connection_failed : public Service_denied { };
 
-		enum { RAM_QUOTA = 6*1024UL };
+		enum { RAM_QUOTA = 8*1024UL };
 
 	private:
 
