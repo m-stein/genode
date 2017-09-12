@@ -22,6 +22,7 @@
 namespace Genode {
 	
 	class Bit_array_base;
+	class Bit_array_dynamic;
 	template <unsigned> class Bit_array;
 }
 
@@ -35,12 +36,14 @@ class Genode::Bit_array_base
 		class Invalid_clear        : public Exception {};
 		class Invalid_set          : public Exception {};
 
-	private:
+	protected:
 
 		enum {
 			BITS_PER_BYTE = 8UL,
 			BITS_PER_WORD = sizeof(addr_t) * BITS_PER_BYTE
 		};
+
+	private:
 
 		unsigned _bit_cnt;
 		unsigned _word_cnt;
@@ -152,5 +155,21 @@ class Genode::Bit_array : public Bit_array_base
 		Bit_array(const Bit_array & o) : Bit_array_base(BITS, _array, false) {
 			memcpy(&_array, &o._array, sizeof(_array)); }
 };
+
+
+struct Genode::Bit_array_dynamic : public Bit_array_base
+{
+	struct Count_of_bits_not_word_aligned : Exception { };
+
+	Bit_array_dynamic(addr_t *addr, unsigned bits)
+	:
+		Bit_array_base(bits, addr, true)
+	{
+		if (bits % BITS_PER_WORD) {
+			throw Count_of_bits_not_word_aligned();
+		}
+	}
+};
+
 
 #endif /* _INCLUDE__UTIL__BIT_ARRAY_H_ */
