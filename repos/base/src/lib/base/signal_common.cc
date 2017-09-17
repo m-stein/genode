@@ -162,16 +162,29 @@ Signal Signal_receiver::pending_signal()
 {
 	Lock::Guard list_lock_guard(_contexts_lock);
 
-	/* look up the contexts for the pending signal */
-	for (List_element<Signal_context> *le = _contexts.first(); le; le = le->next()) {
+	/*
+	 * At this point, the ring head points to the last handled context, except no
+	 * context was handled yet or the last handled context was dissolved in the
+	 * meantime. In the first case, we have to move the head one step further
+	 * before starting our search to not handle the same context again. In the
+	 * latter two cases it does not hurt to do the same although we could also
+	 * start searching directly.
+	 */
+	_contexts_head_next();
+	List_element<Signal_context> *const _old_contexts_head = _contexts_head;
 
-		Signal_context *context = le->object();
+	/* look up the contexts for the pending signal */
+	do {
+
+		Signal_context *context = _contexts_head->object();
 
 		Lock::Guard lock_guard(context->_lock);
 
 		/* check if context has a pending signal */
-		if (!context->_pending)
+		if (!context->_pending) {
+			_contexts_head_next();
 			continue;
+		}
 
 		context->_pending = false;
 		Signal::Data result = context->_curr_signal;
@@ -187,6 +200,7 @@ Signal Signal_receiver::pending_signal()
 		/* return last received signal */
 		return result;
 	}
+	while (_contexts_head != _old_contexts_head);
 
 	/*
 	 * Normally, we should never arrive at this point because that would
@@ -213,6 +227,16 @@ Signal_receiver::~Signal_receiver()
 }
 
 
+void Signal_receiver::_contexts_head_next()
+{
+	if (_contexts_head && _contexts_head->next()) {
+		_contexts_head =  _contexts_head->next();
+	} else {
+		_contexts_head =  _contexts.first();
+	}
+}
+
+
 void Signal_receiver::_unsynchronized_dissolve(Signal_context * const context)
 {
 	_platform_begin_dissolve(context);
@@ -225,6 +249,9 @@ void Signal_receiver::_unsynchronized_dissolve(Signal_context * const context)
 	context->_cap      = Signal_context_capability();
 
 	/* remove context from context list */
+	if (_contexts_head == &context->_receiver_le) {
+		_contexts_head_next();
+	}
 	_contexts.remove(&context->_receiver_le);
 
 	_platform_finish_dissolve(context);

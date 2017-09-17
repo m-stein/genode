@@ -225,6 +225,9 @@ Signal_context_capability Signal_receiver::manage(Signal_context *context)
 
 	/* insert context into context list */
 	_contexts.insert(&context->_receiver_le);
+	if (!_contexts_head) {
+		 _contexts_head = &context->_receiver_le;
+	}
 
 	/* register context at process-wide registry */
 	signal_context_registry()->insert(&context->_registry_le);

@@ -187,10 +187,26 @@ class Genode::Signal_receiver : Noncopyable
 		Capability<Signal_source> _cap;
 
 		/**
-		 * List of associated contexts
+		 * Ring of associated contexts
+		 *
+		 * We use a list here but handle contexts as if they were in a ring
+		 * where '_contexts_head' is the current head pointer. Each time a
+		 * pending context is chosen by 'pending_signal', the head pointer
+		 * of the ring  moves forward to this context. 'pending_signal'
+		 * always starts searching pending signals from the ring element next
+		 * to the ring head. So, if it can, 'pending_signal' never choses
+		 * one context twice in a row. This prevents starvation of other
+		 * contexts if a handled context always gets pending again before the
+		 * next call of 'pending_signal'.
 		 */
-		Lock                                _contexts_lock;
-		List<List_element<Signal_context> > _contexts;
+		Lock                                 _contexts_lock;
+		List<List_element<Signal_context> >  _contexts;
+		List_element<Signal_context>        *_contexts_head { nullptr };
+
+		/**
+		 * Move the contexts ring head to the next ring element
+		 */
+		void _contexts_head_next();
 
 		/**
 		 * Helper to dissolve given context
