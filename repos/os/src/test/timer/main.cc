@@ -68,16 +68,23 @@ struct Lazy_test
 
 struct Stress_test
 {
+	enum { DURATION_SEC        = 10 };
+	enum { DURATION_US         = DURATION_SEC * 1000 * 1000 };
+	enum { MAX_SLV_PERIOD_US   = 33000 };
+	enum { MIN_SLV_TRIGGER_CNT = DURATION_US / MAX_SLV_PERIOD_US / 2 };
+
+	struct Starvation : Exception { };
+
 	struct Slave
 	{
 		Signal_handler<Slave> timer_handler;
 		Timer::Connection     timer;
-		unsigned              us;
+		unsigned long         us;
 		unsigned              count { 0 };
 
-		Slave(Env &env, unsigned ms)
+		Slave(Env &env, unsigned us)
 		: timer_handler(env.ep(), *this, &Slave::handle_timer),
-		  timer(env), us(ms * 1000) { timer.sigh(timer_handler); }
+		  timer(env), us(us) { timer.sigh(timer_handler); }
 
 		virtual ~Slave() { }
 
@@ -87,9 +94,19 @@ struct Stress_test
 			timer.trigger_once(us);
 		}
 
-		void dump() {
-			log("timer (period ", us / 1000, " ms) triggered ", count,
-			    " times -> slept ", (us / 1000) * count, " ms"); }
+		void dump()
+		{
+			log("timer (period ", us, " us) triggered ", count,
+			    " times (min ", (unsigned)MIN_SLV_TRIGGER_CNT, ") -> slept ",
+			    ((unsigned long)us * count) / 1000, " ms");
+
+			/* detect starvation of timeouts */
+			if (count < MIN_SLV_TRIGGER_CNT) {
+				error("triggered less than ", (unsigned)MIN_SLV_TRIGGER_CNT,
+				      " times");
+				throw Starvation();
+			}
+		}
 
 		void start() { timer.trigger_once(us); }
 		void stop()  { timer.sigh(Signal_context_capability()); }
@@ -105,11 +122,10 @@ struct Stress_test
 
 	void handle()
 	{
-		enum { MAX_COUNT = 10 };
-		if (count < MAX_COUNT) {
+		if (count < DURATION_SEC) {
 			count++;
-			log("wait ", count, "/", (unsigned)MAX_COUNT);
-			timer.trigger_once(1000 * 1000);
+			log("wait ", count, "/", (unsigned)DURATION_SEC);
+			timer.trigger_once(1000UL * 1000);
 		} else {
 			slaves.for_each([&] (Slave &timer) { timer.stop(); });
 			slaves.for_each([&] (Slave &timer) { timer.dump(); });
@@ -120,8 +136,12 @@ struct Stress_test
 	Stress_test(Env &env, Signal_context_capability done) : env(env), done(done)
 	{
 		timer.sigh(handler);
-		for (unsigned ms = 1; ms < 28; ms++) {
-			new (heap) Registered<Slave>(slaves, env, ms); }
+
+		for (unsigned long us_1 = 1; us_1 < MAX_SLV_PERIOD_US; us_1 *= 2) {
+			new (heap) Registered<Slave>(slaves, env, us_1 - us_1 / 3);
+			new (heap) Registered<Slave>(slaves, env, us_1);
+		}
+
 		slaves.for_each([&] (Slave &slv) { slv.start(); });
 		timer.trigger_once(1000 * 1000);
 	}
