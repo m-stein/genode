@@ -1,6 +1,7 @@
 /*
  * \brief  Ethernet protocol
  * \author Stefan Kalkowski
+ * \author Martin Stein
  * \date   2010-08-19
  */
 
@@ -15,22 +16,54 @@
 #include <net/ethernet.h>
 #include <net/arp.h>
 #include <net/ipv4.h>
-#include <base/output.h>
 
-const Net::Mac_address Net::Ethernet_frame::BROADCAST(0xFF);
+using namespace Genode;
+using namespace Net;
+
+const Mac_address Ethernet_frame::BROADCAST(0xFF);
 
 
-void Net::Ethernet_frame::print(Genode::Output &output) const
+template <>
+void Packet_log<Ethernet_frame>::print(Output &output) const
 {
-	Genode::print(output, "\033[32mETH\033[0m ", src(), " > ", dst(), " ");
-	switch (type()) {
+	using Genode::print;
+
+	/* print header attributes */
+	switch (_cfg.eth) {
+	case Packet_log_config::COMPREHENSIVE:
+
+		print(output, "\033[32mETH\033[0m");
+		print(output, " src ", _pkt.src());
+		print(output, " dst ", _pkt.dst());
+		print(output, " typ ", _pkt.type());
+		break;
+
+	case Packet_log_config::COMPACT:
+
+		print(output, "\033[32mETH\033[0m");
+		print(output, " ",   _pkt.src());
+		print(output, " > ", _pkt.dst());
+		break;
+
+	case Packet_log_config::SHORT:
+
+		print(output, "\033[32mETH\033[0m");
+		break;
+
+	default: ;
+	}
+	/* print encapsulated packet */
+	switch (_pkt.type()) {
 	case Ethernet_frame::Type::ARP:
-		Genode::print(output,
-		              *reinterpret_cast<Arp_packet const *>(data<void>()));
+
+		print(output, " ", packet_log(*_pkt.data<Arp_packet const>(), _cfg));
 		break;
+
 	case Ethernet_frame::Type::IPV4:
-		Genode::print(output,
-		              *reinterpret_cast<Ipv4_packet const *>(data<void>()));
+
+		print(output, " ", packet_log(*_pkt.data<Ipv4_packet const>(), _cfg));
 		break;
-	default: ; }
+
+	default: ;
+	}
 }

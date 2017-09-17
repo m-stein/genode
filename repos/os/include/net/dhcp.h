@@ -400,13 +400,13 @@ class Net::Dhcp_packet
 		 */
 		void * operator new(__SIZE_TYPE__ size, void* addr) { return addr; }
 
-
-		/*********
-		 ** log **
-		 *********/
-
-		void print(Genode::Output &output) const;
-
 } __attribute__((packed));
+
+
+namespace Net {
+
+	template <>
+	void Packet_log<Dhcp_packet>::print(Genode::Output &output) const;
+}
 
 #endif /* _DHCP_H_ */

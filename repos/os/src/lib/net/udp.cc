@@ -1,6 +1,7 @@
 /*
- * \brief  User datagram protocol.
+ * \brief  User datagram protocol
  * \author Stefan Kalkowski
+ * \author Martin Stein
  * \date   2010-08-19
  */
 
@@ -14,15 +15,43 @@
 /* Genode */
 #include <net/udp.h>
 #include <net/dhcp.h>
-#include <base/output.h>
+
+using namespace Genode;
+using namespace Net;
 
 
-void Net::Udp_packet::print(Genode::Output &output) const
+template <>
+void Packet_log<Udp_packet>::print(Output &output) const
 {
-	Genode::print(output, "\033[32mUDP\033[0m ", src_port(),
-	              " > ", dst_port(), " ");
-	if (Dhcp_packet::is_dhcp(this)) {
-		Genode::print(output,
-		              *reinterpret_cast<Dhcp_packet const *>(data<void>()));
+	using Genode::print;
+
+	/* print header attributes */
+	switch (_cfg.udp) {
+	case Packet_log_config::COMPREHENSIVE:
+
+		print(output, "\033[32mUDP\033[0m");
+		print(output, " src ", _pkt.src_port());
+		print(output, " dst ", _pkt.dst_port());
+		print(output, " len ", _pkt.length());
+		print(output, " crc ", _pkt.checksum());
+		break;
+
+	case Packet_log_config::COMPACT:
+
+		print(output, "\033[32mUDP\033[0m");
+		print(output, " ",   _pkt.src_port());
+		print(output, " > ", _pkt.dst_port());
+		break;
+
+	case Packet_log_config::SHORT:
+
+		print(output, "\033[32mUDP\033[0m");
+		break;
+
+	default: ;
+	}
+	/* print encapsulated packet */
+	if (Dhcp_packet::is_dhcp(&_pkt)) {
+		print(output, " ", packet_log(*_pkt.data<Dhcp_packet const>(), _cfg));
 	}
 }

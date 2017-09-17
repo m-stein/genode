@@ -212,13 +212,12 @@ class Net::Arp_packet
 		 */
 		void * operator new(__SIZE_TYPE__ size, void* addr) { return addr; }
 
-
-		/*********
-		 ** Log **
-		 *********/
-
-		void print(Genode::Output &output) const;
-
 } __attribute__((packed));
+
+namespace Net {
+
+	template <>
+	void Packet_log<Arp_packet>::print(Genode::Output &output) const;
+}
 
 #endif /* _NET__ARP_H_ */

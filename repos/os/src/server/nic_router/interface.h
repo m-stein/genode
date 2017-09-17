@@ -62,6 +62,7 @@ class Net::Interface
 		Link_side_tree      _udp_links;
 		Link_list           _closed_tcp_links;
 		Link_list           _closed_udp_links;
+		Packet_log_config   _pkt_log_cfg;
 
 		void _new_link(Genode::uint8_t               const  protocol,
 		               Link_side_id                  const &local_id,

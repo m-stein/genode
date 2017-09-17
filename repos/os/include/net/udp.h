@@ -156,13 +156,13 @@ class Net::Udp_packet
 			_checksum = host_to_big_endian((Genode::uint16_t) ~sum);
 		}
 
-
-		/*********
-		 ** log **
-		 *********/
-
-		void print(Genode::Output &output) const;
-
 } __attribute__((packed));
+
+
+namespace Net {
+
+	template <>
+	void Packet_log<Udp_packet>::print(Genode::Output &output) const;
+}
 
 #endif /* _UDP_H_ */

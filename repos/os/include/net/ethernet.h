@@ -20,6 +20,7 @@
 
 #include <util/endian.h>
 #include <net/mac_address.h>
+#include <net/packet_log.h>
 
 namespace Net
 {
@@ -112,14 +113,14 @@ class Net::Ethernet_frame
 		 */
 		void * operator new(__SIZE_TYPE__ size, void* addr) { return addr; }
 
-
-		/*********
-		 ** log **
-		 *********/
-
-		void print(Genode::Output &output) const;
-
 } __attribute__((packed));
+
+
+namespace Net {
+
+	template <>
+	void Packet_log<Ethernet_frame>::print(Genode::Output &output) const;
+}
 
 
 template <Genode::size_t DATA_SIZE>

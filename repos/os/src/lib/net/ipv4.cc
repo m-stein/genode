@@ -1,6 +1,7 @@
 /*
  * \brief  Internet protocol version 4
  * \author Stefan Kalkowski
+ * \author Martin Stein
  * \date   2010-08-19
  */
 
@@ -22,18 +23,57 @@ using namespace Genode;
 using namespace Net;
 
 
-void Net::Ipv4_packet::print(Genode::Output &output) const
+template <>
+void Packet_log<Ipv4_packet>::print(Output &output) const
 {
-	Genode::print(output, "\033[32mIPV4\033[0m ", src(), " > ", dst(), " ");
-	switch (protocol()) {
+	using Genode::print;
+
+	/* print header attributes */
+	switch (_cfg.ipv4) {
+	case Packet_log_config::COMPREHENSIVE:
+
+		print(output, "\033[32mIPV4\033[0m");
+		print(output, " hdrlen ", _pkt.header_length());
+		print(output, " ver ",    _pkt.version());
+		print(output, " dsrv ",   _pkt.diff_service());
+		print(output, " ecn ",    _pkt.ecn());
+		print(output, " len ",    _pkt.total_length());
+		print(output, " id ",     _pkt.identification());
+		print(output, " flg ",    _pkt.flags());
+		print(output, " frgoff ", _pkt.fragment_offset());
+		print(output, " ttl  ",   _pkt.time_to_live());
+		print(output, " prot ",   _pkt.protocol());
+		print(output, " crc ",    _pkt.checksum());
+		print(output, " src ",    _pkt.src());
+		print(output, " dst ",    _pkt.dst());
+		break;
+
+	case Packet_log_config::COMPACT:
+
+		print(output, "\033[32mIPV4\033[0m");
+		print(output, " ",   _pkt.src());
+		print(output, " > ", _pkt.dst());
+		break;
+
+	case Packet_log_config::SHORT:
+
+		print(output, "\033[32mIPV4\033[0m");
+		break;
+
+	default: ;
+	}
+	/* print encapsulated packet */
+	switch (_pkt.protocol()) {
 	case Tcp_packet::IP_ID:
-		Genode::print(output,
-		              *reinterpret_cast<Tcp_packet const *>(data<void>()));
+
+		print(output, " ", packet_log(*_pkt.data<Tcp_packet const>(), _cfg));
 		break;
+
 	case Udp_packet::IP_ID:
-		Genode::print(output,
-		              *reinterpret_cast<Udp_packet const *>(data<void>()));
+
+		print(output, " ", packet_log(*_pkt.data<Udp_packet const>(), _cfg));
 		break;
+
 	default: ; }
 }
 

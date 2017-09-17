@@ -21,6 +21,7 @@
 
 #include <util/endian.h>
 #include <net/netaddress.h>
+#include <net/packet_log.h>
 
 namespace Genode { class Output; }
 
@@ -210,6 +211,13 @@ class Net::Ipv4_packet
 		void print(Genode::Output &output) const;
 
 } __attribute__((packed));
+
+
+namespace Net {
+
+	template <>
+	void Packet_log<Ipv4_packet>::print(Genode::Output &output) const;
+}
 
 
 struct Net::Ipv4_address_prefix
