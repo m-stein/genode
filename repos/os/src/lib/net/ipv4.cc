@@ -78,6 +78,55 @@ void Packet_log<Ipv4_packet>::print(Output &output) const
 }
 
 
+bool Ipv4_address::is_in_range(Ipv4_address const &first,
+                               Ipv4_address const &last) const
+{
+	uint32_t const ip_raw = to_uint32_little_endian();
+	return ip_raw >= first.to_uint32_little_endian() &&
+	       ip_raw <= last.to_uint32_little_endian();
+}
+
+
+uint32_t Ipv4_address::to_uint32_big_endian() const
+{
+	return addr[0] |
+	       addr[1] << 8 |
+	       addr[2] << 16 |
+	       addr[3] << 24;
+}
+
+
+Ipv4_address Ipv4_address::from_uint32_big_endian(uint32_t ip_raw)
+{
+	Ipv4_address ip;
+	ip.addr[0] = ip_raw;
+	ip.addr[1] = ip_raw >> 8;
+	ip.addr[2] = ip_raw >> 16;
+	ip.addr[3] = ip_raw >> 24;
+	return ip;
+}
+
+
+uint32_t Ipv4_address::to_uint32_little_endian() const
+{
+	return addr[3] |
+	       addr[2] << 8 |
+	       addr[1] << 16 |
+	       addr[0] << 24;
+}
+
+
+Ipv4_address Ipv4_address::from_uint32_little_endian(uint32_t ip_raw)
+{
+	Ipv4_address ip;
+	ip.addr[3] = ip_raw;
+	ip.addr[2] = ip_raw >> 8;
+	ip.addr[1] = ip_raw >> 16;
+	ip.addr[0] = ip_raw >> 24;
+	return ip;
+}
+
+
 struct Scanner_policy_number
 {
 	static bool identifier_char(char c, unsigned  i ) {
