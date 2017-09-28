@@ -19,6 +19,7 @@
 #include <arp_cache.h>
 #include <arp_waiter.h>
 #include <l3_protocol.h>
+#include <packet_log.h>
 
 /* Genode includes */
 #include <nic_session/nic_session.h>
@@ -133,6 +134,7 @@ class Net::Interface
 		Link_list           _closed_udp_links;
 		Ip_allocation_tree  _ip_allocations;
 		Ip_allocation_list  _released_ip_allocations;
+		Packet_log_config   _log_cfg;
 
 		void _new_link(L3_protocol                   const  protocol,
 		               Link_side_id                  const &local_id,

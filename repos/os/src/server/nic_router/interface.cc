@@ -836,7 +836,7 @@ void Interface::_handle_eth(void              *const  eth_base,
 	try {
 		Ethernet_frame * const eth = new (eth_base) Ethernet_frame(eth_size);
 		if (_config().verbose()) {
-			log("\033[33m(router <- ", _domain, ")\033[0m ", *eth); }
+			log("\033[33m(router <- ", _domain, ")\033[0m ", packet_log(*eth, _log_cfg)); }
 
 		switch (eth->type()) {
 		case Ethernet_frame::Type::ARP:  _handle_arp(*eth, eth_size);     break;
@@ -880,7 +880,7 @@ void Interface::_handle_eth(void              *const  eth_base,
 void Interface::_send(Ethernet_frame &eth, Genode::size_t const size)
 {
 	if (_config().verbose()) {
-		log("\033[33m(", _domain, " <- router)\033[0m ", eth); }
+		log("\033[33m(", _domain, " <- router)\033[0m ", packet_log(eth, _log_cfg)); }
 	try {
 		/* copy and submit packet */
 		Packet_descriptor const pkt = _source().alloc_packet(size);
@@ -907,8 +907,9 @@ Interface::Interface(Entrypoint        &ep,
 	_source_ack(ep, *this, &Interface::_ready_to_ack),
 	_source_submit(ep, *this, &Interface::_packet_avail),
 	_router_mac(router_mac), _mac(mac), _timer(timer), _alloc(alloc),
-	_domain(domain)
+	_domain(domain), _log_cfg(Packet_log_config::SHORT)
 {
+	_log_cfg.dhcp = Packet_log_config::COMPREHENSIVE;
 	if (_config().verbose()) {
 		log("Interface connected ", *this);
 		log("  MAC ", _mac);
