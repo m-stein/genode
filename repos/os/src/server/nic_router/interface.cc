@@ -413,6 +413,7 @@ void Interface::_send_dhcp_reply(Dhcp_server               const &dhcp_srv,
 	reply_ip.checksum(Ipv4_packet::calculate_checksum(reply_ip));
 
 	/* send reply to sender of request and free reply buffer */
+	log("\033[33m(", _domain, " <- router)\033[0m ", packet_log(reply_eth, _log_cfg));
 	_send(reply_eth, reply_size.curr());
 	_alloc.free(buf, BUF_SIZE);
 }
@@ -572,6 +573,8 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 				Udp_packet(eth_size - sizeof(Ipv4_packet));
 
 			if (Dhcp_packet::is_dhcp(&udp)) {
+
+			log("\033[33m(router <- ", _domain, ")\033[0m ", packet_log(eth, _log_cfg));
 
 				/* get DHCP packet */
 				Dhcp_packet &dhcp = *new (udp.data<void>())
