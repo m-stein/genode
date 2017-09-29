@@ -10,7 +10,7 @@
     <MediaRegistry>
       <HardDisks>
         <HardDisk uuid="{4def7eeb-7836-4f3e-9b6c-a850b307ef10}" location="/win81_64.vdi" format="VDI" type="Immutable">
-          <HardDisk uuid="{9d5f52e5-81ef-45ef-8334-5c644f5a4ef0}" location="/ram/overlay_win81_64.vdi" format="VDI" autoReset="true"/>
+          <HardDisk uuid="{937c3e23-033f-4c71-8b4a-ec0fda49ac9b}" location="/ram/overlay_win81_64.vdi" format="VDI" autoReset="true"/>
         </HardDisk>
       </HardDisks>
       <DVDImages/>
@@ -59,7 +59,7 @@
         <DeviceFilters/>
       </USB>
       <Network>
-        <Adapter slot="0" enabled="false" MACAddress="080027235455" cable="true" speed="0" type="82540EM">
+        <Adapter slot="0" enabled="true" MACAddress="080027235455" cable="true" speed="0" type="82540EM">
           <HostInterface/>
           <DisabledModes/>
         </Adapter>
@@ -95,7 +95,7 @@
     <StorageControllers>
       <StorageController name="IDE" type="PIIX4" PortCount="2" useHostIOCache="true" Bootable="true">
         <AttachedDevice type="HardDisk" port="0" device="0">
-          <Image uuid="{9d5f52e5-81ef-45ef-8334-5c644f5a4ef0}"/>
+          <Image uuid="{937c3e23-033f-4c71-8b4a-ec0fda49ac9b}"/>
         </AttachedDevice>
         <AttachedDevice passthrough="false" type="DVD" port="1" device="0"/>
       </StorageController>
