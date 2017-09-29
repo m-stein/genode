@@ -71,7 +71,7 @@ append config {
 				<udp dst="0.0.0.0/0"><permit-any domain="uplink"/></udp>
 			</domain>
 
-			<domain name="uplink" interface="10.0.0.72/24" gateway="10.0.0.1">
+			<domain name="uplink">
 				<nat domain="vbox" tcp-ports="999" udp-ports="999"/>
 			</domain>
 
