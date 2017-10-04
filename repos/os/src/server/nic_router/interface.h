@@ -120,6 +120,8 @@ class Net::Interface
 		Mac_address const _router_mac;
 		Mac_address const _mac;
 
+		void _init();
+
 	private:
 
 		Timer::Connection  &_timer;
@@ -153,6 +155,8 @@ class Net::Interface
 		                      Ipv4_address              const &client_ip,
 		                      Dhcp_packet::Message_type        msg_type,
 		                      Genode::uint32_t                 xid);
+
+		void _send_dhcp_request();
 
 		Forward_rule_tree &_forward_rules(L3_protocol const prot) const;
 
@@ -238,12 +242,12 @@ class Net::Interface
 
 	public:
 
-		struct Bad_transport_protocol         : Genode::Exception { };
-		struct Bad_network_protocol           : Genode::Exception { };
-		struct Packet_postponed               : Genode::Exception { };
-		struct Bad_dhcp_request               : Genode::Exception { };
-		struct Alloc_dhcp_reply_buffer_failed : Genode::Exception { };
-		struct Dhcp_reply_buffer_too_small    : Genode::Exception { };
+		struct Bad_transport_protocol       : Genode::Exception { };
+		struct Bad_network_protocol         : Genode::Exception { };
+		struct Packet_postponed             : Genode::Exception { };
+		struct Bad_dhcp_request             : Genode::Exception { };
+		struct Alloc_dhcp_msg_buffer_failed : Genode::Exception { };
+		struct Dhcp_msg_buffer_too_small    : Genode::Exception { };
 
 		Interface(Genode::Entrypoint &ep,
 		          Timer::Connection  &timer,

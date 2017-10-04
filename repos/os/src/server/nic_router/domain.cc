@@ -161,21 +161,30 @@ Domain::Domain(Configuration &config, Xml_node const node, Allocator &alloc)
 	Domain_base(node), _avl_member(_name, *this), _config(config),
 	_node(node), _alloc(alloc),
 	_interface_attr(node.attribute_value("interface", Ipv4_address_prefix())),
+	_interface_attr_valid(_interface_attr.valid()),
 	_gateway(node.attribute_value("gateway", Ipv4_address())),
 	_gateway_valid(_gateway.valid())
 {
-	if (_name == Domain_name() || !_interface_attr.valid() ||
+	if (_name == Domain_name() ||
 	    (_gateway_valid && !_interface_attr.prefix_matches(_gateway)))
 	{
 		throw Invalid();
 	}
+	if (_interface_attr_valid) {
+		_interface_attr_became_valid();
+	}
+}
+
+
+void Domain::_interface_attr_became_valid()
+{
 	/* try to find configuration for DHCP server role */
 	try {
-		_dhcp_server.set(*new (alloc)
-			Dhcp_server(node.sub_node("dhcp-server"), alloc, _interface_attr));
+		_dhcp_server.set(*new (_alloc)
+			Dhcp_server(_node.sub_node("dhcp-server"), _alloc, _interface_attr));
 
 		if (_config.verbose()) {
-			log("  DHCP server: ", _dhcp_server.deref()); }
+			log("DHCP server at domain \"", *this, "\": ", _dhcp_server.deref()); }
 	}
 	catch (Xml_node::Nonexistent_sub_node) { }
 	catch (Dhcp_server::Invalid) {

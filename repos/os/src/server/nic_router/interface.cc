@@ -331,6 +331,95 @@ void Interface::_nat_link_and_pass(Ethernet_frame        &eth,
 }
 
 
+void Interface::_send_dhcp_request()
+{
+	/* allocate buffer for the request */
+	enum { BUF_SIZE = 512 };
+	void *buf;
+	try { _alloc.alloc(BUF_SIZE, &buf); }
+	catch (...) { throw Alloc_dhcp_msg_buffer_failed(); }
+
+	/* create ETH header of the request */
+	Size_guard<BUF_SIZE, Dhcp_msg_buffer_too_small> reply_size;
+	reply_size.add(sizeof(Ethernet_frame));
+	Ethernet_frame &reply_eth = *reinterpret_cast<Ethernet_frame *>(buf);
+	reply_eth.dst(Mac_address(0xff));
+	reply_eth.src(_router_mac);
+	reply_eth.type(Ethernet_frame::Type::IPV4);
+
+	/* create IP header of the request */
+	enum { IPV4_TIME_TO_LIVE = 64 };
+	size_t const reply_ip_off = reply_size.curr();
+	reply_size.add(sizeof(Ipv4_packet));
+	Ipv4_packet &reply_ip = *reply_eth.data<Ipv4_packet>();
+	reply_ip.header_length(sizeof(Ipv4_packet) / 4);
+	reply_ip.version(4);
+	reply_ip.diff_service(0);
+	reply_ip.identification(0);
+	reply_ip.flags(0);
+	reply_ip.fragment_offset(0);
+	reply_ip.time_to_live(IPV4_TIME_TO_LIVE);
+	reply_ip.protocol(Ipv4_packet::Protocol::UDP);
+	reply_ip.src(_router_ip());
+	reply_ip.dst(Ipv4_address(0xff));
+
+	/* create UDP header of the request */
+	size_t const reply_udp_off = reply_size.curr();
+	reply_size.add(sizeof(Udp_packet));
+	Udp_packet &reply_udp = *reply_ip.data<Udp_packet>();
+	reply_udp.src_port(Port(Dhcp_packet::BOOTPC));
+	reply_udp.dst_port(Port(Dhcp_packet::BOOTPS));
+
+	/* create mandatory DHCP fields of the request  */
+	reply_size.add(sizeof(Dhcp_packet));
+	Dhcp_packet &reply_dhcp = *reply_udp.data<Dhcp_packet>();
+	reply_dhcp.op(Dhcp_packet::REQUEST);
+	reply_dhcp.htype(Dhcp_packet::Htype::ETH);
+	reply_dhcp.hlen(sizeof(Mac_address));
+	reply_dhcp.hops(0);
+	reply_dhcp.xid(0x12345678);
+	reply_dhcp.secs(0);
+	reply_dhcp.flags(0);
+	reply_dhcp.ciaddr(Ipv4_address());
+	reply_dhcp.yiaddr(Ipv4_address());
+	reply_dhcp.siaddr(Ipv4_address());
+	reply_dhcp.giaddr(Ipv4_address());
+	reply_dhcp.client_mac(_router_mac);
+	reply_dhcp.zero_fill_sname();
+	reply_dhcp.zero_fill_file();
+	reply_dhcp.default_magic_cookie();
+
+//op 1 htyp 1 hlen 6 hps 0 xid 4081850655 sec 0 flg 0x0 ci 0.0.0.0 yi 0.0.0.0 si 0.0.0.0 gi 0.0.0.0 ch 02:02:02:02:02:00 srv  file  mag 1669485411
+//
+//opt 53:1:01 61:7:01020202020200 57:2:0240 55:7:0103060c0f1c2a 60:12:756468637020312e32352e31 12:3:626f78
+
+	/* append DHCP option fields to the request */
+	Dhcp_packet::Options_aggregator<Size_guard<BUF_SIZE, Dhcp_msg_buffer_too_small> >
+		reply_dhcp_opts(reply_dhcp, reply_size);
+	reply_dhcp_opts.append_option<Dhcp_packet::Message_type>(Dhcp_packet::Message_type::DISCOVER);
+	reply_dhcp_opts.append_option<Dhcp_packet::Client_id>(_router_mac);
+	reply_dhcp_opts.append_option<Dhcp_packet::Max_msg_size>(512);
+//	reply_dhcp_opts.append_option<Dhcp_packet::Ip_lease_time>(dhcp_srv.ip_lease_time().value / 1000 / 1000);
+//	reply_dhcp_opts.append_option<Dhcp_packet::Subnet_mask>(_domain.interface_attr().subnet_mask());
+//	reply_dhcp_opts.append_option<Dhcp_packet::Router_ipv4>(_router_ip());
+//	if (dhcp_srv.dns_server().valid()) {
+//		reply_dhcp_opts.append_option<Dhcp_packet::Dns_server_ipv4>(dhcp_srv.dns_server()); }
+//	reply_dhcp_opts.append_option<Dhcp_packet::Broadcast_addr>(_domain.interface_attr().broadcast_address());
+//	reply_dhcp_opts.append_option<Dhcp_packet::Options_end>();
+
+	/* fill in header values that need the packet to be complete already */
+	reply_udp.length(reply_size.curr() - reply_udp_off);
+	reply_udp.update_checksum(reply_ip.src(), reply_ip.dst());
+	reply_ip.total_length(reply_size.curr() - reply_ip_off);
+	reply_ip.checksum(Ipv4_packet::calculate_checksum(reply_ip));
+
+	/* send request to sender of request and free request buffer */
+//	log("\033[33m(", _domain, " <- router)\033[0m ", packet_log(reply_eth, _log_cfg));
+	_send(reply_eth, reply_size.curr());
+	_alloc.free(buf, BUF_SIZE);
+}
+
+
 void Interface::_send_dhcp_reply(Dhcp_server               const &dhcp_srv,
                                  Mac_address               const &client_mac,
                                  Ipv4_address              const &client_ip,
@@ -341,10 +430,10 @@ void Interface::_send_dhcp_reply(Dhcp_server               const &dhcp_srv,
 	enum { BUF_SIZE = 512 };
 	void *buf;
 	try { _alloc.alloc(BUF_SIZE, &buf); }
-	catch (...) { throw Alloc_dhcp_reply_buffer_failed(); }
+	catch (...) { throw Alloc_dhcp_msg_buffer_failed(); }
 
 	/* create ETH header of the reply */
-	Size_guard<BUF_SIZE, Dhcp_reply_buffer_too_small> reply_size;
+	Size_guard<BUF_SIZE, Dhcp_msg_buffer_too_small> reply_size;
 	reply_size.add(sizeof(Ethernet_frame));
 	Ethernet_frame &reply_eth = *reinterpret_cast<Ethernet_frame *>(buf);
 	reply_eth.dst(client_mac);
@@ -394,7 +483,7 @@ void Interface::_send_dhcp_reply(Dhcp_server               const &dhcp_srv,
 	reply_dhcp.default_magic_cookie();
 
 	/* append DHCP option fields to the reply */
-	Dhcp_packet::Options_aggregator<Size_guard<BUF_SIZE, Dhcp_reply_buffer_too_small> >
+	Dhcp_packet::Options_aggregator<Size_guard<BUF_SIZE, Dhcp_msg_buffer_too_small> >
 		reply_dhcp_opts(reply_dhcp, reply_size);
 	reply_dhcp_opts.append_option<Dhcp_packet::Message_type_option>(msg_type);
 	reply_dhcp_opts.append_option<Dhcp_packet::Server_ipv4>(_router_ip());
@@ -413,7 +502,7 @@ void Interface::_send_dhcp_reply(Dhcp_server               const &dhcp_srv,
 	reply_ip.checksum(Ipv4_packet::calculate_checksum(reply_ip));
 
 	/* send reply to sender of request and free reply buffer */
-	log("\033[33m(", _domain, " <- router)\033[0m ", packet_log(reply_eth, _log_cfg));
+//	log("\033[33m(", _domain, " <- router)\033[0m ", packet_log(reply_eth, _log_cfg));
 	_send(reply_eth, reply_size.curr());
 	_alloc.free(buf, BUF_SIZE);
 }
@@ -869,10 +958,10 @@ void Interface::_handle_eth(void              *const  eth_base,
 	catch (Bad_dhcp_request) {
 		error("bad DHCP request"); }
 
-	catch (Alloc_dhcp_reply_buffer_failed) {
+	catch (Alloc_dhcp_msg_buffer_failed) {
 		error("failed to allocate buffer for DHCP reply"); }
 
-	catch (Dhcp_reply_buffer_too_small) {
+	catch (Dhcp_msg_buffer_too_small) {
 		error("DHCP reply buffer too small"); }
 
 	catch (Dhcp_server::Alloc_ip_failed) {
@@ -920,6 +1009,14 @@ Interface::Interface(Entrypoint        &ep,
 		    _router_ip(), "/", _domain.interface_attr().prefix);
 	}
 	_domain.interface().set(*this);
+}
+
+
+void Interface::_init()
+{
+	if (!_domain.interface_attr_valid()) {
+		_send_dhcp_request();
+	}
 }
 
 

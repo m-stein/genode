@@ -151,11 +151,11 @@ class Net::Dhcp_packet
 					SERVER         = 54,
 					REQ_PARAMETER  = 55,
 					MESSAGE        = 56,
-					MAX_MSG_SZ     = 57,
+					MAX_MSG_SIZE   = 57,
 					RENEWAL        = 58,
 					REBINDING      = 59,
 					VENDOR         = 60,
-					CLI_ID         = 61,
+					CLIENT_ID      = 61,
 					TFTP_SRV_NAME  = 66,
 					BOOT_FILE      = 67,
 					END            = 255,
@@ -208,6 +208,16 @@ class Net::Dhcp_packet
 			: Option_tpl(CODE, host_to_big_endian(time)) { }
 		};
 
+
+		struct Max_msg_size : Option_tpl<Genode::uint16_t>
+		{
+			static constexpr Code::Enum CODE = Code::MAX_MSG_SIZE;
+
+			Max_msg_size(Genode::uint16_t size)
+			: Option_tpl(CODE, host_to_big_endian(size)) { }
+		};
+
+
 		enum class Message_type : Genode::uint8_t {
 			DISCOVER  = 1,
 			OFFER     = 2,
@@ -218,6 +228,7 @@ class Net::Dhcp_packet
 			RELEASE   = 7,
 			INFORM    = 8
 		};
+
 
 		/**
 		 * DHCP option that specifies the DHCP message type
@@ -247,6 +258,33 @@ class Net::Dhcp_packet
 			Ipv4_address value() const {
 				return Ipv4_address::from_uint32_big_endian(_value); }
 		};
+
+
+		class Client_id
+		{
+			private:
+
+				Genode::uint8_t _code;
+				Genode::uint8_t _len;
+				Genode::uint8_t _value[7];
+
+			public:
+
+				Client_id(Mac_address value)
+				: _code(Option::Code::CLIENT_ID), _len(7)
+				{
+					_value[0] = 1;
+					_value[1] = value.addr[0];
+					_value[2] = value.addr[1];
+					_value[3] = value.addr[2];
+					_value[4] = value.addr[3];
+					_value[5] = value.addr[4];
+					_value[6] = value.addr[5];
+				}
+
+				Genode::uint8_t code() const { return _code; }
+				Genode::uint8_t len()  const { return _len; }
+		} __attribute__((packed));
 
 		using Dns_server_ipv4 = Ipv4_option<Option::Code::DNS_SERVER>;
 		using Subnet_mask     = Ipv4_option<Option::Code::SUBNET_MASK>;

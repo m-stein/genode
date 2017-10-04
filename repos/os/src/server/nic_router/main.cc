@@ -64,6 +64,6 @@ void Component::construct(Env &env)
 
 	catch (Net::Domain_tree::No_match) {
 		error("failed to find configuration for domain 'uplink'");
-		env.parent().exit(-1);
+//		env.parent().exit(-1);
 	}
 }
