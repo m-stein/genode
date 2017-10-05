@@ -138,11 +138,21 @@ class Net::Interface
 		Ip_allocation_list  _released_ip_allocations;
 		Packet_log_config   _log_cfg;
 
+		struct Dhcp_client_state
+		{
+			enum Enum { INIT, SELECT, REQUEST, BOUND, RENEW, REBIND };
+		};
+
+		Dhcp_client_state::Enum _dhcp_client_state { Dhcp_client_state::INIT };
+
 		void _new_link(L3_protocol                   const  protocol,
 		               Link_side_id                  const &local_id,
 		               Pointer<Port_allocator_guard> const  remote_port_alloc,
 		               Interface                           &remote_interface,
 		               Link_side_id                  const &remote_id);
+
+		void _dhcp_client_handle_ip(Ethernet_frame       &eth,
+                                    Genode::size_t const  eth_size);
 
 		void _destroy_released_ip_allocations();
 
@@ -156,7 +166,8 @@ class Net::Interface
 		                      Dhcp_packet::Message_type        msg_type,
 		                      Genode::uint32_t                 xid);
 
-		void _send_dhcp_request();
+		void _send_dhcp_request(Dhcp_packet::Message_type msg_type,
+		                        Ipv4_address              ip_dst,);
 
 		Forward_rule_tree &_forward_rules(L3_protocol const prot) const;
 
@@ -248,6 +259,12 @@ class Net::Interface
 		struct Bad_dhcp_request             : Genode::Exception { };
 		struct Alloc_dhcp_msg_buffer_failed : Genode::Exception { };
 		struct Dhcp_msg_buffer_too_small    : Genode::Exception { };
+		struct Packet_ignored : Genode::Exception
+		{
+			char const *reason;
+
+			Packet_ignored(char const *reason) : reason(reason) { }
+		};
 
 		Interface(Genode::Entrypoint &ep,
 		          Timer::Connection  &timer,

@@ -42,7 +42,7 @@ append config {
 		<resource name="RAM" quantum="4M"/>
 		<provides> <service name="Nic"/> </provides>
 	</start>
-
+<!--
 	<start name="nic_dump">
 		<resource name="RAM" quantum="6M"/>
 		<provides><service name="Nic"/></provides>
@@ -52,7 +52,7 @@ append config {
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>
-
+-->
 	<start name="nic_router" caps="200">
 		<resource name="RAM" quantum="10M"/>
 		<provides><service name="Nic"/></provides>
@@ -75,7 +75,7 @@ append config {
 
 		</config>
 		<route>
-			<service name="Nic"> <child name="nic_dump"/> </service>
+			<service name="Nic"> <child name="nic_drv"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>

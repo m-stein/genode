@@ -144,7 +144,7 @@ class Net::Dhcp_packet
 					ROUTER         = 3,
 					DNS_SERVER     = 6,
 					BROADCAST_ADDR = 28,
-					REQ_IP_ADDR    = 50,
+					REQUESTED_ADDR = 50,
 					IP_LEASE_TIME  = 51,
 					OPT_OVERLOAD   = 52,
 					MSG_TYPE       = 53,
@@ -259,6 +259,13 @@ class Net::Dhcp_packet
 				return Ipv4_address::from_uint32_big_endian(_value); }
 		};
 
+		using Dns_server_ipv4 = Ipv4_option<Option::Code::DNS_SERVER>;
+		using Subnet_mask     = Ipv4_option<Option::Code::SUBNET_MASK>;
+		using Broadcast_addr  = Ipv4_option<Option::Code::BROADCAST_ADDR>;
+		using Router_ipv4     = Ipv4_option<Option::Code::ROUTER>;
+		using Server_ipv4     = Ipv4_option<Option::Code::SERVER>;
+		using Requested_addr  = Ipv4_option<Option::Code::REQUESTED_ADDR>;
+
 
 		class Client_id
 		{
@@ -286,11 +293,6 @@ class Net::Dhcp_packet
 				Genode::uint8_t len()  const { return _len; }
 		} __attribute__((packed));
 
-		using Dns_server_ipv4 = Ipv4_option<Option::Code::DNS_SERVER>;
-		using Subnet_mask     = Ipv4_option<Option::Code::SUBNET_MASK>;
-		using Broadcast_addr  = Ipv4_option<Option::Code::BROADCAST_ADDR>;
-		using Router_ipv4     = Ipv4_option<Option::Code::ROUTER>;
-		using Server_ipv4     = Ipv4_option<Option::Code::SERVER>;
 
 		/**
 		 * DHCP option that marks the end of an options field
