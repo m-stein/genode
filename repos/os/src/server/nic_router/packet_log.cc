@@ -134,7 +134,7 @@ void Packet_log<Ethernet_frame>::print(Output &output) const
 		print(output, "\033[32mETH\033[0m");
 		print(output, " src ", _pkt.src());
 		print(output, " dst ", _pkt.dst());
-		print(output, " typ ", _pkt.type());
+		print(output, " typ ", (Genode::uint16_t)_pkt.type());
 		break;
 
 	case Packet_log_config::COMPACT:
