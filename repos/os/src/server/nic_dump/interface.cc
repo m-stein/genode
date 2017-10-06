@@ -29,8 +29,8 @@ void Interface::_handle_eth(void              *const  eth_base,
 	try {
 		Ethernet_frame &eth = *new (eth_base) Ethernet_frame(eth_size);
 		Interface &remote = _remote.deref();
-		Packet_log_config log_cfg(Packet_log_config::SHORT);
-		log_cfg.dhcp = Packet_log_config::COMPREHENSIVE;
+		Packet_log_config log_cfg(Packet_log_style::SHORT);
+		log_cfg.dhcp = Packet_log_style::COMPREHENSIVE;
 
 		if (_log_time) {
 			Genode::Duration const new_time    = _timer.curr_time();
