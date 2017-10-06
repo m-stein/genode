@@ -29,7 +29,7 @@ void Packet_log<Dhcp_packet>::print(Output &output) const
 
 		print(output, "\033[32mDHCP\033[0m");
 		print(output, " op ",   _pkt.op());
-		print(output, " htyp ", _pkt.htype());
+		print(output, " htyp ", (uint8_t)_pkt.htype());
 		print(output, " hlen ", _pkt.hlen());
 		print(output, " hps ",  _pkt.hops());
 		print(output, " xid ",  _pkt.xid());
@@ -185,7 +185,7 @@ void Packet_log<Ipv4_packet>::print(Output &output) const
 		print(output, " flg ",    _pkt.flags());
 		print(output, " frgoff ", _pkt.fragment_offset());
 		print(output, " ttl  ",   _pkt.time_to_live());
-		print(output, " prot ",   _pkt.protocol());
+		print(output, " prot ",   (uint8_t)_pkt.protocol());
 		print(output, " crc ",    _pkt.checksum());
 		print(output, " src ",    _pkt.src());
 		print(output, " dst ",    _pkt.dst());
@@ -205,12 +205,12 @@ void Packet_log<Ipv4_packet>::print(Output &output) const
 	}
 	/* print encapsulated packet */
 	switch (_pkt.protocol()) {
-	case Tcp_packet::IP_ID:
+	case Ipv4_packet::Protocol::TCP:
 
 		print(output, " ", packet_log(*_pkt.data<Tcp_packet const>(), _cfg));
 		break;
 
-	case Udp_packet::IP_ID:
+	case Ipv4_packet::Protocol::UDP:
 
 		print(output, " ", packet_log(*_pkt.data<Udp_packet const>(), _cfg));
 		break;
