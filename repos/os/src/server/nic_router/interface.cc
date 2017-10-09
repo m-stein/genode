@@ -1093,7 +1093,6 @@ void Interface::_init()
 {
 	if (!_domain.interface_attr_valid()) {
 
-
 //op 1 htyp 1 hlen 6 hps 0 xid 4081850655 sec 0 flg 0x0 ci 0.0.0.0 yi 0.0.0.0 si 0.0.0.0 gi 0.0.0.0 ch 02:02:02:02:02:00 srv  file  mag 1669485411
 //opt 53:1:01 61:7:01020202020200 57:2:0240 55:7:0103060c0f1c2a 60:12:756468637020312e32352e31 12:3:626f78
 		_send_dhcp_request(Dhcp_packet::Message_type::DISCOVER,
