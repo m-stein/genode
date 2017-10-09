@@ -138,12 +138,12 @@ class Net::Interface
 		Ip_allocation_list  _released_ip_allocations;
 		Packet_log_config   _log_cfg;
 
-		struct Dhcp_client_state
+		enum class Dhcp_client_state
 		{
-			enum Enum { INIT, SELECT, REQUEST, BOUND, RENEW, REBIND };
+			INIT, SELECT, REQUEST, BOUND, RENEW, REBIND,
 		};
 
-		Dhcp_client_state::Enum _dhcp_client_state { Dhcp_client_state::INIT };
+		Dhcp_client_state _dhcp_client_state { Dhcp_client_state::INIT };
 
 		void _new_link(L3_protocol                   const  protocol,
 		               Link_side_id                  const &local_id,
@@ -254,6 +254,7 @@ class Net::Interface
 
 	public:
 
+		struct Bad_send_dhcp_args           : Genode::Exception { };
 		struct Bad_transport_protocol       : Genode::Exception { };
 		struct Bad_network_protocol         : Genode::Exception { };
 		struct Packet_postponed             : Genode::Exception { };

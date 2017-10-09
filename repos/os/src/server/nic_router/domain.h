@@ -124,14 +124,21 @@ class Net::Domain : public Domain_base
 {
 	private:
 
+		struct Ip_config
+		{
+			Ipv4_address_prefix interface;
+			Ipv4_address        gateway;
+			bool                gateway_valid { gateway.valid() };
+			bool                valid         { interface.valid() };
+
+			Ip_config(Ipv4_address_prefix interface,
+			          Ipv4_address        gateway);
+		};
+
 		Domain_avl_member     _avl_member;
 		Configuration        &_config;
 		Genode::Xml_node      _node;
 		Genode::Allocator    &_alloc;
-		Ipv4_address_prefix   _interface_attr;
-		bool                  _interface_attr_valid;
-		Ipv4_address const    _gateway;
-		bool         const    _gateway_valid;
 		Ip_rule_list          _ip_rules;
 		Forward_rule_tree     _tcp_forward_rules;
 		Forward_rule_tree     _udp_forward_rules;
@@ -142,6 +149,7 @@ class Net::Domain : public Domain_base
 		Nat_rule_tree         _nat_rules;
 		Pointer<Interface>    _interface;
 		Pointer<Dhcp_server>  _dhcp_server;
+		Ip_config             _ip_config;
 
 		void _read_forward_rules(Genode::Cstring  const &protocol,
 		                         Domain_tree            &domains,
@@ -155,7 +163,7 @@ class Net::Domain : public Domain_base
 		                           char             const *type,
 		                           Transport_rule_list    &rules);
 
-		void _interface_attr_became_valid();
+		void _ip_config_was_set();
 
 	public:
 
@@ -172,6 +180,10 @@ class Net::Domain : public Domain_base
 
 		Ipv4_address const &next_hop(Ipv4_address const &ip) const;
 
+		void ip_config(Ipv4_address router,
+		               Ipv4_address subnet_mask,
+		               Ipv4_address gateway);
+
 
 		/*********
 		 ** log **
@@ -184,8 +196,8 @@ class Net::Domain : public Domain_base
 		 ** Accessors **
 		 ***************/
 
-		bool                 gateway_valid()        const { return _gateway_valid; }
-		bool                 interface_attr_valid() const { return _interface_attr_valid; }
+		bool                 gateway_valid()        const { return _ip_config.gateway_valid; }
+		bool                 interface_attr_valid() const { return _ip_config.valid; }
 		Domain_name const   &name()                       { return _name; }
 		Ip_rule_list        &ip_rules()                   { return _ip_rules; }
 		Forward_rule_tree   &tcp_forward_rules()          { return _tcp_forward_rules; }
@@ -193,7 +205,7 @@ class Net::Domain : public Domain_base
 		Transport_rule_list &tcp_rules()                  { return _tcp_rules; }
 		Transport_rule_list &udp_rules()                  { return _udp_rules; }
 		Nat_rule_tree       &nat_rules()                  { return _nat_rules; }
-		Ipv4_address_prefix &interface_attr()             { return _interface_attr; };
+		Ipv4_address_prefix &interface_attr()             { return _ip_config.interface; };
 		Pointer<Interface>  &interface()                  { return _interface; }
 		Configuration       &config()               const { return _config; }
 		Domain_avl_member   &avl_member()                 { return _avl_member; }

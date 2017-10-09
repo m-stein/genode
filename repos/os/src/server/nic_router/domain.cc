@@ -24,6 +24,26 @@ using namespace Net;
 using namespace Genode;
 
 
+/***********************
+ ** Domain::Ip_config **
+ ***********************/
+
+Domain::Ip_config::Ip_config(Ipv4_address_prefix interface,
+                             Ipv4_address        gateway)
+:
+	interface(interface), gateway(gateway)
+{
+	if (gateway_valid) {
+		if (!valid) {
+			warning("Gateway configuration ineffective");
+
+		} else if (!interface.prefix_matches(gateway)) {
+			warning("Gateway of foreign IP subnet");
+		}
+	}
+}
+
+
 /*****************
  ** Dhcp_server **
  *****************/
@@ -116,6 +136,15 @@ Domain_base::Domain_base(Xml_node const node)
  ** Domain **
  ************/
 
+void Domain::ip_config(Ipv4_address router,
+                       Ipv4_address subnet_mask,
+                       Ipv4_address gateway)
+{
+	_ip_config = Ip_config(Ipv4_address_prefix(router, subnet_mask), gateway);
+	_ip_config_was_set();
+}
+
+
 void Domain::_read_forward_rules(Cstring  const    &protocol,
                                  Domain_tree       &domains,
                                  Xml_node const     node,
@@ -160,28 +189,29 @@ Domain::Domain(Configuration &config, Xml_node const node, Allocator &alloc)
 :
 	Domain_base(node), _avl_member(_name, *this), _config(config),
 	_node(node), _alloc(alloc),
-	_interface_attr(node.attribute_value("interface", Ipv4_address_prefix())),
-	_interface_attr_valid(_interface_attr.valid()),
-	_gateway(node.attribute_value("gateway", Ipv4_address())),
-	_gateway_valid(_gateway.valid())
+	_ip_config(_node.attribute_value("interface", Ipv4_address_prefix()),
+	           _node.attribute_value("gateway",   Ipv4_address()))
 {
-	if (_name == Domain_name() ||
-	    (_gateway_valid && !_interface_attr.prefix_matches(_gateway)))
-	{
+	if (_name == Domain_name()) {
 		throw Invalid();
 	}
-	if (_interface_attr_valid) {
-		_interface_attr_became_valid();
-	}
+	_ip_config_was_set();
 }
 
 
-void Domain::_interface_attr_became_valid()
+void Domain::_ip_config_was_set()
 {
+	if (!_ip_config.valid) {
+		return;
+	}
+	if (_config.verbose()) {
+		log("IP config at domain \"", *this, "\": interface ", _ip_config.interface,
+		                                        " gateway ",   _ip_config.gateway);
+	}
 	/* try to find configuration for DHCP server role */
 	try {
 		_dhcp_server.set(*new (_alloc)
-			Dhcp_server(_node.sub_node("dhcp-server"), _alloc, _interface_attr));
+			Dhcp_server(_node.sub_node("dhcp-server"), _alloc, interface_attr()));
 
 		if (_config.verbose()) {
 			log("DHCP server at domain \"", *this, "\": ", _dhcp_server.deref()); }
@@ -230,8 +260,8 @@ void Domain::create_rules(Domain_tree &domains)
 
 Ipv4_address const &Domain::next_hop(Ipv4_address const &ip) const
 {
-	if (_interface_attr.prefix_matches(ip)) { return ip; }
-	if (_gateway_valid) { return _gateway; }
+	if (_ip_config.interface.prefix_matches(ip)) { return ip; }
+	if (_ip_config.gateway_valid) { return _ip_config.gateway; }
 	throw No_next_hop();
 }
 
