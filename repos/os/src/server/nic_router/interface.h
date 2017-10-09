@@ -167,7 +167,8 @@ class Net::Interface
 		                      Genode::uint32_t                 xid);
 
 		void _send_dhcp_request(Dhcp_packet::Message_type msg_type,
-		                        Ipv4_address              ip_dst,);
+		                        Ipv4_address              client_ip,
+		                        Ipv4_address              server_ip);
 
 		Forward_rule_tree &_forward_rules(L3_protocol const prot) const;
 

@@ -211,7 +211,7 @@ class Net::Dhcp_packet
 
 		struct Max_msg_size : Option_tpl<Genode::uint16_t>
 		{
-			static constexpr Code::Enum CODE = Code::MAX_MSG_SIZE;
+			static constexpr Code CODE = Code::MAX_MSG_SIZE;
 
 			Max_msg_size(Genode::uint16_t size)
 			: Option_tpl(CODE, host_to_big_endian(size)) { }
@@ -278,7 +278,7 @@ class Net::Dhcp_packet
 			public:
 
 				Client_id(Mac_address value)
-				: _code(Option::Code::CLIENT_ID), _len(7)
+				: _code((Genode::uint8_t)Option::Code::CLIENT_ID), _len(7)
 				{
 					_value[0] = 1;
 					_value[1] = value.addr[0];

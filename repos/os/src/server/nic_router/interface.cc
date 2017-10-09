@@ -394,7 +394,20 @@ void Interface::_send_dhcp_request(Dhcp_packet::Message_type msg_type,
 	/* append DHCP option fields to the request */
 	Dhcp_packet::Options_aggregator<Size_guard<BUF_SIZE, Dhcp_msg_buffer_too_small> >
 		dhcp_opts(dhcp, size);
-	append_dhcp_opts(dhcp_opts)
+
+	Dhcp_packet::Options_aggregator<Size_guard<BUF_SIZE, Dhcp_msg_buffer_too_small> >
+		reply_dhcp_opts(reply_dhcp, reply_size);
+	reply_dhcp_opts.append_option<Dhcp_packet::Message_type>(Dhcp_packet::Message_type::DISCOVER);
+	reply_dhcp_opts.append_option<Dhcp_packet::Client_id>(_router_mac);
+	reply_dhcp_opts.append_option<Dhcp_packet::Max_msg_size>(512);
+//	reply_dhcp_opts.append_option<Dhcp_packet::Ip_lease_time>(dhcp_srv.ip_lease_time().value / 1000 / 1000);
+//	reply_dhcp_opts.append_option<Dhcp_packet::Subnet_mask>(_domain.interface_attr().subnet_mask());
+//	reply_dhcp_opts.append_option<Dhcp_packet::Router_ipv4>(_router_ip());
+//	if (dhcp_srv.dns_server().valid()) {
+//		reply_dhcp_opts.append_option<Dhcp_packet::Dns_server_ipv4>(dhcp_srv.dns_server()); }
+//	reply_dhcp_opts.append_option<Dhcp_packet::Broadcast_addr>(_domain.interface_attr().broadcast_address());
+	reply_dhcp_opts.append_option<Dhcp_packet::Options_end>();
+
 	dhcp_opts.append_option<Dhcp_packet::Options_end>();
 
 	/* fill in header values that need the packet to be complete already */
