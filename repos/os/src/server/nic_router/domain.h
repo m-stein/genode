@@ -133,6 +133,8 @@ class Net::Domain : public Domain_base
 
 			Ip_config(Ipv4_address_prefix interface,
 			          Ipv4_address        gateway);
+
+			Ip_config() { }
 		};
 
 		Domain_avl_member     _avl_member;
@@ -163,7 +165,7 @@ class Net::Domain : public Domain_base
 		                           char             const *type,
 		                           Transport_rule_list    &rules);
 
-		void _ip_config_was_set();
+		void _ip_config_changed();
 
 	public:
 
@@ -183,6 +185,8 @@ class Net::Domain : public Domain_base
 		void ip_config(Ipv4_address router,
 		               Ipv4_address subnet_mask,
 		               Ipv4_address gateway);
+
+		void discard_ip_config();
 
 
 		/*********

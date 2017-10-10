@@ -29,20 +29,20 @@ void Packet_log<Dhcp_packet>::print(Output &output) const
 
 		print(output, "\033[32mDHCP\033[0m");
 		print(output, " op ",   _pkt.op());
-		print(output, " htyp ", (uint8_t)_pkt.htype());
-		print(output, " hlen ", _pkt.hlen());
-		print(output, " hps ",  _pkt.hops());
-		print(output, " xid ",  _pkt.xid());
-		print(output, " sec ",  _pkt.secs());
-		print(output, " flg ",  Hex(_pkt.flags()));
+//		print(output, " htyp ", (uint8_t)_pkt.htype());
+//		print(output, " hlen ", _pkt.hlen());
+//		print(output, " hps ",  _pkt.hops());
+//		print(output, " xid ",  _pkt.xid());
+//		print(output, " sec ",  _pkt.secs());
+//		print(output, " flg ",  Hex(_pkt.flags()));
 		print(output, " ci ",   _pkt.ciaddr());
 		print(output, " yi ",   _pkt.yiaddr());
 		print(output, " si ",   _pkt.siaddr());
-		print(output, " gi ",   _pkt.giaddr());
+//		print(output, " gi ",   _pkt.giaddr());
 		print(output, " ch ",   _pkt.client_mac());
-		print(output, " srv ",  _pkt.server_name());
-		print(output, " file ", _pkt.file());
-		print(output, " mag ",  _pkt.magic_cookie());
+//		print(output, " srv ",  _pkt.server_name());
+//		print(output, " file ", _pkt.file());
+//		print(output, " mag ",  _pkt.magic_cookie());
 		print(output, " opt");
 		_pkt.for_each_option([&] (Dhcp_packet::Option &opt) {
 			print(output, " ", opt);

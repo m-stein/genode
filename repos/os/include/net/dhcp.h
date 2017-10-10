@@ -206,6 +206,8 @@ class Net::Dhcp_packet
 
 			Ip_lease_time(Genode::uint32_t time)
 			: Option_tpl(CODE, host_to_big_endian(time)) { }
+
+			unsigned long value() const { return host_to_big_endian(_value); }
 		};
 
 

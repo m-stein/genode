@@ -141,7 +141,14 @@ void Domain::ip_config(Ipv4_address router,
                        Ipv4_address gateway)
 {
 	_ip_config = Ip_config(Ipv4_address_prefix(router, subnet_mask), gateway);
-	_ip_config_was_set();
+	_ip_config_changed();
+}
+
+
+void Domain::discard_ip_config()
+{
+	_ip_config = Ip_config();
+	_ip_config_changed();
 }
 
 
@@ -195,11 +202,11 @@ Domain::Domain(Configuration &config, Xml_node const node, Allocator &alloc)
 	if (_name == Domain_name()) {
 		throw Invalid();
 	}
-	_ip_config_was_set();
+	_ip_config_changed();
 }
 
 
-void Domain::_ip_config_was_set()
+void Domain::_ip_config_changed()
 {
 	if (!_ip_config.valid) {
 		return;

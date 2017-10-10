@@ -138,21 +138,43 @@ class Net::Interface
 		Ip_allocation_list  _released_ip_allocations;
 		Packet_log_config   _log_cfg;
 
+
+		/*****************
+		 ** DHCP client **
+		 *****************/
+
 		enum class Dhcp_client_state
 		{
-			INIT, SELECT, REQUEST, BOUND, RENEW, REBIND,
+			INIT = 0, SELECT = 1, REQUEST = 2, BOUND = 3, RENEW = 4, REBIND = 5
 		};
 
-		Dhcp_client_state _dhcp_client_state { Dhcp_client_state::INIT };
+		Dhcp_client_state                  _dhcp_client_state   { Dhcp_client_state::INIT };
+		Timer::One_shot_timeout<Interface> _dhcp_client_timeout { _timer, *this, &Interface::_dhcp_client_handle_timeout };
+		unsigned long                      _dhcp_client_ip_lease_time_sec;
+
+		void _dhcp_client_handle_ip(Ethernet_frame       &eth,
+		                            Genode::size_t const  eth_size);
+
+		void _dhcp_client_handle_timeout(Genode::Duration);
+
+		void _dhcp_client_rerequest(Dhcp_client_state next_state);
+
+		void _dhcp_client_discover();
+
+		Genode::Microseconds
+		_dhcp_client_rerequest_timeout(unsigned ip_lease_time_div_log2);
+
+		void _dhcp_client_set_state(Dhcp_client_state    state,
+		                            Genode::Microseconds timeout);
+
+
+
 
 		void _new_link(L3_protocol                   const  protocol,
 		               Link_side_id                  const &local_id,
 		               Pointer<Port_allocator_guard> const  remote_port_alloc,
 		               Interface                           &remote_interface,
 		               Link_side_id                  const &remote_id);
-
-		void _dhcp_client_handle_ip(Ethernet_frame       &eth,
-                                    Genode::size_t const  eth_size);
 
 		void _destroy_released_ip_allocations();
 
