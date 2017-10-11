@@ -20,31 +20,10 @@
 #include <interface.h>
 #include <configuration.h>
 #include <l3_protocol.h>
+#include <size_guard.h>
 
 using namespace Net;
 using namespace Genode;
-
-/**
- * Utility to ensure that a size value doesn't exceed a limit
- */
-template <size_t MAX, typename EXCEPTION>
-class Size_guard_tpl
-{
-	private:
-
-		size_t _curr { 0 };
-
-	public:
-
-		void add(size_t size)
-		{
-			size_t const new_size = _curr + size;
-			if (new_size > MAX) { throw EXCEPTION(); }
-			_curr = new_size;
-		}
-
-		size_t curr() const { return _curr; }
-};
 
 
 /***************
@@ -186,7 +165,7 @@ void Interface::_pass_ip(Ethernet_frame &eth,
                          Ipv4_packet    &ip)
 {
 	ip.checksum(Ipv4_packet::calculate_checksum(ip));
-	_send(eth, eth_size);
+	send(eth, eth_size);
 }
 
 
@@ -331,105 +310,6 @@ void Interface::_nat_link_and_pass(Ethernet_frame        &eth,
 }
 
 
-void Interface::_send_dhcp_request(Dhcp_packet::Message_type msg_type,
-                                   Ipv4_address              client_ip,
-                                   Ipv4_address              server_ip)
-{
-	/* allocate buffer for the request */
-	enum { BUF_SIZE = 1024 };
-	using Size_guard = Size_guard_tpl<BUF_SIZE, Dhcp_msg_buffer_too_small>;
-	void *buf;
-	try { _alloc.alloc(BUF_SIZE, &buf); }
-	catch (...) { throw Alloc_dhcp_msg_buffer_failed(); }
-
-	/* create ETH header of the request */
-	Size_guard size;
-	size.add(sizeof(Ethernet_frame));
-	Ethernet_frame &eth = *reinterpret_cast<Ethernet_frame *>(buf);
-	eth.dst(Mac_address(0xff));
-	eth.src(_router_mac);
-	eth.type(Ethernet_frame::Type::IPV4);
-
-	/* create IP header of the request */
-	enum { IPV4_TIME_TO_LIVE = 64 };
-	size_t const ip_off = size.curr();
-	size.add(sizeof(Ipv4_packet));
-	Ipv4_packet &ip = *eth.data<Ipv4_packet>();
-	ip.header_length(sizeof(Ipv4_packet) / 4);
-	ip.version(4);
-	ip.diff_service(0);
-	ip.identification(0);
-	ip.flags(0);
-	ip.fragment_offset(0);
-	ip.time_to_live(IPV4_TIME_TO_LIVE);
-	ip.protocol(Ipv4_packet::Protocol::UDP);
-	ip.src(client_ip);
-	ip.dst(Ipv4_address(0xff));
-
-	/* create UDP header of the request */
-	size_t const udp_off = size.curr();
-	size.add(sizeof(Udp_packet));
-	Udp_packet &udp = *ip.data<Udp_packet>();
-	udp.src_port(Port(Dhcp_packet::BOOTPC));
-	udp.dst_port(Port(Dhcp_packet::BOOTPS));
-
-	/* create mandatory DHCP fields of the request  */
-	size_t const dhcp_off = size.curr();
-	size.add(sizeof(Dhcp_packet));
-	Dhcp_packet &dhcp = *udp.data<Dhcp_packet>();
-	dhcp.op(Dhcp_packet::REQUEST);
-	dhcp.htype(Dhcp_packet::Htype::ETH);
-	dhcp.hlen(sizeof(Mac_address));
-	dhcp.hops(0);
-	dhcp.xid(0x12345678);
-	dhcp.secs(0);
-	dhcp.flags(0);
-	dhcp.ciaddr(client_ip);
-	dhcp.yiaddr(Ipv4_address());
-	dhcp.siaddr(Ipv4_address());
-	dhcp.giaddr(Ipv4_address());
-	dhcp.client_mac(_router_mac);
-	dhcp.zero_fill_sname();
-	dhcp.zero_fill_file();
-	dhcp.default_magic_cookie();
-
-	/* append DHCP option fields to the request */
-	Dhcp_packet::Options_aggregator<Size_guard>
-		dhcp_opts(dhcp, size);
-	dhcp_opts.append_option<Dhcp_packet::Message_type_option>(msg_type);
-
-	switch (msg_type) {
-	case Dhcp_packet::Message_type::DISCOVER:
-		dhcp_opts.append_option<Dhcp_packet::Client_id>(_router_mac);
-		dhcp_opts.append_option<Dhcp_packet::Max_msg_size>(BUF_SIZE - dhcp_off);
-		break;
-
-	case Dhcp_packet::Message_type::REQUEST:
-		dhcp_opts.append_option<Dhcp_packet::Client_id>(_router_mac);
-		dhcp_opts.append_option<Dhcp_packet::Max_msg_size>(BUF_SIZE - dhcp_off);
-		if (_dhcp_client_state == Dhcp_client_state::SELECT) {
-			dhcp_opts.append_option<Dhcp_packet::Requested_addr>(client_ip);
-			dhcp_opts.append_option<Dhcp_packet::Server_ipv4>(server_ip);
-		}
-		break;
-
-	default:
-		throw Bad_send_dhcp_args();
-	}
-	dhcp_opts.append_option<Dhcp_packet::Options_end>();
-
-	/* fill in header values that need the packet to be complete already */
-	udp.length(size.curr() - udp_off);
-	udp.update_checksum(ip.src(), ip.dst());
-	ip.total_length(size.curr() - ip_off);
-	ip.checksum(Ipv4_packet::calculate_checksum(ip));
-
-	/* send request to sender of request and free request buffer */
-	_send(eth, size.curr());
-	_alloc.free(buf, BUF_SIZE);
-}
-
-
 void Interface::_send_dhcp_reply(Dhcp_server               const &dhcp_srv,
                                  Mac_address               const &client_mac,
                                  Ipv4_address              const &client_ip,
@@ -512,7 +392,7 @@ void Interface::_send_dhcp_reply(Dhcp_server               const &dhcp_srv,
 	ip.checksum(Ipv4_packet::calculate_checksum(ip));
 
 	/* send reply to sender of request and free reply buffer */
-	_send(eth, size.curr());
+	send(eth, size.curr());
 	_alloc.free(buf, BUF_SIZE);
 }
 
@@ -684,7 +564,7 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 					}
 					catch (Pointer<Dhcp_server>::Invalid) { }
 				} else {
-					_dhcp_client_handle_ip(eth, eth_size);
+					_dhcp_client.handle_ip(eth, eth_size);
 					return;
 				}
 			}
@@ -792,7 +672,7 @@ void Interface::_broadcast_arp_request(Ipv4_address const &ip)
 	arp.src_ip(_router_ip());
 	arp.dst_mac(Mac_address(0xff));
 	arp.dst_ip(ip);
-	_send(eth_arp, sizeof(eth_arp));
+	send(eth_arp, sizeof(eth_arp));
 }
 
 
@@ -860,7 +740,7 @@ void Interface::_handle_arp_request(Ethernet_frame &eth,
 
 	/* mark packet as reply and send it back to its sender */
 	arp.opcode(Arp_packet::REPLY);
-	_send(eth, eth_size);
+	send(eth, eth_size);
 }
 
 
@@ -950,7 +830,7 @@ void Interface::_handle_eth(void              *const  eth_base,
 			} else {
 
 				switch (eth->type()) {
-				case Ethernet_frame::Type::IPV4: _dhcp_client_handle_ip(*eth, eth_size); break;
+				case Ethernet_frame::Type::IPV4: _dhcp_client.handle_ip(*eth, eth_size); break;
 				default: throw Bad_network_protocol(); }
 			}
 		}
@@ -994,7 +874,7 @@ void Interface::_handle_eth(void              *const  eth_base,
 }
 
 
-void Interface::_send(Ethernet_frame &eth, Genode::size_t const size)
+void Interface::send(Ethernet_frame &eth, Genode::size_t const size)
 {
 	if (_config().verbose()) {
 		log("\033[33m(", _domain, " <- router)\033[0m ", packet_log(eth, _log_cfg)); }
@@ -1040,7 +920,7 @@ Interface::Interface(Entrypoint        &ep,
 void Interface::_init()
 {
 	if (!_domain.interface_attr_valid()) {
-		_dhcp_client_discover();
+		_dhcp_client.discover();
 	}
 }
 
@@ -1168,141 +1048,4 @@ Ip_allocation_tree::find_by_mac(Mac_address const &mac) const
 		throw No_match(); }
 
 	return first()->find_by_mac(mac);
-}
-
-
-/*****************
- ** Dhcp_client **
- *****************/
-
-void Interface::_dhcp_client_discover()
-{
-	_send_dhcp_request(Dhcp_packet::Message_type::DISCOVER,
-	                   Ipv4_address(), Ipv4_address());
-	_dhcp_client_set_state(Dhcp_client_state::SELECT, _config().rtt());
-}
-
-
-void Interface::_dhcp_client_rerequest(Dhcp_client_state next_state)
-{
-	_send_dhcp_request(Dhcp_packet::Message_type::REQUEST,
-	                   _domain.interface_attr().address,
-	                   Ipv4_address());
-	_dhcp_client_set_state(next_state, _dhcp_client_rerequest_timeout(2));
-}
-
-
-void Interface::_dhcp_client_set_state(Dhcp_client_state state,
-                                       Microseconds      timeout)
-{
-	_dhcp_client_state = state;
-	_dhcp_client_timeout.schedule(timeout);
-}
-
-
-Microseconds Interface::_dhcp_client_rerequest_timeout(unsigned ip_lease_time_div_log2)
-{
-	enum { MAX_TIMEOUT_SEC = 3600 };
-
-	unsigned long timeout_sec =
-		_dhcp_client_ip_lease_time_sec >> ip_lease_time_div_log2;
-
-	/* FIXME limit the time because of shortcomings in timeout framework */
-	if (timeout_sec > MAX_TIMEOUT_SEC) {
-		timeout_sec = MAX_TIMEOUT_SEC;
-		warning("Had to prune the state timeout of DHCP client");
-	}
-	return Microseconds(timeout_sec * 1000UL * 1000UL);
-}
-
-
-void Interface::_dhcp_client_handle_timeout(Duration)
-{
-	switch (_dhcp_client_state) {
-	case Dhcp_client_state::BOUND:  _dhcp_client_rerequest(Dhcp_client_state::RENEW);  break;
-	case Dhcp_client_state::RENEW:  _dhcp_client_rerequest(Dhcp_client_state::REBIND); break;
-	case Dhcp_client_state::REBIND: _domain.discard_ip_config();
-	default:                        _dhcp_client_discover();
-	}
-}
-
-
-void Interface::_dhcp_client_handle_ip(Ethernet_frame &eth,
-                                       size_t const    eth_size)
-{
-	if (eth.dst() != _router_mac) {
-		throw Packet_ignored("DHCP client expects Ethernet targeting the router");
-	}
-	Ipv4_packet &ip = *new (eth.data<void>())
-		Ipv4_packet(eth_size - sizeof(Ethernet_frame));
-
-	if (ip.protocol() != Ipv4_packet::Protocol::UDP) {
-		throw Packet_ignored("DHCP client expects UDP packet");
-	}
-	Udp_packet &udp = *new (ip.data<void>())
-		Udp_packet(eth_size - sizeof(Ipv4_packet));
-
-	if (!Dhcp_packet::is_dhcp(&udp)) {
-		throw Packet_ignored("DHCP client expects DHCP packet");
-	}
-	Dhcp_packet &dhcp = *new (udp.data<void>())
-		Dhcp_packet(eth_size - sizeof(Ipv4_packet)
-		                     - sizeof(Udp_packet));
-
-	if (dhcp.op() != Dhcp_packet::REPLY) {
-		throw Packet_ignored("DHCP client expects DHCP reply");
-	}
-	try {
-		Dhcp_packet::Message_type const msg_type =
-			dhcp.option<Dhcp_packet::Message_type_option>().value();
-
-		switch (_dhcp_client_state) {
-		case Dhcp_client_state::SELECT:
-
-			if (msg_type != Dhcp_packet::Message_type::OFFER) {
-				throw Packet_ignored("DHCP client expects an offer");
-			}
-			_send_dhcp_request(Dhcp_packet::Message_type::REQUEST,
-			                   dhcp.yiaddr(),
-			                   dhcp.option<Dhcp_packet::Server_ipv4>().value());
-
-			_dhcp_client_set_state(Dhcp_client_state::REQUEST, _config().rtt());
-			break;
-
-		case Dhcp_client_state::REQUEST:
-
-			if (msg_type != Dhcp_packet::Message_type::ACK) {
-				throw Packet_ignored("DHCP client expects an acknowledgement");
-			}
-			_domain.ip_config(dhcp.yiaddr(),
-			                  dhcp.option<Dhcp_packet::Subnet_mask>().value(),
-			                  dhcp.option<Dhcp_packet::Router_ipv4>().value());
-
-			_dhcp_client_ip_lease_time_sec =
-				dhcp.option<Dhcp_packet::Ip_lease_time>().value();
-
-			_dhcp_client_set_state(Dhcp_client_state::BOUND,
-			                       _dhcp_client_rerequest_timeout(1));
-			break;
-
-		case Dhcp_client_state::RENEW:
-		case Dhcp_client_state::REBIND:
-
-			if (msg_type != Dhcp_packet::Message_type::ACK) {
-				throw Packet_ignored("DHCP client expects an acknowledgement");
-			}
-			_dhcp_client_ip_lease_time_sec =
-				dhcp.option<Dhcp_packet::Ip_lease_time>().value();
-
-			_dhcp_client_set_state(Dhcp_client_state::BOUND,
-			                       _dhcp_client_rerequest_timeout(1));
-			break;
-
-		default: throw Packet_ignored("DHCP client doesn't expect a packet");
-		}
-	}
-	catch (Dhcp_packet::Option_not_found) {
-		throw Packet_ignored("DHCP client misses DHCP option");
-	}
-	return;
 }

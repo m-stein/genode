@@ -20,6 +20,7 @@
 #include <arp_waiter.h>
 #include <l3_protocol.h>
 #include <packet_log.h>
+#include <dhcp_client.h>
 
 /* Genode includes */
 #include <nic_session/nic_session.h>
@@ -137,38 +138,7 @@ class Net::Interface
 		Ip_allocation_tree  _ip_allocations;
 		Ip_allocation_list  _released_ip_allocations;
 		Packet_log_config   _log_cfg;
-
-
-		/*****************
-		 ** DHCP client **
-		 *****************/
-
-		enum class Dhcp_client_state
-		{
-			INIT = 0, SELECT = 1, REQUEST = 2, BOUND = 3, RENEW = 4, REBIND = 5
-		};
-
-		Dhcp_client_state                  _dhcp_client_state   { Dhcp_client_state::INIT };
-		Timer::One_shot_timeout<Interface> _dhcp_client_timeout { _timer, *this, &Interface::_dhcp_client_handle_timeout };
-		unsigned long                      _dhcp_client_ip_lease_time_sec;
-
-		void _dhcp_client_handle_ip(Ethernet_frame       &eth,
-		                            Genode::size_t const  eth_size);
-
-		void _dhcp_client_handle_timeout(Genode::Duration);
-
-		void _dhcp_client_rerequest(Dhcp_client_state next_state);
-
-		void _dhcp_client_discover();
-
-		Genode::Microseconds
-		_dhcp_client_rerequest_timeout(unsigned ip_lease_time_div_log2);
-
-		void _dhcp_client_set_state(Dhcp_client_state    state,
-		                            Genode::Microseconds timeout);
-
-
-
+		Dhcp_client         _dhcp_client { _alloc, _timer, *this };
 
 		void _new_link(L3_protocol                   const  protocol,
 		               Link_side_id                  const &local_id,
@@ -187,10 +157,6 @@ class Net::Interface
 		                      Ipv4_address              const &client_ip,
 		                      Dhcp_packet::Message_type        msg_type,
 		                      Genode::uint32_t                 xid);
-
-		void _send_dhcp_request(Dhcp_packet::Message_type msg_type,
-		                        Ipv4_address              client_ip,
-		                        Ipv4_address              server_ip);
 
 		Forward_rule_tree &_forward_rules(L3_protocol const prot) const;
 
@@ -228,8 +194,6 @@ class Net::Interface
 		                        Interface              &interface);
 
 		void _broadcast_arp_request(Ipv4_address const &ip);
-
-		void _send(Ethernet_frame &eth, Genode::size_t const eth_size);
 
 		void _pass_prot(Ethernet_frame         &eth,
 		                Genode::size_t   const  eth_size,
@@ -305,6 +269,8 @@ class Net::Interface
 
 		void dissolve_link(Link_side &link_side, L3_protocol const prot);
 
+		void send(Ethernet_frame &eth, Genode::size_t const eth_size);
+
 
 		/*********
 		 ** log **
@@ -317,6 +283,8 @@ class Net::Interface
 		 ** Accessors **
 		 ***************/
 
+		Domain          &domain()              { return _domain; }
+		Mac_address      router_mac()    const { return _router_mac; }
 		Arp_waiter_list &own_arp_waiters()     { return _own_arp_waiters; }
 		Arp_waiter_list &foreign_arp_waiters() { return _foreign_arp_waiters; }
 };
