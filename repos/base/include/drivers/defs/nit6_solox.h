@@ -15,11 +15,11 @@
 #define _INCLUDE__DRIVERS__DEFS__NIT6_SOLOX_H_
 
 /* Genode includes */
-#include <drivers/defs/imx6.h>
+#include <drivers/defs/imx6_solox.h>
 
 namespace Nit6_solox {
 
-	using namespace Imx6;
+	using namespace Imx6_solox;
 
 	enum {
 		/* normal RAM */

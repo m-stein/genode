@@ -18,11 +18,11 @@
 #define _INCLUDE__DRIVERS__DEFS__WAND_QUAD_H_
 
 /* Genode includes */
-#include <drivers/defs/imx6.h>
+#include <drivers/defs/imx6_dual_quad.h>
 
 namespace Wand_quad {
 
-	using namespace Imx6;
+	using namespace Imx6_dual_quad;
 
 	enum {
 		/* normal RAM */

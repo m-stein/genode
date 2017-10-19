@@ -1,4 +1,4 @@
-SPECS += imx6
+SPECS += imx6_solox imx6
 
 REP_INC_DIR += include/spec/nit6_solox
 
