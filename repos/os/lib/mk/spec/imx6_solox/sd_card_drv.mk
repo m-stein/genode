@@ -1,4 +1,4 @@
-SRC_CC  += adma2.cc spec/imx/driver.cc spec/imx6/driver.cc spec/imx6_solox/driver.cc
+SRC_CC  += adma2.cc spec/imx/driver.cc spec/imx6/driver.cc spec/nit6_solox/driver.cc
 LIBS    += base
 
 vpath %.cc $(REP_DIR)/src/drivers/sd_card

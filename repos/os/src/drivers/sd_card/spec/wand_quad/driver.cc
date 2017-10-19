@@ -15,7 +15,7 @@
 #include <driver.h>
 
 /* Genode includes */
-#include <drivers/defs/imx6_solox.h>
+#include <drivers/defs/wand_quad.h>
 
 using namespace Sd_card;
 using namespace Genode;
@@ -24,8 +24,8 @@ using namespace Genode;
 Driver::Driver(Env &env)
 :
 	Driver_base(env.ram()),
-	Attached_mmio(env, Imx6_solox::SDHC_MMIO_BASE, Imx6_solox::SDHC_MMIO_SIZE),
-	_env(env), _irq(env, Imx6_solox::SDHC_IRQ)
+	Attached_mmio(env, Wand_quad::SDHC_MMIO_BASE, Wand_quad::SDHC_MMIO_SIZE),
+	_env(env), _irq(env, Wand_quad::SDHC_IRQ)
 {
 	log("SD card detected");
 	log("capacity: ", card_info().capacity_mb(), " MiB");

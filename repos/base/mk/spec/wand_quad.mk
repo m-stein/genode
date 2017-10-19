@@ -1,4 +1,4 @@
-SPECS += imx6_dual_quad imx6
+SPECS += wand_quad imx6
 
 REP_INC_DIR += include/spec/wand_quad
 

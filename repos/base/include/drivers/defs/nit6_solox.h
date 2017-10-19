@@ -15,13 +15,18 @@
 #define _INCLUDE__DRIVERS__DEFS__NIT6_SOLOX_H_
 
 /* Genode includes */
-#include <drivers/defs/imx6_solox.h>
+#include <drivers/defs/imx6.h>
 
 namespace Nit6_solox {
 
-	using namespace Imx6_solox;
+	using namespace Imx6;
 
 	enum {
+		/* SD host controller */
+		SDHC_IRQ       = 55,
+		SDHC_MMIO_BASE = 0x02194000,
+		SDHC_MMIO_SIZE = 0x00004000,
+
 		/* normal RAM */
 		RAM0_BASE = 0x80000000,
 		RAM0_SIZE = 0x40000000,
