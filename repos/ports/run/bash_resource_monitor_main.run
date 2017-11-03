@@ -1,0 +1,466 @@
+######################
+## Build components ##
+######################
+
+create_boot_directory
+
+source ${genode_dir}/repos/base/run/platform_drv.inc
+
+proc noux_pkgs { pkgs } {
+	foreach pkg $pkgs { lappend_if [expr ![file exists bin/$pkg]] result noux-pkg/$pkg }
+	return $result
+}
+
+proc input_drv_binaries { } {
+	append_if [have_spec ps2]   result { ps2_drv }
+	append_if [have_spec usb]   result { usb_drv }
+	append_if [have_spec imx53] result { input_drv }
+	return $result
+}
+
+proc gpio_drv_binary { } {
+	if {[have_spec rpi] && [have_spec hw]}  { return hw_gpio_drv }
+	if {[have_spec rpi] && [have_spec foc]} { return foc_gpio_drv }
+	if {[have_spec gpio]}                   { return gpio_drv }
+}
+
+proc gpio_drv_build { } { if {[gpio_drv_binary] != ""} { return drivers/gpio } }
+
+build "
+	core
+	init
+	noux
+
+	lib/libc_noux
+
+	drivers/timer
+	drivers/framebuffer
+	drivers/input
+	drivers/usb
+	[gpio_drv_build]
+	[platform_drv_build_components]
+
+	server/fs_report
+	server/input_merger
+	server/terminal
+	server/ram_fs
+	server/nitpicker
+	server/nit_fb
+
+	[noux_pkgs { vim bash coreutils }]
+	app/pointer"
+
+# write default vimrc file
+set vimrc_fd [open bin/vimrc w]
+puts $vimrc_fd {
+set noloadplugins
+set hls
+set nocompatible
+set laststatus=2
+set noswapfile
+set viminfo=}
+close $vimrc_fd
+
+
+#####################
+## Generate config ##
+#####################
+
+proc gpio_drv_config { } {
+
+	if {[have_spec gpio]} {
+		append result {
+			<start name="} [gpio_drv_binary] {" caps="140">
+				<resource name="RAM" quantum="4M"/>
+				<provides><service name="Gpio"/></provides>
+			</start>}
+		return $result
+	}
+}
+
+proc timer_drv_config { } {
+
+	append result {
+		<start name="timer" priority="0">
+			<resource name="RAM" quantum="1M"/>
+			<resource name="CPU" quantum="5"/>
+			<provides><service name="Timer"/></provides>
+		</start>}
+
+	return $result
+}
+
+proc input_drv_config { } {
+
+	append_if [have_spec imx53] result {
+		<start name="input_drv">
+			<resource name="RAM" quantum="1M"/>
+			<provides><service name="Input"/></provides>
+			<result/>
+		</start> }
+
+	append_if [have_spec ps2] result {
+		<start name="ps2_drv">
+			<resource name="RAM" quantum="1M"/>
+			<provides><service name="Input"/></provides>
+		</start> }
+
+	append_if [have_spec usb] result {
+		<start name="usb_drv">
+			<resource name="RAM" quantum="12M"/>
+			<provides><service name="Input"/></provides>
+			<config uhci="yes" ehci="yes" xhci="yes">
+				<hid/>
+			</config>
+			<route>
+				<service name="IRQ"><child name="acpi" /></service>
+				<any-service> <parent /> <any-child /></any-service>
+			</route>
+		</start> }
+
+	return $result
+}
+
+
+proc input_merger_routes { } {
+
+	append_if [have_spec usb] result {
+		<service name="Input" label="usb_hid">
+			<child name="usb_drv"/>
+		</service>}
+
+	append_if [have_spec ps2] result {
+		<service name="Input" label="ps2">
+			<child name="ps2_drv"/>
+		</service>}
+
+	append_if [have_spec imx53] result {
+		<service name="Input" label="imx53">
+			<child name="input_drv"/>
+		</service>}
+
+	return $result
+}
+
+proc input_merger_inputs { } {
+
+	append_if [have_spec ps2]   result { <input label="ps2" /> }
+	append_if [have_spec usb]   result { <input label="usb_hid" /> }
+	append_if [have_spec imx53] result { <input label="imx53" /> }
+	return $result
+}
+
+proc fb_drv_config { } {
+
+	append_if [have_spec sdl] result {
+		<start name="fb_drv" caps="500">
+			<binary name="fb_sdl"/>
+			<resource name="RAM" quantum="4M"/>
+			<provides>
+				<service name="Input"/>
+				<service name="Framebuffer"/>
+			</provides>
+		</start>}
+
+	append_if [have_spec framebuffer] result {
+		<start name="fb_drv" caps="500">
+			<resource name="RAM" quantum="4M"/>
+			<provides><service name="Framebuffer"/></provides>
+			<config width="640" height="480"/>
+		</start>}
+
+	return $result
+}
+
+append config {
+<config prio_levels="2">
+
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="IRQ"/>
+		<service name="IO_MEM"/>
+		<service name="IO_PORT"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="LOG"/>
+	</parent-provides>
+	<default-route>
+		<service name="Input"> <child name="input_merger"/> </service>
+		<any-service><parent/><any-child/></any-service>
+	</default-route>
+	<default caps="100"/>
+
+	} [platform_drv_config] {
+	} [input_drv_config]    {
+	} [fb_drv_config]       {
+	} [timer_drv_config]    {
+	} [gpio_drv_config]     {
+
+	<start name="input_merger">
+		<resource name="RAM" quantum="1M" />
+		<provides> <service name="Input" /> </provides>
+		<config>
+			} [input_merger_inputs] {
+		</config>
+		<route>
+			} [input_merger_routes] {
+			<any-service> <parent /> <any-child /> </any-service>
+		</route>
+	</start>
+
+
+	<!--=====================================================================
+	 == These components provide all that is necessary to monitor the      ==
+	 == state reports of the other two init sub-systems via file           ==
+	 == operations in an interactive bash window. The only connection      ==
+	 == between the other two init sub-systems an this one is the Report   ==
+	 == service that this init provides                                    ==
+	 ======================================================================-->
+
+	<start name="nitpicker">
+		<resource name="RAM" quantum="4M"/>
+		<provides><service name="Nitpicker"/></provides>
+		<config>
+			<policy label_prefix="pointer" domain="pointer"/>
+			<default-policy                domain="default"/>
+			<domain name="pointer" layer="1" content="client" label="no" origin="pointer" />
+			<domain name="default" layer="2" content="client" label="no" focus="click" />
+		</config>
+		<route>
+			<service name="Input"><child name="input_merger"/></service>
+			<service name="Framebuffer"><child name="fb_drv"/></service>
+			<any-service><parent/><any-child/></any-service>
+		</route>
+	</start>
+
+	<start name="pointer">
+		<resource name="RAM" quantum="1M"/>
+	</start>
+
+	<start name="ram_fs">
+		<resource name="RAM" quantum="10M"/>
+		<provides> <service name="File_system"/> </provides>
+		<config>
+			<content>
+				<dir name="fs_report"/>
+				<dir name="noux"/>
+			</content>
+			<policy label_prefix="fs_report -> " root="/fs_report" writeable="yes"/>
+			<policy label="noux -> root"         root="/noux"      writeable="yes"/>
+			<policy label="noux -> reports"      root="/fs_report"/>
+		</config>
+	</start>
+
+	<start name="nit_fb">
+		<resource name="RAM" quantum="2M"/>
+		<provides>
+			<service name="Framebuffer"/>
+			<service name="Input"/>
+		</provides>
+		<config xpos="0" ypos="0" width="500" height="400" refresh_rate="25"/>
+	</start>
+
+	<start name="terminal">
+		<resource name="RAM" quantum="2M"/>
+		<provides><service name="Terminal"/></provides>
+		<route>
+			<service name="Input">      <child name="nit_fb"/></service>
+			<service name="Framebuffer"><child name="nit_fb"/></service>
+			<any-service><parent/><any-child/></any-service>
+		</route>
+		<config>
+			<keyboard layout="de"/>
+			<font size="12" />
+		</config>
+	</start>
+
+	<start name="noux" caps="500">
+		<resource name="RAM" quantum="50M" />
+		<route>
+			<service name="Terminal"><child name="terminal"/></service>
+			<any-service><parent/><any-child/></any-service>
+		</route>
+		<config>
+			<fstab>
+				<tar name="coreutils.tar" />
+				<tar name="vim.tar" />
+				<tar name="bash.tar" />
+				<dir name="reports">
+					<fs label="reports" />
+				</dir>
+				<dir name="share">
+					<dir name="vim">
+						<rom name="vimrc"/>
+					</dir>
+				</dir>
+				<dir name="ram">
+					<fs label="root" />
+				</dir>
+				<dir name="dev">
+					<zero/>
+					<null/>
+				</dir>
+			</fstab>
+			<start name="/bin/bash">
+				<env name="TERM" value="linux" />
+			</start>
+		</config>
+	</start>
+
+	<start name="fs_report">
+		<resource name="RAM" quantum="4M"/>
+		<provides> <service name="Report"/> </provides>
+		<config> <vfs> <fs/> </vfs> </config>
+	</start>
+
+
+
+	<!--=====================================================================
+	 == This sub-system contains test clients which have a pretty variable ==
+	 == and, through their log output, comprehensible RAM and capability   ==
+	 == consumption                                                        ==
+	 ======================================================================-->
+
+	<start name="test1" caps="4000" priority="-1">
+		<binary name="init" />
+		<resource name="RAM" quantum="50M"/>
+
+		<route>
+			<service name="Report"> <child name="fs_report"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+
+		<config>
+
+			<report init_ram="yes" init_caps="yes" child_ram="yes" child_caps="yes"/>
+
+			<parent-provides>
+				<service name="ROM"/>
+				<service name="IRQ"/>
+				<service name="IO_MEM"/>
+				<service name="IO_PORT"/>
+				<service name="PD"/>
+				<service name="RM"/>
+				<service name="CPU"/>
+				<service name="LOG"/>
+				<service name="Timer"/>
+				<service name="Nic"/>
+			</parent-provides>
+
+			<default-route>
+				<any-service> <parent/> <any-child/> </any-service>
+			</default-route>
+
+			<start name="test1.1" caps="1500">
+				<binary name="test-resource_monitor"/>
+				<resource name="RAM" quantum="10M"/>
+				<config verbose="yes" start_direction="down" total_kib="512" steps_up="1" steps_down="8" period_ms="2000"/>
+			</start>
+
+			<start name="test1.2" caps="1500">
+				<binary name="test-resource_monitor"/>
+				<resource name="RAM" quantum="10M"/>
+				<config verbose="yes" start_direction="up" total_kib="512" steps_up="8" steps_down="1" period_ms="2000"/>
+			</start>
+
+		</config>
+	</start>
+
+
+	<!--=====================================================================
+	 == This sub-system contains test clients which have a pretty variable ==
+	 == and, through their log output, comprehensible RAM and capability   ==
+	 == consumption                                                        ==
+	 ======================================================================-->
+
+	<start name="test2" caps="5000" priority="-1">
+		<binary name="init" />
+		<resource name="RAM" quantum="50M"/>
+
+		<route>
+			<service name="Report"> <child name="fs_report"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+
+		<config>
+
+			<report init_ram="yes" init_caps="yes" child_ram="yes" child_caps="yes"/>
+
+			<parent-provides>
+				<service name="ROM"/>
+				<service name="IRQ"/>
+				<service name="IO_MEM"/>
+				<service name="IO_PORT"/>
+				<service name="PD"/>
+				<service name="RM"/>
+				<service name="CPU"/>
+				<service name="LOG"/>
+				<service name="Timer"/>
+				<service name="Nic"/>
+			</parent-provides>
+
+			<default-route>
+				<any-service> <parent/> <any-child/> </any-service>
+			</default-route>
+
+			<start name="test2.1" caps="2000">
+				<binary name="test-resource_monitor"/>
+				<resource name="RAM" quantum="10M"/>
+				<config verbose="yes" start_direction="down" total_kib="1024" steps_up="4" steps_down="4" period_ms="1000"/>
+			</start>
+
+			<start name="test2.2" caps="2000">
+				<binary name="test-resource_monitor"/>
+				<resource name="RAM" quantum="10M"/>
+				<config verbose="yes" start_direction="up" total_kib="1024" steps_up="4" steps_down="4" period_ms="1000"/>
+			</start>
+
+		</config>
+	</start>
+
+</config> }
+
+install_config $config
+
+
+#####################################
+## Create single image and execute ##
+#####################################
+
+build_boot_image "
+	core
+	init
+	noux
+
+	timer
+	fb_drv
+	[input_drv_binaries]
+	[gpio_drv_binary]
+	[platform_drv_boot_modules]
+
+	ld.lib.so
+	libc.lib.so
+	libm.lib.so
+	libc_noux.lib.so
+	posix.lib.so
+	ncurses.lib.so
+
+	terminal
+	input_merger
+	nit_fb
+	fs_report
+	ram_fs
+	nitpicker
+	pointer
+
+	bash.tar
+	coreutils.tar
+	vim.tar
+	vimrc
+
+	test-resource_monitor"
+
+append qemu_args "-m 1G -net user"
+
+run_genode_until forever
