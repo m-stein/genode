@@ -40,6 +40,7 @@ class Timer::Session_component : public Genode::Rpc_object<Session>,
 		Genode::Timeout                    _timeout;
 		Genode::Timeout_scheduler         &_timeout_scheduler;
 		Genode::Signal_context_capability  _sigh;
+		unsigned long const                _time_source_max_timeout_us;
 
 		unsigned long const _init_time_us =
 			_timeout_scheduler.curr_time().trunc_to_plain_us().value;
@@ -49,8 +50,13 @@ class Timer::Session_component : public Genode::Rpc_object<Session>,
 
 	public:
 
-		Session_component(Genode::Timeout_scheduler &timeout_scheduler)
-		: _timeout(timeout_scheduler), _timeout_scheduler(timeout_scheduler) { }
+		Session_component(Genode::Timeout_scheduler &timeout_scheduler,
+		                  unsigned long              time_source_max_timeout_us)
+		:
+			_timeout(timeout_scheduler),
+			_timeout_scheduler(timeout_scheduler),
+			_time_source_max_timeout_us(time_source_max_timeout_us)
+		{ }
 
 
 		/********************
@@ -58,6 +64,19 @@ class Timer::Session_component : public Genode::Rpc_object<Session>,
 		 ********************/
 
 		void trigger_once(unsigned us) override {
+
+			/*
+			 * FIXME Workaround for the problem that Alarm scheduler may
+			 *       categorize big timeouts into the wrong time counter
+			 *       period due to its outdated internal time. This is needed
+			 *       only because the Alarm framework solely takes absolute
+			 *       time values on one-shot timeouts. and thus As soon as the
+			 *       Alarm framework takes solely relative time values, please
+			 *       remove this.
+			 */
+			if (us > ~0UL - 2 * _time_source_max_timeout_us)
+				us = ~0UL - 2 * _time_source_max_timeout_us;
+
 			_timeout.schedule_one_shot(Microseconds(us), *this); }
 
 		void trigger_periodic(unsigned us) override {
