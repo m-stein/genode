@@ -1,4 +1,4 @@
-REQUIRES = bugfix_for_riscv_toolchain
+#REQUIRES = bugfix_for_riscv_toolchain
 
 TARGET = rpc_name_policy
 

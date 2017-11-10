@@ -91,6 +91,7 @@ void Session_component::trace(Subject_id subject_id, Policy_id policy_id,
 
 	try {
 		Trace::Subject *subject = _subjects.lookup_by_id(subject_id);
+Genode::error(__func__, __LINE__, " bufsz ", buffer_size, " polsz ", policy_size);
 		subject->trace(policy_id, _policies.dataspace(*this, policy_id),
 		               policy_size, _ram, buffer_size);
 	} catch (...) {
