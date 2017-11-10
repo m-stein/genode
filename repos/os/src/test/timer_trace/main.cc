@@ -70,7 +70,7 @@ class Trace_buffer_monitor
 			log("overflows: ", _buffer->wrapped());
 			log("read all remaining events");
 
-unsigned xxx;
+unsigned xxx = 0;
 			for (; !_curr_entry.last(); _curr_entry = _buffer->next(_curr_entry)) {
 log("entry ", xxx++);
 				/* omit empty entries */
