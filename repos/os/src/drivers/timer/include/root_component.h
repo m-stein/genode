@@ -49,7 +49,8 @@ class Timer::Root_component : public Genode::Root_component<Session_component>
 				throw Insufficient_ram_quota(); }
 
 			return new (md_alloc())
-				Session_component(_timeout_scheduler);
+				Session_component(_timeout_scheduler,
+				                  _time_source.max_timeout().value);
 		}
 
 	public:
