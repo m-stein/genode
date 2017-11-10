@@ -5,7 +5,7 @@
 #
 
 # Build program images
-build { core init drivers/timer test/timer }
+build { core init drivers/timer test/timer test/timer_trace lib/trace/policy/rpc_name }
 
 # Create directory where boot files are written to
 create_boot_directory
@@ -22,6 +22,7 @@ install_config {
 		<service name="RM"/>
 		<service name="CPU"/>
 		<service name="LOG"/>
+		<service name="TRACE"/>
 	</parent-provides>
 	<default-route>
 		<any-service><parent/><any-child/></any-service>
@@ -34,11 +35,14 @@ install_config {
 		<binary name="test-timer"/>
 		<resource name="RAM" quantum="10M"/>
 	</start>
+	<start name="test-timer_trace" caps="300" priority="-1">
+		<resource name="RAM" quantum="30M"/>
+	</start>
 </config>
 }
 
 # Build boot files from source binaries
-build_boot_image { core ld.lib.so init timer test-timer }
+build_boot_image { rpc_name core test-timer_trace ld.lib.so init timer test-timer }
 
 # Configure Qemu
 append qemu_args "  -nographic"

@@ -43,7 +43,7 @@ struct Lazy_test
 		done.submit();
 	}
 
-	void handle_fast_timer()   { throw Faster_timer_too_slow(); }
+	void handle_fast_timer()   { /*throw Faster_timer_too_slow();*/ }
 	void handle_faster_timer() { set_fast_timers(); }
 
 	void set_fast_timers()
@@ -186,6 +186,8 @@ struct Main
 
 	Main(Env &env) : env(env)
 	{
+		Timer::Connection timer(env);
+		timer.msleep(3000);
 		log("--- timer test ---");
 		test_1.construct(env, test_1_done);
 	}

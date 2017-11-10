@@ -192,22 +192,29 @@ class Genode::Trace::Subject
 		void trace(Policy_id policy_id, Dataspace_capability policy_ds,
 		           size_t policy_size, Ram_session &ram, size_t size)
 		{
+Genode::error(__func__, __LINE__);
 			_policy_id = policy_id;
+Genode::error(__func__, __LINE__);
 
 			if (!_buffer.setup(ram, size)
 			 || !_policy.setup(ram, policy_ds, policy_size))
 				throw Already_traced();
+
+Genode::error(__func__, __LINE__);
 
 			/* inform trace source about the new buffer */
 			Locked_ptr<Source> source(_source);
 
 			if (!source.valid())
 				throw Source_is_dead();
+Genode::error(__func__, __LINE__);
 
 			if (!source->try_acquire(this))
 				throw Traced_by_other_session();
+Genode::error(__func__, __LINE__);
 
 			source->trace(_policy.dataspace(), _buffer.dataspace());
+Genode::error(__func__, __LINE__, source->enabled());
 		}
 
 		void pause()
