@@ -214,7 +214,7 @@ Genode::error(__func__, __LINE__);
 Genode::error(__func__, __LINE__);
 
 			source->trace(_policy.dataspace(), _buffer.dataspace());
-Genode::error(__func__, __LINE__, source->enabled());
+Genode::error(__func__, __LINE__, " en ", source->enabled());
 		}
 
 		void pause()

@@ -187,7 +187,11 @@ struct Main
 	Main(Env &env) : env(env)
 	{
 		Timer::Connection timer(env);
-		timer.msleep(3000);
+		while (1) {
+			timer.msleep(1000);
+			log("trace event");
+			Thread::trace("Hallo Welt!");
+		}
 		log("--- timer test ---");
 		test_1.construct(env, test_1_done);
 	}
