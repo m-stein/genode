@@ -14,6 +14,7 @@
 /* local includes */
 #include <configuration.h>
 #include <l3_protocol.h>
+#include <interface.h>
 
 /* Genode includes */
 #include <util/xml_node.h>
@@ -125,6 +126,15 @@ Domain::Domain(Configuration &config, Xml_node const node, Allocator &alloc)
 }
 
 
+Link_side_tree &Domain::links(L3_protocol const protocol)
+{
+	switch (protocol) {
+	case L3_protocol::TCP: return _tcp_links;
+	case L3_protocol::UDP: return _udp_links;
+	default: throw Interface::Bad_transport_protocol(); }
+}
+
+
 void Domain::_ip_config_changed()
 {
 	if (!ip_config().valid) {
@@ -156,6 +166,12 @@ void Domain::_ip_config_changed()
 
 Domain::~Domain()
 {
+	/* let other interfaces destroy their ARP waiters that wait for us */
+	while (_foreign_arp_waiters.first()) {
+		Arp_waiter &waiter = *_foreign_arp_waiters.first()->object();
+		waiter.src().cancel_arp_waiting(waiter);
+	}
+	/* destroy DHCP server */
 	try { destroy(_alloc, &_dhcp_server.deref()); }
 	catch (Pointer<Dhcp_server>::Invalid) { }
 }
