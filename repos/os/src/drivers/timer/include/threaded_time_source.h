@@ -61,7 +61,6 @@ class Timer::Threaded_time_source : public Genode::Time_source,
 
 		virtual void _wait_for_irq() = 0;
 
-
 		/***********************
 		 ** Thread_deprecated **
 		 ***********************/
@@ -70,9 +69,18 @@ class Timer::Threaded_time_source : public Genode::Time_source,
 		{
 			while (true) {
 				_wait_for_irq();
-				_irq_dispatcher_cap.call<Irq_dispatcher::Rpc_do_dispatch>(curr_time());
+
+				_irq = true;
+				Duration us = curr_time();
+				_irq = false;
+
+				_irq_dispatcher_cap.call<Irq_dispatcher::Rpc_do_dispatch>(us);
 			}
 		}
+
+	protected:
+
+		bool _irq { false };
 
 	public:
 
