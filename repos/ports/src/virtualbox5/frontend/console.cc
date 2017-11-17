@@ -523,12 +523,13 @@ int vboxClipboardSync (VBOXCLIPBOARDCLIENTDATA *pClient)
 /**
  * Sticky key handling
  */
-static bool guest_caps_lock   = false;
+static bool host_caps_lock = false;
+static bool guest_caps_lock = false;
 
 void fireKeyboardLedsChangedEvent(IEventSource *, bool num_lock,
                                   bool caps_lock, bool scroll_lock)
 {
-	guest_caps_lock   = caps_lock;
+	guest_caps_lock = caps_lock;
 }
 
 void GenodeConsole::handle_sticky_keys()
@@ -544,7 +545,24 @@ void GenodeConsole::handle_sticky_keys()
 
 	bool const caps_lock = _caps_lock->xml().attribute_value("enabled",
 	                                                         guest_caps_lock);
-	if (caps_lock != guest_caps_lock) {
+
+	bool trigger_caps_lock = false;
+
+	/*
+	 * If guest didn't respond with led change last time, we have to
+	 * trigger caps_lock change - mainly assuming that guest don't use the
+	 * led to externalize its internal caps_lock state.
+	 */
+	if (caps_lock != host_caps_lock && host_caps_lock != guest_caps_lock)
+		trigger_caps_lock = true;
+
+	if (caps_lock != guest_caps_lock)
+		trigger_caps_lock = true;
+
+	/* remember last seen host caps lock state */
+	host_caps_lock = caps_lock;
+
+	if (trigger_caps_lock) {
 		_vbox_keyboard->PutScancode(Input::KEY_CAPSLOCK);
 		_vbox_keyboard->PutScancode(Input::KEY_CAPSLOCK | 0x80);
 	}
