@@ -64,16 +64,8 @@ class Timer::Time_source : public Threaded_time_source
 
 		Microseconds max_timeout() const override
 		{
-			unsigned long long raw_max_us = _tsc_to_us(~0ULL);
-
-			Microseconds max_us(0);
-			/* on 32 bit raw_max_us(~0ULL) doesn't fit into Microseconds::value */
-			if (sizeof(raw_max_us) > sizeof(max_us.value))
-				raw_max_us = 5 * 60 * 1000 * 1000; /* 5 min for 32 bit XXX */
-
-			max_us.value = raw_max_us;
-
-			return max_us;
+			unsigned long long const max_us_ull = _tsc_to_us(~0ULL);
+			return max_us_ull > ~0UL ? Microseconds(~0UL) : Microseconds(max_us_ull);
 		}
 
 		Duration curr_time() override
