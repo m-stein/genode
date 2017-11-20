@@ -35,7 +35,7 @@ class Timer::Threaded_time_source : public Genode::Time_source,
 
 		struct Irq_dispatcher
 		{
-			GENODE_RPC(Rpc_do_dispatch, void, do_dispatch, Duration);
+			GENODE_RPC(Rpc_do_dispatch, void, do_dispatch);
 			GENODE_RPC_INTERFACE(Rpc_do_dispatch);
 		};
 
@@ -43,16 +43,23 @@ class Timer::Threaded_time_source : public Genode::Time_source,
 		                                                     Irq_dispatcher_component>
 		{
 				Timeout_handler *handler = nullptr;
+				Threaded_time_source &ts;
 
+				Irq_dispatcher_component(Threaded_time_source &ts) : ts(ts) { }
 
 				/********************
 				 ** Irq_dispatcher **
 				 ********************/
 
-				void do_dispatch(Duration curr_time)
+				void do_dispatch()
 				{
-					if (handler) {
-						handler->handle_timeout(Duration(curr_time)); }
+					/* call curr_time in ep and not in ts (no locks in use!) */
+					ts._irq = true;
+					Duration us = ts.curr_time();
+					ts._irq = false;
+
+					if (handler)
+						handler->handle_timeout(us);
 				}
 
 		} _irq_dispatcher_component;
@@ -69,12 +76,7 @@ class Timer::Threaded_time_source : public Genode::Time_source,
 		{
 			while (true) {
 				_wait_for_irq();
-
-				_irq = true;
-				Duration us = curr_time();
-				_irq = false;
-
-				_irq_dispatcher_cap.call<Irq_dispatcher::Rpc_do_dispatch>(us);
+				_irq_dispatcher_cap.call<Irq_dispatcher::Rpc_do_dispatch>();
 			}
 		}
 
@@ -87,6 +89,7 @@ class Timer::Threaded_time_source : public Genode::Time_source,
 		Threaded_time_source(Genode::Env &env)
 		:
 			Thread(env, "threaded_time_source", 8 * 1024 * sizeof(Genode::addr_t)),
+			_irq_dispatcher_component(*this),
 			_irq_dispatcher_cap(env.ep().rpc_ep().manage(&_irq_dispatcher_component))
 		{ }
 
