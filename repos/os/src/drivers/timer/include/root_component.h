@@ -48,9 +48,20 @@ class Timer::Root_component : public Genode::Root_component<Session_component>
 			if (ram_quota < sizeof(Session_component)) {
 				throw Insufficient_ram_quota(); }
 
+			/*
+			 * Current overflow detection uses ~0UL - 2 * max_timeout() to
+			 * restrict timeouts. If max_timeout() is above ~0UL / 2, limit
+			 * the maximal timeout to a specific value
+			 */
+			unsigned long max_timeout = _time_source.max_timeout().value;
+			if (max_timeout > ~0UL / 2) {
+				/* max_timeout 5 min */
+				enum { MAX_TIMEOUT_US = 5 * 60 * 1000 * 1000 };
+				max_timeout = MAX_TIMEOUT_US;
+			}
+
 			return new (md_alloc())
-				Session_component(_timeout_scheduler,
-				                  _time_source.max_timeout().value);
+				Session_component(_timeout_scheduler, max_timeout);
 		}
 
 	public:
