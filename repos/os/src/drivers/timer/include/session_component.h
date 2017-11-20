@@ -40,7 +40,6 @@ class Timer::Session_component : public Genode::Rpc_object<Session>,
 		Genode::Timeout                    _timeout;
 		Genode::Timeout_scheduler         &_timeout_scheduler;
 		Genode::Signal_context_capability  _sigh;
-		unsigned long const                _time_source_max_timeout_us;
 
 		unsigned long const _init_time_us =
 			_timeout_scheduler.curr_time().trunc_to_plain_us().value;
@@ -50,13 +49,8 @@ class Timer::Session_component : public Genode::Rpc_object<Session>,
 
 	public:
 
-		Session_component(Genode::Timeout_scheduler &timeout_scheduler,
-		                  unsigned long              time_source_max_timeout_us)
-		:
-			_timeout(timeout_scheduler),
-			_timeout_scheduler(timeout_scheduler),
-			_time_source_max_timeout_us(time_source_max_timeout_us)
-		{ }
+		Session_component(Genode::Timeout_scheduler &timeout_scheduler)
+		: _timeout(timeout_scheduler), _timeout_scheduler(timeout_scheduler) { }
 
 
 		/********************
@@ -74,10 +68,9 @@ class Timer::Session_component : public Genode::Rpc_object<Session>,
 			 *       Alarm framework takes solely relative time values, please
 			 *       remove this.
 			 */
-			if (us > ~0UL - 2 * _time_source_max_timeout_us)
-				us = ~0UL - 2 * _time_source_max_timeout_us;
-
-			_timeout.schedule_one_shot(Microseconds(us), *this); }
+			Microseconds typed_us(us > ~0UL >> 1 ? ~0UL >> 1 : us);
+			_timeout.schedule_one_shot(typed_us, *this);
+		}
 
 		void trigger_periodic(unsigned us) override {
 			_timeout.schedule_periodic(Microseconds(us), *this); }
