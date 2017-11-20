@@ -625,12 +625,13 @@ struct Libc::Kernel
 			/* _setjmp() returned after _longjmp() - user context suspended */
 
 			while ((!_app_returned) && (!_suspend_scheduled)) {
-				bool dispatched = false;
-				do {
-					bool const dont_block = _dispatch_pending_io_signals;
-
-					dispatched = _env.ep().wait_and_dispatch_one_io_signal(dont_block);
-				} while (dispatched && _dispatch_pending_io_signals);
+				if (_dispatch_pending_io_signals) {
+					/* dispatch pending signals but don't block */
+					while (_env.ep().dispatch_pending_io_signal()) ;
+				} else {
+					/* block for signals */
+					_env.ep().wait_and_dispatch_one_io_signal();
+				}
 
 				if (_resume_main_once && !_setjmp(_kernel_context))
 					_switch_to_user();

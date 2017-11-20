@@ -172,7 +172,7 @@ void Entrypoint::_process_incoming_signals()
 }
 
 
-bool Entrypoint::wait_and_dispatch_one_io_signal(bool const dont_block)
+bool Entrypoint::_wait_and_dispatch_one_io_signal(bool const dont_block)
 {
 	for (;;) {
 
