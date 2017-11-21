@@ -168,6 +168,117 @@ class Genode::Signal_transmitter
 
 
 /**
+ * Signal context
+ *
+ * A signal context is a destination for signals. One receiver can listen
+ * to multple contexts. If a signal arrives, the context is provided with the
+ * signal. This enables the receiver to distinguish different signal sources
+ * and dispatch incoming signals context-specific.
+ *
+ * Signal contexts are classified to represent one of two levels: application
+ * and I/O. The signal level determines how a signal is handled by
+ * 'wait_and_dispatch_one_io_signal', which defers signals corresponding to
+ * application-level contexts and dispatches only I/O-level signals.
+ */
+class Genode::Signal_context
+{
+	public:
+
+		enum class Level { App, Io };
+
+	private:
+
+		/**
+		 * List element in 'Signal_receiver'
+		 */
+		Signal_context mutable *_next { nullptr };
+		Signal_context mutable *_prev { nullptr };
+
+		/**
+		 * List element in process-global registry
+		 */
+		List_element<Signal_context> _registry_le;
+
+		/**
+		 * List element in deferred application signal list
+		 */
+		List_element<Signal_context> _deferred_le;
+
+		/**
+		 * Receiver to which the context is associated with
+		 *
+		 * This member is initialized by the receiver when associating
+		 * the context with the receiver via the 'cap' method.
+		 */
+		Signal_receiver *_receiver;
+
+		Lock         _lock;          /* protect '_curr_signal'         */
+		Signal::Data _curr_signal;   /* most-currently received signal */
+		bool         _pending;       /* current signal is valid        */
+		unsigned int _ref_cnt;       /* number of references to this context */
+		Lock         _destroy_lock;  /* prevent destruction while the
+		                                context is in use */
+
+		/**
+		 * Capability assigned to this context after being assocated with
+		 * a 'Signal_receiver' via the 'manage' method. We store this
+		 * capability in the 'Signal_context' for the mere reason to
+		 * properly destruct the context (see '_unsynchronized_dissolve').
+		 */
+		Signal_context_capability _cap;
+
+		friend class Signal;
+		friend class Signal_receiver;
+		friend class Signal_context_registry;
+
+	protected:
+
+		Level _level = Level::App;
+
+	public:
+
+		/**
+		 * Constructor
+		 */
+		Signal_context()
+		: _registry_le(this), _deferred_le(this), _receiver(0), _pending(0),
+		  _ref_cnt(0) { }
+
+		/**
+		 * Destructor
+		 *
+		 * The virtual destructor is just there to generate a vtable for
+		 * signal-context objects such that signal contexts can be dynamically
+		 * casted.
+		 */
+		virtual ~Signal_context();
+
+		Level level() const { return _level; }
+
+		List_element<Signal_context> *deferred_le() { return &_deferred_le; }
+
+		/**
+		 * Local signal submission (DEPRECATED)
+		 *
+		 * \noapi
+		 *
+		 * Trigger local signal submission (within the same address space), the
+		 * context has to be bound to a sginal receiver beforehand.
+		 *
+		 * \param num  number of pending signals
+		 */
+		void submit(unsigned num);
+
+		/*
+		 * Signal contexts are never invoked but only used as arguments for
+		 * 'Signal_session' methods. Hence, there exists a capability
+		 * type for it but no real RPC interface.
+		 */
+		GENODE_RPC_INTERFACE();
+};
+
+
+/**
  * Signal receiver
  */
 class Genode::Signal_receiver : Noncopyable
@@ -185,13 +296,30 @@ class Genode::Signal_receiver : Noncopyable
 
 			public:
 
+				struct Break_for_each : Exception { };
+
 				Signal_context *head() const { return _head; }
 
 				void head(Signal_context *re) { _head = re; }
 
-				void insert(Signal_context *re);
+				void insert_as_tail(Signal_context *re);
 
 				void remove(Signal_context const *re);
+
+				template <typename FUNC>
+				void for_each_locked(FUNC && functor) const
+				{
+					Signal_context *context = _head;
+					if (!context) return;
+
+					do {
+						Lock::Guard lock_guard(context->_lock);
+						try {
+							functor(*context);
+						} catch (Break_for_each) { return; }
+						context = context->_next;
+					} while (context != _head);
+				}
 		};
 
 		/**
@@ -317,117 +445,6 @@ class Genode::Signal_receiver : Noncopyable
 		 * purposes.
 		 */
 		static void dispatch_signals(Signal_source *);
-};
-
-
-/**
- * Signal context
- *
- * A signal context is a destination for signals. One receiver can listen
- * to multple contexts. If a signal arrives, the context is provided with the
- * signal. This enables the receiver to distinguish different signal sources
- * and dispatch incoming signals context-specific.
- *
- * Signal contexts are classified to represent one of two levels: application
- * and I/O. The signal level determines how a signal is handled by
- * 'wait_and_dispatch_one_io_signal', which defers signals corresponding to
- * application-level contexts and dispatches only I/O-level signals.
- */
-class Genode::Signal_context
-{
-	public:
-
-		enum class Level { App, Io };
-
-	private:
-
-		/**
-		 * List element in 'Signal_receiver'
-		 */
-		Signal_context mutable *_next { nullptr };
-		Signal_context mutable *_prev { nullptr };
-
-		/**
-		 * List element in process-global registry
-		 */
-		List_element<Signal_context> _registry_le;
-
-		/**
-		 * List element in deferred application signal list
-		 */
-		List_element<Signal_context> _deferred_le;
-
-		/**
-		 * Receiver to which the context is associated with
-		 *
-		 * This member is initialized by the receiver when associating
-		 * the context with the receiver via the 'cap' method.
-		 */
-		Signal_receiver *_receiver;
-
-		Lock         _lock;          /* protect '_curr_signal'         */
-		Signal::Data _curr_signal;   /* most-currently received signal */
-		bool         _pending;       /* current signal is valid        */
-		unsigned int _ref_cnt;       /* number of references to this context */
-		Lock         _destroy_lock;  /* prevent destruction while the
-		                                context is in use */
-
-		/**
-		 * Capability assigned to this context after being assocated with
-		 * a 'Signal_receiver' via the 'manage' method. We store this
-		 * capability in the 'Signal_context' for the mere reason to
-		 * properly destruct the context (see '_unsynchronized_dissolve').
-		 */
-		Signal_context_capability _cap;
-
-		friend class Signal;
-		friend class Signal_receiver;
-		friend class Signal_context_registry;
-
-	protected:
-
-		Level _level = Level::App;
-
-	public:
-
-		/**
-		 * Constructor
-		 */
-		Signal_context()
-		: _registry_le(this), _deferred_le(this), _receiver(0), _pending(0),
-		  _ref_cnt(0) { }
-
-		/**
-		 * Destructor
-		 *
-		 * The virtual destructor is just there to generate a vtable for
-		 * signal-context objects such that signal contexts can be dynamically
-		 * casted.
-		 */
-		virtual ~Signal_context();
-
-		Level level() const { return _level; }
-
-		List_element<Signal_context> *deferred_le() { return &_deferred_le; }
-
-		/**
-		 * Local signal submission (DEPRECATED)
-		 *
-		 * \noapi
-		 *
-		 * Trigger local signal submission (within the same address space), the
-		 * context has to be bound to a sginal receiver beforehand.
-		 *
-		 * \param num  number of pending signals
-		 */
-		void submit(unsigned num);
-
-		/*
-		 * Signal contexts are never invoked but only used as arguments for
-		 * 'Signal_session' methods. Hence, there exists a capability
-		 * type for it but no real RPC interface.
-		 */
-		GENODE_RPC_INTERFACE();
 };
 
 
