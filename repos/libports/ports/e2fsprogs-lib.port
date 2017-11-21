@@ -34,7 +34,7 @@ _dirs: \
 	$(UUID_HEADER)
 
 $(INTL_HEADER):
-	$(MSG_GENERATE)$(notdir $@)
+	@$(MSG_GENERATE)$(notdir $@)
 	$(VERBOSE)sed -e 's,@''HAVE_POSIX_PRINTF''@,1,g' \
 	              -e 's,@''HAVE_ASPRINTF''@,1,g' \
 	              -e 's,@''HAVE_SNPRINTF''@,1,g' \
@@ -43,7 +43,7 @@ $(INTL_HEADER):
 	$(VERBOSE)ln -sf $(notdir $@) $(dir $@)/libintl.h
 
 $(BLKID_HEADER):
-	$(MSG_GENERATE)$(notdir $@)
+	@$(MSG_GENERATE)$(notdir $@)
 	$(VERBOSE)mkdir -p $(dir $@)
 	$(VERBOSE)cp $(E2FSPROGS_DIR)/lib/blkid/blkid.h.in $@
 	$(VERBOSE)sed -e 's,@''SIZEOF_INT''@,__SIZEOF_INT__,g' \
@@ -54,7 +54,7 @@ $(BLKID_HEADER):
 	              < $(E2FSPROGS_DIR)/lib/blkid/blkid_types.h.in > $(dir $@)/blkid_types.h
 
 $(UUID_HEADER):
-	$(MSG_GENERATE)$(notdir $@)
+	@$(MSG_GENERATE)$(notdir $@)
 	$(VERBOSE)mkdir -p $(dir $@)
 	$(VERBOSE)cp $(E2FSPROGS_DIR)/lib/uuid/uuid.h.in $@
 	$(VERBOSE)sed -e 's,@''SIZEOF_INT''@,__SIZEOF_INT__,g' \
@@ -67,7 +67,7 @@ $(EXT2FS_HEADER):
 	$(VERBOSE)sed -e 's,@''E2FSPROGS_VERSION''@,$(VERSION),g' \
 		      < $(E2FSPROGS_DIR)/lib/ext2fs/ext2_err.et.in \
 		      > $(E2FSPROGS_DIR)/lib/ext2fs/ext2_err.et && \
-	$(VERBOSE)for file in lib/ext2fs/ext2_err e2fsck/prof_err; do \
+	for file in lib/ext2fs/ext2_err e2fsck/prof_err; do \
 		$(MSG_GENERATE)$${file}.h && \
 		gawk -f $(E2FSPROGS_DIR)/lib/et/et_h.awk \
 		                  "outfile=$(E2FSPROGS_DIR)/$${file}.h" \
@@ -77,7 +77,7 @@ $(EXT2FS_HEADER):
 		                  "outfile=$(E2FSPROGS_DIR)/$${file}.c" \
 		                  $(E2FSPROGS_DIR)/$${file}.et; \
 		done
-	$(MSG_GENERATE)$(notdir $@)
+	@$(MSG_GENERATE)$(notdir $@)
 	$(VERBOSE)mkdir -p $(dir $@)
 	$(VERBOSE)sed -e 's,@''SIZEOF_INT''@,__SIZEOF_INT__,g' \
 	              -e 's,@''SIZEOF_LONG''@,__SIZEOF_LONG__,g' \
@@ -86,5 +86,5 @@ $(EXT2FS_HEADER):
 	              -e 's,@''ASM_TYPES_HEADER''@,,g' \
 	              -e 's,@''PUBLIC_CONFIG_HEADER''@,,g' \
 	              < $(E2FSPROGS_DIR)/lib/ext2fs/ext2_types.h.in > $@
-	$(VERBOSE)echo '#define HAVE_SYS_TYPES_H 1' >> $@
-	$(VERBOSE)echo '#undef WORDS_BIGENDIAN' >> $@
+	@echo '#define HAVE_SYS_TYPES_H 1' >> $@
+	@echo '#undef WORDS_BIGENDIAN' >> $@
