@@ -106,6 +106,7 @@ proc run_power_on { } {
 
 	# on x86, we support booting via pxe or iso/disk image
 	if {[have_spec x86]} {
+		append qemu_args " -machine q35 "
 		if {![regexp -- {-m} $qemu_args dummy]} {
 			append qemu_args " -m 512 "
 		}
