@@ -223,6 +223,7 @@ class Genode::Vm_space
 
 				/* re-try once */
 				_page_table_registry.insert_page_frame(to_virt, Cap_sel(pte_idx));
+				return true;
 			}
 
 			/*
@@ -386,8 +387,9 @@ class Genode::Vm_space
 				if (!_map_frame(from_phys + offset, to_virt + offset,
 				                cacheability, writable, executable,
 				                flush_support))
-					error("mapping failed ", Hex(from_phys + offset),
-					      " -> ", Hex(to_virt + offset));
+					warning("mapping failed ", Hex(from_phys + offset),
+					        " -> ", Hex(to_virt + offset), " ",
+					        !flush_support ? "core" : "");
 			}
 		}
 
