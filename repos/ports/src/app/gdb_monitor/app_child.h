@@ -55,11 +55,10 @@ class Gdb_monitor::App_child : public Child_policy,
 		 */
 		struct Local_env : Genode::Env
 		{
-			Genode::Env        &genode_env;
+			Genode::Env &genode_env;
 
-			Genode::Entrypoint  local_ep { genode_env,
-	                               	   	   4*1024*sizeof(addr_t),
-	                               	   	   "target_ep" };
+			Genode::Entrypoint  local_ep {
+				genode_env, 4*1024*sizeof(addr_t), "target_ep" };
 
 			Local_env(Env &genode_env) : genode_env(genode_env) { }
 
@@ -75,9 +74,9 @@ class Gdb_monitor::App_child : public Child_policy,
 			Id_space<Parent::Client> &id_space()     { return genode_env.id_space(); }
 
 			Session_capability session(Parent::Service_name const &service_name,
-	                           	   	   Parent::Client::Id id,
-	                           	   	   Parent::Session_args const &session_args,
-	                           	   	   Affinity             const &affinity)
+			                           Parent::Client::Id id,
+			                           Parent::Session_args const &session_args,
+			                           Affinity             const &affinity)
 			{ return genode_env.session(service_name, id, session_args, affinity); }
 
 			void upgrade(Parent::Client::Id id, Parent::Upgrade_args const &args)
