@@ -40,7 +40,7 @@ Session_component::Session_component(Genode::Env &env,
 
 	Genode::log("Framebuffer with ", _core_fb.width, "x", _core_fb.height,
 	            "x", _core_fb.bpp, " @ ", (void*)_core_fb.addr,
-	            " type=", fb_boot_type);
+	            " type=", fb_boot_type, " pitch=", _core_fb.pitch);
 
 	if (_core_fb.bpp != 32 || fb_boot_type != RGB_COLOR ) {
 		Genode::error("unsupported resolution (bpp or/and type)");
