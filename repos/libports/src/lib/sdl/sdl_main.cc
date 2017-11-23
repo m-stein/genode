@@ -127,6 +127,6 @@ void Libc::Component::construct(Libc::Env &env)
 
 	if (pthread_create(&main_thread, &attr, sdl_main, nullptr)) {
 		Genode::error("failed to create SDL main thread");
-		env.parent().exit(1);
+		exit(1);
 	}
 }
