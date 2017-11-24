@@ -36,8 +36,9 @@ class Genode::Signalled_time_source : public Time_source
 		{
 			if (_handler) {
 				_irq = true;
-				_handler->handle_timeout(curr_time());
+				Duration time(curr_time());
 				_irq = false;
+				_handler->handle_timeout(time);
 			}
 		}
 
