@@ -223,7 +223,6 @@ class Genode::Vm_space
 
 				/* re-try once */
 				_page_table_registry.insert_page_frame(to_virt, Cap_sel(pte_idx));
-				return true;
 			}
 
 			/*
