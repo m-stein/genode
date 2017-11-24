@@ -58,7 +58,7 @@ Duration Timer::Time_source::curr_time()
 
 	passed_tics += max_value - tic_value;
 
-	if (_irq || _epit.tics_to_us(passed_tics) > 250)
+	if (_irq || _epit.tics_to_us(passed_tics) > 1000)
 		_curr_time_us += _epit.tics_to_us(passed_tics);
 
 	return Duration(Microseconds(_curr_time_us));
