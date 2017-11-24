@@ -69,11 +69,12 @@ Duration Timer::Time_source::curr_time()
 		diff_ticks += max_value;
 	}
 	diff_ticks += max_value - cnt;
-	unsigned long const diff_us = timer_ticks_to_us(diff_ticks, TICKS_PER_MS);
+	_diff_us   += timer_ticks_to_us(diff_ticks, TICKS_PER_MS);
 
 	/* update time only on IRQs and if rate is under 1000 per second */
-	if (_irq || diff_us > 1000) {
-		_curr_time.add(Genode::Microseconds(diff_us));
+	if (_irq || _diff_us > 1000) {
+		_curr_time.add(Genode::Microseconds(_diff_us));
+		_diff_us = 0;
 	}
 	return _curr_time;
 }

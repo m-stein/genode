@@ -62,6 +62,7 @@ class Timer::Time_source : public Genode::Attached_mmio,
 		Genode::Irq_connection     _timer_irq;
 		Genode::Duration           _curr_time   { Genode::Microseconds(0) };
 		Genode::Microseconds const _max_timeout { Genode::timer_ticks_to_us(~0U, TICKS_PER_MS) };
+		unsigned long              _diff_us     { 0 };
 
 	public:
 
