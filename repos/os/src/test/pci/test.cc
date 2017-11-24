@@ -11,7 +11,6 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-#include <base/attached_io_mem_dataspace.h>
 #include <base/component.h>
 #include <base/log.h>
 #include <platform_session/connection.h>
@@ -92,11 +91,5 @@ void Component::construct(Genode::Env &env)
 	/* release last device */
 	pci.release_device(prev_device_cap);
 
-//	Attached_io_mem_dataspace ds (env, 0xb0000000UL, 0x1000); /* qemu begin ECAM memory */
-//	Attached_io_mem_dataspace ds (env, 0xbf000000UL, 0x1000); /* pistachio */
-	Attached_io_mem_dataspace ds (env, 0xf0000000UL, 0x1000); /* 3G test */
-	log ("got it");
-	addr_t * value = ds.local_addr<addr_t>();
-	log ("read ", *value);
-//	log("--- Platform test finished ---");
+	log("--- Platform test finished ---");
 }
