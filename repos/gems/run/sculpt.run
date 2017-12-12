@@ -99,7 +99,7 @@ install_config {
 		<binary name="report_rom"/>
 		<resource name="RAM" quantum="1M"/>
 		<provides> <service name="Report"/> <service name="ROM"/> </provides>
-		<config verbose="yes"/>
+		<config verbose="no"/>
 	</start>
 
 	<start name="config_fs" caps="200">
