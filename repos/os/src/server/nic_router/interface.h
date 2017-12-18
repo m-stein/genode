@@ -21,6 +21,7 @@
 #include <l3_protocol.h>
 #include <dhcp_client.h>
 #include <dhcp_server.h>
+#include <packet_log.h>
 
 /* Genode includes */
 #include <nic_session/nic_session.h>
@@ -73,6 +74,7 @@ class Net::Interface
 		Dhcp_allocation_tree  _dhcp_allocations;
 		Dhcp_allocation_list  _released_dhcp_allocations;
 		Dhcp_client           _dhcp_client { _alloc, _timer, *this };
+		Packet_log_config     _pkt_log_cfg { Packet_log_style::SHORT };
 
 		void _new_link(L3_protocol                   const  protocol,
 		               Link_side_id                  const &local_id,

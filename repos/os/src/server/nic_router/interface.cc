@@ -835,7 +835,7 @@ void Interface::_handle_eth(void              *const  eth_base,
 	try {
 		Ethernet_frame * const eth = new (eth_base) Ethernet_frame(eth_size);
 		if (_config().verbose()) {
-			log("\033[33m(router <- ", _domain, ")\033[0m ", *eth); }
+			log("\033[33m(router <- ", _domain, ")\033[0m ", packet_log(*eth, _pkt_log_cfg)); }
 
 		if (_domain.ip_config().valid) {
 
@@ -893,7 +893,7 @@ void Interface::_handle_eth(void              *const  eth_base,
 void Interface::send(Ethernet_frame &eth, Genode::size_t const size)
 {
 	if (_config().verbose()) {
-		log("\033[33m(", _domain, " <- router)\033[0m ", eth); }
+		log("\033[33m(", _domain, " <- router)\033[0m ", packet_log(eth, _pkt_log_cfg)); }
 	try {
 		/* copy and submit packet */
 		Packet_descriptor const pkt = _source().alloc_packet(size);
@@ -922,6 +922,9 @@ Interface::Interface(Entrypoint        &ep,
 	_router_mac(router_mac), _mac(mac), _timer(timer), _alloc(alloc),
 	_domain(domain)
 {
+	_pkt_log_cfg.ipv4 = Packet_log_style::COMPACT;
+	_pkt_log_cfg.dhcp = Packet_log_style::COMPREHENSIVE;
+
 	if (_config().verbose_domain_state()) {
 		log("\033[32m(", _domain, ")\033[0m NIC sessions: 1");
 	}
