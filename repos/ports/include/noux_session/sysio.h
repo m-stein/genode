@@ -244,56 +244,6 @@ struct Noux::Sysio
 	};
 
 	/**
-	 * Socket related structures
-	 */
-	enum { MAX_HOSTNAME_LEN = 255 };
-	typedef char Hostname[MAX_HOSTNAME_LEN];
-
-	enum { MAX_SERVNAME_LEN = 255 };
-	typedef char Servname[MAX_SERVNAME_LEN];
-
-	enum { MAX_ADDRINFO_RESULTS = 4 };
-
-	struct in_addr
-	{
-		unsigned int    s_addr;
-	};
-
-	struct sockaddr
-	{
-		unsigned char   sa_len;
-		unsigned char   sa_family;
-		char            sa_data[14];
-	};
-
-	struct sockaddr_in {
-		unsigned char   sin_len;
-		unsigned char   sin_family;
-		unsigned short  sin_port;
-		struct          in_addr sin_addr;
-		char            sin_zero[8];
-	};
-
-	typedef unsigned        socklen_t;
-
-	struct addrinfo {
-		int              ai_flags;
-		int              ai_family;
-		int              ai_socktype;
-		int              ai_protocol;
-		socklen_t        ai_addrlen;
-		struct sockaddr *ai_addr;
-		char            *ai_canonname;
-		struct addrinfo *ai_next;
-	};
-
-	struct Addrinfo {
-		struct addrinfo  addrinfo;
-		struct sockaddr  ai_addr;
-		char             ai_canonname[255];
-	};
-
-	/**
 	 * user info defintions
 	 */
 	enum { USERINFO_GET_ALL = 0, USERINFO_GET_UID, USERINFO_GET_GID };
@@ -326,38 +276,6 @@ struct Noux::Sysio
 	enum Fork_error      { FORK_NOMEM = Vfs::Directory_service::NUM_GENERAL_ERRORS };
 	enum Select_error    { SELECT_ERR_INTERRUPT };
 
-	/**
-	 * Socket related errors
-	 */
-	enum Accept_error    { ACCEPT_ERR_AGAIN, ACCEPT_ERR_WOULD_BLOCK,
-	                       ACCEPT_ERR_INVALID, ACCEPT_ERR_NO_MEMORY,
-	                       ACCEPT_ERR_NOT_SUPPORTED };
-
-	enum Bind_error      { BIND_ERR_ACCESS, BIND_ERR_ADDR_IN_USE,
-	                       BIND_ERR_INVALID, BIND_ERR_NO_MEMORY };
-
-	enum Connect_error   { CONNECT_ERR_ACCESS, CONNECT_ERR_AGAIN,
-	                       CONNECT_ERR_ALREADY, CONNECT_ERR_CONN_REFUSED,
-	                       CONNECT_ERR_NO_PERM, CONNECT_ERR_ADDR_IN_USE,
-	                       CONNECT_ERR_IN_PROGRESS, CONNECT_ERR_IS_CONNECTED,
-	                       CONNECT_ERR_RESET, CONNECT_ERR_ABORTED,
-	                       CONNECT_ERR_NO_ROUTE };
-
-	enum Listen_error    { LISTEN_ERR_ADDR_IN_USE, LISTEN_ERR_NOT_SUPPORTED };
-
-	enum Recv_error      { RECV_ERR_AGAIN, RECV_ERR_WOULD_BLOCK,
-	                       RECV_ERR_CONN_REFUSED, RECV_ERR_INVALID,
-	                       RECV_ERR_NOT_CONNECTED, RECV_ERR_NO_MEMORY };
-
-	enum Send_error      { SEND_ERR_AGAIN, SEND_ERR_WOULD_BLOCK,
-	                       SEND_ERR_CONNECTION_RESET, SEND_ERR_INVALID,
-	                       SEND_ERR_IS_CONNECTED, SEND_ERR_NO_MEMORY };
-
-	enum Shutdown_error  { SHUTDOWN_ERR_NOT_CONNECTED };
-
-	enum Socket_error    { SOCKET_ERR_ACCESS, SOCKET_ERR_NO_AF_SUPPORT,
-	                       SOCKET_ERR_INVALID, SOCKET_ERR_NO_MEMORY };
-
 	enum Clock_error     { CLOCK_ERR_INVALID, CLOCK_ERR_FAULT, CLOCK_ERR_NO_PERM };
 
 	enum Utimes_error    { UTIMES_ERR_ACCESS, UTIMES_ERR_FAUL, UTIMES_ERR_EIO,
@@ -386,14 +304,6 @@ struct Noux::Sysio
 		Symlink_error  symlink;
 		Execve_error   execve;
 		Select_error   select;
-		Accept_error   accept;
-		Bind_error     bind;
-		Connect_error  connect;
-		Listen_error   listen;
-		Recv_error     recv;
-		Send_error     send;
-		Shutdown_error shutdown;
-		Socket_error   socket;
 		Clock_error    clock;
 		Utimes_error   utimes;
 		Wait4_error    wait4;
@@ -457,48 +367,6 @@ struct Noux::Sysio
 		SYSIO_DECL(rename,      { Path from_path; Path to_path; }, { });
 
 		SYSIO_DECL(mkdir,       { Path path; int mode; }, { });
-
-		SYSIO_DECL(socket,      { int domain; int type; int protocol; },
-		                        { int fd; });
-
-		 /* XXX for now abuse Chunk for passing optval */
-		SYSIO_DECL(getsockopt,  { int fd; int level; int optname; Chunk optval;
-		                          socklen_t optlen; }, { int result; });
-
-		SYSIO_DECL(setsockopt,  { int fd; int level;
-		                          int optname; Chunk optval;
-		                          socklen_t optlen; }, { });
-
-		SYSIO_DECL(accept,      { int fd; struct sockaddr addr; socklen_t addrlen; },
-		                        { int fd; });
-
-		SYSIO_DECL(bind,        { int fd; struct sockaddr addr;
-		                          socklen_t addrlen; }, { int result; });
-
-		SYSIO_DECL(getpeername, { int fd; struct sockaddr addr;
-		                          socklen_t addrlen; }, { });
-
-		SYSIO_DECL(listen,      { int fd; int type; int backlog; },
-		                        { int result; });
-
-		SYSIO_DECL(send,        { int fd; Chunk buf; size_t len; int flags; },
-		                        { ssize_t len; });
-
-		SYSIO_DECL(sendto,      { int fd; Chunk buf; size_t len; int flags;
-		                          struct sockaddr dest_addr; socklen_t addrlen; },
-		                        { ssize_t len; });
-
-		SYSIO_DECL(recv,        { int fd; Chunk buf; size_t len; int flags; },
-		                        { size_t len; });
-
-		SYSIO_DECL(recvfrom,    { int fd; Chunk buf; size_t len; int flags;
-		                          struct sockaddr src_addr; socklen_t addrlen; },
-		                        { size_t len; });
-
-		SYSIO_DECL(shutdown,    { int fd; int how; }, { });
-
-		SYSIO_DECL(connect,     { int fd; struct sockaddr addr; socklen_t addrlen; },
-		                        { int result; });
 
 		SYSIO_DECL(userinfo, { int request; Uid uid; },
 		                     { User name; Uid uid; Uid gid; Shell shell;

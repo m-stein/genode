@@ -522,7 +522,8 @@ bool Noux::Child::syscall(Noux::Session::Syscall sc)
 					                          _ref_pd, _ref_pd_cap,
 					                          _parent_services,
 					                          true,
-					                          _destruct_queue);
+					                          _destruct_queue,
+					                          _config.xml());
 				} catch (Child::Insufficient_memory) {
 					_sysio.error.fork = Sysio::FORK_NOMEM;
 					break;
@@ -939,23 +940,6 @@ bool Noux::Child::syscall(Noux::Session::Syscall sc)
 				result = true;
 				break;
 			}
-
-		case SYSCALL_SOCKET:
-		case SYSCALL_GETSOCKOPT:
-		case SYSCALL_SETSOCKOPT:
-		case SYSCALL_ACCEPT:
-		case SYSCALL_BIND:
-		case SYSCALL_LISTEN:
-		case SYSCALL_SEND:
-		case SYSCALL_SENDTO:
-		case SYSCALL_RECV:
-		case SYSCALL_RECVFROM:
-		case SYSCALL_GETPEERNAME:
-		case SYSCALL_SHUTDOWN:
-		case SYSCALL_CONNECT:
-
-			result = _syscall_net(sc);
-			break;
 
 		case SYSCALL_INVALID: break;
 		}

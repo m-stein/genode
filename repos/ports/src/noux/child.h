@@ -89,7 +89,8 @@ struct Noux::Child_config : Attached_ram_dataspace
 {
 	enum { CONFIG_DS_SIZE = 4096 };
 
-	Child_config(Ram_allocator &ram, Region_map &local_rm, Verbose const &verbose)
+	Child_config(Ram_allocator &ram, Region_map &local_rm,
+	             Verbose const &verbose, Xml_node const &noux_config)
 	:
 		Attached_ram_dataspace(ram, local_rm, CONFIG_DS_SIZE)
 	{
@@ -97,8 +98,21 @@ struct Noux::Child_config : Attached_ram_dataspace
 		{
 			if (verbose.ld())
 				xml.attribute("ld_verbose", "yes");
+
+			/* propagate the sockets configuration */
+			if (noux_config.has_sub_node("libc")) {
+				auto libc = noux_config.sub_node("libc");
+				if (libc.has_attribute("socket")) {
+					xml.node("libc", [&] () {
+						xml.attribute("socket", libc.attribute_value("socket", Genode::String<128>()).string());
+					});
+				}
+			}
 		});
 	}
+
+	Xml_node xml() const {
+		return Xml_node(local_addr<char const>(), CONFIG_DS_SIZE); }
 };
 
 
@@ -200,7 +214,7 @@ class Noux::Child : public Rpc_object<Session>,
 		/*
 		 * Child configuration
 		 */
-		Child_config _config { _ref_pd, _env.rm(), _verbose };
+		Child_config _config;
 
 		enum { PAGE_SIZE = 4096, PAGE_MASK = ~(PAGE_SIZE - 1) };
 		enum { SYSIO_DS_SIZE = PAGE_MASK & (sizeof(Sysio) + PAGE_SIZE - 1) };
@@ -285,11 +299,6 @@ class Noux::Child : public Rpc_object<Session>,
 			io->unregister_wake_up_notifier(&notifier);
 		}
 
-		/**
-		 * Method for handling noux network related system calls
-		 */
-		bool _syscall_net(Syscall sc);
-
 		void _destruct()
 		{
 			_ep.dissolve(this);
@@ -332,7 +341,8 @@ class Noux::Child : public Rpc_object<Session>,
 		      Pd_session_capability     ref_pd_cap,
 		      Parent_services          &parent_services,
 		      bool                      forked,
-		      Destruct_queue           &destruct_queue)
+		      Destruct_queue           &destruct_queue,
+		      Xml_node           const &noux_config)
 		:
 			Family_member(pid),
 			Destruct_queue::Element<Child>(heap),
@@ -352,6 +362,7 @@ class Noux::Child : public Rpc_object<Session>,
 			_ref_pd (ref_pd), _ref_pd_cap (ref_pd_cap),
 			_args(ref_pd, _env.rm(), ARGS_DS_SIZE, args),
 			_sysio_env(_ref_pd, _env.rm(), sysio_env),
+			_config(_ref_pd, _env.rm(), _verbose, noux_config),
 			_parent_services(parent_services),
 			_sysio_ds_info(_ds_registry, _sysio_ds.cap()),
 			_args_ds_info(_ds_registry, _args.cap()),
@@ -533,7 +544,8 @@ class Noux::Child : public Rpc_object<Session>,
 			                                 _ref_pd, _ref_pd_cap,
 			                                 _parent_services,
 			                                 false,
-			                                 _destruct_queue);
+			                                 _destruct_queue,
+			                                 _config.xml());
 
 			_assign_io_channels_to(child, true);
 
