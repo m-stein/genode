@@ -8,6 +8,7 @@ set build_components {
 	drivers/timer
 	server/dynamic_rom
 	app/cpu_burner
+	test/trace_subject_logger
 	app/trace_subject_logger
 }
 
