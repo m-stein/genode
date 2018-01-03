@@ -15,5 +15,6 @@
 #define _CORE__KERNEL__LOG_H_
 
 namespace Kernel { void log(char const); }
+namespace Kernel { void log_str(char const *); }
 
 #endif /* _CORE__KERNEL__LOG_H_ */

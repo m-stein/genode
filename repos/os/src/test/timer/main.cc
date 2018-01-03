@@ -189,7 +189,7 @@ struct Stress_test
 		slaves.for_each([&] (Registered<Slave> &slv) { destroy(heap, &slv); }); }
 };
 
-
+extern unsigned xxx;
 struct Main
 {
 	Env                       &env;
@@ -216,7 +216,7 @@ struct Main
 		while (1) {
 			timer.msleep(1000);
 			log("trace event");
-			Thread::trace("Hallo Welt!");
+			Thread::trace("XXX");
 		}
 		log("--- timer test ---");
 		test_1.construct(env, test_1_done);

@@ -43,6 +43,7 @@ struct Genode::Trace::Logger
 		bool               pending_init   { false };
 
 		bool _evaluate_control();
+		bool _evaluate_control_x();
 
 		/*
 		 * Noncopyable

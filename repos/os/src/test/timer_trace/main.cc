@@ -34,7 +34,6 @@ class Trace_buffer_monitor
 		Region_map           &_rm;
 		Trace::Subject_id     _id;
 		Trace::Buffer        *_buffer;
-		Trace::Buffer::Entry  _curr_entry;
 
 		const char *_terminate_entry(Trace::Buffer::Entry const &entry)
 		{
@@ -50,8 +49,7 @@ class Trace_buffer_monitor
 		                     Trace::Subject_id     id,
 		                     Dataspace_capability  ds_cap)
 		:
-			_rm(rm), _id(id), _buffer(rm.attach(ds_cap)),
-			_curr_entry(_buffer->first())
+			_rm(rm), _id(id), _buffer(rm.attach(ds_cap))
 		{
 			log("monitor "
 			    "subject:", _id.id, " "
@@ -67,18 +65,27 @@ class Trace_buffer_monitor
 
 		void dump()
 		{
+
+			Trace::Buffer::Entry _curr_entry = _buffer->first();
 			log("overflows: ", _buffer->wrapped());
-			log("read all remaining events");
+			log("read all remaining events ", _buffer->_head_offset, " ", _curr_entry.last());
+
 
 unsigned xxx = 0;
 			for (; !_curr_entry.last(); _curr_entry = _buffer->next(_curr_entry)) {
 log("entry ", xxx++);
 				/* omit empty entries */
-				if (_curr_entry.length() == 0)
+				if (_curr_entry.length() == 0) {
+
+					log(".");
 					continue;
+				}
 
 				char const * const data = _terminate_entry(_curr_entry);
 				if (data) { log(data); }
+				else {
+					log(":");
+				}
 			}
 
 			/* reset after we read all available entries */
@@ -209,6 +216,11 @@ struct Main
 		for_each_subject(subjects, num_subjects, print_info);
 
 		/* read events from trace buffer */
+		if (test_monitor.constructed()) {
+			test_monitor->dump();
+			test_monitor.destruct();
+		}
+		timer.msleep(3000);
 		if (test_monitor.constructed()) {
 			test_monitor->dump();
 			test_monitor.destruct();

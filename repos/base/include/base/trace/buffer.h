@@ -27,7 +27,7 @@ namespace Genode { namespace Trace { class Buffer; } }
 class Genode::Trace::Buffer
 {
 	private:
-
+public:
 		unsigned volatile _head_offset;  /* in bytes, relative to 'entries' */
 		unsigned volatile _size;         /* in bytes */
 		unsigned volatile _wrapped;      /* count of buffer wraps */
@@ -97,6 +97,8 @@ class Genode::Trace::Buffer
 			_head_offset += sizeof(_Entry) + len;
 			if (_head_offset == _size)
 				_buffer_wrapped();
+
+			Genode::raw("bufsz ", (unsigned long)_head_offset);
 		}
 
 		unsigned wrapped() const { return _wrapped; }

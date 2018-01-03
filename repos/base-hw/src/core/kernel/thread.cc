@@ -387,8 +387,15 @@ void Thread::_call_pager()
 }
 
 
-void Thread::_call_print_char() { Kernel::log((char)user_arg_1()); }
-
+void Thread::_call_print_char() {
+	if ((char)user_arg_1() == 'K')
+	{
+		Genode::String<32> str("[", (_pd) ? _pd->platform_pd()->label() : "?", " -> ", label(), "] K");
+		Kernel::log_str(str.string());
+	} else {
+		Kernel::log((char)user_arg_1());
+	}
+}
 
 void Thread::_call_await_signal()
 {

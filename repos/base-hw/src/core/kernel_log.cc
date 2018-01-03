@@ -18,6 +18,7 @@
 #include <board.h>
 #include <platform.h>
 #include <kernel/log.h>
+#include <base/log.h>
 
 
 void Kernel::log(char const c)
@@ -34,4 +35,25 @@ void Kernel::log(char const c)
 	                       UART_CLOCK, BAUD_RATE };
 	if (c == ASCII_LINE_FEED) serial.put_char(ASCII_CARRIAGE_RETURN);
 	serial.put_char(c);
+}
+
+
+void Kernel::log_str(char const * c)
+{
+	using namespace Board;
+
+	enum {
+		ASCII_LINE_FEED = 10,
+		ASCII_CARRIAGE_RETURN = 13,
+		BAUD_RATE = 115200
+	};
+
+	static Serial serial { Genode::Platform::mmio_to_virt(UART_BASE),
+	                       UART_CLOCK, BAUD_RATE };
+
+	while (*c) {
+		if (*c == ASCII_LINE_FEED) serial.put_char(ASCII_CARRIAGE_RETURN);
+		serial.put_char(*c);
+		c++;
+	}
 }
