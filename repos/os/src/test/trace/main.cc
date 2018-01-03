@@ -233,7 +233,7 @@ struct Test_tracing
 			policy.attribute("label").value(&policy_label);
 			policy.attribute("module").value(&policy_module);
 
-error(policy_module);
+//error(policy_module);
 			Rom_connection policy_rom(env, policy_module.string());
 			policy_module_rom_ds = policy_rom.dataspace();
 

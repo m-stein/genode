@@ -54,8 +54,9 @@ struct Lazy_test
 
 	void handle_fast_timer()   {
 		fast ++;
-		if (faster <= fast)
+		if (faster <= fast) {
 			/*throw Faster_timer_too_slow();*/
+		}
 	}
 
 	void handle_faster_timer() { set_fast_timers(); }

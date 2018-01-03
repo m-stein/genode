@@ -34,30 +34,37 @@ namespace Genode { bool inhibit_tracing = true; /* cleared by '_main' */ }
 
 bool Trace::Logger::_evaluate_control()
 {
+
+
+//	if (inhibit_tracing || !control || control->tracing_inhibited())
+//		return false;
+
+//raw(__func__, __LINE__);
 	/* check process-global and thread-specific tracing condition */
 	if (inhibit_tracing)
 		return false;
 
 if (!control) {
+raw(__func__, __LINE__);
 		return false;
 }
 
 if (control->tracing_inhibited())
 {
-error(__func__, __LINE__);
-		return false;
+raw(__func__, __LINE__);
+  	return false;
 }
 
-error(__func__, __LINE__);
+raw(__func__, __LINE__);
 	if (control->state_changed()) {
-error(__func__, __LINE__);
+//error(__func__, __LINE__);
 
 		/* suppress tracing during initialization */
 		Control::Inhibit_guard guard(*control);
 
 		if (control->to_be_disabled()) {
 
-error(__func__, __LINE__);
+//error(__func__, __LINE__);
 			/* unload policy */
 			if (policy_module) {
 				env_deprecated()->rm_session()->detach(policy_module);
@@ -70,20 +77,20 @@ error(__func__, __LINE__);
 				buffer = 0;
 			}
 
-error(__func__, __LINE__);
+//error(__func__, __LINE__);
 			/* inhibit generation of trace events */
 			enabled = false;
 			control->acknowledge_disabled();
 		}
 
 		else if (control->to_be_enabled()) {
-error(__func__, __LINE__);
+//error(__func__, __LINE__);
 
 			control->acknowledge_enabled();
 			enabled = true;
 		}
 	}
-error(__func__, __LINE__);
+//error(__func__, __LINE__);
 
 	if (enabled && (policy_version != control->policy_version())) {
 
