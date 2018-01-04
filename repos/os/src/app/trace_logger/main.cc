@@ -106,7 +106,9 @@ class Trace_subject_registry
 				e->update(trace.subject_info(id));
 
 				bool label_match = false;
-				Session_label const label = e->info.session_label();
+				Session_label const label(e->info.session_label(),
+				                          " -> ",
+				                          e->info.thread_name().string());
 				try {
 					Session_policy policy(label, _config);
 					label_match = true;
