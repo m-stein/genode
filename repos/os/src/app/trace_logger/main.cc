@@ -21,6 +21,87 @@
 
 using namespace Genode;
 
+
+	template <typename FUNC>
+	void for_each_subject(Trace::Subject_id subjects[],
+	                      size_t max_subjects, FUNC const &func)
+	{
+		for (size_t i = 0; i < max_subjects; i++) {
+			Trace::Subject_info info = trace.subject_info(subjects[i]);
+			func(subjects[i].id, info);
+		}
+	}
+
+
+class Trace_buffer_monitor
+{
+	private:
+
+		enum { MAX_ENTRY_BUF = 256 };
+
+		char                  _buf[MAX_ENTRY_BUF];
+		Region_map           &_rm;
+		Trace::Subject_id     _id;
+		Trace::Buffer        *_buffer;
+
+		const char *_terminate_entry(Trace::Buffer::Entry const &entry)
+		{
+			size_t len = min(entry.length() + 1, MAX_ENTRY_BUF);
+			memcpy(_buf, entry.data(), len);
+			_buf[len-1] = '\0';
+			return _buf;
+		}
+
+	public:
+
+		Trace_buffer_monitor(Region_map           &rm,
+		                     Trace::Subject_id     id,
+		                     Dataspace_capability  ds_cap)
+		:
+			_rm(rm), _id(id), _buffer(rm.attach(ds_cap))
+		{
+			log("monitor "
+			    "subject:", _id.id, " "
+			    "buffer:",  Hex((addr_t)_buffer));
+		}
+
+		~Trace_buffer_monitor()
+		{
+			if (_buffer) { _rm.detach(_buffer); }
+		}
+
+		Trace::Subject_id id() { return _id; };
+
+		void dump()
+		{
+
+			Trace::Buffer::Entry _curr_entry = _buffer->first();
+			log("overflows: ", _buffer->wrapped());
+			log("read all remaining events ", _buffer->_head_offset, " ", _curr_entry.last());
+
+
+unsigned xxx = 0;
+			for (; !_curr_entry.last(); _curr_entry = _buffer->next(_curr_entry)) {
+log("entry ", xxx++);
+				/* omit empty entries */
+				if (_curr_entry.length() == 0) {
+
+					log(".");
+					continue;
+				}
+
+				char const * const data = _terminate_entry(_curr_entry);
+				if (data) { log(data); }
+				else {
+					log(":");
+				}
+			}
+
+			/* reset after we read all available entries */
+			_curr_entry = _buffer->first();
+		}
+};
+
 class Trace_subject_registry
 {
 	private:
@@ -126,6 +207,31 @@ class Trace_subject_registry
 					num_traced--;
 				}
 			}
+
+
+			/* enable tracing for test-thread */
+			auto enable_tracing = [this, &env] (Trace::Subject_id   id,
+			                                    Trace::Subject_info info) {
+
+				try {
+					log("enable tracing for "
+					    "thread:'", info.thread_name().string(), "' with "
+					    "policy:", policy_id.id);
+
+					trace.trace(id.id, policy_id, 16384U);
+
+					Dataspace_capability ds_cap = trace.buffer(id.id);
+					test_monitor.construct(env.rm(), id.id, ds_cap);
+
+				} catch (Trace::Source_is_dead) {
+					error("source is dead");
+					throw -2;
+				}
+			};
+
+
+			for_each_subject(subjects, num_subjects, enable_tracing);
+
 			log("trace ", num_traced, " out of ", num_subjects, " subjects");
 			_sort_by_recent_execution_time();
 		}
