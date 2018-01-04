@@ -220,12 +220,6 @@ struct Main
 			test_monitor->dump();
 			test_monitor.destruct();
 		}
-		timer.msleep(3000);
-		if (test_monitor.constructed()) {
-			test_monitor->dump();
-			test_monitor.destruct();
-		}
-
 		log("passed Tracing test");
 	}
 };

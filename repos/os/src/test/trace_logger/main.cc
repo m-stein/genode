@@ -13,7 +13,16 @@
 
 /* Genode includes */
 #include <base/component.h>
+#include <timer_session/connection.h>
 
 using namespace Genode;
 
-void Component::construct(Genode::Env &env) { }
+void Component::construct(Genode::Env &env)
+{
+	Timer::Connection timer(env);
+	while (1) {
+		timer.msleep(1000);
+		log("trace event");
+		Thread::trace("XXX");
+	}
+}

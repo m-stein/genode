@@ -8,8 +8,8 @@ set build_components {
 	drivers/timer
 	server/dynamic_rom
 	app/cpu_burner
-	test/trace_subject_logger
-	app/trace_subject_logger
+	test/trace_logger
+	app/trace_logger
 }
 
 proc gpio_drv { } { if {[have_spec rpi] && [have_spec hw]}  { return hw_gpio_drv }
@@ -63,9 +63,10 @@ append config {
 		<provides><service name="Timer"/></provides>
 	</start>
 
-	<start name="trace_subject_logger" >
+	<start name="trace_logger" >
 		<resource name="RAM" quantum="6M"/>
-		<config period_ms="500">
+		<config period_ms="5000">
+			<policy label_prefix="init -> cpu_burner" />
 			<report activity="yes" affinity="yes"/>
 		</config>
 	</start>
@@ -95,6 +96,10 @@ append config {
 				<sleep milliseconds="2700" />
 			</rom>
 		</config>
+	</start>
+
+	<start name="test-trace_logger" >
+		<resource name="RAM" quantum="1M"/>
 	</start>
 
 	<start name="cpu_burner.1">
@@ -133,7 +138,8 @@ set boot_modules {
 	timer
 	dynamic_rom
 	cpu_burner
-	trace_subject_logger
+	trace_logger
+	test-trace_logger
 }
 
 # platform-specific modules

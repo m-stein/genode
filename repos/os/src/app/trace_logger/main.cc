@@ -12,6 +12,7 @@
  */
 
 /* Genode includes */
+#include <os/session_policy.h>
 #include <trace_session/connection.h>
 #include <timer_session/connection.h>
 #include <base/component.h>
@@ -20,7 +21,7 @@
 
 using namespace Genode;
 
-struct Trace_subject_registry
+class Trace_subject_registry
 {
 	private:
 
@@ -45,7 +46,8 @@ struct Trace_subject_registry
 			}
 		};
 
-		Genode::List<Entry> _entries;
+		Xml_node    _config;
+		List<Entry> _entries;
 
 		Entry *_lookup(Genode::Trace::Subject_id const id)
 		{
@@ -83,9 +85,12 @@ struct Trace_subject_registry
 
 	public:
 
+		Trace_subject_registry(Xml_node config) : _config(config) { }
+
 		void update(Genode::Trace::Connection &trace, Genode::Allocator &alloc)
 		{
 			unsigned const num_subjects = trace.subjects(_subjects, MAX_SUBJECTS);
+			unsigned       num_traced   = num_subjects;
 
 			/* add and update existing entries */
 			for (unsigned i = 0; i < num_subjects; i++) {
@@ -100,14 +105,26 @@ struct Trace_subject_registry
 
 				e->update(trace.subject_info(id));
 
+				bool label_match = false;
+				Session_label const label = e->info.session_label();
+				try {
+					Session_policy policy(label, _config);
+					label_match = true;
+				}
+				catch (Session_policy::No_policy_defined) { }
+
 				/* purge dead threads */
-				if (e->info.state() == Genode::Trace::Subject_info::DEAD) {
+				if (e->info.state() == Genode::Trace::Subject_info::DEAD ||
+				    !label_match)
+				{
 					trace.free(e->id);
 					_entries.remove(e);
 					Genode::destroy(alloc, e);
+					log("do not trace \"", label, "\"");
+					num_traced--;
 				}
 			}
-
+			log("trace ", num_traced, " out of ", num_subjects, " subjects");
 			_sort_by_recent_execution_time();
 		}
 
@@ -172,9 +189,8 @@ struct App::Main
 
 	Timer::Connection _timer { _env };
 
-	Heap _heap { _env.ram(), _env.rm() };
-
-	Trace_subject_registry _trace_subject_registry;
+	Heap                   _heap                   { _env.ram(), _env.rm() };
+	Trace_subject_registry _trace_subject_registry { _config.xml() };
 
 	void _handle_config();
 
