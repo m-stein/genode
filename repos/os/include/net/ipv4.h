@@ -98,23 +98,20 @@ class Net::Ipv4_packet
 		 ** IPv4 header fields **
 		 ************************/
 
-		struct
-		{
-			unsigned         _header_length   : 4;
-			unsigned         _version         : 4;
-			unsigned         _diff_service    : 6;
-			unsigned         _ecn             : 2;
-			Genode::uint16_t _total_length;
-			Genode::uint16_t _identification;
-			unsigned         _flags           : 3;
-			unsigned         _fragment_offset : 13;
-			Genode::uint8_t  _time_to_live;
-			Genode::uint8_t  _protocol;
-			Genode::uint16_t _checksum;
-			Genode::uint8_t  _src[ADDR_LEN];
-			Genode::uint8_t  _dst[ADDR_LEN];
-			unsigned         _data[0];
-		};
+		unsigned         _header_length   : 4;
+		unsigned         _version         : 4;
+		unsigned         _diff_service    : 6;
+		unsigned         _ecn             : 2;
+		Genode::uint16_t _total_length;
+		Genode::uint16_t _identification;
+		unsigned         _flags           : 3;
+		unsigned         _fragment_offset : 13;
+		Genode::uint8_t  _time_to_live;
+		Genode::uint8_t  _protocol;
+		Genode::uint16_t _checksum;
+		Genode::uint8_t  _src[ADDR_LEN];
+		Genode::uint8_t  _dst[ADDR_LEN];
+		unsigned         _data[0];
 
 		/**
 		 * Bitmasks for differentiated services field.
@@ -157,12 +154,7 @@ class Net::Ipv4_packet
 		 */
 		class No_ip_packet : Genode::Exception {};
 
-
-		/*****************
-		 ** Constructor **
-		 *****************/
-
-		Ipv4_packet(Genode::size_t size) {
+		static void validate_size(Genode::size_t size) {
 			/* ip header needs to fit in */
 			if (size < sizeof(Ipv4_packet))
 				throw No_ip_packet();

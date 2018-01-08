@@ -42,21 +42,18 @@ class Net::Tcp_packet
 		using size_t       = Genode::size_t;
 		using Exception    = Genode::Exception;
 
-		struct
-		{
-			uint16_t _src_port;
-			uint16_t _dst_port;
-			uint32_t _seq_nr;
-			uint32_t _ack_nr;
-			unsigned _data_offset : 4;
-			unsigned _reserved    : 3;
-			unsigned _flags_msb   : 1;
-			uint8_t  _flags_lsb;
-			uint16_t _window_size;
-			uint16_t _checksum;
-			uint16_t _urgent_ptr;
-			uint32_t _data[0];
-		};
+		uint16_t _src_port;
+		uint16_t _dst_port;
+		uint32_t _seq_nr;
+		uint32_t _ack_nr;
+		unsigned _data_offset : 4;
+		unsigned _reserved    : 3;
+		unsigned _flags_msb   : 1;
+		uint8_t  _flags_lsb;
+		uint16_t _window_size;
+		uint16_t _checksum;
+		uint16_t _urgent_ptr;
+		uint32_t _data[0];
 
 		struct Flags : Genode::Register<16>
 		{
@@ -75,8 +72,7 @@ class Net::Tcp_packet
 
 		class No_tcp_packet : Exception {};
 
-
-		Tcp_packet(size_t size) {
+		static void validate_size(Genode::size_t size) {
 			if (size < sizeof(Tcp_packet)) { throw No_tcp_packet(); } }
 
 

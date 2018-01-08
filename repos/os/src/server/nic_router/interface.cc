@@ -143,8 +143,12 @@ static void *_prot_base(L3_protocol const  prot,
                         Ipv4_packet       &ip)
 {
 	switch (prot) {
-	case L3_protocol::TCP: return new (ip.data<void>()) Tcp_packet(prot_size);
-	case L3_protocol::UDP: return new (ip.data<void>()) Udp_packet(prot_size);
+	case L3_protocol::TCP:
+		Tcp_packet::validate_size(prot_size);
+		return ip.data<Tcp_packet>();
+	case L3_protocol::UDP:
+		Udp_packet::validate_size(prot_size);
+		return ip.data<Udp_packet>();
 	default: throw Interface::Bad_transport_protocol(); }
 }
 
@@ -534,8 +538,8 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
                            Packet_descriptor const &pkt)
 {
 	/* read packet information */
-	Ipv4_packet &ip = *new (eth.data<void>())
-		Ipv4_packet(eth_size - sizeof(Ethernet_frame));
+	Ipv4_packet &ip = *eth.data<Ipv4_packet>();
+	Ipv4_packet::validate_size(eth_size - sizeof(Ethernet_frame));
 
 	/* try handling subnet-local IP packets */
 	if (_ip_config().interface.prefix_matches(ip.dst()) &&
@@ -557,15 +561,17 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 
 		/* try handling DHCP requests before trying any routing */
 		if (prot == L3_protocol::UDP) {
-			Udp_packet &udp = *new (ip.data<void>())
-				Udp_packet(eth_size - sizeof(Ipv4_packet));
+			Udp_packet &udp = *ip.data<Udp_packet>();
+			Udp_packet::validate_size(eth_size - sizeof(Ethernet_frame)
+			                                   - sizeof(Ipv4_packet));
 
 			if (Dhcp_packet::is_dhcp(&udp)) {
 
 				/* get DHCP packet */
-				Dhcp_packet &dhcp = *new (udp.data<void>())
-					Dhcp_packet(eth_size - sizeof(Ipv4_packet)
-					                     - sizeof(Udp_packet));
+				Dhcp_packet &dhcp = *udp.data<Dhcp_packet>();
+				Dhcp_packet::validate_size(eth_size - sizeof(Ethernet_frame)
+				                                    - sizeof(Ipv4_packet)
+				                                    - sizeof(Udp_packet));
 
 				if (dhcp.op() == Dhcp_packet::REQUEST) {
 					try {
@@ -812,7 +818,8 @@ void Interface::_handle_arp(Ethernet_frame &eth, size_t const eth_size)
 {
 	/* ignore ARP regarding protocols other than IPv4 via ethernet */
 	size_t const arp_size = eth_size - sizeof(Ethernet_frame);
-	Arp_packet &arp = *new (eth.data<void>()) Arp_packet(arp_size);
+	Arp_packet &arp = *eth.data<Arp_packet>();
+	Arp_packet::validate_size(arp_size);
 	if (!arp.ethernet_ipv4()) {
 		error("ARP for unknown protocol"); }
 
@@ -882,7 +889,8 @@ void Interface::_handle_eth(void              *const  eth_base,
 
 	/* inspect and handle ethernet frame */
 	try {
-		Ethernet_frame * const eth = new (eth_base) Ethernet_frame(eth_size);
+		Ethernet_frame *const eth = reinterpret_cast<Ethernet_frame *>(eth_base);
+		Ethernet_frame::validate_size(eth_size);
 		if (_config().verbose()) {
 			log("(router <- ", _domain, ") ", *eth); }
 

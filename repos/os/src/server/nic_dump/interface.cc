@@ -27,7 +27,8 @@ void Net::Interface::_handle_eth(void              *const  eth_base,
                                  Packet_descriptor  const &)
 {
 	try {
-		Ethernet_frame &eth = *new (eth_base) Ethernet_frame(eth_size);
+		Ethernet_frame &eth = *reinterpret_cast<Ethernet_frame *>(eth_base);
+		Ethernet_frame::validate_size(eth_size);
 		Interface &remote = _remote.deref();
 		Packet_log_config log_cfg;
 

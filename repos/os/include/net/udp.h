@@ -43,14 +43,11 @@ class Net::Udp_packet
 		 ** UDP header fields **
 		 ***********************/
 
-		struct
-		{
-			Genode::uint16_t _src_port;
-			Genode::uint16_t _dst_port;
-			Genode::uint16_t _length;
-			Genode::uint16_t _checksum;
-			unsigned         _data[0];
-		};
+		Genode::uint16_t _src_port;
+		Genode::uint16_t _dst_port;
+		Genode::uint16_t _length;
+		Genode::uint16_t _checksum;
+		unsigned         _data[0];
 
 	public:
 
@@ -59,12 +56,7 @@ class Net::Udp_packet
 		 */
 		class No_udp_packet : Genode::Exception {};
 
-
-		/*****************
-		 ** Constructor **
-		 *****************/
-
-		Udp_packet(Genode::size_t size) {
+		static void validate_size(Genode::size_t size) {
 			/* Udp header needs to fit in */
 			if (size < sizeof(Udp_packet))
 				throw No_udp_packet();

@@ -57,18 +57,15 @@ class Net::Arp_packet
 {
 	private:
 
-		struct
-		{
-			Genode::uint16_t _hardware_address_type;
-			Genode::uint16_t _protocol_address_type;
-			Genode::uint8_t  _hardware_address_size;
-			Genode::uint8_t  _protocol_address_size;
-			Genode::uint16_t _opcode;
-			Genode::uint8_t  _src_mac[Ethernet_frame::ADDR_LEN];
-			Genode::uint8_t  _src_ip[Ipv4_packet::ADDR_LEN];
-			Genode::uint8_t  _dst_mac[Ethernet_frame::ADDR_LEN];
-			Genode::uint8_t  _dst_ip[Ipv4_packet::ADDR_LEN];
-		};
+		Genode::uint16_t _hardware_address_type;
+		Genode::uint16_t _protocol_address_type;
+		Genode::uint8_t  _hardware_address_size;
+		Genode::uint8_t  _protocol_address_size;
+		Genode::uint16_t _opcode;
+		Genode::uint8_t  _src_mac[Ethernet_frame::ADDR_LEN];
+		Genode::uint8_t  _src_ip[Ipv4_packet::ADDR_LEN];
+		Genode::uint8_t  _dst_mac[Ethernet_frame::ADDR_LEN];
+		Genode::uint8_t  _dst_ip[Ipv4_packet::ADDR_LEN];
 
 	public:
 
@@ -153,12 +150,7 @@ class Net::Arp_packet
 		 */
 		class No_arp_packet : Genode::Exception {};
 
-
-		/*****************
-		 ** Constructor **
-		 *****************/
-
-		Arp_packet(Genode::size_t size) {
+		static void validate_size(Genode::size_t size) {
 			/* arp packet needs to fit in */
 			if (size < sizeof(Arp_packet))
 				throw No_arp_packet();

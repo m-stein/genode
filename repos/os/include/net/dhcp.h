@@ -70,25 +70,22 @@ class Net::Dhcp_packet
 
 	private:
 
-		struct
-		{
-			Genode::uint8_t   _op;
-			Genode::uint8_t   _htype;
-			Genode::uint8_t   _hlen;
-			Genode::uint8_t   _hops;
-			Genode::uint32_t  _xid;
-			Genode::uint16_t  _secs;
-			Genode::uint16_t  _flags;
-			Genode::uint8_t   _ciaddr[Ipv4_packet::ADDR_LEN];
-			Genode::uint8_t   _yiaddr[Ipv4_packet::ADDR_LEN];
-			Genode::uint8_t   _siaddr[Ipv4_packet::ADDR_LEN];
-			Genode::uint8_t   _giaddr[Ipv4_packet::ADDR_LEN];
-			Genode::uint8_t   _chaddr[16];
-			Genode::uint8_t   _sname[64];
-			Genode::uint8_t   _file[128];
-			Genode::uint32_t  _magic_cookie;
-			Genode::uint8_t   _opts[0];
-		};
+		Genode::uint8_t   _op;
+		Genode::uint8_t   _htype;
+		Genode::uint8_t   _hlen;
+		Genode::uint8_t   _hops;
+		Genode::uint32_t  _xid;
+		Genode::uint16_t  _secs;
+		Genode::uint16_t  _flags;
+		Genode::uint8_t   _ciaddr[Ipv4_packet::ADDR_LEN];
+		Genode::uint8_t   _yiaddr[Ipv4_packet::ADDR_LEN];
+		Genode::uint8_t   _siaddr[Ipv4_packet::ADDR_LEN];
+		Genode::uint8_t   _giaddr[Ipv4_packet::ADDR_LEN];
+		Genode::uint8_t   _chaddr[16];
+		Genode::uint8_t   _sname[64];
+		Genode::uint8_t   _file[128];
+		Genode::uint32_t  _magic_cookie;
+		Genode::uint8_t   _opts[0];
 
 		enum Flag { BROADCAST = 0x80 };
 
@@ -108,7 +105,7 @@ class Net::Dhcp_packet
 		};
 
 
-		Dhcp_packet(Genode::size_t size) {
+		static void validate_size(Genode::size_t size) {
 			/* dhcp packet needs to fit in */
 			if (size < sizeof(Dhcp_packet))
 				throw No_dhcp_packet();
@@ -134,12 +131,9 @@ class Net::Dhcp_packet
 		{
 			private:
 
-				struct
-				{
-					Genode::uint8_t _code;
-					Genode::uint8_t _len;
-					Genode::uint8_t _value[0];
-				};
+				Genode::uint8_t _code;
+				Genode::uint8_t _len;
+				Genode::uint8_t _value[0];
 
 			public:
 
@@ -168,8 +162,6 @@ class Net::Dhcp_packet
 
 				Option(Code code, Genode::uint8_t len)
 				: _code((Genode::uint8_t)code), _len(len) { }
-
-				Option() { }
 
 				Code             code() const { return (Code)_code; }
 				Genode::uint8_t len()   const { return _len; }
@@ -380,7 +372,7 @@ class Net::Dhcp_packet
 		{
 			void *ptr = &_opts;
 			while (true) {
-				Option &opt = *Genode::construct_at<Option>(ptr);
+				Option &opt = *reinterpret_cast<Option *>(ptr);
 				if (opt.code() == Option::Code::INVALID ||
 				    opt.code() == Option::Code::END)
 				{
