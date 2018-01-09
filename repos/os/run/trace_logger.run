@@ -10,6 +10,7 @@ set build_components {
 	app/cpu_burner
 	test/trace_logger
 	app/trace_logger
+	lib/trace/policy/null
 }
 
 proc gpio_drv { } { if {[have_spec rpi] && [have_spec hw]}  { return hw_gpio_drv }
@@ -142,6 +143,7 @@ set boot_modules {
 	cpu_burner
 	trace_logger
 	test-trace_logger
+	null
 }
 
 # platform-specific modules

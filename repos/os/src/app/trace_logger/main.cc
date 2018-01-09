@@ -22,16 +22,6 @@
 using namespace Genode;
 
 
-	template <typename FUNC>
-	void for_each_subject(Trace::Subject_id subjects[],
-	                      size_t max_subjects, FUNC const &func)
-	{
-		for (size_t i = 0; i < max_subjects; i++) {
-			Trace::Subject_info info = trace.subject_info(subjects[i]);
-			func(subjects[i].id, info);
-		}
-	}
-
 
 class Trace_buffer_monitor
 {
@@ -42,11 +32,11 @@ class Trace_buffer_monitor
 		char                  _buf[MAX_ENTRY_BUF];
 		Region_map           &_rm;
 		Trace::Subject_id     _id;
-		Trace::Buffer        *_buffer;
+		Trace::Buffer        &_buffer;
 
 		const char *_terminate_entry(Trace::Buffer::Entry const &entry)
 		{
-			size_t len = min(entry.length() + 1, MAX_ENTRY_BUF);
+			size_t len = min(entry.length() + 1, (unsigned)MAX_ENTRY_BUF);
 			memcpy(_buf, entry.data(), len);
 			_buf[len-1] = '\0';
 			return _buf;
@@ -58,16 +48,18 @@ class Trace_buffer_monitor
 		                     Trace::Subject_id     id,
 		                     Dataspace_capability  ds_cap)
 		:
-			_rm(rm), _id(id), _buffer(rm.attach(ds_cap))
+			_rm(rm), _id(id),
+			_buffer(*(Trace::Buffer *)rm.attach(ds_cap))
 		{
 			log("monitor "
 			    "subject:", _id.id, " "
-			    "buffer:",  Hex((addr_t)_buffer));
+			    "buffer:",  &_buffer);
 		}
 
 		~Trace_buffer_monitor()
 		{
-			if (_buffer) { _rm.detach(_buffer); }
+			_buffer.~Buffer();
+			_rm.detach(&_buffer);
 		}
 
 		Trace::Subject_id id() { return _id; };
@@ -75,13 +67,13 @@ class Trace_buffer_monitor
 		void dump()
 		{
 
-			Trace::Buffer::Entry _curr_entry = _buffer->first();
-			log("overflows: ", _buffer->wrapped());
-			log("read all remaining events ", _buffer->_head_offset, " ", _curr_entry.last());
+			Trace::Buffer::Entry _curr_entry = _buffer.first();
+			log("overflows: ", _buffer.wrapped());
+			log("read all remaining events ", _buffer._head_offset, " ", _curr_entry.last());
 
 
 unsigned xxx = 0;
-			for (; !_curr_entry.last(); _curr_entry = _buffer->next(_curr_entry)) {
+			for (; !_curr_entry.last(); _curr_entry = _buffer.next(_curr_entry)) {
 log("entry ", xxx++);
 				/* omit empty entries */
 				if (_curr_entry.length() == 0) {
@@ -98,7 +90,7 @@ log("entry ", xxx++);
 			}
 
 			/* reset after we read all available entries */
-			_curr_entry = _buffer->first();
+			_curr_entry = _buffer.first();
 		}
 };
 
@@ -110,7 +102,7 @@ class Trace_subject_registry
 		{
 			Genode::Trace::Subject_id const id;
 
-			Genode::Trace::Subject_info info;
+			Genode::Trace::Subject_info info { };
 
 			/**
 			 * Execution time during the last period
@@ -127,8 +119,18 @@ class Trace_subject_registry
 			}
 		};
 
+		Env        &_env;
+Genode::Trace::Connection &_trace;
 		Xml_node    _config;
-		List<Entry> _entries;
+		List<Entry> _entries { };
+		Constructible<Trace_buffer_monitor> test_monitor { };
+
+
+		String<64>                    policy_module { "null" };
+		Rom_connection policy_rom { _env, policy_module.string() };
+		Rom_dataspace_capability  policy_rom { policy_rom.dataspace() };
+		size_t                    policy_size  { Dataspace_client(policy_module_rom_ds).size() };
+		Trace::Policy_id          policy_id { _trace.alloc_policy(rom_size) };
 
 		Entry *_lookup(Genode::Trace::Subject_id const id)
 		{
@@ -141,6 +143,7 @@ class Trace_subject_registry
 
 		enum { MAX_SUBJECTS = 512 };
 		Genode::Trace::Subject_id _subjects[MAX_SUBJECTS];
+		Genode::Trace::Subject_id _traced_subjects[MAX_SUBJECTS];
 		unsigned long _report_cnt { 0 };
 
 		void _sort_by_recent_execution_time()
@@ -166,7 +169,17 @@ class Trace_subject_registry
 
 	public:
 
-		Trace_subject_registry(Xml_node config) : _config(config) { }
+		Trace_subject_registry(Env &env, Genode::Trace::Connection &trace, Xml_node config) : _env(env), _trace(trace), _config(config) { }
+
+
+template <typename FUNC>
+void for_each_subject(FUNC const &func)
+{
+	for (Entry *entry = _entries.first(); entry; entry = entry->next()) {
+		Trace::Subject_info info = _trace.subject_info(entry->id);
+		func(entry->id, info);
+	}
+}
 
 		void update(Genode::Trace::Connection &trace, Genode::Allocator &alloc)
 		{
@@ -208,20 +221,24 @@ class Trace_subject_registry
 				}
 			}
 
+			log("trace ", num_traced, " out of ", num_subjects, " subjects");
+			_sort_by_recent_execution_time();
+
 
 			/* enable tracing for test-thread */
-			auto enable_tracing = [this, &env] (Trace::Subject_id   id,
-			                                    Trace::Subject_info info) {
+			auto enable_tracing = [&] (Trace::Subject_id   id,
+			                           Trace::Subject_info info) {
 
 				try {
 					log("enable tracing for "
 					    "thread:'", info.thread_name().string(), "' with "
-					    "policy:", policy_id.id);
+					    "policy:", policy_id.id
+					);
 
 					trace.trace(id.id, policy_id, 16384U);
 
 					Dataspace_capability ds_cap = trace.buffer(id.id);
-					test_monitor.construct(env.rm(), id.id, ds_cap);
+					test_monitor.construct(_env.rm(), id.id, ds_cap);
 
 				} catch (Trace::Source_is_dead) {
 					error("source is dead");
@@ -229,11 +246,7 @@ class Trace_subject_registry
 				}
 			};
 
-
-			for_each_subject(subjects, num_subjects, enable_tracing);
-
-			log("trace ", num_traced, " out of ", num_subjects, " subjects");
-			_sort_by_recent_execution_time();
+			for_each_subject(enable_tracing);
 		}
 
 		void report(bool report_affinity, bool report_activity)
@@ -298,7 +311,7 @@ struct App::Main
 	Timer::Connection _timer { _env };
 
 	Heap                   _heap                   { _env.ram(), _env.rm() };
-	Trace_subject_registry _trace_subject_registry { _config.xml() };
+	Trace_subject_registry _trace_subject_registry { _env, _trace, _config.xml() };
 
 	void _handle_config();
 
