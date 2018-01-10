@@ -106,6 +106,8 @@ if (control->tracing_inhibited())
 			policy_module = rm->attach(policy_ds, MAX_SIZE, NO_OFFSET,
 			                           ANY_LOCAL_ADDR, nullptr, EXECUTABLE);
 
+			error(Hex((unsigned long)policy_module), " ", Hex(Dataspace_client(policy_ds).size()));
+
 			/* relocate function pointers of policy callback table */
 			for (unsigned i = 0; i < sizeof(Trace::Policy_module)/sizeof(void *); i++) {
 				((addr_t *)policy_module)[i] += (addr_t)(policy_module);

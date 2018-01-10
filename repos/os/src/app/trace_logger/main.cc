@@ -22,8 +22,7 @@
 using namespace Genode;
 
 
-
-class Trace_buffer_monitor
+class Buffer_monitor : public List<Buffer_monitor>::Element
 {
 	private:
 
@@ -44,9 +43,9 @@ class Trace_buffer_monitor
 
 	public:
 
-		Trace_buffer_monitor(Region_map           &rm,
-		                     Trace::Subject_id     id,
-		                     Dataspace_capability  ds_cap)
+		Buffer_monitor(Region_map           &rm,
+		               Trace::Subject_id     id,
+		               Dataspace_capability  ds_cap)
 		:
 			_rm(rm), _id(id),
 			_buffer(*(Trace::Buffer *)rm.attach(ds_cap))
@@ -56,7 +55,7 @@ class Trace_buffer_monitor
 			    "buffer:",  &_buffer);
 		}
 
-		~Trace_buffer_monitor()
+		~Buffer_monitor()
 		{
 			_buffer.~Buffer();
 			_rm.detach(&_buffer);
@@ -66,11 +65,9 @@ class Trace_buffer_monitor
 
 		void dump()
 		{
-
 			Trace::Buffer::Entry _curr_entry = _buffer.first();
 			log("overflows: ", _buffer.wrapped());
 			log("read all remaining events ", _buffer._head_offset, " ", _curr_entry.last());
-
 
 unsigned xxx = 0;
 			for (; !_curr_entry.last(); _curr_entry = _buffer.next(_curr_entry)) {
@@ -94,94 +91,120 @@ log("entry ", xxx++);
 		}
 };
 
-class Trace_subject_registry
+
+class Main
 {
 	private:
 
-		struct Entry : Genode::List<Entry>::Element
+		enum { MAX_SUBJECTS      = 512 };
+		enum { DEFAULT_PERIOD_MS = 5000 };
+
+		struct Entry : List<Entry>::Element
 		{
-			Genode::Trace::Subject_id const id;
+			Trace::Subject_id const id;
+			Trace::Subject_info     info                  { };
+			unsigned long long      recent_execution_time { 0 };
 
-			Genode::Trace::Subject_info info { };
+			Entry(Trace::Subject_id id) : id(id) { }
 
-			/**
-			 * Execution time during the last period
-			 */
-			unsigned long long recent_execution_time = 0;
-
-			Entry(Genode::Trace::Subject_id id) : id(id) { }
-
-			void update(Genode::Trace::Subject_info const &new_info)
+			void update(Trace::Subject_info const &new_info)
 			{
-				unsigned long long const last_execution_time = info.execution_time().value;
+				unsigned long long const last_execution_time =
+					info.execution_time().value;
+
 				info = new_info;
-				recent_execution_time = info.execution_time().value - last_execution_time;
+				recent_execution_time =
+					info.execution_time().value - last_execution_time;
 			}
 		};
 
-		Env        &_env;
-Genode::Trace::Connection &_trace;
-		Xml_node    _config;
-		List<Entry> _entries { };
-		Constructible<Trace_buffer_monitor> test_monitor { };
+		Env                      &_env;
+		Trace::Connection         _trace            { _env, 1024*1024*10, 64*1024, 0 };
+		unsigned long             _period_ms        { DEFAULT_PERIOD_MS };
+		bool                      _report_affinity  { false };
+		bool                      _report_activity  { false };
+		Attached_rom_dataspace    _config_rom       { _env, "config" };
+		Xml_node                  _config           { _config_rom.xml() };
+		Timer::Connection         _timer            { _env };
+		Heap                      _heap             { _env.ram(), _env.rm() };
+		List<Entry>               _entries          { };
+		List<Buffer_monitor>      _monitors         { };
+		Rom_connection            _policy_rom       { _env, "rpc_name" };
+		Rom_dataspace_capability  _policy_ds        { _policy_rom.dataspace() };
+		Trace::Policy_id          _policy_id        { _trace.alloc_policy(Dataspace_client(_policy_ds).size()) };
+		unsigned long             _report_cnt       { 0 };
+		Trace::Subject_id         _subjects[MAX_SUBJECTS];
+		Trace::Subject_id         _traced_subjects[MAX_SUBJECTS];
+		Signal_handler<Main>      _config_handler   { _env.ep(), *this, &Main::_handle_config};
+		Signal_handler<Main>      _periodic_handler { _env.ep(), *this, &Main::_handle_period};
 
-
-		String<64>                    policy_module { "null" };
-		Rom_connection policy_rom { _env, policy_module.string() };
-		Rom_dataspace_capability  policy_rom { policy_rom.dataspace() };
-		size_t                    policy_size  { Dataspace_client(policy_module_rom_ds).size() };
-		Trace::Policy_id          policy_id { _trace.alloc_policy(rom_size) };
-
-		Entry *_lookup(Genode::Trace::Subject_id const id)
+		Entry *_lookup_entry(Trace::Subject_id const id)
 		{
 			for (Entry *e = _entries.first(); e; e = e->next())
 				if (e->id == id)
 					return e;
-
 			return nullptr;
 		}
 
-		enum { MAX_SUBJECTS = 512 };
-		Genode::Trace::Subject_id _subjects[MAX_SUBJECTS];
-		Genode::Trace::Subject_id _traced_subjects[MAX_SUBJECTS];
-		unsigned long _report_cnt { 0 };
+		bool _config_report_attribute_enabled(char const *attr) const
+		{
+			try {
+				return _config.sub_node("report").attribute_value(attr, false);
+			} catch (...) { return false; }
+		}
 
 		void _sort_by_recent_execution_time()
 		{
-			Genode::List<Entry> sorted;
-
-			while (_entries.first()) {
-
-				/* find entry with lowest recent execution time */
-				Entry *lowest = _entries.first();
-				for (Entry *e = _entries.first(); e; e = e->next()) {
-					if (e->recent_execution_time < lowest->recent_execution_time)
-						lowest = e;
-				}
-
-				_entries.remove(lowest);
-				sorted.insert(lowest);
-			}
-
-			_entries = sorted;
+//			List<Entry> sorted;
+//
+//			while (_entries.first()) {
+//
+//				/* find entry with lowest recent execution time */
+//				Entry *lowest = _entries.first();
+//				for (Entry *e = _entries.first(); e; e = e->next()) {
+//					if (e->recent_execution_time < lowest->recent_execution_time)
+//						lowest = e;
+//				}
+//
+//				_entries.remove(lowest);
+//				sorted.insert(lowest);
+//			}
+//
+//			_entries = sorted;
 		}
 
+		void _handle_config()
+		{
+			_config_rom.update();
 
-	public:
+			_period_ms = _config.attribute_value("period_ms", (unsigned long)DEFAULT_PERIOD_MS);
 
-		Trace_subject_registry(Env &env, Genode::Trace::Connection &trace, Xml_node config) : _env(env), _trace(trace), _config(config) { }
+			_report_affinity = _config_report_attribute_enabled("affinity");
+			_report_activity = _config_report_attribute_enabled("activity");
 
+			log("period_ms=",       _period_ms,       ", "
+			    "report_activity=", _report_activity, ", "
+			    "report_affinity=", _report_affinity);
 
-template <typename FUNC>
-void for_each_subject(FUNC const &func)
-{
-	for (Entry *entry = _entries.first(); entry; entry = entry->next()) {
-		Trace::Subject_info info = _trace.subject_info(entry->id);
-		func(entry->id, info);
-	}
-}
+			_timer.trigger_periodic(1000*_period_ms);
+		}
 
-		void update(Genode::Trace::Connection &trace, Genode::Allocator &alloc)
+		void _handle_period()
+		{
+			_update_subjects(_trace, _heap);
+			_report_subjects(_report_affinity, _report_activity);
+		}
+
+		template <typename FUNC>
+		void _for_each_subject(FUNC const &func)
+		{
+			for (Entry *entry = _entries.first(); entry; entry = entry->next()) {
+				Trace::Subject_info info = _trace.subject_info(entry->id);
+				func(entry->id, info);
+			}
+		}
+
+		void _update_subjects(Trace::Connection &trace, Allocator &alloc)
 		{
 			unsigned const num_subjects = trace.subjects(_subjects, MAX_SUBJECTS);
 			unsigned       num_traced   = num_subjects;
@@ -189,9 +212,9 @@ void for_each_subject(FUNC const &func)
 			/* add and update existing entries */
 			for (unsigned i = 0; i < num_subjects; i++) {
 
-				Genode::Trace::Subject_id const id = _subjects[i];
+				Trace::Subject_id const id = _subjects[i];
 
-				Entry *e = _lookup(id);
+				Entry *e = _lookup_entry(id);
 				if (!e) {
 					e = new (alloc) Entry(id);
 					_entries.insert(e);
@@ -210,12 +233,12 @@ void for_each_subject(FUNC const &func)
 				catch (Session_policy::No_policy_defined) { }
 
 				/* purge dead threads */
-				if (e->info.state() == Genode::Trace::Subject_info::DEAD ||
+				if (e->info.state() == Trace::Subject_info::DEAD ||
 				    !label_match)
 				{
 					trace.free(e->id);
 					_entries.remove(e);
-					Genode::destroy(alloc, e);
+					destroy(alloc, e);
 					log("do not trace \"", label, "\"");
 					num_traced--;
 				}
@@ -229,16 +252,21 @@ void for_each_subject(FUNC const &func)
 			auto enable_tracing = [&] (Trace::Subject_id   id,
 			                           Trace::Subject_info info) {
 
+				while (Buffer_monitor *monitor = _monitors.first()) {
+					_monitors.remove(monitor);
+					destroy(alloc, monitor);
+				}
+
 				try {
 					log("enable tracing for "
 					    "thread:'", info.thread_name().string(), "' with "
-					    "policy:", policy_id.id
+					    "policy:", _policy_id.id
 					);
 
-					trace.trace(id.id, policy_id, 16384U);
+					trace.trace(id.id, _policy_id, 16384U);
 
 					Dataspace_capability ds_cap = trace.buffer(id.id);
-					test_monitor.construct(_env.rm(), id.id, ds_cap);
+					_monitors.insert(new (alloc) Buffer_monitor(_env.rm(), id.id, ds_cap));
 
 				} catch (Trace::Source_is_dead) {
 					error("source is dead");
@@ -246,16 +274,16 @@ void for_each_subject(FUNC const &func)
 				}
 			};
 
-			for_each_subject(enable_tracing);
+			_for_each_subject(enable_tracing);
 		}
 
-		void report(bool report_affinity, bool report_activity)
+		void _report_subjects(bool report_affinity, bool report_activity)
 		{
 			log("");
 			log("--- Report #", _report_cnt++, " ---");
 			for (Entry const *e = _entries.first(); e; e = e->next()) {
 
-				typedef Genode::Trace::Subject_info Subject_info;
+				typedef Trace::Subject_info Subject_info;
 				Subject_info::State const state = e->info.state();
 				log("<subject label=\"",  e->info.session_label().string(),
 				          "\" thread=\"", e->info.thread_name().string(),
@@ -276,89 +304,38 @@ void for_each_subject(FUNC const &func)
 				log("</subject>");
 			}
 		}
+
+	public:
+
+		Main(Env &env) : _env(env)
+		{
+			_config_rom.sigh(_config_handler);
+			_handle_config();
+			_timer.sigh(_periodic_handler);
+
+			try {
+//				Rom_connection policy_rom(env, policy_module.string());
+//				policy_module_rom_ds = policy_rom.dataspace();
+//				size_t rom_size = Dataspace_client(policy_module_rom_ds).size();
+//				policy_id = trace.alloc_policy(rom_size);
+				Dataspace_capability policy_dst_ds = trace.policy(policy_id);
+
+				if (policy_dst_ds.valid()) {
+					void *dst = env.rm().attach(policy_dst_ds);
+					void *src = env.rm().attach(_policy_ds);
+					memcpy(dst, src, policy_size);
+					env.rm().detach(dst);
+					env.rm().detach(src);
+				}
+				log("load module: '", policy_module, "' for "
+				    "label: '", policy_label, "'");
+			} catch (...) {
+				error("could not load module '", policy_module, "' for "
+				      "label '", policy_label, "'");
+				throw;
+			}
+		}
 };
 
 
-namespace App {
-
-	struct Main;
-	using namespace Genode;
-}
-
-
-struct App::Main
-{
-	Env &_env;
-
-	Trace::Connection _trace { _env, 512*1024, 32*1024, 0 };
-
-	static unsigned long _default_period_ms() { return 5000; }
-
-	unsigned long _period_ms = _default_period_ms();
-
-	bool _report_affinity = false;
-	bool _report_activity = false;
-
-	Attached_rom_dataspace _config { _env, "config" };
-
-	bool _config_report_attribute_enabled(char const *attr) const
-	{
-		try {
-			return _config.xml().sub_node("report").attribute_value(attr, false);
-		} catch (...) { return false; }
-	}
-
-	Timer::Connection _timer { _env };
-
-	Heap                   _heap                   { _env.ram(), _env.rm() };
-	Trace_subject_registry _trace_subject_registry { _env, _trace, _config.xml() };
-
-	void _handle_config();
-
-	Signal_handler<Main> _config_handler = {
-		_env.ep(), *this, &Main::_handle_config};
-
-	void _handle_period();
-
-	Signal_handler<Main> _periodic_handler = {
-		_env.ep(), *this, &Main::_handle_period};
-
-	Main(Env &env) : _env(env)
-	{
-		_config.sigh(_config_handler);
-		_handle_config();
-
-		_timer.sigh(_periodic_handler);
-	}
-};
-
-
-void App::Main::_handle_config()
-{
-	_config.update();
-
-	_period_ms = _config.xml().attribute_value("period_ms", _default_period_ms());
-
-	_report_affinity = _config_report_attribute_enabled("affinity");
-	_report_activity = _config_report_attribute_enabled("activity");
-
-	log("period_ms=",       _period_ms,       ", "
-	    "report_activity=", _report_activity, ", "
-	    "report_affinity=", _report_affinity);
-
-	_timer.trigger_periodic(1000*_period_ms);
-}
-
-
-void App::Main::_handle_period()
-{
-	/* update subject information */
-	_trace_subject_registry.update(_trace, _heap);
-
-	/* generate report */
-	_trace_subject_registry.report(_report_affinity, _report_activity);
-}
-
-
-void Component::construct(Genode::Env &env) { static App::Main main(env); }
-
+void Component::construct(Env &env) { static Main main(env); }
