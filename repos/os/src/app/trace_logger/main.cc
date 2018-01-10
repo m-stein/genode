@@ -129,9 +129,12 @@ class Main
 		Heap                      _heap             { _env.ram(), _env.rm() };
 		List<Entry>               _entries          { };
 		List<Buffer_monitor>      _monitors         { };
-		Rom_connection            _policy_rom       { _env, "rpc_name" };
+		String<32>                _policy_name      { "rpc_name" };
+		Rom_connection            _policy_rom       { _env, _policy_name.string() };
 		Rom_dataspace_capability  _policy_ds        { _policy_rom.dataspace() };
-		Trace::Policy_id          _policy_id        { _trace.alloc_policy(Dataspace_client(_policy_ds).size()) };
+		Session_label             _policy_label     { "init -> test-trace_logger" };
+		size_t                    _policy_size      { Dataspace_client(_policy_ds).size() };
+		Trace::Policy_id          _policy_id        { _trace.alloc_policy(_policy_size) };
 		unsigned long             _report_cnt       { 0 };
 		Trace::Subject_id         _subjects[MAX_SUBJECTS];
 		Trace::Subject_id         _traced_subjects[MAX_SUBJECTS];
@@ -318,20 +321,20 @@ class Main
 //				policy_module_rom_ds = policy_rom.dataspace();
 //				size_t rom_size = Dataspace_client(policy_module_rom_ds).size();
 //				policy_id = trace.alloc_policy(rom_size);
-				Dataspace_capability policy_dst_ds = trace.policy(policy_id);
+				Dataspace_capability policy_dst_ds = _trace.policy(_policy_id);
 
 				if (policy_dst_ds.valid()) {
 					void *dst = env.rm().attach(policy_dst_ds);
 					void *src = env.rm().attach(_policy_ds);
-					memcpy(dst, src, policy_size);
+					memcpy(dst, src, _policy_size);
 					env.rm().detach(dst);
 					env.rm().detach(src);
 				}
-				log("load module: '", policy_module, "' for "
-				    "label: '", policy_label, "'");
+				log("load module: '", _policy_name, "' for "
+				    "label: '", _policy_label, "'");
 			} catch (...) {
-				error("could not load module '", policy_module, "' for "
-				      "label '", policy_label, "'");
+				error("could not load module '", _policy_name, "' for "
+				      "label '", _policy_label, "'");
 				throw;
 			}
 		}
