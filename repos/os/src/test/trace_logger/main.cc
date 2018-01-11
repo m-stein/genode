@@ -14,15 +14,17 @@
 /* Genode includes */
 #include <base/component.h>
 #include <timer_session/connection.h>
+#include <trace/timestamp.h>
 
 using namespace Genode;
 
 void Component::construct(Genode::Env &env)
 {
 	Timer::Connection timer(env);
+	unsigned long id = 0;
 	while (1) {
 		timer.msleep(1000);
-		log("trace event");
-		Thread::trace("XXX");
+		Thread::trace(String<32>(id, " ", Trace::timestamp()).string());
+		id++;
 	}
 }

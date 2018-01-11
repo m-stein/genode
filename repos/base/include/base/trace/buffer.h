@@ -27,10 +27,11 @@ namespace Genode { namespace Trace { class Buffer; } }
 class Genode::Trace::Buffer
 {
 	private:
-public:
+
 		unsigned volatile _head_offset;  /* in bytes, relative to 'entries' */
 		unsigned volatile _size;         /* in bytes */
 		unsigned volatile _wrapped;      /* count of buffer wraps */
+		unsigned volatile _cnt;
 
 		struct _Entry
 		{
@@ -98,7 +99,7 @@ public:
 			if (_head_offset == _size)
 				_buffer_wrapped();
 
-			Genode::raw("bufsz ", (unsigned long)_head_offset);
+			_cnt++;
 		}
 
 		unsigned wrapped() const { return _wrapped; }
@@ -111,7 +112,7 @@ public:
 		class Entry
 		{
 			private:
-
+public:
 				_Entry const *_entry;
 
 				friend class Buffer;
@@ -149,6 +150,18 @@ public:
 
 			return Entry((_Entry const *)((addr_t)entry.data() + entry.length()));
 		}
+
+//		Entry entry(unsigned long id)
+//		{
+//			Entry entry = first();
+//			for (unsigned long curr_id = 0; curr_id < id; curr_id++) {
+//				entry = next(entry);
+//				if (entry.last()) {
+//					return entry;
+//				}
+//			}
+//			return entry;
+//		}
 };
 
 #endif /* _INCLUDE__BASE__TRACE__BUFFER_H_ */

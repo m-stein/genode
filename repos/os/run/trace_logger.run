@@ -10,7 +10,7 @@ set build_components {
 	app/cpu_burner
 	test/trace_logger
 	app/trace_logger
-	lib/trace/policy/rpc_name
+	lib/trace/policy/null
 }
 
 proc gpio_drv { } { if {[have_spec rpi] && [have_spec hw]}  { return hw_gpio_drv }
@@ -32,7 +32,7 @@ create_boot_directory
 #
 
 append config {
-<config prio_levels="2">
+<config prio_levels="2" ld_verbose="yes">
 	<parent-provides>
 		<service name="ROM"/>
 		<service name="IRQ"/>
@@ -143,7 +143,7 @@ set boot_modules {
 	cpu_burner
 	trace_logger
 	test-trace_logger
-	rpc_name
+	null
 }
 
 # platform-specific modules

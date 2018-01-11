@@ -22,38 +22,61 @@
 using namespace Genode;
 
 
+class Buffer
+{
+	private:
+
+		Trace::Buffer        &_buffer;
+		Trace::Buffer::Entry  _curr { 0 };
+
+	public:
+
+		Buffer(Trace::Buffer &buffer) : _buffer(buffer) { }
+
+		template <typename FUNC>
+		void for_each_new_entry(FUNC && functor)
+		{
+			/* initialize _curr if _buffer was empty until now */
+			if (_curr.last())
+				_curr = _buffer.first();
+
+			/* iterate over all entries that we haven't consumed yet */
+			     Trace::Buffer::Entry e1 = _curr;
+			for (Trace::Buffer::Entry e2 = _curr; !e2.last(); e2 = _buffer.next(e2))
+			{
+				e1 = e2;
+				functor(e1);
+			}
+			/* remember the last consumed entry in _curr */
+			_curr = e1;
+		}
+};
+
+
 class Monitor : public List<Monitor>::Element
 {
 	private:
 
-		enum { MAX_ENTRY_BUF = 256 };
+		enum { MAX_ENTRY_LENGTH = 256 };
 
-		Trace::Subject_id const  _id;
-		char                     _buf[MAX_ENTRY_BUF];
+		Trace::Subject_id const  _subject_id;
 		Region_map              &_rm;
-		Trace::Buffer           &_buffer;
-		unsigned long            _report_id { 0 };
-		Trace::Subject_info      _info                  { };
+		Buffer                   _buffer;
+		unsigned long            _report_id        { 0 };
+		Trace::Subject_info      _info             { };
 		unsigned long long       _recent_exec_time { 0 };
-
-		const char *_terminate_entry(Trace::Buffer::Entry const &entry)
-		{
-			size_t len = min(entry.length() + 1, (unsigned)MAX_ENTRY_BUF);
-			memcpy(_buf, entry.data(), len);
-			_buf[len-1] = '\0';
-			return _buf;
-		}
+		char                     _curr_entry_data[MAX_ENTRY_LENGTH];
 
 	public:
 
-		Monitor(Trace::Subject_id     id,
+		Monitor(Trace::Subject_id     subject_id,
 		        Region_map           &rm,
 		        Dataspace_capability  buffer_ds)
 		:
-			_id(id), _rm(rm),
+			_subject_id(subject_id), _rm(rm),
 			_buffer(*(Trace::Buffer *)rm.attach(buffer_ds))
 		{
-			log("new monitor: subject ", _id.id, " buffer ", &_buffer);
+			log("new monitor: subject ", _subject_id.id, " buffer ", &_buffer);
 		}
 
 		~Monitor()
@@ -72,31 +95,55 @@ class Monitor : public List<Monitor>::Element
 				_info.execution_time().value - last_execution_time;
 		}
 
-		void dump()
+		void print(bool report_activity, bool report_affinity)
 		{
-			Trace::Buffer::Entry _curr_entry = _buffer.first();
-			log("overflows: ", _buffer.wrapped());
-			log("read all remaining events ", _buffer._head_offset, " ", _curr_entry.last());
+			/* print general subject information */
+			typedef Trace::Subject_info Subject_info;
+			Subject_info::State const state = _info.state();
+			log("<subject label=\"",  _info.session_label().string(),
+			          "\" thread=\"", _info.thread_name().string(),
+			          "\" id=\"",     _subject_id.id,
+			          "\" state=\"",  Subject_info::state_name(state),
+			          "\">");
 
-unsigned xxx = 0;
-			for (; !_curr_entry.last(); _curr_entry = _buffer.next(_curr_entry)) {
-log("entry ", xxx++);
-				/* omit empty entries */
-				if (_curr_entry.length() == 0) {
+			/* print subjects activity if desired */
+			if (report_activity)
+				log("   <activity total=\"",  _info.execution_time().value,
+				              "\" recent=\"", _recent_exec_time,
+				              "\">");
 
-					log(".");
-					continue;
+			/* print subjects affinity if desired */
+			if (report_affinity)
+				log("   <affinity xpos=\"", _info.affinity().xpos(),
+				              "\" ypos=\"", _info.affinity().ypos(),
+				              "\">");
+
+			/* print all buffer entries that we haven't yet printed */
+			bool printed_buf_entries = false;
+			_buffer.for_each_new_entry([&] (Trace::Buffer::Entry entry) {
+
+				/* get readable data length and skip empty entries */
+				size_t length = min(entry.length(), (unsigned)MAX_ENTRY_LENGTH - 1);
+				if (!length)
+					return;
+
+				/* copy entry data from buffer and add terminating '0' */
+				memcpy(_curr_entry_data, entry.data(), length);
+				_curr_entry_data[length] = '\0';
+
+				/* print copied entry data out to log */
+				if (!printed_buf_entries) {
+					log("   <buffer>");
+					printed_buf_entries = true;
 				}
-
-				char const * const data = _terminate_entry(_curr_entry);
-				if (data) { log(data); }
-				else {
-					log(":");
-				}
-			}
-
-			/* reset after we read all available entries */
-			_curr_entry = _buffer.first();
+				log(Cstring(_curr_entry_data));
+			});
+			/* print end tags */
+			if (printed_buf_entries)
+				log("   </buffer>");
+			else
+				log("   <buffer />");
+			log("</subject>");
 		}
 
 
@@ -104,12 +151,8 @@ log("entry ", xxx++);
 		 ** Accessors **
 		 ***************/
 
-		Trace::Subject_id          id()               const { return _id; }
-		unsigned long long         recent_exec_time() const { return _recent_exec_time; }
-		unsigned long              report_id()        const { return _report_id; }
-		Trace::Subject_info const &info()             const { return _info; }
-
-		void incr_report_id() { _report_id++; }
+		Trace::Subject_id          subject_id() const { return _subject_id; }
+		Trace::Subject_info const &info()       const { return _info; }
 };
 
 
@@ -131,7 +174,7 @@ class Main
 		Timer::Connection              _timer            { _env };
 		Heap                           _heap             { _env.ram(), _env.rm() };
 		List<Monitor>                  _monitors         { };
-		String<32>                     _policy_name      { "rpc_name" };
+		String<32>                     _policy_name      { "null" };
 		Rom_connection                 _policy_rom       { _env, _policy_name.string() };
 		Rom_dataspace_capability       _policy_ds        { _policy_rom.dataspace() };
 		Session_label                  _policy_label     { "init -> test-trace_logger" };
@@ -143,17 +186,17 @@ class Main
 		Signal_handler<Main>           _config_handler   { _env.ep(), *this, &Main::_handle_config};
 		Microseconds                   _period_us        { _config.attribute_value("period_ms", (unsigned long)DEFAULT_PERIOD_MS) * 1000UL };
 		Timer::Periodic_timeout<Main>  _period           { _timer, *this, &Main::_handle_period, _period_us };
-		unsigned                       _num_traced       { 0 };
+		unsigned long                  _num_subjects     { 0 };
+		unsigned long                  _num_monitors     { 0 };
 
 		Monitor &_lookup_monitor(Trace::Subject_id const id)
 		{
 			for (Monitor *monitor = _monitors.first(); monitor;
 			     monitor = monitor->List<Monitor>::Element::next())
 			{
-				if (monitor->id() == id)
+				if (monitor->subject_id() == id)
 					return *monitor;
 			}
-
 			throw No_matching_monitor();
 		}
 
@@ -172,91 +215,85 @@ class Main
 
 		void _handle_period(Duration)
 		{
-			_update_subjects();
+			_update_monitors();
 			_report_subjects();
+		}
+
+		void _destroy_monitor(Monitor &monitor)
+		{
+			_trace.free(monitor.subject_id());
+			_monitors.remove(&monitor);
+			destroy(_heap, &monitor);
+			_num_monitors--;
+		}
+
+		void _new_monitor(Trace::Subject_id id)
+		{
+			_trace.trace(id.id, _policy_id, 16384U);
+			Monitor &monitor =
+				*new (_heap) Monitor(id, _env.rm(),
+				                     _trace.buffer(id));
+
+			_monitors.insert(&monitor);
+			_update_monitor(monitor, id);
+			_num_monitors++;
 		}
 
 		void _update_monitor(Monitor &monitor, Trace::Subject_id id)
 		{
 			monitor.update(_trace.subject_info(id));
 
-			bool label_match = false;
-			Session_label const label(monitor.info().session_label(),
-			                          " -> ",
-			                          monitor.info().thread_name().string());
-			try {
-				Session_policy policy(label, _config);
-				label_match = true;
-			}
-			catch (Session_policy::No_policy_defined) { }
-
 			/* purge dead threads */
-			if (monitor.info().state() == Trace::Subject_info::DEAD ||
-			    !label_match)
+			if (monitor.info().state() == Trace::Subject_info::DEAD)
 			{
-				_trace.free(monitor.id());
-				_monitors.remove(&monitor);
-				destroy(_heap, &monitor);
-				_num_traced--;
+				_destroy_monitor(monitor);
 			}
 		}
 
-		void _update_subjects()
+		bool _subject_matches_policy(Trace::Subject_id id)
 		{
-			unsigned const num_subjects = _trace.subjects(_subjects, MAX_SUBJECTS);
-			_num_traced = num_subjects;
+			Trace::Subject_info info = _trace.subject_info(id);
+			Session_label const label(info.session_label(), " -> ",
+			                          info.thread_name().string());
+			try {
+				Session_policy policy(label, _config);
+				return true;
+			}
+			catch (Session_policy::No_policy_defined) {
+				return false;
+			}
+		}
 
-			for (unsigned i = 0; i < num_subjects; i++) {
-
+		void _update_monitors()
+		{
+			_num_subjects = _trace.subjects(_subjects, MAX_SUBJECTS);
+			for (unsigned i = 0; i < _num_subjects; i++) {
 				Trace::Subject_id const id = _subjects[i];
-
 				try { _update_monitor(_lookup_monitor(id), id); }
 				catch (No_matching_monitor) {
-
 					try {
-						_trace.trace(id.id, _policy_id, 16384U);
-						Dataspace_capability buffer_ds = _trace.buffer(id);
-						Monitor &monitor =
-							*new (_heap) Monitor(id, _env.rm(), buffer_ds);
+						if (!_subject_matches_policy(id))
+							continue;
 
-						_monitors.insert(&monitor);
-						_update_monitor(monitor, id);
-
-					} catch (Trace::Source_is_dead) {
-
+						_new_monitor(id);
+					}
+					catch (Trace::Source_is_dead) {
 						error("Failed to enable tracing");
 					}
 				}
 			}
-			log("trace ", _num_traced, " out of ", num_subjects, " subjects");
+			log("trace ", _num_monitors, " out of ", _num_subjects, " subjects");
 		}
 
 		void _report_subjects()
 		{
 			log("");
 			log("--- Report #", _report_id++, " ---");
-			for (Monitor const *monitor = _monitors.first(); monitor;
+
+			for (Monitor *monitor = _monitors.first(); monitor;
 			     monitor = monitor->next())
 			{
-				typedef Trace::Subject_info Subject_info;
-				Subject_info::State const state = monitor->info().state();
-				log("<subject label=\"",  monitor->info().session_label().string(),
-				          "\" thread=\"", monitor->info().thread_name().string(),
-				          "\" id=\"",     monitor->id().id,
-				          "\" state=\"",  Subject_info::state_name(state),
-				          "\">");
-
-				if (_report_activity)
-					log("  <activity total=\"",  monitor->info().execution_time().value,
-					             "\" recent=\"", monitor->recent_exec_time(),
-					             "\">");
-
-				if (_report_affinity)
-					log("  <affinity xpos=\"", monitor->info().affinity().xpos(),
-					             "\" ypos=\"", monitor->info().affinity().ypos(),
-					             "\">");
-
-				log("</subject>");
+				monitor->print(_report_activity, _report_affinity);
 			}
 		}
 
