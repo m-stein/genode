@@ -220,6 +220,52 @@ Monitor &Monitor_tree::find_by_subject_id(Trace::Subject_id const subject_id)
 }
 
 
+class Trace_policy
+{
+	private:
+
+		Env                            &_env;
+		Trace::Connection              &_trace;
+		String<32>               const  _name  { "null" };
+		Session_label            const  _label { "init -> test-trace_logger" };
+		Rom_connection                  _rom   { _env, _name.string() };
+		Rom_dataspace_capability const  _ds    { _rom.dataspace() };
+		size_t                   const  _size  { Dataspace_client(_ds).size() };
+		Trace::Policy_id         const  _id    { _trace.alloc_policy(_size) };
+
+	public:
+
+		Trace_policy(Env &env, Trace::Connection &trace)
+		:
+			_env(env), _trace(trace)
+		{
+			try {
+				Dataspace_capability dst_ds = _trace.policy(_id);
+				void *dst = _env.rm().attach(dst_ds);
+				void *src = _env.rm().attach(_ds);
+				memcpy(dst, src, _size);
+				_env.rm().detach(dst);
+				_env.rm().detach(src);
+
+				log("load module: '", _name,  "'"
+				     " for label: '", _label, "'");
+			} catch (Region_map::Invalid_dataspace) {
+
+				error("Failed to load policy '", _name,  "'"
+				      "            for label '", _label, "'");
+				throw;
+			}
+		}
+
+
+		/***************
+		 ** Accessors **
+		 ***************/
+
+		Trace::Policy_id id() const { return _id; }
+};
+
+
 class Main
 {
 	private:
@@ -231,19 +277,14 @@ class Main
 
 		Env                           &_env;
 		Trace::Connection              _trace            { _env, 1024*1024*10, 64*1024, 0 };
-		bool                           _report_affinity  { false };
-		bool                           _report_activity  { false };
 		Attached_rom_dataspace         _config_rom       { _env, "config" };
 		Xml_node                       _config           { _config_rom.xml() };
+		bool const                     _affinity         { _config.attribute_value("affinity", false) };
+		bool const                     _activity         { _config.attribute_value("activity", false) };
 		Timer::Connection              _timer            { _env };
 		Heap                           _heap             { _env.ram(), _env.rm() };
 		Monitor_tree                   _monitors         { };
-		String<32>                     _policy_name      { "null" };
-		Rom_connection                 _policy_rom       { _env, _policy_name.string() };
-		Rom_dataspace_capability       _policy_ds        { _policy_rom.dataspace() };
-		Session_label                  _policy_label     { "init -> test-trace_logger" };
-		size_t                         _policy_size      { Dataspace_client(_policy_ds).size() };
-		Trace::Policy_id               _policy_id        { _trace.alloc_policy(_policy_size) };
+		Trace_policy                   _policy           { _env, _trace };
 		unsigned long                  _report_id        { 0 };
 		Trace::Subject_id              _subjects[MAX_SUBJECTS];
 		Trace::Subject_id              _traced_subjects[MAX_SUBJECTS];
@@ -275,7 +316,7 @@ class Main
 			log("");
 			log("--- Report #", _report_id++, " (", _num_monitors, "/", _num_subjects, " subjects) ---");
 			_monitors.for_each([&] (Monitor &monitor) {
-				monitor.print(_report_activity, _report_affinity);
+				monitor.print(_activity, _affinity);
 			});
 		}
 
@@ -289,7 +330,7 @@ class Main
 
 		void _new_monitor(Trace::Subject_id id)
 		{
-			_trace.trace(id.id, _policy_id, 16384U);
+			_trace.trace(id.id, _policy.id(), 16384U);
 			Monitor &monitor =
 				*new (_heap) Monitor(id, _env.rm(),
 				                     _trace.buffer(id));
@@ -320,29 +361,8 @@ class Main
 			}
 		}
 
-		void _update_monitors()
-		{
-		}
-
 		void _install_policy()
 		{
-			try {
-				Dataspace_capability policy_dst_ds = _trace.policy(_policy_id);
-
-				if (policy_dst_ds.valid()) {
-					void *dst = _env.rm().attach(policy_dst_ds);
-					void *src = _env.rm().attach(_policy_ds);
-					memcpy(dst, src, _policy_size);
-					_env.rm().detach(dst);
-					_env.rm().detach(src);
-				}
-				log("load module: '", _policy_name, "' for "
-				    "label: '", _policy_label, "'");
-			} catch (...) {
-				error("could not load module '", _policy_name, "' for "
-				      "label '", _policy_label, "'");
-				throw;
-			}
 		}
 
 	public:
