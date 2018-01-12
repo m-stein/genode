@@ -22,6 +22,9 @@
 using namespace Genode;
 
 
+/**
+ * Wrapper for Trace::Buffer that adds some convenient functionality
+ */
 class Buffer
 {
 	private:
@@ -33,6 +36,9 @@ class Buffer
 
 		Buffer(Trace::Buffer &buffer) : _buffer(buffer) { }
 
+		/**
+		 * Call functor for each entry that wasn't yet processed
+		 */
 		template <typename FUNC>
 		void for_each_new_entry(FUNC && functor)
 		{
@@ -40,19 +46,22 @@ class Buffer
 			if (_curr.last())
 				_curr = _buffer.first();
 
-			/* iterate over all entries that we haven't consumed yet */
+			/* iterate over all entries that were not processed yet */
 			     Trace::Buffer::Entry e1 = _curr;
 			for (Trace::Buffer::Entry e2 = _curr; !e2.last(); e2 = _buffer.next(e2))
 			{
 				e1 = e2;
 				functor(e1);
 			}
-			/* remember the last consumed entry in _curr */
+			/* remember the last processed entry in _curr */
 			_curr = e1;
 		}
 };
 
 
+/**
+ * Monitors tracing information of one tracing subject
+ */
 class Monitor : public List<Monitor>::Element
 {
 	private:
