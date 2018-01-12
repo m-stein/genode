@@ -19,6 +19,9 @@
 #include <base/attached_rom_dataspace.h>
 #include <base/heap.h>
 
+/* local includes */
+#include <avl_tree.h>
+
 using namespace Genode;
 
 
@@ -62,7 +65,7 @@ class Buffer
 /**
  * Monitors tracing information of one tracing subject
  */
-class Monitor : public List<Monitor>::Element
+class Monitor : public Local::Avl_node<Monitor>
 {
 	private:
 
@@ -156,6 +159,15 @@ class Monitor : public List<Monitor>::Element
 		}
 
 
+		/**************
+		 ** Avl_node **
+		 **************/
+
+		Monitor &find_by_subject_id(Trace::Subject_id const subject_id);
+
+		bool higher(Monitor *monitor) { return monitor->_subject_id.id > _subject_id.id; }
+
+
 		/***************
 		 ** Accessors **
 		 ***************/
@@ -163,6 +175,49 @@ class Monitor : public List<Monitor>::Element
 		Trace::Subject_id          subject_id() const { return _subject_id; }
 		Trace::Subject_info const &info()       const { return _info; }
 };
+
+
+/**
+ * AVL tree of monitors with their subject ID as index
+ */
+struct Monitor_tree : Local::Avl_tree<Monitor>
+{
+	struct No_match : Exception { };
+
+	Monitor &find_by_subject_id(Trace::Subject_id const subject_id);
+};
+
+
+/*************
+ ** Monitor **
+ *************/
+
+Monitor &Monitor::find_by_subject_id(Trace::Subject_id const subject_id)
+{
+	if (subject_id.id == _subject_id.id) {
+		return *this; }
+
+	bool const side = subject_id.id > _subject_id.id;
+	Monitor *const monitor = Avl_node<Monitor>::child(side);
+	if (!monitor) {
+		throw Monitor_tree::No_match(); }
+
+	return monitor->find_by_subject_id(subject_id);
+}
+
+
+/******************
+ ** Monitor_tree **
+ ******************/
+
+Monitor &Monitor_tree::find_by_subject_id(Trace::Subject_id const subject_id)
+{
+	Monitor *const monitor = first();
+	if (!monitor)
+		throw No_match();
+
+	return monitor->find_by_subject_id(subject_id);
+}
 
 
 class Main
@@ -182,7 +237,7 @@ class Main
 		Xml_node                       _config           { _config_rom.xml() };
 		Timer::Connection              _timer            { _env };
 		Heap                           _heap             { _env.ram(), _env.rm() };
-		List<Monitor>                  _monitors         { };
+		Monitor_tree                   _monitors         { };
 		String<32>                     _policy_name      { "null" };
 		Rom_connection                 _policy_rom       { _env, _policy_name.string() };
 		Rom_dataspace_capability       _policy_ds        { _policy_rom.dataspace() };
@@ -192,40 +247,36 @@ class Main
 		unsigned long                  _report_id        { 0 };
 		Trace::Subject_id              _subjects[MAX_SUBJECTS];
 		Trace::Subject_id              _traced_subjects[MAX_SUBJECTS];
-		Signal_handler<Main>           _config_handler   { _env.ep(), *this, &Main::_handle_config};
 		Microseconds                   _period_us        { _config.attribute_value("period_ms", (unsigned long)DEFAULT_PERIOD_MS) * 1000UL };
 		Timer::Periodic_timeout<Main>  _period           { _timer, *this, &Main::_handle_period, _period_us };
 		unsigned long                  _num_subjects     { 0 };
 		unsigned long                  _num_monitors     { 0 };
 
-		Monitor &_lookup_monitor(Trace::Subject_id const id)
-		{
-			for (Monitor *monitor = _monitors.first(); monitor;
-			     monitor = monitor->List<Monitor>::Element::next())
-			{
-				if (monitor->subject_id() == id)
-					return *monitor;
-			}
-			throw No_matching_monitor();
-		}
-
-		bool _config_report_attribute_enabled(char const *attr) const
-		{
-			try {
-				return _config.sub_node("report").attribute_value(attr, false);
-			} catch (...) { return false; }
-		}
-
-		void _handle_config()
-		{
-			error(__func__, " not implemented");
-			_config_rom.update();
-		}
-
 		void _handle_period(Duration)
 		{
-			_update_monitors();
-			_report_subjects();
+			_num_subjects = _trace.subjects(_subjects, MAX_SUBJECTS);
+			for (unsigned i = 0; i < _num_subjects; i++) {
+				Trace::Subject_id const id = _subjects[i];
+				try {
+					_update_monitor(_monitors.find_by_subject_id(id), id);
+				}
+				catch (Monitor_tree::No_match) {
+					try {
+						if (!_subject_matches_policy(id))
+							continue;
+
+						_new_monitor(id);
+					}
+					catch (Trace::Source_is_dead) {
+						error("Failed to enable tracing");
+					}
+				}
+			}
+			log("");
+			log("--- Report #", _report_id++, " (", _num_monitors, "/", _num_subjects, " subjects) ---");
+			_monitors.for_each([&] (Monitor &monitor) {
+				monitor.print(_report_activity, _report_affinity);
+			});
 		}
 
 		void _destroy_monitor(Monitor &monitor)
@@ -251,12 +302,8 @@ class Main
 		void _update_monitor(Monitor &monitor, Trace::Subject_id id)
 		{
 			monitor.update(_trace.subject_info(id));
-
-			/* purge dead threads */
 			if (monitor.info().state() == Trace::Subject_info::DEAD)
-			{
 				_destroy_monitor(monitor);
-			}
 		}
 
 		bool _subject_matches_policy(Trace::Subject_id id)
@@ -275,35 +322,6 @@ class Main
 
 		void _update_monitors()
 		{
-			_num_subjects = _trace.subjects(_subjects, MAX_SUBJECTS);
-			for (unsigned i = 0; i < _num_subjects; i++) {
-				Trace::Subject_id const id = _subjects[i];
-				try { _update_monitor(_lookup_monitor(id), id); }
-				catch (No_matching_monitor) {
-					try {
-						if (!_subject_matches_policy(id))
-							continue;
-
-						_new_monitor(id);
-					}
-					catch (Trace::Source_is_dead) {
-						error("Failed to enable tracing");
-					}
-				}
-			}
-			log("trace ", _num_monitors, " out of ", _num_subjects, " subjects");
-		}
-
-		void _report_subjects()
-		{
-			log("");
-			log("--- Report #", _report_id++, " ---");
-
-			for (Monitor *monitor = _monitors.first(); monitor;
-			     monitor = monitor->next())
-			{
-				monitor->print(_report_activity, _report_affinity);
-			}
 		}
 
 		void _install_policy()
@@ -329,12 +347,7 @@ class Main
 
 	public:
 
-		Main(Env &env) : _env(env)
-		{
-			_config_rom.sigh(_config_handler);
-			_handle_config();
-			_install_policy();
-		}
+		Main(Env &env) : _env(env) { _install_policy(); }
 };
 
 
