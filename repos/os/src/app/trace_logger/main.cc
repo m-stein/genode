@@ -71,6 +71,7 @@ class Monitor : public Local::Avl_node<Monitor>
 
 		enum { MAX_ENTRY_LENGTH = 256 };
 
+		Trace::Connection       &_trace;
 		Trace::Subject_id const  _subject_id;
 		Region_map              &_rm;
 		Buffer                   _buffer;
@@ -79,16 +80,29 @@ class Monitor : public Local::Avl_node<Monitor>
 		unsigned long long       _recent_exec_time { 0 };
 		char                     _curr_entry_data[MAX_ENTRY_LENGTH];
 
+		void _update()
+		{
+			Trace::Subject_info const &info =
+				_trace.subject_info(_subject_id);
+
+			unsigned long long const last_execution_time =
+				_info.execution_time().value;
+
+			_info = info;
+			_recent_exec_time =
+				_info.execution_time().value - last_execution_time;
+		}
+
 	public:
 
-		Monitor(Trace::Subject_id     subject_id,
-		        Region_map           &rm,
-		        Dataspace_capability  buffer_ds)
+		Monitor(Trace::Connection    &trace,
+		        Trace::Subject_id     subject_id,
+		        Region_map           &rm)
 		:
-			_subject_id(subject_id), _rm(rm),
-			_buffer(*(Trace::Buffer *)rm.attach(buffer_ds))
+			_trace(trace), _subject_id(subject_id), _rm(rm),
+			_buffer(*(Trace::Buffer *)rm.attach(_trace.buffer(subject_id)))
 		{
-			log("new monitor: subject ", _subject_id.id, " buffer ", &_buffer);
+			_update();
 		}
 
 		~Monitor()
@@ -97,18 +111,10 @@ class Monitor : public Local::Avl_node<Monitor>
 			_rm.detach(&_buffer);
 		}
 
-		void update(Trace::Subject_info const &new_info)
-		{
-			unsigned long long const last_execution_time =
-				_info.execution_time().value;
-
-			_info = new_info;
-			_recent_exec_time =
-				_info.execution_time().value - last_execution_time;
-		}
-
 		void print(bool report_activity, bool report_affinity)
 		{
+			_update();
+
 			/* print general subject information */
 			typedef Trace::Subject_info Subject_info;
 			Subject_info::State const state = _info.state();
@@ -249,6 +255,7 @@ class Trace_policy
 
 				log("load module: '", _name,  "'"
 				     " for label: '", _label, "'");
+
 			} catch (Region_map::Invalid_dataspace) {
 
 				error("Failed to load policy '", _name,  "'"
@@ -278,20 +285,21 @@ class Main
 		struct No_matching_monitor : Exception { };
 
 		Env                           &_env;
+		Timer::Connection              _timer            { _env };
 		Trace::Connection              _trace            { _env, 1024*1024*10, 64*1024, 0 };
 		Attached_rom_dataspace         _config_rom       { _env, "config" };
 		Xml_node                       _config           { _config_rom.xml() };
 		bool const                     _affinity         { _config.attribute_value("affinity", false) };
 		bool const                     _activity         { _config.attribute_value("activity", false) };
-		Timer::Connection              _timer            { _env };
+		bool                           _verbose          { _config.attribute_value("verbose",  false) };
+		Microseconds                   _period_us        { _config.attribute_value("period_ms", (unsigned long)DEFAULT_PERIOD_MS) * 1000UL };
+		Timer::Periodic_timeout<Main>  _period           { _timer, *this, &Main::_handle_period, _period_us };
 		Heap                           _heap             { _env.ram(), _env.rm() };
 		Monitor_tree                   _monitors         { };
 		Trace_policy                   _policy           { _env, _trace };
 		unsigned long                  _report_id        { 0 };
 		Trace::Subject_id              _subjects[MAX_SUBJECTS];
 		Trace::Subject_id              _traced_subjects[MAX_SUBJECTS];
-		Microseconds                   _period_us        { _config.attribute_value("period_ms", (unsigned long)DEFAULT_PERIOD_MS) * 1000UL };
-		Timer::Periodic_timeout<Main>  _period           { _timer, *this, &Main::_handle_period, _period_us };
 		unsigned long                  _num_subjects     { 0 };
 		unsigned long                  _num_monitors     { 0 };
 
@@ -300,9 +308,7 @@ class Main
 			_num_subjects = _trace.subjects(_subjects, MAX_SUBJECTS);
 			for (unsigned i = 0; i < _num_subjects; i++) {
 				Trace::Subject_id const id = _subjects[i];
-				try {
-					_update_monitor(_monitors.find_by_subject_id(id), id);
-				}
+				try { _monitors.find_by_subject_id(id); }
 				catch (Monitor_tree::No_match) {
 					try {
 						if (!_subject_matches_policy(id))
@@ -311,12 +317,12 @@ class Main
 						_new_monitor(id);
 					}
 					catch (Trace::Source_is_dead) {
-						error("Failed to enable tracing");
+						warning("Failed to enable tracing");
 					}
 				}
 			}
 			log("");
-			log("--- Report #", _report_id++, " (", _num_monitors, "/", _num_subjects, " subjects) ---");
+			log("--- Report ", _report_id++, " (", _num_monitors, "/", _num_subjects, " subjects) ---");
 			_monitors.for_each([&] (Monitor &monitor) {
 				monitor.print(_activity, _affinity);
 			});
@@ -324,6 +330,9 @@ class Main
 
 		void _destroy_monitor(Monitor &monitor)
 		{
+			if (_verbose)
+				log("destroy monitor: subject ", monitor.subject_id().id);
+
 			_trace.free(monitor.subject_id());
 			_monitors.remove(&monitor);
 			destroy(_heap, &monitor);
@@ -334,19 +343,12 @@ class Main
 		{
 			_trace.trace(id.id, _policy.id(), 16384U);
 			Monitor &monitor =
-				*new (_heap) Monitor(id, _env.rm(),
-				                     _trace.buffer(id));
+				*new (_heap) Monitor(_trace, id, _env.rm());
 
 			_monitors.insert(&monitor);
-			_update_monitor(monitor, id);
 			_num_monitors++;
-		}
-
-		void _update_monitor(Monitor &monitor, Trace::Subject_id id)
-		{
-			monitor.update(_trace.subject_info(id));
-			if (monitor.info().state() == Trace::Subject_info::DEAD)
-				_destroy_monitor(monitor);
+			if (_verbose)
+				log("new monitor: subject ", id.id);
 		}
 
 		bool _subject_matches_policy(Trace::Subject_id id)
