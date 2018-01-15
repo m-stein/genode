@@ -66,7 +66,12 @@ append config {
 
 	<start name="trace_logger" >
 		<resource name="RAM" quantum="100M"/>
-		<config verbose="yes" period_ms="5000" activity="yes" affinity="yes">
+		<config verbose="yes"
+		        trace_policy="null"
+		        period_ms="5000"
+		        activity="yes"
+		        affinity="yes">
+
 			<policy label_prefix="init -> cpu_burner" thread="ep"/>
 			<policy label="init -> test-trace_logger" thread="ep"/>
 		</config>
