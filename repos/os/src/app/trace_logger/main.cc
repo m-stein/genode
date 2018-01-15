@@ -270,6 +270,8 @@ class Main
 {
 	private:
 
+		using Thread_name = String<32>;
+
 		enum { MAX_SUBJECTS      = 512 };
 		enum { DEFAULT_PERIOD_MS = 5000 };
 
@@ -350,24 +352,22 @@ class Main
 		bool _subject_matches_policy(Trace::Subject_id id)
 		{
 			Trace::Subject_info info = _trace.subject_info(id);
-			Session_label const label(info.session_label(), " -> ",
-			                          info.thread_name().string());
+			Session_label const label(info.session_label());
 			try {
 				Session_policy policy(label, _config);
-				return true;
-			}
-			catch (Session_policy::No_policy_defined) {
-				return false;
-			}
-		}
+				if (!policy.has_attribute("thread"))
+					return true;
 
-		void _install_policy()
-		{
+				return policy.attribute_value("thread", Thread_name()) ==
+				       info.thread_name();
+			}
+			catch (Session_policy::No_policy_defined) { }
+			return false;
 		}
 
 	public:
 
-		Main(Env &env) : _env(env) { _install_policy(); }
+		Main(Env &env) : _env(env) { }
 };
 
 
