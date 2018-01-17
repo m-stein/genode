@@ -1,0 +1,2 @@
+* make RAM quota for Trace_session::trace configurable
+* policy label is currently set to test-trace_logger in code

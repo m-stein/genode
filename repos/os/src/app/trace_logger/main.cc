@@ -57,27 +57,79 @@ class Main
 
 		void _handle_period(Duration)
 		{
+			/*
+			 * Update monitors
+			 *
+			 * Which monitors are held and how they are configured depends on:
+			 *
+			 *   1) Which subjects are available at the Trace session,
+			 *   2) which tracing state the subjects are currently in,
+			 *   3) the configuration of this component about which subjects
+			 *      to monitor and how
+			 *
+			 * All these might have changed since the last call of this method.
+			 * So, adapt the monitors and the monitor tree accordingly.
+			 */
+error("------------------------------------");
+			Monitor_tree new_monitors;
 			_num_subjects = _trace.subjects(_subjects, MAX_SUBJECTS);
 			for (unsigned i = 0; i < _num_subjects; i++) {
-				Trace::Subject_id const id = _subjects[i];
-				try { _monitors.find_by_subject_id(id); }
-				catch (Monitor_tree::No_match) {
-					try {
-						if (!_subject_matches_policy(id))
-							continue;
 
-						_new_monitor(id);
-					}
-					catch (Trace::Source_is_dead) {
-						warning("Failed to enable tracing");
-					}
+				Trace::Subject_id const id = _subjects[i];
+				if (_trace.subject_info(id).state() == Trace::Subject_info::DEAD)
+{
+error(id.id, " dead");
+					continue;
+}
+
+				try {
+					/* lookup monitor for subject ID */
+					Monitor &monitor = _monitors.find_by_subject_id(id);
+
+					/* if monitor is deprecated, leave it in the old tree */
+					if (!_subject_matches_policy(id))
+{
+error(monitor.subject_id().id, " exists unwanted");
+						continue;
+}
+
+error(monitor.subject_id().id, " exists wanted");
+_monitors.print();
+log("...");
+					/* move monitor from old to new tree */
+					_monitors.remove(&monitor);
+					new_monitors.insert(&monitor);
+_monitors.print();
+
+				} catch (Monitor_tree::No_match) {
+
+					/* monitor only subjects the user is interested in */
+					if (!_subject_matches_policy(id))
+{
+error(id.id, " new unwanted");
+						continue;
+}
+
+error(id.id, " new wanted");
+					/* create a monitor in the new tree for the subject */
+					_new_monitor(new_monitors, id);
 				}
 			}
+			/* all monitors in the old tree are deprecated, destroy them */
+			while (Monitor *monitor = _monitors.first())
+				_destroy_monitor(*monitor);
+
+			/* override old tree with new tree */
+			_monitors = new_monitors;
+//error(__func__, __LINE__);
+
+			/* dump information of each monitor left */
 			log("");
 			log("--- Report ", _report_id++, " (", _num_monitors, "/", _num_subjects, " subjects) ---");
 			_monitors.for_each([&] (Monitor &monitor) {
 				monitor.print(_activity, _affinity);
 			});
+//error(__func__, __LINE__);
 		}
 
 		void _destroy_monitor(Monitor &monitor)
@@ -91,13 +143,14 @@ class Main
 			_num_monitors--;
 		}
 
-		void _new_monitor(Trace::Subject_id id)
+		void _new_monitor(Monitor_tree &monitors, Trace::Subject_id id)
 		{
-			_trace.trace(id.id, _policy.id(), 16384U);
-			Monitor &monitor =
-				*new (_heap) Monitor(_trace, _env.rm(), id);
-
-			_monitors.insert(&monitor);
+			try { _trace.trace(id.id, _policy.id(), 16384U); }
+			catch (Trace::Source_is_dead) {
+				warning("Failed to enable tracing");
+				return;
+			}
+			monitors.insert(new (_heap) Monitor(_trace, _env.rm(), id));
 			_num_monitors++;
 			if (_verbose)
 				log("new monitor: subject ", id.id);

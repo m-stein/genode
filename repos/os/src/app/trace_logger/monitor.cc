@@ -45,11 +45,24 @@ Monitor &Monitor::find_by_subject_id(Trace::Subject_id const subject_id)
 		return *this; }
 
 	bool const side = subject_id.id > _subject_id.id;
+
 	Monitor *const monitor = Avl_node<Monitor>::child(side);
 	if (!monitor) {
 		throw Monitor_tree::No_match(); }
 
 	return monitor->find_by_subject_id(subject_id);
+}
+
+void Monitor::print()
+{
+if (Avl_node<Monitor>::child(true)) {
+	log(Avl_node<Monitor>::child(true)->subject_id().id);
+	Avl_node<Monitor>::child(true)->print();
+}
+if (Avl_node<Monitor>::child(false)) {
+	log(Avl_node<Monitor>::child(false)->subject_id().id);
+	Avl_node<Monitor>::child(false)->print();
+}
 }
 
 
@@ -139,8 +152,23 @@ void Monitor::print(bool activity, bool affinity)
 Monitor &Monitor_tree::find_by_subject_id(Trace::Subject_id const subject_id)
 {
 	Monitor *const monitor = first();
+
 	if (!monitor)
 		throw No_match();
 
+	log(">", monitor->subject_id().id);
+
 	return monitor->find_by_subject_id(subject_id);
+}
+
+void Monitor_tree::print()
+{
+	Monitor *const monitor = first();
+
+	if (!monitor)
+		return;
+
+	log(monitor->subject_id().id);
+
+	monitor->print();
 }

@@ -106,7 +106,7 @@ if (control->tracing_inhibited())
 			policy_module = rm->attach(policy_ds, MAX_SIZE, NO_OFFSET,
 			                           ANY_LOCAL_ADDR, nullptr, EXECUTABLE);
 
-			error(Hex((unsigned long)policy_module), " ", Hex(Dataspace_client(policy_ds).size()));
+//			error(Hex((unsigned long)policy_module), " ", Hex(Dataspace_client(policy_ds).size()));
 
 			/* relocate function pointers of policy callback table */
 			for (unsigned i = 0; i < sizeof(Trace::Policy_module)/sizeof(void *); i++) {
@@ -153,23 +153,23 @@ bool Trace::Logger::_evaluate_control_x()
 	/* check process-global and thread-specific tracing condition */
 	if (inhibit_tracing)
 {
-raw(__func__, __LINE__);
+//raw(__func__, __LINE__);
 		return false;
 }
 
 	if (!control)
 {
-raw(__func__, __LINE__);
+//raw(__func__, __LINE__);
 		return false;
 }
 
 if (control->tracing_inhibited())
 {
-raw(__func__, __LINE__);
+//raw(__func__, __LINE__);
   	return false;
 }
 
-raw(__func__, __LINE__);
+//raw(__func__, __LINE__);
 	if (control->state_changed()) {
 //error(__func__, __LINE__);
 
@@ -218,7 +218,7 @@ raw(__func__, __LINE__);
 			warning("could not obtain trace policy");
 			control->error();
 			enabled = false;
-raw(__func__, __LINE__);
+//raw(__func__, __LINE__);
 			return false;
 		}
 
@@ -264,10 +264,10 @@ raw(__func__, __LINE__);
 	}
 
 	if (enabled && policy_module) {
-		raw("---------------> ", __func__, __LINE__);
+//		raw("---------------> ", __func__, __LINE__);
 		return true;
 	} else {
-raw(__func__, __LINE__);
+//raw(__func__, __LINE__);
 		return false;
 	}
 }
