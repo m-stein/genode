@@ -59,10 +59,10 @@ void Monitor::print(Output &output) const
 		Genode::print(output, "\n---");
 
 	if (Avl_node<Monitor>::child(false))
-		Genode::print(output, "\n", _subject_id.id, " L ", Avl_node<Monitor>::child(false)->subject_id().id, "p", static_cast<Monitor *>(Avl_node<Monitor>::child(false)->_parent)->subject_id().id);
+		Genode::print(output, "\n", _subject_id.id, " L ", Avl_node<Monitor>::child(false)->subject_id().id);
 
 	if (Avl_node<Monitor>::child(true))
-		Genode::print(output, "\n", _subject_id.id, " R ", Avl_node<Monitor>::child(true)->subject_id().id, "p", static_cast<Monitor *>(Avl_node<Monitor>::child(false)->_parent)->subject_id().id);
+		Genode::print(output, "\n", _subject_id.id, " R ", Avl_node<Monitor>::child(true)->subject_id().id);
 
 	if (Avl_node<Monitor>::child(false))
 		Genode::print(output, *Avl_node<Monitor>::child(false));
@@ -77,7 +77,6 @@ Monitor::Monitor(Trace::Connection &trace,
                  Trace::Subject_id  subject_id)
 :
 	Monitor_base(trace, rm, subject_id),
-	Local::Avl_node<Monitor>(subject_id.id),
 	_subject_id(subject_id), _buffer(_buffer_raw)
 {
 	_update_info();
@@ -173,5 +172,5 @@ void Monitor_tree::print(Output &output) const
 	if (!monitor)
 		return;
 
-	Genode::print(output, monitor->subject_id().id, "*", monitor->_parent, " ", this, *monitor);
+	Genode::print(output, monitor->subject_id().id, *monitor);
 }
