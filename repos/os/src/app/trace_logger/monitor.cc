@@ -53,16 +53,22 @@ Monitor &Monitor::find_by_subject_id(Trace::Subject_id const subject_id)
 	return monitor->find_by_subject_id(subject_id);
 }
 
-void Monitor::print()
+void Monitor::print(Output &output) const
 {
-if (Avl_node<Monitor>::child(true)) {
-	log(Avl_node<Monitor>::child(true)->subject_id().id);
-	Avl_node<Monitor>::child(true)->print();
-}
-if (Avl_node<Monitor>::child(false)) {
-	log(Avl_node<Monitor>::child(false)->subject_id().id);
-	Avl_node<Monitor>::child(false)->print();
-}
+	if (Avl_node<Monitor>::child(false) || Avl_node<Monitor>::child(true))
+		Genode::print(output, "\n---");
+
+	if (Avl_node<Monitor>::child(false))
+		Genode::print(output, "\n", _subject_id.id, " L ", Avl_node<Monitor>::child(false)->subject_id().id, "p", static_cast<Monitor *>(Avl_node<Monitor>::child(false)->_parent)->subject_id().id);
+
+	if (Avl_node<Monitor>::child(true))
+		Genode::print(output, "\n", _subject_id.id, " R ", Avl_node<Monitor>::child(true)->subject_id().id, "p", static_cast<Monitor *>(Avl_node<Monitor>::child(false)->_parent)->subject_id().id);
+
+	if (Avl_node<Monitor>::child(false))
+		Genode::print(output, *Avl_node<Monitor>::child(false));
+
+	if (Avl_node<Monitor>::child(true))
+		Genode::print(output, *Avl_node<Monitor>::child(true));
 }
 
 
@@ -71,6 +77,7 @@ Monitor::Monitor(Trace::Connection &trace,
                  Trace::Subject_id  subject_id)
 :
 	Monitor_base(trace, rm, subject_id),
+	Local::Avl_node<Monitor>(subject_id.id),
 	_subject_id(subject_id), _buffer(_buffer_raw)
 {
 	_update_info();
@@ -156,19 +163,15 @@ Monitor &Monitor_tree::find_by_subject_id(Trace::Subject_id const subject_id)
 	if (!monitor)
 		throw No_match();
 
-	log(">", monitor->subject_id().id);
-
 	return monitor->find_by_subject_id(subject_id);
 }
 
-void Monitor_tree::print()
+void Monitor_tree::print(Output &output) const
 {
 	Monitor *const monitor = first();
 
 	if (!monitor)
 		return;
 
-	log(monitor->subject_id().id);
-
-	monitor->print();
+	Genode::print(output, monitor->subject_id().id, "*", monitor->_parent, " ", this, *monitor);
 }

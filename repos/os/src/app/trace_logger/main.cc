@@ -70,8 +70,8 @@ class Main
 			 * All these might have changed since the last call of this method.
 			 * So, adapt the monitors and the monitor tree accordingly.
 			 */
-error("------------------------------------");
 			Monitor_tree new_monitors;
+error("------------------------------------ ", &new_monitors, " - ", &_monitors);
 			_num_subjects = _trace.subjects(_subjects, MAX_SUBJECTS);
 			for (unsigned i = 0; i < _num_subjects; i++) {
 
@@ -94,12 +94,14 @@ error(monitor.subject_id().id, " exists unwanted");
 }
 
 error(monitor.subject_id().id, " exists wanted");
-_monitors.print();
-log("...");
+log(_monitors);
+log("::: rm ", monitor.subject_id().id, " :::");
 					/* move monitor from old to new tree */
 					_monitors.remove(&monitor);
+log(_monitors);
 					new_monitors.insert(&monitor);
-_monitors.print();
+log("NEW");
+log(new_monitors);
 
 				} catch (Monitor_tree::No_match) {
 
@@ -179,3 +181,180 @@ error(id.id, " new wanted");
 
 
 void Component::construct(Env &env) { static Main main(env); }
+
+
+
+
+
+
+
+
+inline void My::Avl_node_base::_recompute_depth(Policy &policy)
+{
+	unsigned char old_depth = _depth;
+	_depth = max(_child_depth(LEFT), _child_depth(RIGHT)) + 1;
+
+	/* if our own value changes, update parent */
+	if (_depth != old_depth && _parent)
+		_parent->_recompute_depth(policy);
+
+	/* call recompute hook only for valid tree nodes */
+	if (_parent)
+		policy.recompute(this);
+}
+
+
+void My::Avl_node_base::_adopt(My::Avl_node_base *node, Side i, Policy &policy)
+{
+	_child[i] = node;
+	if (node)
+		node->_parent = this;
+
+	_recompute_depth(policy);
+}
+
+
+void My::Avl_node_base::_rotate_subtree(My::Avl_node_base *node, Side side, Policy &policy)
+{
+	int i = (node == _child[0]) ? LEFT : RIGHT;
+
+	My::Avl_node_base *node_r   = node->_child[!side];
+	My::Avl_node_base *node_r_l = node_r->_child[side];
+
+	/* simple rotation */
+	if (node_r->_bias() == !side) {
+
+		node->_adopt(node_r_l, !side, policy);
+		node_r->_adopt(node, side, policy);
+
+		_adopt(node_r, i, policy);
+	}
+
+	/* double rotation */
+	else if (node_r_l) {
+
+		My::Avl_node_base *node_r_l_l = node_r_l->_child[side];
+		My::Avl_node_base *node_r_l_r = node_r_l->_child[!side];
+
+		node->_adopt(node_r_l_l, !side, policy);
+		node_r->_adopt(node_r_l_r, side, policy);
+
+		node_r_l->_adopt(node, side, policy);
+		node_r_l->_adopt(node_r, !side, policy);
+
+		_adopt(node_r_l, i, policy);
+	}
+}
+
+
+void My::Avl_node_base::_rebalance_subtree(My::Avl_node_base *node, Policy &policy)
+{
+	int v = node->_child_depth(RIGHT) - node->_child_depth(LEFT);
+
+	/* return if subtree is in balance */
+	if (abs(v) < 2) return;
+
+	_rotate_subtree(node, (v < 0), policy);
+}
+
+
+void My::Avl_node_base::insert(My::Avl_node_base *node, Policy &policy)
+{
+	if (node == this) {
+		error("inserting element ", node, " twice into avl tree!");
+		return;
+	}
+
+	Side i = LEFT;
+
+	/* for non-root nodes, decide for a branch */
+	if (_parent)
+		i = policy.higher(this, node);
+
+	if (_child[i])
+		_child[i]->insert(node, policy);
+	else
+		_adopt(node, i, policy);
+
+	/* the inserted node might have changed the depth of the subtree */
+	_recompute_depth(policy);
+
+	if (_parent)
+		_parent->_rebalance_subtree(this, policy);
+}
+
+
+void My::Avl_node_base::remove(Policy &policy)
+{
+	My::Avl_node_base *lp = 0;
+	My::Avl_node_base *l  = _child[0];
+
+	if (!_parent)
+		error("tried to remove AVL node that is not in an AVL tree");
+
+
+	log(">>>A ", _id, " ", _parent->_id);
+	if (_parent->_child[0])
+		log(">>>A ", _id, " ", _parent->_id, "*", _parent, " L ", _parent->_child[0]->_id, "p", _parent->_child[0]->_parent->_id);
+	if (_parent->_child[1])
+		log(">>>A ", _id, " ", _parent->_id, "*", _parent, " R ", _parent->_child[1]->_id, "p", _parent->_child[1]->_parent->_id);
+
+	if (l) {
+
+		/* find right-most node in left sub tree (l) */
+		while (l && l->_child[1])
+			l = l->_child[1];
+
+//log("rightmost ", l->_id);
+
+		/* isolate right-most node in left sub tree */
+		if (l == _child[0])
+			_adopt(l->_child[0], LEFT, policy);
+		else
+			l->_parent->_adopt(l->_child[0], RIGHT, policy);
+
+		/* consistent state */
+
+		/* remember for rebalancing */
+		if (l->_parent != this)
+			lp = l->_parent;
+
+		/* exchange this and l */
+		for (int i = 0; i < 2; i++)
+			if (_parent->_child[i] == this)
+				_parent->_adopt(l, i, policy);
+
+		l->_adopt(_child[0], LEFT, policy);
+		l->_adopt(_child[1], RIGHT, policy);
+
+	} else {
+
+		/* no left sub tree, attach our right sub tree to our parent */
+		for (int i = 0; i < 2; i++)
+			if (_parent->_child[i] == this)
+				_parent->_adopt(_child[1], i, policy);
+	}
+
+
+
+	/* walk the tree towards its root and rebalance sub trees */
+	while (lp && lp->_parent) {
+		My::Avl_node_base *lpp = lp->_parent;
+		lpp->_rebalance_subtree(lp, policy);
+		lp = lpp;
+	}
+
+	log(">>>B ", _id, " ", _parent->_id);
+	if (_parent->_child[0])
+		log(">>>B ", _id, " ", _parent->_id, "*", _parent, " L ", _parent->_child[0]->_id, "p", _parent->_child[0]->_parent->_id);
+	if (_parent->_child[1])
+		log(">>>B ", _id, " ", _parent->_id, "*", _parent, " R ", _parent->_child[1]->_id, "p", _parent->_child[1]->_parent->_id);
+
+	/* reset node pointers */
+	_child[LEFT] = _child[RIGHT] = 0;
+	_parent = 0;
+}
+
+
+My::Avl_node_base::Avl_node_base(unsigned id) : _parent(0), _depth(1), _id(id) {
+	_child[LEFT] = _child[RIGHT] = 0; }
