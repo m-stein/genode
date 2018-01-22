@@ -72,8 +72,6 @@ class Monitor : public Monitor_base,
 
 		Monitor &find_by_subject_id(Genode::Trace::Subject_id const subject_id);
 
-		void print(Genode::Output &output) const;
-
 		bool higher(Monitor *monitor) { return monitor->_subject_id.id > _subject_id.id; }
 
 
@@ -94,8 +92,6 @@ struct Monitor_tree : Local::Avl_tree<Monitor>
 	struct No_match : Genode::Exception { };
 
 	Monitor &find_by_subject_id(Genode::Trace::Subject_id const subject_id);
-
-	void print(Genode::Output &output) const;
 };
 
 

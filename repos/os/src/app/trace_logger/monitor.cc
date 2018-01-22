@@ -53,24 +53,6 @@ Monitor &Monitor::find_by_subject_id(Trace::Subject_id const subject_id)
 	return monitor->find_by_subject_id(subject_id);
 }
 
-void Monitor::print(Output &output) const
-{
-	if (Avl_node<Monitor>::child(false) || Avl_node<Monitor>::child(true))
-		Genode::print(output, "\n---");
-
-	if (Avl_node<Monitor>::child(false))
-		Genode::print(output, "\n", _subject_id.id, " L ", Avl_node<Monitor>::child(false)->subject_id().id);
-
-	if (Avl_node<Monitor>::child(true))
-		Genode::print(output, "\n", _subject_id.id, " R ", Avl_node<Monitor>::child(true)->subject_id().id);
-
-	if (Avl_node<Monitor>::child(false))
-		Genode::print(output, *Avl_node<Monitor>::child(false));
-
-	if (Avl_node<Monitor>::child(true))
-		Genode::print(output, *Avl_node<Monitor>::child(true));
-}
-
 
 Monitor::Monitor(Trace::Connection &trace,
                  Region_map        &rm,
@@ -85,15 +67,18 @@ Monitor::Monitor(Trace::Connection &trace,
 
 void Monitor::_update_info()
 {
-	Trace::Subject_info const &info =
-		_trace.subject_info(_subject_id);
+	try {
+		Trace::Subject_info const &info =
+			_trace.subject_info(_subject_id);
 
-	unsigned long long const last_execution_time =
-		_info.execution_time().value;
+		unsigned long long const last_execution_time =
+			_info.execution_time().value;
 
-	_info = info;
-	_recent_exec_time =
-		_info.execution_time().value - last_execution_time;
+		_info = info;
+		_recent_exec_time =
+			_info.execution_time().value - last_execution_time;
+	}
+	catch (Trace::Nonexistent_subject) { warning("Cannot update subject info: Nonexistent_subject"); }
 }
 
 
@@ -163,14 +148,4 @@ Monitor &Monitor_tree::find_by_subject_id(Trace::Subject_id const subject_id)
 		throw No_match();
 
 	return monitor->find_by_subject_id(subject_id);
-}
-
-void Monitor_tree::print(Output &output) const
-{
-	Monitor *const monitor = first();
-
-	if (!monitor)
-		return;
-
-	Genode::print(output, monitor->subject_id().id, *monitor);
 }

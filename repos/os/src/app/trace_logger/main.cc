@@ -21,6 +21,7 @@
 #include <base/heap.h>
 #include <os/session_policy.h>
 #include <timer_session/connection.h>
+#include <util/construct_at.h>
 
 using namespace Genode;
 using Thread_name = String<32>;
@@ -33,8 +34,6 @@ class Main
 		enum { MAX_SUBJECTS      = 512 };
 		enum { DEFAULT_PERIOD_MS = 5000 };
 
-		struct No_matching_monitor : Exception { };
-
 		Env                           &_env;
 		Timer::Connection              _timer            { _env };
 		Trace::Connection              _trace            { _env, 1024*1024*10, 64*1024, 0 };
@@ -46,12 +45,9 @@ class Main
 		Microseconds                   _period_us        { _config.attribute_value("period_ms", (unsigned long)DEFAULT_PERIOD_MS) * 1000UL };
 		Timer::Periodic_timeout<Main>  _period           { _timer, *this, &Main::_handle_period, _period_us };
 		Heap                           _heap             { _env.ram(), _env.rm() };
+		Monitor_tree                   _monitors_0       { };
 		Monitor_tree                   _monitors_1       { };
-		Monitor_tree                   _monitors_2       { };
-		struct {
-			Monitor_tree                  *_old_monitors     ;
-			Monitor_tree                  *_monitors         ;
-		};
+		unsigned                       _monitors_id      { 0 };
 		Trace_policy                   _policy           { _env, _trace,
 		                                                   _config.attribute_value("trace_policy", Trace_policy::Name("null")) };
 		unsigned long                  _report_id        { 0 };
@@ -80,31 +76,34 @@ class Main
 			 * Switch monitor trees so that the new tree is empty and the old
 			 * tree contains all monitors.
 			 */
-			Monitor_tree *old_monitors = _old_monitors;
-			Monitor_tree *monitors     = _monitors;
-			_old_monitors              = monitors;
-			_monitors                  = old_monitors;
+			Monitor_tree &old_monitors = _monitors_id ? _monitors_1 : _monitors_0;
+			Monitor_tree &new_monitors = _monitors_id ? _monitors_0 : _monitors_1;
+			_monitors_id = !_monitors_id;
 
 			/* update array of available subject IDs and iterate over them */
-			_num_subjects = _trace.subjects(_subjects, MAX_SUBJECTS);
+			try { _num_subjects = _trace.subjects(_subjects, MAX_SUBJECTS); }
+			catch (Out_of_ram ) { warning("Cannot list subjects: Out_of_ram" ); return; }
+			catch (Out_of_caps) { warning("Cannot list subjects: Out_of_caps"); return; }
 			for (unsigned i = 0; i < _num_subjects; i++) {
 
 				/* skip dead subjects */
 				Trace::Subject_id const id = _subjects[i];
-				if (_trace.subject_info(id).state() == Trace::Subject_info::DEAD)
-					continue;
-
+				try {
+					if (_trace.subject_info(id).state() == Trace::Subject_info::DEAD)
+						continue;
+				}
+				catch (Trace::Nonexistent_subject) { continue; }
 				try {
 					/* lookup monitor for subject ID */
-					Monitor &monitor = _old_monitors->find_by_subject_id(id);
+					Monitor &monitor = old_monitors.find_by_subject_id(id);
 
 					/* if monitor is deprecated, leave it in the old tree */
 					if (!_subject_matches_policy(id))
 						continue;
 
 					/* move monitor from old to new tree */
-					_old_monitors->remove(&monitor);
-					_monitors->insert(&monitor);
+					old_monitors.remove(&monitor);
+					new_monitors.insert(&monitor);
 
 				} catch (Monitor_tree::No_match) {
 
@@ -113,40 +112,46 @@ class Main
 						continue;
 
 					/* create a monitor in the new tree for the subject */
-					_new_monitor(id);
+					_new_monitor(new_monitors, id);
 				}
 			}
 			/* all monitors in the old tree are deprecated, destroy them */
-			while (Monitor *monitor = _old_monitors->first())
-				_destroy_old_monitor(*monitor);
+			while (Monitor *monitor = old_monitors.first())
+				_destroy_monitor(old_monitors, *monitor);
 
 			/* dump information of each monitor left */
 			log("");
 			log("--- Report ", _report_id++, " (", _num_monitors, "/", _num_subjects, " subjects) ---");
-			_monitors->for_each([&] (Monitor &monitor) {
+			new_monitors.for_each([&] (Monitor &monitor) {
 				monitor.print(_activity, _affinity);
 			});
 		}
 
-		void _destroy_old_monitor(Monitor &monitor)
+		void _destroy_monitor(Monitor_tree &monitors, Monitor &monitor)
 		{
 			if (_verbose)
 				log("destroy monitor: subject ", monitor.subject_id().id);
 
-			_trace.free(monitor.subject_id());
-			_old_monitors->remove(&monitor);
+			try { _trace.free(monitor.subject_id()); }
+			catch (Trace::Nonexistent_subject) { }
+			monitors.remove(&monitor);
 			destroy(_heap, &monitor);
 			_num_monitors--;
 		}
 
-		void _new_monitor(Trace::Subject_id id)
+		void _new_monitor(Monitor_tree &monitors, Trace::Subject_id id)
 		{
-			try { _trace.trace(id.id, _policy.id(), 16384U); }
-			catch (Trace::Source_is_dead) {
-				warning("Failed to enable tracing");
-				return;
+			try {
+				_trace.trace(id.id, _policy.id(), 16384U);
+				monitors.insert(new (_heap) Monitor(_trace, _env.rm(), id));
 			}
-			_monitors->insert(new (_heap) Monitor(_trace, _env.rm(), id));
+			catch (Out_of_ram                    ) { warning("Cannot activate tracing: Out_of_ram"             ); return; }
+			catch (Out_of_caps                   ) { warning("Cannot activate tracing: Out_of_caps"            ); return; }
+			catch (Trace::Already_traced         ) { warning("Cannot activate tracing: Already_traced"         ); return; }
+			catch (Trace::Source_is_dead         ) { warning("Cannot activate tracing: Source_is_dead"         ); return; }
+			catch (Trace::Nonexistent_policy     ) { warning("Cannot activate tracing: Nonexistent_policy"     ); return; }
+			catch (Trace::Traced_by_other_session) { warning("Cannot activate tracing: Traced_by_other_session"); return; }
+			catch (Trace::Nonexistent_subject    ) { warning("Cannot activate tracing: Nonexistent_subject"    ); return; }
 			_num_monitors++;
 			if (_verbose)
 				log("new monitor: subject ", id.id);
@@ -154,9 +159,9 @@ class Main
 
 		bool _subject_matches_policy(Trace::Subject_id id)
 		{
-			Trace::Subject_info info = _trace.subject_info(id);
-			Session_label const label(info.session_label());
 			try {
+				Trace::Subject_info info = _trace.subject_info(id);
+				Session_label const label(info.session_label());
 				Session_policy policy(label, _config);
 				if (!policy.has_attribute("thread"))
 					return true;
@@ -165,16 +170,13 @@ class Main
 				       info.thread_name();
 			}
 			catch (Session_policy::No_policy_defined) { }
+			catch (Trace::Nonexistent_subject       ) { }
 			return false;
 		}
 
 	public:
 
-		Main(Env &env)
-		:
-			_env(env), _old_monitors( &_monitors_1 ),
-			_monitors( &_monitors_2 )
-		{ }
+		Main(Env &env) : _env(env) { }
 };
 
 
