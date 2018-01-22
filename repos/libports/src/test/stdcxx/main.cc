@@ -48,6 +48,7 @@ static void test_cstdlib()
 {
 	static ::lldiv_t o __attribute__((used));
 	std::cout << std::strtoul("123", 0, 10) << std::endl;
+	std::cout << std::stoi("456") << std::endl;
 }
 
 
