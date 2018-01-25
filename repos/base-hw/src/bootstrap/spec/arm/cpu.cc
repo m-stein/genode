@@ -27,9 +27,8 @@ void Bootstrap::Cpu::enable_mmu_and_caches(Genode::addr_t table)
 	Ttbcr::write(1);
 
 	Ttbr::access_t ttbr = Ttbr::Ba::masked(table);
-	if (Mpidr::Me::get(Mpidr::read())) {
-		/* for coherence, memory must be marked as write-back (cf. Cortex-A9 MPcore) */
-		Ttbr::Rgn::set(ttbr, Ttbr::CACHEABLE);
+	Ttbr::Rgn::set(ttbr, Ttbr::CACHEABLE);
+	if (Mpidr::Me::get(Mpidr::read())) { /* check for SMP system */
 		Ttbr::Irgn::set(ttbr, Ttbr::CACHEABLE);
 		Ttbr::S::set(ttbr, 1);
 	} else
