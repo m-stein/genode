@@ -50,9 +50,9 @@ struct Genode::Arm_cpu : public Hw::Arm_cpu
 		static access_t init(addr_t const table)
 		{
 			access_t v = Ttbr::Ba::masked((addr_t)table);
-			Ttbr::Rgn::set(v, Ttbr::BACK_ALLOCATE);
+			Ttbr::Rgn::set(v, Ttbr::CACHEABLE);
 			Ttbr::S::set(v, Board::SMP ? 1 : 0);
-			if (Board::SMP) Ttbr::Irgn::set(v, Ttbr::BACK_ALLOCATE);
+			if (Board::SMP) Ttbr::Irgn::set(v, Ttbr::CACHEABLE);
 			else Ttbr::C::set(v, 1);
 			return v;
 		}

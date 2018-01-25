@@ -91,7 +91,7 @@ struct Hw::Arm_cpu
 	 */
 	struct Ttbr : Genode::Register<32>
 	{
-		enum Memory_region { NON_CACHEABLE = 0, CACHEABLE = 1, BACK_ALLOCATE = 1, THROUGH = 2, BACK_NOALLOCATE = 3 };
+		enum Memory_region { CACHEABLE = 1 };
 
 		struct C   : Bitfield<0,1> { };    /* inner cacheable */
 		struct S   : Bitfield<1,1> { };    /* shareable */
