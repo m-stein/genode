@@ -26,7 +26,6 @@
 
 namespace Net {
 
-	class Domain;
 	class Communication_buffer;
 	class Session_component_base;
 	class Session_component;
@@ -83,17 +82,18 @@ class Net::Session_component : private Session_component_base,
 
 	public:
 
-		Session_component(Genode::Allocator    &alloc,
-		                  Timer::Connection    &timer,
-		                  Genode::size_t const  amount,
-		                  Genode::Ram_session  &buf_ram,
-		                  Genode::size_t const  tx_buf_size,
-		                  Genode::size_t const  rx_buf_size,
-		                  Genode::Region_map   &region_map,
-		                  Mac_address    const  mac,
-		                  Genode::Entrypoint   &ep,
-		                  Mac_address    const &router_mac,
-		                  Domain               &domain);
+		Session_component(Genode::Allocator           &alloc,
+		                  Timer::Connection           &timer,
+		                  Genode::size_t        const  amount,
+		                  Genode::Ram_session         &buf_ram,
+		                  Genode::size_t        const  tx_buf_size,
+		                  Genode::size_t        const  rx_buf_size,
+		                  Genode::Region_map          &region_map,
+		                  Mac_address           const  mac,
+		                  Genode::Entrypoint          &ep,
+		                  Mac_address           const &router_mac,
+		                  Genode::Session_label const  label,
+		                  Configuration               &config);
 
 
 		/******************

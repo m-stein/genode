@@ -31,11 +31,11 @@ Net::Uplink::Uplink(Env               &env,
 	Nic::Packet_allocator(&alloc),
 	Nic::Connection(env, this, BUF_SIZE, BUF_SIZE),
 	Net::Interface(env.ep(), timer, mac_address(), alloc, Mac_address(),
-	               config.domains().find_by_name(Cstring("uplink")))
+	               config)
 {
 	rx_channel()->sigh_ready_to_ack(_sink_ack);
 	rx_channel()->sigh_packet_avail(_sink_submit);
 	tx_channel()->sigh_ack_avail(_source_ack);
 	tx_channel()->sigh_ready_to_submit(_source_submit);
-	Interface::_init();
+	attach_to_domain(config.domains().find_by_name(Cstring("uplink")));
 }
