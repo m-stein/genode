@@ -197,7 +197,7 @@ Interface::_transport_rules(Domain &local_domain, L3_protocol const prot) const
 void Interface::attach_to_domain(Domain &domain)
 {
 	_domain_ptr.set(domain);
-	domain.manage_interface(*this);
+	domain.attach_interface(*this);
 	if (!domain.ip_config().valid) {
 		_dhcp_client.discover();
 	}
@@ -1042,7 +1042,7 @@ Interface::~Interface()
 {
 	try {
 		Domain &local_domain = _domain_ptr.deref();
-		local_domain.dissolve_interface(*this);
+		local_domain.detach_interface(*this);
 
 		/* destroy our own ARP waiters */
 		while (_own_arp_waiters.first()) {
