@@ -1004,20 +1004,31 @@ void Interface::_send_submit_pkt(Packet_descriptor &pkt,
 }
 
 
-Interface::Interface(Genode::Entrypoint &ep,
-                     Timer::Connection  &timer,
-                     Mac_address const   router_mac,
-                     Genode::Allocator  &alloc,
-                     Mac_address const   mac,
-                     Configuration      &config)
+Interface::Interface(Genode::Entrypoint     &ep,
+                     Timer::Connection      &timer,
+                     Mac_address      const  router_mac,
+                     Genode::Allocator      &alloc,
+                     Mac_address      const  mac,
+                     Configuration          &config,
+                     Interface_policy const &policy)
 :
 	_sink_ack(ep, *this, &Interface::_ack_avail),
 	_sink_submit(ep, *this, &Interface::_ready_to_submit),
 	_source_ack(ep, *this, &Interface::_ready_to_ack),
 	_source_submit(ep, *this, &Interface::_packet_avail),
-	_router_mac(router_mac), _mac(mac), _config(config), _timer(timer),
-	_alloc(alloc)
-{ }
+	_router_mac(router_mac), _mac(mac), _config(config),
+	_policy(policy), _timer(timer), _alloc(alloc)
+{
+	/* try to find matching domain and attach interface to it */
+	Domain_name const domain_name = _policy.determine_domain_name();
+	try { attach_to_domain(config.domains().find_by_name(domain_name)); }
+	catch (Domain_tree::No_match) {
+		if (config.verbose()) {
+			log("No matching domain");
+		}
+		_config.detached_interfaces().insert(this);
+	}
+}
 
 
 void Interface::_ack_packet(Packet_descriptor const &pkt)
@@ -1041,6 +1052,7 @@ void Interface::cancel_arp_waiting(Arp_waiter &waiter)
 Interface::~Interface()
 {
 	try {
+		/* try to detach from domain */
 		Domain &local_domain = _domain_ptr.deref();
 		local_domain.detach_interface(*this);
 
@@ -1061,5 +1073,9 @@ Interface::~Interface()
 		/* dissolve ARP cache entries with the MAC address of this interface */
 		local_domain.arp_cache().destroy_entries_with_mac(_mac);
 	}
-	catch (Pointer<Domain>::Invalid) { }
+	catch (Pointer<Domain>::Invalid) {
+
+		/* if not attached to a domain the interface is in a global list */
+		_config.detached_interfaces().remove(this);
+	}
 }

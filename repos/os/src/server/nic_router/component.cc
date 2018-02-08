@@ -38,16 +38,42 @@ Communication_buffer::Communication_buffer(Ram_session          &ram,
  ****************************/
 
 Session_component_base::
-Session_component_base(Allocator    &guarded_alloc_backing,
-                       size_t const  guarded_alloc_amount,
-                       Ram_session  &buf_ram,
-                       size_t const  tx_buf_size,
-                       size_t const  rx_buf_size)
+Session_component_base(Allocator           &guarded_alloc_backing,
+                       size_t        const  guarded_alloc_amount,
+                       Ram_session         &buf_ram,
+                       size_t        const  tx_buf_size,
+                       size_t        const  rx_buf_size,
+                       Configuration const &config,
+                       Session_label const &label)
 :
 	_guarded_alloc(&guarded_alloc_backing, guarded_alloc_amount),
 	_range_alloc(&_guarded_alloc), _tx_buf(buf_ram, tx_buf_size),
-	_rx_buf(buf_ram, rx_buf_size)
+	_rx_buf(buf_ram, rx_buf_size), _intf_policy(label, config)
 { }
+
+
+/**********************************************
+ ** Session_component_base::Interface_policy **
+ **********************************************/
+
+Net::Session_component_base::
+Interface_policy::Interface_policy(Genode::Session_label const &label,
+                                   Configuration         const &config)
+: label(label), config(config) { }
+
+
+Domain_name
+Net::Session_component_base::Interface_policy::determine_domain_name() const
+{
+	Domain_name domain_name;
+	try {
+		Session_policy policy(label, config.node());
+		domain_name = policy.attribute_value("domain", Domain_name());
+	}
+	catch (Session_policy::No_policy_defined) { if (config.verbose()) { log("No matching policy"); } }
+	catch (Xml_node::Nonexistent_attribute)   { if (config.verbose()) { log("No domain attribute in policy"); } }
+	return domain_name;
+}
 
 
 /***********************
@@ -64,28 +90,18 @@ Net::Session_component::Session_component(Allocator           &alloc,
                                           Mac_address   const  mac,
                                           Entrypoint          &ep,
                                           Mac_address   const &router_mac,
-                                          Session_label const  label,
+                                          Session_label const &label,
                                           Configuration       &config)
 :
-	Session_component_base(alloc, amount, buf_ram, tx_buf_size, rx_buf_size),
+	Session_component_base(alloc, amount, buf_ram, tx_buf_size, rx_buf_size,
+	                       config, label),
 	Session_rpc_object(region_map, _tx_buf, _rx_buf, &_range_alloc, ep.rpc_ep()),
-	Interface(ep, timer, router_mac, _guarded_alloc, mac, config)
+	Interface(ep, timer, router_mac, _guarded_alloc, mac, config, _intf_policy)
 {
 	_tx.sigh_ready_to_ack(_sink_ack);
 	_tx.sigh_packet_avail(_sink_submit);
 	_rx.sigh_ack_avail(_source_ack);
 	_rx.sigh_ready_to_submit(_source_submit);
-
-	/* try to find matching domain and attach interface to it */
-	try {
-		Session_policy policy(label, config.node());
-		Domain_name domain_name(policy.attribute_value("domain", Domain_name()));
-		Domain &domain = config.domains().find_by_name(domain_name);
-		Interface::attach_to_domain(domain);
-	}
-	catch (Session_policy::No_policy_defined) { if (config.verbose()) log("No matching policy"); }
-	catch (Domain_tree::No_match)             { if (config.verbose()) log("No matching domain"); }
-	catch (Xml_node::Nonexistent_attribute)   { if (config.verbose()) log("No domain attribute in policy"); }
 }
 
 
@@ -132,11 +148,12 @@ Session_component *Net::Root::_create_session(char const *args)
 			error("insufficient 'ram_quota' for session creation");
 			throw Insufficient_ram_quota();
 		}
+		Session_label const label(label_from_args(args));
 		return new (md_alloc())
 			Session_component(*md_alloc(), _timer, ram_quota - session_size,
 			                  _buf_ram, tx_buf_size, rx_buf_size, _region_map,
-			                  _mac_alloc.alloc(), _ep, _router_mac,
-			                  label_from_args(args), _config);
+			                  _mac_alloc.alloc(), _ep, _router_mac, label,
+			                  _config);
 	}
 	catch (Mac_allocator::Alloc_failed) {
 		error("failed to allocate MAC address");

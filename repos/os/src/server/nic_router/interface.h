@@ -31,16 +31,26 @@ namespace Net {
 	using Packet_descriptor    = ::Nic::Packet_descriptor;
 	using Packet_stream_sink   = ::Nic::Packet_stream_sink< ::Nic::Session::Policy>;
 	using Packet_stream_source = ::Nic::Packet_stream_source< ::Nic::Session::Policy>;
+	using Domain_name          = Genode::String<160>;
 	class Ipv4_config;
 	class Forward_rule_tree;
 	class Transport_rule_list;
 	class Ethernet_frame;
 	class Arp_packet;
+	class Interface_policy;
 	class Interface;
 	class Dhcp_server;
 	class Configuration;
 	class Domain;
 }
+
+
+struct Net::Interface_policy
+{
+	virtual Domain_name determine_domain_name() const = 0;
+
+	virtual ~Interface_policy() { }
+};
 
 
 class Net::Interface : private Genode::List<Interface>::Element
@@ -52,27 +62,28 @@ class Net::Interface : private Genode::List<Interface>::Element
 
 		using Signal_handler = Genode::Signal_handler<Interface>;
 
-		Signal_handler    _sink_ack;
-		Signal_handler    _sink_submit;
-		Signal_handler    _source_ack;
-		Signal_handler    _source_submit;
-		Mac_address const _router_mac;
-		Mac_address const _mac;
+		Signal_handler      _sink_ack;
+		Signal_handler      _sink_submit;
+		Signal_handler      _source_ack;
+		Signal_handler      _source_submit;
+		Mac_address  const  _router_mac;
+		Mac_address  const  _mac;
 
 	private:
 
-		Configuration        &_config;
-		Timer::Connection    &_timer;
-		Genode::Allocator    &_alloc;
-		Pointer<Domain>       _domain_ptr                { };
-		Arp_waiter_list       _own_arp_waiters           { };
-		Link_list             _tcp_links                 { };
-		Link_list             _udp_links                 { };
-		Link_list             _dissolved_tcp_links       { };
-		Link_list             _dissolved_udp_links       { };
-		Dhcp_allocation_tree  _dhcp_allocations          { };
-		Dhcp_allocation_list  _released_dhcp_allocations { };
-		Dhcp_client           _dhcp_client { _alloc, _timer, *this };
+		Configuration          &_config;
+		Interface_policy const &_policy;
+		Timer::Connection      &_timer;
+		Genode::Allocator      &_alloc;
+		Pointer<Domain>         _domain_ptr                { };
+		Arp_waiter_list         _own_arp_waiters           { };
+		Link_list               _tcp_links                 { };
+		Link_list               _udp_links                 { };
+		Link_list               _dissolved_tcp_links       { };
+		Link_list               _dissolved_udp_links       { };
+		Dhcp_allocation_tree    _dhcp_allocations          { };
+		Dhcp_allocation_list    _released_dhcp_allocations { };
+		Dhcp_client             _dhcp_client               { _alloc, _timer, *this };
 
 		void _new_link(L3_protocol                   const  protocol,
 		               Link_side_id                  const &local_id,
@@ -224,12 +235,13 @@ class Net::Interface : private Genode::List<Interface>::Element
 			Drop_packet_warn(ARGS... args) : msg({args...}) { }
 		};
 
-		Interface(Genode::Entrypoint &ep,
-		          Timer::Connection  &timer,
-		          Mac_address const   router_mac,
-		          Genode::Allocator  &alloc,
-		          Mac_address const   mac,
-		          Configuration      &config);
+		Interface(Genode::Entrypoint     &ep,
+		          Timer::Connection      &timer,
+		          Mac_address      const  router_mac,
+		          Genode::Allocator      &alloc,
+		          Mac_address      const  mac,
+		          Configuration          &config,
+		          Interface_policy const &policy);
 
 		virtual ~Interface();
 
