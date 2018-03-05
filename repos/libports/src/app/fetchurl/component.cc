@@ -148,7 +148,7 @@ struct Fetchurl::Main
 				node.attribute("url").value(&url);
 				node.attribute("path").value(path.base(), path.capacity());
 			}
-			catch (...) { Genode::error("error reading 'fetch' node"); return; }
+			catch (...) { Genode::error("error reading 'fetch' XML node"); return; }
 
 			try { config_node.attribute("proxy").value(&proxy); }
 			catch (...) { }
@@ -246,7 +246,7 @@ struct Fetchurl::Main
 		_fetch.fd = -1;
 
 		if (res != CURLE_OK)
-			Genode::error(curl_easy_strerror(res));
+			Genode::error(curl_easy_strerror(res), ", failed to fetch ", _fetch.url);
 		return res;
 	}
 
