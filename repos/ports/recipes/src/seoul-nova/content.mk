@@ -15,7 +15,6 @@ BASE_SRC_INCLUDE := src/include/base/internal/crt0.h \
                     src/include/base/internal/unmanaged_singleton.h
 
 src/include:
-	mkdir -p $(dir $@)
 	mkdir -p $@/base/internal
 	cp -r $(GENODE_DIR)/repos/base-nova/$@ $(dir $@)
 	for file in $(BASE_SRC_INCLUDE); do \
