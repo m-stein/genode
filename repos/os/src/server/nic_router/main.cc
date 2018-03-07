@@ -31,13 +31,17 @@ class Main
 {
 	private:
 
-		Interface_list                 _interfaces { };
-		Timer::Connection              _timer;
-		Genode::Heap                   _heap;
-		Genode::Attached_rom_dataspace _config_rom;
-		Configuration                  _config;
-		Uplink                         _uplink;
-		Net::Root                      _root;
+		Genode::Env                    &_env;
+		Interface_list                  _interfaces     { };
+		Timer::Connection               _timer          { _env };
+		Genode::Heap                    _heap           { &_env.ram(), &_env.rm() };
+		Genode::Attached_rom_dataspace  _config_rom     { _env, "config" };
+		Configuration                   _config         { _env, _config_rom.xml(), _heap, _timer };
+		Signal_handler<Main>            _config_handler { _env.ep(), *this, &Main::_handle_config };
+		Uplink                          _uplink         { _env, _timer, _heap, _interfaces, _config };
+		Net::Root                       _root           { _env.ep(), _timer, _heap, _uplink.router_mac(), _config, _env.ram(), _interfaces, _env.rm()};
+
+		void _handle_config();
 
 	public:
 
@@ -45,15 +49,16 @@ class Main
 };
 
 
-Main::Main(Env &env)
-:
-	_timer(env), _heap(&env.ram(), &env.rm()), _config_rom(env, "config"),
-	_config(env, _config_rom.xml(), _heap, _timer),
-	_uplink(env, _timer, _heap, _interfaces, _config),
-	_root(env.ep(), _timer, _heap, _uplink.router_mac(), _config,
-	      env.ram(), _interfaces, env.rm())
+Main::Main(Env &env) : _env(env)
 {
+	_config_rom.sigh(_config_handler);
 	env.parent().announce(env.ep().manage(_root));
+}
+
+
+void Main::_handle_config()
+{
+error(__func__);
 }
 
 
