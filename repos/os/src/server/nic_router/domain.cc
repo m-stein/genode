@@ -169,14 +169,29 @@ void Domain::_ip_config_changed()
 
 Domain::~Domain()
 {
+error(__func__, " - FIXME leaks foreign ARP waiters");
+	/* destroy rules */
+	_ip_rules.destroy_each(_alloc);
+	_nat_rules.destroy_each(_alloc);
+	_udp_rules.destroy_each(_alloc);
+	_tcp_rules.destroy_each(_alloc);
+	_udp_forward_rules.destroy_each(_alloc);
+	_tcp_forward_rules.destroy_each(_alloc);
+
+	/* destroy DHCP server and IP config */
+	try { destroy(_alloc, &_dhcp_server.deref()); }
+	catch (Pointer<Dhcp_server>::Invalid) { }
+	_ip_config.destruct();
+}
+
+
+void Domain::__FIXME__dissolve_foreign_arp_waiters()
+{
 	/* let other interfaces destroy their ARP waiters that wait for us */
 	while (_foreign_arp_waiters.first()) {
 		Arp_waiter &waiter = *_foreign_arp_waiters.first()->object();
 		waiter.src().cancel_arp_waiting(waiter);
 	}
-	/* destroy DHCP server */
-	try { destroy(_alloc, &_dhcp_server.deref()); }
-	catch (Pointer<Dhcp_server>::Invalid) { }
 }
 
 

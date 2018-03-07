@@ -120,6 +120,8 @@ class Net::Domain : public Domain_base
 
 		void _ip_config_changed();
 
+		void __FIXME__dissolve_foreign_arp_waiters();
+
 	public:
 
 		struct Invalid     : Genode::Exception { };
