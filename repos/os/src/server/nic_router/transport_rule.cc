@@ -24,17 +24,19 @@ using namespace Net;
 using namespace Genode;
 
 
-Permit_any_rule *Transport_rule::_read_permit_any(Domain_tree    &domains,
-                                                  Xml_node const  node,
-                                                  Allocator      &alloc)
+Pointer<Permit_any_rule>
+Transport_rule::_read_permit_any(Domain_tree    &domains,
+                                 Xml_node const  node,
+                                 Allocator      &alloc)
 {
 	try {
 		Xml_node sub_node = node.sub_node("permit-any");
-		return new (alloc) Permit_any_rule(domains, sub_node);
+		return Pointer<Permit_any_rule>(*new (alloc)
+		                                Permit_any_rule(domains, sub_node));
 	}
 	catch (Xml_node::Nonexistent_sub_node) { }
 	catch (Rule::Invalid) { warning("invalid permit-any rule"); }
-	return nullptr;
+	return Pointer<Permit_any_rule>();
 }
 
 
@@ -47,12 +49,13 @@ Transport_rule::Transport_rule(Domain_tree    &domains,
 	Direct_rule(node), _permit_any(_read_permit_any(domains, node, alloc))
 {
 	/* skip specific permit rules if all ports are permitted anyway */
-	if (_permit_any) {
+	try {
+		Permit_any_rule &permit_any = _permit_any.deref();
 		if (config.verbose()) {
-			log("  ", protocol, " rule: ", _dst, " ", *_permit_any); }
+			log("  ", protocol, " rule: ", _dst, " ", permit_any); }
 
 		return;
-	}
+	} catch (Pointer<Permit_any_rule>::Invalid) { }
 
 	/* read specific permit rules */
 	node.for_each_sub_node("permit", [&] (Xml_node const node) {
@@ -74,6 +77,7 @@ Transport_rule::Transport_rule(Domain_tree    &domains,
 
 Permit_rule const &Transport_rule::permit_rule(Port const port) const
 {
-	if (_permit_any) { return *_permit_any; }
+	try { return _permit_any.deref(); }
+	catch (Pointer<Permit_any_rule>::Invalid) { }
 	return _permit_single_rules.find_by_port(port);
 }
