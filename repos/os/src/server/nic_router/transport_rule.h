@@ -33,13 +33,14 @@ class Net::Transport_rule : public Direct_rule<Transport_rule>
 {
 	private:
 
-		Pointer<Permit_any_rule> const _permit_any;
-		Permit_single_rule_tree        _permit_single_rules { };
+		Genode::Allocator              &_alloc;
+		Pointer<Permit_any_rule> const  _permit_any_rule;
+		Permit_single_rule_tree         _permit_single_rules { };
 
 		static Pointer<Permit_any_rule>
-		_read_permit_any(Domain_tree            &domains,
-		                 Genode::Xml_node const  node,
-		                 Genode::Allocator      &alloc);
+		_read_permit_any_rule(Domain_tree            &domains,
+		                      Genode::Xml_node const  node,
+		                      Genode::Allocator      &alloc);
 
 	public:
 
@@ -48,6 +49,8 @@ class Net::Transport_rule : public Direct_rule<Transport_rule>
 		               Genode::Allocator      &alloc,
 		               Genode::Cstring  const &protocol,
 		               Configuration          &config);
+
+		~Transport_rule();
 
 		Permit_rule const &permit_rule(Port const port) const;
 };
