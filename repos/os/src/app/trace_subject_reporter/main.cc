@@ -16,7 +16,6 @@
 #include <trace_session/connection.h>
 #include <timer_session/connection.h>
 #include <base/component.h>
-#include <base/attached_rom_dataspace.h>
 #include <base/heap.h>
 #include <os/reporter.h>
 #include <util/retry.h>
