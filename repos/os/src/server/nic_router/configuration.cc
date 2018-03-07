@@ -63,3 +63,15 @@ Configuration::Configuration(Env               &env,
 		                                 _domains));
 	} catch (Genode::Xml_node::Nonexistent_sub_node) { }
 }
+
+
+Configuration::~Configuration()
+{
+error(__func__);
+	/* destroy report generator */
+	try { destroy(_alloc, &_report.deref()); }
+	catch (Pointer<Report>::Invalid) { }
+
+	/* destroy domains */
+	_domains.destroy_each(_alloc);
+}

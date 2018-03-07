@@ -59,6 +59,8 @@ class Net::Configuration
 		              Genode::Allocator      &alloc,
 		              Timer::Connection      &timer);
 
+		~Configuration();
+
 
 		/***************
 		 ** Accessors **
