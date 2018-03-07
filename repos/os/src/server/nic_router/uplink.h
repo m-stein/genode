@@ -76,6 +76,7 @@ class Net::Uplink : public Uplink_base,
 		Uplink(Genode::Env        &env,
 		       Timer::Connection  &timer,
 		       Genode::Allocator  &alloc,
+		       Interface_list     &interfaces,
 		       Configuration      &config);
 
 

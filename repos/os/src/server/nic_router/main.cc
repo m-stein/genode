@@ -31,6 +31,7 @@ class Main
 {
 	private:
 
+		Interface_list                 _interfaces { };
 		Timer::Connection              _timer;
 		Genode::Heap                   _heap;
 		Genode::Attached_rom_dataspace _config_rom;
@@ -48,9 +49,9 @@ Main::Main(Env &env)
 :
 	_timer(env), _heap(&env.ram(), &env.rm()), _config_rom(env, "config"),
 	_config(env, _config_rom.xml(), _heap, _timer),
-	_uplink(env, _timer, _heap, _config),
+	_uplink(env, _timer, _heap, _interfaces, _config),
 	_root(env.ep(), _timer, _heap, _uplink.router_mac(), _config,
-	      env.ram(), env.rm())
+	      env.ram(), _interfaces, env.rm())
 {
 	env.parent().announce(env.ep().manage(_root));
 }

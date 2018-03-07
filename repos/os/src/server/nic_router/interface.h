@@ -39,6 +39,7 @@ namespace Net {
 	class Arp_packet;
 	class Interface_policy;
 	class Interface;
+	using Interface_list = List<Interface>;
 	class Dhcp_server;
 	class Configuration;
 	class Domain;
@@ -53,12 +54,12 @@ struct Net::Interface_policy
 };
 
 
-class Net::Interface : private Genode::List<Interface>::Element
+class Net::Interface : private Interface_list::Element
 {
-	protected:
+	friend class List<Interface>;
+	friend class Genode::List<Interface>;
 
-		friend class Genode::List<Interface>;
-		friend class Net::List<Interface>;
+	protected:
 
 		using Signal_handler = Genode::Signal_handler<Interface>;
 
@@ -84,6 +85,7 @@ class Net::Interface : private Genode::List<Interface>::Element
 		Dhcp_allocation_tree    _dhcp_allocations          { };
 		Dhcp_allocation_list    _released_dhcp_allocations { };
 		Dhcp_client             _dhcp_client               { _alloc, _timer, *this };
+		Interface_list         &_interfaces;
 
 		void _new_link(L3_protocol                   const  protocol,
 		               Link_side_id                  const &local_id,
@@ -241,6 +243,7 @@ class Net::Interface : private Genode::List<Interface>::Element
 		          Genode::Allocator      &alloc,
 		          Mac_address      const  mac,
 		          Configuration          &config,
+		          Interface_list         &interfaces,
 		          Interface_policy const &policy);
 
 		virtual ~Interface();

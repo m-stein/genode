@@ -91,12 +91,15 @@ Net::Session_component::Session_component(Allocator           &alloc,
                                           Entrypoint          &ep,
                                           Mac_address   const &router_mac,
                                           Session_label const &label,
+                                          Interface_list      &interfaces,
                                           Configuration       &config)
 :
 	Session_component_base(alloc, amount, buf_ram, tx_buf_size, rx_buf_size,
 	                       config, label),
-	Session_rpc_object(region_map, _tx_buf, _rx_buf, &_range_alloc, ep.rpc_ep()),
-	Interface(ep, timer, router_mac, _guarded_alloc, mac, config, _intf_policy)
+	Session_rpc_object(region_map, _tx_buf, _rx_buf, &_range_alloc,
+	                   ep.rpc_ep()),
+	Interface(ep, timer, router_mac, _guarded_alloc, mac, config, interfaces,
+	          _intf_policy)
 {
 	_tx.sigh_ready_to_ack(_sink_ack);
 	_tx.sigh_packet_avail(_sink_submit);
@@ -115,11 +118,12 @@ Net::Root::Root(Entrypoint        &ep,
                 Mac_address const &router_mac,
                 Configuration     &config,
                 Ram_session       &buf_ram,
+                Interface_list    &interfaces,
                 Region_map        &region_map)
 :
 	Root_component<Session_component>(&ep.rpc_ep(), &alloc), _timer(timer),
 	_ep(ep), _router_mac(router_mac), _config(config), _buf_ram(buf_ram),
-	_region_map(region_map)
+	_region_map(region_map), _interfaces(interfaces)
 { }
 
 
@@ -153,7 +157,7 @@ Session_component *Net::Root::_create_session(char const *args)
 			Session_component(*md_alloc(), _timer, ram_quota - session_size,
 			                  _buf_ram, tx_buf_size, rx_buf_size, _region_map,
 			                  _mac_alloc.alloc(), _ep, _router_mac, label,
-			                  _config);
+			                  _interfaces, _config);
 	}
 	catch (Mac_allocator::Alloc_failed) {
 		error("failed to allocate MAC address");

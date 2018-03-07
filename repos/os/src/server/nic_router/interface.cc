@@ -1010,6 +1010,7 @@ Interface::Interface(Genode::Entrypoint     &ep,
                      Genode::Allocator      &alloc,
                      Mac_address      const  mac,
                      Configuration          &config,
+                     Interface_list         &interfaces,
                      Interface_policy const &policy)
 :
 	_sink_ack(ep, *this, &Interface::_ack_avail),
@@ -1017,17 +1018,17 @@ Interface::Interface(Genode::Entrypoint     &ep,
 	_source_ack(ep, *this, &Interface::_ready_to_ack),
 	_source_submit(ep, *this, &Interface::_packet_avail),
 	_router_mac(router_mac), _mac(mac), _config(config),
-	_policy(policy), _timer(timer), _alloc(alloc)
+	_policy(policy), _timer(timer), _alloc(alloc),
+	_interfaces(interfaces)
 {
 	/* try to find matching domain and attach interface to it */
 	Domain_name const domain_name = _policy.determine_domain_name();
 	try { attach_to_domain(config.domains().find_by_name(domain_name)); }
 	catch (Domain_tree::No_match) {
 		if (config.verbose()) {
-			log("No matching domain");
-		}
-		_config.detached_interfaces().insert(this);
+			log("No matching domain"); }
 	}
+	_interfaces.insert(this);
 }
 
 
@@ -1073,9 +1074,6 @@ Interface::~Interface()
 		/* dissolve ARP cache entries with the MAC address of this interface */
 		local_domain.arp_cache().destroy_entries_with_mac(_mac);
 	}
-	catch (Pointer<Domain>::Invalid) {
-
-		/* if not attached to a domain the interface is in a global list */
-		_config.detached_interfaces().remove(this);
-	}
+	catch (Pointer<Domain>::Invalid) { }
+	_interfaces.remove(this);
 }
