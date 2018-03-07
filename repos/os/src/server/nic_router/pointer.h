@@ -24,32 +24,32 @@ class Net::Pointer
 {
 	private:
 
-		T *_ptr;
+		T    *_ptr;
+		bool  _valid;
 
 	public:
 
 		struct Valid   : Genode::Exception { };
 		struct Invalid : Genode::Exception { };
 
-		Pointer() : _ptr(nullptr) { }
+		Pointer() : _ptr(nullptr), _valid(false) { }
+
+		Pointer(T &ref) : _ptr(&ref), _valid(true) { }
 
 		T &deref() const
 		{
-			if (_ptr == nullptr) {
-				throw Invalid(); }
-
+			if (!_valid) { throw Invalid(); }
 			return *_ptr;
 		}
 
 		void set(T &ptr)
 		{
-			if (_ptr != nullptr) {
-				throw Valid(); }
-
+			if (_valid) { throw Valid(); }
 			_ptr = &ptr;
+			_valid = true;
 		}
 
-		void unset() { _ptr = nullptr; }
+		void unset() { _valid = false; }
 };
 
 #endif /* _POINTER_H_ */
