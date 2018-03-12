@@ -27,10 +27,19 @@ using namespace Genode;
  ** Configuration **
  *******************/
 
+Configuration::Configuration(Xml_node const  node,
+                             Allocator      &alloc)
+:
+	_alloc(alloc),
+	_node(node)
+{ }
+
+
 Configuration::Configuration(Env               &env,
                              Xml_node const     node,
                              Allocator         &alloc,
-                             Timer::Connection &timer)
+                             Timer::Connection &timer,
+                             Configuration     &)
 :
 	_alloc(alloc),
 	_verbose              (node.attribute_value("verbose",              false)),
