@@ -39,7 +39,7 @@ Configuration::Configuration(Env               &env,
                              Xml_node const     node,
                              Allocator         &alloc,
                              Timer::Connection &timer,
-                             Configuration     &)
+                             Configuration     &legacy)
 :
 	_alloc(alloc),
 	_verbose              (node.attribute_value("verbose",              false)),
@@ -53,7 +53,6 @@ Configuration::Configuration(Env               &env,
 	_tcp_max_segm_lifetime(read_sec_attr(node, "tcp_max_segm_lifetime_sec", DEFAULT_TCP_MAX_SEGM_LIFETIME_SEC)),
 	_node(node)
 {
-
 	/* read domains */
 	node.for_each_sub_node("domain", [&] (Xml_node const node) {
 		try { _domains.insert(*new (_alloc) Domain(*this, node, _alloc)); }
@@ -66,19 +65,38 @@ Configuration::Configuration(Env               &env,
 
 		domain.create_rules(_domains);
 	});
-	/* if configured, create a report generator */
 	try {
-		_report.set(*new (_alloc) Report(env, node.sub_node("report"), timer,
-		                                 _domains));
-	} catch (Genode::Xml_node::Nonexistent_sub_node) { }
+		/* check whether we shall create a report generator */
+		Xml_node const report_node = node.sub_node("report");
+		try {
+			/* try to re-use existing reporter */
+			_reporter.set(legacy._reporter.deref());
+			legacy._reporter.unset();
+		}
+		catch (Pointer<Reporter>::Invalid) {
+
+			/* there is no reporter by now, create a new one */
+			_reporter.set(*new (_alloc) Reporter(env, "state"));
+		}
+		/* create report generator */
+		_report.set(*new (_alloc)
+			Report(report_node, timer, _domains, _reporter.deref()));
+	}
+	catch (Genode::Xml_node::Nonexistent_sub_node) { }
 }
 
 
 Configuration::~Configuration()
 {
 error(__func__);
+	/* destroy reporter */
+	try { destroy(_alloc, &_reporter.deref());
+error("~Reporter"); }
+	catch (Pointer<Reporter>::Invalid) { }
+
 	/* destroy report generator */
-	try { destroy(_alloc, &_report.deref()); }
+	try { destroy(_alloc, &_report.deref());
+error("~Report"); }
 	catch (Pointer<Report>::Invalid) { }
 
 	/* destroy domains */

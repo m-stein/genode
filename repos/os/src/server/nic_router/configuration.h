@@ -41,6 +41,7 @@ class Net::Configuration
 		Genode::Microseconds const  _tcp_idle_timeout        { DEFAULT_TCP_IDLE_TIMEOUT_SEC      };
 		Genode::Microseconds const  _tcp_max_segm_lifetime   { DEFAULT_TCP_MAX_SEGM_LIFETIME_SEC };
 		Pointer<Report>             _report                  { };
+		Pointer<Genode::Reporter>   _reporter                { };
 		Domain_tree                 _domains                 { };
 		Genode::Xml_node     const  _node;
 
