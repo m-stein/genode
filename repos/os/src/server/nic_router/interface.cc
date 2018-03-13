@@ -194,14 +194,22 @@ Interface::_transport_rules(Domain &local_domain, L3_protocol const prot) const
 }
 
 
-void Interface::attach_to_domain(Domain &domain)
+void Interface::attach_to_domain(Domain_name const &domain_name)
 {
-	_domain_ptr.set(domain);
-	domain.attach_interface(*this);
-	if (!domain.ip_config().valid) {
-		_dhcp_client.discover();
+	try {
+		Domain &domain = _config().domains().find_by_name(domain_name);
+		_domain_ptr.set(domain);
+		domain.attach_interface(*this);
+		if (!domain.ip_config().valid) {
+			_dhcp_client.discover();
+		}
+	}
+	catch (Domain_tree::No_match) {
+		if (_config().verbose()) {
+			log("No matching domain"); }
 	}
 }
+
 
 struct Detach_from_domain_not_implemented : Genode::Exception { };
 void Interface::detach_from_domain()
@@ -221,11 +229,11 @@ Interface::_new_link(L3_protocol                   const  protocol,
 	switch (protocol) {
 	case L3_protocol::TCP:
 		new (_alloc) Tcp_link(*this, local, remote_port_alloc, remote_domain,
-		                      remote, _timer, _config, protocol);
+		                      remote, _timer, _config(), protocol);
 		break;
 	case L3_protocol::UDP:
 		new (_alloc) Udp_link(*this, local, remote_port_alloc, remote_domain,
-		                      remote, _timer, _config, protocol);
+		                      remote, _timer, _config(), protocol);
 		break;
 	default: throw Bad_transport_protocol(); }
 }
@@ -292,7 +300,7 @@ void Interface::_nat_link_and_pass(Ethernet_frame        &eth,
 	Pointer<Port_allocator_guard> remote_port_alloc;
 	try {
 		Nat_rule &nat = remote_domain.nat_rules().find_by_domain(local_domain);
-		if(_config.verbose()) {
+		if(_config().verbose()) {
 			log("Using NAT rule: ", nat); }
 
 		_src_port(prot, prot_base, nat.port_alloc(prot).alloc());
@@ -394,7 +402,7 @@ void Interface::_send_dhcp_reply(Dhcp_server               const &dhcp_srv,
 void Interface::_release_dhcp_allocation(Dhcp_allocation &allocation,
                                          Domain          &local_domain)
 {
-	if (_config.verbose()) {
+	if (_config().verbose()) {
 		log("Release DHCP allocation: ", allocation,
 		    " at ", local_domain);
 	}
@@ -410,10 +418,10 @@ void Interface::_new_dhcp_allocation(Ethernet_frame &eth,
 	Dhcp_allocation &allocation = *new (_alloc)
 		Dhcp_allocation(*this, dhcp_srv.alloc_ip(),
 		                dhcp.client_mac(), _timer,
-		                _config.dhcp_offer_timeout());
+		                _config().dhcp_offer_timeout());
 
 	_dhcp_allocations.insert(&allocation);
-	if (_config.verbose()) {
+	if (_config().verbose()) {
 		log("Offer DHCP allocation: ", allocation,
 		                       " at ", local_domain);
 	}
@@ -457,7 +465,7 @@ void Interface::_handle_dhcp_request(Ethernet_frame &eth, size_t ,
 					return;
 
 				} else {
-					allocation.lifetime(_config.dhcp_offer_timeout());
+					allocation.lifetime(_config().dhcp_offer_timeout());
 					_send_dhcp_reply(dhcp_srv, eth.src(),
 					                 allocation.ip(),
 					                 Dhcp_packet::Message_type::OFFER,
@@ -482,7 +490,7 @@ void Interface::_handle_dhcp_request(Ethernet_frame &eth, size_t ,
 					{
 						allocation.set_bound();
 						allocation.lifetime(dhcp_srv.ip_lease_time());
-						if (_config.verbose()) {
+						if (_config().verbose()) {
 							log("Bind DHCP allocation: ", allocation,
 							                      " at ", local_domain);
 						}
@@ -618,7 +626,7 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 			bool const client = local_side.is_client();
 			Link_side &remote_side = client ? link.server() : link.client();
 			Domain &remote_domain = remote_side.domain();
-			if (_config.verbose()) {
+			if (_config().verbose()) {
 				log("Using ", l3_protocol_name(prot), " link: ", link); }
 
 			_adapt_eth(eth, remote_side.src_ip(), pkt, remote_domain);
@@ -641,7 +649,7 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 				Forward_rule const &rule =
 					_forward_rules(local_domain, prot).find_by_port(local_id.dst_port);
 
-				if(_config.verbose()) {
+				if(_config().verbose()) {
 					log("Using forward rule: ", l3_protocol_name(prot), " ", rule); }
 
 				Domain &remote_domain = rule.domain();
@@ -661,7 +669,7 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 			Permit_rule const &permit_rule =
 				transport_rule.permit_rule(local_id.dst_port);
 
-			if(_config.verbose()) {
+			if(_config().verbose()) {
 				log("Using ", l3_protocol_name(prot), " rule: ", transport_rule,
 				    " ", permit_rule); }
 
@@ -681,7 +689,7 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 		Ip_rule const &rule =
 			local_domain.ip_rules().longest_prefix_match(ip.dst());
 
-		if(_config.verbose()) {
+		if(_config().verbose()) {
 			log("Using IP rule: ", rule); }
 
 		Domain &remote_domain = rule.domain();
@@ -695,7 +703,7 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 	catch (Ip_rule_list::No_match) { }
 
 	/* give up and drop packet */
-	if (_config.verbose()) {
+	if (_config().verbose()) {
 		log("Unroutable packet"); }
 }
 
@@ -742,7 +750,7 @@ void Interface::_handle_arp_reply(Ethernet_frame &eth,
 	try {
 		/* check wether a matching ARP cache entry already exists */
 		local_domain.arp_cache().find_by_ip(arp.src_ip());
-		if (_config.verbose()) {
+		if (_config().verbose()) {
 			log("ARP entry already exists"); }
 	}
 	catch (Arp_cache::No_match) {
@@ -938,12 +946,12 @@ void Interface::_handle_eth(void              *const  eth_base,
 		catch (Udp_packet::Bad_data_type)     { warning("malformed UDP packet"    ); }
 
 		catch (Bad_network_protocol) {
-			if (_config.verbose()) {
+			if (_config().verbose()) {
 				log("unknown network layer protocol");
 			}
 		}
 		catch (Drop_packet_inform exception) {
-			if (_config.verbose()) {
+			if (_config().verbose()) {
 				log("(", local_domain, ") Drop packet: ", exception.msg);
 			}
 		}
@@ -966,7 +974,7 @@ void Interface::_handle_eth(void              *const  eth_base,
 			error("failed to allocate IP for DHCP client"); }
 	}
 	catch (Pointer<Domain>::Invalid) {
-		if (_config.verbose()) {
+		if (_config().verbose()) {
 			log("(?) Drop packet: no domain");
 		}
 	}
@@ -1011,24 +1019,188 @@ Interface::Interface(Genode::Entrypoint     &ep,
                      Mac_address      const  mac,
                      Configuration          &config,
                      Interface_list         &interfaces,
-                     Interface_policy const &policy)
+                     Interface_policy       &policy)
 :
 	_sink_ack(ep, *this, &Interface::_ack_avail),
 	_sink_submit(ep, *this, &Interface::_ready_to_submit),
 	_source_ack(ep, *this, &Interface::_ready_to_ack),
 	_source_submit(ep, *this, &Interface::_packet_avail),
-	_router_mac(router_mac), _mac(mac), _config(config),
+	_router_mac(router_mac), _mac(mac), _config_ptr(config),
 	_policy(policy), _timer(timer), _alloc(alloc),
 	_interfaces(interfaces)
 {
-	/* try to find matching domain and attach interface to it */
-	Domain_name const domain_name = _policy.determine_domain_name();
-	try { attach_to_domain(config.domains().find_by_name(domain_name)); }
-	catch (Domain_tree::No_match) {
-		if (config.verbose()) {
-			log("No matching domain"); }
-	}
+	attach_to_domain(_policy.determine_domain_name());
 	_interfaces.insert(this);
+}
+
+
+void Interface::_update_link_check_nat(Link          &link,
+                                       L3_protocol    prot,
+                                       Configuration &new_config,
+                                       Domain        &new_local_dom,
+                                       Domain        &new_remote_dom)
+{
+	if (link.client().src_ip() == link.server().dst_ip()) {
+		link.handle_config(new_local_dom, new_remote_dom, new_config);
+		return;
+	}
+	try {
+		Nat_rule &new_nat = new_remote_dom.nat_rules().find_by_domain(new_local_dom);
+		Nat_rule &old_nat = link.server().domain().nat_rules().find_by_domain(link.client().domain());
+		if (&old_nat.port_alloc(prot) != &new_nat.port_alloc(prot)) {
+error("dismiss link for NAT port alloc: ", link);
+			throw Dismiss_link(); }
+
+		if (link.server().dst_ip() != new_remote_dom.ip_config().interface.address) {
+error("dismiss link for NAT IP: ", link);
+			throw Dismiss_link(); }
+
+		link.handle_config(new_local_dom, new_remote_dom, new_config);
+		return;
+	}
+	catch (Nat_rule_tree::No_match) { }
+error("dismiss link for NAT rule: ", link);
+	throw Dismiss_link();
+}
+
+
+void Interface::_update_links(L3_protocol    prot,
+                              Configuration &new_config,
+                              Domain        &new_local_dom)
+{
+	links(prot).for_each([&] (Link &link) {
+		try {
+			Forward_rule const &rule =
+				_forward_rules(new_local_dom, prot).
+					find_by_port(link.client().dst_port());
+
+			try {
+				if (rule.domain().name() != link.server().domain().name()) {
+error("dismiss link for Forward rule domain: ", link);
+					throw Dismiss_link(); }
+
+				if (rule.to() != link.server().src_ip()) {
+error("dismiss link for Forward rule to: ", link);
+					throw Dismiss_link(); }
+
+				_update_link_check_nat(link, prot, new_config, new_local_dom, rule.domain());
+				return;
+			}
+			catch (Dismiss_link) { }
+		}
+		catch (Forward_rule_tree::No_match) {
+			try {
+				Transport_rule const &transport_rule =
+					_transport_rules(new_local_dom, prot).
+						longest_prefix_match(link.client().dst_ip());
+
+				Permit_rule const &permit_rule =
+					transport_rule.permit_rule(link.client().dst_port());
+
+				try {
+					if (permit_rule.domain().name() != link.server().domain().name()) {
+error("dismiss link for Permit rule domain: ", link);
+						throw Dismiss_link(); }
+
+					_update_link_check_nat(link, prot, new_config, new_local_dom, permit_rule.domain());
+					return;
+				}
+				catch (Dismiss_link) { }
+			}
+			catch (Transport_rule_list::No_match) {
+error("dismiss link for Transport rule: ", link);
+}
+			catch (Permit_single_rule_tree::No_match) {
+error("dismiss link for Permit rule: ", link);
+}
+		}
+		/* dissmiss */
+	});
+}
+
+
+void Interface::handle_config(Configuration &new_config)
+{
+	struct Domain_changed : Genode::Exception { };
+	_policy.handle_config(new_config);
+	try {
+		Domain &new_domain = new_config.domains().find_by_name(_policy.determine_domain_name());
+		Domain &old_domain = domain();
+		if (old_domain.name() != new_domain.name()) {
+			throw Domain_changed(); }
+
+		/* update Interface object */
+		_config_ptr = Pointer<Configuration>(new_config);
+		_domain_ptr = Pointer<Domain>(new_domain);
+
+		/* update links */
+		_update_links(L3_protocol::TCP, new_config, new_domain);
+		_update_links(L3_protocol::UDP, new_config, new_domain);
+
+/*
+	re-check UDP/TCP link
+	---------------------
+
+		A if client domain and client interface domain are the same
+			* if client and server domain exist and have valid IP config
+				* if client domain has forward rule that matches client dst port
+					* if forward rule domain and link server domain are the same
+						* if forward rule 'to' and server dst IP are the same
+							* goto B
+				* if client domain has transport rule that matches client dst IP
+					* if transport rule has permit rule that matches client dst port
+						* if permit rule domain and dst domain are the same
+							* goto B
+		* destroy
+
+		B if client and server src IP differ
+			* if server domain has NAT rule that matches client domain
+				* if NAT rule ports value for given protocol was not decreased
+					* if server source IP matches IP interface of server domain
+						* goto C
+			* destroy
+		* goto C
+
+		C if configured timeout is activ
+			* if configured duration of timeout has changed
+				* update Link( _dissolve_timeout_us )
+				* re-program timeout
+		* update Link( _config, _client/_server( _domain ) )
+		* keep
+
+	re-check DHCP allocations
+	-------------------------
+
+		A if interface domain and allocation domain are the same
+			* if it succeeds to re-alloc IP at DHCP server
+				* goto B
+		* destroy all allocations and link down/up
+
+		* keep all allocations
+
+	??? Was, wenn die DHCP neu gemacht werden muss aber es existieren noch alte Links mit alten IPs ???
+
+				<dhcp-server ip_first="10.0.1.80"
+							 ip_last="10.0.1.100"
+							 ip_lease_time_sec="20"
+							 dns_server="10.0.0.2"/>
+*/
+		/*   ARP waiters */
+		/*   DHCP allocations */
+
+		/*   ARP cache entries */
+		/*   IP config */
+		/*   NAT ports */
+	}
+	catch (Domain_tree::No_match) {
+		/* new domain does not exist, old domain may exist */
+	}
+	catch (Pointer<Domain>::Invalid) {
+		/* new domain does exist, old domain does not exist */
+	}
+	catch (Domain_changed) {
+		/* bot domains exits but differ */
+	}
 }
 
 

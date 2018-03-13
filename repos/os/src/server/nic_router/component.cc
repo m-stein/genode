@@ -59,7 +59,7 @@ Session_component_base(Allocator           &guarded_alloc_backing,
 Net::Session_component_base::
 Interface_policy::Interface_policy(Genode::Session_label const &label,
                                    Configuration         const &config)
-: label(label), config(config) { }
+: label(label), config_ptr(config) { }
 
 
 Domain_name
@@ -67,11 +67,11 @@ Net::Session_component_base::Interface_policy::determine_domain_name() const
 {
 	Domain_name domain_name;
 	try {
-		Session_policy policy(label, config.node());
+		Session_policy policy(label, config().node());
 		domain_name = policy.attribute_value("domain", Domain_name());
 	}
-	catch (Session_policy::No_policy_defined) { if (config.verbose()) { log("No matching policy"); } }
-	catch (Xml_node::Nonexistent_attribute)   { if (config.verbose()) { log("No domain attribute in policy"); } }
+	catch (Session_policy::No_policy_defined) { if (config().verbose()) { log("No matching policy"); } }
+	catch (Xml_node::Nonexistent_attribute)   { if (config().verbose()) { log("No domain attribute in policy"); } }
 	return domain_name;
 }
 

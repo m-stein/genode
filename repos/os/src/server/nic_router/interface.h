@@ -50,6 +50,8 @@ struct Net::Interface_policy
 {
 	virtual Domain_name determine_domain_name() const = 0;
 
+	virtual void handle_config(Configuration &config) = 0;
+
 	virtual ~Interface_policy() { }
 };
 
@@ -72,8 +74,10 @@ class Net::Interface : private Interface_list::Element
 
 	private:
 
-		Configuration          &_config;
-		Interface_policy const &_policy;
+		struct Dismiss_link : Genode::Exception { };
+
+		Pointer<Configuration>  _config_ptr;
+		Interface_policy       &_policy;
 		Timer::Connection      &_timer;
 		Genode::Allocator      &_alloc;
 		Pointer<Domain>         _domain_ptr                { };
@@ -202,6 +206,22 @@ class Net::Interface : private Interface_list::Element
 		                      void                      * &pkt_base,
 		                      Genode::size_t               pkt_size);
 
+		void _update_links(L3_protocol    prot,
+		                   Configuration &new_config,
+		                   Domain        &new_local_domain);
+
+		void _update_link_check_nat(Link          &link,
+		                            L3_protocol    prot,
+		                            Configuration &new_config,
+		                            Domain        &new_local_dom,
+		                            Domain        &new_remote_dom);
+
+
+		/***************
+		 ** Accessors **
+		 ***************/
+
+		Configuration &_config() { return _config_ptr.deref(); }
 
 		/***********************************
 		 ** Packet-stream signal handlers **
@@ -244,7 +264,7 @@ class Net::Interface : private Interface_list::Element
 		          Mac_address      const  mac,
 		          Configuration          &config,
 		          Interface_list         &interfaces,
-		          Interface_policy const &policy);
+		          Interface_policy       &policy);
 
 		virtual ~Interface();
 
@@ -274,9 +294,11 @@ class Net::Interface : private Interface_list::Element
 
 		void cancel_arp_waiting(Arp_waiter &waiter);
 
-		void attach_to_domain(Domain &domain);
+		void attach_to_domain(Domain_name const &domain_name);
 
 		void detach_from_domain();
+
+		void handle_config(Configuration &new_config);
 
 
 		/***************
