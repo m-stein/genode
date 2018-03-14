@@ -53,6 +53,16 @@ Port Port_allocator_guard::alloc()
 }
 
 
+void Port_allocator_guard::alloc(Port const port)
+{
+	if (_used == _max) {
+		throw Out_of_indices(); }
+
+	_port_alloc.alloc(port);
+	_used++;
+}
+
+
 void Port_allocator_guard::free(Port const port)
 {
 	_port_alloc.free(port);

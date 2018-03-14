@@ -66,6 +66,8 @@ class Net::Port_allocator_guard
 
 		Port alloc();
 
+		void alloc(Port const port);
+
 		void free(Port const port);
 
 		Port_allocator_guard(Port_allocator & port_alloc, unsigned const max);
