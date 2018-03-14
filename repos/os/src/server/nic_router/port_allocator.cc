@@ -26,6 +26,18 @@ bool Net::dynamic_port(Port const port)
 }
 
 
+/********************
+ ** Port_allocator **
+ ********************/
+
+void Net::Port_allocator::alloc(Port const port)
+{
+	try { _alloc.alloc_addr(port.value - FIRST); }
+	catch (Genode::Bit_allocator<COUNT>::Range_conflict) {
+		throw Allocation_conflict(); }
+}
+
+
 /**************************
  ** Port_allocator_guard **
  **************************/
