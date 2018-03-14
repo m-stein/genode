@@ -47,16 +47,24 @@ static void _destroy_dissolved_links(Link_list   &dissolved_links,
 
 
 template <typename LINK_TYPE>
+static void _destroy_link(Link        &link,
+                          Link_list   &links,
+                          Deallocator &dealloc)
+{
+	link.dissolve();
+	links.remove(&link);
+	destroy(dealloc, static_cast<LINK_TYPE *>(&link));
+}
+
+
+template <typename LINK_TYPE>
 static void _destroy_links(Link_list   &links,
                            Link_list   &dissolved_links,
                            Deallocator &dealloc)
 {
 	_destroy_dissolved_links<LINK_TYPE>(dissolved_links, dealloc);
 	while (Link *link = links.first()) {
-		link->dissolve();
-		links.remove(link);
-		destroy(dealloc, static_cast<LINK_TYPE *>(link));
-	}
+		_destroy_link<LINK_TYPE>(*link, links, dealloc); }
 }
 
 
@@ -152,6 +160,16 @@ static void *_prot_base(L3_protocol const  prot,
 /***************
  ** Interface **
  ***************/
+
+void Interface::_destroy_link(Link &link)
+{
+	L3_protocol const prot = link.protocol();
+	switch (prot) {
+	case L3_protocol::TCP: ::_destroy_link<Tcp_link>(link, links(prot), _alloc); break;
+	case L3_protocol::UDP: ::_destroy_link<Udp_link>(link, links(prot), _alloc); break;
+	default: throw Bad_transport_protocol(); }
+}
+
 
 void Interface::_pass_prot(Ethernet_frame       &eth,
                            size_t         const  eth_size,
@@ -1081,6 +1099,8 @@ void Interface::_update_links(L3_protocol    prot,
                               Domain        &local_dom)
 {
 	links(prot).for_each([&] (Link &link) {
+
+		/* try to update link with forward rule */
 		try {
 			Forward_rule const &rule =
 				_forward_rules(local_dom, prot).
@@ -1101,6 +1121,8 @@ void Interface::_update_links(L3_protocol    prot,
 			catch (Dismiss_link) { }
 		}
 		catch (Forward_rule_tree::No_match) {
+
+			/* try to update link with transport/permit rule */
 			try {
 				Transport_rule const &transport_rule =
 					_transport_rules(local_dom, prot).
@@ -1122,7 +1144,7 @@ void Interface::_update_links(L3_protocol    prot,
 			catch (Transport_rule_list::No_match)     { _dismiss_link_log(config, link, "transport/forward rule"); }
 			catch (Permit_single_rule_tree::No_match) { _dismiss_link_log(config, link, "permit rule"); }
 		}
-		/* dissmiss */
+		_destroy_link(link);
 	});
 }
 

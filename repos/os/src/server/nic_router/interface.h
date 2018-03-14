@@ -220,6 +220,8 @@ class Net::Interface : private Interface_list::Element
 		                       Link          &link,
 		                       char const    *reason);
 
+		void _destroy_link(Link &link);
+
 
 		/***************
 		 ** Accessors **
