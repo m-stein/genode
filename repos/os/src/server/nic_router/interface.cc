@@ -220,11 +220,11 @@ void Interface::detach_from_domain()
 
 
 void
-Interface::_new_link(L3_protocol                   const  protocol,
-                     Link_side_id                  const &local,
-                     Pointer<Port_allocator_guard> const  remote_port_alloc,
-                     Domain                              &remote_domain,
-                     Link_side_id                  const &remote)
+Interface::_new_link(L3_protocol             const  protocol,
+                     Link_side_id            const &local,
+                     Pointer<Port_allocator_guard>  remote_port_alloc,
+                     Domain                        &remote_domain,
+                     Link_side_id            const &remote)
 {
 	switch (protocol) {
 	case L3_protocol::TCP:
@@ -1034,56 +1034,68 @@ Interface::Interface(Genode::Entrypoint     &ep,
 }
 
 
+void Interface::_dismiss_link_log(Configuration &config,
+                                  Link          &link,
+                                  char const    *reason)
+{
+	if (!config.verbose()) {
+		return;
+	}
+	log("[", link.client().domain(), "] dismiss link client (", reason, "):", link.client());
+	log("[", link.server().domain(), "] dismiss link server (", reason, "):", link.server());
+}
+
+
 void Interface::_update_link_check_nat(Link          &link,
                                        L3_protocol    prot,
-                                       Configuration &new_config,
-                                       Domain        &new_local_dom,
-                                       Domain        &new_remote_dom)
+                                       Configuration &config,
+                                       Domain        &local_dom,
+                                       Domain        &remote_dom)
 {
+	Pointer<Port_allocator_guard> remote_port_alloc_ptr;
 	if (link.client().src_ip() == link.server().dst_ip()) {
-		link.handle_config(new_local_dom, new_remote_dom, new_config);
+		link.handle_config(local_dom, remote_dom, remote_port_alloc_ptr, config);
 		return;
 	}
 	try {
-		Nat_rule &new_nat = new_remote_dom.nat_rules().find_by_domain(new_local_dom);
-		Nat_rule &old_nat = link.server().domain().nat_rules().find_by_domain(link.client().domain());
-		if (&old_nat.port_alloc(prot) != &new_nat.port_alloc(prot)) {
-error("dismiss link for NAT port alloc: ", link);
-			throw Dismiss_link(); }
-
-		if (link.server().dst_ip() != new_remote_dom.ip_config().interface.address) {
-error("dismiss link for NAT IP: ", link);
-			throw Dismiss_link(); }
-
-		link.handle_config(new_local_dom, new_remote_dom, new_config);
+		if (link.server().dst_ip() != remote_dom.ip_config().interface.address) {
+			_dismiss_link_log(config, link, "NAT IP");
+			throw Dismiss_link();
+		}
+		Nat_rule &nat = remote_dom.nat_rules().find_by_domain(local_dom);
+		Port_allocator_guard &remote_port_alloc = nat.port_alloc(prot);
+		remote_port_alloc.alloc(link.server().dst_port());
+		remote_port_alloc_ptr.set(remote_port_alloc);
+		link.handle_config(local_dom, remote_dom, remote_port_alloc_ptr, config);
 		return;
 	}
-	catch (Nat_rule_tree::No_match) { }
-error("dismiss link for NAT rule: ", link);
+	catch (Nat_rule_tree::No_match)              { _dismiss_link_log(config, link, "NAT rule"); }
+	catch (Port_allocator::Allocation_conflict)  { _dismiss_link_log(config, link, "NAT port"); }
+	catch (Port_allocator_guard::Out_of_indices) { _dismiss_link_log(config, link, "NAT port quota"); }
 	throw Dismiss_link();
 }
 
 
 void Interface::_update_links(L3_protocol    prot,
-                              Configuration &new_config,
-                              Domain        &new_local_dom)
+                              Configuration &config,
+                              Domain        &local_dom)
 {
 	links(prot).for_each([&] (Link &link) {
 		try {
 			Forward_rule const &rule =
-				_forward_rules(new_local_dom, prot).
+				_forward_rules(local_dom, prot).
 					find_by_port(link.client().dst_port());
 
 			try {
 				if (rule.domain().name() != link.server().domain().name()) {
-error("dismiss link for Forward rule domain: ", link);
+					_dismiss_link_log(config, link, "forward rule domain");
 					throw Dismiss_link(); }
 
 				if (rule.to() != link.server().src_ip()) {
-error("dismiss link for Forward rule to: ", link);
+					_dismiss_link_log(config, link, "forward rule to");
 					throw Dismiss_link(); }
 
-				_update_link_check_nat(link, prot, new_config, new_local_dom, rule.domain());
+				_update_link_check_nat(link, prot, config, local_dom, rule.domain());
 				return;
 			}
 			catch (Dismiss_link) { }
@@ -1091,7 +1103,7 @@ error("dismiss link for Forward rule to: ", link);
 		catch (Forward_rule_tree::No_match) {
 			try {
 				Transport_rule const &transport_rule =
-					_transport_rules(new_local_dom, prot).
+					_transport_rules(local_dom, prot).
 						longest_prefix_match(link.client().dst_ip());
 
 				Permit_rule const &permit_rule =
@@ -1099,20 +1111,16 @@ error("dismiss link for Forward rule to: ", link);
 
 				try {
 					if (permit_rule.domain().name() != link.server().domain().name()) {
-error("dismiss link for Permit rule domain: ", link);
+						_dismiss_link_log(config, link, "permit rule domain");
 						throw Dismiss_link(); }
 
-					_update_link_check_nat(link, prot, new_config, new_local_dom, permit_rule.domain());
+					_update_link_check_nat(link, prot, config, local_dom, permit_rule.domain());
 					return;
 				}
 				catch (Dismiss_link) { }
 			}
-			catch (Transport_rule_list::No_match) {
-error("dismiss link for Transport rule: ", link);
-}
-			catch (Permit_single_rule_tree::No_match) {
-error("dismiss link for Permit rule: ", link);
-}
+			catch (Transport_rule_list::No_match)     { _dismiss_link_log(config, link, "transport/forward rule"); }
+			catch (Permit_single_rule_tree::No_match) { _dismiss_link_log(config, link, "permit rule"); }
 		}
 		/* dissmiss */
 	});

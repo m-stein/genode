@@ -91,11 +91,11 @@ class Net::Interface : private Interface_list::Element
 		Dhcp_client             _dhcp_client               { _alloc, _timer, *this };
 		Interface_list         &_interfaces;
 
-		void _new_link(L3_protocol                   const  protocol,
-		               Link_side_id                  const &local_id,
-		               Pointer<Port_allocator_guard> const  remote_port_alloc,
-		               Domain                              &remote_domain,
-		               Link_side_id                  const &remote_id);
+		void _new_link(L3_protocol             const  protocol,
+		               Link_side_id            const &local_id,
+		               Pointer<Port_allocator_guard>  remote_port_alloc,
+		               Domain                        &remote_domain,
+		               Link_side_id            const &remote_id);
 
 		void _destroy_released_dhcp_allocations(Domain &local_domain);
 
@@ -215,6 +215,10 @@ class Net::Interface : private Interface_list::Element
 		                            Configuration &new_config,
 		                            Domain        &new_local_dom,
 		                            Domain        &new_remote_dom);
+
+		void _dismiss_link_log(Configuration &config,
+		                       Link          &link,
+		                       char const    *reason);
 
 
 		/***************

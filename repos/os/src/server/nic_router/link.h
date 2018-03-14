@@ -142,14 +142,14 @@ class Net::Link : public Link_list::Element
 {
 	protected:
 
-		Pointer<Configuration>               _config_ptr;
-		Interface                           &_client_interface;
-		Pointer<Port_allocator_guard> const  _server_port_alloc;
-		Timer::One_shot_timeout<Link>        _dissolve_timeout;
-		Genode::Microseconds                 _dissolve_timeout_us;
-		L3_protocol                   const  _protocol;
-		Link_side                            _client;
-		Link_side                            _server;
+		Pointer<Configuration>         _config_ptr;
+		Interface                     &_client_interface;
+		Pointer<Port_allocator_guard>  _server_port_alloc;
+		Timer::One_shot_timeout<Link>  _dissolve_timeout;
+		Genode::Microseconds           _dissolve_timeout_us;
+		L3_protocol             const  _protocol;
+		Link_side                      _client;
+		Link_side                      _server;
 
 		void _handle_dissolve_timeout(Genode::Duration);
 
@@ -161,7 +161,7 @@ class Net::Link : public Link_list::Element
 
 		Link(Interface                           &cln_interface,
 		     Link_side_id                  const &cln_id,
-		     Pointer<Port_allocator_guard> const  srv_port_alloc,
+		     Pointer<Port_allocator_guard>        srv_port_alloc,
 		     Domain                              &srv_domain,
 		     Link_side_id                  const &srv_id,
 		     Timer::Connection                   &timer,
@@ -171,9 +171,10 @@ class Net::Link : public Link_list::Element
 
 		void dissolve();
 
-		void handle_config(Domain        &cln_domain,
-		                   Domain        &srv_domain,
-		                   Configuration &config);
+		void handle_config(Domain                        &cln_domain,
+		                   Domain                        &srv_domain,
+		                   Pointer<Port_allocator_guard>  srv_port_alloc,
+		                   Configuration                 &config);
 
 		/*********
 		 ** Log **
@@ -207,14 +208,14 @@ class Net::Tcp_link : public Link
 
 	public:
 
-		Tcp_link(Interface                           &cln_interface,
-		         Link_side_id                  const &cln_id,
-		         Pointer<Port_allocator_guard> const  srv_port_alloc,
-		         Domain                              &srv_domain,
-		         Link_side_id                  const &srv_id,
-		         Timer::Connection                   &timer,
-		         Configuration                       &config,
-		         L3_protocol                   const  protocol);
+		Tcp_link(Interface                     &cln_interface,
+		         Link_side_id            const &cln_id,
+		         Pointer<Port_allocator_guard>  srv_port_alloc,
+		         Domain                        &srv_domain,
+		         Link_side_id            const &srv_id,
+		         Timer::Connection             &timer,
+		         Configuration                 &config,
+		         L3_protocol             const  protocol);
 
 		void client_packet(Tcp_packet &tcp);
 
@@ -224,14 +225,14 @@ class Net::Tcp_link : public Link
 
 struct Net::Udp_link : Link
 {
-	Udp_link(Interface                           &cln_interface,
-	         Link_side_id                  const &cln_id,
-	         Pointer<Port_allocator_guard> const  srv_port_alloc,
-	         Domain                              &srv_domain,
-	         Link_side_id                  const &srv_id,
-	         Timer::Connection                   &timer,
-	         Configuration                       &config,
-	         L3_protocol                   const  protocol);
+	Udp_link(Interface                     &cln_interface,
+	         Link_side_id            const &cln_id,
+	         Pointer<Port_allocator_guard>  srv_port_alloc,
+	         Domain                        &srv_domain,
+	         Link_side_id            const &srv_id,
+	         Timer::Connection             &timer,
+	         Configuration                 &config,
+	         L3_protocol             const  protocol);
 
 	void packet() { _packet(); }
 };
