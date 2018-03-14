@@ -424,7 +424,7 @@ void Interface::_release_dhcp_allocation(Dhcp_allocation &allocation,
 		log("Release DHCP allocation: ", allocation,
 		    " at ", local_domain);
 	}
-	_dhcp_allocations.remove(&allocation);
+	_dhcp_allocations.remove(allocation);
 }
 
 
@@ -438,7 +438,7 @@ void Interface::_new_dhcp_allocation(Ethernet_frame &eth,
 		                dhcp.client_mac(), _timer,
 		                _config().dhcp_offer_timeout());
 
-	_dhcp_allocations.insert(&allocation);
+	_dhcp_allocations.insert(allocation);
 	if (_config().verbose()) {
 		log("Offer DHCP allocation: ", allocation,
 		                       " at ", local_domain);
@@ -1059,8 +1059,8 @@ void Interface::_dismiss_link_log(Configuration &config,
 	if (!config.verbose()) {
 		return;
 	}
-	log("[", link.client().domain(), "] dismiss link client (", reason, "):", link.client());
-	log("[", link.server().domain(), "] dismiss link server (", reason, "):", link.server());
+	log("[", link.client().domain(), "] dismiss link client: ", link.client(), " (", reason, ")");
+	log("[", link.server().domain(), "] dismiss link server: ", link.server(), " (", reason, ")");
 }
 
 
@@ -1087,9 +1087,9 @@ void Interface::_update_link_check_nat(Link          &link,
 		link.handle_config(local_dom, remote_dom, remote_port_alloc_ptr, config);
 		return;
 	}
-	catch (Nat_rule_tree::No_match)              { _dismiss_link_log(config, link, "NAT rule"); }
-	catch (Port_allocator::Allocation_conflict)  { _dismiss_link_log(config, link, "NAT port"); }
-	catch (Port_allocator_guard::Out_of_indices) { _dismiss_link_log(config, link, "NAT port quota"); }
+	catch (Nat_rule_tree::No_match)              { _dismiss_link_log(config, link, "no NAT rule"); }
+	catch (Port_allocator::Allocation_conflict)  { _dismiss_link_log(config, link, "no NAT-port"); }
+	catch (Port_allocator_guard::Out_of_indices) { _dismiss_link_log(config, link, "no NAT-port quota"); }
 	throw Dismiss_link();
 }
 
@@ -1108,11 +1108,11 @@ void Interface::_update_links(L3_protocol    prot,
 
 			try {
 				if (rule.domain().name() != link.server().domain().name()) {
-					_dismiss_link_log(config, link, "forward rule domain");
+					_dismiss_link_log(config, link, "other forward-rule domain");
 					throw Dismiss_link(); }
 
 				if (rule.to() != link.server().src_ip()) {
-					_dismiss_link_log(config, link, "forward rule to");
+					_dismiss_link_log(config, link, "other forward-rule to");
 					throw Dismiss_link(); }
 
 				_update_link_check_nat(link, prot, config, local_dom, rule.domain());
@@ -1133,7 +1133,7 @@ void Interface::_update_links(L3_protocol    prot,
 
 				try {
 					if (permit_rule.domain().name() != link.server().domain().name()) {
-						_dismiss_link_log(config, link, "permit rule domain");
+						_dismiss_link_log(config, link, "other permit-rule domain");
 						throw Dismiss_link(); }
 
 					_update_link_check_nat(link, prot, config, local_dom, permit_rule.domain());
@@ -1141,8 +1141,8 @@ void Interface::_update_links(L3_protocol    prot,
 				}
 				catch (Dismiss_link) { }
 			}
-			catch (Transport_rule_list::No_match)     { _dismiss_link_log(config, link, "transport/forward rule"); }
-			catch (Permit_single_rule_tree::No_match) { _dismiss_link_log(config, link, "permit rule"); }
+			catch (Transport_rule_list::No_match)     { _dismiss_link_log(config, link, "no transport/forward rule"); }
+			catch (Permit_single_rule_tree::No_match) { _dismiss_link_log(config, link, "no permit rule"); }
 		}
 		_destroy_link(link);
 	});
@@ -1154,11 +1154,21 @@ void Interface::handle_config(Configuration &new_config)
 	struct Domain_changed    : Genode::Exception { };
 	struct Ip_config_invalid : Genode::Exception { };
 	struct Ip_config_changed : Genode::Exception { };
+
+	/* update config reference and policy */
 	_policy.handle_config(new_config);
 	try {
-		/* ensure that the domain remained the same */
+		/* update domain reference */
 		Domain &new_domain = new_config.domains().find_by_name(_policy.determine_domain_name());
 		Domain &old_domain = domain();
+		_domain_ptr = Pointer<Domain>(new_domain);
+
+		/* do garbage collection over transport-layer links and DHCP allocations */
+		_destroy_dissolved_links<Udp_link>(_dissolved_udp_links, _alloc);
+		_destroy_dissolved_links<Tcp_link>(_dissolved_tcp_links, _alloc);
+		_destroy_released_dhcp_allocations(old_domain);
+
+		/* ensure that the domain remained the same */
 		if (old_domain.name() != new_domain.name()) {
 			throw Domain_changed(); }
 
@@ -1169,13 +1179,53 @@ void Interface::handle_config(Configuration &new_config)
 		if (!(new_domain.ip_config() == old_domain.ip_config())) {
 			throw Ip_config_changed();
 		}
-		/* update Interface object */
-		_config_ptr = Pointer<Configuration>(new_config);
-		_domain_ptr = Pointer<Domain>(new_domain);
-
 		/* update links */
 		_update_links(L3_protocol::TCP, new_config, new_domain);
 		_update_links(L3_protocol::UDP, new_config, new_domain);
+
+		/* update DHCP allocations */
+		try {
+			Dhcp_server &old_dhcp_srv = old_domain.dhcp_server();
+			Dhcp_server &new_dhcp_srv = new_domain.dhcp_server();
+			if (old_dhcp_srv.dns_server() != new_dhcp_srv.dns_server()) {
+				throw Pointer<Dhcp_server>::Invalid();
+			}
+			if (old_dhcp_srv.ip_lease_time().value !=
+			    new_dhcp_srv.ip_lease_time().value)
+			{
+				throw Pointer<Dhcp_server>::Invalid();
+			}
+			_dhcp_allocations.for_each([&] (Dhcp_allocation &allocation) {
+				try {
+					new_dhcp_srv.alloc_ip(allocation.ip());
+					if (new_config.verbose()) {
+						log("[", new_domain, "] update DHCP allocation: ", allocation);
+					}
+					return;
+				}
+				catch (Dhcp_server::Alloc_ip_failed) {
+					if (new_config.verbose()) {
+						log("[", new_domain, "] dismiss DHCP allocation: ", allocation, " (no IP)");
+					}
+				}
+				/* dismiss DHCP allocation */
+				_dhcp_allocations.remove(allocation);
+				_destroy_dhcp_allocation(allocation, old_domain);
+			});
+		}
+		catch (Pointer<Dhcp_server>::Invalid) {
+
+			/* dismiss all DHCP allocations */
+			while (Dhcp_allocation *allocation = _dhcp_allocations.first()) {
+				_dhcp_allocations.remove(*allocation);
+				_destroy_dhcp_allocation(*allocation, old_domain);
+				if (new_config.verbose()) {
+					log("[", new_domain, "] dismiss DHCP allocation: ", *allocation, " (other/no DHCP server)");
+				}
+			}
+		}
+
+		_config_ptr = Pointer<Configuration>(new_config);
 
 /*
 	re-check UDP/TCP link
@@ -1280,7 +1330,7 @@ Interface::~Interface()
 		/* destroy DHCP allocations */
 		_destroy_released_dhcp_allocations(local_domain);
 		while (Dhcp_allocation *allocation = _dhcp_allocations.first()) {
-			_dhcp_allocations.remove(allocation);
+			_dhcp_allocations.remove(*allocation);
 			_destroy_dhcp_allocation(*allocation, local_domain);
 		}
 		/* dissolve ARP cache entries with the MAC address of this interface */
