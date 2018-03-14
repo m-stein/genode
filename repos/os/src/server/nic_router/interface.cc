@@ -1151,14 +1151,24 @@ void Interface::_update_links(L3_protocol    prot,
 
 void Interface::handle_config(Configuration &new_config)
 {
-	struct Domain_changed : Genode::Exception { };
+	struct Domain_changed    : Genode::Exception { };
+	struct Ip_config_invalid : Genode::Exception { };
+	struct Ip_config_changed : Genode::Exception { };
 	_policy.handle_config(new_config);
 	try {
+		/* ensure that the domain remained the same */
 		Domain &new_domain = new_config.domains().find_by_name(_policy.determine_domain_name());
 		Domain &old_domain = domain();
 		if (old_domain.name() != new_domain.name()) {
 			throw Domain_changed(); }
 
+		/* ensure that the IP config is valid and remained the same */
+		if (!new_domain.ip_config().valid) {
+			throw Ip_config_invalid();
+		}
+		if (!(new_domain.ip_config() == old_domain.ip_config())) {
+			throw Ip_config_changed();
+		}
 		/* update Interface object */
 		_config_ptr = Pointer<Configuration>(new_config);
 		_domain_ptr = Pointer<Domain>(new_domain);
