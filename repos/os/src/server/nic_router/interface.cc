@@ -1155,7 +1155,7 @@ void Interface::handle_config(Configuration &new_config)
 	struct Ip_config_invalid : Genode::Exception { };
 	struct Ip_config_changed : Genode::Exception { };
 
-	/* update config reference and policy */
+	/* update interface policy */
 	_policy.handle_config(new_config);
 	try {
 		/* update domain reference */
@@ -1217,13 +1217,35 @@ void Interface::handle_config(Configuration &new_config)
 
 			/* dismiss all DHCP allocations */
 			while (Dhcp_allocation *allocation = _dhcp_allocations.first()) {
-				_dhcp_allocations.remove(*allocation);
-				_destroy_dhcp_allocation(*allocation, old_domain);
 				if (new_config.verbose()) {
 					log("[", new_domain, "] dismiss DHCP allocation: ", *allocation, " (other/no DHCP server)");
 				}
+				_dhcp_allocations.remove(*allocation);
+				_destroy_dhcp_allocation(*allocation, old_domain);
 			}
 		}
+		/* update ARP waiters */
+		_own_arp_waiters.for_each([&] (Arp_waiter_list_element &le) {
+			Arp_waiter &arp_waiter = *le.object();
+			try {
+				Domain &new_dst =
+					new_config.domains().find_by_name(arp_waiter.dst().name());
+
+				if (new_dst.ip_config() == arp_waiter.dst().ip_config()) {
+					arp_waiter.handle_config(new_dst);
+					if (new_config.verbose()) {
+						log("[", new_domain, "] update ARP waiter: ", arp_waiter);
+					}
+					return;
+				}
+			}
+			catch (Domain_tree::No_match) {
+				if (new_config.verbose()) {
+					log("[", new_domain, "] dismiss ARP waiter: ", arp_waiter, " (no domain)");
+				}
+				
+			}
+		});
 
 		_config_ptr = Pointer<Configuration>(new_config);
 
