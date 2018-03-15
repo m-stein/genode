@@ -122,7 +122,7 @@ Net::Root::Root(Entrypoint        &ep,
                 Region_map        &region_map)
 :
 	Root_component<Session_component>(&ep.rpc_ep(), &alloc), _timer(timer),
-	_ep(ep), _router_mac(router_mac), _config_ptr(config), _buf_ram(buf_ram),
+	_ep(ep), _router_mac(router_mac), _config(config), _buf_ram(buf_ram),
 	_region_map(region_map), _interfaces(interfaces)
 { }
 
