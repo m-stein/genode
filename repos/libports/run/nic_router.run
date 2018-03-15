@@ -254,7 +254,7 @@ append config {
 
 
 				</inline>
-				<sleep milliseconds="10000"/>
+				<sleep milliseconds="5000"/>
 				<inline>
 
 
