@@ -138,14 +138,14 @@ class Net::Root : public Genode::Root_component<Session_component>
 {
 	private:
 
-		Timer::Connection   &_timer;
-		Mac_allocator        _mac_alloc { };
-		Genode::Entrypoint  &_ep;
-		Mac_address const    _router_mac;
-		Configuration       &_config;
-		Genode::Ram_session &_buf_ram;
-		Genode::Region_map  &_region_map;
-		Interface_list      &_interfaces;
+		Timer::Connection      &_timer;
+		Mac_allocator           _mac_alloc { };
+		Genode::Entrypoint     &_ep;
+		Mac_address const       _router_mac;
+		Pointer<Configuration>  _config_ptr;
+		Genode::Ram_session    &_buf_ram;
+		Genode::Region_map     &_region_map;
+		Interface_list         &_interfaces;
 
 
 		/********************
@@ -153,6 +153,13 @@ class Net::Root : public Genode::Root_component<Session_component>
 		 ********************/
 
 		Session_component *_create_session(char const *args);
+
+
+		/***************
+		 ** Accessors **
+		 ***************/
+
+		Configuration &_config() { return _config_ptr.deref(); }
 
 	public:
 
@@ -164,6 +171,8 @@ class Net::Root : public Genode::Root_component<Session_component>
 		     Genode::Ram_session &buf_ram,
 		     Interface_list      &interfaces,
 		     Genode::Region_map  &region_map);
+
+		void handle_config(Configuration &config) { _config_ptr = Pointer<Configuration>(config); }
 };
 
 #endif /* _COMPONENT_H_ */

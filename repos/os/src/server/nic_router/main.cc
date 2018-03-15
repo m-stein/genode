@@ -78,6 +78,7 @@ void Main::_handle_config()
 	Configuration &new_config = *new (_heap)
 		Configuration(_env, _config_rom.xml(), _heap, _timer, old_config);
 
+	_root.handle_config(new_config);
 	_interfaces.for_each([&] (Net::Interface &interface) {
 		interface.handle_config(new_config); });
 
