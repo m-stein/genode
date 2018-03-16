@@ -1197,6 +1197,8 @@ void Interface::handle_config(Configuration &new_config)
 			_dhcp_allocations.for_each([&] (Dhcp_allocation &allocation) {
 				try {
 					new_dhcp_srv.alloc_ip(allocation.ip());
+
+					/* keep DHCP allocation */
 					if (new_config.verbose()) {
 						log("[", new_domain, "] update DHCP allocation: ", allocation);
 					}
@@ -1231,6 +1233,8 @@ void Interface::handle_config(Configuration &new_config)
 					new_config.domains().find_by_name(arp_waiter.dst().name());
 
 				if (new_dst.ip_config() == arp_waiter.dst().ip_config()) {
+
+					/* keep ARP waiter */
 					arp_waiter.handle_config(new_dst);
 					if (new_config.verbose()) {
 						log("[", new_domain, "] update ARP waiter: ", arp_waiter);
@@ -1239,70 +1243,18 @@ void Interface::handle_config(Configuration &new_config)
 				}
 			}
 			catch (Domain_tree::No_match) {
+
+				/* dismiss ARP waiter */
 				if (new_config.verbose()) {
 					log("[", new_domain, "] dismiss ARP waiter: ", arp_waiter, " (no domain)");
 				}
-				
+				cancel_arp_waiting(*_own_arp_waiters.first()->object());
 			}
 		});
-
+		/* update interface */
 		_config = new_config;
 		_domain = new_domain;
 		new_domain.attach_interface(*this);
-/*
-	re-check UDP/TCP link
-	---------------------
-
-		A if client domain and client interface domain are the same
-			* if client and server domain exist and have valid IP config
-				* if client domain has forward rule that matches client dst port
-					* if forward rule domain and link server domain are the same
-						* if forward rule 'to' and server dst IP are the same
-							* goto B
-				* if client domain has transport rule that matches client dst IP
-					* if transport rule has permit rule that matches client dst port
-						* if permit rule domain and dst domain are the same
-							* goto B
-		* destroy
-
-		B if client and server src IP differ
-			* if server domain has NAT rule that matches client domain
-				* if NAT rule ports value for given protocol was not decreased
-					* if server source IP matches IP interface of server domain
-						* goto C
-			* destroy
-		* goto C
-
-		C if configured timeout is activ
-			* if configured duration of timeout has changed
-				* update Link( _dissolve_timeout_us )
-				* re-program timeout
-		* update Link( _config, _client/_server( _domain ) )
-		* keep
-
-	re-check DHCP allocations
-	-------------------------
-
-		A if interface domain and allocation domain are the same
-			* if it succeeds to re-alloc IP at DHCP server
-				* goto B
-		* destroy all allocations and link down/up
-
-		* keep all allocations
-
-	??? Was, wenn die DHCP neu gemacht werden muss aber es existieren noch alte Links mit alten IPs ???
-
-				<dhcp-server ip_first="10.0.1.80"
-							 ip_last="10.0.1.100"
-							 ip_lease_time_sec="20"
-							 dns_server="10.0.0.2"/>
-*/
-		/*   ARP waiters */
-		/*   DHCP allocations */
-
-		/*   ARP cache entries */
-		/*   IP config */
-		/*   NAT ports */
 	}
 	catch (Domain_tree::No_match) {
 		/* new domain does not exist, old domain may exist */
