@@ -34,10 +34,10 @@ struct Net::Ipv4_config
 
 	Ipv4_config() { }
 
-	bool operator == (Ipv4_config const &other) const
+	bool operator != (Ipv4_config const &other) const
 	{
-		return interface == other.interface &&
-		       gateway   == other.gateway;
+		return interface != other.interface ||
+		       gateway   != other.gateway;
 	}
 };
 

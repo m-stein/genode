@@ -40,10 +40,10 @@ struct Net::Ipv4_address_prefix
 
 	Ipv4_address broadcast_address() const;
 
-	bool operator == (Ipv4_address_prefix const &other) const
+	bool operator != (Ipv4_address_prefix const &other) const
 	{
-		return prefix  == other.prefix &&
-		       address == other.address;
+		return prefix  != other.prefix ||
+		       address != other.address;
 	}
 };
 

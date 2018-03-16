@@ -14,6 +14,8 @@
 #ifndef _INCLUDE__UTIL__LIST_H_
 #define _INCLUDE__UTIL__LIST_H_
 
+#include <base/log.h>
+
 namespace Genode {
 
 	template <typename> class List;
@@ -74,6 +76,9 @@ class Genode::List
 		 */
 		void insert(LT const *le, LT const *at = 0)
 		{
+			if (le->Element::_next)
+				warning("Insert list element that is already in a list");
+
 			/* insert at beginning of the list */
 			if (at == 0) {
 				le->Element::_next = _first;

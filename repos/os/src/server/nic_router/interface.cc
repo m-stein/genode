@@ -212,28 +212,64 @@ Interface::_transport_rules(Domain &local_domain, L3_protocol const prot) const
 }
 
 
-void Interface::attach_to_domain(Domain_name const &domain_name)
+void Interface::_attach_to_domain_raw(Domain_name const &domain_name)
 {
-	try {
-		Domain &domain = _config().domains().find_by_name(domain_name);
-		_domain.set(domain);
-		domain.attach_interface(*this);
-		if (!domain.ip_config().valid) {
-			_dhcp_client.discover();
-		}
-	}
-	catch (Domain_tree::No_match) {
-		if (_config().verbose()) {
-			log("No matching domain"); }
+	Domain &domain = _config().domains().find_by_name(domain_name);
+	_domain = domain;
+	_interfaces.remove(this);
+	domain.attach_interface(*this);
+}
+
+
+void Interface::_detach_from_domain_raw()
+{
+	Domain &domain = _domain.deref();
+	domain.detach_interface(*this);
+	_interfaces.insert(this);
+	_domain.unset();
+}
+
+
+void Interface::_attach_to_domain(Domain_name const &domain_name)
+{
+	_attach_to_domain_raw(domain_name);
+
+	/* ensure that DHCP requests are sent on each interface of the domain */
+	if (!domain().ip_config().valid) {
+		_dhcp_client.discover();
 	}
 }
 
 
-struct Detach_from_domain_not_implemented : Genode::Exception { };
-void Interface::detach_from_domain()
+void Interface::detach_from_ip_config()
 {
-	_domain.unset();
-	throw Detach_from_domain_not_implemented();
+	/* destroy our own ARP waiters */
+	Domain &domain = _domain.deref();
+	while (_own_arp_waiters.first()) {
+		cancel_arp_waiting(*_own_arp_waiters.first()->object());
+	}
+	/* destroy links */
+	_destroy_links<Tcp_link>(_tcp_links, _dissolved_tcp_links, _alloc);
+	_destroy_links<Udp_link>(_udp_links, _dissolved_udp_links, _alloc);
+
+	/* destroy DHCP allocations */
+	_destroy_released_dhcp_allocations(domain);
+	while (Dhcp_allocation *allocation = _dhcp_allocations.first()) {
+		_dhcp_allocations.remove(*allocation);
+		_destroy_dhcp_allocation(*allocation, domain);
+	}
+	/* dissolve ARP cache entries with the MAC address of this interface */
+	domain.arp_cache().destroy_entries_with_mac(_mac);
+}
+
+
+void Interface::_detach_from_domain()
+{
+	try {
+		detach_from_ip_config();
+		_detach_from_domain_raw();
+	}
+	catch (Pointer<Domain>::Invalid) { }
 }
 
 
@@ -1047,8 +1083,9 @@ Interface::Interface(Genode::Entrypoint     &ep,
 	_policy(policy), _timer(timer), _alloc(alloc),
 	_interfaces(interfaces)
 {
-	attach_to_domain(_policy.determine_domain_name());
 	_interfaces.insert(this);
+	try { _attach_to_domain(_policy.determine_domain_name()); }
+	catch (Domain_tree::No_match) { }
 }
 
 
@@ -1151,32 +1188,33 @@ void Interface::_update_links(L3_protocol    prot,
 
 void Interface::handle_config(Configuration &new_config)
 {
-	struct Domain_changed    : Genode::Exception { };
-	struct Ip_config_invalid : Genode::Exception { };
-	struct Ip_config_changed : Genode::Exception { };
+	struct Fully_detach : Genode::Exception { };
 
-	/* update interface policy */
+	/* get name of new domain */
+	_config = new_config;
 	_policy.handle_config(new_config);
+	Domain_name const &new_domain_name = _policy.determine_domain_name();
 	try {
-		/* update domain reference */
-		Domain &new_domain = new_config.domains().find_by_name(_policy.determine_domain_name());
+		/* destroy states that are not needed anymore */
 		Domain &old_domain = domain();
-
-		/* do garbage collection over transport-layer links and DHCP allocations */
 		_destroy_dissolved_links<Udp_link>(_dissolved_udp_links, _alloc);
 		_destroy_dissolved_links<Tcp_link>(_dissolved_tcp_links, _alloc);
 		_destroy_released_dhcp_allocations(old_domain);
 
-		/* ensure that the domain remained the same */
-		if (old_domain.name() != new_domain.name()) {
-			throw Domain_changed(); }
-
-		/* ensure that the IP config is valid and remained the same */
-		if (!new_domain.ip_config().valid) {
-			throw Ip_config_invalid();
+		/* if the domain or the IP config differ, destroy all states */
+		if (old_domain.name()      != new_domain.name() ||
+		    old_domain.ip_config() != new_domain.ip_config())
+		{
+			throw Fully_detach();
 		}
-		if (!(new_domain.ip_config() == old_domain.ip_config())) {
-			throw Ip_config_changed();
+		/* move to new domain object without destroying states */
+		_detach_from_domain_raw();
+		_attach_to_domain_raw(new_domain_name);
+		Domain &new_domain = domain();
+
+		/* if there was and is no IP config there are no states */
+		if (!new_domain.ip_config().valid) {
+			return;
 		}
 		/* update links */
 		_update_links(L3_protocol::TCP, new_config, new_domain);
@@ -1251,19 +1289,22 @@ void Interface::handle_config(Configuration &new_config)
 				cancel_arp_waiting(*_own_arp_waiters.first()->object());
 			}
 		});
-		/* update interface */
-		_config = new_config;
-		_domain = new_domain;
-		new_domain.attach_interface(*this);
 	}
 	catch (Domain_tree::No_match) {
-		/* new domain does not exist, old domain may exist */
+
+		/* the interface no longer has a domain */
+		_detach_from_domain();
 	}
 	catch (Pointer<Domain>::Invalid) {
-		/* new domain does exist, old domain does not exist */
+
+		/* the interface had no domain but now it gets one */
+		_attach_to_domain(new_domain_name);
 	}
-	catch (Domain_changed) {
-		/* bot domains exits but differ */
+	catch (Detach_from_domain) {
+
+		/*  */
+		_detach_from_domain();
+		_attach_to_domain(new_domain_name);
 	}
 }
 
@@ -1288,28 +1329,6 @@ void Interface::cancel_arp_waiting(Arp_waiter &waiter)
 
 Interface::~Interface()
 {
-	try {
-		/* try to detach from domain */
-		Domain &local_domain = _domain.deref();
-		local_domain.detach_interface(*this);
-
-		/* destroy our own ARP waiters */
-		while (_own_arp_waiters.first()) {
-			cancel_arp_waiting(*_own_arp_waiters.first()->object());
-		}
-		/* destroy links */
-		_destroy_links<Tcp_link>(_tcp_links, _dissolved_tcp_links, _alloc);
-		_destroy_links<Udp_link>(_udp_links, _dissolved_udp_links, _alloc);
-
-		/* destroy DHCP allocations */
-		_destroy_released_dhcp_allocations(local_domain);
-		while (Dhcp_allocation *allocation = _dhcp_allocations.first()) {
-			_dhcp_allocations.remove(*allocation);
-			_destroy_dhcp_allocation(*allocation, local_domain);
-		}
-		/* dissolve ARP cache entries with the MAC address of this interface */
-		local_domain.arp_cache().destroy_entries_with_mac(_mac);
-	}
-	catch (Pointer<Domain>::Invalid) { }
+	_detach_from_domain();
 	_interfaces.remove(this);
 }

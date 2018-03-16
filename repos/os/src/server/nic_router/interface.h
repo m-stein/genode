@@ -222,6 +222,16 @@ class Net::Interface : private Interface_list::Element
 
 		void _destroy_link(Link &link);
 
+		void _detach_from_domain_raw();
+
+		void _attach_from_domain_raw(Domain_name const &domain_name);
+
+		void _detach_from_domain();
+
+		void _attach_to_domain(Domain_name const &domain_name);
+
+		void _detach_from_ip_config();
+
 
 		/***********************************
 		 ** Packet-stream signal handlers **
@@ -293,10 +303,6 @@ class Net::Interface : private Interface_list::Element
 		Link_list &links(L3_protocol const protocol);
 
 		void cancel_arp_waiting(Arp_waiter &waiter);
-
-		void attach_to_domain(Domain_name const &domain_name);
-
-		void detach_from_domain();
 
 		void handle_config(Configuration &new_config);
 
