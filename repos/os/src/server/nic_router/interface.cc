@@ -1161,7 +1161,6 @@ void Interface::handle_config(Configuration &new_config)
 		/* update domain reference */
 		Domain &new_domain = new_config.domains().find_by_name(_policy.determine_domain_name());
 		Domain &old_domain = domain();
-		_domain = Pointer<Domain>(new_domain);
 
 		/* do garbage collection over transport-layer links and DHCP allocations */
 		_destroy_dissolved_links<Udp_link>(_dissolved_udp_links, _alloc);
@@ -1248,7 +1247,8 @@ void Interface::handle_config(Configuration &new_config)
 		});
 
 		_config = new_config;
-
+		_domain = new_domain;
+		new_domain.attach_interface(*this);
 /*
 	re-check UDP/TCP link
 	---------------------
