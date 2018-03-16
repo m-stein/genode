@@ -218,8 +218,8 @@ append config {
 				<inline>
 
 
-<config verbose="no"
-        verbose_packets="no"
+<config verbose="yes"
+        verbose_packets="yes"
         verbose_domain_state="no"
         dhcp_discover_timeout_sec="3"
         dhcp_request_timeout_sec="3"
@@ -228,12 +228,10 @@ append config {
         tcp_idle_timeout_sec="30"
         tcp_max_segm_lifetime_sec="15">
 
-	<report bytes="yes" config="yes" interval_sec="60" />
-
 	<domain name="uplink"
 	        interface="10.0.2.55/24"
 	        gateway="10.0.2.1"
-	        verbose_packets="no">
+	        verbose_packets="yes">
 
 		<tcp-forward port="80"   domain="http_server_1" to="192.168.1.18" />
 		<tcp-forward port="8080" domain="http_server_2" to="192.168.2.72" />
@@ -254,12 +252,12 @@ append config {
 
 
 				</inline>
-				<sleep milliseconds="5000"/>
+				<sleep milliseconds="10000"/>
 				<inline>
 
 
 <config verbose="yes"
-        verbose_packets="no"
+        verbose_packets="yes"
         verbose_domain_state="no"
         dhcp_discover_timeout_sec="3"
         dhcp_request_timeout_sec="3"
@@ -268,12 +266,10 @@ append config {
         tcp_idle_timeout_sec="30"
         tcp_max_segm_lifetime_sec="15">
 
-	<report bytes="yes" config="yes" interval_sec="60" />
-
 	<domain name="uplink"
 	        interface="10.0.2.55/24"
 	        gateway="10.0.2.1"
-	        verbose_packets="no">
+	        verbose_packets="yes">
 
 		<tcp-forward port="80"   domain="http_server_1" to="192.168.1.18" />
 		<tcp-forward port="8080" domain="http_server_2" to="192.168.2.72" />
@@ -350,13 +346,7 @@ append config {
 		<config verbose="yes"/>
 	</start>
 
-	} [test_1_config] {
 	} [test_2_config] {
-	} [test_3_config] {
-	} [test_4_config] {
-	} [test_5_config] {
-	} [test_6_config] {
-	} [test_7_config] {
 
 </config> }
 
