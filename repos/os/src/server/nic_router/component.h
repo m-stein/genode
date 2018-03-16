@@ -55,26 +55,23 @@ class Net::Session_component_base
 
 		struct Interface_policy : Net::Interface_policy
 		{
-			Genode::Session_label  const label;
-			Const_pointer<Configuration> config_ptr;
+			private:
 
-			Interface_policy(Genode::Session_label const &label,
-			                 Configuration         const &config);
+				Genode::Session_label    const _label;
+				Const_reference<Configuration> _config;
 
+			public:
 
-			/***************************
-			 ** Net::Interface_policy **
-			 ***************************/
-
-			Domain_name determine_domain_name() const override;
-			void handle_config(Configuration &config) override { config_ptr = Const_pointer<Configuration>(config); }
+				Interface_policy(Genode::Session_label const &label,
+				                 Configuration         const &config);
 
 
-			/***************
-			 ** Accessors **
-			 ***************/
+				/***************************
+				 ** Net::Interface_policy **
+				 ***************************/
 
-			Configuration const &config() const { return config_ptr.deref(); }
+				Domain_name determine_domain_name() const override;
+				void handle_config(Configuration const &config) override { _config = config; }
 		};
 
 		Genode::Allocator_guard _guarded_alloc;

@@ -53,7 +53,7 @@ Link_side::Link_side(Domain             &domain,
                      Link_side_id const &id,
                      Link               &link)
 :
-	_domain_ptr(domain), _id(id), _link(link)
+	_domain(domain), _id(id), _link(link)
 {
 	if (link.config().verbose()) {
 		log("[", domain, "] New ", l3_protocol_name(link.protocol()),
@@ -123,7 +123,7 @@ Link::Link(Interface                     &cln_interface,
            L3_protocol             const  protocol,
            Microseconds            const  dissolve_timeout)
 :
-	_config_ptr(config),
+	_config(config),
 	_client_interface(cln_interface),
 	_server_port_alloc(srv_port_alloc),
 	_dissolve_timeout(timer, *this, &Link::_handle_dissolve_timeout),
@@ -151,12 +151,12 @@ void Link::dissolve()
 {
 	_client.domain().links(_protocol).remove(&_client);
 	_server.domain().links(_protocol).remove(&_server);
-	if (config().verbose()) {
+	if (_config().verbose()) {
 		log("Dissolve ", l3_protocol_name(_protocol), " link: ", *this); }
 
 	try {
 		_server_port_alloc.deref().free(_server.dst_port());
-		if (config().verbose()) {
+		if (_config().verbose()) {
 			log("Free ", l3_protocol_name(_protocol),
 			    " port ", _server.dst_port(),
 			    " at ", _server.domain(),
@@ -183,10 +183,10 @@ void Link::handle_config(Domain                        &cln_domain,
 	_client.domain().links(_protocol).remove(&_client);
 	_server.domain().links(_protocol).remove(&_server);
 
-	_config_ptr         = Pointer<Configuration>(config);
-	_client._domain_ptr = Pointer<Domain>(cln_domain);
-	_server._domain_ptr = Pointer<Domain>(srv_domain);
-	_server_port_alloc  = srv_port_alloc;
+	_config            = config;
+	_client._domain    = cln_domain;
+	_server._domain    = srv_domain;
+	_server_port_alloc = srv_port_alloc;
 
 	cln_domain.links(_protocol).insert(&_client);
 	srv_domain.links(_protocol).insert(&_server);
@@ -219,7 +219,7 @@ Tcp_link::Tcp_link(Interface                     &cln_interface,
 void Tcp_link::_fin_acked()
 {
 	if (_server_fin_acked && _client_fin_acked) {
-		_dissolve_timeout.schedule(Microseconds(config().tcp_max_segm_lifetime().value << 1));
+		_dissolve_timeout.schedule(Microseconds(_config().tcp_max_segm_lifetime().value << 1));
 		_closed = true;
 	}
 }

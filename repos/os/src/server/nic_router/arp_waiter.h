@@ -16,7 +16,7 @@
 
 /* local includes */
 #include <list.h>
-#include <pointer.h>
+#include <reference.h>
 
 /* Genode includes */
 #include <net/ipv4.h>
@@ -42,7 +42,7 @@ class Net::Arp_waiter
 		Arp_waiter_list_element  _src_le;
 		Interface               &_src;
 		Arp_waiter_list_element  _dst_le;
-		Pointer<Domain>          _dst_ptr;
+		Reference<Domain>        _dst;
 		Ipv4_address      const  _ip;
 		Packet_descriptor const  _packet;
 
@@ -72,8 +72,7 @@ class Net::Arp_waiter
 		Interface               &src()    const { return _src; }
 		Ipv4_address      const &ip()     const { return _ip; }
 		Packet_descriptor const &packet() const { return _packet; }
-		Domain                  &dst()          { return _dst_ptr.deref(); }
-		Domain            const &dst()    const { return _dst_ptr.deref(); }
+		Domain                  &dst()          { return _dst(); }
 };
 
 #endif /* _ARP_WAITER_H_ */

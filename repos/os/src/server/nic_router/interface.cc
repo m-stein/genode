@@ -216,7 +216,7 @@ void Interface::attach_to_domain(Domain_name const &domain_name)
 {
 	try {
 		Domain &domain = _config().domains().find_by_name(domain_name);
-		_domain_ptr.set(domain);
+		_domain.set(domain);
 		domain.attach_interface(*this);
 		if (!domain.ip_config().valid) {
 			_dhcp_client.discover();
@@ -232,7 +232,7 @@ void Interface::attach_to_domain(Domain_name const &domain_name)
 struct Detach_from_domain_not_implemented : Genode::Exception { };
 void Interface::detach_from_domain()
 {
-	_domain_ptr.unset();
+	_domain.unset();
 	throw Detach_from_domain_not_implemented();
 }
 
@@ -259,7 +259,7 @@ Interface::_new_link(L3_protocol             const  protocol,
 
 void Interface::dhcp_allocation_expired(Dhcp_allocation &allocation)
 {
-	_release_dhcp_allocation(allocation, _domain_ptr.deref());
+	_release_dhcp_allocation(allocation, _domain.deref());
 	_released_dhcp_allocations.insert(&allocation);
 }
 
@@ -931,7 +931,7 @@ void Interface::_handle_eth(void              *const  eth_base,
                             Packet_descriptor  const &pkt)
 {
 	try {
-		Domain &local_domain = _domain_ptr.deref();
+		Domain &local_domain = _domain.deref();
 		try {
 			local_domain.raise_rx_bytes(eth_size);
 
@@ -1020,7 +1020,7 @@ void Interface::_send_submit_pkt(Packet_descriptor &pkt,
                                  void            * &pkt_base,
                                  size_t             pkt_size)
 {
-	Domain &local_domain = _domain_ptr.deref();
+	Domain &local_domain = _domain.deref();
 	_source().submit_packet(pkt);
 	local_domain.raise_tx_bytes(pkt_size);
 	if (local_domain.verbose_packets()) {
@@ -1043,7 +1043,7 @@ Interface::Interface(Genode::Entrypoint     &ep,
 	_sink_submit(ep, *this, &Interface::_ready_to_submit),
 	_source_ack(ep, *this, &Interface::_ready_to_ack),
 	_source_submit(ep, *this, &Interface::_packet_avail),
-	_router_mac(router_mac), _mac(mac), _config_ptr(config),
+	_router_mac(router_mac), _mac(mac), _config(config),
 	_policy(policy), _timer(timer), _alloc(alloc),
 	_interfaces(interfaces)
 {
@@ -1161,7 +1161,7 @@ void Interface::handle_config(Configuration &new_config)
 		/* update domain reference */
 		Domain &new_domain = new_config.domains().find_by_name(_policy.determine_domain_name());
 		Domain &old_domain = domain();
-		_domain_ptr = Pointer<Domain>(new_domain);
+		_domain = Pointer<Domain>(new_domain);
 
 		/* do garbage collection over transport-layer links and DHCP allocations */
 		_destroy_dissolved_links<Udp_link>(_dissolved_udp_links, _alloc);
@@ -1247,7 +1247,7 @@ void Interface::handle_config(Configuration &new_config)
 			}
 		});
 
-		_config_ptr = Pointer<Configuration>(new_config);
+		_config = new_config;
 
 /*
 	re-check UDP/TCP link
@@ -1338,7 +1338,7 @@ Interface::~Interface()
 {
 	try {
 		/* try to detach from domain */
-		Domain &local_domain = _domain_ptr.deref();
+		Domain &local_domain = _domain.deref();
 		local_domain.detach_interface(*this);
 
 		/* destroy our own ARP waiters */

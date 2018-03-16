@@ -39,6 +39,7 @@
 
 /* local includes */
 #include <list.h>
+#include <reference.h>
 #include <pointer.h>
 #include <l3_protocol.h>
 
@@ -88,7 +89,7 @@ class Net::Link_side : public Genode::Avl_node<Link_side>
 
 	private:
 
-		Pointer<Domain>     _domain_ptr;
+		Reference<Domain>   _domain;
 		Link_side_id const  _id;
 		Link               &_link;
 
@@ -121,7 +122,7 @@ class Net::Link_side : public Genode::Avl_node<Link_side>
 		 ** Accessors **
 		 ***************/
 
-		Domain             &domain()    const { return _domain_ptr.deref(); }
+		Domain             &domain()    const { return _domain(); }
 		Link               &link()      const { return _link; }
 		Ipv4_address const &src_ip()    const { return _id.src_ip; }
 		Ipv4_address const &dst_ip()    const { return _id.dst_ip; }
@@ -142,7 +143,7 @@ class Net::Link : public Link_list::Element
 {
 	protected:
 
-		Pointer<Configuration>         _config_ptr;
+		Reference<Configuration>       _config;
 		Interface                     &_client_interface;
 		Pointer<Port_allocator_guard>  _server_port_alloc;
 		Timer::One_shot_timeout<Link>  _dissolve_timeout;
@@ -189,7 +190,7 @@ class Net::Link : public Link_list::Element
 
 		Link_side     &client()         { return _client; }
 		Link_side     &server()         { return _server; }
-		Configuration &config()         { return _config_ptr.deref(); }
+		Configuration &config()         { return _config(); }
 		L3_protocol    protocol() const { return _protocol; }
 };
 
