@@ -70,10 +70,12 @@ proc platform_drv_boot_modules {} {
 	lappend_if [have_platform_drv] drv_boot_modules platform_drv
 	lappend_if [have_spec x86]     drv_boot_modules report_rom
 
-	if {[have_spec muen]} {
-		lappend drv_boot_modules acpi
-	} else {
-		lappend drv_boot_modules acpi_drv
+	if {[have_spec x86]} {
+		if {[have_spec muen]} {
+			lappend drv_boot_modules acpi
+		} else {
+			lappend drv_boot_modules acpi_drv
+		}
 	}
 
 	return $drv_boot_modules
