@@ -1,5 +1,5 @@
 /*
- * \brief  platform session component
+ * \brief  Platform session component
  * \author Norman Feske
  * \date   2008-01-28
  */
@@ -1037,6 +1037,45 @@ class Platform::Root : public Genode::Root_component<Session_component>
 			}
 		}
 
+		void _construct_buses()
+		{
+			Genode::Dataspace_client ds_pci_mmio(_pci_confspace->cap());
+			uint64_t const phys_addr = ds_pci_mmio.phys_addr();
+			uint64_t const phys_size = ds_pci_mmio.size();
+			uint64_t       mmio_size = 0x10000000UL; /* max MMCONF memory */
+
+			/* try surviving wrong ACPI ECAM/MMCONF table information */
+			while (true) {
+				try {
+					_buses.construct(_heap, *_pci_confspace);
+					/* construction and scan succeeded */
+					break;
+				} catch (Platform::Config_access::Invalid_mmio_access) {
+
+					error("ECAM/MMCONF MMIO access out of bounds - "
+					      "ACPI table information is wrong!");
+
+					_pci_confspace.destruct();
+
+					while (mmio_size > phys_size) {
+						try {
+							error(" adjust size from ", Hex(phys_size),
+							      "->", Hex(mmio_size));
+							_pci_confspace.construct(_env, phys_addr, mmio_size);
+							/* got memory - try again */
+							break;
+						} catch (Genode::Service_denied) {
+							/* decrease by one bus memory size */
+							mmio_size -= 0x1000UL * 32 * 8;
+						}
+					}
+					if (mmio_size <= phys_size)
+						/* broken machine - you're lost */
+						throw;
+				}
+			}
+		}
+
 	protected:
 
 		Session_component *_create_session(const char *args)
@@ -1083,43 +1122,7 @@ class Platform::Root : public Genode::Root_component<Session_component>
 				throw;
 			}
 
-			/* try surviving wrong ACPI ECAM/MMCONF table information */
-			{
-				Genode::Dataspace_client ds_pci_mmio(_pci_confspace->cap());
-				uint64_t const phys_addr = ds_pci_mmio.phys_addr();
-				uint64_t const phys_size = ds_pci_mmio.size();
-				uint64_t       mmio_size = 0x10000000UL; /* max MMCONF memory */
-
-				while (true) {
-					try {
-						_buses.construct(_heap, *_pci_confspace);
-						/* construction and scan succeeded */
-						break;
-					} catch (Platform::Config_access::Invalid_mmio_access) {
-
-						error("ECAM/MMCONF MMIO access out of bounds - "
-						      "ACPI table information are wrong!");
-
-						_pci_confspace.destruct();
-
-						while (mmio_size > phys_size) {
-							try {
-								error(" adjust size from ", Hex(phys_size),
-								      "->", Hex(mmio_size));
-								_pci_confspace.construct(env, phys_addr, mmio_size);
-								/* got memory - try again */
-								break;
-							} catch (Genode::Service_denied) {
-								/* decrease by one bus memory size */
-								mmio_size -= 0x1000UL * 32 * 8;
-							}
-						}
-						if (mmio_size <= phys_size)
-							/* broken machine - you're lost */
-							throw;
-					}
-				}
-			}
+			_construct_buses();
 
 			_pci_reporter.enabled(config.xml().has_sub_node("report") &&
 			                      config.xml().sub_node("report")
