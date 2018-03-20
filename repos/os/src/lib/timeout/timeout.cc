@@ -143,8 +143,7 @@ void Alarm_timeout_scheduler::_schedule_one_shot(Timeout      &timeout,
 
 	/* ensure that the schedulers time is up-to-date before adding a timeout */
 	_alarm__handle(curr_time_us);
-	_alarm__schedule_absolute(&timeout._alarm,
-	                                   curr_time_us + duration.value);
+	_alarm__schedule_absolute(&timeout._alarm, duration.value);
 
 	if (_alarm__head_timeout(&timeout._alarm)) {
 		_time_source.schedule_timeout(Microseconds(0), *this); }
@@ -325,7 +324,7 @@ void Alarm_timeout_scheduler::_alarm__handle(Alarm::Time curr_time)
 }
 
 
-void Alarm_timeout_scheduler::_alarm__setup_alarm(Alarm &alarm, Alarm::Time period, Alarm::Time deadline)
+void Alarm_timeout_scheduler::_alarm__setup_alarm(Alarm &alarm, Alarm::Time period, Alarm::Time first_duration)
 {
 	/*
 	 * If the alarm is already present in the queue, re-consider its queue
@@ -335,17 +334,18 @@ void Alarm_timeout_scheduler::_alarm__setup_alarm(Alarm &alarm, Alarm::Time peri
 	if (alarm._active)
 		_alarm__unsynchronized_dequeue(&alarm);
 
+	Alarm::Time deadline = _now + first_duration;
 	alarm._alarm__assign(period, deadline, _now > deadline ? !_now_period : _now_period, this);
 
 	_alarm__unsynchronized_enqueue(&alarm);
 }
 
 
-void Alarm_timeout_scheduler::_alarm__schedule_absolute(Alarm *alarm, Alarm::Time timeout)
+void Alarm_timeout_scheduler::_alarm__schedule_absolute(Alarm *alarm, Alarm::Time duration)
 {
 	Lock::Guard alarm_list_lock_guard(_lock);
 
-	_alarm__setup_alarm(*alarm, 0, timeout);
+	_alarm__setup_alarm(*alarm, 0, duration);
 }
 
 
@@ -365,7 +365,7 @@ void Alarm_timeout_scheduler::_alarm__schedule(Alarm *alarm, Alarm::Time period)
 	}
 
 	/* first deadline is overdue */
-	_alarm__setup_alarm(*alarm, period, _now);
+	_alarm__setup_alarm(*alarm, period, 0);
 }
 
 
