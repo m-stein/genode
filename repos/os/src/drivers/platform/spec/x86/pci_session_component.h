@@ -883,8 +883,7 @@ class Platform::Root : public Genode::Root_component<Session_component>
 
 				Device_config const bdf_first(bdf_start);
 				Device_config const bdf_last(bdf_start + func_count - 1);
-				/* XXX make const if hack below is gone */
-				addr_t memory_size = 0x1000UL * func_count;
+				addr_t const memory_size = 0x1000UL * func_count;
 
 				/* Simplification: Only consider first config space and
 				 * check if it is for domain 0 */
@@ -897,11 +896,6 @@ class Platform::Root : public Genode::Root_component<Session_component>
 
 				log("ECAM/MMCONF range ", bdf_first, "-", bdf_last, " - addr ",
 				    Hex_range<addr_t>(base, memory_size));
-
-				if (memory_size != 0x10000000UL) {
-					memory_size = 0x10000000UL;
-					error("ECAM/MMCONF range is way to small - apply hack!");
-				}
 
 				_pci_confspace.construct(env, base, memory_size);
 			});
@@ -1089,7 +1083,43 @@ class Platform::Root : public Genode::Root_component<Session_component>
 				throw;
 			}
 
-			_buses.construct(_heap, *_pci_confspace);
+			/* try surviving wrong ACPI ECAM/MMCONF table information */
+			{
+				Genode::Dataspace_client ds_pci_mmio(_pci_confspace->cap());
+				uint64_t const phys_addr = ds_pci_mmio.phys_addr();
+				uint64_t const phys_size = ds_pci_mmio.size();
+				uint64_t       mmio_size = 0x10000000UL; /* max MMCONF memory */
+
+				while (true) {
+					try {
+						_buses.construct(_heap, *_pci_confspace);
+						/* construction and scan succeeded */
+						break;
+					} catch (Platform::Config_access::Invalid_mmio_access) {
+
+						error("ECAM/MMCONF MMIO access out of bounds - "
+						      "ACPI table information are wrong!");
+
+						_pci_confspace.destruct();
+
+						while (mmio_size > phys_size) {
+							try {
+								error(" adjust size from ", Hex(phys_size),
+								      "->", Hex(mmio_size));
+								_pci_confspace.construct(env, phys_addr, mmio_size);
+								/* got memory - try again */
+								break;
+							} catch (Genode::Service_denied) {
+								/* decrease by one bus memory size */
+								mmio_size -= 0x1000UL * 32 * 8;
+							}
+						}
+						if (mmio_size <= phys_size)
+							/* broken machine - you're lost */
+							throw;
+					}
+				}
+			}
 
 			_pci_reporter.enabled(config.xml().has_sub_node("report") &&
 			                      config.xml().sub_node("report")

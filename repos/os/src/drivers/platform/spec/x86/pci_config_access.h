@@ -29,6 +29,7 @@ namespace Platform {
 		private:
 
 			Attached_io_mem_dataspace &_pciconf;
+			Genode::size_t const       _pciconf_size;
 
 			/**
 			 * Calculate device offset from BDF
@@ -57,10 +58,16 @@ namespace Platform {
 
 		public:
 
-			Config_access(Attached_io_mem_dataspace &pciconf)
-			: _pciconf(pciconf) { }
+			class Invalid_mmio_access : Genode::Exception { };
 
-			Config_access(Config_access &c) : _pciconf(c._pciconf) { }
+			Config_access(Attached_io_mem_dataspace &pciconf)
+			:
+				_pciconf(pciconf),
+				_pciconf_size(Dataspace_client(_pciconf.cap()).size())
+			{ }
+
+			Config_access(Config_access &c)
+			: _pciconf(c._pciconf), _pciconf_size(c._pciconf_size) { }
 
 			/**
 			 * Read value from config space of specified device/function
@@ -80,7 +87,11 @@ namespace Platform {
 			              bool track = true)
 			{
 				unsigned ret;
-				char const * const field = _pciconf.local_addr<char>() + _dev_base(bus, device, function) + addr;
+				unsigned const offset = _dev_base(bus, device, function) + addr;
+				char const * const field = _pciconf.local_addr<char>() + offset;
+
+				if (offset >= _pciconf_size)
+					throw Invalid_mmio_access();
 
 				/*
 				 * Memory access code is implemented in a way to make it work
@@ -131,7 +142,11 @@ namespace Platform {
 			           unsigned value, Device::Access_size size,
 			           bool track = true)
 			{
-				char const * const field = _pciconf.local_addr<char>() + _dev_base(bus, device, function) + addr;
+				unsigned const offset = _dev_base(bus, device, function) + addr;
+				char const * const field = _pciconf.local_addr<char>() + offset;
+
+				if (offset >= _pciconf_size)
+					throw Invalid_mmio_access();
 
 				/*
 				 * Write value to targeted address, see read() comment above

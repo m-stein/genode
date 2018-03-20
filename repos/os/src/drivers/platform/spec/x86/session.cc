@@ -77,7 +77,9 @@ void Platform::Pci_buses::scan_bus(Config_access &config_access,
 					             Platform::Device::ACCESS_16BIT);
 				}
 
-				Genode::log(config, " - bridge ", sec_bus, ":0.0",
+				Genode::log(config, " - bridge ",
+				            Hex(sec_bus, Hex::Prefix::OMIT_PREFIX, Hex::Pad::PAD),
+				            ":00.0",
 				            ((cmd & PCI_CMD_MASK) != PCI_CMD_MASK) ? " enabled"
 				                                                   : "");
 

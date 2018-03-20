@@ -24,7 +24,9 @@ namespace Platform {
 	{
 		private:
 
-			int _bus = 0, _device = 0, _function = 0;     /* location at PCI bus */
+			uint8_t _bus = 0;
+			uint8_t _device = 0;
+			uint8_t _function = 0;     /* location at PCI bus */
 
 			/*
 			 * Information provided by the PCI config space
@@ -156,8 +158,8 @@ namespace Platform {
 			{
 				using Genode::print;
 				using Genode::Hex;
-				print(out, Hex(_bus, Hex::Prefix::OMIT_PREFIX),
-				      ":", Hex(_device, Hex::Prefix::OMIT_PREFIX),
+				print(out, Hex(_bus, Hex::Prefix::OMIT_PREFIX, Hex::Pad::PAD),
+				      ":", Hex(_device, Hex::Prefix::OMIT_PREFIX, Hex::Pad::PAD),
 				      ".", Hex(_function, Hex::Prefix::OMIT_PREFIX));
 			}
 
