@@ -121,8 +121,13 @@ proc platform_drv_add_routing {} {
 
 
 proc platform_drv_config_config {} {
-	return {
+	if {[have_spec acpi] || [have_spec arm] || [have_spec muen]} {
+		return {
 		<config>}
+	}
+
+	return {
+		<config acpi="no">}
 }
 
 
