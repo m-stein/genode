@@ -66,8 +66,8 @@ append_if [have_spec sdl] config {
 append_platform_drv_config
 
 append_if [have_spec framebuffer] config {
-	<start name="fb_drv">
-		<resource name="RAM" quantum="4M"/>
+	<start name="fb_drv" caps="130">
+		<resource name="RAM" quantum="12M"/>
 		<provides><service name="Framebuffer"/></provides>
 	</start>}
 
@@ -87,7 +87,7 @@ append_if [have_spec imx53] config {
 
 append_if [have_spec ps2] config {
 	<start name="ps2_drv">
-		<resource name="RAM" quantum="1M"/>
+		<resource name="RAM" quantum="1096K"/>
 		<provides><service name="Input"/></provides>
 	</start>}
 
@@ -118,7 +118,7 @@ append config {
 
 	<start name="nitpicker_config">
 		<binary name="rom_filter"/>
-		<resource name="RAM" quantum="1M"/>
+		<resource name="RAM" quantum="1096K"/>
 		<provides><service name="ROM"/></provides>
 		<config>
 			<input name="xray_enabled" rom="xray" node="xray">
@@ -176,7 +176,7 @@ append config {
 	</start>
 
 	<start name="global_keys_handler">
-		<resource name="RAM" quantum="1M"/>
+		<resource name="RAM" quantum="1096K"/>
 		<config>
 			<bool name="xray" initial="no"/>
 
@@ -198,7 +198,7 @@ append config {
 	</start>
 
 	<start name="nitpicker">
-		<resource name="RAM" quantum="1M"/>
+		<resource name="RAM" quantum="1216K"/>
 		<provides><service name="Nitpicker"/></provides>
 		<configfile name="nitpicker.config"/>
 		<route>
@@ -213,7 +213,7 @@ append config {
 	</start>
 
 	<start name="pointer">
-		<resource name="RAM" quantum="1M"/>
+		<resource name="RAM" quantum="1096k"/>
 		<config/>
 	</start>
 
@@ -228,7 +228,7 @@ append config {
 	</start>
 
 	<start name="status_bar">
-		<resource name="RAM" quantum="1M"/>
+		<resource name="RAM" quantum="1096K"/>
 		<route>
 			<service name="ROM" label="focus"> <child name="report_rom"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
@@ -293,4 +293,12 @@ append_platform_drv_boot_modules
 build_boot_image $boot_modules
 
 
-run_genode_until forever
+if {[get_cmd_switch --autopilot]} {
+	run_genode_until {\[init -> scout\] png is.*\n} 40
+
+	grep_output {requests resources: ram_quota}
+	compare_output_to {}
+
+} else {
+	run_genode_until forever
+}
