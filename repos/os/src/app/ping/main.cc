@@ -99,6 +99,9 @@ class Main
 
 		void _broadcast_arp_request();
 
+		void _send_arp_reply(Ethernet_frame &req_eth,
+		                     Arp_packet     &req_arp);
+
 		template <typename FUNC>
 		void _send(size_t  pkt_size,
 		           FUNC && write_to_pkt)
@@ -271,6 +274,14 @@ void Main::_handle_arp(Ethernet_frame &eth,
 		_send_ping();
 		return;
 
+	case Arp_packet::REQUEST:
+
+		/* check whether the ARP request targets us */
+		if (arp.dst_ip() != _src_ip) {
+			return; }
+
+		_send_arp_reply(eth, arp);
+
 	default: ; }
 }
 
@@ -298,6 +309,40 @@ void Main::_ready_to_ack()
 {
 	while (_source().ack_avail()) {
 		_source().release_packet(_source().get_acked_packet()); }
+}
+
+
+void Main::_send_arp_reply(Ethernet_frame &req_eth,
+                           Arp_packet     &req_arp)
+{
+	enum {
+		ETH_HDR_SZ = sizeof(Ethernet_frame),
+		ETH_DAT_SZ = sizeof(Arp_packet) + ETH_HDR_SZ >= Ethernet_frame::MIN_SIZE ?
+		             sizeof(Arp_packet) :
+		             Ethernet_frame::MIN_SIZE - ETH_HDR_SZ,
+		ETH_CRC_SZ = sizeof(uint32_t),
+		PKT_SIZE   = ETH_HDR_SZ + ETH_DAT_SZ + ETH_CRC_SZ,
+	};
+	_send(PKT_SIZE, [&] (void *pkt_base) {
+
+		/* write Ethernet header */
+		Ethernet_frame &eth = *reinterpret_cast<Ethernet_frame *>(pkt_base);
+		eth.dst(req_eth.src());
+		eth.src(_src_mac);
+		eth.type(Ethernet_frame::Type::ARP);
+
+		/* write ARP header */
+		Arp_packet &arp = *eth.data<Arp_packet>(PKT_SIZE - sizeof(Ethernet_frame));
+		arp.hardware_address_type(Arp_packet::ETHERNET);
+		arp.protocol_address_type(Arp_packet::IPV4);
+		arp.hardware_address_size(sizeof(Mac_address));
+		arp.protocol_address_size(sizeof(Ipv4_address));
+		arp.opcode(Arp_packet::REPLY);
+		arp.src_mac(_src_mac);
+		arp.src_ip(_src_ip);
+		arp.dst_mac(req_eth.src());
+		arp.dst_ip(req_arp.src_ip());
+	});
 }
 
 
