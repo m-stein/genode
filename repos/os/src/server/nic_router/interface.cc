@@ -14,6 +14,7 @@
 /* Genode includes */
 #include <net/tcp.h>
 #include <net/udp.h>
+#include <net/icmp.h>
 #include <net/arp.h>
 
 /* local includes */
@@ -87,6 +88,9 @@ static void _link_packet(L3_protocol  const  prot,
 	case L3_protocol::UDP:
 		static_cast<Udp_link *>(&link)->packet();
 		return;
+	case L3_protocol::ICMP:
+		static_cast<Icmp_link *>(&link)->packet();
+		return;
 	default: throw Interface::Bad_transport_protocol(); }
 }
 
@@ -95,7 +99,8 @@ static void _update_checksum(L3_protocol   const prot,
                              void         *const prot_base,
                              size_t        const prot_size,
                              Ipv4_address  const src,
-                             Ipv4_address  const dst)
+                             Ipv4_address  const dst,
+                             size_t        const ip_size)
 {
 	switch (prot) {
 	case L3_protocol::TCP:
@@ -104,6 +109,11 @@ static void _update_checksum(L3_protocol   const prot,
 	case L3_protocol::UDP:
 		((Udp_packet *)prot_base)->update_checksum(src, dst);
 		return;
+	case L3_protocol::ICMP:
+		((Icmp_packet *)prot_base)->
+			update_checksum(ip_size - sizeof(Ipv4_packet) -
+			                          sizeof(Icmp_packet));
+		return;
 	default: throw Interface::Bad_transport_protocol(); }
 }
 
@@ -111,8 +121,9 @@ static void _update_checksum(L3_protocol   const prot,
 static Port _dst_port(L3_protocol const prot, void *const prot_base)
 {
 	switch (prot) {
-	case L3_protocol::TCP: return (*(Tcp_packet *)prot_base).dst_port();
-	case L3_protocol::UDP: return (*(Udp_packet *)prot_base).dst_port();
+	case L3_protocol::TCP:  return (*(Tcp_packet *)prot_base).dst_port();
+	case L3_protocol::UDP:  return (*(Udp_packet *)prot_base).dst_port();
+	case L3_protocol::ICMP: return Port((*(Icmp_packet *)prot_base).query_id());
 	default: throw Interface::Bad_transport_protocol(); }
 }
 
@@ -122,8 +133,9 @@ static void _dst_port(L3_protocol  const prot,
                       Port         const port)
 {
 	switch (prot) {
-	case L3_protocol::TCP: (*(Tcp_packet *)prot_base).dst_port(port); return;
-	case L3_protocol::UDP: (*(Udp_packet *)prot_base).dst_port(port); return;
+	case L3_protocol::TCP:  (*(Tcp_packet *)prot_base).dst_port(port);  return;
+	case L3_protocol::UDP:  (*(Udp_packet *)prot_base).dst_port(port);  return;
+	case L3_protocol::ICMP: (*(Icmp_packet *)prot_base).query_id(port.value); return;
 	default: throw Interface::Bad_transport_protocol(); }
 }
 
@@ -131,8 +143,9 @@ static void _dst_port(L3_protocol  const prot,
 static Port _src_port(L3_protocol const prot, void *const prot_base)
 {
 	switch (prot) {
-	case L3_protocol::TCP: return (*(Tcp_packet *)prot_base).src_port();
-	case L3_protocol::UDP: return (*(Udp_packet *)prot_base).src_port();
+	case L3_protocol::TCP:  return (*(Tcp_packet *)prot_base).src_port();
+	case L3_protocol::UDP:  return (*(Udp_packet *)prot_base).src_port();
+	case L3_protocol::ICMP: return Port((*(Icmp_packet *)prot_base).query_id());
 	default: throw Interface::Bad_transport_protocol(); }
 }
 
@@ -142,8 +155,9 @@ static void _src_port(L3_protocol  const prot,
                       Port         const port)
 {
 	switch (prot) {
-	case L3_protocol::TCP: ((Tcp_packet *)prot_base)->src_port(port); return;
-	case L3_protocol::UDP: ((Udp_packet *)prot_base)->src_port(port); return;
+	case L3_protocol::TCP:  ((Tcp_packet *)prot_base)->src_port(port);        return;
+	case L3_protocol::UDP:  ((Udp_packet *)prot_base)->src_port(port);        return;
+	case L3_protocol::ICMP: ((Icmp_packet *)prot_base)->query_id(port.value); return;
 	default: throw Interface::Bad_transport_protocol(); }
 }
 
@@ -153,8 +167,9 @@ static void *_prot_base(L3_protocol const  prot,
                         Ipv4_packet       &ip)
 {
 	switch (prot) {
-	case L3_protocol::TCP: return ip.data<Tcp_packet>(prot_size);
-	case L3_protocol::UDP: return ip.data<Udp_packet>(prot_size);
+	case L3_protocol::TCP:  return ip.data<Tcp_packet>(prot_size);
+	case L3_protocol::UDP:  return ip.data<Udp_packet>(prot_size);
+	case L3_protocol::ICMP: return ip.data<Icmp_packet>(prot_size);
 	default: throw Interface::Bad_transport_protocol(); }
 }
 
@@ -167,8 +182,9 @@ void Interface::_destroy_link(Link &link)
 {
 	L3_protocol const prot = link.protocol();
 	switch (prot) {
-	case L3_protocol::TCP: ::_destroy_link<Tcp_link>(link, links(prot), _alloc); break;
-	case L3_protocol::UDP: ::_destroy_link<Udp_link>(link, links(prot), _alloc); break;
+	case L3_protocol::TCP:  ::_destroy_link<Tcp_link>(link, links(prot), _alloc);  break;
+	case L3_protocol::UDP:  ::_destroy_link<Udp_link>(link, links(prot), _alloc);  break;
+	case L3_protocol::ICMP: ::_destroy_link<Icmp_link>(link, links(prot), _alloc); break;
 	default: throw Bad_transport_protocol(); }
 }
 
@@ -180,7 +196,7 @@ void Interface::_pass_prot(Ethernet_frame       &eth,
                            void          *const  prot_base,
                            size_t         const  prot_size)
 {
-	_update_checksum(prot, prot_base, prot_size, ip.src(), ip.dst());
+	_update_checksum(prot, prot_base, prot_size, ip.src(), ip.dst(), ip.total_length());
 	_pass_ip(eth, eth_size, ip);
 }
 
@@ -295,8 +311,9 @@ void Interface::detach_from_ip_config()
 		cancel_arp_waiting(*_own_arp_waiters.first()->object());
 	}
 	/* destroy links */
-	_destroy_links<Tcp_link>(_tcp_links, _dissolved_tcp_links, _alloc);
-	_destroy_links<Udp_link>(_udp_links, _dissolved_udp_links, _alloc);
+	_destroy_links<Tcp_link> (_tcp_links,  _dissolved_tcp_links,  _alloc);
+	_destroy_links<Udp_link> (_udp_links,  _dissolved_udp_links,  _alloc);
+	_destroy_links<Icmp_link>(_icmp_links, _dissolved_icmp_links, _alloc);
 
 	/* destroy DHCP allocations */
 	_destroy_released_dhcp_allocations(domain);
@@ -343,6 +360,10 @@ Interface::_new_link(L3_protocol             const  protocol,
 		new (_alloc) Udp_link(*this, local, remote_port_alloc, remote_domain,
 		                      remote, _timer, _config(), protocol);
 		break;
+	case L3_protocol::ICMP:
+		new (_alloc) Icmp_link(*this, local, remote_port_alloc, remote_domain,
+		                       remote, _timer, _config(), protocol);
+		break;
 	default: throw Bad_transport_protocol(); }
 }
 
@@ -357,8 +378,9 @@ void Interface::dhcp_allocation_expired(Dhcp_allocation &allocation)
 Link_list &Interface::links(L3_protocol const protocol)
 {
 	switch (protocol) {
-	case L3_protocol::TCP: return _tcp_links;
-	case L3_protocol::UDP: return _udp_links;
+	case L3_protocol::TCP:  return _tcp_links;
+	case L3_protocol::UDP:  return _udp_links;
+	case L3_protocol::ICMP: return _icmp_links;
 	default: throw Bad_transport_protocol(); }
 }
 
@@ -366,8 +388,9 @@ Link_list &Interface::links(L3_protocol const protocol)
 Link_list &Interface::dissolved_links(L3_protocol const protocol)
 {
 	switch (protocol) {
-	case L3_protocol::TCP: return _dissolved_tcp_links;
-	case L3_protocol::UDP: return _dissolved_udp_links;
+	case L3_protocol::TCP:  return _dissolved_tcp_links;
+	case L3_protocol::UDP:  return _dissolved_udp_links;
+	case L3_protocol::ICMP: return _dissolved_icmp_links;
 	default: throw Bad_transport_protocol(); }
 }
 
@@ -780,11 +803,65 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 					return;
 				}
 			}
+		} else if (prot == L3_protocol::ICMP) {
+
+			Icmp_packet &icmp = *ip.data<Icmp_packet>(eth_size - sizeof(Ipv4_packet));
+			switch (icmp.type()) {
+			case Icmp_packet::Type::ECHO_REPLY:   break;
+			case Icmp_packet::Type::ECHO_REQUEST: break;
+			default: Bad_transport_protocol();
+			}
+
+			Link_side_id const local_id = { ip.src(), _src_port(prot, prot_base),
+			                                ip.dst(), _dst_port(prot, prot_base) };
+
+			/* try to route via existing ICMP/UDP/TCP links */
+			try {
+				Link_side const &local_side = local_domain.links(prot).find_by_id(local_id);
+				Link &link = local_side.link();
+				bool const client = local_side.is_client();
+				Link_side &remote_side = client ? link.server() : link.client();
+				Domain &remote_domain = remote_side.domain();
+				if (_config().verbose()) {
+					log("Using ", l3_protocol_name(prot), " link: ", link); }
+
+				_adapt_eth(eth, remote_side.src_ip(), pkt, remote_domain);
+				ip.src(remote_side.dst_ip());
+				ip.dst(remote_side.src_ip());
+				_src_port(prot, prot_base, remote_side.dst_port());
+				_dst_port(prot, prot_base, remote_side.src_port());
+
+				remote_domain.interfaces().for_each([&] (Interface &interface) {
+					interface._pass_prot(eth, eth_size, ip, prot, prot_base, prot_size);
+				});
+				_link_packet(prot, prot_base, link, client);
+				return;
+			}
+			catch (Link_side_tree::No_match) { }
+
+			/* try to route via ICMP rules */
+			try {
+				Ip_rule const &rule =
+					local_domain.icmp_rules().longest_prefix_match(ip.dst());
+
+				if(_config().verbose()) {
+					log("Using ICMP rule: ", rule); }
+
+				Domain &remote_domain = rule.domain();
+				_adapt_eth(eth, local_id.dst_ip, pkt, remote_domain);
+				_nat_link_and_pass(eth, eth_size, ip, prot, prot_base, prot_size,
+				                   local_id, local_domain, remote_domain);
+
+				return;
+			}
+			catch (Ip_rule_list::No_match) { }
+
+			throw Bad_transport_protocol();
 		}
 		Link_side_id const local_id = { ip.src(), _src_port(prot, prot_base),
 		                                ip.dst(), _dst_port(prot, prot_base) };
 
-		/* try to route via existing UDP/TCP links */
+		/* try to route via existing ICMP/UDP/TCP links */
 		try {
 			Link_side const &local_side = local_domain.links(prot).find_by_id(local_id);
 			Link &link = local_side.link();
@@ -1085,8 +1162,9 @@ void Interface::_handle_eth(void              *const  eth_base,
 			local_domain.raise_rx_bytes(eth_size);
 
 			/* do garbage collection over transport-layer links and DHCP allocations */
-			_destroy_dissolved_links<Udp_link>(_dissolved_udp_links, _alloc);
-			_destroy_dissolved_links<Tcp_link>(_dissolved_tcp_links, _alloc);
+			_destroy_dissolved_links<Icmp_link>(_dissolved_icmp_links, _alloc);
+			_destroy_dissolved_links<Udp_link>(_dissolved_udp_links,   _alloc);
+			_destroy_dissolved_links<Tcp_link>(_dissolved_tcp_links,   _alloc);
 			_destroy_released_dhcp_allocations(local_domain);
 
 			/* inspect and handle ethernet frame */
@@ -1374,8 +1452,9 @@ void Interface::handle_config(Configuration &config)
 	try {
 		/* destroy state objects that are not needed anymore */
 		Domain &old_domain = domain();
-		_destroy_dissolved_links<Udp_link>(_dissolved_udp_links, _alloc);
-		_destroy_dissolved_links<Tcp_link>(_dissolved_tcp_links, _alloc);
+		_destroy_dissolved_links<Icmp_link>(_dissolved_icmp_links, _alloc);
+		_destroy_dissolved_links<Udp_link> (_dissolved_udp_links,  _alloc);
+		_destroy_dissolved_links<Tcp_link> (_dissolved_tcp_links,  _alloc);
 		_destroy_released_dhcp_allocations(old_domain);
 
 		/* if the domains differ, detach completely from the domain */
@@ -1399,8 +1478,9 @@ void Interface::handle_config(Configuration &config)
 			return;
 		}
 		/* update state objects */
-		_update_links(L3_protocol::TCP, new_domain);
-		_update_links(L3_protocol::UDP, new_domain);
+		_update_links(L3_protocol::TCP,  new_domain);
+		_update_links(L3_protocol::UDP,  new_domain);
+		_update_links(L3_protocol::ICMP, new_domain);
 		_update_dhcp_allocations(old_domain, new_domain);
 		_update_own_arp_waiters(new_domain);
 	}
