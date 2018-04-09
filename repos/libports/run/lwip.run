@@ -35,7 +35,7 @@ set lynx [installed_command lynx]
 
 set build_components {
 	core init
-	drivers/timer drivers/nic
+	drivers/timer drivers/nic server/nic_dump
 	test/lwip/http_srv
 	lib/vfs/lwip
 }
@@ -78,8 +78,21 @@ set config {
 		<resource name="RAM" quantum="1M"/>
 		<provides> <service name="Timer"/> </provides>
 	</start>
+	<start name="nic_dump">
+		<resource name="RAM" quantum="5M"/>
+		<provides><service name="Nic"/></provides>
+		<config uplink="drv" downlink="app" time="no"/>
+		<route>
+			<service name="Nic"> <child name="nic_drv" label="fec1"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
 	<start name="test-lwip_httpsrv" caps="120">
-		<resource name="RAM" quantum="4M"/>
+		<resource name="RAM" quantum="5M"/>
+		<route>
+			<service name="Nic"> <child name="nic_dump"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
 		<config>
 			<vfs>
 				<dir name="dev">    <log/>             </dir>
@@ -110,9 +123,20 @@ append_if $use_usb_driver config {
 append_platform_drv_config
 
 append_if $use_nic_driver config {
-	<start name="nic_drv" caps="130">
-		<resource name="RAM" quantum="20M"/>
-		<provides><service name="Nic"/></provides>
+	<start name="nic_drv" caps="5000">
+		<resource name="RAM" quantum="64M"/>
+		<provides><service name="Nic"/></provides> }
+append_if [have_spec nit6_solox] config {
+		<config>
+			<card name="fec0" type="fsl,imx6sx-fec" mii="rgmii" phy="phy0" irq="150" mmio="0x2188000">
+				<mdio>
+					<phy name="phy0" type="Atheros 8035 ethernet" gpio_irq="36" reg_num="4"/>
+					<phy name="phy1" type="Atheros 8035 ethernet" gpio_irq="40" reg_num="5"/>
+				</mdio>
+			</card>
+			<card name="fec1" type="fsl,imx6sx-fec" mii="rgmii" phy="phy1" irq="134" mmio="0x21b4000"/>
+		</config> }
+append_if $use_nic_driver config {
 		} [nic_drv_config] {
 	</start>}
 
@@ -128,7 +152,7 @@ install_config $config
 
 # generic modules
 set boot_modules {
-	core init timer
+	core init timer nic_dump
 	ld.lib.so libc.lib.so vfs.lib.so vfs_lwip.lib.so test-lwip_httpsrv
 }
 
