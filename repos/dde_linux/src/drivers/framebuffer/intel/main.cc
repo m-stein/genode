@@ -33,8 +33,10 @@
 #include <lx_kit/work.h>
 
 /* Linux module functions */
-extern "C" int postcore_i2c_init(); /* i2c-core.c */
+extern "C" void postcore_i2c_init(void); /* i2c-core-base.c */
 extern "C" int module_i915_init();  /* i915_drv.c */
+extern "C" void radix_tree_init(); /* called by start_kernel(void) normally */
+extern "C" void drm_connector_ida_init(); /* called by drm_core_init(void) normally */
 
 static void run_linux(void * m);
 
@@ -106,6 +108,10 @@ static void run_linux(void * m)
 {
 	Main * main = reinterpret_cast<Main*>(m);
 
+	system_wq  = alloc_workqueue("system_wq", 0, 0);
+
+	radix_tree_init();
+	drm_connector_ida_init();
 	postcore_i2c_init();
 	module_i915_init();
 	main->root.session.driver().finish_initialization();
