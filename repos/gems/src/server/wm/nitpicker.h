@@ -538,12 +538,21 @@ class Wm::Nitpicker::Session_component : public Rpc_object<Nitpicker::Session>,
 
 					Input::Event const ev = events[i];
 
+					if (ev.release() && _key_cnt == 0)
+						Genode::error("_key_cnt unexpectedly zero, event: ", ev);
+
 					if (ev.press())   _key_cnt++;
 					if (ev.release()) _key_cnt--;
 
 					/* keep track of pointer position when hovering */
 					ev.handle_absolute_motion([&] (int x, int y) {
 						_pointer_pos = Point(x, y); });
+
+					if (_click_into_unfocused_view(ev)) {
+						log("click ", ev, " _key_cnt=", _key_cnt, " "
+						    "_pointer_pos=", _pointer_pos, " "
+						    "_first_motion=", _first_motion);
+					}
 
 					/* propagate layout-affecting events to the layouter */
 					if (_click_into_unfocused_view(ev) && _key_cnt == 1)
@@ -1017,6 +1026,8 @@ class Wm::Nitpicker::Root : public Genode::Rpc_object<Genode::Typed_root<Session
 			Reporter                 &pointer_reporter;
 			Last_motion              &last_motion;
 
+			Point reported_pos { };
+
 			void handle_enter(Nitpicker::Point pos) override
 			{
 				last_motion = LAST_MOTION_NITPICKER;
@@ -1030,6 +1041,7 @@ class Wm::Nitpicker::Root : public Genode::Rpc_object<Genode::Typed_root<Session
 
 			void handle_click(Nitpicker::Point pos) override
 			{
+				log("handle_click at ", pos);
 				/*
 				 * Propagate clicked-at position to decorator such that it can
 				 * update its hover model.
