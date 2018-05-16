@@ -81,6 +81,12 @@ class Net::Interface : private Interface_list::Element
 		struct Dismiss_link       : Genode::Exception { };
 		struct Dismiss_arp_waiter : Genode::Exception { };
 
+		struct Update_domain
+		{
+			Domain &old_domain;
+			Domain &new_domain;
+		};
+
 		Reference<Configuration>           _config;
 		Interface_policy                  &_policy;
 		Timer::Connection                 &_timer;
@@ -99,6 +105,7 @@ class Net::Interface : private Interface_list::Element
 		Interface_list                    &_interfaces;
 		bool                               _apply_foreign_arp_pending { false };
 		Genode::Signal_context_capability  _link_state_sigh           { };
+		Pointer<Update_domain>             _update_domain             { };
 
 		void _new_link(L3_protocol             const  protocol,
 		               Link_side_id            const &local_id,
@@ -351,9 +358,11 @@ class Net::Interface : private Interface_list::Element
 
 		void cancel_arp_waiting(Arp_waiter &waiter);
 
-		void handle_config(Configuration &new_config);
+		void handle_config_1(Configuration &config);
 
-		void handle_config_aftermath();
+		void handle_config_2();
+
+		void handle_config_3();
 
 		void detach_from_ip_config();
 

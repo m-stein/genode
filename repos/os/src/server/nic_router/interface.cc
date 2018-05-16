@@ -296,7 +296,7 @@ void Interface::link_state_sigh(Signal_context_capability sigh)
 }
 
 
-void Interface::handle_config_aftermath()
+void Interface::handle_config_3()
 {
 	/* ensure that ARP requests are sent on each interface of the domain */
 	if (_apply_foreign_arp_pending) {
@@ -1541,7 +1541,7 @@ void Interface::_update_own_arp_waiters(Domain &domain)
 }
 
 
-void Interface::handle_config(Configuration &config)
+void Interface::handle_config_1(Configuration &config)
 {
 	/* deteremine the name of the new domain */
 	_config = config;
@@ -1566,6 +1566,40 @@ void Interface::handle_config(Configuration &config)
 		_attach_to_domain_raw(new_domain_name);
 		Domain &new_domain = domain();
 
+		/* remember that the interface stays attached to the same domain */
+		_update_domain = *new (_alloc)
+			Update_domain { old_domain, new_domain };
+		return;
+	}
+	catch (Domain_tree::No_match) {
+
+		/* the interface no longer has a domain */
+		_detach_from_domain();
+	}
+	catch (Pointer<Domain>::Invalid) {
+
+		/* the interface had no domain but now it may get one */
+		try { _attach_to_domain(new_domain_name, false); }
+		catch (Domain_tree::No_match) { }
+	}
+}
+
+
+void Interface::handle_config_2()
+{
+	try {
+		/*
+		 * Update domain object only if handle_config_1 determined that the
+		 * interface stays attached to the same domain. Otherwise the
+		 * interface already got detached from its old domain and there is
+		 * nothing to update.
+		 */
+		Update_domain &update_domain = _update_domain();
+		Domain &old_domain = update_domain.old_domain;
+		Domain &new_domain = update_domain.new_domain;
+		destroy(_alloc, &update_domain);
+		_update_domain = Pointer<Update_domain>();
+
 		/* if the IP configs differ, detach completely from the IP config */
 		if (old_domain.ip_config() != new_domain.ip_config()) {
 			detach_from_ip_config();
@@ -1582,17 +1616,7 @@ void Interface::handle_config(Configuration &config)
 		_update_dhcp_allocations(old_domain, new_domain);
 		_update_own_arp_waiters(new_domain);
 	}
-	catch (Domain_tree::No_match) {
-
-		/* the interface no longer has a domain */
-		_detach_from_domain();
-	}
-	catch (Pointer<Domain>::Invalid) {
-
-		/* the interface had no domain but now it may get one */
-		try { _attach_to_domain(new_domain_name, false); }
-		catch (Domain_tree::No_match) { }
-	}
+	catch (Pointer<Update_domain>::Invalid) { }
 }
 
 
