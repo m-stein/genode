@@ -54,16 +54,36 @@ void Domain::ip_config(Ipv4_address ip,
                        Ipv4_address gateway,
                        Ipv4_address dns_server)
 {
+	/* discard old IP config if any */
+	if (ip_config().valid) {
+
+		/* mark IP config invalid */
+		_ip_config.construct();
+
+		/* detach all dependent interfaces from old IP config */
+		_interfaces.for_each([&] (Interface &interface) {
+			interface.detach_from_ip_config();
+		});
+		_ip_config_dependents.for_each([&] (Domain &domain) {
+			domain._interfaces.for_each([&] (Interface &interface) {
+				interface.detach_from_remote_ip_config();
+			});
+		});
+	}
+	/* install new IP config */
 	_ip_config.construct(Ipv4_address_prefix(ip, subnet_mask), gateway,
 	                     dns_server);
-	_ip_config_changed();
+
+	/* log the event */
+	if (_config.verbose_domain_state()) {
+		log("[", *this, "] IP config: ", ip_config()); }
 }
 
 
 void Domain::discard_ip_config()
 {
-	_ip_config.construct();
-	_ip_config_changed();
+	/* install invalid IP config */
+	ip_config(Ipv4_address(), Ipv4_address(), Ipv4_address(), Ipv4_address());
 }
 
 
@@ -139,31 +159,6 @@ Link_side_tree &Domain::links(L3_protocol const protocol)
 	case L3_protocol::UDP:  return _udp_links;
 	case L3_protocol::ICMP: return _icmp_links;
 	default: throw Interface::Bad_transport_protocol(); }
-}
-
-
-void Domain::_ip_config_changed()
-{
-	/* detach all dependent interfaces from old IP config */
-	_interfaces.for_each([&] (Interface &interface) {
-		interface.detach_from_ip_config();
-	});
-	_ip_config_dependents.for_each([&] (Domain &domain) {
-		domain._interfaces.for_each([&] (Interface &interface) {
-			interface.detach_from_remote_ip_config();
-		});
-	});
-	/* log the change */
-	if (_config.verbose_domain_state()) {
-		if (!ip_config().valid) {
-			log("[", *this, "] IP config: none");
-		} else {
-			log("[", *this, "] IP config:"
-			    " interface ", ip_config().interface,
-			     ", gateway ", ip_config().gateway,
-			  ", DNS server ", ip_config().dns_server);
-		}
-	}
 }
 
 

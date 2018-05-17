@@ -124,8 +124,6 @@ class Net::Domain : public Domain_base,
 		                           char             const *type,
 		                           Transport_rule_list    &rules);
 
-		void _ip_config_changed();
-
 		void __FIXME__dissolve_foreign_arp_waiters();
 
 	public:

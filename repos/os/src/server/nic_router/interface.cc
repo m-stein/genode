@@ -253,27 +253,24 @@ void Interface::_detach_from_domain_raw()
 }
 
 
-void Interface::_attach_to_domain(Domain_name const &domain_name,
-                                  bool               apply_foreign_arp)
+void Interface::_attach_to_domain(Domain_name const &domain_name)
 {
 	_attach_to_domain_raw(domain_name);
-
-	/* ensure that DHCP requests are sent on each interface of the domain */
-	if (!domain().ip_config().valid) {
-		_dhcp_client.discover();
-	}
-	/* ensure that DHCP requests are sent on each interface of the domain */
-	if ( apply_foreign_arp) { _apply_foreign_arp(); }
-	else                    { _apply_foreign_arp_pending = true; }
+	_attach_to_domain_finish();
 }
 
 
-void Interface::_apply_foreign_arp()
+void Interface::_attach_to_domain_finish()
 {
-	/* sent ARP request for each foreign ARP waiter */
-	Domain &domain_ = domain();
-	domain_.foreign_arp_waiters().for_each([&] (Arp_waiter_list_element &le) {
-		_broadcast_arp_request(domain_.ip_config().interface.address,
+	/* if domain has yet no IP config, participate in requesting one */
+	Domain &domain = _domain();
+	if (!domain.ip_config().valid) {
+		_dhcp_client.discover();
+		return;
+	}
+	/* if others wait for ARP at the domain, participate in requesting it */
+	domain.foreign_arp_waiters().for_each([&] (Arp_waiter_list_element &le) {
+		_broadcast_arp_request(domain.ip_config().interface.address,
 		                       le.object()->ip());
 	});
 }
@@ -293,16 +290,6 @@ bool Interface::link_state()
 void Interface::link_state_sigh(Signal_context_capability sigh)
 {
 	_link_state_sigh = sigh;
-}
-
-
-void Interface::handle_config_3()
-{
-	/* ensure that ARP requests are sent on each interface of the domain */
-	if (_apply_foreign_arp_pending) {
-		_apply_foreign_arp();
-		_apply_foreign_arp_pending = false;
-	}
 }
 
 
@@ -1349,7 +1336,7 @@ Interface::Interface(Genode::Entrypoint     &ep,
 
 void Interface::init()
 {
-	try { _attach_to_domain(_policy.determine_domain_name(), true); }
+	try { _attach_to_domain(_policy.determine_domain_name()); }
 	catch (Domain_tree::No_match) { }
 }
 
@@ -1558,7 +1545,8 @@ void Interface::handle_config_1(Configuration &config)
 		/* if the domains differ, detach completely from the domain */
 		if (old_domain.name() != new_domain_name) {
 			_detach_from_domain();
-			_attach_to_domain(new_domain_name, false);
+			_attach_to_domain_raw(new_domain_name);
+			_apply_foreign_arp_pending = true;
 			return;
 		}
 		/* move to new domain object without considering any state objects */
@@ -1579,7 +1567,10 @@ void Interface::handle_config_1(Configuration &config)
 	catch (Pointer<Domain>::Invalid) {
 
 		/* the interface had no domain but now it may get one */
-		try { _attach_to_domain(new_domain_name, false); }
+		try {
+			_attach_to_domain_raw(new_domain_name);
+			_apply_foreign_arp_pending = true;
+		}
 		catch (Domain_tree::No_match) { }
 	}
 }
@@ -1616,7 +1607,12 @@ void Interface::handle_config_2()
 		_update_dhcp_allocations(old_domain, new_domain);
 		_update_own_arp_waiters(new_domain);
 	}
-	catch (Pointer<Update_domain>::Invalid) { }
+	catch (Pointer<Update_domain>::Invalid) {
+
+		/* if the interface moved to another domain, finish the operation */
+		try { _attach_to_domain_finish(); }
+		catch (Pointer<Domain>::Invalid) { }
+	}
 }
 
 
