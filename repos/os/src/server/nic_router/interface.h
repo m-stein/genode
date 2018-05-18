@@ -103,7 +103,6 @@ class Net::Interface : private Interface_list::Element
 		Dhcp_allocation_list               _released_dhcp_allocations { };
 		Dhcp_client                        _dhcp_client               { _alloc, _timer, *this };
 		Interface_list                    &_interfaces;
-		bool                               _apply_foreign_arp_pending { false };
 		Genode::Signal_context_capability  _link_state_sigh           { };
 		Pointer<Update_domain>             _update_domain             { };
 
@@ -365,7 +364,12 @@ class Net::Interface : private Interface_list::Element
 
 		void detach_from_ip_config();
 
+		void attach_to_ip_config(Domain            &domain,
+		                         Ipv4_config const &ip_config);
+
 		void detach_from_remote_ip_config();
+
+		void attach_to_remote_ip_config();
 
 		bool link_state();
 

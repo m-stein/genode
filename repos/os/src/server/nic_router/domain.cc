@@ -42,7 +42,9 @@ Domain_avl_member::Domain_avl_member(Domain_name const &name,
  *****************/
 
 Domain_base::Domain_base(Xml_node const node)
-: _name(node.attribute_value("name", Domain_name())) { }
+:
+	_name(node.attribute_value("name", Domain_name()))
+{ }
 
 
 /************
@@ -70,13 +72,25 @@ void Domain::ip_config(Ipv4_address ip,
 			});
 		});
 	}
-	/* install new IP config */
+	/* overwrite old with new IP config */
 	_ip_config.construct(Ipv4_address_prefix(ip, subnet_mask), gateway,
 	                     dns_server);
 
 	/* log the event */
 	if (_config.verbose_domain_state()) {
 		log("[", *this, "] IP config: ", ip_config()); }
+
+	/* attach all dependent interfaces to new IP config if it is valid */
+	if (ip_config().valid) {
+		_interfaces.for_each([&] (Interface &interface) {
+			interface.attach_to_ip_config(*this, ip_config());
+		});
+		_ip_config_dependents.for_each([&] (Domain &domain) {
+			domain._interfaces.for_each([&] (Interface &interface) {
+				interface.attach_to_remote_ip_config();
+			});
+		});
+	}
 }
 
 

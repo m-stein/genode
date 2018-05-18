@@ -264,13 +264,21 @@ void Interface::_attach_to_domain_finish()
 {
 	/* if domain has yet no IP config, participate in requesting one */
 	Domain &domain = _domain();
-	if (!domain.ip_config().valid) {
+	Ipv4_config const &ip_config = domain.ip_config();
+	if (!ip_config.valid) {
 		_dhcp_client.discover();
 		return;
 	}
+	attach_to_ip_config(domain, ip_config);
+}
+
+
+void Interface::attach_to_ip_config(Domain            &domain,
+                                    Ipv4_config const &ip_config)
+{
 	/* if others wait for ARP at the domain, participate in requesting it */
 	domain.foreign_arp_waiters().for_each([&] (Arp_waiter_list_element &le) {
-		_broadcast_arp_request(domain.ip_config().interface.address,
+		_broadcast_arp_request(ip_config.interface.address,
 		                       le.object()->ip());
 	});
 }
@@ -323,12 +331,18 @@ void Interface::detach_from_remote_ip_config()
 }
 
 
+void Interface::attach_to_remote_ip_config()
+{
+	/* only the DNS server address of the local DHCP server can be remote */
+	Signal_transmitter(_link_state_sigh).submit();
+}
+
+
 void Interface::_detach_from_domain()
 {
 	try {
 		detach_from_ip_config();
 		_detach_from_domain_raw();
-		_apply_foreign_arp_pending = false;
 	}
 	catch (Pointer<Domain>::Invalid) { }
 }
@@ -1546,7 +1560,6 @@ void Interface::handle_config_1(Configuration &config)
 		if (old_domain.name() != new_domain_name) {
 			_detach_from_domain();
 			_attach_to_domain_raw(new_domain_name);
-			_apply_foreign_arp_pending = true;
 			return;
 		}
 		/* move to new domain object without considering any state objects */
@@ -1569,7 +1582,6 @@ void Interface::handle_config_1(Configuration &config)
 		/* the interface had no domain but now it may get one */
 		try {
 			_attach_to_domain_raw(new_domain_name);
-			_apply_foreign_arp_pending = true;
 		}
 		catch (Domain_tree::No_match) { }
 	}
@@ -1580,8 +1592,8 @@ void Interface::handle_config_2()
 {
 	try {
 		/*
-		 * Update domain object only if handle_config_1 determined that the
-		 * interface stays attached to the same domain. Otherwise the
+		 * Update the domain object only if handle_config_1 determined that
+		 * the interface stays attached to the same domain. Otherwise the
 		 * interface already got detached from its old domain and there is
 		 * nothing to update.
 		 */
