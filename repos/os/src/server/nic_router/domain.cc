@@ -51,10 +51,7 @@ Domain_base::Domain_base(Xml_node const node)
  ** Domain **
  ************/
 
-void Domain::ip_config(Ipv4_address ip,
-                       Ipv4_address subnet_mask,
-                       Ipv4_address gateway,
-                       Ipv4_address dns_server)
+void Domain::ip_config(Ipv4_config const &new_ip_config)
 {
 	/* discard old IP config if any */
 	if (ip_config().valid) {
@@ -73,8 +70,7 @@ void Domain::ip_config(Ipv4_address ip,
 		});
 	}
 	/* overwrite old with new IP config */
-	_ip_config.construct(Ipv4_address_prefix(ip, subnet_mask), gateway,
-	                     dns_server);
+	_ip_config.construct(new_ip_config);
 
 	/* log the event */
 	if (_config.verbose_domain_state()) {
@@ -98,6 +94,30 @@ void Domain::discard_ip_config()
 {
 	/* install invalid IP config */
 	ip_config(Ipv4_address(), Ipv4_address(), Ipv4_address(), Ipv4_address());
+}
+
+
+void Domain::ip_config(Ipv4_address ip,
+                       Ipv4_address subnet_mask,
+                       Ipv4_address gateway,
+                       Ipv4_address dns_server)
+{
+	Ipv4_config const new_ip_config(Ipv4_address_prefix(ip, subnet_mask),
+	                                gateway, dns_server);
+	ip_config(new_ip_config);
+}
+
+
+void Domain::try_reuse_ip_config(Domain const &domain)
+{
+	if (ip_config().valid ||
+	    !_ip_config_dynamic ||
+	    !domain.ip_config().valid ||
+	    !domain._ip_config_dynamic)
+	{
+		return;
+	}
+	ip_config(domain.ip_config());
 }
 
 
@@ -154,10 +174,6 @@ Domain::Domain(Configuration &config, Xml_node const node, Allocator &alloc)
 {
 	if (_name == Domain_name()) {
 		log("[?] Missing name attribute in domain node");
-		throw Invalid();
-	}
-	if (!ip_config().valid && _node.has_sub_node("dhcp-server")) {
-		log("[", *this, "] cannot act as DHCP client and server at once");
 		throw Invalid();
 	}
 	if (_config.verbose_domain_state()) {
@@ -219,7 +235,7 @@ void Domain::init(Domain_tree &domains)
 	/* read DHCP server configuration */
 	try {
 		Xml_node const dhcp_server_node = _node.sub_node("dhcp-server");
-		if (!ip_config().valid) {
+		if (_ip_config_dynamic) {
 			log("[", *this, "] cannot be DHCP server and client at the same time");
 			throw Invalid();
 		}
@@ -291,6 +307,9 @@ void Domain::detach_interface(Interface &interface)
 {
 	_interfaces.remove(&interface);
 	_interface_cnt--;
+	if (!_interface_cnt && _ip_config_dynamic) {
+		discard_ip_config();
+	}
 	if (_config.verbose_domain_state()) {
 		log("[", *this, "] NIC sessions: ", _interface_cnt);
 	}

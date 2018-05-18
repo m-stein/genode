@@ -1544,7 +1544,7 @@ void Interface::_update_own_arp_waiters(Domain &domain)
 
 void Interface::handle_config_1(Configuration &config)
 {
-	/* deteremine the name of the new domain */
+	/* update config and policy */
 	_config = config;
 	_policy.handle_config(config);
 	Domain_name const &new_domain_name = _policy.determine_domain_name();
@@ -1556,7 +1556,26 @@ void Interface::handle_config_1(Configuration &config)
 		_destroy_dissolved_links<Tcp_link> (_dissolved_tcp_links,  _alloc);
 		_destroy_released_dhcp_allocations(old_domain);
 
+		/* do not consider to reuse IP config if the domains differ */
+		if (old_domain.name() != new_domain_name) {
+			return; }
+
+		/* interface stays with its domain, so, try to reuse IP config */
+		Domain &new_domain = config.domains().find_by_name(new_domain_name);
+		new_domain.try_reuse_ip_config(old_domain);
+		return;
+	}
+	catch (Domain_tree::No_match) { }
+	catch (Pointer<Domain>::Invalid) { }
+}
+
+
+void Interface::handle_config_2()
+{
+	Domain_name const &new_domain_name = _policy.determine_domain_name();
+	try {
 		/* if the domains differ, detach completely from the domain */
+		Domain &old_domain = domain();
 		if (old_domain.name() != new_domain_name) {
 			_detach_from_domain();
 			_attach_to_domain_raw(new_domain_name);
@@ -1570,6 +1589,7 @@ void Interface::handle_config_1(Configuration &config)
 		/* remember that the interface stays attached to the same domain */
 		_update_domain = *new (_alloc)
 			Update_domain { old_domain, new_domain };
+
 		return;
 	}
 	catch (Domain_tree::No_match) {
@@ -1588,11 +1608,11 @@ void Interface::handle_config_1(Configuration &config)
 }
 
 
-void Interface::handle_config_2()
+void Interface::handle_config_3()
 {
 	try {
 		/*
-		 * Update the domain object only if handle_config_1 determined that
+		 * Update the domain object only if handle_config_2 determined that
 		 * the interface stays attached to the same domain. Otherwise the
 		 * interface already got detached from its old domain and there is
 		 * nothing to update.

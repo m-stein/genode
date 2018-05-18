@@ -150,8 +150,9 @@ void Net::Main::_handle_config()
 	_uplink_handle_config(new_config);
 	_root.handle_config(new_config);
 	_for_each_interface([&] (Interface &intf) { intf.handle_config_1(new_config); });
-	_config = Reference<Configuration>(new_config);
 	_for_each_interface([&] (Interface &intf) { intf.handle_config_2(); });
+	_config = Reference<Configuration>(new_config);
+	_for_each_interface([&] (Interface &intf) { intf.handle_config_3(); });
 
 	destroy(_heap, &old_config);
 }
