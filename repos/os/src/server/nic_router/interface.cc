@@ -877,7 +877,6 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 	Ipv4_packet &ip = eth.data<Ipv4_packet>(size_guard);
 	Ipv4_address_prefix const &local_intf = local_domain.ip_config().interface;
 
-	log(__func__, __LINE__);
 	/* try handling subnet-local IP packets */
 	if (local_intf.prefix_matches(ip.dst()) &&
 	    ip.dst() != local_intf.address)
@@ -896,15 +895,12 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 		size_t       const prot_size = size_guard.unconsumed();
 		void        *const prot_base = _prot_base(prot, size_guard, ip);
 
-	log(__func__, __LINE__);
 		/* try handling DHCP requests before trying any routing */
 		if (prot == L3_protocol::UDP) {
 			Udp_packet &udp = *reinterpret_cast<Udp_packet *>(prot_base);
 
-	log(__func__, __LINE__);
 			if (Dhcp_packet::is_dhcp(&udp)) {
 
-	log(__func__, __LINE__);
 				/* get DHCP packet */
 				Dhcp_packet &dhcp = udp.data<Dhcp_packet>(size_guard);
 				if (dhcp.op() == Dhcp_packet::REQUEST) {

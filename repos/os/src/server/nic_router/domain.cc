@@ -91,9 +91,7 @@ void Domain::ip_config(Ipv4_config const &new_ip_config)
 		});
 	} else {
 		_interfaces.for_each([&] (Interface &interface) {
-			log(__func__);
 			interface.attach_to_domain_finish();
-			log(__func__);
 		});
 	}
 }
