@@ -100,7 +100,7 @@ class Fs_rom::Rom_session_component : public  Rpc_object<Rom_session>
 		 */
 		struct Version { unsigned value; };
 		Version _curr_version       { 0 };
-		Version _handed_out_version { 0 };
+		Version _handed_out_version { ~0U };
 
 		/**
 		 * Track if the session file or a directory is being watched
@@ -266,27 +266,16 @@ class Fs_rom::Rom_session_component : public  Rpc_object<Rom_session>
 
 			if (_sigh.valid() && _curr_version.value != _handed_out_version.value) {
 
-				/* notify if the file exists and is not empty */
+				/* notify if the file is not empty */
 				try {
 					Node_handle file = _fs.node(_file_path.base());
 					Handle_guard g(_fs, file);
 					_file_size = _fs.status(file).size;
-					if (_file_size > 0) {
-						/* assume a transition between versions */
-						Signal_transmitter(_sigh).submit();
-					}
 				}
+				catch (...) { _file_size = 0; }
 
-				/* notify if the file is removed */
-				catch (File_system::Lookup_failed) {
-					if (_file_size > 0) {
-						memset(_file_ds.local_addr<char>(), 0x00, _file_size);
-						_file_size = 0;
-						Signal_transmitter(_sigh).submit();
-					}
-				}
-
-				catch (...) { }
+				if (_file_size > 0)
+					Signal_transmitter(_sigh).submit();
 			}
 		}
 
@@ -443,8 +432,11 @@ class Fs_rom::Rom_root : public Root_component<Fs_rom::Rom_session_component>
 				auto const apply_fn = [pkt] (Rom_session_component &session) {
 					session.process_packet(pkt); };
 
-				_sessions.apply<Rom_session_component&>(
-					Sessions::Id{pkt.handle().value}, apply_fn);
+				try { _sessions.apply<Rom_session_component&>(
+					Sessions::Id{pkt.handle().value}, apply_fn); }
+
+				/* session closed while packet in flight */
+				catch (Sessions::Unknown_id) { }
 
 				source.release_packet(pkt);
 			}
