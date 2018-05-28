@@ -1,0 +1,1125 @@
+
+
+              ===============================================
+              Release notes for the Genode OS Framework 18.05
+              ===============================================
+
+                               Genode Labs
+
+
+
+; intro
+; @nfeske
+
+
+Sculpt for The Curious
+######################
+
+; @nfeske
+
+commit f0ac01395f874283da39946f5240ebc109ae389d
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Mon Apr 16 15:08:18 2018 +0200
+
+    sculpt: read config from /rw/config/<VERSION>/
+    
+    By incorporating the sculpt version into the path where customizations
+    are stored, we can update and roll back sculpt versions without risking
+    configuration incompatibilities. By default, the sculpt version
+    corresponds to <genode-dir>/VERSION.
+
+commit 02544a5bfd14ddd7995bfb24e4586cd5a58fd71e
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue May 8 22:44:09 2018 +0200
+
+    depot_download: respond to 'installation' changes
+    
+    This patch enables the 'depot_download' subsystem to trigger downloads
+    whenever there is a new version of the 'installation' ROM.
+
+commit 59946530565d0cf30169a6978315274a992a2729
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue May 8 22:46:40 2018 +0200
+
+    depot_download: forward fetchurl progress reports
+    
+    This patch enables the observation of the download progress from the
+    outside of the depot-download subsystem.
+
+
+Storage infrastructure
+######################
+
+VFS library and plugin interface
+================================
+; @emery
+
+commit e05602aedf71a8f35dd92e6d62e7dc57cc4f02a4
+Author: Emery Hemingway <ehmry@posteo.net>
+Date:   Mon Apr 23 10:49:21 2018 +0200
+
+    Convert static VFS library to dynamic library
+    
+    Fix #2759
+
+commit b0b92e4ee28857e2ec1c0405b2e1e68bebfe5007
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Mar 2 13:30:10 2018 +0100
+
+    vfs: pass root directory to plugins
+    
+    This patch enables the use of the VFS from VFS plugins by passing a
+    reference of the root directory to the constructors of file-system
+    instances. Since it changes the signature of 'Vfs::Dir_file_system',
+    any code that uses the VFS directly requires an adaptation.
+    
+    Fixes #2701
+
+commit 9c6b720ec14279d4da60062936c82ca770874fc7
+Author: Emery Hemingway <ehmry@posteo.net>
+Date:   Sat Mar 31 16:50:49 2018 +0200
+
+    Notification support for the VFS library
+    
+    Add a new 'Vfs_watch_handle' type to the VFS interface. This handle type
+    will pass a handle context up through the I/O handler to the application
+    when a notification event occurs.
+    
+    Watch support implemented for RAM and File_system plugins, all other
+    file-systems return WATCH_ERR_STATIC by default.
+    
+    Test at run/fs_rom_update_ram and run/fs_rom_update_fs.
+    
+    Fix #1934
+
+Watch notifications for FatFS and Rump VFS plugins
+==================================================
+; @emery
+
+commit c0ed3ca2bd755ee3a284bad6d1b959cd6301ed75
+Author: Emery Hemingway <ehmry@posteo.net>
+Date:   Sat Mar 31 17:16:27 2018 +0200
+
+    Vfs Rump watch support
+    
+    Implement watch support using the BSD kevent facility.
+    
+    Test at run/fs_rom_update_ext2.
+    
+    Ref #1934
+
+commit 8ba26c612a153ee8b32aefc41f1d5c7f6fc2fb5c
+Author: Emery Hemingway <ehmry@posteo.net>
+Date:   Sat Mar 31 17:18:47 2018 +0200
+
+    FatFS watch support
+    
+    Implement watch support using a watch handle list.
+    
+    Test at run/fs_rom_update_fat.
+    
+    Ref #1934
+
+New VFS audit plugin
+====================
+; @emery
+
+commit f7ba777fff6fbd519bb9016f7e2a26e7b5134471
+Author: Emery Hemingway <ehmry@posteo.net>
+Date:   Mon Mar 12 19:29:58 2018 +0100
+
+    VFS audit plugin
+    
+    Plugin for auditing VFS access using the VFS server. Useful for tracking
+    which files ported software expects to be present.
+    
+    Fix #2160
+
+New VFS copy-on-write plugin
+============================
+; @emery
+
+commit c1ff581fb4c7e9da1392251a422282320e7adebf
+Author: Emery Hemingway <ehmry@posteo.net>
+Date:   Wed Apr 4 13:32:39 2018 +0200
+
+    Copy-on-write VFS plugin
+    
+    VFS plugin to replicate from one file-system to another. Can be used to
+    seed a mutable file-system with an immutable file-system. The plugin is
+    configure with two paths, a read-only path, and a read-write path. This
+    is an initial implementation that copies files on open. It is not
+    optimized to perform actual copy-on-write, but the result is the same.
+    
+    <vfs>
+    	<dir name="immutable"> ... </dir>
+    	<dir name="mutable">   ... </dir>
+    	<dir name="cow">
+    		<cow ro="/immutable" rw="/mutable"/>
+    	</dir>
+    </vfs>
+    
+    Fix #2745
+
+Improved disk-partition discovery and access
+============================================
+; @cnuke
+
+commit e2023aae1a2f225a1244313b8e0d65cafab180a3
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Thu May 3 11:44:23 2018 +0200
+
+    part_blk: change behaviour regarding GPT usage
+    
+    The component will now always try to parse the MBR as well as the GPT
+    (in this order). It will bail out if both are considered valid, using
+    GPT/MBR hybrid tables is not supported.
+    
+    Fixes #2803.
+
+commit 45745aadf4f948785acea7eda41e0b70cc484ea5
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Thu May 3 15:34:08 2018 +0200
+
+    part_blk: add minimal file system probing
+    
+    For now it is enough to differentiate the most commonly used file
+    system on Genode, e.g. Ext2 for the Genode partition and FAT32 for
+    (U)EFI partitions.
+    
+    Issue #2803.
+
+commit 39c60e374646e22fc74c719fe426b2d54250ed54
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Wed May 2 17:23:39 2018 +0200
+
+    part_blk: report block size
+
+commit df22fa1e6a30845371d417224ca98530af971d98
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Fri May 4 10:49:11 2018 +0200
+
+    part_blk: probe whole disk if no valid MBR found
+    
+    Report the whole disk as partition 0 and probe file system. The
+    partitions type is set to 'disk'.
+    
+    Issue #2803.
+
+commit 223d452bd152f226eb2fc4296b3d9d4bf28e519c
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Fri May 4 12:25:37 2018 +0200
+
+    part_blk: add reporting of expandable GPT entries
+    
+    Issue #2803.
+
+Creating and modifying GUID partition tables
+============================================
+; @cnuke
+
+commit b07914d7308b31e951429a2a16bf0198d775370a
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Tue May 1 15:29:31 2018 +0200
+
+    gems: add tool to write a GPT to a Block device
+    
+    This component creates a GPT on a Block device. It supports the common
+    actions, as in adding, deleting and modifying entries in the GPT, while
+    considering alignment constraints. If needed it will round the length of
+    a partition down to meet those constraints. The component will not
+    perform layout checking, i.e., it does not care about overlapping
+    partitions. Only when apping a partition it will make sure that the
+    partition will fit.
+    
+    Please read _repos/gems/src/app/gpt_write/README_ for more detailed
+    information on how to use the component and feel free to check out
+    _repos/gems/run/gpt_write.run_.
+    
+    Fixes #2814.
+
+User-level networking
+#####################
+; @m-stein
+
+commit bd16f89617625b58376ea1b5a5247b4d363cdaed
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Sun Feb 4 15:38:08 2018 +0100
+
+    nic_router: add verbose_packets attribute
+    
+    This separates the decision wether to log the received and sent packets
+    from the 'verbose' attribute. This information is now only logged if
+    'verbose_packets' is switched on. If 'verbose' is switched on, only
+    routing decisions and optional hints are printed.
+    
+    Ref #2670
+
+commit bd16f89617625b58376ea1b5a5247b4d363cdaed
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Sun Feb 4 15:38:08 2018 +0100
+
+    nic_router: add verbose_packets attribute
+    
+    This separates the decision wether to log the received and sent packets
+    from the 'verbose' attribute. This information is now only logged if
+    'verbose_packets' is switched on. If 'verbose' is switched on, only
+    routing decisions and optional hints are printed.
+    
+    Ref #2670
+
+commit 2a779761644533f5d3818f7618bb2d3ec44537ac
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Sun Feb 4 15:58:25 2018 +0100
+
+    nic_router: add verbose_packets per domain
+    
+    A domain logs its packets if one of the global 'verbose_packets' or its local
+    'verbose_packets' is switched on.
+    
+    Ref #2670
+
+commit 2c2037952db61068c2e9eed859962e5524643da2
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Wed Feb 7 18:38:49 2018 +0100
+
+    nic_router: support interfaces without a domain
+    
+    Clients can connect at any time to the NIC router. The interfaces (sessions)
+    get attached to the appropriate domain as soon as it appears. This implies
+    that interfaces can also be detached from a domain without beeing destructed
+    when the domain disappears. All user dependent states of an interface such as
+    the link states, DHCP allocations and ARP information get lost when the
+    interface gets detached.
+    
+    Ref #2670
+
+commit 92a30e09539e164a584102cd50b62aa583ed2075
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Mon Mar 19 19:16:17 2018 +0100
+
+    nic_router: handle configuration changes
+    
+    The router reacts as follows to a configuration change:
+    
+    1) Construct new internal configuration representation (the old one stays
+       in place to be able to do comparisons in the following steps)
+    2) Iterate through all user-dependent objects (interfaces, link states, ARP
+       information, DHCP information) and re-check which remain valid with the
+       new configuration and which must be dismissed.
+    3) Adapt the objects that remain valid to the new configuration (re-write
+       references) and remove or detach the dismissed objects.
+    4) Do a link state DOWN at each interface and a link state UP at each
+       interface that remains attached to a domain.
+    5) Replace the old internal configuration representation with the new one
+    
+    This way, the router keeps as much user dependent states as possible
+    while going through a configuration change. Thus, overwriting the old
+    configuration with an exact copy of itself is (almost) transparent to
+    clients of the router. Almost, because there are things the router must
+    do on every configuration handling, like re-scheduling the expiration
+    timeouts of links.
+    
+    Ref #2670
+
+commit 4bee38ea62666e306329b4fcee89b3dffae62f30
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Thu Mar 22 22:53:32 2018 +0100
+
+    nic_router: DHCP server considers dns_server_from
+    
+    The dns_server_from attribute of the dhcp-server tag has effect only if
+    the dns_server attribute of the same tag is not set. If this is the
+    case, the dns_server_from attribute states the domain from whose IP
+    config to take the DNS server address. This is useful, for instance, if
+    the stated domain receives the address of a local DNS server via DHCP.
+    Whenever the IP config of the stated domain becomes invalid, the DHCP
+    server switches to a mode where it drops all requests unanswered until
+    the IP config becomes valid again.
+    
+    Issue #2730
+
+commit e213b9046dac0f8c466b832dac2a442bbe690d16
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Fri Mar 23 02:43:00 2018 +0100
+
+    nic_router: inform clients on DNS server change
+    
+    If the remote DNS server address value of a DHCP server changes, the affected
+    interfaces do a link down/up to inform all DHCP clients that they should
+    re-request their DHCP info.
+    
+    Issue #2730
+
+commit ed13a0a262854d839a50e7d0b2e9cd63c19aea51
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Fri Apr 6 11:56:33 2018 +0200
+
+    nic_dump: make protocols configurable
+    
+    Each supported protocol now has an attribute with the name of the protocol in
+    the config tag. Each of these attributes accepts one of four possible values:
+    
+    * no      - do not print out this protocol
+    * name    - print only the protocol name
+    * default - print a short summary of the most important header values
+    * all     - print all available header values
+    
+    Example:
+    
+    ! <config eth="name"
+    !         arp="all"
+    !         ipv4="default"
+    !         dhcp="no"
+    !         icmp="all"
+    !         udp="no"
+    !         tcp="default"
+    !         ... />
+    
+    Corresponding output example:
+    
+    ! ETH IPV4 10.0.2.212 > 10.0.2.55   time 7158 ms (Δ 11 ms)
+    ! ETH IPV4 10.0.2.55 > 10.0.2.201  TCP 80 > 49154 flags ' time 6976 ms (Δ 5 ms)
+    ! ETH ARP hw 1 prot 2048 hwsz 6 protsz 4 op 1 srcmac 02:02:02:02:02:01 srcip 10.0.2.212 dstmac 00:00:00:00:00:00 dstip 10.0.2.55 time 7074 ms (Δ 98 ms)
+    
+    Issue #2738
+
+commit d6e1c462cc6f7d4a96362cd22c4e6b1e45f47906
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Fri Apr 6 15:47:12 2018 +0200
+
+    nic_dump: default attribute
+    
+    The 'default' attribute is useful to change the default value for those
+    protocol attributes that are not explicitely set in the configuration of
+    the component.
+    
+    Issue #2738
+
+commit 67b7fdddb1ba59855016dedfd07ea35ab566f41b
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Fri Apr 27 14:52:02 2018 +0200
+
+    nic_router: bind uplink session lifetime to domain
+    
+    Normally, the NIC sessions are independent from the domain tags.
+    However, by now the uplink session, in contrast to the sessions of the
+    other domains, is still not a server but a client. This means that only
+    the NIC router itself can decide when to open and close uplink sessions
+    and how many. Thus, with this commit, we break with the pattern that
+    session lifetime is independent from domains by letting the NIC router
+    create the uplink session when the uplink domain appears and close the
+    session when the domain disappears.
+    
+    Fixes #2795
+
+commit afbbb9441c3cb37647a4ef443ea08d95b9ed763a
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Thu May 10 13:38:45 2018 +0200
+
+    nic_router: label attribute for uplink domain
+    
+    The new attribute config.domain.label has effect only at the uplink
+    domain-tag. It determines which label the NIC router shall use when
+    requesting the NIC session for the uplink domain. If value of this
+    attribute changes at the uplink domain-tag, the NIC router closes and
+    re-requests the NIC session of the uplink with the new label.
+    
+    Issue #2815
+
+
+GUI stack
+#########
+
+UTF-8 support and improved text rendering
+=========================================
+; @nfeske
+
+commit d59d07b5e3535ed895e84046f21864b6f95c234a
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Mar 15 14:12:04 2018 +0100
+
+    os: util/utf8.h for UTF-8 string handling
+    
+    This patch adds a simple UTF-8 decoder at 'os/include/util/utf8.h'
+    along with a test at 'os/run/utf8.run'.
+    
+    Fixes #2717, related to issue #2716
+
+commit cb188f5f93ed6184cfd2c994164d71428dc44e39
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Mar 16 13:54:02 2018 +0100
+
+    terminal: support Latin-1 subset of UTF-8
+
+commit 97317b0c95f6024c855db7186281b37b4b381097
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Apr 3 16:46:04 2018 +0200
+
+    terminal: change term caps from linux to screen
+    
+    Fixes #2743
+
+commit 3778558608bb5211cf088f66be2d6d8e3d12f971
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Mar 8 18:27:42 2018 +0100
+
+    os: reworked nitpicker_gfx/text_painter.h
+    
+    This patch improves the `Text_painter` utility that is commonly used by
+    native Genode components to render text:
+    
+    - Support for subpixel positioning
+    - Generic interface for accessing font data
+    - Basic UTF-8 support
+    
+    Since the change decouples the font format from the 'Text_painter' and
+    changes the API to use the sub-pixel accurate 'Text_painter::Position'
+    type, all users of the utility require an adaptation.
+    
+    Fixes #2716
+
+commit f837df34b1c174ea22a84addcabd37fa23287eb6
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Mar 2 14:31:24 2018 +0100
+
+    libports: stb single-file header libraries
+
+commit 23f07331c883e2df02699d61d2f82fd4b8d8acc2
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Mar 20 17:04:36 2018 +0100
+
+    gems: ttf_font library
+
+commit 81e55e89017658fd2d82fea9dd01adc3ee684dee
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Mon Mar 26 17:16:47 2018 +0200
+
+    gems: TrueType VFS plugin
+    
+    This commit introduces a VFS plugin that exposes the glyphs and
+    metadata of a TrueType font as a pseudo file system. The TTF font data
+    is obtained from the VFS. The resulting pseudo file system is a
+    directory that contains the files 'glyphs', 'baseline', 'max_width',
+    and 'max_height'.
+    
+    The counter part of the plugin is the 'Vfs_font' class that implements
+    the 'Text_painter::Font' interface by accessing the pseudo file system
+    as provided by the TTF VFS plugin.
+    
+    Fixes #2740
+
+commit 0011dd1623e2b50d26d620595913a7414cff572a
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Apr 11 14:40:21 2018 +0200
+
+    terminal: remove built-in keyboard layout handling
+    
+    Fixes #2757
+
+commit 1f1302e185277508606f229404bfc2101c0ac5e6
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Apr 11 14:14:20 2018 +0200
+
+    terminal: use VFS-based font handling
+    
+    This patch replaces the terminal's formerly built-in fonts with the new
+    VFS-based font handling.
+    
+    To avoid the copying of the terminal's font configuration across run
+    scripts, this patch adds the new terminal/pkg runtime package, which
+    includes everything needed for instantiating a terminal: the actual
+    terminal component, the library dependencies (vfs_ttf, which in turn
+    depends on the libc), a font (bitstream-vera), and a reasonable default
+    configuration.
+    
+    Fixes #2758
+
+commit 26a25918967f744913560f761e88aabe3f83c620
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Apr 17 13:35:30 2018 +0200
+
+    menu_view: VFS-based font handling
+    
+    Fixes #2773
+
+
+Modernized API for input-event processing
+=========================================
+; @nfeske
+
+commit afcad2a9688fb02f78a8b7a317d779e84e50ba18
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Apr 20 14:27:45 2018 +0200
+
+    os: new Input::Event representation
+    
+    This commit changes the 'Input::Event' type to be more safe and to
+    deliver symbolic character information along with press events.
+    
+    Issue #2761
+    Fixes #2786
+
+
+Improved keyboard-focus handling
+================================
+; @nfeske
+
+commit 9d233b73a30a4e4d45a579e1f60c23b107d3d08f
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Apr 5 19:50:56 2018 +0200
+
+    nitpicker: improve 'Session::focus' handling
+    
+    Nitpicker's 'Session:focus' call used to trigger a one-off focus change
+    at call time. This focus change did not pass the same code paths as a
+    focus change triggered by a "focus" ROM update, which led to
+    inconsistencies.
+    
+    This patch changes the implementation of 'Session::focus' such that the
+    relationship of the caller and the focused session is preserved after
+    call time. Whenever the calling session is focused in the future, the
+    specified session will receive the focus instead. So 'Session::focus'
+    represents no longer a single operation but propagates the information
+    about the inter-session relationship. This information is taken into
+    account whenever the focus is evaluated regardless of how the change is
+    triggered.
+    
+    This makes the focus handling in scenarios like the window manager more
+    robust.
+    
+    Issue #2746
+
+
+Device drivers
+##############
+
+NVMe storage devices
+====================
+; @cnuke
+
+commit ce93e47e89404a6d45b21651d0bceac4294b0155
+Author: Josef Söntgen <jws@sysret.de>
+Date:   Mon Jul 4 19:04:41 2016 +0200
+
+    os: add Block session tester component
+    
+    Issue #2747.
+
+commit 372e426ec7ab30556fe43c2339bcc8abad40e4a0
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Mar 5 23:23:05 2018 +0100
+
+    platform_drv: recognize PCIe NVMe controller
+    
+    Issue #2747.
+
+commit 04516a0d3910c55011be76281fc1ee5ae7ac16ea
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Apr 9 16:13:54 2018 +0200
+
+    nvme_drv: add driver for NVMe storage devices
+    
+    This driver component provides support for using consumer NVMe storage
+    devices, i.e. it omits name space managment and will always use the
+    first name space, on Genode. For now it defaults to a reasonable low
+    configuration:
+    
+      -    1 I/O queue (completion/submission tuple)
+      -  128 entries in the I/O queue
+      - 4096 as the only I/O transaction memory page size
+    
+    Fixes #2747.
+
+NXP i.MX SoC
+============
+; @skalk
+
+commit f653be1ebce88466e7f5f723d235deef5ea1431a
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Thu Feb 22 15:25:14 2018 +0100
+
+    gpio_drv: add support for i.MX6
+    
+    Fix #2750
+
+commit 2af5dbc2010b583d0b98b7eb9dd94fce5d454237
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Mon Apr 9 14:43:29 2018 +0200
+
+    dde_linux: enable more platforms for nic_drv
+    
+    In addition to the i.MX6Q SoC, the Freescale network driver
+    works now on i.MX6SX and i.MX53 SoCs.
+    
+    Ref #2749
+
+
+Improved USB-storage driver
+===========================
+; @cproc
+
+commit 258ffb5e94d08680b6cb924fe5b95fca7508aff5
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Mon May 7 16:10:39 2018 +0200
+
+    usb_block_drv: calculate block count correctly
+    
+    Fixes #2823
+
+commit c0390fdcac6bf387eb86b48a0905602521ec4415
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Mon May 7 11:54:14 2018 +0200
+
+    usb_block_drv: look up endpoints at runtime
+    
+    Fixes #2824
+
+commit 4b634b494881439e3ff31c85abbe403fe06de98d
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Mon May 7 20:09:34 2018 +0200
+
+    usb_block_drv: set inquiry response length to 36 bytes
+    
+    Fixes #2825
+
+commit 7a7bfc5ef913f952f06f0a98be50d9263dcb91f2
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Mon May 7 15:54:18 2018 +0200
+
+    usb_block_drv: use 10-byte SCSI commands by default
+    
+    Fixes #2826
+
+commit 6b6d49c13577a0223bdd0042bd898513dcbb7150
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Mon May 7 17:20:56 2018 +0200
+
+    usb_block_drv: release packet after device reset
+    
+    Fixes #2827
+
+commit 0dd1ef5cbb944fc483088b5f2910bc13ab4eb8b1
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Mon May 14 14:35:10 2018 +0200
+
+    Usb::Packet_handler: avoid completion handler recursion
+    
+    Fixes #2828
+
+Libraries and applications
+##########################
+
+Packaged Qt5 framework
+======================
+; @cproc
+
+commit 1d6301c689756afdde1f7a0bbf4db62889518413
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Mon Apr 16 19:23:57 2018 +0200
+
+    depot: expat recipe
+    
+    Fixes #2769
+
+commit b8def5a3c277a3b25ac09af939c1523f2d575fce
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Thu Mar 15 19:39:34 2018 +0100
+
+    depot: gpu_session recipe
+    
+    Fixes #2770
+
+commit f58717205a44414bbcfaa2e4202a333d049c56bf
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Mon Apr 16 19:48:43 2018 +0200
+
+    depot: qoost recipe
+    
+    Fixes #2771
+
+commit b2935b504d0e344206a1ac132f3a61d6717e9776
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Tue Apr 17 13:33:55 2018 +0200
+
+    depot: drm recipe
+    
+    Fixes #2772
+
+commit be8addc6080c8c438acb197a4945b0b439b9de93
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Tue Apr 17 14:01:00 2018 +0200
+
+    depot: mesa recipe
+    
+    Fixes #2784
+
+commit cbdeb410948cf12bdaea20957349d64f4b5552e6
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Sat Apr 7 03:31:26 2018 +0200
+
+    depot: icu recipe
+    
+    Fixes #2785
+
+commit 15d1427f0607d39bf9913789f50c246cd7ccb090
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Tue Apr 24 12:40:22 2018 +0200
+
+    depot: qt5 recipes
+    
+    Fixes #2792
+
+
+Java language support
+=====================
+; @ssumpf
+
+commit 766734cf80d56fe7a42d290686fc3923fe41f3b7
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Wed Jul 12 14:16:55 2017 +0200
+
+    jdk: OpenJDK for Genode
+    
+    OpenJDK version 9 for Genode, contains the interpreter version of the
+    HotSpot virtual machine.
+    
+    fixes #2791
+
+
+Ada language support
+====================
+; @chelmuth
+
+commit 1261c18ce97b46258c2e6fe0a46b72e356081884
+Author: Johannes Kliemann <kliemann@componolit.com>
+Date:   Mon Apr 9 14:20:45 2018 +0200
+
+    ada: runtime and library support
+    
+    The Ada runtime can now be set with the ADA_RTS variable. The ada
+    library builds a (currently) minimal runtime from the gcc sources that
+    come with Genode (to stay consistent with the used compiler) and sets
+    the runtime path accordingly. It is build as a shared library ada.lib.so
+    which needs to be added to the build files.
+    
+    I split the existing Ada test into program and library, and moved it
+    to libports as it depends on the runtime library residing in this
+    repository too.
+    
+    Fixes #2748
+
+commit c02ef3ec947d252507351fb6619f81113baa2e25
+Author: Johannes Kliemann <kliemann@componolit.com>
+Date:   Mon Apr 16 15:26:00 2018 +0200
+
+    ada: compile runtime bodies, customizable tools
+    
+    This is a follow-up commit for "ada: runtime and library support".
+    
+    Issue #2748
+
+
+Nim language support
+====================
+; @emery
+
+commit f4a5862ed34e1b96b2b66d712070a31a8d1d2e85
+Author: Emery Hemingway <ehmry@posteo.net>
+Date:   Thu May 3 09:56:27 2018 +0200
+
+    Update Nim to 0.18.0
+    
+    Fix #2804
+
+
+Standalone POSIX pipe utility
+=============================
+; @emery
+
+commit f27953c48d58c81a5a0d18f0fe93c9c039ee6b7b
+Author: Emery Hemingway <ehmry@posteo.net>
+Date:   Tue Mar 6 13:16:28 2018 +0100
+
+    Standalone POSIX pipe utility
+    
+    Pipe between files using POSIX stdio. This facilitates raw transfers
+    between arbitrary resources exposed by the VFS library.
+    
+    Fix #2708
+
+
+Seoul VMM on NOVA
+=================
+; @alex-ab
+
+commit 8e8878f18700ef3f8989dc7cd7d7807986b48402
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Mon Mar 5 10:28:26 2018 +0100
+
+    seoul: show vga messages during early disc boot
+    
+    Issue #2715
+
+commit ed320f6f038a4d92441c0495648ab5e452eb9058
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Tue Mar 6 18:47:03 2018 +0100
+
+    seoul: support rtl8029 network model
+    
+    Issue #2715
+
+commit 57fcd5e0c4b09347752d01526dc0270d370b0a89
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Wed Mar 14 23:04:43 2018 +0100
+
+    seoul: adjust vga model to framebuffer host size
+    
+    Configure the available vga/vesa memory based on the given Genode framebuffer
+    size and not the way around.
+    
+    Issue #2715
+
+
+Ported software
+===============
+; @emery
+
+commit 60eeddf639efc2a77933e275eb8de6363eea20c0
+Author: Emery Hemingway <ehmry@posteo.net>
+Date:   Thu Feb 15 18:59:11 2018 +0100
+
+    Port of libyaml
+    
+    http://pyyaml.org/wiki/LibYAML
+    
+    Ref #2682
+
+commit 3faf7aab8fba964f5594425fef509b7f7bf4b7f0
+Author: Emery Hemingway <ehmry@posteo.net>
+Date:   Sun Feb 18 12:10:31 2018 +0100
+
+    Port of getdns and Stubby DNS resolver
+    
+    Stubby is an application that acts as a local DNS stub resolver.
+    
+    https://getdnsapi.net/
+    https://dnsprivacy.org/wiki/display/DP/DNS+Privacy+Daemon+-+Stubby
+    
+    Ref #2682
+
+commit 35eedb15739671eee2e4cd5011db80d7017974d5
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Tue Apr 3 14:34:01 2018 +0200
+
+    libports: port of ffi library
+    
+    required by jdk
+    
+    issue #2791
+    
+    Forein function interface library, which takes care of calling
+    conventions of different platforms.
+
+
+Platforms
+#########
+
+Accessing PCI via ECAM/MMCONF
+=============================
+; @alex-ab
+
+commit 47724c68c2c27a430e9a60c55ebb42f8d4ebf941
+Author: Reto Buerki <reet@codelabs.ch>
+Date:   Thu Oct 19 10:13:35 2017 +0200
+
+    platform_drv/x86: Switch to ECAM/MMCONF
+    
+    Switch port I/O based PCI config space access to memory-mapped IO.  The
+    base address of the PCI configuration space is acquired by mapping the
+    ACPI ROM and reading the first <bdf> node. An exception is thrown if the
+    first <bdf> node is not for PCI domain zero or if multiple <bdf> nodes
+    exist. This is to reduce complexity and also because multiple PCI
+    domains are rare.
+    
+    The PCI configuration space is accessed via I/O mem dataspace which is
+    created in the platform_drv root and then passed on to the PCI session,
+    device components and finally to the actual PCI config access instances.
+    
+    The memory access code is implemented in a way to make it work with Muen
+    subject monitor (SM) device emulation and also general x86 targets. On
+    Muen, the simplified device emulation code (which works also for Linux)
+    always returns 0xffff in EAX to indicate a non-existing device.
+    Therefore, EAX is enforced in the assembly templates.
+    
+    Fixes #2547
+
+
+Kernel-agnostic platform-information handling
+=============================================
+; @alex-ab
+
+commit 80e1dce1b02da3a64d33e06b2b3715167d7b4771
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Thu Mar 8 11:34:59 2018 +0100
+
+    nova: abandon hypervisor_info_page ROM
+    
+    replace by platform_info ROM supposed to exist on all supported
+    kernels.
+    
+    Fixes #2710
+
+commit a6a196f042b2bf92f1f71640982e056b9a5b6dc9
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Tue Mar 27 13:40:53 2018 +0200
+
+    sel4: add tsc and svm/vmx feature to platform_info
+    
+    Issue #2710
+
+commit 26918b82b3b379904a686623c5e8b86f970b44df
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Tue Mar 27 13:52:11 2018 +0200
+
+    hw: provide svm/vmx features via platform_info
+    
+    Issue #2710
+
+
+Updated seL4 kernel to version 9.0.1
+====================================
+; @alex-ab
+
+commit 2278104a8de85f10f2ff86e198e8124e3c7b1d18
+Author: Hinnerk van Bruinehsen <h.v.bruinehsen@fu-berlin.de>
+Date:   Fri Apr 13 13:44:42 2018 +0200
+
+    sel4: update to version 9.0.0
+
+commit c421f59314cf368fea2ac1cdab215f55ff17ce57
+Author: Hinnerk van Bruinehsen <h.v.bruinehsen@fu-berlin.de>
+Date:   Wed Apr 18 11:01:22 2018 +0200
+
+    Update to seL4 9.0.1
+
+
+Updated Muen separation kernel
+==============================
+; @kensan
+
+commit 5c3461a851e7a20881edcb1843da27f3b37cc11a
+Author: Reto Buerki <reet@codelabs.ch>
+Date:   Mon Apr 9 17:02:42 2018 +0200
+
+    Update Muen port
+    
+    - Switch to sinfo variant resources API
+    - Improved MSI IRQ representation and processing
+    - Genode system policy adjustments
+
+commit 810f59b555a208ef7c051d53c1e2008ef0247861
+Author: Reto Buerki <reet@codelabs.ch>
+Date:   Tue Mar 27 14:46:26 2018 +0200
+
+    muen: Update sinfo to variant resources API
+
+commit 6f4dd0a63a5d270176c1141f28d3ec2a35bf9504
+Author: Adrian-Ken Rueegsegger <ken@codelabs.ch>
+Date:   Thu Apr 12 14:22:39 2018 +0200
+
+    Update Muen port
+    
+    - Use device class in system policies to simplify platform-specific
+      device assignment
+    - Increase timed event nr. bits from 5 to 6
+
+Build system and tools
+######################
+
+Validating 3rd-party code downloads via SHA256
+==============================================
+; @emery
+
+commit 80b3994500a1fd50e0d0484d2ffb14604032fe2a
+Author: Emery Hemingway <ehmry@posteo.net>
+Date:   Thu Apr 19 09:50:09 2018 +0200
+
+    prepare_port: prefer SHA256 file verification
+    
+    SHA1 is susceptible to collision attacks and is generally deprecated.
+    Source code archives are particularly vulnerable because the hash digest
+    can be tweaked by hiding by arbitrary data in code comments and files
+    not processed during build.
+    
+    With this in mind the 'prepare_port' tool now attempts to verify digests
+    as SHA256 with a fallback to SHA1. When CHECK_HASH=no is set the tool
+    will refuse to verify digests as SHA1. The use of SHA1 for creating
+    unique port versions is retained because the hashes are produced locally
+    from inputs stored in a git history.
+    
+    Issue #2767
+
+commit e033ab9408c54f7b8e8b326a9a77d58ba86a511b
+Author: Emery Hemingway <ehmry@posteo.net>
+Date:   Mon May 7 16:45:50 2018 +0200
+
+    Replace SHA1 hashes of port downloads with SHA256
+    
+    Now SHA256 has been shown to be an adequate replacement for SHA1, use
+    SHA256 for verifying all port downloads.
+    
+    Ref #2767
+
+commit 6e79d44c211ca214e3625b4387030b40370836e5
+Author: Emery Hemingway <ehmry@posteo.net>
+Date:   Mon May 7 16:53:06 2018 +0200
+
+    Remove SHA1 verification for port downloads
+    
+    Revert support for both SHA1 and SHA256 verification and support SHA256
+    only.
+    
+    Ref #2767
+
+
+Creating GPT-based disk images by default
+=========================================
+; @alex-ab
+
+commit d5e19283477a8ab0c319af452a42f44f3287ed54
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Fri Apr 13 23:46:24 2018 +0200
+
+    run: use GPT for image/disk BIOS legacy
+    
+    Issue #2778
+    
+    The "create_grub2" script functionality is moved to the g2fg contrib sources
+    and also the GRUB2 head image (tool/grub2-head.img). The head image is now
+    partitioned as GPT and bootable in BIOS legacy mode.
+
+commit fbd59da2a49373e822dff23d461680a50e1df0fd
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Wed May 2 18:26:59 2018 +0200
+
+    tool/run: move binaries to boot directory
+    
+    Issue #2778
+
+commit 032551f2c1d39d451b11a5990ebaf20c41b3dc0b
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Tue May 8 20:47:21 2018 +0200
+
+    run: image/disk for UEFI & BIOS legacy boot
+    
+    Fixes #2778
+
+commit 7af1e96a26c10b6ca0b37b1bd772a13d486dda58
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Tue May 15 14:35:04 2018 +0200
+
+    run: created hybrid MBR for image/disk
+    
+    Issue #2778
+
