@@ -443,8 +443,11 @@ class Fs_rom::Rom_root : public Root_component<Fs_rom::Rom_session_component>
 				auto const apply_fn = [pkt] (Rom_session_component &session) {
 					session.process_packet(pkt); };
 
-				_sessions.apply<Rom_session_component&>(
-					Sessions::Id{pkt.handle().value}, apply_fn);
+				try { _sessions.apply<Rom_session_component&>(
+					Sessions::Id{pkt.handle().value}, apply_fn); }
+
+				/* packet handle closed while packet in flight */
+				catch (Sessions::Unknown_id) { }
 
 				source.release_packet(pkt);
 			}
