@@ -240,193 +240,110 @@ Date:   Tue May 1 15:29:31 2018 +0200
 
 User-level networking
 #####################
-; @m-stein
 
-commit bd16f89617625b58376ea1b5a5247b4d363cdaed
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Sun Feb 4 15:38:08 2018 +0100
+NIC router
+==========
 
-    nic_router: add verbose_packets attribute
-    
-    This separates the decision wether to log the received and sent packets
-    from the 'verbose' attribute. This information is now only logged if
-    'verbose_packets' is switched on. If 'verbose' is switched on, only
-    routing decisions and optional hints are printed.
-    
-    Ref #2670
+The NIC router has received some major improvements that were mainly motivated
+by our daily experience with the Sculpt scenario where the router serves as
+NAPT component in front of the VMM's that host our work OS's. In this role it
+is subject to a permanent load driven by real tasks. Furthermore, it has to
+have a user interface which makes it a pleasant experience to deploy it in a
+dynamic environment. This led to our primary goal: We had to get rid of the
+annoying need to restart components when the configuration of the NIC router
+changes. As far as this is possible.
 
-commit bd16f89617625b58376ea1b5a5247b4d363cdaed
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Sun Feb 4 15:38:08 2018 +0100
+We managed to make the NIC router fully re-configurable at runtime in a way
+that it always tries to keep as much state information as possible throughout
+the process. This means that network communication going through the NIC
+router is not affected by a configuration update, unless it changes those
+parts of the configuration that were involved in creating and maintaining the
+communication channel until then.
 
-    nic_router: add verbose_packets attribute
-    
-    This separates the decision wether to log the received and sent packets
-    from the 'verbose' attribute. This information is now only logged if
-    'verbose_packets' is switched on. If 'verbose' is switched on, only
-    routing decisions and optional hints are printed.
-    
-    Ref #2670
+One prerequisite for this feature was that NIC session clients can connect at
+any time to the NIC router regardless of whether there is a matching domain
+for the session or not. As long as a session has no domain, the NIC router
+does not send any packet to it and drops all packets coming from it. But, at
+least, the session and the corresponding client component stay alive, even if
+their already assigned domain disappears with a new configuration.
 
-commit 2a779761644533f5d3818f7618bb2d3ec44537ac
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Sun Feb 4 15:58:25 2018 +0100
+At the uplink, in contrast, the lifetime of the session remains bound to the
+lifetime of the domain. And the uplink domain-tag receives a new attribute
+named 'label' (only considered at the domain-tag of the uplink). It denotes
+the label of the uplink session. With these two particularities of the uplink
+domain, one can now easily switch between different NIC session servers.
+Everey time the uplink domain dis- and re-appears or its 'label' changes, the
+NIC router will close and re-request the corresponding NIC session with the
+updated label value.
 
-    nic_router: add verbose_packets per domain
-    
-    A domain logs its packets if one of the global 'verbose_packets' or its local
-    'verbose_packets' is switched on.
-    
-    Ref #2670
+Furthermore, we improved the NIC routers ability to handle DNS server
+information. Domains can wait for the DNS server info of the DHCP client of
+another domain. This is done with the new attribute 'dns_server_from' in the
+<dhcp_server> tag. Every time the DNS server info of the remote domain
+changes, the DHCP server with the 'dns_server_from' attribute will toggle the
+link state of each session at its domain. This can be used by the clients as
+hint to re-request their DHCP info from the NIC router and thereby receive the
+new DNS server info.
 
-commit 2c2037952db61068c2e9eed859962e5524643da2
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Wed Feb 7 18:38:49 2018 +0100
+When it comes to protocols, the most notable change is that the NIC router now
+also supports routing and NAPT for ICMP. With the new <icmp> subtag of the
+<domain> tag you can create ICMP routes to other domains. Instead of ports the
+ICMP IDs are used for NAPT. You can configure the size of the ID space for
+each NAPT client via the new 'icmp-ids' attribute in the <nat> tag. This is
+similar to the 'udp-ports' and 'tcp-ports' attributes.
 
-    nic_router: support interfaces without a domain
-    
-    Clients can connect at any time to the NIC router. The interfaces (sessions)
-    get attached to the appropriate domain as soon as it appears. This implies
-    that interfaces can also be detached from a domain without beeing destructed
-    when the domain disappears. All user dependent states of an interface such as
-    the link states, DHCP allocations and ARP information get lost when the
-    interface gets detached.
-    
-    Ref #2670
+Last but not least, these small features are also new at the NIC router:
 
-commit 92a30e09539e164a584102cd50b62aa583ed2075
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Mon Mar 19 19:16:17 2018 +0100
+:Attribute 'verbose_packets' for the <config> and the <domain> tag:
+  Toggles the deep packet inspection globally or domain-locally. The
+  'verbose' attribute does not affect this kind of debug output anymore.
 
-    nic_router: handle configuration changes
-    
-    The router reacts as follows to a configuration change:
-    
-    1) Construct new internal configuration representation (the old one stays
-       in place to be able to do comparisons in the following steps)
-    2) Iterate through all user-dependent objects (interfaces, link states, ARP
-       information, DHCP information) and re-check which remain valid with the
-       new configuration and which must be dismissed.
-    3) Adapt the objects that remain valid to the new configuration (re-write
-       references) and remove or detach the dismissed objects.
-    4) Do a link state DOWN at each interface and a link state UP at each
-       interface that remains attached to a domain.
-    5) Replace the old internal configuration representation with the new one
-    
-    This way, the router keeps as much user dependent states as possible
-    while going through a configuration change. Thus, overwriting the old
-    configuration with an exact copy of itself is (almost) transparent to
-    clients of the router. Almost, because there are things the router must
-    do on every configuration handling, like re-scheduling the expiration
-    timeouts of links.
-    
-    Ref #2670
+:Report DNS server info:
+  If the 'config' attribute in the <report> tag is enabled, the NIC router
+  will now also report the DNS server info for each domain.
 
-commit 4bee38ea62666e306329b4fcee89b3dffae62f30
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Thu Mar 22 22:53:32 2018 +0100
+:Attribute 'config_triggers' in the <report> tag:
+  Toggles whether the NIC router immediately sends a report whenever the IPv4
+  config of a domain changes, regardless of any timeouts.
 
-    nic_router: DHCP server considers dns_server_from
-    
-    The dns_server_from attribute of the dhcp-server tag has effect only if
-    the dns_server attribute of the same tag is not set. If this is the
-    case, the dns_server_from attribute states the domain from whose IP
-    config to take the DNS server address. This is useful, for instance, if
-    the stated domain receives the address of a local DNS server via DHCP.
-    Whenever the IP config of the stated domain becomes invalid, the DHCP
-    server switches to a mode where it drops all requests unanswered until
-    the IP config becomes valid again.
-    
-    Issue #2730
+:IPv4 point-to-point support:
+  If a domain receives an IP config with a subnet mask of 255.255.255.255
+  it will switch to point-to-point IPv4 (requires a valid gateway address at
+  the domain).
 
-commit e213b9046dac0f8c466b832dac2a442bbe690d16
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Fri Mar 23 02:43:00 2018 +0100
+:ICMP destination unreachable on unroutable packets:
+  The NIC router now responds with an ICMP "destination unreachable" packet to
+  packets that are not routable at an interface with a domain.
 
-    nic_router: inform clients on DNS server change
-    
-    If the remote DNS server address value of a DHCP server changes, the affected
-    interfaces do a link down/up to inform all DHCP clients that they should
-    re-request their DHCP info.
-    
-    Issue #2730
+For more information see the file os/src/server/nic_router/README. Examples
+can be found in the run scripts 'dde_linux/run/nic_router_uplinks.run',
+'libports/run/nic_router_dyn_config.run', and 'os/run/ping_nic_router.run'.
 
-commit ed13a0a262854d839a50e7d0b2e9cd63c19aea51
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Fri Apr 6 11:56:33 2018 +0200
+NIC dump
+========
 
-    nic_dump: make protocols configurable
-    
-    Each supported protocol now has an attribute with the name of the protocol in
-    the config tag. Each of these attributes accepts one of four possible values:
-    
-    * no      - do not print out this protocol
-    * name    - print only the protocol name
-    * default - print a short summary of the most important header values
-    * all     - print all available header values
-    
-    Example:
-    
-    ! <config eth="name"
-    !         arp="all"
-    !         ipv4="default"
-    !         dhcp="no"
-    !         icmp="all"
-    !         udp="no"
-    !         tcp="default"
-    !         ... />
-    
-    Corresponding output example:
-    
-    ! ETH IPV4 10.0.2.212 > 10.0.2.55   time 7158 ms (Δ 11 ms)
-    ! ETH IPV4 10.0.2.55 > 10.0.2.201  TCP 80 > 49154 flags ' time 6976 ms (Δ 5 ms)
-    ! ETH ARP hw 1 prot 2048 hwsz 6 protsz 4 op 1 srcmac 02:02:02:02:02:01 srcip 10.0.2.212 dstmac 00:00:00:00:00:00 dstip 10.0.2.55 time 7074 ms (Δ 98 ms)
-    
-    Issue #2738
+The output level of the NIC dump component can now be configured per protocol
+by using the protocol names as attributes:
 
-commit d6e1c462cc6f7d4a96362cd22c4e6b1e45f47906
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Fri Apr 6 15:47:12 2018 +0200
+* eth
+* arp
+* ipv4
+* dhcp
+* udp
+* icmp
+* tcp
 
-    nic_dump: default attribute
-    
-    The 'default' attribute is useful to change the default value for those
-    protocol attributes that are not explicitely set in the configuration of
-    the component.
-    
-    Issue #2738
+The available debug levels are:
 
-commit 67b7fdddb1ba59855016dedfd07ea35ab566f41b
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Fri Apr 27 14:52:02 2018 +0200
+* no      - do not print out this protocol
+* name    - print only the protocol name
+* default - print a short summary of the most important header values
+* all     - print all available header values
 
-    nic_router: bind uplink session lifetime to domain
-    
-    Normally, the NIC sessions are independent from the domain tags.
-    However, by now the uplink session, in contrast to the sessions of the
-    other domains, is still not a server but a client. This means that only
-    the NIC router itself can decide when to open and close uplink sessions
-    and how many. Thus, with this commit, we break with the pattern that
-    session lifetime is independent from domains by letting the NIC router
-    create the uplink session when the uplink domain appears and close the
-    session when the domain disappears.
-    
-    Fixes #2795
+Additionally, you can set a default debug level for protocols that are not
+configured using the 'default' attribute.
 
-commit afbbb9441c3cb37647a4ef443ea08d95b9ed763a
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Thu May 10 13:38:45 2018 +0200
-
-    nic_router: label attribute for uplink domain
-    
-    The new attribute config.domain.label has effect only at the uplink
-    domain-tag. It determines which label the NIC router shall use when
-    requesting the NIC session for the uplink domain. If value of this
-    attribute changes at the uplink domain-tag, the NIC router closes and
-    re-requests the NIC session of the uplink with the new label.
-    
-    Issue #2815
-
+For more information see the the file os/src/server/nic_dump/README
 
 GUI stack
 #########
