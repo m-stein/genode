@@ -153,13 +153,13 @@ GNU/Linux system. For reference, Ubuntu 16.04 is known to work well.
 
 # Configure the build directory by editing _build/x86_64/etc/build.conf_.
   Most importantly, enable the 'gems' source-code repository where the
-  sculpt scenario resides. In addition the 'ports', 'dde_linux' and 'dde_ipxe'
+  Sculpt scenario resides. In addition, the 'ports', 'dde_linux' and 'dde_ipxe'
   repository are needed as well. Second, change the default configuration
   of the 'QEMU_RUN_OPT' variable to use 'image/disk' instead of 'image/iso'.
   This way, the build process will produce a valid disk image with a GPT
   partition table instead of a legacy ISO image.
 
-# Create the sculpt boot image (defined by the run script at
+# Create the Sculpt boot image (defined by the run script at
   _repos/gems/run/sculpt.run_)
 
   ! make -C build/x86_64 run/sculpt KERNEL=nova
@@ -177,7 +177,7 @@ GNU/Linux system. For reference, Ubuntu 16.04 is known to work well.
 Base system
 ###########
 
-Unless customized, the sculpt base system resides as a self-contained live
+Unless customized, the Sculpt base-system resides as a self-contained live
 operating system on a USB stick, not installed on disk. This has two
 advantages. First, it makes the update of the base system straight-forward
 and completely risk-free. Simply install the new version on a second USB
@@ -204,14 +204,14 @@ System overview
 [image sculpt_overview]
   System overview
 
-The sculpt system consists of four parts living on top of the microkernel
+The Sculpt system consists of four parts living on top of the microkernel
 (Figure [sculpt_overview]).
 
 
 Static system
 -------------
 
-The first - static - part of the system is baked-in the boot image. It
+The first - static - part of the system is baked-in into the boot image. It
 contains components that must be shared by the upper - dynamic - parts and
 defines the relationships between the upper parts via a static policy that
 is fixed by the creator of the boot image.
@@ -439,7 +439,7 @@ The runtime subsystem has no predefined purpose but can be filled with
 life as you wish.
 
 Analogously to the drivers subsystem, the current configuration of the runtime
-subsystem is located at _/config/runtime_. Wheres the initial Sculpt EA
+subsystem is located at _/config/runtime_. Whereas the initial Sculpt EA
 version required the user to control the runtime configuration manually,
 Sculpt TC automates these steps by the interactive Sculpt manager that is
 hosted in the Leitzentrale subsystem. You can click on any of those items to
@@ -488,7 +488,7 @@ saying that we want to persistently store data, programs, and configuration
 information on a storage device. Sculpt TC supports SATA disks, NVMe devices,
 and USB-storage devices. The storage dialog lists all devices detected by
 the drivers subsystem. A click on a device reveals possible operations or -
-it a partition table is present - more details about the device structure.
+if a partition table is present - more details about the device structure.
 
 Depending on the operation selected by the user, the Sculpt manager will
 automatically reshape the runtime subsystem to perform the selected operation.
@@ -530,7 +530,7 @@ automatically copied to the in-memory config file system. Note that this
 mechanism works even for the '/config/deploy' file, which allows one to
 reproduce a once sculpted system composition directly at boot time.
 
-To streamline to boot procedure into a customized Sculpt system even more,
+To streamline the boot procedure into a customized Sculpt system even more,
 it is possible to mark one file system as default. At boot time - when the
 Sculpt manager discoveres the attached storage devices - it automatically
 selects a file system for use according to the following order of preference:
@@ -557,7 +557,7 @@ installed on demand when uncommenting the corresponding '<start>' nodes.
   This provides a hook for customizing the font size of any component that
   uses the font server, and relieves components from depending on a specific
   font-rendering library. According to the '<route>' information, its
-  configuration is taken from _/config/managed/fonfs_. The 'fonts_fs'
+  configuration is taken from _/config/managed/fonts_. The 'fonts_fs'
   is used by the graphical terminal of the noux subsystem and the 'top_view'
   application.
 
@@ -608,7 +608,7 @@ day-to-day OS today.
 
 By convention, we host the content of each VM in a dedicated
 directory _/vm/<guest-os>/_ at the file system. The VM directory contains
-a virtual disk image(s) well as the VM configuration.
+a virtual disk image(s) as well as the VM configuration.
 To install the ingredients for running Debian in the VM,
 you may start the 'download_debian' subsystem, which will automatically
 download the ISO image of the Debian installer and install a reasonable
@@ -708,7 +708,7 @@ a network:
 ! cp /config/managed/nic_router /config
 
 Now, the copy at _/config/nic_router_ can be edited. Note that changes
-usually take immediate effect. 
+usually take immediate effect.
 
 * Adding custom NIC router policies such as port-forwarding rules,
 * Installing depot content manually by managing _/config/installation_
