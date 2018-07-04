@@ -11,6 +11,13 @@
 		</xs:restriction>
 	</xs:simpleType><!-- Trace_policy_name -->
 
+	<xs:simpleType name="Trace_policy_name">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="1"/>
+			<xs:maxLength value="40"/>
+		</xs:restriction>
+	</xs:simpleType><!-- Trace_policy_name -->
+
 	<xs:element name="config">
 		<xs:complexType>
 			<xs:choice minOccurs="0" maxOccurs="unbounded">
