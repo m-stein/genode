@@ -130,7 +130,9 @@ proc check_config {bin xml_file xsd_file label avail_xsd_files nesting_level} {
 
 	# check the given component configuration itself
 	puts "  CHECK $label"
-	if {[catch {exec xmllint --noout -schema $xsd_file $xml_file} result]} {
+	set xsd_file_tmp "bin/.xsd_file.tmp"
+	exec sed "s/\${GENODE_CONFIG_INC}/[genode_dir_esc]\\/repos\\/base\\/xsd\\/config.inc/g" < $xsd_file > $xsd_file_tmp
+	if {[catch {exec xmllint --noout -schema $xsd_file_tmp $xml_file} result]} {
 
 		if {$result != "$xml_file validates"} {
 
@@ -491,10 +493,11 @@ set repositories     [get_cmd_arg --repositories     ""]
 
 
 # accessor functions for command-line arguments
-proc run_name         { } { global run_name;         return $run_name }
-proc run_dir          { } { global run_name;         return var/run/$run_name }
-proc genode_dir       { } { global genode_dir;       return $genode_dir }
-proc cross_dev_prefix { } { global cross_dev_prefix; return $cross_dev_prefix }
+proc run_name         { } { global run_name;                        return $run_name }
+proc run_dir          { } { global run_name;                        return var/run/$run_name }
+proc genode_dir       { } { global genode_dir;                      return $genode_dir }
+proc genode_dir_esc   { } { regsub -all {/} [genode_dir] {\\/} ret; return $ret }
+proc cross_dev_prefix { } { global cross_dev_prefix;                return $cross_dev_prefix }
 
 ##
 # Return true if spec value is set for the build
