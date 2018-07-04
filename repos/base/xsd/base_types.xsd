@@ -12,13 +12,6 @@
 		</xs:restriction>
 	</xs:simpleType><!-- Boolean -->
 
-	<xs:simpleType name="Trace_policy_name">
-		<xs:restriction base="xs:string">
-			<xs:minLength value="1"/>
-			<xs:maxLength value="40"/>
-		</xs:restriction>
-	</xs:simpleType><!-- Trace_policy_name -->
-
 	<xs:simpleType name="Thread_name">
 		<xs:restriction base="xs:string">
 			<xs:minLength value="1"/>
