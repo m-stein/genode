@@ -372,6 +372,11 @@ class Lx::Socket
 			_sender.submit();
 			_block.down();
 		}
+
+		void unblock_task()
+		{
+			_task.unblock();
+		}
 };
 
 
@@ -384,6 +389,17 @@ void Lx::socket_init(Genode::Entrypoint &ep, Genode::Allocator &alloc)
 	static Lx::Socket socket_ctx(ep);
 	_socket = &socket_ctx;
 	_alloc = &alloc;
+}
+
+
+void Lx::socket_kick()
+{
+	if (!_socket) {
+		Genode::error("no socket available to kick");
+		return;
+	}
+
+	_socket->unblock_task();
 }
 
 

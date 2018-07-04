@@ -10,8 +10,9 @@ CC_OPT += -Wno-unused-function
 
 CC_CXX_OPT += -fpermissive
 
-SRC_C  += main.c ctrl_iface_genode.c
-SRC_CC += reporter.cc
+SRC_C   += main.c ctrl_iface_genode.c
+INC_DIR += $(REP_DIR)/include
+
 
 # wpa_supplicant
 SRC_C_wpa_supplicant = blacklist.c      \
