@@ -2,6 +2,8 @@
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
 	<xs:include schemaLocation="base_types.xsd"/>
+	<xs:include schemaLocation="net_types.xsd"/>
+	<xs:include schemaLocation="timeout_types.xsd"/>
 
 	<xs:simpleType name="Domain_name">
 		<xs:restriction base="xs:string">
