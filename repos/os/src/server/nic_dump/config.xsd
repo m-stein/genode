@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
-	<xs:include schemaLocation="file://${GENODE_CONFIG_INC}"/>
+	<xs:include schemaLocation="config.inc"/>
 
 	<xs:simpleType name="Interface_label">
 		<xs:restriction base="xs:string">

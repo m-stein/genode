@@ -130,9 +130,7 @@ proc check_config {bin xml_file xsd_file label avail_xsd_files nesting_level} {
 
 	# check the given component configuration itself
 	puts "  CHECK $label"
-	set xsd_file_tmp "bin/.xsd_file.tmp"
-	exec sed "s/\${GENODE_CONFIG_INC}/[genode_dir_esc]\\/repos\\/base\\/xsd\\/config.inc/g" < $xsd_file > $xsd_file_tmp
-	if {[catch {exec xmllint --noout -schema $xsd_file_tmp $xml_file} result]} {
+	if {[catch {exec xmllint --noout --path "[genode_dir]/repos/base/xsd" -schema $xsd_file $xml_file} result]} {
 
 		if {$result != "$xml_file validates"} {
 
