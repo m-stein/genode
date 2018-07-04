@@ -443,7 +443,7 @@ core_initcall(sock_init);
 
 codel_time_t codel_get_time(void)
 {
-	u64 ns = ktime_get_ns();
+	u64 ns = ktime_get();
 	return ns >> CODEL_SHIFT;
 }
 
