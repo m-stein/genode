@@ -33,7 +33,7 @@ struct Fs_packet::Main
 
 	Heap heap { env.pd(), env.rm() };
 	Allocator_avl avl_alloc { &heap };
-	File_system::Connection fs { env, avl_alloc };
+	File_system::Connection fs { env, avl_alloc, "", "/", false, 4<<10 };
 	File_system::Session::Tx::Source &pkt_tx { *fs.tx() };
 
 	Dir_handle dir_handle { fs.dir("/", false) };
