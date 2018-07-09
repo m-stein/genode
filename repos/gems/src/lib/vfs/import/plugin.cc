@@ -34,6 +34,41 @@ class Vfs_import::File_system : public Vfs::File_system
 
 		enum { CREATE_IT = true };
 
+		static void copy_symlink(Vfs::File_system &dst, Root_directory &src,
+		                      Directory::Path const &path,
+		                      Genode::Allocator &alloc)
+		{
+			Directory::Path target = src.read_symlink(path);
+
+			Vfs_handle *dst_handle = nullptr;
+			auto res = dst.openlink(path.string(), true, &dst_handle, alloc);
+			if (res != OPENLINK_OK) {
+				if (res != OPENLINK_ERR_NODE_ALREADY_EXISTS)
+					Genode::warning("skipping copy of symlink ", path, ", ", res);
+				return;
+			}
+
+			Vfs_handle::Guard guard(dst_handle);
+			file_size count = target.length();
+			for (;;) {
+				file_size out_count = 0;
+				auto wres = dst_handle->fs().write(
+					dst_handle, target.string(), count, out_count);
+
+				switch (wres) {
+				case WRITE_ERR_AGAIN:
+				case WRITE_ERR_WOULD_BLOCK:
+					break;
+				default:
+					if (out_count < count) {
+						Genode::error("failed to write symlink ", path, ", ", wres);
+						dst.unlink(path.string());
+					}
+					return;
+				}
+			}
+		}
+
 		static void copy_file(Vfs::File_system &dst, Root_directory &src,
 		                      Directory::Path const &path,
 		                      Genode::Allocator &alloc)
@@ -46,7 +81,8 @@ class Vfs_import::File_system : public Vfs::File_system
 			auto const mode = OPEN_MODE_WRONLY | OPEN_MODE_CREATE;
 			auto res = dst.open(path.string(), mode, &dst_handle, alloc);
 			if (res != OPEN_OK) {
-				Genode::warning("skipping copy of file ", path, ", ", res);
+				if (res != OPEN_ERR_EXISTS)
+					Genode::warning("skipping copy of file ", path, ", ", res);
 				return;
 			}
 
@@ -99,6 +135,9 @@ class Vfs_import::File_system : public Vfs::File_system
 						break;
 					case DIRENT_TYPE_DIRECTORY:
 						copy_dir(dst, src, entry_path, alloc);
+						break;
+					case DIRENT_TYPE_SYMLINK:
+						copy_symlink(dst, src, entry_path, alloc);
 						break;
 					default:
 						Genode::warning("skipping copy of ", e);

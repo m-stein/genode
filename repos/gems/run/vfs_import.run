@@ -1,4 +1,4 @@
-build { lib/vfs/import test/libc }
+build { server/vfs lib/vfs/import test/libc }
 
 create_boot_directory
 
@@ -9,7 +9,6 @@ import_from_depot \
 	genodelabs/src/libc \
 	genodelabs/src/noux \
 	genodelabs/src/posix \
-	genodelabs/src/vfs \
 
 install_config {
 	<config verbose="yes">
@@ -38,6 +37,9 @@ install_config {
 					<dir name="dev"> <log/> <null/> </dir>
 					<ram/>
 					<import>
+						<dir name="bin">
+							<symlink name="sh" target="bash"/>
+						</dir>
 						<tar name="coreutils.tar" />
 					</import>
 				</fstab>
@@ -47,7 +49,7 @@ install_config {
 	</config>
 }
 
-build_boot_image { vfs_import.lib.so libc.lib.so vfs.lib.so }
+build_boot_image { vfs_import.lib.so libc.lib.so vfs vfs.lib.so }
 
 append qemu_args " -nographic -serial mon:stdio "
 
