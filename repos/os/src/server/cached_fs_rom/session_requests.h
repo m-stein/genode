@@ -46,12 +46,6 @@ class Genode::Session_requests_rom
 
 		Signal_handler<Session_requests_rom> _handler;
 
-		void _handle_update()
-		{
-			_parent_rom.update();
-			process();
-		}
-
 	public:
 
 		Session_requests_rom(Genode::Env &env,
@@ -59,13 +53,14 @@ class Genode::Session_requests_rom
 		: _parent(env.parent()),
 		  _requests_handler(requests_handler),
 		  _parent_rom(env, "session_requests"),
-		  _handler(env.ep(), *this, &Session_requests_rom::_handle_update)
+		  _handler(env.ep(), *this, &Session_requests_rom::process)
 		{
 			_parent_rom.sigh(_handler);
 		}
 
 		void process()
 		{
+			_parent_rom.update();
 			Xml_node requests = _parent_rom.xml();
 
 			auto const create_fn = [&] (Xml_node request)

@@ -26,10 +26,6 @@
 /* local session-requests utility */
 #include "session_requests.h"
 
-/* TODO: remove before 18.05 */
-#include <base/debug.h>
-
-
 /*****************
  ** ROM service **
  *****************/
@@ -339,7 +335,6 @@ struct Cached_fs_rom::Main final : Genode::Session_request_handler
 		});
 
 		if (discard) {
-			PDBG(discard->path());
 			destroy(heap, discard);
 			return true;
 		}
@@ -455,10 +450,15 @@ struct Cached_fs_rom::Main final : Genode::Session_request_handler
 		 ** Create new RPC object **
 		 ***************************/
 
-		Session_component *session = new (sliced_heap)
-			Session_component(*rom_file, rom_sessions, id);
+		try {
+			Session_component *session = new (sliced_heap)
+				Session_component(*rom_file, rom_sessions, id);
+			env.parent().deliver_session_cap(pid, env.ep().manage(*session));
+		}
 
-		env.parent().deliver_session_cap(pid, env.ep().manage(*session));
+		catch (Sessions::Conflicting_id) {
+			Genode::warning("session request handled twice, ", args);
+		}
 	}
 
 	void handle_session_close(Parent::Server::Id pid) override
