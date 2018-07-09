@@ -1140,7 +1140,7 @@ class Lwip::Tcp_socket_dir final :
 		                 file_size &out_count) override
 		{
 			if (_pcb == NULL)
-				return Read_result::READ_OK;
+				return Read_result::READ_ERR_INVALID;
 
 			switch(handle.kind) {
 
