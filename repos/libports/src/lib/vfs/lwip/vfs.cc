@@ -343,8 +343,9 @@ struct Lwip::Socket_dir : Lwip::Directory
 			for (Lwip::Lwip_file_handle *h = handles.first();
 			     h; h = h->next())
 			{
-				if (h->kind & mask)
-					io_handler.handle_io_response(h ? h->context : nullptr);
+				if (h->kind & mask) {
+					io_handler.handle_io_response(h->context);
+				}
 			}
 		}
 
@@ -1408,14 +1409,18 @@ void udp_recv_callback(void *arg, struct udp_pcb*, struct pbuf *p, const ip_addr
 
 
 static
-err_t tcp_connect_callback(void *arg, struct tcp_pcb*, err_t)
+err_t tcp_connect_callback(void *arg, struct tcp_pcb *pcb, err_t)
 {
-	if (!arg) return ERR_ARG;
+	if (!arg) {
+		tcp_close(pcb);
+		return ERR_ARG;
+	}
 
 	Lwip::Tcp_socket_dir *socket_dir = static_cast<Lwip::Tcp_socket_dir *>(arg);
 	socket_dir->state = Lwip::Tcp_socket_dir::READY;
 
-	socket_dir->handle_io(Lwip_file_handle::DATA);
+	socket_dir->handle_io(Lwip_file_handle::CONNECT |
+	                      Lwip_file_handle::DATA);
 	return ERR_OK;
 }
 
