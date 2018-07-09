@@ -1,9 +1,5 @@
 <runtime ram="5M" caps="150" binary="acpica">
 
-	<provides>
-		<report/>
-	</provides>
-
 	<requires>
 		<io_mem/>
 		<io_port/>
