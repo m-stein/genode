@@ -1,5 +1,5 @@
 /*
- * \brief  VFS content initialization plugin
+ * \brief  VFS content initialization/import plugin
  * \author Emery Hemingway
  * \date   2018-07-05
  */
@@ -156,7 +156,7 @@ class Vfs_import::File_system : public Vfs::File_system
 			copy_dir(env.root_dir(), content, Directory::Path(""), _heap);
 		}
 
-		const char* type() override { return "init"; }
+		const char* type() override { return "import"; }
 
 		/***********************
 		 ** Directory service **
