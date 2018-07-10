@@ -14,6 +14,8 @@
 #ifndef __LWIP__INCLUDE__STRING_H__
 #define __LWIP__INCLUDE__STRING_H__
 
+typedef unsigned long size_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
