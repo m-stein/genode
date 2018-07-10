@@ -3,7 +3,7 @@
 #
 set build_components {
 	core init drivers/timer
-	lib/vfs/init
+	lib/vfs/import
 	server/fs_report
 	server/fs_rom
 	server/vfs
@@ -42,13 +42,13 @@ append config {
 		<config>
 			<vfs>
 				<ram/>
-				<init>
+				<import>
 					<dir name="test-fs_report">
 						<inline name="devices">
 							<devices version="initial"/>
 						</inline>
 					</dir>
-				</init>
+				</import>
 			</vfs>
 			<policy label_prefix="fs_report -> " root="/" writeable="yes"/>
 			<policy label_prefix="fs_rom -> "    root="/test-fs_report"/>
@@ -90,7 +90,7 @@ install_config $config
 set boot_modules {
 	core ld.lib.so init timer
 	fs_report fs_rom test-fs_report
-	vfs vfs.lib.so vfs_init.lib.so
+	vfs vfs.lib.so vfs_import.lib.so
 }
 
 build_boot_image $boot_modules
