@@ -416,6 +416,24 @@ class Net::Dhcp_packet
 			}
 		}
 
+		template <typename T>
+		T const &option() const
+		{
+			void const *ptr = &_opts;
+			while (true) {
+				Option const &opt = *reinterpret_cast<Option const *>(ptr);
+				if (opt.code() == Option::Code::INVALID ||
+				    opt.code() == Option::Code::END)
+				{
+					throw Option_not_found(T::CODE);
+				}
+				if (opt.code() == T::CODE) {
+					return *reinterpret_cast<T const *>(ptr);
+				}
+				ptr = (void const *)((Genode::addr_t)ptr + sizeof(opt) + opt.len());
+			}
+		}
+
 
 		/***************
 		 ** Accessors **
