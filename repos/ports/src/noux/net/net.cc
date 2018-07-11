@@ -115,7 +115,7 @@ bool Noux::Child::_syscall_net(Noux::Session::Syscall sc)
 		case SYSCALL_KILL:
 		case SYSCALL_GETDTABLESIZE:
 			break;
-		case SYSCALL_SOCKET:
+		case SYSCALL_SOCKET: error("SYSCALL_SOCKET");
 			{
 				Socket_io_channel *socket_io_channel = new (_heap) Socket_io_channel();
 
@@ -132,7 +132,7 @@ bool Noux::Child::_syscall_net(Noux::Session::Syscall sc)
 
 				return true;
 			}
-		case SYSCALL_GETSOCKOPT:
+		case SYSCALL_GETSOCKOPT: error("SYSCALL_GETSOCKOPT");
 			{
 				Shared_pointer<Io_channel> io = _lookup_channel(_sysio.getsockopt_in.fd);
 
@@ -140,7 +140,7 @@ bool Noux::Child::_syscall_net(Noux::Session::Syscall sc)
 
 				return backend->getsockopt(_sysio);
 			}
-		case SYSCALL_SETSOCKOPT:
+		case SYSCALL_SETSOCKOPT: error("SYSCALL_SETSOCKOPT");
 			{
 				Shared_pointer<Io_channel> io = _lookup_channel(_sysio.setsockopt_in.fd);
 
@@ -148,7 +148,7 @@ bool Noux::Child::_syscall_net(Noux::Session::Syscall sc)
 
 				return backend->setsockopt(_sysio);
 			}
-		case SYSCALL_ACCEPT:
+		case SYSCALL_ACCEPT: error("SYSCALL_ACCEPT");
 			{
 				Shared_pointer<Io_channel> io = _lookup_channel(_sysio.accept_in.fd);
 
@@ -165,7 +165,7 @@ bool Noux::Child::_syscall_net(Noux::Session::Syscall sc)
 
 				return true;
 			}
-		case SYSCALL_BIND:
+		case SYSCALL_BIND: error("SYSCALL_BIND");
 			{
 				Shared_pointer<Io_channel> io = _lookup_channel(_sysio.bind_in.fd);
 
@@ -173,7 +173,7 @@ bool Noux::Child::_syscall_net(Noux::Session::Syscall sc)
 
 				return (backend->bind(_sysio) == -1) ? false : true;
 			}
-		case SYSCALL_LISTEN:
+		case SYSCALL_LISTEN: error("SYSCALL_LISTEN");
 			{
 				Shared_pointer<Io_channel> io = _lookup_channel(_sysio.listen_in.fd);
 
@@ -181,7 +181,7 @@ bool Noux::Child::_syscall_net(Noux::Session::Syscall sc)
 
 				return (backend->listen(_sysio) == -1) ? false : true;
 			}
-		case SYSCALL_SEND:
+		case SYSCALL_SEND: error("SYSCALL_SEND");
 			{
 				Shared_pointer<Io_channel> io = _lookup_channel(_sysio.send_in.fd);
 
@@ -189,7 +189,7 @@ bool Noux::Child::_syscall_net(Noux::Session::Syscall sc)
 
 				return (backend->send(_sysio) == -1) ? false : true;
 			}
-		case SYSCALL_SENDTO:
+		case SYSCALL_SENDTO: error("SYSCALL_SENDTO");
 			{
 				Shared_pointer<Io_channel> io = _lookup_channel(_sysio.sendto_in.fd);
 
@@ -197,7 +197,7 @@ bool Noux::Child::_syscall_net(Noux::Session::Syscall sc)
 
 				return (backend->sendto(_sysio) == -1) ? false : true;
 			}
-		case SYSCALL_RECV:
+		case SYSCALL_RECV: error("SYSCALL_RECV");
 			{
 				Shared_pointer<Io_channel> io = _lookup_channel(_sysio.recv_in.fd);
 
@@ -205,7 +205,7 @@ bool Noux::Child::_syscall_net(Noux::Session::Syscall sc)
 
 				return (backend->recv(_sysio) == -1) ? false : true;
 			}
-		case SYSCALL_RECVFROM:
+		case SYSCALL_RECVFROM: error("SYSCALL_RECVFROM");
 			{
 				Shared_pointer<Io_channel> io = _lookup_channel(_sysio.recvfrom_in.fd);
 
@@ -213,7 +213,7 @@ bool Noux::Child::_syscall_net(Noux::Session::Syscall sc)
 
 				return (backend->recvfrom(_sysio) == -1) ? false : true;
 			}
-		case SYSCALL_GETPEERNAME:
+		case SYSCALL_GETPEERNAME: error("SYSCALL_GETPEERNAME");
 			{
 				Shared_pointer<Io_channel> io = _lookup_channel(_sysio.getpeername_in.fd);
 
@@ -221,7 +221,7 @@ bool Noux::Child::_syscall_net(Noux::Session::Syscall sc)
 
 				return (backend->getpeername(_sysio) == -1) ? false : true;
 			}
-		case SYSCALL_SHUTDOWN:
+		case SYSCALL_SHUTDOWN: error("SYSCALL_SHUTDOWN");
 			{
 				Shared_pointer<Io_channel> io = _lookup_channel(_sysio.shutdown_in.fd);
 
@@ -229,7 +229,7 @@ bool Noux::Child::_syscall_net(Noux::Session::Syscall sc)
 
 				return (backend->shutdown(_sysio) == -1) ? false : true;
 			}
-		case SYSCALL_CONNECT:
+		case SYSCALL_CONNECT: error("SYSCALL_CONNECT");
 			{
 				Shared_pointer<Io_channel> io = _lookup_channel(_sysio.connect_in.fd);
 

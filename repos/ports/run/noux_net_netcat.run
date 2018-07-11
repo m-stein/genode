@@ -233,6 +233,7 @@ puts "--- serial '$serial_ip_addr' noux '$noux_ip_addr'"
 #
 exec echo -e "Hello Genode" | netcat $noux_ip_addr 5555 &
 
+puts "XXX"
 run_genode_until {exited with exit value 1} 20 $serial_id
 
 sleep 4
