@@ -222,7 +222,7 @@ if {[have_include "power_on/qemu"]} {
 	spawn socat -u tcp:$serial_ip_addr:8888 OPEN:$noux_output_file,creat,append
 }
 
-sleep 2
+sleep 4
 
 
 puts "--- serial '$serial_ip_addr' noux '$noux_ip_addr'"
@@ -236,7 +236,7 @@ exec echo -e "Hello Genode" | netcat $noux_ip_addr 5555 &
 puts "XXX"
 run_genode_until {exited with exit value 1} 20 $serial_id
 
-sleep 2
+sleep 4
 
 set output [exec cat $noux_output_file]
 puts "\noutput:\n$output\n"
