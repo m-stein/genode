@@ -206,8 +206,6 @@ class Net::Tcp_link : public Link
 		bool _server_fin_acked { false };
 		bool _closed           { false };
 
-		void _fin_acked();
-
 	public:
 
 		Tcp_link(Interface                     &cln_interface,

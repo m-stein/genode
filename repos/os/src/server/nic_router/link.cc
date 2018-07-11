@@ -218,28 +218,31 @@ Tcp_link::Tcp_link(Interface                     &cln_interface,
 { }
 
 
-void Tcp_link::_fin_acked()
-{
-	if (_server_fin_acked && _client_fin_acked) {
-		_dissolve_timeout.schedule(Microseconds(_config().tcp_max_segm_lifetime().value << 1));
-		_closed = true;
-	}
-}
-
-
 void Tcp_link::server_packet(Tcp_packet &tcp)
 {
 	if (_closed) {
 		return; }
 
-	if (tcp.fin()) {
-		_server_fin  = true; }
-
-	if (tcp.ack() && _client_fin) {
-		_client_fin_acked = true;
-		_fin_acked();
+	bool closing = false;
+	if (tcp.rst()) {
+		closing = true;
+		_closed = true;
+	} else {
+		if (tcp.fin()) {
+			closing = true;
+			_server_fin = true;
+		}
+		if (tcp.ack() && _client_fin) {
+			closing = true;
+			_client_fin_acked = true;
+			if (_server_fin_acked) {
+				_closed = true; }
+		}
 	}
-	if (!_closed) {
+	if (closing) {
+		_dissolve_timeout.schedule(
+			Microseconds(_config().tcp_max_segm_lifetime().value << 1));
+	} else {
 		_packet(); }
 }
 
@@ -249,14 +252,26 @@ void Tcp_link::client_packet(Tcp_packet &tcp)
 	if (_closed) {
 		return; }
 
-	if (tcp.fin()) {
-		_client_fin = true; }
-
-	if (tcp.ack() && _server_fin) {
-		_server_fin_acked = true;
-		_fin_acked();
+	bool closing = false;
+	if (tcp.rst()) {
+		closing = true;
+		_closed = true;
+	} else {
+		if (tcp.fin()) {
+			closing = true;
+			_client_fin = true;
+		}
+		if (tcp.ack() && _server_fin) {
+			closing = true;
+			_server_fin_acked = true;
+			if (_client_fin_acked) {
+				_closed = true; }
+		}
 	}
-	if (!_closed) {
+	if (closing) {
+		_dissolve_timeout.schedule(
+			Microseconds(_config().tcp_max_segm_lifetime().value << 1));
+	} else {
 		_packet(); }
 }
 
