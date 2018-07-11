@@ -218,9 +218,8 @@ bool Noux::Child::_syscall_net(Noux::Session::Syscall sc)
 				Shared_pointer<Io_channel> io = _lookup_channel(_sysio.getpeername_in.fd);
 
 				GET_SOCKET_IO_CHANNEL_BACKEND(io->backend(), backend);
-				int ret = backend->getpeername(_sysio);
-error("SYSCALL_GETPEERNAME ", ret);
-				return (ret == -1) ? false : true;
+
+				return (backend->getpeername(_sysio) == -1) ? false : true;
 			}
 		case SYSCALL_SHUTDOWN: error("SYSCALL_SHUTDOWN");
 			{
