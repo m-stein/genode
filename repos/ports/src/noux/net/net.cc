@@ -219,6 +219,12 @@ bool Noux::Child::_syscall_net(Noux::Session::Syscall sc)
 
 				GET_SOCKET_IO_CHANNEL_BACKEND(io->backend(), backend);
 				int ret = backend->getpeername(_sysio);
+log(
+	"sin_len ", ((sockaddr_in*)&_sysio.getpeername_in.addr)->sin_len,
+	"sin_port ", ((sockaddr_in*)&_sysio.getpeername_in.addr)->sin_port,
+	"sin_addr ", Hex(((sockaddr_in*)&_sysio.getpeername_in.addr)->sin_addr.s_addr),
+	"sin_zero ", Cstring(((sockaddr_in*)&_sysio.getpeername_in.addr)->sin_zero)
+);
 error("SYSCALL_GETPEERNAME ", ret);
 				return (ret == -1) ? false : true;
 			}
