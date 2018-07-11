@@ -20,7 +20,7 @@ set build_components {
 	drivers/timer
 	server/tcp_terminal
 	server/nic_bridge
-	noux/net lib/libc_noux
+	noux lib/libc_noux
 	noux-pkg/netcat
 }
 
@@ -82,7 +82,7 @@ append_if [have_include "power_on/qemu"] config {
 			<service name="Uart"/>
 		</provides>
 		<config>
-			<policy label_prefix="noux_net" uart="1"/>
+			<policy label_prefix="noux" uart="1"/>
 		</config>
 	</start>}
 
@@ -96,7 +96,7 @@ append config {
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 		<config>
-			<policy label_prefix="noux_net" port="8888"/>
+			<policy label_prefix="noux" port="8888"/>
 		</config>
 	</start>
 	<start name="nic_bridge" caps="200">
@@ -143,7 +143,7 @@ append_if $use_usb_driver config {
 append_platform_drv_config
 
 append config {
-	<start name="noux_net" caps="500">
+	<start name="noux" caps="500">
 		<resource name="RAM" quantum="1G"/>
 		<config>
 			<fstab> <tar name="netcat.tar" at="/"/> </fstab>
@@ -173,7 +173,7 @@ install_config $config
 # generic modules
 set boot_modules {
 	core init timer tcp_terminal nic_bridge
-	ld.lib.so noux_net libc.lib.so vfs.lib.so libm.lib.so libc_pipe.lib.so pthread.lib.so
+	ld.lib.so noux libc.lib.so vfs.lib.so libm.lib.so libc_pipe.lib.so pthread.lib.so
 	libc_noux.lib.so lwip_legacy.lib.so netcat.tar posix.lib.so
 }
 
@@ -211,7 +211,7 @@ if {[have_include "power_on/qemu"]} {
 	run_genode_until {.*got IP address.*\n.*got IP address.*\n} 60
 	set serial_id [output_spawn_id]
 
-	regexp {\[init -> noux_net\] got IP address [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+} $output noux_ip_addr
+	regexp {\[init -> noux\] got IP address [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+} $output noux_ip_addr
 	regexp {[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+} $noux_ip_addr noux_ip_addr
 
 	regexp {\[init -> tcp_terminal\] got IP address [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+} $output serial_ip_addr

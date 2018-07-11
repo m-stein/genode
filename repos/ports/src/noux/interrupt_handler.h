@@ -15,10 +15,11 @@
 #define _NOUX__INTERRUPT_HANDLER__H_
 
 #include <noux_session/sysio.h>
+#include <util/interface.h>
 
 namespace Noux {
 
-	struct Interrupt_handler
+	struct Interrupt_handler : Genode::Interface
 	{
 		virtual void handle_interrupt(Sysio::Signal) = 0;
 	};
