@@ -39,8 +39,9 @@ class Main : public Nic_handler,
 
 		using Periodic_timeout = Timer::Periodic_timeout<Main>;
 
+		struct Bad_protocol : Exception { };
+
 		enum { IPV4_TIME_TO_LIVE = 64 };
-		enum { ICMP_DATA_SIZE    = 56 };
 		enum { ICMP_SEQ          = 1 };
 		enum { SRC_PORT          = 50000 };
 		enum { FIRST_DST_PORT    = 49152 };
@@ -63,6 +64,9 @@ class Main : public Nic_handler,
 		                                               Ipv4_address() };
 		Protocol                 const  _protocol    { _config.attribute_value("protocol", Protocol::ICMP) };
 		Port                            _dst_port    { FIRST_DST_PORT };
+		size_t                          _ping_sz     { _init_ping_sz() };
+
+		size_t _init_ping_sz() const;
 
 		void _handle_arp(Ethernet_frame &eth,
 		                 Size_guard     &size_guard);
@@ -195,6 +199,18 @@ void Main::_handle_arp(Ethernet_frame &eth,
 }
 
 
+size_t Main::_init_ping_sz() const
+{
+	enum { IP_SZ = sizeof(Ethernet_frame) + sizeof(Ipv4_packet) };
+	switch (_protocol) {
+	case Protocol::ICMP: return IP_SZ + sizeof(Icmp_packet);
+	case Protocol::UDP:  return IP_SZ + sizeof(Udp_packet);
+	case Protocol::TCP:  return IP_SZ + sizeof(Tcp_packet);
+	default:             throw Bad_protocol();
+	}
+}
+
+
 void Main::_send_arp_reply(Ethernet_frame &req_eth,
                            Arp_packet     &req_arp)
 {
@@ -258,9 +274,7 @@ void Main::_send_ping(Duration)
 			_broadcast_arp_request(ip_config().gateway); }
 		return;
 	}
-	_nic.send(sizeof(Ethernet_frame) + sizeof(Ipv4_packet) +
-	          sizeof(Icmp_packet) + ICMP_DATA_SIZE,
-	          [&] (void *pkt_base, Size_guard &size_guard)
+	_nic.send(_ping_sz, [&] (void *pkt_base, Size_guard &size_guard)
 	{
 		/* create ETH header */
 		Ethernet_frame &eth = Ethernet_frame::construct_at(pkt_base, size_guard);
@@ -290,9 +304,7 @@ void Main::_send_ping(Duration)
 				icmp.code(Icmp_packet::Code::ECHO_REQUEST);
 				icmp.query_id(_dst_port.value);
 				icmp.query_seq(ICMP_SEQ);
-
-				/* finish ICMP header */
-				icmp.update_checksum(ICMP_DATA_SIZE);
+				icmp.update_checksum(0);
 
 				/* prepare next ICMP ping */
 				if (_dst_port.value == LAST_DST_PORT) {
