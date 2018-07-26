@@ -49,6 +49,8 @@ static struct drm_device * lx_drm_device = nullptr;
 
 struct irq_chip dummy_irq_chip;
 
+enum { MAX_BRIGHTNESS = 100U }; /* we prefer percentage */
+
 struct Mutex_guard
 {
 	struct mutex &_mutex;
@@ -90,7 +92,8 @@ static inline void lx_for_each_connector(drm_device * dev, FUNCTOR f)
 
 
 drm_display_mode *
-Framebuffer::Driver::_preferred_mode(drm_connector *connector)
+Framebuffer::Driver::_preferred_mode(drm_connector *connector,
+                                     unsigned &brightness)
 {
 	using namespace Genode;
 	using Genode::size_t;
@@ -111,6 +114,9 @@ Framebuffer::Driver::_preferred_mode(drm_connector *connector)
 			bool enabled = xn.attribute_value("enabled", true);
 			if (!enabled)
 				return nullptr;
+
+			brightness = xn.attribute_value("brightness",
+			                                (unsigned)MAX_BRIGHTNESS + 1);
 
 			unsigned long width  = 0;
 			unsigned long height = 0;
@@ -189,7 +195,8 @@ void Framebuffer::Driver::update_mode()
 	_config = Configuration();
 
 	lx_for_each_connector(lx_drm_device, [&] (drm_connector *c) {
-		drm_display_mode * mode = _preferred_mode(c);
+		unsigned brightness;
+		drm_display_mode * mode = _preferred_mode(c, brightness);
 		if (!mode) return;
 		if (mode->hdisplay > _config._lx.width)  _config._lx.width  = mode->hdisplay;
 		if (mode->vdisplay > _config._lx.height) _config._lx.height = mode->vdisplay;
@@ -205,8 +212,16 @@ void Framebuffer::Driver::update_mode()
 	{
 		Drm_guard guard(lx_drm_device);
 		lx_for_each_connector(lx_drm_device, [&] (drm_connector *c) {
-		                       lx_c_set_mode(lx_drm_device, c, _config._lx.lx_fb,
-		                                      _preferred_mode(c)); });
+			unsigned brightness = MAX_BRIGHTNESS + 1;
+
+			/* set mode */
+			lx_c_set_mode(lx_drm_device, c, _config._lx.lx_fb,
+			              _preferred_mode(c, brightness));
+
+			/* set sane brightness, ignore unsane values and let as is */
+			if (brightness <= MAX_BRIGHTNESS)
+				lx_c_set_brightness(c, brightness, MAX_BRIGHTNESS);
+		});
 	}
 
 	/* force virtual framebuffer size if requested */
@@ -275,6 +290,11 @@ void Framebuffer::Driver::generate_report()
 					bool connected = c->status == connector_status_connected;
 					xml.attribute("name", c->name);
 					xml.attribute("connected", connected);
+
+					/* unsane values means no brightness support */
+					unsigned brightness = lx_c_get_brightness(c, MAX_BRIGHTNESS + 1);
+					if (brightness <= MAX_BRIGHTNESS)
+						xml.attribute("brightness", brightness);
 
 					if (!connected) return;
 
@@ -1584,6 +1604,16 @@ struct backlight_device *backlight_device_register(const char *name,
 {
 	struct backlight_device *new_bd;
 	new_bd = (backlight_device*) kzalloc(sizeof(struct backlight_device), GFP_KERNEL);
+	if (!new_bd)
+		return nullptr;
+
+	new_bd->ops = ops;
+	if (props)
+		new_bd->props = *props;
+	/* apply our preferred user range scheme */
+	new_bd->props.max_brightness = MAX_BRIGHTNESS;
+	new_bd->props.brightness = MAX_BRIGHTNESS / 4 * 3;
+
 	return new_bd;
 }
 

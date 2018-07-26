@@ -82,8 +82,8 @@ out2:
 void lx_c_set_mode(struct drm_device * dev, struct drm_connector * connector,
                    struct drm_framebuffer *fb, struct drm_display_mode *mode)
 {
-	struct drm_crtc *crtc = NULL;
-	struct drm_encoder *encoder = connector->encoder;
+	struct drm_crtc        * crtc    = NULL;
+	struct drm_encoder     * encoder = connector->encoder;
 
 	if (!encoder) {
 		struct drm_encoder *enc;
@@ -165,4 +165,34 @@ void* lx_c_get_driver(struct drm_device * dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	return (void*) dev_priv->audio_component;
+}
+
+void lx_c_set_brightness(struct drm_connector * const connector,
+                         unsigned const bn_set, unsigned const bn_max)
+{
+	struct intel_connector * const c = to_intel_connector(connector);
+
+	intel_panel_set_backlight_acpi(c->base.state, bn_set, bn_max);
+}
+
+unsigned lx_c_get_brightness(struct drm_connector * const connector, unsigned error)
+{
+	if (!connector)
+		return error;
+
+	struct intel_connector * const intel_c = to_intel_connector(connector);
+	if (!intel_c)
+		return error;
+
+	struct intel_panel *panel = &intel_c->panel;
+
+	if (!panel || !panel->backlight.device || !panel->backlight.device->ops ||
+	    !panel->backlight.device->ops->get_brightness)
+		return error;
+
+	panel->backlight.device->connector = intel_c;
+	unsigned ret = panel->backlight.device->ops->get_brightness(panel->backlight.device);
+	panel->backlight.device->connector = NULL;
+
+	return ret;
 }
