@@ -1856,9 +1856,16 @@ struct backlight_properties {
 
 struct backlight_device {
 	struct backlight_properties props;
+	const struct backlight_ops * ops;
+	struct intel_connector *connector;
 };
 
-extern void* bl_get_data(struct backlight_device *bl_dev);
+static inline struct intel_connector* bl_get_data(struct backlight_device *bl_dev)
+{
+	if (bl_dev)
+		return bl_dev->connector;
+	return NULL;
+}
 
 struct fb_info;
 struct backlight_ops {

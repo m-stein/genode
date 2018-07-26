@@ -671,12 +671,6 @@ void free_irq(unsigned int irq, void *dev_id)
 	TRACE_AND_STOP;
 }
 
-void* bl_get_data(struct backlight_device *bl_dev)
-{
-	TRACE_AND_STOP;
-	return NULL;
-}
-
 void backlight_device_unregister(struct backlight_device *bd)
 {
 	TRACE_AND_STOP;

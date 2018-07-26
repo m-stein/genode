@@ -53,7 +53,8 @@ class Framebuffer::Driver
 		Genode::Signal_handler<Driver> _poll_handler;
 		unsigned long                  _poll_ms = 0;
 
-		drm_display_mode * _preferred_mode(drm_connector *connector);
+		drm_display_mode * _preferred_mode(drm_connector *connector,
+		                                   unsigned &brightness);
 
 		void _poll();
 

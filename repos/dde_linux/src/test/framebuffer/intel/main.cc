@@ -91,6 +91,7 @@ void Framebuffer_controller::update_connector_config(Xml_generator & xml,
 			xml.attribute("width", width);
 			xml.attribute("height", height);
 			xml.attribute("hz", hz);
+			xml.attribute("brightness", 73);
 		}
 	});
 }
