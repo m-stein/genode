@@ -172,9 +172,10 @@ proc test_7_config { } {
 		append config "
 			[client_config t7_d1_c1_tcp http dhcp       dhcp     dhcp          t7_d1_nic_router 2345 10.0.2.204]
 			[client_config t7_d1_c2_tcp http dhcp       dhcp     dhcp          nic_router       3456 10.0.2.240]
-			[client_config t7_d1_c3_tcp http dhcp       dhcp     dhcp          nic_router       3456 10.0.2.240]
+			[client_config t7_d1_c3_tcp http dhcp       dhcp     dhcp          nic_router       3456 10.0.2.241]
 			[server_config t7_d2_s1_tcp http 10.0.2.204 10.0.2.1 255.255.255.0 nic_router       2345 ]
-			[server_config t7_d2_s2_tcp http 10.0.2.240 10.0.2.1 255.255.255.0 nic_router       3456 ]"
+			[server_config t7_d2_s2_tcp http 10.0.2.240 10.0.2.1 255.255.255.0 nic_router       3456 ]
+			[server_config t7_d2_s3_tcp http 10.0.2.241 10.0.2.1 255.255.255.0 nic_router       3456 ]"
 
 		append config {
 			<start name="t7_d1_nic_router" caps="200" priority="-1">

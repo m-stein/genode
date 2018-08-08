@@ -35,7 +35,7 @@ static void test(Libc::Env &env)
 	/* try to send and receive a message multiple times */
 	for (unsigned trial_cnt = 0, success_cnt = 0; trial_cnt < 15; trial_cnt++)
 	{
-		usleep(1000);
+		usleep(1000000);
 
 		/* create socket */
 		int s = socket(AF_INET, SOCK_DGRAM, 0 );
