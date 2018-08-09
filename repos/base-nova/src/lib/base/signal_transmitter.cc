@@ -46,7 +46,7 @@ void Signal_transmitter::submit(unsigned cnt)
 	if (res == NOVA_OK)
 		return;
 
-	warning("submitting signal failed - error ", res, " - context=", _context);
+//	warning("submitting signal failed - error ", res, " - context=", _context);
 
 	_context = Signal_context_capability();
 }

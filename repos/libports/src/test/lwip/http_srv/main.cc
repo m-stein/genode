@@ -59,7 +59,7 @@ void http_server_serve(int conn)
 	/* Read the data from the port, blocking if nothing yet there.
 	   We assume the request (the part we care about) is in one packet */
 	buflen = recv(conn, buf, 1024, 0);
-	puts("Packet received!");
+//	puts("Packet received!");
 
 	/* Ignore all receive errors */
 	if (buflen > 0) {
@@ -73,7 +73,7 @@ void http_server_serve(int conn)
 			buf[3] == ' ' &&
 			buf[4] == '/' ) {
 
-			puts("Will send response");
+//			puts("Will send response");
 
 			/* Send http header */
 			send(conn, http_html_hdr, Genode::strlen(http_html_hdr), 0);

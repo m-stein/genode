@@ -71,7 +71,7 @@ static void test(Libc::Env &env)
 	     trial_cnt++)
 	{
 		/* pause a while between each trial */
-		usleep(1000000);
+		usleep(100000);
 
 		/* create socket */
 		int sd = ::socket(AF_INET, SOCK_STREAM, 0);
@@ -122,16 +122,14 @@ static void test(Libc::Env &env)
 		}
 		/* handle reply */
 		reply_buf[reply_sz] = 0;
-		log("Received \"", Cstring(reply_buf), "\"");
-		if (++reply_cnt == NR_OF_REPLIES) {
+		reply_cnt++;
+		close_socket(env, sd);
+		if (reply_cnt == NR_OF_REPLIES) {
 			log("Test done");
 			env.parent().exit(0);
 		}
-		/* close socket and retry */
-		close_socket(env, sd);
 	}
 	log("Test failed");
-	env.parent().exit(-1);
 }
 
 void Libc::Component::construct(Libc::Env &env) { with_libc([&] () { test(env); }); }
