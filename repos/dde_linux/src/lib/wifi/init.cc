@@ -100,6 +100,7 @@ extern "C" void module_aes_init(void);
 extern "C" void module_arc4_init(void);
 // extern "C" void module_chainiv_module_init(void);
 extern "C" void module_krng_mod_init(void);
+extern "C" void subsys_leds_init(void);
 
 extern "C" unsigned int *module_param_11n_disable;
 
@@ -125,6 +126,7 @@ static void run_linux(void *args)
 	module_packet_init();
 	subsys_genl_init();
 	subsys_rfkill_init();
+	subsys_leds_init();
 	fs_cfg80211_init();
 	subsys_ieee80211_init();
 

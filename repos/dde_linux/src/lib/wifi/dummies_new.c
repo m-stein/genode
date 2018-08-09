@@ -507,3 +507,10 @@ bool wq_has_sleeper(struct wait_queue_head *wq_head)
 	TRACE_OK;
 	return true;
 }
+
+
+bool sysfs_streq(const char *s1, const char *s2)
+{
+	TRACE;
+	return false;
+}
