@@ -70,21 +70,26 @@ static void test(Libc::Env &env)
 	for (unsigned trial_cnt = 0, reply_cnt = 0; trial_cnt < NR_OF_TRIALS;
 	     trial_cnt++)
 	{
+log(__LINE__);
 		/* pause a while between each trial */
 		usleep(100000);
 
+log(__LINE__);
 		/* create socket */
 		int sd = ::socket(AF_INET, SOCK_STREAM, 0);
 		if (sd < 0) {
 			error("failed to create socket");
 			continue;
 		}
+log(__LINE__);
 		/* connect to server */
 		if (::connect(sd, (struct sockaddr *)&srv_addr, sizeof(srv_addr))) {
+log(__LINE__);
 			error("Failed to connect to server");
 			close_socket(env, sd);
 			continue;
 		}
+log(__LINE__);
 		/* send request */
 		char   const *req    = "GET / HTTP/1.0\r\nHost: localhost:80\r\n\r\n";
 		size_t const  req_sz = Genode::strlen(req);
@@ -93,6 +98,7 @@ static void test(Libc::Env &env)
 			close_socket(env, sd);
 			continue;
 		}
+log(__LINE__);
 		/* receive reply */
 		enum { REPLY_BUF_SZ = 1024 };
 		char          reply_buf[REPLY_BUF_SZ];
@@ -114,12 +120,15 @@ static void test(Libc::Env &env)
 					break; }
 			}
 		}
+
+log(__LINE__);
 		/* ignore failed replies */
 		if (reply_failed) {
 			error("failed to receive reply");
 			close_socket(env, sd);
 			continue;
 		}
+log(__LINE__);
 		/* handle reply */
 		reply_buf[reply_sz] = 0;
 		reply_cnt++;
@@ -128,8 +137,12 @@ static void test(Libc::Env &env)
 			log("Test done");
 			env.parent().exit(0);
 		}
+log(__LINE__);
 	}
 	log("Test failed");
+	env.parent().exit(-1);
 }
 
-void Libc::Component::construct(Libc::Env &env) { with_libc([&] () { test(env); }); }
+void Libc::Component::construct(Libc::Env &env) {
+	with_libc([&] () { test(env); });
+}
