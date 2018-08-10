@@ -66,25 +66,26 @@ static void test(Libc::Env &env)
 	srv_addr.sin_family      = AF_INET;
 	srv_addr.sin_addr.s_addr = inet_addr(srv_ip.string());
 
-	/* try several times to request a reply */
-	for (unsigned trial_cnt = 0, reply_cnt = 0; trial_cnt < NR_OF_TRIALS;
-	     trial_cnt++)
-	{
-		/* pause a while between each trial */
-		usleep(100000);
 
 		/* create socket */
 		int sd = ::socket(AF_INET, SOCK_STREAM, 0);
 		if (sd < 0) {
 			error("failed to create socket");
-			continue;
+			return;
 		}
 		/* connect to server */
 		if (::connect(sd, (struct sockaddr *)&srv_addr, sizeof(srv_addr))) {
 			error("Failed to connect to server");
 			close_socket(env, sd);
-			continue;
+			return;
 		}
+
+	/* try several times to request a reply */
+	while(1)
+	{
+		/* pause a while between each trial */
+		usleep(100000);
+
 		/* send request */
 		char   const *req    = "GET / HTTP/1.0\r\nHost: localhost:80\r\n\r\n";
 		size_t const  req_sz = Genode::strlen(req);
@@ -122,15 +123,8 @@ static void test(Libc::Env &env)
 		}
 		/* handle reply */
 		reply_buf[reply_sz] = 0;
-		reply_cnt++;
-		close_socket(env, sd);
-		if (reply_cnt == NR_OF_REPLIES) {
-			log("Test done");
-//			env.parent().exit(0);
-return;
-		}
+		log(Cstring(reply_buf));
 	}
-	log("Test failed");
 }
 
 void Libc::Component::construct(Libc::Env &env) { with_libc([&] () { test(env); }); }

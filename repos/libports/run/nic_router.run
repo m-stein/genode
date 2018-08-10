@@ -169,41 +169,62 @@ proc test_6_router_uplink_config { } {
 proc test_7_config { } {
 	if {[enable_test_7]} {
 
-		append config "
-			[client_config t7_d1_c00 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c01 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c02 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c03 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c04 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c05 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c06 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c07 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c08 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c09 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+		append config {
 
-			[client_config t7_d1_c10 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c11 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c12 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c13 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c14 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c15 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c16 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c17 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c18 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c19 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+			<start name="t7_d1_xxxxxx" priority="-1">
+				<binary  name="test-http_clnt1" />
+				<resource name="RAM" quantum="4M"/>
+				<route>
+					<service name="Nic"> <child name="nic_router"/> </service>
+					<any-service> <parent/> <any-child/> </any-service>
+				</route>
+				<config server_ip="10.0.2.240" server_port="3456">
+					<libc stdout="/dev/log" stderr="/dev/log" socket="/socket"/>
+					<vfs>
+						<dir name="dev"> <log/> </dir>
+						<dir name="socket">
+							<lwip dhcp="yes"/>
+						</dir>
+					</vfs>
+				</config>
+			</start>}
 
-			[client_config t7_d1_c20 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c21 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c22 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c23 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c24 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c25 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c26 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c27 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c28 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-			[client_config t7_d1_c29 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
-
-			[server_config t7_d2_s2 http 10.0.2.240 10.0.2.1 255.255.255.0 nic_router 3456 ]"
+#		append config "
+#
+#			[client_config t7_d1_c00 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c01 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c02 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c03 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c04 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c05 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c06 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c07 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c08 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c09 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#
+#			[client_config t7_d1_c10 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c11 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c12 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c13 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c14 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c15 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c16 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c17 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c18 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c19 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#
+#			[client_config t7_d1_c20 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c21 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c22 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c23 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c24 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c25 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c26 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c27 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c28 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#			[client_config t7_d1_c29 http dhcp       dhcp     dhcp          nic_router 3456 10.0.2.240]
+#
+append config "			[server_config t7_d2_s2 http 10.0.2.240 10.0.2.1 255.255.255.0 nic_router 3456 ]"
 
 		return $config
 	}
@@ -356,6 +377,7 @@ lappend boot_modules report_rom
 
 build_boot_image $boot_modules
 
+set nr_of_clients 1
 for {set i 0} {$i < $nr_of_clients} {incr i 1} {
 	append done_string {.*Test done.*\n}
 }
