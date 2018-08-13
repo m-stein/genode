@@ -93,33 +93,25 @@ append config {
 			<rom name="wifi_config">
 				<inline description="connect">
 <wifi_config connected_scan_interval="30" scan_interval="5" rfkill="no" verbose="yes">
-	<accesspoints>
-		<accesspoint enabled="true" ssid="} [wifi_ssid] {" protection="WPA2" passphrase="} [wifi_psk] {"/>
-	</accesspoints>
+	<accesspoint ssid="} [wifi_ssid] {" protection="WPA2" passphrase="} [wifi_psk] {"/>
 </wifi_config>
 				</inline>
 				<sleep milliseconds="60000"/>
 				<inline description="rfkill block">
 <wifi_config connected_scan_interval="30" scan_interval="5" rfkill="yes" verbose="yes">
-	<accesspoints>
-		<accesspoint enabled="true" ssid="} [wifi_ssid] {" protection="WPA2" passphrase="} [wifi_psk] {"/>
-	</accesspoints>
+	<accesspoint ssid="} [wifi_ssid] {" protection="WPA2" passphrase="} [wifi_psk] {"/>
 </wifi_config>
 				</inline>
 				<sleep milliseconds="30000"/>
 				<inline description="rfkill unblock">
 <wifi_config connected_scan_interval="30" scan_interval="5" rfkill="no" verbose="yes">
-	<accesspoints>
-		<accesspoint enabled="true" ssid="} [wifi_ssid] {" protection="WPA2" passphrase="} [wifi_psk] {"/>
-	</accesspoints>
+	<accesspoint ssid="} [wifi_ssid] {" protection="WPA2" passphrase="} [wifi_psk] {"/>
 </wifi_config>
 				</inline>
 				<sleep milliseconds="30000"/>
 				<inline description="disconnect">
 <wifi_config connected_scan_interval="30" scan_interval="5" rfkill="no" verbose="yes">
-	<accesspoints>
-		<accesspoint enabled="false" ssid="} [wifi_ssid] {" protection="WPA2" passphrase="} [wifi_psk] {"/>
-	</accesspoints>
+	<accesspoint ssid="} [wifi_ssid] {" protection="WPA2" passphrase="} [wifi_psk] {"/>
 </wifi_config>
 				</inline>
 				<sleep milliseconds="60000"/>
@@ -130,7 +122,7 @@ append config {
 	<start name="wifi_drv" caps="200">
 		<resource name="RAM" quantum="24M"/>
 		<provides> <service name="Nic"/> </provides>
-		<config ld_verbose="yes" verbose="no">
+		<config ld_verbose="yes">
 			<libc stdout="/dev/null" stderr="/dev/null" rtc="/dev/rtc"/>
 			<vfs>
 				<dir name="dev"> <log/> <null/> <rtc/>

@@ -105,7 +105,6 @@ static void wpa_supplicant_ctrl_iface_receive(int fd, void *eloop_ctx,
 
 	char *reply      = NULL;
 	size_t reply_len = 0;
-	int new_attached = 0;
 
 	if (msg[0] == 0 || recv_id == priv->last_recv_id) { return; }
 
@@ -131,12 +130,12 @@ static void wpa_supplicant_ctrl_iface_receive(int fd, void *eloop_ctx,
 }
 
 
-static void print_txt(char const *txt, size_t len, int type)
+static void print_txt(char const *txt, size_t len)
 {
 	char buffer[256];
 	memset(buffer, 0, sizeof(buffer));
 	memcpy(buffer, txt, len < sizeof(buffer) - 1 ? len : sizeof(buffer) - 1);
-	lx_printf("----> type: %d '%s'\n", type, buffer);
+	lx_printf("   %s\n", buffer);
 }
 
 
@@ -172,9 +171,7 @@ static void wpa_supplicant_ctrl_iface_msg_cb(void *ctx, int level,
 		|| strncmp(txt, "CTRL-EVENT-BSS", 14) == 0
 		|| strncmp(txt, "   skip", 7) == 0
 	;
-	if (!dont_print) {
-		print_txt(txt, len, type);
-	}
+	if (!dont_print) { print_txt(txt, len); }
 #endif
 
 	/* there is not global support */

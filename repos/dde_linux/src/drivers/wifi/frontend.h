@@ -14,6 +14,21 @@
  * action can only be initiated from the 'IDLE' state. Unsolicited events, e.g.
  * a scan-results-available event, may influence the current state. Config
  * updates are deferred in case the current state is not 'IDLE'.
+ *
+ * brain-dump
+ * ==========
+ *
+ * config update overview:
+ *   [[block any new update]] > [mark stale] > [rm stale] > [add new] > [update new] > [[unblock update]]
+ *
+ * add new network:
+ *   [[new ap]] > [ssid] > bssid? + [bssid] > [psk] > auto? + [enable] > new ap? + [[new ap]]
+ *
+ * update network:
+ *  [[update ap] > bssid? + [bssid] > psk? + [psk] > auto? + [enable] > update ap? + [[update ap]]
+ *
+ * remove network:
+ *  [[mark stale]] > [remove network] > stale? + [remove network]
  */
 
 /*
@@ -74,40 +89,33 @@ enum Rmi {
 };
 
 
-static inline bool check_recv_msg(char const *msg, Recv_msg_table const &entry)
-{
-	return Genode::strcmp(entry.string, msg, entry.len) == 0;
-}
+static inline bool check_recv_msg(char const *msg,
+                                  Recv_msg_table const &entry) {
+	return Genode::strcmp(entry.string, msg, entry.len) == 0; }
 
 
-static bool cmd_successful(char const *msg)
-{
-	return check_recv_msg(msg, recv_table[OK]);
-}
+static bool cmd_successful(char const *msg) {
+	return check_recv_msg(msg, recv_table[OK]); }
 
 
-static bool cmd_fail(char const *msg)
-{
-	return check_recv_msg(msg, recv_table[FAIL]);
-}
+static bool cmd_fail(char const *msg) {
+	return check_recv_msg(msg, recv_table[FAIL]); }
 
 
-static bool results_available(char const *msg)
-{
-	return check_recv_msg(msg, recv_table[SCAN_RESULTS]);
-}
+static bool results_available(char const *msg) {
+	return check_recv_msg(msg, recv_table[SCAN_RESULTS]); }
 
 
-static bool connecting_to_network(char const *msg)
-{
-	return check_recv_msg(msg, recv_table[SME_AUTH]);
-}
+static bool connecting_to_network(char const *msg) {
+	return check_recv_msg(msg, recv_table[SME_AUTH]); }
 
 
-static bool scan_results(char const *msg)
-{
-	return Genode::strcmp("bssid", msg, 5) == 0;
-}
+static bool scan_results(char const *msg) {
+	return Genode::strcmp("bssid", msg, 5) == 0; }
+
+
+static bool list_network_results(char const *msg) {
+	return Genode::strcmp("network", msg, 7) == 0; }
 
 
 /*
@@ -116,8 +124,8 @@ static bool scan_results(char const *msg)
 struct Accesspoint
 {
 	using Bssid = Genode::String<17+1>;
-	using Freq  = Genode::String<4+1>;
-	using Prot  = Genode::String<7+1>;
+	using Freq  = Genode::String< 4+1>;
+	using Prot  = Genode::String< 7+1>;
 	using Ssid  = Genode::String<32+1>;
 	using Pass  = Genode::String<63+1>;
 
@@ -146,9 +154,9 @@ struct Accesspoint
 	/* 
 	 * Internal configuration fields
 	 */
-	bool enable { false };
-	bool update { false };
-	bool stale  { false };
+	bool auto_connect { false };
+	bool update       { false };
+	bool stale        { false };
 
 	/**
 	 * Default constructor
@@ -163,10 +171,29 @@ struct Accesspoint
 	: bssid(bssid), freq(freq), prot(prot), ssid(ssid), signal(signal)
 	{ }
 
+	void invalidate() { ssid = Ssid(); }
+
 	bool valid()  const { return ssid.length() > 1; }
 	bool wpa()    const { return prot != "NONE"; }
 	bool stored() const { return id != -1; }
 };
+
+
+template <typename FUNC>
+static void for_each_line(char const *msg, FUNC const &func)
+{
+	char line_buffer[1024];
+	size_t cur = 0;
+
+	while (msg[cur] != 0) {
+		size_t until = Util::next_char(msg, cur, '\n');
+		Genode::memcpy(line_buffer, &msg[cur], until);
+		line_buffer[until] = 0;
+		cur += until + 1;
+
+		func(line_buffer);
+	}
+}
 
 
 template <typename FUNC>
@@ -245,8 +272,9 @@ struct Wifi::Frontend
 
 	void _free_ap_slot(Accesspoint &ap)
 	{
-		ap.ssid  = Accesspoint::Ssid("");
-		ap.bssid = Accesspoint::Bssid("");
+		ap.ssid  = Accesspoint::Ssid();
+		ap.bssid = Accesspoint::Bssid();
+		ap.freq  = Accesspoint::Freq();
 		ap.id    = -1;
 	}
 
@@ -257,6 +285,16 @@ struct Wifi::Frontend
 			if (!ap.valid()) { continue; }
 			func(ap);
 		}
+	}
+
+	unsigned _count_to_be_enabled()
+	{
+		unsigned count = 0;
+		auto enable = [&](Accesspoint const &ap) {
+			count += ap.auto_connect;
+		};
+		_for_each_ap(enable);
+		return count;
 	}
 
 	unsigned _count_enabled()
@@ -304,10 +342,8 @@ struct Wifi::Frontend
 			_scan_timer.sigh(Genode::Signal_context_capability());
 		}
 
-
 		if (_rfkilled && _state != State::IDLE) {
-			Genode::error("rfkilled with (", state_strings(_state), ")");
-			_state_transition(_state, State::IDLE);
+			Genode::warning(__func__, ": rfkilled with ", state_strings(_state));
 		}
 	}
 
@@ -321,6 +357,7 @@ struct Wifi::Frontend
 	bool _use_11n       { true };
 
 	bool _deferred_config_update { false };
+	bool _fake_connecting        { false };
 
 	unsigned _connected_scan_interval { 15 };
 	unsigned _scan_interval           {  5 };
@@ -342,7 +379,7 @@ struct Wifi::Frontend
 		_connected_scan_interval =
 			Util::check_time(config.attribute_value("connected_scan_interval",
 			                                        _connected_scan_interval),
-			                 15, 15*60);
+			                 0, 15*60);
 
 		_scan_interval =
 			Util::check_time(config.attribute_value("scan_interval",
@@ -367,9 +404,8 @@ struct Wifi::Frontend
 		}
 
 		/*
-		 * Override any scanning activity, which might break horribly
-		 * if we get the wrong response, e.g. scan results while we are
-		 * waiting for ADD_NETWORK.
+		 * Block any further config updates until we have finished applying
+		 * the current one.
 		 */
 		if (_state != State::IDLE) {
 			Genode::warning("deferring config update (", state_strings(_state), ")");
@@ -377,11 +413,11 @@ struct Wifi::Frontend
 			return;
 		}
 
+		bool fake_connecting = false;
+
 		/* update AP list */
 		try {
-			Genode::Xml_node aps = config.sub_node("accesspoints");
-
-			aps.for_each_sub_node("accesspoint", [&] ( Genode::Xml_node node) {
+			config.for_each_sub_node("accesspoint", [&] ( Genode::Xml_node node) {
 
 				Accesspoint ap;
 				ap.ssid  = node.attribute_value("ssid",  Accesspoint::Ssid(""));
@@ -396,6 +432,8 @@ struct Wifi::Frontend
 				Accesspoint *p = _lookup_ap_by_ssid(ap.ssid);
 				if (p) {
 					if (_verbose) { Genode::log("Update: '", p->ssid, "'"); }
+					/* mark for updating */
+					p->update = true;
 				} else {
 					p = _ap_slot();
 					if (!p) {
@@ -404,29 +442,66 @@ struct Wifi::Frontend
 					}
 				}
 
-				ap.pass   = node.attribute_value("passphrase", Accesspoint::Pass(""));
-				ap.prot   = node.attribute_value("protection", Accesspoint::Prot("NONE"));
-				ap.enable = node.attribute_value("enabled",    false);
+				ap.pass         = node.attribute_value("passphrase", Accesspoint::Pass(""));
+				ap.prot         = node.attribute_value("protection", Accesspoint::Prot("NONE"));
+				ap.auto_connect = node.attribute_value("auto_connect", true);
 
-				size_t const psk_len = ap.pass.length() - 1;
-				if (psk_len < 8 || psk_len > 63) {
-					Genode::warning("ignoring accesspoint with invalid pass");
-					return;
+				if (ap.wpa()) {
+					size_t const psk_len = ap.pass.length() - 1;
+					if (psk_len < 8 || psk_len > 63) {
+						Genode::warning("ignoring accesspoint '", ap.ssid,
+						                "' with invalid pass");
+						return;
+					}
 				}
 
-				if (ap.pass != p->pass || ap.prot != p->prot) {
-					p->update = true;
+
+				/* check if updating is really necessary */
+				if (p->update) {
+					p->update = (ap.bssid != p->bssid
+					          || ap.pass  != p->pass
+					          || ap.prot  != p->prot
+					          || ap.auto_connect != p->auto_connect);
 				}
 
 				/* TODO add better way to check validity */
-				if (ap.bssid.length() > 1) { p->bssid = ap.bssid; }
+				if (ap.bssid.length() == 17 + 1) { p->bssid = ap.bssid; }
 
 				p->ssid   = ap.ssid;
 				p->prot   = ap.prot;
 				p->pass   = ap.pass;
-				p->enable = ap.enable;
+				p->auto_connect = ap.auto_connect;
+
+				fake_connecting |= (p->update || p->auto_connect) && !_connected_ap.valid();
 			});
 		} catch (...) { Genode::warning("accesspoint list empty"); }
+
+		/*
+		 * To accomodate a management component that only deals
+		 * with on network, e.g. the sculpt_manager, generate a
+		 * fake connected event.
+		 */
+		if (_count_to_be_enabled() == 1 && fake_connecting) {
+
+			auto lookup = [&] (Accesspoint const &ap) {
+				if (!ap.auto_connect) { return; }
+
+				if (_verbose) { Genode::log("Fake connected event for '", ap.ssid, "'"); }
+
+				try {
+					Genode::Reporter::Xml_generator xml(*_state_reporter, [&] () {
+						xml.node("accesspoint", [&] () {
+							xml.attribute("ssid",  ap.ssid);
+							xml.attribute("state", "connected");
+						});
+					});
+
+					_fake_connecting = true;
+
+				} catch (...) { }
+			};
+			_for_each_ap(lookup);
+		}
 
 		/*
 		 * Marking removes stale APs first and triggers adding of
@@ -438,24 +513,28 @@ struct Wifi::Frontend
 	/* state */
 
 	Accesspoint *_processed_ap { nullptr };
-	Accesspoint *_connected_ap { nullptr };
+	Accesspoint _connected_ap { };
 
 	enum State {
 		IDLE    = 0x00,
 		SCAN    = 0x01,
 		NETWORK = 0x02,
-		CONNECT = 0x04,
+		CONNECT = 0x03,
+		STATUS  = 0x04,
+		INFO    = 0x05,
 
 		INITIATE_SCAN   = 0x00|SCAN,
 		PENDING_RESULTS = 0x10|SCAN,
 
 		ADD_NETWORK        = 0x00|NETWORK,
 		FILL_NETWORK_SSID  = 0x10|NETWORK,
-		FILL_NETWORK_PSK   = 0x20|NETWORK,
-		REMOVE_NETWORK     = 0x30|NETWORK,
-		ENABLE_NETWORK     = 0x40|NETWORK,
-		DISABLE_NETWORK    = 0x50|NETWORK,
-		DISCONNECT_NETWORK = 0x60|NETWORK,
+		FILL_NETWORK_BSSID = 0x20|NETWORK,
+		FILL_NETWORK_PSK   = 0x30|NETWORK,
+		REMOVE_NETWORK     = 0x40|NETWORK,
+		ENABLE_NETWORK     = 0x50|NETWORK,
+		DISABLE_NETWORK    = 0x60|NETWORK,
+		DISCONNECT_NETWORK = 0x70|NETWORK,
+		LIST_NETWORKS      = 0x80|NETWORK,
 
 		CONNECTING   = 0x00|CONNECT,
 		CONNECTED    = 0x10|CONNECT,
@@ -467,19 +546,23 @@ struct Wifi::Frontend
 	char const *state_strings(State state)
 	{
 		switch (state) {
-		case IDLE:              return "idle";
-		case INITIATE_SCAN:     return "initiate scan";
-		case PENDING_RESULTS:   return "pending results";
-		case ADD_NETWORK:       return "add network";
-		case FILL_NETWORK_SSID: return "fill network ssid";
-		case FILL_NETWORK_PSK:  return "fill network pass";
-		case REMOVE_NETWORK:    return "remove network";
-		case ENABLE_NETWORK:    return "enable network";
-		case DISABLE_NETWORK:   return "disable network";
-		case CONNECTING:        return "connecting";
-		case CONNECTED:         return "connected";
-		case DISCONNECTED:      return "disconnected";
-		default:                return "unknown";
+		case IDLE:               return "idle";
+		case INITIATE_SCAN:      return "initiate scan";
+		case PENDING_RESULTS:    return "pending results";
+		case ADD_NETWORK:        return "add network";
+		case FILL_NETWORK_SSID:  return "fill network ssid";
+		case FILL_NETWORK_BSSID: return "fill network bssid";
+		case FILL_NETWORK_PSK:   return "fill network pass";
+		case REMOVE_NETWORK:     return "remove network";
+		case ENABLE_NETWORK:     return "enable network";
+		case DISABLE_NETWORK:    return "disable network";
+		case CONNECTING:         return "connecting";
+		case CONNECTED:          return "connected";
+		case DISCONNECTED:       return "disconnected";
+		case STATUS:             return "status";
+		case LIST_NETWORKS:      return "list networks";
+		case INFO:               return "info";
+		default:                 return "unknown";
 		};
 	}
 
@@ -496,13 +579,20 @@ struct Wifi::Frontend
 
 	using Cmd_str = Genode::String<1024>;
 
-	void _prepare_cmd(Cmd_str const &str)
+	void _submit_cmd(Cmd_str const &str)
 	{
 		Genode::memset(_msg.send, 0, sizeof(_msg.send));
 		Genode::memcpy(_msg.send, str.string(), str.length());
 		++_msg.send_id;
 
 		wpa_ctrl_set_fd();
+
+		/*
+		 * We might have to pull the socketcall task out of poll_all()
+		 * because otherwise we might be late and wpa_supplicant has
+		 * already removed all scan results due to BSS age settings.
+		 */
+		wifi_kick_socketcall();
 	}
 
 	/* scan */
@@ -516,84 +606,77 @@ struct Wifi::Frontend
 		 * If we are blocked or currently trying to join a network
 		 * suspend scanning.
 		 */
-		if (_rfkilled || _connecting.length() > 1) { return; }
+		if (_rfkilled || _connecting.length() > 1) {
+			if (_verbose) { Genode::log("Suspend scan timer"); }
+			return;
+		}
 
-		_arm_scan_timer(!!_connected_ap);
+		_arm_scan_timer(_connected_ap.valid());
 
 		/* skip as we will be scheduled some time soon(tm) anyway */
 		if (_state != State::IDLE) { return; }
 
 		/* TODO scan request/pending results timeout */
 		_state_transition(_state, State::INITIATE_SCAN);
-		_prepare_cmd(Cmd_str("SCAN"));
+		_submit_cmd(Cmd_str("SCAN"));
 	}
 
 	void _arm_scan_timer(bool connected)
 	{
 		unsigned const sec = connected ? _connected_scan_interval : _scan_interval;
+		if (!sec) { return; }
+
+		if (_verbose) {
+			Genode::log("Arm ", connected ? "connected " : "",
+			            "scan: ", sec, " sec");
+		}
+
 		_scan_timer.trigger_once(sec * (1000 * 1000));
 	}
 
 	Genode::Constructible<Genode::Reporter> _ap_reporter;
 
-	void _report_scan_results(char const *msg)
+	void _generate_scan_results_report(char const *msg)
 	{
-		for_each_result_line(msg, [&] (Accesspoint const &ap) {
+		unsigned count_lines = 0;
+		for_each_line(msg, [&] (char const*) { count_lines++; });
 
-			Accesspoint *p = _lookup_ap_by_ssid(ap.ssid);
-			if (!p) { return; }
-
-			/* TODO handle same ssid multiple bssid */
-			if (p->bssid.length() < 17 && p->bssid != ap.bssid) {
-				p->bssid = ap.bssid;
-				p->freq  = ap.freq;
-			}
-		});
+		if (!count_lines) { return; }
 
 		try {
 			Genode::Reporter::Xml_generator xml(*_ap_reporter, [&]() {
 
 				for_each_result_line(msg, [&] (Accesspoint const &ap) {
 
+					/* ignore potentially empty ssids */
+					if (ap.ssid == "") { return; }
+
 					xml.node("accesspoint", [&]() {
-						xml.attribute("ssid", ap.ssid);
-						xml.attribute("bssid", ap.bssid);
-						xml.attribute("freq", ap.freq);
+						xml.attribute("ssid",    ap.ssid);
+						xml.attribute("bssid",   ap.bssid);
+						xml.attribute("freq",    ap.freq);
 						xml.attribute("quality", ap.signal);
 						if (ap.wpa()) { xml.attribute("protection", ap.prot); }
 					});
 				});
 			});
-		} catch (...) { }
-
-		_network_enable();
+		} catch (...) { /* silently omit report */ }
 	}
 
 	/* network commands */
 
 	void _mark_stale_aps(Genode::Xml_node const &config)
 	{
-		try {
-			Genode::Xml_node nodes = config.sub_node("accesspoints");
+		auto mark_stale = [&] (Accesspoint &ap) {
+			ap.stale = true;
 
-			auto mark_stale = [&] (Accesspoint &ap) {
-				ap.stale = true;
+			config.for_each_sub_node("accesspoint", [&] ( Genode::Xml_node node) {
+				Accesspoint::Ssid ssid = node.attribute_value("ssid",  Accesspoint::Ssid(""));
 
-				nodes.for_each_sub_node("accesspoint", [&] ( Genode::Xml_node node) {
-					Accesspoint::Ssid ssid = node.attribute_value("ssid",  Accesspoint::Ssid(""));
-
-					if (ap.ssid == ssid) { ap.stale = false; }
-				});
-			};
-
-			_for_each_ap(mark_stale);
-		} catch (Genode::Xml_node::Nonexistent_sub_node) {
-			/* there are not accesspoints left, mark all */
-			auto mark_all = [&] (Accesspoint &ap) {
-				ap.stale = true;
-			};
-			_for_each_ap(mark_all);
-		}
+				if (ap.ssid == ssid) { ap.stale = false; }
+			});
+		};
+		_for_each_ap(mark_stale);
 
 		_remove_stale_aps();
 	}
@@ -618,7 +701,7 @@ struct Wifi::Frontend
 		if (!_processed_ap) {
 			/* TODO move State transition somewhere more sane */
 			_state_transition(_state, State::IDLE);
-			_network_disable();
+			_add_new_aps();
 			return;
 		}
 
@@ -627,7 +710,7 @@ struct Wifi::Frontend
 		}
 
 		_state_transition(_state, State::REMOVE_NETWORK);
-		_prepare_cmd(Cmd_str("REMOVE_NETWORK ", _processed_ap->id));
+		_submit_cmd(Cmd_str("REMOVE_NETWORK ", _processed_ap->id));
 	}
 
 	void _update_aps()
@@ -652,7 +735,7 @@ struct Wifi::Frontend
 			Genode::log("Update network: '", _processed_ap->ssid, "'");
 		}
 
-		_processed_ap->update = false;
+		// _processed_ap->update = false;
 
 		/* re-use state to change PSK */
 		_state_transition(_state, State::FILL_NETWORK_PSK);
@@ -688,7 +771,7 @@ struct Wifi::Frontend
 		}
 
 		_state_transition(_state, State::ADD_NETWORK);
-		_prepare_cmd(Cmd_str("ADD_NETWORK"));
+		_submit_cmd(Cmd_str("ADD_NETWORK"));
 	}
 
 	void _network_enable()
@@ -702,21 +785,23 @@ struct Wifi::Frontend
 
 		for (Accesspoint &ap : _aps) {
 			if (    ap.valid()
-			    && (ap.bssid.length() > 1)
-			    && !ap.enabled && ap.enable) {
+			    && !ap.enabled && ap.auto_connect) {
 				_processed_ap = &ap;
 				break;
 			}
 		}
 
-		if (!_processed_ap) { return; }
+		if (!_processed_ap) {
+
+			return;
+		}
 
 		if (_verbose) {
 			Genode::log("Enable network: '", _processed_ap->ssid, "'");
 		}
 
 		_state_transition(_state, State::ENABLE_NETWORK);
-		_prepare_cmd(Cmd_str("ENABLE_NETWORK ", _processed_ap->id));
+		_submit_cmd(Cmd_str("ENABLE_NETWORK ", _processed_ap->id));
 	}
 
 	void _network_disable()
@@ -729,7 +814,7 @@ struct Wifi::Frontend
 		if (_processed_ap) { return; }
 
 		for (Accesspoint &ap : _aps) {
-			if (ap.valid() && ap.enabled && !ap.enable) {
+			if (ap.valid() && ap.enabled && !ap.auto_connect) {
 				_processed_ap = &ap;
 				break;
 			}
@@ -747,13 +832,13 @@ struct Wifi::Frontend
 		}
 
 		_state_transition(_state, State::DISABLE_NETWORK);
-		_prepare_cmd(Cmd_str("DISABLE_NETWORK ", _processed_ap->id));
+		_submit_cmd(Cmd_str("DISABLE_NETWORK ", _processed_ap->id));
 	}
 
 	void _network_disconnect()
 	{
 		_state_transition(_state, State::DISCONNECT_NETWORK);
-		_prepare_cmd(Cmd_str("DISCONNECT"));
+		_submit_cmd(Cmd_str("DISCONNECT"));
 	}
 
 	void _network_set_ssid(char const *msg)
@@ -762,17 +847,26 @@ struct Wifi::Frontend
 		Genode::ascii_to(msg, id);
 
 		_processed_ap->id = id;
-		_prepare_cmd(Cmd_str("SET_NETWORK ", _processed_ap->id,
+		_submit_cmd(Cmd_str("SET_NETWORK ", _processed_ap->id,
 		                     " ssid \"", _processed_ap->ssid, "\""));
+	}
+
+	void _network_set_bssid()
+	{
+		bool const valid = _processed_ap->bssid.length() == 17 + 1;
+		char const *bssid = valid ? _processed_ap->bssid.string() : "";
+
+		_submit_cmd(Cmd_str("SET_NETWORK ", _processed_ap->id,
+		                     " bssid \"", bssid, "\""));
 	}
 
 	void _network_set_psk()
 	{
 		if (_processed_ap->wpa()) {
-			_prepare_cmd(Cmd_str("SET_NETWORK ", _processed_ap->id,
+			_submit_cmd(Cmd_str("SET_NETWORK ", _processed_ap->id,
 			                     " psk \"", _processed_ap->pass, "\""));
 		} else {
-			_prepare_cmd(Cmd_str("SET_NETWORK ", _processed_ap->id,
+			_submit_cmd(Cmd_str("SET_NETWORK ", _processed_ap->id,
 			                     " key_mgmt NONE"));
 		}
 	}
@@ -791,7 +885,7 @@ struct Wifi::Frontend
 		case State::PENDING_RESULTS:
 			if (scan_results(msg)) {
 				_state_transition(_state, State::IDLE);
-				_report_scan_results(msg);
+				_generate_scan_results_report(msg);
 			}
 			break;
 		default:
@@ -802,6 +896,8 @@ struct Wifi::Frontend
 
 	void _handle_network_results(State state, char const *msg)
 	{
+		bool successfully = false;
+
 		switch (state) {
 		case State::ADD_NETWORK:
 			if (cmd_fail(msg)) {
@@ -810,6 +906,8 @@ struct Wifi::Frontend
 			} else {
 				_state_transition(_state, State::FILL_NETWORK_SSID);
 				_network_set_ssid(msg);
+
+				successfully = true;
 			}
 			break;
 		case State::REMOVE_NETWORK:
@@ -823,6 +921,8 @@ struct Wifi::Frontend
 				/* trigger the next round */
 				_processed_ap = nullptr;
 				_remove_stale_aps();
+
+				successfully = true;
 			}
 			break;
 		case State::FILL_NETWORK_SSID:
@@ -832,9 +932,24 @@ struct Wifi::Frontend
 				Genode::error("could not set ssid for network: ", msg);
 				_state_transition(_state, State::IDLE);
 			} else {
-				/* trigger the next round */
-				_processed_ap = nullptr;
-				_add_new_aps();
+				_state_transition(_state, State::FILL_NETWORK_BSSID);
+				_network_set_bssid();
+
+				successfully = true;
+			}
+			break;
+		case State::FILL_NETWORK_BSSID:
+			_state_transition(_state, State::IDLE);
+
+			if (!cmd_successful(msg)) {
+				Genode::error("could not set bssid for network: ", msg);
+				_state_transition(_state, State::IDLE);
+			} else {
+
+				_state_transition(_state, State::FILL_NETWORK_PSK);
+				_network_set_psk();
+
+				successfully = true;
 			}
 			break;
 		case State::FILL_NETWORK_PSK:
@@ -843,9 +958,29 @@ struct Wifi::Frontend
 			if (!cmd_successful(msg)) {
 				Genode::error("could not set passphrase for network: ", msg);
 			} else {
-				/* trigger the next round */
-				_processed_ap = nullptr;
-				_add_new_aps();
+
+				/*
+				 * Disable network to trick wpa_supplicant into reloading
+				 * the settings.
+				 */
+				if (_processed_ap->update) {
+					_processed_ap->enabled = false;
+
+					_state_transition(_state, State::DISABLE_NETWORK);
+					_submit_cmd(Cmd_str("DISABLE_NETWORK ", _processed_ap->id));
+				} else
+
+				if (_processed_ap->auto_connect) {
+
+					_state_transition(_state, State::ENABLE_NETWORK);
+					_submit_cmd(Cmd_str("ENABLE_NETWORK ", _processed_ap->id));
+				} else {
+					/* trigger the next round */
+					_processed_ap = nullptr;
+					_add_new_aps();
+				}
+
+				successfully = true;
 			}
 			break;
 		case State::ENABLE_NETWORK:
@@ -858,7 +993,9 @@ struct Wifi::Frontend
 
 				/* trigger the next round */
 				_processed_ap = nullptr;
-				_network_enable();
+				_add_new_aps();
+
+				successfully = true;
 			}
 			break;
 		case State::DISABLE_NETWORK:
@@ -867,17 +1004,28 @@ struct Wifi::Frontend
 			if (!cmd_successful(msg)) {
 				Genode::error("could not disable network: ", msg);
 			} else {
-				_processed_ap->enabled = false;
 
-				/* XXX mostly false as _connected_ap is probably
-				 *     reset at this point
+				/*
+				 * Updated settings are applied, enable the network
+				 * anew an try again.
 				 */
-				bool const joined = _connected_ap == _processed_ap;
+				if (_processed_ap->update) {
+					_processed_ap->update = false;
 
-				/* trigger the next round */
-				_processed_ap = nullptr;
-				if (joined) { _network_disconnect(); }
-				else        { _network_disable(); }
+					if (_processed_ap->auto_connect) {
+						_state_transition(_state, State::ENABLE_NETWORK);
+						_submit_cmd(Cmd_str("ENABLE_NETWORK ", _processed_ap->id));
+					}
+				} else {
+
+					_processed_ap->enabled = false;
+
+					/* trigger the next round */
+					_processed_ap = nullptr;
+					_network_disable();
+				}
+
+				successfully = true;
 			}
 			break;
 		case State::DISCONNECT_NETWORK:
@@ -887,11 +1035,125 @@ struct Wifi::Frontend
 				Genode::error("could not disconnect from network: ", msg);
 			} else {
 				_network_disable();
+				successfully = true;
+			}
+			break;
+		case State::LIST_NETWORKS:
+			_state_transition(_state, State::IDLE);
+
+			if (list_network_results(msg)) {
+				Genode::error("List networks:\n", msg);
 			}
 			break;
 		default:
 			Genode::warning("unknown network state: ", msg);
 			break;
+		}
+
+		/*
+		 * If some step failed we have to generate a fake
+		 * disconnect event.
+		 */
+		if (_fake_connecting && !successfully) {
+			try {
+				Genode::Reporter::Xml_generator xml(*_state_reporter, [&] () {
+					xml.node("accesspoint", [&] () {
+						xml.attribute("state", "disconnected");
+						xml.attribute("config_error", true);
+					});
+				});
+
+				_fake_connecting = false;
+			} catch (...) { }
+		}
+	}
+
+	void _handle_status_result(State state, char const *msg)
+	{
+		_state_transition(_state, State::IDLE);
+
+		_state_transition(_state, State::LIST_NETWORKS);
+		_submit_cmd(Cmd_str("LIST_NETWORKS"));
+	}
+
+	void _handle_info_result(State state, char const *msg)
+	{
+		_state_transition(_state, State::IDLE);
+
+		if (!_connected_event && !_disconnected_event) { return; }
+
+		Accesspoint ap { };
+
+		auto fill_ap = [&] (char const *line) {
+			if (Genode::strcmp(line, "ssid=", 5) == 0) {
+				ap.ssid = Accesspoint::Ssid(line+5);
+			} else
+
+			if (Genode::strcmp(line, "bssid=", 6) == 0) {
+				ap.bssid = Accesspoint::Bssid(line+6);
+			} else
+
+			if (Genode::strcmp(line, "freq=", 5) == 0) {
+				ap.freq = Accesspoint::Freq(line+5);
+			}
+		};
+		for_each_line(msg, fill_ap);
+
+		/* 
+		 * When the config is changed while we are still connecting and
+		 * for some reasons the accesspoint does not get disabled
+		 * a connected event could arrive and we will get a nullptr...
+		 */
+		Accesspoint *p = _lookup_ap_by_ssid(ap.ssid);
+		if (!p) {
+			Genode::warning("received connection event for unknown "
+			                "network '", ap.ssid, "'");
+		}
+
+		/*
+		 * ... but we still generate a report and let the management
+		 * component deal with it.
+		 */
+		Genode::Reporter::Xml_generator xml(*_state_reporter, [&] () {
+			xml.node("accesspoint", [&] () {
+				xml.attribute("ssid",  ap.ssid);
+				xml.attribute("bssid", ap.bssid);
+				xml.attribute("freq",  ap.freq);
+				xml.attribute("state", _connected_event ? "connected"
+				                                        : "disconnected");
+				if (!_connected_event) {
+					xml.attribute("rfkilled", _rfkilled);
+					xml.attribute("auth_failure", _disconnected_fail);
+				}
+			});
+		});
+
+		if (_disconnected_fail) {
+
+			if (!p || _processed_ap || _state != State::IDLE) {
+				Genode::error("cannot disabled failed network");
+			} else {
+				_processed_ap = p;
+				_state_transition(_state, State::DISABLE_NETWORK);
+				_submit_cmd(Cmd_str("DISABLE_NETWORK ", p->id));
+			}
+		} else
+
+		if (_connected_event) {
+			if (!p) {
+				Genode::error("cannot lookup connected network");
+				return;
+			}
+
+			p->bssid = ap.bssid;
+			p->freq  = ap.freq;
+
+			_connected_ap = ap;
+		} else
+
+		/* just your normal disconnect event */
+		{
+			_connected_ap.invalidate();
 		}
 	}
 
@@ -932,60 +1194,64 @@ struct Wifi::Frontend
 		}
 	}
 
-	void _generate_state_report(char const *msg, State state)
-	{
-		bool const connected    = state == State::CONNECTED;
-		bool const connecting   = state == State::CONNECTING;
-		bool const disconnected = !connected && !connecting;
-
-		Accesspoint::Bssid const &bssid = _extract_bssid(msg, state);
-		Accesspoint *ap = _lookup_ap_by_bssid(bssid);
-		if (!ap) {
-			Genode::warning("could not look up accesspoint: ", bssid, " '", msg, "'");
-			return;
-		}
-
-		_connecting   = connecting ? bssid : Accesspoint::Bssid();
-		_connected_ap = connected  ? ap    : nullptr;
-
-		bool const fail = disconnected && _auth_failure(msg);
-
-		if (_verbose) {
-			Genode::log(connected ? "Connected to:"
-			                      : connecting ? "Connecting to:"
-			                                   : "Disconnected from:",
-			            " '", ap->ssid, "'", " ", ap->bssid, " (", ap->freq, ")",
-			            fail ? " (auth failed)" : "");
-		}
-
-		try {
-			Genode::Reporter::Xml_generator xml(*_state_reporter, [&] () {
-				xml.node("accesspoint", [&] () {
-					xml.attribute("ssid",  ap->ssid);
-					xml.attribute("bssid", ap->bssid);
-					xml.attribute("freq",  ap->freq);
-					xml.attribute("state", connected ? "connected"
-					                                 : connecting ? "connecting"
-					                                              : "disconnected");
-					xml.attribute("rfkilled", _rfkilled);
-					xml.attribute("auth_failure", fail);
-				});
-			});
-		} catch (...) { }
-
-		/* kick scan */
-		if (disconnected) { _handle_scan_timer(); }
-	}
-
 	/* events */
+
+	bool _connected_event    { false };
+	bool _disconnected_event { false };
+	bool _disconnected_fail  { false };
+
+	Accesspoint::Bssid _pending_bssid { };
 
 	bool _handle_connection_events(char const *msg)
 	{
 		bool const connected    = check_recv_msg(msg, recv_table[Rmi::CONNECTED]);
 		bool const disconnected = check_recv_msg(msg, recv_table[Rmi::DISCONNECTED]);
 
-		if      (connected)    { _generate_state_report(msg, State::CONNECTED); }
-		else if (disconnected) { _generate_state_report(msg, State::DISCONNECTED); }
+		State state = connected ? State::CONNECTED : State::DISCONNECTED;
+
+		Accesspoint::Bssid const &bssid = _extract_bssid(msg, state);
+
+		_connected_event    = connected;
+		_disconnected_event = disconnected;
+		_disconnected_fail  = disconnected && _auth_failure(msg);
+
+		if (connected) {
+			if (_state != State::IDLE) {
+				_pending_bssid = bssid;
+			} else {
+				_state_transition(_state, State::INFO);
+				_submit_cmd(Cmd_str("BSS ", bssid));
+			}
+		} else {
+
+			/*
+			 * In case of disconnected event use stored information if we
+			 * already were connected.
+			 */
+			Genode::Reporter::Xml_generator xml(*_state_reporter, [&] () {
+
+				xml.node("accesspoint", [&] () {
+					if (_connected_ap.valid()) {
+						xml.attribute("ssid",  _connected_ap.ssid);
+						xml.attribute("bssid", _connected_ap.bssid);
+						xml.attribute("freq",  _connected_ap.freq);
+					} else {
+						xml.attribute("bssid", bssid);
+					}
+					xml.attribute("state",        "disconnected");
+					xml.attribute("rfkilled",     _rfkilled);
+					xml.attribute("auth_failure", _disconnected_fail);
+				});
+			});
+
+			_connected_ap.invalidate();
+
+			/* arm scan timer implicitly */
+			_handle_scan_timer();
+		}
+
+		/* reset */
+		_fake_connecting = false;
 
 		return connected || disconnected;
 	}
@@ -1005,6 +1271,10 @@ struct Wifi::Frontend
 			return;
 		}
 
+		if (_rfkilled) {
+			Genode::warning(__func__, ": rfkilled with ", state_strings(_state));
+		}
+
 		if (results_available(msg)) {
 
 			/*
@@ -1016,12 +1286,22 @@ struct Wifi::Frontend
 
 			if (_state == State::IDLE) {
 				_state_transition(_state, State::PENDING_RESULTS);
-				_prepare_cmd(Cmd_str("SCAN_RESULTS"));
+				_submit_cmd(Cmd_str("SCAN_RESULTS"));
 			}
 		} else
 
 		if (connecting_to_network(msg)) {
-			_generate_state_report(msg, State::CONNECTING);
+			if (!_fake_connecting) {
+				Accesspoint::Bssid const &bssid = _extract_bssid(msg, State::CONNECTING);
+				_connecting = bssid;
+
+				Genode::Reporter::Xml_generator xml(*_state_reporter, [&] () {
+					xml.node("accesspoint", [&] () {
+						xml.attribute("bssid", bssid);
+						xml.attribute("state", "connecting");
+					});
+				});
+			}
 		} else
 
 		{
@@ -1046,6 +1326,10 @@ struct Wifi::Frontend
 			return;
 		}
 
+		if (_rfkilled) {
+			Genode::warning(__func__, ": rfkilled with ", state_strings(_state));
+		}
+
 		_last_recv_id = recv_id;
 
 		switch (_state & 0xf) {
@@ -1055,15 +1339,21 @@ struct Wifi::Frontend
 		case State::NETWORK:
 			_handle_network_results(_state, msg);
 			break;
-		default:
+		case State::STATUS:
+			_handle_status_result(_state, msg);
+			break;
+		case State::INFO:
+			_handle_info_result(_state, msg);
+			break;
 		case State::IDLE:
+		default:
 			break;
 		}
 		_notify_lock_unlock();
 
 		if (_verbose_state) {
 			Genode::log("State:",
-			            " connected: ", !!_connected_ap,
+			            " connected: ",  _connected_ap.valid(),
 			            " connecting: ", _connecting.length() > 1,
 			            " enabled: ",    _count_enabled(),
 			            " stored: ",     _count_stored(),
@@ -1074,6 +1364,13 @@ struct Wifi::Frontend
 			_deferred_config_update = false;
 			_handle_config_update();
 		}
+
+		if (_state == State::IDLE && _pending_bssid.length() > 1) {
+			_state_transition(_state, State::INFO);
+			_submit_cmd(Cmd_str("BSS ", _pending_bssid));
+
+			_pending_bssid = Accesspoint::Bssid();
+		}
 	}
 
 	/**
@@ -1081,13 +1378,13 @@ struct Wifi::Frontend
 	 */
 	Frontend(Genode::Env &env)
 	:
-		_events_handler(env.ep(), *this, &Wifi::Frontend::_handle_events),
-		_cmd_handler(env.ep(),    *this, &Wifi::Frontend::_handle_cmds),
 		_rfkill_handler(env.ep(), *this, &Wifi::Frontend::_handle_rfkill),
 		_config_rom(env, "wifi_config"),
 		_config_sigh(env.ep(), *this, &Wifi::Frontend::_handle_config_update),
 		_scan_timer(env),
-		_scan_timer_sigh(env.ep(), *this, &Wifi::Frontend::_handle_scan_timer)
+		_scan_timer_sigh(env.ep(), *this, &Wifi::Frontend::_handle_scan_timer),
+		_events_handler(env.ep(), *this, &Wifi::Frontend::_handle_events),
+		_cmd_handler(env.ep(),    *this, &Wifi::Frontend::_handle_cmds)
 	{
 		_config_rom.sigh(_config_sigh);
 		_scan_timer.sigh(_scan_timer_sigh);
