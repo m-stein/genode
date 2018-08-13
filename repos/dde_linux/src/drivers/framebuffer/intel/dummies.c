@@ -1610,12 +1610,6 @@ void clflushopt(volatile void *p)
 	TRACE;
 }
 
-size_t strlcat(char *dest, const char *src, size_t n)
-{
-	TRACE_AND_STOP;
-	return 0;
-}
-
 int intel_guc_submission_init(struct intel_guc *guc)
 {
 	TRACE_AND_STOP;

@@ -406,6 +406,21 @@ size_t strlcpy(char *dest, const char *src, size_t size)
 	return ret;
 }
 
+size_t strlcat(char *dest, const char *src, size_t dest_size)
+{
+	size_t len_d = strlen(dest);
+	size_t len_s = strlen(src);
+
+	if (len_d > dest_size)
+		return 0;
+
+	size_t len = dest_size - len_d - 1;
+
+	memcpy(dest + len_d, src, len);
+	dest[len_d + len] = 0;
+	return len;
+}
+
 int sysfs_create_link(struct kobject *kobj, struct kobject *target, const char *name)
 {
 	TRACE;
