@@ -162,18 +162,18 @@ struct Sculpt::Network : Network_dialog::Action
 				xml.attribute("scan_interval", 10U);
 				xml.attribute("use_11n", false);
 
-				xml.node("accesspoints", [&]() {
-					xml.node("accesspoint", [&]() {
-						xml.attribute("ssid",  ap.ssid);
-						xml.attribute("bssid", ap.bssid);
-						/* for now always try to use WPA2 */
-						if (ap.protection == Access_point::WPA_PSK) {
-							xml.attribute("protection", "WPA2");
-							String<128> const psk(wpa_passphrase);
-							xml.attribute("passphrase", psk);
-						}
-						xml.attribute("enabled", true);
-					});
+				xml.attribute("verbose_state", false);
+				xml.attribute("verbose",       false);
+
+				xml.node("accesspoint", [&]() {
+					xml.attribute("ssid", ap.ssid);
+
+					/* for now always try to use WPA2 */
+					if (ap.protection == Access_point::WPA_PSK) {
+						xml.attribute("protection", "WPA2");
+						String<128> const psk(wpa_passphrase);
+						xml.attribute("passphrase", psk);
+					}
 				});
 			});
 		});

@@ -27,6 +27,7 @@ void Sculpt::gen_wifi_drv_start_content(Xml_generator &xml)
 				xml.node("zero", [&] () {});
 				xml.node("rtc",  [&] () {});
 				xml.node("log",  [&] () {});
+				xml.node("null", [&] () {});
 				gen_named_node(xml, "jitterentropy", "random");
 				gen_named_node(xml, "jitterentropy", "urandom"); });
 		});
