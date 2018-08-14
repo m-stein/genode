@@ -1585,6 +1585,7 @@ void drm_sysfs_hotplug_event(struct drm_device *dev)
 	if (driver) {
 		DRM_DEBUG("generating hotplug event\n");
 		driver->generate_report();
+		driver->session().update_mode();
 	}
 }
 
