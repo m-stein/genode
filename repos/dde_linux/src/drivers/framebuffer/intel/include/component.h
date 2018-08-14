@@ -75,6 +75,13 @@ class Framebuffer::Driver
 		void set_polling(unsigned long poll);
 		void update_mode();
 		void generate_report();
+
+
+		/***************
+		 ** Accessors **
+		 ***************/
+
+		Session_component &session() { return _session; }
 };
 
 
@@ -110,7 +117,11 @@ class Framebuffer::Session_component : public Genode::Rpc_object<Session>
 			if (!_config.valid()) return;
 
 			_driver.set_polling(_polling_from_config());
+			update_mode();
+		}
 
+		void update_mode()
+		{
 			_in_mode_change = true;
 
 			_driver.update_mode();
