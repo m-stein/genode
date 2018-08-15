@@ -81,21 +81,10 @@ void *dev_get_drvdata(const struct device *dev)
 	return NULL;
 }
 
-int device_for_each_child(struct device *dev, void *data, int (*fn)(struct device *dev, void *data))
-{
-	TRACE_AND_STOP;
-	return -1;
-}
-
 int device_init_wakeup(struct device *dev, bool val)
 {
 	TRACE_AND_STOP;
 	return -1;
-}
-
-void device_unregister(struct device *dev)
-{
-	TRACE_AND_STOP;
 }
 
 const char *dev_name(const struct device *dev)

@@ -802,6 +802,22 @@ int driver_register(struct device_driver *drv)
 }
 
 
+void device_unregister(struct device *dev)
+{
+	TRACE;
+}
+
+
+int device_for_each_child(struct device *dev, void *data, int (*fn)(struct device *dev, void *data))
+{
+	/*
+	 * Called when a connector is removed
+	 */
+	TRACE;
+	return 0;
+}
+
+
 int bus_for_each_dev(struct bus_type *bus, struct device *start, void *data,
                      int (*fn)(struct device *dev, void *data))
 {
@@ -1248,8 +1264,10 @@ int drm_sysfs_connector_add(struct drm_connector *connector)
 
 void drm_sysfs_connector_remove(struct drm_connector *connector)
 {
-	TRACE_AND_STOP;
-//	kfree(connector->kdev);
+	kfree(connector->kdev);
+	connector->kdev = nullptr;
+	DRM_DEBUG("removing \"%s\" from sysfs\n", connector->name);
+	drm_sysfs_hotplug_event(connector->dev);
 }
 
 void assert_spin_locked(spinlock_t *lock)
@@ -1585,6 +1603,7 @@ void drm_sysfs_hotplug_event(struct drm_device *dev)
 	if (driver) {
 		DRM_DEBUG("generating hotplug event\n");
 		driver->generate_report();
+		driver->trigger_reconfiguration();
 	}
 }
 

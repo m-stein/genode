@@ -118,6 +118,7 @@ static void run_linux(void * m)
 	main->announce();
 
 	static Policy_agent pa(*main);
+	main->root.session.driver().config_sigh(pa.sd);
 	main->config.sigh(pa.sd);
 
 	while (1) {
