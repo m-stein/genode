@@ -861,8 +861,12 @@ void Sculpt::Main::_generate_runtime_config(Xml_generator &xml) const
 		xml.node("start", [&] () {
 			gen_update_start_content(xml); });
 
-	if (_storage._sculpt_partition.valid() && !_prepare_in_progress())
+	if (_storage._sculpt_partition.valid() && !_prepare_in_progress()) {
+		xml.node("start", [&] () {
+			gen_launcher_query_start_content(xml); });
+
 		_deploy.gen_runtime_start_nodes(xml);
+	}
 }
 
 

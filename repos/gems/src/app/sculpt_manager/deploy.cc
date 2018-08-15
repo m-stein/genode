@@ -20,11 +20,13 @@ bool Sculpt::Deploy::update_child_conditions()
 	/* track whether any condition changed for the better */
 	bool result = false;
 
-	_children.apply_condition([&] (Xml_node start) {
+	_children.apply_condition([&] (Xml_node start, Xml_node launcher) {
 
 		/* the child cannot be started as long as any dependency is missing */
 		bool condition = true;
 		_for_each_missing_server(start, [&] (Start_name const &) {
+			condition = false; });
+		_for_each_missing_server(launcher, [&] (Start_name const &) {
 			condition = false; });
 
 		result |= condition;
@@ -34,16 +36,15 @@ bool Sculpt::Deploy::update_child_conditions()
 }
 
 
-void Sculpt::Deploy::_gen_missing_dependencies(Xml_generator &xml,
+void Sculpt::Deploy::_gen_missing_dependencies(Xml_generator &xml, Start_name const &name,
                                                Xml_node start, int &count) const
 {
-	Start_name const child = start.attribute_value("name", Start_name());
 	_for_each_missing_server(start, [&] (Start_name const &server) {
 		gen_named_node(xml, "hbox", String<20>(count++), [&] () {
 			gen_named_node(xml, "float", "left", [&] () {
 				xml.attribute("west", "yes");
 				xml.node("label", [&] () {
-					xml.attribute("text", String<64>(child, " requires ", server));
+					xml.attribute("text", String<64>(name, " requires ", server));
 					xml.attribute("font", "annotation/regular");
 				});
 			});
@@ -55,7 +56,7 @@ void Sculpt::Deploy::_gen_missing_dependencies(Xml_generator &xml,
 void Sculpt::Deploy::gen_child_diagnostics(Xml_generator &xml) const
 {
 	bool all_children_ok = true;
-	_children.for_each_unsatisfied_child([&] (Xml_node) {
+	_children.for_each_unsatisfied_child([&] (Xml_node, Xml_node) {
 		all_children_ok = false; });
 
 	if (all_children_ok)
@@ -70,8 +71,13 @@ void Sculpt::Deploy::gen_child_diagnostics(Xml_generator &xml) const
 
 			xml.node("float", [&] () {
 				xml.node("vbox", [&] () {
-					_children.for_each_unsatisfied_child([&] (Xml_node start) {
-						_gen_missing_dependencies(xml, start, count); }); }); });
+					_children.for_each_unsatisfied_child([&] (Xml_node start, Xml_node launcher) {
+						Start_name const name = start.attribute_value("name", Start_name());
+						_gen_missing_dependencies(xml, name, start,    count);
+						_gen_missing_dependencies(xml, name, launcher, count);
+					});
+				});
+			});
 		});
 	});
 }
@@ -89,6 +95,31 @@ void Sculpt::Deploy::handle_deploy()
 	try { _children.apply_config(manual_deploy); }
 	catch (...) {
 		error("spurious exception during deploy update (apply_config)"); }
+
+	/*
+	 * Apply launchers
+	 */
+	Xml_node const launcher_listing = _launcher_listing_rom.xml();
+	launcher_listing.for_each_sub_node("dir", [&] (Xml_node dir) {
+
+		typedef String<20> Path;
+		Path const path = dir.attribute_value("path", Path());
+
+		if (path != "/launcher")
+			return;
+
+		dir.for_each_sub_node("file", [&] (Xml_node file) {
+
+			if (file.attribute_value("xml", false) == false)
+				return;
+
+			typedef Depot_deploy::Child::Launcher_name Name;
+			Name const name = file.attribute_value("name", Name());
+
+			file.for_each_sub_node("launcher", [&] (Xml_node launcher) {
+				_children.apply_launcher(name, launcher); });
+		});
+	});
 
 	/* update query for blueprints of all unconfigured start nodes */
 	if (_arch.valid()) {

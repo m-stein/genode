@@ -67,6 +67,12 @@ class Depot_deploy::Children
 			_children.update_from_xml(_model_update_policy, config);
 		}
 
+		void apply_launcher(Child::Launcher_name const &name, Xml_node launcher)
+		{
+			_children.for_each([&] (Child &child) {
+				child.apply_launcher(name, launcher); });
+		}
+
 		void apply_blueprint(Xml_node blueprint)
 		{
 			blueprint.for_each_sub_node("pkg", [&] (Xml_node pkg) {
