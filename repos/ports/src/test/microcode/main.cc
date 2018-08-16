@@ -39,7 +39,9 @@ struct Microcode : Genode::Mmio
 	};
 	struct Processor_flags : Register<24, 32> {
 		struct Flags      : Bitfield<  0, 8> { };
-    };
+	};
+	struct Datasize  : Register<28, 32> { };
+	struct Totalsize : Register<32, 32> { };
 
 	Microcode(Genode::addr_t const addr) : Mmio(addr) { }
 };
@@ -54,6 +56,21 @@ static void read_micro_code_rom(Genode::Env &env, Genode::String<9> &rom_name,
 	try {
 		Attached_rom_dataspace mc_rom(env, rom_name.string());
 		Microcode mc_bits(reinterpret_cast<addr_t>(mc_rom.local_addr<uint8_t>()));
+
+		unsigned total_size = mc_bits.read<Microcode::Totalsize>();
+		unsigned data_size = mc_bits.read<Microcode::Datasize>();
+
+		/* see Intel - 9.11 MICROCODE UPDATE FACILITIES */
+		if (data_size == 0) data_size = 2000;
+		if (total_size == 0) total_size = data_size + 48;
+
+		if (total_size < data_size || total_size <= 48) {
+			error(id, " ", rom_name, " - microcode sizes are bogus ", total_size, " ", data_size);
+			return;
+		}
+		unsigned const extension_size = total_size - data_size - 48;
+		if (extension_size)
+			warning("microcode patch contains extension we don't support yet!");
 
 		if (mc_bits.read<Microcode::Version>() != 1) {
 			error(id, " ", rom_name, " - unsupported microcode version");
