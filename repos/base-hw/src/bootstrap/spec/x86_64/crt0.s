@@ -64,6 +64,7 @@
 	 *******************************************************************/
 
 .code16
+	.global _ap
 	_ap:
 
 	/* Load initial pagetables */
@@ -89,12 +90,6 @@ __gdt:
 .code32
 	.global _start
 	_start:
-
-	/* copy AP start up code on second physical page */
-	mov $(_start - _ap), %ecx
-	mov $_ap, %esi
-	mov $0x1000, %edi
-	rep movsb
 
 	/* preserve multiboot magic value register, used below later */
 	movl %eax, %esi

@@ -38,6 +38,12 @@ extern "C" Genode::addr_t __cpus_booted;
 extern "C" Genode::addr_t const bootstrap_stack_size;
 
 
+/* hardcoded physical page or AP CPUs boot code */
+enum { AP_BOOT_CODE_PAGE = 0x1000 };
+
+extern "C" void * _start;
+extern "C" void * _ap;
+
 static Hw::Acpi_rsdp search_rsdp(addr_t area, addr_t area_size)
 {
 	if (area && area_size && area < area + area_size) {
@@ -197,6 +203,13 @@ Bootstrap::Platform::Board::Board()
 		                                  : " - invalid RSDP");
 		cpus = !cpus ? 1 : max_cpus;
 	}
+
+	if (cpus > 1) {
+		/* copy 16 bit boot code for AP CPUs */
+		addr_t ap_code_size = (addr_t)&_start - (addr_t)&_ap;
+		memcpy((void *)AP_BOOT_CODE_PAGE, &_ap, ap_code_size);
+	}
+
 }
 
 struct Lapic : Mmio
@@ -281,16 +294,13 @@ unsigned Bootstrap::Platform::enable_mmu()
 
 	/* BSP - we're primary CPU - wake now all other CPUs */
 
-	/* hardcoded physical page frame number of boot code, see crt0.s */
-	uint8_t const boot_frame  = 0x1;
-
 	/* see Intel Multiprocessor documentation - we need to do INIT-SIPI-SIPI */
 	ipi_to_all(lapic, 0 /* unused */, Lapic::Icr_low::Delivery_mode::INIT);
 	/* wait 10  ms - debates ongoing whether this is still required */
-	ipi_to_all(lapic, boot_frame, Lapic::Icr_low::Delivery_mode::SIPI);
+	ipi_to_all(lapic, AP_BOOT_CODE_PAGE >> 12, Lapic::Icr_low::Delivery_mode::SIPI);
 	/* wait 200 us - debates ongoing whether this is still required */
 	/* debates ongoing whether the second SIPI is still required */
-	ipi_to_all(lapic, boot_frame, Lapic::Icr_low::Delivery_mode::SIPI);
+	ipi_to_all(lapic, AP_BOOT_CODE_PAGE >> 12, Lapic::Icr_low::Delivery_mode::SIPI);
 
 	return cpu_id;
 }
