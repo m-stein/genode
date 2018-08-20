@@ -45,7 +45,7 @@ struct i915_params i915_modparams = {
 	.disable_display          = false,
 	.verbose_state_checks     = true,
 	.nuclear_pageflip         = false,
-	.enable_dp_mst            = true,
+	.enable_dp_mst            = false,
 	.enable_dpcd_backlight    = false,
 	.enable_gvt               = false
 };
