@@ -1742,3 +1742,32 @@ void __intel_engine_disarm_breadcrumbs(struct intel_engine_cs *engine)
 {
 	TRACE_AND_STOP;
 }
+
+struct page *virt_to_page(const void *addr)
+{
+	TRACE_AND_STOP;
+	return 0;
+}
+
+int set_memory_wb(unsigned long addr, int numpages)
+{
+	TRACE_AND_STOP;
+	return -1;
+}
+
+const char *acpi_dev_name(struct acpi_device *adev)
+{
+	TRACE_AND_STOP;
+	return 0;
+}
+
+void ClearPageReserved(struct page *page)
+{
+	TRACE_AND_STOP;
+}
+
+int stop_machine(cpu_stop_fn_t a, void *b, const struct cpumask *c)
+{
+	TRACE_AND_STOP;
+	return -1;
+}
