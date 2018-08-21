@@ -91,16 +91,25 @@ struct Main
 struct Policy_agent
 {
 	Main &main;
-	Genode::Signal_handler<Policy_agent> sd;
+	Genode::Signal_handler<Policy_agent> handler;
+	bool _pending = false;
 
 	void handle()
 	{
+		_pending = true;
 		main.linux_task().unblock();
 		Lx::scheduler().schedule();
 	}
 
+	bool pending()
+	{
+		bool ret = _pending;
+		_pending = false;
+		return ret;
+	}
+
 	Policy_agent(Main &m)
-	: main(m), sd(main.ep, *this, &Policy_agent::handle) {}
+	: main(m), handler(main.ep, *this, &Policy_agent::handle) {}
 };
 
 
@@ -117,13 +126,14 @@ static void run_linux(void * m)
 	main->root.session.driver().finish_initialization();
 	main->announce();
 
-	static Policy_agent pa(*main);
-	main->root.session.driver().config_sigh(pa.sd);
-	main->config.sigh(pa.sd);
+	Policy_agent pa(*main);
+	main->root.session.driver().config_sigh(pa.handler);
+	main->config.sigh(pa.handler);
 
 	while (1) {
 		Lx::scheduler().current()->block_and_schedule();
-		main->root.session.config_changed();
+		while (pa.pending())
+			main->root.session.config_changed();
 	}
 }
 
