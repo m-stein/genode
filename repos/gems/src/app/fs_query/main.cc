@@ -120,7 +120,7 @@ struct Fs_query::Watched_directory
 	void gen_query_response(Xml_generator &xml, Xml_node query) const
 	{
 		xml.node("dir", [&] () {
-			xml.attribute("name", _rel_path);
+			xml.attribute("path", _rel_path);
 			_files.for_each([&] (Watched_file const &file) {
 				file.gen_query_response(xml, query, _alloc, _dir); });
 		});
