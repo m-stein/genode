@@ -770,7 +770,7 @@ long __wait_completion(struct completion *work, unsigned long timeout)
 
 size_t strlcpy(char *dest, const char *src, size_t size)
 {
-	size_t ret = strlen(src);
+	size_t ret = Genode::strlen(src);
 
 	if (size) {
 		size_t len = (ret >= size) ? size - 1 : ret;
