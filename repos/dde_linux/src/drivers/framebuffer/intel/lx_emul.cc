@@ -807,7 +807,8 @@ int driver_register(struct device_driver *drv)
 
 void device_unregister(struct device *dev)
 {
-	TRACE;
+	if (dev->type && dev->type->release)
+		dev->type->release(dev);
 }
 
 
