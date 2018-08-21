@@ -246,12 +246,10 @@ append_if $use_wifi_driver config {
 			<policy label_prefix="config_rom" root="/"/>
 			<content>
 				<inline name="wifi_config">
-<wifi_config connected_scan_interval="30" scan_interval="10" rfkill="no" verbose="no">
-	<accesspoints>}
+<wifi_config connected_scan_interval="30" scan_interval="10" rfkill="no" verbose="no">}
 append_if $use_wifi_driver config "
 		<accesspoint enabled=\"true\" ssid=\"$wifi_ssid\" protection=\"WPA2\" passphrase=\"$wifi_psk\"/>"
 append_if $use_wifi_driver config {
-	</accesspoints>
 </wifi_config>
 				</inline>
 			</content>
@@ -269,7 +267,7 @@ append_if $use_wifi_driver config {
 	<start name="wifi_drv" caps="200">
 		<resource name="RAM" quantum="24M"/>
 		<provides> <service name="Nic"/> </provides>
-		<config use_11n="no">
+		<config>
 			<libc stdout="/dev/null" stderr="/dev/log" rtc="/dev/rtc"/>
 			<vfs>
 				<dir name="dev">
