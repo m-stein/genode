@@ -47,6 +47,7 @@ struct Fs_query::Watched_file
 		content.xml([&] (Xml_node node) {
 			if (!node.has_type("empty")) {
 				xml.attribute("xml", "yes");
+				xml.append("\n");
 				xml.append(node.addr(), node.size());
 				content_is_xml = true;
 			}
@@ -73,8 +74,11 @@ struct Fs_query::Watched_file
 		 * File may have disappeared since last traversal. This condition
 		 * is detected on the attempt to obtain the file content.
 		 */
-		catch (Directory::Nonexistent_file) { }
-		catch (File::Open_failed) { }
+		catch (Directory::Nonexistent_file) {
+			warning("could not obtain content of nonexistent file ", _name); }
+		catch (File::Open_failed) {
+			warning("cannot open file ", _name, " for reading"); }
+		catch (Xml_generator::Buffer_exceeded) { throw; }
 	}
 };
 
@@ -172,6 +176,17 @@ struct Fs_query::Main : Vfs::Watch_response_handler
 
 	Registry<Registered<Watched_directory> > _dirs { };
 
+	void _gen_listing(Xml_generator &xml, Xml_node config) const
+	{
+		config.for_each_sub_node("query", [&] (Xml_node query) {
+			Directory::Path const path = query.attribute_value("path", Directory::Path());
+			_dirs.for_each([&] (Watched_directory const &dir) {
+				if (dir.has_name(path))
+					dir.gen_query_response(xml, query);
+			});
+		});
+	}
+
 	void _handle_config()
 	{
 		_config.update();
@@ -189,14 +204,7 @@ struct Fs_query::Main : Vfs::Watch_response_handler
 		});
 
 		_reporter.generate([&] (Xml_generator &xml) {
-			config.for_each_sub_node("query", [&] (Xml_node query) {
-				Directory::Path const path = query.attribute_value("path", Directory::Path());
-				_dirs.for_each([&] (Watched_directory const &dir) {
-					if (dir.has_name(path))
-						dir.gen_query_response(xml, query);
-				});
-			});
-		});
+			_gen_listing(xml, config); });
 	}
 
 	Main(Env &env) : _env(env)
