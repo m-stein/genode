@@ -84,11 +84,16 @@ class Depot_deploy::Children
 					child.mark_as_incomplete(missing); }); });
 		}
 
+		/*
+		 * \return true if the condition of any child changed
+		 */
 		template <typename COND_FN>
-		void apply_condition(COND_FN const &fn)
+		bool apply_condition(COND_FN const &fn)
 		{
+			bool any_condition_changed = false;
 			_children.for_each([&] (Child &child) {
-				child.apply_condition(fn); });
+				any_condition_changed |= child.apply_condition(fn); });
+			return any_condition_changed;
 		}
 
 		/**

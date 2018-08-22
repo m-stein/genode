@@ -17,22 +17,17 @@
 
 bool Sculpt::Deploy::update_child_conditions()
 {
-	/* track whether any condition changed for the better */
-	bool result = false;
+	return _children.apply_condition([&] (Xml_node start, Xml_node launcher) {
 
-	_children.apply_condition([&] (Xml_node start, Xml_node launcher) {
-
-		/* the child cannot be started as long as any dependency is missing */
+		/* the child cannot run as long as any dependency is missing */
 		bool condition = true;
 		_for_each_missing_server(start, [&] (Start_name const &) {
 			condition = false; });
 		_for_each_missing_server(launcher, [&] (Start_name const &) {
 			condition = false; });
 
-		result |= condition;
 		return condition;
 	});
-	return result;
 }
 
 

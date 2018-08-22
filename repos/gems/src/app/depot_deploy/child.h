@@ -220,17 +220,18 @@ class Depot_deploy::Child : public List_model<Child>::Element
 			_blueprint_pkg_path = _config_pkg_path();
 		}
 
+		/*
+		 * \return true if condition changed
+		 */
 		template <typename COND_FN>
-		void apply_condition(COND_FN const &fn)
+		bool apply_condition(COND_FN const &fn)
 		{
+			bool const orig_condition = _condition;
+
 			if (_defined_by_launcher() && !_launcher_xml.constructed()) {
 				_condition = UNSATISFIED;
-				return;
+				return _condition != orig_condition;
 			}
-
-			/* don't check the condition twice */
-			if (_condition == SATISFIED)
-				return;
 
 			Xml_node launcher_xml = _launcher_xml.constructed()
 			                      ? _launcher_xml->xml()
@@ -239,6 +240,8 @@ class Depot_deploy::Child : public List_model<Child>::Element
 			if (_start_xml.constructed())
 				_condition = fn(_start_xml->xml(), launcher_xml)
 				           ? SATISFIED : UNSATISFIED;
+
+			return _condition != orig_condition;
 		}
 
 		template <typename FN>
