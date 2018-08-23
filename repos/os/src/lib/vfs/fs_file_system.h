@@ -568,10 +568,8 @@ class Vfs::Fs_file_system : public File_system
 
 				auto handle_read = [&] (Fs_vfs_handle &handle) {
 
-					if (!packet.succeeded()) {
+					if (!packet.succeeded())
 						Genode::error("packet operation=", (int)packet.operation(), " failed");
-						return;
-					}
 
 					switch (packet.operation()) {
 					case Packet_descriptor::READ_READY:
