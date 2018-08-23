@@ -72,13 +72,15 @@ class Sculpt::Runtime_state : public Runtime_info
 			{
 				if (node.has_sub_node("ram")) {
 					Xml_node const ram = node.sub_node("ram");
-					child.info.assigned_ram = ram.attribute_value("assigned", Number_of_bytes());
+					child.info.assigned_ram = max(ram.attribute_value("assigned", Number_of_bytes()),
+					                              ram.attribute_value("quota",    Number_of_bytes()));
 					child.info.avail_ram    = ram.attribute_value("avail",    Number_of_bytes());
 				}
 
 				if (node.has_sub_node("caps")) {
 					Xml_node const caps = node.sub_node("caps");
-					child.info.assigned_caps = caps.attribute_value("assigned", 0UL);
+					child.info.assigned_caps = max(caps.attribute_value("assigned", 0UL),
+					                               caps.attribute_value("quota",    0UL));
 					child.info.avail_caps    = caps.attribute_value("avail",    0UL);
 				}
 			}
