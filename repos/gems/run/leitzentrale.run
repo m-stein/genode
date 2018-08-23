@@ -15,6 +15,7 @@ import_from_depot [depot_user]/src/[base_src] \
                   [depot_user]/src/libc \
                   [depot_user]/src/wm \
                   [depot_user]/src/themed_decorator \
+                  [depot_user]/src/nic_router \
                   [depot_user]/src/nit_fb \
                   [depot_user]/src/nit_fader \
                   [depot_user]/src/libpng \
@@ -273,7 +274,6 @@ install_config {
 			<service name="Block" label_last="ahci-1"> <child name="ahci-1"/> </service>
 			<service name="Block" label_last="ahci-2"> <child name="ahci-2"/> </service>
 			<service name="Block"> <child name="drivers"/> </service>
-			<service name="Usb"> <child name="drivers"/> </service>
 			<service name="Nitpicker" label_prefix="leitzentrale">
 				<child name="leitzentrale"/> </service>
 			<service name="Nitpicker"> <child name="nitpicker"/> </service>
