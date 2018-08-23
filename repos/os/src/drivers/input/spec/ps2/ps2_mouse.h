@@ -205,6 +205,13 @@ class Ps2::Mouse : public Input_driver
 			if (_aux.read() != RET_ACK)
 				Genode::warning("could not enable stream");
 
+			/*
+			 * Give the hardware some time to settle before probing extended
+			 * mouse versions. Otherwise, current Lenovo trackpoints (X260,
+			 * T470) stop working.
+			 */
+			_timer.msleep(5);
+
 			/* probe for protocol extensions */
 			if (_probe_exps2()) {
 				_type       = EXPS2;
