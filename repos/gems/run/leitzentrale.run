@@ -83,6 +83,8 @@ install_config {
 			        report="nitpicker -> hover"/>
 			<policy label="leitzentrale -> manager -> displays"
 			        report="nitpicker -> displays"/>
+			<policy label="runtime -> runtime_view -> dialog"
+			        report="leitzentrale -> manager -> runtime_view_dialog"/>
 		</config>
 	</start>
 
@@ -146,6 +148,7 @@ install_config {
 		<provides> <service name="File_system"/> </provides>
 		<config>
 			<default-policy root="/" writeable="yes"/>
+			<content> <inline name="log">See the core log for messages.</inline> </content>
 		</config>
 	</start>
 
@@ -230,6 +233,8 @@ install_config {
 				<child name="config_fs" label="rw"/> </service>
 			<service name="File_system" label="report">
 				<child name="report_fs" label="rw"/> </service>
+			<service name="Report" label="manager -> runtime_view_dialog">
+				<child name="report_rom"/> </service>
 			<service name="Report"> <child name="fs_report"/> </service>
 			<service name="ROM" label_last="drivers/block_devices">
 				<parent label="block_devices"/> </service>
@@ -259,6 +264,8 @@ install_config {
 				<child name="config_rom" label="managed/runtime"/> </service>
 			<service name="ROM" label_prefix="config -> ">
 				<child name="config_rom"/> </service>
+			<service name="ROM" label="runtime_view -> dialog">
+				<child name="report_rom"/> </service>
 			<service name="File_system" label="config">
 				<child name="config_fs" label="rw"/> </service>
 			<service name="File_system" label="report">
