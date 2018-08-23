@@ -145,9 +145,9 @@ struct Sculpt::Graph
 							if (info.selected) {
 
 								String<100> const
-									ram (Capacity{info.avail_ram}, " / ",
+									ram (Capacity{info.assigned_ram - info.avail_ram}, " / ",
 									     Capacity{info.assigned_ram}),
-									caps(info.avail_caps, " / ",
+									caps(info.assigned_caps - info.avail_caps, " / ",
 									     info.assigned_caps, " caps");
 
 								gen_named_node(xml, "label", "ram", [&] () {
