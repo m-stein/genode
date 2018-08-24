@@ -17,6 +17,7 @@
 
 bool Sculpt::Deploy::update_child_conditions()
 {
+	/* return true if any condition changed */
 	return _children.apply_condition([&] (Xml_node start, Xml_node launcher) {
 
 		/* the child cannot run as long as any dependency is missing */

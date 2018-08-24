@@ -226,12 +226,7 @@ class Depot_deploy::Child : public List_model<Child>::Element
 		template <typename COND_FN>
 		bool apply_condition(COND_FN const &fn)
 		{
-			bool const orig_condition = _condition;
-
-			if (_defined_by_launcher() && !_launcher_xml.constructed()) {
-				_condition = UNSATISFIED;
-				return _condition != orig_condition;
-			}
+			Condition const orig_condition = _condition;
 
 			Xml_node launcher_xml = _launcher_xml.constructed()
 			                      ? _launcher_xml->xml()
@@ -284,6 +279,9 @@ class Depot_deploy::Child : public List_model<Child>::Element
 		void gen_query(Xml_generator &xml) const
 		{
 			if (_configured() || _pkg_incomplete)
+				return;
+
+			if (_defined_by_launcher() && !_launcher_xml.constructed())
 				return;
 
 			xml.node("blueprint", [&] () {
