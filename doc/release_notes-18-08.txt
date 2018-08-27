@@ -117,65 +117,14 @@ Device drivers
 Linux device-driver environment based on kernel version 4.16.3
 ==============================================================
 
-; @cnuke
-
-commit 2efc64ace796b847e5ffc250df3a7cbd6b2bd9ac
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Tue Apr 10 16:54:01 2018 +0200
-
-    lx_kit: adjust to 4.16.3
-
-commit ced585fd5ea5f95730e4295e531c2bce28e809fe
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Thu Jun 28 13:22:50 2018 +0200
-
-    lxip: adapt to lx_kit/lx_emul updates
-
-commit 66ef6357b8a23d383d206437392a7f7cb1bd6b88
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Thu Jun 28 13:51:00 2018 +0200
-
-    fec: adapt to lx_kit/lx_emul update
-
-commit db536af3d922b3bd4eb6bddefba708727a28228f
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Thu Jun 28 15:05:38 2018 +0200
-
-    usb: adapt to lx_kit/lx_emul update
-
-commit 07bb227d2d3ec2913446ec3418885771fd407ff8
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Apr 9 23:33:34 2018 +0200
-
-    dde_linux: update intel_fb to 4.16.3
-    
-    Fixes #2736
-
-commit ced585fd5ea5f95730e4295e531c2bce28e809fe
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Thu Jun 28 13:22:50 2018 +0200
-
-    lxip: adapt to lx_kit/lx_emul updates
-
-commit 66ef6357b8a23d383d206437392a7f7cb1bd6b88
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Thu Jun 28 13:51:00 2018 +0200
-
-    fec: adapt to lx_kit/lx_emul update
-
-commit db536af3d922b3bd4eb6bddefba708727a28228f
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Thu Jun 28 15:05:38 2018 +0200
-
-    usb: adapt to lx_kit/lx_emul update
-
-commit 07bb227d2d3ec2913446ec3418885771fd407ff8
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Apr 9 23:33:34 2018 +0200
-
-    dde_linux: update intel_fb to 4.16.3
-    
-    Fixes #2736
+We updated our DDE Linux version from 4.4.3 to 4.16.3 to support newer
+Intel wireless cards as well as Intel HD graphics devices. Since there
+were some changes to the Linux internal APIs we had to adapt the Linux
+emulation environment. We managed to do that in a way that still makes
+it possible to keep using the old Linux version for certain drivers like
+the FEC network driver and the TCP/IP stack. Those will be updated later
+on. Further more, some drivers received additional features while updating
+the code base.
 
 
 Updated and enhanced Intel framebuffer driver
@@ -193,21 +142,68 @@ Date:   Thu Jul 26 11:29:27 2018 +0200
 Updated and reworked Intel wireless driver
 ==========================================
 
-; @cnuke
+In addition to updating the iwlwifi driver's code base that now comes with
+support for 8265 as well as 9xxx devices, the WPA supplicant code was also
+updated to version 2.7 that contains critical fixes for issues like the
+KRACK exploit.
 
-commit 6b0e609b8f28b29b362b98869ebfcab444726ae4
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Mon Apr 23 15:45:47 2018 +0200
+We took the opertunity to also rework the wifi_drv's configuration interface.
+The old driver used the 'wpa_supplicant.conf' POSIX config file interface
+as configuration mechanism. Unfortunatly, this implementation detail became
+apparant to the user of the driver as a file system that provided a place
+to store the file had to be configured. We therefor switch the supplicant to
+use its CTRL interface and implemented a Genode specific backend. In this
+context we changed the structure of the configuration of the driver.
 
-    wifi: update iwlwifi to 4.16.3
+The driver still reports its current state but the report is now simply called
+'state' instead of 'wlan_state' At the moment SSIDs are provided verbatim in
+the report and are not sanatized. SSIDs that contain unusal characters like '"'
+and the NUL byte will lead to unparsable reports. This is also true for the
+'accesspoints' report that now also is simply called 'accesspoints' instead of
+'wlan_accesspoints'.
 
-commit 0bcad4ee84d54fb1a8816b7f9300d637a000b600
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Wed Jul 4 17:13:16 2018 +0200
+The main configuration was moved from the common '<config>' node to
+a new ROM called 'wifi_config'. In doing so we cleanly seperated the wireless
+configuration from the component's internal configuration like the libc or VFS
+settings that are not supposed to change during the components lifetime. The
+new 'wifi_config' configuration looks as follows:
 
-    wifi_drv: enable soft RFKILL and new front end
-    
-    * TODO
+!<wifi_config connected_scan_interval="30" scan_interval="5">
+!  <accesspoint ssid="Foobar" protection="WPA2" passphrase="allyourbase"/>
+!</wifi_config>
+
+The type of the top node is ignored by the driver and can be chosen freely.
+The 'connected_scan_interval' specifices the timeout after which the driver
+will request a new scan of the existing accesspoints while being already
+connected to one accesspoint. This setting influence the frequency at which
+the driver will make a roaming decision within the network (SSID). The
+'scan_interval' attribute specifices the timeout after which a new scan
+request will be executed while stilling trying to find a suitable accesspoint.
+In addition to those attributes there is also 'use_11n' that, however, only
+be evaluated once on start-up to enable or rather disable 11N support within
+the iwlwifi module. It cannot be toggled at run-time. Furthermore there are
+various verbosity attributes like 'verbose' and 'verbose_state'. If either of
+those is set to yes, the driver will print diagnostic messages to the LOG
+session. They are toggable at run-time. It is now also possible to temporarily
+suspend the radio activity of the wireless device by setting the 'rfkill'
+attribute to 'yes'. This will basically disable all connectivity and can
+be freely set at run-time.
+
+The '<accesspoint>' node replaces the previously used '<selected_network>'
+node. The SSID of the preferred network is set via the 'ssid' attribute. Like
+the SSID in the driver's reports its value is copied verbatim and at the
+moment there is no way to express or escape non alphanumeric characters.
+The type of protection of the network is set via the 'protection' attribute.
+Valid values are 'WPA' and 'WPA2'. The alphanumeric password is set via the
+'passphrase' attribute. Setting a PSK directly is not supported for now.
+The configuration can contain more than one 'accesspoint' entry. In this case
+the driver will chose the network with the best quality from the list. To
+prevent the driver from auto-connecting to a network, the 'auto_connect'
+attribute can be set to 'false'. The 'bssid' attribute may be used in addition
+to the 'ssid' attribute to select a specific accesspoint within one network.
+
+There is no backwards compatibility for the old configuration format. Users
+are advised to change their components.
 
 
 De-componentized USB stack
@@ -498,22 +494,12 @@ Date:   Mon Jun 4 15:49:29 2018 +0200
 Simplified DNS handling of libc-using components
 ================================================
 
-; @cnuke
-
-commit 74dcc7a3d57f91fd7382964ac1524ad622dd5f2d
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Fri May 25 22:22:12 2018 +0200
-
-    libc: use socket fs for DNS information
-    
-    The libc will now use the file given by the 'nameserver_file' attribute
-    to get the DNS nameserver address instead of reading '/etc/resolv.conf'.
-    It defaults to '/socket/nameserver' which is the common location when
-    using the lxip VFS plugin. As a constraint the libc will read the first
-    line and expects the nameserver address without any keywords in front of
-    it.
-    
-    Fixes #2861.
+We overhault the way the libc will lookup up the DNS server. Instead of simply
+accessing the commonly used '/etc/resolv.conf' file it will now use the
+file given by the 'nameserver_file' attribute to get the DNS nameserver
+address. It defaults to '/socket/nameserver' which is the common location when
+using the lxip or lwip VFS plugin. As a constraint the libc will read the first
+line and expects the nameserver address without any keywords in front of it.
 
 
 Cached file-system-based ROM service
