@@ -694,15 +694,30 @@ We updated the VirtualBox 5 port on Genode to the latest available 5.1 version.
 New component for querying information from a file system
 =========================================================
 
-; @nfeske
+There are situations where a security critical application needs to obtain
+information stored on a file system but must not depend on the liveliness of
+the file-system implementation. A prominent example is the sculpt manager of
+Sculpt OS. Instead of accessing the file system directly, it uses a helper
+component that performs the actual file-system access and generates a report
+containing the aggregated information. Should the file system crash or become
+unavailable for other reasons such as the removal of a USB stick, the helper
+component may get stuck but the security-critical application remains
+unaffected.
 
-commit 7c570d9b713ebb95f04e03ac77bf06c6644db8a0
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Aug 20 16:47:43 2018 +0200
+The new fs_query component resides at _repos/gems/src/app/fs_query/_ and is
+accompanied with the _fs_query.run_ script. The file system is configured as a
+component-local VFS. The component accepts any number of '<query>' nodes
+within its '<config>' node. Each '<query>' node must contain a 'path'
+attribute pointing to a directory to watch. The component generates a report
+labeled "listing". For each existing queried directory, the report contains a
+'<dir>' node with the list of files as '<file>' nodes featuring the
+corresponding 'name' as attribute value.
 
-    Tool for querying information from file system
-    
-    Issue #2936
+A '<query>' can be equipped with a 'content="yes"' attribute. If set, the
+content of the queried files is supplemented as body of the '<file>' nodes.
+The reported content is limited to 4 KiB per file. If the content is valid
+XML, the '<file>' node contains an attribute 'xml="yes"' indicating that the
+XML information is inserted as is. Otherwise, the content is sanitized.
 
 
 Updated ported 3rd-party software
