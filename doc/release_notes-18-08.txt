@@ -130,14 +130,29 @@ the code base.
 Updated and enhanced Intel framebuffer driver
 =============================================
 
-; @alexab
+In addition to updating the Intel graphic driver it comes with support for
+changing the brightness of notebook displays. The driver configuration
+supports now an additional attribute named 'brightness' expecting values in
+percentage:
 
-commit 2530a9122522a5b3705de0b21ffa2013e57c6c1a
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Thu Jul 26 11:29:27 2018 +0200
+! ...
+! <config>
+!  <connector name="LVDS-11" width="1280" height="800" hz="60" brightness="75" enabled="true"/>
+! </config>
+! ...
 
-    intel_fb: add support to change brightness
+By default the brightness is set to 75 percentage. Additionally, on each
+connector status change the connector report provides provides the last set
+brightness for supported displays.
 
+! <connectors>
+!   <connector name="LVDS-11" connected="1" brightness="75">
+!     <mode width="1280" height="800" hz="60"/>
+!     ...
+!   </connector>
+!   <connector name="HDMI-A-1" connected="false"/>
+!   ...
+! </connectors>
 
 Updated and reworked Intel wireless driver
 ==========================================
@@ -664,19 +679,10 @@ Python 3
 
 @valivalpas
 
-;VirtualBox updated to version 5.1.38
-;====================================
-;
-;@alex-ab
-;
-;commit 2755772478edfb2eb4050e2c25116e68c0b117bd
-;Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-;Date:   Wed May 30 16:32:52 2018 +0200
-;
-;    vbox5: update to 5.1.38
-;    
-;    Issue #2847
+VirtualBox updated to version 5.1.38
+====================================
 
+We updated the VirtualBox 5 port on Genode to the latest available 5.1 version.
 
 ;PDF viewer changes
 ;==================
@@ -727,115 +733,81 @@ Platforms
 New Intel Microcode update mechanism
 ====================================
 
-; @alex-ab
+Applying CPU microcode patches is typically a task done by UEFI/BIOS firmware
+shipped by the hardware vendors of PCs and/or motherboards. However, for
+various reasons machines may get not long enough or not quickly
+enough new firmware updates. Based on the recent high rate of disclosure of
+hardware bugs in CPUs of the Spectre family, the desire is high to apply
+microcode patches close in time. To address this concern, we added principle
+support to apply Intel microcode updates for Genode.
 
-commit ebf7d7974464fd8814704ee780ce553ad209bf8d
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Aug 6 11:21:02 2018 +0200
+As first step, we added support to download the Intel microcode patches via
+the Genode port mechanism.
 
-    ports: add microcode of Intel CPUs
-    
-    Issue #2762
+! tool/ports/prepare_port microcode_intel
 
-commit 9564a4b9692b9ac0f59c2f080bcc7a8d34ea82d1
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Aug 6 12:32:16 2018 +0200
+As next step, a Genode component, as showcased by 'repos/ports/run/microcode.run',
+can compare the current microcode patch level on Genode/NOVA with the
+downloaded Intel microcode. The relevant information about the CPUs and their
+microcode patchlevel are provided by the platform_info ROM on Genode/NOVA.
 
-    nova: provide microcode data via platform_info
-    
-    Issue #2762
+If a microcode update is necessary, the Intel microcode can be applied during
+the next boot. We decided to implement this functionality as a separate
+chained bootloader called 'microcode' in order to not inflate all our supported
+x86 kernels by additional management code to apply microcode patches on all CPUs.
+The 'microcode' bootloader expects a module called 'micro.code' which contains
+the specific Intel microcode from the 'microcode_intel' port for the target
+CPU. The relevant excerpt of a Genode GRUB2 configuration looks like this:
 
-commit dd9673cc9dec546dc760cfabecdb035001f31de5
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Aug 6 21:43:54 2018 +0200
+! multiboot2 /boot/bender
+! module2 /boot/microcode serial
+! module2 /boot/micro.code micro.code
+! module2 /boot/hypervisor hypervisor iommu serial
+! module2 /boot/image.elf.gz image.elf
 
-    run: add microcode chain bootloader to nova
-    
-    Fixes #2762
+The microcode update functionality got integrated into the
+'tool/run/boot_dir/nova' support file and can be enabled by providing a
+'apply_microcode' TCL procedure, as showcased in 'repos/ports/run/microcode.run'.
 
+The 'microcode' chained bootloader got developed by Genode as part of the
+Morbo project. The 'microcode' bootloader checks for a Intel CPU and a valid
+'micro.code' module which matches the currently running CPU. Afterwards, the
+the bootloader looks up all CPUs and some LAPIC information by parsing the
+relevant ACPI tables. With the information the CPUs get booted, which then
+apply the microcode update. In case of hyperthreading CPUs, solely one
+hyperthread gets started and applies the update for all hyperthreads.
+Finally, all newly started CPUs get halted and the microcode bootloader hands
+over control to the next module which is typically the x86 kernel.
 
 Multiprocessor support for our custom kernel on x86
 ===================================================
 
-; @alex-ab
-
-commit ba0575f2738a1decdcc5b5d700b5d9c661882a04
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Apr 23 21:55:47 2018 +0200
-
-    hw/x86: read out local APIC base dynamically
-    
-    Issue #2929
-
-commit 6405c51bb9a54fc74d069e56807d6cf9f4e8b14e
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed Aug 1 15:19:06 2018 +0200
-
-    hw/x86: ACPI tables parsing support
-    
-    Issue #2929
-
-commit 5ce69c7a5bddcead62cc402ce7ed3c43b2a0238b
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed Aug 1 14:20:30 2018 +0200
-
-    hw: provide CPU count to core by bootstrap
-    
-    The count is supposed to provide the actual available CPUs, which may not
-    be equal to NR_OF_CPUS.
-    
-    Issue #2929
-
-commit 007c7cb14dad4e3acdf08576af6e79ec668e2a07
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed Aug 1 14:07:44 2018 +0200
-
-    hw: determine CPU count on x86
-    
-    Issue #2929
-
-commit 565e656d61a1e3e94baef8051b3965616b48a3ad
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed Aug 1 15:46:06 2018 +0200
-
-    hw/x86: enable SMP support
-    
-    Fixes #2929
-
+As announced on our roadmap for this year, we extended our 'hw' kernel on
+x86 with multiprocessor support. The 'bootstrap' part of the
+kernel now parses ACPI tables to lookup required CPU information and finally
+starts them. The number of the actual running CPUs are now reported by
+'bootstrap' to the 'hw' kernel to foster the x86 case, where the maximum
+configured CPU count is not identical to the running CPUs - in contrast to our
+supported ARM boards.
 
 NOVA microhypervisor
 ====================
 
-; @alex-ab
+The used NOVA kernel branch got switched to r10, which is a intermediate
+result of Cyberus Technology and of Genode to harmonize the independently
+developed NOVA kernel branches. We hope to benefit from the NOVA evolution
+from each other in the long run by having a common NOVA tribe and short
+individual branches.
 
-commit 70028f8445115ebb13fd327f0980370bf8e1f358
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Sat May 28 20:54:24 2016 +0200
-
-    nova: export kernel messages via memory
-    
-    Fixes #2207
-
-commit 3148b672889dc81e0e695d3f408bcbf6dffcc879
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Sun May 13 12:08:32 2018 +0200
-
-    nova: use kernel branch r10
-    
-    - Reordering and cleanup of commits to form a common branch shared by others
-    - Add right bit to deny portal usage for cross-core IPC
-    - avoid GP when switching on AMD SVM if disabled by UEFI/BIOS
-    
-    Issue #2854
-
-commit 0db81f66ae22f95a8d993ec0282536374144c7f1
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Sat Jun 23 17:19:12 2018 +0200
-
-    nova: propagate vga text info via platform_info
-    
-    Issue #2880
-
+Feature-wise the r10 branch contains following changes:
+* Export kernel trace messages via memory, which can be used by Genode to
+  process them for debugging purposes. The feature is used in Sculpt OS
+  already and may be tested by 'repos/os/run/log_core.run'.
+* Cross-core IPC via NOVA portals can now be restricted
+* Avoid general protection fault on AMD machines where SVM is disabled by UEFI firmware
+* More robust ACPI table parsing of broken/defect ACPI tables
+* Using eager FPU switching on Intel CPUs to mitigate Spectre FPU CVE
+* Report CPU microcode patch level information via the hypervisor informatam page
 
 Fiasco.OC microkernel updated
 =============================
