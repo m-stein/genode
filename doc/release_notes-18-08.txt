@@ -130,10 +130,9 @@ the code base.
 Updated and enhanced Intel framebuffer driver
 =============================================
 
-In addition to updating the Intel graphic driver it comes with support for
-changing the brightness of notebook displays. The driver configuration
-supports now an additional attribute named 'brightness' expecting values in
-percentage:
+The updated Intel graphic driver additionally supports changing the
+brightness of notebook displays. The driver configuration reads a
+new attribute named 'brightness' expecting a percentage value:
 
 ! ...
 ! <config>
@@ -141,9 +140,9 @@ percentage:
 ! </config>
 ! ...
 
-By default the brightness is set to 75 percentage. Additionally, on each
-connector status change the connector report provides provides the last set
-brightness for supported displays.
+By default the brightness is set to 75 percent. The connector status report
+also includes the current brightness of supported displays with each
+status update.
 
 ! <connectors>
 !   <connector name="LVDS-11" connected="1" brightness="75">
@@ -157,22 +156,20 @@ brightness for supported displays.
 Updated and reworked Intel wireless driver
 ==========================================
 
-In addition to updating the iwlwifi driver's code base that now comes with
-support for 8265 as well as 9xxx devices, the WPA supplicant code was also
-updated to a recent git version that contains critical fixes for issues like
-the KRACK exploit.
+Updates to the iwlwifi driver's code base bring new support for 8265 as
+well as 9xxx devices, the WPA supplicant code was also updated to a recent
+git version that contains critical fixes for issues like the KRACK exploit.
 
 Since the updated driver requires newer firmware images which are not as easily
-accessible as the old ones, as well we now provide the appropiate images
-ourselves:
+accessible as the old ones, we now provide the appropiate images ourselves:
 
 [https://github.com/cnuke/dde_linux_firmware - Firmware images for DDE Linux]
 
 We took the opportunity to also rework the wifi_drv's configuration interface.
 The old driver used the 'wpa_supplicant.conf' POSIX config file interface
 as configuration mechanism. Unfortunatly, this implementation detail became
-apparant to the user of the driver because a file system that provided a place
-to store the file had to be configured. For this reason, we now make use of the
+apparent to a user of the driver because a file-system for
+storing the file needed to be configured. For this reason, we now make use of the
 CTRL interface of the supplicant and implemented a Genode specific backend.
 In this context we changed the structure of the configuration of the driver.
 
@@ -508,21 +505,21 @@ line and expects the nameserver address without any keywords in front of it.
 Cached file-system-based ROM service
 ====================================
 
-The fs_rom server has long been the foundation of dynamic Genode
+The fs_rom server has long been part of the foundation of dynamic Genode
 systems, both for serving configuration and loading component
 binaries and libraries. For the server to dynamically update ROM
 dataspaces as requested by clients it must maintain independent
 dataspaces for each client. This a small price for dynamic
 configuration but a burden when serving more than a few static
-binary images. The cached_fs_rom server in an alternative ROM
+binary images. The cached_fs_rom server is an alternative ROM
 service that deduplicates dataspaces across client sessions as well
-as load and deliver sessions requests out-of-order. Implementing
+as load and deliver sessions out-of-order. Implementing
 `cached_fs_rom` required an amendment to the RM session interface to
 support read-only attachments in managed dataspaces. This allows the
 server to allocate a managed memory region for each session, map the
 dataspace with file content into the region without write permissions, then
 serve a dataspace capability for this region to clients. This is prerequisite for
-safely delegating static memory across clients. Granting access to such a
+safely delegating shared memory across clients. Granting access to such a
 component would of course allow a client to discover which files have
 been loaded by other components by measuring the round-trip time for
 session requests, but this discovery is mitigated in the Sculpt OS by
@@ -537,25 +534,25 @@ VFS plugin for importing initial content
 
 The previous release added a long anticipated feature plugin for the VFS
 layer, the Copy-On-Write plugin, or COW. This plugin would transparently
-perform writes to a read-only file to a writable file in a different location, such
-as disk images for virtual machines. The initial implementation appeared to
+forward writes to a read-only file to a writable file in a different location, such
+as initial disk images for virtual machines. The implementation appeared to
 provide these semantics without sophisticated knowledge of what portions
 of a file-system had been duplicated for writing, but in practical use the
 plugin suffered from a number of issues. First, the plugin was not able to
 reliably detect recursion into itself, and second, chaining asynchronous
 operations together proved to be more complex than we would like.
 
-To look instead to features we were actually using rather than features we
+To look instead to the features we were using rather than the features we
 anticipated, we focused on the initial content feature of the `ram_fs`. This
 server provides a non-persistent file-system that can be populated with
 content before servicing clients. To further the goal of providing a toolkit
-of orthoginal components we have been gradually merge the `ram_fs` server,
+of orthoginal components we have been gradually merging the `ram_fs` server,
 the first file-system server, into the newer, more powerful `vfs` server.
 component. Initial population happened to be the last feature before parity,
 so we created a special `import` plugin to the VFS library that instantiates a
 temporary internal file-system that is copied to root of the main VFS instance.
-The copy is always recursive but non-descructive by default. Should the
-import process overwite existing files, simply add an 'overwrite="yes"` to the
+The copy is recursive and non-destructive by default. Should the import process
+overwite existing files, simply add an 'overwrite="yes"` to the
 plugin configuration node. This plugin covers all use-cases we had for the
 COW plugin and turned out to be quite intuitive, so with this release we
 removed COW and replaced it with the `import` plugin.
@@ -586,7 +583,7 @@ into a Noux instance:
 
 To compare the use of the plugin in the VFS server:
 
-! <start name="config_fs" caps="200">
+! <start name="config_fs">
 !   <binary name="vfs"/>
 !   ...
 !   <config>
@@ -597,10 +594,8 @@ To compare the use of the plugin in the VFS server:
 !           <rom name="fonts"  label="fonts.config"/>
 !           <rom name="fb_drv" label="fb_drv.config"/>
 !           <rom name="wifi"   label="wifi.config"/>
-!           <rom name="installation"/>
-!           <rom name="runtime"      label="empty_runtime.config"/>
-!           <rom name="input_filter" label="input_filter.config"/>
 !           <inline name="depot_query"><query/></inline>
+!           ...
 !         </dir>
 !         <rom name="input_filter"  label="input_filter.config"/>
 !         <rom name="fb_drv"        label="fb_drv.config"/>
@@ -615,7 +610,7 @@ To compare the use of the plugin in the VFS server:
 
 And the traditional `ram_fs` content configuration:
 
-! <start name="config_fs" caps="200">
+! <start name="config_fs">
 !   <binary name="ram_fs"/>
 !   ...
 !   <config>
@@ -624,10 +619,8 @@ And the traditional `ram_fs` content configuration:
 !         <rom name="fonts.config"         as="fonts"/>
 !         <rom name="fb_drv.config"        as="fb_drv"/>
 !         <rom name="wlan.config"          as="wlan"/>
-!         <rom name="installation"/>
-!         <rom name="empty_runtime.config" as="runtime"/>
-!         <rom name="input_filter.config"  as="input_filter"/>
 !         <inline name="depot_query"><query/></inline>
+!         ...
 !       </dir>
 !       <rom name="input_filter.config"  as="input_filter"/>
 !       <rom name="fb_drv.config"        as="fb_drv"/>
@@ -654,12 +647,12 @@ Enhanced Terminal compatibility
 ===============================
 
 During this release cycle a simple SSH client was added to the world repository
-and we quickly noticed that our graphical terminal was unprepared for the wide
+and we quickly noticed that our graphical terminal was unprepared for the
 variety of terminal escape sequences found in the wild. The escape sequence
 parser in the `terminal` server now is now able to handle or ignore the litany
 of sequences that might be considered part of the ad hoc VT100/Screen/Xterm
 standard. We may never be able to say that we handle them all, but the
-`terminal` server can now be used for practical purposes with most TUI applications.
+`terminal` server can now be used with many robust TUI applications.
 
 Libraries and applications
 ##########################
