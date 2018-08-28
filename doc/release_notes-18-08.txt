@@ -454,33 +454,27 @@ Date:   Tue Jun 19 16:20:47 2018 +0200
 New VFS plugin for using lwIP as TCP/IP stack
 =============================================
 
-; @emery
+The architecture and philosophy of Genode mandates that network protocol
+stacks be moved up and away from the kernel whenever practical. Eliminating
+the TCP/IP stack from the TCB of non-networked components has obvious
+benifits, but poses a challenge for isolating or sharing IP stacks otherwise.
+In the 17.02#Enhanced_VFS_infrastructure release we introduced a Berkeley
+Sockets layer to the POSIX C runtime that uses the local virtual-file-system
+layer to access an abstract TCP/IP stack via control files. The first stack plugin
+for the VFS layer was a port of the Linux IP stack, referred to as Lxip.
 
-commit d9a47731943b8b17948c26d7adfb504c98c27927
-Author: Emery Hemingway <emery@vfemail.net>
-Date:   Sun Sep 18 19:46:54 2016 +0200
+Ported in the 9.11#Light-weight_IP_stack__lwIP_ release, the LwIP is stack
+is indeed the lightweight alternative to Lxip. LwIP features an low-level
+asynchronous API as well as an optional Berkeley Sockets interface. For this
+release we reconfigured the latest LwIP release for asynchronous mode only
+and drive the low-level API via our so called "socket fs" interface in the
+new LwIP VFS plugin. This plugin retains the modest resource usage of the
+LwIP library with performance that is competitive with Lxip.
 
-    LwIP VFS plugin
-    
-    This patch reintroduces the LwIP stack to libc as a VFS plugin
-    implementing the socket_fs interface. Rather than use LwIP's socket
-    emulation layer this plugin interfaces directly to LwIP raw API and is
-    single threaded.
-    
-    The internal TCP parameters of the stack are untuned.
-    
-    Fix #2050
-    Fix #2335
-
-commit bf8b52ec3ad1e1e76818f6ff2b7b4f2a4c2dc53c
-Author: Emery Hemingway <ehmry@posteo.net>
-Date:   Fri Jul 20 12:10:12 2018 +0200
-
-    Update LwIP to 2.1.0.rc1
-    
-    This release candidate suppresses the remaining build warnings.
-    
-    Ref #2335
+Developers and integrators are encouraged to transition from the old `libc_lwip`
+libraries to the new VFS plugin by simply removing the legacy libraries from
+components and updating configurations to load and configure the plugin
+at runtime.
 
 
 Dynamic capability-quota balancing
@@ -514,58 +508,136 @@ line and expects the nameserver address without any keywords in front of it.
 Cached file-system-based ROM service
 ====================================
 
-; @emery
-
-commit 09bf68e8ade48f1a1f7267f51ccce55485f374a1
-Author: Emery Hemingway <ehmry@posteo.net>
-Date:   Tue Jun 12 11:18:30 2018 +0200
-
-    Cached_fs_rom: serve static ROM sessions from a cache
-    
-    This component is contrasted with the fs_rom server that serves
-    independent dataspaces to each client. Using a cache was not possible
-    until the region map session supported the creation of read-only
-    attachments.
-    
-    Test at run/read_only_rom.
-    
-    Ref #1633
-    Fix #2760
+The fs_rom server has long been the foundation of dynamic Genode
+systems, both for serving configuration and loading component
+binaries and libraries. For the server to dynamically update ROM
+dataspaces as requested by clients it must maintain independent
+dataspaces for each client. This a small price for dynamic
+configuration but a burden when serving more than a few static
+binary images. The cached_fs_rom server in an alternative ROM
+service that deduplicates dataspaces across client sessions as well
+as load and deliver sessions requests out-of-order. Implementing
+`cached_fs_rom` required an amendment to the RM session interface to
+support read-only attachments in managed dataspaces. This allows the
+server to allocate a managed memory region for each session, map the
+dataspace with file content into the region without write permissions, then
+serve a dataspace capability for this region to clients. This is prerequisite for
+safely delegating static memory across clients. Granting access to such a
+component would of course allow a client to discover which files have
+been loaded by other components by measuring the round-trip time for
+session requests, but this discovery is mitigated in the Sculpt OS by
+restricting components to a ROM whitelist. Under these conditions a
+component may only determine if a component with a similiar whitelist
+has been loaded previously, but only for ROMs that have not been loaded
+by the dynamic linker before measurements can be taken.
 
 
 VFS plugin for importing initial content
 ========================================
 
-; @emery
+The previous release added a long anticipated feature plugin for the VFS
+layer, the Copy-On-Write plugin, or COW. This plugin would transparently
+perform writes to a read-only file to a writable file in a different location, such
+as disk images for virtual machines. The initial implementation appeared to
+provide these semantics without sophisticated knowledge of what portions
+of a file-system had been duplicated for writing, but in practical use the
+plugin suffered from a number of issues. First, the plugin was not able to
+reliably detect recursion into itself, and second, chaining asynchronous
+operations together proved to be more complex than we would like.
 
-commit 59ac5b10c7d243ee908b720616e8a8edf0b07db1
-Author: Emery Hemingway <ehmry@posteo.net>
-Date:   Thu Jul 5 16:50:14 2018 +0200
+To look instead to features we were actually using rather than features we
+anticipated, we focused on the initial content feature of the `ram_fs`. This
+server provides a non-persistent file-system that can be populated with
+content before servicing clients. To further the goal of providing a toolkit
+of orthoginal components we have been gradually merge the `ram_fs` server,
+the first file-system server, into the newer, more powerful `vfs` server.
+component. Initial population happened to be the last feature before parity,
+so we created a special `import` plugin to the VFS library that instantiates a
+temporary internal file-system that is copied to root of the main VFS instance.
+The copy is always recursive but non-descructive by default. Should the
+import process overwite existing files, simply add an 'overwrite="yes"` to the
+plugin configuration node. This plugin covers all use-cases we had for the
+COW plugin and turned out to be quite intuitive, so with this release we
+removed COW and replaced it with the `import` plugin.
 
-    Plugin for importing VFS content
-    
-    This new vfs_import plugin allows a VFS instance to be populated during
-    construction using a sub-VFS configured in an '<import>' configuration
-    node. This allows the ram_fs File_system server to be replaced by the
-    VFS server by reimplementing the ram_fs 'content' feature.  At the
-    moment the copying of symlinks is not enabled, and the resources
-    obtained by the import file-system may not be freed after the import is
-    finished.
-    
-    Fix #2906
+The plugin is quite easy to use, for example, importing a shell configuration
+into a Noux instance:
 
-commit 4d94dd2e17c7be7ac74acb5f7d898c87d6308e9e
-Author: Emery Hemingway <ehmry@posteo.net>
-Date:   Fri Aug 10 09:23:29 2018 +0200
+! <start name="shell">
+!   <binary name="noux"/>
+!   ...
+!   <config>
+!     <start name="/bin/bash">
+!       <env name="HOME" value="home" />
+!     </start>
+!     <fstab>
+!       <tar name="coreutils.tar" />
+!       <fs/>
+!       <import overwrite="true">
+!         <dir name="home">
+!           <inline name=".bash_profile">
+!           PS1="\w $ "
+!           </inline>
+!         </dir>
+!       </import>
+!     </fstab>
+!   </config>
+! </start>
 
-    Remove COW VFS plugin
-    
-    The COW plugin provided only partial copy-on-write semantics and had
-    problems detecting recursive requests. Conversely, the import plugin has
-    much simpler behavior that is easy to test because it mirrors that of
-    the ram_fs server.
-    
-    Ref #2745
+To compare the use of the plugin in the VFS server:
+
+! <start name="config_fs" caps="200">
+!   <binary name="vfs"/>
+!   ...
+!   <config>
+!     <vfs>
+!       <ram/>
+!       <import>
+!         <dir name="managed">
+!           <rom name="fonts"  label="fonts.config"/>
+!           <rom name="fb_drv" label="fb_drv.config"/>
+!           <rom name="wifi"   label="wifi.config"/>
+!           <rom name="installation"/>
+!           <rom name="runtime"      label="empty_runtime.config"/>
+!           <rom name="input_filter" label="input_filter.config"/>
+!           <inline name="depot_query"><query/></inline>
+!         </dir>
+!         <rom name="input_filter"  label="input_filter.config"/>
+!         <rom name="fb_drv"        label="fb_drv.config"/>
+!         <rom name="nitpicker"     label="nitpicker.config"/>
+!         ...
+!       </import>
+!     </vfs>
+!     <policy label="config_fs_rom -> " root="/" />
+!     <policy label="rw"                root="/" writeable="yes" />
+!   </config>
+! </start>
+
+And the traditional `ram_fs` content configuration:
+
+! <start name="config_fs" caps="200">
+!   <binary name="ram_fs"/>
+!   ...
+!   <config>
+!     <content>
+!       <dir name="managed">
+!         <rom name="fonts.config"         as="fonts"/>
+!         <rom name="fb_drv.config"        as="fb_drv"/>
+!         <rom name="wlan.config"          as="wlan"/>
+!         <rom name="installation"/>
+!         <rom name="empty_runtime.config" as="runtime"/>
+!         <rom name="input_filter.config"  as="input_filter"/>
+!         <inline name="depot_query"><query/></inline>
+!       </dir>
+!       <rom name="input_filter.config"  as="input_filter"/>
+!       <rom name="fb_drv.config"        as="fb_drv"/>
+!       <rom name="nitpicker.config"     as="nitpicker"/>
+!       ...
+!     </content>
+!     <policy label="config_fs_rom -> " root="/" />
+!     <policy label="rw" root="/" writeable="yes" />
+!   </config>
+! </start>
 
 
 Enhanced Ada language support
@@ -607,22 +679,13 @@ Date:   Tue Jul 3 15:01:07 2018 +0200
 Enhanced Terminal compatibility
 ===============================
 
-; @emery
-
-commit 2041f957da075d24a41d9b8d79f6a35195293abb
-Author: Emery Hemingway <ehmry@posteo.net>
-Date:   Wed Jul 18 20:27:17 2018 +0200
-
-    Terminal: improved handling of escape sequences
-    
-    Add additional parsing modes to the sequence decoder to detect and
-    discard unhandled sequences for ECMA-48, DEC private, and Xterm.
-    
-    Add new behavior for cursor movement, cursor hiding, character deletion,
-    and line-wrapping.
-    
-    Fix #2923
-
+During this release cycle a simple SSH client was added to the world repository
+and we quickly noticed that our graphical terminal was unprepared for the wide
+variety of terminal escape sequences found in the wild. The escape sequence
+parser in the `terminal` server now is now able to handle or ignore the litany
+of sequences that might be considered part of the ad hoc VT100/Screen/Xterm
+standard. We may never be able to say that we handle them all, but the
+`terminal` server can now be used for practical purposes with most TUI applications.
 
 Libraries and applications
 ##########################
@@ -649,47 +712,8 @@ Python 3
 ;PDF viewer changes
 ;==================
 ;
-;@emery
+; I say skip this for now, the interesting Nitpicket conversion would be VBox. - emery
 ;
-;commit fb0a50c71c68c3eb49fc27eb9a0dc36260c7ec9a
-;Author: Emery Hemingway <ehmry@posteo.net>
-;Date:   Mon Jun 11 11:51:20 2018 +0200
-;
-;    Pdf_view: load arbitrary *.pdf files, input improvements
-;    
-;    The component is no longer loads from '/test.pdf', the first PDF file
-;    found in the root directory of the file-system is loaded automatically.
-;    The behavior cannot be overridden by configuration.
-;    
-;    Feed MuPDF with characters from input events to MuPDF rather than
-;    translate raw key codes to ASCII. This enables almost all MuPDF key
-;    bindings without the need to maintain a lookup table. Mouse navigation
-;    has been enabled as well. To print the key-bindings to log, press '?'.
-;    
-;    Fix #2859
-;
-;commit a7a160eebc8fe37f69b9bff579f618b8ffbf357a
-;Author: Emery Hemingway <ehmry@posteo.net>
-;Date:   Sun Jun 10 21:10:21 2018 +0200
-;
-;    Package pdf_view to read from file-system
-;    
-;    Merge the configuration from raw/pdf_view into the pkg/pdf_view runtime
-;    file. Request a File_system session and load files from there, rather
-;    than by ROM.
-;    
-;    Ref #2859
-;
-;commit 745926d5884947e8f186a9e322aed800f2926f98
-;Author: Emery Hemingway <ehmry@posteo.net>
-;Date:   Fri Jun 15 15:52:35 2018 +0200
-;
-;    Convert pdf_view to a Nitpicker client
-;    
-;    A native Nitpicker client uses less resources than a Framebuffer client
-;    wrapped in a sub-init with nit_fb.
-;    
-;    Fix #2871
 
 
 New component for querying information from a file system
@@ -709,19 +733,12 @@ Date:   Mon Aug 20 16:47:43 2018 +0200
 Updated ported 3rd-party software
 =================================
 
-libssh 0.7.5
-------------
+; libssh 0.7.5
+; ------------
+;
+; Without any protection of secrets I say leave it out for now. - emery
+;
 
-; @emery
-; SSH client?
-
-commit ac30e49df7f7a0a6f26f6b625687e33c07fe20d6
-Author: Emery Hemingway <ehmry@posteo.net>
-Date:   Tue Jul 17 16:19:31 2018 +0200
-
-    Update libssh to 0.7.5
-    
-    Fix #2921
 
 User-level ACPICA
 -----------------
