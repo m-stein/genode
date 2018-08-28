@@ -330,82 +330,129 @@ corresponding component:
 NIC-router support for multiple uplinks
 =======================================
 
-; @m-stein
+A comprehensive concept for the configuration of uplinks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-commit 49a3a0e0d096af943d661294eee3f526c081ebc7
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Tue Jun 5 18:31:40 2018 +0200
+The main purpose of the NIC router is to mediate between an arbitrary number
+of NIC sessions according to user policies for the OSI layers 3 and 4. Once a
+NIC session is established and integrated into this mediation algorithm, the
+fact whether the NIC router is client or server of the session becomes reduced
+to subtleties that are transparent to the user. Though, when establishing the
+session, there exist some differences that must be reflected by the NIC
+routers configuration interface. As NIC session server, the router simply
+accepts all incoming session requests, given they transfer sufficient
+resources. We refer to these sessions as "downlinks". As NIC session client,
+at the other hand, the router is supposed to request the desired sessions,
+called "uplinks", itself and therefore also to determine their session
+arguments in some way.
 
-    nic_router: multiple uplinks
-    
-    Introduce the uplink tag:
-    
-    ! <config>
-    !    <uplink label="wifi"  domain="uplink">
-    !    <uplink label="wired" domain="wired_bridge">
-    !    <uplink               domain="wired_bridge">
-    ! <config/>
-    
-    For each uplink tag, the NIC router requests a NIC session with the
-    corresponding label or an empty label if there is no label attribute.
-    These NIC sessions get attached to the domain that is set in their
-    uplink tag as soon as the domain appears. This means their lifetime is
-    not bound to the domain. Uplink NIC sessions can be safely moved from
-    one domain to another without being closed by reconfiguring the
-    corresponding domain attribute.
-    
-    Attention: This may render previously valid NIC router configurations
-    useless. A domain named "uplink" doesn't automatically request a NIC
-    session anymore. To fix these configurations, just add
-    
-    ! <uplink domain="uplink"/>
-    
-    or
-    
-    ! <uplink label="[LABEL]" domain="uplink"/>
-    
-    as direct subtag of the <config> tag.
-    
-    Issue #2840
+To save this labor for the beginning, the NIC router made use of a simplified
+model that was based on the assumption that there is either none or only one
+uplink. The existance of the one possible uplink was bound to the presence of
+a special domain named "uplink" in the configuration thereby obviating the
+need for uplink-specific means of configuration.
 
-commit 0b8520a208d07dc3df02b893fcd3d318651388f1
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Mon Jun 18 19:04:40 2018 +0200
+This model has now been broken up to make room for a more potent and elegant
+solution. We introduced the new <uplink> tag for uplinks as an equivalent to
+the <policy> tag for downlinks. Likewise the <policy> tag, the <uplink> tag
+assigns the corresponding NIC session to a domain. But unlike the <policy>
+tag, each <uplink> tag stands for exactly one uplink or NIC session client
+whose lifetime and session arguments it defines. This is a short example how
+to use the new tag:
 
-    nic_router: act as ICMP Echo server
-    
-    The ICMP-Echo-server functionality of the router has the following
-    configuration attributes (default values shown):
-    
-    ! <config icmp_echo_server="yes">
-    !    <domain icmp_echo_server="yes" ... />
-    ! </config>
-    
-    The icmp_echo_server attribute configures whether the router answers ICMP Echo
-    requests that address the router. The <config> value affects all domains
-    without a <domain> local value.
-    
-    Issue #2874
+! <config>
+!   <policy label_prefix="vbox" domain="default">
 
-commit 2733d3fea56a489071a03a1ee76a823f5b1c4591
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Tue Jun 19 16:20:47 2018 +0200
+!   <uplink                 domain="default" />
+!   <uplink label="wired_1" domain="wired_bridge" />
+!   <uplink label="wired_2" domain="wired_bridge" />
+!   <uplink label="wifi"    domain="wifi_uplink" />
+!   ...
+!
+!   <domain name="wired_bridge"> ... </domain>
+!   <domain name="default">      ... </domain>
+! </config>
 
-    nic_router: verbose_packet_drop attribute
-    
-    The log messages covered by verbose_packet_drop were previously
-    configured by the verbose attribute. This isn't the case anymore. Now,
-    you can configure them as follows:
-    
-    ! <config verbose_packet_drop="no" ... >
-    !     <domain verbose_packet_drop="no" ... />
-    ! <config/>
-    
-    The new attribute determines whether to log each packet drop and the
-    rational behind it. The <config> value affects all domains without a
-    <domain> local value.
-    
-    Issue #2857
+As you can see, you can create as many uplinks as you want by adding further
+<uplink> tags. With the 'label' attribute of the tag you can set the label of
+the corresponding NIC session client. You can also leave out this attribute
+which results in an empty string as label but keep in mind that each uplink
+label must be unique. The label can be used to route different uplink sessions
+to different NIC servers. So, assuming that the above NIC router instance is
+child of an Init component, its configuration could be accompanied by Init
+<service> tags to achieve the routing:
+
+! <service name="Nic" label="wifi">    <child name="wifi_drv"/>  </service>
+! <service name="Nic" label="wired_1"> <child name="nic_drv_1"/> </service>
+! <service name="Nic" label="wired_2"> <child name="nic_drv_2"/> </service>
+! <service name="Nic">                 <parent/>                 </service>
+
+The 'domain' attribute of the <uplink> tag defines to which domain the
+corresponding uplink tries to assign itself. As you can see in the example,
+there is no problem with assigning multiple uplinks to the same domain or even
+uplinks together with downlinks. Independent of whether they are uplinks or
+downlinks, NIC sessions that share the same domain communicate with each other
+like if they were connected through a repeating hub and without any
+restriction through the router.
+
+Similar to downlinks, uplinks must not stay connected to a domain all the
+time. They can be safely moved from one domain to another without closing the
+corresponding NIC session. This is done by simply reconfiguring their 'domain'
+attributes. An uplink can even exist without a domain at all, like the 'wifi'
+uplink in the above example. In this case, all packets from the uplink get
+ignored but its session remains open. Finally, an uplink and its NIC session
+client can be terminated by removing the corresponding <uplink> tag from the
+NIC router configuration.
+
+
+ICMP echo server
+~~~~~~~~~~~~~~~~
+
+The NIC router can now act as ICMP echo server. This functionality can be
+configured as shown in the following two configuration snippets:
+
+! <config>
+!    <domain name="one">                         ... </domain>
+!    <domain name="two"  icmp_echo_server="no" > ... </domain>
+! </config>
+
+! <config icmp_echo_server="no">
+!    <domain name="three">                       ... </domain>
+!    <domain name="four" icmp_echo_server="yes"> ... </domain>
+! </config>
+
+By default, the ICMP echo server is enabled. So, in the example, it is enabled
+for all NIC sessions assigned to domain "one" and "four". This means that the
+router will answer ICMP echo requests from these sessions that target the IP
+address of the corresponding domain. For the domains "two" and "three", the
+ICMP echo server is disabled, meaning, that they will drop the above mentioned
+requests at their NIC sessions.
+
+
+New verbosity class "packet drop"
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+As the NIC router is used more and more in real-live scenarios like the Sculpt
+OS, the ability to list all packets that the it drops has proved helpful to
+localize the cause of more complicated networking problems. But this type of
+log message came along with all the other output of the routers 'verbose'
+flag. Thus, we moved them to a their own verbosity class which is controlled
+through the new 'verbose_packet_drop' flag illustrated in the following two
+configuration snippets:
+
+! <config>
+!    <domain name="one">                             ... </domain>
+!    <domain name="two"  verbose_packet_drop="yes" > ... </domain>
+! </config>
+
+! <config verbose_packet_drop="yes">
+!    <domain name="three">                         ... </domain>
+!    <domain name="four" verbose_packet_drop="no"> ... </domain>
+! </config>
+
+It is disabled by default, so, domain "one" and "four" wont log dropped
+packets while domain "two" and "three" will. Each message about a dropped
+packet is accompanied by the rational that led to the decision.
 
 
 New VFS plugin for using lwIP as TCP/IP stack
