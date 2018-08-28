@@ -347,37 +347,38 @@ Base framework and OS-level infrastructure
 Streamlined ELF-binary loading
 ==============================
 
-; @nfeske
+In scenarios like Sculpt's runtime subsystem. A parent component may create a
+subsystem out of ELF binaries provided by one of its children. However, since
+the parent has to access the ELF binary in order to load it, the parent has to
+interact with the child service. It thereby becomes dependent on the
+liveliness of this child. This is unfortunate because the parent does not need
+to trust any of its children otherwise. To dissolve this unwelcome circular
+trust relationship, we simplified Genode's ELF loading procedure such that the
+parent never has to deal with the ELF binary directly. Instead, the parent
+unconditionally loads the dynamic linker only. The dynamic linker -
+running in the context of the new component - obtains the ELF binary as a
+regular ROM session provided by a sibling component. If this sibling
+misbehaves for any reason, the parent remains unaffected.
 
-commit 4b46abf813b801bc9d1555795fc5b9ce13c588ee
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Jul 4 18:48:04 2018 +0200
+To achieve this level of independence, we had to drop the handling of
+statically-linked executables as first-class citizens. In order to distinguish
+static from dynamic binaries, the parent needed to look into the binary after
+all. Statically linked binaries and hybrid Linux/Genode (lx_hybrid) binaries
+can still be started by relabeling the ROM-session route of "ld.lib.so" to the
+binary name, pretending that the binary is the dynamic linker. This can be
+achieved via init's label rewriting mechanism:
 
-    base: rm first-class support for static binaries
-    
-    This patch removes the detection of statically linked executables from
-    the base framework. It thereby fixes the corner cases encountered with
-    Sculpt when obtaining the binaries of the runtime from the depot_rom
-    service that is hosted within the runtime.
-    
-    Statically linked binaries and hybrid Linux/Genode (lx_hybrid) binaries
-    can still be started by relabeling the ROM-session route of "ld.lib.so"
-    to the binary name, pretending that the binary is the dynamic linker.
-    This can be achieved via init's label rewriting mechanism:
-    
-      <route>
-        <service name="ROM" unscoped_label="ld.lib.so">
-          <parent label="test-platform"/> </service>
-      </route>
-    
-    However, as this is quite cryptic and would need to be applied for all
-    lx_hybrid components, the patch adds a shortcut to init's configuration.
-    One can simply add the 'ld="no"' attribute to the <start> node of the
-    corresponding component:
-    
-      <start name="test-platform" ld="no"/>
-    
-    Fixes #2866
+! <route>
+!   <service name="ROM" unscoped_label="ld.lib.so">
+!     <parent label="test-platform"/> </service>
+! </route>
+
+However, as this is quite cryptic and would need to be applied for all
+lx_hybrid components, the patch adds a shortcut to init's configuration.
+One can simply add the 'ld="no"' attribute to the <start> node of the
+corresponding component:
+
+! <start name="test-platform" ld="no"/>
 
 
 NIC-router support for multiple uplinks
@@ -827,8 +828,8 @@ Date:   Tue Jun 26 11:23:33 2018 +0200
 Build system and tools
 ######################
 
-Streamlined disk-image creation
-===============================
+Reworked disk-image creation
+============================
 
 ; @alex-ab, @chelmuth
 
@@ -852,8 +853,8 @@ Date:   Tue Jun 12 10:25:06 2018 +0200
 Improved run tool
 =================
 
-Streamlined precondition checks
--------------------------------
+Unified precondition checks
+---------------------------
 
 ; @ssumpf
 
