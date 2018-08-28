@@ -437,18 +437,14 @@ at runtime.
 Dynamic capability-quota balancing
 ==================================
 
-; @nfeske
-
-commit 950b270e740ab00618f8d1f30989c05f0f969639
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Jun 4 15:49:29 2018 +0200
-
-    init: support dynamic cap-quota adjustment
-    
-    This patch makes init's dynamic quota balancing mechanism available for
-    capability quotas.
-    
-    Fixes #2852
+Since
+[https://genode.org/documentation/release-notes/17.05#Dynamic_resource_management_and_service_forwarding_via_init - version 17.05],
+the init component supports the dynamic adjustment of RAM quota values. But
+this mechanism remained unavailable for capability quotas. This became a
+limitation in use cases like Sculpt's RAM file system where an upper bound of
+needed capabilities is hard to define. For this reason, init has now become
+able to adjust the capability quotas of its children according to dynamic
+configuration changes.
 
 
 Simplified DNS handling of libc-using components
