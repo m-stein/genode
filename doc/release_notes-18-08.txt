@@ -708,13 +708,6 @@ Date:   Mon Aug 20 16:47:43 2018 +0200
 Updated ported 3rd-party software
 =================================
 
-; libssh 0.7.5
-; ------------
-;
-; Without any protection of secrets I say leave it out for now. - emery
-;
-
-
 User-level ACPICA
 -----------------
 
