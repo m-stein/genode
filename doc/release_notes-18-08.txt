@@ -263,27 +263,9 @@ Date:   Fri Jul 6 15:30:09 2018 +0200
 Updated iPXE-based NIC driver
 =============================
 
-; @chelmuth
-
-commit cefd2e22fa7a86d034fc3c5855098661a5e33cc9
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Wed Jun 6 19:44:51 2018 +0200
-
-    dde_ipxe: support more flavors of I218V/I219LM
-    
-    Fixes #2864.
-
-commit b630bd8d6ac1562969040a9a36439ac1c00ed2c0
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Wed Dec 27 21:38:36 2017 +0100
-
-    dde_ipxe: enable flavor of I210 in apu2c4 boards
-    
-    The apu2c4 boards have 3 i210 PCI devices (one for each LAN port). Other
-    apu2 boards use i211 device IDs according to https://www.pcengines.ch/apu2.htm
-    but could not be tested.
-    
-    This commit also incorporates an upstream MAC address handling fix.
+Since Genode 18.05, we extended our support of Intel Ethernet NICs by
+another I219-LM variant and I218V. We also introduced I210 support
+including upstream fixes for boot-time MAC address configuration.
 
 
 Experimental runtime for Zircon-based drivers
@@ -298,47 +280,10 @@ library, which implements an adaption layer between Zircon and Genode, and the
 Improved device compatibility of PS/2 driver
 ============================================
 
-; @chelmuth
-
-commit 9be50e1f88695cd4f45e6c0568f77a9c88afb49f
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Fri Aug 17 14:34:15 2018 +0200
-
-    input/ps2: drop fake right-shift scancodes
-    
-    Seen on X250
-    
-    Description from https://www.win.tue.nl/~aeb/linux/kbd/scancodes-1.html
-    
-      The ten grey keys Insert, Home, PgUp, Delete, End, PgDn, Up, Left,
-      Down, Right are supposed to function regardless of the state of Shift
-      and NumLock keys. But for an old AT keyboard the keypad keys would
-      produce digits when Numlock was on or Shift was down. Therefore, in
-      order to fool old programs, fake scancodes are sent: when LShift is
-      down, and Insert is pressed, e0 aa e0 52 is sent; upon release of
-      Insert e0 d2 e0 2a is sent. In other words, a fake LShift-up and fake
-      LShift-down are inserted.
-    
-    Fixes #2888
-
-commit 306c681dd8b50c8b1960faf4534e162803ad5d4e
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Fri Aug 17 14:40:54 2018 +0200
-
-    input/ps2: defer led update on pending events
-    
-    Issue #2888
-
-commit da3db5f6a65038836a0f1932e205c81c5b8c4ff7
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Fri Aug 17 17:26:30 2018 +0200
-
-    input/ps2: poll for mouse-reset results
-    
-    The PS/2 driver retries to get mouse-reset results for 700 ms, sleeping
-    after each attempt for 10 ms. So, the driver needs a Timer session now.
-    
-    Fixes #2713
+Once again we invested time into our PS/2-driver implementation due to
+compatibility issues with keyboards, touchpads, and trackpoints in
+recent notebooks. As a result input devices of current Lenovo X and T
+notebooks as well as the Dell Latitude 6430u work solid now.
 
 
 Base framework and OS-level infrastructure
@@ -911,15 +856,15 @@ Date:   Wed May 16 11:03:59 2018 +0200
 Configurable AMT power-on timeout
 ---------------------------------
 
-; @chelmuth
+The boot time sometimes varies vastly between PCs. This is annoying in
+particular when AMT Serial-Over-LAN is the only debug option for the
+different test machines because Intel ME is quite picky at which time
+window AMT SOL connects just fall flat. So, we added a run option to
+optionally change the default AMT boot timeout of 5 seconds like
+follows.
 
-commit 0faac529ac878641e23ebabafa532c5fd69d0c3e
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Mon Aug 20 11:48:22 2018 +0200
+!RUN_OPT += --power-on-amt-timeout 11
 
-    run: configurable AMT power-on timeout
-    
-    The default timeout is 5 seconds and can be changed like follows.
-    
-      RUN_OPT += --power-on-amt-timeout 11
+On some PCs we had to increase this option up to 26 seconds, which may
+also increase with attached USB mass storage if USB boot is enabled.
 
