@@ -620,7 +620,13 @@ Libraries and applications
 Python 3
 ========
 
-@valivalpas
+Thanks to the work of Johannes Schlatow, Python 3 has become available at the
+[https://github.com/genodelabs/genode-world - Genode-World] repository. It
+supersedes Genode's original Python 2 port, which is scheduled for removal now.
+
+The Python 3 port is accompanied with the _python3.run_ script for a quick
+test drive. It also features depot-archive recipes, which in principle enable
+the deployment of Python 3 within Sculpt OS.
 
 
 VirtualBox updated to version 5.1.38
