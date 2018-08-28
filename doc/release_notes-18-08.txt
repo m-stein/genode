@@ -144,19 +144,25 @@ Updated and reworked Intel wireless driver
 
 In addition to updating the iwlwifi driver's code base that now comes with
 support for 8265 as well as 9xxx devices, the WPA supplicant code was also
-updated to version 2.7 that contains critical fixes for issues like the
-KRACK exploit.
+updated to a recent git version that contains critical fixes for issues like
+the KRACK exploit.
 
-We took the opertunity to also rework the wifi_drv's configuration interface.
+Since the updated driver requires newer firmware images which are not as easily
+accessible as the old ones, as well we now provide the appropiate images
+ourselves:
+
+[https://github.com/cnuke/dde_linux_firmware - Firmware images for DDE Linux]
+
+We took the opportunity to also rework the wifi_drv's configuration interface.
 The old driver used the 'wpa_supplicant.conf' POSIX config file interface
 as configuration mechanism. Unfortunatly, this implementation detail became
-apparant to the user of the driver as a file system that provided a place
-to store the file had to be configured. We therefor switch the supplicant to
-use its CTRL interface and implemented a Genode specific backend. In this
-context we changed the structure of the configuration of the driver.
+apparant to the user of the driver because a file system that provided a place
+to store the file had to be configured. For this reason, we now make use of the
+CTRL interface of the supplicant and implemented a Genode specific backend.
+In this context we changed the structure of the configuration of the driver.
 
 The driver still reports its current state but the report is now simply called
-'state' instead of 'wlan_state' At the moment SSIDs are provided verbatim in
+'state' instead of 'wlan_state'. At the moment SSIDs are provided verbatim in
 the report and are not sanatized. SSIDs that contain unusal characters like '"'
 and the NUL byte will lead to unparsable reports. This is also true for the
 'accesspoints' report that now also is simply called 'accesspoints' instead of
@@ -204,6 +210,9 @@ to the 'ssid' attribute to select a specific accesspoint within one network.
 
 There is no backwards compatibility for the old configuration format. Users
 are advised to change their components.
+
+As an unfortunate regression some if not all 6xxx cards will not work
+properly. We are working on fixing this issue.
 
 
 De-componentized USB stack
