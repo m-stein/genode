@@ -271,18 +271,13 @@ Date:   Wed Dec 27 21:38:36 2017 +0100
     This commit also incorporates an upstream MAC address handling fix.
 
 
-Experimental environment for running Zircon-based drivers
-=========================================================
+Experimental runtime for Zircon-based drivers
+=============================================
 
-; @jklmm
-
-commit fd68296ab15167a92f89c2c310947373b10a0da8
-Author: Johannes Kliemann <jk@jkliemann.de>
-Date:   Fri Jul 20 13:51:26 2018 +0200
-
-    dde_zircon: add pc-ps2 driver
-    
-    Fixes #2926
+The new dde_zircon repository provides a device-driver environment for
+Google's Zircon microkernel. It consists of the 'zircon.lib.so' shared
+library, which implements an adaption layer between Zircon and Genode, and the
+'zx_pc_ps2' driver that serves as a proof of concept.
 
 
 Improved device compatibility of PS/2 driver
@@ -643,37 +638,11 @@ And the traditional `ram_fs` content configuration:
 Enhanced Ada language support
 =============================
 
-; @jklmm
-
-commit ea8b7d8128bad488cc5362c38fca46b91095c687
-Author: Johannes Kliemann <kliemann@componolit.com>
-Date:   Mon Jun 25 10:45:36 2018 +0200
-
-    Ada: exception support
-
-commit ad3f020605aef044838ce1158c45b123727ec641
-Author: Alexander Senier <senier@componolit.com>
-Date:   Thu Jun 21 21:04:27 2018 +0200
-
-    Ada: support for memcmp
-
-commit 069a9ad56f97847757ef24a14531ff129688c50a
-Author: Alexander Senier <senier@componolit.com>
-Date:   Thu Jun 21 21:05:04 2018 +0200
-
-    Ada: runtime support for 64bit arithmetics
-
-commit ddee65722f92d2cea9641e1dc9d8a1fc96e1c7d6
-Author: Alexander Senier <senier@componolit.com>
-Date:   Thu Jun 21 21:34:59 2018 +0200
-
-    Ada: do not use default directories for gnatmake
-
-commit 0ca197374ec08d7474621fcd3d380f79b412846b
-Author: Johannes Kliemann <kliemann@componolit.com>
-Date:   Tue Jul 3 15:01:07 2018 +0200
-
-    Ada: cleanup sources (license headers, beautify)
+Genode's runtime for the Ada programming language was extended by exception
+support interfacing with C++. Ada exceptions can now be caught in C++ and
+provide type and error location information when raised. Further improvements
+are runtime support for 64-bit arithmetics and some minor fixes in gnatmake's
+include paths.
 
 
 Enhanced Terminal compatibility
