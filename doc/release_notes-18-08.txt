@@ -274,7 +274,8 @@ Experimental runtime for Zircon-based drivers
 The new dde_zircon repository provides a device-driver environment for
 Google's Zircon microkernel. It consists of the 'zircon.lib.so' shared
 library, which implements an adaption layer between Zircon and Genode, and the
-'zx_pc_ps2' driver that serves as a proof of concept.
+'zx_pc_ps2' driver that serves as a proof of concept. Thanks to Johannes
+Kliemann for contributing this line of work.
 
 
 Improved device compatibility of PS/2 driver
@@ -603,7 +604,7 @@ Genode's runtime for the Ada programming language was extended by exception
 support interfacing with C++. Ada exceptions can now be caught in C++ and
 provide type and error location information when raised. Further improvements
 are runtime support for 64-bit arithmetics and some minor fixes in gnatmake's
-include paths.
+include paths. Thanks to Johannes Kliemann for these welcome improvements!
 
 
 Enhanced Terminal compatibility
