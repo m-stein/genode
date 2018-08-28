@@ -679,16 +679,11 @@ Python 3
 
 @valivalpas
 
+
 VirtualBox updated to version 5.1.38
 ====================================
 
 We updated the VirtualBox 5 port on Genode to the latest available 5.1 version.
-
-;PDF viewer changes
-;==================
-;
-; I say skip this for now, the interesting Nitpicket conversion would be VBox. - emery
-;
 
 
 New component for querying information from a file system
