@@ -238,8 +238,116 @@ properly. This issue is being investigated.
 De-componentized USB stack
 ==========================
 
-; @skalk
+The USB stack has a long history in the Genode OS framework. Back in May 2009
+the first DDE Linux based driver got introduced that was the USB input
+driver. It used compilation units related to the USB host-controller, HID, and
+input subsystems of Linux. To other Genode components it offered the Input
+session interface. At that time the driver run on 32-bit x86 machines only.
 
+Since then the USB driver passed through manyfold alterations. It got extended
+to support different architectures (Armv6, Armv7, x86_64) and USB
+host-controllers of various platforms. The support for USB endpoint devices got
+extended by additional HID, storage and network devices. Nonetheless, the
+USB driver remained a monolithic component comprising that different
+session interfaces like Block, NIC and Input. Though, the monolithic approach
+was always seen as an intermediate step towards a componentized USB stack,
+as can be seen in the release notes of 9.05.
+
+The first qualitative change of the USB landscape was the introduction of the
+USB session interface and its support by the DDE Linux based monolithic driver
+by Genode release 15.02. It enabled the development of independent driver
+components for USB connected devices. Simultaneous, the first such
+self-contained driver got released for the Prolific PL2303 USB to UART adapter.
+More independent, written-from-scratch drivers followed supporting HID and
+USB block devices. The icing on the cake was support of USB sessions within
+VirtualBox introduced in May 2015. From that on, it was possible to drive
+dedicated USB devices within a guest operating system.
+
+Nevertheless, the USB host-controller driver still contained the overall
+complexity of Linux' input, storage, network, and USB subsystems. While
+it is the USB resource multiplexer for all self-contained USB drivers
+on the other hand. When updating different DDE Linux based drivers in
+preparation of this release to a more recent version, we thought it's
+finally the right time to split of the monolithic USB host-controller
+driver.
+
+USB host driver
+---------------
+
+You can find the new USB host-controller only driver for different
+platforms (Arndale, Panda, Rpi, Wandboard, X86_32, X86_64) under
+'repos/dde_linux/src/drivers/usb_host'. During a transitional period
+the new driver stack will exist beside the old one. Most run-scripts
+still use the old variant, but you can have a look at the scripts:
+'usb_block.run', 'usb_hid.run', and 'usb_net.run' to get a notion of
+how to combine the new building blocks.
+
+The new driver is based on Linux kernel version 4.16.3. It can be
+configured to report dynamically all USB devices connected to the
+host controller and its hubs by adding a:
+
+! <report devices="yes"/>
+
+to its configuration node. Like the old driver, one can use 'product_id'
+and 'vendor_id', or 'bus' and 'dev' number delivered via the report
+to write policy rules in the configuration of the driver. Thereby,
+different client drivers can onl access a dedicated device. To ease up
+the migration to the new USB host driver, it is now possible to just
+state the 'class' number within a policy rule. A USB client-side driver
+then is able to open sessions for all devices of that class, but must
+use the right label to address a unique device when opening the
+USB session.
+
+A possible driver configuration for the new USB host driver looks like
+the following:
+
+! ...
+! <provides><service name="Usb"/></provides>
+! <config>
+!   <report devices="yes"/>
+!   <policy label_prefix="usb_net_drv"   vendor_id="0x0b95" product_id="0x772a"/>
+!   <policy label_prefix="usb_block_drv" vendor_id="0x19d2" product_id="0x1350"/>
+!   <policy label_prefix="usb_hid_drv"   class="0x03"/>
+! </config>
+! ...
+
+The new host driver does not need to be configured which kind of host
+controller it uses, e.g., OHCI, EHCI, XHCI. By providing the appropriated
+device hardware resources to the driver it detects what kind of controller
+it has to drive.
+
+USB HID driver
+--------------
+
+The new self-contained USB HID driver is platform independent, as it is
+now only dependent on the USB session interface. It comprises a bunch of
+different HID devices. One can either support all kind of HID devices by
+one driver instance for compatibility reasons, or use one dedicated driver
+instance per HID device. To support all HID devices provided by the USB
+host driver, the HID driver can subscibe to the report of the host. When
+configuring the HID driver like the following, it will track changes of
+a ROM called 'report', and open an USB session to all HID devices inside
+of it:
+
+! ...
+! <config use_report="yes"\>
+! ...
+
+All options for tracking the state of keyboard LED like 'capslock',
+and the configuration values to support mutli-touch devices are still
+supported and equal to the former monolithic driver.
+
+USB network driver
+------------------
+
+The self-contained USB network driver is called 'usb_net_drv' and resides
+under 'repos/dde_linux/src/drivers'. It supports different chipsets, but
+in contrast to the HID driver supports exactly one device per driver
+instance. If you need to support more than one USB connected network card,
+you need to instantiate additional drivers.
+Like in the old monolithic driver, it is advised to state a MAC for those
+platforms where it is not possible to read one from an EEPROM, otherwise
+a hard-coded ones is used.
 
 USB devices with timing constraints
 ===================================
@@ -827,13 +935,18 @@ Feature-wise the r10 branch contains the following changes:
 Fiasco.OC microkernel updated
 =============================
 
-; @skalk
-
-commit 41fdb1d3691715c5dccb238c6b7e1addfb58d096
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Tue Jun 26 11:23:33 2018 +0200
-
-    foc: update to recent revision r79 (fix #2884)
+In the past, we repeatedly encountered problems with kernel object destruction
+when using Genode on top of the Fiasco.OC microkernel. The effect was an
+non-responsive kernel and halt of the machine. Thanks to recent development of
+the Fiasco.OC/L4Re community, those problems seem to be solved now. Jakub
+Jermar from kernkonzept gave us the hint to update to a more recent version,
+and it worked out pretty well.
+Now, the Genode fork of the Fiasco.OC version is based on the official Github
+sources from
+[https://github.com/kernkonzept/fiasco/commit/b9145d3ec4ffe3b02b3d49475ff3391905f0b51f - June 25, 2018].
+The L4Re parts that are used by Genode, namely the sigma0 and bootstrap
+components, are still based on the official [https://svn.l4re.org/repos/oc/l4re/ - subversion repository],
+referring to revision 79.
 
 
 Build system and tools
