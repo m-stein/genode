@@ -1,6 +1,7 @@
 #
 # Build
 #
+assert_spec acpi
 
 set build_components {
 	core init
@@ -10,10 +11,41 @@ set build_components {
 	server/report_rom
 	server/ram_fs
 	server/fs_rom
+	app/acpica
 	app/top
 }
 
+set use_acpica_as_acpi_drv 0
+
 source ${genode_dir}/repos/base/run/platform_drv.inc
+
+if {!$use_acpica_as_acpi_drv} {
+
+	# override default platform driver policy
+	proc platform_drv_policy {} {
+		return {
+				<policy label_prefix="ps2_drv"> <device name="PS2"/> </policy>
+				<policy label_prefix="acpica"> <pci class="ALL"/> </policy>
+				<policy label_prefix="intel_fb_drv">
+					<pci class="VGA"/>
+					<pci bus="0" device="0" function="0"/>
+					<pci class="ISABRIDGE"/>
+				</policy>}
+	}
+
+	# add routing information
+	proc platform_drv_add_routing {} {
+		return {
+				<service name="ROM" label="acpi_ready"> <child name="acpi_state"/> </service>}
+	}
+
+	# override default config to react on 'acpi_ready' ROM change
+	proc platform_drv_config_config {} {
+		return {
+			<config acpi_ready="yes">}
+	}
+}
+
 append_platform_drv_build_components
 
 build $build_components
@@ -43,6 +75,39 @@ append config {
 	<default caps="100"/>}
 
 append_platform_drv_config
+
+append_if [expr !$use_acpica_as_acpi_drv] config {
+		<start name="acpica" caps="150">
+			<resource name="RAM" quantum="5M"/>
+			<config ld_verbose="yes" reset="no" poweroff="no" report="yes" acpi_ready="yes">
+			</config>
+			<route>
+				<service name="ROM" label="system"> <child name="dynamic_rom"/> </service>
+				<service name="Report">  <child name="acpi_state"/> </service>
+				<any-service> <parent/> <any-child/> </any-service>
+			</route>
+		</start>}
+
+append config {
+		<start name="acpi_state">
+			<binary name="report_rom"/>
+			<resource name="RAM" quantum="2M"/>
+			<provides>
+				<service name="ROM" />
+				<service name="Report" />
+			</provides>
+			<config verbose="yes">
+				<policy label="platform_drv -> acpi_ready" report="acpica -> acpi_ready"/>
+				<policy label="acpi_input -> acpi_ac" report="acpica -> acpi_ac"/>
+				<policy label="acpi_input -> acpi_battery" report="acpica -> acpi_battery"/>
+				<policy label="acpi_input -> acpi_ec" report="acpica -> acpi_ec"/>
+				<policy label="acpi_input -> acpi_fixed" report="acpica -> acpi_fixed"/>
+				<policy label="acpi_input -> acpi_lid" report="acpica -> acpi_lid"/>
+			</config>
+			<route>
+				<any-service> <parent/> </any-service>
+			</route>
+		</start>}
 
 append config {
 	<start name="timer">
@@ -103,7 +168,7 @@ append config {
 				<config>
 					<content>
 						<inline name="fb_drv.config">
-<config ld_verbose="yes">
+<config ld_verbose="yes" poll="1000">
 	<report connectors="yes"/>
 </config>
 						</inline>
@@ -161,6 +226,7 @@ install_config $config
 set boot_modules {
 	core ld.lib.so init timer intel_fb_drv intel_fb_controller
 	test-framebuffer report_rom ram_fs fs_rom
+	acpica
 	top
 }
 
