@@ -24,6 +24,8 @@ text-based user interface to a graphical user interface for most
 administrative tasks while preserving the text-based interface for the full
 flexibility.
 
+[image sculpt_18_08]
+
 
 Live runtime view
 -----------------
