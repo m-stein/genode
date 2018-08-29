@@ -712,13 +712,12 @@ Updated ported 3rd-party software
 User-level ACPICA
 -----------------
 
-commit 7cfa2331669ae93f5d9cbe8cf1d010931dabc938
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Mon Aug 20 15:48:39 2018 +0200
-
-    acpica port: update to version 2018-08-10
-    
-    Fixes #2935
+We have updated our port of the ACPI Component Architecture (ACPICA) from
+version 2016-02-12 to most recent release version 2018-08-10. This was
+motivated by some newer Fujitsu Laptops that apparently were not supported
+well by the old version. According to the ACPICA documentation, this update
+mainly marks the step from ACPI specification version 6.1 to 6.2 and, as
+hoped, our problems with the Fujitsu Laptops got fixed too.
 
 
 Platforms
