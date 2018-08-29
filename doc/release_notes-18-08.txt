@@ -233,28 +233,24 @@ De-componentized USB stack
 ; @skalk
 
 
-Isochronous USB devices
-=======================
+USB devices with time constraints
+=================================
 
-; @ssumpf
+Devices like USB headsets, webcams, or sound cards require the assertion of a
+guaranteed bandwidth from the USB host controller in order to function
+correctly. USB achieves this by so called isochronous endpoints, which guarantee
+the desired bandwidth, but do not assert the correctness of the data delivered.
 
-commit 037a0d6822362edde53eff2f146f65b8d4bf74c0
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Fri Jul 6 15:13:43 2018 +0200
+Because Genode's USB-session interface lacked support for these kind of the
+devices, we extended the interface and added support for isochronous endpoints
+in our host controller drivers. Additionally, we adapted our Qemu-XHCI device
+model to also handle isochronous requests seamlessly. With these extensions in
+place it becomes possible to directly access, for example a headset, through a
+guest operating system within VirtualBox (e.g., Linux, Windows).
 
-    usb_drv: add isochronous packet support
-    
-    Commit extents USB session an driver accordingly.
-    
-    issue #2910
-
-commit 82075a340d5c4b0f1a07fcc8f73d940938a56880
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Fri Jul 6 15:30:09 2018 +0200
-
-    qemu-usb: add isochronous packet support to XHCI
-    
-    fixes #2910
+We consider this feature as preliminary, while current the implementation limits
+the support of isochronous endpoints to one IN and one OUT endpoint per USB
+device.
 
 
 Updated iPXE-based NIC driver
@@ -844,19 +840,13 @@ Improved run tool
 Unified precondition checks
 ---------------------------
 
-; @ssumpf
-
-commit 10485b0d39f2dc5d2a8a555449007055e7029324
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Tue Jun 19 19:55:04 2018 +0200
-
-    run: rename 'check_installed' to 'installed_command'
-    
-    Also remove 'requires_installation_of', while also checking sbin
-    directories in 'have_installed'. The run scripts have been adjusted
-    accordingly.
-    
-    Fixes #2853
+The run tool underwent some code cleanup by removing the 'check_installed' and
+'requires_installation_of' functions. These functions were used to determine if
+a certain shell command was present on the host system and are now superseded by the
+'installed_command', which also checks if a shell command is present on the system by
+searching the PATH variable and additionally the 'sbin' directories that are not
+part of the PATH on some Linux distributions. If a shell command cannot be
+located, a warning message will be given and the run script will be aborted.
 
 
 Stricter validation of configurations at integration time
@@ -884,16 +874,19 @@ Date:   Wed Jul 4 14:08:16 2018 +0200
 Optional preservation of boot-directory content
 -----------------------------------------------
 
-; @ssumpf
+Executing a run script on Genode leads to the creation of image files (e.g.,
+'image.elf', '<run-script>.img' ...). These image files are created from a
+temporary directory under '<build_dir>/var/run/<run-script>/genode', where the
+Genode components required by the run script are being stored.
 
-commit b6bc44fd10ea457222e1b4653a54bb271d74ef26
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed May 16 11:03:59 2018 +0200
+After image creation it becomes close to impossible to determine if which Genode
+components are present within a certain image. Therefore we add a new run
+options for our RUN_OPT environment variable called '--preserve-genode-dir',
+which leaves the temporary 'genode' directory intact.
 
-    run: add support to preserve 'genode' directory
-    
-    Add '--preserve-genode-dir' to RUN_OPT in order to preserve the 'genode'
-    directory in '<build_dir>/var/run/<run-script>'
+!RUN_OPT += --preserve-genode-dir
+
+This way all Genode components of an image file can be inspected with ease.
 
 
 Configurable AMT power-on timeout
