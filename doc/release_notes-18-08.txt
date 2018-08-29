@@ -964,28 +964,6 @@ referring to revision 79.
 Build system and tools
 ######################
 
-Reworked disk-image creation
-============================
-
-; @alex-ab, @chelmuth
-
-commit 4067cc7962dbe8b71e9c1a332ac8f9e548ddec56
-Author: Roman Iten <roman.iten@gapfruit.com>
-Date:   Mon Jun 11 19:08:13 2018 +0200
-
-    run: use sgdisk instead of parted in image/disk
-    
-    Issue #2862
-
-commit 7e126f7fb65329d0a413eb8f2cc9ac93ff58aaea
-Author: Roman Iten <roman.iten@gapfruit.com>
-Date:   Tue Jun 12 10:25:06 2018 +0200
-
-    run: use sgdisk instead of parted in image/uefi
-    
-    Issue #2862
-
-
 Improved run tool
 =================
 
@@ -1004,28 +982,6 @@ is present on the system by searching the PATH variable and additionally the
 'sbin' directories that might not be part of the PATH on some Linux
 distributions. If a shell command cannot be located, a warning message will be
 given and the run script will be aborted.
-
-
-Stricter validation of configurations at integration time
----------------------------------------------------------
-
-; @m-stein
-
-commit d06176e6cdb9662e8b0d3af58f2b05af7663c967
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Wed Jul 4 14:08:16 2018 +0200
-
-    base: define generic config XSD types globally
-    
-    The new base/xsd/config.inc defines generic XSD types such as 'Boolean' or
-    'Session_label'. It can be included in config XSD files by using:
-    
-    ! <xs:include schemaLocation="file://${GENODE_CONFIG_INC}"/>
-    
-    The string ${GENODE_CONFIG_INC} is replaced by the run tool with the
-    above mentionened file path.
-    
-    Issue #2897
 
 
 Optional preservation of boot-directory content
