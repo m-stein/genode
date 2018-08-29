@@ -189,9 +189,9 @@ and the NUL byte will lead to invalid reports. This also applies for the
 'accesspoints' report that supersedes the former 'wlan_accesspoints' report.
 
 The main configuration was moved from the common '<config>' node to
-a new ROM called 'wifi_config'. In doing so, we cleanly separated the wireless
-configuration from the component's internal configuration like the libc or VFS
-settings that are not supposed to be changed during the component's lifetime.
+a new ROM called 'wifi_config'. In doing so, we cleanly separate the wireless
+configuration from the component's internal configuration, such as libc or VFS
+settings that would not be changed during the component's lifetime.
 The new 'wifi_config' configuration looks as follows:
 
 !<wifi_config connected_scan_interval="30" scan_interval="5">
@@ -200,12 +200,12 @@ The new 'wifi_config' configuration looks as follows:
 
 The type of the top node is ignored by the driver and can be chosen freely.
 The 'connected_scan_interval' specifies the timeout after which the driver
-will request a new scan of the existing accesspoints while being already
-connected to one accesspoint. This setting influences the frequency at which
+will request a new scan of the existing accesspoints when
+connected to an accesspoint. This setting influences the frequency at which
 the driver will make a roaming decision within the network (SSID). The
 'scan_interval' attribute specifies the timeout after which a new scan
 request will be executed while still trying to find a suitable accesspoint.
-In addition to those attributes there is also the 'use_11n' attribute that is
+In addition to those attributes there is the 'use_11n' attribute that is
 evaluated once on start-up to enable or disable 11N support within
 the iwlwifi module. It cannot be toggled at run-time. Furthermore there are
 various verbosity attributes like 'verbose' and 'verbose_state'. If either of
@@ -387,8 +387,8 @@ Experimental runtime for Zircon-based drivers
 The new dde_zircon repository provides a device-driver environment for the
 Zircon microkernel, which is the kernel of Google's Fuchsia OS. It consists of
 the 'zircon.lib.so' shared library, which implements an adaption layer between
-Zircon and Genode, and the 'zx_pc_ps2' driver that serves as a proof of
-concept. Thanks to Johannes Kliemann for contributing this line of work!
+Zircon and Genode, and the 'zx_pc_ps2' driver that serves as a proof-of-concept.
+Thanks to Johannes Kliemann for contributing this line of work!
 
 
 Improved PS/2 device compatibility
@@ -425,7 +425,7 @@ look into the binary after all.
 
 Statically linked binaries and hybrid Linux/Genode (lx_hybrid) binaries can
 still be started by relabeling the ROM-session route of "ld.lib.so" to the
-binary name, pretending that the binary is the dynamic linker. This can be
+binary name, so as to pretend that the binary is the dynamic linker. This can be
 achieved via init's label rewriting mechanism:
 
 ! <route>
@@ -574,6 +574,8 @@ packet is accompanied by the rational that led to the decision.
 New VFS plugin for using LwIP as TCP/IP stack
 =============================================
 
+[image socket_fs]
+
 The architecture and philosophy of Genode mandates that network protocol
 stacks be moved up and away from the kernel whenever practical. Eliminating
 the TCP/IP stack from the TCB of non-networked components has obvious
@@ -582,8 +584,9 @@ In
 [https://genode.org/documentation/release-notes/17.02#Enhanced_VFS_infrastructure - version 17.02],
 we introduced a BSD-sockets API layer to the POSIX C runtime that uses the
 local virtual-file-system layer to access an abstract TCP/IP stack via control
-files. The first TCP/IP plugin for the VFS layer was a port of the Linux IP
-stack, referred to as LxIP.
+files. A stack may be instantiated locally or shared via the File_system service.
+The first stack plugin for the VFS layer was a port of the Linux IP stack, referred
+to as LxIP.
 
 Ported
 [https://genode.org/documentation/release-notes/9.11#Light-weight_IP_stack__lwIP_ - 9.11 release],
@@ -610,8 +613,8 @@ Since
 the init component supports the dynamic adjustment of RAM quota values. But
 this mechanism remained unavailable for capability quotas. This became a
 limitation in use cases like Sculpt's RAM file system where an upper bound of
-needed capabilities is hard to define. For this reason, init has now become
-able to adjust the capability quotas of its children according to dynamic
+needed capabilities is hard to define. For this reason, init has gained the
+ability to adjust capability quotas of its children according to dynamic
 configuration changes.
 
 
@@ -765,10 +768,10 @@ And the traditional 'ram_fs' content configuration:
 Enhanced Ada language support
 =============================
 
-Genode's runtime for the Ada programming language was extended by exception
-support interfacing with C++. Ada exceptions can now be caught in C++ and
+Genode's runtime for the Ada programming language was extended with exception
+support for C++ interfacing. Ada exceptions can now be caught in C++ and
 provide type and error location information when raised. Further improvements
-are runtime support for 64-bit arithmetics and some minor fixes in gnatmake's
+are runtime support for 64-bit arithmetic and some minor fixes in Gnatmake's
 include paths. Thanks to Johannes Kliemann for these welcome improvements!
 
 
@@ -781,7 +784,7 @@ variety of terminal escape sequences found in the wild. The escape sequence
 parser in the 'terminal' server is now able to handle or ignore the litany
 of sequences that might be considered part of the ad hoc VT100/Screen/Xterm
 standard. We may never be able to say that we handle them all, but the
-'terminal' server can now be used with many robust TUI applications.
+'terminal' server is now compatible with most robust TUI applications.
 
 
 Libraries and applications
@@ -819,7 +822,7 @@ within its '<config>' node. Each '<query>' node must contain a 'path'
 attribute pointing to a directory to watch. The component generates a report
 labeled "listing". For each existing queried directory, the report contains a
 '<dir>' node with the list of files as '<file>' nodes featuring the
-corresponding 'name' as attribute value.
+corresponding 'name' as an attribute value.
 
 A '<query>' can be equipped with a 'content="yes"' attribute. If set, the
 content of the queried files is supplemented as body of the '<file>' nodes.
@@ -854,28 +857,28 @@ Platforms
 New Intel Microcode update mechanism
 ====================================
 
-Applying CPU microcode patches is typically a task done by UEFI/BIOS firmware
-shipped by the hardware vendors of PCs and/or motherboards. However, for
-various reasons, machines may not receive new firmware updates in a timely
-fashion, or at all. Based on the recent high rate of disclosure of
-CPU hardware bugs of the Spectre family, the desire is high to apply
-microcode patches close in time. To address this concern, we added principle
-support to apply Intel microcode updates for Genode.
+Applying CPU microcode patches is a common task for the UEFI/BIOS firmware
+shipped by hardware vendors of PCs and/or motherboards. For various
+reasons, however, machines may not receive firmware updates as often
+or as quickly as they should. Based on the recent high rate of disclosures for
+Spectre-related hardware bugs in CPUs, there is the desire to use microcode
+updates as rapidly as they are released. To address this concern, we added principle
+support for appling Intel microcode patches as part of the Genode framework.
 
-As first step, we added support to download the Intel microcode patches via
+The first step was to add support to download the Intel microcode patches via
 the Genode port mechanism.
 
 ! tool/ports/prepare_port microcode_intel
 
-As next step, a Genode component, as showcased by _repos/ports/run/microcode.run_,
+As next step, a Genode component, showcased by _repos/ports/run/microcode.run_,
 can compare the current microcode patch level on Genode/NOVA with the
 downloaded Intel microcode. The relevant information about the CPUs and their
 microcode patch level are provided by the 'platform_info' ROM on Genode/NOVA.
 
 If a microcode update is necessary, the Intel microcode can be applied during
 the next boot. We decided to implement this functionality as a separate
-chained bootloader called 'microcode' in order to not inflate all our supported
-x86 kernels by additional management code to apply microcode patches on all CPUs.
+chained bootloader called 'microcode' in order to not inflate each of our supported
+x86 kernels with additional management code for applying microcode patches on all CPUs.
 The 'microcode' bootloader expects a module called 'micro.code' which contains
 the specific Intel microcode from the 'microcode_intel' port for the target
 CPU. The relevant excerpt of a Genode GRUB2 configuration looks like this:
@@ -886,7 +889,7 @@ CPU. The relevant excerpt of a Genode GRUB2 configuration looks like this:
 ! module2 /boot/hypervisor hypervisor iommu serial
 ! module2 /boot/image.elf.gz image.elf
 
-The microcode update functionality is integrated into the
+The microcode update functionality has been integrated into the
 _tool/run/boot_dir/nova_ support file and can be enabled by providing a
 'apply_microcode' TCL procedure as showcased in _repos/ports/run/microcode.run_.
 
@@ -894,11 +897,11 @@ We developed the 'microcode' chained bootloader as part of the
 [https://github.com/alex-ab/morbo - Morbo] project. It checks for an Intel CPU and a valid
 'micro.code' module that matches the currently running CPU. Afterwards,
 the bootloader looks up all CPUs and some LAPIC information by parsing the
-relevant ACPI tables. With this information, the CPUs get booted with each
-of them applying the microcode update.
-In case of hyperthreading CPUs, solely one
-hyperthread gets started and applies the update for all hyperthreads.
-Finally, all newly started CPUs get halted and the microcode bootloader hands
+relevant ACPI tables. With this information, the CPUs are booted to apply
+the microcode update to each processor.
+In case of hyperthreading CPUs, a single
+hyperthread is started and applies the update for all hyperthreads.
+Finally, all previously started CPUs are halted and the microcode bootloader hands
 over control to the next module which is typically the x86 kernel.
 
 
@@ -908,7 +911,7 @@ Multiprocessor support for our custom kernel on x86
 As announced on our roadmap for this year, we extended our 'hw' kernel on
 x86 with multiprocessor support. The 'bootstrap' part of the
 kernel now parses ACPI tables to obtain the required CPU information and finally
-starts them. The number of the actual running CPUs is reported by
+starts them. The number of the actual running CPUs is now reported by
 'bootstrap' to the 'hw' kernel to foster the x86 case, where the maximum
 supported number of CPUs is not identical to the number of running CPUs.
 This is in contrast to our supported ARM boards where both numbers are
@@ -919,11 +922,11 @@ the same.
 NOVA microhypervisor
 ====================
 
-The used NOVA kernel branch switched to the revision r10, which is a intermediate
+The NOVA kernel branch in use has been switched to revision r10, which is a intermediate
 result of [http://cyberus-technology.de/ - Cyberus Technology] and of
 [https://www.genode-labs.com/ - Genode Labs] to harmonize their independently
-developed NOVA kernel branches. We hope to benefit from the NOVA evolution
-from each other in the long run by having a common NOVA trunk and short
+developed NOVA kernel branches. We hope to mutually benefit from the evolution
+of NOVA over the long run by having a common NOVA trunk and short
 individual branches.
 
 Feature-wise the r10 branch contains the following changes:
@@ -943,10 +946,11 @@ Fiasco.OC microkernel updated
 =============================
 
 In the past, we repeatedly encountered problems with kernel object destruction
-when using Genode on top of the Fiasco.OC microkernel. The effect was an
+when using Genode on top of the Fiasco.OC microkernel. The effect was a
 non-responsive kernel and halt of the machine. Thanks to recent development of
 the Fiasco.OC/L4Re community, those problems seem to be solved now. Jakub
-Jermar hinted us to a more recent kernel version, which worked out pretty well.
+Jermar gave us the hint to update to a more recent kernel version, which
+solved the observed issues.
 Now, the Genode fork of the Fiasco.OC version is based on the official Github
 sources from
 [https://github.com/kernkonzept/fiasco/commit/b9145d3ec4ffe3b02b3d49475ff3391905f0b51f - June 25, 2018].
@@ -1046,7 +1050,7 @@ _genode/_ directory.
 Configurable AMT power-on timeout
 ---------------------------------
 
-The boot time sometimes varies vastly between PCs. This is troublesome
+Boot time may vary vastly between PCs. This is particularly troublesome
 when AMT Serial-Over-LAN is the only debug option for
 different test machines. Because Intel ME is quite picky at which time
 window AMT SOL connects, it may just fall flat. So, we added a run option to
@@ -1056,5 +1060,5 @@ follows.
 !RUN_OPT += --power-on-amt-timeout 11
 
 On some PCs, we had to increase this option up to 26 seconds, which may
-also increase with attached USB mass storage if USB boot is enabled.
+further increase with attached USB mass storage if USB boot is enabled.
 
