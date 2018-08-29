@@ -16,7 +16,7 @@ Sculpt with Visual Composition
 ##############################
 
 Sculpt is our take on creating a Genode-based general-purpose operating
-system. With the Year of Sculpt as our leitmotif of 2018, the current release
+system. With the Year of Sculpt as our leitmotif for 2018, the current release
 features the ingredients of the third step advertised on
 [https://genode.org/about/road-map - road map].
 With Sculpt VC (Visual Composition), we pursue the gradual transition from a
@@ -86,7 +86,7 @@ machine.
 The launchers integrated in the boot image are defined at
 _gems/run/sculpt/launcher/_. Each file contains a node with a mandatory pkg
 attribute. If the attribute value contains one or more '/' characters, it is
-assumed to be a complete pkg path of the form <user>/pkg/<name>/<version>.
+assumed to be a complete pkg path of the form '<user>/pkg/<name>/<version>'.
 Otherwise it is assumed to be just the pkg name and is replaced by the current
 version of the current depot user's pkg at system-integration time.
 
@@ -132,8 +132,7 @@ were changes to the Linux internal APIs, we had to adapt the Linux
 emulation environment. We managed to do that in a way that still makes
 it possible to keep using the old Linux version for certain drivers like
 the FEC network driver and the TCP/IP stack. Those will be updated later
-on. Furthermore, some drivers received additional features while updating
-the code base.
+on. Furthermore, some drivers gained new features during their update.
 
 
 Updated and enhanced Intel framebuffer driver
@@ -168,7 +167,7 @@ Updated and reworked Intel wireless driver
 
 The update of the iwlwifi driver's code base brings new support for 8265 as
 well as 9xxx devices. The WPA supplicant code was also updated to a recent
-git version that contains critical fixes for issues like the KRACK exploit.
+git version that contains critical fixes for issues like the KRACK attack.
 
 Since the updated driver requires newer firmware images which are not as easily
 accessible as the old ones, we now provide the appropriate images ourselves:
@@ -358,14 +357,15 @@ USB devices with timing constraints
 
 Devices like USB headsets, webcams, or sound cards require the assertion of a
 guaranteed bandwidth from the USB host controller in order to function
-correctly. USB achieves this by so called isochronous endpoints, which guarantee
-the desired bandwidth, but do not assert the correctness of the data delivered.
+correctly. USB achieves this through so called isochronous endpoints, which
+guarantee the desired bandwidth but do not assert the correctness of the data
+delivered.
 
 Because Genode's USB-session interface lacked support for these kind of the
 devices, we extended the interface and added support for isochronous endpoints
 in our host controller drivers. Additionally, we adapted our Qemu-XHCI device
 model to also handle isochronous requests seamlessly. With these extensions in
-place, it becomes possible to directly access, for example a headset, through a
+place, it becomes possible to directly access, for example a headset, from a
 guest operating system within VirtualBox (e.g., Linux, Windows).
 
 We consider this feature as preliminary as the current implementation limits
@@ -406,7 +406,7 @@ Base framework and OS-level infrastructure
 Streamlined ELF-binary loading
 ==============================
 
-In scenarios like Sculpt's runtime subsystem. A parent component may create a
+In scenarios like Sculpt's runtime subsystem, a parent component may create a
 subsystem out of ELF binaries provided by one of its children. However, since
 the parent has to access the ELF binary in order to load it, the parent has to
 interact with the child service. It thereby becomes dependent on the
@@ -456,8 +456,8 @@ session, there exist some differences that must be reflected by the NIC
 router's configuration interface. As NIC session server, the router simply
 accepts all incoming session requests, given they transfer sufficient
 resources. We refer to these sessions as "downlinks". As NIC session client,
-at the other hand, the router is supposed to request the desired sessions -
-called "uplinks" - by itself and therefore also to determine their session
+on the other hand, the router is supposed to request the desired sessions -
+called "uplinks" - by itself and therefore has also to determine their session
 arguments in some way.
 
 The original version of the NIC router used of a simplified
@@ -488,18 +488,20 @@ to use the new node:
 ! </config>
 
 As you can see, you can create as many uplinks as you want by adding further
-'<uplink>' nodes. With the 'label' attribute one can set the label of
-the corresponding NIC session client. You can also leave out this attribute,
-which results in an empty string as label. But keep in mind that each uplink
-label must be unique. The label can be used to route different uplink sessions
-to different NIC servers. So, assuming that the above NIC router instance is
-child of an init component, its configuration could be accompanied by init's
-routing configuration as follows:
+'<uplink>' nodes. With the 'label' attribute of the node, you can set the label of
+the corresponding NIC session client. You can also leave out this attribute
+which results in an empty string as label. Keep in mind, though, that each uplink
+label must be unique. The label is used to route different uplink sessions
+to different NIC servers. Assuming that the above NIC router instance is a
+child of an init component, its configuration can be accompanied by init's
+routing rules to select the NIC service provider:
 
-! <service name="Nic" label="wifi">    <child name="wifi_drv"/>  </service>
-! <service name="Nic" label="wired_1"> <child name="nic_drv_1"/> </service>
-! <service name="Nic" label="wired_2"> <child name="nic_drv_2"/> </service>
-! <service name="Nic">                 <parent/>                 </service>
+! <route>
+!  <service name="Nic" label="wifi">    <child name="wifi_drv"/>  </service>
+!  <service name="Nic" label="wired_1"> <child name="nic_drv_1"/> </service>
+!  <service name="Nic" label="wired_2"> <child name="nic_drv_2"/> </service>
+!  <service name="Nic">                 <parent/>                 </service>
+! </route>
 
 The 'domain' attribute of the '<uplink>' node defines to which domain the
 corresponding uplink tries to assign itself. As you can see in the example,
@@ -546,13 +548,13 @@ requests at their NIC sessions.
 New verbosity class "packet drop"
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-As the NIC router is used more and more in real-live scenarios like the Sculpt
-OS, the ability to list all packets that it drops has proved helpful to
-localize the cause of more complicated networking problems. But this type of
-log message came along with all the other output of the routers 'verbose'
-flag. Thus, we moved them to a dedicated verbosity class, which is controlled
-through the new 'verbose_packet_drop' flag as illustrated in the following two
-configuration snippets:
+As the NIC router is used more and more in real-live scenarios like Sculpt,
+the ability to list all packets that it drops has proved helpful to
+localize the cause of more complicated networking problems. However, this type
+of log message was part of all the other log messages of the router enabled by
+the 'verbose' flag. Thus, it was moved to its own verbosity class, which is
+controlled via the new 'verbose_packet_drop' flag illustrated in the
+following two configuration snippets:
 
 ! <config>
 !    <domain name="one">                             ... </domain>
@@ -564,12 +566,12 @@ configuration snippets:
 !    <domain name="four" verbose_packet_drop="no"> ... </domain>
 ! </config>
 
-It is disabled by default. So domain "one" and "four" won't log dropped
-packets whereas domain "two" and "three" will. Each message about a dropped
-packet is accompanied by the rationale that led to the decision.
+Since it is disabled by default, domain "one" and "four" will not log dropped
+packets while domain "two" and "three" will. Each message about a dropped
+packet is accompanied by the rational that led to the decision.
 
 
-New VFS plugin for using lwIP as TCP/IP stack
+New VFS plugin for using LwIP as TCP/IP stack
 =============================================
 
 The architecture and philosophy of Genode mandates that network protocol
@@ -578,26 +580,26 @@ the TCP/IP stack from the TCB of non-networked components has obvious
 benefits, but poses a challenge for isolating or sharing IP stacks otherwise.
 In
 [https://genode.org/documentation/release-notes/17.02#Enhanced_VFS_infrastructure - version 17.02],
-we introduced a Berkeley Sockets layer to the POSIX C runtime that uses the
+we introduced a BSD-sockets API layer to the POSIX C runtime that uses the
 local virtual-file-system layer to access an abstract TCP/IP stack via control
-files. The first stack plugin for the VFS layer was a port of the Linux IP
+files. The first TCP/IP plugin for the VFS layer was a port of the Linux IP
 stack, referred to as LxIP.
 
-Ported in the
+Ported
 [https://genode.org/documentation/release-notes/9.11#Light-weight_IP_stack__lwIP_ - 9.11 release],
-the LwIP is stack is indeed the lightweight alternative to LxIP. LwIP features
-a low-level asynchronous API as well as an optional Berkeley Sockets
-interface. For this release, we reconfigured the latest LwIP release for
-asynchronous mode only and drive the low-level API via our so-called "socket
-fs" interface in the new LwIP VFS plugin. This plugin retains the modest
-resource usage of the LwIP library with performance that is competitive with
-LxIP.
+LwIP is a lightweight alternative to LxIP. It features a low-level
+asynchronous interface as well as an optional implemenation of the BSD-sockets
+API. In this release, we updated LwIP to the latest version, reconfigured it
+for asynchronous mode only, and use its low-level API in the new LwIP VFS
+plugin. This plugin retains the modest resource usage of the LwIP library with
+performance that is competitive with LxIP.
 
 The previous LwIP port has been renamed to 'lwip_legacy' and is scheduled for
-removal. Developers and integrators are encouraged to transition from the old
-'libc_lwip' libraries to the new VFS plugin by simply removing the legacy
-libraries from components and updating configurations to load and configure
-the VFS plugin at runtime.
+removal.
+Developers and integrators are encouraged to transition from the old 'libc_lwip'
+libraries to the new VFS plugin by simply removing the legacy libraries from
+components and updating configurations to load and configure the plugin
+at runtime.
 
 
 Dynamic capability-quota balancing
@@ -620,9 +622,9 @@ We overhauled the way the libc looks up the DNS server. Instead of simply
 accessing the commonly used _/etc/resolv.conf_ file it now accesses the
 file given by the 'nameserver_file' attribute to get the DNS nameserver
 address. It defaults to '/socket/nameserver' which is the common location when
-using the LxIP or LwIP VFS plugins. As a constraint, the libc will read the
-first line and expects the nameserver address without any keywords in front of
-it.
+using the lxip or lwip VFS plugin. As a constraint the libc will read the first
+line only and expects the nameserver address to be present without any keywords
+in front of it.
 
 
 Cached file-system-based ROM service
@@ -631,15 +633,15 @@ Cached file-system-based ROM service
 The fs_rom server has long been part of the foundation of dynamic Genode
 systems, both for serving configuration and loading component
 binaries and libraries. For the server to dynamically update ROM
-dataspaces as requested by clients, it must maintain independent
-dataspaces for each client. This a small price for dynamic
+dataspaces as requested by clients it must maintain independent
+dataspaces for each client. This is a small price for dynamic
 configuration but a burden when serving more than a few static
 binary images.
 
 The new cached_fs_rom server is an alternative ROM
 service that deduplicates dataspaces across client sessions as well
-as load and deliver sessions out-of-order. Implementing
-'cached_fs_rom' required an amendment to the RM session interface to
+as load and deliver sessions out-of-order. Implementing the
+'cached_fs_rom' component required an amendment to the RM session interface to
 support read-only attachments in managed dataspaces. This allows the
 server to allocate a managed memory region for each session, map the
 dataspace with file content into the region without write permissions, then
@@ -667,23 +669,22 @@ provide these semantics without sophisticated knowledge of what portions
 of a file-system had been duplicated for writing, but in practical use the
 plugin suffered from a number of issues. First, the plugin was not able to
 reliably detect recursion into itself, and second, chaining asynchronous
-operations together proved to be more complex than we would like.
+operations together proved to be more complex than anticipated.
 
 To look instead to the features we were using rather than the features we
 anticipated, we focused on the initial content feature of the 'ram_fs'. This
 server provides a non-persistent file-system that can be populated with
-content before servicing clients. To further the goal of providing a toolkit
-of orthogonal components, we have been gradually merging the 'ram_fs' server,
-the first file-system server, into the newer, more powerful 'vfs' server
+content before servicing clients. To foster the goal of providing a toolkit
+of orthoginal components we have been gradually merging the 'ram_fs' server,
+the first file-system server, into the newer, more powerful 'vfs' server.
 component. Initial population happened to be the last feature before parity,
 so we created a special 'import' plugin to the VFS library that instantiates a
-temporary internal file-system that is copied to the root of the main VFS instance.
-The copy is recursive and non-destructive by default. To allow the import
-procedure to
-overwrite existing files, simply add an 'overwrite="yes"' to the
-plugin configuration node. This plugin covers all use cases we had for the
-COW plugin and turned out to be quite intuitive, so with this release we
-removed COW and replaced it with the 'import' plugin.
+temporary internal file-system that is copied to root of the main VFS instance.
+The copy is recursive and non-destructive by default. Should the import process
+need to overwite existing files, 'overwrite="yes"' may be added to the
+plugin configuration node. This plugin covers all use-cases we have for the
+COW plugin and turned out to be quite intuitive. Therefore, with this release,
+the COW plugin is replaced by the 'import' plugin.
 
 The plugin is quite easy to use, for example, importing a shell configuration
 into a Noux instance:
@@ -777,7 +778,7 @@ Enhanced Terminal compatibility
 During this release cycle, a simple SSH client was added to the world repository
 and we quickly noticed that our graphical terminal was unprepared for the
 variety of terminal escape sequences found in the wild. The escape sequence
-parser in the 'terminal' server has now become able to handle or ignore the litany
+parser in the 'terminal' server is now able to handle or ignore the litany
 of sequences that might be considered part of the ad hoc VT100/Screen/Xterm
 standard. We may never be able to say that we handle them all, but the
 'terminal' server can now be used with many robust TUI applications.
@@ -834,7 +835,7 @@ User-level ACPICA
 -----------------
 
 We have updated our port of the ACPI Component Architecture (ACPICA) from
-version 2016-02-12 to most recent release version 2018-08-10. This was
+version 2016-02-12 to the most recent release version 2018-08-10. This was
 motivated by recent laptops that apparently were not supported
 well by the old version. According to the ACPICA documentation, this update
 mainly marks the step from ACPI specification version 6.1 to 6.2 and, as
@@ -885,7 +886,7 @@ CPU. The relevant excerpt of a Genode GRUB2 configuration looks like this:
 ! module2 /boot/hypervisor hypervisor iommu serial
 ! module2 /boot/image.elf.gz image.elf
 
-The microcode update functionality got integrated into the
+The microcode update functionality is integrated into the
 _tool/run/boot_dir/nova_ support file and can be enabled by providing a
 'apply_microcode' TCL procedure as showcased in _repos/ports/run/microcode.run_.
 
@@ -907,10 +908,12 @@ Multiprocessor support for our custom kernel on x86
 As announced on our roadmap for this year, we extended our 'hw' kernel on
 x86 with multiprocessor support. The 'bootstrap' part of the
 kernel now parses ACPI tables to obtain the required CPU information and finally
-starts them. The number of the actual running CPUs are now reported by
+starts them. The number of the actual running CPUs is reported by
 'bootstrap' to the 'hw' kernel to foster the x86 case, where the maximum
-configured CPU count is not identical to the running CPUs - in contrast to our
-supported ARM boards.
+supported number of CPUs is not identical to the number of running CPUs.
+This is in contrast to our supported ARM boards where both numbers are
+the same.
+
 
 
 NOVA microhypervisor
@@ -988,13 +991,13 @@ Unified precondition checks
 ---------------------------
 
 We refined the run tool by removing the 'check_installed' and
-'requires_installation_of' functions. These functions were used to determine
-if a certain shell command was present on the host system and are now
-superseded by the new
-'installed_command', which also checks if a shell command is present on the system by
-searching the PATH variable and additionally the 'sbin' directories that are not
-part of the PATH on some Linux distributions. If a shell command cannot be
-located, a warning message will be given and the run script will be aborted.
+'requires_installation_of' functions. They were used to determine if a certain
+shell command was present on the host system and are now superseded by the
+'installed_command' function. This new function also checks if a shell command
+is present on the system by searching the PATH variable and additionally the
+'sbin' directories that might not be part of the PATH on some Linux
+distributions. If a shell command cannot be located, a warning message will be
+given and the run script will be aborted.
 
 
 Stricter validation of configurations at integration time
