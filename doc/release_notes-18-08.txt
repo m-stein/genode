@@ -22,7 +22,9 @@ features the ingredients of the third step advertised on
 With Sculpt VC (Visual Composition), we pursue the gradual transition from a
 text-based user interface to a graphical user interface for most
 administrative tasks while preserving the text-based interface for the full
-flexibility.
+flexibility. All packages for the current version of Sculpt are readily
+available at [https://depot.genode.org/genodelabs/]. The official disk image
+of Sculpt VC will be released in September.
 
 [image sculpt_18_08]
 
