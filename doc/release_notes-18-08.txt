@@ -15,100 +15,106 @@
 Sculpt with Visual Composition
 ##############################
 
-; @nfeske
+Sculpt is our take on creating a Genode-based general-purpose operating
+system. With the Year of Sculpt as our leitmotif of 2018, the current release
+features the ingredients of the third step of our
+[https://genode.org/about/road-map - road map].
+It is concerned with the gradual transition from a text-based user interface
+to a graphical user interface for most administrative tasks while preserving
+the text-based interface for the full flexibility.
 
-commit 3372c1a7b24ba617c90307c32711d11d4d44d905
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon May 28 01:24:02 2018 +0200
 
-    sculpt: manage leitzentrale window layout
-    
-    With this patch, the sculpt manager takes over the role the window
-    layouter of the leitzentrale, which eliminates the need to manually
-    position and size the inspect window.
+Live runtime view
+-----------------
 
-commit fec223016f98a3f9a2f158e306c770ba422aec90
-Author: Emery Hemingway <ehmry@posteo.net>
-Date:   Mon Jun 18 10:53:34 2018 +0200
+The central element of Sculpt's graphical user interface will be an
+interactive view of the runtime state, which gives the user an intuitive
+picture of the relationship between components and their respective trusted
+computing bases.
 
-    Sculpt: route input_filter chargen requests to config_fs_rom
-    
-    The top-level Sculpt configuration is routing ROM requests for chargen
-    files from the input_filter to the parent, and this prevents new chargen
-    files to specified, for instance the German or Workman layout. Route ROM
-    requests with a combination of label_prefix and label_suffix patterns to
-    the config_fs_rom component, allowing the input_filter to be dynamically
-    reconfigurable.
-    
-    Fix #2872
+[image sculpt_runtime_view]
 
-commit 46241da795cfdcfdc342bc91df9d4665bf047c05
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Jun 26 15:36:01 2018 +0200
+The runtime view is generated on-the-fly and updated whenever the system
+undergoes a structural change. It is organized such that components with a
+close semantic relationship are grouped together. By default, the most
+significant relationship between any two components is highlighted by a line
+connecting them. The runtime view already supports a basic form of
+interaction: By clicking on a component, all relationships to other components
+of the runtime become visible, and additional details about the resource usage
+are presented. In the forthcoming versions, the graph will become more and
+more interactive.
 
-    Runtime for saving copies of Sculpt's report fs
-    
-    Fixes #2849
+Within Sculpt's leitzentrale, the runtime view is now displayed by default.
+However, when inspecting file systems, the runtime view is replaced by the
+inspect window. One can toggle both views by clicking on the title of the
+storage dialog for the inspect window, or any other dialog for the runtime
+view.
 
-commit a2dc07056eadf0449129e5631a3d1d8ef3432c43
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Jul 4 15:25:59 2018 +0200
 
-    sculpt: use cached_fs_rom as depot_rom
-    
-    Fixes #2904
+Revised deployment configuration
+--------------------------------
 
-commit ac335ef58aa31179e6c5bb740567382320e1dfbf
-Author: Emery Hemingway <ehmry@posteo.net>
-Date:   Mon Jul 9 13:00:40 2018 +0200
+In the current version, the deployment of components is directly controlled
+by editing the _/config/deploy_ file of Sculpt's config file system. With
+the move to a non-textual user interface, this responsibility will be handed
+over to the sculpt-manager component. To make this transition possible,
+we moved all manually-defined parts of the deploy configuration to so-called
+launcher configurations that reside at _/config/launcher/_. The deploy
+configuration merely controls the instantiation on components while
+referring to launchers. The name of the launcher corresponds to its file name.
+That said, the deploy configuration is backwards compatible. Whenever a
+'<start>' node contains a 'pkg' attribute, it works as previously, not using
+any launcher policy.
 
-    Add Game Boy emulator to sculpt.run
+The deploy configuration contains just a list of nodes. Each refers to a
+launcher according to the 'name' attribute. It is possible to explicitly refer
+to a differently named launcher by specifying a 'launcher' attribute. This
+way, one launcher can be instantiated multiple times. A '<config>' node within
+a launcher - when present - overrides the of the pkg. In turn, a '<config>'
+node withing a node of the deploy config overrides any other node. Both the
+launcher and a <start> node may contain a route node. The routing rules
+defined in the <start> node have precedence over the ones defined by the
+launcher. This way, the routing of a launcher can be parametrized at the
+deploy configuration. The files at _/config/launcher/_ are monitored by the
+sculpt manager and therefore can be edited on the fly. This is especially
+useful for editing the node of _/config/launcher/usb_devices_rom_ to pass USB
+devices to a virtual machine.
 
-commit 74b07dedda48a3c3a00dc84fbe36a38d9f90e4c8
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Aug 15 17:39:08 2018 +0200
+The launchers integrated in the boot image are defined at
+_gems/run/sculpt/launcher/_. Each file contains a node with a mandatory pkg
+attribute. If the attribute value contains one or more '/' characters, it is
+assumed to be a complete pkg path of the form <user>/pkg/<name>/<version>.
+Otherwise it is assumed to be just the pkg name and is replaced by the current
+version of the current depot user's pkg at system-integration time.
 
-    sculpt: separate launchers from deploy config
-    
-    Fixes #2938
 
-commit 03f8bda69b8dd33f200a783595e3d48cfadaf8b3
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Aug 22 14:54:51 2018 +0200
+Sculpt as a hardware-probing instrument
+---------------------------------------
 
-    sculpt: condition checks for running components
-    
-    By caching the state reports generated by the runtime init, the sculpt
-    manager becomes able to quickly check for the presence of components. So
-    we can apply routing-dependency checks not only prior starting
-    components but also while components are running.
-    
-    Fixes #2912
+The new 'report_dump' subsystem periodically copies the content of Sculpt's
+report file system to the default file system. It thereby can be used to turn
+Sculpt into a diagnostic instrument for probing the driver support for new
+hardware.
 
-commit 737c6b12f6c4c72e397e0e3fff73c782850299ef
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Jul 5 16:57:43 2018 +0200
+First, a USB stick with a fresh Sculpt image is booted on a fully supported
+machine. The user then customizes the USB stick within the running system by
+expanding the USB stick's Genode partition, setting it as the default
+storage location, and deploying the 'report_dump' subsystem. The last step
+triggers the installation of the 'report_dump' package onto the USB stick.
+Finally, the user copies the deploy configuration from the in-memory config
+file system (_/config/deploy_) to the USB stick
+(_/usb-<NUMBER>/config/18.08/deploy_). When booting this prepared USB stick,
+this deployment configuration becomes active automatically. Now, the
+Sculpt system copies a snapshot of the report file system to the Genode
+partition of the USB stick every 10 seconds. The snapshots captured on
+the USB stick can then by analyzed on another machine.
 
-    sculpt: runtime view
-    
-    This patch adds a graph of the current runtime state to the
-    leitzentrale. The topology of the graph depends on the first routing
-    rule of each component. For this reason, the patch re-orders routing
-    policies to make the most important route the first in the list.
-    
-    The user can switch between the runtime view and the inspect window
-    by clicking on the corresponding menu dialogs. E.g., a click on the
-    storage dialog reveals the inspect window.
-
-commit 7e87a46e521c3fa1808f2c45897e580b4d8abf3d
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Aug 23 13:39:21 2018 +0200
-
-    sculpt: basic interaction with runtime view
-    
-    This patch enables the user to click on a component in the runtime view
-    to reveal more information such as the used/assigned RAM/caps and
-    secondary dependencies.
+The snapshots contain not only all log messages but also the reports
+generated by various components of the drivers subsystem and all deployed
+components. E.g., with 'acpica' present in the deploy configuration, the
+battery state is captured as well. The report-dump subsystem nicely
+showcases how the addition of a simple package allows the reshaping of
+Sculpt into a special-purpose appliance.
 
 
 Device drivers
