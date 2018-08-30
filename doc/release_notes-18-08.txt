@@ -303,6 +303,8 @@ was always seen as an intermediate step towards a componentized USB stack,
 as can be seen in the
 [https://genode.org/documentation/release-notes/9.05#USB_support - release notes of 9.05].
 
+[image usb_1]
+
 The first qualitative change of the USB landscape in Genode was the introduction of the
 USB session interface and its support by the DDE-Linux-based monolithic driver
 by Genode release 15.02. It enabled the development of independent driver
@@ -321,6 +323,8 @@ recent version, we finally took the opportunity to split the monolithic USB
 driver into parts. By separating the USB controller driver from the actual USB
 device drivers, we significantly reduce the complexity of the USB resource
 multiplexing.
+
+[image usb_2]
 
 
 USB host driver
@@ -525,12 +529,13 @@ whose lifetime and session arguments it defines. This is a short example how
 to use the new node:
 
 ! <config>
-!   <policy label_prefix="vbox" domain="default">
+!   <policy label_prefix="virtualbox" domain="default">
+!   <policy label_prefix="arora"      domain="wifi_domain">
 !
 !   <uplink                 domain="default" />
 !   <uplink label="wired_1" domain="wired_bridge" />
 !   <uplink label="wired_2" domain="wired_bridge" />
-!   <uplink label="wifi"    domain="wifi_uplink" />
+!   <uplink label="wifi"    domain="wifi_domain" />
 !   ...
 !
 !   <domain name="wired_bridge"> ... </domain>
@@ -547,10 +552,10 @@ child of an init component, its configuration can be accompanied by init's
 routing rules to select the NIC service provider:
 
 ! <route>
-!  <service name="Nic" label="wifi">    <child name="wifi_drv"/>  </service>
-!  <service name="Nic" label="wired_1"> <child name="nic_drv_1"/> </service>
-!  <service name="Nic" label="wired_2"> <child name="nic_drv_2"/> </service>
-!  <service name="Nic">                 <parent/>                 </service>
+!   <service name="Nic" label="wifi">    <child name="wifi_drv"/>  </service>
+!   <service name="Nic" label="wired_1"> <child name="nic_drv_1"/> </service>
+!   <service name="Nic" label="wired_2"> <child name="nic_drv_2"/> </service>
+!   <service name="Nic">                 <parent/>                 </service>
 ! </route>
 
 The 'domain' attribute of the '<uplink>' node defines to which domain the
