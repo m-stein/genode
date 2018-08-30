@@ -76,12 +76,12 @@ In the new version, the default deploy configuration contains just a list of
 nodes. Each refers to a launcher according to the 'name' attribute. It is
 possible to explicitly refer to a differently named launcher by specifying a
 'launcher' attribute. This way, one launcher can be instantiated multiple
-times. A '<config>' node within a launcher - when present - overrides the of
-the pkg. In turn, a '<config>' node withing a node of the deploy config
+times. A '<config>' node within a launcher - when present - overrides the one
+of the pkg. In turn, a '<config>' node within a node of the deploy config
 overrides any other node. Both the launcher and a '<start>' node may contain a
 '<route>' node. The routing rules defined in the '<start>' node have
 precedence over the ones defined by the launcher. This way, the routing of a
-launcher can be parametrized at the deploy configuration. The files at
+launcher can be parameterized at the deploy configuration. The files at
 _/config/launcher/_ are monitored by the sculpt manager and therefore can be
 edited on the fly. This is especially useful for editing the '<config>' node
 of _/config/launcher/usb_devices_rom_ to pass USB devices to a virtual
@@ -204,11 +204,11 @@ The new 'wifi_config' configuration looks as follows:
 
 The type of the top node is ignored by the driver and can be chosen freely.
 The 'connected_scan_interval' specifies the timeout after which the driver
-will request a new scan of the existing accesspoints when
-connected to an accesspoint. This setting influences the frequency at which
+will request a new scan of the existing access points when
+connected to an access point. This setting influences the frequency at which
 the driver will make a roaming decision within the network (SSID). The
 'scan_interval' attribute specifies the timeout after which a new scan
-request will be executed while still trying to find a suitable accesspoint.
+request will be executed while still trying to find a suitable access point.
 In addition to those attributes there is the 'use_11n' attribute that is
 evaluated once on start-up to enable or disable 11N support within
 the iwlwifi module. It cannot be toggled at run-time. Furthermore there are
@@ -227,13 +227,13 @@ The type of protection of the network is set via the 'protection' attribute.
 Valid values are 'WPA' and 'WPA2'. The alphanumeric password is set via the
 'passphrase' attribute. Setting a PSK directly is not supported for now.
 The configuration can contain more than one '<accesspoint>' entry. In this case
-the driver will chose the network with the best quality from the list. To
+the driver will choose the network with the best quality from the list. To
 prevent the driver from auto-connecting to a network, the 'auto_connect'
 attribute can be set to 'false'. The 'bssid' attribute may be used in addition
-to the 'ssid' attribute to select a specific accesspoint within one network.
+to the 'ssid' attribute to select a specific access point within one network.
 
 There is no backwards compatibility for the old configuration format. Users
-are advised to adopt their system scenarios.
+are advised to adapt their system scenarios.
 As an unfortunate regression, some if not all 6xxx cards will not work
 properly. This issue is being investigated.
 
@@ -260,7 +260,7 @@ as can be seen in the
 The first qualitative change of the USB landscape in Genode was the introduction of the
 USB session interface and its support by the DDE-Linux-based monolithic driver
 by Genode release 15.02. It enabled the development of independent driver
-components for USB-connected devices. Simultaneous, the first such
+components for USB-connected devices. Simultaneously, the first such
 self-contained driver got released for the Prolific PL2303 USB to UART adapter.
 More, independent, written-from-scratch drivers followed, supporting HID and
 USB block devices. The icing on the cake was support of USB sessions within
@@ -269,7 +269,7 @@ dedicated USB devices within a guest operating system.
 
 Nevertheless, the USB host-controller driver still contained the overall
 complexity of Linux' input, storage, network, and USB subsystems. This
-complexity is unfortunate because inflates the trusted computing base of
+complexity is unfortunate because it inflates the trusted computing base of
 all its clients. When updating different DDE Linux based drivers to a more
 recent version, we finally took the opportunity to split the monolithic USB
 driver into parts. By separating the USB controller driver from the actual USB
@@ -295,7 +295,7 @@ host controller and its hubs by adding
 ! <report devices="yes"/>
 
 to its configuration node. Like the old driver, one can use 'product_id'
-and 'vendor_id', or 'bus' and 'dev' number delivered via the report
+and 'vendor_id', or 'bus' and 'dev' numbers delivered via the report
 to write policy rules in the configuration of the driver. Thereby,
 different client drivers can access a dedicated device only. To ease up
 the migration to the new USB host driver, it is possible to just
@@ -316,7 +316,7 @@ A possible driver configuration for the new USB host driver looks as follows.
 ! ...
 
 The new host driver does not need to be configured with respect to the kind of
-host controller used, e.g., OHCI, EHCI, XHCI. By providing the appropriated
+host controller used, e.g., OHCI, EHCI, XHCI. By providing the appropriate
 device hardware resources to the driver it detects what kind of controller it
 has to drive.
 
@@ -326,19 +326,19 @@ USB HID driver
 
 The new self-contained USB HID driver is platform independent, as it is
 now only dependent on the USB session interface. It comprises several
-different HID devices. One can either support all kind of HID devices by
+different HID devices. One can either support all kinds of HID devices by
 one driver instance for compatibility reasons, or use one dedicated driver
 instance per HID device. To support all HID devices provided by the USB
 host driver, the HID driver can subscribe to the report of the host driver. When
 configuring the HID driver like the following, it will track changes of
-a ROM called 'report', and open an USB session to all HID devices listed
+a ROM called 'report', and open a USB session to all HID devices listed
 in the report.
 
 ! ...
 ! <config use_report="yes"\>
 ! ...
 
-All options for tracking the state of keyboard LED like 'capslock',
+All options for tracking the state of keyboard LEDs like 'capslock',
 and the configuration values to support mutli-touch devices are still
 supported and equal to the former monolithic driver.
 
@@ -361,11 +361,11 @@ USB devices with timing constraints
 
 Devices like USB headsets, webcams, or sound cards require the assertion of a
 guaranteed bandwidth from the USB host controller in order to function
-correctly. USB achieves this through so called isochronous endpoints, which
+correctly. USB achieves this through so-called isochronous endpoints, which
 guarantee the desired bandwidth but do not assert the correctness of the data
 delivered.
 
-Because Genode's USB-session interface lacked support for these kind of the
+Because Genode's USB-session interface lacked support for this kind of
 devices, we extended the interface and added support for isochronous endpoints
 in our host controller drivers. Additionally, we adapted our Qemu-XHCI device
 model to also handle isochronous requests seamlessly. With these extensions in
@@ -464,7 +464,7 @@ on the other hand, the router is supposed to request the desired sessions -
 called "uplinks" - by itself and therefore has also to determine their session
 arguments in some way.
 
-The original version of the NIC router used of a simplified
+The original version of the NIC router used a simplified
 model that was based on the assumption that there is either none or only one
 uplink. The existence of the one possible uplink was bound to the presence of
 a special domain named "uplink" in the configuration, thereby obviating the
@@ -572,7 +572,7 @@ following two configuration snippets:
 
 Since it is disabled by default, domain "one" and "four" will not log dropped
 packets while domain "two" and "three" will. Each message about a dropped
-packet is accompanied by the rational that led to the decision.
+packet is accompanied by the rationale that led to the decision.
 
 
 New VFS plugin for using LwIP as TCP/IP stack
@@ -595,7 +595,7 @@ to as LxIP.
 Ported
 [https://genode.org/documentation/release-notes/9.11#Light-weight_IP_stack__lwIP_ - 9.11 release],
 LwIP is a lightweight alternative to LxIP. It features a low-level
-asynchronous interface as well as an optional implemenation of the BSD-sockets
+asynchronous interface as well as an optional implementation of the BSD-sockets
 API. In this release, we updated LwIP to the latest version, reconfigured it
 for asynchronous mode only, and use its low-level API in the new LwIP VFS
 plugin. This plugin retains the modest resource usage of the LwIP library with
@@ -685,8 +685,8 @@ content before servicing clients. To foster the goal of providing a toolkit
 of orthoginal components we have been gradually merging the 'ram_fs' server,
 the first file-system server, into the newer, more powerful 'vfs' server.
 component. Initial population happened to be the last feature before parity,
-so we created a special 'import' plugin to the VFS library that instantiates a
-temporary internal file-system that is copied to root of the main VFS instance.
+so we created a special 'import' plugin for the VFS library that instantiates a
+temporary internal file-system that is copied to the root of the main VFS instance.
 The copy is recursive and non-destructive by default. Should the import process
 need to overwite existing files, 'overwrite="yes"' may be added to the
 plugin configuration node. This plugin covers all use-cases we have for the
@@ -867,7 +867,7 @@ reasons, however, machines may not receive firmware updates as often
 or as quickly as they should. Based on the recent high rate of disclosures for
 Spectre-related hardware bugs in CPUs, there is the desire to use microcode
 updates as rapidly as they are released. To address this concern, we added principle
-support for appling Intel microcode patches as part of the Genode framework.
+support for applying Intel microcode patches as part of the Genode framework.
 
 The first step was to add support to download the Intel microcode patches via
 the Genode port mechanism.
@@ -926,7 +926,7 @@ the same.
 NOVA microhypervisor
 ====================
 
-The NOVA kernel branch in use has been switched to revision r10, which is a intermediate
+The NOVA kernel branch in use has been switched to revision r10, which is an intermediate
 result of [http://cyberus-technology.de/ - Cyberus Technology] and of
 [https://www.genode-labs.com/ - Genode Labs] to harmonize their independently
 developed NOVA kernel branches. We hope to mutually benefit from the evolution
@@ -996,7 +996,7 @@ Genode components required by the run script are being stored.
 
 After image creation, it becomes difficult to determine the set of
 components present in a certain image. Therefore, we added a new run
-options for our RUN_OPT environment variable called '--preserve-genode-dir',
+option for our RUN_OPT environment variable called '--preserve-genode-dir',
 which leaves the temporary 'genode' directory intact.
 
 ! RUN_OPT += --preserve-genode-dir
