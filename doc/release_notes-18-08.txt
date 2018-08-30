@@ -28,7 +28,7 @@ Section [New Intel Microcode update mechanism] presents a kernel-agnostic
 mechanism for applying CPU-microcode updates to Genode-based systems.
 
 Third, in order to be actually useful, the system needs to be *scalable*
-towards a vast variety of *workloads*. The Genode's VFS
+towards a vast variety of *workloads*. Genode's VFS
 infrastructure is a pivotal element here - it is almost like
 a Swiss army knife. For example, Section [New VFS plugin for using LwIP as TCP/IP stack]
 presents how the VFS enables the lwIP and Linux TCP/IP stacks to be used
@@ -41,7 +41,7 @@ described in Section [Cached file-system-based ROM service].
 Fourth, to overcome the perception of being a toy for geeks, Sculpt must
 become *easy to use*. We are aiming higher than mere convenience though. We
 ought to give the user full transparency of the system's operation at an
-intuitive level of abstraction. The user should able to see and consciously
+intuitive level of abstraction. The user should be able to see and consciously
 control the interaction of components with one another and with the hardware.
 For example, unless the user explicitly allows an application to reach the network,
 the application remains completely disconnected. Founded on
@@ -385,7 +385,7 @@ in the report.
 ! ...
 
 All options for tracking the state of keyboard LEDs like 'capslock',
-and the configuration values to support mutli-touch devices are still
+and the configuration values to support multi-touch devices are still
 supported and equal to the former monolithic driver.
 
 
