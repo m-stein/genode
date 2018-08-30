@@ -17,7 +17,7 @@ Sculpt with Visual Composition
 
 Sculpt is our take on creating a Genode-based general-purpose operating
 system. With the Year of Sculpt as our leitmotif for 2018, the current release
-features the ingredients of the third step advertised on
+features the ingredients of the third step advertised on the
 [https://genode.org/about/road-map - road map].
 With Sculpt VC (Visual Composition), we pursue the gradual transition from a
 text-based user interface to a graphical user interface for most
@@ -190,7 +190,8 @@ The driver still reports its current state but the report is now simply called
 'state' instead of 'wlan_state'. At the moment, SSIDs are provided verbatim in
 the report and are not sanitized. SSIDs that contain unusual characters like '"'
 and the NUL byte will lead to invalid reports. This also applies for the
-'accesspoints' report that supersedes the former 'wlan_accesspoints' report.
+'accesspoints' report that supersedes the former 'wlan_accesspoints'
+report. We will address this remaining issue in a future update.
 
 The main configuration was moved from the common '<config>' node to
 a new ROM called 'wifi_config'. In doing so, we cleanly separate the wireless
@@ -202,7 +203,6 @@ The new 'wifi_config' configuration looks as follows:
 !  <accesspoint ssid="Foobar" protection="WPA2" passphrase="allyourbase"/>
 !</wifi_config>
 
-The type of the top node is ignored by the driver and can be chosen freely.
 The 'connected_scan_interval' specifies the timeout after which the driver
 will request a new scan of the existing access points when
 connected to an access point. This setting influences the frequency at which
@@ -234,7 +234,7 @@ to the 'ssid' attribute to select a specific access point within one network.
 
 There is no backwards compatibility for the old configuration format. Users
 are advised to adapt their system scenarios.
-As an unfortunate regression, some if not all 6xxx cards will not work
+As an unfortunate regression, some 6xxx cards will not work
 properly. This issue is being investigated.
 
 
@@ -335,7 +335,7 @@ a ROM called 'report', and open a USB session to all HID devices listed
 in the report.
 
 ! ...
-! <config use_report="yes"\>
+! <config use_report="yes"/>
 ! ...
 
 All options for tracking the state of keyboard LEDs like 'capslock',
@@ -592,7 +592,7 @@ files. A stack may be instantiated locally or shared via the File_system service
 The first stack plugin for the VFS layer was a port of the Linux IP stack, referred
 to as LxIP.
 
-Ported
+Ported in the
 [https://genode.org/documentation/release-notes/9.11#Light-weight_IP_stack__lwIP_ - 9.11 release],
 LwIP is a lightweight alternative to LxIP. It features a low-level
 asynchronous interface as well as an optional implementation of the BSD-sockets
@@ -606,7 +606,7 @@ removal.
 Developers and integrators are encouraged to transition from the old 'libc_lwip'
 libraries to the new VFS plugin by simply removing the legacy libraries from
 components and updating configurations to load and configure the plugin
-at runtime.
+at start time.
 
 
 Dynamic capability-quota balancing
@@ -682,14 +682,14 @@ To look instead to the features we were using rather than the features we
 anticipated, we focused on the initial content feature of the 'ram_fs'. This
 server provides a non-persistent file-system that can be populated with
 content before servicing clients. To foster the goal of providing a toolkit
-of orthoginal components we have been gradually merging the 'ram_fs' server,
+of orthogonal components we have been gradually merging the 'ram_fs' server,
 the first file-system server, into the newer, more powerful 'vfs' server.
-component. Initial population happened to be the last feature before parity,
+Initial population happened to be the last feature before parity,
 so we created a special 'import' plugin for the VFS library that instantiates a
 temporary internal file-system that is copied to the root of the main VFS instance.
 The copy is recursive and non-destructive by default. Should the import process
-need to overwite existing files, 'overwrite="yes"' may be added to the
-plugin configuration node. This plugin covers all use-cases we have for the
+need to overwrite existing files, 'overwrite="yes"' may be added to the
+plugin configuration node. This plugin covers all use cases we have for the
 COW plugin and turned out to be quite intuitive. Therefore, with this release,
 the COW plugin is replaced by the 'import' plugin.
 
