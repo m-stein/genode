@@ -41,7 +41,7 @@ described in Section [Cached file-system-based ROM service].
 Fourth, to overcome the perception of being a toy for geeks, Sculpt must
 become *easy to use*. We are aiming higher than mere convenience though. We
 ought to give the user full transparency of the system's operation at an
-intuitive level of abstraction. The user should be able to see and consciously
+intuitive level of abstraction. The user should be empowered to see and consciously
 control the interaction of components with one another and with the hardware.
 For example, unless the user explicitly allows an application to reach the network,
 the application remains completely disconnected. Founded on
