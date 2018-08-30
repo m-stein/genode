@@ -288,14 +288,14 @@ De-componentized USB stack
 ==========================
 
 The USB stack has a long history in the Genode OS framework. Back in May 2009,
-the first DDE-Linux-based driver got introduced, which was the USB input
+the first DDE-Linux-based driver was introduced, which was the USB input
 driver. It used compilation units related to the USB host controller, HID, and
 input subsystems of Linux. To other Genode components, it offered the input
 session interface. At that time the driver ran on 32-bit x86 machines only.
 
-Since then the USB driver passed through manifold alterations. It got extended
+Since then the USB driver passed through manifold alterations. It was extended
 to support different architectures (ARMv6, ARMv7, x86_64) and USB
-host-controllers of various platforms. The support for USB endpoint devices got
+host-controllers of various platforms. The support for USB endpoint devices was
 extended by additional HID, storage, and network devices. Nonetheless, the
 USB driver remained a monolithic component comprising different
 session interfaces like block, NIC and input. Though, the monolithic approach
@@ -307,10 +307,10 @@ The first qualitative change of the USB landscape in Genode was the introduction
 USB session interface and its support by the DDE-Linux-based monolithic driver
 by Genode release 15.02. It enabled the development of independent driver
 components for USB-connected devices. Simultaneously, the first such
-self-contained driver got released for the Prolific PL2303 USB to UART adapter.
+self-contained driver was released for the Prolific PL2303 USB to UART adapter.
 More, independent, written-from-scratch drivers followed, supporting HID and
 USB block devices. The icing on the cake was support of USB sessions within
-VirtualBox introduced in May 2015. From that on, it was possible to drive
+VirtualBox introduced in May 2015. From that point on, it was possible to drive
 dedicated USB devices within a guest operating system.
 
 Nevertheless, the USB host-controller driver still contained the overall
@@ -370,8 +370,8 @@ has to drive.
 USB HID driver
 --------------
 
-The new self-contained USB HID driver is platform independent, as it is
-now only dependent on the USB session interface. It comprises several
+The new self-contained USB HID driver is platform independent, as it
+depends only on the USB session interface. It comprises several
 different HID devices. One can either support all kinds of HID devices by
 one driver instance for compatibility reasons, or use one dedicated driver
 instance per HID device. To support all HID devices provided by the USB
@@ -395,8 +395,8 @@ USB network driver
 The self-contained USB network driver is called 'usb_net_drv' and resides
 at _repos/dde_linux/src/drivers_. It supports different chipsets, but
 in contrast to the HID driver supports exactly one device per driver
-instance. If you need to support more than one USB connected network card,
-you need to instantiate additional drivers.
+instance. If you need support for more than one USB connected network card,
+additional drivers must be instantiated.
 Like in the old monolithic driver, it is advised to state a MAC for those
 platforms where it is not possible to read one from an EEPROM, otherwise
 a hard-coded one is used.
@@ -537,7 +537,7 @@ to use the new node:
 !   <domain name="default">      ... </domain>
 ! </config>
 
-As you can see, you can create as many uplinks as you want by adding further
+As you can see, you may create as many uplinks as you want by adding further
 '<uplink>' nodes. With the 'label' attribute of the node, you can set the label of
 the corresponding NIC session client. You can also leave out this attribute
 which results in an empty string as label. Keep in mind, though, that each uplink
@@ -565,7 +565,7 @@ Similar to downlinks, uplinks do not need to stay connected to a domain all the
 time. They can be safely moved from one domain to another without closing the
 corresponding NIC session. This is done by reconfiguring their 'domain'
 attributes. An uplink can even exist without a domain at all, like the 'wifi'
-uplink in the above example. In this case, all packets from the uplink get
+uplink in the above example. In this case, all packets from the uplink are
 ignored but its session remains open. Finally, an uplink and its NIC session
 client can be terminated by removing the corresponding '<uplink>' node from the
 NIC router configuration.
@@ -722,7 +722,7 @@ provide these semantics without sophisticated knowledge of what portions
 of a file-system had been duplicated for writing, but in practical use the
 plugin suffered from a number of issues. First, the plugin was not able to
 reliably detect recursion into itself, and second, chaining asynchronous
-operations together proved to be more complex than anticipated.
+operations together proved to be more complicated than we had planned for.
 
 To look instead to the features we were using rather than the features we
 anticipated, we focused on the initial content feature of the 'ram_fs'. This
