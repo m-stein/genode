@@ -28,9 +28,9 @@ Section [New Intel Microcode update mechanism] presents a kernel-agnostic
 mechanism for applying CPU-microcode updates to Genode-based systems.
 
 Third, in order to be actually useful, the system needs to be *scalable*
-towards a vast variety of *workloads*. In turns our that Genode's VFS
+towards a vast variety of *workloads*. The Genode's VFS
 infrastructure is a pivotal element here - it is almost like
-a Swiss army knife. E.g., Section [New VFS plugin for using LwIP as TCP/IP stack]
+a Swiss army knife. For example, Section [New VFS plugin for using LwIP as TCP/IP stack]
 presents how the VFS enables the lwIP and Linux TCP/IP stacks to be used
 interchangeably for a network application by merely tweaking the component's
 configuration. The VFS ultimately enables us to host sophisticated 3rd-party
@@ -43,8 +43,8 @@ become *easy to use*. We are aiming higher than mere convenience though. We
 ought to give the user full transparency of the system's operation at an
 intuitive level of abstraction. The user should able to see and consciously
 control the interaction of components with one another and with the hardware.
-E.g., unless the user explicitly allows an application to reach the network,
-the application remains completely disconnected. Being based on
+For example, unless the user explicitly allows an application to reach the network,
+the application remains completely disconnected. Founded on
 capability-based security, Genode already provides the solution on the
 technological level. Now, we have to make this power available to the user. To
 make this possible, we need to walk off the beaten tracks of commodity user
