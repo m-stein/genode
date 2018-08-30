@@ -48,8 +48,8 @@ the application remains completely disconnected. Founded on
 capability-based security, Genode already provides the solution on the
 technological level. Now, we have to make this power available to the user. To
 make this possible, we need to walk off the beaten tracks of commodity user
-interfaces. Section [Sculpt with Visual Composition] shows a glimpse of what
-is to come.
+interfaces. Section [Sculpt with Visual Composition] gives a glimpse to the
+upcoming features and future.
 
 Besides the developments driven by Sculpt's requirements, the current release
 features an extended Ada language runtime, updated kernels, new
@@ -63,7 +63,7 @@ Sculpt with Visual Composition
 
 Sculpt is our take on creating a Genode-based general-purpose operating
 system. With the Year of Sculpt as our leitmotif for 2018, the current release
-features the ingredients of the third step advertised on the
+features the ingredients of the third evolution step advertised on the
 [https://genode.org/about/road-map - road map].
 With Sculpt VC (Visual Composition), we pursue the gradual transition from a
 text-based user interface to a graphical user interface for most
@@ -934,9 +934,9 @@ the specific Intel microcode from the 'microcode_intel' port for the target
 CPU. The relevant excerpt of a Genode GRUB2 configuration looks like this:
 
 ! multiboot2 /boot/bender
-! module2 /boot/microcode serial
+! module2 /boot/microcode
 ! module2 /boot/micro.code micro.code
-! module2 /boot/hypervisor hypervisor iommu serial
+! module2 /boot/hypervisor hypervisor ...
 ! module2 /boot/image.elf.gz image.elf
 
 The microcode update functionality has been integrated into the
@@ -949,8 +949,8 @@ We developed the 'microcode' chained bootloader as part of the
 the bootloader looks up all CPUs and some LAPIC information by parsing the
 relevant ACPI tables. With this information, the CPUs are booted to apply
 the microcode update to each processor.
-In case of hyperthreading CPUs, a single
-hyperthread is started and applies the update for all hyperthreads.
+On CPUs with hyperthreading enabled, it is effectual to start a single
+hyperthread per CPU to apply the update.
 Finally, all previously started CPUs are halted and the microcode bootloader hands
 over control to the next module which is typically the x86 kernel.
 
