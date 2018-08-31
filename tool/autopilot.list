@@ -36,6 +36,7 @@ libc_vfs_fs_chained
 libc_vfs_ram
 log
 log_core
+lwip
 lx_hybrid_ctors
 lx_hybrid_exception
 lx_hybrid_pthread_ipc

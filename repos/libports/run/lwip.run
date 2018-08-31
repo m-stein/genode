@@ -1,0 +1,179 @@
+#
+# \brief  Test for using the lwIP TCP/IP stack
+# \author Norman Feske
+# \date   2011-05-22
+#
+# This test case executes a small HTTP server on Genode running on qemu. When
+# the HTTP server is up, a HTTP request to the server is performed using
+# 'lynx'. The response is validated against a known pattern.
+#
+# The test uses qemu's "-net user" option, redirecting Genode's port 80 to the
+# host's port 5555. Consequently, it cannot be executed on non-qemu test
+# environments (i.e., the test won't work with the Linux version of Genode).
+#
+# Please make sure to include a nic driver in your build configuration. E.g.,
+# on the x86 platform, you may enable the 'dde_ipxe' repository.
+#
+
+#
+# TODO: Add support for Linux via user-level networking (using the
+#       tun/tap proxy driver at os/src/drivers/nic/linux)
+#
+
+set use_usb_driver [expr [have_spec omap4] || [have_spec arndale] || [have_spec rpi]]
+set use_nic_driver [expr !$use_usb_driver && ![have_spec odroid_xu] && ![have_spec linux]]
+
+if {[expr !$use_usb_driver && !$use_nic_driver] ||
+    [expr [have_spec imx53] && [have_spec trustzone]]} {
+	puts "\n Run script is not supported on this platform. \n"; exit 0 }
+
+set lynx [installed_command lynx]
+
+#
+# Build
+#
+
+set build_components {
+	core init
+	drivers/timer drivers/nic
+	test/lwip/http_srv
+	lib/vfs/lwip
+}
+
+lappend_if $use_usb_driver              build_components drivers/usb
+lappend_if [have_spec gpio]             build_components drivers/gpio
+
+proc gpio_drv { } { if {[have_spec rpi] && [have_spec hw]}  { return hw_gpio_drv }
+                    if {[have_spec rpi] && [have_spec foc]} { return foc_gpio_drv }
+                    return gpio_drv }
+
+source ${genode_dir}/repos/base/run/platform_drv.inc
+append_platform_drv_build_components
+
+build $build_components
+
+create_boot_directory
+
+#
+# Generate config
+#
+
+set config {
+<config verbose="yes">
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="IRQ"/>
+		<service name="IO_MEM"/>
+		<service name="IO_PORT"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="LOG"/>
+	</parent-provides>
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+	<default caps="100"/>
+	<start name="timer">
+		<resource name="RAM" quantum="1M"/>
+		<provides> <service name="Timer"/> </provides>
+	</start>
+	<start name="test-lwip_httpsrv" caps="120">
+		<resource name="RAM" quantum="4M"/>
+		<config>
+			<vfs>
+				<dir name="dev">    <log/>             </dir>
+				<dir name="socket"> <lwip dhcp="yes"/> </dir>
+			</vfs>
+			<libc stdout="/dev/log" stderr="/dev/log" socket="/socket"/>
+		</config>
+	</start>}
+
+append_if [have_spec gpio] config "
+	<start name=\"[gpio_drv]\" caps=\"140\">
+		<resource name=\"RAM\" quantum=\"4M\"/>
+		<provides><service name=\"Gpio\"/></provides>
+		<config/>
+	</start>"
+
+append_if $use_usb_driver config {
+	<start name="usb_drv" caps="120">
+		<resource name="RAM" quantum="14M"/>
+		<provides>
+			<service name="Nic"/>
+		</provides>
+		<config ehci="yes">
+			<nic mac="02:00:00:00:01:01" />
+		</config>
+	</start>}
+
+append_platform_drv_config
+
+append_if $use_nic_driver config {
+	<start name="nic_drv" caps="130">
+		<resource name="RAM" quantum="20M"/>
+		<provides><service name="Nic"/></provides>
+		} [nic_drv_config] {
+	</start>}
+
+append config {
+</config>
+}
+
+install_config $config
+
+#
+# Boot modules
+#
+
+# generic modules
+set boot_modules {
+	core init timer
+	ld.lib.so libc.lib.so vfs.lib.so vfs_lwip.lib.so test-lwip_httpsrv
+}
+
+# platform-specific modules
+lappend_if $use_usb_driver              boot_modules usb_drv
+lappend_if $use_nic_driver              boot_modules nic_drv
+lappend_if [have_spec gpio]             boot_modules [gpio_drv]
+
+append_platform_drv_boot_modules
+
+build_boot_image $boot_modules
+
+#
+# Execute test case
+#
+
+# qemu config
+append qemu_args "  -nographic "
+
+append_if [have_spec x86]     qemu_args " -net nic,model=e1000 "
+append_if [have_spec lan9118] qemu_args " -net nic,model=lan9118 "
+
+append qemu_args " -net user -redir tcp:5555::80 "
+
+run_genode_until {.*lwIP Nic interface up.*\n} 30
+
+if {[have_include "power_on/qemu"]} {
+	set uri "http://localhost:5555/"
+} else {
+	set match_string "lwIP Nic interface up address=.* netmask.*\n"
+	regexp $match_string $output ip_addr
+	regexp {[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+} $ip_addr ip_addr 
+
+	set uri "http://$ip_addr:80/"
+}
+
+puts "http server is up, try to query website $uri"
+
+set website [exec $lynx -dump $uri]
+
+puts "response:\n$website"
+
+if {![regexp {Welcome to our lwIP HTTP server!} $website dummy]} {
+	puts stderr "Query returned unexpected website"
+	exit 2;
+}
+
+# vi: set ft=tcl :
