@@ -92,22 +92,13 @@ class Vfs_import::File_system : public Vfs::File_system
 				Flush_guard flush(env, *dst_handle);
 
 				file_size count = target.length();
-				for (;;) {
-					file_size out_count = 0;
-					auto wres = dst_handle->fs().write(
-						dst_handle, target.string(), count, out_count);
+				file_size out_count = 0;
+				auto wres = dst_handle->fs().write(
+					dst_handle, target.string(), count, out_count);
 
-					switch (wres) {
-					case WRITE_ERR_AGAIN:
-					case WRITE_ERR_WOULD_BLOCK:
-						break;
-					default:
-						if (out_count < count) {
-							Genode::error("failed to write symlink ", path, ", ", wres);
-							env.root_dir().unlink(path.string());
-						}
-						return;
-					}
+				if (out_count < count) {
+					Genode::error("failed to write symlink ", path, ", ", wres);
+					env.root_dir().unlink(path.string());
 				}
 			}
 		}
@@ -152,11 +143,11 @@ class Vfs_import::File_system : public Vfs::File_system
 					file_size rn = src_file.read(at, buf, sizeof(buf));
 					if (!rn) break;
 
-					auto wres = dst_handle->fs().write(dst_handle, buf, rn, wn);
+					auto wres =  dst_handle->fs().write(dst_handle, buf, rn, wn);
 					switch (wres) {
+					case WRITE_BLOCKED:
+						env.env().ep().wait_and_dispatch_one_io_signal();
 					case WRITE_OK:
-					case WRITE_ERR_AGAIN:
-					case WRITE_ERR_WOULD_BLOCK:
 						break;
 					default:
 						Genode::error("failed to write to ", path, ", ", wres);
@@ -275,7 +266,7 @@ class Vfs_import::File_system : public Vfs::File_system
 			return false; }
 
 		Ftruncate_result ftruncate(Vfs_handle*, file_size) override {
-			return FTRUNCATE_ERR_NO_PERM; }
+			return FTRUNCATE_ERR_INVALID; }
 
 		Sync_result complete_sync(Vfs_handle*) override {
 			return SYNC_OK; }

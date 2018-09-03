@@ -46,16 +46,12 @@ struct Vfs::File_io_service : Interface
 	 ** Write **
 	 ***********/
 
-	/*
-	 * Exception, thrown when, for example, 'alloc_packet()' or
-	 * 'submit_packet()' failed in the VFS plugin. The caller can try again
-	 * after a previous VFS request is completed.
-	 */
-	struct Insufficient_buffer { };
-
-	enum Write_result { WRITE_ERR_AGAIN,     WRITE_ERR_WOULD_BLOCK,
-	                    WRITE_ERR_INVALID,   WRITE_ERR_IO,
-	                    WRITE_ERR_INTERRUPT, WRITE_OK };
+	enum Write_result {
+		WRITE_ERR_INVALID, /* handle or resource is invalid     */
+		WRITE_ERR_IO,      /* exceptional resource error        */
+		WRITE_BLOCKED,     /* atomic write can not be completed */
+		WRITE_OK
+	};
 
 	virtual Write_result write(Vfs_handle *vfs_handle,
 	                           char const *buf, file_size buf_size,
@@ -66,10 +62,12 @@ struct Vfs::File_io_service : Interface
 	 ** Read **
 	 **********/
 
-	enum Read_result { READ_ERR_AGAIN,     READ_ERR_WOULD_BLOCK,
-	                   READ_ERR_INVALID,   READ_ERR_IO,
-	                   READ_ERR_INTERRUPT, READ_QUEUED,
-	                   READ_OK };
+	enum Read_result {
+		READ_ERR_INVALID, /* handle or resource is invalid */
+		READ_ERR_IO,      /* exceptional resource error    */
+		READ_QUEUED,      /* read queued, result pending   */
+		READ_OK
+	};
 
 	/**
 	 * Queue read operation
@@ -108,8 +106,8 @@ struct Vfs::File_io_service : Interface
 	 ** Ftruncate **
 	 ***************/
 
-	enum Ftruncate_result { FTRUNCATE_ERR_NO_PERM = NUM_GENERAL_ERRORS,
-	                        FTRUNCATE_ERR_INTERRUPT, FTRUNCATE_ERR_NO_SPACE,
+	enum Ftruncate_result { FTRUNCATE_ERR_INVALID,
+	                        FTRUNCATE_ERR_NO_SPACE,
 	                        FTRUNCATE_OK };
 
 	virtual Ftruncate_result ftruncate(Vfs_handle *vfs_handle, file_size len) = 0;

@@ -929,7 +929,7 @@ class Vfs::Dir_file_system : public File_system
 
 		Ftruncate_result ftruncate(Vfs_handle *, file_size) override
 		{
-			return FTRUNCATE_ERR_NO_PERM;
+			return FTRUNCATE_ERR_INVALID;
 		}
 
 		bool read_ready(Vfs_handle *handle) override

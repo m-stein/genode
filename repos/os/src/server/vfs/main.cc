@@ -80,11 +80,6 @@ class Vfs_server::Session_component : public File_system::Session_rpc_object,
 
 		bool const _writable;
 
-		/*
-		 * XXX Currently, we have only one packet in backlog, which must finish
-		 *     processing before new packets can be processed.
-		 */
-		Packet_descriptor _backlog_packet { };
 
 		/****************************
 		 ** Handle to node mapping **
@@ -129,169 +124,112 @@ class Vfs_server::Session_component : public File_system::Session_rpc_object,
 		 ** Packet-stream processing **
 		 ******************************/
 
-		struct Not_ready { };
-		struct Dont_ack { };
-
 		/**
-		 * Perform packet operation
+		 * Process the head of the packet queue
 		 *
-		 * \throw Not_ready
-		 * \throw Dont_ack
+		 * Return false if processing has stalled due to queueing
+		 * in the VFS library.
 		 */
-		void _process_packet_op(Packet_descriptor &packet)
+		bool _process_packet()
 		{
+			Packet_descriptor packet = tx_sink()->peek_packet();
+
 			void     * const content = tx_sink()->packet_content(packet);
-			size_t     const length  = packet.length();
+			size_t     const length  = Genode::min(packet.length(), packet.size());
 			seek_off_t const seek    = packet.position();
 
-			/* assume failure by default */
-			packet.succeeded(false);
+			Vfs::file_size res_length = 0;
 
-			if ((packet.length() > packet.size()))
-				return;
-
-			/* resulting length */
-			size_t res_length = 0;
-			bool succeeded = false;
+			/* ack an error by default */
+			bool succeeded   = false;
+			bool acknowledge = true;
+			bool progress    = true;
 
 			switch (packet.operation()) {
 
 			case Packet_descriptor::READ:
 
-				try {
-					_apply(packet.handle(), [&] (Io_node &node) {
-						if (!node.read_ready()) {
-							node.notify_read_ready(true);
-							throw Not_ready();
-						}
-
-						if (node.mode() & READ_ONLY) {
-							res_length = node.read((char *)content, length, seek);
-							/* no way to distinguish EOF from unsuccessful
-							   reads, both have res_length == 0 */
+				_apply(packet.handle(), [&] (Io_node &node) {
+					if (node.mode() & READ_ONLY) {
+						if (node.read_ready()) {
+							Read_result res = node.read(
+								(char *)content, length, seek, res_length);
+							acknowledge = progress = (res != Read_result::READ_QUEUED);
+							/* no way to distinguish EOF from unsuccessful reads */
 							succeeded = true;
+						} else {
+							node.notify_read_ready(true);
+							acknowledge = progress = false;
 						}
-					});
-				}
-				catch (Not_ready) { throw; }
-				catch (Operation_incomplete) { throw Not_ready(); }
-				catch (...) { }
-
+					}
+				});
 				break;
 
 			case Packet_descriptor::WRITE:
 
-				try {
-					_apply(packet.handle(), [&] (Io_node &node) {
-						if (node.mode() & WRITE_ONLY) {
-							res_length = node.write((char const *)content, length, seek);
-
-							/* File system session can't handle partial writes */
-							if (res_length != length) {
-								Genode::error("partial write detected ",
-								              res_length, " vs ", length);
-								/* don't acknowledge */
-								throw Dont_ack();
-							}
-							succeeded = true;
-						}
-					});
-				} catch (Operation_incomplete) {
-					throw Not_ready();
-				} catch (...) { }
+				_apply(packet.handle(), [&] (Io_node &node) {
+					if (node.mode() & WRITE_ONLY) {
+						Write_result res = node.write(
+							(char const *)content, length, seek, res_length);
+						acknowledge = progress =
+							(res != Write_result::WRITE_BLOCKED) || (res_length > 0);
+						succeeded = (res_length > 0);
+					}
+				});
 				break;
 
 			case Packet_descriptor::READ_READY:
 
 				try {
 					_apply(static_cast<File_handle>(packet.handle().value), [] (File &node) {
-						if (!node.read_ready()) {
-							node.notify_read_ready(true);
-							throw Dont_ack();
-						}
-					});
-					succeeded = true;
+						node.notify_read_ready(true); });
 				}
-				catch (Dont_ack) { throw; }
-				catch (...) { }
+				catch (File_system::Invalid_handle) { }
+
+				/* do not acknowledge, discard packet */
+				acknowledge = true;
+				progress = true;
+				succeeded = true;
 				break;
 
 			case Packet_descriptor::CONTENT_CHANGED:
+
 				Genode::warning("ignoring CONTENT_CHANGED packet from client");
-				throw Dont_ack();
+				acknowledge = false;
+				break;
 
 			case Packet_descriptor::SYNC:
 
 				/**
 				 * Sync the VFS and send any pending signals on the node.
 				 */
-				try {
-					_apply(packet.handle(), [&] (Io_node &node) {
-						succeeded = node.sync();
-					});
-				} catch (Operation_incomplete) {
-					throw Not_ready();
-				} catch (...) { Genode::error("SYNC: unhandled exception"); }
+				_apply(packet.handle(), [&] (Io_node &node) {
+					switch (node.sync()) {
+					case Sync_result::SYNC_QUEUED:
+						acknowledge = progress = false;
+						break;
+					case Sync_result::SYNC_ERR_INVALID:
+						break;
+					case Sync_result::SYNC_OK:
+						acknowledge = progress = succeeded = true;
+						break;
+					}
+				});
 				break;
 			}
 
-			packet.length(res_length);
-			packet.succeeded(succeeded);
-		}
-
-		bool _try_process_packet_op(Packet_descriptor &packet)
-		{
-			try {
-				_process_packet_op(packet);
-				return true;
-			} catch (Not_ready) {
-				_backlog_packet = packet;
+			if (acknowledge) {
+				packet.length(res_length);
+				packet.succeeded(succeeded);
+				tx_sink()->acknowledge_packet(packet);
 			}
 
-			return false;
-		}
-
-		bool _process_backlog()
-		{
-			/* indicate success if there's no backlog */
-			if (!_backlog_packet.size() &&
-			    (_backlog_packet.operation() != Packet_descriptor::SYNC)) {
-				return true;
+			if (progress) {
+				/* dequeue packet  */
+				tx_sink()->get_packet();
 			}
 
-			/* only start processing if acknowledgement is possible */
-			if (!tx_sink()->ready_to_ack())
-				return false;
-
-			if (!_try_process_packet_op(_backlog_packet))
-				return false;
-
-			/*
-			 * The 'acknowledge_packet' function cannot block because we
-			 * checked for 'ready_to_ack' in '_process_packets'.
-			 */
-			tx_sink()->acknowledge_packet(_backlog_packet);
-
-			/* invalidate backlog packet */
-			_backlog_packet = Packet_descriptor();
-
-			return true;
-		}
-
-		bool _process_packet()
-		{
-			Packet_descriptor packet = tx_sink()->get_packet();
-
-			if (!_try_process_packet_op(packet))
-				return false;
-
-			/*
-			 * The 'acknowledge_packet' function cannot block because we
-			 * checked for 'ready_to_ack' in '_process_packets'.
-			 */
-			tx_sink()->acknowledge_packet(packet);
-
-			return true;
+			return progress;
 		}
 
 		/**
@@ -302,16 +240,6 @@ class Vfs_server::Session_component : public File_system::Session_rpc_object,
 		{
 			using namespace Genode;
 
-			/*
-			 * XXX Process client backlog before looking at new requests. This
-			 *     limits the number of simultaneously addressed handles (which
-			 *     was also the case before adding the backlog in case of
-			 *     blocking operations).
-			 */
-			if (!_process_backlog())
-				/* backlog not cleared - block for next condition change */
-				return;
-
 			/**
 			 * Process packets in batches, otherwise a client that
 			 * submits packets as fast as they are processed will
@@ -319,32 +247,25 @@ class Vfs_server::Session_component : public File_system::Session_rpc_object,
 			 */
 			int quantum = TX_QUEUE_SIZE;
 
-			while (tx_sink()->packet_avail()) {
-				if (--quantum == 0) {
+			/* do not process packets under blocking conditions */
+			bool progress = true;
+			while (progress &&
+			       tx_sink()->packet_avail() &&
+			       tx_sink()->ready_to_ack())
+			{
+				if (--quantum) {
+					try { progress = _process_packet(); }
+					catch (File_system::Invalid_handle) {
+						File_system::Packet_descriptor pkt =
+							tx_sink()->get_packet();
+						pkt.succeeded(false);
+						tx_sink()->acknowledge_packet(pkt);
+					}
+				} else {
 					/* come back to this later */
 					Signal_transmitter(_process_packet_handler).submit();
-					break;
+					progress = false;
 				}
-
-				/*
-				 * Make sure that the '_process_packet' function does not
-				 * block.
-				 *
-				 * If the acknowledgement queue is full, we defer packet
-				 * processing until the client processed pending
-				 * acknowledgements and thereby emitted a ready-to-ack
-				 * signal. Otherwise, the call of 'acknowledge_packet()'
-				 * in '_process_packet' would infinitely block the context
-				 * of the main thread. The main thread is however needed
-				 * for receiving any subsequent 'ready-to-ack' signals.
-				 */
-				if (!tx_sink()->ready_to_ack())
-					return;
-
-				try {
-					if (!_process_packet())
-						return;
-				} catch (Dont_ack) { }
 			}
 		}
 
@@ -450,15 +371,15 @@ class Vfs_server::Session_component : public File_system::Session_rpc_object,
 
 		void handle_node_io(Io_node &node) override
 		{
-			_process_backlog();
-
 			if (!tx_sink()->ready_to_ack()) {
 				Genode::error(
-					"dropping I/O notfication, congested packet buffer to '", _label, "'");
+					"dropping I/O notification, congested packet buffer to '", _label, "'");
+				return;
 			}
 
-			if (node.notify_read_ready() && node.read_ready()
-			 && tx_sink()->ready_to_ack()) {
+			if (tx_sink()->ready_to_ack() &&
+			    node.notify_read_ready() && node.read_ready())
+			{
 				Packet_descriptor packet(Packet_descriptor(),
 				                         Node_handle { node.id().value },
 				                         Packet_descriptor::READ_READY,
@@ -467,6 +388,8 @@ class Vfs_server::Session_component : public File_system::Session_rpc_object,
 				tx_sink()->acknowledge_packet(packet);
 				node.notify_read_ready(false);
 			}
+
+			_process_packets();
 		}
 
 		void handle_node_watch(Watch_node &node) override

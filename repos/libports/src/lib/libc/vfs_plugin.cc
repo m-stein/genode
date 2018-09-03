@@ -420,13 +420,12 @@ ssize_t Libc::Vfs_plugin::write(Libc::File_descriptor *fd, const void *buf,
 
 	if (fd->flags & O_NONBLOCK) {
 
-		try {
-			out_result = VFS_THREAD_SAFE(handle->fs().write(handle, (char const *)buf, count, out_count));
+		out_result = VFS_THREAD_SAFE(handle->fs().write(handle, (char const *)buf, count, out_count));
 
-			/* wake up threads blocking for 'queue_*()' or 'write()' */
-			Libc::resume_all();
-
-		} catch (Vfs::File_io_service::Insufficient_buffer) { }
+		/* wake up threads blocking for 'queue_*()' or 'write()' */
+		Libc::resume_all();
+		if (out_result == Result::WRITE_BLOCKED)
+			return Errno(EAGAIN);
 
 	} else {
 
@@ -449,14 +448,9 @@ ssize_t Libc::Vfs_plugin::write(Libc::File_descriptor *fd, const void *buf,
 
 			bool suspend() override
 			{
-				try {
-					out_result = VFS_THREAD_SAFE(handle->fs().write(handle, (char const *)buf,
-						                                              count, out_count));
-					retry = false;
-				} catch (Vfs::File_io_service::Insufficient_buffer) {
-					retry = true;
-				}
-
+				out_result = VFS_THREAD_SAFE(handle->fs().write(
+					handle, (char const *)buf, count, out_count));
+				retry = (out_result == Result::WRITE_BLOCKED);
 				return retry;
 			}
 		} check(handle, buf, count, out_count, out_result);
@@ -470,12 +464,10 @@ ssize_t Libc::Vfs_plugin::write(Libc::File_descriptor *fd, const void *buf,
 	Libc::resume_all();
 
 	switch (out_result) {
-	case Result::WRITE_ERR_AGAIN:       return Errno(EAGAIN);
-	case Result::WRITE_ERR_WOULD_BLOCK: return Errno(EWOULDBLOCK);
-	case Result::WRITE_ERR_INVALID:     return Errno(EINVAL);
-	case Result::WRITE_ERR_IO:          return Errno(EIO);
-	case Result::WRITE_ERR_INTERRUPT:   return Errno(EINTR);
-	case Result::WRITE_OK:              break;
+	case Result::WRITE_OK:          break;
+	case Result::WRITE_BLOCKED:     return Errno(ENOBUFS);
+	case Result::WRITE_ERR_INVALID: return Errno(EINVAL);
+	case Result::WRITE_ERR_IO:      return Errno(EIO);
 	}
 
 	VFS_THREAD_SAFE(handle->advance_seek(out_count));
@@ -563,12 +555,9 @@ ssize_t Libc::Vfs_plugin::read(Libc::File_descriptor *fd, void *buf,
 	Libc::resume_all();
 
 	switch (out_result) {
-	case Result::READ_ERR_AGAIN:       return Errno(EAGAIN);
-	case Result::READ_ERR_WOULD_BLOCK: return Errno(EWOULDBLOCK);
+	case Result::READ_OK:              break;
 	case Result::READ_ERR_INVALID:     return Errno(EINVAL);
 	case Result::READ_ERR_IO:          return Errno(EIO);
-	case Result::READ_ERR_INTERRUPT:   return Errno(EINTR);
-	case Result::READ_OK:              break;
 
 	case Result::READ_QUEUED: /* handled above, so never reached */ break;
 	}
@@ -873,9 +862,8 @@ int Libc::Vfs_plugin::ftruncate(Libc::File_descriptor *fd, ::off_t length)
 	typedef Vfs::File_io_service::Ftruncate_result Result;
 
 	switch (VFS_THREAD_SAFE(handle->fs().ftruncate(handle, length))) {
-	case Result::FTRUNCATE_ERR_NO_PERM:   errno = EPERM;  return -1;
-	case Result::FTRUNCATE_ERR_INTERRUPT: errno = EINTR;  return -1;
-	case Result::FTRUNCATE_ERR_NO_SPACE:  errno = ENOSPC; return -1;
+	case Result::FTRUNCATE_ERR_INVALID:   return Errno(EINVAL);
+	case Result::FTRUNCATE_ERR_NO_SPACE:  return Errno(ENOSPC);
 	case Result::FTRUNCATE_OK:                            break;
 	}
 	return 0;
@@ -976,14 +964,10 @@ int Libc::Vfs_plugin::symlink(const char *oldpath, const char *newpath)
 
 		bool suspend() override
 		{
-			try {
-				VFS_THREAD_SAFE(handle->fs().write(handle, (char const *)buf,
-					              count, out_count));
-				retry = false;
-			} catch (Vfs::File_io_service::Insufficient_buffer) {
-				retry = true;
-			}
-
+			typedef Vfs::File_io_service::Write_result Write_result;
+			Write_result res = VFS_THREAD_SAFE(handle->fs().write(
+				handle, (char const *)buf, count, out_count));
+			retry =  (res == Write_result::WRITE_BLOCKED);
 			return retry;
 		}
 	} check ( handle, oldpath, count, out_count);
@@ -1098,12 +1082,9 @@ ssize_t Libc::Vfs_plugin::readlink(const char *path, char *buf, ::size_t buf_siz
 	Libc::resume_all();
 
 	switch (out_result) {
-	case Result::READ_ERR_AGAIN:       return Errno(EAGAIN);
-	case Result::READ_ERR_WOULD_BLOCK: return Errno(EWOULDBLOCK);
+	case Result::READ_OK:              break;
 	case Result::READ_ERR_INVALID:     return Errno(EINVAL);
 	case Result::READ_ERR_IO:          return Errno(EIO);
-	case Result::READ_ERR_INTERRUPT:   return Errno(EINTR);
-	case Result::READ_OK:              break;
 
 	case Result::READ_QUEUED: /* handled above, so never reached */ break;
 	};

@@ -145,10 +145,6 @@ class Fatfs::File_system : public Vfs::File_system
 				switch (fres) {
 				case FR_OK:             return READ_OK;
 				case FR_INVALID_OBJECT: return READ_ERR_INVALID;
-				case FR_TIMEOUT:        return READ_ERR_WOULD_BLOCK;
-				case FR_DISK_ERR:       return READ_ERR_IO;
-				case FR_INT_ERR:        return READ_ERR_IO;
-				case FR_DENIED:         return READ_ERR_IO;
 				default:                return READ_ERR_IO;
 				}
 			}
@@ -748,7 +744,6 @@ class Fatfs::File_system : public Vfs::File_system
 			case FR_OK:
 				return WRITE_OK;
 			case FR_INVALID_OBJECT: return WRITE_ERR_INVALID;
-			case FR_TIMEOUT:        return WRITE_ERR_WOULD_BLOCK;
 			default:                return WRITE_ERR_IO;
 			}
 		}
@@ -765,10 +760,9 @@ class Fatfs::File_system : public Vfs::File_system
 		{
 			Fatfs_file_handle *handle = static_cast<Fatfs_file_handle *>(vfs_handle);
 
-			if (!handle->file)
-				return FTRUNCATE_ERR_NO_PERM;
-			if ((handle->status_flags()&OPEN_MODE_ACCMODE) == OPEN_MODE_RDONLY)
-				return FTRUNCATE_ERR_NO_PERM;
+			if (!handle->file ||
+			    (handle->status_flags()&OPEN_MODE_ACCMODE) == OPEN_MODE_RDONLY)
+				return FTRUNCATE_ERR_INVALID;
 
 			FIL *fil = &handle->file->fil;
 			FRESULT res = FR_OK;
@@ -777,7 +771,7 @@ class Fatfs::File_system : public Vfs::File_system
 			res = f_lseek(fil, len);
 			if (f_tell(fil) != len)
 				return f_size(fil) < len ?
-					FTRUNCATE_ERR_NO_SPACE : FTRUNCATE_ERR_NO_PERM;
+					FTRUNCATE_ERR_NO_SPACE : FTRUNCATE_ERR_INVALID;
 
 			/* ... otherwise truncate will shorten to the seek position */
 			if ((res == FR_OK) && (len < f_size(fil))) {
@@ -789,7 +783,7 @@ class Fatfs::File_system : public Vfs::File_system
 			handle->modifying = true;
 
 			return res == FR_OK ?
-				FTRUNCATE_OK : FTRUNCATE_ERR_NO_PERM;
+				FTRUNCATE_OK : FTRUNCATE_ERR_INVALID;
 		}
 
 		bool read_ready(Vfs_handle *) override { return true; }

@@ -119,12 +119,14 @@ struct Noux::Vfs_io_channel : Io_channel
 			vfs_io_waiter(_vfs_io_waiter_registry);
 
 		for (;;) {
-			try {
-				sysio.error.write = _fh->fs().write(_fh, sysio.write_in.chunk,
-				                                    count, out_count);
+			typedef Vfs::File_io_service::Write_result Result;
+			Result res = sysio.error.write = _fh->fs().write(
+				_fh, sysio.write_in.chunk, count, out_count);
+
+			if (res == Result::WRITE_BLOCKED) {
+					vfs_io_waiter.wait_for_io();
+			} else {
 				break;
-			} catch (Vfs::File_io_service::Insufficient_buffer) {
-				vfs_io_waiter.wait_for_io();
 			}
 		}
 

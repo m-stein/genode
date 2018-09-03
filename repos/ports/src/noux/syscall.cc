@@ -59,7 +59,7 @@ bool Noux::Child::syscall(Noux::Session::Syscall sc)
 					/* 'io->write' is expected to update '_sysio.write_out.count' */
 					result = io->write(_sysio);
 				} else
-					_sysio.error.write = Vfs::File_io_service::WRITE_ERR_INTERRUPT;
+					_sysio.error.write = Vfs::File_io_service::WRITE_ERR_IO;
 
 				break;
 			}
@@ -74,7 +74,7 @@ bool Noux::Child::syscall(Noux::Session::Syscall sc)
 				if (io->check_unblock(true, false, false))
 					result = io->read(_sysio);
 				else
-					_sysio.error.read = Vfs::File_io_service::READ_ERR_INTERRUPT;
+					_sysio.error.read = Vfs::File_io_service::READ_ERR_IO;
 
 				break;
 			}
@@ -88,7 +88,7 @@ bool Noux::Child::syscall(Noux::Session::Syscall sc)
 				if (io->check_unblock(false, true, false))
 					result = io->ftruncate(_sysio);
 				else
-					_sysio.error.ftruncate = Vfs::File_io_service::FTRUNCATE_ERR_INTERRUPT;
+					_sysio.error.ftruncate = Vfs::File_io_service::FTRUNCATE_ERR_INVALID;
 
 				break;
 			}
@@ -756,13 +756,15 @@ bool Noux::Child::syscall(Noux::Session::Syscall sc)
 				vfs_io_waiter(_vfs_io_waiter_registry);
 
 			for (;;) {
-				try {
-					symlink_handle->fs().write(symlink_handle, _sysio.symlink_in.oldpath,
-					                           strlen(_sysio.symlink_in.oldpath) + 1,
-					                           out_count);
-					break;
-				} catch (Vfs::File_io_service::Insufficient_buffer) {
+				typedef Vfs::File_io_service::Write_result Result;
+				Result res = symlink_handle->fs().write(
+					symlink_handle, _sysio.symlink_in.oldpath,
+					strlen(_sysio.symlink_in.oldpath) + 1, out_count);
+
+				if (res == Result::WRITE_BLOCKED) {
 					vfs_io_waiter.wait_for_io();
+				} else {
+					break;
 				}
 			}
 

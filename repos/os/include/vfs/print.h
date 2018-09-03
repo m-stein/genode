@@ -133,11 +133,9 @@ static inline void print(Genode::Output &output, Vfs::File_io_service::Write_res
 
 	switch (r) {
 		CASE_PRINT(WRITE_OK);
-		CASE_PRINT(WRITE_ERR_AGAIN);
-		CASE_PRINT(WRITE_ERR_WOULD_BLOCK);
-		CASE_PRINT(WRITE_ERR_INVALID);
+		CASE_PRINT(WRITE_BLOCKED);
 		CASE_PRINT(WRITE_ERR_IO);
-		CASE_PRINT(WRITE_ERR_INTERRUPT);
+		CASE_PRINT(WRITE_ERR_INVALID);
 	}
 
 #undef CASE_PRINT
@@ -151,11 +149,8 @@ static inline void print(Genode::Output &output, Vfs::File_io_service::Read_resu
 
 	switch (r) {
 		CASE_PRINT(READ_OK);
-		CASE_PRINT(READ_ERR_AGAIN);
-		CASE_PRINT(READ_ERR_WOULD_BLOCK);
 		CASE_PRINT(READ_ERR_INVALID);
 		CASE_PRINT(READ_ERR_IO);
-		CASE_PRINT(READ_ERR_INTERRUPT);
 		CASE_PRINT(READ_QUEUED);
 	}
 
@@ -170,8 +165,7 @@ static inline void print(Genode::Output &output, Vfs::File_io_service::Ftruncate
 
 	switch (r) {
 		CASE_PRINT(FTRUNCATE_OK);
-		CASE_PRINT(FTRUNCATE_ERR_NO_PERM);
-		CASE_PRINT(FTRUNCATE_ERR_INTERRUPT);
+		CASE_PRINT(FTRUNCATE_ERR_INVALID);
 		CASE_PRINT(FTRUNCATE_ERR_NO_SPACE);
 	}
 

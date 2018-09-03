@@ -114,12 +114,10 @@ class Vfs::Rump_file_system : public File_system
 				Ftruncate_result ftruncate(file_size len)
 				{
 					if (rump_sys_ftruncate(_fd, len) != 0) switch (errno) {
-					case EACCES: return FTRUNCATE_ERR_NO_PERM;
-					case EINTR:  return FTRUNCATE_ERR_INTERRUPT;
 					case ENOSPC: return FTRUNCATE_ERR_NO_SPACE;
 					default:
 						Genode::error(__func__, ": unhandled rump error ", errno);
-						return FTRUNCATE_ERR_NO_PERM;
+						return FTRUNCATE_ERR_INVALID;
 					}
 					_modifying = true;
 					return FTRUNCATE_OK;
@@ -130,10 +128,8 @@ class Vfs::Rump_file_system : public File_system
 				{
 					ssize_t n = rump_sys_pread(_fd, buf, buf_size, seek_offset);
 					if (n == -1) switch (errno) {
-					case EWOULDBLOCK: return READ_ERR_WOULD_BLOCK;
 					case EINVAL:      return READ_ERR_INVALID;
 					case EIO:         return READ_ERR_IO;
-					case EINTR:       return READ_ERR_INTERRUPT;
 					default:
 						Genode::error(__func__, ": unhandled rump error ", errno);
 						return READ_ERR_IO;
@@ -150,10 +146,9 @@ class Vfs::Rump_file_system : public File_system
 
 					ssize_t n = rump_sys_pwrite(_fd, buf, buf_size, seek_offset);
 					if (n == -1) switch (errno) {
-					case EWOULDBLOCK: return WRITE_ERR_WOULD_BLOCK;
 					case EINVAL:      return WRITE_ERR_INVALID;
+					case EWOULDBLOCK: return WRITE_BLOCKED;
 					case EIO:         return WRITE_ERR_IO;
-					case EINTR:       return WRITE_ERR_INTERRUPT;
 					default:
 						Genode::error(__func__, ": unhandled rump error ", errno);
 						return WRITE_ERR_IO;
@@ -769,7 +764,7 @@ class Vfs::Rump_file_system : public File_system
 			if (handle)
 				return handle->ftruncate(len);
 
-			return FTRUNCATE_ERR_NO_PERM;
+			return FTRUNCATE_ERR_INVALID;
 		}
 
 		Sync_result complete_sync(Vfs_handle *vfs_handle) override

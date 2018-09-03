@@ -75,9 +75,8 @@ namespace File_system {
 		typedef File_io_service::Ftruncate_result Result;
 
 		switch (r) {
-		case Result::FTRUNCATE_ERR_INTERRUPT: throw Invalid_handle();
+		case Result::FTRUNCATE_ERR_INVALID: throw Invalid_handle();
 		case Result::FTRUNCATE_ERR_NO_SPACE:  throw No_space();
-		case Result::FTRUNCATE_ERR_NO_PERM:   throw Permission_denied();
 		case Result::FTRUNCATE_OK: break;
 		}
 	}

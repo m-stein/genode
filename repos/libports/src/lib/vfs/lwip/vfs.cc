@@ -1329,16 +1329,18 @@ class Lwip::Tcp_socket_dir final :
 					file_size out = 0;
 					while (count) {
 						/* check if the send buffer is exhausted */
-						if (tcp_sndbuf(_pcb) == 0) {
+						if (tcp_sndbuf(_pcb) < count) {
+							if (TCP_SND_BUF < count) {
+								Genode::error("write exceeds size of TCP send buffer"
+								              " (", count, "/", TCP_SND_BUF, " bytes)");
+								return Write_result::WRITE_ERR_INVALID;
+							}
 							Genode::warning("TCP send buffer congested");
-							out_count = out;
-							return out
-								? Write_result::WRITE_OK
-								: Write_result::WRITE_ERR_WOULD_BLOCK;
+							return Write_result::WRITE_BLOCKED;
 						}
 
-						u16_t n = min(count, tcp_sndbuf(_pcb));
-						/* how much can we queue right now? */
+						/* safe to segment writes to fit into pbufs */
+						u16_t n = min(count, 0xffffU);
 
 						count -= n;
 						/* write to outgoing TCP buffer */

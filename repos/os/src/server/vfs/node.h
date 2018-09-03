@@ -29,6 +29,11 @@ namespace Vfs_server {
 	using namespace File_system;
 	using namespace Vfs;
 
+	typedef Vfs::File_io_service::Write_result Write_result;
+	typedef Vfs::File_io_service::Read_result Read_result;
+	typedef Vfs::File_io_service::Sync_result Sync_result;
+
+
 	class Node;
 	class Io_node;
 	class Watch_node;
@@ -43,13 +48,6 @@ namespace Vfs_server {
 		virtual void handle_node_io(Io_node &node) = 0;
 		virtual void handle_node_watch(Watch_node &node) = 0;
 	};
-
-	/**
-	 * Read/write operation incomplete exception
-	 *
-	 * The operation can be retried later.
-	 */
-	struct Operation_incomplete { };
 
 	/* Vfs::MAX_PATH is shorter than File_system::MAX_PATH */
 	enum { MAX_PATH_LEN = Vfs::MAX_PATH_LEN };
@@ -159,70 +157,54 @@ class Vfs_server::Io_node : public  Vfs_server::Node,
 		Vfs::Vfs_handle *_handle { nullptr };
 		Op_state         op_state { Op_state::IDLE };
 
-		size_t _read(char *dst, size_t len, seek_off_t seek_offset)
+		Read_result _read(char *dst, size_t len, seek_off_t seek_offset, file_size &out_count)
 		{
+			Read_result out_result = Read_result::READ_ERR_INVALID;
 			_handle->seek(seek_offset);
-
-			typedef Vfs::File_io_service::Read_result Result;
-
-			Vfs::file_size out_count  = 0;
-			Result         out_result = Result::READ_OK;
 
 			switch (op_state) {
 			case Op_state::IDLE:
 
 				if (!_handle->fs().queue_read(_handle, len))
-					throw Operation_incomplete();
+					return Read_result::READ_QUEUED;
 
 				/* fall through */
 
 			case Op_state::READ_QUEUED:
-				out_result = _handle->fs().complete_read(_handle, dst, len,
-				                                         out_count);
+				out_result = _handle->fs().complete_read(
+					_handle, dst, len, out_count);
+
 				switch (out_result) {
-				case Result::READ_OK:
-					op_state = Op_state::IDLE;
-					return out_count;
-
-				case Result::READ_ERR_WOULD_BLOCK:
-				case Result::READ_ERR_AGAIN:
-				case Result::READ_ERR_INTERRUPT:
-					op_state = Op_state::IDLE;
-					throw Operation_incomplete();
-
-				case Result::READ_ERR_IO:
-				case Result::READ_ERR_INVALID:
+				case Read_result::READ_ERR_INVALID:
+				case Read_result::READ_ERR_IO:
+					out_count = 0;
+					/* fall through */
+				case Read_result::READ_OK:
 					op_state = Op_state::IDLE;
 					/* FIXME revise error handling */
-					return 0;
+					return out_result;
 
-				case Result::READ_QUEUED:
+				case Read_result::READ_QUEUED:
 					op_state = Op_state::READ_QUEUED;
-					throw Operation_incomplete();
+					return Read_result::READ_QUEUED;
 				}
 				break;
 
 			case Op_state::SYNC_QUEUED:
-				throw Operation_incomplete();
+				return Read_result::READ_QUEUED;
 			}
 
-			return 0;
+			return out_result;
 		}
 
-		size_t _write(char const *src, size_t len,
-		              seek_off_t seek_offset)
+		Write_result _write(char const *src, size_t len,
+		                    seek_off_t seek_offset, file_size &out_len)
 		{
-			Vfs::file_size res = 0;
-
 			_handle->seek(seek_offset);
 
-			try {
-				_handle->fs().write(_handle, src, len, res);
-			} catch (Vfs::File_io_service::Insufficient_buffer) {
-				throw Operation_incomplete();
-			}
+			Write_result res = _handle->fs().write(_handle, src, len, out_len);
 
-			if (res)
+			if (out_len)
 				mark_as_updated();
 
 			return res;
@@ -245,11 +227,13 @@ class Vfs_server::Io_node : public  Vfs_server::Node,
 
 		Mode mode() const { return _mode; }
 
-		virtual size_t read(char * /* dst */, size_t /* len */, seek_off_t)
-		{ return 0; }
+		virtual Read_result read(char * /* dst */, size_t /* len */,
+		                         seek_off_t /* seek */, file_size& /* out */)
+		{ return Read_result::READ_ERR_INVALID; }
 
-		virtual size_t write(char const * /* src */, size_t /* len */,
-		                     seek_off_t) { return 0; }
+		virtual Write_result write(char const * /* src */, size_t /* len */,
+		                     seek_off_t /* seek */, file_size& /* out */) {
+			return Write_result::WRITE_ERR_INVALID; }
 
 		bool read_ready() { return _handle->fs().read_ready(_handle); }
 
@@ -270,39 +254,28 @@ class Vfs_server::Io_node : public  Vfs_server::Node,
 
 		bool notify_read_ready() const { return _notify_read_ready; }
 
-		bool sync()
+		Sync_result sync()
 		{
-			typedef Vfs::File_io_service::Sync_result Result;
-			Result out_result = Result::SYNC_OK;
-
 			switch (op_state) {
 			case Op_state::IDLE:
 
 				if (!_handle->fs().queue_sync(_handle))
-					throw Operation_incomplete();
+					return Sync_result::SYNC_QUEUED;
 
 				/* fall through */
 
-			case Op_state::SYNC_QUEUED:
-				out_result = _handle->fs().complete_sync(_handle);
-				switch (out_result) {
-				case Result::SYNC_OK:
-					op_state = Op_state::IDLE;
-					return true;
-
-				case Result::SYNC_ERR_INVALID:
-					return false;
-
-				case Result::SYNC_QUEUED:
-					op_state = Op_state::SYNC_QUEUED;
-					throw Operation_incomplete();
-				}
-				break;
+			case Op_state::SYNC_QUEUED: {
+				Sync_result out_result = _handle->fs().complete_sync(_handle);
+				op_state = (out_result == Sync_result::SYNC_QUEUED)
+					? Op_state::SYNC_QUEUED : Op_state::IDLE;
+				return out_result;
+			}
 
 			case Op_state::READ_QUEUED:
-				throw Operation_incomplete();
+				return Sync_result::SYNC_QUEUED;
 			}
-			return false;
+
+			return Sync_result::SYNC_ERR_INVALID;
 		}
 };
 
@@ -378,41 +351,33 @@ struct Vfs_server::Symlink : Io_node
 	 ** Node interface **
 	 ********************/
 
-	size_t read(char *dst, size_t len, seek_off_t seek_offset)
+	Read_result read(char *dst, size_t len, seek_off_t seek_offset, file_size &out)
 	{
 		if (seek_offset != 0) {
 			/* partial read is not supported */
-			return 0;
+			return Read_result::READ_ERR_INVALID;
 		}
 
-		return _read(dst, len, 0);
+		return _read(dst, len, 0, out);
 	}
 
-	size_t write(char const *src, size_t const len, seek_off_t)
+	Write_result write(char const *src, size_t const len,
+	                   seek_off_t, file_size &out_count) override
 	{
-		/*
-		 * if the symlink target is too long return a short result
-		 * because a competent File_system client will error on a
-		 * length mismatch
-		 */
-
-		if (len > MAX_PATH_LEN) {
-			return len >> 1;
-		}
+		if (len > MAX_PATH_LEN)
+			return Write_result::WRITE_ERR_INVALID;
 
 		/* ensure symlink gets something null-terminated */
 		Genode::String<MAX_PATH_LEN+1> target(Genode::Cstring(src, len));
 		size_t const target_len = target.length()-1;
 
-		file_size out_count;
-
-		if (_handle->fs().write(_handle, target.string(), target_len, out_count) !=
-			File_io_service::WRITE_OK)
-			return 0;
-
-		mark_as_updated();
-		notify_listeners();
-		return len;
+		Write_result res = _handle->fs().write(
+			_handle, target.string(), target_len, out_count);
+		if (out_count) {
+			mark_as_updated();
+			notify_listeners();
+		}
+		return res;
 	}
 };
 
@@ -451,7 +416,7 @@ class Vfs_server::File : public Io_node
 
 		~File() { _handle->close(); }
 
-		size_t read(char *dst, size_t len, seek_off_t seek_offset) override
+		Read_result read(char *dst, size_t len, seek_off_t seek_offset, file_size &out_count) override
 		{
 			if (seek_offset == (seek_off_t)SEEK_TAIL) {
 				typedef Directory_service::Stat_result Result;
@@ -462,11 +427,11 @@ class Vfs_server::File : public Io_node
 					((len < st.size) ? (st.size - len) : 0) : (seek_off_t)SEEK_TAIL;
 			}
 
-			return _read(dst, len, seek_offset);
+			return _read(dst, len, seek_offset, out_count);
 		}
 
-		size_t write(char const *src, size_t len,
-		             seek_off_t seek_offset) override
+		Write_result write(char const *src, size_t len,
+		                   seek_off_t seek_offset, file_size &out_count) override
 		{
 			if (seek_offset == (seek_off_t)SEEK_TAIL) {
 				typedef Directory_service::Stat_result Result;
@@ -477,7 +442,7 @@ class Vfs_server::File : public Io_node
 					st.size : (seek_off_t)SEEK_TAIL;
 			}
 
-			return _write(src, len, seek_offset);
+			return _write(src, len, seek_offset, out_count);
 		}
 
 		void truncate(file_size_t size)
@@ -551,8 +516,11 @@ struct Vfs_server::Directory : Io_node
 	 ** Node interface **
 	 ********************/
 
-	size_t read(char *dst, size_t len, seek_off_t seek_offset) override
+	Read_result read(char *dst, size_t len,
+	                 seek_off_t seek_offset, file_size &out_count) override
 	{
+		Read_result out_result = Read_result::READ_ERR_INVALID;
+
 		Directory_service::Dirent vfs_dirent;
 		size_t blocksize = sizeof(File_system::Directory_entry);
 
@@ -561,11 +529,16 @@ struct Vfs_server::Directory : Io_node
 		size_t remains = len;
 
 		while (remains >= blocksize) {
+			file_size count = 0;
 
-			if ((_read((char*)&vfs_dirent, sizeof(vfs_dirent),
-			          index * sizeof(vfs_dirent)) < sizeof(vfs_dirent)) ||
+			out_result = _read((char*)&vfs_dirent, sizeof(vfs_dirent),
+			          index * sizeof(vfs_dirent), count);
+			remains -= count;
+			out_count += count;
+
+			if ((count < sizeof(vfs_dirent)) ||
 			    (vfs_dirent.type == Vfs::Directory_service::DIRENT_TYPE_END))
-				return len - remains;
+				break;
 
 			File_system::Directory_entry *fs_dirent = (Directory_entry *)dst;
 			fs_dirent->inode = vfs_dirent.fileno;
@@ -583,13 +556,11 @@ struct Vfs_server::Directory : Io_node
 			}
 			strncpy(fs_dirent->name, vfs_dirent.name, MAX_NAME_LEN);
 
-			remains -= blocksize;
 			dst += blocksize;
 		}
-		return len - remains;
-	}
 
-	size_t write(char const *, size_t, seek_off_t) override { return 0; }
+		return out_result;
+	}
 };
 
 #endif /* _VFS__NODE_H_ */

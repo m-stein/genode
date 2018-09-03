@@ -1865,8 +1865,7 @@ class Vfs::Lxip_file_system : public Vfs::File_system,
 				static_cast<Vfs::Lxip_vfs_handle*>(vfs_handle);
 
 			try { return handle->write(src, count, out_count); }
-			catch (File::Would_block) { return WRITE_ERR_WOULD_BLOCK; }
-
+			catch (File::Would_block) { return WRITE_BLOCKED; }
 		}
 
 		Read_result complete_read(Vfs_handle *vfs_handle,

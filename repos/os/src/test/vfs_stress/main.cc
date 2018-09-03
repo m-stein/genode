@@ -95,16 +95,10 @@ inline void assert_write(Vfs::File_io_service::Write_result r)
 	typedef Vfs::File_io_service::Write_result Result;
 	switch (r) {
 	case Result::WRITE_OK: return;
-	case Result::WRITE_ERR_AGAIN:
-		error("WRITE_ERR_AGAIN"); break;
-	case Result::WRITE_ERR_WOULD_BLOCK:
-		error("WRITE_ERR_WOULD_BLOCK"); break;
 	case Result::WRITE_ERR_INVALID:
 		error("WRITE_ERR_INVALID"); break;
 	case Result::WRITE_ERR_IO:
 		error("WRITE_ERR_IO"); break;
-	case Result::WRITE_ERR_INTERRUPT:
-		error("WRITE_ERR_INTERRUPT"); break;
 	}
 	throw Exception();
 }
@@ -116,16 +110,10 @@ inline void assert_read(Vfs::File_io_service::Read_result r)
 	case Result::READ_OK: return;
 	case Result::READ_QUEUED:
 		error("READ_QUEUED"); break;
-	case Result::READ_ERR_AGAIN:
-		error("READ_ERR_AGAIN"); break;
-	case Result::READ_ERR_WOULD_BLOCK:
-		error("READ_ERR_WOULD_BLOCK"); break;
 	case Result::READ_ERR_INVALID:
 		error("READ_ERR_INVALID"); break;
 	case Result::READ_ERR_IO:
 		error("READ_ERR_IO"); break;
-	case Result::READ_ERR_INTERRUPT:
-		error("READ_ERR_INTERRUPT"); break;
 	}
 	throw Exception();
 }
