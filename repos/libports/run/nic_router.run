@@ -258,7 +258,7 @@ append config {
 		<any-service> <parent/> <any-child/> </any-service>
 	</default-route>
 
-	<default caps="100"/>
+	<default caps="200"/>
 
 	} [platform_drv_config] {
 
@@ -273,12 +273,12 @@ append config {
 		<provides> <service name="Nic"/> </provides>
 	</start>
 
-	<start name="nic_router" caps="200" priority="-1">
+	<start name="nic_router" caps="400" priority="-1">
 		<resource name="RAM" quantum="10M"/>
 		<provides><service name="Nic"/></provides>
 		<config verbose="no"
 		        verbose_packets="no"
-		        verbose_domain_state="yes"
+		        verbose_domain_state="no"
 		        dhcp_discover_timeout_sec="3"
 		        dhcp_request_timeout_sec="3"
 		        dhcp_offer_timeout_sec="3"
@@ -341,7 +341,7 @@ append config {
 	<start name="report_rom">
 		<resource name="RAM" quantum="1M"/>
 		<provides> <service name="Report"/> <service name="ROM"/> </provides>
-		<config verbose="yes"/>
+		<config verbose="no"/>
 	</start>
 
 	} [test_1_config] {
@@ -361,7 +361,7 @@ lappend boot_modules report_rom
 build_boot_image $boot_modules
 
 for {set i 0} {$i < $nr_of_clients} {incr i 1} {
-	append done_string {.*Test done.*\n}
+	append done_string {.*exited with exit value 0.*\n}
 }
 
 run_genode_until $done_string 60

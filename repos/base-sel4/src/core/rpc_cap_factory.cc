@@ -62,7 +62,7 @@ void Rpc_cap_factory::free(Native_capability cap)
 	static uint64_t leakage = 0;
 
 	leakage ++;
-	if (1ULL << log2(leakage) == leakage)
-		warning(__PRETTY_FUNCTION__, " not implemented - resources leaked: ", Hex(leakage));
+//	if (1ULL << log2(leakage) == leakage)
+//		warning(__PRETTY_FUNCTION__, " not implemented - resources leaked: ", Hex(leakage));
 }
 
