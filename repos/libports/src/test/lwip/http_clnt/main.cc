@@ -122,15 +122,15 @@ static void test(Libc::Env &env)
 		}
 		/* handle reply */
 		reply_buf[reply_sz] = 0;
-		log("Received \"", Cstring(reply_buf), "\"");
+		//log("Received \"", Cstring(reply_buf), "\"");
 		if (++reply_cnt == NR_OF_REPLIES) {
-			log("Test done");
+			//log("Test done");
 			env.parent().exit(0);
 		}
 		/* close socket and retry */
 		close_socket(env, sd);
 	}
-	log("Test failed");
+	//log("Test failed");
 	env.parent().exit(-1);
 }
 
