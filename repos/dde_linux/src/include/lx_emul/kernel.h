@@ -98,11 +98,6 @@ static inline void panic(const char *fmt, ...)
         type __max2 = (y);                      \
         __max1 > __max2 ? __max1: __max2; })
 
-#define min(x, y) ({                      \
-        typeof(x) _min1 = (x);                  \
-        typeof(y) _min2 = (y);                  \
-        _min1 > _min2 ? _min2 : _min1; })
-
 #define max(x, y) ({                      \
         typeof(x) _max1 = (x);                  \
         typeof(y) _max2 = (y);                  \
@@ -112,6 +107,11 @@ static inline void panic(const char *fmt, ...)
         type __min1 = (x); \
         type __min2 = (y); \
         __min1 < __min2 ? __min1: __min2; })
+
+#define min(x, y) ({                      \
+        typeof(x) _min1 = (x);                  \
+        typeof(y) _min2 = (y);                  \
+        _min1 > _min2 ? _min2 : _min1; })
 
 #define abs(x) ( { \
                   typeof (x) _x = (x); \
