@@ -55,22 +55,21 @@ class Vfs::Log_file_system : public Single_file_system
 
 				Genode::Log_session &_log;
 
-				void flush()
+				void _flush()
 				{
 					int strip = 0;
-					for (int i = _line_pos-1; i > 0; --i) {
+					for (int i = _line_pos - 1; i > 0; --i) {
 						switch(_line_buf[i]) {
 						case '\n':
 						case '\t':
 						case ' ':
 							++strip;
 							--_line_pos;
-							break;
-						default: goto strip;
+							continue;
 						}
+						break;
 					}
 
-				strip:
 					_line_buf[_line_pos > 1 ? _line_pos : 0] = '\0';
 
 					_log.write(_line_buf);
@@ -99,35 +98,36 @@ class Vfs::Log_file_system : public Single_file_system
 
 					/* count does not include the trailing '\0' */
 					while (count > 0) {
-					int curr_count = min(count, ((sizeof(_line_buf) - 1) - _line_pos));
+						int curr_count = min(count, ((sizeof(_line_buf) - 1) - _line_pos));
 
-					for (int i = 0; i < curr_count; ++i) {
-						if (src[i] == '\n') {
-							curr_count = i+1;
-							break;
+						for (int i = 0; i < curr_count; ++i) {
+							if (src[i] == '\n') {
+								curr_count = i + 1;
+								break;
+							}
 						}
+
+						memcpy(_line_buf + _line_pos, src, curr_count);
+						_line_pos += curr_count;
+
+						if ((_line_pos == sizeof(_line_buf) - 1) ||
+						    (_line_buf[_line_pos - 1] == '\n'))
+							_flush();
+
+						count -= curr_count;
+						src   += curr_count;
 					}
 
-					memcpy(_line_buf+_line_pos, src, curr_count);
-					_line_pos += curr_count;
-
-					if ((_line_pos == sizeof(_line_buf)-1) || (_line_buf[_line_pos-1] == '\n'))
-						flush();
-
-					count -= curr_count;
-					src   += curr_count;
+					return WRITE_OK;
 				}
 
-				return WRITE_OK;
-			}
+				bool read_ready() override { return false; }
 
-			bool read_ready() override { return false; }
-
-			void sync()
-			{
-				if (_line_pos > 0)
-					flush();
-			}
+				void sync()
+				{
+					if (_line_pos > 0)
+						_flush();
+				}
 		};
 
 	public:
