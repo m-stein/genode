@@ -1170,12 +1170,6 @@ const void *of_device_get_match_data(const struct device *dev)
 	return NULL;
 }
 
-int of_usb_get_phy_mode(struct device_node *np)
-{
-	TRACE;
-	return 0;
-}
-
 int phy_calibrate(struct phy *phy)
 {
 	TRACE;

@@ -85,7 +85,7 @@ create_boot_directory
 #
 
 append config {
-<config>
+<config verbose="true">
 	<parent-provides>
 		<service name="ROM"/>
 		<service name="IRQ"/>
@@ -102,7 +102,7 @@ append config {
 	<default caps="100"/>}
 
 append_if [have_spec gpio] config "
-	<start name=\"[gpio_drv]\">
+	<start name=\"[gpio_drv]\" caps=\"140\">
 		<resource name=\"RAM\" quantum=\"4M\"/>
 		<provides><service name=\"Gpio\"/></provides>
 		<config/>

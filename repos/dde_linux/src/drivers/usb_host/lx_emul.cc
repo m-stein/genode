@@ -1095,3 +1095,9 @@ int of_property_read_u32(const struct device_node *np, const char *propname, u32
 	if (DEBUG_DRIVER) Genode::warning("Could not find property ", propname);
 	return -EINVAL;
 }
+
+int of_usb_get_phy_mode(struct device_node *np)
+{
+	BUG();
+	return 0;
+}
