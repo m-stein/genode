@@ -70,7 +70,7 @@ class Vfs::Log_file_system : public Single_file_system
 						break;
 					}
 
-					_line_buf[_line_pos > 1 ? _line_pos : 0] = '\0';
+					_line_buf[_line_pos > 0 ? _line_pos : 0] = '\0';
 
 					_log.write(_line_buf);
 					_line_pos = 0;
