@@ -2,12 +2,12 @@
 # Build components
 #
 
-proc enable_test_1 { } { return 1 }
-proc enable_test_2 { } { return 1 }
-proc enable_test_3 { } { return 1 }
-proc enable_test_4 { } { return 1 }
-proc enable_test_5 { } { return 1 }
-proc enable_test_6 { } { return 1 }
+proc enable_test_1 { } { return 0 }
+proc enable_test_2 { } { return 0 }
+proc enable_test_3 { } { return 0 }
+proc enable_test_4 { } { return 0 }
+proc enable_test_5 { } { return 0 }
+proc enable_test_6 { } { return 0 }
 proc enable_test_7 { } { return 1 }
 
 source ${genode_dir}/repos/libports/run/nic_router.inc
@@ -170,44 +170,73 @@ proc test_7_config { } {
 	if {[enable_test_7]} {
 
 		append config "
-			[client_config t7_d1_c1_tcp http dhcp       dhcp     dhcp          t7_d1_nic_router 2345 10.0.2.204]
-			[client_config t7_d1_c2_tcp http dhcp       dhcp     dhcp          nic_router       3456 10.0.2.240]
-			[client_config t7_d1_c3_tcp http dhcp       dhcp     dhcp          nic_router       3456 10.0.2.240]
-			[server_config t7_d2_s1_tcp http 10.0.2.204 10.0.2.1 255.255.255.0 nic_router       2345 ]
-			[server_config t7_d2_s2_tcp http 10.0.2.240 10.0.2.1 255.255.255.0 nic_router       3456 ]"
+			[client_config t7_d1_c0_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.240]
+			[client_config t7_d1_c1_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.240]
+			[client_config t7_d1_c2_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.240]
+			[client_config t7_d1_c3_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.240]
+			[client_config t7_d1_c4_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.240]
+			[client_config t7_d1_c5_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.240]
+			[client_config t7_d1_c6_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.240]
+			[client_config t7_d1_c7_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.240]
+			[client_config t7_d1_c8_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.240]
+			[client_config t7_d1_c9_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.240]
+			[client_config t7_d1_c10_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.240]
+			[client_config t7_d1_c11_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.240]
+			[client_config t7_d1_c12_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.240]
+			[client_config t7_d1_c13_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.240]
+			[client_config t7_d1_c14_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.240]
+			[client_config t7_d1_c15_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.240]
+			[client_config t7_d1_c16_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.240]
+			[client_config t7_d1_c17_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.240]
+			[client_config t7_d1_c18_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.240]
+			[client_config t7_d1_c19_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.240]
+			[server_config t7_d2_s0_tcp http 10.0.2.240 10.0.2.1 255.255.255.0 nic_router 1111 ]
+		"
 
-		append config {
-			<start name="t7_d1_nic_router" caps="200" priority="-1">
-				<binary name="nic_router"/>
-				<resource name="RAM" quantum="10M"/>
-				<provides><service name="Nic"/></provides>
-				<config>
-
-					<policy label_prefix="t7_d1" domain="downlink" />
-					<uplink                      domain="uplink"   />
-
-					<domain name="uplink">
-						<nat domain="downlink" tcp-ports="6" />
-					</domain>
-
-					<domain name="downlink" interface="100.2.3.1/24">
-						<dhcp-server ip_first="100.2.3.2"
-						             ip_last="100.2.3.10"
-						             dns_server_from="uplink"/>
-
-						<tcp dst="10.0.0.0/16">
-							<permit port="2345" domain="uplink" />
-						</tcp>
-					</domain>
-
-				</config>
-				<route>
-					<service name="Nic"> <child name="nic_router"/> </service>
-					<service name="Report"> <child name="report_rom"/> </service>
-					<any-service> <parent/> <any-child/> </any-service>
-				</route>
-			</start>}
-
+#
+#		append config "
+#			[client_config t7_d1_c0_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.240]
+#			[client_config t7_d1_c1_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.241]
+#			[client_config t7_d1_c2_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.242]
+#			[client_config t7_d1_c3_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.243]
+#			[client_config t7_d1_c4_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.244]
+#			[client_config t7_d1_c5_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.245]
+#			[client_config t7_d1_c6_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.246]
+#			[client_config t7_d1_c7_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.247]
+#			[client_config t7_d1_c8_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.248]
+#			[client_config t7_d1_c9_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.249]
+#			[client_config t7_d1_c10_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.230]
+#			[client_config t7_d1_c11_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.231]
+#			[client_config t7_d1_c12_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.232]
+#			[client_config t7_d1_c13_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.233]
+#			[client_config t7_d1_c14_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.234]
+#			[client_config t7_d1_c15_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.235]
+#			[client_config t7_d1_c16_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.236]
+#			[client_config t7_d1_c17_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.237]
+#			[client_config t7_d1_c18_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.238]
+#			[client_config t7_d1_c19_tcp http dhcp       dhcp     dhcp          nic_router 1111 10.0.2.239]
+#			[server_config t7_d2_s0_tcp http 10.0.2.240 10.0.2.1 255.255.255.0 nic_router 1111 ]
+#			[server_config t7_d2_s1_tcp http 10.0.2.241 10.0.2.1 255.255.255.0 nic_router 1111 ]
+#			[server_config t7_d2_s2_tcp http 10.0.2.242 10.0.2.1 255.255.255.0 nic_router 1111 ]
+#			[server_config t7_d2_s3_tcp http 10.0.2.243 10.0.2.1 255.255.255.0 nic_router 1111 ]
+#			[server_config t7_d2_s4_tcp http 10.0.2.244 10.0.2.1 255.255.255.0 nic_router 1111 ]
+#			[server_config t7_d2_s5_tcp http 10.0.2.245 10.0.2.1 255.255.255.0 nic_router 1111 ]
+#			[server_config t7_d2_s6_tcp http 10.0.2.246 10.0.2.1 255.255.255.0 nic_router 1111 ]
+#			[server_config t7_d2_s7_tcp http 10.0.2.247 10.0.2.1 255.255.255.0 nic_router 1111 ]
+#			[server_config t7_d2_s8_tcp http 10.0.2.248 10.0.2.1 255.255.255.0 nic_router 1111 ]
+#			[server_config t7_d2_s9_tcp http 10.0.2.249 10.0.2.1 255.255.255.0 nic_router 1111 ]
+#			[server_config t7_d2_s10_tcp http 10.0.2.230 10.0.2.1 255.255.255.0 nic_router 1111 ]
+#			[server_config t7_d2_s11_tcp http 10.0.2.231 10.0.2.1 255.255.255.0 nic_router 1111 ]
+#			[server_config t7_d2_s12_tcp http 10.0.2.232 10.0.2.1 255.255.255.0 nic_router 1111 ]
+#			[server_config t7_d2_s13_tcp http 10.0.2.233 10.0.2.1 255.255.255.0 nic_router 1111 ]
+#			[server_config t7_d2_s14_tcp http 10.0.2.234 10.0.2.1 255.255.255.0 nic_router 1111 ]
+#			[server_config t7_d2_s15_tcp http 10.0.2.235 10.0.2.1 255.255.255.0 nic_router 1111 ]
+#			[server_config t7_d2_s16_tcp http 10.0.2.236 10.0.2.1 255.255.255.0 nic_router 1111 ]
+#			[server_config t7_d2_s17_tcp http 10.0.2.237 10.0.2.1 255.255.255.0 nic_router 1111 ]
+#			[server_config t7_d2_s18_tcp http 10.0.2.238 10.0.2.1 255.255.255.0 nic_router 1111 ]
+#			[server_config t7_d2_s19_tcp http 10.0.2.239 10.0.2.1 255.255.255.0 nic_router 1111 ]
+#		"
+#
 		return $config
 	}
 }
@@ -217,20 +246,20 @@ proc test_7_router_config { } {
 		<policy label_prefix="t7_d1" domain="t7_d1" />
 		<policy label_prefix="t7_d2" domain="t7_d2" />
 
-		<domain name="t7_d1" interface="100.200.0.1/24">
+		<domain verbose_packets="no" name="t7_d1" interface="100.200.0.1/24">
 			<dhcp-server ip_first="100.200.0.32"
 			             ip_last="100.200.0.64"
 			             ip_lease_time_sec="3600"
-			             dns_server="8.8.8.8"/>
+			             dns_server="8.8.8.8"
+			             />
 
 			<tcp dst="10.0.0.0/16">
-				<permit port="2345" domain="t7_d2" />
-				<permit port="3456" domain="t7_d2" />
+				<permit port="1111" domain="t7_d2" />
 			</tcp>
 		</domain>
 
 		<domain name="t7_d2" interface="10.0.2.1/24">
-			<nat domain="t7_d1" tcp-ports="18" />
+			<nat domain="t7_d1" tcp-ports="10000" />
 		</domain>} }
 }
 
@@ -273,7 +302,7 @@ append config {
 		<provides> <service name="Nic"/> </provides>
 	</start>
 
-	<start name="nic_router" caps="400" priority="-1">
+	<start name="nic_router" caps="800" priority="-1">
 		<resource name="RAM" quantum="10M"/>
 		<provides><service name="Nic"/></provides>
 		<config verbose="no"
@@ -363,5 +392,6 @@ build_boot_image $boot_modules
 for {set i 0} {$i < $nr_of_clients} {incr i 1} {
 	append done_string {.*exited with exit value 0.*\n}
 }
-
-run_genode_until $done_string 60
+puts "xxx $nr_of_clients"
+run_genode_until $done_string 120
+puts "xxx $nr_of_clients"

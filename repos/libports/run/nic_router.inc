@@ -24,7 +24,7 @@ proc client_config { name prot ip_addr gateway netmask nic srv_port srv_ip } {
 				<service name="Nic"> <child name="} $nic {"/> </service>
 				<any-service> <parent/> <any-child/> </any-service>
 			</route>
-			<config server_ip="} $srv_ip {" server_port="} $srv_port {">
+			<config server_ip="} $srv_ip {" server_port="} $srv_port {" ld_verbose="yes">
 				<libc stdout="/dev/log" stderr="/dev/log" socket="/socket"/>
 				<vfs>
 					<dir name="dev"> <log/> </dir>

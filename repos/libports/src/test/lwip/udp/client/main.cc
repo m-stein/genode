@@ -75,14 +75,14 @@ static void test(Libc::Env &env)
 		if (recvfrom(s, buf, BUF_SZ, 0, (struct sockaddr*)&addr, &addr_sz) != BUF_SZ) {
 			continue;
 		}
-		log("Received \"", String<64>(buf), " ...\"");
+		//log("Received \"", String<64>(buf), " ...\"");
 		if (++success_cnt >= 5) {
-			log("Test done");
+			//log("Test done");
 			env.parent().exit(0);
 			return;
 		}
 	}
-	log("Test failed");
+	//log("Test failed");
 	env.parent().exit(-1);
 }
 
