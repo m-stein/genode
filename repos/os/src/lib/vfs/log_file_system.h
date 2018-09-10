@@ -85,6 +85,11 @@ class Vfs::Log_file_system : public Single_file_system
 				: Single_vfs_handle(ds, fs, alloc, 0),
 				  _log(log) { }
 
+				~Log_vfs_handle()
+				{
+					if (_line_pos > 0) _flush();
+				}
+
 				Read_result read(char *, file_size, file_size &out_count) override
 				{
 					out_count = 0;
