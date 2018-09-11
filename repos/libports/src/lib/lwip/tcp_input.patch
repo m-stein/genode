@@ -1,0 +1,47 @@
+diff --git a/src/core/tcp_in.c b/src/core/tcp_in.c
+index 428a6f48..6b6ec5f0 100644
+--- a/src/core/tcp_in.c
++++ b/src/core/tcp_in.c
+@@ -645,14 +645,14 @@ tcp_listen_input(struct tcp_pcb_listen *pcb)
+   if (flags & TCP_ACK) {
+     /* For incoming segments with the ACK flag set, respond with a
+        RST. */
+-    LWIP_DEBUGF(TCP_RST_DEBUG, ("tcp_listen_input: ACK in LISTEN, sending reset\n"));
++    LWIP_PLATFORM_DIAG(("tcp_listen_input: ACK in LISTEN, sending reset\n"));
+     tcp_rst((const struct tcp_pcb *)pcb, ackno, seqno + tcplen, ip_current_dest_addr(),
+             ip_current_src_addr(), tcphdr->dest, tcphdr->src);
+   } else if (flags & TCP_SYN) {
+-    LWIP_DEBUGF(TCP_DEBUG, ("TCP connection request %"U16_F" -> %"U16_F".\n", tcphdr->src, tcphdr->dest));
++    LWIP_PLATFORM_DIAG(("TCP connection request %"U16_F" -> %"U16_F".\n", tcphdr->src, tcphdr->dest));
+ #if TCP_LISTEN_BACKLOG
+     if (pcb->accepts_pending >= pcb->backlog) {
+-      LWIP_DEBUGF(TCP_DEBUG, ("tcp_listen_input: listen backlog exceeded for port %"U16_F"\n", tcphdr->dest));
++      LWIP_PLATFORM_DIAG(("tcp_listen_input: listen backlog exceeded for port %"U16_F"\n", tcphdr->dest));
+       return;
+     }
+ #endif /* TCP_LISTEN_BACKLOG */
+@@ -662,7 +662,7 @@ tcp_listen_input(struct tcp_pcb_listen *pcb)
+        SYN at a time when we have more memory available. */
+     if (npcb == NULL) {
+       err_t err;
+-      LWIP_DEBUGF(TCP_DEBUG, ("tcp_listen_input: could not allocate PCB\n"));
++      LWIP_PLATFORM_DIAG(("tcp_listen_input: could not allocate PCB\n"));
+       TCP_STATS_INC(tcp.memerr);
+       TCP_EVENT_ACCEPT(pcb, NULL, pcb->callback_arg, ERR_MEM, err);
+       LWIP_UNUSED_ARG(err); /* err not useful here */
+@@ -710,6 +710,7 @@ tcp_listen_input(struct tcp_pcb_listen *pcb)
+ 
+ #if LWIP_TCP_PCB_NUM_EXT_ARGS
+     if (tcp_ext_arg_invoke_callbacks_passive_open(pcb, npcb) != ERR_OK) {
++      LWIP_PLATFORM_DIAG(("tcp_ext_arg_invoke_callbacks_passive_open(pcb, npcb) != ERR_OK\n"));
+       tcp_abandon(npcb, 0);
+       return;
+     }
+@@ -718,6 +719,7 @@ tcp_listen_input(struct tcp_pcb_listen *pcb)
+     /* Send a SYN|ACK together with the MSS option. */
+     rc = tcp_enqueue_flags(npcb, TCP_SYN | TCP_ACK);
+     if (rc != ERR_OK) {
++      LWIP_PLATFORM_DIAG(("tcp_enqueue_flags(npcb, TCP_SYN | TCP_ACK) failed"));
+       tcp_abandon(npcb, 0);
+       return;
+     }
