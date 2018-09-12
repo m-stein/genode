@@ -108,7 +108,7 @@ static void test(Libc::Env &env)
 	}
 
 	puts("Now, I will listen ...");
-	if (listen(s, 5)) {
+	if (listen(s, 255)) {
 		fprintf(stderr, "listen failed!\n");
 		env.parent().exit(-1);
 	}
