@@ -1,0 +1,173 @@
+#
+# Build components
+#
+
+source ${genode_dir}/repos/base/run/platform_drv.inc
+
+set targets "core init drivers/timer server/nic_bridge
+             test/lwip/http_srv test/lwip/http_clnt
+             server/nic_loopback lib/vfs/lwip
+             [platform_drv_build_components]"
+
+proc client_bin { prot } {
+	if {$prot == "udp"}  { return "test-lwip-udp-client" }
+	if {$prot == "http"} { return "test-http_clnt" } }
+
+proc server_bin { prot } {
+	if {$prot == "udp"}  { return "test-lwip-udp-server" }
+	if {$prot == "http"} { return "test-lwip_httpsrv" } }
+
+proc cs_config { name prot ip_addr gateway netmask nic srv_port } {
+	global nr_of_clients
+	incr nr_of_clients
+	append result {
+		<start name="c} $name {" priority="-2">
+			<binary  name="} [client_bin $prot] {" />
+			<resource name="RAM" quantum="4M"/>
+			<route>
+				<service name="Nic"> <child name="} $nic {"/> </service>
+				<any-service> <parent/> <any-child/> </any-service>
+			</route>
+			<config server_ip="} $ip_addr {2} $name {" server_port="} $srv_port {">
+				<libc stdout="/dev/log" stderr="/dev/log" socket="/socket"/>
+				<vfs>
+					<dir name="dev"> <log/> </dir>
+					<dir name="socket">
+	}
+	if {$ip_addr == "dhcp"} {
+		append result {
+						<lwip dhcp="yes"/>}
+	} else {
+		append result {
+						<lwip ip_addr="} $ip_addr {1} $name {" gateway="} $gateway {" netmask="} $netmask {"/>}
+	}
+	append result {
+					</dir>
+				</vfs>
+			</config>
+		</start>}
+
+	append result {
+		<start name="s} $name {" priority="-1">
+			<binary  name="} [server_bin $prot] {" />
+			<resource name="RAM" quantum="4M"/>
+			<route>
+				<service name="Nic"> <child name="} $nic {"/> </service>
+				<any-service> <parent/> <any-child/> </any-service>
+			</route>
+			<config port="} $srv_port {">
+				<vfs>
+					<dir name="dev"> <log/> </dir>
+					<dir name="socket">
+						<lwip ip_addr="} $ip_addr {2} $name {" gateway="} $gateway {" netmask="} $netmask {"/>
+					</dir>
+				</vfs>
+				<libc stdout="/dev/log" stderr="/dev/log" socket="/socket"
+				      ip_addr="} $ip_addr {2} $name {" gateway="} $gateway {" netmask="} $netmask {"/>
+			</config>
+		</start>}
+	return $result
+}
+
+proc cs_policy { name ip_addr } {
+
+	append result {
+			<policy label_prefix="c} $name {" ip_addr="} $ip_addr {1} $name {" />
+			<policy label_prefix="s} $name {" ip_addr="} $ip_addr {2} $name {" />
+	}
+	return $result
+}
+
+build $targets
+
+create_boot_directory
+
+
+
+#
+# Init config
+#
+
+append config {
+<config prio_levels="4">
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="IRQ"/>
+		<service name="IO_MEM"/>
+		<service name="IO_PORT"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="LOG"/>
+	</parent-provides>
+
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+
+	<default caps="200"/>
+
+	} [platform_drv_config] {
+
+	<start name="timer" priority="0">
+		<resource name="RAM" quantum="1M"/>
+		<resource name="CPU" quantum="5"/>
+		<provides><service name="Timer"/></provides>
+	</start>
+
+	<start name="nic_loopback" priority="-1">
+		<resource name="RAM" quantum="1M"/>
+		<provides> <service name="Nic"/> </provides>
+	</start>
+
+	<start name="nic_bridge" caps="400" priority="-1">
+		<resource name="RAM" quantum="40M"/>
+		<provides><service name="Nic"/></provides>
+		<config>
+			} [cs_policy 00 10.0.2.] {
+			} [cs_policy 01 10.0.2.] {
+			} [cs_policy 02 10.0.2.] {
+			} [cs_policy 03 10.0.2.] {
+			} [cs_policy 04 10.0.2.] {
+			} [cs_policy 05 10.0.2.] {
+			} [cs_policy 06 10.0.2.] {
+			} [cs_policy 07 10.0.2.] {
+			} [cs_policy 08 10.0.2.] {
+			} [cs_policy 09 10.0.2.] {
+		</config>
+		<route>
+			<service name="Nic"> <child name="nic_loopback"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	} [cs_config 00 http 10.0.2. 10.0.2.1 255.255.255.0 nic_bridge 80] {
+	} [cs_config 01 http 10.0.2. 10.0.2.1 255.255.255.0 nic_bridge 80] {
+	} [cs_config 02 http 10.0.2. 10.0.2.1 255.255.255.0 nic_bridge 80] {
+	} [cs_config 03 http 10.0.2. 10.0.2.1 255.255.255.0 nic_bridge 80] {
+	} [cs_config 04 http 10.0.2. 10.0.2.1 255.255.255.0 nic_bridge 80] {
+	} [cs_config 05 http 10.0.2. 10.0.2.1 255.255.255.0 nic_bridge 80] {
+	} [cs_config 06 http 10.0.2. 10.0.2.1 255.255.255.0 nic_bridge 80] {
+	} [cs_config 07 http 10.0.2. 10.0.2.1 255.255.255.0 nic_bridge 80] {
+	} [cs_config 08 http 10.0.2. 10.0.2.1 255.255.255.0 nic_bridge 80] {
+	} [cs_config 09 http 10.0.2. 10.0.2.1 255.255.255.0 nic_bridge 80] {
+
+</config> }
+
+install_config $config
+
+
+set boot_modules "
+	core init timer nic_bridge nic_loopback ld.lib.so
+	libc.lib.so vfs.lib.so vfs_lwip.lib.so
+	[client_bin http] [server_bin http] [platform_drv_boot_modules]"
+
+append qemu_args "-nographic "
+
+build_boot_image $boot_modules
+
+for {set i 0} {$i < $nr_of_clients} {incr i 1} {
+	append done_string {.*Test done.*\n}
+}
+
+run_genode_until $done_string 60
