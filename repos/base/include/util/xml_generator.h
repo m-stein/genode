@@ -306,6 +306,8 @@ class Genode::Xml_generator
 						_parent_node->_commit_content(_out_buffer);
 					else
 						xml._out_buffer = _out_buffer;
+
+					_out_buffer.append('\0');
 				}
 
 				bool has_content() { return _has_content; }
@@ -326,7 +328,7 @@ class Genode::Xml_generator
 		{
 			if (dst) {
 				node(name, func);
-				_out_buffer.append('\0');
+				_out_buffer.append('\n');
 			}
 		}
 
