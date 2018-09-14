@@ -81,6 +81,7 @@ void Sculpt::Network::_generate_nic_router_config()
 		xml.node("report", [&] () {
 			xml.attribute("interval_sec",    "5");
 			xml.attribute("bytes",           "yes");
+			xml.attribute("links",           "yes");
 			xml.attribute("config",          "yes");
 			xml.attribute("config_triggers", "yes");
 		});

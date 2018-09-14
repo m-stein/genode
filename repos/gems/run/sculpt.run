@@ -623,6 +623,7 @@ exec rm -r [run_dir]/genode/launcher
 # Create boot image
 #
 
-append boot_modules { }
+build {server/nic_router app/sculpt_manager}
+append boot_modules { nic_router sculpt_manager }
 
 build_boot_image $boot_modules
