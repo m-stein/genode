@@ -137,7 +137,7 @@ Configuration::Configuration(Env               &env,
 		catch (Pointer<Reporter>::Invalid) {
 
 			/* there is no reporter by now, create a new one */
-			_reporter = *new (_alloc) Reporter(env, "state");
+			_reporter = *new (_alloc) Reporter(env, "state", nullptr, 4096 * 4);
 		}
 		/* create report generator */
 		_report = *new (_alloc)

@@ -21,11 +21,14 @@
 #include <dhcp_client.h>
 #include <dhcp_server.h>
 #include <list.h>
+#include <report.h>
 
 /* Genode includes */
 #include <nic_session/nic_session.h>
 #include <net/dhcp.h>
 #include <net/icmp.h>
+
+namespace Genode { class Xml_generator; }
 
 namespace Net {
 
@@ -44,7 +47,64 @@ namespace Net {
 	class Dhcp_server;
 	class Configuration;
 	class Domain;
+	class Link_statistics;
+	class Object_statistics;
 }
+
+
+struct Net::Link_statistics
+{
+	Genode::size_t refused_for_ram   { 0 };
+	Genode::size_t refused_for_ports { 0 };
+
+	Genode::size_t opening { 0 };
+	Genode::size_t open    { 0 };
+	Genode::size_t closing { 0 };
+	Genode::size_t closed  { 0 };
+
+	Genode::size_t dissolved_timeout_opening { 0 };
+	Genode::size_t dissolved_timeout_open    { 0 };
+	Genode::size_t dissolved_timeout_closing { 0 };
+	Genode::size_t dissolved_timeout_closed  { 0 };
+	Genode::size_t dissolved_no_timeout      { 0 };
+
+	Genode::size_t destroyed { 0 };
+
+	void add(Link_statistics const &stats)
+	{
+		refused_for_ram   += stats.refused_for_ram  ;
+		refused_for_ports += stats.refused_for_ports;
+
+		opening += stats.opening;
+		open    += stats.open   ;
+		closing += stats.closing;
+		closed  += stats.closed ;
+
+		dissolved_timeout_opening += stats.dissolved_timeout_opening;
+		dissolved_timeout_open    += stats.dissolved_timeout_open   ;
+		dissolved_timeout_closing += stats.dissolved_timeout_closing;
+		dissolved_timeout_closed  += stats.dissolved_timeout_closed ;
+		dissolved_no_timeout      += stats.dissolved_no_timeout     ;
+
+		destroyed += stats.destroyed;
+	}
+
+	void report(Genode::Xml_generator &xml);
+};
+
+struct Net::Object_statistics
+{
+	Genode::size_t alive     { 0 };
+	Genode::size_t destroyed { 0 };
+
+	void report(Genode::Xml_generator &xml);
+
+	void add(Object_statistics const &stats)
+	{
+		alive     += stats.alive    ;
+		destroyed += stats.destroyed;
+	}
+};
 
 
 struct Net::Interface_policy
@@ -52,6 +112,10 @@ struct Net::Interface_policy
 	virtual Domain_name determine_domain_name() const = 0;
 
 	virtual void handle_config(Configuration const &config) = 0;
+
+	virtual Genode::Session_label const &label() const = 0;
+
+	virtual void report(Genode::Xml_generator &) const { throw Report::Empty(); }
 
 	virtual ~Interface_policy() { }
 };
@@ -67,7 +131,8 @@ class Net::Interface : private Interface_list::Element
 		using Signal_handler            = Genode::Signal_handler<Interface>;
 		using Signal_context_capability = Genode::Signal_context_capability;
 
-		enum { IPV4_TIME_TO_LIVE = 64 };
+		enum { IPV4_TIME_TO_LIVE          = 64 };
+		enum { MAX_FREE_OPS_PER_EMERGENCY = 1024 };
 
 		struct Dismiss_link       : Genode::Exception { };
 		struct Dismiss_arp_waiter : Genode::Exception { };
@@ -314,7 +379,13 @@ class Net::Interface : private Interface_list::Element
 
 	public:
 
-		struct Free_resources_and_retry_handle_eth : Genode::Exception { };
+		Link_statistics   udp_stats  { };
+		Link_statistics   tcp_stats  { };
+		Link_statistics   icmp_stats { };
+		Object_statistics arp_stats  { };
+		Object_statistics dhcp_stats { };
+
+		struct Free_resources_and_retry_handle_eth : Genode::Exception { L3_protocol prot; Free_resources_and_retry_handle_eth(L3_protocol prot = (L3_protocol)0) : prot(prot) { } };
 		struct Bad_send_dhcp_args                  : Genode::Exception { };
 		struct Bad_transport_protocol              : Genode::Exception { };
 		struct Bad_network_protocol                : Genode::Exception { };
@@ -396,6 +467,8 @@ class Net::Interface : private Interface_list::Element
 		bool link_state() const;
 
 		void handle_link_state();
+
+		void report(Genode::Xml_generator &xml);
 
 
 		/***************

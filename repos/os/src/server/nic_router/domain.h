@@ -117,6 +117,12 @@ class Net::Domain : public Domain_base,
 
 	public:
 
+		Link_statistics   udp_stats  { };
+		Link_statistics   tcp_stats  { };
+		Link_statistics   icmp_stats { };
+		Object_statistics arp_stats  { };
+		Object_statistics dhcp_stats { };
+
 		struct Invalid          : Genode::Exception { };
 		struct Ip_config_static : Genode::Exception { };
 		struct No_next_hop      : Genode::Exception { };

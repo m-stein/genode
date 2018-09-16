@@ -30,6 +30,7 @@ Net::Report::Report(bool     const    &verbose,
 	_config(node.attribute_value("config", true)),
 	_config_triggers(node.attribute_value("config_triggers", false)),
 	_bytes(node.attribute_value("bytes", true)),
+	_stats(node.attribute_value("stats", true)),
 	_reporter(reporter),
 	_domains(domains),
 	_timeout(timer, *this, &Report::_handle_report_timeout,
@@ -44,7 +45,8 @@ void Net::Report::_report()
 	try {
 		Reporter::Xml_generator xml(_reporter, [&] () {
 			_domains.for_each([&] (Domain &domain) {
-				domain.report(xml);
+				try { domain.report(xml); }
+				catch (Empty) { }
 			});
 		});
 	} catch (Xml_generator::Buffer_exceeded) {

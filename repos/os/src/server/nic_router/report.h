@@ -30,7 +30,6 @@ namespace Net {
 	class Report;
 }
 
-
 class Net::Report
 {
 	private:
@@ -39,6 +38,7 @@ class Net::Report
 		bool const                       _config;
 		bool const                       _config_triggers;
 		bool const                       _bytes;
+		bool const                       _stats;
 		Genode::Reporter                &_reporter;
 		Domain_tree                     &_domains;
 		Timer::Periodic_timeout<Report>  _timeout;
@@ -48,6 +48,8 @@ class Net::Report
 		void _report();
 
 	public:
+
+		struct Empty : Genode::Exception { };
 
 		Report(bool             const &verbose,
 		       Genode::Xml_node const  node,
@@ -64,6 +66,7 @@ class Net::Report
 
 		bool config() const { return _config; }
 		bool bytes()  const { return _bytes; }
+		bool stats()  const { return _stats; }
 };
 
 #endif /* _REPORT_H_ */

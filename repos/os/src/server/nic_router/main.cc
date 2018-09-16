@@ -40,7 +40,7 @@ class Net::Main
 		Genode::Attached_rom_dataspace  _config_rom     { _env, "config" };
 		Reference<Configuration>        _config         { *new (_heap) Configuration { _config_rom.xml(), _heap } };
 		Signal_handler<Main>            _config_handler { _env.ep(), *this, &Main::_handle_config };
-		Root                            _root           { _env.ep(), _timer, _heap, _config(), _env.ram(), _interfaces, _env.rm()};
+		Root                            _root           { _env, _timer, _heap, _config(), _interfaces };
 
 		void _handle_config();
 
