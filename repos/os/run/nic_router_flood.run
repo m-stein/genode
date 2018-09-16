@@ -10,6 +10,7 @@ if {![have_include power_on/qemu] ||
 	exit 0
 }
 
+proc min_duration_sec { } { return 8 }
 
 set build_components {
 	core
@@ -19,6 +20,7 @@ set build_components {
 	server/nic_router
 	test/net_flood
 	app/ping
+	server/report_rom
 }
 
 proc gpio_drv { } { if {[have_spec rpi] && [have_spec hw]}  { return hw_gpio_drv }
@@ -56,7 +58,42 @@ append config {
 	<default-route>
 		<any-service> <parent/> <any-child/> </any-service>
 	</default-route>
-	<default caps="100"/>}
+	<default caps="100"/>
+
+	<start name="timer">
+		<resource name="RAM" quantum="1M"/>
+		<provides><service name="Timer"/></provides>
+	</start>
+
+	<start name="report_rom">
+		<resource name="RAM" quantum="1M"/>
+		<provides> <service name="Report"/> <service name="ROM"/> </provides>
+		<config verbose="yes"/>
+	</start>
+
+	<start name="init" caps="10000">
+		<resource name="RAM" quantum="4G"/>
+		<route>
+			<service name="Report"> <child name="report_rom"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+		<config>
+			<parent-provides>
+				<service name="ROM"/>
+				<service name="IRQ"/>
+				<service name="IO_MEM"/>
+				<service name="IO_PORT"/>
+				<service name="PD"/>
+				<service name="RM"/>
+				<service name="CPU"/>
+				<service name="LOG"/>
+				<service name="Timer"/>
+			</parent-provides>
+			<default-route>
+				<any-service> <parent/> <any-child/> </any-service>
+			</default-route>
+			<default caps="100"/>
+}
 
 append_platform_drv_config
 
@@ -68,10 +105,6 @@ append_if [have_spec gpio] config "
 	</start>"
 
 append config {
-	<start name="timer">
-		<resource name="RAM" quantum="1M"/>
-		<provides><service name="Timer"/></provides>
-	</start>
 
 	<start name="nic_drv" caps="150">
 		<binary name="} [nic_drv_binary] {"/>
@@ -81,17 +114,18 @@ append config {
 	</start>
 
 	<start name="nic_router" caps="200">
-		<resource name="RAM" quantum="10M"/>
+		<resource name="RAM" quantum="6M"/>
 		<provides><service name="Nic"/></provides>
-		<config verbose="no"
+		<config ld_verbose="yes" verbose="no"
 		        verbose_packets="no"
-		        verbose_packet_drop="yes"
-		        verbose_domain_state="yes"
+		        verbose_packet_drop="no"
+		        verbose_domain_state="no"
 		        dhcp_discover_timeout_sec="1"
 		        tcp_idle_timeout_sec="3600"
 		        udp_idle_timeout_sec="3600"
 		        icmp_idle_timeout_sec="3600">
 
+			<report links="yes" interval_sec="15"/>
 			<policy label_prefix="flood_links" domain="flood_links"/>
 			<policy label_prefix="ping"        domain="flood_links"/>
 			<uplink                            domain="uplink"/>
@@ -114,8 +148,15 @@ append config {
 		</config>
 		<route>
 			<service name="Nic"> <child name="nic_drv"/> </service>
+			<service name="Report"> <child name="report_rom"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
+	</start>
+
+	<start name="report_rom">
+		<resource name="RAM" quantum="1M"/>
+		<provides> <service name="Report"/> <service name="ROM"/> </provides>
+		<config verbose="yes"/>
 	</start>
 
 	<start name="flood_links_tcp">
@@ -123,7 +164,8 @@ append config {
 		<resource name="RAM" quantum="8M"/>
 		<config dst_ip="} [bad_dst_ip] {"
 		        protocol="tcp"
-		        verbose="no"/>
+		        verbose="no"
+		        sec="} [min_duration_sec] {"/>
 		<route>
 			<service name="Nic"> <child name="nic_router"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
@@ -134,7 +176,8 @@ append config {
 		<resource name="RAM" quantum="8M"/>
 		<config dst_ip="} [bad_dst_ip] {"
 		        protocol="udp"
-		        verbose="no"/>
+		        verbose="no"
+		        sec="} [min_duration_sec] {"/>
 		<route>
 			<service name="Nic"> <child name="nic_router"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
@@ -145,25 +188,26 @@ append config {
 		<resource name="RAM" quantum="8M"/>
 		<config dst_ip="} [bad_dst_ip] {"
 		        protocol="icmp"
-		        verbose="no"/>
+		        verbose="no"
+		        sec="} [min_duration_sec] {"/>
 		<route>
 			<service name="Nic"> <child name="nic_router"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>
-
-
 	<start name="ping">
 		<resource name="RAM" quantum="8M"/>
 		<config dst_ip="} [good_dst_ip] {"
 		        period_sec="1"
-		        count="999"/>
+		        count="} [expr [min_duration_sec] - 1] {"/>
 		<route>
 			<service name="Nic"> <child name="nic_router"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>
 
+		</config>
+	</start>
 </config>}
 
 install_config $config
@@ -181,6 +225,7 @@ append boot_modules {
 	ld.lib.so
 	nic_router
 	ping
+	report_rom
 }
 
 # platform-specific modules
@@ -196,4 +241,24 @@ append_if [have_spec lan9118] qemu_args " -net nic,model=lan9118 "
 
 append qemu_args " -net user -nographic "
 
-run_genode_until {.*ping\] 64 bytes from 10\.0\.2\.2: icmp_seq=30 .*\n} 60
+append done_string {.*child "ping" exited with exit value 0.*\n}
+append done_string {.*child "flood_links_.*" exited with exit value 0.*\n}
+append done_string {.*child "flood_links_.*" exited with exit value 0.*\n}
+append done_string {.*child "flood_links_.*" exited with exit value 0.*\n}
+append done_string {.*\/state.*\n}
+append done_string {.*\/state.*\n}
+append done_string {.*\/state.*\n}
+append done_string {.*\/state.*\n}
+append done_string {.*\/state.*\n}
+
+run_genode_until $done_string [expr [min_duration_sec] + 100]
+
+if {[regexp {drop packet} $output]} {
+	puts stderr "*** Error: packets were dropped during the test"
+	exit -1
+}
+
+if {[regexp {dangling allocation} $output]} {
+	puts stderr "*** Error: dangling allocations during the test"
+	exit -1
+}
