@@ -148,7 +148,7 @@ Session_component *Net::Root::_create_session(char const *args)
 		Session_env session_env_tmp { _env,
 			Ram_quota { Arg_string::find_arg(args, "ram_quota").ulong_value(0) },
 			Cap_quota { Arg_string::find_arg(args, "cap_quota").ulong_value(0) } };
-		Reference<Session_env> session_env { session_env_tmp }; 
+		Reference<Session_env> session_env { session_env_tmp };
 
 		/* alloc/attach RAM block and move session env to base of the block */
 		Ram_dataspace_capability ram_ds {
