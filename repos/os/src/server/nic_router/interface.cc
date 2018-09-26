@@ -35,8 +35,6 @@ using Genode::Out_of_caps;
 using Genode::Constructible;
 using Genode::Signal_context_capability;
 using Genode::Signal_transmitter;
-using Genode::Quota_guard;
-using Genode::Ram_quota;
 
 
 /***************
@@ -441,8 +439,8 @@ Interface::_new_link(L3_protocol             const  protocol,
 				Tcp_link { *this, local, remote_port_alloc, remote_domain,
 				           remote, _timer, _config(), protocol, tcp_stats };
 		}
-		catch (Quota_guard<Ram_quota>::Limit_exceeded) {
-			throw Free_resources_and_retry_handle_eth(L3_protocol::TCP); }
+		catch (Out_of_ram)  { throw Free_resources_and_retry_handle_eth(L3_protocol::TCP); }
+		catch (Out_of_caps) { throw Free_resources_and_retry_handle_eth(L3_protocol::TCP); }
 
 		break;
 	case L3_protocol::UDP:
@@ -451,8 +449,8 @@ Interface::_new_link(L3_protocol             const  protocol,
 				Udp_link { *this, local, remote_port_alloc, remote_domain,
 				           remote, _timer, _config(), protocol, udp_stats };
 		}
-		catch (Quota_guard<Ram_quota>::Limit_exceeded) {
-			throw Free_resources_and_retry_handle_eth(L3_protocol::UDP); }
+		catch (Out_of_ram)  { throw Free_resources_and_retry_handle_eth(L3_protocol::UDP); }
+		catch (Out_of_caps) { throw Free_resources_and_retry_handle_eth(L3_protocol::UDP); }
 
 		break;
 	case L3_protocol::ICMP:
@@ -461,8 +459,8 @@ Interface::_new_link(L3_protocol             const  protocol,
 				Icmp_link { *this, local, remote_port_alloc, remote_domain,
 				            remote, _timer, _config(), protocol, icmp_stats };
 		}
-		catch (Quota_guard<Ram_quota>::Limit_exceeded) {
-			throw Free_resources_and_retry_handle_eth(L3_protocol::ICMP); }
+		catch (Out_of_ram)  { throw Free_resources_and_retry_handle_eth(L3_protocol::ICMP); }
+		catch (Out_of_caps) { throw Free_resources_and_retry_handle_eth(L3_protocol::ICMP); }
 
 		break;
 	default: throw Bad_transport_protocol(); }
