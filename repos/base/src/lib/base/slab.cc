@@ -265,6 +265,19 @@ Slab::Block *Slab::_new_slab_block()
 }
 
 
+bool Slab::metadata(addr_t addr)
+{
+	Block *sb = _curr_sb;
+	for (size_t sb_cnt = _num_blocks; sb_cnt; sb_cnt--) {
+		if (sb == (Block *)addr) {
+			return true; }
+
+		sb = sb->next;
+	}
+	return false;
+}
+
+
 void Slab::_release_backing_store(Block *block)
 {
 	if (block->avail() != _entries_per_block)
