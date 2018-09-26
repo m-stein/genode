@@ -93,8 +93,15 @@ Heap::Dataspace *Heap::_allocate_dataspace(size_t size, bool enforce_separate_me
 			_ds_pool.ram_alloc->free(new_ds_cap);
 			return nullptr;
 		}
+		catch (Out_of_caps) {
+			_ds_pool.ram_alloc->free(new_ds_cap);
+			return nullptr;
+		}
 	}
 	catch (Out_of_ram) {
+		return nullptr;
+	}
+	catch (Out_of_caps) {
 		return nullptr;
 	}
 	catch (Region_map::Invalid_dataspace) {
