@@ -74,12 +74,13 @@ class Net::Configuration
 		Configuration(Genode::Xml_node const  node,
 		              Genode::Allocator      &alloc);
 
-		Configuration(Genode::Env            &env,
-		              Genode::Xml_node const  node,
-		              Genode::Allocator      &alloc,
-		              Timer::Connection      &timer,
-		              Configuration          &old_config,
-		              Interface_list         &interfaces);
+		Configuration(Genode::Env             &env,
+		              Genode::Xml_node  const  node,
+		              Genode::Allocator       &alloc,
+		              Timer::Connection       &timer,
+		              Configuration           &old_config,
+		              Unaccounted_quota const &unaccounted_quota,
+		              Interface_list          &interfaces);
 
 		~Configuration();
 

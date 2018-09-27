@@ -25,6 +25,7 @@
 #include <mac_allocator.h>
 #include <interface.h>
 #include <reference.h>
+#include <report.h>
 
 namespace Genode { class Session_env; }
 
@@ -42,9 +43,10 @@ class Genode::Session_env : public Ram_allocator,
 {
 	private:
 
-		Env             &_env;
-		Ram_quota_guard  _ram_guard;
-		Cap_quota_guard  _cap_guard;
+		Env                    &_env;
+		Net::Unaccounted_quota &_unaccounted_quota;
+		Ram_quota_guard         _ram_guard;
+		Cap_quota_guard         _cap_guard;
 
 		template <typename FUNC>
 		void _consume(size_t  accountable_ram,
@@ -78,19 +80,48 @@ class Genode::Session_env : public Ram_allocator,
 			if (cap_consumpt < accountable_cap) {
 				error("Session_env: less CAP quota consumed than expected"); }
 
+			_unaccounted_quota.ram += ram_consumpt - accountable_ram;
+			_unaccounted_quota.cap += cap_consumpt - accountable_cap;
+
 			_ram_guard.replenish( Ram_quota { max_unaccountable_ram } );
 			_cap_guard.replenish( Cap_quota { max_unaccountable_cap } );
 		}
 
+		template <typename FUNC>
+		void _replenish(size_t  accounted_ram,
+		                size_t  accounted_cap,
+		                FUNC && functor)
+		{
+			size_t ram_replenish { _env.pd().used_ram().value };
+			size_t cap_replenish { _env.pd().used_caps().value };
+			functor();
+			ram_replenish = ram_replenish - _env.pd().used_ram().value;
+			cap_replenish = cap_replenish - _env.pd().used_caps().value;
+
+			if (ram_replenish < accounted_ram) {
+				error("Session_env: less RAM quota replenished than expected"); }
+			if (cap_replenish < accounted_cap) {
+				error("Session_env: less CAP quota replenished than expected"); }
+
+			_unaccounted_quota.ram -= ram_replenish - accounted_ram;
+			_unaccounted_quota.cap -= cap_replenish - accounted_cap;
+
+			_ram_guard.replenish( Ram_quota { accounted_ram } );
+			_cap_guard.replenish( Cap_quota { accounted_cap } );
+
+		}
+
 	public:
 
-		Session_env(Env             &env,
-		            Ram_quota const &ram_quota,
-		            Cap_quota const &cap_quota)
+		Session_env(Env                    &env,
+		            Net::Unaccounted_quota &unaccounted_quota,
+		            Ram_quota const        &ram_quota,
+		            Cap_quota const        &cap_quota)
 		:
-			_env       { env },
-			_ram_guard { ram_quota },
-			_cap_guard { cap_quota }
+			_env               { env },
+			_unaccounted_quota { unaccounted_quota },
+			_ram_guard         { ram_quota },
+			_cap_guard         { cap_quota }
 		{ }
 
 		Entrypoint &ep() { return _env.ep(); }
@@ -106,7 +137,7 @@ class Genode::Session_env : public Ram_allocator,
 			enum { MAX_UNACCOUNTABLE_RAM   = 4096 };
 			enum { RAM_DS_GRANULARITY_LOG2 = 12 };
 
-			size_t ds_size = align_addr(size, RAM_DS_GRANULARITY_LOG2);
+			size_t const ds_size = align_addr(size, RAM_DS_GRANULARITY_LOG2);
 			Ram_dataspace_capability ds;
 			_consume(ds_size, MAX_UNACCOUNTABLE_RAM, 1, MAX_UNACCOUNTABLE_CAP, [&] () {
 				ds = _env.pd().alloc(ds_size, cached);
@@ -117,11 +148,9 @@ class Genode::Session_env : public Ram_allocator,
 
 		void free(Ram_dataspace_capability ds) override
 		{
-			size_t const ds_size = _env.pd().dataspace_size(ds);
-
-			_env.pd().free(ds);
-			_ram_guard.replenish( Ram_quota { ds_size } );
-			_cap_guard.replenish( Cap_quota { 1 } );
+			_replenish(_env.pd().dataspace_size(ds), 1, [&] () {
+				_env.pd().free(ds);
+			});
 		}
 
 		size_t dataspace_size(Ram_dataspace_capability ds) const override { return _env.pd().dataspace_size(ds); }
@@ -164,7 +193,11 @@ class Genode::Session_env : public Ram_allocator,
 			});
 		}
 
-		void detach(Local_addr local_addr) override { _env.rm().detach(local_addr); }
+		void detach(Local_addr local_addr) override
+		{
+			_replenish(0, 0, [&] () { _env.rm().detach(local_addr); });
+		}
+
 		void fault_handler(Signal_context_capability handler) override { _env.rm().fault_handler(handler); }
 		State state() override { return _env.rm().state(); }
 		Dataspace_capability dataspace() override { return _env.rm().dataspace(); }
@@ -300,6 +333,7 @@ class Net::Root : public Genode::Root_component<Session_component>
 		Mac_allocator             _mac_alloc;
 		Mac_address const         _router_mac;
 		Reference<Configuration>  _config;
+		Unaccounted_quota        &_unaccounted_quota;
 		Interface_list           &_interfaces;
 
 		void _invalid_downlink(char const *reason);
@@ -318,6 +352,7 @@ class Net::Root : public Genode::Root_component<Session_component>
 		     Timer::Connection &timer,
 		     Genode::Allocator &alloc,
 		     Configuration     &config,
+		     Unaccounted_quota &unaccounted_quota,
 		     Interface_list    &interfaces);
 
 		void handle_config(Configuration &config) { _config = Reference<Configuration>(config); }

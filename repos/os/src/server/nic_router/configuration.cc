@@ -57,12 +57,13 @@ void Configuration::_invalid_domain(Domain     &domain,
 }
 
 
-Configuration::Configuration(Env               &env,
-                             Xml_node const     node,
-                             Allocator         &alloc,
-                             Timer::Connection &timer,
-                             Configuration     &old_config,
-                             Interface_list    &interfaces)
+Configuration::Configuration(Env                     &env,
+                             Xml_node          const  node,
+                             Allocator               &alloc,
+                             Timer::Connection       &timer,
+                             Configuration           &old_config,
+                             Unaccounted_quota const &unaccounted_quota,
+                             Interface_list          &interfaces)
 :
 	_alloc(alloc),
 	_max_packets_per_signal(node.attribute_value("max_packets_per_signal",   (unsigned long)DEFAULT_MAX_PACKETS_PER_SIGNAL)),
@@ -141,7 +142,7 @@ Configuration::Configuration(Env               &env,
 		}
 		/* create report generator */
 		_report = *new (_alloc)
-			Report(_verbose, report_node, timer, _domains, _reporter());
+			Report(_verbose, report_node, timer, _domains, unaccounted_quota, env.pd(), _reporter());
 	}
 	catch (Genode::Xml_node::Nonexistent_sub_node) { }
 
