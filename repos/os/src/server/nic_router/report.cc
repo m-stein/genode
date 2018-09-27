@@ -48,11 +48,15 @@ void Net::Report::_report()
 {
 	try {
 		Reporter::Xml_generator xml(_reporter, [&] () {
-			xml.node("quota", [&] () {
-				xml.attribute("ram",        _pd.ram_quota().value);
-				xml.attribute("cap",        _pd.cap_quota().value);
-				xml.attribute("shared_ram", _unaccounted_quota.ram);
-				xml.attribute("shared_cap", _unaccounted_quota.cap);
+			xml.node("ram", [&] () {
+				xml.attribute("quota",  _pd.ram_quota().value);
+				xml.attribute("used",   _pd.used_ram().value);
+				xml.attribute("shared", _unaccounted_quota.ram);
+			});
+			xml.node("cap", [&] () {
+				xml.attribute("quota",  _pd.cap_quota().value);
+				xml.attribute("used",   _pd.used_caps().value);
+				xml.attribute("shared", _unaccounted_quota.cap);
 			});
 			_domains.for_each([&] (Domain &domain) {
 				try { domain.report(xml); }
