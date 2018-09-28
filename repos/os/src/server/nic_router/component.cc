@@ -129,7 +129,7 @@ Net::Root::Root(Env               &env,
                 Timer::Connection &timer,
                 Allocator         &alloc,
                 Configuration     &config,
-                Unaccounted_quota &unaccounted_quota,
+                Quota             &shared_quota,
                 Interface_list    &interfaces)
 :
 	Root_component<Session_component> { &env.ep().rpc_ep(), &alloc },
@@ -138,7 +138,7 @@ Net::Root::Root(Env               &env,
 	_mac_alloc                        { MAC_ALLOC_BASE },
 	_router_mac                       { _mac_alloc.alloc() },
 	_config                           { config },
-	_unaccounted_quota                { unaccounted_quota },
+	_shared_quota                     { shared_quota },
 	_interfaces                       { interfaces }
 { }
 
@@ -147,7 +147,7 @@ Session_component *Net::Root::_create_session(char const *args)
 {
 	try {
 		/* create session environment temporarily on the stack */
-		Session_env session_env_tmp { _env, _unaccounted_quota,
+		Session_env session_env_tmp { _env, _shared_quota,
 			Ram_quota { Arg_string::find_arg(args, "ram_quota").ulong_value(0) },
 			Cap_quota { Arg_string::find_arg(args, "cap_quota").ulong_value(0) } };
 		Reference<Session_env> session_env { session_env_tmp };

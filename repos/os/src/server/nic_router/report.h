@@ -28,11 +28,11 @@ namespace Net {
 
 	class Domain_tree;
 	class Report;
-	class Unaccounted_quota;
+	class Quota;
 }
 
 
-struct Net::Unaccounted_quota
+struct Net::Quota
 {
 	Genode::size_t ram { 0 };
 	Genode::size_t cap { 0 };
@@ -48,7 +48,7 @@ class Net::Report
 		bool                      const  _config_triggers;
 		bool                      const  _bytes;
 		bool                      const  _stats;
-		Unaccounted_quota         const &_unaccounted_quota;
+		Quota                     const &_shared_quota;
 		Genode::Pd_session              &_pd;
 		Genode::Reporter                &_reporter;
 		Domain_tree                     &_domains;
@@ -62,13 +62,13 @@ class Net::Report
 
 		struct Empty : Genode::Exception { };
 
-		Report(bool              const &verbose,
-		       Genode::Xml_node  const  node,
-		       Timer::Connection       &timer,
-		       Domain_tree             &domains,
-		       Unaccounted_quota const &unaccounted_quota,
-		       Genode::Pd_session      &pd,
-		       Genode::Reporter        &reporter);
+		Report(bool             const &verbose,
+		       Genode::Xml_node const  node,
+		       Timer::Connection      &timer,
+		       Domain_tree            &domains,
+		       Quota            const &shared_quota,
+		       Genode::Pd_session     &pd,
+		       Genode::Reporter       &reporter);
 
 		void handle_config();
 

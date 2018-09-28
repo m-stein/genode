@@ -44,19 +44,19 @@ class Genode::Session_env : public Ram_allocator,
 	private:
 
 		Env                    &_env;
-		Net::Unaccounted_quota &_unaccounted_quota;
+		Net::Quota             &_shared_quota;
 		Ram_quota_guard         _ram_guard;
 		Cap_quota_guard         _cap_guard;
 
 		template <typename FUNC>
-		void _consume(size_t  accountable_ram,
-		              size_t  max_unaccountable_ram,
-		              size_t  accountable_cap,
-		              size_t  max_unaccountable_cap,
+		void _consume(size_t  own_ram,
+		              size_t  max_shared_ram,
+		              size_t  own_cap,
+		              size_t  max_shared_cap,
 		              FUNC && functor)
 		{
-			size_t const max_ram_consumpt { accountable_ram + max_unaccountable_ram };
-			size_t const max_cap_consumpt { accountable_cap + max_unaccountable_cap };
+			size_t const max_ram_consumpt { own_ram + max_shared_ram };
+			size_t const max_cap_consumpt { own_cap + max_shared_cap };
 			size_t ram_consumpt { _env.pd().used_ram().value };
 			size_t cap_consumpt { _env.pd().used_caps().value };
 			{
@@ -75,16 +75,16 @@ class Genode::Session_env : public Ram_allocator,
 				error("Session_env: more RAM quota consumed than expected"); }
 			if (cap_consumpt > max_cap_consumpt) {
 				error("Session_env: more CAP quota consumed than expected"); }
-			if (ram_consumpt < accountable_ram) {
+			if (ram_consumpt < own_ram) {
 				error("Session_env: less RAM quota consumed than expected"); }
-			if (cap_consumpt < accountable_cap) {
+			if (cap_consumpt < own_cap) {
 				error("Session_env: less CAP quota consumed than expected"); }
 
-			_unaccounted_quota.ram += ram_consumpt - accountable_ram;
-			_unaccounted_quota.cap += cap_consumpt - accountable_cap;
+			_shared_quota.ram += ram_consumpt - own_ram;
+			_shared_quota.cap += cap_consumpt - own_cap;
 
-			_ram_guard.replenish( Ram_quota { max_unaccountable_ram } );
-			_cap_guard.replenish( Cap_quota { max_unaccountable_cap } );
+			_ram_guard.replenish( Ram_quota { max_shared_ram } );
+			_cap_guard.replenish( Cap_quota { max_shared_cap } );
 		}
 
 		template <typename FUNC>
@@ -103,8 +103,8 @@ class Genode::Session_env : public Ram_allocator,
 			if (cap_replenish < accounted_cap) {
 				error("Session_env: less CAP quota replenished than expected"); }
 
-			_unaccounted_quota.ram -= ram_replenish - accounted_ram;
-			_unaccounted_quota.cap -= cap_replenish - accounted_cap;
+			_shared_quota.ram -= ram_replenish - accounted_ram;
+			_shared_quota.cap -= cap_replenish - accounted_cap;
 
 			_ram_guard.replenish( Ram_quota { accounted_ram } );
 			_cap_guard.replenish( Cap_quota { accounted_cap } );
@@ -113,15 +113,15 @@ class Genode::Session_env : public Ram_allocator,
 
 	public:
 
-		Session_env(Env                    &env,
-		            Net::Unaccounted_quota &unaccounted_quota,
-		            Ram_quota const        &ram_quota,
-		            Cap_quota const        &cap_quota)
+		Session_env(Env             &env,
+		            Net::Quota      &shared_quota,
+		            Ram_quota const &ram_quota,
+		            Cap_quota const &cap_quota)
 		:
-			_env               { env },
-			_unaccounted_quota { unaccounted_quota },
-			_ram_guard         { ram_quota },
-			_cap_guard         { cap_quota }
+			_env          { env },
+			_shared_quota { shared_quota },
+			_ram_guard    { ram_quota },
+			_cap_guard    { cap_quota }
 		{ }
 
 		Entrypoint &ep() { return _env.ep(); }
@@ -133,13 +133,13 @@ class Genode::Session_env : public Ram_allocator,
 
 		Ram_dataspace_capability alloc(size_t size, Cache_attribute cached) override
 		{
-			enum { MAX_UNACCOUNTABLE_CAP   = 1 };
-			enum { MAX_UNACCOUNTABLE_RAM   = 4096 };
-			enum { RAM_DS_GRANULARITY_LOG2 = 12 };
+			enum { MAX_SHARED_CAP           = 1 };
+			enum { MAX_SHARED_RAM           = 4096 };
+			enum { DS_SIZE_GRANULARITY_LOG2 = 12 };
 
-			size_t const ds_size = align_addr(size, RAM_DS_GRANULARITY_LOG2);
+			size_t const ds_size = align_addr(size, DS_SIZE_GRANULARITY_LOG2);
 			Ram_dataspace_capability ds;
-			_consume(ds_size, MAX_UNACCOUNTABLE_RAM, 1, MAX_UNACCOUNTABLE_CAP, [&] () {
+			_consume(ds_size, MAX_SHARED_RAM, 1, MAX_SHARED_CAP, [&] () {
 				ds = _env.pd().alloc(ds_size, cached);
 			});
 			return ds;
@@ -168,11 +168,11 @@ class Genode::Session_env : public Ram_allocator,
 		                  bool                 executable = false,
 		                  bool                 writeable = true) override
 		{
-			enum { MAX_UNACCOUNTABLE_CAP = 2 };
-			enum { MAX_UNACCOUNTABLE_RAM = 4 * 4096 };
+			enum { MAX_SHARED_CAP = 2 };
+			enum { MAX_SHARED_RAM = 4 * 4096 };
 
 			void *ptr;
-			_consume(0, MAX_UNACCOUNTABLE_RAM, 0, MAX_UNACCOUNTABLE_CAP, [&] () {
+			_consume(0, MAX_SHARED_RAM, 0, MAX_SHARED_CAP, [&] () {
 				ptr = _env.rm().attach(ds, size, offset, use_local_addr,
 				                       local_addr, executable, writeable);
 			});
@@ -331,9 +331,9 @@ class Net::Root : public Genode::Root_component<Session_component>
 		Genode::Env              &_env;
 		Timer::Connection        &_timer;
 		Mac_allocator             _mac_alloc;
-		Mac_address const         _router_mac;
+		Mac_address        const  _router_mac;
 		Reference<Configuration>  _config;
-		Unaccounted_quota        &_unaccounted_quota;
+		Quota                    &_shared_quota;
 		Interface_list           &_interfaces;
 
 		void _invalid_downlink(char const *reason);
@@ -352,7 +352,7 @@ class Net::Root : public Genode::Root_component<Session_component>
 		     Timer::Connection &timer,
 		     Genode::Allocator &alloc,
 		     Configuration     &config,
-		     Unaccounted_quota &unaccounted_quota,
+		     Quota             &shared_quota,
 		     Interface_list    &interfaces);
 
 		void handle_config(Configuration &config) { _config = Reference<Configuration>(config); }
