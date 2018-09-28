@@ -104,7 +104,7 @@ append config {
 		        udp_idle_timeout_sec="3600"
 		        icmp_idle_timeout_sec="3600">
 
-			<report stats="no" config="no" bytes="no" interval_sec="} [expr [pause_sec] - 1] {"/>
+			<report stats="yes" config="no" bytes="no" interval_sec="} [expr [pause_sec] - 1] {"/>
 			<policy label_prefix="init -> " domain="downlinks"/>
 			<uplink                         domain="uplink"/>
 
@@ -288,6 +288,10 @@ proc test {} {
 
 	run_genode_until $desired_str [expr [min_duration_sec] * 2] $serial_id
 
+	if {[regexp {refused_for} $output]} {
+		puts stderr "*** Error: connections were refused during the test"
+		exit -1
+	}
 	if {[regexp {drop packet} $output]} {
 		puts stderr "*** Error: packets were dropped during the test"
 		exit -1
