@@ -29,6 +29,7 @@ using Genode::size_t;
 using Genode::uint32_t;
 using Genode::addr_t;
 using Genode::log;
+using Genode::error;
 using Genode::Exception;
 using Genode::Out_of_ram;
 using Genode::Out_of_caps;
@@ -214,11 +215,11 @@ static void *_prot_base(L3_protocol const  prot,
 }
 
 
-/*********************
- ** Link_statistics **
- *********************/
+/**************************
+ ** Interface_link_stats **
+ **************************/
 
-void Link_statistics::report(Genode::Xml_generator &xml)
+void Interface_link_stats::report(Genode::Xml_generator &xml)
 {
 	bool empty = true;
 
@@ -242,11 +243,11 @@ void Link_statistics::report(Genode::Xml_generator &xml)
 }
 
 
-/***********************
- ** Object_statistics **
- ***********************/
+/****************************
+ ** Interface_object_stats **
+ ****************************/
 
-void Object_statistics::report(Genode::Xml_generator &xml)
+void Interface_object_stats::report(Genode::Xml_generator &xml)
 {
 	bool empty = true;
 
@@ -330,6 +331,12 @@ void Interface::_detach_from_domain_raw()
 	_interfaces.insert(this);
 	_domain = Pointer<Domain>();
 	Signal_transmitter(_session_link_state_sigh).submit();
+
+	domain.tcp_stats().dissolve_interface(_tcp_stats);
+	domain.udp_stats().dissolve_interface(_udp_stats);
+	domain.icmp_stats().dissolve_interface(_icmp_stats);
+	domain.arp_stats().dissolve_interface(_arp_stats);
+	domain.dhcp_stats().dissolve_interface(_dhcp_stats);
 }
 
 
@@ -437,7 +444,7 @@ Interface::_new_link(L3_protocol             const  protocol,
 		try {
 			new (_alloc)
 				Tcp_link { *this, local, remote_port_alloc, remote_domain,
-				           remote, _timer, _config(), protocol, tcp_stats };
+				           remote, _timer, _config(), protocol, _tcp_stats };
 		}
 		catch (Out_of_ram)  { throw Free_resources_and_retry_handle_eth(L3_protocol::TCP); }
 		catch (Out_of_caps) { throw Free_resources_and_retry_handle_eth(L3_protocol::TCP); }
@@ -447,7 +454,7 @@ Interface::_new_link(L3_protocol             const  protocol,
 		try {
 			new (_alloc)
 				Udp_link { *this, local, remote_port_alloc, remote_domain,
-				           remote, _timer, _config(), protocol, udp_stats };
+				           remote, _timer, _config(), protocol, _udp_stats };
 		}
 		catch (Out_of_ram)  { throw Free_resources_and_retry_handle_eth(L3_protocol::UDP); }
 		catch (Out_of_caps) { throw Free_resources_and_retry_handle_eth(L3_protocol::UDP); }
@@ -457,7 +464,7 @@ Interface::_new_link(L3_protocol             const  protocol,
 		try {
 			new (_alloc)
 				Icmp_link { *this, local, remote_port_alloc, remote_domain,
-				            remote, _timer, _config(), protocol, icmp_stats };
+				            remote, _timer, _config(), protocol, _icmp_stats };
 		}
 		catch (Out_of_ram)  { throw Free_resources_and_retry_handle_eth(L3_protocol::ICMP); }
 		catch (Out_of_caps) { throw Free_resources_and_retry_handle_eth(L3_protocol::ICMP); }
@@ -548,9 +555,9 @@ void Interface::_nat_link_and_pass(Ethernet_frame        &eth,
 		});
 	} catch (Port_allocator_guard::Out_of_indices) {
 		switch (prot) {
-		case L3_protocol::TCP:  tcp_stats.refused_for_ports++;  break;
-		case L3_protocol::UDP:  udp_stats.refused_for_ports++;  break;
-		case L3_protocol::ICMP: icmp_stats.refused_for_ports++; break;
+		case L3_protocol::TCP:  _tcp_stats.refused_for_ports++;  break;
+		case L3_protocol::UDP:  _udp_stats.refused_for_ports++;  break;
+		case L3_protocol::ICMP: _icmp_stats.refused_for_ports++; break;
 		default: throw Bad_transport_protocol(); }
 	}
 }
@@ -1498,9 +1505,9 @@ void Interface::_handle_eth(void              *const  eth_base,
 					catch (Free_resources_and_retry_handle_eth exception) {
 						if (exception.prot != (L3_protocol)0) {
 							switch (exception.prot) {
-							case L3_protocol::TCP:  tcp_stats.refused_for_ram++;  break;
-							case L3_protocol::UDP:  udp_stats.refused_for_ram++;  break;
-							case L3_protocol::ICMP: icmp_stats.refused_for_ram++; break;
+							case L3_protocol::TCP:  _tcp_stats.refused_for_ram++;  break;
+							case L3_protocol::UDP:  _udp_stats.refused_for_ram++;  break;
+							case L3_protocol::ICMP: _icmp_stats.refused_for_ram++; break;
 							default: throw Bad_transport_protocol(); }
 						}
 
@@ -1971,20 +1978,8 @@ void Interface::cancel_arp_waiting(Arp_waiter &waiter)
 
 Interface::~Interface()
 {
-	try {
-		Domain &domain = _domain();
-		_detach_from_domain();
-		_interfaces.remove(this);
-		domain.tcp_stats.add(tcp_stats);
-		domain.udp_stats.add(udp_stats);
-		domain.icmp_stats.add(icmp_stats);
-		domain.arp_stats.add(arp_stats);
-		domain.dhcp_stats.add(dhcp_stats);
-	}
-	catch (Pointer<Domain>::Invalid) { }
 	_detach_from_domain();
 	_interfaces.remove(this);
-	
 }
 
 
@@ -1997,12 +1992,39 @@ void Interface::report(Genode::Xml_generator &xml)
 			xml.attribute("label", _policy.label());
 			try { _policy.report(xml); empty = false; } catch (Report::Empty) { }
 
-			try { xml.node("tcp-links",        [&] () { tcp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
-			try { xml.node("udp-links",        [&] () { udp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
-			try { xml.node("icmp-links",       [&] () { icmp_stats.report(xml); }); empty = false; } catch (Report::Empty) { }
-			try { xml.node("arp-waiters",      [&] () { arp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
-			try { xml.node("dhcp-allocations", [&] () { dhcp_stats.report(xml); }); empty = false; } catch (Report::Empty) { }
+			try { xml.node("tcp-links",        [&] () { _tcp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
+			try { xml.node("udp-links",        [&] () { _udp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
+			try { xml.node("icmp-links",       [&] () { _icmp_stats.report(xml); }); empty = false; } catch (Report::Empty) { }
+			try { xml.node("arp-waiters",      [&] () { _arp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
+			try { xml.node("dhcp-allocations", [&] () { _dhcp_stats.report(xml); }); empty = false; } catch (Report::Empty) { }
 			if (empty) { throw Report::Empty(); }
 		});
 	}
+}
+
+
+/**************************
+ ** Interface_link_stats **
+ **************************/
+
+Interface_link_stats::~Interface_link_stats()
+{
+	if (opening ||
+	    open    ||
+	    closing ||
+	    closed)
+	{
+		error("closing interface has dangling links");
+	}
+}
+
+
+/****************************
+ ** Interface_object_stats **
+ ****************************/
+
+Interface_object_stats::~Interface_object_stats()
+{
+	if (alive) {
+		error("closing interface has dangling links"); }
 }

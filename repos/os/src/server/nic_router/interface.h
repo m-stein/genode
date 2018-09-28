@@ -44,66 +44,43 @@ namespace Net {
 	class Interface_policy;
 	class Interface;
 	using Interface_list = List<Interface>;
+	class Interface_link_stats;
+	class Interface_object_stats;
 	class Dhcp_server;
 	class Configuration;
 	class Domain;
-	class Link_statistics;
-	class Object_statistics;
 }
 
 
-struct Net::Link_statistics
-{
-	Genode::size_t refused_for_ram   { 0 };
-	Genode::size_t refused_for_ports { 0 };
-
-	Genode::size_t opening { 0 };
-	Genode::size_t open    { 0 };
-	Genode::size_t closing { 0 };
-	Genode::size_t closed  { 0 };
-
-	Genode::size_t dissolved_timeout_opening { 0 };
-	Genode::size_t dissolved_timeout_open    { 0 };
-	Genode::size_t dissolved_timeout_closing { 0 };
-	Genode::size_t dissolved_timeout_closed  { 0 };
-	Genode::size_t dissolved_no_timeout      { 0 };
-
-	Genode::size_t destroyed { 0 };
-
-	void add(Link_statistics const &stats)
-	{
-		refused_for_ram   += stats.refused_for_ram  ;
-		refused_for_ports += stats.refused_for_ports;
-
-		opening += stats.opening;
-		open    += stats.open   ;
-		closing += stats.closing;
-		closed  += stats.closed ;
-
-		dissolved_timeout_opening += stats.dissolved_timeout_opening;
-		dissolved_timeout_open    += stats.dissolved_timeout_open   ;
-		dissolved_timeout_closing += stats.dissolved_timeout_closing;
-		dissolved_timeout_closed  += stats.dissolved_timeout_closed ;
-		dissolved_no_timeout      += stats.dissolved_no_timeout     ;
-
-		destroyed += stats.destroyed;
-	}
-
-	void report(Genode::Xml_generator &xml);
-};
-
-struct Net::Object_statistics
+struct Net::Interface_object_stats
 {
 	Genode::size_t alive     { 0 };
 	Genode::size_t destroyed { 0 };
 
 	void report(Genode::Xml_generator &xml);
 
-	void add(Object_statistics const &stats)
-	{
-		alive     += stats.alive    ;
-		destroyed += stats.destroyed;
-	}
+	~Interface_object_stats();
+};
+
+
+struct Net::Interface_link_stats
+{
+	Genode::size_t refused_for_ram           { 0 };
+	Genode::size_t refused_for_ports         { 0 };
+	Genode::size_t opening                   { 0 };
+	Genode::size_t open                      { 0 };
+	Genode::size_t closing                   { 0 };
+	Genode::size_t closed                    { 0 };
+	Genode::size_t dissolved_timeout_opening { 0 };
+	Genode::size_t dissolved_timeout_open    { 0 };
+	Genode::size_t dissolved_timeout_closing { 0 };
+	Genode::size_t dissolved_timeout_closed  { 0 };
+	Genode::size_t dissolved_no_timeout      { 0 };
+	Genode::size_t destroyed                 { 0 };
+
+	void report(Genode::Xml_generator &xml);
+
+	~Interface_link_stats();
 };
 
 
@@ -177,6 +154,11 @@ class Net::Interface : private Interface_list::Element
 		Dhcp_client                           _dhcp_client               { _alloc, _timer, *this };
 		Interface_list                       &_interfaces;
 		Genode::Constructible<Update_domain>  _update_domain             { };
+		Interface_link_stats                  _udp_stats                 { };
+		Interface_link_stats                  _tcp_stats                 { };
+		Interface_link_stats                  _icmp_stats                { };
+		Interface_object_stats                _arp_stats                 { };
+		Interface_object_stats                _dhcp_stats                { };
 
 		void _new_link(L3_protocol             const  protocol,
 		               Link_side_id            const &local_id,
@@ -379,12 +361,6 @@ class Net::Interface : private Interface_list::Element
 
 	public:
 
-		Link_statistics   udp_stats  { };
-		Link_statistics   tcp_stats  { };
-		Link_statistics   icmp_stats { };
-		Object_statistics arp_stats  { };
-		Object_statistics dhcp_stats { };
-
 		struct Free_resources_and_retry_handle_eth : Genode::Exception { L3_protocol prot; Free_resources_and_retry_handle_eth(L3_protocol prot = (L3_protocol)0) : prot(prot) { } };
 		struct Bad_send_dhcp_args                  : Genode::Exception { };
 		struct Bad_transport_protocol              : Genode::Exception { };
@@ -475,15 +451,20 @@ class Net::Interface : private Interface_list::Element
 		 ** Accessors **
 		 ***************/
 
-		Configuration const &config()     const { return _config(); }
-		Domain              &domain()           { return _domain(); }
-		Mac_address   const &router_mac() const { return _router_mac; }
-		Mac_address   const &mac()        const { return _mac; }
-		Arp_waiter_list     &own_arp_waiters()  { return _own_arp_waiters; }
-		Signal_handler      &sink_ack()         { return _sink_ack; }
-		Signal_handler      &sink_submit()      { return _sink_submit; }
-		Signal_handler      &source_ack()       { return _source_ack; }
-		Signal_handler      &source_submit()    { return _source_submit; }
+		Configuration    const &config()     const { return _config(); }
+		Domain                 &domain()           { return _domain(); }
+		Mac_address      const &router_mac() const { return _router_mac; }
+		Mac_address      const &mac()        const { return _mac; }
+		Arp_waiter_list        &own_arp_waiters()  { return _own_arp_waiters; }
+		Signal_handler         &sink_ack()         { return _sink_ack; }
+		Signal_handler         &sink_submit()      { return _sink_submit; }
+		Signal_handler         &source_ack()       { return _source_ack; }
+		Signal_handler         &source_submit()    { return _source_submit; }
+		Interface_link_stats   &udp_stats()        { return _udp_stats; }
+		Interface_link_stats   &tcp_stats()        { return _tcp_stats; }
+		Interface_link_stats   &icmp_stats()       { return _icmp_stats; }
+		Interface_object_stats &arp_stats()        { return _arp_stats; }
+		Interface_object_stats &dhcp_stats()       { return _dhcp_stats; }
 
 		void session_link_state_sigh(Genode::Signal_context_capability sigh);
 };

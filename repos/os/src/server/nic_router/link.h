@@ -45,7 +45,7 @@
 
 namespace Net {
 
-	class  Link_statistics;
+	class  Interface_link_stats;
 	class  Configuration;
 	class  Port_allocator_guard;
 	class  Tcp_packet;
@@ -154,7 +154,7 @@ class Net::Link : public Link_list::Element
 		Link_side                      _client;
 		Link_side                      _server;
 		bool                           _opening { true };
-		Link_statistics               &_stats;
+		Interface_link_stats          &_stats;
 		Reference<Genode::size_t>      _stats_curr;
 
 		void _handle_dissolve_timeout(Genode::Duration);
@@ -174,7 +174,7 @@ class Net::Link : public Link_list::Element
 		     Configuration                       &config,
 		     L3_protocol                   const  protocol,
 		     Genode::Microseconds          const  dissolve_timeout,
-		     Link_statistics                     &stats);
+		     Interface_link_stats                &stats);
 
 		~Link();
 
@@ -237,7 +237,7 @@ class Net::Tcp_link : public Link
 		         Timer::Connection             &timer,
 		         Configuration                 &config,
 		         L3_protocol             const  protocol,
-		         Link_statistics               &stats);
+		         Interface_link_stats          &stats);
 
 		void client_packet(Tcp_packet &tcp) { _tcp_packet(tcp, _client, _server); }
 
@@ -255,7 +255,7 @@ struct Net::Udp_link : Link
 	         Timer::Connection             &timer,
 	         Configuration                 &config,
 	         L3_protocol             const  protocol,
-	         Link_statistics               &stats);
+	         Interface_link_stats          &stats);
 
 	void client_packet() { _packet(); }
 
@@ -273,7 +273,7 @@ struct Net::Icmp_link : Link
 	          Timer::Connection             &timer,
 	          Configuration                 &config,
 	          L3_protocol             const  protocol,
-	          Link_statistics               &stats);
+	          Interface_link_stats          &stats);
 
 	void client_packet() { _packet(); }
 

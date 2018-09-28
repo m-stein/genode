@@ -372,11 +372,11 @@ void Domain::report(Xml_generator &xml)
 			empty = false;
 		}
 		if (_config.report().stats()) {
-			try { xml.node("tcp-links",        [&] () { tcp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
-			try { xml.node("udp-links",        [&] () { udp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
-			try { xml.node("icmp-links",       [&] () { icmp_stats.report(xml); }); empty = false; } catch (Report::Empty) { }
-			try { xml.node("arp-waiters",      [&] () { arp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
-			try { xml.node("dhcp-allocations", [&] () { dhcp_stats.report(xml); }); empty = false; } catch (Report::Empty) { }
+			try { xml.node("tcp-links",        [&] () { _tcp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
+			try { xml.node("udp-links",        [&] () { _udp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
+			try { xml.node("icmp-links",       [&] () { _icmp_stats.report(xml); }); empty = false; } catch (Report::Empty) { }
+			try { xml.node("arp-waiters",      [&] () { _arp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
+			try { xml.node("dhcp-allocations", [&] () { _dhcp_stats.report(xml); }); empty = false; } catch (Report::Empty) { }
 		}
 		_interfaces.for_each([&] (Interface &interface) {
 			try {
@@ -387,4 +387,48 @@ void Domain::report(Xml_generator &xml)
 		if (empty) {
 			throw Report::Empty(); }
 	});
+}
+
+
+/***********************
+ ** Domain_link_stats **
+ ***********************/
+
+void
+Domain_link_stats::dissolve_interface(Interface_link_stats const &stats)
+{
+	refused_for_ram   += stats.refused_for_ram;
+	refused_for_ports += stats.refused_for_ports;
+	destroyed         += stats.destroyed;
+}
+
+
+void Domain_link_stats::report(Genode::Xml_generator &xml)
+{
+	bool empty = true;
+
+	if (refused_for_ram)   { xml.node("refused_for_ram",   [&] () { xml.attribute("value", refused_for_ram); });   empty = false; }
+	if (refused_for_ports) { xml.node("refused_for_ports", [&] () { xml.attribute("value", refused_for_ports); }); empty = false; }
+	if (destroyed)         { xml.node("destroyed",         [&] () { xml.attribute("value", destroyed); });         empty = false; }
+
+	if (empty) { throw Report::Empty(); }
+}
+
+
+/*************************
+ ** Domain_object_stats **
+ *************************/
+
+void
+Domain_object_stats::dissolve_interface(Interface_object_stats const &stats)
+{
+	destroyed += stats.destroyed;
+}
+
+
+void Domain_object_stats::report(Genode::Xml_generator &xml)
+{
+	bool empty = true;
+	if (destroyed) { xml.node("destroyed", [&] () { xml.attribute("value", destroyed); }); empty = false; }
+	if (empty) { throw Report::Empty(); }
 }

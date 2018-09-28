@@ -122,7 +122,7 @@ Link::Link(Interface                     &cln_interface,
            Configuration                 &config,
            L3_protocol             const  protocol,
            Microseconds            const  dissolve_timeout,
-           Link_statistics               &stats)
+           Interface_link_stats          &stats)
 :
 	_config(config),
 	_client_interface(cln_interface),
@@ -231,7 +231,7 @@ Tcp_link::Tcp_link(Interface                     &cln_interface,
                    Timer::Connection             &timer,
                    Configuration                 &config,
                    L3_protocol             const  protocol,
-                   Link_statistics               &stats)
+                   Interface_link_stats          &stats)
 :
 	Link(cln_interface, cln_id, srv_port_alloc, srv_domain, srv_id, timer,
 	     config, protocol, config.tcp_idle_timeout(), stats)
@@ -312,7 +312,7 @@ Udp_link::Udp_link(Interface                     &cln_interface,
                    Timer::Connection             &timer,
                    Configuration                 &config,
                    L3_protocol             const  protocol,
-                   Link_statistics               &stats)
+                   Interface_link_stats          &stats)
 :
 	Link(cln_interface, cln_id, srv_port_alloc, srv_domain, srv_id, timer,
 	     config, protocol, config.udp_idle_timeout(), stats)
@@ -343,7 +343,7 @@ Icmp_link::Icmp_link(Interface                     &cln_interface,
                      Timer::Connection             &timer,
                      Configuration                 &config,
                      L3_protocol             const  protocol,
-                     Link_statistics               &stats)
+                     Interface_link_stats          &stats)
 :
 	Link(cln_interface, cln_id, srv_port_alloc, srv_domain, srv_id, timer,
 	     config, protocol, config.icmp_idle_timeout(), stats)
