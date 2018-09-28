@@ -33,6 +33,7 @@ Net::Report::Report(bool        const &verbose,
 	_config_triggers { node.attribute_value("config_triggers", false) },
 	_bytes           { node.attribute_value("bytes", true) },
 	_stats           { node.attribute_value("stats", true) },
+	_quota           { node.attribute_value("quota", true) },
 	_shared_quota    { shared_quota },
 	_pd              { pd },
 	_reporter        { reporter },
@@ -48,16 +49,18 @@ void Net::Report::_report()
 {
 	try {
 		Reporter::Xml_generator xml(_reporter, [&] () {
-			xml.node("ram", [&] () {
-				xml.attribute("quota",  _pd.ram_quota().value);
-				xml.attribute("used",   _pd.used_ram().value);
-				xml.attribute("shared", _shared_quota.ram);
-			});
-			xml.node("cap", [&] () {
-				xml.attribute("quota",  _pd.cap_quota().value);
-				xml.attribute("used",   _pd.used_caps().value);
-				xml.attribute("shared", _shared_quota.cap);
-			});
+			if (_quota) {
+				xml.node("ram", [&] () {
+					xml.attribute("quota",  _pd.ram_quota().value);
+					xml.attribute("used",   _pd.used_ram().value);
+					xml.attribute("shared", _shared_quota.ram);
+				});
+				xml.node("cap", [&] () {
+					xml.attribute("quota",  _pd.cap_quota().value);
+					xml.attribute("used",   _pd.used_caps().value);
+					xml.attribute("shared", _shared_quota.cap);
+				});
+			}
 			_domains.for_each([&] (Domain &domain) {
 				try { domain.report(xml); }
 				catch (Empty) { }

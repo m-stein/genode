@@ -48,6 +48,7 @@ class Net::Report
 		bool                      const  _config_triggers;
 		bool                      const  _bytes;
 		bool                      const  _stats;
+		bool                      const  _quota;
 		Quota                     const &_shared_quota;
 		Genode::Pd_session              &_pd;
 		Genode::Reporter                &_reporter;
