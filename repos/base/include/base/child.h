@@ -602,7 +602,7 @@ class Genode::Child : protected Rpc_object<Parent>,
 				}
 				catch (Service_denied) {
 					error(_child._policy.name(), ": ", _service_name(), " "
-					      "environment session denied"); }
+					      "environment session denied (", _args.string(), ")"); }
 			}
 
 			typedef typename CONNECTION::Session_type SESSION;
