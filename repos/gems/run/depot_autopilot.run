@@ -44,6 +44,7 @@ set y {
 	test-dynamic_config
 	test-dynamic_config_loader
 	test-dynamic_config_slave
+	test-expat
 	test-fault_detection
 	test-fpu
 	test-fs_log
