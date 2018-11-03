@@ -87,6 +87,7 @@ set y {
 	test-rom_filter
 	test-rtc
 	test-rust
+	test-sequence
 	test-signal
 	test-slab
 	test-stdcxx
