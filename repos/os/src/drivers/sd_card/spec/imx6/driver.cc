@@ -13,7 +13,7 @@
 
 /* local includes */
 #include <driver.h>
-#include <drivers/defs/imx6.h>
+#include <defs.h>
 
 using namespace Sd_card;
 using namespace Genode;
@@ -67,8 +67,11 @@ bool Driver::_issue_cmd_finish_xfertyp(Xfertyp::access_t &,
 
 bool Driver::_supported_host_version(Hostver::access_t hostver)
 {
-	return Hostver::Vvn::get(hostver) == 0 &&
-	       Hostver::Svn::get(hostver) == 3;
+	Hostver::access_t const vvn = Hostver::Vvn::get(hostver);
+	Hostver::access_t const svn = Hostver::Svn::get(hostver);
+	return
+		(vvn == 0 && svn == 3) ||
+		(vvn == 3 && svn == 2);
 }
 
 
@@ -121,8 +124,8 @@ void Driver::_enable_clock_finish() { Mmio::write<Vendspec::Frc_sdclk_on>(0); }
 Driver::Driver(Env &env)
 :
 	Driver_base(env.ram()),
-	Attached_mmio(env, Imx6::SDHC_MMIO_BASE, Imx6::SDHC_MMIO_SIZE),
-	_env(env), _irq(env, Imx6::SDHC_IRQ)
+	Attached_mmio(env, MMIO_BASE, Imx6::SDHC_MMIO_SIZE),
+	_env(env), _irq(env, IRQ)
 {
 	log("SD card detected");
 	log("capacity: ", card_info().capacity_mb(), " MiB");
