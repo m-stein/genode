@@ -230,7 +230,6 @@ _ZN6Genode4Slab5allocEmPPv T
 _ZN6Genode4Slab9insert_sbEPv T
 _ZN6Genode4SlabC1EmmPvPNS_9AllocatorE T
 _ZN6Genode4SlabC2EmmPvPNS_9AllocatorE T
-_ZN6Genode4Slab8metadataEm T
 _ZN6Genode4SlabD0Ev T
 _ZN6Genode4SlabD1Ev T
 _ZN6Genode4SlabD2Ev T
@@ -547,7 +546,7 @@ _ZTVN6Genode14Rpc_entrypointE D 80
 _ZTVN6Genode14Signal_contextE D 32
 _ZTVN6Genode17Region_map_clientE D 72
 _ZTVN6Genode17Rm_session_clientE D 48
-_ZTVN6Genode18Allocator_avl_baseE D 136
+_ZTVN6Genode18Allocator_avl_baseE D 128
 _ZTVN6Genode23Alarm_timeout_schedulerE D 112
 _ZTVN6Genode4HeapE D 72
 _ZTVN6Genode4SlabE D 72
