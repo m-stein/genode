@@ -137,11 +137,6 @@ class Genode::Slab : public Allocator
 		 */
 		Allocator *backing_store() { return _backing_store; }
 
-		/**
-		 * Return whether a given address is the base of one of our slab blocks
-		 */
-		bool metadata(addr_t addr);
-
 
 		/*************************
 		 ** Allocator interface **
