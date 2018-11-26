@@ -215,11 +215,6 @@ class Genode::Allocator_avl_base : public Range_allocator
 		 */
 		void _revert_allocations_and_ranges();
 
-		/*
-		 * Whether an address points to metadata of our metadata allocator
-		 */
-		virtual bool _metadata_of_md_alloc(addr_t const) { return false; }
-
 		/**
 		 * Find block by specified address
 		 */
@@ -315,11 +310,6 @@ class Genode::Allocator_avl_base : public Range_allocator
 template <typename BMDT, unsigned SLAB_BLOCK_SIZE>
 class Genode::Allocator_avl_tpl : public Allocator_avl_base
 {
-	private:
-
-		bool _metadata_of_md_alloc(addr_t const addr) override {
-			return _metadata.metadata(addr); }
-
 	protected:
 
 		/*
