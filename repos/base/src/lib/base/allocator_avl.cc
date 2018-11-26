@@ -170,19 +170,10 @@ void Allocator_avl_base::_revert_allocations_and_ranges()
 {
 	/* revert all allocations */
 	size_t dangling_allocations = 0;
-	for (;;) {
+	for (;; dangling_allocations++) {
 		addr_t addr = 0;
 		if (!any_block_addr(&addr))
 			break;
-
-		/*
-		 * If the found address is the base of a metadata block of our
-		 * metadata allocator (in case our metadata allocator uses us as its
-		 * metadata allocator) we don't want to count it as dangling
-		 * allocation as such allocations need to exist up to this point.
-		 */
-		if (!_metadata_of_md_alloc(addr)) {
-			dangling_allocations++; }
 
 		free((void *)addr);
 	}
