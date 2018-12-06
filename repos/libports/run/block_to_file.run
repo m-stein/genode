@@ -1,0 +1,88 @@
+#
+# Build
+#
+set build_components {
+	core init
+	test/block_to_file
+	drivers/timer
+	app/block_tester
+	server/ram_fs
+	server/vfs
+}
+
+build $build_components
+
+create_boot_directory
+
+#
+# Generate config
+#
+append config {
+<config>
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="RAM"/>
+		<service name="IRQ"/>
+		<service name="IO_MEM"/>
+		<service name="IO_PORT"/>
+		<service name="CAP"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="LOG"/>
+		<service name="SIGNAL" />
+	</parent-provides>
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+	<default caps="100"/>
+
+	<start name="timer">
+		<resource name="RAM" quantum="1M"/>
+		<provides><service name="Timer"/></provides>
+	</start>
+
+	<start name="ram_fs">
+		<resource name="RAM" quantum="100M"/>
+		<provides><service name="File_system"/></provides>
+		<config>
+			<default-policy root="/" writeable="yes"/>
+		</config>
+	</start>
+
+	<start name="block_to_file">
+		<resource name="RAM" quantum="10M"/>
+		<provides><service name="Block"/></provides>
+		<config> <vfs> <fs/> </vfs> </config>
+	</start>
+
+	<start name="block_tester">
+		<resource name="RAM" quantum="32M"/>
+		<config verbose="yes" report="no" log="yes" stop_on_error="no">
+			<tests>
+				<replay bulk="no">
+					<request type="read" lba="0" count="1"/>
+					<request type="read" lba="1" count="1"/>
+					<request type="read" lba="2" count="1"/>
+				</replay>
+			</tests>
+		</config>
+		<route>
+			<service name="Block"><child name="block_to_file"/></service>
+			<any-service> <parent/> <any-child /> </any-service>
+		</route>
+	</start>
+</config>}
+
+install_config $config
+
+set boot_modules {
+	core init timer block_tester block_to_file
+	ld.lib.so ada.lib.so ram_fs vfs.lib.so
+}
+
+build_boot_image $boot_modules
+
+append qemu_args " -nographic -m 512 "
+
+run_genode_until {child "block_tester" exited with exit value 0.*?\n} 60
