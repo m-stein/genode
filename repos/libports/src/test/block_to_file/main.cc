@@ -31,8 +31,12 @@ namespace Local { class Driver; }
  ** Ada interface for C **
  *************************/
 
-extern "C" void ada_block_read(Block::sector_t block_number,
-                            size_t          block_size);
+extern "C" void ada_block_read(Genode::off_t                    offset,
+                               Genode::size_t                   size,
+                               Block::Packet_descriptor::Opcode op,
+                               Block::sector_t                  block_number,
+                               Genode::size_t                   block_count,
+                               bool                             success);
 
 
 /***************
@@ -83,7 +87,12 @@ class Local::Driver : public Block::Driver
 		          char                     *,
 		          Block::Packet_descriptor &pkt) override
 		{
-			ada_block_read(block_number, block_count);
+			ada_block_read(pkt.offset(),
+			               pkt.size(),
+			               pkt.operation(),
+			               block_number,
+			               block_count,
+			               pkt.succeeded());
 			ack_packet(pkt);
 		}
 
