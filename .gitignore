@@ -2,7 +2,7 @@
 *.orig
 *.swp
 *.rej
-
+/repos/libports/src/test/block_to_file/gps/
 /build
 /contrib
 /depot
