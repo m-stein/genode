@@ -10,15 +10,30 @@ is
      with Spark_Mode => Off
    is
       pragma warnings(off, "no global contract");
-      procedure Ext_C_Log(C_Message_Out : System.Address)
+      procedure C_Genode_Log(C_Message : System.Address)
         with
           import,
           convention => c,
-          external_name => "print_string";
+          external_name => "c_genode_log";
 
       C_Message : String := Message & Character'Val(0);
    begin
-      Ext_C_Log(C_Message'Address);
-   end Log;
+      C_Genode_Log(C_Message'Address);
+   end log;
+
+   procedure Error(Message : String)
+     with Spark_Mode => Off
+   is
+      pragma warnings(off, "no global contract");
+      procedure C_Genode_Error(C_Message : System.Address)
+        with
+          import,
+          convention => c,
+          external_name => "c_genode_error";
+
+      C_Message : String := Message & Character'Val(0);
+   begin
+      C_Genode_Error(C_Message'Address);
+   end Error;
 
 end Global;

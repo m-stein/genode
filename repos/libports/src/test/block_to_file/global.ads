@@ -17,5 +17,6 @@ is
    end record;
 
    procedure Log(Message : String);
+   procedure Error(Message : String);
 
 end Global;

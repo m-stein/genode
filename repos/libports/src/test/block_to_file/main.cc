@@ -165,8 +165,6 @@ struct Main
 		Vfs::Vfs_handle::Guard root_guard(vfs_root_handle);
 
 		::Path path {"/block"};
-//		path.append();
-
 		Vfs::Vfs_handle *handle = nullptr;
 		assert_open(vfs_root.open(
 			path.base(), Directory_service::OPEN_MODE_CREATE, &handle, heap));
@@ -190,17 +188,5 @@ void Component::construct(Genode::Env &env)
  ** C interface for Ada **
  *************************/
 
-extern "C" void print_sector(Block::sector_t a)
-{
-	log("  sector ", a);
-}
-
-extern "C" void print_size(size_t a)
-{
-	log("  size ", a);
-}
-
-extern "C" void print_string(char const *str)
-{
-	log(str);
-}
+extern "C" void c_genode_log(char const *str)   { log(str); }
+extern "C" void c_genode_error(char const *str) { error(str); }
