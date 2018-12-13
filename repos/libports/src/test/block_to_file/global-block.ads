@@ -26,8 +26,7 @@ private
                             Packet : in     Packet_Type) with
      pre =>
        Packet.Block_Count > 0
-       and (for some Slot_Index in Packet_Buffer.Slot_Index_Type => 
-              not Object.Packet_Buffer_Object.Slots_Used(Slot_Index))
+       and not Packet_Buffer.Full(Object.Packet_Buffer_Object)
        and Packet.Block_Number + Sector_Type(Packet.Block_Count) < Max_Blocks;
 
 end Global.Block;

@@ -2,42 +2,45 @@ pragma Ada_2012;
 
 package Global.Packet_Buffer with Spark_Mode is
    
-   type Slot_Index_Type is new Positive range 1..1024;
-   type Slots_Type is array (Slot_Index_Type) of Packet_Type;
-   type Slots_Used_Type is array (Slot_Index_Type) of Boolean;
+   type Object_Type is private;
    
-   type Object_Type is record
-      Slots      : Slots_Type;
-      Slots_Used : Slots_Used_Type := (others => False);
-   end record;
-   
-   procedure Insert(Object : in out Object_Type;
-                    Packet : in     Packet_Type) with
-     Pre =>
-   -- one of the slots is not in use
-     (for some Slot_Index in Slot_Index_Type =>
-        not Object.Slots_Used(Slot_Index)),
-     Post =>
-   -- one of the slots is in use and contains the new packet
-     (for some Slot_Index in Slot_Index_Type =>
-        Object.Slots_Used(Slot_Index)),
-   -- and Object.Slots(Slot_Index) = Packet),
-     Global => null;
+   function Packet_In_Buffer(Object : in Object_Type;
+                             Packet : in Packet_Type) return Boolean with Ghost;
    
    function Full(Object : in Object_Type) return Boolean with
-     Post =>
-   --- if true is returned, all slots are in use
-     (if Full'Result then
-        (for all Slot_Index_1 in Slot_Index_Type =>
-             Object.Slots_Used(Slot_Index_1))
-          else
-          --- otherwise. one slot is not in use
-        (for some Slot_Index in Slot_Index_Type =>
-             not Object.Slots_Used(Slot_Index))),
      Global => null;
+      
+   procedure Insert(Object : in out Object_Type;
+                    Packet : in     Packet_Type)
+     with
+       Pre => not Full(Object),
+     Post => Packet_In_Buffer(Object, Packet),
+     Global => null;
+   
+private
+   
+   type Slot_Type is record
+      Used   : Boolean     := False;
+      Packet : Packet_Type := Packet_Type'(Offset       => 0,
+                                           Size         => 0,
+                                           Operation    => Read,
+                                           Block_Number => 0,
+                                           Block_Count  => 0,
+                                           Success      => False
+                                          );
+   end record;
+   
+   type Slot_Array_Type is array (Positive range 1..1024) of Slot_Type;
+   type Object_Type is record
+      Slot_Array : Slot_Array_Type;
+   end record;
+   
+   function Packet_In_Buffer(Object : in Object_Type;
+                             Packet : in Packet_Type) return Boolean
+   is
+     (for some Slot of Object.Slot_Array => Slot.Used and Slot.Packet = Packet);
+   
+   function Full(Object : in Object_Type) return Boolean is
+     (for all Slot of Object.Slot_Array => Slot.Used);
 
 end Global.Packet_Buffer;
---      and
---     -- all slots before the one with the new packet are in use
---     (for all Slot_Index_2 in Slot_Index_Type'First..Slot_Index_1 =>
---        Slots_Used(Slot_Index_2) = True)
