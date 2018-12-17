@@ -1,7 +1,6 @@
 pragma Ada_2012;
 
-package body Global.Block with Spark_Mode is
-   
+package body App.Block with Spark_Mode is
    
    procedure Read (Offset       : Offset_Type;
                    Size         : Size_Type;
@@ -33,9 +32,19 @@ package body Global.Block with Spark_Mode is
    procedure Internal_Read (Object : in out Object_Type;
                             Packet : in     Packet_Type)
    is
+      Chunk_In_Slot : Boolean;
+      Slot_Index    : File_Cache.Slot_Array_Index_Type;
    begin
       Log("Ada Read");
-      Packet_Buffer.Insert(Object.Packet_Buffer_Object, Packet);
+      Packet_Buffer.Insert(Object.Packet_Buffer_Object,
+                           Packet);
+      
+      File_Cache.Read_Chunk(Object.File_Cache_Object_Private,
+                            Object.File_Cache_Object_Public,
+                            0,
+                            Chunk_In_Slot,
+                            Slot_Index
+                           );
    end Internal_Read;
 
-end Global.Block;
+end App.Block;

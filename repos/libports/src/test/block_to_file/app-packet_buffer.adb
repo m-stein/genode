@@ -1,6 +1,6 @@
 pragma Ada_2012;
 
-package body Global.Packet_Buffer with Spark_Mode is
+package body App.Packet_Buffer with Spark_Mode is
    
    
    procedure Insert (Object : in out Object_Type;
@@ -10,7 +10,8 @@ package body Global.Packet_Buffer with Spark_Mode is
          
          if not Object.Slot_Array(Index).Used then
             Object.Slot_Array(Index) := Slot_Type'(Used   => True,
-                                                   Packet => Packet);
+                                                   Packet => Packet
+                                                  );
             exit Loop_Slot_Array;
          end if;
          
@@ -34,4 +35,4 @@ package body Global.Packet_Buffer with Spark_Mode is
     
    
    
-end Global.Packet_Buffer;
+end App.Packet_Buffer;

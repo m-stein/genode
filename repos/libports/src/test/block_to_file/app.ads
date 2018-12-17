@@ -1,8 +1,10 @@
 pragma Ada_2012;
 
-package Global
-with Spark_Mode => On
-is
+package App with Spark_Mode is
+   
+   pragma Pure;
+     
+   type Byte           is mod 2**8;
    type Sector_Type    is mod 2**64;
    type Size_Type      is mod 2**64;
    type Offset_Type    is new Integer;
@@ -19,4 +21,4 @@ is
    procedure Log(Message : String);
    procedure Error(Message : String);
 
-end Global;
+end App;

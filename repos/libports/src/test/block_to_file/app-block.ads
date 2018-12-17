@@ -1,11 +1,14 @@
 pragma Ada_2012;
 
-with Global.Packet_Buffer;
+with App.Packet_Buffer;
+with App.File_Cache;
 
-package Global.Block with Spark_Mode is
+package App.Block with Spark_Mode is
 
    type Object_Type is record
-      Packet_Buffer_Object : Packet_Buffer.Object_Type;
+      Packet_Buffer_Object      : Packet_Buffer.Object_Type;
+      File_Cache_Object_Private : File_Cache.Object_Private_Type;
+      File_Cache_Object_Public  : File_Cache.Object_Public_Type;
    end record;
 
    Object     : Object_Type;
@@ -20,6 +23,7 @@ package Global.Block with Spark_Mode is
      with
        export, convention => c, external_name => "ada_block_read";
 
+
 private
 
    Procedure Internal_Read (Object : in out Object_Type;
@@ -29,4 +33,4 @@ private
        and not Packet_Buffer.Full(Object.Packet_Buffer_Object)
        and Packet.Block_Number + Sector_Type(Packet.Block_Count) < Max_Blocks;
 
-end Global.Block;
+end App.Block;

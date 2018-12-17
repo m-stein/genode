@@ -1,21 +1,21 @@
 pragma Ada_2012;
 
-package Global.Packet_Buffer with Spark_Mode is
+package App.Packet_Buffer with Spark_Mode is
+   
+   pragma Pure;
    
    type Object_Type is private;
    
    function Packet_In_Buffer(Object : in Object_Type;
                              Packet : in Packet_Type) return Boolean with Ghost;
    
-   function Full(Object : in Object_Type) return Boolean with
-     Global => null;
+   function Full(Object : in Object_Type) return Boolean;
       
    procedure Insert(Object : in out Object_Type;
                     Packet : in     Packet_Type)
      with
-       Pre => not Full(Object),
-     Post => Packet_In_Buffer(Object, Packet),
-     Global => null;
+        Pre => not Full(Object),
+        Post => Packet_In_Buffer(Object, Packet);
    
 private
    
@@ -43,4 +43,4 @@ private
    function Full(Object : in Object_Type) return Boolean is
      (for all Slot of Object.Slot_Array => Slot.Used);
 
-end Global.Packet_Buffer;
+end App.Packet_Buffer;
