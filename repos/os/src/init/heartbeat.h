@@ -38,11 +38,6 @@ class Init::Heartbeat : Genode::Noncopyable
 
 		Signal_handler<Heartbeat> _timer_handler;
 
-		void _schedule_timeout()
-		{
-			_timer->trigger_once(_rate_ms*1000);
-		}
-
 		void _handle_timer()
 		{
 			bool any_skipped_heartbeats = false;
@@ -57,8 +52,6 @@ class Init::Heartbeat : Genode::Noncopyable
 
 			if (any_skipped_heartbeats)
 				_report_update_trigger.trigger_report_update();
-
-			_schedule_timeout();
 		}
 
 	public:
@@ -88,7 +81,7 @@ class Init::Heartbeat : Genode::Noncopyable
 			if (rate_ms != _rate_ms) {
 				_rate_ms = rate_ms;
 				_timer->sigh(_timer_handler);
-				_schedule_timeout();
+				_timer->trigger_periodic(_rate_ms*1000);
 			}
 		}
 };
