@@ -83,6 +83,7 @@ namespace Genode {
 			size_t           max_caps() const override { return _max_caps; }
 
 			void wait_for_exit() override;
+			bool supports_unmap() override { return true; }
 			bool supports_direct_unmap() const override { return true; }
 
 

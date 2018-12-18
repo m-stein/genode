@@ -361,21 +361,6 @@ class Genode::Region_map_component : private Weak_object<Region_map_component>,
 			return _session_ep->apply(cap, lambda);
 		}
 
-		/*
-		 * Returns the core-local address behind region 'r'
-		 */
-		addr_t _core_local_addr(Rm_region & r);
-
-		/*
-		 * Unmaps a memory area at all regions referencing this region map
-		 * as a managed dataspace.
-		 *
-		 * \param base base address of memory area
-		 * \param size size of memory area
-		 * \param core_local core-local address of the memory area
-		 */
-		void _unmap_managed_ds(addr_t base, size_t size, addr_t core_local);
-
 	public:
 
 		/**
