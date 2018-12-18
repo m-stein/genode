@@ -40,8 +40,7 @@ class Init::Heartbeat : Genode::Noncopyable
 
 		void _schedule_timeout()
 		{
-			if (_timer.constructed())
-				_timer->trigger_once(_rate_ms*1000);
+			_timer->trigger_once(_rate_ms*1000);
 		}
 
 		void _handle_timer()
