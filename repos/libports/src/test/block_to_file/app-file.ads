@@ -1,7 +1,5 @@
 pragma Ada_2012;
 
-with System;
-
 package App.File with Spark_Mode is
    
    type Chunk_Number_Type is new Integer;

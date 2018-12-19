@@ -1,15 +1,20 @@
 pragma Ada_2012;
 
 with App.Packet_Buffer;
-with App.File_Cache;
 
 package App.Block with Spark_Mode is
 
    type Object_Type is record
       Packet_Buffer_Object      : Packet_Buffer.Object_Type;
-      File_Cache_Object_Private : File_Cache.Object_Private_Type;
-      File_Cache_Object_Public  : File_Cache.Object_Public_Type;
+--      File_Cache_Object_Private : File_Cache.Object_Private_Type;
+--      File_Cache_Object_Public  : File_Cache.Object_Public_Type;
    end record;
+
+   Factorial  : constant Integer := 10*9*8*7*6*5*4*3*2*1;
+
+        pragma Export (C, Factorial, "num_from_Ada");
+--     with
+--       export, convention => c, external_name => "ada_factorial";
 
    Object     : Object_Type;
    Max_Blocks : constant Sector_Type := 1024;

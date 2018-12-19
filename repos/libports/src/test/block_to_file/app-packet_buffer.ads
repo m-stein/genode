@@ -7,7 +7,7 @@ package App.Packet_Buffer with Spark_Mode is
    type Object_Type is private;
    
    function Packet_In_Buffer(Object : in Object_Type;
-                             Packet : in Packet_Type) return Boolean with Ghost;
+                             Packet : in Packet_Type) return Boolean; -- with Ghost
    
    function Full(Object : in Object_Type) return Boolean;
       

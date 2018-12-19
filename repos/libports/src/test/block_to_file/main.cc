@@ -24,7 +24,70 @@ using namespace Genode;
 using Path = Genode::Path<Vfs::MAX_PATH_LEN>;
 using Vfs::Directory_service;
 
-namespace Local { class Driver; }
+namespace Spark {
+//
+//	/**
+//	 * Opaque object that contains the space needed to store a SPARK record.
+//	 *
+//	 * \param BYTES  size of the SPARK record in bytes
+//	 */
+//	template <Genode::size_t BYTES>
+//	struct Object
+//	{
+//		long _space[(BYTES + sizeof(long) - 1)/sizeof(long)] { };
+//	};
+//
+//	struct App_block_object : Object<1024 * >
+//	{
+//		App_block_object();
+//	};
+}
+
+namespace Local {
+
+//// app
+//
+//   type Byte           is mod 2**8;
+//   type Sector_Type    is mod 2**64;
+//   type Size_Type      is mod 2**64;
+//   type Offset_Type    is new Integer;
+//   type Operation_Type is (Read, Write, Stop);
+//   type Packet_Type is record
+//      Offset       : Offset_Type;
+//      Size         : Size_Type;
+//      Operation    : Operation_Type;
+//      Block_Number : Sector_Type;
+//      Block_Count  : Size_Type;
+//      Success      : Boolean;
+//   end record;
+
+//// packet buffer
+//
+//   type Slot_Type is record
+//      Used   : Boolean     := False;
+//      Packet : Packet_Type := Packet_Type'(Offset       => 0,
+//                                           Size         => 0,
+//                                           Operation    => Read,
+//                                           Block_Number => 0,
+//                                           Block_Count  => 0,
+//                                           Success      => False
+//                                          );
+//   end record;
+//   
+//   type Slot_Array_Type is array (Positive range 1..1024) of Slot_Type;
+//   type Object_Type is record
+//      Slot_Array : Slot_Array_Type;
+//   end record;
+//
+//
+//// block
+//   type Object_Type is record
+//      Packet_Buffer_Object : Packet_Buffer.Object_Type;
+//   end record;
+
+
+	class Driver;
+}
 
 
 /*************************
@@ -37,6 +100,8 @@ extern "C" void ada_block_read(Genode::off_t                    offset,
                                Block::sector_t                  block_number,
                                Genode::size_t                   block_count,
                                bool                             success);
+
+extern int num_from_Ada;
 
 
 /***************
@@ -170,7 +235,7 @@ struct Main
 			path.base(), Directory_service::OPEN_MODE_CREATE, &handle, heap));
 		Vfs::Vfs_handle::Guard file_guard(handle);
 
-		Genode::log("--- block to file ---");
+		Genode::log("--- block to file ---", num_from_Ada);
 		env.parent().announce(env.ep().manage(root));
 	}
 };

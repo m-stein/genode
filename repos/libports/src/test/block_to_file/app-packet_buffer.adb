@@ -2,7 +2,6 @@ pragma Ada_2012;
 
 package body App.Packet_Buffer with Spark_Mode is
    
-   
    procedure Insert (Object : in out Object_Type;
                      Packet : in     Packet_Type) is begin
       
