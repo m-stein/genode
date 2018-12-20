@@ -18,7 +18,7 @@ package body Global.Packet_Buffer with Spark_Mode is
          -- all slots up to this point are in use
          pragma Loop_Invariant
            (for all Slot_Index_1 in Slot_Index_Type'First..Slot_Index =>
-              Object.Slots_Used(Slot_Index_1) = True);
+              Object.Slots_Used(Slot_Index_1));
          
       end loop Loop_Slots_Used;
       
@@ -37,7 +37,7 @@ package body Global.Packet_Buffer with Spark_Mode is
          -- all slots up to this point are in use
          pragma Loop_Invariant
            (for all Slot_Index_1 in Slot_Index_Type'First..Slot_Index =>
-              Object.Slots_Used(Slot_Index_1) = True);
+              Object.Slots_Used(Slot_Index_1));
          
       end loop Loop_Slots_Used;
       
