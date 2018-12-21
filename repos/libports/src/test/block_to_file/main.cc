@@ -1,7 +1,6 @@
 /*
  * \brief  SD-card driver
  * \author Martin Stein
- * \author Sebastian Sumpf
  * \date   2013-03-06
  */
 
@@ -16,13 +15,55 @@
 #include <base/component.h>
 #include <base/log.h>
 #include <base/heap.h>
+#include <base/attached_ram_dataspace.h>
 #include <base/attached_rom_dataspace.h>
-#include <block/component.h>
+#include <block/request_stream.h>
 #include <vfs/simple_env.h>
 
 using namespace Genode;
 using Path = Genode::Path<Vfs::MAX_PATH_LEN>;
 using Vfs::Directory_service;
+
+namespace Local
+{
+	class Main;
+	class Block_session_component;
+}
+
+struct Local::Block_session_component : Rpc_object<Block::Session>,
+                                       Block::Request_stream
+{
+	Entrypoint &_ep;
+
+	static constexpr size_t BLOCK_SIZE = 4096;
+	static constexpr size_t NUM_BLOCKS = 16;
+
+	Block_session_component(Region_map               &rm,
+	                        Dataspace_capability      ds,
+	                        Entrypoint               &ep,
+	                        Signal_context_capability sigh)
+	:
+		Request_stream(rm, ds, ep, sigh), _ep(ep)
+	{
+		_ep.manage(*this);
+	}
+
+	~Block_session_component() { _ep.dissolve(*this); }
+
+	void info(Block::sector_t *count, size_t *block_size, Operations *ops) override
+	{
+		*count      = NUM_BLOCKS;
+		*block_size = BLOCK_SIZE;
+		*ops        = Operations();
+
+		ops->set_operation(Block::Packet_descriptor::Opcode::READ);
+		ops->set_operation(Block::Packet_descriptor::Opcode::WRITE);
+	}
+
+	void sync() override { }
+
+	Capability<Tx> tx_cap() override { return Request_stream::tx_cap(); }
+};
 
 namespace Spark {
 
@@ -37,26 +78,52 @@ namespace Spark {
 		long _space[(BYTES + sizeof(long) - 1)/sizeof(long)] { };
 	};
 
-	struct App_block_object : Object<458752>
+	struct Block_processor : Object<458752>
 	{
-		App_block_object(size_t size = sizeof(App_block_object));
+		Block_processor(size_t size = sizeof(Block_processor));
+
+		bool acceptable() const;
+
+		void submit(Block::Request);
+
+		bool execute()
+		{
+			return false;
+		}
+
+		void completed_job(Block::Request &)
+		{
+		}
+
+		/**
+		 * Apply 'fn' with completed job, reset job
+		 */
+		template <typename FN>
+		void with_any_completed_job(FN const &fn)
+		{
+			Block::Request request { };
+
+			completed_job(request);
+
+			if (request.operation_defined())
+				fn(request);
+		}
 	};
 }
 
-namespace Local { class Driver; }
 
 
-/*************************
- ** Ada interface for C **
- *************************/
-
-extern "C" void ada_block_read(Spark::App_block_object         &object,
-                               Genode::off_t                    offset,
-                               Genode::size_t                   size,
-                               Block::Packet_descriptor::Opcode op,
-                               Block::sector_t                  block_number,
-                               Genode::size_t                   block_count,
-                               bool                             success);
+///*************************
+// ** Ada interface for C **
+// *************************/
+//
+//extern "C" void ada_block_read(Spark::App_block_object         &object,
+//                               Genode::off_t                    offset,
+//                               Genode::size_t                   size,
+//                               Block::Packet_descriptor::Opcode op,
+//                               Block::sector_t                  block_number,
+//                               Genode::size_t                   block_count,
+//                               bool                             success);
 
 
 /***************
@@ -87,123 +154,185 @@ inline void assert_open(Vfs::Directory_service::Open_result r)
 }
 
 
-class Local::Driver : public Block::Driver
+//class Local::Driver : public Block::Driver
+//{
+//	private:
+//
+//		Env                     &_env;
+//		Spark::App_block_object  _app_block_object { };
+//
+//	public:
+//
+//		Driver(Env &env) : Block::Driver(env.ram()), _env(env) { }
+//
+//
+//		/*******************
+//		 ** Block::Driver **
+//		 *******************/
+//
+//		void read(Block::sector_t           block_number,
+//		          size_t                    block_count,
+//		          char                     *,
+//		          Block::Packet_descriptor &pkt) override
+//		{
+//			ada_block_read(_app_block_object,
+//			               pkt.offset(),
+//			               pkt.size(),
+//			               pkt.operation(),
+//			               block_number,
+//			               block_count,
+//			               pkt.succeeded());
+//			ack_packet(pkt);
+//		}
+//
+//		void write(Block::sector_t           block_number,
+//		           size_t                    block_count,
+//		           char const               *,
+//		           Block::Packet_descriptor &pkt) override
+//		{
+//			log(__func__, " ", block_number, " ", block_count);
+//			ack_packet(pkt);
+//		}
+//
+//		Ram_dataspace_capability alloc_dma_buffer(size_t size) override
+//		{
+//			log(__func__, " ", size);
+//			return _env.ram().alloc(size, UNCACHED);
+//		}
+//
+//		Genode::size_t block_size() override
+//		{
+//			log(__func__);
+//			return 512;
+//		}
+//
+//		Block::sector_t block_count() override
+//		{
+//			log(__func__);
+//			return 1024 * 1024 * 1024 / block_size();
+//		}
+//
+//		Block::Session::Operations ops() override
+//		{
+//			log(__func__);
+//			Block::Session::Operations ops;
+//			ops.set_operation(Block::Packet_descriptor::READ);
+//			ops.set_operation(Block::Packet_descriptor::WRITE);
+//			return ops;
+//		}
+//};
+
+struct Local::Main : Rpc_object<Typed_root<Block::Session> >
 {
-	private:
+	Env                    &_env;
+	Heap                    _heap            { _env.ram(), _env.rm() };
+	Attached_rom_dataspace  _config_rom      { _env, "config" };
+	Xml_node         const  _config_xml      { _config_rom.xml() };
 
-		Env                     &_env;
-		Spark::App_block_object  _app_block_object { };
+	Vfs::Simple_env         _vfs_env         { _env, _heap, _config_xml.sub_node("vfs") };
+	Vfs::File_system       &_vfs_root        { _vfs_env.root_dir() };
 
-	public:
+	Constructible<Attached_ram_dataspace>  _block_ds              { };
+	Constructible<Block_session_component> _block_session         { };
+	Signal_handler<Main>                   _block_request_handler { _env.ep(), *this, &Main::_handle_block_requests };
+	Spark::Block_processor                 _block_processor       { };
 
-		Driver(Env &env) : Block::Driver(env.ram()), _env(env) { }
-
-
-		/*******************
-		 ** Block::Driver **
-		 *******************/
-
-		void read(Block::sector_t           block_number,
-		          size_t                    block_count,
-		          char                     *,
-		          Block::Packet_descriptor &pkt) override
-		{
-			ada_block_read(_app_block_object,
-			               pkt.offset(),
-			               pkt.size(),
-			               pkt.operation(),
-			               block_number,
-			               block_count,
-			               pkt.succeeded());
-			ack_packet(pkt);
-		}
-
-		void write(Block::sector_t           block_number,
-		           size_t                    block_count,
-		           char const               *,
-		           Block::Packet_descriptor &pkt) override
-		{
-			log(__func__, " ", block_number, " ", block_count);
-			ack_packet(pkt);
-		}
-
-		Ram_dataspace_capability alloc_dma_buffer(size_t size) override
-		{
-			log(__func__, " ", size);
-			return _env.ram().alloc(size, UNCACHED);
-		}
-
-		Genode::size_t block_size() override
-		{
-			log(__func__);
-			return 512;
-		}
-
-		Block::sector_t block_count() override
-		{
-			log(__func__);
-			return 1024 * 1024 * 1024 / block_size();
-		}
-
-		Block::Session::Operations ops() override
-		{
-			log(__func__);
-			Block::Session::Operations ops;
-			ops.set_operation(Block::Packet_descriptor::READ);
-			ops.set_operation(Block::Packet_descriptor::WRITE);
-			return ops;
-		}
-};
-
-struct Main
-{
-	struct Factory : Block::Driver_factory
+	void _handle_block_requests()
 	{
-		Env  &env;
-		Heap &heap;
+		if (!_block_session.constructed())
+			return;
 
-		Factory(Env &env, Heap &heap) : env(env), heap(heap) { }
+		Block_session_component &block_session = *_block_session;
 
-		Block::Driver *create() {
-			return new (&heap) Local::Driver(env); }
+		for (;;) {
 
-		void destroy(Block::Driver *driver) {
-			Genode::destroy(&heap, static_cast<Local::Driver*>(driver)); }
-	};
+			bool progress = false;
 
-	Env                    &env;
-	Heap                    heap            { env.ram(), env.rm() };
-	Attached_rom_dataspace  config_rom      { env, "config" };
-	Xml_node         const  config_xml      { config_rom.xml() };
-	Factory                 factory         { env, heap };
-	Block::Root root                        { env.ep(), heap, env.rm(), factory, true };
-	Vfs::Simple_env         vfs_env         { env, heap, config_xml.sub_node("vfs") };
-	Vfs::File_system       &vfs_root        { vfs_env.root_dir() };
+			/* import new requests */
+			block_session.with_requests([&] (Block::Request request) {
 
-	Main(Genode::Env &env) : env(env)
+				if (!_block_processor.acceptable())
+					return Block_session_component::Response::RETRY;
+
+				_block_processor.submit(request);
+
+				progress = true;
+
+				return Block_session_component::Response::ACCEPTED;
+			});
+
+			/* process I/O */
+			progress |= _block_processor.execute();
+
+			/* acknowledge finished jobs */
+			block_session.try_acknowledge([&] (Block_session_component::Ack &ack) {
+
+				_block_processor.with_any_completed_job([&] (Block::Request request) {
+					progress |= true;
+					ack.submit(request);
+				});
+			});
+
+			if (!progress)
+				break;
+		}
+
+		block_session.wakeup_client();
+	}
+
+	Main(Genode::Env &env) : _env(env)
 	{
 		Vfs::Vfs_handle *vfs_root_handle { nullptr };
-		vfs_root.opendir("/", false, &vfs_root_handle, heap);
+		_vfs_root.opendir("/", false, &vfs_root_handle, _heap);
 		Vfs::Vfs_handle::Guard root_guard(vfs_root_handle);
 
 		::Path path {"/block"};
 		Vfs::Vfs_handle *handle = nullptr;
-		assert_open(vfs_root.open(
-			path.base(), Directory_service::OPEN_MODE_CREATE, &handle, heap));
+		assert_open(_vfs_root.open(
+			path.base(), Directory_service::OPEN_MODE_CREATE, &handle, _heap));
 		Vfs::Vfs_handle::Guard file_guard(handle);
 
 		Genode::log("--- block to file ---");
-		env.parent().announce(env.ep().manage(root));
+		_env.parent().announce(_env.ep().manage(*this));
+	}
+
+
+	/*********************************************
+	 ** Rpc_object<Typed_root<Block::Session> > **
+	 *********************************************/
+
+	Capability<Session> session(Root::Session_args const &args,
+	                            Affinity const &) override
+	{
+		log("new block session: ", args.string());
+
+		size_t const ds_size =
+			Arg_string::find_arg(args.string(), "tx_buf_size").ulong_value(0);
+
+		Ram_quota const ram_quota = ram_quota_from_args(args.string());
+
+		if (ds_size >= ram_quota.value) {
+			warning("communication buffer size exceeds session quota");
+			throw Insufficient_ram_quota();
+		}
+
+		_block_ds.construct(_env.ram(), _env.rm(), ds_size);
+		_block_session.construct(_env.rm(), _block_ds->cap(), _env.ep(),
+		                         _block_request_handler);
+
+		return _block_session->cap();
+	}
+
+	void upgrade(Capability<Session>, Root::Upgrade_args const &) override { }
+
+	void close(Capability<Session>) override
+	{
+		_block_session.destruct();
+		_block_ds.destruct();
 	}
 };
 
-static Main *main_object;
-
-void Component::construct(Genode::Env &env)
-{
-	static Main _main(env);
-	main_object = &_main;
-}
+void Component::construct(Genode::Env &env) { static Local::Main main(env); }
 
 
 /*************************

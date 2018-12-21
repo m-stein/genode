@@ -35,4 +35,9 @@ package body App with Spark_Mode is
 	end Error;
 
 
+	function To_C_Boolean(Value : in Boolean) return C_Boolean is begin
+		if Value then return C_True; else return C_False; end if;
+	end To_C_Boolean;
+
+
 end App;

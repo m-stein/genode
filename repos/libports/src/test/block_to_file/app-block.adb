@@ -34,6 +34,28 @@ package body App.Block with Spark_Mode is
 	end Read;
 
 
+	function Acceptable(Object : in Object_Type) return C_Boolean is begin
+
+		Log("Acceptable");
+		if Packet_Buffer.Full(Object.Packet_Buffer_Object) then
+			Log("Full");
+		end if;
+		return To_C_Boolean(not Packet_Buffer.Full(Object.Packet_Buffer_Object));
+
+	end Acceptable;
+
+
+	procedure Submit(Object  : in Object_Type;
+	                 Request : in C_Request_Type)
+	is begin
+		Log("Submit");
+		if Packet_Buffer.Full(Object.Packet_Buffer_Object) then
+			Log("Full");
+		end if;
+		Log_Unsigned_Long(Integer(Request.Offset));
+	end Submit;
+
+
 	procedure Initialize_Object(Object : out Object_Type;
 	                            Size   : in  Natural)
 	is begin
