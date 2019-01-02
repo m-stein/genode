@@ -54,7 +54,7 @@ class Decorator::Config
 
 		bool show_decoration(Window_title const &title) const
 		{
-			return _policy_attribute(title, "decorator", true);
+			return _policy_attribute(title, "decoration", true);
 		}
 
 		unsigned motion(Window_title const &title) const
