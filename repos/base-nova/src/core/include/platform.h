@@ -18,6 +18,7 @@
 /* core includes */
 #include <platform_generic.h>
 #include <core_mem_alloc.h>
+#include <address_space.h>
 
 namespace Genode {
 
