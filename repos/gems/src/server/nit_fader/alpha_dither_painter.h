@@ -40,18 +40,32 @@ struct Alpha_dither_painter
 
 		int y = clipped.y1();
 
+		bool const opaque = (fade > (1 << 16));
+
 		/* scale fade value to range of alpha values */
 		fade *= 256;
 
 		for (int w, h = clipped.h() ; h--; dst_line += surface.size().w()) {
 
-			int x = clipped.x1();
+			/*
+			 * Omit dithering when presening a fully opaque image. Otherwise,
+			 * the dithering would result in a tiny bit of transparency.
+			 */
+			if (opaque) {
 
-			for (dst = dst_line, w = clipped.w(); w--; dst++, x++) {
+				for (dst = dst_line, w = clipped.w(); w--; dst++)
+					dst->pixel = 255;
 
-				int const v = Genode::Dither_matrix::value(x, y) << 13;
+			} else {
 
-				dst->pixel = Genode::min(255, Genode::max(0, (fade - v) >> 16));
+				int x = clipped.x1();
+
+				for (dst = dst_line, w = clipped.w(); w--; dst++, x++) {
+
+					int const v = Genode::Dither_matrix::value(x, y) << 13;
+
+					dst->pixel = Genode::min(255, Genode::max(0, (fade - v) >> 16));
+				}
 			}
 
 			y++;
@@ -80,23 +94,33 @@ struct Alpha_dither_painter
 		Pixel_alpha8 *src, *src_line = (Pixel_alpha8 *)texture.alpha() + src_start;
 		Pixel_alpha8 *dst, *dst_line = surface.addr()                  + dst_start;
 
+		bool const opaque = (fade > (1 << 16));
+
 		int y = clipped.y1();
 
 		for (int w, h = clipped.h() ; h--; dst_line += dst_line_w, src_line += src_line_w) {
 
-			int x = clipped.x1();
+			if (opaque) {
 
-			for (dst = dst_line, src = src_line, w = clipped.w(); w--; dst++, src++, x++) {
+				for (dst = dst_line, src = src_line, w = clipped.w(); w--; dst++, src++)
+					dst->pixel = src->pixel;
 
-				/*
-				 * Multiply texture alpha value with fade value, dither the
-				 * result.
-				 */
+			} else {
 
-				int const a = (((int)src->pixel)*fade);
-				int const v = Genode::Dither_matrix::value(x, y) << 13;
+				int x = clipped.x1();
 
-				dst->pixel = Genode::min(255, Genode::max(0, (a - v) >> 16));
+				for (dst = dst_line, src = src_line, w = clipped.w(); w--; dst++, src++, x++) {
+
+					/*
+					 * Multiply texture alpha value with fade value, dither the
+					 * result.
+					 */
+
+					int const a = (((int)src->pixel)*fade);
+					int const v = Genode::Dither_matrix::value(x, y) << 13;
+
+					dst->pixel = Genode::min(255, Genode::max(0, (a - v) >> 16));
+				}
 			}
 
 			y++;

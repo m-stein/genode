@@ -98,13 +98,17 @@ struct Texture_painter
 			 * Copy texture with alpha blending
 			 */
 			for (j = clipped.h(); j--; src += src_w, alpha += src_w, dst += dst_w)
-				for (i = clipped.w(), s = src, a = alpha, d = dst; i--; s++, d++, a++)
-					if (*a)
+				for (i = clipped.w(), s = src, a = alpha, d = dst; i--; s++, d++, a++) {
+					unsigned char const alpha = *a;
+					if (alpha == 255)
+						*d = *s;
+					else if (alpha > 0)
 						*d = PT::mix(*d, *s, *a);
+				}
 			break;
 
 		case MIXED:
-	
+
 			for (j = clipped.h(); j--; src += src_w, dst += dst_w)
 				for (i = clipped.w(), s = src, d = dst; i--; s++, d++)
 					*d = PT::avr(mix_pixel, *s);
