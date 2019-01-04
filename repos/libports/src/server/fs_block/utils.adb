@@ -2,13 +2,13 @@ pragma Ada_2012;
 
 with System;
 
-package body App with Spark_Mode is
+package body Utils with Spark_Mode is
 
 
 	procedure Log(Message : String) with Spark_Mode => Off is
 		pragma warnings(off, "no global contract");
 
-		-- append terminating null to string
+		-- Utilsend terminating null to string
 		C_Message : String := Message & Character'Val(0);
 
 		procedure C_Genode_Log(C_Message : System.Address) with
@@ -23,7 +23,7 @@ package body App with Spark_Mode is
 	procedure Error(Message : String) with Spark_Mode => Off is
 		pragma warnings(off, "no global contract");
 
-		-- append terminating null to string
+		-- Utilsend terminating null to string
 		C_Message : String := Message & Character'Val(0);
 
 		procedure C_Genode_Error(C_Message : System.Address) with
@@ -35,9 +35,4 @@ package body App with Spark_Mode is
 	end Error;
 
 
-	function To_C_Boolean(Value : in Boolean) return C_Boolean is begin
-		if Value then return C_True; else return C_False; end if;
-	end To_C_Boolean;
-
-
-end App;
+end Utils;

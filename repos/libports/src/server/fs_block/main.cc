@@ -78,17 +78,19 @@ namespace Spark {
 		long _space[(BYTES + sizeof(long) - 1)/sizeof(long)] { };
 	};
 
-	struct Block_processor : Object<458752>
+	struct Fs_block : Object<20480>
 	{
-		Block_processor(size_t size = sizeof(Block_processor));
+		Fs_block(size_t size = sizeof(Fs_block));
 
 		bool acceptable() const;
 
-		void submit(Block::Request);
+		void submit(Block::Request &request);
 
 		bool execute()
 		{
-			return false;
+			static bool x = false;
+			x = !x;
+			return x;
 		}
 
 		void completed_job(Block::Request &)
@@ -99,14 +101,9 @@ namespace Spark {
 		 * Apply 'fn' with completed job, reset job
 		 */
 		template <typename FN>
-		void with_any_completed_job(FN const &fn)
+		void with_any_completed_job(FN const &)
 		{
-			Block::Request request { };
-
-			completed_job(request);
-
-			if (request.operation_defined())
-				fn(request);
+			return;
 		}
 	};
 }
@@ -235,10 +232,11 @@ struct Local::Main : Rpc_object<Typed_root<Block::Session> >
 	Constructible<Attached_ram_dataspace>  _block_ds              { };
 	Constructible<Block_session_component> _block_session         { };
 	Signal_handler<Main>                   _block_request_handler { _env.ep(), *this, &Main::_handle_block_requests };
-	Spark::Block_processor                 _block_processor       { };
+	Spark::Fs_block                        _fs_block              { };
 
 	void _handle_block_requests()
 	{
+log("-----------------", __func__,__LINE__);
 		if (!_block_session.constructed())
 			return;
 
@@ -251,10 +249,11 @@ struct Local::Main : Rpc_object<Typed_root<Block::Session> >
 			/* import new requests */
 			block_session.with_requests([&] (Block::Request request) {
 
-				if (!_block_processor.acceptable())
+				if (!_fs_block.acceptable())
 					return Block_session_component::Response::RETRY;
 
-				_block_processor.submit(request);
+log(__func__,__LINE__, " ", &request, " ", sizeof(request), " ", (unsigned)request.operation, " ", (unsigned)request.success, " ", (unsigned long long)request.offset, " ", (unsigned)request.size);
+				_fs_block.submit(request);
 
 				progress = true;
 
@@ -262,12 +261,12 @@ struct Local::Main : Rpc_object<Typed_root<Block::Session> >
 			});
 
 			/* process I/O */
-			progress |= _block_processor.execute();
+			progress |= _fs_block.execute();
 
 			/* acknowledge finished jobs */
 			block_session.try_acknowledge([&] (Block_session_component::Ack &ack) {
 
-				_block_processor.with_any_completed_job([&] (Block::Request request) {
+				_fs_block.with_any_completed_job([&] (Block::Request request) {
 					progress |= true;
 					ack.submit(request);
 				});
@@ -339,6 +338,7 @@ void Component::construct(Genode::Env &env) { static Local::Main main(env); }
  ** C interface for Ada **
  *************************/
 
+extern "C" void c_genode_log_uint64(uint64_t v) { log(v); }
 extern "C" void c_genode_log_unsigned_long(unsigned long v) { log(v); }
 extern "C" void c_genode_log              (char const *v)   { log(v); }
 extern "C" void c_genode_error            (char const *v)   { error(v); }
