@@ -91,10 +91,11 @@ class Block::Request_stream : Genode::Noncopyable
 				                       && (packet.offset() >= 0)
 				                       && (packet.size() <= (size_t)((uint32_t)~0UL)));
 
-				Request request { .operation = operation(packet.operation()),
-				                  .success   = Request::Success::FALSE,
-				                  .offset    = (uint64_t)packet.offset(),
-				                  .size      = (uint32_t)packet.size() };
+				Request request { .operation    = operation(packet.operation()),
+				                  .success      = Request::Success::FALSE,
+				                  .block_number = (uint64_t)packet.block_number(),
+				                  .offset       = (uint64_t)packet.offset(),
+				                  .size         = (uint32_t)packet.size() };
 
 				Response const response = packet_valid
 				                        ? fn(request)
