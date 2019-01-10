@@ -24,11 +24,46 @@ namespace Block { struct Request_stream; }
 
 class Block::Request_stream : Genode::Noncopyable
 {
+	public:
+
+		class Payload
+		{
+			private:
+
+				Genode::addr_t _base;
+				Genode::size_t _size;
+
+				Genode::addr_t _addr(Block::Request request) const
+				{
+					return _base + request.offset;
+				}
+
+				bool _check_range(Block::Request request) const
+				{
+					// XXX check add overflow
+					return (_addr(request) + request.size) <= (_base + _size);
+				}
+
+			public:
+
+				Payload(Genode::Region_map &rm, Genode::Dataspace_capability ds)
+				: _base(rm.attach(ds)), _size(Genode::Dataspace_client(ds).size()) { }
+
+				template <typename FN>
+				void with_content(Block::Request request, FN const &fn)
+				{
+					if (_check_range(request))
+						fn(_addr(request));
+				}
+		};
+
 	private:
 
 		Packet_stream_tx::Rpc_object<Block::Session::Tx> _tx;
 
 		typedef Genode::Packet_stream_sink<Block::Session::Tx_policy> Tx_sink;
+
+		Payload _payload;
 
 	public:
 
@@ -37,7 +72,7 @@ class Block::Request_stream : Genode::Noncopyable
 		               Genode::Entrypoint               &ep,
 		               Genode::Signal_context_capability sigh)
 		:
-			_tx(ds, rm, ep.rpc_ep())
+			_tx(ds, rm, ep.rpc_ep()), _payload(rm, ds)
 		{
 			_tx.sigh_ready_to_ack(sigh);
 			_tx.sigh_packet_avail(sigh);
@@ -50,6 +85,8 @@ class Block::Request_stream : Genode::Noncopyable
 		}
 
 		Genode::Capability<Block::Session::Tx> tx_cap() { return _tx.cap(); }
+
+		Payload payload() const { return _payload; }
 
 		enum class Response { ACCEPTED, REJECTED, RETRY };
 

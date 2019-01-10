@@ -159,6 +159,7 @@ struct Test::Main : Rpc_object<Typed_root<Block::Session> >
 			return;
 
 		Block_session_component &block_session = *_block_session;
+		Block::Request_stream::Payload payload = block_session.payload();
 
 		for (;;) {
 
@@ -169,6 +170,12 @@ struct Test::Main : Rpc_object<Typed_root<Block::Session> >
 
 				if (!_jobs.acceptable(request))
 					return Block_session_component::Response::RETRY;
+
+				payload.with_content(request, [&] (Genode::addr_t addr) {
+					(void)request.offset;
+					(void)request.size;
+					(void)addr;
+				});
 
 				_jobs.submit(request);
 
