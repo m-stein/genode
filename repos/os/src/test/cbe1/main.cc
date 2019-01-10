@@ -16,6 +16,8 @@
 #include <base/component.h>
 #include <base/attached_ram_dataspace.h>
 #include <root/root.h>
+#include <base/heap.h>
+#include <block_session/connection.h>
 
 namespace Test {
 
@@ -71,10 +73,40 @@ struct Test::Jobs : Noncopyable
 	{
 		Block::Request request;
 
-		enum State { UNUSED, IN_PROGRESS, COMPLETE } state;
+		enum State { UNUSED, SUBMITTED, EXECUTED, COMPLETE } state;
 	};
 
-	Entry _entries[NR_OF_ENTRIES] { };
+	enum { TX_BUF_SIZE = 4 * 1024 * 1024 };
+
+	Env                        &_env;
+	Entry                       _entries[NR_OF_ENTRIES] { };
+	Genode::Heap                _heap                   { &_env.ram(), &_env.rm() };
+	Genode::Allocator_avl       _blk_alloc              { &_heap };
+	Block::Connection           _blk_connection         { _env, &_blk_alloc, TX_BUF_SIZE };
+	Block::Session::Operations  _blk_ops                {   };
+	Block::sector_t             _blk_count              { 0 };
+	size_t                      _blk_size               { 0 };
+
+	Signal_handler<Jobs> _signal1_handler { _env.ep(), *this, &Jobs::_handle_signal1 };
+	Signal_handler<Jobs> _signal2_handler { _env.ep(), *this, &Jobs::_handle_signal2 };
+
+
+	void _handle_signal1()
+	{
+		error(__func__, " ", __LINE__);
+	}
+
+	void _handle_signal2()
+	{
+		error(__func__, " ", __LINE__);
+	}
+
+	Jobs(Env &env) : _env(env)
+	{
+		_blk_connection.tx_channel()->sigh_ack_avail(_signal1_handler);
+		_blk_connection.tx_channel()->sigh_ready_to_submit(_signal2_handler);
+		_blk_connection.info(&_blk_count, &_blk_size, &_blk_ops);
+	}
 
 	bool acceptable(Block::Request) const
 	{
@@ -90,7 +122,7 @@ struct Test::Jobs : Noncopyable
 		for (unsigned i = 0; i < NR_OF_ENTRIES; i++) {
 			if (_entries[i].state == Entry::UNUSED) {
 				_entries[i] = Entry { .request = request,
-				                      .state   = Entry::IN_PROGRESS };
+				                      .state   = Entry::SUBMITTED };
 				return;
 			}
 		}
@@ -102,12 +134,59 @@ struct Test::Jobs : Noncopyable
 	{
 		bool progress = false;
 		for (unsigned i = 0; i < NR_OF_ENTRIES; i++) {
-			if (_entries[i].state == Entry::IN_PROGRESS) {
-				_entries[i].state = Entry::COMPLETE;
-				_entries[i].request.success = Block::Request::Success::TRUE;
+			if (_entries[i].state == Entry::SUBMITTED) {
+
+				Block::Request &request = _entries[i].request;
+
+				/* trigger new back-end block requests */
+				{
+					bool write { false };
+					switch (request.operation) {
+					case Block::Request::Operation::WRITE:
+						write = true;
+					case Block::Request::Operation::READ:
+					{
+						
+						Block::Packet_descriptor tmp =
+							_blk_connection.tx()->alloc_packet(request.size);
+
+						Block::Packet_descriptor p(tmp,
+							write ? Block::Packet_descriptor::WRITE :
+							        Block::Packet_descriptor::READ,
+							request.offset,
+							request.size);
+
+
+						/* simulate write */
+						if (write) {
+error(__func__, " ", __LINE__, ": writing not implemented");
+	//						char * const content = _blk_connection.tx()->packet_content(p);
+	//						Genode::memcpy(content, , p.size());
+						}
+
+						try         { _blk_connection.tx()->submit_packet(p); }
+						catch (...) { _blk_connection.tx()->release_packet(p); }
+
+						Genode::log("submit: lba:", (unsigned long)request.offset, " size:", (unsigned long)request.size,
+						            " ", write ? "tx" : "rx");
+
+						break;
+					}
+					default:
+						error(__func__, " ", __LINE__, " operation not implemented");
+					}
+				}
+
+				_entries[i].state = Entry::EXECUTED;
+				request.success = Block::Request::Success::TRUE;
 				progress = true;
 			}
 		}
+
+		/* process finished back-end block requests */
+
+//				_entries[i].request.success = Block::Request::Success::TRUE;
+//				progress = true;
 
 		return progress;
 	}
@@ -149,12 +228,15 @@ struct Test::Main : Rpc_object<Typed_root<Block::Session> >
 
 	Constructible<Block_session_component> _block_session { };
 
-	Signal_handler<Main> _request_handler { _env.ep(), *this, &Main::_handle_requests };
+	Signal_handler<Main> _signal_handler { _env.ep(), *this, &Main::_handle_signal };
 
-	Jobs<10> _jobs { };
 
-	void _handle_requests()
+	Jobs<10> _jobs { _env };
+
+	void _handle_signal()
 	{
+		error(__func__, " ", __LINE__);
+
 		if (!_block_session.constructed())
 			return;
 
@@ -218,7 +300,7 @@ struct Test::Main : Rpc_object<Typed_root<Block::Session> >
 
 		_block_ds.construct(_env.ram(), _env.rm(), ds_size);
 		_block_session.construct(_env.rm(), _block_ds->cap(), _env.ep(),
-		                         _request_handler);
+		                         _signal_handler);
 
 		return _block_session->cap();
 	}

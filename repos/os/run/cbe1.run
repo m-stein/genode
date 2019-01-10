@@ -1,4 +1,11 @@
-build { core init drivers/timer test/cbe1 app/block_tester }
+build {
+	core
+	init
+	drivers/timer
+	test/cbe1
+	app/block_tester
+	server/ram_blk
+}
 
 create_boot_directory
 
@@ -26,11 +33,20 @@ install_config {
 		<provides><service name="Timer"/></provides>
 	</start>
 
+	<start name="ram_blk" caps="200">
+		<resource name="RAM" quantum="40M"/>
+		<provides> <service name="Block"/> </provides>
+		<config size="32M" block_size="4096"/>
+	</start>
+
 	<start name="test-cbe1">
-		<resource name="RAM" quantum="1M"/>
+		<resource name="RAM" quantum="6M"/>
 		<provides><service name="Block"/></provides>
 		<config/>
-		<route> <any-service> <parent/> </any-service> </route>
+		<route>
+			<service name="Block"> <child name="ram_blk"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
 	</start>
 
 	<start name="block_tester">
@@ -54,7 +70,7 @@ install_config {
 </config>}
 
 
-build_boot_image { core init timer block_tester test-cbe1 ld.lib.so }
+build_boot_image { core init timer block_tester test-cbe1 ram_blk ld.lib.so }
 
 
 append qemu_args " -nographic -m 512 "
