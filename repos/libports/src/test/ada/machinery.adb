@@ -7,9 +7,9 @@ package body Machinery is
       Machinery := ( Temperature => 25 );
    end Initialize;
 
-   function Temperature (Machinery : Machinery_Type) return Temperature_Type is
+   function Temperature (Machinery1 : Machinery1.Machinery1_Type) return Temperature_Type is
    begin
-      return Machinery.Temperature;
+      return Machinery1.Temperature(Machinery1, Temperature_Type);
    end Temperature;
 
    procedure Heat_Up (Machinery : in out Machinery_Type) is

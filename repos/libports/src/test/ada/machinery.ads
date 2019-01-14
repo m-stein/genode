@@ -11,7 +11,7 @@ package Machinery is
           Convention    => C,
           External_Name => "_ZN5Spark9MachineryC1Ev";
 
-   function Temperature (Machinery : Machinery_Type) return Temperature_Type
+   function Temperature (Machinery1 : Machinery1.Machinery1_Type) return Temperature_Type
      with Export,
           Convention    => C,
           External_Name => "_ZNK5Spark9Machinery11temperatureEv";

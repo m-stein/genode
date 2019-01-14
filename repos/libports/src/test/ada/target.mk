@@ -1,5 +1,5 @@
 TARGET   = test-ada
-SRC_ADB  = main.adb machinery.adb
+SRC_ADB  = main.adb machinery.adb machinery1.adb
 SRC_CC   = print.cc startup.cc
 LIBS     = base ada test-ada
 
