@@ -25,6 +25,8 @@ CUSTOM_ADA_FLAGS   = -c -gnatg -gnatp -gnatpg -gnatn2
 CUSTOM_ADA_OPT     = $(CC_ADA_OPT)
 CUSTOM_ADA_INCLUDE = -I- -I$(ADA_RUNTIME_DIR) -I$(ADA_RTS_SOURCE) -I$(ADA_RUNTIME_LIB_DIR)
 
+CC_ADA_WARN_STRICT =
+
 INC_DIR += $(ADA_RUNTIME_LIB_DIR)
 
 # C runtime glue code

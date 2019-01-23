@@ -139,6 +139,13 @@ CC_CXX_WARN_STRICT ?= -Wextra -Weffc++ -Werror
 CC_CXX_WARN        ?= $(CC_WARN) $(CC_CXX_WARN_STRICT)
 
 #
+# Additional warnings for Ada
+#
+CC_ADA_WARN_STRICT ?= -gnatwd -gnatwh -gnatwl -gnatwe
+CC_ADA_WARN        ?= -gnatwa $(CC_ADA_WARN_STRICT)
+
+
+#
 # Aggregate compiler options that are common for C and C++
 #
 CC_OPT += $(CC_OPT_NOSTDINC) -g $(CC_MARCH) $(CC_OLEVEL) $(CC_OPT_DEP) $(CC_WARN)
@@ -166,7 +173,7 @@ CC_OPT     += $(CC_OPT_PIC)
 #
 CC_CXX_OPT += $(CC_OPT) $(CC_CXX_WARN)
 CC_C_OPT   += $(CC_OPT)
-CC_ADA_OPT += $(CC_OPT) -fexceptions
+CC_ADA_OPT += $(CC_OPT) $(CC_ADA_WARN) -fexceptions
 
 #
 # Rust-specific arguments
