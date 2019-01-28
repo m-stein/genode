@@ -45,7 +45,7 @@ class Lx::Pci_dev_registry
 
 		void insert(Pci_dev *pci_dev)
 		{
-			_devs.insert(pci_dev);
+			_devs.append(pci_dev);
 		}
 
 		void remove(Pci_dev *pci_dev)

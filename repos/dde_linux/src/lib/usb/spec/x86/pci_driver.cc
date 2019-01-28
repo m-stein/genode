@@ -69,7 +69,7 @@ class Pci_dev_list
 			 */
 			while (cap.valid()) {
 
-				_pci_caps.insert(new (Lx::Malloc::mem()) Element(cap));
+				_pci_caps.append(new (Lx::Malloc::mem()) Element(cap));
 
 				/* try next one. Upgrade session quota on demand.*/
 				Lx::pci()->with_upgrade([&] () {
