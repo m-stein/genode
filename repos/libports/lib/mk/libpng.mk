@@ -4,6 +4,8 @@ LIBS       += libc libm zlib
 # find 'config.h'
 INC_DIR += $(REP_DIR)/src/lib/libpng
 
+INC_DIR += $(call select_from_ports,libpng)/include/libpng
+
 CC_DEF += -DHAVE_CONFIG_H -DPNG_CONFIGURE_LIBPNG
 
 SRC_C = png.c pngset.c pngget.c pngrutil.c pngtrans.c pngwutil.c \
