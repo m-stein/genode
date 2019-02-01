@@ -59,6 +59,45 @@ static char const *print_till_line_feed(char          const *base,
 }
 
 
+static bool skip_ignorable_esc_sequence(char const *      &curr,
+                                        char const *const  end)
+{
+	struct Escape_sequence
+	{
+		char const * const base;
+		size_t       const size;
+	};
+	static Escape_sequence sequences[5]
+	{
+		{ "[0m",  3 },
+		{ "[31m", 4 },
+		{ "[32m", 4 },
+		{ "[33m", 4 },
+		{ "[34m", 4 },
+	};
+	if (*curr != ASCII_ESC) {
+		return false; }
+
+	for (unsigned id = 0; id < sizeof(sequences)/sizeof(sequences[0]); id++) {
+
+		char const *      seq_curr { sequences[id].base };
+		char const *const seq_end  { seq_curr + sequences[id].size };
+
+		for (char const *curr_cmp { curr + 1 }; curr_cmp < end;
+		     curr_cmp++, seq_curr++)
+		{
+			if (seq_curr == seq_end) {
+				curr = curr_cmp;
+				return true;
+			}
+			if (*curr_cmp != *seq_curr) {
+				break; }
+		}
+	}
+	return false;
+}
+
+
 /***********
  ** Child **
  ***********/
@@ -760,24 +799,11 @@ bool Log_event::handle_log_progress(char          const *  log_base,
                                     unsigned long const    time_ms,
                                     unsigned long const    time_sec)
 {
-	struct Skip_escape_sequence
-	{
-		char const * const base;
-		size_t       const size;
-	};
 	struct Replace_ampersend_sequence
 	{
 		char const * const base;
 		size_t       const size;
 		char         const by;
-	};
-	static Skip_escape_sequence skip_esc_seq[5]
-	{
-		{ "[0m", 3 },
-		{ "[31m", 4 },
-		{ "[32m", 4 },
-		{ "[33m", 4 },
-		{ "[34m", 4 },
 	};
 	static Replace_ampersend_sequence replace_amp_seq[3]
 	{
@@ -832,35 +858,10 @@ bool Log_event::handle_log_progress(char          const *  log_base,
 			log_curr++;
 			continue;
 		}
-		/* skip irrelevant escape sequences in the log line */
-		if (*log_curr == ASCII_ESC) {
 
-			bool seq_match { false };
+		if (skip_ignorable_esc_sequence(log_curr, log_end)) {
+			continue; }
 
-			for (unsigned i = 0; i < sizeof(skip_esc_seq)/sizeof(skip_esc_seq[0]); i++) {
-
-				char const *seq_curr { skip_esc_seq[i].base };
-				char const *seq_end  { seq_curr + skip_esc_seq[i].size };
-
-				for (char const *log_seq_curr { log_curr + 1 } ; ; log_seq_curr++, seq_curr++) {
-
-					if (seq_curr == seq_end) {
-						seq_match = true;
-						log_curr  = log_seq_curr;
-						break;
-					}
-					if (log_seq_curr == log_end) {
-						break; }
-
-					if (*log_seq_curr != *seq_curr) {
-						break; }
-				}
-				if (seq_match) {
-					break; }
-			}
-			if (seq_match) {
-				continue; }
-		}
 		char   pattern_curr_san    = *pattern_curr;
 		size_t pattern_curr_san_sz = 1;
 
