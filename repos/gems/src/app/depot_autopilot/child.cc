@@ -397,38 +397,7 @@ void Child::log_session_write(Log_event::Line const &log_line)
 	if (_skip) {
 		return; }
 
-	enum { ASCII_ESC = 27 };
-	enum { ASCII_LF  = 10 };
-	enum { ASCII_TAB = 9 };
-
 	struct Break : Exception { };
-
-	
-	struct Skip_escape_sequence
-	{
-		char const * const base;
-		size_t       const size;
-	};
-	struct Replace_ampersend_sequence
-	{
-		char const * const base;
-		size_t       const size;
-		char         const by;
-	};
-	static Skip_escape_sequence skip_esc_seq[5]
-	{
-		{ "[0m", 3 },
-		{ "[31m", 4 },
-		{ "[32m", 4 },
-		{ "[33m", 4 },
-		{ "[34m", 4 },
-	};
-	static Replace_ampersend_sequence replace_amp_seq[3]
-	{
-		{ "lt;", 3, '<' },
-		{ "amp;", 4, '&' },
-		{ "#42;", 4, '*' }
-	};
 
 	/* calculate timestamp that prefixes*/
 	unsigned long const time_us  { _timer.curr_time().trunc_to_plain_us().value - init_time_us };
@@ -441,153 +410,11 @@ void Child::log_session_write(Log_event::Line const &log_line)
 	try {
 		char const *log_print { log_base };
 		_log_events.for_each([&] (Log_event &log_event) {
-
-			bool        match        { false };
-			char const *pattern_end  { log_event.remaining_end() };
-			char const *pattern_curr { log_event.remaining_base() };
-			char const *log_curr     { log_base };
-
-			for (;;) {
-
-				/* handle end of pattern */
-				if (pattern_curr == pattern_end) {
-					match = true;
-					log_event.remaining_base() = log_event.base();
-					log_event.reset_to()       = log_event.base();
-					log_event.reset_retry()    = false;
-					break;
-				}
-				/* skip irrelevant characters in the pattern */
-				if (*pattern_curr == ASCII_LF || *pattern_curr == ASCII_TAB) {
-					pattern_curr++;
-					continue;
-				}
-				if (*pattern_curr == '*') {
-					pattern_curr++;
-					log_event.reset_to()    = pattern_curr;
-					log_event.reset_retry() = false;
-					continue;
-				}
-				/* handle end of log line */
-				if (log_curr == log_end) {
-					log_event.remaining_base() = pattern_curr;
-					break;
-				}
-				/* skip irrelevant characters in the log line */
-				if (*log_curr == ASCII_LF) {
-
-					/* forward to our log session a complete line */
-					if (log_print < log_curr) {
-						forward_to_log(time_sec, time_ms, log_print, log_curr);
-						log_print = log_curr + 1;
-					}
-					log_curr++;
-					continue;
-				}
-				if (*log_curr == ASCII_TAB) {
-					log_curr++;
-					continue;
-				}
-				/* skip irrelevant escape sequences in the log line */
-				if (*log_curr == ASCII_ESC) {
-
-					bool seq_match { false };
-
-					for (unsigned i = 0; i < sizeof(skip_esc_seq)/sizeof(skip_esc_seq[0]); i++) {
-
-						char const *seq_curr { skip_esc_seq[i].base };
-						char const *seq_end  { seq_curr + skip_esc_seq[i].size };
-
-						for (char const *log_seq_curr { log_curr + 1 } ; ; log_seq_curr++, seq_curr++) {
-
-							if (seq_curr == seq_end) {
-								seq_match = true;
-								log_curr  = log_seq_curr;
-								break;
-							}
-							if (log_seq_curr == log_end) {
-								break; }
-
-							if (*log_seq_curr != *seq_curr) {
-								break; }
-						}
-						if (seq_match) {
-							break; }
-					}
-					if (seq_match) {
-						continue; }
-				}
-				char   pattern_curr_san    = *pattern_curr;
-				size_t pattern_curr_san_sz = 1;
-
-				/* replace ampersend sequences in the pattern */
-				if (*pattern_curr == '&') {
-
-					bool seq_match { false };
-
-					for (unsigned i = 0; i < sizeof(replace_amp_seq)/sizeof(replace_amp_seq[0]); i++) {
-
-						char const *seq_curr { replace_amp_seq[i].base };
-						char const *seq_end  { seq_curr + replace_amp_seq[i].size };
-
-						for (char const *pattern_seq_curr { pattern_curr + 1 } ; ; pattern_seq_curr++, seq_curr++) {
-
-							if (seq_curr == seq_end) {
-								seq_match = true;
-								pattern_curr_san    = replace_amp_seq[i].by;
-								pattern_curr_san_sz = replace_amp_seq[i].size + 1;
-								break;
-							}
-							if (pattern_seq_curr == pattern_end) {
-								break; }
-
-							if (*pattern_seq_curr != *seq_curr) {
-								break; }
-						}
-						if (seq_match) {
-							break;
-						}
-					}
-				}
-				/* check if log keeps matching pattern */
-				if (*log_curr != pattern_curr_san) {
-					pattern_curr = log_event.reset_to();
-					if (!log_event.reset_retry()) {
-
-						log_curr++; }
-					else {
-						log_event.reset_retry() = false; }
-				} else {
-					pattern_curr += pattern_curr_san_sz;
-					log_curr++;
-					log_event.reset_retry() = true;
-				}
-			}
-			/* forward to our log session what is left */
-			if (log_print < log_curr) {
-				for (;; log_curr++) {
-
-					if (log_curr == log_end) {
-
-						forward_to_log(time_sec, time_ms, log_print, log_curr);
-						log_print = log_curr;
-						break;
-					}
-					if (*log_curr == ASCII_LF) {
-
-						forward_to_log(time_sec, time_ms, log_print, log_curr);
-						log_print = log_curr + 1;
-						break;
-					}
-				}
-			}
-			/* check if log line finished a match with the pattern */
-			if (!match) {
-				return; }
-
-			/* execute event handler and stop trying further events */
-			event_occured(log_event, time_us);
-			throw Break();
+			if (log_event.handle_log_progress(log_base, log_end, log_print,
+			                                  time_ms, time_sec)) {
+				event_occured(log_event, time_us);
+				throw Break();
+			};
 		});
 	}
 	catch (...) { }
@@ -888,6 +715,185 @@ static size_t xml_content_size(Xml_node node)
 	size_t result = 0;
 	node.with_raw_content([&] (char const *, size_t length) { result = length; });
 	return result;
+}
+
+
+bool Log_event::handle_log_progress(char          const *  log_base,
+                                    char          const *  log_end,
+                                    char          const * &log_print,
+                                    unsigned long const    time_ms,
+                                    unsigned long const    time_sec)
+{
+	enum { ASCII_ESC = 27 };
+	enum { ASCII_LF  = 10 };
+	enum { ASCII_TAB = 9 };
+
+	struct Skip_escape_sequence
+	{
+		char const * const base;
+		size_t       const size;
+	};
+	struct Replace_ampersend_sequence
+	{
+		char const * const base;
+		size_t       const size;
+		char         const by;
+	};
+	static Skip_escape_sequence skip_esc_seq[5]
+	{
+		{ "[0m", 3 },
+		{ "[31m", 4 },
+		{ "[32m", 4 },
+		{ "[33m", 4 },
+		{ "[34m", 4 },
+	};
+	static Replace_ampersend_sequence replace_amp_seq[3]
+	{
+		{ "lt;", 3, '<' },
+		{ "amp;", 4, '&' },
+		{ "#42;", 4, '*' }
+	};
+
+	bool        match        { false };
+	char const *pattern_end  { remaining_end() };
+	char const *pattern_curr { remaining_base() };
+	char const *log_curr     { log_base };
+
+	for (;;) {
+
+		/* handle end of pattern */
+		if (pattern_curr == pattern_end) {
+			match = true;
+			remaining_base() = base();
+			reset_to()       = base();
+			reset_retry()    = false;
+			break;
+		}
+		/* skip irrelevant characters in the pattern */
+		if (*pattern_curr == ASCII_LF || *pattern_curr == ASCII_TAB) {
+			pattern_curr++;
+			continue;
+		}
+		if (*pattern_curr == '*') {
+			pattern_curr++;
+			reset_to()    = pattern_curr;
+			reset_retry() = false;
+			continue;
+		}
+		/* handle end of log line */
+		if (log_curr == log_end) {
+			remaining_base() = pattern_curr;
+			break;
+		}
+		/* skip irrelevant characters in the log line */
+		if (*log_curr == ASCII_LF) {
+
+			/* forward to our log session a complete line */
+			if (log_print < log_curr) {
+				forward_to_log(time_sec, time_ms, log_print, log_curr);
+				log_print = log_curr + 1;
+			}
+			log_curr++;
+			continue;
+		}
+		if (*log_curr == ASCII_TAB) {
+			log_curr++;
+			continue;
+		}
+		/* skip irrelevant escape sequences in the log line */
+		if (*log_curr == ASCII_ESC) {
+
+			bool seq_match { false };
+
+			for (unsigned i = 0; i < sizeof(skip_esc_seq)/sizeof(skip_esc_seq[0]); i++) {
+
+				char const *seq_curr { skip_esc_seq[i].base };
+				char const *seq_end  { seq_curr + skip_esc_seq[i].size };
+
+				for (char const *log_seq_curr { log_curr + 1 } ; ; log_seq_curr++, seq_curr++) {
+
+					if (seq_curr == seq_end) {
+						seq_match = true;
+						log_curr  = log_seq_curr;
+						break;
+					}
+					if (log_seq_curr == log_end) {
+						break; }
+
+					if (*log_seq_curr != *seq_curr) {
+						break; }
+				}
+				if (seq_match) {
+					break; }
+			}
+			if (seq_match) {
+				continue; }
+		}
+		char   pattern_curr_san    = *pattern_curr;
+		size_t pattern_curr_san_sz = 1;
+
+		/* replace ampersend sequences in the pattern */
+		if (*pattern_curr == '&') {
+
+			bool seq_match { false };
+
+			for (unsigned i = 0; i < sizeof(replace_amp_seq)/sizeof(replace_amp_seq[0]); i++) {
+
+				char const *seq_curr { replace_amp_seq[i].base };
+				char const *seq_end  { seq_curr + replace_amp_seq[i].size };
+
+				for (char const *pattern_seq_curr { pattern_curr + 1 } ; ; pattern_seq_curr++, seq_curr++) {
+
+					if (seq_curr == seq_end) {
+						seq_match = true;
+						pattern_curr_san    = replace_amp_seq[i].by;
+						pattern_curr_san_sz = replace_amp_seq[i].size + 1;
+						break;
+					}
+					if (pattern_seq_curr == pattern_end) {
+						break; }
+
+					if (*pattern_seq_curr != *seq_curr) {
+						break; }
+				}
+				if (seq_match) {
+					break;
+				}
+			}
+		}
+		/* check if log keeps matching pattern */
+		if (*log_curr != pattern_curr_san) {
+			pattern_curr = reset_to();
+			if (!reset_retry()) {
+
+				log_curr++; }
+			else {
+				reset_retry() = false; }
+		} else {
+			pattern_curr += pattern_curr_san_sz;
+			log_curr++;
+			reset_retry() = true;
+		}
+	}
+	/* forward to our log session what is left */
+	if (log_print < log_curr) {
+		for (;; log_curr++) {
+
+			if (log_curr == log_end) {
+
+				forward_to_log(time_sec, time_ms, log_print, log_curr);
+				log_print = log_curr;
+				break;
+			}
+			if (*log_curr == ASCII_LF) {
+
+				forward_to_log(time_sec, time_ms, log_print, log_curr);
+				log_print = log_curr + 1;
+				break;
+			}
+		}
+	}
+	return match;
 }
 
 

@@ -98,6 +98,12 @@ class Depot_deploy::Log_event : public Event,
 
 		Log_event(Genode::Xml_node const &xml);
 
+		bool handle_log_progress(char          const *  log_base,
+		                         char          const *  log_end,
+		                         char          const * &log_print,
+		                         unsigned long const    time_ms,
+		                         unsigned long const    time_sec);
+
 
 		/***************
 		 ** Accessors **
