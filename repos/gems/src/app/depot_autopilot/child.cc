@@ -17,15 +17,51 @@
 
 using namespace Depot_deploy;
 
-static void forward_to_log(unsigned long const sec,
-                           unsigned long const ms,
-                           char   const *const base,
-                           char   const *const end)
+enum { ASCII_ESC = 27 };
+enum { ASCII_LF  = 10 };
+enum { ASCII_TAB = 9 };
+
+
+/***************
+ ** Utilities **
+ ***************/
+
+static void print_line(unsigned long const sec,
+                       unsigned long const ms,
+                       char   const *const base,
+                       char   const *const end)
 {
 	log(sec, ".", ms < 10 ? "00" : ms < 100 ? "0" : "", ms, " ",
 	    Cstring(base, end - base));
 }
 
+
+static bool seek_line_feed(char const * &curr,
+                           char const *  end)
+{
+	for (; curr < end; curr++) {
+		if (*curr == ASCII_LF) {
+			return true; }
+	}
+	return false;
+}
+
+
+static char const *print_till_line_feed(char          const *base,
+                                        char          const *curr,
+                                        char          const *end,
+                                        unsigned long const  time_ms,
+                                        unsigned long const  time_sec)
+{
+	bool const curr_at_line_feed = seek_line_feed(curr, end);
+	print_line(time_sec, time_ms, base, curr);
+	return curr + curr_at_line_feed;
+}
+
+
+/***********
+ ** Child **
+ ***********/
 
 void Child::gen_start_node(Xml_generator          &xml,
                            Xml_node                common,
@@ -724,10 +760,6 @@ bool Log_event::handle_log_progress(char          const *  log_base,
                                     unsigned long const    time_ms,
                                     unsigned long const    time_sec)
 {
-	enum { ASCII_ESC = 27 };
-	enum { ASCII_LF  = 10 };
-	enum { ASCII_TAB = 9 };
-
 	struct Skip_escape_sequence
 	{
 		char const * const base;
@@ -790,7 +822,7 @@ bool Log_event::handle_log_progress(char          const *  log_base,
 
 			/* forward to our log session a complete line */
 			if (log_print < log_curr) {
-				forward_to_log(time_sec, time_ms, log_print, log_curr);
+				print_line(time_sec, time_ms, log_print, log_curr);
 				log_print = log_curr + 1;
 			}
 			log_curr++;
@@ -877,22 +909,9 @@ bool Log_event::handle_log_progress(char          const *  log_base,
 	}
 	/* forward to our log session what is left */
 	if (log_print < log_curr) {
-		for (;; log_curr++) {
+		log_print = print_till_line_feed(log_print, log_curr, log_end,
+		                                 time_ms, time_sec); }
 
-			if (log_curr == log_end) {
-
-				forward_to_log(time_sec, time_ms, log_print, log_curr);
-				log_print = log_curr;
-				break;
-			}
-			if (*log_curr == ASCII_LF) {
-
-				forward_to_log(time_sec, time_ms, log_print, log_curr);
-				log_print = log_curr + 1;
-				break;
-			}
-		}
-	}
 	return match;
 }
 
