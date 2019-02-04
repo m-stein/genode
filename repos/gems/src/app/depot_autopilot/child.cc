@@ -241,7 +241,7 @@ void Child::gen_start_node(Xml_generator          &xml,
 			catch (Timeout_event::Invalid) { warning("Invalid timeout event"); }
 		});
 		events.for_each_sub_node("log", [&] (Xml_node const &event) {
-			_log_events.insert(new (_alloc) Log_event(event));
+			_log_events.insert(new (_alloc) Log_event(event, _alloc));
 		});
 	}
 	catch (...) { }
@@ -917,14 +917,16 @@ bool Log_event::handle_log_progress(char          const *  log_base,
 }
 
 
-Log_event::Log_event(Xml_node const &xml)
+Log_event::Log_event(Xml_node const &xml,
+                     Allocator      &alloc)
 :
 	Event           { xml, Type::LOG },
-	_base           { xml_content_base(xml) },
-	_size           { xml_content_size(xml) },
-	_remaining_base { xml_content_base(xml) },
-	_remaining_end  { _remaining_base + xml_content_size(xml) },
-	_reset_to       { xml_content_base(xml) }
+	_xml            { alloc, xml },
+	_base           { xml_content_base(_xml.xml()) },
+	_size           { xml_content_size(_xml.xml()) },
+	_remaining_base { xml_content_base(_xml.xml()) },
+	_remaining_end  { _remaining_base + xml_content_size(_xml.xml()) },
+	_reset_to       { xml_content_base(_xml.xml()) }
 { }
 
 
