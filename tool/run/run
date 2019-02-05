@@ -750,9 +750,11 @@ proc run_power_cycle { } {
 	# On targets that are directly connected to a socket,
 	# turn the socket off and on again. On targets that
 	# use a module were that is not required, e.g. softreset,
-	# power_off is a NOP.
+	# power_off is a NOP. Note, we give the target some time
+	# to effectively drain energy before switching it on again.
 	#
 	run_power_off
+	sleep 1
 	return [run_power_on]
 }
 
