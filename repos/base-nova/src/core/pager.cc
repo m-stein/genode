@@ -106,11 +106,10 @@ struct Page_fault_info
 };
 
 
-void Pager_object::_page_fault_handler(addr_t pager_obj)
+void Pager_object::_page_fault_handler(Pager_object &obj)
 {
-	Thread       &myself = *Thread::myself();
-	Pager_object &obj    = *reinterpret_cast<Pager_object *>(pager_obj);
-	Utcb         &utcb   = *reinterpret_cast<Utcb *>(myself.utcb());
+	Thread &myself = *Thread::myself();
+	Utcb   &utcb   = *reinterpret_cast<Utcb *>(myself.utcb());
 
 	Ipc_pager ipc_pager(utcb, obj.pd_sel(), platform_specific().core_pd_sel());
 
@@ -118,7 +117,7 @@ void Pager_object::_page_fault_handler(addr_t pager_obj)
 
 	/* potential request to ask for EC cap or signal SM cap */
 	if (utcb.msg_words() == 1)
-		_invoke_handler(pager_obj);
+		_invoke_handler(obj);
 
 	/*
 	 * obj.pager() (pager thread) may issue a signal to the remote region
@@ -244,11 +243,10 @@ void Pager_object::exception(uint8_t exit_id)
 }
 
 
-void Pager_object::_recall_handler(addr_t pager_obj)
+void Pager_object::_recall_handler(Pager_object &obj)
 {
-	Thread       &myself = *Thread::myself();
-	Pager_object &obj    = reinterpret_cast<Pager_object &>(pager_obj);
-	Utcb         &utcb   = *reinterpret_cast<Utcb *>(myself.utcb());
+	Thread &myself = *Thread::myself();
+	Utcb   &utcb   = *reinterpret_cast<Utcb *>(myself.utcb());
 
 	obj._state_lock.lock();
 
@@ -288,11 +286,10 @@ void Pager_object::_recall_handler(addr_t pager_obj)
 }
 
 
-void Pager_object::_startup_handler(addr_t pager_obj)
+void Pager_object::_startup_handler(Pager_object &obj)
 {
-	Thread       &myself = *Thread::myself();
-	Pager_object &obj    = *reinterpret_cast<Pager_object *>(pager_obj);
-	Utcb         &utcb   = *reinterpret_cast<Utcb *>(myself.utcb());
+	Thread &myself = *Thread::myself();
+	Utcb   &utcb   = *reinterpret_cast<Utcb *>(myself.utcb());
 
 	utcb.ip  = obj._initial_eip;
 	utcb.sp  = obj._initial_esp;
@@ -311,11 +308,10 @@ void Pager_object::_startup_handler(addr_t pager_obj)
 }
 
 
-void Pager_object::_invoke_handler(addr_t pager_obj)
+void Pager_object::_invoke_handler(Pager_object &obj)
 {
-	Thread       &myself = *Thread::myself();
-	Pager_object &obj    = *reinterpret_cast<Pager_object *>(pager_obj);
-	Utcb         &utcb   = *reinterpret_cast<Utcb *>(myself.utcb());
+	Thread &myself = *Thread::myself();
+	Utcb   &utcb   = *reinterpret_cast<Utcb *>(myself.utcb());
 
 	/* receive window must be closed - otherwise implementation bug */
 	if (utcb.crd_rcv.value())
@@ -531,7 +527,7 @@ static uint8_t create_portal(addr_t pt, addr_t pd, addr_t ec, Mtd mtd,
 
 template <uint8_t EV>
 void Exception_handlers::register_handler(Pager_object &obj, Mtd mtd,
-                                          void (* __attribute__((regparm(1))) func)(addr_t))
+                                          void (* __attribute__((regparm(1))) func)(Pager_object &))
 {
 	unsigned const genode_cpu_id = obj.location().xpos();
 	unsigned const kernel_cpu_id = platform_specific().kernel_cpu_id(genode_cpu_id);
@@ -554,10 +550,9 @@ void Exception_handlers::register_handler(Pager_object &obj, Mtd mtd,
 
 
 template <uint8_t EV>
-void Exception_handlers::_handler(addr_t obj)
+void Exception_handlers::_handler(Pager_object &obj)
 {
-	Pager_object &pager_obj = *reinterpret_cast<Pager_object *>(obj);
-	pager_obj.exception(EV);
+	obj.exception(EV);
 }
 
 

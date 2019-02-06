@@ -42,7 +42,7 @@ namespace Genode {
 		private:
 
 			template <uint8_t EV>
-			__attribute__((regparm(1))) static void _handler(addr_t);
+			__attribute__((regparm(1))) static void _handler(Pager_object &);
 
 		public:
 
@@ -50,7 +50,7 @@ namespace Genode {
 
 			template <uint8_t EV>
 			void register_handler(Pager_object &, Nova::Mtd,
-			                      void (__attribute__((regparm(1)))*)(addr_t) = nullptr);
+			                      void (__attribute__((regparm(1)))*)(Pager_object &) = nullptr);
 	};
 
 
@@ -139,16 +139,16 @@ namespace Genode {
 			addr_t sel_oom_portal()     const { return _selectors + 3; }
 
 			__attribute__((regparm(1)))
-			static void _page_fault_handler(addr_t pager_obj);
+			static void _page_fault_handler(Pager_object &);
 
 			__attribute__((regparm(1)))
-			static void _startup_handler(addr_t pager_obj);
+			static void _startup_handler(Pager_object &);
 
 			__attribute__((regparm(1)))
-			static void _invoke_handler(addr_t pager_obj);
+			static void _invoke_handler(Pager_object &);
 
 			__attribute__((regparm(1)))
-			static void _recall_handler(addr_t pager_obj);
+			static void _recall_handler(Pager_object &);
 
 			__attribute__((regparm(3)))
 			static void _oom_handler(addr_t, addr_t, addr_t);
