@@ -26,6 +26,61 @@ enum { ASCII_TAB = 9 };
  ** Utilities **
  ***************/
 
+struct Ampersend_sequence
+{
+	char const * const base;
+	size_t       const size;
+	char         const sanitized;
+};
+
+
+static void sanitize_amp_sequence(char       *       &dst,
+                                  char const *       &src,
+                                  char const *const   end,
+                                  Ampersend_sequence &seq)
+{
+	char const *seq_curr { seq.base };
+	char const *seq_end  { seq_curr + seq.size };
+
+	for (char const *src_curr { src + 1 }; ; src_curr++, seq_curr++) {
+
+		if (seq_curr == seq_end) {
+			*dst = seq.sanitized;
+			dst++;
+			src += seq.size + 1;
+			return;
+		}
+		if (src_curr == end) {
+			break; }
+
+		if (*src_curr != *seq_curr) {
+			break; }
+	}
+}
+
+
+static void sanitize(char       *      &dst,
+                     char const *      &src,
+                     char const *const  end)
+{
+	static Ampersend_sequence seq[3]
+	{
+		{ "lt;", 3, '<' },
+		{ "amp;", 4, '&' },
+		{ "#42;", 4, '*' }
+	};
+	if (*src != '&') {
+		*dst = *src;
+		dst++;
+		src++;
+		return;
+	}
+	for (unsigned id = 0; id < sizeof(seq)/sizeof(seq[0]); id++) {
+		sanitize_amp_sequence(dst, src, end, seq[id]);
+	}
+}
+
+
 static void print_line(unsigned long const sec,
                        unsigned long const ms,
                        char   const *const base,
@@ -777,44 +832,15 @@ void Timeout_event::_handle_timeout(Duration)
  ** Log_event **
  ***************/
 
-static char const *xml_content_base(Xml_node node)
-{
-	char const *result = nullptr;
-	node.with_raw_content([&] (char const *start, size_t) { result = start; });
-	return result;
-}
-
-
-static size_t xml_content_size(Xml_node node)
-{
-	size_t result = 0;
-	node.with_raw_content([&] (char const *, size_t length) { result = length; });
-	return result;
-}
-
-
 bool Log_event::handle_log_progress(char          const *  log_base,
                                     char          const *  log_end,
                                     char          const * &log_print,
                                     unsigned long const    time_ms,
                                     unsigned long const    time_sec)
 {
-	struct Replace_ampersend_sequence
-	{
-		char const * const base;
-		size_t       const size;
-		char         const by;
-	};
-	static Replace_ampersend_sequence replace_amp_seq[3]
-	{
-		{ "lt;", 3, '<' },
-		{ "amp;", 4, '&' },
-		{ "#42;", 4, '*' }
-	};
-
 	bool        match        { false };
 	char const *pattern_end  { remaining_end() };
-	char const *pattern_curr { remaining_base() };
+	char       *pattern_curr { remaining_base() };
 	char const *log_curr     { log_base };
 
 	for (;;) {
@@ -862,40 +888,8 @@ bool Log_event::handle_log_progress(char          const *  log_base,
 		if (skip_ignorable_esc_sequence(log_curr, log_end)) {
 			continue; }
 
-		char   pattern_curr_san    = *pattern_curr;
-		size_t pattern_curr_san_sz = 1;
-
-		/* replace ampersend sequences in the pattern */
-		if (*pattern_curr == '&') {
-
-			bool seq_match { false };
-
-			for (unsigned i = 0; i < sizeof(replace_amp_seq)/sizeof(replace_amp_seq[0]); i++) {
-
-				char const *seq_curr { replace_amp_seq[i].base };
-				char const *seq_end  { seq_curr + replace_amp_seq[i].size };
-
-				for (char const *pattern_seq_curr { pattern_curr + 1 } ; ; pattern_seq_curr++, seq_curr++) {
-
-					if (seq_curr == seq_end) {
-						seq_match = true;
-						pattern_curr_san    = replace_amp_seq[i].by;
-						pattern_curr_san_sz = replace_amp_seq[i].size + 1;
-						break;
-					}
-					if (pattern_seq_curr == pattern_end) {
-						break; }
-
-					if (*pattern_seq_curr != *seq_curr) {
-						break; }
-				}
-				if (seq_match) {
-					break;
-				}
-			}
-		}
 		/* check if log keeps matching pattern */
-		if (*log_curr != pattern_curr_san) {
+		if (*log_curr != *pattern_curr) {
 			pattern_curr = reset_to();
 			if (!reset_retry()) {
 
@@ -903,7 +897,7 @@ bool Log_event::handle_log_progress(char          const *  log_base,
 			else {
 				reset_retry() = false; }
 		} else {
-			pattern_curr += pattern_curr_san_sz;
+			pattern_curr++;
 			log_curr++;
 			reset_retry() = true;
 		}
@@ -921,13 +915,21 @@ Log_event::Log_event(Xml_node const &xml,
                      Allocator      &alloc)
 :
 	Event           { xml, Type::LOG },
-	_xml            { alloc, xml },
-	_base           { xml_content_base(_xml.xml()) },
-	_size           { xml_content_size(_xml.xml()) },
-	_remaining_base { xml_content_base(_xml.xml()) },
-	_remaining_end  { _remaining_base + xml_content_size(_xml.xml()) },
-	_reset_to       { xml_content_base(_xml.xml()) }
-{ }
+	_pattern        { alloc, xml },
+	_base           { _pattern.base() },
+	_size           { _pattern.size() },
+	_remaining_base { _pattern.base() },
+	_remaining_end  { _remaining_base + _pattern.size() },
+	_reset_to       { _pattern.base() }
+{
+	char       *san_dst { _remaining_base };
+	char const *san_src { _remaining_base };
+	while (san_src < _remaining_end) {
+		sanitize(san_dst, san_src, _remaining_end); }
+
+	_remaining_end = san_dst;
+	_size          = _remaining_end - _remaining_base;
+}
 
 
 /***********

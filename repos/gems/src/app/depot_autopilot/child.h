@@ -23,6 +23,7 @@
 #include <depot/archive.h>
 #include <timer_session/connection.h>
 #include <log_session/log_session.h>
+#include <util/noncopyable.h>
 
 /* local includes */
 #include <list.h>
@@ -50,6 +51,64 @@ namespace Depot_deploy {
 	class Timeout_event;
 	class Log_event;
 }
+
+namespace Genode { class Buffered_xml_content; }
+
+
+class Genode::Buffered_xml_content : private Genode::Noncopyable
+{
+	private:
+
+		Allocator &_alloc;
+		char     * _base; /* pointer to dynamically allocated buffer */
+		size_t     _size;
+
+		/**
+		 * \throw Allocator::Out_of_memory
+		 */
+		static char *_init_base(Allocator &alloc, Xml_node node)
+		{
+			char *result = nullptr;
+			node.with_raw_content([&] (char const *base, size_t size) {
+				result = (char *)alloc.alloc(size);
+				Genode::memcpy(result, base, size);
+			});
+			return result;
+		}
+
+		static size_t _init_size(Xml_node node)
+		{
+			size_t result = 0;
+			node.with_raw_content([&] (char const *, size_t size) {
+				result = size; });
+			return result;
+		}
+
+	public:
+
+		/**
+		 * Constructor
+		 *
+		 * \throw Allocator::Out_of_memory
+		 */
+		Buffered_xml_content(Allocator &alloc, Xml_node node)
+		:
+			_alloc(alloc),
+			_base(_init_base(alloc, node)),
+			_size(_init_size(node))
+		{ }
+
+		~Buffered_xml_content() { _alloc.free(const_cast<char *>(_base), _size); }
+
+		template <typename FN>
+		void with_content(FN const &fn) const
+		{
+			fn(_base, _size);
+		}
+
+		char   *base() const { return _base; }
+		size_t  size() const { return _size; }
+};
 
 
 class Depot_deploy::Event
@@ -87,13 +146,13 @@ class Depot_deploy::Log_event : public Event,
 
 	private:
 
-		Genode::Buffered_xml  _xml;
-		char           const *_base;
-		Genode::size_t const  _size;
-		char           const *_remaining_base;
-		char           const *_remaining_end;
-		bool                  _reset_retry { false };
-		char           const *_reset_to;
+		Genode::Buffered_xml_content  _pattern;
+		char                         *_base;
+		Genode::size_t                _size;
+		char                         *_remaining_base;
+		char                   const *_remaining_end;
+		bool                          _reset_retry { false };
+		char                         *_reset_to;
 
 	public:
 
@@ -111,12 +170,12 @@ class Depot_deploy::Log_event : public Event,
 		 ** Accessors **
 		 ***************/
 
-		Genode::size_t size() const { return _size; }
-		char  const *  base() const { return _base; }
-		char  const * &reset_to() { return _reset_to; }
-		bool          &reset_retry() { return _reset_retry; }
-		char  const * &remaining_base() { return _remaining_base; }
-		char  const * &remaining_end() { return _remaining_end; }
+		Genode::size_t size()     const { return _size; }
+		char        *  base()     const { return _base; }
+		char        * &reset_to()       { return _reset_to; }
+		bool          &reset_retry()    { return _reset_retry; }
+		char        * &remaining_base() { return _remaining_base; }
+		char  const * &remaining_end()  { return _remaining_end; }
 };
 
 
