@@ -26,36 +26,55 @@ enum { ASCII_TAB = 9 };
  ** Utilities **
  ***************/
 
-struct Ampersend_sequence
+struct Ampersand_sequence
 {
 	char const * const base;
 	size_t       const size;
 	char         const sanitized;
+
+	bool sanitize(char       *      &dst,
+	              char const *      &src,
+	              char const *const  end) const;
 };
 
 
-static void sanitize_amp_sequence(char       *       &dst,
-                                  char const *       &src,
-                                  char const *const   end,
-                                  Ampersend_sequence &seq)
+bool Ampersand_sequence::sanitize(char       *      &dst,
+                                  char const *      &src,
+                                  char const *const  end) const
 {
-	char const *seq_curr { seq.base };
-	char const *seq_end  { seq_curr + seq.size };
+	char const *src_curr { src };
+	char const *seq_curr { base };
+	char const *seq_end  { seq_curr + size };
 
-	for (char const *src_curr { src + 1 }; ; src_curr++, seq_curr++) {
+	for (; ; src_curr++, seq_curr++) {
 
 		if (seq_curr == seq_end) {
-			*dst = seq.sanitized;
-			dst++;
-			src += seq.size + 1;
-			return;
+			*dst  = sanitized;
+			dst  += 1;
+			src  += size;
+			return true;
 		}
 		if (src_curr == end) {
-			break; }
+			return false; }
 
 		if (*src_curr != *seq_curr) {
-			break; }
+			return false; }
 	}
+}
+
+
+static void sanitize_amp_seq(char       *      &dst,
+                             char const *      &src,
+                             char const *const  end)
+{
+	static Ampersand_sequence const seq[3] {
+		{ "lt;", 3, '<' },
+		{ "amp;", 4, '&' },
+		{ "#42;", 4, '*' }
+	};
+	for (unsigned id = 0; id < sizeof(seq)/sizeof(seq[0]); id++) {
+		if (seq[id].sanitize(dst, src, end)) {
+			break; } }
 }
 
 
@@ -63,20 +82,20 @@ static void sanitize(char       *      &dst,
                      char const *      &src,
                      char const *const  end)
 {
-	static Ampersend_sequence seq[3]
-	{
-		{ "lt;", 3, '<' },
-		{ "amp;", 4, '&' },
-		{ "#42;", 4, '*' }
-	};
-	if (*src != '&') {
+	switch (*src) {
+	case ASCII_LF:
+	case ASCII_TAB:
+		src++;
+		break;
+	case '&':
+		src++;
+		sanitize_amp_seq(dst, src, end);
+		break;
+	default:
 		*dst = *src;
 		dst++;
 		src++;
-		return;
-	}
-	for (unsigned id = 0; id < sizeof(seq)/sizeof(seq[0]); id++) {
-		sanitize_amp_sequence(dst, src, end, seq[id]);
+		break;
 	}
 }
 
@@ -853,11 +872,7 @@ bool Log_event::handle_log_progress(char          const *  log_base,
 			reset_retry()    = false;
 			break;
 		}
-		/* skip irrelevant characters in the pattern */
-		if (*pattern_curr == ASCII_LF || *pattern_curr == ASCII_TAB) {
-			pattern_curr++;
-			continue;
-		}
+		/* handle wildcard */
 		if (*pattern_curr == '*') {
 			pattern_curr++;
 			reset_to()    = pattern_curr;
