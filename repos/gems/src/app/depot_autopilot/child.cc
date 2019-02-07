@@ -34,13 +34,13 @@ struct Ampersand_sequence
 
 	bool sanitize(char       *      &dst,
 	              char const *      &src,
-	              char const *const  end) const;
+	              char const *const  src_end) const;
 };
 
 
 bool Ampersand_sequence::sanitize(char       *      &dst,
                                   char const *      &src,
-                                  char const *const  end) const
+                                  char const *const  src_end) const
 {
 	char const *src_curr { src };
 	char const *seq_curr { base };
@@ -54,7 +54,7 @@ bool Ampersand_sequence::sanitize(char       *      &dst,
 			src  += size;
 			return true;
 		}
-		if (src_curr == end) {
+		if (src_curr == src_end) {
 			return false; }
 
 		if (*src_curr != *seq_curr) {
@@ -97,39 +97,6 @@ static void sanitize(char       *      &dst,
 		src++;
 		break;
 	}
-}
-
-
-static void print_line(unsigned long const sec,
-                       unsigned long const ms,
-                       char   const *const base,
-                       char   const *const end)
-{
-	log(sec, ".", ms < 10 ? "00" : ms < 100 ? "0" : "", ms, " ",
-	    Cstring(base, end - base));
-}
-
-
-static bool seek_line_feed(char const * &curr,
-                           char const *  end)
-{
-	for (; curr < end; curr++) {
-		if (*curr == ASCII_LF) {
-			return true; }
-	}
-	return false;
-}
-
-
-static char const *print_till_line_feed(char          const *base,
-                                        char          const *curr,
-                                        char          const *end,
-                                        unsigned long const  time_ms,
-                                        unsigned long const  time_sec)
-{
-	bool const curr_at_line_feed = seek_line_feed(curr, end);
-	print_line(time_sec, time_ms, base, curr);
-	return curr + curr_at_line_feed;
 }
 
 
@@ -320,7 +287,7 @@ void Child::gen_start_node(Xml_generator          &xml,
 	log("--- Run \"", _name, "\" (max ", max_timeout_sec, " sec) ---");
 	log("");
 	_running = true;
-	init_time_us = _timer.curr_time().trunc_to_plain_us().value;
+	_init_time_us = _timer.curr_time().trunc_to_plain_us().value;
 }
 
 
@@ -538,32 +505,31 @@ Child::~Child()
 }
 
 
-void Child::log_session_write(Log_event::Line const &log_line)
+void Child::handle_log_line(Log_event::Line const &line)
 {
-	if (_skip) {
-		return; }
+	/* determine child-local time */
+	unsigned long const us        { _timer.curr_time().trunc_to_plain_us().value - _init_time_us };
+	unsigned long const ms_total  { us / 1000UL };
+	unsigned long const sec       { ms_total / 1000UL };
+	unsigned long const ms        { ms_total - sec * 1000UL };
+	char const   *const ms_prefix { ms < 10 ? "00" : ms < 100 ? "0" : "" };
 
-	struct Break : Exception { };
+	/* log line parameters */
+	char const *const base { line.string() };
+	size_t      const size { strlen(base) };
+	char const *const end  { base + size };
 
-	/* calculate timestamp that prefixes*/
-	unsigned long const time_us  { _timer.curr_time().trunc_to_plain_us().value - init_time_us };
-	unsigned long       time_ms  { time_us / 1000UL };
-	unsigned long const time_sec { time_ms / 1000UL };
-	time_ms = time_ms - time_sec * 1000UL;
+	/* print out labeled log line first */
+	log(sec, ".", ms_prefix, ms, " ", Cstring(base, size - 1));
 
-	char const *const log_base { log_line.string() };
-	char const *const log_end  { log_base + strlen(log_base) };
-	try {
-		char const *log_print { log_base };
-		_log_events.for_each([&] (Log_event &log_event) {
-			if (log_event.handle_log_progress(log_base, log_end, log_print,
-			                                  time_ms, time_sec)) {
-				event_occured(log_event, time_us);
-				throw Break();
-			};
-		});
-	}
-	catch (...) { }
+	/* walk over all log events until one gets triggered */
+	_log_events.for_each([&] (Log_event &event) -> Loop_control {
+		if (event.handle_log_line(base, end)) {
+			event_occured(event, us);
+			return Loop_control::BREAK;
+		};
+		return Loop_control::CONTINUE;
+	});
 }
 
 
@@ -840,7 +806,37 @@ Timeout_event::Timeout_event(Timer::Connection &timer,
 
 void Timeout_event::_handle_timeout(Duration)
 {
-	_child.event_occured(*this, _timer.curr_time().trunc_to_plain_us().value - _child.init_time_us);
+	_child.event_occured(*this, _timer.curr_time().trunc_to_plain_us().value - _child.init_time_us());
+}
+
+
+/*****************
+ ** Log_pattern **
+ *****************/
+
+Log_pattern::Buffer const Log_pattern::_init_buf(Allocator      &alloc,
+                                                 Xml_node const &xml) const
+{
+	char   *buf_base       { nullptr };
+	size_t  buf_size       { 0 };
+	size_t  buf_size_alloc { 0 };
+
+	xml.with_raw_content([&] (char const *xml_base, size_t xml_size) {
+
+		buf_base       = (char *)alloc.alloc(xml_size);
+		buf_size_alloc = xml_size;
+
+		char       *san_dst { buf_base };
+		char const *san_src { xml_base };
+		char const *san_src_end { xml_base + xml_size };
+
+		while (san_src < san_src_end) {
+			sanitize(san_dst, san_src, san_src_end); }
+
+		buf_size = san_dst - buf_base;
+	});
+
+	return Buffer { buf_base, buf_size, buf_size_alloc };
 }
 
 
@@ -848,48 +844,43 @@ void Timeout_event::_handle_timeout(Duration)
  ** Log_event **
  ***************/
 
-bool Log_event::handle_log_progress(char          const *  log_base,
-                                    char          const *  log_end,
-                                    char          const * &log_print,
-                                    unsigned long const    time_ms,
-                                    unsigned long const    time_sec)
-{
-	bool        match        { false };
-	char const *pattern_end  { remaining_end() };
-	char       *pattern_curr { remaining_base() };
-	char const *log_curr     { log_base };
+/*
+ * FIXME!!!!!!!!
+ *
+ * &#42 isn't recognized anymore as we now replace all ampersand sequences at
+ * the initialization of the LOG event.
+ *
+ * FIXME!!!!!!!!
+ */
 
-	for (;;) {
+bool Log_event::handle_log_line(char const *log_curr,
+                                char const *log_end)
+{
+	for (char const *pattern_curr { _remaining_base }; ; ) {
 
 		/* handle end of pattern */
-		if (pattern_curr == pattern_end) {
-			match = true;
-			remaining_base() = base();
-			reset_to()       = base();
-			reset_retry()    = false;
-			break;
+		if (pattern_curr == _remaining_end) {
+			_remaining_base = _base;
+			_reset_to       = _base;
+			_reset_retry    = false;
+			return true;
 		}
-		/* handle wildcard */
+		/* handle wildcard in pattern */
 		if (*pattern_curr == '*') {
 			pattern_curr++;
-			reset_to()    = pattern_curr;
-			reset_retry() = false;
+			_reset_to    = pattern_curr;
+			_reset_retry = false;
 			continue;
 		}
 		/* handle end of log line */
 		if (log_curr == log_end) {
-			remaining_base() = pattern_curr;
+			_remaining_base = pattern_curr;
 			break;
 		}
 		/* skip irrelevant characters in the log line */
 		switch (*log_curr) {
 		case ASCII_LF:
 
-			/* forward a complete line to our log session */
-			if (log_print < log_curr) {
-				print_line(time_sec, time_ms, log_print, log_curr);
-				log_print = log_curr + 1;
-			}
 			log_curr++;
 			continue;
 
@@ -902,25 +893,19 @@ bool Log_event::handle_log_progress(char          const *  log_base,
 				continue; }
 		}
 		/* check if log keeps matching pattern */
-		if (*log_curr != *pattern_curr) {
-			pattern_curr = reset_to();
-			if (!reset_retry()) {
-
-				log_curr++; }
-			else {
-				reset_retry() = false; }
-		} else {
+		if (*log_curr == *pattern_curr) {
 			pattern_curr++;
 			log_curr++;
-			reset_retry() = true;
+			_reset_retry = true;
+		} else {
+			pattern_curr = _reset_to;
+			if (_reset_retry) {
+				_reset_retry = false; }
+			else {
+				log_curr++; }
 		}
 	}
-	/* forward to our log session what is left */
-	if (log_print < log_curr) {
-		log_print = print_till_line_feed(log_print, log_curr, log_end,
-		                                 time_ms, time_sec); }
-
-	return match;
+	return false;
 }
 
 
@@ -934,15 +919,7 @@ Log_event::Log_event(Xml_node const &xml,
 	_remaining_base { _pattern.base() },
 	_remaining_end  { _remaining_base + _pattern.size() },
 	_reset_to       { _pattern.base() }
-{
-	char       *san_dst { _remaining_base };
-	char const *san_src { _remaining_base };
-	while (san_src < _remaining_end) {
-		sanitize(san_dst, san_src, _remaining_end); }
-
-	_remaining_end = san_dst;
-	_size          = _remaining_end - _remaining_base;
-}
+{ }
 
 
 /***********

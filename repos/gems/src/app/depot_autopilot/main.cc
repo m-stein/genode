@@ -52,7 +52,7 @@ class Depot_deploy::Log_session_component : public Rpc_object<Log_session>
 				return 0; }
 
 			Log_event::Line line_labeled{ "[", _child_label.string(), "] ", line.string() };
-			_child.log_session_write(line_labeled);
+			_child.handle_log_line(line_labeled);
 			return strlen(line.string());
 		}
 };

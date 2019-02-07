@@ -18,7 +18,11 @@
 #include <util/list.h>
 #include <base/allocator.h>
 
-namespace Depot_deploy { template <typename> class List; }
+namespace Depot_deploy
+{
+	template <typename> class List;
+	enum class Loop_control { CONTINUE, BREAK };
+}
 
 
 template <typename LT>
@@ -32,8 +36,15 @@ struct Depot_deploy::List : Genode::List<LT>
 		for (LT *elem = Base::first(); elem; )
 		{
 			LT *const next = elem->Base::Element::next();
-			functor(*elem);
-			elem = next;
+			switch (functor(*elem)) {
+
+			case Loop_control::CONTINUE:
+				elem = next;
+				break;
+
+			case Loop_control::BREAK:
+				return;
+			}
 		}
 	}
 

@@ -351,6 +351,7 @@ void Component::construct(Genode::Env & env)
 
 	log("\n-- test acquisition during destruction --");
 	test_acquisition_during_destruction(env, heap);
+	error("This is a very long line with several words and unnecessary stuff!");
 
 	log("\n--- finished test-weak_ptr ---");
 }

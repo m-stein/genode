@@ -52,62 +52,44 @@ namespace Depot_deploy {
 	class Log_event;
 }
 
-namespace Genode { class Buffered_xml_content; }
+namespace Genode { class Log_pattern; }
 
 
-class Genode::Buffered_xml_content : private Genode::Noncopyable
+class Genode::Log_pattern : private Genode::Noncopyable
 {
 	private:
 
-		Allocator &_alloc;
-		char     * _base; /* pointer to dynamically allocated buffer */
-		size_t     _size;
+		struct Buffer {
+			char const *const base;
+			size_t      const size;
+			size_t      const size_allocated;
+		};
 
-		/**
-		 * \throw Allocator::Out_of_memory
-		 */
-		static char *_init_base(Allocator &alloc, Xml_node node)
-		{
-			char *result = nullptr;
-			node.with_raw_content([&] (char const *base, size_t size) {
-				result = (char *)alloc.alloc(size);
-				Genode::memcpy(result, base, size);
-			});
-			return result;
-		}
+		Allocator    &_alloc;
+		Buffer const  _buf;
 
-		static size_t _init_size(Xml_node node)
-		{
-			size_t result = 0;
-			node.with_raw_content([&] (char const *, size_t size) {
-				result = size; });
-			return result;
-		}
+		Buffer const _init_buf(Genode::Allocator      &alloc,
+		                       Genode::Xml_node const &xml) const;
 
 	public:
 
-		/**
-		 * Constructor
-		 *
-		 * \throw Allocator::Out_of_memory
-		 */
-		Buffered_xml_content(Allocator &alloc, Xml_node node)
+		Log_pattern(Allocator      &alloc,
+		            Xml_node const &xml)
 		:
 			_alloc(alloc),
-			_base(_init_base(alloc, node)),
-			_size(_init_size(node))
+			_buf(_init_buf(alloc, xml))
 		{ }
 
-		~Buffered_xml_content() { _alloc.free(const_cast<char *>(_base), _size); }
+		~Log_pattern() { _alloc.free(const_cast<char *>(_buf.base), _buf.size_allocated); }
 
 		template <typename FN>
 		void with_content(FN const &fn) const
 		{
-			fn(_base, _size);
+			fn(_buf.base, _buf.size);
 		}
 
-		char   *base() const { return _base; }
-		size_t  size() const { return _size; }
+		char const *base() const { return _buf.base; }
+		size_t      size() const { return _buf.size; }
 };
 
 
@@ -146,36 +128,29 @@ class Depot_deploy::Log_event : public Event,
 
 	private:
 
-		Genode::Buffered_xml_content  _pattern;
-		char                         *_base;
-		Genode::size_t                _size;
-		char                         *_remaining_base;
-		char                   const *_remaining_end;
-		bool                          _reset_retry { false };
-		char                         *_reset_to;
+		Genode::Log_pattern  _pattern;
+		char          const *_base;
+		Genode::size_t       _size;
+		char          const *_remaining_base;
+		char          const *_remaining_end;
+		bool                 _reset_retry { false };
+		char          const *_reset_to;
 
 	public:
 
 		Log_event(Genode::Xml_node const &xml,
 		          Genode::Allocator      &alloc);
 
-		bool handle_log_progress(char          const *  log_base,
-		                         char          const *  log_end,
-		                         char          const * &log_print,
-		                         unsigned long const    time_ms,
-		                         unsigned long const    time_sec);
+		bool handle_log_line(char const *log_base,
+		                     char const *log_end);
 
 
 		/***************
 		 ** Accessors **
 		 ***************/
 
-		Genode::size_t size()     const { return _size; }
-		char        *  base()     const { return _base; }
-		char        * &reset_to()       { return _reset_to; }
-		bool          &reset_retry()    { return _reset_retry; }
-		char        * &remaining_base() { return _remaining_base; }
-		char  const * &remaining_end()  { return _remaining_end; }
+		Genode::size_t  size() const { return _size; }
+		char const     *base() const { return _base; }
 };
 
 
@@ -250,6 +225,7 @@ class Depot_deploy::Child : public List_model<Child>::Element
 		Signal_transmitter             _config_handler;
 		bool                           _running            { false };
 		Conclusion                     _conclusion         { };
+		unsigned long                  _init_time_us       { 0 };
 
 		bool _defined_by_launcher() const;
 
@@ -281,8 +257,6 @@ class Depot_deploy::Child : public List_model<Child>::Element
 
 	public:
 
-		unsigned long init_time_us { 0 };
-
 		Child(Genode::Allocator                       &alloc,
 		      Genode::Xml_node                         start_node,
 		      Timer::Connection                       &timer,
@@ -290,7 +264,7 @@ class Depot_deploy::Child : public List_model<Child>::Element
 
 		~Child();
 
-		void log_session_write(Log_event::Line const &log_line);
+		void handle_log_line(Log_event::Line const &line);
 
 		void print_conclusion();
 
@@ -379,10 +353,11 @@ class Depot_deploy::Child : public List_model<Child>::Element
 		 ** Accessors **
 		 ***************/
 
-		Name name()           const { return _name; }
-		bool pkg_incomplete() const { return _pkg_incomplete; }
-		bool running()        const { return _running; }
-		bool finished()       const { return _state != UNFINISHED; }
+		Name          name()           const { return _name; }
+		bool          pkg_incomplete() const { return _pkg_incomplete; }
+		bool          running()        const { return _running; }
+		bool          finished()       const { return _state != UNFINISHED; }
+		unsigned long init_time_us()   const { return _init_time_us; }
 };
 
 #endif /* _CHILD_H_ */
