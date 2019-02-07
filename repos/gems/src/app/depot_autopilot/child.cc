@@ -149,9 +149,6 @@ static bool skip_ignorable_esc_sequence(char const *      &curr,
 		{ "[33m", 4 },
 		{ "[34m", 4 },
 	};
-	if (*curr != ASCII_ESC) {
-		return false; }
-
 	for (unsigned id = 0; id < sizeof(sequences)/sizeof(sequences[0]); id++) {
 
 		char const *      seq_curr { sequences[id].base };
@@ -885,24 +882,25 @@ bool Log_event::handle_log_progress(char          const *  log_base,
 			break;
 		}
 		/* skip irrelevant characters in the log line */
-		if (*log_curr == ASCII_LF) {
+		switch (*log_curr) {
+		case ASCII_LF:
 
-			/* forward to our log session a complete line */
+			/* forward a complete line to our log session */
 			if (log_print < log_curr) {
 				print_line(time_sec, time_ms, log_print, log_curr);
 				log_print = log_curr + 1;
 			}
 			log_curr++;
 			continue;
-		}
-		if (*log_curr == ASCII_TAB) {
+
+		case ASCII_TAB:
 			log_curr++;
 			continue;
+
+		case ASCII_ESC:
+			if (skip_ignorable_esc_sequence(log_curr, log_end)) {
+				continue; }
 		}
-
-		if (skip_ignorable_esc_sequence(log_curr, log_end)) {
-			continue; }
-
 		/* check if log keeps matching pattern */
 		if (*log_curr != *pattern_curr) {
 			pattern_curr = reset_to();
