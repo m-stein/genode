@@ -29,10 +29,7 @@ int clock_gettime(clockid_t clk_id, struct timespec *ts)
 {
 	if (!ts) return Libc::Errno(EFAULT);
 
-	/* initialize timespec just in case users do not check for errors */
-	ts->tv_sec  = 0;
-	ts->tv_nsec = 0;
-
+	int ret = -1;
 	switch (clk_id) {
 
 	/* IRL wall-time */
@@ -52,19 +49,23 @@ int clock_gettime(clockid_t clk_id, struct timespec *ts)
 			}
 		}
 
-		if (!initial_rtc) return Libc::Errno(EINVAL);
+		if (initial_rtc) {
+			unsigned long time = Libc::current_time().trunc_to_plain_ms().value - t0_ms;
 
-		unsigned long time = Libc::current_time().trunc_to_plain_ms().value - t0_ms;
-
-		ts->tv_sec  = initial_rtc + time/1000;
-		ts->tv_nsec = (time % 1000) * (1000*1000);
-		break;
+			ts->tv_sec  = initial_rtc + time/1000;
+			ts->tv_nsec = (time % 1000) * (1000*1000);
+			ret = 0;
+			break;
+		}
 	}
 
 	/* component uptime */
 	case CLOCK_MONOTONIC:
 	case CLOCK_UPTIME:
-	{
+		ret = 0;
+		/* fallthrough */
+	default:
+		/* initialize timespec just in case users do not check for errors */
 		unsigned long us = Libc::current_time().trunc_to_plain_us().value;
 
 		ts->tv_sec  = us / (1000*1000);
@@ -72,11 +73,7 @@ int clock_gettime(clockid_t clk_id, struct timespec *ts)
 		break;
 	}
 
-	default:
-		return Libc::Errno(EINVAL);
-	}
-
-	return 0;
+	return ret;
 }
 
 
