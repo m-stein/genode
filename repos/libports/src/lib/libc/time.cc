@@ -6,7 +6,7 @@
  */
 
 /*
- * Copyright (C) 2010-2018 Genode Labs GmbH
+ * Copyright (C) 2010-2019 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
@@ -29,13 +29,7 @@ int clock_gettime(clockid_t clk_id, struct timespec *ts)
 {
 	if (!ts) return Libc::Errno(EFAULT);
 
-	int ret = -1;
-	switch (clk_id) {
-
-	/* IRL wall-time */
-	case CLOCK_REALTIME:
-	case CLOCK_SECOND: /* FreeBSD specific */
-	{
+	if (clk_id == CLOCK_REALTIME || clk_id == CLOCK_SECOND) {
 		static bool   initial_rtc_requested = false;
 		static time_t initial_rtc = 0;
 		static unsigned long t0_ms = 0;
@@ -54,26 +48,24 @@ int clock_gettime(clockid_t clk_id, struct timespec *ts)
 
 			ts->tv_sec  = initial_rtc + time/1000;
 			ts->tv_nsec = (time % 1000) * (1000*1000);
-			ret = 0;
-			break;
+
+			/*
+			 * return true if this is RTC time, otherwise
+			 * return arbitrary monotonic time with an error
+			 */
+			return 0;
 		}
 	}
 
-	/* component uptime */
-	case CLOCK_MONOTONIC:
-	case CLOCK_UPTIME:
-		ret = 0;
-		/* fallthrough */
-	default:
-		/* initialize timespec just in case users do not check for errors */
-		unsigned long us = Libc::current_time().trunc_to_plain_us().value;
+	unsigned long us = Libc::current_time().trunc_to_plain_us().value;
+	ts->tv_sec  = us / (1000*1000);
+	ts->tv_nsec = (us % (1000*1000)) * 1000;
 
-		ts->tv_sec  = us / (1000*1000);
-		ts->tv_nsec = (us % (1000*1000)) * 1000;
-		break;
-	}
-
-	return ret;
+	/*
+	 * return an error if the semantics of the
+	 * requested clock are not implemented
+	 */
+	return clk_id == CLOCK_MONOTONIC ? 0 : -1;
 }
 
 
