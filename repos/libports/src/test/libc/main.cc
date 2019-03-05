@@ -150,11 +150,13 @@ int main(int argc, char **argv)
 	perror("perror");
 
 	struct timespec ts;
-	for (int i = 0; i < 3; ++i) {
+	clockid_t clocks[] = { CLOCK_REALTIME, CLOCK_SECOND, CLOCK_MONOTONIC, CLOCK_UPTIME };
+	for (unsigned i = 0; i < sizeof(clocks)/sizeof(*clocks); ++i) {
 		sleep(1);
 		ts.tv_sec = ts.tv_nsec = 0;
-		clock_gettime(CLOCK_MONOTONIC, &ts);
-		printf("sleep/gettime: %.09f\n", ts.tv_sec + ts.tv_nsec / 1000000000.0);
+		int ret = clock_gettime(clocks[i], &ts);
+		printf("sleep/gettime: %.09f clock=%d ret=%d\n",
+		       ts.tv_sec + ts.tv_nsec / 1000000000.0, clocks[i], ret);
 	}
 
 	exit(error_count);

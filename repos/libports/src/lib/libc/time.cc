@@ -43,19 +43,18 @@ int clock_gettime(clockid_t clk_id, struct timespec *ts)
 			}
 		}
 
+		/* return success if this is RTC time */
 		if (initial_rtc) {
 			unsigned long time = Libc::current_time().trunc_to_plain_ms().value - t0_ms;
 
 			ts->tv_sec  = initial_rtc + time/1000;
 			ts->tv_nsec = (time % 1000) * (1000*1000);
 
-			/*
-			 * return true if this is RTC time, otherwise
-			 * return arbitrary monotonic time with an error
-			 */
 			return 0;
 		}
 	}
+
+	/* otherwise return arbitrary monotonic time */
 
 	unsigned long us = Libc::current_time().trunc_to_plain_us().value;
 	ts->tv_sec  = us / (1000*1000);
@@ -65,7 +64,11 @@ int clock_gettime(clockid_t clk_id, struct timespec *ts)
 	 * return an error if the semantics of the
 	 * requested clock are not implemented
 	 */
-	return clk_id == CLOCK_MONOTONIC ? 0 : -1;
+	if (clk_id == CLOCK_MONOTONIC) {
+		return 0;
+	} else {
+		return Libc::Errno(EINVAL);
+	}
 }
 
 
