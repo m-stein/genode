@@ -1,0 +1,114 @@
+#
+# Build
+#
+set build_components {
+	core init timer
+	server/nic_router
+	server/nic_bridge
+	test/nic_stress
+}
+
+build $build_components
+
+create_boot_directory
+
+#
+# Generate config
+#
+
+append config {
+<config>
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="IRQ"/>
+		<service name="IO_MEM"/>
+		<service name="IO_PORT"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="LOG"/>
+	</parent-provides>
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+	<default caps="100"/>
+
+	<start name="timer">
+		<resource name="RAM" quantum="1M"/>
+		<provides><service name="Timer"/></provides>
+	</start>
+
+	<start name="nic_router" caps="1000">
+		<resource name="RAM" quantum="10M"/>
+		<provides><service name="Nic"/></provides>
+		<config>
+			<policy label_prefix="nic_bridge" domain="default"/>
+			<domain name="default" interface="10.0.2.55/24"/>
+		</config>
+	</start>
+
+	<start name="nic_bridge" caps="1000">
+		<resource name="RAM" quantum="50M"/>
+		<provides><service name="Nic"/></provides>
+		<config mac="02:02:02:02:42:00">
+			<policy label_prefix="nic_stress_2"/>
+			<policy label_prefix="nic_stress_1"/>
+		</config>
+		<route>
+			<service name="Nic"> <child name="nic_router"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="nic_stress_1" caps="1000">
+		<binary name="test-nic_stress"/>
+		<resource name="RAM" quantum="50M"/>
+		<config>
+			<construct_destruct nr_of_rounds="22"
+			                    nr_of_sessions="11"/>
+		</config>
+		<route>
+			<service name="Nic"> <child name="nic_bridge"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="nic_stress_2" caps="1000">
+		<binary name="test-nic_stress"/>
+		<resource name="RAM" quantum="100M"/>
+		<config>
+			<construct_destruct nr_of_rounds="16"
+			                    nr_of_sessions="17"/>
+		</config>
+		<route>
+			<service name="Nic"> <child name="nic_bridge"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+</config>}
+
+install_config $config
+
+#
+# Boot modules
+#
+
+# generic modules
+append boot_modules {
+	core init timer
+	nic_router
+	nic_bridge
+	test-nic_stress
+	ld.lib.so
+}
+
+build_boot_image $boot_modules
+
+append qemu_args " -nographic "
+
+append done_string {.*?"nic_stress_." exited with exit value 0}
+append done_string {.*?"nic_stress_." exited with exit value 0}
+append done_string {.*?\n}
+
+run_genode_until $done_string 120
