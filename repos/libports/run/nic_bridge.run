@@ -11,10 +11,12 @@ set build_components {
 	core init timer
 	drivers/nic
 	server/nic_bridge
-	test/lwip/http_srv
-	test/lwip/http_clnt
-	lib/vfs/lwip
+	test/nic_stress
 }
+
+#	test/lwip/http_srv
+#	test/lwip/http_clnt
+#	lib/vfs/lwip
 
 source ${genode_dir}/repos/base/run/platform_drv.inc
 append_platform_drv_build_components
@@ -61,7 +63,9 @@ append config {
 	<start name="nic_bridge" caps="200">
 		<resource name="RAM" quantum="24M"/>
 		<provides><service name="Nic"/></provides>
-		<config verbose="yes" mac="02:02:02:02:42:00">
+		<config verbose="no" mac="02:02:02:02:42:00">
+			<policy label_prefix="nic_stress_2"/>
+			<policy label_prefix="nic_stress_1"/>
 			<policy label_prefix="client_1"/>
 			<policy label_prefix="server_1" ip_addr="10.0.2.55"/>
 			<policy label_prefix="server_2" ip_addr="10.0.2.56" mac="02:02:02:02:23:00"/>
@@ -73,6 +77,25 @@ append config {
 		</route>
 	</start>
 
+	<start name="nic_stress_1">
+		<binary name="test-nic_stress"/>
+		<resource name="RAM" quantum="50M"/>
+		<route>
+			<service name="Nic"> <child name="nic_bridge"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="nic_stress_2">
+		<binary name="test-nic_stress"/>
+		<resource name="RAM" quantum="50M"/>
+		<route>
+			<service name="Nic"> <child name="nic_bridge"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+<!--
 	<start name="server_1">
 		<binary name="test-lwip_httpsrv"/>
 		<resource name="RAM" quantum="32M"/>
@@ -156,6 +179,7 @@ append config {
 			<libc stdout="/dev/log" stderr="/dev/log" socket="/socket"/>
 		</config>
 	</start>
+-->
 </config>}
 
 install_config $config
@@ -169,12 +193,14 @@ append boot_modules {
 	core init
 	timer } [nic_drv_binary] {
 	nic_bridge
+	test-nic_stress
 	ld.lib.so
-	libc.lib.so vfs.lib.so
-	test-http_clnt
-	test-lwip_httpsrv
-	vfs_lwip.lib.so
 }
+
+#	libc.lib.so vfs.lib.so
+#	test-http_clnt
+#	test-lwip_httpsrv
+#	vfs_lwip.lib.so
 
 
 # platform-specific modules
@@ -205,4 +231,4 @@ append done_string {.*?"client_." exited with exit value 0}
 append done_string {.*?"client_." exited with exit value 0}
 append done_string {.*?\n}
 
-run_genode_until $done_string 40
+run_genode_until $done_string 120
