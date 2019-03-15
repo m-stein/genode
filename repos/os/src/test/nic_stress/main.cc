@@ -1,11 +1,11 @@
 /*
- * \brief  Test for the NIC loop-back service
- * \author Norman Feske
- * \date   2009-11-14
+ * \brief  Stress test for low level NIC interactions
+ * \author Martin Stein
+ * \date   2019-03-15
  */
 
 /*
- * Copyright (C) 2009-2017 Genode Labs GmbH
+ * Copyright (C) 2019 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
