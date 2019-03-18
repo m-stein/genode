@@ -158,8 +158,8 @@ append_if [expr $use_nic_router && [have_spec linux]] config "
 append_if $use_nic_router config {
 			>
 				<nat domain="server" tcp-ports="100" />
-				<tcp-forward port="12864" domain="server" to="10.0.3.2" />
-				<tcp-forward port="12865" domain="server" to="10.0.3.2" />
+				<tcp-forward port="12864" domain="server" to_ip="10.0.3.2" />
+				<tcp-forward port="12865" domain="server" to_ip="10.0.3.2" />
 			</domain>
 
 			<domain name="server" interface="10.0.3.1/24">
