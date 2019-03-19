@@ -251,7 +251,7 @@ the IP destination of the packet is changed to the value of the 'to_ip'
 attribute. If the 'to_port' attribute is set and not zero, the packet's
 destination port is changed to the attribute value. Then, the packet is routed
 to the domain given in the rule. Note that the router accepts only system and
-registered ports (0 to 49151) for port forwarding.
+registered ports other than zero (1 to 49151) for port forwarding.
 
 For bidirectional traffic, you'll need only one port-forwarding rule
 describing the client-to-server direction. The server-sided domain doesn't
