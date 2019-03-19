@@ -12,6 +12,7 @@
  */
 
 /* Genode includes */
+#include <nic/xml_node.h>
 #include <os/session_policy.h>
 
 /* local includes */
@@ -160,15 +161,26 @@ Session_component *Net::Root::_create_session(char const *args)
 			void * const ram_ptr { session_env().attach(ram_ds) };
 			session_env = *construct_at<Session_env>(ram_ptr, session_env());
 
-			/* create new session object behind session env in the RAM block */
 			try {
-				Session_label const label { label_from_args(args) };
+				/* determine session MAC address */
+				Session_label const label       { label_from_args(args) };
+				Mac_address         session_mac { };
+				try {
+					Session_policy policy(label, _config().node());
+					policy.attribute("first_mac").value<Mac_address>(session_mac);
+					_mac_alloc.alloc(session_mac);
+				}
+				catch (Session_policy::No_policy_defined) { session_mac = _mac_alloc.alloc(); }
+				catch (Xml_node::Nonexistent_attribute)   { session_mac = _mac_alloc.alloc(); }
+				catch (Mac_allocator::Alloc_failed)       { session_mac = _mac_alloc.alloc(); }
+
+				/* create new session object behind session env in the RAM block */
 				return construct_at<Session_component>(
 					(void*)((addr_t)ram_ptr + sizeof(Session_env)),
 					session_env(),
 					Arg_string::find_arg(args, "tx_buf_size").ulong_value(0),
 					Arg_string::find_arg(args, "rx_buf_size").ulong_value(0),
-					_timer, _mac_alloc.alloc(), _router_mac, label,
+					_timer, session_mac, _router_mac, label,
 					_interfaces, _config(), ram_ds);
 			}
 			catch (Mac_allocator::Alloc_failed) {

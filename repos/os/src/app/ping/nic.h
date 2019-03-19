@@ -90,6 +90,8 @@ class Net::Nic
 			_handler (handler),
 			_verbose (verbose)
 		{
+			Genode::log("NIC connection: MAC ", _nic.mac_address());
+
 			/* install packet stream signals */
 			_nic.rx_channel()->sigh_ready_to_ack(_sink_ack);
 			_nic.rx_channel()->sigh_packet_avail(_sink_submit);

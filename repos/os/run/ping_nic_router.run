@@ -94,7 +94,8 @@ append config {
 		        dhcp_discover_timeout_sec="1"
 		        icmp_idle_timeout_sec="6">
 
-			<policy label_prefix="ping_1" domain="ping_1"/>
+			<policy label="ping_11 -> "   domain="ping_1" first_mac="02:02:02:02:02:34"/>
+			<policy label="ping_12 -> "   domain="ping_1" first_mac="02:02:02:02:02:56"/>
 			<policy label_prefix="ping_2" domain="ping_2"/>
 			<uplink                       domain="uplink"/>
 
@@ -279,6 +280,8 @@ append qemu_args " -netdev user,id=net0 "
 append qemu_args " -net nic,model=[qemu_nic_model],netdev=net0 "
 
 set done_string ""
+append done_string ".*?ping_12] NIC connection: MAC 02:02:02:02:02:56.*?\n"
+
 for {set i 0} {$i < 3} {incr i 1} {
 	append done_string ".*child \"ping...\" exited with exit value 0.*\n"
 }

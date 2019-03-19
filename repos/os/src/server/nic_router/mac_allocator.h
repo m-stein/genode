@@ -51,7 +51,31 @@ class Net::Mac_allocator
 			throw Alloc_failed();
 		}
 
+		void alloc(Mac_address const &mac)
+		{
+			if (!mac_managed_by_allocator(mac)) {
+				throw Alloc_failed();
+			}
+			unsigned const id = mac.addr[5];
+			if (id >= sizeof(_free) / sizeof(_free[0])) {
+				throw Alloc_failed();
+			}
+			if (!_free[id]) {
+				throw Alloc_failed();
+			}
+			_free[id] = false;
+		}
+
 		void free(Mac_address mac) { _free[mac.addr[5]] = true; }
+
+		bool mac_managed_by_allocator(Mac_address const &mac) const
+		{
+			return _base.addr[0] == mac.addr[0] &&
+			       _base.addr[1] == mac.addr[1] &&
+			       _base.addr[2] == mac.addr[2] &&
+			       _base.addr[3] == mac.addr[3] &&
+			       _base.addr[4] == mac.addr[4];
+		}
 };
 
 #endif /* _MAC_ALLOCATOR_H_ */

@@ -76,7 +76,8 @@
 					<xs:complexType>
 					<xs:complexContent>
 					<xs:extension base="Session_policy">
-						<xs:attribute name="domain" type="Domain_name" />
+						<xs:attribute name="domain"    type="Domain_name" />
+						<xs:attribute name="first_mac" type="Mac_address" />
 					</xs:extension>
 					</xs:complexContent>
 					</xs:complexType>
