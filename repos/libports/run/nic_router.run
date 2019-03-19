@@ -44,7 +44,7 @@ proc test_1_router_config { } {
 		<policy label_prefix="t1_d2" domain="t1_d2" />
 
 		<domain name="t1_d1" interface="10.0.98.33/24">
-			<udp-forward port="1337" domain="t1_d2" to_ip="10.0.99.55" to_port="999" />
+			<udp-forward port="1337" domain="t1_d2" to="10.0.99.55" to_port="999" />
 		</domain>
 
 		<domain name="t1_d2" interface="10.0.99.33/24" />} }
@@ -71,7 +71,7 @@ proc test_2_router_config { } {
 
 proc test_2_router_uplink_config { } {
 	if {[enable_test_2]} { return {
-		<udp-forward port="1" domain="t2_d1" to_ip="18.17.16.15" />} }
+		<udp-forward port="1" domain="t2_d1" to="18.17.16.15" />} }
 }
 
 
@@ -118,7 +118,7 @@ proc test_4_router_config { } {
 
 proc test_4_router_uplink_config { } {
 	if {[enable_test_4]} { return {
-		<tcp-forward port="80" domain="t4_d1" to_ip="192.168.1.18" to_port="2048" />} }
+		<tcp-forward port="80" domain="t4_d1" to="192.168.1.18" to_port="2048" />} }
 }
 
 #
@@ -139,7 +139,7 @@ proc test_5_router_config { } {
 
 proc test_5_router_uplink_config { } {
 	if {[enable_test_5]} { return {
-		<tcp-forward port="8080" domain="t5_d1" to_ip="192.168.2.72" />} }
+		<tcp-forward port="8080" domain="t5_d1" to="192.168.2.72" />} }
 }
 
 

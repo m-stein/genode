@@ -1708,7 +1708,7 @@ void Interface::_update_udp_tcp_links(L3_protocol  prot,
 
 			/* if destination IP of forwarding changed, dismiss link */
 			if (rule.to_ip() != link.server().src_ip()) {
-				_dismiss_link_log(link, "other forward-rule to_ip");
+				_dismiss_link_log(link, "other forward-rule to");
 				throw Dismiss_link();
 			}
 			/*

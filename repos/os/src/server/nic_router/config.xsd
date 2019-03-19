@@ -47,7 +47,7 @@
 	<xs:complexType name="L3_forward_rule">
 		<xs:attribute name="port"    type="Port" />
 		<xs:attribute name="domain"  type="Domain_name" />
-		<xs:attribute name="to_ip"   type="Ipv4_address" />
+		<xs:attribute name="to"      type="Ipv4_address" />
 		<xs:attribute name="to_port" type="Port" />
 	</xs:complexType><!-- L3_forward_rule -->
 

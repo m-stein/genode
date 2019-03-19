@@ -48,7 +48,7 @@ void Forward_rule::print(Output &output) const
 Forward_rule::Forward_rule(Domain_tree &domains, Xml_node const node)
 :
 	_port    { node.attribute_value("port", Port(0)) },
-	_to_ip   { node.attribute_value("to_ip", Ipv4_address()) },
+	_to_ip   { node.attribute_value("to", Ipv4_address()) },
 	_to_port { node.attribute_value("to_port", Port(0)) },
 	_domain  { _find_domain(domains, node) }
 {
