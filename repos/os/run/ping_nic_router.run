@@ -130,6 +130,7 @@ append config {
 		        verbose_packets="no"
 		        icmp_idle_timeout_sec="10">
 
+			<policy label="ping_22 -> "   domain="ping_2" first_mac="02:02:02:02:02:78"/>
 			<policy label_prefix="ping_2" domain="ping_2"/>
 			<uplink                       domain="uplink"/>
 
@@ -139,7 +140,12 @@ append config {
 
 			<domain name="ping_2" interface="10.0.5.1/24">
 				<dhcp-server ip_first="10.0.5.100"
-				             ip_last="10.0.5.200"/>
+				             ip_last="10.0.5.200">
+
+					<assign mac="02:02:02:02:02:77" ip="10.0.5.122"/>
+					<assign mac="02:02:02:02:02:78" ip="10.0.5.123"/>
+					<assign mac="02:02:02:02:02:79" ip="10.0.5.124"/>
+				</dhcp-server>
 
 				<icmp dst="} [bad_dst_ip] {/24" domain="uplink"/>
 				<icmp dst="} [good_dst_ip] {/24" domain="uplink"/>
@@ -212,11 +218,9 @@ append config {
 	<start name="ping_22">
 		<binary name="ping"/>
 		<resource name="RAM" quantum="8M"/>
-		<config interface="10.0.5.3/24"
-		        gateway="10.0.5.1"
-		        dst_ip="} [bad_dst_ip] {"
+		<config dst_ip="} [bad_dst_ip] {"
 		        period_sec="1"
-		        verbose="no"/>
+		        verbose="yes"/>
 		<route>
 			<service name="Nic"> <child name="ping_2_nic_router"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
@@ -280,7 +284,8 @@ append qemu_args " -netdev user,id=net0 "
 append qemu_args " -net nic,model=[qemu_nic_model],netdev=net0 "
 
 set done_string ""
-append done_string ".*?ping_12] NIC connection: MAC 02:02:02:02:02:56.*?\n"
+append done_string ".*?ping_22] NIC connection: MAC 02:02:02:02:02:78.*?\n"
+append done_string ".*?ping_22] IP config: interface 10.0.5.123/24, gateway 10.0.5.1.*?\n"
 
 for {set i 0} {$i < 3} {incr i 1} {
 	append done_string ".*child \"ping...\" exited with exit value 0.*\n"

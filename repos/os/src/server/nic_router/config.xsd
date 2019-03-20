@@ -108,6 +108,17 @@
 
 							<xs:element name="dhcp-server">
 								<xs:complexType>
+
+									<xs:choice minOccurs="0" maxOccurs="unbounded">
+
+										<xs:element name="assign">
+											<xs:complexType>
+												<xs:attribute name="mac" type="Mac_address" />
+												<xs:attribute name="ip"  type="Ipv4_address" />
+											</xs:complexType>
+										</xs:element><!-- assign -->
+
+									</xs:choice>
 									<xs:attribute name="ip_first"          type="Ipv4_address" />
 									<xs:attribute name="ip_last"           type="Ipv4_address" />
 									<xs:attribute name="ip_lease_time_sec" type="Seconds" />

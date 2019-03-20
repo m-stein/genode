@@ -651,8 +651,9 @@ void Interface::_new_dhcp_allocation(Ethernet_frame &eth,
 {
 	try {
 		Dhcp_allocation &allocation = *new (_alloc)
-			Dhcp_allocation { *this, dhcp_srv.alloc_ip(), dhcp.client_mac(),
-			                  _timer, _config().dhcp_offer_timeout() };
+			Dhcp_allocation { *this, dhcp_srv.alloc_ip(dhcp.client_mac()),
+			                  dhcp.client_mac(), _timer,
+			                  _config().dhcp_offer_timeout() };
 
 		_dhcp_allocations.insert(allocation);
 		if (_config().verbose()) {

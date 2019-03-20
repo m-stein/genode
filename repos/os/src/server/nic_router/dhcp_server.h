@@ -15,6 +15,7 @@
 #define _DHCP_SERVER_H_
 
 /* local includes */
+#include <assign_rule.h>
 #include <ipv4_address_prefix.h>
 #include <bit_allocator_dynamic.h>
 #include <list.h>
@@ -45,6 +46,7 @@ class Net::Dhcp_server : private Genode::Noncopyable
 {
 	private:
 
+		Genode::Allocator            &_alloc;
 		Ipv4_address         const    _dns_server;
 		Pointer<Domain>      const    _dns_server_from;
 		Genode::Microseconds const    _ip_lease_time;
@@ -52,6 +54,7 @@ class Net::Dhcp_server : private Genode::Noncopyable
 		Ipv4_address         const    _ip_last;
 		Genode::uint32_t     const    _ip_first_raw;
 		Genode::uint32_t     const    _ip_count;
+		Assign_rule_tree              _assign_rules { };
 		Genode::Bit_allocator_dynamic _ip_alloc;
 
 		void _invalid(Domain     &domain,
@@ -61,6 +64,8 @@ class Net::Dhcp_server : private Genode::Noncopyable
 
 		Pointer<Domain> _init_dns_server_from(Genode::Xml_node const  node,
 		                                      Domain_tree            &domains);
+
+		Ipv4_address _alloc_ip();
 
 	public:
 
@@ -75,7 +80,7 @@ class Net::Dhcp_server : private Genode::Noncopyable
 		            Ipv4_address_prefix const &interface,
 		            Domain_tree               &domains);
 
-		Ipv4_address alloc_ip();
+		Ipv4_address alloc_ip(Mac_address const &client_mac);
 
 		void alloc_ip(Ipv4_address const &ip);
 

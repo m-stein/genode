@@ -41,14 +41,15 @@ Dhcp_server::Dhcp_server(Xml_node            const  node,
                          Ipv4_address_prefix const &interface,
                          Domain_tree               &domains)
 :
-	_dns_server(node.attribute_value("dns_server", Ipv4_address())),
-	_dns_server_from(_init_dns_server_from(node, domains)),
-	_ip_lease_time  (_init_ip_lease_time(node)),
-	_ip_first(node.attribute_value("ip_first", Ipv4_address())),
-	_ip_last(node.attribute_value("ip_last", Ipv4_address())),
-	_ip_first_raw(_ip_first.to_uint32_little_endian()),
-	_ip_count(_ip_last.to_uint32_little_endian() - _ip_first_raw + 1),
-	_ip_alloc(alloc, _ip_count)
+	_alloc           { alloc },
+	_dns_server      { node.attribute_value("dns_server", Ipv4_address()) },
+	_dns_server_from { _init_dns_server_from(node, domains) },
+	_ip_lease_time   { _init_ip_lease_time(node) },
+	_ip_first        { node.attribute_value("ip_first", Ipv4_address()) },
+	_ip_last         { node.attribute_value("ip_last", Ipv4_address()) },
+	_ip_first_raw    { _ip_first.to_uint32_little_endian() },
+	_ip_count        { _ip_last.to_uint32_little_endian() - _ip_first_raw + 1 },
+	_ip_alloc        { _alloc, _ip_count }
 {
 	if (!interface.prefix_matches(_ip_first)) {
 		_invalid(domain, "first IP does not match domain subnet"); }
@@ -58,6 +59,17 @@ Dhcp_server::Dhcp_server(Xml_node            const  node,
 
 	if (interface.address.is_in_range(_ip_first, _ip_last)) {
 		_invalid(domain, "IP range contains IP address of domain"); }
+
+	try {
+		node.for_each_sub_node("assign", [&] (Xml_node const node) {
+			Assign_rule &rule = *new (_alloc) Assign_rule(*this, node);
+			_assign_rules.insert(&rule);
+			if (domain.config().verbose()) {
+				log("[", domain, "] DHCP assign rule: ", rule);
+			}
+		});
+	}
+	catch (Assign_rule::Invalid) { _invalid(domain, "invalid DHCP assign rule"); }
 }
 
 
@@ -88,7 +100,7 @@ void Dhcp_server::print(Output &output) const
 }
 
 
-Ipv4_address Dhcp_server::alloc_ip()
+Ipv4_address Dhcp_server::_alloc_ip()
 {
 	try {
 		return Ipv4_address::from_uint32_little_endian(_ip_alloc.alloc() +
@@ -97,6 +109,13 @@ Ipv4_address Dhcp_server::alloc_ip()
 	catch (Bit_allocator_dynamic::Out_of_indices) {
 		throw Alloc_ip_failed();
 	}
+}
+
+
+Ipv4_address Dhcp_server::alloc_ip(Mac_address const &client_mac)
+{
+	try { return _assign_rules.find_by_mac(client_mac).ip(); }
+	catch (Assign_rule_tree::No_match) { return _alloc_ip(); }
 }
 
 
