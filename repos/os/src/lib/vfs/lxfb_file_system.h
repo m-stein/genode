@@ -5,20 +5,22 @@
  */
 
 /*
- * Copyright (C) 2016 Genode Labs GmbH
+ * Copyright (C) 2019 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
- * under the terms of the GNU General Public License version 2.
+ * under the terms of the GNU Affero General Public License version 3.
  */
 
 #ifndef _INCLUDE__VFS__LXFB_FILE_SYSTEM_H_
 #define _INCLUDE__VFS__LXFB_FILE_SYSTEM_H_
 
-#include <vfs/lxfb.h>
+/* Genode includes */
 #include <vfs/single_file_system.h>
 #include <framebuffer_session/connection.h>
+#include <vfs/lxfb.h>
 
 namespace Vfs { class Lxfb_file_system; }
+
 
 class Vfs::Lxfb_file_system : public Single_file_system
 {
@@ -30,7 +32,8 @@ class Vfs::Lxfb_file_system : public Single_file_system
 			LXFB_BPP    = 32,
 		};
 
-		Framebuffer::Connection    _fb;
+		Vfs::Env                &_env;
+		Framebuffer::Connection  _fb { _env.env(), Framebuffer::Mode() };
 
 		Ioctl_result _fbioget_fscreeninfo(Ioctl_arg arg)
 		{
@@ -62,47 +65,72 @@ class Vfs::Lxfb_file_system : public Single_file_system
 				varinfo->red.offset   = 11;
 				break;
 			default:
-				PERR("invalid framebuffer format");
+				Genode::error("invalid framebuffer format");
 				return IOCTL_ERR_INVALID;
 			}
 			return IOCTL_OK;
 		}
 
+		Lxfb_file_system(Lxfb_file_system const &);
+		Lxfb_file_system &operator = (Lxfb_file_system const &);
+
+		struct Lxfb_vfs_handle : Single_vfs_handle
+		{
+			Lxfb_vfs_handle(Directory_service &ds,
+			                File_io_service   &fs,
+			                Genode::Allocator &alloc)
+			: Single_vfs_handle(ds, fs, alloc, 0) { }
+
+
+			Read_result read(char *, file_size, file_size &) override
+			{
+				Genode::warning("Not implemented");
+				return READ_ERR_INVALID;
+			}
+
+			Write_result write(char const *, file_size, file_size &) override
+			{
+				Genode::warning("Not implemented");
+				return WRITE_ERR_INVALID;
+			}
+
+			bool read_ready() override { return true; }
+		};
+
 	public:
 
-		Lxfb_file_system(Xml_node config)
+		Lxfb_file_system(Vfs::Env &env, Genode::Xml_node config)
 		:
-			Single_file_system(NODE_TYPE_CHAR_DEVICE, name(), config)
+			Single_file_system { NODE_TYPE_CHAR_DEVICE, name(), config },
+			_env               { env }
 		{ }
 
-		static const char *name() { return "lxfb"; }
+		static char const *name()   { return "lxfb"; }
+		char const *type() override { return "lxfb"; }
 
-
-		/********************************
-		 ** File I/O service interface **
-		 ********************************/
-
-		Write_result write(Vfs_handle *, char const *src, file_size count,
-		                   file_size &out_count) override
+		Open_result open(char const  *path, unsigned,
+		                 Vfs_handle **out_handle,
+		                 Allocator   &alloc) override
 		{
-			PDBG("Not implemented");
-			return WRITE_ERR_INVALID;
+			if (!_single_file(path))
+				return OPEN_ERR_UNACCESSIBLE;
+
+			try {
+				*out_handle = new (alloc)
+					Lxfb_vfs_handle(*this, *this, alloc);
+				return OPEN_OK;
+			}
+			catch (Genode::Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
+			catch (Genode::Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
 		}
 
-		Read_result read(Vfs_handle *vfs_handle, char *dst, file_size count,
-		                 file_size &out_count) override
-		{
-			PDBG("Not implemented");
-			return READ_ERR_INVALID;
-		}
-
-		Ioctl_result ioctl(Vfs_handle *vfs_handle, Ioctl_opcode opcode,
-		                   Ioctl_arg arg, Ioctl_out &out) override
+		Ioctl_result ioctl(Vfs_handle *, Ioctl_opcode opcode,
+		                   Ioctl_arg arg, Ioctl_out &) override
 		{
 			switch (opcode) {
 			case IOCTL_OP_FBIOGET_VSCREENINFO: return _fbioget_vscreeninfo(arg);
 			case IOCTL_OP_FBIOGET_FSCREENINFO: return _fbioget_fscreeninfo(arg);
-			default: PDBG("invalid ioctl request %d", opcode); break;
+			default: Genode::warning("invalid ioctl request", (int)opcode); break;
 			}
 			return IOCTL_ERR_INVALID;
 		}
