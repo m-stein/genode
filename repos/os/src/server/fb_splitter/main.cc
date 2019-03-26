@@ -13,9 +13,12 @@
 
 /* Genode includes */
 #include <framebuffer_session/connection.h>
-#include <base/printf.h>
-#include <os/server.h>
+#include <base/component.h>
+#include <base/heap.h>
+#include <util/reconstructible.h>
 #include <root/component.h>
+
+using namespace Genode;
 
 namespace Framebuffer
 {
@@ -24,19 +27,19 @@ namespace Framebuffer
 	class Root;
 
 	enum { MAX_LABEL_LEN = 128 };
-	typedef Genode::String<MAX_LABEL_LEN> Label;
-	typedef Genode::Root_component<Session_component, Genode::Multiple_clients> Root_component;
+	typedef String<MAX_LABEL_LEN> Label;
+	typedef Root_component<Session_component, Multiple_clients> Root_component;
 }
 
 class Framebuffer::Session_component
 :
-	public Genode::Rpc_object<Framebuffer::Session>
+	public Rpc_object<Framebuffer::Session>
 {
 	private:
 
 		Framebuffer::Connection & _fb_con;
-		Genode::Signal_context_capability _mode_sigh;
-		Genode::Signal_context_capability _sync_sigh;
+		Signal_context_capability _mode_sigh { };
+		Signal_context_capability _sync_sigh { };
 
 	public:
 
@@ -54,14 +57,14 @@ class Framebuffer::Session_component
 
 		Mode mode() const override { return _fb_con.mode(); }
 
-		void mode_sigh(Genode::Signal_context_capability sigh) override
+		void mode_sigh(Signal_context_capability sigh) override
 		{
 			/* FIXME: done merely for NOVA and SEL4 */
 			_mode_sigh = sigh;
 			_fb_con.mode_sigh(sigh);
 		}
 
-		void sync_sigh(Genode::Signal_context_capability sigh) override
+		void sync_sigh(Signal_context_capability sigh) override
 		{
 			/* FIXME: done merely for NOVA and SEL4 */
 			_sync_sigh = sigh;
@@ -76,7 +79,10 @@ class Framebuffer::Root : public Framebuffer::Root_component
 {
 	private:
 
-		Session_component *_create_session(const char *args)
+		Env                                    &_env;
+		Constructible<Framebuffer::Connection>  _fb_con { };
+
+		Session_component *_create_session(const char *args) override
 		{
 			using namespace Genode;
 
@@ -91,50 +97,49 @@ class Framebuffer::Root : public Framebuffer::Root_component
 			size_t session_size = align_addr(sizeof(Session_component), 12);
 
 			if (ram_quota < session_size) {
-				PERR("insufficient 'ram_quota', got %zu, need %zu",
-				     ram_quota, session_size);
-				throw Root::Quota_exceeded();
+				error("insufficient 'ram_quota', got ",ram_quota,", need ",session_size);
+				throw Service_denied();
 			}
 
-			static Framebuffer::Connection fb_con;
+			if (!_fb_con.constructed()) {
+				_fb_con.construct(_env, Mode());
+			}
+
 			Session_component *session = new (md_alloc())
-				Session_component(label, fb_con);
+				Session_component(label, *_fb_con);
 
 			return session;
 
 		}
 
-		void _destroy_session(Session_component *session) {
-			destroy(md_alloc(), session); }
+	public:
+
+		Root(Env       &env,
+		     Allocator &md_alloc)
+		:
+			Root_component { &env.ep().rpc_ep(), &md_alloc },
+			_env           { env }
+		{ }
+};
+
+
+class Main
+{
+	private:
+
+		Env               &_env;
+		Heap               _heap { &_env.ram(), &_env.rm() };
+		Framebuffer::Root  _root { _env, _heap };
 
 	public:
 
-		Root(Server::Entrypoint &ep, Genode::Allocator &md_alloc)
-		: Root_component(&ep.rpc_ep(), &md_alloc) { }
+		Main(Env &env)
+		:
+			_env(env)
+		{
+			_env.parent().announce(_env.ep().manage(_root));
+		}
 };
 
 
-/************
- ** Server **
- ************/
-
-namespace Server { struct Main; }
-
-struct Server::Main
-{
-	Server::Entrypoint &ep;
-
-	Framebuffer::Root root = { ep, *Genode::env()->heap() };
-
-	Main(Server::Entrypoint &ep) : ep(ep) {
-		Genode::env()->parent()->announce(ep.manage(root)); }
-};
-
-namespace Server {
-
-	char const *name() { return "fb_splitter_ep"; }
-
-	size_t stack_size() { return 4 * 1024 * sizeof(addr_t); }
-
-	void construct(Entrypoint &ep) { static Main server(ep); }
-}
+void Component::construct(Env &env) { static Main main(env); }
