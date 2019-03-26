@@ -8,6 +8,29 @@ set build_components {
 	test/nic_stress
 }
 
+proc nr_of_rounds { test_id } {
+	if {[have_spec sel4]} {
+		switch $test_id {
+			1 { return 19 }
+			2 { return 12 }
+		}
+	} else {
+		switch $test_id {
+			1 { return 22 }
+			2 { return 16 }
+		}
+	}
+	return 0
+}
+
+proc nr_of_sessions { test_id } {
+	switch $test_id {
+		1 { return 11 }
+		2 { return 17 }
+	}
+	return 0
+}
+
 build $build_components
 
 create_boot_directory
@@ -64,8 +87,8 @@ append config {
 		<binary name="test-nic_stress"/>
 		<resource name="RAM" quantum="50M"/>
 		<config>
-			<construct_destruct nr_of_rounds="22"
-			                    nr_of_sessions="11"/>
+			<construct_destruct nr_of_rounds="}   [nr_of_rounds   1] {"
+			                    nr_of_sessions="} [nr_of_sessions 1] {"/>
 		</config>
 		<route>
 			<service name="Nic"> <child name="nic_bridge"/> </service>
@@ -77,8 +100,8 @@ append config {
 		<binary name="test-nic_stress"/>
 		<resource name="RAM" quantum="100M"/>
 		<config>
-			<construct_destruct nr_of_rounds="16"
-			                    nr_of_sessions="17"/>
+			<construct_destruct nr_of_rounds="}   [nr_of_rounds 2] {"
+			                    nr_of_sessions="} [nr_of_rounds 2] {"/>
 		</config>
 		<route>
 			<service name="Nic"> <child name="nic_bridge"/> </service>
@@ -111,4 +134,4 @@ append done_string {.*?"nic_stress_." exited with exit value 0}
 append done_string {.*?"nic_stress_." exited with exit value 0}
 append done_string {.*?\n}
 
-run_genode_until $done_string 120
+run_genode_until $done_string 300
