@@ -39,6 +39,8 @@ class Libc::Vfs_plugin : public Libc::Plugin
 {
 	private:
 
+		Libc::Env &_env;
+
 		Genode::Allocator &_alloc;
 
 		Vfs::File_system &_root_dir;
@@ -157,7 +159,7 @@ class Libc::Vfs_plugin : public Libc::Plugin
 
 		Vfs_plugin(Libc::Env &env, Genode::Allocator &alloc)
 		:
-			_alloc(alloc), _root_dir(env.vfs())
+			_env(env), _alloc(alloc), _root_dir(env.vfs())
 		{
 			using Genode::Xml_node;
 

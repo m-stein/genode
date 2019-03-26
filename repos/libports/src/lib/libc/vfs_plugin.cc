@@ -18,7 +18,7 @@
 #include <base/log.h>
 #include <vfs/dir_file_system.h>
 #include <vfs/lxfb_io.h>
-#include <os/attached_dataspace.h>
+#include <base/attached_dataspace.h>
 
 /* libc includes */
 #include <errno.h>
@@ -1246,11 +1246,11 @@ void *Libc::Vfs_plugin::_mmap_copy(::size_t length, Libc::File_descriptor *fd,
 void *Libc::Vfs_plugin::_mmap_direct(Vfs::Vfs_handle * handle)
 {
 	try {
-		static Genode::Attached_dataspace attached(handle->fs().mmap_direct_ds());
+		static Genode::Attached_dataspace attached(_env.rm(), handle->fs().mmap_direct_ds());
 		return attached.local_addr<void *>();
 	} catch (...) { }
 
-	PERR("mmap failed to attach dataspace");
+	Genode::error("mmap failed to attach dataspace");
 	errno = EINVAL;
 	return (void *)-1;
 }
