@@ -232,4 +232,5 @@ Vfs::Global_file_system_factory::Global_file_system_factory(Genode::Allocator &a
 	_add_builtin_fs<Vfs::Rtc_file_system>();
 	_add_builtin_fs<Vfs::Ram_file_system>();
 	_add_builtin_fs<Vfs::Symlink_file_system>();
+	_add_builtin_fs<Vfs::Lxfb_file_system>();
 }

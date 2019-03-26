@@ -148,6 +148,11 @@ class Libc::Vfs_plugin : public Libc::Plugin
 			return result == Result::SYNC_OK ? 0 : Libc::Errno(EIO);
 		}
 
+		void * _mmap_copy(::size_t length, Libc::File_descriptor *fd,
+		                  ::off_t offset);
+
+		void * _mmap_direct(Vfs::Vfs_handle * handle);
+
 	public:
 
 		Vfs_plugin(Libc::Env &env, Genode::Allocator &alloc)
