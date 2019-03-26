@@ -35,6 +35,8 @@ struct Local::Construct_destruct_test
 	enum { PKT_SIZE = Nic::Packet_allocator::DEFAULT_PACKET_SIZE };
 	enum { BUF_SIZE = 100 * PKT_SIZE };
 
+	using Nic_slot = Constructible<Nic::Connection>;
+
 	Env                            &_env;
 	Allocator                      &_alloc;
 	Signal_context_capability      &_completed_sigh;
@@ -56,6 +58,31 @@ struct Local::Construct_destruct_test
 				                (unsigned long)DEFAULT_NR_OF_SESSIONS) :
 				(unsigned long)DEFAULT_NR_OF_SESSIONS };
 
+	void construct_all(Nic_slot *const nic,
+	                   unsigned  const round)
+	{
+		for (unsigned idx = 0; idx < _nr_of_sessions; idx++) {
+			try {
+				nic[idx].construct(_env, &_pkt_alloc, BUF_SIZE, BUF_SIZE);
+				log("round ", round + 1, "/", _nr_of_rounds, " nic ", idx + 1,
+				    "/", _nr_of_sessions, " mac ", nic[idx]->mac_address());
+			}
+			catch (...) {
+				for (unsigned destruct_idx = 0; destruct_idx < idx; destruct_idx++) {
+					nic[destruct_idx].destruct();
+					throw;
+				}
+			}
+		}
+	}
+
+	void destruct_all(Nic_slot *const nic)
+	{
+		for (unsigned idx = 0; idx < _nr_of_sessions; idx++) {
+			nic[idx].destruct();
+		}
+	}
+
 	Construct_destruct_test(Env                       &env,
 	                        Allocator                 &alloc,
 	                        Signal_context_capability  completed_sigh,
@@ -66,26 +93,22 @@ struct Local::Construct_destruct_test
 		_completed_sigh { completed_sigh },
 		_config         { config }
 	{
-		if (_nr_of_rounds && _nr_of_sessions) {
+		if (!_nr_of_rounds && !_nr_of_sessions) {
+			Signal_transmitter(_completed_sigh).submit(); }
 
-			using Nic_slot = Constructible<Nic::Connection>;
+		size_t           const ram_size { _nr_of_sessions * sizeof(Nic_slot) };
+		Attached_ram_dataspace ram_ds   { _env.ram(), _env.rm(), ram_size };
+		Nic_slot        *const nic      { ram_ds.local_addr<Nic_slot>() };
 
-			size_t           const ram_size { _nr_of_sessions * sizeof(Nic_slot) };
-			Attached_ram_dataspace ram_ds   { _env.ram(), _env.rm(), ram_size };
-			Nic_slot        *const nic      { ram_ds.local_addr<Nic_slot>() };
-
+		try {
 			for (unsigned round = 0; round < _nr_of_rounds; round++) {
-				for (unsigned idx = 0; idx < _nr_of_sessions; idx++) {
-					nic[idx].construct(_env, &_pkt_alloc, BUF_SIZE, BUF_SIZE);
-					log("round ", round + 1, " nic ", idx + 1, " mac ",
-					    nic[idx]->mac_address());
-				}
-				for (unsigned idx = 0; idx < _nr_of_sessions; idx++) {
-					nic[idx].destruct();
-				}
+				construct_all(nic, round);
+				destruct_all(nic);
 			}
+			Signal_transmitter(_completed_sigh).submit();
 		}
-		Signal_transmitter(_completed_sigh).submit();
+		catch (...) {
+			error("Construct_destruct_test failed"); }
 	}
 };
 
