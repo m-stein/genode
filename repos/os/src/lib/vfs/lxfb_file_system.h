@@ -37,6 +37,7 @@ class Vfs::Lxfb_file_system : public Single_file_system
 
 		Ioctl_result _fbioget_fscreeninfo(Ioctl_arg arg)
 		{
+Genode::error(__func__,__LINE__);
 			using Genode::size_t;
 			Framebuffer::Mode fb_mode = _fb.mode();
 			size_t fb_line_sz = fb_mode.width() * fb_mode.bytes_per_pixel();
@@ -51,6 +52,7 @@ class Vfs::Lxfb_file_system : public Single_file_system
 
 		Ioctl_result _fbioget_vscreeninfo(Ioctl_arg arg)
 		{
+Genode::error(__func__,__LINE__);
 			Framebuffer::Mode fb_mode = _fb.mode();
 			fb_var_screeninfo * varinfo = (fb_var_screeninfo *)arg;
 			varinfo->xres = fb_mode.width();
@@ -79,7 +81,9 @@ class Vfs::Lxfb_file_system : public Single_file_system
 			Lxfb_vfs_handle(Directory_service &ds,
 			                File_io_service   &fs,
 			                Genode::Allocator &alloc)
-			: Single_vfs_handle(ds, fs, alloc, 0) { }
+			: Single_vfs_handle(ds, fs, alloc, 0) {
+//Genode::error(__func__,__LINE__);
+}
 
 
 			Read_result read(char *, file_size, file_size &) override
@@ -94,7 +98,9 @@ class Vfs::Lxfb_file_system : public Single_file_system
 				return WRITE_ERR_INVALID;
 			}
 
-			bool read_ready() override { return true; }
+			bool read_ready() override {
+//Genode::error(__func__,__LINE__);
+return true; }
 		};
 
 	public:
@@ -112,9 +118,11 @@ class Vfs::Lxfb_file_system : public Single_file_system
 		                 Vfs_handle **out_handle,
 		                 Allocator   &alloc) override
 		{
+Genode::error(__func__,__LINE__);
 			if (!_single_file(path))
 				return OPEN_ERR_UNACCESSIBLE;
 
+//Genode::error(__func__,__LINE__);
 			try {
 				*out_handle = new (alloc)
 					Lxfb_vfs_handle(*this, *this, alloc);
@@ -127,6 +135,7 @@ class Vfs::Lxfb_file_system : public Single_file_system
 		Ioctl_result ioctl(Vfs_handle *, Ioctl_opcode opcode,
 		                   Ioctl_arg arg, Ioctl_out &) override
 		{
+//Genode::error(__func__,__LINE__);
 			switch (opcode) {
 			case IOCTL_OP_FBIOGET_VSCREENINFO: return _fbioget_vscreeninfo(arg);
 			case IOCTL_OP_FBIOGET_FSCREENINFO: return _fbioget_fscreeninfo(arg);
