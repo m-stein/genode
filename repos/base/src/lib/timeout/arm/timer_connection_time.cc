@@ -28,5 +28,5 @@ void Timer::Connection::_update_real_time() { }
 
 Duration Timer::Connection::curr_time()
 {
-	return Duration(Microseconds(elapsed_us()));
+	return Duration(Xicroseconds(xlapsed_us()));
 }

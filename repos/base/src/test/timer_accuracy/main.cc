@@ -23,12 +23,12 @@ struct Main
 {
 	Timer::Connection    timer;
 	Signal_handler<Main> timer_handler;
-	unsigned             duration_us { 0 };
+	uint64_t             duration_us { 0 };
 
 	void handle_timer()
 	{
 		duration_us += 1000 * 1000;
-		timer.trigger_once(duration_us);
+		timer.xrigger_once(duration_us);
 		log("");
 	}
 
