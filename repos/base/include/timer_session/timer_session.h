@@ -38,7 +38,7 @@ struct Timer::Session : Genode::Session
 	/**
 	 * Program single timeout (relative from now in microseconds)
 	 */
-	virtual void trigger_once(unsigned us) = 0;
+	virtual void xrigger_once(Genode::uint64_t us) = 0;
 
 	/**
 	 * Program periodic timeout (in microseconds)
@@ -46,7 +46,7 @@ struct Timer::Session : Genode::Session
 	 * The first period will be triggered after 'us' at the latest,
 	 * but it might be triggered earlier as well.
 	 */
-	virtual void trigger_periodic(unsigned us) = 0;
+	virtual void xrigger_periodic(Genode::uint64_t us) = 0;
 
 	/**
 	 * Register timeout signal handler
@@ -56,35 +56,35 @@ struct Timer::Session : Genode::Session
 	/**
 	 * Return number of elapsed milliseconds since session creation
 	 */
-	virtual unsigned long elapsed_ms() const = 0;
+	virtual Genode::uint64_t xlapsed_ms() const = 0;
 
-	virtual unsigned long elapsed_us() const = 0;
+	virtual Genode::uint64_t xlapsed_us() const = 0;
 
 	/**
 	 * Client-side convenience method for sleeping the specified number
 	 * of milliseconds
 	 */
-	virtual void msleep(unsigned ms) = 0;
+	virtual void mxleep(Genode::uint64_t ms) = 0;
 
 	/**
 	 * Client-side convenience method for sleeping the specified number
 	 * of microseconds
 	 */
-	virtual void usleep(unsigned us) = 0;
+	virtual void uxleep(Genode::uint64_t us) = 0;
 
 
 	/*********************
 	 ** RPC declaration **
 	 *********************/
 
-	GENODE_RPC(Rpc_trigger_once, void, trigger_once, unsigned);
-	GENODE_RPC(Rpc_trigger_periodic, void, trigger_periodic, unsigned);
+	GENODE_RPC(Rpc_xrigger_once, void, xrigger_once, Genode::uint64_t);
+	GENODE_RPC(Rpc_xrigger_periodic, void, xrigger_periodic, Genode::uint64_t);
 	GENODE_RPC(Rpc_sigh, void, sigh, Genode::Signal_context_capability);
-	GENODE_RPC(Rpc_elapsed_ms, unsigned long, elapsed_ms);
-	GENODE_RPC(Rpc_elapsed_us, unsigned long, elapsed_us);
+	GENODE_RPC(Rpc_xlapsed_ms, Genode::uint64_t, xlapsed_ms);
+	GENODE_RPC(Rpc_xlapsed_us, Genode::uint64_t, xlapsed_us);
 
-	GENODE_RPC_INTERFACE(Rpc_trigger_once, Rpc_trigger_periodic,
-	                     Rpc_sigh, Rpc_elapsed_ms, Rpc_elapsed_us);
+	GENODE_RPC_INTERFACE(Rpc_xrigger_once, Rpc_xrigger_periodic,
+	                     Rpc_sigh, Rpc_xlapsed_ms, Rpc_xlapsed_us);
 };
 
 #endif /* _INCLUDE__TIMER_SESSION__TIMER_SESSION_H_ */

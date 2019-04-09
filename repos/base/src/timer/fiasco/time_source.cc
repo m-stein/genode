@@ -65,10 +65,10 @@ static l4_timeout_s mus_to_timeout(unsigned long mus)
 }
 
 
-Microseconds Timer::Time_source::max_timeout() const
+Xicroseconds Timer::Time_source::max_timeout() const
 {
 	Genode::Lock::Guard lock_guard(_lock);
-	return Microseconds(1000 * 1000 * 100);
+	return Xicroseconds(1000 * 1000 * 100);
 }
 
 

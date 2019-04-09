@@ -61,7 +61,7 @@ struct Genode::Time_source : Interface
 	/**
 	 * Return the maximum timeout duration that the source can handle
 	 */
-	virtual Microseconds max_timeout() const = 0;
+	virtual Xicroseconds max_timeout() const = 0;
 
 	/**
 	 * Install a timeout, overrides the last timeout if any
@@ -69,7 +69,7 @@ struct Genode::Time_source : Interface
 	 * \param duration  timeout duration
 	 * \param handler   timeout callback
 	 */
-	virtual void schedule_timeout(Microseconds     duration,
+	virtual void schedule_timeout(Xicroseconds     duration,
 	                              Timeout_handler &handler) = 0;
 
 	/**
@@ -102,7 +102,7 @@ class Genode::Timeout_scheduler : Interface
 		 * \param timeout   timeout callback object
 		 * \param duration  timeout trigger delay
 		 */
-		virtual void _schedule_one_shot(Timeout &timeout, Microseconds duration) = 0;
+		virtual void _schedule_one_shot(Timeout &timeout, Xicroseconds duration) = 0;
 
 		/**
 		 * Add a periodic timeout to the schedule
@@ -110,7 +110,7 @@ class Genode::Timeout_scheduler : Interface
 		 * \param timeout   timeout callback object
 		 * \param duration  timeout trigger period
 		 */
-		virtual void _schedule_periodic(Timeout &timeout, Microseconds duration) = 0;
+		virtual void _schedule_periodic(Timeout &timeout, Xicroseconds duration) = 0;
 
 		/**
 		 * Remove timeout from the scheduler
@@ -158,7 +158,7 @@ class Genode::Timeout : private Noncopyable
 
 			private:
 
-				typedef unsigned long Time;
+				typedef uint64_t Time;
 
 				struct Raw
 				{
@@ -166,7 +166,7 @@ class Genode::Timeout : private Noncopyable
 					bool deadline_period;
 					Time period;
 
-					bool is_pending_at(unsigned long time, bool time_period) const;
+					bool is_pending_at(uint64_t time, bool time_period) const;
 				};
 
 				Lock                     _dispatch_lock { };
@@ -213,9 +213,9 @@ class Genode::Timeout : private Noncopyable
 
 		~Timeout() { discard(); }
 
-		void schedule_periodic(Microseconds duration, Handler &handler);
+		void schedule_periodic(Xicroseconds duration, Handler &handler);
 
-		void schedule_one_shot(Microseconds duration, Handler &handler);
+		void schedule_one_shot(Xicroseconds duration, Handler &handler);
 
 		void discard();
 
@@ -268,8 +268,8 @@ class Genode::Alarm_timeout_scheduler : private Noncopyable,
 		 ** Timeout_scheduler **
 		 ***********************/
 
-		void _schedule_one_shot(Timeout &timeout, Microseconds duration) override;
-		void _schedule_periodic(Timeout &timeout, Microseconds duration) override;
+		void _schedule_one_shot(Timeout &timeout, Xicroseconds duration) override;
+		void _schedule_periodic(Timeout &timeout, Xicroseconds duration) override;
 
 		void _discard(Timeout &timeout) override {
 			_alarm_discard(&timeout._alarm); }
@@ -292,7 +292,7 @@ class Genode::Alarm_timeout_scheduler : private Noncopyable,
 	public:
 
 		Alarm_timeout_scheduler(Time_source  &time_source,
-		                        Microseconds  min_handle_period = Microseconds(1));
+		                        Xicroseconds  min_handle_period = Xicroseconds(1));
 
 		~Alarm_timeout_scheduler();
 

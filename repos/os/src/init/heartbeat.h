@@ -34,7 +34,7 @@ class Init::Heartbeat : Genode::Noncopyable
 
 		Constructible<Timer::Connection> _timer { };
 
-		unsigned _rate_ms = 0;
+		uint64_t _rate_ms = 0;
 
 		Signal_handler<Heartbeat> _timer_handler;
 
@@ -81,7 +81,7 @@ class Init::Heartbeat : Genode::Noncopyable
 			if (rate_ms != _rate_ms) {
 				_rate_ms = rate_ms;
 				_timer->sigh(_timer_handler);
-				_timer->trigger_periodic(_rate_ms*1000);
+				_timer->xrigger_periodic(_rate_ms*1000);
 			}
 		}
 };

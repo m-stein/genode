@@ -74,7 +74,7 @@ class Timer::Session_component : public  Genode::Rpc_object<Session>,
 			_timeout.schedule_one_shot(typed_us, *this);
 		}
 
-		void trigger_periodic(unsigned us) override {
+		void trigger_periodic(uint64_t us) override {
 			_timeout.schedule_periodic(Microseconds(us), *this); }
 
 		void sigh(Signal_context_capability sigh) override
@@ -84,15 +84,15 @@ class Timer::Session_component : public  Genode::Rpc_object<Session>,
 				_timeout.discard();
 		}
 
-		unsigned long elapsed_ms() const override {
-			return elapsed_us() / 1000; }
+		uint64_t xlapsed_ms() const override {
+			return xlapsed_us() / 1000; }
 
-		unsigned long elapsed_us() const override {
+		uint64_t xlapsed_us() const override {
 			return _timeout_scheduler.curr_time().trunc_to_plain_us().value -
 			       _init_time_us; }
 
-		void msleep(unsigned) override { /* never called at the server side */ }
-		void usleep(unsigned) override { /* never called at the server side */ }
+		void msleep(uint64_t) override { /* never called at the server side */ }
+		void usleep(uint64_t) override { /* never called at the server side */ }
 };
 
 #endif /* _SESSION_COMPONENT_ */

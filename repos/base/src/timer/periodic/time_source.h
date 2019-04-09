@@ -28,8 +28,8 @@ class Timer::Time_source : public Threaded_time_source
 		Genode::Env         &_env;
 
 		Genode::Lock mutable _lock { };
-		unsigned long        _curr_time_us = 0;
-		unsigned long        _next_timeout_us = max_timeout().value;
+		uint64_t             _curr_time_us = 0;
+		uint64_t             _next_timeout_us = max_timeout().value;
 
 		void _usleep(unsigned long us);
 
@@ -51,8 +51,8 @@ class Timer::Time_source : public Threaded_time_source
 		 *************************/
 
 		Duration curr_time() override;
-		Microseconds max_timeout() const override;
-		void schedule_timeout(Microseconds duration, Timeout_handler &handler) override;
+		Xicroseconds max_timeout() const override;
+		void schedule_timeout(Xicroseconds duration, Timeout_handler &handler) override;
 };
 
 #endif /* _TIME_SOURCE_H_ */

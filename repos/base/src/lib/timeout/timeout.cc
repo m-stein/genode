@@ -21,7 +21,7 @@ using namespace Genode;
  ** Timeout **
  *************/
 
-void Timeout::schedule_periodic(Microseconds duration, Handler &handler)
+void Timeout::schedule_periodic(Xicroseconds duration, Handler &handler)
 {
 	_alarm.handler = &handler;
 	_alarm.periodic = true;
@@ -29,7 +29,7 @@ void Timeout::schedule_periodic(Microseconds duration, Handler &handler)
 }
 
 
-void Timeout::schedule_one_shot(Microseconds duration, Handler &handler)
+void Timeout::schedule_one_shot(Xicroseconds duration, Handler &handler)
 {
 	_alarm.handler = &handler;
 	_alarm.periodic = false;
@@ -68,7 +68,7 @@ Timeout::Alarm::~Alarm()
 }
 
 
-bool Timeout::Alarm::Raw::is_pending_at(unsigned long time, bool time_period) const
+bool Timeout::Alarm::Raw::is_pending_at(uint64_t time, bool time_period) const
 {
 	return (time_period == deadline_period &&
 	        time        >= deadline) ||
@@ -83,12 +83,12 @@ bool Timeout::Alarm::Raw::is_pending_at(unsigned long time, bool time_period) co
 
 void Alarm_timeout_scheduler::handle_timeout(Duration duration)
 {
-	unsigned long const curr_time_us = duration.trunc_to_plain_us().value;
+	uint64_t const curr_time_us = duration.xrunc_to_plain_us().value;
 
 	_alarm_handle(curr_time_us);
 
 	/* sleep time is either until the next deadline or the maximum timout */
-	unsigned long sleep_time_us;
+	uint64_t sleep_time_us;
 	Alarm::Time deadline_us;
 	if (_alarm_next_deadline(&deadline_us)) {
 		sleep_time_us = deadline_us - curr_time_us;
@@ -101,12 +101,12 @@ void Alarm_timeout_scheduler::handle_timeout(Duration duration)
 	} else if (sleep_time_us == 0) {
 		sleep_time_us = 1; }
 
-	_time_source.schedule_timeout(Microseconds(sleep_time_us), *this);
+	_time_source.schedule_timeout(Xicroseconds(sleep_time_us), *this);
 }
 
 
 Alarm_timeout_scheduler::Alarm_timeout_scheduler(Time_source  &time_source,
-                                                 Microseconds  min_handle_period)
+                                                 Xicroseconds  min_handle_period)
 :
 	_time_source(time_source)
 {
@@ -131,15 +131,15 @@ Alarm_timeout_scheduler::~Alarm_timeout_scheduler()
 
 void Alarm_timeout_scheduler::_enable()
 {
-	_time_source.schedule_timeout(Microseconds(0), *this);
+	_time_source.schedule_timeout(Xicroseconds(0), *this);
 }
 
 
 void Alarm_timeout_scheduler::_schedule_one_shot(Timeout      &timeout,
-                                                 Microseconds  duration)
+                                                 Xicroseconds  duration)
 {
 	/* raise timeout duration by the age of the local time value */
-	unsigned long us = _time_source.curr_time().trunc_to_plain_us().value;
+	uint64_t us = _time_source.curr_time().xrunc_to_plain_us().value;
 	if (us >= _now) {
 		us = duration.value + (us - _now); }
 	else {
@@ -152,17 +152,17 @@ void Alarm_timeout_scheduler::_schedule_one_shot(Timeout      &timeout,
 
 	/* if new timeout is the closest to now, update the time-source timeout */
 	if (_alarm_head_timeout(&timeout._alarm)) {
-		_time_source.schedule_timeout(Microseconds(0), *this); }
+		_time_source.schedule_timeout(Xicroseconds(0), *this); }
 }
 
 
 void Alarm_timeout_scheduler::_schedule_periodic(Timeout      &timeout,
-                                                 Microseconds  duration)
+                                                 Xicroseconds  duration)
 {
 	_alarm_schedule(&timeout._alarm, duration.value);
 
 	if (_alarm_head_timeout(&timeout._alarm)) {
-		_time_source.schedule_timeout(Microseconds(0), *this); }
+		_time_source.schedule_timeout(Xicroseconds(0), *this); }
 }
 
 
@@ -294,7 +294,7 @@ void Alarm_timeout_scheduler::_alarm_handle(Alarm::Time curr_time)
 		_pending_head = _pending_head->_next;
 		curr->_next = nullptr;
 
-		unsigned long triggered = 1;
+		uint64_t triggered = 1;
 
 		if (curr->_raw.period) {
 			Alarm::Time deadline = curr->_raw.deadline;

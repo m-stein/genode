@@ -53,7 +53,7 @@ void Timer::Time_source::schedule_timeout(Microseconds     duration,
                                           Timeout_handler &handler)
 {
 	_handler = &handler;
-	unsigned long duration_us = duration.value;
+	uint64_t duration_us = duration.value;
 
 	/* timeout '0' is trigger to cancel the current pending, if required */
 	if (!duration.value) {

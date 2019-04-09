@@ -27,15 +27,15 @@ struct Timer::Session_client : Genode::Rpc_client<Session>
 	explicit Session_client(Session_capability session)
 	: Genode::Rpc_client<Session>(session) { }
 
-	void trigger_once(unsigned us) override { call<Rpc_trigger_once>(us); }
+	void xrigger_once(Genode::uint64_t us) override { call<Rpc_xrigger_once>(us); }
 
-	void trigger_periodic(unsigned us) override { call<Rpc_trigger_periodic>(us); }
+	void xrigger_periodic(Genode::uint64_t us) override { call<Rpc_xrigger_periodic>(us); }
 
 	void sigh(Signal_context_capability sigh) override { call<Rpc_sigh>(sigh); }
 
-	unsigned long elapsed_ms() const override { return call<Rpc_elapsed_ms>(); }
+	Genode::uint64_t xlapsed_ms() const override { return call<Rpc_xlapsed_ms>(); }
 
-	unsigned long elapsed_us() const override { return call<Rpc_elapsed_us>(); }
+	Genode::uint64_t xlapsed_us() const override { return call<Rpc_xlapsed_us>(); }
 };
 
 #endif /* _INCLUDE__TIMER_SESSION__CLIENT_H_ */
