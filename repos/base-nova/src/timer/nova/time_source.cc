@@ -22,7 +22,7 @@ using namespace Genode;
 using namespace Nova;
 
 
-void Timer::Time_source::schedule_timeout(Microseconds     duration,
+void Timer::Time_source::schedule_timeout(Xicroseconds     duration,
                                           Timeout_handler &handler)
 {
 	Threaded_time_source::handler(handler);

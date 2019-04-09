@@ -152,7 +152,7 @@ struct Duration_test : Test
 		Test(env, error_cnt, done, id, brief)
 	{
 		log("tests with common duration values");
-		enum : uint64_t { US_PER_HOUR = 1000UL * 1000 * 60 * 60 };
+		enum : uint64_t { US_PER_HOUR = (uint64_t)1000 * 1000 * 60 * 60 };
 
 		/* create durations for corner cases */
 		Duration min (Xicroseconds(~(uint64_t)0));
@@ -188,8 +188,8 @@ struct Duration_test : Test
 		/* consistency when we double the values */
 		Duration two_hours = hour;
 		Duration two_max   = max;
-		two_hours.add(Xicroseconds((uint64_t)US_PER_HOUR));
-		two_max  .add(Xicroseconds(~(uint64_t)0));
+		two_hours.addy(Xicroseconds((uint64_t)US_PER_HOUR));
+		two_max  .addy(Xicroseconds(~(uint64_t)0));
 		if (two_hours.less_than(hour)) { error(__func__, ":", __LINE__); error_cnt++; }
 		if (two_max  .less_than(max )) { error(__func__, ":", __LINE__); error_cnt++; }
 
@@ -198,10 +198,10 @@ struct Duration_test : Test
 		Duration hour_plus_1 (Xicroseconds((uint64_t)US_PER_HOUR));
 		Duration max_minus_1 (Xicroseconds(~(uint64_t)0 - 2));
 		Duration max_plus_1  (Xicroseconds(~(uint64_t)0));
-		hour_minus_1.add(Xicroseconds(1));
-		hour_plus_1 .add(Xicroseconds(1));
-		max_minus_1 .add(Xicroseconds(1));
-		max_plus_1  .add(Xicroseconds(1));
+		hour_minus_1.addy(Xicroseconds(1));
+		hour_plus_1 .addy(Xicroseconds(1));
+		max_minus_1 .addy(Xicroseconds(1));
+		max_plus_1  .addy(Xicroseconds(1));
 
 		/* consistency around corner cases */
 		if (hour       .less_than(hour_minus_1)) { error(__func__, ":", __LINE__); error_cnt++; }
@@ -245,9 +245,9 @@ struct Duration_test : Test
 				while (1) {
 					for (; duration_id < NR; duration_id++) {
 
-						if      (nr_left  > 4) { duration[duration_id].add(Milliseconds(~0UL / (step + 1))); }
-						else if (nr_left == 4) { duration[duration_id].add(Milliseconds(1000UL)); }
-						else if (nr_left  < 4) { duration[duration_id].add(Microseconds(1UL)); }
+						if      (nr_left  > 4) { duration[duration_id].addy(Xilliseconds(~(uint64_t)0 / (step + 1))); }
+						else if (nr_left == 4) { duration[duration_id].addy(Xilliseconds(1000)); }
+						else if (nr_left  < 4) { duration[duration_id].addy(Xicroseconds(1)); }
 					}
 					duration_id = step;
 				}
@@ -262,18 +262,18 @@ struct Duration_test : Test
 		 * than the maximum possible duration value. So, test consistency at
 		 * this corner case.
 		 */
-		duration[NR - 2].add(Microseconds(1));
+		duration[NR - 2].addy(Xicroseconds(1));
 		if (duration[NR - 2].less_than(duration[NR - 1]))        { error(__func__, ":", __LINE__); error_cnt++; }
 		if (duration[NR - 1].less_than(duration[NR - 2])) ; else { error(__func__, ":", __LINE__); error_cnt++; }
 
 		/* test if we really had the expected durations */
 		try {
-			duration[NR - 2].add(Microseconds(1));
+			duration[NR - 2].addy(Xicroseconds(1));
 			error(__func__, ":", __LINE__); error_cnt++;
 		}
 		catch (Duration::Overflow) { }
 		try {
-			duration[NR - 1].add(Microseconds(2));
+			duration[NR - 1].addy(Xicroseconds(2));
 			error(__func__, ":", __LINE__); error_cnt++;
 		}
 		catch (Duration::Overflow) { }
@@ -293,7 +293,7 @@ struct Mixed_timeouts : Test
 	struct Timeout
 	{
 		char         const *const name;
-		Microseconds const        us;
+		Xicroseconds const        us;
 	};
 
 	struct Timeout_event
@@ -310,12 +310,12 @@ struct Mixed_timeouts : Test
 	 * do not trigger during the lifetime of the test.
 	 */
 	Timeout const timeouts[NR_OF_TIMEOUTS] {
-		/* 0 */ { "Periodic  700 ms", Microseconds( 700000UL) },
-		/* 1 */ { "Periodic 1000 ms", Microseconds(1000000UL) },
-		/* 2 */ { "Periodic  max ms", Microseconds(     ~0UL) },
-		/* 3 */ { "One-shot 3250 ms", Microseconds(3250000UL) },
-		/* 4 */ { "One-shot 5200 ms", Microseconds(5200000UL) },
-		/* 5 */ { "One-shot  max ms", Microseconds(     ~0UL) },
+		/* 0 */ { "Periodic  700 ms", Xicroseconds(      700000) },
+		/* 1 */ { "Periodic 1000 ms", Xicroseconds(     1000000) },
+		/* 2 */ { "Periodic  max ms", Xicroseconds(~(uint64_t)0) },
+		/* 3 */ { "One-shot 3250 ms", Xicroseconds(     3250000) },
+		/* 4 */ { "One-shot 5200 ms", Xicroseconds(     5200000) },
+		/* 5 */ { "One-shot  max ms", Xicroseconds(~(uint64_t)0) },
 	};
 
 	/*
@@ -326,27 +326,27 @@ struct Mixed_timeouts : Test
 	 * have an empty name are treated as wildcards and match any timeout.
 	 */
 	Timeout_event const events[NR_OF_EVENTS] {
-		/*  0 */ { nullptr,      Duration(Milliseconds(   0UL)) },
-		/*  1 */ { nullptr,      Duration(Milliseconds(   0UL)) },
-		/*  2 */ { nullptr,      Duration(Milliseconds(   0UL)) },
-		/*  3 */ { &timeouts[0], Duration(Milliseconds( 700UL)) },
-		/*  4 */ { &timeouts[1], Duration(Milliseconds(1000UL)) },
-		/*  5 */ { &timeouts[0], Duration(Milliseconds(1400UL)) },
-		/*  6 */ { nullptr,      Duration(Milliseconds(2000UL)) },
-		/*  7 */ { nullptr,      Duration(Milliseconds(2100UL)) },
-		/*  8 */ { &timeouts[0], Duration(Milliseconds(2800UL)) },
-		/*  9 */ { &timeouts[1], Duration(Milliseconds(3000UL)) },
-		/* 10 */ { &timeouts[3], Duration(Milliseconds(3250UL)) },
-		/* 11 */ { &timeouts[0], Duration(Milliseconds(3500UL)) },
-		/* 12 */ { &timeouts[1], Duration(Milliseconds(4000UL)) },
-		/* 13 */ { &timeouts[0], Duration(Milliseconds(4200UL)) },
-		/* 14 */ { nullptr,      Duration(Milliseconds(4900UL)) },
-		/* 15 */ { nullptr,      Duration(Milliseconds(5000UL)) },
-		/* 16 */ { &timeouts[4], Duration(Milliseconds(5200UL)) },
-		/* 17 */ { &timeouts[0], Duration(Milliseconds(5600UL)) },
-		/* 18 */ { &timeouts[1], Duration(Milliseconds(6000UL)) },
-		/* 19 */ { &timeouts[0], Duration(Milliseconds(6300UL)) },
-		/* 20 */ { &timeouts[3], Duration(Milliseconds(6500UL)) }
+		/*  0 */ { nullptr,      Duration(Xilliseconds(   0)) },
+		/*  1 */ { nullptr,      Duration(Xilliseconds(   0)) },
+		/*  2 */ { nullptr,      Duration(Xilliseconds(   0)) },
+		/*  3 */ { &timeouts[0], Duration(Xilliseconds( 700)) },
+		/*  4 */ { &timeouts[1], Duration(Xilliseconds(1000)) },
+		/*  5 */ { &timeouts[0], Duration(Xilliseconds(1400)) },
+		/*  6 */ { nullptr,      Duration(Xilliseconds(2000)) },
+		/*  7 */ { nullptr,      Duration(Xilliseconds(2100)) },
+		/*  8 */ { &timeouts[0], Duration(Xilliseconds(2800)) },
+		/*  9 */ { &timeouts[1], Duration(Xilliseconds(3000)) },
+		/* 10 */ { &timeouts[3], Duration(Xilliseconds(3250)) },
+		/* 11 */ { &timeouts[0], Duration(Xilliseconds(3500)) },
+		/* 12 */ { &timeouts[1], Duration(Xilliseconds(4000)) },
+		/* 13 */ { &timeouts[0], Duration(Xilliseconds(4200)) },
+		/* 14 */ { nullptr,      Duration(Xilliseconds(4900)) },
+		/* 15 */ { nullptr,      Duration(Xilliseconds(5000)) },
+		/* 16 */ { &timeouts[4], Duration(Xilliseconds(5200)) },
+		/* 17 */ { &timeouts[0], Duration(Xilliseconds(5600)) },
+		/* 18 */ { &timeouts[1], Duration(Xilliseconds(6000)) },
+		/* 19 */ { &timeouts[0], Duration(Xilliseconds(6300)) },
+		/* 20 */ { &timeouts[3], Duration(Xilliseconds(6500)) }
 	};
 
 	struct {
@@ -355,10 +355,10 @@ struct Mixed_timeouts : Test
 		Timeout const * timeout       { nullptr };
 	} results [NR_OF_EVENTS];
 
-	Duration init_time    { Microseconds(0) };
+	Duration init_time    { Xicroseconds(0) };
 	unsigned event_id     { 0 };
 	uint64_t max_error_us { config.xml().attribute_value("precise_timeouts", true) ?
-	                        50000UL : 200000UL };
+	                        (uint64_t)50000 : (uint64_t)200000 };
 
 	Timer::Periodic_timeout<Mixed_timeouts> pt1 { timer, *this, &Mixed_timeouts::handle_pt1, timeouts[0].us };
 	Timer::Periodic_timeout<Mixed_timeouts> pt2 { timer, *this, &Mixed_timeouts::handle_pt2, timeouts[1].us };
@@ -407,7 +407,7 @@ struct Mixed_timeouts : Test
 			                               min(time_us, event_time_us);
 			Timeout const *timeout       = results[i].timeout;
 
-			log(time_us / 1000UL, " ms: ", timeout->name, " timeout triggered,"
+			log(time_us / 1000, " ms: ", timeout->name, " timeout triggered,"
 			    " error ", error_us, " us (max ", max_error_us, " us)");
 
 			if (error_us > max_error_us) {
@@ -482,7 +482,7 @@ struct Fast_polling : Test
 	Result_buffer     remote_us_buf   { env };
 
 	uint64_t max_avg_time_err_us { config.xml().attribute_value("precise_ref_time", true) ?
-	                               1000UL : 2000UL };
+	                               (uint64_t)1000 : (uint64_t)2000 };
 
 	unsigned const delay_loops_per_poll[NR_OF_ROUNDS] {      1,
 	                                                      1000,
@@ -520,7 +520,7 @@ struct Fast_polling : Test
 
 			void add(uint64_t add)
 			{
-				if (add > (~0UL - _acc)) {
+				if (add > (~(uint64_t)0 - _acc)) {
 					flush(); }
 				_acc += add;
 				_acc_cnt++;
@@ -554,9 +554,9 @@ struct Fast_polling : Test
 		for (unsigned long max_cnt = 1000UL * 1000UL; ; max_cnt *= 2) {
 
 			/* measure consumed time of a limited busy loop */
-			uint64_t volatile start_ms = timer_2.elapsed_ms();
+			uint64_t volatile start_ms = timer_2.xlapsed_ms();
 			for (unsigned long volatile cnt = 0; cnt < max_cnt; cnt++) { }
-			uint64_t volatile end_ms = timer_2.elapsed_ms();
+			uint64_t volatile end_ms = timer_2.xlapsed_ms();
 
 			/*
 			 * We only return the result if the loop was time intensive enough
@@ -564,7 +564,7 @@ struct Fast_polling : Test
 			 * counter limit and do a new estimation.
 			 */
 			uint64_t diff_ms = end_ms - start_ms;
-			if (diff_ms > 1000UL) {
+			if (diff_ms > 1000) {
 				return max_cnt / diff_ms; }
 		}
 	}
@@ -596,7 +596,7 @@ struct Fast_polling : Test
 			unsigned long nr_of_polls           = MAX_NR_OF_POLLS;
 			unsigned long delay_loops_per_poll_ = delay_loops_per_poll[round];
 			uint64_t end_remote_us              = timer_2.xlapsed_us() +
-			                                      MIN_ROUND_DURATION_MS * 1000UL;
+			                                      MIN_ROUND_DURATION_MS * 1000;
 
 			/* limit polling to our buffer capacity */
 			for (unsigned poll = 0; poll < nr_of_polls; poll++) {
@@ -632,7 +632,7 @@ struct Fast_polling : Test
 				if (delay_loops > delay_loops_per_remote_poll) {
 
 					/* read remote time and second local time */
-					remote_us  = timer_2.elapsed_us();
+					remote_us  = timer_2.xlapsed_us();
 					local_us_2 = timer.curr_time().xrunc_to_plain_us().value;
 
 					/* reset delay counter for remote-time reading */
@@ -717,7 +717,7 @@ struct Fast_polling : Test
 			 * whole test round.
 			 */
 			Average_accumulator avg_time_err_us;
-			uint64_t            max_time_err_us = 0UL;
+			uint64_t            max_time_err_us = 0;
 
 			for (unsigned poll = 0; poll < nr_of_polls; poll++) {
 

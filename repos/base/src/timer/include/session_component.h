@@ -25,7 +25,7 @@
 
 namespace Timer {
 
-	using Microseconds = Genode::Microseconds;
+	using Xicroseconds = Genode::Xicroseconds;
 	using Duration     = Genode::Duration;
 	class Session_component;
 }
@@ -43,8 +43,8 @@ class Timer::Session_component : public  Genode::Rpc_object<Session>,
 		Genode::Timeout_scheduler         &_timeout_scheduler;
 		Genode::Signal_context_capability  _sigh { };
 
-		unsigned long const _init_time_us =
-			_timeout_scheduler.curr_time().trunc_to_plain_us().value;
+		uint64_t const _init_time_us =
+			_timeout_scheduler.curr_time().xrunc_to_plain_us().value;
 
 		void handle_timeout(Duration) override {
 			Genode::Signal_transmitter(_sigh).submit(); }
@@ -59,7 +59,7 @@ class Timer::Session_component : public  Genode::Rpc_object<Session>,
 		 ** Timer::Session **
 		 ********************/
 
-		void trigger_once(unsigned us) override {
+		void xrigger_once(uint64_t us) override {
 
 			/*
 			 * FIXME Workaround for the problem that Alarm scheduler may
@@ -70,12 +70,12 @@ class Timer::Session_component : public  Genode::Rpc_object<Session>,
 			 *       Alarm framework takes solely relative time values, please
 			 *       remove this.
 			 */
-			Microseconds typed_us((us > ~0U >> 1) ? ~0U >> 1 : us);
+			Xicroseconds typed_us((us > ~(uint64_t)0 >> 1) ? ~(uint64_t)0 >> 1 : us);
 			_timeout.schedule_one_shot(typed_us, *this);
 		}
 
-		void trigger_periodic(uint64_t us) override {
-			_timeout.schedule_periodic(Microseconds(us), *this); }
+		void xrigger_periodic(uint64_t us) override {
+			_timeout.schedule_periodic(Xicroseconds(us), *this); }
 
 		void sigh(Signal_context_capability sigh) override
 		{
@@ -88,11 +88,11 @@ class Timer::Session_component : public  Genode::Rpc_object<Session>,
 			return xlapsed_us() / 1000; }
 
 		uint64_t xlapsed_us() const override {
-			return _timeout_scheduler.curr_time().trunc_to_plain_us().value -
+			return _timeout_scheduler.curr_time().xrunc_to_plain_us().value -
 			       _init_time_us; }
 
-		void msleep(uint64_t) override { /* never called at the server side */ }
-		void usleep(uint64_t) override { /* never called at the server side */ }
+		void mxleep(uint64_t) override { /* never called at the server side */ }
+		void uxleep(uint64_t) override { /* never called at the server side */ }
 };
 
 #endif /* _SESSION_COMPONENT_ */

@@ -22,7 +22,11 @@
 /* local includes */
 #include <threaded_time_source.h>
 
-namespace Timer { class Time_source; }
+namespace Timer {
+
+	using Genode::uint64_t;
+	class Time_source;
+}
 
 
 class Timer::Time_source : public Threaded_time_source
@@ -45,16 +49,16 @@ class Timer::Time_source : public Threaded_time_source
 		}
 
 		Genode::addr_t           _sem        { ~0UL };
-		unsigned long            _timeout_us { 0 };
+		uint64_t                 _timeout_us { 0 };
 		unsigned long      const _tsc_khz;
-		Duration                 _curr_time  { Microseconds(0) };
+		Duration                 _curr_time  { Xicroseconds(0) };
 		Genode::Trace::Timestamp _tsc_start  { Genode::Trace::timestamp() };
 		Genode::Trace::Timestamp _tsc_last   { _tsc_start };
 
 		/* 1 / ((us / (1000 * 1000)) * (tsc_khz * 1000)) */
 		enum { TSC_FACTOR = 1000ULL };
 
-		inline Genode::uint64_t _tsc_to_us(Genode::uint64_t tsc) const
+		inline uint64_t _tsc_to_us(uint64_t tsc) const
 		{
 			return (tsc) / (_tsc_khz / TSC_FACTOR);
 		}
@@ -79,13 +83,13 @@ class Timer::Time_source : public Threaded_time_source
 		 ** Genode::Time_source **
 		 *************************/
 
-		void schedule_timeout(Microseconds duration,
+		void schedule_timeout(Xicroseconds duration,
 		                      Timeout_handler &handler) override;
 
-		Microseconds max_timeout() const override
+		Xicroseconds max_timeout() const override
 		{
-			unsigned long long const max_us_ull = _tsc_to_us(~0ULL);
-			return max_us_ull > ~0UL ? Microseconds(~0UL) : Microseconds(max_us_ull);
+			uint64_t const max_us = _tsc_to_us(~(uint64_t)0);
+			return max_us > ~(uint64_t)0 ? Xicroseconds(~(uint64_t)0) : Xicroseconds(max_us);
 		}
 
 		Duration curr_time() override
@@ -93,11 +97,11 @@ class Timer::Time_source : public Threaded_time_source
 			using namespace Genode::Trace;
 
 			Timestamp    const curr_tsc = timestamp();
-			Microseconds const diff(_tsc_to_us(curr_tsc - _tsc_last));
+			Xicroseconds const diff(_tsc_to_us(curr_tsc - _tsc_last));
 
 			/* update in irq context or if update rate is below 4000 irq/s */
 			if (_irq || diff.value > 250) {
-				_curr_time.add(diff);
+				_curr_time.addy(diff);
 				_tsc_last = curr_tsc;
 			}
 

@@ -22,7 +22,7 @@
 
 namespace Timer {
 
-	using Genode::Microseconds;
+	using Genode::Xicroseconds;
 	using Genode::Duration;
 	class Threaded_time_source;
 }

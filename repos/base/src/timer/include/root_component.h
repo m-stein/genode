@@ -58,7 +58,7 @@ class Timer::Root_component : public Genode::Root_component<Session_component>
 		:
 			Genode::Root_component<Session_component>(&env.ep().rpc_ep(), &md_alloc),
 			_time_source(env),
-			_timeout_scheduler(_time_source, Microseconds(MIN_TIMEOUT_US))
+			_timeout_scheduler(_time_source, Xicroseconds(MIN_TIMEOUT_US))
 		{
 			_timeout_scheduler._enable();
 		}
