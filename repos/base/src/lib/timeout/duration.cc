@@ -16,45 +16,19 @@
 
 using namespace Genode;
 
-
-void Duration::_raise_hours(unsigned long hours)
-{
-	unsigned long const old_hours = _hours;
-	_hours += hours;
-	if (_hours < old_hours) {
-		throw Overflow(); }
-}
-
-
-void Duration::_add_us_less_than_an_hour(unsigned long us)
-{
-	unsigned long const us_until_next_hr =
-		(unsigned long)US_PER_HOUR - _microseconds;
-
-	if (us >= us_until_next_hr) {
-		_raise_hours(1);
-		_microseconds = us - us_until_next_hr;
-	} else {
-		_microseconds += us;
-	}
-}
-
-
 void Duration::add(Microseconds us)
 {
-	/* filter out hours if any */
-	if (us.value >= (unsigned long)US_PER_HOUR) {
-		unsigned long const hours = us.value / US_PER_HOUR;
-		_raise_hours(hours);
-		us.value -= hours * US_PER_HOUR;
+	if (us > ~(uint64_t)0 - _microseconds) {
+		throw Overflow();
 	}
-	/* add the rest */
-	_add_us_less_than_an_hour(us.value);
+	_microseconds += us.value;
 }
 
 
 void Duration::add(Milliseconds ms)
 {
+	
+
 	/* filter out hours if any */
 	if (ms.value >= MS_PER_HOUR) {
 		unsigned long const hours = ms.value / MS_PER_HOUR;

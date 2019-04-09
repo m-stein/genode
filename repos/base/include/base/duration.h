@@ -21,8 +21,8 @@
 
 namespace Genode {
 
-	class Microseconds;
-	class Milliseconds;
+	class Microsecondsx;
+	class Millisecondsx;
 	class Duration;
 }
 
@@ -30,11 +30,11 @@ namespace Genode {
 /**
  * Makes it clear that a given integer value stands for microseconds
  */
-struct Genode::Microseconds
+struct Genode::Microsecondsx
 {
-	unsigned long value;
+	uint64_t value;
 
-	explicit Microseconds(unsigned long value) : value(value) { }
+	explicit Microsecondsx(uint64_t value) : value(value) { }
 
 	void print(Output &out) const
 	{
@@ -47,11 +47,11 @@ struct Genode::Microseconds
 /**
  * Makes it clear that a given integer value stands for milliseconds
  */
-struct Genode::Milliseconds
+struct Genode::Millisecondsx
 {
-	unsigned long value;
+	uint64_t value;
 
-	explicit Milliseconds(unsigned long value) : value(value) { }
+	explicit Millisecondsx(uint64_t value) : value(value) { }
 
 	void print(Output &out) const
 	{
@@ -76,42 +76,38 @@ struct Genode::Duration
 		enum { MS_PER_HOUR  = 1000UL * 60 * 60        };
 		enum { US_PER_HOUR  = 1000UL * 1000 * 60 * 60 };
 
-		unsigned long _microseconds { 0 };
-		unsigned long _hours        { 0 };
-
-		void _add_us_less_than_an_hour(unsigned long us);
-		void _raise_hours(unsigned long hours);
+		uint64_t _microseconds { 0 };
 
 	public:
 
-		void add(Microseconds us);
-		void add(Milliseconds ms);
+		void add(Microsecondsx us);
+		void add(Millisecondsx ms);
 
 		bool less_than(Duration const &other) const;
 
-		explicit Duration(Milliseconds ms) { add(ms); }
-		explicit Duration(Microseconds us) { add(us); }
+		explicit Duration(Millisecondsx ms) { add(ms); }
+		explicit Duration(Microsecondsx us) { add(us); }
 
-		Microseconds trunc_to_plain_us() const;
-		Milliseconds trunc_to_plain_ms() const;
+		Microsecondsx trunc_to_plain_us() const;
+		Millisecondsx trunc_to_plain_ms() const;
 };
 
 namespace Genode
 {
 	static inline
-	Microseconds min(Microseconds const x, Microseconds const y) {
+	Microsecondsx min(Microsecondsx const x, Microsecondsx const y) {
 		return (x.value < y.value) ? x : y; }
 
 	static inline
-	Microseconds max(Microseconds const x, Microseconds const y) {
+	Microsecondsx max(Microsecondsx const x, Microsecondsx const y) {
 		return (x.value > y.value) ? x : y; }
 
 	static inline
-	Milliseconds min(Milliseconds const x, Milliseconds const y) {
+	Millisecondsx min(Millisecondsx const x, Millisecondsx const y) {
 		return (x.value < y.value) ? x : y; }
 
 	static inline
-	Milliseconds max(Milliseconds const x, Milliseconds const y) {
+	Millisecondsx max(Millisecondsx const x, Millisecondsx const y) {
 		return (x.value > y.value) ? x : y; }
 };
 
