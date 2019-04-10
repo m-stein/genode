@@ -153,11 +153,13 @@ struct Duration_test : Test
 	{
 		log("tests with common duration values");
 		enum : uint64_t { US_PER_HOUR = (uint64_t)1000 * 1000 * 60 * 60 };
+		enum : uint64_t { US_PER_MS   = (uint64_t)1000 };
 
 		/* create durations for corner cases */
-		Duration min (Xicroseconds(~(uint64_t)0));
-		Duration hour(Xicroseconds((uint64_t)US_PER_HOUR));
-		Duration max (Xicroseconds(~(uint64_t)0));
+		Duration min   (Xicroseconds(0));
+		Duration hour  (Xicroseconds((uint64_t)US_PER_HOUR));
+		Duration max   (Xicroseconds(~(uint64_t)0));
+		Duration max_ms(Xicroseconds(~(uint64_t)0 - US_PER_MS + 1));
 		{
 			/* create durations near the corner cases */
 			Duration min_plus_1  (Xicroseconds(1));
@@ -173,6 +175,7 @@ struct Duration_test : Test
 			if (max         .less_than(min)) { error(__func__, ":", __LINE__); error_cnt++; }
 			if (max_minus_1 .less_than(min)) { error(__func__, ":", __LINE__); error_cnt++; }
 
+log(__func__,__LINE__);
 			/* all must be less than the maximum */
 			if (max.less_than(min         )) { error(__func__, ":", __LINE__); error_cnt++; }
 			if (max.less_than(min_plus_1  )) { error(__func__, ":", __LINE__); error_cnt++; }
@@ -181,102 +184,52 @@ struct Duration_test : Test
 			if (max.less_than(hour_plus_1 )) { error(__func__, ":", __LINE__); error_cnt++; }
 			if (max.less_than(max_minus_1 )) { error(__func__, ":", __LINE__); error_cnt++; }
 
+log(__func__,__LINE__);
 			/* consistency around one hour */
 			if (hour       .less_than(hour_minus_1)) { error(__func__, ":", __LINE__); error_cnt++; }
 			if (hour_plus_1.less_than(hour        )) { error(__func__, ":", __LINE__); error_cnt++; }
 		}
+log(__func__,__LINE__);
 		/* consistency when we double the values */
-		Duration two_hours = hour;
-		Duration two_max   = max;
+		Duration two_hours  = hour;
+		Duration two_max    = max;
+		Duration two_max_ms = max_ms;
 		two_hours.addy(Xicroseconds((uint64_t)US_PER_HOUR));
-		two_max  .addy(Xicroseconds(~(uint64_t)0));
-		if (two_hours.less_than(hour)) { error(__func__, ":", __LINE__); error_cnt++; }
-		if (two_max  .less_than(max )) { error(__func__, ":", __LINE__); error_cnt++; }
+		try {
+			two_max.addy(Xicroseconds(1));
+			error(__func__, ":", __LINE__); error_cnt++;
+		} catch (Duration::Overflow) { }
+		try {
+			two_max.addy(Xilliseconds(1));
+			error(__func__, ":", __LINE__); error_cnt++;
+		} catch (Duration::Overflow) { }
+		try {
+			two_max_ms.addy(Xilliseconds(1));
+			error(__func__, ":", __LINE__); error_cnt++;
+		} catch (Duration::Overflow) { }
+
+		if (two_hours.less_than(hour)) {
+			error(__func__, ":", __LINE__); error_cnt++; }
+
+		if (two_max.xrunc_to_plain_us().value != max.xrunc_to_plain_us().value) {
+			error(__func__, ":", __LINE__); error_cnt++; }
+
+		if (two_max_ms.xrunc_to_plain_us().value != max_ms.xrunc_to_plain_us().value) {
+			error(__func__, ":", __LINE__); error_cnt++; }
 
 		/* create durations near corner cases by increasing after construction */
 		Duration hour_minus_1(Xicroseconds((uint64_t)US_PER_HOUR - 2));
 		Duration hour_plus_1 (Xicroseconds((uint64_t)US_PER_HOUR));
 		Duration max_minus_1 (Xicroseconds(~(uint64_t)0 - 2));
-		Duration max_plus_1  (Xicroseconds(~(uint64_t)0));
 		hour_minus_1.addy(Xicroseconds(1));
 		hour_plus_1 .addy(Xicroseconds(1));
 		max_minus_1 .addy(Xicroseconds(1));
-		max_plus_1  .addy(Xicroseconds(1));
 
+log(__func__,__LINE__);
 		/* consistency around corner cases */
 		if (hour       .less_than(hour_minus_1)) { error(__func__, ":", __LINE__); error_cnt++; }
 		if (hour_plus_1.less_than(hour        )) { error(__func__, ":", __LINE__); error_cnt++; }
 		if (max        .less_than(max_minus_1 )) { error(__func__, ":", __LINE__); error_cnt++; }
-		if (max_plus_1 .less_than(max         )) { error(__func__, ":", __LINE__); error_cnt++; }
-
-		log("tests near maximum duration value (may take a while)");
-
-		/*
-		 * This is a fast way to get the maximum possible duration
-		 */
-		enum { NR = 12 };
-		Duration duration[NR] = {
-			Duration(Xicroseconds(1)),
-			Duration(Xicroseconds(1)),
-			Duration(Xicroseconds(1)),
-			Duration(Xicroseconds(1)),
-			Duration(Xicroseconds(1)),
-			Duration(Xicroseconds(1)),
-			Duration(Xicroseconds(1)),
-			Duration(Xicroseconds(1)),
-			Duration(Xicroseconds(1)),
-			Duration(Xicroseconds(1)),
-			Duration(Xicroseconds(0)),
-			Duration(Xicroseconds(0))
-		};
-		for (unsigned volatile step = 0; NR - step > 2; step++) {
-
-			/*
-			 * We increase all left durations equally, beginning with a big
-			 * step width, until an overflow occurs. Then, we dismiss the
-			 * duration that had the overflow and decrease the step width for
-			 * the next round. With only 3 durations left, we decrease step
-			 * width to 1 and do one more round. So, finally we have only 2
-			 * durations left.
-			 */
-			unsigned volatile duration_id = step;
-			unsigned          nr_left     = NR - step;
-			try {
-				while (1) {
-					for (; duration_id < NR; duration_id++) {
-
-						if      (nr_left  > 4) { duration[duration_id].addy(Xilliseconds(~(uint64_t)0 / (step + 1))); }
-						else if (nr_left == 4) { duration[duration_id].addy(Xilliseconds(1000)); }
-						else if (nr_left  < 4) { duration[duration_id].addy(Xicroseconds(1)); }
-					}
-					duration_id = step;
-				}
-			}
-			catch (Duration::Overflow) { }
-			log("  step ", step, " done: duration ", duration_id, " dismissed",
-			                          ", durations ", step, "..", NR - 1, " left");
-		}
-
-		/*
-		 * Now, both duration[NR - 2] and duration[NR - 1] contain one less
-		 * than the maximum possible duration value. So, test consistency at
-		 * this corner case.
-		 */
-		duration[NR - 2].addy(Xicroseconds(1));
-		if (duration[NR - 2].less_than(duration[NR - 1]))        { error(__func__, ":", __LINE__); error_cnt++; }
-		if (duration[NR - 1].less_than(duration[NR - 2])) ; else { error(__func__, ":", __LINE__); error_cnt++; }
-
-		/* test if we really had the expected durations */
-		try {
-			duration[NR - 2].addy(Xicroseconds(1));
-			error(__func__, ":", __LINE__); error_cnt++;
-		}
-		catch (Duration::Overflow) { }
-		try {
-			duration[NR - 1].addy(Xicroseconds(2));
-			error(__func__, ":", __LINE__); error_cnt++;
-		}
-		catch (Duration::Overflow) { }
 
 		Test::done.submit();
 	}
