@@ -18,7 +18,11 @@
 /* local includes */
 #include <threaded_time_source.h>
 
-namespace Timer { class Time_source; }
+namespace Timer {
+
+	using Genode::uint64_t;
+	class Time_source;
+}
 
 
 class Timer::Time_source : public Threaded_time_source

@@ -25,6 +25,7 @@
 
 namespace Timer {
 
+	using Genode::uint64_t;
 	using Xicroseconds = Genode::Xicroseconds;
 	using Duration     = Genode::Duration;
 	class Session_component;

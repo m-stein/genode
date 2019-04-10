@@ -49,7 +49,7 @@ uint16_t Timer::Time_source::_read_counter(bool *wrapped)
 }
 
 
-void Timer::Time_source::schedule_timeout(Microseconds     duration,
+void Timer::Time_source::schedule_timeout(Xicroseconds     duration,
                                           Timeout_handler &handler)
 {
 	_handler = &handler;
@@ -62,8 +62,8 @@ void Timer::Time_source::schedule_timeout(Microseconds     duration,
 	} else {
 		/* limit timer-interrupt rate */
 		enum { MAX_TIMER_IRQS_PER_SECOND = 4*1000 };
-		if (duration_us < 1000 * 1000 / MAX_TIMER_IRQS_PER_SECOND)
-			duration_us = 1000 * 1000 / MAX_TIMER_IRQS_PER_SECOND;
+		if (duration_us < (uint64_t)1000 * 1000 / MAX_TIMER_IRQS_PER_SECOND)
+			duration_us = (uint64_t)1000 * 1000 / MAX_TIMER_IRQS_PER_SECOND;
 
 		if (duration_us > max_timeout().value)
 			duration_us = max_timeout().value;
@@ -106,7 +106,7 @@ Duration Timer::Time_source::curr_time()
 	if (_irq)
 		_curr_time();
 
-	return Duration(Microseconds(_curr_time_us));
+	return Duration(Xicroseconds(_curr_time_us));
 }
 
 
@@ -192,7 +192,7 @@ Duration Timer::Time_source::_curr_time()
 	              "Bad TICS_PER_MS value");
 	_curr_time_us += timer_ticks_to_us(ticks, PIT_TICKS_PER_MSEC);
 
-	return Duration(Microseconds(_curr_time_us));
+	return Duration(Xicroseconds(_curr_time_us));
 }
 
 

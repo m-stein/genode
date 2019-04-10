@@ -25,7 +25,8 @@
 
 namespace Timer {
 
-	using Microseconds = Genode::Microseconds;
+	using Genode::uint64_t;
+	using Xicroseconds = Genode::Xicroseconds;
 	using Duration     = Genode::Duration;
 	class Time_source;
 }
@@ -70,7 +71,7 @@ class Timer::Time_source : public Genode::Signalled_time_source
 
 		Genode::Io_port_connection _io_port;
 		Genode::Irq_connection     _timer_irq;
-		unsigned long    mutable   _curr_time_us = 0;
+		uint64_t         mutable   _curr_time_us = 0;
 		Genode::uint16_t mutable   _counter_init_value = 0;
 		bool             mutable   _handled_wrap = false;
 
@@ -94,7 +95,7 @@ class Timer::Time_source : public Genode::Signalled_time_source
 		 *************************/
 
 		Duration curr_time() override;
-		void schedule_timeout(Microseconds duration, Timeout_handler &handler) override;
+		void schedule_timeout(Xicroseconds duration, Timeout_handler &handler) override;
 		Xicroseconds max_timeout() const override {
 			return Xicroseconds(PIT_MAX_USEC); }
 };

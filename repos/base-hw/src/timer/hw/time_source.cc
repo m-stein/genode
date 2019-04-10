@@ -36,7 +36,7 @@ Timer::Time_source::Time_source(Env &env)
 }
 
 
-void Timer::Time_source::schedule_timeout(Microseconds     duration,
+void Timer::Time_source::schedule_timeout(Xicroseconds     duration,
                                           Timeout_handler &handler)
 {
 	Kernel::timeout_t duration_us = duration.value;
@@ -60,5 +60,5 @@ Duration Timer::Time_source::curr_time()
 	 * must be changed when the timeout framework internally does not use
 	 * machine-word wide microseconds values anymore.
 	 */
-	return Duration(Microseconds(Kernel::time()));
+	return Duration(Xicroseconds(Kernel::time()));
 }

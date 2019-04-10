@@ -39,7 +39,7 @@ namespace Fiasco {
 #include <time_source.h>
 
 using namespace Fiasco;
-using Microseconds = Genode::Microseconds;
+using Xicroseconds = Genode::Xicroseconds;
 using Duration     = Genode::Duration;
 
 
@@ -85,7 +85,7 @@ Duration Timer::Time_source::curr_time()
 	Fiasco::l4_cpu_time_t const clock = Fiasco::l4_kip_clock(kip);
 #endif
 
-	return Duration(Microseconds(clock));
+	return Duration(Xicroseconds(clock));
 }
 
 
