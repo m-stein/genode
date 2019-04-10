@@ -187,7 +187,7 @@ class Ps2::Mouse : public Input_driver
 			enum { TIMEOUT_MS = 700, SLEEP_MS = 10 };
 			unsigned timeout_ms = 0;
 			do {
-				_timer.msleep(SLEEP_MS);
+				_timer.mxleep(SLEEP_MS);
 				timeout_ms += SLEEP_MS;
 			} while (!_aux.data_read_ready() && timeout_ms < TIMEOUT_MS);
 
@@ -210,7 +210,7 @@ class Ps2::Mouse : public Input_driver
 			 * mouse versions. Otherwise, current Lenovo trackpoints (X260,
 			 * T470) stop working.
 			 */
-			_timer.msleep(5);
+			_timer.mxleep(5);
 
 			/* probe for protocol extensions */
 			if (_probe_exps2()) {

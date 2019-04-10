@@ -456,7 +456,7 @@ namespace Genode
 						throw Phy_timeout_for_idle();
 					}
 
-					_timer.msleep(1);
+					_timer.mxleep(1);
 					timeout--;
 				}
 			}

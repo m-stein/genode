@@ -664,10 +664,10 @@ class Genode::Register_set : Noncopyable
 			explicit Attempts(unsigned value) : value(value) { }
 		};
 
-		struct Microseconds
+		struct Xicroseconds
 		{
-			unsigned value;
-			explicit Microseconds(unsigned value) : value(value) { }
+			uint64_t value;
+			explicit Xicroseconds(uint64_t value) : value(value) { }
 		};
 
 		/**
@@ -678,7 +678,7 @@ class Genode::Register_set : Noncopyable
 			/**
 			 * Delay execution of the caller for 'us' microseconds
 			 */
-			virtual void usleep(unsigned us) = 0;
+			virtual void uxleep(uint64_t us) = 0;
 		};
 
 
@@ -698,12 +698,12 @@ class Genode::Register_set : Noncopyable
 		 */
 		template <typename... CONDITIONS>
 		inline void wait_for(Attempts       attempts,
-		                     Microseconds   us,
+		                     Xicroseconds   us,
 		                     Delayer       &delayer,
 		                     CONDITIONS...  conditions)
 		{
 			for (unsigned i = 0; i < attempts.value; i++,
-			     delayer.usleep(us.value))
+			     delayer.uxleep(us.value))
 			{
 				if (_conditions_met(conditions...)) {
 					return; }
@@ -717,7 +717,7 @@ class Genode::Register_set : Noncopyable
 		template <typename... CONDITIONS>
 		inline void wait_for(Delayer &delayer, CONDITIONS... conditions)
 		{
-			wait_for<CONDITIONS...>(Attempts(500), Microseconds(1000),
+			wait_for<CONDITIONS...>(Attempts(500), Xicroseconds(1000),
 			                        delayer, conditions...);
 		}
 };

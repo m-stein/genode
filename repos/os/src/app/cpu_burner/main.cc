@@ -16,6 +16,7 @@
 #include <base/attached_rom_dataspace.h>
 #include <timer_session/connection.h>
 
+using namespace Genode;
 
 struct Cpu_burner
 {
@@ -40,13 +41,13 @@ struct Cpu_burner
 
 	void _handle_period()
 	{
-		unsigned long const start_ms = _timer.elapsed_ms();
+		uint64_t const start_ms = _timer.xlapsed_ms();
 
 		unsigned iterations = 0;
 		for (;; iterations++) {
 
-			unsigned long const curr_ms = _timer.elapsed_ms();
-			unsigned long passed_ms     = curr_ms - start_ms;
+			uint64_t const curr_ms = _timer.xlapsed_ms();
+			uint64_t passed_ms     = curr_ms - start_ms;
 
 			if (passed_ms >= 10*_percent)
 				break;
@@ -74,7 +75,7 @@ struct Cpu_burner
 		_handle_config();
 
 		_timer.sigh(_period_handler);
-		_timer.trigger_periodic(1000*1000);
+		_timer.xrigger_periodic(1000*1000);
 	}
 };
 

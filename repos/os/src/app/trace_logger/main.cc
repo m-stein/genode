@@ -50,7 +50,7 @@ class Main
 		bool                    const  _affinity            { _config.attribute_value("affinity", false) };
 		bool                    const  _activity            { _config.attribute_value("activity", false) };
 		bool                    const  _verbose             { _config.attribute_value("verbose",  false) };
-		Microseconds            const  _period_us           { read_sec_attr(_config, "period_sec", DEFAULT_PERIOD_SEC) };
+		Xicroseconds            const  _period_us           { read_sec_attr(_config, "period_sec", DEFAULT_PERIOD_SEC) };
 		Number_of_bytes         const  _default_buf_sz      { _config.attribute_value("default_buffer", Number_of_bytes(DEFAULT_BUFFER)) };
 		Timer::Periodic_timeout<Main>  _period              { _timer, *this, &Main::_handle_period, _period_us };
 		Heap                           _heap                { _env.ram(), _env.rm() };

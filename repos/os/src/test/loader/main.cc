@@ -34,7 +34,7 @@ struct Test::Main
 	void _handle_view_ready()
 	{
 		_size = _loader.view_size();
-		_timer.trigger_periodic(250*1000);
+		_timer.xrigger_periodic(250*1000);
 	}
 
 	Signal_handler<Main> _view_ready_handler {

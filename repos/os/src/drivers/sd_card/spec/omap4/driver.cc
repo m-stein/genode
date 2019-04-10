@@ -32,7 +32,7 @@ Card_info Driver::_init()
 
 	_bus_width(BUS_WIDTH_1);
 
-	_delayer.usleep(10*1000);
+	_delayer.uxleep(10*1000);
 
 	_stop_clock();
 	if (!_set_and_enable_clock(CLOCK_DIV_240)) {
@@ -44,13 +44,13 @@ Card_info Driver::_init()
 		throw Detection_failed();
 	}
 	Mmio::write<Blk>(0);
-	_delayer.usleep(1000);
+	_delayer.uxleep(1000);
 
 	if (!issue_command(Go_idle_state())) {
 		error("Go_idle_state command failed");
 		throw Detection_failed();
 	}
-	_delayer.usleep(2000);
+	_delayer.uxleep(2000);
 
 	if (!issue_command(Send_if_cond())) {
 		error("Send_if_cond command failed");
@@ -79,7 +79,7 @@ Card_info Driver::_init()
 		if (Ocr::Busy::get(Mmio::read<Rsp10>()))
 			break;
 
-		_delayer.usleep(1000);
+		_delayer.uxleep(1000);
 	}
 	if (i == 0) {
 		error("Sd_send_op_cond timed out, could no power-on SD card");
@@ -96,7 +96,7 @@ Card_info Driver::_init()
 		throw Detection_failed();
 	}
 	_bus_width(BUS_WIDTH_4);
-	_delayer.usleep(10*1000);
+	_delayer.uxleep(10*1000);
 
 	_stop_clock();
 	if (!_set_and_enable_clock(CLOCK_DIV_0)) {
@@ -116,7 +116,7 @@ Card_info Driver::_init()
 
 bool Driver::_wait_for_bre()
 {
-	try { wait_for(Attempts(1000000), Microseconds(0), _delayer,
+	try { wait_for(Attempts(1000000), Xicroseconds(0), _delayer,
 	               Pstate::Bre::Equal(1)); }
 	catch (Polling_timeout) {
 		try { wait_for(_delayer, Pstate::Bre::Equal(1)); }
@@ -131,7 +131,7 @@ bool Driver::_wait_for_bre()
 
 bool Driver::_wait_for_bwe()
 {
-	try { wait_for(Attempts(1000000), Microseconds(0), _delayer,
+	try { wait_for(Attempts(1000000), Xicroseconds(0), _delayer,
 	               Pstate::Bwe::Equal(1)); }
 	catch (Polling_timeout) {
 		try { wait_for(_delayer, Pstate::Bwe::Equal(1)); }
@@ -179,13 +179,13 @@ bool Driver::_reset_cmd_line()
 	 * bit, the polling would be infinite. Apparently the hardware
 	 * depends on the timing here.
 	 */
-	try { wait_for(Attempts(1000), Microseconds(0), _delayer,
+	try { wait_for(Attempts(1000), Xicroseconds(0), _delayer,
 	               Sysctl::Src::Equal(1)); }
 	catch (Polling_timeout) {
 		error("reset of cmd line timed out (src != 1)");
 		return false;
 	}
-	try { wait_for(Attempts(1000), Microseconds(0), _delayer,
+	try { wait_for(Attempts(1000), Xicroseconds(0), _delayer,
 	               Sysctl::Src::Equal(0)); }
 	catch (Polling_timeout) {
 		error("reset of cmd line timed out (src != 0)");
@@ -281,7 +281,7 @@ bool Driver::_init_stream()
 	Mmio::write<Con::Init>(1);
 	Mmio::write<Cmd>(0);
 
-	try { wait_for(Attempts(1000000), Microseconds(0), _delayer,
+	try { wait_for(Attempts(1000000), Xicroseconds(0), _delayer,
 	               Stat::Cc::Equal(1)); }
 	catch (Polling_timeout) {
 		error("init stream timed out");

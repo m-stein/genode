@@ -122,7 +122,7 @@ class Lan9118 : public Nic::Session_component
 			for (unsigned i = 0; i < 10; i++) {
 				if (!_mac_csr_busy())
 					return;
-				_timer.msleep(10);
+				_timer.mxleep(10);
 			}
 
 			Genode::error("timeout while waiting for completeness of MAC CSR access");
@@ -162,7 +162,7 @@ class Lan9118 : public Nic::Session_component
 			_reg_write(HW_CFG, HW_CFG_SRST);
 
 			for (unsigned i = 0; i < 10; i++) {
-				_timer.msleep(10);
+				_timer.mxleep(10);
 				if (!(_reg_read(HW_CFG) & HW_CFG_SRST))
 					return true;
 			}

@@ -62,7 +62,7 @@ class Mbox : Genode::Attached_mmio
 		struct Delayer : Mmio::Delayer
 		{
 			Timer::Connection timer;
-			void usleep(unsigned us) override { timer.usleep(us); }
+			void uxleep(uint64_t us) override { timer.uxleep(us); }
 
 			Delayer(Genode::Env &env) : timer(env) { }
 		} _delayer { _env };
@@ -99,7 +99,7 @@ class Mbox : Genode::Attached_mmio
 			while (!read<Status::Rd_empty>())
 				read<Read>();
 
-			try { wait_for(Attempts(500), Microseconds(1), _delayer,
+			try { wait_for(Attempts(500), Xicroseconds(1), _delayer,
 			               Status::Wr_full::Equal(0)); }
 			catch (Polling_timeout) {
 				Genode::error("Mbox: timeout waiting for ready-to-write");
@@ -112,7 +112,7 @@ class Mbox : Genode::Attached_mmio
 			Write::Cache_policy::set(value, MESSAGE::cache_policy());
 			write<Write>(value);
 
-			try { wait_for(Attempts(500), Microseconds(1), _delayer,
+			try { wait_for(Attempts(500), Xicroseconds(1), _delayer,
 			               Status::Rd_empty::Equal(0)); }
 			catch (Polling_timeout) {
 				Genode::error("Mbox: timeout waiting for response");

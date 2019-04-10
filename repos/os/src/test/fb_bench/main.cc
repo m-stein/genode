@@ -46,7 +46,7 @@ struct Test
 		memset(buf[1], ~0, fb_ds.size());
 	}
 
-	void conclusion(unsigned kib, unsigned start_ms, unsigned end_ms) {
+	void conclusion(unsigned kib, uint64_t start_ms, uint64_t end_ms) {
 		log("throughput: ", kib / (end_ms - start_ms), " MiB/sec"); }
 
 	~Test() { log("\nTEST ", id, " finished\n"); }
@@ -67,12 +67,12 @@ struct Bytewise_ram_test : Test
 	Bytewise_ram_test(Env &env, int id) : Test(env, id, brief)
 	{
 		unsigned       kib      = 0;
-		unsigned const start_ms = timer.elapsed_ms();
-		for (; timer.elapsed_ms() - start_ms < DURATION_MS;) {
+		uint64_t const start_ms = timer.xlapsed_ms();
+		for (; timer.xlapsed_ms() - start_ms < DURATION_MS;) {
 			memcpy(buf[0], buf[1], fb_ds.size());
 			kib += fb_ds.size() / 1024;
 		}
-		conclusion(kib, start_ms, timer.elapsed_ms());
+		conclusion(kib, start_ms, timer.xlapsed_ms());
 	}
 };
 
@@ -83,12 +83,12 @@ struct Bytewise_fb_test : Test
 	Bytewise_fb_test(Env &env, int id) : Test(env, id, brief)
 	{
 		unsigned       kib      = 0;
-		unsigned const start_ms = timer.elapsed_ms();
-		for (unsigned i = 0; timer.elapsed_ms() - start_ms < DURATION_MS; i++) {
+		uint64_t const start_ms = timer.xlapsed_ms();
+		for (unsigned i = 0; timer.xlapsed_ms() - start_ms < DURATION_MS; i++) {
 			memcpy(fb_ds.local_addr<char>(), buf[i % 2], fb_ds.size());
 			kib += fb_ds.size() / 1024;
 		}
-		conclusion(kib, start_ms, timer.elapsed_ms());
+		conclusion(kib, start_ms, timer.xlapsed_ms());
 	}
 };
 
@@ -99,14 +99,14 @@ struct Blit_test : Test
 	Blit_test(Env &env, int id) : Test(env, id, brief)
 	{
 		unsigned       kib      = 0;
-		unsigned const start_ms = timer.elapsed_ms();
+		uint64_t const start_ms = timer.xlapsed_ms();
 		unsigned const w        = fb_mode.width() * fb_mode.bytes_per_pixel();
 		unsigned const h        = fb_mode.height();
-		for (unsigned i = 0; timer.elapsed_ms() - start_ms < DURATION_MS; i++) {
+		for (unsigned i = 0; timer.xlapsed_ms() - start_ms < DURATION_MS; i++) {
 			blit(buf[i % 2], w, fb_ds.local_addr<char>(), w, w, h);
 			kib += (w * h) / 1024;
 		}
-		conclusion(kib, start_ms, timer.elapsed_ms());
+		conclusion(kib, start_ms, timer.xlapsed_ms());
 	}
 };
 
@@ -117,14 +117,14 @@ struct Unaligned_blit_test : Test
 	Unaligned_blit_test(Env &env, int id) : Test(env, id, brief)
 	{
 		unsigned       kib      = 0;
-		unsigned const start_ms = timer.elapsed_ms();
+		uint64_t const start_ms = timer.xlapsed_ms();
 		unsigned const w        = fb_mode.width() * fb_mode.bytes_per_pixel();
 		unsigned const h        = fb_mode.height();
-		for (unsigned i = 0; timer.elapsed_ms() - start_ms < DURATION_MS; i++) {
+		for (unsigned i = 0; timer.xlapsed_ms() - start_ms < DURATION_MS; i++) {
 			blit(buf[i % 2] + 2, w, fb_ds.local_addr<char>() + 2, w, w - 2, h);
 			kib += (w * h) / 1024;
 		}
-		conclusion(kib, start_ms, timer.elapsed_ms());
+		conclusion(kib, start_ms, timer.xlapsed_ms());
 	}
 };
 

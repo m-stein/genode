@@ -20,7 +20,7 @@
 using namespace Genode;
 
 
-void Timer::Time_source::schedule_timeout(Genode::Microseconds  duration,
+void Timer::Time_source::schedule_timeout(Genode::Xicroseconds  duration,
                                           Timeout_handler      &handler)
 {
 	unsigned long const ticks = (1ULL * duration.value * TICKS_PER_MS) / 1000;
@@ -48,7 +48,7 @@ Duration Timer::Time_source::curr_time()
 
 	/* update time only on IRQs and if rate is under 1000 per second */
 	if (_irq || uncleared_us > 1000) {
-		_curr_time.add(Genode::Microseconds(uncleared_us));
+		_curr_time.addy(Genode::Xicroseconds(uncleared_us));
 		_cleared_ticks += uncleared_ticks;
 	}
 	return _curr_time;

@@ -35,7 +35,7 @@ class Timer::Time_source : public Threaded_time_source
 		uint64_t             _curr_time_us = 0;
 		uint64_t             _next_timeout_us = max_timeout().value;
 
-		void _usleep(unsigned long us);
+		void _uxleep(uint64_t us);
 
 
 		/**************************

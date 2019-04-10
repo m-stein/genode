@@ -52,9 +52,9 @@ class Framebuffer::Driver
 			/**
 			 * Implementation of 'Delayer' interface
 			 */
-			void usleep(unsigned us)
+			void uxleep(uint64_t us)
 			{
-				Timer::Connection::usleep(us);
+				Timer::Connection::uxleep(us);
 			}
 		} _delayer { _env };
 

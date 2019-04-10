@@ -44,9 +44,9 @@ Main::Main(Env &env) : env(env)
 	while (times--) {
 		log("Remaining blinks: ", times);
 		led.write(false);
-		timer.msleep(delay);
+		timer.mxleep(delay);
 		led.write(true);
-		timer.msleep(delay);
+		timer.mxleep(delay);
 	}
 	log("Test finished");
 }

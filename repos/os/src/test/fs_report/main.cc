@@ -89,7 +89,7 @@ struct Test::Main
 
 		log("(3) wait a bit to let the report reach the RAM fs");
 		_one_shot_timeout.construct(_timer, *this, &Main::_handle_timer_1);
-		_one_shot_timeout->schedule(Microseconds(500*1000));
+		_one_shot_timeout->schedule(Xicroseconds(500*1000));
 	}
 
 	void _handle_timer_1(Duration)
@@ -116,7 +116,7 @@ struct Test::Main
 
 		log("(7) wait a bit until generating the focus report");
 		_one_shot_timeout.construct(_timer, *this, &Main::_handle_timer_2);
-		_one_shot_timeout->schedule(Microseconds(500*1000));
+		_one_shot_timeout->schedule(Xicroseconds(500*1000));
 	}
 
 	void _handle_timer_2(Duration)
@@ -140,7 +140,7 @@ struct Test::Main
 
 		_focus_rom->sigh(_focus_removal_handler);
 		_one_shot_timeout.construct(_timer, *this, &Main::_handle_timer_3);
-		_one_shot_timeout->schedule(Microseconds(500*1000));
+		_one_shot_timeout->schedule(Xicroseconds(500*1000));
 	}
 
 	void _handle_timer_3(Duration)

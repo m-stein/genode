@@ -77,7 +77,7 @@ void Driver::write_dma(Block::sector_t           block_number,
 bool Driver::_reset()
 {
 	Mmio::write<Ctrl::Reset>(0x7);
-	try { wait_for(Attempts(100), Microseconds(1000), _delayer,
+	try { wait_for(Attempts(100), Xicroseconds(1000), _delayer,
 	               Ctrl::Reset::Equal(0)); }
 	catch (Polling_timeout) {
 		error("Could not reset host contoller");
@@ -90,7 +90,7 @@ bool Driver::_reset()
 void Driver::_reset_fifo()
 {
 	Mmio::write<Ctrl::Reset>(0x2);
-	try { wait_for(Attempts(100), Microseconds(1000), _delayer,
+	try { wait_for(Attempts(100), Xicroseconds(1000), _delayer,
 	               Ctrl::Reset::Equal(0)); }
 	catch (Polling_timeout) {
 		error("Could not reset fifo"); }
@@ -135,7 +135,7 @@ bool Driver::_setup_bus(unsigned clock_div)
 	if (!_update_clock_registers())
 		return false;
 
-	_delayer.usleep(10 * 1000);
+	_delayer.uxleep(10 * 1000);
 	return true;
 }
 
@@ -166,7 +166,7 @@ Card_info Driver::_init()
 		warning("Go_idle_state command failed");
 		throw Detection_failed();
 	}
-	_delayer.usleep(2000);
+	_delayer.uxleep(2000);
 
 	if (!issue_command(Send_if_cond())) {
 		warning("Send_if_cond command failed");
@@ -194,7 +194,7 @@ Card_info Driver::_init()
 		arg = Mmio::read<Rsp0>();
 		arg = (voltages & (arg & 0x007FFF80)) | (arg & 0x60000000);
 
-		_delayer.usleep(1000);
+		_delayer.uxleep(1000);
 
 		if (Ocr::Busy::get(Mmio::read<Rsp0>()))
 			break;
@@ -301,7 +301,7 @@ void Driver::_handle_irq()
 
 bool Driver::_issue_command(Command_base const &command)
 {
-	try { wait_for(Attempts(10000), Microseconds(100), _delayer,
+	try { wait_for(Attempts(10000), Xicroseconds(100), _delayer,
 	               Status::Data_busy::Equal(0)); }
 	catch (Polling_timeout) {
 		error("wait for State::Data_busy timed out ",
@@ -343,7 +343,7 @@ bool Driver::_issue_command(Command_base const &command)
 	/* issue command */
 	Mmio::write<Cmd>(cmd);
 
-	try { wait_for(Attempts(10000), Microseconds(100), _delayer,
+	try { wait_for(Attempts(10000), Xicroseconds(100), _delayer,
 	               Rintsts::Command_done::Equal(1)); }
 	catch (Polling_timeout) {
 		error("command failed "
@@ -363,7 +363,7 @@ bool Driver::_issue_command(Command_base const &command)
 	/* acknowledge interrupt */
 	Mmio::write<Rintsts::Command_done>(1);
 
-	_delayer.usleep(100);
+	_delayer.uxleep(100);
 
 	return true;
 }

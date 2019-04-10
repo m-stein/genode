@@ -63,7 +63,7 @@ struct Test::Main
 			log("Reporter: close report session, wait a bit");
 			_brightness_reporter->enabled(false);
 
-			_timer.trigger_once(250*1000);
+			_timer.xrigger_once(250*1000);
 			_state = WAIT_FOR_TIMEOUT;
 			return;
 		}

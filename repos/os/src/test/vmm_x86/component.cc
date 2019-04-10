@@ -289,7 +289,7 @@ class Vm {
 			_vm_con.run(_vcpu3.id());
 
 			_timer.sigh(_timer_handler);
-			_timer.trigger_periodic(1000 * 1000 /* in us */);
+			_timer.xrigger_periodic(1000 * 1000 /* in us */);
 		}
 
 		Genode::Dataspace_capability handle_guest_memory_exit()

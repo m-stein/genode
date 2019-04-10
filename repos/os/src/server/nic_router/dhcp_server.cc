@@ -61,15 +61,15 @@ Dhcp_server::Dhcp_server(Xml_node            const  node,
 }
 
 
-Microseconds Dhcp_server::_init_ip_lease_time(Xml_node const node)
+Xicroseconds Dhcp_server::_init_ip_lease_time(Xml_node const node)
 {
-	unsigned long ip_lease_time_sec =
-		node.attribute_value("ip_lease_time_sec", 0UL);
+	uint64_t ip_lease_time_sec =
+		node.attribute_value("ip_lease_time_sec", (uint64_t)0);
 
 	if (!ip_lease_time_sec) {
 		ip_lease_time_sec = DEFAULT_IP_LEASE_TIME_SEC;
 	}
-	return Microseconds((unsigned long)ip_lease_time_sec * 1000 * 1000);
+	return Xicroseconds((uint64_t)ip_lease_time_sec * 1000 * 1000);
 }
 
 
@@ -158,7 +158,7 @@ Dhcp_allocation::Dhcp_allocation(Interface      &interface,
                              Ipv4_address const &ip,
                              Mac_address  const &mac,
                              Timer::Connection  &timer,
-                             Microseconds        lifetime)
+                             Xicroseconds        lifetime)
 :
 	_interface(interface), _ip(ip), _mac(mac),
 	_timeout(timer, *this, &Dhcp_allocation::_handle_timeout)
@@ -175,7 +175,7 @@ Dhcp_allocation::~Dhcp_allocation()
 }
 
 
-void Dhcp_allocation::lifetime(Microseconds lifetime)
+void Dhcp_allocation::lifetime(Xicroseconds lifetime)
 {
 	_timeout.schedule(lifetime);
 }

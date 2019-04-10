@@ -91,7 +91,7 @@ struct Test::Replay : Test_base
 
 	void _finish()
 	{
-		_end_time = _timer->elapsed_ms();
+		_end_time = _timer->xlapsed_ms();
 
 		Test_base::_finish();
 	}
@@ -185,7 +185,7 @@ struct Test::Replay : Test_base
 
 		_timer.construct(env);
 
-		_start_time = _timer->elapsed_ms();
+		_start_time = _timer->xlapsed_ms();
 
 		_handle_submit();
 	}

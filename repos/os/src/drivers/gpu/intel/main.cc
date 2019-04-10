@@ -95,7 +95,7 @@ struct Igd::Device
 		Timer::Connection &_timer;
 		Timer_delayer(Timer::Connection &timer) : _timer(timer) { }
 
-		void usleep(unsigned us) override { _timer.usleep(us); }
+		void uxleep(uint64_t us) override { _timer.uxleep(us); }
 
 	} _delayer { _timer };
 
@@ -918,7 +918,7 @@ struct Igd::Device
 		_submit_execlist(rcs);
 
 		_active_vgpu = gpu;
-		_timer.trigger_once(WATCHDOG_TIMEOUT);
+		_timer.xrigger_once(WATCHDOG_TIMEOUT);
 	}
 
 	/**********

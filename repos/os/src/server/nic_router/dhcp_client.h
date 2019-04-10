@@ -41,7 +41,7 @@ class Net::Dhcp_client
 		Interface                            &_interface;
 		State                                 _state { State::INIT };
 		Timer::One_shot_timeout<Dhcp_client>  _timeout;
-		unsigned long                         _lease_time_sec = 0;
+		Genode::uint64_t                      _lease_time_sec = 0;
 
 		void _handle_dhcp_reply(Dhcp_packet &dhcp);
 
@@ -49,9 +49,9 @@ class Net::Dhcp_client
 
 		void _rerequest(State next_state);
 
-		Genode::Microseconds _rerequest_timeout(unsigned lease_time_div_log2);
+		Genode::Xicroseconds _rerequest_timeout(unsigned lease_time_div_log2);
 
-		void _set_state(State state, Genode::Microseconds timeout);
+		void _set_state(State state, Genode::Xicroseconds timeout);
 
 		void _send(Dhcp_packet::Message_type msg_type,
 		           Ipv4_address              client_ip,

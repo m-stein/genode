@@ -147,7 +147,7 @@ class System_control : private Genode::Attached_mmio
 			write<Gem0_clk_ctrl>(clk);
 			write<Gem0_rclk_ctrl>(rclk);
 
-			_timer.msleep(100);
+			_timer.mxleep(100);
 		}
 };
 

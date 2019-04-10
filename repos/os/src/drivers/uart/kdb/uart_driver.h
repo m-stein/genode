@@ -68,7 +68,7 @@ class Uart::Driver
 		  _timer_handler(env.ep(), *this, &Driver::_timeout)
 		{
 			_timer.sigh(_timer_handler);
-			_timer.trigger_periodic(20*1000);
+			_timer.xrigger_periodic(20*1000);
 		}
 
 

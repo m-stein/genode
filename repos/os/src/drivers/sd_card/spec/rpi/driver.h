@@ -152,7 +152,7 @@ class Sd_card::Driver : public  Driver_base,
 		{
 			Timer_delayer(Genode::Env &env) : Timer::Connection(env) { }
 
-			void usleep(unsigned us) override { Timer::Connection::usleep(us); }
+			void uxleep(uint64_t us) override { Timer::Connection::uxleep(us); }
 		};
 
 		Env            &_env;
@@ -164,7 +164,7 @@ class Sd_card::Driver : public  Driver_base,
 		bool _poll_and_wait_for(unsigned value)
 		{
 			/* poll for a while */
-			try { wait_for(Attempts(5000), Microseconds(0), _delayer,
+			try { wait_for(Attempts(5000), Xicroseconds(0), _delayer,
 			               typename REG::Equal(value)); }
 			catch (Polling_timeout) {
 

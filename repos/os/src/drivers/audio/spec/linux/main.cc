@@ -188,8 +188,8 @@ class Audio_out::Out
 		{
 			_timer.sigh(_timer_dispatcher);
 
-			unsigned const us = (Audio_out::PERIOD * 1000 / Audio_out::SAMPLE_RATE)*1000;
-			_timer.trigger_periodic(us);
+			uint64_t const us = (Audio_out::PERIOD * 1000 / Audio_out::SAMPLE_RATE)*1000;
+			_timer.xrigger_periodic(us);
 		}
 
 		Signal_context_capability data_avail_sigh() { return _data_avail_dispatcher; }

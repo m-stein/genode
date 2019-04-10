@@ -279,8 +279,8 @@ struct Test::Main : Log_message_handler
 
 			if (step.type() == "sleep") {
 				if (!_timer_scheduled) {
-					unsigned long const timeout_ms = step.attribute_value("ms", 250UL);
-					_timer.trigger_once(timeout_ms*1000);
+					uint64_t const timeout_ms = step.attribute_value("ms", (uint64_t)250);
+					_timer.xrigger_once(timeout_ms*1000);
 					_timer_scheduled = true;
 				}
 				return;

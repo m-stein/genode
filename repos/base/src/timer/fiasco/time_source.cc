@@ -89,5 +89,5 @@ Duration Timer::Time_source::curr_time()
 }
 
 
-void Timer::Time_source::_usleep(unsigned long usecs) {
+void Timer::Time_source::_uxleep(unsigned long usecs) {
 	l4_ipc_sleep(l4_timeout(L4_IPC_TIMEOUT_NEVER, mus_to_timeout(usecs))); }

@@ -215,7 +215,7 @@ void Component::construct(Genode::Env &env)
 	Test_view *tv = nullptr;
 	while (1) {
 
-		while (!nitpicker.input()->pending()) timer.msleep(20);
+		while (!nitpicker.input()->pending()) timer.mxleep(20);
 
 		nitpicker.input()->for_each_event([&] (Input::Event const &ev) {
 

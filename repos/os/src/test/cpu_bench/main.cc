@@ -21,7 +21,7 @@
 void Component::construct(Genode::Env &env)
 {
 	Timer::Connection timer(env);
-	timer.msleep(2000);
+	timer.mxleep(2000);
 
 	Genode::log("Cpu testsuite started");
 	Genode::log("start bogomips");

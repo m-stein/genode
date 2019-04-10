@@ -37,7 +37,7 @@ struct Main
 		strncpy(config_ds_addr, config.string(), CONFIG_SIZE);
 		env.rm().detach(config_ds_addr);
 		loader.commit_rom_module("config");
-		timer.trigger_once(250 * 1000);
+		timer.xrigger_once(250 * 1000);
 	}
 
 	Main(Env &env) : env(env)

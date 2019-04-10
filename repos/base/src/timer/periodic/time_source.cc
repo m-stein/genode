@@ -29,13 +29,13 @@ void Timer::Time_source::schedule_timeout(Xicroseconds     duration,
 
 void Timer::Time_source::_wait_for_irq()
 {
-	enum { SLEEP_GRANULARITY_US = 1000UL };
+	enum { SLEEP_GRANULARITY_US = 1000 };
 	uint64_t last_time_us = curr_time().xrunc_to_plain_us().value;
 	_lock.lock();
 	while (_next_timeout_us > 0) {
 		_lock.unlock();
 
-		try { _usleep(SLEEP_GRANULARITY_US); }
+		try { _uxleep(SLEEP_GRANULARITY_US); }
 		catch (Blocking_canceled) { }
 
 		uint64_t curr_time_us = curr_time().xrunc_to_plain_us().value;

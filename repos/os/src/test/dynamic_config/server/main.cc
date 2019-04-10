@@ -102,7 +102,7 @@ struct Main
 	{
 		String<100> config("<config><counter>", counter++, "</counter></config>");
 		rom_session.configure(config.string());
-		timer.trigger_once(250 * 1000);
+		timer.xrigger_once(250 * 1000);
 	}
 
 	Main(Env &env) : env(env)

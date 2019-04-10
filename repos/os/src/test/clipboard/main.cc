@@ -52,7 +52,7 @@ class Test::Nitpicker
 			 * reporting a new focus to give the new state some time to
 			 * propagate through the report-rom server to the clipboard.
 			 */
-			_timer.trigger_once(250*1000);
+			_timer.xrigger_once(250*1000);
 		}
 
 	public:
@@ -338,7 +338,7 @@ struct Test::Main : Handle_step_fn
 			_hobby.expect_import(false);
 			_admin.copy(another_private_key);
 
-			_timer.trigger_once(500*1000);
+			_timer.xrigger_once(500*1000);
 			_enter_state(BLOCKED_REPETITION);
 			return;
 
@@ -385,7 +385,7 @@ struct Test::Main : Handle_step_fn
 			 * Since no state changes are triggered from the outside,
 			 * we schedule a timeout to proceed.
 			 */
-			_timer.trigger_once(500*1000);
+			_timer.xrigger_once(500*1000);
 			_enter_state(BLOCKED_WHEN_INACTIVE);
 			return;
 
@@ -401,7 +401,7 @@ struct Test::Main : Handle_step_fn
 			 * this report.
 			 */
 			_work.copy(garbage);
-			_timer.trigger_once(500*1000);
+			_timer.xrigger_once(500*1000);
 			_enter_state(WAIT_FOR_SUCCESS);
 			return;
 

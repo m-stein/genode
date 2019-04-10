@@ -490,7 +490,7 @@ struct Usb::Block_driver : Usb::Completion,
 						} else break;
 					} else break;
 
-					timer.msleep(1000);
+					timer.mxleep(1000);
 				}
 				if (retries == MAX_RETRIES) {
 					Genode::warning("Test_unit_ready_cmd failed");

@@ -142,7 +142,7 @@ class Framebuffer::Session_component : public Genode::Rpc_object<Framebuffer::Se
 			_sync_sigh = sigh;
 
 			_timer.sigh(_sync_sigh);
-			_timer.trigger_periodic(10*1000);
+			_timer.xrigger_periodic(10*1000);
 		}
 
 		void refresh(int x, int y, int w, int h) override

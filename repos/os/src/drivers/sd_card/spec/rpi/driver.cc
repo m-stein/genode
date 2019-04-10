@@ -47,7 +47,7 @@ void Driver::_set_and_enable_clock(unsigned divider)
 		throw Detection_failed();
 	}
 	Mmio::write<Control1::Clk_en>(1);
-	_delayer.usleep(10*1000);
+	_delayer.uxleep(10*1000);
 
 	/* data timeout unit exponent */
 	Mmio::write<Control1::Data_tounit>(0xe);
@@ -90,7 +90,7 @@ Card_info Driver::_init()
 		warning("Go_idle_state command failed");
 		throw Detection_failed();
 	}
-	_delayer.usleep(2000);
+	_delayer.uxleep(2000);
 
 	if (!issue_command(Send_if_cond())) {
 		warning("Send_if_cond command failed");
@@ -118,7 +118,7 @@ Card_info Driver::_init()
 		if (Ocr::Busy::get(Mmio::read<Resp0>()))
 			break;
 
-		_delayer.usleep(1000);
+		_delayer.uxleep(1000);
 	}
 	if (i == 0) {
 		error("Sd_send_op_cond timed out, could no power-on SD card");
@@ -139,7 +139,7 @@ Card_info Driver::_init()
 	Control0::Hctl_dwidth::set(ctl0);
 	Control0::Hctl_hs_en::set(ctl0);
 	Mmio::write<Control0>(ctl0);
-	_delayer.usleep(10*1000);
+	_delayer.uxleep(10*1000);
 
 	/*
 	 * Accelerate clock, the divider is hard-coded for now.

@@ -127,7 +127,7 @@ class Tx_buffer_descriptor : public Buffer_descriptor
 
 				/*  TODO buffer is full, instead of sleeping we should
 				 *       therefore wait for tx_complete interrupt */
-				_timer.usleep(1000);
+				_timer.uxleep(1000);
 			}
 
 			_reset_descriptor(_head_index(), packet_phys);

@@ -48,8 +48,8 @@ class Throughput
 		bool                          _read_done  = false;
 		bool                          _write_done = false;
 
-		unsigned long   _start   = 0;
-		unsigned long   _stop    = 0;
+		uint64_t        _start   = 0;
+		uint64_t        _stop    = 0;
 		size_t          _bytes   = 0;
 		Block::sector_t _current = 0;
 
@@ -108,7 +108,7 @@ class Throughput
 			if (_read_done && (_write_done || !TEST_WRITE))
 				return;
 
-			_stop = _timer.elapsed_ms();
+			_stop = _timer.xlapsed_ms();
 			log(!_read_done ? "Read" : "Wrote", " ", _bytes / 1024, " KiB in ",
 			    _stop - _start, " ms (",
 				((double)_bytes / (1024 * 1024)) / ((double)(_stop - _start) / 1000),
@@ -117,7 +117,7 @@ class Throughput
 			/* start write */
 			if (!_read_done ) {
 				_read_done  = true;
-				_start      = _timer.elapsed_ms();
+				_start      = _timer.xlapsed_ms();
 				_bytes      = 0;
 				_current    = 0;
 				if (TEST_WRITE)
@@ -143,7 +143,7 @@ class Throughput
 
 			warning("block count ", _blk_count, " size ", _blk_size);
 			log("read/write ", TEST_SIZE / 1024, " KiB ...");
-			_start = _timer.elapsed_ms();
+			_start = _timer.xlapsed_ms();
 			_submit();
 		}
 };

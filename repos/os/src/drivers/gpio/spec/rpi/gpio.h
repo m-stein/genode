@@ -117,7 +117,7 @@ class Gpio::Reg : Attached_io_mem_dataspace, Mmio
 			/**
 			 * Implementation of 'Delayer' interface
 			 */
-			void usleep(unsigned us) override { Timer::Connection::usleep(us); }
+			void uxleep(uint64_t us) override { Timer::Connection::uxleep(us); }
 
 		} _delayer;
 
@@ -162,9 +162,9 @@ class Gpio::Reg : Attached_io_mem_dataspace, Mmio
 			 */
 			if (function == FSEL_INPUT) {
 				write<Gppud>(1);
-				_delayer.usleep(1);
+				_delayer.uxleep(1);
 				write<Gppudclk>(1, gpio);
-				_delayer.usleep(1);
+				_delayer.uxleep(1);
 				write<Gppud>(0);
 				write<Gppudclk>(0, gpio);
 			}

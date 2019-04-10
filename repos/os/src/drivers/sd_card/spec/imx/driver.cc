@@ -27,7 +27,7 @@ int Driver::_wait_for_card_ready_mbw()
 	 * freely chosen.
 	 */
 	unsigned           attempts          = 5;
-	unsigned constexpr attempts_delay_us = 100000;
+	uint64_t constexpr attempts_delay_us = 100000;
 	while (1) {
 		if (!attempts) {
 			error("Reading card status after multiblock write failed");
@@ -63,7 +63,7 @@ int Driver::_wait_for_card_ready_mbw()
 		}
 		/* if card is in a ready state, return success, retry otherwise */
 		if (R1_response_0::card_ready(resp)) { break; }
-		_delayer.usleep(attempts_delay_us);
+		_delayer.uxleep(attempts_delay_us);
 	}
 	return 0;
 }
@@ -106,7 +106,7 @@ void Driver::_handle_irq()
 	 * Complete" and "Command Complete" must be gathered.
 	 */
 	try {
-		wait_for(Attempts(1000), Microseconds(1000), _delayer,
+		wait_for(Attempts(1000), Xicroseconds(1000), _delayer,
 		         Irqstat::Cc::Equal(1), Irqstat::Tc::Equal(1)); }
 	catch (Polling_timeout) {
 		error("Completion host signal timed out");
@@ -128,7 +128,7 @@ void Driver::_handle_irq()
 
 int Driver::_wait_for_cmd_complete()
 {
-	try { wait_for(Attempts(200), Microseconds(5000), _delayer,
+	try { wait_for(Attempts(200), Xicroseconds(5000), _delayer,
 	               Irqstat::Cc::Equal(1)); }
 	catch (Polling_timeout) {
 		error("command timed out");
@@ -305,7 +305,7 @@ Card_info Driver::_init()
 	/* configure IRQs, bus width, and clock for initialization */
 	_enable_irqs();
 	_bus_width(BUS_WIDTH_1);
-	_delayer.usleep(10000);
+	_delayer.uxleep(10000);
 	_clock(CLOCK_INITIAL);
 
 	/*
@@ -319,11 +319,11 @@ Card_info Driver::_init()
 	 * Io_rw_direct commands.
 	 */
 
-	_delayer.usleep(1000);
+	_delayer.uxleep(1000);
 	if (!issue_command(Go_idle_state())) {
 		_detect_err("Go_idle_state command failed"); }
 
-	_delayer.usleep(2000);
+	_delayer.uxleep(2000);
 	if (!issue_command(Send_if_cond())) {
 		_detect_err("Send_if_cond command failed"); }
 
@@ -339,11 +339,11 @@ Card_info Driver::_init()
 	if (!issue_command(Sd_send_op_cond(0, false))) {
 		_detect_err("Sd_send_op_cond command failed"); }
 
-	_delayer.usleep(1000);
+	_delayer.uxleep(1000);
 	if (!issue_command(Go_idle_state())) {
 		_detect_err("Go_idle_state command failed"); }
 
-	_delayer.usleep(2000);
+	_delayer.uxleep(2000);
 	if (!issue_command(Send_if_cond())) {
 		_detect_err("Send_if_cond failed"); }
 
@@ -365,7 +365,7 @@ Card_info Driver::_init()
 			_detect_err("Sd_send_op_cond command failed"); }
 
 		if (Ocr::Busy::get(Mmio::read<Cmdrsp0>())) { break; }
-		_delayer.usleep(1000);
+		_delayer.uxleep(1000);
 	}
 	if (!i) { _detect_err("Could not power-on SD card"); }
 
@@ -393,7 +393,7 @@ Card_info Driver::_init()
 		_detect_err("Set_bus_width(FOUR_BITS) command failed");
 	}
 	_bus_width(BUS_WIDTH_4);
-	_delayer.usleep(10000);
+	_delayer.uxleep(10000);
 
 	/* configure card to use given block size */
 	if (!issue_command(Set_blocklen(block_size()))) {
@@ -509,7 +509,7 @@ void Driver::_enable_clock(Clock_divider divider)
 	}
 	Mmio::write<Sysctl>(sysctl);
 	_enable_clock_finish();
-	_delayer.usleep(1000);
+	_delayer.uxleep(1000);
 }
 
 

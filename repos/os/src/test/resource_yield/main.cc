@@ -77,14 +77,14 @@ class Test::Child
 		Timer::Connection     _timer { _env };
 		Signal_handler<Child> _periodic_timeout_handler;
 		Signal_handler<Child> _yield_handler;
-		unsigned long   const _period_ms;
+		uint64_t        const _period_ms;
 
 		void _handle_periodic_timeout();
 		void _handle_yield();
 
 		void _schedule_next_timeout()
 		{
-			_timer.trigger_once(_period_ms*1000);
+			_timer.xrigger_once(_period_ms*1000);
 		}
 
 	public:
@@ -165,7 +165,7 @@ Test::Child::Child(Env &env, Xml_node config)
 	_expand(config.attribute_value("expand", false)),
 	_periodic_timeout_handler(_env.ep(), *this, &Child::_handle_periodic_timeout),
 	_yield_handler(_env.ep(), *this, &Child::_handle_yield),
-	_period_ms(config.attribute_value("period_ms", 500UL))
+	_period_ms(config.attribute_value("period_ms", (uint64_t)500))
 {
 	/* register yield signal handler */
 	_env.parent().yield_sigh(_yield_handler);
@@ -216,7 +216,7 @@ class Test::Parent
 		void _schedule_one_second_timeout()
 		{
 			log("wait ", _wait_cnt, "/", _wait_secs);
-			_timer.trigger_once(1000*1000);
+			_timer.xrigger_once(1000*1000);
 		}
 
 		void _init()

@@ -239,7 +239,7 @@ struct Fb_sdl::Main
 		_env.parent().announce(env.ep().manage(_input_root));
 
 		_timer.sigh(_timer_handler);
-		_timer.trigger_periodic(100000000 / 5994); /* 59.94Hz */
+		_timer.xrigger_periodic(100000000 / 5994); /* 59.94Hz */
 	}
 };
 

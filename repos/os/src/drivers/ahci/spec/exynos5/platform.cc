@@ -91,7 +91,7 @@ struct I2c_interface : Attached_mmio
 	{
 		for (unsigned i = 0; i < 3; i++) {
 			if (read<Con::Irq_pending>() && !read<Stat::Last_bit>()) return 1;
-			delayer.usleep(TX_DELAY_US);
+			delayer.uxleep(TX_DELAY_US);
 		}
 		Genode::error("I2C ack not received");
 		return 0;
@@ -132,7 +132,7 @@ struct I2c_interface : Attached_mmio
 		Stat::Mode::set(stat, 3);
 		write<Stat>(stat);
 		write<Ds>(start_msg);
-		delayer.usleep(1000);
+		delayer.uxleep(1000);
 		write<Con::Tx_prescaler>(11);
 		write<Stat::Busy>(1);
 
@@ -140,7 +140,7 @@ struct I2c_interface : Attached_mmio
 		for (unsigned i = 0; i < msg_size; i++) {
 			if (!ack_received()) return -1;
 			write<Ds>(msg[i]);
-			delayer.usleep(TX_DELAY_US);
+			delayer.uxleep(TX_DELAY_US);
 			write<Con::Irq_pending>(0);
 			if (arbitration_error()) return -1;
 		}
@@ -350,7 +350,7 @@ struct Exynos5_hba : Platform::Hba
 		/* reset */
 		hba.write< ::Hba::Ghc::Hr>(1);
 		try {
-			hba.wait_for(::Hba::Attempts(1000), ::Hba::Microseconds(1000),
+			hba.wait_for(::Hba::Attempts(1000), ::Hba::Xicroseconds(1000),
 			             hba.delayer(), ::Hba::Ghc::Hr::Equal(0));
 		} catch (::Hba::Polling_timeout) {
 			Genode::error("HBA reset failed");

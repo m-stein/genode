@@ -213,7 +213,7 @@ static void test_deferred_destruction(Genode::Env & env, Genode::Heap &heap)
 		destruct_thread.start();
 
 		/* yield some time to the other thread */
-		timer.msleep(500);
+		timer.mxleep(500);
 
 		/* even after the time period, the object should still be alive */
 		assert_constructed(true);
@@ -225,7 +225,7 @@ static void test_deferred_destruction(Genode::Env & env, Genode::Heap &heap)
 	 * Now that the thread is expected to be unblocked, yield some time
 	 * to actually do the destruction.
 	 */
-	timer.msleep(100);
+	timer.mxleep(100);
 
 	assert_constructed(false);
 
@@ -287,7 +287,7 @@ struct Object_with_delayed_destruction
 	~Object_with_delayed_destruction()
 	{
 		Weak_object<Object_with_delayed_destruction>::lock_for_destruction();
-		timer.msleep(2000);
+		timer.mxleep(2000);
 		object_constructed = false;
 	}
 };
@@ -314,7 +314,7 @@ static void test_acquisition_during_destruction(Genode::Env & env,
 	destruct_thread.start();
 
 	/* wait so that the thread enters the destructor */
-	timer.msleep(500);
+	timer.mxleep(500);
 
 	{
 		/* acquire possession over the object */

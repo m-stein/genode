@@ -36,7 +36,7 @@ class Timer_delayer : public Mmio::Delayer, public Timer::Connection
 
 		Timer_delayer(Genode::Env &env) : Timer::Connection(env) { }
 
-		void usleep(unsigned us) { Timer::Connection::usleep(us); }
+		void uxleep(uint64_t us) { Timer::Connection::uxleep(us); }
 };
 
 
@@ -103,7 +103,7 @@ class I2c_interface : public Attached_mmio
 			 * busy wait and poll at max 2048 times.
 			 */
 			try {
-				wait_for(Attempts(2048), Microseconds(500), _delayer,
+				wait_for(Attempts(2048), Xicroseconds(500), _delayer,
 				         Con::Irq_pending::Equal(1));
 				_irq.ack_irq();
 			}
@@ -160,7 +160,7 @@ class I2c_interface : public Attached_mmio
 			Stat::Mode::set(stat, tx ? MASTER_TX : MASTER_RX);
 			write<Stat>(stat);
 			write<Ds>(start);
-			_delayer.usleep(TX_DELAY_US);
+			_delayer.uxleep(TX_DELAY_US);
 
 			/* end start-op transfer */
 			write<Con>(con);
@@ -178,7 +178,7 @@ class I2c_interface : public Attached_mmio
 		{
 			for (unsigned i = 0; i < 3; i++) {
 				if (read<Con::Irq_pending>() && !read<Stat::Last_bit>()) return 1;
-				_delayer.usleep(TX_DELAY_US);
+				_delayer.uxleep(TX_DELAY_US);
 			}
 			error("I2C ack not received");
 			return 0;
@@ -254,7 +254,7 @@ class I2c_interface : public Attached_mmio
 				if (!_ack_received()) return -1;
 				if (off == msg_size) break;
 				write<Ds>(msg[off]);
-				_delayer.usleep(TX_DELAY_US);
+				_delayer.uxleep(TX_DELAY_US);
 
 				/* finish last byte and prepare for next one */
 				off++;
@@ -574,7 +574,7 @@ class I2c_hdmi : public I2c_interface
 			if (m_transmit(HDMI_PHY_SLAVE, cfg, cfg_size)) { return -1; }
 
 			/* ensure that configuration is applied */
-			_delayer.usleep(10000);
+			_delayer.uxleep(10000);
 
 			/* start hdmi phy */
 			static uint8_t start[] = { 0x1f, 0x80 };
@@ -944,16 +944,16 @@ class Hdmi : public Attached_mmio
 			write<Phy_con_0::Pwr_off>(0);
 			if (_i2c_hdmi.stop_hdmi_phy()) return -1;
 			write<Phy_rstout::Reset>(1);
-			_delayer.usleep(10000);
+			_delayer.uxleep(10000);
 			write<Phy_rstout::Reset>(0);
-			_delayer.usleep(10000);
+			_delayer.uxleep(10000);
 			if (_i2c_hdmi.setup_and_start_hdmi_phy(pixel_clk)) return -1;
 
 			/* reset HDMI CORE */
 			write<Core_rstout::Reset>(0);
-			_delayer.usleep(10000);
+			_delayer.uxleep(10000);
 			write<Core_rstout::Reset>(1);
-			_delayer.usleep(10000);
+			_delayer.uxleep(10000);
 
 			/* common config */
 			write<Intc_con_0::En_global>(0);
@@ -1044,7 +1044,7 @@ class Hdmi : public Attached_mmio
 
 			/* wait for PHY PLLs to get steady */
 			try {
-				wait_for(Attempts(10), Microseconds(500), _delayer,
+				wait_for(Attempts(10), Xicroseconds(500), _delayer,
 				         Phy_status_0::Phy_ready::Equal(1));
 			}
 			catch (Polling_timeout) {

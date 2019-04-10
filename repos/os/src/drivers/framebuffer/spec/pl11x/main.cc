@@ -132,12 +132,12 @@ class Framebuffer::Session_component : public Genode::Rpc_object<Framebuffer::Se
 			if (ctrl & CTRL_POWER) {
 				ctrl &= ~CTRL_POWER;
 				reg_write(PL11X_REG_CTRL, ctrl);
-				_timer.msleep(100);
+				_timer.mxleep(100);
 			}
 			if (ctrl & CTRL_ENABLED) {
 				ctrl &= ~CTRL_ENABLED;
 				reg_write(PL11X_REG_CTRL, ctrl);
-				_timer.msleep(100);
+				_timer.mxleep(100);
 			}
 
 			ctrl = CTRL_BGR | CTRL_ENABLED | CTRL_TFT | CTRL_VCOMP | CTRL_BPP16_565;
@@ -158,7 +158,7 @@ class Framebuffer::Session_component : public Genode::Rpc_object<Framebuffer::Se
 			reg_write(PL11X_REG_LPBASE, 0);
 			reg_write(PL11X_REG_IMSC,   0);
 			reg_write(PL11X_REG_CTRL,   ctrl);
-			_timer.msleep(100);
+			_timer.mxleep(100);
 
 			/* power on */
             reg_write(PL11X_REG_CTRL,   ctrl | CTRL_POWER);
@@ -173,7 +173,7 @@ class Framebuffer::Session_component : public Genode::Rpc_object<Framebuffer::Se
 		void sync_sigh(Genode::Signal_context_capability sigh) override
 		{
 			_timer.sigh(sigh);
-			_timer.trigger_periodic(10*1000);
+			_timer.xrigger_periodic(10*1000);
 		}
 
 		void refresh(int, int, int, int) override { }

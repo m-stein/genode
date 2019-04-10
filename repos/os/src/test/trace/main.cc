@@ -36,7 +36,7 @@ struct Test_thread : Thread
 				Ram_dataspace_capability ds_cap = env.ram().alloc(1024);
 				env.ram().free(ds_cap);
 			}
-			timer.msleep(250);
+			timer.mxleep(250);
 		}
 	}
 
@@ -259,7 +259,7 @@ struct Test_tracing
 		}
 
 		/* wait some time before querying the subjects */
-		timer.msleep(3000);
+		timer.mxleep(3000);
 
 		Trace::Subject_id subjects[32];
 		size_t num_subjects = trace.subjects(subjects, 32);
@@ -309,7 +309,7 @@ struct Test_tracing
 		for_each_subject(subjects, num_subjects, enable_tracing);
 
 		/* give the test thread some time to run */
-		timer.msleep(3000);
+		timer.mxleep(3000);
 
 		for_each_subject(subjects, num_subjects, print_info);
 

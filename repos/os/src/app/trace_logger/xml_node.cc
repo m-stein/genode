@@ -17,13 +17,13 @@
 using namespace Genode;
 
 
-Microseconds Genode::read_sec_attr(Xml_node      const  node,
-                                   char          const *name,
-                                   unsigned long const  default_sec)
+Xicroseconds Genode::read_sec_attr(Xml_node const  node,
+                                   char     const *name,
+                                   uint64_t const  default_sec)
 {
-	unsigned long sec = node.attribute_value(name, 0UL);
+	uint64_t sec = node.attribute_value(name, (uint64_t)0);
 	if (!sec) {
 		sec = default_sec;
 	}
-	return Microseconds(sec * 1000 * 1000);
+	return Xicroseconds(sec * 1000 * 1000);
 }

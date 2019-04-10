@@ -77,7 +77,7 @@ class I2c::I2c : Genode::Mmio
 			write<Status>(0);
 			write<Control>(Control::Enable::bits(1));
 
-			_timer.msleep(1);
+			_timer.mxleep(1);
 
 			write<Control::Master_slave_select>(1);
 

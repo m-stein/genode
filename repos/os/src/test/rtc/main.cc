@@ -37,7 +37,7 @@ struct Main
 				    now[j].year, "-", now[j].month,  "-", now[j].day, " ",
 				    now[j].hour, ":", now[j].minute, ":", now[j].second);
 
-			timer.msleep(1000);
+			timer.mxleep(1000);
 		}
 
 		Genode::log("--- RTC test finished ---");

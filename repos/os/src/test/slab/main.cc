@@ -87,14 +87,14 @@ void Component::construct(Genode::Env & env)
 		for (unsigned i = 1; i <= 10; i++) {
 			log("round ", i, " ("
 			    "used quota: ", alloc.consumed(), " "
-			    "time: ", timer.elapsed_ms(), " ms)");
+			    "time: ", timer.xlapsed_ms(), " ms)");
 
 			Array_of_slab_elements array(slab, i*100000, SLAB_SIZE, heap);
 			log(" allocation completed (used quota: ", alloc.consumed(), ")");
 		}
 
 		log(" finished (used quota: ", alloc.consumed(), ", "
-		    "time: ", timer.elapsed_ms(), " ms)");
+		    "time: ", timer.xlapsed_ms(), " ms)");
 
 		/*
 		 * The slab keeps two empty blocks around. For the test, we also need to

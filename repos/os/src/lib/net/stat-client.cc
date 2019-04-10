@@ -176,7 +176,7 @@ int main(int argc, char **argv)
 
 	memcpy(data, txt_magic, sizeof(txt_magic));
 
-	usleep (5000);
+	uxleep (5000);
 	res = sendto(sock_fd, packet, len, 0, (struct sockaddr*)&socket_address,
 	             sizeof(struct sockaddr_ll));
 	if (res != len) {

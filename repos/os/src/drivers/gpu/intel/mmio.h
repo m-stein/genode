@@ -845,7 +845,7 @@ class Igd::Mmio : public Genode::Mmio
 			read<MISC_CTRL0>();
 
 			try {
-				wait_for(Attempts(50), Microseconds(1000), _delayer,
+				wait_for(Attempts(50), Xicroseconds(1000), _delayer,
 				         GTSP1::Equal(1));
 			} catch (Polling_timeout) {
 				error("could not enable force-wake engine");
@@ -868,7 +868,7 @@ class Igd::Mmio : public Genode::Mmio
 			read<MISC_CTRL0>();
 
 			try {
-				wait_for(Attempts(50), Microseconds(1000), _delayer,
+				wait_for(Attempts(50), Xicroseconds(1000), _delayer,
 				         GTSP1::Equal(0));
 			} catch (Polling_timeout) {
 				error("could not disable force-wake engine");
@@ -1084,7 +1084,7 @@ class Igd::Mmio : public Genode::Mmio
 			REG::Request_reset::set(v, 1);
 			write_post<REG>(v);
 			try {
-				wait_for(Attempts(35), Microseconds(20), _delayer,
+				wait_for(Attempts(35), Xicroseconds(20), _delayer,
 				         typename REG::Ready_for_reset::Equal(1));
 			} catch (Mmio::Polling_timeout) {
 				Genode::error("could not reset engine");
@@ -1130,7 +1130,7 @@ class Igd::Mmio : public Genode::Mmio
 
 			write<GDRST::Graphics_full_soft_reset_ctl>(1);
 			try {
-				wait_for(Attempts(50), Microseconds(10), _delayer,
+				wait_for(Attempts(50), Xicroseconds(10), _delayer,
 				         GDRST::Graphics_full_soft_reset_ctl::Equal(0));
 			} catch (Mmio::Polling_timeout) {
 				Genode::error("resetting device failed");

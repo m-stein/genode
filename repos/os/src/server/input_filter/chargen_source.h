@@ -380,8 +380,8 @@ class Input_filter::Chargen_source : public Source, Source::Sink
 			Source::Sink      &_destination;
 			Timer::Connection &_timer;
 
-			Microseconds const _delay;
-			Microseconds const _rate;
+			Xicroseconds const _delay;
+			Xicroseconds const _rate;
 
 			Codepoint _curr_character { Codepoint::INVALID };
 
@@ -404,8 +404,8 @@ class Input_filter::Chargen_source : public Source, Source::Sink
 			              Xml_node node)
 			:
 				_destination(destination), _timer(timer),
-				_delay(node.attribute_value("delay_ms", 0UL)*1000),
-				_rate (node.attribute_value("rate_ms",  0UL)*1000)
+				_delay(node.attribute_value("delay_ms", (uint64_t)0)*1000),
+				_rate (node.attribute_value("rate_ms",  (uint64_t)0)*1000)
 			{ }
 
 			void schedule_repeat(Codepoint character)

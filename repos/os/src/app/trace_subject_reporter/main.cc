@@ -164,9 +164,9 @@ struct App::Main
 
 	Reporter _reporter { _env, "trace_subjects", "trace_subjects", 64*1024 };
 
-	static unsigned long _default_period_ms() { return 5000; }
+	static uint64_t _default_period_ms() { return 5000; }
 
-	unsigned long _period_ms = _default_period_ms();
+	uint64_t _period_ms = _default_period_ms();
 
 	bool _report_affinity = false;
 	bool _report_activity = false;
@@ -217,7 +217,7 @@ void App::Main::_handle_config()
 	_report_affinity = _config_report_attribute_enabled("affinity");
 	_report_activity = _config_report_attribute_enabled("activity");
 
-	_timer.trigger_periodic(1000*_period_ms);
+	_timer.xrigger_periodic(1000*_period_ms);
 }
 
 

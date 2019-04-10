@@ -144,9 +144,9 @@ Driver::Driver(Env &env)
 	enum { POWER_UP = 2, POWER_ON = 3 };
 
 	_write_reg(Power, POWER_UP);
-	_timer.msleep(10);
+	_timer.mxleep(10);
 	_write_reg(Power, POWER_ON);
-	_timer.msleep(10);
+	_timer.mxleep(10);
 	_clear_status();
 
 	/* CMD0: go idle state */

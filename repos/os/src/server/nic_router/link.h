@@ -149,7 +149,7 @@ class Net::Link : public Link_list::Element
 		Interface                     &_client_interface;
 		Pointer<Port_allocator_guard>  _server_port_alloc;
 		Timer::One_shot_timeout<Link>  _dissolve_timeout;
-		Genode::Microseconds           _dissolve_timeout_us;
+		Genode::Xicroseconds           _dissolve_timeout_us;
 		L3_protocol             const  _protocol;
 		Link_side                      _client;
 		Link_side                      _server;
@@ -173,7 +173,7 @@ class Net::Link : public Link_list::Element
 		     Timer::Connection                   &timer,
 		     Configuration                       &config,
 		     L3_protocol                   const  protocol,
-		     Genode::Microseconds          const  dissolve_timeout,
+		     Genode::Xicroseconds          const  dissolve_timeout,
 		     Interface_link_stats                &stats);
 
 		~Link();

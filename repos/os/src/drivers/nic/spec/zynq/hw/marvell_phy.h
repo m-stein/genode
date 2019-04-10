@@ -427,7 +427,7 @@ namespace Genode
 				 * IEEE spec.
 				 */
 				while (phy_read<Bmcr::Reset>() && timeout--) {
-					_timer.msleep(1);
+					_timer.mxleep(1);
 				}
 
 				if (phy_read<Bmcr::Reset>()) {
@@ -483,7 +483,7 @@ namespace Genode
 
 						if ((i++ % 500) == 0)
 							Genode::log(".");
-						_timer.msleep(1);
+						_timer.mxleep(1);
 
 						mii_reg = phy_read<Bmsr>();
 					}
@@ -525,10 +525,10 @@ namespace Genode
 
 						if ((i++ % 1000) == 0)
 							Genode::log(".");
-						_timer.msleep(1);
+						_timer.mxleep(1);
 					}
 					log(" done");
-					_timer.msleep(500);
+					_timer.mxleep(500);
 				} else {
 					if (Phy_stat::Link::get(stat))
 						_link_up = true;

@@ -149,7 +149,7 @@ struct Main
 	Main(Genode::Env &env) : env(env)
 	{
 		timer.sigh(dispatcher);
-		timer.trigger_periodic(10000);
+		timer.xrigger_periodic(10000);
 		env.parent().announce(env.ep().manage(root));
 	}
 };

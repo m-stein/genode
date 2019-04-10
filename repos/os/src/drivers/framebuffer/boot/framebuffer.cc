@@ -63,7 +63,7 @@ void Session_component::mode_sigh(Genode::Signal_context_capability) { }
 void Session_component::sync_sigh(Genode::Signal_context_capability scc)
 {
 	timer.sigh(scc);
-	timer.trigger_periodic(10*1000);
+	timer.xrigger_periodic(10*1000);
 }
 
 void Session_component::refresh(int const x, int const y, int const w, int const h)

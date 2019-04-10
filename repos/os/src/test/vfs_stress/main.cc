@@ -541,7 +541,7 @@ void Component::construct(Genode::Env &env)
 
 	MAX_DEPTH = config_xml.attribute_value("depth", 16U);
 
-	unsigned long elapsed_ms;
+	uint64_t elapsed_ms;
 	Timer::Connection timer(env);
 
 	/* populate the directory file system at / */
@@ -555,7 +555,7 @@ void Component::construct(Genode::Env &env)
 	{
 		int count = 0;
 		log("generating directory surface...");
-		elapsed_ms = timer.elapsed_ms();
+		elapsed_ms = timer.xlapsed_ms();
 
 		for (int i = 0; i < ROOT_TREE_COUNT; ++i) {
 			snprintf(path, 3, "/%d", i);
@@ -565,7 +565,7 @@ void Component::construct(Genode::Env &env)
 			Mkdir_test test(vfs_root, heap, path);
 			count += test.wait();
 		}
-		elapsed_ms = timer.elapsed_ms() - elapsed_ms;
+		elapsed_ms = timer.xlapsed_ms() - elapsed_ms;
 
 		vfs_root_sync();
 
@@ -582,7 +582,7 @@ void Component::construct(Genode::Env &env)
 	{
 		int count = 0;
 		log("generating files...");
-		elapsed_ms = timer.elapsed_ms();
+		elapsed_ms = timer.xlapsed_ms();
 
 		for (int i = 0; i < ROOT_TREE_COUNT; ++i) {
 			snprintf(path, 3, "/%d", i);
@@ -590,7 +590,7 @@ void Component::construct(Genode::Env &env)
 			count += test.wait();
 		}
 
-		elapsed_ms = timer.elapsed_ms() - elapsed_ms;
+		elapsed_ms = timer.xlapsed_ms() - elapsed_ms;
 
 		vfs_root_sync();
 
@@ -606,14 +606,14 @@ void Component::construct(Genode::Env &env)
 	 *****************/
 
 	if (!config_xml.attribute_value("write", true)) {
-		elapsed_ms = timer.elapsed_ms();
+		elapsed_ms = timer.xlapsed_ms();
 		log("total: ",elapsed_ms,"ms, ",env.pd().used_ram().value/1024,"K consumed");
 		return die(env, 0);
 	}
 	{
 		Vfs::file_size count = 0;
 		log("writing files...");
-		elapsed_ms = timer.elapsed_ms();
+		elapsed_ms = timer.xlapsed_ms();
 
 		for (int i = 0; i < ROOT_TREE_COUNT; ++i) {
 			snprintf(path, 3, "/%d", i);
@@ -622,7 +622,7 @@ void Component::construct(Genode::Env &env)
 
 		}
 
-		elapsed_ms = timer.elapsed_ms() - elapsed_ms;
+		elapsed_ms = timer.xlapsed_ms() - elapsed_ms;
 
 		vfs_root_sync();
 
@@ -641,7 +641,7 @@ void Component::construct(Genode::Env &env)
 	 *****************/
 
 	if (!config_xml.attribute_value("read", true)) {
-		elapsed_ms = timer.elapsed_ms();
+		elapsed_ms = timer.xlapsed_ms();
 
 		log("total: ",elapsed_ms,"ms, ",env.pd().used_ram().value/1024,"KiB consumed");
 		return die(env, 0);
@@ -649,7 +649,7 @@ void Component::construct(Genode::Env &env)
 	{
 		Vfs::file_size count = 0;
 		log("reading files...");
-		elapsed_ms = timer.elapsed_ms();
+		elapsed_ms = timer.xlapsed_ms();
 
 		for (int i = 0; i < ROOT_TREE_COUNT; ++i) {
 			snprintf(path, 3, "/%d", i);
@@ -657,7 +657,7 @@ void Component::construct(Genode::Env &env)
 			count += test.wait();
 		}
 
-		elapsed_ms = timer.elapsed_ms() - elapsed_ms;
+		elapsed_ms = timer.xlapsed_ms() - elapsed_ms;
 
 		vfs_root_sync();
 
@@ -676,7 +676,7 @@ void Component::construct(Genode::Env &env)
 	 ******************/
 
 	if (!config_xml.attribute_value("unlink", true)) {
-		elapsed_ms = timer.elapsed_ms();
+		elapsed_ms = timer.xlapsed_ms();
 		log("total: ",elapsed_ms,"ms, ",env.pd().used_ram().value/1024,"KiB consumed");
 		return die(env, 0);
 
@@ -685,7 +685,7 @@ void Component::construct(Genode::Env &env)
 		Vfs::file_size count = 0;
 
 		log("unlink files...");
-		elapsed_ms = timer.elapsed_ms();
+		elapsed_ms = timer.xlapsed_ms();
 
 		for (int i = 0; i < ROOT_TREE_COUNT; ++i) {
 			snprintf(path, 3, "/%d", i);
@@ -694,7 +694,7 @@ void Component::construct(Genode::Env &env)
 
 		}
 
-		elapsed_ms = timer.elapsed_ms() - elapsed_ms;
+		elapsed_ms = timer.xlapsed_ms() - elapsed_ms;
 
 		vfs_root_sync();
 
@@ -702,7 +702,7 @@ void Component::construct(Genode::Env &env)
 		    env.pd().used_ram().value/1024,"KiB consumed");
 	}
 
-	log("total: ",timer.elapsed_ms(),"ms, ",
+	log("total: ",timer.xlapsed_ms(),"ms, ",
 	    env.pd().used_ram().value/1024,"KiB consumed");
 
 	size_t outstanding = env.pd().used_ram().value - initial_consumption;

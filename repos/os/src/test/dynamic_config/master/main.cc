@@ -69,7 +69,7 @@ struct Test::Main
 	{
 		/* update slave config at regular intervals */
 		timer.sigh(_timeout_handler);
-		timer.trigger_periodic(250*1000);
+		timer.xrigger_periodic(250*1000);
 
 		/* define initial config for slave before returning to entrypoint */
 		_configure();

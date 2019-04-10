@@ -168,7 +168,7 @@ struct Bomb
 	unsigned const rounds     = config.xml().attribute_value("rounds", 1U);
 	unsigned const generation = config.xml().attribute_value("generations", 1U);
 	unsigned const children   = config.xml().attribute_value("children", 2U);
-	unsigned const sleeptime  = config.xml().attribute_value("sleep", 2000U);
+	uint64_t const sleeptime  = config.xml().attribute_value("sleep", (uint64_t)2000);
 	size_t   const ram_demand = config.xml().attribute_value("demand", 1024UL * 1024);
 	bool     const master     = config.xml().attribute_value("master", true);
 
@@ -228,7 +228,7 @@ struct Bomb
 
 		/* master if we have a timer connection */
 		if (master)
-			timer->trigger_once(sleeptime * 1000);
+			timer->xrigger_once(sleeptime * 1000);
 	}
 
 	void destruct_children()

@@ -129,7 +129,7 @@ struct Rom_prefetcher::Main
 			}
 
 			/* yield */
-			timer.msleep(1);
+			timer.mxleep(1);
 		});
 
 		/* announce server */

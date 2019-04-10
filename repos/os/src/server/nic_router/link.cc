@@ -121,7 +121,7 @@ Link::Link(Interface                     &cln_interface,
            Timer::Connection             &timer,
            Configuration                 &config,
            L3_protocol             const  protocol,
-           Microseconds            const  dissolve_timeout,
+           Xicroseconds            const  dissolve_timeout,
            Interface_link_stats          &stats)
 :
 	_config(config),
@@ -191,7 +191,7 @@ void Link::handle_config(Domain                        &cln_domain,
                          Pointer<Port_allocator_guard>  srv_port_alloc,
                          Configuration                 &config)
 {
-	Microseconds dissolve_timeout_us(0);
+	Xicroseconds dissolve_timeout_us(0);
 	switch (_protocol) {
 	case L3_protocol::TCP:  dissolve_timeout_us = config.tcp_idle_timeout();  break;
 	case L3_protocol::UDP:  dissolve_timeout_us = config.udp_idle_timeout();  break;
@@ -283,7 +283,7 @@ void Tcp_link::_tcp_packet(Tcp_packet &tcp,
 		_packet();
 	} else {
 		_dissolve_timeout.schedule(
-			Microseconds(_config().tcp_max_segm_lifetime().value << 1));
+			Xicroseconds(_config().tcp_max_segm_lifetime().value << 1));
 	}
 }
 

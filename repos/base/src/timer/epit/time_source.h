@@ -57,7 +57,7 @@ class Timer::Time_source : private Genode::Attached_mmio,
 		struct Cnt  : Register<0x10, 32> { enum { MAX = ~(access_t)0 }; };
 
 		Genode::Irq_connection     _timer_irq;
-		Genode::Duration           _curr_time     { Genode::Microseconds(0) };
+		Genode::Duration           _curr_time     { Genode::Xicroseconds(0) };
 		Genode::Xicroseconds const _max_timeout   { Genode::timer_ticks_to_us(Cnt::MAX / 2, TICKS_PER_MS) };
 		unsigned long              _cleared_ticks { 0 };
 
@@ -71,7 +71,7 @@ class Timer::Time_source : private Genode::Attached_mmio,
 		 *************************/
 
 		Genode::Duration curr_time() override;
-		void schedule_timeout(Genode::Microseconds duration, Timeout_handler &handler) override;
+		void schedule_timeout(Genode::Xicroseconds duration, Timeout_handler &handler) override;
 		Genode::Xicroseconds max_timeout() const override { return _max_timeout; };
 };
 

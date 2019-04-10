@@ -33,7 +33,7 @@ struct Main
 		for (unsigned i = 0; ; ++i) {
 			int n = snprintf(buf, sizeof(buf), "UART test message %d\n", i);
 			uart.write(buf, n);
-			timer.msleep(2000);
+			timer.mxleep(2000);
 		}
 	}
 };

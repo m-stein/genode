@@ -40,13 +40,13 @@ class Net::Configuration
 		bool                 const  _verbose_packet_drop     { false };
 		bool                 const  _verbose_domain_state    { false };
 		bool                 const  _icmp_echo_server        { true };
-		Genode::Microseconds const  _dhcp_discover_timeout   { DEFAULT_DHCP_DISCOVER_TIMEOUT_SEC };
-		Genode::Microseconds const  _dhcp_request_timeout    { DEFAULT_DHCP_REQUEST_TIMEOUT_SEC  };
-		Genode::Microseconds const  _dhcp_offer_timeout      { DEFAULT_DHCP_OFFER_TIMEOUT_SEC    };
-		Genode::Microseconds const  _icmp_idle_timeout       { DEFAULT_ICMP_IDLE_TIMEOUT_SEC     };
-		Genode::Microseconds const  _udp_idle_timeout        { DEFAULT_UDP_IDLE_TIMEOUT_SEC      };
-		Genode::Microseconds const  _tcp_idle_timeout        { DEFAULT_TCP_IDLE_TIMEOUT_SEC      };
-		Genode::Microseconds const  _tcp_max_segm_lifetime   { DEFAULT_TCP_MAX_SEGM_LIFETIME_SEC };
+		Genode::Xicroseconds const  _dhcp_discover_timeout   { DEFAULT_DHCP_DISCOVER_TIMEOUT_SEC };
+		Genode::Xicroseconds const  _dhcp_request_timeout    { DEFAULT_DHCP_REQUEST_TIMEOUT_SEC  };
+		Genode::Xicroseconds const  _dhcp_offer_timeout      { DEFAULT_DHCP_OFFER_TIMEOUT_SEC    };
+		Genode::Xicroseconds const  _icmp_idle_timeout       { DEFAULT_ICMP_IDLE_TIMEOUT_SEC     };
+		Genode::Xicroseconds const  _udp_idle_timeout        { DEFAULT_UDP_IDLE_TIMEOUT_SEC      };
+		Genode::Xicroseconds const  _tcp_idle_timeout        { DEFAULT_TCP_IDLE_TIMEOUT_SEC      };
+		Genode::Xicroseconds const  _tcp_max_segm_lifetime   { DEFAULT_TCP_MAX_SEGM_LIFETIME_SEC };
 		Pointer<Report>             _report                  { };
 		Pointer<Genode::Reporter>   _reporter                { };
 		Domain_tree                 _domains                 { };
@@ -95,13 +95,13 @@ class Net::Configuration
 		bool                  verbose_packet_drop()    const { return _verbose_packet_drop; }
 		bool                  verbose_domain_state()   const { return _verbose_domain_state; }
 		bool                  icmp_echo_server()       const { return _icmp_echo_server; }
-		Genode::Microseconds  dhcp_discover_timeout()  const { return _dhcp_discover_timeout; }
-		Genode::Microseconds  dhcp_request_timeout()   const { return _dhcp_request_timeout; }
-		Genode::Microseconds  dhcp_offer_timeout()     const { return _dhcp_offer_timeout; }
-		Genode::Microseconds  icmp_idle_timeout()      const { return _icmp_idle_timeout; }
-		Genode::Microseconds  udp_idle_timeout()       const { return _udp_idle_timeout; }
-		Genode::Microseconds  tcp_idle_timeout()       const { return _tcp_idle_timeout; }
-		Genode::Microseconds  tcp_max_segm_lifetime()  const { return _tcp_max_segm_lifetime; }
+		Genode::Xicroseconds  dhcp_discover_timeout()  const { return _dhcp_discover_timeout; }
+		Genode::Xicroseconds  dhcp_request_timeout()   const { return _dhcp_request_timeout; }
+		Genode::Xicroseconds  dhcp_offer_timeout()     const { return _dhcp_offer_timeout; }
+		Genode::Xicroseconds  icmp_idle_timeout()      const { return _icmp_idle_timeout; }
+		Genode::Xicroseconds  udp_idle_timeout()       const { return _udp_idle_timeout; }
+		Genode::Xicroseconds  tcp_idle_timeout()       const { return _tcp_idle_timeout; }
+		Genode::Xicroseconds  tcp_max_segm_lifetime()  const { return _tcp_max_segm_lifetime; }
 		Domain_tree          &domains()                      { return _domains; }
 		Report               &report()                       { return _report(); }
 		Genode::Xml_node      node()                   const { return _node; }

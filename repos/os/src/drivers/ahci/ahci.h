@@ -679,7 +679,7 @@ struct Port : private Port_base
 								throw Not_ready();
 				},
 				[&] {
-					hba.delayer().usleep(1000);
+					hba.delayer().uxleep(1000);
 					status = read<Ssts>();
 				}, 10);
 		}
@@ -703,7 +703,7 @@ struct Port : private Port_base
 			Genode::warning("CMD.ST bit set during device reset --> unknown behavior");
 
 		write<Sctl::Det>(1);
-		hba.delayer().usleep(1000);
+		hba.delayer().uxleep(1000);
 		write<Sctl::Det>(0);
 
 		try {

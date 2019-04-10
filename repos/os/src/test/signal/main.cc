@@ -30,7 +30,7 @@ class Sender : Thread
 
 		Timer::Connection  _timer;
 		Signal_transmitter _transmitter;
-		unsigned const     _interval_ms;
+		uint64_t const     _interval_ms;
 		bool     const     _verbose;
 		bool     volatile  _stop       { false };
 		unsigned           _submit_cnt { 0 };
@@ -46,9 +46,9 @@ class Sender : Thread
 
 					_transmitter.submit();
 					if (_interval_ms) {
-						_timer.msleep(_interval_ms); }
+						_timer.mxleep(_interval_ms); }
 				} else {
-					_timer.msleep(100); }
+					_timer.mxleep(100); }
 			}
 		}
 
@@ -56,7 +56,7 @@ class Sender : Thread
 
 		Sender(Env                       &env,
 		       Signal_context_capability  context,
-		       unsigned                   interval_ms,
+		       uint64_t                   interval_ms,
 		       bool                       verbose)
 		:
 			Thread(env, "sender", 16*1024), _timer(env),
@@ -89,7 +89,7 @@ class Handler : Thread
 	private:
 
 		Timer::Connection  _timer;
-		unsigned const     _dispatch_ms;
+		uint64_t const     _dispatch_ms;
 		unsigned const     _id;
 		bool     const     _verbose;
 		Signal_receiver   &_receiver;
@@ -112,7 +112,7 @@ class Handler : Thread
 					_activation_cnt++;
 				}
 				if (_dispatch_ms)
-					_timer.msleep(_dispatch_ms);
+					_timer.mxleep(_dispatch_ms);
 			}
 		}
 
@@ -120,7 +120,7 @@ class Handler : Thread
 
 		Handler(Env             &env,
 		        Signal_receiver &receiver,
-		        unsigned         dispatch_ms,
+		        uint64_t         dispatch_ms,
 		        bool             verbose,
 		        unsigned         id)
 		:
@@ -190,12 +190,12 @@ struct Fast_sender_test : Signal_test
 
 	Fast_sender_test(Env &env, int id) : Signal_test(id, brief), env(env)
 	{
-		timer.msleep(DURATION_MS);
+		timer.mxleep(DURATION_MS);
 
 		/* stop emitting signals */
 		log("deactivate sender");
 		sender.idle(true);
-		timer.msleep(FINISH_IDLE_MS);
+		timer.mxleep(FINISH_IDLE_MS);
 		log("sender submitted a total of ", sender.submit_cnt(), " signals");
 		log("handler received a total of ", handler.receive_cnt(), " signals");
 
@@ -224,14 +224,14 @@ struct Stress_test : Signal_test
 	{
 		for (unsigned i = 1; i <= DURATION_SEC; i++) {
 			log(i, "/", (unsigned)DURATION_SEC);
-			timer.msleep(1000);
+			timer.mxleep(1000);
 		}
 		log("deactivate sender");
 		sender.idle(true);
 
 		while (handler.receive_cnt() < sender.submit_cnt()) {
 			log("waiting for signals still in flight...");
-			timer.msleep(1000);
+			timer.mxleep(1000);
 		}
 		log("");
 		log("sender submitted a total of ", sender.submit_cnt(), " signals");
@@ -295,7 +295,7 @@ struct Context_management_test : Signal_test
 	Context_management_test(Env &env, int id) : Signal_test(id, brief), env(env)
 	{
 		/* stop sender after timeout */
-		timer.msleep(1000);
+		timer.mxleep(1000);
 		log("suspend sender");
 		sender.idle(true);
 
@@ -309,7 +309,7 @@ struct Context_management_test : Signal_test
 		/* let sender spin for some time */
 		log("resume sender");
 		sender.idle(false);
-		timer.msleep(1000);
+		timer.mxleep(1000);
 		log("suspend sender");
 		sender.idle(true);
 		log("destroy sender");
@@ -347,7 +347,7 @@ struct Synchronized_destruction_test : private Signal_test, Thread
 			Signal signal = receiver.wait_for_signal();
 			log("start dissolving");
 			Thread::start();
-			timer.msleep(2000);
+			timer.mxleep(2000);
 			Signal signal_copy_1 = signal;
 			Signal signal_copy_2 = signal;
 			signal_copy_1        = signal_copy_2;
@@ -453,7 +453,7 @@ struct Nested_test : Signal_test
 
 		void entry() override
 		{
-			timer.msleep(1000);
+			timer.mxleep(1000);
 
 			log("2/8: [outside] submit application-level signal (should be deferred)");
 			Signal_transmitter(test.nop_handler).submit();
@@ -488,7 +488,7 @@ struct Nested_test : Signal_test
 		wait_cap.call<Test_interface::Rpc_test_io_dispatch>();
 
 		/* grant the ep some time for application-signal handling */
-		timer.msleep(1000);
+		timer.mxleep(1000);
 		wait_cap.call<Test_interface::Rpc_test_app_dispatch>();
 	}
 
@@ -623,7 +623,7 @@ struct Nested_stress_test : Signal_test
 
 		/* initialize polling for the receiver counts */
 		timer.sigh(poll);
-		timer.trigger_periodic(POLLING_PERIOD_US);
+		timer.xrigger_periodic(POLLING_PERIOD_US);
 	}
 
 	~Nested_stress_test()

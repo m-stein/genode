@@ -212,7 +212,7 @@ struct Test::Random : Test_base
 
 	void _finish()
 	{
-		_end_time = _timer->elapsed_ms();
+		_end_time = _timer->xlapsed_ms();
 
 		Test_base::_finish();
 	}
@@ -290,14 +290,14 @@ struct Test::Random : Test_base
 
 		_timer.construct(_env);
 
-		uint64_t const progress_interval = _node.attribute_value("progress", 0ul);
+		uint64_t const progress_interval = _node.attribute_value("progress", (uint64_t)0);
 		if (progress_interval) {
 			_progress_timeout.construct(*_timer, *this,
 			                            &Random::_handle_progress_timeout,
-			                            Genode::Microseconds(progress_interval*1000));
+			                            Genode::Xicroseconds(progress_interval*1000));
 		}
 
-		_start_time = _timer->elapsed_ms();
+		_start_time = _timer->xlapsed_ms();
 		_handle_submit();
 	}
 

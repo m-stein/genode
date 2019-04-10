@@ -106,7 +106,7 @@ class Framebuffer::Session_component
 		void sync_sigh(Genode::Signal_context_capability sigh) override
 		{
 			_timer.sigh(sigh);
-			_timer.trigger_periodic(10*1000);
+			_timer.xrigger_periodic(10*1000);
 		}
 
 		void refresh(int, int, int, int) override { }

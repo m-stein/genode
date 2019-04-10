@@ -311,9 +311,9 @@ struct App::Main
 	Reconstructible<Trace::Connection> _trace { _env, TRACE_RAM_QUOTA,
 	                                            ARG_BUFFER_RAM, PARENT_LEVELS };
 
-	static unsigned long _default_period_ms() { return 5000; }
+	static uint64_t _default_period_ms() { return 5000; }
 
-	unsigned long _period_ms = _default_period_ms();
+	uint64_t _period_ms = _default_period_ms();
 
 	SORT_TIME _sort { EC_TIME };
 
@@ -361,7 +361,7 @@ void App::Main::_handle_config()
 	    _sort == EC_TIME ? "execution context (ec) [other option is scheduling context (sc)]"
 	                     : "scheduling context (sc) [other option is execution context (ec)]");
 
-	_timer.trigger_periodic(1000*_period_ms);
+	_timer.xrigger_periodic(1000*_period_ms);
 }
 
 

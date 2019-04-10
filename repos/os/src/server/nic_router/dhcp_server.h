@@ -47,7 +47,7 @@ class Net::Dhcp_server : private Genode::Noncopyable
 
 		Ipv4_address         const    _dns_server;
 		Pointer<Domain>      const    _dns_server_from;
-		Genode::Microseconds const    _ip_lease_time;
+		Genode::Xicroseconds const    _ip_lease_time;
 		Ipv4_address         const    _ip_first;
 		Ipv4_address         const    _ip_last;
 		Genode::uint32_t     const    _ip_first_raw;
@@ -57,7 +57,7 @@ class Net::Dhcp_server : private Genode::Noncopyable
 		void _invalid(Domain     &domain,
 		              char const *reason);
 
-		Genode::Microseconds _init_ip_lease_time(Genode::Xml_node const node);
+		Genode::Xicroseconds _init_ip_lease_time(Genode::Xml_node const node);
 
 		Pointer<Domain> _init_dns_server_from(Genode::Xml_node const  node,
 		                                      Domain_tree            &domains);
@@ -97,7 +97,7 @@ class Net::Dhcp_server : private Genode::Noncopyable
 
 		Ipv4_address   const &dns_server()    const;
 		Domain               &dns_server_from()     { return _dns_server_from(); }
-		Genode::Microseconds  ip_lease_time() const { return _ip_lease_time; }
+		Genode::Xicroseconds  ip_lease_time() const { return _ip_lease_time; }
 };
 
 
@@ -122,13 +122,13 @@ class Net::Dhcp_allocation : public  Genode::Avl_node<Dhcp_allocation>,
 		                Ipv4_address   const &ip,
 		                Mac_address    const &mac,
 		                Timer::Connection    &timer,
-		                Genode::Microseconds  lifetime);
+		                Genode::Xicroseconds  lifetime);
 
 		~Dhcp_allocation();
 
 		Dhcp_allocation &find_by_mac(Mac_address const &mac);
 
-		void lifetime(Genode::Microseconds lifetime);
+		void lifetime(Genode::Xicroseconds lifetime);
 
 
 		/**************

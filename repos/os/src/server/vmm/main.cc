@@ -936,7 +936,7 @@ class Vmm
 				void schedule_timeout()
 				{
 					if ((_vm.state().timer_ctrl & 0b101) != 0b101)
-						_timer.trigger_once(_vm.state().timer_val / 24);
+						_timer.xrigger_once(_vm.state().timer_val / 24);
 				}
 		};
 
@@ -1035,7 +1035,7 @@ class Vmm
 						*reg = 0;
 						return;
 					case SYS_24MHZ: /* 24 MHz counter */
-						*reg = _timer.elapsed_ms() * 24000;
+						*reg = (uint32_t)_timer.xlapsed_ms() * 24000;
 						return;
 					case SYS_MISC:
 						*reg = 1 << 12;

@@ -83,7 +83,7 @@ Main::Main(Env &env) : env(env)
 		/*
 		 * Small delay between push button actions
 		 */
-		timer.msleep(100);
+		timer.mxleep(100);
 
 		/*
 		 * Switch the LED state

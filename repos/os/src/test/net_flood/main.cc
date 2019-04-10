@@ -51,7 +51,7 @@ class Main : public Nic_handler,
 		Attached_rom_dataspace          _config_rom  { _env, "config" };
 		Xml_node                        _config      { _config_rom.xml() };
 		Timer::Connection               _timer       { _env };
-		Microseconds                    _period_us   { 1 };
+		Xicroseconds                    _period_us   { 1 };
 		Constructible<Periodic_timeout> _period      { };
 		Heap                            _heap        { &_env.ram(), &_env.rm() };
 		bool                     const  _verbose     { _config.attribute_value("verbose", false) };
@@ -66,8 +66,8 @@ class Main : public Nic_handler,
 		Port                            _dst_port    { FIRST_DST_PORT };
 		size_t                          _ping_sz     { _init_ping_sz() };
 		unsigned long                   _ping_cnt    { 0 };
-		unsigned long                   _sec         { _config.attribute_value("sec",  10UL) };
-		unsigned long                   _time_us     { 0 };
+		uint64_t                        _sec         { _config.attribute_value("sec",  (uint64_t)10) };
+		uint64_t                        _time_us     { 0 };
 
 		size_t _init_ping_sz() const;
 
@@ -79,7 +79,7 @@ class Main : public Nic_handler,
 		void _send_arp_reply(Ethernet_frame &req_eth,
 		                     Arp_packet     &req_arp);
 
-		void _send_ping(Duration not_used = Duration(Microseconds(0)));
+		void _send_ping(Duration not_used = Duration(Xicroseconds(0)));
 
 	public:
 
@@ -370,7 +370,7 @@ void Main::_send_ping(Duration time)
 		}
 	}
 	catch (Net::Packet_stream_source::Packet_alloc_failed) { }
-	unsigned long const new_time_us = time.trunc_to_plain_us().value;
+	uint64_t const new_time_us = time.xrunc_to_plain_us().value;
 	if (new_time_us - _time_us > 1000000) {
 		if (!_ping_cnt) {
 			error("test failed (could not send packet for a second)");
