@@ -26,10 +26,10 @@ inline int lx_gettimeofday(struct timeval *tv, struct timeval *tz) {
 	return lx_syscall(SYS_gettimeofday, tv, tz); }
 
 
-Microseconds Timer::Time_source::max_timeout() const
+Xicroseconds Timer::Time_source::max_timeout() const
 {
 	Lock::Guard lock_guard(_lock);
-	return Microseconds(1000 * 1000);
+	return Xicroseconds(1000 * 1000);
 }
 
 
@@ -37,11 +37,11 @@ Duration Timer::Time_source::curr_time()
 {
 	struct timeval tv;
 	lx_gettimeofday(&tv, 0);
-	return Duration(Microseconds(tv.tv_sec * 1000 * 1000 + tv.tv_usec));
+	return Duration(Xicroseconds((uint64_t)tv.tv_sec * 1000 * 1000 + tv.tv_usec));
 }
 
 
-void Timer::Time_source::_usleep(unsigned long us)
+void Timer::Time_source::_uxleep(uint64_t us)
 {
 	struct timespec ts;
 	ts.tv_sec  =  us / (1000 * 1000);
