@@ -62,7 +62,7 @@ class Mbox : Genode::Attached_mmio
 		struct Delayer : Mmio::Delayer
 		{
 			Timer::Connection timer;
-			void uxleep(uint64_t us) override { timer.uxleep(us); }
+			void uxleep(Genode::uint64_t us) override { timer.uxleep(us); }
 
 			Delayer(Genode::Env &env) : timer(env) { }
 		} _delayer { _env };
