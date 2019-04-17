@@ -20,6 +20,7 @@ append build_components { drivers/wifi }
 append build_components { lib/vfs/jitterentropy }
 append build_components { drivers/rtc }
 append build_components { drivers/nic }
+append build_components { app/ping }
 
 append_platform_drv_build_components
 
@@ -28,7 +29,11 @@ build $build_components
 create_boot_directory
 
 set wifi_verbose       false
-set wifi_verbose_state false
+set wifi_verbose_state true
+
+proc ping_dst_ip { } {
+	return "10.0.0.2"
+}
 
 proc wifi_config { connected_scan_interval scan_interval rfkill networks } {
 	global wifi_verbose
@@ -136,7 +141,7 @@ append config {
 		<resource name="RAM" quantum="4M"/>
 		<provides><service name="ROM"/> </provides>
 		<config verbose="yes">
-			<rom name="router1.config">
+			<rom name="nic_router.config">
 				<inline>
 
 					<config verbose_domain_state="yes"
@@ -144,28 +149,31 @@ append config {
 					        verbose="no"
 					        dhcp_discover_timeout_sec="1">
 
-						<policy label_prefix="vbox" domain="downlink"/>
-						<uplink label="nic"         domain="uplink"  />
+						<policy label="ping_1 -> " domain="ping_1"/>
+						<uplink label="nic"        domain="nic_up"  />
+						<uplink label="wifi"       domain="wifi_up"  />
 
-						<domain name="uplink">
-							<nat domain="downlink"
+						<domain name="nic_up">
+							<nat domain="ping_1"
 							     tcp-ports="999"
 							     udp-ports="999"
 							     icmp-ids="999"/>
 						</domain>
 
-						<domain name="downlink" interface="10.0.1.79/24">
-							<dhcp-server ip_first="10.0.1.80"
-							             ip_last="10.0.1.100"
-							             ip_lease_time_sec="20"
-							             dns_server="1.1.1.1"/>
+						<domain name="wifi_up">
+						</domain>
+
+						<domain name="ping_1" interface="10.0.1.1/24">
+							<dhcp-server ip_first="10.0.1.2"
+							             ip_last="10.0.1.16"
+							             ip_lease_time_sec="20"/>
 							<tcp dst="0.0.0.0/0">
-								<permit-any domain="uplink"/>
+								<permit-any domain="nic_up"/>
 							</tcp>
 							<udp dst="0.0.0.0/0">
-								<permit-any domain="uplink"/>
+								<permit-any domain="nic_up"/>
 							</udp>
-							<icmp dst="0.0.0.0/0" domain="uplink" />
+							<icmp dst="0.0.0.0/0" domain="nic_up" />
 						</domain>
 
 					</config>
@@ -179,28 +187,31 @@ append config {
 					        verbose="no"
 					        dhcp_discover_timeout_sec="1">
 
-						<policy label_prefix="vbox" domain="downlink"/>
-						<uplink label="wifi"        domain="uplink"  />
+						<policy label="ping_1 -> " domain="ping_1"/>
+						<uplink label="nic"        domain="nic_up"  />
+						<uplink label="wifi"       domain="wifi_up"  />
 
-						<domain name="uplink">
-							<nat domain="downlink"
+						<domain name="nic_up">
+						</domain>
+
+						<domain name="wifi_up">
+							<nat domain="ping_1"
 							     tcp-ports="999"
 							     udp-ports="999"
 							     icmp-ids="999"/>
 						</domain>
 
-						<domain name="downlink" interface="10.0.1.79/24">
-							<dhcp-server ip_first="10.0.1.80"
-							             ip_last="10.0.1.100"
-							             ip_lease_time_sec="20"
-							             dns_server="1.1.1.1"/>
+						<domain name="ping_1" interface="10.0.1.1/24">
+							<dhcp-server ip_first="10.0.1.2"
+							             ip_last="10.0.1.16"
+							             ip_lease_time_sec="20"/>
 							<tcp dst="0.0.0.0/0">
-								<permit-any domain="uplink"/>
+								<permit-any domain="wifi_up"/>
 							</tcp>
 							<udp dst="0.0.0.0/0">
-								<permit-any domain="uplink"/>
+								<permit-any domain="wifi_up"/>
 							</udp>
-							<icmp dst="0.0.0.0/0" domain="uplink" />
+							<icmp dst="0.0.0.0/0" domain="wifi_up" />
 						</domain>
 
 					</config>
@@ -211,7 +222,20 @@ append config {
 		</config>
 	</start>
 
-	<start name="router1" caps="200" priority="-2">
+	<start name="ping_1">
+		<binary name="ping"/>
+		<resource name="RAM" quantum="8M"/>
+		<config dst_ip="} [ping_dst_ip] {"
+		        count="999"
+		        period_sec="1"
+		        verbose="no"/>
+		<route>
+			<service name="Nic"> <child name="nic_router"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="nic_router" caps="200" priority="-2">
 		<binary name="nic_router"/>
 		<resource name="RAM" quantum="10M"/>
 		<provides><service name="Nic"/></provides>
@@ -223,7 +247,7 @@ append config {
 				<child name="nic_drv"/>
 			</service>
 			<service name="ROM" label="config">
-				<child name="dynamic_rom" label="router1.config"/>
+				<child name="dynamic_rom" label="nic_router.config"/>
 			</service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
@@ -261,6 +285,7 @@ append boot_modules { core }
 append boot_modules { nic_router }
 append boot_modules { ld.lib.so }
 append boot_modules { init }
+append boot_modules { ping }
 append boot_modules { timer }
 append boot_modules { ld.lib.so }
 append boot_modules { libc.lib.so }
