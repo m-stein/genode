@@ -142,76 +142,94 @@ append config {
 		<provides><service name="ROM"/> </provides>
 		<config verbose="yes">
 			<rom name="nic_router.config">
-				<inline>
+				<inline description="dynamic to nic">
 
 					<config verbose_domain_state="yes"
 					        verbose_packets="no"
 					        verbose="no"
 					        dhcp_discover_timeout_sec="1">
 
-						<policy label="ping_1 -> " domain="ping_1"/>
-						<uplink label="nic"        domain="nic_up"  />
-						<uplink label="wifi"       domain="wifi_up"  />
+						<policy label="ping_dyn -> "  domain="dynamic"/>
+						<policy label="ping_nic -> "  domain="fixed_nic"/>
+						<policy label="ping_wifi -> " domain="fixed_wifi"/>
+						<uplink label="nic"           domain="nic"  />
+						<uplink label="wifi"          domain="wifi"  />
 
-						<domain name="nic_up">
-							<nat domain="ping_1"
-							     tcp-ports="999"
-							     udp-ports="999"
-							     icmp-ids="999"/>
+						<domain name="nic">
+							<nat domain="dynamic"   tcp-ports="999" udp-ports="999" icmp-ids="999"/>
+							<nat domain="fixed_nic" tcp-ports="999" udp-ports="999" icmp-ids="999"/>
 						</domain>
 
-						<domain name="wifi_up">
+						<domain name="wifi">
+							<nat domain="fixed_wifi" tcp-ports="999" udp-ports="999" icmp-ids="999"/>
 						</domain>
 
-						<domain name="ping_1" interface="10.0.1.1/24">
-							<dhcp-server ip_first="10.0.1.2"
-							             ip_last="10.0.1.16"
-							             ip_lease_time_sec="20"/>
-							<tcp dst="0.0.0.0/0">
-								<permit-any domain="nic_up"/>
-							</tcp>
-							<udp dst="0.0.0.0/0">
-								<permit-any domain="nic_up"/>
-							</udp>
-							<icmp dst="0.0.0.0/0" domain="nic_up" />
+						<domain name="dynamic" interface="10.0.1.1/24">
+							<dhcp-server ip_first="10.0.1.2" ip_last="10.0.1.16"/>
+							<tcp  dst="0.0.0.0/0"><permit-any domain="nic"/></tcp>
+							<udp  dst="0.0.0.0/0"><permit-any domain="nic"/></udp>
+							<icmp dst="0.0.0.0/0"             domain="nic" />
+						</domain>
+
+						<domain name="fixed_wifi" interface="10.0.2.1/24">
+							<dhcp-server ip_first="10.0.2.2" ip_last="10.0.2.16"/>
+							<tcp  dst="0.0.0.0/0"><permit-any domain="wifi"/></tcp>
+							<udp  dst="0.0.0.0/0"><permit-any domain="wifi"/></udp>
+							<icmp dst="0.0.0.0/0"             domain="wifi" />
+						</domain>
+
+						<domain name="fixed_nic" interface="10.0.3.1/24">
+							<dhcp-server ip_first="10.0.3.2" ip_last="10.0.3.16"/>
+							<tcp  dst="0.0.0.0/0"><permit-any domain="nic"/></tcp>
+							<udp  dst="0.0.0.0/0"><permit-any domain="nic"/></udp>
+							<icmp dst="0.0.0.0/0"             domain="nic" />
 						</domain>
 
 					</config>
 
 				</inline>
 				<sleep milliseconds="15000"/>
-				<inline>
+				<inline description="dynamic to wifi">
 
 					<config verbose_domain_state="yes"
 					        verbose_packets="no"
 					        verbose="no"
 					        dhcp_discover_timeout_sec="1">
 
-						<policy label="ping_1 -> " domain="ping_1"/>
-						<uplink label="nic"        domain="nic_up"  />
-						<uplink label="wifi"       domain="wifi_up"  />
+						<policy label="ping_dyn -> "  domain="dynamic"/>
+						<policy label="ping_nic -> "  domain="fixed_nic"/>
+						<policy label="ping_wifi -> " domain="fixed_wifi"/>
+						<uplink label="nic"           domain="nic"  />
+						<uplink label="wifi"          domain="wifi"  />
 
-						<domain name="nic_up">
+						<domain name="nic">
+							<nat domain="fixed_nic" tcp-ports="999" udp-ports="999" icmp-ids="999"/>
 						</domain>
 
-						<domain name="wifi_up">
-							<nat domain="ping_1"
-							     tcp-ports="999"
-							     udp-ports="999"
-							     icmp-ids="999"/>
+						<domain name="wifi">
+							<nat domain="dynamic"    tcp-ports="999" udp-ports="999" icmp-ids="999"/>
+							<nat domain="fixed_wifi" tcp-ports="999" udp-ports="999" icmp-ids="999"/>
 						</domain>
 
-						<domain name="ping_1" interface="10.0.1.1/24">
-							<dhcp-server ip_first="10.0.1.2"
-							             ip_last="10.0.1.16"
-							             ip_lease_time_sec="20"/>
-							<tcp dst="0.0.0.0/0">
-								<permit-any domain="wifi_up"/>
-							</tcp>
-							<udp dst="0.0.0.0/0">
-								<permit-any domain="wifi_up"/>
-							</udp>
-							<icmp dst="0.0.0.0/0" domain="wifi_up" />
+						<domain name="dynamic" interface="10.0.1.1/24">
+							<dhcp-server ip_first="10.0.1.2" ip_last="10.0.1.16"/>
+							<tcp  dst="0.0.0.0/0"><permit-any domain="wifi"/></tcp>
+							<udp  dst="0.0.0.0/0"><permit-any domain="wifi"/></udp>
+							<icmp dst="0.0.0.0/0"             domain="wifi" />
+						</domain>
+
+						<domain name="fixed_wifi" interface="10.0.2.1/24">
+							<dhcp-server ip_first="10.0.2.2" ip_last="10.0.2.16"/>
+							<tcp  dst="0.0.0.0/0"><permit-any domain="wifi"/></tcp>
+							<udp  dst="0.0.0.0/0"><permit-any domain="wifi"/></udp>
+							<icmp dst="0.0.0.0/0"             domain="wifi" />
+						</domain>
+
+						<domain name="fixed_nic" interface="10.0.3.1/24">
+							<dhcp-server ip_first="10.0.3.2" ip_last="10.0.3.16"/>
+							<tcp  dst="0.0.0.0/0"><permit-any domain="nic"/></tcp>
+							<udp  dst="0.0.0.0/0"><permit-any domain="nic"/></udp>
+							<icmp dst="0.0.0.0/0"             domain="nic" />
 						</domain>
 
 					</config>
@@ -222,12 +240,38 @@ append config {
 		</config>
 	</start>
 
-	<start name="ping_1">
+	<start name="ping_dyn">
 		<binary name="ping"/>
 		<resource name="RAM" quantum="8M"/>
 		<config dst_ip="} [ping_dst_ip] {"
 		        count="999"
-		        period_sec="1"
+		        period_sec="3"
+		        verbose="no"/>
+		<route>
+			<service name="Nic"> <child name="nic_router"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="ping_wifi">
+		<binary name="ping"/>
+		<resource name="RAM" quantum="8M"/>
+		<config dst_ip="} [ping_dst_ip] {"
+		        count="999"
+		        period_sec="3"
+		        verbose="no"/>
+		<route>
+			<service name="Nic"> <child name="nic_router"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="ping_nic">
+		<binary name="ping"/>
+		<resource name="RAM" quantum="8M"/>
+		<config dst_ip="} [ping_dst_ip] {"
+		        count="999"
+		        period_sec="3"
 		        verbose="no"/>
 		<route>
 			<service name="Nic"> <child name="nic_router"/> </service>
