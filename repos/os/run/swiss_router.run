@@ -1,0 +1,275 @@
+if {[expr ![have_spec nova] || ![have_spec x86] || [have_include power_on/qemu] ]} {
+	puts "\n Run script is not supported on this platform. \n"; exit 0 }
+
+proc wifi_ssid {} {
+	return "$::env(GENODE_WIFI_SSID)" }
+
+proc wifi_psk {} {
+	return "$::env(GENODE_WIFI_PSK)" }
+
+source ${genode_dir}/repos/base/run/platform_drv.inc
+proc platform_drv_priority {} { return { priority="-1"} }
+
+append build_components { core }
+append build_components { init }
+append build_components { timer }
+append build_components { server/nic_router }
+append build_components { server/dynamic_rom }
+append build_components { server/report_rom }
+append build_components { drivers/wifi }
+append build_components { lib/vfs/jitterentropy }
+append build_components { drivers/rtc }
+append build_components { drivers/nic }
+
+append_platform_drv_build_components
+
+build $build_components
+
+create_boot_directory
+
+set wifi_verbose       false
+set wifi_verbose_state false
+
+proc wifi_config { connected_scan_interval scan_interval rfkill networks } {
+	global wifi_verbose
+	global wifi_verbose_state
+
+	set    config "<wifi_config"
+	append config " verbose=\"$wifi_verbose\""
+	append config " verbose_state=\"$wifi_verbose_state\""
+	append config " connected_scan_interval=\"$connected_scan_interval\""
+	append config " scan_interval=\"$scan_interval\""
+	append config " rfkill=\"$rfkill\""
+	append config ">\n"
+	foreach n $networks {
+		append config "  <network"
+		append config " ssid=\"[lindex $n 0]\""
+		append config " protection=\"[lindex $n 1]\""
+		append config " passphrase=\"[lindex $n 2]\""
+		append config " explicit_scan=\"[lindex $n 3]\""
+		append config "/>\n"
+	}
+	append config "</wifi_config>\n"
+
+	return $config
+}
+
+append config {
+
+<config prio_levels="4">
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="IRQ"/>
+		<service name="IO_MEM"/>
+		<service name="IO_PORT"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="LOG"/>
+	</parent-provides>
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+	<default caps="100"/>}
+
+append_platform_drv_config
+append config {
+
+	<start name="timer" priority="0">
+		<resource name="RAM" quantum="1M"/>
+		<provides><service name="Timer"/></provides>
+	</start>
+
+	<start name="rtc_drv" priority="-1">
+		<resource name="RAM" quantum="1M"/>
+		<provides>
+			<service name="Rtc"/>
+		</provides>
+	</start>
+
+	<start name="nic_drv" priority="-1">
+		<resource name="RAM" quantum="4M"/>
+		<provides><service name="Nic"/></provides>
+	</start>
+
+	<start name="wifi_drv" priority="-1" caps="300">
+		<resource name="RAM" quantum="54M"/>
+		<provides> <service name="Nic"/> </provides>
+		<config ld_verbose="yes" verbose="yes" use_11n="no" connected_scan_interval="0">
+			<libc stdout="/dev/null" stderr="/dev/null" rtc="/dev/rtc"/>
+			<vfs>
+				<dir name="dev"> <log/> <null/> <rtc/>
+					<jitterentropy name="random"/>
+					<jitterentropy name="urandom"/>
+				</dir>
+			</vfs>
+		</config>
+		<route>
+			<service name="Rtc"> <any-child/> </service>
+			<service name="Report"> <child name="report_rom"/> </service>
+			<service name="ROM" label="wifi_config"> <child name="config_rom"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="report_rom" priority="-2">
+		<resource name="RAM" quantum="2M"/>
+		<provides> <service name="Report"/> <service name="ROM"/> </provides>
+		<config/>
+	</start>
+
+	<start name="config_rom" priority="-2">
+		<binary name="dynamic_rom"/>
+		<resource name="RAM" quantum="4M"/>
+		<provides><service name="ROM"/></provides>
+		<config verbose="yes">
+			<rom name="wifi_config">
+				<inline description="connect">
+} [wifi_config 30 5 no [list "[wifi_ssid] WPA2 [wifi_psk] yes"]] {
+				</inline>
+				<sleep milliseconds="600000"/> <!-- 10 minutes -->
+			</rom>
+		</config>
+	</start>
+
+	<start name="dynamic_rom" priority="-2">
+		<resource name="RAM" quantum="4M"/>
+		<provides><service name="ROM"/> </provides>
+		<config verbose="yes">
+			<rom name="router1.config">
+				<inline>
+
+					<config verbose_domain_state="yes"
+					        verbose_packets="no"
+					        verbose="no"
+					        dhcp_discover_timeout_sec="1">
+
+						<policy label_prefix="vbox" domain="downlink"/>
+						<uplink label="nic"         domain="uplink"  />
+
+						<domain name="uplink">
+							<nat domain="downlink"
+							     tcp-ports="999"
+							     udp-ports="999"
+							     icmp-ids="999"/>
+						</domain>
+
+						<domain name="downlink" interface="10.0.1.79/24">
+							<dhcp-server ip_first="10.0.1.80"
+							             ip_last="10.0.1.100"
+							             ip_lease_time_sec="20"
+							             dns_server="1.1.1.1"/>
+							<tcp dst="0.0.0.0/0">
+								<permit-any domain="uplink"/>
+							</tcp>
+							<udp dst="0.0.0.0/0">
+								<permit-any domain="uplink"/>
+							</udp>
+							<icmp dst="0.0.0.0/0" domain="uplink" />
+						</domain>
+
+					</config>
+
+				</inline>
+				<sleep milliseconds="15000"/>
+				<inline>
+
+					<config verbose_domain_state="yes"
+					        verbose_packets="no"
+					        verbose="no"
+					        dhcp_discover_timeout_sec="1">
+
+						<policy label_prefix="vbox" domain="downlink"/>
+						<uplink label="wifi"        domain="uplink"  />
+
+						<domain name="uplink">
+							<nat domain="downlink"
+							     tcp-ports="999"
+							     udp-ports="999"
+							     icmp-ids="999"/>
+						</domain>
+
+						<domain name="downlink" interface="10.0.1.79/24">
+							<dhcp-server ip_first="10.0.1.80"
+							             ip_last="10.0.1.100"
+							             ip_lease_time_sec="20"
+							             dns_server="1.1.1.1"/>
+							<tcp dst="0.0.0.0/0">
+								<permit-any domain="uplink"/>
+							</tcp>
+							<udp dst="0.0.0.0/0">
+								<permit-any domain="uplink"/>
+							</udp>
+							<icmp dst="0.0.0.0/0" domain="uplink" />
+						</domain>
+
+					</config>
+
+				</inline>
+				<sleep milliseconds="15000"/>
+			</rom>
+		</config>
+	</start>
+
+	<start name="router1" caps="200" priority="-2">
+		<binary name="nic_router"/>
+		<resource name="RAM" quantum="10M"/>
+		<provides><service name="Nic"/></provides>
+		<route>
+			<service name="Nic" label="wifi">
+				<child name="wifi_drv"/>
+			</service>
+			<service name="Nic" label="nic">
+				<child name="nic_drv"/>
+			</service>
+			<service name="ROM" label="config">
+				<child name="dynamic_rom" label="router1.config"/>
+			</service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+</config>
+}
+
+install_config $config
+
+append boot_modules { iwlwifi-6000g2b-6.ucode }
+append boot_modules { iwlwifi-6000-4.ucode }
+append boot_modules { iwlwifi-3160-17.ucode }
+append boot_modules { iwlwifi-7265-17.ucode }
+append boot_modules { iwlwifi-7260-17.ucode }
+append boot_modules { iwlwifi-6000g2a-6.ucode }
+append boot_modules { iwlwifi-3168-22.ucode }
+append boot_modules { iwlwifi-7265D-22.ucode }
+append boot_modules { iwlwifi-3168-29.ucode }
+append boot_modules { iwlwifi-8265-22.ucode }
+append boot_modules { iwlwifi-8000C-22.ucode }
+append boot_modules { iwlwifi-7265D-29.ucode }
+append boot_modules { iwlwifi-8265-36.ucode }
+append boot_modules { iwlwifi-8000C-36.ucode }
+append boot_modules { iwlwifi-1000-5.ucode }
+append boot_modules { report_rom }
+append boot_modules { vfs_jitterentropy.lib.so }
+append boot_modules { libcrypto.lib.so }
+append boot_modules { libssl.lib.so }
+append boot_modules { wpa_driver_nl80211.lib.so }
+append boot_modules { wpa_supplicant.lib.so }
+append boot_modules { wifi.lib.so }
+append boot_modules { wifi_drv }
+append boot_modules { core }
+append boot_modules { nic_router }
+append boot_modules { ld.lib.so }
+append boot_modules { init }
+append boot_modules { timer }
+append boot_modules { ld.lib.so }
+append boot_modules { libc.lib.so }
+append boot_modules { dynamic_rom }
+append boot_modules { rtc_drv }
+append boot_modules { vfs.lib.so }
+append boot_modules { nic_drv }
+append_platform_drv_boot_modules
+
+build_boot_image $boot_modules
+
+run_genode_until forever
