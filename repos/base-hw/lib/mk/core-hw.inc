@@ -1,3 +1,96 @@
+
+LIBPORTS_DIR = /home/lypo/genodelabs/genode/git/repos
+
+#################### import spark ########################
+
+ADA_RTS = $(BUILD_BASE_DIR)/var/libcache/spark
+
+ADA_RTS_SOURCE = $(call select_from_ports,ada-runtime)/ada-runtime/contrib/gcc-6.3.0
+ADA_RUNTIME_DIR = $(call select_from_ports,ada-runtime)/ada-runtime/src/minimal
+ADA_RUNTIME_LIB_DIR = $(call select_from_ports,ada-runtime)/ada-runtime/src/lib
+ADA_RUNTIME_COMMON_DIR = $(call select_from_ports,ada-runtime)/ada-runtime/src/common
+ADA_RUNTIME_PLATFORM_DIR = $(call select_from_ports,ada-runtime)/ada-runtime/platform
+
+INC_DIR += $(ADA_RUNTIME_DIR)
+INC_DIR += $(ADA_RUNTIME_LIB_DIR)
+INC_DIR += $(ADA_RUNTIME_COMMON_DIR)
+INC_DIR += $(ADA_RTS_SOURCE)
+
+# Disable inline concatenation as this requires additinal runtime support
+CC_ADA_OPT += -gnatd.c
+
+###################### spark.inc #####################################
+
+all: ada_source_path
+
+ada_source_path: ada_object_path
+	$(VERBOSE)echo $(ADA_RTS_SOURCE)   > $(ADA_RTS)/ada_source_path
+	$(VERBOSE)echo $(ADA_RUNTIME_DIR) >> $(ADA_RTS)/ada_source_path
+
+ada_object_path:
+	$(VERBOSE)mkdir -p $(ADA_RTS)
+	$(VERBOSE)echo $(ADA_RTS) > $(ADA_RTS)/ada_object_path
+
+###################### spark.mk #####################################
+
+ADALIB     = $(ADA_RTS)/adalib
+ADAINCLUDE = $(ADA_RTS)/adainclude
+
+SRC_ADS += system.ads \
+	   s-soflin.ads \
+	   s-imgint.ads \
+	   s-stoele.ads \
+	   s-unstyp.ads \
+	   interfac.ads \
+	   i-cexten.ads \
+	   a-except.ads \
+	   gnat.ads \
+	   ada.ads \
+	   ada_exceptions.ads
+
+SRC_ADB += g-io.adb s-stalib.adb s-secsta.adb s-parame.adb i-c.adb s-arit64.adb
+CUSTOM_ADA_FLAGS = --RTS=$(ADA_RTS) -c -gnatg -gnatp -gnatpg -gnatn2
+
+# C runtime glue code
+SRC_CC += genode.cc
+SRC_C += init.c
+
+# Ada packages that implement runtime functionality
+SRC_ADB += ss_utils.adb string_utils.adb platform.adb s-init.adb
+
+vpath genode.cc  $(ADA_RUNTIME_PLATFORM_DIR)
+
+vpath s-soflin.ads $(ADA_RUNTIME_DIR)
+vpath a-except.ads $(ADA_RUNTIME_DIR)
+
+vpath s-secsta.adb $(ADA_RUNTIME_DIR)
+vpath s-soflin.adb $(ADA_RUNTIME_DIR)
+vpath s-stalib.adb $(ADA_RUNTIME_DIR)
+vpath s-parame.adb $(ADA_RUNTIME_DIR)
+vpath a-except.adb $(ADA_RUNTIME_DIR)
+vpath i-c.adb $(ADA_RUNTIME_DIR)
+
+vpath %.ads $(ADA_RTS_SOURCE)
+vpath %.adb $(ADA_RTS_SOURCE)
+
+vpath platform.% $(ADA_RUNTIME_LIB_DIR)
+vpath string_utils.% $(ADA_RUNTIME_LIB_DIR)
+vpath ss_utils.% $(ADA_RUNTIME_LIB_DIR)
+vpath ada_exceptions.ads $(ADA_RUNTIME_LIB_DIR)
+vpath init.c $(ADA_RUNTIME_LIB_DIR)
+vpath s-init.adb $(ADA_RUNTIME_COMMON_DIR)
+
+###################### machinery #####################
+
+SRC_ADB += machinery.adb
+
+INC_DIR += /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/spark
+
+vpath machinery.adb /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/spark
+vpath machinery.ads /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/spark
+
+######################### core ########################
+
 #
 # \brief  Build config for Genodes core process
 # \author Martin Stein
@@ -32,7 +125,7 @@ SRC_CC += main.cc
 SRC_CC += native_pd_component.cc
 SRC_CC += native_utcb.cc
 SRC_CC += pd_session_support.cc
-SRC_CC += platform.cc
+SRC_CC += platform_genode.cc
 SRC_CC += platform_rom_modules.cc
 SRC_CC += platform_pd.cc
 SRC_CC += platform_thread.cc
