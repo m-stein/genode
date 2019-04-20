@@ -272,6 +272,31 @@ struct Resolution : Register<64>
 	struct Width  : Bitfield<40, 24> { };
 };
 
+/*
+ * \brief  Example of implementing an object in Ada/SPARK
+ * \author Norman Feske
+ * \date   2018-12-18
+ */
+
+/* Genode includes */
+#include <base/log.h>
+
+namespace Spark {
+
+	struct Machinery
+	{
+		char _space[32] { };
+
+		Machinery();
+
+		void heat_up();
+
+		Genode::uint32_t temperature() const;
+	};
+}
+
+
+
 /**************
  ** Platform **
  **************/
@@ -934,6 +959,14 @@ Platform::Platform()
 		Core_trace_source(Trace::sources(),
 		                  Affinity::Location(0, 0, _cpus.width(), 1),
 		                  hip.sel_exc + 1, "root");
+
+
+	Spark::Machinery machinery { };
+	Genode::uint32_t value = machinery.temperature();
+	log("machinery temperature ", value);
+	machinery.heat_up();
+	value = machinery.temperature();
+	log("machinery temperature ", value);
 }
 
 
