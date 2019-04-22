@@ -87,7 +87,6 @@ SRC_ADB += ipc_node.adb
 INC_DIR += /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/spark
 
 vpath ipc_node.adb /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/spark
-vpath ipc_node.ads /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/spark
 
 ######################### core ########################
 
