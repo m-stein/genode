@@ -80,14 +80,14 @@ vpath ada_exceptions.ads $(ADA_RUNTIME_LIB_DIR)
 vpath init.c $(ADA_RUNTIME_LIB_DIR)
 vpath s-init.adb $(ADA_RUNTIME_COMMON_DIR)
 
-###################### machinery #####################
+###################### kernel SPARK sources #####################
 
-SRC_ADB += machinery.adb
+SRC_ADB += ipc_node.adb
 
 INC_DIR += /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/spark
 
-vpath machinery.adb /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/spark
-vpath machinery.ads /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/spark
+vpath ipc_node.adb /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/spark
+vpath ipc_node.ads /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/spark
 
 ######################### core ########################
 
