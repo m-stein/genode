@@ -17,7 +17,7 @@ package body CPP_IPC_Node is
 
    procedure Initialize_Object (
       Obj  : IPC_Node.Object_Reference_Type;
-      Thrd : IPC_Node.Thread_Reference_Type)
+      Thrd : CPP_Thread.Object_Reference_Type)
    is
    begin
       IPC_Node.Initialize_Object (Obj, Thrd);
@@ -28,7 +28,7 @@ package body CPP_IPC_Node is
    is (CPP.Bool_From_Ada (IPC_Node.Can_Send_Request (Obj)));
 
    function Thread (Obj : IPC_Node.Object_Reference_Type)
-   return IPC_Node.Thread_Reference_Type
+   return CPP_Thread.Object_Reference_Type
    is (IPC_Node.Thread (Obj));
 
 end CPP_IPC_Node;
