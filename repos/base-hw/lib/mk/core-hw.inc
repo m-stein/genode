@@ -86,11 +86,13 @@ SRC_ADB += ipc_node.adb
 SRC_ADB += cpp.adb
 SRC_ADB += cpp_ipc_node.adb
 
-INC_DIR += /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/ada
+KERNEL_ADA_DIR = $(BASE_DIR)/../base-hw/src/core/ada
 
-vpath ipc_node.adb     /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/ada
-vpath cpp.adb          /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/ada
-vpath cpp_ipc_node.adb /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/ada
+INC_DIR += $(KERNEL_ADA_DIR)
+
+vpath ipc_node.adb     $(KERNEL_ADA_DIR)
+vpath cpp.adb          $(KERNEL_ADA_DIR)
+vpath cpp_ipc_node.adb $(KERNEL_ADA_DIR)
 
 ######################### core ########################
 
