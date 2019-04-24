@@ -58,6 +58,8 @@ struct Spark_ipc_node : Spark::Object<64>
 {
 	Spark_ipc_node(Kernel::Thread &thread);
 
+	bool can_send_request() const;
+
 	Kernel::Thread &thread();
 };
 

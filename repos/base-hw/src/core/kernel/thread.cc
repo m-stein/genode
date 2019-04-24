@@ -489,7 +489,7 @@ void Thread::_call_send_request_msg()
 	bool const help = Cpu_job::_helping_possible(*dst);
 	oir = oir->find(dst->pd());
 
-	if (!_ipc_node.can_send_request()) {
+	if (!_spark_ipc_node.can_send_request() || !_ipc_node.can_send_request()) {
 		Genode::raw("IPC send request: bad state");
 	} else {
 		unsigned const rcv_caps = user_arg_2();
