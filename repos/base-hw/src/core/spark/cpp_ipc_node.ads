@@ -14,13 +14,14 @@
 pragma Ada_2012;
 
 with CPP;
+with CPP_Thread;
 with IPC_Node;
 
 package CPP_IPC_Node is
 
    procedure Initialize_Object (
       Obj  : IPC_Node.Object_Reference_Type;
-      Thrd : IPC_Node.Thread_Reference_Type)
+      Thrd : CPP_Thread.Object_Reference_Type)
    with
       Export,
       Convention    => C,
@@ -31,10 +32,10 @@ package CPP_IPC_Node is
    with
       Export,
       Convention    => C,
-      External_Name => "X1";
+      External_Name => "_ZNK14Spark_ipc_node16can_send_requestEv";
 
    function Thread (Obj : IPC_Node.Object_Reference_Type)
-   return IPC_Node.Thread_Reference_Type
+   return CPP_Thread.Object_Reference_Type
    with
       Export,
       Convention    => C,
