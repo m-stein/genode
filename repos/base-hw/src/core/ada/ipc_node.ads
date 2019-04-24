@@ -17,43 +17,8 @@ with CPP_Thread;
 
 package IPC_Node is
 
-   type State_Type            is (Inactive, Wait_For_Reply, Wait_For_Request);
    type Object_Type           is private;
-   type Object_Pointer_Type   is          access all Object_Type;
    type Object_Reference_Type is not null access Object_Type;
-
-   package Queue is
-
-      type Qbject_Type           is private;
-      type Ibject_Type           is private;
-      type Ibject_Pointer_Type   is          access all Ibject_Type;
-      type Ibject_Reference_Type is not null access all Ibject_Type;
-
-      function Initialized_Object return Qbject_Type;
-
-      function Initialized_Item_Object (Payload : Object_Reference_Type)
-      return Ibject_Type;
-
-      procedure Enqueue (
-         Obj : in out Qbject_Type;
-         Itm :        Ibject_Reference_Type);
-
-   private
-
-      type Qbject_Type is record
-         Head : Ibject_Pointer_Type;
-         Tail : Ibject_Pointer_Type;
-      end record;
-
-      type Ibject_Type is record
-         Next    : Ibject_Pointer_Type;
-         Payload : Object_Reference_Type;
-      end record;
-
-      function Empty (Obj : Qbject_Type)
-      return Boolean;
-
-   end Queue;
 
    procedure Initialize_Object (
       Obj  : Object_Reference_Type;
@@ -71,6 +36,43 @@ package IPC_Node is
    return CPP_Thread.Object_Reference_Type;
 
 private
+
+   package Queue is
+
+      type Qbject_Type           is private;
+      type Ibject_Type           is private;
+      type Ibject_Reference_Type is not null access all Ibject_Type;
+
+      function Initialized_Object return Qbject_Type;
+
+      function Initialized_Item_Object (Payload : Object_Reference_Type)
+      return Ibject_Type;
+
+      procedure Enqueue (
+         Obj : in out Qbject_Type;
+         Itm :        Ibject_Reference_Type);
+
+   private
+
+      type Ibject_Pointer_Type is access all Ibject_Type;
+
+      type Qbject_Type is record
+         Head : Ibject_Pointer_Type;
+         Tail : Ibject_Pointer_Type;
+      end record;
+
+      type Ibject_Type is record
+         Next    : Ibject_Pointer_Type;
+         Payload : Object_Reference_Type;
+      end record;
+
+      function Empty (Obj : Qbject_Type)
+      return Boolean;
+
+   end Queue;
+
+   type Object_Pointer_Type is access all Object_Type;
+   type State_Type          is (Inactive, Wait_For_Reply, Wait_For_Request);
 
    type Object_Type is record
       Thread             : CPP_Thread.Object_Reference_Type;
