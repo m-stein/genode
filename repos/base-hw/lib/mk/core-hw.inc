@@ -83,10 +83,12 @@ vpath s-init.adb $(ADA_RUNTIME_COMMON_DIR)
 ###################### kernel SPARK sources #####################
 
 SRC_ADB += ipc_node.adb
+SRC_ADB += cpp_ipc_node.adb
 
 INC_DIR += /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/spark
 
 vpath ipc_node.adb /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/spark
+vpath cpp_ipc_node.adb /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/spark
 
 ######################### core ########################
 

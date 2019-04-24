@@ -47,6 +47,9 @@ package IPC_Node is
       Obj  : Object_Reference_Type;
       Thrd : Thread_Reference_Type);
 
+   function Thread (Obj : Object_Reference_Type)
+   return Thread_Reference_Type;
+
 private
 
    type Object_Type is record
