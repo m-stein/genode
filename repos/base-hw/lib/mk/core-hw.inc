@@ -80,17 +80,17 @@ vpath ada_exceptions.ads $(ADA_RUNTIME_LIB_DIR)
 vpath init.c $(ADA_RUNTIME_LIB_DIR)
 vpath s-init.adb $(ADA_RUNTIME_COMMON_DIR)
 
-###################### kernel SPARK sources #####################
+###################### kernel Ada sources #####################
 
 SRC_ADB += ipc_node.adb
 SRC_ADB += cpp.adb
 SRC_ADB += cpp_ipc_node.adb
 
-INC_DIR += /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/spark
+INC_DIR += /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/ada
 
-vpath ipc_node.adb     /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/spark
-vpath cpp.adb          /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/spark
-vpath cpp_ipc_node.adb /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/spark
+vpath ipc_node.adb     /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/ada
+vpath cpp.adb          /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/ada
+vpath cpp_ipc_node.adb /home/lypo/genodelabs/genode/git/repos/base-hw/src/core/ada
 
 ######################### core ########################
 
