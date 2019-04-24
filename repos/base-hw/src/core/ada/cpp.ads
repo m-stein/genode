@@ -13,12 +13,12 @@
 
 pragma Ada_2012;
 
-package CPP
-with Spark_Mode
-is
+package CPP is
+
    pragma Pure;
 
-   type Bool_Type is range 0 .. 1 with Size => 8;
+   type Bool_Type is range 0 .. 1   with Size => 8;
+   type Byte_Type is range 0 .. 255 with Size => 8;
 
    function Bool_From_Ada (Value : Boolean)
    return Bool_Type;
