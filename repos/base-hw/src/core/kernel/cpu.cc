@@ -128,19 +128,19 @@ bool Cpu::interrupt(unsigned const irq_id)
 	return true;
 }
 
-namespace Spark {
-
-	struct Machinery
-	{
-		char _space[32] { };
-
-		Machinery();
-
-		void heat_up();
-
-		Genode::uint32_t temperature() const;
-	};
-}
+//namespace Spark {
+//
+//	struct Machinery
+//	{
+//		char _space[32] { };
+//
+//		Machinery();
+//
+//		void heat_up();
+//
+//		Genode::uint32_t temperature() const;
+//	};
+//}
 
 
 Cpu_job & Cpu::schedule()
@@ -151,12 +151,12 @@ Cpu_job & Cpu::schedule()
 
 	if (_scheduler.need_to_schedule()) {
 
-	Spark::Machinery machinery { };
-	Genode::uint32_t value = machinery.temperature();
-	Genode::raw("machinery temperature ", value);
-	machinery.heat_up();
-	value = machinery.temperature();
-	Genode::raw("machinery temperature ", value);
+//	Spark::Machinery machinery { };
+//	Genode::uint32_t value = machinery.temperature();
+//	Genode::raw("machinery temperature ", value);
+//	machinery.heat_up();
+//	value = machinery.temperature();
+//	Genode::raw("machinery temperature ", value);
 
 		_timer.process_timeouts();
 		_scheduler.update(_timer.time());

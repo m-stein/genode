@@ -32,13 +32,34 @@
 /* base-local includes */
 #include <base/internal/native_utcb.h>
 
-
 namespace Kernel
 {
 	struct Thread_fault;
 	class Thread;
 	class Core_thread;
 }
+
+
+namespace Spark {
+
+	/**
+	 * Opaque object that contains the space needed to store a SPARK record.
+	 *
+	 * \param BYTES  size of the SPARK record in bytes
+	 */
+	template <Genode::uint32_t BYTES>
+	struct Object
+	{
+		char _space[BYTES] { };
+	} __attribute__ ((packed));
+}
+
+struct Spark_ipc_node : Spark::Object<64>
+{
+	Spark_ipc_node(Kernel::Thread &thread);
+
+	Kernel::Thread &thread();
+};
 
 
 struct Kernel::Thread_fault
@@ -127,6 +148,7 @@ class Kernel::Thread
 
 		void                *_obj_id_ref_ptr[Genode::Msgbuf_base::MAX_CAPS_PER_MSG];
 		Ipc_node             _ipc_node;
+		Spark_ipc_node       _spark_ipc_node;
 		capid_t              _ipc_capid                { cap_id_invalid() };
 		size_t               _ipc_rcv_caps             { 0 };
 		Genode::Native_utcb *_utcb                     { nullptr };

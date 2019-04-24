@@ -37,4 +37,8 @@ package body IPC_Node is
 
    end Initialize_Object;
 
+   function Thread (Obj : Object_Reference_Type)
+   return Thread_Reference_Type
+   is (Obj.Thread);
+
 end IPC_Node;

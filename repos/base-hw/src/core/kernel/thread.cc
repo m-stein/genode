@@ -827,8 +827,12 @@ void Thread::_mmu_exception()
 Thread::Thread(unsigned const priority, unsigned const quota,
                char const * const label, bool core)
 :
-	Cpu_job(priority, quota), _ipc_node(*this), _state(AWAITS_START),
-	_signal_receiver(0), _label(label), _core(core), regs(core) { }
+	Cpu_job(priority, quota), _ipc_node(*this), _spark_ipc_node(*this),
+	_state(AWAITS_START), _signal_receiver(0), _label(label), _core(core),
+	regs(core)
+{
+	log(&_ipc_node.thread() == &_spark_ipc_node.thread() ? "ok " : "error ", &_ipc_node.thread(), " ", &_spark_ipc_node.thread());
+}
 
 
 void Thread::print(Genode::Output &out) const
