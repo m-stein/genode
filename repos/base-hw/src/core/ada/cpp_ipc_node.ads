@@ -27,7 +27,7 @@ package CPP_IPC_Node is
       Convention    => C,
       External_Name => "_ZN14Spark_ipc_nodeC1ERN6Kernel6ThreadE";
 
-   function Can_Send_Request (Obj : IPC_Node.Object_Reference_Type)
+   function Can_Send_Request (Obj : IPC_Node.Object_Type)
    return CPP.Bool_Type
    with
       Export,

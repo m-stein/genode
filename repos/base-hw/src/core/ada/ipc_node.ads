@@ -18,19 +18,29 @@ with CPP_Thread;
 package IPC_Node is
 
    type Object_Type           is private;
-   type Object_Reference_Type is not null access Object_Type;
+   type Object_Reference_Type is not null access all Object_Type;
 
    procedure Initialize_Object (
       Obj  : Object_Reference_Type;
       Thrd : CPP_Thread.Object_Reference_Type);
 
-   function Can_Send_Request (Obj : Object_Reference_Type)
+   function Can_Send_Request (Obj : Object_Type)
    return Boolean;
 
    procedure Send_Request (
       Obj     : Object_Reference_Type;
       Callee  : Object_Reference_Type;
       Help    : Boolean);
+
+   procedure Send_Reply (Obj : in out Object_Type);
+
+   function Can_Wait_For_Request (Obj : Object_Type)
+   return Boolean;
+
+   procedure Wait_For_Request (Obj : Object_Reference_Type);
+
+   function Helping_Sink (Obj : Object_Reference_Type)
+   return Object_Reference_Type;
 
    function Thread (Obj : Object_Reference_Type)
    return CPP_Thread.Object_Reference_Type;
@@ -41,6 +51,7 @@ private
 
       type Qbject_Type           is private;
       type Ibject_Type           is private;
+      type Ibject_Pointer_Type   is access all Ibject_Type;
       type Ibject_Reference_Type is not null access all Ibject_Type;
 
       function Initialized_Object return Qbject_Type;
@@ -52,9 +63,14 @@ private
          Obj : in out Qbject_Type;
          Itm :        Ibject_Reference_Type);
 
-   private
+      procedure Dequeue (Obj : in out Qbject_Type);
 
-      type Ibject_Pointer_Type is access all Ibject_Type;
+      function Head (Obj : Qbject_Type) return Ibject_Pointer_Type;
+
+      function Item_Payload (Itm : Ibject_Reference_Type)
+      return Object_Reference_Type;
+
+   private
 
       type Qbject_Type is record
          Head : Ibject_Pointer_Type;
