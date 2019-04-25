@@ -32,6 +32,18 @@ package CPP_Thread is
       Convention    => C,
       External_Name => "_ZN6Kernel6Thread26ipc_send_request_succeededEv";
 
+   procedure IPC_Wait_For_Request_Failed (Obj : Object_Reference_Type)
+   with
+      Import,
+      Convention    => C,
+      External_Name => "_ZN6Kernel6Thread24ipc_await_request_failedEv";
+
+   procedure IPC_Send_Request_Failed (Obj : Object_Reference_Type)
+   with
+      Import,
+      Convention    => C,
+      External_Name => "_ZN6Kernel6Thread23ipc_send_request_failedEv";
+
    procedure IPC_Copy_Message (
       Obj    : Object_Reference_Type;
       Sender : Object_Reference_Type)

@@ -185,7 +185,7 @@ void Thread::ipc_send_request_succeeded()
 	assert(_state == AWAITS_IPC);
 	user_arg_0(0);
 	_state = ACTIVE;
-	if (!Cpu_job::own_share_active()) { _activate_used_shares(); }
+	if (!Cpu_job::own_share_active()) { activate_used_shares(); }
 }
 
 
@@ -194,7 +194,7 @@ void Thread::ipc_send_request_failed()
 	assert(_state == AWAITS_IPC);
 	user_arg_0(-1);
 	_state = ACTIVE;
-	if (!Cpu_job::own_share_active()) { _activate_used_shares(); }
+	if (!Cpu_job::own_share_active()) { activate_used_shares(); }
 }
 
 
@@ -214,30 +214,42 @@ void Thread::ipc_await_request_failed()
 }
 
 
-void Thread::_deactivate_used_shares()
+void thread_deactivate_used_shares(Thread &thread)
 {
-	Cpu_job::_deactivate_own_share();
-	_ipc_node.for_each_helper([&] (Thread &thread) {
-		thread._deactivate_used_shares(); });
+	thread.deactivate_used_shares();
 }
 
-void Thread::_activate_used_shares()
+
+void thread_activate_used_shares(Thread &thread)
+{
+	thread.activate_used_shares();
+}
+
+
+void Thread::deactivate_used_shares()
+{
+	Cpu_job::_deactivate_own_share();
+	_ipc_node.for_each_helper(thread_deactivate_used_shares);
+}
+
+
+void Thread::activate_used_shares()
 {
 	Cpu_job::_activate_own_share();
-	_ipc_node.for_each_helper([&] (Thread &thread) {
-		thread._activate_used_shares(); });
+	_ipc_node.for_each_helper(thread_activate_used_shares);
 }
+
 
 void Thread::_become_active()
 {
-	if (_state != ACTIVE && !_paused) { _activate_used_shares(); }
+	if (_state != ACTIVE && !_paused) { activate_used_shares(); }
 	_state = ACTIVE;
 }
 
 
 void Thread::_become_inactive(State const s)
 {
-	if (_state == ACTIVE && !_paused) { _deactivate_used_shares(); }
+	if (_state == ACTIVE && !_paused) { deactivate_used_shares(); }
 	_state = s;
 }
 
@@ -309,7 +321,7 @@ void Thread::_call_pause_thread()
 {
 	Thread &thread = *reinterpret_cast<Thread*>(user_arg_1());
 	if (thread._state == ACTIVE && !thread._paused) {
-		thread._deactivate_used_shares(); }
+		thread.deactivate_used_shares(); }
 
 	thread._paused = true;
 }
@@ -319,7 +331,7 @@ void Thread::_call_resume_thread()
 {
 	Thread &thread = *reinterpret_cast<Thread*>(user_arg_1());
 	if (thread._state == ACTIVE && thread._paused) {
-		thread._activate_used_shares(); }
+		thread.activate_used_shares(); }
 
 	thread._paused = false;
 }
@@ -489,7 +501,7 @@ void Thread::_call_send_request_msg()
 	bool const help = Cpu_job::_helping_possible(*dst);
 	oir = oir->find(dst->pd());
 
-	if (!_spark_ipc_node.can_send_request() || !_ipc_node.can_send_request()) {
+	if (!_ipc_node.can_send_request()) {
 		Genode::raw("IPC send request: bad state");
 	} else {
 		unsigned const rcv_caps = user_arg_2();
@@ -503,7 +515,7 @@ void Thread::_call_send_request_msg()
 	}
 
 	_state = AWAITS_IPC;
-	if (!help || !dst->own_share_active()) { _deactivate_used_shares(); }
+	if (!help || !dst->own_share_active()) { deactivate_used_shares(); }
 }
 
 
@@ -827,7 +839,7 @@ void Thread::_mmu_exception()
 Thread::Thread(unsigned const priority, unsigned const quota,
                char const * const label, bool core)
 :
-	Cpu_job(priority, quota), _ipc_node(*this), _spark_ipc_node(*this),
+	Cpu_job(priority, quota), _ipc_node(*this),
 	_state(AWAITS_START), _signal_receiver(0), _label(label), _core(core),
 	regs(core)
 { }

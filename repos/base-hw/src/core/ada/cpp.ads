@@ -23,4 +23,7 @@ package CPP is
    function Bool_From_Ada (Value : Boolean)
    return Bool_Type;
 
+   function Bool_To_Ada (Value : Bool_Type)
+   return Boolean;
+
 end CPP;

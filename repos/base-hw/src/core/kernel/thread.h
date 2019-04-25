@@ -40,30 +40,6 @@ namespace Kernel
 }
 
 
-namespace Spark {
-
-	/**
-	 * Opaque object that contains the space needed to store a SPARK record.
-	 *
-	 * \param BYTES  size of the SPARK record in bytes
-	 */
-	template <Genode::uint32_t BYTES>
-	struct Object
-	{
-		char _space[BYTES] { };
-	} __attribute__ ((packed));
-}
-
-struct Spark_ipc_node : Spark::Object<64>
-{
-	Spark_ipc_node(Kernel::Thread &thread);
-
-	bool can_send_request() const;
-
-	Kernel::Thread &thread();
-};
-
-
 struct Kernel::Thread_fault
 {
 	enum Type { WRITE, EXEC, PAGE_MISSING, UNKNOWN };
@@ -150,7 +126,6 @@ class Kernel::Thread
 
 		void                *_obj_id_ref_ptr[Genode::Msgbuf_base::MAX_CAPS_PER_MSG];
 		Ipc_node             _ipc_node;
-		Spark_ipc_node       _spark_ipc_node;
 		capid_t              _ipc_capid                { cap_id_invalid() };
 		size_t               _ipc_rcv_caps             { 0 };
 		Genode::Native_utcb *_utcb                     { nullptr };
@@ -194,16 +169,6 @@ class Kernel::Thread
 		 * Switch from the active state to the inactive state 's'
 		 */
 		void _become_inactive(State const s);
-
-		/**
-		 * Activate our CPU-share and those of our helpers
-		 */
-		void _activate_used_shares();
-
-		/**
-		 * Deactivate our CPU-share and those of our helpers
-		 */
-		void _deactivate_used_shares();
 
 		/**
 		 * Suspend unrecoverably from execution
@@ -332,6 +297,16 @@ class Kernel::Thread
 		 */
 		Thread(char const * const label)
 		: Thread(Cpu_priority::MIN, 0, label, true) { }
+
+		/**
+		 * Activate our CPU-share and those of our helpers
+		 */
+		void activate_used_shares();
+
+		/**
+		 * Deactivate our CPU-share and those of our helpers
+		 */
+		void deactivate_used_shares();
 
 
 		/**************************

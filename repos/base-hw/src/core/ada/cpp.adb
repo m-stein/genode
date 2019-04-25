@@ -22,4 +22,11 @@ package body CPP is
       when False => 0,
       when True  => 1);
 
+   function Bool_To_Ada (Value : Bool_Type)
+   return Boolean
+   is (
+      case Value is
+      when 0 => False,
+      when 1 => True);
+
 end CPP;
