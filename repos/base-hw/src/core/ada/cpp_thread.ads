@@ -1,5 +1,5 @@
 --
---  \brief  Glue code between Ada and C++ interface of IPC node
+--  \brief  Glue code between Ada and C++ interface of thread class
 --  \author Martin stein
 --  \date   2019-04-24
 --
@@ -25,6 +25,12 @@ package CPP_Thread is
       Import,
       Convention    => C,
       External_Name => "_ZN6Kernel6Thread27ipc_await_request_succeededEv";
+
+   procedure IPC_Send_Request_Succeeded (Obj : Object_Reference_Type)
+   with
+      Import,
+      Convention    => C,
+      External_Name => "_ZN6Kernel6Thread26ipc_send_request_succeededEv";
 
    procedure IPC_Copy_Message (
       Obj    : Object_Reference_Type;

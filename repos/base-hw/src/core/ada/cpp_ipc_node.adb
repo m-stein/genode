@@ -23,7 +23,7 @@ package body CPP_IPC_Node is
       IPC_Node.Initialize_Object (Obj, Thrd);
    end Initialize_Object;
 
-   function Can_Send_Request (Obj : IPC_Node.Object_Reference_Type)
+   function Can_Send_Request (Obj : IPC_Node.Object_Type)
    return CPP.Bool_Type
    is (CPP.Bool_From_Ada (IPC_Node.Can_Send_Request (Obj)));
 

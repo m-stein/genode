@@ -15,10 +15,6 @@ pragma Ada_2012;
 
 package body IPC_Node is
 
-   --------------
-   --  Public  --
-   --------------
-
    procedure Initialize_Object (
       Obj  : Object_Reference_Type;
       Thrd : CPP_Thread.Object_Reference_Type)
@@ -35,9 +31,27 @@ package body IPC_Node is
 
    end Initialize_Object;
 
-   function Can_Send_Request (Obj : Object_Reference_Type)
+   function Can_Send_Request (Obj : Object_Type)
    return Boolean
    is (Obj.State = Inactive);
+
+   function Can_Wait_For_Request (Obj : Object_Type)
+   return Boolean
+   is (Obj.State = Inactive);
+
+   procedure Wait_For_Request (Obj : Object_Reference_Type)
+   is
+      use Queue;
+      Req_Queue_Head : constant Queue.Ibject_Pointer_Type :=
+         Queue.Head (Obj.Request_Queue);
+   begin
+      Obj.State := Wait_For_Request;
+      if Req_Queue_Head /= null then
+         Receive_Request (Obj, Queue.Item_Payload (
+            Ibject_Reference_Type (Req_Queue_Head)));
+         Queue.Dequeue (Obj.Request_Queue);
+      end if;
+   end Wait_For_Request;
 
    procedure Send_Request (
       Obj     : Object_Reference_Type;
@@ -52,19 +66,39 @@ package body IPC_Node is
       Obj.Help   := Help;
    end Send_Request;
 
+   procedure Send_Reply (Obj : in out Object_Type)
+   is
+   begin
+      if
+         Obj.State = Inactive and
+         Obj.Caller /= null
+      then
+         --
+         --  FIXME: I simplified the second argument - could be a bug
+         --
+         CPP_Thread.IPC_Copy_Message (Obj.Caller.Thread, Obj.Thread);
+         Obj.Caller.State := Inactive;
+         CPP_Thread.IPC_Send_Request_Succeeded (Obj.Caller.Thread);
+         Obj.Caller := null;
+      end if;
+   end Send_Reply;
+
+   function Helping_Sink (Obj : Object_Reference_Type)
+   return Object_Reference_Type
+   is (
+      if
+         Obj.State = Wait_For_Reply and
+         Obj.Help
+      then
+         Helping_Sink (Object_Reference_Type (Obj.Callee))
+      else
+         Obj);
+
    function Thread (Obj : Object_Reference_Type)
    return CPP_Thread.Object_Reference_Type
    is (Obj.Thread);
 
-   ---------------
-   --  Private  --
-   ---------------
-
    package body Queue is
-
-      --------------
-      --  Public  --
-      --------------
 
       function Initialized_Item_Object (Payload : Object_Reference_Type)
       return Ibject_Type
@@ -93,9 +127,29 @@ package body IPC_Node is
          end if;
       end Enqueue;
 
-      ---------------
-      --  Private  --
-      ---------------
+      procedure Dequeue (Obj : in out Qbject_Type)
+      is
+         Result : constant Ibject_Pointer_Type := Obj.Head;
+      begin
+         if Obj.Head = Obj.Tail then
+            Obj.Head := null;
+            Obj.Tail := null;
+         else
+            Obj.Head := Obj.Head.Next;
+         end if;
+
+         if Result /= null then
+            Result.Next := null;
+         end if;
+      end Dequeue;
+
+      function Head (Obj : Qbject_Type)
+      return Ibject_Pointer_Type
+      is (Obj.Head);
+
+      function Item_Payload (Itm : Ibject_Reference_Type)
+      return Object_Reference_Type
+      is (Itm.Payload);
 
       function Empty (Obj : Qbject_Type)
       return Boolean
