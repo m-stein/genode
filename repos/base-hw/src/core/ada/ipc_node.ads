@@ -24,6 +24,8 @@ package IPC_Node is
       Obj  : Object_Reference_Type;
       Thrd : CPP_Thread.Object_Reference_Type);
 
+   procedure Deinitialize_Object (Obj : Object_Reference_Type);
+
    function Can_Send_Request (Obj : Object_Type)
    return Boolean;
 
@@ -40,10 +42,16 @@ package IPC_Node is
    procedure Wait_For_Request (Obj : Object_Reference_Type);
 
    function Helping_Sink (Obj : Object_Reference_Type)
-   return Object_Reference_Type;
-
-   function Thread (Obj : Object_Reference_Type)
    return CPP_Thread.Object_Reference_Type;
+
+   procedure For_Each_Helper (
+      Obj  : Object_Reference_Type;
+      Func : access procedure (Thrd : CPP_Thread.Object_Reference_Type));
+
+   procedure Cancel_Waiting (Obj : Object_Reference_Type);
+
+   function Waits_For_Request (Obj : Object_Type)
+   return Boolean;
 
 private
 
@@ -69,6 +77,13 @@ private
 
       function Item_Payload (Itm : Ibject_Reference_Type)
       return Object_Reference_Type;
+
+      function Item_Next (Itm : Ibject_Reference_Type)
+      return Ibject_Pointer_Type;
+
+      procedure Remove (
+         Obj : in out Qbject_Type;
+         Itm : Ibject_Reference_Type);
 
    private
 
@@ -107,5 +122,13 @@ private
    procedure Receive_Request (
       Obj    : Object_Reference_Type;
       Caller : Object_Reference_Type);
+
+   procedure Cancel_Outgoing_Request (Obj : Object_Reference_Type);
+
+   procedure Cancel_Incoming_Request (Obj : Object_Reference_Type);
+
+   procedure Cancel_Request_Queue (Obj : Object_Reference_Type);
+
+   procedure Outgoing_Request_Cancelled (Obj : Object_Reference_Type);
 
 end IPC_Node;

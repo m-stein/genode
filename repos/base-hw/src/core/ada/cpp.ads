@@ -17,10 +17,14 @@ package CPP is
 
    pragma Pure;
 
-   type Bool_Type is range 0 .. 1   with Size => 8;
-   type Byte_Type is range 0 .. 255 with Size => 8;
+   type Bool_Type   is range 0 .. 1         with Size => 8;
+   type Byte_Type   is range 0 .. 2**8 - 1  with Size => 8;
+   type Uint32_Type is range 0 .. 2**32 - 1 with Size => 32;
 
    function Bool_From_Ada (Value : Boolean)
    return Bool_Type;
+
+   function Bool_To_Ada (Value : Bool_Type)
+   return Boolean;
 
 end CPP;
