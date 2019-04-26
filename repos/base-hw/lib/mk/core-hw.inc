@@ -152,7 +152,6 @@ SRC_CC += kernel/cpu.cc
 SRC_CC += kernel/cpu_scheduler.cc
 SRC_CC += kernel/double_list.cc
 SRC_CC += kernel/init.cc
-SRC_CC += kernel/ipc_node.cc
 SRC_CC += kernel/irq.cc
 SRC_CC += kernel/kernel.cc
 SRC_CC += kernel/object.cc

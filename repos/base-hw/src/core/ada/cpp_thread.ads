@@ -20,6 +20,12 @@ package CPP_Thread is
    type Object_Type           is private;
    type Object_Reference_Type is not null access Object_Type;
 
+   procedure Print_Int (Obj : Integer)
+   with
+      Import,
+      Convention    => C,
+      External_Name => "print_int";
+
    procedure IPC_Wait_For_Request_Succeeded (Obj : Object_Reference_Type)
    with
       Import,
@@ -31,6 +37,18 @@ package CPP_Thread is
       Import,
       Convention    => C,
       External_Name => "_ZN6Kernel6Thread26ipc_send_request_succeededEv";
+
+   procedure IPC_Wait_For_Request_Failed (Obj : Object_Reference_Type)
+   with
+      Import,
+      Convention    => C,
+      External_Name => "_ZN6Kernel6Thread24ipc_await_request_failedEv";
+
+   procedure IPC_Send_Request_Failed (Obj : Object_Reference_Type)
+   with
+      Import,
+      Convention    => C,
+      External_Name => "_ZN6Kernel6Thread23ipc_send_request_failedEv";
 
    procedure IPC_Copy_Message (
       Obj    : Object_Reference_Type;
