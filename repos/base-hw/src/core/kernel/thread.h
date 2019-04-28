@@ -32,7 +32,6 @@
 /* base-local includes */
 #include <base/internal/native_utcb.h>
 
-
 namespace Kernel
 {
 	struct Thread_fault;
@@ -58,8 +57,7 @@ struct Kernel::Thread_fault
  */
 class Kernel::Thread
 :
-	public Kernel::Object, public Cpu_job, public Signal_context_killer,
-	public Signal_handler, private Timeout
+	public Kernel::Object, public Cpu_job, private Timeout
 {
 	private:
 
@@ -125,21 +123,23 @@ class Kernel::Thread
 			DEAD                        = 7,
 		};
 
-		void                *_obj_id_ref_ptr[Genode::Msgbuf_base::MAX_CAPS_PER_MSG];
-		Ipc_node             _ipc_node;
-		capid_t              _ipc_capid                { cap_id_invalid() };
-		size_t               _ipc_rcv_caps             { 0 };
-		Genode::Native_utcb *_utcb                     { nullptr };
-		Pd                  *_pd                       { nullptr };
-		Signal_context      *_pager                    { nullptr };
-		Thread_fault         _fault                    { };
-		State                _state;
-		Signal_receiver     *_signal_receiver;
-		char   const *const  _label;
-		capid_t              _timeout_sigid            { 0 };
-		bool                 _paused                   { false };
-		bool                 _cancel_next_await_signal { false };
-		bool const           _core                     { false };
+		void                  *_obj_id_ref_ptr[Genode::Msgbuf_base::MAX_CAPS_PER_MSG];
+		Ipc_node               _ipc_node;
+		capid_t                _ipc_capid                { cap_id_invalid() };
+		size_t                 _ipc_rcv_caps             { 0 };
+		Genode::Native_utcb   *_utcb                     { nullptr };
+		Pd                    *_pd                       { nullptr };
+		Signal_context        *_pager                    { nullptr };
+		Thread_fault           _fault                    { };
+		State                  _state;
+		Signal_handler         _signal_handler           { *this };
+		Signal_context_killer  _signal_context_killer    { *this };
+		Signal_receiver       *_signal_receiver;
+		char   const *const    _label;
+		capid_t                _timeout_sigid            { 0 };
+		bool                   _paused                   { false };
+		bool                   _cancel_next_await_signal { false };
+		bool const             _core                     { false };
 
 		Genode::Constructible<Pd_update> _pd_update {};
 		Genode::Constructible<Destroy>   _destroy {};
@@ -170,16 +170,6 @@ class Kernel::Thread
 		 * Switch from the active state to the inactive state 's'
 		 */
 		void _become_inactive(State const s);
-
-		/**
-		 * Activate our CPU-share and those of our helpers
-		 */
-		void _activate_used_shares();
-
-		/**
-		 * Deactivate our CPU-share and those of our helpers
-		 */
-		void _deactivate_used_shares();
 
 		/**
 		 * Suspend unrecoverably from execution
@@ -268,24 +258,6 @@ class Kernel::Thread
 
 		void _ipc_init(Genode::Native_utcb &utcb, Thread &callee);
 
-
-		/***************************
-		 ** Signal_context_killer **
-		 ***************************/
-
-		void _signal_context_kill_pending() override;
-		void _signal_context_kill_failed()  override;
-		void _signal_context_kill_done()    override;
-
-
-		/********************
-		 ** Signal_handler **
-		 ********************/
-
-		void _await_signal(Signal_receiver * const receiver) override;
-		void _receive_signal(void * const base, size_t const size) override;
-
-
 	public:
 
 		Genode::Align_at<Genode::Cpu::Context> regs;
@@ -308,6 +280,16 @@ class Kernel::Thread
 		 */
 		Thread(char const * const label)
 		: Thread(Cpu_priority::MIN, 0, label, true) { }
+
+		/**
+		 * Activate our CPU-share and those of our helpers
+		 */
+		void activate_used_shares();
+
+		/**
+		 * Deactivate our CPU-share and those of our helpers
+		 */
+		void deactivate_used_shares();
 
 
 		/**************************
@@ -379,6 +361,17 @@ class Kernel::Thread
 		void ipc_await_request_succeeded();
 		void ipc_await_request_failed()   ;
 		void ipc_copy_msg(Thread &sender) ;
+
+
+		/*************
+		 ** Signals **
+		 *************/
+
+		void signal_context_kill_pending();
+		void signal_context_kill_failed();
+		void signal_context_kill_done();
+		void await_signal(Signal_receiver * const receiver);
+		void receive_signal(void * const base, size_t const size);
 
 
 		/*************
