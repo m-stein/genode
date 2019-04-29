@@ -55,9 +55,7 @@ struct Kernel::Thread_fault
 /**
  * Kernel back-end for userland execution-contexts
  */
-class Kernel::Thread
-:
-	public Kernel::Object, public Cpu_job, private Timeout
+class Kernel::Thread : public Cpu_job, private Timeout
 {
 	private:
 
@@ -123,6 +121,7 @@ class Kernel::Thread
 			DEAD                        = 7,
 		};
 
+		Kernel::Object         _kernel_object            { *this };
 		void                  *_obj_id_ref_ptr[Genode::Msgbuf_base::MAX_CAPS_PER_MSG];
 		Ipc_node               _ipc_node;
 		capid_t                _ipc_capid                { cap_id_invalid() };
@@ -394,6 +393,7 @@ class Kernel::Thread
 		 ** Accessors **
 		 ***************/
 
+		Object &kernel_object() { return _kernel_object; }
 		char const * label() const { return _label; }
 		Thread_fault fault() const { return _fault; }
 		Genode::Native_utcb *utcb() { return _utcb; }

@@ -119,10 +119,11 @@ class Kernel::Irq : Genode::Avl_node<Irq>
 };
 
 
-class Kernel::User_irq : public Kernel::Irq, public Kernel::Object
+class Kernel::User_irq : public Kernel::Irq
 {
 	private:
 
+		Kernel::Object  _kernel_object { *this };
 		Signal_context &_context;
 
 		/**
@@ -157,6 +158,8 @@ class Kernel::User_irq : public Kernel::Irq, public Kernel::Object
 		 */
 		static User_irq * object(unsigned const irq) {
 			return dynamic_cast<User_irq*>(_pool().object(irq)); }
+
+		Object &kernel_object() { return _kernel_object; }
 };
 
 #endif /* _CORE__KERNEL__IRQ_H_ */
