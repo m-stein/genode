@@ -48,13 +48,33 @@ package body Signal is
          return;
       end if;
       declare
-         Rec : constant Receiver_Reference_Type :=
+         Recvr : constant Receiver_Reference_Type :=
             Receiver_Reference_Type (Obj.Receiver);
       begin
-         Handler_Queue.Remove (Rec.Handlers, Obj.Queue_Item'Access);
+         Handler_Queue.Remove (Recvr.Handlers, Obj.Queue_Item'Access);
       end;
       Obj.Receiver := null;
    end Handler_Cancel_Waiting;
+
+   --
+   --  Context_Initialize
+   --
+   procedure Context_Initialize (
+      Obj   : Context_Reference_Type;
+      Recvr : Receiver_Reference_Type;
+      Impr  : Imprint_Type)
+   is
+   begin
+      Obj.all := (
+         Deliver_Queue_Item => Context_Queue.Initialized_Item_Object (Obj),
+         Context_Queue_Item => Context_Queue.Initialized_Item_Object (Obj),
+         Receiver           => Recvr,
+         Imprint            => Impr,
+         Killer             => null,
+         Nr_Of_Submits      => 0,
+         Acknowledged       => True,
+         Killed             => False);
+   end Context_Initialize;
 
    --
    --  Handler_Queue
@@ -198,5 +218,148 @@ package body Signal is
       is (Itm.Next);
 
    end Handler_Queue;
+
+   --
+   --  Context_Queue
+   --
+   package body Context_Queue is
+
+      --
+      --  Initialized_Item_Object
+      --
+      function Initialized_Item_Object (Payload : Context_Reference_Type)
+      return Ibject_Type
+      is (
+         Next    => null,
+         Payload => Payload);
+
+      --
+      --  Initialized_Object
+      --
+      function Initialized_Object return Qbject_Type
+      is (
+         Head => null,
+         Tail => null);
+
+      --
+      --  Enqueue
+      --
+      procedure Enqueue (
+         Obj : in out Qbject_Type;
+         Itm :        Ibject_Reference_Type)
+      is
+         Itm_Ptr : constant Ibject_Pointer_Type := Ibject_Pointer_Type (Itm);
+      begin
+         --  disconnect item from last queue
+         Itm.Next := null;
+
+         --  if queue is empty, make the item its head and tail
+         if Empty (Obj) then
+            Obj.Tail := Itm_Ptr;
+            Obj.Head := Itm_Ptr;
+
+         --  if queue is not empty, attach the item to its tail
+         else
+            Obj.Tail.Next := Itm_Ptr;
+            Obj.Tail      := Itm_Ptr;
+         end if;
+      end Enqueue;
+
+      --
+      --  Remove
+      --
+      procedure Remove (
+         Obj : in out Qbject_Type;
+         Itm : Ibject_Reference_Type)
+      is
+         Curr_Itm : Ibject_Pointer_Type := Obj.Head;
+      begin
+         --  abort if queue is empty
+         if Empty (Obj) then
+            return;
+         end if;
+
+         --  if specified item is the first of the queue
+         if Obj.Head = Ibject_Pointer_Type (Itm) then
+            Obj.Head := Itm.Next;
+            if Obj.Head = null then
+               Obj.Tail := null;
+            end if;
+
+         --  if specified item is not the first of the queue
+         else
+
+            --  search for specified item in the queue
+            Items_Loop :
+            while Curr_Itm.Next /= null and
+                  Curr_Itm.Next /= Ibject_Pointer_Type (Itm)
+            loop
+               Curr_Itm := Curr_Itm.Next;
+            end loop Items_Loop;
+
+            --  abort if specified item could not be found
+            if Curr_Itm.Next = null then
+               return;
+            end if;
+
+            --  skip item in queue
+            Curr_Itm.Next := Curr_Itm.Next.Next;
+            if Curr_Itm.Next = null then
+               Obj.Tail := null;
+            end if;
+         end if;
+
+         --  disconnect item from queue
+         Itm.Next := null;
+
+      end Remove;
+
+      --
+      --  Dequeue
+      --
+      procedure Dequeue (Obj : in out Qbject_Type)
+      is
+         Dequeued : constant Ibject_Pointer_Type := Obj.Head;
+      begin
+         --  if there is none or only one item, empty the queue
+         if Obj.Head = Obj.Tail then
+            Obj.Head := null;
+            Obj.Tail := null;
+
+         --  if the are multiple items, skip the head item
+         else
+            Obj.Head := Obj.Head.Next;
+         end if;
+
+         --  disconnect dequeued item from queue
+         if Dequeued /= null then
+            Dequeued.Next := null;
+         end if;
+      end Dequeue;
+
+      --
+      --  Empty
+      --
+      function Empty (Obj : Qbject_Type)
+      return Boolean
+      is (Obj.Tail = null);
+
+      -----------------
+      --  Accessors  --
+      -----------------
+
+      function Head (Obj : Qbject_Type)
+      return Ibject_Pointer_Type
+      is (Obj.Head);
+
+      function Item_Payload (Itm : Ibject_Reference_Type)
+      return Context_Reference_Type
+      is (Itm.Payload);
+
+      function Item_Next (Itm : Ibject_Reference_Type)
+      return Ibject_Pointer_Type
+      is (Itm.Next);
+
+   end Context_Queue;
 
 end Signal;
