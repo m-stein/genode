@@ -17,16 +17,33 @@ with CPP_Thread;
 
 package Signal is
 
-   type Handler_Type           is private;
-   type Receiver_Type          is private;
-   type Handler_Reference_Type is not null access all Handler_Type;
+   type Handler_Type            is private;
+   type Receiver_Type           is private;
+   type Handler_Reference_Type  is not null access all Handler_Type;
+   type Receiver_Reference_Type is not null access all Receiver_Type;
 
-   procedure Initialize_Handler (
+   --
+   --  Handler_Initialize
+   --
+   procedure Handler_Initialize (
       Obj  : Handler_Reference_Type;
       Thrd : CPP_Thread.Object_Reference_Type);
 
+   --
+   --  Handler_Deinitialize
+   --
+   procedure Handler_Deinitialize (Obj : Handler_Reference_Type);
+
+   --
+   --  Handler_Cancel_Waiting
+   --
+   procedure Handler_Cancel_Waiting (Obj : Handler_Reference_Type);
+
 private
 
+   --
+   --  Handler_Queue
+   --
    package Handler_Queue is
 
       type Qbject_Type           is private;
@@ -82,7 +99,7 @@ private
 
    type Handler_Type is record
       Thread     : CPP_Thread.Object_Reference_Type;
-      Queue_Item : Handler_Queue.Ibject_Type;
+      Queue_Item : aliased Handler_Queue.Ibject_Type;
       Receiver   : Receiver_Pointer_Type;
    end record;
 

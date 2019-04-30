@@ -16,9 +16,9 @@ pragma Ada_2012;
 package body Signal is
 
    --
-   --  Initialize_Handler
+   --  Handler_Initialize
    --
-   procedure Initialize_Handler (
+   procedure Handler_Initialize (
       Obj  : Handler_Reference_Type;
       Thrd : CPP_Thread.Object_Reference_Type)
    is
@@ -27,7 +27,34 @@ package body Signal is
          Thread     => Thrd,
          Queue_Item => Handler_Queue.Initialized_Item_Object (Obj),
          Receiver   => null);
-   end Initialize_Handler;
+   end Handler_Initialize;
+
+   --
+   --  Handler_Deinitialize
+   --
+   procedure Handler_Deinitialize (Obj : Handler_Reference_Type)
+   is
+   begin
+      Handler_Cancel_Waiting (Obj);
+   end Handler_Deinitialize;
+
+   --
+   --  Handler_Cancel_Waiting
+   --
+   procedure Handler_Cancel_Waiting (Obj : Handler_Reference_Type)
+   is
+   begin
+      if Obj.Receiver = null then
+         return;
+      end if;
+      declare
+         Rec : constant Receiver_Reference_Type :=
+            Receiver_Reference_Type (Obj.Receiver);
+      begin
+         Handler_Queue.Remove (Rec.Handlers, Obj.Queue_Item'Access);
+      end;
+      Obj.Receiver := null;
+   end Handler_Cancel_Waiting;
 
    --
    --  Handler_Queue
