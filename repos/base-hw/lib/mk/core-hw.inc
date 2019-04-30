@@ -82,6 +82,7 @@ vpath s-init.adb $(ADA_RUNTIME_COMMON_DIR)
 
 ###################### kernel Ada sources #####################
 
+SRC_ADB += signal.adb
 SRC_ADB += ipc_node.adb
 SRC_ADB += cpp.adb
 SRC_ADB += cpp_ipc_node.adb
@@ -90,6 +91,7 @@ KERNEL_ADA_DIR = $(BASE_DIR)/../base-hw/src/core/ada
 
 INC_DIR += $(KERNEL_ADA_DIR)
 
+vpath signal.adb       $(KERNEL_ADA_DIR)
 vpath ipc_node.adb     $(KERNEL_ADA_DIR)
 vpath cpp.adb          $(KERNEL_ADA_DIR)
 vpath cpp_ipc_node.adb $(KERNEL_ADA_DIR)
