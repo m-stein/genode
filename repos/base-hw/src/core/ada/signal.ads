@@ -73,6 +73,11 @@ package Signal is
       Impr  : Imprint_Type);
 
    --
+   --  Context_Deinitialize
+   --
+   procedure Context_Deinitialize (Obj : Context_Reference_Type);
+
+   --
    --  Receiver_Initialize
    --
    procedure Receiver_Initialize (Obj : Receiver_Reference_Type);
@@ -150,6 +155,12 @@ private
 
       procedure Dequeue (Obj : in out Queue_Type);
 
+      --
+      --  Item_Enqueued
+      --
+      function Item_Enqueued (Itm : Item_Type)
+      return Boolean;
+
       function Head (Obj : Queue_Type) return Item_Pointer_Type;
 
       function Item_Payload (Itm : Item_Reference_Type)
@@ -195,8 +206,8 @@ private
    end record;
 
    type Context_Type is record
-      Deliver_Item  : Context_Queue.Item_Type;
-      Contexts_Item : Context_Queue.Item_Type;
+      Deliver_Item  : aliased Context_Queue.Item_Type;
+      Contexts_Item : aliased Context_Queue.Item_Type;
       Receiver      : Receiver_Reference_Type;
       Imprint       : Imprint_Type;
       Killer        : Context_Killer_Pointer_Type;

@@ -115,7 +115,32 @@ package body Signal is
          Nr_Of_Submits => 0,
          Acknowledged  => True,
          Killed        => False);
+
+      Context_Queue.Enqueue (Obj.Receiver.Contexts, Obj.Contexts_Item'Access);
+
    end Context_Initialize;
+
+   --
+   --  Context_Deinitialize
+   --
+   procedure Context_Deinitialize (Obj : Context_Reference_Type)
+   is
+   begin
+      if Obj.Killer /= null then
+         declare
+            Killer : constant Context_Killer_Reference_Type :=
+               Context_Killer_Reference_Type (Obj.Killer);
+         begin
+            CPP_Thread.Signal_Context_Kill_Failed (Killer.Thread);
+         end;
+      end if;
+
+      Context_Queue.Remove (Obj.Receiver.Contexts, Obj.Contexts_Item'Access);
+      if Context_Queue.Item_Enqueued (Obj.Deliver_Item) then
+         Context_Queue.Remove (Obj.Receiver.Deliver, Obj.Deliver_Item'Access);
+      end if;
+
+   end Context_Deinitialize;
 
    --
    --  Receiver_Initialize
@@ -396,6 +421,13 @@ package body Signal is
       function Empty (Obj : Queue_Type)
       return Boolean
       is (Obj.Tail = null);
+
+      --
+      --  Item_Enqueued
+      --
+      function Item_Enqueued (Itm : Item_Type)
+      return Boolean
+      is (Itm.Next /= null);
 
       -----------------
       --  Accessors  --

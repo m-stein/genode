@@ -58,6 +58,12 @@ package CPP_Thread is
       Convention    => C,
       External_Name => "_ZN6Kernel6Thread12ipc_copy_msgERS0_";
 
+   procedure Signal_Context_Kill_Failed (Obj : Object_Reference_Type)
+   with
+      Import,
+      Convention    => C,
+      External_Name => "X1";
+
 private
 
    type Object_Type is array (1 .. 32) of CPP.Byte_Type;
