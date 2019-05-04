@@ -14,6 +14,7 @@
 pragma Ada_2012;
 
 with CPP;
+with CPP_Signal_Data;
 
 package CPP_Thread is
 
@@ -64,8 +65,29 @@ package CPP_Thread is
       Convention    => C,
       External_Name => "X1";
 
+   procedure Signal_Context_Kill_Pending (Obj : Object_Reference_Type)
+   with
+      Import,
+      Convention    => C,
+      External_Name => "X2";
+
+   procedure Signal_Context_Kill_Done (Obj : Object_Reference_Type)
+   with
+      Import,
+      Convention    => C,
+      External_Name => "X3";
+
+   procedure Signal_Receive (
+      Obj  : Object_Reference_Type;
+      Data : CPP_Signal_Data.Object_Type)
+   with
+      Import,
+      Convention    => C,
+      External_Name => "X4";
+
 private
 
    type Object_Type is array (1 .. 32) of CPP.Byte_Type;
+   pragma Pack (Object_TYpe);
 
 end CPP_Thread;

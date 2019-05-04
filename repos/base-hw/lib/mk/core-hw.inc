@@ -86,15 +86,25 @@ SRC_ADB += signal.adb
 SRC_ADB += ipc_node.adb
 SRC_ADB += cpp.adb
 SRC_ADB += cpp_ipc_node.adb
+SRC_ADB += cpp_signal_data.adb
+
+ifeq ($(filter-out $(SPECS),64bit),)
+INC_DIR += $(KERNEL_ADA_DIR)/spec/64bit
+endif # x86_64
+
+ifeq ($(filter-out $(SPECS),32bit),)
+INC_DIR += $(KERNEL_ADA_DIR)/spec/32bit
+endif # ARM
 
 KERNEL_ADA_DIR = $(BASE_DIR)/../base-hw/src/core/ada
 
 INC_DIR += $(KERNEL_ADA_DIR)
 
-vpath signal.adb       $(KERNEL_ADA_DIR)
-vpath ipc_node.adb     $(KERNEL_ADA_DIR)
-vpath cpp.adb          $(KERNEL_ADA_DIR)
-vpath cpp_ipc_node.adb $(KERNEL_ADA_DIR)
+vpath signal.adb          $(KERNEL_ADA_DIR)
+vpath ipc_node.adb        $(KERNEL_ADA_DIR)
+vpath cpp.adb             $(KERNEL_ADA_DIR)
+vpath cpp_ipc_node.adb    $(KERNEL_ADA_DIR)
+vpath cpp_signal_data.adb $(KERNEL_ADA_DIR)
 
 ######################### core ########################
 

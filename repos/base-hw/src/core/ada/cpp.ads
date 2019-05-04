@@ -13,17 +13,27 @@
 
 pragma Ada_2012;
 
+with CPP_Architecture;
+
 package CPP is
 
    pragma Pure;
 
-   type Bool_Type   is range 0 .. 1         with Size => 8;
-   type Byte_Type   is range 0 .. 2**8 - 1  with Size => 8;
-   type Uint32_Type is range 0 .. 2**32 - 1 with Size => 32;
+   type Bool_Type                     is range 0 .. 1         with Size => 8;
+   type Byte_Type                     is range 0 .. 2**8 - 1  with Size => 8;
+   type Uint32_Type                   is range 0 .. 2**32 - 1 with Size => 32;
+   type Signal_Imprint_Type           is new CPP_Architecture.Address_Type;
+   type Signal_Number_Of_Submits_Type is new CPP_Architecture.Unsigned_Type;
 
+   --
+   --  Bool_From_Ada
+   --
    function Bool_From_Ada (Value : Boolean)
    return Bool_Type;
 
+   --
+   --  Bool_To_Ada
+   --
    function Bool_To_Ada (Value : Bool_Type)
    return Boolean;
 

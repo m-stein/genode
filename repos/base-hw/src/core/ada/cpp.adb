@@ -15,6 +15,9 @@ pragma Ada_2012;
 
 package body CPP is
 
+   --
+   --  Bool_From_Ada
+   --
    function Bool_From_Ada (Value : Boolean)
    return Bool_Type
    is (
@@ -22,6 +25,9 @@ package body CPP is
       when False => 0,
       when True  => 1);
 
+   --
+   --  Bool_To_Ada
+   --
    function Bool_To_Ada (Value : Bool_Type)
    return Boolean
    is (

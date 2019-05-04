@@ -1,5 +1,5 @@
 --
---  \brief  Peers of ssynchronous inter-process communication
+--  \brief  Peers of asynchronous inter-process communication
 --  \author Martin stein
 --  \date   2019-04-24
 --
@@ -12,6 +12,8 @@
 --
 
 pragma Ada_2012;
+
+with CPP_Signal_Data;
 
 package body Signal is
 
@@ -103,7 +105,7 @@ package body Signal is
    procedure Context_Initialize (
       Obj   : Context_Reference_Type;
       Recvr : Receiver_Reference_Type;
-      Impr  : Imprint_Type)
+      Impr  : CPP.Signal_Imprint_Type)
    is
    begin
       Obj.all := (
@@ -143,6 +145,84 @@ package body Signal is
    end Context_Deinitialize;
 
    --
+   --  Context_Deliverable
+   --
+   procedure Context_Deliverable (Obj : Context_Reference_Type)
+   is
+   begin
+      --  abort if there are no submits pending
+      if Obj.Nr_Of_Submits = 0 then
+         return;
+      end if;
+      --  mark context deliverable and let receiver process its contexts
+      if not Context_Queue.Item_Enqueued (Obj.Deliver_Item) then
+         Context_Queue.Enqueue (Obj.Receiver.Deliver, Obj.Deliver_Item'Access);
+      end if;
+      Receiver_Deliver_Contexts (Obj.Receiver);
+   end Context_Deliverable;
+
+   --
+   --  Context_Acknowledge
+   --
+   procedure Context_Acknowledge (Obj : Context_Reference_Type)
+   is
+   begin
+      --  abort if no delivery is pending
+      if Obj.Acknowledged then
+         return;
+      end if;
+      --  if the context shall not be killed, start next delivery if any
+      if not Obj.Killed then
+         Obj.Acknowledged := True;
+         Context_Deliverable (Obj);
+         return;
+      end if;
+      --  the context shall be killed, this can be done now
+      if Obj.Killer /= null then
+         declare
+            Killer : constant Context_Killer_Reference_Type :=
+               Context_Killer_Reference_Type (Obj.Killer);
+         begin
+            Killer.Context := null;
+            CPP_Thread.Signal_Context_Kill_Done (Killer.Thread);
+            Obj.Killer := null;
+         end;
+      end if;
+   end Context_Acknowledge;
+
+   --
+   --  Context_Can_Kill
+   --
+   function Context_Can_Kill (Obj : Context_Type)
+   return Boolean
+   is (not Obj.Killed or (Obj.Killed and Obj.Acknowledged));
+
+   --
+   --  Context_Kill
+   --
+   procedure Context_Kill (
+      Obj    : Context_Reference_Type;
+      Killer : Context_Killer_Reference_Type)
+   is
+   begin
+      --  check if in a kill operation or already killed
+      if Obj.Killed then
+         return;
+      end if;
+      --  kill directly if there is no unacknowledged delivery
+      if Obj.Acknowledged then
+         Obj.Killed := True;
+         return;
+      end if;
+      --  wait for the missing delivery acknowledgement
+      Obj.Killer := Context_Killer_Pointer_Type (Killer);
+      Obj.Killed := True;
+      Killer.Context := Context_Pointer_Type (Obj);
+      CPP_Thread.Signal_Context_Kill_Pending (Killer.Thread);
+      return;
+   end Context_Kill;
+
+   --
    --  Receiver_Initialize
    --
    procedure Receiver_Initialize (Obj : Receiver_Reference_Type)
@@ -153,6 +233,49 @@ package body Signal is
          Deliver  => Context_Queue.Initialized_Object,
          Contexts => Context_Queue.Initialized_Object);
    end Receiver_Initialize;
+
+   --
+   --  Receiver_Deliver_Contexts
+   --
+   procedure Receiver_Deliver_Contexts (Obj : Receiver_Reference_Type)
+   is
+   begin
+      --  deliver as long as we have waiting handlers and deliverable contexts
+      Deliver_Contexts :
+      while
+         not (
+            Context_Queue.Empty (Obj.Deliver) or
+            Handler_Queue.Empty (Obj.Handlers))
+      loop
+         declare
+            --  select a waiting handler and a deliverable context
+            use Context_Queue;
+            use Handler_Queue;
+            Context : constant Context_Reference_Type :=
+               Context_Reference_Type (Context_Queue.Head (Obj.Deliver));
+            Handler : constant Handler_Reference_Type :=
+               Handler_Reference_Type (Handler_Queue.Head (Obj.Handlers));
+
+            --  create a signal-delivery data from the context information
+            Data : aliased constant CPP_Signal_Data.Object_Type :=
+               CPP_Signal_Data.Initialized_Object (
+                  Context.Imprint,
+                  CPP.Signal_Number_Of_Submits_Type (Context.Nr_Of_Submits));
+         begin
+            --  update receiver and let thread receive the data
+            Handler.Receiver := null;
+            CPP_Thread.Signal_Receive (Handler.Thread, Data);
+
+            --  update context
+            Context.Nr_Of_Submits := 0;
+            Context.Acknowledged := False;
+
+            --  remove context and handler from the waiting queues
+            Context_Queue.Dequeue (Obj.Deliver);
+            Handler_Queue.Dequeue (Obj.Handlers);
+         end;
+      end loop Deliver_Contexts;
+   end Receiver_Deliver_Contexts;
 
    --
    --  Handler_Queue
@@ -284,8 +407,10 @@ package body Signal is
       -----------------
 
       function Head (Obj : Queue_Type)
-      return Item_Pointer_Type
-      is (Obj.Head);
+      return Handler_Pointer_Type
+      is (
+         if Obj.Head = null then null
+         else Handler_Pointer_Type (Obj.Head.Payload));
 
       function Item_Payload (Itm : Item_Reference_Type)
       return Handler_Reference_Type
@@ -434,8 +559,10 @@ package body Signal is
       -----------------
 
       function Head (Obj : Queue_Type)
-      return Item_Pointer_Type
-      is (Obj.Head);
+      return Context_Pointer_Type
+      is (
+         if Obj.Head = null then null
+         else Context_Pointer_Type (Obj.Head.Payload));
 
       function Item_Payload (Itm : Item_Reference_Type)
       return Context_Reference_Type

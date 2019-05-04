@@ -1,5 +1,5 @@
 --
---  \brief  Peers of ssynchronous inter-process communication
+--  \brief  Peers of asynchronous inter-process communication
 --  \author Martin stein
 --  \date   2019-04-24
 --
@@ -14,10 +14,10 @@
 pragma Ada_2012;
 
 with CPP_Thread;
+with CPP;
 
 package Signal is
 
-   type Imprint_Type                  is mod 2**64;
    type Number_Of_Submits_Type        is range 0 .. 2**32 - 1;
    type Handler_Type                  is private;
    type Context_Type                  is private;
@@ -70,7 +70,7 @@ package Signal is
    procedure Context_Initialize (
       Obj   : Context_Reference_Type;
       Recvr : Receiver_Reference_Type;
-      Impr  : Imprint_Type);
+      Impr  : CPP.Signal_Imprint_Type);
 
    --
    --  Context_Deinitialize
@@ -78,11 +78,34 @@ package Signal is
    procedure Context_Deinitialize (Obj : Context_Reference_Type);
 
    --
+   --  Context_Can_Kill
+   --
+   function Context_Can_Kill (Obj : Context_Type)
+   return Boolean;
+
+   --
+   --  Context_Kill
+   --
+   procedure Context_Kill (
+      Obj    : Context_Reference_Type;
+      Killer : Context_Killer_Reference_Type);
+
+   --
+   --  Context_Acknowledge
+   --
+   procedure Context_Acknowledge (Obj : Context_Reference_Type);
+
+   --
    --  Receiver_Initialize
    --
    procedure Receiver_Initialize (Obj : Receiver_Reference_Type);
 
 private
+
+   type Receiver_Pointer_Type       is access all Receiver_Type;
+   type Context_Killer_Pointer_Type is access all Context_Killer_Type;
+   type Handler_Pointer_Type        is access all Handler_Type;
+   type Context_Pointer_Type        is access all Context_Type;
 
    --
    --  Handler_Queue
@@ -105,7 +128,8 @@ private
 
       procedure Dequeue (Obj : in out Queue_Type);
 
-      function Head (Obj : Queue_Type) return Item_Pointer_Type;
+      function Head (Obj : Queue_Type)
+      return Handler_Pointer_Type;
 
       function Item_Payload (Itm : Item_Reference_Type)
       return Handler_Reference_Type;
@@ -116,6 +140,9 @@ private
       procedure Remove (
          Obj : in out Queue_Type;
          Itm : Item_Reference_Type);
+
+      function Empty (Obj : Queue_Type)
+      return Boolean;
 
    private
 
@@ -128,9 +155,6 @@ private
          Next    : Item_Pointer_Type;
          Payload : Handler_Reference_Type;
       end record;
-
-      function Empty (Obj : Queue_Type)
-      return Boolean;
 
    end Handler_Queue;
 
@@ -161,7 +185,8 @@ private
       function Item_Enqueued (Itm : Item_Type)
       return Boolean;
 
-      function Head (Obj : Queue_Type) return Item_Pointer_Type;
+      function Head (Obj : Queue_Type)
+      return Context_Pointer_Type;
 
       function Item_Payload (Itm : Item_Reference_Type)
       return Context_Reference_Type;
@@ -172,6 +197,9 @@ private
       procedure Remove (
          Obj : in out Queue_Type;
          Itm : Item_Reference_Type);
+
+      function Empty (Obj : Queue_Type)
+      return Boolean;
 
    private
 
@@ -185,14 +213,7 @@ private
          Payload : Context_Reference_Type;
       end record;
 
-      function Empty (Obj : Queue_Type)
-      return Boolean;
-
    end Context_Queue;
-
-   type Receiver_Pointer_Type       is access all Receiver_Type;
-   type Context_Killer_Pointer_Type is access all Context_Killer_Type;
-   type Context_Pointer_Type        is access all Context_Type;
 
    type Handler_Type is record
       Thread     : CPP_Thread.Object_Reference_Type;
@@ -209,7 +230,7 @@ private
       Deliver_Item  : aliased Context_Queue.Item_Type;
       Contexts_Item : aliased Context_Queue.Item_Type;
       Receiver      : Receiver_Reference_Type;
-      Imprint       : Imprint_Type;
+      Imprint       : CPP.Signal_Imprint_Type;
       Killer        : Context_Killer_Pointer_Type;
       Nr_Of_Submits : Number_Of_Submits_Type;
       Acknowledged  : Boolean;
@@ -221,5 +242,15 @@ private
       Deliver  : Context_Queue.Queue_Type;
       Contexts : Context_Queue.Queue_Type;
    end record;
+
+   --
+   --  Context_Deliverable
+   --
+   procedure Context_Deliverable (Obj : Context_Reference_Type);
+
+   --
+   --  Receiver_Deliver_Contexts
+   --
+   procedure Receiver_Deliver_Contexts (Obj : Receiver_Reference_Type);
 
 end Signal;
