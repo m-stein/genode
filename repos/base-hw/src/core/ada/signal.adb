@@ -162,6 +162,32 @@ package body Signal is
    end Context_Deliverable;
 
    --
+   --  Context_Can_Submit
+   --
+   function Context_Can_Submit (
+      Obj           : Context_Type;
+      Nr_Of_Submits : Number_Of_Submits_Type)
+   return Boolean
+   is (
+      not (
+         Obj.Killed or
+         Obj.Nr_Of_Submits > Number_Of_Submits_Type'Last - Nr_Of_Submits));
+
+   --
+   --  Context_Submit
+   --
+   procedure Context_Submit (
+      Obj           : Context_Reference_Type;
+      Nr_Of_Submits : Number_Of_Submits_Type)
+   is
+   begin
+      Obj.Nr_Of_Submits := Obj.Nr_Of_Submits + Nr_Of_Submits;
+      if Obj.Acknowledged then
+         Context_Deliverable (Obj);
+      end if;
+   end Context_Submit;
+
+   --
    --  Context_Acknowledge
    --
    procedure Context_Acknowledge (Obj : Context_Reference_Type)

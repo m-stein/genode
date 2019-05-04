@@ -96,6 +96,21 @@ package Signal is
    procedure Context_Acknowledge (Obj : Context_Reference_Type);
 
    --
+   --  Context_Can_Submit
+   --
+   function Context_Can_Submit (
+      Obj           : Context_Type;
+      Nr_Of_Submits : Number_Of_Submits_Type)
+   return Boolean;
+
+   --
+   --  Context_Submit
+   --
+   procedure Context_Submit (
+      Obj           : Context_Reference_Type;
+      Nr_Of_Submits : Number_Of_Submits_Type);
+
+   --
    --  Receiver_Initialize
    --
    procedure Receiver_Initialize (Obj : Receiver_Reference_Type);
