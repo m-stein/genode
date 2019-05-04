@@ -165,10 +165,9 @@ void Thread::signal_context_kill_failed()
 }
 
 
-void Thread::signal_wait_for_signal(Signal_receiver &receiver)
+void Thread::signal_wait_for_signal()
 {
 	_become_inactive(AWAITS_SIGNAL);
-	_signal_receiver = &receiver;
 }
 
 
@@ -820,7 +819,7 @@ Thread::Thread(unsigned const priority, unsigned const quota,
                char const * const label, bool core)
 :
 	Cpu_job(priority, quota), _ipc_node(*this), _state(AWAITS_START),
-	_signal_receiver(0), _label(label), _core(core), regs(core) { }
+	_label(label), _core(core), regs(core) { }
 
 
 void Thread::print(Genode::Output &out) const
