@@ -91,11 +91,10 @@ class Root : public Genode::Root_component<Lan9118, Genode::Single_client>
 		                         Genode::Single_client>(env.ep(), md_alloc),
 		  _env(env)
 		{
-			try {
-				_mmio_base =
-					_config.xml().attribute_value<Genode::addr_t>("mmio_base", REALVIEW_MMIO_BASE);
-				_irq = _config.xml().attribute_value<unsigned>("irq", REALVIEW_IRQ);
-			} catch(...) { Genode::warning("No config attributes given!"); }
+			_mmio_base =
+				_config.xml().attribute_value("mmio_base",
+			                                  (Genode::addr_t)REALVIEW_MMIO_BASE);
+			_irq = _config.xml().attribute_value<unsigned>("irq", REALVIEW_IRQ);
 		}
 };
 
