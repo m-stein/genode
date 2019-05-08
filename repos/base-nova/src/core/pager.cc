@@ -220,7 +220,9 @@ void Pager_object::exception(uint8_t exit_id)
 		        "pd '",     client_pd(),            "', "
 		        "thread '", client_thread(),        "', "
 		        "cpu ",     which_cpu(pager_thread), ", "
-		        "ip=",      Hex(fault_ip),            " ",
+		        "ip=",      Hex(fault_ip),            " "
+		        "sp=",      Hex(utcb.sp),             " "
+		        "bp=",      Hex(utcb.bp),             " ",
 		        res == 0xFF ? "no signal handler"
 		                    : (res == NOVA_OK ? "" : "recall failed"));
 
