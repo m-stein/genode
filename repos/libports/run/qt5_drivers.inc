@@ -336,7 +336,7 @@ proc drivers_boot_modules { feature_arg } {
 	append_platform_drv_boot_modules
 
 	lappend_if [use_audio_drv feature]    boot_modules [audio_drv_binary]
-	lappend_if [use_fb_drv feature]       boot_modules fb_drv
+	lappend_if [use_fb_drv feature]       boot_modules [fb_drv_binary]
 	lappend_if [use_fb_sdl feature]       boot_modules fb_sdl
 	lappend_if [use_gpio_drv feature]     boot_modules [gpio_drv]
 	lappend_if [use_input_filter feature] boot_modules input_filter
