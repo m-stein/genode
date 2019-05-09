@@ -15,6 +15,7 @@ pragma Ada_2012;
 
 with CPP_Thread;
 with CPP;
+with Generic_Queue;
 
 package Signal is
 
@@ -172,6 +173,11 @@ private
       end record;
 
    end Handler_Queue;
+
+   package G_Handler_Queue is new Generic_Queue (
+      Handler_Type,
+      Handler_Reference_Type,
+      Handler_Pointer_Type);
 
    --
    --  Context_Queue
