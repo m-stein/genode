@@ -1,0 +1,176 @@
+#!/usr/bin/make -f
+
+#
+# \brief  Show missing ports for given API/source/raw archives
+# \author Martin Stein
+# \date   2019-05-12
+#
+
+#
+# Define help message string
+#
+define HELP_MESSAGE
+
+  Show missing ports for given API/source/raw archives
+
+  usage:
+
+    $(firstword $(MAKEFILE_LIST)) <archive-path>...
+
+  The <archive-path> argument denotes the archive to check in the
+  form of a path. The first path element correponds to the identity
+  of the archive creator, the second element corresponds to the type
+  of the archive, and the third element refers to the recipe of
+  the archive description.
+
+  E.g., the user 'alan' may have the following archives:
+
+    alan/api/libc - an API archive for the libc
+    alan/src/zlib - a source archive for the zlib library
+
+  The following arguments tweak the operation of the tool:
+
+    VERBOSE=           Show individual operations.
+
+    -j<N>              Enable the parallel processing of archives where
+                       <N> denotes the level of parallelism.
+
+endef
+
+# root directory of Genode repository
+export GENODE_DIR := $(realpath $(dir $(MAKEFILE_LIST))/../..)
+
+# the tool expects archive paths given without the version element
+BIN_PKG_PATH_ELEMS := 4
+
+include $(GENODE_DIR)/tool/depot/mk/front_end.inc
+include $(GENODE_DIR)/tool/depot/mk/categorize_args.inc
+include $(GENODE_DIR)/tool/depot/mk/extract_dependencies.inc
+include $(GENODE_DIR)/tool/depot/mk/dependencies.inc
+
+#
+# Absolute path to content.mk file for given archive
+#
+# \param $1  archive type, can be 'src', 'api' or 'api'
+# \param $2  api, src or raw archive name in the form 'genodelabs/api/base'
+#
+content_mk_file = $(addsuffix /content.mk,$(call recipe_dir,$1/$(call archive_recipe,$2)))
+
+#
+# Return a given string minus another given string
+#
+# \param $1  string that shall be returned minus the other one
+# \param $2  string that shall be removed from the other one
+#
+remove_string=$(1:$2=)
+
+#
+# Repository directory for a given recipe name
+#
+# \param $1  recipe type in the form 'api'
+# \param $2  recipe name in the form 'base'
+#
+rep_dir_of_recipe=$(call remove_string,$(call recipe_dir,$1/$2),/recipes/$1/$2)
+
+#
+# Repository directory for a given archive
+#
+# \param $1  archive type in the form 'api'
+# \param $2  archive name in the form 'genodelabs/api/base'
+#
+rep_dir_of_archive=$(call rep_dir_of_recipe,$1,$(call archive_recipe,$2))
+
+#
+# Return shell script that generates error about missing ports
+#
+# \param $1  sorted list of missing ports file
+#
+error_missing_ports=@( \
+	echo -e ""; \
+	echo -e "Error: Ports not prepared or outdated:"; \
+	echo -e "  $(1)"; \
+	echo -e ""; \
+	echo -e "You can prepare respectively update them as follows:"; \
+	echo -e "  $(GENODE_DIR)/tool/ports/prepare_port $(1)"); \
+	echo -e ""; \
+	false
+
+#
+# Throw an error if the missing list is not empty
+#
+# \param $1  list of missing ports file
+#
+check_missing_ports=$(if $1,$(call error_missing_ports,$(sort $1)),)
+
+#
+# Throw an error if the missing ports file is not empty
+#
+# \param $1  absolute path of missing ports file
+#
+check_missing_ports_file=$(call check_missing_ports,$(call file_content,$1))
+
+# path to temporary file that is used to buffer the names of missing ports
+MISSING_PORTS_FILE := $(GENODE_DIR)/depot/var/missing_ports
+
+# path to temporary make file that is created to fill the missing ports file
+GEN_MISSING_PORTS_MK := $(GENODE_DIR)/depot/var/check_missing_ports.mk
+
+
+##################
+## Target rules ##
+##################
+
+#
+# Root target
+#
+$(MAKECMDGOALS): checked_ports_exist
+	@true
+
+#
+# Read missing-ports file and generate error if it's not empty
+#
+.PHONY: checked_ports_exist
+checked_ports_exist: $(MISSING_PORTS_FILE)
+	$(call check_missing_ports_file,$(MISSING_PORTS_FILE))
+
+#
+# Invoke sub-make to generate missing ports file
+#
+.PHONY: $(MISSING_PORTS_FILE)
+$(MISSING_PORTS_FILE): $(GEN_MISSING_PORTS_MK)
+	$(VERBOSE)mkdir -p $(dir $@)
+	$(VERBOSE)rm -f $@
+	$(VERBOSE)$(MAKE) $(if $(VERBOSE),--quiet) \
+	                  -f $(GEN_MISSING_PORTS_MK) \
+	                  -C $(DEPOT_DIR) \
+	                  VERBOSE=$(VERBOSE) \
+	                  GENODE_DIR=$(GENODE_DIR) \
+	                  UPDATE_VERSIONS=$(UPDATE_VERSIONS);
+
+#
+# Generate a temporary make file that itself generates a missing ports file
+#
+.PHONY: $(GEN_MISSING_PORTS_MK)
+$(GEN_MISSING_PORTS_MK):
+	$(VERBOSE)mkdir -p $(dir $@)
+	$(VERBOSE)( echo -e "MAKE := $(MAKE)\n"; \
+	            $(foreach TYPE,api src raw,\
+	                $(foreach ARCHIVE,${ARCHIVES(${TYPE})},\
+	                   content_mk=$(call content_mk_file,$(TYPE),$(ARCHIVE)); \
+	                   rep_dir=$(call rep_dir_of_archive,$(TYPE),$(ARCHIVE)); \
+	                   echo -e "TARGETS += $(ARCHIVE)"; \
+	                   echo -e "CONTENT_MK($(ARCHIVE)) := $$content_mk"; \
+	                   echo -e "REP_DIR($(ARCHIVE)) := $$rep_dir\n"; \
+	            ) ) \
+	            echo -e "all: \$$(TARGETS)\n"; \
+	            echo -e "\$$(TARGETS):"; \
+	            echo -e "\t\$$(VERBOSE)\$$(MAKE) \\"; \
+	            echo -e "\t   \$$(if \$$(VERBOSE),--quiet) \\"; \
+	            echo -e "\t   -f \$$(GENODE_DIR)/tool/depot/mk/content_env_missing_ports.mk \\"; \
+	            echo -e "\t   GENODE_DIR=\$$(GENODE_DIR) \\"; \
+	            echo -e "\t   CONTRIB_DIR=\$$(GENODE_DIR)/contrib \\"; \
+	            echo -e "\t   CONTENT_MK=\$${CONTENT_MK(\$$@)} \\"; \
+	            echo -e "\t   REP_DIR=\$${REP_DIR(\$$@)} \\"; \
+	            echo -e "\t   MISSING_PORTS_FILE=$(MISSING_PORTS_FILE) \\"; \
+	            echo -e "\t   VERBOSE=\$$(VERBOSE)"; \
+	          ) > $(GEN_MISSING_PORTS_MK)
