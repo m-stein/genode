@@ -48,6 +48,8 @@ define HELP_MESSAGE
                        archive version needs to be updated. The default
                        is to use the current date.
 
+    PREPARE_PORTS=1    Prepare missing ports automatically.
+
 endef
 
 export GENODE_DIR := $(realpath $(dir $(MAKEFILE_LIST))/../..)
@@ -159,12 +161,55 @@ $(MAKECMDGOALS): execute_generated_extract_mk_file
 	@true
 
 #
+# Return shell script that handles missing ports
+#
+# \param $1  sorted list of missing ports file
+#
+ifeq ($(PREPARE_PORTS),1)
+
+# automatic prepare enabled: prepare missing ports
+handle_missing_ports=$(VERBOSE)( \
+	echo -e ""; \
+	echo -e "Ports not prepared or outdated:"; \
+	echo -e "  $(1)"; \
+	echo -e ""; \
+	echo -e "Preparing ports..."; \
+	echo -e ""; \
+	$(MAKE) $(if $(VERBOSE),--quiet) \
+	        -f $(GENODE_DIR)/tool/ports/prepare_port \
+	        $(1); )
+
+else
+
+# automatic prepare not enabled: generate error
+handle_missing_ports=$(VERBOSE)( \
+	echo -e ""; \
+	echo -e "Error: Ports not prepared or outdated:"; \
+	echo -e "  $(1)"; \
+	echo -e ""; \
+	echo -e "You can prepare respectively update them as follows:"; \
+	echo -e "  $(GENODE_DIR)/tool/ports/prepare_port $(1)"; \
+	echo -e ""; \
+	false)
+
+endif
+
+#
+# Throw an error if the missing list is not empty
+#
+# \param $1  list of missing ports file
+#
+check_missing_ports=$(if $1,$(call handle_missing_ports,$1),)
+
+#
 # Invoke sub-make to check for missing ports
 #
 .PHONY: checked_ports_exist
 checked_ports_exist:
-	$(VERBOSE)$(MAKE) $(if $(VERBOSE),--quiet) \
-	                  -f $(GENODE_DIR)/tool/depot/missing_ports \
-	                  VERBOSE=$(VERBOSE) \
-	                  $(MAKECMDGOALS);
+	$(call check_missing_ports,\
+	   $(shell $(MAKE) $(if $(VERBOSE),--quiet) \
+	                   -f $(GENODE_DIR)/tool/depot/missing_ports \
+	                   VERBOSE=$(VERBOSE) \
+	                   PREPARE_PORTS=$(PREPARE_PORTS) \
+	                   $(MAKECMDGOALS)))
 

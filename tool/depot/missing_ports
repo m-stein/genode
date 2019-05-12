@@ -80,35 +80,6 @@ rep_dir_of_recipe=$(call remove_string,$(call recipe_dir,$1/$2),/recipes/$1/$2)
 #
 rep_dir_of_archive=$(call rep_dir_of_recipe,$1,$(call archive_recipe,$2))
 
-#
-# Return shell script that generates error about missing ports
-#
-# \param $1  sorted list of missing ports file
-#
-error_missing_ports=@( \
-	echo -e ""; \
-	echo -e "Error: Ports not prepared or outdated:"; \
-	echo -e "  $(1)"; \
-	echo -e ""; \
-	echo -e "You can prepare respectively update them as follows:"; \
-	echo -e "  $(GENODE_DIR)/tool/ports/prepare_port $(1)"); \
-	echo -e ""; \
-	false
-
-#
-# Throw an error if the missing list is not empty
-#
-# \param $1  list of missing ports file
-#
-check_missing_ports=$(if $1,$(call error_missing_ports,$(sort $1)),)
-
-#
-# Throw an error if the missing ports file is not empty
-#
-# \param $1  absolute path of missing ports file
-#
-check_missing_ports_file=$(call check_missing_ports,$(call file_content,$1))
-
 # path to temporary file that is used to buffer the names of missing ports
 MISSING_PORTS_FILE := $(GENODE_DIR)/depot/var/missing_ports
 
@@ -131,7 +102,7 @@ $(MAKECMDGOALS): checked_ports_exist
 #
 .PHONY: checked_ports_exist
 checked_ports_exist: $(MISSING_PORTS_FILE)
-	$(call check_missing_ports_file,$(MISSING_PORTS_FILE))
+	$(VERBOSE)cat $(MISSING_PORTS_FILE) | sort -u
 
 #
 # Invoke sub-make to generate missing ports file

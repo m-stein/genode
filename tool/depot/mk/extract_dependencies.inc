@@ -1,6 +1,3 @@
-
-
-
 #
 # Collect dependencies for all specified arguments
 #

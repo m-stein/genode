@@ -12,11 +12,15 @@
 # VERBOSE      - verbosity
 #
 
+enable_bash  = $(eval SHELL:=bash)
+disable_bash = $(eval SHELL:=true)
+
+$(disable_bash)
 
 #
 # Check presence of argument $1. Back out with error message $2 if not defined.
 #
-_assert = $(if $1,$1,$(shell echo $2 >> $(MISSING_PORTS_FILE)))
+_assert = $(call enable_bash) $(if $1,$1,$(shell echo $2 >> $(MISSING_PORTS_FILE))) $(call disable_bash)
 
 #
 # Utility to query the port directory for a given path to a port description.
@@ -25,10 +29,11 @@ _assert = $(if $1,$1,$(shell echo $2 >> $(MISSING_PORTS_FILE)))
 #
 #   $(call port_dir,$(GENODE_DIR)/repos/libports/ports/libpng)
 #
-_hash_of_port     = $(shell cat $(call _assert,$(wildcard $1.hash),$(notdir $1)))
+_hash_of_port     = $(call enable_bash) $(shell cat $(call _assert,$(wildcard $1.hash),$(notdir $1))) $(call disable_bash)
 _port_dir         = $(wildcard $(CONTRIB_DIR)/$(notdir $1)-$(call _hash_of_port,$1))
 _checked_port_dir = $(call _assert,$(call _port_dir,$1),$(notdir $1))
 
+#with_bash =  $(shell echo Hallo) $(call disable_bash)
 port_dir = $(call _checked_port_dir,$1)
 
 
@@ -42,7 +47,6 @@ prevent_execution_of_content_targets:
 #
 # Execute recipe's content.mk rules for populating the archive directory
 #
-
 include $(CONTENT_MK)
 
 #
