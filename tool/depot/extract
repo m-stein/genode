@@ -76,8 +76,9 @@ _file_in_depot_or_recipe = $(if $(call _file_in_depot,$1,$2),\
                                 $(call _file_in_depot,$1,$2),\
                                 $(call _file_in_recipe,$1,$2))
 
-api_file       = $(call _file_in_depot_or_recipe,$1,api)
-used_apis_file = $(call _file_in_depot_or_recipe,$1,used_apis)
+api_file        = $(call _file_in_depot_or_recipe,$1,api)
+used_apis_file  = $(call _file_in_depot_or_recipe,$1,used_apis)
+content_mk_file = $(addsuffix /content.mk,$(call recipe_dir,$2/$(call archive_recipe,$1)))
 
 _pkg_archives_file = $(call recipe_dir,pkg/$(call archive_recipe,$1))/archives
 _user_pkg_archives = $(patsubst _/%,$(call archive_user,$1)/%,\
@@ -140,7 +141,8 @@ wipe_existing_archives:
 	                                               $(foreach A,${ARCHIVES(${TYPE})},\
 	                                                  $(call versioned_archive,$A))))
 
-$(EXTRACT_MK_FILE): checked_versions_defined checked_no_uncategorized
+$(EXTRACT_MK_FILE): checked_versions_defined checked_no_uncategorized checked_ports_exist
+	$(warning ==== step 2 ====)
 	$(VERBOSE)mkdir -p $(dir $@)
 	$(VERBOSE)( echo -e "all:\n"; \
 	            echo "TOOL_DIR := $(GENODE_DIR)/tool"; \
@@ -188,3 +190,70 @@ endif
 $(MAKECMDGOALS): execute_generated_extract_mk_file
 	@true
 
+
+#
+# Check for missing ports before start extracting
+#
+
+# determine repository directory for a given archive
+strip_suffix=$(1:$2=)
+rep_dir_of_recipe=$(call strip_suffix,$(call recipe_dir,$1/$2),/recipes/$1/$2)
+rep_dir_of_archive=$(call rep_dir_of_recipe,$1,$(call archive_recipe,$2))
+
+# error message if ports are missing
+error_missing_ports=@( \
+	echo -e ""; \
+	echo -e "Error: Ports not prepared or outdated:"; \
+	echo -e "  $(1)"; \
+	echo -e ""; \
+	echo -e "You can prepare respectively update them as follows:"; \
+	echo -e "  $(GENODE_DIR)/tool/ports/prepare_port $(1)"); \
+	echo -e ""; \
+	false
+
+# if missing ports file isn't empty, print an error and abort
+check_missing_ports=$(if $1,$(call error_missing_ports,$(sort $1)),)
+check_missing_ports_file=$(call check_missing_ports,$(call file_content,$1))
+
+MISSING_PORTS_FILE           := $(GENODE_DIR)/depot/var/missing_ports
+GEN_MISSING_PORTS_MK         := $(GENODE_DIR)/depot/var/check_missing_ports.mk
+CONTENT_ENV_MISSING_PORTS_MK := \$$(GENODE_DIR)/tool/depot/mk/content_env_missing_ports.mk
+
+.PHONY: checked_ports_exist $(MISSING_PORTS_FILE) $(GEN_MISSING_PORTS_MK)
+
+checked_ports_exist: $(MISSING_PORTS_FILE)
+	$(call check_missing_ports_file,$(MISSING_PORTS_FILE))
+
+$(MISSING_PORTS_FILE): $(GEN_MISSING_PORTS_MK)
+	$(VERBOSE)mkdir -p $(dir $@)
+	$(VERBOSE)rm -f $@
+	$(VERBOSE)$(MAKE) $(if $(VERBOSE),--quiet) \
+	                  -f $(GEN_MISSING_PORTS_MK) \
+	                  -C $(DEPOT_DIR) \
+	                  VERBOSE=$(VERBOSE) \
+	                  GENODE_DIR=$(GENODE_DIR) \
+	                  UPDATE_VERSIONS=$(UPDATE_VERSIONS);
+
+$(GEN_MISSING_PORTS_MK):
+	$(VERBOSE)mkdir -p $(dir $@)
+	$(VERBOSE)( echo -e "MAKE := $(MAKE)\n"; \
+	            $(foreach TYPE,api src,\
+	                $(foreach ARCHIVE,${ARCHIVES(${TYPE})},\
+	                   content_mk=$(call content_mk_file,$(ARCHIVE),$(TYPE)); \
+	                   rep_dir=$(call rep_dir_of_archive,$(TYPE),$(ARCHIVE)); \
+	                   echo -e "TARGETS += $(ARCHIVE)"; \
+	                   echo -e "CONTENT_MK($(ARCHIVE)) := $$content_mk"; \
+	                   echo -e "REP_DIR($(ARCHIVE)) := $$rep_dir\n"; \
+	            ) ) \
+	            echo -e "all: \$$(TARGETS)\n"; \
+	            echo -e "\$$(TARGETS):"; \
+	            echo -e "\t\$$(VERBOSE)\$$(MAKE) \\"; \
+	            echo -e "\t   \$$(if \$$(VERBOSE),--quiet) \\"; \
+	            echo -e "\t   -f $(CONTENT_ENV_MISSING_PORTS_MK) \\"; \
+	            echo -e "\t   GENODE_DIR=\$$(GENODE_DIR) \\"; \
+	            echo -e "\t   CONTRIB_DIR=\$$(GENODE_DIR)/contrib \\"; \
+	            echo -e "\t   CONTENT_MK=\$${CONTENT_MK(\$$@)} \\"; \
+	            echo -e "\t   REP_DIR=\$${REP_DIR(\$$@)} \\"; \
+	            echo -e "\t   MISSING_PORTS_FILE=$(MISSING_PORTS_FILE) \\"; \
+	            echo -e "\t   VERBOSE=\$$(VERBOSE)"; \
+	          ) > $(GEN_MISSING_PORTS_MK)
