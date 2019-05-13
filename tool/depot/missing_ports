@@ -37,7 +37,7 @@ define HELP_MESSAGE
 
 endef
 
-# root directory of Genode repository
+# root directory of the Genode source tree
 export GENODE_DIR := $(realpath $(dir $(MAKEFILE_LIST))/../..)
 
 # the tool expects archive paths given without the version element

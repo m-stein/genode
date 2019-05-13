@@ -1,26 +1,36 @@
 #
-# \brief  Environment for executing content.mk files
-# \author Norman Feske
-# \date   2006-05-13
+# \brief  Environment for content.mk files when determining missing ports
+# \author Martin Stein
+# \date   2019-05-12
 #
-# The file is executed from within the archive directory.
-# The following variables must be defined by the caller:
-#
-# GENODE_DIR   - root directory of the Genode source tree
-# CONTRIB_DIR  - collection of 3rd-party ports, usually $(GENODE_DIR)/contrib
-# CONTENT_MK   - content.mk file to execute
-# VERBOSE      - verbosity
+# GENODE_DIR         - root directory of the Genode source tree
+# CONTRIB_DIR        - directory for 3rd-party code
+# CONTENT_MK         - content.mk file to process
+# REP_DIR            - repository directory of the content.mk file
+# MISSING_PORTS_FILE - file to write the names of missing ports to
+# VERBOSE            - verbosity
 #
 
-enable_bash  = $(eval SHELL:=bash)
-disable_bash = $(eval SHELL:=true)
-
-$(disable_bash)
+#
+# Functions for disabeling and re-enabeling evaluation of $(shell ...)
+#
+ORIGINAL_SHELL := $(SHELL)
+enable_shell  = $(eval SHELL:=$(ORIGINAL_SHELL))
+disable_shell = $(eval SHELL:=true)
 
 #
-# Check presence of argument $1. Back out with error message $2 if not defined.
+# Disable shell calls so the content.mk file will not evaluate something like
+# $(shell find $(PORT_DIR) ...) while 'PORT_DIR' is empty because we have
+# overridden the port_dir function.
 #
-_assert = $(call enable_bash) $(if $1,$1,$(shell echo $2 >> $(MISSING_PORTS_FILE))) $(call disable_bash)
+$(disable_shell)
+
+#
+# If a port is missing, append its name to the missing ports file
+#
+_assert = $(call enable_shell) \
+          $(if $1,$1,$(shell echo $2 >> $(MISSING_PORTS_FILE))) \
+          $(call disable_shell)
 
 #
 # Utility to query the port directory for a given path to a port description.
@@ -29,27 +39,23 @@ _assert = $(call enable_bash) $(if $1,$1,$(shell echo $2 >> $(MISSING_PORTS_FILE
 #
 #   $(call port_dir,$(GENODE_DIR)/repos/libports/ports/libpng)
 #
-_hash_of_port     = $(call enable_bash) $(shell cat $(call _assert,$(wildcard $1.hash),$(notdir $1))) $(call disable_bash)
-_port_dir         = $(wildcard $(CONTRIB_DIR)/$(notdir $1)-$(call _hash_of_port,$1))
-_checked_port_dir = $(call _assert,$(call _port_dir,$1),$(notdir $1))
-
-#with_bash =  $(shell echo Hallo) $(call disable_bash)
-port_dir = $(call _checked_port_dir,$1)
-
+_port_hash = $(call enable_shell) \
+             $(shell cat $(call _assert,$(wildcard $1.hash),$(notdir $1))) \
+             $(call disable_shell)
+_port_dir  = $(wildcard $(CONTRIB_DIR)/$(notdir $1)-$(call _port_hash,$1))
+port_dir   = $(call _assert,$(call _port_dir,$1),$(notdir $1))
 
 #
-# Handy shortcuts to be used in content.mk files
+# Prevent the evaluation of mirror_from_rep_dir in content.mk
 #
 mirror_from_rep_dir = $(error mirror_from_rep_dir called outside of target)
 
+#
+# Prevent the evaluation of the first target in the content.mk file
+#
 prevent_execution_of_content_targets:
 
 #
-# Execute recipe's content.mk rules for populating the archive directory
+# Include the content.mk file to evaluate all calls to the port_dir function
 #
 include $(CONTENT_MK)
-
-#
-# Prevent parallel execution of content rules to prevent unexpected surprises
-#
-.NOTPARALLEL:

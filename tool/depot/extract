@@ -54,6 +54,51 @@ endef
 
 export GENODE_DIR := $(realpath $(dir $(MAKEFILE_LIST))/../..)
 
+# invoke sub-make to determine missing ports
+MISSING_PORTS := $(shell $(MAKE) --quiet \
+                                 -f $(GENODE_DIR)/tool/depot/missing_ports \
+                                 VERBOSE=$(VERBOSE) \
+                                 $(MAKECMDGOALS))
+
+# info string if there are missing ports and automatic prepare is enabled
+define MISSING_PORTS_INFO
+
+Error: Ports not prepared or outdated:
+   $(MISSING_PORTS)
+
+Preparing ports...
+
+endef
+
+# error string if there are missing ports and automatic prepare is disabled
+define MISSING_PORTS_ERROR
+
+
+Error: Ports not prepared or outdated:
+   $(MISSING_PORTS)
+
+You can prepare respectively update them as follows:
+   $(GENODE_DIR)/tool/ports/prepare_port $(MISSING_PORTS)
+
+
+endef
+
+# automatic prepare enabled: if ports missing, print info and go on
+ifeq ($(PREPARE_PORTS),1)
+$(if $(MISSING_PORTS),$(info $(MISSING_PORTS_INFO)),)
+
+# automatic prepare disabled: if ports missing, abort with an error
+else
+$(if $(MISSING_PORTS),$(error $(MISSING_PORTS_ERROR)),)
+endif
+
+# invoke sub-make to prepare missing ports if there are any
+prepare_ports:
+	$(if $(MISSING_PORTS),\
+	   $(VERBOSE)$(MAKE) $(if $(VERBOSE),--quiet) \
+	                     -f $(GENODE_DIR)/tool/ports/prepare_port \
+	                     $(MISSING_PORTS),)
+
 # the extract tool expects archive paths given without the version element
 BIN_PKG_PATH_ELEMS := 4
 
@@ -112,7 +157,7 @@ wipe_existing_archives:
 	                                               $(foreach A,${ARCHIVES(${TYPE})},\
 	                                                  $(call versioned_archive,$A))))
 
-$(EXTRACT_MK_FILE): checked_versions_defined checked_no_uncategorized checked_ports_exist
+$(EXTRACT_MK_FILE): checked_versions_defined checked_no_uncategorized prepare_ports
 	$(VERBOSE)mkdir -p $(dir $@)
 	$(VERBOSE)( echo -e "all:\n"; \
 	            echo "TOOL_DIR := $(GENODE_DIR)/tool"; \
@@ -159,57 +204,3 @@ endif
 
 $(MAKECMDGOALS): execute_generated_extract_mk_file
 	@true
-
-#
-# Return shell script that handles missing ports
-#
-# \param $1  sorted list of missing ports file
-#
-ifeq ($(PREPARE_PORTS),1)
-
-# automatic prepare enabled: prepare missing ports
-handle_missing_ports=$(VERBOSE)( \
-	echo -e ""; \
-	echo -e "Ports not prepared or outdated:"; \
-	echo -e "  $(1)"; \
-	echo -e ""; \
-	echo -e "Preparing ports..."; \
-	echo -e ""; \
-	$(MAKE) $(if $(VERBOSE),--quiet) \
-	        -f $(GENODE_DIR)/tool/ports/prepare_port \
-	        $(1); )
-
-else
-
-# automatic prepare not enabled: generate error
-handle_missing_ports=$(VERBOSE)( \
-	echo -e ""; \
-	echo -e "Error: Ports not prepared or outdated:"; \
-	echo -e "  $(1)"; \
-	echo -e ""; \
-	echo -e "You can prepare respectively update them as follows:"; \
-	echo -e "  $(GENODE_DIR)/tool/ports/prepare_port $(1)"; \
-	echo -e ""; \
-	false)
-
-endif
-
-#
-# Throw an error if the missing list is not empty
-#
-# \param $1  list of missing ports file
-#
-check_missing_ports=$(if $1,$(call handle_missing_ports,$1),)
-
-#
-# Invoke sub-make to check for missing ports
-#
-.PHONY: checked_ports_exist
-checked_ports_exist:
-	$(call check_missing_ports,\
-	   $(shell $(MAKE) $(if $(VERBOSE),--quiet) \
-	                   -f $(GENODE_DIR)/tool/depot/missing_ports \
-	                   VERBOSE=$(VERBOSE) \
-	                   PREPARE_PORTS=$(PREPARE_PORTS) \
-	                   $(MAKECMDGOALS)))
-
