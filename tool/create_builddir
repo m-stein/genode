@@ -139,14 +139,16 @@ BUILD_CONF(usb_armory)      := $(BUILD_CONF_ARM_V7)
 BUILD_CONF(wand_quad)       := $(BUILD_CONF_ARM_V7)
 BUILD_CONF(zynq_qemu)       := $(BUILD_CONF_ARM_V7)
 BUILD_CONF(muen)            := run_x86_64 $(BUILD_CONF_X86)
-BUILD_CONF(riscv_spike)     := run_kernel_riscv run_opt_spike run_boot_dir repos
+BUILD_CONF(riscv_spike)     := ${BUILD_CONF(riscv)}
 
 message: $(BUILD_DIR)/etc/build.conf
 $(BUILD_DIR)/etc/build.conf:
 	@echo "GENODE_DIR  := $(GENODE_ABS_DIR)" > $@
 	@echo 'BASE_DIR    := $$(GENODE_DIR)/repos/base' >> $@
 	@echo 'CONTRIB_DIR := $(CONTRIB_ABS_DIR)' >> $@
-ifneq ($(filter $(PLATFORM),$(PLATFORMS_DEPR)),)
+ifeq ($(PLATFORM),riscv_spike)
+	@echo "BOARD       := spike" >> $@
+else ifneq ($(filter $(PLATFORM),$(PLATFORMS_DEPR)),)
 	@echo "BOARD       := $(PLATFORM)" >> $@
 endif
 	@echo >> $@
