@@ -95,7 +95,7 @@ Heap::Dataspace *Heap::_allocate_dataspace(size_t size, bool enforce_separate_me
 		}
 		catch (Out_of_caps) {
 			_ds_pool.ram_alloc->free(new_ds_cap);
-			return nullptr;
+			throw;
 		}
 		catch (Region_map::Invalid_dataspace) {
 			warning("heap: attempt to attach invalid dataspace");
@@ -109,7 +109,6 @@ Heap::Dataspace *Heap::_allocate_dataspace(size_t size, bool enforce_separate_me
 		}
 	}
 	catch (Out_of_ram)  { return nullptr; }
-	catch (Out_of_caps) { return nullptr; }
 
 	if (enforce_separate_metadata) {
 
