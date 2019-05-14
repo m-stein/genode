@@ -241,15 +241,15 @@ void Sequence::Main::start_next_child()
 		bool const keep_going = config_xml.attribute_value("keep_going", false);
 		bool const restart    = config_xml.attribute_value("restart", false);
 
-		error("child \"", child->name(), "\" exited with exit value ",
-		      child->exit_value());
+		warning("child \"", child->name(), "\" exited with exit value ",
+		        child->exit_value());
 
 		if (!keep_going) {
 			env.parent().exit(child->exit_value());
 			sleep_forever();
 		}
 
-		error("keep-going", restart ? " starting from the top" : "");
+		warning("keep-going", restart ? " starting from the beginning" : "");
 		if (restart)
 			next_xml_index = 0;
 	}
