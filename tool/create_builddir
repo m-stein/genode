@@ -148,6 +148,9 @@ $(BUILD_DIR)/etc/build.conf:
 	@echo 'CONTRIB_DIR := $(CONTRIB_ABS_DIR)' >> $@
 ifeq ($(PLATFORM),riscv_spike)
 	@echo "BOARD       := spike" >> $@
+else ifeq ($(PLATFORM),muen)
+	@echo "BOARD       := muen" >> $@
+	@echo "KERNEL      := hw" >> $@
 else ifneq ($(filter $(PLATFORM),$(PLATFORMS_DEPR)),)
 	@echo "BOARD       := $(PLATFORM)" >> $@
 endif
