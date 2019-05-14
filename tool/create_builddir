@@ -75,7 +75,7 @@ ifneq ($(PLATFORM),)
    # Check if platform is deprecated or unknown
    #
    ifneq ($(filter $(PLATFORM),$(PLATFORMS_DEPR)),)
-      $(warning Platform '$(PLATFORM)' is deprecated, use '$(PLATFORM_ALT($(PLATFORM)))' instead)
+      $(info Platform '$(PLATFORM)' is deprecated, use '$(PLATFORM_ALT($(PLATFORM)))' instead)
    else ifeq ($(filter $(PLATFORM),$(PLATFORMS)),)
       $(error Bad platform argument '$(PLATFORM)')
    endif
