@@ -6,6 +6,11 @@
 
 assert_spec x86
 
+if {[have_include "power_on/qemu"] || [have_include "power_on/linux"]} {
+	puts stderr "\nNetperf WIFI running on Qemu/Linux is not supported.\n"
+	exit 0
+}
+
 if { [have_spec muen] } {
 	puts "Run script does not support Muen."
 	exit 0
