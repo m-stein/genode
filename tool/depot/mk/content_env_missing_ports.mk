@@ -28,9 +28,7 @@ $(disable_shell)
 #
 # If a port is missing, append its name to the missing ports file
 #
-_assert = $(call enable_shell) \
-          $(if $1,$1,$(shell echo $2 >> $(MISSING_PORTS_FILE))) \
-          $(call disable_shell)
+_assert = $(if $1,$1,$(shell echo $2 >> $(MISSING_PORTS_FILE)))
 
 #
 # Utility to query the port directory for a given path to a port description.
@@ -39,11 +37,9 @@ _assert = $(call enable_shell) \
 #
 #   $(call port_dir,$(GENODE_DIR)/repos/libports/ports/libpng)
 #
-_port_hash = $(call enable_shell) \
-             $(shell cat $(call _assert,$(wildcard $1.hash),$(notdir $1))) \
-             $(call disable_shell)
+_port_hash = $(shell cat $(call _assert,$(wildcard $1.hash),$(notdir $1)))
 _port_dir  = $(wildcard $(CONTRIB_DIR)/$(notdir $1)-$(call _port_hash,$1))
-port_dir   = $(call _assert,$(call _port_dir,$1),$(notdir $1))
+port_dir   = $(call enable_shell)$(call _assert,$(call _port_dir,$1),$(notdir $1))$(call disable_shell)
 
 #
 # Prevent the evaluation of mirror_from_rep_dir in content.mk
