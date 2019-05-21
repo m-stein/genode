@@ -75,12 +75,16 @@ void Signal_context::_delivered()
 void Signal_context::_killer_cancelled() { _killer = 0; }
 
 
-int Signal_context::submit(unsigned const n)
+bool Signal_context::can_submit(unsigned const n) const
 {
-	if (_killed || _submits >= (unsigned)~0 - n) { return -1; }
+	return !_killed && _submits <= ~(unsigned)0 - n;
+}
+
+
+void Signal_context::submit(unsigned const n)
+{
 	_submits += n;
 	if (_ack) { _deliverable(); }
-	return 0;
 }
 
 
@@ -100,24 +104,25 @@ void Signal_context::ack()
 }
 
 
-int Signal_context::kill(Signal_context_killer &k)
+bool Signal_context::can_kill() const
 {
-	/* check if in a kill operation or already killed */
-	if (_killed) {
-		if (_ack) { return 0; }
-		return -1;
-	}
+	return !_killed || _ack;
+}
+
+
+
+void Signal_context::kill(Signal_context_killer &k)
+{
 	/* kill directly if there is no unacknowledged delivery */
 	if (_ack) {
 		_killed = 1;
-		return 0;
+		return;
 	}
 	/* wait for delivery acknowledgement */
 	_killer = &k;
 	_killed = 1;
 	_killer->_context = this;
 	_killer->_thread.signal_context_kill_pending();
-	return 0;
 }
 
 
@@ -194,14 +199,18 @@ void Signal_receiver::_add_context(Signal_context &c) {
 	_contexts.enqueue(c._contexts_fe); }
 
 
-int Signal_receiver::add_handler(Signal_handler &h)
+bool Signal_receiver::can_add_handler(Signal_handler const &h) const
 {
-	if (h._receiver) { return -1; }
+	return h._receiver == nullptr;
+}
+
+
+void Signal_receiver::add_handler(Signal_handler &h)
+{
 	_handlers.enqueue(h._handlers_fe);
 	h._receiver = this;
 	h._thread.signal_wait_for_signal();
 	_listen();
-	return 0;
 }
 
 
