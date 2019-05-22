@@ -541,8 +541,10 @@ class Hw::Pml4_table
 			                  size_t const size,
 			                  Descriptor::access_t &desc)
 			{
+				bool volatile x = Descriptor::present(desc);
 				/* we need to use a next level table */
-				if (!Descriptor::present(desc)) {
+				if (!x) {
+Genode::log(__func__,__LINE__); while(1);
 					/* create and link next level table */
 					ENTRY & table = alloc.construct<ENTRY>();
 					desc = Descriptor::create(alloc.phys_addr(table));

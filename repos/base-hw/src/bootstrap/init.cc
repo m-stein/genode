@@ -23,8 +23,36 @@ Bootstrap::Platform & Bootstrap::platform() {
 
 extern "C" void init() __attribute__ ((noreturn));
 
+
+extern int __idt;
+extern int __idt_end;
+
+/**
+ * Pseudo Descriptor
+ *
+ * See Intel SDM Vol. 3A, section 3.5.1
+ */
+struct Pseudo_descriptor
+{
+	Genode::uint16_t const limit = 0;
+	Genode::uint64_t const base  = 0;
+
+	constexpr Pseudo_descriptor(Genode::uint16_t l, Genode::uint64_t b)
+	: limit(l), base(b) {}
+} __attribute__((packed));
+
+void idt_init()
+{
+	using namespace Genode;
+	Pseudo_descriptor descriptor {
+		(uint16_t)((addr_t)&__idt_end - (addr_t)&__idt),
+		(uint64_t)(&__idt) };
+	asm volatile ("lidt %0" : : "m" (descriptor));
+}
+
 extern "C" void init()
 {
+	idt_init();
 	Bootstrap::Platform & p = Bootstrap::platform();
 	p.start_core(p.enable_mmu());
 }

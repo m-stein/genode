@@ -17,6 +17,14 @@
 
 .set STACK_SIZE, 4096
 
+/* virtual addresses */
+.set BASE, 0xffffffc000000000
+.set ISR,  BASE
+.set ISR_ENTRY_SIZE, 12
+
+.set IDT_FLAGS_PRIVILEGED,   0x8e01
+.set IDT_FLAGS_UNPRIVILEGED, 0xee01
+
 .section ".text.crt0"
 
 	/* magic multi-boot 1 header */
@@ -36,6 +44,45 @@
 	.word   0x0
 	.long   0x8
 	__mbi2_end:
+
+.macro _idt_entry addr flags
+	.word \addr & 0xffff
+	.word 0x0008
+	.word \flags
+	.word (\addr >> 16) & 0xffff
+	.long \addr >> 32
+	.long 0
+.endm
+
+	/*****************************************
+	 ** Interrupt Descriptor Table (IDT)    **
+	 ** See Intel SDM Vol. 3A, section 6.10 **
+	 *****************************************/
+
+	.global __idt
+	.align 8
+	__idt:
+
+	/* first 128 entries */
+	.set isr_addr, ISR
+	.rept 0x80
+	_idt_entry isr_addr IDT_FLAGS_PRIVILEGED
+	.set isr_addr, isr_addr + ISR_ENTRY_SIZE
+	.endr
+
+	/* syscall entry 0x80 */
+	_idt_entry isr_addr IDT_FLAGS_UNPRIVILEGED
+	.set isr_addr, isr_addr + ISR_ENTRY_SIZE
+
+	/* remaing entries */
+	.rept 127
+	_idt_entry isr_addr IDT_FLAGS_PRIVILEGED
+	.set isr_addr, isr_addr + ISR_ENTRY_SIZE
+	.endr
+
+	.global __idt_end
+	.align 8
+	__idt_end:
 
 
 .macro SETUP_PAGING
@@ -203,28 +250,29 @@ __gdt:
 	.align 8
 	.global __gdt_start
 	__gdt_start:
-	/* Null descriptor */
+	/* gate 0: Null descriptor */
 	.quad 0
-	/* 64-bit code segment descriptor */
+	/* gate 1: 64-bit code segment descriptor */
 	.long 0
-	/* GDTE_LONG | GDTE_PRESENT | GDTE_CODE | GDTE_NON_SYSTEM */
+	/* gate 1: GDTE_LONG | GDTE_PRESENT | GDTE_CODE | GDTE_NON_SYSTEM */
 	.long 0x209800
-	/* 64-bit data segment descriptor */
+	/* gate 2: 64-bit data segment descriptor */
 	.long 0
-	/* GDTE_LONG | GDTE_PRESENT | GDTE_TYPE_DATA_A | GDTE_TYPE_DATA_W | GDTE_NON_SYSTEM */
+	/* gate 2: GDTE_LONG | GDTE_PRESENT | GDTE_TYPE_DATA_A | GDTE_TYPE_DATA_W | GDTE_NON_SYSTEM */
 	.long 0x209300
-	/* 64-bit user code segment descriptor */
+	/* gate 3: 64-bit user code segment descriptor */
 	.long 0
-	/* GDTE_LONG | GDTE_PRESENT | GDTE_CODE | GDTE_NON_SYSTEM */
+	/* gate 3: GDTE_LONG | GDTE_PRESENT | GDTE_CODE | GDTE_NON_SYSTEM */
 	.long 0x20f800
-	/* 64-bit user data segment descriptor */
+	/* gate 4: 64-bit user data segment descriptor */
 	.long 0
-	/* GDTE_LONG | GDTE_PRESENT | GDTE_TYPE_DATA_A | GDTE_TYPE_DATA_W | GDTE_NON_SYSTEM */
+	/* gate 4: GDTE_LONG | GDTE_PRESENT | GDTE_TYPE_DATA_A | GDTE_TYPE_DATA_W | GDTE_NON_SYSTEM */
 	.long 0x20f300
-	/* Task segment descriptor */
+	/* gate 5: Task segment descriptor */
 	.long TSS_LIMIT
-	/* GDTE_PRESENT | GDTE_SYS_TSS */
+	/* gate 5: GDTE_PRESENT | GDTE_SYS_TSS */
 	.long TSS_TYPE
+	/* gate 6: Null descriptor */
 	.long 0
 	.long 0
 	.global __gdt_end
