@@ -83,17 +83,30 @@ QUIET = $(if $(VERBOSE),--quiet)
 #
 update_missing_ports_file: checked_versions_defined checked_no_uncategorized
 	$(VERBOSE)mkdir -p $(dir $(GEN_MISSING_PORTS_MK))
-	$(VERBOSE)( echo -e "MAKE := $(MAKE)\n"; \
-	            $(foreach TYPE,api src raw,\
-	                $(foreach ARCHIVE,${ARCHIVES(${TYPE})},\
-	                   content_mk=$(call content_mk_file,$(TYPE),$(ARCHIVE)); \
-	                   rep_dir=$(call rep_dir_of_archive,$(TYPE),$(ARCHIVE)); \
-	                   echo -e "TARGETS += $(ARCHIVE)"; \
-	                   echo -e "CONTENT_MK($(ARCHIVE)) := $$content_mk"; \
-	                   echo -e "REP_DIR($(ARCHIVE)) := $$rep_dir\n"; \
+	$(VERBOSE)( echo -e "all:\n"; \
+	            echo -e "MAKE := $(MAKE)\n"; \
+	            $(foreach TYPE,api src raw pkg,\
+	                $(foreach A,${ARCHIVES(${TYPE})},\
+	                   target=$(call versioned_archive,$A); \
+	                   content_mk=$(call content_mk_file,$(TYPE),$A); \
+	                   rep_dir=$(call rep_dir_of_archive,$(TYPE),$A); \
+	                   echo "ARCHIVES(${TYPE}) += $$target"; \
+	                   echo "CONTENT_MK($$target) := $$content_mk"; \
+	                   echo "REP_DIR($$target) := $$rep_dir"; \
 	            ) ) \
-	            echo -e "all: \$$(TARGETS)\n"; \
-	            echo -e "\$$(TARGETS):"; \
+	            echo -e ""; \
+	            $(foreach A,${ARCHIVES(pkg)},\
+	               $(foreach DEP,$(call pkg_pkg_archives,$A),\
+	                  echo -e "$(call versioned_archive,$A) :" \
+	                          "$(call versioned_archive,$(DEP))";)) \
+	            echo -e ""; \
+	            echo -e "\$${ARCHIVES(src)} : \$${ARCHIVES(api)}"; \
+	            echo -e "\$${ARCHIVES(pkg)} : \$${ARCHIVES(api)}"; \
+	            echo -e "\$${ARCHIVES(pkg)} : \$${ARCHIVES(src)}"; \
+	            echo -e "\$${ARCHIVES(pkg)} : \$${ARCHIVES(raw)}"; \
+	            echo -e "\nTARGETS := \$$(foreach T,api src raw,\$${ARCHIVES(\$$T)})"; \
+	            echo -e "\nall: \$$(TARGETS)"; \
+	            echo -e "\n\$$(TARGETS):"; \
 	            echo -e "\t$(VERBOSE)\$$(MAKE) \\"; \
 	            echo -e "\t   $(QUIET) \\"; \
 	            echo -e "\t   -f $(GENODE_DIR)/tool/depot/mk/content_env_missing_ports.mk \\"; \
@@ -107,4 +120,4 @@ update_missing_ports_file: checked_versions_defined checked_no_uncategorized
 	$(VERBOSE)mkdir -p $(dir $(MISSING_PORTS_FILE))
 	$(VERBOSE)rm -f $(MISSING_PORTS_FILE)
 	$(VERBOSE)touch $(MISSING_PORTS_FILE)
-	$(VERBOSE)$(MAKE) $(QUIET) -f $(GEN_MISSING_PORTS_MK);
+	$(VERBOSE)$(MAKE) $(QUIET) -C $(DEPOT_DIR) -f $(GEN_MISSING_PORTS_MK);
