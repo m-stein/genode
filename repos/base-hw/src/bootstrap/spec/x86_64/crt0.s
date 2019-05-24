@@ -17,13 +17,49 @@
 
 .set STACK_SIZE, 4096
 
-/* virtual addresses */
-.set BASE, 0xffffffc000000000
-.set ISR,  BASE
+/* offsets of member variables in a CPU context */
+.set IP_OFFSET, 17 * 8
+.set SP_OFFSET, 20 * 8
+
+/* .set BASE, 0x200028 */
+.set BASE, 0x201cd0
+.set ISR, BASE
 .set ISR_ENTRY_SIZE, 12
 
 .set IDT_FLAGS_PRIVILEGED,   0x8e01
 .set IDT_FLAGS_UNPRIVILEGED, 0xee01
+
+.macro _isr_entry
+	.align 4, 0x90
+.endm
+
+.macro _exception vector
+	_isr_entry
+	push $0
+	push $\vector
+	jmp _kernel_entry
+.endm
+
+.macro _exception_with_code vector
+	_isr_entry
+	nop
+	nop
+	push $\vector
+	jmp _kernel_entry
+.endm
+
+.macro _idt_entry addr flags
+	.word \addr & 0xffff
+	.word 0x0008
+	.word \flags
+	.word (\addr >> 16) & 0xffff
+	.long \addr >> 32
+	.long 0
+.endm
+
+.macro _load_address label reg
+	mov \label@GOTPCREL(%rip), %\reg
+.endm
 
 .section ".text.crt0"
 
@@ -45,14 +81,7 @@
 	.long   0x8
 	__mbi2_end:
 
-.macro _idt_entry addr flags
-	.word \addr & 0xffff
-	.word 0x0008
-	.word \flags
-	.word (\addr >> 16) & 0xffff
-	.long \addr >> 32
-	.long 0
-.endm
+/****************************** IDT *******************************/
 
 	/*****************************************
 	 ** Interrupt Descriptor Table (IDT)    **
@@ -63,21 +92,9 @@
 	.align 8
 	__idt:
 
-	/* first 128 entries */
 	.set isr_addr, ISR
-	.rept 0x80
+	.rept 256
 	_idt_entry isr_addr IDT_FLAGS_PRIVILEGED
-	.set isr_addr, isr_addr + ISR_ENTRY_SIZE
-	.endr
-
-	/* syscall entry 0x80 */
-	_idt_entry isr_addr IDT_FLAGS_UNPRIVILEGED
-	.set isr_addr, isr_addr + ISR_ENTRY_SIZE
-
-	/* remaing entries */
-	.rept 127
-	_idt_entry isr_addr IDT_FLAGS_PRIVILEGED
-	.set isr_addr, isr_addr + ISR_ENTRY_SIZE
 	.endr
 
 	.global __idt_end
@@ -166,6 +183,8 @@ __gdt:
 
 
 .code64
+	.align 8
+	.globl _start64_bsp
 	_start64_bsp:
 
 	/* save rax & rbx, used to lookup multiboot structures */
@@ -219,6 +238,130 @@ __gdt:
 	mov %rax, %cr4
 
 	fninit
+
+/***************************** uart test begin ****************************/
+/*
+movw   $0x3fc,-0x6(%rbp)
+movb   $0x80,-0x34(%rbp)
+movzbl -0x34(%rbp),%eax
+movzwl -0x6(%rbp),%edx
+out    %al,(%dx)
+
+_label_b:
+mov    -0x4(%rbp),%eax
+lea    -0x1(%rax),%edx
+mov    %edx,-0x4(%rbp)
+test   %eax,%eax
+setne  %al
+test   %al,%al
+je     _label_a
+
+jmp    _label_b
+_label_a:
+movw   $0x3f9,-0x20(%rbp)
+movb   $0x1,-0x27(%rbp)
+
+movzbl -0x27(%rbp),%eax
+movzwl -0x20(%rbp),%edx
+out    %al,(%dx)
+movw   $0x3fa,-0x1e(%rbp)
+movb   $0x0,-0x28(%rbp)
+movzbl -0x28(%rbp),%eax
+movzwl -0x1e(%rbp),%edx
+out    %al,(%dx)
+movw   $0x3fc,-0x1c(%rbp)
+movb   $0x3,-0x29(%rbp)
+movzbl -0x29(%rbp),%eax
+movzwl -0x1c(%rbp),%edx
+out    %al,(%dx)
+movw   $0x3fa,-0x1a(%rbp)
+movb   $0x0,-0x2a(%rbp)
+movzbl -0x2a(%rbp),%eax
+movzwl -0x1a(%rbp),%edx
+out    %al,(%dx)
+movw   $0x3fb,-0x18(%rbp)
+movb   $0x7,-0x2b(%rbp)
+movzbl -0x2b(%rbp),%eax
+movzwl -0x18(%rbp),%edx
+out    %al,(%dx)
+movw   $0x3fd,-0x16(%rbp)
+movb   $0xb,-0x2c(%rbp)
+movzbl -0x2c(%rbp),%eax
+movzwl -0x16(%rbp),%edx
+out    %al,(%dx)
+movw   $0x3fa,-0x14(%rbp)
+movb   $0x1,-0x2d(%rbp)
+movzbl -0x2d(%rbp),%eax
+movzwl -0x14(%rbp),%edx
+out    %al,(%dx)
+movw   $0x3fa,-0x12(%rbp)
+
+movzwl -0x12(%rbp),%eax
+mov    %eax,%edx
+in     (%dx),%al
+mov    %al,-0x2e(%rbp)
+movw   $0x3fb,-0x10(%rbp)
+movzwl -0x10(%rbp),%eax
+mov    %eax,%edx
+in     (%dx),%al
+mov    %al,-0x2f(%rbp)
+movw   $0x3fc,-0xe(%rbp)
+movzwl -0xe(%rbp),%eax
+mov    %eax,%edx
+in     (%dx),%al
+mov    %al,-0x30(%rbp)
+movw   $0x3fd,-0xc(%rbp)
+movzwl -0xc(%rbp),%eax
+mov    %eax,%edx
+in     (%dx),%al
+mov    %al,-0x31(%rbp)
+movw   $0x3fe,-0xa(%rbp)
+movzwl -0xa(%rbp),%eax
+mov    %eax,%edx
+in     (%dx),%al
+mov    %al,-0x32(%rbp)
+movw   $0x3ff,-0x24(%rbp)
+movzwl -0x24(%rbp),%eax
+mov    %eax,%edx
+in     (%dx),%al
+mov    %al,-0x33(%rbp)
+
+movb   $0x20,-0x35(%rbp)
+movw   $0x3fe,-0x22(%rbp)
+
+_label_d:
+movzwl -0x22(%rbp),%eax
+mov    %eax,%edx
+in     (%dx),%al
+mov    %al,-0x26(%rbp)
+movzbl -0x26(%rbp),%eax
+
+and    -0x35(%rbp),%al
+cmp    -0x35(%rbp),%al
+setne  %al
+test   %al,%al
+je     _label_c
+jmp    _label_d
+_label_c:
+movw   $0x3f9,-0x8(%rbp)
+movb   $0x41,-0x25(%rbp)
+
+movzbl -0x25(%rbp),%eax
+movzwl -0x8(%rbp),%edx
+out    %al,(%dx)
+*/
+/***************************** uart test end ****************************/
+
+
+
+
+
+
+
+
+
+
+
 
 	/* kernel-initialization */
 	call init

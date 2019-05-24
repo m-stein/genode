@@ -63,10 +63,8 @@ Platform::Pd::Pd(Platform::Ram_allocator & alloc)
 {
 	using namespace Genode;
 	addr_t const table_virt_base = Hw::Mm::core_page_tables().base;
-Genode::log(__func__,__LINE__); while(1);
 	map_insert(Mapping((addr_t)table_base, table_virt_base,
 	                   sizeof(Table),       Hw::PAGE_FLAGS_KERN_DATA));
-Genode::log(__func__,__LINE__); while(1);
 	map_insert(Mapping((addr_t)array_base, table_virt_base + sizeof(Table),
 	                   sizeof(Table_array), Hw::PAGE_FLAGS_KERN_DATA));
 }
@@ -89,7 +87,6 @@ void Platform::Pd::map_insert(Mapping m)
 {
 	mappings.add(m);
 	map(m);
-Genode::log(__func__,__LINE__); while(1);
 }
 
 
@@ -178,8 +175,6 @@ Platform::Platform()
 
 	/* now we can use the ram allocator for core's pd */
 	core_pd.construct(ram_alloc);
-
-Genode::log(__func__,__LINE__); while(1);
 
 	/* temporarily map all bootstrap memory 1:1 for transition to core */
 	// FIXME do not insert as mapping for core

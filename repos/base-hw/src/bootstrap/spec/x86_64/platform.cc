@@ -211,6 +211,7 @@ Bootstrap::Platform::Board::Board()
 		memcpy((void *)AP_BOOT_CODE_PAGE, &_ap, ap_code_size);
 	}
 
+Genode::log("serial port:", Bios_data_area::singleton()->serial_port());
 }
 
 struct Lapic : Mmio
