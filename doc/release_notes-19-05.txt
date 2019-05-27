@@ -774,35 +774,27 @@ Date:   Thu Apr 11 21:36:28 2019 +0200
 Unified types for time values
 =============================
 
-; @m-stein
+[https://genode.org/documentation/release-notes/17.05#New_API_for_user-level_timing - Two years ago]
 
-commit 181c78d482812cc6665b4abbdfb33d87c4f7e7b1
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Tue Apr 9 15:46:36 2019 +0200
+we introduced the so-called timeout framework to provide a general solution for
+requirements unmet by the bare timer-session interface - most notably
+timer-session multiplexing amongst multiple timeouts and microseconds accuracy.
+Up to this day, the timeout framework has proved itself many times in both
+real-life appliances and artifical tests and has become the standard front end
+for timing in Genode applications.
 
-    timeout: use uint64_t for all plain time values
-    
-    This enforces the use of unsigned 64-bit values for time in the duration type,
-    the timeout framework, the timer session, the userland timer-drivers, and the
-    alarm framework on all platforms. The commit also adapts the code that uses
-    these tools accross all basic repositories (base, base-*, os. gems, libports,
-    ports, dde_*) to use unsigned 64-bit values for time as well as far as this
-    does not imply profound modifications.
-    
-    Fixes #3208
+With this release, we solved one of the few remaining limitations with the
+framework by enabling timeouts of up to 2^64 microseconds (> 500000 years)
+across all supported architectures. In order to achieve this, we replaced the
+former machine-word-wide types used for plain time values by unsigned 64-bit
+integers. We did this not only inside the timeout framework but
+also to almost all code in the basic Genode repositories that uses the
+framework.
 
-commit 0b9916cae221007ed59f628d2de20abe09880d19
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Wed Apr 17 12:16:42 2019 +0200
-
-    Timer::Connection: simplify curr_time
-    
-    With the new fact that plain time values are always 64 bit unsigned, the
-    timestamp type is never bigger than the plain time type. Therefore, a code path
-    in the curr_time interpolation that treated this condition is not neccessary
-    anymore.
-    
-    Ref #3208
+By doing so, we also paved the way for a second step in which we are planning
+to replace plain time values as far as possible with the abstract 'Duration'
+type. With this in place, the user wouldn't have to worry anymore about any
+plain-integer implications when calculating with time values.
 
 
 Support for chained EBR partitions
@@ -822,19 +814,11 @@ Date:   Sun Mar 10 14:36:07 2019 +0100
 IP forwarding with port redirection
 ===================================
 
-; @m-stein
-
-commit bcc049ceebfe4b22d965afa1445d669dc1d81ee9
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Mon Mar 18 17:31:59 2019 +0100
-
-    nic_router: manipulate port-forwarding port
-    
-    The new configuration attributes <tcp-forward to_port="123" /> and
-    <udp-forward to_port="123" /> enable manipulating the destination port of
-    port-forwarded packets.
-    
-    Fixes #3237
+The NIC router can now be used to redirect to individual destination ports on
+port-forwarding. To express this, the new 'to_port' attritbute can be added to
+'<tcp-forward>' and '<udp-forward>' rules in the NIC router configuration. If
+the new attribute isn't added, the rules behave as usual and forward with an
+unaltered destination port.
 
 
 NIC-bridge support for ethernet multicast
@@ -1496,21 +1480,18 @@ Tooling and build system
 Improved handling of missing ports
 ==================================
 
-; @m-stein
+The depot tools 'tool/depot/create' and 'tool/depot/extract' now detect and
+report all missing third-party sources - called ports - for a given set of
+archives at once. Additionally, the user can tell the tools to download and
+prepare such missing ports automatically by setting the environment variable
+'PREPARE_PORTS' to '1' (Please be aware that doing so may cause downloads and
+file operations in your 'contrib' directory without further interaction). These
+features make building archives with dependencies to many ports more enjoyable.
+If you merely need a list of ports that are missing for your archives, you can
+use the new tool 'tool/depot/missing_ports'.
 
-; refer to genodians article
-
-commit d9ef1ce099f9530da83218658cf07c2ce7fbe4fc
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Sun May 12 03:13:02 2019 +0200
-
-    tool/depot: improve handling of missing ports
-    
-    * The extract tool determines and reports all missing ports at once.
-    * The extract tool automatically prepares all missing ports if PREPARE_PORTS=1.
-    * The missing_ports tool prints a list of missing ports for given archives.
-    
-    Fixes #3353
+For more details you may read the
+[http://www.genodians.org/m-stein/2019-05-21-depot-missing-ports - article on genodians.org] .
 
 
 Automated depot management
