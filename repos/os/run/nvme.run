@@ -86,7 +86,7 @@ append config {
 	<start name="nvme_drv">
 		<resource name="RAM" quantum="16M"/>
 		<provides> <service name="Block"/> </provides>
-		<config>
+		<config verbose_regs="no" verbose_mem="no" verbose_io="no">
 			<policy label_prefix="block_tester" writeable="no"/>
 		</config>
 	</start>
@@ -182,6 +182,7 @@ build_boot_image $boot_modules
 append qemu_args " -nographic -m 512 "
 append qemu_args " -drive id=nvme0,file=bin/nvme.raw,format=raw,if=none "
 append qemu_args " -device nvme,drive=nvme0,serial=fnord,id=nvme0n1 "
+#append qemu_args " -d trace:nvme\* "
 
 run_genode_until {.*child "block_tester" exited with exit value 0.*\n} 300
 
