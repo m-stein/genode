@@ -768,7 +768,7 @@ set skip_test(test-tcp_bulk_lwip)   [expr ![have_spec x86]]
 set skip_test(test-tcp_bulk_lxip)   [expr ![have_spec x86]]
 set skip_test(test-solo5)           [expr ![have_spec x86_64]]
 set skip_test(test-libc)            [expr [have_spec sel4] || [have_spec rpi] || [expr [have_spec pbxa9] && [have_spec foc]] || [expr [have_spec imx53] && [have_spec trustzone]]]
-
+set max_uptime 60
 #
 # FIXME
 #
@@ -878,5 +878,20 @@ while {1} {
 		set timeout [expr $min_timeout + 20]
 
 		set output ""
+
+		#
+		# Some platforms have a problem with executing all tests on a single
+		# boot. Thus, we re-boot them periodically.
+		#
+		if {$timeout > $max_uptime} {
+
+			# shut-down running system
+			exec kill -9 [exp_pid -i $serial_id]
+			run_power_off
+
+			# prepare system re-boot
+			prepare_to_run_genode
+			continue
+		}
 	}
 }
