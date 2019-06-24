@@ -23,41 +23,73 @@ architectures do this automatically.
  #define	__exported
 --- src/lib/libc/lib/libc/i386/gen/setjmp.S
 +++ src/lib/libc/lib/libc/i386/gen/setjmp.S
-@@ -54,7 +54,7 @@
+@@ -49,12 +49,14 @@
+ #include "SYS.h"
+ 
+ ENTRY(setjmp)
++	PIC_PROLOGUE
+ 	movl	4(%esp),%ecx
+ 	leal	28(%ecx), %eax
  	pushl	%eax			/* (sigset_t*)oset */
  	pushl	$0			/* (sigset_t*)set  */
  	pushl	$1			/* SIG_BLOCK       */
 -	call	__libc_sigprocmask
-+	call	__libc_sigprocmask@PLT
++	call	PIC_PLT(__libc_sigprocmask)
++	PIC_EPILOGUE
  	addl	$12,%esp
  	movl	4(%esp),%ecx
  	movl	0(%esp),%edx
-@@ -76,7 +76,7 @@
+@@ -71,12 +73,14 @@
+ 
+ 	WEAK_REFERENCE(__longjmp, longjmp)
+ ENTRY(__longjmp)
++	PIC_PROLOGUE
+ 	movl	4(%esp),%edx
+ 	pushl	$0			/* (sigset_t*)oset */
  	leal	28(%edx), %eax
  	pushl	%eax			/* (sigset_t*)set  */
  	pushl	$3			/* SIG_SETMASK     */
 -	call	__libc_sigprocmask
-+	call	__libc_sigprocmask@PLT
++	call	PIC_PLT(__libc_sigprocmask)
++	PIC_EPILOGUE
  	addl	$12,%esp
  	movl	4(%esp),%edx
  	movl	8(%esp),%eax
 --- src/lib/libc/lib/libc/i386/gen/sigsetjmp.S
 +++ src/lib/libc/lib/libc/i386/gen/sigsetjmp.S
-@@ -63,7 +63,7 @@
+@@ -54,6 +54,7 @@
+  */
+ 
+ ENTRY(sigsetjmp)
++	PIC_PROLOGUE
+ 	movl	8(%esp),%eax
+ 	movl	4(%esp),%ecx
+ 	movl	%eax,44(%ecx)
+@@ -63,7 +64,8 @@
  	pushl	%eax			/* (sigset_t*)oset */
  	pushl	$0			/* (sigset_t*)set  */
  	pushl	$1			/* SIG_BLOCK       */
 -	call	__libc_sigprocmask
-+	call	__libc_sigprocmask@PLT
++	call	PIC_PLT(__libc_sigprocmask)
++	PIC_EPILOGUE
  	addl	$12,%esp
  	movl	4(%esp),%ecx
  2:	movl	0(%esp),%edx
-@@ -87,7 +87,7 @@
+@@ -80,6 +82,7 @@
+ 
+ 	WEAK_REFERENCE(__siglongjmp, siglongjmp)
+ ENTRY(__siglongjmp)
++	PIC_PROLOGUE
+ 	movl	4(%esp),%edx
+ 	cmpl	$0,44(%edx)
+ 	jz	2f
+@@ -87,7 +90,8 @@
  	leal	28(%edx), %eax
  	pushl	%eax			/* (sigset_t*)set  */
  	pushl	$3			/* SIG_SETMASK     */
 -	call	__libc_sigprocmask
-+	call	__libc_sigprocmask@PLT
++	call	PIC_PLT(__libc_sigprocmask)
++	PIC_EPILOGUE
  	addl	$12,%esp
  	movl	4(%esp),%edx
  2:	movl	8(%esp),%eax
