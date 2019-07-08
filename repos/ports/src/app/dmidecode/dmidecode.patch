@@ -1,0 +1,77 @@
++++ src/app/dmidecode/dmidecode.c
+@@ -5150,9 +5150,13 @@ static void dmi_table_decode(u8 *buf, u32 len, u16 num, u16 ver, u32 flags)
+ 
+ 		if (display
+ 		 && (!(opt.flags & FLAG_QUIET) || (opt.flags & FLAG_DUMP)))
++		{
+ 			printf("Handle 0x%04X, DMI type %d, %d bytes\n",
+ 				h.handle, h.type, h.length);
+ 
++			genode_dmi_header(&h);
++		}
++
+ 		/* Look for the next handle */
+ 		next = data + h.length;
+ 		while ((unsigned long)(next - buf + 1) < len
+@@ -5239,6 +5243,7 @@ static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char *devmem,
+ 			if (!(opt.flags & FLAG_FROM_DUMP))
+ 				printf("Table at 0x%08llX.\n",
+ 				       (unsigned long long)base);
++				genode_dmi_table(base, ver);
+ 		}
+ 		printf("\n");
+ 	}
+@@ -5265,7 +5270,7 @@ static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char *devmem,
+ 		len = size;
+ 	}
+ 	else
+-		buf = mem_chunk(base, len, devmem);
++		buf = genode_mem_chunk(base, len, devmem);
+ 
+ 	if (buf == NULL)
+ 	{
+@@ -5283,7 +5288,7 @@ static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char *devmem,
+ 	else
+ 		dmi_table_decode(buf, len, num, ver >> 8, flags);
+ 
+-	free(buf);
++	genode_free(buf);
+ }
+ 
+ 
+@@ -5585,7 +5590,7 @@ int main(int argc, char * const argv[])
+ 		if (!(opt.flags & FLAG_QUIET))
+ 			printf("Reading SMBIOS/DMI data from file %s.\n",
+ 			       opt.dumpfile);
+-		if ((buf = mem_chunk(0, 0x20, opt.dumpfile)) == NULL)
++		if ((buf = genode_mem_chunk(0, 0x20, opt.dumpfile)) == NULL)
+ 		{
+ 			ret = 1;
+ 			goto exit_free;
+@@ -5656,7 +5661,7 @@ int main(int argc, char * const argv[])
+ 	if (!(opt.flags & FLAG_QUIET))
+ 		printf("Found SMBIOS entry point in EFI, reading table from %s.\n",
+ 		       opt.devmem);
+-	if ((buf = mem_chunk(fp, 0x20, opt.devmem)) == NULL)
++	if ((buf = genode_mem_chunk(fp, 0x20, opt.devmem)) == NULL)
+ 	{
+ 		ret = 1;
+ 		goto exit_free;
+@@ -5678,7 +5683,7 @@ int main(int argc, char * const argv[])
+ 	if (!(opt.flags & FLAG_QUIET))
+ 		printf("Scanning %s for entry point.\n", opt.devmem);
+ 	/* Fallback to memory scan (x86, x86_64) */
+-	if ((buf = mem_chunk(0xF0000, 0x10000, opt.devmem)) == NULL)
++	if ((buf = genode_mem_chunk(0xF0000, 0x10000, opt.devmem)) == NULL)
+ 	{
+ 		ret = 1;
+ 		goto exit_free;
+@@ -5722,7 +5727,7 @@ int main(int argc, char * const argv[])
+ 	if (!found && !(opt.flags & FLAG_QUIET))
+ 		printf("# No SMBIOS nor DMI entry point found, sorry.\n");
+ 
+-	free(buf);
++	genode_free(buf);
+ exit_free:
+ 	free(opt.type);
+ 

@@ -1,0 +1,9 @@
+LICENSE   := GPLv2
+VERSION   := 3.2
+DOWNLOADS := dmidecode.git
+
+URL(dmidecode) := https://github.com/mirror/dmidecode.git
+REV(dmidecode) := 2d7fbeac6c6a9f097dc930e808a4f017f11f3c58
+DIR(dmidecode) := src/app/dmidecode
+
+PATCHES := src/app/dmidecode/*.patch
