@@ -21,6 +21,8 @@
 #include <util/xml_generator.h>
 #include <trace/source_registry.h>
 #include <util/construct_at.h>
+#include <drivers/smbios.h>
+#include <drivers/efi_system_table.h>
 
 /* core includes */
 #include <boot_modules.h>
@@ -622,6 +624,7 @@ Platform::Platform()
 		if (mem_desc->type == Hip::Mem_desc::ACPI_RSDT) continue;
 		if (mem_desc->type == Hip::Mem_desc::ACPI_XSDT) continue;
 		if (mem_desc->type == Hip::Mem_desc::FRAMEBUFFER) continue;
+		if (mem_desc->type == Hip::Mem_desc::EFI_SYSTEM_TABLE) continue;
 
 		Hip::Mem_desc * mem_d = (Hip::Mem_desc *)mem_desc_base;
 		for (unsigned j = 0; j < num_mem_desc; j++, mem_d++) {
@@ -629,6 +632,7 @@ Platform::Platform()
 			if (mem_d->type == Hip::Mem_desc::ACPI_RSDT) continue;
 			if (mem_d->type == Hip::Mem_desc::ACPI_XSDT) continue;
 			if (mem_d->type == Hip::Mem_desc::FRAMEBUFFER) continue;
+			if (mem_d->type == Hip::Mem_desc::EFI_SYSTEM_TABLE) continue;
 			if (mem_d == mem_desc) continue;
 
 			/* if regions are disjunct all is fine */
@@ -649,11 +653,13 @@ Platform::Platform()
 	 * From now on, it is save to use the core allocators...
 	 */
 
+	uint64_t efi_sys_tab_phy = 0UL;
 	uint64_t rsdt = 0UL;
 	uint64_t xsdt = 0UL;
 
 	mem_desc = (Hip::Mem_desc *)mem_desc_base;
 	for (unsigned i = 0; i < num_mem_desc; i++, mem_desc++) {
+		if (mem_desc->type == Hip::Mem_desc::EFI_SYSTEM_TABLE) efi_sys_tab_phy = mem_desc->addr;
 		if (mem_desc->type == Hip::Mem_desc::ACPI_RSDT) rsdt = mem_desc->addr;
 		if (mem_desc->type == Hip::Mem_desc::ACPI_XSDT) xsdt = mem_desc->addr;
 		if (mem_desc->type != Hip::Mem_desc::MULTIBOOT_MODULE) continue;
@@ -661,6 +667,77 @@ Platform::Platform()
 
 		/* assume core's ELF image has one-page header */
 		_core_phys_start = trunc_page(mem_desc->addr + get_page_size());
+	}
+	addr_t const page_mask     { ~(addr_t)((1 << get_page_size_log2()) - 1) };
+	addr_t const page_off_mask { get_page_size() - 1 };
+	auto _map_phy_range = [&] (addr_t base, size_t size)
+	{
+		addr_t const base_page { base & page_mask };
+		addr_t const base_off  { base - base_page };
+		size += base_off;
+		size_t const pages { (size + page_off_mask) >> get_page_size_log2() };
+
+		log("PHYMAP ", Hex(base), " ", Hex(pages << get_page_size_log2()));
+		return _map_pages(base_page, pages) + base_off;
+	};
+	auto _smbios_table_to_rom = [&] (void  *ep_vir, size_t ep_size,
+	                                 addr_t st_phy, size_t st_size)
+	{
+		void         *ram_phy   { nullptr };
+		size_t const  ram_size  { (ep_size + st_size + page_off_mask) & page_mask };
+		size_t const  ram_pages { ram_size >> get_page_size_log2() };
+
+		if (!ram_alloc().alloc_aligned(ram_size, &ram_phy,
+		                               get_page_size_log2()).ok())
+		{
+			warning("failed to allocate RAM for SMBIOS info");
+			return;
+		}
+		addr_t const ram_vir { _map_pages((addr_t)ram_phy, ram_pages, true) };
+		void  *const st_vir  { (void *)_map_phy_range(st_phy, st_size) };
+
+		if (!ram_vir || !st_vir) {
+			warning("failed to map RAM for SMBIOS info");
+			ram_alloc().free(ram_phy);
+			return;
+		}
+		memcpy((void *)ram_vir, ep_vir, ep_size);
+		memcpy((void *)(ram_vir + ep_size), st_vir, st_size);
+
+		_rom_fs.insert(new (core_mem_alloc())
+			Rom_module((addr_t)ram_phy, ram_size, "smbios_table"));
+	};
+	auto _handle_smbios_3_ep = [&] (Smbios_3_entry_point const &ep)
+	{
+		_smbios_table_to_rom((void *)&ep, ep.length, ep.struct_table_addr,
+		                     ep.struct_table_max_size);
+	};
+	auto _handle_smbios_ep = [&] (Smbios_entry_point const &ep)
+	{
+		_smbios_table_to_rom((void *)&ep, ep.length, ep.struct_table_addr,
+		                     ep.struct_table_length);
+	};
+	auto _handle_dmi_ep = [&] (Dmi_entry_point const &ep)
+	{
+		_smbios_table_to_rom((void *)&ep, ep.LENGTH, ep.struct_table_addr,
+		                     ep.struct_table_length);
+	};
+	if (!efi_sys_tab_phy) {
+		Smbios_table::from_scan(_map_phy_range, _handle_smbios_3_ep,
+		                        _handle_smbios_ep, _handle_dmi_ep);
+	} else {
+		Efi_system_table const &efi_sys_tab_vir { *(Efi_system_table *)
+			_map_phy_range(efi_sys_tab_phy, sizeof(Efi_system_table)) };
+
+		efi_sys_tab_vir.for_smbios_table(
+			_map_phy_range,
+			[&] (addr_t table_phy) {
+				Smbios_table::from_pointer(table_phy, _map_phy_range,
+				                           _handle_smbios_3_ep,
+				                           _handle_smbios_ep, _handle_dmi_ep
+				);
+			}
+		);
 	}
 
 	_init_rom_modules();

@@ -88,6 +88,10 @@ class Bootstrap::Platform
 		};
 
 
+		void board_finish_boot_info(::Board::Boot_info &boot_info,
+		                            Ram_allocator      &ram_alloc);
+
+
 		struct Pd
 		{
 			using Table = Hw::Page_table;

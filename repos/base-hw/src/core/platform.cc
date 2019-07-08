@@ -206,6 +206,13 @@ Platform::Platform()
 		init_core_log(Core_log_range { core_local_addr, log_size } );
 	}
 
+	/* SMBIOS table as ROM module */
+	if (_boot_info().plat_info.smbios_table_base != 0) {
+		_rom_fs.insert(new (core_mem_alloc())
+			Rom_module(_boot_info().plat_info.smbios_table_base,
+			           _boot_info().plat_info.smbios_table_size,
+			           "smbios_table"));
+	}
 	log(_rom_fs);
 }
 

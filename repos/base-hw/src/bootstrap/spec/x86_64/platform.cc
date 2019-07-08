@@ -13,6 +13,9 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
+/* Genode includes */
+#include <drivers/smbios.h>
+
 /* core includes */
 #include <bios_data_area.h>
 #include <platform.h>
@@ -119,6 +122,13 @@ Bootstrap::Platform::Board::Board()
 		},
 		[&] (Hw::Framebuffer const &fb) {
 			info.framebuffer = fb;
+		},
+		[&] (Efi_system_table const &sys_tab) {
+			log("EFI system table: ", &sys_tab);
+			sys_tab.for_smbios_table(
+				[&] (addr_t base, size_t) { return base; },
+				[&] (addr_t table)        { info.smbios_table_base = table; }
+			);
 		});
 	} else if (__initial_ax == Multiboot_info::MAGIC) {
 		for (unsigned i = 0; true; i++) {

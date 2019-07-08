@@ -14,6 +14,9 @@
 #ifndef _SRC__BOOTSTRAP__SPEC__X86_64__MULTIBOOT2_H_
 #define _SRC__BOOTSTRAP__SPEC__X86_64__MULTIBOOT2_H_
 
+/* Genode includes */
+#include <drivers/efi_system_table.h>
+
 /* base includes */
 #include <util/mmio.h>
 
@@ -31,13 +34,24 @@ class Genode::Multiboot2_info : Mmio
 			struct Type : Register <0x00, 32>
 			{
 				enum {
-					END = 0, MEMORY = 6, FRAMEBUFFER = 8,
-					ACPI_RSDP_V1 = 14, ACPI_RSDP_V2 = 15
+					END                         = 0,
+					MEMORY                      = 6,
+					FRAMEBUFFER                 = 8,
+					SYSTEM_TABLE_POINTER_64_BIT = 12,
+					ACPI_RSDP_V1                = 14,
+					ACPI_RSDP_V2                = 15,
 				};
 			};
 			struct Size : Register <0x04, 32> { };
 
 			Tag(addr_t addr) : Mmio(addr) { }
+		};
+
+		struct System_table_pointer_64_bit : Tag
+		{
+			struct Pointer : Register <0x08, 64> { };
+
+			System_table_pointer_64_bit(addr_t addr) : Tag(addr) { }
 		};
 
 	public:
@@ -56,8 +70,15 @@ class Genode::Multiboot2_info : Mmio
 
 		Multiboot2_info(addr_t mbi) : Mmio(mbi) { }
 
-        template <typename FUNC_MEM, typename FUNC_ACPI, typename FUNC_FB>
-		void for_each_tag(FUNC_MEM mem_fn, FUNC_ACPI acpi_fn, FUNC_FB fb_fn)
+		template <typename FUNC_MEM,
+		          typename FUNC_ACPI,
+		          typename FUNC_FB,
+		          typename FUNC_SYSTAB>
+
+		void for_each_tag(FUNC_MEM    mem_fn,
+		                  FUNC_ACPI   acpi_fn,
+		                  FUNC_FB     fb_fn,
+		                  FUNC_SYSTAB systab_fn)
 		{
 			addr_t const size = read<Multiboot2_info::Size>();
 
@@ -68,6 +89,13 @@ class Genode::Multiboot2_info : Mmio
 
 				if (tag.read<Tag::Type>() == Tag::Type::END)
 					return;
+
+				if (tag.read<Tag::Type>() == Tag::Type::SYSTEM_TABLE_POINTER_64_BIT)
+				{
+					System_table_pointer_64_bit const stp(tag_addr);
+					systab_fn(*(Efi_system_table *)
+						stp.read<System_table_pointer_64_bit::Pointer>());
+				}
 
 				if (tag.read<Tag::Type>() == Tag::Type::MEMORY) {
 					addr_t mem_start = tag_addr + (1UL << Tag::LOG2_SIZE) + 8;

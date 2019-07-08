@@ -11,6 +11,9 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
+/* Genode includes */
+#include <drivers/smbios.h>
+
 #include <base/internal/crt0.h>
 #include <hw/assert.h>
 
@@ -160,6 +163,60 @@ static constexpr Genode::Boot_modules_header & header() {
 	return *((Genode::Boot_modules_header*) &_boot_modules_headers_begin); }
 
 
+void Platform::board_finish_boot_info(::Board::Boot_info &boot_info,
+                                      Ram_allocator      &ram_alloc)
+{
+	using namespace Genode;
+
+	addr_t anchor { (addr_t)boot_info.smbios_table_base };
+	boot_info.smbios_table_base = 0;
+
+	auto _map_phy_range = [&] (addr_t base, size_t size)
+	{
+		log("PHYMAP ", Hex(base), " ", Hex(size));
+		return base;
+	};
+	auto _smbios_table_to_rom = [&] (void  *ep_vir, size_t ep_size,
+	                                 addr_t st_phy, size_t st_size)
+	{
+		size_t const ram_size { ep_size + st_size };
+
+		void *ram_base {
+			ram_alloc.alloc_aligned(ram_size, get_page_size_log2()) };
+
+		memcpy(ram_base, ep_vir, ep_size);
+		memcpy((void *)((addr_t)ram_base + ep_size), (void *)st_phy, st_size);
+
+		boot_info.smbios_table_base = (addr_t)ram_base;
+		boot_info.smbios_table_size = ram_size;
+	};
+	auto _handle_smbios_3_ep = [&] (Smbios_3_entry_point const &ep)
+	{
+		_smbios_table_to_rom((void *)&ep, ep.length, ep.struct_table_addr,
+		                     ep.struct_table_max_size);
+	};
+	auto _handle_smbios_ep = [&] (Smbios_entry_point const &ep)
+	{
+		_smbios_table_to_rom((void *)&ep, ep.length, ep.struct_table_addr,
+		                     ep.struct_table_length);
+	};
+	auto _handle_dmi_ep = [&] (Dmi_entry_point const &ep)
+	{
+		_smbios_table_to_rom((void *)&ep, ep.LENGTH, ep.struct_table_addr,
+		                     ep.struct_table_length);
+	};
+	if (anchor == 0) {
+		Smbios_table::from_scan(_map_phy_range, _handle_smbios_3_ep,
+		                        _handle_smbios_ep, _handle_dmi_ep);
+	} else {
+		Smbios_table::from_pointer(anchor, _map_phy_range,
+		                           _handle_smbios_3_ep,
+		                           _handle_smbios_ep, _handle_dmi_ep
+		);
+	}
+}
+
+
 Platform::Platform()
 : bootstrap_region((addr_t)&_prog_img_beg,
                    ((addr_t)&_prog_img_end - (addr_t)&_prog_img_beg)),
@@ -172,6 +229,8 @@ Platform::Platform()
 	board.early_ram_regions.for_each([this] (Memory_region const & region) {
 		ram_alloc.add(region); });
 	ram_alloc.remove(bootstrap_region);
+
+	board_finish_boot_info(board.info, ram_alloc);
 
 	/* now we can use the ram allocator for core's pd */
 	core_pd.construct(ram_alloc);
