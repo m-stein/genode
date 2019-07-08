@@ -624,7 +624,7 @@ Platform::Platform()
 		if (mem_desc->type == Hip::Mem_desc::ACPI_RSDT) continue;
 		if (mem_desc->type == Hip::Mem_desc::ACPI_XSDT) continue;
 		if (mem_desc->type == Hip::Mem_desc::FRAMEBUFFER) continue;
-		if (mem_desc->type == Hip::Mem_desc::EFI_SYSTEM_TABLE) continue;
+//		if (mem_desc->type == Hip::Mem_desc::EFI_SYSTEM_TABLE) continue;
 
 		Hip::Mem_desc * mem_d = (Hip::Mem_desc *)mem_desc_base;
 		for (unsigned j = 0; j < num_mem_desc; j++, mem_d++) {
@@ -632,7 +632,7 @@ Platform::Platform()
 			if (mem_d->type == Hip::Mem_desc::ACPI_RSDT) continue;
 			if (mem_d->type == Hip::Mem_desc::ACPI_XSDT) continue;
 			if (mem_d->type == Hip::Mem_desc::FRAMEBUFFER) continue;
-			if (mem_d->type == Hip::Mem_desc::EFI_SYSTEM_TABLE) continue;
+//			if (mem_d->type == Hip::Mem_desc::EFI_SYSTEM_TABLE) continue;
 			if (mem_d == mem_desc) continue;
 
 			/* if regions are disjunct all is fine */
@@ -653,13 +653,13 @@ Platform::Platform()
 	 * From now on, it is save to use the core allocators...
 	 */
 
-	uint64_t efi_sys_tab_phy = 0UL;
+//	uint64_t efi_sys_tab_phy = 0UL;
 	uint64_t rsdt = 0UL;
 	uint64_t xsdt = 0UL;
 
 	mem_desc = (Hip::Mem_desc *)mem_desc_base;
 	for (unsigned i = 0; i < num_mem_desc; i++, mem_desc++) {
-		if (mem_desc->type == Hip::Mem_desc::EFI_SYSTEM_TABLE) efi_sys_tab_phy = mem_desc->addr;
+//		if (mem_desc->type == Hip::Mem_desc::EFI_SYSTEM_TABLE) efi_sys_tab_phy = mem_desc->addr;
 		if (mem_desc->type == Hip::Mem_desc::ACPI_RSDT) rsdt = mem_desc->addr;
 		if (mem_desc->type == Hip::Mem_desc::ACPI_XSDT) xsdt = mem_desc->addr;
 		if (mem_desc->type != Hip::Mem_desc::MULTIBOOT_MODULE) continue;
@@ -668,6 +668,7 @@ Platform::Platform()
 		/* assume core's ELF image has one-page header */
 		_core_phys_start = trunc_page(mem_desc->addr + get_page_size());
 	}
+/*
 	addr_t const page_mask     { ~(addr_t)((1 << get_page_size_log2()) - 1) };
 	addr_t const page_off_mask { get_page_size() - 1 };
 	auto _map_phy_range = [&] (addr_t base, size_t size)
@@ -739,6 +740,7 @@ Platform::Platform()
 			}
 		);
 	}
+*/
 
 	_init_rom_modules();
 

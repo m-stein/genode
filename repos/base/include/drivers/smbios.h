@@ -247,7 +247,7 @@ namespace Genode::Smbios_table
 		enum { SCAN_SIZE_SMBIOS =  0xfff0 };
 		enum { SCAN_STEP        =    0x10 };
 
-		addr_t const scan_base { phy_mem(SCAN_BASE_PHY, SCAN_SIZE) };
+		addr_t const scan_base { (addr_t)phy_mem(SCAN_BASE_PHY, SCAN_SIZE) };
 		try {
 			addr_t const scan_end        { scan_base + SCAN_SIZE };
 			size_t const scan_end_smbios { scan_base + SCAN_SIZE_SMBIOS };

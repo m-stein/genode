@@ -40,14 +40,6 @@ append config {
 		<config verbose="yes"/>
 	</start>
 
-	<start name="smbios_decoder">
-		<resource name="RAM" quantum="10M"/>
-
-		<route>
-			<service name="Report"> <child name="report_rom"/> </service>
-			<any-service> <parent/> </any-service>
-		</route>
-	</start>
 </config>
 }
 
