@@ -61,6 +61,14 @@ struct Rtc::Session : Genode::Session
 	 ***********************/
 
 	/**
+	 * Register set signal handler
+	 *
+	 * \param sigh  signal handler that is called when the RTC has
+	 *              been set
+	 */
+	virtual void set_sigh(Genode::Signal_context_capability sigh) = 0;
+
+	/**
 	 * Query current time
 	 *
 	 * \return  RTC value as structed timestamp
@@ -71,8 +79,10 @@ struct Rtc::Session : Genode::Session
 	 ** RPC interface **
 	 *******************/
 
+	GENODE_RPC(Rpc_set_sigh, void, set_sigh,
+	           Genode::Signal_context_capability);
 	GENODE_RPC(Rpc_current_time, Timestamp, current_time);
-	GENODE_RPC_INTERFACE(Rpc_current_time);
+	GENODE_RPC_INTERFACE(Rpc_set_sigh, Rpc_current_time);
 };
 
 #endif /* _INCLUDE__RTC_SESSION__RTC_SESSION_H_ */
