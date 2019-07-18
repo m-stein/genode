@@ -13,9 +13,35 @@
 
 #include <stdio.h>
 
+#include <unistd.h>
+#include <time.h>
+
 int main()
 {
-	printf("Well, well\n");
+	unsigned idx = 1;
+	while (1)
+	{
+		struct timespec ts;
+		if (clock_gettime(0, &ts)) {
+			return -1;
+		}
+
+		struct tm *tm = localtime((time_t*)&ts.tv_sec);
+		if (!tm) {
+			return -1;
+		}
+
+		printf("Timestamp #%d: %d-%d-%d %d:%d %ds\n",
+			idx++,
+			1900 + tm->tm_year,
+			1 + tm->tm_mon,
+			tm->tm_mday,
+			tm->tm_hour,
+			tm->tm_min,
+			tm->tm_sec);
+
+		sleep(1);
+	}
 
 	return 0;
 }
