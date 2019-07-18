@@ -96,4 +96,4 @@ build_boot_image $boot_components
 
 append qemu_args " -nographic  "
 
-run_genode_until ".*--- RTC test finished ---.*\n" 60
+run_genode_until ".*--- system RTC test finished ---.*\n" 60
