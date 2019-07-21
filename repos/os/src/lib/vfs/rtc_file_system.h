@@ -17,6 +17,7 @@
 /* Genode includes */
 #include <rtc_session/connection.h>
 #include <vfs/file_system.h>
+#include <util/list.h>
 
 
 namespace Vfs { class Rtc_file_system; }
@@ -26,7 +27,21 @@ class Vfs::Rtc_file_system : public Single_file_system
 {
 	private:
 
-		Rtc::Connection _rtc;
+		class Watch_handle : public  Vfs_watch_handle,
+		                     private Genode::List<Watch_handle>::Element
+		{
+			friend class Genode::List<Watch_handle>;
+
+			public:
+
+				Watch_handle(Vfs::File_system &fs,
+				             Allocator        &alloc)
+				:
+					Vfs_watch_handle { fs, alloc }
+				{ }
+		};
+
+		using Watch_handle_list = Genode::List<Watch_handle>;
 
 		class Rtc_vfs_handle : public Single_vfs_handle
 		{
@@ -84,6 +99,9 @@ class Vfs::Rtc_file_system : public Single_file_system
 				bool read_ready() override { return true; }
 		};
 
+		Rtc::Connection   _rtc;
+		Watch_handle_list _watch_handles { };
+
 	public:
 
 		Rtc_file_system(Vfs::Env &env, Genode::Xml_node config)
@@ -121,6 +139,25 @@ class Vfs::Rtc_file_system : public Single_file_system
 			out.mode |= 0444;
 
 			return result;
+		}
+
+		Watch_result watch(char const        *path,
+		                   Vfs_watch_handle **handle,
+		                   Allocator         &alloc) override
+		{
+			if (!_single_file(path))
+				return WATCH_ERR_UNACCESSIBLE;
+
+			try {
+				Watch_handle &watch_handle = *new (alloc)
+					Watch_handle(*this, alloc);
+
+				_watch_handles.insert(&watch_handle);
+				*handle = &watch_handle;
+				return WATCH_OK;
+			}
+			catch (Genode::Out_of_ram)  { return WATCH_ERR_OUT_OF_RAM;  }
+			catch (Genode::Out_of_caps) { return WATCH_ERR_OUT_OF_CAPS; }
 		}
 };
 
