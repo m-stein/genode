@@ -1,0 +1,250 @@
+set up tinycore
+===============
+
+set up a vm
+-----------
+
+* go to host shell
+! sudo apt install virtualbox # we used virtualbox version 5.1.38
+! wget https://distro.ibiblio.org/tinycorelinux/10.x/x86/release/Core-10.1.iso
+! wget https://download.virtualbox.org/virtualbox/6.0.4/VBoxGuestAdditions_6.0.4.iso
+! virtualbox &
+
+* go to virtualbox window
+* create new vm with network
+  * type: Linux
+  * version: Other Linux (64-bit)
+  * ram: 1G
+  * hdd: create new, 1G, vdi, dynamic
+
+* start vm
+* select 'Core-10.1.iso' as initial disk of vm
+
+prepare hard disk
+-----------------
+
+* go to vm shell (the following steps were created using
+  http://tinycorelinux.net/install_manual.html)
+! [Enter]                                                                      # boot to user shell
+! tce-load -wi cfdisk grub-0.97-splash                                         # download extensions cfdisk and grub
+! sudo su                                                                      # open root shell
+! cfdisk /dev/sda                                                              # create partition on hard disk
+  ! New
+    ! Primary
+    ! [Enter]
+  ! Bootable
+  ! Write
+    ! yes
+  ! Quit
+
+! mkfs.ext3 /dev/sda1                                                          # format partition
+! rebuildfstab                                                                 # re-create file system table
+! mount /mnt/sda1                                                              # mount hard disk
+
+install grub
+------------
+
+! mount /mnt/sr0                                                               # mount disk drive
+! mkdir -p /mnt/sda1/boot/grub /mnt/sda1/tce
+! cp -p /mnt/sr0/boot/* /mnt/sda1/boot/                                        # install kernel, initrd
+! cp -p /usr/lib/grub/i386-pc/* /mnt/sda1/boot/grub/                           # install grub
+! touch /mnt/sda1/tce/mydata.tgz                                               # file for tinycore backup/restore
+! vi /mnt/sda1/boot/grub/menu.lst                                              # create grub menu config
+  * insert mode: 'i'
+  * insert this
+    ! default 0
+    ! timeout 0
+    ! hiddenmenu
+    ! title tinycore
+    ! kernel /boot/vmlinuz quiet restore=sda1/tce
+    ! initrd /boot/core.gz
+  * write, quit: '[Esc]:wq'
+
+! grub
+  ! root (hd0,0)
+  ! setup (hd0)
+  ! quit
+
+! halt
+
+* go to virtualbox window
+* remove iso from vm disk drive
+* restart vm
+
+set up GUI and firefox
+======================
+
+basic setup of GUI and firefox
+------------------------------
+
+* go to vm shell
+! tce
+  * search: 's'
+  ! xorg
+  * select "xorg-7.7.tcz"
+  * install: 'qi'
+  * quit: 'q'
+
+! tce-load -wi i3 firefox_getLatest
+! firefox_getLatest.sh
+! vi /mnt/sda1/tce/onboot.lst
+  * insert mode: 'i'
+  * replace 'firefox_getLatest.tcz' with 'firefox.tcz'
+  * write quit: '[Esc]:wq'
+
+! rm -f /mnt/sda1/tce/optional/firefox_getLatest*'
+! sudo reboot
+
+* check that i3 welcome message appears
+! [Right-Control]+[F1]                                                         # switch to shell
+! pkill Xorg                                                                   # stop xorg, i3
+! sudo mkdir /mnt/sda1/bin
+! sudo vi /mnt/sda1/bin/browser                                                # create script to keep firefox running
+  * insert mode: 'i'
+  * insert this
+    ! #!/bin/sh
+    ! while true; do                                                           # restart firefox everytime it gets closed
+    !   /usr/local/bin/firefox
+    ! done
+  * write, quit: '[Esc]:wq'
+
+! sudo chmod +x /usr/local/bin/browser
+! vi /home/tc/.i3/config                                                       # configure i3
+  * insert mode: 'i'
+  * replace content with this (created using 'docs/userguide' in
+    https://i3wm.org/downloads/i3-3.e-bf3.tar.bz2)
+    ! font -misc-fixed-medium-r-normal--13-120-75-75-C-70-iso10646-1
+    ! workspace_bar no                                                         # disable i3 bar
+    ! new_window bb                                                            # disable window title and borders
+    ! exec /mnt/sda1/bin/browser                                               # start our custom browser script
+  * write, quit: '[Esc]:wq'
+
+! vi /opt/.filetool.lst                                                        # configure tinycore backup/restore mechanism
+  * insert mode: 'i'
+  * replace content with this
+    ! opt/.filetool.lst
+    ! home/tc/.i3/config
+    ! home/tc/.xsession
+    ! home/tc/.mozilla/firefox
+  * write, quit: '[Esc]:wq'
+
+! sudo filetool.sh -b                                                          # backup configuration files to mydata.tgz
+! sudo reboot
+* check whether firefox appears maximized, no borders, no title bar, no
+  desktop bar, always restarting when closed
+
+customize firefox
+-----------------
+
+* go to firefox window in vm
+* open "Menu -> Preferences -> General"
+* unset "Always check if Firefox is your default browser"
+* go to "Home"
+* set "Homepage and new windos" to "Custom URLs" and the URL to "genode.org"
+* set "New Tabs" to "Firefox Home"
+* remove all unnecesary items around the firefox address bar (right-click on
+  item and select "Remove from Toolbar")
+
+! [Right-Control]+[F1]                                                         # switch to shell
+! pkill browser                                                                # stop browser script
+! [Right-Control]+[F2]                                                         # switch back to firefox
+* close all tabs so firefox closes
+! [Right-Control]+[F1]                                                         # switch to shell
+! cd /home/tc/.mozilla/firefox/<SOME_CHARS>.default-release                    # go to firefox profile dir
+! mkdir chrome
+! vi chrome/userChrome.css
+  * insert mode: 'i'
+  * insert this                                                                # disable firefox tab bar
+    ! #TabsToolbar { visibility: collapse !important; }
+  * write, quit: '[Esc]:wq'
+
+! sudo filetool.sh -b                                                          # backup firefox configuration
+! sudo reboot
+* check whether firefox appears with the desired configuration and without a
+  tab bar
+
+make vm resizable
+=================
+
+prepare original vm
+-------------------
+
+! [Right-Control]+[F1]                                                         # switch to shell
+! pkill Xorg                                                                   # stop xorg, i3, firefox
+! tce-load -wi openssh                                                         # we need the 'scp' command
+* install graphics-4.19.10-tinycore.tcz using the method we used for xorg-7.7  # this installs drm required by vboxvideo
+! vi /home/tc/.xsession add this
+  * insert mode: 'i'
+  * append this at the end
+    ! setxkbmap -layout "de" -variant "nodeadkeys"'                            # set your keyboard layout here
+    ! VBoxClient --display                                                     # starts the vbox display client for vm resizing
+    ! exec i3                                                                  # execute i3 explicitely
+  * write, quit: '[Esc]:wq'
+! filetool.sh -b                                                               # backup xorg configuration
+! sudo halt
+* go to virtualbox window
+* close vm (switch off)
+
+build and archivate guest additions in second vm
+------------------------------------------------
+
+You may skip this step if you already have the guest-additions extension-files.
+(can be downloaded:
+ https://raw.githubusercontent.com/m-stein/genode/captive_portal_vm/repos/vboxga604.tcz
+ https://raw.githubusercontent.com/m-stein/genode/captive_portal_vm/repos/vboxga604.tcz.md5.txt)
+
+* clone vm (the second vm is only for creating a guest additions extension
+  without polluting the first vm and can be thrown away afterwards)
+* insert VBoxGuestAdditions_6.0.4.iso into disk drive of second vm
+* set ram of second vm to 2G
+* start second vm
+
+* go to window of second vm
+! [Right-Control]+[F1]                                                         # switch to shell
+! pkill Xorg                                                                   # stop xorg, i3, firefox
+! tce-load -wi linux-kernel-sources-env
+! linux-kernel-sources-env.sh                                                  # install linux kernel sources
+! mount /mnt/sr0
+! sudo touch /tmp/mark                                                         # remember time from before building guest additions
+! sudo /mnt/sr0/VBoxLinuxGuestAdditions.run                                    # build guest additions
+! find /opt /sbin /usr /lib /etc -cnewer /tmp/mark -not -type d > /tmp/files   # write list of files created by the guest additions
+* you can now check whether resizing works by executing 'startx'
+
+! sudo tar -T /tmp/files -czvf /mnt/sda1/vboxga604.tar.gz                      # archivate all files of the list
+! scp /mnt/sda1/vboxga604.tar.gz <HOST_USER>@<HOST_IP>:/tmp/                   # send archive from vm to host
+! sudo halt
+* go to virtualbox window
+* close second vm (switch off)
+
+create guest additions extension from archive
+---------------------------------------------
+
+You may skip this step if you already have the guest-additions extension-file.
+
+* go to shell of your host
+! mkdir /tmp/vboxga604
+! cd /tmp/vboxga604
+! tar -xf /tmp/vboxga604.tar.gz
+! cd /tmp
+! mksquashfs vboxga604/ ~/vboxga604.tcz
+! cd ~
+! md5sum vboxga604.tcz > vboxga604.tcz.md5.txt
+
+install guest additions extension
+---------------------------------
+
+* go to virtualbox window
+* start first vm
+
+* go to window of first vm
+! [Right-Control]+[F1]                                                         # switch to shell
+! pkill Xorg                                                                   # stop xorg, i3, firefox
+! scp <HOST_USER>@<HOST_IP>:/tmp/vboxga604.tcz* \                              # send extension from host to vm
+  /mnt/sda1/tce/optional/
+! rm -f /mnt/sda1/tce/optional/openssh*                                        # uninstall openssh
+! vi /mnt/sda1/tce/onboot.lst                                                  # install guest additions extension
+  * insert mode: 'i'
+  * replace ''openssh.tcz'' with 'vboxga604.tcz'
+  * write quit: '[Esc]:wq'
+! sudo reboot
+* check whether vm is resizable
