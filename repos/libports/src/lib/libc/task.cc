@@ -31,6 +31,7 @@
 /* libc-internal includes */
 #include <internal/call_func.h>
 #include <base/internal/unmanaged_singleton.h>
+#include <clone_session.h>
 #include "vfs_plugin.h"
 #include "libc_init.h"
 #include "task.h"
@@ -39,6 +40,7 @@ extern char **environ;
 
 namespace Libc {
 	class Env_implementation;
+	class Cloned_malloc_heap_range;
 	class Kernel;
 	class Pthreads;
 	class Timer;
@@ -50,7 +52,7 @@ namespace Libc {
 }
 
 
-class Libc::Env_implementation : public Libc::Env
+class Libc::Env_implementation : public Libc::Env, public Config_accessor
 {
 	private:
 
@@ -102,6 +104,13 @@ class Libc::Env_implementation : public Libc::Env
 
 		Genode::Xml_node libc_config() override {
 			return _libc_config(); }
+
+
+		/*************************************
+		 ** Libc::Config_accessor interface **
+		 *************************************/
+
+		Xml_node config() const override { return _config.xml(); }
 
 
 		/***************************
@@ -328,6 +337,33 @@ static void resumed_callback();
 static void suspended_callback();
 
 
+struct Libc::Cloned_malloc_heap_range
+{
+	Genode::Ram_allocator &ram;
+	Genode::Region_map    &rm;
+
+	Genode::Ram_dataspace_capability ds;
+
+	addr_t const local_addr;
+
+	Cloned_malloc_heap_range(Genode::Ram_allocator &ram, Genode::Region_map &rm,
+	                         Clone_connection &cloned, void *start, size_t size)
+	:
+		ram(ram), rm(rm),
+		ds(ram.alloc(size)),
+		local_addr(rm.attach_at(ds, (addr_t)start))
+	{
+		cloned.memory_content(start, size);
+	}
+
+	virtual ~Cloned_malloc_heap_range()
+	{
+		rm.detach(local_addr);
+		ram.free(ds);
+	}
+};
+
+
 /**
  * Libc "kernel"
  *
@@ -343,11 +379,18 @@ struct Libc::Kernel final : Vfs::Io_response_handler,
 {
 	private:
 
-		Genode::Env         &_env;
-		Genode::Allocator   &_heap;
+		Genode::Env       &_env;
+		Genode::Allocator &_heap;
+
+		Genode::Constructible<Heap> _malloc_heap { };
+
+		Genode::Registry<Registered<Cloned_malloc_heap_range> > _cloned_heap_ranges { };
 
 		Env_implementation   _libc_env { _env, _heap };
 		Vfs_plugin           _vfs { _libc_env, _heap, *this };
+
+		bool  const _cloned = _libc_env.libc_config().attribute_value("cloned", false);
+		pid_t const _pid    = _libc_env.libc_config().attribute_value("pid", 0U);
 
 		Genode::Reconstructible<Genode::Io_signal_handler<Kernel>> _resume_main_handler {
 			_env.ep(), *this, &Kernel::_resume_main };
@@ -364,9 +407,21 @@ struct Libc::Kernel final : Vfs::Io_response_handler,
 
 		addr_t _kernel_stack = Thread::mystack().top;
 
+		size_t _user_stack_size()
+		{
+			size_t size = Component::stack_size();
+			if (!_cloned)
+				return size;
+
+			_libc_env.libc_config().with_sub_node("stack", [&] (Xml_node stack) {
+				size = stack.attribute_value("size", 0UL); });
+
+			return size;
+		}
+
 		void *_user_stack = {
 			_myself.alloc_secondary_stack(_myself.name().string(),
-			                              Component::stack_size()) };
+			                              _user_stack_size()) };
 
 		void (*_original_suspended_callback)() = nullptr;
 
@@ -383,6 +438,8 @@ struct Libc::Kernel final : Vfs::Io_response_handler,
 		bool _suspend_scheduled = false;
 
 		Select_handler_base *_scheduled_select_handler = nullptr;
+
+		Kernel_routine *_kernel_routine = nullptr;
 
 		void _resume_main() { _resume_main_once = true; }
 
@@ -523,7 +580,7 @@ struct Libc::Kernel final : Vfs::Io_response_handler,
 				exit(1);
 			}
 
-			if (!check.suspend())
+			if (!check.suspend() && !_kernel_routine)
 				return 0;
 
 			if (timeout_ms > 0)
@@ -560,12 +617,25 @@ struct Libc::Kernel final : Vfs::Io_response_handler,
 
 		void _init_file_descriptors();
 
+		void _clone_state_from_parent();
+
 	public:
 
 		Kernel(Genode::Env &env, Genode::Allocator &heap)
-		: _env(env), _heap(heap)
+		:
+			_env(env), _heap(heap)
 		{
 			_env.ep().register_io_progress_handler(*this);
+
+			if (_cloned) {
+				_clone_state_from_parent();
+
+			} else {
+				_malloc_heap.construct(_env.ram(), _env.rm());
+				init_malloc(*_malloc_heap);
+			}
+
+			Libc::init_fork(_env, _libc_env, _heap, *_malloc_heap, _pid);
 
 			_init_file_descriptors();
 		}
@@ -593,8 +663,13 @@ struct Libc::Kernel final : Vfs::Io_response_handler,
 			/* save continuation of libc kernel (incl. current stack) */
 			if (!_setjmp(_kernel_context)) {
 				/* _setjmp() returned directly -> switch to user stack and call application code */
-				_state = USER;
-				call_func(_user_stack, (void *)_user_entry, (void *)this);
+
+				if (_cloned) {
+					_switch_to_user();
+				} else {
+					_state = USER;
+					call_func(_user_stack, (void *)_user_entry, (void *)this);
+				}
 
 				/* never reached */
 			}
@@ -602,6 +677,17 @@ struct Libc::Kernel final : Vfs::Io_response_handler,
 			/* _setjmp() returned after _longjmp() - user context suspended */
 
 			while ((!_app_returned) && (!_suspend_scheduled)) {
+
+				if (_kernel_routine) {
+					Kernel_routine &routine = *_kernel_routine;
+
+					/* the 'kernel_routine' may install another kernel routine */
+					_kernel_routine = nullptr;
+					routine.execute_in_kernel();
+					if (!_kernel_routine)
+						_switch_to_user();
+				}
+
 				if (_dispatch_pending_io_signals) {
 					/* dispatch pending signals but don't block */
 					while (_env.ep().dispatch_pending_io_signal()) ;
@@ -610,7 +696,7 @@ struct Libc::Kernel final : Vfs::Io_response_handler,
 					_env.ep().wait_and_dispatch_one_io_signal();
 				}
 
-				if (_resume_main_once && !_setjmp(_kernel_context))
+				if (!_kernel_routine && _resume_main_once && !_setjmp(_kernel_context))
 					_switch_to_user();
 			}
 
@@ -819,6 +905,11 @@ struct Libc::Kernel final : Vfs::Io_response_handler,
 				Kernel::resume_all();
 			}
 		}
+
+		void register_kernel_routine(Kernel_routine &kernel_routine)
+		{
+			_kernel_routine = &kernel_routine;
+		}
 };
 
 
@@ -894,6 +985,66 @@ void Libc::Kernel::_init_file_descriptors()
 		for (unsigned fd = 0; fd <= 2; fd++)
 			Libc::file_descriptor_allocator()->preserve(fd);
 	}
+}
+
+
+void Libc::Kernel::_clone_state_from_parent()
+{
+	Clone_connection cloned(_env);
+
+	cloned.memory_content(&_user_context, sizeof(_user_context));
+	_valid_user_context = true;
+
+	_libc_env.libc_config().for_each_sub_node([&] (Xml_node node) {
+
+		struct Range { void *at; size_t size; };
+
+		auto range_attr = [&] (Xml_node node)
+		{
+			return Range {
+				.at   = (void *)node.attribute_value("at",   0UL),
+				.size =         node.attribute_value("size", 0UL)
+			};
+		};
+
+		auto copy_from_parent = [&] (Range range)
+		{
+			cloned.memory_content(range.at, range.size);
+		};
+
+		/* clone application stack */
+		if (node.type() == "stack")
+			copy_from_parent(range_attr(node));
+
+		/* clone RW segment of a shared library or the binary */
+		if (node.type() == "rw") {
+			typedef String<64> Name;
+			Name const name = node.attribute_value("name", Name());
+
+			/*
+			 * The blacklisted segments are initialized via the
+			 * regular startup of the child.
+			 */
+			bool const blacklisted = (name == "ld.lib.so")
+			                      || (name == "libc.lib.so")
+			                      || (name == "vfs.lib.so");
+			if (!blacklisted)
+				copy_from_parent(range_attr(node));
+		}
+
+		/* clone heap ranges */
+		if (node.type() == "heap") {
+			Range const range = range_attr(node);
+			new (_heap)
+				Registered<Cloned_malloc_heap_range>(_cloned_heap_ranges,
+				                                     _env.ram(), _env.rm(),
+				                                     cloned, range.at, range.size);
+		}
+	});
+
+	/* import heap state from parent */
+	cloned.object_content(_malloc_heap);
+	init_malloc_cloned(cloned);
 }
 
 
@@ -1015,6 +1166,12 @@ void Libc::execute_in_application_context(Libc::Application_code &app_code)
 }
 
 
+void Libc::register_kernel_routine(Kernel_routine &kernel_routine)
+{
+	kernel->register_kernel_routine(kernel_routine);
+}
+
+
 Genode::Xml_node Libc::libc_config()
 {
 	return kernel->libc_env().libc_config();
@@ -1038,7 +1195,6 @@ void Component::construct(Genode::Env &env)
 		*unmanaged_singleton<Genode::Heap>(env.ram(), env.rm());
 
 	/* pass Genode::Env to libc subsystems that depend on it */
-	Libc::init_malloc(heap);
 	Libc::init_mem_alloc(env);
 	Libc::init_dl(env);
 	Libc::sysctl_init(env);
