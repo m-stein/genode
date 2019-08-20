@@ -54,8 +54,6 @@ namespace Libc {
 			virtual int priority();
 
 			virtual bool supports_access(char const *path, int amode);
-			virtual bool supports_execve(char const *filename, char *const argv[],
-			                             char *const envp[]);
 			virtual bool supports_mkdir(const char *path, mode_t mode);
 			virtual bool supports_open(const char *pathname, int flags);
 			virtual bool supports_pipe();
@@ -92,8 +90,6 @@ namespace Libc {
 			                    socklen_t addrlen);
 			virtual File_descriptor *dup(File_descriptor*);
 			virtual int dup2(File_descriptor *, File_descriptor *new_fd);
-			virtual int execve(char const *filename, char *const argv[],
-			                   char *const envp[]);
 			virtual int fstatfs(File_descriptor *, struct statfs *buf);
 			virtual int fcntl(File_descriptor *, int cmd, long arg);
 			virtual int fstat(File_descriptor *, struct stat *buf);

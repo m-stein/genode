@@ -283,23 +283,6 @@ extern "C" __attribute__((alias("dup2")))
 int _dup2(int libc_fd, int new_libc_fd);
 
 
-extern "C" int execve(char const *filename, char *const argv[],
-                       char *const envp[])
-{
-	try {
-		Absolute_path resolved_path;
-		resolve_symlinks(filename, resolved_path);
-		FNAME_FUNC_WRAPPER(execve, resolved_path.base(), argv, envp);
-	} catch (Symlink_resolve_error) {
-		return -1;
-	}
-}
-
-
-extern "C" __attribute__((alias("execve")))
-int _execve(char const *, char *const [], char *const []);
-
-
 extern "C" int fchdir(int libc_fd)
 {
 	File_descriptor *fd = libc_fd_to_fd(libc_fd, "fchdir");

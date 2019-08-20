@@ -25,22 +25,27 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+/* libc-internal includes */
+#include <libc_init.h>
+#include <base/internal/unmanaged_singleton.h>
+
 using namespace Libc;
 using namespace Genode;
 
 
+static Genode::Allocator *_alloc_ptr;
+
+
+void Libc::init_fd_alloc(Genode::Allocator &alloc) { _alloc_ptr = &alloc; }
+
+
 File_descriptor_allocator *Libc::file_descriptor_allocator()
 {
-	static bool constructed = false;
-	static char placeholder[sizeof(File_descriptor_allocator)];
-	static Libc::Allocator md_alloc;
+	if (_alloc_ptr)
+		return unmanaged_singleton<File_descriptor_allocator>(*_alloc_ptr);
 
-	if (!constructed) {
-		Genode::construct_at<File_descriptor_allocator>(placeholder, md_alloc);
-		constructed = true;
-	}
-
-	return reinterpret_cast<File_descriptor_allocator *>(placeholder);
+	error("missing call of 'init_fd_alloc'");
+	return nullptr;
 }
 
 
@@ -68,7 +73,8 @@ void File_descriptor_allocator::free(File_descriptor *fdo)
 {
 	Lock::Guard guard(_lock);
 
-	::free((void *)fdo->fd_path);
+	size_t const size = ::strlen(fdo->fd_path) + 1;
+	_alloc.free((void *)fdo->fd_path, size);
 
 	Genode::destroy(_alloc, fdo);
 }
