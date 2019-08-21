@@ -509,7 +509,8 @@ struct Libc::Forked_child : Child_policy, Child_ready
 
 
 /* initialized on first call of 'fork_kernel_routine' */
-static Registry<Registered<Libc::Forked_child> > *_forked_children_ptr;
+typedef Registry<Registered<Libc::Forked_child> > Forked_children;
+static Forked_children *_forked_children_ptr;
 
 
 static void fork_kernel_routine()
@@ -533,7 +534,7 @@ static void fork_kernel_routine()
 
 	static Libc::Local_rom_services local_rom_services(env, fork_ep, alloc);
 
-	static Registry<Registered<Libc::Forked_child> > forked_children { };
+	static Forked_children forked_children { };
 	_forked_children_ptr = &forked_children;
 
 	Registered<Libc::Forked_child> &child = *new (alloc)
@@ -601,6 +602,48 @@ pid_t getpid(void) __attribute__((weak, alias("__sys_getpid")));
  ** wait4 **
  ***********/
 
+namespace Libc { struct Wait4_suspend_functor; }
+
+struct Libc::Wait4_suspend_functor : Suspend_functor
+{
+	Forked_children &_children;
+
+	pid_t const _pid;
+
+	Wait4_suspend_functor(pid_t pid, Forked_children &children)
+	: _children(children), _pid(pid) { }
+
+	template <typename FN>
+	bool with_exited_child(FN const &fn)
+	{
+		Registered<Forked_child> *child_ptr = nullptr;
+
+		_children.for_each([&] (Registered<Forked_child> &child) {
+
+			if (child_ptr || !child.exited())
+				return;
+
+			if (_pid == child.pid() || _pid == -1)
+				child_ptr = &child;
+		});
+
+		if (!child_ptr)
+			return false;
+
+		fn(*child_ptr);
+		return true;
+	}
+
+	bool suspend() override
+	{
+		bool const any_child_exited =
+			with_exited_child([] (Forked_child const &) { });
+
+		return !any_child_exited;
+	}
+};
+
+
 extern "C" pid_t __sys_wait4(pid_t, int *, int, rusage *) __attribute__((weak));
 extern "C" pid_t __sys_wait4(pid_t pid, int *status, int options, rusage *rusage)
 {
@@ -615,42 +658,21 @@ extern "C" pid_t __sys_wait4(pid_t pid, int *status, int options, rusage *rusage
 		return -1;
 	}
 
-	/* lookup child for PID */
-	Registered<Forked_child> *child_ptr = nullptr;
-	_forked_children_ptr->for_each([&] (Registered<Forked_child> &child) {
-		if (!child_ptr && child.pid() == pid)
-			child_ptr = &child; });
+	Wait4_suspend_functor suspend_functor { pid, *_forked_children_ptr };
 
-	if (!child_ptr) {
-		errno = ECHILD;
-		return -1;
-	}
+	for (;;) {
 
-	Forked_child &child = *child_ptr;
+		suspend_functor.with_exited_child([&] (Registered<Forked_child> &child) {
+			result    = child.pid();
+			exit_code = child.exit_code();
+			destroy(*_alloc_ptr, &child);
+		});
 
-	if (!(options & WNOHANG)) {
-
-		struct Suspend_functor_impl : Suspend_functor
-		{
-			Forked_child &_child;
-
-			Suspend_functor_impl(Libc::Forked_child &child) : _child(child) { }
-
-			bool suspend() override { return !_child.exited(); }
-
-		} suspend_functor(child);
+		if (result >= 0 || (options & WNOHANG))
+			break;
 
 		Libc::suspend(suspend_functor, 0);
 	}
-
-	if (!child.exited())
-		return result;
-
-	result    = child.pid();
-	exit_code = child.exit_code();
-
-	if (_alloc_ptr)
-		destroy(*_alloc_ptr, &child);
 
 	/*
 	 * The libc expects status information in bits 0..6 and the exit value
