@@ -1027,7 +1027,9 @@ void Libc::Kernel::_clone_state_from_parent()
 			 */
 			bool const blacklisted = (name == "ld.lib.so")
 			                      || (name == "libc.lib.so")
-			                      || (name == "vfs.lib.so");
+			                      || (name == "libm.lib.so")
+			                      || (name == "posix.lib.so")
+			                      || (strcmp(name.string(), "vfs", 3) == 0);
 			if (!blacklisted)
 				copy_from_parent(range_attr(node));
 		}
