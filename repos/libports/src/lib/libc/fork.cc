@@ -83,7 +83,15 @@ struct Libc::Child_config
 {
 	Constructible<Attached_ram_dataspace> _ds { };
 
+	Env &_env;
+
+	pid_t const _pid;
+
+	void _generate(Xml_generator &xml, Xml_node config);
+
 	Child_config(Env &env, Config_accessor const &config_accessor, pid_t pid)
+	:
+		_env(env), _pid(pid)
 	{
 		Xml_node const config = config_accessor.config();
 
@@ -94,59 +102,9 @@ struct Libc::Child_config
 			[&] () {
 				_ds.construct(env.ram(), env.rm(), buffer_size);
 
-				Xml_generator xml(_ds->local_addr<char>(), buffer_size,
-				                  "config", [&] () {
-
-					typedef String<30> Addr;
-
-					/*
-					 * Disarm the dynamic linker's sanity check for the
-					 * execution of static constructors for the forked child
-					 * because those constructors were executed by the parent
-					 * already.
-					 */
-					xml.attribute("ld_check_ctors", "no");
-
-					xml.node("libc", [&] () {
-
-						xml.attribute("pid", pid);
-
-						file_descriptor_allocator()->generate_info(xml);
-
-						auto gen_range_attr = [&] (auto at, auto size)
-						{
-							xml.attribute("at",   Addr(at));
-							xml.attribute("size", Addr(size));
-						};
-
-						xml.attribute("cloned", "yes");
-						xml.node("stack", [&] () {
-							gen_range_attr(_user_stack_base_ptr, _user_stack_size); });
-
-						typedef Dynamic_linker::Object_info Info;
-						Dynamic_linker::for_each_loaded_object(env, [&] (Info const &info) {
-							xml.node("rw", [&] () {
-								xml.attribute("name", info.name);
-								gen_range_attr(info.rw_start, info.rw_size); }); });
-
-						_malloc_heap_ptr->for_each_region([&] (void *start, size_t size) {
-							xml.node("heap", [&] () {
-								gen_range_attr(start, size); }); });
-					});
-
-					xml.append("\n");
-
-					/* copy non-libc config as is */
-					config.for_each_sub_node([&] (Xml_node node) {
-						if (node.type() != "libc") {
-							node.with_raw_node([&] (char const *start, size_t len) {
-								xml.append("\t");
-								xml.append(start, len);
-							});
-							xml.append("\n");
-						}
-					});
-				});
+				Xml_generator
+					xml(_ds->local_addr<char>(), buffer_size, "config", [&] () {
+						_generate(xml, config); });
 			},
 
 			[&] () { buffer_size += 4096; }
@@ -159,6 +117,71 @@ struct Libc::Child_config
 		return static_cap_cast<Rom_dataspace>(cap);
 	}
 };
+
+
+void Libc::Child_config::_generate(Xml_generator &xml, Xml_node config)
+{
+	typedef String<30> Addr;
+
+	/*
+	 * Disarm the dynamic linker's sanity check for the
+	 * execution of static constructors for the forked child
+	 * because those constructors were executed by the parent
+	 * already.
+	 */
+	xml.attribute("ld_check_ctors", "no");
+
+	xml.node("libc", [&] () {
+
+		xml.attribute("pid", _pid);
+
+		typedef String<Vfs::MAX_PATH_LEN> Path;
+		config.with_sub_node("libc", [&] (Xml_node node) {
+			if (node.has_attribute("rtc"))
+				xml.attribute("rtc", node.attribute_value("rtc", Path())); });
+
+		{
+			char buf[Vfs::MAX_PATH_LEN] { };
+			if (getcwd(buf, sizeof(buf)))
+				xml.attribute("cwd", Path(Cstring(buf)));
+		}
+
+		file_descriptor_allocator()->generate_info(xml);
+
+		auto gen_range_attr = [&] (auto at, auto size)
+		{
+			xml.attribute("at",   Addr(at));
+			xml.attribute("size", Addr(size));
+		};
+
+		xml.attribute("cloned", "yes");
+		xml.node("stack", [&] () {
+			gen_range_attr(_user_stack_base_ptr, _user_stack_size); });
+
+		typedef Dynamic_linker::Object_info Info;
+		Dynamic_linker::for_each_loaded_object(_env, [&] (Info const &info) {
+			xml.node("rw", [&] () {
+				xml.attribute("name", info.name);
+				gen_range_attr(info.rw_start, info.rw_size); }); });
+
+		_malloc_heap_ptr->for_each_region([&] (void *start, size_t size) {
+			xml.node("heap", [&] () {
+				gen_range_attr(start, size); }); });
+	});
+
+	xml.append("\n");
+
+	/* copy non-libc config as is */
+	config.for_each_sub_node([&] (Xml_node node) {
+		if (node.type() != "libc") {
+			node.with_raw_node([&] (char const *start, size_t len) {
+				xml.append("\t");
+				xml.append(start, len);
+			});
+			xml.append("\n");
+		}
+	});
+}
 
 
 class Libc::Parent_services : Noncopyable
