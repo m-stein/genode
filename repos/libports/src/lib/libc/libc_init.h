@@ -22,9 +22,6 @@
 /* libc includes */
 #include <setjmp.h>     /* for 'jmp_buf' type */
 
-/* libc-internal includes */
-#include "clone_session.h"
-
 namespace Libc {
 
 	/**
@@ -46,6 +43,8 @@ namespace Libc {
 	 * Set libc config node
 	 */
 	void libc_config_init(Genode::Xml_node node);
+
+	struct Clone_connection;
 
 	/**
 	 * Malloc allocator

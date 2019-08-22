@@ -29,6 +29,7 @@ extern "C" {
 /* libc-internal includes */
 #include "libc_init.h"
 #include <base/internal/unmanaged_singleton.h>
+#include <clone_session.h>
 
 
 namespace Libc {
