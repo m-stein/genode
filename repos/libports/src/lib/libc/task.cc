@@ -344,16 +344,23 @@ struct Libc::Cloned_malloc_heap_range
 
 	Genode::Ram_dataspace_capability ds;
 
+	size_t const size;
 	addr_t const local_addr;
 
 	Cloned_malloc_heap_range(Genode::Ram_allocator &ram, Genode::Region_map &rm,
-	                         Clone_connection &cloned, void *start, size_t size)
-	:
-		ram(ram), rm(rm),
-		ds(ram.alloc(size)),
+	                         void *start, size_t size)
+	try :
+		ram(ram), rm(rm), ds(ram.alloc(size)), size(size),
 		local_addr(rm.attach_at(ds, (addr_t)start))
+	{ }
+	catch (Region_map::Region_conflict) {
+		error("could not clone heap region ", Hex_range(local_addr, size));
+		throw;
+	}
+
+	void import_content(Clone_connection &clone_connection)
 	{
-		cloned.memory_content(start, size);
+		clone_connection.memory_content((void *)local_addr, size);
 	}
 
 	virtual ~Cloned_malloc_heap_range()
@@ -990,26 +997,46 @@ void Libc::Kernel::_init_file_descriptors()
 
 void Libc::Kernel::_clone_state_from_parent()
 {
-	Clone_connection cloned(_env);
+	struct Range { void *at; size_t size; };
 
-	cloned.memory_content(&_user_context, sizeof(_user_context));
+	auto range_attr = [&] (Xml_node node)
+	{
+		return Range {
+			.at   = (void *)node.attribute_value("at",   0UL),
+			.size =         node.attribute_value("size", 0UL)
+		};
+	};
+
+	/*
+	 * Allocate local memory for the backing store of the application heap,
+	 * mirrored from the parent.
+	 *
+	 * This step must precede the creation of the 'Clone_connection' because
+	 * the shared-memory buffer of the clone session may otherwise potentially
+	 * interfere with such a heap region.
+	 */
+	_libc_env.libc_config().for_each_sub_node("heap", [&] (Xml_node node) {
+		Range const range = range_attr(node);
+		new (_heap)
+			Registered<Cloned_malloc_heap_range>(_cloned_heap_ranges,
+			                                     _env.ram(), _env.rm(),
+			                                     range.at, range.size); });
+
+	Clone_connection clone_connection(_env);
+
+	/* fetch heap content */
+	_cloned_heap_ranges.for_each([&] (Cloned_malloc_heap_range &heap_range) {
+		heap_range.import_content(clone_connection); });
+
+	/* fetch user contex of the parent's application */
+	clone_connection.memory_content(&_user_context, sizeof(_user_context));
 	_valid_user_context = true;
 
 	_libc_env.libc_config().for_each_sub_node([&] (Xml_node node) {
 
-		struct Range { void *at; size_t size; };
-
-		auto range_attr = [&] (Xml_node node)
-		{
-			return Range {
-				.at   = (void *)node.attribute_value("at",   0UL),
-				.size =         node.attribute_value("size", 0UL)
-			};
-		};
-
 		auto copy_from_parent = [&] (Range range)
 		{
-			cloned.memory_content(range.at, range.size);
+			clone_connection.memory_content(range.at, range.size);
 		};
 
 		/* clone application stack */
@@ -1033,20 +1060,11 @@ void Libc::Kernel::_clone_state_from_parent()
 			if (!blacklisted)
 				copy_from_parent(range_attr(node));
 		}
-
-		/* clone heap ranges */
-		if (node.type() == "heap") {
-			Range const range = range_attr(node);
-			new (_heap)
-				Registered<Cloned_malloc_heap_range>(_cloned_heap_ranges,
-				                                     _env.ram(), _env.rm(),
-				                                     cloned, range.at, range.size);
-		}
 	});
 
-	/* import heap state from parent */
-	cloned.object_content(_malloc_heap);
-	init_malloc_cloned(cloned);
+	/* import application-heap state from parent */
+	clone_connection.object_content(_malloc_heap);
+	init_malloc_cloned(clone_connection);
 }
 
 
