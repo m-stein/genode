@@ -6,8 +6,6 @@ CONFIGURE_ARGS = --disable-acl --disable-largefile --disable-xattr \
 #
 CONFIGURE_ARGS += --enable-no-install-program=stdbuf
 
-
-
 #
 # Prevent building stdbuf because this involves the linkage of a shared
 # libary, which is not supported by Noux, yet.
