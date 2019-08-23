@@ -31,26 +31,30 @@ using namespace Genode;
 
 typedef int (*main_fn_ptr) (int, char **, char **);
 
-namespace Libc { struct Env_vars; }
+namespace Libc { struct String_array; }
 
-struct Libc::Env_vars : Noncopyable
+
+/**
+ * Utility to capture the state of argv or envp string arrays
+ */
+struct Libc::String_array : Noncopyable
 {
 	typedef Genode::Allocator Allocator;
 
 	Allocator &_alloc;
 
-	static unsigned _num_entries(char const * const * const environ)
+	static unsigned _num_entries(char const * const * const array)
 	{
 		unsigned i = 0;
-		for (; environ && environ[i]; i++);
+		for (; array && array[i]; i++);
 		return i;
 	}
 
-	unsigned const _count;
+	unsigned const count;
 
-	size_t const _environ_size = sizeof(char *)*(_count + 1);
+	size_t const _array_bytes = sizeof(char *)*(count + 1);
 
-	char ** const environ = (char **)_alloc.alloc(_environ_size);
+	char ** const array = (char **)_alloc.alloc(_array_bytes);
 
 	struct Buffer
 	{
@@ -81,27 +85,26 @@ struct Libc::Env_vars : Noncopyable
 
 	Constructible<Buffer> _buffer { };
 
-	Env_vars(Allocator &alloc, char const * const * const src_environ)
+	String_array(Allocator &alloc, char const * const * const src_array)
 	:
-		_alloc(alloc),
-		_count(_num_entries(src_environ))
+		_alloc(alloc), count(_num_entries(src_array))
 	{
-		/* marshal environ strings to buffer */
+		/* marshal array strings to buffer */
 		size_t size = 1024;
 		for (;;) {
 
 			_buffer.construct(alloc, size);
 
 			unsigned i = 0;
-			for (i = 0; i < _count; i++) {
-				environ[i] = _buffer->pos_ptr();
-				if (!_buffer->try_append(src_environ[i]))
+			for (i = 0; i < count; i++) {
+				array[i] = _buffer->pos_ptr();
+				if (!_buffer->try_append(src_array[i]))
 					break;
 			}
 
-			bool const done = (i == _count);
+			bool const done = (i == count);
 			if (done) {
-				environ[i] = nullptr;
+				array[i] = nullptr;
 				break;
 			}
 
@@ -110,22 +113,19 @@ struct Libc::Env_vars : Noncopyable
 		}
 	}
 
-	~Env_vars() { _alloc.free(environ, _environ_size); }
+	~String_array() { _alloc.free(array, _array_bytes); }
 };
 
 
 /* pointer to environment, provided by libc */
 extern char **environ;
 
-enum { MAX_ARGS = 256 };
-
 static Env                     *_env_ptr;
 static Allocator               *_alloc_ptr;
 static void                    *_user_stack_ptr;
-static int                      _argc;
-static char                    *_argv[MAX_ARGS];
 static main_fn_ptr              _main_ptr;
-static Libc::Env_vars          *_env_vars_ptr;
+static Libc::String_array      *_env_vars_ptr;
+static Libc::String_array      *_args_ptr;
 static Libc::Reset_malloc_heap *_reset_malloc_heap_ptr;
 
 
@@ -148,7 +148,7 @@ static void user_entry(void *)
 {
 	_env_ptr->exec_static_constructors();
 
-	exit((*_main_ptr)(_argc, _argv, _env_vars_ptr->environ));
+	exit((*_main_ptr)(_args_ptr->count, _args_ptr->array, _env_vars_ptr->array));
 }
 
 
@@ -162,8 +162,12 @@ extern "C" int execve(char const *filename,
 		return Libc::Errno(EACCES);
 	}
 
-	/* capture environment variables to libc-internal heap */
-	Libc::Env_vars *saved_env_vars = new (*_alloc_ptr) Libc::Env_vars(*_alloc_ptr, envp);
+	/* capture environment variables and args to libc-internal heap */
+	Libc::String_array *saved_env_vars =
+		new (*_alloc_ptr) Libc::String_array(*_alloc_ptr, envp);
+
+	Libc::String_array *saved_args =
+		new (*_alloc_ptr) Libc::String_array(*_alloc_ptr, argv);
 
 	try {
 		_main_ptr = Dynamic_linker::respawn<main_fn_ptr>(*_env_ptr, filename, "main");
@@ -178,41 +182,20 @@ extern "C" int execve(char const *filename,
 	}
 
 	/*
-	 * Copy argv from application-owned (malloc heap) into libc-owned memory
-	 */
-	for (unsigned i = 0; i < MAX_ARGS; i++) {
-		if (_argv[i]) {
-			_alloc_ptr->free(_argv[i], ::strlen(_argv[i]) + 1);
-			_argv[i] = nullptr;
-		}
-	}
-
-	{
-		unsigned i = 0;
-		for (i = 0; i < MAX_ARGS && argv[i]; i++) {
-			size_t const len = ::strlen(argv[i]) + 1; /* zero termination */
-			_argv[i] = (char *)_alloc_ptr->alloc(len);
-			Genode::strncpy(_argv[i], argv[i], len);
-		}
-		if (i == MAX_ARGS)
-			return Libc::Errno(E2BIG);
-
-		_argc = i;
-	}
-
-	/*
 	 * Reconstruct malloc heap for application-owned data
 	 */
 	_reset_malloc_heap_ptr->reset_malloc_heap();
 
 	Libc::Allocator app_heap { };
 
-	_env_vars_ptr = new (app_heap) Libc::Env_vars(app_heap, saved_env_vars->environ);
+	_env_vars_ptr = new (app_heap) Libc::String_array(app_heap, saved_env_vars->array);
+	_args_ptr     = new (app_heap) Libc::String_array(app_heap, saved_args->array);
 
 	/* register list of environment variables at libc 'environ' pointer */
-	environ = _env_vars_ptr->environ;
+	environ = _env_vars_ptr->array;
 
 	destroy(_alloc_ptr, saved_env_vars);
+	destroy(_alloc_ptr, saved_args);
 
 	call_func(_user_stack_ptr, (void *)user_entry, nullptr);
 }
