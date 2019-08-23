@@ -24,6 +24,7 @@
 #include <libc/allocator.h>
 #include <internal/call_func.h>
 #include <libc_init.h>
+#include <libc_errno.h>
 #include <task.h>
 
 using namespace Genode;
@@ -158,8 +159,7 @@ extern "C" int execve(char const *filename,
 {
 	if (!_env_ptr || !_alloc_ptr) {
 		error("missing call of 'init_execve'");
-		errno = EACCES;
-		return -1;
+		return Libc::Errno(EACCES);
 	}
 
 	/* capture environment variables to libc-internal heap */
@@ -170,19 +170,15 @@ extern "C" int execve(char const *filename,
 	}
 	catch (Dynamic_linker::Invalid_symbol) {
 		error("Dynamic_linker::respawn could not obtain binary entry point");
-		errno = EACCES;
-		return -1;
+		return Libc::Errno(EACCES);
 	}
 	catch (Dynamic_linker::Invalid_rom_module) {
 		error("Dynamic_linker::respawn could not access binary ROM");
-		errno = EACCES;
-		return -1;
+		return Libc::Errno(EACCES);
 	}
 
 	/*
 	 * Copy argv from application-owned (malloc heap) into libc-owned memory
-	 *
-	 * XXX
 	 */
 	for (unsigned i = 0; i < MAX_ARGS; i++) {
 		if (_argv[i]) {
@@ -198,10 +194,9 @@ extern "C" int execve(char const *filename,
 			_argv[i] = (char *)_alloc_ptr->alloc(len);
 			Genode::strncpy(_argv[i], argv[i], len);
 		}
-		if (i == MAX_ARGS) {
-			errno = E2BIG;
-			return -1;
-		}
+		if (i == MAX_ARGS)
+			return Libc::Errno(E2BIG);
+
 		_argc = i;
 	}
 
