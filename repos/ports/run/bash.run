@@ -60,7 +60,7 @@ install_config {
 		</provides>
 	</start>
 
-	<start name="terminal">
+	<start name="terminal" caps="110">
 		<resource name="RAM" quantum="2M"/>
 		<provides><service name="Terminal"/></provides>
 		<route>
@@ -69,7 +69,7 @@ install_config {
 		</route>
 	</start>
 
-	<start name="vfs">
+	<start name="vfs" caps="120">
 		<resource name="RAM" quantum="30M"/>
 		<provides><service name="File_system"/></provides>
 		<config>
