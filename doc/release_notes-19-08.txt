@@ -1,0 +1,1046 @@
+
+
+              ===============================================
+              Release notes for the Genode OS Framework 19.08
+              ===============================================
+
+                               Genode Labs
+
+
+
+;intro
+;@nfeske
+
+
+Flexible keyboard layouts
+#########################
+
+;@chelmuth
+
+Tracing
+#######
+
+;@ssumpf
+
+commit ac0ecdf855f610d4d02a43bcaa7ad3b7ba74daef
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Fri May 3 15:56:58 2019 +0200
+
+    base: make trace resumable
+    
+    revert relocations so a paused subject can resume without changing its
+    policy.
+    
+    issue #3294
+
+commit 25484f870e6ec2bd22830fcd3034cf0cad84d307
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Mon May 6 10:42:05 2019 +0200
+
+    trace: make trace buffer resizeable
+    
+    Trace buffers a re-allocated during subsequent calls to 'trace'.
+    
+    issue #3294
+
+commit 18b3253cac4100da7a586a1c02dbf924c5e98644
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Thu Apr 11 11:20:48 2019 +0200
+
+    vfs_trace: VFS plugin that offers trace buffer access
+    
+    The plugin creates a file-system hierarchy that enabled the access of
+    trace buffers for each component and its threads.
+    
+    issue #3294
+
+commit 24eea0b653ee1c7a789d836423446e73dd4384c2
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Wed Jun 12 17:47:11 2019 +0200
+
+    base: add 'trace' function to base/log.h
+    
+    The 'Genode::trace' convenience function prints messages to Genode's
+    trace buffer (if tracing is enabled).
+    
+    issue #3294
+
+commit c34176580c56a5770601620b78c49a268e51a157
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Fri Jun 14 16:15:50 2019 +0200
+
+    os: recipe for 'trace_policy'
+    
+    * source packet for all trace policies
+    
+    issue #3294
+
+commit 57e650ef2c3e88f2d27df6206385ccd9e07837ab
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Mon Jun 17 17:38:54 2019 +0200
+
+    gems: recipes for vfs_trace pluging
+    
+    * source recipe for vfs_trace
+    * pkg for 'trace_fs' with runtime
+    
+    issue #3294
+
+commit d32e8390c20546f30c8e1d864c09646149ab4d00
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Tue Jun 18 14:38:09 2019 +0200
+
+    os: remove trace_fs
+    
+    This component is superseded by the 'vfs_trace' plugin.
+    
+    Issue #3294.
+
+
+Consolidation of the C runtime and Noux
+#######################################
+
+;@nfeske
+
+commit 695a212877a270567b12b4268aaa97475ba27968
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Aug 13 14:28:34 2019 +0200
+
+    noux: preload libc_noux.lib.so for noux processes
+    
+    Issue #3472
+
+commit ff076545603e26b933e4edb3be2e7bc909a04aa2
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Aug 13 14:38:39 2019 +0200
+
+    noux: rm explicit dependency from libc_noux.lib.so
+    
+    Issue #3472
+
+commit abdf422681c5f0a92f48022584fbfa4ec412b3a6
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Aug 14 16:00:18 2019 +0200
+
+    ldso: interface to get infos about loaded objects
+    
+    This patch enhances the 'base/shared_object.h' interface of the dynamic
+    linker with the function 'for_each_loaded_object', which allows the
+    caller to obtain information about the currently loaded binary and
+    shared libraries.
+    
+    The new interface is a base mechanism needed for implementing 'fork' in
+    the libc.
+    
+    Issue #3478
+
+commit 7444298ffd3315b8c1763cbfb0a607f8eb42b3a1
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Aug 15 10:28:50 2019 +0200
+
+    ldso: config option to disarm ctors check
+    
+    By specifying the config attribute 'check_ctors="no"', the dynamic
+    linker won't abort the program on a missing call of
+    'Env::exec_static_constructors'. This is the case for forked programs
+    where the ctors were already executed by the forking program prior the
+    fork operation.
+    
+    Issue #3478
+
+commit 41a074c52d23c6a0de849db103cb9413c56a1990
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Aug 16 19:04:04 2019 +0200
+
+    libc: configurable initial FDs
+    
+    The libc already supports the configuration of 'stdin', 'stdout', and
+    'stderr' using '<libc>' config attributes. This patch equips the libc
+    with the additional ability to pre-initialize any other file descriptor.
+    A file descriptor is configured as follows:
+    
+    <config>
+      ...
+      <libc ...>
+        <fd id="3" path="/dev/log" writeable="yes" readable="no" seek="10"/>
+        ...
+      </libc>
+    </config>
+    
+    Furthermore, this patch moves the FD initialization code from the VFS
+    plugin to the libc kernel initialization because opening the FDs
+    depends on 'malloc' ('strdup'), which should not be used at early
+    'Libc::Kernel' initialization time.
+    
+    Issue #3478
+
+commit c20f294219256da9ee5a152129c260dbbbfc8eae
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Aug 13 16:16:56 2019 +0200
+
+    Extend fork test
+    
+    This patch extends the fork test with explicit checks for the cloned
+    content of the heap and RW segment as well as the seek position of an
+    open file descriptor. It adds the new libports/run/fork.run script
+    that exercises the fork mechanism implemented by the libc. It is based
+    on noux_fork.run, which tests the mechansim provided by noux. The
+    test program has been moved from ports to libports.
+    
+    Issue #3478
+
+commit a1d7a72ad5b793604c1ada977a7e68069c99ee43
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Aug 14 17:34:09 2019 +0200
+
+    libc: fork, getpid, and wait4
+    
+    This patch complements the C runtime with support for fork, getpid, and
+    wait4 (and its cousin 'waitpid').
+    
+    Fixes #3478
+
+commit 8fba4e2b7205525c894438c89ce0c1dd30fde90a
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Aug 20 12:18:05 2019 +0200
+
+    ldso: Dynamic_linker::respawn mechanism
+    
+    This patch extends the interface of the dynamic linker with the ability
+    to replace the running binary executable by another one. It is
+    designated for the implementation of execve. The interface consists of
+    two new functions.
+    
+    'Dynamic_linker::keep' marks the specified shared object as unloadable.
+    This can be used to pin a set of libraries (i.e., the libc) within the
+    local address space while replacing the binary and other higher-level
+    libraries.
+    
+    'Dynamic_linker::respawn' unloads the current binary, loads the one
+    specifed as first argument, and looks up the entry point symbol of the
+    new binary, which would be "main" for POSIX programs.
+    
+    In addition to implementing the new interface, the patch adjusts the
+    linker at various places that previously assumed the binary to be
+    constant over runtime.
+    
+    Issue #3481
+
+commit 50f0afd900069b81e18d89b6f6f4ba18837a90af
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Aug 21 16:08:20 2019 +0200
+
+    ldso: heuristics for libs needed during execve
+    
+    The allocation of regions within the linker area is normally left to the
+    best-fit 'Allocator_avl', which happens to populate the linker area
+    starting with the binary followed by all loaded libraried with no gaps
+    in between.
+    
+    When replacing the binary during execve, however, we need to ensure that
+    the new binary does not conflict with any library that stays resident
+    during execve. This patch tweaks the linker's region allocation scheme
+    such that these libraries are placed at the end of the linker area.
+    
+    Issue #3481
+
+commit 3eb465dacb6e40dd4b170162d983fd7ccc181134
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Aug 20 12:18:54 2019 +0200
+
+    libc: execve
+    
+    This patch implements 'execve' in Genode's libc.
+    
+    The mechanism relies on the dynamic linker's ability to replace the
+    loaded binary while keeping crucial libraries - in particular the libc -
+    intact. The state outside the libc is wiped. For this reason, all libc
+    internal state needed beyond the 'execve' call must be allocated on a
+    heap separate from the application-owned malloc heap. E.g.,
+    libc-internal file-descriptor objects must not be allocated or refer to
+    any memory object allocated from the malloc heap.
+    
+    Issue #3481
+
+commit c9e68b106090af2480ec0a194f77ceb936d3a410
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Aug 22 00:17:25 2019 +0200
+
+    ports: bash.run script using the libc fork/execve
+    
+    Issue #3481
+
+
+64-bit ARM and NXP i.MX8
+########################
+
+64-bit ARM support in our custom base-hw kernel
+===============================================
+
+;@skalk @ssumpf
+
+commit d9a0f76e7af9477a209c37c02d924ab83fe9f931
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Tue Jun 4 16:08:53 2019 +0200
+
+    hw: extend long-descriptor page table format
+    
+    Ref #3405
+
+commit 87015df66c4e032540466eb0b9316c4081046898
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Wed Jun 12 22:33:02 2019 +0200
+
+    hw: change update_pd to invalidate_tlb
+    
+    In the past, the core-only privileged syscall `update_pd` was used only
+    to invalidate the TLB after removal of page-table entries.
+    By now, the whole TLB at least for one protection domain got invalidated,
+    but in preparation for optimization and upcomingARM v8 support,
+    it is necessary to deliver the virtual memory region that needs to get
+    invalidated. Moreover, the name of the call shall represent explicitely
+    that it is used to invalidate the TLB.
+    
+    Ref #3405
+
+commit 90d07741aa3483ef9e6f0e3d878588e33e224bd0
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Tue May 21 16:27:37 2019 +0200
+
+    hw: support for ARM64 Raspberry Pi 3
+    
+    Restriction: enables only cpu core 0 and the timer interrupt by now.
+    
+    Fix #3405
+
+commit 875858b2cc2efcf31d62ed8d3c6b0bd28f2073f1
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Wed Jul 10 13:30:54 2019 +0200
+
+    hw: integrate interrupt controllers into board.h
+    
+    Additionally, unify more implementation details in between different
+    usage patterns of ARM's generic interrupt controller (v2)
+    
+    Ref #3445
+
+commit dd505edd19a229dec574b956cb4f935293e2dd53
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Mon Jun 24 18:39:48 2019 +0200
+
+    hw: GICv3 implementation
+    
+    * modern GICv3 implementation
+    * distributor
+    * redistributor
+    * MMIO cpu interface
+    
+    Ref #3426
+
+commit ee38504d8167a5164aad5c5e87c04409a0d2fab0
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Wed Jul 10 17:52:49 2019 +0200
+
+    hw: implement update_data_region for ARMv8
+    
+    Ref #3426
+
+commit 6b09ac59f08a6e5b36e0d9faa29571d824eec7e7
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Tue Jul 9 11:41:18 2019 +0200
+
+    hw: enable performance counter for ARMv8
+    
+    Ref #3426
+
+commit 7ced122ddcdcc12732c197b83453b0bf21e260ee
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Thu Jul 11 13:00:32 2019 +0200
+
+    hw: support for i.MX8M Quad EVK
+    
+    Fix #3426
+
+commit 4c113182b064237f1518ba80c37036507479218b
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Mon Jul 1 20:08:41 2019 +0200
+
+    depot: add recipe for base-hw-imx8q_evk
+    
+    Issue #3426
+
+Kernel-agnostic network driver for i.MX8
+========================================
+
+;@cproc
+
+commit 4dafdbd5b75da7632d84b4411c1148431979f93c
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Fri Jun 21 15:04:03 2019 +0200
+
+    dde_linux: update 'fec' driver to version 4.16.3
+    
+    Fixes #3432
+
+commit 5dd1abcc2da7fae757e34989c971c53954114b0c
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Thu Jun 27 19:41:57 2019 +0200
+
+    depot: add recipe for drivers_nic-imx7d_sabre
+    
+    Fixes #3433
+
+commit 71ce1442c8cc97e552214b75b3a9fe4e3c7723a0
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Thu Jun 27 19:42:01 2019 +0200
+
+    run: enable 'imx7d_sabre' in network tests
+    
+    Fixes #3434
+
+commit 38dcdeeb049da5ff4132b0a39dbe5ad13bdb88f1
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Thu Jul 4 15:54:19 2019 +0200
+
+    fec_nic_drv: arm_64 support
+    
+    Fixes #3446
+
+commit 91c8e70bef31b0d9cadc162d2cec46b789a236ea
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Thu Jul 4 15:54:19 2019 +0200
+
+    depot: add recipe for drivers_nic-imx8q_evk
+    
+    Fixes #3452
+
+
+Enhanced packaging and test infrastructure for ARMv8
+====================================================
+
+;@ssumpf
+
+commit e337b844e558b8c50eb06a92271e7bbfc079b020
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Tue May 21 14:01:26 2019 +0200
+
+    depot: support for ARM 64-bit for base-foc on rpi3
+    
+    issue #3407
+
+commit c107aba9138165c9ffbc09393edaa6e4b20440c2
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Tue May 21 14:02:45 2019 +0200
+
+    depot_autopilot: add ARM 64-bit support
+    
+    issue #3407
+
+commit 59347d256058801ff668837b941937f231f54647
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Wed May 29 13:26:47 2019 +0200
+
+    stdcxx: make linkable for ARM 64-Bit
+    
+    'typeinfo for std::invalid_argument' was not found when using 'V' (weak
+    object)
+    
+    issue #3407
+
+commit e43b848ac88aeb1d3d3392cfd71f2929d7f1aa26
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Wed May 29 13:28:47 2019 +0200
+
+    jitterentropy: ARM 64-Bit version
+    
+    issue #3407
+
+commit 790a57041ca7128d5431985adf08376c8a9c2e0b
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Wed May 29 13:29:57 2019 +0200
+
+    base: add ARM 64-Bit to base API
+    
+    issue #3407
+
+commit ef8140cce5bd00d84e621042222891e625f35a1c
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Wed May 29 13:40:53 2019 +0200
+
+    lxip: ARM 64-Bit support
+    
+    issue #3407
+
+commit 1b489820a9042fab4d7c55bbd4072eb2d69c4954
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Tue Jun 4 21:17:10 2019 +0200
+
+    base: timestamp support for ARM 64-Bit
+    
+    issue #3407
+
+commit f3a7d3750fb0754a71296c0a5323dc535a9f3754
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Tue Aug 13 13:43:28 2019 +0200
+
+    base: Add Linux and GOT relative startup code on ARM
+    
+    * Linux specific startup code for base-linux ARM
+    * load symbols global offset table relative in order to avoid text
+      relocations
+    
+    issue #3466
+
+commit 0ee178903aa6286f64dfb3d3f49e7eefad9e91f6
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Wed Aug 21 16:53:59 2019 +0200
+
+    noux-pkg: enable noux packages for ARMv8
+    
+    * add -fPIC
+    * disable 'stdbuf' for coreutils
+    * works for bash as well
+
+
+Base framework and OS-level infrastructure
+##########################################
+
+Improved RTC handling
+=====================
+
+;@mstein
+
+commit 47e6d72bf2b07ee5cc8443509f4b4e57fdcbe318
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Jul 1 17:23:33 2019 +0200
+
+    rtc_drv: add support for setting RTC
+    
+    The rtc_drv on x86 can now by used to also set the RTC. If the config
+    attribute 'allow_setting_rtc' is set to 'yes' the driver will update
+    the RTC from the content of the 'set-rtc' ROM module. A valid ROM must
+    contain a top node with the following attributes: 'year', 'month',
+    'day', 'hour', 'minute' and 'second'.
+    
+    * Only rudimentary checking of the provided values is done.
+    * '12H' mode is not supported.
+    
+    Fixes #3438.
+
+commit 86cacd23bb306ee1dad5952b127caf27d19edba1
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Jul 15 13:24:04 2019 +0200
+
+    rtc: add documentation comments
+    
+    Issue #3450
+
+commit ea2b3301584320a4c501faaf361c5938902f9605
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Jul 15 13:33:25 2019 +0200
+
+    rtc: extended session with set-signal
+    
+    A client may register a signal handler to be notified whenever the
+    RTC value was changed, i.e., a mis-configured clock was synchronized,
+    by calling 'set_sigh()'.
+    
+    Issue #3450
+
+commit a7fe4a502d96b3ac33f2753e219bc906a0f7b6d2
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Jul 15 15:06:23 2019 +0200
+
+    rtc_drv: implement set signal handling
+    
+    Issue #3450
+
+commit 0037edfeee7595e20581d28af87e96728286dbfb
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Wed Aug 14 14:53:40 2019 +0200
+
+    libports: minimal time-type conversion from musl
+    
+    These are time-type conversion functions (including leap years and
+    seconds) taken from musl-libc git rev
+    c82d3bada30cb27e14abda7859da5d2e784830ff with some adaptions. Musl is
+    licensed under permissive MIT license.
+    
+    Issue #3450
+
+commit 99cb585b6ee1dff088a374a0c3103862af485ef2
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Jul 15 17:32:20 2019 +0200
+
+    libports: system RTC server and test
+    
+    For now in libports because it relies on contrib sources from musl
+    doing the time data conversion.
+    
+    Issue #3450
+
+commit 322bacd38033bde7ddf604849ba870e79000f449
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Fri Jul 12 14:49:15 2019 +0200
+
+    timeout_types.xsd: Minutes type
+    
+    Ref #3448
+    Ref #3450
+
+commit cb6377355ea9cfec93629603404995d32d61b925
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Fri Jul 12 15:13:40 2019 +0200
+
+    sntp_client: report received transmit timestamp
+    
+    For now in libports because it relies on contrib sources from musl doing
+    the time data conversion.
+    
+    Ref #3448
+    Ref #3450
+
+commit b8ed80b7ddb2ac37ec01e74868463dae89f899aa
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Wed Aug 14 14:01:19 2019 +0200
+
+    Simple libc-based RTC test
+    
+    Issue #3450
+
+commit 1fdd5b636b8c407256ae61bfb95e24458ce72890
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Wed Aug 14 14:02:33 2019 +0200
+
+    vfs: watch set-rtc signal in RTC file system
+    
+    Issue #3450
+
+commit 18e586daedc8d0d0174f5ae6e82fd8cb2369f9a2
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Aug 12 16:28:29 2019 +0200
+
+    libc: merge RTC and time backends
+    
+    Issue #3450
+
+commit 316f9e4df3ce293420bc9376f9b5353a2cf27930
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Aug 12 18:10:14 2019 +0200
+
+    libc: add VFS watch handle accessor
+    
+    Issue #3450
+
+commit 9cf5da85ef8e6f9fc8ad906b5907ce6c25aa5871
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Aug 12 18:10:38 2019 +0200
+
+    libc: change time back end to re-read RTC
+    
+    Issue #3450
+
+commit d01cc3bf41a1313a59ccabc88e79986167f7fb21
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Wed Aug 14 09:12:12 2019 +0200
+
+    Configurable set_rtc values in RTC test
+    
+    Fixes #3450
+
+commit ce633c0bbab48d0e77bb86de66de49b582381975
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Fri Aug 16 17:55:48 2019 +0200
+
+    gems: recipes/pkg/drivers_rtc-pc
+    
+    Ref #3450
+
+commit 8509687c8d3bbc6c1beab448583c95499a1ae5ca
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Tue Aug 20 16:11:12 2019 +0200
+
+    system_rtc.run: use packages
+    
+    issue #3450
+
+
+SMBIOS driver
+=============
+
+;@mstein
+
+commit 1e379cb3a9c7252a12137d2791fa09d97460cb8b
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Tue Jul 9 18:28:12 2019 +0200
+
+    drivers/acpi: provide plain SMBIOS table as report
+    
+    Ref #3430
+
+commit fe426e6f8f60769fe22d410c33e5a21847e6b08b
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Tue Jul 9 18:36:46 2019 +0200
+
+    smbios_decoder: XML report from SMBIOS table ROM
+    
+    Fixes #3430
+
+
+Clipboard
+=========
+
+;@nfeske
+
+commit db6e013577e1566d85779585e95ceeafa00f4e68
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Jun 25 19:04:44 2019 +0200
+
+    clipboard: match client labels against focus
+    
+    When setting the config attribute 'match_labels="yes"', the clipboard
+    performs plausibility checks for copy and paste operations against the
+    nitpicker focus.
+    
+    Issue #3437
+
+commit 6399fc12acf0a275cdffb7f1298ac5d776a51a7b
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Mon Jul 1 16:05:09 2019 +0200
+
+    clipboard: allow for dynamic reconfiguration
+
+commit fc7b983a40a33f9b7b7e4b07747ef723f107ddef
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Jun 25 16:46:04 2019 +0200
+
+    terminal: clipboard support
+    
+    Fixes #2079
+
+commit 1fe9b07c990c3f56c365f54f142ddb2fbb9e3a44
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Jun 27 19:03:03 2019 +0200
+
+    wm: forwarding of clipboard ROM/Report sessions
+    
+    The labels of clipboard ROM and clipboard report sessions of WM clients
+    must be consistent with the client's nitpicker label. Hence, we must
+    route those sessions through the window manager, analogously to the
+    approach taken for shape reports in #3165.
+    
+    Issue #3437
+
+commit 605f9abf9602b90202242ae03e1f619167acd976
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Jun 27 22:49:12 2019 +0200
+
+    sculpt: integrate global clipboard
+    
+    Issue #3437
+
+commit 3b0d694f42c07f1588f5002b1fb9a580f8a5fe50
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Sat Jun 29 13:51:02 2019 +0200
+
+    pkg/noux-system: clipboard support
+    
+    Issue #3437
+
+commit 0c3d3e7c8f29d492320b1e8993d1dbf39115b150
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Mon Jul 1 16:39:05 2019 +0200
+
+    pkg/qt5_textedit: clipboard support
+    
+    Issue #3437
+
+commit 6380ad1c802be3d5bc707f98b12f710588faefa4
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Mon Jul 1 16:57:00 2019 +0200
+
+    pkg/vbox5-nova-sculpt: clipboard support
+    
+    To enable the clipboard for a VM, add the following node to the
+    <Hardware> sub node of your machine.vbox configuration:
+    
+      <Clipboard mode="Bidirectional"/>
+    
+    Issue #3437
+
+
+Enhanced SSH terminal
+=====================
+
+;@gapfruit
+
+commit eaefcc2c6fc7eae4ae2ab42a0a00099d6fe00bf6
+Author: Sid Hussmann <sid.hussmann@gapfruit.com>
+Date:   Wed May 29 18:44:28 2019 +0200
+
+    ssh: add exec channel and exit on interactive
+    
+    This commit implements the ssh exec channel request. It also handles
+    some shortcommings on the interactive channel like exit and concurrent
+    session establishments.
+    
+    Pipes into the channel do not work yet. E.g.:
+    echo foobar | ssh noux@localhost -p 5555 "cat > /rw/test.txt"
+    
+    The issue described with FIXME in Ssh::Server::incoming_connection()
+    could not be reproduced and might have been fixed with the improved
+    file descriptor handling.
+    
+    Fixes #3401
+
+
+Storage-stack improvements
+==========================
+
+;@nfeske
+
+commit 2d03e622f11fa81c0d624c2b37a10e12905b45b3
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Aug 8 14:54:31 2019 +0200
+
+    usb_block: exit on initialization failure
+    
+    Issue #3468
+
+commit 67a3c2ea4ba9ca0ceeeafae457199012bb872cd5
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Aug 9 10:57:39 2019 +0200
+
+    sculpt: handle failures of usb_block_drv
+    
+    This patch handles the situation where the usb_block_drv exits for any
+    reason, in particular when the driver fails to initialize the device. In
+    such cases, the usb_block_drv used to stay stale in the system,
+    effectively preventing the device from being passed to a VM. With the
+    patch, the USB storage device gets flagged as failed, the usb_block_drv
+    is removed from the runtime, and the condition is reflected at the user
+    interface.
+    
+    This situation occurred on the attempt to access an iomega zip drive
+    with a version of the usb_block_drv without support for the START-STOP
+    command, but it may potentially also occur in other circumstances.
+    
+    Fixes #3468
+
+commit 23c2606ce095279d696b999c5e54d48dd9e0385a
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Aug 9 10:54:31 2019 +0200
+
+    usb_block: support iomega zip drives
+    
+    This patch enhances the initialization sequence by issueing a START_STOP
+    SCSI command when needed.
+    
+    Fixes #3469
+
+commit ceae63741673fcd3f86daefb8c862b87ad6488c6
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Aug 9 16:45:51 2019 +0200
+
+    part_block: support for AHDI partition scheme
+    
+    This patch enhances part_block with support for parsing the AHDI
+    partition scheme, and the detection of the GEMDOS variant of FAT as used
+    by Atari TOS. As a side effect of the implementation, the patch improves
+    the MBR parsing code by avoiding pointers and using const qualifiers.
+    
+    Fixes #3470
+
+commit 114de7721fcc172643dd2ec7cc1072d17f9cab5c
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Aug 9 20:52:18 2019 +0200
+
+    rump_fs: support the access of GEMDOS file systems
+    
+    The GEMDOS variant is supported by NetBSD's msdos file-system driver.
+    However, it must explicitly be enabled by a mount flag. This patch
+    adds the principle ability for passing mount flags to file system
+    drivers and enables the MSDOSFSMNT_GEMDOSFS flag based on the
+    config attribute 'gemdos="yes"'.
+    
+    Issue #3471
+
+commit 874172ca76da09276a89a126027b1bc577b6e817
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Sat Aug 10 12:15:52 2019 +0200
+
+    sculpt manager: support GEMDOS file systems
+    
+    Pass the distinction between GEMDOS and MSDOS file systems from
+    part-block reports to the vfs_rump plugin.
+    
+    Fixes #3471
+
+
+Updated Ada/SPARK runtime
+=========================
+
+;@componolit
+
+commit b55358c53575fbb087000e8ea4e5f6926c1ed003
+Author: Johannes Kliemann <kliemann@componolit.com>
+Date:   Tue Jun 11 12:30:04 2019 +0200
+
+    ada-runtime: fix exception handling on ARM
+    ref #3395
+
+commit 1bdd18a1968314a79eee85eebdec20795ec0d8d2
+Author: Johannes Kliemann <kliemann@componolit.com>
+Date:   Fri Jul 26 13:59:00 2019 +0200
+
+    ada-runtime: update to 1.1
+
+
+Libraries and applications
+##########################
+
+Updated Qt5
+===========
+
+;@cproc
+
+Virtualization
+==============
+
+;@alexab
+
+; ...follow-up to the topic of 19.05
+; https://genode.org/documentation/release-notes/19.05#Kernel-agnostic_virtual-machine_monitors
+
+commit 64fac6cee7c104b3bb38ef7dd094c082dbfb63b0
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Tue May 28 14:38:50 2019 +0200
+
+    foc: extend vm_session impl. for vbox5
+    
+    - transfer more guest registers
+    - print warning once for unsupported guest registers
+    - improve synchronization of vm state transfer
+    
+    Issue #3111
+
+commit 7ec37b2d8d9967c93170e8336a15be847efec072
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Wed May 22 10:41:30 2019 +0200
+
+    vbox5: adjust to run with Fiasco.OC
+    
+    - use priorities solely with nova
+    - handle exceptions during vCPU creation
+    - avoid assertion in vga_vbda
+    - silence compiler warnings about outdated register keyword
+    
+    Issue #3111
+
+commit c055986e38e1447746cfdd465148a1e9bfa2ce7d
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Wed May 22 10:32:44 2019 +0200
+
+    vbox5*.run: enable VM tests for Fiasco.OC
+    
+    Issue #3111
+
+commit 64fac6cee7c104b3bb38ef7dd094c082dbfb63b0
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Tue May 28 14:38:50 2019 +0200
+
+    foc: extend vm_session impl. for vbox5
+    
+    - transfer more guest registers
+    - print warning once for unsupported guest registers
+    - improve synchronization of vm state transfer
+    
+    Issue #3111
+
+commit 7ec37b2d8d9967c93170e8336a15be847efec072
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Wed May 22 10:41:30 2019 +0200
+
+    vbox5: adjust to run with Fiasco.OC
+    
+    - use priorities solely with nova
+    - handle exceptions during vCPU creation
+    - avoid assertion in vga_vbda
+    - silence compiler warnings about outdated register keyword
+    
+    Issue #3111
+
+commit c055986e38e1447746cfdd465148a1e9bfa2ce7d
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Wed May 22 10:32:44 2019 +0200
+
+    vbox5*.run: enable VM tests for Fiasco.OC
+    
+    Issue #3111
+commit 64fac6cee7c104b3bb38ef7dd094c082dbfb63b0
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Tue May 28 14:38:50 2019 +0200
+
+    foc: extend vm_session impl. for vbox5
+    
+    - transfer more guest registers
+    - print warning once for unsupported guest registers
+    - improve synchronization of vm state transfer
+    
+    Issue #3111
+
+commit 7ec37b2d8d9967c93170e8336a15be847efec072
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Wed May 22 10:41:30 2019 +0200
+
+    vbox5: adjust to run with Fiasco.OC
+    
+    - use priorities solely with nova
+    - handle exceptions during vCPU creation
+    - avoid assertion in vga_vbda
+    - silence compiler warnings about outdated register keyword
+    
+    Issue #3111
+
+commit c055986e38e1447746cfdd465148a1e9bfa2ce7d
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Wed May 22 10:32:44 2019 +0200
+
+    vbox5*.run: enable VM tests for Fiasco.OC
+    
+    Issue #3111
+
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Tue Aug 13 14:05:23 2019 +0200
+
+    vbox: add 'RTMemDupExTag()' implementation
+    
+    Fixes #3473
+
+Browser App VM
+==============
+
+;@mstein
+
+Build system and tools
+######################
+
+;@chelmuth
+
+commit 8d62f21b4058ad118b3de418006c28d3651c6ecc
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Fri Jun 14 16:18:58 2019 +0200
+
+    autopilot: support arch-specific build directories
+    
+    Replace the notion of board-specific platforms by clear definition
+    architecture and board.
+    
+    Also added new command line switch for "targets"
+    
+      -t <target>         test target as triple of architecture-board-kernel,
+                          e.g., arm_v7a-pbxa9-hw
+    
+    Related to #3316
+    Fixes #3417
+
