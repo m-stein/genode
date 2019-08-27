@@ -418,8 +418,8 @@ BIOS as well as UEFI systems.
 Clipboard
 =========
 
-Genode introduced a principle copy-and-paste mechanism already four years ago
-[https://genode.org/documentation/release-notes/15.11#Copy_and_paste].
+Genode introduced a principle copy-and-paste mechanism already
+[https://genode.org/documentation/release-notes/15.11#Copy_and_paste - four years ago].
 However, originally created as a part of a technology demo, the mechanism
 remained unused in our day to day work with Genode. This changed now. We
 took the integration of copy-and-paste support in Sculpt OS as an opportunity
