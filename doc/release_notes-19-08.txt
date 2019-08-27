@@ -772,26 +772,19 @@ Date:   Mon Jul 1 16:57:00 2019 +0200
 Enhanced SSH terminal
 =====================
 
-;@gapfruit
+This release paves the way for remotely managing Genode devices over SSH.
+Until now, only interactive SSH sessions were supported. It is now possible to
+execute commands from a remote SSH client.
+E.g., 'ssh noux@localhost -p 5555 "ls -hal /bin/'. For non-interactive
+sessions, ssh_terminal requires a helper component. This component is
+responsible to create the environment for the command to run in. You can find
+an example for such a component in _gems/src/test/exec_terminal_.
+It starts noux in a sub init and executes the provided command inside of it.
+The new _ssh_exec_channel.run_ script gives a demonstration on how this
+feature can be used.
 
-commit eaefcc2c6fc7eae4ae2ab42a0a00099d6fe00bf6
-Author: Sid Hussmann <sid.hussmann@gapfruit.com>
-Date:   Wed May 29 18:44:28 2019 +0200
-
-    ssh: add exec channel and exit on interactive
-    
-    This commit implements the ssh exec channel request. It also handles
-    some shortcommings on the interactive channel like exit and concurrent
-    session establishments.
-    
-    Pipes into the channel do not work yet. E.g.:
-    echo foobar | ssh noux@localhost -p 5555 "cat > /rw/test.txt"
-    
-    The issue described with FIXME in Ssh::Server::incoming_connection()
-    could not be reproduced and might have been fixed with the improved
-    file descriptor handling.
-    
-    Fixes #3401
+This work is a contribution by [https://gapfruit.com - Gapfruit]. Thanks
+for this great new feature!
 
 
 Storage-stack improvements
@@ -880,20 +873,25 @@ Date:   Sat Aug 10 12:15:52 2019 +0200
 Updated Ada/SPARK runtime
 =========================
 
-;@componolit
+Genode's Ada/SPARK runtime is developed and maintained by
+[https://componolit.com - Componolit]. Thanks for this excellent
+collaboration!
 
-commit b55358c53575fbb087000e8ea4e5f6926c1ed003
-Author: Johannes Kliemann <kliemann@componolit.com>
-Date:   Tue Jun 11 12:30:04 2019 +0200
+The updated Componolit Ada runtime 1.1.0 increases the proof coverage and
+cleans up the source code structure. SPARK mode is now enabled wherever
+possible and unneeded abstractions have been removed. Furthermore, the 64-bit
+addition and subtraction have been proven to be free of runtime errors.
+As a new feature, the runtime now supports the use of inline assembly in Ada.
 
-    ada-runtime: fix exception handling on ARM
-    ref #3395
+The removal of unneeded features such as the incomplete threading support for
+the secondary stack has greatly reduced the runtime's complexity while keeping
+the current functionality available.
+Also GNAT.IO has been removed as its implementation was incomplete and
+complex. A simpler replacement has been introduced with
+'Componolit.Runtime.Debug'.
 
-commit 1bdd18a1968314a79eee85eebdec20795ec0d8d2
-Author: Johannes Kliemann <kliemann@componolit.com>
-Date:   Fri Jul 26 13:59:00 2019 +0200
-
-    ada-runtime: update to 1.1
+Unrelated to Genode, the runtime now supports [https://muen.sk/ - Muen] and
+the API/ABI of the runtime has been separated from the GNAT ABI.
 
 
 Libraries and applications
