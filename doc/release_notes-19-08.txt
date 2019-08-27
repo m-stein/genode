@@ -100,175 +100,59 @@ Date:   Tue Jun 18 14:38:09 2019 +0200
 Consolidation of the C runtime and Noux
 #######################################
 
-;@nfeske
+On our [https://genode.org/about/road-map#August_-_Release_19.08 - road map],
+we vaguely hinted at our plan for the "consolidation" of the noux runtime,
+which is actually meant as a polite way of saying that we are going to
+remove it. We introduced the
+[https://genode.org/documentation/release-notes/11.02#Noux_-_an_execution_environment_for_the_GNU_userland - Noux runtime]
+in 2011 as way to execute command-line-based GNU software directly on
+Genode. It has served us well over the years and is - in fact - a crucial
+ingredient of Sculpt OS and other system scenarios such as the Genodians.org
+web server. Noux supplements Genode with two valuable assets, namely
+a flexible and expandable virtual file system (VFS) layer, and the implementation
+of the
+[https://genode.org/documentation/release-notes/12.02#Noux_support_for_fork_semantics - Unix way]
+to spawn applications ('fork' and 'execve').
 
-commit 695a212877a270567b12b4268aaa97475ba27968
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Aug 13 14:28:34 2019 +0200
+In the
+[https://genode.org/documentation/release-notes/17.02#Enhanced_VFS_infrastructure - meantime],
+noux' VFS implementation has become independent from the noux runtime and
+is now prominently employed by Genode's C runtime and the VFS server
+component. Genode's C runtime became more and more complete, alleviating
+the use of noux as POSIX compatibility layer except for programs that
+depend on a working implementation of 'fork' and 'execve'.
 
-    noux: preload libc_noux.lib.so for noux processes
-    
-    Issue #3472
+The current release fills this remaining gap in Genode's C runtime by
+providing 'fork', 'execve', and cousins such as 'wait4' and 'getpid' as
+regular parts of the libc. This will eventually make noux redundant.
 
-commit ff076545603e26b933e4edb3be2e7bc909a04aa2
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Aug 13 14:38:39 2019 +0200
+Note that this change does *NOT* make Genode reliant on POSIX.
+the C runtime including the Unix features are entirely optional.
 
-    noux: rm explicit dependency from libc_noux.lib.so
-    
-    Issue #3472
+As one stepping stone of this undertaking, noux applications, which had
+previously be compiled for noux, have become binary compatible with the
+regular C runtime. So one can run programs like 'bash' directly as
+Genode component without any friction.
 
-commit abdf422681c5f0a92f48022584fbfa4ec412b3a6
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Aug 14 16:00:18 2019 +0200
+There are a few collateral improvements of Genode's dynamic linker and the C
+runtime on the account of the new 'fork' and 'execve' implementation. E.g., in
+addition to the already supported 'stdin', 'stdout', and 'stderr'
+configuration, the libc can be instructed to initialize arbitrary file
+descriptors as follows:
 
-    ldso: interface to get infos about loaded objects
-    
-    This patch enhances the 'base/shared_object.h' interface of the dynamic
-    linker with the function 'for_each_loaded_object', which allows the
-    caller to obtain information about the currently loaded binary and
-    shared libraries.
-    
-    The new interface is a base mechanism needed for implementing 'fork' in
-    the libc.
-    
-    Issue #3478
+! <config>
+!   ...
+!   <libc ...>
+!     <fd id="3" path="/dev/log" writeable="yes" readable="no" seek="10"/>
+!     ...
+!   </libc>
+! </config>
 
-commit 7444298ffd3315b8c1763cbfb0a607f8eb42b3a1
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Aug 15 10:28:50 2019 +0200
-
-    ldso: config option to disarm ctors check
-    
-    By specifying the config attribute 'check_ctors="no"', the dynamic
-    linker won't abort the program on a missing call of
-    'Env::exec_static_constructors'. This is the case for forked programs
-    where the ctors were already executed by the forking program prior the
-    fork operation.
-    
-    Issue #3478
-
-commit 41a074c52d23c6a0de849db103cb9413c56a1990
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Aug 16 19:04:04 2019 +0200
-
-    libc: configurable initial FDs
-    
-    The libc already supports the configuration of 'stdin', 'stdout', and
-    'stderr' using '<libc>' config attributes. This patch equips the libc
-    with the additional ability to pre-initialize any other file descriptor.
-    A file descriptor is configured as follows:
-    
-    <config>
-      ...
-      <libc ...>
-        <fd id="3" path="/dev/log" writeable="yes" readable="no" seek="10"/>
-        ...
-      </libc>
-    </config>
-    
-    Furthermore, this patch moves the FD initialization code from the VFS
-    plugin to the libc kernel initialization because opening the FDs
-    depends on 'malloc' ('strdup'), which should not be used at early
-    'Libc::Kernel' initialization time.
-    
-    Issue #3478
-
-commit c20f294219256da9ee5a152129c260dbbbfc8eae
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Aug 13 16:16:56 2019 +0200
-
-    Extend fork test
-    
-    This patch extends the fork test with explicit checks for the cloned
-    content of the heap and RW segment as well as the seek position of an
-    open file descriptor. It adds the new libports/run/fork.run script
-    that exercises the fork mechanism implemented by the libc. It is based
-    on noux_fork.run, which tests the mechansim provided by noux. The
-    test program has been moved from ports to libports.
-    
-    Issue #3478
-
-commit a1d7a72ad5b793604c1ada977a7e68069c99ee43
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Aug 14 17:34:09 2019 +0200
-
-    libc: fork, getpid, and wait4
-    
-    This patch complements the C runtime with support for fork, getpid, and
-    wait4 (and its cousin 'waitpid').
-    
-    Fixes #3478
-
-commit 8fba4e2b7205525c894438c89ce0c1dd30fde90a
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Aug 20 12:18:05 2019 +0200
-
-    ldso: Dynamic_linker::respawn mechanism
-    
-    This patch extends the interface of the dynamic linker with the ability
-    to replace the running binary executable by another one. It is
-    designated for the implementation of execve. The interface consists of
-    two new functions.
-    
-    'Dynamic_linker::keep' marks the specified shared object as unloadable.
-    This can be used to pin a set of libraries (i.e., the libc) within the
-    local address space while replacing the binary and other higher-level
-    libraries.
-    
-    'Dynamic_linker::respawn' unloads the current binary, loads the one
-    specifed as first argument, and looks up the entry point symbol of the
-    new binary, which would be "main" for POSIX programs.
-    
-    In addition to implementing the new interface, the patch adjusts the
-    linker at various places that previously assumed the binary to be
-    constant over runtime.
-    
-    Issue #3481
-
-commit 50f0afd900069b81e18d89b6f6f4ba18837a90af
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Aug 21 16:08:20 2019 +0200
-
-    ldso: heuristics for libs needed during execve
-    
-    The allocation of regions within the linker area is normally left to the
-    best-fit 'Allocator_avl', which happens to populate the linker area
-    starting with the binary followed by all loaded libraried with no gaps
-    in between.
-    
-    When replacing the binary during execve, however, we need to ensure that
-    the new binary does not conflict with any library that stays resident
-    during execve. This patch tweaks the linker's region allocation scheme
-    such that these libraries are placed at the end of the linker area.
-    
-    Issue #3481
-
-commit 3eb465dacb6e40dd4b170162d983fd7ccc181134
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Aug 20 12:18:54 2019 +0200
-
-    libc: execve
-    
-    This patch implements 'execve' in Genode's libc.
-    
-    The mechanism relies on the dynamic linker's ability to replace the
-    loaded binary while keeping crucial libraries - in particular the libc -
-    intact. The state outside the libc is wiped. For this reason, all libc
-    internal state needed beyond the 'execve' call must be allocated on a
-    heap separate from the application-owned malloc heap. E.g.,
-    libc-internal file-descriptor objects must not be allocated or refer to
-    any memory object allocated from the malloc heap.
-    
-    Issue #3481
-
-commit c9e68b106090af2480ec0a194f77ceb936d3a410
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Aug 22 00:17:25 2019 +0200
-
-    ports: bash.run script using the libc fork/execve
-    
-    Issue #3481
+The libc-based implementation of 'fork' and 'execve' can be tried out via
+the new _ports/run/bash.run_ script. Note that there are still a number of
+limitations such as the lack of signal and ioctl handling. Pipes are not
+supported, and shebangs ('!#') are not interpreted yet. That said, once those
+missing pieces come into place, we can fade out the use of noux within Genode.
 
 
 64-bit ARM and NXP i.MX8
