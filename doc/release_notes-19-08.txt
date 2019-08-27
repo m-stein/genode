@@ -158,50 +158,11 @@ In contrast we use the i.MX8 EVK physical hardware to test this platform.
 Both platforms are driven with a single cpu core only for the moment.
 
 
-Kernel-agnostic network driver for i.MX8
-========================================
+Kernel-agnostic network driver for i.MX7 and i.MX8
+==================================================
 
-;@cproc
-
-commit 4dafdbd5b75da7632d84b4411c1148431979f93c
-Author: Christian Prochaska <christian.prochaska@genode-labs.com>
-Date:   Fri Jun 21 15:04:03 2019 +0200
-
-    dde_linux: update 'fec' driver to version 4.16.3
-    
-    Fixes #3432
-
-commit 5dd1abcc2da7fae757e34989c971c53954114b0c
-Author: Christian Prochaska <christian.prochaska@genode-labs.com>
-Date:   Thu Jun 27 19:41:57 2019 +0200
-
-    depot: add recipe for drivers_nic-imx7d_sabre
-    
-    Fixes #3433
-
-commit 71ce1442c8cc97e552214b75b3a9fe4e3c7723a0
-Author: Christian Prochaska <christian.prochaska@genode-labs.com>
-Date:   Thu Jun 27 19:42:01 2019 +0200
-
-    run: enable 'imx7d_sabre' in network tests
-    
-    Fixes #3434
-
-commit 38dcdeeb049da5ff4132b0a39dbe5ad13bdb88f1
-Author: Christian Prochaska <christian.prochaska@genode-labs.com>
-Date:   Thu Jul 4 15:54:19 2019 +0200
-
-    fec_nic_drv: arm_64 support
-    
-    Fixes #3446
-
-commit 91c8e70bef31b0d9cadc162d2cec46b789a236ea
-Author: Christian Prochaska <christian.prochaska@genode-labs.com>
-Date:   Thu Jul 4 15:54:19 2019 +0200
-
-    depot: add recipe for drivers_nic-imx8q_evk
-    
-    Fixes #3452
+We updated the 'fec' network driver to version 4.16.3, which adds support
+for I.MX7 and I.MX8 SOCs.
 
 
 Enhanced packaging and test infrastructure for ARMv8
@@ -417,7 +378,10 @@ Libraries and applications
 Updated Qt5
 ===========
 
-;@cproc
+We updated our Qt5 port to the latest upstream version 5.13.0. Before
+preparing the 'qt5' port, please make sure to build and install the updated Qt5
+host tools with the 'tool/tool_chain_qt5' script.
+
 
 Virtualization
 ==============
@@ -440,14 +404,15 @@ kernel. Additionally, the usage of priorities for the Virtualbox pthreads in
 the VMM had to been disabled. Finally, some tests for Virtualbox with
 Genode/Fiasco.OC got enabled for nightly regular testing.
 
+As a side topic, we added support for using the VirtualBox
+[https://forums.virtualbox.org/viewtopic.php?f=2&t=82299&start=15 - 'CPU profile']
+feature, which allows to present a different CPUID to the VM than the one of
+the real CPU. This can help when running Windows 7 on a Kaby Lake or newer CPU,
+which are considered 'unsupported hardware' and reason enough not to receive
+security updates from Microsoft. The feature can be used on Genode by adding
+the 'CpuProfile' attribute to the '<CPU>' XML node in the .vbox file, like:
 
-
-Author: Christian Prochaska <christian.prochaska@genode-labs.com>
-Date:   Tue Aug 13 14:05:23 2019 +0200
-
-    vbox: add 'RTMemDupExTag()' implementation
-    
-    Fixes #3473
+! <CPU CpuProfile="Intel Core i7-5600U">
 
 
 Disposable VM for handling captive portals
