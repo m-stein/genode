@@ -219,186 +219,76 @@ Additionally, we enabled nightly testing within our _depot_autopilot_ tool on AR
 Base framework and OS-level infrastructure
 ##########################################
 
-Improved RTC handling
-=====================
+General system time concept
+===========================
 
-;@mstein
+Briefly speaking, up to now there has been no notion of an overall concept of
+system time in Genode. Components that need to have access to some kind of real
+time are either configured locally, e.g. libc-based components access a
+configured “device” (/dev/rtc) which just might be an inline file system
+containing an artifical timestamp or the VFS RTC plugin, and other components
+query some RTC session directly. Most of the time this session is provided by
+the 'rtc_drv' on x86 machines, which is somewhat costly as reading the RTC via
+I/O ports takes time and is therefore done scarcely. For example, the libc will
+query an RTC source only once and uses this initial value to interpolate the
+current time. However, for executing long-running components, it will be
+necessary to adjust the clock to compensate for any occurring clock drift or to
+correct a mis-configured clock in general. In addition, it is desirable to be
+able to use a remote time source, e.g., an NTP-server, to synchronize the
+system time.
 
-commit 47e6d72bf2b07ee5cc8443509f4b4e57fdcbe318
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Mon Jul 1 17:23:33 2019 +0200
+To address this, we came up with the following concept
 
-    rtc_drv: add support for setting RTC
-    
-    The rtc_drv on x86 can now by used to also set the RTC. If the config
-    attribute 'allow_setting_rtc' is set to 'yes' the driver will update
-    the RTC from the content of the 'set-rtc' ROM module. A valid ROM must
-    contain a top node with the following attributes: 'year', 'month',
-    'day', 'hour', 'minute' and 'second'.
-    
-    * Only rudimentary checking of the provided values is done.
-    * '12H' mode is not supported.
-    
-    Fixes #3438.
+[image system_rtc]
 
-commit 86cacd23bb306ee1dad5952b127caf27d19edba1
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Mon Jul 15 13:24:04 2019 +0200
+The new "System RTC" component, located at
+'repos/libports/src/server/system_rtc', acts as proxy for the RTC service in
+front of the actual RTC driver. It uses the driver to get the initial RTC value
+and then uses a Timer session (via the timeout framework) to locally
+interpolate the time. In contrast to querying the RTC driver querying the
+System RTC is fast.
 
-    rtc: add documentation comments
-    
-    Issue #3450
+The RTC driver and the System RTC are bundled up together in the new
+'drivers-rtc-pc' package. The runtime of this package requests two ROM modules
+used to update the RTC value. The first one, named 'system_set_rtc', is used to
+update the proxy component while the second one, called 'hw_set_rtc', is used
+by the RTC driver to write the value into the battery-backed RTC.  A different
+component, potentially accessing a remote time source, may write to these ROMs
+to adjust the time in the packages runtime.
 
-commit ea2b3301584320a4c501faaf361c5938902f9605
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Mon Jul 15 13:33:25 2019 +0200
+The new native SNTP client in 'repos/libports/src/app/sntp_client' is such a
+component. It periodically requests the current time from a given SNTP server
+and reports it. The report produced by the component contains the time as GMT.
+Depending on the system policy, it can be used to update the time of the System
+RTC or/and to instruct the driver to set the RTC value.
 
-    rtc: extended session with set-signal
-    
-    A client may register a signal handler to be notified whenever the
-    RTC value was changed, i.e., a mis-configured clock was synchronized,
-    by calling 'set_sigh()'.
-    
-    Issue #3450
+To propagate such changes to RTC values, the RTC session was enhanced by the
+new 'set' signal. A client of the session can install a signal handler to adapt
+it's own time when necessary. Based on this, the time backend of the libc was
+changed to instantiate a Watch Handler for the RTC device, which, when
+triggered, will cause the libc to re-read the RTC value.
 
-commit a7fe4a502d96b3ac33f2753e219bc906a0f7b6d2
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Mon Jul 15 15:06:23 2019 +0200
-
-    rtc_drv: implement set signal handling
-    
-    Issue #3450
-
-commit 0037edfeee7595e20581d28af87e96728286dbfb
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Wed Aug 14 14:53:40 2019 +0200
-
-    libports: minimal time-type conversion from musl
-    
-    These are time-type conversion functions (including leap years and
-    seconds) taken from musl-libc git rev
-    c82d3bada30cb27e14abda7859da5d2e784830ff with some adaptions. Musl is
-    licensed under permissive MIT license.
-    
-    Issue #3450
-
-commit 99cb585b6ee1dff088a374a0c3103862af485ef2
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Mon Jul 15 17:32:20 2019 +0200
-
-    libports: system RTC server and test
-    
-    For now in libports because it relies on contrib sources from musl
-    doing the time data conversion.
-    
-    Issue #3450
-
-commit 322bacd38033bde7ddf604849ba870e79000f449
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Fri Jul 12 14:49:15 2019 +0200
-
-    timeout_types.xsd: Minutes type
-    
-    Ref #3448
-    Ref #3450
-
-commit cb6377355ea9cfec93629603404995d32d61b925
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Fri Jul 12 15:13:40 2019 +0200
-
-    sntp_client: report received transmit timestamp
-    
-    For now in libports because it relies on contrib sources from musl doing
-    the time data conversion.
-    
-    Ref #3448
-    Ref #3450
-
-commit b8ed80b7ddb2ac37ec01e74868463dae89f899aa
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Wed Aug 14 14:01:19 2019 +0200
-
-    Simple libc-based RTC test
-    
-    Issue #3450
-
-commit 1fdd5b636b8c407256ae61bfb95e24458ce72890
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Wed Aug 14 14:02:33 2019 +0200
-
-    vfs: watch set-rtc signal in RTC file system
-    
-    Issue #3450
-
-commit 18e586daedc8d0d0174f5ae6e82fd8cb2369f9a2
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Mon Aug 12 16:28:29 2019 +0200
-
-    libc: merge RTC and time backends
-    
-    Issue #3450
-
-commit 316f9e4df3ce293420bc9376f9b5353a2cf27930
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Mon Aug 12 18:10:14 2019 +0200
-
-    libc: add VFS watch handle accessor
-    
-    Issue #3450
-
-commit 9cf5da85ef8e6f9fc8ad906b5907ce6c25aa5871
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Mon Aug 12 18:10:38 2019 +0200
-
-    libc: change time back end to re-read RTC
-    
-    Issue #3450
-
-commit d01cc3bf41a1313a59ccabc88e79986167f7fb21
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Wed Aug 14 09:12:12 2019 +0200
-
-    Configurable set_rtc values in RTC test
-    
-    Fixes #3450
-
-commit ce633c0bbab48d0e77bb86de66de49b582381975
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Fri Aug 16 17:55:48 2019 +0200
-
-    gems: recipes/pkg/drivers_rtc-pc
-    
-    Ref #3450
-
-commit 8509687c8d3bbc6c1beab448583c95499a1ae5ca
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Tue Aug 20 16:11:12 2019 +0200
-
-    system_rtc.run: use packages
-    
-    issue #3450
+This constellation should, under normal operation, allow for second to
+sub-second granularity updates for the overall system time and avoid drifting
+away from network time.
 
 
-SMBIOS driver
-=============
+Accessing SMBIOS tables
+=======================
 
-;@mstein
+The new native SMBIOS decoder in 'os/src/app/smbios_decoder' can be used on x86
+to parse SMBIOS tables and report gathered information in a human-readable way.
+Besides general table information like number and size of structures, etc., the
+component supports full parsing of SMBIOS structures of types "BIOS", "System",
+and "Baseboard".
 
-commit 1e379cb3a9c7252a12137d2791fa09d97460cb8b
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Tue Jul 9 18:28:12 2019 +0200
-
-    drivers/acpi: provide plain SMBIOS table as report
-    
-    Ref #3430
-
-commit fe426e6f8f60769fe22d410c33e5a21847e6b08b
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Tue Jul 9 18:36:46 2019 +0200
-
-    smbios_decoder: XML report from SMBIOS table ROM
-    
-    Fixes #3430
+The component is free from any code for acquiring an SMBIOS table through means
+like bootloader or BIOS information. It expects a table to be present through a
+normal Genode ROM session with label 'smbios_table'. This way, the underlying
+system is required to find, select and safe the raw table on startup and create
+a ROM module from it. This is currently achieved on NOVA and base-hw through an
+interplay of kernel, Core component, and ACPI driver and was tested for legacy
+BIOS as well as UEFI systems.
 
 
 Clipboard
@@ -559,10 +449,46 @@ Date:   Tue Aug 13 14:05:23 2019 +0200
     
     Fixes #3473
 
-Browser App VM
-==============
 
-;@mstein
+Disposable VM for handling captive portals
+==========================================
+
+It is common that local networks require you to interact with a specific web
+page before gaining access to full network functionality. Such captive portal
+pages are completely individual to the accessed network and not limited in the
+use of common web techniques. Therefore, their handling is best be done using a
+fully-featured web browser like the Mozilla Firefox.
+
+This is were, in a Genode-based desktop system like Sculpt, a disposable VM for
+hosting a minimal Browser setup becomes desirable. It's goal is to unlock a
+network for the native Genode surroundings with as less inconvenience as
+possible just to be thrown away afterwards without any side effects to the
+system.
+
+Now, one could use the Firefox appliance VM of Sculpt (see the
+[https://genode.org/documentation/release-notes/18.05 - release notes] or the
+[http://genodians.org/alex-ab/2019-03-06-disposal-browser-vm - genodians
+article]) for this. But this VM aims for a long-term browsing experience which,
+in the context of mere captive-portal handling, brings some drawbacks like
+a much higher RAM consumption or the required sessions for USB detection and
+shared folders.
+
+Furthermore, in the captive portal VM, there's no need for managing windows or
+browser tabs. The one browser tab needed can always be shown in fullscreen.
+It is also unnecessary for the browser to maintain a content cache or remember
+user data. This can reduce resource consumption.
+
+The VM we came up with is provided as package for Sculpt through Martin Stein
+(depot user 'mstein'). After enabling this user, the captive portal VM can be
+found in the Sculpt menu under "Depot -> mstein -> Virtual Machines ->
+vbox5-nova-captive-portal". The VM is based on a TinyCore 10 Linux with
+Xserver, i3 WM, and a tailored Firefox browser. The package runtime doesn't
+need access to your file system, it merely loads some ROMs into a RAM FS, so,
+it will completely forget changes made during a session. Therefore, it's also
+safe to simply remove an instance via the Leitzentrale component-view once you
+don't need it anymore. The guest additions are also included to make the VM
+window resizable.
+
 
 Build system and tools
 ######################
