@@ -177,8 +177,59 @@ key symbols (think AZERTY vs. QWERTY) in combination with shortcuts
 like Ctrl-A.
 
 
+64-bit ARM and NXP i.MX8
+########################
+
+64-bit ARM support in our custom base-hw kernel
+-----------------------------------------------
+
+By introducing rudimentary Raspberry Pi 3 support on top of the Fiasco.OC
+kernel in the previous release, the first ARM 64-bit support entered the Genode OS
+framework. We continued pursuing the ARM 64-bit path and introduce support for Raspberry Pi
+3 as well as the i.MX8 evaluation kit (EVK), this time using our own base-hw
+kernel.
+
+Noteworthy additions in the base-hw kernel are support for the AARCH64 system
+level architecture, and the use of the modern GIC v3 interrupt controller on top
+of the i.MX8 EVK board.
+In comparison to the GICv2, GICv3 adds support for more than eight
+CPUs, more than 1020 interrupt IDs, and offers fast register access to the CPU
+interface, instead of memory-mapped I/O access.
+Minor changes had to be made to the page-table
+implementation of ARMv7 with Large Physical Address Extension (LPAE) to re-use
+it for ARMv8. Moreover, the internal kernel API for TLB maintenance needed to be
+changed slightly for all ARM platforms.
+
+We expanded our regular testing infrastructure with two AARCH64 platforms, namely
+Raspberry Pi 3 via Qemu and the NXP i.MX8 EVK board as physical hardware.
+Both platforms are driven with a single CPU core only for the moment.
+
+
+Kernel-agnostic network driver for i.MX7 and i.MX8
+--------------------------------------------------
+
+We updated the 'fec' network driver to version 4.16.3, which adds support for
+I.MX7 and I.MX8 SOCs. This makes i.MX8 a viable platform for Genode-based
+networking scenarios.
+
+
+Enhanced packaging and test infrastructure for ARMv8
+----------------------------------------------------
+
+Besides the improved base-hw kernel, we enabled additional infrastructure for ARMv8
+platforms. For example, noux packages - like _coreutils_, _bash_ - are now
+available, the standard C++ library is in place, and support for Genode's port of
+the Linux TCP/IP stack is enabled. Also, ARMv8 can now be executed on the
+Fiasco.OC kernel.
+
+Additionally, we enabled nightly testing within our _depot_autopilot_ tool on ARMv8.
+
+
+Base framework and OS-level infrastructure
+##########################################
+
 Tracing
-#######
+=======
 
 Support for fast tracing has been built into Genode for a long time. However,
 the stakes to take advantage of this feature remained high because convenience
@@ -233,7 +284,7 @@ With the _vfs_trace_ plugin in place, we removed the outdated _trace_fs_.
 
 
 Consolidation of the C runtime and Noux
-#######################################
+=======================================
 
 On our [https://genode.org/about/road-map#August_-_Release_19.08 - road map],
 we vaguely hinted at our plan for the "consolidation" of the noux runtime,
@@ -289,57 +340,6 @@ limitations such as the lack of signal and ioctl handling. Pipes are not
 supported, and shebangs ('!#') are not interpreted yet. That said, once those
 missing pieces come into place, we can fade out the use of noux within Genode.
 
-
-64-bit ARM and NXP i.MX8
-########################
-
-64-bit ARM support in our custom base-hw kernel
------------------------------------------------
-
-By introducing rudimentary Raspberry Pi 3 support on top of the Fiasco.OC
-kernel in the previous release, the first ARM 64-bit support entered the Genode OS
-framework. We continued pursuing the ARM 64-bit path and introduce support for Raspberry Pi
-3 as well as the i.MX8 evaluation kit (EVK), this time using our own base-hw
-kernel.
-
-Noteworthy additions in the base-hw kernel are support for the AARCH64 system
-level architecture, and the use of the modern GIC v3 interrupt controller on top
-of the i.MX8 EVK board.
-In comparison to the GICv2, GICv3 adds support for more than eight
-CPUs, more than 1020 interrupt IDs, and offers fast register access to the CPU
-interface, instead of memory-mapped I/O access.
-Minor changes had to be made to the page-table
-implementation of ARMv7 with Large Physical Address Extension (LPAE) to re-use
-it for ARMv8. Moreover, the internal kernel API for TLB maintenance needed to be
-changed slightly for all ARM platforms.
-
-We expanded our regular testing infrastructure with two AARCH64 platforms, namely
-Raspberry Pi 3 via Qemu and the NXP i.MX8 EVK board as physical hardware.
-Both platforms are driven with a single CPU core only for the moment.
-
-
-Kernel-agnostic network driver for i.MX7 and i.MX8
---------------------------------------------------
-
-We updated the 'fec' network driver to version 4.16.3, which adds support for
-I.MX7 and I.MX8 SOCs. This makes i.MX8 a viable platform for Genode-based
-networking scenarios.
-
-
-Enhanced packaging and test infrastructure for ARMv8
-----------------------------------------------------
-
-Besides the improved base-hw kernel, we enabled additional infrastructure for ARMv8
-platforms. For example, noux packages - like _coreutils_, _bash_ - are now
-available, the standard C++ library is in place, and support for Genode's port of
-the Linux TCP/IP stack is enabled. Also, ARMv8 can now be executed on the
-Fiasco.OC kernel.
-
-Additionally, we enabled nightly testing within our _depot_autopilot_ tool on ARMv8.
-
-
-Base framework and OS-level infrastructure
-##########################################
 
 General system time concept
 ===========================
