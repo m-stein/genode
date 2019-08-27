@@ -20,81 +20,56 @@ Flexible keyboard layouts
 Tracing
 #######
 
-;@ssumpf
+Support for fast tracing has been built into Genode for a long time. However,
+the stakes to take advantage of this feature remained high because convenience
+functions where not in place. With the current release we added the support for
+easy trace setups through a VFS plugin. The plugin is called _vfs_trace_ and can
+be mounted into a Genode component as follows:
 
-commit ac0ecdf855f610d4d02a43bcaa7ad3b7ba74daef
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Fri May 3 15:56:58 2019 +0200
+!<config>
+!  <vfs>
+!    <trace ram=32MB/>
+!  </vfs>
+!</config>
 
-    base: make trace resumable
-    
-    revert relocations so a paused subject can resume without changing its
-    policy.
-    
-    issue #3294
+This configuration will create a trace-file system at the root of the VFS. The
+_ram_ attribute is mandatory and determines the maximum size of all trace
+buffers. The file system forms a recursive directory structure that represents
+the parent/child relationship of running components, while the leaf directories
+represent single threads within a component. Each leaf directory currently
+contains three files:
 
-commit 25484f870e6ec2bd22830fcd3034cf0cad84d307
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Mon May 6 10:42:05 2019 +0200
+:'enable': Start or stops tracing of a thread by write "true" or "false" into
+           file.
 
-    trace: make trace buffer resizeable
-    
-    Trace buffers a re-allocated during subsequent calls to 'trace'.
-    
-    issue #3294
+:'buffer_size': Allows the configuration of the trace-buffer size for the
+                thread in the usual Genode format (e.g. 5M, 512K, 1024).
 
-commit 18b3253cac4100da7a586a1c02dbf924c5e98644
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Apr 11 11:20:48 2019 +0200
+:'trace_buffer': This read only file contains the current content of the trace
+                 buffer. Every trace entry can only be read once, after that
+                 only new entries appear. "tail -f" can also be used in order to
+                 display continuous output.
 
-    vfs_trace: VFS plugin that offers trace buffer access
-    
-    The plugin creates a file-system hierarchy that enabled the access of
-    trace buffers for each component and its threads.
-    
-    issue #3294
+As an example, tracing is started by writing _true_ to the _enable_ file:
 
-commit 24eea0b653ee1c7a789d836423446e73dd4384c2
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed Jun 12 17:47:11 2019 +0200
+! echo "true" > enable
 
-    base: add 'trace' function to base/log.h
-    
-    The 'Genode::trace' convenience function prints messages to Genode's
-    trace buffer (if tracing is enabled).
-    
-    issue #3294
+The trace buffer can than be displayed using Unix tools like _tail_
 
-commit c34176580c56a5770601620b78c49a268e51a157
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Fri Jun 14 16:15:50 2019 +0200
+! tail -f trace_buffer
 
-    os: recipe for 'trace_policy'
-    
-    * source packet for all trace policies
-    
-    issue #3294
+which provides a continuous output.
 
-commit 57e650ef2c3e88f2d27df6206385ccd9e07837ab
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Mon Jun 17 17:38:54 2019 +0200
+Additionally, we have a added the _trace_ function to _base/log.h_ that
+facilitates identical functionality as _Genode::log_
 
-    gems: recipes for vfs_trace pluging
-    
-    * source recipe for vfs_trace
-    * pkg for 'trace_fs' with runtime
-    
-    issue #3294
+! Genode::trace("Tracepoint value: ", value);
 
-commit d32e8390c20546f30c8e1d864c09646149ab4d00
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Tue Jun 18 14:38:09 2019 +0200
+In order to enable tracing the parent must provide the "TRACE" service. For a
+real world example on Sculpt OS please refer to this
+[http://genodians.org/ssumpf/2019-06-18-trace_fs - Genodians article].
 
-    os: remove trace_fs
-    
-    This component is superseded by the 'vfs_trace' plugin.
-    
-    Issue #3294.
+With the _vfs_trace_ plugin in place we removed the outdated _trace_fs_.
 
 
 Consolidation of the C runtime and Noux
@@ -169,12 +144,16 @@ kernel.
 
 Noteworthy additions in the base-hw kernel are support for the AARCH64 system
 level architecture, and the use of the modern GIC v3 interrupt controller on top
-of the i.MX8 EVK board. Minor changes had to be made to the page-table
+of the i.MX8 EVK board.
+In comparison to the GICv2, GICv3 adds support for more than eight
+CPUs, more than 1020 interrupt IDs, and offers fast register access to the CPU
+interface, instead of MMIO access.
+Minor changes had to be made to the page-table
 implementation of ARMv7 with Large Physical Address Extension (LPAE) to re-use
-it for ARMv8. Moreover, the TLB maintainance kernel internal API needs to be
+it for ARMv8. Moreover, the TLB maintenance kernel internal API needs to be
 changed slightly for all ARM platforms.
 
-Currently, the Raspberry Pi 3 platforms gets regularily tested using Qemu.
+Currently, the Raspberry Pi 3 platforms gets regularly tested using Qemu.
 In contrast we use the i.MX8 EVK physical hardware to test this platform.
 Both platforms are driven with a single cpu core only for the moment.
 
@@ -228,88 +207,13 @@ Date:   Thu Jul 4 15:54:19 2019 +0200
 Enhanced packaging and test infrastructure for ARMv8
 ====================================================
 
-;@ssumpf
+Within this release cycle we enabled additional infrastructure for ARMv8
+platforms. For example, Noux packages - like _coreutils_, _bash_ - are now
+available, the standard C++ library is in place, and support for Genode's port of
+the Linux TCP/IP stack is enabled. Also, ARMv8 can now be executed on the
+Fiasco.OC kernel.
 
-commit e337b844e558b8c50eb06a92271e7bbfc079b020
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Tue May 21 14:01:26 2019 +0200
-
-    depot: support for ARM 64-bit for base-foc on rpi3
-    
-    issue #3407
-
-commit c107aba9138165c9ffbc09393edaa6e4b20440c2
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Tue May 21 14:02:45 2019 +0200
-
-    depot_autopilot: add ARM 64-bit support
-    
-    issue #3407
-
-commit 59347d256058801ff668837b941937f231f54647
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed May 29 13:26:47 2019 +0200
-
-    stdcxx: make linkable for ARM 64-Bit
-    
-    'typeinfo for std::invalid_argument' was not found when using 'V' (weak
-    object)
-    
-    issue #3407
-
-commit e43b848ac88aeb1d3d3392cfd71f2929d7f1aa26
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed May 29 13:28:47 2019 +0200
-
-    jitterentropy: ARM 64-Bit version
-    
-    issue #3407
-
-commit 790a57041ca7128d5431985adf08376c8a9c2e0b
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed May 29 13:29:57 2019 +0200
-
-    base: add ARM 64-Bit to base API
-    
-    issue #3407
-
-commit ef8140cce5bd00d84e621042222891e625f35a1c
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed May 29 13:40:53 2019 +0200
-
-    lxip: ARM 64-Bit support
-    
-    issue #3407
-
-commit 1b489820a9042fab4d7c55bbd4072eb2d69c4954
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Tue Jun 4 21:17:10 2019 +0200
-
-    base: timestamp support for ARM 64-Bit
-    
-    issue #3407
-
-commit f3a7d3750fb0754a71296c0a5323dc535a9f3754
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Tue Aug 13 13:43:28 2019 +0200
-
-    base: Add Linux and GOT relative startup code on ARM
-    
-    * Linux specific startup code for base-linux ARM
-    * load symbols global offset table relative in order to avoid text
-      relocations
-    
-    issue #3466
-
-commit 0ee178903aa6286f64dfb3d3f49e7eefad9e91f6
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed Aug 21 16:53:59 2019 +0200
-
-    noux-pkg: enable noux packages for ARMv8
-    
-    * add -fPIC
-    * disable 'stdbuf' for coreutils
-    * works for bash as well
+Additionally, we enabled nightly testing within our _depot_autopilot_ tool on ARMv8.
 
 
 Base framework and OS-level infrastructure
