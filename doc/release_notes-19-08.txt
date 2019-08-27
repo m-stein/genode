@@ -752,84 +752,35 @@ for this great new feature!
 Storage-stack improvements
 ==========================
 
-;@nfeske
+The desire of one Genode developer to exchange data via Iomega ZIP drives
+between an Atari Falcon and Sculpt OS called for a number of small
+improvements across several components of the storage stack.
 
-commit 2d03e622f11fa81c0d624c2b37a10e12905b45b3
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Aug 8 14:54:31 2019 +0200
+First, the USB-block driver has been changed to exit on an initialization
+failure instead of waiting for another (supported) device. This change enables
+the Sculpt manager to detect such conditions and release the USB device
+hardware by removing the driver component. Such a failed initialization may
+happen with exotic USB-storage devices such as ZIP drives. With the device
+released, however, it can be assigned as to a virtual machine to access it
+using a guest OS with a broader support of devices.
 
-    usb_block: exit on initialization failure
-    
-    Issue #3468
+Second, the USB-block driver received new support for issuing the
+SCSI START-STOP command at initialization time, thereby overcoming the
+ZIP-drive initialization failure.
 
-commit 67a3c2ea4ba9ca0ceeeafae457199012bb872cd5
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Aug 9 10:57:39 2019 +0200
+Third, we enhanced the part-block component with the ability to parse AHDI
+partition schemes and detect the GEMDOS variant of FAT as used by Atari TOS.
 
-    sculpt: handle failures of usb_block_drv
-    
-    This patch handles the situation where the usb_block_drv exits for any
-    reason, in particular when the driver fails to initialize the device. In
-    such cases, the usb_block_drv used to stay stale in the system,
-    effectively preventing the device from being passed to a VM. With the
-    patch, the USB storage device gets flagged as failed, the usb_block_drv
-    is removed from the runtime, and the condition is reflected at the user
-    interface.
-    
-    This situation occurred on the attempt to access an iomega zip drive
-    with a version of the usb_block_drv without support for the START-STOP
-    command, but it may potentially also occur in other circumstances.
-    
-    Fixes #3468
+Fourth, we enabled the Rump VFS plugin to access GEMDOS file systems. The
+GEMDOS variant is supported by NetBSD's "msdos" file-system driver. However,
+it must explicitly be enabled by a mount flag. Hence, we added the principle
+ability for passing mount flags to NetBSD file-system drivers and enabled the
+MSDOSFSMNT_GEMDOSFS flag based on the VFS plugin's config attribute
+'gemdos="yes"'.
 
-commit 23c2606ce095279d696b999c5e54d48dd9e0385a
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Aug 9 10:54:31 2019 +0200
-
-    usb_block: support iomega zip drives
-    
-    This patch enhances the initialization sequence by issueing a START_STOP
-    SCSI command when needed.
-    
-    Fixes #3469
-
-commit ceae63741673fcd3f86daefb8c862b87ad6488c6
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Aug 9 16:45:51 2019 +0200
-
-    part_block: support for AHDI partition scheme
-    
-    This patch enhances part_block with support for parsing the AHDI
-    partition scheme, and the detection of the GEMDOS variant of FAT as used
-    by Atari TOS. As a side effect of the implementation, the patch improves
-    the MBR parsing code by avoiding pointers and using const qualifiers.
-    
-    Fixes #3470
-
-commit 114de7721fcc172643dd2ec7cc1072d17f9cab5c
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Aug 9 20:52:18 2019 +0200
-
-    rump_fs: support the access of GEMDOS file systems
-    
-    The GEMDOS variant is supported by NetBSD's msdos file-system driver.
-    However, it must explicitly be enabled by a mount flag. This patch
-    adds the principle ability for passing mount flags to file system
-    drivers and enables the MSDOSFSMNT_GEMDOSFS flag based on the
-    config attribute 'gemdos="yes"'.
-    
-    Issue #3471
-
-commit 874172ca76da09276a89a126027b1bc577b6e817
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Sat Aug 10 12:15:52 2019 +0200
-
-    sculpt manager: support GEMDOS file systems
-    
-    Pass the distinction between GEMDOS and MSDOS file systems from
-    part-block reports to the vfs_rump plugin.
-    
-    Fixes #3471
+With these changes in place, data can now be exchanged directly between
+Atari-formatted disks and Sculpt OS. That said, advanced use cases such as
+media changes at runtime are not covered yet.
 
 
 Updated Ada/SPARK runtime
