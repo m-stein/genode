@@ -161,97 +161,23 @@ missing pieces come into place, we can fade out the use of noux within Genode.
 64-bit ARM support in our custom base-hw kernel
 ===============================================
 
-;@skalk @ssumpf
+By introducing rudimentary Raspberry Pi 3 support on top of the Fiasco.OC
+kernel in the last release, the first ARM 64-bit support entered the Genode OS
+framework. We pursued the ARM 64-bit path and introduce support for Raspberry Pi
+3 as well as the i.MX8 evaluation kit (EVK) this time using our own base-hw
+kernel.
 
-commit d9a0f76e7af9477a209c37c02d924ab83fe9f931
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Tue Jun 4 16:08:53 2019 +0200
+Noteworthy additions in the base-hw kernel are support for the AARCH64 system
+level architecture, and the use of the modern GIC v3 interrupt controller on top
+of the i.MX8 EVK board. Minor changes had to be made to the page-table
+implementation of ARMv7 with Large Physical Address Extension (LPAE) to re-use
+it for ARMv8. Moreover, the TLB maintainance kernel internal API needs to be
+changed slightly for all ARM platforms.
 
-    hw: extend long-descriptor page table format
-    
-    Ref #3405
+Currently, the Raspberry Pi 3 platforms gets regularily tested using Qemu.
+In contrast we use the i.MX8 EVK physical hardware to test this platform.
+Both platforms are driven with a single cpu core only for the moment.
 
-commit 87015df66c4e032540466eb0b9316c4081046898
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Wed Jun 12 22:33:02 2019 +0200
-
-    hw: change update_pd to invalidate_tlb
-    
-    In the past, the core-only privileged syscall `update_pd` was used only
-    to invalidate the TLB after removal of page-table entries.
-    By now, the whole TLB at least for one protection domain got invalidated,
-    but in preparation for optimization and upcomingARM v8 support,
-    it is necessary to deliver the virtual memory region that needs to get
-    invalidated. Moreover, the name of the call shall represent explicitely
-    that it is used to invalidate the TLB.
-    
-    Ref #3405
-
-commit 90d07741aa3483ef9e6f0e3d878588e33e224bd0
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Tue May 21 16:27:37 2019 +0200
-
-    hw: support for ARM64 Raspberry Pi 3
-    
-    Restriction: enables only cpu core 0 and the timer interrupt by now.
-    
-    Fix #3405
-
-commit 875858b2cc2efcf31d62ed8d3c6b0bd28f2073f1
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Wed Jul 10 13:30:54 2019 +0200
-
-    hw: integrate interrupt controllers into board.h
-    
-    Additionally, unify more implementation details in between different
-    usage patterns of ARM's generic interrupt controller (v2)
-    
-    Ref #3445
-
-commit dd505edd19a229dec574b956cb4f935293e2dd53
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Mon Jun 24 18:39:48 2019 +0200
-
-    hw: GICv3 implementation
-    
-    * modern GICv3 implementation
-    * distributor
-    * redistributor
-    * MMIO cpu interface
-    
-    Ref #3426
-
-commit ee38504d8167a5164aad5c5e87c04409a0d2fab0
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Wed Jul 10 17:52:49 2019 +0200
-
-    hw: implement update_data_region for ARMv8
-    
-    Ref #3426
-
-commit 6b09ac59f08a6e5b36e0d9faa29571d824eec7e7
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Tue Jul 9 11:41:18 2019 +0200
-
-    hw: enable performance counter for ARMv8
-    
-    Ref #3426
-
-commit 7ced122ddcdcc12732c197b83453b0bf21e260ee
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Thu Jul 11 13:00:32 2019 +0200
-
-    hw: support for i.MX8M Quad EVK
-    
-    Fix #3426
-
-commit 4c113182b064237f1518ba80c37036507479218b
-Author: Christian Prochaska <christian.prochaska@genode-labs.com>
-Date:   Mon Jul 1 20:08:41 2019 +0200
-
-    depot: add recipe for base-hw-imx8q_evk
-    
-    Issue #3426
 
 Kernel-agnostic network driver for i.MX8
 ========================================
