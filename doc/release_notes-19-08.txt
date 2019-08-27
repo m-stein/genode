@@ -690,83 +690,45 @@ Date:   Tue Jul 9 18:36:46 2019 +0200
 Clipboard
 =========
 
-;@nfeske
+Genode introduced a principle copy-and-paste mechanism already four years ago
+[https://genode.org/documentation/release-notes/15.11#Copy_and_paste].
+However, originally created as a part of the technology demo, the mechanism
+remained unused in our day to day work with Genode. This changed now. We
+took the integration of copy-and-paste support in Sculpt OS as an opportunity
+to revive and refine the existing mechanism and supplement it with the
+features needed to make it practical for daily use.
 
-commit db6e013577e1566d85779585e95ceeafa00f4e68
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Jun 25 19:04:44 2019 +0200
+We believe that the result aligns ease of use nicely with security.
+The concept is described in a dedicated article at Genodians.org:
+[https://genodians.org/nfeske/2019-07-03-copy-paste].
 
-    clipboard: match client labels against focus
-    
-    When setting the config attribute 'match_labels="yes"', the clipboard
-    performs plausibility checks for copy and paste operations against the
-    nitpicker focus.
-    
-    Issue #3437
+On a technical level, the existing clipboard component received a new
+option that allows for dynamic information-flow policies based on
+user interactivity (keyboard focus, activity).
+When setting the config attribute 'match_labels="yes"', the clipboard
+performs plausibility checks for copy and paste operations against the
+focus of the nitpicker GUI server. The clipboard policy - including
+information-flow policies - has become reconfigurable.
 
-commit 6399fc12acf0a275cdffb7f1298ac5d776a51a7b
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Jul 1 16:05:09 2019 +0200
+To make window-manager clients compatible with the clipboard's dynamic
+policy, the window manager got enhanced with the ability to proxy the
+interaction with the clipboard.
 
-    clipboard: allow for dynamic reconfiguration
+GUI clients in turn - in particular the graphical *terminal* - became able
+to interact with the clipboard.
+With the '<config>' attribute 'copy="yes"' specified, the terminal allows
+the user to select text to be reported to a "clipboard" report. The selection
+mode is activated by holding the left shift key. While the selection mode
+is active, the text position under mouse pointer is highlighted and the
+user can select text via the left mouse button. Upon release of the mouse
+button, the selection is reported.
+Vice versa, with the '<config>' attribute 'paste="yes"' specified, the
+terminal allows the user to paste the content of a "clipboard" ROM session
+to the terminal client by pressing the middle mouse button.
 
-commit fc7b983a40a33f9b7b7e4b07747ef723f107ddef
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Jun 25 16:46:04 2019 +0200
-
-    terminal: clipboard support
-    
-    Fixes #2079
-
-commit 1fe9b07c990c3f56c365f54f142ddb2fbb9e3a44
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Jun 27 19:03:03 2019 +0200
-
-    wm: forwarding of clipboard ROM/Report sessions
-    
-    The labels of clipboard ROM and clipboard report sessions of WM clients
-    must be consistent with the client's nitpicker label. Hence, we must
-    route those sessions through the window manager, analogously to the
-    approach taken for shape reports in #3165.
-    
-    Issue #3437
-
-commit 605f9abf9602b90202242ae03e1f619167acd976
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Jun 27 22:49:12 2019 +0200
-
-    sculpt: integrate global clipboard
-    
-    Issue #3437
-
-commit 3b0d694f42c07f1588f5002b1fb9a580f8a5fe50
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Sat Jun 29 13:51:02 2019 +0200
-
-    pkg/noux-system: clipboard support
-    
-    Issue #3437
-
-commit 0c3d3e7c8f29d492320b1e8993d1dbf39115b150
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Jul 1 16:39:05 2019 +0200
-
-    pkg/qt5_textedit: clipboard support
-    
-    Issue #3437
-
-commit 6380ad1c802be3d5bc707f98b12f710588faefa4
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Jul 1 16:57:00 2019 +0200
-
-    pkg/vbox5-nova-sculpt: clipboard support
-    
-    To enable the clipboard for a VM, add the following node to the
-    <Hardware> sub node of your machine.vbox configuration:
-    
-      <Clipboard mode="Bidirectional"/>
-    
-    Issue #3437
+Finally, we integrated those new abilities into Sculpt OS and to several
+installable packages, including virtual machines, the noux-system package,
+and graphical Qt5-based applications.
 
 
 Enhanced SSH terminal
