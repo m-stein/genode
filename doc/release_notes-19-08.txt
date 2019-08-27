@@ -818,108 +818,25 @@ Updated Qt5
 Virtualization
 ==============
 
-;@alexab
+As follow up of Genode's work on the 
+[https://genode.org/documentation/release-notes/19.05#Kernel-agnostic_virtual-machine_monitors - kernel agnostic virtual monitor interface]
+on x86, we added with this release principle support to run our port of
+Virtualbox on Genode/Fiasco.OC. We write -principle- support, since we managed
+to get the VMM running with Fiasco.OC, but unfortunately not all required
+features by the VMM are available by the Fiasco.OC kernel, e.g. guest FPU
+registers, PDPTE registers and task-priority support. In practice this means,
+that the VMs with Windows and Linux come up to a certain point, but will fail
+later whenever the guest state run out of synchronization between
+VMM and hardware. In contrast, the Seoul VMM runs fine on Fiasco.OC since it
+requires not the mentioned missing features.
 
-; ...follow-up to the topic of 19.05
-; https://genode.org/documentation/release-notes/19.05#Kernel-agnostic_virtual-machine_monitors
+Main working items had been the completion of transfer of the available guest
+registers and control flow synchronization improvements between VMM and Fiasco.OC
+kernel. Additionally, the usage of priorities for the Virtualbox pthreads in
+the VMM had to been disabled. Finally, some tests for Virtualbox with
+Genode/Fiasco.OC got enabled for nightly regular testing.
 
-commit 64fac6cee7c104b3bb38ef7dd094c082dbfb63b0
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Tue May 28 14:38:50 2019 +0200
 
-    foc: extend vm_session impl. for vbox5
-    
-    - transfer more guest registers
-    - print warning once for unsupported guest registers
-    - improve synchronization of vm state transfer
-    
-    Issue #3111
-
-commit 7ec37b2d8d9967c93170e8336a15be847efec072
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed May 22 10:41:30 2019 +0200
-
-    vbox5: adjust to run with Fiasco.OC
-    
-    - use priorities solely with nova
-    - handle exceptions during vCPU creation
-    - avoid assertion in vga_vbda
-    - silence compiler warnings about outdated register keyword
-    
-    Issue #3111
-
-commit c055986e38e1447746cfdd465148a1e9bfa2ce7d
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed May 22 10:32:44 2019 +0200
-
-    vbox5*.run: enable VM tests for Fiasco.OC
-    
-    Issue #3111
-
-commit 64fac6cee7c104b3bb38ef7dd094c082dbfb63b0
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Tue May 28 14:38:50 2019 +0200
-
-    foc: extend vm_session impl. for vbox5
-    
-    - transfer more guest registers
-    - print warning once for unsupported guest registers
-    - improve synchronization of vm state transfer
-    
-    Issue #3111
-
-commit 7ec37b2d8d9967c93170e8336a15be847efec072
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed May 22 10:41:30 2019 +0200
-
-    vbox5: adjust to run with Fiasco.OC
-    
-    - use priorities solely with nova
-    - handle exceptions during vCPU creation
-    - avoid assertion in vga_vbda
-    - silence compiler warnings about outdated register keyword
-    
-    Issue #3111
-
-commit c055986e38e1447746cfdd465148a1e9bfa2ce7d
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed May 22 10:32:44 2019 +0200
-
-    vbox5*.run: enable VM tests for Fiasco.OC
-    
-    Issue #3111
-commit 64fac6cee7c104b3bb38ef7dd094c082dbfb63b0
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Tue May 28 14:38:50 2019 +0200
-
-    foc: extend vm_session impl. for vbox5
-    
-    - transfer more guest registers
-    - print warning once for unsupported guest registers
-    - improve synchronization of vm state transfer
-    
-    Issue #3111
-
-commit 7ec37b2d8d9967c93170e8336a15be847efec072
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed May 22 10:41:30 2019 +0200
-
-    vbox5: adjust to run with Fiasco.OC
-    
-    - use priorities solely with nova
-    - handle exceptions during vCPU creation
-    - avoid assertion in vga_vbda
-    - silence compiler warnings about outdated register keyword
-    
-    Issue #3111
-
-commit c055986e38e1447746cfdd465148a1e9bfa2ce7d
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed May 22 10:32:44 2019 +0200
-
-    vbox5*.run: enable VM tests for Fiasco.OC
-    
-    Issue #3111
 
 Author: Christian Prochaska <christian.prochaska@genode-labs.com>
 Date:   Tue Aug 13 14:05:23 2019 +0200
