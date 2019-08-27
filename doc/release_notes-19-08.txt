@@ -15,7 +15,167 @@
 Flexible keyboard layouts
 #########################
 
-;@chelmuth
+Genode is used worldwide in a multilingual context beyond Germany and
+common technical realms of English. Therefore, we had to address
+localized keyboard-input handling for quite some time now and
+introduced the _input-filter_ component in
+[https://genode.org/documentation/release-notes/17.02#Input-event_filter - 17.02].
+The component merges input streams and applies several forms of input
+transformations, in particular the application of keyboard layouts to
+supplement the input-event stream with character events.
+
+But as we are by no means localization experts, our solution, while
+performing a solid job for selected layouts, also had some quirks and
+rough edges when it came to French or even Swiss German. First, our
+oversimplified notion of [https://en.wikipedia.org/wiki/Caps_Lock - Caps Lock]
+as _just a pressed Shift key_ is plain wrong but part of all our
+character-generator configurations. We just missed this drawback
+because none of our developers uses Caps Lock regularly. Further, US
+English and Germany layouts work very well without
+[https://en.wikipedia.org/wiki/Dead_key - dead keys], but crossing any
+German border (except the Austrian) is impossible without support for
+key sequences composing special characters. The French keyboard layout
+in Genode tried to alleviate the lack of compose sequences by adding
+an additional Circumflex modifier and character mapping, which
+unfortunately is not standard.
+
+Beginning at this state of affairs, we researched common practice in
+international keyboard-input handling, sought a quasi-standard source
+for layout configurations, and addressed the drawbacks mentioned
+before. During our research we found out that no current
+implementation is void of critique and, therefore, decided to look
+more into X11/XKB as our open-source quasi-standard solution, but
+always had an eye on the proprietary world.
+
+The handling of key events in X11/XKB happens on three layers.
+
+:Key codes: On the key-code layer, the device driver programs the
+  keyboard and generates a stream of key-code (i.e., scan-code)
+  events, which represent the physical location of the actual key on
+  the keyboard.
+
+:Key symbols: These key codes are mapped to key symbols, which
+  represent the label imprinted on the key. So, the key code producing
+  US English _Q_ (QWERTY keyboard) generates _A_ on a French keyboard
+  (AZERTY). Modifiers like Shift, AltGr, and Caps Lock are included in
+  the key-symbol mapping. Additionally, some layouts map key codes to
+  dead key symbols, which start the before-mentioned compose
+  sequences. Key repeat is also implemented as key-symbol repeat
+  actually.
+
+:Characters: On top of this stack, the key symbols are mapped to
+  characters represented as Unicode codepoint or UTF-8. The procedure
+  obviously includes key symbols that have no character representation
+  (e.g. Control and Alt). Key symbols forming valid compose sequence
+  generate characters on this level (e.g., dead-key circumflex plus e
+  generates ê).
+
+We limited our research to Western keyboard-input handling currently
+and only blinked into the direction of Chinese-Japanese-Korean (CJK)
+and advanced input methods (IM). This simplification is supported by
+the fact that CJK can also be based on the mechanisms mentioned with
+some limitations only. Nevertheless, we do not expect to never touch
+this topic again.
+
+After doing our homework of keyboard-input handling, we worked on
+squeezing all available layout information out of X11/XKB, which
+resulted in a small tool residing in _tool/xkb2ifcfg_. For those
+wondering, the name is just a silly acronym for _XKB to input-filter
+configuration_ that tributes the boringness of this task. After
+building the tool by a run of 'make' in the tool path, it can be used
+like follows. Please make sure you have libxkbcommon development
+packages installed beforehand.
+
+! xkb2ifcfg generate <layout> <variant> <locale>
+!
+! xkb2ifcfg generate us euro       en_US.UTF-8
+! xkb2ifcfg generate de nodeadkeys de_DE.UTF-8
+
+If the parameter combination is available, xkb2ifcfg prints a
+input-filer chargen configuration for the selected layout to standard
+output. Valid 'layout' and 'variant' options can be figured out from
+the LAYOUTS section in 'man 7 xkeyboard-config', where 'variant'
+strings are depicted in parentheses after the layout (e.g.,
+'us(euro)'). The 'locale' option has the standard locale syntax (see
+/usr/share/i18n/locales). The tool needs all three parameters to
+gather the correct key-map and compose-sequence information. The
+generated chargen configurations include '<map>' and '<key>' nodes
+corresponding to significant modifier states and '<sequence>' nodes
+(described later). For simplicity of the generator, the '<key>' nodes
+always use the 'code="..."' attribute, but also have a comment with
+the UTF-8 character appended.
+
+! <key name="KEY_MINUS" code="0x00df"/>   <!-- ß -->
+
+Last, we addressed the improvement of the input-filter character
+generator and the actual chargen configuration files in Genode.
+Therefore, we specified the modifier configuration assumed by the
+standard chargen files as '<mod1>' corresponds to shift, '<mod2>' to
+control, '<mod3>' to AltGr, and '<mod4>' to Caps Lock.
+
+! <mod1> <key name="KEY_LEFTSHIFT"/> <key name="KEY_RIGHTSHIFT"/> </mod1>
+! <mod2> <key name="KEY_LEFTCTRL"/>  <key name="KEY_RIGHTCTRL"/> </mod4>
+! <mod3> <key name="KEY_RIGHTALT"/> </mod4> <!-- AltGr -->
+! <mod4> <rom name="capslock"/> </mod4>
+
+Like outlined above the '<key>' nodes of generated by xkb2ifcfg always
+use the 'code' attribute for the Unicode codepoint. Because of this
+and because UTF-8 also refers to codepoints, we deprecate the
+'b0/b1/b2/b3' attributes for character definition with this release.
+
+The chargen was also extended by the '<sequence>' configuration node.
+A sequence node permits the definition of dead-key/composing character
+sequences. With such sequences the character is not generated
+instantly on key press but only after the sequence is completed. If an
+unfinished sequence can't be completed due to an unmatched character,
+the sequence is aborted and no character is generated. We support
+sequences of up to four characters currently.
+
+For example, the French AZERTY
+[https://docs.microsoft.com/en-us/globalization/keyboards/kbdfr.html - keyboard layout]
+has a dead key for Circumflex Accent _^_ right of the P key (which is
+bracket left _[_ on US keyboards). When Circumflex is pressed no
+visible character should be generated instantly but the accent must be
+combined with a follow-up character (e.g., Circumflex plus _a_
+generates _â_).
+
+Dead keys can be defined in the '<key>' nodes of any '<map>' by using
+codepoints not used for direct output, for example, Combining
+Diacritical Marks beginning at U+0300. The French Circumflex example
+can be configured like follows.
+
+! <mod1>
+!   <key name="KEY_LEFTSHIFT"/> <key name="KEY_RIGHTSHIFT"/>
+! </mod1>
+! <map>
+!   <key name="KEY_Q"         code="0x0061"/> <!-- a -->
+!   <key name="KEY_LEFTBRACE" code="0x0302"/> <!-- dead_circumflex -->
+! </map>
+! <map mod1="true">
+!   <key name="KEY_Q"         code="0x0041"/> <!-- A -->
+! </map>
+! <sequence first="0x0302" second="0x0061" code="0x00e2"/> <!-- â -->
+! <sequence first="0x0302" second="0x0041" code="0x00c2"/> <!-- Â -->
+
+Fortunately, the configuration is automatically generated by
+xkb2ifcfg, but admittedly quite extensive. Therefore, we manually
+amended the chargen configurations before added them to Genode, which
+also gave us the chance to apply some adjustments like follows for
+AltGr in Swiss German.
+
+! <map mod1="false" mod2="false" mod3="true" mod4="false">
+!   <key name="KEY_1" code="0x00a6"/> <!-- ¦ (*) -->
+!   <key name="KEY_4" code="0x00b0"/> <!-- ° (*) -->
+!   <key name="KEY_5" code="0x00a7"/> <!-- § (*) -->
+! </map>
+
+
+Beside the advanced input methods mentioned before, there are still lose
+ends we are going to address in the upcoming releases. For example,
+the current key handling in our Qt5 backend incorrectly maps localized
+key symbols (think AZERTY vs. QWERTY) in combination with shortcuts
+like Ctrl-A.
+
 
 Tracing
 #######
@@ -458,22 +618,34 @@ window resizable.
 Build system and tools
 ######################
 
-;@chelmuth
+At Genode Labs, we use _tool/autopilot_ for the steering of tests in
+our Continuous Integration workflow for almost a decade now. This
+implied various improvements over the years and with the completion of
+our work on
+[https://genode.org/documentation/release-notes/19.05#Unified_build_directories_for_ARM -unified build directories]
+it was time to amend this handy tool once again. Unified build
+directories support building all components for one CPU architecture
+in one directory saving the build server from the redundant work we
+had with board-specific directories. By the new notion of boards
+during builds, the definition of the target platform when integrating
+Genode system scenarios is a triple of _CPU architecture_, _board_,
+and _kernel_. This is reflected in the new '-t <architecture-board-kernel>'
+command line option, which instructs autopilot to generate a build
+directory for _architecture_ and execute tests for the _board-kernel_
+combination.
 
-commit 8d62f21b4058ad118b3de418006c28d3651c6ecc
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Fri Jun 14 16:18:58 2019 +0200
+! autopilot -t x86_64-pc-sel4 -t x86_64-pc-nova -r run/log
 
-    autopilot: support arch-specific build directories
-    
-    Replace the notion of board-specific platforms by clear definition
-    architecture and board.
-    
-    Also added new command line switch for "targets"
-    
-      -t <target>         test target as triple of architecture-board-kernel,
-                          e.g., arm_v7a-pbxa9-hw
-    
-    Related to #3316
-    Fixes #3417
+The known options for '-k kernel' and '-p platform' are still
+supported with the small change that the platform must now be defined
+as _architecture-board_.
+
+! autopilot -p x86_64-pc -k sel4 -k nova -r run/log
+
+Autopilot now also documents the hidden feature to propagate custom
+RUN_OPTs to the run tool executed via the RUN_OPT_AUTOPILOT
+environment variable. Beside that, the tool always appends RUN_OPT
+with '--autopilot'.
+
+! RUN_OPT_AUTOPILOT="--depot-dir /data/depot" autopilot ...
 
