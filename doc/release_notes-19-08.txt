@@ -397,21 +397,27 @@ away from network time.
 Accessing SMBIOS tables
 =======================
 
-; What are SMBIOS tables?
+The System Management BIOS (SMBIOS) is a specification that allows for reading
+management information produced by the BIOS of a system. It has the potential
+to eliminate the need for the operating system to probe hardware for
+discovering present devices and their characteristics. Nowadays, the SMBIOS
+specification is implemented widely in x86 desktop systems. It normally comes
+in the form of so-called SMBIOS tables provided at some address in the memory
+on system startup.
 
 The new native SMBIOS decoder at _os/src/app/smbios_decoder_ can be used on x86
 to parse SMBIOS tables and report gathered information in a human-readable way.
 Besides general table information like number and size of structures, etc., the
-component supports complete parsing of SMBIOS structures of types "BIOS", "System",
-and "Baseboard".
+component supports complete parsing of SMBIOS structures of types "BIOS",
+"System", and "Baseboard".
 
 The component is free from any code for acquiring an SMBIOS table through means
-like the bootloader or BIOS information. It expects a table to be present through a
-regular Genode ROM session with a 'smbios_table' label. This way, the underlying
-system is required to find, select, and safe the raw table on startup and create
-a ROM module out of it. This is currently achieved on NOVA and base-hw through an
-interplay of kernel, the core component, and the ACPI driver and was tested for legacy
-BIOSes as well as UEFI systems.
+like the bootloader or BIOS information. It expects a table to be present
+through a regular Genode ROM session with a 'smbios_table' label. This way, the
+underlying system is required to find, select, and safe the raw table on
+startup and create a ROM module out of it. This is currently achieved on NOVA
+and base-hw through an interplay of kernel, the core component, and the ACPI
+driver and was tested for legacy BIOSes as well as UEFI systems.
 
 
 Clipboard
