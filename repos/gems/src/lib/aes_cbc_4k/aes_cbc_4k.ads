@@ -1,11 +1,11 @@
 package Aes_Cbc_4k with SPARK_Mode
 is
 
-   -- pragma Pure; -- not possible because libsparkcrypto is not known as pure
+   --  pragma Pure; -- not possible because libsparkcrypto is not known as pure
 
    type Byte              is mod 2**8 with Size => 8;
-   type Key_Base_type     is array (Natural range <>) of Byte;
-   subtype Key_Type       is Key_Base_type (1 .. 32);
+   type Key_Base_Type     is array (Natural range <>) of Byte;
+   subtype Key_Type       is Key_Base_Type (1 .. 32);
    type Block_Number_Type is mod 2**64 with Size => 64;
 
    type Plaintext_Base_Type is array (Natural range <>) of Byte;
