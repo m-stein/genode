@@ -24,7 +24,7 @@ is
       type Padding_Type is array (Natural range <>) of Byte;
       type Block_Number_Text_Type is record
          Block_Number : Block_Number_Type;
-         Padding      : Padding_Type(1 .. 8);
+         Padding      : Padding_Type (1 .. 8);
       end record
       with Size => 128;
 
@@ -44,9 +44,9 @@ is
       function Encrypt is new LSC.AES_Generic.Encrypt
          (Natural, Byte, Block_Number_Plaintext_Base_Type, Natural, Byte, Ciphertext_Base_Type);
 
-  begin
-     return Encrypt (Plaintext => Convert(Block_Number_Text),
-                     Key       => Enc_Key(Hash(Key), LSC.AES_Generic.L256)) (Natural'First .. Natural'First + 15);
+   begin
+      return Encrypt (Plaintext => Convert (Block_Number_Text),
+                      Key       => Enc_Key (Hash (Key), LSC.AES_Generic.L256)) (Natural'First .. Natural'First + 15);
    end Init_IV;
 
    procedure Encrypt (Key          :     Key_Type;
@@ -60,15 +60,14 @@ is
       procedure Encrypt is new LSC.AES_Generic.CBC.Encrypt
          (Natural, Byte, Plaintext_Base_Type, Natural, Byte, Ciphertext_Base_Type);
 
-      IV : constant Ciphertext_Base_Type := Init_IV(Key, Block_Number);
+      IV : constant Ciphertext_Base_Type := Init_IV (Key, Block_Number);
    begin
 
       Encrypt (Plaintext  => Plaintext,
                IV         => IV,
-               Key        => Enc_Key(Key, LSC.AES_Generic.L256),
+               Key        => Enc_Key (Key, LSC.AES_Generic.L256),
                Ciphertext => Ciphertext);
    end Encrypt;
-
 
    procedure Decrypt (Key          :     Key_Type;
                       Block_Number :     Block_Number_Type;
@@ -83,8 +82,8 @@ is
 
    begin
       Decrypt (Ciphertext => Ciphertext,
-               IV         => Init_IV(Key, Block_Number),
-               Key        => Dec_Key(Key, LSC.AES_Generic.L256),
+               IV         => Init_IV (Key, Block_Number),
+               Key        => Dec_Key (Key, LSC.AES_Generic.L256),
                Plaintext  => Plaintext);
    end Decrypt;
 
