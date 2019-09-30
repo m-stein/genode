@@ -149,7 +149,7 @@ CC_CXX_WARN        ?= $(CC_WARN) $(CC_CXX_WARN_STRICT)
 #
 # Additional warnings for Ada/SPARK
 #
-CC_ADA_WARN_STRICT ?= -gnatwe -gnatyyBdM120Sux
+CC_ADA_WARN_STRICT ?= -gnatwe -gnatyyBdSux
 CC_ADA_WARN        ?= -gnatwa $(CC_ADA_WARN_STRICT)
 
 #
