@@ -200,7 +200,8 @@ struct Test::Test_base : private Genode::Fifo<Test_base>::Element
 		/**
 		 * Block::Connection::Update_jobs_policy
 		 */
-		void produce_write_content(Job &job, off_t offset, char *dst, size_t length)
+		virtual void produce_write_content(Job &job, off_t offset,
+		                                   char *dst, size_t length)
 		{
 			_tx    += length / _info.block_size;
 			_bytes += length;
@@ -215,8 +216,8 @@ struct Test::Test_base : private Genode::Fifo<Test_base>::Element
 		/**
 		 * Block::Connection::Update_jobs_policy
 		 */
-		void consume_read_result(Job &job, off_t offset,
-		                         char const *src, size_t length)
+		virtual void consume_read_result(Job &job, off_t offset,
+		                                 char const *src, size_t length)
 		{
 			_rx    += length / _info.block_size;
 			_bytes += length;
@@ -231,7 +232,7 @@ struct Test::Test_base : private Genode::Fifo<Test_base>::Element
 		/**
 		 * Block_connection::Update_jobs_policy
 		 */
-		void completed(Job &job, bool success)
+		virtual void completed(Job &job, bool success)
 		{
 			_completed++;
 
@@ -335,6 +336,7 @@ struct Test::Test_base : private Genode::Fifo<Test_base>::Element
 #include <test_random.h>
 #include <test_replay.h>
 #include <test_sequential.h>
+#include <test_compare.h>
 
 
 /*
@@ -487,6 +489,12 @@ struct Test::Main
 				if (node.has_type("sequential")) {
 					Test_base *t = new (&_heap)
 						Sequential(_env, _heap, node, _finished_sigh, _scratch_buffer);
+					_tests.enqueue(*t);
+				} else
+
+				if (node.has_type("compare")) {
+					Test_base *t = new (&_heap)
+						Compare(_env, _heap, node, _finished_sigh, _scratch_buffer);
 					_tests.enqueue(*t);
 				}
 			});
