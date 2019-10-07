@@ -189,6 +189,22 @@ endif
 $(LIB).rlib: $(SRC_RS:.rs=.rlib)
 	$(VERBOSE)ln -s $< $@
 
+ifneq ($(LIB_ADAINIT),)
+
+CUSTOM_BINDER_FLAGS ?= -n -we -D768k
+
+OBJECTS += b~$(LIB).o
+
+ALIS := $(addsuffix .ali, $(basename $(SRC_ADS) $(SRC_ADB)))
+ALI_DIRS := $(foreach LIB,$(LIBS),$(call select_from_repositories,lib/ali/$(LIB)))
+BINDER_SEARCH_DIRS = $(addprefix -I$(BUILD_BASE_DIR)/var/libcache/, $(LIBS)) $(addprefix -aO, $(ALI_DIRS))
+
+BINDER_SRC := b~$(LIB).ads b~$(LIB).adb
+
+$(BINDER_SRC): $(ALIS)
+	$(VERBOSE)$(GNATBIND) $(CUSTOM_BINDER_FLAGS) $(BINDER_SEARCH_DIRS) $(INCLUDES) --RTS=$(ADA_RTS) -o $@ $^
+endif
+
 #
 # Rule to build the <libname>.lib.a file
 #
