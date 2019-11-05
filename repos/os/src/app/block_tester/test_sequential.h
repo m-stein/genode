@@ -26,8 +26,8 @@ namespace Test { struct Sequential; }
 struct Test::Sequential : Test_base
 {
 	block_number_t _start   = _node.attribute_value("start",  0u);
-	size_t   const _size    = _node.attribute_value("size",   Number_of_bytes());
-	size_t   const _length  = _node.attribute_value("length", Number_of_bytes());
+	size_t         _size    = _node.attribute_value("size",   Number_of_bytes());
+	size_t         _length  = _node.attribute_value("length", Number_of_bytes());
 
 	Block::Operation::Type const _op_type = _node.attribute_value("write", false)
 	                                      ? Block::Operation::Type::WRITE
@@ -46,6 +46,10 @@ struct Test::Sequential : Test_base
 			error("request size invalid");
 			throw Constructing_test_failed();
 		}
+
+		if (!_size) { _size = _info.block_size; }
+
+		if (!_length) { _length = _info.block_count * _info.block_size; }
 
 		_size_in_blocks   = _size   / _info.block_size;
 		_length_in_blocks = _length / _info.block_size;
