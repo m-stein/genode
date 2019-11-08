@@ -99,11 +99,8 @@ class Vfs_server::Session_component : private Session_resources,
 
 		Packet_stream &_stream { *tx_sink() };
 
-		/* nodes of this session with active jobs */
+		/* nodes of this session with active jobs or pending acknowledgements */
 		Node_queue _active_nodes { };
-
-		/* nodes with finished jobs that can be acknowledged */
-		Node_queue _finished_nodes { };
 
 		/* global queue of sessions with active jobs */
 		Session_queue &_active_sessions;
@@ -212,10 +209,7 @@ class Vfs_server::Session_component : private Session_resources,
 				try {
 					_apply(packet.handle(), [&] (Io_node &node) {
 
-						/* each node can deal with only one job at a time */
-						bool const job_acceptable = !node.enqueued();
-
-						if (!job_acceptable)
+						if (!node.job_acceptable())
 							return;
 
 						Payload_ptr payload_ptr { _stream.packet_content(packet) };
@@ -223,7 +217,8 @@ class Vfs_server::Session_component : private Session_resources,
 						switch (node.submit_job(packet, payload_ptr)) {
 
 						case Node::Submit_result::ACCEPTED:
-							_active_nodes.enqueue(node);
+							if (!node.enqueued())
+								_active_nodes.enqueue(node);
 							drop_packet_from_submit_queue();
 							break;
 
@@ -243,55 +238,72 @@ class Vfs_server::Session_component : private Session_resources,
 				if (!progress_in_iteration)
 					break;
 			}
-
 			return overall_progress;
 		}
 
-		bool _try_execute_jobs()
+		void _execute_jobs()
 		{
-			bool progress = false;
-
 			/* nodes with jobs that cannot make progress right now */
-			Node_queue still_active_nodes { };
+			Node_queue requeued_nodes { };
 
 			_active_nodes.dequeue_all([&] (Node &node) {
-				node.execute_job();
-				if (node.acknowledgement_valid()) {
-					_finished_nodes.enqueue(node);
-					progress = true;
-				} else {
-					still_active_nodes.enqueue(node);
-				}
+
+				if (node.job_in_progress())
+					node.execute_job();
+
+				requeued_nodes.enqueue(node);
 			});
 
-			_active_nodes = still_active_nodes;
-
-			return progress;
+			_active_nodes = requeued_nodes;
 		}
 
 		bool _try_acknowledge_jobs()
 		{
-			bool progress = false;
+			bool overall_progress = false;
 
 			for (;;) {
 				if (!_stream.ready_to_ack())
 					break;
 
-				if (_finished_nodes.empty())
+				if (_active_nodes.empty())
 					break;
 
-				_finished_nodes.dequeue([&] (Node &node) {
-					_stream.acknowledge_packet(node.acknowledgement_packet());
-					progress = true;
+				bool progress_in_iteration = false;
+
+				_active_nodes.dequeue([&] (Node &node) {
+
+					/*
+					 * Deliver only one acknowledgement per iteration to
+					 * re-check the 'ready_to_ack' condition for each
+					 * acknowledgement.
+					 */
+					if (node.acknowledgement_pending()) {
+						_stream.acknowledge_packet(node.dequeue_acknowledgement());
+						progress_in_iteration = true;
+					}
+
+					/*
+					 * If there is still another acknowledgement pending, keep
+					 * the node enqueud to process it in the next iteration.
+					 * This can happen if there is a READ_READY acknowledgement
+					 * in addition to the acknowledgement of an operation.
+					 */
+					if (node.active())
+						_active_nodes.enqueue(node);
 				});
+
+				overall_progress |= progress_in_iteration;
+
+				if (!progress_in_iteration)
+					break;
 			}
 
-			return progress;
+			return overall_progress;
 		}
 
-	protected:
+	public:
 
-		friend Vfs_server::Root;
+		enum class Process_packets_result { NONE, PROGRESS, TOO_MUCH_PROGRESS };
 
 		/**
 		 * Called by the global Io_progress_handler as well as the
@@ -299,7 +311,7 @@ class Vfs_server::Session_component : private Session_resources,
 		 *
 		 * \return true if progress was made
 		 */
-		bool process_packets()
+		Process_packets_result process_packets()
 		{
 			bool overall_progress = false;
 
@@ -310,20 +322,20 @@ class Vfs_server::Session_component : private Session_resources,
 			 * a chance to run in situations when the submit queue of the
 			 * packet stream is always saturated.
 			 */
-			unsigned iterations = 100;
+			unsigned iterations = 200;
 
 			for (;;) {
 
-				if (--iterations == 0) {
-					Genode::Signal_transmitter(_packet_stream_handler).submit();
-					break;
-				}
+				if (--iterations == 0)
+					return Process_packets_result::TOO_MUCH_PROGRESS;
 
 				/* true if progress can be made in this iteration */
 				bool progress_in_iteration = false;
 
 				progress_in_iteration |= _try_import_jobs_from_submit_queue();
-				progress_in_iteration |= _try_execute_jobs();
+
+				_execute_jobs();
+
 				progress_in_iteration |= _try_acknowledge_jobs();
 
 				if (!progress_in_iteration)
@@ -331,23 +343,18 @@ class Vfs_server::Session_component : private Session_resources,
 
 				overall_progress |= progress_in_iteration;
 			}
-			return overall_progress;
+			return overall_progress ? Process_packets_result::PROGRESS
+			                        : Process_packets_result::NONE;
 		}
 
 		bool no_longer_active() const
 		{
-			bool const no_job = _active_nodes.empty()
-			                 && _finished_nodes.empty();
-
-			return Session_queue::Element::enqueued() && no_job;
+			return Session_queue::Element::enqueued() && _active_nodes.empty();
 		}
 
 		bool no_longer_idle() const
 		{
-			bool const any_job = !_active_nodes.empty()
-			                  || !_finished_nodes.empty();
-
-			return !Session_queue::Element::enqueued() && any_job;
+			return !Session_queue::Element::enqueued() && !_active_nodes.empty();
 		}
 
 	private:
@@ -357,17 +364,20 @@ class Vfs_server::Session_component : private Session_resources,
 		 */
 		void _handle_packet_stream()
 		{
-			bool const progress = process_packets();
+			Process_packets_result const progress = process_packets();
 
 			if (no_longer_idle())
 				_active_sessions.enqueue(*this);
+
+			if (progress == Process_packets_result::TOO_MUCH_PROGRESS)
+				Genode::Signal_transmitter(_packet_stream_handler).submit();
 
 			/*
 			 * The activity of the session may have an unblocking effect on
 			 * other sessions. So we call the global 'Io_progress_handler' to
 			 * attempt the packet processing of all active sessions.
 			 */
-			if (progress)
+			if (progress == Process_packets_result::PROGRESS)
 				_io_progress_handler.handle_io_progress();
 		}
 
@@ -411,7 +421,7 @@ class Vfs_server::Session_component : private Session_resources,
 		void handle_watch_node_response(Watch_node &node) override
 		{
 			if (!node.enqueued())
-				_finished_nodes.enqueue(node);
+				_active_nodes.enqueue(node);
 
 			/*
 			 * The acknowledgement and dequeuing will be delivered by
@@ -595,24 +605,22 @@ class Vfs_server::Session_component : private Session_resources,
 			/*
 			 * Closing a written file or symlink may have triggered a watch handler.
 			 */
-			bool mutated_node = false;
+			bool node_modified = false;
 
 			try {
 				_apply_node(handle, [&] (Node &node) {
-					if (node.enqueued()) {
-						if (node.acknowledgement_valid()) {
-							_finished_nodes.remove(node);
-						} else {
-							_active_nodes.remove(node);
-						}
-					}
-					mutated_node = node.mutated();
+
+					if (node.enqueued())
+						_active_nodes.remove(node);
+
+					node_modified = node.modified();
+
 					_close(node);
 				});
 			}
 			catch (::File_system::Invalid_handle) { }
 
-			if (mutated_node)
+			if (node_modified)
 				_io_progress_handler.handle_io_progress();
 		}
 
@@ -748,6 +756,9 @@ class Vfs_server::Root : public Genode::Root_component<Session_component>,
 			}
 		}
 
+		Genode::Signal_handler<Root> _reactivate_handler {
+			_env.ep(), *this, &Root::handle_io_progress };
+
 		Genode::Signal_handler<Root> _config_handler {
 			_env.ep(), *this, &Root::_config_update };
 
@@ -772,7 +783,17 @@ class Vfs_server::Root : public Genode::Root_component<Session_component>,
 		 */
 		void handle_io_progress() override
 		{
+			bool yield = false;
+
+			unsigned iterations = 200;
+
 			for (;;) {
+
+				/* limit maximum number of iterations */
+				if (--iterations == 0) {
+					yield = true;
+					break;
+				}
 
 				bool progress = false;
 
@@ -780,7 +801,21 @@ class Vfs_server::Root : public Genode::Root_component<Session_component>,
 
 				_active_sessions.dequeue_all([&] (Session_component &session) {
 
-					progress |= session.process_packets();
+					typedef Session_component::Process_packets_result Result;
+
+					switch (session.process_packets()) {
+
+					case Result::PROGRESS:
+						progress = true;
+						break;
+
+					case Result::TOO_MUCH_PROGRESS:
+						yield = true;
+						break;
+
+					case Result::NONE:
+						break;
+					}
 
 					if (!session.no_longer_active())
 						still_active_sessions.enqueue(session);
@@ -791,6 +826,13 @@ class Vfs_server::Root : public Genode::Root_component<Session_component>,
 				if (!progress)
 					break;
 			}
+
+			/*
+			 * Submit a local signal to re-schedule another execution of
+			 * 'handle_io_progress' if the loop was exited via 'yield'.
+			 */
+			if (yield)
+				Genode::Signal_transmitter(_reactivate_handler).submit();
 		}
 
 	protected:

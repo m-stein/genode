@@ -111,11 +111,11 @@ class Vfs_server::Node : Node_space::Element, Node_queue::Element
 
 		bool _acked_packet_valid = false;
 
-		void _reset_acked_packet()
-		{
-			_acked_packet = Packet_descriptor { };
-			_acked_packet_valid = false;
-		}
+		bool _packet_in_progress = false;
+
+		enum class Read_ready_state { DONT_CARE, REQUESTED, READY };
+
+		Read_ready_state _read_ready_state { Read_ready_state::DONT_CARE };
 
 	public:
 
@@ -135,45 +135,83 @@ class Vfs_server::Node : Node_space::Element, Node_queue::Element
 
 		enum class Submit_result { DENIED, ACCEPTED, STALLED };
 
+		bool job_in_progress() const { return _packet_in_progress; }
+
+		/**
+		 * Return true if node is ready to accept 'submit_job'
+		 *
+		 * Each node can deal with only one job at a time, except for file
+		 * nodes, which accept a job in addition to an already submitted
+		 * READ_READY request (which leaves '_packet_in_progress' untouched).
+		 */
+		bool job_acceptable() const { return !job_in_progress(); }
+
 		/**
 		 * Submit job to node
 		 *
 		 * When called, the node is expected to be idle (neither queued in
 		 * the active-nodes queue nor the finished-nodes queue).
-		 *
-		 * Must call '_reset_acked_packet'
 		 */
 		virtual Submit_result submit_job(Packet_descriptor, Payload_ptr)
 		{
 			return Submit_result::DENIED;
 		}
 
-		bool acknowledgement_valid() const
-		{
-			return _acked_packet_valid;
-		}
-
+		/**
+		 * Execute submitted job
+		 *
+		 * This function must not be called if 'job_in_progress()' is false.
+		 */
 		virtual void execute_job()
 		{
 			Genode::warning("Node::execute_job unexpectedly called");
 		}
 
 		/**
-		 * Return packet descriptor to be returned as acknowledgement for the
-		 * completion of the current job to the client
+		 * Return true if the node has at least one acknowledgement ready
 		 */
-		Packet_descriptor acknowledgement_packet() const
+		bool acknowledgement_pending() const
 		{
-			if (!_acked_packet_valid)
-				Genode::error("acknowledgement unexpectedly requested from node ", *this);
+			return (_read_ready_state == Read_ready_state::READY)
+			     || _acked_packet_valid;
+		}
 
-			return _acked_packet;
+		bool active() const
+		{
+			return acknowledgement_pending()
+			    || job_in_progress()
+			    || (_read_ready_state == Read_ready_state::REQUESTED);
+		}
+
+		/**
+		 * Return and consume one pending acknowledgement
+		 */
+		Packet_descriptor dequeue_acknowledgement()
+		{
+			if (_read_ready_state == Read_ready_state::READY) {
+				_read_ready_state =  Read_ready_state::DONT_CARE;
+
+				Packet_descriptor ack_read_ready(Packet_descriptor(),
+				                                 Node_handle { id().value },
+				                                 Packet_descriptor::READ_READY,
+				                                 0, 0);
+				ack_read_ready.succeeded(true);
+				return ack_read_ready;
+			}
+
+			if (_acked_packet_valid) {
+				_acked_packet_valid = false;
+				return _acked_packet;
+			}
+
+			Genode::warning("dequeue_acknowledgement called with no pending ack");
+			return Packet_descriptor();
 		}
 
 		/**
 		 * Return true if node was written to
 		 */
-		virtual bool mutated() const { return false; }
+		virtual bool modified() const { return false; }
 
 		/**
 		 * Print for debugging
@@ -205,39 +243,64 @@ class Vfs_server::Io_node : public Vfs_server::Node,
 
 		Payload_ptr _payload_ptr { };
 
-		bool _mutated = false;
+		bool _modified = false;
 
 		Vfs::Vfs_handle &_handle;
 
 		void _import_job(Packet_descriptor packet, Payload_ptr payload_ptr)
 		{
-			if (enqueued())
+			/*
+			 * Accept a READ_READY request without occupying '_packet'.
+			 * This way, another request can follow a READ_READY request
+			 * without blocking on the completion of READ_READY.
+			 */
+			if (packet.operation() == Packet_descriptor::READ_READY) {
+				_read_ready_state = Read_ready_state::REQUESTED;
+				return;
+			}
+
+			if (job_in_progress())
 				Genode::error("job unexpectedly submitted to busy node");
 
-			_packet = packet;
-			_payload_ptr = payload_ptr;
-			_reset_acked_packet();
+			_packet             = packet;
+			_payload_ptr        = payload_ptr;
+			_packet_in_progress = true;
+			_acked_packet_valid = false;
+			_acked_packet       = Packet_descriptor { };
 		}
 
 		void _acknowledge_as_success(size_t count)
 		{
-			_acked_packet = _packet;
+			/*
+			 * Keep '_packet' and '_payload_ptr' intact to allow for the
+			 * conversion of directory entries in 'Directory::execute_job'.
+			 */
+
+			_packet_in_progress = false;
+			_acked_packet_valid = true;
+			_acked_packet       = _packet;
+
 			_acked_packet.length(count);
 			_acked_packet.succeeded(true);
-			_acked_packet_valid = true;
 		}
 
 		void _acknowledge_as_failure()
 		{
-			_acked_packet = _packet;
-			_acked_packet.succeeded(false);
+			_packet             = Packet_descriptor();
+			_payload_ptr        = Payload_ptr { nullptr };
+			_packet_in_progress = false;
 			_acked_packet_valid = true;
+			_acked_packet       = _packet;
+
+			_acked_packet.succeeded(false);
 		}
 
 		/**
 		 * Current job of this node, assigned by 'submit_job'
 		 */
 		Packet_descriptor _packet { };
+
+	protected:
 
 		Submit_result _submit_read_at(file_offset seek_offset)
 		{
@@ -268,6 +331,8 @@ class Vfs_server::Io_node : public Vfs_server::Node,
 
 		Submit_result _submit_read_ready()
 		{
+			_read_ready_state = Read_ready_state::REQUESTED;
+
 			if (_handle.fs().read_ready(&_handle)) {
 				/* if the handle is ready, send a packet back immediately */
 				read_ready_response();
@@ -332,7 +397,6 @@ class Vfs_server::Io_node : public Vfs_server::Node,
 				case Write_result::WRITE_ERR_INVALID:
 				case Write_result::WRITE_ERR_IO:
 				case Write_result::WRITE_ERR_INTERRUPT:
-					Genode::warning("error while writing to node ", *this);
 					_acknowledge_as_failure();
 					break;
 
@@ -342,7 +406,7 @@ class Vfs_server::Io_node : public Vfs_server::Node,
 			}
 			catch (Vfs::File_io_service::Insufficient_buffer) { /* re-execute */ }
 
-			_mutated = true;
+			_modified = true;
 
 			return out_count;
 		}
@@ -351,7 +415,8 @@ class Vfs_server::Io_node : public Vfs_server::Node,
 		{
 			switch (_handle.fs().complete_sync(&_handle)) {
 
-			case Sync_result::SYNC_OK: _acknowledge_as_success(0);
+			case Sync_result::SYNC_OK:
+				_acknowledge_as_success(0);
 				break;
 
 			case Sync_result::SYNC_ERR_INVALID:
@@ -374,7 +439,7 @@ class Vfs_server::Io_node : public Vfs_server::Node,
 			}
 			catch (Vfs::File_io_service::Insufficient_buffer) { }
 
-			_mutated = true;
+			_modified = true;
 		}
 
 	public:
@@ -406,7 +471,7 @@ class Vfs_server::Io_node : public Vfs_server::Node,
 
 		void execute_job() override { }
 
-		bool mutated() const override { return _mutated; }
+		bool modified() const override { return _modified; }
 
 
 		/****************************************
@@ -418,7 +483,8 @@ class Vfs_server::Io_node : public Vfs_server::Node,
 		 */
 		void read_ready_response() override
 		{
-			_acknowledge_as_success(0);
+			if (_read_ready_state == Read_ready_state::REQUESTED)
+				_read_ready_state =  Read_ready_state::READY;
 		}
 
 		/**
@@ -465,9 +531,8 @@ class Vfs_server::Watch_node final : public Vfs_server::Node,
 
 			/*
 			 * The delivery of a watch notification is not indicated by the
-			 * state of '_acked_packet_valid' but by enqueuing the node
-			 * in the 'triggered_watch_nodes', which corresponds to the
-			 * 'Session_component::_finished_nodes' queue.
+			 * state of '_acked_packet_valid' but propagated to the session
+			 * via the 'watch_node_response_handler'.
 			 */
 			_acked_packet = Packet_descriptor(Packet_descriptor(),
 			                                  Node_handle { id().value },
@@ -559,7 +624,7 @@ struct Vfs_server::Symlink : Io_node
 		{
 			_import_job(packet, payload_ptr);
 
-			switch (_packet.operation()) {
+			switch (packet.operation()) {
 
 			case Packet_descriptor::READ:
 
@@ -672,6 +737,10 @@ class Vfs_server::File : public Io_node
 		 */
 		seek_off_t _write_pos = 0;
 
+		bool _watch_read_ready = false;
+
+	protected:
+
 		static Vfs_handle &_open(Vfs::File_system  &vfs, Genode::Allocator &alloc,
 		                         char const *path, Mode mode, bool create)
 		{
@@ -708,7 +777,7 @@ class Vfs_server::File : public Io_node
 			_write_type = Write_type::UNKNOWN;
 			_write_pos  = 0;
 
-			switch (_packet.operation()) {
+			switch (packet.operation()) {
 
 			case Packet_descriptor::READ:            return _submit_read_at(_seek_pos());
 			case Packet_descriptor::WRITE:           return _submit_write_at(_seek_pos());
@@ -842,15 +911,17 @@ struct Vfs_server::Directory : Io_node
 		/**
 		 * Convert VFS directory entry to FS directory entry in place in the
 		 * payload buffer
+		 *
+		 * \return  size of converted data in bytes
 		 */
-		void _convert_vfs_dirents_to_fs_dirents()
+		file_size _convert_vfs_dirents_to_fs_dirents()
 		{
 			static_assert(sizeof(Vfs_dirent) == sizeof(Fs_dirent));
 
 			file_offset const step   = sizeof(Fs_dirent);
 			file_offset const length = _packet.length();
 
-			file_size acknowledged_length = 0;
+			file_size converted_length = 0;
 
 			for (file_offset offset = 0; offset + step <= length; offset += step) {
 
@@ -864,15 +935,10 @@ struct Vfs_server::Directory : Io_node
 
 				fs_dirent = _convert_dirent(vfs_dirent);
 
-				acknowledged_length += step;
+				converted_length += step;
 			}
 
-			/*
-			 * Overwrite the acknowledgement assigned by 'Io_node::execute_job'
-			 * with an acknowledgement featuring the converted length.
-			 * This way, the client reads 0 bytes at the end of the directory.
-			 */
-			_acknowledge_as_success(acknowledged_length);
+			return converted_length;
 		}
 
 		static Vfs_handle &_open(Vfs::File_system &vfs, Genode::Allocator &alloc,
@@ -937,7 +1003,7 @@ struct Vfs_server::Directory : Io_node
 		{
 			_import_job(packet, payload_ptr);
 
-			switch (_packet.operation()) {
+			switch (packet.operation()) {
 
 			case Packet_descriptor::READ:
 
@@ -966,8 +1032,18 @@ struct Vfs_server::Directory : Io_node
 
 			case Packet_descriptor::READ:
 				_execute_read();
-				if (_acked_packet_valid)
-					_convert_vfs_dirents_to_fs_dirents();
+
+				if (_acked_packet_valid) {
+					file_size const length = _convert_vfs_dirents_to_fs_dirents();
+
+					/*
+					 * Overwrite the acknowledgement assigned by
+					 * '_execute_read' with an acknowledgement featuring the
+					 * converted length. This way, the client reads only the
+					 * number of bytes until the end of the directory.
+					 */
+					_acknowledge_as_success(length);
+				}
 				break;
 
 			/* generic */
