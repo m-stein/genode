@@ -674,6 +674,8 @@ ssize_t Libc::Vfs_plugin::write(File_descriptor *fd, const void *buf,
 
 	} else {
 
+		Vfs::file_size const initial_seek { handle->seek() };
+
 		struct Check : Suspend_functor
 		{
 			bool retry { false };
@@ -755,19 +757,25 @@ ssize_t Libc::Vfs_plugin::write(File_descriptor *fd, const void *buf,
 					 */
 					bool const continuous_file = (_iteration > 0 || _fd_refers_to_continuous_file());
 
+					if (!continuous_file) {
+						warning("partial write on transactional file");
+						_out_result = Result::WRITE_ERR_IO;
+						retry = false;
+						return retry;
+					}
+
 					_iteration++;
 
-					bool const stalled = (continuous_file && (partial_out_count == 0));
+					bool const stalled = (partial_out_count == 0);
 					if (stalled) {
 						retry = true;
 						return retry;
 					}
 
 					/* issue new write operation for remaining bytes */
-					if (continuous_file) {
-						_count  -= partial_out_count;
-						_offset += partial_out_count;
-					}
+					_count  -= partial_out_count;
+					_offset += partial_out_count;
+					_handle->advance_seek(partial_out_count);
 				}
 			}
 		} check(_root_fs, fd->fd_path, handle, buf, count, out_count, out_result);
@@ -775,6 +783,9 @@ ssize_t Libc::Vfs_plugin::write(File_descriptor *fd, const void *buf,
 		do {
 			suspend(check);
 		} while (check.retry);
+
+		/* XXX reset seek pointer after loop (will be advanced below by out_count) */
+		handle->seek(initial_seek);
 	}
 
 	Plugin::resume_all();
