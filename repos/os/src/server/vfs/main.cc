@@ -26,7 +26,7 @@
 #include <util/fifo.h>
 #include <vfs/simple_env.h>
 
-/* Local includes */
+/* local includes */
 #include "assert.h"
 #include "node.h"
 
@@ -190,7 +190,7 @@ class Vfs_server::Session_component : private Session_resources,
 					progress_in_iteration = true;
 				};
 
-				auto ack_invalid_packet = [&] ()
+				auto consume_and_ack_invalid_packet = [&] ()
 				{
 					drop_packet_from_submit_queue();
 					packet.succeeded(false);
@@ -202,7 +202,7 @@ class Vfs_server::Session_component : private Session_resources,
 
 				/* test for invalid packet */
 				if (packet.length() > packet.size()) {
-					ack_invalid_packet();
+					consume_and_ack_invalid_packet();
 					continue;
 				}
 
@@ -223,8 +223,7 @@ class Vfs_server::Session_component : private Session_resources,
 							break;
 
 						case Node::Submit_result::DENIED:
-							drop_packet_from_submit_queue();
-							ack_invalid_packet();
+							consume_and_ack_invalid_packet();
 							break;
 
 						case Node::Submit_result::STALLED:
@@ -233,7 +232,8 @@ class Vfs_server::Session_component : private Session_resources,
 						}
 					});
 				}
-				catch (File_system::Invalid_handle) { ack_invalid_packet(); }
+				catch (File_system::Invalid_handle) {
+					consume_and_ack_invalid_packet(); }
 
 				if (!progress_in_iteration)
 					break;

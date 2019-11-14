@@ -264,7 +264,6 @@ class Vfs_server::Io_node : public Vfs_server::Node,
 
 			_packet             = packet;
 			_payload_ptr        = payload_ptr;
-			_packet_in_progress = true;
 			_acked_packet_valid = false;
 			_acked_packet       = Packet_descriptor { };
 		}
@@ -309,8 +308,14 @@ class Vfs_server::Io_node : public Vfs_server::Node,
 
 			_handle.seek(seek_offset);
 
-			return _handle.fs().queue_read(&_handle, _packet.length())
-			       ? Submit_result::ACCEPTED : Submit_result::STALLED;
+			bool const queuing_succeeded =
+				_handle.fs().queue_read(&_handle, _packet.length());
+
+			if (queuing_succeeded)
+				_packet_in_progress = true;
+
+			return queuing_succeeded ? Submit_result::ACCEPTED
+			                         : Submit_result::STALLED;
 		}
 
 		Submit_result _submit_write_at(file_offset seek_offset)
@@ -320,13 +325,19 @@ class Vfs_server::Io_node : public Vfs_server::Node,
 
 			_handle.seek(seek_offset);
 
+			_packet_in_progress = true;
 			return Submit_result::ACCEPTED;
 		}
 
 		Submit_result _submit_sync()
 		{
-			return _handle.fs().queue_sync(&_handle)
-			       ? Submit_result::ACCEPTED : Submit_result::STALLED;
+			bool const queuing_succeeded = _handle.fs().queue_sync(&_handle);
+
+			if (queuing_succeeded)
+				_packet_in_progress = true;
+
+			return queuing_succeeded ? Submit_result::ACCEPTED
+			                         : Submit_result::STALLED;
 		}
 
 		Submit_result _submit_read_ready()
@@ -354,6 +365,7 @@ class Vfs_server::Io_node : public Vfs_server::Node,
 			if (!(_mode & WRITE_ONLY))
 				return Submit_result::DENIED;
 
+			_packet_in_progress = true;
 			return Submit_result::ACCEPTED;
 		}
 
