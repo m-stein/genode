@@ -109,6 +109,8 @@ class Depot_deploy::Log_event : public Event,
 
 		void _resolve_ampersand_sequences();
 
+		void _remove_line_feeds_and_tabs();
+
 	public:
 
 		Log_event(Allocator      &alloc,

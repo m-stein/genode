@@ -444,11 +444,7 @@ void Child::log_session_write(Log_event::Line const &log_line)
 					log_event.reset_retry()    = false;
 					break;
 				}
-				/* skip irrelevant characters in the pattern */
-				if (*pattern_curr == ASCII_LF || *pattern_curr == ASCII_TAB) {
-					pattern_curr++;
-					continue;
-				}
+				/* handle wildcards in pattern */
 				if (*pattern_curr == 0) {
 					pattern_curr++;
 					log_event.reset_to()    = pattern_curr;
@@ -871,7 +867,7 @@ void Log_event::_resolve_ampersand_sequence(Sequence_to_character const &seq)
 		*curr = seq.character;
 		memcpy(curr + 1, seq_end, (size_t)(end - seq_end));
 		_size -= seq.size - 1;
-		end = _base + _size ;
+		end = _base + _size;
 	}
 }
 
@@ -890,6 +886,26 @@ void Log_event::_resolve_ampersand_sequences()
 }
 
 
+void Log_event::_remove_line_feeds_and_tabs()
+{
+	enum { ASCII_LF  = 10 };
+	enum { ASCII_TAB = 9 };
+	char const *end { _base + _size };
+	for (char *curr { _base }; curr < end; ) {
+		if (*curr != ASCII_LF &&
+		    *curr != ASCII_TAB)
+		{
+			curr++;
+			continue;
+		}
+		char *next = curr + 1;
+		memcpy(curr, next, (size_t)(end - next));
+		_size--;
+		end = _base + _size;
+	}
+}
+
+
 Log_event::Log_event(Allocator      &alloc,
                      Xml_node const &xml)
 :
@@ -899,7 +915,7 @@ Log_event::Log_event(Allocator      &alloc,
 	_base           { (char *)_alloc.alloc(_alloc_size) },
 	_size           { _alloc_size },
 	_remaining_base { _base },
-	_remaining_end  { _remaining_base + _size },
+	_remaining_end  { 0 },
 	_reset_to       { _base }
 {
 	/* copy the plain log pattern from XML to the buffer of this object */
@@ -916,6 +932,14 @@ Log_event::Log_event(Allocator      &alloc,
 	 * character
 	 */
 	_resolve_ampersand_sequences();
+
+	_remove_line_feeds_and_tabs();
+
+	/*
+	 * Resolving ampersand sequences and removing LFs/Tabs might have
+	 * changed the pattern size.
+	 */
+	_remaining_end = _remaining_base + _size;
 }
 
 
