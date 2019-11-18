@@ -166,7 +166,7 @@ void Child::gen_start_node(Xml_generator          &xml,
 			catch (Timeout_event::Invalid) { warning("Invalid timeout event"); }
 		});
 		events.for_each_sub_node("log", [&] (Xml_node const &event) {
-			_log_events.insert(new (_alloc) Log_event(event));
+			_log_events.insert(new (_alloc) Log_event(_alloc, event));
 		});
 	}
 	catch (...) { }
@@ -891,15 +891,19 @@ static size_t xml_content_size(Xml_node node)
 }
 
 
-Log_event::Log_event(Xml_node const &xml)
+Log_event::Log_event(Allocator      &alloc,
+                     Xml_node const &xml)
 :
 	Event           { xml, Type::LOG },
-	_base           { xml_content_base(xml) },
+	_alloc          { alloc },
 	_size           { xml_content_size(xml) },
-	_remaining_base { xml_content_base(xml) },
-	_remaining_end  { _remaining_base + xml_content_size(xml) },
-	_reset_to       { xml_content_base(xml) }
-{ }
+	_base           { (char const *)_alloc.alloc(_size) },
+	_remaining_base { _base },
+	_remaining_end  { _remaining_base + _size },
+	_reset_to       { _base }
+{
+	memcpy((void *)_base, xml_content_base(xml), _size);
+}
 
 
 /***********

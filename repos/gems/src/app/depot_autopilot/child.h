@@ -87,8 +87,9 @@ class Depot_deploy::Log_event : public Event,
 
 	private:
 
-		char           const *_base;
+		Genode::Allocator    &_alloc;
 		Genode::size_t const  _size;
+		char           const *_base;
 		char           const *_remaining_base;
 		char           const *_remaining_end;
 		bool                  _reset_retry { false };
@@ -96,7 +97,8 @@ class Depot_deploy::Log_event : public Event,
 
 	public:
 
-		Log_event(Genode::Xml_node const &xml);
+		Log_event(Allocator      &alloc,
+		          Xml_node const &xml);
 
 
 		/***************
