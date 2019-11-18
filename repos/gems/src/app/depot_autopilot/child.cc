@@ -403,17 +403,10 @@ void Child::log_session_write(Log_event::Line const &log_line)
 
 	struct Break : Exception { };
 
-	
 	struct Skip_escape_sequence
 	{
 		char const * const base;
 		size_t       const size;
-	};
-	struct Replace_ampersend_sequence
-	{
-		char const * const base;
-		size_t       const size;
-		char         const by;
 	};
 	static Skip_escape_sequence skip_esc_seq[5]
 	{
@@ -422,12 +415,6 @@ void Child::log_session_write(Log_event::Line const &log_line)
 		{ "[32m", 4 },
 		{ "[33m", 4 },
 		{ "[34m", 4 },
-	};
-	static Replace_ampersend_sequence replace_amp_seq[3]
-	{
-		{ "lt;", 3, '<' },
-		{ "amp;", 4, '&' },
-		{ "#42;", 4, '*' }
 	};
 
 	/* calculate timestamp that prefixes*/
@@ -517,40 +504,8 @@ void Child::log_session_write(Log_event::Line const &log_line)
 					if (seq_match) {
 						continue; }
 				}
-				char   pattern_curr_san    = *pattern_curr;
-				size_t pattern_curr_san_sz = 1;
-
-				/* replace ampersend sequences in the pattern */
-				if (*pattern_curr == '&') {
-
-					bool seq_match { false };
-
-					for (unsigned i = 0; i < sizeof(replace_amp_seq)/sizeof(replace_amp_seq[0]); i++) {
-
-						char const *seq_curr { replace_amp_seq[i].base };
-						char const *seq_end  { seq_curr + replace_amp_seq[i].size };
-
-						for (char const *pattern_seq_curr { pattern_curr + 1 } ; ; pattern_seq_curr++, seq_curr++) {
-
-							if (seq_curr == seq_end) {
-								seq_match = true;
-								pattern_curr_san    = replace_amp_seq[i].by;
-								pattern_curr_san_sz = replace_amp_seq[i].size + 1;
-								break;
-							}
-							if (pattern_seq_curr == pattern_end) {
-								break; }
-
-							if (*pattern_seq_curr != *seq_curr) {
-								break; }
-						}
-						if (seq_match) {
-							break;
-						}
-					}
-				}
-				/* check if log keeps matching pattern */
-				if (*log_curr != pattern_curr_san) {
+				/* check if the log keeps matching the pattern */
+				if (*log_curr != *pattern_curr) {
 					pattern_curr = log_event.reset_to();
 					if (!log_event.reset_retry()) {
 
@@ -558,7 +513,7 @@ void Child::log_session_write(Log_event::Line const &log_line)
 					else {
 						log_event.reset_retry() = false; }
 				} else {
-					pattern_curr += pattern_curr_san_sz;
+					pattern_curr++;
 					log_curr++;
 					log_event.reset_retry() = true;
 				}
