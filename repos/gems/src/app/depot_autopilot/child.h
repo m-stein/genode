@@ -87,13 +87,27 @@ class Depot_deploy::Log_event : public Event,
 
 	private:
 
+		struct Sequence_to_character
+		{
+			char const * const base;
+			size_t       const size;
+			char         const character;
+		};
+
 		Genode::Allocator    &_alloc;
-		Genode::size_t const  _size;
-		char           const *_base;
+		Genode::size_t const  _alloc_size;
+		char                 *_base;
+		Genode::size_t        _size;
 		char           const *_remaining_base;
 		char           const *_remaining_end;
 		bool                  _reset_retry { false };
 		char           const *_reset_to;
+
+		void _replace_wildcards_with_0();
+
+		void _resolve_ampersand_sequence(Sequence_to_character const &seq);
+
+		void _resolve_ampersand_sequences();
 
 	public:
 

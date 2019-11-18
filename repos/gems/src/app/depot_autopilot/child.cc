@@ -462,7 +462,7 @@ void Child::log_session_write(Log_event::Line const &log_line)
 					pattern_curr++;
 					continue;
 				}
-				if (*pattern_curr == '*') {
+				if (*pattern_curr == 0) {
 					pattern_curr++;
 					log_event.reset_to()    = pattern_curr;
 					log_event.reset_retry() = false;
@@ -891,18 +891,76 @@ static size_t xml_content_size(Xml_node node)
 }
 
 
+void Log_event::_replace_wildcards_with_0()
+{
+	char const *const end { _base + _size };
+	for (char *curr { _base }; curr < end; curr++) {
+		if (*curr == '*') {
+			*curr = 0;
+		}
+	}
+}
+
+
+void Log_event::_resolve_ampersand_sequence(Sequence_to_character const &seq)
+{
+	char const *end { _base + _size };
+	for (char *curr { _base }; curr < end; curr++) {
+		char const *seq_end = curr + seq.size;
+		if (seq_end > end) {
+			continue;
+		}
+		if (memcmp(curr, seq.base, seq.size) != 0) {
+			continue;
+		}
+		*curr = seq.character;
+		memcpy(curr + 1, seq_end, (size_t)(end - seq_end));
+		_size -= seq.size - 1;
+		end = _base + _size ;
+	}
+}
+
+
+void Log_event::_resolve_ampersand_sequences()
+{
+	static Sequence_to_character sequences[3]
+	{
+		{ "&lt;", 4, '<' },
+		{ "&amp;", 5, '&' },
+		{ "&#42;", 5, '*' }
+	};
+	for (Sequence_to_character const &seq : sequences) {
+		_resolve_ampersand_sequence(seq);
+	}
+}
+
+
 Log_event::Log_event(Allocator      &alloc,
                      Xml_node const &xml)
 :
 	Event           { xml, Type::LOG },
 	_alloc          { alloc },
-	_size           { xml_content_size(xml) },
-	_base           { (char const *)_alloc.alloc(_size) },
+	_alloc_size     { xml_content_size(xml) },
+	_base           { (char *)_alloc.alloc(_alloc_size) },
+	_size           { _alloc_size },
 	_remaining_base { _base },
 	_remaining_end  { _remaining_base + _size },
 	_reset_to       { _base }
 {
+	/* copy the plain log pattern from XML to the buffer of this object */
 	memcpy((void *)_base, xml_content_base(xml), _size);
+
+	/*
+	 * As soon as we will have resolved ampersand sequences we cannot
+	 * distinguish between a literal and a wildcard star anymore.
+	 */
+	_replace_wildcards_with_0();
+
+	/*
+	 * It's safe now to replace ampersand sequences with their literal
+	 * character
+	 */
+	_resolve_ampersand_sequences();
 }
 
 
