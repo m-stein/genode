@@ -202,9 +202,6 @@ class Depot_deploy::Child : public List_model<Child>::Element
 		bool                           _running            { false };
 		Conclusion                     _conclusion         { };
 
-		size_t _nr_of_chars_to_skip(char const *curr,
-		                            char const *end) const;
-
 		bool _defined_by_launcher() const;
 
 		Archive::Path _config_pkg_path() const;

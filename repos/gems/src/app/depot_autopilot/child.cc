@@ -392,13 +392,101 @@ Child::~Child()
 }
 
 
-size_t Child::log_session_write(Log_session::String const &line,
+static void c_string_append(char       * &dst,
+                            char   const *dst_end,
+                            char   const *src,
+                            size_t const  src_size)
+{
+	struct Bad_args : Exception { };
+	char const *src_end = dst + src_size + 1;
+	if (src_end < dst ||
+	    src_end > dst_end)
+	{
+		throw Bad_args();
+	}
+	memcpy(dst, src, src_size);
+	dst += src_size;
+	*dst = 0;
+}
+
+static size_t nr_of_chars_to_skip(char const *curr,
+                                  char const *end)
+{
+	struct Sequence
+	{
+		char const * const base;
+		size_t       const size;
+	};
+	static Sequence sequences[7]
+	{
+		{ "\x9", 1 },
+		{ "\xa", 1 },
+		{ "\x1b[0m", 4 },
+		{ "\x1b[31m", 5 },
+		{ "\x1b[32m", 5 },
+		{ "\x1b[33m", 5 },
+		{ "\x1b[34m", 5 }
+	};
+	for (Sequence const &seq : sequences) {
+		char const *seq_end = curr + seq.size;
+		if (seq_end < curr ||
+		    seq_end > end)
+		{
+			continue;
+		}
+		if (memcmp(curr, seq.base, seq.size) != 0) {
+			continue;
+		}
+		return seq.size;
+	}
+	return 0;
+}
+
+
+static size_t sanitize_string(char                      *dst,
+                              size_t              const  dst_sz,
+                              Log_session::String const &str,
+                              Session_label       const &label)
+{
+	/* first, write the label prefix to the buffer */
+	char const *const dst_base { dst };
+	char const *const dst_end { dst + dst_sz };
+	c_string_append(dst, dst_end, "[", 1);
+	c_string_append(dst, dst_end, label.string(), label.length() - 1);
+	c_string_append(dst, dst_end, "] ", 2);
+
+	/* then, write the string but filter out ignored character sequences */
+	char const *src_curr   { str.string() };
+	char const *src_copied { str.string() };
+	char const *src_end    { str.string() + str.size() };
+	for (; src_curr < src_end; ) {
+		size_t const skip_chars { nr_of_chars_to_skip(src_curr, src_end) };
+		if (!skip_chars) {
+			src_curr++;
+			continue;
+		}
+		size_t const copy_sz { (size_t)(src_curr - src_copied) };
+		c_string_append(dst, dst_end, src_copied, copy_sz);
+		src_curr += skip_chars;
+		src_copied = src_curr;
+	}
+	c_string_append(dst, dst_end, src_copied, (size_t)(src_curr - src_copied));
+
+	/* return length of sanitized string (without the terminating zero) */
+	return (size_t)(dst - dst_base - 1);
+}
+
+
+size_t Child::log_session_write(Log_session::String const &str,
                                 Session_label       const &label)
 {
 	if (_skip || finished()) {
 		return 0;
 	}
-	Log_event::Line const log_line{ "[", label.string(), "] ", line.string() };
+	enum { SANITIZED_STR_SZ = Log_session::MAX_STRING_LEN + 160 + 4 };
+	char         sanitized_str[SANITIZED_STR_SZ];
+	size_t const sanitized_str_len {
+		sanitize_string(sanitized_str, SANITIZED_STR_SZ, str, label) };
 
 	struct Match : Exception { };
 
@@ -410,8 +498,8 @@ size_t Child::log_session_write(Log_session::String const &line,
 	Genode::uint64_t const time_sec { time_ms / 1000UL };
 	time_ms = time_ms - time_sec * 1000UL;
 
-	char const *const log_base { log_line.string() };
-	char const *const log_end  { log_base + strlen(log_base) };
+	char const *const log_base { sanitized_str };
+	char const *const log_end  { sanitized_str + sanitized_str_len };
 	try {
 		char const *log_print { log_base };
 		_log_events.for_each([&] (Log_event &log_event) {
@@ -448,13 +536,6 @@ size_t Child::log_session_write(Log_session::String const &line,
 					forward_to_log(time_sec, time_ms, log_print, log_curr);
 					log_print = log_curr + 1;
 				}
-				/* skip irrelevant character sequences in the log line */
-				size_t const skip_chars {
-					_nr_of_chars_to_skip(log_curr, log_end) };
-				if (skip_chars) {
-					log_curr += skip_chars;
-					continue;
-				}
 				/* check if the log keeps matching the pattern */
 				if (*log_curr != *pattern_curr) {
 					pattern_curr = log_event.reset_to();
@@ -484,7 +565,7 @@ size_t Child::log_session_write(Log_session::String const &line,
 		});
 	}
 	catch (Match) { }
-	return strlen(line.string());
+	return strlen(str.string());
 }
 
 
@@ -735,40 +816,6 @@ void Child::_finished(State                   state,
 	log("");
 	log(" ", _conclusion);
 	_config_handler.submit();
-}
-
-
-size_t Child::_nr_of_chars_to_skip(char const *curr,
-                                   char const *end) const
-{
-	struct Sequence
-	{
-		char const * const base;
-		size_t       const size;
-	};
-	static Sequence sequences[7]
-	{
-		{ "\x9", 1 },
-		{ "\xa", 1 },
-		{ "\x1b[0m", 4 },
-		{ "\x1b[31m", 5 },
-		{ "\x1b[32m", 5 },
-		{ "\x1b[33m", 5 },
-		{ "\x1b[34m", 5 }
-	};
-	for (Sequence const &seq : sequences) {
-		char const *seq_end = curr + seq.size;
-		if (seq_end < curr ||
-		    seq_end > end)
-		{
-			continue;
-		}
-		if (memcmp(curr, seq.base, seq.size) != 0) {
-			continue;
-		}
-		return seq.size;
-	}
-	return 0;
 }
 
 
