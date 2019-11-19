@@ -244,7 +244,8 @@ class Depot_deploy::Child : public List_model<Child>::Element
 
 		~Child();
 
-		void log_session_write(Log_event::Line const &log_line);
+		size_t log_session_write(Log_session::String const &line,
+		                         Session_label       const &label);
 
 		void print_conclusion();
 

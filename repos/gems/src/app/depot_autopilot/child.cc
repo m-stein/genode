@@ -392,12 +392,15 @@ Child::~Child()
 }
 
 
-void Child::log_session_write(Log_event::Line const &log_line)
+size_t Child::log_session_write(Log_session::String const &line,
+                                Session_label       const &label)
 {
-	if (_skip) {
-		return; }
+	if (_skip || finished()) {
+		return 0;
+	}
+	Log_event::Line const log_line{ "[", label.string(), "] ", line.string() };
 
-	struct Break : Exception { };
+	struct Match : Exception { };
 
 	enum { ASCII_LF = 10 };
 
@@ -473,14 +476,15 @@ void Child::log_session_write(Log_event::Line const &log_line)
 			}
 			/* check if log line finished a match with the pattern */
 			if (!match) {
-				return; }
-
+				return;
+			}
 			/* execute event handler and stop trying further events */
 			event_occured(log_event, time_us);
-			throw Break();
+			throw Match();
 		});
 	}
-	catch (...) { }
+	catch (Match) { }
+	return strlen(line.string());
 }
 
 
