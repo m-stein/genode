@@ -531,11 +531,6 @@ size_t Child::log_session_write(Log_session::String const &str,
 					log_event.remaining_base() = pattern_curr;
 					break;
 				}
-				/* on line feeds in the child log dump to the back-end log */
-				if (*log_curr == ASCII_LF && log_print < log_curr) {
-					forward_to_log(time_sec, time_ms, log_print, log_curr);
-					log_print = log_curr + 1;
-				}
 				/* check if the log keeps matching the pattern */
 				if (*log_curr != *pattern_curr) {
 					pattern_curr = log_event.reset_to();
