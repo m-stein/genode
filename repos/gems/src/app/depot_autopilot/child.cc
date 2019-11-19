@@ -397,25 +397,9 @@ void Child::log_session_write(Log_event::Line const &log_line)
 	if (_skip) {
 		return; }
 
-	enum { ASCII_ESC = 27 };
-	enum { ASCII_LF  = 10 };
-	enum { ASCII_TAB = 9 };
-
 	struct Break : Exception { };
 
-	struct Skip_escape_sequence
-	{
-		char const * const base;
-		size_t       const size;
-	};
-	static Skip_escape_sequence skip_esc_seq[5]
-	{
-		{ "[0m", 3 },
-		{ "[31m", 4 },
-		{ "[32m", 4 },
-		{ "[33m", 4 },
-		{ "[34m", 4 },
-	};
+	enum { ASCII_LF = 10 };
 
 	/* calculate timestamp that prefixes*/
 	Genode::uint64_t const time_us  { _timer.curr_time().trunc_to_plain_us().value - init_time_us };
@@ -456,49 +440,17 @@ void Child::log_session_write(Log_event::Line const &log_line)
 					log_event.remaining_base() = pattern_curr;
 					break;
 				}
-				/* skip irrelevant characters in the log line */
-				if (*log_curr == ASCII_LF) {
-
-					/* forward to our log session a complete line */
-					if (log_print < log_curr) {
-						forward_to_log(time_sec, time_ms, log_print, log_curr);
-						log_print = log_curr + 1;
-					}
-					log_curr++;
-					continue;
+				/* on line feeds in the child log dump to the back-end log */
+				if (*log_curr == ASCII_LF && log_print < log_curr) {
+					forward_to_log(time_sec, time_ms, log_print, log_curr);
+					log_print = log_curr + 1;
 				}
-				if (*log_curr == ASCII_TAB) {
-					log_curr++;
+				/* skip irrelevant character sequences in the log line */
+				size_t const skip_chars {
+					_nr_of_chars_to_skip(log_curr, log_end) };
+				if (skip_chars) {
+					log_curr += skip_chars;
 					continue;
-				}
-				/* skip irrelevant escape sequences in the log line */
-				if (*log_curr == ASCII_ESC) {
-
-					bool seq_match { false };
-
-					for (unsigned i = 0; i < sizeof(skip_esc_seq)/sizeof(skip_esc_seq[0]); i++) {
-
-						char const *seq_curr { skip_esc_seq[i].base };
-						char const *seq_end  { seq_curr + skip_esc_seq[i].size };
-
-						for (char const *log_seq_curr { log_curr + 1 } ; ; log_seq_curr++, seq_curr++) {
-
-							if (seq_curr == seq_end) {
-								seq_match = true;
-								log_curr  = log_seq_curr;
-								break;
-							}
-							if (log_seq_curr == log_end) {
-								break; }
-
-							if (*log_seq_curr != *seq_curr) {
-								break; }
-						}
-						if (seq_match) {
-							break; }
-					}
-					if (seq_match) {
-						continue; }
 				}
 				/* check if the log keeps matching the pattern */
 				if (*log_curr != *pattern_curr) {
@@ -795,6 +747,40 @@ void Child::_finished(State                   state,
 }
 
 
+size_t Child::_nr_of_chars_to_skip(char const *curr,
+                                   char const *end) const
+{
+	struct Sequence
+	{
+		char const * const base;
+		size_t       const size;
+	};
+	static Sequence sequences[7]
+	{
+		{ "\x9", 1 },
+		{ "\xa", 1 },
+		{ "\x1b[0m", 4 },
+		{ "\x1b[31m", 5 },
+		{ "\x1b[32m", 5 },
+		{ "\x1b[33m", 5 },
+		{ "\x1b[34m", 5 }
+	};
+	for (Sequence const &seq : sequences) {
+		char const *seq_end = curr + seq.size;
+		if (seq_end < curr ||
+		    seq_end > end)
+		{
+			continue;
+		}
+		if (memcmp(curr, seq.base, seq.size) != 0) {
+			continue;
+		}
+		return seq.size;
+	}
+	return 0;
+}
+
+
 /*******************
  ** Timeout_event **
  *******************/
@@ -858,7 +844,9 @@ void Log_event::_resolve_ampersand_sequence(Sequence_to_character const &seq)
 	char const *end { _base + _size };
 	for (char *curr { _base }; curr < end; curr++) {
 		char const *seq_end = curr + seq.size;
-		if (seq_end > end) {
+		if (seq_end < curr ||
+		    seq_end > end)
+		{
 			continue;
 		}
 		if (memcmp(curr, seq.base, seq.size) != 0) {
