@@ -488,8 +488,6 @@ size_t Child::log_session_write(Log_session::String const &str,
 	size_t const sanitized_str_len {
 		sanitize_string(sanitized_str, SANITIZED_STR_SZ, str, label) };
 
-	struct Match : Exception { };
-
 	enum { ASCII_LF = 10 };
 
 	/* calculate timestamp that prefixes*/
@@ -498,68 +496,68 @@ size_t Child::log_session_write(Log_session::String const &str,
 	Genode::uint64_t const time_sec { time_ms / 1000UL };
 	time_ms = time_ms - time_sec * 1000UL;
 
-	char const *const log_base { sanitized_str };
-	char const *const log_end  { sanitized_str + sanitized_str_len };
-	try {
-		char const *log_print { log_base };
-		_log_events.for_each([&] (Log_event &log_event) {
+	bool               match_found { false };
+	char const *const  log_base    { sanitized_str };
+	char const *const  log_end     { sanitized_str + sanitized_str_len };
+	char const        *log_printed { log_base };
 
-			bool        match        { false };
-			char const *pattern_end  { log_event.remaining_end() };
-			char const *pattern_curr { log_event.remaining_base() };
-			char const *log_curr     { log_base };
+	_log_events.for_each([&] (Log_event &log_event) {
 
-			for (;;) {
+		if (match_found) {
+			return;
+		}
+		char const *pattern_end  { log_event.remaining_end() };
+		char const *pattern_curr { log_event.remaining_base() };
+		char const *log_curr     { log_base };
 
-				/* handle end of pattern */
-				if (pattern_curr == pattern_end) {
-					match = true;
-					log_event.remaining_base() = log_event.base();
-					log_event.reset_to()       = log_event.base();
-					log_event.reset_retry()    = false;
-					break;
-				}
-				/* handle wildcards in pattern */
-				if (*pattern_curr == 0) {
-					pattern_curr++;
-					log_event.reset_to()    = pattern_curr;
-					log_event.reset_retry() = false;
-					continue;
-				}
-				/* handle end of log line */
-				if (log_curr == log_end) {
-					log_event.remaining_base() = pattern_curr;
-					break;
-				}
-				/* check if the log keeps matching the pattern */
-				if (*log_curr != *pattern_curr) {
-					pattern_curr = log_event.reset_to();
-					if (!log_event.reset_retry()) {
+		for (;;) {
 
-						log_curr++; }
-					else {
-						log_event.reset_retry() = false; }
-				} else {
-					pattern_curr++;
-					log_curr++;
-					log_event.reset_retry() = true;
-				}
+			/* handle end of pattern */
+			if (pattern_curr == pattern_end) {
+				match_found = true;
+				log_event.remaining_base() = log_event.base();
+				log_event.reset_to()       = log_event.base();
+				log_event.reset_retry()    = false;
+				break;
 			}
-			/* forward to our log session what is left */
-			if (log_print < log_curr) {
-				forward_to_log(time_sec, time_ms, log_print, log_curr);
-				log_print = log_curr;
+			/* handle wildcards in pattern */
+			if (*pattern_curr == 0) {
+				pattern_curr++;
+				log_event.reset_to()    = pattern_curr;
+				log_event.reset_retry() = false;
+				continue;
 			}
-			/* check if log line finished a match with the pattern */
-			if (!match) {
-				return;
+			/* handle end of log line */
+			if (log_curr == log_end) {
+				log_event.remaining_base() = pattern_curr;
+				break;
 			}
-			/* execute event handler and stop trying further events */
-			event_occured(log_event, time_us);
-			throw Match();
-		});
-	}
-	catch (Match) { }
+			/* check if the log keeps matching the pattern */
+			if (*log_curr != *pattern_curr) {
+				pattern_curr = log_event.reset_to();
+				if (!log_event.reset_retry()) {
+
+					log_curr++; }
+				else {
+					log_event.reset_retry() = false; }
+			} else {
+				pattern_curr++;
+				log_curr++;
+				log_event.reset_retry() = true;
+			}
+		}
+		/* forward to our log session what is left */
+		if (log_printed < log_curr) {
+			forward_to_log(time_sec, time_ms, log_printed, log_curr);
+			log_printed = log_curr;
+		}
+		/* check if log line finished a match with the pattern */
+		if (!match_found) {
+			return;
+		}
+		/* execute event handler and stop trying further events */
+		event_occured(log_event, time_us);
+	});
 	return strlen(str.string());
 }
 
