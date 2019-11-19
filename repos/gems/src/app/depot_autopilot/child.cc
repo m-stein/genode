@@ -490,20 +490,13 @@ size_t Child::log_session_write(Log_session::String const &str,
 
 	enum { ASCII_LF = 10 };
 
-	/* calculate timestamp that prefixes*/
-	Genode::uint64_t const time_us  { _timer.curr_time().trunc_to_plain_us().value - init_time_us };
-	Genode::uint64_t       time_ms  { time_us / 1000UL };
-	Genode::uint64_t const time_sec { time_ms / 1000UL };
-	time_ms = time_ms - time_sec * 1000UL;
-
-	bool               match_found { false };
-	char const *const  log_base    { sanitized_str };
-	char const *const  log_end     { sanitized_str + sanitized_str_len };
-	char const        *log_printed { log_base };
+	Log_event const *      matching_event { nullptr };
+	char      const *const log_base       { sanitized_str };
+	char      const *const log_end        { sanitized_str + sanitized_str_len };
 
 	_log_events.for_each([&] (Log_event &log_event) {
 
-		if (match_found) {
+		if (matching_event) {
 			return;
 		}
 		char const *pattern_end  { log_event.remaining_end() };
@@ -514,7 +507,7 @@ size_t Child::log_session_write(Log_session::String const &str,
 
 			/* handle end of pattern */
 			if (pattern_curr == pattern_end) {
-				match_found = true;
+				matching_event = &log_event;
 				log_event.remaining_base() = log_event.base();
 				log_event.reset_to()       = log_event.base();
 				log_event.reset_retry()    = false;
@@ -546,18 +539,21 @@ size_t Child::log_session_write(Log_session::String const &str,
 				log_event.reset_retry() = true;
 			}
 		}
-		/* forward to our log session what is left */
-		if (log_printed < log_curr) {
-			forward_to_log(time_sec, time_ms, log_printed, log_curr);
-			log_printed = log_curr;
-		}
-		/* check if log line finished a match with the pattern */
-		if (!match_found) {
-			return;
-		}
-		/* execute event handler and stop trying further events */
-		event_occured(log_event, time_us);
 	});
+	/* calculate timestamp */
+	Genode::uint64_t const time_us  { _timer.curr_time().trunc_to_plain_us().value - init_time_us };
+	Genode::uint64_t       time_ms  { time_us / 1000UL };
+	Genode::uint64_t const time_sec { time_ms / 1000UL };
+	time_ms = time_ms - time_sec * 1000UL;
+
+	/* forward timestamp and sanitized string to back-end log session */
+	forward_to_log(time_sec, time_ms, log_base, log_end);
+
+	/* handle a matching log event */
+	if (matching_event) {
+		event_occured(*matching_event, time_us);
+	}
+	/* return length of original string */
 	return strlen(str.string());
 }
 
