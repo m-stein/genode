@@ -468,21 +468,8 @@ void Child::log_session_write(Log_event::Line const &log_line)
 			}
 			/* forward to our log session what is left */
 			if (log_print < log_curr) {
-				for (;; log_curr++) {
-
-					if (log_curr == log_end) {
-
-						forward_to_log(time_sec, time_ms, log_print, log_curr);
-						log_print = log_curr;
-						break;
-					}
-					if (*log_curr == ASCII_LF) {
-
-						forward_to_log(time_sec, time_ms, log_print, log_curr);
-						log_print = log_curr + 1;
-						break;
-					}
-				}
+				forward_to_log(time_sec, time_ms, log_print, log_curr);
+				log_print = log_curr;
 			}
 			/* check if log line finished a match with the pattern */
 			if (!match) {
