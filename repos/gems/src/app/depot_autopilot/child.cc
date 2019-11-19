@@ -17,10 +17,10 @@
 
 using namespace Depot_deploy;
 
-static void forward_to_log(Genode::uint64_t const sec,
-                           Genode::uint64_t const ms,
-                           char      const *const base,
-                           char      const *const end)
+static void forward_to_log(uint64_t    const sec,
+                           uint64_t    const ms,
+                           char const *const base,
+                           char const *const end)
 {
 	log(sec, ".", ms < 10 ? "00" : ms < 100 ? "0" : "", ms, " ",
 	    Cstring(base, end - base));
@@ -152,7 +152,7 @@ void Child::gen_start_node(Xml_generator          &xml,
 	if (_running) {
 		return; }
 
-	Genode::uint64_t max_timeout_sec = 0;
+	uint64_t max_timeout_sec = 0;
 	try {
 		Xml_node const events = _pkg_xml->xml().sub_node("runtime").sub_node("events");
 		events.for_each_sub_node("timeout", [&] (Xml_node const &event) {
@@ -483,16 +483,12 @@ size_t Child::log_session_write(Log_session::String const &str,
 	if (_skip || finished()) {
 		return 0;
 	}
-	enum { SANITIZED_STR_SZ = Log_session::MAX_STRING_LEN + 160 + 4 };
-	char         sanitized_str[SANITIZED_STR_SZ];
-	size_t const sanitized_str_len {
-		sanitize_string(sanitized_str, SANITIZED_STR_SZ, str, label) };
+	enum { LOG_BUF_SZ = Log_session::MAX_STRING_LEN + 160 + 4 };
 
-	enum { ASCII_LF = 10 };
-
-	Log_event const *      matching_event { nullptr };
-	char      const *const log_base       { sanitized_str };
-	char      const *const log_end        { sanitized_str + sanitized_str_len };
+	char               log_buf[LOG_BUF_SZ];
+	size_t      const  log_len { sanitize_string(log_buf, LOG_BUF_SZ, str, label) };
+	char const *const  log_end { log_buf + log_len };
+	Log_event   const *matching_event { nullptr };
 
 	_log_events.for_each([&] (Log_event &log_event) {
 
@@ -501,8 +497,7 @@ size_t Child::log_session_write(Log_session::String const &str,
 		}
 		char const *pattern_end  { log_event.remaining_end() };
 		char const *pattern_curr { log_event.remaining_base() };
-		char const *log_curr     { log_base };
-
+		char const *log_curr     { log_buf };
 		for (;;) {
 
 			/* handle end of pattern */
@@ -513,41 +508,42 @@ size_t Child::log_session_write(Log_session::String const &str,
 				log_event.reset_retry()    = false;
 				break;
 			}
-			/* handle wildcards in pattern */
+			/* handle wildcard in pattern */
 			if (*pattern_curr == 0) {
 				pattern_curr++;
 				log_event.reset_to()    = pattern_curr;
 				log_event.reset_retry() = false;
 				continue;
 			}
-			/* handle end of log line */
+			/* handle end of log */
 			if (log_curr == log_end) {
 				log_event.remaining_base() = pattern_curr;
 				break;
 			}
-			/* check if the log keeps matching the pattern */
+			/* handle mismatching character */
 			if (*log_curr != *pattern_curr) {
 				pattern_curr = log_event.reset_to();
 				if (!log_event.reset_retry()) {
-
 					log_curr++; }
 				else {
-					log_event.reset_retry() = false; }
-			} else {
-				pattern_curr++;
-				log_curr++;
-				log_event.reset_retry() = true;
+					log_event.reset_retry() = false;
+				}
+				continue;
 			}
+			/* handle matching character */
+			pattern_curr++;
+			log_curr++;
+			log_event.reset_retry() = true;
 		}
 	});
 	/* calculate timestamp */
-	Genode::uint64_t const time_us  { _timer.curr_time().trunc_to_plain_us().value - init_time_us };
-	Genode::uint64_t       time_ms  { time_us / 1000UL };
-	Genode::uint64_t const time_sec { time_ms / 1000UL };
+	uint64_t const time_us  { _timer.curr_time().trunc_to_plain_us().value - init_time_us };
+	uint64_t       time_ms  { time_us / 1000UL };
+	uint64_t const time_sec { time_ms / 1000UL };
 	time_ms = time_ms - time_sec * 1000UL;
 
 	/* forward timestamp and sanitized string to back-end log session */
-	forward_to_log(time_sec, time_ms, log_base, log_end);
+	forward_to_log(time_sec, time_ms, log_buf, log_end);
 
 	/* handle a matching log event */
 	if (matching_event) {
@@ -729,8 +725,8 @@ void Child::gen_installation_entry(Xml_generator &xml) const
 }
 
 
-void Child::event_occured(Event            const &event,
-                          Genode::uint64_t const  time_us)
+void Child::event_occured(Event    const &event,
+                          uint64_t const  time_us)
 {
 	if (_skip) {
 		return; }
@@ -743,9 +739,9 @@ void Child::event_occured(Event            const &event,
 }
 
 
-void Child::_finished(State                   state,
-                      Event            const &event,
-                      Genode::uint64_t const  time_us)
+void Child::_finished(State           state,
+                      Event    const &event,
+                      uint64_t const  time_us)
 {
 	if (_skip) {
 		return; }
@@ -753,8 +749,8 @@ void Child::_finished(State                   state,
 	_running = false;
 	_state = state;
 
-	Genode::uint64_t       time_ms  { time_us / 1000UL };
-	Genode::uint64_t const time_sec { time_ms / 1000UL };
+	uint64_t       time_ms  { time_us / 1000UL };
+	uint64_t const time_sec { time_ms / 1000UL };
 	time_ms = time_ms - time_sec * 1000UL;
 
 	char name_padded[32];
@@ -819,7 +815,7 @@ Timeout_event::Timeout_event(Timer::Connection &timer,
 	Event    { event, Type::TIMEOUT },
 	_child   { child },
 	_timer   { timer },
-	_sec     { event.attribute_value("sec", (Genode::uint64_t)0) },
+	_sec     { event.attribute_value("sec", (uint64_t)0) },
 	_timeout { timer, *this, &Timeout_event::_handle_timeout }
 {
 	if (!_sec) {
