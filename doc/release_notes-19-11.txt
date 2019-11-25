@@ -1,0 +1,814 @@
+
+
+              ===============================================
+              Release notes for the Genode OS Framework 19.11
+              ===============================================
+
+                               Genode Labs
+
+
+
+; intro
+; @nfeske
+
+
+Preliminary block-device encryptor
+##################################
+
+; @cnuke, @m-stein
+
+
+Virtualization of 64-bit ARM platforms
+######################################
+
+; @skalk
+
+commit 02d68fdb97de854c7c374253dbcf13df5bfb2d34
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Mon Jul 15 13:11:28 2019 +0200
+
+    hw: move arm virtualization to generic place
+    
+    Ref #3553
+
+commit f82714f34156250ab8f5ee853bf292cd646269b8
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Fri Nov 8 13:47:35 2019 +0100
+
+    vm_session: return vcpu id when creating vcpu
+    
+    Ref #3553
+
+commit af29dcf5578efaf59f27af857a3fb8161966a6e2
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Wed Sep 4 15:38:19 2019 +0200
+
+    hw: introduce virtualization support for ARMv8
+    
+    Ref #3553
+
+commit 972e1893c9f741d451c725cfd1f8e0f1211f3693
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Tue Sep 3 16:29:27 2019 +0200
+
+    os: introduce vmm component for ARMv8
+    
+    Fix #3553
+
+
+New tooling for bridging existing build systems with Genode
+###########################################################
+
+; @nfeske
+
+
+Base framework and OS-level infrastructure
+##########################################
+
+File-system session
+===================
+
+; @nfeske
+
+commit 2ec3aaf6395e2f6ab919df5a768226ee0967c6ca
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Wed Mar 20 11:46:34 2019 +0100
+
+    file_system_session: add modification time
+    
+    * add modification_time member
+    * add WRITE_TIMESTAMP packet
+
+commit 400039e1b68397d87ace97c4cdc921c3b6b88215
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Wed Mar 20 14:52:13 2019 +0100
+
+    rump_fs: add modification time
+    
+    Issue #1784.
+
+commit 99b632f86cdc7152b4e2d7c40ee4284558a595d9
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Tue Apr 9 16:25:53 2019 +0200
+
+    server/vfs: add modification time
+    
+    Issue #1784.
+
+commit 5ab1505d43fe419ff4b59687a695b10018fa7725
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Sep 25 17:13:29 2019 +0200
+
+    file system: enhanced file status info
+    
+    This patch extends the 'File_system::Status',
+    'File_system::Directory_entry', and the related 'Vfs' types with
+    the following additional information:
+    
+    - Distinction between continuous and transactional files (Node_type)
+      (issue #3507)
+    - Readable, writeable, and executable attributes (Node_rwx),
+      replacing the former 'mode' bits
+      (issue #3030)
+    
+    The types 'Node_rwx', 'Node_type' are defined twice,
+    once for the VFS (vfs/types.h) and once for the 'File_system'
+    session (file_system_session/file_system_session.h).
+    Similarly, there is a direct correspondance between
+    'Vfs::Directory_service::Dirent' and 'File_system::Directory_entry'.
+    
+    This duplication of types follows the existing pattern of keeping the
+    VFS and file-system session independent from each other.
+
+
+Virtual file-system infrastructure
+==================================
+
+First fragments of a front-end API
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+; @nfeske
+
+commit c85bc38802ec65c32b7a964c9d99298b906d0ab6
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Mon Oct 7 17:18:15 2019 +0200
+
+    Move include/gems/vfs.h to include/os/vfs.h
+    
+    Fixes #3515
+
+
+Improved file-watching support
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+; @nfeske
+
+commit 7549189f882620f32ba4f6e5bcc4e437203e05fa
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Oct 10 15:32:25 2019 +0200
+
+    vfs: watch support for Readonly_value_file_system
+    
+    This patch adds support for watch notifications for the
+    'Readonly_value_file_system', which is often used by VFS plugins to
+    implement pseudo files. It thereby enables VFS clients to respond to
+    VFS-plugin events (think of terminal resize) dynamically.
+    
+    Fixes #3523
+
+commit 23d21d77e9cf9ed34c8afc1e803315e1253f0806
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Oct 30 20:29:03 2019 +0100
+
+    vfs/terminal: detect user interrupts (control-c)
+    
+    This patch equips the VFS terminal file system with the ability to
+    detect user interrupts in the incoming data stream, and propagate this
+    information via the new pseudo file '.terminal/interrupts'. Each time,
+    the user presses control-c in the terminal, the value stored in this
+    pseudo file is increased. Thereby, a VFS client can watch this file to
+    get notified about the occurrences of user interrupts.
+    
+    Fixes #3546
+
+
+VFS plugin for emulating POSIX pipes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+; @nfeske
+
+commit c51b4b57422d54a0f6b488fd837a2cfd5352b45b
+Author: Emery Hemingway <ehmry@posteo.net>
+Date:   Tue Jul 9 14:16:46 2019 +0200
+
+    New VFS plugin for emulating POSIX pipes
+    
+    Add a new plugin for creating pipes between pairs of VFS handles. It is
+    intended to replace the libc_pipe plugin, one of the last remaining libc
+    plugins.
+    
+    In contrast to the libc_pipe plugin, this plugin defers cross-handle
+    notification until I/O signal handling rather than block and unblock
+    readers using a semaphore. This is a performance regression in the case
+    of multiple threads blocking on a pipe, but shall be an intermediate
+    mechanism pending renovations within the libc VFS and threading layers.
+    As a side effect, threads blocked on a pipe might not be resumed until
+    the main thread suspends and dispatches I/O signals.
+    
+    The "test-libc_pipe" test has been adjusted to use the VFS pipe plugin
+    and tests both local pipes and pipes hosted remotely in the VFS server.
+    
+    Merge adaptations (such as EOF handling, adjustment to VFS/libc
+    interface changes) by Norman Feske.
+    
+    Fix #2303
+
+
+Streamlined writeable-attribute handling
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+; @nfeske
+
+commit cfba429c159468180296fc82dff46f6b0f3ee989
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Nov 21 11:20:39 2019 +0100
+
+    vfs/rump: offer all files as read-writeable
+    
+    The distinction between read-only and read-writeable is the
+    responsibility of the front end, i.e., the vfs server.
+
+commit ee64e29e7713644231dc9014d8ad1ff0753c2d60
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Nov 21 11:52:11 2019 +0100
+
+    vfs server: tie writeable bit to session policy
+    
+    This patch let the VFS server reflect the session policy via the
+    writeable bit in directory entries instead of merely forwarding the bit
+    from the respective VFS plugin. This way, all files originating from a
+    read-only file-system session automatically appear in directory listings
+    as read-only files.
+    
+    Related to issue #3507
+
+commit 3aaed7188fcc66b881a8be56eebd17f0d169f386
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Nov 21 12:24:35 2019 +0100
+
+    ram_fs: tie writeable bit to session policy
+    
+    Related to issue #3507
+
+
+C runtime
+=========
+
+; @nfeske
+
+commit 0aedabd245171da51640720348b369b463bf6178
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Mon Sep 16 13:52:39 2019 +0200
+
+    libc: remove global constructors
+    
+    - readv_writev: move 'rw_lock' instance into a function scope,
+      constructing the instance on the first access.
+    - select: move 'select_cb_list' instance into function scope.
+    - thread: move 'key_list_lock' and 'keys' into function scope.
+    - rwlock, semaphore, socket_fs_plugin, thread, thread_create:
+      instantiate 'Libc::Allocator' per use, alleviating the need for a
+      global instance.
+    
+    Issue #3496
+
+commit bf922326981b5f5ac26f9dc01fd13dbb3497cc41
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Sep 18 20:19:10 2019 +0200
+
+    libc: split task.cc into multiple files
+    
+    This patch is the first step of re-organizing the internal structure of
+    the libc. The original version involved many direct calls of global
+    functions (often with side effects) across compilation units, which
+    made the control flow (e.g., the initialization sequence) hard to
+    follow.
+    
+    The new version replaces those ad-hoc interactions with dedicated
+    interfaces (like suspend.h, resume.h, select.h, current_time.h). The
+    underlying facilities are provided by the central Libc::Kernel and
+    selectively propagated to the various compilation units. The latter is
+    done by a sequence of 'init_*' calls, which eventually will be replaced
+    by constructor calls.
+    
+    The addition of new headers increases the chance for name clashes with
+    existing (public) headers. To disambiguate libc-internal header files
+    from public headers, this patch moves the former into a new 'internal/'
+    subdirectory. This makes the include directives easier to follow and the
+    libc's source-tree structure more tidy.
+    
+    There are still a few legacies left, which cannot easily be removed
+    right now (e.g., because noux relies on them). However, the patch moves
+    those bad apples to legacy.h and legacy.cc, which highlights the
+    deprecation of those functions.
+    
+    Issue #3497
+
+commit 648bcd1505a93ac799c572f1773f32fe409296d3
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Sep 19 20:37:17 2019 +0200
+
+    libc: unify use of namespaces
+    
+    This patch unifies the patterns of using the 'Genode' and 'Libc'
+    namespaces.
+    
+    Types defined in the 'internal/' headers reside in the 'Libc'
+    namespace. The code in the headers does not need to use the
+    'Libc::' prefix.
+    
+    Compilation units import the 'Libc' namespace after the definition of
+    local types. Local types reside in the 'Libc' namespace (and should
+    eventually move to an 'internal/' header).
+    
+    Since the 'Libc' namespace imports the 'Genode' namespace, there is
+    no need to use the 'Genode::' prefix. Consequently, code in the
+    compilation units rarely need to qualify the 'Genode' or 'Libc'
+    namespaces.
+    
+    There are a few cases where the 'Libc', the 'Genode', and the global
+    (libc) namespaces are ambigious. In these cases, an explicit
+    clarification is needed:
+    
+    - 'Genode::Allocator' differs from 'Libc::Allocator'.
+    - 'Genode::Env' differs from 'Libc::Env'.
+    - Genode's string functions (strcmp, memcpy, strcpy) conflict
+      with the names of the (global) libc functions.
+    - There exist both 'Genode::uint64_t' and the libc'c 'uint64_t'.
+    
+    Issue #3497
+
+commit ab5187d6731b2d3578b3480b28d3236983660304
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Mon Sep 23 14:45:58 2019 +0200
+
+    libc: resolve symlinks in execve
+    
+    This patch complements the commit "libc: execve" with the ability to
+    execute files stored at arbitrary sub directories of the file system.
+    
+    Issue #3481
+    Issue #3500
+
+commit d0bf6d2b52f9fe2c3452554e1e8f672038451b9e
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Wed Mar 20 15:16:07 2019 +0100
+
+    libc: add modification time
+    
+    Issue #1784.
+
+commit 979d823d853240c496c4c2c9df9c709a1c34db1e
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Sep 27 17:30:04 2019 +0200
+
+    libc: make mtime update configurable
+    
+    By specifying <libc update_mtime="no"...>, the modification-time update
+    on VFS-sync operations (as issued whenever a written file is closed)
+    can explicitly be disabled.
+    
+    Issue #1784
+
+commit 7ac32ea60c703a73477c121ab8269dfad201f428
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Oct 9 15:51:18 2019 +0200
+
+    libc: support for ioctls via ioctl directory
+    
+    This patch introduces a new scheme of handling ioctl operations that
+    maps ioctls to pseudo-file accesses, similar to how the libc maps socket
+    calls to socket-fs operations.
+    
+    A device file can be accompanied with a (hidden) directory that is named
+    after the device file and hosts pseudo files for triggering the various
+    device operations. For example, for accessing a terminal, the directory
+    structure looks like this:
+    
+      /dev/terminal
+      /dev/.terminal/info
+    
+    The 'info' file contains device information in XML format. The type of
+    the XML node corresponds to the device type. E.g., If the libc receives
+    a 'TIOCGWINSZ' ioctl for /dev/terminal, it reads the content of
+    /dev/.terminal/info to obtain the terminal-size information. In this
+    case, the 'info' file looks as follows:
+    
+      <terminal rows="25" columns="80/>
+    
+    Following this scheme, VFS plugins can support ioctl operations by
+    providing an ioctl directory in addition to the actual device file.
+    
+    Internally, the mechanism uses the 'os/vfs.h' API to access pseudo
+    files. Hence, we need to propagate the Vfs::Env to 'vfs_plugin.cc' to
+    create an instance of a 'Directory' for the root for the VFS.
+    
+    Issue #3519
+
+commit d516515c7a2840f265cdcc916038bc5020b3dc6e
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Oct 10 14:34:40 2019 +0200
+
+    vfs/terminal: provide meta info as pseudo files
+    
+    Issue #3519
+    Fixes #3521
+
+commit 7b0771659e2193b57f1c4cf77ef8bd810887cc7b
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Oct 11 15:23:22 2019 +0200
+
+    libc: trigger SIGWINCH by watching .terminal/info
+    
+    Issue #3544
+
+commit 636e0f64447ab43372fddba5f27b77d8f93d03b0
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Oct 29 10:52:49 2019 +0100
+
+    libc: cancel select when POSIX signal occurs
+    
+    With this patch, Vim running via the 'bash.run' script becomes able to
+    adopt itself to changed window dimensions.
+    
+    Issue #3544
+
+commit 8c44b17e862e55e0a70c0c538ffc60e64369a2e6
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Oct 29 18:11:09 2019 +0100
+
+    libc: shebang handling for execve
+    
+    Fixes #3545
+
+commit c1012e6a45115c3422c71c6b109400fd7dc89c19
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Oct 30 21:19:11 2019 +0100
+
+    libc: translate terminal user interrupts to SIGINT
+    
+    Issue #3546
+
+commit bb6eb0f6ea072e12cdfe73883b695a2158bc3061
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Oct 30 22:19:54 2019 +0100
+
+    libc: local signal delivery via 'kill'
+    
+    This patch adds the ability to call 'kill' with the own PID to trigger
+    the execution of the handler of the specified POSIX signal. This is used
+    by 'bash', e.g., when cancelling the input of a command via control-c.
+    
+    Related to issue #3546
+
+commit 068324536cd4855295c12246e7ab0a5cc49b8383
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Oct 30 23:04:34 2019 +0100
+
+    libc: eliminate atexit handler for 'Rtc'
+    
+    We never want to destruct the 'Rtc' because other atexit handlers may
+    depend on it (e.g., for updating modification times when closing files).
+
+commit 91412c6c52f28fdb64ac7db33696a6435966c5e4
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Oct 30 23:08:34 2019 +0100
+
+    libc: trigger SIGCHLD for when forked child exits
+
+commit fab2fc874f178f7b354efb9ea57fd32941745cab
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Sat Nov 2 18:54:56 2019 +0100
+
+    libc: write loop for continuous files
+    
+    This patch improves the libc's write operation to iterate on partial
+    writes to continuous files until the original write count is reached.
+    The split of large write operations into small partial writes as
+    dictated by the VFS infrastructure (e.g., constained by I/O buffer
+    sizes) becomes invisible to the libc-using application.
+    
+    Issue #3507
+    Issue #2303
+
+commit d4e0d2f578932a7c0a0c71bcddbba0b5501fa7ff
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Sun Nov 3 11:53:13 2019 +0100
+
+    libc: defer clone ack after FD initialization
+    
+    Issue #3478
+    Issue #2303
+
+commit c50252fb350bd43d7a0fbdf6182a43c0877e370e
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Tue Nov 5 12:32:55 2019 +0100
+
+    libc: suspend/resume in pthread mutex lock/unlock
+    
+    Issue #3550
+
+commit 6ccd65bd8e720336ab242445dfc6eb701659c6d8
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Mon Nov 18 15:28:37 2019 +0100
+
+    sculpt_manager: invoke mkfs.ext2 with -F
+    
+    The block-vfs plugin is no longer a special file. So we have to
+    explicitly discharge the sanity check of the mkfs tool.
+    
+    Issue #3507
+
+
+Input-event handling
+====================
+
+; @chelmuth
+
+commit edc954522994146f49e56a0a2183acafa6ca3b4d
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Tue Sep 10 16:47:24 2019 +0200
+
+    input: move control-modifier handling into clients
+    
+    Moving the handling into the input-session clients enables more
+    sophisticated implementations (like Qt5) to apply key-symbol based
+    handling of those modifiers like correct CTRL-A with QWERTY and AZERTY
+    layouts and distinction of CTRL-J and Return.
+    
+    Issue #3483
+
+commit cccfd0719d9feee49f3f6e7966fa0a824c864172
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Tue Sep 10 14:51:51 2019 +0200
+
+    qt5: prevent deprecated warnings
+    
+    Issue #3483
+
+commit 1782c6be79ca929442fd0fe526ce767e238607b7
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Tue Sep 3 15:25:34 2019 +0200
+
+    qt5: rework keyboard handling
+    
+    Fixes #3483
+
+
+NIC router
+==========
+
+; @m-stein
+
+commit 27c2a66bbde5a3a65349b8a5d472bc61179e79a5
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Tue Oct 15 18:56:37 2019 +0200
+
+    nic_router: report link state
+    
+    This adds two new boolean attributes to the <report> tag of the NIC router
+    configuration 'link_state' and 'link_state_triggers'. The former decides
+    whether to report the link state of each NIC interface (downlink, uplinks) at
+    the NIC router. The other decides whether to trigger reporting each time the
+    link state of an interface changes.
+    
+    Fixes #3527
+
+
+Device drivers
+==============
+
+Platform driver on x86
+~~~~~~~~~~~~~~~~~~~~~~
+
+; @chelmuth
+
+commit 6df8b446165d8ea01defe29886c28a994f5e2b65
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Mon Sep 23 15:29:05 2019 +0200
+
+    platform/x86: support 64-bit base address registers
+    
+    The API still exports 32-bit address and size values only, which works
+    as the actual MMIO resources are allocated in platform_drv internally.
+    
+    Fixes #3494
+
+
+Wireless driver
+~~~~~~~~~~~~~~~
+
+; @cnuke
+
+commit c5706e8f4a9f4e5cd3960eac6f659895147fc9b3
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Sep 23 17:24:34 2019 +0200
+
+    wifi_drv: enable loading of 5000 series FW
+    
+    Fixes #3502.
+
+commit 25aa25c6a07770f95d33bb125ec37dd16b8e1d18
+Author: Josef Söntgen <jws@sysret.de>
+Date:   Wed Nov 20 10:50:56 2019 +0100
+
+    wifi_drv: enable loading of 9000 series FW
+    
+    Tested with a 'Intel(R) Wireless-AC 9462' device.
+    
+    Fixes #3556.
+
+
+Libraries and applications
+##########################
+
+VirtualBox improvements
+=======================
+
+; @alex-ab
+
+commit ed73feddc524e6f486a7033d7b02edf9e944adad
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Sun Sep 15 16:56:27 2019 +0200
+
+    vbox5: react on host size changes immediately
+    
+    The guest may take some time to adjust nevertheless.
+    
+    Fixes #3498
+
+
+Updated 3rd-party software
+==========================
+
+; @ssumpf
+
+commit 31a035a907bb6ae348273bd84197f613ac75ef8f
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Thu Oct 24 14:35:41 2019 +0200
+
+    libports: update gmp from 4.3.2 to 6.1.2
+    
+    issue #3537
+
+commit d28fe9e9385f9103262ae12369243b32a055279c
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Thu Oct 24 15:11:38 2019 +0200
+
+    libports: enable gmp 6.1.2 for ARMv8
+    
+    issue #3537
+
+commit db18fc42fea152944f30314eceb2773eae266ed5
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Thu Oct 24 15:52:01 2019 +0200
+
+    libports: update mpfr to 4.0.2
+    
+    issue #3537
+
+commit 3103ce1fa8d30d2e5c7a68d37585378c9d78fe1d
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Thu Oct 24 15:52:24 2019 +0200
+
+    libports: update mpc to 1.1.0
+    
+    issue #3537
+
+commit 112c32eb54782f246bdc5d5c1a1a124833629cda
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Thu Oct 24 18:11:40 2019 +0200
+
+    ports: noux-pkg/gcc_arm_64
+    
+    Added ARMv8 as a native gcc target. This requires a rebuild of the tool
+    chain.
+    
+    issue #3537
+
+commit f23eab735bcc659b56eaaf78e2f11e639536c107
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Fri Oct 25 11:12:43 2019 +0200
+
+    ports: binutils target for ARMv8
+    
+    issue #3537
+
+commit 30247206564cd754c874e8f9efbda214d9856cba
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Fri Oct 25 11:29:39 2019 +0200
+
+    ports: update make to version 4.2.1
+    
+    Required for ARMv8 support
+    
+    issue #3537
+
+commit 417dd59b226cc20b8ea39956a5b10441e73d1f95
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Fri Oct 25 14:08:28 2019 +0200
+
+    libports: gcov for ARMv8
+    
+    issue #3537
+
+commit b7e06a0b5ba15cdaa4036fb2dc3632d4ad695175
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Tue Oct 29 09:23:05 2019 +0100
+
+    recipe: gmp for ARMv8
+    
+    issue #3537
+
+commit c845a2d943aebce16da9aab8fa9b4a76df685429
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Wed Oct 30 12:36:32 2019 +0100
+
+    libprots: libgcov ARMv8 support
+    
+    issue #3537
+
+
+Platforms
+#########
+
+Execution on bare hardware (base-hw)
+====================================
+
+; @skalk
+
+commit e3f82b09d717ca52d009998fa17ee9ad3005a38f
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Wed Oct 9 14:40:30 2019 +0200
+
+    hw: instantiate pic object per cpu
+    
+    Ref #3520
+
+commit 1cbd77c806598ad2cb3d8b9eeb731c4b858e25d0
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Thu Oct 10 15:06:49 2019 +0200
+
+    hw: implement multi-processor support for i.MX8
+    
+    Fix #3520
+
+commit 87a6368ba1364098a211896e63f98670121575b9
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Thu Oct 10 14:39:49 2019 +0200
+
+    hw: implement multi-processor support for rpi3
+    
+    Fix #3522
+
+commit 8a8aa85726862b3534f7c91a71ef6ead05508161
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Tue Oct 8 13:16:48 2019 +0200
+
+    hw: initialize iomux, ccm and gpc for i.MX8 EVK
+    
+    Fix #3534
+
+
+Removed components
+##################
+
+; @nfeske
+
+commit 4bcc75365ce3e996d9033b081ccf9298357cf973
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Mon Oct 7 15:19:13 2019 +0200
+
+    Remove gems/src/app/launcher
+    
+    The graphical launcher remained unused for a few years now. It is not
+    suitable for systems as flexible as Sculpt OS.
+    
+    Issue #3512
+
+commit 5bb366513b4d7be16be214822f0115eae9190659
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Mon Oct 7 15:23:20 2019 +0200
+
+    Remove os/src/app/cli_monitor
+    
+    Nowadays, we use standard command-line tools like vim to edit init
+    configurations dynamically, which alleviates the need for a custom CLI.
+    The CLI-monitor component was too limited for use cases like Sculpt
+    anyway.
+    
+    The patch also removes the ancient (and untested for long time)
+    terminal_mux.run script, which used to be the only remaining user of the
+    CLI monitor.
+    
+    Issue #3512
+
+commit 6e86d6d69951278c8db59fc0c66ce9bda6955f54
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Mon Oct 7 16:09:05 2019 +0200
+
+    Remove server/fatfs_fs and libc_fatfs plugin
+    
+    Issue #3512
+
+commit a8dd7dd2fadec75b76ed52bf2ca06e242be83e51
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Mon Oct 7 16:12:41 2019 +0200
+
+    Remove rump_fs server component
+    
+    This patch replaces the use of the rump_fs server by the VFS server with
+    the Rump VFS plugin.
+    
+    Issue #3512
+
