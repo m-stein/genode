@@ -763,52 +763,32 @@ Date:   Tue Oct 8 13:16:48 2019 +0200
 Removed components
 ##################
 
-; @nfeske
+The current release removes the following components:
 
-commit 4bcc75365ce3e996d9033b081ccf9298357cf973
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Oct 7 15:19:13 2019 +0200
+:gems/src/app/launcher:
 
-    Remove gems/src/app/launcher
-    
-    The graphical launcher remained unused for a few years now. It is not
-    suitable for systems as flexible as Sculpt OS.
-    
-    Issue #3512
+  The graphical launcher remained unused for a few years now. It is not
+  suitable for systems as flexible as Sculpt OS.
 
-commit 5bb366513b4d7be16be214822f0115eae9190659
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Oct 7 15:23:20 2019 +0200
+:os/src/app/cli_monitor:
 
-    Remove os/src/app/cli_monitor
-    
-    Nowadays, we use standard command-line tools like vim to edit init
-    configurations dynamically, which alleviates the need for a custom CLI.
-    The CLI-monitor component was too limited for use cases like Sculpt
-    anyway.
-    
-    The patch also removes the ancient (and untested for long time)
-    terminal_mux.run script, which used to be the only remaining user of the
-    CLI monitor.
-    
-    Issue #3512
+  CLI monitor was a runtime environment with a custom command-line interface
+  to start and stop subsystems. It was part of the user interface of our
+  first take on a Genode-based desktop OS called
+  [https://genode.org/documentation/release-notes/15.11#Genode_as_desktop_OS - Turmvilla].
 
-commit 6e86d6d69951278c8db59fc0c66ce9bda6955f54
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Oct 7 16:09:05 2019 +0200
+  Nowadays, we use standard command-line tools like Vim to edit init
+  configurations dynamically, which alleviates the need for a custom CLI.
+  The CLI-monitor component was too limited for use cases like Sculpt
+  anyway.
 
-    Remove server/fatfs_fs and libc_fatfs plugin
-    
-    Issue #3512
+  Along with the CLI monitor, we removed the ancient (and untested for long
+  time) _terminal_mux.run_ script, which was the only remaining user of the CLI
+  monitor.
 
-commit a8dd7dd2fadec75b76ed52bf2ca06e242be83e51
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Oct 7 16:12:41 2019 +0200
+:fatfs_fs, rump_fs, and libc_fatfs plugin:
 
-    Remove rump_fs server component
-    
-    This patch replaces the use of the rump_fs server by the VFS server with
-    the Rump VFS plugin.
-    
-    Issue #3512
-
+  The stand-alone file-system servers fatfs_fs and rump_fs as well as the
+  fatfs libc plugin have been superseded by the fatfs and rump VFS plugins.
+  The stand-alone servers can be replaced by using the VFS server plus the
+  corresponding VFS plugin as a drop-in replacement.
