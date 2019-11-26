@@ -615,18 +615,12 @@ Libraries and applications
 VirtualBox improvements
 =======================
 
-; @alex-ab
-
-commit ed73feddc524e6f486a7033d7b02edf9e944adad
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Sun Sep 15 16:56:27 2019 +0200
-
-    vbox5: react on host size changes immediately
-    
-    The guest may take some time to adjust nevertheless.
-    
-    Fixes #3498
-
+The GUI handling of our Virtualbox port got improved to react on
+window size changes more instantly. The effect is that an interactive
+adjustment of the window size, e.g. on Sculpt, becomes quickly visible to the
+user. Still, the VM may take some time to adjust to the resolution change,
+which depends on having installed guest addition drivers and the time the
+guest driver decides to react on the resolution change finally.
 
 Updated 3rd-party software
 ==========================
