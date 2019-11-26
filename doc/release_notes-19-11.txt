@@ -412,25 +412,10 @@ assigned to physical I/O-memory regions beyond 4 GiB by the boot firmware.
 Wireless driver
 ~~~~~~~~~~~~~~~
 
-; @cnuke
-
-commit c5706e8f4a9f4e5cd3960eac6f659895147fc9b3
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Mon Sep 23 17:24:34 2019 +0200
-
-    wifi_drv: enable loading of 5000 series FW
-    
-    Fixes #3502.
-
-commit 25aa25c6a07770f95d33bb125ec37dd16b8e1d18
-Author: Josef Söntgen <jws@sysret.de>
-Date:   Wed Nov 20 10:50:56 2019 +0100
-
-    wifi_drv: enable loading of 9000 series FW
-    
-    Tested with a 'Intel(R) Wireless-AC 9462' device.
-    
-    Fixes #3556.
+We added the firmware images for the 5000 and 9000 series of Intel wireless
+devices to the firmware white-list in the _wifi_drv_ component. Such devices
+as 5100AGN, 5300AGN and 5350AGN as well as 9461, 9462 and 9560 should now be
+usable on Genode.
 
 
 Libraries and applications
