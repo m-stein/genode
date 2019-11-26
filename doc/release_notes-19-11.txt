@@ -68,57 +68,34 @@ Base framework and OS-level infrastructure
 File-system session
 ===================
 
-; @nfeske
+The file-system session interface received a much anticipated update.
 
-commit 2ec3aaf6395e2f6ab919df5a768226ee0967c6ca
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Wed Mar 20 11:46:34 2019 +0100
+Writing modification times
+--------------------------
 
-    file_system_session: add modification time
-    
-    * add modification_time member
-    * add WRITE_TIMESTAMP packet
+The new operation WRITE_TIMESTAMP allows a client to update the modification
+time of a file-system node. The time is defined by the client to keep
+file-system servers free from time-related concerns. The VFS server implements
+the operation by forwarding it to the VFS plugin interface. At present, this
+new interface is implemented by the rump VFS plugin to store modification
+times on ext file systems.
 
-commit 400039e1b68397d87ace97c4cdc921c3b6b88215
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Wed Mar 20 14:52:13 2019 +0100
 
-    rump_fs: add modification time
-    
-    Issue #1784.
+Enhanced file-status info
+-------------------------
 
-commit 99b632f86cdc7152b4e2d7c40ee4284558a595d9
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Tue Apr 9 16:25:53 2019 +0200
-
-    server/vfs: add modification time
-    
-    Issue #1784.
-
-commit 5ab1505d43fe419ff4b59687a695b10018fa7725
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Sep 25 17:13:29 2019 +0200
-
-    file system: enhanced file status info
-    
-    This patch extends the 'File_system::Status',
-    'File_system::Directory_entry', and the related 'Vfs' types with
-    the following additional information:
-    
-    - Distinction between continuous and transactional files (Node_type)
-      (issue #3507)
-    - Readable, writeable, and executable attributes (Node_rwx),
-      replacing the former 'mode' bits
-      (issue #3030)
-    
-    The types 'Node_rwx', 'Node_type' are defined twice,
-    once for the VFS (vfs/types.h) and once for the 'File_system'
-    session (file_system_session/file_system_session.h).
-    Similarly, there is a direct correspondance between
-    'Vfs::Directory_service::Dirent' and 'File_system::Directory_entry'.
-    
-    This duplication of types follows the existing pattern of keeping the
-    VFS and file-system session independent from each other.
+The status of a file-system node as returned by the 'File_system::Status'
+operation has been revisited. First, we replaced the fairly opaque "mode" bits
+- which was an ad-hoc attempt to stay compatible with Unix - with the explicit
+notion of 'readable', 'writeable', and 'executable' attributes. We completely
+dropped the notion of users and groups. Second, we added the distinction
+between *continuous* and *transactional* files to allow for the robust
+implementation of continuous write operations across component boundaries. A
+continuous file can be written to via a sequence of arbitrarily sized chunks
+of data. For such files, a client can split a large write operation into any
+number of smaller operations in accordance to the size of I/O buffers. In
+contrast, a write to a transactional file is regarded as a distinct operation.
+The canonical example of a transactional file is a socket-control pseudo file.
 
 
 Virtual file-system infrastructure
@@ -127,122 +104,45 @@ Virtual file-system infrastructure
 First fragments of a front-end API
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-; @nfeske
-
-commit c85bc38802ec65c32b7a964c9d99298b906d0ab6
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Oct 7 17:18:15 2019 +0200
-
-    Move include/gems/vfs.h to include/os/vfs.h
-    
-    Fixes #3515
+The VFS is mostly used indirectly via the C runtime. However, it is also
+useful for a few components that use the Genode API directly without any
+libc. To accommodate such users of the VFS, we introduced the front-end
+API at _os/vfs.h_ that covers a variety of current use cases. Currently, those
+use cases revolve around the watching, reading, and parsing of files and
+file-system structures - as performed by Sculpt's deployment mechanism.
+Writing to files is not covered.
 
 
 Improved file-watching support
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-; @nfeske
+All pseudo files that use the VFS-internal 'Readonly_value_file_system'
+utility have become able to deliver watch notifications. This change enables
+VFS clients to respond to VFS-plugin events (think of terminal resize)
+dynamically.
 
-commit 7549189f882620f32ba4f6e5bcc4e437203e05fa
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Oct 10 15:32:25 2019 +0200
-
-    vfs: watch support for Readonly_value_file_system
-    
-    This patch adds support for watch notifications for the
-    'Readonly_value_file_system', which is often used by VFS plugins to
-    implement pseudo files. It thereby enables VFS clients to respond to
-    VFS-plugin events (think of terminal resize) dynamically.
-    
-    Fixes #3523
-
-commit 23d21d77e9cf9ed34c8afc1e803315e1253f0806
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Oct 30 20:29:03 2019 +0100
-
-    vfs/terminal: detect user interrupts (control-c)
-    
-    This patch equips the VFS terminal file system with the ability to
-    detect user interrupts in the incoming data stream, and propagate this
-    information via the new pseudo file '.terminal/interrupts'. Each time,
-    the user presses control-c in the terminal, the value stored in this
-    pseudo file is increased. Thereby, a VFS client can watch this file to
-    get notified about the occurrences of user interrupts.
-    
-    Fixes #3546
+Speaking of the *terminal VFS plugin*, the current release enhances the plugin
+in several respects. First, it now delivers status information such as the
+terminal size via pseudo files. Second, we equipped the VFS terminal file
+system with the ability to detect user interrupts in the incoming data stream,
+and propagate this information via the new pseudo file '.terminal/interrupts'.
+Each time, the user presses control-c in the terminal, the value stored in
+this pseudo file is increased. Thereby, a VFS client can watch this file to
+get notified about the occurrences of user interrupts.
 
 
 VFS plugin for emulating POSIX pipes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-; @nfeske
-
-commit c51b4b57422d54a0f6b488fd837a2cfd5352b45b
-Author: Emery Hemingway <ehmry@posteo.net>
-Date:   Tue Jul 9 14:16:46 2019 +0200
-
-    New VFS plugin for emulating POSIX pipes
-    
-    Add a new plugin for creating pipes between pairs of VFS handles. It is
-    intended to replace the libc_pipe plugin, one of the last remaining libc
-    plugins.
-    
-    In contrast to the libc_pipe plugin, this plugin defers cross-handle
-    notification until I/O signal handling rather than block and unblock
-    readers using a semaphore. This is a performance regression in the case
-    of multiple threads blocking on a pipe, but shall be an intermediate
-    mechanism pending renovations within the libc VFS and threading layers.
-    As a side effect, threads blocked on a pipe might not be resumed until
-    the main thread suspends and dispatches I/O signals.
-    
-    The "test-libc_pipe" test has been adjusted to use the VFS pipe plugin
-    and tests both local pipes and pipes hosted remotely in the VFS server.
-    
-    Merge adaptations (such as EOF handling, adjustment to VFS/libc
-    interface changes) by Norman Feske.
-    
-    Fix #2303
+We added a new VFS plugin for emulating POSIX pipes. The new plugin creates
+pipes between pairs of VFS handles. It replaces the deprecated libc_pipe
+plugin. In contrast to the libc_pipe plugin, which was limited to pipes within
+one component, the new VFS plugin can also be used to establish pipes between
+different components by using the plugin at a shared VFS server.
 
 
-Streamlined writeable-attribute handling
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-; @nfeske
-
-commit cfba429c159468180296fc82dff46f6b0f3ee989
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Nov 21 11:20:39 2019 +0100
-
-    vfs/rump: offer all files as read-writeable
-    
-    The distinction between read-only and read-writeable is the
-    responsibility of the front end, i.e., the vfs server.
-
-commit ee64e29e7713644231dc9014d8ad1ff0753c2d60
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Nov 21 11:52:11 2019 +0100
-
-    vfs server: tie writeable bit to session policy
-    
-    This patch let the VFS server reflect the session policy via the
-    writeable bit in directory entries instead of merely forwarding the bit
-    from the respective VFS plugin. This way, all files originating from a
-    read-only file-system session automatically appear in directory listings
-    as read-only files.
-    
-    Related to issue #3507
-
-commit 3aaed7188fcc66b881a8be56eebd17f0d169f386
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Nov 21 12:24:35 2019 +0100
-
-    ram_fs: tie writeable bit to session policy
-    
-    Related to issue #3507
-
-
-C runtime
-=========
+Reworked C runtime, improved POSIX compatibility
+================================================
 
 ; @nfeske
 
