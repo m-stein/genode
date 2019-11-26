@@ -625,93 +625,18 @@ guest driver decides to react on the resolution change finally.
 Updated 3rd-party software
 ==========================
 
-; @ssumpf
-
-commit 31a035a907bb6ae348273bd84197f613ac75ef8f
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Oct 24 14:35:41 2019 +0200
-
-    libports: update gmp from 4.3.2 to 6.1.2
-    
-    issue #3537
-
-commit d28fe9e9385f9103262ae12369243b32a055279c
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Oct 24 15:11:38 2019 +0200
-
-    libports: enable gmp 6.1.2 for ARMv8
-    
-    issue #3537
-
-commit db18fc42fea152944f30314eceb2773eae266ed5
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Oct 24 15:52:01 2019 +0200
-
-    libports: update mpfr to 4.0.2
-    
-    issue #3537
-
-commit 3103ce1fa8d30d2e5c7a68d37585378c9d78fe1d
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Oct 24 15:52:24 2019 +0200
-
-    libports: update mpc to 1.1.0
-    
-    issue #3537
-
-commit 112c32eb54782f246bdc5d5c1a1a124833629cda
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Oct 24 18:11:40 2019 +0200
-
-    ports: noux-pkg/gcc_arm_64
-    
-    Added ARMv8 as a native gcc target. This requires a rebuild of the tool
-    chain.
-    
-    issue #3537
-
-commit f23eab735bcc659b56eaaf78e2f11e639536c107
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Fri Oct 25 11:12:43 2019 +0200
-
-    ports: binutils target for ARMv8
-    
-    issue #3537
-
-commit 30247206564cd754c874e8f9efbda214d9856cba
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Fri Oct 25 11:29:39 2019 +0200
-
-    ports: update make to version 4.2.1
-    
-    Required for ARMv8 support
-    
-    issue #3537
-
-commit 417dd59b226cc20b8ea39956a5b10441e73d1f95
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Fri Oct 25 14:08:28 2019 +0200
-
-    libports: gcov for ARMv8
-    
-    issue #3537
-
-commit b7e06a0b5ba15cdaa4036fb2dc3632d4ad695175
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Tue Oct 29 09:23:05 2019 +0100
-
-    recipe: gmp for ARMv8
-    
-    issue #3537
-
-commit c845a2d943aebce16da9aab8fa9b4a76df685429
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed Oct 30 12:36:32 2019 +0100
-
-    libprots: libgcov ARMv8 support
-    
-    issue #3537
-
+With the addition of the 64-bit ARM architecture (aarch64) with the Genode 19.05
+release it became necessary to update libraries the Genode tool chain (gcc)
+depends on in order to support aarch64 properly. This concerns the GNU multi
+precision arithmetic library (gmp) which has been updated from version 4.3.2 to
+6.1.2, as well as the libraries that depend on it: Multi precision floating
+point (mpfr) and multi precision complex arithmetic (mpc). All those old
+versions did not offer support for the aarch64 architecture which is a
+requirement to make Genode self hosting. Targets for building binutils and gcc
+within Genode for aarch64 are in place, GNU make is in place, and even code
+coverage (gcov) has been added. This work puts aarch64 in line with other Genode
+supported CPU architectures and emphasizes our interest in the ARM 64-bit
+architecture.
 
 Platforms
 #########
