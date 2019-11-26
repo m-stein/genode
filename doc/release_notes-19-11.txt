@@ -21,39 +21,53 @@ Preliminary block-device encryptor
 Virtualization of 64-bit ARM platforms
 ######################################
 
-; @skalk
+Genode has a long history regarding support of all kind of virtualization
+techniques. Mainly, because an evolving operating system needs interim solutions
+to provide non-trivial, existent software stacks. Recently in release 19.05 the
+introduction of a Kernel-agnostic interface to control Virtual-Machines (VM)
+ushered in a new level for the construction resp. porting of
+Virtual-Machine-Monitors (VMM).
+By introducing a new ARMv8 compliant VMM developed from scratch, we continue
+this line of work.
 
-commit 02d68fdb97de854c7c374253dbcf13df5bfb2d34
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Mon Jul 15 13:11:28 2019 +0200
+The new VMM continues the Proof-of-Concept (PoC) implementation for ARMv7 introduced
+in Genode release 15.02. In contrast to the former PoC implementation it aims to
+be complete to a greater extent. Currently, it comprises device models for:
 
-    hw: move arm virtualization to generic place
-    
-    Ref #3553
+* RAM
+* System Bus
+* CPU
+* Generic Interrupt Controller v2 and v3
+* Generic Timer
+* PL011 UART (limited)
+* Pass-through devices
 
-commit f82714f34156250ab8f5ee853bf292cd646269b8
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Fri Nov 8 13:47:35 2019 +0100
+The VMM is ready to load diverse 64-bit Linux kernels including
+Device-Tree-Binary (DTB) and Initramfs. Currently, the implementation uses a
+fixed memory layout for the guest-physical memory view, which needs to be
+reflected by the DTB used for the guest OS. An example device tree source file
+can be found in 'repos/os/src/server/vmm/spec/arm_v8/virt.dts'. The whole VMM
+implementation can be found in the same directory.
 
-    vm_session: return vcpu id when creating vcpu
-    
-    Ref #3553
+Although, support for many-core VMs is already constructed internally, it is not
+ready to work free of complaints. Further outstanding features that are already
+in development are Virtio device model support for networking and console.
 
-commit af29dcf5578efaf59f27af857a3fb8161966a6e2
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Wed Sep 4 15:38:19 2019 +0200
+The first and by now only backend we tied to the ARMv8 broadened Kernel-agnostic
+VM-session interface is Genode's own base-hw kernel.
 
-    hw: introduce virtualization support for ARMv8
-    
-    Ref #3553
+To give the new VMM a try, you can execute the 'repos/os/run/vmm_arm.run' on top
+of the i.MX8 Evaluation Kit board.
 
-commit 972e1893c9f741d451c725cfd1f8e0f1211f3693
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Tue Sep 3 16:29:27 2019 +0200
+The VMM hardly depends on the availability of the virtualization hardware
+support (EL2). This hardware support comprises extensions for the ARMv8-A CPU,
+ARM's Generic Timer, and ARM's GIC. Therefore, the Raspberry Pi 3
+board cannot be used as basis, because it does not include a GIC, but an own
+interrupt-controller without hardware-assisted virtualization of interrupts.
 
-    os: introduce vmm component for ARMv8
-    
-    Fix #3553
+Within the scope of this work, we consolidated the generic VM session interface
+slightly. The RPC call to create a new virtual-CPU now returns an identifier for
+identification.
 
 
 New tooling for bridging existing build systems with Genode
@@ -544,39 +558,11 @@ Platforms
 Execution on bare hardware (base-hw)
 ====================================
 
-; @skalk
-
-commit e3f82b09d717ca52d009998fa17ee9ad3005a38f
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Wed Oct 9 14:40:30 2019 +0200
-
-    hw: instantiate pic object per cpu
-    
-    Ref #3520
-
-commit 1cbd77c806598ad2cb3d8b9eeb731c4b858e25d0
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Thu Oct 10 15:06:49 2019 +0200
-
-    hw: implement multi-processor support for i.MX8
-    
-    Fix #3520
-
-commit 87a6368ba1364098a211896e63f98670121575b9
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Thu Oct 10 14:39:49 2019 +0200
-
-    hw: implement multi-processor support for rpi3
-    
-    Fix #3522
-
-commit 8a8aa85726862b3534f7c91a71ef6ead05508161
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Tue Oct 8 13:16:48 2019 +0200
-
-    hw: initialize iomux, ccm and gpc for i.MX8 EVK
-    
-    Fix #3534
+With the last release 19.08 Genode's base-hw kernel got extended to support the
+ARMv8-A architecture in principle. The first hardware supported was the
+Raspberry Pi 3 as well as the i.MX8 evaluation kit (EVK). But only a single
+CPU-core was useable at that time. Now, this limitation gets resolved. On both
+boards all four CPU-cores are available henceforth.
 
 
 Removed components
