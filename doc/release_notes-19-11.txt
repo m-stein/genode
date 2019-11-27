@@ -8,10 +8,34 @@
 
 
 
-; intro
-; @nfeske
-;Motivated by theme of "bridging worlds" as stated on our
-;[https://genode.org/about/road-map - road map] for this year,
+On our [https://genode.org/about/road-map - road map] for this year, we stated
+"bridging worlds" as our guiding theme of 2019. The current release pays
+tribute to this ambition on several accounts.
+
+First, acknowledging the role of POSIX in the real world outside the heavens
+of Genode, the release vastly improves our (optional) C runtime with respect
+to the emulation of POSIX signals, execve, and ioctl calls. With the line of
+work described in Section [C runtime with improved POSIX compatibility], we
+hope to greatly reduce the friction when porting and hosting existing
+application software directly on Genode.
+
+Second, we identified the process of porting or developing application
+software worth improving. Our existing tools were primarily geared to
+operating-system development, not application development. Application
+developers demand different work flows and tools, including the freedom to use
+a build system of their choice.
+Section [New tooling for bridging existing build systems with Genode]
+introduces our new take on this productivity issue.
+
+Third, in cases where the porting of software to Genode is considered
+infeasible, virtualization comes to the rescue. With the current release, a
+new virtual machine monitor for the 64-bit ARM architecture enters the
+framework. It is presented in Section [Virtualization of 64-bit ARM platforms].
+
+As another goal for 2019, we envisioned a solution for block-level device
+encryption, which is a highly anticipated feature among Genode users. We are
+proud to present the preliminary result of our year-long development in
+Section [Preliminary block-device encryptor].
 
 
 Preliminary block-device encryptor
