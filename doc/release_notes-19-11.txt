@@ -46,133 +46,214 @@ Preliminary block-device encrypter
 ; intro
 
 Over the past year we worked on implementing a block-device encryption
-component that makes use of SPARK for its run-time logic. In contrast to common
+component that makes use of SPARK for its core logic. In contrast to common
 block-device encryption techniques, where normally there is little done besides
-the encryption of the on-disk blocks one-by-one, the _constistent block
-encrypter (CBE)_ uses a more elaborate approach. It combines multiple techniques
-to ensure integrity, unintentional and intentional modifications to the
-block-device are detected, and robustness against data loss. A copy-on-write
-mechanism, old data blocks that are still in use are never directly
-overriden, helps providing robustness. A generation counter is used to decide
-at which point data is considered old. A hash-tree, where each node contains
-the hash of it sub-nodes, is used to provide integrity. The mapping of
-virtual blocks, used for providing a _virtual block-device (VBD)_, to phyiscal
-blocks on the block-device is done via such trees. During the tree traversal
-the computed hash of each node can be easily checked against the hash stored in
-the parent node.
+the encryption of the on-disk blocks, the _consistent block encrypter (CBE)_
+aims for more. It combines multiple techniques to ensure integrity -
+unintentional and intentional modifications to the block-device are detected -
+and robustness against data loss. Robustness is achieved by keeping snapshots
+of old states of the device that remain unaffected by the further operation on
+the device. A copy-on-write mechanism (only the differential changes to the
+last snapshot are stored) is employed to maintain this snapshot history whith
+low overhead. To be able to access all states of the device in the same manner,
+some kind of translation from virtual blocks to blocks on the device is needed.
+Hash-trees, where each node contains the hash of it sub-nodes, combine the
+aspect of translating blocks and ensuring their integrity in an elegant way.
+During the tree traversal the computed hash of each node can be easily checked
+against the hash stored in the parent node.
 
 The CBE itself does not perform any cryptography itself but delegates all
-cryptographic operations to another entity. It neither knows nor cares
-about the used algorithm. Off all the nodes in the VBD only the leaf nodes
-are encrypted. All other nodes, the meta-data, is stored unencrypted.
+cryptographic operations to another entity. It neither knows nor cares about
+the used algorithm. Of all the nodes in the virtual block device (VBD) only the
+leaf nodes, which contain the data, are encrypted. All other nodes, which only
+contain meta-data, are stored unencrypted.
 
 ; design
 
-All information describing the various parts of the CBE is stored in the
-superblock. The referenced VBD is a set of several trees, where one of them
-represents the current working tree and is used to write data to and read data
-from the block-device. All other trees represent older states and are
-immutable. Each tree belongs to a generation, the working tree to the current
-generation. Figure [cbe_trees.png] shows the state where the VBD consists of 4
-different trees. The tree with generation 6 is the current working tree. It
-contains all changes done to the VBD since the last generation 5, depicted in
-blue - the other generations are omitted for brevity.
+As depicted in figure [cbe_trees.png], all information describing the various
+parts of the CBE is stored in the superblock. The referenced VBD is a set of
+several hash trees, each representing a certain device state including the
+current working state. Only the tree of the current working state is used to
+write data to the block device. All other trees represent snapshots of older
+states and are immutable. Each stored device state has a generation number
+that provides the chronological order of the states.
 
-Whenever a block request from the client would override data blocks that
-are still referenced by an older generation, new blocks for storing the
-changes are needed. Here is where the _free-tree (FT)_ enters the picture.
-It manages all spare blocks and in case the VBD needs new blocks it
-must consult the FT. The FT will allocate the blocks either by picking free blocks
-that are unused or by picking reserved blocks, which are no longer referenced
-by any other tree belonging to an older generation. These nodes may therefor
-be safely reused. All nodes in the branch leading to the leaf node, which
-contains the actual block data, including the leaf node itself have to be
-replaced. If you look at the figure [cbe_trees.png] again, you can see how
-the blue nodes are part of the FT. When the FT allocated the new nodes for
-use in generation 6 of the VBD it also marked the old nodes from generation 5
-as reserved, i.e., the blocks were exchanged. Subsequent write requests
-involving those new blocks will not trigger a new block allocation because they
-still belong to the current generation and will be changed in-place. To make
-them immutable we have to create a new generation.
+As you can see, in the depicted situation there exist four device states - the
+snapshot with generation 3 is the oldest, followed by two newer snapshots and
+generation 6 that marks the working state of the virtual device. The tree with
+generation 6 is the current working tree. Each tree contains all changes done
+to the VBD since the previous generation (for generation 6 the red nodes). All
+parts of a tree that didn't change since the previous generation are references
+into older trees (for generation 6 the gray nodes). Note, that in the picture,
+nodes that are not relevant for generation 6 are ommited to keep it manageable.
+The actual data blocks of the virtual device are the leaf nodes of the trees,
+shown as squares.
 
-Creating a new generation is implicitly done by creating a snapshot. Doing so
-will make all changes done to the VBD's working tree as well as the FT
-persistent by writing all blocks to the block-device. Last but not least the
-superblock is also written to the block-device. The last generation covered by
-this superblock is the current generation. After the superblock was stored the
-current generation is incremented by one. There exist multiple copies of the
-superblock on the block-device that are written to in a cyclic manner. The
-generation of the tree is at the same time the id of snapshot.
+[image cbe_trees]
 
-Replacing several nodes in every write request might be unnecessary costly,
-after all the inner nodes of the tree change frequently during sequentional
-operation. The decision when to allocate new blocks is therefore deferred to
-the outside, the snapshot creation must be triggered explicitly. To accomodate
-different strategies it could for example be either time based, e.g. create a
-new snapshot every N seconds, or depend on the amount of data written, e.g.
-create a snapshot after writing N MiB of data.
+Whenever a block request from the client would override data blocks in
+generation 6 that are still referenced from an older generation, new blocks for
+storing the changes are needed. Here is where the so-called _Free Tree_ enters
+the picture. This tree contains and manages the spare blocks. Spare blocks are
+a certain amount of blocks that the CBE has in addition to the number of blocks
+needed for the initial state of the virtual device. So, after having
+initialized a virtual device, they are unused and only referenced by the Free
+Tree. Now, in case the VBD needs new blocks it consults the Free Tree (red
+arrow).
 
-When creating a snapshot it can be specified if the snapshot should be
-disposable or if it should be persistent. A disposable snapshot will be
-removed automatically by the CBE either in case there are not enough usable
-nodes in the FT left to satisify the current write request or when there is
-no space left in the tree set of the VBD and an old tree must be removed.
-A persistent snapshot, also quaratine snapshot, on the other hand will never
-be removed automatically. Its removal must be requested explicitly.
+In the depicted situation, writing the first data block (red square) would
+require allocating 4 new blocks as all nodes in the branch leading to the
+corresponding leaf node, including the leaf node itself have to be written.  In
+contrast, writing the second data block would require allocating only one new
+block as the inner nodes (red circles) now already exist. Subsequent write
+requests affecting only the new blocks will not trigger further block
+allocations because they still belong to the current generation and will be
+changed in-place. To make them immutable we have to create a new snapshot.
 
-When the CBE is started it will select the most recent superblock and from
-there read the last generation value. The current generation is then set to the
-value incremented by one.
+The blocks in generation 5 that were replaced by the change to generation 6
+(blue nodes) are not needed for the working state of the virtual device
+anymore. They are therefore, in exchange for the allocated blocks, added to the
+Free Tree. But don't be fooled by the name, they are not free for allocation
+yet, but marked as "reserved" only. This means, they are potentially still part
+of a snapshot (as is the case in our example) but the Free Tree shall keep
+checking, because once all snapshots that referenced the blue blocks have
+disappeared, they become free blocks and can be allocated again.
 
-Since all old blocks that are still referenced are never changed again, overall
+To create a new snapshot we first have to make all changes done to the VBDs
+working state as well as the Free Tree persistent by writing all corresponding
+blocks to the block-device. After that, the new superblock state is written to
+the block-device. To safeguard this operation, the CBE always maintains several
+older states of the superblock on the block device. In case writing the new
+state of the superblock fails, the CBE could fall back to the last state that,
+in our example, would contain only generations 3, 4, and 5. Finally, the
+current generation of the superblock in RAM is incremented by one (in the
+example to generation 7). Thereby, generation 6 becomes immutable.
+
+A question that remains is when to create snapshots. Doing it according to some
+heuristic inside the CBE might result in unnecessary overhead. For instance,
+the inner nodes of the tree change frequently during a sequentional operation.
+We might don't want them to be re-allocated all the time. Therefore, the
+creation of a snapshot must be triggered explicitly from the outside world.
+This way, we can accomodate different strategies, for instance, client-trigger,
+time-based, or based on the amount of data written.
+
+When creating a snapshot, it can be specified whether it shall be disposable or
+if whether it should be persistent. A disposable snapshot will be removed
+automatically by the CBE in two situations:
+
+* Either, when there are not enough usable nodes in the Free Tree left to
+  satisify a write request,
+* or when creating a new snapshot and all slots in the superblock for
+  referencing snapshots are already occupied.
+
+A persistent snapshot, or quarantine snapshot, on the other hand will never be
+removed automatically. Its removal must be requested explicitly.
+
+On initialization, the CBE selects the most recent superblock and reads the
+last generation value from it. The current generation (or working state
+generation) is then set to the value incremented by one. Since all old blocks,
+that are still referenced by a snapshot, are never changed again, overall
 consistency is guaranteed for every generation whose superblock was stored
-safely on disk. Naturally, the FT has to employ the same copy-on-write
-mechanism used by the VBD but there all new blocks are allocated from itself.
+safely on disk.
 
 ; implementation
 
+Although we aimed for a SPARK implementation of the CBE, we saw several
+obstacles with developing it in SPARK right from the beginning. These obstacles
+mainly came from the fact that none of us was experienced in designing more
+complex software in SPARK. So, we started by conducting a rapid design-space
+exploration using our mother tongue (C++) while using only language features
+that can be mapped 1:1 to SPARK concepts. Additionally, we applied a clear
+design methodology that allowed us to keep implementation-to-test cycles
+small and perform a seamless and gradual translation into SPARK:
+
+* _Control flow_
+
+  The core logic of the CBE is a big state machine that doesn't block. On each
+  external event, the state machine gets poked to update itself accordingly. C++
+  can call SPARK but SPARK never calls C++. The SPARK code therefore evolves as
+  self-contained liaufgabebrary.
+
+* _Modularity_
+
+  The complex state machine of the CBE as a whole is split-up into smaller
+  manageable sub-state-machines, working independently from each other. These
+  modules don't call each other directly. Instead, an additional superior module
+  handles the interplay. This is done by constantly iterating over all modules
+  with the following procedure until no further progress can be made:
+
+  # Try enter requests of other modules into the current one
+  # Poke the state machine of the current module
+  # The current module may have generated requests - Try to enter them into
+    the targeted modules
+  # The current module may have finished requests - Acknowledge them at the
+    modules they came from
+
+  Each module is represented through a class (C++) respectively a package with a
+  a private state record (SPARK).
+
+* _No global state_
+
+  There are no static (C++) or package (SPARK) variables. All state is kept in
+  members of objects (C++) respectively records (SPARK). All packages are pure
+  and sub-programs have no side-effects. Therefore, memory management and
+  communication with other componenets is left to OS glue-code outside the
+  core logic.
+
+This approach worked out. Module by module, we were able to translate the C++
+prototype to SPARK without long untested phases, rendering all regression bugs
+manageable. In Genode, the CBE library is currently integrated through the
+CBE-VFS plugin. Figure [cbe_modules.png] depicts its current structure and the
+integration via VFS plugin.
+
+[image cbe_modules]
+
+The green and blue boxes each represent an Ada/SPARK package. The translation
+to SPARK started at the bottom of the picture moving up to the more abstarct
+levels until it reached the Library module. This is the module that handles the
+interplay of all other modules. Its interface is the front end of the CBE
+library. So, all green packages are now completely in SPARK and together form
+the CBE library. Positioned above, the CXX library in blue is brought in by a
+separate library and exports the CBE interface to C++. This way, The CBE can be
+used also in other environments including pure SPARK programs. The CXX Library
+package is not in SPARK but Ada and performs all the conversions and checks
+required to meet the preconditions set by the SPARK packages below.
+
+At the C++ side, we have the VFS plugin. Even at this level, the already
+mentioned procedure applies: The plugin continuously tries to enter requests
+coming from the VFS client (above) into the CBE (below), pokes the CBE state
+machine, and puts thereby generated block/crypto requests of the CBE into the
+corresponding back-ends (left). This is repeated until there is no further
+progress without waiting for an external event.
+
 ; current state
 
-In its current state the CBE library is still pretty much in flux and should
-not be used. As the FT does not employ copy-on-write semantics for its meta-data
-a crash, software- or hardware-wise, will corrupt the tree structure and renders
-the CBE unusable on the next start. Addressing this issue is part of the current
-work. That being said, there are components that besides being used for testing
-show how the interface of the CBE library lends itself to be integrated in
-components in different ways. At the moment, there are two components making
-use of the CBE library as block-device provider.
+In its current state, the CBE library is still pretty much in flux and is not
+ment for productive use.
 
-The first one is the 'cbe' server component. Its a simple Block session proxy
-component that uses a backend Block connection to access a block-device and
-provides a frontend Block session to its client. It creates disposable
-snapshots every few seconds and uses the 'External_Crypto' library
-to encrypt the data blocks using AES-CBC-ESSIV. The used key is a plain
-passphrase. The following snippet illustrates its configuration:
+As the Free Tree does not employ copy-on-write semantics for its meta-data, a
+crash, software- or hardware-wise, will corrupt the tree structure and renders
+the CBE unusable on the next start.
 
-! <start name="cbe">
-!  <resource name="RAM" quantum="4M"/>
-!  <provides><service name="Block"/></provides>
-!  <config sync_interval="5" passphrase="All your base are belong to us"/>
-! </start>
+Addressing this issue is part of the current work. That being said, there are
+components that, besides being used for testing, show how the interface of the
+CBE library lends itself to be integrated in components in different ways. At
+the moment, there are two components making use of the CBE library as
+block-device provider.
 
-A ready to use examplary run-script can be found in the CBE repository
-in _run/cbe.run_.
-
-The other component using the CBE library is the 'vfs_cbe' VFS plugin.
-In contrast to the 'cbe' server component the plugin represents the
-CBE in form of pseudo files. Besides r/w access to the working tree and
-r/o access to all persistent snapshots it also provides a management interface
-where persistent snapshots can be created or discarded. Its current layout
-is illustrated by figure [cbe_vfs.png]. The VFS plugin generates three
-top directories in its root directory. The first one is the _control_
-directory. It contains several pseudo files for managing the CBE:
+The first one is the forementioned CBE-VFS plugin. Besides r/w access to the
+working tree and r/o access to all persistent snapshots it also provides a
+management interface where persistent snapshots can be created or discarded.
+Its current layout is illustrated by figure [cbe_vfs.png]. The VFS plugin
+generates three top directories in its root directory. The first one is the
+_control_ directory. It contains several pseudo files for managing the CBE:
 
  * 'key': set a key by writing a string into the file.
  * 'create_snapshot': writing 'true' to this file will attempt to create
                       a new snapshot. (Eventually the snapshot will
                       appear in the 'snapshots' directory if it could be
                       created successfully.)
- * 'discard_snapshot': writing a snapshot id into this file will discard
+ * 'discard_snapshot': writing a snapshot ID into this file will discard
                        the snapshot
 
 The second is the 'current' directory. It gives access to the current
@@ -187,7 +268,7 @@ This directory, like the 'current' directory, contains a 'data' file.
 This file, however, gives only read access to the data belonging to
 the snapshot.
 
-A ready to use examplary run-script can be found in the CBE repository
+An examplary ready-to-use run-script can be found in the CBE repository
 in _run/cbe_vfs_snaps.run_. This run-script uses a bash script to
 automatically perform a few operations on the CBE using the VFS plugin.
 Afterwards it will drop the user into a shell where further operations
@@ -195,9 +276,34 @@ can be performed manually, e.g.:
 
 ! dd if=/dev/zero of=/dev/cbe/current/data bs=4K
 
-Both run-scripts will create the initial CBE state in a RAM backed
-block-device that is then accessed by the 'cbe' and 'vfs_cbe'
-component.
+
+The second one is the CBE server component. In contrast to the CBE-VFS plugin
+it is just a simple Block session proxy component that uses a backend Block
+connection to access a block-device and provides a frontend Block session to
+its client. It creates disposable snapshots every few seconds and uses the
+'External_Crypto' library to encrypt the data blocks using AES-CBC-ESSIV. The
+used key is a plain passphrase. The following snippet illustrates its
+configuration:
+
+! <start name="cbe">
+!  <resource name="RAM" quantum="4M"/>
+!  <provides><service name="Block"/></provides>
+!  <config sync_interval="5" passphrase="All your base are belong to us"/>
+! </start>
+
+The _run/cbe.run_ run script in the CBE repository showcases the use of the
+CBE server.
+
+Both run-scripts will create the initial CBE state in a RAM-backed
+block device that is then accessed by the CBE server or the CBE-VFS
+plugin.
+
+The run-script and the code itself can be found in the
+[https://github.com/cnuke/cbe/tree/cbe_19.11 - cbe/cbe_19.11] branch on
+github. If you intend to try out the run scripts you have to checkout
+the corresponding
+[https://github.com/cnuke/genode/tree/cbe_19.11 - genode/cbe_19.11]
+branch in the Genode repository as well.
 
 ; future plans
 
@@ -205,10 +311,13 @@ Besides addressing the current shortcomings and getting the CBE library
 production-ready, so that it can be used in Sculpt, there are still
 a few features that are currently unimplemented. For one we would like
 to add support for making it possible to resize the VBD as well as the
-FT. For now the geometry is fixed as initialization time and cannot
-be changed afterwards. Furthermore we would like to enable rekeying,
+Free Tree. For now the geometry is fixed at initialization time and cannot
+be changed afterwards. Furthermore we would like to enable re-keying,
 i.e., changing the used cryptograhpic key and re-encrypting the tree
-set of the VBD afterwards.
+set of the VBD afterwards. In addition to adding those features, the
+overall tooling for the CBE needs to improved. E.g., there is currently
+no proper initialization component. For now, we rely on a component
+that was build merely as a test vehicle to generate the initial trees.
 
 
 Virtualization of 64-bit ARM platforms
