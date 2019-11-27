@@ -678,21 +678,23 @@ of 'codepoint.value != 0').
 NIC router
 ==========
 
-; @m-stein
+The NIC router has received the ability to report the link state of its NIC
+interfaces (downlinks and uplinks). To control this mechanism, there are two
+new boolean attributes 'link_state' and 'link_state_triggers' in the <report>
+tag of the NIC router configuration. If the former is set to "true", the report
+will contain the current link state for each interface:
 
-commit 27c2a66bbde5a3a65349b8a5d472bc61179e79a5
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Tue Oct 15 18:56:37 2019 +0200
+! <domain name="domain1">
+!    <interface label="uplink1" link_state="false"/>
+!    <interface label="downlink1" link_state="true"/>
+! <domain/>
+! <domain name="domain2">
+!    <interface label="downlink2" link_state="true"/>
+! <domain/>
 
-    nic_router: report link state
-    
-    This adds two new boolean attributes to the <report> tag of the NIC router
-    configuration 'link_state' and 'link_state_triggers'. The former decides
-    whether to report the link state of each NIC interface (downlink, uplinks) at
-    the NIC router. The other decides whether to trigger reporting each time the
-    link state of an interface changes.
-    
-    Fixes #3527
+The second attribute decides whether to trigger a report update each time the
+link state of an interface changes. By default, both attributes are set to
+"false".
 
 
 Device drivers
