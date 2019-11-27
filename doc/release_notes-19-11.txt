@@ -45,7 +45,7 @@ Over the past year, we worked on implementing a block-device encryption
 component that makes use of the
 [https://en.wikipedia.org/wiki/SPARK_(programming_language) - SPARK]
 programming language for its core logic. In contrast to common
-block-device encryption techniques where normally there is little done besides
+block-device encryption techniques where normally is little done besides
 the encryption of the on-disk blocks, the _consistent block encrypter (CBE)_
 aims for more. It combines multiple techniques to ensure integrity -
 the detection of unauthorized modifications of the block-device -
@@ -70,7 +70,7 @@ Design
 ------
 
 As depicted in Figure [cbe_trees], all information describing the various
-parts of the CBE is stored in the superblock. The referenced VBD is a set of
+parts of the CBE are stored in the superblock. The referenced VBD is a set of
 several hash trees, each representing a certain device state including the
 current working state. Only the tree of the current working state is used to
 write data to the block device. All other trees represent snapshots of older
@@ -242,7 +242,7 @@ CBE library lends itself to be integrated in components in different ways. At
 the moment, there are two components making use of the CBE library as
 block-device provider.
 
-The first one is the forementioned CBE-VFS plugin. Besides r/w access to the
+The first one is the aforementioned CBE-VFS plugin. Besides r/w access to the
 working tree and r/o access to all persistent snapshots, it also provides a
 management interface where persistent snapshots can be created or discarded.
 Its current layout is illustrated by Figure [cbe_vfs]. The VFS plugin
@@ -366,7 +366,7 @@ reflected by the DTB used for the guest OS. An example device-tree source file
 can be found at _repos/os/src/server/vmm/spec/arm_v8/virt.dts_. The actual VMM
 is located in the same directory.
 
-Although support for muliti-core VMs is already considered internally, it is
+Although support for multi-core VMs is already considered internally, it is
 not yet finished. Further outstanding features that are already in development
 are Virtio device model support for networking and console. As the first - and
 by now only - back end, we tied the VMM to the ARMv8 broadened Kernel-agnostic
@@ -729,7 +729,7 @@ Libraries and applications
 VirtualBox improvements
 =======================
 
-The GUI handling of our Virtualbox port got improved to react on
+The GUI handling of our VirtualBox port got improved to react on
 window-size changes more instantly. The effect is that an interactive
 adjustment of the window size, e.g., on Sculpt, becomes quickly visible to the
 user. Still, the VM may take some time to adjust to the resolution change,
