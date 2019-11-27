@@ -427,36 +427,33 @@ Date:   Mon Nov 18 15:28:37 2019 +0100
 Input-event handling
 ====================
 
-; @chelmuth
+In Genode 19.08, we undertook a comprehensive rework of our
+keyboard-event handling in the light of localization and also promised
+to tie up remaining loose ends soon.
 
-commit edc954522994146f49e56a0a2183acafa6ca3b4d
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Tue Sep 10 16:47:24 2019 +0200
+First, we again dived into our character generators for a thorough
+check of our stack of keyboards and fixed remaining inconsistencies in
+French and German layouts. En passant, we also increased the default
+RAM quotas for input_filter to 1280K in our recipes to cope with the
+increased layout-configuration sizes in corner cases.
 
-    input: move control-modifier handling into clients
-    
-    Moving the handling into the input-session clients enables more
-    sophisticated implementations (like Qt5) to apply key-symbol based
-    handling of those modifiers like correct CTRL-A with QWERTY and AZERTY
-    layouts and distinction of CTRL-J and Return.
-    
-    Issue #3483
+Next (and more importantly), we subdued the monsters lurking in our
+Qt5 keyboard backend and enabled transparent support for system-wide
+keyboard layout configuration for Qt5 components. One important change
+during this work was to move the handling of Control key sequences
+into the clients. For example, the graphical terminal and Qt5
+interpret key events in combination with the CTRL modifier based on
+characters and, thus, support CTRL-A with AZERTY and QWERTY layouts
+correctly. As a result we removed all CTRL modifier mod2 configurations
+from our character-generator configurations.
 
-commit cccfd0719d9feee49f3f6e7966fa0a824c864172
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Tue Sep 10 14:51:51 2019 +0200
-
-    qt5: prevent deprecated warnings
-    
-    Issue #3483
-
-commit 1782c6be79ca929442fd0fe526ce767e238607b7
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Tue Sep 3 15:25:34 2019 +0200
-
-    qt5: rework keyboard handling
-    
-    Fixes #3483
+Finally we'd like to point out one important change of our rework that
+repeatedly led to surprises: For keys without character mappings the
+reworked character-generator mechanism emits invalid codepoints in
+contrast to codepoints with value 0. For that reason, components
+interpreting character events should check 'Codepoint::valid()' to
+prevent processing of invalid characters (and not the frequent pattern
+of 'codepoint.value != 0').
 
 
 NIC router
