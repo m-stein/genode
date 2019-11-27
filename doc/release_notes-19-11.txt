@@ -337,18 +337,14 @@ Device drivers
 Platform driver on x86
 ~~~~~~~~~~~~~~~~~~~~~~
 
-; @chelmuth
-
-commit 6df8b446165d8ea01defe29886c28a994f5e2b65
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Mon Sep 23 15:29:05 2019 +0200
-
-    platform/x86: support 64-bit base address registers
-    
-    The API still exports 32-bit address and size values only, which works
-    as the actual MMIO resources are allocated in platform_drv internally.
-    
-    Fixes #3494
+During our enablement of Genode on a
+[https://genodians.org/chelmuth/2019-10-21-sculpt-elitebook - recent notebook]
+we spotted some PC platform shortcomings, we address with this
+release. Most prominently we added support for
+[https://en.wikipedia.org/wiki/PCI_configuration_space#Bus_enumeration - 64-bit PCI base address registers]
+to the x86 platform_drv. This allows the usage of PCI devices, which
+are set up with I/O memory regions physically located above 4 GiB by
+the boot firmware.
 
 
 Wireless driver
