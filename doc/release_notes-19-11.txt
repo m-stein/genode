@@ -75,7 +75,58 @@ identification.
 New tooling for bridging existing build systems with Genode
 ###########################################################
 
-; @nfeske
+Genode's development tools are powerful and intimidating at the same time.
+Being designed from the perspective of a whole-systems developer, they put
+emphasis on the modularity of the code base (separating concerns like
+different kernels and system abstraction levels), transitive dependency
+tracking between libraries, scripting of a wide variety of system-integration
+tasks, and the continuous integration of complete Genode-based
+operating-system scenarios. Those tools are a two-edged sword though.
+
+On the one hand, the tools are key for the productivity of seasoned Genode
+developers once the potential of the tools is fully understood and leveraged.
+For example, during the development of Sculpt OS, we are routinely able to
+change an arbitrary line of code in any system component and can test-drive
+the resulting Sculpt system on real hardware within a couple of seconds.
+As another example, the almost seamless switching from one OS kernel to
+another has become a daily routine that we just take for granted.
+
+On the other hand, the sophistication of the tools stands on the way of
+application developers who are focused on a particular component instead
+of the holistic Genode system. In this case, the powerful system-integration
+features remain unused but the complexity of the tools and the build system
+prevails. Speaking of build systems, this topic is ripe of emotions
+anyway. _Developers use to hate build systems._ Forcing Genode's build
+system down the throats of application developers is probably not the best
+idea to make Genode popular.
+
+This line of thoughts prompted us to re-approach the tooling for Genode
+from the perspective of an application developer. The intermediate result
+is a new tool called Goa:
+
+:Goa project at GitHub:
+
+  [https://github.com/nfeske/goa]
+
+Unlike Genode's regular tools, Goa's work flow is project-centered. A project
+is a directory that may contain source code, data, instructions how to
+download source codes from a 3rd party, descriptions of system scenarios, or
+combinations thereof. Goa is independent from Genode's regular build system.
+It combines Genode's package management (depot) with commodity build systems
+such a CMake. In addition to building and test-driving application software
+directly on a Linux-based development system, Goa is able to aid the process
+of exporting and packaging the software in the format expected by Genode
+systems like Sculpt OS.
+
+At the current stage, Goa should be considered as work in progress. It's a new
+approach and its success in anything but proven. That said, if you are
+interested in developing or porting application software for Genode, your
+feedback would be especially valuable. As a starting point, you may find the
+following introductory article helpful:
+
+:Goa - streamlining the development of Genode applications:
+
+  [https://genodians.org/nfeske/2019-11-25-goa]
 
 
 Base framework and OS-level infrastructure
