@@ -10,6 +10,8 @@
 
 ; intro
 ; @nfeske
+;Motivated by theme of "bridging worlds" as stated on our
+;[https://genode.org/about/road-map - road map] for this year,
 
 
 Preliminary block-device encryptor
@@ -155,273 +157,126 @@ one component, the new VFS plugin can also be used to establish pipes between
 different components by using the plugin at a shared VFS server.
 
 
-Reworked C runtime, improved POSIX compatibility
-================================================
+C runtime with improved POSIX compatibility
+===========================================
 
-; @nfeske
+Within Genode, we used to think of POSIX as a legacy that is best avoided.
+In fact, the foundational components of the framework do not depend on a
+C runtime at all. However, higher up the software stack - at the latest when
+3rd-party libraries enter the picture - a working C runtime is unavoidable. In
+this statement, the term "working" is rather muddy though. Since we have never
+fully embraced POSIX, we were content with cutting corners here and there. For
+example, given Genode's architecture, supporting 'fork' and 'execve' seemed
+totally out of question because those mechanism would go against the grain of
+Genode.
 
-commit 0aedabd245171da51640720348b369b463bf6178
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Sep 16 13:52:39 2019 +0200
+However, our growing aspiration to bridge the worlds between existing
+applications and Genode made us re-evaluate our stance towards POSIX.
+All technical criticism aside, POSIX is immensely useful because it is
+an universally accepted stable interface. To dissolve friction between
+Genode and popular application software, we have to satisfy the application's
+expectations. This ignited a series of developments, in particular
+the added support for 'fork' and 'execve' of all things in
+[https://genode.org/documentation/release-notes/19.08#Consolidation_of_the_C_runtime_and_Noux - Genode 19.08],
+which was nothing short of surprising, even to us.
+The current release continues this line of development and brings the
+following improvements.
 
-    libc: remove global constructors
-    
-    - readv_writev: move 'rw_lock' instance into a function scope,
-      constructing the instance on the first access.
-    - select: move 'select_cb_list' instance into function scope.
-    - thread: move 'key_list_lock' and 'keys' into function scope.
-    - rwlock, semaphore, socket_fs_plugin, thread, thread_create:
-      instantiate 'Libc::Allocator' per use, alleviating the need for a
-      global instance.
-    
-    Issue #3496
 
-commit bf922326981b5f5ac26f9dc01fd13dbb3497cc41
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Sep 18 20:19:10 2019 +0200
+Execve
+------
 
-    libc: split task.cc into multiple files
-    
-    This patch is the first step of re-organizing the internal structure of
-    the libc. The original version involved many direct calls of global
-    functions (often with side effects) across compilation units, which
-    made the control flow (e.g., the initialization sequence) hard to
-    follow.
-    
-    The new version replaces those ad-hoc interactions with dedicated
-    interfaces (like suspend.h, resume.h, select.h, current_time.h). The
-    underlying facilities are provided by the central Libc::Kernel and
-    selectively propagated to the various compilation units. The latter is
-    done by a sequence of 'init_*' calls, which eventually will be replaced
-    by constructor calls.
-    
-    The addition of new headers increases the chance for name clashes with
-    existing (public) headers. To disambiguate libc-internal header files
-    from public headers, this patch moves the former into a new 'internal/'
-    subdirectory. This makes the include directives easier to follow and the
-    libc's source-tree structure more tidy.
-    
-    There are still a few legacies left, which cannot easily be removed
-    right now (e.g., because noux relies on them). However, the patch moves
-    those bad apples to legacy.h and legacy.cc, which highlights the
-    deprecation of those functions.
-    
-    Issue #3497
+The libc's 'execve' implementation got enhanced to evaluate the
+path of the executable binary according to the information found on the VFS,
+in particular by traversing directories and following symbolic
+links. This enables the libc to execute files stored at sub
+directories of the file system.
 
-commit 648bcd1505a93ac799c572f1773f32fe409296d3
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Sep 19 20:37:17 2019 +0200
+Furthermore, 'execve' received handling for *executing shell scripts* by
+parsing shebang marker at the beginning of the executable file. This
+way, the 'execve' / 'fork' mechanism of the libc reaches parity with the
+feature set of the Noux runtime that we traditionally used to execute
+Unix software on top of Genode.
 
-    libc: unify use of namespaces
-    
-    This patch unifies the patterns of using the 'Genode' and 'Libc'
-    namespaces.
-    
-    Types defined in the 'internal/' headers reside in the 'Libc'
-    namespace. The code in the headers does not need to use the
-    'Libc::' prefix.
-    
-    Compilation units import the 'Libc' namespace after the definition of
-    local types. Local types reside in the 'Libc' namespace (and should
-    eventually move to an 'internal/' header).
-    
-    Since the 'Libc' namespace imports the 'Genode' namespace, there is
-    no need to use the 'Genode::' prefix. Consequently, code in the
-    compilation units rarely need to qualify the 'Genode' or 'Libc'
-    namespaces.
-    
-    There are a few cases where the 'Libc', the 'Genode', and the global
-    (libc) namespaces are ambigious. In these cases, an explicit
-    clarification is needed:
-    
-    - 'Genode::Allocator' differs from 'Libc::Allocator'.
-    - 'Genode::Env' differs from 'Libc::Env'.
-    - Genode's string functions (strcmp, memcpy, strcpy) conflict
-      with the names of the (global) libc functions.
-    - There exist both 'Genode::uint64_t' and the libc'c 'uint64_t'.
-    
-    Issue #3497
 
-commit ab5187d6731b2d3578b3480b28d3236983660304
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Sep 23 14:45:58 2019 +0200
+Modification-time handling
+--------------------------
 
-    libc: resolve symlinks in execve
-    
-    This patch complements the commit "libc: execve" with the ability to
-    execute files stored at arbitrary sub directories of the file system.
-    
-    Issue #3481
-    Issue #3500
+By default, the libc uses the just added facility for updating the timestamp
+of file-system nodes when closing a written-to file, which clears the path
+towards using tools like 'make' that rely on file-modifications times.
 
-commit d0bf6d2b52f9fe2c3452554e1e8f672038451b9e
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Wed Mar 20 15:16:07 2019 +0100
+The libc's mechanism can be explicitly disabled by specifying
+! <libc update_mtime="no"...>
+This is useful for applications that have no access to a time source.
 
-    libc: add modification time
-    
-    Issue #1784.
 
-commit 979d823d853240c496c4c2c9df9c709a1c34db1e
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Sep 27 17:30:04 2019 +0200
+Emulation of 'ioctl' operations via pseudo files
+------------------------------------------------
 
-    libc: make mtime update configurable
-    
-    By specifying <libc update_mtime="no"...>, the modification-time update
-    on VFS-sync operations (as issued whenever a written file is closed)
-    can explicitly be disabled.
-    
-    Issue #1784
+With the current release, we introduce a new scheme of handling ioctl
+operations, which maps 'ioctl' calls to pseudo-file accesses, similar to how
+the libc already maps socket calls to socket-fs operations.
 
-commit 7ac32ea60c703a73477c121ab8269dfad201f428
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Oct 9 15:51:18 2019 +0200
+A device file can be accompanied with a (hidden) directory that is named after
+the device file and hosts pseudo files for triggering the various device
+operations. For example, for accessing a terminal, the directory structure
+looks like this:
 
-    libc: support for ioctls via ioctl directory
-    
-    This patch introduces a new scheme of handling ioctl operations that
-    maps ioctls to pseudo-file accesses, similar to how the libc maps socket
-    calls to socket-fs operations.
-    
-    A device file can be accompanied with a (hidden) directory that is named
-    after the device file and hosts pseudo files for triggering the various
-    device operations. For example, for accessing a terminal, the directory
-    structure looks like this:
-    
-      /dev/terminal
-      /dev/.terminal/info
-    
-    The 'info' file contains device information in XML format. The type of
-    the XML node corresponds to the device type. E.g., If the libc receives
-    a 'TIOCGWINSZ' ioctl for /dev/terminal, it reads the content of
-    /dev/.terminal/info to obtain the terminal-size information. In this
-    case, the 'info' file looks as follows:
-    
-      <terminal rows="25" columns="80/>
-    
-    Following this scheme, VFS plugins can support ioctl operations by
-    providing an ioctl directory in addition to the actual device file.
-    
-    Internally, the mechanism uses the 'os/vfs.h' API to access pseudo
-    files. Hence, we need to propagate the Vfs::Env to 'vfs_plugin.cc' to
-    create an instance of a 'Directory' for the root for the VFS.
-    
-    Issue #3519
+! /dev/terminal
+! /dev/.terminal/info
+! /dev/.terminal/rows
+! /dev/.terminal/columns
 
-commit d516515c7a2840f265cdcc916038bc5020b3dc6e
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Oct 10 14:34:40 2019 +0200
+The 'info' file contains device information in XML format. The type of the XML
+node corresponds to the device type. Whenever the libc receives a 'TIOCGWINSZ'
+ioctl for _/dev/terminal_, it reads the content of _/dev/.terminal/info_ to
+obtain the terminal-size information. In this case, the 'info' file looks as
+follows:
 
-    vfs/terminal: provide meta info as pseudo files
-    
-    Issue #3519
-    Fixes #3521
+! <terminal rows="25" columns="80/>
 
-commit 7b0771659e2193b57f1c4cf77ef8bd810887cc7b
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Oct 11 15:23:22 2019 +0200
+Following this scheme, VFS plugins can support ioctl operations by providing
+an ioctl directory in addition to the actual device file.
 
-    libc: trigger SIGWINCH by watching .terminal/info
-    
-    Issue #3544
 
-commit 636e0f64447ab43372fddba5f27b77d8f93d03b0
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Oct 29 10:52:49 2019 +0100
+Emulation of POSIX signals
+--------------------------
 
-    libc: cancel select when POSIX signal occurs
-    
-    With this patch, Vim running via the 'bash.run' script becomes able to
-    adopt itself to changed window dimensions.
-    
-    Issue #3544
+Even though there is no notion of POSIX signals at the Genode level, we
+can reasonably emulate certain POSIX signals at the libc level. The current
+release introduces the first bunch of such emulated signals:
 
-commit 8c44b17e862e55e0a70c0c538ffc60e64369a2e6
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Oct 29 18:11:09 2019 +0100
+:SIGWINCH: If 'stdout' is connected to a terminal, the libc watches the
+  terminal's ioctl pseudo file _.terminal/info_. Whenever the terminal
+  size changes, the POSIX signal SIGWINCH is delivered to the application.
+  With this improvement, Vim becomes able to dynamically adjust itself
+  to changed window dimensions when started as a native Genode component
+  (w/o the Noux runtime environment).
 
-    libc: shebang handling for execve
-    
-    Fixes #3545
+:SIGINT: If 'stdin' is connected to a terminal, the libc watches the
+  terminal's pseudo file _.terminal/interrupts_. Since, the terminal VFS
+  plugin modifies the file for each occurred user interrupt (control-c),
+  the libc is able to reflect such an event as SIGINT signal to the
+  application.
 
-commit c1012e6a45115c3422c71c6b109400fd7dc89c19
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Oct 30 21:19:11 2019 +0100
+:Process-local signal delivery: The libc's implementation of 'kill' got
+  enhanced with the ability to submit signals to the local process.
 
-    libc: translate terminal user interrupts to SIGINT
-    
-    Issue #3546
 
-commit bb6eb0f6ea072e12cdfe73883b695a2158bc3061
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Oct 30 22:19:54 2019 +0100
+Support for arbitrarily large write operations
+----------------------------------------------
 
-    libc: local signal delivery via 'kill'
-    
-    This patch adds the ability to call 'kill' with the own PID to trigger
-    the execution of the handler of the specified POSIX signal. This is used
-    by 'bash', e.g., when cancelling the input of a command via control-c.
-    
-    Related to issue #3546
-
-commit 068324536cd4855295c12246e7ab0a5cc49b8383
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Oct 30 23:04:34 2019 +0100
-
-    libc: eliminate atexit handler for 'Rtc'
-    
-    We never want to destruct the 'Rtc' because other atexit handlers may
-    depend on it (e.g., for updating modification times when closing files).
-
-commit 91412c6c52f28fdb64ac7db33696a6435966c5e4
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Oct 30 23:08:34 2019 +0100
-
-    libc: trigger SIGCHLD for when forked child exits
-
-commit fab2fc874f178f7b354efb9ea57fd32941745cab
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Sat Nov 2 18:54:56 2019 +0100
-
-    libc: write loop for continuous files
-    
-    This patch improves the libc's write operation to iterate on partial
-    writes to continuous files until the original write count is reached.
-    The split of large write operations into small partial writes as
-    dictated by the VFS infrastructure (e.g., constained by I/O buffer
-    sizes) becomes invisible to the libc-using application.
-    
-    Issue #3507
-    Issue #2303
-
-commit d4e0d2f578932a7c0a0c71bcddbba0b5501fa7ff
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Sun Nov 3 11:53:13 2019 +0100
-
-    libc: defer clone ack after FD initialization
-    
-    Issue #3478
-    Issue #2303
-
-commit c50252fb350bd43d7a0fbdf6182a43c0877e370e
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Tue Nov 5 12:32:55 2019 +0100
-
-    libc: suspend/resume in pthread mutex lock/unlock
-    
-    Issue #3550
-
-commit 6ccd65bd8e720336ab242445dfc6eb701659c6d8
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Nov 18 15:28:37 2019 +0100
-
-    sculpt_manager: invoke mkfs.ext2 with -F
-    
-    The block-vfs plugin is no longer a special file. So we have to
-    explicitly discharge the sanity check of the mkfs tool.
-    
-    Issue #3507
+The number of bytes written by a single 'write' call used to be constrained by
+the file's underlying I/O buffer size. Even though our libc correctly returned
+this information to the application, we found that real-world applications
+rarely check the return value of 'write' because partial writes do not occur
+on popular POSIX systems. Thanks to the added distinction between continuous
+and transactional files as described in Section [File-system session] we could
+now improve the libc's write operation to iterate on partial writes to
+continuous files until the original write count is reached. The split of large
+write operations into small partial writes as dictated by the VFS
+infrastructure becomes invisible to the libc-using application.
 
 
 Input-event handling
