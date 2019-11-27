@@ -23,18 +23,30 @@ Preliminary block-device encryptor
 Virtualization of 64-bit ARM platforms
 ######################################
 
-Genode has a long history regarding support of all kind of virtualization
-techniques. Mainly, because an evolving operating system needs interim solutions
-to provide non-trivial, existent software stacks. Recently in release 19.05 the
-introduction of a Kernel-agnostic interface to control Virtual-Machines (VM)
-ushered in a new level for the construction resp. porting of
-Virtual-Machine-Monitors (VMM).
-By introducing a new ARMv8 compliant VMM developed from scratch, we continue
-this line of work.
+Genode has a long history regarding support of all kind of
+virtualization-related techniques including
+[https://genode.org/documentation/release-notes/9.11#Paravirtualized_Linux_on_Genode_OKL4 - para-virtualization],
+[https://genode.org/documentation/articles/trustzone - TrustZone],
+hardware-assisted virtualization on
+[https://genode.org/documentation/articles/arm_virtualization - ARM],
+[https://genode.org/documentation/release-notes/13.02#Full_virtualization_on_NOVA_x86
+- x86], up to the full virtualization stack of
+[https://genode.org/documentation/release-notes/14.02#VirtualBox_on_top_of_the_NOVA_microhypervisor - VirtualBox].
 
-The new VMM continues the Proof-of-Concept (PoC) implementation for ARMv7 introduced
-in Genode release 15.02. In contrast to the former PoC implementation it aims to
-be complete to a greater extent. Currently, it comprises device models for:
+We regard those techniques as welcome stop-gap solutions for using non-trivial
+existing software stacks on top of Genode's clean-slate OS architecture. The
+[https://genode.org/documentation/release-notes/19.05#Kernel-agnostic_virtual-machine_monitors - recent]
+introduction of a kernel-agnostic interface to control virtual machines (VM)
+ushered a new level for the construction respectively porting of
+virtual-machine monitors (VMM). By introducing a new ARMv8-compliant VMM
+developed from scratch, we continue this line of work.
+
+The new VMM builds upon our existing proof-of-concept (PoC) implementation for
+ARMv7 as introduced in release
+[https://genode.org/documentation/release-notes/15.02#Virtualization_on_ARM - 15.02].
+In contrast to the former PoC implementation, however, it aims to be complete
+to a greater extent. Currently, it comprises device models for the following
+virtual hardware:
 
 * RAM
 * System Bus
@@ -44,32 +56,29 @@ be complete to a greater extent. Currently, it comprises device models for:
 * PL011 UART (limited)
 * Pass-through devices
 
-The VMM is ready to load diverse 64-bit Linux kernels including
+The VMM is able to load diverse 64-bit Linux kernels including
 Device-Tree-Binary (DTB) and Initramfs. Currently, the implementation uses a
 fixed memory layout for the guest-physical memory view, which needs to be
-reflected by the DTB used for the guest OS. An example device tree source file
-can be found in 'repos/os/src/server/vmm/spec/arm_v8/virt.dts'. The whole VMM
-implementation can be found in the same directory.
+reflected by the DTB used for the guest OS. An example device-tree source file
+can be found at _repos/os/src/server/vmm/spec/arm_v8/virt.dts_. The actual VMM
+is located in the same directory.
 
-Although, support for many-core VMs is already constructed internally, it is not
-ready to work free of complaints. Further outstanding features that are already
-in development are Virtio device model support for networking and console.
-
-The first and by now only backend we tied to the ARMv8 broadened Kernel-agnostic
-VM-session interface is Genode's own base-hw kernel.
-
-To give the new VMM a try, you can execute the 'repos/os/run/vmm_arm.run' on top
-of the i.MX8 Evaluation Kit board.
-
-The VMM hardly depends on the availability of the virtualization hardware
-support (EL2). This hardware support comprises extensions for the ARMv8-A CPU,
-ARM's Generic Timer, and ARM's GIC. Therefore, the Raspberry Pi 3
-board cannot be used as basis, because it does not include a GIC, but an own
-interrupt-controller without hardware-assisted virtualization of interrupts.
-
-Within the scope of this work, we consolidated the generic VM session interface
-slightly. The RPC call to create a new virtual-CPU now returns an identifier for
+Although support for muliti-core VMs is already considered internally, it is
+not yet finished. Further outstanding features that are already in development
+are Virtio device model support for networking and console. As the first - and
+by now only - back end, we tied the VMM to the ARMv8 broadened Kernel-agnostic
+VM-session interface as implemented by Genode's custom base-hw kernel. As a
+side of this work, we consolidated the generic VM session interface slightly.
+The RPC call to create a new virtual-CPU now returns an identifier for
 identification.
+
+The VMM has a strict dependency on ARM's hardware virtualization support
+(EL2), which comprises extensions for the ARMv8-A CPU, ARM's generic timer,
+and ARM's GIC. This rules out the Raspberry Pi 3 board as a base platform
+because it does not include a GIC but an own interrupt-controller without
+hardware-assisted virtualization of interrupts. To give the new VMM a try, we
+recommend using the run script _repos/os/run/vmm_arm.run_ as a starting point
+for executing the VMM on top of the i.MX8 Evaluation Kit board.
 
 
 New tooling for bridging existing build systems with Genode
@@ -78,20 +87,21 @@ New tooling for bridging existing build systems with Genode
 Genode's development tools are powerful and intimidating at the same time.
 Being designed from the perspective of a whole-systems developer, they put
 emphasis on the modularity of the code base (separating concerns like
-different kernels and system abstraction levels), transitive dependency
+different kernels or system abstraction levels), transitive dependency
 tracking between libraries, scripting of a wide variety of system-integration
 tasks, and the continuous integration of complete Genode-based
 operating-system scenarios. Those tools are a two-edged sword though.
 
 On the one hand, the tools are key for the productivity of seasoned Genode
 developers once the potential of the tools is fully understood and leveraged.
-For example, during the development of Sculpt OS, we are routinely able to
+For example, during the development of Sculpt OS, we are able to
 change an arbitrary line of code in any system component and can test-drive
 the resulting Sculpt system on real hardware within a couple of seconds.
 As another example, the almost seamless switching from one OS kernel to
-another has become a daily routine that we just take for granted.
+another has become a daily routine that we just take for granted without
+even thinking about it.
 
-On the other hand, the sophistication of the tools stands on the way of
+On the other hand, the sophistication of the tools stands in the way of
 application developers who are focused on a particular component instead
 of the holistic Genode system. In this case, the powerful system-integration
 features remain unused but the complexity of the tools and the build system
@@ -145,24 +155,25 @@ time of a file-system node. The time is defined by the client to keep
 file-system servers free from time-related concerns. The VFS server implements
 the operation by forwarding it to the VFS plugin interface. At present, this
 new interface is implemented by the rump VFS plugin to store modification
-times on ext file systems.
+times on EXT file systems.
 
 
 Enhanced file-status info
 -------------------------
 
 The status of a file-system node as returned by the 'File_system::Status'
-operation has been revisited. First, we replaced the fairly opaque "mode" bits
-- which was an ad-hoc attempt to stay compatible with Unix - with the explicit
+operation has been revisited. First, we replaced the fairly opaque "mode" bits -
+which were an ad-hoc attempt to stay compatible with Unix - with the explicit
 notion of 'readable', 'writeable', and 'executable' attributes. We completely
 dropped the notion of users and groups. Second, we added the distinction
 between *continuous* and *transactional* files to allow for the robust
 implementation of continuous write operations across component boundaries. A
-continuous file can be written to via a sequence of arbitrarily sized chunks
+continuous file can be written-to via a sequence of arbitrarily sized chunks
 of data. For such files, a client can split a large write operation into any
-number of smaller operations in accordance to the size of I/O buffers. In
-contrast, a write to a transactional file is regarded as a distinct operation.
-The canonical example of a transactional file is a socket-control pseudo file.
+number of smaller operations in accordance to the size of the used I/O
+buffers. In contrast, a write to a transactional file is regarded as a
+distinct operation. The canonical example of a transactional file is a
+socket-control pseudo file.
 
 
 Virtual file-system infrastructure
@@ -205,7 +216,7 @@ We added a new VFS plugin for emulating POSIX pipes. The new plugin creates
 pipes between pairs of VFS handles. It replaces the deprecated libc_pipe
 plugin. In contrast to the libc_pipe plugin, which was limited to pipes within
 one component, the new VFS plugin can also be used to establish pipes between
-different components by using the plugin at a shared VFS server.
+different components by mounting the plugin at a shared VFS server.
 
 
 C runtime with improved POSIX compatibility
@@ -221,13 +232,13 @@ example, given Genode's architecture, supporting 'fork' and 'execve' seemed
 totally out of question because those mechanism would go against the grain of
 Genode.
 
-However, our growing aspiration to bridge the worlds between existing
+However, our growing aspiration to bridge the gap between existing popular
 applications and Genode made us re-evaluate our stance towards POSIX.
 All technical criticism aside, POSIX is immensely useful because it is
 an universally accepted stable interface. To dissolve friction between
 Genode and popular application software, we have to satisfy the application's
 expectations. This ignited a series of developments, in particular
-the added support for 'fork' and 'execve' of all things in
+the added support for 'fork' and 'execve' - of all things - in
 [https://genode.org/documentation/release-notes/19.08#Consolidation_of_the_C_runtime_and_Noux - Genode 19.08],
 which was nothing short of surprising, even to us.
 The current release continues this line of development and brings the
@@ -237,17 +248,15 @@ following improvements.
 Execve
 ------
 
-The libc's 'execve' implementation got enhanced to evaluate the
-path of the executable binary according to the information found on the VFS,
-in particular by traversing directories and following symbolic
-links. This enables the libc to execute files stored at sub
-directories of the file system.
+The libc's 'execve' implementation got enhanced to evaluate the path of the
+executable binary according to the information found on the VFS, in particular
+by traversing directories and following symbolic links. This enables the libc
+to execute files stored at sub directories of the file system.
 
 Furthermore, 'execve' received handling for *executing shell scripts* by
-parsing shebang marker at the beginning of the executable file. This
-way, the 'execve' / 'fork' mechanism of the libc reaches parity with the
-feature set of the Noux runtime that we traditionally used to execute
-Unix software on top of Genode.
+parsing shebang marker at the beginning of the executable file. This way, the
+'execve' mechanism of the libc reaches parity with the feature set of the Noux
+runtime that we traditionally used to host Unix software on top of Genode.
 
 
 Modification-time handling
@@ -259,7 +268,8 @@ towards using tools like 'make' that rely on file-modifications times.
 
 The libc's mechanism can be explicitly disabled by specifying
 ! <libc update_mtime="no"...>
-This is useful for applications that have no access to a time source.
+This is useful for applications that have no legitimate access to a time
+source.
 
 
 Emulation of 'ioctl' operations via pseudo files
@@ -278,11 +288,12 @@ looks like this:
 ! /dev/.terminal/info
 ! /dev/.terminal/rows
 ! /dev/.terminal/columns
+! /dev/.terminal/interrupts
 
 The 'info' file contains device information in XML format. The type of the XML
-node corresponds to the device type. Whenever the libc receives a 'TIOCGWINSZ'
+node corresponds to the device type. Whenever the libc receives a TIOCGWINSZ
 ioctl for _/dev/terminal_, it reads the content of _/dev/.terminal/info_ to
-obtain the terminal-size information. In this case, the 'info' file looks as
+obtain the terminal-size information. In this case, the _info_ file looks as
 follows:
 
 ! <terminal rows="25" columns="80/>
@@ -321,13 +332,14 @@ Support for arbitrarily large write operations
 The number of bytes written by a single 'write' call used to be constrained by
 the file's underlying I/O buffer size. Even though our libc correctly returned
 this information to the application, we found that real-world applications
-rarely check the return value of 'write' because partial writes do not occur
-on popular POSIX systems. Thanks to the added distinction between continuous
-and transactional files as described in Section [File-system session] we could
-now improve the libc's write operation to iterate on partial writes to
-continuous files until the original write count is reached. The split of large
-write operations into small partial writes as dictated by the VFS
-infrastructure becomes invisible to the libc-using application.
+rarely check the return value of 'write' because partial writes do usually not
+occur on popular POSIX systems. Thanks to the added distinction between
+continuous and transactional files as described in Section
+[File-system session], we became able to improve the libc's write operation to
+iterate on partial writes to continuous files until the original write count
+is reached. The split of large write operations into small partial writes as
+dictated by the VFS infrastructure becomes invisible to the libc-using
+application.
 
 
 Input-event handling
@@ -358,7 +370,7 @@ repeatedly led to surprises: For keys without character mappings the
 reworked character-generator mechanism emits invalid codepoints in
 contrast to codepoints with value 0. For that reason, components
 interpreting character events should check 'Codepoint::valid()' to
-prevent processing of invalid characters (and not the frequent pattern
+prevent the processing of invalid characters (and not the frequent pattern
 of 'codepoint.value != 0').
 
 
@@ -389,13 +401,12 @@ Platform driver on x86
 ~~~~~~~~~~~~~~~~~~~~~~
 
 During our enablement of Genode on a
-[https://genodians.org/chelmuth/2019-10-21-sculpt-elitebook - recent notebook]
+[https://genodians.org/chelmuth/2019-10-21-sculpt-elitebook - recent notebook],
 we spotted some PC platform shortcomings, we address with this
 release. Most prominently we added support for
 [https://en.wikipedia.org/wiki/PCI_configuration_space#Bus_enumeration - 64-bit PCI base address registers]
-to the x86 platform_drv. This allows the usage of PCI devices, which
-are set up with I/O memory regions physically located above 4 GiB by
-the boot firmware.
+to the x86 platform driver. This allows the use of PCI devices that are
+assigned to physical I/O-memory regions beyond 4 GiB by the boot firmware.
 
 
 Wireless driver
@@ -429,27 +440,30 @@ VirtualBox improvements
 =======================
 
 The GUI handling of our Virtualbox port got improved to react on
-window size changes more instantly. The effect is that an interactive
-adjustment of the window size, e.g. on Sculpt, becomes quickly visible to the
+window-size changes more instantly. The effect is that an interactive
+adjustment of the window size, e.g., on Sculpt, becomes quickly visible to the
 user. Still, the VM may take some time to adjust to the resolution change,
-which depends on having installed guest addition drivers and the time the
-guest driver decides to react on the resolution change finally.
+which ultimately depends on the behavior of the driver of the VirtualBox guest
+additions.
+
 
 Updated 3rd-party software
 ==========================
 
-With the addition of the 64-bit ARM architecture (aarch64) with the Genode 19.05
-release it became necessary to update libraries the Genode tool chain (gcc)
-depends on in order to support aarch64 properly. This concerns the GNU multi
-precision arithmetic library (gmp) which has been updated from version 4.3.2 to
+With the addition of the 64-bit ARM architecture (AARCH64) with the
+[https://genode.org/documentation/release-notes/19.05#Broadened_CPU_architecture_support_and_updated_tool_chain - 19.05]
+release, it became necessary to update the libraries the Genode tool chain (gcc)
+depends on in order to support AARCH64 properly. This concerns the GNU multi
+precision arithmetic library (gmp), which has been updated from version 4.3.2 to
 6.1.2, as well as the libraries that depend on it: Multi precision floating
 point (mpfr) and multi precision complex arithmetic (mpc). All those old
-versions did not offer support for the aarch64 architecture which is a
-requirement to make Genode self hosting. Targets for building binutils and gcc
-within Genode for aarch64 are in place, GNU make is in place, and even code
-coverage (gcov) has been added. This work puts aarch64 in line with other Genode
+versions did not offer support for the AARCH64 architecture, which is a
+requirement to make Genode self hosting. Targets for building binutils and GCC
+within Genode for AARCH64 are in place, GNU make is in place, and even code
+coverage (gcov) has been added. This work puts AARCH64 in line with other
 supported CPU architectures and emphasizes our interest in the ARM 64-bit
 architecture.
+
 
 Platforms
 #########
@@ -457,11 +471,11 @@ Platforms
 Execution on bare hardware (base-hw)
 ====================================
 
-With the last release 19.08 Genode's base-hw kernel got extended to support the
+With the previous release, Genode's base-hw kernel got extended to support the
 ARMv8-A architecture in principle. The first hardware supported was the
 Raspberry Pi 3 as well as the i.MX8 evaluation kit (EVK). But only a single
-CPU-core was useable at that time. Now, this limitation gets resolved. On both
-boards all four CPU-cores are available henceforth.
+CPU-core was useable at that time. Now, we lifted this limitation. On both
+boards, all four CPU-cores are available henceforth.
 
 
 Removed components
@@ -482,9 +496,9 @@ The current release removes the following components:
   [https://genode.org/documentation/release-notes/15.11#Genode_as_desktop_OS - Turmvilla].
 
   Nowadays, we use standard command-line tools like Vim to edit init
-  configurations dynamically, which alleviates the need for a custom CLI.
-  The CLI-monitor component was too limited for use cases like Sculpt
-  anyway.
+  configurations dynamically, which is more flexible and - at the same time -
+  alleviates the need for a custom CLI. The CLI-monitor component was too
+  limited for use cases like Sculpt anyway.
 
   Along with the CLI monitor, we removed the ancient (and untested for long
   time) _terminal_mux.run_ script, which was the only remaining user of the CLI
@@ -496,3 +510,4 @@ The current release removes the following components:
   fatfs libc plugin have been superseded by the fatfs and rump VFS plugins.
   The stand-alone servers can be replaced by using the VFS server plus the
   corresponding VFS plugin as a drop-in replacement.
+
