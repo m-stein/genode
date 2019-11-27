@@ -249,6 +249,8 @@ Its current layout is illustrated by Figure [cbe_vfs]. The VFS plugin
 generates three top directories in its root directory. The first one is the
 _control_ directory. It contains several pseudo files for managing the CBE:
 
+[image cbe_vfs]
+
 :'key': set a key by writing a string into the file.
 :'create_snapshot': writing 'true' to this file will attempt to create
   a new snapshot. (Eventually the snapshot will
