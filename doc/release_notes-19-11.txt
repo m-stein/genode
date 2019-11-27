@@ -35,7 +35,7 @@ framework. It is presented in Section [Virtualization of 64-bit ARM platforms].
 As another goal for 2019, we envisioned a solution for block-level device
 encryption, which is a highly anticipated feature among Genode users. We are
 proud to present the preliminary result of our year-long development in
-Section [Preliminary block-device encryptor].
+Section [Preliminary block-device encrypter].
 
 
 Preliminary block-device encrypter
@@ -332,8 +332,8 @@ virtualization-related techniques including
 [https://genode.org/documentation/articles/trustzone - TrustZone],
 hardware-assisted virtualization on
 [https://genode.org/documentation/articles/arm_virtualization - ARM],
-[https://genode.org/documentation/release-notes/13.02#Full_virtualization_on_NOVA_x86
-- x86], up to the full virtualization stack of
+[https://genode.org/documentation/release-notes/13.02#Full_virtualization_on_NOVA_x86 - x86],
+up to the full virtualization stack of
 [https://genode.org/documentation/release-notes/14.02#VirtualBox_on_top_of_the_NOVA_microhypervisor - VirtualBox].
 
 We regard those techniques as welcome stop-gap solutions for using non-trivial
