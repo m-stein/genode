@@ -55,7 +55,7 @@ the device. A copy-on-write mechanism (only the differential changes to the
 last snapshot are stored) is employed to maintain this snapshot history with
 low overhead. To be able to access all states of the device in the same manner,
 some kind of translation from virtual blocks to blocks on the device is needed.
-Hash-trees, where each node contains the hash of it sub-nodes, combine the
+Hash-trees, where each node contains the hash of its sub-nodes, combine the
 aspect of translating blocks and ensuring their integrity in an elegant way.
 During the tree traversal, the computed hash of each node can be easily checked
 against the hash stored in the parent node.
@@ -70,7 +70,7 @@ Design
 ------
 
 As depicted in Figure [cbe_trees], all information describing the various
-parts of the CBE are stored in the superblock. The referenced VBD is a set of
+parts of the CBE is stored in the superblock. The referenced VBD is a set of
 several hash trees, each representing a certain device state including the
 current working state. Only the tree of the current working state is used to
 write data to the block device. All other trees represent snapshots of older
@@ -182,14 +182,14 @@ small and perform a seamless and gradual translation into SPARK:
   handles the interplay. This is done by constantly iterating over all modules
   with the following procedure until no further progress can be made:
 
-  # Try enter requests of other modules into the current one
+  # Try to enter requests of other modules into the current one
   # Poke the state machine of the current module
   # The current module may have generated requests - Try to enter them into
     the targeted modules
   # The current module may have finished requests - Acknowledge them at the
     modules they came from
 
-  Each module is represented through a class (C++) respectively a package with a
+  Each module is represented through a class (C++) respectively a package with
   a private state record (SPARK).
 
 * _No global state_
@@ -320,7 +320,7 @@ i.e., changing the used cryptograhpic key and re-encrypting the tree
 set of the VBD afterwards. In addition to adding those features, the
 overall tooling for the CBE needs to improved. E.g., there is currently
 no proper initialization component. For now, we rely on a component
-that was build merely as a test vehicle to generate the initial trees.
+that was built merely as a test vehicle to generate the initial trees.
 
 
 Virtualization of 64-bit ARM platforms
@@ -432,7 +432,7 @@ of exporting and packaging the software in the format expected by Genode
 systems like Sculpt OS.
 
 At the current stage, Goa should be considered as work in progress. It's a new
-approach and its success in anything but proven. That said, if you are
+approach and its success is anything but proven. That said, if you are
 interested in developing or porting application software for Genode, your
 feedback would be especially valuable. As a starting point, you may find the
 following introductory article helpful:
@@ -532,13 +532,13 @@ C runtime at all. However, higher up the software stack - at the latest when
 this statement, the term "working" is rather muddy though. Since we have never
 fully embraced POSIX, we were content with cutting corners here and there. For
 example, given Genode's architecture, supporting 'fork' and 'execve' seemed
-totally out of question because those mechanism would go against the grain of
+totally out of question because those mechanisms would go against the grain of
 Genode.
 
 However, our growing aspiration to bridge the gap between existing popular
 applications and Genode made us re-evaluate our stance towards POSIX.
 All technical criticism aside, POSIX is immensely useful because it is
-an universally accepted stable interface. To dissolve friction between
+a universally accepted stable interface. To dissolve friction between
 Genode and popular application software, we have to satisfy the application's
 expectations. This ignited a series of developments, in particular
 the added support for 'fork' and 'execve' - of all things - in
@@ -557,7 +557,7 @@ by traversing directories and following symbolic links. This enables the libc
 to execute files stored at sub directories of the file system.
 
 Furthermore, 'execve' received handling for *executing shell scripts* by
-parsing shebang marker at the beginning of the executable file. This way, the
+parsing the shebang marker at the beginning of the executable file. This way, the
 'execve' mechanism of the libc reaches parity with the feature set of the Noux
 runtime that we traditionally used to host Unix software on top of Genode.
 
