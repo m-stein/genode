@@ -62,9 +62,9 @@ against the hash stored in the parent node.
 
 The CBE does not perform any cryptography by itself but delegates
 cryptographic operations to another entity. It neither knows nor cares about
-the used algorithm. Of all the nodes in the virtual block device (VBD), only the
-leaf nodes, which contain the data, are encrypted. All other nodes, which only
-contain meta-data, are stored unencrypted.
+the used algorithm. Of all the nodes in the virtual block device (VBD), only
+the leaf nodes, which contain the data, are encrypted. All other nodes, which
+only contain meta-data, are stored unencrypted.
 
 Design
 ------
@@ -103,20 +103,21 @@ arrow).
 In the depicted situation, writing the first data block (red square) would
 require allocating 4 new blocks as all nodes in the branch leading to the
 corresponding leaf node - including the leaf node itself - have to be written.
-In contrast, writing the second data block would require allocating only one new
-block as the inner nodes (red circles) now already exist. Subsequent write
+In contrast, writing the second data block would require allocating only one
+new block as the inner nodes (red circles) now already exist. Subsequent write
 requests affecting only the new blocks will not trigger further block
 allocations because they still belong to the current generation and will be
 changed in-place. To make them immutable we have to create a new snapshot.
 
 The blocks in generation 5 that were replaced by the change to generation 6
 (blue nodes) are not needed for the working state of the virtual device
-anymore. They are therefore, in exchange for the allocated blocks, added to the
-Free Tree. But don't be fooled by the name, they are not free for allocation
-yet, but marked as "reserved" only. This means, they are potentially still part
-of a snapshot (as is the case in our example) but the Free Tree shall keep
-checking, because once all snapshots that referenced the blue blocks have
-disappeared, they become free blocks and can be allocated again.
+anymore. They are therefore, in exchange for the allocated blocks, added to
+the Free Tree. But don't be fooled by the name, they are not free for
+allocation yet, but marked as "reserved" only. This means, they are
+potentially still part of a snapshot (as is the case in our example) but the
+Free Tree shall keep checking, because once all snapshots that referenced the
+blue blocks have disappeared, they become free blocks and can be allocated
+again.
 
 To create a new snapshot, we first have to make all changes done to the VBDs
 working state as well as the Free Tree persistent by writing all corresponding
@@ -128,17 +129,17 @@ in our example, would contain only generations 3, 4, and 5. Finally, the
 current generation of the superblock in RAM is incremented by one (in the
 example to generation 7). Thereby, generation 6 becomes immutable.
 
-A question that remains is when to create snapshots. Triggering it according to some
-heuristics inside the CBE might result in unnecessary overhead. For instance,
-the inner nodes of the tree change frequently during a sequential operation.
-We might not want them to be re-allocated all the time. Therefore, the
-creation of a snapshot must be triggered explicitly from the outside world.
-This way, we can accommodate different strategies, for instance,
+A question that remains is when to create snapshots. Triggering it according
+to some heuristics inside the CBE might result in unnecessary overhead. For
+instance, the inner nodes of the tree change frequently during a sequential
+operation. We might not want them to be re-allocated all the time. Therefore,
+the creation of a snapshot must be triggered explicitly from the outside
+world. This way, we can accommodate different strategies, for instance,
 client-triggered, time-based, or based on the amount of data written.
 
-When creating a snapshot, it can be specified whether it shall be disposable or
-persistent. A disposable snapshot will be removed
-automatically by the CBE in two situations, either
+When creating a snapshot, it can be specified whether it shall be disposable
+or persistent. A disposable snapshot will be removed automatically by the CBE
+in two situations, either
 
 * When there are not enough usable nodes in the Free Tree left to
   satisfy a write request, or
@@ -170,17 +171,17 @@ small and perform a seamless and gradual translation into SPARK:
 * _Control flow_
 
   The core logic of the CBE is a big state machine that doesn't block. On each
-  external event, the state machine gets poked to update itself accordingly. C++
-  can call SPARK but SPARK never calls C++. The SPARK code therefore evolves as
-  self-contained library.
+  external event, the state machine gets poked to update itself accordingly.
+  C++ can call SPARK but SPARK never calls C++. The SPARK code therefore
+  evolves as self-contained library.
 
 * _Modularity_
 
   The complex state machine of the CBE as a whole is split-up into smaller
   manageable sub-state-machines, working independently from each other. These
-  modules don't call each other directly. Instead, an additional superior module
-  handles the interplay. This is done by constantly iterating over all modules
-  with the following procedure until no further progress can be made:
+  modules don't call each other directly. Instead, an additional superior
+  module handles the interplay. This is done by constantly iterating over all
+  modules with the following procedure until no further progress can be made:
 
   # Try to enter requests of other modules into the current one
   # Poke the state machine of the current module
@@ -210,14 +211,15 @@ integration via VFS plugin.
 
 The green and blue boxes each represent an Ada/SPARK package. The translation
 to SPARK started at the bottom of the picture moving up to the more abstract
-levels until it reached the Library module. This is the module that handles the
-interplay of all other modules. Its interface is the front end of the CBE
+levels until it reached the Library module. This is the module that handles
+the interplay of all other modules. Its interface is the front end of the CBE
 library. So, all green packages are now completely in SPARK and together form
 the CBE library. Positioned above, the CXX library in blue is brought in by a
-separate library and exports the CBE interface to C++. This way, The CBE can be
-used also in other environments including pure SPARK programs. The CXX Library
-package is not written in SPARK but Ada and performs all the conversions and checks
-required to meet the preconditions set by the SPARK packages below.
+separate library and exports the CBE interface to C++. This way, The CBE can
+be used also in other environments including pure SPARK programs. The CXX
+Library package is not written in SPARK but Ada and performs all the
+conversions and checks required to meet the preconditions set by the SPARK
+packages below.
 
 At the C++ side, we have the VFS plugin. Even at this level, the already
 mentioned procedure applies: The plugin continuously tries to enter requests
@@ -265,11 +267,10 @@ working tree of the CBE and contains the following file:
 :'data': this file represents the virtual block device and gives
   read and write access to the data stored by the CBE.
 
-The third and last is the 'snapshots' directory. For each persistent
-snapshot, there is a sub-directory named after the ID of the snapshot.
-This directory, like the 'current' directory, contains a 'data' file.
-This file, however, gives only read access to the data belonging to
-the snapshot.
+The third and last is the 'snapshots' directory. For each persistent snapshot,
+there is a sub-directory named after the ID of the snapshot. This directory,
+like the 'current' directory, contains a 'data' file. This file, however,
+gives only read access to the data belonging to the snapshot.
 
 An exemplary ready-to-use run script can be found in the CBE repository
 at _run/cbe_vfs_snaps.run_. This run script uses a bash script to
@@ -413,9 +414,9 @@ anyway. _Developers use to hate build systems._ Forcing Genode's build
 system down the throats of application developers is probably not the best
 idea to make Genode popular.
 
-This line of thoughts prompted us to re-approach the tooling for Genode
-from the perspective of an application developer. The intermediate result
-is a new tool called Goa:
+This line of thoughts prompted us to re-approach the tooling for Genode from
+the perspective of an application developer. The intermediate result is a new
+tool called Goa:
 
 :Goa project at GitHub:
 
@@ -557,9 +558,10 @@ by traversing directories and following symbolic links. This enables the libc
 to execute files stored at sub directories of the file system.
 
 Furthermore, 'execve' received handling for *executing shell scripts* by
-parsing the shebang marker at the beginning of the executable file. This way, the
-'execve' mechanism of the libc reaches parity with the feature set of the Noux
-runtime that we traditionally used to host Unix software on top of Genode.
+parsing the shebang marker at the beginning of the executable file. This way,
+the 'execve' mechanism of the libc reaches parity with the feature set of the
+Noux runtime that we traditionally used to host Unix software on top of
+Genode.
 
 
 Modification-time handling
@@ -648,33 +650,31 @@ application.
 Input-event handling
 ====================
 
-In Genode 19.08, we undertook a comprehensive rework of our
-keyboard-event handling in the light of localization and also promised
-to tie up remaining loose ends soon.
+In Genode 19.08, we undertook a comprehensive rework of our keyboard-event
+handling in the light of localization and also promised to tie up remaining
+loose ends soon.
 
-First, we again dived into our character generators for a thorough
-check of our stack of keyboards and fixed remaining inconsistencies in
-French and German layouts. En passant, we also increased the default
-RAM quotas for input_filter to 1280K in our recipes to cope with the
-increased layout-configuration sizes in corner cases.
+First, we again dived into our character generators for a thorough check of
+our stack of keyboards and fixed remaining inconsistencies in French and
+German layouts. En passant, we also increased the default RAM quotas for
+input_filter to 1280K in our recipes to cope with the increased
+layout-configuration sizes in corner cases.
 
-Next (and more importantly), we subdued the monsters lurking in our
-Qt5 keyboard backend and enabled transparent support for system-wide
-keyboard layout configuration for Qt5 components. One important change
-during this work was to move the handling of Control key sequences
-into the clients. For example, the graphical terminal and Qt5
-interpret key events in combination with the CTRL modifier based on
-characters and, thus, support CTRL-A with AZERTY and QWERTY layouts
-correctly. As a result we removed all CTRL modifier (mod2) configurations
-from our character-generator configurations.
+Next (and more importantly), we subdued the monsters lurking in our Qt5
+keyboard backend and enabled transparent support for system-wide keyboard
+layout configuration for Qt5 components. One important change during this work
+was to move the handling of Control key sequences into the clients. For
+example, the graphical terminal and Qt5 interpret key events in combination
+with the CTRL modifier based on characters and, thus, support CTRL-A with
+AZERTY and QWERTY layouts correctly. As a result we removed all CTRL modifier
+(mod2) configurations from our character-generator configurations.
 
 Finally we'd like to point out one important change of our rework that
-repeatedly led to surprises: For keys without character mappings the
-reworked character-generator mechanism emits invalid codepoints in
-contrast to codepoints with value 0. For that reason, components
-interpreting character events should check 'Codepoint::valid()' to
-prevent the processing of invalid characters (and not the frequent pattern
-of 'codepoint.value != 0').
+repeatedly led to surprises: For keys without character mappings the reworked
+character-generator mechanism emits invalid codepoints in contrast to
+codepoints with value 0. For that reason, components interpreting character
+events should check 'Codepoint::valid()' to prevent the processing of invalid
+characters (and not the frequent pattern of 'codepoint.value != 0').
 
 
 NIC router
@@ -707,8 +707,8 @@ Platform driver on x86
 
 During our enablement of Genode on a
 [https://genodians.org/chelmuth/2019-10-21-sculpt-elitebook - recent notebook],
-we spotted some PC platform shortcomings, we address with this
-release. Most prominently we added support for
+we spotted some PC platform shortcomings, we address with this release. Most
+prominently we added support for
 [https://en.wikipedia.org/wiki/PCI_configuration_space#Bus_enumeration - 64-bit PCI base address registers]
 to the x86 platform driver. This allows the use of PCI devices that are
 assigned to physical I/O-memory regions beyond 4 GiB by the boot firmware.
@@ -729,12 +729,11 @@ Libraries and applications
 VirtualBox improvements
 =======================
 
-The GUI handling of our VirtualBox port got improved to react on
-window-size changes more instantly. The effect is that an interactive
-adjustment of the window size, e.g., on Sculpt, becomes quickly visible to the
-user. Still, the VM may take some time to adjust to the resolution change,
-which ultimately depends on the behavior of the driver of the VirtualBox guest
-additions.
+The GUI handling of our VirtualBox port got improved to react on window-size
+changes more instantly. The effect is that an interactive adjustment of the
+window size, e.g., on Sculpt, becomes quickly visible to the user. Still, the
+VM may take some time to adjust to the resolution change, which ultimately
+depends on the behavior of the driver of the VirtualBox guest additions.
 
 
 Updated 3rd-party software
@@ -742,12 +741,12 @@ Updated 3rd-party software
 
 With the addition of the 64-bit ARM architecture (AARCH64) with the
 [https://genode.org/documentation/release-notes/19.05#Broadened_CPU_architecture_support_and_updated_tool_chain - 19.05]
-release, it became necessary to update the libraries the Genode tool chain (gcc)
-depends on in order to support AARCH64 properly. This concerns the GNU multi
-precision arithmetic library (gmp), which has been updated from version 4.3.2 to
-6.1.2, as well as the libraries that depend on it: Multi precision floating
-point (mpfr) and multi precision complex arithmetic (mpc). All those old
-versions did not offer support for the AARCH64 architecture, which is a
+release, it became necessary to update the libraries the Genode tool chain
+(gcc) depends on in order to support AARCH64 properly. This concerns the GNU
+multi precision arithmetic library (gmp), which has been updated from version
+4.3.2 to 6.1.2, as well as the libraries that depend on it: Multi precision
+floating point (mpfr) and multi precision complex arithmetic (mpc). All those
+old versions did not offer support for the AARCH64 architecture, which is a
 requirement to make Genode self hosting. Targets for building binutils and GCC
 within Genode for AARCH64 are in place, GNU make is in place, and even code
 coverage (gcov) has been added. This work puts AARCH64 in line with other
