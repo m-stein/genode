@@ -279,7 +279,7 @@ can be performed manually, e.g.:
 
 ! dd if=/dev/zero of=/dev/cbe/current/data bs=4K
 
-The second one is the CBE server component. In contrast to the CBE-VFS plugin,
+The second component is the CBE server. In contrast to the CBE-VFS plugin,
 it is just a simple block-session proxy component that uses a block connection
 as back end to access a block-device and provides a front-end block session to
 its client. It creates disposable snapshots every few seconds and uses the
@@ -316,7 +316,7 @@ a few features that are currently unimplemented. For one we would like
 to add support for making it possible to resize the VBD as well as the
 Free Tree. For now the geometry is fixed at initialization time and cannot
 be changed afterwards. Furthermore, we would like to enable re-keying,
-i.e., changing the used cryptograhpic key and re-encrypting the tree
+i.e., changing the used cryptographic key and re-encrypting the tree
 set of the VBD afterwards. In addition to adding those features, the
 overall tooling for the CBE needs to improved. E.g., there is currently
 no proper initialization component. For now, we rely on a component
@@ -378,7 +378,7 @@ identification.
 The VMM has a strict dependency on ARM's hardware virtualization support
 (EL2), which comprises extensions for the ARMv8-A CPU, ARM's generic timer,
 and ARM's GIC. This rules out the Raspberry Pi 3 board as a base platform
-because it does not include a GIC but an own interrupt-controller without
+because it does not include a GIC but a custom interrupt-controller without
 hardware-assisted virtualization of interrupts. To give the new VMM a try, we
 recommend using the run script _repos/os/run/vmm_arm.run_ as a starting point
 for executing the VMM on top of the i.MX8 Evaluation Kit board.
@@ -458,7 +458,7 @@ time of a file-system node. The time is defined by the client to keep
 file-system servers free from time-related concerns. The VFS server implements
 the operation by forwarding it to the VFS plugin interface. At present, this
 new interface is implemented by the rump VFS plugin to store modification
-times on EXT file systems.
+times on EXT2 file systems.
 
 
 Enhanced file-status info
@@ -665,7 +665,7 @@ during this work was to move the handling of Control key sequences
 into the clients. For example, the graphical terminal and Qt5
 interpret key events in combination with the CTRL modifier based on
 characters and, thus, support CTRL-A with AZERTY and QWERTY layouts
-correctly. As a result we removed all CTRL modifier mod2 configurations
+correctly. As a result we removed all CTRL modifier (mod2) configurations
 from our character-generator configurations.
 
 Finally we'd like to point out one important change of our rework that
@@ -689,10 +689,10 @@ will contain the current link state for each interface:
 ! <domain name="domain1">
 !    <interface label="uplink1" link_state="false"/>
 !    <interface label="downlink1" link_state="true"/>
-! <domain/>
+! </domain>
 ! <domain name="domain2">
 !    <interface label="downlink2" link_state="true"/>
-! <domain/>
+! </domain>
 
 The second attribute decides whether to trigger a report update each time the
 link state of an interface changes. By default, both attributes are set to
@@ -764,7 +764,7 @@ Execution on bare hardware (base-hw)
 With the previous release, Genode's base-hw kernel got extended to support the
 ARMv8-A architecture in principle. The first hardware supported was the
 Raspberry Pi 3 as well as the i.MX8 evaluation kit (EVK). But only a single
-CPU-core was useable at that time. Now, we lifted this limitation. On both
+CPU-core was usable at that time. Now, we lifted this limitation. On both
 boards, all four CPU-cores are available henceforth.
 
 
