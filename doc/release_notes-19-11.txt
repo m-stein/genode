@@ -273,6 +273,18 @@ there is a sub-directory named after the ID of the snapshot. This directory,
 like the 'current' directory, contains a 'data' file. This file, however,
 gives only read access to the data belonging to the snapshot.
 
+The CBE-VFS plugin itself uses the VFS to access the underlying block device.
+It utilizes the file specified in its configuration. Here is a '<vfs>'
+snippet that shows a configured CBE-VFS plugin where the block device is
+provided by the block VFS plugin.
+
+! <vfs>
+!  <dir name="dev">
+!   <block name="block"/>
+!   <cbe name="cbe" block="/dev/block"/>
+!  </dir>
+! </vfs>
+
 An exemplary ready-to-use run script can be found in the CBE repository
 at _run/cbe_vfs_snaps.run_. This run script uses a bash script to
 automatically perform a few operations on the CBE using the VFS plugin.
