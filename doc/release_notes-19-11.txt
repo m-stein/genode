@@ -95,9 +95,9 @@ generation 6 that are still referenced from an older generation, new blocks for
 storing the changes are needed. Here is where the so-called _Free Tree_ enters
 the picture. This tree contains and manages the spare blocks. Spare blocks are
 a certain amount of blocks that the CBE has in addition to the number of blocks
-needed for the initial state of the virtual device. So, after having
-initialized a virtual device, they are unused and only referenced by the Free
-Tree. Now, in case the VBD needs new blocks it consults the Free Tree (red
+needed for initializing the virtual device. So, after having initialized a
+virtual device, they remain unused and are only referenced by the Free Tree.
+Therefore, in case the VBD needs new blocks, it consults the Free Tree (red
 arrow).
 
 In the depicted situation, writing the first data block (red square) would
@@ -129,13 +129,14 @@ in our example, would contain only generations 3, 4, and 5. Finally, the
 current generation of the superblock in RAM is incremented by one (in the
 example to generation 7). Thereby, generation 6 becomes immutable.
 
-A question that remains is when to create snapshots. Triggering it according
-to some heuristics inside the CBE might result in unnecessary overhead. For
-instance, the inner nodes of the tree change frequently during a sequential
-operation. We might not want them to be re-allocated all the time. Therefore,
-the creation of a snapshot must be triggered explicitly from the outside
-world. This way, we can accommodate different strategies, for instance,
-client-triggered, time-based, or based on the amount of data written.
+A question that remains is when to create snapshots. Triggering a snapshot
+according to some heuristics inside the CBE might result in unnecessary
+overhead. For instance, the inner nodes of the tree change frequently during a
+sequential operation. We might not want them to be re-allocated all the time.
+Therefore, the creation of a snapshot must be triggered explicitly from the
+outside world. This way, we can accommodate different strategies, for
+instance, client-triggered, time-based, or based on the amount of data
+written.
 
 When creating a snapshot, it can be specified whether it shall be disposable
 or persistent. A disposable snapshot will be removed automatically by the CBE
@@ -143,13 +144,13 @@ in two situations, either
 
 * When there are not enough usable nodes in the Free Tree left to
   satisfy a write request, or
-* When creating a new snapshot and all slots in the superblock for
-  referencing snapshots are already occupied.
+* When creating a new snapshot and all slots in the superblock that might
+  reference snapshots are already occupied.
 
 A persistent snapshot, or quarantine snapshot, on the other hand will never be
 removed automatically. Its removal must be requested explicitly.
 
-On initialization, the CBE selects the most recent superblock and reads the
+During initialization, the CBE selects the most recent superblock and reads the
 last generation value from it. The current generation (or working state
 generation) is then set to the value incremented by one. Since all old blocks,
 that are still referenced by a snapshot, are never changed again, overall
@@ -201,10 +202,10 @@ small and perform a seamless and gradual translation into SPARK:
   communication with other components is left to OS glue-code outside the
   core logic.
 
-This approach worked out. Module by module, we were able to translate the C++
-prototype to SPARK without long untested phases, rendering all regression bugs
-manageable. In Genode, the CBE library is currently integrated through the
-CBE-VFS plugin. Figure [cbe_modules] depicts its current structure and the
+This approach worked out well. Module by module, we were able to translate the
+C++ prototype to SPARK without long untested phases, rendering all regression
+bugs manageable. In Genode, the CBE library is currently integrated through
+the CBE-VFS plugin. Figure [cbe_modules] depicts its current structure and the
 integration via VFS plugin.
 
 [image cbe_modules]
@@ -213,20 +214,20 @@ The green and blue boxes each represent an Ada/SPARK package. The translation
 to SPARK started at the bottom of the picture moving up to the more abstract
 levels until it reached the Library module. This is the module that handles
 the interplay of all other modules. Its interface is the front end of the CBE
-library. So, all green packages are now completely in SPARK and together form
-the CBE library. Positioned above, the CXX library in blue is brought in by a
-separate library and exports the CBE interface to C++. This way, The CBE can
-be used also in other environments including pure SPARK programs. The CXX
-Library package is not written in SPARK but Ada and performs all the
-conversions and checks required to meet the preconditions set by the SPARK
-packages below.
+library. So, all green packages are now completely written in SPARK and
+together form the CBE library. Positioned above, the CXX library in blue is
+brought in by a separate library and exports the CBE interface to C++. This
+way, the CBE can also be used in other environments including pure SPARK
+programs. The CXX Library package is not written in SPARK but Ada and performs
+all the conversions and checks required to meet the preconditions set by the
+SPARK packages below.
 
 At the C++ side, we have the VFS plugin. Even at this level, the already
 mentioned procedure applies: The plugin continuously tries to enter requests
 coming from the VFS client (above) into the CBE (below), pokes the CBE state
 machine, and puts thereby generated block/crypto requests of the CBE into the
-corresponding back-ends (left). This is repeated until there is no further
-progress without waiting for an external event.
+corresponding back-ends (left). This process is repeated until there is no
+further progress without waiting for an external event.
 
 Current state
 -------------
@@ -282,8 +283,8 @@ can be performed manually, e.g.:
 
 The second component is the CBE server. In contrast to the CBE-VFS plugin,
 it is just a simple block-session proxy component that uses a block connection
-as back end to access a block-device and provides a front-end block session to
-its client. It creates disposable snapshots every few seconds and uses the
+as back end to access a block-device. It provides a front-end block session to
+its client, creates disposable snapshots every few seconds, and uses the
 'External_Crypto' library to encrypt the data blocks using AES-CBC-ESSIV. The
 used key is a plain passphrase. The following snippet illustrates its
 configuration:
@@ -301,9 +302,9 @@ Both run scripts will create the initial CBE state in a RAM-backed
 block device that is then accessed by the CBE server or the CBE-VFS
 plugin.
 
-The run-script and the code itself can be found in the
+The run-script and the code itself can be found on the
 [https://github.com/cnuke/cbe/tree/cbe_19.11 - cbe/cbe_19.11] branch on
-GitHub. If you intend to try out, the run scripts you have to checkout
+GitHub. If you intend to try it out, you have to checkout
 the corresponding
 [https://github.com/cnuke/genode/tree/cbe_19.11 - genode/cbe_19.11]
 branch in the Genode repository as well.
@@ -318,8 +319,8 @@ to add support for making it possible to resize the VBD as well as the
 Free Tree. For now the geometry is fixed at initialization time and cannot
 be changed afterwards. Furthermore, we would like to enable re-keying,
 i.e., changing the used cryptographic key and re-encrypting the tree
-set of the VBD afterwards. In addition to adding those features, the
-overall tooling for the CBE needs to improved. E.g., there is currently
+set of the VBD afterwards. In addition to implementing those features, the
+overall tooling for the CBE needs to be improved. E.g., there is currently
 no proper initialization component. For now, we rely on a component
 that was built merely as a test vehicle to generate the initial trees.
 
@@ -327,7 +328,7 @@ that was built merely as a test vehicle to generate the initial trees.
 Virtualization of 64-bit ARM platforms
 ######################################
 
-Genode has a long history regarding support of all kind of
+Genode has a long history regarding support of all kinds of
 virtualization-related techniques including
 [https://genode.org/documentation/release-notes/9.11#Paravirtualized_Linux_on_Genode_OKL4 - para-virtualization],
 [https://genode.org/documentation/articles/trustzone - TrustZone],
@@ -363,7 +364,7 @@ virtual hardware:
 The VMM is able to load diverse 64-bit Linux kernels including
 Device-Tree-Binary (DTB) and Initramfs. Currently, the implementation uses a
 fixed memory layout for the guest-physical memory view, which needs to be
-reflected by the DTB used for the guest OS. An example device-tree source file
+reflected by the DTB used by the guest OS. An example device-tree source file
 can be found at _repos/os/src/server/vmm/spec/arm_v8/virt.dts_. The actual VMM
 is located in the same directory.
 
@@ -372,9 +373,9 @@ not yet finished. Further outstanding features that are already in development
 are Virtio device model support for networking and console. As the first - and
 by now only - back end, we tied the VMM to the ARMv8 broadened Kernel-agnostic
 VM-session interface as implemented by Genode's custom base-hw kernel. As a
-side of this work, we consolidated the generic VM session interface slightly.
-The RPC call to create a new virtual-CPU now returns an identifier for
-identification.
+side effect of this work, we consolidated the generic VM session interface
+slightly. The RPC call to create a new virtual-CPU now returns an identifier
+for identification.
 
 The VMM has a strict dependency on ARM's hardware virtualization support
 (EL2), which comprises extensions for the ARMv8-A CPU, ARM's generic timer,
@@ -657,13 +658,13 @@ loose ends soon.
 First, we again dived into our character generators for a thorough check of
 our stack of keyboards and fixed remaining inconsistencies in French and
 German layouts. En passant, we also increased the default RAM quotas for
-input_filter to 1280K in our recipes to cope with the increased
+the input filter to 1280K in our recipes to cope with the increased
 layout-configuration sizes in corner cases.
 
-Next (and more importantly), we subdued the monsters lurking in our Qt5
-keyboard backend and enabled transparent support for system-wide keyboard
+Next - and more importantly - we subdued the monsters lurking in our Qt5
+keyboard back end and enabled transparent support for system-wide keyboard
 layout configuration for Qt5 components. One important change during this work
-was to move the handling of Control key sequences into the clients. For
+was to move the handling of control key sequences into the clients. For
 example, the graphical terminal and Qt5 interpret key events in combination
 with the CTRL modifier based on characters and, thus, support CTRL-A with
 AZERTY and QWERTY layouts correctly. As a result we removed all CTRL modifier
