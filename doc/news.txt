@@ -12,13 +12,13 @@ Genode OS Framework release 19.11 | 2019-11-28
 | POSIX compatibility. As another highlight, it features the first version
 | of our custom block-device encrypter.
 
-Block-device encryption is feature often requested by users of our Sculpt OS.
+Block-device encryption is a feature often requested by users of our Sculpt OS.
 Until now, we deliberately left this topic unaddressed because we felt that a
 profound answer was beyond our expertise. However, during the past year, we
-dived deep into it. The result is a new block encrypter that encrypts data but
-also protects integrity and freshness. For us, the implementation of the
-encrypter is especially intriguing because - with about 7000 lines of code -
-it is Genode's first non-trivial component written in the
+dived deep into it. The result is the prototype for a new block encrypter that
+encrypts data but also protects integrity and freshness. For us, the
+implementation of the encrypter is especially intriguing because - with about
+7000 lines of code - it is Genode's first non-trivial component written in the
 [https://en.wikipedia.org/wiki/SPARK_(programming_language) - SPARK]
 programming language.
 
