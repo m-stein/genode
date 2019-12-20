@@ -1,0 +1,181 @@
+proc binary_name_ld_lib_so { } { return "ld-hw.lib.so" }
+proc binary_name_core_o    { } { return "core-spunky.o"    }
+proc binary_name_timer     { } { return "hw_timer_drv" }
+
+
+proc run_boot_string { } { return "\nkernel initialized" }
+
+proc bootstrap_link_address { } {
+	if {[have_spec "x86_64"]} { return "0x00200000" }
+	puts "unknown platform no linker address known"
+	exit -1
+}
+
+proc core_link_address { } {
+	if {[have_spec "64bit"]} { return "0xffffffc000000000" }
+	return 0;
+}
+
+
+##
+# Populate boot directory with binaries on Spunky
+#
+proc run_boot_dir {binaries} {
+
+	#
+	# Build bootstrap, the core object, and the dynamic linker on demand
+	#
+	# If those parts were imported from the depot, the build step is skipped.
+	#
+	set bootstrap_arg ""
+	set core_arg      ""
+	set ld_arg        ""
+
+	if {![file exists [run_dir]/genode/ld.lib.so]}      { set ld_arg        lib/ld/hw    }
+	if {![file exists [run_dir]/genode/core-spunky.o]}  { set core_arg      core/hw      }
+	if {![file exists [run_dir]/genode/bootstrap-hw.o]} { set bootstrap_arg bootstrap/hw }
+
+	set build_args "$bootstrap_arg $core_arg $ld_arg"
+	if {[llength $build_args]} { build $build_args }
+
+	if {$ld_arg        != ""} { file copy -force bin/ld-hw.lib.so           [run_dir]/genode/ld.lib.so }
+	if {$core_arg      != ""} { file copy -force bin/core-spunky-[board].o  [run_dir]/genode/core-spunky.o }
+	if {$bootstrap_arg != ""} { file copy -force bin/bootstrap-hw-[board].o [run_dir]/genode/bootstrap-hw.o }
+
+	#
+	# Copy specified modules to the run directory, excluding core.
+	#
+	set idx [lsearch $binaries "core"]
+	set modules [lreplace $binaries $idx $idx]
+	copy_genode_binaries_to_run_dir $modules
+
+	puts "core link address is [core_link_address]"
+
+	set core_obj      core-spunky.o
+	set bootstrap_obj bootstrap-hw.o
+
+	# create core and bootstrap binary without modules for debugging
+	if {[file exists debug/core-spunky-[board].o]} {
+		build_core debug/core-spunky-[board].o     {} [run_dir].core      [core_link_address]
+		build_core [run_dir]/genode/$bootstrap_obj {} [run_dir].bootstrap [bootstrap_link_address]
+	}
+
+	# determine modules to be incorporated into the core image
+	set modules [glob -tails -directory [run_dir]/genode/ *]
+	set excluded_modules {}
+	lappend excluded_modules $core_obj $bootstrap_obj
+	foreach excluded $excluded_modules {
+		set modules [lsearch -inline -not -all $modules $excluded] }
+
+	# check syntax of all boot modules named *.config
+	foreach file [glob -nocomplain [run_dir]/genode/*.config] {
+		check_xml_syntax $file }
+
+	# create core binary containing the boot modules
+	build_core [run_dir]/genode/$core_obj $modules [run_dir]/genode/core.elf [core_link_address]
+	exec [cross_dev_prefix]strip [run_dir]/genode/core.elf
+	build_core [run_dir]/genode/$bootstrap_obj { core.elf } [run_dir]/image.elf [bootstrap_link_address]
+
+	# Save config part of the image.elf for easy inspection
+	exec cp -f [run_dir]/genode/config [run_dir].config
+
+	remove_genode_dir
+	exec [cross_dev_prefix]strip [run_dir]/image.elf
+
+	exec mkdir -p [run_dir]/boot
+	exec mv [run_dir]/image.elf [run_dir]/boot/image.elf
+
+	if {[have_include "image/iso"] || [have_include "image/disk"] || [have_include image/uefi]} {
+		#
+		# Compress Genode image, to be uncompressed by GRUB
+		#
+		exec gzip [run_dir]/boot/image.elf
+
+		set serial_bender_opt ""
+
+		if {[have_include "image/disk"]} {
+			exec mkdir -p [run_dir]/boot/grub
+			exec cp [genode_dir]/tool/boot/bender [run_dir]/boot/bender
+		}
+
+		if {[have_include "image/iso"]} {
+			install_iso_bootloader_to_run_dir
+		}
+
+		if {[have_include image/uefi]} {
+			set grub2_path [get_grub2_dir]
+
+			exec mkdir -p [run_dir]/efi/boot
+			exec cp $grub2_path/boot/grub2/grub2_32.efi [run_dir]/efi/boot/bootia32.efi
+			exec cp $grub2_path/boot/grub2/grub2_64.efi [run_dir]/efi/boot/bootx64.efi
+			exec mkdir -p [run_dir]/boot/grub
+			exec cp [genode_dir]/tool/boot/bender [run_dir]/boot/bender
+
+			set serial_bender_opt "serial_fallback"
+		}
+
+		#
+		# Generate GRUB2 config file
+		#
+		set fh [open "[run_dir]/boot/grub/grub.cfg" "WRONLY CREAT TRUNC"]
+		puts $fh "set timeout=0"
+		# tell grub2 to prefer 32bit framebuffer resolution
+		puts $fh "set gfxpayload=\"0x0x32\""
+		puts $fh "menuentry 'Genode on base-hw' {"
+		puts $fh " insmod multiboot2"
+		puts $fh " multiboot2 /boot/bender $serial_bender_opt"
+		puts $fh " module2 /boot/image.elf.gz image.elf"
+		puts $fh "}"
+		close $fh
+	}
+
+	run_image [run_dir]/boot/image.elf
+
+	if {[have_spec x86] && [have_include "load/tftp"]} {
+		#
+		# Install PXE bootloader pulsar
+		#
+		install_pxe_bootloader_to_run_dir
+
+		#
+		# Generate pulsar config file
+		#
+		set fh [open "[run_dir]/config-52-54-00-12-34-56" "WRONLY CREAT TRUNC"]
+		puts $fh " exec /boot/bender"
+		puts $fh " load /boot/image.elf"
+		close $fh
+
+		generate_tftp_config
+	}
+
+	if {[have_spec x86] && [have_include "load/ipxe"]} {
+		#
+		# Generate iPXE config file
+		#
+		set fh [open "[run_dir]/boot.cfg" "WRONLY CREAT TRUNC"]
+		puts $fh "#!ipxe"
+
+		install_pxe_bootloader_to_run_dir
+		puts $fh "kernel boot/bender"
+		puts $fh "module boot/image.elf"
+		puts $fh "boot"
+		close $fh
+
+		update_ipxe_boot_dir
+	}
+}
+
+
+##
+# Base source archive within depot
+#
+proc base_src { } {
+
+	if {[have_spec x86_64]} { return base-hw-pc }
+
+	global specs
+
+	puts stderr "Test requires base-hw kernel archive, which is missing for this build configuration"
+	puts stderr "  SPECS=\"$specs\""
+	exit 0
+}

@@ -5,6 +5,11 @@
 
 ifdef KERNEL
 REPOSITORIES += $(GENODE_DIR)/repos/base-$(KERNEL)
+
+ifeq ($(KERNEL),spunky)
+REPOSITORIES += $(GENODE_DIR)/repos/base-hw
+endif
+
 endif
 
 
