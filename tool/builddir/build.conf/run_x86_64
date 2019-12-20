@@ -1,4 +1,4 @@
-# kernel to use (nova, hw, sel4, linux, or foc)
+# kernel to use (nova, hw, spunky, sel4, linux, or foc)
 #KERNEL ?= nova
 
 # board to use (pc, linux, or muen)
