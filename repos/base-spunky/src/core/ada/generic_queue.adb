@@ -1,3 +1,18 @@
+--
+--  \brief  A generic FIFO data structure
+--  \author Martin stein
+--  \date   2019-04-24
+--
+
+--
+--  Copyright (C) 2019 Genode Labs GmbH
+--
+--  This file is part of the Genode OS framework, which is distributed
+--  under the terms of the GNU Affero General Public License version 3.
+--
+
+pragma Ada_2012;
+
 package body Generic_Queue is
 
    --
