@@ -22,8 +22,12 @@ package CPP is
    type Bool_Type                     is range 0 .. 1         with Size => 8;
    type Byte_Type                     is range 0 .. 2**8 - 1  with Size => 8;
    type Uint32_Type                   is range 0 .. 2**32 - 1 with Size => 32;
+   type Uint64_Type                   is mod 2**64            with Size => 64;
    type Signal_Imprint_Type           is new CPP_Architecture.Address_Type;
    type Signal_Number_Of_Submits_Type is new CPP_Architecture.Unsigned_Type;
+   type Time_Type                     is new Uint64_Type;
+   type CPU_Quota_Type                is new CPP_Architecture.Unsigned_Type;
+   type CPU_Priority_Type             is new CPP_Architecture.Signed_Type;
 
    --
    --  Bool_From_Ada
