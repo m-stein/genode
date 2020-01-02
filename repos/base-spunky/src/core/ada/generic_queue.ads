@@ -16,7 +16,9 @@ pragma Ada_2012;
 generic
    type Payload_Type;
    type Payload_Reference_Type is not null access all Payload_Type;
-package Generic_Queue is
+package Generic_Queue
+is
+   pragma Pure;
 
    type Queue_Type          is private;
    type Item_Type           is private;
