@@ -15,6 +15,7 @@
 #include <kernel/ada_object.h>
 #include <kernel/signal_receiver.h>
 #include <kernel/ipc_node.h>
+#include <kernel/cpu_scheduler.h>
 
 using namespace Kernel;
 
@@ -25,4 +26,6 @@ void prepare_core_thread()
 	assert_valid_ada_object_size<Signal_context_killer>();
 	assert_valid_ada_object_size<Signal_context>();
 	assert_valid_ada_object_size<Signal_receiver>();
+	assert_valid_ada_object_size<Cpu_share>();
+	assert_valid_ada_object_size<Cpu_scheduler>();
 }

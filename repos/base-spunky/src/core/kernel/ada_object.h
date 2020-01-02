@@ -25,8 +25,6 @@ namespace Kernel {
 	template <Ada_object_size SIZE>
 	struct Ada_object
 	{
-		struct Size_mismatch { };
-
 		static constexpr Ada_object_size size() { return SIZE; }
 
 		char space[SIZE] { };
@@ -38,12 +36,16 @@ namespace Kernel {
 	struct Signal_handler;
 	struct Signal_context;
 	struct Signal_context_killer;
+	struct Cpu_share;
+	struct Cpu_scheduler;
 
 	Ada_object_size object_size(Ipc_node const &);
 	Ada_object_size object_size(Signal_receiver const &);
 	Ada_object_size object_size(Signal_handler const &);
 	Ada_object_size object_size(Signal_context const &);
 	Ada_object_size object_size(Signal_context_killer const &);
+	Ada_object_size object_size(Cpu_share const &);
+	Ada_object_size object_size(Cpu_scheduler const &);
 
 	template <typename T>
 	static inline void assert_valid_ada_object_size()
@@ -51,11 +53,9 @@ namespace Kernel {
 		Ada_object_size const obj_size { object_size(*(T *)nullptr) };
 		if (obj_size > T::Ada_object::size()) {
 			Genode::error("Ada object has invalid size (should be ", obj_size,")");
-			throw typename T::Ada_object::Size_mismatch();
+			while (1) ;
 		}
 	}
-
-	void assert_valid_ada_object_sizes();
 }
 
 #endif /* _CORE__KERNEL__ADA_OBJECT_H_ */

@@ -88,10 +88,13 @@ vpath %.adb $(ADA_RTS_SOURCE)
 
 SRC_ADB += signal.adb
 SRC_ADB += generic_queue.adb
+SRC_ADB += generic_double_list.adb
+SRC_ADB += cpu_scheduler.adb
 SRC_ADB += ipc_node.adb
 SRC_ADB += cpp.adb
 SRC_ADB += cpp_ipc_node.adb
 SRC_ADB += cpp_signal.adb
+SRC_ADB += cpp_cpu_scheduler.adb
 
 ifeq ($(filter-out $(SPECS),64bit),)
 INC_DIR += $(KERNEL_ADA_DIR)/spec/64bit
@@ -105,12 +108,15 @@ KERNEL_ADA_DIR = $(BASE_DIR)/../base-spunky/src/core/ada
 
 INC_DIR += $(KERNEL_ADA_DIR)
 
-vpath signal.adb        $(KERNEL_ADA_DIR)
-vpath generic_queue.adb $(KERNEL_ADA_DIR)
-vpath ipc_node.adb      $(KERNEL_ADA_DIR)
-vpath cpp.adb           $(KERNEL_ADA_DIR)
-vpath cpp_ipc_node.adb  $(KERNEL_ADA_DIR)
-vpath cpp_signal.adb    $(KERNEL_ADA_DIR)
+vpath signal.adb              $(KERNEL_ADA_DIR)
+vpath generic_queue.adb       $(KERNEL_ADA_DIR)
+vpath generic_double_list.adb $(KERNEL_ADA_DIR)
+vpath cpu_scheduler.adb       $(KERNEL_ADA_DIR)
+vpath ipc_node.adb            $(KERNEL_ADA_DIR)
+vpath cpp.adb                 $(KERNEL_ADA_DIR)
+vpath cpp_ipc_node.adb        $(KERNEL_ADA_DIR)
+vpath cpp_signal.adb          $(KERNEL_ADA_DIR)
+vpath cpp_cpu_scheduler.adb   $(KERNEL_ADA_DIR)
 
 CC_ADA_OPT += -gnatec=$(KERNEL_ADA_DIR)/ada.adc
 
@@ -170,8 +176,6 @@ SRC_CC += region_map_support.cc
 SRC_CC += pager.cc
 SRC_CC += _main.cc
 SRC_CC += kernel/cpu.cc
-SRC_CC += kernel/cpu_scheduler.cc
-SRC_CC += kernel/double_list.cc
 SRC_CC += kernel/init.cc
 SRC_CC += kernel/irq.cc
 SRC_CC += kernel/kernel.cc
