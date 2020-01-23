@@ -19,6 +19,9 @@ void Sculpt::gen_wifi_drv_start_content(Xml_generator &xml)
 	                         Cap_quota{200}, Ram_quota{32*1024*1024},
 	                         Priority::NETWORK);
 
+	gen_named_node(xml, "resource", "CPU", [&] () {
+		xml.attribute("quantum", "20"); });
+
 	xml.node("config", [&] () {
 
 		xml.node("vfs", [&] () {
