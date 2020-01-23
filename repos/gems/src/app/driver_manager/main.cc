@@ -134,6 +134,11 @@ struct Driver_manager::Intel_fb_driver : Device_driver
 			_gen_common_start_node_content(xml, "intel_fb_drv", "intel_fb_drv",
 			                               Ram_quota{42*1024*1024}, Cap_quota{800},
 			                               Priority{0}, version);
+
+			xml.node("resource", [&] () {
+				xml.attribute("name", "CPU");
+				xml.attribute("quantum", String<64>(30));
+			});
 			xml.node("heartbeat", [&] () { });
 			xml.node("route", [&] () {
 				_gen_config_route(xml, "fb_drv.config");
@@ -152,6 +157,11 @@ struct Driver_manager::Vesa_fb_driver : Device_driver
 			_gen_common_start_node_content(xml, "vesa_fb_drv", "vesa_fb_drv",
 			                               Ram_quota{8*1024*1024}, Cap_quota{100},
 			                               Priority{-1}, Version{0});
+
+			xml.node("resource", [&] () {
+				xml.attribute("name", "CPU");
+				xml.attribute("quantum", String<64>(30));
+			});
 			xml.node("route", [&] () {
 				_gen_config_route(xml, "fb_drv.config");
 				_gen_default_parent_route(xml);
@@ -214,6 +224,11 @@ struct Driver_manager::Ahci_driver : Device_driver
 			                               Ram_quota{10*1024*1024}, Cap_quota{100},
 			                               Priority{-1}, Version{0});
 			_gen_provides_node<Block::Session>(xml);
+
+			xml.node("resource", [&] () {
+				xml.attribute("name", "CPU");
+				xml.attribute("quantum", String<64>(30));
+			});
 			xml.node("config", [&] () {
 				xml.node("report", [&] () { xml.attribute("ports", "yes"); });
 				for (unsigned i = 0; i < 6; i++) {

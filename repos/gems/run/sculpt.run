@@ -206,29 +206,6 @@ install_config {
 		</route>
 	</start>
 
-	<start name="log_core">
-		<resource name="RAM" quantum="1M"/>
-		<config period_ms="2000"/>
-		<route>
-			<service name="ROM" label="log"> <parent label="core_log"/> </service>
-			<service name="Timer"> <child name="timer"/> </service>
-			<service name="LOG" label="log"> <child name="log" label="core"/> </service>
-			<any-service> <parent/> </any-service>
-		</route>
-	</start>
-
-	<start name="log_kernel">
-		<binary name="log_core"/>
-		<resource name="RAM" quantum="1M"/>
-		<config period_ms="2000"/>
-		<route>
-			<service name="ROM" label="log"> <parent label="kernel_log"/> </service>
-			<service name="Timer"> <child name="timer"/> </service>
-			<service name="LOG" label="log"> <child name="log" label="kernel"/> </service>
-			<any-service> <parent/> </any-service>
-		</route>
-	</start>
-
 	<start name="fs_report">
 		<resource name="RAM" quantum="1M"/>
 		<provides> <service name="Report"/> </provides>
@@ -465,7 +442,6 @@ install_config {
 			<service name="Platform" label_prefix="acpica">
 				<child name="drivers" label="acpica"/> </service>
 			<service name="Platform"> <child name="drivers"/> </service>
-			<service name="Rtc"> <child name="drivers"/> </service>
 			<service name="Gui" label_prefix="leitzentrale">
 				<child name="leitzentrale"/> </service>
 			<service name="Gui" label="backdrop">
