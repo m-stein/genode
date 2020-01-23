@@ -17,6 +17,9 @@ void Sculpt::gen_nic_drv_start_content(Xml_generator &xml)
 {
 	gen_common_start_content(xml, "nic_drv", Cap_quota{300}, Ram_quota{16*1024*1024});
 
+	gen_named_node(xml, "resource", "CPU", [&] () {
+		xml.attribute("quantum", "20"); });
+
 	xml.node("binary", [&] () { xml.attribute("name", "ipxe_nic_drv"); });
 
 	gen_provides<Nic::Session>(xml);

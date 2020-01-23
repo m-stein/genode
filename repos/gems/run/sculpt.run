@@ -45,6 +45,7 @@ install_config {
 
 	<start name="timer">
 		<resource name="RAM" quantum="1M"/>
+		<resource name="CPU" quantum="10"/>
 		<provides><service name="Timer"/></provides>
 	</start>
 
@@ -203,29 +204,6 @@ install_config {
 		</route>
 	</start>
 
-	<start name="log_core">
-		<resource name="RAM" quantum="1M"/>
-		<config period_ms="2000"/>
-		<route>
-			<service name="ROM" label="log"> <parent label="core_log"/> </service>
-			<service name="Timer"> <child name="timer"/> </service>
-			<service name="LOG" label="log"> <child name="log" label="core"/> </service>
-			<any-service> <parent/> </any-service>
-		</route>
-	</start>
-
-	<start name="log_kernel">
-		<binary name="log_core"/>
-		<resource name="RAM" quantum="1M"/>
-		<config period_ms="2000"/>
-		<route>
-			<service name="ROM" label="log"> <parent label="kernel_log"/> </service>
-			<service name="Timer"> <child name="timer"/> </service>
-			<service name="LOG" label="log"> <child name="log" label="kernel"/> </service>
-			<any-service> <parent/> </any-service>
-		</route>
-	</start>
-
 	<start name="fs_report">
 		<resource name="RAM" quantum="1M"/>
 		<provides> <service name="Report"/> </provides>
@@ -237,7 +215,8 @@ install_config {
 	</start>
 
 	<start name="drivers" caps="3000" priority="-1">
-		<resource name="RAM" quantum="96M" constrain_phys="yes"/>
+		<resource name="RAM" quantum="120M" constrain_phys="yes"/>
+		<resource name="CPU" quantum="20"/>
 		<binary name="init"/>
 		<route>
 			<service name="LOG"> <child name="log"/> </service>
@@ -435,14 +414,10 @@ install_config {
 		</route>
 	</start>
 
-	<start name="rtc_drv" priority="-1">
-		<resource name="RAM" quantum="1M"/>
-		<provides> <service name="Rtc"/> </provides>
-	</start>
-
 	<start name="runtime" caps="50000" priority="-3">
 		<binary name="init"/>
 		<resource name="RAM" quantum="32G"/>
+		<resource name="CPU" quantum="20"/>
 		<route>
 			<service name="ROM" label="config">
 				<child name="config_fs_rom" label="managed/runtime"/> </service>
@@ -483,7 +458,6 @@ install_config {
 			<service name="Report"> <child name="fs_report"/> </service>
 			<service name="LOG" label="unlogged"> <parent/> </service>
 			<service name="LOG"> <child name="log"/> </service>
-			<service name="Rtc"> <child name="rtc_drv"/> </service>
 			<any-service> <parent/> </any-service>
 		</route>
 	</start>
