@@ -90,19 +90,12 @@ SRC_ADB += signal.adb
 SRC_ADB += generic_queue.adb
 SRC_ADB += generic_double_list.adb
 SRC_ADB += cpu_scheduler.adb
+SRC_ADB += timer.adb
 SRC_ADB += ipc_node.adb
 SRC_ADB += cpp.adb
 SRC_ADB += cpp_ipc_node.adb
 SRC_ADB += cpp_signal.adb
 SRC_ADB += cpp_cpu_scheduler.adb
-
-ifeq ($(filter-out $(SPECS),64bit),)
-INC_DIR += $(KERNEL_ADA_DIR)/spec/64bit
-endif # x86_64
-
-ifeq ($(filter-out $(SPECS),32bit),)
-INC_DIR += $(KERNEL_ADA_DIR)/spec/32bit
-endif # ARM
 
 KERNEL_ADA_DIR = $(BASE_DIR)/../base-spunky/src/core/ada
 
@@ -119,6 +112,21 @@ vpath cpp_signal.adb          $(KERNEL_ADA_DIR)
 vpath cpp_cpu_scheduler.adb   $(KERNEL_ADA_DIR)
 
 CC_ADA_OPT += -gnatec=$(KERNEL_ADA_DIR)/ada.adc
+
+
+######################### Kernel Arch Ada Source #######################
+
+INC_DIR += $(KERNEL_ADA_DIR)/spec/x86_64
+
+ifeq ($(filter-out $(SPECS),64bit),)
+INC_DIR += $(KERNEL_ADA_DIR)/spec/64bit
+endif # x86_64
+
+ifeq ($(filter-out $(SPECS),32bit),)
+INC_DIR += $(KERNEL_ADA_DIR)/spec/32bit
+endif # ARM
+
+vpath timer.adb $(KERNEL_ADA_DIR)/spec/x86_64
 
 ######################### core ########################
 
