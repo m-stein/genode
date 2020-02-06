@@ -92,6 +92,7 @@ SRC_ADB += generic_double_list.adb
 SRC_ADB += cpu_scheduler.adb
 SRC_ADB += timer.adb
 SRC_ADB += ipc_node.adb
+SRC_ADB += log.adb
 SRC_ADB += cpp.adb
 SRC_ADB += cpp_ipc_node.adb
 SRC_ADB += cpp_signal.adb
@@ -106,6 +107,7 @@ vpath generic_queue.adb       $(KERNEL_ADA_DIR)
 vpath generic_double_list.adb $(KERNEL_ADA_DIR)
 vpath cpu_scheduler.adb       $(KERNEL_ADA_DIR)
 vpath ipc_node.adb            $(KERNEL_ADA_DIR)
+vpath log.adb                 $(KERNEL_ADA_DIR)
 vpath cpp.adb                 $(KERNEL_ADA_DIR)
 vpath cpp_ipc_node.adb        $(KERNEL_ADA_DIR)
 vpath cpp_signal.adb          $(KERNEL_ADA_DIR)

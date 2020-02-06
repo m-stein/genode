@@ -29,3 +29,10 @@ void prepare_core_thread()
 	assert_valid_ada_object_size<Cpu_share>();
 	assert_valid_ada_object_size<Cpu_scheduler>();
 }
+
+
+extern "C" void print_string_with_length(char const *str,
+                                         unsigned    length)
+{
+	Genode::raw(Genode::Cstring(str, length));
+}
