@@ -1,0 +1,6 @@
+
+   Ext2 file system server using the rump VFS plugin
+
+
+The default configuration allows read-only access to the file system for
+any client.
