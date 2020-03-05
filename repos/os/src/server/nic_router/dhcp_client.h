@@ -43,8 +43,6 @@ class Net::Dhcp_client
 		Timer::One_shot_timeout<Dhcp_client>  _timeout;
 		Genode::uint64_t                      _lease_time_sec = 0;
 
-		void _handle_dhcp_reply(Dhcp_packet &dhcp);
-
 		void _handle_timeout(Genode::Duration);
 
 		void _rerequest(State next_state);
@@ -63,6 +61,8 @@ class Net::Dhcp_client
 		Domain &_domain();
 
 	public:
+
+		void handle_dhcp_reply(Dhcp_packet &dhcp);
 
 		Dhcp_client(Genode::Allocator &alloc,
 		            Timer::Connection &timer,

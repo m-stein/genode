@@ -140,13 +140,13 @@ void Dhcp_client::handle_ip(Ethernet_frame &eth,
 	if (dhcp.client_mac() != _interface.router_mac()) {
 		throw Drop_packet("DHCP client expects DHCP targeting the router"); }
 
-	try { _handle_dhcp_reply(dhcp); }
+	try { handle_dhcp_reply(dhcp); }
 	catch (Dhcp_packet::Option_not_found) {
 		throw Drop_packet("DHCP client misses DHCP option"); }
 }
 
 
-void Dhcp_client::_handle_dhcp_reply(Dhcp_packet &dhcp)
+void Dhcp_client::handle_dhcp_reply(Dhcp_packet &dhcp)
 {
 	Message_type const msg_type =
 		dhcp.option<Dhcp_packet::Message_type_option>().value();

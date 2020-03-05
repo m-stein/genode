@@ -1479,13 +1479,47 @@ void Interface::_handle_eth(Ethernet_frame           &eth,
 	} else {
 
 		switch (eth.type()) {
-		case Ethernet_frame::Type::IPV4:
-			if (!_dhcp_client.constructed()) {
-				throw Drop_packet("DHCP client not active");
+		case Ethernet_frame::Type::IPV4: {
+
+			if (eth.dst() != router_mac() &&
+			    eth.dst() != Mac_address(0xff))
+			{
+				throw Drop_packet("Expecting Ethernet targeting the router"); }
+
+			Ipv4_packet &ip = eth.data<Ipv4_packet>(size_guard);
+			if (ip.protocol() != Ipv4_packet::Protocol::UDP) {
+				throw Drop_packet("Expecting UDP packet"); }
+
+			Udp_packet &udp = ip.data<Udp_packet>(size_guard);
+			if (!Dhcp_packet::is_dhcp(&udp)) {
+				throw Drop_packet("Expecting DHCP packet"); }
+
+			Dhcp_packet &dhcp = udp.data<Dhcp_packet>(size_guard);
+			switch (dhcp.op()) {
+			case Dhcp_packet::REPLY:
+
+				if (dhcp.client_mac() != router_mac()) {
+					throw Drop_packet("Expecting DHCP targeting the router"); }
+
+				if (!_dhcp_client.constructed()) {
+					throw Drop_packet("Expecting DHCP client to be active"); }
+
+				try { _dhcp_client->handle_dhcp_reply(dhcp); }
+				catch (Dhcp_packet::Option_not_found) {
+					throw Drop_packet("DHCP client misses DHCP option"); }
+
+				break;
+
+			default:
+
+				throw Drop_packet("Expecting DHCP reply");
 			}
-			_dhcp_client->handle_ip(eth, size_guard);
 			break;
-		default: throw Bad_network_protocol(); }
+		}
+		default:
+
+			throw Bad_network_protocol();
+		}
 	}
 }
 
