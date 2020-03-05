@@ -1476,7 +1476,7 @@ void Interface::_handle_eth(Ethernet_frame           &eth,
 
 		switch (eth.type()) {
 		case Ethernet_frame::Type::IPV4:
-			if (_dhcp_client.constructed()) {
+			if (!_dhcp_client.constructed()) {
 				throw Drop_packet("DHCP client not active");
 			}
 			_dhcp_client->handle_ip(eth, size_guard);
