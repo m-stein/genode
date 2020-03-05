@@ -1100,18 +1100,22 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 
 				/* get DHCP packet */
 				Dhcp_packet &dhcp = udp.data<Dhcp_packet>(size_guard);
-				if (dhcp.op() == Dhcp_packet::REQUEST) {
+				switch (dhcp.op()) {
+				case Dhcp_packet::REQUEST:
 					try {
 						_handle_dhcp_request(eth, dhcp, local_domain);
 						return;
 					}
 					catch (Pointer<Dhcp_server>::Invalid) { }
-				} else {
+					break;
+				case Dhcp_packet::REPLY:
 					if (!_dhcp_client.constructed()) {
 						throw Drop_packet("DHCP client not active");
 					}
 					_dhcp_client->handle_ip(eth, size_guard);
 					return;
+				default:
+					throw Drop_packet("Bad DHCP opcode");
 				}
 			}
 		}
