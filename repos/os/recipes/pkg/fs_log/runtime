@@ -1,0 +1,15 @@
+<runtime ram="4M" caps="100" binary="fs_log">
+
+	<requires> <file_system/> </requires>
+	<provides> <log/> </provides>
+
+	<config>
+		<default-policy truncate="yes"/>
+	</config>
+
+	<content>
+		<rom label="ld.lib.so"/>
+		<rom label="fs_log"/>
+	</content>
+
+</runtime>
