@@ -1,0 +1,44 @@
+The 'vfs_block' component provides access to a VFS file through a Block
+session.
+
+
+Configuration
+~~~~~~~~~~~~~
+
+The following configuration snippet illustrates how to set up the
+component:
+
+! <start name="vfs_block">
+!   <resource name="RAM" quantum="5M"/>
+!    <provides> <service name="Block"/> </provides>
+!      <config verbose="no" file="/vfs_block.img" block_size="512"
+!              writeable="yes">
+!
+!        <vfs>
+!          <fs buffer_size="4M" label="backend"/>
+!        </vfs>
+!
+!        <policy label_prefix="client" writeable="yes"/>
+!      </config>
+!      <route>
+!        <service name="File_system" label="backend>
+!          <child name="fs_provider"/> </service>
+!        <any-service> <parent/> </any-service>
+!      </route>
+! </start>
+
+With this configuration the component will give access to the file 'vfs_block.img'
+specified by the 'file' attribute by using a file system connection to another
+component 'fs_provider' that provides the file system service. Block requests
+will then be translated to VFS requests operating on directly on this file. The
+block size must be specified via the 'block_size' attribute. It defaults to 512
+bytes. The block count is determined by stating the backing file divided by the
+block size. Pseudo file systems which do not return a proper size in their
+'stat' implementation will therefore not work.
+
+
+Example
+~~~~~~~
+
+Please take a look into the 'repos/os/run/vfs_block.run' run script for an
+exemplary integration.
