@@ -151,6 +151,7 @@ change is that the Genode::Synced_interface now requires a 'Mutex' as template
 argument, the 'Lock' class is not supported anymore. The known user outside
 of the repository of 'os' and 'base', namely Seoul, got adjusted to this change.
 
+
 Retired Noux runtime environment
 ================================
 
@@ -965,20 +966,16 @@ all hyper-threads with id 0 were available in the
 affinity-space (x,y) from (0,0) to (n/2-1,0) and all
 hyper-threads with id 1 as (n/2,0) to (n-1,0).
 
+
 Linux
 =====
 
-;@nfeske
+When executed on top of the Linux kernel, Genode's core component used to
+assume a practically infinite amount of RAM as the basis for the RAM-quota
+trading within the Genode system. The current release introduces the option to
+manually supply a realistic value of the total RAM quota as environment
+variable to Genode's core component. If the environment variable
+GENODE_RAM_QUOTA is defined, its value is taken as the number of bytes
+assigned to the init component started by core.
 
-commit cf55ff12ea9e4fb6745f8b549caf46f9035a7852
-Author: Pirmin Duss <pirmin@trimpim.ch>
-Date:   Wed May 13 10:48:25 2020 +0200
-
-    core-linux: make RAM quota configurable
-    
-    Add the option to configure the RAM quota for core on base-linux.
-    The environment variable GENODE_RAM_QUOTA if it exists is interpreted
-    as number of bytes to provide to the first init.
-    
-    Issue #3762
-
+Thanks to Pirmin Duss for this welcome contribution.
