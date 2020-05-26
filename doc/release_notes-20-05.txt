@@ -566,84 +566,63 @@ Date:   Mon Mar 23 17:13:39 2020 +0100
 Base API refinements
 ====================
 
-;@nfeske
-
 Deprecation of unsafe 'Xml_node' methods
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-commit be65c4acd268e7bf2bc6140b2085e0ff99e9000c
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed May 6 19:06:25 2020 +0200
-
-    Avoid use of deprecated Xml_node methods
-    
-    Issue #3755
-
-commit dd0c1575f56717c1960c7441bb759f7cda315b1b
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue May 5 21:54:42 2020 +0200
-
-    Xml_node: mark deprecated methods
-    
-    Fixes #3755
+One year ago, we
+[https://genode.org/documentation/release-notes/19.02#Improved_API_safety - revised]
+the interface of Genode's XML parser to promote memory safety.
+The current release marks the risky API methods as deprecated and updates
+all components to the modern API accordingly.
 
 
 Replaced 'Genode::strncpy' by 'Genode::copy_cstring'
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-commit 8d12944afbd5918078e98d3033a7fd94e39cfeca
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon May 11 16:10:27 2020 +0200
-
-    Replace Genode::strncpy by Genode::copy_cstring
-    
-    - Since Genode::strncpy is not 100% compatible with the POSIX
-      strncpy function, better use a distinct name.
-    
-    - Remove bogus return value from the function, easing the potential
-      enforcement of mandatory return-value checks later.
-    
-    Fixes #3752
+Since the first version of Genode, the public API features a few
+POSIX-inspired string-handling functions, which were usually named after their
+POSIX counterparts. In the case of 'strncpy', this is unfortunate because
+Genode's version is not 100% compatible with the POSIX 'strncpy'. In
+particular, Genode's version ensures the null-termination of the resulting
+string as a mitigation against the most prevalent memory-safety risk of POSIX
+'strncpy'. The current release replaces 'Genode::strncpy' with a new
+'Genode::copy_cstring' function to avoid misconceptions caused by the naming
+ambiguity in the future.
 
 
 LOG session
 ~~~~~~~~~~~
 
-commit a9f0e47ea367a8fc597a7eeb21024e244768bd75
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue May 5 13:51:05 2020 +0200
-
-    Remove return value of Log_session::write
-    
-    Fixes #3749
+The return value of 'Log_session::write' got removed. It was never meaningful
+in practice but ignoring the value at the caller site tends to make static
+code analyzers nervous.
 
 
 Removed 'Allocator_guard'
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-commit 9d67f9fc8e1dfccc14affcfcafc5c68d32f16b49
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue May 5 14:27:29 2020 +0200
+The 'Allocator_guard' was an
+[https://genode.org/documentation/release-notes/11.02#Comprehensive_accounting_of_core_resources - early]
+take of a utility for tracking and constraining the consumption of memory
+within a component. However, we later
+[https://github.com/genodelabs/genode/issues/1039 - got aware] of several
+limitations of the taken approach. In short, the 'Allocator_guard' tried
+to attack the accounting problem at the wrong level of abstraction.
+In Genode
+[https://genode.org/documentation/release-notes/17.05#Merged_RAM_and_PD_services_of_the_core_component - 17.05],
+we introduced a water-tight alternative in the form of the
+'Constrained_ram_allocator', which was gradually being picked up be new
+components. However, the relic from the past still remained present in several
+time-tested components including Genode's core component. With the current
+release, we finally removed the 'Allocator_guard' from the framework and
+migrated all former users to the 'Constrained_ram_allocator'.
 
-    Remove Allocator_guard
-    
-    This patch removes old 'Allocator_guard' utility and replaces its use
-    with the modern 'Constrained_ram_allocator'.
-    
-    The adjustment of core in this respect has the side effect of a more
-    accurate capability accounting in core's CPU, TRACE, and RM services.
-    In particular, the dataspace capabilities needed for core-internal
-    allocations via the 'Sliced_heap' are accounted to the client now.
-    The same goes for nitpicker and nic_dump as other former users of the
-    allocator guard. Hence, the patch also touches code at the client and
-    server sides related to these services.
-    
-    The only remaining user of the 'Allocator_guard' is the Intel GPU
-    driver. As the adaptation of this component would be too invasive
-    without testing, this patch leaves this component unchanged by keeping a
-    copy of the 'allocator_guard.h' locally at the component.
-    
-    Fixes #3750
+The adjustment of core in this respect has the side effect of a more accurate
+capability accounting in core's CPU, TRACE, and RM services. In particular,
+the dataspace capabilities needed for core-internal allocations via the
+'Sliced_heap' are accounted to the client now. The same goes for nitpicker and
+nic_dump as other former users of the allocator guard. Hence, the change
+touches code at the client and server sides related to these services.
 
 
 C runtime
