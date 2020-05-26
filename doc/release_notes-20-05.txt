@@ -500,14 +500,6 @@ touches code at the client and server sides related to these services.
 C runtime
 =========
 
-Self-hosted Genode tool chain
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-;@nfeske
-
-; refinements wrt pipes, error handling -> Genode tool chain
-
-
 Decoupling C++ runtime support from Genode's base ABI
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
