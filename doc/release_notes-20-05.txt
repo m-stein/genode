@@ -155,194 +155,73 @@ of the repository of 'os' and 'base', namely Seoul, got adjusted to this change.
 Retired Noux runtime environment
 ================================
 
-;@nfeske
+We introduced Noux in Genode
+[https://genode.org/documentation/release-notes/11.02#Noux_-_an_execution_environment_for_the_GNU_userland - version 11.02]
+as a runtime environment or executing command-line-based GNU userland software
+on top of Genode. It soon became an invaluable feature that nicely bridged the
+gap between Genode's rigid component architecture and the use of broadly
+popular Unix tools such as Vim, bash, and make.
+In particular, without Noux as a stepping stone, we couldn't have conceived the
+[https://genode.org/download/sculpt - Sculpt] operating system.
+Code-wise, Noux was the starting point of Genode's unique
+[https://genode.org/documentation/release-notes/14.05#Per-process_virtual_file_systems - VFS]
+infrastructure that we take for granted today.
 
-commit 34a60b56f60064a7db2b70e7829fbcc0254b19b4
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Mar 6 11:10:23 2020 +0100
+That said, the success story of Noux was not without problems.
+For example, despite significant feature overlap between Noux and Genode's
+libc, both runtime environments remained distinct from each other. Programs
+had to be targeted to either environment at build time.
+As another problem, the fork/execve mechanism of Noux required a few special
+hooks in Genode's base system that are complicated. Still, those hooks were
+insufficient to accommodate Noux on top of the Linux kernel.
 
-    Remove noux from fs_query.run
-    
-    Issue #3696
+One year ago, a "divine" plan of how the feature set of Noux could be
+implemented in our regular C runtime struck us. It
+[https://genode.org/documentation/release-notes/19.11#C_runtime_with_improved_POSIX_compatibility - turned out]
+to work as we hoped for.
+During the release cycles of versions
+[https://genode.org/documentation/release-notes/19.08#Consolidation_of_the_C_runtime_and_Noux - 19.08],
+[https://genode.org/documentation/release-notes/19.11#C_runtime_with_improved_POSIX_compatibility - 19.11], and
+[https://genode.org/documentation/release-notes/20.02#POSIX_compatibility_improvements - 20.02],
+we gradually moved closer to our vision.
+With the current release, we are proud to announce that Noux has become
+obsolete without sacrificing its feature set! All use cases of Noux can now
+be addressed by combining Genode's building blocks, in particular the
+VFS server, VFS plugins for pipes and terminal access, the 'fs_rom' server,
+and the C runtime.
 
-commit cc8552f81e1f0916da1562a862380c2afa7a38a4
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Mar 6 11:16:15 2020 +0100
+[image from_noux_to_libc]
 
-    Remove noux_vfs_audit.run
-    
-    This run script was merely a development vehicle.
-    
-    Issue #3696
+Figure [from_noux_to_libc] illustrates the different approaches. On the left,
+the Noux runtime environment provides the traditional Unix system-call
+interface to the Unix process(es), taking the position of a Unix kernel. Noux
+implements concepts like a virtual file system, file descriptors, pipes, and
+execve/fork. Structurally, it is very traditional.
+The scenario on the right achieves the same functionality without a
+Unix-kernel-like component. The VFS is provided by a standalone file-system
+server. For obtaining executables from the VFS, the 'fs_rom' server is used.
+The Unix program (bash in the example) is executed as a plain Genode component
+that is linked against Genode's C runtime. This runtime transparently
+implements fork/execve for spawning child processes (Vim in the example).
+All inter-component communication is achieved via generic Genode session
+interfaces like the file-system session. No Unix-like system call interface
+between components is needed. The scenario on the right works on all kernels
+supported by Genode, including Linux.
 
-commit cacbad1bd832b82a67568ab0e47439f78045ebf3
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Mar 6 15:00:04 2020 +0100
+The retirement of Noux touches a lot of the existing system scenarios, which
+had to be revisited one by one. Among the many examples and test cases updated
+to the structure depicted above are _fs_query.run_, _ssh_terminal.run_,
+_vim.run_, and _tool_chain_auto.run_. The latter is currently the most complex
+scenario, which self-hosts the Genode tool chain and build/packaging system on
+top of Genode.
 
-    Remove noux from ssh_terminal.run
-    
-    Issue #3696
-
-commit e3bc77c386ff4e06dcbbbd2bca9c6bf84df41b98
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Mar 6 19:06:02 2020 +0100
-
-    Remove noux from SSH exec terminal
-    
-    This patch replaces the former Noux instance by a sub init that hosts
-    the combination of VFS + fs_rom + bash. If bash exits, the whole sub
-    init exits, which implicitly tears down the terminal session used by the
-    sub init. The latter is expected by the test sequence.
-    
-    Issue #3696
-
-commit 1d480e3329b6afaafa00e913c676eaef9426bead
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Mar 10 08:46:35 2020 +0100
-
-    Remove noux from tool-chain test
-    
-    Issue #3696
-
-commit a7e7eeec384daed7e0bccbd05a84bbd5066b4b68
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Mar 17 14:31:06 2020 +0100
-
-    Remove noux from Vim example scenario
-    
-    Issue #3696
-
-commit b8738dee9058da82c567d3c8649884cd268b007e
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Mar 17 14:33:26 2020 +0100
-
-    Remove noux_terminal_fs.run script
-    
-    This run script tested the terminal VFS plugin as a new feature of noux.
-    In the meantime, the plugin remains as the only way for the interaction
-    of command-line-based applications with the terminal session. Hence,
-    the mechanism is now stressed by many other scenarios.
-    
-    Issue #3696
-
-commit 50a1e540a07e39f2014a146d03e898cc82398e52
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Mar 17 14:38:43 2020 +0100
-
-    Remove noux_bash.run script
-    
-    This run script is superseded by the bash.run script.
-    
-    Issue #3696
-
-commit 5a02b5fd2385cc2dbcefbe776fffb95175ccfdfb
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Mar 17 14:39:38 2020 +0100
-
-    Remove noux_fork.run script
-    
-    This run script is superseded by pkg/test-fork.
-    
-    Issue #3696
-
-commit c086bba71abf5f9137be1ff0e1c59e588c1f9b61
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Mar 17 14:41:25 2020 +0100
-
-    Remove noux_fs.run
-    
-    The test exercised the mounting of an ext2 file system in the noux
-    runtime. This feature is nowadays routinely stressed by Sculpt OS.
-    
-    Issue #3696
-
-commit 951f484fad7fff8ee624f2a5467ddda6b3287a29
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Mar 17 14:50:43 2020 +0100
-
-    Remove noux_gdb.run script
-    
-    This interactive run script is not regularly tested nor used.
-    
-    Issue #3696
-
-commit 2f598e5680566c400463d3133207395cedea2ac8
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Mar 17 15:43:06 2020 +0100
-
-    Remove noux_uname.run script
-    
-    This run script is outdated and not regularly tested. In fact, the
-    tested mechanism (obtaining values from a '.sysctl/' directory) is
-    nowhere to be found, neither in noux nor the libc. The test still
-    returns success as it merely checks for the completion of the sequence,
-    not the printed results. Hence, it is not worth preserving.
-    
-    Issue #3696
-
-commit 4961c84f12bdae339c3f9012974e4ff220558dbc
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Mar 17 16:26:58 2020 +0100
-
-    Remove noux from vbox_share.inc
-    
-    This snippet is used by the vbox5_win7_64_share.run script.
-    
-    Issue #3696
-
-commit cf052996d372b805efd3690fccbd01b9b56356b9
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Mar 18 10:45:28 2020 +0100
-
-    Remove pkg/noux-build-x86
-    
-    Use-case-specific Unix runtimes should better be realized via Goa now.
-    
-    Issue #3696
-
-commit 208294b0d383346e5ba9b9b6e2cc581ea30b93e1
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Mar 18 11:01:05 2020 +0100
-
-    Turn pkg/noux-system into pkg/system_shell
-    
-    The new package does no longer require noux.
-    
-    Issue #3696
-
-commit ca5c25ac04bcc2c2071a1149fffbfa2d68786282
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Mar 25 11:39:45 2020 +0100
-
-    sculpt: replace log-noux instance by stdin2out
-    
-    Issue #3696
-
-commit 5347278136d65648ad026c340ea9f5ddf0c09ee6
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Mar 25 17:08:36 2020 +0100
-
-    sculpt: perform prepare step without noux
-    
-    Issue #3696
-
-commit 42a77c531a49027c954a259b20be6fad1c70303e
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Mar 25 20:23:40 2020 +0100
-
-    sculpt: remove noux runtime from inspect view
-    
-    Issue #3696
-
-commit 4dd110ce5ef4d4a04475eee14210c99103649bcb
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Mar 26 16:37:36 2020 +0100
-
-    Remove noux runtime
-    
-    The feature set of noux is fully covered by the regular C runtime now.
-    
-    Fixes #3696
+Sculpt OS as the most prominent use case of Noux had to be adjusted as well.
+The _noux-system_ package is now called _system_shell_. The log-noux instance
+of the Leitzentrale has been replaced by a simple new component called
+_stdin2out_. Disk-management operations are now performed by executing the
+file-system utilities _e2fsck_, _resize2fs_, and _mke2fs_ as stand-alone
+components. The prepare step and the inspect tab are realized as a system
+composition like depicted above.
 
 
 Removed components and features
