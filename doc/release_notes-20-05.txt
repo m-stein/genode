@@ -424,61 +424,15 @@ Date:   Fri May 22 12:19:03 2020 +0200
 Block-device sync operation support
 ===================================
 
-;@cnuke
+Support for 'SYNC' block requests was extended through-out the block storage
+stack. Such a request instructs the block components to flush their internal
+buffers. Although it was already implemented in most prominent device drivers
+such as AHCI and NVMe, we encountered problems with older AHCI controllers. A
+'SYNC' request is now only issued when the NCQ queue of the AHCI controller is
+empty.
 
-commit 5225d12381153b9fe5a09a287765ad208942fa45
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed Feb 19 14:10:17 2020 +0100
-
-    ahci: add sync operation support
-    
-    - implemement 'flush cache ext' for ATA
-    - enable sync operation for request stream
-    
-    issue #3636
-
-commit ea78d85d3576487574ca8a7bf60eaf6a87599806
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Mon May 4 14:24:39 2020 +0200
-
-    ahci: SYNC with empty NCQ queue only
-    
-    Fixes #3746
-
-commit ea78d85d3576487574ca8a7bf60eaf6a87599806
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Mon May 4 14:24:39 2020 +0200
-
-    ahci: SYNC with empty NCQ queue only
-    
-    Fixes #3746
-
-
-commit 2495a86aff3c1ad6fef413fbf07b84f4359cd0ce
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed Feb 19 18:53:14 2020 +0100
-
-    block_tester: add 'sync' command to replay
-    
-    issue #3636
-
-commit a71ef1642314cb58c57cfcdfce808dc6a9650b26
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Tue Feb 18 14:43:11 2020 +0100
-
-    vfs: implement 'sync' in Block VFS plugin
-    
-    Fixes #3659.
-
-commit 336228f3577e4065d6a3a28cf9ee7d4e5b5d01f1
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Mon Mar 23 17:13:39 2020 +0100
-
-    os: handle SYNC packet in lx_fs
-    
-    Call 'fsync(2)' on files and directories.
-    
-    Fixes #3711.
+In addition the block-VFS plugin as well as the 'lx_fs' file system component
+now respect a sync request at VFS or rather file system session level.
 
 
 Base API refinements
