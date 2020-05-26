@@ -348,71 +348,110 @@ Date:   Thu Mar 26 16:37:36 2020 +0100
 Removed components and features
 ===============================
 
-;@nfeske
+RAM file-system server
+~~~~~~~~~~~~~~~~~~~~~~
 
-commit f14cc2edabfea9776d501488f9f3ed94f1c2334a
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Apr 20 14:00:57 2020 +0200
+The 'ram_fs' file-system server has become obsolete because its feature
+set is covered by the generic 'vfs' server when combined with the import VFS
+plugin:
 
-    Replace use of ram_fs by VFS server
-    
-    Issue #3734
+! <start name="ram_fs"...>
+!   ...
+!   <config>
+!     <vfs>
+!       <ram/>
+!       <import>
+!         ...
+!       </import>
+!     </vfs>
+!     ...
+!   </config>
+! </start>
 
-commit 01bf32b998ae61562bd5c465456a722d740a41aa
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Apr 21 16:27:07 2020 +0200
+Since the VFS server is a full substitute, the current release drops the
+original 'ram_fs' server.
 
-    Remove ram_fs server
-    
-    Fixes #3734
 
-commit 840f383e468f71df41e0fd8076b334aa852e5430
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Apr 22 16:15:56 2020 +0200
+Input-merger component
+~~~~~~~~~~~~~~~~~~~~~~
 
-    Remove input_merger component
-    
-    Fixes #3736
+The input-merger component was introduced in version
+[https://genode.org/documentation/release-notes/14.11#New_input_merger - 14.11]
+as a mechanism for merging PS/2 and USB HID input streams.
+It was later superseded by the generic input filter in version
+[https://genode.org/documentation/release-notes/17.02#Input-event_filter - 17.02].
+The functionality of the input merger can be achieved with the input filter
+using a configuration like this:
 
-commit c12d76686e526deace52334710b2a612fa8df786
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Apr 22 16:38:36 2020 +0200
+! <config>
+!   <input label="ps2"/>
+!   <input label="usb"/>
+!   <output>
+!     <merge>
+!       <input name="ps2"/>
+!       <input name="usb"/>
+!     </merge>
+!   </output>
+! </config>
 
-    Move OpenVPN to genode-world repository
-    
-    Fixes #3737
+The current release removes the input merger.
 
-commit 1bf796d69a3c88620f25de7fd450fe96ec578b75
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Apr 23 12:09:35 2020 +0200
 
-    Remove Rust support
-    
-    Fixes #3488
+OpenVPN moved to genode-world repository
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-commit 07502ce6bbc79a90774645f53eb8471fc89dd55d
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri May 8 16:09:35 2020 +0200
+Since we do not consider our initial
+[https://genode.org/documentation/release-notes/14.08#New_port_of_OpenVPN - port of OpenVPN]
+as an officially supported feature of Genode, we moved it to Genode-world
+repository.
 
-    Remove Python2
-    
-    Fixes #3751
 
-commit c39a342fe5cd57e88221f9ac1ff0a4825b451a97
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri May 8 16:21:20 2020 +0200
+Rust support removed
+~~~~~~~~~~~~~~~~~~~~
 
-    Remove use of <configfile> feature of init
-    
-    Issue #3753
+Support for the Rust programming language was added as a community
+[https://github.com/genodelabs/genode/pull/1899 - contribution] in 2016. It
+included the ability to supplement Rust code to Genode components via Genode's
+build system, a few runtime libraries, and a small test case. However, the
+addition of Rust remained a one-off contribution with no consecutive
+engagement of the developer. Over the years, we kept the feature alive - it
+used to be exercised as part of our nightly tests - but it was never picked up
+by any regular Genode developer. Once it eventually became stale, it was no
+longer an attractive feature either because it depended on an outdated nightly
+build of the Rust tool chain.
 
-commit cb5b688eb906e26dbfe81b6f2791dce580196d2d
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri May 8 17:02:22 2020 +0200
+The current release removes Rust to lift our maintenance burden. To
+accommodate Rust developers in the future, we may consider supporting Rust on
+Genode via the [https://github.com/nfeske/goa - Goa] tool, and facilitating
+regular tools and work flows like cargo.
 
-    Remove <configfile> feature from init
-    
-    Fixes #3753
+
+Python2 removed
+~~~~~~~~~~~~~~~
+
+With Python3 present in the Genode world repository since version
+[https://genode.org/documentation/release-notes/18.08#Python_3 - 18.08],
+the time was overdue to remove our original port of Python2 from Genode's main
+repository.
+
+
+Init's ancient '<configfile>' feature removed
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The '<configfile>' feature of init allows the use of a ROM session for
+obtaining the configuration for a started component. It has long been replaced
+by the label-matching-based session routing.
+
+! <route>
+!   <service name="ROM" label_last="config">
+!     <parent label="another.config"/> </service>
+!   ...
+! </route>
+
+Since its naming is rather inconsistent with our terminology (ROM modules are
+not files, the "name" is actually a "label") and its use case is covered by
+init's generic session-routing mechanism, we took the chance to remove this
+legacy with the current release.
 
 
 Board support outside the Genode main repository
