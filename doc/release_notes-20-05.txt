@@ -17,74 +17,42 @@
 Capability-based security using seccomp on Linux
 ################################################
 
-My goal for the Genode Community Summer 2019 was to enable seccomp for base-linux to achieve an intermediate level of security for a Genode system running on Linux. To get any security benefit from seccomp, it turned out the RPC mechanisms of base-linux needed to be significantly reworked to prevent processes from forging any capabilities.
+_This section was written by Stefan Thöni of [https://gapfruit.com/ - gapfruit AG] who_
+_conducted the described line of work in close collaboration with Genode Labs._
 
-The new capability-based security on Linux maps each capability to a pair of socket descriptors, one of which can be transferred along socket connections using kernel mechanisms. Each invocation of a capability uses the received socket descriptor to address the server which in turn uses the epoll framework of the Linux kernel to get notification of incoming messages and the server side socket descriptor to securely determine the invoked RPC object. Capabilities which are passed back to the server rather than invoked can be securely identified by their inode number. This way, no client can forge any capability.
+My goal for the Genode Community Summer 2019 was to enable seccomp for
+base-linux to achieve an intermediate level of security for a Genode system
+running on Linux. To get any security benefit from seccomp, it turned out the
+RPC mechanisms of base-linux needed to be significantly reworked to prevent
+processes from forging any capabilities.
 
-With the hard part finally finished thanks to a concerted effort by Norman Feske, I could turn back to seccomp. This Linux kernel mechanism restricts the ability of a process to use syscalls. Thanks to the small interface used by Genode processes, the whitelist approach worked nicely, restricting all Genode processes to just 25 syscalls on x86, none of which can access any file on the host system. Instead all access to the host system must go through Genode RPC mechanisms to one of the hybrid components which are not yet subject to seccomp. Although some global information of the host system may still be accessed, the possibilities of escaping a sandboxed Genode process are vastly reduced.
+The new capability-based security on Linux maps each capability to a pair of
+socket descriptors, one of which can be transferred along socket connections
+using kernel mechanisms. Each invocation of a capability uses the received
+socket descriptor to address the server which in turn uses the epoll framework
+of the Linux kernel to get notification of incoming messages and the server
+side socket descriptor to securely determine the invoked RPC object.
+Capabilities which are passed back to the server rather than invoked can be
+securely identified by their inode number. This way, no client can forge any
+capability.
 
-Note that these changes are transparent to any user of base-linux in all but one way: The Genode system might run out of socket descriptors in large scenarios. If this happens, you need to increase the hard open file descriptor limit. See man limits.conf for further information.
+With the hard part finally finished thanks to a
+[https://github.com/genodelabs/genode/pull/3581 - concerted effort] led by
+Norman Feske, I could turn back to seccomp. This Linux kernel mechanism
+restricts the ability of a process to use syscalls. Thanks to the small
+interface used by Genode processes, the whitelist approach worked nicely,
+restricting all Genode processes to just 25 syscalls on x86, none of which can
+access any file on the host system. Instead all access to the host system must
+go through Genode RPC mechanisms to one of the hybrid components which are not
+yet subject to seccomp. Although some global information of the host system
+may still be accessed, the possibilities of escaping a sandboxed Genode
+process are vastly reduced.
 
+Note that these changes are transparent to any user of base-linux in all but
+one way: The Genode system might run out of socket descriptors in large
+scenarios. If this happens, you need to increase the hard open file descriptor
+limit. See 'man limits.conf' for further information.
 
-commit 132569d12b5a695ecf2902207ba12181af97d0ec
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Apr 9 12:30:21 2020 +0200
-
-    base-linux: socket descriptor caps for RPC
-    
-    On Linux, Genode used to represent each RPC object by a socket
-    descriptor of the receiving thread (entrypoint) and a globally-unique
-    value that identifies the object. Because the latter was transferred as
-    plain message payload, clients had to be trusted to not forge the
-    values. For this reason, Linux could not be considered as a productive
-    Genode base platform but remained merely a development vehicle.
-    
-    This patch changes the RPC mechanism such that each RPC object is
-    represented by a dedicated socket pair. Entrypoints wait on a set of
-    the local ends of the socket pairs of all RPC objects managed by the
-    respective entrypoint. The epoll kernel interface is used as the
-    underlying mechanism to wait for a set of socket descriptors at the
-    server side.
-    
-    When delegating a capability, the remote end of the socket pair is
-    transferred to the recipient along with a plaintext copy of the
-    socket-descriptor value of the local end. The latter value serves as a
-    hint for re-identifiying a capability whenever it is delegated back to
-    its origin. Note that the client is not trusted to preserve this
-    information. The integrity of the hint value is protected by comparing
-    the inode values of incoming and already present capablities at the
-    originating site (whenever the capability is invoked or presented to the
-    owner of the RPC object).
-    
-    The new mechanism effectively equips base-linux with Genode's capablity
-    model as described in the Chapter 3 of the Genode Foundations book.
-    That said, the sandboxing of components cannot be assumed at this point
-    because each component has still direct access to the Linux system-call
-    interface.
-    
-    This patch is based on the extensive exploration work conducted by
-    Stefan Thoeni who strongly motivated the inclusion of this feature into
-    Genode.
-    
-    Issue #3581
-
-commit db63239128e4e9b77b22c9d65821404d0be0e2d5
-Author: Stefan Thöni <stefan.thoeni@gapfruit.com>
-Date:   Tue Sep 17 14:40:52 2019 +0200
-
-    base-linux: enabled seccomp
-    
-    base-linux uses seccomp to reduce the available system calls
-    to the minimum set needed to run base-linux. There are still
-    some syscalls that allow accessing global state which should
-    be further reduced.
-    
-    The combination of seccomp and socket descriptor caps should
-    provide an intermediate level of security for base-linux
-    thereby enabling base-linux as a migration path from using
-    the Linux kernel to the use of microkernel-based Genode.
-    
-    Fixes #3581
 
 Feature-completeness of the consistent block encrypter
 ######################################################
