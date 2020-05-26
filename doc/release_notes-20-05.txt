@@ -144,31 +144,12 @@ Date:   Wed Mar 4 22:12:20 2020 +0100
 Migration from 'Lock' to 'Mutex' and 'Blockade'
 ===============================================
 
-;@alex-ab
-
-commit e87d60ddf7ecfd44b9afd1a4591913740e7dfed1
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Tue Feb 18 15:29:47 2020 +0100
-
-    core: use Mutex/Blockade
-    
-    Issue #3612
-
-commit 3956530634f03cfd2a2075c7a857c7138b4807c1
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed Feb 19 16:26:40 2020 +0100
-
-    base: use Mutex/Blockade
-    
-    Issue #3612
-
-commit 22d71d5a8b9f05f64cf7d1b82827bd47036e690d
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Thu Feb 20 15:47:08 2020 +0100
-
-    os: use Mutex/Blockade
-    
-    Issue #3612
+Since the last release we continued the cultivation of 'Mutex' and 'Blockade'
+across the repositories 'base' and 'os' of the Genode framework. The changes
+are transparent to a Genode developer mostly. One noticeable
+change is that the Genode::Synced_interface now requires a 'Mutex' as template
+argument, the 'Lock' class is not supported anymore. The known user outside
+of the repository of 'os' and 'base', namely Seoul, got adjusted to this change.
 
 Retired Noux runtime environment
 ================================
@@ -767,41 +748,29 @@ Date:   Thu Apr 9 12:16:45 2020 +0200
 MSI-X support on x86
 ====================
 
-;@alex-ab
+The platform driver now supports to scan for the MSI-X cap of PCI devices
+and to parse and setup the MSI-X structure to make use of it. With this
+change MSI-X style interrupts are usable by kernels supporting MSI already.
 
-commit d657b61f1b8be8f07f8a097076e21a3a134572f4
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Thu Feb 6 14:54:16 2020 +0100
+The feature was tested with NVMe devices so far. If MSI-X is available for
+a PCI devices, the output looks like this:
 
-    x86: support msi-x by platform driver
-    
-    Fixes #3699
-
+! [init -> platform_drv] nvme_drv -> : assignment of PCI device 01:00.0 succeeded
+! [init -> platform_drv] 01:00.0 adjust IRQ as reported by ACPI: 11 -> 16
+! [init -> platform_drv] 01:00.0 uses MSI-X vector 0x7f, address 0xfee00018
+! [init -> nvme_drv] NVMe PCIe controller found (0x1987:0x5007)
 
 Optimized retrieval of TRACE subject information
 ================================================
 
-;@alex-ab
-
-commit 1a94338389f233870bea0d6d0665b207fa63fab6
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Thu Jan 16 18:00:30 2020 +0100
-
-    trace: support to request subject infos batched
-    
-    Optimize requesting the Subject_infos from O(n) to O(1) RPC call.
-    
-    Issue #3610
-
-commit 80d89c20fdb231f87dce189ef76d9e2ec1d1dc04
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Tue Apr 28 08:50:13 2020 +0200
-
-    top: use batched subject_infos of trace session
-    
-    Issue #3610
-
-
+The trace infrastructure of Genode supports to track and to collect information
+about the available subjects (e.g. threads) in the system. Up to now the retrival
+of information about all subjects of count n required to make n RPC call to
+Genode's 'core' component, which imply n times the overhead for process
+context switching. With this release the trace session got extended to
+request the subject infos of all subjects at once, in order to reduce the
+overhead. The new 'for_each_subject_info' method of the trace client side
+makes use of the new optimization and is used by the top component.
 
 Library updates
 ===============
@@ -849,16 +818,12 @@ Date:   Thu Nov 14 10:52:20 2019 +0100
 Write-combined framebuffer on x86
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-;@alex-ab
-
-commit e096202b1fa47165a726e73f53278080af6a06bc
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed Jan 29 10:56:35 2020 +0100
-
-    hw/x86: use PAT for write combining support
-    
-    Fixes #3623
-
+Motivated by a chewy GUI performance of Sculpt on [https://genode.org/documentation/release-notes/20.02#Execution_on_bare_hardware__base-hw_ - Genode/Spunky], the write-
+combining support for base-hw got enabled. To achieve better throughput
+to the framebuffer memory, we set up the x86 page attribute table (PAT)
+with a configuration for write combining and added the corresponding
+cacheability attributes to the page-table entries of those framebuffer memory
+mappings. With the changes the GUI feeling became more snappy.
 
 Improved cache maintenance on ARM
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -943,16 +908,62 @@ Date:   Sun Sep 15 01:10:20 2019 +0200
 NOVA microhypervisor
 ====================
 
-;@alex-ab
+The CPU affinity handling concept of Genode got added with
+[https://genode.org/documentation/release-notes/13.08#Management_of_CPU_affinities - release 13.08].
+With this release we added support to leverage the two dimensional vision of
+the concept, by grouping [https://en.wikipedia.org/wiki/Hyper-threading - hyper-threads]
+of one Core on the y-axis in the affinity space of Genode.
 
-commit 2064ffd64b41a60f7b6d5e9a2d5ed1e4327d81e4
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Feb 3 16:19:11 2020 +0100
+Genode's 'core' roottask for NOVA got adjusted to scan the NOVA kernels hypervisor
+information page (HIP) for the hyper-thread support. If available, all CPUs
+belonging to the same core get grouped now in Genode's affinity space along
+the y-axis. An example output on a machine with hyper-thread support now looks
+like this:
 
-    nova: support multidimensional affinity space
-    
-    Fixes #3635
+! Hypervisor reports 4x2 CPUs
+! mapping: affinity space -> kernel cpu id - package:core:thread
+!  remap (0x0) -> 0 - 0:0:0) boot cpu
+!  remap (0x1) -> 1 - 0:0:1)
+!  remap (1x0) -> 2 - 0:1:0)
+!  remap (1x1) -> 3 - 0:1:1)
+!  remap (2x0) -> 4 - 0:2:0)
+!  remap (2x1) -> 5 - 0:2:1)
+!  remap (3x0) -> 6 - 0:3:0)
+!  remap (3x1) -> 7 - 0:3:1)
 
+From the output one can determine Genode's affinity notation in form of (x,y)
+mapped to the correspending CPU. The package:core:thread column represents the
+report by the NOVA kernel about CPU characteristics collected by utilizing
+[https://en.wikipedia.org/wiki/CPUID - CPUID] during system boot up.
+
+To utilize all hyper-threads in an init configuration, the affinity-space can
+now be configured with a height of 2 and the y-axis of a 'start' node with 0
+to 1, e.g.
+
+! <config>
+!  <affinity-space width="4" height="2"/>
+!  ...
+!  <start name="app">
+!   <affinity xpos="0" ypos="1"/>  <!-- CPU on Core 0, Hyper-thread 1 -->
+!   ...
+!
+!  <start name="app"> <!-- CPU on Core 3, Hyper-thread 0 -->
+!   <affinity xpos="3" ypos="0"/>
+!   ...
+!  </start>
+!
+!  <start name="app"> <!-- CPU on Core 3, Hyper-thread 1 -->
+!     <affinity xpos="3" ypos="1"/>
+!   ...
+!  </start>
+! </config>
+
+Note: With this new feature the former sorting of hyper-threaded
+CPUs for Genode/NOVA is removed, which got introduced with [https://genode.org/documentation/release-notes/16.11#NOVA_hypervisor - release 16.08].
+Previously, given a number of n logical CPUs (with hyper-threading enabled),
+all hyper-threads with id 0 were available in the
+affinity-space (x,y) from (0,0) to (n/2-1,0) and all
+hyper-threads with id 1 as (n/2,0) to (n-1,0).
 
 Linux
 =====
