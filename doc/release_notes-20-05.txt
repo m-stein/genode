@@ -336,21 +336,61 @@ legacy with the current release.
 Board support outside the Genode main repository
 ================================================
 
-;@skalk
+During the recent decade of development a wide range of hardware support entered
+the Genode OS framework. However, the limited resources of a small
+core-developer team at Genode Labs make it impossible to guarantee the same
+daily test-coverage for every single board that entered the framework at some
+point in time. On the other hand it is crucial for the acceptance of a project like
+Genode to deliver high-quality and carefully tested components.
 
-commit f051065582c198f36be12ec6fe0833e1ff9561c1
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Mon Mar 23 14:45:58 2020 +0100
+To balance the act in between keeping hardware support not necessarily
+used by the core-team, and having thoroughly tested, recommended hardware
+on the other hand, we decided to continously move hardware support not longer
+tested regularily to the genode-world repository.
 
-    Retire OMAP4 support
-    
-    Fix #2850
+We started this process by abandon the OMAP4 and Exynos support to genode-world.
+The support for Odroid X2 was skipped finally. Support for Odroid XU,
+Arndale board, and Panda board on top of the base-hw kernel got moved to
+genode-world. The Fiasco.OC kernel support for these boards is no longer
+part of the framework.
 
-commit 0e49336b96b8438591e5d688799640d410d1c73c
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Tue Apr 7 00:42:50 2020 +0200
+If you like to build scenarios for one of the boards that are now located in
+genode-world, you have to add the world repository to the 'REPOSITORIES'
+variable of your build environment, e.g., by uncommenting the following line in
+the 'etc/build.conf' file of your build directory:
 
-    Retire Exynos 5 support (fix #3725)
+! #REPOSITORIES += $(GENODE_DIR)/repos/world
+
+To use the full convenience of using the run-tool with one of these
+world-located boards, you have to tweak the location of the kernel's run-tool
+plugin. Simply by replacing the following part:
+
+! ifdef KERNEL
+! RUN_OPT += --include boot_dir/$(KERNEL)
+! endif
+
+with the absolute path of the kernel-specific file in your genode-world
+repository. Typically this would be:
+
+! ifdef KERNEL
+! RUN_OPT += --include $(GENODE_DIR)/repos/world/tool/run/boot_dir/$(KERNEL)
+! endif
+
+In the nearby future the following hardware targets will be moved to
+genode-world too:
+
+* nit6_solox
+* usb_armory
+* wand_quad
+* zynq_qemu
+
+For the community this step has the following advantages. Transparency is given
+to you: all hardware support inside the main genode repositories gets tested all
+night using the CI tools at Genode Labs. The targets inside genode-world are
+only guaranteed to compile on a regular basis.
+On the other hand the effort for contributors to introduce and maintain their
+own hardware support is lowered, because the quality assurance with respect to
+genode-world component is less strict.
 
 
 Base framework and OS-level infrastructure
@@ -612,31 +652,25 @@ Execution on bare hardware (base-hw)
 Consolidated virtual machine monitor for ARMv7 and ARMv8
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-;@skalk
+The virtual machine monitor for ARMv8 introduced and enriched during the past
+two releases got consolidated within this release cycle to support ARMv7 as
+well. The old ARMv7 proof-of-concept implementation of the virtual machine
+monitor is now replaced by it. Most code-base in between both architecture
+variants is shared. Only certain aspects of the CPU model are differentitated.
+As a positive side-effect the ARMv7 virtual machine is now supporting recent
+Linux kernel versions too.
 
-commit 58db6542f87aecf44482cd354ebb673d73b5e924
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Fri Feb 21 11:35:43 2020 +0100
+The virtualization support is still limited to the base-hw kernel. The ARMv7
+variant can be used on the following boards:
 
-    hw: check for security extension support in GICv2
-    
-    Ref #3638
+* virt_qemu
+* imx7d_sabre
+* arndale (now in genode-world!)
 
-commit 74e75d7fbcda3dfb09d016d128f1567c141e83cd
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Wed Mar 25 19:09:36 2020 +0100
+The ARMv8 variant is now available on top of these boards:
 
-    hw: enable virtualization support for virt_qemu
-    
-    Ref #3638
-
-commit 941e918b466f13622f13dba0290a3f5800461bd6
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Thu Nov 14 10:52:20 2019 +0100
-
-    vmm: unify armv7/v8 virtualization
-    
-    Fix #3638
+* virt_qemu_64
+* imx8q_evk
 
 
 Write-combined framebuffer on x86
@@ -652,81 +686,38 @@ mappings. With the changes the GUI feeling became more snappy.
 Improved cache maintenance on ARM
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-;@skalk
+While doing some performance measurements, when using a lot of
+dataspaces, it became obvious that the usage of ARM cache maintainance
+operations  was far from optimal in the base-hw kernel. As a consequence, we
+consolidated all cache maintainance operations in the kernel across all ARM
+processor variants. Thereby we also found some misunderstandings of the hardware
+semantics related to making the instruction and data cache coherent. Which is
+necessary when having self-modifying code in the Java JIT compiler for example.
 
-commit 6d48b5484df270bef05be55edfcd2493dacd19ec
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Tue Mar 3 15:56:50 2020 +0100
+Therefore, we also had to change the syscall interface for this pupose. The
+now called 'cache_coherent_region' syscall is limited to only target
+exactly one page at a time. However, the 'Genode::cache_coherent' function
+of the base API abstracts away from these kernel-specific syscal anyway.
 
-    hw: correct the ARM cache maintainance operations
-    
-    This commit fixes the following issues regarding cache maintainance
-    under ARM:
-    
-    * read out I-, and D-cache line size at runtime and use the correct one
-    * remove 'update_data_region' call from unprivileged syscalls
-    * rename 'update_instr_region' syscall to 'cache_coherent_region' to
-      reflect what it doing, namely make I-, and D-cache coherent
-    * restrict 'cache_coherent_region' syscall to one page at a time
-    * lookup the region given in a 'cache_coherent_region' syscall in the
-      page-table of the PD to prevent machine exceptions in the kernel
-    * only clean D-cache lines, do not invalidate them when pages where
-      added on Cortex-A8 and ARMv6 (MMU sees phys. memory here)
-    * remove unused code relicts of cache maintainance
-    
-    In addition it introduces per architecture memory clearance functions
-    used by core, when preparing new dataspaces. Thereby, it optimizes:
-    
-    * on ARMv7 using per-word assignments
-    * on ARMv8 using cacheline zeroing
-    * on x86_64 using 'rept stosq' assembler instruction
-    
-    Fix #3685
-
-commit ff378a8c5bda3f6d7585ca25a446d726a0ad82c0
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Mon Apr 6 20:44:29 2020 +0200
-
-    hw: cache maintainance on mapping removal too
-    
-    Older ARM processors like ARMv6, or Cortex A8 need to write back changes
-    of the page-tables to physical ram because the MMU does not use the cache.
-    This naturally needs to be done not only when adding a mapping,
-    but on removal too.
-    
-    Fix #3715
+As another side-effect we tweaked the cleaning of memory. Whenever core hands
+out a newly allocated dataspace its memory needs to be filled with zeroes to
+prevent crosstalk of components. Now, the base-hw kernel contains architecture
+specific ways of effectively cleaning memory, which dramatically increased the
+performance for memory allocation intensive scenarios.
 
 
 Qemu-virt platform support
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-;@skalk
+Thanks to the contribution of Piotr Tworek the base-hw kernel now runs on top
+of the Qemu virt platform too. It comes in two flavours. The 32-bit 'virt_qemu'
+board consists of 2GB of RAM, 2 Cortex A15 cores and uses the GICv2 interrupt
+controller. The 'virt_qemu_64' board is the 64-bit variant with 4 Cortex A53
+cores, a GICv3 interrupt controller, and has also 2GB of RAM.
 
-commit dad1de186507445360aa9fc94bdc91dddcd054f8
-Author: Piotr Tworek <tworaz@tworaz.net>
-Date:   Thu Nov 28 23:29:21 2019 +0100
-
-    hw: Add interface for making basic ARM PSCI calls.
-    
-    So far this only exposes two functions allowing the code to turn on
-    additional CPUs. There is much more functionality defined by PSCI spec
-    but so far its not needed by Genode.
-    
-    Fixes #3672
-
-commit 585c4b8c69f1a5fb73a9b730c748baf1203628f9
-Author: Piotr Tworek <tworaz@tworaz.net>
-Date:   Sun Sep 15 01:10:20 2019 +0200
-
-    hw: Add support for Qemu virt arm platforms.
-    
-    This patch adds support for booting base-hw kernel on qemu-arm virt
-    machines. The arm_virt machine has 2GB of RAM, 2 Cortex A15 cores and
-    uses GICv2 interrupt controller. The arm_64_virt machine also has 2GB of
-    RAM, but has 4 Cortex A53 cores and uses GICv3. Both machines use PSCI
-    to boot additional CPU cores.
-    
-    Fixes #3673
+Both machine models support the ARM virtualization extensions, which can be
+utilized by using the Genode's virtual machine monitor for ARM, compare to
+section [Consolidated virtual machine monitor for ARMv7 and ARMv8].
 
 
 NOVA microhypervisor
