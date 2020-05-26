@@ -715,24 +715,40 @@ Self-hosted Genode tool chain
 ; refinements wrt pipes, error handling -> Genode tool chain
 
 
-Decoupling of stdc++ from Genode's base ABI
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Decoupling C++ runtime support from Genode's base ABI
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-;@chelmuth
+Traditionally all Genode components are linked (explicitly or
+implicitly) to the platform library and dynamic linker ld.lib.so. This
+library provides the kernel-agnostic _base_ API/ABI and hides
+platform-specific adaptations from the components. Also, ld.lib.so
+includes the C++ runtime which is provided via the C++ ABI and
+implements support for runtime type information, guard variables, and
+exceptions. So, C++ programs using the named features are guaranteed
+to work on Genode as expected.
 
-commit 4ab990ad5bdb64def4bc835c15137ee9b3a890fd
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Tue Mar 31 13:10:40 2020 +0200
+Since the introduction of our
+[https://genode.org/documentation/developer-resources/package_management - package management]
+and depot archives in
+[https://genode.org/documentation/release-notes/17.05#Package_management - release 17.05]
+software packages are required to explicitly specify API dependencies.
+For Genode components using the base framework, e.g., to implement
+signal handlers in the entrypoint, the dependency to the _base_ API is
+natural. Genode-agnostic programs using only the LibC or C++ STL on
+the other hand shall not depend on one specific version of the
+platform library. Unfortunately up to this release, this independence
+could only be accomplished for C or simple C++ programs for the
+reasons named before and all C++ components had to specify the
+dependency to the base ABI. The unwanted result of this intermixture
+was that complex POSIX programs (e.g., Qt5 applications) had to be
+updated every time the base API changed in a tiny detail.
 
-    libc: provide C++ runtime symbols in ABI
-    
-    This commit puts all C++ runtime/support symbols of ld.lib.so in a
-    dedicated section of base/lib/symbols/ld and mirrors the section to
-    libports/lib/symbols/libc. So, the libc ABI resolves potential C++
-    runtime dependencies of base-ABI-agnostic components at link time. The
-    runtime resolution is done by the linker by symbol lookup in ld.lib.so.
-    
-    Issue #3720
+In this release, we cut the dependency on the LibC runtime level and
+provide the C++ ABI symbols also to the LibC symbols. The
+implementation of the functions remains in ld.lib.so and, thus, is
+provided at runtime in any case. We also cleaned up many POSIX-level
+depot archives from the base dependency already, which paves the way
+less version updates in the future of only the base API changes.
 
 
 Redirection of LOG output to TRACE events
@@ -830,13 +846,8 @@ Date:   Tue Apr 28 08:50:13 2020 +0200
 Library updates
 ===============
 
-;@chelmuth
-
-commit 7d2eb71094e1634bc2153dc27ca9175024da1b22
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Wed Mar 18 14:57:51 2020 +0100
-
-    openssl: update to current version 1.0.2u
+We updated the OpenSSL patch level from 1.0.2q to the latest version
+1.0.2u as an intermediate step to a future update to 1.1.1.
 
 
 Platforms
