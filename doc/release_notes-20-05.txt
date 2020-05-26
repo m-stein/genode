@@ -593,54 +593,34 @@ less version updates in the future of only the base API changes.
 Redirection of LOG output to TRACE events
 =========================================
 
-;@tomga (?)
+During the debugging of timing-sensitive system scenarios such as high-rate
+interrupt handling of device drivers, instrumentations via the regular logging
+mechanism becomes prohibitive because the costs of the logging skew the system
+behavior too much.
 
-commit 1d9a2dce94673b15f389a500e5f016d9e89ca774
-Author: Tomasz Gajewski <tomga@wp.pl>
-Date:   Wed Apr 1 01:50:26 2020 +0200
+For situations like this, Genode features a
+[https://genode.org/documentation/release-notes/13.08#Light-weight_event_tracing - light-weight tracing]
+mechanism, later supplemented with easy-to-use
+[https://genode.org/documentation/release-notes/18.02#New_trace-logging_component - tooling].
+Still, the tracing facility remains underused to this day.
 
-    trace: extend policy with log_output
-    
-    Issue #3714
+As one particular barrier of use, manual instrumentations must explicitly
+target the tracing mechanism by using the 'trace' function instead of the
+'log' function. The process of switching from the logging approach to the
+tracing mechanism is not seamless. The current release overcomes this obstacle
+by extending the trace policy interface with a new policy hook of the form
 
-commit db8ec81e9f54b696d3793e82e7e0cf5a2928fd91
-Author: Tomasz Gajewski <tomga@wp.pl>
-Date:   Wed Apr 1 01:51:54 2020 +0200
+! size_t log_output (char *dst, char const *log_message, size_t len);
 
-    trace: log_output policy that redirects logs to trace
-    
-    Issue #3714
+The hook is invoked each time the traced component performs log output.
+Once the trace monitor installs a trace policy that implements this hook
+into the traced component, log output can be captured into the thread-local
+trace buffer. The size of the captured data is returned. If the hook function
+returns 0, the output is directed to the LOG as usual. This way, the
+redirection policy of log output can even be changed while the component is
+running!
 
-commit 870d348d77c1afb01dfd2482fe623bef5f5ddbf1
-Author: Tomasz Gajewski <tomga@wp.pl>
-Date:   Tue Apr 7 23:47:31 2020 +0200
-
-    trace: redirect logs to trace based on policy
-    
-    If trace is enabled for component than an attempt to put message into
-    trace buffer is performed using log_output policy. If it succeeds than
-    message is not put to logs using log service.
-    
-    Fixes #3714
-
-commit 4639978b3ac062cdc1811bfd6237f3680921b220
-Author: Tomasz Gajewski <tomga@wp.pl>
-Date:   Wed Apr 1 00:39:24 2020 +0200
-
-    trace_logger: avoid output of empty lines
-    
-    It avoids output of empty lines in output buffer if traced messages end
-    with \n (what is common with messages logged from dde_linux).
-    
-    Issue #3714
-
-commit fca2a05adf3272ef78ff473afec3181114d9b702
-Author: Tomasz Gajewski <tomga@wp.pl>
-Date:   Thu Apr 9 12:16:45 2020 +0200
-
-    trace: extend test for log_output
-    
-    Issue #3714
+Thanks to Tomasz Gajewski for contributing this handy feature.
 
 
 MSI-X support on x86
