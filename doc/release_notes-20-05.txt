@@ -606,6 +606,27 @@ returns 0, the output is directed to the LOG as usual. This way, the
 redirection policy of log output can even be changed while the component is
 running!
 
+The new feature is readily available for the use with the trace logger by
+specifying the 'policy="log_output"' attribute at a '<policy>' node in the
+trace logger's configuration. (excerpt taken from the example at
+_os/recipes/pkg/test-trace_logger/runtime_):
+
+! <config verbose="yes"
+!         session_ram="10M"
+!         session_parent_levels="1"
+!         session_arg_buffer="64K"
+!         period_sec="3"
+!         activity="yes"
+!         affinity="yes"
+!         default_policy="null"
+!         default_buffer="1K">
+!
+!   <policy label="init -> dynamic -> test-trace_logger -> dynamic_rom"
+!           thread="ep"
+!           buffer="8K"
+!           policy="log_output"/>
+! </config>
+
 Thanks to Tomasz Gajewski for contributing this handy feature.
 
 
