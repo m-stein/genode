@@ -60,11 +60,11 @@ Feature-completeness of the consistent block encrypter
 ######################################################
 
 With
-[https://genode.org/documentation/release-notes/19.11#Preliminary_block-device_encrypter - Genode 19.11]
+[https://genode.org/documentation/release-notes/19.11#Preliminary_block-device_encrypter - Genode 19.11],
 we introduced a preliminary version of the consistent block encrypter (CBE).
-The CBE is a block-device encryption who's core logic is entirely written in
+The CBE is a block-device encryption component with its core logic entirely written in
 SPARK. It combines multiple techniques to ensure confidentiality, integrity,
-consistency and freshness of the block data in a performant manner.
+consistency, and freshness of the block data in a performant manner.
 Furthermore, the whole core logic so far passes 'gnatprove' in mode "flow".
 
 With Genode 20.05, the CBE reached not only feature completeness by receiving
@@ -72,28 +72,28 @@ support for trust-anchor integration, online rekeying and online resizing,
 it also has been integrated as VFS plugin into a real-world scenario running
 an encrypted Linux VM.
 
-As the full story would not fit in the release notes, we decided to give it an
-extra article on genodians.org that will be published soon and that will
+As the full story would not fit in the release notes, we decided to dedicate an
+extra article for genodians.org that will be published soon and that will
 include a tutorial for deploying the CBE in your own Sculpt OS. At this point,
 however, we will give you a brief summary of the update. You can check out the
-code and run scripts that show case the new features using the branches
+code and run scripts that showcase the new features using the branches
 [https://github.com/m-stein/genode/commits/cbe_20.05 - genode/cbe_20.05]
 and
-[https://github.com/m-stein/cbe/commits/cbe_20.05 - cbe/cbe_20.05.].
+[https://github.com/m-stein/cbe/commits/cbe_20.05 - cbe/cbe_20.05].
 
 
-Trust anchor integration
+Trust-anchor integration
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 For several reasons, the management of the encryption keys is an aspect
 that should not be part of the CBE. Instead, an external entity, called trust
-anchor, like a smartcard or an USB dongle shall be available to the CBE for
+anchor like a smartcard or an USB dongle shall be available to the CBE for
 this purpose.
 
 First of all, the trust anchor is responsible for generating the symmetric
-block-encryption keys for the CBE via pseudo-random number generation. The
+block-encryption keys for the CBE via a pseudo-random number generator. The
 confidentiality of the whole CBE device depends on these keys. So, not only
-they must never leave the CBE component unencrypted but, even more, the trust
+must they never leave the CBE component unencrypted but, even more importantly, the trust
 anchor should be the only one able to decrypt them when they got read from the
 back-end device.
 
@@ -101,7 +101,7 @@ That said, the trust anchor exclusively carries the private key of the user and
 does the asymmetric encryption and decryption of the symmetric keys every time
 they leave or enter the CBE component.
 
-But the trust anchor is also the key to the integrity, consistency and
+But the trust anchor is also the key element to the integrity, consistency, and
 freshness of an existing CBE device as it always holds the top-level hash of
 the most recent CBE state known to be consistent. On startup, a CBE component
 matches this hash against the superblocks found on the device to find the
@@ -117,18 +117,18 @@ Online rekeying
 
 It is desirable to be able to replace the symmetric key of a CBE device. For
 instance, when the trust anchor got compromised or lost. But also as a
-preventional requirement on a regular basis.
+preventive requirement on a regular basis.
 
 In order to rekey a CBE device, each block in the CBE must be decrypted and
 then re-encrypted. Obviously, this can be a time-intensive task for larger
 devices or in the presence of many states of a device.
 
 Rekeying in the CBE is therefore implemented in a way that doesn't block all
-other operations on the device. The CBE will keep handling requests from the
+other operations on the device. The CBE will continue handling requests from the
 user to read blocks, write blocks, synchronize the back end, or discard
 snapshots during the rekeying process.
 
-If the system should turn off while rekeying, be it cleanly or unintentionally,
+If the system should be turned off while rekeying, be it cleanly or unintentionally,
 the process is automatically and safely continued at the next startup without
 loosing much progress. Once the CBE is done with a rekeying, the old symmetric
 key is removed completely from the system.
@@ -137,7 +137,7 @@ key is removed completely from the system.
 Online resizing
 ~~~~~~~~~~~~~~~
 
-There are two pools in the CBE that one might want to change the size of after
+There are two pools in the CBE that one might want to re-dimension of after
 initialization. One is the most recent state of the CBE device, i.e., the range
 of addressable virtual blocks. The other is the pool of sparse blocks that are
 used to hold older states of the above mentioned blocks. If the pool of sparse
@@ -146,32 +146,32 @@ snapshots that differ more from the current state.
 
 As with rekeying, resizing is done online. I.e., the same operations that get
 executed in parallel to rekeying can be executed in parallel to resizing too.
-Also on system shutdowns or crashes resizing behaves like rekeying and
+Also on system shutdowns or crashes, resizing behaves like rekeying and
 automatically continues at the next startup.
 
 
 VFS plugin and demo scenario
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-During the last months we phased out the former CBE server components and
+During the previous months, we phased out the former CBE server components and
 solely focused on the CBE-VFS plugin together with the tooling components
-'cbe_tester', 'cbe_init', 'cbe_check' and 'cbe_dump'.
+'cbe_tester', 'cbe_init', 'cbe_check', and 'cbe_dump'.
 
-As the introduction of the trust anchor simplified the key mangement, the
+As the introduction of the trust anchor simplified the key management, the
 plugin was adapted in this regard. It still exposes the same three main
-directories 'control', 'snapshots' and 'current'. However, the 'control'
-directory now only contains the files 'create_snapshot', 'discard_snapshot',
-'extend' and 'rekey'. The former two files are used for snapshot management
-while the other ones address rekeying and extending the size of the block pools
-of the CBE. The file that dealt with key mangement is gone.
+directories _control/_, _snapshots/_ and _current/_. However, the _control/_
+directory now only contains the files _create_snapshot_, _discard_snapshot_,
+_extend_ and _rekey_. The former two files are used for snapshot management
+whereas the other ones address rekeying and extending the size of the block pools
+of the CBE. The file that dealt with key management is gone.
 
-There is a new integrated test scenario 'vfs_cbe.run' for base-linux where
+There is a new integrated test scenario _vfs_cbe.run_ for base-linux where
 the new features of the CBE are exercised concurrently by a shell-script. As
-preliminary step the 'vfs_cbe_init.run' has to be executed to create the
+preliminary step, the _vfs_cbe_init.run_ has to be executed to create the
 CBE image file.
 
 Furthermore, we finally put the CBE to good use by employing it as backing
-storage for VMs. In this examplary scenario the CBE-VFS plugin is running in
+storage for VMs. In this exemplary scenario, the CBE-VFS plugin is running in
 its own VFS server and is accessed by a management component and the VM. The
 CBE is initialized with a 1 GiB VBD and 256 MiB worth of sparse blocks.
 
@@ -201,11 +201,11 @@ The exemplary CBE-VFS server configuration looks like this:
 ! </start>
 
 The file serving as backing storage for the CBE is accessed via the FS-VFS
-plugin but thanks to the nature of Genode's VFS it could as easily be a normal
-block device simply by replacing the FS-VFS plugin with the Block-VFS plugin.
+plugin but thanks to the nature of Genode's VFS, it could as easily be a normal
+block device simply by replacing the FS-VFS plugin with the block-VFS plugin.
 
 That being said, the complete 'cbe' directory is made accessible to a
-management component. In this example a 'bash' environment steps in to fullfill
+management component. In this example a 'bash' environment steps in to fulfill
 this role:
 
 ! <start name="bash_cbe" caps="1000">
@@ -232,11 +232,11 @@ this role:
 !   </route>
 ! </start>
 
-Within the confinement of the shell the user may access, create and discard
-snapshots, extend the CBE and last but not leat may issue rekey requests by
-interacting with the files in the '/dev/cbe' directory.
+Within the confinement of the shell, the user may access, create and discard
+snapshots, extend the CBE and last but not least may issue rekey requests by
+interacting with the files in the _/dev/cbe/_ directory.
 
-On the other hand there is VirtualBox where access to the CBE is limited to the
+On the other hand, there is VirtualBox where access to the CBE is limited to the
 common block operations:
 
 ! <start name="vbox_cbe" caps="1000">
@@ -272,10 +272,10 @@ The block device size is set to 1 GiB, given as number of 512 byte sectors.
 Any extending operations on the CBE require the user to update the VMDK
 configuration to reflect the new state of the CBE.
 
-All in all, in this scenario the VM is able to read from and write to the CBE
+All in all, in this scenario, the VM is able to read from and write to the CBE
 while the user may perform management operations concurrently. Please note,
 that the interface of the CBE-VFS plugin is not yet set in stone and may change
-as the plugin as well as the CBE library itself mature. For now it is specially
+as the plugin as well as the CBE library itself continues to mature. For now it is specially
 tailored towards the interactive demonstration use-case.
 
 Together with the upcoming Genodians article about the CBE, we will also
@@ -286,15 +286,15 @@ demo scenario.
 Limitations
 ~~~~~~~~~~~
 
-Please note, that the actual block encryption is not part of the CBE itself as
+Please note that the actual block encryption is not part of the CBE itself as
 the CBE should not depend on a concrete encryption algorithm. Instead, it
-defines a generic interface to instrument a separate entity for block
-encryption. Therefore the encryption modul used in our scenarios should be
+defines a generic interface to hands over the actual encryption to a separate entity.
+Therefore, the encryption module employed in our scenarios should be
 seen as mere placeholder.
 
 An advantage of this design is that encryption can be individually adapted to
 the use case without having to change the management of the virtual device.
-This also includes the integration of encryption hardware. Furthermore, in the
+This also includes the possible use of encryption hardware. Furthermore, in the
 case that an encryption method is found to be obsolete, devices using the CBE
 can be updated easily by doing a rekeying with the new encryption method.
 
@@ -302,9 +302,16 @@ The same applies for the trust anchor. In our CBE scenarios it is represented
 by a placeholder module that is meant only to demonstrate the interplay with
 the CBE and that should be replaced in a productive context.
 
-Furthermore, the CBE still shows a lot of potential for optimization regarding
-performance. The focus of our work so far was on robustness and functionality,
-deliberately postponing sophistications.
+Furthermore, the CBE leaves a lot of potential for optimization regarding
+performance unused since we focused primarily on robustness and functionality,
+postponing optimizations at this stage. In particular, even though the CBE
+is designed from the ground up to operate asynchronously, the conservative
+parametrization of the current version leaves this potential deliberately
+unused. We are looking forward to unleash this potential during the next
+release cycle.
+
+Last but not least, note that the CBE has not undergone any security assessment
+independent from Genode Labs.
 
 
 New revision of the Genode Foundations book
