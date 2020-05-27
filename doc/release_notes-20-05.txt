@@ -137,7 +137,7 @@ key is removed completely from the system.
 Online resizing
 ~~~~~~~~~~~~~~~
 
-There are two pools in the CBE that one might want to re-dimension of after
+There are two pools in the CBE that one might want to re-dimension after
 initialization. One is the most recent state of the CBE device, i.e., the range
 of addressable virtual blocks. The other is the pool of sparse blocks that are
 used to hold older states of the above mentioned blocks. If the pool of sparse
@@ -275,7 +275,7 @@ configuration to reflect the new state of the CBE.
 All in all, in this scenario, the VM is able to read from and write to the CBE
 while the user may perform management operations concurrently. Please note,
 that the interface of the CBE-VFS plugin is not yet set in stone and may change
-as the plugin as well as the CBE library itself continues to mature. For now it is specially
+as the plugin as well as the CBE library itself continue to mature. For now, the interface is specially
 tailored towards the interactive demonstration use-case.
 
 Together with the upcoming Genodians article about the CBE, we will also
@@ -288,7 +288,7 @@ Limitations
 
 Please note that the actual block encryption is not part of the CBE itself as
 the CBE should not depend on a concrete encryption algorithm. Instead, it
-defines a generic interface to hands over the actual encryption to a separate entity.
+defines a generic interface to hand over the actual encryption or decryption of a block to a separate entity.
 Therefore, the encryption module employed in our scenarios should be
 seen as mere placeholder.
 
@@ -302,12 +302,12 @@ The same applies for the trust anchor. In our CBE scenarios it is represented
 by a placeholder module that is meant only to demonstrate the interplay with
 the CBE and that should be replaced in a productive context.
 
-Furthermore, the CBE leaves a lot of potential for optimization regarding
-performance unused since we focused primarily on robustness and functionality,
-postponing optimizations at this stage. In particular, even though the CBE
+Furthermore, the CBE leaves a lot of unused potential for optimization regarding
+performance since we focused primarily on robustness and functionality,
+postponing optimizations at this stage. For instance, even though the CBE
 is designed from the ground up to operate asynchronously, the conservative
-parametrization of the current version leaves this potential deliberately
-unused. We are looking forward to unleash this potential during the next
+parametrization of the current version deliberately doesn't take advantage of it.
+We are looking forward to unleash this potential during the next
 release cycle.
 
 Last but not least, note that the CBE has not undergone any security assessment
