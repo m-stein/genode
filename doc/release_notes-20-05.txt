@@ -20,13 +20,15 @@ Capability-based security using seccomp on Linux
 _This section was written by Stefan Thöni of [https://gapfruit.com/ - gapfruit AG] who_
 _conducted the described line of work in close collaboration with Genode Labs._
 
-My goal for the Genode Community Summer 2019 was to enable seccomp for
+My goal for the Genode
+[https://genodians.org/m-stein/2019-08-13-community-summer - Community Summer 2019]
+was to enable seccomp for
 base-linux to achieve an intermediate level of security for a Genode system
 running on Linux. To get any security benefit from seccomp, it turned out the
 RPC mechanisms of base-linux needed to be significantly reworked to prevent
 processes from forging any capabilities.
 
-The new capability-based security on Linux maps each capability to a pair of
+The new implementation of capability-based security on Linux maps each capability to a pair of
 socket descriptors, one of which can be transferred along socket connections
 using kernel mechanisms. Each invocation of a capability uses the received
 socket descriptor to address the server which in turn uses the epoll framework
@@ -40,10 +42,10 @@ With the hard part finally finished thanks to a
 [https://github.com/genodelabs/genode/pull/3581 - concerted effort] led by
 Norman Feske, I could turn back to seccomp. This Linux kernel mechanism
 restricts the ability of a process to use syscalls. Thanks to the small
-interface used by Genode processes, the whitelist approach worked nicely,
+interface required by Genode processes, the whitelist approach worked nicely,
 restricting all Genode processes to just 25 syscalls on x86, none of which can
-access any file on the host system. Instead all access to the host system must
-go through Genode RPC mechanisms to one of the hybrid components which are not
+access any file on the host system. Instead all accesses to the host system must
+go through Genode RPC mechanisms to one of the hybrid components, which are not
 yet subject to seccomp. Although some global information of the host system
 may still be accessed, the possibilities of escaping a sandboxed Genode
 process are vastly reduced.
@@ -76,8 +78,8 @@ The most noteworthy additions and changes are:
 :  </div>
 : </p>
 
-* The feedback-control-system composition
-* Removal of outdated components and APIs (noux, slave API)
+* Description of the feedback-control-system composition
+* Removal of outdated components and APIs (e.g., Noux, slave API)
 * Additional features ('<alias>', unlabeled LOG sessions)
 * Recommended next steps after reading of the getting-started section
 * Updated API reference ('Mutex', 'Blockade', 'Request_stream', 'Sandbox')
@@ -91,14 +93,18 @@ To examine the changes in detail, please refer to the book's
 The great consolidation
 #######################
 
-;@nfeske
+Genode's [https://genode.org/about/road-map - road map] for 2020, we stated
+that "during 2020, we will intensify the consolidation and optimization of the
+framework and its API, and talk about it." This ambition is strongly reflected
+by the current release as described as follows.
+
 
 Updated block servers using 'Request_stream' API
 ================================================
 
-During the previous release cycle we did adjust Genode's AHCI driver as well as
+During the previous release cycle, we did adjust Genode's AHCI driver as well as
 the partition manager to take advantage of the modern 'Request_stream' API, and
-thus, deprecating the ancient 'Bock::Driver' interface. With the current release
+thus, deprecating the ancient 'Bock::Driver' interface. With the current release,
 we have continued this line of work by introducing the 'Request_stream' API in
 our USB block driver and Genode's native NVMe driver with the ultimate goal to
 eliminate the 'Block::Driver' interface within all Genode components.
@@ -106,18 +112,20 @@ eliminate the 'Block::Driver' interface within all Genode components.
 Additionally, the NVMe driver received a major polishing regarding the handling
 of DMA memory. The handling of this type of memory got substantially simplified
 and the driver now can use the shared memory of a client session directly, and
-therefore, save expansive copy operations.
+therefore, save copy operations.
 
 
 Migration from 'Lock' to 'Mutex' and 'Blockade'
 ===============================================
 
-Since the last release we continued the cultivation of 'Mutex' and 'Blockade'
-across the repositories 'base' and 'os' of the Genode framework. The changes
+Since introducing the 'Mutex' and 'Blockade' types in the
+[https://genode.org/documentation/release-notes/20.02#Base-framework_refinements - previous release],
+we continued the cultivation of using those types
+across the _base_ and _os_ repositories of the framework. The changes
 are transparent to a Genode developer mostly. One noticeable
-change is that the Genode::Synced_interface now requires a 'Mutex' as template
+change is that the 'Genode::Synced_interface' now requires a 'Mutex' as template
 argument, the 'Lock' class is not supported anymore. The known user outside
-of the repository of 'os' and 'base', namely Seoul, got adjusted to this change.
+of the _base_ and _os_ repositories, namely the Seoul VMM, got adjusted to this change.
 
 
 Retired Noux runtime environment
@@ -140,8 +148,8 @@ For example, despite significant feature overlap between Noux and Genode's
 libc, both runtime environments remained distinct from each other. Programs
 had to be targeted to either environment at build time.
 As another problem, the fork/execve mechanism of Noux required a few special
-hooks in Genode's base system that are complicated. Still, those hooks were
-insufficient to accommodate Noux on top of the Linux kernel.
+hooks in Genode's base system that are complicated. Still, those hooks
+remained insufficient to accommodate Noux on top of the Linux kernel.
 
 One year ago, a "divine" plan of how the feature set of Noux could be
 implemented in our regular C runtime struck us. It
@@ -154,7 +162,7 @@ During the release cycles of versions
 we gradually moved closer to our vision.
 With the current release, we are proud to announce that Noux has become
 obsolete without sacrificing its feature set! All use cases of Noux can now
-be addressed by combining Genode's building blocks, in particular the
+be addressed by combining Genode's generic building blocks, in particular the
 VFS server, VFS plugins for pipes and terminal access, the 'fs_rom' server,
 and the C runtime.
 
@@ -164,7 +172,7 @@ Figure [from_noux_to_libc] illustrates the different approaches. On the left,
 the Noux runtime environment provides the traditional Unix system-call
 interface to the Unix process(es), taking the position of a Unix kernel. Noux
 implements concepts like a virtual file system, file descriptors, pipes, and
-execve/fork. Structurally, it is very traditional.
+execve/fork. Structurally, it looks very traditional.
 The scenario on the right achieves the same functionality without a
 Unix-kernel-like component. The VFS is provided by a standalone file-system
 server. For obtaining executables from the VFS, the 'fs_rom' server is used.
@@ -184,12 +192,13 @@ scenario, which self-hosts the Genode tool chain and build/packaging system on
 top of Genode.
 
 Sculpt OS as the most prominent use case of Noux had to be adjusted as well.
-The _noux-system_ package is now called _system_shell_. The log-noux instance
-of the Leitzentrale has been replaced by a simple new component called
-_stdin2out_. Disk-management operations are now performed by executing the
-file-system utilities _e2fsck_, _resize2fs_, and _mke2fs_ as stand-alone
-components. The prepare step and the inspect tab are realized as a system
-composition like depicted above.
+The _noux-system_ package has been replaced by the new _system_shell_ package
+as drop-in replacement. The log-noux instance of the Leitzentrale has been
+replaced by a simple new component called _stdin2out_. Disk-management
+operations are now performed by executing the file-system utilities _e2fsck_,
+_resize2fs_, and _mke2fs_ as stand-alone components. The prepare step and the
+inspect tab are realized as a system composition like depicted above. On
+the user-visible surface, this profound change is barely noticeable.
 
 
 Removed components and features
@@ -216,7 +225,7 @@ plugin:
 ! </start>
 
 Since the VFS server is a full substitute, the current release drops the
-original 'ram_fs' server.
+original 'ram_fs' server and migrates all remaining use cases to the VFS server.
 
 
 Input-merger component
@@ -304,34 +313,35 @@ legacy with the current release.
 Board support outside the Genode main repository
 ================================================
 
-During the recent decade of development a wide range of hardware support entered
+During the recent decade of development, a wide range of hardware support entered
 the Genode OS framework. However, the limited resources of a small
-core-developer team at Genode Labs make it impossible to guarantee the same
+core-developer team at Genode Labs makes it impossible to guarantee the same
 daily test-coverage for every single board that entered the framework at some
-point in time. On the other hand it is crucial for the acceptance of a project like
+point in time. On the other hand, it is crucial for the acceptance of a project like
 Genode to deliver high-quality and carefully tested components.
 
-To balance the act in between keeping hardware support not necessarily
+To balance the act in between retaining hardware support not necessarily
 used by the core-team, and having thoroughly tested, recommended hardware
-on the other hand, we decided to continously move hardware support not longer
-tested regularily to the genode-world repository.
+on the other hand, we decided to continuously move support for hardware that
+is no longer tested regularly to the
+[https://github.com/genodelabs/genode-world - Genode-World] repository.
 
-We started this process by abandon the OMAP4 and Exynos support to genode-world.
-The support for Odroid X2 was skipped finally. Support for Odroid XU,
+We started this process by migrating the OMAP4 and Exynos support.
+The support for Odroid X2 was eventually dropped. Support for Odroid XU,
 Arndale board, and Panda board on top of the base-hw kernel got moved to
-genode-world. The Fiasco.OC kernel support for these boards is no longer
+Genode-World. The Fiasco.OC kernel support for these boards is no longer
 part of the framework.
 
 If you like to build scenarios for one of the boards that are now located in
-genode-world, you have to add the world repository to the 'REPOSITORIES'
+Genode-World, you have to add the world repository to the 'REPOSITORIES'
 variable of your build environment, e.g., by uncommenting the following line in
-the 'etc/build.conf' file of your build directory:
+the _etc/build.conf_ file of your build directory:
 
 ! #REPOSITORIES += $(GENODE_DIR)/repos/world
 
-To use the full convenience of using the run-tool with one of these
+To use the full convenience of using the run tool with one of these
 world-located boards, you have to tweak the location of the kernel's run-tool
-plugin. Simply by replacing the following part:
+plugin by replacing the following part:
 
 ! ifdef KERNEL
 ! RUN_OPT += --include boot_dir/$(KERNEL)
@@ -344,21 +354,22 @@ repository. Typically this would be:
 ! RUN_OPT += --include $(GENODE_DIR)/repos/world/tool/run/boot_dir/$(KERNEL)
 ! endif
 
-In the nearby future the following hardware targets will be moved to
-genode-world too:
+In the near future, the following hardware targets will be moved to
+Genode-World too:
 
 * nit6_solox
 * usb_armory
 * wand_quad
 * zynq_qemu
 
-For the community this step has the following advantages. Transparency is given
-to you: all hardware support inside the main genode repositories gets tested all
-night using the CI tools at Genode Labs. The targets inside genode-world are
-only guaranteed to compile on a regular basis.
-On the other hand the effort for contributors to introduce and maintain their
-own hardware support is lowered, because the quality assurance with respect to
-genode-world component is less strict.
+For the community, this step has the advantage of improved transparency:
+All hardware support found inside the main Genode repository gets tested
+each night using the CI tools at Genode Labs. The targets hosted at
+Genode-world are only guaranteed to compile on a regular basis.
+On the other hand, the barrier for contributors to introduce and maintain their
+own hardware support is lowered because the quality assurance with respect to
+Genode-World component is less strict compared with the inclusion of patches in
+Genode's main repository.
 
 
 Base framework and OS-level infrastructure
@@ -429,18 +440,19 @@ Date:   Fri May 22 12:19:03 2020 +0200
     
     Ref #3299
 
-Block-device sync operation support
+
+Block-device sync-operation support
 ===================================
 
-Support for 'SYNC' block requests was extended through-out the block storage
+Support for 'SYNC' block requests was extended throughout the block storage
 stack. Such a request instructs the block components to flush their internal
 buffers. Although it was already implemented in most prominent device drivers
 such as AHCI and NVMe, we encountered problems with older AHCI controllers. A
 'SYNC' request is now only issued when the NCQ queue of the AHCI controller is
 empty.
 
-In addition the block-VFS plugin as well as the 'lx_fs' file system component
-now respect a sync request at VFS or rather file system session level.
+In addition, the block-VFS plugin as well as the 'lx_fs' file system component
+now respect a sync request at the VFS or rather file-system-session level.
 
 
 Base API refinements
@@ -459,7 +471,7 @@ all components to the modern API accordingly.
 Replaced 'Genode::strncpy' by 'Genode::copy_cstring'
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Since the first version of Genode, the public API features a few
+Since the first version of Genode, the public API featured a few
 POSIX-inspired string-handling functions, which were usually named after their
 POSIX counterparts. In the case of 'strncpy', this is unfortunate because
 Genode's version is not 100% compatible with the POSIX 'strncpy'. In
@@ -474,7 +486,7 @@ LOG session
 ~~~~~~~~~~~
 
 The return value of 'Log_session::write' got removed. It was never meaningful
-in practice but ignoring the value at the caller site tends to make static
+in practice. Yet ignoring the value at the caller site tends to make static
 code analyzers nervous.
 
 
@@ -487,7 +499,7 @@ take of a utility for tracking and constraining the consumption of memory
 within a component. However, we later
 [https://github.com/genodelabs/genode/issues/1039 - got aware] of several
 limitations of the taken approach. In short, the 'Allocator_guard' tried
-to attack the accounting problem at the wrong level of abstraction.
+to attack the resource-accounting problem at the wrong level of abstraction.
 In Genode
 [https://genode.org/documentation/release-notes/17.05#Merged_RAM_and_PD_services_of_the_core_component - 17.05],
 we introduced a water-tight alternative in the form of the
@@ -495,14 +507,15 @@ we introduced a water-tight alternative in the form of the
 components. However, the relic from the past still remained present in several
 time-tested components including Genode's core component. With the current
 release, we finally removed the 'Allocator_guard' from the framework and
-migrated all former users to the 'Constrained_ram_allocator'.
+migrated all former use cases to the 'Constrained_ram_allocator'.
 
 The adjustment of core in this respect has the side effect of a more accurate
 capability accounting in core's CPU, TRACE, and RM services. In particular,
 the dataspace capabilities needed for core-internal allocations via the
-'Sliced_heap' are accounted to the client now. The same goes for nitpicker and
-nic_dump as other former users of the allocator guard. Hence, the change
-touches code at the client and server sides related to these services.
+'Sliced_heap' are accounted to the respective client now. The same goes for
+nitpicker and nic_dump as other former users of the allocator guard. Hence,
+the change touches code at the client and server sides related to these
+services.
 
 
 C runtime
@@ -534,7 +547,7 @@ could only be accomplished for C or simple C++ programs for the
 reasons named before and all C++ components had to specify the
 dependency to the base ABI. The unwanted result of this intermixture
 was that complex POSIX programs (e.g., Qt5 applications) had to be
-updated every time the base API changed in a tiny detail.
+updated every time the base ABI changed in a tiny detail.
 
 In this release, we cut the dependency on the LibC runtime level and
 provide the C++ ABI symbols also to the LibC symbols. The
@@ -601,9 +614,9 @@ Thanks to Tomasz Gajewski for contributing this handy feature.
 MSI-X support on x86
 ====================
 
-The platform driver now supports to scan for the MSI-X cap of PCI devices
-and to parse and setup the MSI-X structure to make use of it. With this
-change MSI-X style interrupts are usable by kernels supporting MSI already.
+The platform driver now supports the scan for the MSI-X cap of PCI devices
+and the parsing and setup of the MSI-X structure to make use of it. With this
+change, MSI-X style interrupts become usable by kernels supporting MSI already.
 
 The feature was tested with NVMe devices so far. If MSI-X is available for
 a PCI devices, the output looks like this:
@@ -613,17 +626,20 @@ a PCI devices, the output looks like this:
 ! [init -> platform_drv] 01:00.0 uses MSI-X vector 0x7f, address 0xfee00018
 ! [init -> nvme_drv] NVMe PCIe controller found (0x1987:0x5007)
 
+
 Optimized retrieval of TRACE subject information
 ================================================
 
-The trace infrastructure of Genode supports to track and to collect information
-about the available subjects (e.g. threads) in the system. Up to now the retrival
-of information about all subjects of count n required to make n RPC call to
-Genode's 'core' component, which imply n times the overhead for process
-context switching. With this release the trace session got extended to
-request the subject infos of all subjects at once, in order to reduce the
-overhead. The new 'for_each_subject_info' method of the trace client side
+The trace infrastructure of Genode allows for the tracking and collection of information
+about the available subjects (e.g. threads) in the system. Up to now, the retrieval
+of information about all subjects of count N required to issue N RPC calls to
+Genode's core component, which imply N times the overhead for inter-component
+context switching. With this release, the trace session got extended with the ability to
+request the information of all subjects as one batch, thereby dramatically reducing the
+overhead in large scenarios such as Sculpt OS.
+The new 'for_each_subject_info' method of the trace-client side
 makes use of the new optimization and is used by the top component.
+
 
 Library updates
 ===============
@@ -645,12 +661,12 @@ The virtual machine monitor for ARMv8 introduced and enriched during the past
 two releases got consolidated within this release cycle to support ARMv7 as
 well. The old ARMv7 proof-of-concept implementation of the virtual machine
 monitor is now replaced by it. Most code-base in between both architecture
-variants is shared. Only certain aspects of the CPU model are differentitated.
-As a positive side-effect the ARMv7 virtual machine is now supporting recent
+variants is shared. Only certain aspects of the CPU model are differentiated.
+As a positive side effect, the ARMv7 virtual machine is now supporting recent
 Linux kernel versions too.
 
-The virtualization support is still limited to the base-hw kernel. The ARMv7
-variant can be used on the following boards:
+Note that the virtualization support is still limited to the base-hw kernel.
+The ARMv7 variant can be used on the following boards:
 
 * virt_qemu
 * imx7d_sabre
@@ -665,60 +681,61 @@ The ARMv8 variant is now available on top of these boards:
 Write-combined framebuffer on x86
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Motivated by a chewy GUI performance of Sculpt on [https://genode.org/documentation/release-notes/20.02#Execution_on_bare_hardware__base-hw_ - Genode/Spunky], the write-
-combining support for base-hw got enabled. To achieve better throughput
+Motivated by a chewy GUI performance of Sculpt on [https://genode.org/documentation/release-notes/20.02#Execution_on_bare_hardware__base-hw_ - Genode/Spunky],
+the write-combining support for base-hw got enabled. To achieve better throughput
 to the framebuffer memory, we set up the x86 page attribute table (PAT)
 with a configuration for write combining and added the corresponding
 cacheability attributes to the page-table entries of those framebuffer memory
-mappings. With the changes the GUI feeling became more snappy.
+mappings. With the changes the GUI became much more snappy.
+
 
 Improved cache maintenance on ARM
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-While doing some performance measurements, when using a lot of
-dataspaces, it became obvious that the usage of ARM cache maintainance
-operations  was far from optimal in the base-hw kernel. As a consequence, we
-consolidated all cache maintainance operations in the kernel across all ARM
+While conducting performance measurements, in particular when using a lot of
+dataspaces, it became obvious that the usage of ARM cache maintenance
+operations was far from optimal in the base-hw kernel. As a consequence, we
+consolidated all cache maintenance operations in the kernel across all ARM
 processor variants. Thereby we also found some misunderstandings of the hardware
-semantics related to making the instruction and data cache coherent. Which is
-necessary when having self-modifying code in the Java JIT compiler for example.
+semantics related to making the instruction and data cache coherent. The latter is
+necessary in the presence of self-modifying code, for example in the Java JIT compiler.
 
-Therefore, we also had to change the syscall interface for this pupose. The
-now called 'cache_coherent_region' syscall is limited to only target
+Therefore, we also had to change the system-call interface for this purpose. The
+now called 'cache_coherent_region' system call is limited to target
 exactly one page at a time. However, the 'Genode::cache_coherent' function
-of the base API abstracts away from these kernel-specific syscal anyway.
+of the base API abstracts away from these kernel-specific system call anyway.
 
-As another side-effect we tweaked the cleaning of memory. Whenever core hands
-out a newly allocated dataspace its memory needs to be filled with zeroes to
-prevent crosstalk of components. Now, the base-hw kernel contains architecture
+As another side effect, we tweaked the cleaning of memory. Whenever core hands
+out a newly allocated dataspace, its memory needs to be filled with zeroes to
+prevent crosstalk between components. Now, the base-hw kernel contains architecture
 specific ways of effectively cleaning memory, which dramatically increased the
-performance for memory allocation intensive scenarios.
+performance for memory-allocation-intensive scenarios.
 
 
 Qemu-virt platform support
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Thanks to the contribution of Piotr Tworek the base-hw kernel now runs on top
+Thanks to the contribution by Piotr Tworek, the base-hw kernel now runs on top
 of the Qemu virt platform too. It comes in two flavours. The 32-bit 'virt_qemu'
 board consists of 2GB of RAM, 2 Cortex A15 cores and uses the GICv2 interrupt
 controller. The 'virt_qemu_64' board is the 64-bit variant with 4 Cortex A53
 cores, a GICv3 interrupt controller, and has also 2GB of RAM.
 
 Both machine models support the ARM virtualization extensions, which can be
-utilized by using the Genode's virtual machine monitor for ARM, compare to
-section [Consolidated virtual machine monitor for ARMv7 and ARMv8].
+utilized by using the Genode's virtual machine monitor for ARM, discussed in
+Section [Consolidated virtual machine monitor for ARMv7 and ARMv8].
 
 
 NOVA microhypervisor
 ====================
 
-The CPU affinity handling concept of Genode got added with
+Genode's present CPU affinity-handling concept was originally introduced in
 [https://genode.org/documentation/release-notes/13.08#Management_of_CPU_affinities - release 13.08].
-With this release we added support to leverage the two dimensional vision of
-the concept, by grouping [https://en.wikipedia.org/wiki/Hyper-threading - hyper-threads]
-of one Core on the y-axis in the affinity space of Genode.
+With the current release, we added support to leverage the two dimensional vision of
+the concept by grouping [https://en.wikipedia.org/wiki/Hyper-threading - hyper-threads]
+of one CPU core on the y-axis in the affinity space of Genode.
 
-Genode's 'core' roottask for NOVA got adjusted to scan the NOVA kernels hypervisor
+Genode's core roottask for NOVA got adjusted to scan the NOVA kernel's hypervisor
 information page (HIP) for the hyper-thread support. If available, all CPUs
 belonging to the same core get grouped now in Genode's affinity space along
 the y-axis. An example output on a machine with hyper-thread support now looks
@@ -735,8 +752,8 @@ like this:
 !  remap (3x0) -> 6 - 0:3:0)
 !  remap (3x1) -> 7 - 0:3:1)
 
-From the output one can determine Genode's affinity notation in form of (x,y)
-mapped to the correspending CPU. The package:core:thread column represents the
+From the output, one can determine Genode's affinity notation in form of (x,y)
+mapped to the corresponding CPU. The package:core:thread column represents the
 report by the NOVA kernel about CPU characteristics collected by utilizing
 [https://en.wikipedia.org/wiki/CPUID - CPUID] during system boot up.
 
@@ -762,12 +779,13 @@ to 1, e.g.
 !  </start>
 ! </config>
 
-Note: With this new feature the former sorting of hyper-threaded
-CPUs for Genode/NOVA is removed, which got introduced with [https://genode.org/documentation/release-notes/16.11#NOVA_hypervisor - release 16.08].
-Previously, given a number of n logical CPUs (with hyper-threading enabled),
+Note: With this new feature, the former sorting of hyper-threaded
+CPUs for Genode/NOVA is removed, which got introduced with
+[https://genode.org/documentation/release-notes/16.11#NOVA_hypervisor - release 16.08].
+Previously, given a number of N logical CPUs (with hyper-threading enabled),
 all hyper-threads with id 0 were available in the
-affinity-space (x,y) from (0,0) to (n/2-1,0) and all
-hyper-threads with id 1 as (n/2,0) to (n-1,0).
+affinity-space (x,y) from (0,0) to (N/2-1,0) and all
+hyper-threads with id 1 as (N/2,0) to (N-1,0).
 
 
 Linux
