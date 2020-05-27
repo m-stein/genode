@@ -96,49 +96,17 @@ The great consolidation
 Updated block servers using 'Request_stream' API
 ================================================
 
-;@ssumpf
+During the previous release cycle we did adjust Genode's AHCI driver as well as
+the partition manager to take advantage of the modern 'Request_stream' API, and
+thus, deprecating the ancient 'Bock::Driver' interface. With the current release
+we have continued this line of work by introducing the 'Request_stream' API in
+our USB block driver and Genode's native NVMe driver with the ultimate goal to
+eliminate the 'Block::Driver' interface within all Genode components.
 
-commit 6e54cad44c69e2b3e9f134ddf0f876103b44da3f
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Fri Feb 21 08:37:08 2020 +0100
-
-    usb_block: switch to Request_stream API
-    
-    - remove old 'Driver' interface
-    - implement Request stream front end
-    - fix some namespacing
-    
-    issue #3661
-
-commit 150d1437558341822146d1bc1595f6b7ddb843a7
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Wed Mar 4 22:12:20 2020 +0100
-
-    os: use Request_stream API in NVMe driver
-    
-    As a result of the API change the memory handling could be simplified.
-    Since the Block session dataspace is now directly used for DMA, we
-    actually only have to provide the memory for setting up PRP lists for
-    large requests (for the moment more than 8 KiB of data).
-    
-    As we limit the maximum data transfer length to 2 MiB, we get by with
-    just a page per request. Those memory is allocated beforehand for the
-    maximum number of I/O requests, which got bumbed to 512 entries. Since
-    not all NVMe controllers support such large a maximum data transfer
-    length and this many entries, especially older ones, the values are
-    capped according to the properties of the controller during
-    initialization. (The memory demands of the component are around 3 MiB
-    due to setting up for the common case, even if a particular controller
-    is only able to make use of less.)
-    
-    (Although there are controllers whose maximum memory page size is more
-    than 4K, the driver is hardcoded to solely use 4K pages.)
-    
-    In addition to those changes, the driver now supports the 'SYNC' and
-    'TRIM' operations of the Block session by using the NVMe 'FLUSH' and
-    'WRITE_ZEROS' commands.
-    
-    Fixes #3702.
+Additionally, the NVMe driver received a major polishing regarding the handling
+of DMA memory. The handling of this type of memory got substantially simplified
+and the driver now can use the shared memory of a client session directly, and
+therefore, save expansive copy operations.
 
 
 Migration from 'Lock' to 'Mutex' and 'Blockade'
