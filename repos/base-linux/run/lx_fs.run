@@ -11,7 +11,7 @@ assert_spec linux
 # Build
 #
 
-build { core init server/lx_fs test/libc_vfs }
+build { core init timer server/lx_fs test/libc_vfs }
 
 create_boot_directory
 
@@ -32,6 +32,10 @@ install_config {
 		<any-service> <parent/> <any-child/> </any-service>
 	</default-route>
 	<default caps="100"/>
+	<start name="timer">
+		<resource name="RAM" quantum="2M"/>
+		<provides> <service name="Timer"/> </provides>
+	</start>
 	<start name="lx_fs" caps="200" ld="no">
 		<resource name="RAM" quantum="4M"/>
 		<provides> <service name="File_system"/> </provides>
@@ -62,7 +66,7 @@ exec mkdir -p bin/libc_vfs
 #
 
 build_boot_image {
-	core init ld.lib.so libc.lib.so vfs.lib.so lx_fs test-libc_vfs
+	core init timer ld.lib.so libc.lib.so vfs.lib.so lx_fs test-libc_vfs
 	libc_vfs
 }
 

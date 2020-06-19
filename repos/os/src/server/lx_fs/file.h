@@ -16,8 +16,8 @@
 #define _FILE_H_
 
 /* local includes */
-#include <node.h>
-#include <lx_util.h>
+#include "node.h"
+#include "lx_util.h"
 
 
 namespace Lx_fs {
