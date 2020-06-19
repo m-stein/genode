@@ -19,6 +19,7 @@
 #include <base/attached_rom_dataspace.h>
 #include <base/component.h>
 #include <base/heap.h>
+#include <base/log.h>
 #include <file_system_session/rpc_object.h>
 #include <os/session_policy.h>
 #include <root/component.h>
@@ -26,27 +27,33 @@
 
 /* local includes */
 #include "directory.h"
-#include "node.h"
+#include "notifier.h"
 #include "open_node.h"
+#include "watch.h"
 
+/* libc includes */
+#include <string.h>
 
 namespace Lx_fs {
 
 	using namespace File_system;
 	using File_system::Packet_descriptor;
 	using File_system::Path;
+	using Genode::Attached_rom_dataspace;
 
 	struct Main;
-	struct Session_component;
-	struct Root;
+	class Session_component;
+	class Root;
 }
 
 
-class Lx_fs::Session_component : public Session_rpc_object
+class Lx_fs::Session_component : public Session_rpc_object,
+                                 private Watch_node::Watch_node_response_handler
 {
 	private:
 
-		typedef File_system::Open_node<Node> Open_node;
+		using Open_node      = File_system::Open_node<Node>;
+		using Signal_handler = Genode::Signal_handler<Session_component>;
 
 		Genode::Env                 &_env;
 		Allocator                   &_md_alloc;
@@ -54,9 +61,8 @@ class Lx_fs::Session_component : public Session_rpc_object
 		Id_space<File_system::Node>  _open_node_registry { };
 		bool                         _writable;
 		Absolute_path const          _root_dir;
-
-		Signal_handler<Session_component> _process_packet_dispatcher;
-
+		Signal_handler               _process_packet_dispatcher;
+		Notifier                    &_notifier;
 
 		/******************************
 		 ** Packet-stream processing **
@@ -69,7 +75,7 @@ class Lx_fs::Session_component : public Session_rpc_object
 		 */
 		void _process_packet_op(Packet_descriptor &packet, Open_node &open_node)
 		{
-			size_t     const length  = packet.length();
+			size_t const length  = packet.length();
 
 			/* resulting length */
 			size_t res_length = 0;
@@ -195,6 +201,16 @@ class Lx_fs::Session_component : public Session_rpc_object
 			}
 		}
 
+		/**
+		 * Watch_node::Watch_node_response_handler interface
+		 */
+		void handle_watch_node_response(Lx_fs::Watch_node &node) override
+		{
+			using Fs_node = File_system::Open_node<Lx_fs::Node>;
+			_process_packet_op(node.acked_packet(),
+			                   *(reinterpret_cast<Fs_node*>(node.open_node())));
+		}
+
 	public:
 
 		/**
@@ -204,15 +220,18 @@ class Lx_fs::Session_component : public Session_rpc_object
 		                  Genode::Env &env,
 		                  char const  *root_dir,
 		                  bool         writable,
-		                  Allocator   &md_alloc)
+		                  Allocator   &md_alloc,
+		                  Notifier    &notifier)
 		:
-			Session_rpc_object(env.ram().alloc(tx_buf_size), env.rm(), env.ep().rpc_ep()),
-			_env(env),
-			_md_alloc(md_alloc),
-			_root(*new (&_md_alloc) Directory(_md_alloc, root_dir, false)),
-			_writable(writable),
-			_root_dir(root_dir),
-			_process_packet_dispatcher(env.ep(), *this, &Session_component::_process_packets)
+			Session_rpc_object { env.ram().alloc(tx_buf_size),
+			                     env.rm(), env.ep().rpc_ep() },
+			_env { env },
+			_md_alloc { md_alloc },
+			_root { *new (&_md_alloc) Directory { _md_alloc, root_dir, false } },
+			_writable { writable },
+			_root_dir { root_dir },
+			_process_packet_dispatcher { env.ep(), *this, &Session_component::_process_packets },
+			_notifier { notifier }
 		{
 			/*
 			 * Register '_process_packets' dispatch function as signal
@@ -311,6 +330,24 @@ class Lx_fs::Session_component : public Session_rpc_object
 				new (_md_alloc) Open_node(*node, _open_node_registry);
 
 			return open_node->id();
+		}
+
+		Watch_handle watch(Path const &path) override
+		{
+			_assert_valid_path(path.string());
+
+			/* re-root the path */
+			Path_string watch_path { ".", _root.path().string(), path.string() };
+
+			Watch_node *watch =
+				new (_md_alloc) Watch_node { _env, watch_path.string(), *this, _notifier };
+			Lx_fs::Open_node<Watch_node>  *open_watch =
+				new (_md_alloc) Lx_fs::Open_node<Watch_node>(*watch, _open_node_registry);
+
+			Watch_handle handle { open_watch->id().value };
+			watch->open_node(open_watch);
+
+			return handle;
 		}
 
 		void close(Node_handle handle) override
@@ -451,9 +488,9 @@ class Lx_fs::Root : public Root_component<Session_component>
 {
 	private:
 
-		Genode::Env &_env;
-
-		Genode::Attached_rom_dataspace _config { _env, "config" };
+		Genode::Env                    &_env;
+		Genode::Attached_rom_dataspace  _config   { _env, "config" };
+		Notifier                        _notifier { _env };
 
 		static inline bool writeable_from_args(char const *args)
 		{
@@ -532,7 +569,8 @@ class Lx_fs::Root : public Root_component<Session_component>
 
 			try {
 				return new (md_alloc())
-				       Session_component(tx_buf_size, _env, root_dir, writeable, *md_alloc());
+				       Session_component { tx_buf_size, _env, root_dir,
+				                           writeable, *md_alloc(), _notifier };
 			}
 			catch (Lookup_failed) {
 				Genode::error("session root directory \"", root, "\" "
