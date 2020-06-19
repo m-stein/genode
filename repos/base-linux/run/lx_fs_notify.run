@@ -1,0 +1,106 @@
+#
+# \brief  Test for using the lx_fs_notify plugin with the Linux file system
+# \author Pirmin Duss
+# \date   2019-12-05
+#
+
+assert_spec linux
+
+#
+# Build
+#
+
+create_boot_directory
+
+import_from_depot [depot_user]/src/[base_src]
+import_from_depot [depot_user]/src/fs_rom
+import_from_depot [depot_user]/src/init
+
+build { server/lx_fs test/lx_fs_notify }
+
+#
+# Generate config
+#
+
+install_config {
+<config>
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="LOG"/>
+	</parent-provides>
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+	<default caps="100"/>
+	<start name="timer">
+		<resource name="RAM" quantum="2M"/>
+		<provides> <service name="Timer"/> </provides>
+	</start>
+	<start name="lx_fs" caps="200" ld="no">
+		<resource name="RAM" quantum="4M"/>
+		<provides> <service name="File_system"/> </provides>
+		<config notify="yes">
+			<policy label_prefix="fs_rom" root="/lx_fs_notify" writeable="no"/>
+		</config>
+	</start>
+	<start name="fs_rom">
+		<resource name="RAM" quantum="2M"/>
+		<provides> <service name="ROM"/> </provides>
+	</start>
+	<start name="test-lx_fs_notify">
+		<resource name="RAM" quantum="2M"/>
+		<route>
+			<service name="ROM" label="test.txt"> <child name="fs_rom"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+</config>
+}
+
+#
+# Create test-directory structure
+#
+
+exec mkdir -p bin/lx_fs_notify
+exec touch bin/lx_fs_notify/test.txt
+
+#
+# Boot modules
+#
+
+build_boot_image { lx_fs test-lx_fs_notify lx_fs_notify }
+
+#
+# Execute test case
+#
+
+# wait until the test program has started
+run_genode_until "wait for ROM update" 5
+set spawn_id [output_spawn_id]
+
+# wait a short period
+after 100
+
+
+for { set it 0 } { $it < 200 } { incr it } {
+	# change the content of the file
+	set fd [open "[run_dir]/genode/lx_fs_notify/test.txt" w]
+	puts -nonewline $fd "iteration $it"
+	close $fd
+
+	# continue to observe the output of the output
+	run_genode_until ".*updated ROM content: iteration $it.*\n" 3 $spawn_id
+	after 10
+}
+
+
+#
+# Cleanup test-directory structure
+#
+
+exec rm -r bin/lx_fs_notify
+
+# vi: set ft=tcl :
