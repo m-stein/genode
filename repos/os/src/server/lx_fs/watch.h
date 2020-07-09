@@ -72,8 +72,9 @@ class Lx_fs::Watch_node final : public Lx_fs::Node,
 		{
 			struct stat s { };
 			int ret { stat(path, &s) };
-			if (ret == -1)
+			if (ret == -1) {
 				throw Lookup_failed();
+			}
 
 			return s.st_ino;
 		}
