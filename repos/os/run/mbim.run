@@ -1,0 +1,70 @@
+assert_spec linux
+
+set build_components {
+	core init timer
+	server/lx_file_terminal
+	test/terminal_echo
+}
+
+source ${genode_dir}/repos/base/run/platform_drv.inc
+append_platform_drv_build_components
+
+build $build_components
+
+create_boot_directory
+
+#
+# Generate config
+#
+set config {
+<config verbose="yes">
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="IRQ"/>
+		<service name="IO_MEM"/>
+		<service name="IO_PORT"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="LOG"/>
+	</parent-provides>
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+	<default caps="100"/>
+	<start name="timer">
+		<resource name="RAM" quantum="1M"/>
+		<provides><service name="Timer"/></provides>
+	</start>
+}
+append_platform_drv_config
+
+append config {
+	<start name="lx_file_terminal" ld="no">
+		<resource name="RAM" quantum="5M" />
+		<provides><service name="Terminal"/></provides>
+		<config>
+			<default-policy filename="/dev/cdc-wdm0" />
+		</config>
+		<route>
+			<any-service> <parent/> <any-child /> </any-service>
+		</route>
+	</start>
+	<start name="mbim">
+		<binary name="test-terminal_echo"/>
+		<resource name="RAM" quantum="2M" />
+		<route>
+			<any-service> <parent/> <any-child /> </any-service>
+		</route>
+	</start>
+</config> }
+
+install_config $config
+
+set boot_modules { core init timer lx_file_terminal test-terminal_echo ld.lib.so }
+
+append_platform_drv_boot_modules
+
+build_boot_image $boot_modules
+
+run_genode_until forever
