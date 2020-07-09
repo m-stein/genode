@@ -19,9 +19,11 @@
 /* Genode includes */
 #include <base/exception.h>
 #include <base/heap.h>
+#include <base/mutex.h>
 #include <base/signal.h>
 #include <base/thread.h>
 #include <file_system/listener.h>
+#include <timer_session/connection.h>
 #include <util/list.h>
 
 /* local includes */
@@ -57,44 +59,68 @@ class Lx_fs::Notifier final : public Thread
 
 			public:
 
-				int         const  watch_fd;
-				Path_string const  path;
+				int const         watch_fd;
+				Path_string const path;
 
 				Entry(int const watch_fd, char const *path)
 				:
 					watch_fd { watch_fd }, path { path }
 				{ }
 
-				~Entry()
-				{
-					if (_caps.first() != nullptr)
-						error("list of capabilities not empty at destruction time!");
-				}
-
-				template <typename FN>
-				void for_each_capability(FN const &fn)
-				{
-					for (Cap_entry *e=_caps.first(); e!=nullptr; e=e->next()) {
-						fn(*e);
-					}
-				}
+				~Entry() = default;
 
 				void add_capabilty(Cap_entry *cap_entry)
 				{
 					_caps.insert(cap_entry);
 				}
 
-				void remove_capability(Cap_entry *cap_entry)
+				template <typename FN>
+				void notify_all(FN const &fn)
 				{
-					_caps.remove(cap_entry);
+					for (Cap_entry *e=_caps.first(); e!=nullptr; e=e->next()) {
+						fn(e->cap);
+					}
+				}
+
+				template <typename FN>
+				void remove_all(Allocator &alloc, FN const &fn)
+				{
+					for (Cap_entry *e=_caps.first(); e!=nullptr; ) {
+						fn(e->cap);
+						auto *d { e };
+						e=e->next();
+						_caps.remove(d);
+						destroy(alloc, d);
+					}
+				}
+
+				void remove_capability(Allocator &alloc,
+				                       Signal_context_capability cap)
+				{
+					for (Cap_entry *e=_caps.first(); e!=nullptr; e=e->next()) {
+						if (e->cap == cap) {
+							_caps.remove(e);
+							destroy(alloc, e);
+							return;
+						}
+					}
 				}
 		};
 
-		Heap         _heap;
-		int          _fd { -1 };
-		List<Entry>  _watched_nodes { };
+		Env                      &_env;
+		Heap                      _heap { _env.ram(), _env.rm() };
+		Timer::Connection         _notify_timer { _env };
+		int                       _fd { -1 };
+		List<Entry>               _watched_nodes { };
+		Mutex                     _watched_nodes_mutex { };
+		List<Cap_entry>           _notify_queue { };
+		bool                      _notify_timer_running { false };
+		Signal_handler<Notifier>  _notify_handler { _env.ep(), *this, &Notifier::_process_notify };
 
 		void entry() override;
+
+		void _add_notify(Signal_context_capability cap);
+		void _process_notify();
 
 		template <typename FN>
 		void for_each(FN &fn)
