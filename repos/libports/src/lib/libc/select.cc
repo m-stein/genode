@@ -265,31 +265,30 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
 	if (writefds)  in_writefds  = *writefds;  else FD_ZERO(&in_writefds);
 	if (exceptfds) in_exceptfds = *exceptfds; else FD_ZERO(&in_exceptfds);
 
-	{
-		/*
-		 * We use the guard directly to atomically check if any descripor is
-		 * ready, but insert into select-callback list otherwise.
-		 */
-		Select_cb_list::Guard guard(select_cb_list());
+	/*
+	 * Insert callback first to avoid race after 'selscan()'
+	 */
 
-		int const nready = selscan(nfds,
-		                           &in_readfds, &in_writefds, &in_exceptfds,
-		                           readfds, writefds, exceptfds);
+	select_cb.construct(nfds, in_readfds, in_writefds, in_exceptfds);
+	select_cb_list().insert(&(*select_cb));
 
-		/* return if any descripor is ready */
-		if (nready)
-			return nready;
+	int const nready = selscan(nfds,
+	                           &in_readfds, &in_writefds, &in_exceptfds,
+	                           readfds, writefds, exceptfds);
 
-		/* return on zero-timeout */
-		if (tv && (tv->tv_sec) == 0 && (tv->tv_usec == 0))
-			return 0;
-
-		/* suspend as we don't have any immediate events */
-
-		select_cb.construct(nfds, in_readfds, in_writefds, in_exceptfds);
-
-		select_cb_list().unsynchronized_insert(&(*select_cb));
+	/* return if any descripor is ready */
+	if (nready) {
+		select_cb_list().remove(&(*select_cb));
+		return nready;
 	}
+
+	/* return on zero-timeout */
+	if (tv && (tv->tv_sec) == 0 && (tv->tv_usec == 0)) {
+		select_cb_list().remove(&(*select_cb));
+		return 0;
+	}
+
+	/* suspend as we don't have any immediate events */
 
 	struct Timeout
 	{
