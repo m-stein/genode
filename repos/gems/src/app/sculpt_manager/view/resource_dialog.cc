@@ -19,8 +19,9 @@ void Resource_dialog::_gen_affinity_entry(Xml_generator &xml,
                                           Start_name const &name) const
 {
 	gen_named_node(xml, "hbox", name, [&] () {
-		gen_named_node(xml, "float", "right", [&] () {
-			xml.attribute("east", "yes");
+		gen_named_node(xml, "float", "center", [&] () {
+			xml.attribute("north", "yes");
+			xml.attribute("south", "yes");
 
 			xml.node("vbox", [&] () {
 				if (_space.height() > 1) {
