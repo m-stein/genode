@@ -371,17 +371,21 @@ int pselect(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
             const struct timespec *timeout, const sigset_t *sigmask)
 {
 	struct timeval tv { 0, 0 };
+	struct timeval *tv_ptr = nullptr;
 	sigset_t origmask;
 	int nready;
 
 	if (timeout) {
 		tv.tv_usec = timeout->tv_nsec / 1000;
 		tv.tv_sec = timeout->tv_sec;
+		tv_ptr = &tv;
 	}
 
 	if (sigmask)
 		sigprocmask(SIG_SETMASK, sigmask, &origmask);
-	nready = select(nfds, readfds, writefds, exceptfds, &tv);
+
+	nready = select(nfds, readfds, writefds, exceptfds, tv_ptr);
+
 	if (sigmask)
 		sigprocmask(SIG_SETMASK, &origmask, NULL);
 
