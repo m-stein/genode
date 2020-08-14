@@ -454,7 +454,7 @@ void Libc::Kernel::handle_io_progress()
 		 * been deblocked from blocking I/O
 		 */
 		Kernel::resume_all();
-		_charge_monitors();
+		_monitors.execute_monitors();
 	}
 }
 
