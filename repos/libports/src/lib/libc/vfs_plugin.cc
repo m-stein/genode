@@ -1797,10 +1797,8 @@ int Libc::Vfs_plugin::select(int nfds,
 	};
 
 	if (Libc::Kernel::kernel().main_context() && Libc::Kernel::kernel().main_suspended()) {
-		error("SELECT IN KERNEL");
 		fn();
 	} else {
-		error("SELECT IN USER");
 		monitor().monitor(vfs_mutex(), fn);
 	}
 
