@@ -370,6 +370,7 @@ Libc::File_descriptor *Libc::Vfs_plugin::open_from_kernel(const char *path, int 
 Libc::File_descriptor *Libc::Vfs_plugin::open(char const *path, int flags)
 {
 	File_descriptor *fd = nullptr;
+	int result_errno = 0;
 	{
 		Mutex::Guard guard(vfs_mutex());
 
@@ -379,7 +380,7 @@ Libc::File_descriptor *Libc::Vfs_plugin::open(char const *path, int flags)
 			if (_root_fs.directory(path)) {
 
 				if (((flags & O_ACCMODE) != O_RDONLY)) {
-					errno = EISDIR;
+					result_errno = EISDIR;
 					return Fn::COMPLETE;
 				}
 
@@ -391,13 +392,13 @@ Libc::File_descriptor *Libc::Vfs_plugin::open(char const *path, int flags)
 
 				switch (_root_fs.opendir(path, false, &handle, _alloc)) {
 				case Opendir_result::OPENDIR_OK:                      break;
-				case Opendir_result::OPENDIR_ERR_LOOKUP_FAILED:       errno = ENOENT;       return Fn::COMPLETE;
-				case Opendir_result::OPENDIR_ERR_NAME_TOO_LONG:       errno = ENAMETOOLONG; return Fn::COMPLETE;
-				case Opendir_result::OPENDIR_ERR_NODE_ALREADY_EXISTS: errno = EEXIST;       return Fn::COMPLETE;
-				case Opendir_result::OPENDIR_ERR_NO_SPACE:            errno = ENOSPC;       return Fn::COMPLETE;
+				case Opendir_result::OPENDIR_ERR_LOOKUP_FAILED:       result_errno = ENOENT;       return Fn::COMPLETE;
+				case Opendir_result::OPENDIR_ERR_NAME_TOO_LONG:       result_errno = ENAMETOOLONG; return Fn::COMPLETE;
+				case Opendir_result::OPENDIR_ERR_NODE_ALREADY_EXISTS: result_errno = EEXIST;       return Fn::COMPLETE;
+				case Opendir_result::OPENDIR_ERR_NO_SPACE:            result_errno = ENOSPC;       return Fn::COMPLETE;
 				case Opendir_result::OPENDIR_ERR_OUT_OF_RAM:
 				case Opendir_result::OPENDIR_ERR_OUT_OF_CAPS:
-				case Opendir_result::OPENDIR_ERR_PERMISSION_DENIED:   errno = EPERM;        return Fn::COMPLETE;
+				case Opendir_result::OPENDIR_ERR_PERMISSION_DENIED:   result_errno = EPERM;        return Fn::COMPLETE;
 				}
 
 				/* the directory was successfully opened */
@@ -408,7 +409,7 @@ Libc::File_descriptor *Libc::Vfs_plugin::open(char const *path, int flags)
 
 				if (!fd) {
 					handle->close();
-					errno = EMFILE;
+					result_errno = EMFILE;
 					return Fn::COMPLETE;
 				}
 
@@ -419,7 +420,7 @@ Libc::File_descriptor *Libc::Vfs_plugin::open(char const *path, int flags)
 			}
 
 			if (flags & O_DIRECTORY) {
-				errno = ENOTDIR;
+				result_errno = ENOTDIR;
 				return Fn::COMPLETE;
 			}
 
@@ -439,10 +440,10 @@ Libc::File_descriptor *Libc::Vfs_plugin::open(char const *path, int flags)
 					{
 						if (!(flags & O_CREAT)) {
 							if (flags & O_NOFOLLOW) {
-							        errno = ELOOP;
+							        result_errno = ELOOP;
 							        return Fn::COMPLETE;
 							}
-							errno = ENOENT;
+							result_errno = ENOENT;
 							return Fn::COMPLETE;
 						}
 
@@ -456,28 +457,28 @@ Libc::File_descriptor *Libc::Vfs_plugin::open(char const *path, int flags)
 
 							/* file has been created by someone else in the meantime */
 							if (flags & O_NOFOLLOW) {
-								errno = ELOOP;
+								result_errno = ELOOP;
 								return Fn::COMPLETE;
 							}
-							errno = EEXIST;
+							result_errno = EEXIST;
 							return Fn::COMPLETE;
 
-						case Result::OPEN_ERR_NO_PERM:       errno = EPERM;        return Fn::COMPLETE;
-						case Result::OPEN_ERR_UNACCESSIBLE:  errno = ENOENT;       return Fn::COMPLETE;
-						case Result::OPEN_ERR_NAME_TOO_LONG: errno = ENAMETOOLONG; return Fn::COMPLETE;
-						case Result::OPEN_ERR_NO_SPACE:      errno = ENOSPC;       return Fn::COMPLETE;
-						case Result::OPEN_ERR_OUT_OF_RAM:    errno = ENOSPC;       return Fn::COMPLETE;
-						case Result::OPEN_ERR_OUT_OF_CAPS:   errno = ENOSPC;       return Fn::COMPLETE;
+						case Result::OPEN_ERR_NO_PERM:       result_errno = EPERM;        return Fn::COMPLETE;
+						case Result::OPEN_ERR_UNACCESSIBLE:  result_errno = ENOENT;       return Fn::COMPLETE;
+						case Result::OPEN_ERR_NAME_TOO_LONG: result_errno = ENAMETOOLONG; return Fn::COMPLETE;
+						case Result::OPEN_ERR_NO_SPACE:      result_errno = ENOSPC;       return Fn::COMPLETE;
+						case Result::OPEN_ERR_OUT_OF_RAM:    result_errno = ENOSPC;       return Fn::COMPLETE;
+						case Result::OPEN_ERR_OUT_OF_CAPS:   result_errno = ENOSPC;       return Fn::COMPLETE;
 						}
 					}
 					break;
 
-				case Result::OPEN_ERR_NO_PERM:       errno = EPERM;        return Fn::COMPLETE;
-				case Result::OPEN_ERR_EXISTS:        errno = EEXIST;       return Fn::COMPLETE;
-				case Result::OPEN_ERR_NAME_TOO_LONG: errno = ENAMETOOLONG; return Fn::COMPLETE;
-				case Result::OPEN_ERR_NO_SPACE:      errno = ENOSPC;       return Fn::COMPLETE;
-				case Result::OPEN_ERR_OUT_OF_RAM:    errno = ENOSPC;       return Fn::COMPLETE;
-				case Result::OPEN_ERR_OUT_OF_CAPS:   errno = ENOSPC;       return Fn::COMPLETE;
+				case Result::OPEN_ERR_NO_PERM:       result_errno = EPERM;        return Fn::COMPLETE;
+				case Result::OPEN_ERR_EXISTS:        result_errno = EEXIST;       return Fn::COMPLETE;
+				case Result::OPEN_ERR_NAME_TOO_LONG: result_errno = ENAMETOOLONG; return Fn::COMPLETE;
+				case Result::OPEN_ERR_NO_SPACE:      result_errno = ENOSPC;       return Fn::COMPLETE;
+				case Result::OPEN_ERR_OUT_OF_RAM:    result_errno = ENOSPC;       return Fn::COMPLETE;
+				case Result::OPEN_ERR_OUT_OF_CAPS:   result_errno = ENOSPC;       return Fn::COMPLETE;
 				}
 			}
 
@@ -489,7 +490,7 @@ Libc::File_descriptor *Libc::Vfs_plugin::open(char const *path, int flags)
 
 			if (!fd) {
 				handle->close();
-				errno = EMFILE;
+				result_errno = EMFILE;
 				return Fn::COMPLETE;
 			}
 
@@ -499,6 +500,9 @@ Libc::File_descriptor *Libc::Vfs_plugin::open(char const *path, int flags)
 			return Fn::COMPLETE;
 		});
 	}
+
+	if (!fd)
+		errno = result_errno;
 
 	if (fd && (flags & O_TRUNC) && (ftruncate(fd, 0) == -1)) {
 		vfs_handle(fd)->close();
@@ -638,11 +642,12 @@ Libc::File_descriptor *Libc::Vfs_plugin::dup(File_descriptor *fd)
 	Mutex::Guard guard(vfs_mutex());
 
 	Libc::File_descriptor *result = nullptr;
+	int result_errno = 0;
 	monitor().monitor(vfs_mutex(), [&] {
 		if (_root_fs.open(fd->fd_path, fd->flags, &handle, _alloc) != Result::OPEN_OK) {
 
 			warning("dup failed for path ", fd->fd_path);
-			errno = EBADF;
+			result_errno = EBADF;
 			return Fn::COMPLETE;
 		}
 
@@ -658,6 +663,9 @@ Libc::File_descriptor *Libc::Vfs_plugin::dup(File_descriptor *fd)
 		result = new_fd;
 		return Fn::COMPLETE;
 	});
+
+	if (!result)
+		errno = result_errno;
 
 	return result;
 }
@@ -716,15 +724,16 @@ int Libc::Vfs_plugin::mkdir(const char *path, mode_t mode)
 	Mutex::Guard guard(vfs_mutex());
 
 	int result = -1;
+	int result_errno = 0;
 	monitor().monitor(vfs_mutex(), [&] {
 		switch (_root_fs.opendir(path, true, &dir_handle, _alloc)) {
-		case Opendir_result::OPENDIR_ERR_LOOKUP_FAILED:       errno = ENOENT;       break;
-		case Opendir_result::OPENDIR_ERR_NAME_TOO_LONG:       errno = ENAMETOOLONG; break;
-		case Opendir_result::OPENDIR_ERR_NODE_ALREADY_EXISTS: errno = EEXIST;       break;
-		case Opendir_result::OPENDIR_ERR_NO_SPACE:            errno = ENOSPC;       break;
-		case Opendir_result::OPENDIR_ERR_OUT_OF_RAM:          errno = EPERM;        break;
-		case Opendir_result::OPENDIR_ERR_OUT_OF_CAPS:         errno = EPERM;        break;
-		case Opendir_result::OPENDIR_ERR_PERMISSION_DENIED:   errno = EPERM;        break;
+		case Opendir_result::OPENDIR_ERR_LOOKUP_FAILED:       result_errno = ENOENT;       break;
+		case Opendir_result::OPENDIR_ERR_NAME_TOO_LONG:       result_errno = ENAMETOOLONG; break;
+		case Opendir_result::OPENDIR_ERR_NODE_ALREADY_EXISTS: result_errno = EEXIST;       break;
+		case Opendir_result::OPENDIR_ERR_NO_SPACE:            result_errno = ENOSPC;       break;
+		case Opendir_result::OPENDIR_ERR_OUT_OF_RAM:          result_errno = EPERM;        break;
+		case Opendir_result::OPENDIR_ERR_OUT_OF_CAPS:         result_errno = EPERM;        break;
+		case Opendir_result::OPENDIR_ERR_PERMISSION_DENIED:   result_errno = EPERM;        break;
 		case Opendir_result::OPENDIR_OK:
 			dir_handle->close();
 			result = 0;
@@ -733,6 +742,10 @@ int Libc::Vfs_plugin::mkdir(const char *path, mode_t mode)
 
 		return Fn::COMPLETE;
 	});
+
+	if (result == -1)
+		errno = result_errno;
+
 	return result;
 }
 
@@ -771,10 +784,11 @@ int Libc::Vfs_plugin::stat(char const *path, struct stat *buf)
 	Mutex::Guard guard(vfs_mutex());
 
 	int result = -1;
+	int result_errno = 0;
 	monitor().monitor(vfs_mutex(), [&] {
 		switch (_root_fs.stat(path, stat)) {
-		case Result::STAT_ERR_NO_ENTRY: errno = ENOENT; break;
-		case Result::STAT_ERR_NO_PERM:  errno = EACCES; break;
+		case Result::STAT_ERR_NO_ENTRY: result_errno = ENOENT; break;
+		case Result::STAT_ERR_NO_PERM:  result_errno = EACCES; break;
 		case Result::STAT_OK:
 			vfs_stat_to_libc_stat_struct(stat, buf);
 			result = 0;
@@ -783,6 +797,10 @@ int Libc::Vfs_plugin::stat(char const *path, struct stat *buf)
 
 		return Fn::COMPLETE;
 	});
+
+	if (result == -1)
+		errno = result_errno;
+
 	return result;
 }
 
@@ -938,9 +956,10 @@ ssize_t Libc::Vfs_plugin::read(File_descriptor *fd, void *buf,
 
 	/* TODO refactor multiple monitor() calls to state machine in one call */
 	bool succeeded = false;
+	int result_errno = 0;
 	monitor().monitor(vfs_mutex(), [&] {
 		if (fd->flags & O_NONBLOCK && !read_ready_from_kernel(fd)) {
-			errno = EAGAIN;
+			result_errno = EAGAIN;
 			return Fn::COMPLETE;
 		}
 		succeeded = true;
@@ -948,7 +967,7 @@ ssize_t Libc::Vfs_plugin::read(File_descriptor *fd, void *buf,
 	});
 
 	if (!succeeded)
-		return -1;
+		return Errno(result_errno);
 
 	Vfs::file_size out_count = 0;
 	Result         out_result;
@@ -1206,16 +1225,17 @@ int Libc::Vfs_plugin::_legacy_ioctl(File_descriptor *fd, int request, char *argp
 	Mutex::Guard guard(vfs_mutex());
 
 	bool succeeded = false;
+	int result_errno = 0;
 	monitor().monitor(vfs_mutex(), [&] {
 		switch (handle->fs().ioctl(handle, opcode, arg, out)) {
-		case Result::IOCTL_ERR_INVALID: errno = EINVAL; break;
-		case Result::IOCTL_ERR_NOTTY:   errno = ENOTTY; break;
+		case Result::IOCTL_ERR_INVALID: result_errno = EINVAL; break;
+		case Result::IOCTL_ERR_NOTTY:   result_errno = ENOTTY; break;
 		case Result::IOCTL_OK:      succeeded = true;   break;
 		}
 		return Fn::COMPLETE;
 	});
 	if (!succeeded)
-		return -1;
+		return Errno(result_errno);
 
 
 	/*
@@ -1292,6 +1312,7 @@ int Libc::Vfs_plugin::ftruncate(File_descriptor *fd, ::off_t length)
 	Mutex::Guard guard(vfs_mutex());
 
 	bool succeeded = false;
+	int result_errno = 0;
 	monitor().monitor(vfs_mutex(), [&] {
 		if (fd->modified) {
 			if (!sync.complete()) {
@@ -1303,14 +1324,14 @@ int Libc::Vfs_plugin::ftruncate(File_descriptor *fd, ::off_t length)
 		typedef Vfs::File_io_service::Ftruncate_result Result;
 
 		switch (handle->fs().ftruncate(handle, length)) {
-		case Result::FTRUNCATE_ERR_NO_PERM:   errno = EPERM;  break;
-		case Result::FTRUNCATE_ERR_INTERRUPT: errno = EINTR;  break;
-		case Result::FTRUNCATE_ERR_NO_SPACE:  errno = ENOSPC; break;
+		case Result::FTRUNCATE_ERR_NO_PERM:   result_errno = EPERM;  break;
+		case Result::FTRUNCATE_ERR_INTERRUPT: result_errno = EINTR;  break;
+		case Result::FTRUNCATE_ERR_NO_SPACE:  result_errno = ENOSPC; break;
 		case Result::FTRUNCATE_OK:        succeeded = true;   break;
 		}
 		return Fn::COMPLETE;
 	});
-	return succeeded ? 0 : -1;
+	return succeeded ? 0 : Errno(result_errno);
 }
 
 
@@ -1390,6 +1411,7 @@ int Libc::Vfs_plugin::symlink(const char *target_path, const char *link_path)
 
 
 	bool succeeded { false };
+	int result_errno { 0 };
 	monitor().monitor(vfs_mutex(), [&] {
 
 		switch (stage) {
@@ -1402,19 +1424,19 @@ int Libc::Vfs_plugin::symlink(const char *target_path, const char *link_path)
 
 				switch (openlink_result) {
 				case Openlink_result::OPENLINK_ERR_LOOKUP_FAILED:
-					errno = ENOENT; return Fn::COMPLETE;
+					result_errno = ENOENT; return Fn::COMPLETE;
 				case Openlink_result::OPENLINK_ERR_NAME_TOO_LONG:
-					errno = ENAMETOOLONG; return Fn::COMPLETE;
+					result_errno = ENAMETOOLONG; return Fn::COMPLETE;
 				case Openlink_result::OPENLINK_ERR_NODE_ALREADY_EXISTS:
-					errno = EEXIST; return Fn::COMPLETE;
+					result_errno = EEXIST; return Fn::COMPLETE;
 				case Openlink_result::OPENLINK_ERR_NO_SPACE:
-					errno = ENOSPC; return Fn::COMPLETE;
+					result_errno = ENOSPC; return Fn::COMPLETE;
 				case Openlink_result::OPENLINK_ERR_OUT_OF_RAM:
-					errno = ENOSPC; return Fn::COMPLETE;
+					result_errno = ENOSPC; return Fn::COMPLETE;
 				case Openlink_result::OPENLINK_ERR_OUT_OF_CAPS:
-					errno = ENOSPC; return Fn::COMPLETE;
+					result_errno = ENOSPC; return Fn::COMPLETE;
 				case Vfs::Directory_service::OPENLINK_ERR_PERMISSION_DENIED:
-					errno = EPERM; return Fn::COMPLETE;
+					result_errno = EPERM; return Fn::COMPLETE;
 				case Openlink_result::OPENLINK_OK:
 					break;
 				}
@@ -1443,14 +1465,14 @@ int Libc::Vfs_plugin::symlink(const char *target_path, const char *link_path)
 		}
 
 		if (out_count != count)
-			errno = ENAMETOOLONG;
+			result_errno = ENAMETOOLONG;
 		else
 			succeeded = true;
 		return Fn::COMPLETE;
 	});
 
 	if (!succeeded)
-		return -1;
+		return Errno(result_errno);
 
 	return 0;
 }
@@ -1467,6 +1489,7 @@ ssize_t Libc::Vfs_plugin::readlink(const char *link_path, char *buf, ::size_t bu
 	Vfs::file_size   out_len { 0 };
 
 	bool succeeded { false };
+	int result_errno { 0 };
 	monitor().monitor(vfs_mutex(), [&] {
 
 		switch (stage) {
@@ -1479,16 +1502,16 @@ ssize_t Libc::Vfs_plugin::readlink(const char *link_path, char *buf, ::size_t bu
 
 				switch (openlink_result) {
 				case Openlink_result::OPENLINK_ERR_LOOKUP_FAILED:
-					errno = ENOENT; return Fn::COMPLETE;
+					result_errno = ENOENT; return Fn::COMPLETE;
 				case Openlink_result::OPENLINK_ERR_NAME_TOO_LONG:
 					/* should not happen */
-					errno = ENAMETOOLONG; return Fn::COMPLETE;
+					result_errno = ENAMETOOLONG; return Fn::COMPLETE;
 				case Openlink_result::OPENLINK_ERR_NODE_ALREADY_EXISTS:
 				case Openlink_result::OPENLINK_ERR_NO_SPACE:
 				case Openlink_result::OPENLINK_ERR_OUT_OF_RAM:
 				case Openlink_result::OPENLINK_ERR_OUT_OF_CAPS:
 				case Openlink_result::OPENLINK_ERR_PERMISSION_DENIED:
-					errno = EACCES; return Fn::COMPLETE;
+					result_errno = EACCES; return Fn::COMPLETE;
 				case Openlink_result::OPENLINK_OK:
 					break;
 				}
@@ -1512,11 +1535,11 @@ ssize_t Libc::Vfs_plugin::readlink(const char *link_path, char *buf, ::size_t bu
 				switch (out_result) {
 				case Result::READ_QUEUED: return Fn::INCOMPLETE;;
 
-				case Result::READ_ERR_AGAIN:       errno = EAGAIN;      break;
-				case Result::READ_ERR_WOULD_BLOCK: errno = EWOULDBLOCK; break;
-				case Result::READ_ERR_INVALID:     errno = EINVAL;      break;
-				case Result::READ_ERR_IO:          errno = EIO;         break;
-				case Result::READ_ERR_INTERRUPT:   errno = EINTR;       break;
+				case Result::READ_ERR_AGAIN:       result_errno = EAGAIN;      break;
+				case Result::READ_ERR_WOULD_BLOCK: result_errno = EWOULDBLOCK; break;
+				case Result::READ_ERR_INVALID:     result_errno = EINVAL;      break;
+				case Result::READ_ERR_IO:          result_errno = EIO;         break;
+				case Result::READ_ERR_INTERRUPT:   result_errno = EINTR;       break;
 				case Result::READ_OK:          succeeded = true;        break;
 				};
 				handle->close();
@@ -1527,7 +1550,7 @@ ssize_t Libc::Vfs_plugin::readlink(const char *link_path, char *buf, ::size_t bu
 	});
 
 	if (!succeeded)
-		return -1;
+		return Errno(result_errno);
 
 	return out_len;
 }
@@ -1546,17 +1569,18 @@ int Libc::Vfs_plugin::unlink(char const *path)
 	Mutex::Guard guard(vfs_mutex());
 
 	bool succeeded = false;
+	int result_errno = 0;
 	monitor().monitor(vfs_mutex(), [&] {
 		switch (_root_fs.unlink(path)) {
-		case Result::UNLINK_ERR_NO_ENTRY:  errno = ENOENT;    break;
-		case Result::UNLINK_ERR_NO_PERM:   errno = EPERM;     break;
-		case Result::UNLINK_ERR_NOT_EMPTY: errno = ENOTEMPTY; break;
+		case Result::UNLINK_ERR_NO_ENTRY:  result_errno = ENOENT;    break;
+		case Result::UNLINK_ERR_NO_PERM:   result_errno = EPERM;     break;
+		case Result::UNLINK_ERR_NOT_EMPTY: result_errno = ENOTEMPTY; break;
 		case Result::UNLINK_OK:        succeeded = true;      break;
 		}
 		return Fn::COMPLETE;
 	});
 	if (!succeeded)
-		return -1;
+		return Errno(result_errno);
 
 	return 0;
 }
@@ -1569,35 +1593,36 @@ int Libc::Vfs_plugin::rename(char const *from_path, char const *to_path)
 	Mutex::Guard guard(vfs_mutex());
 
 	bool succeeded = false;
+	int result_errno = false;
 	monitor().monitor(vfs_mutex(), [&] {
 		if (_root_fs.leaf_path(to_path)) {
 			if (_root_fs.directory(to_path)) {
 				if (!_root_fs.directory(from_path)) {
-					errno = EISDIR; return Fn::COMPLETE;
+					result_errno = EISDIR; return Fn::COMPLETE;
 				}
 
 				if (_root_fs.num_dirent(to_path)) {
-					errno = ENOTEMPTY; return Fn::COMPLETE;
+					result_errno = ENOTEMPTY; return Fn::COMPLETE;
 				}
 
 			} else {
 				if (_root_fs.directory(from_path)) {
-					errno = ENOTDIR; return Fn::COMPLETE;
+					result_errno = ENOTDIR; return Fn::COMPLETE;
 				}
 			}
 		}
 
 		switch (_root_fs.rename(from_path, to_path)) {
-		case Result::RENAME_ERR_NO_ENTRY: errno = ENOENT; break;
-		case Result::RENAME_ERR_CROSS_FS: errno = EXDEV;  break;
-		case Result::RENAME_ERR_NO_PERM:  errno = EPERM;  break;
+		case Result::RENAME_ERR_NO_ENTRY: result_errno = ENOENT; break;
+		case Result::RENAME_ERR_CROSS_FS: result_errno = EXDEV;  break;
+		case Result::RENAME_ERR_NO_PERM:  result_errno = EPERM;  break;
 		case Result::RENAME_OK:       succeeded = true;   break;
 		}
 		return Fn::COMPLETE;
 	});
 
 	if (!succeeded)
-		return -1;
+		return Errno(result_errno);
 
 	return 0;
 }
