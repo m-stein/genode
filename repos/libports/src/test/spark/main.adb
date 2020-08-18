@@ -4,7 +4,7 @@
 --  \date   2009-09-23
 --
 
-with add_package;
+with Add_Package;
 
 --
 --  Main program
@@ -20,6 +20,6 @@ procedure main is
    pragma Import (C, ext_c_print_int, "print_int");
 
 begin
-   add_package.Add (13, 14, result);
+   Add_Package.Add (13, 14, result);
    ext_c_print_int (result);
 end main;
