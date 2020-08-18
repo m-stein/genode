@@ -80,8 +80,9 @@ extern "C" void __cxa_finalize(void *dso)
 }
 
 
-extern "C" void atexit(void (*func)(void))
+extern "C" int atexit(void (*func)(void))
 {
 	_atexit_ptr->register_std_handler(func);
+	return 0;
 }
 
