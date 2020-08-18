@@ -438,6 +438,11 @@ extern void (*libc_select_notify_from_kernel)();
 
 void Libc::Kernel::handle_io_progress()
 {
+	if (_execute_monitors_pending) {
+		_execute_monitors_pending = false;
+		_monitors.execute_monitors();
+	}
+
 	/*
 	 * TODO: make VFS I/O completion checks during
 	 * kernel time to avoid flapping between stacks
@@ -454,7 +459,6 @@ void Libc::Kernel::handle_io_progress()
 		 * been deblocked from blocking I/O
 		 */
 		Kernel::resume_all();
-		_monitors.execute_monitors();
 	}
 }
 
