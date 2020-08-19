@@ -527,8 +527,11 @@ struct Sync
 	:
 		vfs_handle(vfs_handle)
 	{
-		if (update_mtime == Libc::Vfs_plugin::Update_mtime::NO) {
+		if (update_mtime == Libc::Vfs_plugin::Update_mtime::NO
+		 || !current_real_time.has_real_time()) {
+
 			state = TIMESTAMP_UPDATED;
+
 		} else {
 			timespec const ts = current_real_time.current_real_time();
 
