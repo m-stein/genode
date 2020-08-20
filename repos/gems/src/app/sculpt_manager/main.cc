@@ -1125,6 +1125,10 @@ void Sculpt::Main::_handle_window_layout()
 
 	Framebuffer::Mode const mode = _gui.mode();
 
+	/* suppress intermediate boot-time states before the framebuffer driver is up */
+	if (mode.area.count() <= 1)
+		return;
+
 	/* area reserved for the panel */
 	Rect const panel(Point(0, 0), Area(mode.area.w(), panel_height));
 
