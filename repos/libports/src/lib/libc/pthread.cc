@@ -969,8 +969,8 @@ extern "C" {
 		try {
 			Mutex::Guard guard(cond_init_mutex);
 			Libc::Allocator alloc { };
-			*cond = *attr ? new (alloc) pthread_cond((*attr)->clock_id)
-			              : new (alloc) pthread_cond(CLOCK_REALTIME);
+			*cond = attr && *attr ? new (alloc) pthread_cond((*attr)->clock_id)
+			                      : new (alloc) pthread_cond(CLOCK_REALTIME);
 			return 0;
 		} catch (...) { return ENOMEM; }
 	}
