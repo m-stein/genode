@@ -1,0 +1,1300 @@
+
+
+              ===============================================
+              Release notes for the Genode OS Framework 20.08
+              ===============================================
+
+                               Genode Labs
+
+
+
+;intro
+;@nfeske
+
+
+The GUI stack, restacked
+########################
+
+;@nfeske
+
+commit c6eda9bd804f58ef590f6520e3635eba4d2f064b
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Jun 11 14:27:20 2020 +0200
+
+    Rename include/nitpicker_session to gui_session
+    
+    This patch also renames the depot api archive accordingly.
+    
+    Issue #3778
+
+commit 98f39c698f79c07dfe6f50d8f517cb58cc789d88
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Jun 11 16:06:21 2020 +0200
+
+    Rename "Nitpicker" service name to "Gui"
+    
+    Issue #3778
+
+commit e8f57063824d38d8ae25e17b395213e82fc2ae7f
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Jun 11 16:13:32 2020 +0200
+
+    Rename <nitpicker> in runtime files to <gui>
+    
+    Issue #3778
+
+commit 5d40c0c1ce7f702b0b4c3735a4501ba705c14ffb
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Jun 12 11:23:57 2020 +0200
+
+    Rename 'Nitpicker' namespace to 'Gui'
+    
+    Issue #3778
+
+commit 48b4891f6e28191ffc1ef912dae387c980a734d0
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Jun 16 13:48:09 2020 +0200
+
+    Rename nit_fb to gui_fb
+    
+    Issue #3778
+
+commit 7a97cd70aa9151b9142c6412e4889195d8de6af1
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Jun 16 13:52:53 2020 +0200
+
+    Rename nit_fader to gui_fader
+    
+    Issue #3778
+
+commit f63713694c5145bb4e2b048fac883164e41b73a5
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Jun 17 14:15:23 2020 +0200
+
+    api/blit: package arch-specific optimizations
+    
+    The blit API archive missed the CPU-architecture-specific variants of
+    the blit library such that all depot binaries worked with the generic
+    (slow) fallback implementation. This patch adds the missing pieces to
+    the blit API archive.
+
+commit ef741ef80d477ae7052fca1d1bb7272c40ae4d6e
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Jun 16 15:46:59 2020 +0200
+
+    Change pixel format to 32 bits per pixel
+    
+    Until now, Genode's framebuffer session interface was based on the
+    RGB565 pixel format. This patch changes the pixel format to 32-bit
+    XRGB where the X part is ignored. It adapts all graphical applications
+    and device drivers accordingly.
+    
+    The patch also adjusts the users of the drivers_interactive packages,
+    assigning 64 MiB RAM and 1500 caps to the drivers subsystem, which is
+    sufficient for covering high resolutions at 32 bits per pixel and to
+    accommodate multi-component USB HID input stacks.
+    
+    Fixes #3784
+
+commit a7d170adda90f0ead69330ff49fa1629b868a210
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Jul 2 12:09:49 2020 +0200
+
+    os: add blit/painter.h
+    
+    This utility eases the application of the 'blit' function when using the
+    'Texture' and 'Surface' types.
+
+commit 3d1d1b439d6a5e8f89ab6f60aaf418240aedd716
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Jun 26 14:57:29 2020 +0200
+
+    Capture session interface
+    
+    Issue #3812
+
+commit 602def9bdd1a85d0054ba0db13e1bcc75405541d
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Jun 26 22:59:39 2020 +0200
+
+    Simple example for using a capture connection
+    
+    Issue #3812
+
+commit 443d3c98dd40685029982714bb33d052c111b9bb
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Jul 2 19:21:22 2020 +0200
+
+    Event session interface
+    
+    Issue #3812
+
+commit 3863de95898db861baff7a43d9513083ca7b1fdf
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Jul 2 20:10:08 2020 +0200
+
+    Input-event-bridging service
+    
+    The sole purpose of this service is the migration path from the use of
+    input session interface to the event session interface.
+    
+    Issue #3812
+
+commit 067a7ad7e91409cbcca040e84da403dbf4a17ded
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Jun 26 16:09:53 2020 +0200
+
+    nitpicker: internal cleanup
+    
+    This patch simplifies the internal naming of the nitpicker GUI server as
+    a preparatory step for adding support for the capture session interface.
+    
+    Issue #3812
+
+commit 795a817a339f8c304558476e2c79181ccb453858
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Jun 26 20:06:20 2020 +0200
+
+    nitpicker: remove dirty_rect state from view stack
+    
+    In the presence of potentially multiple output back ends, this
+    dirty_rect state must be maintained individually per back end. Instead
+    of storing the dirty_rect as view-stack member, the view stack now calls
+    a new 'Damage::mark_as_damaged' interface, which allows nitpicker to
+    propagate this information to multiple back ends. Unfortunately, the
+    patch must remove the per-view dirty_rect state.
+    
+    Issue #3812
+
+commit 537b317273b2ead1734198716cafe4e5e4544906
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Jul 1 18:38:19 2020 +0200
+
+    nitpicker: handle failed try_alloc_texture
+    
+    Fixes #3782
+
+commit 22cb6dded709f891450f30ca43c7031dbb0f14cd
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Jun 26 22:10:17 2020 +0200
+
+    nitpicker: add capture service
+    
+    Issue #3812
+
+commit 4cad1a87df84826ded839900ea650f1ad67b1c0e
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Jul 1 18:14:00 2020 +0200
+
+    nitpicker: make framebuffer and input optional
+    
+    Nitpicker used to unconditionally request a framebuffer and input
+    session. With the transition to the new capture/event session
+    interfaces, this built-in policy does no longer suffice.
+    
+    This patch introduces the attributes 'request_framebuffer="yes"' and
+    'request_input="yes"' (with the default values shown) to nitpicker's
+    <config> node. If setting those attributes to "no", nitpicker won't
+    request a "Framebuffer" and "Input" session respectively.
+    
+    Issue #3812
+
+commit 320387db8998b73238786c3404ba25679c87fb3d
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Jul 2 15:20:43 2020 +0200
+
+    nitpicker: improve GUI client resize handling
+    
+    This patch replaces meta-data allocation during the resize handling by a
+    new 'Resizeable_texture' type that has all meta data preallocated.
+    It also replaces the use of pointer return values with the
+    'Resizeable_texture::with_texture' method.
+    
+    Issue #3812
+
+commit 6743669ab8aabc050279e204b9fd65b8ea1ab1a4
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Jul 8 16:13:59 2020 +0200
+
+    nitpicker: report no mode smaller than 1x1 pixels
+    
+    Issue #3812
+
+commit c81af531a3958b9dfef3595aecc2ca70a8cbdd34
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Jul 1 22:26:11 2020 +0200
+
+    Turn framebuffer drivers into capture clients
+    
+    This patch replaces the use of the "Framebuffer" session interface by
+    the new "Capture" session interface in all framebuffer drivers. Thanks
+    to this change, those drivers have become mere clients of the nitpicker
+    GUI server now, and are no longer critical for the liveliness of the GUI
+    server.
+    
+    The patch touches the following areas:
+    
+    - The actual driver components. The new versions of all drivers have
+      been tested on the respective hardware. Generally, the drivers
+      have become simpler.
+    
+    - The drivers_interactive packages for various boards. The drivers
+      subsystem no longer provides a "Framebuffer" service but needs a
+      valid route to the "Capture" service provided by nitpicker.
+    
+    - The driver manager of Sculpt OS.
+    
+    - This patch changes the role of the test-framebuffer component from a
+      framebuffer client to a capture server so that drivers (capture clients)
+      can be directly connected to the test component without the nitpicker
+      server.
+    
+    - Framebuffer driver no longer support the unbuffered mode.
+    
+    - The fb_bench.run script is no longer very meaningful because it
+      interplays solely with nitpicker, not with the driver directly.
+    
+    - All run scripts for graphical scenarios and the related depot
+      archives got adapted to the change.
+    
+    Fixes #3813
+
+commit 3d112dc681e863d3cb372362fd3540f6a26dafad
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Jul 14 17:38:40 2020 +0200
+
+    nitpicker: add event service
+    
+    Issue #3812
+
+commit b78313b9bb72c5b5dcf76fcdb9c5e4321f502739
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Jul 16 15:58:34 2020 +0200
+
+    Adapter for connecting input and event servers
+    
+    This is an intermediate helper component for the transition of input
+    servers into event clients. It works analogously to the
+    input_event_bridge but it connects servers instead of clients.
+    In particular, it can act as glue between a traditional input driver
+    that provides an input service and the event filter that provides an
+    event service. Thanks to this component, each driver can be migrated to
+    the event-client interface individually.
+    
+    Issue #3827
+
+commit 52ecee1ff13c721ad18819cb845620104962b68c
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Jul 16 11:40:46 2020 +0200
+
+    event_session: make Session_client::Batch abstract
+    
+    This way, there can exist multiple implementations of the interface such
+    as event filters.
+    
+    Issue #3812
+
+commit c3d61ba62a79f2848cd68be6e1a6b42b8a477f92
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Jul 15 19:50:42 2020 +0200
+
+    input_filter: prepare for refactorization
+    
+    This patch brings the input filter into a shape that is easier to
+    re-mold into an event filter, reversing the client/server roles of
+    the component.
+    
+    * The 'Sink &destination' is no longer passed as constructor argument
+      to the individual filters but passed as argument to the 'generate'
+      method. This way, the final destination does not need to exist at
+      the construction time of the filter chain but can be created on
+      the fly (clearing the way for using 'Event::Client::with_batch').
+    
+    * A new 'Source::Filter' interface with the 'apply' method aids the
+      cascading of filters during 'generate'. The modules now implement
+      the 'Source::Filter::filter_event' interface instead of the
+      'Source::Sink::submit_event' interface.
+    
+    * Since the 'Sink &destination' is no longer a member of the filter
+      modules, character-repeat events can no longer be emitted in an
+      ad-hoc way. Instead, the character-repeat mechanism now invokes
+      a new 'Trigger::trigger_generate' hook that prompts the execution
+      of the regular 'generate' mechanism by the main program.
+    
+    This patch is supposed to leave the semantics of the input filter
+    unchanged (validated by the input_filter.run script).
+    
+    Issue #3827
+
+commit 479579c1b7be7ef9e1badb82cfeba6f87d132d7c
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Aug 11 16:11:26 2020 +0200
+
+    os: event_dump server for printing events
+    
+    This component takes over the role of the test-input component.
+    
+    Issue #3827
+
+commit cec19785712f42b83a499f7712d848fecd143756
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Jul 16 11:28:18 2020 +0200
+
+    Replace input filter with event filter
+    
+    This commit applies the transition from the "Input" session to the "Event"
+    session to the event-filtering mechansim. The functionality of the
+    input_filter is now provided by the event_filter. The event filter
+    requests only one "Event" session as destination for the filter result,
+    which is usually routed to the nitpicker GUI server. It provides an
+    "Event" service to which any number of event sources can connect.
+    
+    The configuration of the filter chain remains almost the same. Only the
+    declaration of the <input> nodes is no longer needed. Instead, the
+    configuration must specify <policy> nodes, which define the mapping of
+    "Event" clients (event sources) to the inputs used in the filter chain.
+    
+    The patch adjusts all uses of the nitpicker GUI server accordingly such
+    that the event filter reports events to nitpicker's event service
+    instead of having nitpicker request an "Input" session. This dissolves
+    the dependency of nitpicker from input drivers.
+    
+    Issue #3827
+
+commit edc76c664e7f8cf994c62eec76ec42c3abbdca93
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Aug 12 17:14:26 2020 +0200
+
+    Rename fb_boot_drv to boot_fb_drv
+    
+    to be consistent with the naming of the other drivers.
+
+commit d4360a21a236625990f0186da2463ba3e4cc6693
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Aug 12 18:13:06 2020 +0200
+
+    Remove obsolete use of input_session/connection.h
+
+commit 8bb2d99d2ecc4df23b7e2dac36619aefc2eef017
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Aug 13 13:39:09 2020 +0200
+
+    Turn PS/2 driver into event-session client
+    
+    Issue #3845
+
+commit 211e51ee4d9cb0b1f39905eb5f6d627a4fd2d206
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Aug 13 16:03:59 2020 +0200
+
+    Turn USB HID drivers into event-session clients
+    
+    Issue #3845
+
+commit 990f01a22233434f08e65759d26ee6e714ed6d83
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Aug 13 17:05:17 2020 +0200
+
+    Remove transitionary input_event_client component
+    
+    With the transition of the input servers to event clients completed,
+    this helper component is no longer needed.
+    
+    Issue #3845
+    Issue #3827
+
+commit 122d01e21b56e6ea4ff78235eb097dfce885c4eb
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Aug 13 17:25:21 2020 +0200
+
+    nitpicker: no framebuffer and input by default
+    
+    This patch prevents nitpicker from requesting a framebuffer and input
+    session by default because the regular use of nitpicker relies on the
+    capture-session and event-session interfaces by now.
+    
+    For supporting the nested use of nitpicker via the gui_fb component, it
+    is still possible to enable the traditional behavior by explicitely
+    setting the 'request_input' and 'request_framebuffer' config attributes
+    to "yes".
+    
+    Issue #3812
+
+commit 5faf5b6f2e4d072d0227370ae59943d2fef07d67
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Aug 14 11:55:07 2020 +0200
+
+    Remove drivers/input/dummy pseudo driver
+    
+    With the transition from the input-session to the event-session
+    interface, the use case for this component has vanished.
+    
+    Issue #3827
+
+commit 2ecb31a97b67efb8538671aec2a978098a4fa40b
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Aug 21 15:25:16 2020 +0200
+
+    Remove dithering from menu_view, themed decorator
+    
+    With the change from RGB565 to RGB888, the application of dithering has
+    become obsolete.
+    
+    Issue #3784
+
+
+Improved Qt5 integration and work flows
+#######################################
+
+;@cproc
+
+Streamlined build-system integration
+====================================
+
+commit 5af4552511c2190787fe5dd96ea58c9111932082
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Sun Jun 28 14:21:09 2020 +0200
+
+    qt5: build Qt libraries and applications with qmake
+    
+    Fixes #3795
+
+commit ca5a745d33f1b8c45488a66c761f81509406963e
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Mon Aug 17 14:59:20 2020 +0200
+
+    qt5_component: support arguments and environment from config
+    
+    Fixes #3049
+
+
+Chromium engine and Falkon web brower
+=====================================
+
+
+Base framework and OS-level infrastructure
+##########################################
+
+Base API/ABI changes
+====================
+
+Mutex and Blockade
+~~~~~~~~~~~~~~~~~~
+
+;@nfeske
+
+commit 0e6c32f75e4ee63933f51532af5d79736b238617
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Wed Jul 1 09:05:47 2020 +0200
+
+    libc: use Mutex/Blockade
+    
+    Fixes #3796
+
+commit 5936d00b5e034f28a08f5e179e88287af49e6fd1
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Mon Jul 6 10:26:27 2020 +0200
+
+    acpica: use Mutex
+    
+    Issue #3801
+
+commit 6d653b3c0f2fd89dcd8a54699315e880c9939b3c
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Mon Jul 6 10:35:24 2020 +0200
+
+    qemu-usb: use Mutex
+    
+    Issue #3801
+
+commit 7d1fd0b0a3aab15af0d35b74f150d54e93d2c4e2
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Mon Jul 6 10:42:54 2020 +0200
+
+    lwip: use Mutex
+    
+    Issue #3801
+
+commit c943e2691397a87d0cb61ccf00545576a0ecbef5
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Mon Jul 6 10:48:58 2020 +0200
+
+    lib/drm: use Blockade
+    
+    Fixes #3801
+
+commit bba4790002b73c550ef4762f8b76bc2bbd475ceb
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Mon Jul 6 11:05:38 2020 +0200
+
+    virtualbox5: use Mutex/Blockade
+    
+    Issue #3802
+
+commit 169cad605902e7e9902619cfc81553f6285b4759
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Mon Jul 6 11:29:55 2020 +0200
+
+    seoul: use Mutex
+    
+    Issue #3802
+
+commit 1609d8a92f5fb6df6a811e215bb428f1b502cb87
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Mon Jul 6 11:34:12 2020 +0200
+
+    gdb_server: use Mutex
+    
+    Fixes #3802
+
+commit 377c6ed0ceb3f19e4b5d0d4d6bfe0e6d0bc006d0
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Mon Jul 6 11:42:52 2020 +0200
+
+    ssh_terminal: use Mutex
+    
+    Isse #3803
+
+commit f946de445098b41825c53887d8ef5c77ac162f1c
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Mon Jul 6 11:44:18 2020 +0200
+
+    tcp_terminal: use Mutex
+    
+    Issue #3803
+
+commit ad284491e60db7cee8521854f7b97831b9030ca2
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Mon Jul 6 11:48:30 2020 +0200
+
+    mixer_gui_qt: use Blockade
+    
+    Issue #3803
+
+commit 973fbc98beac2e5c03f4fdb1d9ced379cc361c6d
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Mon Jul 6 12:50:14 2020 +0200
+
+    nitlog: use Mutex
+    
+    Issue #3804
+
+commit 61d798c62984368b4e8b8b3ac2386e068329b147
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Mon Jul 6 12:53:27 2020 +0200
+
+    launchpad: use Mutex
+    
+    Fixes #3804
+
+commit b7cdb5840a91c22e402bcd40a1fcbebeb99723d4
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Mon Jul 6 12:56:40 2020 +0200
+
+    dde_bsd: remove unused Lock
+    
+    Issue #3805
+
+commit 5516dbcb1f12310e167291c6e6277c0fa16fb1d3
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Mon Jul 6 14:04:57 2020 +0200
+
+    dde_linux: use Mutex/Blockade
+    
+    Issue #3805
+
+commit 9a8a42e819c9cdeaa4a6b1322f40ceec608624a2
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Mon Jul 6 14:23:38 2020 +0200
+
+    dde_rump: use Mutex/Blockade
+    
+    Issue #3805
+
+commit a9827c662e37d3c2bfeae8d9f7210cf5cbec31a4
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Mon Jul 6 14:25:30 2020 +0200
+
+    dde_ipxe: use Mutex
+    
+    Issue #3805
+
+commit ce6f4dffe5a47685034f465adf55ad8bfeba3798
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Tue Jul 7 11:41:44 2020 +0200
+
+    linux: use Mutex
+    
+    Fixes #3807
+
+commit 997a77b3de3474f85bb31802f4f1a9c5bbc51148
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Tue Jul 7 13:49:01 2020 +0200
+
+    foc: use Mutex
+    
+    Issue #3809
+
+
+Moved atexit handling from base library to C runtime
+====================================================
+
+;@nfeske
+
+commit f0a6039368fc425ae27ab3b58330b608c0d46ac0
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Mon Aug 17 16:23:48 2020 +0200
+
+    Move atexit handling from base lib to libc
+    
+    This patch untangles the interplay of the base library and the libc
+    during the exit handling.
+    
+    - The CXA ABI for the atexit handling is now provided by the libc.
+      For plain Genode components without libc dependency, __cxa_atexit
+      is a no-op, which is consistent with Genode's notion of components.
+    
+    - The 'abort' implementation of the base library no longer calls
+      'genode_exit' but merely 'sleep_forever'. This way, the cxx library
+      no longer depends on a 'genode_exit' implementation.
+    
+    - The libc provides 'atexit' support by storing metadata on the
+      libc kernel's heap now, thereby eliminating the former bounded
+      maximum number of atexit handlers.
+    
+    - Shared-library dtors are no longer called via the atexit mechanism
+      by explicitly by the dynamic linker. This slightly changes the
+      call order of destructors (adjustment of the ldso test). Functions
+      marked as destructors are called after the atexit handlers now.
+    
+    - The libc executes atexit handlers in the application context,
+      which supports the I/O operations in those handles, in particular
+      the closing of file descriptors.
+    
+    Fixes #3851
+
+Removal of deprecated interfaces
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+;@nfeske
+
+Unsafe 'Xml_node' methods
+-------------------------
+
+commit 00fe7117289beead12e7f03724511fc14f16d29a
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Aug 19 09:35:00 2020 +0200
+
+    Xml_node: remove deprecated methods
+    
+    Issue #3755
+
+
+Superseded child-management utilities
+-------------------------------------
+
+commit 3d634df34d217642d2dbb3f53de627c90a223949
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Mon Jul 6 11:49:58 2020 +0200
+
+    gems: remove report_rom_slave.h
+    
+    Fixes #3803
+
+
+Cancel-blocking interface
+-------------------------
+
+commit f3efbe50bbec485116d60e276a8b8c107796cedf
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Mon Jul 6 16:09:44 2020 +0200
+
+    base: remove deprecated cancel_blocking() support
+    
+    for threads.
+    
+    Fixes #3806
+
+commit 41380ff769181e90a6c51a994f8bbfc7e30b61d9
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Tue Jul 14 10:15:30 2020 +0200
+
+    base: remove Cancelable_lock
+    
+    - base/cancelable_lock.h becomes base/lock.h
+    - all members become private within base/lock.h
+    - solely Mutex and Blockade are friends to use base/lock.h
+    
+    Fixes #3819
+
+
+Removal of delayed dispatch from 'Rpc_entrypoint'
+-------------------------------------------------
+
+commit 295d36b3ea2e02daa721bd592ae93b35a49ab91d
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Tue Jul 21 15:58:46 2020 +0200
+
+    base: remove delayed dispatch from Rpc_entrypoint
+    
+    Fixes #3833
+
+
+C runtime
+=========
+
+commit 87b08d6c7f06b9cde1857528bd778e767ca92295
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Thu Jun 4 16:04:29 2020 +0200
+
+    libc: support pthread placement configuration
+    
+    Up to now all pthreads get placed on one CPU.
+    
+    The patch adds support to evaluate a libc pthread configuration specifying
+    a placement strategy.
+    
+    The default strategy is now to use all available CPUs as imposed by Genode's
+    affinity configuration for the pthread application.
+    
+    The old behaviour, putting all pthreads on one single cpu can be still
+    configured by:
+    
+    <libc>
+     <pthread placement="single-cpu"/>
+     ...
+    </libc>
+    
+    Fixes #3775
+
+commit 1ec823bf5e55058f3ba3095b3b3305fb16318f66
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Tue Jun 16 13:50:21 2020 +0200
+
+    libc: support manual pthread configuration
+    
+    Fixes #3787
+
+commit a123c4dbb6611b819b084f0656ab7b38aad3beec
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Mon Jul 13 09:16:32 2020 +0200
+
+    libc: cleanup monitor implementation
+    
+    - Explicit types for function and monitor execution results
+    - Remove pending flag and mutex (pending flag was moved to kernel)
+
+commit a115ebc9b6d7417004e8ac53de001e4d751e64e9
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Mon Jul 13 08:59:08 2020 +0200
+
+    libc: process VFS operations in monitor
+    
+    Fixes #2635
+
+
+Standard C++ library
+====================
+
+;@cproc
+
+commit 1981cffd946b5dd66e9237c455163bd7786f1061
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Thu Aug 13 19:20:59 2020 +0200
+
+    stdcxx: enable thread features
+    
+    Issue #2442
+
+
+Ada/SPARK support
+=================
+
+;@m-stein
+
+commit c1add76c0aa711ca5cf64d7da325ef5de700b390
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Sun Sep 29 01:49:02 2019 +0200
+
+    ada/spark: all warnings, warn strict, style checks
+    
+    * enable all common warnings through default value of CC_ADA_WARN
+    * treat warnings like errors through default value of CC_ADA_WARN_STRICT
+    * enable almost all style checks through default value of CC_ADA_WARN_STRICT
+    * style fixes for aes_cbc_4k
+    * disable strict warnings and style checks for libsparkcrypto and spark lib
+    
+    Ref #3848
+
+commit 6544d08b39e8a3259f109ce2693dec0acbe926d9
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Tue May 19 12:15:06 2020 +0200
+
+    ada-runtime: add s-expint.ad*
+    
+    * switch to fork of the Ada runtime provided by m-stein
+    * switch to a Ada-runtime state that provides the Exp_Int package (exponential
+      function on integers)
+    * adapt spark lib, symbols, and recipes to incorporate the Exp_Int package
+    
+    Fixes #3848
+
+commit 907a90a65f2a75e42ae6ba6533bb960c5dae1b05
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Fri Aug 14 12:57:26 2020 +0200
+
+    libsparkcrypto: mark some units pure
+    
+    * switch to a libsparkcrypto fork of m-stein
+    * switch to a libsparkcrypto state that makes some units pure that are used by
+      the consistent block encrypter, in order that the latter can become
+      completely pure
+    
+    Ref #3849
+
+commit e95ad7e63928bc69c28e6bdd8423d5e9528a9ac6
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Tue Aug 4 17:32:24 2020 +0200
+
+    libsparkcypto: api recipe
+    
+    For the time being, we put all spec and body files into the recipe although
+    there might be a (so far to us unknown) way to have only the API relevant files
+    in it.
+    
+    Fixes #3849
+
+
+Operating-system components
+###########################
+
+Consistent Block Encrypter
+==========================
+
+With the Genode 20.05 release, our
+[https://genode.org/documentation/release-notes/20.05#Feature-completeness_of_the_consistent_block_encrypter - Constistent Block Encrypter (CBE) reached feature completeness]
+adding support for
+[http://genodians.org/m-stein/2020-06-07-cbe-rekeying - online rekeying]
+and
+[http://genodians.org/m-stein/2020-06-08-cbe-resizing - online resizing].
+Furthermore, we were able to run a Linux virtual machine using a CBE device as
+system partition. During the last three months, we mainly reviewed and
+consolidated the code but also improved the integration in a notable way.
+
+One important step forward is that we implemented a new _reference_ Trust
+Anchor. The Trust Anchor (TA) is a separate entity (might be a smartcard, a USB
+dongle, or a piece of software) that the CBE relies on for key management and
+for storing superblock hashes. In contrast to the dummy TA we used for testing
+so far, the reference TA stores private key and superblock hashes persistently
+through a file-system back-end and requires the user to enter a passphrase to
+be unlocked. This enables the CBE to actually verify that the CBE device is in
+the same state that it was left in the last time and that only authorized users
+can access its data.
+
+Furthermore, both the Crypto and the TA back end of the CBE are now integrated
+through VFS plugins. This change gives the user of the CBE more flexibility in
+two ways. On one hand, he can switch between integrating those entities locally
+(inside the CBE driver) or remotely (in a VFS server instance isolated from
+the CBE driver) by merely altering the system configuration.
+
+[image cbe_integration - Three different ways to integrate the CBE]
+
+On the other hand, the implementation of the Crypto entity and the Trust
+Anchor can now be switched through means of configuration alone. For instance,
+let us take a look at the VFS server in the CBE test scenario
+'repos/cbe/run/vfs_cbe.run':
+
+! <start name="vfs_cbe" caps="120">
+!   <config>
+!     <vfs>
+!       <cbe_crypto_aes_cbc name="cbe_crypto"/>
+!       ...
+!     </vfs>
+!     ...
+!   </config>
+!   ...
+! </start>
+
+You may replace the plugin employing a AES-CBC ESSIV block-cipher in this test
+with a one using plain memcpy (in other words: disabling block encryption) by
+changing only one line:
+
+! <start name="vfs_cbe" caps="120">
+!   <config>
+!     <vfs>
+!       <cbe_crypto_memcopy name="cbe_crypto"/>
+!       ...
+!     </vfs>
+!     ...
+!   </config>
+!   ...
+! </start>
+
+The memcopy example may in fact be useful for contexts where only the abilities
+of the CBE to manage snapshots and to ensure consistency are of interest and
+encryption would only generate unnecessary overhead. However, the main
+motivation behind this is to allow for an easy application of other cipher
+algorithms.
+
+In order to make things even more approachable, the VFS-plugin-related code
+between CBE, Crypto entity, and Trust Anchor relies on generic interfaces.
+This simplifies supporting other existing cryptographic algorithms and TA
+types as enabling them boils down to solely implementing a handfull of well
+defined hook functions.
+
+As for the CBE demo scenario that we published with the last Genode release:
+The corresponding packages moved from the package source 'cnuke' to 'mstein'.
+Furthermore, the CBE demo is now based on the unaltered Genode master branch
+and the new master branch in the CBE repository itself. Besides that, for the
+most part, the procedure for reproducing the demo described in the
+[http://genodians.org/m-stein/2020-06-12-cbe-linux-vm - demo article] and the
+[http://genodians.org/m-stein/2020-06-17-cbe-linux-vm-video - demo video] remained
+the same. But be prepared to find minor discrepancies.
+
+
+Virtual file system (VFS)
+=========================
+
+;@cnuke
+
+commit e56dd15a4bf35a60593ae77392ab17d4eef687d8
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Thu Jun 18 15:48:52 2020 +0200
+
+    vfs: extend <zero> fs to limit amount of zeros
+    
+    Setting the 'size' attribute will restrict a reader to consume
+    0s up to the specified amount per VFS handle. The attribute is
+    parsed as 'Number_of_bytes', which will limit the amount to the
+    maximum of the addressable memory on the platform.
+    
+    This addition comes in handy when needing to provide a synthetic
+    empty file with a fixed size.
+    
+    Issue #3781.
+
+commit 9757f24c23b4f68773b74fcb5900f213cd73fbe8
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Fri Aug 14 15:44:22 2020 +0200
+
+    vfs: add raw option to terminal plugin
+    
+    When the 'raw' attribute is set to 'yes' the terminal VFS plugin will
+    ignore control characters. This in necessary for terminal connections
+    that transport data that contain such characters as part of message.
+    
+    Fixes #3860.
+
+
+Block server backed by VFS content
+==================================
+
+;@cnuke
+
+commit e1aab829cad8c89fada0531ed2901ba5e68b910d
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Tue May 5 15:05:22 2020 +0200
+
+    os: Block session server backed by VFS library
+    
+    The 'vfs_block' component will give access to a VFS file through a
+    Block session. For more detailed information please look at its
+    README.
+    
+    (On a technical note, the server currently only allows for one
+    active session and has only one pending back end request but can
+    easily be extended in the future.)
+    
+    Fixes #3781.
+
+commit ec711b008ee2b0d3ac763297bc2faef8ae05835b
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Thu Jun 18 16:27:10 2020 +0200
+
+    Replace 'ram_block' with 'vfs_block'
+    
+    Issue #3781.
+
+commit 8b590e2330cdb14aac87306f47db0a2833924ee7
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Thu Jun 18 18:07:48 2020 +0200
+
+    os: remove ram_block server component
+    
+    This component is superceeded by vfs_block.
+    
+    Issue #3781.
+
+commit 6fc7ed55cf06288036694a3e36c80519c449a7eb
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Fri Jun 19 11:37:45 2020 +0200
+
+    Replace 'rom_block' with 'vfs_block'
+    
+    Issue #3781.
+
+commit 6d945e6a616a856f2fa7195e691a7cf5416dc796
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Fri Jun 19 12:00:26 2020 +0200
+
+    os: remove rom_block server component
+    
+    This component is superceeded by vfs_block.
+    
+    Issue #3781.
+
+
+Device drivers
+##############
+
+;@skalk
+
+commit 91b71f7a9ff0cd51d184add0d7f4c8abe36ef10e
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Wed Jun 24 10:48:36 2020 +0200
+
+    run: add drivers_interactive for panda and arndale
+
+commit 401c7f9a9f217432d1ec679484df82b677760466
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Fri Jul 10 13:04:12 2020 +0200
+
+    base: extend PD session with managing_system call
+    
+    Introduce the managing_system privilege for components like the
+    platform_driver to allow it to call system management functionality
+    that is reserved by kernel or special firmware, e.g., ARM Trusted Firmware.
+    
+    The former RAM resource configuration attribute `constrain_phys`,
+    which enabled to constrain the region of physical RAM to be used,
+    gets replaced by the new, broader managing_system configuration
+    attribute of a `start` node. It gets enforced by the sandbox library.
+    
+    Ref #3816
+
+commit 3e061e4bcfaee33a734d7a163f2347c86d46bb05
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Fri Jul 10 13:39:49 2020 +0200
+
+    hw: implement Pd_session::managing_system for ATF
+    
+    To access the ARM Trusted Firmware from the platform driver
+    fill the new `managing_system` call of the PD session with life resp.
+    do a SMC call on behalf of the client.
+    
+    Fix #3816
+
+commit 11bad0e32cc8b7089d984ab0474007f7e566f096
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Fri Jul 17 18:28:06 2020 +0200
+
+    os: add platform driver for i.MX 8M Quad SoC
+    
+    The new platform driver supports clock and power-domain settings per device.
+    IOMUX constroller settings are not part of the driver yet.
+    
+    Fix #3863
+
+commit d3872f4b9cc276a859d4f93cbd510b9a25c54cf4
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Fri Aug 21 17:51:48 2020 +0200
+
+    os: disable initialization of i.MX8MQ platform_drv
+    
+    This is a temporary workaround to not harm drivers, which aren't
+    converted yet to request all device resources including power and
+    clocks from this new platform driver.
+    
+    Ref #3863
+
+commit b7506a2a68a080345c9e11776c32863439911aff
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Fri Aug 21 13:00:04 2020 +0200
+
+    hw: unify irq enumeration for Raspberri Pi
+    
+    By now, the enumeration of peripheral interrupts on Raspberry Pi 1 was
+    different in between base-hw kernel and Fiasco.OC. Therefore, hacks were
+    needed in every driver to request the correct interrupt number dependent
+    on the kernel. Before reproducing the same in the platform driver for rpi,
+    we can more easily use the same enumeration with base-hw.
+    
+    Ref #3864
+
+commit 73bc2c3a80483f45672095f3d7848ee3e4bdfc70
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Fri Aug 21 13:54:05 2020 +0200
+
+    os: add new platform driver for Raspberry Pi
+    
+    Fix #3864
+
+commit 2b32b8fab768ea25613141531a89a607e22a3473
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Fri Aug 21 13:57:30 2020 +0200
+
+    dde_linux: decouple Lx_kit::Irq and Platform::Device
+    
+    The Lx_kit::Irq abstraction of DDE Linux was always using the very first
+    interrupt of a Platform::Device stored in it. Instead of handing over the
+    platform device it is much more flexible and sane to hand over the actual
+    interrupt capability.
+    
+    Ref #3865
+
+commit b82025b6d9cc2a6611f5d6a26b48e9479945f87f
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Fri Aug 14 14:58:03 2020 +0200
+
+    dde_linux: use new platform API for usb_host_drv
+    
+    Introduce a common platform device initialization routine for all
+    ARM SoCs by using the new platform driver API.
+    
+    Fix #3865
+
+
+Libraries and applications
+##########################
+
+Migration of ported software to Genode-World
+============================================
+
+;@nfeske
+
+commit 5249f3358f5e1f507f0f0d23b55c0e1d63b5ed14
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Jun 26 11:16:26 2020 +0200
+
+    Move Solo5 to genode-world
+    
+    Fixes #3761
+
+commit 7dbf8362177094b3df18beeb099340ae070f0268
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Jun 26 11:34:46 2020 +0200
+
+    Move stubby to genode-world
+    
+    Fixes #3789
+
+
+New ported 3rd-party software in Genode-World
+=============================================
+
+Port of SDL 2.0.14
+------------------
+
+;@cnuke
+
+commit 72cdf748058a036bf995e4eb21f181be8d2f8813
+Author: Josef Söntgen <jws@sysret.de>
+Date:   Tue Jan 5 23:59:52 2016 +0100
+
+    Port of SDL 2.0.14
+    
+    Fixes #210
+
+Port of iperf2
+--------------
+
+;@rolandbaer
+
+commit 48b76d1d6d0889347be5e08bab8832175c15f561
+Author: rolandbaer <rbaer@gmx.ch>
+Date:   Sat Aug 8 00:03:21 2020 +0200
+
+    Port of iperf2
+    
+    The run script is based on the netperf run scripts.
+    
+    Fixes #221
+
+Port of gRPC
+------------
+
+;@trimpim
+
+
+Removal of orphaned 3rd-party ports
+===================================
+
+;@nfeske
+
+commit 472bad8d751e5a5bb4cc754f3a8611d7211abe84
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Aug 13 16:13:49 2020 +0200
+
+    Remove dde_zircon
+    
+    Fixes #3847
+
+
+Sculpt OS
+#########
+
+;@nfeske
+
+commit a5c12270697830e8a5d1a22bb2f7181548de73c4
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Mon Jul 13 09:34:37 2020 +0200
+
+    sculpt_manager: add graphical CPU affinity config
+    
+    Fixes #3820
+
+commit a2fdcb06d973c3726adeb1c52d53a051abfe42e4
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Aug 14 16:30:36 2020 +0200
+
+    sculpt: remove deferred GUI initialization
+    
+    The sculpt manager used to defer the initialization of the GUI until
+    nitpicker's first display report became ready. This way, Sculpt was able
+    to run headlessly even if the framebuffer driver failed to start up.
+    Thanks to #3827, nitpicker no longer depends on a working framebuffer
+    driver. So the sculpt manager is safe to rely on nitpicker in any case,
+    simplifying the code.
+    
+    Issue #3827
+
+commit 75a2f4cd4f3460030932952692b2604a8cbbc50a
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Aug 21 14:14:18 2020 +0200
+
+    sculpt: remove part_block upon failure
+    
+    With this patch, sculpt uses init's heartbeat-monitoring mechanism to
+    detect the failure of part_block instances during storage disovery.
+    If part_block gets stuck, the device is released and can thereby
+    be accessed at the whole-device level.
+    
+    Issue #3861
+
+
+Platforms
+#########
+
+Execution on bare hardware (base-hw)
+====================================
+
+;@skalk
+
+commit 04d8c859d8dc191d0919277a7d4dbb720ace0bf0
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Wed Jun 17 15:23:31 2020 +0200
+
+    hw: enable branch predictor on rpi
+    
+    * Z-bit was never enabled for rpi1
+    * Write buffer, and TCM bits are deprecated in this processor generation
+      so do not use them
+    
+    Ref #3247
+
+commit 1f91fd3f7de7e07ffb564849c0061ca21eb2a418
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Thu Jun 25 11:24:24 2020 +0200
+
+    hw: scale imx8q_evk cpu to 1.5 GHz
+
