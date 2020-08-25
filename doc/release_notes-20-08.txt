@@ -915,8 +915,8 @@ let us take a look at the VFS server in the CBE test scenario
 !   ...
 ! </start>
 
-You may replace the plugin employing a AES-CBC ESSIV block-cipher in this test
-with a one using plain memcpy (in other words: disabling block encryption) by
+We may replace the plugin employing an AES-CBC ESSIV block-cipher in this test
+with one using plain memcopy (in other words: disabling block encryption) by
 changing only one line:
 
 ! <start name="vfs_cbe" caps="120">
