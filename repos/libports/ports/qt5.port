@@ -4,5 +4,5 @@ VERSION := 5.13.2
 DOWNLOADS := qt5.git
 
 URL(qt5) := https://github.com/cproc/qt5.git
-REV(qt5) := 6e2e8fa1eb37b5fbee8614136868f03dfacd7ca2
+REV(qt5) := 68440eb5cb644c2d701472c26a2647f6c86c1b8c
 DIR(qt5) := src/lib/qt5
