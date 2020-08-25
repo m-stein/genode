@@ -446,30 +446,93 @@ Date:   Fri Aug 21 15:25:16 2020 +0200
 Improved Qt5 integration and work flows
 #######################################
 
-;@cproc
-
 Streamlined build-system integration
 ====================================
 
-commit 5af4552511c2190787fe5dd96ea58c9111932082
-Author: Christian Prochaska <christian.prochaska@genode-labs.com>
-Date:   Sun Jun 28 14:21:09 2020 +0200
+Up to now, Qt libraries and applications for Genode had been built using the
+Genode build system. The Qt library build files in the 'libports/lib/mk'
+directory were in part generated with a shell script from the GNU make files
+which the 'qmake' tool had generated when building Qt for Linux and there was
+some rudimentary support for building Qt applications from qmake project files
+by just interpreting the qmake project files as GNU make files and translating
+the relevant qmake variables to corresponding Genode build system variables.
 
-    qt5: build Qt libraries and applications with qmake
-    
-    Fixes #3795
+But this approach was not feasible anymore for building the 'qtwebengine'
+module (the successor of the deprecated 'qtwebkit' module), which is based on
+the Chromium web engine source code and mostly built with the Ninja build
+system on the officially supported platforms instead of qmake.
 
-commit ca5a745d33f1b8c45488a66c761f81509406963e
-Author: Christian Prochaska <christian.prochaska@genode-labs.com>
-Date:   Mon Aug 17 14:59:20 2020 +0200
+We also want to make it easier for Genode users to build Qt applications, in
+particular by using the 'goa' tool, so it would be better to be able to
+actually process qmake project files with the qmake tool instead of
+interpreting them as GNU make files and aborting when a project file contains
+qmake-specific code not understood by GNU make.
 
-    qt5_component: support arguments and environment from config
-    
-    Fixes #3049
+For these reasons, we reworked the Qt build process so that it now uses qmake
+with a tailored Genode platform configuration for building both Qt libraries
+and applications.
+
+If you had previously built a Qt application for Genode and want to continue
+using it with the new release and you cannot use the goa tool yet (for
+example because additional Qt libraries cannot be built with goa yet or because
+other architectures than x86_64 are currently not supported by goa yet), you
+need to update the 'target.mk' file (and any run scripts) of your project. For
+the details, please have a look at the updated Qt example projects in the
+'libports' repository and feel free to ask on the Genode mailing list if any
+problems arise with the conversion. It is also necessary to rebuild the Qt
+tool chain with the 'tool/tool_chain_qt5' script to get the qmake tool
+built and installed.
+
+While converting the run scripts of the Qt example projects, we switched to
+using the 'drivers_interactive' package, which is the preferred way to start
+drivers for interactive scenarios nowadays. A downside might be that network
+or storage drivers are not loaded anymore this way. If these features are
+needed for a Qt project, the suggested solution is to use goa or to run the
+scenario with Sculpt OS instead, if possible.
+
+Another Qt-related feature in this release is that the 'qt5_component' library
+now extracts command line arguments and environment variables from the 'config'
+ROM, like the 'posix' library already did for non-Qt applications.
 
 
 Chromium engine and Falkon web brower
 =====================================
+
+Since the previously ported 'Arora' web browser has not been maintained
+upstream for years and the 'qtwebkit' Qt module it depended on has also been
+deprecated in the meantime, it was eventually time to try to port the newer
+Chromium-based 'qtwebengine' module to Genode and to find a new maintained
+qtwebengine-based web browser which can replace Arora. At first glance,
+porting qtwebengine to Genode appeared to be quite a challenging task, since
+officially only Linux, Windows and macOS are supported and most of the
+qtwebengine code, which also contains a huge amount of third-party libraries,
+is not built with qmake for the most part like other Qt modules, but with the
+Ninja build system.
+
+Fortunately, the situation turned out to be less problematic than expected, at
+least with regard to the initial goal of getting a lightweight web browser
+running and displaying regular web sites comparably to Arora. One reason for
+that is that there already existed a qtwebengine port for FreeBSD, which
+resolved most of the possible libc compatibility problems and thus served as
+the basis for the Genode port. There were still some operating system specifics
+in the code which had to be dealt with, though, like supporting shared memory
+with 'mmap' or cache maintenance for JIT-compiled JavaScript code. Advanced web
+engine features like multimedia support are disabled at the moment, also some
+security-related features like the verification of server certificates
+(requires a port of libnss), multi-processing or sandboxing.
+
+The build system issue could eventually be resolved by adding a Genode platform
+backend for qmake and passing the correct compiler options to the Chromium build
+system.
+
+As qtwebengine-based web browser we chose the [https://www.falkon.org - Falkon]
+browser, which was previously known as 'QupZilla' and looks quite promising so far.
+
+
+XXX screenshot
+
+
+The Arora web browser and qtwebkit module are no longer available in this release.
 
 
 Base framework and OS-level infrastructure
@@ -796,15 +859,8 @@ Date:   Mon Jul 13 08:59:08 2020 +0200
 Standard C++ library
 ====================
 
-;@cproc
-
-commit 1981cffd946b5dd66e9237c455163bd7786f1061
-Author: Christian Prochaska <christian.prochaska@genode-labs.com>
-Date:   Thu Aug 13 19:20:59 2020 +0200
-
-    stdcxx: enable thread features
-    
-    Issue #2442
+We enabled support for thread-related features like 'std::thread' or 'std::mutex'
+in the stdcxx library.
 
 
 Ada/SPARK support
