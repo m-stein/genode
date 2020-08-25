@@ -810,59 +810,49 @@ Date:   Thu Aug 13 19:20:59 2020 +0200
 Ada/SPARK support
 =================
 
-;@m-stein
+With the development of the [Consistent Block Encrypter], Genodes Ada/SPARK
+support was used in the context of a more complex software project for the
+first time. Therefore, we felt the necessity to make up our minds about a
+generally accepted Ada/SPARK coding-style as long as this step still doesn't
+entail the painstaking adaption of large amounts of code.
 
-commit c1add76c0aa711ca5cf64d7da325ef5de700b390
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Sun Sep 29 01:49:02 2019 +0200
+Fortunately, the GNAT compiler flags assist developers a lot in this affair.
+That said, we added the consideration of two new environment Make-variables to
+the Genode toolchain: 'CC_ADA_WARN' and 'CC_ADA_WARN_STRICT'. Analogously to
+the C++ pendants ('CC_CXX_WARN' and 'CC_CXX_WARN_STRICT'), the variable
+'CC_ADA_WARN' denotes the common warning-configuration of the compiler for
+Ada/SPARK while 'CC_ADA_WARN_STRICT' by default applies additional
+configuration for a much higher level of strictness. This strict mode might be
+deactivated locally for code which isn't subject to the Genode coding style -
+e.g. ported third party code - by adding 'CC_ADA_WARN_STRICT = ' to the
+corresponding Make files.
 
-    ada/spark: all warnings, warn strict, style checks
-    
-    * enable all common warnings through default value of CC_ADA_WARN
-    * treat warnings like errors through default value of CC_ADA_WARN_STRICT
-    * enable almost all style checks through default value of CC_ADA_WARN_STRICT
-    * style fixes for aes_cbc_4k
-    * disable strict warnings and style checks for libsparkcrypto and spark lib
-    
-    Ref #3848
+The common warning configuration for Ada/SPARK merely enables all warning
+messages with the '-wa' flag. As with C++, the strict mode furthermore causes
+GNAT to treat warnings like errors and refrain from compiling affected
+Ada/SPARK code. In addition to that, the strict mode releases a broad variety
+of checks for potential pitfalls and style consistency using the configuration
+'-gnatyyBdSux' (which is compatible to the GNAT standard style). A
+comprehensive description of all checks activated by this configuration would
+be beyond the scope of this document. So, please have a look at the
+[https://gcc.gnu.org/onlinedocs/gnat_ugn/Style-Checking.html - GNAT style-checking reference]
+instead if you're interested.
 
-commit 6544d08b39e8a3259f109ce2693dec0acbe926d9
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Tue May 19 12:15:06 2020 +0200
+Besides the style enforced through compiler flags, we decided to generally
+promote "Camel-Snake Casing" for Ada/SPARK code. The only exceptions from that
+form abbreviations of initials that are completely upper case and language
+keywords that are completey lower case. This would be a conform snippet of
+code:
 
-    ada-runtime: add s-expint.ad*
-    
-    * switch to fork of the Ada runtime provided by m-stein
-    * switch to a Ada-runtime state that provides the Exp_Int package (exponential
-      function on integers)
-    * adapt spark lib, symbols, and recipes to incorporate the Exp_Int package
-    
-    Fixes #3848
+! function T1_Node_XML_Tag_Open (
+!    Node     : Type_1_Node_Type;
+!    Node_Idx : Type_1_Node_Block_Index_Type;
+!    Show_Hsh : Boolean;
+!    VBA      : Virtual_Block_Address_Type)
+! return String;
 
-commit 907a90a65f2a75e42ae6ba6533bb960c5dae1b05
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Fri Aug 14 12:57:26 2020 +0200
-
-    libsparkcrypto: mark some units pure
-    
-    * switch to a libsparkcrypto fork of m-stein
-    * switch to a libsparkcrypto state that makes some units pure that are used by
-      the consistent block encrypter, in order that the latter can become
-      completely pure
-    
-    Ref #3849
-
-commit e95ad7e63928bc69c28e6bdd8423d5e9528a9ac6
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Tue Aug 4 17:32:24 2020 +0200
-
-    libsparkcypto: api recipe
-    
-    For the time being, we put all spec and body files into the recipe although
-    there might be a (so far to us unknown) way to have only the API relevant files
-    in it.
-    
-    Fixes #3849
+Another minor improvement of Genodes Ada/SPARK runtime consists in the
+added support for the exponential operator on integers.
 
 
 Operating-system components
