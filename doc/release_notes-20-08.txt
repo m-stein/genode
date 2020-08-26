@@ -1009,93 +1009,106 @@ the same. But be prepared to find minor discrepancies.
 Virtual file system (VFS)
 =========================
 
-;@cnuke
+We extended the 'zero' VFS plugin to limit the amount of data, e.g., 0s,
+it will provide. By setting the 'size' attribute a reader is restricted to
+only consume data up to the specified amount per VFS handle. Through that
+is serves as natural EOF. The attribute is parsed as 'Number_of_bytes', which
+caps the amount to the maximum of the addressable memory on the platform.
 
-commit e56dd15a4bf35a60593ae77392ab17d4eef687d8
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Thu Jun 18 15:48:52 2020 +0200
+This addition comes in handy when needing to provide a synthetic empty file
+with a fixed size:
 
-    vfs: extend <zero> fs to limit amount of zeros
-    
-    Setting the 'size' attribute will restrict a reader to consume
-    0s up to the specified amount per VFS handle. The attribute is
-    parsed as 'Number_of_bytes', which will limit the amount to the
-    maximum of the addressable memory on the platform.
-    
-    This addition comes in handy when needing to provide a synthetic
-    empty file with a fixed size.
-    
-    Issue #3781.
+! <vfs>
+!   <ram/>
+!   <import>
+!     <zero name="block_file" size="32M"/>
+!   </import>
+! </vfs>
 
-commit 9757f24c23b4f68773b74fcb5900f213cd73fbe8
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Fri Aug 14 15:44:22 2020 +0200
 
-    vfs: add raw option to terminal plugin
-    
-    When the 'raw' attribute is set to 'yes' the terminal VFS plugin will
-    ignore control characters. This in necessary for terminal connections
-    that transport data that contain such characters as part of message.
-    
-    Fixes #3860.
+Furthermore, we added an option the 'terminal' VFS plugin to ignore control
+characters. Usually this plugin is used in interactive configurations where
+reacting to control characters, e.g. ^C, is vital. That being said, the plugin
+lends itself as general transport mechanism for low-traffic data transfers.
+Those transfers, however, may contain arbitrary data that could very well be
+interpreted as control characters. Therefor, we introduced the 'raw'
+configuration attribute. Setting the attribute instructs the plugin to pass
+all data through as-is without further interpretation.
+
+! <vfs>
+!   <dir name="/dev">
+!     <terminal name="io" raw="yes"/>
+!   </dir>
+! </vfs>
 
 
 Block server backed by VFS content
 ==================================
 
-;@cnuke
+This release adds a new component that provides access to a VFS file
+through a Block session. Block requests will be translated to VFS requests
+operating directly on the file.
 
-commit e1aab829cad8c89fada0531ed2901ba5e68b910d
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Tue May 5 15:05:22 2020 +0200
+The client access is configured by setting the attributes of the 'policy'
+node appropriately. The assumed block size of the underlying file must be
+specified via the 'block_size' attribute. It defaults to 512 bytes.
 
-    os: Block session server backed by VFS library
-    
-    The 'vfs_block' component will give access to a VFS file through a
-    Block session. For more detailed information please look at its
-    README.
-    
-    (On a technical note, the server currently only allows for one
-    active session and has only one pending back end request but can
-    easily be extended in the future.)
-    
-    Fixes #3781.
+The block count is determined by querying the file and dividing its size by
+the block size. Pseudo file systems which do not return a proper size in their
+'stat' implementation will therefore not work. The 'writeable' attribute
+denotes if the Block session is allowed to perform write requests. However,
+if the underlying file is read-only such requests will nonetheless
+fail. The default value is 'no'.
 
-commit ec711b008ee2b0d3ac763297bc2faef8ae05835b
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Thu Jun 18 16:27:10 2020 +0200
+The following snippets shows a configuration where the 'vfs_block' component
+allows the component 'the_client' writeable access to the 'ext2_disk.img'
+file. In return, this file is accessed via a file-system session.
 
-    Replace 'ram_block' with 'vfs_block'
-    
-    Issue #3781.
+! <start name="vfs_block">
+!   <resource name="RAM" quantum="3M"/>
+!    <provides> <service name="Block"/> </provides>
+!      <config>
+!
+!        <vfs>
+!          <fs buffer_size="2M" label="backend"/>
+!        </vfs>
+!
+!        <policy label="the_client" file="/ext2_disk.img" block_size="512"
+!                writeable="yes"/>
+!      </config>
+!      <route>
+!        <service name="File_system" label="backend>
+!          <child name="fs_provider"/> </service>
+!        <any-service> <parent/> </any-service>
+!      </route>
+! </start>
 
-commit 8b590e2330cdb14aac87306f47db0a2833924ee7
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Thu Jun 18 18:07:48 2020 +0200
+As the 'vfs_block' is by using the VFS library flexible enough to cover the
+use-cases of components like 'ram_block' and 'rom_block' we decided to remove
+them.
 
-    os: remove ram_block server component
-    
-    This component is superceeded by vfs_block.
-    
-    Issue #3781.
+For example a typical 'rom_block' use-case is implemented by using this
+configuration:
 
-commit 6fc7ed55cf06288036694a3e36c80519c449a7eb
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Fri Jun 19 11:37:45 2020 +0200
+! <start name="vfs_block">
+!   <resource name="RAM" quantum="2M"/>
+!    <provides> <service name="Block"/> </provides>
+!      <config>
+!
+!        <vfs>
+!          <rom name="genode.iso"/>
+!        </vfs>
+!
+!        <default-policy file="/genode.iso" block_size="2048"/>
+!      </config>
+!      <route>
+!        <any-service> <parent/> </any-service>
+!      </route>
+! </start>
 
-    Replace 'rom_block' with 'vfs_block'
-    
-    Issue #3781.
-
-commit 6d945e6a616a856f2fa7195e691a7cf5416dc796
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Fri Jun 19 12:00:26 2020 +0200
-
-    os: remove rom_block server component
-    
-    This component is superceeded by vfs_block.
-    
-    Issue #3781.
+On a technical note, the server currently only allows for one active session
+and manages only one pending back end request but can easily be extended in the
+future.
 
 
 Device drivers
@@ -1234,15 +1247,16 @@ New ported 3rd-party software in Genode-World
 Port of SDL 2.0.14
 ------------------
 
-;@cnuke
+As more and more software requires SDL2 it became necessary to support it
+as well in addition to the already existing support for SDL1. We therefore
+ported the upcoming version to Genode.
 
-commit 72cdf748058a036bf995e4eb21f181be8d2f8813
-Author: Josef Söntgen <jws@sysret.de>
-Date:   Tue Jan 5 23:59:52 2016 +0100
+For the time being its functionality is limited in constrast to the SDL1
+port - only input and unaccelerated video is supported - but will be extended
+in the future to also cover the other subsystems.
 
-    Port of SDL 2.0.14
-    
-    Fixes #210
+Even in its limited state it is plenty as it allows for
+[http://www.genodians.org/alex-ab/2020-07-02-scrcpy - Streaming Android to Genode using Scrcpy].
 
 Port of iperf2
 --------------
