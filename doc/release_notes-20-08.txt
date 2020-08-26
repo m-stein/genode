@@ -15,432 +15,164 @@
 The GUI stack, restacked
 ########################
 
-;@nfeske
-
-commit c6eda9bd804f58ef590f6520e3635eba4d2f064b
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Jun 11 14:27:20 2020 +0200
-
-    Rename include/nitpicker_session to gui_session
-    
-    This patch also renames the depot api archive accordingly.
-    
-    Issue #3778
-
-commit 98f39c698f79c07dfe6f50d8f517cb58cc789d88
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Jun 11 16:06:21 2020 +0200
-
-    Rename "Nitpicker" service name to "Gui"
-    
-    Issue #3778
-
-commit e8f57063824d38d8ae25e17b395213e82fc2ae7f
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Jun 11 16:13:32 2020 +0200
-
-    Rename <nitpicker> in runtime files to <gui>
-    
-    Issue #3778
-
-commit 5d40c0c1ce7f702b0b4c3735a4501ba705c14ffb
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Jun 12 11:23:57 2020 +0200
-
-    Rename 'Nitpicker' namespace to 'Gui'
-    
-    Issue #3778
-
-commit 48b4891f6e28191ffc1ef912dae387c980a734d0
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Jun 16 13:48:09 2020 +0200
-
-    Rename nit_fb to gui_fb
-    
-    Issue #3778
-
-commit 7a97cd70aa9151b9142c6412e4889195d8de6af1
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Jun 16 13:52:53 2020 +0200
-
-    Rename nit_fader to gui_fader
-    
-    Issue #3778
-
-commit f63713694c5145bb4e2b048fac883164e41b73a5
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Jun 17 14:15:23 2020 +0200
-
-    api/blit: package arch-specific optimizations
-    
-    The blit API archive missed the CPU-architecture-specific variants of
-    the blit library such that all depot binaries worked with the generic
-    (slow) fallback implementation. This patch adds the missing pieces to
-    the blit API archive.
-
-commit ef741ef80d477ae7052fca1d1bb7272c40ae4d6e
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Jun 16 15:46:59 2020 +0200
-
-    Change pixel format to 32 bits per pixel
-    
-    Until now, Genode's framebuffer session interface was based on the
-    RGB565 pixel format. This patch changes the pixel format to 32-bit
-    XRGB where the X part is ignored. It adapts all graphical applications
-    and device drivers accordingly.
-    
-    The patch also adjusts the users of the drivers_interactive packages,
-    assigning 64 MiB RAM and 1500 caps to the drivers subsystem, which is
-    sufficient for covering high resolutions at 32 bits per pixel and to
-    accommodate multi-component USB HID input stacks.
-    
-    Fixes #3784
-
-commit a7d170adda90f0ead69330ff49fa1629b868a210
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Jul 2 12:09:49 2020 +0200
-
-    os: add blit/painter.h
-    
-    This utility eases the application of the 'blit' function when using the
-    'Texture' and 'Surface' types.
-
-commit 3d1d1b439d6a5e8f89ab6f60aaf418240aedd716
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Jun 26 14:57:29 2020 +0200
-
-    Capture session interface
-    
-    Issue #3812
-
-commit 602def9bdd1a85d0054ba0db13e1bcc75405541d
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Jun 26 22:59:39 2020 +0200
-
-    Simple example for using a capture connection
-    
-    Issue #3812
-
-commit 443d3c98dd40685029982714bb33d052c111b9bb
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Jul 2 19:21:22 2020 +0200
-
-    Event session interface
-    
-    Issue #3812
-
-commit 3863de95898db861baff7a43d9513083ca7b1fdf
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Jul 2 20:10:08 2020 +0200
-
-    Input-event-bridging service
-    
-    The sole purpose of this service is the migration path from the use of
-    input session interface to the event session interface.
-    
-    Issue #3812
-
-commit 067a7ad7e91409cbcca040e84da403dbf4a17ded
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Jun 26 16:09:53 2020 +0200
-
-    nitpicker: internal cleanup
-    
-    This patch simplifies the internal naming of the nitpicker GUI server as
-    a preparatory step for adding support for the capture session interface.
-    
-    Issue #3812
-
-commit 795a817a339f8c304558476e2c79181ccb453858
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Jun 26 20:06:20 2020 +0200
-
-    nitpicker: remove dirty_rect state from view stack
-    
-    In the presence of potentially multiple output back ends, this
-    dirty_rect state must be maintained individually per back end. Instead
-    of storing the dirty_rect as view-stack member, the view stack now calls
-    a new 'Damage::mark_as_damaged' interface, which allows nitpicker to
-    propagate this information to multiple back ends. Unfortunately, the
-    patch must remove the per-view dirty_rect state.
-    
-    Issue #3812
-
-commit 537b317273b2ead1734198716cafe4e5e4544906
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Jul 1 18:38:19 2020 +0200
-
-    nitpicker: handle failed try_alloc_texture
-    
-    Fixes #3782
-
-commit 22cb6dded709f891450f30ca43c7031dbb0f14cd
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Jun 26 22:10:17 2020 +0200
-
-    nitpicker: add capture service
-    
-    Issue #3812
-
-commit 4cad1a87df84826ded839900ea650f1ad67b1c0e
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Jul 1 18:14:00 2020 +0200
-
-    nitpicker: make framebuffer and input optional
-    
-    Nitpicker used to unconditionally request a framebuffer and input
-    session. With the transition to the new capture/event session
-    interfaces, this built-in policy does no longer suffice.
-    
-    This patch introduces the attributes 'request_framebuffer="yes"' and
-    'request_input="yes"' (with the default values shown) to nitpicker's
-    <config> node. If setting those attributes to "no", nitpicker won't
-    request a "Framebuffer" and "Input" session respectively.
-    
-    Issue #3812
-
-commit 320387db8998b73238786c3404ba25679c87fb3d
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Jul 2 15:20:43 2020 +0200
-
-    nitpicker: improve GUI client resize handling
-    
-    This patch replaces meta-data allocation during the resize handling by a
-    new 'Resizeable_texture' type that has all meta data preallocated.
-    It also replaces the use of pointer return values with the
-    'Resizeable_texture::with_texture' method.
-    
-    Issue #3812
-
-commit 6743669ab8aabc050279e204b9fd65b8ea1ab1a4
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Jul 8 16:13:59 2020 +0200
-
-    nitpicker: report no mode smaller than 1x1 pixels
-    
-    Issue #3812
-
-commit c81af531a3958b9dfef3595aecc2ca70a8cbdd34
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Jul 1 22:26:11 2020 +0200
-
-    Turn framebuffer drivers into capture clients
-    
-    This patch replaces the use of the "Framebuffer" session interface by
-    the new "Capture" session interface in all framebuffer drivers. Thanks
-    to this change, those drivers have become mere clients of the nitpicker
-    GUI server now, and are no longer critical for the liveliness of the GUI
-    server.
-    
-    The patch touches the following areas:
-    
-    - The actual driver components. The new versions of all drivers have
-      been tested on the respective hardware. Generally, the drivers
-      have become simpler.
-    
-    - The drivers_interactive packages for various boards. The drivers
-      subsystem no longer provides a "Framebuffer" service but needs a
-      valid route to the "Capture" service provided by nitpicker.
-    
-    - The driver manager of Sculpt OS.
-    
-    - This patch changes the role of the test-framebuffer component from a
-      framebuffer client to a capture server so that drivers (capture clients)
-      can be directly connected to the test component without the nitpicker
-      server.
-    
-    - Framebuffer driver no longer support the unbuffered mode.
-    
-    - The fb_bench.run script is no longer very meaningful because it
-      interplays solely with nitpicker, not with the driver directly.
-    
-    - All run scripts for graphical scenarios and the related depot
-      archives got adapted to the change.
-    
-    Fixes #3813
-
-commit 3d112dc681e863d3cb372362fd3540f6a26dafad
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Jul 14 17:38:40 2020 +0200
-
-    nitpicker: add event service
-    
-    Issue #3812
-
-commit b78313b9bb72c5b5dcf76fcdb9c5e4321f502739
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Jul 16 15:58:34 2020 +0200
-
-    Adapter for connecting input and event servers
-    
-    This is an intermediate helper component for the transition of input
-    servers into event clients. It works analogously to the
-    input_event_bridge but it connects servers instead of clients.
-    In particular, it can act as glue between a traditional input driver
-    that provides an input service and the event filter that provides an
-    event service. Thanks to this component, each driver can be migrated to
-    the event-client interface individually.
-    
-    Issue #3827
-
-commit 52ecee1ff13c721ad18819cb845620104962b68c
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Jul 16 11:40:46 2020 +0200
-
-    event_session: make Session_client::Batch abstract
-    
-    This way, there can exist multiple implementations of the interface such
-    as event filters.
-    
-    Issue #3812
-
-commit c3d61ba62a79f2848cd68be6e1a6b42b8a477f92
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Jul 15 19:50:42 2020 +0200
-
-    input_filter: prepare for refactorization
-    
-    This patch brings the input filter into a shape that is easier to
-    re-mold into an event filter, reversing the client/server roles of
-    the component.
-    
-    * The 'Sink &destination' is no longer passed as constructor argument
-      to the individual filters but passed as argument to the 'generate'
-      method. This way, the final destination does not need to exist at
-      the construction time of the filter chain but can be created on
-      the fly (clearing the way for using 'Event::Client::with_batch').
-    
-    * A new 'Source::Filter' interface with the 'apply' method aids the
-      cascading of filters during 'generate'. The modules now implement
-      the 'Source::Filter::filter_event' interface instead of the
-      'Source::Sink::submit_event' interface.
-    
-    * Since the 'Sink &destination' is no longer a member of the filter
-      modules, character-repeat events can no longer be emitted in an
-      ad-hoc way. Instead, the character-repeat mechanism now invokes
-      a new 'Trigger::trigger_generate' hook that prompts the execution
-      of the regular 'generate' mechanism by the main program.
-    
-    This patch is supposed to leave the semantics of the input filter
-    unchanged (validated by the input_filter.run script).
-    
-    Issue #3827
-
-commit 479579c1b7be7ef9e1badb82cfeba6f87d132d7c
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Aug 11 16:11:26 2020 +0200
-
-    os: event_dump server for printing events
-    
-    This component takes over the role of the test-input component.
-    
-    Issue #3827
-
-commit cec19785712f42b83a499f7712d848fecd143756
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Jul 16 11:28:18 2020 +0200
-
-    Replace input filter with event filter
-    
-    This commit applies the transition from the "Input" session to the "Event"
-    session to the event-filtering mechansim. The functionality of the
-    input_filter is now provided by the event_filter. The event filter
-    requests only one "Event" session as destination for the filter result,
-    which is usually routed to the nitpicker GUI server. It provides an
-    "Event" service to which any number of event sources can connect.
-    
-    The configuration of the filter chain remains almost the same. Only the
-    declaration of the <input> nodes is no longer needed. Instead, the
-    configuration must specify <policy> nodes, which define the mapping of
-    "Event" clients (event sources) to the inputs used in the filter chain.
-    
-    The patch adjusts all uses of the nitpicker GUI server accordingly such
-    that the event filter reports events to nitpicker's event service
-    instead of having nitpicker request an "Input" session. This dissolves
-    the dependency of nitpicker from input drivers.
-    
-    Issue #3827
-
-commit edc76c664e7f8cf994c62eec76ec42c3abbdca93
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Aug 12 17:14:26 2020 +0200
-
-    Rename fb_boot_drv to boot_fb_drv
-    
-    to be consistent with the naming of the other drivers.
-
-commit d4360a21a236625990f0186da2463ba3e4cc6693
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Aug 12 18:13:06 2020 +0200
-
-    Remove obsolete use of input_session/connection.h
-
-commit 8bb2d99d2ecc4df23b7e2dac36619aefc2eef017
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Aug 13 13:39:09 2020 +0200
-
-    Turn PS/2 driver into event-session client
-    
-    Issue #3845
-
-commit 211e51ee4d9cb0b1f39905eb5f6d627a4fd2d206
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Aug 13 16:03:59 2020 +0200
-
-    Turn USB HID drivers into event-session clients
-    
-    Issue #3845
-
-commit 990f01a22233434f08e65759d26ee6e714ed6d83
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Aug 13 17:05:17 2020 +0200
-
-    Remove transitionary input_event_client component
-    
-    With the transition of the input servers to event clients completed,
-    this helper component is no longer needed.
-    
-    Issue #3845
-    Issue #3827
-
-commit 122d01e21b56e6ea4ff78235eb097dfce885c4eb
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Aug 13 17:25:21 2020 +0200
-
-    nitpicker: no framebuffer and input by default
-    
-    This patch prevents nitpicker from requesting a framebuffer and input
-    session by default because the regular use of nitpicker relies on the
-    capture-session and event-session interfaces by now.
-    
-    For supporting the nested use of nitpicker via the gui_fb component, it
-    is still possible to enable the traditional behavior by explicitely
-    setting the 'request_input' and 'request_framebuffer' config attributes
-    to "yes".
-    
-    Issue #3812
-
-commit 5faf5b6f2e4d072d0227370ae59943d2fef07d67
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Aug 14 11:55:07 2020 +0200
-
-    Remove drivers/input/dummy pseudo driver
-    
-    With the transition from the input-session to the event-session
-    interface, the use case for this component has vanished.
-    
-    Issue #3827
-
-commit 2ecb31a97b67efb8538671aec2a978098a4fa40b
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Aug 21 15:25:16 2020 +0200
-
-    Remove dithering from menu_view, themed decorator
-    
-    With the change from RGB565 to RGB888, the application of dithering has
-    become obsolete.
-    
-    Issue #3784
+
+; high-level goals
+
+; * future support of multi-head scenarios
+; * support for screen capturing
+; * resilience against failing device drivers
+; * reducing the trusted computing base of graphical applications
+; * starting, killing, and updating drivers at runtime without rebooting
+; * improving the throughput of the pixel data path
+; * optimizing input latency
+
+; link to genodians article
+
+
+Consistent naming
+=================
+
+The starting point of Genode's GUI stack was the nitpicker GUI server,
+introduced in 2006 based on prior research of the Genode developers
+([https://genode-labs.com/publications/nitpicker-secure-gui-2005.pdf - PDF]).
+Back then, the name of the implementation proliferated throughout Genode at
+the API level, over the configuration level, up to the naming of related
+components. Jargon crept into the project without much thought. This had to
+stop and now was the right time.
+
+:Source tree:
+
+  The _include/nitpicker_session_ headers moved to _include/gui_session_.
+  Those headers are not tied to the specific nitpicker implementation but
+  much more general. For example, the window manager provides an alternative
+  implementation of the same interface.
+
+  The change also affects the corresponding depot API archive accordingly.
+
+:Configuration:
+
+  The "Nitpicker" service is now called "Gui" service. The upper/lower casing
+  follows the convention for services provided outside of Genode's core
+  component.
+
+:Packaged runtime definitions:
+
+  The '<nitpicker>' nodes in runtime files are now named '<gui>'.
+
+:API level:
+
+  The C++ namespace 'Nitpicker' has been renamed to 'Gui'.
+
+:Component names:
+
+  The nit_fb server has become the gui_fb server.
+  The nit_fader has become the gui_fader.
+
+
+Streamlined pixel format
+========================
+
+Genode's framebuffer session interface was traditionally based on the RGB565
+pixel format. We have now changed the format to 32-bit XRGB where the X part
+is ignored. We updated all graphical applications and device drivers
+accordingly.
+
+This change also affects the users of the drivers_interactive packages. Now,
+we generally assign 64 MiB RAM and 1500 caps to the drivers subsystem, which
+is sufficient for covering high resolutions at 32 bits per pixel and to
+accommodate multi-component USB HID input stacks.
+
+
+New "Capture" and "Event" session interfaces
+============================================
+
+Traditionally, Genode's driver model for framebuffer and input drivers
+followed a layered architecture. Each framebuffer driver naturally provided a
+"Framebuffer" service and each user-input driver provided an "Input" service.
+At the next layer, the nitpicker GUI server would use those services as a
+client and, in turn, provide a higher-level "Nitpicker" service (which has now
+been renamed to "Gui"). In this architecture, higher levels naturally depend
+on all lower levels, specifically the framebuffer and input drivers at the
+bottom.
+
+This architecture is flawed because it makes the low-complexity GUI server
+(nitpicker) depend on high-complexity and potentially flaky device drivers.
+If a driver fails, the entire GUI stack - up to the applications - suffer.
+To put the risk into perspective: The binary of the nitpicker GUI server
+incorporates about 11,000 lines of code, which includes the Genode API
+(the actual nitpicker code is about 3000 lines of plain C++).
+In contrast, the intel framebuffer driver comprises more than 122,000 lines of
+code (sloccount). We don't want nitpicker to depend on the intel framebuffer
+driver. For input devices like USB HID, the situation looks very similar.
+
+To solve this dilemma, we had to turn the client-server relationship between
+the GUI server and the drivers upside down. This approach is enabled by two
+new service interfaces. The new "Event" session replaces the former input
+session. The new "Capture" session replaces the former framebuffer session.
+The information that is flowing through those interfaces remains the same -
+input events and pixels - but the direction is reversed. An event client
+propagates input events to the server. A capture client obtains pixel data
+from the server.
+
+In the new architecture, nitpicker remains as the only server, providing
+the "Event", "Capture", and "Gui" interfaces. It does no longer depend on the
+well being of any driver. This is reflected by the <start> node of nitpicker
+when integrating the GUI server into an init configuration:
+
+! <provides>
+!   <service name="Gui"/> <service name="Capture"/> <service name="Event"/>
+! /provides>
+
+To retain the support of cascaded usage scenarios of the GUI server,
+nitpicker can be still instructed to request a framebuffer session or input
+session by specifying the '<config>' attributes 'request_framebuffer="yes"'
+and 'request_input="yes". If specified, nitpicker requests sessions to an
+"Input" and a "Framebuffer" service upon startup and uses those as
+input/output back end. Those services are usually provided by the gui_fb
+component. Note that this facility may eventually be replaced by a
+'request_gui' attribute (requesting a GUI session), eliminating the notion of
+framebuffer and input services altogether.
+
+
+Turning framebuffer drivers into capture clients
+================================================
+
+Following the introduction of the new capture-session interface,
+we replaced the use of the "Framebuffer" session interface by
+the new "Capture" session interface in all framebuffer drivers.
+The new versions of all drivers had to be tested on the respective hardware.
+Generally, the drivers have become simpler.
+
+The drivers_interactive packages for various boards have changed their public
+interface. The drivers subsystem no longer provides a "Framebuffer" service
+but needs a valid route to the "Capture" service provided by nitpicker.
+Of course, this change affected all run scripts that make use of nitpicker.
+
+
+Turning input drivers into event clients
+========================================
+
+Analogously to the graphics drivers, all input drivers had to be reworked to
+operate as event clients instead of input servers. This came down to adjusting
+and testing the variety of PS/2 drivers and USB HID drivers on the various
+platforms. Similar to the framebuffer drivers, this step generally made the
+drivers simpler.
+
+
+Replacing the input filter with an event filter
+===============================================
+
+The transition from the "Input" session to the "Event" session is not limited
+to the drivers only but also affected Genode's input-filtering mechanism. The
+functionality of the input_filter is now provided by the event_filter. The
+event filter requests only one "Event" session as destination for the filter
+result, which is usually routed to the nitpicker GUI server. It provides an
+"Event" service to which any number of event sources can connect.
+
+The configuration of the filter chain remains almost the same. Only the
+declaration of the '<input>' nodes is no longer needed. Instead, the
+configuration must specify '<policy>' nodes, which define the mapping of
+"Event" clients (event sources) to the inputs used in the filter chain.
 
 
 Improved Qt5 integration and work flows
