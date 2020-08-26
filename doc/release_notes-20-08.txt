@@ -1116,51 +1116,58 @@ the APIs implemented by dde_zircon in the meantime, we decided to remove the
 feature.
 
 
-Sculpt OS
-#########
+Sculpt OS improvements
+######################
 
-; - improved snappiness
-; - improved boot times
-; - improved visual clarity thanks to the ubiquitous use of 32-bit color mode
-; - increased robustness of headless scenarios
+The Genode-based [https://genode.org/download/sculpt - Sculpt] operating
+system has been updated to the new Genode version without major user-visible
+changes. Given the fact that this release turned the low-level GUI stack
+upside down (Section [The GUI stack, restacked]), this must be read as *good*
+news. The GUI-stack changes have several nice side effects:
 
-;@nfeske
+* The elimination of color-space conversions in the pixel-data path has
+  noticeably improved the interactive latency. Sculpt OS has never been
+  as snappy as now.
 
-commit a5c12270697830e8a5d1a22bb2f7181548de73c4
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Jul 13 09:34:37 2020 +0200
+* As Sculpt's base system no longer depends on the successful initialization
+  of the framebuffer and user-input devices, the administrative user interface
+  can be started even before the low-level drivers are ready, increasing the
+  parallelism at boot time. Yes, Sculpt OS boots even faster now.
 
-    sculpt_manager: add graphical CPU affinity config
-    
-    Fixes #3820
+* The now ubiquitous use of 32-bit pixels throughout the whole GUI stack has
+  largely eliminated the need for dithering, thereby improving the visual
+  clarity of the user interface. Dithering remains in use in some situations
+  though. In particular to reduce quantization artifacts for the alpha channel
+  of the leitzentrale overlay.
 
-commit a2fdcb06d973c3726adeb1c52d53a051abfe42e4
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Aug 14 16:30:36 2020 +0200
 
-    sculpt: remove deferred GUI initialization
-    
-    The sculpt manager used to defer the initialization of the GUI until
-    nitpicker's first display report became ready. This way, Sculpt was able
-    to run headlessly even if the framebuffer driver failed to start up.
-    Thanks to #3827, nitpicker no longer depends on a working framebuffer
-    driver. So the sculpt manager is safe to rely on nitpicker in any case,
-    simplifying the code.
-    
-    Issue #3827
+Interactive CPU affinity configuration
+--------------------------------------
 
-commit 75a2f4cd4f3460030932952692b2604a8cbbc50a
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Aug 21 14:14:18 2020 +0200
+The component-configuration dialog gained the new ability to restrict the
+component to a subset of CPUs. This option is available under the "Resource
+assignment" sub menu.
 
-    sculpt: remove part_block upon failure
-    
-    With this patch, sculpt uses init's heartbeat-monitoring mechanism to
-    detect the failure of part_block instances during storage disovery.
-    If part_block gets stuck, the device is released and can thereby
-    be accessed at the whole-device level.
-    
-    Issue #3861
+[image sculpt_affinity]
+
+The configuration dialog shows a matrix of CPU cores whereas the X axis
+denotes the physical cores and the Y axis the hyperthreads. By default, all
+available CPU cores are selected. The user can toggle the nodes by clicking on
+them. The dialog ensures that the selection is always a rectangular area. So
+one click may affect nodes other than only the clicked one.
+
+
+Fail-safe handling of unsupported partition tables
+--------------------------------------------------
+
+Sculpt now uses Genode's heartbeat-monitoring mechanism to detect the failure
+of part_block instances during storage discovery. This situation can happen
+whenever a storage device contains an unsupported partitioning-table format.
+In this case or other error cases, the discovery would fail to complete. The
+new version of Sculpt responds to this situation by removing the unresponsive
+part_block instance automatically, releasing the corresponding device. This
+leaves the device available for alternative uses, for example assigning it to
+a virtual machine.
 
 
 Platforms
