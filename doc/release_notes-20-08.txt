@@ -702,39 +702,47 @@ Date:   Tue Jul 7 13:49:01 2020 +0200
 Moved atexit handling from base library to C runtime
 ====================================================
 
-;@nfeske
+Traditionally, Genode's base library took care of the execution of 'atexit'
+handlers as this mechanism was regarded as fundamental to both C and C++.
+In particular, the C++ compiler automatically generates calls to the
+'__cxa_atexit' function of the C++ ABI for objects instantiated as local
+static variables so that the destructors of such objects are called at the
+exit of the program.
 
-commit f0a6039368fc425ae27ab3b58330b608c0d46ac0
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Aug 17 16:23:48 2020 +0200
+With the transition to Genode's modern component API (introduced in version
+[https://genode.org/documentation/release-notes/16.05#New_component_API - 16.05]),
+this mechanism became irrelevant for plain Genode components.
+But for higher-level components that rely the C runtime, in particular POSIX
+applications, this mechanism remained crucial. Hence, we did no question the
+presence of the atexit mechanism in Genode's base library for a long time.
 
-    Move atexit handling from base lib to libc
-    
-    This patch untangles the interplay of the base library and the libc
-    during the exit handling.
-    
-    - The CXA ABI for the atexit handling is now provided by the libc.
-      For plain Genode components without libc dependency, __cxa_atexit
-      is a no-op, which is consistent with Genode's notion of components.
-    
-    - The 'abort' implementation of the base library no longer calls
-      'genode_exit' but merely 'sleep_forever'. This way, the cxx library
-      no longer depends on a 'genode_exit' implementation.
-    
-    - The libc provides 'atexit' support by storing metadata on the
-      libc kernel's heap now, thereby eliminating the former bounded
-      maximum number of atexit handlers.
-    
-    - Shared-library dtors are no longer called via the atexit mechanism
-      by explicitly by the dynamic linker. This slightly changes the
-      call order of destructors (adjustment of the ldso test). Functions
-      marked as destructors are called after the atexit handlers now.
-    
-    - The libc executes atexit handlers in the application context,
-      which supports the I/O operations in those handles, in particular
-      the closing of file descriptors.
-    
-    Fixes #3851
+However, we ultimately realized that the atexit functionality must be
+moved from the base library into the C runtime to fully adhere the
+[https://genode.org/documentation/release-notes/17.02#New_execution_model_of_the_C_runtimed- execution model]
+of the C runtime. Atexit handlers may perform I/O such as the closing and
+syncing of files after all.
+
+This change has the positive effect of reducing the complexity of the base
+library. Furthermore, it overcomes the limitations of the formerly statically
+dimensioned array of atexit handlers, which was wasteful for plain Genode
+components, yet insufficient for complex POSIX applications.
+
+Note that this change deliberately renders the atexit mechanism for plain
+Genode components (without C runtime) ineffective. Genode components that used
+to rely on the 'genode_exit' function for calling cleanup code must be changed
+to explicitly call cleanup code.
+
+This change also removes the implicit call of 'genode_exit(1)' by 'abort',
+which is triggered by, i.e., uncaught exceptions. Scenarios that relied on
+the former behavior for component monitoring should be changed to use
+[https://genode.org/documentation/release-notes/18.11#Component_health_monitoring - heartbeat monitoring]
+mechanism instead.
+
+As another minor but still noteworthy detail, shared-library destructors are
+no longer called via the atexit mechanism by explicitly by the dynamic linker.
+This slightly changes the call order of destructors: Functions marked as
+destructors are called after the libc-managed atexit handlers now.
+
 
 Removal of deprecated interfaces
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1206,23 +1214,18 @@ Libraries and applications
 Migration of ported software to Genode-World
 ============================================
 
-;@nfeske
+In the previous releases, we continuously relieved the Genode main repository
+from features that receive no continuous maintenance. Rather than dropping
+such features, they find a new home at the
+[https://github.com/genodelabs/genode-world - Genode-World] repository.
+We foster this distinction to avoid wrong expectations. Whereas the code of
+the Genode main repository is subjected to rigid quality assurance at Genode
+Labs, the content of the World repository is tested and maintained in a rather
+ad-hoc fashion.
 
-commit 5249f3358f5e1f507f0f0d23b55c0e1d63b5ed14
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Jun 26 11:16:26 2020 +0200
-
-    Move Solo5 to genode-world
-    
-    Fixes #3761
-
-commit 7dbf8362177094b3df18beeb099340ae070f0268
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Jun 26 11:34:46 2020 +0200
-
-    Move stubby to genode-world
-    
-    Fixes #3789
+The current release moves the Solo5 runtime (originally added in version
+[https://genode.org/documentation/release-notes/18.11#Genode_as_a_platform_for_Mirage-OS_unikernels - 18.11])
+and the stubby DNS tool to the Genode-World repository.
 
 
 New ported 3rd-party software in Genode-World
@@ -1273,19 +1276,22 @@ version 1.28.1 and protobuf version 3.11.2.
 Removal of orphaned 3rd-party ports
 ===================================
 
-;@nfeske
-
-commit 472bad8d751e5a5bb4cc754f3a8611d7211abe84
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Aug 13 16:13:49 2020 +0200
-
-    Remove dde_zircon
-    
-    Fixes #3847
+The dde_zircon device-driver environment was added in
+[https://genode.org/documentation/release-notes/18.08#Experimental_runtime_for_Zircon-based_drivers - 18.08]
+as an experiment for executing device drivers of Google's Fuchsia OS as Genode
+components. However, since the initial import of the feature, it remained
+unused and received no further development. As Fuchsia largely diverged from
+the APIs implemented by dde_zircon in the meantime, we decided to remove the
+feature.
 
 
 Sculpt OS
 #########
+
+; - improved snappiness
+; - improved boot times
+; - improved visual clarity thanks to the ubiquitous use of 32-bit color mode
+; - increased robustness of headless scenarios
 
 ;@nfeske
 
