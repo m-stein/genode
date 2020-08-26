@@ -1259,7 +1259,15 @@ Date:   Sat Aug 8 00:03:21 2020 +0200
 Port of gRPC
 ------------
 
-;@trimpim
+_This work is a contribution by Pirmin Duss of_
+_[https://gapfruit.com - Gapfruit]. Thanks for this welcome update._
+
+At gapfruit, we wanted to provide an efficient way to combine a Genode system with
+existing cloud environments. For that we ported the gRPC/protobuf libraries
+and tool chain to Genode. For this release, we simplified the tool chain so
+it does not depend on any packages of your Linux distribution.
+Additionally, we fixed a memory leak and updated the port to gRPC
+version 1.28.1 and protobuf version 3.11.2.
 
 
 Removal of orphaned 3rd-party ports
