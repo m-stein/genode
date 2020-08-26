@@ -663,112 +663,134 @@ future.
 Device drivers
 ##############
 
-;@skalk
+System management privilege
+===========================
 
-commit 91b71f7a9ff0cd51d184add0d7f4c8abe36ef10e
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Jun 24 10:48:36 2020 +0200
+The PD session interface of the base library got extended by a system management
+call:
 
-    run: add drivers_interactive for panda and arndale
+! Managing_system_state managing_system(Managing_system_state const & state)
 
-commit 401c7f9a9f217432d1ec679484df82b677760466
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Fri Jul 10 13:04:12 2020 +0200
+It is used to call privileged system management functionality, like power
+management or clock settings that cannot be implemented in user-land components.
+The transfered state is equivalent to the common, general-purpose cpu registers.
+Currently, the function is implemented by the base-hw's core component on ARMv8
+to call the ARM Trusted Firmware on behalf of the PD session client. All other
+kernel and architectures leave the `managing_system` call empty.
 
-    base: extend PD session with managing_system call
-    
-    Introduce the managing_system privilege for components like the
-    platform_driver to allow it to call system management functionality
-    that is reserved by kernel or special firmware, e.g., ARM Trusted Firmware.
-    
-    The former RAM resource configuration attribute `constrain_phys`,
-    which enabled to constrain the region of physical RAM to be used,
-    gets replaced by the new, broader managing_system configuration
-    attribute of a `start` node. It gets enforced by the sandbox library.
-    
-    Ref #3816
+A special privilege is necessary to enable a component to use the new call.
+Therefore, the init component's configuration provides a new attribute
+in the start node:
 
-commit 3e061e4bcfaee33a734d7a163f2347c86d46bb05
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Fri Jul 10 13:39:49 2020 +0200
+! <start name="platform_drv" managing_system="yes">
+!   ...
 
-    hw: implement Pd_session::managing_system for ATF
-    
-    To access the ARM Trusted Firmware from the platform driver
-    fill the new `managing_system` call of the PD session with life resp.
-    do a SMC call on behalf of the client.
-    
-    Fix #3816
+The new call and privilege got introduced to enable a platform driver to
+implement power management on modern ARM SoC.
 
-commit 11bad0e32cc8b7089d984ab0474007f7e566f096
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Fri Jul 17 18:28:06 2020 +0200
+The formerly existent, special privilege "constrain_phys", which was used by the
+platform driver to constrain physical memory to be allocated for DMA to a
+specific region, is now implicit part of the "managing_system" privilege.
 
-    os: add platform driver for i.MX 8M Quad SoC
-    
-    The new platform driver supports clock and power-domain settings per device.
-    IOMUX constroller settings are not part of the driver yet.
-    
-    Fix #3863
 
-commit d3872f4b9cc276a859d4f93cbd510b9a25c54cf4
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Fri Aug 21 17:51:48 2020 +0200
+Platform driver
+===============
 
-    os: disable initialization of i.MX8MQ platform_drv
-    
-    This is a temporary workaround to not harm drivers, which aren't
-    converted yet to request all device resources including power and
-    clocks from this new platform driver.
-    
-    Ref #3863
+Configuration changes
+~~~~~~~~~~~~~~~~~~~~~
 
-commit b7506a2a68a080345c9e11776c32863439911aff
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Fri Aug 21 13:00:04 2020 +0200
+The new platform driver API that was introduced with the last release for the
+ARM architecture gets a minor subsequent improvement. The device resource
+description within the configuration of the platform driver:
 
-    hw: unify irq enumeration for Raspberri Pi
-    
-    By now, the enumeration of peripheral interrupts on Raspberry Pi 1 was
-    different in between base-hw kernel and Fiasco.OC. Therefore, hacks were
-    needed in every driver to request the correct interrupt number dependent
-    on the kernel. Before reproducing the same in the platform driver for rpi,
-    we can more easily use the same enumeration with base-hw.
-    
-    Ref #3864
+! <device name"foo">
+!   <resource name="IRQ"    ... />
+!   <resource name="IO_MEM" ... />
+! </device>
 
-commit 73bc2c3a80483f45672095f3d7848ee3e4bdfc70
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Fri Aug 21 13:54:05 2020 +0200
+is now shortened to the following:
 
-    os: add new platform driver for Raspberry Pi
-    
-    Fix #3864
+! <device name="foo">
+!   <irq    ... />
+!   <io_mem ... />
+! </device>
 
-commit 2b32b8fab768ea25613141531a89a607e22a3473
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Fri Aug 21 13:57:30 2020 +0200
+Power and clocks for i.MX 8M Quad SoC
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    dde_linux: decouple Lx_kit::Irq and Platform::Device
-    
-    The Lx_kit::Irq abstraction of DDE Linux was always using the very first
-    interrupt of a Platform::Device stored in it. Instead of handing over the
-    platform device it is much more flexible and sane to hand over the actual
-    interrupt capability.
-    
-    Ref #3865
+To drive peripherals of the i.MX 8M Quad Evaluation Kit and the MNT Reform 2
+accordingly, we introduce a new platform driver specific for the i.MX 8M Quad
+SoC used by both platforms.
 
-commit b82025b6d9cc2a6611f5d6a26b48e9479945f87f
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Fri Aug 14 14:58:03 2020 +0200
+The new driver implements the same API, like the generic ARM platform driver
+introduced in release 20.05, but adds power-, and clock-management specific to
+this SoC in addition. It comprises all power and clock settings available in the
+SoC. Single power-domains and clocks can be assigned to devices. When the
+client of the platform driver acquires a device, its power-domains and clocks
+are enabled implicitely, and all clocks are set accordingly. When the device
+gets released again, all power-domains and clocks are disabled again.
 
-    dde_linux: use new platform API for usb_host_drv
-    
-    Introduce a common platform device initialization routine for all
-    ARM SoCs by using the new platform driver API.
-    
-    Fix #3865
+The following USB host controller example for the i.MX 8M Quad EVK illustrates
+the additional configuration options:
 
+! <device name="usb_host_2">
+!   <io_mem       address="0x38200000" size="0x10000"/>
+!   <irq          number="73"/>
+!   <power-domain name="usb_otg_2"/>
+!   <clock        name="usb_phy_ref_clk_root"
+!                 driver_name="usb_phy_root_clk"
+!                 parent="system_pll1_div8"
+!                 rate="100000000"/>
+!   <clock        name="usb_core_ref_clk_root"
+!                 parent="system_pll1_div8"
+!                 rate="100000000"/>
+!   <clock        name="usb_bus_clk_root"
+!                 parent="system_pll2_div2"
+!                 rate="500000000"/>
+!   <clock        name="usb_ctrl2_gate"/>
+!   <clock        name="usb_phy2_gate"/>
+!   <property     name="compatible" value="snps,dwc3"/>
+!   <property     name="dr_mode" value="host"/>
+! </device>
+
+Most clock settings can be derived directly by looking at device tree sources
+for the corresponding board and peripheral, e.g., in the Linux kernel tree. But
+be aware that the clock names are aligned to the i.MX 8M Quad Applications
+Processors Reference Manual and not the Linux code.
+
+New platform driver for Raspberry Pi
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+As some driver components like the USB host controller driver share one code
+base across a lot of different boards, SoCs, and architectures. We like to unify
+the API they are dependent on, including the platform driver's API. Therefore,
+the already existent platform driver for Raspberry Pi 1 got modernized to use
+the new platform driver API for ARM introduced with the last release.
+
+However, we did not achieve to change all drivers at once. Therefore, we kept
+the old platform driver still used by some drivers for now. To prevent
+name clashes, the new driver is named "rpi_new_platform_drv" until the legacy
+driver "rpi_platform_drv" vanishs.
+
+During this work, we unified the former different enumeration of interrupts in
+between Fiasco.OC and base-hw.
+
+USB host controller driver
+==========================
+
+The USB host controller driver got modified to iterate over all device resources
+the platform driver provides to it, and register those in corresponding Linux
+kernel structures of the ported driver code. This board-specific information was
+hard-coded beforehand. Now, the driver uses the platform driver for x86, as well
+as all ARM architectures.
+
+Interactive drivers support for Arndale and Panda boards
+========================================================
+
+In the Genode world repository the almost abandoned support for Pandaboard and the
+Arndale board got revived by drivers_interactive depot packages for both.
+Therewith, it is now easy again to use interactive run-script scenarios on these
+platforms.
 
 Libraries and applications
 ##########################
