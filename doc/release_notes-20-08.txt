@@ -541,166 +541,18 @@ Base framework and OS-level infrastructure
 Base API/ABI changes
 ====================
 
-Mutex and Blockade
-~~~~~~~~~~~~~~~~~~
+Synchronization primitives
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-;@nfeske
-
-commit 0e6c32f75e4ee63933f51532af5d79736b238617
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Wed Jul 1 09:05:47 2020 +0200
-
-    libc: use Mutex/Blockade
-    
-    Fixes #3796
-
-commit 5936d00b5e034f28a08f5e179e88287af49e6fd1
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Jul 6 10:26:27 2020 +0200
-
-    acpica: use Mutex
-    
-    Issue #3801
-
-commit 6d653b3c0f2fd89dcd8a54699315e880c9939b3c
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Jul 6 10:35:24 2020 +0200
-
-    qemu-usb: use Mutex
-    
-    Issue #3801
-
-commit 7d1fd0b0a3aab15af0d35b74f150d54e93d2c4e2
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Jul 6 10:42:54 2020 +0200
-
-    lwip: use Mutex
-    
-    Issue #3801
-
-commit c943e2691397a87d0cb61ccf00545576a0ecbef5
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Jul 6 10:48:58 2020 +0200
-
-    lib/drm: use Blockade
-    
-    Fixes #3801
-
-commit bba4790002b73c550ef4762f8b76bc2bbd475ceb
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Jul 6 11:05:38 2020 +0200
-
-    virtualbox5: use Mutex/Blockade
-    
-    Issue #3802
-
-commit 169cad605902e7e9902619cfc81553f6285b4759
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Jul 6 11:29:55 2020 +0200
-
-    seoul: use Mutex
-    
-    Issue #3802
-
-commit 1609d8a92f5fb6df6a811e215bb428f1b502cb87
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Jul 6 11:34:12 2020 +0200
-
-    gdb_server: use Mutex
-    
-    Fixes #3802
-
-commit 377c6ed0ceb3f19e4b5d0d4d6bfe0e6d0bc006d0
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Jul 6 11:42:52 2020 +0200
-
-    ssh_terminal: use Mutex
-    
-    Isse #3803
-
-commit f946de445098b41825c53887d8ef5c77ac162f1c
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Jul 6 11:44:18 2020 +0200
-
-    tcp_terminal: use Mutex
-    
-    Issue #3803
-
-commit ad284491e60db7cee8521854f7b97831b9030ca2
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Jul 6 11:48:30 2020 +0200
-
-    mixer_gui_qt: use Blockade
-    
-    Issue #3803
-
-commit 973fbc98beac2e5c03f4fdb1d9ced379cc361c6d
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Jul 6 12:50:14 2020 +0200
-
-    nitlog: use Mutex
-    
-    Issue #3804
-
-commit 61d798c62984368b4e8b8b3ac2386e068329b147
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Jul 6 12:53:27 2020 +0200
-
-    launchpad: use Mutex
-    
-    Fixes #3804
-
-commit b7cdb5840a91c22e402bcd40a1fcbebeb99723d4
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Jul 6 12:56:40 2020 +0200
-
-    dde_bsd: remove unused Lock
-    
-    Issue #3805
-
-commit 5516dbcb1f12310e167291c6e6277c0fa16fb1d3
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Jul 6 14:04:57 2020 +0200
-
-    dde_linux: use Mutex/Blockade
-    
-    Issue #3805
-
-commit 9a8a42e819c9cdeaa4a6b1322f40ceec608624a2
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Jul 6 14:23:38 2020 +0200
-
-    dde_rump: use Mutex/Blockade
-    
-    Issue #3805
-
-commit a9827c662e37d3c2bfeae8d9f7210cf5cbec31a4
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Jul 6 14:25:30 2020 +0200
-
-    dde_ipxe: use Mutex
-    
-    Issue #3805
-
-commit ce6f4dffe5a47685034f465adf55ad8bfeba3798
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Tue Jul 7 11:41:44 2020 +0200
-
-    linux: use Mutex
-    
-    Fixes #3807
-
-commit 997a77b3de3474f85bb31802f4f1a9c5bbc51148
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Tue Jul 7 13:49:01 2020 +0200
-
-    foc: use Mutex
-    
-    Issue #3809
+With the current release, we wrap up the
+[https://genode.org/documentation/release-notes/20.05#Migration_from__Lock__to__Mutex__and__Blockade_ - migration]
+of the code base from the 'Lock' to the 'Mutex' and 'Blockade' types to
+improve diagnostics and clear the path towards future performance
+optimizations.
 
 
 Moved atexit handling from base library to C runtime
-====================================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Traditionally, Genode's base library took care of the execution of 'atexit'
 handlers as this mechanism was regarded as fundamental to both C and C++.
@@ -747,68 +599,33 @@ destructors are called after the libc-managed atexit handlers now.
 Removal of deprecated interfaces
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-;@nfeske
-
 Unsafe 'Xml_node' methods
 -------------------------
 
-commit 00fe7117289beead12e7f03724511fc14f16d29a
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Aug 19 09:35:00 2020 +0200
-
-    Xml_node: remove deprecated methods
-    
-    Issue #3755
-
-
-Superseded child-management utilities
--------------------------------------
-
-commit 3d634df34d217642d2dbb3f53de627c90a223949
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Jul 6 11:49:58 2020 +0200
-
-    gems: remove report_rom_slave.h
-    
-    Fixes #3803
+The unsafe 'Xml_node' methods marked as deprecated in the
+[https://genode.org/documentation/release-notes/20.05#Deprecation_of_unsafe__Xml_node__methods - previous release]
+have been removed now.
 
 
 Cancel-blocking interface
 -------------------------
 
-commit f3efbe50bbec485116d60e276a8b8c107796cedf
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Jul 6 16:09:44 2020 +0200
-
-    base: remove deprecated cancel_blocking() support
-    
-    for threads.
-    
-    Fixes #3806
-
-commit 41380ff769181e90a6c51a994f8bbfc7e30b61d9
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Tue Jul 14 10:15:30 2020 +0200
-
-    base: remove Cancelable_lock
-    
-    - base/cancelable_lock.h becomes base/lock.h
-    - all members become private within base/lock.h
-    - solely Mutex and Blockade are friends to use base/lock.h
-    
-    Fixes #3819
+Closely related to the revised synchronization primitives mentioned above,
+we removed the outdated 'Cancelable_lock' API along with the
+underlying cancel-blocking mechanism, which had became obsolete by now. In
+past times, this mechanism was employed to cleanly wind down threads that are
+blocked at their destruction time. The move of Genode's API design away from
+blocking RPC to asynchronously working components marginalized the problem to
+the point where it ceased to exist.
 
 
-Removal of delayed dispatch from 'Rpc_entrypoint'
--------------------------------------------------
+Delayed dispatch of 'Rpc_entrypoint'
+------------------------------------
 
-commit 295d36b3ea2e02daa721bd592ae93b35a49ab91d
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Tue Jul 21 15:58:46 2020 +0200
-
-    base: remove delayed dispatch from Rpc_entrypoint
-    
-    Fixes #3833
+Similar to the cancel-blocking mechanism, the ability to delay the dispatching
+of RPC requests until an explicit call of 'Rpc_entrypoint::activate' is an API
+relic from a time when each RPC server was multi-threaded. The modern flow of
+execution has become much simpler, eliminating the need for this feature.
 
 
 C runtime
@@ -867,8 +684,8 @@ Date:   Mon Jul 13 08:59:08 2020 +0200
 Standard C++ library
 ====================
 
-We enabled support for thread-related features like 'std::thread' or 'std::mutex'
-in the stdcxx library.
+We enabled support for thread-related features like 'std::thread' or
+'std::mutex' in the stdcxx library.
 
 
 Ada/SPARK support
