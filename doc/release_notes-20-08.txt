@@ -928,9 +928,9 @@ Consistent Block Encrypter
 With the Genode 20.05 release, our
 [https://genode.org/documentation/release-notes/20.05#Feature-completeness_of_the_consistent_block_encrypter - Constistent Block Encrypter (CBE) reached feature completeness]
 adding support for
-[http://genodians.org/m-stein/2020-06-07-cbe-rekeying - online rekeying]
+[https://genodians.org/m-stein/2020-06-07-cbe-rekeying - online rekeying]
 and
-[http://genodians.org/m-stein/2020-06-08-cbe-resizing - online resizing].
+[https://genodians.org/m-stein/2020-06-08-cbe-resizing - online resizing].
 Furthermore, we were able to run a Linux virtual machine using a CBE device as
 system partition. During the last three months, we mainly reviewed and
 consolidated the code but also improved the integration in a notable way.
@@ -1001,8 +1001,8 @@ The corresponding packages moved from the package source 'cnuke' to 'mstein'.
 Furthermore, the CBE demo is now based on the unaltered Genode master branch
 and the new master branch in the CBE repository itself. Besides that, for the
 most part, the procedure for reproducing the demo described in the
-[http://genodians.org/m-stein/2020-06-12-cbe-linux-vm - demo article] and the
-[http://genodians.org/m-stein/2020-06-17-cbe-linux-vm-video - demo video] remained
+[https://genodians.org/m-stein/2020-06-12-cbe-linux-vm - demo article] and the
+[https://genodians.org/m-stein/2020-06-17-cbe-linux-vm-video - demo video] remained
 the same. But be prepared to find minor discrepancies.
 
 
@@ -1256,7 +1256,7 @@ port - only input and unaccelerated video is supported - but will be extended
 in the future to also cover the other subsystems.
 
 Even in its limited state it is plenty as it allows for
-[http://www.genodians.org/alex-ab/2020-07-02-scrcpy - Streaming Android to Genode using Scrcpy].
+[https://www.genodians.org/alex-ab/2020-07-02-scrcpy - Streaming Android to Genode using Scrcpy].
 
 Port of iperf2
 --------------
