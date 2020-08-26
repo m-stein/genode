@@ -363,54 +363,72 @@ execution has become much simpler, eliminating the need for this feature.
 C runtime
 =========
 
-commit 87b08d6c7f06b9cde1857528bd778e767ca92295
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Thu Jun 4 16:04:29 2020 +0200
+Serialized VFS access
+~~~~~~~~~~~~~~~~~~~~~
 
-    libc: support pthread placement configuration
-    
-    Up to now all pthreads get placed on one CPU.
-    
-    The patch adds support to evaluate a libc pthread configuration specifying
-    a placement strategy.
-    
-    The default strategy is now to use all available CPUs as imposed by Genode's
-    affinity configuration for the pthread application.
-    
-    The old behaviour, putting all pthreads on one single cpu can be still
-    configured by:
-    
-    <libc>
-     <pthread placement="single-cpu"/>
-     ...
-    </libc>
-    
-    Fixes #3775
+Unsurprisingly, the VFS is an integral part of the C runtime as
+_everything is a file_ in the UNIX philosophy. The basis for the libc
+VFS is the VFS library and its versatile plugin concept. As the libc
+(and other users of the library) may employ multiple threads, which
+could use the VFS, the integrity of data structures esp. those of more
+complex plugins like the network stack in _vfs_lwip_ must be protected
+from concurrent access. From the beginning, we planned to move the
+serialization of accesses out of the plugins into code the uses the
+VFS library but missed to completely achieve this goal with the libc
+execution model. With Genode 20.08, we transformed the lower parts of
+the libc into an execution monitor that ensures the aspired serialized
+processing of VFS operations. This paves the way to the removal of
+synchronization measures in all VFS plugins in the upcoming release.
 
-commit 1ec823bf5e55058f3ba3095b3b3305fb16318f66
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Tue Jun 16 13:50:21 2020 +0200
+Removal of libc_pipe LibC plugin
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    libc: support manual pthread configuration
-    
-    Fixes #3787
+The VFS pipe plugin was introduced in
+[https://genode.org/documentation/release-notes/19.11#VFS_plugin_for_emulating_POSIX_pipes - Genode 19.11]
+and matured into a suitable replacement for the aged libc_pipe plugin
+library. Now, we finalize this process by removing the old libc plugin
+from Genode and all run scripts (most prominently those for Qt5
+examples). Users can migrate to the VFS plugin with the following
+changes to their component configurations.
 
-commit a123c4dbb6611b819b084f0656ab7b38aad3beec
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Mon Jul 13 09:16:32 2020 +0200
+* The libc must be configured to access the pipe mechanism from a VFS
+  path by the 'pipe="..."' configuration attribute like follows.
+  ! <libc ... pipe="/pipe"/>
+* The pipe plugin must be instantiated in the VFS at the desired path.
+  ! <vfs>...
+  !  <dir name="pipe"> <pipe/> </dir>
+  ! </vfs>
+* Runs scripts no longer need to integrate _libc_pipe.lib.so_ into the
+  boot modules but _vfs_pipe.lib.so_.
 
-    libc: cleanup monitor implementation
-    
-    - Explicit types for function and monitor execution results
-    - Remove pending flag and mutex (pending flag was moved to kernel)
+Placing pthreads on CPUs
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-commit a115ebc9b6d7417004e8ac53de001e4d751e64e9
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Mon Jul 13 08:59:08 2020 +0200
+Up to now, pthreads experienced no affinity configuration on creation
+time and ran implicitly on the first CPU available to the component
+only. With this release, we add a placement strategy and configuration
+option to the C runtime to enable the tuning of CPU placement for
+pthreads of libc components. The default placement strategy is
+'all-cpus', which means pthreads are assigned to the available CPUs.
+round-robin.
 
-    libc: process VFS operations in monitor
-    
-    Fixes #2635
+The new '<pthread placement="manual">' libc configuration sub-node can
+be used to manually place pthreads according to their 'id' on 'cpu' as
+follows.
+
+! <config>
+!   <libc ...>
+!     <pthread placement="manual">
+!     .   <thread id="0" cpu="0"/> <!-- pthread.0 placed on CPU 0 -->
+!     .   <thread id="1" cpu="1"/> <!-- pthread.1 placed on CPU 1 -->
+!     .   <thread id="2" cpu="2"/> <!-- pthread.2 placed on CPU 2 -->
+!     .   <thread id="3" cpu="2"/> <!-- pthread.3 placed on CPU 2 -->
+!     </pthread>
+!  </libc>
+
+Note, the current placement-strategy implementation is limited to 32
+pthreads. If more pthreads are running simultaneously further threads
+are placed on CPU 0.
 
 
 Standard C++ library
