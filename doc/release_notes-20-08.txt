@@ -15,30 +15,42 @@
 The GUI stack, restacked
 ########################
 
+The current release breaks free from several limitations of Genode's low-level
+GUI stack. This architectural change was preceded with a two-years planning and
+exploration phase, spinning the following goals in our heads:
 
-; high-level goals
+* Achieving resilience against failing device drivers. Graphical applications
+  on Genode shall be able to survive driver failures.
+  We want to remove overly complex device drivers from the trusted computing
+  base of security-critical GUI applications.
 
-; * future support of multi-head scenarios
-; * support for screen capturing
-; * resilience against failing device drivers
-; * reducing the trusted computing base of graphical applications
-; * starting, killing, and updating drivers at runtime without rebooting
-; * improving the throughput of the pixel data path
-; * optimizing input latency
+* Enabling the principal support for screen capturing and remote desktop
+  scenarios without compromising the security and privacy of the user.
 
-; link to genodians article
+* Paving the ground for sophisticated multi-head scenarios in the future,
+  e.g., using more than one graphics card.
+
+* Starting, killing, and updating drivers at runtime without rebooting the
+  system.
+
+* Optimizing the throughput of the pixel data path and the input latency.
+
+The key idea and plan for this change has been laid out in the dedicated article
+[https://genodians.org/nfeske/2020-06-23-gui-stack - Restacking the GUI stack].
+We executed the steps outlined in the article just in time for the current
+release.
 
 
 Consistent naming
 =================
 
 The starting point of Genode's GUI stack was the nitpicker GUI server,
-introduced in 2006 based on prior research of the Genode developers
-([https://genode-labs.com/publications/nitpicker-secure-gui-2005.pdf - PDF]).
-Back then, the name of the implementation proliferated throughout Genode at
-the API level, over the configuration level, up to the naming of related
-components. Jargon crept into the project without much thought. This had to
-stop and now was the right time.
+introduced in 2006 and based on prior research of the Genode developers
+([https://www.genode-labs.com/publications/secure-gui-2009.pdf - PDF]).
+Back then, the name of the implementation somehow proliferated throughout
+Genode at the API level, over the configuration level, up to the naming of
+related components. Over the years, the jargon crept into the project without
+much thought. This had to stop and now was the right time.
 
 :Source tree:
 
@@ -95,6 +107,8 @@ been renamed to "Gui"). In this architecture, higher levels naturally depend
 on all lower levels, specifically the framebuffer and input drivers at the
 bottom.
 
+[image nitpicker_orig]
+
 This architecture is flawed because it makes the low-complexity GUI server
 (nitpicker) depend on high-complexity and potentially flaky device drivers.
 If a driver fails, the entire GUI stack - up to the applications - suffer.
@@ -113,6 +127,8 @@ The information that is flowing through those interfaces remains the same -
 input events and pixels - but the direction is reversed. An event client
 propagates input events to the server. A capture client obtains pixel data
 from the server.
+
+[image nitpicker_restacked]
 
 In the new architecture, nitpicker remains as the only server, providing
 the "Event", "Capture", and "Gui" interfaces. It does no longer depend on the
