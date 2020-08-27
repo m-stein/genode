@@ -770,6 +770,20 @@ specific region, is now implicit part of the 'managing_system' privilege.
 Configurations must be adapted accordingly as the 'constrain_phys'
 attribute is no longer supported.
 
+That means configurations that so far used the "constrain_phys" attribute in the
+RAM resource description, like the following:
+
+! <start name="platform_drv">
+!   <resource name="RAM" quantum="2M" constrain_phys="yes"/>
+!   ...
+! </start>
+
+have to be changed to the following to be effective:
+
+! <start name="platform_drv" managing_system="true">
+!   <resource name="RAM"/>
+!   ...
+! </start>
 
 Platform driver
 ===============
