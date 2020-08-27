@@ -354,7 +354,7 @@ presence of the atexit mechanism in Genode's base library for a long time.
 
 However, we ultimately realized that the atexit functionality must be
 moved from the base library into the C runtime to fully adhere the
-[https://genode.org/documentation/release-notes/17.02#New_execution_model_of_the_C_runtimed- execution model]
+[https://genode.org/documentation/release-notes/17.02#New_execution_model_of_the_C_runtimed - execution model]
 of the C runtime. Atexit handlers may perform I/O such as the closing and
 syncing of files after all.
 
