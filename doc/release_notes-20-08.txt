@@ -77,7 +77,7 @@ The starting point of Genode's GUI stack was the nitpicker GUI server,
 introduced in 2006 and based on prior research of the Genode developers
 ([https://www.genode-labs.com/publications/secure-gui-2009.pdf - PDF]).
 Back then, the name of the implementation somehow proliferated throughout
-Genode at the API level, over the configuration level, up to the naming of
+Genode from the API level, over the configuration level, up to the naming of
 related components. Over the years, the jargon crept into the project without
 much thought. This had to stop and now was the right time. The renaming
 affects the following areas.
@@ -149,9 +149,9 @@ drivers. If a driver fails, the entire GUI stack - up to the applications -
 suffer. To put the risk into perspective: The binary of the nitpicker GUI
 server incorporates about 11,000 lines of code, which includes the Genode API.
 The actual nitpicker code is about 3000 lines of plain C++.
-In contrast, the intel framebuffer driver comprises more than 122,000 lines of
+In contrast, the Intel framebuffer driver comprises more than 122,000 lines of
 code (sloccount). Code complexity equals risk. The dependency of nitpicker
-from the intel framebuffer driver is indefensible. For input devices like USB
+on the Intel framebuffer driver is indefensible. For input devices like USB
 HID, the situation looks very similar.
 
 To solve this dilemma, we had to turn the client-server relationship between
@@ -174,8 +174,8 @@ when integrating the GUI server into an init configuration:
 !   <service name="Gui"/> <service name="Capture"/> <service name="Event"/>
 ! /provides>
 
-To retain the support of cascaded usage scenarios of the GUI server,
-nitpicker can be still instructed to request a framebuffer session or input
+To retain support of cascaded usage scenarios of the GUI server,
+nitpicker can still be instructed to request a framebuffer session or input
 session by specifying the '<config>' attributes 'request_framebuffer="yes"'
 and 'request_input="yes"'. If specified, nitpicker requests sessions for an
 "Input" and a "Framebuffer" service upon startup and uses those as
@@ -196,7 +196,7 @@ Generally, the drivers have become simpler.
 
 Analogously to the graphics drivers, all input drivers had to be reworked to
 operate as event clients instead of input servers. This came down to adjusting
-and testing the variety of PS/2 drivers and USB HID drivers on the various
+and testing the variety of PS/2 drivers and USB HID drivers on all supported
 platforms. As a minor side note, the server/acpi_input pseudo driver has
 turned into the app/acpi_event application. Similar to the framebuffer
 drivers, the transition from input servers to event clients generally made the
@@ -234,27 +234,27 @@ Streamlined build-system integration
 Up to now, Qt libraries and applications for Genode had been built using the
 Genode build system. The Qt library build files in the _libports/lib/mk_
 directory were in part generated with a shell script from the GNU make files
-which the _qmake_ tool had generated when building Qt for Linux and there was
+which the _qmake_ tool had generated when building Qt for Linux. Also there was
 some rudimentary support for building Qt applications from qmake project files
 by just interpreting the qmake project files as GNU make files and translating
 the relevant qmake variables to corresponding Genode build system variables.
 
-But this approach was not feasible anymore for building the 'qtwebengine'
+But this approach was not feasible anymore when building the 'qtwebengine'
 module (the successor of the deprecated 'qtwebkit' module), which is based on
 the Chromium web engine source code and mostly built with the Ninja build
-system on the officially supported platforms instead of qmake.
+system on officially supported platforms instead of qmake.
 
-We also want to make it easier for Genode users to build Qt applications, in
+We also wanted to make it easier for Genode users to build Qt applications, in
 particular by using the [https://github.com/nfeske/goa - goa] tool.
 It would be better to be able to actually process qmake project files with the
 qmake tool instead of interpreting them as GNU make files and aborting when a
 project file contains qmake-specific code not understood by GNU make.
 
-For these reasons, we reworked the Qt build process so that it now uses qmake
+For these reasons, we reworked the Qt build process such that it now uses qmake
 with a tailored Genode platform configuration for building both Qt libraries
 and applications.
 
-If you had previously built a Qt application for Genode and want to continue
+If you have already built a Qt application for Genode and want to continue
 using it with the new release and you cannot use the goa tool yet (for
 example because additional Qt libraries cannot be built with goa yet or because
 other architectures than x86_64 are currently not supported by goa yet), you
@@ -266,9 +266,9 @@ tool chain with the 'tool/tool_chain_qt5' script to get the qmake tool
 built and installed.
 
 While converting the run scripts of the Qt example projects, we switched to
-using the 'drivers_interactive' package, which is the preferred way to start
+usage of the 'drivers_interactive' package, which is the preferred way to start
 drivers for interactive scenarios nowadays. A downside might be that network
-or storage drivers are not loaded anymore this way. If these features are
+or storage drivers are not loaded this way. If these features are
 needed for a Qt project, the suggested solution is to use goa or to run the
 scenario with Sculpt OS instead, if possible.
 
@@ -283,8 +283,8 @@ Chromium engine and Falkon web browser
 Since the previously ported 'Arora' web browser has not been maintained
 upstream for years and the 'qtwebkit' Qt module it depended on has also been
 deprecated in the meantime, it was eventually time to try to port the newer
-Chromium-based 'qtwebengine' module to Genode and to find a new maintained
-qtwebengine-based web browser which can replace Arora. At first glance,
+Chromium-based 'qtwebengine' module to Genode as well as to find a new and maintained
+qtwebengine-based web browser which could replace Arora. At first glance,
 porting qtwebengine to Genode appeared to be quite a challenging task, since
 officially only Linux, Windows, and macOS are supported and most of the
 qtwebengine code, which also contains a huge amount of third-party libraries,
@@ -301,11 +301,11 @@ in the code, which had to be dealt with, though, like supporting shared memory
 with 'mmap' or cache maintenance for JIT-compiled JavaScript code. Advanced web
 engine features like multimedia support are disabled at the moment, also some
 security-related features like the verification of server certificates
-(requires a port of libnss), multi-processing or sandboxing remain unused at
+(requires a port of libnss), multi-processing, or sandboxing remain unused at
 the current time.
 
 The build system issue could eventually be resolved by adding a Genode platform
-backend for qmake and passing the correct compiler options to the Chromium build
+back end for qmake and passing the correct compiler options to the Chromium build
 system.
 
 As qtwebengine-based web browser, we chose the [https://www.falkon.org - Falkon]
@@ -316,7 +316,7 @@ Sculpt OS in September, Falkon will be offered as a ready-to-use package.
 
 [image falcon_screenshot]
 
-The Arora web browser and qtwebkit module are no longer available in this release.
+The Arora web browser and qtwebkit module are no longer available with this release.
 
 
 Base framework and OS-level infrastructure
@@ -348,7 +348,7 @@ exit of the program.
 With the transition to Genode's modern component API (introduced in version
 [https://genode.org/documentation/release-notes/16.05#New_component_API - 16.05]),
 this mechanism became irrelevant for plain Genode components.
-But for higher-level components that rely the C runtime, in particular POSIX
+But for higher-level components that rely on the C runtime, in particular POSIX
 applications, this mechanism remained crucial. Hence, we did not question the
 presence of the atexit mechanism in Genode's base library for a long time.
 
@@ -358,7 +358,7 @@ moved from the base library into the C runtime to fully adhere the
 of the C runtime. Atexit handlers may perform I/O such as the closing and
 syncing of files after all.
 
-This change has the positive effect of reducing the complexity of the base
+This change has the positive side effect of reducing the complexity of the base
 library. Furthermore, it overcomes the limitations of the formerly statically
 dimensioned array of atexit handlers, which was wasteful for plain Genode
 components, yet insufficient for complex POSIX applications.
@@ -370,7 +370,7 @@ to explicitly call cleanup code.
 
 This change also removes the implicit call of 'genode_exit(1)' by 'abort',
 which is triggered by, i.e., uncaught exceptions. Scenarios that relied on
-the former behavior for component monitoring should be changed to use
+the former behavior for component monitoring should be changed to use Genode's
 [https://genode.org/documentation/release-notes/18.11#Component_health_monitoring - heartbeat monitoring]
 mechanism instead.
 
@@ -425,12 +425,12 @@ VFS is the VFS library and its versatile plugin concept. As the libc
 could use the VFS, the integrity of data structures esp. those of more
 complex plugins like the network stack in _vfs_lwip_ must be protected
 from concurrent access. From the beginning, we planned to move the
-serialization of accesses out of the plugins into code the uses the
+serialization of accesses out of the plugins into code that uses the
 VFS library but missed to completely achieve this goal with the libc
 execution model. With Genode 20.08, we transform the lower parts of
 the libc into an execution monitor that ensures the aspired serialized
-processing of VFS operations. This paves the way to the removal of
-synchronization measures in all VFS plugins in the upcoming release.
+processing of VFS operations. This paves the way towards the removal of
+synchronization measures in all VFS plugins with the upcoming release.
 
 
 Removal of libc_pipe LibC plugin
@@ -527,7 +527,7 @@ be beyond the scope of this document. Please have a look at the
 [https://gcc.gnu.org/onlinedocs/gnat_ugn/Style-Checking.html - GNAT style-checking reference]
 instead if you're interested.
 
-Besides the style enforced through compiler flags, we decided to generally
+Besides the style enforcement through compiler flags, we decided to generally
 promote "Camel-Snake Casing" for Ada/SPARK code. The only exceptions from that
 are abbreviations of initials that are completely upper case and language
 keywords that are completely lower case. This would be a conform snippet of
@@ -595,7 +595,7 @@ _repos/cbe/run/vfs_cbe.run_:
 
 We may replace the plugin employing an AES-CBC ESSIV block-cipher in this test
 with one using plain memcopy (in other words: disabling block encryption) by
-changing only one line:
+changing one line only:
 
 ! <start name="vfs_cbe" caps="120">
 !   <config>
@@ -611,13 +611,13 @@ changing only one line:
 The memcopy example may in fact be useful for contexts where only the abilities
 of the CBE to manage snapshots and to ensure consistency are of interest and
 encryption would only generate unnecessary overhead. However, the primary
-motivation for this high modularity the easy integration of other cipher
+motivation for this high modularity is the easy integration of other cipher
 algorithms in the future.
 
 In order to make things even more approachable, the VFS-plugin-related code
 between CBE, crypto entity, and trust anchor relies on generic interfaces.
 This simplifies supporting other existing cryptographic algorithms and TA
-types as enabling them boils down to solely implementing a handful of well
+types as enabling them boils down to the implementation of a handful of well
 defined hook functions.
 
 As for the CBE demo scenario that we published with the previous Genode release:
@@ -636,7 +636,7 @@ Virtual file system (VFS)
 We extended the 'zero' VFS plugin to limit the amount of data - the number of zero
 bytes - it will provide. By setting the 'size' attribute, a reader is restricted to
 only consume data up to the specified amount per VFS handle. Through that
-is serves as natural EOF. The attribute is parsed as 'Number_of_bytes', which
+the plugin serves as natural EOF. The attribute is parsed as 'Number_of_bytes', which
 caps the amount to the maximum of the addressable memory on the platform.
 
 This addition comes in handy when needing to provide a synthetic empty file
@@ -650,7 +650,7 @@ with a fixed size:
 ! </vfs>
 
 
-Furthermore, we added an option the 'terminal' VFS plugin to ignore control
+Furthermore, we added an option to the 'terminal' VFS plugin to ignore control
 characters. Usually this plugin is used in interactive configurations where
 reacting to control characters, e.g. ^C, is vital. That being said, the plugin
 lends itself as general transport mechanism for low-traffic data transfers.
@@ -684,7 +684,7 @@ denotes if the block session is allowed to perform write requests. However,
 should the underlying file be read-only, such requests will nonetheless
 fail. The default value is 'no'.
 
-The following snippets shows a configuration where the 'vfs_block' component
+The following snippet shows a configuration where the 'vfs_block' component
 grants the component 'the_client' writeable access to the 'ext2_disk.img'
 file. In return, this file is accessed via a file-system session.
 
@@ -711,7 +711,7 @@ Since the 'vfs_block' is - by using the VFS library - flexible enough to cover t
 use-cases of components like 'ram_block' and 'rom_block', we were able to remove
 those components.
 
-For example a typical 'rom_block' use-case is implemented by using this
+For example a typical 'rom_block' use-case is implemented by using the following
 configuration:
 
 ! <start name="vfs_block">
@@ -748,7 +748,7 @@ call:
 It is used to call privileged system management functionality, like power
 management or clock settings that cannot be implemented in user-land components.
 The transferred state is equivalent to the common general-purpose CPU registers.
-Currently, the function is implemented by the base-hw's core component on ARMv8
+Currently, the function is implemented by base-hw's core component on ARMv8
 to call the ARM Trusted Firmware on behalf of the PD session client. All other
 kernel and architectures leave the 'managing_system' call empty.
 
@@ -759,7 +759,7 @@ in the start node:
 ! <start name="platform_drv" managing_system="yes">
 !   ...
 
-The new call and privilege got introduced to enable a platform driver to
+The new call and privilege got introduced in order to enable a platform driver to
 implement power management on modern ARM SoC.
 
 The formerly existent, special privilege "constrain_phys", which was used by the
@@ -845,15 +845,15 @@ New platform driver for Raspberry Pi
 As some driver components like the USB host-controller driver share one code
 base across a lot of different boards, SoCs, and architectures. We like to unify
 the API they dependent on, including the platform driver's API. Therefore,
-the already existent platform driver for Raspberry Pi 1 got modernized to use
-the new platform driver API for ARM introduced with the previous release.
+the already existent platform driver for Raspberry Pi 1 got modernized to take
+advantage of the new platform driver API for ARM introduced with the previous release.
 
 However, we did not achieve to change all drivers at once. Therefore, we kept
 the old platform driver still used by some drivers for now. To prevent
 name clashes, the new driver is named "rpi_new_platform_drv" until the legacy
 driver "rpi_platform_drv" vanishes.
 
-During this work, we unified the former different enumeration of interrupts
+During this work, we unified the formerly different enumeration of interrupts
 between the Fiasco.OC and base-hw kernels.
 
 
@@ -861,7 +861,7 @@ USB host-controller driver
 ==========================
 
 The USB host-controller driver got modified to iterate over all device resources
-the platform driver provides to it, and register those in corresponding Linux
+the platform driver provides to it, and registers those in corresponding Linux
 kernel structures of the ported driver code. This board-specific information was
 hard-coded beforehand. Now, the driver uses the platform driver for x86, as well
 as all ARM architectures.
@@ -871,7 +871,8 @@ Interactive drivers support for Arndale and Panda boards
 ========================================================
 
 In the Genode world repository the almost abandoned support for Pandaboard and the
-Arndale board got revived by drivers_interactive depot packages for both.
+Arndale board got revived by drivers_interactive depot packages for both
+platforms.
 Therewith, it is now easy again to use interactive run-script scenarios on these
 platforms.
 
@@ -904,7 +905,7 @@ Port of SDL 2.0.14
 
 As more and more software requires SDL2, it became necessary to support it
 as well in addition to the already existing support for SDL1. We therefore
-ported the up-to-date version to Genode.
+ported the up-to-date SDL version to Genode.
 
 For the time being, its functionality is limited when compared to the SDL1
 port. At the current time, only input and non-accelerated video are supported.
