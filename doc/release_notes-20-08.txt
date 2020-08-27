@@ -146,7 +146,7 @@ in turn, is a client of the framebuffer and input drivers.
 This architecture is flawed because it makes the trusted low-complexity GUI
 server (nitpicker) depend on high-complexity and potentially flaky device
 drivers. If a driver fails, the entire GUI stack - up to the applications -
-suffer. To put the risk into perspective: The binary of the nitpicker GUI
+suffers. To put the risk into perspective: The binary of the nitpicker GUI
 server incorporates about 11,000 lines of code, which includes the Genode API.
 The actual nitpicker code is about 3000 lines of plain C++.
 In contrast, the Intel framebuffer driver comprises more than 122,000 lines of
@@ -256,8 +256,8 @@ and applications.
 
 If you have already built a Qt application for Genode and want to continue
 using it with the new release and you cannot use the goa tool yet (for
-example because additional Qt libraries cannot be built with goa yet or because
-other architectures than x86_64 are currently not supported by goa yet), you
+example because additional Qt libraries cannot be built with goa or because
+other architectures than x86_64 are not supported by goa currently), you
 need to update the 'target.mk' file (and any run scripts) of your project. For
 the details, please have a look at the updated Qt example projects in the
 'libports' repository and feel free to ask on the Genode mailing list if any
@@ -440,7 +440,7 @@ The VFS pipe plugin was introduced in
 [https://genode.org/documentation/release-notes/19.11#VFS_plugin_for_emulating_POSIX_pipes - Genode 19.11]
 and matured into a suitable replacement for the aged libc_pipe plugin
 library. Now, we finalize this process by removing the old libc plugin
-from Genode and all run scripts (most prominently those for Qt5
+from Genode and adapt all run scripts (most prominently those for Qt5
 examples). Users can migrate to the VFS plugin with the following
 changes to their component configurations.
 
@@ -634,9 +634,11 @@ Virtual file system (VFS)
 =========================
 
 We extended the 'zero' VFS plugin to limit the amount of data - the number of zero
-bytes - it will provide. By setting the 'size' attribute, a reader is restricted to
-only consume data up to the specified amount per VFS handle. Through that
-the plugin serves as natural EOF. The attribute is parsed as 'Number_of_bytes', which
+bytes - it will provide on plain sequential reads. The file size can
+be determined by setting the 'size' configuration attribute limiting
+readable seek offsets to the configured size and resulting in EOF
+beyond that offset.
+The attribute is parsed as 'Number_of_bytes', which
 caps the amount to the maximum of the addressable memory on the platform.
 
 This addition comes in handy when needing to provide a synthetic empty file
@@ -701,7 +703,7 @@ file. In return, this file is accessed via a file-system session.
 !                writeable="yes"/>
 !      </config>
 !      <route>
-!        <service name="File_system" label="backend>
+!        <service name="File_system" label="backend">
 !          <child name="fs_provider"/> </service>
 !        <any-service> <parent/> </any-service>
 !      </route>
@@ -730,8 +732,8 @@ configuration:
 !      </route>
 ! </start>
 
-On a technical note, the server currently only allows for one active session
-and manages only one pending back end request at a time.
+On a technical note, the server currently allows a single session only
+and processes requests sequentially.
 
 
 Device drivers
@@ -762,9 +764,11 @@ in the start node:
 The new call and privilege got introduced in order to enable a platform driver to
 implement power management on modern ARM SoC.
 
-The formerly existent, special privilege "constrain_phys", which was used by the
+The formerly existent, special privilege 'constrain_phys', which was used by the
 platform driver to constrain physical memory to be allocated for DMA to a
-specific region, is now implicit part of the "managing_system" privilege.
+specific region, is now implicit part of the 'managing_system' privilege.
+Configurations must be adapted accordingly as the 'constrain_phys'
+attribute is no longer supported.
 
 
 Platform driver
@@ -805,7 +809,7 @@ for this SoC. It comprises all power and clock settings available in the
 SoC. Single power domains and clocks can be assigned to devices. Whenever the
 client of the platform driver acquires a device, its power domains and clocks
 are enabled implicitly, and all clocks are set accordingly. When the device
-gets released again, all power-domains and clocks are disabled again.
+gets released, all power-domains and clocks are disabled again.
 
 The following USB host-controller example for the i.MX 8M Quad EVK illustrates
 the additional configuration options:
