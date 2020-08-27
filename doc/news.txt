@@ -9,7 +9,7 @@ Genode OS Framework release 20.08 | 2020-08-28
 
 | With Genode 20.08, the low-level GUI stack underwent a profound redesign,
 | the Chromium web engine comes to life, the i.MX8 support covers clock and
-| power management, and the CBE encrypter becomes highly modular.
+| power management, and the CBE block encrypter becomes highly modular.
 
 The most stunning feature of Genode 20.08 is most certainly the new ability
 to host the Chromium web engine as native component in the form of the Falkon
