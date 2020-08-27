@@ -250,8 +250,8 @@ now extracts command line arguments and environment variables from the 'config'
 ROM, like the 'posix' library already did for non-Qt applications.
 
 
-Chromium engine and Falkon web brower
-=====================================
+Chromium engine and Falkon web browser
+======================================
 
 Since the previously ported 'Arora' web browser has not been maintained
 upstream for years and the 'qtwebkit' Qt module it depended on has also been
