@@ -808,6 +808,9 @@ for the corresponding board and peripheral, e.g., in the Linux kernel tree. But
 be aware that the clock names are aligned to the i.MX 8M Quad Applications
 Processors Reference Manual and not the Linux code.
 
+As a side effect of the clock settings work, the CPU cores of the i.MX 8M Quad
+SoC are now running with the full-rate of 1.5 GHz.
+
 
 New platform driver for Raspberry Pi
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
