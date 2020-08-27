@@ -232,12 +232,12 @@ Streamlined build-system integration
 ====================================
 
 Up to now, Qt libraries and applications for Genode had been built using the
-Genode build system. The Qt library build files in the _libports/lib/mk_
+Genode build system. The Qt library build-files in the _libports/lib/mk_
 directory were in part generated with a shell script from the GNU make files
 which the _qmake_ tool had generated when building Qt for Linux. Also there was
 some rudimentary support for building Qt applications from qmake project files
 by just interpreting the qmake project files as GNU make files and translating
-the relevant qmake variables to corresponding Genode build system variables.
+the relevant qmake variables to corresponding Genode build-system variables.
 
 But this approach was not feasible anymore when building the 'qtwebengine'
 module (the successor of the deprecated 'qtwebkit' module), which is based on
@@ -298,8 +298,8 @@ that is that there already existed a qtwebengine port for FreeBSD, which
 resolved most of the possible libc compatibility problems and thus served as
 the basis for the Genode port. There were still some operating system specifics
 in the code, which had to be dealt with, though, like supporting shared memory
-with 'mmap' or cache maintenance for JIT-compiled JavaScript code. Advanced web
-engine features like multimedia support are disabled at the moment, also some
+with 'mmap' or cache maintenance for JIT-compiled JavaScript code. Advanced
+web-engine features like multimedia support are disabled at the moment, also some
 security-related features like the verification of server certificates
 (requires a port of libnss), multi-processing, or sandboxing remain unused at
 the current time.
@@ -422,8 +422,8 @@ Unsurprisingly, the VFS is an integral part of the C runtime as
 _everything is a file_ in the UNIX philosophy. The basis for the libc
 VFS is the VFS library and its versatile plugin concept. As the libc
 (and other users of the library) may employ multiple threads, which
-could use the VFS, the integrity of data structures esp. those of more
-complex plugins like the network stack in _vfs_lwip_ must be protected
+could use the VFS, the integrity of data structures, esp. those of more
+complex plugins like the network stack in _vfs_lwip_, must be protected
 from concurrent access. From the beginning, we planned to move the
 serialization of accesses out of the plugins into code that uses the
 VFS library but missed to completely achieve this goal with the libc
@@ -510,20 +510,20 @@ the C++ pendants ('CC_CXX_WARN' and 'CC_CXX_WARN_STRICT'), the variable
 'CC_ADA_WARN' denotes the common warning-configuration of the compiler for
 Ada/SPARK whereas 'CC_ADA_WARN_STRICT' applies additional configuration for a
 much higher level of strictness by default. This strict mode might be
-deactivated locally for code, which is not subject to the Genode coding style -
+deactivated locally for code which is not subject to the Genode coding style -
 e.g., ported third party code - by adding the following line to the
 corresponding build description files.
 
 ! CC_ADA_WARN_STRICT =
 
-The common warning configuration for Ada/SPARK merely enables all warning
-messages with the '-wa' flag. As with C++, the strict mode furthermore causes
-GNAT to treat warnings like errors and refrain from compiling affected
-Ada/SPARK code. In addition to that, the strict mode enables a broad variety
-of checks for potential pitfalls and style consistency using the configuration
-'-gnatyyBdSux', which is compatible to the GNAT standard style. A
-comprehensive description of all checks activated by this configuration would
-be beyond the scope of this document. Please have a look at the
+The common, less strict warning mode for Ada/SPARK merely enables all warning
+messages with the '-wa' flag. The strict mode, in addition to it, causes GNAT
+to treat warnings like errors and to refuse compiling affected code. In
+addition to that, the strict mode activates a broad variety of checks for
+potential pitfalls and style consistency using the configuration
+'-gnatyyBdSux', which is compatible to the GNAT standard style. A comprehensive
+description of all the checks would be beyond the scope of this document.
+Please have a look at the
 [https://gcc.gnu.org/onlinedocs/gnat_ugn/Style-Checking.html - GNAT style-checking reference]
 instead if you're interested.
 
@@ -742,12 +742,12 @@ Device drivers
 System management privilege
 ===========================
 
-The PD session interface of the base library got extended by a system management
+The PD session interface of the base library got extended by a system-management
 call:
 
 ! Managing_system_state managing_system(Managing_system_state const & state)
 
-It is used to call privileged system management functionality, like power
+It is used to call privileged system-management functionality, like power
 management or clock settings that cannot be implemented in user-land components.
 The transferred state is equivalent to the common general-purpose CPU registers.
 Currently, the function is implemented by base-hw's core component on ARMv8
@@ -853,8 +853,8 @@ for the corresponding board and peripheral, e.g., in the Linux kernel tree. But
 be aware that the clock names are aligned to the i.MX 8M Quad Applications
 Processors Reference Manual and not the Linux code.
 
-As a side effect of the clock settings work, the CPU cores of the i.MX 8M Quad
-SoC are now running with the full-rate of 1.5 GHz.
+As a side effect of the clock-settings work, the CPU cores of the i.MX 8M Quad
+SoC are now running with the full rate of 1.5 GHz.
 
 
 New platform driver for Raspberry Pi
@@ -988,12 +988,12 @@ Interactive CPU affinity configuration
 
 The component-configuration dialog gained the new ability to restrict the
 component to a subset of CPUs. This option is available under the new "Resource
-assignment" sub menu.
+assignment" sub-menu.
 
 [image sculpt_affinity]
 
-The configuration dialog shows a matrix of CPU cores whereas the X axis
-denotes the physical cores and the Y axis the hyperthreads. By default, all
+The configuration dialog shows a matrix of CPU cores where the x-axis
+denotes the physical cores and the y-axis the hyperthreads. By default, all
 available CPU cores are selected. The user can toggle the nodes by clicking on
 them. The dialog ensures that the selection is always a rectangular area. So
 one click may affect nodes other than only the clicked one.
