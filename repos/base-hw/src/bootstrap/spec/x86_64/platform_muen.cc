@@ -37,7 +37,7 @@ Bootstrap::Platform::Board::Board()
 		region = sinfo.get_resource("ram", Sinfo::RES_MEMORY);
 
 	if (!region)
-		Genode::error("Unable to retrieve base-hw ram region");
+		Genode::raw("Error: Unable to retrieve base-hw ram region");
 	else
 		early_ram_regions.add(Memory_region
 				{ region->data.mem.address, region->data.mem.size });

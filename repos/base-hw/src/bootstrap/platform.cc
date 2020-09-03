@@ -77,9 +77,9 @@ void Platform::Pd::map(Mapping m)
 		table.insert_translation(m.virt(), m.phys(), m.size(), m.flags(),
 		                         array.alloc());
 	} catch (Hw::Out_of_tables &) {
-		Genode::error("translation table needs to much RAM");
+		Genode::raw("Error: translation table needs to much RAM");
 	} catch (...) {
-		Genode::error("invalid mapping ", m);
+		Genode::raw("Error: invalid mapping ", m);
 	}
 }
 

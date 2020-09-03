@@ -154,7 +154,7 @@ Bootstrap::Platform::Board::Board()
 			acpi_rsdp = search_rsdp(ebda_phys, 0x1000 /* EBDA size */);
 		}
 	} else {
-		error("invalid multiboot magic value: ", Hex(__initial_ax));
+		raw("Error: invalid multiboot magic value: ", Hex(__initial_ax));
 	}
 
 	/* remember max supported CPUs and use ACPI to get the actual number */

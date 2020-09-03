@@ -30,7 +30,7 @@ void Board::Cpu::wake_up_all_cpus(void *entry)
 {
 	for (unsigned cpu_id = 1; cpu_id < NR_OF_CPUS; cpu_id++) {
 		if (!Board::Psci::cpu_on(cpu_id, entry)) {
-			Genode::error("Failed to boot CPU", cpu_id);
+			Genode::raw("Error: Failed to boot CPU", cpu_id);
 		}
 	}
 }
