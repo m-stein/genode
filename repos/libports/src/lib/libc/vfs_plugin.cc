@@ -1061,7 +1061,7 @@ ssize_t Libc::Vfs_plugin::getdirentries(File_descriptor *fd, char *buf,
 }
 
 
-int Libc::Vfs_plugin::ioctl(File_descriptor *fd, int request, char *argp)
+int Libc::Vfs_plugin::ioctl(File_descriptor *fd, unsigned long request, char *argp)
 {
 	bool handled = false;
 

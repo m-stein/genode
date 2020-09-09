@@ -177,7 +177,7 @@ class Libc::Vfs_plugin : public Plugin
 		int     fsync(File_descriptor *fd) override;
 		int     ftruncate(File_descriptor *, ::off_t) override;
 		ssize_t getdirentries(File_descriptor *, char *, ::size_t , ::off_t *) override;
-		int     ioctl(File_descriptor *, int , char *) override;
+		int     ioctl(File_descriptor *, unsigned long, char *) override;
 		::off_t lseek(File_descriptor *fd, ::off_t offset, int whence) override;
 		int     mkdir(const char *, mode_t) override;
 		File_descriptor *open(const char *path, int flags) override;
