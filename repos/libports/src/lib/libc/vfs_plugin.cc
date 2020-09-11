@@ -1061,14 +1061,15 @@ ssize_t Libc::Vfs_plugin::getdirentries(File_descriptor *fd, char *buf,
 }
 
 
-int Libc::Vfs_plugin::ioctl(File_descriptor *fd, unsigned long request, char *argp)
+Libc::Vfs_plugin::Ioctl_result
+Libc::Vfs_plugin::_ioctl_tio(File_descriptor *fd, unsigned long request, char *argp)
 {
+	if (!argp)
+		return { true, EINVAL };
+
 	bool handled = false;
 
 	if (request == TIOCGWINSZ) {
-
-		if (!argp)
-			return Errno(EINVAL);
 
 		monitor().monitor([&] {
 			_with_info(*fd, [&] (Xml_node info) {
@@ -1098,12 +1099,23 @@ int Libc::Vfs_plugin::ioctl(File_descriptor *fd, unsigned long request, char *ar
 		::memset(termios->c_cc, _POSIX_VDISABLE, sizeof(termios->c_cc));
 		termios->c_ispeed = 0;
 		termios->c_ospeed = 0;
+
 		handled = true;
+	}
 
-	} else if (request == DIOCGMEDIASIZE) {
+	return { handled, 0 };
+}
 
-		if (!argp)
-			return Errno(EINVAL);
+
+Libc::Vfs_plugin::Ioctl_result
+Libc::Vfs_plugin::_ioctl_dio(File_descriptor *fd, unsigned long request, char *argp)
+{
+	if (!argp)
+		return { true, EINVAL };
+
+	bool handled = false;
+
+	if (request == DIOCGMEDIASIZE) {
 
 		monitor().monitor([&] {
 			_with_info(*fd, [&] (Xml_node info) {
@@ -1137,10 +1149,32 @@ int Libc::Vfs_plugin::ioctl(File_descriptor *fd, unsigned long request, char *ar
 
 			return Fn::COMPLETE;
 		});
+
 	}
 
-	if (handled)
-		return 0;
+	return { handled, 0 };
+}
+
+
+int Libc::Vfs_plugin::ioctl(File_descriptor *fd, unsigned long request, char *argp)
+{
+	Ioctl_result result { false, 0 };
+
+	switch (request) {
+	case TIOCGWINSZ:
+	case TIOCGETA:
+		result = _ioctl_tio(fd, request, argp);
+		break;
+	case DIOCGMEDIASIZE:
+		result = _ioctl_dio(fd, request, argp);
+		break;
+	default:
+		break;
+	}
+
+	if (result.handled) {
+		return result.error ? Errno(result.error) : 0;
+	}
 
 	return _legacy_ioctl(fd, request, argp);
 }
