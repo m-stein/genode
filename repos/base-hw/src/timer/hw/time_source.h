@@ -25,8 +25,10 @@
 
 namespace Timer {
 
-	using Microseconds = Genode::Microseconds;
-	using Duration     = Genode::Duration;
+	using Microseconds    = Genode::Microseconds;
+	using Duration        = Genode::Duration;
+	using Timeout_handler = Genode::Timeout_handler;
+
 	class Time_source;
 }
 

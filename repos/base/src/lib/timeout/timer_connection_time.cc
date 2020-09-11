@@ -143,7 +143,7 @@ void Timer::Connection::_update_real_time()
 
 Duration Timer::Connection::curr_time()
 {
-	_enable_modern_mode();
+	_switch_to_timeout_framework_mode();
 
 	Reconstructible<Mutex::Guard> mutex_guard(_real_time_mutex);
 	Duration                      interpolated_time(_real_time);

@@ -24,6 +24,8 @@ namespace Timer {
 
 	using Genode::Microseconds;
 	using Genode::Duration;
+	using Genode::Timeout_handler;
+
 	class Threaded_time_source;
 }
 
@@ -52,7 +54,7 @@ class Timer::Threaded_time_source : public Genode::Time_source,
 
 			public:
 
-				Timeout_handler *handler = nullptr;
+				Timeout_handler      *handler = nullptr;
 				Threaded_time_source &ts;
 
 				Irq_dispatcher_component(Threaded_time_source &ts) : ts(ts) { }
