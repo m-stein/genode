@@ -1114,7 +1114,7 @@ int Libc::Vfs_plugin::ioctl(File_descriptor *fd, unsigned long request, char *ar
  * XXX Remove this method once all ioctl operations are supported via
  *     regular VFS file accesses.
  */
-int Libc::Vfs_plugin::_legacy_ioctl(File_descriptor *fd, int request, char *argp)
+int Libc::Vfs_plugin::_legacy_ioctl(File_descriptor *fd, unsigned long request, char *argp)
 {
 	using ::off_t;
 

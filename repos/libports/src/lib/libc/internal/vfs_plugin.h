@@ -91,7 +91,7 @@ class Libc::Vfs_plugin : public Plugin
 		 */
 		void _vfs_write_mtime(Vfs::Vfs_handle&);
 
-		int _legacy_ioctl(File_descriptor *, int , char *);
+		int _legacy_ioctl(File_descriptor *, unsigned long, char *);
 
 		/**
 		 * Call functor 'fn' with ioctl info for the given file descriptor 'fd'
