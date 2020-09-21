@@ -1115,6 +1115,8 @@ Libc::Vfs_plugin::_ioctl_dio(File_descriptor *fd, unsigned long request, char *a
 
 	bool handled = false;
 
+	using ::off_t;
+
 	if (request == DIOCGMEDIASIZE) {
 
 		monitor().monitor([&] {
@@ -1132,9 +1134,6 @@ Libc::Vfs_plugin::_ioctl_dio(File_descriptor *fd, unsigned long request, char *a
 					if (!count) {
 						warning("block count is 0");
 					}
-
-					/* we need libc's off_t which is int64_t */
-					using ::off_t;
 
 					off_t disk_size = (off_t) count * size;
 					if (disk_size < 0) {
@@ -1159,6 +1158,9 @@ Libc::Vfs_plugin::_ioctl_dio(File_descriptor *fd, unsigned long request, char *a
 int Libc::Vfs_plugin::ioctl(File_descriptor *fd, unsigned long request, char *argp)
 {
 	Ioctl_result result { false, 0 };
+
+	/* we need libc's off_t which is int64_t */
+	using ::off_t;
 
 	switch (request) {
 	case TIOCGWINSZ:
