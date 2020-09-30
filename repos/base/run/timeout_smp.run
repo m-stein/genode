@@ -34,7 +34,7 @@ build_boot_image { core ld.lib.so init timer test-timeout_smp }
 
 append qemu_args "  -nographic"
 
-run_genode_until "child \"test\" exited with exit value.*\n" 900
+run_genode_until "child \"test\" exited with exit value.*\n" 60
 grep_output {\[init\] child "test" exited with exit value}
 compare_output_to {[init] child "test" exited with exit value 0}
 
