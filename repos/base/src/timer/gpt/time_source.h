@@ -69,7 +69,7 @@ class Timer::Time_source : private Genode::Attached_mmio,
 
 		Genode::Duration curr_time() override;
 		void schedule_timeout(Genode::Microseconds duration,
-		                      Timeout_handler &handler) override;
+		                      Genode::Timeout_handler &handler) override;
 		Genode::Microseconds max_timeout() const override;
 };
 
