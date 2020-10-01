@@ -116,8 +116,8 @@ void Timeout_scheduler::handle_timeout(Duration curr_time)
 		 */
 		for (List_element<Timeout> const *elem { pending_timeouts.first() };
 		     elem != nullptr;
-		     elem = elem->next())
-		{
+		     elem = elem->next()) {
+
 			Timeout &timeout { *elem->object() };
 			if (!timeout._in_discard_blockade) {
 
