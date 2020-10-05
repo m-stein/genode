@@ -142,15 +142,20 @@ void Timeout_scheduler::handle_timeout(Duration curr_time)
 
 			} else {
 
-				/* re-schedule periodic timeouts */
-				uint64_t const triggered {
+				/* determine new timeout deadline */
+				uint64_t const nr_of_periods {
 					((_current_time.value - timeout._deadline.value) /
 					 timeout._period.value) + 1 };
 
-				_schedule_timeout(
-					timeout,
-					Microseconds { timeout._deadline.value +
-					               triggered * timeout._period.value });
+				uint64_t deadline_us { timeout._deadline.value +
+				                       nr_of_periods * timeout._period.value };
+
+				if (deadline_us < _current_time.value) {
+					deadline_us = ~(uint64_t)0;
+				}
+				/* re-insert timeout into timeouts list */
+				timeout._deadline = Microseconds { deadline_us };
+				_insert_into_timeouts_list(timeout);
 			}
 			timeout._mutex.release();
 		}
@@ -259,41 +264,7 @@ void Timeout_scheduler::_schedule_one_shot_timeout(Timeout         &timeout,
                                                    Microseconds     duration,
                                                    Timeout_handler &handler)
 {
-	/* acquire scheduler and timeout mutex */
-	Mutex::Guard const scheduler_guard { _mutex };
-	if (_destructor_called) {
-		return;
-	}
-	Mutex::Guard const timeout_guard(timeout._mutex);
-
-	/* prevent inserting a timeout twice */
-	if (timeout._handler != nullptr) {
-		_timeouts.remove(&timeout);
-	}
-	/* raise timeout duration by the age of the local time value */
-	uint64_t us = _time_source.curr_time().trunc_to_plain_us().value;
-	if (us >= _current_time.value) {
-		us = duration.value + (us - _current_time.value);
-	} else {
-		us = duration.value + (~(uint64_t)0 - _current_time.value) + us;
-	}
-	if (duration.value <= us) {
-		duration.value = us;
-	}
-	/* schedule new timeout */
-	timeout._handler = &handler;
-	timeout._period = Microseconds { 0 };
-	_schedule_timeout(timeout, Microseconds { _current_time.value +
-	                                          duration.value });
-
-	/*
-	 * If the new timeout is the first to trigger, we have to trigger the
-	 * execution of 'Timeout_scheduler::handle_timeout' in order to update
-	 * the time-source timeout.
-	 */
-	if (_timeouts.first() == &timeout) {
-		_time_source.schedule_timeout(Microseconds(0), *this);
-	}
+	_schedule_timeout(timeout, duration, Microseconds { 0 }, handler);
 }
 
 
@@ -301,6 +272,20 @@ void Timeout_scheduler::_schedule_periodic_timeout(Timeout         &timeout,
                                                    Microseconds     period,
                                                    Timeout_handler &handler)
 {
+
+	/* prevent using a period of 0 */
+	if (period.value == 0) {
+		period.value = 1;
+	}
+	_schedule_timeout(timeout, Microseconds { 0 }, period, handler);
+}
+
+
+void Timeout_scheduler::_schedule_timeout(Timeout         &timeout,
+                                          Microseconds     duration,
+                                          Microseconds     period,
+                                          Timeout_handler &handler)
+{
 	/* acquire scheduler and timeout mutex */
 	Mutex::Guard const scheduler_guard { _mutex };
 	if (_destructor_called) {
@@ -312,14 +297,19 @@ void Timeout_scheduler::_schedule_periodic_timeout(Timeout         &timeout,
 	if (timeout._handler != nullptr) {
 		_timeouts.remove(&timeout);
 	}
-	/* prevent using a period of 0 */
-	if (period.value == 0) {
-		period.value = 1;
-	}
-	/* schedule new timeout */
+	/* determine timeout deadline */
+	uint64_t const curr_time_us {
+		_time_source.curr_time().trunc_to_plain_us().value };
+
+	uint64_t const deadline_us {
+		duration.value <= ~(uint64_t)0 - curr_time_us ?
+			curr_time_us + duration.value : ~(uint64_t)0 };
+
+	/* set up timeout object and insert into timeouts list */
 	timeout._handler = &handler;
+	timeout._deadline = Microseconds { deadline_us };
 	timeout._period = period;
-	_schedule_timeout(timeout, _time_source.curr_time().trunc_to_plain_us());
+	_insert_into_timeouts_list(timeout);
 
 	/*
 	 * If the new timeout is the first to trigger, we have to trigger the
@@ -332,15 +322,8 @@ void Timeout_scheduler::_schedule_periodic_timeout(Timeout         &timeout,
 }
 
 
-void Timeout_scheduler::_schedule_timeout(Timeout      &timeout,
-                                          Microseconds  deadline)
+void Timeout_scheduler::_insert_into_timeouts_list(Timeout &timeout)
 {
-	/* sanitize wrapped deadline values */
-	if (deadline.value >= _current_time.value) {
-		timeout._deadline = deadline;
-	} else {
-		timeout._deadline = Microseconds { ~(uint64_t)0 };
-	}
 	/* if timeout list is empty, insert as first element */
 	if (_timeouts.first() == nullptr) {
 		_timeouts.insert(&timeout);

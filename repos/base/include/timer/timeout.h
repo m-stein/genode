@@ -149,7 +149,12 @@ class Genode::Timeout_scheduler : private Noncopyable,
 		Microseconds        _rate_limit_period;
 		Microseconds        _rate_limit_deadline;
 
-		void _schedule_timeout(Timeout &timeout, Microseconds deadline);
+		void _insert_into_timeouts_list(Timeout &timeout);
+
+		void _schedule_timeout(Timeout         &timeout,
+		                       Microseconds     duration,
+		                       Microseconds     period,
+		                       Timeout_handler &handler);
 
 		void _discard_timeout_unsynchronized(Timeout &timeout);
 
@@ -160,7 +165,7 @@ class Genode::Timeout_scheduler : private Noncopyable,
                                         Timeout_handler &handler);
 
 		void _schedule_periodic_timeout(Timeout         &timeout,
-		                                Microseconds     duration,
+		                                Microseconds     period,
 		                                Timeout_handler &handler);
 
 		void _discard_timeout(Timeout &timeout);
