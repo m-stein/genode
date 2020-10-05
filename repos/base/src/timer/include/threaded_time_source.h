@@ -33,6 +33,10 @@ namespace Timer {
 class Timer::Threaded_time_source : public Genode::Time_source,
                                     protected Genode::Thread
 {
+	public:
+
+		enum Result_of_wait_for_irq { IRQ_TRIGGERED, CANCELLED };
+
 	private:
 
 		struct Irq_dispatcher : Genode::Interface
@@ -78,7 +82,7 @@ class Timer::Threaded_time_source : public Genode::Time_source,
 
 		Genode::Capability<Irq_dispatcher> _irq_dispatcher_cap;
 
-		virtual void _wait_for_irq() = 0;
+		virtual Result_of_wait_for_irq _wait_for_irq() = 0;
 
 		/***********************
 		 ** Thread_deprecated **
@@ -87,8 +91,9 @@ class Timer::Threaded_time_source : public Genode::Time_source,
 		void entry() override
 		{
 			while (true) {
-				_wait_for_irq();
-				_irq_dispatcher_cap.call<Irq_dispatcher::Rpc_do_dispatch>();
+				if (_wait_for_irq() == IRQ_TRIGGERED) {
+					_irq_dispatcher_cap.call<Irq_dispatcher::Rpc_do_dispatch>();
+				}
 			}
 		}
 

@@ -72,8 +72,8 @@ struct Genode::Time_source : Interface
 	 * \param duration  timeout duration
 	 * \param handler   timeout callback
 	 */
-	virtual void schedule_timeout(Microseconds     duration,
-	                              Timeout_handler &handler) = 0;
+	virtual void set_timeout(Microseconds     duration,
+	                         Timeout_handler &handler) = 0;
 };
 
 
@@ -150,6 +150,8 @@ class Genode::Timeout_scheduler : private Noncopyable,
 		Microseconds        _rate_limit_deadline;
 
 		void _insert_into_timeouts_list(Timeout &timeout);
+
+		void _set_time_source_timeout();
 
 		void _schedule_timeout(Timeout         &timeout,
 		                       Microseconds     duration,

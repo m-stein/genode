@@ -239,7 +239,7 @@ class Timer::Connection : public  Genode::Connection<Session>,
 		 ** Time_source **
 		 *****************/
 
-		void schedule_timeout(Microseconds duration, Timeout_handler &handler) override;
+		void set_timeout(Microseconds duration, Timeout_handler &handler) override;
 		Microseconds max_timeout() const override { return Microseconds(REAL_TIME_UPDATE_PERIOD_US); }
 
 	public:

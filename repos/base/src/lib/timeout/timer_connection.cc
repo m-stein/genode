@@ -97,8 +97,8 @@ void Timer::Connection::_handle_timeout()
 }
 
 
-void Timer::Connection::schedule_timeout(Microseconds     duration,
-                                         Timeout_handler &handler)
+void Timer::Connection::set_timeout(Microseconds     duration,
+                                    Timeout_handler &handler)
 {
 	if (duration.value < MIN_TIMEOUT_US)
 		duration.value = MIN_TIMEOUT_US;
@@ -136,7 +136,9 @@ Timeout_scheduler &Timer::Connection::_switch_to_timeout_framework_mode()
 	}
 	_mode = TIMEOUT_FRAMEWORK;
 	_sigh(_signal_handler);
+
 	_timeout_scheduler._enable();
+
 
 	/* do initial calibration burst to make interpolation available earlier */
 	for (unsigned i = 0; i < NR_OF_INITIAL_CALIBRATIONS; i++) {

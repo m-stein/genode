@@ -73,7 +73,7 @@ void Timeout_scheduler::handle_timeout(Duration curr_time)
 		/* apply rate limit to the handling of timeouts */
 		if (_current_time.value < _rate_limit_deadline.value) {
 
-			_time_source.schedule_timeout(
+			_time_source.set_timeout(
 				Microseconds { _rate_limit_deadline.value -
 				               _current_time.value },
 				*this);
@@ -159,22 +159,7 @@ void Timeout_scheduler::handle_timeout(Duration curr_time)
 			}
 			timeout._mutex.release();
 		}
-		/*
-		 * Schedule a new sleep timeout at the time source and release the
-		 * scheduler mutex afterwards.
-		 */
-		uint64_t duration_us { ~(uint64_t)0 };
-		if (_timeouts.first() != nullptr) {
-			duration_us = _timeouts.first()->_deadline.value -
-			              _current_time.value;
-		}
-		if (duration_us < _rate_limit_period.value) {
-			duration_us = _rate_limit_period.value;
-		}
-		if (duration_us > _max_sleep_time.value) {
-			duration_us = _max_sleep_time.value;
-		}
-		_time_source.schedule_timeout(Microseconds(duration_us), *this);
+		_set_time_source_timeout();
 	}
 	/* call the handler of each pending timeout */
 	while (List_element<Timeout> const *elem = pending_timeouts.first()) {
@@ -251,12 +236,24 @@ void Timeout_scheduler::_enable()
 	if (_destructor_called) {
 		return;
 	}
+	_set_time_source_timeout();
+}
 
-	/*
-	 * Trigger the execution of 'Timeout_scheduler::handle_timeout' in order
-	 * to update the time-source timeout.
-	 */
-	_time_source.schedule_timeout(Microseconds(0), *this);
+
+void Timeout_scheduler::_set_time_source_timeout()
+{
+	uint64_t duration_us { ~(uint64_t)0 };
+	if (_timeouts.first() != nullptr) {
+		duration_us = _timeouts.first()->_deadline.value -
+		              _current_time.value;
+	}
+	if (duration_us < _rate_limit_period.value) {
+		duration_us = _rate_limit_period.value;
+	}
+	if (duration_us > _max_sleep_time.value) {
+		duration_us = _max_sleep_time.value;
+	}
+	_time_source.set_timeout(Microseconds(duration_us), *this);
 }
 
 
@@ -312,12 +309,19 @@ void Timeout_scheduler::_schedule_timeout(Timeout         &timeout,
 	_insert_into_timeouts_list(timeout);
 
 	/*
-	 * If the new timeout is the first to trigger, we have to trigger the
-	 * execution of 'Timeout_scheduler::handle_timeout' in order to update
-	 * the time-source timeout.
+	 * If the new timeout is the first to trigger, we have to  update the
+	 * time-source timeout.
 	 */
 	if (_timeouts.first() == &timeout) {
-		_time_source.schedule_timeout(Microseconds(0), *this);
+
+		uint64_t duration_us { deadline_us - curr_time_us };
+		if (duration_us < _rate_limit_period.value) {
+			duration_us = _rate_limit_period.value;
+		}
+		if (duration_us > _max_sleep_time.value) {
+			duration_us = _max_sleep_time.value;
+		}
+		_time_source.set_timeout(Microseconds(duration_us), *this);
 	}
 }
 
