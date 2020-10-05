@@ -143,9 +143,14 @@ void Timeout_scheduler::handle_timeout(Duration curr_time)
 			} else {
 
 				/* re-schedule periodic timeouts */
+				uint64_t const triggered {
+					((_current_time.value - timeout._deadline.value) /
+					 timeout._period.value) + 1 };
+
 				_schedule_timeout(
-					timeout, Microseconds { _current_time.value +
-					                        timeout._period.value });
+					timeout,
+					Microseconds { timeout._deadline.value +
+					               triggered * timeout._period.value });
 			}
 			timeout._mutex.release();
 		}
@@ -314,7 +319,7 @@ void Timeout_scheduler::_schedule_periodic_timeout(Timeout         &timeout,
 	/* schedule new timeout */
 	timeout._handler = &handler;
 	timeout._period = period;
-	_schedule_timeout(timeout, _current_time);
+	_schedule_timeout(timeout, _time_source.curr_time().trunc_to_plain_us());
 
 	/*
 	 * If the new timeout is the first to trigger, we have to trigger the
