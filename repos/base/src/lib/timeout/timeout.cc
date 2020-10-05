@@ -59,22 +59,6 @@ bool Timeout::scheduled() { return _handler != nullptr; }
  ** Timeout_scheduler **
  ***********************/
 
-void Timeout_scheduler::_time_source_schedule_timeout()
-{
-	uint64_t duration_us { ~(uint64_t)0 };
-	if (_timeouts.first() != nullptr) {
-		duration_us = _timeouts.first()->_deadline.value - _current_time.value;
-	}
-	if (duration_us < _rate_limit_period.value) {
-		duration_us = _rate_limit_period.value;
-	}
-	if (duration_us > _max_sleep_time.value) {
-		duration_us = _max_sleep_time.value;
-	}
-	_time_source.schedule_timeout(Microseconds(duration_us), *this);
-}
-
-
 void Timeout_scheduler::handle_timeout(Duration curr_time)
 {
 	List<List_element<Timeout> > pending_timeouts { };
@@ -88,7 +72,12 @@ void Timeout_scheduler::handle_timeout(Duration curr_time)
 
 		/* apply rate limit to the handling of timeouts */
 		if (_current_time.value < _rate_limit_deadline.value) {
-			_time_source_schedule_timeout();
+
+			_time_source.schedule_timeout(
+				Microseconds { _rate_limit_deadline.value -
+				               _current_time.value },
+				*this);
+
 			return;
 		}
 		_rate_limit_deadline.value = _current_time.value +
@@ -164,7 +153,18 @@ void Timeout_scheduler::handle_timeout(Duration curr_time)
 		 * Schedule a new sleep timeout at the time source and release the
 		 * scheduler mutex afterwards.
 		 */
-		_time_source_schedule_timeout();
+		uint64_t duration_us { ~(uint64_t)0 };
+		if (_timeouts.first() != nullptr) {
+			duration_us = _timeouts.first()->_deadline.value -
+			              _current_time.value;
+		}
+		if (duration_us < _rate_limit_period.value) {
+			duration_us = _rate_limit_period.value;
+		}
+		if (duration_us > _max_sleep_time.value) {
+			duration_us = _max_sleep_time.value;
+		}
+		_time_source.schedule_timeout(Microseconds(duration_us), *this);
 	}
 	/* call the handler of each pending timeout */
 	while (List_element<Timeout> const *elem = pending_timeouts.first()) {

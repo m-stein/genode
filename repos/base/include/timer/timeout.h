@@ -153,8 +153,6 @@ class Genode::Timeout_scheduler : private Noncopyable,
 
 		void _discard_timeout_unsynchronized(Timeout &timeout);
 
-		void _time_source_schedule_timeout();
-
 		void _enable();
 
 		void _schedule_one_shot_timeout(Timeout         &timeout,
