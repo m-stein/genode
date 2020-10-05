@@ -27,7 +27,7 @@ class Test_thread
 {
 	private:
 
-		enum { STACK_SIZE = sizeof(unsigned long) * 1024 };
+		enum { STACK_SIZE = sizeof(unsigned long) * 4096 };
 
 		typedef void (TYPE::*Method)();
 
