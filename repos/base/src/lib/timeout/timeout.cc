@@ -242,11 +242,15 @@ void Timeout_scheduler::_enable()
 
 void Timeout_scheduler::_set_time_source_timeout()
 {
-	uint64_t duration_us { ~(uint64_t)0 };
-	if (_timeouts.first() != nullptr) {
-		duration_us = _timeouts.first()->_deadline.value -
-		              _current_time.value;
-	}
+	_set_time_source_timeout(
+		_timeouts.first() ?
+			_timeouts.first()->_deadline.value - _current_time.value :
+			~(uint64_t)0);
+}
+
+
+void Timeout_scheduler::_set_time_source_timeout(uint64_t duration_us)
+{
 	if (duration_us < _rate_limit_period.value) {
 		duration_us = _rate_limit_period.value;
 	}
@@ -313,15 +317,7 @@ void Timeout_scheduler::_schedule_timeout(Timeout         &timeout,
 	 * time-source timeout.
 	 */
 	if (_timeouts.first() == &timeout) {
-
-		uint64_t duration_us { deadline_us - curr_time_us };
-		if (duration_us < _rate_limit_period.value) {
-			duration_us = _rate_limit_period.value;
-		}
-		if (duration_us > _max_sleep_time.value) {
-			duration_us = _max_sleep_time.value;
-		}
-		_time_source.set_timeout(Microseconds(duration_us), *this);
+		_set_time_source_timeout(deadline_us - curr_time_us);
 	}
 }
 

@@ -153,6 +153,8 @@ class Genode::Timeout_scheduler : private Noncopyable,
 
 		void _set_time_source_timeout();
 
+		void _set_time_source_timeout(uint64_t duration_us);
+
 		void _schedule_timeout(Timeout         &timeout,
 		                       Microseconds     duration,
 		                       Microseconds     period,
