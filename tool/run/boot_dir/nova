@@ -9,7 +9,7 @@ proc run_boot_string { } {
 	return "\nHypervisor NOVA "
 }
 
-proc apply_microcode { } { return false }
+proc apply_microcode { } { return true }
 
 proc core_link_address { } { return "0x100000" }
 
