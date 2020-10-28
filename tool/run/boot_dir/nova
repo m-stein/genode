@@ -62,7 +62,7 @@ proc run_boot_dir {binaries} {
 	#
 	# Setup bender and plugins
 	#
-	set options_bender ""
+	set options_bender " hwp"
 
 	if {[apply_microcode]} {
 		exec cp bin/micro.code [run_dir]/boot/
