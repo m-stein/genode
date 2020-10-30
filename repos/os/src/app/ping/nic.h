@@ -57,17 +57,22 @@ class Net::Nic
 		Genode::Allocator      &_alloc;
 		Nic_handler            &_handler;
 		bool             const &_verbose;
-		::Nic::Packet_allocator _pkt_alloc     { &_alloc };
-		::Nic::Connection       _nic           { _env, &_pkt_alloc, BUF_SIZE, BUF_SIZE };
-		Signal_handler          _sink_ack      { _env.ep(), *this, &Nic::_ack_avail };
-		Signal_handler          _sink_submit   { _env.ep(), *this, &Nic::_ready_to_submit };
-		Signal_handler          _source_ack    { _env.ep(), *this, &Nic::_ready_to_ack };
-		Signal_handler          _source_submit { _env.ep(), *this, &Nic::_packet_avail };
-		Mac_address      const  _mac           { _nic.mac_address() };
+		::Nic::Packet_allocator _pkt_alloc       { &_alloc };
+		::Nic::Connection       _nic             { _env, &_pkt_alloc, BUF_SIZE, BUF_SIZE };
+		Signal_handler          _sink_ack        { _env.ep(), *this, &Nic::_ack_avail };
+		Signal_handler          _sink_submit     { _env.ep(), *this, &Nic::_ready_to_submit };
+		Signal_handler          _source_ack      { _env.ep(), *this, &Nic::_ready_to_ack };
+		Signal_handler          _source_submit   { _env.ep(), *this, &Nic::_packet_avail };
+		Mac_address      const  _mac             { _nic.mac_address() };
+		Signal_handler          _link_state_sigh { _env.ep(), *this, &Nic::_handle_link_state_sigh };
 
 		Net::Packet_stream_sink   &_sink()   { return *_nic.rx(); }
 		Net::Packet_stream_source &_source() { return *_nic.tx(); }
 
+		void _handle_link_state_sigh()
+		{
+			Genode::log("Link state signal received: link_state=", _nic.link_state());
+		}
 
 		/***********************************
 		 ** Packet-stream signal handlers **
@@ -95,6 +100,7 @@ class Net::Nic
 			_nic.rx_channel()->sigh_packet_avail(_sink_submit);
 			_nic.tx_channel()->sigh_ack_avail(_source_ack);
 			_nic.tx_channel()->sigh_ready_to_submit(_source_submit);
+			_nic.link_state_sigh(_link_state_sigh);
 		}
 
 		template <typename FUNC>
