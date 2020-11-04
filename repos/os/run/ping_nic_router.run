@@ -14,7 +14,7 @@ import_from_depot [depot_user]/src/[base_src] \
                   [depot_user]/src/nic_bridge \
                   [depot_user]/src/nic_router
 
-build { server/dynamic_rom app/ping }
+build { app/ping }
 
 proc good_dst_ip { } {
 	if {![have_include power_on/qemu]} {
@@ -59,95 +59,157 @@ append config {
 		<provides> <service name="Nic"/> </provides>
 	</start>
 
-	<start name="dynamic_rom">
-		<resource name="RAM" quantum="4M"/>
-		<provides><service name="ROM"/> </provides>
-		<config verbose="yes">
-			<rom name="nic_router.config">
-				<inline>
-
-					<config
-						verbose="no"
-						verbose_packets="no"
-						dhcp_discover_timeout_sec="1"
-						icmp_idle_timeout_sec="6"
-						link_state_min_dwell_ms="1000">
-
-						<policy label_prefix="ping" domain="ping"/>
-						<uplink                     domain="uplink"/>
-
-						<domain name="uplink">
-							<nat domain="ping" icmp-ids="100"/>
-						</domain>
-
-						<domain name="ping" interface="10.0.3.1/24">
-
-							<dhcp-server
-								ip_first="10.0.3.2"
-								ip_last="10.0.3.2"
-								dns_server="1.1.1.1"/>
-
-							<icmp dst="} [good_dst_ip] {/24" domain="uplink"/>
-
-						</domain>
-
-					</config>
-
-				</inline>
-				<sleep milliseconds="3000"/>
-				<inline>
-
-					<config verbose="no"
-							verbose_packets="no"
-							dhcp_discover_timeout_sec="1"
-							icmp_idle_timeout_sec="6"
-							link_state_min_dwell_ms="1000">
-
-						<policy label_prefix="ping" domain="ping"/>
-						<uplink                     domain="uplink"/>
-
-						<domain name="uplink">
-							<nat domain="ping" icmp-ids="100"/>
-						</domain>
-
-						<domain name="ping" interface="10.0.3.1/24">
-
-							<dhcp-server
-								ip_first="10.0.3.2"
-								ip_last="10.0.3.2"
-								dns_server="8.8.8.8"/>
-
-							<icmp dst="} [good_dst_ip] {/24" domain="uplink"/>
-
-						</domain>
-
-					</config>
-
-				</inline>
-				<sleep milliseconds="3600000"/>
-			</rom>
-		</config>
-	</start>
-
 	<start name="nic_router" caps="200">
 		<resource name="RAM" quantum="10M"/>
 		<provides><service name="Nic"/></provides>
+		<config verbose="no"
+		        verbose_packets="no"
+		        dhcp_discover_timeout_sec="1"
+		        icmp_idle_timeout_sec="6">
+
+			<policy label_prefix="ping_1" domain="ping_1"/>
+			<policy label_prefix="ping_2" domain="ping_2"/>
+			<uplink                       domain="uplink"/>
+
+			<domain name="uplink">
+				<nat domain="ping_1" icmp-ids="100"/>
+				<nat domain="ping_2" icmp-ids="100" udp-ports="100"/>
+			</domain>
+
+			<domain name="ping_2" interface="10.0.4.1/24">
+				<icmp dst="} [good_dst_ip] {/24" domain="uplink"/>
+				<udp dst="} [good_dst_ip] {/24">
+					<permit port="} [bad_dst_port] {" domain="uplink"/>
+				</udp>
+				<dhcp-server ip_first="10.0.4.2"
+				             ip_last="10.0.4.200"
+				             ip_lease_time_sec="4"/>
+			</domain>
+
+			<domain name="ping_1" interface="10.0.3.1/24">
+				<icmp dst="} [good_dst_ip] {/24" domain="uplink"/>
+			</domain>
+
+		</config>
 		<route>
-			<service name="ROM" label="config">
-				<child name="dynamic_rom" label="nic_router.config"/>
-			</service>
 			<service name="Nic"> <child name="drivers"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>
 
-	<start name="ping">
+	<start name="ping_2_nic_router" caps="200">
+		<binary name="nic_router"/>
+		<resource name="RAM" quantum="10M"/>
+		<provides><service name="Nic"/></provides>
+		<config verbose="no"
+		        verbose_packets="no"
+		        icmp_idle_timeout_sec="10">
+
+			<policy label_prefix="ping_2" domain="ping_2"/>
+			<uplink                       domain="uplink"/>
+
+			<domain name="uplink">
+				<nat domain="ping_2" icmp-ids="100" udp-ports="100"/>
+			</domain>
+
+			<domain name="ping_2" interface="10.0.5.1/24">
+				<dhcp-server ip_first="10.0.5.100"
+				             ip_last="10.0.5.200"/>
+
+				<icmp dst="} [bad_dst_ip] {/24" domain="uplink"/>
+				<icmp dst="} [good_dst_ip] {/24" domain="uplink"/>
+				<udp dst="} [good_dst_ip] {/24">
+					<permit port="} [bad_dst_port] {" domain="uplink"/>
+				</udp>
+			</domain>
+
+		</config>
+		<route>
+			<service name="Nic"> <child name="nic_router"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="ping_11">
+		<binary name="ping"/>
+		<resource name="RAM" quantum="8M"/>
+		<config interface="10.0.3.2/24"
+		        gateway="10.0.3.1"
+		        dst_ip="} [good_dst_ip] {"
+		        period_sec="1"
+		        verbose="no"/>
+		<route>
+			<service name="Nic"> <child name="nic_router"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="ping_12">
+		<binary name="ping"/>
+		<resource name="RAM" quantum="8M"/>
+		<config interface="10.0.3.3/24"
+		        gateway="10.0.3.1"
+		        dst_ip="} [good_dst_ip] {"
+		        period_sec="1"
+		        verbose="no"/>
+		<route>
+			<service name="Nic"> <child name="nic_router"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="ping_2_nic_bridge" caps="200">
+		<binary name="nic_bridge"/>
+		<resource name="RAM" quantum="10M"/>
+		<provides><service name="Nic"/></provides>
+		<config mac="12:12:12:12:12:00">
+			<policy label_prefix="ping_21"/>
+			<policy label_prefix="ping_23"/>
+		</config>
+		<route>
+		<service name="Nic"> <child name="ping_2_nic_router"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="ping_21">
+		<binary name="ping"/>
 		<resource name="RAM" quantum="8M"/>
 		<config dst_ip="} [good_dst_ip] {"
 		        period_sec="1"
 		        verbose="no"/>
 		<route>
-			<service name="Nic"> <child name="nic_router"/> </service>
+			<service name="Nic"> <child name="ping_2_nic_bridge"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="ping_22">
+		<binary name="ping"/>
+		<resource name="RAM" quantum="8M"/>
+		<config interface="10.0.5.3/24"
+		        gateway="10.0.5.1"
+		        dst_ip="} [bad_dst_ip] {"
+		        period_sec="1"
+		        verbose="no"/>
+		<route>
+			<service name="Nic"> <child name="ping_2_nic_router"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>}
+
+append_if $on_hardware config {
+	<start name="ping_23">
+		<binary name="ping"/>
+		<resource name="RAM" quantum="8M"/>
+		<config period_sec="1"
+		        verbose="no"
+		        count="1"
+		        protocol="udp"
+		        dst_ip="} [good_dst_ip] {"
+		        dst_port="} [bad_dst_port] {"/>
+		<route>
+			<service name="Nic"> <child name="ping_2_nic_bridge"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>}
@@ -156,11 +218,17 @@ append config {
 </config>}
 
 install_config $config
-build_boot_image { dynamic_rom ping }
+build_boot_image { ping }
 
 append qemu_args " -nographic "
 append_qemu_nic_args
 
-append done_string ".*child \"ping\" exited with exit value 0.*\n"
+set done_string ""
+for {set i 0} {$i < 3} {incr i 1} {
+	append done_string ".*child \"ping...\" exited with exit value 0.*\n"
+}
+append done_string ".*ping_22\] From 10.0.4.1 icmp_seq=.* Destination Unreachable.*\n"
+
+append_if $on_hardware done_string ".*ping_23\] From [good_dst_ip] Destination Unreachable.*\n"
 
 run_genode_until $done_string 30

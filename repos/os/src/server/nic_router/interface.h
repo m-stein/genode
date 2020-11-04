@@ -130,7 +130,7 @@ class Net::Interface : private Interface_list::Element
 		Packet_stream_sink                   &_sink;
 		Packet_stream_source                 &_source;
 		bool                                 &_session_link_state;
-		Signal_context_capability             _session_link_state_sigh     { };
+		Signal_context_capability             _session_link_state_sigh   { };
 		Signal_handler                        _sink_ack;
 		Signal_handler                        _sink_submit;
 		Signal_handler                        _source_ack;
@@ -140,31 +140,25 @@ class Net::Interface : private Interface_list::Element
 		Reference<Configuration>              _config;
 		Interface_policy                     &_policy;
 		Timer::Connection                    &_timer;
-		Timer::One_shot_timeout<Interface>    _suppress_link_state_timeout { _timer, *this, &Interface::_handle_suppress_link_state_timeout };
-		bool                                  _suppress_link_state         { false };
 		Genode::Allocator                    &_alloc;
-		Pointer<Domain>                       _domain                      { };
-		Arp_waiter_list                       _own_arp_waiters             { };
-		Link_list                             _tcp_links                   { };
-		Link_list                             _udp_links                   { };
-		Link_list                             _icmp_links                  { };
-		Link_list                             _dissolved_tcp_links         { };
-		Link_list                             _dissolved_udp_links         { };
-		Link_list                             _dissolved_icmp_links        { };
-		Dhcp_allocation_tree                  _dhcp_allocations            { };
-		Dhcp_allocation_list                  _released_dhcp_allocations   { };
-		Genode::Constructible<Dhcp_client>    _dhcp_client                 { };
+		Pointer<Domain>                       _domain                    { };
+		Arp_waiter_list                       _own_arp_waiters           { };
+		Link_list                             _tcp_links                 { };
+		Link_list                             _udp_links                 { };
+		Link_list                             _icmp_links                { };
+		Link_list                             _dissolved_tcp_links       { };
+		Link_list                             _dissolved_udp_links       { };
+		Link_list                             _dissolved_icmp_links      { };
+		Dhcp_allocation_tree                  _dhcp_allocations          { };
+		Dhcp_allocation_list                  _released_dhcp_allocations { };
+		Genode::Constructible<Dhcp_client>    _dhcp_client               { };
 		Interface_list                       &_interfaces;
-		Genode::Constructible<Update_domain>  _update_domain               { };
-		Interface_link_stats                  _udp_stats                   { };
-		Interface_link_stats                  _tcp_stats                   { };
-		Interface_link_stats                  _icmp_stats                  { };
-		Interface_object_stats                _arp_stats                   { };
-		Interface_object_stats                _dhcp_stats                  { };
-
-		void _handle_suppress_link_state_timeout(Genode::Duration);
-
-		void _do_suppress_link_state();
+		Genode::Constructible<Update_domain>  _update_domain             { };
+		Interface_link_stats                  _udp_stats                 { };
+		Interface_link_stats                  _tcp_stats                 { };
+		Interface_link_stats                  _icmp_stats                { };
+		Interface_object_stats                _arp_stats                 { };
+		Interface_object_stats                _dhcp_stats                { };
 
 		void _new_link(L3_protocol             const  protocol,
 		               Link_side_id            const &local_id,

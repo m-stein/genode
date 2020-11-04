@@ -331,7 +331,6 @@ void Interface::_detach_from_domain_raw()
 	_interfaces.insert(this);
 	_domain = Pointer<Domain>();
 	Signal_transmitter(_session_link_state_sigh).submit();
-	_do_suppress_link_state();
 
 	domain.tcp_stats().dissolve_interface(_tcp_stats);
 	domain.udp_stats().dissolve_interface(_udp_stats);
@@ -349,7 +348,6 @@ void Interface::_update_domain_object(Domain &new_domain) {
 	_interfaces.insert(this);
 	_domain = Pointer<Domain>();
 	Signal_transmitter(_session_link_state_sigh).submit();
-	_do_suppress_link_state();
 
 	old_domain.tcp_stats().dissolve_interface(_tcp_stats);
 	old_domain.udp_stats().dissolve_interface(_udp_stats);
@@ -443,7 +441,6 @@ void Interface::detach_from_remote_ip_config()
 {
 	/* only the DNS server address of the local DHCP server can be remote */
 	Signal_transmitter(_session_link_state_sigh).submit();
-	_do_suppress_link_state();
 }
 
 
@@ -451,7 +448,6 @@ void Interface::attach_to_remote_ip_config()
 {
 	/* only the DNS server address of the local DHCP server can be remote */
 	Signal_transmitter(_session_link_state_sigh).submit();
-	_do_suppress_link_state();
 }
 
 
@@ -462,20 +458,6 @@ void Interface::_detach_from_domain()
 		_detach_from_domain_raw();
 	}
 	catch (Pointer<Domain>::Invalid) { }
-}
-
-
-void Interface::_handle_suppress_link_state_timeout(Genode::Duration)
-{
-	_suppress_link_state = false;
-	Signal_transmitter(_session_link_state_sigh).submit();
-}
-
-
-void Interface::_do_suppress_link_state()
-{
-	_suppress_link_state = true;
-	_suppress_link_state_timeout.schedule(_config().link_state_min_dwell());
 }
 
 
@@ -894,7 +876,7 @@ void Interface::_send_icmp_dst_unreachable(Ipv4_address_prefix const &local_intf
 
 bool Interface::link_state() const
 {
-	return _domain.valid() && _session_link_state && !_suppress_link_state;
+	return _domain.valid() && _session_link_state;
 }
 
 
