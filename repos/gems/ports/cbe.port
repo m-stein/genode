@@ -1,0 +1,12 @@
+LICENSE   := AGPLv3
+VERSION   := git
+DOWNLOADS := cbe.git
+
+URL(cbe) := https://github.com/m-stein/cbe.git
+DIR(cbe) := cbe
+REV(cbe) := 337b31554b05a203b567c665b0a36516e9ea3245
+
+default: symlinks
+
+symlinks: $(DOWNLOADS)
+	ln -s cbe/src src
