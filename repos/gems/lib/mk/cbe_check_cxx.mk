@@ -1,14 +1,16 @@
+CBE_DIR = $(call select_from_ports,cbe)/cbe
+
 LIBS += spark libsparkcrypto sha256_4k cbe_common cbe_cxx_common
 LIBS += cbe_check
 
-INC_DIR += $(REP_DIR)/src/lib/cbe_check
-INC_DIR += $(REP_DIR)/src/lib/cbe_common
-INC_DIR += $(REP_DIR)/src/lib/cbe_check_cxx
-INC_DIR += $(REP_DIR)/src/lib/cbe_cxx_common
+INC_DIR += $(CBE_DIR)/src/lib/cbe_check
+INC_DIR += $(CBE_DIR)/src/lib/cbe_common
+INC_DIR += $(CBE_DIR)/src/lib/cbe_check_cxx
+INC_DIR += $(CBE_DIR)/src/lib/cbe_cxx_common
 
 SRC_ADB += cbe-cxx-cxx_check_library.adb
 
-vpath % $(REP_DIR)/src/lib/cbe_check_cxx
+vpath % $(CBE_DIR)/src/lib/cbe_check_cxx
 
 SHARED_LIB := yes
 
