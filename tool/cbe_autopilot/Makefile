@@ -3,50 +3,70 @@
 ####################
 
 GENODE_DIR ?= $(shell pwd)/../..
-CONTRIB_DIR ?= $(GENODE_DIR)/contrib
-REPOSITORIES += $(GENODE_DIR)/repos/gems
+BUILD_DIR ?= $(GENODE_DIR)/.build.cbe_autopilot
+DEPOT_USER ?= cbe_autopilot
+DEPOT_DIR ?= $(GENODE_DIR)/.depot.cbe_autopilot
+VERBOSE ?= @
+JOBS ?= $(shell nproc)
+CROSS_DEV_PREFIX ?= genode-x86-
+
+
+##########################
+# Internal configuration #
+##########################
+
+ARCH := x86_64
+CONTRIB_DIR := $(GENODE_DIR)/contrib
+BUILD_CONF := $(BUILD_DIR)/etc/build.conf
+TOOLS_CONF := $(BUILD_DIR)/etc/tools.conf
+CBE_PROJECT_FILE := $(BUILD_DIR)/cbe.gpr
+LSC_INSTALL_DIR := $(BUILD_DIR)/libsparkcrypto_install
+
+
+####################
+# Port directories #
+####################
+
+REPOSITORIES += $(GENODE_DIR)/repos/base
+REPOSITORIES += $(GENODE_DIR)/repos/base-nova
+REPOSITORIES += $(GENODE_DIR)/repos/base-linux
+REPOSITORIES += $(GENODE_DIR)/repos/os
 REPOSITORIES += $(GENODE_DIR)/repos/libports
+REPOSITORIES += $(GENODE_DIR)/repos/ports
+REPOSITORIES += $(GENODE_DIR)/repos/dde_linux
+REPOSITORIES += $(GENODE_DIR)/repos/gems
 
 include $(GENODE_DIR)/repos/base/mk/util.inc
 
-CBE_DIR := $(call select_from_ports,cbe)/cbe
-LSC_DIR := $(call select_from_ports,libsparkcrypto)/libsparkcrypto
+PORTS := \
+   ada-runtime bash coreutils curl dde_linux libc libiconv libsparkcrypto \
+   libssh ncurses nova openssl qemu-usb stdcxx virtualbox5 zlib stb \
+   ttf-bitstream-vera cbe
 
-.PHONY: checked_ports_exist
-ifeq ($(CBE_DIR),)
+MISSING_PORTS := \
+	$(strip $(foreach PORT,$(PORTS),$(if $(call select_from_ports,$(PORT)),,$(PORT))))
+
+ifneq ($(MISSING_PORTS),)
 checked_ports_exist:
 	@echo ""
 	@echo "Error: Ports not prepared or outdated:"
-	@echo "  cbe"
+	@echo "  $(MISSING_PORTS)"
 	@echo ""
 	@echo "You can prepare respectively update them as follows:"
-	@echo "  make -C $(shell pwd) ports"
+	@echo "  $(GENODE_DIR)/tool/ports/prepare_port $(MISSING_PORTS) -j$(JOBS)"
 	@echo ""
 	@false
 else
 checked_ports_exist:
 endif
 
-DEPOT_USER ?= cbe_autopilot
-BUILD_DIR ?= $(GENODE_DIR)/build/.cbe_autopilot
-DEPOT_DIR ?= $(GENODE_DIR)/.depot.$(DEPOT_USER)
-VERBOSE ?= @
-JOBS ?= $(shell nproc)
-CROSS_DEV_PREFIX ?= genode-x86-
-ARCH ?= x86_64
-
-##############
-# File paths #
-##############
-
-BUILD_CONF := $(BUILD_DIR)/etc/build.conf
-TOOLS_CONF := $(BUILD_DIR)/etc/tools.conf
-CBE_PROJECT_FILE := $(BUILD_DIR)/cbe.gpr
+CBE_DIR := $(call select_from_ports,cbe)/cbe
+LSC_DIR := $(call select_from_ports,libsparkcrypto)/libsparkcrypto
 
 
-#########
-# Tools #
-#########
+############
+# Commands #
+############
 
 BUILD_DIR_MAKE := \
    CROSS_DEV_PREFIX=$(CROSS_DEV_PREFIX) \
@@ -54,12 +74,7 @@ BUILD_DIR_MAKE := \
    DEPOT_DIR=$(DEPOT_DIR) \
    KERNEL=linux \
    BOARD=linux \
-   make -C $(BUILD_DIR)
-
-PREPARE_PORTS := \
-   CROSS_DEV_PREFIX=$(CROSS_DEV_PREFIX) \
-   CONTRIB_DIR=$(CONTRIB_DIR) \
-   $(GENODE_DIR)/tool/ports/prepare_port -j$(JOBS)
+   make -sC $(BUILD_DIR)
 
 DEPOT_CREATE := \
    CROSS_DEV_PREFIX=$(CROSS_DEV_PREFIX) \
@@ -92,11 +107,6 @@ GNAT_PROVE := gnatprove $(GNAT_PROVE_FLAGS)
 # Targets #
 ###########
 
-PORTS := \
-   ada-runtime bash coreutils curl dde_linux libc libiconv libsparkcrypto \
-   libssh ncurses nova openssl qemu-usb stdcxx virtualbox5 zlib stb \
-   ttf-bitstream-vera cbe
-
 RUN_OPT_DAU := RUN_OPT += --depot-auto-update
 
 $(BUILD_DIR):
@@ -110,13 +120,8 @@ $(BUILD_DIR):
 	$(VERBOSE)echo 'RUN_OPT += --depot-user $(DEPOT_USER)' >> $(BUILD_CONF)
 	$(VERBOSE)echo 'CROSS_DEV_PREFIX=$(CROSS_DEV_PREFIX)' > $(TOOLS_CONF)
 
-.PHONY: ports
-ports:
-	$(VERBOSE)$(PREPARE_PORTS) $(PORTS)
-
-.PHONY: $(CBE_PROJECT_FILE)
 $(CBE_PROJECT_FILE): $(BUILD_DIR) checked_ports_exist
-	$(VERBOSE)echo 'with "$(BUILD_DIR)/libsparkcrypto_install/libsparkcrypto";' > $(CBE_PROJECT_FILE)
+	$(VERBOSE)echo 'with "$(LSC_INSTALL_DIR)/libsparkcrypto";' > $(CBE_PROJECT_FILE)
 	$(VERBOSE)echo 'project CBE is' >> $(CBE_PROJECT_FILE)
 	$(VERBOSE)echo '   for Create_Missing_Dirs use "True";' >> $(CBE_PROJECT_FILE)
 	$(VERBOSE)echo '   for Object_Dir use "$(BUILD_DIR)/cbe_gpr_object_dir";' >> $(CBE_PROJECT_FILE)
@@ -129,14 +134,15 @@ $(CBE_PROJECT_FILE): $(BUILD_DIR) checked_ports_exist
 	$(VERBOSE)echo '   end Compiler;' >> $(CBE_PROJECT_FILE)
 	$(VERBOSE)echo 'end CBE;' >> $(CBE_PROJECT_FILE)
 
+$(LSC_INSTALL_DIR): $(BUILD_DIR) checked_ports_exist
+	$(VERBOSE)make -sC $(LSC_DIR) NO_SPARK=1 DESTDIR=$(LSC_INSTALL_DIR) install
+
 .PHONY: prove
-prove: $(CBE_PROJECT_FILE)
-	make -C $(LSC_DIR) \
-		NO_SPARK=1 DESTDIR=$(BUILD_DIR)/libsparkcrypto_install install
-	$(GNAT_PROVE) $(CBE_PROJECT_FILE)
+prove: $(LSC_INSTALL_DIR) $(CBE_PROJECT_FILE) checked_ports_exist
+	$(VERBOSE)$(GNAT_PROVE) $(CBE_PROJECT_FILE)
 
 .PHONY: basics
-basics: $(BUILD_DIR) prove
+basics: $(BUILD_DIR) prove checked_ports_exist
 	$(VERBOSE)$(DEPOT_CREATE) $(DEPOT_USER)/pkg/x86_64/cbe_demo
 	$(VERBOSE)$(BUILD_DIR_MAKE) run/cbe_tester
 	$(VERBOSE)$(BUILD_DIR_MAKE) run/vfs_cbe_init
