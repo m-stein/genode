@@ -4,14 +4,16 @@
 
 GENODE_DIR ?= $(shell pwd)/../..
 CONTRIB_DIR ?= $(GENODE_DIR)/contrib
-REPOSITORIES ?= $(GENODE_DIR)/repos/gems
+REPOSITORIES += $(GENODE_DIR)/repos/gems
+REPOSITORIES += $(GENODE_DIR)/repos/libports
 
 include $(GENODE_DIR)/repos/base/mk/util.inc
 
-CBE_REPO_DIR := $(call select_from_ports,cbe)/cbe
+CBE_DIR := $(call select_from_ports,cbe)/cbe
+LSC_DIR := $(call select_from_ports,libsparkcrypto)/libsparkcrypto
 
 .PHONY: checked_ports_exist
-ifeq ($(CBE_REPO_DIR),)
+ifeq ($(CBE_DIR),)
 checked_ports_exist:
 	@echo ""
 	@echo "Error: Ports not prepared or outdated:"
@@ -39,7 +41,6 @@ ARCH ?= x86_64
 
 BUILD_CONF := $(BUILD_DIR)/etc/build.conf
 TOOLS_CONF := $(BUILD_DIR)/etc/tools.conf
-CBE_CI_DIR := $(CBE_REPO_DIR)/.ci
 CBE_PROJECT_FILE := $(BUILD_DIR)/cbe.gpr
 
 
@@ -115,11 +116,11 @@ ports:
 
 .PHONY: $(CBE_PROJECT_FILE)
 $(CBE_PROJECT_FILE): $(BUILD_DIR) checked_ports_exist
-	$(VERBOSE)echo 'with "$(CBE_CI_DIR)/out/lsc/libsparkcrypto";' > $(CBE_PROJECT_FILE)
+	$(VERBOSE)echo 'with "$(BUILD_DIR)/libsparkcrypto_install/libsparkcrypto";' > $(CBE_PROJECT_FILE)
 	$(VERBOSE)echo 'project CBE is' >> $(CBE_PROJECT_FILE)
 	$(VERBOSE)echo '   for Create_Missing_Dirs use "True";' >> $(CBE_PROJECT_FILE)
-	$(VERBOSE)echo '   for Object_Dir use "$(CBE_CI_DIR)/out";' >> $(CBE_PROJECT_FILE)
-	$(VERBOSE)echo '   for Source_Dirs use ("$(CBE_REPO_DIR)/src/lib/sha256_4k", "$(CBE_REPO_DIR)/src/lib/cbe", "$(CBE_REPO_DIR)/src/lib/cbe_common");' >> $(CBE_PROJECT_FILE)
+	$(VERBOSE)echo '   for Object_Dir use "$(BUILD_DIR)/cbe_gpr_object_dir";' >> $(CBE_PROJECT_FILE)
+	$(VERBOSE)echo '   for Source_Dirs use ("$(CBE_DIR)/src/lib/sha256_4k", "$(CBE_DIR)/src/lib/cbe", "$(CBE_DIR)/src/lib/cbe_common");' >> $(CBE_PROJECT_FILE)
 	$(VERBOSE)echo '   for Library_Kind use "static";' >> $(CBE_PROJECT_FILE)
 	$(VERBOSE)echo '   for Library_Name use "cbe";' >> $(CBE_PROJECT_FILE)
 	$(VERBOSE)echo '   --  show full paths' >> $(CBE_PROJECT_FILE)
@@ -130,10 +131,8 @@ $(CBE_PROJECT_FILE): $(BUILD_DIR) checked_ports_exist
 
 .PHONY: prove
 prove: $(CBE_PROJECT_FILE)
-	git -C $(CBE_REPO_DIR) submodule init
-	git -C $(CBE_REPO_DIR) submodule update
-	make -C $(CBE_CI_DIR)/lsc \
-		NO_SPARK=1 DESTDIR=$(CBE_CI_DIR)/out/lsc install
+	make -C $(LSC_DIR) \
+		NO_SPARK=1 DESTDIR=$(BUILD_DIR)/libsparkcrypto_install install
 	$(GNAT_PROVE) $(CBE_PROJECT_FILE)
 
 .PHONY: basics
