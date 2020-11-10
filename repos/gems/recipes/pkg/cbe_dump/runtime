@@ -1,0 +1,18 @@
+<runtime ram="10M" caps="300" binary="init" config="init.config">
+
+	<requires>
+		<file_system label="cbe_fs"/>
+	</requires>
+
+	<content>
+		<rom label="cbe_dump"/>
+		<rom label="init"/>
+		<rom label="init.config"/>
+		<rom label="ld.lib.so"/>
+		<rom label="libsparkcrypto.lib.so"/>
+		<rom label="spark.lib.so"/>
+		<rom label="vfs.lib.so"/>
+		<rom label="vfs_block"/>
+	</content>
+
+</runtime>
