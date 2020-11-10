@@ -1,2 +1,3 @@
+CBE_DIR = $(call select_from_ports,cbe)/cbe
 
-INC_DIR += $(call select_from_repositories,src/lib/cbe_common)
+INC_DIR += $(CBE_DIR)/src/lib/cbe_common

@@ -1,6 +1,8 @@
+CBE_DIR = $(call select_from_ports,cbe)/cbe
+
 LIBS += spark sha256_4k
 
-INC_DIR += $(REP_DIR)/src/lib/cbe_common
+INC_DIR += $(CBE_DIR)/src/lib/cbe_common
 
 SRC_ADB += cbe.adb
 SRC_ADB += cbe-debug.adb
@@ -10,6 +12,6 @@ SRC_ADB += cbe-block_io.adb
 SRC_ADB += cbe-ta_request.adb
 SRC_ADB += cbe-trust_anchor.adb
 
-vpath % $(REP_DIR)/src/lib/cbe_common
+vpath % $(CBE_DIR)/src/lib/cbe_common
 
-CC_ADA_OPT += -gnatec=$(REP_DIR)/src/lib/cbe_common/pragmas.adc
+CC_ADA_OPT += -gnatec=$(CBE_DIR)/src/lib/cbe_common/pragmas.adc
