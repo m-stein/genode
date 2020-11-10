@@ -1,14 +1,24 @@
-####################
-# Public interface #
-####################
+#!/usr/bin/make -sf
 
-GENODE_DIR ?= $(shell pwd)/../..
-BUILD_DIR ?= $(GENODE_DIR)/.build.cbe_autopilot
-DEPOT_USER ?= cbe_autopilot
-DEPOT_DIR ?= $(GENODE_DIR)/.depot.cbe_autopilot
+
+######################
+# User configuration #
+######################
+
+DEFAULT_GENODE_DIR := $(realpath $(dir $(MAKEFILE_LIST))/..)
+DEFAULT_BUILD_DIR := $(DEFAULT_GENODE_DIR)/.build.cbe_autopilot
+DEFAULT_DEPOT_USER := cbe_autopilot
+DEFAULT_DEPOT_DIR := $(DEFAULT_GENODE_DIR)/.depot.cbe_autopilot
+DEFAULT_JOBS := $(shell nproc)
+DEFAULT_CROSS_DEV_PREFIX := genode-x86-
+
+GENODE_DIR ?= $(DEFAULT_GENODE_DIR)
+BUILD_DIR ?= $(DEFAULT_BUILD_DIR)
+DEPOT_USER ?= $(DEFAULT_DEPOT_USER)
+DEPOT_DIR ?= $(DEFAULT_DEPOT_DIR)
+JOBS ?= $(DEFAULT_JOBS)
+CROSS_DEV_PREFIX ?= $(DEFAULT_CROSS_DEV_PREFIX)
 VERBOSE ?= @
-JOBS ?= $(shell nproc)
-CROSS_DEV_PREFIX ?= genode-x86-
 
 
 ##########################
@@ -46,20 +56,6 @@ PORTS := \
 MISSING_PORTS := \
 	$(strip $(foreach PORT,$(PORTS),$(if $(call select_from_ports,$(PORT)),,$(PORT))))
 
-ifneq ($(MISSING_PORTS),)
-checked_ports_exist:
-	@echo ""
-	@echo "Error: Ports not prepared or outdated:"
-	@echo "  $(MISSING_PORTS)"
-	@echo ""
-	@echo "You can prepare respectively update them as follows:"
-	@echo "  $(GENODE_DIR)/tool/ports/prepare_port $(MISSING_PORTS) -j$(JOBS)"
-	@echo ""
-	@false
-else
-checked_ports_exist:
-endif
-
 CBE_DIR := $(call select_from_ports,cbe)/cbe
 LSC_DIR := $(call select_from_ports,libsparkcrypto)/libsparkcrypto
 
@@ -74,7 +70,7 @@ BUILD_DIR_MAKE := \
    DEPOT_DIR=$(DEPOT_DIR) \
    KERNEL=linux \
    BOARD=linux \
-   make -sC $(BUILD_DIR)
+   $(MAKE) -sC $(BUILD_DIR)
 
 DEPOT_CREATE := \
    CROSS_DEV_PREFIX=$(CROSS_DEV_PREFIX) \
@@ -107,6 +103,50 @@ GNAT_PROVE := gnatprove $(GNAT_PROVE_FLAGS)
 # Targets #
 ###########
 
+usage:
+	@echo
+	@echo "Tool to GNAT-prove and test the Consistent Block Encrypter (CBE)"
+	@echo
+	@echo "Usage:"
+	@echo
+	@echo "   $(firstword $(notdir $(MAKEFILE_LIST))) [clean|prove|basics]"
+	@echo
+	@echo "Considered environment variables:"
+	@echo ""
+	@echo "   VERBOSE=                            Show individual operations."
+	@echo ""
+	@echo "   JOBS=4                              Number of jobs to execute in parallel."
+	@echo "                                       Defaults to '$(DEFAULT_JOBS)'."
+	@echo ""
+	@echo "   GENODE_DIR=~/genode                 Base directory of Genode repository."
+	@echo "                                       Defaults to '$(DEFAULT_GENODE_DIR)'."
+	@echo ""
+	@echo "   DEPOT_USER=shrimp                   Genode depot user-name."
+	@echo "                                       Defaults to '$(DEFAULT_DEPOT_USER)'."
+	@echo ""
+	@echo "   DEPOT_DIR=~/depot                   Base directory of Genode depot."
+	@echo "                                       Defaults to '$(DEFAULT_DEPOT_DIR)'."
+	@echo ""
+	@echo "   BUILD_DIR=~/build                   Genode build directory."
+	@echo "                                       Defaults to '$(DEFAULT_BUILD_DIR)'."
+	@echo ""
+	@echo "   CROSS_DEV_PREFIX=~/bin/genode-x86-  GCC command prefix."
+	@echo "                                       Defaults to '$(DEFAULT_CROSS_DEV_PREFIX)'."
+
+ifneq ($(MISSING_PORTS),)
+checked_ports_exist:
+	@echo ""
+	@echo "Error: Ports not prepared or outdated:"
+	@echo "  $(MISSING_PORTS)"
+	@echo ""
+	@echo "You can prepare respectively update them as follows:"
+	@echo "  $(GENODE_DIR)/tool/ports/prepare_port $(MISSING_PORTS) -j$(JOBS)"
+	@echo ""
+	@false
+else
+checked_ports_exist:
+endif
+
 RUN_OPT_DAU := RUN_OPT += --depot-auto-update
 
 $(BUILD_DIR):
@@ -135,7 +175,7 @@ $(CBE_PROJECT_FILE): $(BUILD_DIR) checked_ports_exist
 	$(VERBOSE)echo 'end CBE;' >> $(CBE_PROJECT_FILE)
 
 $(LSC_INSTALL_DIR): $(BUILD_DIR) checked_ports_exist
-	$(VERBOSE)make -sC $(LSC_DIR) NO_SPARK=1 DESTDIR=$(LSC_INSTALL_DIR) install
+	$(VERBOSE)$(MAKE) -sC $(LSC_DIR) NO_SPARK=1 DESTDIR=$(LSC_INSTALL_DIR) install
 
 .PHONY: prove
 prove: $(LSC_INSTALL_DIR) $(CBE_PROJECT_FILE) checked_ports_exist
