@@ -1,5 +1,5 @@
 /*
- * \brief  Tool for running tests and benchmarks on the CBE
+ * \brief  Identifiers for the CBE modules used in the CBE tester
  * \author Martin Stein
  * \date   2020-08-26
  */

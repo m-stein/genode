@@ -1,0 +1,58 @@
+
+Done:
+ repos/gems/include/cbe/library.h                   |  406 +++
+ repos/gems/include/cbe/spark_object.h              |   59 +
+ repos/gems/include/cbe/types.h                     |  442 +++
+ repos/gems/include/cbe_check/library.h             |   53 +
+ repos/gems/include/cbe_crypto/interface.h          |  113 +
+ repos/gems/include/cbe_dump/configuration.h        |   95 +
+ repos/gems/include/cbe_dump/library.h              |   57 +
+ repos/gems/include/cbe_init/configuration.h        |   94 +
+ repos/gems/include/cbe_init/library.h              |  118 +
+ repos/gems/include/external_crypto.h               |  207 ++
+ repos/gems/include/external_ta.h                   |  159 +
+ repos/gems/include/util/io_job.h                   |  309 ++
+ repos/gems/include/util/sha256_4k.h                |   36 +
+ repos/gems/include/util/trust_anchor_vfs.h         |  756 +++++
+ repos/gems/src/app/cbe_check/main.cc               |  209 ++
+ repos/gems/src/app/cbe_dump/main.cc                |  225 ++
+ repos/gems/src/app/cbe_init/main.cc                |  368 +++
+ .../src/app/cbe_init_trust_anchor/component.cc     |  254 ++
+ repos/gems/src/app/cbe_tester/crypto.cc            |  354 +++
+ repos/gems/src/app/cbe_tester/crypto.h             |  121 +
+ repos/gems/src/app/cbe_tester/main.cc              | 2561 ++++++++++++++++
+ repos/gems/src/app/cbe_tester/module_type.h        |   78 +
+ repos/gems/src/app/cbe_tester/trust_anchor.cc      |  606 ++++
+ repos/gems/src/app/cbe_tester/trust_anchor.h       |  124 +
+ repos/gems/src/app/cbe_tester/util.h               |  149 +
+ repos/gems/src/app/cbe_tester/verbose_node.h       |   69 +
+ repos/gems/src/app/cbe_tester/vfs_utilities.cc     |   74 +
+ repos/gems/src/app/cbe_tester/vfs_utilities.h      |   54 +
+ repos/gems/src/app/vfs_replay/component.cc         |  543 ++++
+ repos/gems/src/lib/external/external.ads           |   15 +
+ .../src/lib/external_crypto/external-crypto.adb    |  428 +++
+ .../src/lib/external_crypto/external-crypto.ads    |  197 ++
+ .../external_crypto_cxx/external-crypto-cxx.adb    |  140 +
+ .../external_crypto_cxx/external-crypto-cxx.ads    |  150 +
+
+Remove:
+ repos/gems/src/app/cbe_tester/block_io.h           |    0
+ repos/gems/src/app/cbe_tester/config_node.h        |   70 +
+
+Fix headers:
+ .../external-trust_anchor.adb                      |  428 +++
+ .../external-trust_anchor.ads                      |  169 ++
+ .../gems/src/lib/external_trust_anchor/pragmas.adc |    2 +
+ .../external-trust_anchor-cxx.adb                  |  128 +
+ .../external-trust_anchor-cxx.ads                  |  131 +
+ repos/gems/src/lib/vfs/cbe/dummy.ads               |    8 +
+ repos/gems/src/lib/vfs/cbe/io_job.h                |  291 ++
+ repos/gems/src/lib/vfs/cbe/vfs.cc                  | 3115 ++++++++++++++++++++
+ .../gems/src/lib/vfs/cbe_crypto/aes_cbc/aes_cbc.cc |  278 ++
+ .../gems/src/lib/vfs/cbe_crypto/aes_cbc/dummy.ads  |    8 +
+ .../gems/src/lib/vfs/cbe_crypto/memcopy/memcopy.cc |  135 +
+ repos/gems/src/lib/vfs/cbe_crypto/vfs.cc           | 1166 ++++++++
+ repos/gems/src/lib/vfs/cbe_trust_anchor/vfs.cc     | 1745 +++++++++++
+ repos/gems/src/test/cbe/main.cc                    |  311 ++
+ repos/gems/src/test/external_crypto_cxx/dummy.ads  |    8 +
+ repos/gems/src/test/external_crypto_cxx/main.cc    |  136 +

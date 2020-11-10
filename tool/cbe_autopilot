@@ -1,5 +1,11 @@
 #!/usr/bin/make -sf
 
+#
+# \brief  Tool to GNAT-prove and test the Consistent Block Encrypter (CBE)
+# \author Martin Stein
+# \date   2020-11-10
+#
+
 
 ######################
 # User configuration #

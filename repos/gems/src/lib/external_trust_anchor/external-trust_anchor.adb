@@ -1,5 +1,5 @@
 --
---  Copyright (C) 2019 Genode Labs GmbH, Componolit GmbH, secunet AG
+--  Copyright (C) 2019-2020 Genode Labs GmbH
 --
 --  This file is part of the Consistent Block Encrypter project, which is
 --  distributed under the terms of the GNU Affero General Public License
