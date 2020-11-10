@@ -33,4 +33,4 @@ src/lib/external_trust_anchor_cxx/target.mk: src/lib/external_trust_anchor_cxx
 	echo "LIBS += external_trust_anchor_cxx" > $@
 
 LICENSE:
-	cp $(REP_DIR)/LICENSE $@
+	cp $(GENODE_DIR)/LICENSE $@

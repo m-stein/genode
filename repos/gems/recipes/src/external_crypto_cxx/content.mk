@@ -33,4 +33,4 @@ src/lib/external_crypto_cxx/target.mk: src/lib/external_crypto_cxx
 	echo "LIBS += external_crypto_cxx" > $@
 
 LICENSE:
-	cp $(REP_DIR)/LICENSE $@
+	cp $(GENODE_DIR)/LICENSE $@

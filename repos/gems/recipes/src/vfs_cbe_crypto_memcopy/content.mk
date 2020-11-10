@@ -10,4 +10,4 @@ $(MIRROR_FROM_REP_DIR):
 	$(mirror_from_rep_dir)
 
 LICENSE:
-	cp $(REP_DIR)/LICENSE $@
+	cp $(GENODE_DIR)/LICENSE $@

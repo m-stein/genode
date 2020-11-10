@@ -10,4 +10,4 @@ lib/symbols/external_crypto_cxx:
 	$(mirror_from_rep_dir)
 
 LICENSE:
-	cp $(REP_DIR)/LICENSE $@
+	cp $(GENODE_DIR)/LICENSE $@
