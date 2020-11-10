@@ -1,0 +1,1047 @@
+assert_spec linux
+
+exec rm -rf var/libcache/cbe
+exec rm -rf var/libcache/cbe_cxx
+exec rm -rf var/libcache/cbe_common
+exec rm -rf var/libcache/cbe_common_cxx
+exec rm -rf var/libcache/cbe_init
+exec rm -rf var/libcache/cbe_init_cxx
+exec rm -rf var/libcache/cbe_check
+exec rm -rf var/libcache/cbe_check_cxx
+exec rm -rf var/libcache/cbe_dump
+exec rm -rf var/libcache/cbe_dump_cxx
+exec rm -rf var/libcache/external_crypto_init
+exec rm -rf var/libcache/external_crypto_init_cxx
+exec rm -rf var/libcache/external_crypto
+exec rm -rf var/libcache/external_crypto_cxx
+
+create_boot_directory
+
+proc cbe_image_file { } {
+	return "vfs_cbe_replay.img"
+}
+
+build {
+	core
+	init
+	timer
+	server/vfs
+	server/lx_block
+	server/lx_fs
+	lib/vfs/cbe
+	app/vfs_replay
+}
+
+set config {
+<config verbose="yes">
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="RAM"/>
+		<service name="IRQ"/>
+		<service name="IO_MEM"/>
+		<service name="IO_PORT"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="LOG"/>
+	</parent-provides>
+
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+
+	<default caps="100"/>
+	<start name="timer">
+		<resource name="RAM" quantum="1M"/>
+		<provides><service name="Timer"/></provides>
+	</start>
+
+	<start name="lx_fs" ld="no">
+		<resource name="RAM" quantum="4M"/>
+		<provides> <service name="File_system"/> </provides>
+		<config>
+			<default-policy root="/" writeable="yes"/>
+		</config>
+	</start>}
+
+append config {
+
+	<start name="vfs_replay" caps="120">
+		<resource name="RAM" quantum="30M"/>
+		<provides><service name="File_system"/></provides>
+		<config file="/dev/cbe/current/data">
+			<replay>
+				<request type="sync"/>
+				<request type="read" offset="0" count="512"/>
+				<request type="read" offset="0" count="4096"/>
+				<request type="read" offset="4096" count="4096"/>
+				<request type="read" offset="1073676288" count="4096"/>
+				<request type="read" offset="1073733632" count="4096"/>
+				<request type="read" offset="0" count="4096"/>
+				<request type="read" offset="4096" count="4096"/>
+				<request type="read" offset="1073737728" count="4096"/>
+				<request type="read" offset="1073606656" count="4096"/>
+				<request type="read" offset="1073709056" count="4096"/>
+				<request type="read" offset="1073610752" count="4096"/>
+				<request type="read" offset="1073537024" count="4096"/>
+				<request type="read" offset="1073438720" count="4096"/>
+				<request type="read" offset="1073393664" count="4096"/>
+				<request type="read" offset="1073364992" count="4096"/>
+				<request type="read" offset="1073274880" count="4096"/>
+				<request type="read" offset="1073242112" count="4096"/>
+				<request type="read" offset="1073233920" count="4096"/>
+				<request type="read" offset="1073254400" count="4096"/>
+				<request type="read" offset="1072160768" count="4096"/>
+				<request type="read" offset="16384" count="4096"/>
+				<request type="read" offset="32768" count="4096"/>
+				<request type="read" offset="65536" count="4096"/>
+				<request type="read" offset="131072" count="4096"/>
+				<request type="read" offset="262144" count="4096"/>
+				<request type="read" offset="524288" count="4096"/>
+				<request type="read" offset="1048576" count="4096"/>
+				<request type="read" offset="2097152" count="4096"/>
+				<request type="read" offset="4194304" count="4096"/>
+				<request type="read" offset="12288" count="4096"/>
+				<request type="read" offset="28672" count="4096"/>
+				<request type="read" offset="61440" count="4096"/>
+				<request type="read" offset="8192" count="4096"/>
+				<request type="read" offset="20480" count="8192"/>
+				<request type="read" offset="36864" count="24576"/>
+				<request type="read" offset="69632" count="61440"/>
+				<request type="read" offset="135168" count="126976"/>
+				<request type="read" offset="266240" count="258048"/>
+				<request type="read" offset="1073217536" count="16384"/>
+				<request type="read" offset="1073238016" count="4096"/>
+				<request type="read" offset="1073246208" count="8192"/>
+				<request type="read" offset="1073258496" count="16384"/>
+				<request type="read" offset="1073278976" count="86016"/>
+				<request type="read" offset="1073369088" count="24576"/>
+				<request type="read" offset="1073397760" count="40960"/>
+				<request type="read" offset="1073442816" count="36864"/>
+				<request type="read" offset="1073479680" count="57344"/>
+				<request type="read" offset="1073541120" count="65536"/>
+				<request type="read" offset="1073614848" count="61440"/>
+				<request type="read" offset="1073680384" count="28672"/>
+				<request type="read" offset="1073713152" count="20480"/>
+				<request type="read" offset="1073676288" count="4096"/>
+				<request type="read" offset="1073733632" count="4096"/>
+				<request type="read" offset="0" count="4096"/>
+				<request type="read" offset="4096" count="4096"/>
+				<request type="read" offset="1073737728" count="4096"/>
+				<request type="read" offset="1073606656" count="4096"/>
+				<request type="read" offset="1073709056" count="4096"/>
+				<request type="read" offset="1073610752" count="4096"/>
+				<request type="read" offset="1073537024" count="4096"/>
+				<request type="read" offset="1073438720" count="4096"/>
+				<request type="read" offset="1073393664" count="4096"/>
+				<request type="read" offset="1073364992" count="4096"/>
+				<request type="read" offset="1073274880" count="4096"/>
+				<request type="read" offset="1073242112" count="4096"/>
+				<request type="read" offset="1073233920" count="4096"/>
+				<request type="read" offset="1073254400" count="4096"/>
+				<request type="read" offset="1072160768" count="4096"/>
+				<request type="read" offset="16384" count="4096"/>
+				<request type="read" offset="32768" count="4096"/>
+				<request type="read" offset="65536" count="4096"/>
+				<request type="read" offset="131072" count="4096"/>
+				<request type="read" offset="262144" count="4096"/>
+				<request type="read" offset="524288" count="4096"/>
+				<request type="read" offset="1048576" count="4096"/>
+				<request type="read" offset="2097152" count="4096"/>
+				<request type="read" offset="4194304" count="4096"/>
+				<request type="read" offset="12288" count="4096"/>
+				<request type="read" offset="28672" count="4096"/>
+				<request type="read" offset="61440" count="4096"/>
+				<request type="read" offset="8192" count="4096"/>
+				<request type="read" offset="20480" count="8192"/>
+				<request type="read" offset="36864" count="24576"/>
+				<request type="read" offset="69632" count="61440"/>
+				<request type="read" offset="135168" count="126976"/>
+				<request type="read" offset="266240" count="258048"/>
+				<request type="read" offset="1073217536" count="16384"/>
+				<request type="read" offset="1073238016" count="4096"/>
+				<request type="read" offset="1073246208" count="8192"/>
+				<request type="read" offset="1073258496" count="16384"/>
+				<request type="read" offset="1073278976" count="86016"/>
+				<request type="read" offset="1073369088" count="24576"/>
+				<request type="read" offset="1073397760" count="40960"/>
+				<request type="read" offset="1073442816" count="36864"/>
+				<request type="read" offset="1073479680" count="57344"/>
+				<request type="read" offset="1073541120" count="65536"/>
+				<request type="read" offset="1073614848" count="61440"/>
+				<request type="read" offset="1073680384" count="28672"/>
+				<request type="read" offset="1073713152" count="20480"/>
+				<request type="read" offset="1073676288" count="4096"/>
+				<request type="read" offset="1073733632" count="4096"/>
+				<request type="read" offset="0" count="4096"/>
+				<request type="read" offset="4096" count="4096"/>
+				<request type="read" offset="1073737728" count="4096"/>
+				<request type="read" offset="1073606656" count="4096"/>
+				<request type="read" offset="1073709056" count="4096"/>
+				<request type="read" offset="1073610752" count="4096"/>
+				<request type="read" offset="1073537024" count="4096"/>
+				<request type="read" offset="1073438720" count="4096"/>
+				<request type="read" offset="1073393664" count="4096"/>
+				<request type="read" offset="1073364992" count="4096"/>
+				<request type="read" offset="1073274880" count="4096"/>
+				<request type="read" offset="1073242112" count="4096"/>
+				<request type="read" offset="1073233920" count="4096"/>
+				<request type="read" offset="1073254400" count="4096"/>
+				<request type="read" offset="1072160768" count="4096"/>
+				<request type="read" offset="16384" count="4096"/>
+				<request type="read" offset="32768" count="4096"/>
+				<request type="read" offset="65536" count="4096"/>
+				<request type="read" offset="131072" count="4096"/>
+				<request type="read" offset="262144" count="4096"/>
+				<request type="read" offset="524288" count="4096"/>
+				<request type="read" offset="1048576" count="4096"/>
+				<request type="read" offset="2097152" count="4096"/>
+				<request type="read" offset="4194304" count="4096"/>
+				<request type="read" offset="12288" count="4096"/>
+				<request type="read" offset="28672" count="4096"/>
+				<request type="read" offset="61440" count="4096"/>
+				<request type="read" offset="8192" count="4096"/>
+				<request type="read" offset="20480" count="8192"/>
+				<request type="read" offset="36864" count="24576"/>
+				<request type="read" offset="69632" count="61440"/>
+				<request type="read" offset="135168" count="126976"/>
+				<request type="read" offset="266240" count="258048"/>
+				<request type="read" offset="1073217536" count="16384"/>
+				<request type="read" offset="1073238016" count="4096"/>
+				<request type="read" offset="1073246208" count="8192"/>
+				<request type="read" offset="1073258496" count="16384"/>
+				<request type="read" offset="1073278976" count="86016"/>
+				<request type="read" offset="1073369088" count="24576"/>
+				<request type="read" offset="1073397760" count="40960"/>
+				<request type="read" offset="1073442816" count="36864"/>
+				<request type="read" offset="1073479680" count="57344"/>
+				<request type="read" offset="1073541120" count="65536"/>
+				<request type="read" offset="1073614848" count="61440"/>
+				<request type="read" offset="1073680384" count="28672"/>
+				<request type="read" offset="1073713152" count="20480"/>
+				<request type="read" offset="0" count="131072"/>
+				<request type="read" offset="0" count="131072"/>
+				<request type="read" offset="0" count="4096"/>
+				<request type="read" offset="4096" count="4096"/>
+				<request type="read" offset="1073676288" count="4096"/>
+				<request type="read" offset="1073733632" count="4096"/>
+				<request type="read" offset="1073737728" count="4096"/>
+				<request type="read" offset="1073606656" count="4096"/>
+				<request type="read" offset="1073709056" count="4096"/>
+				<request type="read" offset="1073610752" count="4096"/>
+				<request type="read" offset="1073537024" count="4096"/>
+				<request type="read" offset="1073438720" count="4096"/>
+				<request type="read" offset="1073393664" count="4096"/>
+				<request type="read" offset="1073364992" count="4096"/>
+				<request type="read" offset="1073274880" count="4096"/>
+				<request type="read" offset="1073242112" count="4096"/>
+				<request type="read" offset="1073233920" count="4096"/>
+				<request type="read" offset="1073254400" count="4096"/>
+				<request type="read" offset="1072160768" count="4096"/>
+				<request type="read" offset="16384" count="4096"/>
+				<request type="read" offset="32768" count="4096"/>
+				<request type="read" offset="65536" count="4096"/>
+				<request type="read" offset="131072" count="4096"/>
+				<request type="read" offset="262144" count="4096"/>
+				<request type="read" offset="524288" count="4096"/>
+				<request type="read" offset="1048576" count="4096"/>
+				<request type="read" offset="2097152" count="4096"/>
+				<request type="read" offset="4194304" count="4096"/>
+				<request type="read" offset="12288" count="4096"/>
+				<request type="read" offset="28672" count="4096"/>
+				<request type="read" offset="61440" count="4096"/>
+				<request type="read" offset="8192" count="4096"/>
+				<request type="read" offset="20480" count="8192"/>
+				<request type="read" offset="36864" count="24576"/>
+				<request type="read" offset="69632" count="61440"/>
+				<request type="read" offset="135168" count="126976"/>
+				<request type="read" offset="266240" count="258048"/>
+				<request type="read" offset="1073217536" count="16384"/>
+				<request type="read" offset="1073238016" count="4096"/>
+				<request type="read" offset="1073246208" count="8192"/>
+				<request type="read" offset="1073258496" count="16384"/>
+				<request type="read" offset="1073278976" count="86016"/>
+				<request type="read" offset="1073369088" count="24576"/>
+				<request type="read" offset="1073397760" count="40960"/>
+				<request type="read" offset="1073442816" count="36864"/>
+				<request type="read" offset="1073479680" count="57344"/>
+				<request type="read" offset="1073541120" count="65536"/>
+				<request type="read" offset="1073614848" count="61440"/>
+				<request type="read" offset="1073680384" count="28672"/>
+				<request type="read" offset="1073713152" count="20480"/>
+				<request type="read" offset="0" count="4096"/>
+				<request type="read" offset="4096" count="4096"/>
+				<request type="read" offset="1073676288" count="4096"/>
+				<request type="read" offset="1073733632" count="4096"/>
+				<request type="read" offset="1073737728" count="4096"/>
+				<request type="read" offset="1073606656" count="4096"/>
+				<request type="read" offset="1073709056" count="4096"/>
+				<request type="read" offset="1073610752" count="4096"/>
+				<request type="read" offset="1073537024" count="4096"/>
+				<request type="read" offset="1073438720" count="4096"/>
+				<request type="read" offset="1073393664" count="4096"/>
+				<request type="read" offset="1073364992" count="4096"/>
+				<request type="read" offset="1073274880" count="4096"/>
+				<request type="read" offset="1073242112" count="4096"/>
+				<request type="read" offset="1073233920" count="4096"/>
+				<request type="read" offset="1073254400" count="4096"/>
+				<request type="read" offset="1072160768" count="4096"/>
+				<request type="read" offset="16384" count="4096"/>
+				<request type="read" offset="32768" count="4096"/>
+				<request type="read" offset="65536" count="4096"/>
+				<request type="read" offset="131072" count="4096"/>
+				<request type="read" offset="262144" count="4096"/>
+				<request type="read" offset="524288" count="4096"/>
+				<request type="read" offset="1048576" count="4096"/>
+				<request type="read" offset="2097152" count="4096"/>
+				<request type="read" offset="4194304" count="4096"/>
+				<request type="read" offset="12288" count="4096"/>
+				<request type="read" offset="28672" count="4096"/>
+				<request type="read" offset="61440" count="4096"/>
+				<request type="read" offset="8192" count="4096"/>
+				<request type="read" offset="20480" count="8192"/>
+				<request type="read" offset="36864" count="24576"/>
+				<request type="read" offset="69632" count="61440"/>
+				<request type="read" offset="135168" count="126976"/>
+				<request type="read" offset="266240" count="258048"/>
+				<request type="read" offset="1073217536" count="16384"/>
+				<request type="read" offset="1073238016" count="4096"/>
+				<request type="read" offset="1073246208" count="8192"/>
+				<request type="read" offset="1073258496" count="16384"/>
+				<request type="read" offset="1073278976" count="86016"/>
+				<request type="read" offset="1073369088" count="24576"/>
+				<request type="read" offset="1073397760" count="40960"/>
+				<request type="read" offset="1073442816" count="36864"/>
+				<request type="read" offset="1073479680" count="57344"/>
+				<request type="read" offset="1073541120" count="65536"/>
+				<request type="read" offset="1073614848" count="61440"/>
+				<request type="read" offset="1073680384" count="28672"/>
+				<request type="read" offset="1073713152" count="20480"/>
+				<request type="read" offset="1052672" count="4096"/>
+				<request type="read" offset="1072144384" count="4096"/>
+				<request type="read" offset="1064960" count="4096"/>
+				<request type="read" offset="1081344" count="4096"/>
+				<request type="read" offset="1114112" count="4096"/>
+				<request type="read" offset="1179648" count="4096"/>
+				<request type="read" offset="1310720" count="4096"/>
+				<request type="read" offset="1572864" count="4096"/>
+				<request type="read" offset="3145728" count="4096"/>
+				<request type="read" offset="5242880" count="4096"/>
+				<request type="read" offset="1060864" count="4096"/>
+				<request type="read" offset="1077248" count="4096"/>
+				<request type="read" offset="1110016" count="4096"/>
+				<request type="read" offset="1056768" count="4096"/>
+				<request type="read" offset="1069056" count="8192"/>
+				<request type="read" offset="1085440" count="24576"/>
+				<request type="read" offset="1118208" count="61440"/>
+				<request type="read" offset="1183744" count="126976"/>
+				<request type="read" offset="1314816" count="258048"/>
+				<request type="read" offset="1072955392" count="262144"/>
+				<request type="read" offset="9371648" count="4096"/>
+				<request type="read" offset="9428992" count="4096"/>
+				<request type="read" offset="9433088" count="4096"/>
+				<request type="read" offset="9302016" count="4096"/>
+				<request type="read" offset="9404416" count="4096"/>
+				<request type="read" offset="9306112" count="4096"/>
+				<request type="read" offset="9232384" count="4096"/>
+				<request type="read" offset="9134080" count="4096"/>
+				<request type="read" offset="9089024" count="4096"/>
+				<request type="read" offset="9060352" count="4096"/>
+				<request type="read" offset="8970240" count="4096"/>
+				<request type="read" offset="8937472" count="4096"/>
+				<request type="read" offset="8929280" count="4096"/>
+				<request type="read" offset="8949760" count="4096"/>
+				<request type="read" offset="7856128" count="4096"/>
+				<request type="read" offset="9437184" count="4096"/>
+				<request type="read" offset="9441280" count="4096"/>
+				<request type="read" offset="9453568" count="4096"/>
+				<request type="read" offset="9469952" count="4096"/>
+				<request type="read" offset="9502720" count="4096"/>
+				<request type="read" offset="9568256" count="4096"/>
+				<request type="read" offset="9699328" count="4096"/>
+				<request type="read" offset="9961472" count="4096"/>
+				<request type="read" offset="10485760" count="4096"/>
+				<request type="read" offset="11534336" count="4096"/>
+				<request type="read" offset="13631488" count="4096"/>
+				<request type="read" offset="9449472" count="4096"/>
+				<request type="read" offset="9465856" count="4096"/>
+				<request type="read" offset="9498624" count="4096"/>
+				<request type="read" offset="9445376" count="4096"/>
+				<request type="read" offset="9457664" count="8192"/>
+				<request type="read" offset="9474048" count="24576"/>
+				<request type="read" offset="9506816" count="61440"/>
+				<request type="read" offset="9572352" count="126976"/>
+				<request type="read" offset="9703424" count="258048"/>
+				<request type="read" offset="26148864" count="4096"/>
+				<request type="read" offset="26206208" count="4096"/>
+				<request type="read" offset="26210304" count="4096"/>
+				<request type="read" offset="26079232" count="4096"/>
+				<request type="read" offset="26181632" count="4096"/>
+				<request type="read" offset="26083328" count="4096"/>
+				<request type="read" offset="26009600" count="4096"/>
+				<request type="read" offset="25911296" count="4096"/>
+				<request type="read" offset="25866240" count="4096"/>
+				<request type="read" offset="25837568" count="4096"/>
+				<request type="read" offset="25747456" count="4096"/>
+				<request type="read" offset="25714688" count="4096"/>
+				<request type="read" offset="25706496" count="4096"/>
+				<request type="read" offset="25726976" count="4096"/>
+				<request type="read" offset="24633344" count="4096"/>
+				<request type="read" offset="26214400" count="4096"/>
+				<request type="read" offset="26218496" count="4096"/>
+				<request type="read" offset="26230784" count="4096"/>
+				<request type="read" offset="26247168" count="4096"/>
+				<request type="read" offset="26279936" count="4096"/>
+				<request type="read" offset="26345472" count="4096"/>
+				<request type="read" offset="26476544" count="4096"/>
+				<request type="read" offset="26738688" count="4096"/>
+				<request type="read" offset="27262976" count="4096"/>
+				<request type="read" offset="28311552" count="4096"/>
+				<request type="read" offset="30408704" count="4096"/>
+				<request type="read" offset="26226688" count="4096"/>
+				<request type="read" offset="26243072" count="4096"/>
+				<request type="read" offset="26275840" count="4096"/>
+				<request type="read" offset="26222592" count="4096"/>
+				<request type="read" offset="26234880" count="8192"/>
+				<request type="read" offset="26251264" count="24576"/>
+				<request type="read" offset="26284032" count="61440"/>
+				<request type="read" offset="26349568" count="126976"/>
+				<request type="read" offset="26480640" count="258048"/>
+				<request type="read" offset="294584320" count="4096"/>
+				<request type="read" offset="294641664" count="4096"/>
+				<request type="read" offset="294645760" count="4096"/>
+				<request type="read" offset="294514688" count="4096"/>
+				<request type="read" offset="294617088" count="4096"/>
+				<request type="read" offset="294518784" count="4096"/>
+				<request type="read" offset="294445056" count="4096"/>
+				<request type="read" offset="294346752" count="4096"/>
+				<request type="read" offset="294301696" count="4096"/>
+				<request type="read" offset="294273024" count="4096"/>
+				<request type="read" offset="294182912" count="4096"/>
+				<request type="read" offset="294150144" count="4096"/>
+				<request type="read" offset="294141952" count="4096"/>
+				<request type="read" offset="294162432" count="4096"/>
+				<request type="read" offset="293068800" count="4096"/>
+				<request type="read" offset="294125568" count="16384"/>
+				<request type="read" offset="294146048" count="4096"/>
+				<request type="read" offset="294154240" count="8192"/>
+				<request type="read" offset="294166528" count="16384"/>
+				<request type="read" offset="294187008" count="86016"/>
+				<request type="read" offset="294277120" count="24576"/>
+				<request type="read" offset="294305792" count="40960"/>
+				<request type="read" offset="294350848" count="36864"/>
+				<request type="read" offset="294387712" count="57344"/>
+				<request type="read" offset="294449152" count="65536"/>
+				<request type="read" offset="294522880" count="61440"/>
+				<request type="read" offset="294588416" count="28672"/>
+				<request type="read" offset="294621184" count="20480"/>
+				<request type="sync"/>
+				<request type="write" offset="0" count="20480"/>
+				<request type="write" offset="1073721344" count="20480"/>
+				<request type="read" offset="0" count="4096"/>
+				<request type="read" offset="4096" count="4096"/>
+				<request type="read" offset="8192" count="4096"/>
+				<request type="read" offset="12288" count="4096"/>
+				<request type="read" offset="16384" count="4096"/>
+				<request type="read" offset="1073737728" count="4096"/>
+				<request type="read" offset="1073721344" count="4096"/>
+				<request type="read" offset="1073725440" count="4096"/>
+				<request type="read" offset="1073729536" count="4096"/>
+				<request type="read" offset="1073733632" count="4096"/>
+				<request type="read" offset="1073676288" count="4096"/>
+				<request type="read" offset="294584320" count="4096"/>
+				<request type="read" offset="1073606656" count="4096"/>
+				<request type="read" offset="294641664" count="4096"/>
+				<request type="read" offset="1073709056" count="4096"/>
+				<request type="read" offset="1073610752" count="4096"/>
+				<request type="read" offset="1073537024" count="4096"/>
+				<request type="read" offset="1073438720" count="4096"/>
+				<request type="read" offset="1073393664" count="4096"/>
+				<request type="read" offset="1073364992" count="4096"/>
+				<request type="read" offset="1073274880" count="4096"/>
+				<request type="read" offset="1073242112" count="4096"/>
+				<request type="read" offset="1073233920" count="4096"/>
+				<request type="read" offset="26214400" count="4096"/>
+				<request type="read" offset="1073254400" count="4096"/>
+				<request type="read" offset="1072160768" count="4096"/>
+				<request type="read" offset="32768" count="4096"/>
+				<request type="read" offset="65536" count="4096"/>
+				<request type="read" offset="131072" count="4096"/>
+				<request type="read" offset="262144" count="4096"/>
+				<request type="read" offset="524288" count="4096"/>
+				<request type="read" offset="26218496" count="4096"/>
+				<request type="read" offset="1048576" count="4096"/>
+				<request type="read" offset="2097152" count="4096"/>
+				<request type="read" offset="4194304" count="4096"/>
+				<request type="read" offset="28672" count="4096"/>
+				<request type="read" offset="61440" count="4096"/>
+				<request type="read" offset="20480" count="8192"/>
+				<request type="read" offset="36864" count="24576"/>
+				<request type="read" offset="69632" count="61440"/>
+				<request type="read" offset="294645760" count="4096"/>
+				<request type="read" offset="135168" count="126976"/>
+				<request type="read" offset="266240" count="258048"/>
+				<request type="read" offset="294514688" count="4096"/>
+				<request type="read" offset="1073217536" count="16384"/>
+				<request type="read" offset="1073238016" count="4096"/>
+				<request type="read" offset="1073246208" count="8192"/>
+				<request type="read" offset="1073258496" count="16384"/>
+				<request type="read" offset="1073278976" count="86016"/>
+				<request type="read" offset="1073369088" count="24576"/>
+				<request type="read" offset="294617088" count="4096"/>
+				<request type="read" offset="1073397760" count="40960"/>
+				<request type="read" offset="1073442816" count="36864"/>
+				<request type="read" offset="1073479680" count="57344"/>
+				<request type="read" offset="1073541120" count="65536"/>
+				<request type="read" offset="1073614848" count="61440"/>
+				<request type="read" offset="1073680384" count="28672"/>
+				<request type="read" offset="1073713152" count="8192"/>
+				<request type="read" offset="294584320" count="4096"/>
+				<request type="read" offset="294518784" count="4096"/>
+				<request type="read" offset="9371648" count="4096"/>
+				<request type="read" offset="26148864" count="4096"/>
+				<request type="read" offset="9428992" count="4096"/>
+				<request type="read" offset="26206208" count="4096"/>
+				<request type="read" offset="1048576" count="4096"/>
+				<request type="read" offset="9437184" count="4096"/>
+				<request type="read" offset="1052672" count="4096"/>
+				<request type="read" offset="9433088" count="4096"/>
+				<request type="read" offset="9441280" count="4096"/>
+				<request type="read" offset="9302016" count="4096"/>
+				<request type="read" offset="26210304" count="4096"/>
+				<request type="read" offset="1064960" count="4096"/>
+				<request type="read" offset="26079232" count="4096"/>
+				<request type="read" offset="1081344" count="4096"/>
+				<request type="read" offset="1114112" count="4096"/>
+				<request type="read" offset="9453568" count="4096"/>
+				<request type="read" offset="1179648" count="4096"/>
+				<request type="read" offset="1310720" count="4096"/>
+				<request type="read" offset="9469952" count="4096"/>
+				<request type="read" offset="1572864" count="4096"/>
+				<request type="read" offset="9502720" count="4096"/>
+				<request type="read" offset="2097152" count="4096"/>
+				<request type="read" offset="9568256" count="4096"/>
+				<request type="read" offset="3145728" count="4096"/>
+				<request type="read" offset="9699328" count="4096"/>
+				<request type="read" offset="5242880" count="4096"/>
+				<request type="read" offset="9961472" count="4096"/>
+				<request type="read" offset="1060864" count="4096"/>
+				<request type="read" offset="294641664" count="4096"/>
+				<request type="read" offset="294445056" count="4096"/>
+				<request type="read" offset="1077248" count="4096"/>
+				<request type="read" offset="10485760" count="4096"/>
+				<request type="read" offset="1110016" count="4096"/>
+				<request type="read" offset="11534336" count="4096"/>
+				<request type="read" offset="1056768" count="4096"/>
+				<request type="read" offset="13631488" count="4096"/>
+				<request type="read" offset="9449472" count="4096"/>
+				<request type="read" offset="9465856" count="4096"/>
+				<request type="read" offset="26214400" count="4096"/>
+				<request type="read" offset="294346752" count="4096"/>
+				<request type="read" offset="26218496" count="4096"/>
+				<request type="read" offset="294301696" count="4096"/>
+				<request type="read" offset="9498624" count="4096"/>
+				<request type="read" offset="9445376" count="4096"/>
+				<request type="read" offset="9457664" count="8192"/>
+				<request type="read" offset="9474048" count="24576"/>
+				<request type="read" offset="9506816" count="61440"/>
+				<request type="read" offset="9572352" count="126976"/>
+				<request type="read" offset="294645760" count="4096"/>
+				<request type="read" offset="294273024" count="4096"/>
+				<request type="read" offset="294514688" count="4096"/>
+				<request type="read" offset="294182912" count="4096"/>
+				<request type="read" offset="26230784" count="4096"/>
+				<request type="read" offset="26247168" count="4096"/>
+				<request type="read" offset="294150144" count="4096"/>
+				<request type="read" offset="26279936" count="4096"/>
+				<request type="read" offset="294141952" count="4096"/>
+				<request type="read" offset="26345472" count="4096"/>
+				<request type="read" offset="294162432" count="4096"/>
+				<request type="read" offset="26476544" count="4096"/>
+				<request type="read" offset="293068800" count="4096"/>
+				<request type="read" offset="26738688" count="4096"/>
+				<request type="read" offset="26230784" count="4096"/>
+				<request type="read" offset="27262976" count="4096"/>
+				<request type="read" offset="26247168" count="4096"/>
+				<request type="read" offset="28311552" count="4096"/>
+				<request type="read" offset="26279936" count="4096"/>
+				<request type="read" offset="30408704" count="4096"/>
+				<request type="read" offset="26345472" count="4096"/>
+				<request type="read" offset="26226688" count="4096"/>
+				<request type="read" offset="26476544" count="4096"/>
+				<request type="read" offset="26243072" count="4096"/>
+				<request type="read" offset="26738688" count="4096"/>
+				<request type="read" offset="27262976" count="4096"/>
+				<request type="read" offset="26275840" count="4096"/>
+				<request type="read" offset="26222592" count="4096"/>
+				<request type="read" offset="26234880" count="8192"/>
+				<request type="read" offset="26251264" count="24576"/>
+				<request type="read" offset="28311552" count="4096"/>
+				<request type="read" offset="26284032" count="61440"/>
+				<request type="read" offset="30408704" count="4096"/>
+				<request type="read" offset="26349568" count="126976"/>
+				<request type="read" offset="26226688" count="4096"/>
+				<request type="read" offset="26480640" count="258048"/>
+				<request type="read" offset="26243072" count="4096"/>
+				<request type="read" offset="294125568" count="262144"/>
+				<request type="read" offset="26275840" count="4096"/>
+				<request type="read" offset="294387712" count="126976"/>
+				<request type="read" offset="26222592" count="4096"/>
+				<request type="read" offset="294518784" count="65536"/>
+				<request type="read" offset="26234880" count="8192"/>
+				<request type="read" offset="294588416" count="53248"/>
+				<request type="read" offset="26251264" count="24576"/>
+				<request type="read" offset="26284032" count="61440"/>
+				<request type="read" offset="26349568" count="126976"/>
+				<request type="read" offset="26480640" count="258048"/>
+				<request type="read" offset="294125568" count="16384"/>
+				<request type="read" offset="294146048" count="4096"/>
+				<request type="read" offset="294154240" count="8192"/>
+				<request type="read" offset="294166528" count="16384"/>
+				<request type="read" offset="294187008" count="86016"/>
+				<request type="read" offset="294277120" count="24576"/>
+				<request type="read" offset="294305792" count="40960"/>
+				<request type="read" offset="294350848" count="36864"/>
+				<request type="read" offset="294387712" count="57344"/>
+				<request type="read" offset="294449152" count="65536"/>
+				<request type="read" offset="294522880" count="61440"/>
+				<request type="read" offset="294588416" count="28672"/>
+				<request type="read" offset="294621184" count="20480"/>
+				<request type="sync"/>
+				<request type="read" offset="0" count="4096"/>
+				<request type="read" offset="4096" count="4096"/>
+				<request type="read" offset="8192" count="4096"/>
+				<request type="read" offset="12288" count="4096"/>
+				<request type="read" offset="16384" count="4096"/>
+				<request type="read" offset="1073737728" count="4096"/>
+				<request type="read" offset="1073721344" count="4096"/>
+				<request type="read" offset="1073725440" count="4096"/>
+				<request type="read" offset="1073729536" count="4096"/>
+				<request type="read" offset="1073733632" count="4096"/>
+				<request type="read" offset="1073676288" count="4096"/>
+				<request type="read" offset="1073733632" count="4096"/>
+				<request type="read" offset="0" count="4096"/>
+				<request type="read" offset="4096" count="4096"/>
+				<request type="read" offset="1073737728" count="4096"/>
+				<request type="read" offset="1073606656" count="4096"/>
+				<request type="read" offset="1073709056" count="4096"/>
+				<request type="read" offset="1073610752" count="4096"/>
+				<request type="read" offset="1073537024" count="4096"/>
+				<request type="read" offset="1073438720" count="4096"/>
+				<request type="read" offset="1073393664" count="4096"/>
+				<request type="read" offset="1073364992" count="4096"/>
+				<request type="read" offset="1073274880" count="4096"/>
+				<request type="read" offset="1073242112" count="4096"/>
+				<request type="read" offset="1073233920" count="4096"/>
+				<request type="read" offset="1073254400" count="4096"/>
+				<request type="read" offset="1072160768" count="4096"/>
+				<request type="read" offset="16384" count="4096"/>
+				<request type="read" offset="32768" count="4096"/>
+				<request type="read" offset="65536" count="4096"/>
+				<request type="read" offset="131072" count="4096"/>
+				<request type="read" offset="262144" count="4096"/>
+				<request type="read" offset="524288" count="4096"/>
+				<request type="read" offset="1048576" count="4096"/>
+				<request type="read" offset="2097152" count="4096"/>
+				<request type="read" offset="4194304" count="4096"/>
+				<request type="read" offset="12288" count="4096"/>
+				<request type="read" offset="28672" count="4096"/>
+				<request type="read" offset="61440" count="4096"/>
+				<request type="read" offset="8192" count="4096"/>
+				<request type="read" offset="20480" count="8192"/>
+				<request type="read" offset="36864" count="24576"/>
+				<request type="read" offset="69632" count="61440"/>
+				<request type="read" offset="135168" count="126976"/>
+				<request type="read" offset="266240" count="258048"/>
+				<request type="read" offset="1073217536" count="16384"/>
+				<request type="read" offset="1073238016" count="4096"/>
+				<request type="read" offset="1073246208" count="8192"/>
+				<request type="read" offset="1073258496" count="16384"/>
+				<request type="read" offset="1073278976" count="86016"/>
+				<request type="read" offset="1073369088" count="24576"/>
+				<request type="read" offset="1073397760" count="40960"/>
+				<request type="read" offset="1073442816" count="36864"/>
+				<request type="read" offset="1073479680" count="57344"/>
+				<request type="read" offset="1073541120" count="65536"/>
+				<request type="read" offset="1073614848" count="61440"/>
+				<request type="read" offset="1073680384" count="28672"/>
+				<request type="read" offset="1073713152" count="20480"/>
+				<request type="read" offset="294584320" count="4096"/>
+				<request type="read" offset="26148864" count="4096"/>
+				<request type="read" offset="26206208" count="4096"/>
+				<request type="read" offset="9437184" count="4096"/>
+				<request type="read" offset="9441280" count="4096"/>
+				<request type="read" offset="26210304" count="4096"/>
+				<request type="read" offset="26079232" count="4096"/>
+				<request type="read" offset="9453568" count="4096"/>
+				<request type="read" offset="294641664" count="4096"/>
+				<request type="read" offset="9469952" count="4096"/>
+				<request type="read" offset="9502720" count="4096"/>
+				<request type="read" offset="26214400" count="4096"/>
+				<request type="read" offset="9568256" count="4096"/>
+				<request type="read" offset="9699328" count="4096"/>
+				<request type="read" offset="26218496" count="4096"/>
+				<request type="read" offset="9961472" count="4096"/>
+				<request type="read" offset="294645760" count="4096"/>
+				<request type="read" offset="10485760" count="4096"/>
+				<request type="read" offset="9371648" count="4096"/>
+				<request type="read" offset="11534336" count="4096"/>
+				<request type="read" offset="9428992" count="4096"/>
+				<request type="read" offset="13631488" count="4096"/>
+				<request type="read" offset="9449472" count="4096"/>
+				<request type="read" offset="9465856" count="4096"/>
+				<request type="read" offset="1048576" count="4096"/>
+				<request type="read" offset="9498624" count="4096"/>
+				<request type="read" offset="1052672" count="4096"/>
+				<request type="read" offset="9445376" count="4096"/>
+				<request type="read" offset="9457664" count="8192"/>
+				<request type="read" offset="9474048" count="24576"/>
+				<request type="read" offset="9506816" count="61440"/>
+				<request type="read" offset="9572352" count="126976"/>
+				<request type="read" offset="9433088" count="4096"/>
+				<request type="read" offset="0" count="4096"/>
+				<request type="read" offset="4096" count="16384"/>
+				<request type="read" offset="9302016" count="4096"/>
+				<request type="read" offset="294514688" count="4096"/>
+				<request type="read" offset="1064960" count="4096"/>
+				<request type="read" offset="1081344" count="4096"/>
+				<request type="read" offset="1114112" count="4096"/>
+				<request type="read" offset="1179648" count="4096"/>
+				<request type="read" offset="1310720" count="4096"/>
+				<request type="read" offset="1572864" count="4096"/>
+				<request type="read" offset="2097152" count="4096"/>
+				<request type="read" offset="3145728" count="4096"/>
+				<request type="read" offset="26230784" count="4096"/>
+				<request type="read" offset="5242880" count="4096"/>
+				<request type="read" offset="1060864" count="4096"/>
+				<request type="read" offset="1077248" count="4096"/>
+				<request type="read" offset="1110016" count="4096"/>
+				<request type="read" offset="1056768" count="4096"/>
+				<request type="read" offset="26247168" count="4096"/>
+				<request type="read" offset="26279936" count="4096"/>
+				<request type="read" offset="26345472" count="4096"/>
+				<request type="read" offset="26476544" count="4096"/>
+				<request type="read" offset="26738688" count="4096"/>
+				<request type="read" offset="27262976" count="4096"/>
+				<request type="read" offset="28311552" count="4096"/>
+				<request type="read" offset="30408704" count="4096"/>
+				<request type="read" offset="26226688" count="4096"/>
+				<request type="read" offset="26243072" count="4096"/>
+				<request type="read" offset="26275840" count="4096"/>
+				<request type="read" offset="26222592" count="4096"/>
+				<request type="read" offset="26234880" count="8192"/>
+				<request type="read" offset="26251264" count="24576"/>
+				<request type="read" offset="26284032" count="61440"/>
+				<request type="read" offset="26349568" count="126976"/>
+				<request type="read" offset="26480640" count="258048"/>
+				<request type="read" offset="294125568" count="262144"/>
+				<request type="read" offset="294387712" count="126976"/>
+				<request type="read" offset="294518784" count="65536"/>
+				<request type="read" offset="294588416" count="53248"/>
+				<request type="read" offset="9371648" count="4096"/>
+				<request type="read" offset="9428992" count="4096"/>
+				<request type="read" offset="1048576" count="4096"/>
+				<request type="read" offset="1052672" count="4096"/>
+				<request type="read" offset="9433088" count="4096"/>
+				<request type="read" offset="9302016" count="4096"/>
+				<request type="read" offset="1064960" count="4096"/>
+				<request type="read" offset="1081344" count="4096"/>
+				<request type="read" offset="1114112" count="4096"/>
+				<request type="read" offset="1179648" count="4096"/>
+				<request type="read" offset="1310720" count="4096"/>
+				<request type="read" offset="1572864" count="4096"/>
+				<request type="read" offset="2097152" count="4096"/>
+				<request type="read" offset="3145728" count="4096"/>
+				<request type="read" offset="5242880" count="4096"/>
+				<request type="read" offset="1060864" count="4096"/>
+				<request type="read" offset="1077248" count="4096"/>
+				<request type="read" offset="1110016" count="4096"/>
+				<request type="read" offset="1056768" count="4096"/>
+				<request type="read" offset="0" count="4096"/>
+				<request type="read" offset="4096" count="16384"/>
+				<request type="read" offset="1048576" count="4096"/>
+				<request type="read" offset="1060864" count="4096"/>
+				<request type="read" offset="1077248" count="4096"/>
+				<request type="sync"/>
+				<request type="read" offset="1048576" count="16384"/>
+				<request type="sync"/>
+				<request type="read" offset="1048576" count="4096"/>
+				<request type="write" offset="9371648" count="65536"/>
+				<request type="write" offset="1187840" count="4096"/>
+				<request type="read" offset="1187840" count="4096"/>
+				<request type="write" offset="1449984" count="4096"/>
+				<request type="write" offset="1081344" count="40960"/>
+				<request type="write" offset="1126400" count="61440"/>
+				<request type="write" offset="1454080" count="688128"/>
+				<request type="write" offset="2142208" count="360448"/>
+				<request type="write" offset="2502656" count="688128"/>
+				<request type="write" offset="3190784" count="360448"/>
+				<request type="write" offset="3551232" count="688128"/>
+				<request type="write" offset="4239360" count="360448"/>
+				<request type="write" offset="4599808" count="688128"/>
+				<request type="write" offset="5287936" count="258048"/>
+				<request type="write" offset="1048576" count="36864"/>
+				<request type="write" offset="1122304" count="4096"/>
+				<request type="write" offset="1187840" count="4096"/>
+				<request type="write" offset="1449984" count="4096"/>
+				<request type="sync"/>
+				<request type="write" offset="1048576" count="4096"/>
+				<request type="sync"/>
+				<request type="read" offset="9371648" count="4096"/>
+				<request type="read" offset="9428992" count="4096"/>
+				<request type="read" offset="1048576" count="4096"/>
+				<request type="read" offset="1052672" count="4096"/>
+				<request type="read" offset="9433088" count="4096"/>
+				<request type="read" offset="9302016" count="4096"/>
+				<request type="read" offset="1064960" count="4096"/>
+				<request type="read" offset="1081344" count="4096"/>
+				<request type="read" offset="1114112" count="4096"/>
+				<request type="read" offset="1179648" count="4096"/>
+				<request type="read" offset="1310720" count="4096"/>
+				<request type="read" offset="1572864" count="4096"/>
+				<request type="read" offset="2097152" count="4096"/>
+				<request type="read" offset="3145728" count="4096"/>
+				<request type="read" offset="5242880" count="4096"/>
+				<request type="read" offset="1060864" count="4096"/>
+				<request type="read" offset="1077248" count="4096"/>
+				<request type="read" offset="1110016" count="4096"/>
+				<request type="read" offset="1056768" count="4096"/>
+				<request type="read" offset="0" count="4096"/>
+				<request type="read" offset="4096" count="16384"/>
+				<request type="read" offset="26148864" count="4096"/>
+				<request type="read" offset="26206208" count="4096"/>
+				<request type="read" offset="9437184" count="4096"/>
+				<request type="read" offset="9441280" count="4096"/>
+				<request type="read" offset="26210304" count="4096"/>
+				<request type="read" offset="26079232" count="4096"/>
+				<request type="read" offset="9453568" count="4096"/>
+				<request type="read" offset="9469952" count="4096"/>
+				<request type="read" offset="9502720" count="4096"/>
+				<request type="read" offset="9568256" count="4096"/>
+				<request type="read" offset="9699328" count="4096"/>
+				<request type="read" offset="9961472" count="4096"/>
+				<request type="read" offset="10485760" count="4096"/>
+				<request type="read" offset="11534336" count="4096"/>
+				<request type="read" offset="13631488" count="4096"/>
+				<request type="read" offset="9449472" count="4096"/>
+				<request type="read" offset="9465856" count="4096"/>
+				<request type="read" offset="9498624" count="4096"/>
+				<request type="read" offset="9445376" count="4096"/>
+				<request type="read" offset="9457664" count="8192"/>
+				<request type="read" offset="9474048" count="24576"/>
+				<request type="read" offset="9506816" count="61440"/>
+				<request type="read" offset="9572352" count="126976"/>
+				<request type="read" offset="0" count="4096"/>
+				<request type="read" offset="4096" count="16384"/>
+				<request type="read" offset="9437184" count="4096"/>
+				<request type="read" offset="9449472" count="4096"/>
+				<request type="read" offset="9465856" count="4096"/>
+				<request type="sync"/>
+				<request type="read" offset="9437184" count="16384"/>
+				<request type="sync"/>
+				<request type="read" offset="9437184" count="4096"/>
+				<request type="write" offset="26148864" count="65536"/>
+				<request type="write" offset="9580544" count="4096"/>
+				<request type="read" offset="9580544" count="4096"/>
+				<request type="write" offset="10104832" count="4096"/>
+				<request type="write" offset="9474048" count="40960"/>
+				<request type="write" offset="9519104" count="61440"/>
+				<request type="write" offset="10108928" count="688128"/>
+				<request type="write" offset="10797056" count="360448"/>
+				<request type="write" offset="11157504" count="688128"/>
+				<request type="write" offset="11845632" count="360448"/>
+				<request type="write" offset="12206080" count="688128"/>
+				<request type="write" offset="12894208" count="360448"/>
+				<request type="write" offset="13254656" count="688128"/>
+				<request type="write" offset="13942784" count="258048"/>
+				<request type="write" offset="9437184" count="40960"/>
+				<request type="write" offset="9515008" count="4096"/>
+				<request type="write" offset="9580544" count="4096"/>
+				<request type="write" offset="10104832" count="4096"/>
+				<request type="sync"/>
+				<request type="write" offset="9437184" count="4096"/>
+				<request type="sync"/>
+				<request type="read" offset="26148864" count="4096"/>
+				<request type="read" offset="26206208" count="4096"/>
+				<request type="read" offset="9437184" count="4096"/>
+				<request type="read" offset="9441280" count="4096"/>
+				<request type="read" offset="26210304" count="4096"/>
+				<request type="read" offset="26079232" count="4096"/>
+				<request type="read" offset="9453568" count="4096"/>
+				<request type="read" offset="9469952" count="4096"/>
+				<request type="read" offset="9502720" count="4096"/>
+				<request type="read" offset="9568256" count="4096"/>
+				<request type="read" offset="9699328" count="4096"/>
+				<request type="read" offset="9961472" count="4096"/>
+				<request type="read" offset="10485760" count="4096"/>
+				<request type="read" offset="11534336" count="4096"/>
+				<request type="read" offset="13631488" count="4096"/>
+				<request type="read" offset="9449472" count="4096"/>
+				<request type="read" offset="9465856" count="4096"/>
+				<request type="read" offset="9498624" count="4096"/>
+				<request type="read" offset="9445376" count="4096"/>
+				<request type="read" offset="9457664" count="8192"/>
+				<request type="read" offset="9474048" count="24576"/>
+				<request type="read" offset="9506816" count="61440"/>
+				<request type="read" offset="9572352" count="126976"/>
+				<request type="read" offset="0" count="4096"/>
+				<request type="read" offset="4096" count="16384"/>
+				<request type="read" offset="294584320" count="4096"/>
+				<request type="read" offset="294641664" count="4096"/>
+				<request type="read" offset="26214400" count="4096"/>
+				<request type="read" offset="26218496" count="4096"/>
+				<request type="read" offset="294645760" count="4096"/>
+				<request type="read" offset="294514688" count="4096"/>
+				<request type="read" offset="26230784" count="4096"/>
+				<request type="read" offset="26247168" count="4096"/>
+				<request type="read" offset="26279936" count="4096"/>
+				<request type="read" offset="26345472" count="4096"/>
+				<request type="read" offset="26476544" count="4096"/>
+				<request type="read" offset="26738688" count="4096"/>
+				<request type="read" offset="27262976" count="4096"/>
+				<request type="read" offset="28311552" count="4096"/>
+				<request type="read" offset="30408704" count="4096"/>
+				<request type="read" offset="26226688" count="4096"/>
+				<request type="read" offset="26243072" count="4096"/>
+				<request type="read" offset="26275840" count="4096"/>
+				<request type="read" offset="26222592" count="4096"/>
+				<request type="read" offset="26234880" count="8192"/>
+				<request type="read" offset="26251264" count="24576"/>
+				<request type="read" offset="26284032" count="61440"/>
+				<request type="read" offset="26349568" count="126976"/>
+				<request type="read" offset="26480640" count="258048"/>
+				<request type="read" offset="294125568" count="262144"/>
+				<request type="read" offset="294387712" count="126976"/>
+				<request type="read" offset="294518784" count="65536"/>
+				<request type="read" offset="294588416" count="53248"/>
+				<request type="read" offset="0" count="4096"/>
+				<request type="read" offset="4096" count="16384"/>
+				<request type="read" offset="26214400" count="4096"/>
+				<request type="read" offset="26226688" count="4096"/>
+				<request type="read" offset="26243072" count="4096"/>
+				<request type="sync"/>
+				<request type="read" offset="26214400" count="16384"/>
+				<request type="sync"/>
+				<request type="read" offset="26214400" count="4096"/>
+				<request type="write" offset="294584320" count="65536"/>
+				<request type="write" offset="26365952" count="4096"/>
+				<request type="read" offset="26365952" count="4096"/>
+				<request type="write" offset="34775040" count="4096"/>
+				<request type="write" offset="160567296" count="688128"/>
+				<request type="write" offset="161255424" count="360448"/>
+				<request type="write" offset="161615872" count="688128"/>
+				<request type="write" offset="162304000" count="360448"/>
+				<request type="write" offset="162664448" count="688128"/>
+				<request type="write" offset="163352576" count="360448"/>
+				<request type="write" offset="163713024" count="688128"/>
+				<request type="write" offset="164401152" count="360448"/>
+				<request type="write" offset="164761600" count="688128"/>
+				<request type="write" offset="165449728" count="360448"/>
+				<request type="write" offset="165810176" count="688128"/>
+				<request type="write" offset="166498304" count="360448"/>
+				<request type="write" offset="166858752" count="688128"/>
+				<request type="write" offset="167546880" count="360448"/>
+				<request type="write" offset="167907328" count="688128"/>
+				<request type="write" offset="168595456" count="360448"/>
+				<request type="write" offset="168955904" count="688128"/>
+				<request type="write" offset="169644032" count="360448"/>
+				<request type="write" offset="170004480" count="688128"/>
+				<request type="write" offset="170692608" count="360448"/>
+				<request type="write" offset="171053056" count="688128"/>
+				<request type="write" offset="171741184" count="360448"/>
+				<request type="write" offset="172101632" count="688128"/>
+				<request type="write" offset="172789760" count="360448"/>
+				<request type="write" offset="173150208" count="688128"/>
+				<request type="write" offset="173838336" count="360448"/>
+				<request type="write" offset="174198784" count="688128"/>
+				<request type="write" offset="174886912" count="360448"/>
+				<request type="write" offset="175247360" count="688128"/>
+				<request type="write" offset="175935488" count="360448"/>
+				<request type="write" offset="176295936" count="688128"/>
+				<request type="write" offset="176984064" count="360448"/>
+				<request type="read" offset="160432128" count="4096"/>
+				<request type="write" offset="26214400" count="147456"/>
+				<request type="write" offset="26365952" count="4096"/>
+				<request type="write" offset="34754560" count="24576"/>
+				<request type="write" offset="160432128" count="8192"/>
+				<request type="write" offset="160567296" count="4096"/>
+				<request type="sync"/>
+				<request type="write" offset="26214400" count="4096"/>
+				<request type="sync"/>
+				<request type="read" offset="294584320" count="4096"/>
+				<request type="read" offset="294641664" count="4096"/>
+				<request type="read" offset="26214400" count="4096"/>
+				<request type="read" offset="26218496" count="4096"/>
+				<request type="read" offset="294645760" count="4096"/>
+				<request type="read" offset="294514688" count="4096"/>
+				<request type="read" offset="26230784" count="4096"/>
+				<request type="read" offset="26247168" count="4096"/>
+				<request type="read" offset="26279936" count="4096"/>
+				<request type="read" offset="26345472" count="4096"/>
+				<request type="read" offset="26476544" count="4096"/>
+				<request type="read" offset="26738688" count="4096"/>
+				<request type="read" offset="27262976" count="4096"/>
+				<request type="read" offset="28311552" count="4096"/>
+				<request type="read" offset="30408704" count="4096"/>
+				<request type="read" offset="26226688" count="4096"/>
+				<request type="read" offset="26243072" count="4096"/>
+				<request type="read" offset="26275840" count="4096"/>
+				<request type="read" offset="26222592" count="4096"/>
+				<request type="read" offset="26234880" count="8192"/>
+				<request type="read" offset="26251264" count="24576"/>
+				<request type="read" offset="26284032" count="61440"/>
+				<request type="read" offset="26349568" count="126976"/>
+				<request type="read" offset="26480640" count="258048"/>
+				<request type="read" offset="294125568" count="262144"/>
+				<request type="read" offset="294387712" count="126976"/>
+				<request type="read" offset="294518784" count="65536"/>
+				<request type="read" offset="294588416" count="53248"/>
+				<request type="read" offset="0" count="4096"/>
+				<request type="read" offset="4096" count="16384"/>
+				<request type="read" offset="0" count="131072"/>
+				<request type="read" offset="1048576" count="131072"/>
+				<request type="read" offset="9437184" count="131072"/>
+				<request type="read" offset="26214400" count="131072"/>
+				<request type="read" offset="0" count="131072"/>
+				<request type="read" offset="1048576" count="131072"/>
+				<request type="read" offset="9437184" count="131072"/>
+				<request type="read" offset="26214400" count="131072"/>
+				<request type="sync"/>
+				<request type="sync"/>
+			</replay>
+
+			<vfs>
+				<fs label="fs_backend"/>
+				<dir name="dev">
+					<cbe name="cbe" block="/} [cbe_image_file] {">
+						<crypto>
+							<key id="23" value="Foobar"/>
+						</crypto>
+					</cbe>
+				</dir>
+			</vfs>
+		</config>
+		<route>
+			<service name="File_system" label="fs_backend"> <child name="lx_fs"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+</config>}
+
+install_config $config
+
+
+
+set boot_modules {
+	core timer init ld.lib.so vfs lx_fs
+	spark.lib.so libsparkcrypto.lib.so vfs_cbe.lib.so
+	vfs.lib.so libc.lib.so
+	vfs_replay
+}
+
+append boot_modules [cbe_image_file]
+
+build_boot_image $boot_modules
+
+run_genode_until {.*child "vfs_replay" exited with exit value 0.*\n} 240

@@ -1,0 +1,2 @@
+--  change 'Disable' to 'Check' for debugging output
+pragma Assertion_Policy (Debug => Disable);

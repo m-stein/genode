@@ -1,0 +1,126 @@
+exec rm -rf var/libcache/cbe
+exec rm -rf var/libcache/cbe_cxx
+exec rm -rf var/libcache/cbe_init
+exec rm -rf var/libcache/cbe_init_cxx
+exec rm -rf var/libcache/external_crypto_init
+exec rm -rf var/libcache/external_crypto_init_cxx
+exec rm -rf var/libcache/external_crypto
+exec rm -rf var/libcache/external_crypto_cxx
+
+append build_components {
+	core init timer
+	drivers/usb
+	drivers/usb_block
+	server/log_terminal
+	server/report_rom
+	app/cbe_init
+}
+
+build $build_components
+
+create_boot_directory
+
+source ${genode_dir}/repos/base/run/platform_drv.inc
+
+append config {
+<config verbose="yes">
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="RAM"/>
+		<service name="IRQ"/>
+		<service name="IO_MEM"/>
+		<service name="IO_PORT"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="LOG"/>
+	</parent-provides>
+
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+
+	<default caps="100"/>
+	<start name="timer">
+		<resource name="RAM" quantum="1M"/>
+		<provides><service name="Timer"/></provides>
+	</start>}
+
+append_platform_drv_config
+
+append config {
+	<start name="report_rom">
+		<resource name="RAM" quantum="32M"/>
+		<provides> <service name="Report"/> <service name="ROM"/> </provides>
+		<config verbose="yes"/>
+	</start>
+
+	<start name="log_terminal">
+		<resource name="RAM" quantum="1M"/>
+		<provides><service name="Terminal"/></provides>
+	</start>
+
+	<start name="usb_drv" priority="-1" caps="120">
+		<resource name="RAM" quantum="12M"/>
+		<provides><service name="Input"/> <service name="Usb"/></provides>
+		<config uhci="yes" ehci="yes" xhci="yes">
+			<hid/>
+			<raw>
+				<report devices="yes"/>
+				<!-- <default-policy vendor_id="0x1b1c" product_id="0x1a09"/> -->
+				<default-policy bus="0x0002" dev="0x0002"/>
+			</raw>
+		</config>
+		<route>
+			<service name="Report"> <child name="report_rom"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+	<start name="usb_block_drv">
+		<resource name="RAM" quantum="4M"/>
+		<provides> <service name="Block"/> </provides>
+		<config report="yes" writeable="yes" verbose_block="yes"/>
+		<route>
+			<service name="Usb"> <child name="usb_drv"/> </service>
+			<service name="Report"> <child name="report_rom"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="cbe_init">
+		<resource name="RAM" quantum="4M"/>
+		<config>
+			<!-- VBD is 2GiB (~32MiB MD) -->
+			<virtual-block-device
+				nr_of_levels="5"
+				nr_of_children="64"
+				nr_of_leafs="524288"/>
+			<!-- FT is 256MiB (~4MiB MD) -->
+			<free-tree
+				nr_of_levels="4"
+				nr_of_children="64"
+				nr_of_leafs="65536"/>
+		</config>
+		<route>
+			<service name="Block"> <child name="usb_block_drv"/> </service>
+			<service name="Terminal"> <child name="log_terminal"/> </service>
+			<service name="Timer"> <child name="timer"/> </service>
+			<any-service> <parent/> </any-service>
+		</route>
+	</start>
+</config>}
+
+install_config $config
+
+append boot_modules {
+	core init cbe block_tester timer
+	usb_drv usb_block_drv
+	cbe_init ld.lib.so spark.lib.so libsparkcrypto.lib.so
+	log_terminal report_rom
+}
+
+append_platform_drv_boot_modules
+
+build_boot_image $boot_modules
+
+run_genode_until {.*child "cbe_init" exited with exit value 0.*\n} 18000

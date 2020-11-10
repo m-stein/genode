@@ -1,0 +1,22 @@
+<runtime ram="4M" caps="100" binary="cbe_init_trust_anchor">
+
+	<requires>
+		<file_system label="cbe_ta_vfs"/>
+		<rom         label="passphrase"/>
+	</requires>
+
+	<config use_rom="yes" trust_anchor_dir="/trust_anchor">
+		<vfs>
+			<dir name="trust_anchor"> <fs label="ta"/> </dir>
+		</vfs>
+	</config>
+
+	<content>
+		<rom label="cbe_init_trust_anchor"/>
+		<rom label="init"/>
+		<rom label="init.config"/>
+		<rom label="ld.lib.so"/>
+		<rom label="vfs.lib.so"/>
+	</content>
+
+</runtime>

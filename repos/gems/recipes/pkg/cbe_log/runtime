@@ -1,0 +1,18 @@
+<runtime ram="32M" caps="400" binary="init" config="cbe_log.config">
+
+	<requires>
+		<file_system label="fonts" writeable="no"/>
+		<nitpicker/>
+	</requires>
+	<provides> <log/> </provides>
+
+	<content>
+		<rom label="ld.lib.so"/>
+		<rom label="cbe_log.config"/>
+		<rom label="init"/>
+		<rom label="gui_fb"/>
+		<rom label="terminal"/>
+		<rom label="terminal_log"/>
+	</content>
+
+</runtime>

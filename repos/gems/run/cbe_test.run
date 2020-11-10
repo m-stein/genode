@@ -1,0 +1,422 @@
+
+exec rm -rf var/libcache/cbe
+
+build {
+	core init timer
+	server/ram_block
+	server/cbe
+	server/cbe_block
+	app/block_tester
+	server/log_terminal
+	server/report_rom
+	test/cbe
+}
+
+create_boot_directory
+
+install_config {
+<config verbose="yes">
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="RAM"/>
+		<service name="IRQ"/>
+		<service name="IO_MEM"/>
+		<service name="IO_PORT"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="LOG"/>
+	</parent-provides>
+
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+
+	<default caps="200"/>
+
+	<start name="test-cbe">
+		<resource name="RAM" quantum="4M"/>
+		<provides>
+			<service name="ROM"/>
+			<service name="LOG"/>
+		</provides>
+		<config>
+
+			<sleep ms="500"/>
+
+			<message string="FIRST TEST"/>
+
+			<init_config version="test_1">
+
+				<parent-provides>
+					<service name="ROM"/>
+					<service name="RAM"/>
+					<service name="IRQ"/>
+					<service name="IO_MEM"/>
+					<service name="IO_PORT"/>
+					<service name="PD"/>
+					<service name="RM"/>
+					<service name="CPU"/>
+					<service name="LOG"/>
+					<service name="Report"/>
+					<service name="Timer"/>
+					<service name="Terminal"/>
+				</parent-provides>
+
+				<default-route>
+					<any-service> <parent/> <any-child/> </any-service>
+				</default-route>
+
+				<default caps="200"/>
+
+				<start name="cbe_block">
+					<resource name="RAM" quantum="600M"/>
+					<provides><service name="Block"/></provides>
+					<config verbose="no" report="yes" backing_size="512M" vbd_size="64K" outer_degree="4" initialize="no">
+						<state>
+							<super-block id="0" is_current="true" generation="1" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="128" root-hash="0xa5ac6369f97f61aa9e754f578b51440b7706f7fdeafce598dd9058d9edde9b16">
+								<node type="1" id="0" pba="129" gen="281474976710656" hash="0xb0bd6e0aa357f185e21f61c61eb8e38b45acc32bc6fa6574d578da9bc0556f87">
+									<node type="2" id="0" pba="130" gen="562949953421312" vba="0" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="1" pba="131" gen="562949953421313" vba="1" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="2" pba="132" gen="562949953421314" vba="2" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="3" pba="133" gen="562949953421315" vba="3" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+								</node>
+								<node type="1" id="1" pba="134" gen="281474976710657" hash="0x8b37ad2ff43c40132bab586de3a18e065f28b66c7c3fec181eb1f9dad4d5834e">
+									<node type="2" id="0" pba="135" gen="562949953421312" vba="4" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="1" pba="136" gen="562949953421313" vba="5" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="2" pba="137" gen="562949953421314" vba="6" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="3" pba="138" gen="562949953421315" vba="7" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+								</node>
+								<node type="1" id="2" pba="139" gen="281474976710658" hash="0x406dc6e1612c4158943ab42d4379c2c4d0648a974b59c37ea9e72807be43d341">
+									<node type="2" id="0" pba="140" gen="562949953421312" vba="8" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="1" pba="141" gen="562949953421313" vba="9" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="2" pba="142" gen="562949953421314" vba="10" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="3" pba="143" gen="562949953421315" vba="11" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+								</node>
+								<node type="1" id="3" pba="144" gen="281474976710659" hash="0x2e7bca4b5435dc0c9d32860f9a25b41f87d2a70bea522b33fae3cbe3114480dc">
+									<node type="2" id="0" pba="145" gen="562949953421312" vba="12" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="1" pba="146" gen="562949953421313" vba="13" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="2" pba="147" gen="562949953421314" vba="14" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="3" pba="148" gen="562949953421315" vba="15" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+								</node>
+							</super-block>
+							<super-block id="1" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+							<super-block id="2" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+							<super-block id="3" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+							<super-block id="4" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+							<super-block id="5" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+							<super-block id="6" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+							<super-block id="7" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+						</state>
+					</config>
+				</start>
+
+				<start name="cbe">
+					<resource name="RAM" quantum="4M"/>
+					<provides><service name="Block"/></provides>
+					<config show_progress="no"/>
+					<route>
+						<service name="Block"> <child name="cbe_block"/> </service>
+						<any-service> <parent/> </any-service>
+					</route>
+				</start>
+
+				<start name="block_tester" caps="150">
+					<resource name="RAM" quantum="32M"/>
+					<config verbose="no" report="no" log="yes" stop_on_error="no">
+						<tests>
+							<replay verbose="yes" bulk="no"> <request type="read"  lba="0" count="8"/> </replay>
+							<replay verbose="yes" bulk="no"> <request type="write" lba="0" count="1"/> </replay>
+						</tests>
+					</config>
+					<route>
+						<service name="Block"> <child name="cbe"/> </service>
+						<any-service> <parent/> <any-child/> </any-service>
+					</route>
+				</start>
+
+			</init_config>
+
+			<expect_log string="[init -> block_tester] --- all tests finished ---"/>
+
+			<sleep ms="500"/>
+
+			<expect_block_state>
+
+				<super-block id="0" is_current="false" generation="1" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="128">
+					<node type="1" id="0" pba="129" gen="281474976710656">
+						<node type="2" id="0" pba="130" gen="562949953421312" vba="0"/>
+						<node type="2" id="1" pba="131" gen="562949953421313" vba="1"/>
+						<node type="2" id="2" pba="132" gen="562949953421314" vba="2"/>
+						<node type="2" id="3" pba="133" gen="562949953421315" vba="3"/>
+					</node>
+					<node type="1" id="1" pba="134" gen="281474976710657">
+						<node type="2" id="0" pba="135" gen="562949953421312" vba="4"/>
+						<node type="2" id="1" pba="136" gen="562949953421313" vba="5"/>
+						<node type="2" id="2" pba="137" gen="562949953421314" vba="6"/>
+						<node type="2" id="3" pba="138" gen="562949953421315" vba="7"/>
+					</node>
+					<node type="1" id="2" pba="139" gen="281474976710658">
+						<node type="2" id="0" pba="140" gen="562949953421312" vba="8"/>
+						<node type="2" id="1" pba="141" gen="562949953421313" vba="9"/>
+						<node type="2" id="2" pba="142" gen="562949953421314" vba="10"/>
+						<node type="2" id="3" pba="143" gen="562949953421315" vba="11"/>
+					</node>
+					<node type="1" id="3" pba="144" gen="281474976710659">
+						<node type="2" id="0" pba="145" gen="562949953421312" vba="12"/>
+						<node type="2" id="1" pba="146" gen="562949953421313" vba="13"/>
+						<node type="2" id="2" pba="147" gen="562949953421314" vba="14"/>
+						<node type="2" id="3" pba="148" gen="562949953421315" vba="15"/>
+					</node>
+				</super-block>
+				<super-block id="1" is_current="true" generation="2" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32767" free-height="32768" root-number="2194">
+					<node type="1" id="0" pba="2193" gen="281474976710658">
+						<node type="2" id="0" pba="2192" gen="562949953421314" vba="0"/>
+						<node type="2" id="1" pba="131" gen="562949953421313" vba="1"/>
+						<node type="2" id="2" pba="132" gen="562949953421314" vba="2"/>
+						<node type="2" id="3" pba="133" gen="562949953421315" vba="3"/>
+					</node>
+					<node type="1" id="1" pba="134" gen="281474976710657">
+						<node type="2" id="0" pba="135" gen="562949953421312" vba="4"/>
+						<node type="2" id="1" pba="136" gen="562949953421313" vba="5"/>
+						<node type="2" id="2" pba="137" gen="562949953421314" vba="6"/>
+						<node type="2" id="3" pba="138" gen="562949953421315" vba="7"/>
+					</node>
+					<node type="1" id="2" pba="139" gen="281474976710658">
+						<node type="2" id="0" pba="140" gen="562949953421312" vba="8"/>
+						<node type="2" id="1" pba="141" gen="562949953421313" vba="9"/>
+						<node type="2" id="2" pba="142" gen="562949953421314" vba="10"/>
+						<node type="2" id="3" pba="143" gen="562949953421315" vba="11"/>
+					</node>
+					<node type="1" id="3" pba="144" gen="281474976710659">
+						<node type="2" id="0" pba="145" gen="562949953421312" vba="12"/>
+						<node type="2" id="1" pba="146" gen="562949953421313" vba="13"/>
+						<node type="2" id="2" pba="147" gen="562949953421314" vba="14"/>
+						<node type="2" id="3" pba="148" gen="562949953421315" vba="15"/>
+					</node>
+				</super-block>
+				<super-block id="2" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+				<super-block id="3" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+				<super-block id="4" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+				<super-block id="5" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+				<super-block id="6" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+				<super-block id="7" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+
+			</expect_block_state>
+
+			<init_config version="test_1_reset"/>
+
+			<sleep ms="500"/>
+
+			<message string="SECOND TEST"/>
+
+			<init_config version="test_2">
+
+				<parent-provides>
+					<service name="ROM"/>
+					<service name="RAM"/>
+					<service name="IRQ"/>
+					<service name="IO_MEM"/>
+					<service name="IO_PORT"/>
+					<service name="PD"/>
+					<service name="RM"/>
+					<service name="CPU"/>
+					<service name="LOG"/>
+					<service name="Report"/>
+					<service name="Timer"/>
+					<service name="Terminal"/>
+				</parent-provides>
+
+				<default-route>
+					<any-service> <parent/> <any-child/> </any-service>
+				</default-route>
+
+				<default caps="200"/>
+
+				<start name="cbe_block">
+					<resource name="RAM" quantum="600M"/>
+					<provides><service name="Block"/></provides>
+					<config verbose="no" report="yes" backing_size="512M" vbd_size="64K" outer_degree="4" initialize="no">
+						<state>
+							<super-block id="0" is_current="true" generation="1" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="128" root-hash="0xa5ac6369f97f61aa9e754f578b51440b7706f7fdeafce598dd9058d9edde9b16">
+								<node type="1" id="0" pba="129" gen="281474976710656" hash="0xb0bd6e0aa357f185e21f61c61eb8e38b45acc32bc6fa6574d578da9bc0556f87">
+									<node type="2" id="0" pba="130" gen="562949953421312" vba="0" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="1" pba="131" gen="562949953421313" vba="1" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="2" pba="132" gen="562949953421314" vba="2" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="3" pba="133" gen="562949953421315" vba="3" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+								</node>
+								<node type="1" id="1" pba="134" gen="281474976710657" hash="0x8b37ad2ff43c40132bab586de3a18e065f28b66c7c3fec181eb1f9dad4d5834e">
+									<node type="2" id="0" pba="135" gen="562949953421312" vba="4" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="1" pba="136" gen="562949953421313" vba="5" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="2" pba="137" gen="562949953421314" vba="6" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="3" pba="138" gen="562949953421315" vba="7" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+								</node>
+								<node type="1" id="2" pba="139" gen="281474976710658" hash="0x406dc6e1612c4158943ab42d4379c2c4d0648a974b59c37ea9e72807be43d341">
+									<node type="2" id="0" pba="140" gen="562949953421312" vba="8" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="1" pba="141" gen="562949953421313" vba="9" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="2" pba="142" gen="562949953421314" vba="10" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="3" pba="143" gen="562949953421315" vba="11" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+								</node>
+								<node type="1" id="3" pba="144" gen="281474976710659" hash="0x2e7bca4b5435dc0c9d32860f9a25b41f87d2a70bea522b33fae3cbe3114480dc">
+									<node type="2" id="0" pba="145" gen="562949953421312" vba="12" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="1" pba="146" gen="562949953421313" vba="13" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="2" pba="147" gen="562949953421314" vba="14" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+									<node type="2" id="3" pba="148" gen="562949953421315" vba="15" hash="0x725bcd6c66d02acf6ebeab9c92410e010ea22e336876256aaf05a211f4ce1902"/>
+							</node>
+						</super-block>
+						<super-block id="1" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+						<super-block id="2" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+						<super-block id="3" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+						<super-block id="4" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+						<super-block id="5" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+						<super-block id="6" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+						<super-block id="7" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+					</state>
+				</config>
+				</start>
+
+				<start name="cbe">
+					<resource name="RAM" quantum="4M"/>
+					<provides><service name="Block"/></provides>
+					<config show_progress="no" sync_interval="0"/>
+					<route>
+						<service name="Block"> <child name="cbe_block"/> </service>
+						<any-service> <parent/> </any-service>
+					</route>
+				</start>
+
+				<start name="block_tester" caps="150">
+					<resource name="RAM" quantum="32M"/>
+					<config verbose="yes" report="no" log="yes" stop_on_error="no">
+						<tests>
+							<replay verbose="yes" bulk="no"> <request type="read"  lba="0" count="8"/> </replay>
+							<replay verbose="yes" bulk="no"> <request type="write" lba="0" count="1"/> </replay>
+						</tests>
+					</config>
+					<route>
+						<service name="Block"> <child name="cbe"/> </service>
+						<any-service> <parent/> <any-child/> </any-service>
+					</route>
+				</start>
+
+			</init_config>
+
+			<expect_log string="[init -> block_tester] --- all tests finished ---"/>
+
+			<sleep ms="500"/>
+
+			<expect_block_state>
+
+				<super-block id="0" is_current="false" generation="1" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="128">
+					<node type="1" id="0" pba="129" gen="281474976710656">
+						<node type="2" id="0" pba="130" gen="562949953421312" vba="0"/>
+						<node type="2" id="1" pba="131" gen="562949953421313" vba="1"/>
+						<node type="2" id="2" pba="132" gen="562949953421314" vba="2"/>
+						<node type="2" id="3" pba="133" gen="562949953421315" vba="3"/>
+					</node>
+					<node type="1" id="1" pba="134" gen="281474976710657">
+						<node type="2" id="0" pba="135" gen="562949953421312" vba="4"/>
+						<node type="2" id="1" pba="136" gen="562949953421313" vba="5"/>
+						<node type="2" id="2" pba="137" gen="562949953421314" vba="6"/>
+						<node type="2" id="3" pba="138" gen="562949953421315" vba="7"/>
+					</node>
+					<node type="1" id="2" pba="139" gen="281474976710658">
+						<node type="2" id="0" pba="140" gen="562949953421312" vba="8"/>
+						<node type="2" id="1" pba="141" gen="562949953421313" vba="9"/>
+						<node type="2" id="2" pba="142" gen="562949953421314" vba="10"/>
+						<node type="2" id="3" pba="143" gen="562949953421315" vba="11"/>
+					</node>
+					<node type="1" id="3" pba="144" gen="281474976710659">
+						<node type="2" id="0" pba="145" gen="562949953421312" vba="12"/>
+						<node type="2" id="1" pba="146" gen="562949953421313" vba="13"/>
+						<node type="2" id="2" pba="147" gen="562949953421314" vba="14"/>
+						<node type="2" id="3" pba="148" gen="562949953421315" vba="15"/>
+					</node>
+				</super-block>
+				<super-block id="1" is_current="true" generation="2" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32767" free-height="32768" root-number="2194">
+					<node type="1" id="0" pba="2193" gen="281474976710658">
+						<node type="2" id="0" pba="2192" gen="562949953421314" vba="0"/>
+						<node type="2" id="1" pba="131" gen="562949953421313" vba="1"/>
+						<node type="2" id="2" pba="132" gen="562949953421314" vba="2"/>
+						<node type="2" id="3" pba="133" gen="562949953421315" vba="3"/>
+					</node>
+					<node type="1" id="1" pba="134" gen="281474976710657">
+						<node type="2" id="0" pba="135" gen="562949953421312" vba="4"/>
+						<node type="2" id="1" pba="136" gen="562949953421313" vba="5"/>
+						<node type="2" id="2" pba="137" gen="562949953421314" vba="6"/>
+						<node type="2" id="3" pba="138" gen="562949953421315" vba="7"/>
+					</node>
+					<node type="1" id="2" pba="139" gen="281474976710658">
+						<node type="2" id="0" pba="140" gen="562949953421312" vba="8"/>
+						<node type="2" id="1" pba="141" gen="562949953421313" vba="9"/>
+						<node type="2" id="2" pba="142" gen="562949953421314" vba="10"/>
+						<node type="2" id="3" pba="143" gen="562949953421315" vba="11"/>
+					</node>
+					<node type="1" id="3" pba="144" gen="281474976710659">
+						<node type="2" id="0" pba="145" gen="562949953421312" vba="12"/>
+						<node type="2" id="1" pba="146" gen="562949953421313" vba="13"/>
+						<node type="2" id="2" pba="147" gen="562949953421314" vba="14"/>
+						<node type="2" id="3" pba="148" gen="562949953421315" vba="15"/>
+					</node>
+				</super-block>
+				<super-block id="2" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+				<super-block id="3" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+				<super-block id="4" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+				<super-block id="5" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+				<super-block id="6" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+				<super-block id="7" is_current="false" generation="0" leafs="16" degree="4" height="2" free-number="2192" free-leafs="32768" free-height="32768" root-number="0"/>
+
+			</expect_block_state>
+		</config>
+		<route>
+			<service name="Report">                   <child name="report_rom"/> </service>
+			<service name="ROM" label="block_state">  <child name="report_rom"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="timer">
+		<resource name="RAM" quantum="1M"/>
+		<provides><service name="Timer"/></provides>
+	</start>
+
+	<start name="report_rom">
+		<resource name="RAM" quantum="1M"/>
+		<provides> <service name="Report"/> <service name="ROM"/> </provides>
+		<config verbose="no">
+			<policy label="test-cbe -> block_state"
+			        report="init -> cbe_block -> state"/>
+
+			<policy label="init -> init.config"     report="test-cbe -> init.config"/>
+			<policy label="test-cbe -> block_state" report="init -> cbe_block -> state"/>
+		</config>
+	</start>
+
+	<start name="log_terminal">
+		<resource name="RAM" quantum="1M"/>
+		<provides><service name="Terminal"/></provides>
+	</start>
+
+	<start name="init" caps="1000">
+		<resource name="RAM" quantum="700M"/>
+		<configfile name="init.config"/>
+		<route>
+			<service name="LOG">                     <child name="test-cbe"/> </service>
+			<service name="ROM" label="init.config"> <child name="report_rom"/> </service>
+			<any-service>                            <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+</config>}
+
+
+build_boot_image {
+	core init timer ram_block block_tester cbe_block cbe
+	ld.lib.so spark.lib.so libsparkcrypto.lib.so
+	log_terminal report_rom test-cbe
+}
+
+
+append qemu_args " -nographic -m 1280 "
+
+run_genode_until {.*?child "test-cbe" exited with exit value 0.*?\n} 120

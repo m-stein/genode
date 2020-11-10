@@ -1,0 +1,31 @@
+<runtime ram="76M" caps="1000" binary="init" config="cbe_shell.config">
+
+	<requires>
+		<gui/>
+		<timer/>
+		<file_system label="cbe"    writeable="yes"/>
+		<file_system label="fonts"  writeable="no"/>
+		<rom    label="clipboard"/>
+		<report label="clipboard"/>
+		<rm/>
+	</requires>
+
+	<content>
+		<rom label="cbe_shell.config"/>
+		<rom label="ld.lib.so"/>
+		<rom label="libc.lib.so"/>
+		<rom label="libm.lib.so"/>
+		<rom label="init"/>
+		<rom label="gui_fb"/>
+		<rom label="vfs"/>
+		<rom label="vfs_pipe.lib.so"/>
+		<rom label="cached_fs_rom"/>
+		<rom label="terminal"/>
+		<rom label="posix.lib.so"/>
+		<rom label="ncurses.lib.so"/>
+		<rom label="bash-minimal.tar"/>
+		<rom label="coreutils.tar"/>
+		<rom label="vfs.lib.so"/>
+	</content>
+
+</runtime>

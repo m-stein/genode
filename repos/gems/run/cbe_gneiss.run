@@ -1,0 +1,303 @@
+
+exec rm -rf var/libcache/cbe
+exec rm -rf var/libcache/cbe_cxx
+
+build {
+	core init timer
+	server/ram_block
+	gneiss/server/cbe
+	server/cbe_block
+	app/block_tester
+	server/log_terminal
+	server/report_rom
+}
+
+create_boot_directory
+
+install_config {
+<config verbose="yes">
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="RAM"/>
+		<service name="IRQ"/>
+		<service name="IO_MEM"/>
+		<service name="IO_PORT"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="LOG"/>
+	</parent-provides>
+
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+
+	<default caps="100"/>
+	<start name="timer">
+		<resource name="RAM" quantum="1M"/>
+		<provides><service name="Timer"/></provides>
+	</start>
+
+	<start name="report_rom">
+		<resource name="RAM" quantum="32M"/>
+		<provides> <service name="Report"/> <service name="ROM"/> </provides>
+		<config verbose="yes"/>
+	</start>
+
+	<start name="log_terminal">
+		<resource name="RAM" quantum="1M"/>
+		<provides><service name="Terminal"/></provides>
+	</start>
+
+	<start name="cbe_block">
+		<resource name="RAM" quantum="1G"/>
+		<provides><service name="Block"/></provides>
+		<config report="no" verbose="no" backing_size="512M"
+		        vbd_size="2M" vbd_outer_degree="64"
+		        ft_size="1M"   ft_outer_degree="64"
+		        initialize="yes">
+		</config>
+		<route>
+			<service name="Report"> <child name="report_rom"/> </service>
+			<any-service> <parent/> </any-service>
+		</route>
+	</start>
+
+	<start name="cbe">
+		<resource name="RAM" quantum="4M"/>
+		<provides><service name="Block"/></provides>
+		<config show_progress="no" sync_interval="1" secure_interval="10"/>
+		<route>
+			<service name="Block"> <child name="cbe_block"/> </service>
+			<service name="Terminal"> <child name="log_terminal"/> </service>
+			<service name="Timer"> <child name="timer"/> </service>
+			<any-service> <parent/> </any-service>
+		</route>
+	</start>
+
+	<start name="block_tester" caps="200">
+		<resource name="RAM" quantum="80M"/>
+		<config verbose="yes" report="no" log="yes" stop_on_error="no">
+			<tests>
+<!--
+				<replay verbose="yes" bulk="no"> <request type="read"  lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="read"  lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="read"  lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="7" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="read"  lba="7" count="1"/> </replay>
+
+				<replay verbose="yes" bulk="no"> <request type="read"  lba="0" count="512"/> </replay>
+
+-->
+				<!-- mkfs.ext2 on 2M device -->
+				<replay verbose="yes">
+					<request type="read" lba="0" count="1"/>
+					<request type="write" lba="0" count="1"/>
+					<request type="read" lba="0" count="1"/>
+					<request type="read" lba="0" count="1"/>
+					<request type="write" lba="0" count="1"/>
+					<request type="write" lba="496" count="2"/>
+					<request type="write" lba="498" count="2"/>
+					<request type="write" lba="500" count="2"/>
+					<request type="write" lba="502" count="2"/>
+					<request type="write" lba="504" count="2"/>
+					<request type="write" lba="506" count="2"/>
+					<request type="write" lba="508" count="2"/>
+					<request type="write" lba="510" count="2"/>
+					<request type="read" lba="3" count="1"/>
+					<request type="write" lba="3" count="1"/>
+					<request type="read" lba="3" count="1"/>
+					<request type="write" lba="3" count="1"/>
+					<request type="read" lba="3" count="1"/>
+					<request type="write" lba="3" count="1"/>
+					<request type="read" lba="3" count="1"/>
+					<request type="write" lba="3" count="1"/>
+					<request type="write" lba="4" count="2"/>
+					<request type="write" lba="6" count="2"/>
+					<request type="write" lba="8" count="2"/>
+					<request type="read" lba="3" count="1"/>
+					<request type="read" lba="3" count="1"/>
+					<request type="read" lba="10" count="1"/>
+					<request type="write" lba="10" count="1"/>
+					<request type="read" lba="10" count="1"/>
+					<request type="write" lba="10" count="1"/>
+					<request type="read" lba="10" count="1"/>
+					<request type="write" lba="10" count="1"/>
+					<request type="read" lba="10" count="1"/>
+					<request type="write" lba="10" count="1"/>
+					<request type="read" lba="11" count="1"/>
+					<request type="write" lba="11" count="1"/>
+					<request type="read" lba="3" count="1"/>
+					<request type="write" lba="3" count="1"/>
+					<request type="read" lba="11" count="1"/>
+					<request type="write" lba="11" count="1"/>
+					<request type="read" lba="11" count="1"/>
+					<request type="write" lba="11" count="1"/>
+					<request type="read" lba="11" count="1"/>
+					<request type="write" lba="11" count="1"/>
+					<request type="read" lba="12" count="1"/>
+					<request type="write" lba="12" count="1"/>
+					<request type="read" lba="12" count="1"/>
+					<request type="write" lba="12" count="1"/>
+					<request type="read" lba="12" count="1"/>
+					<request type="write" lba="12" count="1"/>
+					<request type="read" lba="3" count="1"/>
+					<request type="read" lba="12" count="1"/>
+					<request type="write" lba="12" count="1"/>
+					<request type="read" lba="13" count="1"/>
+					<request type="write" lba="13" count="1"/>
+					<request type="read" lba="13" count="1"/>
+					<request type="write" lba="13" count="1"/>
+					<request type="read" lba="13" count="1"/>
+					<request type="write" lba="13" count="1"/>
+					<request type="read" lba="13" count="1"/>
+					<request type="write" lba="13" count="1"/>
+					<request type="read" lba="14" count="1"/>
+					<request type="write" lba="14" count="1"/>
+					<request type="read" lba="3" count="1"/>
+					<request type="write" lba="3" count="1"/>
+					<request type="read" lba="3" count="1"/>
+					<request type="write" lba="3" count="1"/>
+					<request type="read" lba="0" count="1"/>
+					<request type="write" lba="0" count="1"/>
+					<request type="read" lba="1" count="1"/>
+					<request type="write" lba="1" count="1"/>
+					<request type="read" lba="1" count="1"/>
+					<request type="write" lba="1" count="1"/>
+					<request type="read" lba="1" count="1"/>
+					<request type="write" lba="1" count="1"/>
+					<request type="read" lba="2" count="1"/>
+					<request type="write" lba="2" count="1"/>
+					<request type="read" lba="2" count="1"/>
+					<request type="write" lba="2" count="1"/>
+					<request type="read" lba="0" count="1"/>
+					<request type="write" lba="0" count="1"/>
+					<request type="read" lba="1" count="1"/>
+					<request type="write" lba="1" count="1"/>
+					<request type="read" lba="3" count="1"/>
+					<request type="write" lba="3" count="1"/>
+					<request type="read" lba="14" count="1"/>
+					<request type="write" lba="14" count="1"/>
+					<request type="read" lba="2" count="1"/>
+					<request type="write" lba="2" count="1"/>
+					<request type="read" lba="2" count="1"/>
+					<request type="write" lba="2" count="1"/>
+					<request type="read" lba="0" count="1"/>
+					<request type="write" lba="0" count="1"/>
+				</replay>
+				<replay verbose="yes" bulk="no">
+					<request type="read"  lba="0" count="512"/>
+				</replay>
+<!--
+				<replay verbose="yes" bulk="no"> <request type="read"  lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="read"  lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="read"  lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="7" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="read"  lba="7" count="1"/> </replay>
+
+				<replay verbose="yes" bulk="no"> <request type="read"  lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="5" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="5" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="5" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="5" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="5" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="0" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="read"  lba="0" count="4"/> </replay>
+
+				<replay verbose="yes" bulk="no"> <request type="read"  lba="0" count="17"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="0" count="17"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="read"  lba="0" count="17"/> </replay>
+
+				<replay verbose="yes" bulk="no"> <request type="read" lba="12" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="write" lba="12" count="1"/> </replay>
+				<replay verbose="yes" bulk="no"> <request type="read" lba="12" count="1"/> </replay>
+
+				<sequential length="1M" size="4K" synchronous="yes"/>
+				<sequential length="1M" size="8K" synchronous="yes"/>
+				<sequential length="1M" size="16K"/>
+				<sequential length="1M" size="64K"/>
+				<sequential length="1M" size="128K"/>
+				<sequential length="1M" size="4K" synchronous="yes" write="yes"/>
+				<sequential length="1M" size="64K" write="yes" synchronous="yes"/>
+-->
+			</tests>
+		</config>
+		<route>
+			<service name="Block"> <child name="cbe"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+<!--
+	<start name="vfs_cbe">
+		<binary name="vfs"/>
+		<resource name="RAM" quantum="16M"/>
+		<provides><service name="File_system"/></provides>
+		<config>
+			<vfs>
+				<dir name="dev">
+					<block name="block" label="block_backend"/>
+					<cbe name="cbe" show_progress="no" sync_interval="3" secure_interval="10" block="/dev/block"/>
+						/
+						/block              r/w snapshot
+						/snapshot/0/block   r/o snapshot
+						/snapshot/0/md      meta-data snapshot used blocks ...
+				</dir>
+			</vfs>
+			<policy label="vfs_cbe_tester" root="/dev/cbe" writeable="yes"/>
+		</config>
+		<route>
+			<service name="Block" label="block_backend"> <child name="cbe_block"/> </service>
+			<service name="Timer"> <child name="timer"/> </service>
+			<any-service> <parent/> </any-service>
+		</route>
+	</start>
+
+	<start name="vfs_cbe_tester">
+		...
+		<config cbe_file="/dev/block">
+			<libc .../>
+			<vfs>
+				<dir name="dev">
+					<fs label="cbe"/>
+						block
+				</dir>
+			</vfs>
+		</config>
+		<route>
+			<service name="File_system" label="cbe"> <child name="vfs_cbe"/> </service>
+			<service name="Timer"> <child name="timer"/> </service>
+			<any-service> <parent/> </any-service>
+		</route>
+	</start>
+-->
+
+</config>}
+
+
+build_boot_image {
+	core init timer ram_block block_tester cbe_block cbe
+	ld.lib.so spark.lib.so gneiss.lib.so libsparkcrypto.lib.so
+	log_terminal report_rom
+}
+
+
+append qemu_args " -nographic -m 1280 "
+
+run_genode_until {.*child "block_tester" exited with exit value 0.*\n} 240
