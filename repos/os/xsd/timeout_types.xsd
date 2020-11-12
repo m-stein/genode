@@ -1,6 +1,13 @@
 <?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
+	<xs:simpleType name="Milliseconds">
+		<xs:restriction base="xs:integer">
+			<xs:minInclusive value="0"/>
+			<xs:maxInclusive value="18446744073709552"/>
+		</xs:restriction>
+	</xs:simpleType><!-- Seconds -->
+
 	<xs:simpleType name="Seconds">
 		<xs:restriction base="xs:integer">
 			<xs:minInclusive value="0"/>
