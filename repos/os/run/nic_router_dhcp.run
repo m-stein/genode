@@ -1,0 +1,325 @@
+if {[have_spec foc] || [have_spec linux] || [have_spec rpi3] ||
+    [expr [have_spec imx53] && [have_spec trustzone]]} {
+	puts "Run script is not supported on this platform."
+	exit 0
+}
+
+set on_hardware [expr ![have_include power_on/qemu]]
+
+create_boot_directory
+
+import_from_depot [depot_user]/src/[base_src] \
+                  [depot_user]/pkg/[drivers_nic_pkg]
+
+build { init server/dynamic_rom test/nic_router_dhcp server/nic_router server/report_rom }
+
+proc good_dst_ip { } {
+	if {![have_include power_on/qemu]} {
+		return "10.0.0.2"
+	} else {
+		return "10.0.2.2"
+	}
+}
+proc bad_dst_port { } { return "12345" }
+proc bad_dst_ip   { } { return "10.0.1.2" }
+
+append config {
+<config>
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="IRQ"/>
+		<service name="IO_MEM"/>
+		<service name="IO_PORT"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="LOG"/>
+	</parent-provides>
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+	<default caps="100"/>
+
+	<start name="timer">
+		<resource name="RAM" quantum="1M"/>
+		<provides><service name="Timer"/></provides>
+	</start>
+
+	<start name="drivers" caps="1000" managing_system="yes">
+		<resource name="RAM" quantum="32M"/>
+		<binary name="init"/>
+		<route>
+			<service name="ROM" label="config"> <parent label="drivers.config"/> </service>
+			<service name="Timer"> <child name="timer"/> </service>
+			<any-service> <parent/> </any-service>
+		</route>
+		<provides> <service name="Nic"/> </provides>
+	</start>
+
+	<start name="dynamic_rom">
+		<resource name="RAM" quantum="4M"/>
+		<provides><service name="ROM"/> </provides>
+		<config verbose="yes">
+			<rom name="nic_router_1.config">
+				<inline>
+
+					<config
+						verbose="no"
+						verbose_packets="no"
+						dhcp_discover_timeout_sec="1"
+						icmp_idle_timeout_sec="6"
+						link_state_min_dwell_ms="1000">
+
+						<policy label_prefix="nic_router_2" domain="downlink"/>
+						<uplink                             domain="uplink"/>
+
+						<domain name="uplink">
+							<nat domain="downlink" icmp-ids="100"/>
+						</domain>
+
+						<domain name="downlink" interface="10.2.3.1/24">
+
+							<dhcp-server ip_first="10.2.3.2"
+										 ip_last="10.2.3.2">
+
+								<dns-server ip="1.2.3.4"/>
+								<dns-server ip="2.3.4.5"/>
+								<dns-server ip="3.4.5.6"/>
+
+							</dhcp-server>
+
+							<icmp dst="} [good_dst_ip] {/24" domain="uplink"/>
+
+						</domain>
+
+					</config>
+
+				</inline>
+				<sleep milliseconds="3000"/>
+				<inline>
+
+					<config
+						verbose="no"
+						verbose_packets="no"
+						dhcp_discover_timeout_sec="1"
+						icmp_idle_timeout_sec="6"
+						link_state_min_dwell_ms="1000">
+
+						<policy label_prefix="nic_router_2" domain="downlink"/>
+						<uplink                             domain="uplink"/>
+
+						<domain name="uplink">
+							<nat domain="downlink" icmp-ids="100"/>
+						</domain>
+
+						<domain name="downlink" interface="10.2.3.1/24">
+
+							<dhcp-server ip_first="10.2.3.2"
+										 ip_last="10.2.3.2">
+
+								<dns-server ip="4.5.6.7"/>
+								<dns-server ip="5.6.7.8"/>
+
+							</dhcp-server>
+
+							<icmp dst="} [good_dst_ip] {/24" domain="uplink"/>
+
+						</domain>
+
+					</config>
+
+				</inline>
+				<sleep milliseconds="3000"/>
+				<inline>
+
+					<config
+						verbose="no"
+						verbose_packets="no"
+						dhcp_discover_timeout_sec="1"
+						icmp_idle_timeout_sec="6"
+						link_state_min_dwell_ms="1000">
+
+						<policy label_prefix="nic_router_2" domain="downlink"/>
+						<uplink                             domain="uplink"/>
+
+						<domain name="uplink">
+							<nat domain="downlink" icmp-ids="100"/>
+						</domain>
+
+						<domain name="downlink" interface="10.2.3.1/24">
+
+							<dhcp-server ip_first="10.2.3.2"
+							             ip_last="10.2.3.2">
+
+								<dns-server ip="6.7.8.9"/>
+
+							</dhcp-server>
+
+							<icmp dst="} [good_dst_ip] {/24" domain="uplink"/>
+
+						</domain>
+
+					</config>
+
+				</inline>
+				<sleep milliseconds="3000"/>
+				<inline>
+
+					<config
+						verbose="no"
+						verbose_packets="no"
+						dhcp_discover_timeout_sec="1"
+						icmp_idle_timeout_sec="6"
+						link_state_min_dwell_ms="1000">
+
+						<policy label_prefix="nic_router_2" domain="downlink"/>
+						<uplink                             domain="uplink"/>
+
+						<domain name="uplink">
+							<nat domain="downlink" icmp-ids="100"/>
+						</domain>
+
+						<domain name="downlink" interface="10.2.3.1/24">
+
+							<dhcp-server ip_first="10.2.3.2"
+							             ip_last="10.2.3.2">
+
+							</dhcp-server>
+
+							<icmp dst="} [good_dst_ip] {/24" domain="uplink"/>
+
+						</domain>
+
+					</config>
+
+				</inline>
+				<sleep milliseconds="3000"/>
+
+			</rom>
+		</config>
+	</start>
+
+	<start name="nic_router_1" caps="200">
+		<binary name="nic_router"/>
+		<resource name="RAM" quantum="10M"/>
+		<provides><service name="Nic"/></provides>
+
+
+		<route>
+			<service name="ROM" label="config"> <child name="dynamic_rom" label="nic_router_1.config"/> </service>
+			<service name="Nic"> <child name="drivers"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="nic_router_2" caps="200">
+		<binary name="nic_router"/>
+		<resource name="RAM" quantum="10M"/>
+		<provides><service name="Nic"/></provides>
+
+		<config
+			verbose="no"
+			verbose_packets="no"
+			dhcp_discover_timeout_sec="1"
+			icmp_idle_timeout_sec="6"
+			link_state_min_dwell_ms="1000">
+
+			<report bytes="no"
+					stats="no"
+					quota="no"
+					config="yes"
+					config_triggers="yes"
+					interval_sec="100"/>
+
+			<policy label_prefix="test" domain="test"/>
+			<uplink                     domain="uplink"/>
+
+			<domain name="uplink">
+				<nat domain="test" icmp-ids="100"/>
+			</domain>
+
+			<domain name="test" interface="10.0.3.1/24">
+
+				<dhcp-server ip_first="10.0.3.2"
+				             ip_last="10.0.3.2"
+				             dns_server_from="uplink">
+
+				</dhcp-server>
+
+				<icmp dst="} [good_dst_ip] {/24" domain="uplink"/>
+
+			</domain>
+
+		</config>
+
+		<route>
+			<service name="Report"> <child name="report_rom"/> </service>
+			<service name="Nic"> <child name="nic_router_1"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="report_rom">
+		<resource name="RAM" quantum="1M"/>
+		<provides> <service name="Report"/> <service name="ROM"/> </provides>
+		<config verbose="yes"/>
+	</start>
+
+	<start name="test">
+		<binary name="test-nic_router_dhcp"/>
+		<resource name="RAM" quantum="8M"/>
+		<config dst_ip="} [good_dst_ip] {"
+		        period_sec="1"
+		        verbose="no"/>
+		<route>
+			<service name="Nic"> <child name="nic_router_2"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>}
+
+append config {
+</config>}
+
+install_config $config
+build_boot_image { init nic_router dynamic_rom test-nic_router_dhcp report_rom }
+
+append qemu_args " -nographic "
+append_qemu_nic_args
+
+
+append done_string ".*report_rom\]   	<domain name=\"uplink\" ipv4=\"10.2.3.2/24\" gw=\"10.2.3.1\" dns=\"1.2.3.4\" dns=\"2.3.4.5\" dns=\"3.4.5.6\"/>.*\n"
+append done_string ".*DHCP request completed:.*\n"
+append done_string ".*  IP lease time: 3600 seconds.*\n"
+append done_string ".*  Interface: 10.0.3.2/24.*\n"
+append done_string ".*  Router: 10.0.3.1.*\n"
+append done_string ".*  DNS server #1: 1.2.3.4.*\n"
+append done_string ".*  DNS server #2: 2.3.4.5.*\n"
+append done_string ".*  DNS server #3: 3.4.5.6.*\n"
+append done_string ".*report_rom\]   	<domain name=\"uplink\" ipv4=\"10.2.3.2/24\" gw=\"10.2.3.1\" dns=\"4.5.6.7\" dns=\"5.6.7.8\"/>.*\n"
+append done_string ".*DHCP request completed:.*\n"
+append done_string ".*  IP lease time: 3600 seconds.*\n"
+append done_string ".*  Interface: 10.0.3.2/24.*\n"
+append done_string ".*  Router: 10.0.3.1.*\n"
+append done_string ".*  DNS server #1: 4.5.6.7.*\n"
+append done_string ".*  DNS server #2: 5.6.7.8.*\n"
+append done_string ".*report_rom\]   	<domain name=\"uplink\" ipv4=\"10.2.3.2/24\" gw=\"10.2.3.1\" dns=\"6.7.8.9\"/>.*\n"
+append done_string ".*DHCP request completed:.*\n"
+append done_string ".*  IP lease time: 3600 seconds.*\n"
+append done_string ".*  Interface: 10.0.3.2/24.*\n"
+append done_string ".*  Router: 10.0.3.1.*\n"
+append done_string ".*  DNS server #1: 6.7.8.9.*\n"
+append done_string ".*report_rom\]   	<domain name=\"uplink\" ipv4=\"10.2.3.2/24\" gw=\"10.2.3.1\"/>.*\n"
+append done_string ".*DHCP request completed:.*\n"
+append done_string ".*  IP lease time: 3600 seconds.*\n"
+append done_string ".*  Interface: 10.0.3.2/24.*\n"
+append done_string ".*  Router: 10.0.3.1.*\n"
+append done_string ".*report_rom\]   	<domain name=\"uplink\" ipv4=\"10.2.3.2/24\" gw=\"10.2.3.1\" dns=\"1.2.3.4\" dns=\"2.3.4.5\" dns=\"3.4.5.6\"/>.*\n"
+append done_string ".*DHCP request completed:.*\n"
+append done_string ".*  IP lease time: 3600 seconds.*\n"
+append done_string ".*  Interface: 10.0.3.2/24.*\n"
+append done_string ".*  Router: 10.0.3.1.*\n"
+append done_string ".*  DNS server #1: 1.2.3.4.*\n"
+append done_string ".*  DNS server #2: 2.3.4.5.*\n"
+append done_string ".*  DNS server #3: 3.4.5.6.*\n"
+
+run_genode_until $done_string 30
