@@ -257,19 +257,61 @@ class Net::Session_component : private Session_component_base,
 {
 	private:
 
-		struct Interface_policy : Net::Interface_policy
+		class Interface_policy : public Net::Interface_policy
 		{
 			private:
+
+				using One_shot_timeout =
+					Timer::One_shot_timeout<Interface_policy>;
+
+				using Signal_context_capability =
+					Genode::Signal_context_capability;
+
+				/*
+				 * The transient link state is a combination of session and
+				 * interface link state. The first word in the value names
+				 * denotes the session link state. If the session link state
+				 * can be altered directly, it is marked as 'MODIFIABLE'.
+				 * Otherwise, the denoted session state has to stay fixed
+				 * for a certain time in order to fullfill the configured
+				 * minimum dwell time. In this case, the session link state
+				 * in the value names may be followed by the pending link
+				 * state edges. Consequently, the last 'UP' or 'DOWN' in each
+				 * value name denotes the interface link state.
+				 */
+				enum Transient_link_state
+				{
+					DOWN_MODIFIABLE,
+					DOWN,
+					DOWN_UP,
+					DOWN_UP_DOWN,
+					UP_MODIFIABLE,
+					UP,
+					UP_DOWN,
+					UP_DOWN_UP
+				};
 
 				Genode::Session_label    const  _label;
 				Const_reference<Configuration>  _config;
 				Genode::Session_env      const &_session_env;
+				Transient_link_state            _transient_link_state    { DOWN_MODIFIABLE };
+				Signal_context_capability       _session_link_state_sigh { };
+				One_shot_timeout                _session_link_state_dwell_timeout;
+
+				void _handle_session_link_state_dwell_timeout(Genode::Duration);
+
+				void _session_link_state_transition(Transient_link_state tls);
 
 			public:
 
 				Interface_policy(Genode::Session_label const &label,
 				                 Genode::Session_env   const &session_env,
-				                 Configuration         const &config);
+				                 Configuration         const &config,
+				                 Timer::Connection           &timer);
+
+				bool session_link_state() const;
+
+				void session_link_state_sigh(Genode::Signal_context_capability sigh);
 
 
 				/***************************
@@ -280,9 +322,11 @@ class Net::Session_component : private Session_component_base,
 				void handle_config(Configuration const &config) override { _config = config; }
 				Genode::Session_label const &label() const override { return _label; }
 				void report(Genode::Xml_generator &xml) const override { _session_env.report(xml); };
+				void interface_unready() override;
+				void interface_ready() override;
+				bool interface_link_state() const override;
 		};
 
-		bool                                   _link_state { true };
 		Interface_policy                       _interface_policy;
 		Interface                              _interface;
 		Genode::Ram_dataspace_capability const _ram_ds;
@@ -306,9 +350,8 @@ class Net::Session_component : private Session_component_base,
 		 ******************/
 
 		Mac_address mac_address() override { return _interface.mac(); }
-		bool link_state() override { return _interface.link_state(); }
-		void link_state_sigh(Genode::Signal_context_capability sigh) override {
-			_interface.session_link_state_sigh(sigh); }
+		bool link_state() override;
+		void link_state_sigh(Genode::Signal_context_capability sigh) override;
 
 
 		/***************
