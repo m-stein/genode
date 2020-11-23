@@ -1,5 +1,5 @@
 MIRROR_FROM_REP_DIR := \
-	lib/mk/vfs_cbe_trust_anchor.mk \
+	lib/mk/spec/x86_64/vfs_cbe_trust_anchor.mk \
 	include/cbe/vfs/io_job.h \
 	src/lib/vfs/cbe_trust_anchor
 

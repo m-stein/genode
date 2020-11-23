@@ -1,6 +1,6 @@
 MIRROR_FROM_REP_DIR := \
 	include/cbe/crypto/interface.h \
-	lib/mk/vfs_cbe_crypto_memcopy.mk \
+	lib/mk/spec/x86_64/vfs_cbe_crypto_memcopy.mk \
 	src/lib/vfs/cbe_crypto/vfs.cc \
 	src/lib/vfs/cbe_crypto/memcopy
 

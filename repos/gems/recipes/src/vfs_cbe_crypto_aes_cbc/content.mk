@@ -1,7 +1,7 @@
 MIRROR_FROM_REP_DIR := \
 	include/cbe/types.h \
 	include/cbe/crypto/interface.h \
-	lib/mk/vfs_cbe_crypto_aes_cbc.mk \
+	lib/mk/spec/x86_64/vfs_cbe_crypto_aes_cbc.mk \
 	src/lib/vfs/cbe_crypto/vfs.cc \
 	src/lib/vfs/cbe_crypto/aes_cbc
 
