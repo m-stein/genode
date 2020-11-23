@@ -2,11 +2,7 @@ BUILD_LIBS := \
 	cbe_cxx \
 	cbe_init_cxx \
 	cbe_dump_cxx \
-	cbe_check_cxx \
-	vfs_cbe_crypto_memcopy \
-	vfs_cbe_crypto_aes_cbc \
-	vfs_cbe_trust_anchor \
-	vfs_cbe
+	cbe_check_cxx
 
 MIRROR_FROM_CBE_DIR := \
 	src/lib/cbe \
