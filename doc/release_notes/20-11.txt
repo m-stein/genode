@@ -1,0 +1,838 @@
+
+
+              ===============================================
+              Release notes for the Genode OS Framework 20.11
+              ===============================================
+
+                               Genode Labs
+
+
+
+; intro -> @nfeske
+
+
+CPU-load balancing
+##################
+
+; @alex-ab
+
+commit 99fa2036734dea9e78cc01abebf413fa52661d2c
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Tue Jul 28 19:30:56 2020 +0200
+
+    nova: add migration support for global threads
+    
+    Fixes #3842
+
+commit 90bea1499ed4b26c5aa695f34fbbce1f09f81f3d
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Wed Sep 23 07:41:39 2020 +0200
+
+    core: store new affinity on successful migration
+    
+    Adjust the base-* platforms to acknowledge new thread location solely if
+    migration is supported and succeeded. Otherwise the wrong thread
+    locations are observed via the trace session and utilization time calculation
+    get wrong.
+    
+    Issue #3842
+
+commit e61f6cfd3853d8867ea2686ced27c6d700079b9b
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Wed Sep 23 11:41:22 2020 +0200
+
+    base: add thread migration test
+    
+    Issue #3842
+
+commit ac39879660d0b8a33c69408ece1f9aacec39d7da
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Thu Oct 29 15:57:06 2020 +0100
+
+    cpu_burner: utilize all assigned CPUs
+    
+    Issue #3843
+
+commit bf9a9ae08c08c24b2fd3ec33154b79661c894505
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Fri Jul 17 13:21:41 2020 +0200
+
+    os: add cpu balancer component
+    
+    Issue #3843
+
+
+Sculpt OS on 64-bit ARM hardware (i.MX8 EVK)
+############################################
+
+; @skalk, @ssumpf
+
+commit 27f705bc48422ccaf9ae3b9044fdc0a26a5ad703
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Wed Sep 23 11:05:35 2020 +0200
+
+    bootstrap: iomux adaptions for i.MX8 MIPI
+    
+    These settings were obtained with a JTAG debugger from a running Linux
+    system. They work for MIPI as well as for HDMI.
+    
+    issue #3900
+
+commit 664b861f9d8c60254d4579865dc9e8dd259d7109
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Thu Jun 11 16:21:51 2020 +0200
+
+    imx8_fb_drv: MIPI DSI display support
+    
+    - support for Northwest Logic MIPI DSI bridge
+    - support for Radium panel (NXP MX8_DSI_OLED1)
+    - new 'DSI-1' connector in driver config file
+    
+    issue #3900
+
+commit 89972b11b7967063b09cb1d2a5bc24608588213c
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Thu Sep 24 14:42:56 2020 +0200
+
+    gpio_drv: use platform session for i.MX
+    
+    This makes the driver work for all i.MX boards. A platform driver with
+    the board specific configuration is required.
+    
+    issue #3900
+
+commit 96eb83f19a2ace12c404260611975945abd55302
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Thu Sep 3 09:35:32 2020 +0200
+
+    os: Synaptics DSX touch screen driver
+    
+    Provides touch event service for i.MX8M Quad only
+    
+    issue #3900
+
+commit d387eba0ba226570dac2aa132ac9513b4c3c794e
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Thu Sep 24 14:43:28 2020 +0200
+
+    os: driver recipe for i.MX8 drivers
+    
+    Includes touch and gpio driver
+    
+    issue #3900
+
+commit 6c6deb7e8b728eab357aff5b3f50c5890d7e8484
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Thu Sep 24 14:11:44 2020 +0200
+
+    dde_linux: add touch to i.MX8 recipe
+    
+    Add touch screen and event filter to drivers interactive package.
+    
+    issue #3900
+
+commit b9bd179e5448846eefcdeddadabc97fc940fd4d4
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Thu Sep 24 16:07:27 2020 +0200
+
+    gpio_drv: remove specs for imx53 and imx6
+    
+    Also cleanup run scripts and recipes were gpio driver is not required,
+    update the ones were it is.
+    
+    issue #3900
+
+commit c79687f5f4e31492ef68207d80d0b008b9035366
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Mon Oct 5 09:17:58 2020 +0200
+
+    gpio: introduce Pin and '_with_gpio'
+    
+    - make GPIO server more robust on imx by not throwing exceptions for
+      unknown pins, use '_with_gpio' instead
+    - use 'Gpio::Pin' data type instead of POD 'unsigned'
+    
+    issue #3900
+
+commit 4e90dc4512f79a3ef21f460495ecccfd3fc58f7b
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Tue Nov 10 16:40:32 2020 +0100
+
+    dde_linux: adjust fec_nic_drv to use platform_drv
+    
+    Fix #3947
+
+commit 1bab31d6bb383b4c5a2dc4554a95aed02ddb7c0c
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Mon Nov 23 17:14:19 2020 +0100
+
+    os: adjust sd_card_drv to use platform API
+    
+    Fix #3956
+
+commit 2d5b4775422a6a30f4e4ac573bc6b593082835ae
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Tue Nov 24 12:24:26 2020 +0100
+
+    sculpt: move pc-specifics away from generic part
+    
+    * Introduce sculpt-[board] specific package
+    * Move rtc driver into managed drivers sub-system
+    * Name nic_drv in a generic fashion in sculpt_manager
+    * Copy over pc-specific config files only when building for PC
+    
+    Ref #3958
+
+commit 9ad82b476d54bb5f0a4c0b6a9c516878d1444b6d
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Tue Nov 24 16:00:47 2020 +0100
+
+    sculpt: add basic support for i.MX8 Quad EVK
+    
+    * Introduce CPU quota for driver subsytem (needed by sd_card_drv)
+    * Introduce CPU quota for runtime subsytem and nic_drv (needed by fec_nic_drv)
+    * Increase CAP quota for inspect terminal slightly
+    * Add sculpt packages for imx8q_evk
+    
+    Fix #3958
+
+
+Multicore virtualization on ARM
+###############################
+
+; @skalk
+
+commit 40445d70118bbeb3a77d945b6fc5c26b6a42a481
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Fri Oct 9 10:32:24 2020 +0200
+
+    base: extend vm_session API with native vcpu cap
+    
+    To enable the interaction of a VMM with the kernel directly,
+    a hidden RPC gets introduced. It allows a kernel-specific
+    base-library implementation of the Vm_session::Client to request
+    a kernel-specific capability to address a VCPU, e.g., to
+    run/stop it.
+    
+    Ref #3926
+
+commit 1d826a2c48976d2b98c0bbe1fa3c6d8786314f1d
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Fri Oct 9 10:33:44 2020 +0200
+
+    base-hw: do direct syscall when run/pause a VCPU
+    
+    Instead of calling core to run/pause a VCPU, go directly to the kernel.
+    Apart from the performance win, it would otherwise involve a more complex
+    protocol, when a VCPU on another core has to be removed from the scheduler.
+    Core's entrypoint handling those request runs on the boot-cpu only.
+    
+    Ref #3926
+
+commit 7298b000131926f4b328e33e221a9a50ca78c9a1
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Fri Sep 11 14:43:29 2020 +0200
+
+    base-hw: make ARMv7/v8 hypervisor smp ready
+    
+    * Introduce hypervisor-stack per CPU
+    * Introduce host world context per CPU
+    * Mark EL2 translation table memory as inner shareable
+    * The VMID is not bound to a single VCPU, but to the Vm_session as a whole
+    * Set affinity of the VCPU accordingly
+    * Add VMPIDR to VM state
+    
+    Ref #3926
+
+commit 429cd8d37a957bb7cb87feb2b7c057b33567cc43
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Fri Sep 11 14:45:47 2020 +0200
+
+    os: enable smp support for ARM vmm
+    
+    * Fix GIC model to support priority and cpu target settings correspondingly
+    * Fix semantic of SGIR register for GICv2
+    * Minor GIC model IRQ state fix
+    * Introduce synchronization for VirtIO and GIC models
+    * Enable multiple CPUs in test run-script for ARMv8
+    
+    Fix #3926
+
+
+Base framework and OS-level infrastructure
+##########################################
+
+C runtime
+=========
+
+; @cproc
+
+commit 058f2e687cc04b51ad4478c4f58d68edb4de7d1d
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Thu Oct 8 14:14:56 2020 +0200
+
+    libc: make 'mmap()' address alignment configurable
+    
+    With this commit, the alignment of anonymous 'mmap()' allocations can be
+    configured like this:
+    
+    <config>
+      <libc>
+        <mmap align_log2="21"/>
+      </libc>
+    </config>
+    
+    Fixes #3907
+
+commit 405955eaef3453c2798b6be5b79f9b9d543f0b3d
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Tue Oct 13 15:40:49 2020 +0200
+
+    libc: implement 'posix_memalign()'
+    
+    Fixes #3915
+
+
+Standard C++ library
+====================
+
+; @cnuke
+
+commit de8411a5e12c9785362710c623198da2c4bfd041
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Oct 5 14:13:37 2020 +0200
+
+    cxx: add missing low-level symbols
+    
+    Issue #3921
+
+commit 4981eb425e7aded0ecb5f031630a38b3f35741c0
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Wed Oct 7 17:39:26 2020 +0200
+
+    ld: add symbols needed by testsuite
+    
+    Issue #3921
+
+commit 59f562f627122acf20d2295c3c9678cf1011c474
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Wed Oct 7 17:39:40 2020 +0200
+
+    libc: add symbols needed by testsuite
+    
+    Issue #3921
+
+commit 563cc07cb03d9daaf1267cc64c03fc0a324979c1
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Oct 5 14:54:36 2020 +0200
+
+    libports: posix src archive implements posix API
+    
+    Issue #3921
+
+commit a24911296aa49331b9b46fcd475bff0193eb758f
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Oct 5 14:25:51 2020 +0200
+
+    stdcxx: adapt header files for testsuite
+    
+    Issue #3921
+
+commit a74b572e1ffd8f124f441e13daef4ca5c7cbfd16
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Tue Oct 6 18:43:27 2020 +0200
+
+    stdcxx: force symlinks to allow for re-preparing
+    
+    Issue #3921
+
+commit 1dd1bfe6923ec821cd9e7d0804725ad235793b2d
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Tue Oct 6 18:39:13 2020 +0200
+
+    stdcxx: add new/delete aligned variants (C++17)
+    
+    Issue #3921
+
+commit f754e2a7d7116c692b379d1902f189028c2c7201
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Tue Oct 6 18:43:01 2020 +0200
+
+    stdcxx: add symbols needed by testsuite
+    
+    Fixes #3921
+
+
+Consistent Block Encrypter (CBE)
+================================
+
+The CBE is a library for the management of encrypted block-devices that is
+entirely written in SPARK. It was first announced and integrated with
+[https://genode.org/documentation/release-notes/19.11#Preliminary_block-device_encrypter - Genode 19.11],
+reached feature-completeness with
+[https://genode.org/documentation/release-notes/20.05#Feature-completeness_of_the_consistent_block_encrypter - Genode 20.05],
+and has received a highly modular back-end system with
+[https://genode.org/documentation/release-notes/20.08#Consistent_Block_Encrypter - 20.08].
+For this release we thoroughly cleaned up the CBE repository, added enhanced
+automated quality assurance, and switched to another default encryption
+back-end.
+
+
+Repository restructuring
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Generally speaking, the [https://github.com/m-stein/cbe - CBE repository] has
+been freed from everything that is not either part of the SPARK-based core
+logic (cbe, cbe_common, and the hashing algorithm), the essential SPARK-based
+tooling (initialization, checking, ...), or the Ada-based C++ bindings (*_cxx
+libraries). The whole Genode-specific integration, testing, and packaging moved
+to Genode's 'gems' repository and the former Genode sub-repository 'cbe' was
+replaced by the new CBE port 'gems/ports/cbe.port'. We also took the
+opportunity to remove many unused remnants of earlier development stages and
+to drastically simplify the ecosystem of CBE-related packages.
+
+We hope that this allows for certain characteristics of the CBE project, like
+its strong OS-independence or a completely "flow-mode"-provable core logic
+to become more clear, while at the same time, the Genode-specific accessories
+can benefit from being part of the Genode mainline development.
+
+
+Automated testing, benchmarking, and proving
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The CBE tester is a scriptable environment meant for testing all aspects of the
+CBE library and its basic tooling. Through its XML command interface, one can
+not only access and validate data of CBE devices but also initialize them,
+check their consistency, analyze their meta data, execute performance
+benchmarks, manage device snapshots, perform online re-keying or online
+re-dimensioning of devices, and, last but not least, manage the required Trust
+Anchors.
+
+Before this release, the CBE tester was a mere patchwork solution and many of
+the above mentioned features were limited or even missing. For instance block
+access was issued only synchronous, the Trust-Anchor was managed implicitly
+and validating read data wasn't possible. Besides adding the missing features,
+we also reworked the component entirely to follow a clean and comprehensible
+implementation concept. The new CBE tester comes together with the run script
+'gems/run/cbe_tester.run' that shall serve as both a demonstration how to use
+the tester and an extensive automated test and benchmark for the CBE.
+
+Furthermore, we created a CBE-specific autopilot tool 'tool/cbe_autopilot' that
+is meant to establish a common reference for the quality of CBE releases as
+well as for their integration in Genode. Running the tool without arguments
+will give instructions how to use it. In a nutshell, when running
+'tool/cbe_autopilot basics', the tool will GNAT-prove what is expected to be
+provable, run all CBE-related run scripts expected to work, and build all
+CBE-related packages (existing build and depot directories are not touched in
+this process). The idea is to make this succeed each time before advancing the
+master branch of the CBE repository or releasing a new version of the
+integration in Genode. A handy side-feature of the tool is that one can run
+'tool/cbe_autopilot prove' to do only the GNAT-proving part. With
+'tool/cbe_autopilot clean' finally, the tool cleans up all of its artifacts.
+
+
+Libcrypto back end for block encryption
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The introduction of VFS plugins for CBE back ends in the last Genode release
+made it much easier to interchange concrete implementations. This motivated us
+to play around a bit in our endeavour of optimizing execution time. It turned
+out that especially the choice of the block-encryption back-end has a
+significant impact on the overall performance of CBE block operations. It
+furthermore seemed that especially the 'libsparkcrypto' library, our former
+default for block encryption, prioritizes other qualities over performance.
+
+That said, in general, we want to enable an informed user to decide for him- or
+herself which qualities he or she prefers in such an algorithm. The VFS plugin
+mechanism pays tribute to this. And it also seems very natural to us to combine
+a SPARK-based block-device management with a SPARK-based encryption back-end
+like 'libsparkcrypto'. But for our default use case, we came to the conclusion
+that the 'libcrypto' library might be a better choice.
+
+
+Streamlined ioctl handling in the C runtime / VFS
+=================================================
+
+; @cnuke
+
+commit 27d4cb871fcba8b21fe1bfc08b13182efbb08b9c
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Tue Sep 1 17:47:45 2020 +0200
+
+    libc: use property files for block ioctl
+    
+    Like already done for terminal I/O controls use collect the information
+    by reading property files instead of using the old VFS ioctl interface.
+    
+    Fixes #3888.
+
+commit 1a54ee895e17e949eb80c4b8fb221d036bfdb9ad
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Tue Sep 1 18:16:08 2020 +0200
+
+    vfs: use compound ioctl in Block-VFS plugin
+    
+    Instead of using the old 'ioctl' Vfs::File_io_services API implement
+    the I/O control functionality in a buch of files. This is similar to
+    the terminal-VFS plugin.
+    
+    Fixes #3889.
+
+commit 3d2b0cab936c1327362a5577d614421e92bc154a
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Tue Sep 8 16:39:23 2020 +0200
+
+    libc: implement SNDCTL I/O control handling
+    
+    In the same vein as the terminal and block I/O controls, the sound
+    controls are implemented via poperty files and match the OSS
+    API ([1] features a nice overview while [2] is v3 and [3] gives
+    in-depth information on the current v4.x API we eventually might want
+    to implement).
+    
+      [1] https://wiki.freebsd.org/RyanBeasley/ioctlref/
+      [2] http://www.opensound.com/pguide/oss.pdf
+      [3] http://manuals.opensound.com/developer/
+    
+    The controls currently implemented are the ones used by the cmus OSS
+    output plugin, which was the driving factor behind the implementation.
+    It uses the obsolete (v3) API and does not check if the requested
+    parameter was actually set, which should be done according to the
+    official OSS documentation.
+    
+    At the moment it is not possible to set or rather change any
+    parameters. In case the requested setting differs from the parameters
+    of the underlying Audio_out session - in contrast to the suggestion in
+    the OSS manual - we do not silently adjust the parameters returned
+    to the callee but outright fail the I/O control operation.
+    
+    The following list contains all currently handled I/O controls.
+    
+      * SNDCTL_DSP_CHANNELS sets the number of channels. We return the
+        available channels here and return ENOTSUP if it differs from
+        the requested number of channels.
+    
+      * SNDCTL_DSP_GETOSPACE returns amount of playback data that can
+        be written without blocking. For now it amounts the space left
+        in the Audio_out packet-stream.
+    
+      * SNDCTL_DSP_POST forces playback to start. We do nothing and return
+        success.
+    
+      * SNDCTL_DSP_RESET is supposed to reset the device when it is
+        active before any parameters are changed. We do nothing and return
+        success.
+    
+      * SNDCTL_DSP_SAMPLESIZE sets the sample size. We return the
+        sample size of the underlying Audio_out session and return ENOTSUP
+        if it differs from the requested number of channels.
+    
+      * SNDCTL_DSP_SETFRAGMENT sets the buffer size hint. We ignore the
+        hint and return success.
+    
+      * SNDCTL_DSP_SPEED sets the samplerate. For now, we always return
+        the rate of the underlying Audio_out session and return ENOTSUP
+        if it differs from the requested one.
+    
+    This commit serves as a starting point for further implementing the
+    OSS API by exploring more users, e.g. as VirtualBox/Qt5/SDL2 audio
+    backend or a more sophisticated progam like sndiod.
+    
+    Issue #3891.
+
+commit 7d21335ac9845c29ca959daa212521edc4861bb4
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Thu Nov 8 16:23:14 2018 +0100
+
+    vfs/oss: VFS plugin for Audio_out access via files
+    
+    This plugin gives access to the Audio_out session by roughly
+    implementing a OSS pseudo-device. It merely wrapps the session and does
+    not provide any resampling or re-coding.
+    
+    Fixes #3891.
+
+Device drivers
+##############
+
+VirtIO support
+==============
+
+; @tworaz, @skalk
+
+commit fe0ad0addb311c07a00848412cf634574f95507e
+Author: Piotr Tworek <tworaz@tworaz.net>
+Date:   Thu Apr 2 21:20:50 2020 +0200
+
+    tool: Consolidate qemu nic setup.
+    
+    Right now the same code dealing with nic setup on qemu is duplicated
+    in many different run scripts. It makes it unnecesarily complex to
+    change the existing config or add support for new nic types. Lets move
+    all this common code to qemu.inc.
+    
+    Ref #3825
+
+commit 9bd548c4bd62dac4ced9cf93b368f1c9e38198ae
+Author: Piotr Tworek <tworaz@tworaz.net>
+Date:   Wed Jul 1 00:11:27 2020 +0200
+
+    os: add platform_drv config generator for virt_qemu
+    
+    The VirtIO device configuration on Qemu is dynamic. The
+    order and presence of different command line switches affects
+    base address and interrupt assignment of each device. One could
+    probably hard-code the necessary switches and resulting XML ARM
+    platform driver configuration in each run script, but this seems
+    like troublesome and hard to maintain solution.
+    
+    This patch explores an alternative approach to the problem.
+    It implements a ROM driver which probes the address space region
+    Qemu virt machines assign to VirtIO MMIO devices and exposes the
+    result as XML via a ROM session. This XML output can be fed directly
+    as config to the generic ARM platform driver.
+    
+    Ref #3825
+
+commit 7fbb245710922bdf82f9136807fc57be2fbd1f8d
+Author: Piotr Tworek <tworaz@tworaz.net>
+Date:   Thu Jul 2 23:32:22 2020 +0200
+
+    os: add VirtIO device helper classes.
+    
+    To simplify writing native VirtIO drivers for Genode add helper classes
+    representing VirtIO device and queue. The queue implementation should
+    be platform independant. The device abstraction however is closely tied
+    to the VirtIO transport being used (PCI/MMIO). Both PCI and MMIO
+    implementations expose the same public API so the actual driver logic
+    should be the same regardless of which transport is used.
+    
+    Its also important to note that the PCI version of Virtio::Device
+    currently does not support MSI-X interrupts. Unfortunately my kowledge
+    about PCI bus is very limited and my main area of interest was to get
+    VirtIO drivers working on virt_qemu ARM/Aarch64 platform. As such all
+    the VirtIO drivers I plan to submit will work with PCI bus, but might
+    not use some extended capabilities.
+    
+    Ref #3825
+
+commit 8d5005e03af4d134299b39c33acc127d78545a1b
+Author: Piotr Tworek <tworaz@tworaz.net>
+Date:   Wed Oct 2 18:17:41 2019 +0200
+
+    os: add VirtIO nic driver
+    
+    The driver is faily simple and does not support fancy features like
+    TCP checksum offloading or vlan filtering, but it is fully capable of
+    running every Genode network based scenario I've tried. Its currently
+    known to work on virt_qemu arm platforms and x86_64.
+    
+    Fix #3825
+
+
+Improved support for OpenBSD audio drivers
+==========================================
+
+; @cnuke
+
+commit 54d36a7d1be037293ab9c2a8dff3944e58a1fc88
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Thu Oct 29 15:17:29 2020 +0100
+
+    mixer: apply config on new sessions
+    
+    Updating the config and using its settings instead of only reporting
+    the new session allows to apply stored channel settings immediately.
+    
+    In case of Sculpt this is useful when an existing launcher already
+    contains a valid config that sets the volume levels appropiately or
+    the 'recall_fs' is used.
+    
+    Fixes #3930.
+
+commit 6c7f0cb7cc7ca32f2b726299e360ad564ed5c1fc
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Tue Oct 27 15:45:55 2020 +0100
+
+    dde_bsd: properly enable recording in run script
+    
+      * Updating the run script was missed in commit "dde_bsd: remove
+        configration attributes".
+    
+      * Decrease output and input volume to "more sane" levels.
+    
+    Issue #3929.
+
+commit 3faf5c43a8b78fb682949d2e24b590cc9ab41df1
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Fri Jun 19 14:38:37 2020 +0200
+
+    dde_bsd: seperate PCI back end
+    
+    The supported drivers so far exclusively used PCI and for practical
+    reasons the emulation environment was to tied to. To make future
+    addition of drivers that employ other transport busses easier, split
+    the bus handling into its own backend.
+    
+    This is preliminary clean-up work before introducing the USB audio
+    driver.
+    
+    Issue #3929.
+
+commit 7193902cc084816aed3c96f2848ec303a53f90bb
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Fri Jun 19 14:49:29 2020 +0200
+
+    dde_bsd: properly name PCI audio driver component
+    
+    Instead of the generic name, call the PCI driver 'pci_audio_drv'.
+    
+    This is preliminary clean-up work before introducing the USB audio
+    driver.
+    
+    Issue #3929.
+
+commit bdb71d94c201695b22132d339fe8d1eac9363124
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Fri Jun 19 15:30:33 2020 +0200
+
+    dde_bsd: pull strlcpy in via contrib code
+    
+    For historical reason the 'strlcpy' implemention was directly pull in
+    into the emulation environment. There is, however, no reason not to
+    use the contrib sources in the usual fashion.
+    
+    Issue #3929.
+
+commit 2ec398e550ed2d5d5dbdf560ee42f25386867184
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Tue Jan 28 18:27:53 2020 +0100
+
+    dde_bsd: use timeout framework for time handling
+    
+    With this commit the timer back-end uses the timeout framework to
+    schedule any occuring timeouts and for providing the current time.
+    For now there is only one timeout, the unsolicited azlia codec event
+    and therefore the timeout queue consists of solely one timeout object.
+    
+    In addition a timer session is used for implementing 'delay()' where
+    we have to block until the delay is completed.
+    
+    Issue #3929.
+
+commit cd7c99afdcd55bc1e693002048a9e0e4a1da72f6
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Fri Jun 26 16:14:44 2020 +0200
+
+    dde_bsd: implemented delayed session announcement
+    
+    This becomes necessary in case of the USB audio driver where we have
+    to wait for and query the function first.
+    
+    That being said, alternatively we could also announce the session but
+    ignore any request until there is a device we can use.
+    
+    Issue #3929.
+
+commit b9869b666a2295a92ebb97819bab26ea7c6c97d3
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Fri Jun 26 17:13:58 2020 +0200
+
+    dde_bsd: use bsd_task to handle I/O
+    
+    Originally, the kernel code should have been executed within the
+    context of the main task like it is done in dde_linux. The initial
+    port of the HDA driver, however, did not required doing so and the
+    session called code directly.
+    
+    When using USB device, that is no longer possible as we have to
+    suspend the execution during the execution of the kernel code. So
+    we pass in the audio data and schedule the kernel.
+    
+    Fixes #3929.
+
+commit 1b4444ce9ef5a1a41050c0b3e2dd1b5d4deb72f8
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Sep 21 17:15:27 2020 +0200
+
+    dde_bsd: use right member for iterating mixer set
+    
+    Due to what seems like a copy-and-paste error, the wrong union member
+    was used to compare the label. Fortunately, as both structs have the
+    same memory layout that did not result in any issue.
+    
+    Issue #3929.
+
+commit b6912a3d8746eb6a015685b3d0c3e26ae474dc68
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Sep 21 17:38:54 2020 +0200
+
+    dde_bsd: query initial head-phone state
+    
+    Account for the situation where the driver is started while the HP
+    is already plugged in and configure the mixer accordingly.
+    
+    Thanks to Peter for the patch.
+    
+    Issue #3929.
+
+commit 194305a8bb58fb93e23c77bf2c0122bcd8df3a91
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Sep 21 17:57:04 2020 +0200
+
+    dde_bsd: apply HP sense quirk for Fujitsu S398
+    
+    This quirk is needed for properly switching between the internal and
+    an external headphone.
+    
+    Thanks to Peter for the patch.
+    
+    Issue #3929.
+
+
+Retiring the monolithic USB driver
+==================================
+
+; @alex-ab
+
+commit 24181f2bf6eb0f6652c1fe801518c39e4c490b95
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Fri Nov 6 13:23:26 2020 +0100
+
+    driver_manager: use componentized usb driver
+    
+    Fixes #3943
+
+
+Platforms
+#########
+
+HWP support on PC hardware
+==========================
+
+; @alex-ab
+
+commit a4c7837fb3672f2e0bc46c748c7bd03eecf718c7
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Wed Oct 28 14:55:10 2020 +0100
+
+    Update to bender with optional microcode and HWP
+    
+    plugin support.
+    
+    Fixes #3871
+
+
+NOVA microhypervisor
+====================
+
+; @alex-ab
+
+commit b7ba50811026b094da3459acef988f5b107ca2fb
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Wed Oct 28 22:43:34 2020 +0100
+
+    nova: update to kernel supporting AMD IO-MMU
+    
+    Fixes #3928
+
