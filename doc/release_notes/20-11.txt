@@ -666,13 +666,23 @@ Date:   Wed Oct 28 14:55:10 2020 +0100
 NOVA microhypervisor
 ====================
 
-; @alex-ab
+The IOMMU is a hardware feature to protect operating systems, e.g. Genode,
+against misbehaving devices and/or corresponding device drivers. The feature
+is supported on x86 with the
+[https://genode.org/documentation/release-notes/13.02#DMA_protection_via_IOMMU - 13.02 release]
+and described in the release notes. Up to now this feature is solely supported
+for Intel hardware, e.g. CPUs and chipsets supporting Intel VT-d.
 
-commit b7ba50811026b094da3459acef988f5b107ca2fb
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed Oct 28 22:43:34 2020 +0100
+With this release, we add support for AMD IO-MMU version to the Genode framework
+and the NOVA kernel, being the first one out of the supported microkernels.
+Being conceptionally equivalent, the actual implementation for AMD differs of
+Intel unsurprisingly. In order to add the support, in the NOVA kernel a
+IO-MMU interface abstraction got added to host both versions, for Intel and AMD.
+Further, the lookup of the available IO-MMUs required to walk different ACPI
+tables than for Intel and another page table format for the IO-MMU had to be
+added. On the Genode framework side solely few changes were necessary,
+namely the detection of the IO/MMU feature by parsing the ACPI tables in
+Genode's ACPI driver and the ported Intel ACPICA component.
 
-    nova: update to kernel supporting AMD IO-MMU
-    
-    Fixes #3928
-
+The change has been already successfully tested on various Ryzen desktops
+and notebooks on a backported Sculpt 20.08 branch.
