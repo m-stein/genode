@@ -280,71 +280,61 @@ follows:
 Standard C++ library
 ====================
 
-; @cnuke
+We do not rely on or make use of any C++ standard library in the Genode
+OS framework, although it uses C++ as its primary programming language.
+However, since a C++ STL is a vital part of application programming with C++,
+naturally we provide one as well; in particular the GNU C++ STL library
+(_libstdc++_). It is treated as any other 3rd party library and its functionality
+is extended on demand. This approach worked well enough to even enable larger
+C++ based software like Qt5 and Chromium's Blink engine (as part of QtWebEngine)
+to run on Genode. That being said, for developers using _libstdc++_ on Genode
+it is not immediately clear, which features are supported and which are not.
 
-commit de8411a5e12c9785362710c623198da2c4bfd041
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Mon Oct 5 14:13:37 2020 +0200
+Fortunately, _libstdc++_ includes a testsuite that, as the name suggests,
+allows for testing the range of functionality of the library on a given
+platform. So we turned to it to establish a base-line of supported features.
+We were particular interested in how our port behaves when C++17 is
+requested.  It goes without saying that this only includes the aspects,
+which are specifically probed by the testsuite. Rather than adding thorough
+Genode support to the testsuite we opted for providing an
+[https://github.com/cnuke/genode-libstdcxx-testsuite/ - environment] that
+mimicks the common 'unix' target and allows us to execute the testsuite on
+a normal Linux host. It use the Genode tool-chain to compile the tests and
+spawns a Genode base-linux system to execute them.
 
-    cxx: add missing low-level symbols
-    
-    Issue #3921
+Executing the testsuite was a iterative process because in the beginning we
+encountered many falsely failed tests. On one hand, most of them were due to
+the way C++ is applied in Genode or rather how our buildsystem works
+internally. For one, _libsupc++_ on Genode is part of the _cxx_ library. This
+library in return is part of _ldso.lib.so_, the dynamic linker that provides
+the base API.  As the buildsystem uses stub libraries generated from 'symbol'
+files containg the ABI of a given shared-object, each missing symbol must
+be made available. Otherwise the linking step is going to fail complaining
+about undefined references because components use this stub libraries
+during compilation. On the other hand, we had to get cozy with the testsuites
+underlying test framework in order to get our test environment straight.
 
-commit 4981eb425e7aded0ecb5f031630a38b3f35741c0
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Wed Oct 7 17:39:26 2020 +0200
+In case of the testsuite there were a lot of symbols missing because we
+did not encounter them so far and those were therefore not part of the
+symbols file. After all, templates will always generate specific symbols
+that are difficult to forsee. Besides that, we lacked support for aligned
+'new' and 'delete' operators. With all adaptions in place we were able to
+successfully execute the testsuite.
 
-    ld: add symbols needed by testsuite
-    
-    Issue #3921
+In the end, the results paint a good picture. The current short-comings
+boil down to
 
-commit 59f562f627122acf20d2295c3c9678cf1011c474
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Wed Oct 7 17:39:40 2020 +0200
+* Support for the *stdc++fs* library is not available as the library was
+  not yet ported.
+* Proper *locale* support in the 'libc' as well as 'stdc++' is not available.
+* Support for parallel operations with *openmp* is not available.
+* Various subsystems ('std::thread', 'std::random_device', numerics library)
+  need further attention for proper functionality. This is most prominent
+  for the failing execution tests where sometimes the threads appear to
+  get stuck.
 
-    libc: add symbols needed by testsuite
-    
-    Issue #3921
-
-commit 563cc07cb03d9daaf1267cc64c03fc0a324979c1
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Mon Oct 5 14:54:36 2020 +0200
-
-    libports: posix src archive implements posix API
-    
-    Issue #3921
-
-commit a24911296aa49331b9b46fcd475bff0193eb758f
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Mon Oct 5 14:25:51 2020 +0200
-
-    stdcxx: adapt header files for testsuite
-    
-    Issue #3921
-
-commit a74b572e1ffd8f124f441e13daef4ca5c7cbfd16
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Tue Oct 6 18:43:27 2020 +0200
-
-    stdcxx: force symlinks to allow for re-preparing
-    
-    Issue #3921
-
-commit 1dd1bfe6923ec821cd9e7d0804725ad235793b2d
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Tue Oct 6 18:39:13 2020 +0200
-
-    stdcxx: add new/delete aligned variants (C++17)
-    
-    Issue #3921
-
-commit f754e2a7d7116c692b379d1902f189028c2c7201
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Tue Oct 6 18:43:01 2020 +0200
-
-    stdcxx: add symbols needed by testsuite
-    
-    Fixes #3921
+and are documented in issue
+[https://github.com/genodelabs/genode/issues/3925 - 3925].
 
 
 Consistent Block Encrypter (CBE)
@@ -437,104 +427,87 @@ that the 'libcrypto' library might be a better choice.
 Streamlined ioctl handling in the C runtime / VFS
 =================================================
 
-; @cnuke
+The Genode release
+[https://genode.org/documentation/release-notes/19.11#C_runtime_with_improved_POSIX_compatibility - 19.11]
+introduced the emulation of ioctl operations via pseudo files. This feature
+was first used by the Terminal. With this release we further employ this
+mechanism for additional ioctl operations, like the block-device related
+I/O controls, as the long-term plan is to remove the notion of ioctl's from
+the 'Vfs::File_io_services' API all-together.
 
-commit 27d4cb871fcba8b21fe1bfc08b13182efbb08b9c
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Tue Sep 1 17:47:45 2020 +0200
+We therefor equipped the block VFS-plugin with a compound directory hosting
+the pseudo files for triggering device operations:
 
-    libc: use property files for block ioctl
-    
-    Like already done for terminal I/O controls use collect the information
-    by reading property files instead of using the old VFS ioctl interface.
-    
-    Fixes #3888.
+* :info: this file contains the device information structured as 'block'
+   XML node having an 'size' and 'count' attribute providing the used
+   block size as well as the total number of blocks.
 
-commit 1a54ee895e17e949eb80c4b8fb221d036bfdb9ad
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Tue Sep 1 18:16:08 2020 +0200
+* :block_count: contains solely the total number of blocks
 
-    vfs: use compound ioctl in Block-VFS plugin
-    
-    Instead of using the old 'ioctl' Vfs::File_io_services API implement
-    the I/O control functionality in a buch of files. This is similar to
-    the terminal-VFS plugin.
-    
-    Fixes #3889.
+* :block_size: contains solely size of a block in bytes
 
-commit 3d2b0cab936c1327362a5577d614421e92bc154a
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Tue Sep 8 16:39:23 2020 +0200
+Furthermore we split the existing 'ioctl' handling method in the libc into
+specific ones for dealing with terminals and block devices because at some
+point more different groups of I/O controls are to follow.
 
-    libc: implement SNDCTL I/O control handling
-    
-    In the same vein as the terminal and block I/O controls, the sound
-    controls are implemented via poperty files and match the OSS
-    API ([1] features a nice overview while [2] is v3 and [3] gives
-    in-depth information on the current v4.x API we eventually might want
-    to implement).
-    
-      [1] https://wiki.freebsd.org/RyanBeasley/ioctlref/
-      [2] http://www.opensound.com/pguide/oss.pdf
-      [3] http://manuals.opensound.com/developer/
-    
-    The controls currently implemented are the ones used by the cmus OSS
-    output plugin, which was the driving factor behind the implementation.
-    It uses the obsolete (v3) API and does not check if the requested
-    parameter was actually set, which should be done according to the
-    official OSS documentation.
-    
-    At the moment it is not possible to set or rather change any
-    parameters. In case the requested setting differs from the parameters
-    of the underlying Audio_out session - in contrast to the suggestion in
-    the OSS manual - we do not silently adjust the parameters returned
-    to the callee but outright fail the I/O control operation.
-    
-    The following list contains all currently handled I/O controls.
-    
-      * SNDCTL_DSP_CHANNELS sets the number of channels. We return the
-        available channels here and return ENOTSUP if it differs from
-        the requested number of channels.
-    
-      * SNDCTL_DSP_GETOSPACE returns amount of playback data that can
-        be written without blocking. For now it amounts the space left
-        in the Audio_out packet-stream.
-    
-      * SNDCTL_DSP_POST forces playback to start. We do nothing and return
-        success.
-    
-      * SNDCTL_DSP_RESET is supposed to reset the device when it is
-        active before any parameters are changed. We do nothing and return
-        success.
-    
-      * SNDCTL_DSP_SAMPLESIZE sets the sample size. We return the
-        sample size of the underlying Audio_out session and return ENOTSUP
-        if it differs from the requested number of channels.
-    
-      * SNDCTL_DSP_SETFRAGMENT sets the buffer size hint. We ignore the
-        hint and return success.
-    
-      * SNDCTL_DSP_SPEED sets the samplerate. For now, we always return
-        the rate of the underlying Audio_out session and return ENOTSUP
-        if it differs from the requested one.
-    
-    This commit serves as a starting point for further implementing the
-    OSS API by exploring more users, e.g. as VirtualBox/Qt5/SDL2 audio
-    backend or a more sophisticated progam like sndiod.
-    
-    Issue #3891.
+The first one to follow is the 'SNDCTL' group. This group deals with audio
+devices and correspondes to the standard set by the OpenSoundSystem (OSS)
+specfication years ago. In the same vein as the terminal and block I/O
+controls, the sound controls are implemented via poperty files.
 
-commit 7d21335ac9845c29ca959daa212521edc4861bb4
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Thu Nov 8 16:23:14 2018 +0100
+The controls currently implemented are the ones used by the output OSS
+plugin of [https://cmus.github.io/ - cmus], the driving factor behind the
+implementation, which uses the (obsolete) version 3 API.
 
-    vfs/oss: VFS plugin for Audio_out access via files
-    
-    This plugin gives access to the Audio_out session by roughly
-    implementing a OSS pseudo-device. It merely wrapps the session and does
-    not provide any resampling or re-coding.
-    
-    Fixes #3891.
+At the moment it is not possible to set or rather change any
+parameters. In case the requested setting differs from the parameters
+of the underlying Audio_out session - in contrast to the suggestion in
+the OSS manual - we do not silently adjust the parameters returned
+to the callee but outright fail the I/O control operation.
+
+The following list contains all currently handled SNDCTL I/O controls:
+
+* :SNDCTL_DSP_CHANNELS: sets the number of channels. We return the
+  available channels here and return ENOTSUP if it differs from
+  the requested number of channels.
+
+* :SNDCTL_DSP_GETOSPACE: returns amount of playback data that can
+  be written without blocking. For now it amounts the space left
+  in the Audio_out packet-stream.
+
+* :SNDCTL_DSP_POST: forces playback to start. We do nothing and return
+  success.
+
+* :SNDCTL_DSP_RESET: is supposed to reset the device when it is
+  active before any parameters are changed. We do nothing and return
+  success.
+
+* :SNDCTL_DSP_SAMPLESIZE: sets the sample size. We return the
+  sample size of the underlying Audio_out session and return ENOTSUP
+  if it differs from the requested number of channels.
+
+* :SNDCTL_DSP_SETFRAGMENT: sets the buffer size hint. We ignore the
+  hint and return success.
+
+* :SNDCTL_DSP_SPEED: sets the samplerate. For now, we always return
+  the rate of the underlying Audio_out session and return ENOTSUP
+  if it differs from the requested one.
+
+The libc extension is accompanied by a OSS VFS-plugin that gives
+access to a Audio_out session by roughly implementing a OSS
+pseudo-device. It merely wrapps the session and does not provide any
+form of resampling or re-coding of the audio stream.
+
+Putting the libc extension and the plugin together allows for listing to
+MP3s - for the time being the format is restricted to 44.1kHz/16bit -
+on Sculpt using cmus.
+
+It serves as a starting point for further implementing the OSS API to
+cover more use-cases, especially with ported POSIX software like
+VirtualBox and Qt5 or even as SDL2 audio backend. After all, even
+showing its age, OSS still is supported by the majority of middle-ware
+and makes for a decent experimentation target.
+
 
 Device drivers
 ##############
@@ -617,161 +590,44 @@ Date:   Wed Oct 2 18:17:41 2019 +0200
 Improved support for OpenBSD audio drivers
 ==========================================
 
-; @cnuke
+So far, the supported drivers exclusively used PCI as transport bus and for
+practical reasons the emulation environment was to tied to it. The bus
+handling is now moved into its own compilation unit to make future addition
+of drivers that employ other transport busses easier. On the same account
+the component got renamed to 'pci_audio_drv' to reflect its bus connection.
 
-commit 54d36a7d1be037293ab9c2a8dff3944e58a1fc88
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Thu Oct 29 15:17:29 2020 +0100
+While there, the execution flow of the component got adapted. The kernel
+code should have been executed within the context of the main task like it
+is done in the DDE Linux drivers. The initial port of the HDA driver,
+however, called the code directly from within the session as there was no
+immediate reason to use a task context because suspending the execution was
+not needed. When using USB devices, that is no longer possible as we have
+to suspend the execution during the execution of the kernel code. So we pass in
+the audio data and schedule the kernel.
 
-    mixer: apply config on new sessions
-    
-    Updating the config and using its settings instead of only reporting
-    the new session allows to apply stored channel settings immediately.
-    
-    In case of Sculpt this is useful when an existing launcher already
-    contains a valid config that sets the volume levels appropiately or
-    the 'recall_fs' is used.
-    
-    Fixes #3930.
+The above mentioned changes are mostly preliminary clean-up working for the
+upcoming support of USB audio devices.
 
-commit 6c7f0cb7cc7ca32f2b726299e360ad564ed5c1fc
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Tue Oct 27 15:45:55 2020 +0100
+Furthermore we implemented timeout handling in the driver and with
+this commit the timer back-end uses the timeout framework to
+schedule any occuring timeouts and for providing the current time.
+For now there is only one timeout, the unsolicited azlia codec event
+and therefore the timeout queue consists of solely one timeout object.
+Those events are important for detecting plugged in headphones.
 
-    dde_bsd: properly enable recording in run script
-    
-      * Updating the run script was missed in commit "dde_bsd: remove
-        configration attributes".
-    
-      * Decrease output and input volume to "more sane" levels.
-    
-    Issue #3929.
+Supporting headphones was further refined by accounting for the situation
+where the driver is started while headphones are already plugged in and the
+mixer accordingly needs to be configured accordingly. In particular, on the
+Fujitsu S938 the driver lacked the proper quirk for switching between the
+internal and external microphone.
 
-commit 3faf5c43a8b78fb682949d2e24b590cc9ab41df1
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Fri Jun 19 14:38:37 2020 +0200
-
-    dde_bsd: seperate PCI back end
-    
-    The supported drivers so far exclusively used PCI and for practical
-    reasons the emulation environment was to tied to. To make future
-    addition of drivers that employ other transport busses easier, split
-    the bus handling into its own backend.
-    
-    This is preliminary clean-up work before introducing the USB audio
-    driver.
-    
-    Issue #3929.
-
-commit 7193902cc084816aed3c96f2848ec303a53f90bb
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Fri Jun 19 14:49:29 2020 +0200
-
-    dde_bsd: properly name PCI audio driver component
-    
-    Instead of the generic name, call the PCI driver 'pci_audio_drv'.
-    
-    This is preliminary clean-up work before introducing the USB audio
-    driver.
-    
-    Issue #3929.
-
-commit bdb71d94c201695b22132d339fe8d1eac9363124
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Fri Jun 19 15:30:33 2020 +0200
-
-    dde_bsd: pull strlcpy in via contrib code
-    
-    For historical reason the 'strlcpy' implemention was directly pull in
-    into the emulation environment. There is, however, no reason not to
-    use the contrib sources in the usual fashion.
-    
-    Issue #3929.
-
-commit 2ec398e550ed2d5d5dbdf560ee42f25386867184
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Tue Jan 28 18:27:53 2020 +0100
-
-    dde_bsd: use timeout framework for time handling
-    
-    With this commit the timer back-end uses the timeout framework to
-    schedule any occuring timeouts and for providing the current time.
-    For now there is only one timeout, the unsolicited azlia codec event
-    and therefore the timeout queue consists of solely one timeout object.
-    
-    In addition a timer session is used for implementing 'delay()' where
-    we have to block until the delay is completed.
-    
-    Issue #3929.
-
-commit cd7c99afdcd55bc1e693002048a9e0e4a1da72f6
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Fri Jun 26 16:14:44 2020 +0200
-
-    dde_bsd: implemented delayed session announcement
-    
-    This becomes necessary in case of the USB audio driver where we have
-    to wait for and query the function first.
-    
-    That being said, alternatively we could also announce the session but
-    ignore any request until there is a device we can use.
-    
-    Issue #3929.
-
-commit b9869b666a2295a92ebb97819bab26ea7c6c97d3
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Fri Jun 26 17:13:58 2020 +0200
-
-    dde_bsd: use bsd_task to handle I/O
-    
-    Originally, the kernel code should have been executed within the
-    context of the main task like it is done in dde_linux. The initial
-    port of the HDA driver, however, did not required doing so and the
-    session called code directly.
-    
-    When using USB device, that is no longer possible as we have to
-    suspend the execution during the execution of the kernel code. So
-    we pass in the audio data and schedule the kernel.
-    
-    Fixes #3929.
-
-commit 1b4444ce9ef5a1a41050c0b3e2dd1b5d4deb72f8
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Mon Sep 21 17:15:27 2020 +0200
-
-    dde_bsd: use right member for iterating mixer set
-    
-    Due to what seems like a copy-and-paste error, the wrong union member
-    was used to compare the label. Fortunately, as both structs have the
-    same memory layout that did not result in any issue.
-    
-    Issue #3929.
-
-commit b6912a3d8746eb6a015685b3d0c3e26ae474dc68
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Mon Sep 21 17:38:54 2020 +0200
-
-    dde_bsd: query initial head-phone state
-    
-    Account for the situation where the driver is started while the HP
-    is already plugged in and configure the mixer accordingly.
-    
-    Thanks to Peter for the patch.
-    
-    Issue #3929.
-
-commit 194305a8bb58fb93e23c77bf2c0122bcd8df3a91
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Mon Sep 21 17:57:04 2020 +0200
-
-    dde_bsd: apply HP sense quirk for Fujitsu S398
-    
-    This quirk is needed for properly switching between the internal and
-    an external headphone.
-    
-    Thanks to Peter for the patch.
-    
-    Issue #3929.
+In addition to the changes to the audio driver component, the behaviour
+of the audio mixer was changed with regard to handling the configration
+of new session. The mixer now applies the settings already stored in its
+configuration to new session instead of only reporting them. In case of
+Sculpt, where an existing launcher already contains a valid config,
+that allows for setting the volume levels appropiately for known sessions
+prior to establishing the connection.
 
 
 Retiring the monolithic USB driver
