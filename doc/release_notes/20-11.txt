@@ -14,54 +14,31 @@
 CPU-load balancing
 ##################
 
-; @alex-ab
+Migrating load over CPUs may be desirable in dynamic scenarios, where the
+workload is now known in advance, or too complex.
+For example, in case of POSIX software ported to Genode, amount and roles of
+threads and processes can generally not planned for. With the current
+release, we add an optional CPU service designated for such dynamic scenarios.
+The new component called [https://genodians.org/alex-ab/2020-11-16-cpu-balancer - CPU balancer]
+is able to monitor threads and their utilization behaviour. Depending
+on configured policies, the balancer can instruct Genode's core via the CPU
+session interface to migrate threads between CPUs.
 
 [image cpu_balancing]
+  The CPU balancer intercepts the interaction of a Genode subsystem
+  (workload) with core's low-level CPU service.
 
-commit 99fa2036734dea9e78cc01abebf413fa52661d2c
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Tue Jul 28 19:30:56 2020 +0200
+This feature requires a kernel that supports
+thread migration, which are Fiasco.OC, seL4, and to some degree the NOVA kernel.
+For the NOVA kernel, solely threads with an attached scheduling context can be
+migrated, which are 'Genode::Thread' and POSIX pthread instances.
+Genode's entrypoint and virtual CPU instances are not supported by now.
 
-    nova: add migration support for global threads
-    
-    Fixes #3842
-
-commit 90bea1499ed4b26c5aa695f34fbbce1f09f81f3d
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed Sep 23 07:41:39 2020 +0200
-
-    core: store new affinity on successful migration
-    
-    Adjust the base-* platforms to acknowledge new thread location solely if
-    migration is supported and succeeded. Otherwise the wrong thread
-    locations are observed via the trace session and utilization time calculation
-    get wrong.
-    
-    Issue #3842
-
-commit e61f6cfd3853d8867ea2686ced27c6d700079b9b
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed Sep 23 11:41:22 2020 +0200
-
-    base: add thread migration test
-    
-    Issue #3842
-
-commit ac39879660d0b8a33c69408ece1f9aacec39d7da
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Thu Oct 29 15:57:06 2020 +0100
-
-    cpu_burner: utilize all assigned CPUs
-    
-    Issue #3843
-
-commit bf9a9ae08c08c24b2fd3ec33154b79661c894505
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Fri Jul 17 13:21:41 2020 +0200
-
-    os: add cpu balancer component
-    
-    Issue #3843
+The feature can be tested by the scenario located at _repos/os/run/cpu_balancer.run_.
+Further information regarding policy configuration, a demo
+integration into Sculpt 20.08, and a screencast video are available as a
+dedicated [https://genodians.org/alex-ab/2020-11-16-cpu-balancer - CPU balancer]
+article.
 
 
 Sculpt OS on 64-bit ARM hardware (i.MX8 EVK)
