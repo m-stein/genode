@@ -533,17 +533,43 @@ Platforms
 HWP support on PC hardware
 ==========================
 
-; @alex-ab
+Intel CPUs features Speed Shift respectively Hardware p-state (HWP)
+functionality in order to balance CPU frequency and voltage for performance and
+power efficiency. Up to now, the UEFI firmware of the notebooks we worked with,
+selected or made it selectable in the UEFI configuration to specify the desired
+behaviour, e.g. optimize for performance or power efficiency.
 
-commit a4c7837fb3672f2e0bc46c748c7bd03eecf718c7
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed Oct 28 14:55:10 2020 +0100
+With a newer notebook we faced the issue that either the fan run too long
+after some load and/or the perfomance of the CPUs were too bad. Finding a well
+working sweetspot seems not easy. Based on the experience we investigated how
+the Intel HWP feature can be set and configured. After some experiments we
+achieved to run the fan shorter hearable and receiving better performance by
+tweaking the Intel HWP settings.
 
-    Update to bender with optional microcode and HWP
-    
-    plugin support.
-    
-    Fixes #3871
+However, changing the Intel HWP setting requires to apply it in
+the priviledge mode on all available CPUs. Since Genode supports several
+kernels, it would require to modify all kernels or the feature would be
+solely available to one kernel. We selected the third option, actually.
+
+On x86 we use the tools from the
+[https://genode.org/documentation/release-notes/18.08#New_Intel_Microcode_update_mechanism - Morbo probject, e.g. bender and microcode],
+to run code before the kernels are booted. The job of the tools are to scan,
+enable or apply changes to the CPUs and chipset, which are not required
+to change during runtime. We came to the conclusion, that the named bootstrap
+tools are good place to apply such one time Intel HWP settings for the moment.
+
+During the course of adding the Intel HWP functionallity, we merged the
+microcode functionality into the bender tool. That means, that you may
+start before the kernel bender and apply the optional options like
+microcode and intel_hwp. A typical generated grub2 configuration by using
+both options would look like this:
+
+| insmod multiboot2
+| insmod gzio
+| multiboot2 /boot/bender bender microcode intel_hwp
+| module2    /boot/micro.code micro.code"
+| module2    /boot/hyperivosr hypervisor ...
+| module2    /boot/image.elf.gz image.elf ...
 
 
 NOVA microhypervisor
