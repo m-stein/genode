@@ -1,3 +1,7 @@
+#
+# See os/src/test/nic_router_dhcp/README for a documentation.
+#
+
 create_boot_directory
 
 import_from_depot [depot_user]/src/[base_src]
