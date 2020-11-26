@@ -65,110 +65,33 @@ Date:   Fri Jul 17 13:21:41 2020 +0200
 Sculpt OS on 64-bit ARM hardware (i.MX8 EVK)
 ############################################
 
-; @skalk, @ssumpf
+With Sculpt OS for ARM 64-bit we not only aim for classical desktop/notebook
+systems - like on x86 - but also for embedded consumer hardware like phones and
+tablets. In order to leverage this goal, we enabled support for
+[https://www.nxp.com/design/development-boards/i-mx-evaluation-and-development-boards/i-mx-8-series-accessory-boards:i.MX8-ACCESSORY-BOARDS - NXP's MX8_DSI_OLED1]
+display on the i.MX8 platform on Genode. The panel features an OLED display as well
+as a Synaptics RMI4 compliant touch screen.
 
-commit 27f705bc48422ccaf9ae3b9044fdc0a26a5ad703
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed Sep 23 11:05:35 2020 +0200
+Genode's i.MX8 display driver we released with version
+[https://genode.org/documentation/release-notes/20.02#Display_engine - 20.02]
+only supported HDMI devices, while the OLED display is connected via
+[https://www.mipi.org/specifications/dsi - MIPI DSI] to the SoC. Therefore, we
+extended the display driver by the MIPI DSI infrastructure as well as the actual
+driver for the OLED display. This endeavour turned out to be a very rocky one
+which we have documented in detail on our
+[https://genodians.org/ssumpf/2020-09-30-mipi_touch - Genodians] website.
 
-    bootstrap: iomux adaptions for i.MX8 MIPI
-    
-    These settings were obtained with a JTAG debugger from a running Linux
-    system. They work for MIPI as well as for HDMI.
-    
-    issue #3900
-
-commit 664b861f9d8c60254d4579865dc9e8dd259d7109
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Jun 11 16:21:51 2020 +0200
-
-    imx8_fb_drv: MIPI DSI display support
-    
-    - support for Northwest Logic MIPI DSI bridge
-    - support for Radium panel (NXP MX8_DSI_OLED1)
-    - new 'DSI-1' connector in driver config file
-    
-    issue #3900
-
-commit 89972b11b7967063b09cb1d2a5bc24608588213c
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Sep 24 14:42:56 2020 +0200
-
-    gpio_drv: use platform session for i.MX
-    
-    This makes the driver work for all i.MX boards. A platform driver with
-    the board specific configuration is required.
-    
-    issue #3900
-
-commit 96eb83f19a2ace12c404260611975945abd55302
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Sep 3 09:35:32 2020 +0200
-
-    os: Synaptics DSX touch screen driver
-    
-    Provides touch event service for i.MX8M Quad only
-    
-    issue #3900
-
-commit d387eba0ba226570dac2aa132ac9513b4c3c794e
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Sep 24 14:43:28 2020 +0200
-
-    os: driver recipe for i.MX8 drivers
-    
-    Includes touch and gpio driver
-    
-    issue #3900
-
-commit 6c6deb7e8b728eab357aff5b3f50c5890d7e8484
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Sep 24 14:11:44 2020 +0200
-
-    dde_linux: add touch to i.MX8 recipe
-    
-    Add touch screen and event filter to drivers interactive package.
-    
-    issue #3900
-
-commit b9bd179e5448846eefcdeddadabc97fc940fd4d4
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Sep 24 16:07:27 2020 +0200
-
-    gpio_drv: remove specs for imx53 and imx6
-    
-    Also cleanup run scripts and recipes were gpio driver is not required,
-    update the ones were it is.
-    
-    issue #3900
-
-commit c79687f5f4e31492ef68207d80d0b008b9035366
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Mon Oct 5 09:17:58 2020 +0200
-
-    gpio: introduce Pin and '_with_gpio'
-    
-    - make GPIO server more robust on imx by not throwing exceptions for
-      unknown pins, use '_with_gpio' instead
-    - use 'Gpio::Pin' data type instead of POD 'unsigned'
-    
-    issue #3900
-
-commit 4e90dc4512f79a3ef21f460495ecccfd3fc58f7b
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Tue Nov 10 16:40:32 2020 +0100
-
-    dde_linux: adjust fec_nic_drv to use platform_drv
-    
-    Fix #3947
-
-commit 1bab31d6bb383b4c5a2dc4554a95aed02ddb7c0c
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Mon Nov 23 17:14:19 2020 +0100
-
-    os: adjust sd_card_drv to use platform API
-    
-    Fix #3956
+In order to enable the touch screen device, we implemented a new Genode
+component from scratch. The touch screen is connected via an I2C bus to the SoC
+where data can be sent to and received from. At the moment the I2C
+implementation is hidden within the driver, but as more devices require I2C
+access it will be a standalone component in the future. Interrupts are delivered
+via GPIO pins from the touch screen to the SoC, which made it necessary to
+enable i.MX8 support within Genode's generic i.MX GPIO driver. We took this as
+an opportunity to streamline, cleanup, and make the driver more robust.
+Additionally, all components now take advantage of the new platform driver API
+for ARM that has been introduced with release
+[https://genode.org/documentation/release-notes/20.05#New_platform_driver_for_the_ARM_universe - 20.05].
 
 commit 2d5b4775422a6a30f4e4ac573bc6b593082835ae
 Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
