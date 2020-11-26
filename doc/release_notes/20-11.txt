@@ -65,6 +65,20 @@ Date:   Fri Jul 17 13:21:41 2020 +0200
 Sculpt OS on 64-bit ARM hardware (i.MX8 EVK)
 ############################################
 
+Within the last year a lot of effort was spent into Genode's support for ARM
+64-bit hardware. A consequent next step was to port Sculpt OS to the i.MX8 EVK
+board, which we used so far as reference platform. With the current release
+we proudly present the first incarnation of Sculpt OS for this board.
+
+In contrast to the original x86 PC variant, this first ARM version ships with a
+static set of devices inside the drivers subsytem. No device manager component
+probes for the used hardware and starts drivers on demand. The driver set,
+defined in the drivers_managed-imx8q_evk package, enables USB HID devices to
+make use of mouse and keyboard peripherals connected to the board. It drives the
+SD-card, which can be used as storage backend for the Genode's depot package
+management. Finally, it contains drivers to manage the display engine and the
+platform's device resources.
+
 With Sculpt OS for ARM 64-bit we not only aim for classical desktop/notebook
 systems - like on x86 - but also for embedded consumer hardware like phones and
 tablets. In order to leverage this goal, we enabled support for
@@ -89,36 +103,44 @@ access it will be a standalone component in the future. Interrupts are delivered
 via GPIO pins from the touch screen to the SoC, which made it necessary to
 enable i.MX8 support within Genode's generic i.MX GPIO driver. We took this as
 an opportunity to streamline, cleanup, and make the driver more robust.
-Additionally, all components now take advantage of the new platform driver API
+Additionally, all driver components now take advantage of the new platform driver API
 for ARM that has been introduced with release
 [https://genode.org/documentation/release-notes/20.05#New_platform_driver_for_the_ARM_universe - 20.05].
 
-commit 2d5b4775422a6a30f4e4ac573bc6b593082835ae
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Tue Nov 24 12:24:26 2020 +0100
+In its current incarnation the driver for the display management is not able to
+switch in between HDMI or MIPI-DSI connected displays dynamically. Therefore,
+the display to be used in Sculpt has to be configured in the framebuffer configuration
+manually. By default the HDMI connector is used.
 
-    sculpt: move pc-specifics away from generic part
-    
-    * Introduce sculpt-[board] specific package
-    * Move rtc driver into managed drivers sub-system
-    * Name nic_drv in a generic fashion in sculpt_manager
-    * Copy over pc-specific config files only when building for PC
-    
-    Ref #3958
+Beyond the driver subsystem there are few components dependent on the actual
+hardware, which is why the look & feel of the Sculpt desktop does not actually
+differ from the x86 PC version. With the following exceptions:
 
-commit 9ad82b476d54bb5f0a4c0b6a9c516878d1444b6d
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Tue Nov 24 16:00:47 2020 +0100
+When you select the network configuration dialog, you'll have no "wifi" option,
+because of the missing hardware, but only the "wired" option to start the
+corresponding driver for the i.MX FEC ethernet device. The second difference to
+the Sculpt OS x86 PC variant is the absence of a virtual machine solution for now.
+Although, Genode comprises a mature virtual-machine-monitor solution for ARM, see
+section [https://genode.org/documentation/release-notes/20.11#Multicore_virtualization_on_ARM],
+it still lacks a reasonable storage backend. Therefore, we left it out for
+now. Lastly, there is no possibility to use USB block devices by now, because
+the management component therefore - the device manager - is missing.
 
-    sculpt: add basic support for i.MX8 Quad EVK
-    
-    * Introduce CPU quota for driver subsytem (needed by sd_card_drv)
-    * Introduce CPU quota for runtime subsytem and nic_drv (needed by fec_nic_drv)
-    * Increase CAP quota for inspect terminal slightly
-    * Add sculpt packages for imx8q_evk
-    
-    Fix #3958
+Those missing pieces in contrast to the Sculpt x86 PC version will be addressed
+in the upcoming Genode releases.
 
+To give Sculpt a try on the i.MX8 EVK board, you have to start the well-known
+Sculpt run-script as usual for the base-hw kernel inside a build directory for
+ARMv8a:
+
+!  tool/create_builddir arm_v8a
+!  cd build/arm_v8a
+!  make run/sculpt KERNEL=hw BOARD=imx8q_evk
+
+Under the hood, the script requests a sculpt-[board] specific package from the
+depot package system. Currently, sculpt-pc and sculpt-imx8q_evk are the only
+sculpt packages available. For now, Sculpt for i.MX8 EVK was build and tested
+usig the base-hw kernel only.
 
 Multicore virtualization on ARM
 ###############################
