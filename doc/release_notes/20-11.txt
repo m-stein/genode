@@ -517,15 +517,14 @@ prior to establishing the connection.
 Retiring the monolithic USB driver
 ==================================
 
-; @alex-ab
-
-commit 24181f2bf6eb0f6652c1fe801518c39e4c490b95
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Fri Nov 6 13:23:26 2020 +0100
-
-    driver_manager: use componentized usb driver
-    
-    Fixes #3943
+With [https://genode.org/documentation/release-notes/18.08#Decomposed_USB_stack - release 18.08]
+the decomposed USB stack got introduced next to the monolithic USB
+driver. With this release, the driver_manager switched to use the decomposed
+USB stack in order to benefit from the de-composition and from more supported
+USB devices. The monolithic driver was still based on an older dde_linux
+revision compared to the de-composed version. This steps paves the ground
+to retire the monolithic USB driver with the next Genode release and will
+improve the supported USB device with the next upcoming Sculpt OS release.
 
 
 Platforms
