@@ -265,33 +265,17 @@ Base framework and OS-level infrastructure
 C runtime
 =========
 
-; @cproc
+We improved the support for aligned memory allocations to fix some memory leaks
+which occurred in the Falkon web browser. One relevant change is the
+implementation of the 'posix_memalign()' function, another change is that the
+address alignment of anonymous 'mmap()' allocations is now configurable like
+follows:
 
-commit 058f2e687cc04b51ad4478c4f58d68edb4de7d1d
-Author: Christian Prochaska <christian.prochaska@genode-labs.com>
-Date:   Thu Oct 8 14:14:56 2020 +0200
-
-    libc: make 'mmap()' address alignment configurable
-    
-    With this commit, the alignment of anonymous 'mmap()' allocations can be
-    configured like this:
-    
-    <config>
-      <libc>
-        <mmap align_log2="21"/>
-      </libc>
-    </config>
-    
-    Fixes #3907
-
-commit 405955eaef3453c2798b6be5b79f9b9d543f0b3d
-Author: Christian Prochaska <christian.prochaska@genode-labs.com>
-Date:   Tue Oct 13 15:40:49 2020 +0200
-
-    libc: implement 'posix_memalign()'
-    
-    Fixes #3915
-
+! <config>
+!     <libc>
+!         <mmap align_log2="21"/>
+!     </libc>
+! </config>
 
 Standard C++ library
 ====================
