@@ -377,7 +377,9 @@ void Domain::report(Xml_generator &xml)
 			xml.attribute("ipv4", String<19>(ip_config().interface));
 			xml.attribute("gw",   String<16>(ip_config().gateway));
 			ip_config().for_each_dns_server([&] (Dns_server const &dns_server) {
-				xml.attribute("dns", String<16>(dns_server.ip()));
+				xml.node("dns", [&] () {
+					xml.attribute("ip", String<16>(dns_server.ip()));
+				});
 			});
 			empty = false;
 		}
