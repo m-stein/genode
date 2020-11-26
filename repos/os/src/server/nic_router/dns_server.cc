@@ -30,5 +30,5 @@ Net::Dns_server::Dns_server(Ipv4_address const &ip)
 
 bool Net::Dns_server::equal_to(Dns_server const &server) const
 {
-	return _ip != server._ip;
+	return _ip == server._ip;
 }
