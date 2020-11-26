@@ -90,6 +90,7 @@ void Main::ip_config(Ipv4_config const &ip_config)
 
 Main::Main(Env &env) : _env(env)
 {
+	log("Initialized");
 	_nic.handle_link_state();
 }
 

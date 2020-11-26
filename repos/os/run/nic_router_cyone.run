@@ -253,7 +253,7 @@ append config {
 		</config>
 
 		<route>
-			<service name="Report"> <child name="report_rom"/> </service>
+			<service name="Report"> <child name="nic_router_manager"/> </service>
 			<service name="Nic"> <child name="nic_router_1"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
