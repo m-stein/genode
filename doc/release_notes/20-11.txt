@@ -145,64 +145,43 @@ available.
 Multicore virtualization on ARM
 ###############################
 
-; @skalk
+The written-from-scratch virtualization solution for Genode on ARMv8 entered the
+picture exactly one year ago with release 19.11. Since then a couple of
+improvements and validations have been incorporated into it. Support for VirtIO
+network and console models was added. Moreover, it got streamlined with the prior
+existent ARMv7 hypervisor and virtual-machine-monitor (VMM). But although the
+architecture of the VMM was designed from the very beginning with more than one
+virtual-CPU (VCPU) in mind, running a VM on multiple cores was not addressed,
+nor tested yet.
 
-commit 40445d70118bbeb3a77d945b6fc5c26b6a42a481
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Fri Oct 9 10:32:24 2020 +0200
+With this release we enhance the virtualization support of the base-hw kernel,
+acting as the ARM hypervisor, to support multicore virtual-machines. The
+VMM implementation got extended to start an entrypoint for each VCPU that a VM
+owns. The affinitys of those entrypoints are configured to distribute over all
+physical CPUs available to the VMM. The affinity of an entrypoint that handles
+events of a VCPU is automatically used as the affinity of the VCPU itself.
+Whenever a VCPU exit needs to be handled, this is delegated to the VMM entrypoint
+running on the same CPU. When the VMM's entrypoint successfully handled the exit
+reason, it starts the VCPU again.
 
-    base: extend vm_session API with native vcpu cap
-    
-    To enable the interaction of a VMM with the kernel directly,
-    a hidden RPC gets introduced. It allows a kernel-specific
-    base-library implementation of the Vm_session::Client to request
-    a kernel-specific capability to address a VCPU, e.g., to
-    run/stop it.
-    
-    Ref #3926
+Formerly, the control to start or stop a VCPU was implemented by core's VM
+service that runs on the first CPU. But that implied that all different VMM
+entrypoints running on distinct CPUs would have needed to call all the time
+core's service entrypoint on the first CPU. Moreover, that core entrypoint uses
+a system call to instruct the kernel's internal scheduler of the corresponding
+target CPU, which again would be a a potentially different one than the CPU
+where core's entrypoint runs on top of.
+For the ease of implementation, and a more performant solution, we extended the VM
+session interface slightly to return a kernel-specific capability addressing a
+VCPU directly. With this capability a VMM's entrypoint is able to directly call
+the kernel to start or stop a VCPU instead of using the indirection over core.
+However, the detail whether the kernel is called directly or not is hidden
+behind the VM session client API and transparent to the user of it.
 
-commit 1d826a2c48976d2b98c0bbe1fa3c6d8786314f1d
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Fri Oct 9 10:33:44 2020 +0200
-
-    base-hw: do direct syscall when run/pause a VCPU
-    
-    Instead of calling core to run/pause a VCPU, go directly to the kernel.
-    Apart from the performance win, it would otherwise involve a more complex
-    protocol, when a VCPU on another core has to be removed from the scheduler.
-    Core's entrypoint handling those request runs on the boot-cpu only.
-    
-    Ref #3926
-
-commit 7298b000131926f4b328e33e221a9a50ca78c9a1
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Fri Sep 11 14:43:29 2020 +0200
-
-    base-hw: make ARMv7/v8 hypervisor smp ready
-    
-    * Introduce hypervisor-stack per CPU
-    * Introduce host world context per CPU
-    * Mark EL2 translation table memory as inner shareable
-    * The VMID is not bound to a single VCPU, but to the Vm_session as a whole
-    * Set affinity of the VCPU accordingly
-    * Add VMPIDR to VM state
-    
-    Ref #3926
-
-commit 429cd8d37a957bb7cb87feb2b7c057b33567cc43
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Fri Sep 11 14:45:47 2020 +0200
-
-    os: enable smp support for ARM vmm
-    
-    * Fix GIC model to support priority and cpu target settings correspondingly
-    * Fix semantic of SGIR register for GICv2
-    * Minor GIC model IRQ state fix
-    * Introduce synchronization for VirtIO and GIC models
-    * Enable multiple CPUs in test run-script for ARMv8
-    
-    Fix #3926
-
+Beside the already descibed changes, some device models in the VMM were provided
+with synchronization primitives to make the concurrent access of different VCPUs
+respectively VMM entrypoints safe. Namely these are the device models for VirtIO
+network and console, as well as part of the GIC interrupt controller.
 
 Base framework and OS-level infrastructure
 ##########################################
@@ -468,76 +447,29 @@ Device drivers
 VirtIO support
 ==============
 
-; @tworaz, @skalk
+Thanks to the remarkable contribution of Piotr Tworek the Genode OS framework
+is able to drive VirtIO network devices from now on.
 
-commit fe0ad0addb311c07a00848412cf634574f95507e
-Author: Piotr Tworek <tworaz@tworaz.net>
-Date:   Thu Apr 2 21:20:50 2020 +0200
+He did not only provided a single VirtIO network driver, but a framework to
+easily add more VirtIO driver classes in the future. Either the devices are
+connected as PCI devices or directly as platform devices with fixed
+memory-mapped I/O addresses. The framework supports both and abstracts away from
+the concrete connection type.
 
-    tool: Consolidate qemu nic setup.
-    
-    Right now the same code dealing with nic setup on qemu is duplicated
-    in many different run scripts. It makes it unnecesarily complex to
-    change the existing config or add support for new nic types. Lets move
-    all this common code to qemu.inc.
-    
-    Ref #3825
+The VirtIO network driver enables networking for Genode when using the
+'virt_qemu' board on either the ARMv7a or ARMv8a architecture. However, the
+VirtIO device configuration on Qemu is dynamic. The order and presence of
+different command line switches affect the bus address and interrupt assignment
+of each device. To make the use of Genode with Qemu robust in changing
+environments, a tiny helper component was added in addition. This component named
+'virtdev_rom' probes the memory-mapped I/O areas of the system bus, and detects
+available and known VirtIO devices. The results are written into a configuration
+file that can be consumed by the platform driver to provide the correct device
+resources to the corresponding VirtIO driver.
 
-commit 9bd548c4bd62dac4ced9cf93b368f1c9e38198ae
-Author: Piotr Tworek <tworaz@tworaz.net>
-Date:   Wed Jul 1 00:11:27 2020 +0200
-
-    os: add platform_drv config generator for virt_qemu
-    
-    The VirtIO device configuration on Qemu is dynamic. The
-    order and presence of different command line switches affects
-    base address and interrupt assignment of each device. One could
-    probably hard-code the necessary switches and resulting XML ARM
-    platform driver configuration in each run script, but this seems
-    like troublesome and hard to maintain solution.
-    
-    This patch explores an alternative approach to the problem.
-    It implements a ROM driver which probes the address space region
-    Qemu virt machines assign to VirtIO MMIO devices and exposes the
-    result as XML via a ROM session. This XML output can be fed directly
-    as config to the generic ARM platform driver.
-    
-    Ref #3825
-
-commit 7fbb245710922bdf82f9136807fc57be2fbd1f8d
-Author: Piotr Tworek <tworaz@tworaz.net>
-Date:   Thu Jul 2 23:32:22 2020 +0200
-
-    os: add VirtIO device helper classes.
-    
-    To simplify writing native VirtIO drivers for Genode add helper classes
-    representing VirtIO device and queue. The queue implementation should
-    be platform independant. The device abstraction however is closely tied
-    to the VirtIO transport being used (PCI/MMIO). Both PCI and MMIO
-    implementations expose the same public API so the actual driver logic
-    should be the same regardless of which transport is used.
-    
-    Its also important to note that the PCI version of Virtio::Device
-    currently does not support MSI-X interrupts. Unfortunately my kowledge
-    about PCI bus is very limited and my main area of interest was to get
-    VirtIO drivers working on virt_qemu ARM/Aarch64 platform. As such all
-    the VirtIO drivers I plan to submit will work with PCI bus, but might
-    not use some extended capabilities.
-    
-    Ref #3825
-
-commit 8d5005e03af4d134299b39c33acc127d78545a1b
-Author: Piotr Tworek <tworaz@tworaz.net>
-Date:   Wed Oct 2 18:17:41 2019 +0200
-
-    os: add VirtIO nic driver
-    
-    The driver is faily simple and does not support fancy features like
-    TCP checksum offloading or vlan filtering, but it is fully capable of
-    running every Genode network based scenario I've tried. Its currently
-    known to work on virt_qemu arm platforms and x86_64.
-    
-    Fix #3825
+The VirtIO network driver in action, as well as the interplay of platform driver
+and the 'virtdev_rom' component can be observed when using the
+'drivers_nic-virt_qemu' package.
 
 
 Improved support for OpenBSD audio drivers
