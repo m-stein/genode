@@ -1,0 +1,2 @@
+proc nic_router_2_managed { } { return 0 }
+source ${genode_dir}/repos/os/run/nic_router_dhcp.inc

@@ -587,19 +587,24 @@ two contrary edges at a max. The following diagrams demonstrate this:
 Examples
 ~~~~~~~~
 
-This section will list and explain some interesting configuration snippets. A
-comprehensive example of how to use the router (except DHCP server
-functionality) can be found in the test script 'libports/run/nic_router.run'.
-For an example of how to use the DHCP server and the DHCP client functionality
-see the 'os/run/ping_nic_router.run' script.
+In-action examples of how to use the router are provided through the following
+automated run scripts:
 
-The environment for the examples shall be as
-follows. There are two virtual subnets 192.168.1.0/24 and 192.168.2.0/24 that
-connect as Virtnet A and B to the router. The standard gateway of the virtual
-networks is the NIC router with IP 192.168.*.1 . The router's uplink leads to
-the NIC driver that connects the machine with your home network 10.0.2.0/24.
-Your home network is connected to the internet through its standard gateway
-10.0.2.1 .
+* libports/run/nic_router.run          (basic functionality)
+* dde_linux/run/nic_router_uplinks.run (dynamically switching uplinks)
+* os/run/ping_nic_router.run           (ICMP routing)
+* os/run/nic_router_dhcp_unmanaged.run (DHCP + link states without a manager)
+* os/run/nic_router_dhcp_managed.run   (DHCP + link states with a manager)
+* os/run/nic_router_flood.run          (client misbehaving on protocol level)
+* os/run/nic_router_stress.run         (client misbehaving on session level)
+
+The rest of this section will list and explain some smaller configuration
+snippets. The environment for these examples shall be as follows. There are
+two virtual subnets 192.168.1.0/24 and 192.168.2.0/24 that connect as Virtnet A
+and B to the router. The standard gateway of the virtual networks is the NIC
+router with IP 192.168.*.1 . The router's uplink leads to the NIC driver that
+connects the machine with your home network 10.0.2.0/24.  Your home network is
+connected to the internet through its standard gateway 10.0.2.1 .
 
 
 Connecting local networks

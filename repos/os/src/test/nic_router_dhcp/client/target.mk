@@ -1,4 +1,4 @@
-TARGET = test-nic_router_dhcp
+TARGET = test-nic_router_dhcp-client
 
 LIBS += base net
 
