@@ -265,11 +265,11 @@ Base framework and OS-level infrastructure
 C runtime
 =========
 
-We improved the support for aligned memory allocations to fix some memory leaks
-which occurred in the Falkon web browser. One relevant change is the
-implementation of the 'posix_memalign()' function, another change is that the
-address alignment of anonymous 'mmap()' allocations is now configurable like
-follows:
+We improved the support for aligned memory allocations to fix sporadic memory
+leaks, which occurred with our port of the Falkon web browser. One relevant
+change is the implementation of the 'posix_memalign()' function, another
+change is that the address alignment of anonymous 'mmap()' allocations is now
+configurable like follows:
 
 ! <config>
 !     <libc>
@@ -277,55 +277,59 @@ follows:
 !     </libc>
 ! </config>
 
+
 Standard C++ library
 ====================
 
-We do not rely on or make use of any C++ standard library in the Genode
-OS framework, although it uses C++ as its primary programming language.
+Even though Genode uses C++ as its primary programming language,
+we do not rely on or make use of any C++ standard library within the Genode
+OS framework.
 However, since a C++ STL is a vital part of application programming with C++,
-naturally we provide one as well; in particular the GNU C++ STL library
-(_libstdc++_). It is treated as any other 3rd party library and its functionality
+naturally we provide one for applications built ontop of the base framework;
+in particular the GNU C++ STL library (_libstdc++_).
+It is treated as a regular 3rd party library and its functionality
 is extended on demand. This approach worked well enough to even enable larger
-C++ based software like Qt5 and Chromium's Blink engine (as part of QtWebEngine)
-to run on Genode. That being said, for developers using _libstdc++_ on Genode
+C++-based software like Qt5 and Chromium's Blink engine (as part of QtWebEngine)
+to run on Genode. That being said, for developers using _libstdc++_ on Genode,
 it is not immediately clear, which features are supported and which are not.
 
-Fortunately, _libstdc++_ includes a testsuite that, as the name suggests,
+Fortunately, _libstdc++_ includes a testsuite that - as the name suggests -
 allows for testing the range of functionality of the library on a given
-platform. So we turned to it to establish a base-line of supported features.
+platform. So we turned to it to establish a base line of supported features.
 We were particular interested in how our port behaves when C++17 is
-requested.  It goes without saying that this only includes the aspects,
+requested. It goes without saying that this only includes the aspects,
 which are specifically probed by the testsuite. Rather than adding thorough
-Genode support to the testsuite we opted for providing an
+Genode support to the testsuite, we opted for providing an
 [https://github.com/cnuke/genode-libstdcxx-testsuite/ - environment] that
 mimicks the common 'unix' target and allows us to execute the testsuite on
-a normal Linux host. It use the Genode tool-chain to compile the tests and
-spawns a Genode base-linux system to execute them.
+the Linux version of Genode via a regular Linux host OS. It uses the Genode
+tool chain to compile the tests and spawns a Genode base-linux system to
+execute them.
 
-Executing the testsuite was a iterative process because in the beginning we
+Executing the testsuite was an iterative process because in the beginning, we
 encountered many falsely failed tests. On one hand, most of them were due to
 the way C++ is applied in Genode or rather how our buildsystem works
 internally. For one, _libsupc++_ on Genode is part of the _cxx_ library. This
-library in return is part of _ldso.lib.so_, the dynamic linker that provides
-the base API.  As the buildsystem uses stub libraries generated from 'symbol'
-files containg the ABI of a given shared-object, each missing symbol must
+library in turn is part of _ldso.lib.so_, the dynamic linker that provides
+the base API. As the buildsystem uses stub libraries generated from 'symbol'
+files containing the ABI of a given shared object, each missing symbol must
 be made available. Otherwise the linking step is going to fail complaining
-about undefined references because components use this stub libraries
+about undefined references because components use these stub libraries
 during compilation. On the other hand, we had to get cozy with the testsuites
 underlying test framework in order to get our test environment straight.
 
-In case of the testsuite there were a lot of symbols missing because we
+In case of the testsuite, there were a lot of symbols missing because we
 did not encounter them so far and those were therefore not part of the
 symbols file. After all, templates will always generate specific symbols
 that are difficult to forsee. Besides that, we lacked support for aligned
-'new' and 'delete' operators. With all adaptions in place we were able to
+'new' and 'delete' operators. With these adaptions in place, we were able to
 successfully execute the testsuite.
 
 In the end, the results paint a good picture. The current short-comings
 boil down to
 
-* Support for the *stdc++fs* library is not available as the library was
-  not yet ported.
+* Support for the *stdc++fs* library is not available as the library is
+  not ported yet.
 * Proper *locale* support in the 'libc' as well as 'stdc++' is not available.
 * Support for parallel operations with *openmp* is not available.
 * Various subsystems ('std::thread', 'std::random_device', numerics library)
@@ -333,7 +337,7 @@ boil down to
   for the failing execution tests where sometimes the threads appear to
   get stuck.
 
-and are documented in issue
+These findings are documented at issue
 [https://github.com/genodelabs/genode/issues/3925 - 3925].
 
 
@@ -345,11 +349,11 @@ entirely written in SPARK. It was first announced and integrated with
 [https://genode.org/documentation/release-notes/19.11#Preliminary_block-device_encrypter - Genode 19.11],
 reached feature-completeness with
 [https://genode.org/documentation/release-notes/20.05#Feature-completeness_of_the_consistent_block_encrypter - Genode 20.05],
-and has received a highly modular back-end system with
+and has received a highly modular back-end system with version
 [https://genode.org/documentation/release-notes/20.08#Consistent_Block_Encrypter - 20.08].
-For this release we thoroughly cleaned up the CBE repository, added enhanced
+For this release, we thoroughly steamlined the CBE repository, added enhanced
 automated quality assurance, and switched to another default encryption
-back-end.
+back end.
 
 
 Repository restructuring
@@ -361,7 +365,7 @@ logic (cbe, cbe_common, and the hashing algorithm), the essential SPARK-based
 tooling (initialization, checking, ...), or the Ada-based C++ bindings (*_cxx
 libraries). The whole Genode-specific integration, testing, and packaging moved
 to Genode's 'gems' repository and the former Genode sub-repository 'cbe' was
-replaced by the new CBE port 'gems/ports/cbe.port'. We also took the
+replaced by the new CBE port _gems/ports/cbe.port_. We also took the
 opportunity to remove many unused remnants of earlier development stages and
 to drastically simplify the ecosystem of CBE-related packages.
 
@@ -384,14 +388,14 @@ Anchors.
 
 Before this release, the CBE tester was a mere patchwork solution and many of
 the above mentioned features were limited or even missing. For instance block
-access was issued only synchronous, the Trust-Anchor was managed implicitly
+access was issued only synchronous, the Trust-Anchor was managed implicitly,
 and validating read data wasn't possible. Besides adding the missing features,
 we also reworked the component entirely to follow a clean and comprehensible
 implementation concept. The new CBE tester comes together with the run script
-'gems/run/cbe_tester.run' that shall serve as both a demonstration how to use
+_gems/run/cbe_tester.run_ that shall serve as both a demonstration how to use
 the tester and an extensive automated test and benchmark for the CBE.
 
-Furthermore, we created a CBE-specific autopilot tool 'tool/cbe_autopilot' that
+Furthermore, we created a CBE-specific autopilot tool _tool/cbe_autopilot_ that
 is meant to establish a common reference for the quality of CBE releases as
 well as for their integration in Genode. Running the tool without arguments
 will give instructions how to use it. In a nutshell, when running
@@ -408,16 +412,16 @@ integration in Genode. A handy side-feature of the tool is that one can run
 Libcrypto back end for block encryption
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The introduction of VFS plugins for CBE back ends in the last Genode release
+The introduction of VFS plugins for CBE back ends in the previous Genode release
 made it much easier to interchange concrete implementations. This motivated us
 to play around a bit in our endeavour of optimizing execution time. It turned
-out that especially the choice of the block-encryption back-end has a
+out that especially the choice of the block-encryption back end has a
 significant impact on the overall performance of CBE block operations. It
 furthermore seemed that especially the 'libsparkcrypto' library, our former
 default for block encryption, prioritizes other qualities over performance.
 
 That said, in general, we want to enable an informed user to decide for him- or
-herself which qualities he or she prefers in such an algorithm. The VFS plugin
+herself which qualities one prefers in such an algorithm. The VFS plugin
 mechanism pays tribute to this. And it also seems very natural to us to combine
 a SPARK-based block-device management with a SPARK-based encryption back-end
 like 'libsparkcrypto'. But for our default use case, we came to the conclusion
@@ -430,72 +434,72 @@ Streamlined ioctl handling in the C runtime / VFS
 The Genode release
 [https://genode.org/documentation/release-notes/19.11#C_runtime_with_improved_POSIX_compatibility - 19.11]
 introduced the emulation of ioctl operations via pseudo files. This feature
-was first used by the Terminal. With this release we further employ this
+was first used by the Terminal. With the current release, we further employ this
 mechanism for additional ioctl operations, like the block-device related
 I/O controls, as the long-term plan is to remove the notion of ioctl's from
 the 'Vfs::File_io_services' API all-together.
 
-We therefor equipped the block VFS-plugin with a compound directory hosting
+We therefore equipped the block VFS-plugin with a compound directory hosting
 the pseudo files for triggering device operations:
 
-* :info: this file contains the device information structured as 'block'
+:info: This file contains the device information structured as 'block'
    XML node having an 'size' and 'count' attribute providing the used
    block size as well as the total number of blocks.
 
-* :block_count: contains solely the total number of blocks
+:block_count: contains solely the total number of blocks.
 
-* :block_size: contains solely size of a block in bytes
+:block_size: contains solely the size of one block in bytes.
 
-Furthermore we split the existing 'ioctl' handling method in the libc into
+Furthermore, we split the existing 'ioctl' handling method in the libc into
 specific ones for dealing with terminals and block devices because at some
 point more different groups of I/O controls are to follow.
 
 The first one to follow is the 'SNDCTL' group. This group deals with audio
-devices and correspondes to the standard set by the OpenSoundSystem (OSS)
+devices and corresponds to the standard set by the OpenSoundSystem (OSS)
 specfication years ago. In the same vein as the terminal and block I/O
-controls, the sound controls are implemented via poperty files.
+controls, the sound controls are implemented via property files.
 
 The controls currently implemented are the ones used by the output OSS
 plugin of [https://cmus.github.io/ - cmus], the driving factor behind the
 implementation, which uses the (obsolete) version 3 API.
 
-At the moment it is not possible to set or rather change any
+At the moment, it is not possible to set or rather change any
 parameters. In case the requested setting differs from the parameters
-of the underlying Audio_out session - in contrast to the suggestion in
+of the underlying audio-out session - in contrast to the suggestion in
 the OSS manual - we do not silently adjust the parameters returned
-to the callee but outright fail the I/O control operation.
+to the callee but let the I/O control operation fail.
 
 The following list contains all currently handled SNDCTL I/O controls:
 
-* :SNDCTL_DSP_CHANNELS: sets the number of channels. We return the
+:SNDCTL_DSP_CHANNELS: sets the number of channels. We return the
   available channels here and return ENOTSUP if it differs from
   the requested number of channels.
 
-* :SNDCTL_DSP_GETOSPACE: returns amount of playback data that can
+:SNDCTL_DSP_GETOSPACE: returns amount of playback data that can
   be written without blocking. For now it amounts the space left
-  in the Audio_out packet-stream.
+  in the stream buffer of the audio-out session.
 
-* :SNDCTL_DSP_POST: forces playback to start. We do nothing and return
+:SNDCTL_DSP_POST: forces playback to start. We do nothing and return
   success.
 
-* :SNDCTL_DSP_RESET: is supposed to reset the device when it is
+:SNDCTL_DSP_RESET: is supposed to reset the device when it is
   active before any parameters are changed. We do nothing and return
   success.
 
-* :SNDCTL_DSP_SAMPLESIZE: sets the sample size. We return the
-  sample size of the underlying Audio_out session and return ENOTSUP
+:SNDCTL_DSP_SAMPLESIZE: sets the sample size. We return the
+  sample size of the underlying audio-out session and return ENOTSUP
   if it differs from the requested number of channels.
 
-* :SNDCTL_DSP_SETFRAGMENT: sets the buffer size hint. We ignore the
+:SNDCTL_DSP_SETFRAGMENT: sets the buffer size hint. We ignore the
   hint and return success.
 
-* :SNDCTL_DSP_SPEED: sets the samplerate. For now, we always return
-  the rate of the underlying Audio_out session and return ENOTSUP
+:SNDCTL_DSP_SPEED: sets the sample rate. For now, we always return
+  the rate of the underlying audio out session and return ENOTSUP
   if it differs from the requested one.
 
-The libc extension is accompanied by a OSS VFS-plugin that gives
-access to a Audio_out session by roughly implementing a OSS
-pseudo-device. It merely wrapps the session and does not provide any
+The libc extension is accompanied by an OSS VFS plugin that gives
+access to a audio-out session by roughly implementing a OSS
+pseudo-device. It merely wraps the session and does not provide any
 form of resampling or re-coding of the audio stream.
 
 Putting the libc extension and the plugin together allows for listing to
@@ -503,9 +507,9 @@ MP3s - for the time being the format is restricted to 44.1kHz/16bit -
 on Sculpt using cmus.
 
 It serves as a starting point for further implementing the OSS API to
-cover more use-cases, especially with ported POSIX software like
-VirtualBox and Qt5 or even as SDL2 audio backend. After all, even
-showing its age, OSS still is supported by the majority of middle-ware
+cover more use cases, especially with ported POSIX software like
+VirtualBox and Qt5 or even as SDL2 audio back end. After all, even
+showing its age, OSS still is supported by the majority of middle ware
 and makes for a decent experimentation target.
 
 
@@ -591,12 +595,12 @@ Improved support for OpenBSD audio drivers
 ==========================================
 
 So far, the supported drivers exclusively used PCI as transport bus and for
-practical reasons the emulation environment was to tied to it. The bus
-handling is now moved into its own compilation unit to make future addition
-of drivers that employ other transport busses easier. On the same account
+practical reasons, the emulation environment was to tied to it. The bus
+handling has now moved into its own compilation unit to make future addition
+of drivers that employ other transport busses easier. On the same account,
 the component got renamed to 'pci_audio_drv' to reflect its bus connection.
 
-While there, the execution flow of the component got adapted. The kernel
+While at it, the execution flow of the component got adapted. The kernel
 code should have been executed within the context of the main task like it
 is done in the DDE Linux drivers. The initial port of the HDA driver,
 however, called the code directly from within the session as there was no
@@ -605,13 +609,12 @@ not needed. When using USB devices, that is no longer possible as we have
 to suspend the execution during the execution of the kernel code. So we pass in
 the audio data and schedule the kernel.
 
-The above mentioned changes are mostly preliminary clean-up working for the
+The above mentioned changes are mostly preliminary clean-up work for the
 upcoming support of USB audio devices.
 
-Furthermore we implemented timeout handling in the driver and with
-this commit the timer back-end uses the timeout framework to
-schedule any occuring timeouts and for providing the current time.
-For now there is only one timeout, the unsolicited azlia codec event
+Furthermore, we implemented timeout handling in the driver and use Genode's
+timeout framework API to schedule timeouts and for providing the current time.
+For now there is only one timeout - the unsolicited azlia codec event -
 and therefore the timeout queue consists of solely one timeout object.
 Those events are important for detecting plugged in headphones.
 
@@ -622,11 +625,11 @@ Fujitsu S938 the driver lacked the proper quirk for switching between the
 internal and external microphone.
 
 In addition to the changes to the audio driver component, the behaviour
-of the audio mixer was changed with regard to handling the configration
-of new session. The mixer now applies the settings already stored in its
-configuration to new session instead of only reporting them. In case of
-Sculpt, where an existing launcher already contains a valid config,
-that allows for setting the volume levels appropiately for known sessions
+of the audio mixer was changed with regard to handling the configuration
+of a new session. The mixer now applies the settings already stored in its
+configuration to new sessions instead of only reporting them. In case of
+Sculpt, where an existing launcher already contains a valid config
+that allows for setting the volume levels appropriately for known sessions
 prior to establishing the connection.
 
 
@@ -666,22 +669,23 @@ Date:   Wed Oct 28 14:55:10 2020 +0100
 NOVA microhypervisor
 ====================
 
-The IOMMU is a hardware feature to protect operating systems, e.g. Genode,
+The IOMMU is a hardware feature to protect operating systems, e.g., Genode,
 against misbehaving devices and/or corresponding device drivers. The feature
-is supported on x86 with the
+is supported on x86 since the
 [https://genode.org/documentation/release-notes/13.02#DMA_protection_via_IOMMU - 13.02 release]
-and described in the release notes. Up to now this feature is solely supported
-for Intel hardware, e.g. CPUs and chipsets supporting Intel VT-d.
+and described in the release notes. Up to now, this feature is solely supported
+for Intel hardware, in particular CPUs and chipsets supporting Intel VT-d.
 
-With this release, we add support for AMD IO-MMU version to the Genode framework
-and the NOVA kernel, being the first one out of the supported microkernels.
+With this release, we add support for AMD's IO-MMU variant to the Genode framework
+and the NOVA kernel being the first one out of the supported microkernels.
 Being conceptionally equivalent, the actual implementation for AMD differs of
-Intel unsurprisingly. In order to add the support, in the NOVA kernel a
-IO-MMU interface abstraction got added to host both versions, for Intel and AMD.
+Intel unsurprisingly. In order to add the support, a new IO-MMU interface
+abstraction for accommodating both versions - Intel and AMD - got added to the
+NOVA kernel.
 Further, the lookup of the available IO-MMUs required to walk different ACPI
 tables than for Intel and another page table format for the IO-MMU had to be
-added. On the Genode framework side solely few changes were necessary,
-namely the detection of the IO/MMU feature by parsing the ACPI tables in
+added. On the Genode framework side, only very few changes were necessary,
+namely the detection of the IO-MMU feature by parsing the ACPI tables in
 Genode's ACPI driver and the ported Intel ACPICA component.
 
 The change has been already successfully tested on various Ryzen desktops
