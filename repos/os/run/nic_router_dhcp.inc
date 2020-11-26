@@ -1,23 +1,19 @@
-if {[have_spec foc] || [have_spec linux] || [have_spec rpi3] ||
-    [expr [have_spec imx53] && [have_spec trustzone]]} {
-
-	puts "Run script is not supported on this platform."
-	exit 0
-}
-
 create_boot_directory
 
-import_from_depot [depot_user]/src/[base_src] \
-                  [depot_user]/pkg/[drivers_nic_pkg]
+import_from_depot [depot_user]/src/[base_src]
 
-build {
+set build_components {
 
 	init
 	server/dynamic_rom
-	test/nic_router_dhcp
+	test/nic_router_dhcp/client
 	server/nic_router
-	server/report_rom
 }
+
+lappend_if [nic_router_2_managed] build_components test/nic_router_dhcp/manager
+lappend_if [nic_router_2_managed] build_components server/report_rom
+
+build $build_components
 
 append config {
 
@@ -44,19 +40,6 @@ append config {
 		<provides><service name="Timer"/></provides>
 	</start>
 
-	<start name="drivers" caps="1000" managing_system="yes">
-		<resource name="RAM" quantum="32M"/>
-		<binary name="init"/>
-		<route>
-			<service name="ROM" label="config">
-				<parent label="drivers.config"/>
-			</service>
-			<service name="Timer"> <child name="timer"/> </service>
-			<any-service> <parent/> </any-service>
-		</route>
-		<provides> <service name="Nic"/> </provides>
-	</start>
-
 	<start name="dynamic_rom">
 		<resource name="RAM" quantum="4M"/>
 		<provides><service name="ROM"/> </provides>
@@ -67,9 +50,7 @@ append config {
 					<config link_state_min_dwell_ms="200">
 
 						<policy label="nic_router_2 -> " domain="downlink"/>
-						<uplink                          domain="uplink"/>
 
-						<domain name="uplink"/>
 						<domain name="downlink" interface="10.2.3.1/24">
 
 							<dhcp-server ip_first="10.2.3.2"
@@ -92,9 +73,7 @@ append config {
 					<config link_state_min_dwell_ms="200">
 
 						<policy label="nic_router_2 -> " domain="downlink"/>
-						<uplink                          domain="uplink"/>
 
-						<domain name="uplink"/>
 						<domain name="downlink" interface="10.2.3.1/24">
 
 							<dhcp-server ip_first="10.2.3.2"
@@ -116,9 +95,7 @@ append config {
 					<config link_state_min_dwell_ms="200">
 
 						<policy label="nic_router_2 -> " domain="downlink"/>
-						<uplink                          domain="uplink"/>
 
-						<domain name="uplink"/>
 						<domain name="downlink" interface="10.2.3.1/24">
 
 							<dhcp-server ip_first="10.2.3.2"
@@ -139,9 +116,7 @@ append config {
 					<config link_state_min_dwell_ms="200">
 
 						<policy label="nic_router_2 -> " domain="downlink"/>
-						<uplink                          domain="uplink"/>
 
-						<domain name="uplink"/>
 						<domain name="downlink" interface="10.2.3.1/24">
 
 							<dhcp-server ip_first="10.2.3.2"
@@ -168,7 +143,6 @@ append config {
 			<service name="ROM" label="config">
 				<child name="dynamic_rom" label="nic_router_1.config"/>
 			</service>
-			<service name="Nic"> <child name="drivers"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>
@@ -182,13 +156,6 @@ append_if [expr ![nic_router_2_managed]] config {
 
 		<config verbose_packets="no"
 		        link_state_min_dwell_ms="200">
-
-			<report bytes="no"
-					stats="no"
-					quota="no"
-					config="yes"
-					config_triggers="yes"
-					interval_sec="100"/>
 
 			<policy label="test_client -> " domain="downlink"/>
 			<uplink                         domain="uplink"/>
@@ -207,25 +174,18 @@ append_if [expr ![nic_router_2_managed]] config {
 append config {
 
 		<route>
+			<service name="Nic"> <child name="nic_router_1"/> </service>}
+
+append_if [nic_router_2_managed] config {
+
 			<service name="ROM" label="config">
 				<child name="report_rom"/>
-			</service>
-			<service name="Report"> <child name="report_rom"/> </service>
-			<service name="Nic"> <child name="nic_router_1"/> </service>
+			</service>}
+
+append config {
+
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
-	</start>
-
-	<start name="report_rom">
-		<resource name="RAM" quantum="1M"/>
-		<provides> <service name="Report"/> <service name="ROM"/> </provides>
-		<config verbose="no">
-			<policy label="test_manager -> router_state"
-			        report="nic_router_2 -> state"/>
-
-			<policy label="nic_router_2 -> config"
-			        report="test_manager -> router_config"/>
-		</config>
 	</start>
 
 	<start name="test_client">
@@ -239,6 +199,18 @@ append config {
 	</start>}
 
 append_if [nic_router_2_managed] config {
+
+	<start name="report_rom">
+		<resource name="RAM" quantum="1M"/>
+		<provides> <service name="Report"/> <service name="ROM"/> </provides>
+		<config verbose="no">
+			<policy label="test_manager -> router_state"
+			        report="nic_router_2 -> state"/>
+
+			<policy label="nic_router_2 -> config"
+			        report="test_manager -> router_config"/>
+		</config>
+	</start>
 
 	<start name="test_manager">
 		<binary name="test-nic_router_dhcp-manager"/>
@@ -264,10 +236,10 @@ set boot_modules {
 	dynamic_rom
 	nic_router
 	test-nic_router_dhcp-client
-	report_rom
 }
 
 lappend_if [nic_router_2_managed] boot_modules test-nic_router_dhcp-manager
+lappend_if [nic_router_2_managed] boot_modules report_rom
 
 build_boot_image $boot_modules
 
