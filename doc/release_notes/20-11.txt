@@ -65,41 +65,43 @@ Date:   Fri Jul 17 13:21:41 2020 +0200
 Sculpt OS on 64-bit ARM hardware (i.MX8 EVK)
 ############################################
 
-Within the last year a lot of effort was spent into Genode's support for ARM
+Within the last year, a lot of effort was put into Genode's support for ARM
 64-bit hardware. A consequent next step was to port Sculpt OS to the i.MX8 EVK
-board, which we used so far as reference platform. With the current release
+board, which we used so far as reference platform. With the current release,
 we proudly present the first incarnation of Sculpt OS for this board.
 
 In contrast to the original x86 PC variant, this first ARM version ships with a
-static set of devices inside the drivers subsytem. No device manager component
-probes for the used hardware and starts drivers on demand. The driver set,
-defined in the drivers_managed-imx8q_evk package, enables USB HID devices to
+static set of devices inside the drivers subsystem. No device manager component
+probes for the used hardware and starts drivers on demand. Instead, the set of drivers
+defined in the _drivers_managed-imx8q_evk_ package enables USB HID devices to
 make use of mouse and keyboard peripherals connected to the board. It drives the
-SD-card, which can be used as storage backend for the Genode's depot package
+SD-card, which can be used as storage back end for Genode's depot package
 management. Finally, it contains drivers to manage the display engine and the
 platform's device resources.
 
-With Sculpt OS for ARM 64-bit we not only aim for classical desktop/notebook
+With Sculpt OS for ARM 64-bit, we not only aim for classical desktop/notebook
 systems - like on x86 - but also for embedded consumer hardware like phones and
 tablets. In order to leverage this goal, we enabled support for
 [https://www.nxp.com/design/development-boards/i-mx-evaluation-and-development-boards/i-mx-8-series-accessory-boards:i.MX8-ACCESSORY-BOARDS - NXP's MX8_DSI_OLED1]
 display on the i.MX8 platform on Genode. The panel features an OLED display as well
 as a Synaptics RMI4 compliant touch screen.
 
-Genode's i.MX8 display driver we released with version
+Genode's i.MX8 display driver that we released with version
 [https://genode.org/documentation/release-notes/20.02#Display_engine - 20.02]
-only supported HDMI devices, while the OLED display is connected via
+supported HDMI devices only, whereas the OLED display is connected via
 [https://www.mipi.org/specifications/dsi - MIPI DSI] to the SoC. Therefore, we
 extended the display driver by the MIPI DSI infrastructure as well as the actual
-driver for the OLED display. This endeavour turned out to be a very rocky one
+driver for the OLED display. This endeavour turned out to be a very rocky one,
 which we have documented in detail on our
 [https://genodians.org/ssumpf/2020-09-30-mipi_touch - Genodians] website.
 
+[image imx8_oled]
+
 In order to enable the touch screen device, we implemented a new Genode
 component from scratch. The touch screen is connected via an I2C bus to the SoC
-where data can be sent to and received from. At the moment the I2C
-implementation is hidden within the driver, but as more devices require I2C
-access it will be a standalone component in the future. Interrupts are delivered
+where data can be sent to and received from. At the moment, the I2C
+implementation is hidden within the driver but as more devices require I2C
+access, it will eventually become a standalone component. Interrupts are delivered
 via GPIO pins from the touch screen to the SoC, which made it necessary to
 enable i.MX8 support within Genode's generic i.MX GPIO driver. We took this as
 an opportunity to streamline, cleanup, and make the driver more robust.
@@ -107,40 +109,38 @@ Additionally, all driver components now take advantage of the new platform drive
 for ARM that has been introduced with release
 [https://genode.org/documentation/release-notes/20.05#New_platform_driver_for_the_ARM_universe - 20.05].
 
-In its current incarnation the driver for the display management is not able to
+In its current incarnation, the driver for the display management is not able to
 switch in between HDMI or MIPI-DSI connected displays dynamically. Therefore,
 the display to be used in Sculpt has to be configured in the framebuffer configuration
 manually. By default the HDMI connector is used.
 
-Beyond the driver subsystem there are few components dependent on the actual
+Beyond the driver subsystem, there are few components dependent on the actual
 hardware, which is why the look & feel of the Sculpt desktop does not actually
-differ from the x86 PC version. With the following exceptions:
+differ from the x86 PC version, with the following exceptions:
 
-When you select the network configuration dialog, you'll have no "wifi" option,
-because of the missing hardware, but only the "wired" option to start the
-corresponding driver for the i.MX FEC ethernet device. The second difference to
+When you select the network configuration dialog, you'll have no "Wifi" option
+because of the missing hardware. However, the "wired" option allows you to start the
+corresponding driver for the i.MX FEC Ethernet device. The second difference to
 the Sculpt OS x86 PC variant is the absence of a virtual machine solution for now.
-Although, Genode comprises a mature virtual-machine-monitor solution for ARM, see
-section [https://genode.org/documentation/release-notes/20.11#Multicore_virtualization_on_ARM],
-it still lacks a reasonable storage backend. Therefore, we left it out for
-now. Lastly, there is no possibility to use USB block devices by now, because
-the management component therefore - the device manager - is missing.
-
-Those missing pieces in contrast to the Sculpt x86 PC version will be addressed
-in the upcoming Genode releases.
+Although Genode comprises a mature virtual-machine-monitor solution for ARM - see
+Section [Multicore virtualization on ARM] - it still lacks a reasonable
+storage back end. Therefore, we left it out for now. Lastly, there is no
+possibility to use USB block devices by now, because the required management
+component - a driver manager for i.MX8 - does not exist yet. We plan to bridge
+these remaining few gaps compared to the x86 version with the upcoming Genode
+releases.
 
 To give Sculpt a try on the i.MX8 EVK board, you have to start the well-known
-Sculpt run-script as usual for the base-hw kernel inside a build directory for
-ARMv8a:
+Sculpt run-script as usual, but for the base-hw kernel. For example:
 
 !  tool/create_builddir arm_v8a
 !  cd build/arm_v8a
 !  make run/sculpt KERNEL=hw BOARD=imx8q_evk
 
-Under the hood, the script requests a sculpt-[board] specific package from the
-depot package system. Currently, sculpt-pc and sculpt-imx8q_evk are the only
-sculpt packages available. For now, Sculpt for i.MX8 EVK was build and tested
-usig the base-hw kernel only.
+Under the hood, the run script requests a sculpt-<board> specific package from
+the depot package system. Currently, _sculpt-pc_ and _sculpt-imx8q_evk_ are
+available.
+
 
 Multicore virtualization on ARM
 ###############################
@@ -388,8 +388,8 @@ We therefore equipped the block VFS-plugin with a compound directory hosting
 the pseudo files for triggering device operations:
 
 :info: This file contains the device information structured as 'block'
-   XML node having an 'size' and 'count' attribute providing the used
-   block size as well as the total number of blocks.
+  XML node having an 'size' and 'count' attribute providing the used
+  block size as well as the total number of blocks.
 
 :block_count: contains solely the total number of blocks.
 
@@ -447,15 +447,19 @@ access to a audio-out session by roughly implementing a OSS
 pseudo-device. It merely wraps the session and does not provide any
 form of resampling or re-coding of the audio stream.
 
-Putting the libc extension and the plugin together allows for listing to
-MP3s - for the time being the format is restricted to 44.1kHz/16bit -
-on Sculpt using cmus.
+[image cmus]
 
-It serves as a starting point for further implementing the OSS API to
-cover more use cases, especially with ported POSIX software like
-VirtualBox and Qt5 or even as SDL2 audio back end. After all, even
-showing its age, OSS still is supported by the majority of middle ware
-and makes for a decent experimentation target.
+Image [cmus] shows how the various pieces work together in a real-world
+scenario. The interplay of the extended libc with the OSS VFS plugin allows
+for listing to MP3s - for the time being the format is restricted to
+44.1kHz/16bit - on Sculpt using the [https://cmus.github.io/ - cmus]
+audio player.
+
+The current state serves as a starting point for further implementing the OSS
+API to cover more use cases, especially with ported POSIX software like
+VirtualBox and Qt5 or even as SDL2 audio back end. After all, even showing its
+age, OSS still is supported by the majority of middle ware and makes for a
+decent experimentation target.
 
 
 Device drivers
