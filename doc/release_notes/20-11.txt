@@ -176,7 +176,7 @@ architecture of the VMM was designed from the very beginning with more than one
 virtual-CPU (VCPU) in mind, running a VM on multiple cores was not addressed,
 nor tested yet.
 
-With this release, we enhance the virtualization support of the base-hw kernel,
+With this release, we enhanced the virtualization support of the base-hw kernel,
 acting as the ARM hypervisor, to support multicore virtual machines. The
 VMM implementation got extended to start an entrypoint for each VCPU owned by
 a VM. The affinities of those entrypoints are configured to distribute over all
@@ -494,7 +494,7 @@ Improved support for OpenBSD audio drivers
 ==========================================
 
 So far, the supported drivers exclusively used PCI as transport bus and for
-practical reasons, the emulation environment was to tied to it. The bus
+practical reasons, the emulation environment was tied to it. The bus
 handling has now moved into its own compilation unit to make future addition
 of drivers that employ other transport busses easier. On the same account,
 the component got renamed to 'pci_audio_drv' to reflect its bus connection.
