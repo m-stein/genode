@@ -16,6 +16,8 @@ CPU-load balancing
 
 ; @alex-ab
 
+[image cpu_balancing]
+
 commit 99fa2036734dea9e78cc01abebf413fa52661d2c
 Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
 Date:   Tue Jul 28 19:30:56 2020 +0200
@@ -146,42 +148,40 @@ Multicore virtualization on ARM
 ###############################
 
 The written-from-scratch virtualization solution for Genode on ARMv8 entered the
-picture exactly one year ago with release 19.11. Since then a couple of
+picture exactly one year ago with
+[https://genode.org/documentation/release-notes/19.11#Virtualization_of_64-bit_ARM_platforms - release 19.11].
+Since then, a couple of
 improvements and validations have been incorporated into it. Support for VirtIO
-network and console models was added. Moreover, it got streamlined with the prior
-existent ARMv7 hypervisor and virtual-machine-monitor (VMM). But although the
+network and console models was added. Moreover, it got streamlined with our prior
+existing ARMv7 hypervisor and virtual-machine monitor (VMM). But although the
 architecture of the VMM was designed from the very beginning with more than one
 virtual-CPU (VCPU) in mind, running a VM on multiple cores was not addressed,
 nor tested yet.
 
-With this release we enhance the virtualization support of the base-hw kernel,
-acting as the ARM hypervisor, to support multicore virtual-machines. The
-VMM implementation got extended to start an entrypoint for each VCPU that a VM
-owns. The affinitys of those entrypoints are configured to distribute over all
+With this release, we enhance the virtualization support of the base-hw kernel,
+acting as the ARM hypervisor, to support multicore virtual machines. The
+VMM implementation got extended to start an entrypoint for each VCPU owned by
+a VM. The affinities of those entrypoints are configured to distribute over all
 physical CPUs available to the VMM. The affinity of an entrypoint that handles
 events of a VCPU is automatically used as the affinity of the VCPU itself.
 Whenever a VCPU exit needs to be handled, this is delegated to the VMM entrypoint
-running on the same CPU. When the VMM's entrypoint successfully handled the exit
+running on the same CPU. Once the VMM's entrypoint successfully handled the exit
 reason, it starts the VCPU again.
 
 Formerly, the control to start or stop a VCPU was implemented by core's VM
 service that runs on the first CPU. But that implied that all different VMM
-entrypoints running on distinct CPUs would have needed to call all the time
-core's service entrypoint on the first CPU. Moreover, that core entrypoint uses
+entrypoints running on distinct CPUs would have needed to frequently call
+core's service entrypoint on the first CPU, inducing costly cross-CPU
+communication. This is amplified by the fact that core's entrypoint uses
 a system call to instruct the kernel's internal scheduler of the corresponding
-target CPU, which again would be a a potentially different one than the CPU
-where core's entrypoint runs on top of.
-For the ease of implementation, and a more performant solution, we extended the VM
-session interface slightly to return a kernel-specific capability addressing a
-VCPU directly. With this capability a VMM's entrypoint is able to directly call
+target CPU, which again would potentially target a remote CPU.
+For simplifying the implementation and for improving performance, we slightly extended the
+VM-session interface to return a kernel-specific capability addressing a
+VCPU directly. With this capability, a VMM's entrypoint is able to directly call
 the kernel to start or stop a VCPU instead of using the indirection over core.
 However, the detail whether the kernel is called directly or not is hidden
 behind the VM session client API and transparent to the user of it.
 
-Beside the already descibed changes, some device models in the VMM were provided
-with synchronization primitives to make the concurrent access of different VCPUs
-respectively VMM entrypoints safe. Namely these are the device models for VirtIO
-network and console, as well as part of the GIC interrupt controller.
 
 Base framework and OS-level infrastructure
 ##########################################
@@ -447,10 +447,10 @@ Device drivers
 VirtIO support
 ==============
 
-Thanks to the remarkable contribution of Piotr Tworek the Genode OS framework
-is able to drive VirtIO network devices from now on.
+Thanks to the remarkable contribution by Piotr Tworek, the Genode OS framework
+has become able to drive VirtIO network devices.
 
-He did not only provided a single VirtIO network driver, but a framework to
+He did not only provide a single VirtIO network driver but a framework to
 easily add more VirtIO driver classes in the future. Either the devices are
 connected as PCI devices or directly as platform devices with fixed
 memory-mapped I/O addresses. The framework supports both and abstracts away from
@@ -461,13 +461,13 @@ The VirtIO network driver enables networking for Genode when using the
 VirtIO device configuration on Qemu is dynamic. The order and presence of
 different command line switches affect the bus address and interrupt assignment
 of each device. To make the use of Genode with Qemu robust in changing
-environments, a tiny helper component was added in addition. This component named
-'virtdev_rom' probes the memory-mapped I/O areas of the system bus, and detects
-available and known VirtIO devices. The results are written into a configuration
-file that can be consumed by the platform driver to provide the correct device
+environments, a tiny helper component was supplemented. This component named
+'virtdev_rom' probes the memory-mapped I/O areas of the system bus and detects
+available and known VirtIO devices. The results are provided in the form of a
+configuration that can be consumed by the platform driver to assign the correct device
 resources to the corresponding VirtIO driver.
 
-The VirtIO network driver in action, as well as the interplay of platform driver
+The VirtIO network driver in action, as well as the interplay of the platform driver
 and the 'virtdev_rom' component can be observed when using the
 'drivers_nic-virt_qemu' package.
 
