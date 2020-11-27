@@ -24,7 +24,7 @@ is able to monitor threads and their utilization behaviour. Depending
 on configured policies, the balancer can instruct Genode's core via the CPU
 session interface to migrate threads between CPUs.
 
-[image cpu_balancing]
+[image cpu_balancer]
   The CPU balancer intercepts the interaction of a Genode subsystem
   (workload) with core's low-level CPU service.
 
