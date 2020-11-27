@@ -552,13 +552,14 @@ Platforms
 Hardware p-state support on PC hardware
 =======================================
 
-Intel CPUs feature Speed Shift respectively Hardware p-state (HWP)
+Intel CPUs feature Speed Shift respectively Hardware P-State (HWP)
 functionality in order to balance CPU frequency and voltage for performance and
 power efficiency. Up to now, the UEFI firmware of the notebooks we worked with
-selected or made an option selectable in the UEFI configuration to specify the desired
-behaviour, e.g. optimize for performance or power efficiency.
+selected or made an option selectable in the UEFI configuration to specify the
+desired behaviour, e.g. optimize for performance or power efficiency.
 
-With a recent Lenovo notebook, we faced the issue that either the fan would run for too long
+With a recent Lenovo notebook, however, we faced the issue that either the fan
+would run for too long
 after some load and/or the performance of the CPUs regressed. Finding a well
 working sweet spot
 [https://github.com/genodelabs/genode/issues/3871 - seems hard].
@@ -578,12 +579,13 @@ e.g., bender and microcode,
 to run code before the kernels are booted. The jobs of the tools are to scan,
 enable, or apply changes to the CPUs and chipset, which are not required
 to change during runtime. We came to the conclusion that the named bootstrap
-tools are good place to apply such one-time Intel HWP settings for the moment.
+tools are a good place to apply such one-time Intel HWP settings for the moment.
 
-During the course of adding the Intel HWP functionality, we merged the
-microcode functionality into the bender tool and made it configurable via the
-boot options 'microcode' and 'intel_hwp'.
-A typical generated grub2 configuration by using both options would look like this:
+During the course of adding the Intel HWP functionality, we merged also the
+microcode functionality into the bender tool and made both features configurable
+via the boot options 'microcode' and 'intel_hwp'.
+A typical generated grub2 configuration for using both options would look like
+this:
 
 | insmod multiboot2
 | insmod gzio
@@ -591,6 +593,15 @@ A typical generated grub2 configuration by using both options would look like th
 | module2    /boot/micro.code micro.code
 | module2    /boot/hypervisor hypervisor ...
 | module2    /boot/image.elf.gz image.elf ...
+
+When using the NOVA kernel and Genodes 'run' tool for booting respectively
+disk-image creation, one can also use the existing 'options_bender' variable in
+'tool/run/boot/nova'. The microcode option is added by setting the
+'apply_microcode' flag in the same file. The 'intel_hwp' option, at the other
+hand, can simply be appended to 'options_bender'. On startup, bender will print
+out the applied HWP settings for each core to the serial output if the
+'intel_hwp' option was set. The new feature will try to set Intel HWP to
+'PERFORMANCE' mode, the mode in which we observed the best results.
 
 
 NOVA microhypervisor
