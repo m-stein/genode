@@ -56,7 +56,7 @@ CPU-load balancing
 ##################
 
 Migrating load over CPUs may be desirable in dynamic scenarios, where the
-workload is now known in advance, or too complex.
+workload is not known in advance, or too complex.
 For example, in case of POSIX software ported to Genode, amount and roles of
 threads and processes can generally not planned for. With the current
 release, we add an optional CPU service designated for such dynamic scenarios.
@@ -73,7 +73,7 @@ This feature requires a kernel that supports
 thread migration, which are Fiasco.OC, seL4, and to some degree the NOVA kernel.
 For the NOVA kernel, solely threads with an attached scheduling context can be
 migrated, which are 'Genode::Thread' and POSIX pthread instances.
-Genode's entrypoint and virtual CPU instances are not supported by now.
+Genode's entrypoint and virtual CPU instances are not supported for now.
 
 The feature can be tested by the scenario located at _repos/os/run/cpu_balancer.run_.
 Further information regarding policy configuration, a demo
@@ -330,7 +330,7 @@ Anchors.
 
 Before this release, the CBE tester was a mere patchwork solution and many of
 the above mentioned features were limited or even missing. For instance block
-access was issued only synchronous, the Trust-Anchor was managed implicitly,
+access was issued only synchronously, the Trust-Anchor was managed implicitly,
 and validating read data wasn't possible. Besides adding the missing features,
 we also reworked the component entirely to follow a clean and comprehensible
 implementation concept. The new CBE tester comes together with the run script
@@ -519,7 +519,7 @@ Those events are important for detecting plugged in headphones.
 
 Supporting headphones was further refined by accounting for the situation
 where the driver is started while headphones are already plugged in and the
-mixer accordingly needs to be configured accordingly. In particular, on the
+mixer needs to be configured accordingly. In particular, on the
 Fujitsu S938 the driver lacked the proper quirk for switching between the
 internal and external microphone.
 
@@ -569,14 +569,14 @@ tweaking the Intel HWP settings.
 However, changing the Intel HWP setting requires access to
 the privileged mode on all available CPUs. Since Genode supports several
 kernels, a solution would require us to modify all kernels or the feature would
-remain solely available to one kernel. We selected the third option, actually.
+remain solely available to one kernel. We went for a different approach.
 
 On x86, we use the tools from the
-[https://genode.org/documentation/release-notes/18.08#New_Intel_Microcode_update_mechanism - Morbo probject],
+[https://genode.org/documentation/release-notes/18.08#New_Intel_Microcode_update_mechanism - Morbo project],
 e.g., bender and microcode,
-to run code before the kernels are booted. The jobs of the tools are to scan,
+to run code before a kernel is booted. The job of the tools is to scan,
 enable, or apply changes to the CPUs and chipset, which are not required
-to change during runtime. We came to the conclusion that the named bootstrap
+to change during runtime. We came to the conclusion that these bootstrap
 tools are good place to apply such one time Intel HWP settings for the moment.
 
 During the course of adding the Intel HWP functionality, we merged the
@@ -587,8 +587,8 @@ A typical generated grub2 configuration by using both options would look like th
 | insmod multiboot2
 | insmod gzio
 | multiboot2 /boot/bender bender microcode intel_hwp
-| module2    /boot/micro.code micro.code"
-| module2    /boot/hyperivosr hypervisor ...
+| module2    /boot/micro.code micro.code
+| module2    /boot/hypervisor hypervisor ...
 | module2    /boot/image.elf.gz image.elf ...
 
 
@@ -604,13 +604,13 @@ for Intel hardware, in particular CPUs and chipsets supporting Intel VT-d.
 
 With this release, we add support for AMD's IO-MMU variant to the Genode framework
 and the NOVA kernel being the first one out of the supported microkernels.
-Being conceptionally equivalent, the actual implementation for AMD differs of
-Intel unsurprisingly. In order to add the support, a new IO-MMU interface
+Being conceptionally equivalent, the actual implementation for AMD differs
+unsuprisingly from Intel. The lookup of the available IO-MMUs requires to walk
+different ACPI tables than for Intel and another page table format for the IO-MMU
+needs to be added. In order to add the support, a new IO-MMU interface
 abstraction for accommodating both versions - Intel and AMD - got added to the
 NOVA kernel.
-Further, the lookup of the available IO-MMUs required to walk different ACPI
-tables than for Intel and another page table format for the IO-MMU had to be
-added. On the Genode framework side, only very few changes were necessary,
+On the Genode framework side, only very few changes were necessary,
 namely the detection of the IO-MMU feature by parsing the ACPI tables in
 Genode's ACPI driver and the ported Intel ACPICA component.
 
