@@ -258,7 +258,7 @@ back end.
 
 
 Repository restructuring
-~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------
 
 Generally speaking, the [https://github.com/m-stein/cbe - CBE repository] has
 been freed from everything that is not either part of the SPARK-based core
@@ -277,7 +277,7 @@ can benefit from being part of the Genode mainline development.
 
 
 Automated testing, benchmarking, and proving
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------------------------
 
 The CBE tester is a scriptable environment meant for testing all aspects of the
 CBE library and its basic tooling. Through its XML command interface, one can
@@ -311,7 +311,7 @@ integration in Genode. A handy side-feature of the tool is that one can run
 
 
 Libcrypto back end for block encryption
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------------------
 
 The introduction of VFS plugins for CBE back ends in the previous Genode release
 made it much easier to interchange concrete implementations. This motivated us
