@@ -8,7 +8,48 @@
 
 
 
-; intro -> @nfeske
+With Genode 20.11, we focused on the scalability of real-world application
+workloads, and nurtured Genode's support for 64-bit ARM hardware. We thereby
+follow the overarching goal to run highly sophisticated Genode-based systems
+on devices of various form factors.
+
+When speaking of real-world workloads, we acknowledge that we cannot always
+know the exact behavior of applications. The system must deal gracefully with
+many unknowns: The roles and CPU intensity of threads, the interplay of
+application code with I/O, memory-pressure situations, or the sudden fragility
+of otherwise very useful code. The worst case must always be anticipated. In
+traditional operating systems, this implies that the OS kernel needs to be
+aware of certain behavioral patterns of the applications, and has to take
+decisions based on heuristics. Think of CPU scheduling, load balancing among
+CPU cores, driving power-saving features of the hardware, memory swapping,
+caching, and responding to near-fatal situations like OOM.
+
+Genode allows us to move such complex heuristics outside the kernel into
+dedicated components. Our new CPU balancer described in Section
+[CPU-load balancing] is a living poster child of our approach. With this
+optional component, a part of a Genode system can be subjected to a CPU-load
+balancing policy of arbitrary complexity without affecting the quality of
+service of unrelated components, and without polluting the OS kernel with
+complexity.
+
+A second aspect of real-work workloads is that they are usually *not* designed
+for Genode. To accommodate the wealth of time tested applications on Genode,
+we need to bridge the massive gap between APIs of olde like POSIX and Genode's
+clean-slate interfaces.
+Section [Streamlined ioctl handling in the C runtime / VFS] shows how the
+current release leverages Genode's novel VFS concept for the emulation of
+traditional ioctl-based interfaces. So useful existing applications come to
+live without compromising the architectural benefits of
+Genode.
+
+Platform-wise, the new release continues our mission to host Genode-based
+systems such as [https://genode.org/download/sculpt - Sculpt OS] on 64-bit
+ARM hardware. This work entails intensive development of device drivers and
+the overall driver architecture.
+Section [Sculpt OS on 64-bit ARM hardware (i.MX8 EVK)] reports on the
+achievement of bringing Sculpt to 64-bit i.MX8 hardware. This line of work
+goes almost hand in hand with the improvements of our custom virtual machine
+monitor for ARM as outlined in Section [Multicore virtualization on ARM].
 
 
 CPU-load balancing
