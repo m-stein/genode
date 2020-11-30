@@ -58,16 +58,11 @@ Session_component_base(Session_env  &session_env,
 Net::Session_component::
 Interface_policy::Interface_policy(Genode::Session_label const &label,
                                    Session_env           const &session_env,
-                                   Configuration         const &config,
-                                   Timer::Connection           &timer)
+                                   Configuration         const &config)
 :
-	_label                            { label },
-	_config                           { config },
-	_session_env                      { session_env },
-	_session_link_state_dwell_timeout {
-		timer, *this,
-		&Interface_policy::_handle_session_link_state_dwell_timeout
-	}
+	_label       { label },
+	_config      { config },
+	_session_env { session_env }
 {
 	_session_link_state_transition(UP);
 }
@@ -100,15 +95,13 @@ Interface_policy::_session_link_state_transition(Transient_link_state tls)
 {
 	_transient_link_state = tls;
 	Signal_transmitter(_session_link_state_sigh).submit();
-	_session_link_state_dwell_timeout.schedule(
-		_config().link_state_min_dwell());
 }
 
 
 void Net::Session_component::Interface_policy::interface_unready()
 {
 	switch (_transient_link_state) {
-	case UP_MODIFIABLE:
+	case UP_ACKNOWLEDGED:
 
 		_session_link_state_transition(DOWN);
 		break;
@@ -123,15 +116,18 @@ void Net::Session_component::Interface_policy::interface_unready()
 		_transient_link_state = DOWN_UP_DOWN;
 		break;
 
-	case UP_DOWN:         break;
+	case UP_DOWN:
+
+		break;
+
 	case UP_DOWN_UP:
 
 		_transient_link_state = UP_DOWN;
 		break;
 
-	case DOWN_MODIFIABLE: break;
-	case DOWN:            break;
-	case DOWN_UP_DOWN:    break;
+	case DOWN_ACKNOWLEDGED: break;
+	case DOWN:              break;
+	case DOWN_UP_DOWN:      break;
 	}
 }
 
@@ -139,7 +135,7 @@ void Net::Session_component::Interface_policy::interface_unready()
 void Net::Session_component::Interface_policy::interface_ready()
 {
 	switch (_transient_link_state) {
-	case DOWN_MODIFIABLE:
+	case DOWN_ACKNOWLEDGED:
 
 		_session_link_state_transition(UP);
 		break;
@@ -154,15 +150,18 @@ void Net::Session_component::Interface_policy::interface_ready()
 		_transient_link_state = UP_DOWN_UP;
 		break;
 
-	case DOWN_UP:       break;
+	case DOWN_UP:
+
+		break;
+
 	case DOWN_UP_DOWN:
 
 		_transient_link_state = DOWN_UP;
 		break;
 
-	case UP_MODIFIABLE: break;
-	case UP:            break;
-	case UP_DOWN_UP:    break;
+	case UP_ACKNOWLEDGED: break;
+	case UP:              break;
+	case UP_DOWN_UP:      break;
 	}
 }
 
@@ -170,33 +169,63 @@ bool
 Net::Session_component::Interface_policy::interface_link_state() const
 {
 	switch (_transient_link_state) {
-	case DOWN_MODIFIABLE: return false;
-	case DOWN:            return false;
-	case DOWN_UP:         return true;
-	case DOWN_UP_DOWN:    return false;
-	case UP_MODIFIABLE:   return true;
-	case UP:              return true;
-	case UP_DOWN:         return false;
-	case UP_DOWN_UP:      return true;
+	case DOWN_ACKNOWLEDGED: return false;
+	case DOWN:              return false;
+	case DOWN_UP:           return true;
+	case DOWN_UP_DOWN:      return false;
+	case UP_ACKNOWLEDGED:   return true;
+	case UP:                return true;
+	case UP_DOWN:           return false;
+	case UP_DOWN_UP:        return true;
 	}
 	class Never_reached : Exception { };
 	throw Never_reached { };
 }
 
 
-bool Net::Session_component::Interface_policy::session_link_state() const
+bool
+Net::Session_component::Interface_policy::read_and_ack_session_link_state()
 {
 	switch (_transient_link_state) {
-	case DOWN_MODIFIABLE: return false;
-	case DOWN:            return false;
-	case DOWN_UP:         return false;
-	case DOWN_UP_DOWN:    return false;
-	case UP_MODIFIABLE:   return true;
-	case UP:              return true;
-	case UP_DOWN:         return true;
-	case UP_DOWN_UP:      return true;
+	case DOWN_ACKNOWLEDGED:
+
+		return false;
+
+	case DOWN:
+
+		_transient_link_state = DOWN_ACKNOWLEDGED;
+		return false;
+
+	case DOWN_UP:
+
+		_session_link_state_transition(UP);
+		return false;
+
+	case DOWN_UP_DOWN:
+
+		_session_link_state_transition(UP_DOWN);
+		return false;
+
+	case UP_ACKNOWLEDGED:
+
+		return true;
+
+	case UP:
+
+		_transient_link_state = UP_ACKNOWLEDGED;
+		return true;
+
+	case UP_DOWN:
+
+		_session_link_state_transition(DOWN);
+		return true;
+
+	case UP_DOWN_UP:
+
+		_session_link_state_transition(DOWN_UP);
+		return true;
 	}
-	class Never_reached : Exception { };
+	class Never_reached { };
 	throw Never_reached { };
 }
 
@@ -205,53 +234,6 @@ void Net::Session_component::Interface_policy::
 session_link_state_sigh(Signal_context_capability sigh)
 {
 	_session_link_state_sigh = sigh;
-}
-
-
-void Net::Session_component::
-Interface_policy::_handle_session_link_state_dwell_timeout(Duration)
-{
-	switch (_transient_link_state) {
-	case DOWN_MODIFIABLE:
-
-		class Down_modifiable_unexpected : Exception { };
-		throw Down_modifiable_unexpected { };
-
-	case DOWN:
-
-		_transient_link_state = DOWN_MODIFIABLE;
-		break;
-
-	case DOWN_UP:
-
-		_session_link_state_transition(UP);
-		break;
-
-	case DOWN_UP_DOWN:
-
-		_session_link_state_transition(UP_DOWN);
-		break;
-
-	case UP_MODIFIABLE:
-
-		class Up_modifiable_unexpected : Exception { };
-		throw Up_modifiable_unexpected { };
-
-	case UP:
-
-		_transient_link_state = UP_MODIFIABLE;
-		break;
-
-	case UP_DOWN:
-
-		_session_link_state_transition(DOWN);
-		break;
-
-	case UP_DOWN_UP:
-
-		_session_link_state_transition(DOWN_UP);
-		break;
-	}
 }
 
 
@@ -273,7 +255,7 @@ Net::Session_component::Session_component(Session_env                    &sessio
 	Session_component_base { session_env, tx_buf_size,rx_buf_size },
 	Session_rpc_object     { _session_env, _tx_buf.ds(), _rx_buf.ds(),
 	                         &_packet_alloc, _session_env.ep().rpc_ep() },
-	_interface_policy      { label, _session_env, config, timer },
+	_interface_policy      { label, _session_env, config },
 	_interface             { _session_env.ep(), timer, router_mac, _alloc,
 	                         mac, config, interfaces, *_tx.sink(),
 	                         *_rx.source(), _interface_policy },
@@ -290,7 +272,7 @@ Net::Session_component::Session_component(Session_env                    &sessio
 
 bool Net::Session_component::link_state()
 {
-	return _interface_policy.session_link_state();
+	return _interface_policy.read_and_ack_session_link_state();
 }
 
 

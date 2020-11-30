@@ -40,7 +40,6 @@ class Net::Configuration
 		bool                 const  _verbose_packet_drop;
 		bool                 const  _verbose_domain_state;
 		bool                 const  _icmp_echo_server;
-		Genode::Microseconds const  _link_state_min_dwell;
 		Genode::Microseconds const  _dhcp_discover_timeout;
 		Genode::Microseconds const  _dhcp_request_timeout;
 		Genode::Microseconds const  _dhcp_offer_timeout;
@@ -97,7 +96,6 @@ class Net::Configuration
 		Genode::Microseconds  udp_idle_timeout()       const { return _udp_idle_timeout; }
 		Genode::Microseconds  tcp_idle_timeout()       const { return _tcp_idle_timeout; }
 		Genode::Microseconds  tcp_max_segm_lifetime()  const { return _tcp_max_segm_lifetime; }
-		Genode::Microseconds  link_state_min_dwell()   const { return _link_state_min_dwell; }
 		Domain_tree          &domains()                      { return _domains; }
 		Report               &report()                       { return _report(); }
 		Genode::Xml_node      node()                   const { return _node; }

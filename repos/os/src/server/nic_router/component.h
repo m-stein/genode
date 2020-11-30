@@ -261,31 +261,29 @@ class Net::Session_component : private Session_component_base,
 		{
 			private:
 
-				using One_shot_timeout =
-					Timer::One_shot_timeout<Interface_policy>;
-
 				using Signal_context_capability =
 					Genode::Signal_context_capability;
 
 				/*
 				 * The transient link state is a combination of session and
-				 * interface link state. The first word in the value names
-				 * denotes the session link state. If the session link state
-				 * can be altered directly, it is marked as 'MODIFIABLE'.
-				 * Otherwise, the denoted session state has to stay fixed
-				 * for a certain time in order to fullfill the configured
-				 * minimum dwell time. In this case, the session link state
-				 * in the value names may be followed by the pending link
-				 * state edges. Consequently, the last 'UP' or 'DOWN' in each
-				 * value name denotes the interface link state.
+				 * interface link state. The first word in the value name
+				 * denotes the link state of the session. If the session
+				 * link state has already been read by the client and
+				 * can therefore be altered directly, it is marked as
+				 * 'ACKNOWLEDGED'. Otherwise, the denoted session state
+				 * has to stay fixed until the client has read it. In this
+				 * case, the session link state in the value name may be
+				 * followed by the pending link state edges. Consequently,
+				 * the last 'UP' or 'DOWN' in each value name denotes the
+				 * router-internal interface link-state.
 				 */
 				enum Transient_link_state
 				{
-					DOWN_MODIFIABLE,
+					DOWN_ACKNOWLEDGED,
 					DOWN,
 					DOWN_UP,
 					DOWN_UP_DOWN,
-					UP_MODIFIABLE,
+					UP_ACKNOWLEDGED,
 					UP,
 					UP_DOWN,
 					UP_DOWN_UP
@@ -294,11 +292,8 @@ class Net::Session_component : private Session_component_base,
 				Genode::Session_label    const  _label;
 				Const_reference<Configuration>  _config;
 				Genode::Session_env      const &_session_env;
-				Transient_link_state            _transient_link_state    { DOWN_MODIFIABLE };
+				Transient_link_state            _transient_link_state    { DOWN_ACKNOWLEDGED };
 				Signal_context_capability       _session_link_state_sigh { };
-				One_shot_timeout                _session_link_state_dwell_timeout;
-
-				void _handle_session_link_state_dwell_timeout(Genode::Duration);
 
 				void _session_link_state_transition(Transient_link_state tls);
 
@@ -306,10 +301,9 @@ class Net::Session_component : private Session_component_base,
 
 				Interface_policy(Genode::Session_label const &label,
 				                 Genode::Session_env   const &session_env,
-				                 Configuration         const &config,
-				                 Timer::Connection           &timer);
+				                 Configuration         const &config);
 
-				bool session_link_state() const;
+				bool read_and_ack_session_link_state();
 
 				void session_link_state_sigh(Genode::Signal_context_capability sigh);
 
