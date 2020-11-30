@@ -139,7 +139,6 @@
 			<xs:attribute name="verbose_packets"           type="Boolean" />
 			<xs:attribute name="verbose_packet_drop"       type="Boolean" />
 			<xs:attribute name="verbose_domain_state"      type="Boolean" />
-			<xs:attribute name="link_state_min_dwell_ms"   type="Milliseconds" />
 			<xs:attribute name="dhcp_discover_timeout_sec" type="Seconds" />
 			<xs:attribute name="dhcp_request_timeout_sec"  type="Seconds" />
 			<xs:attribute name="dhcp_offer_timeout_sec"    type="Seconds" />

@@ -505,52 +505,6 @@ sessions connected, current IPv4 config).
 Other configuration attributes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Minimum dwell time for downlink link-states
--------------------------------------------
-
-At downlinks, the NIC router applies a minimum dwell time to the link state.
-This means that it guarantees that the link state remains fixed for a certain
-period of time after each "up" or "down" edge in order for clients to be able
-recognize the change. If, during this time, further "up" and "down" edges
-occur, they are memorized and executed as soon as the minimum dwell time is
-met. Such postponed link state edges are merged in a way that they result in
-two contrary edges at a max. The following examples demonstrate this assuming
-that the minimum dwell time is 1 second:
-
-
-! time               0s  .  1s  .  2s  .  3s  .  4s  .  5s  .  6s  .  7s
-!                         ______        ______           _________________
-! client link state: ____|      |______|      |_________|
-!                         _        _________             _________________
-! real link state:   ____| |______|         |___________|
-
-
-! time               0s  .  1s  .  2s  .  3s  .  4s  .  5s  .  6s  .  7s
-!                         ______        _____________        ______
-! client link state: ____|      |______|             |______|      |______
-!                         _   _______________________   __
-! real link state:   ____| |_|                       |_|  |_______________
-
-
-! time               0s  .  1s  .  2s  .  3s  .  4s  .  5s  .  6s  .  7s
-!                         ______               _________        __________
-! client link state: ____|      |_____________|         |______|
-!                         _   _                _________   _   ___________
-! real link state:   ____| |_| |______________|         |_| |_|
-
-The minimum dwell time of downlink link-states can be configured with a
-granularity of microseconds as follows (default value shown):
-
-! <config link_state_min_dwell_ms="1000">
-
-Reconfiguring this value doesn't take effect immediately but the next time the
-link state changes and the minimum dwell time gets applied again. Setting the
-value to zero only results in the shortest programmable timeout, so,
-deactivating the minimum dwell time is not possible.
-
-Maximum number of packets handled per signal
---------------------------------------------
-
 If possible, the NIC router normally handles multiple packets from a NIC
 session per signal. However, if one NIC session has a high packet rate and a
 big buffer, this can lead to starvation of the other NIC sessions. Thus, the
@@ -561,6 +515,46 @@ can be configured as follows (default value shown):
 
 When set to zero, the limit is deactivated, meaning that the router always
 handles all available packets of a NIC session.
+
+
+Behavior regarding the NIC-session link state
+---------------------------------------------
+
+At downlinks, the NIC router applies a feedback-driven state machine for the
+link state in order to ensure that clients recognize state transitions. This
+means that the NIC router guarantees that a new link state remains fixed until
+the client has read it using the corresponding RPC at the NIC-session
+interface. If, in the meantime, further "up" and "down" edges occur, they are
+memorized and executed as soon as the former state has been read by the
+client. Such postponed link state edges are merged in a way that they result in
+two contrary edges at a max. The following diagrams demonstrate this:
+
+
+! client reads:      0         1      0       1    0          1
+!                         _____        _______           _________________
+! client link state: ____|     |______|       |_________|
+!                         _       __________             _________________
+! real link state:   ____| |_____|          |___________|
+!
+!                    time --->
+
+
+! client reads:      0          1      0     1                0     1
+!                         ______        _____________          _____
+! client link state: ____|      |______|             |________|     |_____
+!                         _   _______________________   _   _   _
+! real link state:   ____| |_|                       |_| |_| |_| |________
+!
+!                    time --->
+
+
+! client reads:      0            1      0          1           0     1
+!                         ________              _________        __________
+! client link state: ____|        |____________|         |______|
+!                         _   __                _________   _   ___________
+! real link state:   ____| |_|  |______________|         |_| |_|
+!
+!                    time --->
 
 
 Examples
