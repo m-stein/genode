@@ -1,33 +1,21 @@
-if {[have_spec foc] || [have_spec linux] || [have_spec rpi3] ||
-    [expr [have_spec imx53] && [have_spec trustzone]]} {
+if {![have_include power_on/qemu] || [have_spec foc] || [have_spec linux] ||
+    [have_spec rpi3] || [expr [have_spec imx53] && [have_spec trustzone]]} {
+
 	puts "Run script is not supported on this platform."
 	exit 0
 }
 
-set on_hardware [expr ![have_include power_on/qemu]]
-
 create_boot_directory
 
 import_from_depot [depot_user]/src/[base_src] \
-                  [depot_user]/pkg/[drivers_nic_pkg] \
-                  [depot_user]/src/init \
-                  [depot_user]/src/nic_bridge \
-                  [depot_user]/src/nic_router
+                  [depot_user]/pkg/[drivers_nic_pkg]
 
-build { app/ping }
-
-proc good_dst_ip { } {
-	if {![have_include power_on/qemu]} {
-		return "10.0.0.2"
-	} else {
-		return "10.0.2.2"
-	}
-}
-proc bad_dst_port { } { return "12345" }
-proc bad_dst_ip   { } { return "10.0.1.2" }
+build { app/ping server/nic_router init }
 
 append config {
+
 <config>
+
 	<parent-provides>
 		<service name="ROM"/>
 		<service name="IRQ"/>
@@ -38,10 +26,12 @@ append config {
 		<service name="CPU"/>
 		<service name="LOG"/>
 	</parent-provides>
+
 	<default-route>
 		<any-service> <parent/> <any-child/> </any-service>
 	</default-route>
-	<default caps="100"/>
+
+	<default caps="200"/>
 
 	<start name="timer">
 		<resource name="RAM" quantum="1M"/>
@@ -59,22 +49,20 @@ append config {
 		<provides> <service name="Nic"/> </provides>
 	</start>
 
-	<start name="nic_router" caps="200">
+	<start name="nic_router">
 		<resource name="RAM" quantum="10M"/>
 		<provides><service name="Nic"/></provides>
-		<config verbose="no"
-		        dhcp_discover_timeout_sec="1"
-		        icmp_idle_timeout_sec="6">
+		<config>
 
-			<policy label_prefix="ping_1" domain="ping_1"/>
-			<uplink                       domain="uplink"/>
+			<policy label_prefix="ping" domain="downlink"/>
+			<uplink                     domain="uplink"/>
 
 			<domain name="uplink" use_arp="no" verbose_packets="yes">
-				<nat domain="ping_1" icmp-ids="100"/>
+				<nat domain="downlink" icmp-ids="100"/>
 			</domain>
 
-			<domain name="ping_1" interface="10.0.3.1/24">
-				<icmp dst="} [good_dst_ip] {/24" domain="uplink"/>
+			<domain name="downlink" interface="10.0.3.1/24">
+				<icmp dst="10.0.2.2/24" domain="uplink"/>
 			</domain>
 
 		</config>
@@ -84,29 +72,31 @@ append config {
 		</route>
 	</start>
 
-	<start name="ping_11">
-		<binary name="ping"/>
+	<start name="ping">
 		<resource name="RAM" quantum="8M"/>
 		<config interface="10.0.3.2/24"
 		        gateway="10.0.3.1"
-		        dst_ip="} [good_dst_ip] {"
+		        dst_ip="10.0.2.2"
 		        period_sec="1"
-		        verbose="no"/>
+		        count="2"/>
 		<route>
 			<service name="Nic"> <child name="nic_router"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
-	</start>}
+	</start>
 
-append config {
 </config>}
 
 install_config $config
-build_boot_image { ping }
+
+build_boot_image { ping nic_router init }
 
 append qemu_args " -nographic "
 append_qemu_nic_args
 
-set done_string ""
-append done_string ".*child \"ping...\" exited with exit value 0.*\n"
-run_genode_until $done_string 30
+set done_string ".*child \"ping\" exited with exit value 0.*\n"
+
+run_genode_until $done_string 10
+
+grep_output { ARP }
+compare_output_to {}
