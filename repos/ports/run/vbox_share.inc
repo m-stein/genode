@@ -106,6 +106,7 @@ set build_components {
 	server/report_rom server/fs_rom server/vfs
 	server/tcp_terminal drivers/nic
 	lib/vfs/lwip lib/vfs/pipe lib/vfs/import
+	server/nic_router
 }
 
 #
@@ -125,10 +126,53 @@ set boot_modules {
 append boot_modules $vbox_file
 
 set config_of_app {
+
 	<start name="nic_drv" priority="-1">
 		<binary name="ipxe_nic_drv"/>
-		<resource name="RAM" quantum="4M"/>
-		<provides> <service name="Nic"/> </provides>
+		<resource name="RAM" quantum="8M"/>
+		<config mode="uplink_client"/>
+		<route>
+			<service name="Uplink"><child name="nic_router"/></service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="nic_router" caps="200">
+		<resource name="RAM" quantum="10M"/>
+		<provides>
+			<service name="Nic"/>
+			<service name="Uplink"/>
+		</provides>
+		<config verbose_domain_state="yes">
+
+			<policy label_prefix="nic_drv"      domain="uplink"/>
+			<policy label_prefix="tcp_terminal" domain="downlink"/>
+
+			<domain name="uplink" interface="10.0.2.55/24" gateway="10.0.2.1">
+
+				<nat domain="downlink"
+				     tcp-ports="16384"
+				     udp-ports="16384"
+				     icmp-ids="16384"/>
+
+				<tcp-forward port="8888" domain="downlink" to="10.0.3.2"/>
+
+			</domain>
+
+			<domain name="downlink" interface="10.0.3.1/24">
+
+				<dhcp-server ip_first="10.0.3.2" ip_last="10.0.3.2">
+					<dns-server ip="8.8.8.8"/>
+					<dns-server ip="1.1.1.1"/>
+				</dhcp-server>
+
+				<tcp dst="0.0.0.0/0"><permit-any domain="uplink" /></tcp>
+				<udp dst="0.0.0.0/0"><permit-any domain="uplink" /></udp>
+				<icmp dst="0.0.0.0/0" domain="uplink"/>
+
+			</domain>
+
+		</config>
 	</start>
 
 	<start name="tcp_terminal" priority="-1" caps="200">
@@ -143,6 +187,10 @@ set config_of_app {
 			</vfs>
 			<libc stdout="/dev/log" socket="/socket" pipe="/pipe"/>
 		</config>
+		<route>
+			<service name="Nic"><child name="nic_router"/></service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
 	</start>
 
 	<start name="ram_fs_from" priority="-1">

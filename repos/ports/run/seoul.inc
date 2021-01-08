@@ -73,6 +73,7 @@ lappend_if $use_usb             build_components drivers/usb
 lappend_if $use_vfs_block       build_components server/vfs_block
 lappend_if $use_drv_ahci        build_components drivers/ahci
 lappend_if $use_nic_session     build_components drivers/nic
+lappend_if $use_nic_session     build_components server/nic_router_
 lappend_if $use_nic_bridge      build_components server/nic_bridge
 lappend_if $use_framebuffer     build_components drivers/framebuffer
 lappend_if $use_fancy_stuff     build_components app/status_bar
@@ -329,10 +330,56 @@ append_if $use_genode_iso config {
 append_platform_drv_config
 
 append_if $use_nic_session config {
+
 	<start name="nic_drv" priority="-2">
 		<binary name="ipxe_nic_drv"/>
 		<resource name="RAM" quantum="8M"/>
-		<provides><service name="Nic"/></provides>
+		<config mode="uplink_client"/>
+		<route>
+			<service name="Uplink"><child name="nic_router"/></service>
+			<any-service><parent/></any-service>
+		</route>
+	</start>
+
+	<start name="nic_router" caps="200">
+		<resource name="RAM" quantum="10M"/>
+		<provides>
+			<service name="Nic"/>
+			<service name="Uplink"/>
+		</provides>
+		<config verbose_domain_state="yes">
+
+			<policy label_prefix="nic_drv"    domain="uplink"/> }
+
+append_if [expr $use_nic_session && $use_nic_bridge] config {
+
+			<policy label_prefix="nic_bridge" domain="downlink"/> }
+
+append_if $use_nic_session config {
+
+			<domain name="uplink" interface="10.0.2.55/24" gateway="10.0.2.1">
+
+				<nat domain="downlink"
+				     tcp-ports="16384"
+				     udp-ports="16384"
+				     icmp-ids="16384"/>
+
+			</domain>
+
+			<domain name="downlink" interface="10.0.3.1/24">
+
+				<dhcp-server ip_first="10.0.3.55" ip_last="10.0.3.55">
+					<dns-server ip="8.8.8.8"/>
+					<dns-server ip="1.1.1.1"/>
+				</dhcp-server>
+
+				<tcp dst="0.0.0.0/0"><permit-any domain="uplink" /></tcp>
+				<udp dst="0.0.0.0/0"><permit-any domain="uplink" /></udp>
+				<icmp dst="0.0.0.0/0" domain="uplink"/>
+
+			</domain>
+
+		</config>
 	</start>
 }
 
@@ -342,7 +389,7 @@ append_if [expr $use_nic_session && $use_nic_bridge] config {
 		<provides><service name="Nic"/></provides>
 		<config> <default-policy/> </config>
 		<route>
-			<service name="Nic"><child name="nic_drv"/></service>
+			<service name="Nic"><child name="nic_router"/></service>
 			<any-service><parent/></any-service>
 		</route>
 	</start>
@@ -379,7 +426,7 @@ append config {
 append_if [expr $use_nic_session && $use_nic_bridge] config {
 			<service name="Nic"> <child name="nic_bridge"/> </service>}
 append_if [expr $use_nic_session && !$use_nic_bridge] config {
-			<service name="Nic"> <child name="nic_drv"/> </service>}
+			<service name="Nic"> <child name="nic_router"/> </service>}
 append_if $use_genode_iso config {
 			<service name="ROM" unscoped_label="seoul"> <parent/> </service>
 			<service name="ROM" unscoped_label="ld.lib.so"> <parent/> </service>

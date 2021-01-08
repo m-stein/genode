@@ -54,16 +54,45 @@ append config {
 		<route>
 			<service name="ROM" label="config"> <parent label="drivers.config"/> </service>
 			<service name="Timer"> <child name="timer"/> </service>
+			<service name="Uplink"> <child name="nic_router_1"/> </service>
 			<any-service> <parent/> </any-service>
 		</route>
 		<provides> <service name="Nic"/> </provides>
 	</start>
 
+	<start name="nic_router_1" caps="200">
+		<binary name="nic_router"/>
+		<resource name="RAM" quantum="10M"/>
+		<provides>
+			<service name="Nic"/>
+			<service name="Uplink"/>
+		</provides>
+		<config verbose_domain_state="yes">
+
+			<policy label_prefix="nic_dump" domain="downlink"/>
+			<policy label_prefix="drivers"  domain="uplink"/>
+
+			<domain name="uplink">
+
+				<nat domain="downlink" icmp-ids="16384"/>
+
+			</domain>
+
+			<domain name="downlink" interface="10.0.3.1/24">
+
+				<dhcp-server ip_first="10.0.3.2" ip_last="10.0.3.2"/>
+				<icmp dst="0.0.0.0/0" domain="uplink"/>
+
+			</domain>
+
+		</config>
+	</start>
+
 	<start name="nic_dump" priority="-1" caps="120">
 		<resource name="RAM" quantum="6M"/>
 		<provides><service name="Nic"/></provides>
-		<config uplink="bridge"
-		        downlink="router"
+		<config uplink="server"
+		        downlink="client"
 		        time="yes"
 		        default="name"
 		        eth="name"
@@ -74,12 +103,13 @@ append config {
 		        icmp="all"
 		        tcp="default" />
 		<route>
-			<service name="Nic"> <child name="drivers"/> </service>
+			<service name="Nic"> <child name="nic_router_1"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>
 
-	<start name="nic_router" caps="200">
+	<start name="nic_router_2" caps="200">
+		<binary name="nic_router"/>
 		<resource name="RAM" quantum="10M"/>
 		<provides>
 			<service name="Nic"/>
@@ -148,7 +178,7 @@ append config {
 
 		</config>
 		<route>
-			<service name="Nic"> <child name="nic_router"/> </service>
+			<service name="Nic"> <child name="nic_router_2"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>
@@ -162,7 +192,7 @@ append config {
 		        period_sec="1"
 		        verbose="no"/>
 		<route>
-			<service name="Nic"> <child name="nic_router"/> </service>
+			<service name="Nic"> <child name="nic_router_2"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>
@@ -176,7 +206,7 @@ append config {
 		        period_sec="1"
 		        verbose="no"/>
 		<route>
-			<service name="Nic"> <child name="nic_router"/> </service>
+			<service name="Nic"> <child name="nic_router_2"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>

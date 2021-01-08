@@ -66,7 +66,7 @@ create_boot_directory
 import_from_depot [depot_user]/src/[base_src] \
                   [depot_user]/pkg/[drivers_nic_pkg] \
                   [depot_user]/src/init \
-                  [depot_user]/src/nic_bridge
+                  [depot_user]/src/nic_router
 
 build { app/ping }
 
@@ -113,23 +113,33 @@ append config {
 		<binary name="init"/>
 		<route>
 			<service name="ROM" label="config"> <parent label="drivers.config"/> </service>
-			<service name="Timer"> <child name="timer"/> </service>
-			<any-service> <parent/> </any-service>
-		</route>
-		<provides> <service name="Nic"/> </provides>
-	</start>
-
-	<start name="nic_bridge" caps="200">
-		<resource name="RAM" quantum="10M"/>
-		<provides><service name="Nic"/></provides>
-		<config mac="02:02:02:02:03:00">
-			<policy label_prefix="ping_1"/>
-			<policy label_prefix="ping_2"/>
-		</config>
-		<route>
-		<service name="Nic"> <child name="drivers"/> </service>
+			<service name="Uplink"> <child name="nic_router"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
+	</start>
+
+	<start name="nic_router" caps="200">
+		<resource name="RAM" quantum="10M"/>
+		<provides>
+			<service name="Nic"/>
+			<service name="Uplink"/>
+		</provides>
+		<config verbose_domain_state="yes">
+
+			<policy label_prefix="drivers" domain="uplink"/>
+			<policy label_prefix="ping"    domain="ping"/>
+
+			<domain name="uplink">
+				<nat domain="ping" icmp-ids="100"/>
+			</domain>
+
+			<domain name="ping" interface="10.0.3.1/24">
+				<dhcp-server ip_first="10.0.3.80"
+				             ip_last="10.0.3.100"/>
+				<icmp dst="0.0.0.0/0" domain="uplink"/>
+			</domain>
+
+		</config>
 	</start>}
 
 append_if $second_ping_via_udp config {
@@ -143,7 +153,7 @@ append_if $second_ping_via_udp config {
 		        dst_ip="} [dst_ip] {"
 		        dst_port="12345"/>
 		<route>
-			<service name="Nic"> <child name="nic_bridge"/> </service>
+			<service name="Nic"> <child name="nic_router"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>}
@@ -157,7 +167,7 @@ append config {
 		        verbose="no"
 		        count="3"/>
 		<route>
-			<service name="Nic"> <child name="nic_bridge"/> </service>
+			<service name="Nic"> <child name="nic_router"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>
