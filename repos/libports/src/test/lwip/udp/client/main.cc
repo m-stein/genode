@@ -15,7 +15,6 @@
 #include <timer_session/connection.h>
 #include <base/attached_rom_dataspace.h>
 #include <libc/component.h>
-#include <nic/packet_allocator.h>
 #include <util/string.h>
 
 /* libc includes */

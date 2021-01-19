@@ -13,7 +13,6 @@
 
 /* Genode includes */
 #include <libc/component.h>
-#include <nic/packet_allocator.h>
 #include <util/string.h>
 
 /* libc includes */
