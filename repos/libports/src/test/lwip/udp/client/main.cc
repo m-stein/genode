@@ -11,6 +11,9 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
+/* local includes */
+#include <test/lwip/socket.h>
+
 /* Genode includes */
 #include <timer_session/connection.h>
 #include <base/attached_rom_dataspace.h>
@@ -19,13 +22,12 @@
 
 /* libc includes */
 #include <sys/types.h>
-#include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include <unistd.h>
 
 using namespace Genode;
 using Ipv4_addr_str = Genode::String<16>;
+
 
 static void test(Libc::Env &env)
 {
@@ -37,8 +39,8 @@ static void test(Libc::Env &env)
 		usleep(1000);
 
 		/* create socket */
-		int s = socket(AF_INET, SOCK_DGRAM, 0 );
-		if (s < 0) {
+		Socket socket { SOCK_DGRAM };
+		if (!socket.descriptor_valid()) {
 			continue;
 		}
 		/* read server IP address and port */
@@ -73,13 +75,13 @@ static void test(Libc::Env &env)
 		/* send test message */
 		enum { BUF_SZ = 1024 };
 		String<BUF_SZ> const message("UDP server at ", server_addr, ":", port);
-		if (sendto(s, message.string(), BUF_SZ, 0, (struct sockaddr*)&addr, addr_sz) != BUF_SZ) {
+		if (sendto(socket.descriptor(), message.string(), BUF_SZ, 0, (struct sockaddr*)&addr, addr_sz) != BUF_SZ) {
 			continue;
 		}
 
 		/* receive and print what has been received */
 		char buf[BUF_SZ] { };
-		if (recvfrom(s, buf, BUF_SZ, 0, (struct sockaddr*)&addr, &addr_sz) != BUF_SZ) {
+		if (recvfrom(socket.descriptor(), buf, BUF_SZ, 0, (struct sockaddr*)&addr, &addr_sz) != BUF_SZ) {
 			continue;
 		}
 		log("Received \"", String<64>(buf), " ...\"");

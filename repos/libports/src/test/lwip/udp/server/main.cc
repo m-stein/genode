@@ -11,13 +11,15 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
+/* local includes */
+#include <test/lwip/socket.h>
+
 /* Genode includes */
 #include <libc/component.h>
 #include <util/string.h>
 
 /* libc includes */
 #include <sys/types.h>
-#include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
@@ -31,12 +33,11 @@ struct Bind_failed       : Genode::Exception { };
 
 struct Read_port_attr_failed : Genode::Exception { };
 
-
 static void test(Libc::Env & env)
 {
 	/* create socket */
-	int s = socket(AF_INET, SOCK_DGRAM, 0 );
-	if (s < 0) {
+	Socket socket { SOCK_DGRAM };
+	if (!socket.descriptor_valid()) {
 		throw Socket_failed();
 	}
 	/* read server port */
@@ -54,7 +55,7 @@ static void test(Libc::Env & env)
 	in_addr.sin_addr.s_addr = INADDR_ANY;
 
 	/* bind server socket address to socket */
-	if (bind(s, (struct sockaddr*)&in_addr, sizeof(in_addr))) {
+	if (bind(socket.descriptor(), (struct sockaddr*)&in_addr, sizeof(in_addr))) {
 		throw Bind_failed();
 	}
 	/* prepare client socket address */
@@ -67,11 +68,11 @@ static void test(Libc::Env & env)
 		/* receive and send back one message without any modifications */
 		char buf[4096];
 		::memset(buf, 0, sizeof(buf));
-		ssize_t rcv_sz = recvfrom(s, buf, sizeof(buf), 0, (struct sockaddr*)&addr, &addr_sz);
+		ssize_t rcv_sz = recvfrom(socket.descriptor(), buf, sizeof(buf), 0, (struct sockaddr*)&addr, &addr_sz);
 		if (rcv_sz < 0) {
 			throw Receive_failed();
 		}
-		if (sendto(s, buf, rcv_sz, 0, (struct sockaddr*)&addr, addr_sz) != rcv_sz) {
+		if (sendto(socket.descriptor(), buf, rcv_sz, 0, (struct sockaddr*)&addr, addr_sz) != rcv_sz) {
 			throw Send_failed();
 		}
 	}

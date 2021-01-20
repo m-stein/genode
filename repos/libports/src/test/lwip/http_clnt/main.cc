@@ -13,9 +13,11 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
+/* local includes */
+#include <test/lwip/socket.h>
+
 /* Genode includes */
 #include <base/attached_rom_dataspace.h>
-#include <base/log.h>
 #include <libc/component.h>
 #include <timer_session/connection.h>
 #include <util/string.h>
@@ -25,26 +27,11 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include <unistd.h>
 #include <fcntl.h>
-#include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
 using namespace Genode;
-
-void close_socket(Libc::Env &env, int sd)
-{
-	if (::shutdown(sd, SHUT_RDWR)) {
-		error("failed to shutdown");
-		env.parent().exit(-1);
-	}
-	if (::close(sd)) {
-		error("failed to close");
-		env.parent().exit(-1);
-	}
-}
 
 
 static void test(Libc::Env &env)
@@ -73,23 +60,21 @@ static void test(Libc::Env &env)
 		usleep(1000000);
 
 		/* create socket */
-		int sd = ::socket(AF_INET, SOCK_STREAM, 0);
-		if (sd < 0) {
+		Socket socket { SOCK_STREAM };
+		if (!socket.descriptor_valid()) {
 			error("failed to create socket");
 			continue;
 		}
 		/* connect to server */
-		if (::connect(sd, (struct sockaddr *)&srv_addr, sizeof(srv_addr))) {
+		if (::connect(socket.descriptor(), (struct sockaddr *)&srv_addr, sizeof(srv_addr))) {
 			error("Failed to connect to server");
-			close_socket(env, sd);
 			continue;
 		}
 		/* send request */
 		char   const *req    = "GET / HTTP/1.0\r\nHost: localhost:80\r\n\r\n";
 		size_t const  req_sz = Genode::strlen(req);
-		if (::send(sd, req, req_sz, 0) != (int)req_sz) {
+		if (::send(socket.descriptor(), req, req_sz, 0) != (int)req_sz) {
 			error("failed to send request");
-			close_socket(env, sd);
 			continue;
 		}
 		/* receive reply */
@@ -102,7 +87,7 @@ static void test(Libc::Env &env)
 		for (; reply_sz <= REPLY_BUF_SZ; ) {
 			char         *rcv_buf    = &reply_buf[reply_sz];
 			size_t const  rcv_buf_sz = REPLY_BUF_SZ - reply_sz;
-			signed long   rcv_sz     = ::recv(sd, rcv_buf, rcv_buf_sz, 0);
+			signed long   rcv_sz     = ::recv(socket.descriptor(), rcv_buf, rcv_buf_sz, 0);
 			if (rcv_sz < 0) {
 				reply_failed = true;
 				break;
@@ -116,7 +101,6 @@ static void test(Libc::Env &env)
 		/* ignore failed replies */
 		if (reply_failed) {
 			error("failed to receive reply");
-			close_socket(env, sd);
 			continue;
 		}
 		/* handle reply */
@@ -126,8 +110,6 @@ static void test(Libc::Env &env)
 			log("Test done");
 			env.parent().exit(0);
 		}
-		/* close socket and retry */
-		close_socket(env, sd);
 	}
 	log("Test failed");
 	env.parent().exit(-1);

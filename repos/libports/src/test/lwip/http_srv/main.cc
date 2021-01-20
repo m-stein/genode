@@ -18,9 +18,11 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
+/* local includes */
+#include <test/lwip/socket.h>
+
 /* Genode includes */
 #include <base/attached_rom_dataspace.h>
-#include <base/log.h>
 #include <libc/component.h>
 #include <util/string.h>
 
@@ -29,10 +31,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include <unistd.h>
 #include <fcntl.h>
-#include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
@@ -90,8 +89,8 @@ static void test(Libc::Env &env)
 	uint16_t const port = config.xml().attribute_value("port", (uint16_t)80);
 
 	puts("Create new socket ...");
-	int s;
-	if((s = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+	Socket socket { SOCK_STREAM };
+	if(!socket.descriptor_valid()) {
 		error("no socket available!");
 		env.parent().exit(-1);
 	}
@@ -101,13 +100,13 @@ static void test(Libc::Env &env)
 	in_addr.sin_family = AF_INET;
 	in_addr.sin_port = htons(port);
 	in_addr.sin_addr.s_addr = INADDR_ANY;
-	if (bind(s, (struct sockaddr*)&in_addr, sizeof(in_addr))) {
+	if (bind(socket.descriptor(), (struct sockaddr*)&in_addr, sizeof(in_addr))) {
 		fprintf(stderr, "bind failed!\n");
 		env.parent().exit(-1);
 	}
 
 	puts("Now, I will listen ...");
-	if (listen(s, 5)) {
+	if (listen(socket.descriptor(), 5)) {
 		fprintf(stderr, "listen failed!\n");
 		env.parent().exit(-1);
 	}
@@ -116,7 +115,7 @@ static void test(Libc::Env &env)
 	while (true) {
 		struct sockaddr addr;
 		socklen_t len = sizeof(addr);
-		int client = accept(s, &addr, &len);
+		int client = accept(socket.descriptor(), &addr, &len);
 		if(client < 0) {
 			fprintf(stderr, "invalid socket from accept!\n");
 			continue;
