@@ -74,8 +74,18 @@ static void test(Libc::Env & env)
 		}
 		if (sendto(socket.descriptor(), buf, rcv_sz, 0, (struct sockaddr*)&addr, addr_sz) != rcv_sz) {
 			throw Send_failed();
+		} else {
+			return;
 		}
 	}
 }
 
-void Libc::Component::construct(Libc::Env &env) { with_libc([&] () { test(env); }); }
+void Libc::Component::construct(Libc::Env &env)
+{
+	unsigned nr_of_server_loops { 0 };
+	while (1) {
+		nr_of_server_loops++;
+		error("starting server loop #", nr_of_server_loops);
+		with_libc([&] () { test(env); });
+	}
+}

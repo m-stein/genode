@@ -10,13 +10,13 @@ proc test_timeout { } {
 	}
 }
 
-proc enable_test_1 { } { return 1 }
+proc enable_test_1 { } { return 0 }
 proc enable_test_2 { } { return 1 }
-proc enable_test_3 { } { return 1 }
-proc enable_test_4 { } { return 1 }
-proc enable_test_5 { } { return 1 }
-proc enable_test_6 { } { return 1 }
-proc enable_test_7 { } { return 1 }
+proc enable_test_3 { } { return 0 }
+proc enable_test_4 { } { return 0 }
+proc enable_test_5 { } { return 0 }
+proc enable_test_6 { } { return 0 }
+proc enable_test_7 { } { return 0 }
 
 source ${genode_dir}/repos/libports/run/nic_router.inc
 
@@ -294,7 +294,7 @@ append config {
 			<service name="Uplink"/>
 		</provides>
 		<config verbose="no"
-		        verbose_packets="no"
+		        verbose_packets="yes"
 		        verbose_domain_state="yes"
 		        dhcp_discover_timeout_sec="3"
 		        dhcp_request_timeout_sec="3"
@@ -303,20 +303,12 @@ append config {
 		        tcp_idle_timeout_sec="30"
 		        tcp_max_segm_lifetime_sec="15">
 
-			<report bytes="yes"
-			        config="yes"
-			        quota="no"
-			        stats="no"
-			        link_state="yes"
-			        link_state_triggers="yes"
-			        interval_sec="60" />
-
 			<uplink domain="uplink"/>
 
 			<domain name="uplink"
 			        interface="10.0.2.55/24"
 			        gateway="10.0.2.1"
-			        verbose_packets="no">
+			        verbose_packets="yes">
 
 				} [test_1_router_uplink_config] {
 				} [test_2_router_uplink_config] {
@@ -387,4 +379,4 @@ for {set i 0} {$i < $nr_of_clients} {incr i 1} {
 	append done_string {.*Test done.*\n}
 }
 
-run_genode_until $done_string [test_timeout]
+run_genode_until forever

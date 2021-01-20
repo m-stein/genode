@@ -34,9 +34,9 @@ static void test(Libc::Env &env)
 	Timer::Connection timer(env);
 
 	/* try to send and receive a message multiple times */
-	for (unsigned trial_cnt = 0, success_cnt = 0; trial_cnt < 15; trial_cnt++)
+	while (1)
 	{
-		usleep(1000);
+		usleep(1);
 
 		/* create socket */
 		Socket socket { SOCK_DGRAM };
@@ -85,14 +85,7 @@ static void test(Libc::Env &env)
 			continue;
 		}
 		log("Received \"", String<64>(buf), " ...\"");
-		if (++success_cnt >= 5) {
-			log("Test done");
-			env.parent().exit(0);
-			return;
-		}
 	}
-	log("Test failed");
-	env.parent().exit(-1);
 }
 
 void Libc::Component::construct(Libc::Env &env) { with_libc([&] () { test(env); }); }
