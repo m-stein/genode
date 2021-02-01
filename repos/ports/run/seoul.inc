@@ -73,7 +73,7 @@ lappend_if $use_usb             build_components drivers/usb
 lappend_if $use_vfs_block       build_components server/vfs_block
 lappend_if $use_drv_ahci        build_components drivers/ahci
 lappend_if $use_nic_session     build_components drivers/nic
-lappend_if $use_nic_session     build_components server/nic_router_
+lappend_if $use_nic_session     build_components server/nic_router
 lappend_if $use_nic_bridge      build_components server/nic_bridge
 lappend_if $use_framebuffer     build_components drivers/framebuffer
 lappend_if $use_fancy_stuff     build_components app/status_bar
@@ -337,7 +337,7 @@ append_if $use_nic_session config {
 		<config mode="uplink_client"/>
 		<route>
 			<service name="Uplink"><child name="nic_router"/></service>
-			<any-service><parent/></any-service>
+			<any-service><parent/><any-child/></any-service>
 		</route>
 	</start>
 
@@ -591,6 +591,7 @@ lappend_if $use_vfs_block     boot_modules vfs_block
 lappend_if $use_vfs_block     boot_modules vfs.lib.so
 lappend_if $use_drv_ahci      boot_modules ahci_drv
 lappend_if $use_nic_session   boot_modules ipxe_nic_drv
+lappend_if $use_nic_session   boot_modules nic_router
 lappend_if $use_nic_bridge    boot_modules nic_bridge
 lappend_if $use_framebuffer   boot_modules vesa_fb_drv
 
