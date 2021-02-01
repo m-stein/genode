@@ -148,7 +148,7 @@ append_if $second_ping_via_udp config {
 		<resource name="RAM" quantum="8M"/>
 		<config period_sec="1"
 		        verbose="no"
-		        count="1"
+		        count="10000"
 		        protocol="udp"
 		        dst_ip="} [dst_ip] {"
 		        dst_port="12345"/>
@@ -165,7 +165,7 @@ append config {
 		<config dst_ip="} [dst_ip] {"
 		        period_sec="1"
 		        verbose="no"
-		        count="3"/>
+		        count="10000"/>
 		<route>
 			<service name="Nic"> <child name="nic_router"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
@@ -182,4 +182,4 @@ append_qemu_nic_args
 set done_string ".*\"ping_1\" exited with exit value 0.*\n"
 append_if $second_ping_via_udp done_string ".*ping_2\] From [dst_ip] Destination Unreachable.*\n"
 
-run_genode_until $done_string 30
+run_genode_until forever
