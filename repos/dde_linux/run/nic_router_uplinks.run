@@ -77,16 +77,16 @@ append config {
 	<start name="nic_drv" priority="-1" caps="120">
 		<binary name="ipxe_nic_drv"/>
 		<resource name="RAM" quantum="8M"/>
-		<config mode="uplink_client">
+		<config mode="uplink_client"/>
 		<route>
-			<service name="Uplink"> <child name="nic_router"/> </service>
+			<service name="Uplink"> <child name="router"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>
 
 	<start name="wifi_drv" caps="300" priority="-1">
 		<resource name="RAM" quantum="24M"/>
-		<config mode="uplik_client" ld_verbose="no">
+		<config mode="uplink_client" ld_verbose="no">
 			<vfs>
 				<dir name="dev"> <log/> <rtc/> <null/>
 					<jitterentropy name="random"/>
@@ -97,7 +97,7 @@ append config {
 			<libc stdout="/dev/null" stderr="/dev/null" rtc="/dev/rtc"/>
 		</config>
 		<route>
-			<service name="Uplink"> <child name="nic_router"/> </service>
+			<service name="Uplink"> <child name="router"/> </service>
 			<service name="Rtc"> <any-child/> </service>
 			<service name="Report"> <child name="report_rom"/> </service>
 			<service name="ROM" label="wifi_config"> <child name="config_rom"/> </service>
