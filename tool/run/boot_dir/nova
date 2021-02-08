@@ -9,7 +9,13 @@ proc run_boot_string { } {
 	return "\nHypervisor NOVA "
 }
 
-proc apply_microcode { } { return false }
+proc apply_microcode { } {
+	return [get_cmd_arg_first --boot-dir-nova-apply-microcode 0]
+}
+
+proc init_intel_hwp { } {
+	return [get_cmd_arg_first --boot-dir-nova-init-intel-hwp 0]
+}
 
 proc core_link_address { } { return "0x100000" }
 
@@ -64,8 +70,14 @@ proc run_boot_dir {binaries} {
 	#
 	set options_bender ""
 
+	if {[init_intel_hwp]} {
+		puts "Instruct Bender to initialize Intel HWP"
+		append options_bender " intel_hwp"
+	}
+
 	if {[apply_microcode]} {
 		exec cp bin/micro.code [run_dir]/boot/
+		puts "Instruct Bender to apply microcode"
 		append options_bender " microcode"
 	}
 
