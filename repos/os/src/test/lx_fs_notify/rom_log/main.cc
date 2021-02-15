@@ -31,12 +31,12 @@ class Test_lx_fs_notify::Main
 
 		Env&                   _env;
 		Signal_handler<Main>   _update_handler { _env.ep(), *this, &Main::_update };
-		Attached_rom_dataspace _test_rom       { _env, "test.txt" };
+		Attached_rom_dataspace _test_rom       { _env, "outfile.txt" };
 
 		void _update()
 		{
 			_test_rom.update();
-			log("updated ROM content: ", _test_rom.local_addr<const char>());
+			log("updated ROM content: size=", strlen(_test_rom.local_addr<const char>()));
 		}
 
 	public:

@@ -1,4 +1,4 @@
-TARGET  := test-lx_fs_notify
+TARGET  := test-rom_log
 
 SRC_CC  := main.cc
 
