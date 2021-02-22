@@ -1,0 +1,847 @@
+
+
+              ===============================================
+              Release notes for the Genode OS Framework 21.02
+              ===============================================
+
+                               Genode Labs
+
+
+
+; intro
+
+;@nfeske
+
+
+Pluggable network device drivers
+################################
+
+;@m-stein
+
+commit cf72d1aac375be0a6e812efedfce5f1933b82deb
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Mon Dec 7 16:44:21 2020 +0100
+
+    os: introduce new "Uplink" session
+    
+    Adds new Uplink session interface, the corresponding client side (Client,
+    Connection), and the corresponding API archives. An Uplink session is almost
+    the same as a NIC session with the difference that the roles of the end points
+    are swapped. An Uplink client is the one that provides a network interface
+    (for instance, a NIC driver) whereas an Uplink server is the one that uses
+    that network interface (for instance, a networking stack).
+    
+    Therefore, in contrast to the NIC session, MAC address and link state come from
+    the Uplink client. The link state is reflected through the lifetime of an
+    Uplink session: The client requests the session only when the link state is
+    "UP" and closes it whenever the link state becomes "DOWN" again. The MAC
+    address is transmitted from the Uplink client to the Uplink server as an
+    argument of the session request.
+    
+    Ref #3961
+
+commit 1d2649b49a202bdca82c83def81a9e7b64caaa4d
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Mon Dec 7 16:46:15 2020 +0100
+
+    nic_router: act as "Uplink" server
+    
+    Let the NIC router provide an Uplink service besides the Nic service that it
+    already provided. Requests for an Uplink session towards the NIC router are
+    assigned to Domains using the same <policy> configuration tags that are used in
+    order to assign Nic session requests. The MAC addresses of Uplink session
+    components are _NOT_ considered during the allocation of MAC addresses for NIC
+    session components at the same Domain. The task of avoiding MAC address clashes
+    between Uplink session components and Nic session components is therefore left
+    to the integrator. Apart from that, Uplink session components are treated by
+    the NIC router like any other interface.
+    
+    Ref #3961
+
+commit f6d195a9de34a7ed41d2e33e6035f7fc615d30a4
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Wed Jan 6 16:31:10 2021 +0100
+
+    nic drivers: provide optional Uplink-client mode
+    
+    In order to perform a smooth transition from NIC drivers that act only as NIC
+    session clients to NIC drivers that act only as Uplink session clients, this
+    commit introduces an intermediate state in which all NIC drivers support both
+    modes. That said, a NIC drivers mode is now statically determined through a new
+    optional 'mode' attribute in the drivers <config> tag that can be set to either
+    'nic_server' (default value) or 'uplink_client'. Reconfiguring this attribute
+    at a driver doesn't have any effects. Whithout this attribute being set, all
+    NIC drivers will behave the same as they did before the commit. When set to
+    'uplink_client', however, instead of providing a Nic service, they request
+    an Uplink session whenever their network interface becomes "UP" and close the
+    session whenever their network interface becomes "DOWN".
+    
+    Ref #3961
+
+commit 1d2649b49a202bdca82c83def81a9e7b64caaa4d
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Mon Dec 7 16:46:15 2020 +0100
+
+    nic_router: act as "Uplink" server
+    
+    Let the NIC router provide an Uplink service besides the Nic service that it
+    already provided. Requests for an Uplink session towards the NIC router are
+    assigned to Domains using the same <policy> configuration tags that are used in
+    order to assign Nic session requests. The MAC addresses of Uplink session
+    components are _NOT_ considered during the allocation of MAC addresses for NIC
+    session components at the same Domain. The task of avoiding MAC address clashes
+    between Uplink session components and Nic session components is therefore left
+    to the integrator. Apart from that, Uplink session components are treated by
+    the NIC router like any other interface.
+    
+    Ref #3961
+
+commit f6d195a9de34a7ed41d2e33e6035f7fc615d30a4
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Wed Jan 6 16:31:10 2021 +0100
+
+    nic drivers: provide optional Uplink-client mode
+    
+    In order to perform a smooth transition from NIC drivers that act only as NIC
+    session clients to NIC drivers that act only as Uplink session clients, this
+    commit introduces an intermediate state in which all NIC drivers support both
+    modes. That said, a NIC drivers mode is now statically determined through a new
+    optional 'mode' attribute in the drivers <config> tag that can be set to either
+    'nic_server' (default value) or 'uplink_client'. Reconfiguring this attribute
+    at a driver doesn't have any effects. Whithout this attribute being set, all
+    NIC drivers will behave the same as they did before the commit. When set to
+    'uplink_client', however, instead of providing a Nic service, they request
+    an Uplink session whenever their network interface becomes "UP" and close the
+    session whenever their network interface becomes "DOWN".
+    
+    Ref #3961
+
+commit 3250c323cc68bf825772d043047233962922ca5a
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Fri Jan 8 17:27:24 2021 +0100
+
+    Don't use the NIC server mode of NIC drivers
+    
+    Issue #3961
+
+commit 3250c323cc68bf825772d043047233962922ca5a
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Fri Jan 8 17:27:24 2021 +0100
+
+    Don't use the NIC server mode of NIC drivers
+    
+    Issue #3961
+
+
+LTE modem stack
+###############
+
+;@ssumpf
+
+commit 0beda6bca4040bfef47bf802e3fd2b453ce8d009
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Thu Jul 9 15:10:21 2020 +0200
+
+    dde_linux: USB MBIM modem driver support
+    
+    Thise driver supports USB LTE modems for Huawais' ME906s through MBIM
+    and provides a traditional Nic session. The "control" interface is a
+    Terminal session, which can be used via libmbim/mbimcli.
+    
+    issue #3822
+
+
+commit 91f24672e072a25fedb36864d25b88cc2b1a6f5c
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Thu Jul 9 21:36:38 2020 +0200
+
+    glib: adaptions for libmbim
+    
+    1. glib: don't assume GNU libiconv
+    
+       This removes the glib config switch that made the build assume a GNU libiconv
+       which led to the following compile error:
+    
+       ! .../lib/glib/glib/gconvert.c:55:2: error: #error GNU libiconv in use but
+       !   included iconv.h not from libiconv
+    
+    2. glib: fix "no such instruction" in symbol file
+    
+       This changes several 'R' entries to 'T' entries in the glib symbols file that
+       caused assemble errors as follows:
+    
+       ! glib.symbols.s:1621: Error: no such instruction: `glib_binary_age R'
+       ! glib.symbols.s:1625: Error: no such instruction: `glib_interface_age R'
+       ! glib.symbols.s:1626: Error: no such instruction: `glib_major_version R'
+       ! glib.symbols.s:1628: Error: no such instruction: `glib_micro_version R'
+       ! glib.symbols.s:1629: Error: no such instruction: `glib_minor_version R'
+    
+    3, glib: adapt run script
+    
+       - Remove obsolete pthread.lib.so boot module as it is now part of
+        libc.lib.so.
+    
+       - Provide '/tmp' directory as a g_file_open_tmp test wants to create
+         a file in there.
+    
+       - Use [depot_user] for selecting depot archives instead of hardcoding
+         it to 'genodelabs'.
+    
+    4. glib: enable gobject and gio subsystem
+    
+       - Provide proper definitions for 32 and 64-bit machines
+       - Add gobject and gio subsystems
+       - Depends on libffi, which is currently only availabe for arm_v7a and
+        x86_64.
+    
+       The 'glib' symbols file contains pretty much all symbols, even if the
+       belong to supported or rather not supported backends, e.g. dbus.
+    
+    by mstein and cnuke
+    
+    Ref #168 and #223
+
+commit d120a1c2b145354fb0175fb5087b3e7dd10557d2
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Fri Jul 10 01:12:26 2020 +0200
+
+    Port of libmbim-1.24.2
+    
+    libmbim is a glib-based library for talking to WWAN modems and devices
+    which speak the Mobile Broadband Interface Model (MBIM) protocol.
+    
+    On Genode we use a pre-configured VFS to access the device, please look
+    at the 'run/mbimcli.run' run script.
+    
+    Fixes #217.
+
+
+commit d8e522b4beff734fc434e4490c6f126fcc67f2fd
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Thu Oct 22 14:54:30 2020 +0200
+
+    mbimcli: Basic modem connect support
+    
+    This program opens a terminal session to Genode's 'usb_modem' driver and
+    issues a GSM connection sequence for a supported MBIM modem. Upon
+    success it generated a NIC router configuration report. See
+    "src/app/mbimcli/README".
+    
+    issue #217
+
+
+commit a5957002d968a48297981abe5221dbb352c71fd6
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Fri Dec 4 09:45:02 2020 +0100
+
+    mbim: run script using Genode's fetchurl tool
+    
+    This script configures the LTE modem and uses Genode's 'fetchurl' to
+    download 'https://genode.org/about/LICENSE'
+    
+    fixes #217
+
+commit 775ae936b701b26d0ee99be1b1b57c6c1ac9770b
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Thu Dec 3 10:20:22 2020 +0100
+
+    mbimcli: Fix 'heap could not free memory block' warnings
+    
+    Don't use 'g_autofree' pointers for Genode strings.
+    
+    issue #217
+
+
+commit b75ccf8102d2c24bfadd3fd57df059aa4ed57f7b
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Thu Jan 28 13:01:42 2021 +0100
+
+    mbim: Use Uplink session in mbimcli
+    
+    also change run scripts accordingly.
+    
+    fixes #247
+
+
+Base framework and OS-level infrastructure
+##########################################
+
+NIC router
+==========
+
+;@m-stein
+
+commit bad8caee3f7ed25218d4e4205ee278dae1d01e0f
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Mon Nov 16 15:43:40 2020 +0100
+
+    nic_router: support multiple DHCP option 6 entries
+    
+    * The NIC router now considers, memorizes, and, if configured, reports
+      multiple DHCP option 6 entries from DHCP replies that it received as DHCP
+      client
+    * A DHCP server at the NIC router can now be configured statically with
+      multiple DNS server addresses to propagate
+    * The 'dns_server_from' attribute of the DHCP server of the NIC router now
+      supports the forwarding of multiple DNS server addresses
+    * The automated run/nic_router_dhcp test tests all the above mentioned new
+      functionality and reconfiguring it at runtime. The test was added to the
+      autopilot.
+    * All run scripts were adapted to fit the new NIC router configuration
+      interface
+    
+    Fixes #3952
+
+commit a124f5b88d84a4ea1422a90ad02ef9400330c534
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Wed Nov 4 16:34:22 2020 +0100
+
+    nic_router: support and show-case disabling arp at a domain
+    
+    * Introduce 'use_arp' configuration flag at the NIC router in order to disable
+      requesting IP-to-MAC address resolutions via ARP for domains.
+    * Add automated run/nic_router_disable_arp test to the autopilot that tests
+      the effect of the new flag
+    * Document the new flag and the new test in the NIC router README
+    
+    Fixes #3935
+
+
+VFS support for named pipes
+===========================
+
+;@nfeske
+
+commit 7f7382e48a1a7df7c069cadf42569fbb70f42d60
+Author: Sid Hussmann <sid.hussmann@gapfruit.com>
+Date:   Fri Oct 16 19:29:21 2020 +0200
+
+    vfs/pipe: add fifo feature to pipe plugin
+    
+    The vfs pipe plugin can now be used as named pipe which anables data
+    transfer via file handles from one component to another. E.g. if one
+    would like to send data from component A to stdin of a libc component B,
+    one can do so by simply writing to that fifo file.
+    
+    Issue #3583
+
+commit f24198b2788cf569ced396b2d8914e319c9ba4ea
+Author: Sid Hussmann <sid.hussmann@gapfruit.com>
+Date:   Wed Feb 3 17:37:32 2021 +0100
+
+    vfs/pipe: refactor read/write synchronization
+    
+    All pipe-ends were notified at the same time which leads to dead-locks.
+    This commit mitigates this by having a signal handler for each pipe and
+    each pipe-end respectively.
+    
+    Issue #3583
+
+; contribution by Sid:
+
+The vfs/pipe plugin now has a named pipe feature. The main motivation was to
+easily stream data from pure Genode components to libc components via
+file-system sessions that can be attached to stdin, stdout, and stderr. This
+feature further makes it possible to pipe several components together,
+similarly to how it is done on Unix. Additionally, the thread synchronization
+has been improved so that large data chunks can be transferred without
+blocking.
+
+
+Terminal
+========
+
+;@nfeske
+
+commit d47f87a768eebb105b39fc45ea69fc9da6f4f1f0
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Dec 22 15:49:28 2020 +0100
+
+    terminal: use GUI session directly
+    
+    Issue #3196
+    Fixes #3970
+
+commit 2c82636a98dcd61479698afc5268a646c793473f
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Dec 22 16:50:21 2020 +0100
+
+    terminal: respond to font-size changes
+    
+    Issue #3970
+
+
+OpenSSL 1.1.1i, curl 7.70.0
+===========================
+
+;@chelmuth
+
+commit 7d1f158d6836ed8e52e0feecc46aa455b1ae1841
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Wed Mar 18 16:27:28 2020 +0100
+
+    Update OpenSSL to version 1.1.1i
+    
+    Note, OpenSSL now comes as one combined depot archive *openssl* that
+    replaces the former *libssl* and *libcrypto* archives. The libraries are
+    still separate binaries for compatibility with legacy software.
+    
+    Issue #3773
+
+commit 61a530a485241b88a049efadd0de42f82647c918
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Thu Feb 18 14:55:31 2021 +0100
+
+    squash "openssl: do not depend on ARM CPU probing" (COMMIT MESSAGE)
+    
+    openssl: do not depend on ARM CPU probing
+    
+    With this commit libcrypto does not use ARM NEON extension as long as
+    SPECS includes "neon". arm_v7a does declare "neon" per default while
+    arm_v8a does.
+
+commit b462b1e658f78a6d93d8896d9dcdf2839812cdbd
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Wed Jun 3 13:57:52 2020 +0200
+
+    Update curl to version 7.70.0
+    
+    Issue #3773
+
+
+Virtualization
+##############
+
+VirtualBox 6.1.14
+=================
+
+;@chelmuth
+
+commit b25fc1e58a58c1c7d4a130acec73211a656766a5
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Fri Dec 18 14:08:06 2020 +0100
+
+    base: refactor VM/vCPU API
+    
+    Issue #3554
+
+
+VirtualBox 5
+============
+
+;@cnuke, @alex-ab
+
+commit ae0090ad3e28d764b6cb1b8a2b0c23e3f4d05f96
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Sat Jan 16 17:20:19 2021 +0100
+
+    vbox5: enable 64bit SVM support
+    
+    Fixes #3965
+
+commit 8ca71ffd4bbfd1a0d80fe605c8c5924f1faf92ed
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Fri Feb 12 12:55:44 2021 +0100
+
+    qemu-usb: use bounce buffer to access DMA memory
+    
+    The former implemention assumed that the guest physical memory is
+    mapped continously. This, however, is not true. Writing larger
+    files to an USB stick with a Windows 10 guest would therefore lead
+    to data corruption.
+    
+    The current implementation uses a bounce buffer to copy the data
+    to and from the guest physical memory and leaves dealing with the
+    memory mappings entirely up to the VMM.
+    
+    Fixes #4017.
+
+commit 29bb4f88636519cfdf48f799a25b785c17a8a3b8
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Jan 18 16:12:53 2021 +0100
+
+    qemu-usb: update port to 5.2.0
+    
+    The contrib code is updated from 2.4.1 to version 5.2.0 and the used
+    device-model is changed to QEMU xHCI. Due to this change older guests
+    OSes, namely Windows 7, that relied on the NEC xHCI device-model will
+    not work anymore.
+    
+    The 'Qemu::Controller' interface was extended by an 'info' method, which
+    returns the vendor and product ID. This allows for removing the
+    hard-coded values in the VirtualBox glue code.
+    
+    Issue #4018.
+
+commit 1b2d5da6514581d5af8316130862d89ce649564a
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Jan 25 14:58:20 2021 +0100
+
+    qemu-usb: adapt ISOCH IN handling for audio
+    
+    Linux as well as Windows guests want queue to a varying number of
+    transfers, where each transfer only covers one transaction (iso frame).
+    The best results were obtained by following that behaviour rather
+    than queuing multiple iso frames per requests (like is done with OUT
+    transfers).
+    
+    The number of requests queued is increased to 32 while the number of
+    packets per reques is decreased to 1.
+    
+    Issue #4018.
+
+commit 8547387067d79b61567584ebfa23bb916a37a39c
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Tue Jan 12 13:28:47 2021 +0100
+
+    qemu-usb: add ring-buffer for ISOCH OUT transfers
+    
+    Be more in line with the original host implementation in Qemu and
+    buffer transfers. Having transfers in-flight helps to smoothen playback
+    in case other components utilize the CPU.
+    
+    Issue #4018.
+
+
+VirtIO block devices for virtual machines on ARM
+================================================
+
+;@skalk
+
+commit 4f03cbaaa609f46b50d70521c474fb4faf73f947
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Thu Feb 18 17:56:56 2021 +0100
+
+    vmm: cleanup virtio model, make it extensible
+    
+    * Introduce different index types for ring counters and descriptor arrays
+      within the Virtio split queue implementation
+    * Be more accurate in reporting the queue number supported, and raise it
+      to 512
+    * Introduce abstractions for mmio register access, where several values
+      are stored at the same place, and selector registers exist.
+    * Turn Virtio_device into a template to define the Virio queue type,
+      and its numbers per device model (needed for e.g., future block model)
+    
+    Issue #4025
+
+commit 8866336ac86a9238946afdbbddda3103c82544e0
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Fri Feb 19 11:02:58 2021 +0100
+
+    vmm: add virtio block device model
+    
+    * Add new virtio device model
+    * Extend test run-script with vfat block test image
+    * Add vmm depot src recipe
+    * Use packages in test run-script
+    
+    Fix #4025
+
+
+Device drivers
+##############
+
+Power-gating of PCI devices on x86
+==================================
+
+;@alex-ab
+
+commit b185f3fac196fea00ffda68e99591fa702c0c569
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Thu Dec 3 15:26:41 2020 +0100
+
+    platform_drv: add support to power PCI devices
+    
+    - depending on available PCI power cap power off and on
+    - save and restore PCI bars if required
+    - reset PCI devices after power on if supported
+    
+    Fixes #3963
+
+commit f358fcbda6fc4df8c879e0461dd303e2d1084115
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Thu Dec 3 16:12:07 2020 +0100
+
+    nova: flush Intel IOMMU caches
+    
+    - when memory is detached
+    
+    Issue #3963
+
+commit 55cef01548bfa91628eed355d80f07b391f02f86
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Tue Dec 15 13:31:07 2020 +0100
+
+    platform_drv(x86): support dynamic reconfiguration
+    
+    Fixes #3989
+
+commit a6a923c31bebc2940418a6ea58b35a4ca27c45c0
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Mon Jan 11 16:53:21 2021 +0100
+
+    driver manager: restart intel_fb when frozen
+    
+    This patch introduces heartbeat monitoring and automated restarting
+    of the intel framebuffer driver.
+
+
+USB drivers
+===========
+
+Additional HID devices
+~~~~~~~~~~~~~~~~~~~~~~
+
+;@chelmuth
+
+commit 2a659cb75029f3a3d7cc6a1b2d49281d84c3dc47
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Fri Sep 14 16:55:20 2018 +0200
+
+    usb_hid: support for Holtek-based mice fixups
+    
+    This enables USB mice based on the Holtek chipsets, which need USB
+    descriptor fixups. An example mouse is the Sharkoon Drakonia.
+    
+    Issue #3953
+
+commit 496dc5508f798324ca24a7e8ea4ffdb4bd31fa22
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Fri Sep 14 16:58:35 2018 +0200
+
+    usb_hid: support for Apple HID devices
+    
+    Issue #3953
+
+
+USB robustness on Raspberry Pi
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+;@cproc
+
+commit ef44c3e99b1b611cfd2604e494630753bf2404e3
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Tue Feb 2 01:19:34 2021 +0100
+
+    usb_host_drv: dwc_otg stability improvements
+    
+    - improve NYET error handling
+    - use split interrupt transaction hack
+    - clear TT buffers in error situations
+    
+    Issue #3247
+
+
+Isochronous transfers
+~~~~~~~~~~~~~~~~~~~~~
+
+;@cnuke
+
+commit 9bdba67643f3c9cc34d78491711c0ceb3ba9176e
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Thu Jan 28 14:37:59 2021 +0100
+
+    usb_host: properly handle ISOC read requests
+    
+    * Update the 'packet_size' information with the actual length for
+      each isoc frame to be able to handle short reads at the client side.
+    
+    * Copy the whole transfer buffer because the host controller stores
+      the data at the original offsets, i.e., the buffer is not densely
+      packed.
+    
+    Fixes #4018.
+
+
+Platforms
+#########
+
+Pine-A64-LTS single board computer
+==================================
+
+;@nfeske
+
+commit a4d56875108de1b2809f0e302fffbfdb6d29f4d5
+Author: Pirmin Duss <pirmin.duss@gapfruit.com>
+Date:   Tue Sep 8 12:50:49 2020 +0200
+
+    base-hw: allow out of tree imx8 platforms
+    
+    Issue #3911
+
+; -> genodians.org article series
+
+
+RISC-V
+======
+
+;@ssumpf
+
+commit b1e9c0e7dd5c9d58c17670af7e5351d1ab7dd265
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Wed Feb 10 14:17:25 2021 +0100
+
+    riscv: Fix link errors for Genode nightly
+    
+    - add .got filter rule for trace policies, otherwise ld raises a
+      segmentation fault
+    - force soft-float for binary sources (SRC_BIN)
+    
+    issue #4012
+
+commit 2667b6d7395243956b7ae77e8e260d6a16857c7b
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Wed Feb 10 08:31:39 2021 +0100
+
+    riscv: Use Qemu and update to ISA v1.10
+    
+    - remove Spike/BBL support in favour of Qemu (>=4.2.1)
+    - add 'riscv_qemu' board, remove 'spike' board'
+    - update to privileged ISA v1.10 (from v1.9.1)
+    - use direct system calls for privileged core threads (they call into
+      the kernel and don't use mode changing system calls, i.e. 'ecall',
+      semantics)
+    - use 'OpenSBI' semtantics for SBI calls (to machine mode) instead of
+      BBL
+    
+    issue #4012
+
+
+Removal of Muen separation kernel support
+=========================================
+
+;@nfeske
+
+commit bf23c3d6e5547b0e8d7c26c1a1ce3b2289ad1f5b
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Jan 29 13:48:00 2021 +0100
+
+    Remove support for the Muen separation kernel
+    
+    Fixes #3995
+    Fixes #3994
+
+
+Build system and tools
+######################
+
+Streamlined distinction of boards by build and run tools
+========================================================
+
+;@nfeske
+
+commit 5a123e37c9dde0edb66575ffa55e7b0f95dcb6b8
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Thu Jan 7 19:15:55 2021 +0100
+
+    run: introduce have_board helper function
+    
+    The new helper function returns a boolean value analoque to 'have_spec' if the
+    BOARD variable corresponds to the given value. It shall replace [have_spec <board>]
+    declarations in run-scripts.
+    
+    Ref #3971
+
+commit bdd923406f11f1f4b97adb152e6cdb54c1019070
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+ttDate:   Wed Jan 13 10:15:10 2021 +0100
+
+    base: remove SPEC variables of boards (fix #3971)
+    
+    * Remove SPEC declarations from mk/spec
+    * Remove all board-specific REQUIRE declaratiions left
+    * Replace [have_spec <board>] run-script declarations with have_board where necessary
+    * Remove addition of BOARD variable to SPECS in toplevel Makefile
+    * Move board-specific directories in base-hw out of specs
+
+commit 1ccf8a280c41b9eefcdf2a265bba53571241d48e
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Mon Jan 18 17:55:51 2021 +0100
+
+    base-hw: simplify board support in external repo
+    
+    Avoid use of REP_DIR in *.mk files to simplify the use of these files as
+    templates for a board hosted in a separate repository.
+    
+    Use REP_INC_DIR for searching headers, thereby considering headers
+    hosted in an external repository.
+    
+    Issue #3168
+
+commit 9bfd812a887e2acac07bff573e91d5bda6143617
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Jan 19 14:17:26 2021 +0100
+
+    tool/run: search repos for run-tool plugins
+    
+    This patch allows for supplementing the existing run-tool plugins with
+    additional plugins hosted inside a repository. E.g., it enables the run
+    tool to find world/tool/run/boot_dir/hw automatically.
+    
+    Fixes #3993
+
+commit c4cf9b6e6d6ef8a0a270859f4d6d4207d450a454
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Jan 21 14:32:47 2021 +0100
+
+    base-hw: introduce board-property directories
+    
+    This patch moves the bootstrap-link-address information from the
+    tool/run/boot_dir/hw file to board-specific property files that can be
+    accessed by using the board as key. This eliminates the need to
+    customize boot_dir/hw when hosting board-support in an external
+    repository.
+    
+    Fixes #3998
+
+commit db7c042e440b3affa65f0a7dd12d72282bbb4edb
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Mon Feb 15 18:17:26 2021 +0100
+
+    base-hw: streamline extraction of depot archives
+    
+    This patch simplifies the packaging of the base-hw kernel for a given
+    board, in particular when the board support is hosted as an external
+    repository such as genode-world. Regardless of where the board-support
+    is hosted, the content.mk file becomes as simple as:
+    
+      include $(GENODE_DIR)/repos/base-hw/recipes/src/base-hw_content.inc
+    
+    The board name is automatically inferred from the path of the src
+    recipe. The architecture is determined from board/<name>/arch files,
+    following the pattern of the image_link_address. The attempt to build a
+    base-hw-<board> binary archive for the wrong architecture is now
+    gracefully handled by skipping all targets (using the REQUIRES
+    mechanism).
+    
+    Besides the improved convenience, the patch results in depot archives
+    that are much closer tailored to the actual board by omitting files for
+    architectures that are not used by the board. E.g., the src/base-hw-pc
+    archive does not contain any ARM-related content.
+    
+    The patch also restores the package builds for core/bootstrap object
+    files as a follow-up fix of "base: remove SPEC variables of boards",
+    which happened to left 'BOARD' undefined in the src archives.
+    
+    Fixes #4019
+
+
+Compiler cache
+==============
+
+;@nfeske
+
+commit 05350b898346794e664c424a335154907d8d466d
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Fri Jan 29 16:11:12 2021 +0100
+
+    Add ccache support to build system
+    
+    This patch simplifies the use of ccache with the build system. Up until
+    now, each developer had to set up the ccache hooks manually, adjust the
+    PATH variable, and customize the etc/tools.conf in each build directory.
+    With the patch, ccache can be enabled by un-commenting a single line in
+    the etc/build.conf file.
+    
+    Fixes #4004
