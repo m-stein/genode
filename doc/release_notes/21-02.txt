@@ -16,121 +16,81 @@
 Pluggable network device drivers
 ################################
 
-;@m-stein
+The results of our approach to
+[https://genode.org/documentation/release-notes/20.08#The_GUI_stack__restacked - pluggable framebuffer and input drivers]
+encouraged us to take on the third major driver category, namely networking
+drivers, which subsumes not only Ethernet drivers but also wireless networking
+drivers and mobile baseband drivers. The latter two are of course particularly
+interesting for mobile communication devices.
 
-commit cf72d1aac375be0a6e812efedfce5f1933b82deb
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Mon Dec 7 16:44:21 2020 +0100
+Similarly to the story given above for the framebuffer and input drivers,
+Genode's network drivers used to play the roles of NIC servers, providing a
+network-interface service to network applications. As a consequence, the
+lifetime of a network application was always bound to the lifetime of the
+underlying NIC driver. An unfortunate fact in, for instance, the event of a
+crash in the usually large driver code base but also when it comes to
+the intentional unplugging or exchange of drivers.
 
-    os: introduce new "Uplink" session
-    
-    Adds new Uplink session interface, the corresponding client side (Client,
-    Connection), and the corresponding API archives. An Uplink session is almost
-    the same as a NIC session with the difference that the roles of the end points
-    are swapped. An Uplink client is the one that provides a network interface
-    (for instance, a NIC driver) whereas an Uplink server is the one that uses
-    that network interface (for instance, a networking stack).
-    
-    Therefore, in contrast to the NIC session, MAC address and link state come from
-    the Uplink client. The link state is reflected through the lifetime of an
-    Uplink session: The client requests the session only when the link state is
-    "UP" and closes it whenever the link state becomes "DOWN" again. The MAC
-    address is transmitted from the Uplink client to the Uplink server as an
-    argument of the session request.
-    
-    Ref #3961
+[image layered_nic_multi_app_risk]
 
-commit 1d2649b49a202bdca82c83def81a9e7b64caaa4d
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Mon Dec 7 16:46:15 2020 +0100
+However, in most scenarios, networking applications do not operate directly on
+a network interface because this would prevent the use of the network interface
+by more than one application at a time. Instead, there is usually a NIC
+multiplexing component in-between the driver and one or multiple applications.
+In most contemporary scenarios this is the NIC router that acts as NIC client
+towards the driver and as NIC server towards the applications.
 
-    nic_router: act as "Uplink" server
-    
-    Let the NIC router provide an Uplink service besides the Nic service that it
-    already provided. Requests for an Uplink session towards the NIC router are
-    assigned to Domains using the same <policy> configuration tags that are used in
-    order to assign Nic session requests. The MAC addresses of Uplink session
-    components are _NOT_ considered during the allocation of MAC addresses for NIC
-    session components at the same Domain. The task of avoiding MAC address clashes
-    between Uplink session components and Nic session components is therefore left
-    to the integrator. Apart from that, Uplink session components are treated by
-    the NIC router like any other interface.
-    
-    Ref #3961
+Thus, we contemplated the idea of letting the NIC driver operate as NIC client
+of the NIC router instead as this would decouple the application from the
+drivers lifetime while the driver's special role would be modeled solely by a
+routing policy. However, even though the data channel of the NIC interface is
+bi-directional, we realized that the reversal of the role of the driver does
+not only entail the communication of network payload but also propagation of
+the link state and the MAC address. This prompted us to introduce a new Genode
+session type called "Uplink" that precisely models the NIC-driver-as-client
+scenario.
 
-commit f6d195a9de34a7ed41d2e33e6035f7fc615d30a4
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Wed Jan 6 16:31:10 2021 +0100
+[image nic_router_services]
 
-    nic drivers: provide optional Uplink-client mode
-    
-    In order to perform a smooth transition from NIC drivers that act only as NIC
-    session clients to NIC drivers that act only as Uplink session clients, this
-    commit introduces an intermediate state in which all NIC drivers support both
-    modes. That said, a NIC drivers mode is now statically determined through a new
-    optional 'mode' attribute in the drivers <config> tag that can be set to either
-    'nic_server' (default value) or 'uplink_client'. Reconfiguring this attribute
-    at a driver doesn't have any effects. Whithout this attribute being set, all
-    NIC drivers will behave the same as they did before the commit. When set to
-    'uplink_client', however, instead of providing a Nic service, they request
-    an Uplink session whenever their network interface becomes "UP" and close the
-    session whenever their network interface becomes "DOWN".
-    
-    Ref #3961
+In a nutshell, an Uplink session is almost the same as a NIC session with only
+three minor differences. First, the MAC address is given by the client (the
+driver) through an argument in the session request. Second, the roles of the TX
+and RX packet streams are interchanged compared to a NIC session. I.e., the
+_client_ transmits via TX and receives through RX while at the server side it's
+vice-versa. And third - as a mere interface optimization - the link state of an
+Uplink session is always "up". The session is requested by the client (the
+driver) only in the event of a "link-up" edge. Analogously, whenever the link
+goes "down", the client closes the session again.
 
-commit 1d2649b49a202bdca82c83def81a9e7b64caaa4d
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Mon Dec 7 16:46:15 2020 +0100
+With this new session interface in place, the NIC router becomes the only
+long-running component in the scenario. It provides both a NIC and an Uplink
+session interface. The NIC session interface is used by network applications.
+The Uplink session interface is used by drivers. Inside the router, Uplinks
+sessions are treated the same as NIC sessions. Therefore, we decided that the
+well known <policy> tags in the configuration are now simply applied to both
+session types. This means, that each <uplink> tag that connected a driver in a
+router configuration can now be replaced through a <policy> tag with a label
+attribute that matches the drivers session request.
 
-    nic_router: act as "Uplink" server
-    
-    Let the NIC router provide an Uplink service besides the Nic service that it
-    already provided. Requests for an Uplink session towards the NIC router are
-    assigned to Domains using the same <policy> configuration tags that are used in
-    order to assign Nic session requests. The MAC addresses of Uplink session
-    components are _NOT_ considered during the allocation of MAC addresses for NIC
-    session components at the same Domain. The task of avoiding MAC address clashes
-    between Uplink session components and Nic session components is therefore left
-    to the integrator. Apart from that, Uplink session components are treated by
-    the NIC router like any other interface.
-    
-    Ref #3961
+[image nic_uplink_multi_app]
 
-commit f6d195a9de34a7ed41d2e33e6035f7fc615d30a4
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Wed Jan 6 16:31:10 2021 +0100
+We divided the process for this architectural change into the following
+autonomous steps:
 
-    nic drivers: provide optional Uplink-client mode
-    
-    In order to perform a smooth transition from NIC drivers that act only as NIC
-    session clients to NIC drivers that act only as Uplink session clients, this
-    commit introduces an intermediate state in which all NIC drivers support both
-    modes. That said, a NIC drivers mode is now statically determined through a new
-    optional 'mode' attribute in the drivers <config> tag that can be set to either
-    'nic_server' (default value) or 'uplink_client'. Reconfiguring this attribute
-    at a driver doesn't have any effects. Whithout this attribute being set, all
-    NIC drivers will behave the same as they did before the commit. When set to
-    'uplink_client', however, instead of providing a Nic service, they request
-    an Uplink session whenever their network interface becomes "UP" and close the
-    session whenever their network interface becomes "DOWN".
-    
-    Ref #3961
+# Introduce the Uplink session and Uplink-session support in the NIC router.
+# Let NIC drivers support both modes, "NIC session server" and "Uplink session
+  client" depending on a new _transitional_ <config>-tag attribute 'mode'.
+  This attribute is optional and has two possible values, 'uplink_client'
+  and 'nic_server', of which it defaults to the latter.
+# Adapt all network scenarios in the basic Genode repositories to use NIC
+  drivers only with '<config mode="uplink_client">'.
+# Remove support for the "NIC session server" mode from all NIC drivers and
+  with it also the transitional 'mode' attribute.
 
-commit 3250c323cc68bf825772d043047233962922ca5a
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Fri Jan 8 17:27:24 2021 +0100
-
-    Don't use the NIC server mode of NIC drivers
-    
-    Issue #3961
-
-commit 3250c323cc68bf825772d043047233962922ca5a
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Fri Jan 8 17:27:24 2021 +0100
-
-    Don't use the NIC server mode of NIC drivers
-    
-    Issue #3961
+All steps except the last one are completed by now. The transitional 'mode'
+attribute and the "NIC session server" mode will remain available in all NIC
+drivers until the next Genode release in order to give others the opportunity
+to gracefully adapt their NIC drivers and network scenarios to the change.
 
 
 LTE modem stack
@@ -269,42 +229,86 @@ Base framework and OS-level infrastructure
 NIC router
 ==========
 
-;@m-stein
+The NIC router received two very practical features, the consideration of
+multiple DNS server entries on DHCP and an ARP-less mode for domains.
 
-commit bad8caee3f7ed25218d4e4205ee278dae1d01e0f
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Mon Nov 16 15:43:40 2020 +0100
+The latter was motivated by the fresh support for LTE modems (see section
+[LTE modem stack]). An LTE modem normally doesn't respond to ARP, so, when
+using it as uplink for the NIC router, the corresponding domain can't request
+IP-to-MAC-address resolutions as usual. This is addressed through the new
+optional attribute 'use_arp' in <domain> tags of the NIC router configuration.
+By default it is set to 'yes' which yields the same behavior as in the past.
 
-    nic_router: support multiple DHCP option 6 entries
-    
-    * The NIC router now considers, memorizes, and, if configured, reports
-      multiple DHCP option 6 entries from DHCP replies that it received as DHCP
-      client
-    * A DHCP server at the NIC router can now be configured statically with
-      multiple DNS server addresses to propagate
-    * The 'dns_server_from' attribute of the DHCP server of the NIC router now
-      supports the forwarding of multiple DNS server addresses
-    * The automated run/nic_router_dhcp test tests all the above mentioned new
-      functionality and reconfiguring it at runtime. The test was added to the
-      autopilot.
-    * All run scripts were adapted to fit the new NIC router configuration
-      interface
-    
-    Fixes #3952
+However, when set to 'no' for a domain, this domain will prevent sending ARP
+requests in general. This leaves the question how to determine the destination
+MAC address for a packet that shall be sent at this domain when only the
+destination IP address is known. This is solved by the router by simply using
+the source MAC address also as destination MAC address, an approach that we
+could observe also in other IP stacks and that worked just fine in our tests.
 
-commit a124f5b88d84a4ea1422a90ad02ef9400330c534
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Wed Nov 4 16:34:22 2020 +0100
+The ARP-less domain mode is demonstrated through the run script
+_repos/os/run/nic_router_disable_arp.run_.
 
-    nic_router: support and show-case disabling arp at a domain
-    
-    * Introduce 'use_arp' configuration flag at the NIC router in order to disable
-      requesting IP-to-MAC address resolutions via ARP for domains.
-    * Add automated run/nic_router_disable_arp test to the autopilot that tests
-      the effect of the new flag
-    * Document the new flag and the new test in the NIC router README
-    
-    Fixes #3935
+The consideration of multiple DNS-server entries on DHCP comes in two parts.
+First, when acting as DHCP client at a domain, the router will now parse all
+option 6 entries in DHCP ACK replies from the server and memorize them as part
+of the resulting IP config of the domain. These entries will then also be
+reported if '<report config="yes"/>' is set in the routers config. A router
+report with multiple DNS server entries will look like this:
+
+! <state>
+!   <domain name="uplink_1" ipv4="10.0.0.3/24" gw="10.0.0.1">
+!     <dns ip="10.0.0.2"/>
+!     <dns ip="1.1.1.1"/>
+!     <dns ip="8.8.8.8"/>
+!     ...
+!   </domain>
+!   <domain name="uplink_2" ipv4="168.192.0.200/24" gw="168.192.0.1">
+!     <dns ip="168.192.0.10"/>
+!     <dns ip="168.192.0.8"/>
+!     ...
+!   </domain>
+!   ...
+! </state>
+
+On the other hand, when acting as DHCP server at a domain, one has two
+options. Option 1 is to configure the DHCP server to fetch DNS server entries
+automatically from another domain:
+
+! <domain name="downlink" interface="10.0.1.1/24">
+!   <dhcp-server dns_server_from="uplink_1" .../>
+! </domain>
+
+In this case, the router will now reflect not only one but all DNS server
+entries from the source domain ("uplink") through the DHCP replies sent at the
+destination domain ("downlink") without changing the entry order. This approach
+is demonstrated through the new _repos/os/run/nic_router_dhcp_unmanaged.run_
+run script.
+
+Option 2 is to configure the DNS server entries manually at the DHCP
+server:
+
+! <domain name="downlink" interface="10.0.1.1/24">
+!   <dhcp-server ...>
+!     <dns-server ip="10.0.0.2"/>
+!     <dns-server ip="1.1.1.1"/>
+!     <dns-server ip="8.8.8.8"/>
+!   </dhcp-server>
+! </domain>
+
+The order in which the <dns-server> tags occure also determines the order of
+option 6 entries in the replies of the DHCP server. Besides its use for static
+DNS server configurations, this option can also be used for more sophisticated
+forwarding of DNS server entries through a separate management component. The
+management component could listen to the reported IP config of the source
+domains, apply custom policies like address filters to the result, and
+re-configure the DHCP servers of the destination domains accordingly. This
+approach is demonstrated in the new _repos/os/run/nic_router_dhcp_managed.run_
+run script.
+
+Please note that thhe former 'dns_server' attribute of the <dhcp-server> tag
+is no longer considered by the router as the new <dns-server> tag replaces it.
+Thus, you might want to adapt your NIC router scenarios accordingly.
 
 
 VFS support for named pipes
