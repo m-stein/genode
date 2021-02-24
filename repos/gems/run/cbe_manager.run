@@ -1,0 +1,136 @@
+create_boot_directory
+
+if {[get_cmd_switch --autopilot] && [have_board riscv_qemu]} {
+	puts "Autopilot mode is not supported on this platform."
+	exit 0
+}
+
+import_from_depot \
+	[depot_user]/src/[base_src] \
+	[depot_user]/src/init \
+	[depot_user]/src/libc \
+	[depot_user]/src/fs_rom \
+	[depot_user]/src/posix \
+	[depot_user]/src/report_rom \
+	[depot_user]/src/vfs \
+	[depot_user]/src/vfs_import
+
+install_config {
+	<config>
+		<parent-provides>
+			<service name="ROM"/>
+			<service name="LOG"/>
+			<service name="RM"/>
+			<service name="CPU"/>
+			<service name="PD"/>
+			<service name="IRQ"/>
+			<service name="IO_MEM"/>
+			<service name="IO_PORT"/>
+		</parent-provides>
+		<default-route>
+			<any-service> <parent/> <any-child/> </any-service>
+		</default-route>
+		<default caps="100"/>
+
+		<start name="timer">
+			<resource name="RAM" quantum="1M"/>
+			<provides> <service name="Timer"/> </provides>
+		</start>
+
+		<start name="report_rom">
+			<resource name="RAM" quantum="1M"/>
+			<provides> <service name="Report"/> <service name="ROM"/> </provides>
+			<config verbose="yes"/>
+		</start>
+
+		<start name="vfs">
+			<resource name="RAM" quantum="10M"/>
+			<provides><service name="File_system"/></provides>
+			<config>
+				<vfs>
+					<dir name="cbe">
+						<ram/>
+					</dir>
+					<import>
+						<dir name="cbe">
+							<inline name="1">first</inline>
+							<inline name="2">second</inline>
+						</dir>
+					</import>
+				</vfs>
+				<policy label_prefix="cbe_manager" root="/cbe" writeable="yes"/>
+			</config>
+		</start>
+
+<!--
+		<start name="fs_query">
+			<resource name="RAM" quantum="1M"/>
+			<config>
+				<vfs> <fs writeable="yes"/> </vfs>
+				<query path="/" content="yes"/>
+			</config>
+			<route>
+				<service name="File_system"> <child name="vfs"/> </service>
+				<service name="Report">      <child name="report_rom"/> </service>
+				<service name="PD">          <parent/> </service>
+				<service name="ROM">         <parent/> </service>
+				<service name="CPU">         <parent/> </service>
+				<service name="LOG">         <parent/> </service>
+			</route>
+		</start>
+-->
+
+		<start name="cbe_manager" caps="500">
+			<resource name="RAM" quantum="10M"/>
+			<config>
+				<vfs> <fs writeable="yes"/> </vfs>
+			</config>
+			<route>
+				<service name="File_system"> <child name="vfs"/> </service>
+				<service name="Report">      <child name="report_rom"/> </service>
+				<service name="Timer">       <child name="timer"/> </service>
+				<service name="PD">          <parent/> </service>
+				<service name="ROM">         <parent/> </service>
+				<service name="CPU">         <parent/> </service>
+				<service name="LOG">         <parent/> </service>
+			</route>
+		</start>
+
+	</config>
+}
+
+build { app/sequence app/fs_query app/cbe_manager }
+
+build_boot_image { sequence fs_query cbe_manager sandbox.lib.so }
+
+append qemu_args " -nographic "
+
+run_genode_until {.*child "test" exited with exit value 0.*\n} 50
+
+grep_output {\[init -> report_rom\].*}
+
+set num_listings [regexp -all {report 'fs_query -> listing'} $output dummy]
+
+# we expect at least four intermediate reports
+if {$num_listings < 4} {
+	puts "Error: Test failed with too few reports generated"
+	exit 1
+}
+
+#
+# We cannot reliably compare the full output because some file operations
+# may trigger one or two reports depending on the timing of signal delivery.
+# However, we can at least check the last report for validity.
+#
+regsub {.*report 'fs_query -> listing'} $output {} output
+
+compare_output_to {
+[init -> report_rom]   <listing>
+[init -> report_rom]   	<dir path="/fs/items">
+[init -> report_rom]   		<file name="4" writeable="yes">fourth</file>
+[init -> report_rom]   		<file name="1" writeable="yes">first</file>
+[init -> report_rom]   		<file name="3" writeable="yes">updated
+[init -> report_rom]   </file>
+[init -> report_rom]   	</dir>
+[init -> report_rom]   </listing>
+}
