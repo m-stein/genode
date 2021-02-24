@@ -92,7 +92,7 @@ struct Text_area::Child_state : Noncopyable
 		 * This method responds to RAM and cap-resource requests by increasing
 		 * the resource quotas as needed.
 		 *
-		 * \param  child  child node of the runtime'r state report
+		 * \param  child  child node of the runtime's state report
 		 * \return true if runtime must be reconfigured so that the changes
 		 *         can take effect
 		 */
