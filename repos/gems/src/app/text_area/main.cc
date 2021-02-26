@@ -34,7 +34,8 @@ namespace Text_area { struct Main; }
 struct Text_area::Main : Sandbox::Local_service_base::Wakeup,
                          Sandbox::State_handler,
                          Gui::Input_event_handler,
-                         Dialog::Trigger_copy, Dialog::Trigger_paste,
+                         Dialog::Trigger_copy,
+                         Dialog::Trigger_paste,
                          Dialog::Trigger_save
 {
 	Env &_env;

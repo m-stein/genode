@@ -104,34 +104,7 @@ install_config {
 					</config>
 				</inline>
 
-				<sleep milliseconds="1000" />
-
-				<inline description="big">
-					<config>
-						<vfs>
-							<rom name="Vera.ttf"/>
-							<rom name="VeraMono.ttf"/>
-							<dir name="fonts">
-								<dir name="title">
-									<ttf name="regular" path="/Vera.ttf" size_px="28" cache="256K"/>
-								</dir>
-								<dir name="text">
-									<ttf name="regular" path="/Vera.ttf" size_px="24" cache="256K"/>
-								</dir>
-								<dir name="annotation">
-									<ttf name="regular" path="/Vera.ttf" size_px="21" cache="256K"/>
-								</dir>
-								<dir name="monospace">
-									<ttf name="regular" path="/VeraMono.ttf" size_px="24" cache="256K"/>
-								</dir>
-							</dir>
-						</vfs>
-
-						<default-policy root="/fonts" />
-					</config>
-				</inline>
-
-				<sleep milliseconds="1000" />
+				<sleep milliseconds="99999999" />
 
 			</rom>
 		</config>
@@ -142,7 +115,6 @@ install_config {
 		<provides> <service name="ROM"/> </provides>
 		<config verbose="yes">
 			<rom name="dialog">
-
 				<inline description="dependency graph">
 					<dialog>
 						<depgraph>
@@ -191,102 +163,7 @@ install_config {
 						</depgraph>
 					</dialog>
 				</inline>
-
-				<sleep milliseconds="3000" />
-
-				<inline description="dependency graph">
-					<dialog>
-						<depgraph>
-							<frame name="storage"> <label text="Storage"/>     </frame>
-							<frame name="gui">     <label text="GUI"/>         </frame>
-							<frame name="usbdev">  <label text="USB"/> </frame>
-
-							<button name="s.ahci1" dep="storage"> <label text="ahci1"/> </button>
-							<button name="s.usb1"  dep="storage"> <label text="usb1"/>  </button>
-							<button name="s.usb2"  dep="storage"> <label text="usb2"/>  </button>
-							<button name="s.usb3"  dep="storage"> <label text="usb3"/>  </button>
-
-							<frame  name="s.usb2.part" dep="s.usb2">      <label text="Partition"/> </frame>
-							<button name="s.usb2.2"    dep="s.usb2.part"> <label text="2"/>         </button>
-
-							<button name="g.pointer"    dep="gui"> <label text="pointer"/>    </button>
-							<button name="g.overlay"    dep="gui"> <label text="overlay"/>    </button>
-							<button name="g.primary"    dep="gui"> <label text="primary"/>    </button>
-							<button name="g.background" dep="gui"> <label text="background"/> </button>
-
-							<button name="u.1-2" dep="usbdev"> <label text="1-2"/> </button>
-							<button name="u.1-3" dep="usbdev"> <label text="1-3"/> </button>
-
-						</depgraph>
-					</dialog>
-				</inline>
-
-				<sleep milliseconds="3000" />
-
-				<inline description="example menu">
-					<dialog>
-						<frame>
-							<hbox>
-								<vbox name="x">
-									<button name="virtualbox">
-										<label text="VirtualBox"/>
-									</button>
-									<button name="toolchain" hovered="yes">
-										<label text="Tool chain"
-										       font="monospace/regular"/>
-									</button>
-									<button name="log" hovered="yes" selected="yes">
-										<label text="Log window"
-										       font="title/regular"/>
-									</button>
-									<button name="config" selected="yes">
-										<label text="Configuration Configuration Configuration"
-										       font="annotation/regular"/>
-									</button>
-									<hbox>
-										<button name="x1"> <label text="x1"/> </button>
-										<button name="x2"> <label text="x2"/> </button>
-										<button name="x3"> <label text="x3"/> </button>
-									</hbox>
-									<frame>
-										<label text="A single line" font="annotation/regular"/>
-									</frame>
-								</vbox>
-								<float north="yes">
-									<vbox>
-										<button name="virtualbox">
-											<label text="VirtualBox"/>
-										</button>
-										<button name="toolchain" hovered="yes">
-											<label text="Tool chain"
-											       font="monospace/regular"/>
-										</button>
-									</vbox>
-								</float>
-							</hbox>
-						</frame>
-					</dialog>
-				</inline>
-
-				<sleep milliseconds="3000" />
-
-				<inline description="example menu">
-					<dialog>
-						<frame>
-							<vbox>
-								<button name="virtualbox" hovered="yes">
-									<label text="VirtualBox"/>
-								</button>
-								<button name="config" selected="yes" hovered="yes">
-									<label text="Configuration"/>
-								</button>
-							</vbox>
-						</frame>
-					</dialog>
-				</inline>
-
-				<sleep milliseconds="3000" />
-
+				<sleep milliseconds="99999999" />
 			</rom>
 		</config>
 	</start>

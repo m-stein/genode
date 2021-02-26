@@ -1,22 +1,26 @@
 create_boot_directory
 
-if {[get_cmd_switch --autopilot] && [have_board riscv_qemu]} {
-	puts "Autopilot mode is not supported on this platform."
-	exit 0
-}
+import_from_depot [depot_user]/pkg/[drivers_interactive_pkg] \
+                  [depot_user]/raw/ttf-bitstream-vera-minimal
 
-import_from_depot \
-	[depot_user]/src/[base_src] \
-	[depot_user]/src/init \
-	[depot_user]/src/libc \
-	[depot_user]/src/fs_rom \
-	[depot_user]/src/posix \
-	[depot_user]/src/report_rom \
-	[depot_user]/src/vfs \
-	[depot_user]/src/vfs_import
+build {
+	core
+	init
+	timer
+	server/report_rom
+	server/vfs
+	server/nitpicker
+	lib/vfs/import
+	lib/vfs/ttf
+	app/fs_query
+	app/menu_view
+	app/cbe_manager
+	app/pointer
+}
 
 install_config {
 	<config>
+
 		<parent-provides>
 			<service name="ROM"/>
 			<service name="LOG"/>
@@ -27,23 +31,95 @@ install_config {
 			<service name="IO_MEM"/>
 			<service name="IO_PORT"/>
 		</parent-provides>
-		<default-route>
-			<any-service> <parent/> <any-child/> </any-service>
-		</default-route>
-		<default caps="100"/>
 
-		<start name="timer">
+		<start name="timer" caps="100">
 			<resource name="RAM" quantum="1M"/>
 			<provides> <service name="Timer"/> </provides>
+			<route>
+				<service name="PD">  <parent/> </service>
+				<service name="ROM"> <parent/> </service>
+				<service name="LOG"> <parent/> </service>
+				<service name="CPU"> <parent/> </service>
+			</route>
 		</start>
 
-		<start name="report_rom">
+		<start name="drivers" caps="1500" managing_system="yes">
+			<resource name="RAM" quantum="64M"/>
+			<binary name="init"/>
+			<route>
+				<service name="Timer">              <child name="timer"/> </service>
+				<service name="Capture">            <child name="nitpicker"/> </service>
+				<service name="Event">              <child name="nitpicker"/> </service>
+				<service name="ROM" label="config"> <parent label="drivers.config"/> </service>
+				<service name="PD">                 <parent/> </service>
+				<service name="ROM">                <parent/> </service>
+				<service name="LOG">                <parent/> </service>
+				<service name="CPU">                <parent/> </service>
+				<service name="RM">                 <parent/> </service>
+				<service name="IO_MEM">             <parent/> </service>
+				<service name="IO_PORT">            <parent/> </service>
+				<service name="IRQ">                <parent/> </service>
+			</route>
+		</start>
+
+		<start name="report_rom" caps="100">
 			<resource name="RAM" quantum="1M"/>
-			<provides> <service name="Report"/> <service name="ROM"/> </provides>
-			<config verbose="yes"/>
+			<provides>
+				<service name="Report"/>
+				<service name="ROM"/>
+			</provides>
+			<config>
+				<policy label="cbe_manager -> hover" report="nitpicker -> hover"/>
+				<policy label="cbe_manager -> clipboard" report="cbe_manager -> clipboard"/>
+			</config>
+			<route>
+				<service name="PD">  <parent/> </service>
+				<service name="ROM"> <parent/> </service>
+				<service name="LOG"> <parent/> </service>
+				<service name="CPU"> <parent/> </service>
+			</route>
 		</start>
 
-		<start name="vfs">
+		<start name="nitpicker" caps="100">
+			<resource name="RAM" quantum="4M"/>
+			<provides>
+				<service name="Gui"/> <service name="Capture"/> <service name="Event"/>
+			</provides>
+			<config focus="rom">
+				<capture/> <event/>
+				<report hover="yes"/>
+				<background color="#123456"/>
+				<domain name="pointer" layer="1" content="client" label="no" origin="pointer" />
+				<domain name="default" layer="3" content="client" label="no" hover="always" />
+				<domain name="second" layer="2" xpos="200" ypos="300" content="client" label="no" hover="always" />
+
+				<policy label_prefix="pointer" domain="pointer"/>
+				<policy label_prefix="text_area.2" domain="second"/>
+				<default-policy domain="default"/>
+			</config>
+			<route>
+				<service name="Report"> <child name="report_rom" /> </service>
+				<service name="Timer">  <child name="timer" /> </service>
+				<service name="PD">     <parent/> </service>
+				<service name="ROM">    <parent/> </service>
+				<service name="LOG">    <parent/> </service>
+				<service name="CPU">    <parent/> </service>
+			</route>
+		</start>
+
+		<start name="pointer" caps="100">
+			<resource name="RAM" quantum="1M"/>
+			<route>
+				<service name="Gui"> <child name="nitpicker" /> </service>
+				<service name="PD">  <parent/> </service>
+				<service name="ROM"> <parent/> </service>
+				<service name="LOG"> <parent/> </service>
+				<service name="CPU"> <parent/> </service>
+			</route>
+		</start>
+
+		<start name="cbe_fs" caps="100">
+			<binary name="vfs"/>
 			<resource name="RAM" quantum="10M"/>
 			<provides><service name="File_system"/></provides>
 			<config>
@@ -60,77 +136,129 @@ install_config {
 				</vfs>
 				<policy label_prefix="cbe_manager" root="/cbe" writeable="yes"/>
 			</config>
-		</start>
-
-<!--
-		<start name="fs_query">
-			<resource name="RAM" quantum="1M"/>
-			<config>
-				<vfs> <fs writeable="yes"/> </vfs>
-				<query path="/" content="yes"/>
-			</config>
 			<route>
-				<service name="File_system"> <child name="vfs"/> </service>
-				<service name="Report">      <child name="report_rom"/> </service>
-				<service name="PD">          <parent/> </service>
-				<service name="ROM">         <parent/> </service>
-				<service name="CPU">         <parent/> </service>
-				<service name="LOG">         <parent/> </service>
+				<service name="PD">  <parent/> </service>
+				<service name="ROM"> <parent/> </service>
+				<service name="LOG"> <parent/> </service>
+				<service name="CPU"> <parent/> </service>
 			</route>
 		</start>
--->
+
+		<start name="fonts_fs" caps="150">
+			<binary name="vfs"/>
+			<resource name="RAM" quantum="4M"/>
+			<provides>
+				<service name="File_system"/>
+			</provides>
+			<config>
+				<vfs>
+					<rom name="Vera.ttf"/>
+					<rom name="VeraMono.ttf"/>
+					<dir name="fonts">
+						<dir name="title">
+							<ttf name="regular" path="/Vera.ttf" size_px="18" cache="256K"/>
+						</dir>
+						<dir name="text">
+							<ttf name="regular" path="/Vera.ttf" size_px="14" cache="256K"/>
+						</dir>
+						<dir name="annotation">
+							<ttf name="regular" path="/Vera.ttf" size_px="11" cache="256K"/>
+						</dir>
+						<dir name="monospace">
+							<ttf name="regular" path="/VeraMono.ttf" size_px="14" cache="256K"/>
+						</dir>
+					</dir>
+				</vfs>
+
+				<policy label="cbe_manager -> menu_view -> fonts" root="/fonts" />
+			</config>
+			<route>
+				<service name="ROM" label="config"> <parent label="fonts_fs.config"/> </service>
+				<service name="PD">                 <parent/> </service>
+				<service name="ROM">                <parent/> </service>
+				<service name="LOG">                <parent/> </service>
+				<service name="CPU">                <parent/> </service>
+			</route>
+		</start>
+
+		<start name="data_fs" caps="300">
+			<binary name="vfs"/>
+			<resource name="RAM" quantum="8M"/>
+			<provides>
+				<service name="File_system"/>
+			</provides>
+			<config>
+				<vfs>
+					<ram/>
+					<import>
+						<rom name="drivers.config" binary="no"/>
+					</import>
+				</vfs>
+				<default-policy root="/" writeable="yes"/>
+			</config>
+			<route>
+				<service name="PD">  <parent/> </service>
+				<service name="ROM"> <parent/> </service>
+				<service name="LOG"> <parent/> </service>
+				<service name="CPU"> <parent/> </service>
+			</route>
+		</start>
 
 		<start name="cbe_manager" caps="500">
 			<resource name="RAM" quantum="10M"/>
-			<config>
-				<vfs> <fs writeable="yes"/> </vfs>
+			<config path="/data/drivers.config">
+				<report saved="yes"/>
+				<save version="1"/>
+				<vfs>
+					<dir name="data">
+						<fs label="data"/>
+					</dir>
+				</vfs>
 			</config>
 			<route>
-				<service name="File_system"> <child name="vfs"/> </service>
-				<service name="Report">      <child name="report_rom"/> </service>
-				<service name="Timer">       <child name="timer"/> </service>
-				<service name="PD">          <parent/> </service>
-				<service name="ROM">         <parent/> </service>
-				<service name="CPU">         <parent/> </service>
-				<service name="LOG">         <parent/> </service>
+				<service name="ROM"         label="clipboard">       <child name="report_rom"/> </service>
+				<service name="ROM"         label="hover">           <child name="report_rom"/> </service>
+				<service name="File_system" label="menu_view -> fonts">           <child name="fonts_fs"/> </service>
+				<service name="File_system" label="data">            <child name="data_fs"/> </service>
+				<service name="File_system" label="fs_query -> "> <child name="cbe_fs"/> </service>
+				<service name="Report">                              <child name="report_rom"/> </service>
+				<service name="Timer">                               <child name="timer"/> </service>
+				<service name="Gui">                                 <child name="nitpicker"/> </service>
+				<service name="PD">                                  <parent/> </service>
+				<service name="ROM">                                 <parent/> </service>
+				<service name="CPU">                                 <parent/> </service>
+				<service name="LOG">                                 <parent/> </service>
 			</route>
 		</start>
 
 	</config>
 }
 
-build { app/sequence app/fs_query app/cbe_manager }
+set fd [open [run_dir]/genode/focus w]
+puts $fd "<focus label=\"cbe_manager -> \"/>"
+close $fd
 
-build_boot_image { sequence fs_query cbe_manager sandbox.lib.so }
-
-append qemu_args " -nographic "
-
-run_genode_until {.*child "test" exited with exit value 0.*\n} 50
-
-grep_output {\[init -> report_rom\].*}
-
-set num_listings [regexp -all {report 'fs_query -> listing'} $output dummy]
-
-# we expect at least four intermediate reports
-if {$num_listings < 4} {
-	puts "Error: Test failed with too few reports generated"
-	exit 1
+build_boot_image {
+	core
+	init
+	timer
+	report_rom
+	nitpicker
+	vfs
+	vfs.lib.so
+	vfs_import.lib.so
+	ld.lib.so
+	libc.lib.so
+	libm.lib.so
+	libpng.lib.so
+	vfs_ttf.lib.so
+	zlib.lib.so
+	fs_query
+	menu_view
+	menu_view_styles.tar
+	cbe_manager
+	sandbox.lib.so
+	pointer
 }
 
-#
-# We cannot reliably compare the full output because some file operations
-# may trigger one or two reports depending on the timing of signal delivery.
-# However, we can at least check the last report for validity.
-#
-regsub {.*report 'fs_query -> listing'} $output {} output
-
-compare_output_to {
-[init -> report_rom]   <listing>
-[init -> report_rom]   	<dir path="/fs/items">
-[init -> report_rom]   		<file name="4" writeable="yes">fourth</file>
-[init -> report_rom]   		<file name="1" writeable="yes">first</file>
-[init -> report_rom]   		<file name="3" writeable="yes">updated
-[init -> report_rom]   </file>
-[init -> report_rom]   	</dir>
-[init -> report_rom]   </listing>
-}
+run_genode_until forever
