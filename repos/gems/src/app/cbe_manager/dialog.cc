@@ -17,18 +17,17 @@
 using namespace Cbe_manager;
 
 
-enum {
-	CODEPOINT_BACKSPACE = 8,      CODEPOINT_NEWLINE  = 10,
-	CODEPOINT_UP        = 0xf700, CODEPOINT_DOWN     = 0xf701,
-	CODEPOINT_LEFT      = 0xf702, CODEPOINT_RIGHT    = 0xf703,
-	CODEPOINT_HOME      = 0xf729, CODEPOINT_INSERT   = 0xf727,
-	CODEPOINT_DELETE    = 0xf728, CODEPOINT_END      = 0xf72b,
-	CODEPOINT_PAGEUP    = 0xf72c, CODEPOINT_PAGEDOWN = 0xf72d,
-};
+enum { CODEPOINT_BACKSPACE = 8 };
 
 
-template <typename T>
-static void swap(T &v1, T &v2) { auto tmp = v1; v1 = v2; v2 = tmp; };
+static bool codepoint_printable(Codepoint code)
+{
+	if (!code.valid()) {
+		return false;
+	}
+	return code.value >= 0x20 &&
+	       code.value < 0xf000;
+}
 
 
 void Dialog::produce_xml(Xml_generator &xml)
@@ -110,23 +109,6 @@ void Dialog::produce_xml(Xml_generator &xml)
 }
 
 
-void Dialog::_insert_printable(Codepoint)
-{
-}
-
-
-void Dialog::_move_characters(Line &from, Line &to)
-{
-	/* move all characters of line 'from' to the end of line 'to' */
-	Line::Index const first { 0 };
-	while (from.exists(first)) {
-		from.apply(first, [&] (Codepoint &code) {
-			to.append(code); });
-		from.destruct(first);
-	}
-}
-
-
 void Dialog::handle_input_event(Input::Event const &event)
 {
 	bool update_dialog { false };
@@ -165,7 +147,7 @@ void Dialog::handle_input_event(Input::Event const &event)
 
 				if (_init_ta_setg_select == Init_ta_settings_select::PWD) {
 
-					if (_printable(code)) {
+					if (codepoint_printable(code)) {
 
 						_init_ta_setg_passphrase.append_character(code);
 						log(String<512>(_init_ta_setg_passphrase));
@@ -196,7 +178,7 @@ void Dialog::handle_input_event(Input::Event const &event)
 	}
 
 	if (update_dialog)
-		rom_session.trigger_update();
+		_rom_session.trigger_update();
 }
 
 
@@ -250,32 +232,15 @@ void Dialog::handle_hover(Xml_node const &node_0)
 	}
 
 	if (rom_session_trigger_update) {
-		rom_session.trigger_update();
+		_rom_session.trigger_update();
 	}
 }
 
 
-Dialog::Dialog(Entrypoint &ep, Ram_allocator &ram, Region_map &rm,
-               Allocator &alloc)
+Dialog::Dialog(Entrypoint    &ep,
+               Ram_allocator &ram,
+               Region_map    &rm)
 :
-	Xml_producer("dialog"),
-	rom_session(ep, ram, rm, *this),
-	_alloc(alloc)
-{
-	clear();
-}
-
-
-void Dialog::clear()
-{
-}
-
-
-void Dialog::insert_at_cursor_position(Codepoint)
-{
-}
-
-
-void Dialog::gen_clipboard_content(Xml_generator &) const
-{
-}
+	Xml_producer { "dialog" },
+	_rom_session { ep, ram, rm, *this }
+{ }
