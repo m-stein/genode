@@ -36,8 +36,6 @@ struct Cbe_manager::Blind_passphrase
 	virtual ~Blind_passphrase() { }
 
 	void print(Output &out) const { print_bullets(out); }
-
-	virtual bool suitable() const = 0;
 };
 
 
@@ -123,7 +121,15 @@ struct Cbe_manager::Passphrase : Blind_passphrase
 				Genode::print(out, bullet_utf8);
 		}
 
-		bool suitable() const override { return _length >= 8; }
+		bool suitable() const
+		{
+			return _length >= 8;
+		}
+
+		char const *not_suitable_text() const
+		{
+			return " Must be at least 8 characters! ";
+		}
 
 		unsigned length() const { return _length; }
 };

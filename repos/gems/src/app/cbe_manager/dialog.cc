@@ -79,23 +79,37 @@ void Dialog::produce_xml(Xml_generator &xml)
 							});
 						});
 
-						xml.node("button", [&] () {
-							xml.attribute("name", "ok");
-							if (_init_ta_setg_select == Init_ta_settings_select::OK) {
-								log("selected ok");
-								xml.attribute("selected", "yes");
-							}
-							if (_init_ta_setg_hover == Init_ta_settings_hover::OK) {
-								log("hovered ok");
-								xml.attribute("hovered", "yes");
-							}
-							xml.node("float", [&] () {
-								xml.node("label", [&] () {
-									xml.attribute("font", "monospace/regular");
-									xml.attribute("text", " Start ");
+						if (_init_ta_setg_passphrase.suitable()) {
+
+							xml.node("button", [&] () {
+								xml.attribute("name", "ok");
+								if (_init_ta_setg_select == Init_ta_settings_select::OK) {
+									log("selected ok");
+									xml.attribute("selected", "yes");
+								}
+								if (_init_ta_setg_hover == Init_ta_settings_hover::OK) {
+									log("hovered ok");
+									xml.attribute("hovered", "yes");
+								}
+								xml.node("float", [&] () {
+									xml.node("label", [&] () {
+										xml.attribute("font", "monospace/regular");
+										xml.attribute("text", " Start ");
+									});
 								});
 							});
-						});
+
+						} else {
+
+							xml.node("float", [&] () {
+								xml.attribute("name", "2");
+								xml.attribute("west",  "yes");
+								xml.node("label", [&] () {
+									xml.attribute("font", "monospace/regular");
+									xml.attribute("text", _init_ta_setg_passphrase.not_suitable_text());
+								});
+							});
+						}
 					});
 				});
 			});
