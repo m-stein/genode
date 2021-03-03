@@ -62,7 +62,7 @@ class Cbe_manager::Main
 		Rom_service                            _rom_service               { _sandbox, *this };
 		Report_service                         _report_service            { _sandbox, *this };
 		Xml_report_handler                     _hover_handler             { *this, &Main::_handle_hover };
-		Dialog                                 _dialog                    { _env.ep(), _env.ram(), _env.rm(), _heap };
+		Dialog                                 _dialog                    { _env.ep(), _env.ram(), _env.rm() };
 		Constructible<Watch_handler<Main>>     _watch_handler             { };
 		Constructible<Expanding_reporter>      _clipboard_reporter        { };
 		Constructible<Attached_rom_dataspace>  _clipboard_rom             { };
@@ -186,25 +186,8 @@ class Cbe_manager::Main
 			return !_watch_handler.constructed();
 		}
 
-		void _load()
-		{
-			struct Max_line_len_exceeded : Exception { };
-
-			try {
-				_dialog.clear();
-				_dialog.append_newline();
-			}
-			catch (...) {
-				warning("failed to load file ", _path());
-				_dialog.clear();
-			}
-
-			_dialog.rom_session.trigger_update();
-		}
-
 		void _handle_watch()
 		{
-			_load();
 		}
 
 		void _handle_config()
@@ -213,11 +196,7 @@ class Cbe_manager::Main
 
 			Xml_node const config = _config.xml();
 
-			_dialog.max_lines(1);
-
 			_watch(config.attribute_value("watch", false));
-
-			_dialog.editable(_editable());
 
 			_initial_config = false;
 		}
@@ -241,7 +220,7 @@ class Cbe_manager::Main
 			_rom_service.for_each_requested_session([&] (Rom_service::Request &request) {
 
 				if (request.label == "menu_view -> dialog")
-					request.deliver_session(_dialog.rom_session);
+					request.deliver_session(_dialog.rom_session());
 				else
 					request.deny();
 			});
@@ -346,8 +325,6 @@ class Cbe_manager::Main
 		:
 			_env(env)
 		{
-			_load();
-
 			_config.sigh(_config_handler);
 			_handle_config();
 			_update_sandbox_config();
