@@ -39,7 +39,7 @@ class Cbe_manager::Dialog : private Dynamic_rom_session::Xml_producer
 {
 	private:
 
-		enum class Window_type
+		enum class State
 		{
 			INIT_TRUST_ANCHOR_SETTINGS,
 			INIT_TRUST_ANCHOR_PROGRESS,
@@ -63,7 +63,7 @@ class Cbe_manager::Dialog : private Dynamic_rom_session::Xml_producer
 		};
 
 		Dynamic_rom_session     _rom_session;
-		Window_type             _window_type             { Window_type::INIT_TRUST_ANCHOR_SETTINGS };
+		State                   _state                   { State::INIT_TRUST_ANCHOR_SETTINGS };
 		Passphrase              _init_ta_setg_passphrase { };
 		Init_ta_settings_hover  _init_ta_setg_hover      { Init_ta_settings_hover::NONE };
 		Init_ta_settings_select _init_ta_setg_select     { Init_ta_settings_hover::NONE };

@@ -32,8 +32,8 @@ static bool codepoint_printable(Codepoint code)
 
 void Dialog::produce_xml(Xml_generator &xml)
 {
-	switch (_window_type) {
-	case Window_type::INIT_TRUST_ANCHOR_SETTINGS:
+	switch (_state) {
+	case State::INIT_TRUST_ANCHOR_SETTINGS:
 	{
 		xml.node("frame", [&] () {
 			xml.node("vbox", [&] () {
@@ -67,7 +67,7 @@ void Dialog::produce_xml(Xml_generator &xml)
 									xml.attribute("font", "monospace/regular");
 									xml.attribute(
 										"text",
-										String<_init_ta_setg_passphrase.MAX_LENGTH + 3>(
+										String<_init_ta_setg_passphrase.MAX_LENGTH * 3 + 2>(
 											" ", *static_cast<Blind_passphrase*>(&_init_ta_setg_passphrase), " "));
 
 									if (_init_ta_setg_select == Init_ta_settings_select::PWD) {
@@ -113,8 +113,8 @@ void Dialog::handle_input_event(Input::Event const &event)
 {
 	bool update_dialog { false };
 
-	switch (_window_type) {
-	case Window_type::INIT_TRUST_ANCHOR_SETTINGS:
+	switch (_state) {
+	case State::INIT_TRUST_ANCHOR_SETTINGS:
 
 		event.handle_press([&] (Input::Keycode key, Codepoint code) {
 
@@ -186,8 +186,8 @@ void Dialog::handle_hover(Xml_node const &node_0)
 {
 	bool rom_session_trigger_update { false };
 
-	switch (_window_type) {
-	case Window_type::INIT_TRUST_ANCHOR_SETTINGS:
+	switch (_state) {
+	case State::INIT_TRUST_ANCHOR_SETTINGS:
 	{
 		Init_ta_settings_hover const prev_hover { _init_ta_setg_hover };
 		Init_ta_settings_hover       next_hover { Init_ta_settings_hover::NONE };
