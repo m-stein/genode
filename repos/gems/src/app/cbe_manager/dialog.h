@@ -66,7 +66,7 @@ class Cbe_manager::Dialog : private Dynamic_rom_session::Xml_producer
 		State                   _state                   { State::INIT_TRUST_ANCHOR_SETTINGS };
 		Passphrase              _init_ta_setg_passphrase { };
 		Init_ta_settings_hover  _init_ta_setg_hover      { Init_ta_settings_hover::NONE };
-		Init_ta_settings_select _init_ta_setg_select     { Init_ta_settings_hover::NONE };
+		Init_ta_settings_select _init_ta_setg_select     { Init_ta_settings_hover::PWD };
 
 
 		/***************************************
