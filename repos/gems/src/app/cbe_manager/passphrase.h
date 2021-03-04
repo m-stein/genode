@@ -24,22 +24,24 @@
 
 namespace Cbe_manager {
 
-	struct Blind_passphrase;
-	struct Passphrase;
+	class Blind_passphrase;
+	class Passphrase;
 }
 
 
-struct Cbe_manager::Blind_passphrase
+class Cbe_manager::Blind_passphrase
 {
-	virtual void print_bullets(Output &) const = 0;
+	public:
 
-	virtual ~Blind_passphrase() { }
+		virtual void print_bullets(Output &) const = 0;
 
-	void print(Output &out) const { print_bullets(out); }
+		virtual ~Blind_passphrase() { }
+
+		void print(Output &out) const { print_bullets(out); }
 };
 
 
-struct Cbe_manager::Passphrase : Blind_passphrase
+class Cbe_manager::Passphrase : Blind_passphrase
 {
 	public:
 
@@ -128,10 +130,12 @@ struct Cbe_manager::Passphrase : Blind_passphrase
 
 		char const *not_suitable_text() const
 		{
-			return " Must be at least 8 characters! ";
+			return " Must have at least 8 characters! ";
 		}
 
 		unsigned length() const { return _length; }
+
+		Blind_passphrase &blind() { return *this; }
 };
 
 #endif /* _PASSPHRASE_H_ */
