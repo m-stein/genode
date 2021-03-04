@@ -1,0 +1,124 @@
+#
+# See os/src/test/nic_router_dhcp/README for a documentation.
+#
+
+create_boot_directory
+
+import_from_depot [depot_user]/src/[base_src]
+
+set build_components {
+
+	init
+	server/dynamic_rom
+	server/nic_router
+}
+
+build $build_components
+
+append config {
+
+<config>
+
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="IRQ"/>
+		<service name="IO_MEM"/>
+		<service name="IO_PORT"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="LOG"/>
+	</parent-provides>
+
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+	<default caps="200"/>
+
+	<start name="timer">
+		<resource name="RAM" quantum="1M"/>
+		<provides><service name="Timer"/></provides>
+	</start>
+
+	<start name="dynamic_rom">
+		<resource name="RAM" quantum="4M"/>
+		<provides><service name="ROM"/> </provides>
+		<config verbose="yes">
+			<rom name="nic_router_1.config">
+				<inline>
+
+					<config>
+						<policy label="nic_router_2 -> " domain="downlink"/>
+						<domain name="downlink" interface="10.0.1.1/24">
+							<dhcp-server ip_first="10.0.1.20"
+							             ip_last="10.0.1.20"/>
+						</domain>
+
+					</config>
+
+				</inline>
+				<sleep milliseconds="3000"/>
+				<inline>
+
+					<config>
+						<policy label="nic_router_2 -> " domain="downlink"/>
+						<domain name="downlink" interface="10.0.1.2/24">
+							<dhcp-server ip_first="10.0.1.20"
+							             ip_last="10.0.1.20"/>
+						</domain>
+					</config>
+
+				</inline>
+				<sleep milliseconds="3000"/>
+			</rom>
+		</config>
+	</start>
+
+	<start name="nic_router_1">
+		<binary name="nic_router"/>
+		<resource name="RAM" quantum="10M"/>
+		<provides>
+			<service name="Nic"/>
+			<service name="Uplink"/>
+		</provides>
+		<route>
+			<service name="ROM" label="config">
+				<child name="dynamic_rom" label="nic_router_1.config"/>
+			</service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="nic_router_2">
+		<binary name="nic_router"/>
+		<resource name="RAM" quantum="10M"/>
+		<provides>
+			<service name="Nic"/>
+			<service name="Uplink"/>
+		</provides>
+		<config verbose_domain_state="yes">
+			<uplink domain="uplink"/>
+			<domain name="uplink"/>
+		</config>
+		<route>
+			<service name="Nic"> <child name="nic_router_1"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+</config>}
+
+install_config $config
+
+set boot_modules {
+	init
+	dynamic_rom
+	nic_router
+}
+
+build_boot_image $boot_modules
+
+append qemu_args " -nographic "
+append_qemu_nic_args
+
+run_genode_until forever
