@@ -37,6 +37,7 @@ namespace Cbe_manager {
 	class Main;
 }
 
+
 class Cbe_manager::Main
 :
 	private Sandbox::Local_service_base::Wakeup,
@@ -46,18 +47,18 @@ class Cbe_manager::Main
 {
 	private:
 
+		enum { STATE_STRING_CAPACITY = 2 };
+
 		using Report_service     = Sandbox::Local_service<Report::Session_component>;
 		using Gui_service        = Sandbox::Local_service<Gui::Session_component>;
 		using Rom_service        = Sandbox::Local_service<Dynamic_rom_session>;
 		using Xml_report_handler = Report::Session_component::Xml_handler<Main>;
+		using State_string       = String<STATE_STRING_CAPACITY>;
 
 		enum class State
 		{
+			INVALID,
 			INIT_TRUST_ANCHOR_SETTINGS,
-			INIT_TRUST_ANCHOR_PROGRESS,
-			INIT_CBE_SETTINGS,
-			INIT_CBE_PROGRESS,
-			CBE_CONTROLS
 		};
 
 		enum class Init_ta_settings_hover
@@ -75,7 +76,7 @@ class Cbe_manager::Main
 		};
 
 		Env                                   &_env;
-		State                                  _state                     { State::INIT_TRUST_ANCHOR_SETTINGS };
+		State                                  _state                     { State::INVALID };
 		Heap                                   _heap                      { _env.ram(), _env.rm() };
 		Attached_rom_dataspace                 _config                    { _env, "config" };
 		Root_directory                         _vfs                       { _env, _heap, _config.xml().sub_node("vfs") };
@@ -98,55 +99,23 @@ class Cbe_manager::Main
 		Init_ta_settings_hover                 _init_ta_setg_hover        { Init_ta_settings_hover::NONE };
 		Init_ta_settings_select                _init_ta_setg_select       { Init_ta_settings_hover::PASSPHRASE_INPUT };
 
-		void _handle_hover(Xml_node const &node);
+		static State _state_from_string(State_string const &str);
 
-		void _handle_fs_query_listing(Xml_node const &node)
-		{
-			Genode::log("----- fs_query -> listing -----");
-			Genode::log(node);
-			Genode::log("-------------------------------");
-		}
+		static State_string _state_to_string(State state);
+
+		static State _state_from_fs_query_listing(Xml_node const &node);
+
+		void _update_state_file(State state);
 
 		void _generate_sandbox_config(Xml_generator &xml) const;
 
-		Directory::Path _path() const
-		{
-			return _config.xml().attribute_value("path", Directory::Path());
-		}
+		void _handle_fs_query_listing(Xml_node const &node);
 
-		void _watch(bool enabled)
-		{
-			_watch_handler.conditional(enabled, _vfs, _path(), *this, &Main::_handle_watch);
-		}
+		void _handle_hover(Xml_node const &node);
 
-		bool _editable() const
-		{
-			return !_watch_handler.constructed();
-		}
+		void _handle_config();
 
-		void _handle_watch()
-		{
-		}
-
-		void _handle_config()
-		{
-			_config.update();
-
-			Xml_node const config = _config.xml();
-
-			_watch(config.attribute_value("watch", false));
-
-			_initial_config = false;
-		}
-
-		void _update_sandbox_config()
-		{
-			Buffered_xml const config { _heap, "config", [&] (Xml_generator &xml) {
-				_generate_sandbox_config(xml); } };
-
-			config.with_xml_node([&] (Xml_node const &config) {
-				_sandbox.apply_config(config); });
-		}
+		void _update_sandbox_config();
 
 
 		/***************************************************
@@ -181,8 +150,114 @@ class Cbe_manager::Main
 		Main(Env &env);
 };
 
+using namespace Cbe_manager;
 
-Cbe_manager::Main::Main(Env &env)
+
+/***********************
+ ** Cbe_manager::Main **
+ ***********************/
+
+void Main::_handle_config()
+{
+	_config.update();
+	_initial_config = false;
+}
+
+
+void Main::_update_sandbox_config()
+{
+	Buffered_xml const config { _heap, "config", [&] (Xml_generator &xml) {
+		_generate_sandbox_config(xml); } };
+
+	config.with_xml_node([&] (Xml_node const &config) {
+		_sandbox.apply_config(config); });
+}
+
+
+Main::State Main::_state_from_string(State_string const &str)
+{
+	if (str == "1") { return State::INIT_TRUST_ANCHOR_SETTINGS; }
+	class Invalid_state_string { };
+	throw Invalid_state_string { };
+}
+
+
+Main::State_string Main::_state_to_string(State state)
+{
+	if (state == State::INIT_TRUST_ANCHOR_SETTINGS) { return "1"; }
+	class Invalid_state { };
+	throw Invalid_state { };
+}
+
+
+Main::State Main::_state_from_fs_query_listing(Xml_node const &node)
+{
+	State state { State::INVALID };
+	node.with_sub_node("dir", [&] (Xml_node const &node_0) {
+		node_0.with_sub_node("file", [&] (Xml_node const &node_1) {
+			if (node_1.attribute_value("name", String<6>()) == "state") {
+				state = _state_from_string(
+					node_1.decoded_content<State_string>());
+			}
+		});
+	});
+	return state;
+}
+
+
+void Main::_update_state_file(State state)
+{
+	bool write_error = false;
+	try {
+		New_file new_file(_vfs, Directory::Path("/cbe/state"));
+		auto write = [&] (char const *str)
+		{
+			switch (new_file.append(str, strlen(str))) {
+			case New_file::Append_result::OK:
+
+				break;
+
+			case New_file::Append_result::WRITE_ERROR:
+
+				write_error = true;
+				break;
+			}
+		};
+		Buffered_output<STATE_STRING_CAPACITY, decltype(write)> output(write);
+		print(output, _state_to_string(state));
+	}
+	catch (New_file::Create_failed) {
+
+		class Create_state_file_failed { };
+		throw Create_state_file_failed { };
+	}
+	if (write_error) {
+
+		class Write_state_file_failed { };
+		throw Write_state_file_failed { };
+	}
+}
+
+
+void Main::_handle_fs_query_listing(Xml_node const &node)
+{
+	State const prev_state { _state };
+	State       next_state { _state_from_fs_query_listing(node) };
+
+	if (next_state == State::INVALID) {
+
+		_update_state_file(State::INIT_TRUST_ANCHOR_SETTINGS);
+	}
+	if (next_state != prev_state) {
+
+		_state = next_state;
+		_update_sandbox_config();
+		_dialog.trigger_update();
+	}
+}
+
+
+Main::Main(Env &env)
 :
 	Xml_producer { "dialog" },
 	_env         { env }
@@ -224,8 +299,22 @@ void Cbe_manager::Main::handle_sandbox_state()
 void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 {
 	switch (_state) {
+	case State::INVALID:
+
+		xml.node("frame", [&] () {
+
+			xml.node("button", [&] () {
+				xml.attribute("name", "1");
+				xml.node("label", [&] () {
+					xml.attribute("font", "monospace/regular");
+					xml.attribute("text", "Loading...");
+				});
+			});
+		});
+		break;
+
 	case State::INIT_TRUST_ANCHOR_SETTINGS:
-	{
+
 		xml.node("frame", [&] () {
 			xml.node("vbox", [&] () {
 
@@ -303,10 +392,6 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 				});
 			});
 		});
-		break;
-	}
-	default:
-
 		break;
 	}
 }
@@ -595,6 +680,10 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 	}
 }
 
+
+/***********************
+ ** Genode::Component **
+ ***********************/
 
 void Component::construct(Genode::Env &env)
 {
