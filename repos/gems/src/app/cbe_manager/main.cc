@@ -26,10 +26,11 @@
 /* local includes */
 #include <gui_session_component.h>
 #include <report_session_component.h>
-#include <dialog.h>
 #include <new_file.h>
 #include <child_state.h>
 #include <sandbox.h>
+#include <passphrase.h>
+#include <utf8.h>
 
 namespace Cbe_manager {
 
@@ -38,9 +39,10 @@ namespace Cbe_manager {
 
 class Cbe_manager::Main
 :
-	Sandbox::Local_service_base::Wakeup,
-	Sandbox::State_handler,
-	Gui::Input_event_handler
+	private Sandbox::Local_service_base::Wakeup,
+	private Sandbox::State_handler,
+	private Gui::Input_event_handler,
+	private Dynamic_rom_session::Xml_producer
 {
 	private:
 
@@ -49,7 +51,31 @@ class Cbe_manager::Main
 		using Rom_service        = Sandbox::Local_service<Dynamic_rom_session>;
 		using Xml_report_handler = Report::Session_component::Xml_handler<Main>;
 
+		enum class State
+		{
+			INIT_TRUST_ANCHOR_SETTINGS,
+			INIT_TRUST_ANCHOR_PROGRESS,
+			INIT_CBE_SETTINGS,
+			INIT_CBE_PROGRESS,
+			CBE_CONTROLS
+		};
+
+		enum class Init_ta_settings_hover
+		{
+			NONE,
+			PASSPHRASE_INPUT,
+			START_BUTTON
+		};
+
+		enum class Init_ta_settings_select
+		{
+			NONE,
+			PASSPHRASE_INPUT,
+			START_BUTTON
+		};
+
 		Env                                   &_env;
+		State                                  _state                     { State::INIT_TRUST_ANCHOR_SETTINGS };
 		Heap                                   _heap                      { _env.ram(), _env.rm() };
 		Attached_rom_dataspace                 _config                    { _env, "config" };
 		Root_directory                         _vfs                       { _env, _heap, _config.xml().sub_node("vfs") };
@@ -62,21 +88,17 @@ class Cbe_manager::Main
 		Rom_service                            _rom_service               { _sandbox, *this };
 		Report_service                         _report_service            { _sandbox, *this };
 		Xml_report_handler                     _hover_handler             { *this, &Main::_handle_hover };
-		Dialog                                 _dialog                    { _env.ep(), _env.ram(), _env.rm() };
 		Constructible<Watch_handler<Main>>     _watch_handler             { };
 		Constructible<Expanding_reporter>      _clipboard_reporter        { };
 		Constructible<Attached_rom_dataspace>  _clipboard_rom             { };
 		bool                                   _initial_config            { true };
 		Signal_handler<Main>                   _config_handler            { _env.ep(), *this, &Main::_handle_config };
+		Dynamic_rom_session                    _dialog                    { _env.ep(), _env.ram(), _env.rm(), *this };
+		Passphrase                             _init_ta_setg_passphrase   { };
+		Init_ta_settings_hover                 _init_ta_setg_hover        { Init_ta_settings_hover::NONE };
+		Init_ta_settings_select                _init_ta_setg_select       { Init_ta_settings_hover::PASSPHRASE_INPUT };
 
-		void _handle_hover(Xml_node const &node)
-		{
-			if (!node.has_sub_node("dialog"))
-				_dialog.handle_hover(Xml_node("<empty/>"));
-
-			node.with_sub_node("dialog", [&] (Xml_node const &dialog) {
-				_dialog.handle_hover(dialog); });
-		}
+		void _handle_hover(Xml_node const &node);
 
 		void _handle_fs_query_listing(Xml_node const &node)
 		{
@@ -85,91 +107,7 @@ class Cbe_manager::Main
 			Genode::log("-------------------------------");
 		}
 
-		void _generate_sandbox_config(Xml_generator &xml) const
-		{
-			xml.node("report", [&] () {
-				xml.attribute("child_ram",  "yes");
-				xml.attribute("child_caps", "yes");
-				xml.attribute("delay_ms", 20*1000);
-			});
-
-			xml.node("parent-provides", [&] () {
-				service_node(xml, "ROM");
-				service_node(xml, "CPU");
-				service_node(xml, "PD");
-				service_node(xml, "LOG");
-				service_node(xml, "File_system");
-				service_node(xml, "Gui");
-				service_node(xml, "Timer");
-				service_node(xml, "Report");
-			});
-
-			xml.node("start", [&] () {
-
-				_fs_query_child_state.gen_start_node_content(xml);
-				xml.node("config", [&] () {
-					xml.node("vfs", [&] () {
-						xml.node("fs", [&] () {
-							xml.attribute("writeable", "yes");
-						});
-					});
-					xml.node("query", [&] () {
-						xml.attribute("path", "/");
-						xml.attribute("content", "yes");
-					});
-				});
-				xml.node("route", [&] () {
-					route_to_local_service(xml, "Report");
-					route_to_parent_service(xml, "File_system");
-					route_to_parent_service(xml, "PD");
-					route_to_parent_service(xml, "ROM");
-					route_to_parent_service(xml, "CPU");
-					route_to_parent_service(xml, "LOG");
-				});
-			});
-
-			xml.node("start", [&] () {
-				_menu_view_child_state.gen_start_node_content(xml);
-
-				xml.node("config", [&] () {
-					xml.attribute("xpos", "100");
-					xml.attribute("ypos", "50");
-
-					xml.node("report", [&] () {
-						xml.attribute("hover", "yes"); });
-
-					xml.node("libc", [&] () {
-						xml.attribute("stderr", "/dev/log"); });
-
-					xml.node("vfs", [&] () {
-						xml.node("tar", [&] () {
-							xml.attribute("name", "menu_view_styles.tar"); });
-						xml.node("dir", [&] () {
-							xml.attribute("name", "dev");
-							xml.node("log", [&] () { });
-						});
-						xml.node("dir", [&] () {
-							xml.attribute("name", "fonts");
-							xml.node("fs", [&] () {
-								xml.attribute("label", "fonts");
-							});
-						});
-					});
-				});
-
-				xml.node("route", [&] () {
-					route_to_local_service(xml, "ROM", "dialog");
-					route_to_local_service(xml, "Report", "hover");
-					route_to_local_service(xml, "Gui");
-					route_to_parent_service(xml, "File_system", "fonts");
-					route_to_parent_service(xml, "Timer");
-					route_to_parent_service(xml, "PD");
-					route_to_parent_service(xml, "ROM");
-					route_to_parent_service(xml, "CPU");
-					route_to_parent_service(xml, "LOG");
-				});
-			});
-		}
+		void _generate_sandbox_config(Xml_generator &xml) const;
 
 		Directory::Path _path() const
 		{
@@ -215,121 +153,447 @@ class Cbe_manager::Main
 		 ** Sandbox::Local_service_base::Wakeup interface **
 		 ***************************************************/
 
-		void wakeup_local_service() override
-		{
-			_rom_service.for_each_requested_session([&] (Rom_service::Request &request) {
-
-				if (request.label == "menu_view -> dialog")
-					request.deliver_session(_dialog.rom_session());
-				else
-					request.deny();
-			});
-
-			_report_service.for_each_requested_session([&] (Report_service::Request &request) {
-
-				if (request.label == "fs_query -> listing") {
-
-					Report::Session_component &session { *new (_heap)
-						Report::Session_component(
-							_env, _fs_query_listing_handler, _env.ep(),
-							request.resources, "", request.diag) };
-
-					request.deliver_session(session);
-				}
-			});
-
-			_report_service.for_each_requested_session([&] (Report_service::Request &request) {
-
-				if (request.label == "menu_view -> hover") {
-					Report::Session_component &session = *new (_heap)
-						Report::Session_component(_env, _hover_handler,
-						                          _env.ep(),
-						                          request.resources, "", request.diag);
-					request.deliver_session(session);
-				}
-			});
-
-			_report_service.for_each_session_to_close([&] (Report::Session_component &session) {
-
-				destroy(_heap, &session);
-				return Report_service::Close_response::CLOSED;
-			});
-
-			_gui_service.for_each_requested_session([&] (Gui_service::Request &request) {
-
-				Gui::Session_component &session = *new (_heap)
-					Gui::Session_component(_env, *this, _env.ep(),
-					                       request.resources, "", request.diag);
-
-				request.deliver_session(session);
-			});
-
-			_gui_service.for_each_upgraded_session([&] (Gui::Session_component &session,
-			                                            Session::Resources const &amount) {
-				session.upgrade(amount);
-				return Gui_service::Upgrade_response::CONFIRMED;
-			});
-
-			_gui_service.for_each_session_to_close([&] (Gui::Session_component &session) {
-
-				destroy(_heap, &session);
-				return Gui_service::Close_response::CLOSED;
-			});
-		}
+		void wakeup_local_service() override;
 
 
 		/****************************
 		 ** Sandbox::State_handler **
 		 ****************************/
 
-		void handle_sandbox_state() override
-		{
-			/* obtain current sandbox state */
-			Buffered_xml state(_heap, "state", [&] (Xml_generator &xml) {
-
-				_sandbox.generate_state_report(xml);
-			});
-			bool reconfiguration_needed = false;
-			state.with_xml_node([&] (Xml_node state) {
-
-				state.for_each_sub_node("child", [&] (Xml_node const &child) {
-
-					if (_fs_query_child_state.apply_child_state_report(child))
-					{
-						reconfiguration_needed = true;
-					}
-					if (_menu_view_child_state.apply_child_state_report(child))
-					{
-						reconfiguration_needed = true;
-					}
-				});
-			});
-			if (reconfiguration_needed) {
-				_update_sandbox_config();
-			}
-		}
+		void handle_sandbox_state() override;
 
 
 		/****************************************
 		 ** Gui::Input_event_handler interface **
 		 ****************************************/
 
-		void handle_input_event(Input::Event const &event) override
-		{
-			_dialog.handle_input_event(event);
-		}
+		void handle_input_event(Input::Event const &event) override;
+
+
+		/***************************************
+		 ** Dynamic_rom_session::Xml_producer **
+		 ***************************************/
+
+		void produce_xml(Xml_generator &xml) override;
 
 	public:
 
-		Main(Env &env)
-		:
-			_env(env)
-		{
-			_config.sigh(_config_handler);
-			_handle_config();
-			_update_sandbox_config();
-		}
+		Main(Env &env);
 };
+
+
+Cbe_manager::Main::Main(Env &env)
+:
+	Xml_producer { "dialog" },
+	_env         { env }
+{
+	_config.sigh(_config_handler);
+	_handle_config();
+	_update_sandbox_config();
+}
+
+
+void Cbe_manager::Main::handle_sandbox_state()
+{
+	/* obtain current sandbox state */
+	Buffered_xml state(_heap, "state", [&] (Xml_generator &xml) {
+
+		_sandbox.generate_state_report(xml);
+	});
+	bool reconfiguration_needed = false;
+	state.with_xml_node([&] (Xml_node state) {
+
+		state.for_each_sub_node("child", [&] (Xml_node const &child) {
+
+			if (_fs_query_child_state.apply_child_state_report(child))
+			{
+				reconfiguration_needed = true;
+			}
+			if (_menu_view_child_state.apply_child_state_report(child))
+			{
+				reconfiguration_needed = true;
+			}
+		});
+	});
+	if (reconfiguration_needed) {
+		_update_sandbox_config();
+	}
+}
+
+
+void Cbe_manager::Main::produce_xml(Xml_generator &xml)
+{
+	switch (_state) {
+	case State::INIT_TRUST_ANCHOR_SETTINGS:
+	{
+		xml.node("frame", [&] () {
+			xml.node("vbox", [&] () {
+
+				xml.node("button", [&] () {
+					xml.attribute("name", "1");
+					xml.node("label", [&] () {
+						xml.attribute("font", "monospace/regular");
+						xml.attribute("text", "Trust anchor initialization");
+					});
+				});
+
+				xml.node("frame", [&] () {
+					xml.attribute("name", "2");
+					xml.node("vbox", [&] () {
+
+						xml.node("float", [&] () {
+							xml.attribute("name", "1");
+							xml.attribute("west",  "yes");
+							xml.node("label", [&] () {
+								xml.attribute("font", "monospace/regular");
+								xml.attribute("text", " Enter passphrase: ");
+							});
+						});
+
+						xml.node("frame", [&] () {
+							xml.attribute("name", "pw");
+							xml.node("float", [&] () {
+								xml.attribute("west", "yes");
+								xml.node("label", [&] () {
+									xml.attribute("font", "monospace/regular");
+									xml.attribute(
+										"text",
+										String<_init_ta_setg_passphrase.MAX_LENGTH * 3 + 2>(
+											" ", _init_ta_setg_passphrase.blind(), " "));
+
+									if (_init_ta_setg_select == Init_ta_settings_select::PASSPHRASE_INPUT) {
+										xml.node("cursor", [&] () {
+											xml.attribute("at", _init_ta_setg_passphrase.length() + 1);
+										});
+									}
+								});
+							});
+						});
+
+						if (_init_ta_setg_passphrase.suitable()) {
+
+							xml.node("button", [&] () {
+								xml.attribute("name", "ok");
+								if (_init_ta_setg_select == Init_ta_settings_select::START_BUTTON) {
+									xml.attribute("selected", "yes");
+								}
+								if (_init_ta_setg_hover == Init_ta_settings_hover::START_BUTTON) {
+									xml.attribute("hovered", "yes");
+								}
+								xml.node("float", [&] () {
+									xml.node("label", [&] () {
+										xml.attribute("font", "monospace/regular");
+										xml.attribute("text", " Start ");
+									});
+								});
+							});
+
+						} else {
+
+							xml.node("float", [&] () {
+								xml.attribute("name", "2");
+								xml.attribute("west",  "yes");
+								xml.node("label", [&] () {
+									xml.attribute("font", "monospace/regular");
+									xml.attribute("text", _init_ta_setg_passphrase.not_suitable_text());
+								});
+							});
+						}
+					});
+				});
+			});
+		});
+		break;
+	}
+	default:
+
+		break;
+	}
+}
+
+
+void Cbe_manager::Main::wakeup_local_service()
+{
+	_rom_service.for_each_requested_session([&] (Rom_service::Request &request) {
+
+		if (request.label == "menu_view -> dialog")
+			request.deliver_session(_dialog);
+		else
+			request.deny();
+	});
+
+	_report_service.for_each_requested_session([&] (Report_service::Request &request) {
+
+		if (request.label == "fs_query -> listing") {
+
+			Report::Session_component &session { *new (_heap)
+				Report::Session_component(
+					_env, _fs_query_listing_handler, _env.ep(),
+					request.resources, "", request.diag) };
+
+			request.deliver_session(session);
+		}
+	});
+
+	_report_service.for_each_requested_session([&] (Report_service::Request &request) {
+
+		if (request.label == "menu_view -> hover") {
+			Report::Session_component &session = *new (_heap)
+				Report::Session_component(_env, _hover_handler,
+				                          _env.ep(),
+				                          request.resources, "", request.diag);
+			request.deliver_session(session);
+		}
+	});
+
+	_report_service.for_each_session_to_close([&] (Report::Session_component &session) {
+
+		destroy(_heap, &session);
+		return Report_service::Close_response::CLOSED;
+	});
+
+	_gui_service.for_each_requested_session([&] (Gui_service::Request &request) {
+
+		Gui::Session_component &session = *new (_heap)
+			Gui::Session_component(_env, *this, _env.ep(),
+			                       request.resources, "", request.diag);
+
+		request.deliver_session(session);
+	});
+
+	_gui_service.for_each_upgraded_session([&] (Gui::Session_component &session,
+	                                            Session::Resources const &amount) {
+		session.upgrade(amount);
+		return Gui_service::Upgrade_response::CONFIRMED;
+	});
+
+	_gui_service.for_each_session_to_close([&] (Gui::Session_component &session) {
+
+		destroy(_heap, &session);
+		return Gui_service::Close_response::CLOSED;
+	});
+}
+
+
+void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
+{
+	xml.node("report", [&] () {
+		xml.attribute("child_ram",  "yes");
+		xml.attribute("child_caps", "yes");
+		xml.attribute("delay_ms", 20*1000);
+	});
+
+	xml.node("parent-provides", [&] () {
+		service_node(xml, "ROM");
+		service_node(xml, "CPU");
+		service_node(xml, "PD");
+		service_node(xml, "LOG");
+		service_node(xml, "File_system");
+		service_node(xml, "Gui");
+		service_node(xml, "Timer");
+		service_node(xml, "Report");
+	});
+
+	xml.node("start", [&] () {
+
+		_fs_query_child_state.gen_start_node_content(xml);
+		xml.node("config", [&] () {
+			xml.node("vfs", [&] () {
+				xml.node("fs", [&] () {
+					xml.attribute("writeable", "yes");
+				});
+			});
+			xml.node("query", [&] () {
+				xml.attribute("path", "/");
+				xml.attribute("content", "yes");
+			});
+		});
+		xml.node("route", [&] () {
+			route_to_local_service(xml, "Report");
+			route_to_parent_service(xml, "File_system");
+			route_to_parent_service(xml, "PD");
+			route_to_parent_service(xml, "ROM");
+			route_to_parent_service(xml, "CPU");
+			route_to_parent_service(xml, "LOG");
+		});
+	});
+
+	xml.node("start", [&] () {
+		_menu_view_child_state.gen_start_node_content(xml);
+
+		xml.node("config", [&] () {
+			xml.attribute("xpos", "100");
+			xml.attribute("ypos", "50");
+
+			xml.node("report", [&] () {
+				xml.attribute("hover", "yes"); });
+
+			xml.node("libc", [&] () {
+				xml.attribute("stderr", "/dev/log"); });
+
+			xml.node("vfs", [&] () {
+				xml.node("tar", [&] () {
+					xml.attribute("name", "menu_view_styles.tar"); });
+				xml.node("dir", [&] () {
+					xml.attribute("name", "dev");
+					xml.node("log", [&] () { });
+				});
+				xml.node("dir", [&] () {
+					xml.attribute("name", "fonts");
+					xml.node("fs", [&] () {
+						xml.attribute("label", "fonts");
+					});
+				});
+			});
+		});
+
+		xml.node("route", [&] () {
+			route_to_local_service(xml, "ROM", "dialog");
+			route_to_local_service(xml, "Report", "hover");
+			route_to_local_service(xml, "Gui");
+			route_to_parent_service(xml, "File_system", "fonts");
+			route_to_parent_service(xml, "Timer");
+			route_to_parent_service(xml, "PD");
+			route_to_parent_service(xml, "ROM");
+			route_to_parent_service(xml, "CPU");
+			route_to_parent_service(xml, "LOG");
+		});
+	});
+}
+
+
+void Cbe_manager::Main::handle_input_event(Input::Event const &event)
+{
+	bool update_dialog { false };
+
+	switch (_state) {
+	case State::INIT_TRUST_ANCHOR_SETTINGS:
+
+		event.handle_press([&] (Input::Keycode key, Codepoint code) {
+
+			if (key == Input::BTN_LEFT) {
+
+				Init_ta_settings_select const prev_select { _init_ta_setg_select };
+				Init_ta_settings_select       next_select { Init_ta_settings_select::NONE };
+
+				switch (_init_ta_setg_hover) {
+				case Init_ta_settings_hover::START_BUTTON:
+
+					next_select = Init_ta_settings_select::START_BUTTON;
+					break;
+
+				case Init_ta_settings_hover::PASSPHRASE_INPUT:
+
+					next_select = Init_ta_settings_select::PASSPHRASE_INPUT;
+					break;
+
+				case Init_ta_settings_hover::NONE:
+
+					next_select = Init_ta_settings_select::NONE;
+					break;
+				}
+				if (next_select != prev_select) {
+
+					_init_ta_setg_select = next_select;
+					update_dialog = true;
+				}
+
+			} else if (key == Input::KEY_ENTER) {
+
+				if (_init_ta_setg_select != Init_ta_settings_select::START_BUTTON) {
+
+					_init_ta_setg_select = Init_ta_settings_select::START_BUTTON;
+					update_dialog = true;
+				}
+
+			} else {
+
+				if (_init_ta_setg_select == Init_ta_settings_select::PASSPHRASE_INPUT) {
+
+					if (codepoint_printable(code)) {
+
+						_init_ta_setg_passphrase.append_character(code);
+						update_dialog = true;
+
+					} else if (code.value == CODEPOINT_BACKSPACE) {
+
+						_init_ta_setg_passphrase.remove_last_character();
+						update_dialog = true;
+					}
+				}
+			}
+		});
+		event.handle_release([&] (Input::Keycode key) {
+
+			if (key == Input::BTN_LEFT ||
+			    key == Input::KEY_ENTER) {
+
+				if (_init_ta_setg_select == Init_ta_settings_select::START_BUTTON) {
+
+					_init_ta_setg_select = Init_ta_settings_select::NONE;
+					update_dialog = true;
+				}
+			}
+		});
+		break;
+
+	default:
+
+		break;
+	}
+	if (update_dialog) {
+		_dialog.trigger_update();
+	}
+}
+
+
+void Cbe_manager::Main::_handle_hover(Xml_node const &node)
+{
+	bool update_dialog { false };
+
+	switch (_state) {
+	case State::INIT_TRUST_ANCHOR_SETTINGS:
+	{
+		Init_ta_settings_hover const prev_hover { _init_ta_setg_hover };
+		Init_ta_settings_hover       next_hover { Init_ta_settings_hover::NONE };
+
+		node.with_sub_node("dialog", [&] (Xml_node const &node_0) {
+			node_0.with_sub_node("frame", [&] (Xml_node const &node_1) {
+				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
+					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
+						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
+
+							node_4.with_sub_node("button", [&] (Xml_node const &node_5) {
+								if (node_5.attribute_value("name", String<3>()) == "ok") {
+									next_hover = Init_ta_settings_hover::START_BUTTON;
+								}
+							});
+
+							node_4.with_sub_node("frame", [&] (Xml_node const &node_5) {
+								if (node_5.attribute_value("name", String<4>()) == "pw") {
+									next_hover = Init_ta_settings_hover::PASSPHRASE_INPUT;
+								}
+							});
+						});
+					});
+				});
+			});
+		});
+		if (next_hover != prev_hover) {
+
+			_init_ta_setg_hover = next_hover;
+			update_dialog = true;
+		}
+		break;
+	}
+	default:
+
+		break;
+	}
+	if (update_dialog) {
+		_dialog.trigger_update();
+	}
+}
 
 
 void Component::construct(Genode::Env &env)
