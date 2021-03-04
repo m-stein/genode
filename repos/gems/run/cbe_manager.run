@@ -206,28 +206,28 @@ install_config {
 
 		<start name="cbe_manager" caps="500">
 			<resource name="RAM" quantum="10M"/>
-			<config path="/data/drivers.config">
+			<config>
 				<report saved="yes"/>
 				<save version="1"/>
 				<vfs>
-					<dir name="data">
-						<fs label="data"/>
+					<dir name="cbe">
+						<fs label="cbe"/>
 					</dir>
 				</vfs>
 			</config>
 			<route>
-				<service name="ROM"         label="clipboard">       <child name="report_rom"/> </service>
-				<service name="ROM"         label="hover">           <child name="report_rom"/> </service>
-				<service name="File_system" label="menu_view -> fonts">           <child name="fonts_fs"/> </service>
-				<service name="File_system" label="data">            <child name="data_fs"/> </service>
-				<service name="File_system" label="fs_query -> "> <child name="cbe_fs"/> </service>
-				<service name="Report">                              <child name="report_rom"/> </service>
-				<service name="Timer">                               <child name="timer"/> </service>
-				<service name="Gui">                                 <child name="nitpicker"/> </service>
-				<service name="PD">                                  <parent/> </service>
-				<service name="ROM">                                 <parent/> </service>
-				<service name="CPU">                                 <parent/> </service>
-				<service name="LOG">                                 <parent/> </service>
+				<service name="ROM"         label="clipboard">          <child name="report_rom"/> </service>
+				<service name="ROM"         label="hover">              <child name="report_rom"/> </service>
+				<service name="File_system" label="menu_view -> fonts"> <child name="fonts_fs"/> </service>
+				<service name="File_system" label="cbe">                <child name="cbe_fs"/> </service>
+				<service name="File_system" label="fs_query -> ">       <child name="cbe_fs"/> </service>
+				<service name="Report">                                 <child name="report_rom"/> </service>
+				<service name="Timer">                                  <child name="timer"/> </service>
+				<service name="Gui">                                    <child name="nitpicker"/> </service>
+				<service name="PD">                                     <parent/> </service>
+				<service name="ROM">                                    <parent/> </service>
+				<service name="CPU">                                    <parent/> </service>
+				<service name="LOG">                                    <parent/> </service>
 			</route>
 		</start>
 
