@@ -59,6 +59,7 @@ class Cbe_manager::Main
 		{
 			INVALID,
 			INIT_TRUST_ANCHOR_SETTINGS,
+			INIT_TRUST_ANCHOR_IN_PROGRESS,
 		};
 
 		enum class Init_ta_settings_hover
@@ -298,16 +299,19 @@ void Cbe_manager::Main::handle_sandbox_state()
 
 void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 {
+	auto title_min_ex_attr = [] (Xml_generator &xml) {
+		xml.attribute("min_ex", "40");
+	};
 	switch (_state) {
 	case State::INVALID:
 
 		xml.node("frame", [&] () {
 
 			xml.node("button", [&] () {
-				xml.attribute("name", "1");
 				xml.node("label", [&] () {
 					xml.attribute("font", "monospace/regular");
 					xml.attribute("text", "Loading...");
+					title_min_ex_attr(xml);
 				});
 			});
 		});
@@ -323,6 +327,7 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 					xml.node("label", [&] () {
 						xml.attribute("font", "monospace/regular");
 						xml.attribute("text", "Trust anchor initialization");
+						title_min_ex_attr(xml);
 					});
 				});
 
@@ -388,6 +393,35 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 								});
 							});
 						}
+					});
+				});
+			});
+		});
+		break;
+
+	case State::INIT_TRUST_ANCHOR_IN_PROGRESS:
+
+		xml.node("frame", [&] () {
+			xml.node("vbox", [&] () {
+
+				xml.node("button", [&] () {
+					xml.attribute("name", "1");
+					xml.node("label", [&] () {
+						xml.attribute("font", "monospace/regular");
+						xml.attribute("text", "Trust anchor initialization");
+						title_min_ex_attr(xml);
+					});
+				});
+
+				xml.node("frame", [&] () {
+					xml.attribute("name", "2");
+
+					xml.node("float", [&] () {
+						xml.attribute("west",  "yes");
+						xml.node("label", [&] () {
+							xml.attribute("font", "monospace/regular");
+							xml.attribute("text", " In progress... ");
+						});
 					});
 				});
 			});
@@ -550,6 +584,7 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 {
 	bool update_dialog { false };
+	bool update_sandbox_config { false };
 
 	switch (_state) {
 	case State::INIT_TRUST_ANCHOR_SETTINGS:
@@ -616,6 +651,8 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 				if (_init_ta_setg_select == Init_ta_settings_select::START_BUTTON) {
 
 					_init_ta_setg_select = Init_ta_settings_select::NONE;
+					_state = State::INIT_TRUST_ANCHOR_IN_PROGRESS;
+					update_sandbox_config = true;
 					update_dialog = true;
 				}
 			}
@@ -625,6 +662,9 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 	default:
 
 		break;
+	}
+	if (update_sandbox_config) {
+		_update_sandbox_config();
 	}
 	if (update_dialog) {
 		_dialog.trigger_update();
