@@ -533,30 +533,6 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 	});
 
 	xml.node("start", [&] () {
-
-		_fs_query_child_state.gen_start_node_content(xml);
-		xml.node("config", [&] () {
-			xml.node("vfs", [&] () {
-				xml.node("fs", [&] () {
-					xml.attribute("writeable", "yes");
-				});
-			});
-			xml.node("query", [&] () {
-				xml.attribute("path", "/");
-				xml.attribute("content", "yes");
-			});
-		});
-		xml.node("route", [&] () {
-			route_to_local_service(xml, "Report");
-			route_to_parent_service(xml, "File_system");
-			route_to_parent_service(xml, "PD");
-			route_to_parent_service(xml, "ROM");
-			route_to_parent_service(xml, "CPU");
-			route_to_parent_service(xml, "LOG");
-		});
-	});
-
-	xml.node("start", [&] () {
 		_menu_view_child_state.gen_start_node_content(xml);
 
 		xml.node("config", [&] () {
@@ -600,6 +576,31 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 
 	switch (_state) {
 	case State::INVALID:
+
+		xml.node("start", [&] () {
+
+			_fs_query_child_state.gen_start_node_content(xml);
+			xml.node("config", [&] () {
+				xml.node("vfs", [&] () {
+					xml.node("fs", [&] () {
+						xml.attribute("writeable", "yes");
+					});
+				});
+				xml.node("query", [&] () {
+					xml.attribute("path", "/");
+					xml.attribute("content", "yes");
+				});
+			});
+			xml.node("route", [&] () {
+				route_to_local_service(xml, "Report");
+				route_to_parent_service(xml, "File_system");
+				route_to_parent_service(xml, "PD");
+				route_to_parent_service(xml, "ROM");
+				route_to_parent_service(xml, "CPU");
+				route_to_parent_service(xml, "LOG");
+			});
+		});
+		break;
 
 	case State::INIT_TRUST_ANCHOR_SETTINGS:
 

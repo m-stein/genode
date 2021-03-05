@@ -14,7 +14,11 @@ import_from_depot [depot_user]/src/[base_src] \
                   [depot_user]/src/menu_view \
                   [depot_user]/src/pointer
 
-build { app/cbe_manager }
+build {
+	app/cbe_manager
+	app/cbe_init_trust_anchor
+	lib/vfs/cbe_trust_anchor
+}
 
 install_config {
 	<config>
@@ -244,6 +248,8 @@ puts $fd "<focus label=\"cbe_manager -> \"/>"
 close $fd
 
 build_boot_image {
+	cbe_init_trust_anchor
+	vfs_cbe_trust_anchor.lib.so
 	cbe_manager
 	sandbox.lib.so
 }
