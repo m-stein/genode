@@ -136,6 +136,26 @@ class Cbe_manager::Passphrase : Blind_passphrase
 		unsigned length() const { return _length; }
 
 		Blind_passphrase &blind() { return *this; }
+
+		Passphrase()
+		{
+			/*
+			 * FIXME Begin "For testing purpose only"
+			 */
+			Codepoint c { };
+			c.value = 0x58;
+			append_character(c);
+			append_character(c);
+			append_character(c);
+			append_character(c);
+			append_character(c);
+			append_character(c);
+			append_character(c);
+			append_character(c);
+			/*
+			 * FIXME End
+			 */
+		}
 };
 
 #endif /* _PASSPHRASE_H_ */
