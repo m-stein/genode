@@ -1,22 +1,20 @@
 create_boot_directory
 
-import_from_depot [depot_user]/pkg/[drivers_interactive_pkg] \
-                  [depot_user]/raw/ttf-bitstream-vera-minimal
+import_from_depot [depot_user]/src/[base_src] \
+                  [depot_user]/pkg/[drivers_interactive_pkg] \
+                  [depot_user]/pkg/fonts_fs \
+                  [depot_user]/src/init \
+                  [depot_user]/src/report_rom \
+                  [depot_user]/src/nitpicker \
+                  [depot_user]/src/libc \
+                  [depot_user]/src/libpng \
+                  [depot_user]/src/zlib \
+                  [depot_user]/src/vfs_import \
+                  [depot_user]/src/fs_query \
+                  [depot_user]/src/menu_view \
+                  [depot_user]/src/pointer
 
-build {
-	core
-	init
-	timer
-	server/report_rom
-	server/vfs
-	server/nitpicker
-	lib/vfs/import
-	lib/vfs/ttf
-	app/fs_query
-	app/menu_view
-	app/cbe_manager
-	app/pointer
-}
+build { app/cbe_manager }
 
 install_config {
 	<config>
@@ -239,26 +237,8 @@ puts $fd "<focus label=\"cbe_manager -> \"/>"
 close $fd
 
 build_boot_image {
-	core
-	init
-	timer
-	report_rom
-	nitpicker
-	vfs
-	vfs.lib.so
-	vfs_import.lib.so
-	ld.lib.so
-	libc.lib.so
-	libm.lib.so
-	libpng.lib.so
-	vfs_ttf.lib.so
-	zlib.lib.so
-	fs_query
-	menu_view
-	menu_view_styles.tar
 	cbe_manager
 	sandbox.lib.so
-	pointer
 }
 
 run_genode_until forever

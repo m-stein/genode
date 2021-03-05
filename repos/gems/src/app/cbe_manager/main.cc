@@ -496,6 +496,7 @@ void Cbe_manager::Main::wakeup_local_service()
 
 void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 {
+	xml.attribute("verbose",  "yes");
 	xml.node("report", [&] () {
 		xml.attribute("child_ram",  "yes");
 		xml.attribute("child_caps", "yes");
@@ -620,7 +621,8 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 
 			} else if (key == Input::KEY_ENTER) {
 
-				if (_init_ta_setg_select != Init_ta_settings_select::START_BUTTON) {
+				if (_init_ta_setg_passphrase.suitable() &&
+				    _init_ta_setg_select != Init_ta_settings_select::START_BUTTON) {
 
 					_init_ta_setg_select = Init_ta_settings_select::START_BUTTON;
 					update_dialog = true;
@@ -648,7 +650,8 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 			if (key == Input::BTN_LEFT ||
 			    key == Input::KEY_ENTER) {
 
-				if (_init_ta_setg_select == Init_ta_settings_select::START_BUTTON) {
+				if (_init_ta_setg_passphrase.suitable() &&
+				    _init_ta_setg_select == Init_ta_settings_select::START_BUTTON) {
 
 					_init_ta_setg_select = Init_ta_settings_select::NONE;
 					_state = State::INIT_TRUST_ANCHOR_IN_PROGRESS;
