@@ -125,6 +125,10 @@ install_config {
 					<dir name="cbe">
 						<ram/>
 					</dir>
+					<dir name="dev">
+						<cbe_trust_anchor name="cbe_trust_anchor"
+						                  storage_dir="/cbe"/>
+					</dir>
 					<import>
 						<dir name="cbe">
 							<inline name="1">first</inline>
@@ -132,7 +136,9 @@ install_config {
 						</dir>
 					</import>
 				</vfs>
-				<policy label_prefix="cbe_manager" root="/cbe" writeable="yes"/>
+				<policy label="cbe_manager -> cbe" root="/cbe" writeable="yes"/>
+				<policy label="cbe_manager -> fs_query -> " root="/cbe" writeable="yes"/>
+				<policy label="cbe_manager -> cbe_init_trust_anchor -> trust_anchor" root="/dev/cbe_trust_anchor" writeable="yes"/>
 			</config>
 			<route>
 				<service name="PD">  <parent/> </service>
@@ -203,7 +209,7 @@ install_config {
 		</start>
 
 		<start name="cbe_manager" caps="500">
-			<resource name="RAM" quantum="10M"/>
+			<resource name="RAM" quantum="20M"/>
 			<config>
 				<report saved="yes"/>
 				<save version="1"/>
@@ -214,18 +220,19 @@ install_config {
 				</vfs>
 			</config>
 			<route>
-				<service name="ROM"         label="clipboard">          <child name="report_rom"/> </service>
-				<service name="ROM"         label="hover">              <child name="report_rom"/> </service>
-				<service name="File_system" label="menu_view -> fonts"> <child name="fonts_fs"/> </service>
-				<service name="File_system" label="cbe">                <child name="cbe_fs"/> </service>
-				<service name="File_system" label="fs_query -> ">       <child name="cbe_fs"/> </service>
-				<service name="Report">                                 <child name="report_rom"/> </service>
-				<service name="Timer">                                  <child name="timer"/> </service>
-				<service name="Gui">                                    <child name="nitpicker"/> </service>
-				<service name="PD">                                     <parent/> </service>
-				<service name="ROM">                                    <parent/> </service>
-				<service name="CPU">                                    <parent/> </service>
-				<service name="LOG">                                    <parent/> </service>
+				<service name="ROM"         label="clipboard">                             <child name="report_rom"/> </service>
+				<service name="ROM"         label="hover">                                 <child name="report_rom"/> </service>
+				<service name="File_system" label="menu_view -> fonts">                    <child name="fonts_fs"/> </service>
+				<service name="File_system" label="cbe_init_trust_anchor -> trust_anchor"> <child name="cbe_fs"/> </service>
+				<service name="File_system" label="cbe">                                   <child name="cbe_fs"/> </service>
+				<service name="File_system" label="fs_query -> ">                          <child name="cbe_fs"/> </service>
+				<service name="Report">                                                    <child name="report_rom"/> </service>
+				<service name="Timer">                                                     <child name="timer"/> </service>
+				<service name="Gui">                                                       <child name="nitpicker"/> </service>
+				<service name="PD">                                                        <parent/> </service>
+				<service name="ROM">                                                       <parent/> </service>
+				<service name="CPU">                                                       <parent/> </service>
+				<service name="LOG">                                                       <parent/> </service>
 			</route>
 		</start>
 

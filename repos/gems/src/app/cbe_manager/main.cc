@@ -84,6 +84,7 @@ class Cbe_manager::Main
 		Registry<Child_state>                  _children                  { };
 		Child_state                            _menu_view_child_state     { _children, "menu_view", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 200 } };
 		Child_state                            _fs_query_child_state      { _children, "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
+		Constructible<Child_state>             _init_ta_child_state       { };
 		Xml_report_handler                     _fs_query_listing_handler  { *this, &Main::_handle_fs_query_listing };
 		Sandbox                                _sandbox                   { _env, *this };
 		Gui_service                            _gui_service               { _sandbox, *this };
@@ -95,6 +96,7 @@ class Cbe_manager::Main
 		Constructible<Attached_rom_dataspace>  _clipboard_rom             { };
 		bool                                   _initial_config            { true };
 		Signal_handler<Main>                   _config_handler            { _env.ep(), *this, &Main::_handle_config };
+		Signal_handler<Main>                   _state_handler            { _env.ep(), *this, &Main::_handle_state };
 		Dynamic_rom_session                    _dialog                    { _env.ep(), _env.ram(), _env.rm(), *this };
 		Passphrase                             _init_ta_setg_passphrase   { };
 		Init_ta_settings_hover                 _init_ta_setg_hover        { Init_ta_settings_hover::NONE };
@@ -106,7 +108,7 @@ class Cbe_manager::Main
 
 		static State _state_from_fs_query_listing(Xml_node const &node);
 
-		void _update_state_file(State state);
+		void _write_to_state_file(State state);
 
 		void _generate_sandbox_config(Xml_generator &xml) const;
 
@@ -115,6 +117,7 @@ class Cbe_manager::Main
 		void _handle_hover(Xml_node const &node);
 
 		void _handle_config();
+		void _handle_state();
 
 		void _update_sandbox_config();
 
@@ -185,7 +188,11 @@ Main::State Main::_state_from_string(State_string const &str)
 
 Main::State_string Main::_state_to_string(State state)
 {
-	if (state == State::INIT_TRUST_ANCHOR_SETTINGS) { return "1"; }
+	switch (state) {
+	case State::INVALID:                       return "0";
+	case State::INIT_TRUST_ANCHOR_SETTINGS:    return "1";
+	case State::INIT_TRUST_ANCHOR_IN_PROGRESS: return "2";
+	}
 	class Invalid_state { };
 	throw Invalid_state { };
 }
@@ -206,7 +213,7 @@ Main::State Main::_state_from_fs_query_listing(Xml_node const &node)
 }
 
 
-void Main::_update_state_file(State state)
+void Main::_write_to_state_file(State state)
 {
 	bool write_error = false;
 	try {
@@ -242,19 +249,30 @@ void Main::_update_state_file(State state)
 
 void Main::_handle_fs_query_listing(Xml_node const &node)
 {
-	State const prev_state { _state };
-	State       next_state { _state_from_fs_query_listing(node) };
-
-	if (next_state == State::INVALID) {
-
-		_update_state_file(State::INIT_TRUST_ANCHOR_SETTINGS);
+	if (_state != State::INVALID) {
+		return;
 	}
-	if (next_state != prev_state) {
+	log("--- fs_query ---");
+	log(node);
+	log("----------------");
 
-		_state = next_state;
-		_update_sandbox_config();
-		_dialog.trigger_update();
+	State const state { _state_from_fs_query_listing(node) };
+	if (state == State::INVALID) {
+
+		_write_to_state_file(State::INIT_TRUST_ANCHOR_SETTINGS);
+
+	} else {
+
+		_state = state;
+		Signal_transmitter(_state_handler).submit();
 	}
+}
+
+
+void Main::_handle_state()
+{
+	_update_sandbox_config();
+	_dialog.trigger_update();
 }
 
 
@@ -579,6 +597,45 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 			route_to_parent_service(xml, "LOG");
 		});
 	});
+
+	switch (_state) {
+	case State::INVALID:
+
+	case State::INIT_TRUST_ANCHOR_SETTINGS:
+
+		break;
+
+	case State::INIT_TRUST_ANCHOR_IN_PROGRESS:
+
+		xml.node("start", [&] () {
+
+			_init_ta_child_state->gen_start_node_content(xml);
+			xml.node("config", [&] () {
+
+				String<_init_ta_setg_passphrase.MAX_LENGTH * 3> const passphrase {
+					_init_ta_setg_passphrase };
+
+				xml.attribute("passphrase", passphrase.string());
+				xml.attribute("trust_anchor_dir", "/trust_anchor");
+				xml.node("vfs", [&] () {
+					xml.node("dir", [&] () {
+						xml.attribute("name", "trust_anchor");
+						xml.node("fs", [&] () {
+							xml.attribute("label", "trust_anchor");
+						});
+					});
+				});
+			});
+			xml.node("route", [&] () {
+				route_to_parent_service(xml, "File_system", "trust_anchor");
+				route_to_parent_service(xml, "PD");
+				route_to_parent_service(xml, "ROM");
+				route_to_parent_service(xml, "CPU");
+				route_to_parent_service(xml, "LOG");
+			});
+		});
+		break;
+	}
 }
 
 
@@ -655,6 +712,12 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 
 					_init_ta_setg_select = Init_ta_settings_select::NONE;
 					_state = State::INIT_TRUST_ANCHOR_IN_PROGRESS;
+					_init_ta_child_state.construct(
+						_children,
+						"cbe_init_trust_anchor",
+						Ram_quota { 4 * 1024 * 1024 },
+						Cap_quota { 100 });
+
 					update_sandbox_config = true;
 					update_dialog = true;
 				}
