@@ -31,6 +31,7 @@
 #include <sandbox.h>
 #include <passphrase.h>
 #include <utf8.h>
+#include <child_exit_state.h>
 
 namespace Cbe_manager {
 
@@ -60,6 +61,8 @@ class Cbe_manager::Main
 			INVALID,
 			INIT_TRUST_ANCHOR_SETTINGS,
 			INIT_TRUST_ANCHOR_IN_PROGRESS,
+			INIT_CBE_DEVICE_SETTINGS,
+			INIT_CBE_DEVICE_IN_PROGRESS,
 		};
 
 		enum class Init_ta_settings_hover
@@ -76,6 +79,22 @@ class Cbe_manager::Main
 			START_BUTTON
 		};
 
+		enum class Init_cbe_settings_hover
+		{
+			NONE,
+			PASSPHRASE_INPUT,
+			SIZE_INPUT,
+			START_BUTTON
+		};
+
+		enum class Init_cbe_settings_select
+		{
+			NONE,
+			PASSPHRASE_INPUT,
+			SIZE_INPUT,
+			START_BUTTON
+		};
+
 		Env                                   &_env;
 		State                                  _state                     { State::INVALID };
 		Heap                                   _heap                      { _env.ram(), _env.rm() };
@@ -84,6 +103,7 @@ class Cbe_manager::Main
 		Registry<Child_state>                  _children                  { };
 		Child_state                            _menu_view_child_state     { _children, "menu_view", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 200 } };
 		Child_state                            _fs_query_child_state      { _children, "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _init_ta_child_state       { _children, "cbe_init_trust_anchor", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Xml_report_handler                     _fs_query_listing_handler  { *this, &Main::_handle_fs_query_listing };
 		Sandbox                                _sandbox                   { _env, *this };
 		Gui_service                            _gui_service               { _sandbox, *this };
@@ -95,10 +115,15 @@ class Cbe_manager::Main
 		Constructible<Attached_rom_dataspace>  _clipboard_rom             { };
 		bool                                   _initial_config            { true };
 		Signal_handler<Main>                   _config_handler            { _env.ep(), *this, &Main::_handle_config };
+		Signal_handler<Main>                   _state_handler             { _env.ep(), *this, &Main::_handle_state };
 		Dynamic_rom_session                    _dialog                    { _env.ep(), _env.ram(), _env.rm(), *this };
 		Passphrase                             _init_ta_setg_passphrase   { };
 		Init_ta_settings_hover                 _init_ta_setg_hover        { Init_ta_settings_hover::NONE };
 		Init_ta_settings_select                _init_ta_setg_select       { Init_ta_settings_hover::PASSPHRASE_INPUT };
+		Passphrase                             _init_cbe_setg_passphrase  { };
+		Passphrase                             _init_cbe_setg_size        { };
+		Init_cbe_settings_hover                _init_cbe_setg_hover       { Init_ta_settings_hover::NONE };
+		Init_cbe_settings_select               _init_cbe_setg_select      { Init_ta_settings_hover::PASSPHRASE_INPUT };
 
 		static State _state_from_string(State_string const &str);
 
@@ -106,15 +131,24 @@ class Cbe_manager::Main
 
 		static State _state_from_fs_query_listing(Xml_node const &node);
 
-		void _update_state_file(State state);
+		void _write_to_state_file(State state);
 
 		void _generate_sandbox_config(Xml_generator &xml) const;
+
+		void _generate_default_sandbox_config(Xml_generator &xml) const;
+
+		static void _generate_window_title(Xml_generator &xml,
+		                                   char const    *title);
+
+		static void _generate_in_progress_window(Xml_generator &xml,
+		                                         char const    *title);
 
 		void _handle_fs_query_listing(Xml_node const &node);
 
 		void _handle_hover(Xml_node const &node);
 
 		void _handle_config();
+		void _handle_state();
 
 		void _update_sandbox_config();
 
@@ -177,7 +211,11 @@ void Main::_update_sandbox_config()
 
 Main::State Main::_state_from_string(State_string const &str)
 {
+	if (str == "0") { return State::INVALID; }
 	if (str == "1") { return State::INIT_TRUST_ANCHOR_SETTINGS; }
+	if (str == "2") { return State::INIT_TRUST_ANCHOR_IN_PROGRESS; }
+	if (str == "3") { return State::INIT_CBE_DEVICE_SETTINGS; }
+	if (str == "4") { return State::INIT_CBE_DEVICE_IN_PROGRESS; }
 	class Invalid_state_string { };
 	throw Invalid_state_string { };
 }
@@ -185,7 +223,13 @@ Main::State Main::_state_from_string(State_string const &str)
 
 Main::State_string Main::_state_to_string(State state)
 {
-	if (state == State::INIT_TRUST_ANCHOR_SETTINGS) { return "1"; }
+	switch (state) {
+	case State::INVALID:                       return "0";
+	case State::INIT_TRUST_ANCHOR_SETTINGS:    return "1";
+	case State::INIT_TRUST_ANCHOR_IN_PROGRESS: return "2";
+	case State::INIT_CBE_DEVICE_SETTINGS:      return "3";
+	case State::INIT_CBE_DEVICE_IN_PROGRESS:   return "4";
+	}
 	class Invalid_state { };
 	throw Invalid_state { };
 }
@@ -206,7 +250,7 @@ Main::State Main::_state_from_fs_query_listing(Xml_node const &node)
 }
 
 
-void Main::_update_state_file(State state)
+void Main::_write_to_state_file(State state)
 {
 	bool write_error = false;
 	try {
@@ -242,19 +286,31 @@ void Main::_update_state_file(State state)
 
 void Main::_handle_fs_query_listing(Xml_node const &node)
 {
-	State const prev_state { _state };
-	State       next_state { _state_from_fs_query_listing(node) };
+	log("--- fs_query ---");
+	log(node);
+	log("----------------");
 
-	if (next_state == State::INVALID) {
-
-		_update_state_file(State::INIT_TRUST_ANCHOR_SETTINGS);
+	if (_state != State::INVALID) {
+		return;
 	}
-	if (next_state != prev_state) {
 
-		_state = next_state;
-		_update_sandbox_config();
-		_dialog.trigger_update();
+	State const state { _state_from_fs_query_listing(node) };
+	if (state == State::INVALID) {
+
+		_write_to_state_file(State::INIT_TRUST_ANCHOR_SETTINGS);
+
+	} else {
+
+		_state = state;
+		Signal_transmitter(_state_handler).submit();
 	}
+}
+
+
+void Main::_handle_state()
+{
+	_update_sandbox_config();
+	_dialog.trigger_update();
 }
 
 
@@ -273,47 +329,99 @@ void Cbe_manager::Main::handle_sandbox_state()
 {
 	/* obtain current sandbox state */
 	Buffered_xml state(_heap, "state", [&] (Xml_generator &xml) {
-
 		_sandbox.generate_state_report(xml);
 	});
-	bool reconfiguration_needed = false;
+
+	bool update_sandbox { false };
+	bool update_dialog { false };
 	state.with_xml_node([&] (Xml_node state) {
+
+		if (_state == State::INIT_TRUST_ANCHOR_IN_PROGRESS) {
+
+			Child_exit_state const init_ta_exit_state {
+				state, _init_ta_child_state.name() };
+
+			if (!init_ta_exit_state.exists()) {
+				class Bad_sandbox_state { };
+				throw Bad_sandbox_state { };
+			}
+			if (init_ta_exit_state.exited()) {
+				if (init_ta_exit_state.code() != 0) {
+					class Init_trust_anchor_failed { };
+					throw Init_trust_anchor_failed { };
+				}
+				_state = State::INIT_CBE_DEVICE_SETTINGS;
+				_init_cbe_setg_passphrase = _init_ta_setg_passphrase;
+				_init_cbe_setg_select = Init_cbe_settings_select::SIZE_INPUT;
+				update_dialog = true;
+				update_sandbox = true;
+			}
+		}
 
 		state.for_each_sub_node("child", [&] (Xml_node const &child) {
 
-			if (_fs_query_child_state.apply_child_state_report(child))
-			{
-				reconfiguration_needed = true;
+			if (_fs_query_child_state.apply_child_state_report(child)) {
+				update_sandbox = true;
 			}
-			if (_menu_view_child_state.apply_child_state_report(child))
-			{
-				reconfiguration_needed = true;
+			if (_menu_view_child_state.apply_child_state_report(child)) {
+				update_sandbox = true;
 			}
 		});
 	});
-	if (reconfiguration_needed) {
+	if (update_dialog) {
+		_dialog.trigger_update();
+	}
+	if (update_sandbox) {
 		_update_sandbox_config();
 	}
+}
+
+void Main::_generate_window_title(Xml_generator &xml,
+                                  char const    *title)
+{
+	xml.node("button", [&] () {
+		xml.attribute("name", "1");
+		xml.node("label", [&] () {
+			xml.attribute("font", "monospace/regular");
+			xml.attribute("text", title);
+			xml.attribute("min_ex", "40");
+		});
+	});
+}
+
+
+void Main::_generate_in_progress_window(Xml_generator &xml,
+                                        char const    *title)
+{
+	xml.node("frame", [&] () {
+		xml.node("vbox", [&] () {
+
+			_generate_window_title(xml, title);
+
+			xml.node("frame", [&] () {
+				xml.attribute("name", "2");
+
+				xml.node("float", [&] () {
+					xml.attribute("west",  "yes");
+					xml.node("label", [&] () {
+						xml.attribute("font", "monospace/regular");
+						xml.attribute("text", " In progress... ");
+					});
+				});
+			});
+		});
+	});
 }
 
 
 void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 {
-	auto title_min_ex_attr = [] (Xml_generator &xml) {
-		xml.attribute("min_ex", "40");
-	};
 	switch (_state) {
 	case State::INVALID:
 
 		xml.node("frame", [&] () {
 
-			xml.node("button", [&] () {
-				xml.node("label", [&] () {
-					xml.attribute("font", "monospace/regular");
-					xml.attribute("text", "Loading...");
-					title_min_ex_attr(xml);
-				});
-			});
+			_generate_in_progress_window(xml, "Program initialization");
 		});
 		break;
 
@@ -322,14 +430,7 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 		xml.node("frame", [&] () {
 			xml.node("vbox", [&] () {
 
-				xml.node("button", [&] () {
-					xml.attribute("name", "1");
-					xml.node("label", [&] () {
-						xml.attribute("font", "monospace/regular");
-						xml.attribute("text", "Trust anchor initialization");
-						title_min_ex_attr(xml);
-					});
-				});
+				_generate_window_title(xml, "Trust anchor initialization");
 
 				xml.node("frame", [&] () {
 					xml.attribute("name", "2");
@@ -401,31 +502,141 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 	case State::INIT_TRUST_ANCHOR_IN_PROGRESS:
 
+		_generate_in_progress_window(xml, "Trust anchor initialization");
+		break;
+
+	case State::INIT_CBE_DEVICE_SETTINGS:
+
 		xml.node("frame", [&] () {
 			xml.node("vbox", [&] () {
 
-				xml.node("button", [&] () {
-					xml.attribute("name", "1");
-					xml.node("label", [&] () {
-						xml.attribute("font", "monospace/regular");
-						xml.attribute("text", "Trust anchor initialization");
-						title_min_ex_attr(xml);
-					});
-				});
+				_generate_window_title(xml, "CBE device initialization");
 
 				xml.node("frame", [&] () {
 					xml.attribute("name", "2");
+					xml.node("vbox", [&] () {
 
-					xml.node("float", [&] () {
-						xml.attribute("west",  "yes");
-						xml.node("label", [&] () {
-							xml.attribute("font", "monospace/regular");
-							xml.attribute("text", " In progress... ");
+						xml.node("float", [&] () {
+							xml.attribute("name", "1");
+							xml.attribute("west",  "yes");
+							xml.node("label", [&] () {
+								xml.attribute("font", "monospace/regular");
+								xml.attribute("text", " Trust anchor passphrase: ");
+							});
 						});
+
+						xml.node("frame", [&] () {
+							xml.attribute("name", "pw");
+							xml.node("float", [&] () {
+								xml.attribute("west", "yes");
+								xml.node("label", [&] () {
+									xml.attribute("font", "monospace/regular");
+									xml.attribute(
+										"text",
+										String<_init_cbe_setg_passphrase.MAX_LENGTH * 3 + 2>(
+											" ", _init_cbe_setg_passphrase.blind(), " "));
+
+									if (_init_cbe_setg_select == Init_cbe_settings_select::PASSPHRASE_INPUT) {
+										xml.node("cursor", [&] () {
+											xml.attribute("at", _init_cbe_setg_passphrase.length() + 1);
+										});
+									}
+								});
+							});
+						});
+						bool show_start_button { true };
+
+						if (!_init_cbe_setg_passphrase.suitable()) {
+
+							show_start_button = false;
+							xml.node("float", [&] () {
+								xml.attribute("name", "2");
+								xml.attribute("west",  "yes");
+								xml.node("label", [&] () {
+									xml.attribute("font", "monospace/regular");
+									xml.attribute("text", _init_ta_setg_passphrase.not_suitable_text());
+								});
+							});
+						}
+
+						xml.node("float", [&] () {
+							xml.attribute("name", "3");
+							xml.attribute("west",  "yes");
+							xml.node("label", [&] () {
+								xml.attribute("font", "monospace/regular");
+								xml.attribute("text", " ");
+							});
+						});
+
+						xml.node("float", [&] () {
+							xml.attribute("name", "4");
+							xml.attribute("west",  "yes");
+							xml.node("label", [&] () {
+								xml.attribute("font", "monospace/regular");
+								xml.attribute("text", " Virtual block device size in MiB: ");
+							});
+						});
+
+						xml.node("frame", [&] () {
+							xml.attribute("name", "sz");
+							xml.node("float", [&] () {
+								xml.attribute("west", "yes");
+								xml.node("label", [&] () {
+									xml.attribute("font", "monospace/regular");
+									xml.attribute(
+										"text",
+										String<_init_cbe_setg_size.MAX_LENGTH * 3 + 2>(
+											" ", _init_cbe_setg_size, " "));
+
+									if (_init_cbe_setg_select == Init_cbe_settings_select::SIZE_INPUT) {
+										xml.node("cursor", [&] () {
+											xml.attribute("at", _init_cbe_setg_size.length() + 1);
+										});
+									}
+								});
+							});
+						});
+
+						if (!_init_cbe_setg_size.suitable()) {
+
+							show_start_button = false;
+							xml.node("float", [&] () {
+								xml.attribute("name", "5");
+								xml.attribute("west",  "yes");
+								xml.node("label", [&] () {
+									xml.attribute("font", "monospace/regular");
+									xml.attribute("text", " Must be a number > 0 ");
+								});
+							});
+						}
+
+						if (show_start_button) {
+
+							xml.node("button", [&] () {
+								xml.attribute("name", "ok");
+								if (_init_cbe_setg_select == Init_cbe_settings_select::START_BUTTON) {
+									xml.attribute("selected", "yes");
+								}
+								if (_init_cbe_setg_hover == Init_cbe_settings_hover::START_BUTTON) {
+									xml.attribute("hovered", "yes");
+								}
+								xml.node("float", [&] () {
+									xml.node("label", [&] () {
+										xml.attribute("font", "monospace/regular");
+										xml.attribute("text", " Start ");
+									});
+								});
+							});
+						}
 					});
 				});
 			});
 		});
+		break;
+
+	case State::INIT_CBE_DEVICE_IN_PROGRESS:
+
+		_generate_in_progress_window(xml, "CBE device initialization");
 		break;
 	}
 }
@@ -494,13 +705,14 @@ void Cbe_manager::Main::wakeup_local_service()
 }
 
 
-void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
+void Main::_generate_default_sandbox_config(Xml_generator &xml) const
 {
 	xml.attribute("verbose",  "yes");
+
 	xml.node("report", [&] () {
 		xml.attribute("child_ram",  "yes");
 		xml.attribute("child_caps", "yes");
-		xml.attribute("delay_ms", 20*1000);
+		xml.attribute("delay_ms", 500);
 	});
 
 	xml.node("parent-provides", [&] () {
@@ -512,30 +724,6 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 		service_node(xml, "Gui");
 		service_node(xml, "Timer");
 		service_node(xml, "Report");
-	});
-
-	xml.node("start", [&] () {
-
-		_fs_query_child_state.gen_start_node_content(xml);
-		xml.node("config", [&] () {
-			xml.node("vfs", [&] () {
-				xml.node("fs", [&] () {
-					xml.attribute("writeable", "yes");
-				});
-			});
-			xml.node("query", [&] () {
-				xml.attribute("path", "/");
-				xml.attribute("content", "yes");
-			});
-		});
-		xml.node("route", [&] () {
-			route_to_local_service(xml, "Report");
-			route_to_parent_service(xml, "File_system");
-			route_to_parent_service(xml, "PD");
-			route_to_parent_service(xml, "ROM");
-			route_to_parent_service(xml, "CPU");
-			route_to_parent_service(xml, "LOG");
-		});
 	});
 
 	xml.node("start", [&] () {
@@ -579,6 +767,88 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 			route_to_parent_service(xml, "LOG");
 		});
 	});
+
+	xml.node("start", [&] () {
+
+		_fs_query_child_state.gen_start_node_content(xml);
+		xml.node("config", [&] () {
+			xml.node("vfs", [&] () {
+				xml.node("fs", [&] () {
+					xml.attribute("writeable", "yes");
+				});
+			});
+			xml.node("query", [&] () {
+				xml.attribute("path", "/");
+				xml.attribute("content", "yes");
+			});
+		});
+		xml.node("route", [&] () {
+			route_to_local_service(xml, "Report");
+			route_to_parent_service(xml, "File_system");
+			route_to_parent_service(xml, "PD");
+			route_to_parent_service(xml, "ROM");
+			route_to_parent_service(xml, "CPU");
+			route_to_parent_service(xml, "LOG");
+		});
+	});
+}
+
+
+void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
+{
+	switch (_state) {
+	case State::INVALID:
+
+		_generate_default_sandbox_config(xml);
+		break;
+
+	case State::INIT_TRUST_ANCHOR_SETTINGS:
+
+		_generate_default_sandbox_config(xml);
+		break;
+
+	case State::INIT_TRUST_ANCHOR_IN_PROGRESS:
+
+		_generate_default_sandbox_config(xml);
+		xml.node("start", [&] () {
+
+			_init_ta_child_state.gen_start_node_content(xml);
+			xml.node("config", [&] () {
+
+				String<_init_ta_setg_passphrase.MAX_LENGTH * 3> const passphrase {
+					_init_ta_setg_passphrase };
+
+				xml.attribute("passphrase", passphrase.string());
+				xml.attribute("trust_anchor_dir", "/trust_anchor");
+				xml.node("vfs", [&] () {
+					xml.node("dir", [&] () {
+						xml.attribute("name", "trust_anchor");
+						xml.node("fs", [&] () {
+							xml.attribute("label", "trust_anchor");
+						});
+					});
+				});
+			});
+			xml.node("route", [&] () {
+				route_to_parent_service(xml, "File_system", "trust_anchor");
+				route_to_parent_service(xml, "PD");
+				route_to_parent_service(xml, "ROM");
+				route_to_parent_service(xml, "CPU");
+				route_to_parent_service(xml, "LOG");
+			});
+		});
+		break;
+
+	case State::INIT_CBE_DEVICE_SETTINGS:
+
+		_generate_default_sandbox_config(xml);
+		break;
+
+	case State::INIT_CBE_DEVICE_IN_PROGRESS:
+
+		_generate_default_sandbox_config(xml);
+		break;
+	}
 }
 
 
@@ -662,6 +932,111 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 		});
 		break;
 
+	case State::INIT_CBE_DEVICE_SETTINGS:
+
+		event.handle_press([&] (Input::Keycode key, Codepoint code) {
+
+			if (key == Input::BTN_LEFT) {
+
+				Init_cbe_settings_select const prev_select { _init_cbe_setg_select };
+				Init_cbe_settings_select       next_select { Init_cbe_settings_select::NONE };
+
+				switch (_init_cbe_setg_hover) {
+				case Init_cbe_settings_hover::START_BUTTON:
+
+					next_select = Init_cbe_settings_select::START_BUTTON;
+					break;
+
+				case Init_cbe_settings_hover::PASSPHRASE_INPUT:
+
+					next_select = Init_cbe_settings_select::PASSPHRASE_INPUT;
+					break;
+
+				case Init_cbe_settings_hover::SIZE_INPUT:
+
+					next_select = Init_cbe_settings_select::SIZE_INPUT;
+					break;
+
+				case Init_cbe_settings_hover::NONE:
+
+					next_select = Init_cbe_settings_select::NONE;
+					break;
+				}
+				if (next_select != prev_select) {
+
+					_init_cbe_setg_select = next_select;
+					update_dialog = true;
+				}
+
+			} else if (key == Input::KEY_ENTER) {
+
+				if (_init_cbe_setg_passphrase.suitable() &&
+				    _init_cbe_setg_size.suitable() &&
+				    _init_cbe_setg_select != Init_cbe_settings_select::START_BUTTON) {
+
+					_init_cbe_setg_select = Init_cbe_settings_select::START_BUTTON;
+					update_dialog = true;
+				}
+
+			} else {
+
+				if (_init_cbe_setg_select == Init_cbe_settings_select::PASSPHRASE_INPUT) {
+
+					if (codepoint_printable(code)) {
+
+						_init_cbe_setg_passphrase.append_character(code);
+						update_dialog = true;
+
+					} else if (code.value == CODEPOINT_BACKSPACE) {
+
+						_init_cbe_setg_passphrase.remove_last_character();
+						update_dialog = true;
+
+					} else if (code.value == CODEPOINT_TAB) {
+
+						_init_cbe_setg_select = Init_cbe_settings_select::SIZE_INPUT;
+						update_dialog = true;
+					}
+
+				} else if (_init_cbe_setg_select == Init_cbe_settings_select::SIZE_INPUT) {
+
+					if (codepoint_printable(code)) {
+
+						_init_cbe_setg_size.append_character(code);
+						update_dialog = true;
+
+					} else if (code.value == CODEPOINT_BACKSPACE) {
+
+						_init_cbe_setg_size.remove_last_character();
+						update_dialog = true;
+
+					} else if (code.value == CODEPOINT_TAB) {
+
+						_init_cbe_setg_select = Init_cbe_settings_select::PASSPHRASE_INPUT;
+						update_dialog = true;
+					}
+				}
+			}
+		});
+		event.handle_release([&] (Input::Keycode key) {
+
+			if (key == Input::BTN_LEFT ||
+			    key == Input::KEY_ENTER) {
+
+				if (_init_cbe_setg_passphrase.suitable() &&
+				    _init_cbe_setg_size.suitable() &&
+				    _init_cbe_setg_select == Init_cbe_settings_select::START_BUTTON) {
+
+					_init_cbe_setg_select = Init_cbe_settings_select::NONE;
+					_state = State::INIT_CBE_DEVICE_IN_PROGRESS;
+
+					update_sandbox_config = true;
+					update_dialog = true;
+				}
+			}
+		});
+		break;
+
 	default:
 
 		break;
@@ -710,6 +1085,42 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 		if (next_hover != prev_hover) {
 
 			_init_ta_setg_hover = next_hover;
+			update_dialog = true;
+		}
+		break;
+	}
+	case State::INIT_CBE_DEVICE_SETTINGS:
+	{
+		Init_cbe_settings_hover const prev_hover { _init_cbe_setg_hover };
+		Init_cbe_settings_hover       next_hover { Init_cbe_settings_hover::NONE };
+
+		node.with_sub_node("dialog", [&] (Xml_node const &node_0) {
+			node_0.with_sub_node("frame", [&] (Xml_node const &node_1) {
+				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
+					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
+						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
+
+							node_4.with_sub_node("button", [&] (Xml_node const &node_5) {
+								if (node_5.attribute_value("name", String<3>()) == "ok") {
+									next_hover = Init_cbe_settings_hover::START_BUTTON;
+								}
+							});
+
+							node_4.with_sub_node("frame", [&] (Xml_node const &node_5) {
+								if (node_5.attribute_value("name", String<4>()) == "pw") {
+									next_hover = Init_cbe_settings_hover::PASSPHRASE_INPUT;
+								} else if (node_5.attribute_value("name", String<4>()) == "sz") {
+									next_hover = Init_cbe_settings_hover::SIZE_INPUT;
+								}
+							});
+						});
+					});
+				});
+			});
+		});
+		if (next_hover != prev_hover) {
+
+			_init_cbe_setg_hover = next_hover;
 			update_dialog = true;
 		}
 		break;

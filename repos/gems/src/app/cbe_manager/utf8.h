@@ -24,8 +24,8 @@
 namespace Cbe_manager {
 
 	enum {
-		CODEPOINT_ENTER     = 7,
 		CODEPOINT_BACKSPACE = 8,
+		CODEPOINT_TAB       = 9,
 	};
 
 	bool codepoint_printable(Codepoint code)
