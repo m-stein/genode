@@ -1,0 +1,51 @@
+
+Styles archive
+~~~~~~~~~~~~~~
+
+
+Config ROM
+~~~~~~~~~~
+
+! <config width="250"
+!         height="320">
+
+The optional attributes 'width' and 'height' assign a minimum height and width
+to the top-level element in the dialog ROM. The values are given in numbers of
+pixels. The default value is 0 for both.
+
+
+Dialog ROM
+~~~~~~~~~~
+
+! <frame>
+
+Renders a box with the frame style given through the styles archive.
+
+
+! <button>
+
+Renders a box with the button style given through the styles archive.
+
+
+! <label text="Hallo Welt!">
+
+Renders a line of text given through the 'text' attribute.
+
+
+! <vbox>
+
+Arranges sub-elements top-down in a column.
+
+
+! <hbox>
+
+Arranges sub-elements left-to-right in a row.
+
+
+! <float>
+
+Positions a sub-element in an oversized parent element. By default the
+sub-element is positioned in the center of the parent element.
+
+
+! <cursor name="" style="" at="">
