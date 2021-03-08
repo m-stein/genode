@@ -324,6 +324,8 @@ class Main
 					error("failed to submit request");
 					_env.parent().exit(-1);
 				}
+				log("vbd ", cfg.vbd_nr_of_lvls(), " ", cfg.vbd_nr_of_children(), " ", cfg.vbd_nr_of_leafs(), " ",
+				    "ft ", cfg.ft_nr_of_lvls(), " ", cfg.ft_nr_of_children(), " ", cfg.ft_nr_of_leafs(), " ");
 				_cbe_init.submit_client_request(
 					Cbe::Request(
 						Cbe::Request::Operation::READ,

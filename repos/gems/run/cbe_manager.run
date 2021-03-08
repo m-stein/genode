@@ -12,7 +12,11 @@ import_from_depot [depot_user]/src/[base_src] \
                   [depot_user]/src/vfs_import \
                   [depot_user]/src/fs_query \
                   [depot_user]/src/menu_view \
-                  [depot_user]/src/pointer
+                  [depot_user]/src/pointer \
+                  [depot_user]/src/cbe \
+                  [depot_user]/src/spark \
+                  [depot_user]/src/libsparkcrypto \
+                  [depot_user]/src/vfs_block
 
 build {
 	app/cbe_manager
@@ -133,16 +137,12 @@ install_config {
 						<cbe_trust_anchor name="cbe_trust_anchor"
 						                  storage_dir="/cbe"/>
 					</dir>
-					<import>
-						<dir name="cbe">
-							<inline name="1">first</inline>
-							<inline name="2">second</inline>
-						</dir>
-					</import>
 				</vfs>
 				<policy label="cbe_manager -> cbe" root="/cbe" writeable="yes"/>
 				<policy label="cbe_manager -> fs_query -> " root="/cbe" writeable="yes"/>
+				<policy label="cbe_manager -> vfs_block -> " root="/cbe" writeable="yes"/>
 				<policy label="cbe_manager -> cbe_init_trust_anchor -> trust_anchor" root="/dev/cbe_trust_anchor" writeable="yes"/>
+				<policy label="cbe_manager -> cbe_init -> trust_anchor" root="/dev/cbe_trust_anchor" writeable="yes"/>
 			</config>
 			<route>
 				<service name="PD">  <parent/> </service>
@@ -212,8 +212,8 @@ install_config {
 			</route>
 		</start>
 
-		<start name="cbe_manager" caps="500">
-			<resource name="RAM" quantum="20M"/>
+		<start name="cbe_manager" caps="1000">
+			<resource name="RAM" quantum="50M"/>
 			<config>
 				<report saved="yes"/>
 				<save version="1"/>
@@ -228,6 +228,8 @@ install_config {
 				<service name="ROM"         label="hover">                                 <child name="report_rom"/> </service>
 				<service name="File_system" label="menu_view -> fonts">                    <child name="fonts_fs"/> </service>
 				<service name="File_system" label="cbe_init_trust_anchor -> trust_anchor"> <child name="cbe_fs"/> </service>
+				<service name="File_system" label="cbe_init -> trust_anchor">              <child name="cbe_fs"/> </service>
+				<service name="File_system" label="vfs_block -> ">                         <child name="cbe_fs"/> </service>
 				<service name="File_system" label="cbe">                                   <child name="cbe_fs"/> </service>
 				<service name="File_system" label="fs_query -> ">                          <child name="cbe_fs"/> </service>
 				<service name="Report">                                                    <child name="report_rom"/> </service>
