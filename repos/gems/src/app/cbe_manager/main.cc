@@ -1,6 +1,7 @@
 /*
  * \brief  Graphical front end for controlling CBE devices
  * \author Martin Stein
+ * \author Norman Feske
  * \date   2021-02-24
  */
 
@@ -13,13 +14,20 @@
 
 /* Genode includes */
 #include <base/component.h>
+#include <base/session_object.h>
 #include <base/attached_rom_dataspace.h>
+#include <base/buffered_output.h>
 #include <os/buffered_xml.h>
+#include <os/sandbox.h>
+#include <os/dynamic_rom_session.h>
+#include <os/vfs.h>
 #include <os/reporter.h>
-#include <report_session/report_session.h>
 
 /* local includes */
+#include <gui_session_component.h>
 #include <report_session_component.h>
+#include <dialog.h>
+#include <new_file.h>
 #include <child_state.h>
 #include <sandbox.h>
 
@@ -28,25 +36,47 @@ namespace Cbe_manager {
 	class Main;
 }
 
-
-class Cbe_manager::Main : Sandbox::Local_service_base::Wakeup,
-                         Sandbox::State_handler
+class Cbe_manager::Main
+:
+	Sandbox::Local_service_base::Wakeup,
+	Sandbox::State_handler,
+	Gui::Input_event_handler
 {
 	private:
 
 		using Report_service     = Sandbox::Local_service<Report::Session_component>;
+		using Gui_service        = Sandbox::Local_service<Gui::Session_component>;
+		using Rom_service        = Sandbox::Local_service<Dynamic_rom_session>;
 		using Xml_report_handler = Report::Session_component::Xml_handler<Main>;
 
-		Env                    &_env;
-		Heap                    _heap                     { _env.ram(), _env.rm() };
-		Attached_rom_dataspace  _config                   { _env, "config" };
-		Registry<Child_state>   _children                 { };
-		Child_state             _fs_query_child_state     { _children, "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
-		Sandbox                 _sandbox                  { _env, *this };
-		Report_service          _report_service           { _sandbox, *this };
-		bool                    _initial_config           { true };
-		Signal_handler<Main>    _config_handler           { _env.ep(), *this, &Main::_handle_config };
-		Xml_report_handler      _fs_query_listing_handler { *this, &Main::_handle_fs_query_listing };
+		Env                                   &_env;
+		Heap                                   _heap                      { _env.ram(), _env.rm() };
+		Attached_rom_dataspace                 _config                    { _env, "config" };
+		Root_directory                         _vfs                       { _env, _heap, _config.xml().sub_node("vfs") };
+		Registry<Child_state>                  _children                  { };
+		Child_state                            _menu_view_child_state     { _children, "menu_view", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 200 } };
+		Child_state                            _fs_query_child_state      { _children, "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
+		Xml_report_handler                     _fs_query_listing_handler  { *this, &Main::_handle_fs_query_listing };
+		Sandbox                                _sandbox                   { _env, *this };
+		Gui_service                            _gui_service               { _sandbox, *this };
+		Rom_service                            _rom_service               { _sandbox, *this };
+		Report_service                         _report_service            { _sandbox, *this };
+		Xml_report_handler                     _hover_handler             { *this, &Main::_handle_hover };
+		Dialog                                 _dialog                    { _env.ep(), _env.ram(), _env.rm(), _heap };
+		Constructible<Watch_handler<Main>>     _watch_handler             { };
+		Constructible<Expanding_reporter>      _clipboard_reporter        { };
+		Constructible<Attached_rom_dataspace>  _clipboard_rom             { };
+		bool                                   _initial_config            { true };
+		Signal_handler<Main>                   _config_handler            { _env.ep(), *this, &Main::_handle_config };
+
+		void _handle_hover(Xml_node const &node)
+		{
+			if (!node.has_sub_node("dialog"))
+				_dialog.handle_hover(Xml_node("<empty/>"));
+
+			node.with_sub_node("dialog", [&] (Xml_node const &dialog) {
+				_dialog.handle_hover(dialog); });
+		}
 
 		void _handle_fs_query_listing(Xml_node const &node)
 		{
@@ -62,6 +92,7 @@ class Cbe_manager::Main : Sandbox::Local_service_base::Wakeup,
 				xml.attribute("child_caps", "yes");
 				xml.attribute("delay_ms", 20*1000);
 			});
+
 			xml.node("parent-provides", [&] () {
 				service_node(xml, "ROM");
 				service_node(xml, "CPU");
@@ -72,6 +103,7 @@ class Cbe_manager::Main : Sandbox::Local_service_base::Wakeup,
 				service_node(xml, "Timer");
 				service_node(xml, "Report");
 			});
+
 			xml.node("start", [&] () {
 
 				_fs_query_child_state.gen_start_node_content(xml);
@@ -95,11 +127,98 @@ class Cbe_manager::Main : Sandbox::Local_service_base::Wakeup,
 					route_to_parent_service(xml, "LOG");
 				});
 			});
+
+			xml.node("start", [&] () {
+				_menu_view_child_state.gen_start_node_content(xml);
+
+				xml.node("config", [&] () {
+					xml.attribute("xpos", "100");
+					xml.attribute("ypos", "50");
+
+					xml.node("report", [&] () {
+						xml.attribute("hover", "yes"); });
+
+					xml.node("libc", [&] () {
+						xml.attribute("stderr", "/dev/log"); });
+
+					xml.node("vfs", [&] () {
+						xml.node("tar", [&] () {
+							xml.attribute("name", "menu_view_styles.tar"); });
+						xml.node("dir", [&] () {
+							xml.attribute("name", "dev");
+							xml.node("log", [&] () { });
+						});
+						xml.node("dir", [&] () {
+							xml.attribute("name", "fonts");
+							xml.node("fs", [&] () {
+								xml.attribute("label", "fonts");
+							});
+						});
+					});
+				});
+
+				xml.node("route", [&] () {
+					route_to_local_service(xml, "ROM", "dialog");
+					route_to_local_service(xml, "Report", "hover");
+					route_to_local_service(xml, "Gui");
+					route_to_parent_service(xml, "File_system", "fonts");
+					route_to_parent_service(xml, "Timer");
+					route_to_parent_service(xml, "PD");
+					route_to_parent_service(xml, "ROM");
+					route_to_parent_service(xml, "CPU");
+					route_to_parent_service(xml, "LOG");
+				});
+			});
+		}
+
+		Directory::Path _path() const
+		{
+			return _config.xml().attribute_value("path", Directory::Path());
+		}
+
+		void _watch(bool enabled)
+		{
+			_watch_handler.conditional(enabled, _vfs, _path(), *this, &Main::_handle_watch);
+		}
+
+		bool _editable() const
+		{
+			return !_watch_handler.constructed();
+		}
+
+		void _load()
+		{
+			struct Max_line_len_exceeded : Exception { };
+
+			try {
+				_dialog.clear();
+				_dialog.append_newline();
+			}
+			catch (...) {
+				warning("failed to load file ", _path());
+				_dialog.clear();
+			}
+
+			_dialog.rom_session.trigger_update();
+		}
+
+		void _handle_watch()
+		{
+			_load();
 		}
 
 		void _handle_config()
 		{
 			_config.update();
+
+			Xml_node const config = _config.xml();
+
+			_dialog.max_lines(1);
+
+			_watch(config.attribute_value("watch", false));
+
+			_dialog.editable(_editable());
+
 			_initial_config = false;
 		}
 
@@ -119,6 +238,14 @@ class Cbe_manager::Main : Sandbox::Local_service_base::Wakeup,
 
 		void wakeup_local_service() override
 		{
+			_rom_service.for_each_requested_session([&] (Rom_service::Request &request) {
+
+				if (request.label == "menu_view -> dialog")
+					request.deliver_session(_dialog.rom_session);
+				else
+					request.deny();
+			});
+
 			_report_service.for_each_requested_session([&] (Report_service::Request &request) {
 
 				if (request.label == "fs_query -> listing") {
@@ -132,10 +259,42 @@ class Cbe_manager::Main : Sandbox::Local_service_base::Wakeup,
 				}
 			});
 
+			_report_service.for_each_requested_session([&] (Report_service::Request &request) {
+
+				if (request.label == "menu_view -> hover") {
+					Report::Session_component &session = *new (_heap)
+						Report::Session_component(_env, _hover_handler,
+						                          _env.ep(),
+						                          request.resources, "", request.diag);
+					request.deliver_session(session);
+				}
+			});
+
 			_report_service.for_each_session_to_close([&] (Report::Session_component &session) {
 
 				destroy(_heap, &session);
 				return Report_service::Close_response::CLOSED;
+			});
+
+			_gui_service.for_each_requested_session([&] (Gui_service::Request &request) {
+
+				Gui::Session_component &session = *new (_heap)
+					Gui::Session_component(_env, *this, _env.ep(),
+					                       request.resources, "", request.diag);
+
+				request.deliver_session(session);
+			});
+
+			_gui_service.for_each_upgraded_session([&] (Gui::Session_component &session,
+			                                            Session::Resources const &amount) {
+				session.upgrade(amount);
+				return Gui_service::Upgrade_response::CONFIRMED;
+			});
+
+			_gui_service.for_each_session_to_close([&] (Gui::Session_component &session) {
+
+				destroy(_heap, &session);
+				return Gui_service::Close_response::CLOSED;
 			});
 		}
 
@@ -148,26 +307,47 @@ class Cbe_manager::Main : Sandbox::Local_service_base::Wakeup,
 		{
 			/* obtain current sandbox state */
 			Buffered_xml state(_heap, "state", [&] (Xml_generator &xml) {
+
 				_sandbox.generate_state_report(xml);
 			});
-
 			bool reconfiguration_needed = false;
-
 			state.with_xml_node([&] (Xml_node state) {
-				state.for_each_sub_node("child", [&] (Xml_node const &child) {
-					if (_fs_query_child_state.apply_child_state_report(child))
-						reconfiguration_needed = true; }); });
 
-			if (reconfiguration_needed)
+				state.for_each_sub_node("child", [&] (Xml_node const &child) {
+
+					if (_fs_query_child_state.apply_child_state_report(child))
+					{
+						reconfiguration_needed = true;
+					}
+					if (_menu_view_child_state.apply_child_state_report(child))
+					{
+						reconfiguration_needed = true;
+					}
+				});
+			});
+			if (reconfiguration_needed) {
 				_update_sandbox_config();
+			}
+		}
+
+
+		/****************************************
+		 ** Gui::Input_event_handler interface **
+		 ****************************************/
+
+		void handle_input_event(Input::Event const &event) override
+		{
+			_dialog.handle_input_event(event);
 		}
 
 	public:
 
 		Main(Env &env)
 		:
-			_env { env }
+			_env(env)
 		{
+			_load();
+
 			_config.sigh(_config_handler);
 			_handle_config();
 			_update_sandbox_config();

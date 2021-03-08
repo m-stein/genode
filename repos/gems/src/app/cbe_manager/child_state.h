@@ -1,6 +1,7 @@
 /*
  * \brief  Runtime state of a child hosted in the runtime subsystem
  * \author Martin Stein
+ * \author Norman Feske
  * \date   2021-02-25
  */
 
