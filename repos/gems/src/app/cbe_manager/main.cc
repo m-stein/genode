@@ -32,6 +32,7 @@
 #include <passphrase.h>
 #include <utf8.h>
 #include <child_exit_state.h>
+#include <menu_view_dialog.h>
 
 namespace Cbe_manager {
 
@@ -154,13 +155,6 @@ class Cbe_manager::Main
 		void _generate_default_sandbox_config(Xml_generator &xml,
 		                                      bool           fs_query_report_file_content) const;
 
-		static void _generate_window_title(Xml_generator &xml,
-		                                   char const    *title,
-                                           char const    *frame_name);
-
-		static void _generate_in_progress_window(Xml_generator &xml,
-		                                         char const    *title);
-
 		void _handle_fs_query_listing(Xml_node const &node);
 
 		void _handle_hover(Xml_node const &node);
@@ -178,6 +172,7 @@ class Cbe_manager::Main
 		                          size_t nr_of_children,
 		                          size_t nr_of_leafs);
 
+		Number_of_bytes _cbe_size() const;
 
 		static size_t _cbe_nr_of_blocks(size_t nr_of_superblocks,
 		                                size_t nr_of_vbd_lvls,
@@ -475,302 +470,131 @@ void Cbe_manager::Main::handle_sandbox_state()
 	}
 }
 
-void Main::_generate_window_title(Xml_generator &xml,
-                                  char const    *title,
-                                  char const    *frame_name)
-{
-	xml.node("button", [&] () {
-		xml.attribute("name", frame_name);
-		xml.node("label", [&] () {
-			xml.attribute("font", "monospace/regular");
-			xml.attribute("text", title);
-			xml.attribute("min_ex", "40");
-		});
-	});
-}
-
-
-void Main::_generate_in_progress_window(Xml_generator &xml,
-                                        char const    *title)
-{
-	xml.node("frame", [&] () {
-		xml.node("vbox", [&] () {
-
-			_generate_window_title(xml, title, "1");
-
-			xml.node("frame", [&] () {
-				xml.attribute("name", "2");
-
-				xml.node("float", [&] () {
-					xml.attribute("west",  "yes");
-					xml.node("label", [&] () {
-						xml.attribute("font", "monospace/regular");
-						xml.attribute("text", " In progress... ");
-					});
-				});
-			});
-		});
-	});
-}
-
 
 void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 {
 	switch (_state) {
 	case State::INVALID:
 
-		xml.node("frame", [&] () {
-			_generate_in_progress_window(xml, "Program initialization");
-		});
+		gen_titled_in_progress_frame(xml, "1", "Program initialization", 40);
 		break;
 
 	case State::INIT_TRUST_ANCHOR_SETTINGS:
 
-		xml.node("frame", [&] () {
-			xml.node("vbox", [&] () {
+		gen_titled_frame(xml, "1", "Trust anchor initialization", 40, [&] (Xml_generator &xml) {
 
-				_generate_window_title(xml, "Trust anchor initialization", "1");
+			gen_titled_text_input(
+				xml, "pw", "Trust anchor passphrase",
+				_init_ta_setg_passphrase.blind(),
+				_init_ta_setg_select == Init_ta_settings_select::PASSPHRASE_INPUT);
 
-				xml.node("frame", [&] () {
-					xml.attribute("name", "2");
-					xml.node("vbox", [&] () {
+			bool gen_start_button { true };
+			if (!_init_ta_setg_passphrase.suitable()) {
 
-						xml.node("float", [&] () {
-							xml.attribute("name", "1");
-							xml.attribute("west",  "yes");
-							xml.node("label", [&] () {
-								xml.attribute("font", "monospace/regular");
-								xml.attribute("text", " Trust anchor passphrase: ");
-							});
-						});
+				gen_start_button = false;
+				gen_info_line(xml, "info", _init_ta_setg_passphrase.not_suitable_text());
+			}
+			if (gen_start_button) {
 
-						xml.node("frame", [&] () {
-							xml.attribute("name", "pw");
-							xml.node("float", [&] () {
-								xml.attribute("west", "yes");
-								xml.node("label", [&] () {
-									xml.attribute("font", "monospace/regular");
-									xml.attribute(
-										"text",
-										String<_init_ta_setg_passphrase.MAX_LENGTH * 3 + 2>(
-											" ", _init_ta_setg_passphrase.blind(), " "));
-
-									if (_init_ta_setg_select == Init_ta_settings_select::PASSPHRASE_INPUT) {
-										xml.node("cursor", [&] () {
-											xml.attribute("at", _init_ta_setg_passphrase.length() + 1);
-										});
-									}
-								});
-							});
-						});
-
-						bool show_start_button { true };
-
-						if (!_init_ta_setg_passphrase.suitable()) {
-
-							show_start_button = false;
-							xml.node("float", [&] () {
-								xml.attribute("name", "2");
-								xml.attribute("west",  "yes");
-								xml.node("label", [&] () {
-									xml.attribute("font", "monospace/regular");
-									xml.attribute("text", _init_ta_setg_passphrase.not_suitable_text());
-								});
-							});
-						}
-
-						if (show_start_button) {
-
-							xml.node("button", [&] () {
-								xml.attribute("name", "ok");
-								if (_init_ta_setg_select == Init_ta_settings_select::START_BUTTON) {
-									xml.attribute("selected", "yes");
-								}
-								if (_init_ta_setg_hover == Init_ta_settings_hover::START_BUTTON) {
-									xml.attribute("hovered", "yes");
-								}
-								xml.node("float", [&] () {
-									xml.node("label", [&] () {
-										xml.attribute("font", "monospace/regular");
-										xml.attribute("text", " Start ");
-									});
-								});
-							});
-						}
-					});
-				});
-			});
+				gen_action_button_at_bottom(
+					xml, "ok", "Start",
+					_init_ta_setg_hover == Init_ta_settings_hover::START_BUTTON,
+					_init_ta_setg_select == Init_ta_settings_select::START_BUTTON);
+			}
 		});
 		break;
 
 	case State::INIT_TRUST_ANCHOR_IN_PROGRESS:
 
-		_generate_in_progress_window(xml, "Trust anchor initialization");
+		gen_titled_in_progress_frame(xml, "1", "Trust anchor initialization", 40);
 		break;
 
 	case State::INIT_CBE_DEVICE_SETTINGS:
 
-		xml.node("frame", [&] () {
-			xml.node("vbox", [&] () {
+		gen_titled_frame(xml, "1", "CBE device initialization", 40, [&] (Xml_generator &xml) {
 
-				_generate_window_title(xml, "CBE device initialization", "1");
+			gen_titled_text_input(
+				xml, "pw", "Trust anchor passphrase",
+				_init_cbe_setg_passphrase.blind(),
+				_init_cbe_setg_select == Init_cbe_settings_select::PASSPHRASE_INPUT);
 
-				xml.node("frame", [&] () {
-					xml.attribute("name", "2");
-					xml.node("vbox", [&] () {
+			bool gen_start_button { true };
+			if (!_init_cbe_setg_passphrase.suitable()) {
 
-						xml.node("float", [&] () {
-							xml.attribute("name", "1");
-							xml.attribute("west",  "yes");
-							xml.node("label", [&] () {
-								xml.attribute("font", "monospace/regular");
-								xml.attribute("text", " Trust anchor passphrase: ");
-							});
-						});
+				gen_start_button = false;
+				gen_info_line(xml, "info_1", _init_cbe_setg_passphrase.not_suitable_text());
+			}
+			gen_info_line(xml, "space", "");
+			gen_titled_text_input(
+				xml, "sz", "Device size (suffixes K, M, G)",
+				_init_cbe_setg_size,
+				_init_cbe_setg_select == Init_cbe_settings_select::SIZE_INPUT);
 
-						xml.node("frame", [&] () {
-							xml.attribute("name", "pw");
-							xml.node("float", [&] () {
-								xml.attribute("west", "yes");
-								xml.node("label", [&] () {
-									xml.attribute("font", "monospace/regular");
-									xml.attribute(
-										"text",
-										String<_init_cbe_setg_passphrase.MAX_LENGTH * 3 + 2>(
-											" ", _init_cbe_setg_passphrase.blind(), " "));
+			if (!_init_cbe_setg_size.is_nr_of_bytes_greater_than_zero()) {
 
-									if (_init_cbe_setg_select == Init_cbe_settings_select::PASSPHRASE_INPUT) {
-										xml.node("cursor", [&] () {
-											xml.attribute("at", _init_cbe_setg_passphrase.length() + 1);
-										});
-									}
-								});
-							});
-						});
-						bool show_start_button { true };
+				gen_start_button = false;
+				gen_info_line(xml, "info_2", "Must be a number greater than 0");
 
-						if (!_init_cbe_setg_passphrase.suitable()) {
+			} else {
 
-							show_start_button = false;
-							xml.node("float", [&] () {
-								xml.attribute("name", "2");
-								xml.attribute("west",  "yes");
-								xml.node("label", [&] () {
-									xml.attribute("font", "monospace/regular");
-									xml.attribute("text", _init_ta_setg_passphrase.not_suitable_text());
-								});
-							});
-						}
+				gen_info_line(
+					xml, "info_2",
+					String<256> { "Image size will be ", _cbe_size()}.string());
+			}
+			if (gen_start_button) {
 
-						xml.node("float", [&] () {
-							xml.attribute("name", "3");
-							xml.attribute("west",  "yes");
-							xml.node("label", [&] () {
-								xml.attribute("font", "monospace/regular");
-								xml.attribute("text", " ");
-							});
-						});
-
-						xml.node("float", [&] () {
-							xml.attribute("name", "4");
-							xml.attribute("west",  "yes");
-							xml.node("label", [&] () {
-								xml.attribute("font", "monospace/regular");
-								xml.attribute("text", " Device size (suffixes K, M, G): ");
-							});
-						});
-
-						xml.node("frame", [&] () {
-							xml.attribute("name", "sz");
-							xml.node("float", [&] () {
-								xml.attribute("west", "yes");
-								xml.node("label", [&] () {
-									xml.attribute("font", "monospace/regular");
-									xml.attribute(
-										"text",
-										String<_init_cbe_setg_size.MAX_LENGTH * 3 + 2>(
-											" ", _init_cbe_setg_size, " "));
-
-									if (_init_cbe_setg_select == Init_cbe_settings_select::SIZE_INPUT) {
-										xml.node("cursor", [&] () {
-											xml.attribute("at", _init_cbe_setg_size.length() + 1);
-										});
-									}
-								});
-							});
-						});
-
-						if (!_init_cbe_setg_size.is_nr_of_bytes_greater_than_zero()) {
-
-							show_start_button = false;
-							xml.node("float", [&] () {
-								xml.attribute("name", "5");
-								xml.attribute("west",  "yes");
-								xml.node("label", [&] () {
-									xml.attribute("font", "monospace/regular");
-									xml.attribute("text", " Must be a number greater than 0 ");
-								});
-							});
-						} else {
-							xml.node("float", [&] () {
-								xml.attribute("name", "5");
-								xml.attribute("west",  "yes");
-								xml.node("label", [&] () {
-									xml.attribute("font", "monospace/regular");
-									xml.attribute("text",
-										String<32> {
-											" Image size will be ",
-											Number_of_bytes {
-												_cbe_nr_of_blocks(
-													INIT_CBE_NR_OF_SUPERBLOCKS,
-													INIT_CBE_NR_OF_LEVELS,
-													INIT_CBE_NR_OF_CHILDREN,
-													_init_cbe_nr_of_leafs(),
-													INIT_CBE_NR_OF_LEVELS,
-													INIT_CBE_NR_OF_CHILDREN,
-													_init_cbe_nr_of_leafs()) *
-													CBE_BLOCK_SIZE } });
-								});
-							});
-						}
-
-						if (show_start_button) {
-
-							xml.node("button", [&] () {
-								xml.attribute("name", "ok");
-								if (_init_cbe_setg_select == Init_cbe_settings_select::START_BUTTON) {
-									xml.attribute("selected", "yes");
-								}
-								if (_init_cbe_setg_hover == Init_cbe_settings_hover::START_BUTTON) {
-									xml.attribute("hovered", "yes");
-								}
-								xml.node("float", [&] () {
-									xml.node("label", [&] () {
-										xml.attribute("font", "monospace/regular");
-										xml.attribute("text", " Start ");
-									});
-								});
-							});
-						}
-					});
-				});
-			});
+				gen_action_button_at_bottom(
+					xml, "ok", "Start",
+					_init_cbe_setg_hover == Init_cbe_settings_hover::START_BUTTON,
+					_init_cbe_setg_select == Init_cbe_settings_select::START_BUTTON);
+			}
 		});
 		break;
 
 	case State::INIT_CBE_DEVICE_CREATE_FILE:
 
-		_generate_in_progress_window(xml, "CBE device initialization");
+		gen_titled_in_progress_frame(xml, "1", "CBE device initialization", 40);
 		break;
 
 	case State::INIT_CBE_DEVICE_INIT_CBE:
 
-		_generate_in_progress_window(xml, "CBE device initialization");
+		gen_titled_in_progress_frame(xml, "1", "CBE device initialization", 40);
 		break;
 
 	case State::CBE_DEVICE_CONTROLS:
 
-		_generate_in_progress_window(xml, "CBE device controls");
+		gen_titled_frame(xml, "1", "CBE device controls", 40, [&] (Xml_generator &xml) {
+
+			xml.node("vbox", [&] () {
+
+				gen_floating_text_frame(xml, "1", [&] (Xml_generator &xml) {
+					gen_floating_text_line(xml, 1, "Device info:");
+					gen_floating_text_line(xml, 2, "  Total size: 2400K");
+					gen_floating_text_line(xml, 3, "  VBD size: 1M");
+					gen_floating_text_line(xml, 4, "  Snapshots:");
+					gen_floating_text_line(xml, 5, "    Gen 3, 2021-02-01");
+					gen_floating_text_line(xml, 6, "    Gen 15, 2021-04-16");
+				});
+
+				xml.node("float", [&] () {
+					xml.attribute("name", "2");
+					xml.attribute("south", "yes");
+					xml.attribute("east",  "yes");
+					xml.attribute("west",  "yes");
+
+					xml.node("hbox", [&] () {
+
+						gen_titled_frame(xml, "1", "Rekeying", 20, [&] (Xml_generator &xml) {
+							gen_action_button_at_bottom(xml, "ok", "Start", false, false);
+						});
+						gen_titled_frame(xml, "2", "Resizing", 20, [&] (Xml_generator &xml) {
+							gen_titled_text_input(xml, "sz", "Number of blocks", "", false);
+							gen_action_button_at_bottom(xml, "ok", "Start", false, false);
+						});
+					});
+				});
+			});
+		});
 		break;
 	}
 }
@@ -1099,6 +923,22 @@ size_t Main::_tree_nr_of_blocks(size_t nr_of_lvls,
 }
 
 
+Number_of_bytes Main::_cbe_size() const
+{
+	return
+		Number_of_bytes {
+			_cbe_nr_of_blocks(
+				INIT_CBE_NR_OF_SUPERBLOCKS,
+				INIT_CBE_NR_OF_LEVELS,
+				INIT_CBE_NR_OF_CHILDREN,
+				_init_cbe_nr_of_leafs(),
+				INIT_CBE_NR_OF_LEVELS,
+				INIT_CBE_NR_OF_CHILDREN,
+				_init_cbe_nr_of_leafs())
+			* CBE_BLOCK_SIZE };
+}
+
+
 size_t Main::_cbe_nr_of_blocks(size_t nr_of_superblocks,
                                size_t nr_of_vbd_lvls,
                                size_t nr_of_vbd_children,
@@ -1371,21 +1211,17 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 		node.with_sub_node("dialog", [&] (Xml_node const &node_0) {
 			node_0.with_sub_node("frame", [&] (Xml_node const &node_1) {
 				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
+
+					node_2.with_sub_node("float", [&] (Xml_node const &node_3) {
+						if (node_3.attribute_value("name", String<3>()) == "ok") {
+							next_hover = Init_ta_settings_hover::START_BUTTON;
+						}
+					});
+
 					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
-						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
-
-							node_4.with_sub_node("button", [&] (Xml_node const &node_5) {
-								if (node_5.attribute_value("name", String<3>()) == "ok") {
-									next_hover = Init_ta_settings_hover::START_BUTTON;
-								}
-							});
-
-							node_4.with_sub_node("frame", [&] (Xml_node const &node_5) {
-								if (node_5.attribute_value("name", String<4>()) == "pw") {
-									next_hover = Init_ta_settings_hover::PASSPHRASE_INPUT;
-								}
-							});
-						});
+						if (node_3.attribute_value("name", String<4>()) == "pw") {
+							next_hover = Init_ta_settings_hover::PASSPHRASE_INPUT;
+						}
 					});
 				});
 			});
@@ -1405,23 +1241,19 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 		node.with_sub_node("dialog", [&] (Xml_node const &node_0) {
 			node_0.with_sub_node("frame", [&] (Xml_node const &node_1) {
 				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
+
+					node_2.with_sub_node("float", [&] (Xml_node const &node_3) {
+						if (node_3.attribute_value("name", String<3>()) == "ok") {
+							next_hover = Init_cbe_settings_hover::START_BUTTON;
+						}
+					});
+
 					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
-						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
-
-							node_4.with_sub_node("button", [&] (Xml_node const &node_5) {
-								if (node_5.attribute_value("name", String<3>()) == "ok") {
-									next_hover = Init_cbe_settings_hover::START_BUTTON;
-								}
-							});
-
-							node_4.with_sub_node("frame", [&] (Xml_node const &node_5) {
-								if (node_5.attribute_value("name", String<4>()) == "pw") {
-									next_hover = Init_cbe_settings_hover::PASSPHRASE_INPUT;
-								} else if (node_5.attribute_value("name", String<4>()) == "sz") {
-									next_hover = Init_cbe_settings_hover::SIZE_INPUT;
-								}
-							});
-						});
+						if (node_3.attribute_value("name", String<4>()) == "pw") {
+							next_hover = Init_cbe_settings_hover::PASSPHRASE_INPUT;
+						} else if (node_3.attribute_value("name", String<4>()) == "sz") {
+							next_hover = Init_cbe_settings_hover::SIZE_INPUT;
+						}
 					});
 				});
 			});

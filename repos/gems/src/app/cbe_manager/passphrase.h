@@ -125,7 +125,7 @@ class Cbe_manager::Passphrase : Blind_passphrase
 
 		bool suitable() const
 		{
-			return _length >= 1;
+			return _length >= 8;
 		}
 
 		Number_of_bytes to_nr_of_bytes() const
@@ -143,7 +143,7 @@ class Cbe_manager::Passphrase : Blind_passphrase
 
 		char const *not_suitable_text() const
 		{
-			return " Must have at least 8 characters! ";
+			return "Must have at least 8 characters!";
 		}
 
 		unsigned length() const { return _length; }
