@@ -52,6 +52,7 @@ class Cbe_manager::Main
 		enum {
 			STATE_STRING_CAPACITY = 2,
 			CBE_BLOCK_SIZE = 4096,
+			MAIN_FRAME_WIDTH = 50,
 			INIT_CBE_NR_OF_LEVELS = 6,
 			INIT_CBE_NR_OF_CHILDREN = 64,
 			INIT_CBE_NR_OF_SUPERBLOCKS = 8,
@@ -152,8 +153,7 @@ class Cbe_manager::Main
 
 		void _generate_sandbox_config(Xml_generator &xml) const;
 
-		void _generate_default_sandbox_config(Xml_generator &xml,
-		                                      bool           fs_query_report_file_content) const;
+		void _generate_default_sandbox_config(Xml_generator &xml) const;
 
 		void _handle_fs_query_listing(Xml_node const &node);
 
@@ -476,12 +476,12 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 	switch (_state) {
 	case State::INVALID:
 
-		gen_titled_in_progress_frame(xml, "1", "Program initialization", 40);
+		gen_titled_in_progress_frame(xml, "1", "Program initialization", MAIN_FRAME_WIDTH);
 		break;
 
 	case State::INIT_TRUST_ANCHOR_SETTINGS:
 
-		gen_titled_frame(xml, "1", "Trust anchor initialization", 40, [&] (Xml_generator &xml) {
+		gen_titled_frame(xml, "1", "Trust anchor initialization", MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
 			gen_titled_text_input(
 				xml, "pw", "Trust anchor passphrase",
@@ -506,12 +506,12 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 	case State::INIT_TRUST_ANCHOR_IN_PROGRESS:
 
-		gen_titled_in_progress_frame(xml, "1", "Trust anchor initialization", 40);
+		gen_titled_in_progress_frame(xml, "1", "Trust anchor initialization", MAIN_FRAME_WIDTH);
 		break;
 
 	case State::INIT_CBE_DEVICE_SETTINGS:
 
-		gen_titled_frame(xml, "1", "CBE device initialization", 40, [&] (Xml_generator &xml) {
+		gen_titled_frame(xml, "1", "CBE device initialization", MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
 			gen_titled_text_input(
 				xml, "pw", "Trust anchor passphrase",
@@ -553,21 +553,22 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 	case State::INIT_CBE_DEVICE_CREATE_FILE:
 
-		gen_titled_in_progress_frame(xml, "1", "CBE device initialization", 40);
+		gen_titled_in_progress_frame(xml, "1", "CBE device initialization", MAIN_FRAME_WIDTH);
 		break;
 
 	case State::INIT_CBE_DEVICE_INIT_CBE:
 
-		gen_titled_in_progress_frame(xml, "1", "CBE device initialization", 40);
+		gen_titled_in_progress_frame(xml, "1", "CBE device initialization", MAIN_FRAME_WIDTH);
 		break;
 
 	case State::CBE_DEVICE_CONTROLS:
 
-		gen_titled_frame(xml, "1", "CBE device controls", 40, [&] (Xml_generator &xml) {
+		gen_titled_frame(xml, "1", "CBE device controls", MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
 			xml.node("vbox", [&] () {
 
 				gen_floating_text_frame(xml, "1", [&] (Xml_generator &xml) {
+
 					gen_floating_text_line(xml, 1, "Device info:");
 					gen_floating_text_line(xml, 2, "  Total size: 2400K");
 					gen_floating_text_line(xml, 3, "  VBD size: 1M");
@@ -585,9 +586,11 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 					xml.node("hbox", [&] () {
 
 						gen_titled_frame(xml, "1", "Rekeying", 20, [&] (Xml_generator &xml) {
+
 							gen_action_button_at_bottom(xml, "ok", "Start", false, false);
 						});
 						gen_titled_frame(xml, "2", "Resizing", 20, [&] (Xml_generator &xml) {
+
 							gen_titled_text_input(xml, "sz", "Number of blocks", "", false);
 							gen_action_button_at_bottom(xml, "ok", "Start", false, false);
 						});
@@ -663,8 +666,7 @@ void Cbe_manager::Main::wakeup_local_service()
 }
 
 
-void Main::_generate_default_sandbox_config(Xml_generator &xml,
-                                            bool           fs_query_report_file_content) const
+void Main::_generate_default_sandbox_config(Xml_generator &xml) const
 {
 	xml.attribute("verbose",  "yes");
 
@@ -726,32 +728,6 @@ void Main::_generate_default_sandbox_config(Xml_generator &xml,
 			route_to_parent_service(xml, "LOG");
 		});
 	});
-
-	xml.node("start", [&] () {
-
-		_fs_query_child_state.gen_start_node_content(xml);
-		xml.node("config", [&] () {
-			xml.node("vfs", [&] () {
-				xml.node("fs", [&] () {
-					xml.attribute("writeable", "yes");
-				});
-			});
-			xml.node("query", [&] () {
-				xml.attribute("path", "/");
-				if (fs_query_report_file_content) {
-					xml.attribute("content", "yes");
-				}
-			});
-		});
-		xml.node("route", [&] () {
-			route_to_local_service(xml, "Report");
-			route_to_parent_service(xml, "File_system");
-			route_to_parent_service(xml, "PD");
-			route_to_parent_service(xml, "ROM");
-			route_to_parent_service(xml, "CPU");
-			route_to_parent_service(xml, "LOG");
-		});
-	});
 }
 
 
@@ -771,17 +747,41 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 	switch (_state) {
 	case State::INVALID:
 
-		_generate_default_sandbox_config(xml, true);
+		_generate_default_sandbox_config(xml);
+
+		xml.node("start", [&] () {
+
+			_fs_query_child_state.gen_start_node_content(xml);
+			xml.node("config", [&] () {
+				xml.node("vfs", [&] () {
+					xml.node("fs", [&] () {
+						xml.attribute("writeable", "yes");
+					});
+				});
+				xml.node("query", [&] () {
+					xml.attribute("path", "/");
+					xml.attribute("content", "yes");
+				});
+			});
+			xml.node("route", [&] () {
+				route_to_local_service(xml, "Report");
+				route_to_parent_service(xml, "File_system");
+				route_to_parent_service(xml, "PD");
+				route_to_parent_service(xml, "ROM");
+				route_to_parent_service(xml, "CPU");
+				route_to_parent_service(xml, "LOG");
+			});
+		});
 		break;
 
 	case State::INIT_TRUST_ANCHOR_SETTINGS:
 
-		_generate_default_sandbox_config(xml, false);
+		_generate_default_sandbox_config(xml);
 		break;
 
 	case State::INIT_TRUST_ANCHOR_IN_PROGRESS:
 
-		_generate_default_sandbox_config(xml, false);
+		_generate_default_sandbox_config(xml);
 		xml.node("start", [&] () {
 
 			_cbe_init_trust_anchor.gen_start_node_content(xml);
@@ -813,17 +813,17 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 
 	case State::INIT_CBE_DEVICE_SETTINGS:
 
-		_generate_default_sandbox_config(xml, false);
+		_generate_default_sandbox_config(xml);
 		break;
 
 	case State::INIT_CBE_DEVICE_CREATE_FILE:
 
-		_generate_default_sandbox_config(xml, false);
+		_generate_default_sandbox_config(xml);
 		break;
 
 	case State::INIT_CBE_DEVICE_INIT_CBE:
 
-		_generate_default_sandbox_config(xml, false);
+		_generate_default_sandbox_config(xml);
 
 		xml.node("start", [&] () {
 
@@ -899,7 +899,7 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 
 	case State::CBE_DEVICE_CONTROLS:
 
-		_generate_default_sandbox_config(xml, false);
+		_generate_default_sandbox_config(xml);
 		break;
 	}
 }
