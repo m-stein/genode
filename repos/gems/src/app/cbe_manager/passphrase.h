@@ -136,9 +136,22 @@ class Cbe_manager::Passphrase : Blind_passphrase
 			return result;
 		}
 
+		unsigned long to_unsigned_long() const
+		{
+			String<32> const str { *this };
+			unsigned long result { 0 };
+			ascii_to(str.string(), result);
+			return result;
+		}
+
 		bool is_nr_of_bytes_greater_than_zero() const
 		{
 			return (size_t)to_nr_of_bytes() > 0;
+		}
+
+		bool is_nr_greater_than_zero() const
+		{
+			return (size_t)to_unsigned_long() > 0;
 		}
 
 		char const *not_suitable_text() const

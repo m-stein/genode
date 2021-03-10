@@ -105,6 +105,22 @@ class Cbe_manager::Main
 			START_BUTTON
 		};
 
+		enum class Cbe_device_controls_selected
+		{
+			NONE,
+			RESIZING_NR_OF_BLKS_INPUT,
+			RESIZING_START_BUTTON,
+			REKEYING_START_BUTTON,
+		};
+
+		enum class Cbe_device_controls_hovered
+		{
+			NONE,
+			RESIZING_NR_OF_BLKS_INPUT,
+			RESIZING_START_BUTTON,
+			REKEYING_START_BUTTON,
+		};
+
 		Env                                   &_env;
 		State                                  _state                     { State::INVALID };
 		Heap                                   _heap                      { _env.ram(), _env.rm() };
@@ -136,6 +152,9 @@ class Cbe_manager::Main
 		Passphrase                             _init_cbe_setg_size        { };
 		Init_cbe_settings_hover                _init_cbe_setg_hover       { Init_ta_settings_hover::NONE };
 		Init_cbe_settings_select               _init_cbe_setg_select      { Init_ta_settings_hover::PASSPHRASE_INPUT };
+		Cbe_device_controls_hovered            _cbe_ctl_hover             { Cbe_device_controls_selected::NONE };
+		Cbe_device_controls_selected           _cbe_ctl_select            { Cbe_device_controls_hovered::NONE };
+		Passphrase                             _cbe_ctl_rsz_nr_of_blks    { };
 
 		static State _state_from_string(State_string const &str);
 
@@ -563,38 +582,70 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 	case State::CBE_DEVICE_CONTROLS:
 
-		gen_titled_frame(xml, "1", "CBE device controls", MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
+		gen_titled_frame(xml, "app", "CBE device controls", MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
-			xml.node("vbox", [&] () {
+			gen_floating_text_frame(xml, "inf", [&] (Xml_generator &xml) {
 
-				gen_floating_text_frame(xml, "1", [&] (Xml_generator &xml) {
+				gen_floating_text_line(xml, 1, "Device info:");
+				gen_floating_text_line(xml, 2, "  Total size: 2400K");
+				gen_floating_text_line(xml, 3, "  VBD size: 1M");
+				gen_floating_text_line(xml, 4, "  Snapshots:");
+				gen_floating_text_line(xml, 5, "    Gen 3, 2021-02-01");
+				gen_floating_text_line(xml, 6, "    Gen 15, 2021-04-16");
+			});
 
-					gen_floating_text_line(xml, 1, "Device info:");
-					gen_floating_text_line(xml, 2, "  Total size: 2400K");
-					gen_floating_text_line(xml, 3, "  VBD size: 1M");
-					gen_floating_text_line(xml, 4, "  Snapshots:");
-					gen_floating_text_line(xml, 5, "    Gen 3, 2021-02-01");
-					gen_floating_text_line(xml, 6, "    Gen 15, 2021-04-16");
+			xml.node("hbox", [&] () {
+
+				gen_titled_frame(xml, "rky", "Rekeying", 0, [&] (Xml_generator &xml) {
+
+					gen_action_button_at_bottom(xml, "Start",
+						_cbe_ctl_hover  == Cbe_device_controls_hovered::REKEYING_START_BUTTON,
+						_cbe_ctl_select == Cbe_device_controls_selected::REKEYING_START_BUTTON);
 				});
+				gen_titled_frame(xml, "rsz", "Resizing", 0, [&] (Xml_generator &xml) {
 
-				xml.node("float", [&] () {
-					xml.attribute("name", "2");
-					xml.attribute("south", "yes");
-					xml.attribute("east",  "yes");
-					xml.attribute("west",  "yes");
+					gen_titled_text_input(
+						xml, "blks", "Number of blocks",
+						_cbe_ctl_rsz_nr_of_blks,
+						_cbe_ctl_select == Cbe_device_controls_selected::RESIZING_NR_OF_BLKS_INPUT);
 
-					xml.node("hbox", [&] () {
+					bool gen_start_button { true };
+					if (!_cbe_ctl_rsz_nr_of_blks.is_nr_greater_than_zero()) {
 
-						gen_titled_frame(xml, "1", "Rekeying", 20, [&] (Xml_generator &xml) {
+						gen_start_button = false;
+						gen_info_line(xml, "inf", "Must be a number greater than 0");
+						gen_info_line(xml, "pad", "");
 
-							gen_action_button_at_bottom(xml, "ok", "Start", false, false);
-						});
-						gen_titled_frame(xml, "2", "Resizing", 20, [&] (Xml_generator &xml) {
+					}  else {
 
-							gen_titled_text_input(xml, "sz", "Number of blocks", "", false);
-							gen_action_button_at_bottom(xml, "ok", "Start", false, false);
-						});
-					});
+						Number_of_bytes const curr_cbe_size { _cbe_size() };
+						unsigned long rsz_nr_of_bytes {
+							_cbe_ctl_rsz_nr_of_blks.to_unsigned_long() *
+							CBE_BLOCK_SIZE };
+
+						gen_info_line(
+							xml, "inf_1",
+							String<256> {
+								"Current image size: ",
+								curr_cbe_size
+							}.string());
+
+						gen_info_line(
+							xml, "inf_2",
+							String<256> {
+								"New image size: ",
+								Number_of_bytes { curr_cbe_size + rsz_nr_of_bytes }
+							}.string());
+
+						gen_info_line(xml, "pad", "");
+					}
+					if (gen_start_button) {
+
+						gen_action_button_at_bottom(
+							xml, "Start",
+							_cbe_ctl_hover  == Cbe_device_controls_hovered::RESIZING_START_BUTTON,
+							_cbe_ctl_select == Cbe_device_controls_selected::RESIZING_START_BUTTON);
+					}
 				});
 			});
 		});
@@ -1185,6 +1236,90 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 		});
 		break;
 
+	case State::CBE_DEVICE_CONTROLS:
+
+		event.handle_press([&] (Input::Keycode key, Codepoint code) {
+
+			if (key == Input::BTN_LEFT) {
+
+				Cbe_device_controls_selected const prev_select { _cbe_ctl_select };
+				Cbe_device_controls_selected       next_select { Cbe_device_controls_selected::NONE };
+
+				switch (_cbe_ctl_hover) {
+				case Cbe_device_controls_hovered::REKEYING_START_BUTTON:
+
+					next_select = Cbe_device_controls_selected::REKEYING_START_BUTTON;
+					break;
+
+				case Cbe_device_controls_hovered::RESIZING_START_BUTTON:
+
+					next_select = Cbe_device_controls_selected::RESIZING_START_BUTTON;
+					break;
+
+				case Cbe_device_controls_hovered::RESIZING_NR_OF_BLKS_INPUT:
+
+					next_select = Cbe_device_controls_selected::RESIZING_NR_OF_BLKS_INPUT;
+					break;
+
+				case Cbe_device_controls_hovered::NONE:
+
+					next_select = Cbe_device_controls_selected::NONE;
+					break;
+				}
+				if (next_select != prev_select) {
+
+					_cbe_ctl_select = next_select;
+					update_dialog = true;
+				}
+
+			} else {
+
+				if (_cbe_ctl_select == Cbe_device_controls_selected::RESIZING_NR_OF_BLKS_INPUT) {
+
+					if (codepoint_is_printable(code)) {
+
+						_cbe_ctl_rsz_nr_of_blks.append_character(code);
+						update_dialog = true;
+
+					} else if (code.value == CODEPOINT_BACKSPACE) {
+
+						_cbe_ctl_rsz_nr_of_blks.remove_last_character();
+						update_dialog = true;
+					}
+				}
+			}
+		});
+		event.handle_release([&] (Input::Keycode key) {
+
+			if (key == Input::BTN_LEFT) {
+
+				switch (_cbe_ctl_select) {
+				case Cbe_device_controls_selected::RESIZING_START_BUTTON:
+
+					_cbe_ctl_select = Cbe_device_controls_selected::NONE;
+					_state = State::CBE_DEVICE_CONTROLS;
+
+					update_sandbox_config = true;
+					update_dialog = true;
+					break;
+
+				case Cbe_device_controls_selected::REKEYING_START_BUTTON:
+
+					_cbe_ctl_select = Cbe_device_controls_selected::NONE;
+					_state = State::CBE_DEVICE_CONTROLS;
+
+					update_sandbox_config = true;
+					update_dialog = true;
+					break;
+
+				default:
+
+					break;
+				}
+			}
+		});
+		break;
+
 	default:
 
 		break;
@@ -1243,13 +1378,13 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
 
 					node_2.with_sub_node("float", [&] (Xml_node const &node_3) {
-						if (node_3.attribute_value("name", String<3>()) == "ok") {
+						if (node_3.attribute_value("name", String<8>()) == "ok") {
 							next_hover = Init_cbe_settings_hover::START_BUTTON;
 						}
 					});
 
 					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
-						if (node_3.attribute_value("name", String<4>()) == "pw") {
+						if (node_3.attribute_value("name", String<8>()) == "pw") {
 							next_hover = Init_cbe_settings_hover::PASSPHRASE_INPUT;
 						} else if (node_3.attribute_value("name", String<4>()) == "sz") {
 							next_hover = Init_cbe_settings_hover::SIZE_INPUT;
@@ -1261,6 +1396,57 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 		if (next_hover != prev_hover) {
 
 			_init_cbe_setg_hover = next_hover;
+			update_dialog = true;
+		}
+		break;
+	}
+	case State::CBE_DEVICE_CONTROLS:
+	{
+		Cbe_device_controls_hovered const prev_hover { _cbe_ctl_hover };
+		Cbe_device_controls_hovered       next_hover { Cbe_device_controls_hovered::NONE };
+
+		node.with_sub_node("dialog", [&] (Xml_node const &node_0) {
+			node_0.with_sub_node("frame", [&] (Xml_node const &node_1) {
+				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
+					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
+						node_3.with_sub_node("frame", [&] (Xml_node const &node_4) {
+
+							if (node_4.attribute_value("name", String<8>()) == "rky") {
+
+								node_4.with_sub_node("vbox", [&] (Xml_node const &node_5) {
+									node_5.with_sub_node("float", [&] (Xml_node const &node_6) {
+
+										if (node_6.attribute_value("name", String<8>()) == "Start") {
+											next_hover = Cbe_device_controls_hovered::REKEYING_START_BUTTON;
+										}
+									});
+								});
+
+							} else if (node_4.attribute_value("name", String<8>()) == "rsz") {
+
+								node_4.with_sub_node("vbox", [&] (Xml_node const &node_5) {
+									node_5.with_sub_node("float", [&] (Xml_node const &node_6) {
+
+										if (node_6.attribute_value("name", String<8>()) == "Start") {
+											next_hover = Cbe_device_controls_hovered::RESIZING_START_BUTTON;
+										}
+									});
+									node_5.with_sub_node("frame", [&] (Xml_node const &node_6) {
+
+										if (node_6.attribute_value("name", String<8>()) == "blks") {
+											next_hover = Cbe_device_controls_hovered::RESIZING_NR_OF_BLKS_INPUT;
+										}
+									});
+								});
+							}
+						});
+					});
+				});
+			});
+		});
+		if (next_hover != prev_hover) {
+
+			_cbe_ctl_hover = next_hover;
 			update_dialog = true;
 		}
 		break;

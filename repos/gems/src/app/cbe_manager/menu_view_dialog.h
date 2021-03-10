@@ -56,6 +56,11 @@ namespace Cbe_manager {
 	                                 bool           hovered,
 	                                 bool           selected);
 
+	void gen_action_button_at_bottom(Xml_generator &xml,
+	                                 char const    *label,
+	                                 bool           hovered,
+	                                 bool           selected);
+
 	void gen_titled_text_input(Xml_generator     &xml,
 	                           char        const *name,
 	                           char        const *title,

@@ -70,7 +70,6 @@ void Cbe_manager::gen_action_button_at_bottom(Xml_generator &xml,
                                               bool           hovered,
                                               bool           selected)
 {
-
 	xml.node("float", [&] () {
 		xml.attribute("name", name);
 		xml.attribute("east",  "yes");
@@ -95,6 +94,14 @@ void Cbe_manager::gen_action_button_at_bottom(Xml_generator &xml,
 			});
 		});
 	});
+}
+
+void Cbe_manager::gen_action_button_at_bottom(Xml_generator &xml,
+                                              char const    *label,
+                                              bool           hovered,
+                                              bool           selected)
+{
+	gen_action_button_at_bottom(xml, label, label, hovered, selected);
 }
 
 void Cbe_manager::gen_titled_text_input(Xml_generator     &xml,
@@ -141,7 +148,7 @@ void Cbe_manager::gen_info_line(Xml_generator     &xml,
 		xml.attribute("west",  "yes");
 		xml.node("label", [&] () {
 			xml.attribute("font", "monospace/regular");
-			xml.attribute("text", String<256> { " ", text });
+			xml.attribute("text", String<256> { " ", text, " "});
 		});
 	});
 }
