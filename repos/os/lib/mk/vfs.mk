@@ -1,4 +1,4 @@
-SRC_CC  += file_system_factory.cc
+SRC_CC  += file_system_factory.cc vfs.cc
 INC_DIR += $(REP_DIR)/src/lib/vfs
 
 LIBS = base
