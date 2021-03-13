@@ -11,6 +11,7 @@
 			[init -> report_rom]   &lt;listing>
 			[init -> report_rom]   	&lt;dir path="/fs/items">
 			[init -> report_rom]   		&lt;file name="1" writeable="yes">first&lt;/file>
+			[init -> report_rom]   		&lt;file name="5" writeable="yes">fifth&lt;/file>
 			[init -> report_rom]   	&lt;/dir>
 			[init -> report_rom]   &lt;/listing>
 		</log>
@@ -72,6 +73,25 @@
 			<binary name="sequence"/>
 			<resource name="RAM" quantum="16M"/>
 			<config>
+				<start name="sleep" caps="100">
+					<resource name="RAM" quantum="4M"/>
+					<binary name="dummy"/>
+					<config>
+						<sleep ms="500"/>
+						<exit/>
+					</config>
+				</start>
+
+				<start name="new-file" caps="500">
+					<binary name="fs_tool"/>
+					<config verbose="yes" exit="yes">
+						<vfs>
+							<fs writeable="yes"/>
+						</vfs>
+						<new-file path="/items/5">fifth</new-file>
+					</config>
+				</start>
+
 				<start name="sleep" caps="100">
 					<resource name="RAM" quantum="4M"/>
 					<binary name="dummy"/>
