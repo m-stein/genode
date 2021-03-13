@@ -121,40 +121,66 @@ class Cbe_manager::Main
 			REKEYING_START_BUTTON,
 		};
 
+		enum class Cbe_device_controls_resizing_state
+		{
+			INACTIVE,
+			WAIT_TILL_DEVICE_IS_READY,
+			ISSUE_REQUEST_AT_DEVICE,
+			IN_PROGRESS_AT_DEVICE,
+		};
+
+		enum class Cbe_device_controls_rekeying_state
+		{
+			INACTIVE,
+			REQUESTED,
+			IN_PROGRESS,
+		};
+
 		Env                                   &_env;
-		State                                  _state                     { State::INVALID };
-		Heap                                   _heap                      { _env.ram(), _env.rm() };
-		Attached_rom_dataspace                 _config                    { _env, "config" };
-		Root_directory                         _vfs                       { _env, _heap, _config.xml().sub_node("vfs") };
-		Registry<Child_state>                  _children                  { };
-		Child_state                            _menu_view_child_state     { _children, "menu_view", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 200 } };
-		Child_state                            _fs_query_child_state      { _children, "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
-		Child_state                            _cbe_init_trust_anchor     { _children, "cbe_init_trust_anchor", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
-		Child_state                            _cbe_init_child_state      { _children, "cbe_init", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
-		Child_state                            _vfs_block_child_state     { _children, "vfs_block", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
-		Xml_report_handler                     _fs_query_listing_handler  { *this, &Main::_handle_fs_query_listing };
-		Sandbox                                _sandbox                   { _env, *this };
-		Gui_service                            _gui_service               { _sandbox, *this };
-		Rom_service                            _rom_service               { _sandbox, *this };
-		Report_service                         _report_service            { _sandbox, *this };
-		Xml_report_handler                     _hover_handler             { *this, &Main::_handle_hover };
-		Constructible<Watch_handler<Main>>     _watch_handler             { };
-		Constructible<Expanding_reporter>      _clipboard_reporter        { };
-		Constructible<Attached_rom_dataspace>  _clipboard_rom             { };
-		bool                                   _initial_config            { true };
-		Signal_handler<Main>                   _config_handler            { _env.ep(), *this, &Main::_handle_config };
-		Signal_handler<Main>                   _state_handler             { _env.ep(), *this, &Main::_handle_state };
-		Dynamic_rom_session                    _dialog                    { _env.ep(), _env.ram(), _env.rm(), *this };
-		Passphrase                             _init_ta_setg_passphrase   { };
-		Init_ta_settings_hover                 _init_ta_setg_hover        { Init_ta_settings_hover::NONE };
-		Init_ta_settings_select                _init_ta_setg_select       { Init_ta_settings_hover::PASSPHRASE_INPUT };
-		Passphrase                             _init_cbe_setg_passphrase  { };
-		Passphrase                             _init_cbe_setg_size        { };
-		Init_cbe_settings_hover                _init_cbe_setg_hover       { Init_ta_settings_hover::NONE };
-		Init_cbe_settings_select               _init_cbe_setg_select      { Init_ta_settings_hover::PASSPHRASE_INPUT };
-		Cbe_device_controls_hovered            _cbe_ctl_hover             { Cbe_device_controls_selected::NONE };
-		Cbe_device_controls_selected           _cbe_ctl_select            { Cbe_device_controls_hovered::NONE };
-		Passphrase                             _cbe_ctl_rsz_nr_of_blks    { };
+		State                                  _state                        { State::INVALID };
+		Heap                                   _heap                         { _env.ram(), _env.rm() };
+		Attached_rom_dataspace                 _config                       { _env, "config" };
+		Root_directory                         _vfs                          { _env, _heap, _config.xml().sub_node("vfs") };
+		Registry<Child_state>                  _children                     { };
+		Child_state                            _menu_view_child_state        { _children, "menu_view", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 200 } };
+		Child_state                            _fs_query_child_state         { _children, "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _cbe_init_trust_anchor        { _children, "cbe_init_trust_anchor", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _cbe_init_child_state         { _children, "cbe_init", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _vfs_child_state              { _children, "vfs", Ram_quota { 64 * 1024 * 1024 }, Cap_quota { 200 } };
+		Child_state                            _vfs_block_child_state        { _children, "vfs_block", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _rsz_fs_tool_child_state      { _children, "rsz_fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
+		Child_state                            _rky_fs_tool_child_state      { _children, "rky_fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
+		Xml_report_handler                     _fs_query_listing_handler     { *this, &Main::_handle_fs_query_listing };
+		//Xml_report_handler                     _rsz_fs_query_listing_handler { *this, &Main::_handle_rsz_fs_query_listing };
+		Sandbox                                _sandbox                      { _env, *this };
+		Gui_service                            _gui_service                  { _sandbox, *this };
+		Rom_service                            _rom_service                  { _sandbox, *this };
+		Report_service                         _report_service               { _sandbox, *this };
+		Xml_report_handler                     _hover_handler                { *this, &Main::_handle_hover };
+		Constructible<Watch_handler<Main>>     _watch_handler                { };
+		Constructible<Expanding_reporter>      _clipboard_reporter           { };
+		Constructible<Attached_rom_dataspace>  _clipboard_rom                { };
+		bool                                   _initial_config               { true };
+		Signal_handler<Main>                   _config_handler               { _env.ep(), *this, &Main::_handle_config };
+		Signal_handler<Main>                   _state_handler                { _env.ep(), *this, &Main::_handle_state };
+		Dynamic_rom_session                    _dialog                       { _env.ep(), _env.ram(), _env.rm(), *this };
+		Passphrase                             _init_ta_setg_passphrase      { };
+		Init_ta_settings_hover                 _init_ta_setg_hover           { Init_ta_settings_hover::NONE };
+		Init_ta_settings_select                _init_ta_setg_select          { Init_ta_settings_hover::PASSPHRASE_INPUT };
+		Passphrase                             _init_cbe_setg_passphrase     { };
+		Passphrase                             _init_cbe_setg_size           { };
+		Init_cbe_settings_hover                _init_cbe_setg_hover          { Init_ta_settings_hover::NONE };
+		Init_cbe_settings_select               _init_cbe_setg_select         { Init_ta_settings_hover::PASSPHRASE_INPUT };
+		Cbe_device_controls_hovered            _cbe_ctl_hover                { Cbe_device_controls_selected::NONE };
+		Cbe_device_controls_selected           _cbe_ctl_select               { Cbe_device_controls_hovered::RESIZING_NR_OF_BLKS_INPUT };
+		Cbe_device_controls_rekeying_state     _cbe_ctl_rky_state            { Cbe_device_controls_rekeying_state::INACTIVE };
+		Cbe_device_controls_resizing_state     _cbe_ctl_rsz_state            { Cbe_device_controls_resizing_state::INACTIVE };
+		Passphrase                             _cbe_ctl_rsz_nr_of_blks       { };
+
+		void _gen_rsz_fs_query_start_node(Xml_generator &xml) const;
+
+		static bool _child_finished(Xml_node    const &sandbox_state,
+		                            Child_state const &child_state);
 
 		static State _state_from_string(State_string const &str);
 
@@ -201,6 +227,9 @@ class Cbe_manager::Main
 		                                size_t nr_of_ft_children,
 		                                size_t nr_of_ft_leafs);
 
+		static bool cbe_control_file_yields_state_idle(Xml_node const &fs_query_listing,
+		                                               char     const *file_name);
+
 
 		/***************************************************
 		 ** Sandbox::Local_service_base::Wakeup interface **
@@ -245,6 +274,28 @@ void Main::_handle_config()
 {
 	_config.update();
 	_initial_config = false;
+}
+
+
+bool Main::cbe_control_file_yields_state_idle(Xml_node const &fs_query_listing,
+                                              char     const *file_name)
+{
+	bool result { false };
+	bool done   { false };
+	fs_query_listing.with_sub_node("dir", [&] (Xml_node const &node_0) {
+		node_0.for_each_sub_node("file", [&] (Xml_node const &node_1) {
+			if (done) {
+				return;
+			}
+			if (node_1.attribute_value("name", String<16>()) == file_name) {
+				node_1.with_raw_content([&] (char const *base, size_t size) {
+					result = String<5> { Cstring {base, size} } == "idle";
+					done = true;
+				});
+			}
+		});
+	});
+	return result;
 }
 
 
@@ -385,19 +436,51 @@ void Main::_handle_fs_query_listing(Xml_node const &node)
 	log(node);
 	log("----------------");
 
-	if (_state != State::INVALID) {
-		return;
+	switch (_state) {
+	case State::INVALID:
+	{
+		State const state { _state_from_fs_query_listing(node) };
+		if (state == State::INVALID) {
+
+			_write_to_state_file(State::INIT_TRUST_ANCHOR_SETTINGS);
+
+		} else {
+
+			_state = state;
+			Signal_transmitter(_state_handler).submit();
+		}
+		break;
 	}
+	case State::CBE_DEVICE_CONTROLS:
 
-	State const state { _state_from_fs_query_listing(node) };
-	if (state == State::INVALID) {
+		switch (_cbe_ctl_rsz_state) {
+		case Cbe_device_controls_resizing_state::WAIT_TILL_DEVICE_IS_READY:
 
-		_write_to_state_file(State::INIT_TRUST_ANCHOR_SETTINGS);
+			if (cbe_control_file_yields_state_idle(node, "extend")) {
 
-	} else {
+				_cbe_ctl_rsz_state = Cbe_device_controls_resizing_state::ISSUE_REQUEST_AT_DEVICE;
+				Signal_transmitter(_state_handler).submit();
+			}
+			break;
 
-		_state = state;
-		Signal_transmitter(_state_handler).submit();
+		case Cbe_device_controls_resizing_state::IN_PROGRESS_AT_DEVICE:
+
+			if (cbe_control_file_yields_state_idle(node, "extend")) {
+
+				_cbe_ctl_rsz_nr_of_blks = Passphrase { };
+				_cbe_ctl_rsz_state = Cbe_device_controls_resizing_state::INACTIVE;
+				Signal_transmitter(_state_handler).submit();
+			}
+			break;
+
+		default:
+
+			break;
+		}
+
+	default:
+
+		break;
 	}
 }
 
@@ -420,58 +503,83 @@ Main::Main(Env &env)
 }
 
 
+bool Cbe_manager::Main::_child_finished(Xml_node    const &sandbox_state,
+                                        Child_state const &child_state)
+{
+	Child_exit_state const exit_state { sandbox_state, child_state.name() };
+
+	if (!exit_state.exists()) {
+		class Child_doesnt_exist { };
+		throw Child_doesnt_exist { };
+	}
+	if (exit_state.exited()) {
+
+		if (exit_state.code() != 0) {
+			class Child_exited_with_error { };
+			throw Child_exited_with_error { };
+		}
+		return true;
+	}
+	return false;
+}
+
+
 void Cbe_manager::Main::handle_sandbox_state()
 {
 	/* obtain current sandbox state */
-	Buffered_xml state(_heap, "state", [&] (Xml_generator &xml) {
+	Buffered_xml sandbox_state(_heap, "sandbox_state", [&] (Xml_generator &xml) {
 		_sandbox.generate_state_report(xml);
 	});
 
 	bool update_sandbox { false };
 	bool update_dialog { false };
-	state.with_xml_node([&] (Xml_node state) {
+	sandbox_state.with_xml_node([&] (Xml_node const &sandbox_state) {
 
-		if (_state == State::INIT_TRUST_ANCHOR_IN_PROGRESS) {
+		switch (_state) {
+		case State::INIT_TRUST_ANCHOR_IN_PROGRESS:
 
-			Child_exit_state const init_ta_exit_state {
-				state, _cbe_init_trust_anchor.name() };
+			if (_child_finished(sandbox_state, _cbe_init_trust_anchor)) {
 
-			if (!init_ta_exit_state.exists()) {
-				class Bad_sandbox_state { };
-				throw Bad_sandbox_state { };
-			}
-			if (init_ta_exit_state.exited()) {
-				if (init_ta_exit_state.code() != 0) {
-					class Init_trust_anchor_failed { };
-					throw Init_trust_anchor_failed { };
-				}
 				_state = State::INIT_CBE_DEVICE_SETTINGS;
 				_init_cbe_setg_passphrase = _init_ta_setg_passphrase;
 				_init_cbe_setg_select = Init_cbe_settings_select::SIZE_INPUT;
 				update_dialog = true;
 				update_sandbox = true;
 			}
-		} else if (_state == State::INIT_CBE_DEVICE_INIT_CBE) {
+			break;
 
-			Child_exit_state const cbe_init_exit_state {
-				state, _cbe_init_child_state.name() };
+		case State::INIT_CBE_DEVICE_INIT_CBE:
 
-			if (!cbe_init_exit_state.exists()) {
-				class Bad_sandbox_state { };
-				throw Bad_sandbox_state { };
-			}
-			if (cbe_init_exit_state.exited()) {
-				if (cbe_init_exit_state.code() != 0) {
-					class Cbe_init_failed { };
-					throw Cbe_init_failed { };
-				}
+			if (_child_finished(sandbox_state, _cbe_init_child_state)) {
+
 				_state = State::CBE_DEVICE_CONTROLS;
 				update_dialog = true;
 				update_sandbox = true;
 			}
-		}
+			break;
 
-		state.for_each_sub_node("child", [&] (Xml_node const &child) {
+		case State::CBE_DEVICE_CONTROLS:
+
+			switch (_cbe_ctl_rsz_state) {
+			case Cbe_device_controls_resizing_state::ISSUE_REQUEST_AT_DEVICE:
+
+				if (_child_finished(sandbox_state, _rsz_fs_tool_child_state)) {
+
+					_cbe_ctl_rsz_state = Cbe_device_controls_resizing_state::IN_PROGRESS_AT_DEVICE;
+					update_dialog = true;
+					update_sandbox = true;
+				}
+				break;
+
+			default:
+
+				break;
+			}
+		default:
+
+			break;
+		}
+		sandbox_state.for_each_sub_node("child", [&] (Xml_node const &child) {
 
 			if (_fs_query_child_state.apply_child_state_report(child)) {
 				update_sandbox = true;
@@ -513,6 +621,7 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 				gen_start_button = false;
 				gen_info_line(xml, "info", _init_ta_setg_passphrase.not_suitable_text());
 			}
+			gen_info_line(xml, "pad", "");
 			if (gen_start_button) {
 
 				gen_action_button_at_bottom(
@@ -543,7 +652,7 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 				gen_start_button = false;
 				gen_info_line(xml, "info_1", _init_cbe_setg_passphrase.not_suitable_text());
 			}
-			gen_info_line(xml, "space", "");
+			gen_info_line(xml, "pad_1", "");
 			gen_titled_text_input(
 				xml, "sz", "Device size (suffixes K, M, G)",
 				_init_cbe_setg_size,
@@ -560,6 +669,7 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 					xml, "info_2",
 					String<256> { "Image size will be ", _cbe_size()}.string());
 			}
+			gen_info_line(xml, "pad_2", "");
 			if (gen_start_button) {
 
 				gen_action_button_at_bottom(
@@ -602,49 +712,70 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 						_cbe_ctl_hover  == Cbe_device_controls_hovered::REKEYING_START_BUTTON,
 						_cbe_ctl_select == Cbe_device_controls_selected::REKEYING_START_BUTTON);
 				});
+
 				gen_titled_frame(xml, "rsz", "Resizing", 0, [&] (Xml_generator &xml) {
 
-					gen_titled_text_input(
-						xml, "blks", "Number of blocks",
-						_cbe_ctl_rsz_nr_of_blks,
-						_cbe_ctl_select == Cbe_device_controls_selected::RESIZING_NR_OF_BLKS_INPUT);
+					switch(_cbe_ctl_rsz_state) {
+					case Cbe_device_controls_resizing_state::INACTIVE:
+					{
+						gen_titled_text_input(
+							xml, "blks", "Number of blocks",
+							_cbe_ctl_rsz_nr_of_blks,
+							_cbe_ctl_select == Cbe_device_controls_selected::RESIZING_NR_OF_BLKS_INPUT);
 
-					bool gen_start_button { true };
-					if (!_cbe_ctl_rsz_nr_of_blks.is_nr_greater_than_zero()) {
+						bool gen_start_button { true };
+						if (!_cbe_ctl_rsz_nr_of_blks.is_nr_greater_than_zero()) {
 
-						gen_start_button = false;
-						gen_info_line(xml, "inf", "Must be a number greater than 0");
-						gen_info_line(xml, "pad", "");
+							gen_start_button = false;
+							gen_info_line(xml, "inf", "Must be a number greater than 0");
+							gen_info_line(xml, "pad", "");
 
-					}  else {
+						}  else {
 
-						Number_of_bytes const curr_cbe_size { _cbe_size() };
-						unsigned long rsz_nr_of_bytes {
-							_cbe_ctl_rsz_nr_of_blks.to_unsigned_long() *
-							CBE_BLOCK_SIZE };
+							Number_of_bytes const curr_cbe_size { _cbe_size() };
+							unsigned long rsz_nr_of_bytes {
+								_cbe_ctl_rsz_nr_of_blks.to_unsigned_long() *
+								CBE_BLOCK_SIZE };
 
-						gen_info_line(
-							xml, "inf_1",
-							String<256> {
-								"Current image size: ",
-								curr_cbe_size
-							}.string());
+							gen_info_line(
+								xml, "inf_1",
+								String<256> {
+									"Current image size: ",
+									curr_cbe_size
+								}.string());
 
-						gen_info_line(
-							xml, "inf_2",
-							String<256> {
-								"New image size: ",
-								Number_of_bytes { curr_cbe_size + rsz_nr_of_bytes }
-							}.string());
+							gen_info_line(
+								xml, "inf_2",
+								String<256> {
+									"New image size: ",
+									Number_of_bytes { curr_cbe_size + rsz_nr_of_bytes }
+								}.string());
 
-						gen_info_line(xml, "pad", "");
+							gen_info_line(xml, "pad", "");
+						}
+						if (gen_start_button) {
+
+							gen_action_button_at_bottom(
+								xml, "Start",
+								_cbe_ctl_hover  == Cbe_device_controls_hovered::RESIZING_START_BUTTON,
+								_cbe_ctl_select == Cbe_device_controls_selected::RESIZING_START_BUTTON);
+						}
+						break;
 					}
-					if (gen_start_button) {
+					case Cbe_device_controls_resizing_state::WAIT_TILL_DEVICE_IS_READY:
 
-						gen_action_button_at_bottom(
-							xml, "Start",
-							_cbe_ctl_hover  == Cbe_device_controls_hovered::RESIZING_START_BUTTON,
-							_cbe_ctl_select == Cbe_device_controls_selected::RESIZING_START_BUTTON);
+						gen_info_line(xml, "inf", "Wait for device...");
+						break;
+
+					case Cbe_device_controls_resizing_state::ISSUE_REQUEST_AT_DEVICE:
+
+						gen_info_line(xml, "inf", "Initiate...");
+						break;
+
+					case Cbe_device_controls_resizing_state::IN_PROGRESS_AT_DEVICE:
+
+						gen_info_line(xml, "inf", "In progress...");
+						break;
 					}
 				});
 			});
@@ -951,8 +1082,161 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 	case State::CBE_DEVICE_CONTROLS:
 
 		_generate_default_sandbox_config(xml);
+
+		xml.node("start", [&] () {
+			_vfs_child_state.gen_start_node_content(xml);
+
+			xml.node("provides", [&] () {
+				xml.node("service", [&] () {
+					xml.attribute("name", "File_system");
+				});
+			});
+			xml.node("config", [&] () {
+
+				xml.node("vfs", [&] () {
+
+					xml.node("fs", [&] () {
+						xml.attribute("buffer_size", "1M");
+						xml.attribute("label", "cbe_fs");
+					});
+					xml.node("cbe_crypto_aes_cbc", [&] () {
+						xml.attribute("name", "crypto");
+					});
+					xml.node("dir", [&] () {
+						xml.attribute("name", "trust_anchor");
+
+						xml.node("fs", [&] () {
+							xml.attribute("buffer_size", "1M");
+							xml.attribute("label", "trust_anchor");
+						});
+					});
+					xml.node("dir", [&] () {
+						xml.attribute("name", "dev");
+
+						xml.node("cbe", [&] () {
+							xml.attribute("name", "cbe");
+							xml.attribute("verbose", "yes");
+							xml.attribute("debug", "no");
+							xml.attribute("block", "/cbe.img");
+							xml.attribute("crypto", "/crypto");
+							xml.attribute("trust_anchor", "/trust_anchor");
+						});
+					});
+				});
+
+				xml.node("policy", [&] () {
+					xml.attribute("label", "rsz_fs_tool -> ");
+					xml.attribute("root", "/dev");
+					xml.attribute("writeable", "yes");
+				});
+				xml.node("policy", [&] () {
+					xml.attribute("label", "rky_fs_tool -> ");
+					xml.attribute("root", "/dev");
+					xml.attribute("writeable", "yes");
+				});
+				xml.node("policy", [&] () {
+					xml.attribute("label", "fs_query -> ");
+					xml.attribute("root", "/dev");
+					xml.attribute("writeable", "yes");
+				});
+				xml.node("default-policy", [&] () {
+					xml.attribute("root", "/dev/cbe/current");
+					xml.attribute("writeable", "yes");
+				});
+			});
+			xml.node("route", [&] () {
+				route_to_parent_service(xml, "File_system", "cbe_fs");
+				route_to_parent_service(xml, "File_system", "trust_anchor");
+				route_to_parent_service(xml, "PD");
+				route_to_parent_service(xml, "ROM");
+				route_to_parent_service(xml, "CPU");
+				route_to_parent_service(xml, "LOG");
+			});
+		});
+		switch(_cbe_ctl_rsz_state) {
+		case Cbe_device_controls_resizing_state::INACTIVE:
+
+			break;
+
+		case Cbe_device_controls_resizing_state::WAIT_TILL_DEVICE_IS_READY:
+
+			_gen_rsz_fs_query_start_node(xml);
+			break;
+
+		case Cbe_device_controls_resizing_state::ISSUE_REQUEST_AT_DEVICE:
+
+			xml.node("start", [&] () {
+				_rsz_fs_tool_child_state.gen_start_node_content(xml);
+
+				xml.node("binary", [&] () {
+					xml.attribute("name", "fs_tool");
+				});
+				xml.node("config", [&] () {
+					xml.attribute("exit",    "yes");
+					xml.attribute("verbose", "yes");
+
+					xml.node("vfs", [&] () {
+						xml.node("dir", [&] () {
+							xml.attribute("name", "cbe");
+
+							xml.node("fs",  [&] () {
+								xml.attribute("writeable", "yes");
+							});
+						});
+					});
+					xml.node("new-file", [&] () {
+						xml.attribute("path", "/cbe/cbe/control/extend");
+						xml.append_content(
+							"tree=vbd,blocks=",
+							_cbe_ctl_rsz_nr_of_blks.to_unsigned_long());
+					});
+				});
+				xml.node("route", [&] () {
+
+					route_to_child_service(xml, "vfs", "File_system");
+					route_to_parent_service(xml, "PD");
+					route_to_parent_service(xml, "ROM");
+					route_to_parent_service(xml, "CPU");
+					route_to_parent_service(xml, "LOG");
+				});
+			});
+			break;
+
+		case Cbe_device_controls_resizing_state::IN_PROGRESS_AT_DEVICE:
+
+			_gen_rsz_fs_query_start_node(xml);
+			break;
+		}
 		break;
 	}
+}
+
+
+void Cbe_manager::Main::_gen_rsz_fs_query_start_node(Xml_generator &xml) const
+{
+	xml.node("start", [&] () {
+
+		_fs_query_child_state.gen_start_node_content(xml);
+		xml.node("config", [&] () {
+			xml.node("vfs", [&] () {
+				xml.node("fs", [&] () {
+					xml.attribute("writeable", "yes");
+				});
+			});
+			xml.node("query", [&] () {
+				xml.attribute("path", "/cbe/control");
+				xml.attribute("content", "yes");
+			});
+		});
+		xml.node("route", [&] () {
+			route_to_local_service(xml, "Report");
+			route_to_child_service(xml, "vfs", "File_system");
+			route_to_parent_service(xml, "PD");
+			route_to_parent_service(xml, "ROM");
+			route_to_parent_service(xml, "CPU");
+			route_to_parent_service(xml, "LOG");
+		});
+	});
 }
 
 
@@ -1297,7 +1581,7 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 				case Cbe_device_controls_selected::RESIZING_START_BUTTON:
 
 					_cbe_ctl_select = Cbe_device_controls_selected::NONE;
-					_state = State::CBE_DEVICE_CONTROLS;
+					_cbe_ctl_rsz_state = Cbe_device_controls_resizing_state::WAIT_TILL_DEVICE_IS_READY;
 
 					update_sandbox_config = true;
 					update_dialog = true;
@@ -1306,7 +1590,7 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 				case Cbe_device_controls_selected::REKEYING_START_BUTTON:
 
 					_cbe_ctl_select = Cbe_device_controls_selected::NONE;
-					_state = State::CBE_DEVICE_CONTROLS;
+					_cbe_ctl_rky_state = Cbe_device_controls_rekeying_state::REQUESTED;
 
 					update_sandbox_config = true;
 					update_dialog = true;

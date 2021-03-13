@@ -125,7 +125,7 @@ class Cbe_manager::Passphrase : Blind_passphrase
 
 		bool suitable() const
 		{
-			return _length >= 8;
+			return _length >= 1;
 		}
 
 		Number_of_bytes to_nr_of_bytes() const

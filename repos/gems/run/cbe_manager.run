@@ -16,12 +16,15 @@ import_from_depot [depot_user]/src/[base_src] \
                   [depot_user]/src/cbe \
                   [depot_user]/src/spark \
                   [depot_user]/src/libsparkcrypto \
-                  [depot_user]/src/vfs_block
+                  [depot_user]/src/vfs_block \
+                  [depot_user]/src/vfs \
+                  [depot_user]/src/openssl \
+                  [depot_user]/src/fs_tool \
+                  [depot_user]/src/sandbox
 
 build {
 	app/cbe_manager
 	app/cbe_init_trust_anchor
-	lib/vfs/cbe_trust_anchor
 }
 
 install_config {
@@ -126,7 +129,7 @@ install_config {
 
 		<start name="cbe_fs" caps="100">
 			<binary name="vfs"/>
-			<resource name="RAM" quantum="10M"/>
+			<resource name="RAM" quantum="100M"/>
 			<provides><service name="File_system"/></provides>
 			<config>
 				<vfs>
@@ -143,6 +146,8 @@ install_config {
 				<policy label="cbe_manager -> vfs_block -> " root="/cbe" writeable="yes"/>
 				<policy label="cbe_manager -> cbe_init_trust_anchor -> trust_anchor" root="/dev/cbe_trust_anchor" writeable="yes"/>
 				<policy label="cbe_manager -> cbe_init -> trust_anchor" root="/dev/cbe_trust_anchor" writeable="yes"/>
+				<policy label="cbe_manager -> vfs -> trust_anchor" root="/dev/cbe_trust_anchor" writeable="yes"/>
+				<policy label="cbe_manager -> vfs -> cbe_fs" root="/cbe" writeable="yes"/>
 			</config>
 			<route>
 				<service name="PD">  <parent/> </service>
@@ -213,7 +218,7 @@ install_config {
 		</start>
 
 		<start name="cbe_manager" caps="1000">
-			<resource name="RAM" quantum="50M"/>
+			<resource name="RAM" quantum="100M"/>
 			<config>
 				<report saved="yes"/>
 				<save version="1"/>
@@ -232,6 +237,8 @@ install_config {
 				<service name="File_system" label="vfs_block -> ">                         <child name="cbe_fs"/> </service>
 				<service name="File_system" label="cbe">                                   <child name="cbe_fs"/> </service>
 				<service name="File_system" label="fs_query -> ">                          <child name="cbe_fs"/> </service>
+				<service name="File_system" label="vfs -> cbe_fs">                         <child name="cbe_fs"/> </service>
+				<service name="File_system" label="vfs -> trust_anchor">                   <child name="cbe_fs"/> </service>
 				<service name="Report">                                                    <child name="report_rom"/> </service>
 				<service name="Timer">                                                     <child name="timer"/> </service>
 				<service name="Gui">                                                       <child name="nitpicker"/> </service>
@@ -251,9 +258,7 @@ close $fd
 
 build_boot_image {
 	cbe_init_trust_anchor
-	vfs_cbe_trust_anchor.lib.so
 	cbe_manager
-	sandbox.lib.so
 }
 
 run_genode_until forever

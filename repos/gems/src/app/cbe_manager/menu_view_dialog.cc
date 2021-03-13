@@ -52,15 +52,8 @@ void Cbe_manager::gen_titled_in_progress_frame(Xml_generator &xml,
 {
 	gen_titled_frame(xml, name, title, min_width, [&] (Xml_generator &xml) {
 
-		xml.node("float", [&] () {
-			xml.attribute("name",  "2");
-			xml.attribute("west",  "yes");
-
-			xml.node("label", [&] () {
-				xml.attribute("font", "monospace/regular");
-				xml.attribute("text", " In progress... ");
-			});
-		});
+		gen_info_line(xml, "info", "In progress...");
+		gen_info_line(xml, "pad", "");
 	});
 }
 
