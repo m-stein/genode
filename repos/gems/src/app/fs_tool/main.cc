@@ -17,6 +17,10 @@
 #include <base/attached_rom_dataspace.h>
 #include <base/heap.h>
 #include <os/vfs.h>
+#include <base/buffered_output.h>
+
+/* local includes */
+#include <new_file.h>
 
 namespace Fs_tool {
 	using namespace Genode;
@@ -60,6 +64,8 @@ struct Fs_tool::Main
 
 	void _remove_file(Xml_node);
 
+	void _new_file(Xml_node);
+
 	void _handle_config()
 	{
 		_config.update();
@@ -73,6 +79,8 @@ struct Fs_tool::Main
 		config.for_each_sub_node([&] (Xml_node operation) {
 			if (operation.has_type("remove-file")) {
 				_remove_file(operation);
+			} else if (operation.has_type("new-file")) {
+				_new_file(operation);
 			}
 		});
 
@@ -112,6 +120,51 @@ void Fs_tool::Main::_remove_file(Xml_node operation)
 
 	if (_verbose && _root_dir.file_exists(path))
 		warning("failed to remove file ", path);
+}
+
+
+void Fs_tool::Main::_new_file(Xml_node operation)
+{
+	Path const path        { operation.attribute_value("path", Path()) };
+	bool       write_error { false };
+
+	try {
+		New_file new_file(_vfs_env, path);
+		auto write = [&] (char const *str)
+		{
+			switch (new_file.append(str, strlen(str))) {
+			case New_file::Append_result::OK:
+
+				log("OK");
+				break;
+
+			case New_file::Append_result::WRITE_ERROR:
+
+				log("NOT OK");
+				write_error = true;
+				break;
+			}
+		};
+		Buffered_output<128, decltype(write)> output(write);
+
+		operation.with_raw_content([&] (char const *start, size_t size) {
+			print(output, Cstring(start, size));
+		});
+	}
+	catch (New_file::Create_failed) {
+
+		if (_verbose) {
+			warning("operation <new-file path=\"", path,
+			        "\"> failed because creating the file failed");
+		}
+	}
+	if (write_error) {
+
+		if (_verbose) {
+			warning("operation <new-file path=\"", path,
+			        "\"> failed because writing to the file failed");
+		}
+	}
 }
 
 

@@ -5,6 +5,7 @@ configured VFS. The file operations are given the configuration as follows:
 !   <vfs>
 !     ...
 !   </vfs>
+!   <new-file path="/path/to/file">Content to write to the file</new-file>
 !   <remove-file path="/path/to/file" />
 ! </config>
 
