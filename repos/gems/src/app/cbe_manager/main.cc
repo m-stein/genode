@@ -52,7 +52,7 @@ class Cbe_manager::Main
 		enum {
 			STATE_STRING_CAPACITY = 2,
 			CBE_BLOCK_SIZE = 4096,
-			MAIN_FRAME_WIDTH = 50,
+			MAIN_FRAME_WIDTH = 70,
 			INIT_CBE_NR_OF_LEVELS = 6,
 			INIT_CBE_NR_OF_CHILDREN = 64,
 			INIT_CBE_NR_OF_SUPERBLOCKS = 8,
@@ -132,8 +132,9 @@ class Cbe_manager::Main
 		enum class Cbe_device_controls_rekeying_state
 		{
 			INACTIVE,
-			REQUESTED,
-			IN_PROGRESS,
+			WAIT_TILL_DEVICE_IS_READY,
+			ISSUE_REQUEST_AT_DEVICE,
+			IN_PROGRESS_AT_DEVICE,
 		};
 
 		Env                                   &_env;
@@ -144,6 +145,8 @@ class Cbe_manager::Main
 		Registry<Child_state>                  _children                     { };
 		Child_state                            _menu_view_child_state        { _children, "menu_view", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 200 } };
 		Child_state                            _fs_query_child_state         { _children, "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _rsz_fs_query_child_state     { _children, "rsz_fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _rky_fs_query_child_state     { _children, "rky_fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _cbe_init_trust_anchor        { _children, "cbe_init_trust_anchor", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _cbe_init_child_state         { _children, "cbe_init", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _vfs_child_state              { _children, "vfs", Ram_quota { 64 * 1024 * 1024 }, Cap_quota { 200 } };
@@ -151,7 +154,8 @@ class Cbe_manager::Main
 		Child_state                            _rsz_fs_tool_child_state      { _children, "rsz_fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
 		Child_state                            _rky_fs_tool_child_state      { _children, "rky_fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
 		Xml_report_handler                     _fs_query_listing_handler     { *this, &Main::_handle_fs_query_listing };
-		//Xml_report_handler                     _rsz_fs_query_listing_handler { *this, &Main::_handle_rsz_fs_query_listing };
+		Xml_report_handler                     _rsz_fs_query_listing_handler { *this, &Main::_handle_rsz_fs_query_listing };
+		Xml_report_handler                     _rky_fs_query_listing_handler { *this, &Main::_handle_rky_fs_query_listing };
 		Sandbox                                _sandbox                      { _env, *this };
 		Gui_service                            _gui_service                  { _sandbox, *this };
 		Rom_service                            _rom_service                  { _sandbox, *this };
@@ -179,6 +183,8 @@ class Cbe_manager::Main
 
 		void _gen_rsz_fs_query_start_node(Xml_generator &xml) const;
 
+		void _gen_rky_fs_query_start_node(Xml_generator &xml) const;
+
 		static bool _child_finished(Xml_node    const &sandbox_state,
 		                            Child_state const &child_state);
 
@@ -201,6 +207,10 @@ class Cbe_manager::Main
 		void _generate_default_sandbox_config(Xml_generator &xml) const;
 
 		void _handle_fs_query_listing(Xml_node const &node);
+
+		void _handle_rsz_fs_query_listing(Xml_node const &node);
+
+		void _handle_rky_fs_query_listing(Xml_node const &node);
 
 		void _handle_hover(Xml_node const &node);
 
@@ -430,27 +440,13 @@ void Main::_vfs_create_zero_filled_file(Root_directory  &vfs,
 }
 
 
-void Main::_handle_fs_query_listing(Xml_node const &node)
+void Main::_handle_rsz_fs_query_listing(Xml_node const &node)
 {
-	log("--- fs_query ---");
+	log("--- rsz_fs_query ---");
 	log(node);
 	log("----------------");
 
 	switch (_state) {
-	case State::INVALID:
-	{
-		State const state { _state_from_fs_query_listing(node) };
-		if (state == State::INVALID) {
-
-			_write_to_state_file(State::INIT_TRUST_ANCHOR_SETTINGS);
-
-		} else {
-
-			_state = state;
-			Signal_transmitter(_state_handler).submit();
-		}
-		break;
-	}
 	case State::CBE_DEVICE_CONTROLS:
 
 		switch (_cbe_ctl_rsz_state) {
@@ -478,6 +474,75 @@ void Main::_handle_fs_query_listing(Xml_node const &node)
 			break;
 		}
 
+	default:
+
+		break;
+	}
+}
+
+
+void Main::_handle_rky_fs_query_listing(Xml_node const &node)
+{
+	log("--- rky_fs_query ---");
+	log(node);
+	log("----------------");
+
+	switch (_state) {
+	case State::CBE_DEVICE_CONTROLS:
+
+		switch (_cbe_ctl_rky_state) {
+		case Cbe_device_controls_rekeying_state::WAIT_TILL_DEVICE_IS_READY:
+
+			if (cbe_control_file_yields_state_idle(node, "rekey")) {
+
+				_cbe_ctl_rky_state = Cbe_device_controls_rekeying_state::ISSUE_REQUEST_AT_DEVICE;
+				Signal_transmitter(_state_handler).submit();
+			}
+			break;
+
+		case Cbe_device_controls_rekeying_state::IN_PROGRESS_AT_DEVICE:
+
+			if (cbe_control_file_yields_state_idle(node, "rekey")) {
+
+				_cbe_ctl_rky_state = Cbe_device_controls_rekeying_state::INACTIVE;
+				Signal_transmitter(_state_handler).submit();
+			}
+			break;
+
+		default:
+
+			break;
+		}
+		break;
+
+	default:
+
+		break;
+	}
+}
+
+
+void Main::_handle_fs_query_listing(Xml_node const &node)
+{
+	log("--- fs_query ---");
+	log(node);
+	log("----------------");
+
+	switch (_state) {
+	case State::INVALID:
+	{
+		State const state { _state_from_fs_query_listing(node) };
+		if (state == State::INVALID) {
+
+			_write_to_state_file(State::INIT_TRUST_ANCHOR_SETTINGS);
+
+		} else {
+
+			_state = state;
+			Signal_transmitter(_state_handler).submit();
+		}
+		break;
+	}
 	default:
 
 		break;
@@ -575,6 +640,24 @@ void Cbe_manager::Main::handle_sandbox_state()
 
 				break;
 			}
+
+			switch (_cbe_ctl_rky_state) {
+			case Cbe_device_controls_rekeying_state::ISSUE_REQUEST_AT_DEVICE:
+
+				if (_child_finished(sandbox_state, _rky_fs_tool_child_state)) {
+
+					_cbe_ctl_rky_state = Cbe_device_controls_rekeying_state::IN_PROGRESS_AT_DEVICE;
+					update_dialog = true;
+					update_sandbox = true;
+				}
+				break;
+
+			default:
+
+				break;
+			}
+			break;
+
 		default:
 
 			break;
@@ -706,14 +789,44 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 			xml.node("hbox", [&] () {
 
-				gen_titled_frame(xml, "rky", "Rekeying", 0, [&] (Xml_generator &xml) {
+				gen_titled_frame(xml, "rky", "Rekeying", 30, [&] (Xml_generator &xml) {
 
-					gen_action_button_at_bottom(xml, "Start",
-						_cbe_ctl_hover  == Cbe_device_controls_hovered::REKEYING_START_BUTTON,
-						_cbe_ctl_select == Cbe_device_controls_selected::REKEYING_START_BUTTON);
+					gen_info_line(xml, "pad_1", "");
+
+					switch(_cbe_ctl_rky_state) {
+					case Cbe_device_controls_rekeying_state::INACTIVE:
+					{
+
+						gen_action_button_at_bottom(xml, "Start",
+							_cbe_ctl_hover  == Cbe_device_controls_hovered::REKEYING_START_BUTTON,
+							_cbe_ctl_select == Cbe_device_controls_selected::REKEYING_START_BUTTON);
+
+						break;
+					}
+					case Cbe_device_controls_rekeying_state::WAIT_TILL_DEVICE_IS_READY:
+
+						gen_info_line(xml, "inf", "Wait for device...");
+						gen_info_line(xml, "pad_2", "");
+						break;
+
+					case Cbe_device_controls_rekeying_state::ISSUE_REQUEST_AT_DEVICE:
+
+						gen_info_line(xml, "inf", "Initiate...");
+						gen_info_line(xml, "pad_2", "");
+						break;
+
+					case Cbe_device_controls_rekeying_state::IN_PROGRESS_AT_DEVICE:
+
+						gen_info_line(xml, "inf", "In progress...");
+						gen_info_line(xml, "pad_2", "");
+						break;
+					}
 				});
 
-				gen_titled_frame(xml, "rsz", "Resizing", 0, [&] (Xml_generator &xml) {
+
+				gen_titled_frame(xml, "rsz", "Resizing", 30, [&] (Xml_generator &xml) {
+
+					gen_info_line(xml, "pad_1", "");
 
 					switch(_cbe_ctl_rsz_state) {
 					case Cbe_device_controls_resizing_state::INACTIVE:
@@ -728,7 +841,7 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 							gen_start_button = false;
 							gen_info_line(xml, "inf", "Must be a number greater than 0");
-							gen_info_line(xml, "pad", "");
+							gen_info_line(xml, "pad_2", "");
 
 						}  else {
 
@@ -751,7 +864,7 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 									Number_of_bytes { curr_cbe_size + rsz_nr_of_bytes }
 								}.string());
 
-							gen_info_line(xml, "pad", "");
+							gen_info_line(xml, "pad_2", "");
 						}
 						if (gen_start_button) {
 
@@ -765,16 +878,19 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 					case Cbe_device_controls_resizing_state::WAIT_TILL_DEVICE_IS_READY:
 
 						gen_info_line(xml, "inf", "Wait for device...");
+						gen_info_line(xml, "pad_2", "");
 						break;
 
 					case Cbe_device_controls_resizing_state::ISSUE_REQUEST_AT_DEVICE:
 
 						gen_info_line(xml, "inf", "Initiate...");
+						gen_info_line(xml, "pad_2", "");
 						break;
 
 					case Cbe_device_controls_resizing_state::IN_PROGRESS_AT_DEVICE:
 
 						gen_info_line(xml, "inf", "In progress...");
+						gen_info_line(xml, "pad_2", "");
 						break;
 					}
 				});
@@ -802,6 +918,24 @@ void Cbe_manager::Main::wakeup_local_service()
 			Report::Session_component &session { *new (_heap)
 				Report::Session_component(
 					_env, _fs_query_listing_handler, _env.ep(),
+					request.resources, "", request.diag) };
+
+			request.deliver_session(session);
+
+		} else if (request.label == "rsz_fs_query -> listing") {
+
+			Report::Session_component &session { *new (_heap)
+				Report::Session_component(
+					_env, _rsz_fs_query_listing_handler, _env.ep(),
+					request.resources, "", request.diag) };
+
+			request.deliver_session(session);
+
+		} else if (request.label == "rky_fs_query -> listing") {
+
+			Report::Session_component &session { *new (_heap)
+				Report::Session_component(
+					_env, _rky_fs_query_listing_handler, _env.ep(),
 					request.resources, "", request.diag) };
 
 			request.deliver_session(session);
@@ -1139,6 +1273,16 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 					xml.attribute("root", "/dev");
 					xml.attribute("writeable", "yes");
 				});
+				xml.node("policy", [&] () {
+					xml.attribute("label", "rsz_fs_query -> ");
+					xml.attribute("root", "/dev");
+					xml.attribute("writeable", "yes");
+				});
+				xml.node("policy", [&] () {
+					xml.attribute("label", "rky_fs_query -> ");
+					xml.attribute("root", "/dev");
+					xml.attribute("writeable", "yes");
+				});
 				xml.node("default-policy", [&] () {
 					xml.attribute("root", "/dev/cbe/current");
 					xml.attribute("writeable", "yes");
@@ -1207,6 +1351,59 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 			_gen_rsz_fs_query_start_node(xml);
 			break;
 		}
+
+		switch(_cbe_ctl_rky_state) {
+		case Cbe_device_controls_rekeying_state::INACTIVE:
+
+			break;
+
+		case Cbe_device_controls_rekeying_state::WAIT_TILL_DEVICE_IS_READY:
+
+			_gen_rky_fs_query_start_node(xml);
+			break;
+
+		case Cbe_device_controls_rekeying_state::ISSUE_REQUEST_AT_DEVICE:
+
+			xml.node("start", [&] () {
+				_rky_fs_tool_child_state.gen_start_node_content(xml);
+
+				xml.node("binary", [&] () {
+					xml.attribute("name", "fs_tool");
+				});
+				xml.node("config", [&] () {
+					xml.attribute("exit",    "yes");
+					xml.attribute("verbose", "yes");
+
+					xml.node("vfs", [&] () {
+						xml.node("dir", [&] () {
+							xml.attribute("name", "cbe");
+
+							xml.node("fs",  [&] () {
+								xml.attribute("writeable", "yes");
+							});
+						});
+					});
+					xml.node("new-file", [&] () {
+						xml.attribute("path", "/cbe/cbe/control/rekey");
+						xml.append_content("true");
+					});
+				});
+				xml.node("route", [&] () {
+
+					route_to_child_service(xml, "vfs", "File_system");
+					route_to_parent_service(xml, "PD");
+					route_to_parent_service(xml, "ROM");
+					route_to_parent_service(xml, "CPU");
+					route_to_parent_service(xml, "LOG");
+				});
+			});
+			break;
+
+		case Cbe_device_controls_rekeying_state::IN_PROGRESS_AT_DEVICE:
+
+			_gen_rky_fs_query_start_node(xml);
+			break;
+		}
 		break;
 	}
 }
@@ -1215,8 +1412,42 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 void Cbe_manager::Main::_gen_rsz_fs_query_start_node(Xml_generator &xml) const
 {
 	xml.node("start", [&] () {
+		_rsz_fs_query_child_state.gen_start_node_content(xml);
 
-		_fs_query_child_state.gen_start_node_content(xml);
+		xml.node("binary", [&] () {
+			xml.attribute("name", "fs_query");
+		});
+		xml.node("config", [&] () {
+			xml.node("vfs", [&] () {
+				xml.node("fs", [&] () {
+					xml.attribute("writeable", "yes");
+				});
+			});
+			xml.node("query", [&] () {
+				xml.attribute("path", "/cbe/control");
+				xml.attribute("content", "yes");
+			});
+		});
+		xml.node("route", [&] () {
+			route_to_local_service(xml, "Report");
+			route_to_child_service(xml, "vfs", "File_system");
+			route_to_parent_service(xml, "PD");
+			route_to_parent_service(xml, "ROM");
+			route_to_parent_service(xml, "CPU");
+			route_to_parent_service(xml, "LOG");
+		});
+	});
+}
+
+
+void Cbe_manager::Main::_gen_rky_fs_query_start_node(Xml_generator &xml) const
+{
+	xml.node("start", [&] () {
+		_rky_fs_query_child_state.gen_start_node_content(xml);
+
+		xml.node("binary", [&] () {
+			xml.attribute("name", "fs_query");
+		});
 		xml.node("config", [&] () {
 			xml.node("vfs", [&] () {
 				xml.node("fs", [&] () {
@@ -1590,7 +1821,7 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 				case Cbe_device_controls_selected::REKEYING_START_BUTTON:
 
 					_cbe_ctl_select = Cbe_device_controls_selected::NONE;
-					_cbe_ctl_rky_state = Cbe_device_controls_rekeying_state::REQUESTED;
+					_cbe_ctl_rky_state = Cbe_device_controls_rekeying_state::WAIT_TILL_DEVICE_IS_READY;
 
 					update_sandbox_config = true;
 					update_dialog = true;
