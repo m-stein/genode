@@ -14,10 +14,14 @@
 #ifndef _TYPES_H_
 #define _TYPES_H_
 
+/* Genode includes */
+#include <cbe/types.h>
+
 namespace Genode { }
 
 namespace Cbe_manager {
 
+	using namespace Cbe;
 	using namespace Genode;
 }
 
