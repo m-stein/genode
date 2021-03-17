@@ -147,18 +147,27 @@ void Cbe_manager::gen_info_line(Xml_generator     &xml,
 }
 
 void Cbe_manager::gen_floating_text_line(Xml_generator &xml,
-                                         size_t         line_idx,
-                                         char    const *line)
+                                         char    const *name,
+                                         char    const *line,
+                                         unsigned long  select_at,
+                                         unsigned long  select_length)
 {
 	xml.node("hbox", [&] () {
-		xml.attribute("name", String<8> { line_idx });
+		xml.attribute("name", name);
 		xml.node("float", [&] () {
 			xml.attribute("north", "yes");
 			xml.attribute("south", "yes");
 			xml.attribute("west",  "yes");
 			xml.node("label", [&] () {
 				xml.attribute("font", "monospace/regular");
-				xml.attribute("text", String<64> { " ", line, " " });
+				xml.attribute("text", String<256> { " ", line, " "});
+
+				if (select_length > 0) {
+					xml.node("selection", [&] () {
+						xml.attribute("at",     select_at + 1);
+						xml.attribute("length", select_length);
+					});
+				}
 			});
 		});
 	});

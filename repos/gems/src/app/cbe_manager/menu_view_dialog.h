@@ -68,8 +68,10 @@ namespace Cbe_manager {
                                bool               selected);
 
 	void gen_floating_text_line(Xml_generator &xml,
-	                            size_t         line_idx,
-	                            char    const *line);
+	                            char    const *name,
+	                            char    const *line,
+	                            unsigned long  select_at = 0,
+	                            unsigned long  select_length = 0);
 
 	void gen_info_line(Xml_generator     &xml,
 	                   char        const *name,
@@ -90,7 +92,7 @@ namespace Cbe_manager {
 
 				xml.node("vbox", [&] () {
 					gen_floating_text(xml);
-					gen_floating_text_line(xml, ~0, "");
+					gen_floating_text_line(xml, "pad", "");
 				});
 			});
 		});

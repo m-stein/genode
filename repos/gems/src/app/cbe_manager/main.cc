@@ -38,6 +38,43 @@ namespace Cbe_manager {
 
 	class Snapshot;
 	class Main;
+
+	template <typename T>
+	class Const_pointer
+	{
+		private:
+
+			T const *_obj;
+
+		public:
+
+			struct Invalid : Genode::Exception { };
+
+			Const_pointer() : _obj { nullptr } { }
+
+			Const_pointer(T const &obj) : _obj { &obj } { }
+
+			T const &obj() const
+			{
+				if (_obj == nullptr)
+					throw Invalid();
+
+				return *_obj;
+			}
+
+			bool valid() const { return _obj != nullptr; }
+
+			bool operator != (Const_pointer const &other) const
+			{
+				if (valid() != other.valid()) {
+					return true;
+				}
+				if (valid()) {
+					return _obj != other._obj;
+				}
+				return false;
+			}
+	};
 }
 
 
@@ -138,6 +175,7 @@ class Cbe_manager::Main
 			RESIZING_START_BUTTON,
 			REKEYING_START_BUTTON,
 			CREATE_SNAPSHOT_BUTTON,
+			DISCARD_SNAPSHOT_BUTTON,
 		};
 
 		enum class Cbe_device_controls_hovered
@@ -147,6 +185,7 @@ class Cbe_manager::Main
 			RESIZING_START_BUTTON,
 			REKEYING_START_BUTTON,
 			CREATE_SNAPSHOT_BUTTON,
+			DISCARD_SNAPSHOT_BUTTON,
 		};
 
 		enum class Cbe_device_controls_resizing_state
@@ -171,52 +210,63 @@ class Cbe_manager::Main
 			ISSUE_REQUEST_AT_DEVICE,
 		};
 
+		enum class Discard_snapshot_state
+		{
+			INACTIVE,
+			ISSUE_REQUEST_AT_DEVICE,
+		};
+
 		Env                                   &_env;
-		State                                  _state                           { State::INVALID };
-		Heap                                   _heap                            { _env.ram(), _env.rm() };
-		Attached_rom_dataspace                 _config                          { _env, "config" };
-		Root_directory                         _vfs                             { _env, _heap, _config.xml().sub_node("vfs") };
-		Registry<Child_state>                  _children                        { };
-		Child_state                            _menu_view_child_state           { _children, "menu_view", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 200 } };
-		Child_state                            _fs_query_child_state            { _children, "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
-		Child_state                            _rsz_fs_query_child_state        { _children, "rsz_fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
-		Child_state                            _rky_fs_query_child_state        { _children, "rky_fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
-		Child_state                            _cbe_init_trust_anchor           { _children, "cbe_init_trust_anchor", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
-		Child_state                            _cbe_init_child_state            { _children, "cbe_init", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
-		Child_state                            _vfs_child_state                 { _children, "vfs", Ram_quota { 64 * 1024 * 1024 }, Cap_quota { 200 } };
-		Child_state                            _vfs_block_child_state           { _children, "vfs_block", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
-		Child_state                            _rsz_fs_tool_child_state         { _children, "rsz_fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
-		Child_state                            _rky_fs_tool_child_state         { _children, "rky_fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
-		Child_state                            _create_snap_fs_tool_child_state { _children, "create_snap_fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
-		Xml_report_handler                     _fs_query_listing_handler        { *this, &Main::_handle_fs_query_listing };
-		Xml_report_handler                     _rsz_fs_query_listing_handler    { *this, &Main::_handle_rsz_fs_query_listing };
-		Xml_report_handler                     _rky_fs_query_listing_handler    { *this, &Main::_handle_rky_fs_query_listing };
-		Sandbox                                _sandbox                         { _env, *this };
-		Gui_service                            _gui_service                     { _sandbox, *this };
-		Rom_service                            _rom_service                     { _sandbox, *this };
-		Report_service                         _report_service                  { _sandbox, *this };
-		Xml_report_handler                     _hover_handler                   { *this, &Main::_handle_hover };
-		Constructible<Watch_handler<Main>>     _watch_handler                   { };
-		Constructible<Expanding_reporter>      _clipboard_reporter              { };
-		Constructible<Attached_rom_dataspace>  _clipboard_rom                   { };
-		bool                                   _initial_config                  { true };
-		Signal_handler<Main>                   _config_handler                  { _env.ep(), *this, &Main::_handle_config };
-		Signal_handler<Main>                   _state_handler                   { _env.ep(), *this, &Main::_handle_state };
-		Dynamic_rom_session                    _dialog                          { _env.ep(), _env.ram(), _env.rm(), *this };
-		Passphrase                             _init_ta_setg_passphrase         { };
-		Init_ta_settings_hover                 _init_ta_setg_hover              { Init_ta_settings_hover::NONE };
-		Init_ta_settings_select                _init_ta_setg_select             { Init_ta_settings_hover::PASSPHRASE_INPUT };
-		Passphrase                             _init_cbe_setg_passphrase        { };
-		Passphrase                             _init_cbe_setg_size              { };
-		Init_cbe_settings_hover                _init_cbe_setg_hover             { Init_ta_settings_hover::NONE };
-		Init_cbe_settings_select               _init_cbe_setg_select            { Init_ta_settings_hover::PASSPHRASE_INPUT };
-		Cbe_device_controls_hovered            _cbe_ctl_hover                   { Cbe_device_controls_selected::NONE };
-		Cbe_device_controls_selected           _cbe_ctl_select                  { Cbe_device_controls_hovered::RESIZING_NR_OF_BLKS_INPUT };
-		Cbe_device_controls_rekeying_state     _cbe_ctl_rky_state               { Cbe_device_controls_rekeying_state::INACTIVE };
-		Cbe_device_controls_resizing_state     _cbe_ctl_rsz_state               { Cbe_device_controls_resizing_state::INACTIVE };
-		Create_snapshot_state                  _create_snap_state               { Create_snapshot_state::INACTIVE };
-		Passphrase                             _cbe_ctl_rsz_nr_of_blks          { };
-		Snapshot_registry                      _snap_registry                   { };
+		State                                  _state                            { State::INVALID };
+		Heap                                   _heap                             { _env.ram(), _env.rm() };
+		Attached_rom_dataspace                 _config                           { _env, "config" };
+		Root_directory                         _vfs                              { _env, _heap, _config.xml().sub_node("vfs") };
+		Registry<Child_state>                  _children                         { };
+		Child_state                            _menu_view_child_state            { _children, "menu_view", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 200 } };
+		Child_state                            _fs_query_child_state             { _children, "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _rsz_fs_query_child_state         { _children, "rsz_fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _rky_fs_query_child_state         { _children, "rky_fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _cbe_init_trust_anchor            { _children, "cbe_init_trust_anchor", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _cbe_init_child_state             { _children, "cbe_init", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _vfs_child_state                  { _children, "vfs", Ram_quota { 64 * 1024 * 1024 }, Cap_quota { 200 } };
+		Child_state                            _vfs_block_child_state            { _children, "vfs_block", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _rsz_fs_tool_child_state          { _children, "rsz_fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
+		Child_state                            _rky_fs_tool_child_state          { _children, "rky_fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
+		Child_state                            _create_snap_fs_tool_child_state  { _children, "create_snap_fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
+		Child_state                            _discard_snap_fs_tool_child_state { _children, "discard_snap_fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
+		Xml_report_handler                     _fs_query_listing_handler         { *this, &Main::_handle_fs_query_listing };
+		Xml_report_handler                     _rsz_fs_query_listing_handler     { *this, &Main::_handle_rsz_fs_query_listing };
+		Xml_report_handler                     _rky_fs_query_listing_handler     { *this, &Main::_handle_rky_fs_query_listing };
+		Sandbox                                _sandbox                          { _env, *this };
+		Gui_service                            _gui_service                      { _sandbox, *this };
+		Rom_service                            _rom_service                      { _sandbox, *this };
+		Report_service                         _report_service                   { _sandbox, *this };
+		Xml_report_handler                     _hover_handler                    { *this, &Main::_handle_hover };
+		Constructible<Watch_handler<Main>>     _watch_handler                    { };
+		Constructible<Expanding_reporter>      _clipboard_reporter               { };
+		Constructible<Attached_rom_dataspace>  _clipboard_rom                    { };
+		bool                                   _initial_config                   { true };
+		Signal_handler<Main>                   _config_handler                   { _env.ep(), *this, &Main::_handle_config };
+		Signal_handler<Main>                   _state_handler                    { _env.ep(), *this, &Main::_handle_state };
+		Dynamic_rom_session                    _dialog                           { _env.ep(), _env.ram(), _env.rm(), *this };
+		Passphrase                             _init_ta_setg_passphrase          { };
+		Init_ta_settings_hover                 _init_ta_setg_hover               { Init_ta_settings_hover::NONE };
+		Init_ta_settings_select                _init_ta_setg_select              { Init_ta_settings_hover::PASSPHRASE_INPUT };
+		Passphrase                             _init_cbe_setg_passphrase         { };
+		Passphrase                             _init_cbe_setg_size               { };
+		Init_cbe_settings_hover                _init_cbe_setg_hover              { Init_ta_settings_hover::NONE };
+		Init_cbe_settings_select               _init_cbe_setg_select             { Init_ta_settings_hover::PASSPHRASE_INPUT };
+		Cbe_device_controls_hovered            _cbe_ctl_hover                    { Cbe_device_controls_selected::NONE };
+		Cbe_device_controls_selected           _cbe_ctl_select                   { Cbe_device_controls_hovered::RESIZING_NR_OF_BLKS_INPUT };
+		Cbe_device_controls_rekeying_state     _cbe_ctl_rky_state                { Cbe_device_controls_rekeying_state::INACTIVE };
+		Cbe_device_controls_resizing_state     _cbe_ctl_rsz_state                { Cbe_device_controls_resizing_state::INACTIVE };
+		Create_snapshot_state                  _create_snap_state                { Create_snapshot_state::INACTIVE };
+		Discard_snapshot_state                 _discard_snap_state               { Discard_snapshot_state::INACTIVE };
+		Generation                             _discard_snap_gen                 { INVALID_GENERATION };
+		Passphrase                             _cbe_ctl_rsz_nr_of_blks           { };
+		Snapshot_registry                      _snap_registry                    { };
+		Const_pointer<Snapshot>                _hovered_snap                     { };
+		Const_pointer<Snapshot>                _selected_snap                    { };
 
 		void _gen_rsz_fs_query_start_node(Xml_generator &xml) const;
 
@@ -607,6 +657,17 @@ void Main::_handle_fs_query_listing(Xml_node const &node)
 					}
 				});
 				if (!snap_still_exists) {
+
+					if (_selected_snap.valid() &&
+					    &_selected_snap.obj() == &snap) {
+
+						_selected_snap = Const_pointer<Snapshot> { };
+					}
+					if (_hovered_snap.valid() &&
+					    &_hovered_snap.obj() == &snap) {
+
+						_hovered_snap = Const_pointer<Snapshot> { };
+					}
 					destroy(&_heap, &const_cast<Snapshot&>(snap));
 					update_dialog = true;
 				}
@@ -771,6 +832,22 @@ void Cbe_manager::Main::handle_sandbox_state()
 				break;
 			}
 
+			switch (_discard_snap_state) {
+			case Discard_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
+
+				if (_child_finished(sandbox_state, _discard_snap_fs_tool_child_state)) {
+
+					_discard_snap_state = Discard_snapshot_state::INACTIVE;
+					update_dialog = true;
+					update_sandbox = true;
+				}
+				break;
+
+			default:
+
+				break;
+			}
+
 			break;
 
 		default:
@@ -894,14 +971,25 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 			gen_floating_text_frame(xml, "inf", [&] (Xml_generator &xml) {
 
-				size_t line_idx { 0 };
-				gen_floating_text_line(xml, line_idx++, "Device info:");
-				gen_floating_text_line(xml, line_idx++, "  Snapshots:");
+				gen_floating_text_line(xml, "line_1", "Device info:");
+				gen_floating_text_line(xml, "line_2", "  Snapshots:");
 
-				size_t snap_idx { 1 };
+				unsigned long snap_idx { 1 };
 				_snap_registry.for_each([&] (Snapshot const &snap) {
 
-					gen_floating_text_line(xml, line_idx++, String<128> { "    [", snap_idx, "] Generation ", snap.generation() }.string());
+					bool const selected {
+						_selected_snap.valid() &&
+						_selected_snap.obj().generation() == snap.generation() };
+
+					String<128> const snap_str {
+						" [", snap_idx++, "] Generation ", snap.generation() };
+
+					gen_floating_text_line(
+						xml,
+						Generation_string { snap.generation() }.string(),
+						String<128> {"   ", snap_str }.string(),
+						selected ? 3 : 0,
+						selected ? snap_str.length() : 0);
 				});
 			});
 
@@ -950,8 +1038,24 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 					case Create_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
 
-						gen_info_line(xml, "inf", "In progress...");
-						gen_info_line(xml, "pad_2", "");
+						gen_info_line(xml, "inf_3", "In progress...");
+						gen_info_line(xml, "pad_3", "");
+						break;
+					}
+
+					switch(_discard_snap_state) {
+					case Discard_snapshot_state::INACTIVE:
+
+						gen_action_button_at_bottom(xml, "Discard snapshot",
+							_cbe_ctl_hover  == Cbe_device_controls_hovered::DISCARD_SNAPSHOT_BUTTON,
+							_cbe_ctl_select == Cbe_device_controls_selected::DISCARD_SNAPSHOT_BUTTON);
+
+						break;
+
+					case Discard_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
+
+						gen_info_line(xml, "inf_4", "In progress...");
+						gen_info_line(xml, "pad_4", "");
 						break;
 					}
 				});
@@ -1407,6 +1511,11 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 					xml.attribute("writeable", "yes");
 				});
 				xml.node("policy", [&] () {
+					xml.attribute("label", "discard_snap_fs_tool -> ");
+					xml.attribute("root", "/dev");
+					xml.attribute("writeable", "yes");
+				});
+				xml.node("policy", [&] () {
 					xml.attribute("label", "fs_query -> ");
 					xml.attribute("root", "/dev");
 					xml.attribute("writeable", "yes");
@@ -1610,6 +1719,50 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 			});
 			break;
 		}
+
+		switch(_discard_snap_state) {
+		case Discard_snapshot_state::INACTIVE:
+
+			break;
+
+		case Discard_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
+
+			xml.node("start", [&] () {
+				_discard_snap_fs_tool_child_state.gen_start_node_content(xml);
+
+				xml.node("binary", [&] () {
+					xml.attribute("name", "fs_tool");
+				});
+				xml.node("config", [&] () {
+					xml.attribute("exit",    "yes");
+					xml.attribute("verbose", "yes");
+
+					xml.node("vfs", [&] () {
+						xml.node("dir", [&] () {
+							xml.attribute("name", "cbe");
+
+							xml.node("fs",  [&] () {
+								xml.attribute("writeable", "yes");
+							});
+						});
+					});
+					xml.node("new-file", [&] () {
+						xml.attribute("path", "/cbe/cbe/control/discard_snapshot");
+						xml.append_content(Generation_string(_discard_snap_gen));
+					});
+				});
+				xml.node("route", [&] () {
+
+					route_to_child_service(xml, "vfs", "File_system");
+					route_to_parent_service(xml, "PD");
+					route_to_parent_service(xml, "ROM");
+					route_to_parent_service(xml, "CPU");
+					route_to_parent_service(xml, "LOG");
+				});
+			});
+			break;
+		}
+
 		break;
 	}
 }
@@ -1987,10 +2140,20 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 					next_select = Cbe_device_controls_selected::CREATE_SNAPSHOT_BUTTON;
 					break;
 
+				case Cbe_device_controls_hovered::DISCARD_SNAPSHOT_BUTTON:
+
+					next_select = Cbe_device_controls_selected::DISCARD_SNAPSHOT_BUTTON;
+					break;
+
 				case Cbe_device_controls_hovered::NONE:
 
 					next_select = Cbe_device_controls_selected::NONE;
 					break;
+				}
+				if (_hovered_snap.valid() && _selected_snap != _hovered_snap) {
+
+					_selected_snap = _hovered_snap;
+					update_dialog = true;
 				}
 				if (next_select != prev_select) {
 
@@ -2043,6 +2206,18 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 					_cbe_ctl_select = Cbe_device_controls_selected::NONE;
 					_create_snap_state = Create_snapshot_state::ISSUE_REQUEST_AT_DEVICE;
 
+					update_sandbox_config = true;
+					update_dialog = true;
+					break;
+
+				case Cbe_device_controls_selected::DISCARD_SNAPSHOT_BUTTON:
+
+					_cbe_ctl_select = Cbe_device_controls_selected::NONE;
+
+					if (_selected_snap.valid()) {
+						_discard_snap_state = Discard_snapshot_state::ISSUE_REQUEST_AT_DEVICE;
+						_discard_snap_gen = _selected_snap.obj().generation();
+					}
 					update_sandbox_config = true;
 					update_dialog = true;
 					break;
@@ -2142,12 +2317,38 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 	}
 	case State::CBE_DEVICE_CONTROLS:
 	{
-		Cbe_device_controls_hovered const prev_hover { _cbe_ctl_hover };
-		Cbe_device_controls_hovered       next_hover { Cbe_device_controls_hovered::NONE };
+		Cbe_device_controls_hovered const prev_hover        { _cbe_ctl_hover };
+		Cbe_device_controls_hovered       next_hover        { Cbe_device_controls_hovered::NONE };
+		Const_pointer<Snapshot> const     prev_hovered_snap { _hovered_snap };
+		Const_pointer<Snapshot>           next_hovered_snap { };
 
 		node.with_sub_node("dialog", [&] (Xml_node const &node_0) {
 			node_0.with_sub_node("frame", [&] (Xml_node const &node_1) {
 				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
+
+					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
+						node_3.with_sub_node("float", [&] (Xml_node const &node_4) {
+							node_4.with_sub_node("vbox", [&] (Xml_node const &node_5) {
+								node_5.with_sub_node("hbox", [&] (Xml_node const &node_6) {
+
+									Generation const generation {
+										node_6.attribute_value(
+											"name", Generation { INVALID_GENERATION }) };
+
+									if (generation != INVALID_GENERATION) {
+
+										_snap_registry.for_each([&] (Snapshot const &snap)
+										{
+											if (generation == snap.generation()) {
+												next_hovered_snap = snap;
+											}
+										});
+									}
+								});
+							});
+						});
+					});
+
 					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("frame", [&] (Xml_node const &node_4) {
 
@@ -2163,6 +2364,10 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 										} else if (node_6.attribute_value("name", String<16>()) == "Create snapshot") {
 
 											next_hover = Cbe_device_controls_hovered::CREATE_SNAPSHOT_BUTTON;
+
+										} else if (node_6.attribute_value("name", String<17>()) == "Discard snapshot") {
+
+											next_hover = Cbe_device_controls_hovered::DISCARD_SNAPSHOT_BUTTON;
 										}
 									});
 								});
@@ -2189,6 +2394,11 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 				});
 			});
 		});
+		if (next_hovered_snap != prev_hovered_snap) {
+
+			_hovered_snap = next_hovered_snap;
+			update_dialog = true;
+		}
 		if (next_hover != prev_hover) {
 
 			_cbe_ctl_hover = next_hover;
