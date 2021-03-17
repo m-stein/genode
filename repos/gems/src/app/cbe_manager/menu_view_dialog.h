@@ -45,6 +45,21 @@ namespace Cbe_manager {
 		});
 	}
 
+	template <typename GEN_FRAME_CONTENT>
+	void gen_untitled_frame(Xml_generator           &xml,
+	                        char              const *name,
+	                        GEN_FRAME_CONTENT const &gen_frame_content)
+	{
+		xml.node("frame", [&] () {
+			xml.attribute("name", name);
+
+			xml.node("vbox", [&] () {
+
+				gen_frame_content(xml);
+			});
+		});
+	}
+
 	void gen_titled_in_progress_frame(Xml_generator &xml,
 	                                  char const    *name,
 	                                  char const    *title,

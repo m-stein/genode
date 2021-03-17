@@ -173,7 +173,7 @@ class Cbe_manager::Main
 			NONE,
 			RESIZING_NR_OF_BLKS_INPUT,
 			RESIZING_START_BUTTON,
-			REKEYING_START_BUTTON,
+			REKEY_BUTTON,
 			CREATE_SNAPSHOT_BUTTON,
 			DISCARD_SNAPSHOT_BUTTON,
 		};
@@ -183,7 +183,7 @@ class Cbe_manager::Main
 			NONE,
 			RESIZING_NR_OF_BLKS_INPUT,
 			RESIZING_START_BUTTON,
-			REKEYING_START_BUTTON,
+			REKEY_BUTTON,
 			CREATE_SNAPSHOT_BUTTON,
 			DISCARD_SNAPSHOT_BUTTON,
 		};
@@ -995,16 +995,14 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 			xml.node("hbox", [&] () {
 
-				gen_titled_frame(xml, "rky", "Rekeying", 30, [&] (Xml_generator &xml) {
-
-					gen_info_line(xml, "pad_1", "");
+				gen_untitled_frame(xml, "ctl", [&] (Xml_generator &xml) {
 
 					switch(_cbe_ctl_rky_state) {
 					case Cbe_device_controls_rekeying_state::INACTIVE:
 
-						gen_action_button_at_bottom(xml, "Start",
-							_cbe_ctl_hover  == Cbe_device_controls_hovered::REKEYING_START_BUTTON,
-							_cbe_ctl_select == Cbe_device_controls_selected::REKEYING_START_BUTTON);
+						gen_action_button_at_bottom(xml, "Rekey",
+							_cbe_ctl_hover  == Cbe_device_controls_hovered::REKEY_BUTTON,
+							_cbe_ctl_select == Cbe_device_controls_selected::REKEY_BUTTON);
 
 						break;
 
@@ -2120,9 +2118,9 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 				Cbe_device_controls_selected       next_select { Cbe_device_controls_selected::NONE };
 
 				switch (_cbe_ctl_hover) {
-				case Cbe_device_controls_hovered::REKEYING_START_BUTTON:
+				case Cbe_device_controls_hovered::REKEY_BUTTON:
 
-					next_select = Cbe_device_controls_selected::REKEYING_START_BUTTON;
+					next_select = Cbe_device_controls_selected::REKEY_BUTTON;
 					break;
 
 				case Cbe_device_controls_hovered::RESIZING_START_BUTTON:
@@ -2192,7 +2190,7 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 					update_dialog = true;
 					break;
 
-				case Cbe_device_controls_selected::REKEYING_START_BUTTON:
+				case Cbe_device_controls_selected::REKEY_BUTTON:
 
 					_cbe_ctl_select = Cbe_device_controls_selected::NONE;
 					_cbe_ctl_rky_state = Cbe_device_controls_rekeying_state::WAIT_TILL_DEVICE_IS_READY;
@@ -2357,9 +2355,9 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 								node_4.with_sub_node("vbox", [&] (Xml_node const &node_5) {
 									node_5.with_sub_node("float", [&] (Xml_node const &node_6) {
 
-										if (node_6.attribute_value("name", String<8>()) == "Start") {
+										if (node_6.attribute_value("name", String<8>()) == "Rekey") {
 
-											next_hover = Cbe_device_controls_hovered::REKEYING_START_BUTTON;
+											next_hover = Cbe_device_controls_hovered::REKEY_BUTTON;
 
 										} else if (node_6.attribute_value("name", String<16>()) == "Create snapshot") {
 
