@@ -20,7 +20,7 @@ append archives "
 	[depot_user]/src/spark
 	[depot_user]/src/libsparkcrypto
 	[depot_user]/src/vfs_block
-	[depot_user]/src/vfs_import
+	[depot_user]/src/vfs_jitterentropy
 	[depot_user]/src/vfs
 	[depot_user]/src/openssl
 	[depot_user]/src/fs_tool

@@ -355,6 +355,10 @@ namespace Cbe_manager {
 							xml.attribute("name", "cbe_trust_anchor");
 							xml.attribute("storage_dir", "/storage_dir");
 						});
+
+						xml.node("jitterentropy", [&] () {
+							xml.attribute("name", "jitterentropy");
+						});
 					});
 				});
 				xml.node("policy", [&] () {
