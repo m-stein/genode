@@ -153,3 +153,5 @@ Open issues
 * Snapshots can be created and discarded but are not very practical so far as
   you cannot switch the active snapshots (the one that is reflected to the
   clients file system session).
+* The size of the Free Tree can currently not be determined by the user it
+  is simply set to te same size as the virtual block device.
