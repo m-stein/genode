@@ -123,12 +123,11 @@ class Genode::New_file : Noncopyable
 					case Write_result::WRITE_ERR_IO:
 					case Write_result::WRITE_ERR_INTERRUPT:
 
-						log("APPEND NOT OK");
 						write_error = true;
 						break;
 
 					case Write_result::WRITE_OK:
-						log("APPEND OK");
+
 						out_count = min(remaining_bytes, out_count);
 						remaining_bytes -= out_count;
 						src             += out_count;
