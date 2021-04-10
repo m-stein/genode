@@ -126,7 +126,7 @@ namespace Cbe_manager {
 
 	void gen_parent_provides_and_report_nodes(Xml_generator &xml)
 	{
-		xml.attribute("verbose",  "yes");
+		xml.attribute("verbose", "no");
 
 		xml.node("report", [&] () {
 			xml.attribute("child_ram",  "yes");
@@ -257,7 +257,7 @@ namespace Cbe_manager {
 
 						xml.node("cbe", [&] () {
 							xml.attribute("name", "cbe");
-							xml.attribute("verbose", "yes");
+							xml.attribute("verbose", "no");
 							xml.attribute("debug", "no");
 							xml.attribute("block", "/cbe.img");
 							xml.attribute("crypto", "/crypto");
@@ -419,7 +419,7 @@ namespace Cbe_manager {
 		child.gen_start_node(xml, [&] () {
 
 			xml.node("config", [&] () {
-				xml.attribute("ld_verbose", "yes");
+				xml.attribute("ld_verbose", "no");
 
 				xml.node("libc", [&] () {
 					xml.attribute("stdin", "/dev/log");
@@ -644,7 +644,7 @@ namespace Cbe_manager {
 
 			xml.node("config", [&] () {
 				xml.attribute("exit",    "yes");
-				xml.attribute("verbose", "yes");
+				xml.attribute("verbose", "no");
 
 				xml.node("vfs", [&] () {
 					xml.node("dir", [&] () {
@@ -699,7 +699,7 @@ namespace Cbe_manager {
 
 			xml.node("config", [&] () {
 				xml.attribute("exit",    "yes");
-				xml.attribute("verbose", "yes");
+				xml.attribute("verbose", "no");
 
 				xml.node("vfs", [&] () {
 					xml.node("dir", [&] () {
@@ -730,7 +730,7 @@ namespace Cbe_manager {
 
 			xml.node("config", [&] () {
 				xml.attribute("exit",    "yes");
-				xml.attribute("verbose", "yes");
+				xml.attribute("verbose", "no");
 
 				xml.node("vfs", [&] () {
 					xml.node("dir", [&] () {
@@ -809,7 +809,7 @@ namespace Cbe_manager {
 
 			xml.node("config", [&] () {
 				xml.attribute("exit",    "yes");
-				xml.attribute("verbose", "yes");
+				xml.attribute("verbose", "no");
 
 				xml.node("vfs", [&] () {
 					xml.node("dir", [&] () {
@@ -841,7 +841,7 @@ namespace Cbe_manager {
 
 			xml.node("config", [&] () {
 				xml.attribute("exit",    "yes");
-				xml.attribute("verbose", "yes");
+				xml.attribute("verbose", "no");
 
 				xml.node("vfs", [&] () {
 					xml.node("dir", [&] () {
