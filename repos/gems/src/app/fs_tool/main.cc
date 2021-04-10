@@ -135,12 +135,10 @@ void Fs_tool::Main::_new_file(Xml_node operation)
 			switch (new_file.append(str, strlen(str))) {
 			case New_file::Append_result::OK:
 
-				log("OK");
 				break;
 
 			case New_file::Append_result::WRITE_ERROR:
 
-				log("NOT OK");
 				write_error = true;
 				break;
 			}
