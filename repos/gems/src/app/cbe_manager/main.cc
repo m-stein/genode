@@ -905,7 +905,6 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 		gen_titled_frame(xml, "1", _setup_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
 			bool gen_start_button { true };
-			gen_info_line(xml, "pad_1", "");
 			gen_titled_text_input(
 				xml, "pw1", "Enter passphrase twice",
 				_setup_obtain_params_passphrase_1.blind(),
@@ -926,7 +925,7 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 				gen_start_button = false;
 				gen_info_line(xml, "info_1", "Passphrases differ!");
 			}
-			gen_info_line(xml, "pad_2", "");
+			gen_info_line(xml, "pad_1", "");
 			gen_titled_text_input(
 				xml, "sz", "Size in bytes (suffixes K, M, G)",
 				_setup_obtain_params_size,
@@ -943,7 +942,7 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 					xml, "info_2",
 					String<256> { "Image size will be ", _cbe_size()}.string());
 			}
-			gen_info_line(xml, "pad_3", "");
+			gen_info_line(xml, "pad_2", "");
 			if (gen_start_button) {
 
 				gen_action_button_at_bottom(
@@ -959,7 +958,6 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 		gen_titled_frame(xml, "1", _startup_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
 			bool gen_start_button { true };
-			gen_info_line(xml, "pad_1", "");
 			gen_titled_text_input(
 				xml, "pw1", "Trust anchor passphrase",
 				_setup_obtain_params_passphrase_1.blind(),
@@ -970,7 +968,7 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 				gen_start_button = false;
 				gen_info_line(xml, "info", _setup_obtain_params_passphrase_1.not_suitable_text());
 			}
-			gen_info_line(xml, "pad_2", "");
+			gen_info_line(xml, "pad_1", "");
 			if (gen_start_button) {
 
 				gen_action_button_at_bottom(
@@ -1115,8 +1113,6 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 				gen_titled_frame(xml, "rsz", "Resizing", 30, [&] (Xml_generator &xml) {
 
-					gen_info_line(xml, "pad_1", "");
-
 					switch(_resizing_state) {
 					case Resizing_state::INACTIVE:
 					{
@@ -1130,7 +1126,7 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 							gen_start_button = false;
 							gen_info_line(xml, "inf", "Must be a number greater than 0");
-							gen_info_line(xml, "pad_2", "");
+							gen_info_line(xml, "pad_1", "");
 
 						}  else {
 
@@ -1153,7 +1149,7 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 									Number_of_bytes { curr_cbe_size + rsz_nr_of_bytes }
 								}.string());
 
-							gen_info_line(xml, "pad_2", "");
+							gen_info_line(xml, "pad_1", "");
 						}
 						if (gen_start_button) {
 
@@ -1167,19 +1163,19 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 					case Resizing_state::WAIT_TILL_DEVICE_IS_READY:
 
 						gen_info_line(xml, "inf", "Wait for device...");
-						gen_info_line(xml, "pad_2", "");
+						gen_info_line(xml, "pad_1", "");
 						break;
 
 					case Resizing_state::ISSUE_REQUEST_AT_DEVICE:
 
 						gen_info_line(xml, "inf", "Initiate...");
-						gen_info_line(xml, "pad_2", "");
+						gen_info_line(xml, "pad_1", "");
 						break;
 
 					case Resizing_state::IN_PROGRESS_AT_DEVICE:
 
 						gen_info_line(xml, "inf", "In progress...");
-						gen_info_line(xml, "pad_2", "");
+						gen_info_line(xml, "pad_1", "");
 						break;
 					}
 				});

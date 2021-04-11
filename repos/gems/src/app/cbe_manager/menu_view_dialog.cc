@@ -31,24 +31,16 @@ void Cbe_manager::gen_frame_title(Xml_generator &xml,
 
 	xml.node("float", [&] () {
 		xml.attribute("name", name);
-		xml.attribute("east", "yes");
 		xml.attribute("west", "yes");
 		xml.attribute("north", "yes");
 
-		xml.node("button", [&] () {
-
-			xml.node("float", [&] () {
-				xml.attribute("name", name);
-				xml.attribute("west", "yes");
-
-				xml.node("label", [&] () {
-					gen_normal_font_attribute(xml);
-					xml.attribute("text", title);
-					xml.attribute("min_ex", min_width);
-				});
-			});
+		xml.node("label", [&] () {
+			xml.attribute("font", "title/regular");
+			xml.attribute("text", String<256> { " ", title } );
+			xml.attribute("min_ex", min_width);
 		});
 	});
+	gen_info_line(xml, "pad_0", "");
 }
 
 void Cbe_manager::gen_titled_info_frame(Xml_generator &xml,
@@ -59,9 +51,8 @@ void Cbe_manager::gen_titled_info_frame(Xml_generator &xml,
 {
 	gen_titled_frame(xml, name, title, min_width, [&] (Xml_generator &xml) {
 
-		gen_info_line(xml, "pad_1", "");
 		gen_info_line(xml, "info", info);
-		gen_info_line(xml, "pad_2", "");
+		gen_info_line(xml, "pad_1", "");
 	});
 }
 
