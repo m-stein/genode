@@ -22,6 +22,8 @@
 
 namespace Cbe_manager {
 
+	void gen_normal_font_attribute(Xml_generator &xml);
+
 	void gen_frame_title(Xml_generator &xml,
 	                     char    const *title,
 	                     char    const *name,

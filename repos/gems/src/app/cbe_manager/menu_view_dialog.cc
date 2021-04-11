@@ -17,6 +17,12 @@
 using namespace Cbe_manager;
 
 
+void Cbe_manager::gen_normal_font_attribute(Xml_generator &xml)
+{
+	xml.attribute("font", "text/regular");
+}
+
+
 void Cbe_manager::gen_frame_title(Xml_generator &xml,
                                   char    const *title,
                                   char    const *name,
@@ -36,7 +42,7 @@ void Cbe_manager::gen_frame_title(Xml_generator &xml,
 				xml.attribute("west", "yes");
 
 				xml.node("label", [&] () {
-					xml.attribute("font", "monospace/regular");
+					gen_normal_font_attribute(xml);
 					xml.attribute("text", title);
 					xml.attribute("min_ex", min_width);
 				});
@@ -83,7 +89,7 @@ void Cbe_manager::gen_action_button_at_bottom(Xml_generator &xml,
 			xml.node("float", [&] () {
 
 				xml.node("label", [&] () {
-					xml.attribute("font", "monospace/regular");
+					gen_normal_font_attribute(xml);
 					xml.attribute("text", label);
 				});
 			});
@@ -111,7 +117,7 @@ void Cbe_manager::gen_text_input(Xml_generator     &xml,
 		xml.node("float", [&] () {
 			xml.attribute("west", "yes");
 			xml.node("label", [&] () {
-				xml.attribute("font", "monospace/regular");
+				gen_normal_font_attribute(xml);
 				xml.attribute("text", padded_text);
 
 				if (selected) {
@@ -135,7 +141,7 @@ void Cbe_manager::gen_titled_text_input(Xml_generator     &xml,
 		xml.attribute("west", "yes");
 
 		xml.node("label", [&] () {
-			xml.attribute("font", "monospace/regular");
+			gen_normal_font_attribute(xml);
 			xml.attribute("text", String<64> { " ", title, ": " });
 		});
 	});
@@ -150,7 +156,7 @@ void Cbe_manager::gen_info_line(Xml_generator     &xml,
 		xml.attribute("name", name);
 		xml.attribute("west",  "yes");
 		xml.node("label", [&] () {
-			xml.attribute("font", "monospace/regular");
+			gen_normal_font_attribute(xml);
 			xml.attribute("text", String<256> { " ", text, " "});
 		});
 	});
@@ -169,7 +175,7 @@ void Cbe_manager::gen_floating_text_line(Xml_generator &xml,
 			xml.attribute("south", "yes");
 			xml.attribute("west",  "yes");
 			xml.node("label", [&] () {
-				xml.attribute("font", "monospace/regular");
+				gen_normal_font_attribute(xml);
 				xml.attribute("text", String<256> { " ", line, " "});
 
 				if (select_length > 0) {
