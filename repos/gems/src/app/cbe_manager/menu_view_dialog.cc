@@ -99,21 +99,11 @@ void Cbe_manager::gen_action_button_at_bottom(Xml_generator &xml,
 	gen_action_button_at_bottom(xml, label, label, hovered, selected);
 }
 
-void Cbe_manager::gen_titled_text_input(Xml_generator     &xml,
-                                        char        const *name,
-                                        char        const *title,
-                                        String<256> const &text,
-                                        bool               selected)
+void Cbe_manager::gen_text_input(Xml_generator     &xml,
+                                 char        const *name,
+                                 String<256> const &text,
+                                 bool               selected)
 {
-	xml.node("float", [&] () {
-		xml.attribute("name", String<64> { name, "_label" });
-		xml.attribute("west", "yes");
-
-		xml.node("label", [&] () {
-			xml.attribute("font", "monospace/regular");
-			xml.attribute("text", String<64> { " ", title, ": " });
-		});
-	});
 	String<256> const padded_text { " ", text };
 
 	xml.node("frame", [&] () {
@@ -132,6 +122,24 @@ void Cbe_manager::gen_titled_text_input(Xml_generator     &xml,
 			});
 		});
 	});
+}
+
+void Cbe_manager::gen_titled_text_input(Xml_generator     &xml,
+                                        char        const *name,
+                                        char        const *title,
+                                        String<256> const &text,
+                                        bool               selected)
+{
+	xml.node("float", [&] () {
+		xml.attribute("name", String<64> { name, "_label" });
+		xml.attribute("west", "yes");
+
+		xml.node("label", [&] () {
+			xml.attribute("font", "monospace/regular");
+			xml.attribute("text", String<64> { " ", title, ": " });
+		});
+	});
+	gen_text_input(xml, name, text, selected);
 }
 
 void Cbe_manager::gen_info_line(Xml_generator     &xml,

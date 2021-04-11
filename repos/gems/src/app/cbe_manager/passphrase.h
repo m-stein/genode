@@ -159,6 +159,17 @@ class Cbe_manager::Passphrase : Blind_passphrase
 			return "Must have at least 8 characters!";
 		}
 
+		bool equals(Passphrase const &other) const
+		{
+			if (other._length != _length) {
+				return false;
+			}
+			if (memcmp(other._characters, _characters, _length) != 0) {
+				return false;
+			}
+			return true;
+		}
+
 		unsigned length() const { return _length; }
 
 		Blind_passphrase &blind() { return *this; }

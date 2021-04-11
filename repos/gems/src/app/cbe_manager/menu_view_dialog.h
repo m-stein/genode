@@ -84,11 +84,16 @@ namespace Cbe_manager {
 	                                 bool           hovered,
 	                                 bool           selected);
 
+	void gen_text_input(Xml_generator     &xml,
+	                    char        const *name,
+	                    String<256> const &text,
+	                    bool               selected);
+
 	void gen_titled_text_input(Xml_generator     &xml,
 	                           char        const *name,
 	                           char        const *title,
 	                           String<256> const &text,
-                               bool               selected);
+	                           bool               selected);
 
 	void gen_floating_text_line(Xml_generator &xml,
 	                            char    const *name,

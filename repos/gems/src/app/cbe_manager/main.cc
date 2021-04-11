@@ -79,7 +79,8 @@ class Cbe_manager::Main
 		enum class Setup_obtain_params_hover
 		{
 			NONE,
-			PASSPHRASE_INPUT,
+			PASSPHRASE_1_INPUT,
+			PASSPHRASE_2_INPUT,
 			SIZE_INPUT,
 			START_BUTTON
 		};
@@ -87,7 +88,8 @@ class Cbe_manager::Main
 		enum class Setup_obtain_params_select
 		{
 			NONE,
-			PASSPHRASE_INPUT,
+			PASSPHRASE_1_INPUT,
+			PASSPHRASE_2_INPUT,
 			SIZE_INPUT,
 			START_BUTTON
 		};
@@ -196,10 +198,11 @@ class Cbe_manager::Main
 		Signal_handler<Main>                   _config_handler                     { _env.ep(), *this, &Main::_handle_config };
 		Signal_handler<Main>                   _state_handler                      { _env.ep(), *this, &Main::_handle_state };
 		Dynamic_rom_session                    _dialog                             { _env.ep(), _env.ram(), _env.rm(), *this };
-		Passphrase                             _setup_obtain_params_passphrase     { };
+		Passphrase                             _setup_obtain_params_passphrase_1   { };
+		Passphrase                             _setup_obtain_params_passphrase_2   { };
 		Passphrase                             _setup_obtain_params_size           { };
 		Setup_obtain_params_hover              _setup_obtain_params_hover          { Setup_obtain_params_hover::NONE };
-		Setup_obtain_params_select             _setup_obtain_params_select         { Setup_obtain_params_select::PASSPHRASE_INPUT };
+		Setup_obtain_params_select             _setup_obtain_params_select         { Setup_obtain_params_select::PASSPHRASE_1_INPUT };
 		Controls_hover                         _controls_hover                     { Controls_select::NONE };
 		Controls_select                        _controls_select                    { Controls_hover::RESIZING_NR_OF_BLKS_INPUT };
 		Resizing_state                         _resizing_state                     { Resizing_state::INACTIVE };
@@ -904,14 +907,24 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 			bool gen_start_button { true };
 			gen_info_line(xml, "pad_1", "");
 			gen_titled_text_input(
-				xml, "pw", "Passphrase",
-				_setup_obtain_params_passphrase.blind(),
-				_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_INPUT);
+				xml, "pw1", "Enter passphrase twice",
+				_setup_obtain_params_passphrase_1.blind(),
+				_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_1_INPUT);
 
-			if (!_setup_obtain_params_passphrase.suitable()) {
+			gen_text_input(
+				xml, "pw2",
+				_setup_obtain_params_passphrase_2.blind(),
+				_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_2_INPUT);
+
+			if (!_setup_obtain_params_passphrase_1.suitable()) {
 
 				gen_start_button = false;
-				gen_info_line(xml, "info_1", _setup_obtain_params_passphrase.not_suitable_text());
+				gen_info_line(xml, "info_1", "Passphrase too short!");
+
+			} else if (!_setup_obtain_params_passphrase_2.equals(_setup_obtain_params_passphrase_1)) {
+
+				gen_start_button = false;
+				gen_info_line(xml, "info_1", "Passphrases differ!");
 			}
 			gen_info_line(xml, "pad_2", "");
 			gen_titled_text_input(
@@ -948,14 +961,14 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 			bool gen_start_button { true };
 			gen_info_line(xml, "pad_1", "");
 			gen_titled_text_input(
-				xml, "pw", "Trust anchor passphrase",
-				_setup_obtain_params_passphrase.blind(),
-				_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_INPUT);
+				xml, "pw1", "Trust anchor passphrase",
+				_setup_obtain_params_passphrase_1.blind(),
+				_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_1_INPUT);
 
-			if (!_setup_obtain_params_passphrase.suitable()) {
+			if (!_setup_obtain_params_passphrase_1.suitable()) {
 
 				gen_start_button = false;
-				gen_info_line(xml, "info", _setup_obtain_params_passphrase.not_suitable_text());
+				gen_info_line(xml, "info", _setup_obtain_params_passphrase_1.not_suitable_text());
 			}
 			gen_info_line(xml, "pad_2", "");
 			if (gen_start_button) {
@@ -1316,7 +1329,7 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_menu_view_start_node(xml, _menu_view);
 		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs);
 		gen_cbe_init_trust_anchor_start_node(
-			xml, _cbe_init_trust_anchor, _setup_obtain_params_passphrase);
+			xml, _cbe_init_trust_anchor, _setup_obtain_params_passphrase_1);
 
 		break;
 
@@ -1326,7 +1339,7 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_menu_view_start_node(xml, _menu_view);
 		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs);
 		gen_cbe_init_trust_anchor_start_node(
-			xml, _cbe_init_trust_anchor, _setup_obtain_params_passphrase);
+			xml, _cbe_init_trust_anchor, _setup_obtain_params_passphrase_1);
 
 		break;
 
@@ -1586,9 +1599,14 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 					next_select = Setup_obtain_params_select::START_BUTTON;
 					break;
 
-				case Setup_obtain_params_hover::PASSPHRASE_INPUT:
+				case Setup_obtain_params_hover::PASSPHRASE_1_INPUT:
 
-					next_select = Setup_obtain_params_select::PASSPHRASE_INPUT;
+					next_select = Setup_obtain_params_select::PASSPHRASE_1_INPUT;
+					break;
+
+				case Setup_obtain_params_hover::PASSPHRASE_2_INPUT:
+
+					next_select = Setup_obtain_params_select::PASSPHRASE_2_INPUT;
 					break;
 
 				case Setup_obtain_params_hover::SIZE_INPUT:
@@ -1610,7 +1628,8 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 			} else if (key == Input::KEY_ENTER) {
 
 				if (_setup_obtain_params_size.is_nr_of_bytes_greater_than_zero() &&
-				    _setup_obtain_params_passphrase.suitable() &&
+				    _setup_obtain_params_passphrase_1.suitable() &&
+				    _setup_obtain_params_passphrase_2.equals(_setup_obtain_params_passphrase_1) &&
 				    _setup_obtain_params_select != Setup_obtain_params_select::START_BUTTON) {
 
 					_setup_obtain_params_select = Setup_obtain_params_select::START_BUTTON;
@@ -1619,29 +1638,47 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 
 			} else if (key == Input::KEY_TAB) {
 
-				if (_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_INPUT) {
+				if (_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_1_INPUT) {
+
+					_setup_obtain_params_select = Setup_obtain_params_select::PASSPHRASE_2_INPUT;
+					update_dialog = true;
+
+				} else if (_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_2_INPUT) {
 
 					_setup_obtain_params_select = Setup_obtain_params_select::SIZE_INPUT;
 					update_dialog = true;
 
 				} else if (_setup_obtain_params_select == Setup_obtain_params_select::SIZE_INPUT) {
 
-					_setup_obtain_params_select = Setup_obtain_params_select::PASSPHRASE_INPUT;
+					_setup_obtain_params_select = Setup_obtain_params_select::PASSPHRASE_1_INPUT;
 					update_dialog = true;
 				}
 
 			} else {
 
-				if (_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_INPUT) {
+				if (_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_1_INPUT) {
 
 					if (codepoint_is_printable(code)) {
 
-						_setup_obtain_params_passphrase.append_character(code);
+						_setup_obtain_params_passphrase_1.append_character(code);
 						update_dialog = true;
 
 					} else if (code.value == CODEPOINT_BACKSPACE) {
 
-						_setup_obtain_params_passphrase.remove_last_character();
+						_setup_obtain_params_passphrase_1.remove_last_character();
+						update_dialog = true;
+					}
+
+				} else if (_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_2_INPUT) {
+
+					if (codepoint_is_printable(code)) {
+
+						_setup_obtain_params_passphrase_2.append_character(code);
+						update_dialog = true;
+
+					} else if (code.value == CODEPOINT_BACKSPACE) {
+
+						_setup_obtain_params_passphrase_2.remove_last_character();
 						update_dialog = true;
 					}
 
@@ -1667,7 +1704,8 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 			    key == Input::KEY_ENTER) {
 
 				if (_setup_obtain_params_size.is_nr_of_bytes_greater_than_zero() &&
-				    _setup_obtain_params_passphrase.suitable() &&
+				    _setup_obtain_params_passphrase_1.suitable() &&
+				    _setup_obtain_params_passphrase_2.equals(_setup_obtain_params_passphrase_1) &&
 				    _setup_obtain_params_select == Setup_obtain_params_select::START_BUTTON) {
 
 					_setup_obtain_params_select = Setup_obtain_params_select::NONE;
@@ -1711,15 +1749,20 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 					next_select = Setup_obtain_params_select::START_BUTTON;
 					break;
 
-				case Setup_obtain_params_hover::PASSPHRASE_INPUT:
+				case Setup_obtain_params_hover::PASSPHRASE_1_INPUT:
 
-					next_select = Setup_obtain_params_select::PASSPHRASE_INPUT;
+					next_select = Setup_obtain_params_select::PASSPHRASE_1_INPUT;
 					break;
+
+				case Setup_obtain_params_hover::PASSPHRASE_2_INPUT:
+
+					class Unexpected_hover_1 { };
+					throw Unexpected_hover_1 { };
 
 				case Setup_obtain_params_hover::SIZE_INPUT:
 
-					class Unexpected_hover { };
-					throw Unexpected_hover { };
+					class Unexpected_hover_2 { };
+					throw Unexpected_hover_2 { };
 
 				case Setup_obtain_params_hover::NONE:
 
@@ -1734,7 +1777,7 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 
 			} else if (key == Input::KEY_ENTER) {
 
-				if (_setup_obtain_params_passphrase.suitable() &&
+				if (_setup_obtain_params_passphrase_1.suitable() &&
 				    _setup_obtain_params_select != Setup_obtain_params_select::START_BUTTON) {
 
 					_setup_obtain_params_select = Setup_obtain_params_select::START_BUTTON;
@@ -1743,16 +1786,16 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 
 			} else {
 
-				if (_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_INPUT) {
+				if (_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_1_INPUT) {
 
 					if (codepoint_is_printable(code)) {
 
-						_setup_obtain_params_passphrase.append_character(code);
+						_setup_obtain_params_passphrase_1.append_character(code);
 						update_dialog = true;
 
 					} else if (code.value == CODEPOINT_BACKSPACE) {
 
-						_setup_obtain_params_passphrase.remove_last_character();
+						_setup_obtain_params_passphrase_1.remove_last_character();
 						update_dialog = true;
 					}
 				}
@@ -1763,7 +1806,7 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 			if (key == Input::BTN_LEFT ||
 			    key == Input::KEY_ENTER) {
 
-				if (_setup_obtain_params_passphrase.suitable() &&
+				if (_setup_obtain_params_passphrase_1.suitable() &&
 				    _setup_obtain_params_select == Setup_obtain_params_select::START_BUTTON) {
 
 					_setup_obtain_params_select = Setup_obtain_params_select::NONE;
@@ -1945,8 +1988,11 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 
 					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
 
-						if (node_3.attribute_value("name", String<4>()) == "pw") {
-							next_hover = Setup_obtain_params_hover::PASSPHRASE_INPUT;
+						if (node_3.attribute_value("name", String<4>()) == "pw1") {
+							next_hover = Setup_obtain_params_hover::PASSPHRASE_1_INPUT;
+
+						} else if (node_3.attribute_value("name", String<4>()) == "pw2") {
+							next_hover = Setup_obtain_params_hover::PASSPHRASE_2_INPUT;
 
 						} else if (node_3.attribute_value("name", String<4>()) == "sz") {
 							next_hover = Setup_obtain_params_hover::SIZE_INPUT;
@@ -1978,8 +2024,8 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 					});
 
 					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
-						if (node_3.attribute_value("name", String<4>()) == "pw") {
-							next_hover = Setup_obtain_params_hover::PASSPHRASE_INPUT;
+						if (node_3.attribute_value("name", String<4>()) == "pw1") {
+							next_hover = Setup_obtain_params_hover::PASSPHRASE_1_INPUT;
 						}
 					});
 				});
