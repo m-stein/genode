@@ -153,29 +153,67 @@ void Cbe_manager::gen_info_line(Xml_generator     &xml,
 	});
 }
 
-void Cbe_manager::gen_floating_text_line(Xml_generator &xml,
-                                         char    const *name,
-                                         char    const *line,
-                                         unsigned long  select_at,
-                                         unsigned long  select_length)
+void Cbe_manager::gen_multiple_choice_entry(Xml_generator &xml,
+                                           char     const *name,
+                                           char     const *text,
+                                           bool            hovered,
+                                           bool            selected)
 {
-	xml.node("hbox", [&] () {
+	xml.node("float", [&] () {
 		xml.attribute("name", name);
-		xml.node("float", [&] () {
-			xml.attribute("north", "yes");
-			xml.attribute("south", "yes");
-			xml.attribute("west",  "yes");
+		xml.attribute("west", "yes");
+
+		xml.node("hbox", [&] () {
+
+			xml.node("button", [&] () {
+				xml.attribute("style", "radio");
+				if (selected) {
+					xml.attribute("selected", "yes");
+				}
+				if (hovered) {
+					xml.attribute("hovered", "yes");
+				}
+				xml.attribute("style", "radio");
+
+				xml.node("hbox", [&] () { });
+			});
 			xml.node("label", [&] () {
 				gen_normal_font_attribute(xml);
-				xml.attribute("text", String<256> { " ", line, " "});
-
-				if (select_length > 0) {
-					xml.node("selection", [&] () {
-						xml.attribute("at",     select_at + 1);
-						xml.attribute("length", select_length);
-					});
-				}
+				xml.attribute("text", String<64> { " ", text });
 			});
 		});
 	});
-};
+}
+
+void Cbe_manager::gen_expandable_frame_title(Xml_generator &xml,
+                                             char    const *text,
+                                             bool           hovered,
+                                             bool           selected)
+{
+	xml.node("float", [&] () {
+		xml.attribute("name", "expand");
+		xml.attribute("west", "yes");
+
+		xml.node("hbox", [&] () {
+
+			xml.node("button", [&] () {
+				if (selected) {
+					xml.attribute("style", "back");
+					xml.attribute("selected", "yes");
+				} else {
+					xml.attribute("style", "enter");
+				}
+				if (hovered) {
+					xml.attribute("hovered", "yes");
+				}
+				xml.attribute("hovered", "no");
+
+				xml.node("hbox", [&] () { });
+			});
+			xml.node("label", [&] () {
+				xml.attribute("font", "title/regular");
+				xml.attribute("text", String<64> { " ", text });
+			});
+		});
+	});
+}

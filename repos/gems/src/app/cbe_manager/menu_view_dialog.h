@@ -97,33 +97,37 @@ namespace Cbe_manager {
 	                           String<256> const &text,
 	                           bool               selected);
 
-	void gen_floating_text_line(Xml_generator &xml,
-	                            char    const *name,
-	                            char    const *line,
-	                            unsigned long  select_at = 0,
-	                            unsigned long  select_length = 0);
-
 	void gen_info_line(Xml_generator     &xml,
 	                   char        const *name,
 	                   char        const *text);
 
-	template <typename GEN_FLOATING_TEXT>
-	void gen_floating_text_frame(Xml_generator           &xml,
-	                             char              const *name,
-	                             GEN_FLOATING_TEXT const &gen_floating_text)
+	void gen_multiple_choice_entry(Xml_generator     &xml,
+	                               char        const *name,
+	                               char        const *text,
+	                               bool               hovered,
+	                               bool               selected);
+
+	void gen_expandable_frame_title(Xml_generator &xml,
+	                                char    const *text,
+	                                bool           hovered,
+	                                bool           selected);
+
+	template <typename GEN_CONTENT>
+	void gen_expandable_frame(Xml_generator       &xml,
+	                          char          const *name,
+	                          bool                 hovered,
+	                          bool                 selected,
+	                          GEN_CONTENT   const &gen_content)
 	{
 		xml.node("frame", [&] () {
 			xml.attribute("name", name);
 
-			xml.node("float", [&] () {
-				xml.attribute("north", "yes");
-				xml.attribute("east",  "yes");
-				xml.attribute("west",  "yes");
+			xml.node("vbox", [&] () {
 
-				xml.node("vbox", [&] () {
-					gen_floating_text(xml);
-					gen_floating_text_line(xml, "pad", "");
-				});
+				gen_expandable_frame_title(xml, name, hovered, selected);
+				if (selected) {
+					gen_content(xml);
+				}
 			});
 		});
 	}

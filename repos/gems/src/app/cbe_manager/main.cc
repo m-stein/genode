@@ -108,6 +108,7 @@ class Cbe_manager::Main
 		enum class Controls_hover
 		{
 			NONE,
+			SNAPSHOTS_EXPAND_BUTTON,
 			RESIZING_NR_OF_BLKS_INPUT,
 			RESIZING_START_BUTTON,
 			REKEY_BUTTON,
@@ -214,6 +215,7 @@ class Cbe_manager::Main
 		Snapshot_registry                      _snapshots                          { };
 		Snapshot_pointer                       _snapshots_hover                    { };
 		Snapshot_pointer                       _snapshots_select                   { };
+		bool                                   _snapshots_expanded                 { false };
 
 		static bool _child_finished(Xml_node    const &sandbox_state,
 		                            Child_state const &child_state);
@@ -1018,27 +1020,32 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 		gen_titled_frame(xml, "app", _controls_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
-			gen_floating_text_frame(xml, "inf", [&] (Xml_generator &xml) {
-
-				gen_floating_text_line(xml, "line_1", "Device info:");
-				gen_floating_text_line(xml, "line_2", "  Snapshots:");
-
-				unsigned long snap_idx { 1 };
+			gen_expandable_frame(
+				xml,
+				"Snapshots",
+				_controls_hover == Controls_hover::SNAPSHOTS_EXPAND_BUTTON,
+				_snapshots_expanded,
+				[&] (Xml_generator &xml)
+			{
 				_snapshots.for_each([&] (Snapshot const &snap) {
+
+					bool const hovered {
+						_snapshots_hover.valid() &&
+						_snapshots_hover.object().generation() == snap.generation() };
 
 					bool const selected {
 						_snapshots_select.valid() &&
 						_snapshots_select.object().generation() == snap.generation() };
 
-					String<128> const snap_str {
-						" [", snap_idx++, "] Generation ", snap.generation() };
+					String<64> const snap_str {
+						"Generation ", snap.generation() };
 
-					gen_floating_text_line(
+					gen_multiple_choice_entry(
 						xml,
 						Generation_string { snap.generation() }.string(),
-						String<128> {"   ", snap_str }.string(),
-						selected ? 3 : 0,
-						selected ? snap_str.length() : 0);
+						snap_str.string(),
+						hovered,
+						selected);
 				});
 			});
 
@@ -1824,6 +1831,12 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 				Controls_select       next_select { Controls_select::NONE };
 
 				switch (_controls_hover) {
+				case Controls_hover::SNAPSHOTS_EXPAND_BUTTON:
+
+					_snapshots_expanded = !_snapshots_expanded;
+					update_dialog = true;
+					break;
+
 				case Controls_hover::REKEY_BUTTON:
 
 					next_select = Controls_select::REKEY_BUTTON;
@@ -2047,12 +2060,17 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
 
 					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
-						node_3.with_sub_node("float", [&] (Xml_node const &node_4) {
-							node_4.with_sub_node("vbox", [&] (Xml_node const &node_5) {
-								node_5.with_sub_node("hbox", [&] (Xml_node const &node_6) {
+						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
+							node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
+
+								if (node_5.attribute_value("name", String<8>()) == "expand") {
+
+									next_hover = Controls_hover::SNAPSHOTS_EXPAND_BUTTON;
+
+								} else {
 
 									Generation const generation {
-										node_6.attribute_value(
+										node_5.attribute_value(
 											"name", Generation { INVALID_GENERATION }) };
 
 									if (generation != INVALID_GENERATION) {
@@ -2064,7 +2082,7 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 											}
 										});
 									}
-								});
+								}
 							});
 						});
 					});
