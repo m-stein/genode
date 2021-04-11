@@ -9,7 +9,7 @@
 		<gui/>
 		<timer/>
 		<file_system label="trust_anchor" writeable="yes"/>
-		<file_system label="back_end"     writeable="yes"/>
+		<file_system label="data"         writeable="yes"/>
 		<file_system label="fonts"        writeable="no"/>
 	</requires>
 
@@ -81,10 +81,10 @@
 			</config>
 			<route>
 				<service name="File_system" label="cbe_trust_anchor_vfs -> storage_dir"> <parent label="trust_anchor"/> </service>
-				<service name="File_system" label="vfs_block -> ">                       <parent label="back_end"/> </service>
-				<service name="File_system" label="cbe">                                 <parent label="back_end"/> </service>
-				<service name="File_system" label="fs_query -> ">                        <parent label="back_end"/> </service>
-				<service name="File_system" label="cbe_vfs -> cbe_fs">                   <parent label="back_end"/> </service>
+				<service name="File_system" label="vfs_block -> ">                       <parent label="data"/> </service>
+				<service name="File_system" label="cbe">                                 <parent label="data"/> </service>
+				<service name="File_system" label="fs_query -> ">                        <parent label="data"/> </service>
+				<service name="File_system" label="cbe_vfs -> cbe_fs">                   <parent label="data"/> </service>
 				<service name="File_system" label="menu_view -> fonts">                  <parent label="fonts"/> </service>
 				<service name="Timer">                                                   <parent/> </service>
 				<service name="Gui">                                                     <parent/> </service>

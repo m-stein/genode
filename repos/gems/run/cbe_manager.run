@@ -119,15 +119,15 @@ if {[have_board linux]} {
 
 	append config {
 
-		<start name="back_end_fs" caps="200" ld="no">
+		<start name="data_fs" caps="200" ld="no">
 			<binary name="lx_fs"/>
 			<resource name="RAM" quantum="4M"/>
 			<provides>
 				<service name="File_system"/>
 			</provides>
 			<config>
-				<policy label="cbe_manager -> back_end_fs"
-				        root="/cbe_manager_dir/back_end_fs"
+				<policy label="cbe_manager -> data"
+				        root="/cbe_manager_dir/data"
 				        writeable="yes"/>
 			</config>
 			<route>
@@ -145,8 +145,8 @@ if {[have_board linux]} {
 				<service name="File_system"/>
 			</provides>
 			<config>
-				<policy label="cbe_manager -> trust_anchor_fs"
-				        root="/cbe_manager_dir/trust_anchor_fs"
+				<policy label="cbe_manager -> trust_anchor"
+				        root="/cbe_manager_dir/trust_anchor"
 				        writeable="yes"/>
 			</config>
 			<route>
@@ -162,17 +162,17 @@ if {[have_board linux]} {
 
 	append config {
 
-		<start name="back_end_fs" caps="2000">
+		<start name="data_fs" caps="2000">
 			<binary name="vfs"/>
 			<resource name="RAM" quantum="200M"/>
 			<provides><service name="File_system"/></provides>
 			<config>
 				<vfs>
-					<dir name="back_end_fs">
+					<dir name="data">
 						<ram/>
 					</dir>
 				</vfs>
-				<policy label="cbe_manager -> back_end_fs" root="/back_end_fs" writeable="yes"/>
+				<policy label="cbe_manager -> data" root="/data" writeable="yes"/>
 			</config>
 			<route>
 				<service name="PD">  <parent/> </service>
@@ -188,11 +188,11 @@ if {[have_board linux]} {
 			<provides><service name="File_system"/></provides>
 			<config>
 				<vfs>
-					<dir name="trust_anchor_fs">
+					<dir name="trust_anchor">
 						<ram/>
 					</dir>
 				</vfs>
-				<policy label="cbe_manager -> trust_anchor_fs" root="/trust_anchor_fs" writeable="yes"/>
+				<policy label="cbe_manager -> trust_anchor" root="/trust_anchor" writeable="yes"/>
 			</config>
 			<route>
 				<service name="PD">  <parent/> </service>
@@ -231,7 +231,7 @@ append config {
 					</dir>
 				</vfs>
 
-				<policy label="cbe_manager -> menu_view -> fonts" root="/fonts" />
+				<policy label="cbe_manager -> fonts" root="/fonts" />
 			</config>
 			<route>
 				<service name="ROM" label="config"> <parent label="fonts_fs.config"/> </service>
@@ -252,12 +252,12 @@ append config {
 				</vfs>
 			</config>
 			<route>
-				<service name="File_system" label="cbe_trust_anchor_vfs -> storage_dir"> <child name="trust_anchor_fs" label="cbe_manager -> trust_anchor_fs"/> </service>
-				<service name="File_system" label="vfs_block -> ">                       <child name="back_end_fs" label="cbe_manager -> back_end_fs"/> </service>
-				<service name="File_system" label="cbe">                                 <child name="back_end_fs" label="cbe_manager -> back_end_fs"/> </service>
-				<service name="File_system" label="fs_query -> ">                        <child name="back_end_fs" label="cbe_manager -> back_end_fs"/> </service>
-				<service name="File_system" label="cbe_vfs -> cbe_fs">                   <child name="back_end_fs" label="cbe_manager -> back_end_fs"/> </service>
-				<service name="File_system" label="menu_view -> fonts">                  <child name="fonts_fs"/> </service>
+				<service name="File_system" label="cbe_trust_anchor_vfs -> storage_dir"> <child name="trust_anchor_fs" label="cbe_manager -> trust_anchor"/> </service>
+				<service name="File_system" label="vfs_block -> ">                       <child name="data_fs"         label="cbe_manager -> data"/> </service>
+				<service name="File_system" label="cbe">                                 <child name="data_fs"         label="cbe_manager -> data"/> </service>
+				<service name="File_system" label="fs_query -> ">                        <child name="data_fs"         label="cbe_manager -> data"/> </service>
+				<service name="File_system" label="cbe_vfs -> cbe_fs">                   <child name="data_fs"         label="cbe_manager -> data"/> </service>
+				<service name="File_system" label="menu_view -> fonts">                  <child name="fonts_fs"        label="cbe_manager -> fonts"/> </service>
 				<service name="Timer">                                                   <child name="timer"/> </service>
 				<service name="Gui">                                                     <child name="nitpicker"/> </service>
 				<service name="PD">                                                      <parent/> </service>
@@ -278,8 +278,8 @@ puts $fd "<focus label=\"cbe_manager -> \"/>"
 close $fd
 
 if {[have_board linux]} {
-	exec mkdir -p bin/cbe_manager_dir/back_end_fs
-	exec mkdir -p bin/cbe_manager_dir/trust_anchor_fs
+	exec mkdir -p bin/cbe_manager_dir/data
+	exec mkdir -p bin/cbe_manager_dir/trust_anchor
 }
 
 append boot_modules {
