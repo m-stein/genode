@@ -1040,13 +1040,134 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 					String<64> const snap_str {
 						"Generation ", snap.generation() };
 
+					Generation_string const gen_str { snap.generation() };
+
 					gen_multiple_choice_entry(
-						xml,
-						Generation_string { snap.generation() }.string(),
-						snap_str.string(),
-						hovered,
+						xml, gen_str.string(), snap_str.string(), hovered,
 						selected);
+
+					if (selected) {
+
+						bool const discard_hovered { _controls_hover  == Controls_hover::DISCARD_SNAPSHOT_BUTTON };
+						bool const discard_selected { _controls_select == Controls_select::DISCARD_SNAPSHOT_BUTTON };
+
+						switch(_discard_snap_state) {
+						case Discard_snapshot_state::INACTIVE:
+
+							xml.node("float", [&] () {
+								xml.attribute("name", String<32> { "discard", gen_str });
+								xml.attribute("west", "yes");
+
+								xml.node("hbox", [&] () {
+
+									xml.node("label", [&] () {
+										xml.attribute("min_ex", "4");
+									});
+									xml.node("button", [&] () {
+										if (discard_hovered) {
+											xml.attribute("hovered", "yes");
+										}
+										if (discard_selected) {
+											xml.attribute("selected", "yes");
+										}
+
+										xml.node("label", [&] () {
+											xml.attribute("text", "Discard");
+										});
+									});
+								});
+							});
+							break;
+
+						case Discard_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
+
+							xml.node("float", [&] () {
+								xml.attribute("name", String<32> { "inactive_discard", gen_str });
+								xml.attribute("west", "yes");
+
+								xml.node("hbox", [&] () {
+
+									xml.node("label", [&] () {
+										xml.attribute("min_ex", "4");
+									});
+									xml.node("button", [&] () {
+										xml.attribute("name", gen_str.string());
+										if (discard_hovered) {
+											xml.attribute("hovered", "yes");
+										}
+										if (discard_selected) {
+											xml.attribute("selected", "yes");
+										}
+										xml.node("hbox", [&] () {
+
+											xml.node("label", [&] () {
+												xml.attribute("text", "...");
+											});
+										});
+									});
+								});
+							});
+							break;
+						}
+					}
 				});
+
+				bool const hovered { _controls_hover  == Controls_hover::CREATE_SNAPSHOT_BUTTON };
+				bool const selected { _controls_select == Controls_select::CREATE_SNAPSHOT_BUTTON };
+
+				switch(_create_snap_state) {
+				case Create_snapshot_state::INACTIVE:
+
+					xml.node("float", [&] () {
+						xml.attribute("name", "create");
+						xml.attribute("west", "yes");
+
+						xml.node("hbox", [&] () {
+
+							xml.node("button", [&] () {
+								if (hovered) {
+									xml.attribute("hovered", "yes");
+								}
+								if (selected) {
+									xml.attribute("selected", "yes");
+								}
+								xml.node("hbox", [&] () {
+
+									xml.node("label", [&] () {
+										xml.attribute("text", "Create");
+									});
+								});
+							});
+						});
+					});
+					break;
+
+				case Create_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
+
+					xml.node("float", [&] () {
+						xml.attribute("name", "inactive_create");
+						xml.attribute("west", "yes");
+
+						xml.node("hbox", [&] () {
+
+							xml.node("button", [&] () {
+								if (hovered) {
+									xml.attribute("hovered", "yes");
+								}
+								if (selected) {
+									xml.attribute("selected", "yes");
+								}
+								xml.node("hbox", [&] () {
+
+									xml.node("label", [&] () {
+										xml.attribute("text", "...");
+									});
+								});
+							});
+						});
+					});
+					break;
+				}
 			});
 
 			xml.node("hbox", [&] () {
@@ -1078,38 +1199,6 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 						gen_info_line(xml, "inf_1", "Rekeying: In progress");
 						gen_info_line(xml, "pad_1", "");
-						break;
-					}
-
-					switch(_create_snap_state) {
-					case Create_snapshot_state::INACTIVE:
-
-						gen_action_button_at_bottom(xml, "Create snapshot",
-							_controls_hover  == Controls_hover::CREATE_SNAPSHOT_BUTTON,
-							_controls_select == Controls_select::CREATE_SNAPSHOT_BUTTON);
-
-						break;
-
-					case Create_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
-
-						gen_info_line(xml, "inf_2", "Creating snapshot: Issue request");
-						gen_info_line(xml, "pad_2", "");
-						break;
-					}
-
-					switch(_discard_snap_state) {
-					case Discard_snapshot_state::INACTIVE:
-
-						gen_action_button_at_bottom(xml, "Discard snapshot",
-							_controls_hover  == Controls_hover::DISCARD_SNAPSHOT_BUTTON,
-							_controls_select == Controls_select::DISCARD_SNAPSHOT_BUTTON);
-
-						break;
-
-					case Discard_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
-
-						gen_info_line(xml, "inf_3", "Discarding snapshot: Issue request");
-						gen_info_line(xml, "pad_3", "");
 						break;
 					}
 
@@ -1872,11 +1961,17 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 					next_select = Controls_select::NONE;
 					break;
 				}
-				if (_snapshots_hover.valid() &&
-				    _snapshots_hover != _snapshots_select) {
+				if (_snapshots_hover.valid()) {
 
-					_snapshots_select = _snapshots_hover;
-					update_dialog = true;
+					if (_snapshots_hover != _snapshots_select) {
+
+						_snapshots_select = _snapshots_hover;
+						update_dialog = true;
+					} else {
+
+						_snapshots_select = Snapshot_pointer { };
+						update_dialog = true;
+					}
 				}
 				if (next_select != prev_select) {
 
@@ -2055,10 +2150,10 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 		Snapshot_pointer const prev_snapshots_hover { _snapshots_hover };
 		Snapshot_pointer       next_snapshots_hover { };
 
+
 		node.with_sub_node("dialog", [&] (Xml_node const &node_0) {
 			node_0.with_sub_node("frame", [&] (Xml_node const &node_1) {
 				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
-
 					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
 							node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
@@ -2066,6 +2161,14 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 								if (node_5.attribute_value("name", String<8>()) == "expand") {
 
 									next_hover = Controls_hover::SNAPSHOTS_EXPAND_BUTTON;
+
+								} else if (node_5.attribute_value("name", String<8>()) == "discard") {
+
+									next_hover = Controls_hover::DISCARD_SNAPSHOT_BUTTON;
+
+								} else if (node_5.attribute_value("name", String<9>()) == "create") {
+
+									next_hover = Controls_hover::CREATE_SNAPSHOT_BUTTON;
 
 								} else {
 
@@ -2104,13 +2207,6 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 
 												next_hover = Controls_hover::SHUT_DOWN_BUTTON;
 
-											} else if (node_7.attribute_value("name", String<16>()) == "Create snapshot") {
-
-												next_hover = Controls_hover::CREATE_SNAPSHOT_BUTTON;
-
-											} else if (node_7.attribute_value("name", String<17>()) == "Discard snapshot") {
-
-												next_hover = Controls_hover::DISCARD_SNAPSHOT_BUTTON;
 											}
 										});
 									});
