@@ -51,7 +51,7 @@ class Cbe_manager::Main
 	private:
 
 		enum {
-			STATE_STRING_CAPACITY = 2,
+			STATE_STRING_CAPACITY = 3,
 			CBE_BLOCK_SIZE = 4096,
 			MAIN_FRAME_WIDTH = 40,
 			INIT_CBE_NR_OF_LEVELS = 6,
@@ -71,7 +71,9 @@ class Cbe_manager::Main
 			STARTUP_OBTAIN_PARAMETERS,
 			STARTUP_RUN_CBE_TRUST_ANCHOR_INIT,
 			STARTUP_START_CBE_VFS,
-			CONTROLS,
+			CONTROLS_ROOT,
+			CONTROLS_SNAPSHOTS,
+			CONTROLS_DIMENSIONS,
 			SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE,
 			SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE
 		};
@@ -94,28 +96,58 @@ class Cbe_manager::Main
 			START_BUTTON
 		};
 
-		enum class Controls_select
+		enum class Controls_root_select
 		{
 			NONE,
-			RESIZING_NR_OF_BLKS_INPUT,
-			RESIZING_START_BUTTON,
+			REKEY_BUTTON,
+			SHUT_DOWN_BUTTON,
+		};
+
+		enum class Controls_root_hover
+		{
+			NONE,
+			SNAPSHOTS_EXPAND_BUTTON,
+			DIMENSIONS_EXPAND_BUTTON,
+			REKEY_BUTTON,
+			SHUT_DOWN_BUTTON,
+		};
+
+		enum class Controls_snapshots_select
+		{
+			NONE,
 			REKEY_BUTTON,
 			SHUT_DOWN_BUTTON,
 			CREATE_SNAPSHOT_BUTTON,
 			DISCARD_SNAPSHOT_BUTTON,
 		};
 
-		enum class Controls_hover
+		enum class Controls_snapshots_hover
 		{
 			NONE,
 			SNAPSHOTS_EXPAND_BUTTON,
+			REKEY_BUTTON,
+			SHUT_DOWN_BUTTON,
+			CREATE_SNAPSHOT_BUTTON,
+			DISCARD_SNAPSHOT_BUTTON,
+		};
+
+		enum class Controls_dimensions_select
+		{
+			NONE,
+			RESIZING_NR_OF_BLKS_INPUT,
+			RESIZING_START_BUTTON,
+			REKEY_BUTTON,
+			SHUT_DOWN_BUTTON,
+		};
+
+		enum class Controls_dimensions_hover
+		{
+			NONE,
 			DIMENSIONS_EXPAND_BUTTON,
 			RESIZING_NR_OF_BLKS_INPUT,
 			RESIZING_START_BUTTON,
 			REKEY_BUTTON,
 			SHUT_DOWN_BUTTON,
-			CREATE_SNAPSHOT_BUTTON,
-			DISCARD_SNAPSHOT_BUTTON,
 		};
 
 		enum class Resizing_state
@@ -205,8 +237,12 @@ class Cbe_manager::Main
 		Passphrase                             _setup_obtain_params_size           { };
 		Setup_obtain_params_hover              _setup_obtain_params_hover          { Setup_obtain_params_hover::NONE };
 		Setup_obtain_params_select             _setup_obtain_params_select         { Setup_obtain_params_select::PASSPHRASE_1_INPUT };
-		Controls_hover                         _controls_hover                     { Controls_select::NONE };
-		Controls_select                        _controls_select                    { Controls_hover::RESIZING_NR_OF_BLKS_INPUT };
+		Controls_root_hover                    _controls_root_hover                { Controls_root_select::NONE };
+		Controls_root_select                   _controls_root_select               { Controls_root_hover::NONE };
+		Controls_snapshots_hover               _controls_snapshots_hover           { Controls_snapshots_select::NONE };
+		Controls_snapshots_select              _controls_snapshots_select          { Controls_snapshots_hover::NONE };
+		Controls_dimensions_hover              _controls_dimensions_hover          { Controls_dimensions_select::NONE };
+		Controls_dimensions_select             _controls_dimensions_select         { Controls_dimensions_hover::NONE };
 		Resizing_state                         _resizing_state                     { Resizing_state::INACTIVE };
 		Passphrase                             _resizing_nr_of_blks                { };
 		Rekeying_state                         _rekeying_state                     { Rekeying_state::INACTIVE };
@@ -362,12 +398,14 @@ Main::State Main::_state_from_string(State_string const &str)
 	if (str ==  "4") { return State::SETUP_RUN_CBE_INIT; }
 	if (str ==  "5") { return State::SETUP_START_CBE_VFS; }
 	if (str ==  "6") { return State::SETUP_FORMAT_CBE; }
-	if (str ==  "7") { return State::CONTROLS; }
-	if (str ==  "8") { return State::STARTUP_OBTAIN_PARAMETERS; }
-	if (str ==  "9") { return State::STARTUP_RUN_CBE_TRUST_ANCHOR_INIT; }
-	if (str == "10") { return State::STARTUP_START_CBE_VFS; }
-	if (str == "11") { return State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE; }
-	if (str == "12") { return State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE; }
+	if (str ==  "7") { return State::CONTROLS_ROOT; }
+	if (str ==  "8") { return State::CONTROLS_SNAPSHOTS; }
+	if (str ==  "9") { return State::CONTROLS_DIMENSIONS; }
+	if (str == "10") { return State::STARTUP_OBTAIN_PARAMETERS; }
+	if (str == "11") { return State::STARTUP_RUN_CBE_TRUST_ANCHOR_INIT; }
+	if (str == "12") { return State::STARTUP_START_CBE_VFS; }
+	if (str == "13") { return State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE; }
+	if (str == "14") { return State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE; }
 	class Invalid_state_string { };
 	throw Invalid_state_string { };
 }
@@ -383,12 +421,14 @@ Main::State_string Main::_state_to_string(State state)
 	case State::SETUP_RUN_CBE_INIT:                        return  "4";
 	case State::SETUP_START_CBE_VFS:                       return  "5";
 	case State::SETUP_FORMAT_CBE:                          return  "6";
-	case State::CONTROLS:                             return  "7";
-	case State::STARTUP_OBTAIN_PARAMETERS:                 return  "8";
-	case State::STARTUP_RUN_CBE_TRUST_ANCHOR_INIT:         return " 9";
-	case State::STARTUP_START_CBE_VFS:                     return "10";
-	case State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE:      return "11";
-	case State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE: return "12";
+	case State::CONTROLS_ROOT:                             return  "7";
+	case State::CONTROLS_SNAPSHOTS:                        return  "8";
+	case State::CONTROLS_DIMENSIONS:                       return  "9";
+	case State::STARTUP_OBTAIN_PARAMETERS:                 return "10";
+	case State::STARTUP_RUN_CBE_TRUST_ANCHOR_INIT:         return "11";
+	case State::STARTUP_START_CBE_VFS:                     return "12";
+	case State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE:      return "13";
+	case State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE: return "14";
 	}
 	class Invalid_state { };
 	throw Invalid_state { };
@@ -489,7 +529,9 @@ void Main::_vfs_create_zero_filled_file(Root_directory  &vfs,
 void Main::_handle_resizing_fs_query_listing(Xml_node const &node)
 {
 	switch (_state) {
-	case State::CONTROLS:
+	case State::CONTROLS_ROOT:
+	case State::CONTROLS_SNAPSHOTS:
+	case State::CONTROLS_DIMENSIONS:
 
 		switch (_resizing_state) {
 		case Resizing_state::WAIT_TILL_DEVICE_IS_READY:
@@ -544,7 +586,9 @@ void Main::_handle_shut_down_fs_query_listing(Xml_node const &node)
 void Main::_handle_rekeying_fs_query_listing(Xml_node const &node)
 {
 	switch (_state) {
-	case State::CONTROLS:
+	case State::CONTROLS_ROOT:
+	case State::CONTROLS_SNAPSHOTS:
+	case State::CONTROLS_DIMENSIONS:
 
 		switch (_rekeying_state) {
 		case Rekeying_state::WAIT_TILL_DEVICE_IS_READY:
@@ -587,14 +631,13 @@ void Main::_handle_fs_query_listing(Xml_node const &node)
 		switch (state) {
 		case State::INVALID:
 
-			_write_to_state_file(State::SETUP_OBTAIN_PARAMETERS);
 			_state = State::SETUP_OBTAIN_PARAMETERS;
 			Signal_transmitter(_state_handler).submit();
 			break;
 
 		case State::STARTUP_OBTAIN_PARAMETERS:
 
-			_state = state;
+			_state = State::STARTUP_OBTAIN_PARAMETERS;
 			Signal_transmitter(_state_handler).submit();
 			break;
 
@@ -605,7 +648,9 @@ void Main::_handle_fs_query_listing(Xml_node const &node)
 		}
 		break;
 	}
-	case State::CONTROLS:
+	case State::CONTROLS_ROOT:
+	case State::CONTROLS_SNAPSHOTS:
+	case State::CONTROLS_DIMENSIONS:
 	{
 		bool update_dialog { false };
 		node.with_sub_node("dir", [&] (Xml_node const &node_0) {
@@ -780,7 +825,7 @@ void Cbe_manager::Main::handle_sandbox_state()
 
 			if (_child_finished(sandbox_state, _sync_to_cbe_vfs_init)) {
 
-				_state = State::CONTROLS;
+				_state = State::CONTROLS_ROOT;
 				update_dialog = true;
 				update_sandbox = true;
 			}
@@ -791,13 +836,15 @@ void Cbe_manager::Main::handle_sandbox_state()
 			if (_child_finished(sandbox_state, _mke2fs)) {
 
 				_write_to_state_file(State::STARTUP_OBTAIN_PARAMETERS);
-				_state = State::CONTROLS;
+				_state = State::CONTROLS_ROOT;
 				update_dialog = true;
 				update_sandbox = true;
 			}
 			break;
 
-		case State::CONTROLS:
+		case State::CONTROLS_ROOT:
+		case State::CONTROLS_SNAPSHOTS:
+		case State::CONTROLS_DIMENSIONS:
 
 			switch (_resizing_state) {
 			case Resizing_state::ISSUE_REQUEST_AT_DEVICE:
@@ -1018,15 +1065,70 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 		gen_titled_info_frame(xml, "1", _startup_title, "Starting device driver", MAIN_FRAME_WIDTH);
 		break;
 
-	case State::CONTROLS:
+	case State::CONTROLS_ROOT:
 
 		gen_titled_frame(xml, "app", _controls_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
 			gen_expandable_frame(
 				xml,
 				"Snapshots",
-				_controls_hover == Controls_hover::SNAPSHOTS_EXPAND_BUTTON,
-				_snapshots_expanded,
+				_controls_root_hover == Controls_root_hover::SNAPSHOTS_EXPAND_BUTTON,
+				false,
+				[&] (Xml_generator &) { });
+
+			gen_expandable_frame(
+				xml,
+				"Dimensions",
+				_controls_root_hover == Controls_root_hover::DIMENSIONS_EXPAND_BUTTON,
+				false,
+				[&] (Xml_generator &) { });
+
+			gen_untitled_frame(xml, "misc", [&] (Xml_generator &xml) {
+
+				switch(_rekeying_state) {
+				case Rekeying_state::INACTIVE:
+
+					gen_action_button_at_bottom(xml, "Rekey",
+						_controls_root_hover  == Controls_root_hover::REKEY_BUTTON,
+						_controls_root_select == Controls_root_select::REKEY_BUTTON);
+
+					break;
+
+				case Rekeying_state::WAIT_TILL_DEVICE_IS_READY:
+
+					gen_info_line(xml, "inf_1", "Rekeying: Wait for device");
+					gen_info_line(xml, "pad_1", "");
+					break;
+
+				case Rekeying_state::ISSUE_REQUEST_AT_DEVICE:
+
+					gen_info_line(xml, "inf_1", "Rekeying: Issue request");
+					gen_info_line(xml, "pad_1", "");
+					break;
+
+				case Rekeying_state::IN_PROGRESS_AT_DEVICE:
+
+					gen_info_line(xml, "inf_1", "Rekeying: In progress");
+					gen_info_line(xml, "pad_1", "");
+					break;
+				}
+
+				gen_action_button_at_bottom(xml, "Shut down",
+					_controls_root_hover  == Controls_root_hover::SHUT_DOWN_BUTTON,
+					_controls_root_select == Controls_root_select::SHUT_DOWN_BUTTON);
+			});
+		});
+		break;
+
+	case State::CONTROLS_SNAPSHOTS:
+
+		gen_titled_frame(xml, "app", _controls_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
+
+			gen_expandable_frame(
+				xml,
+				"Snapshots",
+				_controls_snapshots_hover == Controls_snapshots_hover::SNAPSHOTS_EXPAND_BUTTON,
+				true,
 				[&] (Xml_generator &xml)
 			{
 				_snapshots.for_each([&] (Snapshot const &snap) {
@@ -1050,8 +1152,8 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 					if (selected) {
 
-						bool const discard_hovered { _controls_hover  == Controls_hover::DISCARD_SNAPSHOT_BUTTON };
-						bool const discard_selected { _controls_select == Controls_select::DISCARD_SNAPSHOT_BUTTON };
+						bool const discard_hovered { _controls_snapshots_hover  == Controls_snapshots_hover::DISCARD_SNAPSHOT_BUTTON };
+						bool const discard_selected { _controls_snapshots_select == Controls_snapshots_select::DISCARD_SNAPSHOT_BUTTON };
 
 						switch(_discard_snap_state) {
 						case Discard_snapshot_state::INACTIVE:
@@ -1114,8 +1216,8 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 					}
 				});
 
-				bool const hovered { _controls_hover  == Controls_hover::CREATE_SNAPSHOT_BUTTON };
-				bool const selected { _controls_select == Controls_select::CREATE_SNAPSHOT_BUTTON };
+				bool const hovered { _controls_snapshots_hover  == Controls_snapshots_hover::CREATE_SNAPSHOT_BUTTON };
+				bool const selected { _controls_snapshots_select == Controls_snapshots_select::CREATE_SNAPSHOT_BUTTON };
 
 				switch(_create_snap_state) {
 				case Create_snapshot_state::INACTIVE:
@@ -1172,11 +1274,52 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 				}
 			});
 
+			gen_untitled_frame(xml, "misc", [&] (Xml_generator &xml) {
+
+				switch(_rekeying_state) {
+				case Rekeying_state::INACTIVE:
+
+					gen_action_button_at_bottom(xml, "Rekey",
+						_controls_snapshots_hover  == Controls_snapshots_hover::REKEY_BUTTON,
+						_controls_snapshots_select == Controls_snapshots_select::REKEY_BUTTON);
+
+					break;
+
+				case Rekeying_state::WAIT_TILL_DEVICE_IS_READY:
+
+					gen_info_line(xml, "inf_1", "Rekeying: Wait for device");
+					gen_info_line(xml, "pad_1", "");
+					break;
+
+				case Rekeying_state::ISSUE_REQUEST_AT_DEVICE:
+
+					gen_info_line(xml, "inf_1", "Rekeying: Issue request");
+					gen_info_line(xml, "pad_1", "");
+					break;
+
+				case Rekeying_state::IN_PROGRESS_AT_DEVICE:
+
+					gen_info_line(xml, "inf_1", "Rekeying: In progress");
+					gen_info_line(xml, "pad_1", "");
+					break;
+				}
+
+				gen_action_button_at_bottom(xml, "Shut down",
+					_controls_snapshots_hover  == Controls_snapshots_hover::SHUT_DOWN_BUTTON,
+					_controls_snapshots_select == Controls_snapshots_select::SHUT_DOWN_BUTTON);
+			});
+		});
+		break;
+
+	case State::CONTROLS_DIMENSIONS:
+
+		gen_titled_frame(xml, "app", _controls_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
+
 			gen_expandable_frame(
 				xml,
 				"Dimensions",
-				_controls_hover == Controls_hover::DIMENSIONS_EXPAND_BUTTON,
-				_dimensions_expanded,
+				_controls_dimensions_hover == Controls_dimensions_hover::DIMENSIONS_EXPAND_BUTTON,
+				true,
 				[&] (Xml_generator &xml)
 			{
 				switch(_resizing_state) {
@@ -1185,7 +1328,7 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 					gen_titled_text_input(
 						xml, "blks", "Number of blocks",
 						_resizing_nr_of_blks,
-						_controls_select == Controls_select::RESIZING_NR_OF_BLKS_INPUT);
+						_controls_dimensions_select == Controls_dimensions_select::RESIZING_NR_OF_BLKS_INPUT);
 
 					bool gen_start_button { true };
 					if (!_resizing_nr_of_blks.is_nr_greater_than_zero()) {
@@ -1221,8 +1364,8 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 						gen_action_button_at_bottom(
 							xml, "Start",
-							_controls_hover  == Controls_hover::RESIZING_START_BUTTON,
-							_controls_select == Controls_select::RESIZING_START_BUTTON);
+							_controls_dimensions_hover  == Controls_dimensions_hover::RESIZING_START_BUTTON,
+							_controls_dimensions_select == Controls_dimensions_select::RESIZING_START_BUTTON);
 					}
 					break;
 				}
@@ -1252,8 +1395,8 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 				case Rekeying_state::INACTIVE:
 
 					gen_action_button_at_bottom(xml, "Rekey",
-						_controls_hover  == Controls_hover::REKEY_BUTTON,
-						_controls_select == Controls_select::REKEY_BUTTON);
+						_controls_dimensions_hover  == Controls_dimensions_hover::REKEY_BUTTON,
+						_controls_dimensions_select == Controls_dimensions_select::REKEY_BUTTON);
 
 					break;
 
@@ -1277,8 +1420,8 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 				}
 
 				gen_action_button_at_bottom(xml, "Shut down",
-					_controls_hover  == Controls_hover::SHUT_DOWN_BUTTON,
-					_controls_select == Controls_select::SHUT_DOWN_BUTTON);
+					_controls_dimensions_hover  == Controls_dimensions_hover::SHUT_DOWN_BUTTON,
+					_controls_dimensions_select == Controls_dimensions_select::SHUT_DOWN_BUTTON);
 			});
 		});
 		break;
@@ -1488,7 +1631,9 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_mke2fs_start_node(xml, _mke2fs);
 		break;
 
-	case State::CONTROLS:
+	case State::CONTROLS_ROOT:
+	case State::CONTROLS_SNAPSHOTS:
+	case State::CONTROLS_DIMENSIONS:
 
 		gen_parent_provides_and_report_nodes(xml);
 		gen_policy_for_child_service(xml, "File_system", _rump_vfs);
@@ -1914,61 +2059,120 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 		});
 		break;
 
-	case State::CONTROLS:
+	case State::CONTROLS_ROOT:
 
-		event.handle_press([&] (Input::Keycode key, Codepoint code) {
+		event.handle_press([&] (Input::Keycode key, Codepoint) {
 
 			if (key == Input::BTN_LEFT) {
 
-				Controls_select const prev_select { _controls_select };
-				Controls_select       next_select { Controls_select::NONE };
+				Controls_root_select const prev_select { _controls_root_select };
+				Controls_root_select       next_select { Controls_root_select::NONE };
 
-				switch (_controls_hover) {
-				case Controls_hover::SNAPSHOTS_EXPAND_BUTTON:
+				switch (_controls_root_hover) {
+				case Controls_root_hover::SNAPSHOTS_EXPAND_BUTTON:
 
-					_snapshots_expanded = !_snapshots_expanded;
+					_state = State::CONTROLS_SNAPSHOTS;
 					update_dialog = true;
 					break;
 
-				case Controls_hover::DIMENSIONS_EXPAND_BUTTON:
+				case Controls_root_hover::DIMENSIONS_EXPAND_BUTTON:
 
-					_dimensions_expanded = !_dimensions_expanded;
+					_state = State::CONTROLS_DIMENSIONS;
 					update_dialog = true;
 					break;
 
-				case Controls_hover::REKEY_BUTTON:
+				case Controls_root_hover::REKEY_BUTTON:
 
-					next_select = Controls_select::REKEY_BUTTON;
+					next_select = Controls_root_select::REKEY_BUTTON;
 					break;
 
-				case Controls_hover::SHUT_DOWN_BUTTON:
+				case Controls_root_hover::SHUT_DOWN_BUTTON:
 
-					next_select = Controls_select::SHUT_DOWN_BUTTON;
+					next_select = Controls_root_select::SHUT_DOWN_BUTTON;
 					break;
 
-				case Controls_hover::RESIZING_START_BUTTON:
+				case Controls_root_hover::NONE:
 
-					next_select = Controls_select::RESIZING_START_BUTTON;
+					next_select = Controls_root_select::NONE;
+					break;
+				}
+				if (next_select != prev_select) {
+
+					_controls_root_select = next_select;
+					update_dialog = true;
+				}
+			}
+		});
+		event.handle_release([&] (Input::Keycode key) {
+
+			if (key == Input::BTN_LEFT) {
+
+				switch (_controls_root_select) {
+				case Controls_root_select::REKEY_BUTTON:
+
+					_controls_root_select = Controls_root_select::NONE;
+					_rekeying_state = Rekeying_state::WAIT_TILL_DEVICE_IS_READY;
+
+					update_sandbox_config = true;
+					update_dialog = true;
 					break;
 
-				case Controls_hover::RESIZING_NR_OF_BLKS_INPUT:
+				case Controls_root_select::SHUT_DOWN_BUTTON:
 
-					next_select = Controls_select::RESIZING_NR_OF_BLKS_INPUT;
+					_controls_root_select = Controls_root_select::NONE;
+					_state = State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE;
+
+					update_sandbox_config = true;
+					update_dialog = true;
 					break;
 
-				case Controls_hover::CREATE_SNAPSHOT_BUTTON:
+				default:
 
-					next_select = Controls_select::CREATE_SNAPSHOT_BUTTON;
+					break;
+				}
+			}
+		});
+		break;
+
+	case State::CONTROLS_SNAPSHOTS:
+
+		event.handle_press([&] (Input::Keycode key, Codepoint) {
+
+			if (key == Input::BTN_LEFT) {
+
+				Controls_snapshots_select const prev_select { _controls_snapshots_select };
+				Controls_snapshots_select       next_select { Controls_snapshots_select::NONE };
+
+				switch (_controls_snapshots_hover) {
+				case Controls_snapshots_hover::SNAPSHOTS_EXPAND_BUTTON:
+
+					_state = State::CONTROLS_ROOT;
+					update_dialog = true;
 					break;
 
-				case Controls_hover::DISCARD_SNAPSHOT_BUTTON:
+				case Controls_snapshots_hover::REKEY_BUTTON:
 
-					next_select = Controls_select::DISCARD_SNAPSHOT_BUTTON;
+					next_select = Controls_snapshots_select::REKEY_BUTTON;
 					break;
 
-				case Controls_hover::NONE:
+				case Controls_snapshots_hover::SHUT_DOWN_BUTTON:
 
-					next_select = Controls_select::NONE;
+					next_select = Controls_snapshots_select::SHUT_DOWN_BUTTON;
+					break;
+
+				case Controls_snapshots_hover::CREATE_SNAPSHOT_BUTTON:
+
+					next_select = Controls_snapshots_select::CREATE_SNAPSHOT_BUTTON;
+					break;
+
+				case Controls_snapshots_hover::DISCARD_SNAPSHOT_BUTTON:
+
+					next_select = Controls_snapshots_select::DISCARD_SNAPSHOT_BUTTON;
+					break;
+
+				case Controls_snapshots_hover::NONE:
+
+					next_select = Controls_snapshots_select::NONE;
 					break;
 				}
 				if (_snapshots_hover.valid()) {
@@ -1985,13 +2189,113 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 				}
 				if (next_select != prev_select) {
 
-					_controls_select = next_select;
+					_controls_snapshots_select = next_select;
+					update_dialog = true;
+				}
+			}
+		});
+		event.handle_release([&] (Input::Keycode key) {
+
+			if (key == Input::BTN_LEFT) {
+
+				switch (_controls_snapshots_select) {
+				case Controls_snapshots_select::REKEY_BUTTON:
+
+					_controls_snapshots_select = Controls_snapshots_select::NONE;
+					_rekeying_state = Rekeying_state::WAIT_TILL_DEVICE_IS_READY;
+
+					update_sandbox_config = true;
+					update_dialog = true;
+					break;
+
+				case Controls_snapshots_select::SHUT_DOWN_BUTTON:
+
+					_controls_snapshots_select = Controls_snapshots_select::NONE;
+					_state = State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE;
+
+					update_sandbox_config = true;
+					update_dialog = true;
+					break;
+
+				case Controls_snapshots_select::CREATE_SNAPSHOT_BUTTON:
+
+					_controls_snapshots_select = Controls_snapshots_select::NONE;
+					_create_snap_state = Create_snapshot_state::ISSUE_REQUEST_AT_DEVICE;
+
+					update_sandbox_config = true;
+					update_dialog = true;
+					break;
+
+				case Controls_snapshots_select::DISCARD_SNAPSHOT_BUTTON:
+
+					_controls_snapshots_select = Controls_snapshots_select::NONE;
+
+					if (_snapshots_select.valid()) {
+						_discard_snap_state = Discard_snapshot_state::ISSUE_REQUEST_AT_DEVICE;
+						_discard_snap_gen = _snapshots_select.object().generation();
+					}
+					update_sandbox_config = true;
+					update_dialog = true;
+					break;
+
+				default:
+
+					break;
+				}
+			}
+		});
+		break;
+
+	case State::CONTROLS_DIMENSIONS:
+
+		event.handle_press([&] (Input::Keycode key, Codepoint code) {
+
+			if (key == Input::BTN_LEFT) {
+
+				Controls_dimensions_select const prev_select { _controls_dimensions_select };
+				Controls_dimensions_select       next_select { Controls_dimensions_select::NONE };
+
+				switch (_controls_dimensions_hover) {
+				case Controls_dimensions_hover::DIMENSIONS_EXPAND_BUTTON:
+
+					_state = State::CONTROLS_ROOT;
+					update_dialog = true;
+					break;
+
+				case Controls_dimensions_hover::REKEY_BUTTON:
+
+					next_select = Controls_dimensions_select::REKEY_BUTTON;
+					break;
+
+				case Controls_dimensions_hover::SHUT_DOWN_BUTTON:
+
+					next_select = Controls_dimensions_select::SHUT_DOWN_BUTTON;
+					break;
+
+				case Controls_dimensions_hover::RESIZING_START_BUTTON:
+
+					next_select = Controls_dimensions_select::RESIZING_START_BUTTON;
+					break;
+
+				case Controls_dimensions_hover::RESIZING_NR_OF_BLKS_INPUT:
+
+					next_select = Controls_dimensions_select::RESIZING_NR_OF_BLKS_INPUT;
+					break;
+
+				case Controls_dimensions_hover::NONE:
+
+					next_select = Controls_dimensions_select::NONE;
+					break;
+				}
+				if (next_select != prev_select) {
+
+					_controls_dimensions_select = next_select;
 					update_dialog = true;
 				}
 
 			} else {
 
-				if (_controls_select == Controls_select::RESIZING_NR_OF_BLKS_INPUT) {
+				if (_controls_dimensions_select == Controls_dimensions_select::RESIZING_NR_OF_BLKS_INPUT) {
 
 					if (codepoint_is_printable(code)) {
 
@@ -2010,51 +2314,30 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 
 			if (key == Input::BTN_LEFT) {
 
-				switch (_controls_select) {
-				case Controls_select::RESIZING_START_BUTTON:
+				switch (_controls_dimensions_select) {
+				case Controls_dimensions_select::RESIZING_START_BUTTON:
 
-					_controls_select = Controls_select::NONE;
+					_controls_dimensions_select = Controls_dimensions_select::NONE;
 					_resizing_state = Resizing_state::WAIT_TILL_DEVICE_IS_READY;
 
 					update_sandbox_config = true;
 					update_dialog = true;
 					break;
 
-				case Controls_select::REKEY_BUTTON:
+				case Controls_dimensions_select::REKEY_BUTTON:
 
-					_controls_select = Controls_select::NONE;
+					_controls_dimensions_select = Controls_dimensions_select::NONE;
 					_rekeying_state = Rekeying_state::WAIT_TILL_DEVICE_IS_READY;
 
 					update_sandbox_config = true;
 					update_dialog = true;
 					break;
 
-				case Controls_select::SHUT_DOWN_BUTTON:
+				case Controls_dimensions_select::SHUT_DOWN_BUTTON:
 
-					_controls_select = Controls_select::NONE;
+					_controls_dimensions_select = Controls_dimensions_select::NONE;
 					_state = State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE;
 
-					update_sandbox_config = true;
-					update_dialog = true;
-					break;
-
-				case Controls_select::CREATE_SNAPSHOT_BUTTON:
-
-					_controls_select = Controls_select::NONE;
-					_create_snap_state = Create_snapshot_state::ISSUE_REQUEST_AT_DEVICE;
-
-					update_sandbox_config = true;
-					update_dialog = true;
-					break;
-
-				case Controls_select::DISCARD_SNAPSHOT_BUTTON:
-
-					_controls_select = Controls_select::NONE;
-
-					if (_snapshots_select.valid()) {
-						_discard_snap_state = Discard_snapshot_state::ISSUE_REQUEST_AT_DEVICE;
-						_discard_snap_gen = _snapshots_select.object().generation();
-					}
 					update_sandbox_config = true;
 					update_dialog = true;
 					break;
@@ -2152,14 +2435,10 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 		}
 		break;
 	}
-	case State::CONTROLS:
+	case State::CONTROLS_ROOT:
 	{
-		Controls_hover const prev_hover { _controls_hover };
-		Controls_hover       next_hover { Controls_hover::NONE };
-
-		Snapshot_pointer const prev_snapshots_hover { _snapshots_hover };
-		Snapshot_pointer       next_snapshots_hover { };
-
+		Controls_root_hover const prev_hover { _controls_root_hover };
+		Controls_root_hover       next_hover { Controls_root_hover::NONE };
 
 		node.with_sub_node("dialog", [&] (Xml_node const &node_0) {
 			node_0.with_sub_node("frame", [&] (Xml_node const &node_1) {
@@ -2173,15 +2452,82 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 
 									if (node_5.attribute_value("name", String<8>()) == "expand") {
 
-										next_hover = Controls_hover::SNAPSHOTS_EXPAND_BUTTON;
+										next_hover = Controls_root_hover::SNAPSHOTS_EXPAND_BUTTON;
+									}
+								});
+							});
+
+						} else if (node_3.attribute_value("name", String<16>()) == "Dimensions") {
+
+							node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
+								node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
+
+									if (node_5.attribute_value("name", String<8>()) == "expand") {
+
+										next_hover = Controls_root_hover::DIMENSIONS_EXPAND_BUTTON;
+									}
+								});
+							});
+
+						} else if (node_3.attribute_value("name", String<8>()) == "misc") {
+
+							node_3.with_sub_node("float", [&] (Xml_node const &node_4) {
+								node_4.with_sub_node("vbox", [&] (Xml_node const &node_5) {
+									node_5.with_sub_node("float", [&] (Xml_node const &node_6) {
+
+										if (node_6.attribute_value("name", String<8>()) == "Rekey") {
+
+											next_hover = Controls_root_hover::REKEY_BUTTON;
+
+										} else if (node_6.attribute_value("name", String<10>()) == "Shut down") {
+
+											next_hover = Controls_root_hover::SHUT_DOWN_BUTTON;
+
+										}
+									});
+								});
+							});
+						}
+					});
+				});
+			});
+		});
+		if (next_hover != prev_hover) {
+
+			_controls_root_hover = next_hover;
+			update_dialog = true;
+		}
+		break;
+	}
+	case State::CONTROLS_SNAPSHOTS:
+	{
+		Controls_snapshots_hover const prev_hover { _controls_snapshots_hover };
+		Controls_snapshots_hover       next_hover { Controls_snapshots_hover::NONE };
+
+		Snapshot_pointer const prev_snapshots_hover { _snapshots_hover };
+		Snapshot_pointer       next_snapshots_hover { };
+
+		node.with_sub_node("dialog", [&] (Xml_node const &node_0) {
+			node_0.with_sub_node("frame", [&] (Xml_node const &node_1) {
+				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
+					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
+
+						if (node_3.attribute_value("name", String<16>()) == "Snapshots") {
+
+							node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
+								node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
+
+									if (node_5.attribute_value("name", String<8>()) == "expand") {
+
+										next_hover = Controls_snapshots_hover::SNAPSHOTS_EXPAND_BUTTON;
 
 									} else if (node_5.attribute_value("name", String<8>()) == "discard") {
 
-										next_hover = Controls_hover::DISCARD_SNAPSHOT_BUTTON;
+										next_hover = Controls_snapshots_hover::DISCARD_SNAPSHOT_BUTTON;
 
 									} else if (node_5.attribute_value("name", String<9>()) == "create") {
 
-										next_hover = Controls_hover::CREATE_SNAPSHOT_BUTTON;
+										next_hover = Controls_snapshots_hover::CREATE_SNAPSHOT_BUTTON;
 
 									} else {
 
@@ -2202,28 +2548,6 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 								});
 							});
 
-						} else if (node_3.attribute_value("name", String<16>()) == "Dimensions") {
-
-							node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
-								node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
-
-									if (node_5.attribute_value("name", String<8>()) == "expand") {
-
-										next_hover = Controls_hover::DIMENSIONS_EXPAND_BUTTON;
-
-									} else if (node_5.attribute_value("name", String<8>()) == "Start") {
-
-										next_hover = Controls_hover::RESIZING_START_BUTTON;
-									}
-								});
-								node_4.with_sub_node("frame", [&] (Xml_node const &node_5) {
-
-									if (node_5.attribute_value("name", String<8>()) == "blks") {
-										next_hover = Controls_hover::RESIZING_NR_OF_BLKS_INPUT;
-									}
-								});
-							});
-
 						} else if (node_3.attribute_value("name", String<8>()) == "misc") {
 
 							node_3.with_sub_node("float", [&] (Xml_node const &node_4) {
@@ -2232,11 +2556,11 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 
 										if (node_6.attribute_value("name", String<8>()) == "Rekey") {
 
-											next_hover = Controls_hover::REKEY_BUTTON;
+											next_hover = Controls_snapshots_hover::REKEY_BUTTON;
 
 										} else if (node_6.attribute_value("name", String<10>()) == "Shut down") {
 
-											next_hover = Controls_hover::SHUT_DOWN_BUTTON;
+											next_hover = Controls_snapshots_hover::SHUT_DOWN_BUTTON;
 
 										}
 									});
@@ -2254,7 +2578,69 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 		}
 		if (next_hover != prev_hover) {
 
-			_controls_hover = next_hover;
+			_controls_snapshots_hover = next_hover;
+			update_dialog = true;
+		}
+		break;
+	}
+	case State::CONTROLS_DIMENSIONS:
+	{
+		Controls_dimensions_hover const prev_hover { _controls_dimensions_hover };
+		Controls_dimensions_hover       next_hover { Controls_dimensions_hover::NONE };
+
+		node.with_sub_node("dialog", [&] (Xml_node const &node_0) {
+			node_0.with_sub_node("frame", [&] (Xml_node const &node_1) {
+				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
+					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
+
+						if (node_3.attribute_value("name", String<16>()) == "Dimensions") {
+
+							node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
+								node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
+
+									if (node_5.attribute_value("name", String<8>()) == "expand") {
+
+										next_hover = Controls_dimensions_hover::DIMENSIONS_EXPAND_BUTTON;
+
+									} else if (node_5.attribute_value("name", String<8>()) == "Start") {
+
+										next_hover = Controls_dimensions_hover::RESIZING_START_BUTTON;
+									}
+								});
+								node_4.with_sub_node("frame", [&] (Xml_node const &node_5) {
+
+									if (node_5.attribute_value("name", String<8>()) == "blks") {
+										next_hover = Controls_dimensions_hover::RESIZING_NR_OF_BLKS_INPUT;
+									}
+								});
+							});
+
+						} else if (node_3.attribute_value("name", String<8>()) == "misc") {
+
+							node_3.with_sub_node("float", [&] (Xml_node const &node_4) {
+								node_4.with_sub_node("vbox", [&] (Xml_node const &node_5) {
+									node_5.with_sub_node("float", [&] (Xml_node const &node_6) {
+
+										if (node_6.attribute_value("name", String<8>()) == "Rekey") {
+
+											next_hover = Controls_dimensions_hover::REKEY_BUTTON;
+
+										} else if (node_6.attribute_value("name", String<10>()) == "Shut down") {
+
+											next_hover = Controls_dimensions_hover::SHUT_DOWN_BUTTON;
+
+										}
+									});
+								});
+							});
+						}
+					});
+				});
+			});
+		});
+		if (next_hover != prev_hover) {
+
+			_controls_dimensions_hover = next_hover;
 			update_dialog = true;
 		}
 		break;
