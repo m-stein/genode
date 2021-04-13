@@ -1069,53 +1069,41 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 		gen_titled_frame(xml, "app", _controls_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
-			gen_expandable_frame(
-				xml,
-				"Snapshots",
-				_controls_root_hover == Controls_root_hover::SNAPSHOTS_EXPAND_BUTTON,
-				false,
-				[&] (Xml_generator &) { });
+			xml.node("hbox", [&] () {
 
-			gen_expandable_frame(
-				xml,
-				"Dimensions",
-				_controls_root_hover == Controls_root_hover::DIMENSIONS_EXPAND_BUTTON,
-				false,
-				[&] (Xml_generator &) { });
-
-			gen_untitled_frame(xml, "misc", [&] (Xml_generator &xml) {
+				gen_action_button(xml, "Shut down", "Shut down",
+					_controls_root_hover  == Controls_root_hover::SHUT_DOWN_BUTTON,
+					_controls_root_select == Controls_root_select::SHUT_DOWN_BUTTON);
 
 				switch(_rekeying_state) {
 				case Rekeying_state::INACTIVE:
 
-					gen_action_button_at_bottom(xml, "Rekey",
+					gen_action_button(xml, "Rekey", "Rekey",
 						_controls_root_hover  == Controls_root_hover::REKEY_BUTTON,
 						_controls_root_select == Controls_root_select::REKEY_BUTTON);
 
 					break;
 
 				case Rekeying_state::WAIT_TILL_DEVICE_IS_READY:
-
-					gen_info_line(xml, "inf_1", "Rekeying: Wait for device");
-					gen_info_line(xml, "pad_1", "");
-					break;
-
 				case Rekeying_state::ISSUE_REQUEST_AT_DEVICE:
-
-					gen_info_line(xml, "inf_1", "Rekeying: Issue request");
-					gen_info_line(xml, "pad_1", "");
-					break;
-
 				case Rekeying_state::IN_PROGRESS_AT_DEVICE:
 
-					gen_info_line(xml, "inf_1", "Rekeying: In progress");
-					gen_info_line(xml, "pad_1", "");
+					gen_action_button(xml, "Inactive Rekey", "...",
+						_controls_root_hover == Controls_root_hover::REKEY_BUTTON,
+						false);
+
 					break;
 				}
+			});
+			xml.node("vbox", [&] () {
 
-				gen_action_button_at_bottom(xml, "Shut down",
-					_controls_root_hover  == Controls_root_hover::SHUT_DOWN_BUTTON,
-					_controls_root_select == Controls_root_select::SHUT_DOWN_BUTTON);
+				gen_closed_sub_menu(
+					xml, "Snapshots",
+					_controls_root_hover == Controls_root_hover::SNAPSHOTS_EXPAND_BUTTON);
+
+				gen_closed_sub_menu(
+					xml, "Dimensions",
+					_controls_root_hover == Controls_root_hover::DIMENSIONS_EXPAND_BUTTON);
 			});
 		});
 		break;
@@ -1124,189 +1112,182 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 		gen_titled_frame(xml, "app", _controls_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
-			gen_expandable_frame(
-				xml,
-				"Snapshots",
-				_controls_snapshots_hover == Controls_snapshots_hover::SNAPSHOTS_EXPAND_BUTTON,
-				true,
-				[&] (Xml_generator &xml)
-			{
-				_snapshots.for_each([&] (Snapshot const &snap) {
+			xml.node("hbox", [&] () {
 
-					bool const hovered {
-						_snapshots_hover.valid() &&
-						_snapshots_hover.object().generation() == snap.generation() };
-
-					bool const selected {
-						_snapshots_select.valid() &&
-						_snapshots_select.object().generation() == snap.generation() };
-
-					String<64> const snap_str {
-						"Generation ", snap.generation() };
-
-					Generation_string const gen_str { snap.generation() };
-
-					gen_multiple_choice_entry(
-						xml, gen_str.string(), snap_str.string(), hovered,
-						selected);
-
-					if (selected) {
-
-						bool const discard_hovered { _controls_snapshots_hover  == Controls_snapshots_hover::DISCARD_SNAPSHOT_BUTTON };
-						bool const discard_selected { _controls_snapshots_select == Controls_snapshots_select::DISCARD_SNAPSHOT_BUTTON };
-
-						switch(_discard_snap_state) {
-						case Discard_snapshot_state::INACTIVE:
-
-							xml.node("float", [&] () {
-								xml.attribute("name", String<32> { "discard", gen_str });
-								xml.attribute("west", "yes");
-
-								xml.node("hbox", [&] () {
-
-									xml.node("label", [&] () {
-										xml.attribute("min_ex", "4");
-									});
-									xml.node("button", [&] () {
-										if (discard_hovered) {
-											xml.attribute("hovered", "yes");
-										}
-										if (discard_selected) {
-											xml.attribute("selected", "yes");
-										}
-
-										xml.node("label", [&] () {
-											xml.attribute("text", "Discard");
-										});
-									});
-								});
-							});
-							break;
-
-						case Discard_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
-
-							xml.node("float", [&] () {
-								xml.attribute("name", String<32> { "inactive_discard", gen_str });
-								xml.attribute("west", "yes");
-
-								xml.node("hbox", [&] () {
-
-									xml.node("label", [&] () {
-										xml.attribute("min_ex", "4");
-									});
-									xml.node("button", [&] () {
-										xml.attribute("name", gen_str.string());
-										if (discard_hovered) {
-											xml.attribute("hovered", "yes");
-										}
-										if (discard_selected) {
-											xml.attribute("selected", "yes");
-										}
-										xml.node("hbox", [&] () {
-
-											xml.node("label", [&] () {
-												xml.attribute("text", "...");
-											});
-										});
-									});
-								});
-							});
-							break;
-						}
-					}
-				});
-
-				bool const hovered { _controls_snapshots_hover  == Controls_snapshots_hover::CREATE_SNAPSHOT_BUTTON };
-				bool const selected { _controls_snapshots_select == Controls_snapshots_select::CREATE_SNAPSHOT_BUTTON };
-
-				switch(_create_snap_state) {
-				case Create_snapshot_state::INACTIVE:
-
-					xml.node("float", [&] () {
-						xml.attribute("name", "create");
-						xml.attribute("west", "yes");
-
-						xml.node("hbox", [&] () {
-
-							xml.node("button", [&] () {
-								if (hovered) {
-									xml.attribute("hovered", "yes");
-								}
-								if (selected) {
-									xml.attribute("selected", "yes");
-								}
-								xml.node("hbox", [&] () {
-
-									xml.node("label", [&] () {
-										xml.attribute("text", "Create");
-									});
-								});
-							});
-						});
-					});
-					break;
-
-				case Create_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
-
-					xml.node("float", [&] () {
-						xml.attribute("name", "inactive_create");
-						xml.attribute("west", "yes");
-
-						xml.node("hbox", [&] () {
-
-							xml.node("button", [&] () {
-								if (hovered) {
-									xml.attribute("hovered", "yes");
-								}
-								if (selected) {
-									xml.attribute("selected", "yes");
-								}
-								xml.node("hbox", [&] () {
-
-									xml.node("label", [&] () {
-										xml.attribute("text", "...");
-									});
-								});
-							});
-						});
-					});
-					break;
-				}
-			});
-
-			gen_untitled_frame(xml, "misc", [&] (Xml_generator &xml) {
+				gen_action_button(xml, "Shut down", "Shut down",
+					_controls_snapshots_hover  == Controls_snapshots_hover::SHUT_DOWN_BUTTON,
+					_controls_snapshots_select == Controls_snapshots_select::SHUT_DOWN_BUTTON);
 
 				switch(_rekeying_state) {
 				case Rekeying_state::INACTIVE:
 
-					gen_action_button_at_bottom(xml, "Rekey",
+					gen_action_button(xml, "Rekey", "Rekey",
 						_controls_snapshots_hover  == Controls_snapshots_hover::REKEY_BUTTON,
 						_controls_snapshots_select == Controls_snapshots_select::REKEY_BUTTON);
 
 					break;
 
 				case Rekeying_state::WAIT_TILL_DEVICE_IS_READY:
-
-					gen_info_line(xml, "inf_1", "Rekeying: Wait for device");
-					gen_info_line(xml, "pad_1", "");
-					break;
-
 				case Rekeying_state::ISSUE_REQUEST_AT_DEVICE:
-
-					gen_info_line(xml, "inf_1", "Rekeying: Issue request");
-					gen_info_line(xml, "pad_1", "");
-					break;
-
 				case Rekeying_state::IN_PROGRESS_AT_DEVICE:
 
-					gen_info_line(xml, "inf_1", "Rekeying: In progress");
-					gen_info_line(xml, "pad_1", "");
+					gen_action_button(xml, "Inactive Rekey", "...",
+						_controls_snapshots_hover == Controls_snapshots_hover::REKEY_BUTTON,
+						false);
+
 					break;
 				}
+			});
 
-				gen_action_button_at_bottom(xml, "Shut down",
-					_controls_snapshots_hover  == Controls_snapshots_hover::SHUT_DOWN_BUTTON,
-					_controls_snapshots_select == Controls_snapshots_select::SHUT_DOWN_BUTTON);
+			xml.node("vbox", [&] () {
+
+				gen_opened_sub_menu(
+					xml, "Snapshots",
+					_controls_snapshots_hover == Controls_snapshots_hover::SNAPSHOTS_EXPAND_BUTTON,
+					[&] (Xml_generator &xml)
+				{
+					_snapshots.for_each([&] (Snapshot const &snap) {
+
+						bool const hovered {
+							_snapshots_hover.valid() &&
+							_snapshots_hover.object().generation() == snap.generation() };
+
+						bool const selected {
+							_snapshots_select.valid() &&
+							_snapshots_select.object().generation() == snap.generation() };
+
+						String<64> const snap_str {
+							"Generation ", snap.generation() };
+
+						Generation_string const gen_str { snap.generation() };
+
+						gen_multiple_choice_entry(
+							xml, gen_str.string(), snap_str.string(), hovered,
+							selected);
+
+						if (selected) {
+
+							bool const discard_hovered { _controls_snapshots_hover  == Controls_snapshots_hover::DISCARD_SNAPSHOT_BUTTON };
+							bool const discard_selected { _controls_snapshots_select == Controls_snapshots_select::DISCARD_SNAPSHOT_BUTTON };
+
+							switch(_discard_snap_state) {
+							case Discard_snapshot_state::INACTIVE:
+
+								xml.node("float", [&] () {
+									xml.attribute("name", String<32> { "discard", gen_str });
+									xml.attribute("west", "yes");
+
+									xml.node("hbox", [&] () {
+
+										xml.node("label", [&] () {
+											xml.attribute("min_ex", "4");
+										});
+										xml.node("button", [&] () {
+											if (discard_hovered) {
+												xml.attribute("hovered", "yes");
+											}
+											if (discard_selected) {
+												xml.attribute("selected", "yes");
+											}
+
+											xml.node("label", [&] () {
+												xml.attribute("text", "Discard");
+											});
+										});
+									});
+								});
+								break;
+
+							case Discard_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
+
+								xml.node("float", [&] () {
+									xml.attribute("name", String<32> { "inactive_discard", gen_str });
+									xml.attribute("west", "yes");
+
+									xml.node("hbox", [&] () {
+
+										xml.node("label", [&] () {
+											xml.attribute("min_ex", "4");
+										});
+										xml.node("button", [&] () {
+											xml.attribute("name", gen_str.string());
+											if (discard_hovered) {
+												xml.attribute("hovered", "yes");
+											}
+											if (discard_selected) {
+												xml.attribute("selected", "yes");
+											}
+											xml.node("hbox", [&] () {
+
+												xml.node("label", [&] () {
+													xml.attribute("text", "...");
+												});
+											});
+										});
+									});
+								});
+								break;
+							}
+						}
+					});
+
+					bool const hovered { _controls_snapshots_hover  == Controls_snapshots_hover::CREATE_SNAPSHOT_BUTTON };
+					bool const selected { _controls_snapshots_select == Controls_snapshots_select::CREATE_SNAPSHOT_BUTTON };
+
+					switch(_create_snap_state) {
+					case Create_snapshot_state::INACTIVE:
+
+						xml.node("float", [&] () {
+							xml.attribute("name", "create");
+							xml.attribute("west", "yes");
+
+							xml.node("hbox", [&] () {
+
+								xml.node("button", [&] () {
+									if (hovered) {
+										xml.attribute("hovered", "yes");
+									}
+									if (selected) {
+										xml.attribute("selected", "yes");
+									}
+									xml.node("hbox", [&] () {
+
+										xml.node("label", [&] () {
+											xml.attribute("text", "Create");
+										});
+									});
+								});
+							});
+						});
+						break;
+
+					case Create_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
+
+						xml.node("float", [&] () {
+							xml.attribute("name", "inactive_create");
+							xml.attribute("west", "yes");
+
+							xml.node("hbox", [&] () {
+
+								xml.node("button", [&] () {
+									if (hovered) {
+										xml.attribute("hovered", "yes");
+									}
+									if (selected) {
+										xml.attribute("selected", "yes");
+									}
+									xml.node("hbox", [&] () {
+
+										xml.node("label", [&] () {
+											xml.attribute("text", "...");
+										});
+									});
+								});
+							});
+						});
+						break;
+					}
+				});
 			});
 		});
 		break;
@@ -1315,113 +1296,106 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 		gen_titled_frame(xml, "app", _controls_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
-			gen_expandable_frame(
-				xml,
-				"Dimensions",
-				_controls_dimensions_hover == Controls_dimensions_hover::DIMENSIONS_EXPAND_BUTTON,
-				true,
-				[&] (Xml_generator &xml)
-			{
-				switch(_resizing_state) {
-				case Resizing_state::INACTIVE:
-				{
-					gen_titled_text_input(
-						xml, "blks", "Number of blocks",
-						_resizing_nr_of_blks,
-						_controls_dimensions_select == Controls_dimensions_select::RESIZING_NR_OF_BLKS_INPUT);
+			xml.node("hbox", [&] () {
 
-					bool gen_start_button { true };
-					if (!_resizing_nr_of_blks.is_nr_greater_than_zero()) {
-
-						gen_start_button = false;
-						gen_info_line(xml, "inf", "Must be a number greater than 0");
-						gen_info_line(xml, "pad_1", "");
-
-					}  else {
-
-						Number_of_bytes const curr_cbe_size { _cbe_size() };
-						unsigned long rsz_nr_of_bytes {
-							_resizing_nr_of_blks.to_unsigned_long() *
-							CBE_BLOCK_SIZE };
-
-						gen_info_line(
-							xml, "inf_1",
-							String<256> {
-								"Current image size: ",
-								curr_cbe_size
-							}.string());
-
-						gen_info_line(
-							xml, "inf_2",
-							String<256> {
-								"New image size: ",
-								Number_of_bytes { curr_cbe_size + rsz_nr_of_bytes }
-							}.string());
-
-						gen_info_line(xml, "pad_1", "");
-					}
-					if (gen_start_button) {
-
-						gen_action_button_at_bottom(
-							xml, "Start",
-							_controls_dimensions_hover  == Controls_dimensions_hover::RESIZING_START_BUTTON,
-							_controls_dimensions_select == Controls_dimensions_select::RESIZING_START_BUTTON);
-					}
-					break;
-				}
-				case Resizing_state::WAIT_TILL_DEVICE_IS_READY:
-
-					gen_info_line(xml, "inf", "Wait for device...");
-					gen_info_line(xml, "pad_1", "");
-					break;
-
-				case Resizing_state::ISSUE_REQUEST_AT_DEVICE:
-
-					gen_info_line(xml, "inf", "Initiate...");
-					gen_info_line(xml, "pad_1", "");
-					break;
-
-				case Resizing_state::IN_PROGRESS_AT_DEVICE:
-
-					gen_info_line(xml, "inf", "In progress...");
-					gen_info_line(xml, "pad_1", "");
-					break;
-				}
-			});
-
-			gen_untitled_frame(xml, "misc", [&] (Xml_generator &xml) {
+				gen_action_button(xml, "Shut down", "Shut down",
+					_controls_dimensions_hover  == Controls_dimensions_hover::SHUT_DOWN_BUTTON,
+					_controls_dimensions_select == Controls_dimensions_select::SHUT_DOWN_BUTTON);
 
 				switch(_rekeying_state) {
 				case Rekeying_state::INACTIVE:
 
-					gen_action_button_at_bottom(xml, "Rekey",
+					gen_action_button(xml, "Rekey", "Rekey",
 						_controls_dimensions_hover  == Controls_dimensions_hover::REKEY_BUTTON,
 						_controls_dimensions_select == Controls_dimensions_select::REKEY_BUTTON);
 
 					break;
 
 				case Rekeying_state::WAIT_TILL_DEVICE_IS_READY:
-
-					gen_info_line(xml, "inf_1", "Rekeying: Wait for device");
-					gen_info_line(xml, "pad_1", "");
-					break;
-
 				case Rekeying_state::ISSUE_REQUEST_AT_DEVICE:
-
-					gen_info_line(xml, "inf_1", "Rekeying: Issue request");
-					gen_info_line(xml, "pad_1", "");
-					break;
-
 				case Rekeying_state::IN_PROGRESS_AT_DEVICE:
 
-					gen_info_line(xml, "inf_1", "Rekeying: In progress");
-					gen_info_line(xml, "pad_1", "");
+					gen_action_button(xml, "Inactive Rekey", "...",
+						_controls_dimensions_hover == Controls_dimensions_hover::REKEY_BUTTON,
+						false);
+
 					break;
 				}
+			});
 
-				gen_action_button_at_bottom(xml, "Shut down",
-					_controls_dimensions_hover  == Controls_dimensions_hover::SHUT_DOWN_BUTTON,
-					_controls_dimensions_select == Controls_dimensions_select::SHUT_DOWN_BUTTON);
+			xml.node("vbox", [&] () {
+
+				gen_opened_sub_menu(
+					xml, "Dimensions",
+					_controls_dimensions_hover == Controls_dimensions_hover::DIMENSIONS_EXPAND_BUTTON,
+					[&] (Xml_generator &xml)
+				{
+					switch(_resizing_state) {
+					case Resizing_state::INACTIVE:
+					{
+						gen_titled_text_input(
+							xml, "blks", "Number of blocks",
+							_resizing_nr_of_blks,
+							_controls_dimensions_select == Controls_dimensions_select::RESIZING_NR_OF_BLKS_INPUT);
+
+						bool gen_start_button { true };
+						if (!_resizing_nr_of_blks.is_nr_greater_than_zero()) {
+
+							gen_start_button = false;
+							gen_info_line(xml, "inf", "Must be a number greater than 0");
+							gen_info_line(xml, "pad_1", "");
+
+						}  else {
+
+							Number_of_bytes const curr_cbe_size { _cbe_size() };
+							unsigned long rsz_nr_of_bytes {
+								_resizing_nr_of_blks.to_unsigned_long() *
+								CBE_BLOCK_SIZE };
+
+							gen_info_line(
+								xml, "inf_1",
+								String<256> {
+									"Current image size: ",
+									curr_cbe_size
+								}.string());
+
+							gen_info_line(
+								xml, "inf_2",
+								String<256> {
+									"New image size: ",
+									Number_of_bytes { curr_cbe_size + rsz_nr_of_bytes }
+								}.string());
+
+							gen_info_line(xml, "pad_1", "");
+						}
+						if (gen_start_button) {
+
+							gen_action_button_at_bottom(
+								xml, "Start",
+								_controls_dimensions_hover  == Controls_dimensions_hover::RESIZING_START_BUTTON,
+								_controls_dimensions_select == Controls_dimensions_select::RESIZING_START_BUTTON);
+						}
+						break;
+					}
+					case Resizing_state::WAIT_TILL_DEVICE_IS_READY:
+
+						gen_info_line(xml, "inf", "Wait for device...");
+						gen_info_line(xml, "pad_1", "");
+						break;
+
+					case Resizing_state::ISSUE_REQUEST_AT_DEVICE:
+
+						gen_info_line(xml, "inf", "Initiate...");
+						gen_info_line(xml, "pad_1", "");
+						break;
+
+					case Resizing_state::IN_PROGRESS_AT_DEVICE:
+
+						gen_info_line(xml, "inf", "In progress...");
+						gen_info_line(xml, "pad_1", "");
+						break;
+					}
+				});
 			});
 		});
 		break;
@@ -2443,51 +2417,38 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 		node.with_sub_node("dialog", [&] (Xml_node const &node_0) {
 			node_0.with_sub_node("frame", [&] (Xml_node const &node_1) {
 				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
-					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
+					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
+						node_3.with_sub_node("button", [&] (Xml_node const &node_4) {
 
-						if (node_3.attribute_value("name", String<16>()) == "Snapshots") {
+							if (node_4.attribute_value("name", String<8>()) == "Rekey") {
 
-							node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
-								node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
+								next_hover = Controls_root_hover::REKEY_BUTTON;
 
-									if (node_5.attribute_value("name", String<8>()) == "expand") {
+							} else if (node_4.attribute_value("name", String<10>()) == "Shut down") {
 
-										next_hover = Controls_root_hover::SNAPSHOTS_EXPAND_BUTTON;
-									}
+								next_hover = Controls_root_hover::SHUT_DOWN_BUTTON;
+
+							}
+						});
+					});
+					node_2.with_sub_node("vbox", [&] (Xml_node const &node_3) {
+						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
+
+							if (node_4.attribute_value("name", String<10>()) == "Snapshots") {
+
+								node_4.with_sub_node("float", [&] (Xml_node const &) {
+
+									next_hover = Controls_root_hover::SNAPSHOTS_EXPAND_BUTTON;
 								});
-							});
 
-						} else if (node_3.attribute_value("name", String<16>()) == "Dimensions") {
+							} else if (node_4.attribute_value("name", String<11>()) == "Dimensions") {
 
-							node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
-								node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
+								node_4.with_sub_node("float", [&] (Xml_node const &) {
 
-									if (node_5.attribute_value("name", String<8>()) == "expand") {
-
-										next_hover = Controls_root_hover::DIMENSIONS_EXPAND_BUTTON;
-									}
+									next_hover = Controls_root_hover::DIMENSIONS_EXPAND_BUTTON;
 								});
-							});
-
-						} else if (node_3.attribute_value("name", String<8>()) == "misc") {
-
-							node_3.with_sub_node("float", [&] (Xml_node const &node_4) {
-								node_4.with_sub_node("vbox", [&] (Xml_node const &node_5) {
-									node_5.with_sub_node("float", [&] (Xml_node const &node_6) {
-
-										if (node_6.attribute_value("name", String<8>()) == "Rekey") {
-
-											next_hover = Controls_root_hover::REKEY_BUTTON;
-
-										} else if (node_6.attribute_value("name", String<10>()) == "Shut down") {
-
-											next_hover = Controls_root_hover::SHUT_DOWN_BUTTON;
-
-										}
-									});
-								});
-							});
-						}
+							}
+						});
 					});
 				});
 			});
@@ -2510,63 +2471,56 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 		node.with_sub_node("dialog", [&] (Xml_node const &node_0) {
 			node_0.with_sub_node("frame", [&] (Xml_node const &node_1) {
 				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
-					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
+					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
 
-						if (node_3.attribute_value("name", String<16>()) == "Snapshots") {
+						node_3.with_sub_node("button", [&] (Xml_node const &node_4) {
 
-							node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
-								node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
+							if (node_4.attribute_value("name", String<8>()) == "Rekey") {
 
-									if (node_5.attribute_value("name", String<8>()) == "expand") {
+								next_hover = Controls_snapshots_hover::REKEY_BUTTON;
 
-										next_hover = Controls_snapshots_hover::SNAPSHOTS_EXPAND_BUTTON;
+							} else if (node_4.attribute_value("name", String<10>()) == "Shut down") {
 
-									} else if (node_5.attribute_value("name", String<8>()) == "discard") {
+								next_hover = Controls_snapshots_hover::SHUT_DOWN_BUTTON;
 
-										next_hover = Controls_snapshots_hover::DISCARD_SNAPSHOT_BUTTON;
+							}
+						});
+					});
+					node_2.with_sub_node("vbox", [&] (Xml_node const &node_3) {
+						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
+							node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
 
-									} else if (node_5.attribute_value("name", String<9>()) == "create") {
+								if (node_5.attribute_value("name", String<8>()) == "expand") {
 
-										next_hover = Controls_snapshots_hover::CREATE_SNAPSHOT_BUTTON;
+									next_hover = Controls_snapshots_hover::SNAPSHOTS_EXPAND_BUTTON;
 
-									} else {
+								} else if (node_5.attribute_value("name", String<8>()) == "discard") {
 
-										Generation const generation {
-											node_5.attribute_value(
-												"name", Generation { INVALID_GENERATION }) };
+									next_hover = Controls_snapshots_hover::DISCARD_SNAPSHOT_BUTTON;
 
-										if (generation != INVALID_GENERATION) {
+								} else if (node_5.attribute_value("name", String<9>()) == "create") {
 
-											_snapshots.for_each([&] (Snapshot const &snap)
-											{
-												if (generation == snap.generation()) {
-													next_snapshots_hover = snap;
-												}
-											});
-										}
+									next_hover = Controls_snapshots_hover::CREATE_SNAPSHOT_BUTTON;
+
+								} else {
+
+									Generation const generation {
+										node_5.attribute_value(
+											"name", Generation { INVALID_GENERATION }) };
+
+									if (generation != INVALID_GENERATION) {
+
+										_snapshots.for_each([&] (Snapshot const &snap)
+										{
+											if (generation == snap.generation()) {
+												next_snapshots_hover = snap;
+											}
+										});
 									}
-								});
+								}
 							});
-
-						} else if (node_3.attribute_value("name", String<8>()) == "misc") {
-
-							node_3.with_sub_node("float", [&] (Xml_node const &node_4) {
-								node_4.with_sub_node("vbox", [&] (Xml_node const &node_5) {
-									node_5.with_sub_node("float", [&] (Xml_node const &node_6) {
-
-										if (node_6.attribute_value("name", String<8>()) == "Rekey") {
-
-											next_hover = Controls_snapshots_hover::REKEY_BUTTON;
-
-										} else if (node_6.attribute_value("name", String<10>()) == "Shut down") {
-
-											next_hover = Controls_snapshots_hover::SHUT_DOWN_BUTTON;
-
-										}
-									});
-								});
-							});
-						}
+							
+						});
 					});
 				});
 			});
@@ -2591,49 +2545,41 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 		node.with_sub_node("dialog", [&] (Xml_node const &node_0) {
 			node_0.with_sub_node("frame", [&] (Xml_node const &node_1) {
 				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
-					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
+					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
 
-						if (node_3.attribute_value("name", String<16>()) == "Dimensions") {
+						node_3.with_sub_node("button", [&] (Xml_node const &node_4) {
 
-							node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
-								node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
+							if (node_4.attribute_value("name", String<8>()) == "Rekey") {
 
-									if (node_5.attribute_value("name", String<8>()) == "expand") {
+								next_hover = Controls_dimensions_hover::REKEY_BUTTON;
 
-										next_hover = Controls_dimensions_hover::DIMENSIONS_EXPAND_BUTTON;
+							} else if (node_4.attribute_value("name", String<10>()) == "Shut down") {
 
-									} else if (node_5.attribute_value("name", String<8>()) == "Start") {
+								next_hover = Controls_dimensions_hover::SHUT_DOWN_BUTTON;
 
-										next_hover = Controls_dimensions_hover::RESIZING_START_BUTTON;
-									}
-								});
-								node_4.with_sub_node("frame", [&] (Xml_node const &node_5) {
+							}
+						});
+					});
+					node_2.with_sub_node("vbox", [&] (Xml_node const &node_3) {
+						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
+							node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
 
-									if (node_5.attribute_value("name", String<8>()) == "blks") {
-										next_hover = Controls_dimensions_hover::RESIZING_NR_OF_BLKS_INPUT;
-									}
-								});
+								if (node_5.attribute_value("name", String<8>()) == "expand") {
+
+									next_hover = Controls_dimensions_hover::DIMENSIONS_EXPAND_BUTTON;
+
+								} else if (node_5.attribute_value("name", String<8>()) == "Start") {
+
+									next_hover = Controls_dimensions_hover::RESIZING_START_BUTTON;
+								}
 							});
+							node_4.with_sub_node("frame", [&] (Xml_node const &node_5) {
 
-						} else if (node_3.attribute_value("name", String<8>()) == "misc") {
-
-							node_3.with_sub_node("float", [&] (Xml_node const &node_4) {
-								node_4.with_sub_node("vbox", [&] (Xml_node const &node_5) {
-									node_5.with_sub_node("float", [&] (Xml_node const &node_6) {
-
-										if (node_6.attribute_value("name", String<8>()) == "Rekey") {
-
-											next_hover = Controls_dimensions_hover::REKEY_BUTTON;
-
-										} else if (node_6.attribute_value("name", String<10>()) == "Shut down") {
-
-											next_hover = Controls_dimensions_hover::SHUT_DOWN_BUTTON;
-
-										}
-									});
-								});
+								if (node_5.attribute_value("name", String<8>()) == "blks") {
+									next_hover = Controls_dimensions_hover::RESIZING_NR_OF_BLKS_INPUT;
+								}
 							});
-						}
+						});
 					});
 				});
 			});

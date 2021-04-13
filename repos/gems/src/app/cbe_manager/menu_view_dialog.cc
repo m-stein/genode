@@ -96,6 +96,27 @@ void Cbe_manager::gen_action_button_at_bottom(Xml_generator &xml,
 	gen_action_button_at_bottom(xml, label, label, hovered, selected);
 }
 
+void Cbe_manager::gen_action_button(Xml_generator &xml,
+                                    char const    *name,
+                                    char const    *label,
+                                    bool           hovered,
+                                    bool           selected)
+{
+	xml.node("button", [&] () {
+		xml.attribute("name", name);
+
+		if (hovered) {
+			xml.attribute("hovered", "yes");
+		}
+		if (selected) {
+			xml.attribute("selected", "yes");
+		}
+		xml.node("label", [&] () {
+			xml.attribute("text", label);
+		});
+	});
+}
+
 void Cbe_manager::gen_text_input(Xml_generator     &xml,
                                  char        const *name,
                                  String<256> const &text,
@@ -185,10 +206,10 @@ void Cbe_manager::gen_multiple_choice_entry(Xml_generator &xml,
 	});
 }
 
-void Cbe_manager::gen_expandable_frame_title(Xml_generator &xml,
-                                             char    const *text,
-                                             bool           hovered,
-                                             bool           selected)
+void Cbe_manager::gen_sub_menu_title(Xml_generator &xml,
+                                     char    const *text,
+                                     bool           hovered,
+                                     bool           selected)
 {
 	xml.node("float", [&] () {
 		xml.attribute("name", "expand");
@@ -215,5 +236,17 @@ void Cbe_manager::gen_expandable_frame_title(Xml_generator &xml,
 				xml.attribute("text", String<64> { " ", text });
 			});
 		});
+	});
+}
+
+
+void Cbe_manager::gen_closed_sub_menu(Xml_generator &xml,
+                                      char    const *name,
+                                      bool           hovered)
+{
+	xml.node("vbox", [&] () {
+		xml.attribute("name", name);
+
+		gen_sub_menu_title(xml, name, hovered, false);
 	});
 }

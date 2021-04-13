@@ -107,30 +107,34 @@ namespace Cbe_manager {
 	                               bool               hovered,
 	                               bool               selected);
 
-	void gen_expandable_frame_title(Xml_generator &xml,
-	                                char    const *text,
-	                                bool           hovered,
-	                                bool           selected);
+	void gen_sub_menu_title(Xml_generator &xml,
+	                        char    const *text,
+	                        bool           hovered,
+	                        bool           selected);
+
+	void gen_closed_sub_menu(Xml_generator &xml,
+	                         char    const *name,
+	                         bool           hovered);
 
 	template <typename GEN_CONTENT>
-	void gen_expandable_frame(Xml_generator       &xml,
-	                          char          const *name,
-	                          bool                 hovered,
-	                          bool                 selected,
-	                          GEN_CONTENT   const &gen_content)
+	void gen_opened_sub_menu(Xml_generator       &xml,
+	                         char          const *name,
+	                         bool                 hovered,
+	                         GEN_CONTENT   const &gen_content)
 	{
-		xml.node("frame", [&] () {
-			xml.attribute("name", name);
+		xml.node("vbox", [&] () {
+			xml.attribute("name", String<64> { name, " Opened" });
 
-			xml.node("vbox", [&] () {
-
-				gen_expandable_frame_title(xml, name, hovered, selected);
-				if (selected) {
-					gen_content(xml);
-				}
-			});
+			gen_sub_menu_title(xml, name, hovered, true);
+			gen_content(xml);
 		});
 	}
+
+	void gen_action_button(Xml_generator &xml,
+	                       char const    *name,
+	                       char const    *label,
+	                       bool           hovered,
+	                       bool           selected);
 }
 
 #endif /* _MENU_VIEW_DIALOG_H_ */
