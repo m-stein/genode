@@ -64,12 +64,12 @@ class Cbe_manager::Main
 			INVALID,
 			SETUP_OBTAIN_PARAMETERS,
 			SETUP_CREATE_CBE_IMAGE_FILE,
-			SETUP_RUN_CBE_TRUST_ANCHOR_INIT,
+			SETUP_RUN_CBE_INIT_TRUST_ANCHOR,
 			SETUP_RUN_CBE_INIT,
 			SETUP_START_CBE_VFS,
 			SETUP_FORMAT_CBE,
 			STARTUP_OBTAIN_PARAMETERS,
-			STARTUP_RUN_CBE_TRUST_ANCHOR_INIT,
+			STARTUP_RUN_CBE_INIT_TRUST_ANCHOR,
 			STARTUP_START_CBE_VFS,
 			CONTROLS_ROOT,
 			CONTROLS_SNAPSHOTS,
@@ -254,8 +254,26 @@ class Cbe_manager::Main
 		Snapshot_pointer                       _snapshots_select                   { };
 		bool                                   _snapshots_expanded                 { false };
 		bool                                   _dimensions_expanded                { false };
+		bool                                   _startup_failed                     { false };
 
-		static bool _child_finished(Xml_node    const &sandbox_state,
+		template <typename FUNCTOR>
+		static void _if_child_exited(Xml_node    const &sandbox_state,
+		                             Child_state const &child_state,
+		                             FUNCTOR     const &functor)
+		{
+			Child_exit_state const exit_state { sandbox_state, child_state.start_name() };
+
+			if (!exit_state.exists()) {
+				class Child_doesnt_exist { };
+				throw Child_doesnt_exist { };
+			}
+			if (exit_state.exited()) {
+
+				functor(exit_state.code());
+			}
+		}
+
+		static bool _child_succeeded(Xml_node    const &sandbox_state,
 		                            Child_state const &child_state);
 
 		static State _state_from_string(State_string const &str);
@@ -393,7 +411,7 @@ Main::State Main::_state_from_string(State_string const &str)
 {
 	if (str ==  "0") { return State::INVALID; }
 	if (str ==  "1") { return State::SETUP_OBTAIN_PARAMETERS; }
-	if (str ==  "2") { return State::SETUP_RUN_CBE_TRUST_ANCHOR_INIT; }
+	if (str ==  "2") { return State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR; }
 	if (str ==  "3") { return State::SETUP_CREATE_CBE_IMAGE_FILE; }
 	if (str ==  "4") { return State::SETUP_RUN_CBE_INIT; }
 	if (str ==  "5") { return State::SETUP_START_CBE_VFS; }
@@ -402,7 +420,7 @@ Main::State Main::_state_from_string(State_string const &str)
 	if (str ==  "8") { return State::CONTROLS_SNAPSHOTS; }
 	if (str ==  "9") { return State::CONTROLS_DIMENSIONS; }
 	if (str == "10") { return State::STARTUP_OBTAIN_PARAMETERS; }
-	if (str == "11") { return State::STARTUP_RUN_CBE_TRUST_ANCHOR_INIT; }
+	if (str == "11") { return State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR; }
 	if (str == "12") { return State::STARTUP_START_CBE_VFS; }
 	if (str == "13") { return State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE; }
 	if (str == "14") { return State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE; }
@@ -416,7 +434,7 @@ Main::State_string Main::_state_to_string(State state)
 	switch (state) {
 	case State::INVALID:                                   return  "0";
 	case State::SETUP_OBTAIN_PARAMETERS:                   return  "1";
-	case State::SETUP_RUN_CBE_TRUST_ANCHOR_INIT:           return  "2";
+	case State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR:           return  "2";
 	case State::SETUP_CREATE_CBE_IMAGE_FILE:               return  "3";
 	case State::SETUP_RUN_CBE_INIT:                        return  "4";
 	case State::SETUP_START_CBE_VFS:                       return  "5";
@@ -425,7 +443,7 @@ Main::State_string Main::_state_to_string(State state)
 	case State::CONTROLS_SNAPSHOTS:                        return  "8";
 	case State::CONTROLS_DIMENSIONS:                       return  "9";
 	case State::STARTUP_OBTAIN_PARAMETERS:                 return "10";
-	case State::STARTUP_RUN_CBE_TRUST_ANCHOR_INIT:         return "11";
+	case State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR:         return "11";
 	case State::STARTUP_START_CBE_VFS:                     return "12";
 	case State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE:      return "13";
 	case State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE: return "14";
@@ -747,7 +765,7 @@ Main::Main(Env &env)
 }
 
 
-bool Cbe_manager::Main::_child_finished(Xml_node    const &sandbox_state,
+bool Cbe_manager::Main::_child_succeeded(Xml_node    const &sandbox_state,
                                         Child_state const &child_state)
 {
 	Child_exit_state const exit_state { sandbox_state, child_state.start_name() };
@@ -781,9 +799,9 @@ void Cbe_manager::Main::handle_sandbox_state()
 	sandbox_state.with_xml_node([&] (Xml_node const &sandbox_state) {
 
 		switch (_state) {
-		case State::SETUP_RUN_CBE_TRUST_ANCHOR_INIT:
+		case State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR:
 
-			if (_child_finished(sandbox_state, _cbe_init_trust_anchor)) {
+			if (_child_succeeded(sandbox_state, _cbe_init_trust_anchor)) {
 
 				_state = State::SETUP_RUN_CBE_INIT;
 				update_dialog = true;
@@ -791,19 +809,31 @@ void Cbe_manager::Main::handle_sandbox_state()
 			}
 			break;
 
-		case State::STARTUP_RUN_CBE_TRUST_ANCHOR_INIT:
+		case State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR:
 
-			if (_child_finished(sandbox_state, _cbe_init_trust_anchor)) {
+			_if_child_exited(sandbox_state, _cbe_init_trust_anchor, [&] (int exit_code) {
 
-				_state = State::STARTUP_START_CBE_VFS;
-				update_dialog = true;
-				update_sandbox = true;
-			}
+				if (exit_code == 0) {
+
+					_state = State::STARTUP_START_CBE_VFS;
+					update_dialog = true;
+					update_sandbox = true;
+
+				} else {
+
+					_state = State::STARTUP_OBTAIN_PARAMETERS;
+					_startup_failed = true;
+					_setup_obtain_params_passphrase_1 = Passphrase { };
+					_setup_obtain_params_select = Setup_obtain_params_select::PASSPHRASE_1_INPUT;
+					update_dialog = true;
+					update_sandbox = true;
+				}
+			});
 			break;
 
 		case State::SETUP_RUN_CBE_INIT:
 
-			if (_child_finished(sandbox_state, _cbe_init)) {
+			if (_child_succeeded(sandbox_state, _cbe_init)) {
 
 				_state = State::SETUP_START_CBE_VFS;
 				update_dialog = true;
@@ -813,7 +843,7 @@ void Cbe_manager::Main::handle_sandbox_state()
 
 		case State::SETUP_START_CBE_VFS:
 
-			if (_child_finished(sandbox_state, _sync_to_cbe_vfs_init)) {
+			if (_child_succeeded(sandbox_state, _sync_to_cbe_vfs_init)) {
 
 				_state = State::SETUP_FORMAT_CBE;
 				update_dialog = true;
@@ -823,7 +853,7 @@ void Cbe_manager::Main::handle_sandbox_state()
 
 		case State::STARTUP_START_CBE_VFS:
 
-			if (_child_finished(sandbox_state, _sync_to_cbe_vfs_init)) {
+			if (_child_succeeded(sandbox_state, _sync_to_cbe_vfs_init)) {
 
 				_state = State::CONTROLS_ROOT;
 				update_dialog = true;
@@ -833,7 +863,7 @@ void Cbe_manager::Main::handle_sandbox_state()
 
 		case State::SETUP_FORMAT_CBE:
 
-			if (_child_finished(sandbox_state, _mke2fs)) {
+			if (_child_succeeded(sandbox_state, _mke2fs)) {
 
 				_write_to_state_file(State::STARTUP_OBTAIN_PARAMETERS);
 				_state = State::CONTROLS_ROOT;
@@ -849,7 +879,7 @@ void Cbe_manager::Main::handle_sandbox_state()
 			switch (_resizing_state) {
 			case Resizing_state::ISSUE_REQUEST_AT_DEVICE:
 
-				if (_child_finished(sandbox_state, _resizing_fs_tool)) {
+				if (_child_succeeded(sandbox_state, _resizing_fs_tool)) {
 
 					_resizing_state = Resizing_state::IN_PROGRESS_AT_DEVICE;
 					update_dialog = true;
@@ -865,7 +895,7 @@ void Cbe_manager::Main::handle_sandbox_state()
 			switch (_rekeying_state) {
 			case Rekeying_state::ISSUE_REQUEST_AT_DEVICE:
 
-				if (_child_finished(sandbox_state, _rekeying_fs_tool)) {
+				if (_child_succeeded(sandbox_state, _rekeying_fs_tool)) {
 
 					_rekeying_state = Rekeying_state::IN_PROGRESS_AT_DEVICE;
 					update_dialog = true;
@@ -881,7 +911,7 @@ void Cbe_manager::Main::handle_sandbox_state()
 			switch (_create_snap_state) {
 			case Create_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
 
-				if (_child_finished(sandbox_state, _create_snap_fs_tool)) {
+				if (_child_succeeded(sandbox_state, _create_snap_fs_tool)) {
 
 					_create_snap_state = Create_snapshot_state::INACTIVE;
 					update_dialog = true;
@@ -897,7 +927,7 @@ void Cbe_manager::Main::handle_sandbox_state()
 			switch (_discard_snap_state) {
 			case Discard_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
 
-				if (_child_finished(sandbox_state, _discard_snap_fs_tool)) {
+				if (_child_succeeded(sandbox_state, _discard_snap_fs_tool)) {
 
 					_discard_snap_state = Discard_snapshot_state::INACTIVE;
 					update_dialog = true;
@@ -914,7 +944,7 @@ void Cbe_manager::Main::handle_sandbox_state()
 
 		case State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE:
 
-			if (_child_finished(sandbox_state, _shut_down_fs_tool)) {
+			if (_child_succeeded(sandbox_state, _shut_down_fs_tool)) {
 
 				_state = State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE;
 				update_dialog = true;
@@ -1008,6 +1038,11 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 		gen_titled_frame(xml, "1", _startup_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
+			if (_startup_failed) {
+
+				gen_info_line(xml, "info_1", "Startup failed! Please try again.");
+				gen_info_line(xml, "pad_1", "");
+			}
 			bool gen_start_button { true };
 			gen_titled_text_input(
 				xml, "pw1", "Trust anchor passphrase",
@@ -1017,9 +1052,9 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 			if (!_setup_obtain_params_passphrase_1.suitable()) {
 
 				gen_start_button = false;
-				gen_info_line(xml, "info", _setup_obtain_params_passphrase_1.not_suitable_text());
+				gen_info_line(xml, "info_2", _setup_obtain_params_passphrase_1.not_suitable_text());
 			}
-			gen_info_line(xml, "pad_1", "");
+			gen_info_line(xml, "pad_2", "");
 			if (gen_start_button) {
 
 				gen_action_button_at_bottom(
@@ -1030,7 +1065,7 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 		});
 		break;
 
-	case State::SETUP_RUN_CBE_TRUST_ANCHOR_INIT:
+	case State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR:
 
 		gen_titled_info_frame(xml, "1", _setup_title, "Initializing trust anchor", MAIN_FRAME_WIDTH);
 		break;
@@ -1055,7 +1090,7 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 		gen_titled_info_frame(xml, "1", _setup_title, "Initializing Ext2 FS", MAIN_FRAME_WIDTH);
 		break;
 
-	case State::STARTUP_RUN_CBE_TRUST_ANCHOR_INIT:
+	case State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR:
 
 		gen_titled_info_frame(xml, "1", _startup_title, "Unlocking trust anchor", MAIN_FRAME_WIDTH);
 		break;
@@ -1536,7 +1571,7 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_menu_view_start_node(xml, _menu_view);
 		break;
 
-	case State::SETUP_RUN_CBE_TRUST_ANCHOR_INIT:
+	case State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR:
 
 		gen_parent_provides_and_report_nodes(xml);
 		gen_menu_view_start_node(xml, _menu_view);
@@ -1546,7 +1581,7 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 
 		break;
 
-	case State::STARTUP_RUN_CBE_TRUST_ANCHOR_INIT:
+	case State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR:
 
 		gen_parent_provides_and_report_nodes(xml);
 		gen_menu_view_start_node(xml, _menu_view);
@@ -1941,7 +1976,7 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 							INIT_CBE_NR_OF_CHILDREN,
 							_init_cbe_nr_of_leafs()));
 
-					_state = State::SETUP_RUN_CBE_TRUST_ANCHOR_INIT;
+					_state = State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR;
 					update_sandbox_config = true;
 					update_dialog = true;
 				}
@@ -2025,7 +2060,7 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 				    _setup_obtain_params_select == Setup_obtain_params_select::START_BUTTON) {
 
 					_setup_obtain_params_select = Setup_obtain_params_select::NONE;
-					_state = State::STARTUP_RUN_CBE_TRUST_ANCHOR_INIT;
+					_state = State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR;
 					update_sandbox_config = true;
 					update_dialog = true;
 				}
