@@ -74,6 +74,10 @@ class Cbe_manager::Main
 			CONTROLS_ROOT,
 			CONTROLS_SNAPSHOTS,
 			CONTROLS_DIMENSIONS,
+			CONTROLS_SECURITY,
+			CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY,
+			CONTROLS_SECURITY_MASTER_KEY,
+			CONTROLS_SECURITY_USER_PASSPHRASE,
 			SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE,
 			SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE
 		};
@@ -99,7 +103,6 @@ class Cbe_manager::Main
 		enum class Controls_root_select
 		{
 			NONE,
-			REKEY_BUTTON,
 			SHUT_DOWN_BUTTON,
 		};
 
@@ -108,14 +111,13 @@ class Cbe_manager::Main
 			NONE,
 			SNAPSHOTS_EXPAND_BUTTON,
 			DIMENSIONS_EXPAND_BUTTON,
-			REKEY_BUTTON,
+			SECURITY_EXPAND_BUTTON,
 			SHUT_DOWN_BUTTON,
 		};
 
 		enum class Controls_snapshots_select
 		{
 			NONE,
-			REKEY_BUTTON,
 			SHUT_DOWN_BUTTON,
 			CREATE_SNAPSHOT_BUTTON,
 			DISCARD_SNAPSHOT_BUTTON,
@@ -125,7 +127,6 @@ class Cbe_manager::Main
 		{
 			NONE,
 			SNAPSHOTS_EXPAND_BUTTON,
-			REKEY_BUTTON,
 			SHUT_DOWN_BUTTON,
 			CREATE_SNAPSHOT_BUTTON,
 			DISCARD_SNAPSHOT_BUTTON,
@@ -136,7 +137,6 @@ class Cbe_manager::Main
 			NONE,
 			RESIZING_NR_OF_BLKS_INPUT,
 			RESIZING_START_BUTTON,
-			REKEY_BUTTON,
 			SHUT_DOWN_BUTTON,
 		};
 
@@ -146,7 +146,66 @@ class Cbe_manager::Main
 			DIMENSIONS_EXPAND_BUTTON,
 			RESIZING_NR_OF_BLKS_INPUT,
 			RESIZING_START_BUTTON,
-			REKEY_BUTTON,
+			SHUT_DOWN_BUTTON,
+		};
+
+		enum class Controls_security_block_encryption_key_select
+		{
+			NONE,
+			REPLACE_BUTTON,
+			SHUT_DOWN_BUTTON,
+		};
+
+		enum class Controls_security_block_encryption_key_hover
+		{
+			NONE,
+			LEAVE_BUTTON,
+			REPLACE_BUTTON,
+			SHUT_DOWN_BUTTON,
+		};
+
+		enum class Controls_security_master_key_select
+		{
+			NONE,
+			SHUT_DOWN_BUTTON,
+		};
+
+		enum class Controls_security_master_key_hover
+		{
+			NONE,
+			LEAVE_BUTTON,
+			SHUT_DOWN_BUTTON,
+		};
+
+		enum class Controls_security_user_passphrase_select
+		{
+			NONE,
+			SHUT_DOWN_BUTTON,
+		};
+
+		enum class Controls_security_user_passphrase_hover
+		{
+			NONE,
+			LEAVE_BUTTON,
+			SHUT_DOWN_BUTTON,
+		};
+
+		enum class Controls_security_select
+		{
+			NONE,
+			BLOCK_ENCRYPTION_KEY_EXPAND_BUTTON,
+			MASTER_KEY_EXPAND_BUTTON,
+			USER_PASSPHRASE_EXPAND_BUTTON,
+			SHUT_DOWN_BUTTON,
+		};
+
+		enum class Controls_security_hover
+		{
+			NONE,
+			SECURITY_EXPAND_BUTTON,
+			BLOCK_ENCRYPTION_KEY_EXPAND_BUTTON,
+			MASTER_KEY_EXPAND_BUTTON,
+			USER_PASSPHRASE_EXPAND_BUTTON,
 			SHUT_DOWN_BUTTON,
 		};
 
@@ -243,6 +302,16 @@ class Cbe_manager::Main
 		Controls_snapshots_select              _controls_snapshots_select          { Controls_snapshots_hover::NONE };
 		Controls_dimensions_hover              _controls_dimensions_hover          { Controls_dimensions_select::NONE };
 		Controls_dimensions_select             _controls_dimensions_select         { Controls_dimensions_hover::NONE };
+		Controls_security_hover                _controls_security_hover            { Controls_security_select::NONE };
+		Controls_security_select               _controls_security_select           { Controls_security_hover::NONE };
+
+		Controls_security_master_key_hover             _controls_security_master_key_hover            { Controls_security_master_key_select::NONE };
+		Controls_security_master_key_select            _controls_security_master_key_select           { Controls_security_master_key_hover::NONE };
+		Controls_security_block_encryption_key_hover   _controls_security_block_encryption_key_hover  { Controls_security_block_encryption_key_select::NONE };
+		Controls_security_block_encryption_key_select  _controls_security_block_encryption_key_select { Controls_security_block_encryption_key_hover::NONE };
+		Controls_security_user_passphrase_hover        _controls_security_user_passphrase_hover       { Controls_security_user_passphrase_select::NONE };
+		Controls_security_user_passphrase_select       _controls_security_user_passphrase_select      { Controls_security_user_passphrase_hover::NONE };
+
 		Resizing_state                         _resizing_state                     { Resizing_state::INACTIVE };
 		Passphrase                             _resizing_nr_of_blks                { };
 		Rekeying_state                         _rekeying_state                     { Rekeying_state::INACTIVE };
@@ -419,11 +488,15 @@ Main::State Main::_state_from_string(State_string const &str)
 	if (str ==  "7") { return State::CONTROLS_ROOT; }
 	if (str ==  "8") { return State::CONTROLS_SNAPSHOTS; }
 	if (str ==  "9") { return State::CONTROLS_DIMENSIONS; }
-	if (str == "10") { return State::STARTUP_OBTAIN_PARAMETERS; }
-	if (str == "11") { return State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR; }
-	if (str == "12") { return State::STARTUP_START_CBE_VFS; }
-	if (str == "13") { return State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE; }
-	if (str == "14") { return State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE; }
+	if (str == "10") { return State::CONTROLS_SECURITY; }
+	if (str == "11") { return State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY; }
+	if (str == "12") { return State::CONTROLS_SECURITY_MASTER_KEY; }
+	if (str == "13") { return State::CONTROLS_SECURITY_USER_PASSPHRASE; }
+	if (str == "14") { return State::STARTUP_OBTAIN_PARAMETERS; }
+	if (str == "15") { return State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR; }
+	if (str == "16") { return State::STARTUP_START_CBE_VFS; }
+	if (str == "17") { return State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE; }
+	if (str == "18") { return State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE; }
 	class Invalid_state_string { };
 	throw Invalid_state_string { };
 }
@@ -442,11 +515,15 @@ Main::State_string Main::_state_to_string(State state)
 	case State::CONTROLS_ROOT:                             return  "7";
 	case State::CONTROLS_SNAPSHOTS:                        return  "8";
 	case State::CONTROLS_DIMENSIONS:                       return  "9";
-	case State::STARTUP_OBTAIN_PARAMETERS:                 return "10";
-	case State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR:         return "11";
-	case State::STARTUP_START_CBE_VFS:                     return "12";
-	case State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE:      return "13";
-	case State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE: return "14";
+	case State::CONTROLS_SECURITY:                         return "10";
+	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:    return "11";
+	case State::CONTROLS_SECURITY_MASTER_KEY:              return "12";
+	case State::CONTROLS_SECURITY_USER_PASSPHRASE:         return "13";
+	case State::STARTUP_OBTAIN_PARAMETERS:                 return "14";
+	case State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR:         return "15";
+	case State::STARTUP_START_CBE_VFS:                     return "16";
+	case State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE:      return "17";
+	case State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE: return "18";
 	}
 	class Invalid_state { };
 	throw Invalid_state { };
@@ -550,6 +627,10 @@ void Main::_handle_resizing_fs_query_listing(Xml_node const &node)
 	case State::CONTROLS_ROOT:
 	case State::CONTROLS_SNAPSHOTS:
 	case State::CONTROLS_DIMENSIONS:
+	case State::CONTROLS_SECURITY:
+	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:
+	case State::CONTROLS_SECURITY_MASTER_KEY:
+	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
 
 		switch (_resizing_state) {
 		case Resizing_state::WAIT_TILL_DEVICE_IS_READY:
@@ -607,6 +688,10 @@ void Main::_handle_rekeying_fs_query_listing(Xml_node const &node)
 	case State::CONTROLS_ROOT:
 	case State::CONTROLS_SNAPSHOTS:
 	case State::CONTROLS_DIMENSIONS:
+	case State::CONTROLS_SECURITY:
+	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:
+	case State::CONTROLS_SECURITY_MASTER_KEY:
+	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
 
 		switch (_rekeying_state) {
 		case Rekeying_state::WAIT_TILL_DEVICE_IS_READY:
@@ -669,6 +754,10 @@ void Main::_handle_fs_query_listing(Xml_node const &node)
 	case State::CONTROLS_ROOT:
 	case State::CONTROLS_SNAPSHOTS:
 	case State::CONTROLS_DIMENSIONS:
+	case State::CONTROLS_SECURITY:
+	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:
+	case State::CONTROLS_SECURITY_MASTER_KEY:
+	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
 	{
 		bool update_dialog { false };
 		node.with_sub_node("dir", [&] (Xml_node const &node_0) {
@@ -875,6 +964,10 @@ void Cbe_manager::Main::handle_sandbox_state()
 		case State::CONTROLS_ROOT:
 		case State::CONTROLS_SNAPSHOTS:
 		case State::CONTROLS_DIMENSIONS:
+		case State::CONTROLS_SECURITY:
+		case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:
+		case State::CONTROLS_SECURITY_MASTER_KEY:
+		case State::CONTROLS_SECURITY_USER_PASSPHRASE:
 
 			switch (_resizing_state) {
 			case Resizing_state::ISSUE_REQUEST_AT_DEVICE:
@@ -1109,26 +1202,6 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 				gen_action_button(xml, "Shut down", "Shut down",
 					_controls_root_hover  == Controls_root_hover::SHUT_DOWN_BUTTON,
 					_controls_root_select == Controls_root_select::SHUT_DOWN_BUTTON);
-
-				switch(_rekeying_state) {
-				case Rekeying_state::INACTIVE:
-
-					gen_action_button(xml, "Rekey", "Rekey",
-						_controls_root_hover  == Controls_root_hover::REKEY_BUTTON,
-						_controls_root_select == Controls_root_select::REKEY_BUTTON);
-
-					break;
-
-				case Rekeying_state::WAIT_TILL_DEVICE_IS_READY:
-				case Rekeying_state::ISSUE_REQUEST_AT_DEVICE:
-				case Rekeying_state::IN_PROGRESS_AT_DEVICE:
-
-					gen_action_button(xml, "Inactive Rekey", "...",
-						_controls_root_hover == Controls_root_hover::REKEY_BUTTON,
-						false);
-
-					break;
-				}
 			});
 			xml.node("vbox", [&] () {
 
@@ -1139,6 +1212,10 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 				gen_closed_sub_menu(
 					xml, "Dimensions",
 					_controls_root_hover == Controls_root_hover::DIMENSIONS_EXPAND_BUTTON);
+
+				gen_closed_sub_menu(
+					xml, "Security",
+					_controls_root_hover == Controls_root_hover::SECURITY_EXPAND_BUTTON);
 			});
 		});
 		break;
@@ -1152,26 +1229,6 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 				gen_action_button(xml, "Shut down", "Shut down",
 					_controls_snapshots_hover  == Controls_snapshots_hover::SHUT_DOWN_BUTTON,
 					_controls_snapshots_select == Controls_snapshots_select::SHUT_DOWN_BUTTON);
-
-				switch(_rekeying_state) {
-				case Rekeying_state::INACTIVE:
-
-					gen_action_button(xml, "Rekey", "Rekey",
-						_controls_snapshots_hover  == Controls_snapshots_hover::REKEY_BUTTON,
-						_controls_snapshots_select == Controls_snapshots_select::REKEY_BUTTON);
-
-					break;
-
-				case Rekeying_state::WAIT_TILL_DEVICE_IS_READY:
-				case Rekeying_state::ISSUE_REQUEST_AT_DEVICE:
-				case Rekeying_state::IN_PROGRESS_AT_DEVICE:
-
-					gen_action_button(xml, "Inactive Rekey", "...",
-						_controls_snapshots_hover == Controls_snapshots_hover::REKEY_BUTTON,
-						false);
-
-					break;
-				}
 			});
 
 			xml.node("vbox", [&] () {
@@ -1336,26 +1393,6 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 				gen_action_button(xml, "Shut down", "Shut down",
 					_controls_dimensions_hover  == Controls_dimensions_hover::SHUT_DOWN_BUTTON,
 					_controls_dimensions_select == Controls_dimensions_select::SHUT_DOWN_BUTTON);
-
-				switch(_rekeying_state) {
-				case Rekeying_state::INACTIVE:
-
-					gen_action_button(xml, "Rekey", "Rekey",
-						_controls_dimensions_hover  == Controls_dimensions_hover::REKEY_BUTTON,
-						_controls_dimensions_select == Controls_dimensions_select::REKEY_BUTTON);
-
-					break;
-
-				case Rekeying_state::WAIT_TILL_DEVICE_IS_READY:
-				case Rekeying_state::ISSUE_REQUEST_AT_DEVICE:
-				case Rekeying_state::IN_PROGRESS_AT_DEVICE:
-
-					gen_action_button(xml, "Inactive Rekey", "...",
-						_controls_dimensions_hover == Controls_dimensions_hover::REKEY_BUTTON,
-						false);
-
-					break;
-				}
 			});
 
 			xml.node("vbox", [&] () {
@@ -1431,6 +1468,117 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 						break;
 					}
 				});
+			});
+		});
+		break;
+
+	case State::CONTROLS_SECURITY:
+
+		gen_titled_frame(xml, "app", _controls_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
+
+			xml.node("hbox", [&] () {
+
+				gen_action_button(xml, "Shut down", "Shut down",
+					_controls_security_hover  == Controls_security_hover::SHUT_DOWN_BUTTON,
+					_controls_security_select == Controls_security_select::SHUT_DOWN_BUTTON);
+			});
+			gen_opened_sub_menu(
+				xml, "Security",
+				_controls_security_hover == Controls_security_hover::SECURITY_EXPAND_BUTTON,
+				[&] (Xml_generator &xml)
+			{
+				gen_closed_sub_menu(
+					xml, "Block Encryption Key",
+					_controls_security_hover == Controls_security_hover::BLOCK_ENCRYPTION_KEY_EXPAND_BUTTON);
+
+				gen_closed_sub_menu(
+					xml, "Master Key",
+					_controls_security_hover == Controls_security_hover::MASTER_KEY_EXPAND_BUTTON);
+
+				gen_closed_sub_menu(
+					xml, "User Passphrase",
+					_controls_security_hover == Controls_security_hover::USER_PASSPHRASE_EXPAND_BUTTON);
+			});
+		});
+		break;
+
+	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:
+
+		gen_titled_frame(xml, "app", _controls_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
+
+			xml.node("hbox", [&] () {
+
+				gen_action_button(xml, "Shut down", "Shut down",
+					_controls_security_block_encryption_key_hover  == Controls_security_block_encryption_key_hover::SHUT_DOWN_BUTTON,
+					_controls_security_block_encryption_key_select == Controls_security_block_encryption_key_select::SHUT_DOWN_BUTTON);
+			});
+			gen_opened_sub_menu(
+				xml, "Block Encryption Key",
+				_controls_security_block_encryption_key_hover == Controls_security_block_encryption_key_hover::LEAVE_BUTTON,
+				[&] (Xml_generator &xml)
+			{
+				switch(_rekeying_state) {
+				case Rekeying_state::INACTIVE:
+
+					gen_action_button(xml, "Rekey", "Replace",
+						_controls_security_block_encryption_key_hover  == Controls_security_block_encryption_key_hover::REPLACE_BUTTON,
+						_controls_security_block_encryption_key_select == Controls_security_block_encryption_key_select::REPLACE_BUTTON);
+
+					break;
+
+				case Rekeying_state::WAIT_TILL_DEVICE_IS_READY:
+				case Rekeying_state::ISSUE_REQUEST_AT_DEVICE:
+				case Rekeying_state::IN_PROGRESS_AT_DEVICE:
+
+					gen_action_button(xml, "Inactive Rekey", "...",
+						_controls_security_block_encryption_key_hover == Controls_security_block_encryption_key_hover::REPLACE_BUTTON,
+						false);
+
+					break;
+				}
+				gen_info_line(xml, "pad_1", "");
+			});
+		});
+		break;
+
+	case State::CONTROLS_SECURITY_MASTER_KEY:
+
+		gen_titled_frame(xml, "app", _controls_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
+
+			xml.node("hbox", [&] () {
+
+				gen_action_button(xml, "Shut down", "Shut down",
+					_controls_security_master_key_hover  == Controls_security_master_key_hover::SHUT_DOWN_BUTTON,
+					_controls_security_master_key_select == Controls_security_master_key_select::SHUT_DOWN_BUTTON);
+			});
+			gen_opened_sub_menu(
+				xml, "Master Key",
+				_controls_security_master_key_hover == Controls_security_master_key_hover::LEAVE_BUTTON,
+				[&] (Xml_generator &xml)
+			{
+				gen_info_line(xml, "inf", "In progress...");
+				gen_info_line(xml, "pad_1", "");
+			});
+		});
+		break;
+
+	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
+
+		gen_titled_frame(xml, "app", _controls_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
+
+			xml.node("hbox", [&] () {
+
+				gen_action_button(xml, "Shut down", "Shut down",
+					_controls_security_user_passphrase_hover  == Controls_security_user_passphrase_hover::SHUT_DOWN_BUTTON,
+					_controls_security_user_passphrase_select == Controls_security_user_passphrase_select::SHUT_DOWN_BUTTON);
+			});
+			gen_opened_sub_menu(
+				xml, "User Passphrase",
+				_controls_security_user_passphrase_hover == Controls_security_user_passphrase_hover::LEAVE_BUTTON,
+				[&] (Xml_generator &xml)
+			{
+				gen_info_line(xml, "inf", "In progress...");
+				gen_info_line(xml, "pad_1", "");
 			});
 		});
 		break;
@@ -1643,6 +1791,10 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 	case State::CONTROLS_ROOT:
 	case State::CONTROLS_SNAPSHOTS:
 	case State::CONTROLS_DIMENSIONS:
+	case State::CONTROLS_SECURITY:
+	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:
+	case State::CONTROLS_SECURITY_MASTER_KEY:
+	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
 
 		gen_parent_provides_and_report_nodes(xml);
 		gen_policy_for_child_service(xml, "File_system", _rump_vfs);
@@ -2090,9 +2242,10 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 					update_dialog = true;
 					break;
 
-				case Controls_root_hover::REKEY_BUTTON:
+				case Controls_root_hover::SECURITY_EXPAND_BUTTON:
 
-					next_select = Controls_root_select::REKEY_BUTTON;
+					_state = State::CONTROLS_SECURITY;
+					update_dialog = true;
 					break;
 
 				case Controls_root_hover::SHUT_DOWN_BUTTON:
@@ -2117,15 +2270,6 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 			if (key == Input::BTN_LEFT) {
 
 				switch (_controls_root_select) {
-				case Controls_root_select::REKEY_BUTTON:
-
-					_controls_root_select = Controls_root_select::NONE;
-					_rekeying_state = Rekeying_state::WAIT_TILL_DEVICE_IS_READY;
-
-					update_sandbox_config = true;
-					update_dialog = true;
-					break;
-
 				case Controls_root_select::SHUT_DOWN_BUTTON:
 
 					_controls_root_select = Controls_root_select::NONE;
@@ -2157,11 +2301,6 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 
 					_state = State::CONTROLS_ROOT;
 					update_dialog = true;
-					break;
-
-				case Controls_snapshots_hover::REKEY_BUTTON:
-
-					next_select = Controls_snapshots_select::REKEY_BUTTON;
 					break;
 
 				case Controls_snapshots_hover::SHUT_DOWN_BUTTON:
@@ -2208,15 +2347,6 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 			if (key == Input::BTN_LEFT) {
 
 				switch (_controls_snapshots_select) {
-				case Controls_snapshots_select::REKEY_BUTTON:
-
-					_controls_snapshots_select = Controls_snapshots_select::NONE;
-					_rekeying_state = Rekeying_state::WAIT_TILL_DEVICE_IS_READY;
-
-					update_sandbox_config = true;
-					update_dialog = true;
-					break;
-
 				case Controls_snapshots_select::SHUT_DOWN_BUTTON:
 
 					_controls_snapshots_select = Controls_snapshots_select::NONE;
@@ -2269,11 +2399,6 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 
 					_state = State::CONTROLS_ROOT;
 					update_dialog = true;
-					break;
-
-				case Controls_dimensions_hover::REKEY_BUTTON:
-
-					next_select = Controls_dimensions_select::REKEY_BUTTON;
 					break;
 
 				case Controls_dimensions_hover::SHUT_DOWN_BUTTON:
@@ -2333,18 +2458,261 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 					update_dialog = true;
 					break;
 
-				case Controls_dimensions_select::REKEY_BUTTON:
+				case Controls_dimensions_select::SHUT_DOWN_BUTTON:
 
 					_controls_dimensions_select = Controls_dimensions_select::NONE;
+					_state = State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE;
+
+					update_sandbox_config = true;
+					update_dialog = true;
+					break;
+
+				default:
+
+					break;
+				}
+			}
+		});
+		break;
+
+	case State::CONTROLS_SECURITY:
+
+		event.handle_press([&] (Input::Keycode key, Codepoint) {
+
+			if (key == Input::BTN_LEFT) {
+
+				Controls_security_select const prev_select { _controls_security_select };
+				Controls_security_select       next_select { Controls_security_select::NONE };
+
+				switch (_controls_security_hover) {
+				case Controls_security_hover::SECURITY_EXPAND_BUTTON:
+
+					_state = State::CONTROLS_ROOT;
+					update_dialog = true;
+					break;
+
+				case Controls_security_hover::BLOCK_ENCRYPTION_KEY_EXPAND_BUTTON:
+
+					_state = State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY;
+					update_dialog = true;
+					break;
+
+				case Controls_security_hover::MASTER_KEY_EXPAND_BUTTON:
+
+					_state = State::CONTROLS_SECURITY_MASTER_KEY;
+					update_dialog = true;
+					break;
+
+				case Controls_security_hover::USER_PASSPHRASE_EXPAND_BUTTON:
+
+					_state = State::CONTROLS_SECURITY_USER_PASSPHRASE;
+					update_dialog = true;
+					break;
+
+				case Controls_security_hover::SHUT_DOWN_BUTTON:
+
+					next_select = Controls_security_select::SHUT_DOWN_BUTTON;
+					break;
+
+				case Controls_security_hover::NONE:
+
+					next_select = Controls_security_select::NONE;
+					break;
+				}
+				if (next_select != prev_select) {
+
+					_controls_security_select = next_select;
+					update_dialog = true;
+				}
+			}
+		});
+		event.handle_release([&] (Input::Keycode key) {
+
+			if (key == Input::BTN_LEFT) {
+
+				switch (_controls_security_select) {
+				case Controls_security_select::SHUT_DOWN_BUTTON:
+
+					_controls_security_select = Controls_security_select::NONE;
+					_state = State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE;
+
+					update_sandbox_config = true;
+					update_dialog = true;
+					break;
+
+				default:
+
+					break;
+				}
+			}
+		});
+		break;
+
+	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:
+
+		event.handle_press([&] (Input::Keycode key, Codepoint) {
+
+			if (key == Input::BTN_LEFT) {
+
+				Controls_security_block_encryption_key_select const prev_select { _controls_security_block_encryption_key_select };
+				Controls_security_block_encryption_key_select       next_select { Controls_security_block_encryption_key_select::NONE };
+
+				switch (_controls_security_block_encryption_key_hover) {
+				case Controls_security_block_encryption_key_hover::LEAVE_BUTTON:
+
+					_state = State::CONTROLS_SECURITY;
+					update_dialog = true;
+					break;
+
+				case Controls_security_block_encryption_key_hover::REPLACE_BUTTON:
+
+					next_select = Controls_security_block_encryption_key_select::REPLACE_BUTTON;
+					break;
+
+				case Controls_security_block_encryption_key_hover::SHUT_DOWN_BUTTON:
+
+					next_select = Controls_security_block_encryption_key_select::SHUT_DOWN_BUTTON;
+					break;
+
+				case Controls_security_block_encryption_key_hover::NONE:
+
+					next_select = Controls_security_block_encryption_key_select::NONE;
+					break;
+				}
+				if (next_select != prev_select) {
+
+					_controls_security_block_encryption_key_select = next_select;
+					update_dialog = true;
+				}
+			}
+		});
+		event.handle_release([&] (Input::Keycode key) {
+
+			if (key == Input::BTN_LEFT) {
+
+				switch (_controls_security_block_encryption_key_select) {
+				case Controls_security_block_encryption_key_select::REPLACE_BUTTON:
+
+					_controls_security_block_encryption_key_select = Controls_security_block_encryption_key_select::NONE;
 					_rekeying_state = Rekeying_state::WAIT_TILL_DEVICE_IS_READY;
 
 					update_sandbox_config = true;
 					update_dialog = true;
 					break;
 
-				case Controls_dimensions_select::SHUT_DOWN_BUTTON:
+				case Controls_security_block_encryption_key_select::SHUT_DOWN_BUTTON:
 
-					_controls_dimensions_select = Controls_dimensions_select::NONE;
+					_controls_security_block_encryption_key_select = Controls_security_block_encryption_key_select::NONE;
+					_state = State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE;
+
+					update_sandbox_config = true;
+					update_dialog = true;
+					break;
+
+				default:
+
+					break;
+				}
+			}
+		});
+		break;
+
+	case State::CONTROLS_SECURITY_MASTER_KEY:
+
+		event.handle_press([&] (Input::Keycode key, Codepoint) {
+
+			if (key == Input::BTN_LEFT) {
+
+				Controls_security_master_key_select const prev_select { _controls_security_master_key_select };
+				Controls_security_master_key_select       next_select { Controls_security_master_key_select::NONE };
+
+				switch (_controls_security_master_key_hover) {
+				case Controls_security_master_key_hover::LEAVE_BUTTON:
+
+					_state = State::CONTROLS_SECURITY;
+					update_dialog = true;
+					break;
+
+				case Controls_security_master_key_hover::SHUT_DOWN_BUTTON:
+
+					next_select = Controls_security_master_key_select::SHUT_DOWN_BUTTON;
+					break;
+
+				case Controls_security_master_key_hover::NONE:
+
+					next_select = Controls_security_master_key_select::NONE;
+					break;
+				}
+				if (next_select != prev_select) {
+
+					_controls_security_master_key_select = next_select;
+					update_dialog = true;
+				}
+			}
+		});
+		event.handle_release([&] (Input::Keycode key) {
+
+			if (key == Input::BTN_LEFT) {
+
+				switch (_controls_security_master_key_select) {
+				case Controls_security_master_key_select::SHUT_DOWN_BUTTON:
+
+					_controls_security_master_key_select = Controls_security_master_key_select::NONE;
+					_state = State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE;
+
+					update_sandbox_config = true;
+					update_dialog = true;
+					break;
+
+				default:
+
+					break;
+				}
+			}
+		});
+		break;
+
+	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
+
+		event.handle_press([&] (Input::Keycode key, Codepoint) {
+
+			if (key == Input::BTN_LEFT) {
+
+				Controls_security_user_passphrase_select const prev_select { _controls_security_user_passphrase_select };
+				Controls_security_user_passphrase_select       next_select { Controls_security_user_passphrase_select::NONE };
+
+				switch (_controls_security_user_passphrase_hover) {
+				case Controls_security_user_passphrase_hover::LEAVE_BUTTON:
+
+					_state = State::CONTROLS_SECURITY;
+					update_dialog = true;
+					break;
+
+				case Controls_security_user_passphrase_hover::SHUT_DOWN_BUTTON:
+
+					next_select = Controls_security_user_passphrase_select::SHUT_DOWN_BUTTON;
+					break;
+
+				case Controls_security_user_passphrase_hover::NONE:
+
+					next_select = Controls_security_user_passphrase_select::NONE;
+					break;
+				}
+				if (next_select != prev_select) {
+
+					_controls_security_user_passphrase_select = next_select;
+					update_dialog = true;
+				}
+			}
+		});
+		event.handle_release([&] (Input::Keycode key) {
+
+			if (key == Input::BTN_LEFT) {
+
+				switch (_controls_security_user_passphrase_select) {
+				case Controls_security_user_passphrase_select::SHUT_DOWN_BUTTON:
+
+					_controls_security_user_passphrase_select = Controls_security_user_passphrase_select::NONE;
 					_state = State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE;
 
 					update_sandbox_config = true;
@@ -2455,11 +2823,7 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("button", [&] (Xml_node const &node_4) {
 
-							if (node_4.attribute_value("name", String<8>()) == "Rekey") {
-
-								next_hover = Controls_root_hover::REKEY_BUTTON;
-
-							} else if (node_4.attribute_value("name", String<10>()) == "Shut down") {
+							if (node_4.attribute_value("name", String<10>()) == "Shut down") {
 
 								next_hover = Controls_root_hover::SHUT_DOWN_BUTTON;
 
@@ -2475,12 +2839,17 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 
 									next_hover = Controls_root_hover::SNAPSHOTS_EXPAND_BUTTON;
 								});
-
 							} else if (node_4.attribute_value("name", String<11>()) == "Dimensions") {
 
 								node_4.with_sub_node("float", [&] (Xml_node const &) {
 
 									next_hover = Controls_root_hover::DIMENSIONS_EXPAND_BUTTON;
+								});
+							} else if (node_4.attribute_value("name", String<11>()) == "Security") {
+
+								node_4.with_sub_node("float", [&] (Xml_node const &) {
+
+									next_hover = Controls_root_hover::SECURITY_EXPAND_BUTTON;
 								});
 							}
 						});
@@ -2510,11 +2879,7 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 
 						node_3.with_sub_node("button", [&] (Xml_node const &node_4) {
 
-							if (node_4.attribute_value("name", String<8>()) == "Rekey") {
-
-								next_hover = Controls_snapshots_hover::REKEY_BUTTON;
-
-							} else if (node_4.attribute_value("name", String<10>()) == "Shut down") {
+							if (node_4.attribute_value("name", String<10>()) == "Shut down") {
 
 								next_hover = Controls_snapshots_hover::SHUT_DOWN_BUTTON;
 
@@ -2584,11 +2949,7 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 
 						node_3.with_sub_node("button", [&] (Xml_node const &node_4) {
 
-							if (node_4.attribute_value("name", String<8>()) == "Rekey") {
-
-								next_hover = Controls_dimensions_hover::REKEY_BUTTON;
-
-							} else if (node_4.attribute_value("name", String<10>()) == "Shut down") {
+							if (node_4.attribute_value("name", String<10>()) == "Shut down") {
 
 								next_hover = Controls_dimensions_hover::SHUT_DOWN_BUTTON;
 
@@ -2622,6 +2983,183 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 		if (next_hover != prev_hover) {
 
 			_controls_dimensions_hover = next_hover;
+			update_dialog = true;
+		}
+		break;
+	}
+	case State::CONTROLS_SECURITY:
+	{
+		Controls_security_hover const prev_hover { _controls_security_hover };
+		Controls_security_hover       next_hover { Controls_security_hover::NONE };
+
+		node.with_sub_node("dialog", [&] (Xml_node const &node_0) {
+			node_0.with_sub_node("frame", [&] (Xml_node const &node_1) {
+				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
+					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
+						node_3.with_sub_node("button", [&] (Xml_node const &node_4) {
+
+							if (node_4.attribute_value("name", String<10>()) == "Shut down") {
+
+								next_hover = Controls_security_hover::SHUT_DOWN_BUTTON;
+
+							}
+						});
+					});
+					node_2.with_sub_node("vbox", [&] (Xml_node const &node_3) {
+						node_3.with_sub_node("float", [&] (Xml_node const &node_4) {
+
+							if (node_4.attribute_value("name", String<8>()) == "expand") {
+
+								next_hover = Controls_security_hover::SECURITY_EXPAND_BUTTON;
+							}
+						});
+						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
+
+							if (node_4.attribute_value("name", String<32>()) == "Block Encryption Key") {
+
+								node_4.with_sub_node("float", [&] (Xml_node const &) {
+
+									next_hover = Controls_security_hover::BLOCK_ENCRYPTION_KEY_EXPAND_BUTTON;
+								});
+							} else if (node_4.attribute_value("name", String<32>()) == "Master Key") {
+
+								node_4.with_sub_node("float", [&] (Xml_node const &) {
+
+									next_hover = Controls_security_hover::MASTER_KEY_EXPAND_BUTTON;
+								});
+							} else if (node_4.attribute_value("name", String<32>()) == "User Passphrase") {
+
+								node_4.with_sub_node("float", [&] (Xml_node const &) {
+
+									next_hover = Controls_security_hover::USER_PASSPHRASE_EXPAND_BUTTON;
+								});
+							}
+						});
+					});
+				});
+			});
+		});
+		if (next_hover != prev_hover) {
+
+			_controls_security_hover = next_hover;
+			update_dialog = true;
+		}
+		break;
+	}
+	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:
+	{
+		Controls_security_block_encryption_key_hover const prev_hover { _controls_security_block_encryption_key_hover };
+		Controls_security_block_encryption_key_hover       next_hover { Controls_security_block_encryption_key_hover::NONE };
+
+		node.with_sub_node("dialog", [&] (Xml_node const &node_0) {
+			node_0.with_sub_node("frame", [&] (Xml_node const &node_1) {
+				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
+					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
+						node_3.with_sub_node("button", [&] (Xml_node const &node_4) {
+
+							if (node_4.attribute_value("name", String<10>()) == "Shut down") {
+
+								next_hover = Controls_security_block_encryption_key_hover::SHUT_DOWN_BUTTON;
+
+							}
+						});
+					});
+					node_2.with_sub_node("vbox", [&] (Xml_node const &node_3) {
+						node_3.with_sub_node("button", [&] (Xml_node const &node_4) {
+
+							if (node_4.attribute_value("name", String<8>()) == "Rekey") {
+
+								next_hover = Controls_security_block_encryption_key_hover::REPLACE_BUTTON;
+							}
+						});
+						node_3.with_sub_node("float", [&] (Xml_node const &node_4) {
+
+							if (node_4.attribute_value("name", String<8>()) == "expand") {
+
+								next_hover = Controls_security_block_encryption_key_hover::LEAVE_BUTTON;
+							}
+						});
+					});
+				});
+			});
+		});
+		if (next_hover != prev_hover) {
+
+			_controls_security_block_encryption_key_hover = next_hover;
+			update_dialog = true;
+		}
+		break;
+	}
+	case State::CONTROLS_SECURITY_MASTER_KEY:
+	{
+		Controls_security_master_key_hover const prev_hover { _controls_security_master_key_hover };
+		Controls_security_master_key_hover       next_hover { Controls_security_master_key_hover::NONE };
+
+		node.with_sub_node("dialog", [&] (Xml_node const &node_0) {
+			node_0.with_sub_node("frame", [&] (Xml_node const &node_1) {
+				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
+					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
+						node_3.with_sub_node("button", [&] (Xml_node const &node_4) {
+
+							if (node_4.attribute_value("name", String<10>()) == "Shut down") {
+
+								next_hover = Controls_security_master_key_hover::SHUT_DOWN_BUTTON;
+
+							}
+						});
+					});
+					node_2.with_sub_node("vbox", [&] (Xml_node const &node_3) {
+						node_3.with_sub_node("float", [&] (Xml_node const &node_4) {
+
+							if (node_4.attribute_value("name", String<8>()) == "expand") {
+
+								next_hover = Controls_security_master_key_hover::LEAVE_BUTTON;
+							}
+						});
+					});
+				});
+			});
+		});
+		if (next_hover != prev_hover) {
+
+			_controls_security_master_key_hover = next_hover;
+			update_dialog = true;
+		}
+		break;
+	}
+	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
+	{
+		Controls_security_user_passphrase_hover const prev_hover { _controls_security_user_passphrase_hover };
+		Controls_security_user_passphrase_hover       next_hover { Controls_security_user_passphrase_hover::NONE };
+
+		node.with_sub_node("dialog", [&] (Xml_node const &node_0) {
+			node_0.with_sub_node("frame", [&] (Xml_node const &node_1) {
+				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
+					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
+						node_3.with_sub_node("button", [&] (Xml_node const &node_4) {
+
+							if (node_4.attribute_value("name", String<10>()) == "Shut down") {
+
+								next_hover = Controls_security_user_passphrase_hover::SHUT_DOWN_BUTTON;
+
+							}
+						});
+					});
+					node_2.with_sub_node("vbox", [&] (Xml_node const &node_3) {
+						node_3.with_sub_node("float", [&] (Xml_node const &node_4) {
+
+							if (node_4.attribute_value("name", String<8>()) == "expand") {
+
+								next_hover = Controls_security_user_passphrase_hover::LEAVE_BUTTON;
+							}
+						});
+					});
+				});
+			});
+		});
+		if (next_hover != prev_hover) {
+
+			_controls_security_user_passphrase_hover = next_hover;
 			update_dialog = true;
 		}
 		break;
