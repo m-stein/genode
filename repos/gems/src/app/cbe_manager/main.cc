@@ -1203,19 +1203,22 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 					_controls_root_hover  == Controls_root_hover::SHUT_DOWN_BUTTON,
 					_controls_root_select == Controls_root_select::SHUT_DOWN_BUTTON);
 			});
-			xml.node("vbox", [&] () {
+			xml.node("frame", [&] () {
 
-				gen_closed_sub_menu(
-					xml, "Snapshots",
-					_controls_root_hover == Controls_root_hover::SNAPSHOTS_EXPAND_BUTTON);
+				xml.node("vbox", [&] () {
 
-				gen_closed_sub_menu(
-					xml, "Dimensions",
-					_controls_root_hover == Controls_root_hover::DIMENSIONS_EXPAND_BUTTON);
+					gen_closed_sub_menu(
+						xml, "Snapshots",
+						_controls_root_hover == Controls_root_hover::SNAPSHOTS_EXPAND_BUTTON);
 
-				gen_closed_sub_menu(
-					xml, "Security",
-					_controls_root_hover == Controls_root_hover::SECURITY_EXPAND_BUTTON);
+					gen_closed_sub_menu(
+						xml, "Dimensions",
+						_controls_root_hover == Controls_root_hover::DIMENSIONS_EXPAND_BUTTON);
+
+					gen_closed_sub_menu(
+						xml, "Security",
+						_controls_root_hover == Controls_root_hover::SECURITY_EXPAND_BUTTON);
+				});
 			});
 		});
 		break;
@@ -1230,155 +1233,157 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 					_controls_snapshots_hover  == Controls_snapshots_hover::SHUT_DOWN_BUTTON,
 					_controls_snapshots_select == Controls_snapshots_select::SHUT_DOWN_BUTTON);
 			});
+			xml.node("frame", [&] () {
 
-			xml.node("vbox", [&] () {
+				xml.node("vbox", [&] () {
 
-				gen_opened_sub_menu(
-					xml, "Snapshots",
-					_controls_snapshots_hover == Controls_snapshots_hover::SNAPSHOTS_EXPAND_BUTTON,
-					[&] (Xml_generator &xml)
-				{
-					_snapshots.for_each([&] (Snapshot const &snap) {
+					gen_opened_sub_menu(
+						xml, "Snapshots",
+						_controls_snapshots_hover == Controls_snapshots_hover::SNAPSHOTS_EXPAND_BUTTON,
+						[&] (Xml_generator &xml)
+					{
+						_snapshots.for_each([&] (Snapshot const &snap) {
 
-						bool const hovered {
-							_snapshots_hover.valid() &&
-							_snapshots_hover.object().generation() == snap.generation() };
+							bool const hovered {
+								_snapshots_hover.valid() &&
+								_snapshots_hover.object().generation() == snap.generation() };
 
-						bool const selected {
-							_snapshots_select.valid() &&
-							_snapshots_select.object().generation() == snap.generation() };
+							bool const selected {
+								_snapshots_select.valid() &&
+								_snapshots_select.object().generation() == snap.generation() };
 
-						String<64> const snap_str {
-							"Generation ", snap.generation() };
+							String<64> const snap_str {
+								"Generation ", snap.generation() };
 
-						Generation_string const gen_str { snap.generation() };
+							Generation_string const gen_str { snap.generation() };
 
-						gen_multiple_choice_entry(
-							xml, gen_str.string(), snap_str.string(), hovered,
-							selected);
+							gen_multiple_choice_entry(
+								xml, gen_str.string(), snap_str.string(), hovered,
+								selected);
 
-						if (selected) {
+							if (selected) {
 
-							bool const discard_hovered { _controls_snapshots_hover  == Controls_snapshots_hover::DISCARD_SNAPSHOT_BUTTON };
-							bool const discard_selected { _controls_snapshots_select == Controls_snapshots_select::DISCARD_SNAPSHOT_BUTTON };
+								bool const discard_hovered { _controls_snapshots_hover  == Controls_snapshots_hover::DISCARD_SNAPSHOT_BUTTON };
+								bool const discard_selected { _controls_snapshots_select == Controls_snapshots_select::DISCARD_SNAPSHOT_BUTTON };
 
-							switch(_discard_snap_state) {
-							case Discard_snapshot_state::INACTIVE:
+								switch(_discard_snap_state) {
+								case Discard_snapshot_state::INACTIVE:
 
-								xml.node("float", [&] () {
-									xml.attribute("name", String<32> { "discard", gen_str });
-									xml.attribute("west", "yes");
+									xml.node("float", [&] () {
+										xml.attribute("name", String<32> { "discard", gen_str });
+										xml.attribute("west", "yes");
 
-									xml.node("hbox", [&] () {
-
-										xml.node("label", [&] () {
-											xml.attribute("min_ex", "4");
-										});
-										xml.node("button", [&] () {
-											if (discard_hovered) {
-												xml.attribute("hovered", "yes");
-											}
-											if (discard_selected) {
-												xml.attribute("selected", "yes");
-											}
+										xml.node("hbox", [&] () {
 
 											xml.node("label", [&] () {
-												xml.attribute("text", "Discard");
+												xml.attribute("min_ex", "4");
 											});
-										});
-									});
-								});
-								break;
-
-							case Discard_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
-
-								xml.node("float", [&] () {
-									xml.attribute("name", String<32> { "inactive_discard", gen_str });
-									xml.attribute("west", "yes");
-
-									xml.node("hbox", [&] () {
-
-										xml.node("label", [&] () {
-											xml.attribute("min_ex", "4");
-										});
-										xml.node("button", [&] () {
-											xml.attribute("name", gen_str.string());
-											if (discard_hovered) {
-												xml.attribute("hovered", "yes");
-											}
-											if (discard_selected) {
-												xml.attribute("selected", "yes");
-											}
-											xml.node("hbox", [&] () {
+											xml.node("button", [&] () {
+												if (discard_hovered) {
+													xml.attribute("hovered", "yes");
+												}
+												if (discard_selected) {
+													xml.attribute("selected", "yes");
+												}
 
 												xml.node("label", [&] () {
-													xml.attribute("text", "...");
+													xml.attribute("text", "Discard");
 												});
 											});
 										});
 									});
-								});
-								break;
+									break;
+
+								case Discard_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
+
+									xml.node("float", [&] () {
+										xml.attribute("name", String<32> { "inactive_discard", gen_str });
+										xml.attribute("west", "yes");
+
+										xml.node("hbox", [&] () {
+
+											xml.node("label", [&] () {
+												xml.attribute("min_ex", "4");
+											});
+											xml.node("button", [&] () {
+												xml.attribute("name", gen_str.string());
+												if (discard_hovered) {
+													xml.attribute("hovered", "yes");
+												}
+												if (discard_selected) {
+													xml.attribute("selected", "yes");
+												}
+												xml.node("hbox", [&] () {
+
+													xml.node("label", [&] () {
+														xml.attribute("text", "...");
+													});
+												});
+											});
+										});
+									});
+									break;
+								}
 							}
+						});
+
+						bool const hovered { _controls_snapshots_hover  == Controls_snapshots_hover::CREATE_SNAPSHOT_BUTTON };
+						bool const selected { _controls_snapshots_select == Controls_snapshots_select::CREATE_SNAPSHOT_BUTTON };
+
+						switch(_create_snap_state) {
+						case Create_snapshot_state::INACTIVE:
+
+							xml.node("float", [&] () {
+								xml.attribute("name", "create");
+								xml.attribute("west", "yes");
+
+								xml.node("hbox", [&] () {
+
+									xml.node("button", [&] () {
+										if (hovered) {
+											xml.attribute("hovered", "yes");
+										}
+										if (selected) {
+											xml.attribute("selected", "yes");
+										}
+										xml.node("hbox", [&] () {
+
+											xml.node("label", [&] () {
+												xml.attribute("text", "Create");
+											});
+										});
+									});
+								});
+							});
+							break;
+
+						case Create_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
+
+							xml.node("float", [&] () {
+								xml.attribute("name", "inactive_create");
+								xml.attribute("west", "yes");
+
+								xml.node("hbox", [&] () {
+
+									xml.node("button", [&] () {
+										if (hovered) {
+											xml.attribute("hovered", "yes");
+										}
+										if (selected) {
+											xml.attribute("selected", "yes");
+										}
+										xml.node("hbox", [&] () {
+
+											xml.node("label", [&] () {
+												xml.attribute("text", "...");
+											});
+										});
+									});
+								});
+							});
+							break;
 						}
 					});
-
-					bool const hovered { _controls_snapshots_hover  == Controls_snapshots_hover::CREATE_SNAPSHOT_BUTTON };
-					bool const selected { _controls_snapshots_select == Controls_snapshots_select::CREATE_SNAPSHOT_BUTTON };
-
-					switch(_create_snap_state) {
-					case Create_snapshot_state::INACTIVE:
-
-						xml.node("float", [&] () {
-							xml.attribute("name", "create");
-							xml.attribute("west", "yes");
-
-							xml.node("hbox", [&] () {
-
-								xml.node("button", [&] () {
-									if (hovered) {
-										xml.attribute("hovered", "yes");
-									}
-									if (selected) {
-										xml.attribute("selected", "yes");
-									}
-									xml.node("hbox", [&] () {
-
-										xml.node("label", [&] () {
-											xml.attribute("text", "Create");
-										});
-									});
-								});
-							});
-						});
-						break;
-
-					case Create_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
-
-						xml.node("float", [&] () {
-							xml.attribute("name", "inactive_create");
-							xml.attribute("west", "yes");
-
-							xml.node("hbox", [&] () {
-
-								xml.node("button", [&] () {
-									if (hovered) {
-										xml.attribute("hovered", "yes");
-									}
-									if (selected) {
-										xml.attribute("selected", "yes");
-									}
-									xml.node("hbox", [&] () {
-
-										xml.node("label", [&] () {
-											xml.attribute("text", "...");
-										});
-									});
-								});
-							});
-						});
-						break;
-					}
 				});
 			});
 		});
@@ -1394,79 +1399,81 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 					_controls_dimensions_hover  == Controls_dimensions_hover::SHUT_DOWN_BUTTON,
 					_controls_dimensions_select == Controls_dimensions_select::SHUT_DOWN_BUTTON);
 			});
+			xml.node("frame", [&] () {
 
-			xml.node("vbox", [&] () {
+				xml.node("vbox", [&] () {
 
-				gen_opened_sub_menu(
-					xml, "Dimensions",
-					_controls_dimensions_hover == Controls_dimensions_hover::DIMENSIONS_EXPAND_BUTTON,
-					[&] (Xml_generator &xml)
-				{
-					switch(_resizing_state) {
-					case Resizing_state::INACTIVE:
+					gen_opened_sub_menu(
+						xml, "Dimensions",
+						_controls_dimensions_hover == Controls_dimensions_hover::DIMENSIONS_EXPAND_BUTTON,
+						[&] (Xml_generator &xml)
 					{
-						gen_titled_text_input(
-							xml, "blks", "Number of blocks",
-							_resizing_nr_of_blks,
-							_controls_dimensions_select == Controls_dimensions_select::RESIZING_NR_OF_BLKS_INPUT);
+						switch(_resizing_state) {
+						case Resizing_state::INACTIVE:
+						{
+							gen_titled_text_input(
+								xml, "blks", "Number of blocks",
+								_resizing_nr_of_blks,
+								_controls_dimensions_select == Controls_dimensions_select::RESIZING_NR_OF_BLKS_INPUT);
 
-						bool gen_start_button { true };
-						if (!_resizing_nr_of_blks.is_nr_greater_than_zero()) {
+							bool gen_start_button { true };
+							if (!_resizing_nr_of_blks.is_nr_greater_than_zero()) {
 
-							gen_start_button = false;
-							gen_info_line(xml, "inf", "Must be a number greater than 0");
-							gen_info_line(xml, "pad_1", "");
+								gen_start_button = false;
+								gen_info_line(xml, "inf", "Must be a number greater than 0");
+								gen_info_line(xml, "pad_1", "");
 
-						}  else {
+							}  else {
 
-							Number_of_bytes const curr_cbe_size { _cbe_size() };
-							unsigned long rsz_nr_of_bytes {
-								_resizing_nr_of_blks.to_unsigned_long() *
-								CBE_BLOCK_SIZE };
+								Number_of_bytes const curr_cbe_size { _cbe_size() };
+								unsigned long rsz_nr_of_bytes {
+									_resizing_nr_of_blks.to_unsigned_long() *
+									CBE_BLOCK_SIZE };
 
-							gen_info_line(
-								xml, "inf_1",
-								String<256> {
-									"Current image size: ",
-									curr_cbe_size
-								}.string());
+								gen_info_line(
+									xml, "inf_1",
+									String<256> {
+										"Current image size: ",
+										curr_cbe_size
+									}.string());
 
-							gen_info_line(
-								xml, "inf_2",
-								String<256> {
-									"New image size: ",
-									Number_of_bytes { curr_cbe_size + rsz_nr_of_bytes }
-								}.string());
+								gen_info_line(
+									xml, "inf_2",
+									String<256> {
+										"New image size: ",
+										Number_of_bytes { curr_cbe_size + rsz_nr_of_bytes }
+									}.string());
 
-							gen_info_line(xml, "pad_1", "");
+								gen_info_line(xml, "pad_1", "");
+							}
+							if (gen_start_button) {
+
+								gen_action_button_at_bottom(
+									xml, "Start",
+									_controls_dimensions_hover  == Controls_dimensions_hover::RESIZING_START_BUTTON,
+									_controls_dimensions_select == Controls_dimensions_select::RESIZING_START_BUTTON);
+							}
+							break;
 						}
-						if (gen_start_button) {
+						case Resizing_state::WAIT_TILL_DEVICE_IS_READY:
 
-							gen_action_button_at_bottom(
-								xml, "Start",
-								_controls_dimensions_hover  == Controls_dimensions_hover::RESIZING_START_BUTTON,
-								_controls_dimensions_select == Controls_dimensions_select::RESIZING_START_BUTTON);
+							gen_info_line(xml, "inf", "Wait for device...");
+							gen_info_line(xml, "pad_1", "");
+							break;
+
+						case Resizing_state::ISSUE_REQUEST_AT_DEVICE:
+
+							gen_info_line(xml, "inf", "Initiate...");
+							gen_info_line(xml, "pad_1", "");
+							break;
+
+						case Resizing_state::IN_PROGRESS_AT_DEVICE:
+
+							gen_info_line(xml, "inf", "In progress...");
+							gen_info_line(xml, "pad_1", "");
+							break;
 						}
-						break;
-					}
-					case Resizing_state::WAIT_TILL_DEVICE_IS_READY:
-
-						gen_info_line(xml, "inf", "Wait for device...");
-						gen_info_line(xml, "pad_1", "");
-						break;
-
-					case Resizing_state::ISSUE_REQUEST_AT_DEVICE:
-
-						gen_info_line(xml, "inf", "Initiate...");
-						gen_info_line(xml, "pad_1", "");
-						break;
-
-					case Resizing_state::IN_PROGRESS_AT_DEVICE:
-
-						gen_info_line(xml, "inf", "In progress...");
-						gen_info_line(xml, "pad_1", "");
-						break;
-					}
+					});
 				});
 			});
 		});
@@ -1482,22 +1489,25 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 					_controls_security_hover  == Controls_security_hover::SHUT_DOWN_BUTTON,
 					_controls_security_select == Controls_security_select::SHUT_DOWN_BUTTON);
 			});
-			gen_opened_sub_menu(
-				xml, "Security",
-				_controls_security_hover == Controls_security_hover::SECURITY_EXPAND_BUTTON,
-				[&] (Xml_generator &xml)
-			{
-				gen_closed_sub_menu(
-					xml, "Block Encryption Key",
-					_controls_security_hover == Controls_security_hover::BLOCK_ENCRYPTION_KEY_EXPAND_BUTTON);
+			xml.node("frame", [&] () {
 
-				gen_closed_sub_menu(
-					xml, "Master Key",
-					_controls_security_hover == Controls_security_hover::MASTER_KEY_EXPAND_BUTTON);
+				gen_opened_sub_menu(
+					xml, "Security",
+					_controls_security_hover == Controls_security_hover::SECURITY_EXPAND_BUTTON,
+					[&] (Xml_generator &xml)
+				{
+					gen_closed_sub_menu(
+						xml, "Block Encryption Key",
+						_controls_security_hover == Controls_security_hover::BLOCK_ENCRYPTION_KEY_EXPAND_BUTTON);
 
-				gen_closed_sub_menu(
-					xml, "User Passphrase",
-					_controls_security_hover == Controls_security_hover::USER_PASSPHRASE_EXPAND_BUTTON);
+					gen_closed_sub_menu(
+						xml, "Master Key",
+						_controls_security_hover == Controls_security_hover::MASTER_KEY_EXPAND_BUTTON);
+
+					gen_closed_sub_menu(
+						xml, "User Passphrase",
+						_controls_security_hover == Controls_security_hover::USER_PASSPHRASE_EXPAND_BUTTON);
+				});
 			});
 		});
 		break;
@@ -1512,31 +1522,34 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 					_controls_security_block_encryption_key_hover  == Controls_security_block_encryption_key_hover::SHUT_DOWN_BUTTON,
 					_controls_security_block_encryption_key_select == Controls_security_block_encryption_key_select::SHUT_DOWN_BUTTON);
 			});
-			gen_opened_sub_menu(
-				xml, "Block Encryption Key",
-				_controls_security_block_encryption_key_hover == Controls_security_block_encryption_key_hover::LEAVE_BUTTON,
-				[&] (Xml_generator &xml)
-			{
-				switch(_rekeying_state) {
-				case Rekeying_state::INACTIVE:
+			xml.node("frame", [&] () {
 
-					gen_action_button(xml, "Rekey", "Replace",
-						_controls_security_block_encryption_key_hover  == Controls_security_block_encryption_key_hover::REPLACE_BUTTON,
-						_controls_security_block_encryption_key_select == Controls_security_block_encryption_key_select::REPLACE_BUTTON);
+				gen_opened_sub_menu(
+					xml, "Block Encryption Key",
+					_controls_security_block_encryption_key_hover == Controls_security_block_encryption_key_hover::LEAVE_BUTTON,
+					[&] (Xml_generator &xml)
+				{
+					switch(_rekeying_state) {
+					case Rekeying_state::INACTIVE:
 
-					break;
+						gen_action_button(xml, "Rekey", "Replace",
+							_controls_security_block_encryption_key_hover  == Controls_security_block_encryption_key_hover::REPLACE_BUTTON,
+							_controls_security_block_encryption_key_select == Controls_security_block_encryption_key_select::REPLACE_BUTTON);
 
-				case Rekeying_state::WAIT_TILL_DEVICE_IS_READY:
-				case Rekeying_state::ISSUE_REQUEST_AT_DEVICE:
-				case Rekeying_state::IN_PROGRESS_AT_DEVICE:
+						break;
 
-					gen_action_button(xml, "Inactive Rekey", "...",
-						_controls_security_block_encryption_key_hover == Controls_security_block_encryption_key_hover::REPLACE_BUTTON,
-						false);
+					case Rekeying_state::WAIT_TILL_DEVICE_IS_READY:
+					case Rekeying_state::ISSUE_REQUEST_AT_DEVICE:
+					case Rekeying_state::IN_PROGRESS_AT_DEVICE:
 
-					break;
-				}
-				gen_info_line(xml, "pad_1", "");
+						gen_action_button(xml, "Inactive Rekey", "...",
+							_controls_security_block_encryption_key_hover == Controls_security_block_encryption_key_hover::REPLACE_BUTTON,
+							false);
+
+						break;
+					}
+					gen_info_line(xml, "pad_1", "");
+				});
 			});
 		});
 		break;
@@ -1551,13 +1564,17 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 					_controls_security_master_key_hover  == Controls_security_master_key_hover::SHUT_DOWN_BUTTON,
 					_controls_security_master_key_select == Controls_security_master_key_select::SHUT_DOWN_BUTTON);
 			});
-			gen_opened_sub_menu(
-				xml, "Master Key",
-				_controls_security_master_key_hover == Controls_security_master_key_hover::LEAVE_BUTTON,
-				[&] (Xml_generator &xml)
-			{
-				gen_info_line(xml, "inf", "In progress...");
-				gen_info_line(xml, "pad_1", "");
+			xml.node("frame", [&] () {
+
+				gen_opened_sub_menu(
+					xml, "Master Key",
+					_controls_security_master_key_hover == Controls_security_master_key_hover::LEAVE_BUTTON,
+					[&] (Xml_generator &xml)
+				{
+					gen_info_line(xml, "pad_1", "");
+					gen_info_line(xml, "inf_1", "The master key cannot be replaced by now.");
+					gen_info_line(xml, "pad_2", "");
+				});
 			});
 		});
 		break;
@@ -1572,13 +1589,17 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 					_controls_security_user_passphrase_hover  == Controls_security_user_passphrase_hover::SHUT_DOWN_BUTTON,
 					_controls_security_user_passphrase_select == Controls_security_user_passphrase_select::SHUT_DOWN_BUTTON);
 			});
-			gen_opened_sub_menu(
-				xml, "User Passphrase",
-				_controls_security_user_passphrase_hover == Controls_security_user_passphrase_hover::LEAVE_BUTTON,
-				[&] (Xml_generator &xml)
-			{
-				gen_info_line(xml, "inf", "In progress...");
-				gen_info_line(xml, "pad_1", "");
+			xml.node("frame", [&] () {
+
+				gen_opened_sub_menu(
+					xml, "User Passphrase",
+					_controls_security_user_passphrase_hover == Controls_security_user_passphrase_hover::LEAVE_BUTTON,
+					[&] (Xml_generator &xml)
+				{
+					gen_info_line(xml, "pad_1", "");
+					gen_info_line(xml, "inf_1", "The user passphrase cannot be replaced by now.");
+					gen_info_line(xml, "pad_2", "");
+				});
 			});
 		});
 		break;
@@ -2830,28 +2851,30 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 							}
 						});
 					});
-					node_2.with_sub_node("vbox", [&] (Xml_node const &node_3) {
+					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
+							node_4.with_sub_node("vbox", [&] (Xml_node const &node_5) {
 
-							if (node_4.attribute_value("name", String<10>()) == "Snapshots") {
+								if (node_5.attribute_value("name", String<10>()) == "Snapshots") {
 
-								node_4.with_sub_node("float", [&] (Xml_node const &) {
+									node_5.with_sub_node("float", [&] (Xml_node const &) {
 
-									next_hover = Controls_root_hover::SNAPSHOTS_EXPAND_BUTTON;
-								});
-							} else if (node_4.attribute_value("name", String<11>()) == "Dimensions") {
+										next_hover = Controls_root_hover::SNAPSHOTS_EXPAND_BUTTON;
+									});
+								} else if (node_5.attribute_value("name", String<11>()) == "Dimensions") {
 
-								node_4.with_sub_node("float", [&] (Xml_node const &) {
+									node_5.with_sub_node("float", [&] (Xml_node const &) {
 
-									next_hover = Controls_root_hover::DIMENSIONS_EXPAND_BUTTON;
-								});
-							} else if (node_4.attribute_value("name", String<11>()) == "Security") {
+										next_hover = Controls_root_hover::DIMENSIONS_EXPAND_BUTTON;
+									});
+								} else if (node_5.attribute_value("name", String<11>()) == "Security") {
 
-								node_4.with_sub_node("float", [&] (Xml_node const &) {
+									node_5.with_sub_node("float", [&] (Xml_node const &) {
 
-									next_hover = Controls_root_hover::SECURITY_EXPAND_BUTTON;
-								});
-							}
+										next_hover = Controls_root_hover::SECURITY_EXPAND_BUTTON;
+									});
+								}
+							});
 						});
 					});
 				});
@@ -2886,40 +2909,42 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 							}
 						});
 					});
-					node_2.with_sub_node("vbox", [&] (Xml_node const &node_3) {
+					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
-							node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
+							node_4.with_sub_node("vbox", [&] (Xml_node const &node_5) {
+								node_5.with_sub_node("float", [&] (Xml_node const &node_6) {
 
-								if (node_5.attribute_value("name", String<8>()) == "expand") {
+									if (node_6.attribute_value("name", String<8>()) == "expand") {
 
-									next_hover = Controls_snapshots_hover::SNAPSHOTS_EXPAND_BUTTON;
+										next_hover = Controls_snapshots_hover::SNAPSHOTS_EXPAND_BUTTON;
 
-								} else if (node_5.attribute_value("name", String<8>()) == "discard") {
+									} else if (node_6.attribute_value("name", String<8>()) == "discard") {
 
-									next_hover = Controls_snapshots_hover::DISCARD_SNAPSHOT_BUTTON;
+										next_hover = Controls_snapshots_hover::DISCARD_SNAPSHOT_BUTTON;
 
-								} else if (node_5.attribute_value("name", String<9>()) == "create") {
+									} else if (node_6.attribute_value("name", String<9>()) == "create") {
 
-									next_hover = Controls_snapshots_hover::CREATE_SNAPSHOT_BUTTON;
+										next_hover = Controls_snapshots_hover::CREATE_SNAPSHOT_BUTTON;
 
-								} else {
+									} else {
 
-									Generation const generation {
-										node_5.attribute_value(
-											"name", Generation { INVALID_GENERATION }) };
+										Generation const generation {
+											node_6.attribute_value(
+												"name", Generation { INVALID_GENERATION }) };
 
-									if (generation != INVALID_GENERATION) {
+										if (generation != INVALID_GENERATION) {
 
-										_snapshots.for_each([&] (Snapshot const &snap)
-										{
-											if (generation == snap.generation()) {
-												next_snapshots_hover = snap;
-											}
-										});
+											_snapshots.for_each([&] (Snapshot const &snap)
+											{
+												if (generation == snap.generation()) {
+													next_snapshots_hover = snap;
+												}
+											});
+										}
 									}
-								}
+								});
+								
 							});
-							
 						});
 					});
 				});
@@ -2956,24 +2981,26 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 							}
 						});
 					});
-					node_2.with_sub_node("vbox", [&] (Xml_node const &node_3) {
+					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
-							node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
+							node_4.with_sub_node("vbox", [&] (Xml_node const &node_5) {
+								node_5.with_sub_node("float", [&] (Xml_node const &node_6) {
 
-								if (node_5.attribute_value("name", String<8>()) == "expand") {
+									if (node_6.attribute_value("name", String<8>()) == "expand") {
 
-									next_hover = Controls_dimensions_hover::DIMENSIONS_EXPAND_BUTTON;
+										next_hover = Controls_dimensions_hover::DIMENSIONS_EXPAND_BUTTON;
 
-								} else if (node_5.attribute_value("name", String<8>()) == "Start") {
+									} else if (node_6.attribute_value("name", String<8>()) == "Start") {
 
-									next_hover = Controls_dimensions_hover::RESIZING_START_BUTTON;
-								}
-							});
-							node_4.with_sub_node("frame", [&] (Xml_node const &node_5) {
+										next_hover = Controls_dimensions_hover::RESIZING_START_BUTTON;
+									}
+								});
+								node_5.with_sub_node("frame", [&] (Xml_node const &node_6) {
 
-								if (node_5.attribute_value("name", String<8>()) == "blks") {
-									next_hover = Controls_dimensions_hover::RESIZING_NR_OF_BLKS_INPUT;
-								}
+									if (node_6.attribute_value("name", String<8>()) == "blks") {
+										next_hover = Controls_dimensions_hover::RESIZING_NR_OF_BLKS_INPUT;
+									}
+								});
 							});
 						});
 					});
@@ -3005,35 +3032,37 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 							}
 						});
 					});
-					node_2.with_sub_node("vbox", [&] (Xml_node const &node_3) {
-						node_3.with_sub_node("float", [&] (Xml_node const &node_4) {
-
-							if (node_4.attribute_value("name", String<8>()) == "expand") {
-
-								next_hover = Controls_security_hover::SECURITY_EXPAND_BUTTON;
-							}
-						});
+					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
+							node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
 
-							if (node_4.attribute_value("name", String<32>()) == "Block Encryption Key") {
+								if (node_5.attribute_value("name", String<8>()) == "expand") {
 
-								node_4.with_sub_node("float", [&] (Xml_node const &) {
+									next_hover = Controls_security_hover::SECURITY_EXPAND_BUTTON;
+								}
+							});
+							node_4.with_sub_node("vbox", [&] (Xml_node const &node_5) {
 
-									next_hover = Controls_security_hover::BLOCK_ENCRYPTION_KEY_EXPAND_BUTTON;
-								});
-							} else if (node_4.attribute_value("name", String<32>()) == "Master Key") {
+								if (node_5.attribute_value("name", String<32>()) == "Block Encryption Key") {
 
-								node_4.with_sub_node("float", [&] (Xml_node const &) {
+									node_5.with_sub_node("float", [&] (Xml_node const &) {
 
-									next_hover = Controls_security_hover::MASTER_KEY_EXPAND_BUTTON;
-								});
-							} else if (node_4.attribute_value("name", String<32>()) == "User Passphrase") {
+										next_hover = Controls_security_hover::BLOCK_ENCRYPTION_KEY_EXPAND_BUTTON;
+									});
+								} else if (node_5.attribute_value("name", String<32>()) == "Master Key") {
 
-								node_4.with_sub_node("float", [&] (Xml_node const &) {
+									node_5.with_sub_node("float", [&] (Xml_node const &) {
 
-									next_hover = Controls_security_hover::USER_PASSPHRASE_EXPAND_BUTTON;
-								});
-							}
+										next_hover = Controls_security_hover::MASTER_KEY_EXPAND_BUTTON;
+									});
+								} else if (node_5.attribute_value("name", String<32>()) == "User Passphrase") {
+
+									node_5.with_sub_node("float", [&] (Xml_node const &) {
+
+										next_hover = Controls_security_hover::USER_PASSPHRASE_EXPAND_BUTTON;
+									});
+								}
+							});
 						});
 					});
 				});
@@ -3064,20 +3093,22 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 							}
 						});
 					});
-					node_2.with_sub_node("vbox", [&] (Xml_node const &node_3) {
-						node_3.with_sub_node("button", [&] (Xml_node const &node_4) {
+					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
+						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
+							node_4.with_sub_node("button", [&] (Xml_node const &node_5) {
 
-							if (node_4.attribute_value("name", String<8>()) == "Rekey") {
+								if (node_5.attribute_value("name", String<8>()) == "Rekey") {
 
-								next_hover = Controls_security_block_encryption_key_hover::REPLACE_BUTTON;
-							}
-						});
-						node_3.with_sub_node("float", [&] (Xml_node const &node_4) {
+									next_hover = Controls_security_block_encryption_key_hover::REPLACE_BUTTON;
+								}
+							});
+							node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
 
-							if (node_4.attribute_value("name", String<8>()) == "expand") {
+								if (node_5.attribute_value("name", String<8>()) == "expand") {
 
-								next_hover = Controls_security_block_encryption_key_hover::LEAVE_BUTTON;
-							}
+									next_hover = Controls_security_block_encryption_key_hover::LEAVE_BUTTON;
+								}
+							});
 						});
 					});
 				});
@@ -3108,13 +3139,15 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 							}
 						});
 					});
-					node_2.with_sub_node("vbox", [&] (Xml_node const &node_3) {
-						node_3.with_sub_node("float", [&] (Xml_node const &node_4) {
+					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
+						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
+							node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
 
-							if (node_4.attribute_value("name", String<8>()) == "expand") {
+								if (node_5.attribute_value("name", String<8>()) == "expand") {
 
-								next_hover = Controls_security_master_key_hover::LEAVE_BUTTON;
-							}
+									next_hover = Controls_security_master_key_hover::LEAVE_BUTTON;
+								}
+							});
 						});
 					});
 				});
@@ -3145,13 +3178,15 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 							}
 						});
 					});
-					node_2.with_sub_node("vbox", [&] (Xml_node const &node_3) {
-						node_3.with_sub_node("float", [&] (Xml_node const &node_4) {
+					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
+						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
+							node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
 
-							if (node_4.attribute_value("name", String<8>()) == "expand") {
+								if (node_5.attribute_value("name", String<8>()) == "expand") {
 
-								next_hover = Controls_security_user_passphrase_hover::LEAVE_BUTTON;
-							}
+									next_hover = Controls_security_user_passphrase_hover::LEAVE_BUTTON;
+								}
+							});
 						});
 					});
 				});
