@@ -19,7 +19,7 @@
 #include <os/sandbox.h>
 
 /* local includes */
-#include <passphrase.h>
+#include <input.h>
 
 namespace Cbe_manager {
 
@@ -503,9 +503,9 @@ namespace Cbe_manager {
 		});
 	}
 
-	void gen_cbe_init_trust_anchor_start_node(Xml_generator     &xml,
-	                                          Child_state const &child,
-	                                          Passphrase  const &passphrase)
+	void gen_cbe_init_trust_anchor_start_node(Xml_generator          &xml,
+	                                          Child_state      const &child,
+	                                          Input_passphrase const &passphrase)
 	{
 		child.gen_start_node(xml, [&] () {
 

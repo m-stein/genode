@@ -12,8 +12,8 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-#ifndef _PASSPHRASE_H_
-#define _PASSPHRASE_H_
+#ifndef _INPUT_H_
+#define _INPUT_H_
 
 /* Genode includes */
 #include <base/output.h>
@@ -24,45 +24,31 @@
 
 namespace Cbe_manager {
 
-	class Blind_passphrase;
-	class Passphrase;
+	class Input_single_line;
+	class Input_passphrase;
+	class Input_number_of_bytes;
+	class Input_number_of_blocks;
 }
 
 
-class Cbe_manager::Blind_passphrase
-{
-	public:
-
-		virtual void print_bullets(Output &) const = 0;
-
-		virtual ~Blind_passphrase() { }
-
-		void print(Output &out) const { print_bullets(out); }
-};
-
-
-class Cbe_manager::Passphrase : Blind_passphrase
+class Cbe_manager::Input_single_line
 {
 	public:
 
 		enum { MAX_LENGTH = 64 };
 
-	private:
+	protected:
 
 		Codepoint _characters[MAX_LENGTH] { };
 
 		unsigned _length = 0;
 
-	public:
-
-		/**
-		 * Print PSK as UTF-8 string
-		 */
-		void print(Output &out) const
+		void _print_characters(Output &out) const
 		{
 			/*
-			 * XXX duplicated from gems/src/server/terminal/main.cc
+			 * FIXME This was copied from gems/src/server/terminal/main.cc
 			 */
+
 			struct Utf8 { char b0, b1, b2, b3, b4; };
 
 			auto utf8_from_codepoint = [] (unsigned c) {
@@ -97,6 +83,8 @@ class Cbe_manager::Passphrase : Blind_passphrase
 			}
 		}
 
+	public:
+
 		void append_character(Codepoint c)
 		{
 			if (_length < MAX_LENGTH) {
@@ -113,53 +101,7 @@ class Cbe_manager::Passphrase : Blind_passphrase
 			}
 		}
 
-		/**
-		 * Print passphrase as a number of bullets
-		 */
-		void print_bullets(Output &out) const override
-		{
-			char const bullet_utf8[4] = { (char)0xe2, (char)0x80, (char)0xa2, 0 };
-			for (unsigned i = 0; i < _length; i++)
-				Genode::print(out, bullet_utf8);
-		}
-
-		bool suitable() const
-		{
-			return _length >= 8;
-		}
-
-		Number_of_bytes to_nr_of_bytes() const
-		{
-			String<32> const str { *this };
-			Number_of_bytes result { 0 };
-			ascii_to(str.string(), result);
-			return result;
-		}
-
-		unsigned long to_unsigned_long() const
-		{
-			String<32> const str { *this };
-			unsigned long result { 0 };
-			ascii_to(str.string(), result);
-			return result;
-		}
-
-		bool is_nr_of_bytes_greater_than_zero() const
-		{
-			return (size_t)to_nr_of_bytes() > 0;
-		}
-
-		bool is_nr_greater_than_zero() const
-		{
-			return (size_t)to_unsigned_long() > 0;
-		}
-
-		char const *not_suitable_text() const
-		{
-			return "Must have at least 8 characters!";
-		}
-
-		bool equals(Passphrase const &other) const
+		bool equals(Input_single_line const &other) const
 		{
 			if (other._length != _length) {
 				return false;
@@ -171,8 +113,98 @@ class Cbe_manager::Passphrase : Blind_passphrase
 		}
 
 		unsigned length() const { return _length; }
-
-		Blind_passphrase &blind() { return *this; }
 };
 
-#endif /* _PASSPHRASE_H_ */
+
+
+class Cbe_manager::Input_passphrase : public Input_single_line
+{
+	private:
+
+		bool _blind { true };
+
+		void _print_bullets(Output &out) const
+		{
+			char const bullet_utf8[4] {
+				(char)0xe2, (char)0x80, (char)0xa2, 0 };
+
+			for (unsigned i = 0; i < _length; i++)
+				Genode::print(out, bullet_utf8);
+		}
+
+	public:
+
+		bool suitable() const
+		{
+			return _length >= 8;
+		}
+
+		char const *not_suitable_text() const
+		{
+			return "Must have at least 8 characters!";
+		}
+
+		void print(Output &out) const
+		{
+			if (_blind) {
+				_print_bullets(out);
+			} else {
+				_print_characters(out);
+			}
+		}
+
+		void blind(bool value)
+		{
+			_blind = value;
+		}
+};
+
+
+class Cbe_manager::Input_number_of_bytes : public Input_single_line
+{
+	public:
+
+		void print(Output &out) const
+		{
+			_print_characters(out);
+		}
+
+		Number_of_bytes to_nr_of_bytes() const
+		{
+			String<32> const str { *this };
+			Number_of_bytes result { 0 };
+			ascii_to(str.string(), result);
+			return result;
+		}
+
+		bool is_nr_of_bytes_greater_than_zero() const
+		{
+			return (size_t)to_nr_of_bytes() > 0;
+		}
+};
+
+
+class Cbe_manager::Input_number_of_blocks : public Input_single_line
+{
+	public:
+
+		void print(Output &out) const
+		{
+			_print_characters(out);
+		}
+
+		unsigned long to_unsigned_long() const
+		{
+			String<32> const str { *this };
+			unsigned long result { 0 };
+			ascii_to(str.string(), result);
+			return result;
+		}
+
+		bool is_nr_greater_than_zero() const
+		{
+			return (size_t)to_unsigned_long() > 0;
+		}
+};
+
+#endif /* _INPUT_H_ */

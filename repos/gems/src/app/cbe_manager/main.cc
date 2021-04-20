@@ -29,7 +29,7 @@
 #include <new_file.h>
 #include <child_state.h>
 #include <sandbox.h>
-#include <passphrase.h>
+#include <input.h>
 #include <utf8.h>
 #include <child_exit_state.h>
 #include <menu_view_dialog.h>
@@ -291,9 +291,9 @@ class Cbe_manager::Main
 		Signal_handler<Main>                   _config_handler                     { _env.ep(), *this, &Main::_handle_config };
 		Signal_handler<Main>                   _state_handler                      { _env.ep(), *this, &Main::_handle_state };
 		Dynamic_rom_session                    _dialog                             { _env.ep(), _env.ram(), _env.rm(), *this };
-		Passphrase                             _setup_obtain_params_passphrase_1   { };
-		Passphrase                             _setup_obtain_params_passphrase_2   { };
-		Passphrase                             _setup_obtain_params_size           { };
+		Input_passphrase                       _setup_obtain_params_passphrase_1   { };
+		Input_passphrase                       _setup_obtain_params_passphrase_2   { };
+		Input_number_of_bytes                  _setup_obtain_params_size           { };
 		Setup_obtain_params_hover              _setup_obtain_params_hover          { Setup_obtain_params_hover::NONE };
 		Setup_obtain_params_select             _setup_obtain_params_select         { Setup_obtain_params_select::PASSPHRASE_1_INPUT };
 		Controls_root_hover                    _controls_root_hover                { Controls_root_select::NONE };
@@ -313,7 +313,7 @@ class Cbe_manager::Main
 		Controls_security_user_passphrase_select       _controls_security_user_passphrase_select      { Controls_security_user_passphrase_hover::NONE };
 
 		Resizing_state                         _resizing_state                     { Resizing_state::INACTIVE };
-		Passphrase                             _resizing_nr_of_blks                { };
+		Input_number_of_blocks                 _resizing_nr_of_blks                { };
 		Rekeying_state                         _rekeying_state                     { Rekeying_state::INACTIVE };
 		Create_snapshot_state                  _create_snap_state                  { Create_snapshot_state::INACTIVE };
 		Discard_snapshot_state                 _discard_snap_state                 { Discard_snapshot_state::INACTIVE };
@@ -646,7 +646,7 @@ void Main::_handle_resizing_fs_query_listing(Xml_node const &node)
 
 			if (cbe_control_file_yields_state_idle(node, "extend")) {
 
-				_resizing_nr_of_blks = Passphrase { };
+				_resizing_nr_of_blks = Input_number_of_blocks { };
 				_resizing_state = Resizing_state::INACTIVE;
 				Signal_transmitter(_state_handler).submit();
 			}
@@ -912,7 +912,7 @@ void Cbe_manager::Main::handle_sandbox_state()
 
 					_state = State::STARTUP_OBTAIN_PARAMETERS;
 					_startup_failed = true;
-					_setup_obtain_params_passphrase_1 = Passphrase { };
+					_setup_obtain_params_passphrase_1 = Input_passphrase { };
 					_setup_obtain_params_select = Setup_obtain_params_select::PASSPHRASE_1_INPUT;
 					update_dialog = true;
 					update_sandbox = true;
@@ -1081,12 +1081,12 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 			bool gen_start_button { true };
 			gen_titled_text_input(
 				xml, "pw1", "Enter passphrase twice",
-				_setup_obtain_params_passphrase_1.blind(),
+				_setup_obtain_params_passphrase_1,
 				_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_1_INPUT);
 
 			gen_text_input(
 				xml, "pw2",
-				_setup_obtain_params_passphrase_2.blind(),
+				_setup_obtain_params_passphrase_2,
 				_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_2_INPUT);
 
 			if (!_setup_obtain_params_passphrase_1.suitable()) {
@@ -1139,7 +1139,7 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 			bool gen_start_button { true };
 			gen_titled_text_input(
 				xml, "pw1", "Trust anchor passphrase",
-				_setup_obtain_params_passphrase_1.blind(),
+				_setup_obtain_params_passphrase_1,
 				_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_1_INPUT);
 
 			if (!_setup_obtain_params_passphrase_1.suitable()) {
