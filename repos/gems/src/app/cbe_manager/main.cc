@@ -51,6 +51,7 @@ class Cbe_manager::Main
 	private:
 
 		enum {
+			MIN_CBE_IMAGE_SIZE = 96 * 1024 + 1,
 			STATE_STRING_CAPACITY = 3,
 			CBE_BLOCK_SIZE = 4096,
 			MAIN_FRAME_WIDTH = 40,
@@ -1096,10 +1097,13 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 				_setup_obtain_params_size,
 				_setup_obtain_params_select == Setup_obtain_params_select::SIZE_INPUT);
 
-			if (!_setup_obtain_params_size.is_nr_of_bytes_greater_than_zero()) {
+			if (!_setup_obtain_params_size.is_nr_of_bytes_greater_than(MIN_CBE_IMAGE_SIZE - 1)) {
 
 				gen_start_button = false;
-				gen_info_line(xml, "info_2", "Must be a number greater than 0");
+				gen_info_line(xml, "info_2",
+					String<128> {
+						"Must be greater than ",
+						Number_of_bytes { MIN_CBE_IMAGE_SIZE - 1 } }.string());
 
 			} else {
 
@@ -2043,7 +2047,7 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 
 			} else if (key == Input::KEY_ENTER) {
 
-				if (_setup_obtain_params_size.is_nr_of_bytes_greater_than_zero() &&
+				if (_setup_obtain_params_size.is_nr_of_bytes_greater_than(MIN_CBE_IMAGE_SIZE - 1) &&
 				    _setup_obtain_params_passphrase.suitable() &&
 				    _setup_obtain_params_select != Setup_obtain_params_select::START_BUTTON) {
 
@@ -2114,7 +2118,7 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 
 				case Setup_obtain_params_select::START_BUTTON:
 
-					if(_setup_obtain_params_size.is_nr_of_bytes_greater_than_zero() &&
+					if(_setup_obtain_params_size.is_nr_of_bytes_greater_than(MIN_CBE_IMAGE_SIZE - 1) &&
 					   _setup_obtain_params_passphrase.suitable()) {
 
 						_setup_obtain_params_select = Setup_obtain_params_select::NONE;

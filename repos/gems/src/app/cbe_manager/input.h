@@ -193,9 +193,9 @@ class Cbe_manager::Input_number_of_bytes : public Input_single_line
 			return result;
 		}
 
-		bool is_nr_of_bytes_greater_than_zero() const
+		bool is_nr_of_bytes_greater_than(Number_of_bytes min_nr_of_bytes) const
 		{
-			return (size_t)to_nr_of_bytes() > 0;
+			return (size_t)to_nr_of_bytes() > min_nr_of_bytes;
 		}
 
 		bool appendable_character(Codepoint code)
