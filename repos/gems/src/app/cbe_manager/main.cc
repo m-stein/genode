@@ -2068,7 +2068,7 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 
 				if (_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_INPUT) {
 
-					if (codepoint_is_printable(code)) {
+					if (_setup_obtain_params_passphrase.appendable_character(code)) {
 
 						_setup_obtain_params_passphrase.append_character(code);
 						update_dialog = true;
@@ -2081,7 +2081,7 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 
 				} else if (_setup_obtain_params_select == Setup_obtain_params_select::SIZE_INPUT) {
 
-					if (codepoint_is_printable(code)) {
+					if (_setup_obtain_params_size.appendable_character(code)) {
 
 						_setup_obtain_params_size.append_character(code);
 						update_dialog = true;
@@ -2203,7 +2203,7 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 
 				if (_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_INPUT) {
 
-					if (codepoint_is_printable(code)) {
+					if (_setup_obtain_params_passphrase.appendable_character(code)) {
 
 						_setup_obtain_params_passphrase.append_character(code);
 						update_dialog = true;
@@ -2463,7 +2463,7 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 
 				if (_controls_dimensions_select == Controls_dimensions_select::RESIZING_NR_OF_BLKS_INPUT) {
 
-					if (codepoint_is_printable(code)) {
+					if (_resizing_nr_of_blks.appendable_character(code)) {
 
 						_resizing_nr_of_blks.append_character(code);
 						update_dialog = true;

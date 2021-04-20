@@ -162,6 +162,17 @@ class Cbe_manager::Input_passphrase : public Input_single_line
 		{
 			return _hide;
 		}
+
+		bool appendable_character(Codepoint code)
+		{
+			if (!code.valid()) {
+				return false;
+			}
+			bool const is_printable {
+				code.value >= 0x20 && code.value < 0xf000 };
+
+			return is_printable;
+		}
 };
 
 
@@ -186,6 +197,20 @@ class Cbe_manager::Input_number_of_bytes : public Input_single_line
 		{
 			return (size_t)to_nr_of_bytes() > 0;
 		}
+
+		bool appendable_character(Codepoint code)
+		{
+			if (!code.valid()) {
+				return false;
+			}
+			bool const is_number {
+				code.value >= 48 && code.value <= 57 };
+
+			bool const is_unit_prefix {
+				code.value == 71 || code.value == 75 || code.value == 77 };
+
+			return is_number || is_unit_prefix;
+		}
 };
 
 
@@ -209,6 +234,17 @@ class Cbe_manager::Input_number_of_blocks : public Input_single_line
 		bool is_nr_greater_than_zero() const
 		{
 			return (size_t)to_unsigned_long() > 0;
+		}
+
+		bool appendable_character(Codepoint code)
+		{
+			if (!code.valid()) {
+				return false;
+			}
+			bool const is_number {
+				code.value >= 48 && code.value <= 57 };
+
+			return is_number;
 		}
 };
 

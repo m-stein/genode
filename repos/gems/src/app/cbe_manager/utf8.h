@@ -27,24 +27,6 @@ namespace Cbe_manager {
 		CODEPOINT_BACKSPACE = 8,
 		CODEPOINT_TAB       = 9,
 	};
-
-	bool codepoint_is_printable(Codepoint code)
-	{
-		if (!code.valid()) {
-			return false;
-		}
-		return code.value >= 0x20 &&
-		       code.value < 0xf000;
-	}
-
-	bool codepoint_is_printable_number(Codepoint code)
-	{
-		if (!code.valid()) {
-			return false;
-		}
-		return code.value >= 0x30 &&
-		       code.value < 0x40;
-	}
 }
 
 #endif /* _UTF8_H_ */
