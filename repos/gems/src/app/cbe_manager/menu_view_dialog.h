@@ -19,6 +19,7 @@
 
 /* local includes */
 #include <types.h>
+#include <input.h>
 
 namespace Cbe_manager {
 
@@ -130,11 +131,18 @@ namespace Cbe_manager {
 		});
 	}
 
+	void gen_input_passphrase(Xml_generator          &xml,
+	                          Input_passphrase const &passphrase,
+	                          bool                    input_selected,
+	                          bool                    show_hide_button_hovered,
+	                          bool                    show_hide_button_selected);
+
 	void gen_action_button(Xml_generator &xml,
 	                       char const    *name,
 	                       char const    *label,
 	                       bool           hovered,
-	                       bool           selected);
+	                       bool           selected,
+	                       size_t         min_ex = 0);
 }
 
 #endif /* _MENU_VIEW_DIALOG_H_ */

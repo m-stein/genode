@@ -121,7 +121,7 @@ class Cbe_manager::Input_passphrase : public Input_single_line
 {
 	private:
 
-		bool _blind { true };
+		bool _hide { true };
 
 		void _print_bullets(Output &out) const
 		{
@@ -146,16 +146,21 @@ class Cbe_manager::Input_passphrase : public Input_single_line
 
 		void print(Output &out) const
 		{
-			if (_blind) {
+			if (_hide) {
 				_print_bullets(out);
 			} else {
 				_print_characters(out);
 			}
 		}
 
-		void blind(bool value)
+		void hide(bool value)
 		{
-			_blind = value;
+			_hide = value;
+		}
+
+		bool hide() const
+		{
+			return _hide;
 		}
 };
 

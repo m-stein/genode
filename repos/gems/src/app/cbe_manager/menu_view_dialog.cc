@@ -100,7 +100,8 @@ void Cbe_manager::gen_action_button(Xml_generator &xml,
                                     char const    *name,
                                     char const    *label,
                                     bool           hovered,
-                                    bool           selected)
+                                    bool           selected,
+                                    size_t         min_ex)
 {
 	xml.node("button", [&] () {
 		xml.attribute("name", name);
@@ -112,6 +113,10 @@ void Cbe_manager::gen_action_button(Xml_generator &xml,
 			xml.attribute("selected", "yes");
 		}
 		xml.node("label", [&] () {
+
+			if (min_ex != 0) {
+				xml.attribute("min_ex", min_ex);
+			}
 			xml.attribute("text", label);
 		});
 	});
@@ -138,6 +143,65 @@ void Cbe_manager::gen_text_input(Xml_generator     &xml,
 					});
 				}
 			});
+		});
+	});
+}
+
+void Cbe_manager::gen_input_passphrase(Xml_generator          &xml,
+                                       Input_passphrase const &passphrase,
+                                       bool                    input_selected,
+                                       bool                    show_hide_button_hovered,
+                                       bool                    show_hide_button_selected)
+{
+	char const *show_hide_button_label;
+	size_t cursor_at;
+	if (passphrase.hide()) {
+
+		show_hide_button_label = "Show";
+		cursor_at = passphrase.length() + 1;
+
+	} else {
+
+		show_hide_button_label = "Hide";
+		cursor_at = passphrase.length() + 1;
+	}
+	xml.node("float", [&] () {
+		xml.attribute("name", "Passphrase Label");
+		xml.attribute("west", "yes");
+
+		xml.node("label", [&] () {
+			gen_normal_font_attribute(xml);
+			xml.attribute("text", " Passphrase: ");
+		});
+	});
+	xml.node("hbox", [&] () {
+
+		String<256> const padded_text { " ", passphrase, " " };
+		xml.node("frame", [&] () {
+			xml.attribute("name", "Passphrase");
+			xml.node("float", [&] () {
+				xml.attribute("west", "yes");
+				xml.node("label", [&] () {
+					xml.attribute("min_ex", "41");
+					gen_normal_font_attribute(xml);
+					xml.attribute("text", padded_text);
+
+
+					if (input_selected) {
+						xml.node("cursor", [&] () {
+							xml.attribute("at", cursor_at );
+						});
+					}
+				});
+			});
+		});
+		xml.node("float", [&] () {
+			xml.attribute("name", "1");
+			xml.attribute("east", "yes");
+
+			gen_action_button(
+				xml, "Show Hide", show_hide_button_label, show_hide_button_hovered,
+				show_hide_button_selected, 5);
 		});
 	});
 }

@@ -86,6 +86,7 @@ class Cbe_manager::Main
 		{
 			NONE,
 			PASSPHRASE_INPUT,
+			PASSPHRASE_SHOW_HIDE_BUTTON,
 			SIZE_INPUT,
 			START_BUTTON
 		};
@@ -94,6 +95,7 @@ class Cbe_manager::Main
 		{
 			NONE,
 			PASSPHRASE_INPUT,
+			PASSPHRASE_SHOW_HIDE_BUTTON,
 			SIZE_INPUT,
 			START_BUTTON
 		};
@@ -1076,10 +1078,12 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 		gen_titled_frame(xml, "1", _setup_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
 			bool gen_start_button { true };
-			gen_titled_text_input(
-				xml, "pw", "Enter passphrase twice",
+			gen_input_passphrase(
+				xml,
 				_setup_obtain_params_passphrase,
-				_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_INPUT);
+				_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_INPUT,
+				_setup_obtain_params_hover == Setup_obtain_params_hover::PASSPHRASE_SHOW_HIDE_BUTTON,
+				_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_SHOW_HIDE_BUTTON);
 
 			if (!_setup_obtain_params_passphrase.suitable()) {
 
@@ -1124,10 +1128,12 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 				gen_info_line(xml, "pad_1", "");
 			}
 			bool gen_start_button { true };
-			gen_titled_text_input(
-				xml, "pw", "Trust anchor passphrase",
+			gen_input_passphrase(
+				xml,
 				_setup_obtain_params_passphrase,
-				_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_INPUT);
+				_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_INPUT,
+				_setup_obtain_params_hover == Setup_obtain_params_hover::PASSPHRASE_SHOW_HIDE_BUTTON,
+				_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_SHOW_HIDE_BUTTON);
 
 			if (!_setup_obtain_params_passphrase.suitable()) {
 
@@ -2009,6 +2015,11 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 					next_select = Setup_obtain_params_select::START_BUTTON;
 					break;
 
+				case Setup_obtain_params_hover::PASSPHRASE_SHOW_HIDE_BUTTON:
+
+					next_select = Setup_obtain_params_select::PASSPHRASE_SHOW_HIDE_BUTTON;
+					break;
+
 				case Setup_obtain_params_hover::PASSPHRASE_INPUT:
 
 					next_select = Setup_obtain_params_select::PASSPHRASE_INPUT;
@@ -2089,31 +2100,50 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 			if (key == Input::BTN_LEFT ||
 			    key == Input::KEY_ENTER) {
 
-				if (_setup_obtain_params_size.is_nr_of_bytes_greater_than_zero() &&
-				    _setup_obtain_params_passphrase.suitable() &&
-				    _setup_obtain_params_select == Setup_obtain_params_select::START_BUTTON) {
+				switch (_setup_obtain_params_select) {
+				case Setup_obtain_params_select::PASSPHRASE_SHOW_HIDE_BUTTON:
 
-					_setup_obtain_params_select = Setup_obtain_params_select::NONE;
-					_state = State::SETUP_CREATE_CBE_IMAGE_FILE;
-
-					_update_sandbox_config();
-					_dialog.trigger_update();
-
-					_vfs_create_zero_filled_file(
-						_vfs, _heap, Directory::Path { "/cbe/cbe.img" },
-						CBE_BLOCK_SIZE,
-						_cbe_nr_of_blocks(
-							INIT_CBE_NR_OF_SUPERBLOCKS,
-							INIT_CBE_NR_OF_LEVELS,
-							INIT_CBE_NR_OF_CHILDREN,
-							_init_cbe_nr_of_leafs(),
-							INIT_CBE_NR_OF_LEVELS,
-							INIT_CBE_NR_OF_CHILDREN,
-							_init_cbe_nr_of_leafs()));
-
-					_state = State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR;
-					update_sandbox_config = true;
+					if (_setup_obtain_params_passphrase.hide()) {
+						_setup_obtain_params_passphrase.hide(false);
+					} else {
+						_setup_obtain_params_passphrase.hide(true);
+					}
+					_setup_obtain_params_select = Setup_obtain_params_select::PASSPHRASE_INPUT;
 					update_dialog = true;
+					break;
+
+				case Setup_obtain_params_select::START_BUTTON:
+
+					if(_setup_obtain_params_size.is_nr_of_bytes_greater_than_zero() &&
+					   _setup_obtain_params_passphrase.suitable()) {
+
+						_setup_obtain_params_select = Setup_obtain_params_select::NONE;
+						_state = State::SETUP_CREATE_CBE_IMAGE_FILE;
+
+						_update_sandbox_config();
+						_dialog.trigger_update();
+
+						_vfs_create_zero_filled_file(
+							_vfs, _heap, Directory::Path { "/cbe/cbe.img" },
+							CBE_BLOCK_SIZE,
+							_cbe_nr_of_blocks(
+								INIT_CBE_NR_OF_SUPERBLOCKS,
+								INIT_CBE_NR_OF_LEVELS,
+								INIT_CBE_NR_OF_CHILDREN,
+								_init_cbe_nr_of_leafs(),
+								INIT_CBE_NR_OF_LEVELS,
+								INIT_CBE_NR_OF_CHILDREN,
+								_init_cbe_nr_of_leafs()));
+
+						_state = State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR;
+						update_sandbox_config = true;
+						update_dialog = true;
+					}
+					break;
+
+				default:
+
+					break;
 				}
 			}
 		});
@@ -2129,6 +2159,11 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 				Setup_obtain_params_select       next_select { Setup_obtain_params_select::NONE };
 
 				switch (_setup_obtain_params_hover) {
+				case Setup_obtain_params_hover::PASSPHRASE_SHOW_HIDE_BUTTON:
+
+					next_select = Setup_obtain_params_select::PASSPHRASE_SHOW_HIDE_BUTTON;
+					break;
+
 				case Setup_obtain_params_hover::START_BUTTON:
 
 					next_select = Setup_obtain_params_select::START_BUTTON;
@@ -2186,13 +2221,32 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 			if (key == Input::BTN_LEFT ||
 			    key == Input::KEY_ENTER) {
 
-				if (_setup_obtain_params_passphrase.suitable() &&
-				    _setup_obtain_params_select == Setup_obtain_params_select::START_BUTTON) {
+				switch (_setup_obtain_params_select) {
+				case Setup_obtain_params_select::PASSPHRASE_SHOW_HIDE_BUTTON:
 
-					_setup_obtain_params_select = Setup_obtain_params_select::NONE;
-					_state = State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR;
-					update_sandbox_config = true;
+					if (_setup_obtain_params_passphrase.hide()) {
+						_setup_obtain_params_passphrase.hide(false);
+					} else {
+						_setup_obtain_params_passphrase.hide(true);
+					}
+					_setup_obtain_params_select = Setup_obtain_params_select::PASSPHRASE_INPUT;
 					update_dialog = true;
+					break;
+
+				case Setup_obtain_params_select::START_BUTTON:
+
+					if (_setup_obtain_params_passphrase.suitable()) {
+
+						_setup_obtain_params_select = Setup_obtain_params_select::NONE;
+						_state = State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR;
+						update_sandbox_config = true;
+						update_dialog = true;
+					}
+					break;
+
+				default:
+
+					break;
 				}
 			}
 		});
@@ -2737,13 +2791,25 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 							next_hover = Setup_obtain_params_hover::START_BUTTON;
 						}
 					});
+					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
+						node_3.with_sub_node("frame", [&] (Xml_node const &node_4) {
 
+							if (node_4.attribute_value("name", String<32>()) == "Passphrase") {
+								next_hover = Setup_obtain_params_hover::PASSPHRASE_INPUT;
+							}
+						});
+						node_3.with_sub_node("float", [&] (Xml_node const &node_4) {
+							node_4.with_sub_node("button", [&] (Xml_node const &node_5) {
+
+								if (node_5.attribute_value("name", String<32>()) == "Show Hide") {
+									next_hover = Setup_obtain_params_hover::PASSPHRASE_SHOW_HIDE_BUTTON;
+								}
+							});
+						});
+					});
 					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
 
-						if (node_3.attribute_value("name", String<4>()) == "pw") {
-							next_hover = Setup_obtain_params_hover::PASSPHRASE_INPUT;
-
-						} else if (node_3.attribute_value("name", String<4>()) == "sz") {
+						if (node_3.attribute_value("name", String<4>()) == "sz") {
 							next_hover = Setup_obtain_params_hover::SIZE_INPUT;
 						}
 					});
@@ -2771,11 +2837,21 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 							next_hover = Setup_obtain_params_hover::START_BUTTON;
 						}
 					});
+					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
+						node_3.with_sub_node("frame", [&] (Xml_node const &node_4) {
 
-					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
-						if (node_3.attribute_value("name", String<4>()) == "pw") {
-							next_hover = Setup_obtain_params_hover::PASSPHRASE_INPUT;
-						}
+							if (node_4.attribute_value("name", String<32>()) == "Passphrase") {
+								next_hover = Setup_obtain_params_hover::PASSPHRASE_INPUT;
+							}
+						});
+						node_3.with_sub_node("float", [&] (Xml_node const &node_4) {
+							node_4.with_sub_node("button", [&] (Xml_node const &node_5) {
+
+								if (node_5.attribute_value("name", String<32>()) == "Show Hide") {
+									next_hover = Setup_obtain_params_hover::PASSPHRASE_SHOW_HIDE_BUTTON;
+								}
+							});
+						});
 					});
 				});
 			});
