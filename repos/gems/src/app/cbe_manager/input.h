@@ -185,17 +185,12 @@ class Cbe_manager::Input_number_of_bytes : public Input_single_line
 			_print_characters(out);
 		}
 
-		Number_of_bytes to_nr_of_bytes() const
+		size_t value() const
 		{
 			String<32> const str { *this };
 			Number_of_bytes result { 0 };
 			ascii_to(str.string(), result);
 			return result;
-		}
-
-		bool is_nr_of_bytes_greater_than(Number_of_bytes min_nr_of_bytes) const
-		{
-			return (size_t)to_nr_of_bytes() > min_nr_of_bytes;
 		}
 
 		bool appendable_character(Codepoint code)

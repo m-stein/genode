@@ -51,13 +51,15 @@ class Cbe_manager::Main
 	private:
 
 		enum {
-			MIN_CBE_IMAGE_SIZE = 96 * 1024 + 1,
+			MIN_CLIENT_FS_SIZE = 100 * 1024,
 			STATE_STRING_CAPACITY = 3,
 			CBE_BLOCK_SIZE = 4096,
 			MAIN_FRAME_WIDTH = 40,
-			INIT_CBE_NR_OF_LEVELS = 6,
-			INIT_CBE_NR_OF_CHILDREN = 64,
-			INIT_CBE_NR_OF_SUPERBLOCKS = 8,
+			CBE_VBD_TREE_NR_OF_LEVELS = 6,
+			CBE_VBD_TREE_NR_OF_CHILDREN = 64,
+			CBE_FREE_TREE_NR_OF_LEVELS = 6,
+			CBE_FREE_TREE_NR_OF_CHILDREN = 64,
+			CBE_NR_OF_SUPERBLOCKS = 8,
 		};
 
 		enum class State
@@ -88,7 +90,8 @@ class Cbe_manager::Main
 			NONE,
 			PASSPHRASE_INPUT,
 			PASSPHRASE_SHOW_HIDE_BUTTON,
-			SIZE_INPUT,
+			CLIENT_FS_SIZE_INPUT,
+			SNAPSHOT_BUFFER_SIZE_INPUT,
 			START_BUTTON
 		};
 
@@ -97,7 +100,8 @@ class Cbe_manager::Main
 			NONE,
 			PASSPHRASE_INPUT,
 			PASSPHRASE_SHOW_HIDE_BUTTON,
-			SIZE_INPUT,
+			CLIENT_FS_SIZE_INPUT,
+			SNAPSHOT_BUFFER_SIZE_INPUT,
 			START_BUTTON
 		};
 
@@ -294,7 +298,8 @@ class Cbe_manager::Main
 		Signal_handler<Main>                   _state_handler                      { _env.ep(), *this, &Main::_handle_state };
 		Dynamic_rom_session                    _dialog                             { _env.ep(), _env.ram(), _env.rm(), *this };
 		Input_passphrase                       _setup_obtain_params_passphrase     { };
-		Input_number_of_bytes                  _setup_obtain_params_size           { };
+		Input_number_of_bytes                  _client_fs_size_input               { };
+		Input_number_of_bytes                  _snapshot_buf_size_input            { };
 		Setup_obtain_params_hover              _setup_obtain_params_hover          { Setup_obtain_params_hover::NONE };
 		Setup_obtain_params_select             _setup_obtain_params_select         { Setup_obtain_params_select::PASSPHRASE_INPUT };
 		Controls_root_hover                    _controls_root_hover                { Controls_root_select::NONE };
@@ -325,6 +330,15 @@ class Cbe_manager::Main
 		bool                                   _snapshots_expanded                 { false };
 		bool                                   _dimensions_expanded                { false };
 		bool                                   _startup_failed                     { false };
+
+		size_t _min_snapshot_buf_size() const
+		{
+			size_t result { _client_fs_size_input.value() >> 8 };
+			if (result < MIN_CLIENT_FS_SIZE) {
+				result = MIN_CLIENT_FS_SIZE;
+			}
+			return result;
+		}
 
 		template <typename FUNCTOR>
 		static void _if_child_exited(Xml_node    const &sandbox_state,
@@ -372,7 +386,7 @@ class Cbe_manager::Main
 
 		void _update_sandbox_config();
 
-		size_t _init_cbe_nr_of_leafs() const;
+		static size_t _cbe_tree_nr_of_leaves(size_t payload_size);
 
 
 		static size_t _tree_nr_of_blocks(size_t nr_of_lvls,
@@ -1042,6 +1056,7 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 		gen_titled_frame(xml, "1", _setup_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
 			bool gen_start_button { true };
+			bool gen_image_size_info { true };
 			gen_input_passphrase(
 				xml,
 				_setup_obtain_params_passphrase,
@@ -1056,25 +1071,43 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 			}
 			gen_info_line(xml, "pad_1", "");
 			gen_titled_text_input(
-				xml, "sz", "Size in bytes (suffixes K, M, G)",
-				_setup_obtain_params_size,
-				_setup_obtain_params_select == Setup_obtain_params_select::SIZE_INPUT);
+				xml, "Client FS Size", "Client FS size (use K, M, G)",
+				_client_fs_size_input,
+				_setup_obtain_params_select == Setup_obtain_params_select::CLIENT_FS_SIZE_INPUT);
 
-			if (!_setup_obtain_params_size.is_nr_of_bytes_greater_than(MIN_CBE_IMAGE_SIZE - 1)) {
+			if (_client_fs_size_input.value() < MIN_CLIENT_FS_SIZE) {
 
+				gen_image_size_info = false;
 				gen_start_button = false;
 				gen_info_line(xml, "info_2",
 					String<128> {
-						"Must be greater than ",
-						Number_of_bytes { MIN_CBE_IMAGE_SIZE - 1 } }.string());
+						"Must be at least ",
+						Number_of_bytes { MIN_CLIENT_FS_SIZE } }.string());
 
-			} else {
-
-				gen_info_line(
-					xml, "info_2",
-					String<256> { "Image size will be ", _cbe_size()}.string());
 			}
 			gen_info_line(xml, "pad_2", "");
+			gen_titled_text_input(
+				xml, "Snap Buf Size", "Snapshot buffer size (use K, M, G)",
+				_snapshot_buf_size_input,
+				_setup_obtain_params_select == Setup_obtain_params_select::SNAPSHOT_BUFFER_SIZE_INPUT);
+
+			if (_snapshot_buf_size_input.value() < _min_snapshot_buf_size()) {
+
+				gen_image_size_info = false;
+				gen_start_button = false;
+				gen_info_line(xml, "info_3",
+					String<128> {
+						"Must be at least ",
+						Number_of_bytes { _min_snapshot_buf_size() } }.string());
+			}
+			if (gen_image_size_info) {
+
+				gen_info_line(xml, "pad_3", "");
+				gen_info_line(
+					xml, "info_4",
+					String<256> { "Image size will be ", _cbe_size()}.string());
+			}
+			gen_info_line(xml, "pad_4", "");
 			if (gen_start_button) {
 
 				gen_action_button_at_bottom(
@@ -1667,14 +1700,13 @@ void Cbe_manager::Main::wakeup_local_service()
 }
 
 
-size_t Main::_init_cbe_nr_of_leafs() const
+size_t Main::_cbe_tree_nr_of_leaves(size_t payload_size)
 {
-	size_t const size { _setup_obtain_params_size.to_nr_of_bytes() };
-	size_t nr_of_leafs { size / CBE_BLOCK_SIZE };
-	if (size % CBE_BLOCK_SIZE) {
-		nr_of_leafs++;
+	size_t nr_of_leaves { payload_size / CBE_BLOCK_SIZE };
+	if (payload_size % CBE_BLOCK_SIZE) {
+		nr_of_leaves++;
 	}
-	return nr_of_leafs;
+	return nr_of_leaves;
 }
 
 
@@ -1738,28 +1770,33 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 			xml, _new_empty_file, "/cbe/cbe.img",
 			CBE_BLOCK_SIZE *
 				_cbe_nr_of_blocks(
-					INIT_CBE_NR_OF_SUPERBLOCKS,
-					INIT_CBE_NR_OF_LEVELS,
-					INIT_CBE_NR_OF_CHILDREN,
-					_init_cbe_nr_of_leafs(),
-					INIT_CBE_NR_OF_LEVELS,
-					INIT_CBE_NR_OF_CHILDREN,
-					_init_cbe_nr_of_leafs()));
+					CBE_NR_OF_SUPERBLOCKS,
+					CBE_VBD_TREE_NR_OF_LEVELS,
+					CBE_VBD_TREE_NR_OF_CHILDREN,
+					_cbe_tree_nr_of_leaves(_client_fs_size_input.value()),
+					CBE_FREE_TREE_NR_OF_LEVELS,
+					CBE_FREE_TREE_NR_OF_CHILDREN,
+					_cbe_tree_nr_of_leaves(_snapshot_buf_size_input.value())));
 
 		break;
 
 	case State::SETUP_RUN_CBE_INIT:
 	{
-		Tree_geometry const tree_geom {
-			INIT_CBE_NR_OF_LEVELS,
-			INIT_CBE_NR_OF_CHILDREN,
-			_init_cbe_nr_of_leafs() };
+		Tree_geometry const vbd_tree_geom {
+			CBE_VBD_TREE_NR_OF_LEVELS,
+			CBE_VBD_TREE_NR_OF_CHILDREN,
+			_cbe_tree_nr_of_leaves(_client_fs_size_input.value()) };
+
+		Tree_geometry const free_tree_geom {
+			CBE_VBD_TREE_NR_OF_LEVELS,
+			CBE_VBD_TREE_NR_OF_CHILDREN,
+			_cbe_tree_nr_of_leaves(_snapshot_buf_size_input.value()) };
 
 		gen_parent_provides_and_report_nodes(xml);
 		gen_menu_view_start_node(xml, _menu_view);
 		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs);
 		gen_cbe_image_vfs_block_start_node(xml, _cbe_image_vfs_block);
-		gen_cbe_init_start_node(xml, _cbe_init, tree_geom, tree_geom);
+		gen_cbe_init_start_node(xml, _cbe_init, vbd_tree_geom, free_tree_geom);
 		break;
 	}
 	case State::SETUP_START_CBE_VFS:
@@ -1917,13 +1954,13 @@ Number_of_bytes Main::_cbe_size() const
 	return
 		Number_of_bytes {
 			_cbe_nr_of_blocks(
-				INIT_CBE_NR_OF_SUPERBLOCKS,
-				INIT_CBE_NR_OF_LEVELS,
-				INIT_CBE_NR_OF_CHILDREN,
-				_init_cbe_nr_of_leafs(),
-				INIT_CBE_NR_OF_LEVELS,
-				INIT_CBE_NR_OF_CHILDREN,
-				_init_cbe_nr_of_leafs())
+				CBE_NR_OF_SUPERBLOCKS,
+				CBE_VBD_TREE_NR_OF_LEVELS,
+				CBE_VBD_TREE_NR_OF_CHILDREN,
+				_cbe_tree_nr_of_leaves(_client_fs_size_input.value()),
+				CBE_FREE_TREE_NR_OF_LEVELS,
+				CBE_FREE_TREE_NR_OF_CHILDREN,
+				_cbe_tree_nr_of_leaves(_snapshot_buf_size_input.value()))
 			* CBE_BLOCK_SIZE };
 }
 
@@ -2004,9 +2041,14 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 					next_select = Setup_obtain_params_select::PASSPHRASE_INPUT;
 					break;
 
-				case Setup_obtain_params_hover::SIZE_INPUT:
+				case Setup_obtain_params_hover::CLIENT_FS_SIZE_INPUT:
 
-					next_select = Setup_obtain_params_select::SIZE_INPUT;
+					next_select = Setup_obtain_params_select::CLIENT_FS_SIZE_INPUT;
+					break;
+
+				case Setup_obtain_params_hover::SNAPSHOT_BUFFER_SIZE_INPUT:
+
+					next_select = Setup_obtain_params_select::SNAPSHOT_BUFFER_SIZE_INPUT;
 					break;
 
 				case Setup_obtain_params_hover::NONE:
@@ -2022,7 +2064,8 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 
 			} else if (key == Input::KEY_ENTER) {
 
-				if (_setup_obtain_params_size.is_nr_of_bytes_greater_than(MIN_CBE_IMAGE_SIZE - 1) &&
+				if (_client_fs_size_input.value() >= MIN_CLIENT_FS_SIZE &&
+				    _snapshot_buf_size_input.value() >= _min_snapshot_buf_size() &&
 				    _setup_obtain_params_passphrase.suitable() &&
 				    _setup_obtain_params_select != Setup_obtain_params_select::START_BUTTON) {
 
@@ -2032,15 +2075,28 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 
 			} else if (key == Input::KEY_TAB) {
 
-				if (_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_INPUT) {
+				switch (_setup_obtain_params_select) {
+				case Setup_obtain_params_select::PASSPHRASE_INPUT:
 
-					_setup_obtain_params_select = Setup_obtain_params_select::SIZE_INPUT;
+					_setup_obtain_params_select = Setup_obtain_params_select::CLIENT_FS_SIZE_INPUT;
 					update_dialog = true;
+					break;
 
-				} else if (_setup_obtain_params_select == Setup_obtain_params_select::SIZE_INPUT) {
+				case Setup_obtain_params_select::CLIENT_FS_SIZE_INPUT:
+
+					_setup_obtain_params_select = Setup_obtain_params_select::SNAPSHOT_BUFFER_SIZE_INPUT;
+					update_dialog = true;
+					break;
+
+				case Setup_obtain_params_select::SNAPSHOT_BUFFER_SIZE_INPUT:
 
 					_setup_obtain_params_select = Setup_obtain_params_select::PASSPHRASE_INPUT;
 					update_dialog = true;
+					break;
+
+				default:
+
+					break;
 				}
 
 			} else {
@@ -2058,16 +2114,42 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 						update_dialog = true;
 					}
 
-				} else if (_setup_obtain_params_select == Setup_obtain_params_select::SIZE_INPUT) {
+				} else if (_setup_obtain_params_select == Setup_obtain_params_select::CLIENT_FS_SIZE_INPUT) {
 
-					if (_setup_obtain_params_size.appendable_character(code)) {
+					if (_client_fs_size_input.appendable_character(code)) {
 
-						_setup_obtain_params_size.append_character(code);
+						_client_fs_size_input.append_character(code);
 						update_dialog = true;
 
 					} else if (code.value == CODEPOINT_BACKSPACE) {
 
-						_setup_obtain_params_size.remove_last_character();
+						_client_fs_size_input.remove_last_character();
+						update_dialog = true;
+
+					}
+				} else if (_setup_obtain_params_select == Setup_obtain_params_select::SNAPSHOT_BUFFER_SIZE_INPUT) {
+
+					if (_snapshot_buf_size_input.appendable_character(code)) {
+
+						_snapshot_buf_size_input.append_character(code);
+						update_dialog = true;
+
+					} else if (code.value == CODEPOINT_BACKSPACE) {
+
+						_snapshot_buf_size_input.remove_last_character();
+						update_dialog = true;
+
+					}
+				} else if (_setup_obtain_params_select == Setup_obtain_params_select::SNAPSHOT_BUFFER_SIZE_INPUT) {
+
+					if (_snapshot_buf_size_input.appendable_character(code)) {
+
+						_snapshot_buf_size_input.append_character(code);
+						update_dialog = true;
+
+					} else if (code.value == CODEPOINT_BACKSPACE) {
+
+						_snapshot_buf_size_input.remove_last_character();
 						update_dialog = true;
 
 					}
@@ -2093,7 +2175,8 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 
 				case Setup_obtain_params_select::START_BUTTON:
 
-					if(_setup_obtain_params_size.is_nr_of_bytes_greater_than(MIN_CBE_IMAGE_SIZE - 1) &&
+					if(_client_fs_size_input.value() >= MIN_CLIENT_FS_SIZE &&
+					   _snapshot_buf_size_input.value() >= _min_snapshot_buf_size() &&
 					   _setup_obtain_params_passphrase.suitable()) {
 
 						_setup_obtain_params_select = Setup_obtain_params_select::NONE;
@@ -2136,10 +2219,15 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 					next_select = Setup_obtain_params_select::PASSPHRASE_INPUT;
 					break;
 
-				case Setup_obtain_params_hover::SIZE_INPUT:
+				case Setup_obtain_params_hover::CLIENT_FS_SIZE_INPUT:
 
-					class Unexpected_hover { };
-					throw Unexpected_hover { };
+					class Unexpected_hover_1 { };
+					throw Unexpected_hover_1 { };
+
+				case Setup_obtain_params_hover::SNAPSHOT_BUFFER_SIZE_INPUT:
+
+					class Unexpected_hover_2 { };
+					throw Unexpected_hover_2 { };
 
 				case Setup_obtain_params_hover::NONE:
 
@@ -2771,8 +2859,11 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 					});
 					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
 
-						if (node_3.attribute_value("name", String<4>()) == "sz") {
-							next_hover = Setup_obtain_params_hover::SIZE_INPUT;
+						if (node_3.attribute_value("name", String<32>()) == "Client FS Size") {
+							next_hover = Setup_obtain_params_hover::CLIENT_FS_SIZE_INPUT;
+
+						} if (node_3.attribute_value("name", String<32>()) == "Snap Buf Size") {
+							next_hover = Setup_obtain_params_hover::SNAPSHOT_BUFFER_SIZE_INPUT;
 						}
 					});
 				});
