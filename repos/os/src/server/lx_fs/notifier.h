@@ -114,6 +114,7 @@ class Lx_fs::Notifier final : public Thread
 		List<Entry>               _watched_nodes { };
 		Mutex                     _watched_nodes_mutex { };
 		List<Cap_entry>           _notify_queue { };
+		Mutex                     _notify_queue_mutex { };
 		bool                      _notify_timer_running { false };
 		Signal_handler<Notifier>  _notify_handler { _env.ep(), *this, &Notifier::_process_notify };
 
