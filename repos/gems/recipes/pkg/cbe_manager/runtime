@@ -45,6 +45,7 @@
 		<rom label="posix.lib.so"/>
 		<rom label="cbe_manager"/>
 		<rom label="cbe_manager-sync_to_cbe_vfs_init"/>
+		<rom label="cbe_manager-new_empty_file"/>
 		<rom label="menu_view_styles.tar"/>
 	</content>
 
@@ -85,6 +86,7 @@
 				<service name="File_system" label="cbe">                                 <parent label="data"/> </service>
 				<service name="File_system" label="fs_query -> ">                        <parent label="data"/> </service>
 				<service name="File_system" label="cbe_vfs -> cbe_fs">                   <parent label="data"/> </service>
+				<service name="File_system" label="new_empty_file -> cbe">               <parent label="data"/> </service>
 				<service name="File_system" label="menu_view -> fonts">                  <parent label="fonts"/> </service>
 				<service name="Timer">                                                   <parent/> </service>
 				<service name="Gui">                                                     <parent/> </service>

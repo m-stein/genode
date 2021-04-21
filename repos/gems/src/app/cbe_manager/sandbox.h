@@ -413,6 +413,34 @@ namespace Cbe_manager {
 		});
 	}
 
+	void gen_new_empty_file_start_node(Xml_generator     &xml,
+	                                   Child_state const &child,
+	                                   char        const *path,
+	                                   size_t             size)
+	{
+		child.gen_start_node(xml, [&] () {
+
+			xml.node("config", [&] () {
+				xml.attribute("size", size);
+				xml.attribute("path", path);
+
+				xml.node("vfs", [&] () {
+					xml.node("dir", [&] () {
+						xml.attribute("name", "cbe");
+
+						xml.node("fs", [&] () {
+							xml.attribute("label", "cbe");
+						});
+					});
+				});
+			});
+			xml.node("route", [&] () {
+				route_to_parent_service(xml, "File_system");
+				gen_parent_routes_for_pd_rom_cpu_log(xml);
+			});
+		});
+	}
+
 	void gen_sync_to_cbe_vfs_init_start_node(Xml_generator     &xml,
 	                                         Child_state const &child)
 	{

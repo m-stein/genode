@@ -262,6 +262,7 @@ class Cbe_manager::Main
 		Child_state                            _cbe_trust_anchor_vfs               { _children, "cbe_trust_anchor_vfs", "vfs", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _rump_vfs                           { _children, "rump_vfs", "vfs", Ram_quota { 16 * 1024 * 1024 }, Cap_quota { 200 } };
 		Child_state                            _sync_to_cbe_vfs_init               { _children, "sync_to_cbe_vfs_init", "cbe_manager-sync_to_cbe_vfs_init", Ram_quota { 8 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _new_empty_file                     { _children, "new_empty_file", "cbe_manager-new_empty_file", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _cbe_vfs_block                      { _children, "vfs_block", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _fs_query                           { _children, "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _cbe_init_trust_anchor              { _children, "cbe_init_trust_anchor", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
@@ -352,12 +353,6 @@ class Cbe_manager::Main
 		static State _state_from_fs_query_listing(Xml_node const &node);
 
 		void _write_to_state_file(State state);
-
-		static void _vfs_create_zero_filled_file(Root_directory  &vfs,
-		                                         Allocator       &alloc,
-		                                         Directory::Path  path,
-		                                         size_t           blk_size,
-		                                         size_t           nr_of_blks);
 
 		void _generate_sandbox_config(Xml_generator &xml) const;
 
@@ -576,48 +571,6 @@ void Main::_write_to_state_file(State state)
 		class Write_state_file_failed { };
 		throw Write_state_file_failed { };
 	}
-}
-
-
-void Main::_vfs_create_zero_filled_file(Root_directory  &vfs,
-                                        Allocator       &alloc,
-                                        Directory::Path  path,
-                                        size_t           blk_size,
-                                        size_t           nr_of_blks)
-{
-	char *blk_buf { (char *)alloc.alloc(blk_size) };
-	memset(blk_buf, 0, blk_size);
-	New_file new_file { vfs, path };
-
-	for(size_t blk_idx { 0 }; blk_idx < nr_of_blks; blk_idx++) {
-
-		bool write_error { false };
-		try {
-			switch (new_file.append(blk_buf, blk_size)) {
-			case New_file::Append_result::OK:
-
-				break;
-
-			case New_file::Append_result::WRITE_ERROR:
-
-				write_error = true;
-				break;
-			}
-		}
-		catch (New_file::Create_failed) {
-
-			alloc.free((void *)blk_buf, blk_size);
-			class Create_cbe_image_file_failed { };
-			throw Create_cbe_image_file_failed { };
-		}
-		if (write_error) {
-
-			alloc.free((void *)blk_buf, blk_size);
-			class Write_cbe_image_file_failed { };
-			throw Write_cbe_image_file_failed { };
-		}
-	}
-	alloc.free((void *)blk_buf, blk_size);
 }
 
 
@@ -893,6 +846,16 @@ void Cbe_manager::Main::handle_sandbox_state()
 			if (_child_succeeded(sandbox_state, _cbe_init_trust_anchor)) {
 
 				_state = State::SETUP_RUN_CBE_INIT;
+				update_dialog = true;
+				update_sandbox = true;
+			}
+			break;
+
+		case State::SETUP_CREATE_CBE_IMAGE_FILE:
+
+			if (_child_succeeded(sandbox_state, _new_empty_file)) {
+
+				_state = State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR;
 				update_dialog = true;
 				update_sandbox = true;
 			}
@@ -1771,6 +1734,18 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_parent_provides_and_report_nodes(xml);
 		gen_menu_view_start_node(xml, _menu_view);
 		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs);
+		gen_new_empty_file_start_node(
+			xml, _new_empty_file, "/cbe/cbe.img",
+			CBE_BLOCK_SIZE *
+				_cbe_nr_of_blocks(
+					INIT_CBE_NR_OF_SUPERBLOCKS,
+					INIT_CBE_NR_OF_LEVELS,
+					INIT_CBE_NR_OF_CHILDREN,
+					_init_cbe_nr_of_leafs(),
+					INIT_CBE_NR_OF_LEVELS,
+					INIT_CBE_NR_OF_CHILDREN,
+					_init_cbe_nr_of_leafs()));
+
 		break;
 
 	case State::SETUP_RUN_CBE_INIT:
@@ -2123,23 +2098,6 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 
 						_setup_obtain_params_select = Setup_obtain_params_select::NONE;
 						_state = State::SETUP_CREATE_CBE_IMAGE_FILE;
-
-						_update_sandbox_config();
-						_dialog.trigger_update();
-
-						_vfs_create_zero_filled_file(
-							_vfs, _heap, Directory::Path { "/cbe/cbe.img" },
-							CBE_BLOCK_SIZE,
-							_cbe_nr_of_blocks(
-								INIT_CBE_NR_OF_SUPERBLOCKS,
-								INIT_CBE_NR_OF_LEVELS,
-								INIT_CBE_NR_OF_CHILDREN,
-								_init_cbe_nr_of_leafs(),
-								INIT_CBE_NR_OF_LEVELS,
-								INIT_CBE_NR_OF_CHILDREN,
-								_init_cbe_nr_of_leafs()));
-
-						_state = State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR;
 						update_sandbox_config = true;
 						update_dialog = true;
 					}

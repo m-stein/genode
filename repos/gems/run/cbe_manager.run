@@ -257,6 +257,7 @@ append config {
 				<service name="File_system" label="cbe">                                 <child name="data_fs"         label="cbe_manager -> data"/> </service>
 				<service name="File_system" label="fs_query -> ">                        <child name="data_fs"         label="cbe_manager -> data"/> </service>
 				<service name="File_system" label="cbe_vfs -> cbe_fs">                   <child name="data_fs"         label="cbe_manager -> data"/> </service>
+				<service name="File_system" label="new_empty_file -> cbe">               <child name="data_fs"         label="cbe_manager -> data"/> </service>
 				<service name="File_system" label="menu_view -> fonts">                  <child name="fonts_fs"        label="cbe_manager -> fonts"/> </service>
 				<service name="Timer">                                                   <child name="timer"/> </service>
 				<service name="Gui">                                                     <child name="nitpicker"/> </service>
@@ -285,6 +286,7 @@ if {[have_board linux]} {
 append boot_modules {
 	cbe_manager
 	cbe_manager-sync_to_cbe_vfs_init
+	cbe_manager-new_empty_file
 }
 
 append qemu_args " -display gtk "
