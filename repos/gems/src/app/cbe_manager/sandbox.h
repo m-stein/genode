@@ -666,6 +666,7 @@ namespace Cbe_manager {
 
 	void gen_resizing_fs_tool_start_node(Xml_generator     &xml,
 	                                     Child_state const &child,
+	                                     char        const *tree,
 	                                     unsigned long      nr_of_blocks)
 	{
 		child.gen_start_node(xml, [&] () {
@@ -685,7 +686,7 @@ namespace Cbe_manager {
 				});
 				xml.node("new-file", [&] () {
 					xml.attribute("path", "/cbe/cbe/control/extend");
-					xml.append_content("tree=vbd,blocks=", nr_of_blocks);
+					xml.append_content("tree=", tree, ",blocks=", nr_of_blocks);
 				});
 			});
 			xml.node("route", [&] () {
