@@ -135,6 +135,7 @@ if {[have_board linux]} {
 				<service name="ROM"> <parent/> </service>
 				<service name="LOG"> <parent/> </service>
 				<service name="CPU"> <parent/> </service>
+				<service name="Timer">                                                   <child name="timer"/> </service>
 			</route>
 		</start>
 
@@ -154,6 +155,7 @@ if {[have_board linux]} {
 				<service name="ROM"> <parent/> </service>
 				<service name="LOG"> <parent/> </service>
 				<service name="CPU"> <parent/> </service>
+				<service name="Timer">                                                   <child name="timer"/> </service>
 			</route>
 		</start>
 	}
