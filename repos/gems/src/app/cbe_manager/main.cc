@@ -134,6 +134,7 @@ class Cbe_manager::Main
 		{
 			NONE,
 			SNAPSHOTS_EXPAND_BUTTON,
+			GENERATION_LEAVE_BUTTON,
 			SHUT_DOWN_BUTTON,
 			CREATE_SNAPSHOT_BUTTON,
 			DISCARD_SNAPSHOT_BUTTON,
@@ -1372,153 +1373,77 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 				xml.node("vbox", [&] () {
 
-					gen_opened_sub_menu(
-						xml, "Snapshots",
-						_controls_snapshots_hover == Controls_snapshots_hover::SNAPSHOTS_EXPAND_BUTTON,
-						[&] (Xml_generator &xml)
-					{
-						_snapshots.for_each([&] (Snapshot const &snap) {
+					if (_snapshots_select.valid()) {
 
-							bool const hovered {
-								_snapshots_hover.valid() &&
-								_snapshots_hover.object().generation() == snap.generation() };
+						Snapshot const &snap { _snapshots_select.object() };
+						String<64> const snap_str {
+							"Generation ", snap.generation() };
 
-							bool const selected {
-								_snapshots_select.valid() &&
-								_snapshots_select.object().generation() == snap.generation() };
+						gen_opened_sub_menu(
+							xml, snap_str.string(),
+							_controls_snapshots_hover == Controls_snapshots_hover::GENERATION_LEAVE_BUTTON,
+							[&] (Xml_generator &xml)
+						{
+							gen_info_line(xml, "pad_1", "");
+							switch(_discard_snap_state) {
+							case Discard_snapshot_state::INACTIVE:
 
-							String<64> const snap_str {
-								"Generation ", snap.generation() };
+								gen_action_button(xml, "Discard", "Discard",
+									_controls_snapshots_hover  == Controls_snapshots_hover::DISCARD_SNAPSHOT_BUTTON,
+									_controls_snapshots_select == Controls_snapshots_select::DISCARD_SNAPSHOT_BUTTON);
 
-							Generation_string const gen_str { snap.generation() };
+								break;
 
-							gen_multiple_choice_entry(
-								xml, gen_str.string(), snap_str.string(), hovered,
-								selected);
+							case Discard_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
 
-							if (selected) {
+								gen_action_button(xml, "Inactive Discard", "...",
+									_controls_snapshots_hover == Controls_snapshots_hover::DISCARD_SNAPSHOT_BUTTON,
+									false);
 
-								bool const discard_hovered { _controls_snapshots_hover  == Controls_snapshots_hover::DISCARD_SNAPSHOT_BUTTON };
-								bool const discard_selected { _controls_snapshots_select == Controls_snapshots_select::DISCARD_SNAPSHOT_BUTTON };
-
-								switch(_discard_snap_state) {
-								case Discard_snapshot_state::INACTIVE:
-
-									xml.node("float", [&] () {
-										xml.attribute("name", String<32> { "discard", gen_str });
-										xml.attribute("west", "yes");
-
-										xml.node("hbox", [&] () {
-
-											xml.node("label", [&] () {
-												xml.attribute("min_ex", "4");
-											});
-											xml.node("button", [&] () {
-												if (discard_hovered) {
-													xml.attribute("hovered", "yes");
-												}
-												if (discard_selected) {
-													xml.attribute("selected", "yes");
-												}
-
-												xml.node("label", [&] () {
-													xml.attribute("text", "Discard");
-												});
-											});
-										});
-									});
-									break;
-
-								case Discard_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
-
-									xml.node("float", [&] () {
-										xml.attribute("name", String<32> { "inactive_discard", gen_str });
-										xml.attribute("west", "yes");
-
-										xml.node("hbox", [&] () {
-
-											xml.node("label", [&] () {
-												xml.attribute("min_ex", "4");
-											});
-											xml.node("button", [&] () {
-												xml.attribute("name", gen_str.string());
-												if (discard_hovered) {
-													xml.attribute("hovered", "yes");
-												}
-												if (discard_selected) {
-													xml.attribute("selected", "yes");
-												}
-												xml.node("hbox", [&] () {
-
-													xml.node("label", [&] () {
-														xml.attribute("text", "...");
-													});
-												});
-											});
-										});
-									});
-									break;
-								}
+								break;
 							}
 						});
+					} else {
 
-						bool const hovered { _controls_snapshots_hover  == Controls_snapshots_hover::CREATE_SNAPSHOT_BUTTON };
-						bool const selected { _controls_snapshots_select == Controls_snapshots_select::CREATE_SNAPSHOT_BUTTON };
+						gen_opened_sub_menu(
+							xml, "Snapshots",
+							_controls_snapshots_hover == Controls_snapshots_hover::SNAPSHOTS_EXPAND_BUTTON,
+							[&] (Xml_generator &xml)
+						{
+							_snapshots.for_each([&] (Snapshot const &snap) {
 
-						switch(_create_snap_state) {
-						case Create_snapshot_state::INACTIVE:
+								bool const hovered {
+									_snapshots_hover.valid() &&
+									_snapshots_hover.object().generation() == snap.generation() };
 
-							xml.node("float", [&] () {
-								xml.attribute("name", "create");
-								xml.attribute("west", "yes");
+								String<64> const snap_str {
+									"Generation ", snap.generation() };
 
-								xml.node("hbox", [&] () {
+								Generation_string const gen_str { snap.generation() };
 
-									xml.node("button", [&] () {
-										if (hovered) {
-											xml.attribute("hovered", "yes");
-										}
-										if (selected) {
-											xml.attribute("selected", "yes");
-										}
-										xml.node("hbox", [&] () {
-
-											xml.node("label", [&] () {
-												xml.attribute("text", "Create");
-											});
-										});
-									});
-								});
+								gen_multiple_choice_entry(
+									xml, gen_str.string(), snap_str.string(), hovered,
+									false);
 							});
-							break;
+							gen_info_line(xml, "pad_1", "");
+							switch(_create_snap_state) {
+							case Create_snapshot_state::INACTIVE:
 
-						case Create_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
+								gen_action_button(xml, "Create", "Create",
+									_controls_snapshots_hover  == Controls_snapshots_hover::CREATE_SNAPSHOT_BUTTON,
+									_controls_snapshots_select == Controls_snapshots_select::CREATE_SNAPSHOT_BUTTON);
+								break;
 
-							xml.node("float", [&] () {
-								xml.attribute("name", "inactive_create");
-								xml.attribute("west", "yes");
+							case Create_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
 
-								xml.node("hbox", [&] () {
+								gen_action_button(xml, "Inactive Create", "...",
+									_controls_snapshots_hover  == Controls_snapshots_hover::CREATE_SNAPSHOT_BUTTON,
+									false);
 
-									xml.node("button", [&] () {
-										if (hovered) {
-											xml.attribute("hovered", "yes");
-										}
-										if (selected) {
-											xml.attribute("selected", "yes");
-										}
-										xml.node("hbox", [&] () {
-
-											xml.node("label", [&] () {
-												xml.attribute("text", "...");
-											});
-										});
-									});
-								});
-							});
-							break;
-						}
-					});
+								break;
+							}
+						});
+					}
 				});
 			});
 		});
@@ -1765,6 +1690,7 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 					_controls_security_block_encryption_key_hover == Controls_security_block_encryption_key_hover::LEAVE_BUTTON,
 					[&] (Xml_generator &xml)
 				{
+					gen_info_line(xml, "pad_1", "");
 					switch(_rekeying_state) {
 					case Rekeying_state::INACTIVE:
 
@@ -2683,6 +2609,12 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 					next_select = Controls_snapshots_select::DISCARD_SNAPSHOT_BUTTON;
 					break;
 
+				case Controls_snapshots_hover::GENERATION_LEAVE_BUTTON:
+
+					_snapshots_select = Snapshot_pointer { };
+					update_dialog = true;
+					break;
+
 				case Controls_snapshots_hover::NONE:
 
 					next_select = Controls_snapshots_select::NONE;
@@ -3455,38 +3387,56 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
 							node_4.with_sub_node("vbox", [&] (Xml_node const &node_5) {
-								node_5.with_sub_node("float", [&] (Xml_node const &node_6) {
 
-									if (node_6.attribute_value("name", String<8>()) == "expand") {
+								if (node_5.attribute_value("name", String<11>()) == "Generation") {
 
-										next_hover = Controls_snapshots_hover::SNAPSHOTS_EXPAND_BUTTON;
+									node_5.with_sub_node("float", [&] (Xml_node const &node_6) {
 
-									} else if (node_6.attribute_value("name", String<8>()) == "discard") {
+										if (node_6.attribute_value("name", String<8>()) == "expand") {
 
-										next_hover = Controls_snapshots_hover::DISCARD_SNAPSHOT_BUTTON;
-
-									} else if (node_6.attribute_value("name", String<9>()) == "create") {
-
-										next_hover = Controls_snapshots_hover::CREATE_SNAPSHOT_BUTTON;
-
-									} else {
-
-										Generation const generation {
-											node_6.attribute_value(
-												"name", Generation { INVALID_GENERATION }) };
-
-										if (generation != INVALID_GENERATION) {
-
-											_snapshots.for_each([&] (Snapshot const &snap)
-											{
-												if (generation == snap.generation()) {
-													next_snapshots_hover = snap;
-												}
-											});
+											next_hover = Controls_snapshots_hover::GENERATION_LEAVE_BUTTON;
 										}
-									}
-								});
-								
+									});
+									node_5.with_sub_node("button", [&] (Xml_node const &node_6) {
+
+										if (node_6.attribute_value("name", String<32>()) == "Discard") {
+
+											next_hover = Controls_snapshots_hover::DISCARD_SNAPSHOT_BUTTON;
+										}
+									});
+								} else if (node_5.attribute_value("name", String<32>()) == "Snapshots Opened") {
+
+									node_5.with_sub_node("float", [&] (Xml_node const &node_6) {
+
+										if (node_6.attribute_value("name", String<8>()) == "expand") {
+
+											next_hover = Controls_snapshots_hover::SNAPSHOTS_EXPAND_BUTTON;
+
+										} else {
+
+											Generation const generation {
+												node_6.attribute_value(
+													"name", Generation { INVALID_GENERATION }) };
+
+											if (generation != INVALID_GENERATION) {
+
+												_snapshots.for_each([&] (Snapshot const &snap)
+												{
+													if (generation == snap.generation()) {
+														next_snapshots_hover = snap;
+													}
+												});
+											}
+										}
+									});
+									node_5.with_sub_node("button", [&] (Xml_node const &node_6) {
+
+										if (node_6.attribute_value("name", String<32>()) == "Create") {
+
+											next_hover = Controls_snapshots_hover::CREATE_SNAPSHOT_BUTTON;
+										}
+									});
+								}
 							});
 						});
 					});

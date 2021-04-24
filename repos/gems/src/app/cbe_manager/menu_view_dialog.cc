@@ -251,7 +251,6 @@ void Cbe_manager::gen_multiple_choice_entry(Xml_generator &xml,
 		xml.node("hbox", [&] () {
 
 			xml.node("button", [&] () {
-				xml.attribute("style", "radio");
 				if (selected) {
 					xml.attribute("selected", "yes");
 				}
