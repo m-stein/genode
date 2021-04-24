@@ -312,10 +312,11 @@ class Cbe_manager::Main
 		Child_state                            _new_empty_file                     { _children, "new_empty_file", "cbe_manager-new_empty_file", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _cbe_vfs_block                      { _children, "vfs_block", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _fs_query                           { _children, "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _image_fs_query                     { _children, "image_fs_query", "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _cbe_init_trust_anchor              { _children, "cbe_init_trust_anchor", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _cbe_image_vfs_block                { _children, "vfs_block", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _cbe_init                           { _children, "cbe_init", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
-		Child_state                            _snapshots_fs_query                 { _children, "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _snapshots_fs_query                 { _children, "snapshots_fs_query", "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _resizing_fs_tool                   { _children, "resizing_fs_tool", "fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
 		Child_state                            _resizing_fs_query                  { _children, "resizing_fs_query", "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _rekeying_fs_tool                   { _children, "rekeying_fs_tool", "fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
@@ -325,6 +326,8 @@ class Cbe_manager::Main
 		Child_state                            _create_snap_fs_tool                { _children, "create_snap_fs_tool", "fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
 		Child_state                            _discard_snap_fs_tool               { _children, "discard_snap_fs_tool", "fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
 		Xml_report_handler                     _fs_query_listing_handler           { *this, &Main::_handle_fs_query_listing };
+		Xml_report_handler                     _image_fs_query_listing_handler     { *this, &Main::_handle_image_fs_query_listing };
+		Xml_report_handler                     _snapshots_fs_query_listing_handler { *this, &Main::_handle_snapshots_fs_query_listing };
 		Xml_report_handler                     _resizing_fs_query_listing_handler  { *this, &Main::_handle_resizing_fs_query_listing };
 		Xml_report_handler                     _rekeying_fs_query_listing_handler  { *this, &Main::_handle_rekeying_fs_query_listing };
 		Xml_report_handler                     _shut_down_fs_query_listing_handler { *this, &Main::_handle_shut_down_fs_query_listing };
@@ -379,6 +382,8 @@ class Cbe_manager::Main
 		bool                                   _snapshots_expanded                 { false };
 		bool                                   _dimensions_expanded                { false };
 		bool                                   _startup_failed                     { false };
+		size_t                                 _cbe_image_size                     { 0 };
+		bool                             const _data_fs_can_be_watched             { _config.xml().attribute_value("data_fs_can_be_watched", true) };
 
 		size_t _min_snapshot_buf_size() const
 		{
@@ -420,6 +425,10 @@ class Cbe_manager::Main
 		void _generate_sandbox_config(Xml_generator &xml) const;
 
 		void _handle_fs_query_listing(Xml_node const &node);
+
+		void _handle_image_fs_query_listing(Xml_node const &node);
+
+		void _handle_snapshots_fs_query_listing(Xml_node const &node);
 
 		void _handle_resizing_fs_query_listing(Xml_node const &node);
 
@@ -688,6 +697,10 @@ void Main::_handle_resizing_fs_query_listing(Xml_node const &node)
 				}
 				_resizing_type = Resizing_type::NONE;
 				_resizing_state = Resizing_state::INACTIVE;
+
+				if (!_data_fs_can_be_watched) {
+					_image_fs_query.trigger_restart();
+				}
 				Signal_transmitter(_state_handler).submit();
 			}
 			break;
@@ -767,32 +780,9 @@ void Main::_handle_rekeying_fs_query_listing(Xml_node const &node)
 }
 
 
-void Main::_handle_fs_query_listing(Xml_node const &node)
+void Main::_handle_snapshots_fs_query_listing(Xml_node const &node)
 {
 	switch (_state) {
-	case State::INVALID:
-	{
-		State const state { _state_from_fs_query_listing(node) };
-		switch (state) {
-		case State::INVALID:
-
-			_state = State::SETUP_OBTAIN_PARAMETERS;
-			Signal_transmitter(_state_handler).submit();
-			break;
-
-		case State::STARTUP_OBTAIN_PARAMETERS:
-
-			_state = State::STARTUP_OBTAIN_PARAMETERS;
-			Signal_transmitter(_state_handler).submit();
-			break;
-
-		default:
-
-			class Unexpected_state { };
-			throw Unexpected_state { };
-		}
-		break;
-	}
 	case State::CONTROLS_ROOT:
 	case State::CONTROLS_SNAPSHOTS:
 	case State::CONTROLS_DIMENSIONS:
@@ -876,6 +866,79 @@ void Main::_handle_fs_query_listing(Xml_node const &node)
 	default:
 
 		break;
+	}
+}
+
+
+void Main::_handle_fs_query_listing(Xml_node const &node)
+{
+	switch (_state) {
+	case State::INVALID:
+	{
+		State const state { _state_from_fs_query_listing(node) };
+		switch (state) {
+		case State::INVALID:
+
+			_state = State::SETUP_OBTAIN_PARAMETERS;
+			Signal_transmitter(_state_handler).submit();
+			break;
+
+		case State::STARTUP_OBTAIN_PARAMETERS:
+
+			_state = State::STARTUP_OBTAIN_PARAMETERS;
+			Signal_transmitter(_state_handler).submit();
+			break;
+
+		default:
+
+			class Unexpected_state { };
+			throw Unexpected_state { };
+		}
+		break;
+	}
+	default:
+
+		break;
+	}
+}
+
+
+void Main::_handle_image_fs_query_listing(Xml_node const &node)
+{
+	bool update_dialog { false };
+
+	switch (_state) {
+	case State::CONTROLS_ROOT:
+	case State::CONTROLS_SNAPSHOTS:
+	case State::CONTROLS_DIMENSIONS:
+	case State::CONTROLS_EXPAND_CLIENT_FS:
+	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:
+	case State::CONTROLS_SECURITY:
+	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:
+	case State::CONTROLS_SECURITY_MASTER_KEY:
+	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
+	{
+		size_t size { 0 };
+		node.with_sub_node("dir", [&] (Xml_node const &node_0) {
+			node_0.with_sub_node("file", [&] (Xml_node const &node_1) {
+				if (node_1.attribute_value("name", String<32>()) == "cbe.img") {
+					size = node_1.attribute_value("size", (size_t)0);
+				}
+			});
+		});
+		if (_cbe_image_size != size) {
+
+			_cbe_image_size = size;
+			update_dialog = true;
+		}
+		break;
+	}
+	default:
+
+		break;
+	}
+	if (update_dialog) {
+		_dialog.trigger_update();
 	}
 }
 
@@ -1527,7 +1590,7 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 							}  else {
 
-								Number_of_bytes const curr_cbe_size { _cbe_size() };
+								Number_of_bytes const curr_cbe_size { _cbe_image_size };
 								unsigned long rsz_nr_of_bytes {
 									_expand_client_fs_nr_of_blks.to_unsigned_long() *
 									CBE_BLOCK_SIZE };
@@ -1608,7 +1671,7 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 
 							}  else {
 
-								Number_of_bytes const curr_cbe_size { _cbe_size() };
+								Number_of_bytes const curr_cbe_size { _cbe_image_size };
 								unsigned long rsz_nr_of_bytes {
 									_expand_snapshot_buf_nr_of_blks.to_unsigned_long() *
 									CBE_BLOCK_SIZE };
@@ -1807,6 +1870,24 @@ void Cbe_manager::Main::wakeup_local_service()
 			Report::Session_component &session { *new (_heap)
 				Report::Session_component(
 					_env, _fs_query_listing_handler, _env.ep(),
+					request.resources, "", request.diag) };
+
+			request.deliver_session(session);
+
+		} if (request.label == "image_fs_query -> listing") {
+
+			Report::Session_component &session { *new (_heap)
+				Report::Session_component(
+					_env, _image_fs_query_listing_handler, _env.ep(),
+					request.resources, "", request.diag) };
+
+			request.deliver_session(session);
+
+		} else if (request.label == "snapshots_fs_query -> listing") {
+
+			Report::Session_component &session { *new (_heap)
+				Report::Session_component(
+					_env, _snapshots_fs_query_listing_handler, _env.ep(),
 					request.resources, "", request.diag) };
 
 			request.deliver_session(session);
@@ -2016,6 +2097,7 @@ void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_cbe_vfs_block_start_node(xml, _cbe_vfs_block);
 		gen_rump_vfs_start_node(xml, _rump_vfs);
 		gen_snapshots_fs_query_start_node(xml, _snapshots_fs_query);
+		gen_image_fs_query_start_node(xml, _image_fs_query);
 
 		switch(_resizing_state) {
 		case Resizing_state::INACTIVE:

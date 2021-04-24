@@ -85,6 +85,7 @@
 				<service name="File_system" label="vfs_block -> ">                       <parent label="data"/> </service>
 				<service name="File_system" label="cbe">                                 <parent label="data"/> </service>
 				<service name="File_system" label="fs_query -> ">                        <parent label="data"/> </service>
+				<service name="File_system" label="image_fs_query -> ">                  <parent label="data"/> </service>
 				<service name="File_system" label="cbe_vfs -> cbe_fs">                   <parent label="data"/> </service>
 				<service name="File_system" label="new_empty_file -> cbe">               <parent label="data"/> </service>
 				<service name="File_system" label="menu_view -> fonts">                  <parent label="fonts"/> </service>

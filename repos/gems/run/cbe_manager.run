@@ -244,7 +244,22 @@ append config {
 
 		<start name="cbe_manager" caps="2000">
 			<resource name="RAM" quantum="200M"/>
+}
+if {[have_board linux]} {
+
+	append config {
+
+			<config data_fs_can_be_watched="no">
+	}
+} else {
+
+	append config {
+
 			<config>
+	}
+}
+append config {
+
 				<vfs>
 					<dir name="cbe">
 						<fs label="cbe"/>
@@ -256,6 +271,7 @@ append config {
 				<service name="File_system" label="vfs_block -> ">                       <child name="data_fs"         label="cbe_manager -> data"/> </service>
 				<service name="File_system" label="cbe">                                 <child name="data_fs"         label="cbe_manager -> data"/> </service>
 				<service name="File_system" label="fs_query -> ">                        <child name="data_fs"         label="cbe_manager -> data"/> </service>
+				<service name="File_system" label="image_fs_query -> ">                  <child name="data_fs"         label="cbe_manager -> data"/> </service>
 				<service name="File_system" label="cbe_vfs -> cbe_fs">                   <child name="data_fs"         label="cbe_manager -> data"/> </service>
 				<service name="File_system" label="new_empty_file -> cbe">               <child name="data_fs"         label="cbe_manager -> data"/> </service>
 				<service name="File_system" label="menu_view -> fonts">                  <child name="fonts_fs"        label="cbe_manager -> fonts"/> </service>
