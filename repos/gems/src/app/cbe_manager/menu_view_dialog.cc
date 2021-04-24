@@ -286,7 +286,7 @@ void Cbe_manager::gen_sub_menu_title(Xml_generator &xml,
 					xml.attribute("style", "back");
 					xml.attribute("selected", "yes");
 				} else {
-					xml.attribute("style", "enter");
+					xml.attribute("style", "radio");
 				}
 				if (hovered) {
 					xml.attribute("hovered", "yes");
