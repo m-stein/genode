@@ -131,6 +131,7 @@ if {[have_board linux]} {
 				        writeable="yes"/>
 			</config>
 			<route>
+				<service name="Timer"> <child name="timer"/> </service>
 				<service name="PD">  <parent/> </service>
 				<service name="ROM"> <parent/> </service>
 				<service name="LOG"> <parent/> </service>
@@ -150,6 +151,7 @@ if {[have_board linux]} {
 				        writeable="yes"/>
 			</config>
 			<route>
+				<service name="Timer"> <child name="timer"/> </service>
 				<service name="PD">  <parent/> </service>
 				<service name="ROM"> <parent/> </service>
 				<service name="LOG"> <parent/> </service>
@@ -244,22 +246,7 @@ append config {
 
 		<start name="file_vault" caps="2000">
 			<resource name="RAM" quantum="200M"/>
-}
-if {[have_board linux]} {
-
-	append config {
-
-			<config data_fs_can_be_watched="no">
-	}
-} else {
-
-	append config {
-
 			<config>
-	}
-}
-append config {
-
 				<vfs>
 					<dir name="cbe">
 						<fs label="cbe"/>

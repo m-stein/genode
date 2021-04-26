@@ -384,7 +384,6 @@ class File_vault::Main
 		bool                                   _dimensions_expanded                { false };
 		bool                                   _startup_failed                     { false };
 		size_t                                 _cbe_image_size                     { 0 };
-		bool                             const _data_fs_can_be_watched             { _config.xml().attribute_value("data_fs_can_be_watched", true) };
 
 		size_t _min_snapshot_buf_size() const
 		{
@@ -698,10 +697,6 @@ void Main::_handle_resizing_fs_query_listing(Xml_node const &node)
 				}
 				_resizing_type = Resizing_type::NONE;
 				_resizing_state = Resizing_state::INACTIVE;
-
-				if (!_data_fs_can_be_watched) {
-					_image_fs_query.trigger_restart();
-				}
 				Signal_transmitter(_state_handler).submit();
 			}
 			break;
