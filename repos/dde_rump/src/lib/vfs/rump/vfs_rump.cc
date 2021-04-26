@@ -37,6 +37,8 @@ extern "C" {
 #include <rump/rump_syscalls.h>
 }
 
+enum { VERBOSE = 0 };
+
 extern int errno;
 
 namespace Vfs { struct Rump_file_system; };
@@ -442,7 +444,9 @@ class Vfs::Rump_file_system : public File_system
 				throw Genode::Exception();
 			}
 
-			Genode::log(fs_type," file system mounted");
+			if (VERBOSE) {
+				Genode::log(fs_type," file system mounted");
+			}
 
 			struct statvfs stats;
 			int err = rump_sys_statvfs1("/", &stats, ST_WAIT);
@@ -451,8 +455,10 @@ class Vfs::Rump_file_system : public File_system
 				double available = factor * stats.f_bsize * stats.f_bavail;
 				double total = factor * stats.f_bsize * stats.f_blocks;
 
-				Genode::log("Space available: ", available, " GiB / ", total, " GiB");
-				Genode::log("Nodes available: ", stats.f_favail, "/", stats.f_files);
+				if (VERBOSE) {
+					Genode::log("Space available: ", available, " GiB / ", total, " GiB");
+					Genode::log("Nodes available: ", stats.f_favail, "/", stats.f_files);
+				}
 			}
 		}
 
@@ -891,8 +897,10 @@ class Rump_factory : public Vfs::File_system_factory
 			if (rump_sys_getrlimit(RLIMIT_NOFILE, &rlim) == 0) {
 				rlim.rlim_cur = rlim.rlim_max;
 				if (rump_sys_setrlimit(RLIMIT_NOFILE, &rlim) == 0) {
-					Genode::log("increased Rump open file"
-					            " limit to ", rlim.rlim_max);
+					if (VERBOSE) {
+						Genode::log("increased Rump open file"
+						            " limit to ", rlim.rlim_max);
+					}
 				}
 			}
 

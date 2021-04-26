@@ -202,7 +202,9 @@ int rumpuser_getparam(const char *name, void *buf, size_t buflen)
 
 		/* convert to string */
 		Genode::snprintf((char *)buf, buflen, "%zu", rump_ram);
-		Genode::log("asserting rump kernel ", rump_ram / 1024, " KB of RAM");
+		if (verbose) {
+			Genode::log("asserting rump kernel ", rump_ram / 1024, " KB of RAM");
+		}
 		return 0;
 	}
 
