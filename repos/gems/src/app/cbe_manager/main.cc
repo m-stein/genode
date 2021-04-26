@@ -52,7 +52,7 @@ class Cbe_manager::Main
 
 		enum {
 			MIN_CLIENT_FS_SIZE = 100 * 1024,
-			STATE_STRING_CAPACITY = 3,
+			STATE_STRING_CAPACITY = 64,
 			CBE_BLOCK_SIZE = 4096,
 			MAIN_FRAME_WIDTH = 40,
 			CBE_VBD_TREE_NR_OF_LEVELS = 6,
@@ -546,27 +546,27 @@ void Main::_update_sandbox_config()
 
 Main::State Main::_state_from_string(State_string const &str)
 {
-	if (str ==  "0") { return State::INVALID; }
-	if (str ==  "1") { return State::SETUP_OBTAIN_PARAMETERS; }
-	if (str ==  "2") { return State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR; }
-	if (str ==  "3") { return State::SETUP_CREATE_CBE_IMAGE_FILE; }
-	if (str ==  "4") { return State::SETUP_RUN_CBE_INIT; }
-	if (str ==  "5") { return State::SETUP_START_CBE_VFS; }
-	if (str ==  "6") { return State::SETUP_FORMAT_CBE; }
-	if (str ==  "7") { return State::CONTROLS_ROOT; }
-	if (str ==  "8") { return State::CONTROLS_SNAPSHOTS; }
-	if (str ==  "9") { return State::CONTROLS_DIMENSIONS; }
-	if (str == "10") { return State::CONTROLS_EXPAND_CLIENT_FS; }
-	if (str == "11") { return State::CONTROLS_EXPAND_SNAPSHOT_BUF; }
-	if (str == "12") { return State::CONTROLS_SECURITY; }
-	if (str == "13") { return State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY; }
-	if (str == "14") { return State::CONTROLS_SECURITY_MASTER_KEY; }
-	if (str == "15") { return State::CONTROLS_SECURITY_USER_PASSPHRASE; }
-	if (str == "16") { return State::STARTUP_OBTAIN_PARAMETERS; }
-	if (str == "17") { return State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR; }
-	if (str == "18") { return State::STARTUP_START_CBE_VFS; }
-	if (str == "19") { return State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE; }
-	if (str == "20") { return State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE; }
+	if (str == "invalid") { return State::INVALID; }
+	if (str == "setup_obtain_parameters") { return State::SETUP_OBTAIN_PARAMETERS; }
+	if (str == "setup_run_cbe_init_trust_anchor") { return State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR; }
+	if (str == "setup_create_cbe_image_file") { return State::SETUP_CREATE_CBE_IMAGE_FILE; }
+	if (str == "setup_run_cbe_init") { return State::SETUP_RUN_CBE_INIT; }
+	if (str == "setup_start_cbe_vfs") { return State::SETUP_START_CBE_VFS; }
+	if (str == "setup_format_cbe") { return State::SETUP_FORMAT_CBE; }
+	if (str == "controls_root") { return State::CONTROLS_ROOT; }
+	if (str == "controls_snapshots") { return State::CONTROLS_SNAPSHOTS; }
+	if (str == "controls_dimensions") { return State::CONTROLS_DIMENSIONS; }
+	if (str == "controls_expand_client_fs") { return State::CONTROLS_EXPAND_CLIENT_FS; }
+	if (str == "controls_expand_snapshot_buf") { return State::CONTROLS_EXPAND_SNAPSHOT_BUF; }
+	if (str == "controls_security") { return State::CONTROLS_SECURITY; }
+	if (str == "controls_security_block_encryption_key") { return State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY; }
+	if (str == "controls_security_master_key") { return State::CONTROLS_SECURITY_MASTER_KEY; }
+	if (str == "controls_security_user_passphrase") { return State::CONTROLS_SECURITY_USER_PASSPHRASE; }
+	if (str == "startup_obtain_parameters") { return State::STARTUP_OBTAIN_PARAMETERS; }
+	if (str == "startup_run_cbe_init_trust_anchor") { return State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR; }
+	if (str == "startup_start_cbe_vfs") { return State::STARTUP_START_CBE_VFS; }
+	if (str == "shutdown_issue_deinit_request_at_cbe") { return State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE; }
+	if (str == "shutdown_wait_till_deinit_request_is_done") { return State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE; }
 	class Invalid_state_string { };
 	throw Invalid_state_string { };
 }
@@ -575,27 +575,27 @@ Main::State Main::_state_from_string(State_string const &str)
 Main::State_string Main::_state_to_string(State state)
 {
 	switch (state) {
-	case State::INVALID:                                   return  "0";
-	case State::SETUP_OBTAIN_PARAMETERS:                   return  "1";
-	case State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR:           return  "2";
-	case State::SETUP_CREATE_CBE_IMAGE_FILE:               return  "3";
-	case State::SETUP_RUN_CBE_INIT:                        return  "4";
-	case State::SETUP_START_CBE_VFS:                       return  "5";
-	case State::SETUP_FORMAT_CBE:                          return  "6";
-	case State::CONTROLS_ROOT:                             return  "7";
-	case State::CONTROLS_SNAPSHOTS:                        return  "8";
-	case State::CONTROLS_DIMENSIONS:                       return  "9";
-	case State::CONTROLS_EXPAND_CLIENT_FS:                 return "10";
-	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:              return "11";
-	case State::CONTROLS_SECURITY:                         return "12";
-	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:    return "13";
-	case State::CONTROLS_SECURITY_MASTER_KEY:              return "14";
-	case State::CONTROLS_SECURITY_USER_PASSPHRASE:         return "15";
-	case State::STARTUP_OBTAIN_PARAMETERS:                 return "16";
-	case State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR:         return "17";
-	case State::STARTUP_START_CBE_VFS:                     return "18";
-	case State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE:      return "19";
-	case State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE: return "20";
+	case State::INVALID:                                   return "invalid";
+	case State::SETUP_OBTAIN_PARAMETERS:                   return "setup_obtain_parameters";
+	case State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR:           return "setup_run_cbe_init_trust_anchor";
+	case State::SETUP_CREATE_CBE_IMAGE_FILE:               return "setup_create_cbe_image_file";
+	case State::SETUP_RUN_CBE_INIT:                        return "setup_run_cbe_init";
+	case State::SETUP_START_CBE_VFS:                       return "setup_start_cbe_vfs";
+	case State::SETUP_FORMAT_CBE:                          return "setup_format_cbe";
+	case State::CONTROLS_ROOT:                             return "controls_root";
+	case State::CONTROLS_SNAPSHOTS:                        return "controls_snapshots";
+	case State::CONTROLS_DIMENSIONS:                       return "controls_dimensions";
+	case State::CONTROLS_EXPAND_CLIENT_FS:                 return "controls_expand_client_fs";
+	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:              return "controls_expand_snapshot_buf";
+	case State::CONTROLS_SECURITY:                         return "controls_security";
+	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:    return "controls_security_block_encryption_key";
+	case State::CONTROLS_SECURITY_MASTER_KEY:              return "controls_security_master_key";
+	case State::CONTROLS_SECURITY_USER_PASSPHRASE:         return "controls_security_user_passphrase";
+	case State::STARTUP_OBTAIN_PARAMETERS:                 return "startup_obtain_parameters";
+	case State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR:         return "startup_run_cbe_init_trust_anchor";
+	case State::STARTUP_START_CBE_VFS:                     return "startup_start_cbe_vfs";
+	case State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE:      return "shutdown_issue_deinit_request_at_cbe";
+	case State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE: return "shutdown_wait_till_deinit_request_is_done";
 	}
 	class Invalid_state { };
 	throw Invalid_state { };
