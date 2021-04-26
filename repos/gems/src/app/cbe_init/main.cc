@@ -27,6 +27,7 @@
 #include <cbe/init/configuration.h>
 #include <cbe/vfs/trust_anchor_vfs.h>
 
+enum { VERBOSE = 0 };
 
 using namespace Genode;
 
@@ -61,6 +62,7 @@ class Main
 				node.attribute_value("trust_anchor_dir", String_path());
 
 			if (!path.valid()) {
+
 				error("missing mandatory 'trust_anchor_dir' config attribute");
 				struct Missing_config_attribute { };
 				throw Missing_config_attribute();
@@ -196,7 +198,9 @@ class Main
 				if (req.valid()) {
 					_cbe_init.drop_completed_client_request(req);
 					if (req.success()) {
-						log("CBE initialization finished");
+						if (VERBOSE) {
+							log("CBE initialization finished");
+						}
 						_env.parent().exit(0);
 					} else {
 						error("request was not successful");;
@@ -324,8 +328,10 @@ class Main
 					error("failed to submit request");
 					_env.parent().exit(-1);
 				}
-				log("vbd ", cfg.vbd_nr_of_lvls(), " ", cfg.vbd_nr_of_children(), " ", cfg.vbd_nr_of_leafs(), " ",
-				    "ft ", cfg.ft_nr_of_lvls(), " ", cfg.ft_nr_of_children(), " ", cfg.ft_nr_of_leafs(), " ");
+				if (VERBOSE) {
+					log("vbd ", cfg.vbd_nr_of_lvls(), " ", cfg.vbd_nr_of_children(), " ", cfg.vbd_nr_of_leafs(), " ",
+					    "ft ", cfg.ft_nr_of_lvls(), " ", cfg.ft_nr_of_children(), " ", cfg.ft_nr_of_leafs(), " ");
+				}
 				_cbe_init.submit_client_request(
 					Cbe::Request(
 						Cbe::Request::Operation::READ,
