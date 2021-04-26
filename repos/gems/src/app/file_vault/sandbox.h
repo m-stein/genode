@@ -413,10 +413,10 @@ namespace File_vault {
 		});
 	}
 
-	void gen_new_empty_file_start_node(Xml_generator     &xml,
-	                                   Child_state const &child,
-	                                   char        const *path,
-	                                   size_t             size)
+	void gen_truncate_file_start_node(Xml_generator     &xml,
+	                                  Child_state const &child,
+	                                  char        const *path,
+	                                  size_t             size)
 	{
 		child.gen_start_node(xml, [&] () {
 

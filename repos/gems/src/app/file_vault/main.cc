@@ -261,6 +261,7 @@ class File_vault::Main
 		enum class Resizing_state
 		{
 			INACTIVE,
+			ADAPT_CBE_IMAGE_SIZE,
 			WAIT_TILL_DEVICE_IS_READY,
 			ISSUE_REQUEST_AT_DEVICE,
 			IN_PROGRESS_AT_DEVICE,
@@ -310,7 +311,7 @@ class File_vault::Main
 		Child_state                            _cbe_trust_anchor_vfs               { _children, "cbe_trust_anchor_vfs", "vfs", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _rump_vfs                           { _children, "rump_vfs", "vfs", Ram_quota { 16 * 1024 * 1024 }, Cap_quota { 200 } };
 		Child_state                            _sync_to_cbe_vfs_init               { _children, "sync_to_cbe_vfs_init", "file_vault-sync_to_cbe_vfs_init", Ram_quota { 8 * 1024 * 1024 }, Cap_quota { 100 } };
-		Child_state                            _new_empty_file                     { _children, "new_empty_file", "file_vault-new_empty_file", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _truncate_file                      { _children, "truncate_file", "file_vault-truncate_file", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _cbe_vfs_block                      { _children, "vfs_block", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _fs_query                           { _children, "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _image_fs_query                     { _children, "image_fs_query", "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
@@ -694,6 +695,7 @@ void Main::_handle_resizing_fs_query_listing(Xml_node const &node)
 
 					class Unexpected_resizing_type { };
 					throw Unexpected_resizing_type { };
+					break;
 				}
 				_resizing_type = Resizing_type::NONE;
 				_resizing_state = Resizing_state::INACTIVE;
@@ -1003,7 +1005,7 @@ void File_vault::Main::handle_sandbox_state()
 
 		case State::SETUP_CREATE_CBE_IMAGE_FILE:
 
-			if (_child_succeeded(sandbox_state, _new_empty_file)) {
+			if (_child_succeeded(sandbox_state, _truncate_file)) {
 
 				_state = State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR;
 				update_dialog = true;
@@ -1085,6 +1087,16 @@ void File_vault::Main::handle_sandbox_state()
 		case State::CONTROLS_SECURITY_USER_PASSPHRASE:
 
 			switch (_resizing_state) {
+			case Resizing_state::ADAPT_CBE_IMAGE_SIZE:
+
+				if (_child_succeeded(sandbox_state, _truncate_file)) {
+
+					_resizing_state = Resizing_state::WAIT_TILL_DEVICE_IS_READY;
+					update_dialog = true;
+					update_sandbox = true;
+				}
+				break;
+
 			case Resizing_state::ISSUE_REQUEST_AT_DEVICE:
 
 				if (_child_succeeded(sandbox_state, _resizing_fs_tool)) {
@@ -1540,6 +1552,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 							}
 							break;
 						}
+						case Resizing_state::ADAPT_CBE_IMAGE_SIZE:
 						case Resizing_state::WAIT_TILL_DEVICE_IS_READY:
 						case Resizing_state::ISSUE_REQUEST_AT_DEVICE:
 						case Resizing_state::IN_PROGRESS_AT_DEVICE:
@@ -1621,6 +1634,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 							}
 							break;
 						}
+						case Resizing_state::ADAPT_CBE_IMAGE_SIZE:
 						case Resizing_state::WAIT_TILL_DEVICE_IS_READY:
 						case Resizing_state::ISSUE_REQUEST_AT_DEVICE:
 						case Resizing_state::IN_PROGRESS_AT_DEVICE:
@@ -1948,8 +1962,8 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_parent_provides_and_report_nodes(xml);
 		gen_menu_view_start_node(xml, _menu_view);
 		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs);
-		gen_new_empty_file_start_node(
-			xml, _new_empty_file, "/cbe/cbe.img",
+		gen_truncate_file_start_node(
+			xml, _truncate_file, "/cbe/cbe.img",
 			CBE_BLOCK_SIZE *
 				_cbe_nr_of_blocks(
 					CBE_NR_OF_SUPERBLOCKS,
@@ -2025,6 +2039,37 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 
 			break;
 
+		case Resizing_state::ADAPT_CBE_IMAGE_SIZE:
+
+			switch (_resizing_type) {
+			case Resizing_type::EXPAND_CLIENT_FS:
+
+				gen_truncate_file_start_node(
+					xml, _truncate_file, "/cbe/cbe.img",
+					_cbe_image_size +
+					(_expand_client_fs_nr_of_blks.to_unsigned_long() *
+					 CBE_BLOCK_SIZE));
+
+				break;
+
+			case Resizing_type::EXPAND_SNAPSHOT_BUF:
+
+				gen_truncate_file_start_node(
+					xml, _truncate_file, "/cbe/cbe.img",
+					_cbe_image_size +
+					(_expand_snapshot_buf_nr_of_blks.to_unsigned_long() *
+					 CBE_BLOCK_SIZE));
+
+				break;
+
+			default:
+
+				class Unexpected_resizing_type { };
+				throw Unexpected_resizing_type { };
+				break;
+			}
+			break;
+
 		case Resizing_state::WAIT_TILL_DEVICE_IS_READY:
 
 			gen_resizing_fs_query_start_node(xml, _resizing_fs_query);
@@ -2053,8 +2098,8 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 
 				class Unexpected_resizing_type { };
 				throw Unexpected_resizing_type { };
+				break;
 			}
-
 			break;
 
 		case Resizing_state::IN_PROGRESS_AT_DEVICE:
@@ -2822,7 +2867,7 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 
 					_expand_client_fs_select = Expand_client_fs_select::NONE;
 					_resizing_type = Resizing_type::EXPAND_CLIENT_FS;
-					_resizing_state = Resizing_state::WAIT_TILL_DEVICE_IS_READY;
+					_resizing_state = Resizing_state::ADAPT_CBE_IMAGE_SIZE;
 
 					update_sandbox_config = true;
 					update_dialog = true;

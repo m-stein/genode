@@ -17,19 +17,16 @@
 #include <base/heap.h>
 #include <os/vfs.h>
 
-/* CBE manager includes */
-#include <new_file.h>
-
-namespace New_empty_file {
+namespace Truncate_file {
 
 	class Main;
 }
 
-using namespace New_empty_file;
+using namespace Truncate_file;
 using namespace Genode;
 
 
-class New_empty_file::Main
+class Truncate_file::Main
 {
 	private:
 
@@ -48,7 +45,7 @@ class New_empty_file::Main
 
 
 /*************************
- ** New_empty_file::Main **
+ ** Truncate_file::Main **
  *************************/
 
 Main::Main(Env &env)
@@ -72,7 +69,6 @@ Main::Main(Env &env)
 		class Create_failed { };
 		throw Create_failed { };
 	}
-	handle_ptr->fs().ftruncate(handle_ptr, 0);
 	handle_ptr->fs().ftruncate(handle_ptr, _size);
 	handle_ptr->ds().close(handle_ptr);
 	_env.parent().exit(0);
@@ -85,5 +81,5 @@ Main::Main(Env &env)
 
 void Component::construct(Genode::Env &env)
 {
-	static New_empty_file::Main main { env };
+	static Truncate_file::Main main { env };
 }
