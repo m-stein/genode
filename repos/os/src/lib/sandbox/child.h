@@ -715,7 +715,9 @@ class Sandbox::Child : Child_policy, Routed_service::Wakeup
 			 * a number of automated tests that rely on this message. It is
 			 * printed by the default implementation of 'Child_policy::exit'.
 			 */
-			Child_policy::exit(exit_value);
+			if (_verbose.enabled()) {
+				Child_policy::exit(exit_value);
+			}
 		}
 
 		void session_state_changed() override
