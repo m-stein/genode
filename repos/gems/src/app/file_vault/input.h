@@ -22,7 +22,7 @@
 /* local includes */
 #include <types.h>
 
-namespace Cbe_manager {
+namespace File_vault {
 
 	class Input_single_line;
 	class Input_passphrase;
@@ -31,7 +31,7 @@ namespace Cbe_manager {
 }
 
 
-class Cbe_manager::Input_single_line
+class File_vault::Input_single_line
 {
 	public:
 
@@ -117,7 +117,7 @@ class Cbe_manager::Input_single_line
 
 
 
-class Cbe_manager::Input_passphrase : public Input_single_line
+class File_vault::Input_passphrase : public Input_single_line
 {
 	private:
 
@@ -176,7 +176,7 @@ class Cbe_manager::Input_passphrase : public Input_single_line
 };
 
 
-class Cbe_manager::Input_number_of_bytes : public Input_single_line
+class File_vault::Input_number_of_bytes : public Input_single_line
 {
 	public:
 
@@ -209,7 +209,7 @@ class Cbe_manager::Input_number_of_bytes : public Input_single_line
 };
 
 
-class Cbe_manager::Input_number_of_blocks : public Input_single_line
+class File_vault::Input_number_of_blocks : public Input_single_line
 {
 	public:
 

@@ -21,12 +21,12 @@
 /* local includes */
 #include <types.h>
 
-namespace Cbe_manager {
+namespace File_vault {
 
 	class Child_exit_state;
 }
 
-class Cbe_manager::Child_exit_state
+class File_vault::Child_exit_state
 {
 	public:
 

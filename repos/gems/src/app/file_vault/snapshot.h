@@ -14,12 +14,12 @@
 #ifndef _SNAPSHOT_H_
 #define _SNAPSHOT_H_
 
-namespace Cbe_manager {
+namespace File_vault {
 
 	class Snapshot;
 }
 
-class Cbe_manager::Snapshot
+class File_vault::Snapshot
 {
 	private:
 

@@ -16,4 +16,4 @@ _/src/fs_utils
 _/src/posix
 _/src/rump
 _/src/sandbox
-_/src/cbe_manager
+_/src/file_vault

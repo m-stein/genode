@@ -43,9 +43,9 @@
 		<rom label="fs_tool"/>
 		<rom label="mke2fs"/>
 		<rom label="posix.lib.so"/>
-		<rom label="cbe_manager"/>
-		<rom label="cbe_manager-sync_to_cbe_vfs_init"/>
-		<rom label="cbe_manager-new_empty_file"/>
+		<rom label="file_vault"/>
+		<rom label="file_vault-sync_to_cbe_vfs_init"/>
+		<rom label="file_vault-new_empty_file"/>
 		<rom label="menu_view_styles.tar"/>
 	</content>
 
@@ -64,11 +64,11 @@
 
 		<service name="File_system">
 			<default-policy>
-				<child name="cbe_manager"/>
+				<child name="file_vault"/>
 			</default-policy>
 		</service>
 
-		<start name="cbe_manager" caps="2000">
+		<start name="file_vault" caps="2000">
 			<resource name="RAM" quantum="200M"/>
 			<provides>
 				<service name="File_system"/>

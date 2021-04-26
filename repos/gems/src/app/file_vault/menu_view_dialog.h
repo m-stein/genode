@@ -21,7 +21,7 @@
 #include <types.h>
 #include <input.h>
 
-namespace Cbe_manager {
+namespace File_vault {
 
 	void gen_normal_font_attribute(Xml_generator &xml);
 

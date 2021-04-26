@@ -21,7 +21,7 @@
 /* local includes */
 #include <input.h>
 
-namespace Cbe_manager {
+namespace File_vault {
 
 	template <typename ARG>
 	void gen_arg(Xml_generator &xml, ARG const &arg)
@@ -544,7 +544,7 @@ namespace Cbe_manager {
 					});
 				});
 				xml.node("query", [&] () {
-					xml.attribute("path", "/cbe_manager");
+					xml.attribute("path", "/file_vault");
 					xml.attribute("content", "yes");
 				});
 			});

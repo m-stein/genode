@@ -1,6 +1,6 @@
 assert_spec x86_64
 
-build { app/cbe_manager }
+build { app/file_vault }
 
 create_boot_directory
 
@@ -126,8 +126,8 @@ if {[have_board linux]} {
 				<service name="File_system"/>
 			</provides>
 			<config>
-				<policy label="cbe_manager -> data"
-				        root="/cbe_manager_dir/data"
+				<policy label="file_vault -> data"
+				        root="/file_vault_dir/data"
 				        writeable="yes"/>
 			</config>
 			<route>
@@ -145,8 +145,8 @@ if {[have_board linux]} {
 				<service name="File_system"/>
 			</provides>
 			<config>
-				<policy label="cbe_manager -> trust_anchor"
-				        root="/cbe_manager_dir/trust_anchor"
+				<policy label="file_vault -> trust_anchor"
+				        root="/file_vault_dir/trust_anchor"
 				        writeable="yes"/>
 			</config>
 			<route>
@@ -172,7 +172,7 @@ if {[have_board linux]} {
 						<ram/>
 					</dir>
 				</vfs>
-				<policy label="cbe_manager -> data" root="/data" writeable="yes"/>
+				<policy label="file_vault -> data" root="/data" writeable="yes"/>
 			</config>
 			<route>
 				<service name="PD">  <parent/> </service>
@@ -192,7 +192,7 @@ if {[have_board linux]} {
 						<ram/>
 					</dir>
 				</vfs>
-				<policy label="cbe_manager -> trust_anchor" root="/trust_anchor" writeable="yes"/>
+				<policy label="file_vault -> trust_anchor" root="/trust_anchor" writeable="yes"/>
 			</config>
 			<route>
 				<service name="PD">  <parent/> </service>
@@ -231,7 +231,7 @@ append config {
 					</dir>
 				</vfs>
 
-				<policy label="cbe_manager -> fonts" root="/fonts" />
+				<policy label="file_vault -> fonts" root="/fonts" />
 			</config>
 			<route>
 				<service name="ROM" label="config"> <parent label="fonts_fs.config"/> </service>
@@ -242,7 +242,7 @@ append config {
 			</route>
 		</start>
 
-		<start name="cbe_manager" caps="2000">
+		<start name="file_vault" caps="2000">
 			<resource name="RAM" quantum="200M"/>
 }
 if {[have_board linux]} {
@@ -267,14 +267,14 @@ append config {
 				</vfs>
 			</config>
 			<route>
-				<service name="File_system" label="cbe_trust_anchor_vfs -> storage_dir"> <child name="trust_anchor_fs" label="cbe_manager -> trust_anchor"/> </service>
-				<service name="File_system" label="vfs_block -> ">                       <child name="data_fs"         label="cbe_manager -> data"/> </service>
-				<service name="File_system" label="cbe">                                 <child name="data_fs"         label="cbe_manager -> data"/> </service>
-				<service name="File_system" label="fs_query -> ">                        <child name="data_fs"         label="cbe_manager -> data"/> </service>
-				<service name="File_system" label="image_fs_query -> ">                  <child name="data_fs"         label="cbe_manager -> data"/> </service>
-				<service name="File_system" label="cbe_vfs -> cbe_fs">                   <child name="data_fs"         label="cbe_manager -> data"/> </service>
-				<service name="File_system" label="new_empty_file -> cbe">               <child name="data_fs"         label="cbe_manager -> data"/> </service>
-				<service name="File_system" label="menu_view -> fonts">                  <child name="fonts_fs"        label="cbe_manager -> fonts"/> </service>
+				<service name="File_system" label="cbe_trust_anchor_vfs -> storage_dir"> <child name="trust_anchor_fs" label="file_vault -> trust_anchor"/> </service>
+				<service name="File_system" label="vfs_block -> ">                       <child name="data_fs"         label="file_vault -> data"/> </service>
+				<service name="File_system" label="cbe">                                 <child name="data_fs"         label="file_vault -> data"/> </service>
+				<service name="File_system" label="fs_query -> ">                        <child name="data_fs"         label="file_vault -> data"/> </service>
+				<service name="File_system" label="image_fs_query -> ">                  <child name="data_fs"         label="file_vault -> data"/> </service>
+				<service name="File_system" label="cbe_vfs -> cbe_fs">                   <child name="data_fs"         label="file_vault -> data"/> </service>
+				<service name="File_system" label="new_empty_file -> cbe">               <child name="data_fs"         label="file_vault -> data"/> </service>
+				<service name="File_system" label="menu_view -> fonts">                  <child name="fonts_fs"        label="file_vault -> fonts"/> </service>
 				<service name="Timer">                                                   <child name="timer"/> </service>
 				<service name="Gui">                                                     <child name="nitpicker"/> </service>
 				<service name="PD">                                                      <parent/> </service>
@@ -291,23 +291,23 @@ append config {
 install_config $config
 
 set fd [open [run_dir]/genode/focus w]
-puts $fd "<focus label=\"cbe_manager -> \"/>"
+puts $fd "<focus label=\"file_vault -> \"/>"
 close $fd
 
 if {[have_board linux]} {
-	exec mkdir -p bin/cbe_manager_dir/data
-	exec mkdir -p bin/cbe_manager_dir/trust_anchor
+	exec mkdir -p bin/file_vault_dir/data
+	exec mkdir -p bin/file_vault_dir/trust_anchor
 }
 
 append boot_modules {
-	cbe_manager
-	cbe_manager-sync_to_cbe_vfs_init
-	cbe_manager-new_empty_file
+	file_vault
+	file_vault-sync_to_cbe_vfs_init
+	file_vault-new_empty_file
 }
 
 append qemu_args " -display gtk "
 
-append_if [have_board linux] boot_modules cbe_manager_dir
+append_if [have_board linux] boot_modules file_vault_dir
 
 build_boot_image $boot_modules
 

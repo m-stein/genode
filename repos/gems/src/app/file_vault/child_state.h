@@ -25,12 +25,12 @@
 /* local includes */
 #include <types.h>
 
-namespace Cbe_manager {
+namespace File_vault {
 
 	class Child_state;
 }
 
-class Cbe_manager::Child_state : Noncopyable
+class File_vault::Child_state : Noncopyable
 {
 	private:
 

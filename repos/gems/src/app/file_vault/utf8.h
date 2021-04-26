@@ -21,7 +21,7 @@
 /* local includes */
 #include <types.h>
 
-namespace Cbe_manager {
+namespace File_vault {
 
 	enum {
 		CODEPOINT_BACKSPACE = 8,

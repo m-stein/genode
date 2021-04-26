@@ -36,12 +36,12 @@
 #include <const_pointer.h>
 #include <snapshot.h>
 
-namespace Cbe_manager {
+namespace File_vault {
 
 	class Main;
 }
 
-class Cbe_manager::Main
+class File_vault::Main
 :
 	private Sandbox::Local_service_base::Wakeup,
 	private Sandbox::State_handler,
@@ -309,8 +309,8 @@ class Cbe_manager::Main
 		Child_state                            _cbe_vfs                            { _children, "cbe_vfs", "vfs", Ram_quota { 64 * 1024 * 1024 }, Cap_quota { 200 } };
 		Child_state                            _cbe_trust_anchor_vfs               { _children, "cbe_trust_anchor_vfs", "vfs", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _rump_vfs                           { _children, "rump_vfs", "vfs", Ram_quota { 16 * 1024 * 1024 }, Cap_quota { 200 } };
-		Child_state                            _sync_to_cbe_vfs_init               { _children, "sync_to_cbe_vfs_init", "cbe_manager-sync_to_cbe_vfs_init", Ram_quota { 8 * 1024 * 1024 }, Cap_quota { 100 } };
-		Child_state                            _new_empty_file                     { _children, "new_empty_file", "cbe_manager-new_empty_file", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _sync_to_cbe_vfs_init               { _children, "sync_to_cbe_vfs_init", "file_vault-sync_to_cbe_vfs_init", Ram_quota { 8 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _new_empty_file                     { _children, "new_empty_file", "file_vault-new_empty_file", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _cbe_vfs_block                      { _children, "vfs_block", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _fs_query                           { _children, "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _image_fs_query                     { _children, "image_fs_query", "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
@@ -498,12 +498,12 @@ class Cbe_manager::Main
 		Main(Env &env);
 };
 
-using namespace Cbe_manager;
+using namespace File_vault;
 
 
-/***********************
- ** Cbe_manager::Main **
- ***********************/
+/**********************
+ ** File_vault::Main **
+ **********************/
 
 void Main::_handle_config()
 {
@@ -621,7 +621,7 @@ void Main::_write_to_state_file(State state)
 {
 	bool write_error = false;
 	try {
-		New_file new_file(_vfs, Directory::Path("/cbe/cbe_manager/state"));
+		New_file new_file(_vfs, Directory::Path("/cbe/file_vault/state"));
 		auto write = [&] (char const *str)
 		{
 			switch (new_file.append(str, strlen(str))) {
@@ -962,7 +962,7 @@ Main::Main(Env &env)
 }
 
 
-bool Cbe_manager::Main::_child_succeeded(Xml_node    const &sandbox_state,
+bool File_vault::Main::_child_succeeded(Xml_node    const &sandbox_state,
                                         Child_state const &child_state)
 {
 	Child_exit_state const exit_state { sandbox_state, child_state.start_name() };
@@ -983,7 +983,7 @@ bool Cbe_manager::Main::_child_succeeded(Xml_node    const &sandbox_state,
 }
 
 
-void Cbe_manager::Main::handle_sandbox_state()
+void File_vault::Main::handle_sandbox_state()
 {
 	Buffered_xml sandbox_state {
 		_heap, "sandbox_state",
@@ -1186,7 +1186,7 @@ void Cbe_manager::Main::handle_sandbox_state()
 }
 
 
-void Cbe_manager::Main::produce_xml(Xml_generator &xml)
+void File_vault::Main::produce_xml(Xml_generator &xml)
 {
 	switch (_state) {
 	case State::INVALID:
@@ -1779,7 +1779,7 @@ void Cbe_manager::Main::produce_xml(Xml_generator &xml)
 }
 
 
-void Cbe_manager::Main::wakeup_local_service()
+void File_vault::Main::wakeup_local_service()
 {
 	_rom_service.for_each_requested_session([&] (Rom_service::Request &request) {
 
@@ -1897,7 +1897,7 @@ size_t Main::_cbe_tree_nr_of_leaves(size_t payload_size)
 }
 
 
-void Cbe_manager::Main::_generate_sandbox_config(Xml_generator &xml) const
+void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 {
 	switch (_state) {
 	case State::INVALID:
@@ -2219,7 +2219,7 @@ size_t Main::_cbe_nr_of_blocks(size_t nr_of_superblocks,
 }
 
 
-void Cbe_manager::Main::handle_input_event(Input::Event const &event)
+void File_vault::Main::handle_input_event(Input::Event const &event)
 {
 	bool update_dialog { false };
 	bool update_sandbox_config { false };
@@ -3214,7 +3214,7 @@ void Cbe_manager::Main::handle_input_event(Input::Event const &event)
 }
 
 
-void Cbe_manager::Main::_handle_hover(Xml_node const &node)
+void File_vault::Main::_handle_hover(Xml_node const &node)
 {
 	bool update_dialog { false };
 
@@ -3815,5 +3815,5 @@ void Cbe_manager::Main::_handle_hover(Xml_node const &node)
 
 void Component::construct(Genode::Env &env)
 {
-	static Cbe_manager::Main main { env };
+	static File_vault::Main main { env };
 }

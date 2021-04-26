@@ -17,7 +17,7 @@
 /* local includes */
 #include <types.h>
 
-namespace Cbe_manager {
+namespace File_vault {
 
 	template <typename T>
 	class Const_pointer;
@@ -25,7 +25,7 @@ namespace Cbe_manager {
 
 
 template <typename OBJECT_TYPE>
-class Cbe_manager::Const_pointer
+class File_vault::Const_pointer
 {
 	private:
 

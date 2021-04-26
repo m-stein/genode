@@ -19,7 +19,7 @@
 
 namespace Genode { }
 
-namespace Cbe_manager {
+namespace File_vault {
 
 	using namespace Cbe;
 	using namespace Genode;

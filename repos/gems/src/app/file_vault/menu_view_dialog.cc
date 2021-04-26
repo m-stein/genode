@@ -14,19 +14,19 @@
 /* local includes */
 #include <menu_view_dialog.h>
 
-using namespace Cbe_manager;
+using namespace File_vault;
 
 
-void Cbe_manager::gen_normal_font_attribute(Xml_generator &xml)
+void File_vault::gen_normal_font_attribute(Xml_generator &xml)
 {
 	xml.attribute("font", "text/regular");
 }
 
 
-void Cbe_manager::gen_frame_title(Xml_generator &xml,
-                                  char    const *title,
-                                  char    const *name,
-                                  unsigned long  min_width)
+void File_vault::gen_frame_title(Xml_generator &xml,
+                                 char    const *title,
+                                 char    const *name,
+                                 unsigned long  min_width)
 {
 
 	xml.node("float", [&] () {
@@ -43,11 +43,11 @@ void Cbe_manager::gen_frame_title(Xml_generator &xml,
 	gen_info_line(xml, "pad_0", "");
 }
 
-void Cbe_manager::gen_titled_info_frame(Xml_generator &xml,
-                                        char const    *name,
-                                        char const    *title,
-                                        char const    *info,
-                                        unsigned long  min_width)
+void File_vault::gen_titled_info_frame(Xml_generator &xml,
+                                       char const    *name,
+                                       char const    *title,
+                                       char const    *info,
+                                       unsigned long  min_width)
 {
 	gen_titled_frame(xml, name, title, min_width, [&] (Xml_generator &xml) {
 
@@ -56,11 +56,11 @@ void Cbe_manager::gen_titled_info_frame(Xml_generator &xml,
 	});
 }
 
-void Cbe_manager::gen_action_button_at_bottom(Xml_generator &xml,
-                                              char const    *name,
-                                              char const    *label,
-                                              bool           hovered,
-                                              bool           selected)
+void File_vault::gen_action_button_at_bottom(Xml_generator &xml,
+                                             char const    *name,
+                                             char const    *label,
+                                             bool           hovered,
+                                             bool           selected)
 {
 	xml.node("float", [&] () {
 		xml.attribute("name", name);
@@ -88,20 +88,20 @@ void Cbe_manager::gen_action_button_at_bottom(Xml_generator &xml,
 	});
 }
 
-void Cbe_manager::gen_action_button_at_bottom(Xml_generator &xml,
-                                              char const    *label,
-                                              bool           hovered,
-                                              bool           selected)
+void File_vault::gen_action_button_at_bottom(Xml_generator &xml,
+                                             char const    *label,
+                                             bool           hovered,
+                                             bool           selected)
 {
 	gen_action_button_at_bottom(xml, label, label, hovered, selected);
 }
 
-void Cbe_manager::gen_action_button(Xml_generator &xml,
-                                    char const    *name,
-                                    char const    *label,
-                                    bool           hovered,
-                                    bool           selected,
-                                    size_t         min_ex)
+void File_vault::gen_action_button(Xml_generator &xml,
+                                   char const    *name,
+                                   char const    *label,
+                                   bool           hovered,
+                                   bool           selected,
+                                   size_t         min_ex)
 {
 	xml.node("button", [&] () {
 		xml.attribute("name", name);
@@ -122,10 +122,10 @@ void Cbe_manager::gen_action_button(Xml_generator &xml,
 	});
 }
 
-void Cbe_manager::gen_text_input(Xml_generator     &xml,
-                                 char        const *name,
-                                 String<256> const &text,
-                                 bool               selected)
+void File_vault::gen_text_input(Xml_generator     &xml,
+                                char        const *name,
+                                String<256> const &text,
+                                bool               selected)
 {
 	String<256> const padded_text { " ", text };
 
@@ -147,11 +147,11 @@ void Cbe_manager::gen_text_input(Xml_generator     &xml,
 	});
 }
 
-void Cbe_manager::gen_input_passphrase(Xml_generator          &xml,
-                                       Input_passphrase const &passphrase,
-                                       bool                    input_selected,
-                                       bool                    show_hide_button_hovered,
-                                       bool                    show_hide_button_selected)
+void File_vault::gen_input_passphrase(Xml_generator          &xml,
+                                      Input_passphrase const &passphrase,
+                                      bool                    input_selected,
+                                      bool                    show_hide_button_hovered,
+                                      bool                    show_hide_button_selected)
 {
 	char const *show_hide_button_label;
 	size_t cursor_at;
@@ -206,11 +206,11 @@ void Cbe_manager::gen_input_passphrase(Xml_generator          &xml,
 	});
 }
 
-void Cbe_manager::gen_titled_text_input(Xml_generator     &xml,
-                                        char        const *name,
-                                        char        const *title,
-                                        String<256> const &text,
-                                        bool               selected)
+void File_vault::gen_titled_text_input(Xml_generator     &xml,
+                                       char        const *name,
+                                       char        const *title,
+                                       String<256> const &text,
+                                       bool               selected)
 {
 	xml.node("float", [&] () {
 		xml.attribute("name", String<64> { name, "_label" });
@@ -224,9 +224,9 @@ void Cbe_manager::gen_titled_text_input(Xml_generator     &xml,
 	gen_text_input(xml, name, text, selected);
 }
 
-void Cbe_manager::gen_info_line(Xml_generator     &xml,
-                                char        const *name,
-                                char        const *text)
+void File_vault::gen_info_line(Xml_generator     &xml,
+                               char        const *name,
+                               char        const *text)
 {
 	xml.node("float", [&] () {
 		xml.attribute("name", name);
@@ -238,7 +238,7 @@ void Cbe_manager::gen_info_line(Xml_generator     &xml,
 	});
 }
 
-void Cbe_manager::gen_multiple_choice_entry(Xml_generator &xml,
+void File_vault::gen_multiple_choice_entry(Xml_generator &xml,
                                            char     const *name,
                                            char     const *text,
                                            bool            hovered,
@@ -269,10 +269,10 @@ void Cbe_manager::gen_multiple_choice_entry(Xml_generator &xml,
 	});
 }
 
-void Cbe_manager::gen_sub_menu_title(Xml_generator &xml,
-                                     char    const *text,
-                                     bool           hovered,
-                                     bool           selected)
+void File_vault::gen_sub_menu_title(Xml_generator &xml,
+                                    char    const *text,
+                                    bool           hovered,
+                                    bool           selected)
 {
 	xml.node("float", [&] () {
 		xml.attribute("name", "expand");
@@ -303,9 +303,9 @@ void Cbe_manager::gen_sub_menu_title(Xml_generator &xml,
 }
 
 
-void Cbe_manager::gen_closed_sub_menu(Xml_generator &xml,
-                                      char    const *name,
-                                      bool           hovered)
+void File_vault::gen_closed_sub_menu(Xml_generator &xml,
+                                     char    const *name,
+                                     bool           hovered)
 {
 	xml.node("vbox", [&] () {
 		xml.attribute("name", name);

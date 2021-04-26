@@ -17,7 +17,7 @@
 /* Genode includes */
 #include <base/allocator.h>
 
-namespace Cbe_manager {
+namespace File_vault {
 
 	using namespace Genode;
 
@@ -27,7 +27,7 @@ namespace Cbe_manager {
 
 
 template <typename ET>
-struct Cbe_manager::Dynamic_array
+struct File_vault::Dynamic_array
 {
 	public:
 
