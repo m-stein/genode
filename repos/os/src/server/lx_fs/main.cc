@@ -287,14 +287,25 @@ class Lx_fs::Session_component : private Session_resources,
 		 */
 		~Session_component()
 		{
-			auto cleanup_fn = [&] (Open_node &open_node) {
-				Node &node = open_node.node();
-				destroy(_alloc, &open_node);
-				destroy(_alloc, &node);
+			List<List_element<Open_node>> node_list;
+
+			auto collect_fn = [&node_list, this] (Open_node &open_node) {
+				node_list.insert(new (_alloc) List_element<Open_node>{ &open_node });
 			};
 
 			try {
-				_open_node_registry.for_each<Open_node>(cleanup_fn);
+				_open_node_registry.for_each<Open_node>(collect_fn);
+
+				while (node_list.first()) {
+
+					auto *e = node_list.first();
+					Node &node = e->object()->node();
+					destroy(_alloc, e->object());
+					destroy(_alloc, &node);
+					node_list.remove(e);
+					destroy(_alloc, e);
+				}
+
 			} catch (Id_space<File_system::Node>::Unknown_id const &) {
 				error("invalid handle while cleaning up");
 			}
