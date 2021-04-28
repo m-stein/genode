@@ -162,7 +162,7 @@ class File_vault::Main
 		enum class Expand_client_fs_select
 		{
 			NONE,
-			NR_OF_BLKS_INPUT,
+			CONTINGENT_INPUT,
 			START_BUTTON,
 			SHUT_DOWN_BUTTON,
 		};
@@ -171,7 +171,7 @@ class File_vault::Main
 		{
 			NONE,
 			LEAVE_BUTTON,
-			NR_OF_BLKS_INPUT,
+			CONTINGENT_INPUT,
 			START_BUTTON,
 			SHUT_DOWN_BUTTON,
 		};
@@ -179,7 +179,7 @@ class File_vault::Main
 		enum class Expand_snapshot_buf_select
 		{
 			NONE,
-			NR_OF_BLKS_INPUT,
+			CONTINGENT_INPUT,
 			START_BUTTON,
 			SHUT_DOWN_BUTTON,
 		};
@@ -188,7 +188,7 @@ class File_vault::Main
 		{
 			NONE,
 			LEAVE_BUTTON,
-			NR_OF_BLKS_INPUT,
+			CONTINGENT_INPUT,
 			START_BUTTON,
 			SHUT_DOWN_BUTTON,
 		};
@@ -299,10 +299,10 @@ class File_vault::Main
 		using Snapshot_pointer   = Const_pointer<Snapshot>;
 
 		Env                                   &_env;
-		static constexpr char           const *_setup_title                        { "File vault - Setup" };
-		static constexpr char           const *_shutdown_title                     { "File Vault - Shutdown" };
+		static constexpr char           const *_setup_title                        { "File vault setup" };
+		static constexpr char           const *_shutdown_title                     { "File Vault" };
 		static constexpr char           const *_controls_title                     { "File Vault" };
-		static constexpr char           const *_startup_title                      { "File Vault - Startup" };
+		static constexpr char           const *_startup_title                      { "File Vault" };
 		State                                  _state                              { State::INVALID };
 		Heap                                   _heap                               { _env.ram(), _env.rm() };
 		Attached_rom_dataspace                 _config                             { _env, "config" };
@@ -377,8 +377,8 @@ class File_vault::Main
 
 		Resizing_state                         _resizing_state                     { Resizing_state::INACTIVE };
 		Resizing_type                          _resizing_type                      { Resizing_type::NONE };
-		Input_number_of_blocks                 _expand_client_fs_nr_of_blks        { };
-		Input_number_of_blocks                 _expand_snapshot_buf_nr_of_blks     { };
+		Input_number_of_bytes                  _expand_client_fs_contingent        { };
+		Input_number_of_bytes                  _expand_snapshot_buf_contingent     { };
 		Rekeying_state                         _rekeying_state                     { Rekeying_state::INACTIVE };
 		Create_snapshot_state                  _create_snap_state                  { Create_snapshot_state::INACTIVE };
 		Discard_snapshot_state                 _discard_snap_state                 { Discard_snapshot_state::INACTIVE };
@@ -697,14 +697,14 @@ void Main::_handle_resizing_fs_query_listing(Xml_node const &node)
 				switch (_resizing_type) {
 				case Resizing_type::EXPAND_CLIENT_FS:
 
-					_expand_client_fs_nr_of_blks = Input_number_of_blocks { };
-					_expand_client_fs_select = Expand_client_fs_select::NR_OF_BLKS_INPUT;
+					_expand_client_fs_contingent = Input_number_of_bytes { };
+					_expand_client_fs_select = Expand_client_fs_select::CONTINGENT_INPUT;
 					break;
 
 				case Resizing_type::EXPAND_SNAPSHOT_BUF:
 
-					_expand_snapshot_buf_nr_of_blks = Input_number_of_blocks { };
-					_expand_snapshot_buf_select = Expand_snapshot_buf_select::NR_OF_BLKS_INPUT;
+					_expand_snapshot_buf_contingent = Input_number_of_bytes { };
+					_expand_snapshot_buf_select = Expand_snapshot_buf_select::CONTINGENT_INPUT;
 					break;
 
 				default:
@@ -1270,7 +1270,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 	switch (_state) {
 	case State::INVALID:
 
-		gen_titled_info_frame(xml, "1", "Program initialization", "Reading state file", MAIN_FRAME_WIDTH);
+		gen_titled_info_frame(xml, "1", "File vault", "Please wait...", MAIN_FRAME_WIDTH);
 		break;
 
 	case State::SETUP_OBTAIN_PARAMETERS:
@@ -1289,11 +1289,11 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 			if (!_setup_obtain_params_passphrase.suitable()) {
 
 				gen_start_button = false;
-				gen_info_line(xml, "info_1", "Passphrase too short!");
+				gen_info_line(xml, "info_1", "Must have at least 8 characters");
 			}
 			gen_info_line(xml, "pad_1", "");
 			gen_titled_text_input(
-				xml, "Client FS Size", "Client FS size (use K, M, G)",
+				xml, "Client FS Size", "Client FS size",
 				_client_fs_size_input,
 				_setup_obtain_params_select == Setup_obtain_params_select::CLIENT_FS_SIZE_INPUT);
 
@@ -1309,7 +1309,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 			}
 			gen_info_line(xml, "pad_2", "");
 			gen_titled_text_input(
-				xml, "Snapshot Buffer Size", "Snapshot buffer size (use K, M, G)",
+				xml, "Snapshot Buffer Size", "Snapshot buffer size",
 				_snapshot_buf_size_input,
 				_setup_obtain_params_select == Setup_obtain_params_select::SNAPSHOT_BUFFER_SIZE_INPUT);
 
@@ -1327,7 +1327,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 				gen_info_line(xml, "pad_3", "");
 				gen_info_line(
 					xml, "info_4",
-					String<256> { "Image size will be ", Capacity { _cbe_size() }}.string());
+					String<256> { "Image size: ", Capacity { _cbe_size() }}.string());
 			}
 			gen_info_line(xml, "pad_4", "");
 			if (gen_start_button) {
@@ -1346,7 +1346,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 
 			if (_startup_failed) {
 
-				gen_info_line(xml, "info_1", "Startup failed! Please try again.");
+				gen_info_line(xml, "info_1", "Please try again!");
 				gen_info_line(xml, "pad_1", "");
 			}
 			bool gen_start_button { true };
@@ -1374,43 +1374,15 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 		break;
 
 	case State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR:
-
-		gen_titled_info_frame(xml, "1", _setup_title, "Initializing trust anchor", MAIN_FRAME_WIDTH);
-		break;
-
 	case State::SETUP_CREATE_CBE_IMAGE_FILE:
-
-		gen_titled_info_frame(xml, "1", _setup_title, "Creating image file", MAIN_FRAME_WIDTH);
-		break;
-
 	case State::SETUP_RUN_CBE_INIT:
-
-		gen_titled_info_frame(xml, "1", _setup_title, "Initializing device", MAIN_FRAME_WIDTH);
-		break;
-
 	case State::SETUP_START_CBE_VFS:
-
-		gen_titled_info_frame(xml, "1", _setup_title, "Starting device driver", MAIN_FRAME_WIDTH);
-		break;
-
 	case State::SETUP_FORMAT_CBE:
-
-		gen_titled_info_frame(xml, "1", _setup_title, "Initializing Ext2 FS", MAIN_FRAME_WIDTH);
-		break;
-
 	case State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR:
-
-		gen_titled_info_frame(xml, "1", _startup_title, "Unlocking trust anchor", MAIN_FRAME_WIDTH);
-		break;
-
 	case State::STARTUP_START_CBE_VFS:
-
-		gen_titled_info_frame(xml, "1", _startup_title, "Starting device driver", MAIN_FRAME_WIDTH);
-		break;
-
 	case State::STARTUP_DETERMINE_CLIENT_FS_SIZE:
 
-		gen_titled_info_frame(xml, "1", _startup_title, "Determining client FS size", MAIN_FRAME_WIDTH);
+		gen_titled_info_frame(xml, "1", _startup_title, "Please wait...", MAIN_FRAME_WIDTH);
 		break;
 
 	case State::CONTROLS_ROOT:
@@ -1578,27 +1550,34 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 						case Resizing_state::INACTIVE:
 						{
 							gen_titled_text_input(
-								xml, "Number of blocks", "Number of blocks",
-								_expand_client_fs_nr_of_blks,
-								_expand_client_fs_select == Expand_client_fs_select::NR_OF_BLKS_INPUT);
+								xml, "Contingent", "Contingent",
+								_expand_client_fs_contingent,
+								_expand_client_fs_select == Expand_client_fs_select::CONTINGENT_INPUT);
 
 							bool gen_start_button { true };
-							if (!_expand_client_fs_nr_of_blks.is_nr_greater_than_zero()) {
+							size_t const bytes {
+								_expand_client_fs_contingent.value() };
 
-								gen_start_button = false;
+							size_t const effective_bytes {
+								bytes - (bytes % CBE_BLOCK_SIZE) };
 
-							}  else {
-
-								unsigned long rsz_nr_of_bytes {
-									_expand_client_fs_nr_of_blks.to_unsigned_long() *
-									CBE_BLOCK_SIZE };
+							if (effective_bytes > 0) {
 
 								gen_info_line(
 									xml, "inf_2",
 									String<128> {
 										"New image size: ",
-										Capacity { _cbe_image_size + rsz_nr_of_bytes }
+										Capacity { _cbe_image_size + effective_bytes }
 									}.string());
+
+							}  else {
+
+								gen_info_line(xml, "info_1",
+									String<128> {
+										"Must be at least ",
+										Number_of_bytes { CBE_BLOCK_SIZE } }.string());
+
+								gen_start_button = false;
 							}
 							gen_info_line(xml, "pad_2", "");
 							if (gen_start_button) {
@@ -1648,27 +1627,33 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 						case Resizing_state::INACTIVE:
 						{
 							gen_titled_text_input(
-								xml, "Number of blocks", "Number of blocks",
-								_expand_snapshot_buf_nr_of_blks,
-								_expand_snapshot_buf_select == Expand_snapshot_buf_select::NR_OF_BLKS_INPUT);
+								xml, "Contingent", "Contingent",
+								_expand_snapshot_buf_contingent,
+								_expand_snapshot_buf_select == Expand_snapshot_buf_select::CONTINGENT_INPUT);
 
 							bool gen_start_button { true };
-							if (!_expand_snapshot_buf_nr_of_blks.is_nr_greater_than_zero()) {
+							size_t const bytes {
+								_expand_snapshot_buf_contingent.value() };
 
-								gen_start_button = false;
+							size_t const effective_bytes {
+								bytes - (bytes % CBE_BLOCK_SIZE) };
 
-							}  else {
-
-								unsigned long rsz_nr_of_bytes {
-									_expand_snapshot_buf_nr_of_blks.to_unsigned_long() *
-									CBE_BLOCK_SIZE };
+							if (effective_bytes > 0) {
 
 								gen_info_line(
 									xml, "inf_2",
-									String<256> {
+									String<128> {
 										"New image size: ",
-										Capacity { _cbe_image_size + rsz_nr_of_bytes }
+										Capacity { _cbe_image_size + effective_bytes }
 									}.string());
+
+							}  else {
+
+								gen_start_button = false;
+								gen_info_line(xml, "info_1",
+									String<128> {
+										"Must be at least ",
+										Number_of_bytes { CBE_BLOCK_SIZE } }.string());
 							}
 							gen_info_line(xml, "pad_2", "");
 							if (gen_start_button) {
@@ -2108,25 +2093,33 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 
 			switch (_resizing_type) {
 			case Resizing_type::EXPAND_CLIENT_FS:
+			{
+				size_t const bytes {
+					_expand_client_fs_contingent.value() };
+
+				size_t const effective_bytes {
+					bytes - (bytes % CBE_BLOCK_SIZE) };
 
 				gen_truncate_file_start_node(
 					xml, _truncate_file, "/cbe/cbe.img",
-					_cbe_image_size +
-					(_expand_client_fs_nr_of_blks.to_unsigned_long() *
-					 CBE_BLOCK_SIZE));
+					_cbe_image_size + effective_bytes);
 
 				break;
-
+			}
 			case Resizing_type::EXPAND_SNAPSHOT_BUF:
+			{
+				size_t const bytes {
+					_expand_snapshot_buf_contingent.value() };
+
+				size_t const effective_bytes {
+					bytes - (bytes % CBE_BLOCK_SIZE) };
 
 				gen_truncate_file_start_node(
 					xml, _truncate_file, "/cbe/cbe.img",
-					_cbe_image_size +
-					(_expand_snapshot_buf_nr_of_blks.to_unsigned_long() *
-					 CBE_BLOCK_SIZE));
+					_cbe_image_size + effective_bytes);
 
 				break;
-
+			}
 			default:
 
 				class Unexpected_resizing_type { };
@@ -2147,7 +2140,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 
 				gen_resizing_fs_tool_start_node(
 					xml, _resizing_fs_tool, "vbd",
-					_expand_client_fs_nr_of_blks.to_unsigned_long());
+					_expand_client_fs_contingent.value() / CBE_BLOCK_SIZE);
 
 				break;
 
@@ -2155,7 +2148,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 
 				gen_resizing_fs_tool_start_node(
 					xml, _resizing_fs_tool, "ft",
-					_expand_snapshot_buf_nr_of_blks.to_unsigned_long());
+					_expand_snapshot_buf_contingent.value() / CBE_BLOCK_SIZE);
 
 				break;
 
@@ -2810,14 +2803,14 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 				case Dimensions_hover::EXPAND_CLIENT_FS_BUTTON:
 
 					_state = State::CONTROLS_EXPAND_CLIENT_FS;
-					_expand_client_fs_select = Expand_client_fs_select::NR_OF_BLKS_INPUT;
+					_expand_client_fs_select = Expand_client_fs_select::CONTINGENT_INPUT;
 					update_dialog = true;
 					break;
 
 				case Dimensions_hover::EXPAND_SNAPSHOT_BUF_BUTTON:
 
 					_state = State::CONTROLS_EXPAND_SNAPSHOT_BUF;
-					_expand_snapshot_buf_select = Expand_snapshot_buf_select::NR_OF_BLKS_INPUT;
+					_expand_snapshot_buf_select = Expand_snapshot_buf_select::CONTINGENT_INPUT;
 					update_dialog = true;
 					break;
 
@@ -2886,9 +2879,9 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 					next_select = Expand_client_fs_select::START_BUTTON;
 					break;
 
-				case Expand_client_fs_hover::NR_OF_BLKS_INPUT:
+				case Expand_client_fs_hover::CONTINGENT_INPUT:
 
-					next_select = Expand_client_fs_select::NR_OF_BLKS_INPUT;
+					next_select = Expand_client_fs_select::CONTINGENT_INPUT;
 					break;
 
 				case Expand_client_fs_hover::NONE:
@@ -2904,23 +2897,29 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 
 			} else if (key == Input::KEY_ENTER) {
 
-				if (_expand_client_fs_nr_of_blks.is_nr_greater_than_zero()) {
+				size_t const bytes {
+					_expand_client_fs_contingent.value() };
+
+				size_t const effective_bytes {
+					bytes - (bytes % CBE_BLOCK_SIZE) };
+
+				if (effective_bytes > 0) {
 
 					_expand_client_fs_select = Expand_client_fs_select::START_BUTTON;
 					update_dialog = true;
 				}
 			} else {
 
-				if (_expand_client_fs_select == Expand_client_fs_select::NR_OF_BLKS_INPUT) {
+				if (_expand_client_fs_select == Expand_client_fs_select::CONTINGENT_INPUT) {
 
-					if (_expand_client_fs_nr_of_blks.appendable_character(code)) {
+					if (_expand_client_fs_contingent.appendable_character(code)) {
 
-						_expand_client_fs_nr_of_blks.append_character(code);
+						_expand_client_fs_contingent.append_character(code);
 						update_dialog = true;
 
 					} else if (code.value == CODEPOINT_BACKSPACE) {
 
-						_expand_client_fs_nr_of_blks.remove_last_character();
+						_expand_client_fs_contingent.remove_last_character();
 						update_dialog = true;
 					}
 				}
@@ -2985,9 +2984,9 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 					next_select = Expand_snapshot_buf_select::START_BUTTON;
 					break;
 
-				case Expand_snapshot_buf_hover::NR_OF_BLKS_INPUT:
+				case Expand_snapshot_buf_hover::CONTINGENT_INPUT:
 
-					next_select = Expand_snapshot_buf_select::NR_OF_BLKS_INPUT;
+					next_select = Expand_snapshot_buf_select::CONTINGENT_INPUT;
 					break;
 
 				case Expand_snapshot_buf_hover::NONE:
@@ -3003,23 +3002,29 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 
 			} else if (key == Input::KEY_ENTER) {
 
-				if (_expand_snapshot_buf_nr_of_blks.is_nr_greater_than_zero()) {
+				size_t const bytes {
+					_expand_snapshot_buf_contingent.value() };
+
+				size_t const effective_bytes {
+					bytes - (bytes % CBE_BLOCK_SIZE) };
+
+				if (effective_bytes > 0) {
 
 					_expand_snapshot_buf_select = Expand_snapshot_buf_select::START_BUTTON;
 					update_dialog = true;
 				}
 			} else {
 
-				if (_expand_snapshot_buf_select == Expand_snapshot_buf_select::NR_OF_BLKS_INPUT) {
+				if (_expand_snapshot_buf_select == Expand_snapshot_buf_select::CONTINGENT_INPUT) {
 
-					if (_expand_snapshot_buf_nr_of_blks.appendable_character(code)) {
+					if (_expand_snapshot_buf_contingent.appendable_character(code)) {
 
-						_expand_snapshot_buf_nr_of_blks.append_character(code);
+						_expand_snapshot_buf_contingent.append_character(code);
 						update_dialog = true;
 
 					} else if (code.value == CODEPOINT_BACKSPACE) {
 
-						_expand_snapshot_buf_nr_of_blks.remove_last_character();
+						_expand_snapshot_buf_contingent.remove_last_character();
 						update_dialog = true;
 					}
 				}
@@ -3648,8 +3653,9 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 								});
 								node_5.with_sub_node("frame", [&] (Xml_node const &node_6) {
 
-									if (_has_name(node_6, "Number of blocks")) {
-										next_hover = Expand_client_fs_hover::NR_OF_BLKS_INPUT;
+									if (_has_name(node_6, "Contingent")) {
+
+										next_hover = Expand_client_fs_hover::CONTINGENT_INPUT;
 									}
 								});
 							});
@@ -3704,9 +3710,9 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 								});
 								node_5.with_sub_node("frame", [&] (Xml_node const &node_6) {
 
-									if (_has_name(node_6, "Number of blocks")) {
+									if (_has_name(node_6, "Contingent")) {
 
-										next_hover = Expand_snapshot_buf_hover::NR_OF_BLKS_INPUT;
+										next_hover = Expand_snapshot_buf_hover::CONTINGENT_INPUT;
 									}
 								});
 							});
