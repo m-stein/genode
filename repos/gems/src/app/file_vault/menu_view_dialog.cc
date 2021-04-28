@@ -13,6 +13,7 @@
 
 /* local includes */
 #include <menu_view_dialog.h>
+#include <capacity.h>
 
 using namespace File_vault;
 
@@ -224,6 +225,15 @@ void File_vault::gen_titled_text_input(Xml_generator     &xml,
 	gen_text_input(xml, name, text, selected);
 }
 
+void File_vault::gen_empty_line(Xml_generator     &xml,
+                                char        const *name)
+{
+	xml.node("label", [&] () {
+		xml.attribute("name", name);
+		xml.attribute("text", "");
+	});
+}
+
 void File_vault::gen_info_line(Xml_generator     &xml,
                                char        const *name,
                                char        const *text)
@@ -269,47 +279,90 @@ void File_vault::gen_multiple_choice_entry(Xml_generator &xml,
 	});
 }
 
-void File_vault::gen_sub_menu_title(Xml_generator &xml,
-                                    char    const *text,
-                                    bool           hovered,
-                                    bool           selected)
+void File_vault::gen_menu_title(Xml_generator &xml,
+                                char    const *name,
+                                char    const *label,
+                                char    const *label_annex,
+                                bool           hovered,
+                                bool           selected)
 {
-	xml.node("float", [&] () {
-		xml.attribute("name", "expand");
-		xml.attribute("west", "yes");
+	xml.node("hbox", [&] () {
+		xml.attribute("name", name);
 
-		xml.node("hbox", [&] () {
+		xml.node("float", [&] () {
+			xml.attribute("name", "0");
+			xml.attribute("west", "yes");
 
-			xml.node("button", [&] () {
-				if (selected) {
-					xml.attribute("style", "back");
-					xml.attribute("selected", "yes");
-				} else {
-					xml.attribute("style", "radio");
-				}
-				if (hovered) {
-					xml.attribute("hovered", "yes");
-				}
-				xml.attribute("hovered", "no");
+			xml.node("hbox", [&] () {
 
-				xml.node("hbox", [&] () { });
+				xml.node("button", [&] () {
+					if (selected) {
+						xml.attribute("style", "back");
+						xml.attribute("selected", "yes");
+					} else {
+						xml.attribute("style", "radio");
+					}
+					if (hovered) {
+						xml.attribute("hovered", "yes");
+					}
+					xml.attribute("hovered", "no");
+
+					xml.node("hbox", [&] () { });
+				});
+				xml.node("label", [&] () {
+					xml.attribute("font", "title/regular");
+					xml.attribute("text", String<64> { " ", label });
+				});
 			});
+		});
+		xml.node("float", [&] () {
+			xml.attribute("name", "2");
+			xml.attribute("east", "yes");
+
 			xml.node("label", [&] () {
 				xml.attribute("font", "title/regular");
-				xml.attribute("text", String<64> { " ", text });
+				xml.attribute(
+					"text", label_annex);
 			});
 		});
 	});
 }
 
 
-void File_vault::gen_closed_sub_menu(Xml_generator &xml,
-                                     char    const *name,
-                                     bool           hovered)
+void File_vault::gen_closed_menu(Xml_generator &xml,
+                                 char    const *label,
+                                 char    const *label_annex,
+                                 bool           hovered)
 {
 	xml.node("vbox", [&] () {
-		xml.attribute("name", name);
+		xml.attribute("name", label);
 
-		gen_sub_menu_title(xml, name, hovered, false);
+		gen_menu_title(xml, "Enter", label, label_annex, hovered, false);
+	});
+}
+
+
+void File_vault::gen_global_controls(Xml_generator &xml,
+                                     size_t         cbe_image_size,
+                                     size_t         client_fs_size,
+                                     bool           shut_down_button_hovered,
+                                     bool           shut_down_button_selected)
+{
+	gen_empty_line(xml, "Status 0");
+	gen_info_line(xml, "Status 1",
+		String<128> { " Image: ",
+			Capacity_string { cbe_image_size }}.string());
+
+	gen_info_line(xml, "Status 2",
+		String<128> { " Client FS: ",
+			Capacity_string { client_fs_size }}.string());
+
+	gen_empty_line(xml, "Status 3");
+
+	xml.node("hbox", [&] () {
+		gen_action_button(
+			xml, "Shut down", "Shut down",
+			shut_down_button_hovered,
+			shut_down_button_selected);
 	});
 }

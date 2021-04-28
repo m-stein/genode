@@ -35,6 +35,7 @@
 #include <menu_view_dialog.h>
 #include <const_pointer.h>
 #include <snapshot.h>
+#include <capacity.h>
 
 namespace File_vault {
 
@@ -74,6 +75,7 @@ class File_vault::Main
 			STARTUP_OBTAIN_PARAMETERS,
 			STARTUP_RUN_CBE_INIT_TRUST_ANCHOR,
 			STARTUP_START_CBE_VFS,
+			STARTUP_DETERMINE_CLIENT_FS_SIZE,
 			CONTROLS_ROOT,
 			CONTROLS_SNAPSHOTS,
 			CONTROLS_DIMENSIONS,
@@ -126,18 +128,18 @@ class File_vault::Main
 		{
 			NONE,
 			SHUT_DOWN_BUTTON,
-			CREATE_SNAPSHOT_BUTTON,
-			DISCARD_SNAPSHOT_BUTTON,
+			CREATE_BUTTON,
+			GENERATION_DISCARD_BUTTON,
 		};
 
 		enum class Controls_snapshots_hover
 		{
 			NONE,
-			SNAPSHOTS_EXPAND_BUTTON,
-			GENERATION_LEAVE_BUTTON,
 			SHUT_DOWN_BUTTON,
-			CREATE_SNAPSHOT_BUTTON,
-			DISCARD_SNAPSHOT_BUTTON,
+			LEAVE_BUTTON,
+			CREATE_BUTTON,
+			GENERATION_LEAVE_BUTTON,
+			GENERATION_DISCARD_BUTTON,
 		};
 
 		enum class Dimensions_select
@@ -265,6 +267,7 @@ class File_vault::Main
 			WAIT_TILL_DEVICE_IS_READY,
 			ISSUE_REQUEST_AT_DEVICE,
 			IN_PROGRESS_AT_DEVICE,
+			DETERMINE_CLIENT_FS_SIZE,
 		};
 
 		enum class Rekeying_state
@@ -296,10 +299,10 @@ class File_vault::Main
 		using Snapshot_pointer   = Const_pointer<Snapshot>;
 
 		Env                                   &_env;
-		static constexpr char           const *_setup_title                        { "Setup" };
-		static constexpr char           const *_shutdown_title                     { "Shutdown" };
-		static constexpr char           const *_controls_title                     { "Controls" };
-		static constexpr char           const *_startup_title                      { "Startup" };
+		static constexpr char           const *_setup_title                        { "File vault - Setup" };
+		static constexpr char           const *_shutdown_title                     { "File Vault - Shutdown" };
+		static constexpr char           const *_controls_title                     { "File Vault" };
+		static constexpr char           const *_startup_title                      { "File Vault - Startup" };
 		State                                  _state                              { State::INVALID };
 		Heap                                   _heap                               { _env.ram(), _env.rm() };
 		Attached_rom_dataspace                 _config                             { _env, "config" };
@@ -315,6 +318,7 @@ class File_vault::Main
 		Child_state                            _cbe_vfs_block                      { _children, "vfs_block", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _fs_query                           { _children, "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _image_fs_query                     { _children, "image_fs_query", "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _client_fs_fs_query                 { _children, "client_fs_fs_query", "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _cbe_init_trust_anchor              { _children, "cbe_init_trust_anchor", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _cbe_image_vfs_block                { _children, "vfs_block", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _cbe_init                           { _children, "cbe_init", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
@@ -329,6 +333,7 @@ class File_vault::Main
 		Child_state                            _discard_snap_fs_tool               { _children, "discard_snap_fs_tool", "fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
 		Xml_report_handler                     _fs_query_listing_handler           { *this, &Main::_handle_fs_query_listing };
 		Xml_report_handler                     _image_fs_query_listing_handler     { *this, &Main::_handle_image_fs_query_listing };
+		Xml_report_handler                     _client_fs_fs_query_listing_handler { *this, &Main::_handle_client_fs_fs_query_listing };
 		Xml_report_handler                     _snapshots_fs_query_listing_handler { *this, &Main::_handle_snapshots_fs_query_listing };
 		Xml_report_handler                     _resizing_fs_query_listing_handler  { *this, &Main::_handle_resizing_fs_query_listing };
 		Xml_report_handler                     _rekeying_fs_query_listing_handler  { *this, &Main::_handle_rekeying_fs_query_listing };
@@ -385,6 +390,13 @@ class File_vault::Main
 		bool                                   _dimensions_expanded                { false };
 		bool                                   _startup_failed                     { false };
 		size_t                                 _cbe_image_size                     { 0 };
+		size_t                                 _client_fs_size                     { 0 };
+
+		static bool _has_name(Xml_node  const &node,
+		                      Node_name const &name)
+		{
+			return node.attribute_value("name", Node_name { }) == name;
+		}
 
 		size_t _min_snapshot_buf_size() const
 		{
@@ -429,6 +441,8 @@ class File_vault::Main
 
 		void _handle_image_fs_query_listing(Xml_node const &node);
 
+		void _handle_client_fs_fs_query_listing(Xml_node const &node);
+
 		void _handle_snapshots_fs_query_listing(Xml_node const &node);
 
 		void _handle_resizing_fs_query_listing(Xml_node const &node);
@@ -452,7 +466,7 @@ class File_vault::Main
 		                          size_t nr_of_children,
 		                          size_t nr_of_leafs);
 
-		Number_of_bytes _cbe_size() const;
+		size_t _cbe_size() const;
 
 		static size_t _cbe_nr_of_blocks(size_t nr_of_superblocks,
 		                                size_t nr_of_vbd_lvls,
@@ -565,6 +579,7 @@ Main::State Main::_state_from_string(State_string const &str)
 	if (str == "startup_obtain_parameters") { return State::STARTUP_OBTAIN_PARAMETERS; }
 	if (str == "startup_run_cbe_init_trust_anchor") { return State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR; }
 	if (str == "startup_start_cbe_vfs") { return State::STARTUP_START_CBE_VFS; }
+	if (str == "startup_determine_client_fs_size") { return State::STARTUP_DETERMINE_CLIENT_FS_SIZE; }
 	if (str == "shutdown_issue_deinit_request_at_cbe") { return State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE; }
 	if (str == "shutdown_wait_till_deinit_request_is_done") { return State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE; }
 	class Invalid_state_string { };
@@ -594,6 +609,7 @@ Main::State_string Main::_state_to_string(State state)
 	case State::STARTUP_OBTAIN_PARAMETERS:                 return "startup_obtain_parameters";
 	case State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR:         return "startup_run_cbe_init_trust_anchor";
 	case State::STARTUP_START_CBE_VFS:                     return "startup_start_cbe_vfs";
+	case State::STARTUP_DETERMINE_CLIENT_FS_SIZE:          return "startup_determine_client_fs_size";
 	case State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE:      return "shutdown_issue_deinit_request_at_cbe";
 	case State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE: return "shutdown_wait_till_deinit_request_is_done";
 	}
@@ -607,7 +623,7 @@ Main::State Main::_state_from_fs_query_listing(Xml_node const &node)
 	State state { State::INVALID };
 	node.with_sub_node("dir", [&] (Xml_node const &node_0) {
 		node_0.with_sub_node("file", [&] (Xml_node const &node_1) {
-			if (node_1.attribute_value("name", String<6>()) == "state") {
+			if (_has_name(node_1, "state")) {
 				state = _state_from_string(
 					node_1.decoded_content<State_string>());
 			}
@@ -697,8 +713,7 @@ void Main::_handle_resizing_fs_query_listing(Xml_node const &node)
 					throw Unexpected_resizing_type { };
 					break;
 				}
-				_resizing_type = Resizing_type::NONE;
-				_resizing_state = Resizing_state::INACTIVE;
+				_resizing_state = Resizing_state::DETERMINE_CLIENT_FS_SIZE;
 				Signal_transmitter(_state_handler).submit();
 			}
 			break;
@@ -901,6 +916,63 @@ void Main::_handle_fs_query_listing(Xml_node const &node)
 }
 
 
+void Main::_handle_client_fs_fs_query_listing(Xml_node const &node)
+{
+	switch (_state) {
+	case State::STARTUP_DETERMINE_CLIENT_FS_SIZE:
+
+		node.with_sub_node("dir", [&] (Xml_node const &node_0) {
+			node_0.with_sub_node("file", [&] (Xml_node const &node_1) {
+
+				if (_has_name(node_1, "data")) {
+
+					_client_fs_size = node_1.attribute_value("size", (size_t)0);
+					_state = State::CONTROLS_ROOT;
+					Signal_transmitter(_state_handler).submit();
+				}
+			});
+		});
+		break;
+
+	case State::CONTROLS_ROOT:
+	case State::CONTROLS_SNAPSHOTS:
+	case State::CONTROLS_DIMENSIONS:
+	case State::CONTROLS_EXPAND_CLIENT_FS:
+	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:
+	case State::CONTROLS_SECURITY:
+	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:
+	case State::CONTROLS_SECURITY_MASTER_KEY:
+	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
+
+		switch (_resizing_state) {
+		case Resizing_state::DETERMINE_CLIENT_FS_SIZE:
+
+			node.with_sub_node("dir", [&] (Xml_node const &node_0) {
+				node_0.with_sub_node("file", [&] (Xml_node const &node_1) {
+
+					if (_has_name(node_1, "data")) {
+
+						_client_fs_size = node_1.attribute_value("size", (size_t)0);
+						_resizing_type = Resizing_type::NONE;
+						_resizing_state = Resizing_state::INACTIVE;
+						Signal_transmitter(_state_handler).submit();
+					}
+				});
+			});
+			break;
+
+		default:
+
+			break;
+		}
+
+	default:
+
+		break;
+	}
+}
+
+
 void Main::_handle_image_fs_query_listing(Xml_node const &node)
 {
 	bool update_dialog { false };
@@ -919,7 +991,7 @@ void Main::_handle_image_fs_query_listing(Xml_node const &node)
 		size_t size { 0 };
 		node.with_sub_node("dir", [&] (Xml_node const &node_0) {
 			node_0.with_sub_node("file", [&] (Xml_node const &node_1) {
-				if (node_1.attribute_value("name", String<32>()) == "cbe.img") {
+				if (_has_name(node_1, "cbe.img")) {
 					size = node_1.attribute_value("size", (size_t)0);
 				}
 			});
@@ -1059,7 +1131,7 @@ void File_vault::Main::handle_sandbox_state()
 
 			if (_child_succeeded(sandbox_state, _sync_to_cbe_vfs_init)) {
 
-				_state = State::CONTROLS_ROOT;
+				_state = State::STARTUP_DETERMINE_CLIENT_FS_SIZE;
 				update_dialog = true;
 				update_sandbox = true;
 			}
@@ -1070,7 +1142,7 @@ void File_vault::Main::handle_sandbox_state()
 			if (_child_succeeded(sandbox_state, _mke2fs)) {
 
 				_write_to_state_file(State::STARTUP_OBTAIN_PARAMETERS);
-				_state = State::CONTROLS_ROOT;
+				_state = State::STARTUP_DETERMINE_CLIENT_FS_SIZE;
 				update_dialog = true;
 				update_sandbox = true;
 			}
@@ -1237,7 +1309,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 			}
 			gen_info_line(xml, "pad_2", "");
 			gen_titled_text_input(
-				xml, "Snap Buf Size", "Snapshot buffer size (use K, M, G)",
+				xml, "Snapshot Buffer Size", "Snapshot buffer size (use K, M, G)",
 				_snapshot_buf_size_input,
 				_setup_obtain_params_select == Setup_obtain_params_select::SNAPSHOT_BUFFER_SIZE_INPUT);
 
@@ -1255,7 +1327,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 				gen_info_line(xml, "pad_3", "");
 				gen_info_line(
 					xml, "info_4",
-					String<256> { "Image size will be ", _cbe_size()}.string());
+					String<256> { "Image size will be ", Capacity { _cbe_size() }}.string());
 			}
 			gen_info_line(xml, "pad_4", "");
 			if (gen_start_button) {
@@ -1336,33 +1408,36 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 		gen_titled_info_frame(xml, "1", _startup_title, "Starting device driver", MAIN_FRAME_WIDTH);
 		break;
 
+	case State::STARTUP_DETERMINE_CLIENT_FS_SIZE:
+
+		gen_titled_info_frame(xml, "1", _startup_title, "Determining client FS size", MAIN_FRAME_WIDTH);
+		break;
+
 	case State::CONTROLS_ROOT:
 
 		gen_titled_frame(xml, "app", _controls_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
-			xml.node("hbox", [&] () {
-
-				gen_action_button(xml, "Shut down", "Shut down",
-					_controls_root_hover  == Controls_root_hover::SHUT_DOWN_BUTTON,
-					_controls_root_select == Controls_root_select::SHUT_DOWN_BUTTON);
-			});
 			xml.node("frame", [&] () {
 
 				xml.node("vbox", [&] () {
 
-					gen_closed_sub_menu(
-						xml, "Snapshots",
+					gen_closed_menu(
+						xml, "Snapshots", "",
 						_controls_root_hover == Controls_root_hover::SNAPSHOTS_EXPAND_BUTTON);
 
-					gen_closed_sub_menu(
-						xml, "Dimensions",
+					gen_closed_menu(
+						xml, "Dimensions", "",
 						_controls_root_hover == Controls_root_hover::DIMENSIONS_BUTTON);
 
-					gen_closed_sub_menu(
-						xml, "Security",
+					gen_closed_menu(
+						xml, "Security", "",
 						_controls_root_hover == Controls_root_hover::SECURITY_EXPAND_BUTTON);
 				});
 			});
+			gen_global_controls(
+				xml, _cbe_image_size, _client_fs_size,
+				_controls_root_hover  == Controls_root_hover::SHUT_DOWN_BUTTON,
+				_controls_root_select == Controls_root_select::SHUT_DOWN_BUTTON);
 		});
 		break;
 
@@ -1370,12 +1445,6 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 
 		gen_titled_frame(xml, "app", _controls_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
-			xml.node("hbox", [&] () {
-
-				gen_action_button(xml, "Shut down", "Shut down",
-					_controls_snapshots_hover  == Controls_snapshots_hover::SHUT_DOWN_BUTTON,
-					_controls_snapshots_select == Controls_snapshots_select::SHUT_DOWN_BUTTON);
-			});
 			xml.node("frame", [&] () {
 
 				xml.node("vbox", [&] () {
@@ -1386,8 +1455,8 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 						String<64> const snap_str {
 							"Generation ", snap.generation() };
 
-						gen_opened_sub_menu(
-							xml, snap_str.string(),
+						gen_opened_menu(
+							xml, snap_str.string(), "",
 							_controls_snapshots_hover == Controls_snapshots_hover::GENERATION_LEAVE_BUTTON,
 							[&] (Xml_generator &xml)
 						{
@@ -1396,15 +1465,15 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 							case Discard_snapshot_state::INACTIVE:
 
 								gen_action_button(xml, "Discard", "Discard",
-									_controls_snapshots_hover  == Controls_snapshots_hover::DISCARD_SNAPSHOT_BUTTON,
-									_controls_snapshots_select == Controls_snapshots_select::DISCARD_SNAPSHOT_BUTTON);
+									_controls_snapshots_hover  == Controls_snapshots_hover::GENERATION_DISCARD_BUTTON,
+									_controls_snapshots_select == Controls_snapshots_select::GENERATION_DISCARD_BUTTON);
 
 								break;
 
 							case Discard_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
 
 								gen_action_button(xml, "Inactive Discard", "...",
-									_controls_snapshots_hover == Controls_snapshots_hover::DISCARD_SNAPSHOT_BUTTON,
+									_controls_snapshots_hover == Controls_snapshots_hover::GENERATION_DISCARD_BUTTON,
 									false);
 
 								break;
@@ -1412,39 +1481,43 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 						});
 					} else {
 
-						gen_opened_sub_menu(
-							xml, "Snapshots",
-							_controls_snapshots_hover == Controls_snapshots_hover::SNAPSHOTS_EXPAND_BUTTON,
+						gen_opened_menu(
+							xml, "Snapshots", "",
+							_controls_snapshots_hover == Controls_snapshots_hover::LEAVE_BUTTON,
 							[&] (Xml_generator &xml)
 						{
-							_snapshots.for_each([&] (Snapshot const &snap) {
+							xml.node("vbox", [&] () {
+								xml.attribute("name", "Generations");
 
-								bool const hovered {
-									_snapshots_hover.valid() &&
-									_snapshots_hover.object().generation() == snap.generation() };
+								_snapshots.for_each([&] (Snapshot const &snap) {
 
-								String<64> const snap_str {
-									"Generation ", snap.generation() };
+									bool const hovered {
+										_snapshots_hover.valid() &&
+										_snapshots_hover.object().generation() == snap.generation() };
 
-								Generation_string const gen_str { snap.generation() };
+									String<64> const snap_str {
+										"Generation ", snap.generation() };
 
-								gen_multiple_choice_entry(
-									xml, gen_str.string(), snap_str.string(), hovered,
-									false);
+									Generation_string const gen_str { snap.generation() };
+
+									gen_multiple_choice_entry(
+										xml, gen_str.string(), snap_str.string(), hovered,
+										false);
+								});
 							});
 							gen_info_line(xml, "pad_1", "");
 							switch(_create_snap_state) {
 							case Create_snapshot_state::INACTIVE:
 
 								gen_action_button(xml, "Create", "Create",
-									_controls_snapshots_hover  == Controls_snapshots_hover::CREATE_SNAPSHOT_BUTTON,
-									_controls_snapshots_select == Controls_snapshots_select::CREATE_SNAPSHOT_BUTTON);
+									_controls_snapshots_hover  == Controls_snapshots_hover::CREATE_BUTTON,
+									_controls_snapshots_select == Controls_snapshots_select::CREATE_BUTTON);
 								break;
 
 							case Create_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
 
 								gen_action_button(xml, "Inactive Create", "...",
-									_controls_snapshots_hover  == Controls_snapshots_hover::CREATE_SNAPSHOT_BUTTON,
+									_controls_snapshots_hover  == Controls_snapshots_hover::CREATE_BUTTON,
 									false);
 
 								break;
@@ -1453,6 +1526,10 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 					}
 				});
 			});
+			gen_global_controls(
+				xml, _cbe_image_size, _client_fs_size,
+				_controls_snapshots_hover  == Controls_snapshots_hover::SHUT_DOWN_BUTTON,
+				_controls_snapshots_select == Controls_snapshots_select::SHUT_DOWN_BUTTON);
 		});
 		break;
 
@@ -1460,28 +1537,26 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 
 		gen_titled_frame(xml, "app", _controls_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
-			xml.node("hbox", [&] () {
-
-				gen_action_button(xml, "Shut down", "Shut down",
-					_dimensions_hover  == Dimensions_hover::SHUT_DOWN_BUTTON,
-					_dimensions_select == Dimensions_select::SHUT_DOWN_BUTTON);
-			});
 			xml.node("frame", [&] () {
 
-				gen_opened_sub_menu(
-					xml, "Dimensions",
+				gen_opened_menu(
+					xml, "Dimensions", "",
 					_dimensions_hover == Dimensions_hover::LEAVE_BUTTON,
 					[&] (Xml_generator &xml)
 				{
-					gen_closed_sub_menu(
-						xml, "Expand Client FS",
+					gen_closed_menu(
+						xml, "Expand Client FS", "",
 						_dimensions_hover == Dimensions_hover::EXPAND_CLIENT_FS_BUTTON);
 
-					gen_closed_sub_menu(
-						xml, "Expand Snapshot Buffer",
+					gen_closed_menu(
+						xml, "Expand Snapshot Buffer", "",
 						_dimensions_hover == Dimensions_hover::EXPAND_SNAPSHOT_BUF_BUTTON);
 				});
 			});
+			gen_global_controls(
+				xml, _cbe_image_size, _client_fs_size,
+				_dimensions_hover  == Dimensions_hover::SHUT_DOWN_BUTTON,
+				_dimensions_select == Dimensions_select::SHUT_DOWN_BUTTON);
 		});
 		break;
 
@@ -1489,18 +1564,12 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 
 		gen_titled_frame(xml, "app", _controls_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
-			xml.node("hbox", [&] () {
-
-				gen_action_button(xml, "Shut down", "Shut down",
-					_expand_client_fs_hover  == Expand_client_fs_hover::SHUT_DOWN_BUTTON,
-					_expand_client_fs_select == Expand_client_fs_select::SHUT_DOWN_BUTTON);
-			});
 			xml.node("frame", [&] () {
 
 				xml.node("vbox", [&] () {
 
-					gen_opened_sub_menu(
-						xml, "Expand Client FS",
+					gen_opened_menu(
+						xml, "Expand Client FS", "",
 						_expand_client_fs_hover == Expand_client_fs_hover::LEAVE_BUTTON,
 						[&] (Xml_generator &xml)
 					{
@@ -1509,7 +1578,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 						case Resizing_state::INACTIVE:
 						{
 							gen_titled_text_input(
-								xml, "blks", "Number of blocks",
+								xml, "Number of blocks", "Number of blocks",
 								_expand_client_fs_nr_of_blks,
 								_expand_client_fs_select == Expand_client_fs_select::NR_OF_BLKS_INPUT);
 
@@ -1517,32 +1586,21 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 							if (!_expand_client_fs_nr_of_blks.is_nr_greater_than_zero()) {
 
 								gen_start_button = false;
-								gen_info_line(xml, "inf", "Must be a number greater than 0");
-								gen_info_line(xml, "pad_2", "");
 
 							}  else {
 
-								Number_of_bytes const curr_cbe_size { _cbe_image_size };
 								unsigned long rsz_nr_of_bytes {
 									_expand_client_fs_nr_of_blks.to_unsigned_long() *
 									CBE_BLOCK_SIZE };
 
 								gen_info_line(
-									xml, "inf_1",
-									String<256> {
-										"Current image size: ",
-										curr_cbe_size
-									}.string());
-
-								gen_info_line(
 									xml, "inf_2",
-									String<256> {
+									String<128> {
 										"New image size: ",
-										Number_of_bytes { curr_cbe_size + rsz_nr_of_bytes }
+										Capacity { _cbe_image_size + rsz_nr_of_bytes }
 									}.string());
-
-								gen_info_line(xml, "pad_2", "");
 							}
+							gen_info_line(xml, "pad_2", "");
 							if (gen_start_button) {
 
 								gen_action_button_at_bottom(
@@ -1556,6 +1614,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 						case Resizing_state::WAIT_TILL_DEVICE_IS_READY:
 						case Resizing_state::ISSUE_REQUEST_AT_DEVICE:
 						case Resizing_state::IN_PROGRESS_AT_DEVICE:
+						case Resizing_state::DETERMINE_CLIENT_FS_SIZE:
 
 							gen_info_line(xml, "inf", "Please wait...");
 							gen_info_line(xml, "pad_2", "");
@@ -1564,6 +1623,10 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 					});
 				});
 			});
+			gen_global_controls(
+				xml, _cbe_image_size, _client_fs_size,
+				_expand_client_fs_hover  == Expand_client_fs_hover::SHUT_DOWN_BUTTON,
+				_expand_client_fs_select == Expand_client_fs_select::SHUT_DOWN_BUTTON);
 		});
 		break;
 
@@ -1571,18 +1634,12 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 
 		gen_titled_frame(xml, "app", _controls_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
-			xml.node("hbox", [&] () {
-
-				gen_action_button(xml, "Shut down", "Shut down",
-					_expand_snapshot_buf_hover  == Expand_snapshot_buf_hover::SHUT_DOWN_BUTTON,
-					_expand_snapshot_buf_select == Expand_snapshot_buf_select::SHUT_DOWN_BUTTON);
-			});
 			xml.node("frame", [&] () {
 
 				xml.node("vbox", [&] () {
 
-					gen_opened_sub_menu(
-						xml, "Expand Snapshot Buffer",
+					gen_opened_menu(
+						xml, "Expand Snapshot Buffer", "",
 						_expand_snapshot_buf_hover == Expand_snapshot_buf_hover::LEAVE_BUTTON,
 						[&] (Xml_generator &xml)
 					{
@@ -1591,7 +1648,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 						case Resizing_state::INACTIVE:
 						{
 							gen_titled_text_input(
-								xml, "blks", "Number of blocks",
+								xml, "Number of blocks", "Number of blocks",
 								_expand_snapshot_buf_nr_of_blks,
 								_expand_snapshot_buf_select == Expand_snapshot_buf_select::NR_OF_BLKS_INPUT);
 
@@ -1599,32 +1656,21 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 							if (!_expand_snapshot_buf_nr_of_blks.is_nr_greater_than_zero()) {
 
 								gen_start_button = false;
-								gen_info_line(xml, "inf", "Must be a number greater than 0");
-								gen_info_line(xml, "pad_2", "");
 
 							}  else {
 
-								Number_of_bytes const curr_cbe_size { _cbe_image_size };
 								unsigned long rsz_nr_of_bytes {
 									_expand_snapshot_buf_nr_of_blks.to_unsigned_long() *
 									CBE_BLOCK_SIZE };
 
 								gen_info_line(
-									xml, "inf_1",
-									String<256> {
-										"Current image size: ",
-										curr_cbe_size
-									}.string());
-
-								gen_info_line(
 									xml, "inf_2",
 									String<256> {
 										"New image size: ",
-										Number_of_bytes { curr_cbe_size + rsz_nr_of_bytes }
+										Capacity { _cbe_image_size + rsz_nr_of_bytes }
 									}.string());
-
-								gen_info_line(xml, "pad_2", "");
 							}
+							gen_info_line(xml, "pad_2", "");
 							if (gen_start_button) {
 
 								gen_action_button_at_bottom(
@@ -1638,6 +1684,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 						case Resizing_state::WAIT_TILL_DEVICE_IS_READY:
 						case Resizing_state::ISSUE_REQUEST_AT_DEVICE:
 						case Resizing_state::IN_PROGRESS_AT_DEVICE:
+						case Resizing_state::DETERMINE_CLIENT_FS_SIZE:
 
 							gen_info_line(xml, "inf", "Please wait...");
 							gen_info_line(xml, "pad_2", "");
@@ -1646,6 +1693,10 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 					});
 				});
 			});
+			gen_global_controls(
+				xml, _cbe_image_size, _client_fs_size,
+				_expand_snapshot_buf_hover  == Expand_snapshot_buf_hover::SHUT_DOWN_BUTTON,
+				_expand_snapshot_buf_select == Expand_snapshot_buf_select::SHUT_DOWN_BUTTON);
 		});
 		break;
 
@@ -1653,32 +1704,30 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 
 		gen_titled_frame(xml, "app", _controls_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
-			xml.node("hbox", [&] () {
-
-				gen_action_button(xml, "Shut down", "Shut down",
-					_controls_security_hover  == Controls_security_hover::SHUT_DOWN_BUTTON,
-					_controls_security_select == Controls_security_select::SHUT_DOWN_BUTTON);
-			});
 			xml.node("frame", [&] () {
 
-				gen_opened_sub_menu(
-					xml, "Security",
+				gen_opened_menu(
+					xml, "Security", "",
 					_controls_security_hover == Controls_security_hover::SECURITY_EXPAND_BUTTON,
 					[&] (Xml_generator &xml)
 				{
-					gen_closed_sub_menu(
-						xml, "Block Encryption Key",
+					gen_closed_menu(
+						xml, "Block Encryption Key", "",
 						_controls_security_hover == Controls_security_hover::BLOCK_ENCRYPTION_KEY_EXPAND_BUTTON);
 
-					gen_closed_sub_menu(
-						xml, "Master Key",
+					gen_closed_menu(
+						xml, "Master Key", "",
 						_controls_security_hover == Controls_security_hover::MASTER_KEY_EXPAND_BUTTON);
 
-					gen_closed_sub_menu(
-						xml, "User Passphrase",
+					gen_closed_menu(
+						xml, "User Passphrase", "",
 						_controls_security_hover == Controls_security_hover::USER_PASSPHRASE_EXPAND_BUTTON);
 				});
 			});
+			gen_global_controls(
+				xml, _cbe_image_size, _client_fs_size,
+				_controls_security_hover  == Controls_security_hover::SHUT_DOWN_BUTTON,
+				_controls_security_select == Controls_security_select::SHUT_DOWN_BUTTON);
 		});
 		break;
 
@@ -1686,16 +1735,10 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 
 		gen_titled_frame(xml, "app", _controls_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
-			xml.node("hbox", [&] () {
-
-				gen_action_button(xml, "Shut down", "Shut down",
-					_controls_security_block_encryption_key_hover  == Controls_security_block_encryption_key_hover::SHUT_DOWN_BUTTON,
-					_controls_security_block_encryption_key_select == Controls_security_block_encryption_key_select::SHUT_DOWN_BUTTON);
-			});
 			xml.node("frame", [&] () {
 
-				gen_opened_sub_menu(
-					xml, "Block Encryption Key",
+				gen_opened_menu(
+					xml, "Block Encryption Key", "",
 					_controls_security_block_encryption_key_hover == Controls_security_block_encryption_key_hover::LEAVE_BUTTON,
 					[&] (Xml_generator &xml)
 				{
@@ -1722,6 +1765,10 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 					gen_info_line(xml, "pad_1", "");
 				});
 			});
+			gen_global_controls(
+				xml, _cbe_image_size, _client_fs_size,
+				_controls_security_block_encryption_key_hover  == Controls_security_block_encryption_key_hover::SHUT_DOWN_BUTTON,
+				_controls_security_block_encryption_key_select == Controls_security_block_encryption_key_select::SHUT_DOWN_BUTTON);
 		});
 		break;
 
@@ -1729,16 +1776,10 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 
 		gen_titled_frame(xml, "app", _controls_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
-			xml.node("hbox", [&] () {
-
-				gen_action_button(xml, "Shut down", "Shut down",
-					_controls_security_master_key_hover  == Controls_security_master_key_hover::SHUT_DOWN_BUTTON,
-					_controls_security_master_key_select == Controls_security_master_key_select::SHUT_DOWN_BUTTON);
-			});
 			xml.node("frame", [&] () {
 
-				gen_opened_sub_menu(
-					xml, "Master Key",
+				gen_opened_menu(
+					xml, "Master Key", "",
 					_controls_security_master_key_hover == Controls_security_master_key_hover::LEAVE_BUTTON,
 					[&] (Xml_generator &xml)
 				{
@@ -1747,6 +1788,10 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 					gen_info_line(xml, "pad_2", "");
 				});
 			});
+			gen_global_controls(
+				xml, _cbe_image_size, _client_fs_size,
+				_controls_security_master_key_hover  == Controls_security_master_key_hover::SHUT_DOWN_BUTTON,
+				_controls_security_master_key_select == Controls_security_master_key_select::SHUT_DOWN_BUTTON);
 		});
 		break;
 
@@ -1754,16 +1799,10 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 
 		gen_titled_frame(xml, "app", _controls_title, MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
-			xml.node("hbox", [&] () {
-
-				gen_action_button(xml, "Shut down", "Shut down",
-					_controls_security_user_passphrase_hover  == Controls_security_user_passphrase_hover::SHUT_DOWN_BUTTON,
-					_controls_security_user_passphrase_select == Controls_security_user_passphrase_select::SHUT_DOWN_BUTTON);
-			});
 			xml.node("frame", [&] () {
 
-				gen_opened_sub_menu(
-					xml, "User Passphrase",
+				gen_opened_menu(
+					xml, "User Passphrase", "",
 					_controls_security_user_passphrase_hover == Controls_security_user_passphrase_hover::LEAVE_BUTTON,
 					[&] (Xml_generator &xml)
 				{
@@ -1772,6 +1811,10 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 					gen_info_line(xml, "pad_2", "");
 				});
 			});
+			gen_global_controls(
+				xml, _cbe_image_size, _client_fs_size,
+				_controls_security_user_passphrase_hover  == Controls_security_user_passphrase_hover::SHUT_DOWN_BUTTON,
+				_controls_security_user_passphrase_select == Controls_security_user_passphrase_select::SHUT_DOWN_BUTTON);
 		});
 		break;
 
@@ -1818,6 +1861,15 @@ void File_vault::Main::wakeup_local_service()
 
 			request.deliver_session(session);
 
+		} else if (request.label == "client_fs_fs_query -> listing") {
+
+			Report::Session_component &session { *new (_heap)
+				Report::Session_component(
+					_env, _client_fs_fs_query_listing_handler, _env.ep(),
+					request.resources, "", request.diag) };
+
+			request.deliver_session(session);
+
 		} else if (request.label == "snapshots_fs_query -> listing") {
 
 			Report::Session_component &session { *new (_heap)
@@ -1853,6 +1905,10 @@ void File_vault::Main::wakeup_local_service()
 					request.resources, "", request.diag) };
 
 			request.deliver_session(session);
+
+		} else {
+
+			error("failed to deliver Report session");
 		}
 	});
 
@@ -1955,6 +2011,15 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs);
 		gen_cbe_vfs_start_node(xml, _cbe_vfs);
 		gen_sync_to_cbe_vfs_init_start_node(xml, _sync_to_cbe_vfs_init);
+		break;
+
+	case State::STARTUP_DETERMINE_CLIENT_FS_SIZE:
+
+		gen_parent_provides_and_report_nodes(xml);
+		gen_menu_view_start_node(xml, _menu_view);
+		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs);
+		gen_cbe_vfs_start_node(xml, _cbe_vfs);
+		gen_client_fs_fs_query_start_node(xml, _client_fs_fs_query);
 		break;
 
 	case State::SETUP_CREATE_CBE_IMAGE_FILE:
@@ -2106,6 +2171,11 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 
 			gen_resizing_fs_query_start_node(xml, _resizing_fs_query);
 			break;
+
+		case Resizing_state::DETERMINE_CLIENT_FS_SIZE:
+
+			gen_client_fs_fs_query_start_node(xml, _client_fs_fs_query);
+			break;
 		}
 
 		switch(_rekeying_state) {
@@ -2198,19 +2268,18 @@ size_t Main::_tree_nr_of_blocks(size_t nr_of_lvls,
 }
 
 
-Number_of_bytes Main::_cbe_size() const
+size_t Main::_cbe_size() const
 {
 	return
-		Number_of_bytes {
-			_cbe_nr_of_blocks(
-				CBE_NR_OF_SUPERBLOCKS,
-				CBE_VBD_TREE_NR_OF_LEVELS,
-				CBE_VBD_TREE_NR_OF_CHILDREN,
-				_cbe_tree_nr_of_leaves(_client_fs_size_input.value()),
-				CBE_FREE_TREE_NR_OF_LEVELS,
-				CBE_FREE_TREE_NR_OF_CHILDREN,
-				_cbe_tree_nr_of_leaves(_snapshot_buf_size_input.value()))
-			* CBE_BLOCK_SIZE };
+		_cbe_nr_of_blocks(
+			CBE_NR_OF_SUPERBLOCKS,
+			CBE_VBD_TREE_NR_OF_LEVELS,
+			CBE_VBD_TREE_NR_OF_CHILDREN,
+			_cbe_tree_nr_of_leaves(_client_fs_size_input.value()),
+			CBE_FREE_TREE_NR_OF_LEVELS,
+			CBE_FREE_TREE_NR_OF_CHILDREN,
+			_cbe_tree_nr_of_leaves(_snapshot_buf_size_input.value()))
+		* CBE_BLOCK_SIZE;
 }
 
 
@@ -2628,7 +2697,7 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 				Controls_snapshots_select       next_select { Controls_snapshots_select::NONE };
 
 				switch (_controls_snapshots_hover) {
-				case Controls_snapshots_hover::SNAPSHOTS_EXPAND_BUTTON:
+				case Controls_snapshots_hover::LEAVE_BUTTON:
 
 					_state = State::CONTROLS_ROOT;
 					update_dialog = true;
@@ -2639,14 +2708,14 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 					next_select = Controls_snapshots_select::SHUT_DOWN_BUTTON;
 					break;
 
-				case Controls_snapshots_hover::CREATE_SNAPSHOT_BUTTON:
+				case Controls_snapshots_hover::CREATE_BUTTON:
 
-					next_select = Controls_snapshots_select::CREATE_SNAPSHOT_BUTTON;
+					next_select = Controls_snapshots_select::CREATE_BUTTON;
 					break;
 
-				case Controls_snapshots_hover::DISCARD_SNAPSHOT_BUTTON:
+				case Controls_snapshots_hover::GENERATION_DISCARD_BUTTON:
 
-					next_select = Controls_snapshots_select::DISCARD_SNAPSHOT_BUTTON;
+					next_select = Controls_snapshots_select::GENERATION_DISCARD_BUTTON;
 					break;
 
 				case Controls_snapshots_hover::GENERATION_LEAVE_BUTTON:
@@ -2693,7 +2762,7 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 					update_dialog = true;
 					break;
 
-				case Controls_snapshots_select::CREATE_SNAPSHOT_BUTTON:
+				case Controls_snapshots_select::CREATE_BUTTON:
 
 					_controls_snapshots_select = Controls_snapshots_select::NONE;
 					_create_snap_state = Create_snapshot_state::ISSUE_REQUEST_AT_DEVICE;
@@ -2702,7 +2771,7 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 					update_dialog = true;
 					break;
 
-				case Controls_snapshots_select::DISCARD_SNAPSHOT_BUTTON:
+				case Controls_snapshots_select::GENERATION_DISCARD_BUTTON:
 
 					_controls_snapshots_select = Controls_snapshots_select::NONE;
 
@@ -3269,21 +3338,21 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
 
 					node_2.with_sub_node("float", [&] (Xml_node const &node_3) {
-						if (node_3.attribute_value("name", String<3>()) == "ok") {
+						if (_has_name(node_3, "ok")) {
 							next_hover = Setup_obtain_params_hover::START_BUTTON;
 						}
 					});
 					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("frame", [&] (Xml_node const &node_4) {
 
-							if (node_4.attribute_value("name", String<32>()) == "Passphrase") {
+							if (_has_name(node_4, "Passphrase")) {
 								next_hover = Setup_obtain_params_hover::PASSPHRASE_INPUT;
 							}
 						});
 						node_3.with_sub_node("float", [&] (Xml_node const &node_4) {
 							node_4.with_sub_node("button", [&] (Xml_node const &node_5) {
 
-								if (node_5.attribute_value("name", String<32>()) == "Show Hide") {
+								if (_has_name(node_5, "Show Hide")) {
 									next_hover = Setup_obtain_params_hover::PASSPHRASE_SHOW_HIDE_BUTTON;
 								}
 							});
@@ -3291,10 +3360,10 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 					});
 					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
 
-						if (node_3.attribute_value("name", String<32>()) == "Client FS Size") {
+						if (_has_name(node_3, "Client FS Size")) {
 							next_hover = Setup_obtain_params_hover::CLIENT_FS_SIZE_INPUT;
 
-						} if (node_3.attribute_value("name", String<32>()) == "Snap Buf Size") {
+						} if (_has_name(node_3, "Snapshot Buffer Size")) {
 							next_hover = Setup_obtain_params_hover::SNAPSHOT_BUFFER_SIZE_INPUT;
 						}
 					});
@@ -3318,21 +3387,21 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
 
 					node_2.with_sub_node("float", [&] (Xml_node const &node_3) {
-						if (node_3.attribute_value("name", String<3>()) == "ok") {
+						if (_has_name(node_3, "ok")) {
 							next_hover = Setup_obtain_params_hover::START_BUTTON;
 						}
 					});
 					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("frame", [&] (Xml_node const &node_4) {
 
-							if (node_4.attribute_value("name", String<32>()) == "Passphrase") {
+							if (_has_name(node_4, "Passphrase")) {
 								next_hover = Setup_obtain_params_hover::PASSPHRASE_INPUT;
 							}
 						});
 						node_3.with_sub_node("float", [&] (Xml_node const &node_4) {
 							node_4.with_sub_node("button", [&] (Xml_node const &node_5) {
 
-								if (node_5.attribute_value("name", String<32>()) == "Show Hide") {
+								if (_has_name(node_5, "Show Hide")) {
 									next_hover = Setup_obtain_params_hover::PASSPHRASE_SHOW_HIDE_BUTTON;
 								}
 							});
@@ -3359,7 +3428,7 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("button", [&] (Xml_node const &node_4) {
 
-							if (node_4.attribute_value("name", String<10>()) == "Shut down") {
+							if (_has_name(node_4, "Shut down")) {
 
 								next_hover = Controls_root_hover::SHUT_DOWN_BUTTON;
 
@@ -3370,24 +3439,17 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
 							node_4.with_sub_node("vbox", [&] (Xml_node const &node_5) {
 
-								if (node_5.attribute_value("name", String<10>()) == "Snapshots") {
+								if (_has_name(node_5, "Snapshots")) {
 
-									node_5.with_sub_node("float", [&] (Xml_node const &) {
+									next_hover = Controls_root_hover::SNAPSHOTS_EXPAND_BUTTON;
 
-										next_hover = Controls_root_hover::SNAPSHOTS_EXPAND_BUTTON;
-									});
-								} else if (node_5.attribute_value("name", String<11>()) == "Dimensions") {
+								} else if (_has_name(node_5, "Dimensions")) {
 
-									node_5.with_sub_node("float", [&] (Xml_node const &) {
+									next_hover = Controls_root_hover::DIMENSIONS_BUTTON;
 
-										next_hover = Controls_root_hover::DIMENSIONS_BUTTON;
-									});
-								} else if (node_5.attribute_value("name", String<11>()) == "Security") {
+								} else if (_has_name(node_5, "Security")) {
 
-									node_5.with_sub_node("float", [&] (Xml_node const &) {
-
-										next_hover = Controls_root_hover::SECURITY_EXPAND_BUTTON;
-									});
+									next_hover = Controls_root_hover::SECURITY_EXPAND_BUTTON;
 								}
 							});
 						});
@@ -3414,13 +3476,11 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 			node_0.with_sub_node("frame", [&] (Xml_node const &node_1) {
 				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
 					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
-
 						node_3.with_sub_node("button", [&] (Xml_node const &node_4) {
 
-							if (node_4.attribute_value("name", String<10>()) == "Shut down") {
+							if (_has_name(node_4, "Shut down")) {
 
 								next_hover = Controls_snapshots_hover::SHUT_DOWN_BUTTON;
-
 							}
 						});
 					});
@@ -3428,52 +3488,59 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
 							node_4.with_sub_node("vbox", [&] (Xml_node const &node_5) {
 
-								if (node_5.attribute_value("name", String<11>()) == "Generation") {
+								if (_snapshots_select.valid()) {
 
-									node_5.with_sub_node("float", [&] (Xml_node const &node_6) {
+									node_5.with_sub_node("hbox", [&] (Xml_node const &node_6) {
 
-										if (node_6.attribute_value("name", String<8>()) == "expand") {
+										if (_has_name(node_6, "Leave")) {
 
 											next_hover = Controls_snapshots_hover::GENERATION_LEAVE_BUTTON;
 										}
 									});
 									node_5.with_sub_node("button", [&] (Xml_node const &node_6) {
 
-										if (node_6.attribute_value("name", String<32>()) == "Discard") {
+										if (_has_name(node_6, "Discard")) {
 
-											next_hover = Controls_snapshots_hover::DISCARD_SNAPSHOT_BUTTON;
+											next_hover = Controls_snapshots_hover::GENERATION_DISCARD_BUTTON;
 										}
 									});
-								} else if (node_5.attribute_value("name", String<32>()) == "Snapshots Opened") {
 
-									node_5.with_sub_node("float", [&] (Xml_node const &node_6) {
+								} else {
 
-										if (node_6.attribute_value("name", String<8>()) == "expand") {
+									node_5.with_sub_node("hbox", [&] (Xml_node const &node_6) {
 
-											next_hover = Controls_snapshots_hover::SNAPSHOTS_EXPAND_BUTTON;
+										if (_has_name(node_6, "Leave")) {
 
-										} else {
+											next_hover = Controls_snapshots_hover::LEAVE_BUTTON;
+										}
+									});
+									node_5.with_sub_node("vbox", [&] (Xml_node const &node_6) {
 
-											Generation const generation {
-												node_6.attribute_value(
-													"name", Generation { INVALID_GENERATION }) };
+										if (_has_name(node_6, "Generations")) {
 
-											if (generation != INVALID_GENERATION) {
+											node_6.with_sub_node("float", [&] (Xml_node const &node_7) {
 
-												_snapshots.for_each([&] (Snapshot const &snap)
-												{
-													if (generation == snap.generation()) {
-														next_snapshots_hover = snap;
-													}
-												});
-											}
+												Generation const generation {
+													node_7.attribute_value(
+														"name", Generation { INVALID_GENERATION }) };
+
+												if (generation != INVALID_GENERATION) {
+
+													_snapshots.for_each([&] (Snapshot const &snap)
+													{
+														if (generation == snap.generation()) {
+															next_snapshots_hover = snap;
+														}
+													});
+												}
+											});
 										}
 									});
 									node_5.with_sub_node("button", [&] (Xml_node const &node_6) {
 
-										if (node_6.attribute_value("name", String<32>()) == "Create") {
+										if (_has_name(node_6, "Create")) {
 
-											next_hover = Controls_snapshots_hover::CREATE_SNAPSHOT_BUTTON;
+											next_hover = Controls_snapshots_hover::CREATE_BUTTON;
 										}
 									});
 								}
@@ -3506,36 +3573,30 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("button", [&] (Xml_node const &node_4) {
 
-							if (node_4.attribute_value("name", String<32>()) == "Shut down") {
+							if (_has_name(node_4, "Shut down")) {
 
 								next_hover = Dimensions_hover::SHUT_DOWN_BUTTON;
-
 							}
 						});
 					});
 					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
-							node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
+							node_4.with_sub_node("hbox", [&] (Xml_node const &node_5) {
 
-								if (node_5.attribute_value("name", String<32>()) == "expand") {
+								if (_has_name(node_5, "Leave")) {
 
 									next_hover = Dimensions_hover::LEAVE_BUTTON;
 								}
 							});
 							node_4.with_sub_node("vbox", [&] (Xml_node const &node_5) {
 
-								if (node_5.attribute_value("name", String<32>()) == "Expand Client FS") {
+								if (_has_name(node_5, "Expand Client FS")) {
 
-									node_5.with_sub_node("float", [&] (Xml_node const &) {
+									next_hover = Dimensions_hover::EXPAND_CLIENT_FS_BUTTON;
 
-										next_hover = Dimensions_hover::EXPAND_CLIENT_FS_BUTTON;
-									});
-								} else if (node_5.attribute_value("name", String<32>()) == "Expand Snapshot Buffer") {
+								} else if (_has_name(node_5, "Expand Snapshot Buffer")) {
 
-									node_5.with_sub_node("float", [&] (Xml_node const &) {
-
-										next_hover = Dimensions_hover::EXPAND_SNAPSHOT_BUF_BUTTON;
-									});
+									next_hover = Dimensions_hover::EXPAND_SNAPSHOT_BUF_BUTTON;
 								}
 							});
 						});
@@ -3559,10 +3620,9 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 			node_0.with_sub_node("frame", [&] (Xml_node const &node_1) {
 				node_1.with_sub_node("vbox", [&] (Xml_node const &node_2) {
 					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
-
 						node_3.with_sub_node("button", [&] (Xml_node const &node_4) {
 
-							if (node_4.attribute_value("name", String<32>()) == "Shut down") {
+							if (_has_name(node_4, "Shut down")) {
 
 								next_hover = Expand_client_fs_hover::SHUT_DOWN_BUTTON;
 
@@ -3572,20 +3632,23 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
 							node_4.with_sub_node("vbox", [&] (Xml_node const &node_5) {
-								node_5.with_sub_node("float", [&] (Xml_node const &node_6) {
+								node_5.with_sub_node("hbox", [&] (Xml_node const &node_6) {
 
-									if (node_6.attribute_value("name", String<32>()) == "expand") {
+									if (_has_name(node_6, "Leave")) {
 
 										next_hover = Expand_client_fs_hover::LEAVE_BUTTON;
+									}
+								});
+								node_5.with_sub_node("float", [&] (Xml_node const &node_6) {
 
-									} else if (node_6.attribute_value("name", String<32>()) == "Start") {
+									if (_has_name(node_6, "Start")) {
 
 										next_hover = Expand_client_fs_hover::START_BUTTON;
 									}
 								});
 								node_5.with_sub_node("frame", [&] (Xml_node const &node_6) {
 
-									if (node_6.attribute_value("name", String<32>()) == "blks") {
+									if (_has_name(node_6, "Number of blocks")) {
 										next_hover = Expand_client_fs_hover::NR_OF_BLKS_INPUT;
 									}
 								});
@@ -3614,7 +3677,7 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 
 						node_3.with_sub_node("button", [&] (Xml_node const &node_4) {
 
-							if (node_4.attribute_value("name", String<32>()) == "Shut down") {
+							if (_has_name(node_4, "Shut down")) {
 
 								next_hover = Expand_snapshot_buf_hover::SHUT_DOWN_BUTTON;
 
@@ -3624,20 +3687,25 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
 							node_4.with_sub_node("vbox", [&] (Xml_node const &node_5) {
-								node_5.with_sub_node("float", [&] (Xml_node const &node_6) {
 
-									if (node_6.attribute_value("name", String<32>()) == "expand") {
+								node_5.with_sub_node("hbox", [&] (Xml_node const &node_6) {
+
+									if (_has_name(node_6, "Leave")) {
 
 										next_hover = Expand_snapshot_buf_hover::LEAVE_BUTTON;
+									}
+								});
+								node_5.with_sub_node("float", [&] (Xml_node const &node_6) {
 
-									} else if (node_6.attribute_value("name", String<32>()) == "Start") {
+									if (_has_name(node_6, "Start")) {
 
 										next_hover = Expand_snapshot_buf_hover::START_BUTTON;
 									}
 								});
 								node_5.with_sub_node("frame", [&] (Xml_node const &node_6) {
 
-									if (node_6.attribute_value("name", String<32>()) == "blks") {
+									if (_has_name(node_6, "Number of blocks")) {
+
 										next_hover = Expand_snapshot_buf_hover::NR_OF_BLKS_INPUT;
 									}
 								});
@@ -3665,7 +3733,7 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("button", [&] (Xml_node const &node_4) {
 
-							if (node_4.attribute_value("name", String<10>()) == "Shut down") {
+							if (_has_name(node_4, "Shut down")) {
 
 								next_hover = Controls_security_hover::SHUT_DOWN_BUTTON;
 
@@ -3674,33 +3742,26 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 					});
 					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
-							node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
+							node_4.with_sub_node("hbox", [&] (Xml_node const &node_5) {
 
-								if (node_5.attribute_value("name", String<8>()) == "expand") {
+								if (_has_name(node_5, "Leave")) {
 
 									next_hover = Controls_security_hover::SECURITY_EXPAND_BUTTON;
 								}
 							});
 							node_4.with_sub_node("vbox", [&] (Xml_node const &node_5) {
 
-								if (node_5.attribute_value("name", String<32>()) == "Block Encryption Key") {
+								if (_has_name(node_5, "Block Encryption Key")) {
 
-									node_5.with_sub_node("float", [&] (Xml_node const &) {
+									next_hover = Controls_security_hover::BLOCK_ENCRYPTION_KEY_EXPAND_BUTTON;
 
-										next_hover = Controls_security_hover::BLOCK_ENCRYPTION_KEY_EXPAND_BUTTON;
-									});
-								} else if (node_5.attribute_value("name", String<32>()) == "Master Key") {
+								} else if (_has_name(node_5, "Master Key")) {
 
-									node_5.with_sub_node("float", [&] (Xml_node const &) {
+									next_hover = Controls_security_hover::MASTER_KEY_EXPAND_BUTTON;
 
-										next_hover = Controls_security_hover::MASTER_KEY_EXPAND_BUTTON;
-									});
-								} else if (node_5.attribute_value("name", String<32>()) == "User Passphrase") {
+								} else if (_has_name(node_5, "User Passphrase")) {
 
-									node_5.with_sub_node("float", [&] (Xml_node const &) {
-
-										next_hover = Controls_security_hover::USER_PASSPHRASE_EXPAND_BUTTON;
-									});
+									next_hover = Controls_security_hover::USER_PASSPHRASE_EXPAND_BUTTON;
 								}
 							});
 						});
@@ -3726,7 +3787,7 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("button", [&] (Xml_node const &node_4) {
 
-							if (node_4.attribute_value("name", String<10>()) == "Shut down") {
+							if (_has_name(node_4, "Shut down")) {
 
 								next_hover = Controls_security_block_encryption_key_hover::SHUT_DOWN_BUTTON;
 
@@ -3737,14 +3798,14 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
 							node_4.with_sub_node("button", [&] (Xml_node const &node_5) {
 
-								if (node_5.attribute_value("name", String<8>()) == "Rekey") {
+								if (_has_name(node_5, "Rekey")) {
 
 									next_hover = Controls_security_block_encryption_key_hover::REPLACE_BUTTON;
 								}
 							});
-							node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
+							node_4.with_sub_node("hbox", [&] (Xml_node const &node_5) {
 
-								if (node_5.attribute_value("name", String<8>()) == "expand") {
+								if (_has_name(node_5, "Leave")) {
 
 									next_hover = Controls_security_block_encryption_key_hover::LEAVE_BUTTON;
 								}
@@ -3772,7 +3833,7 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("button", [&] (Xml_node const &node_4) {
 
-							if (node_4.attribute_value("name", String<10>()) == "Shut down") {
+							if (_has_name(node_4, "Shut down")) {
 
 								next_hover = Controls_security_master_key_hover::SHUT_DOWN_BUTTON;
 
@@ -3781,9 +3842,9 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 					});
 					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
-							node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
+							node_4.with_sub_node("hbox", [&] (Xml_node const &node_5) {
 
-								if (node_5.attribute_value("name", String<8>()) == "expand") {
+								if (_has_name(node_5, "Leave")) {
 
 									next_hover = Controls_security_master_key_hover::LEAVE_BUTTON;
 								}
@@ -3811,7 +3872,7 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 					node_2.with_sub_node("hbox", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("button", [&] (Xml_node const &node_4) {
 
-							if (node_4.attribute_value("name", String<10>()) == "Shut down") {
+							if (_has_name(node_4, "Shut down")) {
 
 								next_hover = Controls_security_user_passphrase_hover::SHUT_DOWN_BUTTON;
 
@@ -3820,9 +3881,9 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 					});
 					node_2.with_sub_node("frame", [&] (Xml_node const &node_3) {
 						node_3.with_sub_node("vbox", [&] (Xml_node const &node_4) {
-							node_4.with_sub_node("float", [&] (Xml_node const &node_5) {
+							node_4.with_sub_node("hbox", [&] (Xml_node const &node_5) {
 
-								if (node_5.attribute_value("name", String<8>()) == "expand") {
+								if (_has_name(node_5, "Leave")) {
 
 									next_hover = Controls_security_user_passphrase_hover::LEAVE_BUTTON;
 								}

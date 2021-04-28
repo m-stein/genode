@@ -102,31 +102,38 @@ namespace File_vault {
 	                   char        const *name,
 	                   char        const *text);
 
+	void gen_empty_line(Xml_generator     &xml,
+	                    char        const *name);
+
 	void gen_multiple_choice_entry(Xml_generator     &xml,
 	                               char        const *name,
 	                               char        const *text,
 	                               bool               hovered,
 	                               bool               selected);
 
-	void gen_sub_menu_title(Xml_generator &xml,
-	                        char    const *text,
-	                        bool           hovered,
-	                        bool           selected);
+	void gen_menu_title(Xml_generator &xml,
+	                    char    const *name,
+	                    char    const *label,
+	                    char    const *label_annex,
+	                    bool           hovered,
+	                    bool           selected);
 
-	void gen_closed_sub_menu(Xml_generator &xml,
-	                         char    const *name,
-	                         bool           hovered);
+	void gen_closed_menu(Xml_generator &xml,
+	                     char    const *label,
+	                     char    const *label_annex,
+	                     bool           hovered);
 
 	template <typename GEN_CONTENT>
-	void gen_opened_sub_menu(Xml_generator       &xml,
-	                         char          const *name,
-	                         bool                 hovered,
-	                         GEN_CONTENT   const &gen_content)
+	void gen_opened_menu(Xml_generator       &xml,
+	                     char          const *label,
+	                     char          const *label_annex,
+	                     bool                 hovered,
+	                     GEN_CONTENT   const &gen_content)
 	{
 		xml.node("vbox", [&] () {
-			xml.attribute("name", String<64> { name, " Opened" });
+			xml.attribute("name", label);
 
-			gen_sub_menu_title(xml, name, hovered, true);
+			gen_menu_title(xml, "Leave", label, label_annex, hovered, true);
 			gen_content(xml);
 		});
 	}
@@ -143,6 +150,12 @@ namespace File_vault {
 	                       bool           hovered,
 	                       bool           selected,
 	                       size_t         min_ex = 0);
+
+	void gen_global_controls(Xml_generator &xml,
+	                         size_t         cbe_image_size,
+	                         size_t         client_fs_size,
+	                         bool           shut_down_button_hovered,
+	                         bool           shut_down_button_selected);
 }
 
 #endif /* _MENU_VIEW_DIALOG_H_ */

@@ -24,6 +24,8 @@ namespace File_vault {
 	using namespace Cbe;
 	using namespace Genode;
 
+	using Node_name = String<32>;
+
 	class Tree_geometry
 	{
 		private:

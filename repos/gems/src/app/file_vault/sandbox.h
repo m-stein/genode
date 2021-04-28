@@ -317,6 +317,11 @@ namespace File_vault {
 					xml.attribute("writeable", "yes");
 				});
 				xml.node("policy", [&] () {
+					xml.attribute("label", "client_fs_fs_query -> ");
+					xml.attribute("root", "/dev/cbe/current");
+					xml.attribute("writeable", "no");
+				});
+				xml.node("policy", [&] () {
 					xml.attribute("label", "sync_to_cbe_vfs_init -> ");
 					xml.attribute("root", "/dev");
 					xml.attribute("writeable", "no");
@@ -527,6 +532,31 @@ namespace File_vault {
 			xml.node("route", [&] () {
 				route_to_local_service(xml, "Report");
 				route_to_parent_service(xml, "File_system");
+				gen_parent_routes_for_pd_rom_cpu_log(xml);
+			});
+		});
+	}
+
+	void gen_client_fs_fs_query_start_node(Xml_generator     &xml,
+	                                       Child_state const &child)
+	{
+		child.gen_start_node(xml, [&] () {
+
+			xml.node("config", [&] () {
+				xml.node("vfs", [&] () {
+					xml.node("fs", [&] () {
+						xml.attribute("writeable", "no");
+					});
+				});
+				xml.node("query", [&] () {
+					xml.attribute("path", "/");
+					xml.attribute("content", "no");
+					xml.attribute("size", "yes");
+				});
+			});
+			xml.node("route", [&] () {
+				route_to_local_service(xml, "Report");
+				route_to_child_service(xml, "cbe_vfs", "File_system");
 				gen_parent_routes_for_pd_rom_cpu_log(xml);
 			});
 		});
