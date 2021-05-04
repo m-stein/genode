@@ -28,6 +28,8 @@ append archives "
 	[depot_user]/src/posix
 	[depot_user]/src/rump
 	[depot_user]/src/sandbox
+	[depot_user]/src/dynamic_rom
+	[depot_user]/src/report_rom
 "
 
 append_if [have_board linux] archives [depot_user]/src/lx_fs
@@ -246,6 +248,9 @@ append config {
 
 		<start name="file_vault" caps="2000">
 			<resource name="RAM" quantum="200M"/>
+			<provides>
+				<service name="File_system"/>
+			</provides>
 			<config>
 				<vfs>
 					<dir name="cbe">
@@ -269,6 +274,84 @@ append config {
 				<service name="CPU">                                                     <parent/> </service>
 				<service name="LOG">                                                     <parent/> </service>
 				<service name="RM">                                                      <parent/> </service>
+			</route>
+		</start>
+
+		<start name="dynamic_rom" caps="100">
+			<resource name="RAM" quantum="4M"/>
+			<provides><service name="ROM"/></provides>
+			<config verbose="yes">
+				<rom name="init_config">
+					<inline> <config/> </inline>
+					<sleep milliseconds="20000"/>
+					<inline>
+
+<config>
+
+	<parent-provides>
+		<service name="PD"/>
+		<service name="ROM"/>
+		<service name="LOG"/>
+		<service name="CPU"/>
+		<service name="File_system"/>
+	</parent-provides>
+
+	<start name="report_rom" caps="100">
+		<resource name="RAM" quantum="1M"/>
+		<provides>
+			<service name="Report"/>
+			<service name="ROM"/>
+		</provides>
+		<config verbose="yes"/>
+		<route>
+			<service name="File_system"> <parent/> </service>
+			<service name="PD">          <parent/> </service>
+			<service name="ROM">         <parent/> </service>
+			<service name="LOG">         <parent/> </service>
+			<service name="CPU">         <parent/> </service>
+		</route>
+	</start>
+
+	<start name="fs_query" caps="120">
+		<resource name="RAM" quantum="2M"/>
+		<config>
+			<vfs> <dir name="fs"> <fs writeable="yes"/> </dir> </vfs>
+			<query path="/" content="no"/>
+		</config>
+		<route>
+			<service name="Report">      <child name="report_rom"/> </service>
+			<service name="File_system"> <parent/> </service>
+			<service name="PD">          <parent/> </service>
+			<service name="ROM">         <parent/> </service>
+			<service name="LOG">         <parent/> </service>
+			<service name="CPU">         <parent/> </service>
+		</route>
+	</start>
+
+</config>
+
+					</inline>
+					<sleep milliseconds="20000"/>
+				</rom>
+			</config>
+			<route>
+				<service name="Timer"> <child name="timer"/> </service>
+				<service name="PD">    <parent/> </service>
+				<service name="ROM">   <parent/> </service>
+				<service name="LOG">   <parent/> </service>
+				<service name="CPU">   <parent/> </service>
+			</route>
+		</start>
+
+		<start name="init" caps="2000">
+			<resource name="RAM" quantum="16M"/>
+			<route>
+				<service name="ROM" label="config"> <child name="dynamic_rom" label="init_config"/> </service>
+				<service name="File_system">        <child name="file_vault"/> </service>
+				<service name="PD">                 <parent/> </service>
+				<service name="ROM">                <parent/> </service>
+				<service name="LOG">                <parent/> </service>
+				<service name="CPU">                <parent/> </service>
 			</route>
 		</start>
 
