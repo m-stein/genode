@@ -42,6 +42,7 @@
 		<rom label="spark.lib.so"/>
 		<rom label="fs_tool"/>
 		<rom label="mke2fs"/>
+		<rom label="resize2fs"/>
 		<rom label="posix.lib.so"/>
 		<rom label="file_vault"/>
 		<rom label="file_vault-sync_to_cbe_vfs_init"/>
