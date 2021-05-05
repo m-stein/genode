@@ -39,6 +39,11 @@
 
 namespace File_vault {
 
+	enum { SHOW_CONTROLS_SNAPSHOTS = 0 };
+	enum { SHOW_CONTROLS_SECURITY_MASTER_KEY = 0 };
+	enum { SHOW_CONTROLS_SECURITY_USER_PASSPHRASE = 0 };
+	enum { RENAME_SNAPSHOT_BUFFER_JOURNALING_BUFFER = 1 };
+
 	class Main;
 }
 
@@ -1382,7 +1387,10 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 			}
 			gen_info_line(xml, "pad_2", "");
 			gen_titled_text_input(
-				xml, "Snapshot Buffer Size", "Snapshot buffer size",
+				xml, "Snapshot Buffer Size",
+				RENAME_SNAPSHOT_BUFFER_JOURNALING_BUFFER ?
+					"Journaling buffer size" :
+					"Snapshot buffer size", 
 				_snapshot_buf_size_input,
 				_setup_obtain_params_select == Setup_obtain_params_select::SNAPSHOT_BUFFER_SIZE_INPUT);
 
@@ -1466,10 +1474,12 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 
 				xml.node("vbox", [&] () {
 
-					gen_closed_menu(
-						xml, "Snapshots", "",
-						_controls_root_hover == Controls_root_hover::SNAPSHOTS_EXPAND_BUTTON);
+					if (SHOW_CONTROLS_SNAPSHOTS) {
 
+						gen_closed_menu(
+							xml, "Snapshots", "",
+							_controls_root_hover == Controls_root_hover::SNAPSHOTS_EXPAND_BUTTON);
+					}
 					gen_closed_menu(
 						xml, "Dimensions", "",
 						_controls_root_hover == Controls_root_hover::DIMENSIONS_BUTTON);
@@ -1594,7 +1604,11 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 						_dimensions_hover == Dimensions_hover::EXPAND_CLIENT_FS_BUTTON);
 
 					gen_closed_menu(
-						xml, "Expand Snapshot Buffer", "",
+						xml,
+						RENAME_SNAPSHOT_BUFFER_JOURNALING_BUFFER ?
+							"Expand Journaling Buffer" :
+							"Expand Snapshot Buffer",
+						"",
 						_dimensions_hover == Dimensions_hover::EXPAND_SNAPSHOT_BUF_BUTTON);
 				});
 			});
@@ -1700,7 +1714,11 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 				xml.node("vbox", [&] () {
 
 					gen_opened_menu(
-						xml, "Expand Snapshot Buffer", "",
+						xml,
+						RENAME_SNAPSHOT_BUFFER_JOURNALING_BUFFER ?
+							"Expand Journaling Buffer" :
+							"Expand Snapshot Buffer",
+						"",
 						_expand_snapshot_buf_hover == Expand_snapshot_buf_hover::LEAVE_BUTTON,
 						[&] (Xml_generator &xml)
 					{
@@ -1787,13 +1805,18 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 						xml, "Block Encryption Key", "",
 						_controls_security_hover == Controls_security_hover::BLOCK_ENCRYPTION_KEY_EXPAND_BUTTON);
 
-					gen_closed_menu(
-						xml, "Master Key", "",
-						_controls_security_hover == Controls_security_hover::MASTER_KEY_EXPAND_BUTTON);
+					if (SHOW_CONTROLS_SECURITY_MASTER_KEY) {
 
-					gen_closed_menu(
-						xml, "User Passphrase", "",
-						_controls_security_hover == Controls_security_hover::USER_PASSPHRASE_EXPAND_BUTTON);
+						gen_closed_menu(
+							xml, "Master Key", "",
+							_controls_security_hover == Controls_security_hover::MASTER_KEY_EXPAND_BUTTON);
+					}
+					if (SHOW_CONTROLS_SECURITY_USER_PASSPHRASE) {
+
+						gen_closed_menu(
+							xml, "User Passphrase", "",
+							_controls_security_hover == Controls_security_hover::USER_PASSPHRASE_EXPAND_BUTTON);
+					}
 				});
 			});
 			gen_global_controls(
@@ -3691,7 +3714,10 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 
 									next_hover = Dimensions_hover::EXPAND_CLIENT_FS_BUTTON;
 
-								} else if (_has_name(node_5, "Expand Snapshot Buffer")) {
+								} else if (_has_name(node_5,
+								                     RENAME_SNAPSHOT_BUFFER_JOURNALING_BUFFER ?
+								                        "Expand Journaling Buffer" :
+								                        "Expand Snapshot Buffer")) {
 
 									next_hover = Dimensions_hover::EXPAND_SNAPSHOT_BUF_BUTTON;
 								}
