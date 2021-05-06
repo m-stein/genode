@@ -346,6 +346,7 @@ class Trust_anchor
 					_private_key_io_job_buffer.size,
 					(unsigned char *)_passphrase_hash_buffer.base,
 					_passphrase_hash_buffer.size);
+Genode::log(Genode::Cstring(_passphrase_hash_buffer.base, _passphrase_hash_buffer.size));
 
 				_job_state = Job_state::PENDING;
 				progress = true;
@@ -1013,6 +1014,7 @@ class Trust_anchor
 			if (_state != State::UNINITIALIZED) {
 				return false;
 			}
+
 			SHA256((unsigned char const *)src, len,
 			       (unsigned char *)_passphrase_hash_buffer.base);
 
@@ -1832,6 +1834,8 @@ class Vfs_cbe_trust_anchor::Initialize_file_system : public Vfs::Single_file_sys
 			Write_result write(char const *src, file_size count,
 			                   file_size &out_count) override
 			{
+
+Genode::log(Genode::Cstring(src, count));
 				if (_state != State::NONE) {
 					return WRITE_ERR_INVALID;
 				}

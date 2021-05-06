@@ -18,6 +18,7 @@
 /* Genode includes */
 #include <base/output.h>
 #include <util/utf8.h>
+#include <base/buffered_output.h>
 
 /* local includes */
 #include <types.h>
@@ -172,6 +173,20 @@ class File_vault::Input_passphrase : public Input_single_line
 				code.value >= 0x20 && code.value < 0xf000 };
 
 			return is_printable;
+		}
+
+		String<MAX_LENGTH * 3> plaintext() const
+		{
+			String<MAX_LENGTH * 3> result { };
+
+			auto write = [&] (char const *str)
+			{
+				result = Cstring(str, strlen(str));
+			};
+			Buffered_output<MAX_LENGTH * 3, decltype(write)> output(write);
+
+			_print_characters(output);
+			return result;
 		}
 };
 

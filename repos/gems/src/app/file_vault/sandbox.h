@@ -640,10 +640,7 @@ namespace File_vault {
 
 			xml.node("config", [&] () {
 
-				String<passphrase.MAX_LENGTH * 3> const
-					passphrase_str { passphrase };
-
-				xml.attribute("passphrase", passphrase_str.string());
+				xml.attribute("passphrase", passphrase.plaintext().string());
 				xml.attribute("trust_anchor_dir", "/trust_anchor");
 				xml.node("vfs", [&] () {
 					xml.node("dir", [&] () {
