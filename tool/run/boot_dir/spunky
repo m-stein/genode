@@ -1,19 +1,36 @@
 proc binary_name_ld_lib_so { } { return "ld-hw.lib.so" }
-proc binary_name_core_o    { } { return "core-spunky.o"    }
+proc binary_name_core_a    { } { return "core-spunky.a"    }
 proc binary_name_timer     { } { return "hw_timer_drv" }
 
 
 proc run_boot_string { } { return "\nkernel initialized" }
 
+
 proc bootstrap_link_address { } {
-	if {[have_spec "x86_64"]} { return "0x00200000" }
-	puts "unknown platform no linker address known"
-	exit -1
+
+	set link_address_file [file join "board" [board] "image_link_address"]
+
+	set repo [repository_contains $link_address_file]
+
+	if {$repo == ""} {
+		puts stderr "\nError: unknown image link address\n"
+		puts stderr " File $link_address_file not present in any repository.\n"
+		exit -1
+	}
+
+	set fh [open [file join $repo $link_address_file] "RDONLY"]
+	set link_address [lindex [gets $fh] 0]
+	close $fh
+
+	return $link_address
 }
 
+
 proc core_link_address { } {
+
 	if {[have_spec "64bit"]} { return "0xffffffc000000000" }
-	return 0;
+	puts stderr "\nError: cannot determine core link address for platform\n"
+	exit -1
 }
 
 
@@ -31,16 +48,16 @@ proc run_boot_dir {binaries} {
 	set core_arg      ""
 	set ld_arg        ""
 
-	if {![file exists [run_dir]/genode/ld.lib.so]}      { set ld_arg        lib/ld/hw    }
-	if {![file exists [run_dir]/genode/core-spunky.o]}  { set core_arg      core/hw      }
-	if {![file exists [run_dir]/genode/bootstrap-hw.o]} { set bootstrap_arg bootstrap/hw }
+	if {![file exists [run_dir]/genode/ld.lib.so]}              { set ld_arg        lib/ld/hw    }
+	if {![file exists [run_dir]/genode/core-spunky-[board].a]}  { set core_arg      core/spunky  }
+	if {![file exists [run_dir]/genode/bootstrap-hw-[board].o]} { set bootstrap_arg bootstrap/hw }
 
 	set build_args "$bootstrap_arg $core_arg $ld_arg"
 	if {[llength $build_args]} { build $build_args }
 
-	if {$ld_arg        != ""} { file copy -force bin/ld-hw.lib.so           [run_dir]/genode/ld.lib.so }
-	if {$core_arg      != ""} { file copy -force bin/core-spunky-[board].o  [run_dir]/genode/core-spunky.o }
-	if {$bootstrap_arg != ""} { file copy -force bin/bootstrap-hw-[board].o [run_dir]/genode/bootstrap-hw.o }
+	if {$ld_arg        != ""} { copy_file bin/ld-hw.lib.so  [run_dir]/genode/ld.lib.so }
+	if {$core_arg      != ""} { copy_file bin/core-spunky-[board].a  [run_dir]/genode/ }
+	if {$bootstrap_arg != ""} { copy_file bin/bootstrap-hw-[board].o [run_dir]/genode/ }
 
 	#
 	# Copy specified modules to the run directory, excluding core.
@@ -51,12 +68,12 @@ proc run_boot_dir {binaries} {
 
 	puts "core link address is [core_link_address]"
 
-	set core_obj      core-spunky.o
-	set bootstrap_obj bootstrap-hw.o
+	set core_obj      core-spunky-[board].a
+	set bootstrap_obj bootstrap-hw-[board].o
 
 	# create core and bootstrap binary without modules for debugging
-	if {[file exists debug/core-spunky-[board].o]} {
-		build_core debug/core-spunky-[board].o     {} [run_dir].core      [core_link_address]
+	if {[file exists debug/core-spunky-[board].a]} {
+		build_core debug/core-spunky-[board].a     {} [run_dir].core      [core_link_address]
 		build_core [run_dir]/genode/$bootstrap_obj {} [run_dir].bootstrap [bootstrap_link_address]
 	}
 
@@ -121,7 +138,7 @@ proc run_boot_dir {binaries} {
 		puts $fh "set timeout=0"
 		# tell grub2 to prefer 32bit framebuffer resolution
 		puts $fh "set gfxpayload=\"0x0x32\""
-		puts $fh "menuentry 'Genode on base-hw' {"
+		puts $fh "menuentry 'Genode on base-spunky' {"
 		puts $fh " insmod multiboot2"
 		puts $fh " multiboot2 /boot/bender $serial_bender_opt"
 		puts $fh " module2 /boot/image.elf.gz image.elf"
@@ -130,6 +147,15 @@ proc run_boot_dir {binaries} {
 	}
 
 	run_image [run_dir]/boot/image.elf
+
+	# install image.elf file in TFTP directory for PXE boot
+	if {[expr [have_spec arm] || [have_spec arm_64]] && [have_include "load/tftp"]} {
+		exec {*}[load_tftp_inst_cmd] [run_dir]/boot/image.elf [load_tftp_base_dir][load_tftp_offset_dir]
+
+		if {[have_include "image/uboot"]} {
+			exec {*}[load_tftp_inst_cmd] [pwd]/[run_dir]/uImage [load_tftp_base_dir][load_tftp_offset_dir]
+		}
+	}
 
 	if {[have_spec x86] && [have_include "load/tftp"]} {
 		#
@@ -169,13 +195,4 @@ proc run_boot_dir {binaries} {
 ##
 # Base source archive within depot
 #
-proc base_src { } {
-
-	if {[have_spec x86_64]} { return base-spunky-pc }
-
-	global specs
-
-	puts stderr "Test requires base-hw kernel archive, which is missing for this build configuration"
-	puts stderr "  SPECS=\"$specs\""
-	exit 0
-}
+proc base_src { } { return "base-spunky-[board]" }

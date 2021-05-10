@@ -133,9 +133,10 @@ LIBS += base-hw-common cxx
 # add include paths
 INC_DIR += $(BASE_DIR)/../base-spunky/src/core
 INC_DIR += $(BASE_DIR)/../base-hw/src/core
-INC_DIR += $(BASE_DIR)/src/core/include
 INC_DIR += $(BASE_DIR)/../base-hw/src/include
-INC_DIR += $(BASE_DIR)/src/include
+INC_DIR += $(BASE_DIR)/../base-hw/include
+INC_DIR += $(BASE_DIR)/../base/src/core/include
+INC_DIR += $(BASE_DIR)/../base/src/include
 
 # add C++ sources
 SRC_CC += cpu_session_component.cc
@@ -202,3 +203,5 @@ vpath kernel/core_thread.cc $(BASE_DIR)/../base-spunky/src/core
 vpath % $(BASE_DIR)/../base-hw/src/core
 vpath % $(BASE_DIR)/src/core
 vpath % $(BASE_DIR)/src/lib/startup
+
+CC_ADA_WARN_STRICT :=
