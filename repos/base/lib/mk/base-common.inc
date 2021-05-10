@@ -35,6 +35,5 @@ SRC_CC += stack_protector.cc
 SRC_CC += xml_generator.cc
 
 INC_DIR += $(REP_DIR)/src/include $(BASE_DIR)/src/include
-
 vpath %.cc  $(REP_DIR)/src/lib/base
 vpath %.cc $(BASE_DIR)/src/lib/base

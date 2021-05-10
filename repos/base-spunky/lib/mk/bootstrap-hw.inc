@@ -1,3 +1,5 @@
+include $(BASE_DIR)/../base-hw/lib/mk/bootstrap-hw.inc
+
 LIBS = cxx
 
 SRC_CC  += bootstrap/env.cc
@@ -21,16 +23,20 @@ SRC_CC  += lib/base/sleep.cc
 SRC_CC  += lib/base/sliced_heap.cc
 SRC_CC  += lib/startup/_main.cc
 
-REP_INC_DIR += src/bootstrap
-REP_INC_DIR += src/include
-REP_INC_DIR += src/core/include # for boot_modules.h only
+INC_DIR += $(BASE_DIR)/../base-hw/src/bootstrap
+INC_DIR += $(BASE_DIR)/../base-hw/src/include
+INC_DIR += $(BASE_DIR)/../base-hw/src/core/include # for boot_modules.h only
+INC_DIR += $(BASE_DIR)/../base-hw/include
+INC_DIR += $(BASE_DIR)/../base/src/bootstrap
+INC_DIR += $(BASE_DIR)/../base/src/include
+INC_DIR += $(BASE_DIR)/../base/src/core/include # for boot_modules.h only
+INC_DIR += $(BASE_DIR)/../base/include
 
 # configure multiprocessor mode
 NR_OF_CPUS ?= 1
 CC_OPT += -Wa,--defsym -Wa,NR_OF_CPUS=$(NR_OF_CPUS) -DNR_OF_CPUS=$(NR_OF_CPUS)
 
-TMP         := $(call select_from_repositories,lib/mk/bootstrap-hw.inc)
-BASE_HW_DIR := $(TMP:%/lib/mk/bootstrap-hw.inc=%)
+BASE_HW_DIR := $(BASE_DIR)/../base-hw
 vpath base/%        $(BASE_HW_DIR)/src
 vpath bootstrap/%   $(BASE_HW_DIR)/src
 vpath hw/%          $(BASE_HW_DIR)/src/lib
