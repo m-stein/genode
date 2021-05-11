@@ -8,6 +8,7 @@ SHELL   := bash
 VERBOSE ?= @
 ECHO    := echo -e
 HASHSUM := sha1sum
+SORT    := LC_ALL=C sort
 
 MAKEFLAGS += --no-print-directory
 
