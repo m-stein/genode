@@ -43,7 +43,7 @@ void Timer::set_timeout(Timeout * const timeout, time_t const duration)
 	 * result of an update.
 	 */
 	if (timeout->_listed)
-		_timeout_list.remove(timeout);
+		_timeout_list.remove(&timeout->_list_elem);
 	else
 		timeout->_listed = true;
 
@@ -54,20 +54,32 @@ void Timer::set_timeout(Timeout * const timeout, time_t const duration)
 	 * Insert timeout. Timeouts are ordered ascending according to their end
 	 * time to be able to quickly determine the nearest timeout.
 	 */
-	Timeout * t1 = 0;
-	for (Timeout * t2 = _timeout_list.first();
-	     t2 && t2->_end < timeout->_end;
-	     t1 = t2, t2 = t2->next()) { }
-
-	_timeout_list.insert(timeout, t1);
+	Timeout *next_shorter_timeout { nullptr };
+	for (Timeout_list_element *curr_list_elem { _timeout_list.first() };
+	     curr_list_elem != nullptr;
+	     curr_list_elem = curr_list_elem->next())
+	{
+		Timeout *curr_timeout { curr_list_elem->object() };
+		if (curr_timeout->_end >= timeout->_end) {
+			break;
+		}
+		next_shorter_timeout = curr_timeout;
+	}
+	if (next_shorter_timeout != nullptr) {
+		_timeout_list.insert(&timeout->_list_elem,
+		                     &next_shorter_timeout->_list_elem);
+	} else {
+		_timeout_list.insert(&timeout->_list_elem);
+	}
 }
 
 
 time_t Timer::schedule_timeout()
 {
 	/* get the timeout with the nearest end time */
-	Timeout * timeout = _timeout_list.first();
-	assert(timeout);
+	Timeout_list_element const *const list_elem { _timeout_list.first() };
+	assert(list_elem);
+	Timeout const *const timeout { list_elem->object() };
 
 	/* install timeout at timer hardware */
 	time_t duration = _duration();
@@ -86,14 +98,17 @@ void Timer::process_timeouts()
 	 */
 	time_t t = time();
 	while (true) {
-		Timeout * const timeout = _timeout_list.first();
-		if (!timeout)
+
+		Timeout_list_element const *const list_elem { _timeout_list.first() };
+		if (!list_elem)
 			break;
+
+		Timeout *const timeout { list_elem->object() };
 
 		if (timeout->_end > t)
 			break;
 
-		_timeout_list.remove(timeout);
+		_timeout_list.remove(&timeout->_list_elem);
 		timeout->_listed = false;
 		timeout->timeout_triggered();
 	}

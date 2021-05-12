@@ -24,8 +24,11 @@
 #include <board.h>
 
 namespace Kernel {
+
 	class Cpu;
 	class Timeout;
+	using Timeout_list = Genode::List<Genode::List_element<Timeout> >;
+	using Timeout_list_element = Genode::List_element<Timeout>;
 	class Timer;
 }
 
@@ -33,15 +36,16 @@ namespace Kernel {
 /**
  * A timeout causes a kernel pass and the call of a timeout specific handle
  */
-class Kernel::Timeout : Genode::List<Timeout>::Element
+class Kernel::Timeout
 {
 	friend class Timer;
-	friend class Genode::List<Timeout>;
+	friend class Genode::List<Genode::List_element<Timeout> >;
 
 	private:
 
-		bool   _listed     = false;
-		time_t _end        = 0;
+		Timeout_list_element _list_elem { this };
+		bool                 _listed    { false };
+		time_t               _end       { 0 };
 
 	public:
 
@@ -74,11 +78,11 @@ class Kernel::Timer
 				void occurred() override;
 		};
 
-		Board::Timer          _device;
-		Irq                   _irq;
-		time_t                _time = 0;
-		time_t                _last_timeout_duration;
-		Genode::List<Timeout> _timeout_list {};
+		Board::Timer _device;
+		Irq          _irq;
+		time_t       _time = 0;
+		time_t       _last_timeout_duration;
+		Timeout_list _timeout_list {};
 
 		void _start_one_shot(time_t const ticks);
 
