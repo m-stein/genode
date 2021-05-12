@@ -17,4 +17,4 @@ include:
 content: LICENSE
 
 LICENSE:
-	cp $(PORT_DIR)/src/lib/expat/contrib/COPYING $@
+	cp $(PORT_DIR)/src/lib/expat/contrib/expat/COPYING $@

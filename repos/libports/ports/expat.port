@@ -2,9 +2,11 @@ LICENSE   := MIT
 DOWNLOADS := expat.archive
 VERSION   := 2.1.0
 
-URL(expat) := http://sourceforge.net/projects/expat/files/expat/$(VERSION)/expat-$(VERSION).tar.gz
-SHA(expat) := 823705472f816df21c8f6aa026dd162b280806838bb55b3432b0fb1fcca7eb86
+VERSION_TAG := $(shell echo $(VERSION) | sed -e "s/\./_/g")
+
+URL(expat) := https://github.com/libexpat/libexpat/archive/refs/tags/R_$(VERSION_TAG).tar.gz
+SHA(expat) := 6af419bfb810a8c7527a1aa07cd5ff6a8a4941e35212fa5c376f63ded778145a
 DIR(expat) := src/lib/expat/contrib
 
 DIRS := include
-DIR_CONTENT(include) := src/lib/expat/contrib/lib/*.h
+DIR_CONTENT(include) := src/lib/expat/contrib/expat/lib/*.h
