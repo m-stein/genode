@@ -20,6 +20,43 @@
 using namespace Kernel;
 
 
+/*************
+ ** Timeout **
+ *************/
+
+Timeout::Timeout(Thread &thread)
+:
+	_type   { Type::HANDLED_BY_THREAD },
+	_thread { &thread }
+{ }
+
+
+Timeout::Timeout()
+:
+	_type   { Type::NOT_HANDLED },
+	_thread { nullptr }
+{ }
+
+
+void Timeout::handle() const
+{
+	switch (_type) {
+	case Type::HANDLED_BY_THREAD:
+
+		_thread->handle_timeout();
+		break;
+
+	case Type::NOT_HANDLED:
+
+		break;
+	}
+}
+
+
+/****************
+ ** Timer::Irq **
+ ****************/
+
 void Timer::Irq::occurred() { _cpu.scheduler().timeout(); }
 
 
@@ -29,6 +66,10 @@ Timer::Irq::Irq(unsigned id, Cpu &cpu)
 	_cpu        { cpu }
 { }
 
+
+/***********
+ ** Timer **
+ ***********/
 
 time_t Timer::timeout_max_us() const
 {
@@ -114,7 +155,7 @@ void Timer::process_timeouts()
 
 		_timeout_list.remove(&timeout->_list_elem);
 		timeout->_listed = false;
-		timeout->timeout_triggered();
+		timeout->handle();
 	}
 }
 

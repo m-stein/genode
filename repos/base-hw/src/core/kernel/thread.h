@@ -58,7 +58,7 @@ struct Kernel::Thread_fault
 /**
  * Kernel back-end for userland execution-contexts
  */
-class Kernel::Thread : private Kernel::Object, public Cpu_job, private Timeout
+class Kernel::Thread : private Kernel::Object, public Cpu_job
 {
 	private:
 
@@ -133,6 +133,7 @@ class Kernel::Thread : private Kernel::Object, public Cpu_job, private Timeout
 
 		enum { MAX_RCV_CAPS = Genode::Msgbuf_base::MAX_CAPS_PER_MSG };
 
+		Timeout                            _timeout                  { *this };
 		Board::Address_space_id_allocator &_addr_space_id_alloc;
 		Irq::Pool                         &_user_irq_pool;
 		Cpu_pool                          &_cpu_pool;
@@ -313,6 +314,8 @@ class Kernel::Thread : private Kernel::Object, public Cpu_job, private Timeout
 
 		~Thread();
 
+		void handle_timeout();
+
 
 		/**************************
 		 ** Support for syscalls **
@@ -418,13 +421,6 @@ class Kernel::Thread : private Kernel::Object, public Cpu_job, private Timeout
 		void exception(Cpu & cpu) override;
 		void proceed(Cpu & cpu)   override;
 		Cpu_job * helping_sink()  override;
-
-
-		/*************
-		 ** Timeout **
-		 *************/
-
-		void timeout_triggered() override;
 
 
 		/***************

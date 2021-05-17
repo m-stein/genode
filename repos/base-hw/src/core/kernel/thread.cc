@@ -448,7 +448,7 @@ void Thread::_call_timeout()
 {
 	Timer & t = _cpu->timer();
 	_timeout_sigid = user_arg_2();
-	t.set_timeout(this, t.us_to_ticks(user_arg_1()));
+	t.set_timeout(&_timeout, t.us_to_ticks(user_arg_1()));
 }
 
 
@@ -465,7 +465,7 @@ void Thread::_call_time()
 }
 
 
-void Thread::timeout_triggered()
+void Thread::handle_timeout()
 {
 	Signal_context * const c =
 		pd().cap_tree().find<Signal_context>(_timeout_sigid);

@@ -43,18 +43,25 @@ class Kernel::Timeout
 
 	private:
 
+		enum class Type
+		{
+			HANDLED_BY_THREAD,
+			NOT_HANDLED
+		};
+
+		Type           const _type;
+		Thread        *const _thread;
 		Timeout_list_element _list_elem { this };
 		bool                 _listed    { false };
 		time_t               _end       { 0 };
 
 	public:
 
-		/**
-		 * Callback handle
-		 */
-		virtual void timeout_triggered() { }
+		Timeout(Thread &thread);
 
-		virtual ~Timeout() { }
+		Timeout();
+
+		void handle() const;
 };
 
 

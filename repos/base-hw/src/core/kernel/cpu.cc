@@ -153,7 +153,7 @@ Cpu_job & Cpu::schedule()
 		_timer.process_timeouts();
 		_scheduler.update(_timer.time());
 		time_t t = _scheduler.head_quota();
-		_timer.set_timeout(this, t);
+		_timer.set_timeout(&_timeout, t);
 		_timer.schedule_timeout();
 		time_t duration = _timer.time_between_schedule_calls();
 		old_job.update_execution_time(duration);
