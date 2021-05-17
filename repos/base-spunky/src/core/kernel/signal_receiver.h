@@ -67,30 +67,30 @@ struct Kernel::Signal_context : Ada_object<88>
 	bool can_kill() const;
 	void kill(Signal_context_killer &k);
 
-		/**
-		 * Create a signal context and assign it to a signal receiver
-		 *
-		 * \param p         memory donation for the kernel signal-context object
-		 * \param receiver  pointer to signal receiver kernel object
-		 * \param imprint   user label of the signal context
-		 *
-		 * \retval capability id of the new kernel object
-		 */
-		static capid_t syscall_create(Genode::Kernel_object<Signal_context> &c,
-		                              Signal_receiver & receiver,
-		                              addr_t const imprint)
-		{
-			return call(call_id_new_signal_context(), (Call_arg)&c,
-			            (Call_arg)&receiver, (Call_arg)imprint);
-		}
+	/**
+	 * Create a signal context and assign it to a signal receiver
+	 *
+	 * \param p         memory donation for the kernel signal-context object
+	 * \param receiver  pointer to signal receiver kernel object
+	 * \param imprint   user label of the signal context
+	 *
+	 * \retval capability id of the new kernel object
+	 */
+	static capid_t syscall_create(Genode::Kernel_object<Signal_context> &c,
+	                              Signal_receiver & receiver,
+	                              addr_t const imprint)
+	{
+		return call(call_id_new_signal_context(), (Call_arg)&c,
+		            (Call_arg)&receiver, (Call_arg)imprint);
+	}
 
-		/**
-		 * Destruct a signal context
-		 *
-		 * \param context  pointer to signal context kernel object
-		 */
-		static void syscall_destroy(Genode::Kernel_object<Signal_context> &c) {
-			call(call_id_delete_signal_context(), (Call_arg)&c); }
+	/**
+	 * Destruct a signal context
+	 *
+	 * \param context  pointer to signal context kernel object
+	 */
+	static void syscall_destroy(Genode::Kernel_object<Signal_context> &c) {
+		call(call_id_delete_signal_context(), (Call_arg)&c); }
 
 	Object &kernel_object() { return _kernel_object; }
 };
@@ -110,23 +110,23 @@ struct Kernel::Signal_receiver : Ada_object<48>
 	bool can_add_handler(Signal_handler const &h) const;
 	void add_handler(Signal_handler &h);
 
-		/**
-		 * Syscall to create a signal receiver
-		 *
-		 * \param p  memory donation for the kernel signal-receiver object
-		 *
-		 * \retval capability id of the new kernel object
-		 */
-		static capid_t syscall_create(Genode::Kernel_object<Signal_receiver> &r) {
-			return call(call_id_new_signal_receiver(), (Call_arg)&r); }
+	/**
+	 * Syscall to create a signal receiver
+	 *
+	 * \param p  memory donation for the kernel signal-receiver object
+	 *
+	 * \retval capability id of the new kernel object
+	 */
+	static capid_t syscall_create(Genode::Kernel_object<Signal_receiver> &r) {
+		return call(call_id_new_signal_receiver(), (Call_arg)&r); }
 
-		/**
-		 * Syscall to destruct a signal receiver
-		 *
-		 * \param receiver  pointer to signal receiver kernel object
-		 */
-		static void syscall_destroy(Genode::Kernel_object<Signal_receiver> &r) {
-			call(call_id_delete_signal_receiver(), (Call_arg)&r); }
+	/**
+	 * Syscall to destruct a signal receiver
+	 *
+	 * \param receiver  pointer to signal receiver kernel object
+	 */
+	static void syscall_destroy(Genode::Kernel_object<Signal_receiver> &r) {
+		call(call_id_delete_signal_receiver(), (Call_arg)&r); }
 
 	Object &kernel_object() { return _kernel_object; }
 };
