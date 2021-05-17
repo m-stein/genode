@@ -80,13 +80,12 @@ class Kernel::Timer
 
 		Board::Timer _device;
 		Irq          _irq;
-		time_t       _time = 0;
+		time_t       _time                        { 0 };
 		time_t       _last_timeout_duration;
-		Timeout_list _timeout_list {};
+		time_t       _time_between_schedule_calls { 0 };
+		Timeout_list _timeout_list                { };
 
 		void _start_one_shot(time_t const ticks);
-
-		time_t _value();
 
 		time_t _max_value() const;
 
@@ -96,10 +95,9 @@ class Kernel::Timer
 
 		Timer(Cpu & cpu);
 
-		/**
-		 * Return duration from last call of this function
-		 */
-		time_t schedule_timeout();
+		void schedule_timeout();
+
+		time_t time_between_schedule_calls() const;
 
 		void process_timeouts();
 
