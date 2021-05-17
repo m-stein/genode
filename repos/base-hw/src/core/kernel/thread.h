@@ -55,7 +55,7 @@ struct Kernel::Thread_fault
 /**
  * Kernel back-end for userland execution-contexts
  */
-class Kernel::Thread : private Kernel::Object, public Cpu_job, private Timeout
+class Kernel::Thread : private Kernel::Object, public Cpu_job
 {
 	private:
 
@@ -125,22 +125,23 @@ class Kernel::Thread : private Kernel::Object, public Cpu_job, private Timeout
 
 		enum { MAX_RCV_CAPS = Genode::Msgbuf_base::MAX_CAPS_PER_MSG };
 
+		Timeout                _timeout                      { *this };
 		void                  *_obj_id_ref_ptr[MAX_RCV_CAPS] { nullptr };
 		Ipc_node               _ipc_node;
-		capid_t                _ipc_capid                { cap_id_invalid() };
-		size_t                 _ipc_rcv_caps             { 0 };
-		Genode::Native_utcb   *_utcb                     { nullptr };
-		Pd                    *_pd                       { nullptr };
-		Signal_context        *_pager                    { nullptr };
-		Thread_fault           _fault                    { };
+		capid_t                _ipc_capid                    { cap_id_invalid() };
+		size_t                 _ipc_rcv_caps                 { 0 };
+		Genode::Native_utcb   *_utcb                         { nullptr };
+		Pd                    *_pd                           { nullptr };
+		Signal_context        *_pager                        { nullptr };
+		Thread_fault           _fault                        { };
 		State                  _state;
-		Signal_handler         _signal_handler           { *this };
-		Signal_context_killer  _signal_context_killer    { *this };
+		Signal_handler         _signal_handler               { *this };
+		Signal_context_killer  _signal_context_killer        { *this };
 		char   const *const    _label;
-		capid_t                _timeout_sigid            { 0 };
-		bool                   _paused                   { false };
-		bool                   _cancel_next_await_signal { false };
-		bool const             _core                     { false };
+		capid_t                _timeout_sigid                { 0 };
+		bool                   _paused                       { false };
+		bool                   _cancel_next_await_signal     { false };
+		bool const             _core                         { false };
 
 		Genode::Constructible<Tlb_invalidation> _tlb_invalidation {};
 		Genode::Constructible<Destroy>          _destroy {};
@@ -286,6 +287,8 @@ class Kernel::Thread : private Kernel::Object, public Cpu_job, private Timeout
 
 		~Thread();
 
+		void handle_timeout();
+
 
 		/**************************
 		 ** Support for syscalls **
@@ -391,13 +394,6 @@ class Kernel::Thread : private Kernel::Object, public Cpu_job, private Timeout
 		void exception(Cpu & cpu) override;
 		void proceed(Cpu & cpu)   override;
 		Cpu_job * helping_sink()  override;
-
-
-		/*************
-		 ** Timeout **
-		 *************/
-
-		void timeout_triggered() override;
 
 
 		/***************
