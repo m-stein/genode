@@ -73,7 +73,7 @@ void Timer::set_timeout(Timeout * const timeout, time_t const duration)
 }
 
 
-time_t Timer::schedule_timeout()
+void Timer::schedule_timeout()
 {
 	/* get the timeout with the nearest end time */
 	Timeout_list_element const *const list_elem { _timeout_list.first() };
@@ -81,12 +81,16 @@ time_t Timer::schedule_timeout()
 	Timeout const *const timeout { list_elem->object() };
 
 	/* install timeout at timer hardware */
-	time_t duration = _duration();
-	_time          += duration;
+	_time_between_schedule_calls = _duration();
+	_time += _time_between_schedule_calls;
 	_last_timeout_duration = (timeout->_end > _time) ? timeout->_end - _time : 1;
 	_start_one_shot(_last_timeout_duration);
+}
 
-	return duration;
+
+time_t Timer::time_between_schedule_calls() const
+{
+	return _time_between_schedule_calls;
 }
 
 
