@@ -61,11 +61,6 @@ struct Usb_ep
 		Genode::Signal_transmitter(_pthread_reg_sigh).submit();
 	}
 
-	~Usb_ep()
-	{
-		// Libc::pthread_free(&_pthread);
-	}
-
 	Genode::Entrypoint &ep() { return _ep; }
 };
 
