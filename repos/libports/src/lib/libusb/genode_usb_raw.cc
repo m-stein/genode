@@ -121,17 +121,16 @@ struct Usb_device
 		void _handle_ack_avail()
 		{
 			struct libusb_context *ctx = nullptr;
+
 			while (usb_connection.source()->ack_avail()) {
 
 				Usb::Packet_descriptor p =
 					usb_connection.source()->get_acked_packet();
 
-
 				if (p.type == Usb::Packet_descriptor::ALT_SETTING) {
 					usb_connection.source()->release_packet(p);
 					continue;
 				}
-
 
 				Completion *completion = static_cast<Completion*>(p.completion);
 				struct usbi_transfer *itransfer = completion->itransfer;
@@ -232,9 +231,9 @@ struct Usb_device
 
 				usbi_signal_transfer_completion(itransfer);
 			}
+
 			if (ctx != nullptr)
 				usbi_signal_event(ctx);
-
 		}
 
 	public:
@@ -408,15 +407,15 @@ static int genode_open(struct libusb_device_handle *dev_handle)
 {
 	if (device_instance)
 		device_instance->open();
+
 	return LIBUSB_SUCCESS;
 }
 
 
 static void genode_close(struct libusb_device_handle *dev_handle)
 {
-	if (device_instance) {
+	if (device_instance)
 		device_instance->close();
-	}
 }
 
 
@@ -536,7 +535,6 @@ static int genode_submit_transfer(struct usbi_transfer * itransfer)
 		USBI_TRANSFER_TO_LIBUSB_TRANSFER(itransfer);
 
 	Usb_device *usb_device = *(Usb_device**)transfer->dev_handle->dev->os_priv;
-
 
 	if (!usb_device->usb_connection.source()->ready_to_submit())
 		return LIBUSB_ERROR_BUSY;
