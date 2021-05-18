@@ -88,9 +88,9 @@ struct Ssh::Terminal_session : Genode::Registry<Terminal_session>::Element
 
 	int _fds[2] { -1, -1 };
 
-	enum State { UNITIALIZED,
+	enum State { UNINITIALIZED,
 	             PIPE_INITIALIZED,
-	             SSH_INITIALIZED } _state = UNITIALIZED;
+	             SSH_INITIALIZED } _state = UNINITIALIZED;
 
 	Terminal_session(Genode::Registry<Terminal_session> &reg,
 	                 Ssh::Terminal &conn,
@@ -106,7 +106,7 @@ struct Ssh::Terminal_session : Genode::Registry<Terminal_session>::Element
 			close(_fds[0]);
 			close(_fds[1]);
 			[[fallthrough]];
-		case UNITIALIZED:
+		case UNINITIALIZED:
 			break;
 		}
 	}
