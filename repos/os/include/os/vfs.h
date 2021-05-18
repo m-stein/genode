@@ -601,10 +601,27 @@ class Genode::New_file : Noncopyable
 		{
 			unsigned mode = Vfs::Directory_service::OPEN_MODE_WRONLY;
 
+			/* determine path of directory */
+			Genode::Path<Vfs::MAX_PATH_LEN> gen_path { path };
+			gen_path.strip_last_element();
+
+			/* create directory in case it doesn't exits already */
+			Vfs::Vfs_handle *dir_handle;
+			Vfs::Directory_service::Opendir_result const opendir_res =
+				_fs.opendir(gen_path.base(), true, &dir_handle, _alloc);
+
+			if (opendir_res == Vfs::Directory_service::Opendir_result::OPENDIR_OK) {
+				dir_handle->close();
+			} else if (opendir_res != Vfs::Directory_service::Opendir_result::OPENDIR_ERR_NODE_ALREADY_EXISTS) {
+				class Failed_to_open_or_create_dir { };
+				throw Failed_to_open_or_create_dir { };
+			}
+			/* ensure to create file if it doesn't exist already */
 			Vfs::Directory_service::Stat stat { };
 			if (_fs.stat(path.string(), stat) != Vfs::Directory_service::STAT_OK)
 				mode |= Vfs::Directory_service::OPEN_MODE_CREATE;
 
+			/* open and return file handle */
 			Vfs::Vfs_handle *handle_ptr = nullptr;
 			Vfs::Directory_service::Open_result const res =
 				_fs.open(path.string(), mode, &handle_ptr, _alloc);
