@@ -26,7 +26,6 @@
 /* local includes */
 #include "job.h"
 
-enum { VERBOSE = 0 };
 
 using namespace Genode;
 
@@ -141,13 +140,6 @@ class Vfs_block::File
 
 			_io_response_handler.sigh = sigh;
 			_vfs_handle->handler(&_io_response_handler);
-
-			if (VERBOSE) {
-				log("Block session for file '", info.path.string(),
-				    "' with block count: ",     _block_info.block_count,
-				    " block size: ",            _block_info.block_size,
-				    " writeable: ",             _block_info.writeable);
-			}
 		}
 
 		~File()
