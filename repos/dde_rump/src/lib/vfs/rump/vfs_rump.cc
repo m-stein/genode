@@ -37,8 +37,6 @@ extern "C" {
 #include <rump/rump_syscalls.h>
 }
 
-enum { VERBOSE = 0 };
-
 extern int errno;
 
 namespace Vfs { struct Rump_file_system; };
@@ -443,22 +441,12 @@ class Vfs::Rump_file_system : public File_system
 				Genode::error("Mounting '",fs_type,"' file system failed (",errno,")");
 				throw Genode::Exception();
 			}
-
-			if (VERBOSE) {
-				Genode::log(fs_type," file system mounted");
-			}
-
 			struct statvfs stats;
 			int err = rump_sys_statvfs1("/", &stats, ST_WAIT);
 			if (err == 0) {
 				double factor = 1.0 / (1<<30);
 				double available = factor * stats.f_bsize * stats.f_bavail;
 				double total = factor * stats.f_bsize * stats.f_blocks;
-
-				if (VERBOSE) {
-					Genode::log("Space available: ", available, " GiB / ", total, " GiB");
-					Genode::log("Nodes available: ", stats.f_favail, "/", stats.f_files);
-				}
 			}
 		}
 
@@ -896,12 +884,7 @@ class Rump_factory : public Vfs::File_system_factory
 			struct rlimit rlim { ~0U, ~0U };
 			if (rump_sys_getrlimit(RLIMIT_NOFILE, &rlim) == 0) {
 				rlim.rlim_cur = rlim.rlim_max;
-				if (rump_sys_setrlimit(RLIMIT_NOFILE, &rlim) == 0) {
-					if (VERBOSE) {
-						Genode::log("increased Rump open file"
-						            " limit to ", rlim.rlim_max);
-					}
-				}
+				rump_sys_setrlimit(RLIMIT_NOFILE, &rlim);
 			}
 
 			/* start syncing */
