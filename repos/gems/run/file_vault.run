@@ -15,7 +15,6 @@ append archives "
 	[depot_user]/src/zlib
 	[depot_user]/src/fs_query
 	[depot_user]/src/menu_view
-	[depot_user]/src/pointer
 	[depot_user]/src/cbe
 	[depot_user]/src/spark
 	[depot_user]/src/libsparkcrypto
