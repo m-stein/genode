@@ -27,7 +27,6 @@
 /* local includes */
 #include <gui_session_component.h>
 #include <report_session_component.h>
-#include <new_file.h>
 #include <child_state.h>
 #include <sandbox.h>
 #include <input.h>
