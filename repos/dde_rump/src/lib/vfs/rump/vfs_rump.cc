@@ -441,13 +441,6 @@ class Vfs::Rump_file_system : public File_system
 				Genode::error("Mounting '",fs_type,"' file system failed (",errno,")");
 				throw Genode::Exception();
 			}
-			struct statvfs stats;
-			int err = rump_sys_statvfs1("/", &stats, ST_WAIT);
-			if (err == 0) {
-				double factor = 1.0 / (1<<30);
-				double available = factor * stats.f_bsize * stats.f_bavail;
-				double total = factor * stats.f_bsize * stats.f_blocks;
-			}
 		}
 
 		/***************************
