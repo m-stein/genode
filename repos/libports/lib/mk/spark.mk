@@ -20,6 +20,9 @@ SRC_ADB += \
 	s-arit64.adb \
 	s-expint.adb \
 	s-imenne.adb \
+	s-imguns.adb \
+	s-imgint.adb \
+	s-imglli.adb \
 	s-stoele.adb \
 	s-init.adb
 
@@ -52,6 +55,9 @@ vpath i-c.adb $(ADA_RUNTIME_DIR)
 vpath s-arit64.adb $(ADA_RUNTIME_DIR)
 vpath s-expint.adb $(ADA_RUNTIME_DIR)
 vpath s-imenne.adb $(ADA_RUNTIME_DIR)
+vpath s-imguns.adb $(ADA_RUNTIME_DIR)
+vpath s-imgint.adb $(ADA_RUNTIME_DIR)
+vpath s-imglli.adb $(ADA_RUNTIME_DIR)
 vpath system.ads $(ADA_RUNTIME_DIR)
 vpath s-stoele.adb $(ADA_RUNTIME_DIR)
 vpath s-init.adb $(ADA_RUNTIME_DIR)

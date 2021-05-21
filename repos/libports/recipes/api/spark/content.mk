@@ -17,6 +17,9 @@ MIRROR_FROM_ADA_RT_DIR := \
 		s-arit64.ads \
 		s-expint.ads \
 		s-imenne.ads \
+		s-imguns.ads \
+		s-imgint.ads \
+		s-imglli.ads \
 		s-exctab.ads \
 		s-parame.ads \
 		s-secsta.ads \
@@ -51,6 +54,9 @@ MIRROR_FROM_ADA_ALI_DIR := \
 	s-arit64.ali \
 	s-expint.ali \
 	s-imenne.ali \
+	s-imguns.ali \
+	s-imgint.ali \
+	s-imglli.ali \
 	s-init.ali \
 	s-parame.ali \
 	s-secsta.ali \
