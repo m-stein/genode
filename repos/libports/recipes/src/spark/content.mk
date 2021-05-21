@@ -21,6 +21,12 @@ MIRROR_FROM_ADA_RT_DIR := \
 		s-expint.adb \
 		s-imenne.ads \
 		s-imenne.adb \
+		s-imguns.ads \
+		s-imguns.adb \
+		s-imgint.ads \
+		s-imgint.adb \
+		s-imglli.ads \
+		s-imglli.adb \
 		s-exctab.ads \
 		s-exctab.adb \
 		s-parame.ads \
