@@ -225,7 +225,7 @@ void Sculpt::Storage_device::gen_part_block_start_content(Xml_generator &xml,
 	xml.node("config", [&] () {
 		xml.node("report", [&] () { xml.attribute("partitions", "yes"); });
 
-		for (unsigned i = 1; i < 10; i++) {
+		for (unsigned i = 1; i < 13; i++) {
 			xml.node("policy", [&] () {
 				xml.attribute("label",     i);
 				xml.attribute("partition", i);
