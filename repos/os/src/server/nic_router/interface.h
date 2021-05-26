@@ -419,6 +419,8 @@ class Net::Interface : private Interface_list::Element
 			}
 		}
 
+		void broadcast_spurious_arp();
+
 		void send(Ethernet_frame &eth,
 		          Size_guard     &size_guard);
 

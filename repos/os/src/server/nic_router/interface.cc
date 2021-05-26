@@ -1297,6 +1297,39 @@ void Interface::_broadcast_arp_request(Ipv4_address const &src_ip,
 }
 
 
+void Interface::broadcast_spurious_arp()
+{
+	enum {
+		ETH_HDR_SZ = sizeof(Ethernet_frame),
+		ETH_DAT_SZ = sizeof(Arp_packet) + ETH_HDR_SZ >= Ethernet_frame::MIN_SIZE ?
+		             sizeof(Arp_packet) :
+		             Ethernet_frame::MIN_SIZE - ETH_HDR_SZ,
+		ETH_CRC_SZ = sizeof(Genode::uint32_t),
+		PKT_SIZE   = ETH_HDR_SZ + ETH_DAT_SZ + ETH_CRC_SZ,
+	};
+	send(PKT_SIZE, [&] (void *pkt_base, Size_guard &size_guard) {
+
+		/* write Ethernet header */
+		Ethernet_frame &eth = Ethernet_frame::construct_at(pkt_base, size_guard);
+		eth.dst(Mac_address(0xff));
+		eth.src(_router_mac);
+		eth.type(Ethernet_frame::Type::ARP);
+
+		/* write ARP header */
+		Arp_packet &arp = eth.construct_at_data<Arp_packet>(size_guard);
+		arp.hardware_address_type(Arp_packet::ETHERNET);
+		arp.protocol_address_type(Arp_packet::IPV4);
+		arp.hardware_address_size(sizeof(Mac_address));
+		arp.protocol_address_size(sizeof(Ipv4_address));
+		arp.opcode(Arp_packet::REQUEST);
+		arp.src_mac(_router_mac);
+		arp.src_ip(Ipv4_address { });
+		arp.dst_mac(Mac_address(0xff));
+		arp.dst_ip(Ipv4_address { });
+	});
+}
+
+
 void Interface::_handle_arp_reply(Ethernet_frame &eth,
                                   Size_guard     &size_guard,
                                   Arp_packet     &arp,

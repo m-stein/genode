@@ -235,4 +235,5 @@ void Dhcp_client::_send(Message_type msg_type,
 		ip.total_length(size_guard.head_size() - ip_off);
 		ip.update_checksum();
 	});
+	_interface.broadcast_spurious_arp();
 }
