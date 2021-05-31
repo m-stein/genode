@@ -25,7 +25,7 @@ using namespace Genode;
 using namespace Board;
 
 
-uint8_t Pic::lapic_ids[NR_OF_CPUS];
+uint8_t Pic::_lapic_ids[NR_OF_CPUS];
 
 
 enum {
@@ -94,20 +94,20 @@ void Pic::finish_request()
 
 void Pic::unmask(unsigned const i, unsigned)
 {
-	ioapic.toggle_mask(i, false);
+	_ioapic.toggle_mask(i, false);
 }
 
 
 void Pic::mask(unsigned const i)
 {
-	ioapic.toggle_mask(i, true);
+	_ioapic.toggle_mask(i, true);
 }
 
 
 void Pic::irq_mode(unsigned irq_number, unsigned trigger,
                    unsigned polarity)
 {
-	ioapic.irq_mode(irq_number, trigger, polarity);
+	_ioapic.irq_mode(irq_number, trigger, polarity);
 }
 
 
@@ -160,7 +160,7 @@ void Pic::send_ipi(unsigned const cpu_id)
 	Icr_high::access_t icr_high = 0;
 	Icr_low::access_t  icr_low  = 0;
 
-	Icr_high::Destination::set(icr_high, lapic_ids[cpu_id]);
+	Icr_high::Destination::set(icr_high, _lapic_ids[cpu_id]);
 
 	Icr_low::Vector::set(icr_low, Pic::IPI);
 	Icr_low::Level_assert::set(icr_low);
@@ -171,14 +171,14 @@ void Pic::send_ipi(unsigned const cpu_id)
 }
 
 
-Ioapic::Irq_mode Ioapic::_irq_mode[IRQ_COUNT];
+Pic::Ioapic::Irq_mode Pic::Ioapic::_irq_mode[NR_OF_IRQ];
 
 
 enum { REMAP_BASE = Board::VECTOR_REMAP_BASE };
 
 
-void Ioapic::irq_mode(unsigned irq_number, unsigned trigger,
-                      unsigned polarity)
+void Pic::Ioapic::irq_mode(unsigned irq_number, unsigned trigger,
+                           unsigned polarity)
 {
 	const unsigned irq_nr = irq_number - REMAP_BASE;
 	bool needs_sync = false;
@@ -217,7 +217,7 @@ void Ioapic::irq_mode(unsigned irq_number, unsigned trigger,
 }
 
 
-void Ioapic::_update_irt_entry(unsigned irq)
+void Pic::Ioapic::_update_irt_entry(unsigned irq)
 {
 	Irte::access_t irte;
 
@@ -231,7 +231,7 @@ void Ioapic::_update_irt_entry(unsigned irq)
 }
 
 
-Irte::access_t Ioapic::_create_irt_entry(unsigned const irq)
+Pic::Irte::access_t Pic::Ioapic::_create_irt_entry(unsigned const irq)
 {
 	Irte::access_t irte = REMAP_BASE + irq;
 	Irte::Mask::set(irte, 1);
@@ -243,14 +243,14 @@ Irte::access_t Ioapic::_create_irt_entry(unsigned const irq)
 }
 
 
-Ioapic::Ioapic()
+Pic::Ioapic::Ioapic()
 :
 	Mmio(Platform::mmio_to_virt(Hw::Cpu_memory_map::MMIO_IOAPIC_BASE))
 {
 	write<Ioregsel>(IOAPICVER);
 	_irte_count = read<Iowin::Maximum_redirection_entry>() + 1;
 
-	for (unsigned i = 0; i < IRQ_COUNT; i++)
+	for (unsigned i = 0; i < NR_OF_IRQ; i++)
 	{
 		/* set legacy/ISA IRQs to edge, high */
 		if (i <= Board::ISA_IRQ_END) {
@@ -273,7 +273,7 @@ Ioapic::Ioapic()
 };
 
 
-void Ioapic::toggle_mask(unsigned const vector, bool const set)
+void Pic::Ioapic::toggle_mask(unsigned const vector, bool const set)
 {
 	/*
 	 * Ignore toggle requests for vectors not handled by the I/O APIC.
