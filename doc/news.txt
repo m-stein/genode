@@ -23,7 +23,7 @@ hardware-related topics.
 
 Feature-wise the two highlights of the new version are webcam support and an
 easy-to-use encrypted file store based on our custom CBE block encrypter.
-As detailed by the release documentation, both features leverages Genode's
+As detailed by the release documentation, both features leverage Genode's
 architecture in unique ways to attain high flexibility without an inflation of
 complexity.
 
