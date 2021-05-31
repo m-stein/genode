@@ -64,6 +64,14 @@ is
       Itm  :        Item_Reference_Type);
 
    --
+   --  Insert_Behind
+   --
+   procedure Insert_Behind (
+      List       : in out List_Type;
+      Insert_Itm :        Item_Reference_Type;
+      Behind_Itm :        Item_Reference_Type);
+
+   --
    --  For_Each
    --
    procedure For_Each (
