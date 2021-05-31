@@ -18,7 +18,8 @@ with CPP;
 package CPP_Thread is
 
    type Object_Type           is private;
-   type Object_Reference_Type is not null access Object_Type;
+   type Object_Reference_Type is not null access all Object_Type;
+   type Object_Pointer_Type   is access all Object_Type;
 
    procedure Print_Int (Obj : Integer)
    with
@@ -91,6 +92,12 @@ package CPP_Thread is
       Import,
       Convention    => C,
       External_Name => "_ZN6Kernel6Thread22signal_wait_for_signalEv";
+
+   procedure Handle_Timeout (Obj : Object_Reference_Type)
+   with
+      Import,
+      Convention    => C,
+      External_Name => "_ZN6Kernel6Thread14handle_timeoutEv";
 
 private
 

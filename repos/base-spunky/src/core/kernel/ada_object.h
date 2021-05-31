@@ -38,6 +38,8 @@ namespace Kernel {
 	struct Signal_context_killer;
 	struct Cpu_share;
 	struct Cpu_scheduler;
+	struct Timer;
+	struct Timeout;
 
 	Ada_object_size object_size(Ipc_node const &);
 	Ada_object_size object_size(Signal_receiver const &);
@@ -46,6 +48,8 @@ namespace Kernel {
 	Ada_object_size object_size(Signal_context_killer const &);
 	Ada_object_size object_size(Cpu_share const &);
 	Ada_object_size object_size(Cpu_scheduler const &);
+	Ada_object_size object_size(Timer const &);
+	Ada_object_size object_size(Timeout const &);
 
 	template <typename T>
 	static inline void assert_valid_ada_object_size()
