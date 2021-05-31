@@ -20,11 +20,6 @@
 
 namespace Board {
 
-	/*
-	 * Redirection table entry
-	 */
-	struct Irte;
-
 	/**
 	 * IO advanced programmable interrupt controller
 	 */
@@ -34,21 +29,15 @@ namespace Board {
 	 * Programmable interrupt controller for core
 	 */
 	class Local_interrupt_controller;
-
-	enum { IRQ_COUNT = 256 };
 }
-
-
-struct Board::Irte : Genode::Register<64>
-{
-	struct Pol  : Bitfield<13, 1> { };
-	struct Trg  : Bitfield<15, 1> { };
-	struct Mask : Bitfield<16, 1> { };
-};
 
 
 class Board::Global_interrupt_controller : public Genode::Mmio
 {
+	public:
+
+		enum { NR_OF_IRQS = 256 };
+
 	private:
 
 		enum {
@@ -61,6 +50,16 @@ class Board::Global_interrupt_controller : public Genode::Mmio
 			TRIGGER_LEVEL = 1,
 			POLARITY_HIGH = 0,
 			POLARITY_LOW  = 1,
+		};
+
+		/*
+		 * Redirection table entry
+		 */
+		struct Irte : Genode::Register<64>
+		{
+			struct Pol  : Bitfield<13, 1> { };
+			struct Trg  : Bitfield<15, 1> { };
+			struct Mask : Bitfield<16, 1> { };
 		};
 
 		/**
@@ -84,7 +83,7 @@ class Board::Global_interrupt_controller : public Genode::Mmio
 
 		unsigned        _irte_count = 0;       /* number of redirection table entries */
 		Genode::uint8_t _lapic_id[NR_OF_CPUS]; /* unique name of the LAPIC of each CPU */
-		Irq_mode        _irq_mode[IRQ_COUNT];
+		Irq_mode        _irq_mode[NR_OF_IRQS];
 
 		/**
 		 * Return whether 'irq' is an edge-triggered interrupt
@@ -200,7 +199,7 @@ class Board::Local_interrupt_controller : public Genode::Mmio
 			 *        necessary
 			 */
 			IPI       = 255,
-			NR_OF_IRQ = IRQ_COUNT,
+			NR_OF_IRQ = Global_interrupt_controller::NR_OF_IRQS,
 		};
 
 		/**
