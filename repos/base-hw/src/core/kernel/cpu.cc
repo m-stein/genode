@@ -49,7 +49,9 @@ void Cpu_job::_interrupt(Irq::Pool &user_irq_pool, unsigned const /* cpu_id */)
 {
 	/* let the IRQ controller take a pending IRQ for handling, if any */
 	unsigned irq_id;
-	if (_cpu->pic().take_request(irq_id))
+	bool irq_id_valid;
+	_cpu->pic().take_request(irq_id, irq_id_valid);
+	if (irq_id_valid)
 
 		/* let the CPU of this job handle the IRQ if it is a CPU-local one */
 		if (!_cpu->handle_if_cpu_local_interrupt(irq_id)) {

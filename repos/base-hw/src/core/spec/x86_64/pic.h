@@ -189,7 +189,7 @@ class Board::Local_interrupt_controller : public Genode::Mmio
 		 * \return index of first ISR bit set starting at index one, zero if no
 		 *         bit is set.
 		 */
-		inline unsigned get_lowest_bit(void);
+		inline unsigned get_lowest_bit(void) const;
 
 	public:
 
@@ -208,7 +208,16 @@ class Board::Local_interrupt_controller : public Genode::Mmio
 		 */
 		Local_interrupt_controller(Global_interrupt_controller &global_irq_ctrl);
 
-		bool take_request(unsigned &irq);
+		/**
+		 * Try to receive a pending IRQ
+		 *
+		 * \param irq        returns kernel name of received IRQ on success
+		 * \param irq_valid  returns whether the call could receive an IRQ
+		 */
+		void take_request(unsigned &irq,
+		                  bool     &irq_valid);
+
+		bool request_was_taken() const;
 
 		void finish_request();
 

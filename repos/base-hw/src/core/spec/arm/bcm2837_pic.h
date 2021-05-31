@@ -60,7 +60,15 @@ class Board::Pic : Genode::Mmio
 
 		Pic(Global_interrupt_controller &);
 
-		bool take_request(unsigned &irq);
+		/**
+		 * Try to receive a pending IRQ
+		 *
+		 * \param irq        returns kernel name of received IRQ on success
+		 * \param irq_valid  returns whether the call could receive an IRQ
+		 */
+		void take_request(unsigned &irq,
+		                  bool     &irq_valid);
+
 		void finish_request() { }
 		void unmask(unsigned const i, unsigned);
 		void mask(unsigned const i);

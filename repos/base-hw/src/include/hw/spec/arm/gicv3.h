@@ -222,12 +222,18 @@ class Hw::Pic
 		enum { IPI = 0 };
 		enum { NR_OF_IRQ = Distributor::nr_of_irq };
 
-		bool take_request(unsigned &irq)
+		/**
+		 * Try to receive a pending IRQ
+		 *
+		 * \param irq        returns kernel name of received IRQ on success
+		 * \param irq_valid  returns whether the call could receive an IRQ
+		 */
+		void take_request(unsigned &irq,
+		                  bool     &irq_valid)
 		{
 			_last_iar = Cpu_interface::Icc_iar1_el1::read();
 			irq       = _last_iar;
-
-			return _valid(irq);
+			irq_valid = _valid(irq);
 		}
 
 		void finish_request()

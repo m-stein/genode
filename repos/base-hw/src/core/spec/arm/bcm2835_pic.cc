@@ -81,7 +81,8 @@ Board::Pic::Pic(Global_interrupt_controller &global_irq_ctrl)
 }
 
 
-bool Board::Pic::take_request(unsigned &irq)
+void Board::Pic::take_request(unsigned &irq,
+                              bool     &irq_valid)
 {
 	/* read GPU IRQ status mask */
 	uint32_t const p1 = read<Irq_pending_gpu_1>(),
@@ -95,14 +96,18 @@ bool Board::Pic::take_request(unsigned &irq)
 		irq = i;
 
 		/* handle SOF interrupts locally, filter from the user land */
-		if (irq == Board::DWC_IRQ)
-			if (_usb.handle_sof())
-				return false;
+		if (irq == Board::DWC_IRQ) {
+			if (_usb.handle_sof()) {
+				irq_valid = false;
+				return;
+			}
+		}
 
-		return true;
+		irq_valid = true;
+		return;
 	}
 
-	return false;
+	irq_valid = false;
 }
 
 

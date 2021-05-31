@@ -183,15 +183,17 @@ class Hw::Gicv2
 		Gicv2();
 
 		/**
-		 * Try to take an IRQ and return wether it was successful
+		 * Try to receive a pending IRQ
 		 *
-		 * \param irq  contains kernel name of taken IRQ on success
+		 * \param irq        returns kernel name of received IRQ on success
+		 * \param irq_valid  returns whether the call could receive an IRQ
 		 */
-		bool take_request(unsigned & irq)
+		void take_request(unsigned &irq,
+		                  bool     &irq_valid)
 		{
 			_last_iar = _cpui.read<Cpu_interface::Iar>();
 			irq = Cpu_interface::Iar::Irq_id::get(_last_iar);
-			return _valid(irq);
+			irq_valid = _valid(irq);
 		}
 
 		/**
