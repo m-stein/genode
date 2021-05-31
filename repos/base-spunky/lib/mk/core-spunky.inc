@@ -90,24 +90,20 @@ SRC_ADB += signal.adb
 SRC_ADB += generic_queue.adb
 SRC_ADB += generic_double_list.adb
 SRC_ADB += cpu_scheduler.adb
+SRC_ADB += timer_pkg.adb
+SRC_ADB += cpp_timer_pkg.adb
+SRC_ADB += log.adb
 SRC_ADB += ipc_node.adb
 SRC_ADB += cpp.adb
 SRC_ADB += cpp_ipc_node.adb
 SRC_ADB += cpp_signal.adb
 SRC_ADB += cpp_cpu_scheduler.adb
 
-ifeq ($(filter-out $(SPECS),64bit),)
-INC_DIR += $(KERNEL_ADA_DIR)/spec/64bit
-endif # x86_64
-
-ifeq ($(filter-out $(SPECS),32bit),)
-INC_DIR += $(KERNEL_ADA_DIR)/spec/32bit
-endif # ARM
-
-KERNEL_ADA_DIR = $(BASE_DIR)/../base-spunky/src/core/ada
-
 INC_DIR += $(KERNEL_ADA_DIR)
 
+vpath timer_pkg.adb           $(KERNEL_ADA_DIR)
+vpath cpp_timer_pkg.adb       $(KERNEL_ADA_DIR)
+vpath log.adb                 $(KERNEL_ADA_DIR)
 vpath signal.adb              $(KERNEL_ADA_DIR)
 vpath generic_queue.adb       $(KERNEL_ADA_DIR)
 vpath generic_double_list.adb $(KERNEL_ADA_DIR)
@@ -199,9 +195,10 @@ CC_OPT += -Wa,--defsym -Wa,NR_OF_CPUS=$(NR_OF_CPUS) -DNR_OF_CPUS=$(NR_OF_CPUS)
 
 # declare source locations
 vpath kernel/signal_receiver.cc $(BASE_DIR)/../base-spunky/src/core
-vpath kernel/core_thread.cc $(BASE_DIR)/../base-spunky/src/core
-vpath % $(BASE_DIR)/../base-hw/src/core
-vpath % $(BASE_DIR)/src/core
-vpath % $(BASE_DIR)/src/lib/startup
+vpath kernel/core_thread.cc     $(BASE_DIR)/../base-spunky/src/core
+vpath kernel/timer.cc           $(BASE_DIR)/../base-spunky/src/core
+vpath %                         $(BASE_DIR)/../base-hw/src/core
+vpath %                         $(BASE_DIR)/src/core
+vpath %                         $(BASE_DIR)/src/lib/startup
 
 CC_ADA_WARN_STRICT :=

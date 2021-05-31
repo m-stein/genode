@@ -124,6 +124,25 @@ package body Generic_Double_List is
    end Insert_Head;
 
    --
+   --  Insert_Behind
+   --
+   procedure Insert_Behind (
+      List       : in out List_Type;
+      Insert_Itm :        Item_Reference_Type;
+      Behind_Itm :        Item_Reference_Type)
+   is
+   begin
+      if List.Tail = Item_Pointer_Type (Behind_Itm) then
+         List.Tail := Item_Pointer_Type (Insert_Itm);
+      else
+         Behind_Itm.Next.Prev := Item_Pointer_Type (Insert_Itm);
+      end if;
+      Insert_Itm.Next := Behind_Itm.Next;
+      Insert_Itm.Prev := Item_Pointer_Type (Behind_Itm);
+      Behind_Itm.Next := Item_Pointer_Type (Insert_Itm);
+   end Insert_Behind;
+
+   --
    --  For_Each
    --
    procedure For_Each (

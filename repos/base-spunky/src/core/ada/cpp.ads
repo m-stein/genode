@@ -28,6 +28,8 @@ package CPP is
    type Time_Type                     is new Uint64_Type;
    type CPU_Quota_Type                is new CPP_Architecture.Unsigned_Type;
    type CPU_Priority_Type             is new CPP_Architecture.Signed_Type;
+   type CPU_ID_Type                   is new CPP_Architecture.Unsigned_Type;
+   type IRQ_ID_Type                   is new CPP_Architecture.Unsigned_Type;
 
    --
    --  Bool_From_Ada
