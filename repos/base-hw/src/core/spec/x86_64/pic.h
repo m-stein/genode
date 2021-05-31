@@ -23,122 +23,126 @@
 
 namespace Board {
 
-	/*
-	 * Redirection table entry
-	 */
-	struct Irte;
-
-	/**
-	 * IO advanced programmable interrupt controller
-	 */
-	class Ioapic;
-
 	/**
 	 * Programmable interrupt controller for core
 	 */
 	class Pic;
-
-	enum { IRQ_COUNT = 256 };
 }
-
-
-struct Board::Irte : Genode::Register<64>
-{
-	struct Pol  : Bitfield<13, 1> { };
-	struct Trg  : Bitfield<15, 1> { };
-	struct Mask : Bitfield<16, 1> { };
-};
-
-
-class Board::Ioapic : public Genode::Mmio
-{
-	private:
-
-		/* Number of Redirection Table entries */
-		unsigned _irte_count = 0;
-
-		enum {
-			/* Register selectors */
-			IOAPICVER = 0x01,
-			IOREDTBL  = 0x10,
-
-			/* IRQ modes */
-			TRIGGER_EDGE  = 0,
-			TRIGGER_LEVEL = 1,
-			POLARITY_HIGH = 0,
-			POLARITY_LOW  = 1,
-		};
-
-		/**
-		 * IRQ mode specifies trigger mode and polarity of an IRQ
-		 */
-		struct Irq_mode
-		{
-			unsigned trigger_mode;
-			unsigned polarity;
-		};
-
-		static Irq_mode _irq_mode[IRQ_COUNT];
-
-		/**
-		 * Return whether 'irq' is an edge-triggered interrupt
-		 */
-		bool _edge_triggered(unsigned const irq)
-		{
-			return _irq_mode[irq].trigger_mode == TRIGGER_EDGE;
-		}
-
-		/**
-		 * Update IRT entry of given IRQ
-		 *
-		 * Note: The polarity and trigger flags are located in the lower
-		 *       32 bits so only the necessary half of the IRT entry is
-		 *       updated.
-		 */
-		void _update_irt_entry(unsigned irq);
-
-		/**
-		 * Create redirection table entry for given IRQ
-		 */
-		Irte::access_t _create_irt_entry(unsigned const irq);
-
-	public:
-
-		Ioapic();
-
-		/**
-		 * Set/unset mask bit of IRTE for given vector
-		 *
-		 * \param vector  targeted vector
-		 * \param set     whether to set or to unset the mask bit
-		 */
-		void toggle_mask(unsigned const vector, bool const set);
-
-		/**
-		 * Setup mode of an IRQ to specified trigger mode and polarity
-		 *
-		 * \param irq_number  ID of targeted interrupt
-		 * \param trigger     new interrupt trigger mode
-		 * \param polarity    new interrupt polarity setting
-		 */
-		void irq_mode(unsigned irq_number, unsigned trigger,
-		              unsigned polarity);
-
-		/*
-		 * Registers
-		 */
-
-		struct Ioregsel : Register<0x00, 32> { };
-		struct Iowin    : Register<0x10, 32>
-		{
-		    struct Maximum_redirection_entry : Bitfield<16, 8> { };
-		};
-};
 
 
 class Board::Pic : public Genode::Mmio
 {
+	public:
+
+		enum {
+			/*
+			 * FIXME: dummy ipi value on non-SMP platform, should be removed
+			 *        when SMP is an aspect of CPUs only compiled where
+			 *        necessary
+			 */
+			IPI       = 255,
+			NR_OF_IRQ = 256,
+		};
+
 	private:
+
+		/*
+		 * Redirection table entry
+		 */
+		struct Irte : Genode::Register<64>
+		{
+			struct Pol  : Bitfield<13, 1> { };
+			struct Trg  : Bitfield<15, 1> { };
+			struct Mask : Bitfield<16, 1> { };
+		};
+
+		/**
+		 * IO advanced programmable interrupt controller
+		 */
+		class Ioapic : public Genode::Mmio
+		{
+			private:
+
+				/* Number of Redirection Table entries */
+				unsigned _irte_count = 0;
+
+				enum {
+					/* Register selectors */
+					IOAPICVER = 0x01,
+					IOREDTBL  = 0x10,
+
+					/* IRQ modes */
+					TRIGGER_EDGE  = 0,
+					TRIGGER_LEVEL = 1,
+					POLARITY_HIGH = 0,
+					POLARITY_LOW  = 1,
+				};
+
+				/**
+				 * IRQ mode specifies trigger mode and polarity of an IRQ
+				 */
+				struct Irq_mode
+				{
+					unsigned trigger_mode;
+					unsigned polarity;
+				};
+
+				static Irq_mode _irq_mode[NR_OF_IRQ];
+
+				/**
+				 * Return whether 'irq' is an edge-triggered interrupt
+				 */
+				bool _edge_triggered(unsigned const irq)
+				{
+					return _irq_mode[irq].trigger_mode == TRIGGER_EDGE;
+				}
+
+				/**
+				 * Update IRT entry of given IRQ
+				 *
+				 * Note: The polarity and trigger flags are located in the lower
+				 *       32 bits so only the necessary half of the IRT entry is
+				 *       updated.
+				 */
+				void _update_irt_entry(unsigned irq);
+
+				/**
+				 * Create redirection table entry for given IRQ
+				 */
+				Irte::access_t _create_irt_entry(unsigned const irq);
+
+			public:
+
+				Ioapic();
+
+				/**
+				 * Set/unset mask bit of IRTE for given vector
+				 *
+				 * \param vector  targeted vector
+				 * \param set     whether to set or to unset the mask bit
+				 */
+				void toggle_mask(unsigned const vector, bool const set);
+
+				/**
+				 * Setup mode of an IRQ to specified trigger mode and polarity
+				 *
+				 * \param irq_number  ID of targeted interrupt
+				 * \param trigger     new interrupt trigger mode
+				 * \param polarity    new interrupt polarity setting
+				 */
+				void irq_mode(unsigned irq_number, unsigned trigger,
+				              unsigned polarity);
+
+				/*
+				 * Registers
+				 */
+
+				struct Ioregsel : Register<0x00, 32> { };
+				struct Iowin    : Register<0x10, 32>
+				{
+					struct Maximum_redirection_entry : Bitfield<16, 8> { };
+				};
+		};
 
 		/*
 		 * Registers
@@ -184,27 +188,16 @@ class Board::Pic : public Genode::Mmio
 		/**
 		 * Mapping of our logical boot CPUs to the local APIC IDs
 		 */
-		static Genode::uint8_t  lapic_ids[NR_OF_CPUS];
+		static Genode::uint8_t _lapic_ids[NR_OF_CPUS];
 		bool                   _request_was_taken { false };
+		Ioapic                 _ioapic            { };
 
 	public:
-
-		enum {
-			/*
-			 * FIXME: dummy ipi value on non-SMP platform, should be removed
-			 *        when SMP is an aspect of CPUs only compiled where
-			 *        necessary
-			 */
-			IPI       = 255,
-			NR_OF_IRQ = IRQ_COUNT,
-		};
 
 		/**
 		 * Constructor
 		 */
 		Pic();
-
-		Ioapic ioapic { };
 
 		void take_request(unsigned &irq);
 
@@ -222,7 +215,7 @@ class Board::Pic : public Genode::Mmio
 		{
 			if (cpu_id < NR_OF_CPUS) {
 				Id::access_t const lapic_id = read<Id>();
-				lapic_ids[cpu_id] = (lapic_id >> 24) & 0xff;
+				_lapic_ids[cpu_id] = (lapic_id >> 24) & 0xff;
 			}
 		}
 
