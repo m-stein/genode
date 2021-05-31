@@ -22,7 +22,8 @@ Board::Pic::Pic(Global_interrupt_controller &)
 { }
 
 
-bool Board::Pic::take_request(unsigned & irq)
+void Board::Pic::take_request(unsigned &irq,
+                              bool     &irq_valid)
 {
 	unsigned cpu = Genode::Cpu::executing_id();
 	Core_irq_source<0>::access_t src = 0;
@@ -35,7 +36,8 @@ bool Board::Pic::take_request(unsigned & irq)
 
 	if ((1 << TIMER_IRQ) & src) {
 		irq = TIMER_IRQ;
-		return true;
+		irq_valid = true;
+		return;
 	}
 
 	if (0xf0 & src) {
@@ -46,10 +48,12 @@ bool Board::Pic::take_request(unsigned & irq)
 		case 2: write<Core_mailbox_clear<2>>(1); break;
 		case 3: write<Core_mailbox_clear<3>>(1); break;
 		}
-		return true;
+		irq_valid = true;
+		return;
 	}
 
-	return false;
+	irq_valid = false;
+	return;
 }
 
 

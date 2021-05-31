@@ -90,16 +90,21 @@ class Hw::Pic : public Genode::Mmio
 		Pic();
 
 		/**
-		 * Receive a pending request number 'i'
+		 * Try to receive a pending IRQ
+		 *
+		 * \param irq        returns kernel name of received IRQ on success
+		 * \param irq_valid  returns whether the call could receive an IRQ
 		 */
-		bool take_request(unsigned & i)
+		void take_request(unsigned &irq,
+		                  bool     &irq_valid)
 		{
 			for (unsigned j = 0; j < NR_OF_IRQ; j++) {
 				if (!read<Hipndr::Pending>(j)) { continue; }
 				i = j;
-				return true;
+				irq_valid = true;
+				return;
 			}
-			return false;
+			irq_valid = false;
 		}
 
 		void finish_request() { }

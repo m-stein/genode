@@ -71,15 +71,16 @@ Local_interrupt_controller(Global_interrupt_controller &global_irq_ctrl)
 }
 
 
-bool Local_interrupt_controller::take_request(unsigned &irq)
+void Local_interrupt_controller::take_request(unsigned &irq,
+                                              bool     &irq_valid)
 {
 	irq = get_lowest_bit();
 	if (!irq) {
-		return false;
+		irq_valid = false;
+	} else {
+		irq -= 1;
+		irq_valid = true;
 	}
-
-	irq -= 1;
-	return true;
 }
 
 
@@ -135,7 +136,7 @@ static inline uint32_t builtin_ffs(uint32_t value)
 }
 
 
-inline unsigned Local_interrupt_controller::get_lowest_bit()
+inline unsigned Local_interrupt_controller::get_lowest_bit() const
 {
 	unsigned bit, vec_base = 0;
 
