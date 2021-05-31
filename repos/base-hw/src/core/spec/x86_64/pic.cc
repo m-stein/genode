@@ -68,15 +68,21 @@ Pic::Pic()
 }
 
 
-bool Pic::take_request(unsigned &irq)
+void Pic::take_request(unsigned &irq)
 {
 	irq = get_lowest_bit();
 	if (!irq) {
-		return false;
+		_request_was_taken = false;
+	} else {
+		irq -= 1;
+		_request_was_taken = true;
 	}
+}
 
-	irq -= 1;
-	return true;
+
+bool Pic::request_was_taken() const
+{
+	return _request_was_taken;
 }
 
 
@@ -131,7 +137,7 @@ static inline uint32_t builtin_ffs(uint32_t value)
 }
 
 
-inline unsigned Pic::get_lowest_bit(void)
+inline unsigned Pic::get_lowest_bit(void) const
 {
 	unsigned bit, vec_base = 0;
 
@@ -221,7 +227,6 @@ void Ioapic::_update_irt_entry(unsigned irq)
 	Irte::Pol::set(irte, _irq_mode[irq].polarity);
 	Irte::Trg::set(irte, _irq_mode[irq].trigger_mode);
 
-	write<Ioregsel>(IOREDTBL + 2 * irq);
 	write<Iowin>(irte);
 }
 

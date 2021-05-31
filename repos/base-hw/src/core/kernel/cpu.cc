@@ -56,7 +56,8 @@ void Cpu_job::_interrupt(unsigned const /* cpu_id */)
 {
 	/* determine handling for specific interrupt */
 	unsigned irq_id;
-	if (_cpu->pic().take_request(irq_id))
+	_cpu->pic().take_request(irq_id);
+	if (_cpu->pic().request_was_taken())
 
 		/* is the interrupt a cpu-local one */
 		if (!_cpu->interrupt(irq_id)) {

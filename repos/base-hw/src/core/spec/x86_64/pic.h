@@ -179,12 +179,13 @@ class Board::Pic : public Genode::Mmio
 		 * \return index of first ISR bit set starting at index one, zero if no
 		 *         bit is set.
 		 */
-		inline unsigned get_lowest_bit(void);
+		inline unsigned get_lowest_bit(void) const;
 
 		/**
 		 * Mapping of our logical boot CPUs to the local APIC IDs
 		 */
-		static Genode::uint8_t lapic_ids[NR_OF_CPUS];
+		static Genode::uint8_t  lapic_ids[NR_OF_CPUS];
+		bool                   _request_was_taken { false };
 
 	public:
 
@@ -205,7 +206,9 @@ class Board::Pic : public Genode::Mmio
 
 		Ioapic ioapic { };
 
-		bool take_request(unsigned &irq);
+		void take_request(unsigned &irq);
+
+		bool request_was_taken() const;
 
 		void finish_request();
 
