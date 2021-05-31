@@ -109,12 +109,38 @@ void Local_interrupt_controller::irq_mode(unsigned irq_number,
 }
 
 
+static inline uint32_t builtin_ffs(uint32_t value)
+{
+	uint32_t bits   { 16 };
+	uint32_t result { 0 };
+
+	while (1) {
+
+		uint32_t const mask { ((uint32_t)1 << bits) - 1 };
+		if ((value & mask) == 0) {
+			value = value >> bits;
+			result += bits;
+		}
+		if (bits > 1) {
+			bits >>= 1;
+		} else {
+			break;
+		}
+	}
+	if (value) {
+		return result + 1;
+	} else {
+		return 0;
+	}
+}
+
+
 inline unsigned Local_interrupt_controller::get_lowest_bit()
 {
 	unsigned bit, vec_base = 0;
 
 	for (unsigned i = 0; i < 8 * 4; i += 4) {
-		bit = __builtin_ffs(read<Isr>(i));
+		bit = builtin_ffs(read<Isr>(i));
 		if (bit) {
 			return vec_base + bit;
 		}
