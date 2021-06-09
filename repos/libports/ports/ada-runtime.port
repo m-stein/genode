@@ -3,7 +3,7 @@ VERSION   := 0
 DOWNLOADS := ada-runtime.git ada-runtime-alis.git
 
 URL(ada-runtime) := https://github.com/m-stein/ada-runtime.git
-REV(ada-runtime) := c31b4542eb29a611f39300a6903a750fb726d256
+REV(ada-runtime) := 0f6cfa6167b1c6af23bb422a94c002836bf283bc
 DIR(ada-runtime) := ada-runtime
 
 URL(ada-runtime-alis) := https://github.com/m-stein/ada-runtime-alis.git
