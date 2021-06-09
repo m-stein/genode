@@ -18,7 +18,7 @@ package CPP_Architecture is
    pragma Pure;
 
    type Address_Type  is mod 2**64 with Size => 64;
-   type Unsigned_Type is mod 2**64 with Size => 64;
+   type Unsigned_Type is mod 2**32 with Size => 32;
    type Signed_Type   is range -(2**32 / 2) .. (2**32 / 2) - 1 with Size => 32;
 
 end CPP_Architecture;
