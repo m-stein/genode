@@ -9,7 +9,6 @@ KERNEL_ADA_DIR = $(BASE_DIR)/../base-spunky/src/core/ada
 
 # add include paths
 INC_DIR += $(KERNEL_ADA_DIR)/spec/x86_64
-INC_DIR += $(KERNEL_ADA_DIR)/spec/64bit
 INC_DIR += $(BASE_DIR)/../base-spunky/src/core/spec/x86_64
 INC_DIR += $(BASE_DIR)/../base-hw/src/core/spec/x86_64
 INC_DIR += $(BASE_DIR)/../base-hw/include/spec/x86_64/
