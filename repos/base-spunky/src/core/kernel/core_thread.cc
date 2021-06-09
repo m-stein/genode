@@ -17,6 +17,7 @@
 #include <kernel/ipc_node.h>
 #include <kernel/cpu_scheduler.h>
 #include <kernel/timer.h>
+#include <pic.h>
 
 using namespace Kernel;
 
@@ -31,17 +32,5 @@ void prepare_core_thread()
 	assert_valid_ada_object_size<Cpu_scheduler>();
 	assert_valid_ada_object_size<Timer>();
 	assert_valid_ada_object_size<Timeout>();
-}
-
-
-extern "C" void print_string_with_length(char const *str,
-                                         unsigned    length)
-{
-	Genode::raw(Genode::Cstring(str, length));
-}
-
-
-extern "C" void print_uint64(Genode::uint64_t uint64)
-{
-	Genode::raw(Genode::Hex(uint64));
+	assert_valid_ada_object_size<Board::Pic>();
 }

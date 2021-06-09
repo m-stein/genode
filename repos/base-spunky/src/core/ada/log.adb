@@ -24,4 +24,26 @@ package body Log is
       Print_String_With_Length (Str, Str'Length);
    end Print_String;
 
+   --
+   --  Print_String_And_UInt64
+   --
+   procedure Print_String_And_UInt64 (
+      Str    : String;
+      Uint64 : Uint64_Type)
+   is
+   begin
+      Print_String_With_Length_And_UInt64 (Str, Str'Length, Uint64);
+   end Print_String_And_UInt64;
+
+   --
+   --  Print_String_And_Address
+   --
+   procedure Print_String_And_Address (
+      Str  : String;
+      Addr : System.Address)
+   is
+   begin
+      Print_String_With_Length_And_Address (Str, Str'Length, Addr);
+   end Print_String_And_Address;
+
 end Log;
