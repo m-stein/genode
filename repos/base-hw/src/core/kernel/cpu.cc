@@ -48,8 +48,8 @@ void Cpu_job::_yield()
 void Cpu_job::_interrupt(Irq::Pool &user_irq_pool, unsigned const /* cpu_id */)
 {
 	/* let the IRQ controller take a pending IRQ for handling, if any */
-	unsigned irq_id;
-	bool irq_id_valid;
+	unsigned irq_id { 0 };
+	bool irq_id_valid { false };
 	_cpu->pic().take_request(irq_id, irq_id_valid);
 	if (irq_id_valid)
 
