@@ -32,7 +32,7 @@ namespace Board {
 
 class Board::Pic : public Genode::Mmio
 {
-	public:
+	private:
 
 		enum {
 			/*
@@ -43,8 +43,6 @@ class Board::Pic : public Genode::Mmio
 			IPI       = 255,
 			NR_OF_IRQ = 256,
 		};
-
-	private:
 
 		/*
 		 * Redirection table entry
@@ -220,6 +218,9 @@ class Board::Pic : public Genode::Mmio
 		}
 
 		void send_ipi(unsigned const);
+
+		static unsigned nr_of_irqs() { return NR_OF_IRQ; }
+		static unsigned ipi()        { return IPI; }
 };
 
 #endif /* _CORE__SPEC__X86_64__PIC_H_ */
