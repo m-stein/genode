@@ -55,7 +55,7 @@ void Cpu_job::_yield()
 void Cpu_job::_interrupt(unsigned const /* cpu_id */)
 {
 	/* determine handling for specific interrupt */
-	unsigned irq_id;
+	unsigned irq_id { 0 };
 	_cpu->pic().take_request(irq_id);
 	if (_cpu->pic().request_was_taken())
 
