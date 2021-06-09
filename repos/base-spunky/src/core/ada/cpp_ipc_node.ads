@@ -20,9 +20,9 @@ with IPC_Node;
 package CPP_IPC_Node is
 
    function Object_Size (Obj : IPC_Node.Object_Type) return CPP.Uint32_Type
-     with Export,
-          Convention    => C,
-          External_Name => "_ZN6Kernel11object_sizeERKNS_8Ipc_nodeE";
+   with Export,
+        Convention    => C,
+        External_Name => "_ZN6Kernel11object_sizeERKNS_8Ipc_nodeE";
 
    procedure Initialize_Object (
       Obj  : IPC_Node.Object_Reference_Type;
