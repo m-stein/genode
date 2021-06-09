@@ -180,7 +180,7 @@ Platform::Platform()
 	_init_io_port_alloc();
 
 	/* make all non-kernel interrupts available to the interrupt allocator */
-	for (unsigned i = 0; i < Board::Pic::NR_OF_IRQ; i++) {
+	for (unsigned i = 0; i < Board::Pic::nr_of_irqs(); i++) {
 		bool kernel_resource = false;
 		_boot_info().kernel_irqs.for_each([&] (unsigned /*idx*/,
 		                                       unsigned kernel_irq) {

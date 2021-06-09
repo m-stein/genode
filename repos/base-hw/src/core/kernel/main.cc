@@ -177,7 +177,7 @@ void Kernel::main_initialize_and_handle_kernel_entry()
 		Main::_instance->_cpu_pool.for_each_cpu([&] (Kernel::Cpu &cpu) {
 			boot_info.kernel_irqs.add(cpu.timer().interrupt_id());
 		});
-		boot_info.kernel_irqs.add((unsigned)Board::Pic::IPI);
+		boot_info.kernel_irqs.add((unsigned)Board::Pic::ipi());
 
 		Main::_instance->_core_main_thread.construct(
 			Main::_instance->_addr_space_id_alloc,

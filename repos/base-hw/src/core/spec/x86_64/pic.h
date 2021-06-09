@@ -235,6 +235,9 @@ class Board::Local_interrupt_controller : public Genode::Mmio
 		}
 
 		void send_ipi(unsigned const);
+
+		static unsigned nr_of_irqs() { return NR_OF_IRQ; }
+		static unsigned ipi()        { return IPI; }
 };
 
 #endif /* _CORE__SPEC__X86_64__PIC_H_ */
