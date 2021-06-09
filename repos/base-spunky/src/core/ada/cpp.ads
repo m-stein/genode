@@ -15,6 +15,8 @@ pragma Ada_2012;
 
 with CPP_Architecture;
 
+use CPP_Architecture;
+
 package CPP is
 
    pragma Pure;
@@ -23,13 +25,44 @@ package CPP is
    type Byte_Type                     is range 0 .. 2**8 - 1  with Size => 8;
    type Uint32_Type                   is range 0 .. 2**32 - 1 with Size => 32;
    type Uint64_Type                   is mod 2**64            with Size => 64;
-   type Signal_Imprint_Type           is new CPP_Architecture.Address_Type;
-   type Signal_Number_Of_Submits_Type is new CPP_Architecture.Unsigned_Type;
+   type Signal_Imprint_Type           is new Address_Type;
+   type Signal_Number_Of_Submits_Type is new Unsigned_Type;
    type Time_Type                     is new Uint64_Type;
-   type CPU_Quota_Type                is new CPP_Architecture.Unsigned_Type;
-   type CPU_Priority_Type             is new CPP_Architecture.Signed_Type;
-   type CPU_ID_Type                   is new CPP_Architecture.Unsigned_Type;
-   type IRQ_ID_Type                   is new CPP_Architecture.Unsigned_Type;
+   type CPU_Quota_Type                is new Unsigned_Type;
+   type CPU_Priority_Type             is new Signed_Type;
+   type CPU_ID_Type                   is new Unsigned_Type;
+   type IRQ_ID_Type                   is new Unsigned_Type;
+   type IRQ_Polarity_Type             is (High, Low);
+   type IRQ_Trigger_Mode_Type         is (Edge, Level);
+   type Number_Of_IRQs_Type           is new Unsigned_Type;
+   type CPU_Index_Type                is range 0 .. 31;
+
+   --
+   --  Registers and bitfields
+   --
+   type Bitfield_1_Type is range 0 .. 2**1 - 1;
+   type Bitfield_2_Type is range 0 .. 2**2 - 1;
+   type Bitfield_3_Type is range 0 .. 2**3 - 1;
+   type Bitfield_4_Type is range 0 .. 2**4 - 1;
+   type Bitfield_5_Type is range 0 .. 2**5 - 1;
+   type Bitfield_6_Type is range 0 .. 2**6 - 1;
+   type Bitfield_7_Type is range 0 .. 2**7 - 1;
+   type Bitfield_8_Type is range 0 .. 2**8 - 1;
+
+   type Register_32_Type is range 0 .. 2**32 - 1 with Size => 32;
+   pragma Atomic (Register_32_Type);
+
+   --
+   --  IRQ_Trigger_Mode_From_Unsigned
+   --
+   function IRQ_Trigger_Mode_From_Unsigned (Unsigned : Unsigned_Type)
+   return IRQ_Trigger_Mode_Type;
+
+   --
+   --  IRQ_Polarity_From_Unsigned
+   --
+   function IRQ_Polarity_From_Unsigned (Unsigned : Unsigned_Type)
+   return IRQ_Polarity_Type;
 
    --
    --  Bool_From_Ada

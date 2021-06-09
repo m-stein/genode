@@ -10,6 +10,7 @@ KERNEL_ADA_DIR = $(BASE_DIR)/../base-spunky/src/core/ada
 # add include paths
 INC_DIR += $(KERNEL_ADA_DIR)/spec/x86_64
 INC_DIR += $(KERNEL_ADA_DIR)/spec/64bit
+INC_DIR += $(BASE_DIR)/../base-spunky/src/core/spec/x86_64
 INC_DIR += $(BASE_DIR)/../base-hw/src/core/spec/x86_64
 INC_DIR += $(BASE_DIR)/../base-hw/include/spec/x86_64/
 
@@ -23,7 +24,6 @@ SRC_S += spec/x86_64/exception_vector.s
 SRC_CC += kernel/cpu_mp.cc
 SRC_CC += kernel/vm_thread_off.cc
 SRC_CC += kernel/lock.cc
-SRC_CC += spec/x86_64/pic.cc
 SRC_CC += spec/x86_64/kernel/thread_exception.cc
 SRC_CC += spec/x86_64/platform_support.cc
 SRC_CC += spec/x86/platform_services.cc
@@ -43,10 +43,14 @@ SRC_CC += spec/64bit/memory_map.cc
 # add Ada sources
 SRC_ADB += timer_device.adb
 SRC_ADB += port_io.adb
+SRC_ADB += irq_controller_pkg.adb
+SRC_ADB += cpp_irq_controller_pkg.adb
 
-vpath spec/64bit/memory_map.cc $(BASE_DIR)/../base-hw/src/lib/hw
-vpath timer_device.adb         $(KERNEL_ADA_DIR)/spec/x86_64
-vpath port_io.adb              $(KERNEL_ADA_DIR)/spec/x86_64
+vpath spec/64bit/memory_map.cc   $(BASE_DIR)/../base-hw/src/lib/hw
+vpath timer_device.adb           $(KERNEL_ADA_DIR)/spec/x86_64
+vpath port_io.adb                $(KERNEL_ADA_DIR)/spec/x86_64
+vpath irq_controller_pkg.adb     $(KERNEL_ADA_DIR)/spec/x86_64
+vpath cpp_irq_controller_pkg.adb $(KERNEL_ADA_DIR)/spec/x86_64
 
 NR_OF_CPUS = 32
 

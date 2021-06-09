@@ -13,6 +13,7 @@
 
 pragma Ada_2012;
 
+with System;
 with CPP_Architecture;
 with CPP;
 
@@ -33,6 +34,30 @@ package Log is
       External_Name => "print_string_with_length";
 
    --
+   --  Print_String_With_Length_And_UInt64
+   --
+   procedure Print_String_With_Length_And_UInt64 (
+      Str    : String;
+      Length : Unsigned_Type;
+      Uint64 : Uint64_Type)
+   with
+      Import,
+      Convention => C,
+      External_Name => "print_string_with_length_and_uint64";
+
+   --
+   --  Print_String_With_Length_And_Address
+   --
+   procedure Print_String_With_Length_And_Address (
+      Str    : String;
+      Length : Unsigned_Type;
+      Addr   : System.Address)
+   with
+      Import,
+      Convention => C,
+      External_Name => "print_string_with_length_and_address";
+
+   --
    --  Print_UInt64
    --
    procedure Print_UInt64 (
@@ -43,8 +68,32 @@ package Log is
       External_Name => "print_uint64";
 
    --
+   --  Print_Address
+   --
+   procedure Print_Address (
+      Addr : System.Address)
+   with
+      Import,
+      Convention => C,
+      External_Name => "print_address";
+
+   --
    --  Print_String
    --
    procedure Print_String (Str : String);
+
+   --
+   --  Print_String_And_UInt64
+   --
+   procedure Print_String_And_UInt64 (
+      Str    : String;
+      Uint64 : Uint64_Type);
+
+   --
+   --  Print_String_And_Address
+   --
+   procedure Print_String_And_Address (
+      Str  : String;
+      Addr : System.Address);
 
 end Log;
