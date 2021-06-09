@@ -16,6 +16,34 @@ pragma Ada_2012;
 package body CPP is
 
    --
+   --  IRQ_Polarity_From_Unsigned
+   --
+   function IRQ_Polarity_From_Unsigned (Unsigned : Unsigned_Type)
+   return IRQ_Polarity_Type
+   is
+   begin
+      case Unsigned is
+      when 0      => return High;
+      when 1      => return Low;
+      when others => raise Program_Error;
+      end case;
+   end IRQ_Polarity_From_Unsigned;
+
+   --
+   --  IRQ_Trigger_Mode_From_Unsigned
+   --
+   function IRQ_Trigger_Mode_From_Unsigned (Unsigned : Unsigned_Type)
+   return IRQ_Trigger_Mode_Type
+   is
+   begin
+      case Unsigned is
+      when 0      => return Edge;
+      when 1      => return Level;
+      when others => raise Program_Error;
+      end case;
+   end IRQ_Trigger_Mode_From_Unsigned;
+
+   --
    --  Bool_From_Ada
    --
    function Bool_From_Ada (Value : Boolean)
