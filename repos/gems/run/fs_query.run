@@ -104,10 +104,14 @@ install_config {
 		<start name="fs_query" caps="120">
 			<resource name="RAM" quantum="2M"/>
 			<config>
-				<vfs> <dir name="fs"> <fs writeable="yes"/> </dir> </vfs>
+				<vfs>
+					<dir name="empty_dir"/>
+					<dir name="fs"> <fs writeable="yes"/> </dir>
+				</vfs>
 				<query path="/fs/items/non_existent_1"/>
 				<query path="/fs/items" content="yes"/>
 				<query path="/fs/non_existent_2" content="yes"/>
+				<query path="/empty_dir"/>
 			</config>
 			<route>
 				<service name="Report">
