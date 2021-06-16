@@ -5,7 +5,6 @@ import_from_depot \
 	[depot_user]/src/init \
 	[depot_user]/src/report_rom \
 	[depot_user]/src/vfs \
-	[depot_user]/src/vfs_import \
 	[depot_user]/src/fs_query
 
 install_config {

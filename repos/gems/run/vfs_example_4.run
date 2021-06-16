@@ -4,8 +4,7 @@ import_from_depot \
 	[depot_user]/src/[base_src] \
 	[depot_user]/src/init \
 	[depot_user]/src/report_rom \
-	[depot_user]/src/vfs \
-	[depot_user]/src/fs_query
+	[depot_user]/src/vfs
 
 install_config {
 	<config>
@@ -31,24 +30,16 @@ install_config {
 			<config verbose="yes"/>
 		</start>
 
-		<start name="fs_query" caps="120">
+		<start name="vfs_example_4" caps="120">
 			<resource name="RAM" quantum="2M"/>
 			<config>
 				<vfs>
-					<inline name="README">Mail me for the README!</inline>
-					<inline name="VERSION">2.16</inline>
-					<dir name="config">
-						<inline name="verbose">yes</inline>
-						<dir name="tcp_ports"/>
-						<dir name="udp_ports">
-							<inline name="69"><forward to="10.0.0.1"/></inline>
-						</dir>
-						<inline name="dns_servers"/>
+					<dir name="friendly">
+						<inline name="greetings">Hello world!</inline>
 					</dir>
+					<dir name="dev"> <log/> </dir>
 				</vfs>
-				<query path="/" content="yes" size="yes"/>
-				<query path="/config" content="yes" size="yes"/>
-				<query path="/config/udp_ports" content="yes" size="yes"/>
+				<libc stdout="/dev/log"/>
 			</config>
 		</start>
 
@@ -57,6 +48,15 @@ install_config {
 
 append qemu_args " -nographic "
 
-build_boot_image { }
+build { app/vfs_example_4 }
 
-run_genode_until forever
+build_boot_image {
+
+	vfs_example_4
+	libc.lib.so
+	libm.lib.so
+	vfs.lib.so
+	posix.lib.so
+}
+
+run_genode_until "exited with exit value 0" 30
