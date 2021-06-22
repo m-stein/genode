@@ -123,6 +123,18 @@ class Genode::Bit_array_dynamic
 		void clear(addr_t const index, addr_t const width) {
 			_set(index, width, true); }
 
+		/*
+		 * This function was introduced only in order to track down uncaught
+		 * exceptions. See Github issue #4200.
+		 */
+		void print(Output &output) const {
+
+			Genode::print(output,
+			              " _bit_cnt ",  _bit_cnt,
+			              " _word_cnt ", _word_cnt,
+			              " _words ",    _words);
+		}
+
 		Bit_array_dynamic(addr_t *addr, unsigned bits)
 		: _bit_cnt(bits), _word_cnt(_bit_cnt / BITS_PER_WORD),
 		  _words(addr)
@@ -220,7 +232,20 @@ class Genode::Bit_allocator_dynamic
 
 		void free(addr_t const bit_start, size_t const num_log2 = 0)
 		{
-			_array.clear(bit_start, 1UL << num_log2);
+			/*
+			 * The message in the catch directive is printed independent from
+			 * the routers verbosity configuration in order to track down
+			 * uncaught exceptions. See Github issue #4200.
+			 */
+			try {
+				_array.clear(bit_start, 1UL << num_log2);
+
+			} catch (Bit_array_dynamic::Invalid_index_access) {
+
+				warning("bit alloc: invalid index while freeing (bit_start ",
+				        bit_start, " num_log2 ", num_log2, " ", _array, ")");
+				throw;
+			}
 			_next = bit_start;
 		}
 
@@ -233,7 +258,21 @@ class Genode::Bit_allocator_dynamic
 			_ram((addr_t *)_alloc.alloc(_ram_size())),
 			_array(_ram, _bits_aligned)
 		{
-			_reserve(bits, _bits_aligned - bits);
+			/*
+			 * The message in the catch directive is printed independent from
+			 * the routers verbosity configuration in order to track down
+			 * uncaught exceptions. See Github issue #4200.
+			 */
+			try {
+				_reserve(bits, _bits_aligned - bits);
+
+			} catch (Bit_array_dynamic::Invalid_index_access) {
+
+				warning("bit alloc: invalid index while reserving (bits ",
+				        bits, " _bits_aligned ", _bits_aligned, " ",
+				        _array, ")");
+				throw;
+			}
 		}
 
 		~Bit_allocator_dynamic()
