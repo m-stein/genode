@@ -80,6 +80,9 @@ Dhcp_server::Dhcp_server(Xml_node            const  node,
 	_ip_count(_ip_last.to_uint32_little_endian() - _ip_first_raw + 1),
 	_ip_alloc(alloc, _ip_count)
 {
+	log("DHCP server ", this, ": ", __func__, ", domain ", &domain, " ", domain, ", ",
+	    *this);
+
 	if (!interface.prefix_matches(_ip_first)) {
 		_invalid(domain, "first IP does not match domain subnet"); }
 
@@ -114,7 +117,8 @@ void Dhcp_server::print(Output &output) const
 	Genode::print(output, "IP first ", _ip_first,
 	                        ", last ", _ip_last,
 	                       ", count ", _ip_count,
-	                  ", lease time ", _ip_lease_time.value / 1000 / 1000, " sec");
+	                  ", lease time ", _ip_lease_time.value / 1000 / 1000, " sec ",
+	                   ", ip_alloc (", _ip_alloc, ")");
 }
 
 
@@ -133,10 +137,14 @@ Ipv4_config const &Dhcp_server::_resolve_dns_server_from() const
 Ipv4_address Dhcp_server::alloc_ip()
 {
 	try {
-		return Ipv4_address::from_uint32_little_endian(_ip_alloc.alloc() +
-		                                               _ip_first_raw);
+		Ipv4_address ip {
+			Ipv4_address::from_uint32_little_endian(_ip_alloc.alloc() +
+			                                        _ip_first_raw) };
+		log("DHCP server ", this, ": ", __func__, "_1 ip ", ip, ", ", *this);
+		return ip;
 	}
 	catch (Bit_allocator_dynamic::Out_of_indices) {
+		log("DHCP server ", this, ": ", __func__, "_1 failed, ", *this);
 		throw Alloc_ip_failed();
 	}
 }
@@ -144,9 +152,16 @@ Ipv4_address Dhcp_server::alloc_ip()
 
 void Dhcp_server::alloc_ip(Ipv4_address const &ip)
 {
-	try { _ip_alloc.alloc_addr(ip.to_uint32_little_endian() - _ip_first_raw); }
-	catch (Bit_allocator_dynamic::Range_conflict)   { throw Alloc_ip_failed(); }
-	catch (Bit_array_dynamic::Invalid_index_access) { throw Alloc_ip_failed(); }
+	try { _ip_alloc.alloc_addr(ip.to_uint32_little_endian() - _ip_first_raw);
+
+		log("DHCP server ", this, ": ", __func__, "_2 ip ", ip, ", ", *this);
+	}
+	catch (Bit_allocator_dynamic::Range_conflict)   {
+		log("DHCP server ", this, ": ", __func__, "_2 ip ", ip, " conflict, ", *this);
+		throw Alloc_ip_failed(); }
+	catch (Bit_array_dynamic::Invalid_index_access) {
+		log("DHCP server ", this, ": ", __func__, "_2 ip ", ip, " invalid, ", *this);
+		throw Alloc_ip_failed(); }
 }
 
 
@@ -161,6 +176,7 @@ void Dhcp_server::free_ip(Domain       const &domain,
 	 */
 	try {
 		_ip_alloc.free(ip.to_uint32_little_endian() - _ip_first_raw);
+		log("DHCP server ", this, ": ", __func__, " ip ", ip, ", ", *this);
 	}
 	catch (Bit_allocator_dynamic::Out_of_indices) {
 

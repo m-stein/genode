@@ -190,6 +190,15 @@ class Genode::Bit_allocator_dynamic
 
 	public:
 
+		void print(Output &output) const {
+
+			Genode::print(output,
+			              "_next ",          _next,
+			              ", _bits_aligned ", _bits_aligned,
+			              ", _ram ",          _ram,
+			              ", _array (",       _array, ")");
+		}
+
 		struct Out_of_indices : Exception { };
 		struct Range_conflict : Exception { };
 
