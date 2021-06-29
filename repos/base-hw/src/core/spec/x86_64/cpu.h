@@ -43,9 +43,9 @@ namespace Genode {
 }
 
 
-class Genode::Cpu : public Hw::X86_64_cpu
+class Genode::Cpu : private Hw::X86_64_cpu
 {
-	public:
+	private:
 
 		/**
 		 * Task State Segment (TSS)
@@ -60,52 +60,59 @@ class Genode::Cpu : public Hw::X86_64_cpu
 			uint64_t ist[7];       /* irq stack pointer   */
 			uint64_t reserved2;
 
-			static void init();
-		}  __attribute__((packed)) tss { };
-
-
-		/**
-		 * Interrupt Descriptor Table (IDT)
-		 *
-		 * See Intel SDM Vol. 3A, section 6.10
-		 */
-		struct Idt { static void init(); };
-
+		}  __attribute__((packed));
 
 		/**
 		 * Global Descriptor Table (GDT)
+		 *
 		 * See Intel SDM Vol. 3A, section 3.5.1
 		 */
 		struct alignas(8) Gdt
 		{
-			uint64_t null_desc         = 0;
-			uint64_t sys_cs_64bit_desc = 0x20980000000000;
-			uint64_t sys_ds_64bit_desc = 0x20930000000000;
-			uint64_t usr_cs_64bit_desc = 0x20f80000000000;
-			uint64_t usr_ds_64bit_desc = 0x20f30000000000;
+			uint64_t null_desc         { 0 };
+			uint64_t sys_cs_64bit_desc { 0x20980000000000 };
+			uint64_t sys_ds_64bit_desc { 0x20930000000000 };
+			uint64_t usr_cs_64bit_desc { 0x20f80000000000 };
+			uint64_t usr_ds_64bit_desc { 0x20f30000000000 };
 			uint64_t tss_desc[2];
 
-			void init(addr_t tss_addr);
-		} __attribute__((packed)) gdt { };
-
-
-		/**
-		 * Extend basic CPU state by members relevant for 'base-hw' only
-		 */
-		struct Kernel_stack { unsigned long kernel_stack { }; };
-
-		/* exception_vector.s depends on the position of the Kernel_stack */
-		struct alignas(16) Context : Cpu_state, Kernel_stack, Fpu_context
-		{
-			enum Eflags {
-				EFLAGS_IF_SET = 1 << 9,
-				EFLAGS_IOPL_3 = 3 << 12,
-			};
-
-			Context(bool privileged);
 		} __attribute__((packed));
 
+		/**
+		 * Extends basic CPU state by members relevant for 'base-hw' only
+		 */
+		struct Cpu_context_base
+		{
+			addr_t kernel_stack { 0 };
+		};
 
+		Tss _tss { };
+		Gdt _gdt { };
+
+	protected:
+
+		/**
+		 * Initialize global descriptor-table register (GDTR)
+		 */
+		void _init_gdtr() const;
+
+		/**
+		 * Initialize task register (TR)
+		 */
+		static void _init_tr();
+
+		/**
+		 * Initialize interrupt-descriptor-table register (IDTR)
+		 *
+		 * See Intel SDM Vol. 3A, section 6.10
+		 */
+		static void _init_idtr();
+
+	public:
+
+		/*
+		 * Memory management context
+		 */
 		struct Mmu_context
 		{
 			addr_t cr3;
@@ -113,6 +120,23 @@ class Genode::Cpu : public Hw::X86_64_cpu
 			Mmu_context(addr_t                             page_table_base,
 			            Board::Address_space_id_allocator &);
 		};
+
+		/**
+		 * Extends basic CPU state by members relevant for 'base-hw' only
+		 *
+		 * Note that exception_vector.s depends on the order of
+		 * Cpu_state and Cpu_context_base in the inheritance list.
+		 */
+		struct alignas(16) Context : Cpu_state, Cpu_context_base, Fpu_context
+		{
+			enum Eflags {
+				EFLAGS_IF_SET = 1 << 9,
+				EFLAGS_IOPL_3 = 3 << 12,
+			};
+
+			Context(bool privileged);
+
+		} __attribute__((packed));
 
 		/**
 		 * Return kernel name of the executing CPU
@@ -126,6 +150,9 @@ class Genode::Cpu : public Hw::X86_64_cpu
 		 */
 		void switch_to(Context & context, Mmu_context &mmu_context);
 
+		/**
+		 * Read out the page fault parameters from a given CPU state
+		 */
 		static void mmu_fault(Context & regs, Kernel::Thread_fault & fault);
 
 		/**
@@ -134,10 +161,17 @@ class Genode::Cpu : public Hw::X86_64_cpu
 		static void invalidate_tlb() {
 			Genode::Cpu::Cr3::write(Genode::Cpu::Cr3::read()); }
 
-
+		/**
+		 * Zero-out RAM region in prep. for being mapped to an address space
+		 */
 		static void clear_memory_region(addr_t const addr,
 		                                size_t const size,
 		                                bool changed_cache_properties);
+
+		/**
+		 * Constructor
+		 */
+		Cpu();
 };
 
 #endif /* _CORE__SPEC__X86_64__CPU_H_ */
