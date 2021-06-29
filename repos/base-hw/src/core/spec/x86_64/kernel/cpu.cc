@@ -19,10 +19,6 @@
 
 void Kernel::Cpu::_arch_init()
 {
-	_init_gdtr();
-	_init_idtr();
-	_init_tr();
-
 	/* enable timer interrupt */
 	_pic.store_apic_id(id());
 	_pic.unmask(_timer.interrupt_id(), id());

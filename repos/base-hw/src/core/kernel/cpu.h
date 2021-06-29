@@ -43,7 +43,7 @@ namespace Kernel {
 }
 
 
-class Kernel::Cpu : public Genode::Cpu, private Irq::Pool
+class Kernel::Cpu
 {
 	private:
 
@@ -82,9 +82,11 @@ class Kernel::Cpu : public Genode::Cpu, private Irq::Pool
 			Idle_thread(Cpu &cpu);
 		};
 
-		Timeout        _timeout { };
+		Genode::Cpu    _cpu_device { };
+		Irq::Pool      _irq_pool   { };
+		Timeout        _timeout    { };
 		unsigned const _id;
-		Board::Pic     _pic     { };
+		Board::Pic     _pic        { };
 		Timer          _timer;
 		Cpu_scheduler  _scheduler;
 		Idle_thread    _idle;
@@ -146,7 +148,7 @@ class Kernel::Cpu : public Genode::Cpu, private Irq::Pool
 		unsigned id() const { return _id; }
 		Cpu_scheduler &scheduler() { return _scheduler; }
 
-		Irq::Pool &irq_pool() { return *this; }
+		Irq::Pool &irq_pool() { return _irq_pool; }
 
 		Inter_processor_work_list & work_list() {
 			return _local_work_list; }
@@ -155,6 +157,24 @@ class Kernel::Cpu : public Genode::Cpu, private Irq::Pool
 		 * Return CPU's idle thread object
 		 */
 		Kernel::Thread &idle_thread() { return _idle; }
+
+
+		/****************************************
+		 ** Propagate interface of Genode::Cpu **
+		 ****************************************/
+
+		using Context = Genode::Cpu::Context;
+		using Mmu_context = Genode::Cpu::Mmu_context;
+
+		static unsigned executing_id() { return Genode::Cpu::executing_id(); }
+
+		static void mmu_fault(Context & regs, Kernel::Thread_fault & fault) {
+			Genode::Cpu::mmu_fault(regs, fault); }
+
+		static void invalidate_tlb() { Genode::Cpu::invalidate_tlb(); }
+
+		void switch_to(Context &context, Mmu_context &mmu_context) {
+			_cpu_device.switch_to(context, mmu_context); }
 };
 
 

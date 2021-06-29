@@ -137,7 +137,7 @@ void Cpu::schedule(Job * const job)
 
 bool Cpu::interrupt(unsigned const irq_id)
 {
-	Irq * const irq = object(irq_id);
+	Irq * const irq = _irq_pool.object(irq_id);
 
 	if (!irq)
 		return false;

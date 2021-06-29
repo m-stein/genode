@@ -50,7 +50,7 @@ void Cpu::trigger_ip_interrupt()
 
 Cpu::Ipi::Ipi(Cpu & cpu)
 :
-	Irq(Board::Pic::ipi(), cpu), cpu(cpu)
+	Irq(Board::Pic::ipi(), cpu.irq_pool()), cpu(cpu)
 {
 	cpu.pic().unmask(Board::Pic::ipi(), cpu.id());
 }

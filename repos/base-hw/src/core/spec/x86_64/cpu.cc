@@ -47,22 +47,6 @@ Genode::Cpu::Mmu_context::Mmu_context(addr_t const table)
 : cr3(Cr3::Pdb::masked(table)) { }
 
 
-void Genode::Cpu::_init_tr()
-{
-	enum { TSS_SELECTOR = 0x28, };
-	asm volatile ("ltr %w0" : : "r" (TSS_SELECTOR));
-}
-
-
-void Genode::Cpu::_init_idtr()
-{
-	Pseudo_descriptor descriptor {
-		(uint16_t)((addr_t)&__idt_end - (addr_t)&__idt),
-		(uint64_t)(&__idt) };
-	asm volatile ("lidt %0" : : "m" (descriptor));
-}
-
-
 Genode::Cpu::Cpu()
 {
 	addr_t const tss_addr { (addr_t)&_tss };
@@ -71,15 +55,31 @@ Genode::Cpu::Cpu()
 	                    0x8900) << 32)                   |
 	                   ((tss_addr &  0xffff) << 16 | 0x68);
 	_gdt.tss_desc[1] = tss_addr >> 32;
-}
 
+	/*
+	 * Initialize global descriptor-table register (GDTR)
+	 */
+	Pseudo_descriptor gdt_descriptor {
+		(uint16_t)(sizeof(Gdt)), (uint64_t)(&_gdt) };
 
-void Genode::Cpu::_init_gdtr() const
-{
-	Pseudo_descriptor descriptor {
-		(uint16_t)(sizeof(Gdt)),
-		(uint64_t)(&_gdt) };
-	asm volatile ("lgdt %0" :: "m" (descriptor));
+	asm volatile ("lgdt %0" :: "m" (gdt_descriptor));
+
+	/*
+	 * Initialize interrupt-descriptor-table register (IDTR)
+	 *
+	 * See Intel SDM Vol. 3A, section 6.10
+	 */
+	Pseudo_descriptor idt_descriptor {
+		(uint16_t)((addr_t)&__idt_end - (addr_t)&__idt), (uint64_t)(&__idt) };
+
+	asm volatile ("lidt %0" : : "m" (idt_descriptor));
+
+	/*
+	 * Initialize task register (TR)
+	 */
+	enum { TSS_SELECTOR = 0x28, };
+
+	asm volatile ("ltr %w0" : : "r" (TSS_SELECTOR));
 }
 
 

@@ -87,25 +87,6 @@ class Genode::Cpu : private Hw::X86_64_cpu
 		Tss _tss { };
 		Gdt _gdt { };
 
-	protected:
-
-		/**
-		 * Initialize global descriptor-table register (GDTR)
-		 */
-		void _init_gdtr() const;
-
-		/**
-		 * Initialize task register (TR)
-		 */
-		static void _init_tr();
-
-		/**
-		 * Initialize interrupt-descriptor-table register (IDTR)
-		 *
-		 * See Intel SDM Vol. 3A, section 6.10
-		 */
-		static void _init_idtr();
-
 	public:
 
 		/*
