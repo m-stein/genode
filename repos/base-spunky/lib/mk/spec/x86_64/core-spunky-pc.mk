@@ -30,7 +30,6 @@ SRC_CC += spec/x86/platform_services.cc
 SRC_CC += spec/x86/io_port_session_component.cc
 SRC_CC += spec/x86/io_port_session_support.cc
 SRC_CC += spec/x86_64/bios_data_area.cc
-SRC_CC += spec/x86_64/cpu.cc
 SRC_CC += spec/x86_64/kernel/cpu.cc
 SRC_CC += spec/x86_64/kernel/pd.cc
 SRC_CC += spec/x86_64/kernel/thread.cc
@@ -40,18 +39,26 @@ SRC_CC += spec/x86_64/platform_support_common.cc
 SRC_CC += spec/64bit/memory_map.cc
 
 # add Ada sources
-SRC_ADS += cpp_architecture.ads
+SRC_ADB += cpp_architecture.adb
 SRC_ADB += timer_device.adb
+SRC_ADB += cpu_device_pkg.adb
+SRC_ADB += cpu_model_specific_register_pkg.adb
+SRC_ADB += cpu_control_register_pkg.adb
 SRC_ADB += port_io.adb
 SRC_ADB += irq_controller_pkg.adb
+SRC_ADB += cpp_cpu_device_pkg.adb
 SRC_ADB += cpp_irq_controller_pkg.adb
 
-vpath spec/64bit/memory_map.cc   $(BASE_DIR)/../base-hw/src/lib/hw
-vpath timer_device.adb           $(KERNEL_ADA_DIR)/spec/x86_64
-vpath port_io.adb                $(KERNEL_ADA_DIR)/spec/x86_64
-vpath irq_controller_pkg.adb     $(KERNEL_ADA_DIR)/spec/x86_64
-vpath cpp_irq_controller_pkg.adb $(KERNEL_ADA_DIR)/spec/x86_64
-vpath cpp_architecture.ads       $(KERNEL_ADA_DIR)/spec/x86_64
+vpath spec/64bit/memory_map.cc            $(BASE_DIR)/../base-hw/src/lib/hw
+vpath timer_device.adb                    $(KERNEL_ADA_DIR)/spec/x86_64
+vpath cpu_device_pkg.adb                  $(KERNEL_ADA_DIR)/spec/x86_64
+vpath cpu_model_specific_register_pkg.adb $(KERNEL_ADA_DIR)/spec/x86_64
+vpath cpu_control_register_pkg.adb        $(KERNEL_ADA_DIR)/spec/x86_64
+vpath port_io.adb                         $(KERNEL_ADA_DIR)/spec/x86_64
+vpath irq_controller_pkg.adb              $(KERNEL_ADA_DIR)/spec/x86_64
+vpath cpp_cpu_device_pkg.adb              $(KERNEL_ADA_DIR)/spec/x86_64
+vpath cpp_irq_controller_pkg.adb          $(KERNEL_ADA_DIR)/spec/x86_64
+vpath cpp_architecture.adb                $(KERNEL_ADA_DIR)/spec/x86_64
 
 NR_OF_CPUS = 32
 

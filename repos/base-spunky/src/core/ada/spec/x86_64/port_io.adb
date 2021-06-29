@@ -44,8 +44,8 @@ is
    begin
       System.Machine_Code.Asm (
          "inb %w1, %0",
-         Outputs => Byte_Type'Asm_Output ("=a", Byte),
-         Inputs => Port_Type'Asm_Input ("Nd", Port),
+         Inputs   => Port_Type'Asm_Input ("Nd", Port),
+         Outputs  => Byte_Type'Asm_Output ("=a", Byte),
          Volatile => True);
 
       return Byte;
