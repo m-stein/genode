@@ -19,9 +19,9 @@
 
 void Kernel::Cpu::_arch_init()
 {
-	gdt.init((addr_t)&tss);
-	Idt::init();
-	Tss::init();
+	_init_gdtr();
+	_init_idtr();
+	_init_tr();
 
 	/* enable timer interrupt */
 	_pic.store_apic_id(id());

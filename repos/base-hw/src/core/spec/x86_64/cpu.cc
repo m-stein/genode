@@ -47,14 +47,14 @@ Genode::Cpu::Mmu_context::Mmu_context(addr_t const table)
 : cr3(Cr3::Pdb::masked(table)) { }
 
 
-void Genode::Cpu::Tss::init()
+void Genode::Cpu::_init_tr()
 {
 	enum { TSS_SELECTOR = 0x28, };
 	asm volatile ("ltr %w0" : : "r" (TSS_SELECTOR));
 }
 
 
-void Genode::Cpu::Idt::init()
+void Genode::Cpu::_init_idtr()
 {
 	Pseudo_descriptor descriptor {
 		(uint16_t)((addr_t)&__idt_end - (addr_t)&__idt),
@@ -63,17 +63,22 @@ void Genode::Cpu::Idt::init()
 }
 
 
-void Genode::Cpu::Gdt::init(addr_t tss_addr)
+Genode::Cpu::Cpu()
 {
-	tss_desc[0] = ((((tss_addr >> 24) & 0xff) << 24 |
-	                ((tss_addr >> 16) & 0xff)       |
-	               0x8900) << 32)                   |
-	              ((tss_addr &  0xffff) << 16 | 0x68);
-	tss_desc[1] = tss_addr >> 32;
+	addr_t const tss_addr { (addr_t)&_tss };
+	_gdt.tss_desc[0] = ((((tss_addr >> 24) & 0xff) << 24 |
+	                     ((tss_addr >> 16) & 0xff)       |
+	                    0x8900) << 32)                   |
+	                   ((tss_addr &  0xffff) << 16 | 0x68);
+	_gdt.tss_desc[1] = tss_addr >> 32;
+}
 
+
+void Genode::Cpu::_init_gdtr() const
+{
 	Pseudo_descriptor descriptor {
 		(uint16_t)(sizeof(Gdt)),
-		(uint64_t)(this) };
+		(uint64_t)(&_gdt) };
 	asm volatile ("lgdt %0" :: "m" (descriptor));
 }
 
@@ -115,7 +120,7 @@ void Genode::Cpu::switch_to(Context & context, Mmu_context &mmu_context)
 	if ((context.cs != 0x8) && (mmu_context.cr3 != Cr3::read()))
 		Cr3::write(mmu_context.cr3);
 
-	tss.ist[0] = (addr_t)&context + sizeof(Genode::Cpu_state);
+	_tss.ist[0] = (addr_t)&context + sizeof(Genode::Cpu_state);
 
 	addr_t const stack_base = reinterpret_cast<addr_t>(&kernel_stack);
 	context.kernel_stack = stack_base +
