@@ -45,6 +45,10 @@ namespace Board {
 
 	struct Pic;
 }
+namespace Genode {
+
+	class Cpu;
+}
 namespace Kernel {
 
 	Ada_object_size object_size(Ipc_node const &);
@@ -57,6 +61,7 @@ namespace Kernel {
 	Ada_object_size object_size(Timer const &);
 	Ada_object_size object_size(Timeout const &);
 	Ada_object_size object_size(Board::Pic const &);
+	Ada_object_size object_size(Genode::Cpu const &);
 
 	template <typename T>
 	static inline void assert_valid_ada_object_size()

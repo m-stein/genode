@@ -18,6 +18,7 @@
 #include <kernel/cpu_scheduler.h>
 #include <kernel/timer.h>
 #include <pic.h>
+#include <cpu.h>
 
 using namespace Kernel;
 
@@ -36,4 +37,5 @@ void prepare_core_thread()
 	assert_valid_ada_object_size<Timer>();
 	assert_valid_ada_object_size<Timeout>();
 	assert_valid_ada_object_size<Board::Pic>();
+	assert_valid_ada_object_size<Genode::Cpu>();
 }

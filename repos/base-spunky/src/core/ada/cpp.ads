@@ -13,9 +13,7 @@
 
 pragma Ada_2012;
 
-with CPP_Architecture;
-
-use CPP_Architecture;
+with CPP_Architecture; use CPP_Architecture;
 
 package CPP is
 
@@ -40,17 +38,37 @@ package CPP is
    --
    --  Registers and bitfields
    --
-   type Bitfield_1_Type is range 0 .. 2**1 - 1;
-   type Bitfield_2_Type is range 0 .. 2**2 - 1;
-   type Bitfield_3_Type is range 0 .. 2**3 - 1;
-   type Bitfield_4_Type is range 0 .. 2**4 - 1;
-   type Bitfield_5_Type is range 0 .. 2**5 - 1;
-   type Bitfield_6_Type is range 0 .. 2**6 - 1;
-   type Bitfield_7_Type is range 0 .. 2**7 - 1;
-   type Bitfield_8_Type is range 0 .. 2**8 - 1;
+   type Bitfield_1_Type  is range 0 .. 2**1 - 1;
+   type Bitfield_2_Type  is range 0 .. 2**2 - 1;
+   type Bitfield_3_Type  is range 0 .. 2**3 - 1;
+   type Bitfield_4_Type  is range 0 .. 2**4 - 1;
+   type Bitfield_5_Type  is range 0 .. 2**5 - 1;
+   type Bitfield_6_Type  is range 0 .. 2**6 - 1;
+   type Bitfield_7_Type  is range 0 .. 2**7 - 1;
+   type Bitfield_8_Type  is range 0 .. 2**8 - 1;
+   type Bitfield_24_Type is range 0 .. 2**24 - 1;
+   type Bitfield_52_Type is range 0 .. 2**52 - 1;
 
-   type Register_32_Type is range 0 .. 2**32 - 1 with Size => 32;
-   pragma Atomic (Register_32_Type);
+   type Register_32_Type is range 0 .. 2**32 - 1
+   with Size => 32, Volatile_Full_Access;
+
+   type Register_64_Type is mod 2**64
+   with Size => 64, Volatile_Full_Access;
+
+   type Page_Fault_Reason_Type is (Unknown, Write, Execute, Page_Missing)
+   with Size => 8;
+
+   for Page_Fault_Reason_Type use (
+      Unknown      => 0,
+      Write        => 1,
+      Execute      => 2,
+      Page_Missing => 3);
+
+   type Page_Fault_State_Type is record
+      IP      : Address_Type;
+      Address : Address_Type;
+      Reason  : Page_Fault_Reason_Type;
+   end record;
 
    --
    --  IRQ_Trigger_Mode_From_Unsigned

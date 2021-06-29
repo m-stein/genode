@@ -14,7 +14,7 @@
 pragma Ada_2012;
 
 with Port_IO;
-with System.Machine_Code;
+with System.Machine_Code; use System.Machine_Code;
 
 package body IRQ_Controller_Pkg is
 
@@ -400,8 +400,7 @@ package body IRQ_Controller_Pkg is
       Wait_For_Delivery_Status :
       while LAPIC_ICR_Low_Reg.Delivery_Status /= 0 loop
 
-         System.Machine_Code.Asm (
-            "pause", Clobber  => "memory", Volatile => True);
+         Asm ("pause", Clobber  => "memory", Volatile => True);
 
       end loop Wait_For_Delivery_Status;
 
