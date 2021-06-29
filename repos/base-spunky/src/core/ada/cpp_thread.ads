@@ -102,6 +102,6 @@ package CPP_Thread is
 private
 
    type Object_Type is array (1 .. 32) of CPP.Byte_Type;
-   pragma Pack (Object_TYpe);
+   pragma Pack (Object_Type);
 
 end CPP_Thread;

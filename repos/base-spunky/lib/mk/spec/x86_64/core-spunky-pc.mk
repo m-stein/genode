@@ -40,6 +40,7 @@ SRC_CC += spec/x86_64/platform_support_common.cc
 SRC_CC += spec/64bit/memory_map.cc
 
 # add Ada sources
+SRC_ADS += cpp_architecture.ads
 SRC_ADB += timer_device.adb
 SRC_ADB += port_io.adb
 SRC_ADB += irq_controller_pkg.adb
@@ -50,6 +51,7 @@ vpath timer_device.adb           $(KERNEL_ADA_DIR)/spec/x86_64
 vpath port_io.adb                $(KERNEL_ADA_DIR)/spec/x86_64
 vpath irq_controller_pkg.adb     $(KERNEL_ADA_DIR)/spec/x86_64
 vpath cpp_irq_controller_pkg.adb $(KERNEL_ADA_DIR)/spec/x86_64
+vpath cpp_architecture.ads       $(KERNEL_ADA_DIR)/spec/x86_64
 
 NR_OF_CPUS = 32
 
