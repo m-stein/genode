@@ -25,14 +25,12 @@ namespace Board {
 
 class Board::Pic : Genode::Mmio
 {
-	public:
+	private:
 
 		enum {
 			IPI       = 0,
 			NR_OF_IRQ = 64,
 		};
-
-	private:
 
 		template <unsigned CPU_NUM>
 		struct Core_timer_irq_control : Register<0x40+CPU_NUM*0x4, 32>
@@ -76,6 +74,9 @@ class Board::Pic : Genode::Mmio
 		void send_ipi(unsigned);
 
 		static constexpr bool fast_interrupts() { return false; }
+
+		static unsigned nr_of_irqs() { return NR_OF_IRQ; }
+		static unsigned ipi()        { return IPI; }
 };
 
 #endif /* _CORE__SPEC__ARM__BCM2837_PIC_H_ */

@@ -34,11 +34,6 @@ class Board::Pic
 {
 	private:
 
-		Plic               _plic;
-		Plic::Id::access_t _last_irq { 0 };
-
-	public:
-
 		enum {
 			/*
 			 * FIXME: dummy ipi value on non-SMP platform, should be removed
@@ -47,6 +42,11 @@ class Board::Pic
 			IPI       = 0,
 			NR_OF_IRQ = Plic::NR_OF_IRQ,
 		};
+
+		Plic               _plic;
+		Plic::Id::access_t _last_irq { 0 };
+
+	public:
 
 		Pic(Global_interrupt_controller &);
 
@@ -94,6 +94,9 @@ class Board::Pic
 
 			_plic.el(trigger == Irq_session::TRIGGER_EDGE ? 1 : 0, irq);
 		}
+
+		static unsigned nr_of_irqs() { return NR_OF_IRQ; }
+		static unsigned ipi()        { return IPI; }
 };
 
 #endif /* _CORE__SPEC__RISCV__PIC_H_ */

@@ -176,9 +176,11 @@ class Hw::Gicv2
 
 		bool _valid(unsigned const irq_id) const { return irq_id <= _max_irq; }
 
-	public:
+	private:
 
 		enum { IPI = 1, NR_OF_IRQ = Distributor::nr_of_irq };
+
+	public:
 
 		Gicv2();
 
@@ -242,6 +244,9 @@ class Hw::Gicv2
 		}
 
 		static constexpr bool fast_interrupts() { return false; }
+
+		static unsigned nr_of_irqs() { return NR_OF_IRQ; }
+		static unsigned ipi()        { return IPI; }
 };
 
 #endif /* _SRC__LIB__HW__SPEC__ARM__GICv2_H_ */
