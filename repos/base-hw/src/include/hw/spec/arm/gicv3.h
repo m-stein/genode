@@ -215,12 +215,14 @@ class Hw::Pic
 
 		bool _valid(unsigned const irq_id) const { return irq_id <= _max_irq; }
 
-	public:
-
-		Pic();
+	private:
 
 		enum { IPI = 0 };
 		enum { NR_OF_IRQ = Distributor::nr_of_irq };
+
+	public:
+
+		Pic();
 
 		/**
 		 * Try to receive a pending IRQ
@@ -266,6 +268,9 @@ class Hw::Pic
 		{
 			Cpu_interface::Icc_sgi1r_el1::write(1ULL << cpu_id);
 		}
+
+		static unsigned nr_of_irqs() { return NR_OF_IRQ; }
+		static unsigned ipi()        { return IPI; }
 };
 
 #undef SYSTEM_REGISTER

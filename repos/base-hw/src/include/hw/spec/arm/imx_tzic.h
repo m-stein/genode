@@ -21,9 +21,10 @@ namespace Hw { class Pic; }
 
 class Hw::Pic : public Genode::Mmio
 {
-	public:
+	private:
 
 		enum { NR_OF_IRQ = 109, };
+		enum { IPI = 0xffff };
 
 	protected:
 
@@ -85,8 +86,6 @@ class Hw::Pic : public Genode::Mmio
 
 	public:
 
-		enum { IPI = 0xffff };
-
 		Pic();
 
 		/**
@@ -133,6 +132,9 @@ class Hw::Pic : public Genode::Mmio
 			return !read<Intsec::Nonsecure>(i); }
 
 		static constexpr bool fast_interrupts() { return true; }
+
+		static unsigned nr_of_irqs() { return NR_OF_IRQ; }
+		static unsigned ipi()        { return IPI; }
 };
 
 #endif /* _SRC__LIB__HW__SPEC__ARM__IMX_TZIC_H_ */
