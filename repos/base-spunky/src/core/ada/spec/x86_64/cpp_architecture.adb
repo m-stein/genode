@@ -13,21 +13,9 @@
 
 pragma Ada_2012;
 
-with System;
+with System.Storage_Elements;
 
-with Interfaces; use Interfaces;
-
-package CPP_Architecture is
-
-   pragma Pure;
-
-   type MSR_Address_Type is range 0 .. 2**32 - 1;
-
-   subtype Address_Type  is Unsigned_64;
-   subtype Size_Type     is Unsigned_64;
-   subtype Unsigned_Type is Unsigned_32;
-
-   type Signed_Type is range -(2**32 / 2) .. (2**32 / 2) - 1 with Size => 32;
+package body CPP_Architecture is
 
    --
    --  Round_Up_Address
@@ -35,7 +23,10 @@ package CPP_Architecture is
    function Round_Up_Address (
       Address               : System.Address;
       Byte_Granularity_Log2 : Unsigned_64)
-   return System.Address;
+   return System.Address
+   is (
+      U64_To_Addr (
+         Round_Up_U64 (Addr_To_U64 (Address), Byte_Granularity_Log2)));
 
    --
    --  Round_Up_U64
@@ -43,20 +34,35 @@ package CPP_Architecture is
    function Round_Up_U64 (
       Value            : Unsigned_64;
       Granularity_Log2 : Unsigned_64)
-   return Unsigned_64;
+   return Unsigned_64
+   is
+      Addend : constant Unsigned_64 :=
+         Shift_Left (Unsigned_64 (1), Integer (Granularity_Log2)) - 1;
+
+      Mask : constant Unsigned_64 := not Addend;
+   begin
+
+      return (Value + Addend) and Mask;
+
+   end Round_Up_U64;
 
    --
    --  Addr_To_U64
    --
    function Addr_To_U64 (
       Address : System.Address)
-   return Unsigned_64;
+   return Unsigned_64
+   is (
+      Unsigned_64 (System.Storage_Elements.To_Integer (Address)));
 
    --
    --  U64_To_Addr
    --
    function U64_To_Addr (
       U64 : Unsigned_64)
-   return System.Address;
+   return System.Address
+   is (
+      System.Storage_Elements.To_Address (
+         System.Storage_Elements.Integer_Address (U64)));
 
 end CPP_Architecture;

@@ -123,9 +123,7 @@ is
       while (Port_IO.In_Byte (PIT_Channel_2_Gate) and 16#20#) = 0 loop
 
          System.Machine_Code.Asm (
-            "pause",
-            Clobber => "memory",
-            Volatile => True);
+            "pause", Clobber => "memory", Volatile => True);
 
       end loop;
 
