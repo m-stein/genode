@@ -42,7 +42,8 @@ namespace Kernel {
 
 struct Kernel::Thread_fault
 {
-	enum Type { WRITE, EXEC, PAGE_MISSING, UNKNOWN };
+	enum Type : Genode::uint8_t {
+		UNKNOWN = 0, WRITE = 1, EXEC = 2, PAGE_MISSING = 3 };
 
 	addr_t ip    = 0;
 	addr_t addr  = 0;
