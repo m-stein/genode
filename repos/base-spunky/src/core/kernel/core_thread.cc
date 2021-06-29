@@ -21,8 +21,11 @@
 
 using namespace Kernel;
 
+extern "C" void core_spunky_pc_init();
+
 void prepare_core_thread()
 {
+	core_spunky_pc_init();
 	assert_valid_ada_object_size<Ipc_node>();
 	assert_valid_ada_object_size<Signal_handler>();
 	assert_valid_ada_object_size<Signal_context_killer>();

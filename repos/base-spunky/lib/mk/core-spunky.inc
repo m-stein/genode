@@ -5,6 +5,8 @@ include $(BASE_DIR)/../libports/lib/mk/spark_common.inc
 
 ###################### kernel Ada sources #####################
 
+SRC_ADS += cpp_thread.ads
+
 SRC_ADB += signal.adb
 SRC_ADB += generic_queue.adb
 SRC_ADB += generic_double_list.adb
@@ -32,6 +34,7 @@ vpath cpp.adb                 $(KERNEL_ADA_DIR)
 vpath cpp_ipc_node.adb        $(KERNEL_ADA_DIR)
 vpath cpp_signal.adb          $(KERNEL_ADA_DIR)
 vpath cpp_cpu_scheduler.adb   $(KERNEL_ADA_DIR)
+vpath cpp_thread.ads          $(KERNEL_ADA_DIR)
 
 CC_ADA_OPT += -gnatec=$(KERNEL_ADA_DIR)/ada.adc
 
@@ -123,3 +126,14 @@ vpath %                         $(BASE_DIR)/src/core
 vpath %                         $(BASE_DIR)/src/lib/startup
 
 CC_ADA_WARN_STRICT :=
+
+#
+# Call GNAT binder in order to generate the Ada main package with the Ada
+# runtime initialization procedure in the build directory. Packge and procedure
+# are named after the board-specific core library, e.g., 'core_spunky_pc_main'
+# and 'core_spunky_pc_init'. Note that we have to add the Ada-runtime-ALIs
+# directory as ALI-search directory as we don't incorporate the Ada-runtime
+# ingredients through the library (as usual) but simply via Make includes.
+#
+ALI_DIRS += $(call select_from_ports,ada-runtime)/ada-runtime-alis/alis/
+include $(BASE_DIR)/../gems/lib/mk/generate_ada_main_pkg.inc
