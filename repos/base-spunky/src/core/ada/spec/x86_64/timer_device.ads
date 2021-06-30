@@ -14,9 +14,9 @@
 pragma Ada_2012;
 
 with System;
-with CPP;
 
-use CPP;
+with CPP;        use CPP;
+with Interfaces; use Interfaces;
 
 package Timer_Device is
 
@@ -90,13 +90,13 @@ private
 
    type Divide_Configuration_Type is range 1 .. 6;
 
-   type Divide_Configuration_Register_Type is record
+   type Divide_Configuration_Reg_Type is record
       Bits_0_To_1 : Natural range 0 .. 2**2 - 1;
       Bits_2_To_2 : Natural range 0 .. 2**1 - 1;
    end record
-   with Size => 32, Volatile_Full_Access;
+   with Size => 32;
 
-   for Divide_Configuration_Register_Type use
+   for Divide_Configuration_Reg_Type use
    record
       Bits_0_To_1 at 0 range 0 .. 1;
       Bits_2_To_2 at 0 range 3 .. 3;
@@ -119,7 +119,7 @@ private
       Mask     : LVT_Entry_Mask_Type;
       Mode     : LVT_Entry_Mode_Type;
    end record
-   with Size => 32, Volatile_Full_Access;
+   with Size => 32;
 
    for LVT_Entry_Type use
    record
@@ -134,26 +134,35 @@ private
       PIT_Calc_Timer_Freq : Ticks_Type;
    end record;
 
-   type Register_32_Type is range 0 .. 2**32 - 1 with Size => 32;
-   type Byte_Type is mod 2**8 with Size => 8;
-
    LVT_Entry : LVT_Entry_Type
-   with Address => System'To_Address (LAPIC_LVT_Timer_Entry_Addr);
+   with
+      Volatile_Full_Access,
+      Address => System'To_Address (LAPIC_LVT_Timer_Entry_Addr);
 
-   Flat_LVT_Entry : Register_32_Type
-   with Address => System'To_Address (LAPIC_LVT_Timer_Entry_Addr);
+   Flat_LVT_Entry : Unsigned_32
+   with
+      Volatile_Full_Access,
+      Address => System'To_Address (LAPIC_LVT_Timer_Entry_Addr);
 
-   Divide_Config_Reg : Divide_Configuration_Register_Type
-   with Address => System'To_Address (LAPIC_Timer_Divide_Config_Reg_Addr);
+   Divide_Config_Reg : Divide_Configuration_Reg_Type
+   with
+      Volatile_Full_Access,
+      Address => System'To_Address (LAPIC_Timer_Divide_Config_Reg_Addr);
 
-   Flat_Divide_Config_Reg : Register_32_Type
-   with Address => System'To_Address (LAPIC_Timer_Divide_Config_Reg_Addr);
+   Flat_Divide_Config_Reg : Unsigned_32
+   with
+      Volatile_Full_Access,
+      Address => System'To_Address (LAPIC_Timer_Divide_Config_Reg_Addr);
 
-   Initial_Cnt_Reg : Register_32_Type
-   with Address => System'To_Address (LAPIC_Virt_Base + 16#380#);
+   Initial_Cnt_Reg : Unsigned_32
+   with
+      Volatile_Full_Access,
+      Address => System'To_Address (LAPIC_Virt_Base + 16#380#);
 
-   Current_Cnt_Reg : Register_32_Type
-   with Address => System'To_Address (LAPIC_Virt_Base + 16#390#);
+   Current_Cnt_Reg : Unsigned_32
+   with
+      Volatile_Full_Access,
+      Address => System'To_Address (LAPIC_Virt_Base + 16#390#);
 
    --
    --  Divide_Config_Reg_Write
