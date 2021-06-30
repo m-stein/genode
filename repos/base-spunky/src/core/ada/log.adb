@@ -25,25 +25,25 @@ package body Log is
    end Print_String;
 
    --
-   --  Print_String_And_UInt64
+   --  Print_String_And_U64
    --
-   procedure Print_String_And_UInt64 (
-      Str    : String;
-      Uint64 : Uint64_Type)
+   procedure Print_String_And_U64 (
+      Str : String;
+      U64 : Unsigned_64)
    is
    begin
-      Print_String_With_Length_And_UInt64 (Str, Str'Length, Uint64);
-   end Print_String_And_UInt64;
+      Print_String_With_Length_And_U64 (Str, Str'Length, U64);
+   end Print_String_And_U64;
 
    --
-   --  Print_String_And_Address
+   --  Print_String_And_Addr
    --
-   procedure Print_String_And_Address (
+   procedure Print_String_And_Addr (
       Str  : String;
       Addr : System.Address)
    is
    begin
-      Print_String_With_Length_And_Address (Str, Str'Length, Addr);
-   end Print_String_And_Address;
+      Print_String_With_Length_And_Addr (Str, Str'Length, Addr);
+   end Print_String_And_Addr;
 
 end Log;

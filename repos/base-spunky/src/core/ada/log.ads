@@ -14,11 +14,9 @@
 pragma Ada_2012;
 
 with System;
-with CPP_Architecture;
-with CPP;
 
-use CPP_Architecture;
-use CPP;
+with CPP_Architecture; use CPP_Architecture;
+with Interfaces;       use Interfaces;
 
 package Log is
 
@@ -34,21 +32,21 @@ package Log is
       External_Name => "print_string_with_length";
 
    --
-   --  Print_String_With_Length_And_UInt64
+   --  Print_String_With_Length_And_U64
    --
-   procedure Print_String_With_Length_And_UInt64 (
+   procedure Print_String_With_Length_And_U64 (
       Str    : String;
       Length : Unsigned_Type;
-      Uint64 : Uint64_Type)
+      U64    : Unsigned_64)
    with
       Import,
       Convention => C,
       External_Name => "print_string_with_length_and_uint64";
 
    --
-   --  Print_String_With_Length_And_Address
+   --  Print_String_With_Length_And_Addr
    --
-   procedure Print_String_With_Length_And_Address (
+   procedure Print_String_With_Length_And_Addr (
       Str    : String;
       Length : Unsigned_Type;
       Addr   : System.Address)
@@ -58,19 +56,19 @@ package Log is
       External_Name => "print_string_with_length_and_address";
 
    --
-   --  Print_UInt64
+   --  Print_U64
    --
-   procedure Print_UInt64 (
-      Uint64 : Uint64_Type)
+   procedure Print_U64 (
+      U64 : Unsigned_64)
    with
       Import,
       Convention => C,
       External_Name => "print_uint64";
 
    --
-   --  Print_Address
+   --  Print_Addr
    --
-   procedure Print_Address (
+   procedure Print_Addr (
       Addr : System.Address)
    with
       Import,
@@ -83,16 +81,16 @@ package Log is
    procedure Print_String (Str : String);
 
    --
-   --  Print_String_And_UInt64
+   --  Print_String_And_U64
    --
-   procedure Print_String_And_UInt64 (
-      Str    : String;
-      Uint64 : Uint64_Type);
+   procedure Print_String_And_U64 (
+      Str : String;
+      U64 : Unsigned_64);
 
    --
-   --  Print_String_And_Address
+   --  Print_String_And_Addr
    --
-   procedure Print_String_And_Address (
+   procedure Print_String_And_Addr (
       Str  : String;
       Addr : System.Address);
 

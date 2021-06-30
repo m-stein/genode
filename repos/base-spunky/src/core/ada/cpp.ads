@@ -14,6 +14,7 @@
 pragma Ada_2012;
 
 with CPP_Architecture; use CPP_Architecture;
+with Interfaces;       use Interfaces;
 
 package CPP is
 
@@ -21,10 +22,9 @@ package CPP is
 
    type Bool_Type                     is range 0 .. 1         with Size => 8;
    type Byte_Type                     is range 0 .. 2**8 - 1  with Size => 8;
-   type Uint64_Type                   is mod 2**64            with Size => 64;
    type Signal_Imprint_Type           is new Address_Type;
    type Signal_Number_Of_Submits_Type is new Unsigned_Type;
-   type Time_Type                     is new Uint64_Type;
+   type Time_Type                     is new Unsigned_64;
    type CPU_Quota_Type                is new Unsigned_Type;
    type CPU_Priority_Type             is new Signed_Type;
    type CPU_ID_Type                   is new Unsigned_Type;
