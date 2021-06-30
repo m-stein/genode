@@ -13,7 +13,6 @@
 
 pragma Ada_2012;
 
-with Interfaces;
 with System.Machine_Code;
 with Port_IO;
 
@@ -74,7 +73,7 @@ is
    --
    procedure Divide_Config_Reg_Write (Div : Divide_Configuration_Type)
    is
-      New_Divide_Config : Divide_Configuration_Register_Type;
+      New_Divide_Config : Divide_Configuration_Reg_Type;
    begin
       New_Divide_Config.Bits_0_To_1 := Natural (Div) mod 2**2;
       New_Divide_Config.Bits_2_To_2 :=
@@ -91,8 +90,8 @@ is
    procedure PIT_Measure_Ticks_Per_MS (Ticks_Per_MS : out Ticks_Type)
    is
       use Port_IO;
-      Start_Cnt : Register_32_Type;
-      End_Cnt : Register_32_Type;
+      Start_Cnt : Unsigned_32;
+      End_Cnt   : Unsigned_32;
    begin
       --
       --  Set channel gate high and disable speaker
@@ -142,7 +141,6 @@ is
       Ticks  : Ticks_Type)
    return Time_Type
    is
-      use Interfaces;
       MSB_Mask        : constant := 16#ffff_ffff_0000_0000#;
       LSB_Mask        : constant := 16#0000_0000_ffff_ffff#;
       MSB_Right_Shift : constant := 10;
@@ -190,7 +188,7 @@ is
    procedure Start_One_Shot (Ticks : Time_Type)
    is
    begin
-      Initial_Cnt_Reg := Register_32_Type (Ticks);
+      Initial_Cnt_Reg := Unsigned_32 (Ticks);
    end Start_One_Shot;
 
    --
