@@ -18,14 +18,15 @@
 #include <base/stdint.h>
 #include <base/log.h>
 
+/* base-hw includes */
+#include <kernel/types.h>
+
 namespace Kernel {
 
-	using Ada_object_size = Genode::uint32_t;
-
-	template <Ada_object_size SIZE>
+	template <size_t SIZE>
 	struct Ada_object
 	{
-		static constexpr Ada_object_size size() { return SIZE; }
+		static constexpr size_t size() { return SIZE; }
 
 		char space[SIZE] { };
 
@@ -51,22 +52,22 @@ namespace Genode {
 }
 namespace Kernel {
 
-	Ada_object_size object_size(Ipc_node const &);
-	Ada_object_size object_size(Signal_receiver const &);
-	Ada_object_size object_size(Signal_handler const &);
-	Ada_object_size object_size(Signal_context const &);
-	Ada_object_size object_size(Signal_context_killer const &);
-	Ada_object_size object_size(Cpu_share const &);
-	Ada_object_size object_size(Cpu_scheduler const &);
-	Ada_object_size object_size(Timer const &);
-	Ada_object_size object_size(Timeout const &);
-	Ada_object_size object_size(Board::Pic const &);
-	Ada_object_size object_size(Genode::Cpu const &);
+	size_t object_size(Ipc_node const &);
+	size_t object_size(Signal_receiver const &);
+	size_t object_size(Signal_handler const &);
+	size_t object_size(Signal_context const &);
+	size_t object_size(Signal_context_killer const &);
+	size_t object_size(Cpu_share const &);
+	size_t object_size(Cpu_scheduler const &);
+	size_t object_size(Timer const &);
+	size_t object_size(Timeout const &);
+	size_t object_size(Board::Pic const &);
+	size_t object_size(Genode::Cpu const &);
 
 	template <typename T>
 	static inline void assert_valid_ada_object_size()
 	{
-		Ada_object_size const obj_size { object_size(*(T *)nullptr) };
+		size_t const obj_size { object_size(*(T *)nullptr) };
 		if (obj_size > T::Ada_object::size()) {
 			Genode::error("Ada object has invalid size (should be ", obj_size,")");
 			while (1) ;
