@@ -17,7 +17,7 @@
 /* core includes */
 #include <util/misc_math.h>
 #include <kernel/configuration.h>
-#include <kernel/ada_object.h>
+#include <kernel/ada_interfacing.h>
 
 namespace Kernel
 {
@@ -52,7 +52,7 @@ class Kernel::Cpu_priority
 		operator signed() const { return _value; }
 };
 
-struct Kernel::Cpu_share : Ada_object<88>
+struct Kernel::Cpu_share : Opaque_ada_type<Cpu_share, 88>
 {
 	Cpu_share(signed const p, unsigned const q);
 
@@ -60,7 +60,7 @@ struct Kernel::Cpu_share : Ada_object<88>
 	void quota(unsigned const q);
 };
 
-struct Kernel::Cpu_scheduler : Ada_object<216>
+struct Kernel::Cpu_scheduler : Opaque_ada_type<Cpu_scheduler, 216>
 {
 	Cpu_scheduler(Cpu_share &i, unsigned const q, unsigned const f);
 

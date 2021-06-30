@@ -28,7 +28,8 @@ is
    with
       Export,
       Convention    => C,
-      External_Name => "_ZN6Kernel11object_sizeERKNS_9Cpu_shareE";
+      External_Name =>
+         "_ZNK6Kernel15Opaque_ada_typeINS_9Cpu_shareELm88EE9_ada_sizeEv";
 
    --
    --  Scheduler_Size
@@ -38,7 +39,8 @@ is
    with
       Export,
       Convention    => C,
-      External_Name => "_ZN6Kernel11object_sizeERKNS_13Cpu_schedulerE";
+      External_Name =>
+         "_ZNK6Kernel15Opaque_ada_typeINS_13Cpu_schedulerELm216EE9_ada_sizeEv";
 
    --
    --  Share_Initialize

@@ -32,7 +32,7 @@
 #include <fpu.h>
 
 /* Spunky includes */
-#include <kernel/ada_object.h>
+#include <kernel/ada_interfacing.h>
 
 namespace Kernel { struct Thread_fault; }
 
@@ -44,7 +44,7 @@ namespace Genode {
 }
 
 
-class Genode::Cpu : public Kernel::Ada_object<160>
+class Genode::Cpu : public Kernel::Opaque_ada_type<Cpu, 160>
 {
 	private:
 
@@ -55,14 +55,19 @@ class Genode::Cpu : public Kernel::Ada_object<160>
 
 	public:
 
-		struct Mmu_context
+		struct Mmu_context : Kernel::Imitating_ada_type<Mmu_context>
 		{
 			addr_t not_used;
 
 			Mmu_context(addr_t page_table_base);
 		};
 
-		struct alignas(16) Context : Cpu_state, Cpu_context_base, Fpu_context
+		struct alignas(16) Context
+		:
+			Kernel::Imitating_ada_type<Context>,
+			Cpu_state,
+			Cpu_context_base,
+			Fpu_context
 		{
 			Context(bool privileged);
 

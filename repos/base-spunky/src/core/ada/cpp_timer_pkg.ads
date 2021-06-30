@@ -26,14 +26,16 @@ package CPP_Timer_Pkg is
    with
       Export,
       Convention    => C,
-      External_Name => "_ZN6Kernel11object_sizeERKNS_5TimerE";
+      External_Name =>
+         "_ZNK6Kernel15Opaque_ada_typeINS_5TimerELm56EE9_ada_sizeEv";
 
    function Timeout_Size (Timeout : Timeout_Type)
    return Size_Type
    with
       Export,
       Convention    => C,
-      External_Name => "_ZN6Kernel11object_sizeERKNS_7TimeoutE";
+      External_Name =>
+         "_ZNK6Kernel15Opaque_ada_typeINS_7TimeoutELm56EE9_ada_sizeEv";
 
    function Interrupt_ID (
       Timer : Timer_Reference_Type)

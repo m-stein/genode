@@ -29,7 +29,8 @@ package CPP_Signal is
    with
       Export,
       Convention    => C,
-      External_Name => "_ZN6Kernel11object_sizeERKNS_14Signal_handlerE";
+      External_Name =>
+         "_ZNK6Kernel15Opaque_ada_typeINS_14Signal_handlerELm40EE9_ada_sizeEv";
 
    --
    --  Handler_Initialize
@@ -68,7 +69,9 @@ package CPP_Signal is
    with
       Export,
       Convention    => C,
-      External_Name => "_ZN6Kernel11object_sizeERKNS_15Signal_receiverE";
+      External_Name =>
+         "_ZNK6Kernel15Opaque_ada_typeINS_15Signal_receiverELm48EE9" &
+         "_ada_sizeEv";
 
    --
    --  Receiver_Initialize
@@ -121,7 +124,9 @@ package CPP_Signal is
    with
       Export,
       Convention    => C,
-      External_Name => "_ZN6Kernel11object_sizeERKNS_21Signal_context_killerE";
+      External_Name =>
+         "_ZNK6Kernel15Opaque_ada_typeINS_21Signal_context_killerELm16EE9" &
+         "_ada_sizeEv";
 
    --
    --  Context_Killer_Initialize
@@ -162,7 +167,8 @@ package CPP_Signal is
    with
       Export,
       Convention    => C,
-      External_Name => "_ZN6Kernel11object_sizeERKNS_14Signal_contextE";
+      External_Name =>
+         "_ZNK6Kernel15Opaque_ada_typeINS_14Signal_contextELm88EE9_ada_sizeEv";
 
    --
    --  Context_Initialize

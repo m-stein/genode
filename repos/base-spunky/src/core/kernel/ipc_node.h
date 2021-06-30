@@ -15,7 +15,7 @@
 #define _CORE__KERNEL__IPC_NODE_H_
 
 /* Core includes */
-#include <kernel/ada_object.h>
+#include <kernel/ada_interfacing.h>
 
 namespace Kernel {
 
@@ -23,7 +23,7 @@ namespace Kernel {
 	class Ipc_node;
 }
 
-struct Kernel::Ipc_node : Ada_object<80>
+struct Kernel::Ipc_node : Opaque_ada_type<Ipc_node, 80>
 {
 	Ipc_node(Thread &thread);
 

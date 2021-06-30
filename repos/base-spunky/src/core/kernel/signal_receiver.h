@@ -16,7 +16,7 @@
 
 
 /* Core includes */
-#include <kernel/ada_object.h>
+#include <kernel/ada_interfacing.h>
 #include <kernel/core_interface.h>
 #include <object.h>
 
@@ -29,7 +29,7 @@ namespace Kernel
 	class Signal_receiver;
 }
 
-struct Kernel::Signal_handler : Ada_object<40>
+struct Kernel::Signal_handler : Opaque_ada_type<Signal_handler, 40>
 {
 	Signal_handler(Thread &thread);
 
@@ -38,7 +38,7 @@ struct Kernel::Signal_handler : Ada_object<40>
 	void cancel_waiting();
 };
 
-struct Kernel::Signal_context_killer : Ada_object<16>
+struct Kernel::Signal_context_killer : Opaque_ada_type<Signal_context_killer, 16>
 {
 	Signal_context_killer(Thread &thread);
 
@@ -47,7 +47,7 @@ struct Kernel::Signal_context_killer : Ada_object<16>
 	void cancel_waiting();
 };
 
-struct Kernel::Signal_context : Ada_object<88>
+struct Kernel::Signal_context : Opaque_ada_type<Signal_context, 88>
 {
 	Kernel::Object _kernel_object { *this };
 
@@ -95,7 +95,7 @@ struct Kernel::Signal_context : Ada_object<88>
 	Object &kernel_object() { return _kernel_object; }
 };
 
-struct Kernel::Signal_receiver : Ada_object<48>
+struct Kernel::Signal_receiver : Opaque_ada_type<Signal_receiver, 48>
 {
 	Kernel::Object _kernel_object { *this };
 
