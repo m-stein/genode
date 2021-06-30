@@ -13,13 +13,9 @@
 
 pragma Ada_2012;
 
-with CPP;
-with CPP_Architecture;
-with IRQ_Controller_Pkg;
-
-use CPP;
-use CPP_Architecture;
-use IRQ_Controller_Pkg;
+with CPP;                use CPP;
+with CPP_Architecture;   use CPP_Architecture;
+with IRQ_Controller_Pkg; use IRQ_Controller_Pkg;
 
 package CPP_IRQ_Controller_Pkg is
 
@@ -27,7 +23,7 @@ package CPP_IRQ_Controller_Pkg is
    --  IRQ_Controller_Size
    --
    function IRQ_Controller_Size (Ctrl : IRQ_Controller_Reference_Type)
-   return CPP.Uint32_Type
+   return Size_Type
    with
       Export,
       Convention    => C,

@@ -14,8 +14,10 @@
 pragma Ada_2012;
 
 with Signal;
-with CPP;
 with CPP_Thread;
+
+with CPP;              use CPP;
+with CPP_Architecture; use CPP_Architecture;
 
 package CPP_Signal is
 
@@ -23,7 +25,7 @@ package CPP_Signal is
    --  Handler_Size
    --
    function Handler_Size (Obj : Signal.Handler_Type)
-   return CPP.Uint32_Type
+   return Size_Type
    with
       Export,
       Convention    => C,
@@ -62,7 +64,7 @@ package CPP_Signal is
    --  Receiver_Size
    --
    function Receiver_Size (Obj : Signal.Receiver_Type)
-   return CPP.Uint32_Type
+   return Size_Type
    with
       Export,
       Convention    => C,
@@ -92,7 +94,7 @@ package CPP_Signal is
    function Receiver_Can_Add_Handler (
       Obj     : Signal.Receiver_Type;
       Handler : Signal.Handler_Type)
-   return CPP.Bool_Type
+   return Bool_Type
    with
       Export,
       Convention    => C,
@@ -115,7 +117,7 @@ package CPP_Signal is
    --  Context_Killer_Size
    --
    function Context_Killer_Size (Obj : Signal.Context_Killer_Type)
-   return CPP.Uint32_Type
+   return Size_Type
    with
       Export,
       Convention    => C,
@@ -156,7 +158,7 @@ package CPP_Signal is
    --  Context_Size
    --
    function Context_Size (Obj : Signal.Context_Type)
-   return CPP.Uint32_Type
+   return Size_Type
    with
       Export,
       Convention    => C,
@@ -168,7 +170,7 @@ package CPP_Signal is
    procedure Context_Initialize (
       Obj   : Signal.Context_Reference_Type;
       Recvr : Signal.Receiver_Reference_Type;
-      Impr  : CPP.Signal_Imprint_Type)
+      Impr  : Signal_Imprint_Type)
    with
       Export,
       Convention    => C,
@@ -197,7 +199,7 @@ package CPP_Signal is
    --  Context_Can_Kill
    --
    function Context_Can_Kill (Obj : Signal.Context_Type)
-   return CPP.Bool_Type
+   return Bool_Type
    with
       Export,
       Convention    => C,
@@ -229,8 +231,8 @@ package CPP_Signal is
    --
    function Context_Can_Submit (
       Obj           : Signal.Context_Type;
-      Nr_Of_Submits : CPP.Signal_Number_Of_Submits_Type)
-   return CPP.Bool_Type
+      Nr_Of_Submits : Signal_Number_Of_Submits_Type)
+   return Bool_Type
    with
       Export,
       Convention    => C,
@@ -241,7 +243,7 @@ package CPP_Signal is
    --
    procedure Context_Submit (
       Obj           : Signal.Context_Reference_Type;
-      Nr_Of_Submits : CPP.Signal_Number_Of_Submits_Type)
+      Nr_Of_Submits : Signal_Number_Of_Submits_Type)
    with
       Export,
       Convention    => C,

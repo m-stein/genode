@@ -13,13 +13,16 @@
 
 pragma Ada_2012;
 
-with CPP;
 with CPP_Thread;
 with IPC_Node;
 
+with CPP;                use CPP;
+with CPP_Architecture;   use CPP_Architecture;
+
 package CPP_IPC_Node is
 
-   function Object_Size (Obj : IPC_Node.Object_Type) return CPP.Uint32_Type
+   function Object_Size (Obj : IPC_Node.Object_Type)
+   return Size_Type
    with Export,
         Convention    => C,
         External_Name => "_ZN6Kernel11object_sizeERKNS_8Ipc_nodeE";
@@ -39,7 +42,7 @@ package CPP_IPC_Node is
       External_Name => "_ZN6Kernel8Ipc_nodeD1Ev";
 
    function Can_Send_Request (Obj : IPC_Node.Object_Type)
-   return CPP.Bool_Type
+   return Bool_Type
    with
       Export,
       Convention    => C,
@@ -57,7 +60,7 @@ package CPP_IPC_Node is
    procedure Send_Request (
       Obj     : IPC_Node.Object_Reference_Type;
       Callee  : IPC_Node.Object_Reference_Type;
-      Help    : CPP.Bool_Type)
+      Help    : Bool_Type)
    with
       Export,
       Convention    => C,
@@ -70,7 +73,7 @@ package CPP_IPC_Node is
       External_Name => "_ZN6Kernel8Ipc_node10send_replyEv";
 
    function Can_Wait_For_Request (Obj : IPC_Node.Object_Type)
-   return CPP.Bool_Type
+   return Bool_Type
    with
       Export,
       Convention    => C,
@@ -96,7 +99,7 @@ package CPP_IPC_Node is
       External_Name => "_ZN6Kernel8Ipc_node14cancel_waitingEv";
 
    function Waits_For_Request (Obj : IPC_Node.Object_Type)
-   return CPP.Bool_Type
+   return Bool_Type
    with
       Export,
       Convention    => C,

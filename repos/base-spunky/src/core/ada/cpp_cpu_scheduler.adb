@@ -13,29 +13,31 @@
 
 pragma Ada_2012;
 
+with Interfaces; use Interfaces;
+
 package body CPP_CPU_Scheduler
 is
    --
    --  Share_Size
    --
    function Share_Size (Share : CPU_Scheduler.Share_Type)
-   return CPP.Uint32_Type
-   is (CPP.Uint32_Type (Share'Size / 8));
+   return Size_Type
+   is (Share'Size / 8);
 
    --
    --  Scheduler_Size
    --
    function Scheduler_Size (Scheduler : CPU_Scheduler.Scheduler_Type)
-   return CPP.Uint32_Type
-   is (CPP.Uint32_Type (Scheduler'Size / 8));
+   return Size_Type
+   is (Scheduler'Size / 8);
 
    --
    --  Share_Initialize
    --
    procedure Share_Initialize (
       Share : CPU_Scheduler.Share_Reference_Type;
-      Prio  : CPP.CPU_Priority_Type;
-      Quota : CPP.CPU_Quota_Type)
+      Prio  : CPU_Priority_Type;
+      Quota : CPU_Quota_Type)
    is
    begin
       CPU_Scheduler.Share_Initialize (
@@ -48,15 +50,15 @@ is
    --  Share_Ready
    --
    function Share_Ready (Share : CPU_Scheduler.Share_Type)
-   return CPP.Bool_Type
-   is (CPP.Bool_From_Ada (CPU_Scheduler.Share_Ready (Share)));
+   return Bool_Type
+   is (Bool_From_Ada (CPU_Scheduler.Share_Ready (Share)));
 
    --
    --  Share_Quota
    --
    procedure Share_Quota (
       Share : in out CPU_Scheduler.Share_Type;
-      Quota :        CPP.CPU_Quota_Type)
+      Quota :        CPU_Quota_Type)
    is
    begin
       CPU_Scheduler.Share_Quota (Share, CPU_Scheduler.Quota_Type (Quota));
@@ -68,8 +70,8 @@ is
    procedure Initialize (
       Scheduler : out CPU_Scheduler.Scheduler_Type;
       Idle      :     CPU_Scheduler.Share_Reference_Type;
-      Quota     :     CPP.CPU_Quota_Type;
-      Fill      :     CPP.CPU_Quota_Type)
+      Quota     :     CPU_Quota_Type;
+      Fill      :     CPU_Quota_Type)
    is
    begin
       CPU_Scheduler.Initialize (
@@ -89,15 +91,15 @@ is
    --  Head_Quota
    --
    function Head_Quota (Scheduler : CPU_Scheduler.Scheduler_Type)
-   return CPP.CPU_Quota_Type
-   is (CPP.CPU_Quota_Type (CPU_Scheduler.Head_Quota (Scheduler)));
+   return CPU_Quota_Type
+   is (CPU_Quota_Type (CPU_Scheduler.Head_Quota (Scheduler)));
 
    --
    --  Need_To_Schedule
    --
    function Need_To_Schedule (Scheduler : CPU_Scheduler.Scheduler_Type)
-   return CPP.Bool_Type
-   is (CPP.Bool_From_Ada (CPU_Scheduler.Need_To_Schedule (Scheduler)));
+   return Bool_Type
+   is (Bool_From_Ada (CPU_Scheduler.Need_To_Schedule (Scheduler)));
 
    --
    --  Timeout
@@ -114,7 +116,7 @@ is
    procedure Quota (
       Scheduler : in out CPU_Scheduler.Scheduler_Type;
       Share     :        CPU_Scheduler.Share_Reference_Type;
-      Quota     :        CPP.CPU_Quota_Type)
+      Quota     :        CPU_Quota_Type)
    is
    begin
       CPU_Scheduler.Quota (
@@ -191,7 +193,7 @@ is
    --
    procedure Update (
       Scheduler : in out CPU_Scheduler.Scheduler_Type;
-      Time      :        CPP.Time_Type)
+      Time      :        Time_Type)
    is
    begin
       CPU_Scheduler.Update (Scheduler, CPU_Scheduler.Time_Type (Time));

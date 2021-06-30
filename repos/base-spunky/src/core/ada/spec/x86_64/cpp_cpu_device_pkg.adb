@@ -13,11 +13,13 @@
 
 pragma Ada_2012;
 
+with Interfaces; use Interfaces;
+
 package body CPP_CPU_Device_Pkg is
 
    function CPU_Device_Size (CPU_Device : CPU_Device_Type)
-   return CPP.Uint32_Type
-   is (CPP.Uint32_Type (CPU_Device'Size / 8));
+   return Size_Type
+   is (CPU_Device'Size / 8);
 
    procedure Switch_To (
       CPU_Device  : in out CPU_Device_Type;
