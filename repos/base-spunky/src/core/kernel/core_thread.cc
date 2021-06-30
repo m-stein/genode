@@ -12,7 +12,7 @@
  */
 
 /* core includes */
-#include <kernel/ada_object.h>
+#include <kernel/ada_interfacing.h>
 #include <kernel/signal_receiver.h>
 #include <kernel/ipc_node.h>
 #include <kernel/cpu_scheduler.h>
@@ -27,15 +27,18 @@ extern "C" void core_spunky_pc_init();
 void prepare_core_thread()
 {
 	core_spunky_pc_init();
-	assert_valid_ada_object_size<Ipc_node>();
-	assert_valid_ada_object_size<Signal_handler>();
-	assert_valid_ada_object_size<Signal_context_killer>();
-	assert_valid_ada_object_size<Signal_context>();
-	assert_valid_ada_object_size<Signal_receiver>();
-	assert_valid_ada_object_size<Cpu_share>();
-	assert_valid_ada_object_size<Cpu_scheduler>();
-	assert_valid_ada_object_size<Timer>();
-	assert_valid_ada_object_size<Timeout>();
-	assert_valid_ada_object_size<Board::Pic>();
-	assert_valid_ada_object_size<Genode::Cpu>();
+
+	Ipc_node::assert_types_have_same_size();
+	Signal_handler::assert_types_have_same_size();
+	Signal_context_killer::assert_types_have_same_size();
+	Signal_context::assert_types_have_same_size();
+	Signal_receiver::assert_types_have_same_size();
+	Cpu_share::assert_types_have_same_size();
+	Cpu_scheduler::assert_types_have_same_size();
+	Timer::assert_types_have_same_size();
+	Timeout::assert_types_have_same_size();
+	Board::Pic::assert_types_have_same_size();
+	Genode::Cpu::assert_types_have_same_size();
+	Genode::Cpu::Context::assert_types_have_same_size();
+	Genode::Cpu::Mmu_context::assert_types_have_same_size();
 }

@@ -21,6 +21,14 @@ package body CPP_CPU_Device_Pkg is
    return Size_Type
    is (CPU_Device'Size / 8);
 
+   function CPU_State_Size (CPU_State : CPU_State_Type)
+   return Size_Type
+   is (CPU_State'Size / 8);
+
+   function MMU_Context_Size (MMU_Context : MMU_Context_Type)
+   return Size_Type
+   is (MMU_Context'Size / 8);
+
    procedure Switch_To (
       CPU_Device  : in out CPU_Device_Type;
       CPU_State   : in out CPU_State_Type;

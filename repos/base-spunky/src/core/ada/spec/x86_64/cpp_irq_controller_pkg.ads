@@ -27,7 +27,8 @@ package CPP_IRQ_Controller_Pkg is
    with
       Export,
       Convention    => C,
-      External_Name => "_ZN6Kernel11object_sizeERKN5Board3PicE";
+      External_Name =>
+         "_ZNK6Kernel15Opaque_ada_typeIN5Board3PicELm8EE9_ada_sizeEv";
 
    --
    --  Initialize

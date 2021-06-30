@@ -11,13 +11,9 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-/* core includes */
-#include <kernel/ada_object.h>
-#include <kernel/signal_receiver.h>
-#include <kernel/ipc_node.h>
-#include <kernel/cpu_scheduler.h>
-#include <kernel/timer.h>
-#include <pic.h>
+/* Genode includes */
+#include <base/log.h>
+#include <util/string.h>
 
 namespace Log {
 

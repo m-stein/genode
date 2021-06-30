@@ -25,7 +25,8 @@ package CPP_IPC_Node is
    return Size_Type
    with Export,
         Convention    => C,
-        External_Name => "_ZN6Kernel11object_sizeERKNS_8Ipc_nodeE";
+        External_Name =>
+           "_ZNK6Kernel15Opaque_ada_typeINS_8Ipc_nodeELm80EE9_ada_sizeEv";
 
    procedure Initialize_Object (
       Obj  : IPC_Node.Object_Reference_Type;
