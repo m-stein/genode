@@ -48,12 +48,6 @@ package CPP is
    type Bitfield_24_Type is range 0 .. 2**24 - 1;
    type Bitfield_52_Type is range 0 .. 2**52 - 1;
 
-   type Register_32_Type is range 0 .. 2**32 - 1
-   with Size => 32, Volatile_Full_Access;
-
-   type Register_64_Type is mod 2**64
-   with Size => 64, Volatile_Full_Access;
-
    type Page_Fault_Reason_Type is (Unknown, Write, Execute, Page_Missing)
    with Size => 8;
 
