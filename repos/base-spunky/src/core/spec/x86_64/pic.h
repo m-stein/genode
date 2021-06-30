@@ -15,11 +15,11 @@
 #define _CORE__SPEC__X86_64__PIC_H_
 
 /* Spunky includes */
-#include <kernel/ada_object.h>
+#include <kernel/ada_interfacing.h>
 
 namespace Board { struct Pic; }
 
-struct Board::Pic : Kernel::Ada_object<592>
+struct Board::Pic : Kernel::Opaque_ada_type<Pic, 8>
 {
 	Pic();
 

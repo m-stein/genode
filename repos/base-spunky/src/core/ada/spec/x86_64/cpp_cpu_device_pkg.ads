@@ -24,7 +24,25 @@ package CPP_CPU_Device_Pkg is
    with
       Export,
       Convention    => C,
-      External_Name => "_ZN6Kernel11object_sizeERKN6Genode3CpuE";
+      External_Name =>
+         "_ZNK6Kernel15Opaque_ada_typeIN6Genode3CpuELm160EE9_ada_sizeEv";
+
+   function CPU_State_Size (CPU_State : CPU_State_Type)
+   return Size_Type
+   with
+      Export,
+      Convention    => C,
+      External_Name =>
+         "_ZNK6Kernel18Imitating_ada_typeIN6Genode3Cpu7ContextEE9_ada_sizeEv";
+
+   function MMU_Context_Size (MMU_Context : MMU_Context_Type)
+   return Size_Type
+   with
+      Export,
+      Convention    => C,
+      External_Name =>
+         "_ZNK6Kernel18Imitating_ada_typeIN6Genode3Cpu11Mmu_contextEE9" &
+         "_ada_sizeEv";
 
    procedure Invalidate_TLB
    with

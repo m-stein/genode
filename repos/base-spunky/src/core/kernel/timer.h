@@ -25,7 +25,7 @@ namespace Kernel {
 	class Timer;
 }
 
-struct Kernel::Timeout : Ada_object<56>
+struct Kernel::Timeout : Opaque_ada_type<Timeout, 56>
 {
 	Timeout(Thread &thread);
 
@@ -34,7 +34,7 @@ struct Kernel::Timeout : Ada_object<56>
 	void handle() const;
 };
 
-struct Kernel::Timer : Ada_object<56>
+struct Kernel::Timer : Opaque_ada_type<Timer, 56>
 {
 	struct Irq : Kernel::Irq
 	{
