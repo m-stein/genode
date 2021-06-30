@@ -13,14 +13,16 @@
 
 pragma Ada_2012;
 
+with Interfaces; use Interfaces;
+
 package body CPP_IRQ_Controller_Pkg is
 
    --
    --  IRQ_Controller_Size
    --
    function IRQ_Controller_Size (Ctrl : IRQ_Controller_Reference_Type)
-   return CPP.Uint32_Type
-   is (CPP.Uint32_Type (Ctrl'Size / 8));
+   return Size_Type
+   is (Ctrl'Size / 8);
 
    --
    --  Initialize

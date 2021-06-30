@@ -13,14 +13,16 @@
 
 pragma Ada_2012;
 
+with Interfaces; use Interfaces;
+
 package body CPP_Signal is
 
    --
    --  Handler_Size
    --
    function Handler_Size (Obj : Signal.Handler_Type)
-   return CPP.Uint32_Type
-   is (CPP.Uint32_Type (Obj'Size / 8));
+   return Size_Type
+   is (Obj'Size / 8);
 
    --
    --  Handler_Initialize
@@ -55,8 +57,8 @@ package body CPP_Signal is
    --  Receiver_Size
    --
    function Receiver_Size (Obj : Signal.Receiver_Type)
-   return CPP.Uint32_Type
-   is (CPP.Uint32_Type (Obj'Size / 8));
+   return Size_Type
+   is (Obj'Size / 8);
 
    --
    --  Receiver_Initialize
@@ -82,8 +84,8 @@ package body CPP_Signal is
    function Receiver_Can_Add_Handler (
       Obj     : Signal.Receiver_Type;
       Handler : Signal.Handler_Type)
-   return CPP.Bool_Type
-   is (CPP.Bool_From_Ada (Signal.Receiver_Can_Add_Handler (Obj, Handler)));
+   return Bool_Type
+   is (Bool_From_Ada (Signal.Receiver_Can_Add_Handler (Obj, Handler)));
 
    --
    --  Receiver_Add_Handler
@@ -100,8 +102,8 @@ package body CPP_Signal is
    --  Context_Killer_Size
    --
    function Context_Killer_Size (Obj : Signal.Context_Killer_Type)
-   return CPP.Uint32_Type
-   is (CPP.Uint32_Type (Obj'Size / 8));
+   return Size_Type
+   is (Obj'Size / 8);
 
    --
    --  Context_Killer_Initialize
@@ -138,8 +140,8 @@ package body CPP_Signal is
    --  Context_Size
    --
    function Context_Size (Obj : Signal.Context_Type)
-   return CPP.Uint32_Type
-   is (CPP.Uint32_Type (Obj'Size / 8));
+   return Size_Type
+   is (Obj'Size / 8);
 
    --
    --  Context_Initialize
@@ -147,7 +149,7 @@ package body CPP_Signal is
    procedure Context_Initialize (
       Obj   : Signal.Context_Reference_Type;
       Recvr : Signal.Receiver_Reference_Type;
-      Impr  : CPP.Signal_Imprint_Type)
+      Impr  : Signal_Imprint_Type)
    is
    begin
       Signal.Context_Initialize (Obj, Recvr, Impr);
@@ -166,8 +168,8 @@ package body CPP_Signal is
    --  Context_Can_Kill
    --
    function Context_Can_Kill (Obj : Signal.Context_Type)
-   return CPP.Bool_Type
-   is (CPP.Bool_From_Ada (Signal.Context_Can_Kill (Obj)));
+   return Bool_Type
+   is (Bool_From_Ada (Signal.Context_Can_Kill (Obj)));
 
    --
    --  Context_Kill
@@ -194,10 +196,10 @@ package body CPP_Signal is
    --
    function Context_Can_Submit (
       Obj           : Signal.Context_Type;
-      Nr_Of_Submits : CPP.Signal_Number_Of_Submits_Type)
-   return CPP.Bool_Type
+      Nr_Of_Submits : Signal_Number_Of_Submits_Type)
+   return Bool_Type
    is (
-      CPP.Bool_From_Ada (
+      Bool_From_Ada (
          Signal.Context_Can_Submit (
             Obj, Signal.Number_Of_Submits_Type (Nr_Of_Submits))));
 
@@ -206,7 +208,7 @@ package body CPP_Signal is
    --
    procedure Context_Submit (
       Obj           : Signal.Context_Reference_Type;
-      Nr_Of_Submits : CPP.Signal_Number_Of_Submits_Type)
+      Nr_Of_Submits : Signal_Number_Of_Submits_Type)
    is
    begin
       Signal.Context_Submit (

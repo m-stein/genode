@@ -20,7 +20,7 @@ with CPU_Device_Pkg;   use CPU_Device_Pkg;
 package CPP_CPU_Device_Pkg is
 
    function CPU_Device_Size (CPU_Device : CPU_Device_Type)
-   return CPP.Uint32_Type
+   return Size_Type
    with
       Export,
       Convention    => C,

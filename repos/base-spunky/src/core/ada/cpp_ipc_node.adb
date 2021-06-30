@@ -13,14 +13,13 @@
 
 pragma Ada_2012;
 
+with Interfaces; use Interfaces;
+
 package body CPP_IPC_Node is
 
-   function Object_Size (Obj : IPC_Node.Object_Type) return CPP.Uint32_Type
-   is
-      use CPP;
-   begin
-      return Obj'Size / 8;
-   end Object_Size;
+   function Object_Size (Obj : IPC_Node.Object_Type)
+   return Size_Type
+   is (Obj'Size / 8);
 
    procedure Initialize_Object (
       Obj  : IPC_Node.Object_Reference_Type;
@@ -37,8 +36,8 @@ package body CPP_IPC_Node is
    end Deinitialize_Object;
 
    function Can_Send_Request (Obj : IPC_Node.Object_Type)
-   return CPP.Bool_Type
-   is (CPP.Bool_From_Ada (IPC_Node.Can_Send_Request (Obj)));
+   return Bool_Type
+   is (Bool_From_Ada (IPC_Node.Can_Send_Request (Obj)));
 
    procedure For_Each_Helper (
       Obj  : IPC_Node.Object_Reference_Type;
@@ -51,10 +50,10 @@ package body CPP_IPC_Node is
    procedure Send_Request (
       Obj     : IPC_Node.Object_Reference_Type;
       Callee  : IPC_Node.Object_Reference_Type;
-      Help    : CPP.Bool_Type)
+      Help    : Bool_Type)
    is
    begin
-      IPC_Node.Send_Request (Obj, Callee, CPP.Bool_To_Ada (Help));
+      IPC_Node.Send_Request (Obj, Callee, Bool_To_Ada (Help));
    end Send_Request;
 
    procedure Send_Reply (Obj : in out IPC_Node.Object_Type)
@@ -64,8 +63,8 @@ package body CPP_IPC_Node is
    end Send_Reply;
 
    function Can_Wait_For_Request (Obj : IPC_Node.Object_Type)
-   return CPP.Bool_Type
-   is (CPP.Bool_From_Ada (IPC_Node.Can_Wait_For_Request (Obj)));
+   return Bool_Type
+   is (Bool_From_Ada (IPC_Node.Can_Wait_For_Request (Obj)));
 
    procedure Wait_For_Request (Obj : IPC_Node.Object_Reference_Type)
    is
@@ -84,7 +83,7 @@ package body CPP_IPC_Node is
    end Cancel_Waiting;
 
    function Waits_For_Request (Obj : IPC_Node.Object_Type)
-   return CPP.Bool_Type
-   is (CPP.Bool_From_Ada (IPC_Node.Waits_For_Request (Obj)));
+   return Bool_Type
+   is (Bool_From_Ada (IPC_Node.Waits_For_Request (Obj)));
 
 end CPP_IPC_Node;

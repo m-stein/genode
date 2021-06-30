@@ -13,8 +13,10 @@
 
 pragma Ada_2012;
 
-with CPP;
 with CPU_Scheduler;
+
+with CPP;              use CPP;
+with CPP_Architecture; use CPP_Architecture;
 
 package CPP_CPU_Scheduler
 is
@@ -22,7 +24,7 @@ is
    --  Share_Size
    --
    function Share_Size (Share : CPU_Scheduler.Share_Type)
-   return CPP.Uint32_Type
+   return Size_Type
    with
       Export,
       Convention    => C,
@@ -32,7 +34,7 @@ is
    --  Scheduler_Size
    --
    function Scheduler_Size (Scheduler : CPU_Scheduler.Scheduler_Type)
-   return CPP.Uint32_Type
+   return Size_Type
    with
       Export,
       Convention    => C,
@@ -43,8 +45,8 @@ is
    --
    procedure Share_Initialize (
       Share : CPU_Scheduler.Share_Reference_Type;
-      Prio  : CPP.CPU_Priority_Type;
-      Quota : CPP.CPU_Quota_Type)
+      Prio  : CPU_Priority_Type;
+      Quota : CPU_Quota_Type)
    with
       Export,
       Convention    => C,
@@ -54,7 +56,7 @@ is
    --  Share_Ready
    --
    function Share_Ready (Share : CPU_Scheduler.Share_Type)
-   return CPP.Bool_Type
+   return Bool_Type
    with
       Export,
       Convention    => C,
@@ -65,7 +67,7 @@ is
    --
    procedure Share_Quota (
       Share : in out CPU_Scheduler.Share_Type;
-      Quota :        CPP.CPU_Quota_Type)
+      Quota :        CPU_Quota_Type)
    with
       Export,
       Convention    => C,
@@ -77,8 +79,8 @@ is
    procedure Initialize (
       Scheduler : out CPU_Scheduler.Scheduler_Type;
       Idle      :     CPU_Scheduler.Share_Reference_Type;
-      Quota     :     CPP.CPU_Quota_Type;
-      Fill      :     CPP.CPU_Quota_Type)
+      Quota     :     CPU_Quota_Type;
+      Fill      :     CPU_Quota_Type)
    with
       Export,
       Convention    => C,
@@ -98,7 +100,7 @@ is
    --  Head_Quota
    --
    function Head_Quota (Scheduler : CPU_Scheduler.Scheduler_Type)
-   return CPP.CPU_Quota_Type
+   return CPU_Quota_Type
    with
       Export,
       Convention    => C,
@@ -108,7 +110,7 @@ is
    --  Need_To_Schedule
    --
    function Need_To_Schedule (Scheduler : CPU_Scheduler.Scheduler_Type)
-   return CPP.Bool_Type
+   return Bool_Type
    with
       Export,
       Convention    => C,
@@ -129,7 +131,7 @@ is
    procedure Quota (
       Scheduler : in out CPU_Scheduler.Scheduler_Type;
       Share     :        CPU_Scheduler.Share_Reference_Type;
-      Quota     :        CPP.CPU_Quota_Type)
+      Quota     :        CPU_Quota_Type)
    with
       Export,
       Convention    => C,
@@ -205,7 +207,7 @@ is
    --
    procedure Update (
       Scheduler : in out CPU_Scheduler.Scheduler_Type;
-      Time      :        CPP.Time_Type)
+      Time      :        Time_Type)
    with
       Export,
       Convention    => C,

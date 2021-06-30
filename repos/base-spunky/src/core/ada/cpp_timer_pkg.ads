@@ -13,26 +13,23 @@
 
 pragma Ada_2012;
 
-with CPP;
-with CPP_Architecture;
 with CPP_Thread;
-with Timer_Pkg;
 
-use CPP;
-use CPP_Architecture;
-use Timer_Pkg;
+with CPP;              use CPP;
+with CPP_Architecture; use CPP_Architecture;
+with Timer_Pkg;        use Timer_Pkg;
 
 package CPP_Timer_Pkg is
 
    function Timer_Size (Timer : Timer_Type)
-   return CPP.Uint32_Type
+   return Size_Type
    with
       Export,
       Convention    => C,
       External_Name => "_ZN6Kernel11object_sizeERKNS_5TimerE";
 
    function Timeout_Size (Timeout : Timeout_Type)
-   return CPP.Uint32_Type
+   return Size_Type
    with
       Export,
       Convention    => C,

@@ -13,15 +13,17 @@
 
 pragma Ada_2012;
 
+with Interfaces; use Interfaces;
+
 package body CPP_Timer_Pkg is
 
    function Timer_Size (Timer : Timer_Type)
-   return CPP.Uint32_Type
-   is (CPP.Uint32_Type (Timer'Size / 8));
+   return Size_Type
+   is (Timer'Size / 8);
 
    function Timeout_Size (Timeout : Timeout_Type)
-   return CPP.Uint32_Type
-   is (CPP.Uint32_Type (Timeout'Size / 8));
+   return Size_Type
+   is (Timeout'Size / 8);
 
    function Interrupt_ID (
       Timer : Timer_Reference_Type)
