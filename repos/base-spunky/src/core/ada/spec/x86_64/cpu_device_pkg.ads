@@ -80,6 +80,28 @@ package CPU_Device_Pkg is
    procedure Initialize_CPU_Device (
       CPU_Device : out CPU_Device_Type);
 
+   --
+   --  Atomically compare and exchange an unsigned 32-bit integer in memory
+   --
+   --  This function compares the value of 'Value' with 'Compare_Value'.
+   --  If both values are equal, 'Value' is set to 'Exchange_Value' and
+   --  'Value_Exchanged' is set to 'True'. If the values are different,
+   --  'Value' remains unchanged and 'Value_Exchanged' is set to 'False'.
+   --  Comparing and exchanging 'Value' is done atomically, i.e. other
+   --  CPUs can not interfere with it. This procedure is also a memory
+   --  barrier.
+   --
+   procedure Atomic_Compare_And_Exchange_U32 (
+      Value_Exchanged :    out Boolean;
+      Value           : access Unsigned_32;
+      Compare_Value   :        Unsigned_32;
+      Exchange_Value  :        Unsigned_32);
+
+   --
+   --  Ensure that all preceding memory access becomes effective
+   --
+   procedure Memory_Barrier;
+
 private
 
    IOAPIC_Phys_Addr            : constant := 16#fec00000#;

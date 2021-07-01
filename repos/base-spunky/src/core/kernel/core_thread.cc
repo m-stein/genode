@@ -17,6 +17,7 @@
 #include <kernel/ipc_node.h>
 #include <kernel/cpu_scheduler.h>
 #include <kernel/timer.h>
+#include <kernel/lock.h>
 #include <pic.h>
 #include <cpu.h>
 
@@ -41,4 +42,7 @@ void prepare_core_thread()
 	Genode::Cpu::assert_types_have_same_size();
 	Genode::Cpu::Context::assert_types_have_same_size();
 	Genode::Cpu::Mmu_context::assert_types_have_same_size();
+	Lock::assert_types_have_same_size();
+
+	initialize_lock_pkg();
 }

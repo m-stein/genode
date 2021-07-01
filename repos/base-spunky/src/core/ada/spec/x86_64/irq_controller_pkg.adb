@@ -400,7 +400,7 @@ package body IRQ_Controller_Pkg is
       Wait_For_Delivery_Status :
       while LAPIC_ICR_Low_Reg.Delivery_Status /= 0 loop
 
-         Asm ("pause", Clobber  => "memory", Volatile => True);
+         Asm ("pause", Clobber => "memory", Volatile => True);
 
       end loop Wait_For_Delivery_Status;
 

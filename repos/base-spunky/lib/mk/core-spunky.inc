@@ -7,6 +7,7 @@ include $(BASE_DIR)/../libports/lib/mk/spark_common.inc
 
 SRC_ADS += cpp_thread.ads
 
+SRC_ADB += lock_pkg.adb
 SRC_ADB += cpu_pkg.adb
 SRC_ADB += signal.adb
 SRC_ADB += generic_queue.adb
@@ -20,9 +21,11 @@ SRC_ADB += cpp.adb
 SRC_ADB += cpp_ipc_node.adb
 SRC_ADB += cpp_signal.adb
 SRC_ADB += cpp_cpu_scheduler.adb
+SRC_ADB += cpp_lock_pkg.adb
 
 INC_DIR += $(KERNEL_ADA_DIR)
 
+vpath lock_pkg.adb            $(KERNEL_ADA_DIR)
 vpath cpu_pkg.adb             $(KERNEL_ADA_DIR)
 vpath timer_pkg.adb           $(KERNEL_ADA_DIR)
 vpath cpp_timer_pkg.adb       $(KERNEL_ADA_DIR)
@@ -37,6 +40,7 @@ vpath cpp_ipc_node.adb        $(KERNEL_ADA_DIR)
 vpath cpp_signal.adb          $(KERNEL_ADA_DIR)
 vpath cpp_cpu_scheduler.adb   $(KERNEL_ADA_DIR)
 vpath cpp_thread.ads          $(KERNEL_ADA_DIR)
+vpath cpp_lock_pkg.adb        $(KERNEL_ADA_DIR)
 
 CC_ADA_OPT += -gnatec=$(KERNEL_ADA_DIR)/ada.adc
 

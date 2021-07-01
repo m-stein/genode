@@ -19,6 +19,40 @@ with System.Machine_Code; use System.Machine_Code;
 
 package body CPU_Device_Pkg is
 
+   procedure Atomic_Compare_And_Exchange_U32 (
+      Value_Exchanged :    out Boolean;
+      Value           : access Unsigned_32;
+      Compare_Value   :        Unsigned_32;
+      Exchange_Value  :        Unsigned_32)
+   is
+      Found_Value : Unsigned_32;
+   begin
+      Asm (
+         "lock cmpxchgl %1, %3;",
+         Outputs => (
+            Unsigned_32'Asm_Output ("=a", Found_Value)),  --  %0
+         Inputs => (
+            Unsigned_32'Asm_Input ("r", Exchange_Value),  --  %1
+            Unsigned_32'Asm_Input ("0", Compare_Value),   --  %2
+            Unsigned_32'Asm_Input ("m", Value.all)),      --  %3
+         Clobber  => "memory, cc",
+         Volatile => True);
+
+      if Found_Value = Compare_Value then
+         Value_Exchanged := True;
+      else
+         Value_Exchanged := False;
+      end if;
+
+   end Atomic_Compare_And_Exchange_U32;
+
+   procedure Memory_Barrier
+   is
+   begin
+      Asm ("", Clobber => "memory", Volatile => True);
+
+   end Memory_Barrier;
+
    procedure Switch_To (
       CPU_Device  : in out CPU_Device_Type;
       CPU_State   : in out CPU_State_Type;
