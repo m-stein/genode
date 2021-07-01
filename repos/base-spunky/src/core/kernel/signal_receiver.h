@@ -53,7 +53,7 @@ struct Kernel::Signal_context : Opaque_ada_type<Signal_context, 88>
 
 	Signal_context(Signal_receiver &r, addr_t const imprint) { initialize(r, imprint); }
 
-	~Signal_context();
+	~Signal_context() __attribute__ ((noinline)) { deinitialize(); }
 
 	void initialize(Signal_receiver &r, addr_t const imprint);
 
