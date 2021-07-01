@@ -105,7 +105,6 @@ SRC_CC += kernel/init.cc
 SRC_CC += kernel/irq.cc
 SRC_CC += kernel/kernel.cc
 SRC_CC += kernel/object.cc
-SRC_CC += kernel/signal_receiver.cc
 SRC_CC += kernel/thread.cc
 SRC_CC += kernel/timer.cc
 SRC_CC += kernel/core_thread.cc
@@ -123,7 +122,6 @@ NR_OF_CPUS ?= 1
 CC_OPT += -Wa,--defsym -Wa,NR_OF_CPUS=$(NR_OF_CPUS) -DNR_OF_CPUS=$(NR_OF_CPUS)
 
 # declare source locations
-vpath kernel/signal_receiver.cc $(BASE_DIR)/../base-spunky/src/core
 vpath kernel/core_thread.cc     $(BASE_DIR)/../base-spunky/src/core
 vpath kernel/log.cc             $(BASE_DIR)/../base-spunky/src/core
 vpath kernel/timer.cc           $(BASE_DIR)/../base-spunky/src/core
