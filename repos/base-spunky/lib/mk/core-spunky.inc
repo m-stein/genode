@@ -7,6 +7,7 @@ include $(BASE_DIR)/../libports/lib/mk/spark_common.inc
 
 SRC_ADS += cpp_thread.ads
 
+SRC_ADB += cpu_pkg.adb
 SRC_ADB += signal.adb
 SRC_ADB += generic_queue.adb
 SRC_ADB += generic_double_list.adb
@@ -22,6 +23,7 @@ SRC_ADB += cpp_cpu_scheduler.adb
 
 INC_DIR += $(KERNEL_ADA_DIR)
 
+vpath cpu_pkg.adb             $(KERNEL_ADA_DIR)
 vpath timer_pkg.adb           $(KERNEL_ADA_DIR)
 vpath cpp_timer_pkg.adb       $(KERNEL_ADA_DIR)
 vpath log.adb                 $(KERNEL_ADA_DIR)
