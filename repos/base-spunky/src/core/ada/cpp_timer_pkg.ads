@@ -27,7 +27,7 @@ package CPP_Timer_Pkg is
       Export,
       Convention    => C,
       External_Name =>
-         "_ZNK6Kernel15Opaque_ada_typeINS_5TimerELm56EE9_ada_sizeEv";
+         "_ZNK6Kernel15Opaque_ada_typeINS_5TimerELm64EE9_ada_sizeEv";
 
    function Timeout_Size (Timeout : Timeout_Type)
    return Size_Type
