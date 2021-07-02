@@ -27,6 +27,9 @@ is
    is
       Initial_LVT_Entry : LVT_Entry_Type;
    begin
+
+      Device.LAPIC_Virt_Base := Get_LAPIC_Virt_Address;
+
       --
       --  Enable LAPIC timer in one-shot mode
       --
@@ -50,7 +53,7 @@ is
          --
          --  Calculate timer frequency
          --
-         PIT_Measure_Ticks_Per_MS (Device.Ticks_Per_MS);
+         PIT_Measure_Ticks_Per_MS (Device);
 
       end loop Calibration_Loop;
 
@@ -87,9 +90,16 @@ is
    --
    --  PIT_Measure_Ticks_Per_MS
    --
-   procedure PIT_Measure_Ticks_Per_MS (Ticks_Per_MS : out Ticks_Type)
+   procedure PIT_Measure_Ticks_Per_MS (
+      Device : in out Timer_Device_Type)
    is
       use Port_IO;
+
+      Current_Cnt_Reg : Unsigned_32
+      with
+         Volatile_Full_Access,
+         Address => U64_To_Addr (Device.LAPIC_Virt_Base + 16#390#);
+
       Start_Cnt : Unsigned_32;
       End_Cnt   : Unsigned_32;
    begin
@@ -129,7 +139,7 @@ is
       End_Cnt := Current_Cnt_Reg;
 
       Initial_Cnt_Reg := 0;
-      Ticks_Per_MS := Ticks_Type ((Start_Cnt - End_Cnt) / PIT_Sleep_MS);
+      Device.Ticks_Per_MS := Ticks_Type ((Start_Cnt - End_Cnt) / PIT_Sleep_MS);
 
    end PIT_Measure_Ticks_Per_MS;
 
@@ -180,7 +190,14 @@ is
       Device                : Timer_Device_Type;
       Last_Timeout_Duration : Time_Type)
    return Time_Type
-   is (Last_Timeout_Duration - Time_Type (Current_Cnt_Reg));
+   is
+      Current_Cnt_Reg : Unsigned_32
+      with
+         Volatile_Full_Access,
+         Address => System'To_Address (Device.LAPIC_Virt_Base + 16#390#);
+   begin
+      return Last_Timeout_Duration - Time_Type (Current_Cnt_Reg);
+   end Duration;
 
    --
    --  Start_One_Shot

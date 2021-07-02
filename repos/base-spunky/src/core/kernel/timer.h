@@ -34,7 +34,7 @@ struct Kernel::Timeout : Opaque_ada_type<Timeout, 56>
 	void handle() const;
 };
 
-struct Kernel::Timer : Opaque_ada_type<Timer, 56>
+struct Kernel::Timer : Opaque_ada_type<Timer, 64>
 {
 	struct Irq : Kernel::Irq
 	{

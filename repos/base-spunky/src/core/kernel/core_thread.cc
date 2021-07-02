@@ -11,7 +11,7 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-/* core includes */
+/* base-hw includes */
 #include <kernel/ada_interfacing.h>
 #include <kernel/signal_receiver.h>
 #include <kernel/ipc_node.h>
@@ -20,6 +20,8 @@
 #include <kernel/lock.h>
 #include <pic.h>
 #include <cpu.h>
+#include <platform.h>
+#include <hw/spec/x86_64/x86_64.h>
 
 using namespace Kernel;
 
@@ -45,4 +47,11 @@ void prepare_core_thread()
 	Lock::assert_types_have_same_size();
 
 	initialize_lock_pkg();
+}
+
+addr_t lapic_virt_address()
+{
+	return
+		Genode::Platform::mmio_to_virt(
+			Hw::Cpu_memory_map::lapic_phys_base());
 }
