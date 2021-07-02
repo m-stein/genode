@@ -38,7 +38,7 @@
 	movq %rax, %rsp
 
 	/* jump to C entry code */
-	jmp kernel_init
+	jmp _ZN6Kernel4Main49construct_global_instance_and_handle_kernel_entryEv
 
 
 	/*********************************

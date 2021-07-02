@@ -15,11 +15,6 @@
 #ifndef _CORE__KERNEL__KERNEL_H_
 #define _CORE__KERNEL__KERNEL_H_
 
-/**
- * Main routine of every kernel pass
- */
-extern "C" void kernel();
-
 
 namespace Kernel {
 
@@ -27,5 +22,25 @@ namespace Kernel {
 
 	Pd  &core_pd();
 }
+
+
+namespace Kernel {
+
+	class Main;
+}
+
+
+class Kernel::Main
+{
+		void _handle_kernel_entry();
+
+		static void _initialize_spunky();
+
+	public:
+
+		static void load_global_instance_and_handle_kernel_entry();
+
+		static void construct_global_instance_and_handle_kernel_entry();
+};
 
 #endif /* _CORE__KERNEL__KERNEL_H_ */

@@ -18,10 +18,11 @@
 #include <kernel/kernel.h>
 
 
-extern "C" void kernel()
-{
-	using namespace Kernel;
+static Kernel::Main _kernel_main;
 
+
+void Kernel::Main::_handle_kernel_entry()
+{
 	Cpu &cpu = cpu_pool().cpu(Cpu::executing_id());
 	Cpu_job * new_job;
 
@@ -32,4 +33,64 @@ extern "C" void kernel()
 	}
 
 	new_job->proceed(cpu);
+}
+
+
+void Kernel::Main::load_global_instance_and_handle_kernel_entry()
+{
+	_kernel_main._handle_kernel_entry();
+}
+
+
+void Kernel::Main::construct_global_instance_and_handle_kernel_entry()
+{
+	static volatile bool lock_ready   = false;
+	static volatile bool pool_ready   = false;
+	static volatile bool kernel_ready = false;
+
+	/*
+	 * This function is empty in base-hw but is overlayed with an actual
+	 * implementation by base-spunky. This call is only needed as long as
+	 * Spunky uses base-hw startup code and can later be removed again.
+	 */
+	if (Cpu::executing_id() == Cpu::primary_id()) {
+		_initialize_spunky();
+	}
+
+	/**
+	 * It is essential to guard the initialization of the data_lock object
+	 * in the SMP case, because otherwise the __cxa_guard_aquire of the cxx
+	 * library contention path might get called, which ends up in
+	 * calling a Semaphore, which will call Kernel::stop_thread() or
+	 * Kernel::yield() system-calls in this code
+	 */
+	while (Cpu::executing_id() != Cpu::primary_id() && !lock_ready) { ; }
+
+	{
+		Lock::Guard guard(data_lock());
+
+		lock_ready = true;
+
+		/* initialize current cpu */
+		pool_ready = cpu_pool().initialize();
+	};
+
+	/* wait until all cpus have initialized their corresponding cpu object */
+	while (!pool_ready) { ; }
+
+	/* the boot-cpu initializes the rest of the kernel */
+	if (Cpu::executing_id() == Cpu::primary_id()) {
+		Lock::Guard guard(data_lock());
+
+		Genode::log("");
+		Genode::log("kernel initialized");
+
+		Core_thread::singleton();
+		kernel_ready = true;
+	} else {
+		/* secondary cpus spin until the kernel is initialized */
+		while (!kernel_ready) {;}
+	}
+
+	_kernel_main._handle_kernel_entry();
 }

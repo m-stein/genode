@@ -11,4 +11,7 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-void initialize_spunky() { }
+/* base-hw includes */
+#include <kernel/kernel.h>
+
+void Kernel::Main::_initialize_spunky() { }
