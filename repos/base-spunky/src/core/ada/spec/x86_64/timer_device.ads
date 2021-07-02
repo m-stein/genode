@@ -15,8 +15,9 @@ pragma Ada_2012;
 
 with System;
 
-with CPP;        use CPP;
-with Interfaces; use Interfaces;
+with CPP;              use CPP;
+with CPP_Architecture; use CPP_Architecture;
+with Interfaces;       use Interfaces;
 
 package Timer_Device is
 
@@ -132,6 +133,7 @@ private
    type Timer_Device_Type is record
       Ticks_Per_MS        : Ticks_Type;
       PIT_Calc_Timer_Freq : Ticks_Type;
+      LAPIC_Virt_Base     : Address_Type;
    end record;
 
    LVT_Entry : LVT_Entry_Type
@@ -159,10 +161,12 @@ private
       Volatile_Full_Access,
       Address => System'To_Address (LAPIC_Virt_Base + 16#380#);
 
-   Current_Cnt_Reg : Unsigned_32
+   function Get_LAPIC_Virt_Address
+   return Address_Type
    with
-      Volatile_Full_Access,
-      Address => System'To_Address (LAPIC_Virt_Base + 16#390#);
+      Import,
+      Convention => C,
+      External_Name => "_Z18lapic_virt_addressv";
 
    --
    --  Divide_Config_Reg_Write
@@ -172,6 +176,7 @@ private
    --
    --  PIT_Measure_Ticks_Per_MS
    --
-   procedure PIT_Measure_Ticks_Per_MS (Ticks_Per_MS : out Ticks_Type);
+   procedure PIT_Measure_Ticks_Per_MS (
+      Device : in out Timer_Device_Type);
 
 end Timer_Device;
