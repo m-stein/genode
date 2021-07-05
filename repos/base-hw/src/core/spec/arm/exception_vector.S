@@ -134,7 +134,7 @@
 	bx    lr
 
 	_kernel_entry:
-	.long kernel
+	.long _ZN6Kernel4Main19handle_kernel_entryEv
 
 	_fpu_save:
 	.long vfp_save_fpu_context
