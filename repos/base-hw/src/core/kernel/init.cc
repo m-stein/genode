@@ -35,6 +35,9 @@ Pd &Kernel::core_pd() {
 	return unmanaged_singleton<Genode::Core_platform_pd>()->kernel_pd(); }
 
 
+void initialize_spunky();
+
+
 extern "C" void kernel_init();
 
 /**
@@ -45,6 +48,15 @@ extern "C" void kernel_init()
 	static volatile bool lock_ready   = false;
 	static volatile bool pool_ready   = false;
 	static volatile bool kernel_ready = false;
+
+	/*
+	 * This function is empty in base-hw but is overlayed with an actual
+	 * implementation by base-spunky. This call is only needed as long as
+	 * Spunky uses base-hw startup code and can later be removed again.
+	 */
+	if (Cpu::executing_id() == Cpu::primary_id()) {
+		initialize_spunky();
+	}
 
 	/**
 	 * It is essential to guard the initialization of the data_lock object

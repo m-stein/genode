@@ -49,6 +49,7 @@ SRC_CC += env.cc
 SRC_CC += region_map_support.cc
 SRC_CC += pager.cc
 SRC_CC += _main.cc
+SRC_CC += kernel/initialize_spunky.cc
 SRC_CC += kernel/cpu.cc
 SRC_CC += kernel/cpu_scheduler.cc
 SRC_CC += kernel/init.cc
