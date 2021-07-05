@@ -17,6 +17,12 @@ with Interfaces; use Interfaces;
 
 package body CPP_IRQ_Controller_Pkg is
 
+   procedure Initialize_IRQ_Controller_Pkg
+   is
+   begin
+      IRQ_Controller_Pkg.Initialize_IRQ_Controller_Pkg;
+   end Initialize_IRQ_Controller_Pkg;
+
    --
    --  IRQ_Controller_Size
    --

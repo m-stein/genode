@@ -27,6 +27,11 @@ package IRQ_Controller_Pkg is
       not null access all IRQ_Controller_Type;
 
    --
+   --  Initialize the global state of the package
+   --
+   procedure Initialize_IRQ_Controller_Pkg;
+
+   --
    --  Initialize
    --
    procedure Initialize (Ctrl : IRQ_Controller_Reference_Type);

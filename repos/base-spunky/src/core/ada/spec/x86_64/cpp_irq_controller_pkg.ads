@@ -19,6 +19,12 @@ with IRQ_Controller_Pkg; use IRQ_Controller_Pkg;
 
 package CPP_IRQ_Controller_Pkg is
 
+   procedure Initialize_IRQ_Controller_Pkg
+   with
+      Export,
+      Convention    => C,
+      External_Name => "_ZN6Kernel29initialize_irq_controller_pkgEv";
+
    --
    --  IRQ_Controller_Size
    --
