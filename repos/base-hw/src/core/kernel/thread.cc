@@ -852,8 +852,6 @@ void Thread::print(Genode::Output &out) const
 
 Genode::uint8_t __initial_stack_base[DEFAULT_STACK_SIZE];
 
-void prepare_core_thread();
-
 
 /*****************
  ** Core_thread **
@@ -864,8 +862,6 @@ Core_thread::Core_thread()
 	Core_object<Thread>("core")
 {
 	using namespace Genode;
-
-	prepare_core_thread();
 
 	static Native_utcb * const utcb =
 		unmanaged_singleton<Native_utcb, get_page_size()>();
