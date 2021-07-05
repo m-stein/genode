@@ -27,7 +27,7 @@ using namespace Kernel;
 
 extern "C" void core_spunky_pc_init();
 
-void prepare_core_thread()
+void Kernel::Main::_initialize_spunky()
 {
 	core_spunky_pc_init();
 
