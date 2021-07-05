@@ -19,6 +19,8 @@
 
 namespace Board { struct Pic; }
 
+namespace Kernel { void initialize_irq_controller_pkg(); }
+
 struct Board::Pic : Kernel::Opaque_ada_type<Pic, 8>
 {
 	Pic();

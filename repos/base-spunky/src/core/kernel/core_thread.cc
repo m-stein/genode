@@ -47,6 +47,7 @@ void prepare_core_thread()
 	Lock::assert_types_have_same_size();
 
 	initialize_lock_pkg();
+	initialize_irq_controller_pkg();
 }
 
 addr_t lapic_virt_address()

@@ -14,9 +14,22 @@
 pragma Ada_2012;
 
 with Port_IO;
+
 with System.Machine_Code; use System.Machine_Code;
+with Log;                 use Log;
 
 package body IRQ_Controller_Pkg is
+
+   procedure Initialize_IRQ_Controller_Pkg
+   is
+   begin
+      Stored_APIC_IDs := (others => 0);
+      IRQ_Modes       := (
+         others => (
+            Trigger_Mode => Invalid,
+            Polarity     => Invalid));
+
+   end Initialize_IRQ_Controller_Pkg;
 
    --
    --  Initialize
@@ -447,19 +460,31 @@ package body IRQ_Controller_Pkg is
    --
    function IRQ_Polarity_To_Bitfield_1 (Polarity : IRQ_Polarity_Type)
    return Bitfield_1_Type
-   is (
+   is
+   begin
       case Polarity is
-      when High => 0,
-      when Low  => 1);
+      when High    => return 0;
+      when Low     => return 1;
+      when Invalid =>
+         Print_String ("Error: Invalid IRQ polarity");
+         raise Program_Error;
+      end case;
+   end IRQ_Polarity_To_Bitfield_1;
 
    --
    --  IRQ_Trigger_Mode_To_Bitfield_1
    --
    function IRQ_Trigger_Mode_To_Bitfield_1 (Mode : IRQ_Trigger_Mode_Type)
    return Bitfield_1_Type
-   is (
+   is
+   begin
       case Mode is
-      when Edge  => 0,
-      when Level => 1);
+      when Edge    => return 0;
+      when Level   => return 1;
+      when Invalid =>
+         Print_String ("Error: Invalid IRQ trigger mode");
+         raise Program_Error;
+      end case;
+   end IRQ_Trigger_Mode_To_Bitfield_1;
 
 end IRQ_Controller_Pkg;
