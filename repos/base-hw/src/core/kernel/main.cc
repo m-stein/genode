@@ -120,6 +120,14 @@ void Kernel::main_initialize_and_handle_kernel_entry()
 	if (primary_cpu) {
 
 		/**
+		 * This function call is only needed because Spunky uses the base-hw
+		 * startup code. In the context of a base-spunky Core, it serves as
+		 * hook for doing all initialization required before the first call to
+		 * Ada code. In the context of a base-hw Core, it is empty.
+		 */
+		main_initialize_spunky();
+
+		/**
 		 * Let the primary CPU create a Main object and initialize the static
 		 * reference to it.
 		 */
