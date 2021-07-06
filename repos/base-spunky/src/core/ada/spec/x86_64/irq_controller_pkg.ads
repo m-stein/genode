@@ -40,15 +40,8 @@ package IRQ_Controller_Pkg is
    --  Take_Request
    --
    procedure Take_Request (
-      Ctrl   :        IRQ_Controller_Reference_Type;
-      IRQ_ID : in out IRQ_ID_Type);
-
-   --
-   --  Request_Was_Taken
-   --
-   function Request_Was_Taken (
-      Ctrl : IRQ_Controller_Reference_Type)
-   return Boolean;
+      IRQ_ID       : in out IRQ_ID_Type;
+      IRQ_ID_Valid : in out Boolean);
 
    --
    --  Finish_Request
@@ -354,7 +347,6 @@ private
 
    type IRQ_Controller_Type is record
       Number_Of_IORedTbl_Regs : Number_Of_IORedTbl_Regs_Type;
-      Request_Was_Taken       : Boolean;
    end record;
 
    --

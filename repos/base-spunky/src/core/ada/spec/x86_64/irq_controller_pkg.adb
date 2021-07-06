@@ -38,8 +38,6 @@ package body IRQ_Controller_Pkg is
    is
    begin
 
-      Ctrl.Request_Was_Taken := False;
-
       --
       --  I/O APIC
       --
@@ -251,27 +249,18 @@ package body IRQ_Controller_Pkg is
    --  Take_Request
    --
    procedure Take_Request (
-      Ctrl   :        IRQ_Controller_Reference_Type;
-      IRQ_ID : in out IRQ_ID_Type)
+      IRQ_ID       : in out IRQ_ID_Type;
+      IRQ_ID_Valid : in out Boolean)
    is
    begin
       IRQ_ID := IRQ_ID_Type (LAPIC_Get_Lowest_Bit);
       if IRQ_ID = 0 then
-         Ctrl.Request_Was_Taken := False;
+         IRQ_ID_Valid := False;
       else
-         Ctrl.Request_Was_Taken := True;
          IRQ_ID := IRQ_ID - 1;
+         IRQ_ID_Valid := True;
       end if;
    end Take_Request;
-
-   --
-   --  Request_Was_Taken
-   --
-   function Request_Was_Taken (
-      Ctrl : IRQ_Controller_Reference_Type)
-   return Boolean
-   is (
-      Ctrl.Request_Was_Taken);
 
    --
    --  Finish_Request

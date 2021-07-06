@@ -49,21 +49,12 @@ package CPP_IRQ_Controller_Pkg is
    --  Take_Request
    --
    procedure Take_Request (
-      Ctrl   :        IRQ_Controller_Reference_Type;
-      IRQ_ID : in out Unsigned_Type)
+      Ctrl         :        IRQ_Controller_Reference_Type;
+      IRQ_ID       : in out Unsigned_Type;
+      IRQ_ID_Valid : in out Bool_Type)
    with Export,
         Convention    => C,
-        External_Name => "_ZN5Board3Pic12take_requestERj";
-
-   --
-   --  Request_Was_Taken
-   --
-   function Request_Was_Taken (
-      Ctrl : IRQ_Controller_Reference_Type)
-   return Bool_Type
-   with Export,
-        Convention    => C,
-        External_Name => "_ZNK5Board3Pic17request_was_takenEv";
+        External_Name => "_ZN5Board3Pic12take_requestERjRb";
 
    --
    --  Finish_Request

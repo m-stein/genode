@@ -25,9 +25,7 @@ struct Board::Pic : Kernel::Opaque_ada_type<Pic, 8>
 {
 	Pic();
 
-	void take_request(unsigned &irq);
-
-	bool request_was_taken() const;
+	void take_request(unsigned &irq, bool &irq_valid);
 
 	void finish_request();
 
