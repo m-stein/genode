@@ -24,7 +24,7 @@ void Kernel::Irq::disable() const
 
 void Kernel::Irq::enable() const
 {
-	_pic.unmask(_irq_nr, Cpu::executing_id());
+	_pic.unmask(_irq_nr, Genode::Cpu::executing_id());
 }
 
 

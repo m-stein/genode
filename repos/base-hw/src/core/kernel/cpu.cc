@@ -33,14 +33,14 @@ void Cpu_job::_activate_own_share() { _cpu->schedule(this); }
 
 void Cpu_job::_deactivate_own_share()
 {
-	assert(_cpu->id() == Cpu::executing_id());
+	assert(_cpu->id() == Genode::Cpu::executing_id());
 	_cpu->scheduler().unready(*this);
 }
 
 
 void Cpu_job::_yield()
 {
-	assert(_cpu->id() == Cpu::executing_id());
+	assert(_cpu->id() == Genode::Cpu::executing_id());
 	_cpu->scheduler().yield();
 }
 
@@ -122,7 +122,7 @@ Cpu::Idle_thread::Idle_thread(Board::Address_space_id_allocator &addr_space_id_a
 
 void Cpu::schedule(Job * const job)
 {
-	if (_id == executing_id())
+	if (_id == _cpu_device.executing_id())
 		_scheduler.ready(job->share());
 	else {
 		_scheduler.ready_check(job->share());
@@ -208,7 +208,7 @@ initialize_executing_cpu(Board::Address_space_id_allocator  &addr_space_id_alloc
                          Pd                                 &core_pd,
                          Board::Global_interrupt_controller &global_irq_ctrl)
 {
-	unsigned id = Cpu::executing_id();
+	unsigned id = Genode::Cpu::executing_id();
 	_cpus[id].construct(
 		id, addr_space_id_alloc, user_irq_pool, *this, core_pd, global_irq_ctrl);
 }

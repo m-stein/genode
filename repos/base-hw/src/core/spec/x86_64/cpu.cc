@@ -128,9 +128,9 @@ void Genode::Cpu::switch_to(Context & context, Mmu_context &mmu_context)
 	_tss.ist[0] = (addr_t)&context + sizeof(Genode::Cpu_state);
 
 	addr_t const stack_base = reinterpret_cast<addr_t>(&kernel_stack);
-	context.kernel_stack = stack_base +
-	                       (Cpu::executing_id() + 1) * kernel_stack_size -
-	                       sizeof(addr_t);
+	context.kernel_stack =
+		stack_base + (Genode::Cpu::executing_id() + 1) * kernel_stack_size -
+		sizeof(addr_t);
 }
 
 

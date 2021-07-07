@@ -18,8 +18,8 @@
 bool Kernel::Pd::invalidate_tlb(Cpu & cpu, addr_t, size_t)
 {
 	/* on the current CPU invalidate the TLB */
-	if (cpu.id() == Cpu::executing_id()) {
-		Cpu::invalidate_tlb();
+	if (cpu.id() == Genode::Cpu::executing_id()) {
+		Genode::Cpu::invalidate_tlb();
 		return false;
 	}
 

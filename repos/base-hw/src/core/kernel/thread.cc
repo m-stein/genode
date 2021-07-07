@@ -413,7 +413,7 @@ void Thread::_call_delete_thread()
 	 * or it is assigned to this cpu, or the assigned cpu did not scheduled it.
 	 */
 	if (!to_delete->_cpu ||
-	    (to_delete->_cpu->id() == Cpu::executing_id() ||
+	    (to_delete->_cpu->id() == Genode::Cpu::executing_id() ||
 	     &to_delete->_cpu->scheduled_job() != &*to_delete)) {
 		_call_delete<Thread>();
 		return;
@@ -829,7 +829,7 @@ void Thread::_call()
 void Thread::_mmu_exception()
 {
 	_become_inactive(AWAITS_RESTART);
-	Cpu::mmu_fault(*regs, _fault);
+	Genode::Cpu::mmu_fault(*regs, _fault);
 	_fault.ip = regs->ip;
 
 	if (_fault.type == Thread_fault::UNKNOWN) {

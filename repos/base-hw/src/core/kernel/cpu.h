@@ -38,7 +38,7 @@ namespace Kernel {
 }
 
 
-class Kernel::Cpu : public Genode::Cpu
+class Kernel::Cpu
 {
 	private:
 
@@ -81,6 +81,7 @@ class Kernel::Cpu : public Genode::Cpu
 			            Pd                                &core_pd);
 		};
 
+		Genode::Cpu    _cpu_device { };
 		Irq::Pool      _irq_pool { };
 		Timeout        _timeout  { };
 		unsigned const _id;
@@ -159,6 +160,17 @@ class Kernel::Cpu : public Genode::Cpu
 		 * Return CPU's idle thread object
 		 */
 		Kernel::Thread &idle_thread() { return _idle; }
+
+
+		/****************************************
+		 ** Propagate interface of Genode::Cpu **
+		 ****************************************/
+
+		void switch_to(Genode::Cpu::Context     &context,
+		               Genode::Cpu::Mmu_context &mmu_context)
+		{
+			_cpu_device.switch_to(context, mmu_context);
+		}
 };
 
 
@@ -193,7 +205,7 @@ class Kernel::Cpu_pool
 		/**
 		 * Return object of current CPU
 		 */
-		Cpu & executing_cpu() { return cpu(Cpu::executing_id()); }
+		Cpu & executing_cpu() { return cpu(Genode::Cpu::executing_id()); }
 
 		template <typename FUNC>
 		void for_each_cpu(FUNC const &func)

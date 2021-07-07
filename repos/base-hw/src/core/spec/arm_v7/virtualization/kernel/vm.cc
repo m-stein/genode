@@ -43,20 +43,20 @@ using namespace Kernel;
 
 struct Host_context
 {
-	Cpu::Ttbr_64bit::access_t vttbr;
-	Cpu::Hcr::access_t        hcr;
-	Cpu::Hstr::access_t       hstr;
-	Cpu::Cpacr::access_t      cpacr;
-	addr_t                    sp;
-	addr_t                    ip;
-	addr_t                    spsr;
-	Cpu::Ttbr_64bit::access_t ttbr0;
-	Cpu::Ttbr_64bit::access_t ttbr1;
-	Cpu::Sctlr::access_t      sctlr;
-	Cpu::Ttbcr::access_t      ttbcr;
-	Cpu::Mair0::access_t      mair0;
-	Cpu::Dacr::access_t       dacr;
-	Cpu::Vmpidr::access_t     vmpidr;
+	Genode::Cpu::Ttbr_64bit::access_t vttbr;
+	Genode::Cpu::Hcr::access_t        hcr;
+	Genode::Cpu::Hstr::access_t       hstr;
+	Genode::Cpu::Cpacr::access_t      cpacr;
+	addr_t                            sp;
+	addr_t                            ip;
+	addr_t                            spsr;
+	Genode::Cpu::Ttbr_64bit::access_t ttbr0;
+	Genode::Cpu::Ttbr_64bit::access_t ttbr1;
+	Genode::Cpu::Sctlr::access_t      sctlr;
+	Genode::Cpu::Ttbcr::access_t      ttbcr;
+	Genode::Cpu::Mair0::access_t      mair0;
+	Genode::Cpu::Dacr::access_t       dacr;
+	Genode::Cpu::Vmpidr::access_t     vmpidr;
 
 } vt_host_context;
 
@@ -71,13 +71,13 @@ static Host_context & host_context(Cpu & cpu)
 		host_context[cpu.id()].construct();
 		Host_context & c = *host_context[cpu.id()];
 		c.sp     = cpu.stack_start();
-		c.ttbr0  = Cpu::Ttbr0_64bit::read();
-		c.ttbr1  = Cpu::Ttbr1_64bit::read();
-		c.sctlr  = Cpu::Sctlr::read();
-		c.ttbcr  = Cpu::Ttbcr::read();
-		c.mair0  = Cpu::Mair0::read();
-		c.dacr   = Cpu::Dacr::read();
-		c.vmpidr = Cpu::Mpidr::read();
+		c.ttbr0  = Genode::Cpu::Ttbr0_64bit::read();
+		c.ttbr1  = Genode::Cpu::Ttbr1_64bit::read();
+		c.sctlr  = Genode::Cpu::Sctlr::read();
+		c.ttbcr  = Genode::Cpu::Ttbcr::read();
+		c.mair0  = Genode::Cpu::Mair0::read();
+		c.dacr   = Genode::Cpu::Dacr::read();
+		c.vmpidr = Genode::Cpu::Mpidr::read();
 		c.ip     = (addr_t)&Kernel::main_handle_kernel_entry;
 		c.vttbr  = 0;
 		c.hcr    = 0;
@@ -179,16 +179,19 @@ void Kernel::Vm::proceed(Cpu & cpu)
 	/*
 	 * the following values have to be enforced by the hypervisor
 	 */
-	_state.vttbr = Cpu::Ttbr_64bit::Ba::masked((Cpu::Ttbr_64bit::access_t)_id.table);
-	Cpu::Ttbr_64bit::Asid::set(_state.vttbr, _id.id);
+	_state.vttbr =
+		Genode::Cpu::Ttbr_64bit::Ba::masked(
+			(Genode::Cpu::Ttbr_64bit::access_t)_id.table);
+
+	Genode::Cpu::Ttbr_64bit::Asid::set(_state.vttbr, _id.id);
 
 	/*
 	 * use the following report fields not needed for loading the context
 	 * to transport the HSTR and HCR register descriptions into the assembler
 	 * path in a dense way
 	 */
-	_state.esr_el2   = Cpu::Hstr::init();
-	_state.hpfar_el2 = Cpu::Hcr::init();
+	_state.esr_el2   = Genode::Cpu::Hstr::init();
+	_state.hpfar_el2 = Genode::Cpu::Hcr::init();
 
 	hypervisor_enter_vm(_state, host_context(cpu));
 }

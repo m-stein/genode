@@ -18,7 +18,7 @@
 
 void Kernel::Cpu::_arch_init()
 {
-	finish_initialization();
+	_cpu_device.finish_initialization();
 
 	/* enable timer interrupt */
 	_pic.store_apic_id(id());

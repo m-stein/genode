@@ -22,7 +22,7 @@
 void Kernel::Thread::Tlb_invalidation::execute()
 {
 	/* invalidate cpu-local TLB */
-	Cpu::invalidate_tlb();
+	Genode::Cpu::invalidate_tlb();
 
 	/* if this is the last cpu, wake up the caller thread */
 	if (--cnt == 0) {
