@@ -15,11 +15,12 @@
 #ifndef _CORE__SPEC__SMP__KERNEL__LOCK_H_
 #define _CORE__SPEC__SMP__KERNEL__LOCK_H_
 
+/* base-hw Core includes */
+#include <kernel/ada_interfacing.h>
+
 namespace Kernel {
 
 	struct Lock;
-
-	Lock & data_lock();
 
 	void initialize_lock_pkg();
 }

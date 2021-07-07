@@ -85,7 +85,7 @@ class Genode::Cpu : public Kernel::Opaque_ada_type<Cpu, 160>
 		                                size_t const size,
 		                                bool changed_cache_properties);
 
-		void arch_init();
+		void finish_initialization();
 
 		Cpu();
 };

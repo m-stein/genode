@@ -101,11 +101,18 @@ package CPP_CPU_Device_Pkg is
       External_Name =>
          "_ZN6Genode3Cpu9switch_toERNS0_7ContextERNS0_11Mmu_contextE";
 
-   procedure Initialize_CPU_Device (
+   procedure Start_Initializing_CPU_Device (
       CPU_Device : out CPU_Device_Type)
    with
       Export,
       Convention    => C,
       External_Name => "_ZN6Genode3CpuC1Ev";
+
+   procedure Finish_Initializing_CPU_Device (
+      CPU_Device : CPU_Device_Type)
+   with
+      Export,
+      Convention    => C,
+      External_Name => "_ZN6Genode3Cpu21finish_initializationEv";
 
 end CPP_CPU_Device_Pkg;

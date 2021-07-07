@@ -75,10 +75,16 @@ package CPU_Device_Pkg is
       MMU_Context :        MMU_Context_Type);
 
    --
-   --  Initialize a CPU Device Object
+   --  Initialize a CPU Device object
    --
-   procedure Initialize_CPU_Device (
+   procedure Start_Initializing_CPU_Device (
       CPU_Device : out CPU_Device_Type);
+
+   --
+   --  Initialize the CPU according to an initialized CPU Device object
+   --
+   procedure Finish_Initializing_CPU_Device (
+      CPU_Device : CPU_Device_Type);
 
    --
    --  Atomically compare and exchange an unsigned 32-bit integer in memory
