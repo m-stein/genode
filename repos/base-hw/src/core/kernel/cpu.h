@@ -38,7 +38,7 @@ namespace Kernel {
 }
 
 
-class Kernel::Cpu : public Genode::Cpu, private Irq::Pool
+class Kernel::Cpu : public Genode::Cpu
 {
 	private:
 
@@ -81,7 +81,8 @@ class Kernel::Cpu : public Genode::Cpu, private Irq::Pool
 			            Pd                                &core_pd);
 		};
 
-		Timeout        _timeout { };
+		Irq::Pool      _irq_pool { };
+		Timeout        _timeout  { };
 		unsigned const _id;
 		Board::Pic     _pic;
 		Timer          _timer;
@@ -149,7 +150,7 @@ class Kernel::Cpu : public Genode::Cpu, private Irq::Pool
 		unsigned id() const { return _id; }
 		Cpu_scheduler &scheduler() { return _scheduler; }
 
-		Irq::Pool &irq_pool() { return *this; }
+		Irq::Pool &irq_pool() { return _irq_pool; }
 
 		Inter_processor_work_list & work_list() {
 			return _local_work_list; }
