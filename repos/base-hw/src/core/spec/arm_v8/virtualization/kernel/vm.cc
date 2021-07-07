@@ -34,6 +34,7 @@ extern "C" void   hypervisor_enter_vm(addr_t vm, addr_t host,
 
 static Genode::Vm_state & host_context(Cpu & cpu)
 {
+	using Genode::Cpu;
 	static Genode::Constructible<Genode::Vm_state> host_context[NR_OF_CPUS];
 
 	if (!host_context[cpu.id()].constructed()) {
@@ -123,6 +124,7 @@ Vm::Vm(Irq::Pool              & user_irq_pool,
 	_id(id),
 	_vcpu_context(cpu)
 {
+	using Genode::Cpu;
 	affinity(cpu);
 
 	_state.id_aa64isar0_el1 = Cpu::Id_aa64isar0_el1::read();
@@ -156,6 +158,7 @@ Vm::Vm(Irq::Pool              & user_irq_pool,
 
 void Vm::exception(Cpu & cpu)
 {
+	using Genode::Cpu;
 	switch (_state.exception_type) {
 	case Cpu::IRQ_LEVEL_EL0: [[fallthrough]];
 	case Cpu::IRQ_LEVEL_EL1: [[fallthrough]];
@@ -183,6 +186,7 @@ void Vm::exception(Cpu & cpu)
 
 void Vm::proceed(Cpu & cpu)
 {
+	using Genode::Cpu;
 	if (_state.timer.irq) _vcpu_context.vtimer_irq.enable();
 
 	cpu.pic().insert_virtual_irq(_vcpu_context.pic, _state.irqs.virtual_irq);

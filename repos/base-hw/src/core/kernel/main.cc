@@ -81,7 +81,7 @@ Kernel::Main::Main(unsigned nr_of_cpus)
 
 void Kernel::Main::_handle_kernel_entry()
 {
-	Cpu &cpu = _cpu_pool.cpu(Cpu::executing_id());
+	Cpu &cpu = _cpu_pool.cpu(Genode::Cpu::executing_id());
 	Cpu_job * new_job;
 
 	{
@@ -115,7 +115,7 @@ void Kernel::main_initialize_and_handle_kernel_entry()
 		*reinterpret_cast<Boot_info*>(Hw::Mm::boot_info().base) };
 
 	unsigned const nr_of_cpus  { boot_info.cpus };
-	bool     const primary_cpu { Cpu::executing_id() == Cpu::primary_id() };
+	bool     const primary_cpu { Genode::Cpu::executing_id() == Cpu::primary_id() };
 
 	if (primary_cpu) {
 

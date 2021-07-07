@@ -23,14 +23,14 @@
 void Kernel::Lock::lock()
 {
 	/* check for the lock holder being the same cpu */
-	if (_current_cpu == Cpu::executing_id()) {
+	if (_current_cpu == Genode::Cpu::executing_id()) {
 		/* at least print an error message */
 		Genode::raw("Cpu ", _current_cpu,
 		            " error: re-entered lock. Kernel exception?!");
 	}
 
-	Cpu::wait_for_xchg(&_locked, LOCKED, UNLOCKED);
-	_current_cpu = Cpu::executing_id();
+	Genode::Cpu::wait_for_xchg(&_locked, LOCKED, UNLOCKED);
+	_current_cpu = Genode::Cpu::executing_id();
 }
 
 
@@ -40,5 +40,5 @@ void Kernel::Lock::unlock()
 
 	Genode::memory_barrier();
 	_locked = UNLOCKED;
-	Cpu::wakeup_waiting_cpus();
+	Genode::Cpu::wakeup_waiting_cpus();
 }

@@ -23,29 +23,30 @@
 
 using namespace Kernel;
 
-extern "C" void kernel_to_user_context_switch(Cpu::Context*, Cpu::Fpu_context*);
+extern "C" void kernel_to_user_context_switch(Genode::Cpu::Context*,
+                                              Genode::Cpu::Fpu_context*);
 
 
 void Thread::exception(Cpu & cpu)
 {
 	switch (regs->cpu_exception) {
-	case Cpu::Context::SUPERVISOR_CALL:
+	case Genode::Cpu::Context::SUPERVISOR_CALL:
 		_call();
 		return;
-	case Cpu::Context::PREFETCH_ABORT:
-	case Cpu::Context::DATA_ABORT:
+	case Genode::Cpu::Context::PREFETCH_ABORT:
+	case Genode::Cpu::Context::DATA_ABORT:
 		_mmu_exception();
 		return;
-	case Cpu::Context::INTERRUPT_REQUEST:
-	case Cpu::Context::FAST_INTERRUPT_REQUEST:
+	case Genode::Cpu::Context::INTERRUPT_REQUEST:
+	case Genode::Cpu::Context::FAST_INTERRUPT_REQUEST:
 		_interrupt(_user_irq_pool, cpu.id());
 		return;
-	case Cpu::Context::UNDEFINED_INSTRUCTION:
+	case Genode::Cpu::Context::UNDEFINED_INSTRUCTION:
 		Genode::raw(*this, ": undefined instruction at ip=",
 		            Genode::Hex(regs->ip));
 		_die();
 		return;
-	case Cpu::Context::RESET:
+	case Genode::Cpu::Context::RESET:
 		return;
 	default:
 		Genode::raw(*this, ": triggered an unknown exception ",
@@ -70,8 +71,9 @@ void Thread::proceed(Cpu & cpu)
 	cpu.switch_to(*regs, pd().mmu_regs);
 
 	regs->cpu_exception = cpu.stack_start();
-	kernel_to_user_context_switch((static_cast<Cpu::Context*>(&*regs)),
-	                              (static_cast<Cpu::Fpu_context*>(&*regs)));
+	kernel_to_user_context_switch(
+		(static_cast<Genode::Cpu::Context*>(&*regs)),
+		(static_cast<Genode::Cpu::Fpu_context*>(&*regs)));
 }
 
 

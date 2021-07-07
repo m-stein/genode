@@ -26,6 +26,7 @@ using namespace Kernel;
 
 void Thread::exception(Cpu & cpu)
 {
+	using Genode::Cpu;
 	switch (regs->exception_type) {
 	case Cpu::RESET:         return;
 	case Cpu::IRQ_LEVEL_EL0: [[fallthrough]];
@@ -109,7 +110,7 @@ bool Kernel::Pd::invalidate_tlb(Cpu &, addr_t addr, size_t size)
 void Thread::proceed(Cpu & cpu)
 {
 	cpu.switch_to(*regs, pd().mmu_regs);
-	kernel_to_user_context_switch((static_cast<Cpu::Context*>(&*regs)),
+	kernel_to_user_context_switch((static_cast<Genode::Cpu::Context*>(&*regs)),
 	                              (void*)cpu.stack_start());
 }
 
