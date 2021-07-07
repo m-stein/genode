@@ -223,7 +223,7 @@ package body CPU_Device_Pkg is
 
    end Clear_Memory_Region;
 
-   procedure Initialize_CPU_Device (
+   procedure Start_Initializing_CPU_Device (
       CPU_Device : out CPU_Device_Type)
    is
       TSS_Addr : constant Address_Type := Addr_To_U64 (CPU_Device.TSS'Address);
@@ -238,11 +238,6 @@ package body CPU_Device_Pkg is
          Shift_Left (TSS_Addr and 16#ffff#, 16) or 16#68#;
 
       TSSD_Bits_4 : constant Unsigned_64 := Shift_Right (TSS_Addr, 32);
-
-      GDT_Descr : Pseudo_Descriptor_Type;
-      IDT_Descr : Pseudo_Descriptor_Type;
-
-      TSS_Selector : constant := 16#28#;
    begin
 
       --
@@ -268,6 +263,16 @@ package body CPU_Device_Pkg is
          TSSD_Bits_3;
 
       CPU_Device.GDT.TSS_Descriptors (1) := TSSD_Bits_4;
+
+   end Start_Initializing_CPU_Device;
+
+   procedure Finish_Initializing_CPU_Device (
+      CPU_Device : CPU_Device_Type)
+   is
+      GDT_Descr    : Pseudo_Descriptor_Type;
+      IDT_Descr    : Pseudo_Descriptor_Type;
+      TSS_Selector : constant := 16#28#;
+   begin
 
       --
       --  Initialize global descriptor-table register
@@ -301,8 +306,7 @@ package body CPU_Device_Pkg is
          "ltr %w0",
          Inputs   => Unsigned_64'Asm_Input ("r", TSS_Selector),
          Volatile => True);
-
-   end Initialize_CPU_Device;
+   end Finish_Initializing_CPU_Device;
 
    procedure Determine_Page_Fault_State (
       CPU_State :     CPU_State_Type;

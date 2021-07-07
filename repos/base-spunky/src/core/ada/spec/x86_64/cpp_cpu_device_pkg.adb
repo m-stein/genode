@@ -83,11 +83,18 @@ package body CPP_CPU_Device_Pkg is
       CPU_Device_Pkg.Initialize_MMU_Context (MMU_Context, Page_Table_Addr);
    end Initialize_MMU_Context;
 
-   procedure Initialize_CPU_Device (
+   procedure Start_Initializing_CPU_Device (
       CPU_Device : out CPU_Device_Type)
    is
    begin
-      CPU_Device_Pkg.Initialize_CPU_Device (CPU_Device);
-   end Initialize_CPU_Device;
+      CPU_Device_Pkg.Start_Initializing_CPU_Device (CPU_Device);
+   end Start_Initializing_CPU_Device;
+
+   procedure Finish_Initializing_CPU_Device (
+      CPU_Device : CPU_Device_Type)
+   is
+   begin
+      CPU_Device_Pkg.Finish_Initializing_CPU_Device (CPU_Device);
+   end Finish_Initializing_CPU_Device;
 
 end CPP_CPU_Device_Pkg;
