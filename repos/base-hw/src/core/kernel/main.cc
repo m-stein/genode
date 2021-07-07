@@ -33,6 +33,8 @@ class Kernel::Main
 
 		static Main *_instance;
 
+		Lock _data_lock { };
+
 		void _handle_kernel_entry();
 
 	public:
@@ -52,7 +54,7 @@ void Kernel::Main::_handle_kernel_entry()
 	Cpu_job * new_job;
 
 	{
-		Lock::Guard guard(data_lock());
+		Lock::Guard guard(_data_lock);
 
 		new_job = &cpu.schedule();
 	}
@@ -69,32 +71,34 @@ void Kernel::Main::handle_kernel_entry()
 
 void Kernel::Main::initialize_and_handle_kernel_entry()
 {
-	static volatile bool lock_ready   = false;
-	static volatile bool pool_ready   = false;
-	static volatile bool kernel_ready = false;
+	static volatile bool instance_initialized = false;
+	static volatile bool pool_ready           = false;
+	static volatile bool kernel_ready         = false;
 
-	/**
-	 * It is essential to guard the initialization of the data_lock object
-	 * in the SMP case, because otherwise the __cxa_guard_aquire of the cxx
-	 * library contention path might get called, which ends up in
-	 * calling a Semaphore, which will call Kernel::stop_thread() or
-	 * Kernel::yield() system-calls in this code
-	 */
-	while (Cpu::executing_id() != Cpu::primary_id() && !lock_ready) { }
+	bool const primary_cpu { Cpu::executing_id() == Cpu::primary_id() };
 
-	/**
-	 * Create a main object and initialize static reference to it
-	 */
-	if (Cpu::executing_id() == Cpu::primary_id()) {
+	if (primary_cpu) {
 
+		/**
+		 * Let the primary CPU create a Main object and initialize the static
+		 * reference to it.
+		 */
 		static Main instance { };
 		_instance = &instance;
+
+	} else {
+
+		/**
+		 * Let secondary CPUs block until the primary CPU has managed to set
+		 * up the Main instance.
+		 */
+		while (!instance_initialized) { }
 	}
 
 	{
-		Lock::Guard guard(data_lock());
+		Lock::Guard guard(_instance->_data_lock);
 
-		lock_ready = true;
+		instance_initialized = true;
 
 		/* initialize current cpu */
 		pool_ready = cpu_pool().initialize();
@@ -104,8 +108,8 @@ void Kernel::Main::initialize_and_handle_kernel_entry()
 	while (!pool_ready) { ; }
 
 	/* the boot-cpu initializes the rest of the kernel */
-	if (Cpu::executing_id() == Cpu::primary_id()) {
-		Lock::Guard guard(data_lock());
+	if (primary_cpu) {
+		Lock::Guard guard(_instance->_data_lock);
 
 		using Boot_info = Hw::Boot_info<Board::Boot_info>;
 		Boot_info &boot_info {
