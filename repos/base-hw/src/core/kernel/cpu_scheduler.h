@@ -55,15 +55,18 @@ class Kernel::Cpu_priority
 		/**
 		 * Construct priority with value 'v'
 		 */
-		Cpu_priority(signed const v) : _value(Genode::min(v, MAX)) { }
+		Cpu_priority(unsigned const v)
+		:
+			_value { Genode::min(v, (unsigned)MAX) }
+		{ }
 
 		/*
 		 * Standard operators
 		 */
 
-		Cpu_priority &operator =(signed const v)
+		Cpu_priority &operator =(unsigned const v)
 		{
-			_value = Genode::min(v, MAX);
+			_value = Genode::min(v, (unsigned)MAX);
 			return *this;
 		}
 
