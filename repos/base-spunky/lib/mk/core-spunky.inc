@@ -104,10 +104,10 @@ SRC_CC += kernel/cpu.cc
 SRC_CC += kernel/init.cc
 SRC_CC += kernel/irq.cc
 SRC_CC += kernel/main.cc
+SRC_CC += kernel/main_initialize_spunky.cc
 SRC_CC += kernel/object.cc
 SRC_CC += kernel/thread.cc
 SRC_CC += kernel/timer.cc
-SRC_CC += kernel/initialize_spunky.cc
 SRC_CC += kernel/log.cc
 SRC_CC += init_main_thread.cc
 SRC_CC += capability.cc
@@ -122,12 +122,12 @@ NR_OF_CPUS ?= 1
 CC_OPT += -Wa,--defsym -Wa,NR_OF_CPUS=$(NR_OF_CPUS) -DNR_OF_CPUS=$(NR_OF_CPUS)
 
 # declare source locations
-vpath kernel/initialize_spunky.cc $(BASE_DIR)/../base-spunky/src/core
-vpath kernel/log.cc               $(BASE_DIR)/../base-spunky/src/core
-vpath kernel/timer.cc             $(BASE_DIR)/../base-spunky/src/core
-vpath %                           $(BASE_DIR)/../base-hw/src/core
-vpath %                           $(BASE_DIR)/src/core
-vpath %                           $(BASE_DIR)/src/lib/startup
+vpath kernel/main_initialize_spunky.cc $(BASE_DIR)/../base-spunky/src/core
+vpath kernel/log.cc                    $(BASE_DIR)/../base-spunky/src/core
+vpath kernel/timer.cc                  $(BASE_DIR)/../base-spunky/src/core
+vpath %                                $(BASE_DIR)/../base-hw/src/core
+vpath %                                $(BASE_DIR)/src/core
+vpath %                                $(BASE_DIR)/src/lib/startup
 
 CC_ADA_WARN_STRICT :=
 
