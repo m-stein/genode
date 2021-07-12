@@ -12,6 +12,9 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
+/* base includes */
+#include <util/reconstructible.h>
+
 /* base-hw Core includes */
 #include <kernel/cpu.h>
 #include <kernel/lock.h>
@@ -33,8 +36,9 @@ class Kernel::Main
 
 		static Main *_instance;
 
-		Lock     _data_lock { };
-		Cpu_pool _cpu_pool  { };
+		Lock                                    _data_lock        { };
+		Cpu_pool                                _cpu_pool         { };
+		Genode::Constructible<Core_main_thread> _core_main_thread { };
 
 		void _handle_kernel_entry();
 
@@ -126,7 +130,10 @@ void Kernel::Main::initialize_and_handle_kernel_entry()
 		Genode::log("");
 		Genode::log("kernel initialized");
 
-		Core_main_thread::initialize_instance(_instance->_cpu_pool);
+		_instance->_core_main_thread.construct(_instance->_cpu_pool);
+		boot_info.core_main_thread_utcb =
+			(addr_t)_instance->_core_main_thread->utcb();
+
 		kernel_ready = true;
 	} else {
 		/* secondary cpus spin until the kernel is initialized */
