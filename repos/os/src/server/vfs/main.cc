@@ -980,6 +980,8 @@ class Vfs_server::Root : public Genode::Root_component<Session_component>,
 
 void Component::construct(Genode::Env &env)
 {
+	env.exec_static_constructors();
+
 	static Genode::Sliced_heap sliced_heap { env.ram(), env.rm() };
 
 	static Vfs_server::Root root { env, sliced_heap };
