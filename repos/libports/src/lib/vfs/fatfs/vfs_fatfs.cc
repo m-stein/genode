@@ -827,22 +827,10 @@ class Fatfs::File_system : public Vfs::File_system
 
 struct Fatfs_factory : Vfs::File_system_factory
 {
-	struct Inner : Vfs::File_system_factory
-	{
-		Inner(Genode::Env &env, Genode::Allocator &alloc) {
-			Fatfs::block_init(env, alloc); }
-
-		Vfs::File_system *create(Vfs::Env &env, Genode::Xml_node node) override
-		{ 
-			return new (env.alloc())
-				Fatfs::File_system(env, node);
-		}
-	};
-
 	Vfs::File_system *create(Vfs::Env &vfs_env, Genode::Xml_node node) override
 	{
-		static Inner factory(vfs_env.env(), vfs_env.alloc());
-		return factory.create(vfs_env, node);
+		Fatfs::block_init(vfs_env.env(), vfs_env.alloc());
+		return new (vfs_env.alloc()) Fatfs::File_system(vfs_env, node);
 	}
 };
 
