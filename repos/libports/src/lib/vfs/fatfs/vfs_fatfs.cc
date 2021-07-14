@@ -312,28 +312,13 @@ class Fatfs::File_system : public Vfs::File_system
 		: _vfs_env(env)
 		{
 			{
-				static unsigned codepage = 0;
-				unsigned const cp = config.attribute_value<unsigned>(
-					"codepage", 0);
-
-				if (codepage != 0 && codepage != cp) {
-					Genode::error(
-						"cannot reinitialize codepage for FAT library, please "
-						"use additional VFS instances for additional codepages");
-					throw ~0;
-				}
-
-				if (f_setcp(cp) != FR_OK) {
-					Genode::error("invalid OEM code page '", cp, "'");
+				if (f_setcp(0) != FR_OK) {
+					Genode::error("failed to set codepage to 0");
 					throw FR_INVALID_PARAMETER;
 				}
-				codepage = cp;
 			}
-
-			auto const drive_num = config.attribute_value(
-				"drive", Genode::String<4>("0"));
-
 			/* mount the file system */
+			Genode::String<4> const drive_num { "0" };
 			switch (f_mount(&_fatfs, (const TCHAR*)drive_num.string(), 1)) {
 			case FR_OK: {
 				TCHAR label[24] = { '\0' };
