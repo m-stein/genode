@@ -333,16 +333,6 @@ class Fatfs::File_system : public Vfs::File_system
 			auto const drive_num = config.attribute_value(
 				"drive", Genode::String<4>("0"));
 
-#if _USE_MKFS == 1
-			if (config.attribute_value("format", false)) {
-				Genode::log("formatting drive ", drive_num, "...");
-				if (f_mkfs((const TCHAR*)drive_num.string(), 1, 0) != FR_OK) {
-					Genode::error("format of drive ", drive_num, " failed");
-					throw ~0;
-				}
-			}
-#endif
-
 			/* mount the file system */
 			switch (f_mount(&_fatfs, (const TCHAR*)drive_num.string(), 1)) {
 			case FR_OK: {
