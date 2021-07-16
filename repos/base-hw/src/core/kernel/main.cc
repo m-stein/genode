@@ -15,10 +15,15 @@
 /* base includes */
 #include <util/reconstructible.h>
 
+/* base Core includes */
+#include <map_local.h>
+
 /* base-hw Core includes */
 #include <kernel/cpu.h>
 #include <kernel/lock.h>
 #include <kernel/main.h>
+#include <platform_pd.h>
+#include <platform_thread.h>
 
 /* base-hw-internal includes */
 #include <hw/boot_info.h>
@@ -39,6 +44,7 @@ class Kernel::Main
 		Lock                                    _data_lock        { };
 		Cpu_pool                                _cpu_pool;
 		Irq::Pool                               _user_irq_pool    { };
+		Genode::Core_platform_pd                _core_platform_pd { };
 		Genode::Constructible<Core_main_thread> _core_main_thread { };
 
 		void _handle_kernel_entry();
@@ -52,6 +58,8 @@ class Kernel::Main
 		static void initialize_and_handle_kernel_entry();
 
 		static time_t read_idle_thread_execution_time(unsigned cpu_idx);
+
+		static Genode::Platform_pd &core_platform_pd();
 };
 
 
@@ -87,6 +95,9 @@ void Kernel::Main::handle_kernel_entry()
 
 void Kernel::Main::initialize_and_handle_kernel_entry()
 {
+	static_assert(sizeof(Genode::sizet_arithm_t) >= 2 * sizeof(size_t),
+		"Bad result type for size_t arithmetics.");
+
 	using Boot_info = Hw::Boot_info<Board::Boot_info>;
 
 	static volatile bool     instance_initialized   { false };
@@ -125,7 +136,8 @@ void Kernel::Main::initialize_and_handle_kernel_entry()
 		Lock::Guard guard(_instance->_data_lock);
 		instance_initialized = true;
 		_instance->_cpu_pool.initialize_executing_cpu(
-			_instance->_user_irq_pool);
+			_instance->_user_irq_pool,
+			_instance->_core_platform_pd.kernel_pd());
 
 		nr_of_initialized_cpus++;
 	};
@@ -150,8 +162,10 @@ void Kernel::Main::initialize_and_handle_kernel_entry()
 		});
 		boot_info.kernel_irqs.add((unsigned)Board::Pic::IPI);
 
-		_instance->_core_main_thread.construct(_instance->_user_irq_pool,
-		                                       _instance->_cpu_pool);
+		_instance->_core_main_thread.construct(
+			_instance->_user_irq_pool,
+			_instance->_cpu_pool,
+			_instance->_core_platform_pd.kernel_pd());
 
 		boot_info.core_main_thread_utcb =
 			(addr_t)_instance->_core_main_thread->utcb();
@@ -179,13 +193,44 @@ Kernel::time_t Kernel::Main::read_idle_thread_execution_time(unsigned cpu_idx)
 }
 
 
+Genode::Platform_pd &Kernel::Main::core_platform_pd()
+{
+	return _instance->_core_platform_pd;
+}
+
+
 Kernel::time_t Kernel::main_read_idle_thread_execution_time(unsigned cpu_idx)
 {
 	return Main::read_idle_thread_execution_time(cpu_idx);
 }
 
 
+Genode::Platform_pd &
+Genode::Platform_thread::_kernel_main_get_core_platform_pd()
+{
+	return Kernel::Main::core_platform_pd();
+}
+
+
 void Kernel::main_handle_kernel_entry()
 {
 	Main::handle_kernel_entry();
+}
+
+
+bool Genode::map_local(addr_t from_phys, addr_t to_virt, size_t num_pages,
+                       Page_flags flags)
+{
+	return
+		Kernel::Main::core_platform_pd().insert_translation(
+			to_virt, from_phys, num_pages * get_page_size(), flags);
+}
+
+
+bool Genode::unmap_local(addr_t virt_addr, size_t num_pages)
+{
+	Kernel::Main::core_platform_pd().flush(
+		virt_addr, num_pages * get_page_size());
+
+	return true;
 }
