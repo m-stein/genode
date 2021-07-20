@@ -20,6 +20,7 @@
 #include <util/reconstructible.h>
 
 /* core includes */
+#include <aligned.h>
 #include <cpu.h>
 #include <kernel/cpu_context.h>
 #include <kernel/inter_processor_work.h>
@@ -445,6 +446,10 @@ class Kernel::Thread : private Kernel::Object, public Cpu_job, private Timeout
  */
 class Kernel::Core_main_thread : public Core_object<Kernel::Thread>
 {
+	private:
+
+		Genode::Aligned<Native_utcb, Hw::get_page_size_log2()> _aligned_utcb { };
+
 	public:
 
 		Core_main_thread(Irq::Pool &user_irq_pool,
