@@ -20,24 +20,32 @@ these domains. This is a brief overview of the features thereby provided:
 Basics
 ~~~~~~
 
-The NIC router can act as server of multiple NIC session clients (downlinks)
-and at the same time as client of multiple NIC session servers (uplinks).
-Besides the decision which side initiates the NIC session and provides MAC
-address respectively link state, uplinks and downlinks are equal to the NIC
-router.
+The NIC router acts as server for both Genode's "Nic" and "Uplink" service.
+For both services it can manage an arbitrary number of clients at a time.
+Furthermore, the NIC router can itself request multiple "Nic" sessions and act
+as client at them. Among these types of network sessions at the router, there
+are some minor differences regarding the roles when initializing the session,
+determining a MAC address or communicating the link state. However, each
+network session at the router, regardless of its type, is an "interface" (like
+a network interface in Linux-based systems) and in all regards except the
+mentioned subtleties treated the same as other interfaces.
 
-The routing algorithm is ultimately controlled through the configuration. NIC
-sessions are assigned to domains. Each domain represents one subnet and a
-corresponding routing configuration. The assignment of downlink NIC sessions
-to domains is controlled through the policy tag that is also known from other
-Genode components:
+The behavior of the router regarding interfaces is ultimately controlled
+through the router's configuration. A domain is a set of rules that shall be aplliedInterfaces can be assigned to domains.
 
+Each domain represents one subnet and a
+corresponding routing configuration. The domain assignment of "Nic" and
+"Uplink" sessions which are provided in a server role by the NIC router is
+controlled through the '<policy>' tag that is also known from other Genode
+components:
+
+! <default-policy domain="default" />
 ! <policy label_prefix="vlan_" domain="vlan" />
 ! <policy label_suffix="_server" domain="servers" />
 ! <policy label="nic_bridge_1" domain="wired_bridge" />
 ! <policy label="nic_bridge_2" domain="wired_bridge" />
 
-The domain name can be freely choosen but must be unique.
+The domain name can be freely chosen but must be unique.
 The uplink tag instructs the NIC router to create an uplink NIC session that
 is assigned to the give domain:
 
