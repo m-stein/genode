@@ -1370,7 +1370,7 @@ void Interface::_send_arp_reply(Ethernet_frame &request_eth,
 		reply_arp.protocol_address_type(Arp_packet::IPV4);
 		reply_arp.hardware_address_size(sizeof(Mac_address));
 		reply_arp.protocol_address_size(sizeof(Ipv4_address));
-		reply_arp.opcode(Arp_packet::REQUEST);
+		reply_arp.opcode(Arp_packet::REPLY);
 		reply_arp.src_mac(_router_mac);
 		reply_arp.src_ip(request_arp.dst_ip());
 		reply_arp.dst_mac(request_arp.src_mac());
