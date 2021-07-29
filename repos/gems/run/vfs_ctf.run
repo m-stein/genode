@@ -1,0 +1,164 @@
+assert_spec linux
+
+# check that babeltrace2 is present
+set babeltrace_missing [catch {
+	spawn babeltrace2 -V
+	expect {
+		{Babeltrace 2.*}  { }
+		eof { return }
+		timeout { return }
+	}
+}]
+
+if {$babeltrace_missing} {
+	puts "\nPlease install babeltrace2 on your host system."
+	exit 1;
+}
+
+build { server/vfs
+        server/lx_fs
+        lib/vfs/import
+        lib/vfs/ctf
+        lib/trace/policy/ctf0 }
+
+create_boot_directory
+
+import_from_depot \
+	[depot_user]/src/[base_src] \
+	[depot_user]/src/init \
+	[depot_user]/src/libc \
+	[depot_user]/src/fs_query \
+	[depot_user]/src/rom_logger \
+	[depot_user]/src/report_rom \
+	[depot_user]/src/dummy_rtc_drv \
+	[depot_user]/src/dynamic_rom
+
+install_config {
+	<config verbose="yes">
+		<parent-provides>
+			<service name="ROM"/>
+			<service name="LOG"/>
+			<service name="RM"/>
+			<service name="CPU"/>
+			<service name="PD"/>
+			<service name="IRQ"/>
+			<service name="TRACE"/>
+		</parent-provides>
+
+		<default-route>
+			<service name="File_system"> <child name="vfs"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</default-route>
+		<default caps="100"/>
+
+		<start name="timer">
+			<resource name="RAM" quantum="1M"/>
+			<provides><service name="Timer"/></provides>
+		</start>
+
+		<start name="dynamic_rom">
+			<resource name="RAM" quantum="1M"/>
+			<provides><service name="ROM"/></provides>
+			<config>
+				<rom name="test">
+					<inline>
+						<foo/>
+					</inline>
+					<sleep milliseconds="500"/>
+					<inline>
+						<bar/>
+					</inline>
+					<sleep milliseconds="500"/>
+				</rom>
+			</config>
+		</start>
+
+		<start name="rom_logger">
+			<resource name="RAM" quantum="1M"/>
+			<config rom="test"/>
+			<route>
+				<service name="ROM" label="test"> <child name="dynamic_rom"/> </service>
+				<any-service> <parent/> </any-service>
+			</route>
+		</start>
+
+		<start name="dummy_rtc_drv">
+			<resource name="RAM" quantum="1M"/>
+			<provides> <service name="Rtc"/> </provides>
+		</start>
+
+		<start name="lx_fs" ld="no">
+			<resource name="RAM" quantum="4M"/>
+			<provides> <service name="File_system"/> </provides>
+			<config>
+				<default-policy root="/fs" writeable="yes"/>
+			</config>
+		</start>
+
+		<start name="vfs" caps="200">
+			<resource name="RAM" quantum="16M"/>
+			<provides> <service name="File_system"/> </provides>
+			<config>
+				<vfs>
+					<fs/>
+					<ctf/>
+					<import overwrite="yes">
+						<dir name="ctf">
+							<inline name="enable">true</inline>
+							<inline name="config">
+								<config period_ms="5000" target_root="/">
+									<policy label_suffix="dynamic_rom" thread="dynamic_rom" policy="ctf_rpc_name"/>
+									<policy label_suffix="rom_logger"  policy="ctf_rpc_name"/>
+								</config>
+							</inline>
+						</dir>
+					</import>
+				</vfs>
+				<default-policy root="/" writeable="no"/>
+			</config>
+			<route>
+				<service name="File_system"> <child name="lx_fs"/> </service>
+				<any-service> <parent/> <any-child/> </any-service>
+			</route>
+		</start>
+
+		<start name="report_rom">
+			<resource name="RAM" quantum="1M"/>
+			<provides>
+				<service name="Report"/>
+				<service name="ROM"/>
+			</provides>
+			<config verbose="yes">
+			</config>
+		</start>
+
+		<start name="fs_query">
+			<resource name="RAM" quantum="2M"/>
+			<config>
+				<vfs>
+					<fs/>
+				</vfs>
+				<query size="yes" content="yes" path="/ctf"/>
+			</config>
+		</start>
+
+	</config>
+}
+
+exec rm -rf bin/fs
+exec mkdir -p bin/fs
+
+build_boot_image { vfs_import.lib.so
+                   vfs
+                   lx_fs
+                   fs
+                   vfs.lib.so
+                   ctf_rpc_name
+                   vfs_ctf.lib.so }
+
+append qemu_args " -nographic "
+
+run_genode_until {asdf} 30
+
+# check generated trace by reading CTF trace as fast as possible using a dummy output
+# spawn babeltrace2 my-trace --output-format=dummy
