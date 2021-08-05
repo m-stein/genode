@@ -202,9 +202,9 @@ class Net::Dhcp_packet
 		};
 
 		/**
-		 * Domain name server option header
+		 * Domain name server option
 		 */
-		struct Dns_server : Option
+		class Dns_server : public Option
 		{
 			private:
 
