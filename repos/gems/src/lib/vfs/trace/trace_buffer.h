@@ -45,15 +45,21 @@ class Trace_buffer
 			if (wrapped)
 				_wrapped_count = _buffer.wrapped();
 
-			/* initialize _curr if _buffer was empty until now */
 			Trace::Buffer::Entry curr { _curr };
-			if (_curr.last())
-				curr = _buffer.first();
+			Trace::Buffer::Entry e2   { _curr };
+
+			/** _curr is either uninitialised (invalid)
+ 			 *  or marks the last processed entry.
+ 			 *  In the former case, we start with the first entry.
+ 			 *  In the latter case, we proceed with the next unprocessed entry.
+ 			 */
+			if (e2.last())
+				e2 = _buffer.first();
+			else
+				e2 = _buffer.next(e2);
 
 			/* iterate over all entries that were not processed yet */
-			Trace::Buffer::Entry e1 = curr;
-			for (Trace::Buffer::Entry e2 = curr; wrapped || !e2.last();
-			                          e2 = _buffer.next(e2)) {
+			for (; wrapped || !e2.last(); e2 = _buffer.next(e2)) {
 				/* if buffer wrapped, we pass the last entry once and continue at first entry */
 				if (wrapped && e2.last()) {
 					wrapped = false;
@@ -62,13 +68,13 @@ class Trace_buffer
 						break;
 				}
 
-				e1 = e2;
-				if (!functor(e1))
+				if (!functor(e2))
 					break;
+
+				curr = e2;
 			}
 
 			/* remember the last processed entry in _curr */
-			curr = e1;
 			if (update) _curr = curr;
 		}
 
