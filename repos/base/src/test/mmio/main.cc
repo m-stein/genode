@@ -18,9 +18,6 @@
 
 using namespace Genode;
 
-/**
- * Assume this one is a cpu register, accessed by special ops
- */
 static uint16_t cpu_state;
 
 /**
@@ -157,6 +154,23 @@ struct Test_mmio : public Mmio
 };
 
 
+struct Register_8  : Register<8>  { struct X : Bitfield<3,4>  { }; };
+struct Register_16 : Register<16> { struct X : Bitfield<7,8>  { }; };
+struct Register_32 : Register<32> { struct X : Bitfield<11,16> { }; };
+struct Register_64 : Register<64> { struct X : Bitfield<17,32> { }; };
+
+struct Packed_registers
+{
+	Register_8::unaligned_access_t  reg_8;
+	Register_16::unaligned_access_t reg_16;
+	Register_32::unaligned_access_t reg_32;
+	Register_64::unaligned_access_t reg_64;
+}
+__attribute__((packed));
+
+static Packed_registers packed_regs;
+
+
 /**
  * Zero-fill memory region
  */
@@ -199,6 +213,45 @@ void failed(unsigned  line,
 void Component::construct(Genode::Env &env)
 {
 	using ::Cpu_state;
+
+
+	/******************************************************************
+	 ** Test access to unaliged/packed integers via Genode::Register **
+	 ******************************************************************/
+
+	packed_regs.reg_8  = 0xab;
+	packed_regs.reg_16 = 0xabcd;
+	packed_regs.reg_32 = 0xabcdefab;
+	packed_regs.reg_64 = 0xabcdefabcdefabcd;
+
+	Register_8 ::X::set_unaligned(packed_regs.reg_8,  0x12);
+	Register_16::X::set_unaligned(packed_regs.reg_16, 0x123);
+	Register_32::X::set_unaligned(packed_regs.reg_32, 0x1234);
+	Register_64::X::set_unaligned(packed_regs.reg_64, 0x12345);
+
+	if (Register_8 ::X::get(packed_regs.reg_8)  != 0x2)     { failed(__LINE__, env); }
+	if (Register_16::X::get(packed_regs.reg_16) != 0x23)    { failed(__LINE__, env); }
+	if (Register_32::X::get(packed_regs.reg_32) != 0x1234)  { failed(__LINE__, env); }
+	if (Register_64::X::get(packed_regs.reg_64) != 0x12345) { failed(__LINE__, env); }
+	if (packed_regs.reg_8  != 0x93)                         { failed(__LINE__, env); }
+	if (packed_regs.reg_16 != 0x91cd)                       { failed(__LINE__, env); }
+	if (packed_regs.reg_32 != 0xa891a7ab)                   { failed(__LINE__, env); }
+	if (packed_regs.reg_64 != 0xabcc0002468babcd)           { failed(__LINE__, env); }
+
+	Register_8 ::X::clear_unaligned(packed_regs.reg_8);
+	Register_16::X::clear_unaligned(packed_regs.reg_16);
+	Register_32::X::clear_unaligned(packed_regs.reg_32);
+	Register_64::X::clear_unaligned(packed_regs.reg_64);
+
+	if (Register_8 ::X::get(packed_regs.reg_8)  != 0) { failed(__LINE__, env); }
+	if (Register_16::X::get(packed_regs.reg_16) != 0) { failed(__LINE__, env); }
+	if (Register_32::X::get(packed_regs.reg_32) != 0) { failed(__LINE__, env); }
+	if (Register_64::X::get(packed_regs.reg_64) != 0) { failed(__LINE__, env); }
+	if (packed_regs.reg_8  != 0x83)                   { failed(__LINE__, env); }
+	if (packed_regs.reg_16 != 0x804d)                 { failed(__LINE__, env); }
+	if (packed_regs.reg_32 != 0xa80007ab)             { failed(__LINE__, env); }
+	if (packed_regs.reg_64 != 0xabcc00000001abcd)     { failed(__LINE__, env); }
+
 
 	/************************************
 	 ** 'Genode::Mmio::Register' tests **

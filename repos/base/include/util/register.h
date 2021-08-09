@@ -122,6 +122,8 @@ struct Genode::Register
 	};
 
 	typedef typename Trait::Uint_width<ACCESS_WIDTH>::Type access_t;
+	typedef typename Trait::Uint_width<ACCESS_WIDTH>::Type
+		unaligned_access_t __attribute__ ((aligned (1)));
 
 	/**
 	 * A bitregion within a register
@@ -211,6 +213,26 @@ struct Genode::Register
 			clear(reg);
 			reg = reg | (access_t)((value & mask()) << SHIFT);
 		};
+
+		/**
+		 * Set this bitfield to 0 in the unaligned register value 'reg'
+		 */
+		static inline void clear_unaligned(unaligned_access_t & reg)
+		{
+			reg &= clear_mask();
+		}
+
+		/**
+		 * Set this bitfield to 'value' in the unaligned register value 'reg'
+		 */
+		static inline void set_unaligned(unaligned_access_t & reg,
+		                                 access_t     const   value = ~0)
+		{
+			clear_unaligned(reg);
+			reg |= (value & mask()) << SHIFT;
+		};
+
+
 	};
 };
 
