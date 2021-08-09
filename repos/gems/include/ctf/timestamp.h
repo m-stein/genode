@@ -20,8 +20,6 @@
 namespace Ctf {
 	using namespace Genode;
 
-	typedef uint64_t Timestamp_base;
-
 	/* generic fixed-width timestamp type for different Trace::Timestamp widths */
 	template <int PWIDTH>
 	struct _Timestamp : Register<64> {
@@ -35,6 +33,8 @@ namespace Ctf {
 	};
 
 	typedef _Timestamp<sizeof(Trace::Timestamp)*8> Timestamp;
+
+	typedef Register<64>::unaligned_access_t Timestamp_base;
 }
 
 #endif /* _CTF__TIMESTAMP_H_ */

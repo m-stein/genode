@@ -64,11 +64,43 @@ install_config {
 					<inline>
 						<foo/>
 					</inline>
-					<sleep milliseconds="500"/>
+					<sleep milliseconds="1000"/>
 					<inline>
 						<bar/>
 					</inline>
-					<sleep milliseconds="500"/>
+					<sleep milliseconds="1000"/>
+					<inline>
+						<baz/>
+					</inline>
+					<sleep milliseconds="1000"/>
+					<inline>
+						<foo/>
+					</inline>
+					<sleep milliseconds="1000"/>
+					<inline>
+						<bar/>
+					</inline>
+					<sleep milliseconds="1000"/>
+					<inline>
+						<foo/>
+					</inline>
+					<sleep milliseconds="1000"/>
+					<inline>
+						<bar/>
+					</inline>
+					<sleep milliseconds="1000"/>
+					<inline>
+						<foo/>
+					</inline>
+					<sleep milliseconds="1000"/>
+					<inline>
+						<bar/>
+					</inline>
+					<sleep milliseconds="1000"/>
+					<inline>
+						<end/>
+					</inline>
+					<sleep milliseconds="1000"/>
 				</rom>
 			</config>
 		</start>
@@ -158,7 +190,8 @@ build_boot_image { vfs_import.lib.so
 
 append qemu_args " -nographic "
 
-run_genode_until {asdf} 30
+run_genode_until {<end/>} 60
 
 # check generated trace by reading CTF trace as fast as possible using a dummy output
-# spawn babeltrace2 my-trace --output-format=dummy
+exec cp ${genode_dir}/repos/gems/src/lib/vfs/ctf/metadata bin/fs/0-0-0\ 0\:0\:0/init/rom_logger
+spawn babeltrace2 bin/fs/0-0-0\ 0\:0\:0/init/rom_logger --output-format=dummy

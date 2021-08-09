@@ -37,7 +37,8 @@ class Packet_buffer
 			new (_buffer) Ctf::Packet_header(info.session_label(),
 			                                 info.thread_name(),
 			                                 info.affinity(),
-			                                 info.priority());
+			                                 info.priority(),
+			                                 BUFSIZE);
 		}
 
 		void add_event(Ctf::Event_header_base &event, Genode::size_t length)
@@ -45,7 +46,7 @@ class Packet_buffer
 			if (bytes_remaining() < length)
 				throw Buffer_too_small();
 
-			unsigned offset = _header().total_length();
+			unsigned offset = _header().total_length_bytes();
 
 			/* append timestamp to header and update (potentially) corrected timestamp in event */
 			event.timestamp(_header().append_event(event.timestamp(), length));
@@ -54,10 +55,10 @@ class Packet_buffer
 		}
 
 		void           reset()           { _header().reset(); }
-		bool           empty()           { return _header().total_length() <= sizeof(Ctf::Packet_header); }
-		Genode::size_t length()          { return _header().total_length(); }
+		bool           empty()           { return _header().empty(); }
+		Genode::size_t length()          { return _header().total_length_bytes(); }
 		const char    *data()            { return _buffer; }
-		Genode::size_t bytes_remaining() { return BUFSIZE - _header().total_length(); }
+		Genode::size_t bytes_remaining() { return BUFSIZE - _header().total_length_bytes(); }
 };
 
 

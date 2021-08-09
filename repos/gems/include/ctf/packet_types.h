@@ -26,14 +26,15 @@ namespace Ctf {
 
 struct Ctf::Packet_header
 {
-	/* keep timestamp unpacked to be able to access them with Register framework */
-	Timestamp_base _timestamp_start                          { };
-	Timestamp_base _timestamp_end                            { };
-	uint32_t       _total_length __attribute__((packed))     { sizeof(Packet_header) };
-	uint16_t       _affinity     __attribute__((packed))     { };
-	uint8_t        _priority                                 { };
-	char           _session_label[Session_label::capacity()] { };
-	char           _thread_name[Thread_name::capacity()]     { };
+	uint32_t       _magic                 { 0xC1FC1FC1 };
+	uint32_t       _stream_id             { };
+	Timestamp_base _timestamp_start       { };
+	Timestamp_base _timestamp_end         { };
+	uint32_t       _total_length          { };
+	uint16_t       _hdr_length            { sizeof(Packet_header) * 8 };
+	uint16_t       _affinity              { };
+	uint8_t        _priority              { };
+	char           _session_and_thread[0] { };
 
 	struct Affinity : Register<16>
 	{
@@ -46,20 +47,32 @@ struct Ctf::Packet_header
 	Packet_header(Session_label              const &label,
 	              Thread_name                const &thread,
 	              Genode::Affinity::Location const &affinity,
-	              unsigned                          priority)
-	: _affinity(Affinity::Xpos::bits(affinity.xpos())   |
+	              unsigned                          priority,
+	              Genode::size_t                    buflen,
+	              unsigned                          streamid=0)
+	: _stream_id(streamid),
+	  _affinity(Affinity::Xpos::bits(affinity.xpos())   |
 	            Affinity::Ypos::bits(affinity.ypos())   |
 	            Affinity::Width::bits(affinity.width()) |
 	            Affinity::Height::bits(affinity.height())),
 	  _priority(priority)
 	{
-		Genode::copy_cstring(_session_label, label.string(),  sizeof(_session_label));
-		Genode::copy_cstring(_thread_name,   thread.string(), sizeof(_thread_name));
+		Genode::size_t sess_len = Genode::min(label.length() + 1, buflen);
+		Genode::copy_cstring(_session_and_thread, label.string(), sess_len);
+		_hdr_length += (sess_len-1) * 8;
+
+		if (sess_len < buflen) {
+			Genode::size_t thread_len = Genode::min(thread.length() + 1, buflen - sess_len);
+			Genode::copy_cstring(&_session_and_thread[sess_len-1], thread.string(), thread_len);
+			_hdr_length += (thread_len-1) * 8;
+		}
+
+		_total_length = _hdr_length;
 	}
 
 	void reset()
 	{
-		_total_length    = sizeof(Packet_header);
+		_total_length    = _hdr_length;
 		_timestamp_start = 0;
 		_timestamp_end   = 0;
 	}
@@ -83,15 +96,15 @@ struct Ctf::Packet_header
 		}
 
 		Timestamp::Base::set(_timestamp_end, timestamp);
-		_total_length  += length;
+		_total_length += length * 8;
 
 		return _timestamp_end;
 	}
 
-	uint32_t total_length() const { return _total_length; }
+	uint32_t total_length_bytes() const { return _total_length / 8; }
+	bool     empty()              const { return _total_length <= _hdr_length; }
 
 	void *operator new(__SIZE_TYPE__, void *p) { return p; }
-
-};
+} __attribute((packed));
 
 #endif /* _CTF__PACKET_TYPES_H_ */
