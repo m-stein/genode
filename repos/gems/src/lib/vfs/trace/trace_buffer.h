@@ -45,8 +45,8 @@ class Trace_buffer
 			if (wrapped)
 				_wrapped_count = _buffer.wrapped();
 
-			Trace::Buffer::Entry curr { _curr };
-			Trace::Buffer::Entry e2   { _curr };
+			Trace::Buffer::Entry new_curr { _curr };
+			Trace::Buffer::Entry entry    { _curr };
 
 			/**
 			 * If '_curr' is marked 'last' (i.e., the entry pointer it contains
@@ -63,29 +63,29 @@ class Trace_buffer
 			 * This problem is well known and should be avoided by choosing a
 			 * large enough buffer.
 			 */
-			if (e2.last())
-				e2 = _buffer.first();
+			if (entry.last())
+				entry = _buffer.first();
 			else
-				e2 = _buffer.next(e2);
+				entry = _buffer.next(entry);
 
 			/* iterate over all entries that were not processed yet */
-			for (; wrapped || !e2.last(); e2 = _buffer.next(e2)) {
+			for (; wrapped || !entry.last(); entry = _buffer.next(entry)) {
 				/* if buffer wrapped, we pass the last entry once and continue at first entry */
-				if (wrapped && e2.last()) {
+				if (wrapped && entry.last()) {
 					wrapped = false;
-					e2 = _buffer.first();
-					if (e2.last())
+					entry = _buffer.first();
+					if (entry.last())
 						break;
 				}
 
-				if (!functor(e2))
+				if (!functor(entry))
 					break;
 
-				curr = e2;
+				new_curr = entry;
 			}
 
 			/* remember the last processed entry in _curr */
-			if (update) _curr = curr;
+			if (update) _curr = new_curr;
 		}
 
 		void * address()        const { return &_buffer; }
