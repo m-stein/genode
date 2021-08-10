@@ -45,10 +45,11 @@ Ipv4_config::Ipv4_config(Ipv4_config const &ip_config,
 	_interface  { ip_config._interface },
 	_gateway    { ip_config._gateway }
 {
-	ip_config._dns_servers.for_each([&] (Dns_server const &dns_server) {
+	ip_config.for_each_dns_server([&] (Dns_server const &dns_server) {
 		_dns_servers.insert_as_tail(
 			*new (alloc) Dns_server(dns_server.ip()));
 	});
+	_dns_domain_name.set_to(ip_config.dns_domain_name());
 }
 
 
@@ -60,7 +61,6 @@ Ipv4_config::Ipv4_config(Dhcp_packet &dhcp_ack,
 	              dhcp_ipv4_option<Dhcp_packet::Subnet_mask>(dhcp_ack) },
 	_gateway    { dhcp_ipv4_option<Dhcp_packet::Router_ipv4>(dhcp_ack) }
 {
-
 	try {
 		Dhcp_packet::Dns_server const &dns_server {
 			dhcp_ack.option<Dhcp_packet::Dns_server>() };
@@ -68,6 +68,10 @@ Ipv4_config::Ipv4_config(Dhcp_packet &dhcp_ack,
 		dns_server.for_each_address([&] (Ipv4_address const &addr) {
 			_dns_servers.insert_as_tail(*new (alloc) Dns_server(addr));
 		});
+	}
+	catch (Dhcp_packet::Option_not_found) { }
+	try {
+		_dns_domain_name.set_to(dhcp_ack.option<Dhcp_packet::Domain_name>());
 	}
 	catch (Dhcp_packet::Option_not_found) { }
 }

@@ -397,6 +397,13 @@ void Domain::report(Xml_generator &xml)
 					xml.attribute("ip", String<16>(dns_server.ip()));
 				});
 			});
+			ip_config().dns_domain_name().with_string(
+				[&] (Dns_domain_name::String const &str)
+			{
+				xml.node("dns-domain", [&] () {
+					xml.attribute("name", str);
+				});
+			});
 			empty = false;
 		}
 		if (_config.report().stats()) {
