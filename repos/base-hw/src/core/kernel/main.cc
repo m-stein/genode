@@ -47,6 +47,7 @@ class Kernel::Main
 		Board::Address_space_id_allocator       _addr_space_id_alloc { };
 		Genode::Core_platform_pd                _core_platform_pd    { _addr_space_id_alloc };
 		Genode::Constructible<Core_main_thread> _core_main_thread    { };
+		Board::Global_interrupt_controller      _global_irq_ctrl     { };
 
 		void _handle_kernel_entry();
 
@@ -139,7 +140,8 @@ void Kernel::Main::initialize_and_handle_kernel_entry()
 		_instance->_cpu_pool.initialize_executing_cpu(
 			_instance->_addr_space_id_alloc,
 			_instance->_user_irq_pool,
-			_instance->_core_platform_pd.kernel_pd());
+			_instance->_core_platform_pd.kernel_pd(),
+			_instance->_global_irq_ctrl);
 
 		nr_of_initialized_cpus++;
 	};
