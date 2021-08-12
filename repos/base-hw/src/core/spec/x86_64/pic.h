@@ -2,6 +2,7 @@
  * \brief  Programmable interrupt controller for core
  * \author Reto Buerki
  * \author Alexander Boettcher
+ * \author Martin Stein
  * \date   2015-02-17
  */
 
@@ -29,14 +30,14 @@ namespace Board {
 	struct Irte;
 
 	/**
-	 * IO advanced programmable interrupt controller
+	 * Parts of the interrupt controller that are not CPU-local
 	 */
-	class Ioapic;
+	class Global_interrupt_controller;
 
 	/**
-	 * Programmable interrupt controller for core
+	 * Parts of the interrupt controller that are CPU-local
 	 */
-	class Pic;
+	class Local_interrupt_controller;
 
 	enum { IRQ_COUNT = 256 };
 }
@@ -50,12 +51,9 @@ struct Board::Irte : Genode::Register<64>
 };
 
 
-class Board::Ioapic : public Genode::Mmio
+class Board::Global_interrupt_controller : public Genode::Mmio
 {
 	private:
-
-		/* Number of Redirection Table entries */
-		unsigned _irte_count = 0;
 
 		enum {
 			/* Register selectors */
@@ -70,15 +68,27 @@ class Board::Ioapic : public Genode::Mmio
 		};
 
 		/**
-		 * IRQ mode specifies trigger mode and polarity of an IRQ
+		 * Specifies trigger mode and polarity of an IRQ
 		 */
-		struct Irq_mode
+		struct Interrupt_mode
 		{
 			unsigned trigger_mode;
 			unsigned polarity;
 		};
 
-		static Irq_mode _irq_mode[IRQ_COUNT];
+		/*
+		 * Registers
+		 */
+
+		struct Ioregsel : Register<0x00, 32> { };
+		struct Iowin    : Register<0x10, 32>
+		{
+		    struct Maximum_redirection_entry : Bitfield<16, 8> { };
+		};
+
+		unsigned        _irte_count = 0;       /* number of redirection table entries */
+		Genode::uint8_t _lapic_id[NR_OF_CPUS]; /* unique name of the LAPIC of each CPU */
+		Interrupt_mode  _irq_mode[IRQ_COUNT];
 
 		/**
 		 * Return whether 'irq' is an edge-triggered interrupt
@@ -104,7 +114,7 @@ class Board::Ioapic : public Genode::Mmio
 
 	public:
 
-		Ioapic();
+		Global_interrupt_controller();
 
 		/**
 		 * Set/unset mask bit of IRTE for given vector
@@ -112,7 +122,13 @@ class Board::Ioapic : public Genode::Mmio
 		 * \param vector  targeted vector
 		 * \param set     whether to set or to unset the mask bit
 		 */
-		void toggle_mask(unsigned const vector, bool const set);
+		void toggle_mask(unsigned const vector,
+		                 bool     const set);
+
+		void lapic_id(unsigned        const cpu_id,
+		              Genode::uint8_t const lapic_id);
+
+		Genode::uint8_t lapic_id(unsigned const cpu_id) const;
 
 		/**
 		 * Setup mode of an IRQ to specified trigger mode and polarity
@@ -121,22 +137,13 @@ class Board::Ioapic : public Genode::Mmio
 		 * \param trigger     new interrupt trigger mode
 		 * \param polarity    new interrupt polarity setting
 		 */
-		void irq_mode(unsigned irq_number, unsigned trigger,
+		void irq_mode(unsigned irq_number,
+		              unsigned trigger,
 		              unsigned polarity);
-
-		/*
-		 * Registers
-		 */
-
-		struct Ioregsel : Register<0x00, 32> { };
-		struct Iowin    : Register<0x10, 32>
-		{
-		    struct Maximum_redirection_entry : Bitfield<16, 8> { };
-		};
 };
 
 
-class Board::Pic : public Genode::Mmio
+class Board::Local_interrupt_controller : public Genode::Mmio
 {
 	private:
 
@@ -173,6 +180,8 @@ class Board::Pic : public Genode::Mmio
 			struct Destination : Bitfield<24, 8> { };
 		};
 
+		Global_interrupt_controller &_global_irq_ctrl;
+
 		/**
 		 * Determine lowest pending interrupt in ISR register
 		 *
@@ -180,11 +189,6 @@ class Board::Pic : public Genode::Mmio
 		 *         bit is set.
 		 */
 		inline unsigned get_lowest_bit(void);
-
-		/**
-		 * Mapping of our logical boot CPUs to the local APIC IDs
-		 */
-		static Genode::uint8_t lapic_ids[NR_OF_CPUS];
 
 	public:
 
@@ -201,9 +205,7 @@ class Board::Pic : public Genode::Mmio
 		/**
 		 * Constructor
 		 */
-		Pic();
-
-		Ioapic ioapic { };
+		Local_interrupt_controller(Global_interrupt_controller &global_irq_ctrl);
 
 		bool take_request(unsigned &irq);
 
@@ -219,11 +221,17 @@ class Board::Pic : public Genode::Mmio
 		{
 			if (cpu_id < NR_OF_CPUS) {
 				Id::access_t const lapic_id = read<Id>();
-				lapic_ids[cpu_id] = (lapic_id >> 24) & 0xff;
+				_global_irq_ctrl.lapic_id(cpu_id, (lapic_id >> 24) & 0xff);
 			}
 		}
 
 		void send_ipi(unsigned const);
 };
+
+
+namespace Board {
+
+	class Pic : public Local_interrupt_controller { };
+}
 
 #endif /* _CORE__SPEC__X86_64__PIC_H_ */
