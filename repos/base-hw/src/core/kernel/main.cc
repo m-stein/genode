@@ -19,6 +19,7 @@
 #include <map_local.h>
 
 /* base-hw Core includes */
+#include <kernel/log.h>
 #include <kernel/cpu.h>
 #include <kernel/lock.h>
 #include <kernel/main.h>
@@ -39,6 +40,8 @@ class Kernel::Main
 {
 	private:
 
+		enum { SERIAL_BAUD_RATE = 115200 };
+
 		static Main *_instance;
 
 		Lock                                    _data_lock           { };
@@ -48,6 +51,9 @@ class Kernel::Main
 		Genode::Core_platform_pd                _core_platform_pd    { _addr_space_id_alloc };
 		Genode::Constructible<Core_main_thread> _core_main_thread    { };
 		Board::Global_interrupt_controller      _global_irq_ctrl     { };
+		Board::Serial                           _serial              { Genode::Platform::mmio_to_virt(Board::UART_BASE),
+		                                                               Board::UART_CLOCK,
+		                                                               SERIAL_BAUD_RATE };
 
 		void _handle_kernel_entry();
 
@@ -62,6 +68,8 @@ class Kernel::Main
 		static time_t read_idle_thread_execution_time(unsigned cpu_idx);
 
 		static Genode::Platform_pd &core_platform_pd();
+
+		static Board::Serial &serial();
 };
 
 
@@ -204,6 +212,12 @@ Genode::Platform_pd &Kernel::Main::core_platform_pd()
 }
 
 
+Board::Serial &Kernel::Main::serial()
+{
+	return _instance->_serial;
+}
+
+
 Kernel::time_t Kernel::main_read_idle_thread_execution_time(unsigned cpu_idx)
 {
 	return Main::read_idle_thread_execution_time(cpu_idx);
@@ -238,4 +252,17 @@ bool Genode::unmap_local(addr_t virt_addr, size_t num_pages)
 		virt_addr, num_pages * get_page_size());
 
 	return true;
+}
+
+
+void Kernel::log(char const c)
+{
+	enum {
+		ASCII_LINE_FEED = 10,
+		ASCII_CARRIAGE_RETURN = 13,
+	};
+	if (c == ASCII_LINE_FEED) {
+		Main::serial().put_char(ASCII_CARRIAGE_RETURN);
+	}
+	Main::serial().put_char(c);
 }

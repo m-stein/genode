@@ -23,7 +23,6 @@ SRC_CC += core_rpc_cap_alloc.cc
 SRC_CC += dataspace_component.cc
 SRC_CC += default_log.cc
 SRC_CC += dump_alloc.cc
-SRC_CC += kernel_log.cc
 SRC_CC += io_mem_session_component.cc
 SRC_CC += io_mem_session_support.cc
 SRC_CC += irq_session_component.cc
