@@ -22,7 +22,11 @@
 /* Genode includes */
 #include <util/xml_node.h>
 
-namespace Net { class Ipv4_config; }
+namespace Net {
+
+	class Domain;
+	class Ipv4_config;
+}
 
 class Net::Ipv4_config
 {

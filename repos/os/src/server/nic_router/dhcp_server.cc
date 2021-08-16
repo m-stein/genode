@@ -45,7 +45,14 @@ Dhcp_server_base::Dhcp_server_base(Xml_node const &node,
 	});
 	node.with_sub_node("dns-domain", [&] (Xml_node const &sub_node) {
 		xml_node_with_attribute(sub_node, "name", [&] (Xml_attribute const &attr) {
-			_dns_domain_name.set_to(attr, domain);
+			_dns_domain_name.set_to(attr);
+
+			if (domain.config().verbose() &&
+			    !_dns_domain_name.valid()) {
+
+				log("[", domain, "] rejecting oversized DNS "
+				    "domain name from DHCP server configuration");
+			}
 		});
 	});
 }

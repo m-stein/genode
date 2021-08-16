@@ -16,6 +16,8 @@
 
 /* local includes */
 #include <ipv4_config.h>
+#include <domain.h>
+#include <configuration.h>
 
 using namespace Genode;
 using namespace Net;
@@ -72,9 +74,14 @@ Ipv4_config::Ipv4_config(Dhcp_packet  &dhcp_ack,
 	}
 	catch (Dhcp_packet::Option_not_found) { }
 	try {
-		_dns_domain_name.set_to(
-			dhcp_ack.option<Dhcp_packet::Domain_name>(),
-			domain);
+		_dns_domain_name.set_to(dhcp_ack.option<Dhcp_packet::Domain_name>());
+
+		if (domain.config().verbose() &&
+		    !_dns_domain_name.valid()) {
+
+			log("[", domain, "] rejecting oversized DNS "
+			    "domain name from DHCP reply");
+		}
 	}
 	catch (Dhcp_packet::Option_not_found) { }
 }
