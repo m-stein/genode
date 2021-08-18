@@ -18,6 +18,7 @@
 #include <kernel/cpu_scheduler.h>
 #include <kernel/timer.h>
 #include <kernel/lock.h>
+#include <kernel/main.h>
 #include <pic.h>
 #include <cpu.h>
 #include <platform.h>
@@ -32,7 +33,7 @@ using namespace Kernel;
  */
 extern "C" void core_spunky_pc_init();
 
-void Kernel::Main::_initialize_spunky()
+void Kernel::main_initialize_spunky()
 {
 	core_spunky_pc_init();
 

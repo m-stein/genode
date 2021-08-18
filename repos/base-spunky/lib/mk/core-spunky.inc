@@ -74,7 +74,6 @@ SRC_CC += core_rpc_cap_alloc.cc
 SRC_CC += dataspace_component.cc
 SRC_CC += default_log.cc
 SRC_CC += dump_alloc.cc
-SRC_CC += kernel_log.cc
 SRC_CC += io_mem_session_component.cc
 SRC_CC += io_mem_session_support.cc
 SRC_CC += irq_session_component.cc
@@ -100,19 +99,19 @@ SRC_CC += env.cc
 SRC_CC += region_map_support.cc
 SRC_CC += pager.cc
 SRC_CC += _main.cc
+SRC_CC += kernel/log.cc
 SRC_CC += kernel/cpu.cc
-SRC_CC += kernel/init.cc
 SRC_CC += kernel/irq.cc
 SRC_CC += kernel/main.cc
 SRC_CC += kernel/main_initialize_spunky.cc
 SRC_CC += kernel/object.cc
 SRC_CC += kernel/thread.cc
 SRC_CC += kernel/timer.cc
-SRC_CC += kernel/log.cc
 SRC_CC += init_main_thread.cc
 SRC_CC += capability.cc
 SRC_CC += stack_area_addr.cc
 SRC_CC += heartbeat.cc
+SRC_CC += spunky/log.cc
 
 # provide Genode version information
 include $(BASE_DIR)/src/core/version.inc
@@ -122,8 +121,8 @@ NR_OF_CPUS ?= 1
 CC_OPT += -Wa,--defsym -Wa,NR_OF_CPUS=$(NR_OF_CPUS) -DNR_OF_CPUS=$(NR_OF_CPUS)
 
 # declare source locations
+vpath spunky/log.cc                    $(BASE_DIR)/../base-spunky/src/core
 vpath kernel/main_initialize_spunky.cc $(BASE_DIR)/../base-spunky/src/core
-vpath kernel/log.cc                    $(BASE_DIR)/../base-spunky/src/core
 vpath kernel/timer.cc                  $(BASE_DIR)/../base-spunky/src/core
 vpath %                                $(BASE_DIR)/../base-hw/src/core
 vpath %                                $(BASE_DIR)/src/core

@@ -34,16 +34,20 @@ package CPP_IRQ_Controller_Pkg is
       Export,
       Convention    => C,
       External_Name =>
-         "_ZNK6Kernel15Opaque_ada_typeIN5Board3PicELm8EE9_ada_sizeEv";
+         "_ZNK6Kernel15Opaque_ada_typeIN5Board" &
+         "26Local_interrupt_controllerELm8EE9_ada_sizeEv";
 
    --
    --  Initialize
    --
    procedure Initialize (
-      Ctrl : IRQ_Controller_Reference_Type)
+      Ctrl        : IRQ_Controller_Reference_Type;
+      Global_Ctrl : Address_Type)
    with Export,
         Convention    => C,
-        External_Name => "_ZN5Board3PicC1Ev";
+        External_Name =>
+           "_ZN5Board26Local_interrupt_controller" &
+           "C1ERNS_27Global_interrupt_controllerE";
 
    --
    --  Take_Request
@@ -54,7 +58,8 @@ package CPP_IRQ_Controller_Pkg is
       IRQ_ID_Valid : in out Bool_Type)
    with Export,
         Convention    => C,
-        External_Name => "_ZN5Board3Pic12take_requestERjRb";
+        External_Name =>
+           "_ZN5Board26Local_interrupt_controller12take_requestERjRb";
 
    --
    --  Finish_Request
@@ -63,7 +68,8 @@ package CPP_IRQ_Controller_Pkg is
       Ctrl : IRQ_Controller_Reference_Type)
    with Export,
         Convention    => C,
-        External_Name => "_ZN5Board3Pic14finish_requestEv";
+        External_Name =>
+           "_ZN5Board26Local_interrupt_controller14finish_requestEv";
 
    --
    --  Mask
@@ -73,7 +79,7 @@ package CPP_IRQ_Controller_Pkg is
       IRQ_ID : Unsigned_Type)
    with Export,
         Convention    => C,
-        External_Name => "_ZNK5Board3Pic4maskEj";
+        External_Name => "_ZN5Board26Local_interrupt_controller4maskEj";
 
    --
    --  Unmask
@@ -84,7 +90,7 @@ package CPP_IRQ_Controller_Pkg is
       CPU_ID : Unsigned_Type)
    with Export,
         Convention    => C,
-        External_Name => "_ZNK5Board3Pic6unmaskEjj";
+        External_Name => "_ZN5Board26Local_interrupt_controller6unmaskEjj";
 
    --
    --  IRQ_Mode
@@ -96,7 +102,7 @@ package CPP_IRQ_Controller_Pkg is
       Polarity     : Unsigned_Type)
    with Export,
         Convention    => C,
-        External_Name => "_ZN5Board3Pic8irq_modeEjjj";
+        External_Name => "_ZN5Board26Local_interrupt_controller8irq_modeEjjj";
 
    --
    --  Send_IPI
@@ -106,7 +112,7 @@ package CPP_IRQ_Controller_Pkg is
       CPU_Idx : Unsigned_Type)
    with Export,
         Convention    => C,
-        External_Name => "_ZNK5Board3Pic8send_ipiEj";
+        External_Name => "_ZNK5Board26Local_interrupt_controller8send_ipiEj";
 
    --
    --  Store_APIC_ID
@@ -116,7 +122,8 @@ package CPP_IRQ_Controller_Pkg is
       CPU_Idx : Unsigned_Type)
    with Export,
         Convention    => C,
-        External_Name => "_ZN5Board3Pic13store_apic_idEj";
+        External_Name =>
+           "_ZN5Board26Local_interrupt_controller13store_apic_idEj";
 
    --
    --  Number_Of_IRQs
@@ -125,7 +132,7 @@ package CPP_IRQ_Controller_Pkg is
    return Unsigned_Type
    with Export,
         Convention    => C,
-        External_Name => "_ZN5Board3Pic10nr_of_irqsEv";
+        External_Name => "_ZN5Board26Local_interrupt_controller10nr_of_irqsEv";
 
    --
    --  Interprocessor_IRQ
@@ -134,6 +141,6 @@ package CPP_IRQ_Controller_Pkg is
    return Unsigned_Type
    with Export,
         Convention    => C,
-        External_Name => "_ZN5Board3Pic3ipiEv";
+        External_Name => "_ZN5Board26Local_interrupt_controller3ipiEv";
 
 end CPP_IRQ_Controller_Pkg;

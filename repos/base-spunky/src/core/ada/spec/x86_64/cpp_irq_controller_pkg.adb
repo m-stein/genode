@@ -34,8 +34,10 @@ package body CPP_IRQ_Controller_Pkg is
    --  Initialize
    --
    procedure Initialize (
-      Ctrl : IRQ_Controller_Reference_Type)
+      Ctrl        : IRQ_Controller_Reference_Type;
+      Global_Ctrl : Address_Type)
    is
+      pragma Unreferenced (Global_Ctrl);
    begin
       IRQ_Controller_Pkg.Initialize (Ctrl);
    end Initialize;
