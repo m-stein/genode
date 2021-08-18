@@ -69,7 +69,7 @@ class Kernel::Main
 
 		static Genode::Platform_pd &core_platform_pd();
 
-		static Board::Serial &serial();
+		static void print_char(char const c);
 };
 
 
@@ -212,9 +212,9 @@ Genode::Platform_pd &Kernel::Main::core_platform_pd()
 }
 
 
-Board::Serial &Kernel::Main::serial()
+void Kernel::Main::print_char(char const c)
 {
-	return _instance->_serial;
+	_instance->_serial.put_char(c);
 }
 
 
@@ -262,7 +262,7 @@ void Kernel::log(char const c)
 		ASCII_CARRIAGE_RETURN = 13,
 	};
 	if (c == ASCII_LINE_FEED) {
-		Main::serial().put_char(ASCII_CARRIAGE_RETURN);
+		Main::print_char(ASCII_CARRIAGE_RETURN);
 	}
-	Main::serial().put_char(c);
+	Main::print_char(c);
 }
