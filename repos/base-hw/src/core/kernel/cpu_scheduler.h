@@ -47,17 +47,15 @@ class Kernel::Cpu_priority
 
 	public:
 
-		enum {
-			MIN = 0,
-			MAX = cpu_priorities - 1,
-		};
+		static constexpr unsigned min() { return 0; }
+		static constexpr unsigned max() { return cpu_priorities - 1; }
 
 		/**
 		 * Construct priority with value 'v'
 		 */
 		Cpu_priority(unsigned const v)
 		:
-			_value { Genode::min(v, (unsigned)MAX) }
+			_value { Genode::min(v, max()) }
 		{ }
 
 		/*
@@ -66,11 +64,11 @@ class Kernel::Cpu_priority
 
 		Cpu_priority &operator =(unsigned const v)
 		{
-			_value = Genode::min(v, (unsigned)MAX);
+			_value = Genode::min(v, max());
 			return *this;
 		}
 
-		operator signed() const { return _value; }
+		operator unsigned() const { return _value; }
 };
 
 
@@ -82,7 +80,7 @@ class Kernel::Cpu_share
 
 		Double_list_item<Cpu_share> _fill_item  { *this };
 		Double_list_item<Cpu_share> _claim_item { *this };
-		signed const                _prio;
+		Cpu_priority          const _prio;
 		unsigned                    _quota;
 		unsigned                    _claim;
 		unsigned                    _fill       { 0 };
@@ -96,7 +94,7 @@ class Kernel::Cpu_share
 		 * \param p  claimed priority
 		 * \param q  claimed quota
 		 */
-		Cpu_share(signed const p, unsigned const q)
+		Cpu_share(Cpu_priority const p, unsigned const q)
 		: _prio(p), _quota(q), _claim(q) { }
 
 		/*
@@ -114,8 +112,8 @@ class Kernel::Cpu_scheduler
 		typedef Cpu_share    Share;
 		typedef Cpu_priority Prio;
 
-		Double_list<Cpu_share>  _rcl[Prio::MAX + 1]; /* ready claims */
-		Double_list<Cpu_share>  _ucl[Prio::MAX + 1]; /* unready claims */
+		Double_list<Cpu_share>  _rcl[Prio::max() + 1]; /* ready claims */
+		Double_list<Cpu_share>  _ucl[Prio::max() + 1]; /* unready claims */
 		Double_list<Cpu_share>  _fills { };          /* ready fills */
 		Share                  &_idle;
 		Share                  *_head = nullptr;
@@ -129,7 +127,7 @@ class Kernel::Cpu_scheduler
 		time_t                  _last_time { 0 };
 
 		template <typename F> void _for_each_prio(F f) {
-			for (signed p = Prio::MAX; p > Prio::MIN - 1; p--) { f(p); } }
+			for (unsigned p = Prio::max(); p > Prio::min() - 1; p--) { f(p); } }
 
 		static void _reset(Cpu_share &share);
 
