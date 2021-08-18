@@ -40,6 +40,11 @@ class Kernel::Main
 {
 	private:
 
+		friend void main_handle_kernel_entry();
+		friend void main_initialize_and_handle_kernel_entry();
+		friend time_t main_read_idle_thread_execution_time(unsigned cpu_idx);
+		friend void main_print_char(char c);
+
 		enum { SERIAL_BAUD_RATE = 115200 };
 
 		static Main *_instance;
@@ -61,15 +66,7 @@ class Kernel::Main
 
 	public:
 
-		static void handle_kernel_entry();
-
-		static void initialize_and_handle_kernel_entry();
-
-		static time_t read_idle_thread_execution_time(unsigned cpu_idx);
-
 		static Genode::Platform_pd &core_platform_pd();
-
-		static void print_char(char const c);
 };
 
 
@@ -97,13 +94,13 @@ void Kernel::Main::_handle_kernel_entry()
 }
 
 
-void Kernel::Main::handle_kernel_entry()
+void Kernel::main_handle_kernel_entry()
 {
-	_instance->_handle_kernel_entry();
+	Main::_instance->_handle_kernel_entry();
 }
 
 
-void Kernel::Main::initialize_and_handle_kernel_entry()
+void Kernel::main_initialize_and_handle_kernel_entry()
 {
 	static_assert(sizeof(Genode::sizet_arithm_t) >= 2 * sizeof(size_t),
 		"Bad result type for size_t arithmetics.");
@@ -127,7 +124,7 @@ void Kernel::Main::initialize_and_handle_kernel_entry()
 		 * reference to it.
 		 */
 		static Main instance { nr_of_cpus };
-		_instance = &instance;
+		Main::_instance = &instance;
 
 	} else {
 
@@ -143,13 +140,13 @@ void Kernel::Main::initialize_and_handle_kernel_entry()
 		 * Let each CPU initialize its corresponding CPU object in the
 		 * CPU pool.
 		 */
-		Lock::Guard guard(_instance->_data_lock);
+		Lock::Guard guard(Main::_instance->_data_lock);
 		instance_initialized = true;
-		_instance->_cpu_pool.initialize_executing_cpu(
-			_instance->_addr_space_id_alloc,
-			_instance->_user_irq_pool,
-			_instance->_core_platform_pd.kernel_pd(),
-			_instance->_global_irq_ctrl);
+		Main::_instance->_cpu_pool.initialize_executing_cpu(
+			Main::_instance->_addr_space_id_alloc,
+			Main::_instance->_user_irq_pool,
+			Main::_instance->_core_platform_pd.kernel_pd(),
+			Main::_instance->_global_irq_ctrl);
 
 		nr_of_initialized_cpus++;
 	};
@@ -167,21 +164,21 @@ void Kernel::Main::initialize_and_handle_kernel_entry()
 		 * initialization of the boot info.
 		 */
 
-		Lock::Guard guard(_instance->_data_lock);
+		Lock::Guard guard(Main::_instance->_data_lock);
 
-		_instance->_cpu_pool.for_each_cpu([&] (Kernel::Cpu &cpu) {
+		Main::_instance->_cpu_pool.for_each_cpu([&] (Kernel::Cpu &cpu) {
 			boot_info.kernel_irqs.add(cpu.timer().interrupt_id());
 		});
 		boot_info.kernel_irqs.add((unsigned)Board::Pic::IPI);
 
-		_instance->_core_main_thread.construct(
-			_instance->_addr_space_id_alloc,
-			_instance->_user_irq_pool,
-			_instance->_cpu_pool,
-			_instance->_core_platform_pd.kernel_pd());
+		Main::_instance->_core_main_thread.construct(
+			Main::_instance->_addr_space_id_alloc,
+			Main::_instance->_user_irq_pool,
+			Main::_instance->_cpu_pool,
+			Main::_instance->_core_platform_pd.kernel_pd());
 
 		boot_info.core_main_thread_utcb =
-			(addr_t)_instance->_core_main_thread->utcb();
+			(addr_t)Main::_instance->_core_main_thread->utcb();
 
 		Genode::log("");
 		Genode::log("kernel initialized");
@@ -196,13 +193,13 @@ void Kernel::Main::initialize_and_handle_kernel_entry()
 		while (!kernel_initialized) {;}
 	}
 
-	_instance->_handle_kernel_entry();
+	Main::_instance->_handle_kernel_entry();
 }
 
 
-Kernel::time_t Kernel::Main::read_idle_thread_execution_time(unsigned cpu_idx)
+Kernel::time_t Kernel::main_read_idle_thread_execution_time(unsigned cpu_idx)
 {
-	return _instance->_cpu_pool.cpu(cpu_idx).idle_thread().execution_time();
+	return Main::_instance->_cpu_pool.cpu(cpu_idx).idle_thread().execution_time();
 }
 
 
@@ -212,15 +209,9 @@ Genode::Platform_pd &Kernel::Main::core_platform_pd()
 }
 
 
-void Kernel::Main::print_char(char const c)
+void Kernel::main_print_char(char c)
 {
-	_instance->_serial.put_char(c);
-}
-
-
-Kernel::time_t Kernel::main_read_idle_thread_execution_time(unsigned cpu_idx)
-{
-	return Main::read_idle_thread_execution_time(cpu_idx);
+	Main::_instance->_serial.put_char(c);
 }
 
 
@@ -228,12 +219,6 @@ Genode::Platform_pd &
 Genode::Platform_thread::_kernel_main_get_core_platform_pd()
 {
 	return Kernel::Main::core_platform_pd();
-}
-
-
-void Kernel::main_handle_kernel_entry()
-{
-	Main::handle_kernel_entry();
 }
 
 
@@ -252,17 +237,4 @@ bool Genode::unmap_local(addr_t virt_addr, size_t num_pages)
 		virt_addr, num_pages * get_page_size());
 
 	return true;
-}
-
-
-void Kernel::log(char const c)
-{
-	enum {
-		ASCII_LINE_FEED = 10,
-		ASCII_CARRIAGE_RETURN = 13,
-	};
-	if (c == ASCII_LINE_FEED) {
-		Main::print_char(ASCII_CARRIAGE_RETURN);
-	}
-	Main::print_char(c);
 }

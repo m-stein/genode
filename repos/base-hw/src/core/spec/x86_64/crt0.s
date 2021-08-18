@@ -38,7 +38,7 @@
 	movq %rax, %rsp
 
 	/* jump to C entry code */
-	jmp _ZN6Kernel4Main34initialize_and_handle_kernel_entryEv
+	jmp _ZN6Kernel39main_initialize_and_handle_kernel_entryEv
 
 
 	/*********************************
