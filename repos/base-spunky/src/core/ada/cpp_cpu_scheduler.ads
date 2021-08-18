@@ -52,7 +52,7 @@ is
    with
       Export,
       Convention    => C,
-      External_Name => "_ZN6Kernel9Cpu_shareC2Eij";
+      External_Name => "_ZN6Kernel9Cpu_shareC2Ejj";
 
    --
    --  Share_Ready

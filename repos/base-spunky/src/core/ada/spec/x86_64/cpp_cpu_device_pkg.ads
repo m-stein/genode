@@ -77,12 +77,15 @@ package CPP_CPU_Device_Pkg is
       External_Name => "_ZN6Genode3Cpu7ContextC2Eb";
 
    procedure Initialize_MMU_Context (
-      MMU_Context     : out MMU_Context_Type;
-      Page_Table_Addr :     Address_Type)
+      MMU_Context         : out MMU_Context_Type;
+      Page_Table_Addr     :     Address_Type;
+      Addr_Space_ID_Alloc :     Address_Type)
    with
       Export,
       Convention    => C,
-      External_Name => "_ZN6Genode3Cpu11Mmu_contextC1Em";
+      External_Name =>
+         "_ZN6Genode3Cpu11Mmu_contextC1EmRN5Board" &
+         "26Address_space_id_allocatorE";
 
    function ID_Of_Executing_CPU
    return CPU_ID_Type

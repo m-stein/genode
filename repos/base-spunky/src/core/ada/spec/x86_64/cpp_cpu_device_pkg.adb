@@ -76,9 +76,11 @@ package body CPP_CPU_Device_Pkg is
    end Initialize_CPU_State;
 
    procedure Initialize_MMU_Context (
-      MMU_Context     : out MMU_Context_Type;
-      Page_Table_Addr :     Address_Type)
+      MMU_Context         : out MMU_Context_Type;
+      Page_Table_Addr     :     Address_Type;
+      Addr_Space_ID_Alloc :     Address_Type)
    is
+      pragma Unreferenced (Addr_Space_ID_Alloc);
    begin
       CPU_Device_Pkg.Initialize_MMU_Context (MMU_Context, Page_Table_Addr);
    end Initialize_MMU_Context;

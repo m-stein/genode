@@ -28,6 +28,7 @@ namespace Kernel
 	class Cpu_scheduler;
 }
 
+
 class Kernel::Cpu_priority
 {
 	private:
@@ -36,29 +37,39 @@ class Kernel::Cpu_priority
 
 	public:
 
-		enum {
-			MIN = 0,
-			MAX = cpu_priorities - 1,
-		};
+		static constexpr unsigned min() { return 0; }
+		static constexpr unsigned max() { return cpu_priorities - 1; }
 
-		Cpu_priority(signed const v) : _value(Genode::min(v, MAX)) { }
+		/**
+		 * Construct priority with value 'v'
+		 */
+		Cpu_priority(unsigned const v)
+		:
+			_value { Genode::min(v, max()) }
+		{ }
 
-		Cpu_priority &operator =(signed const v)
+		/*
+		 * Standard operators
+		 */
+
+		Cpu_priority &operator =(unsigned const v)
 		{
-			_value = Genode::min(v, MAX);
+			_value = Genode::min(v, max());
 			return *this;
 		}
 
-		operator signed() const { return _value; }
+		operator unsigned() const { return _value; }
 };
+
 
 struct Kernel::Cpu_share : Opaque_ada_type<Cpu_share, 88>
 {
-	Cpu_share(signed const p, unsigned const q);
+	Cpu_share(unsigned const p, unsigned const q);
 
 	bool ready() const;
 	void quota(unsigned const q);
 };
+
 
 struct Kernel::Cpu_scheduler : Opaque_ada_type<Cpu_scheduler, 216>
 {

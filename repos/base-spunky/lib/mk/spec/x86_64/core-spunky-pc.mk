@@ -12,6 +12,7 @@ INC_DIR += $(KERNEL_ADA_DIR)/spec/x86_64
 INC_DIR += $(BASE_DIR)/../base-spunky/src/core/spec/x86_64
 INC_DIR += $(BASE_DIR)/../base-hw/src/core/spec/x86_64
 INC_DIR += $(BASE_DIR)/../base-hw/include/spec/x86_64/
+INC_DIR += $(BASE_DIR)/../base-hw/src/core/board/pc
 
 LIBS += syscall-hw
 

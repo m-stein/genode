@@ -25,5 +25,5 @@ void Timer::Irq::occurred() { _cpu.scheduler().timeout(); }
 
 Timer::Irq::Irq(unsigned id, Cpu &cpu)
 :
-	Kernel::Irq(id, cpu.irq_pool()), _cpu(cpu)
+	Kernel::Irq(id, cpu.irq_pool(), cpu.pic()), _cpu(cpu)
 { }

@@ -22,13 +22,16 @@
 #include <kernel/interface_support.h>
 #include <cpu/cpu_state.h>
 
+/* base-hw internal includes */
 #include <hw/spec/x86_64/cpu.h>
+#include <hw/util.h>
 
 /* base includes */
 #include <base/internal/align_at.h>
 #include <base/internal/unmanaged_singleton.h>
 
 /* core includes */
+#include <board.h>
 #include <fpu.h>
 
 /* Spunky includes */
@@ -59,7 +62,8 @@ class Genode::Cpu : public Kernel::Opaque_ada_type<Cpu, 160>
 		{
 			addr_t not_used;
 
-			Mmu_context(addr_t page_table_base);
+			Mmu_context(addr_t                             page_table_base,
+			            Board::Address_space_id_allocator &);
 		};
 
 		struct alignas(16) Context
