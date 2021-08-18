@@ -57,9 +57,9 @@ class Kernel::Main
 
 		void _handle_kernel_entry();
 
-	public:
-
 		Main(unsigned nr_of_cpus);
+
+	public:
 
 		static void handle_kernel_entry();
 
