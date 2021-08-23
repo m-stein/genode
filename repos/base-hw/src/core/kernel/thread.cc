@@ -108,44 +108,6 @@ void Thread::ipc_copy_msg(Thread &sender)
 }
 
 
-Thread::
-Tlb_invalidation::Tlb_invalidation(Inter_processor_work_list &global_work_list,
-                                   Thread                    &caller,
-                                   Pd                        &pd,
-                                   addr_t                     addr,
-                                   size_t                     size,
-                                   unsigned                   cnt)
-:
-	global_work_list { global_work_list },
-	caller           { caller },
-	pd               { pd },
-	addr             { addr },
-	size             { size },
-	cnt              { cnt }
-{
-	global_work_list.insert(&_le);
-	caller._become_inactive(AWAITS_RESTART);
-}
-
-
-Thread::Destroy::Destroy(Thread & caller, Genode::Kernel_object<Thread> & to_delete)
-:
-	caller(caller), thread_to_destroy(to_delete)
-{
-	thread_to_destroy->_cpu->work_list().insert(&_le);
-	caller._become_inactive(AWAITS_RESTART);
-}
-
-
-void
-Thread::Destroy::execute()
-{
-	thread_to_destroy->_cpu->work_list().remove(&_le);
-	thread_to_destroy.destruct();
-	caller._restart();
-}
-
-
 void Thread_fault::print(Genode::Output &out) const
 {
 	Genode::print(out, "ip=",          Genode::Hex(ip));
@@ -422,7 +384,8 @@ void Thread::_call_delete_thread()
 	/**
 	 * Construct a cross-cpu work item and send an IPI
 	 */
-	_destroy.construct(*this, to_delete);
+	_thread_destruction.construct(to_delete->_cpu->work_list(), *this, to_delete);
+	_become_inactive(AWAITS_RESTART);
 	to_delete->_cpu->trigger_ip_interrupt();
 }
 
@@ -737,6 +700,8 @@ void Kernel::Thread::_call_invalidate_tlb()
 	if (cnt) {
 		_tlb_invalidation.construct(
 			_cpu_pool.work_list(), *this, *pd, addr, size, cnt);
+
+		_become_inactive(AWAITS_RESTART);
 	}
 }
 

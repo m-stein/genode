@@ -19,19 +19,6 @@
 #include <kernel/pd.h>
 
 
-void Kernel::Thread::Tlb_invalidation::execute()
-{
-	/* invalidate cpu-local TLB */
-	Genode::Cpu::invalidate_tlb();
-
-	/* if this is the last cpu, wake up the caller thread */
-	if (--cnt == 0) {
-		global_work_list.remove(&_le);
-		caller._restart();
-	}
-};
-
-
 void Kernel::Thread::_call_cache_coherent_region() { }
 
 

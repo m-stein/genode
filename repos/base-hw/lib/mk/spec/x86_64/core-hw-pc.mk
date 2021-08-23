@@ -32,7 +32,7 @@ SRC_CC += spec/x86_64/cpu.cc
 SRC_CC += spec/x86_64/kernel/cpu.cc
 SRC_CC += spec/x86_64/kernel/pd.cc
 SRC_CC += spec/x86_64/kernel/thread.cc
-SRC_CC += spec/x86_64/kernel/thread.cc
+SRC_CC += spec/x86_64/kernel/inter_processor_work.cc
 SRC_CC += spec/x86_64/platform_support_common.cc
 
 SRC_CC += spec/64bit/memory_map.cc

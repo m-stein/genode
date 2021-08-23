@@ -69,54 +69,7 @@ class Kernel::Thread : private Kernel::Object, public Cpu_job
 		Thread(Thread const &);
 		Thread &operator = (Thread const &);
 
-		/**
-		 * A TLB invalidation may need cross-cpu synchronization
-		 */
-		struct Tlb_invalidation : Inter_processor_work
-		{
-			Inter_processor_work_list &global_work_list;
-			Thread                    &caller; /* the caller gets blocked until all finished */
-			Pd                        &pd;     /* the corresponding pd */
-			addr_t                     addr;
-			size_t                     size;
-			unsigned                   cnt;    /* count of cpus left */
-
-			Tlb_invalidation(Inter_processor_work_list &global_work_list,
-			                 Thread                    &caller,
-			                 Pd                        &pd,
-			                 addr_t                     addr,
-			                 size_t                     size,
-			                 unsigned                   cnt);
-
-			/************************************
-			 ** Inter_processor_work interface **
-			 ************************************/
-
-			void execute() override;
-		};
-
-		/**
-		 * The destruction of a thread still active on another cpu
-		 * needs cross-cpu synchronization
-		 */
-		struct Destroy : Inter_processor_work
-		{
-			using Kthread = Genode::Kernel_object<Thread>;
-
-			Thread  & caller; /* the caller gets blocked till the end */
-			Kthread & thread_to_destroy; /* thread to be destroyed */
-
-			Destroy(Thread & caller, Kthread & to_destroy);
-
-			/************************************
-			 ** Inter_processor_work interface **
-			 ************************************/
-
-			void execute() override;
-		};
-
-		friend void Tlb_invalidation::execute();
-		friend void Destroy::execute();
+		friend void Inter_processor_work::execute();
 
 	protected:
 
@@ -156,8 +109,8 @@ class Kernel::Thread : private Kernel::Object, public Cpu_job
 		bool                               _cancel_next_await_signal { false };
 		bool const                         _core                     { false };
 
-		Genode::Constructible<Tlb_invalidation> _tlb_invalidation {};
-		Genode::Constructible<Destroy>          _destroy {};
+		Genode::Constructible<Inter_processor_work> _tlb_invalidation   { };
+		Genode::Constructible<Inter_processor_work> _thread_destruction { };
 
 		/**
 		 * Notice that another thread yielded the CPU to this thread
