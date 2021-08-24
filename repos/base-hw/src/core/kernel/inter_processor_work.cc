@@ -15,6 +15,7 @@
 /* base-hw Core includes */
 #include <kernel/inter_processor_work.h>
 #include <kernel/thread.h>
+#include <cpu.h>
 
 using namespace Kernel;
 using namespace Genode;
@@ -27,7 +28,7 @@ void Kernel::Inter_processor_work::execute()
 		_thread_to_destroy.object().destruct();
 		break;
 	case Type::TLB_INVALIDATION:
-		_execute_tlb_invalidation();
+		Genode::Cpu::invalidate_tlb();
 		break;
 	}
 	_nr_of_pending_cpus--;
