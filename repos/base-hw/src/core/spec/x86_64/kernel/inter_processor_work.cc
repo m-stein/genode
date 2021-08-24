@@ -17,7 +17,7 @@
 #include <kernel/cpu.h>
 
 
-void Kernel::Tlb_invalidation::execute()
+void Kernel::Inter_processor_work::_execute_tlb_invalidation()
 {
 	Genode::Cpu::invalidate_tlb();
 };

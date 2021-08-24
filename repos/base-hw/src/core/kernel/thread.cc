@@ -698,9 +698,7 @@ void Kernel::Thread::_call_invalidate_tlb()
 
 	/* insert the work item in the list if there are outstanding cpus */
 	if (cnt) {
-		_tlb_invalidation.construct(
-			_cpu_pool.work_list(), *this, *pd, addr, size, cnt);
-
+		_tlb_invalidation.construct(_cpu_pool.work_list(), *this, cnt);
 		_become_inactive(AWAITS_RESTART);
 	}
 }

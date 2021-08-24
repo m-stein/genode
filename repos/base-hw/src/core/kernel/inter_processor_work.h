@@ -21,50 +21,15 @@
 
 /* base-hw Core includes */
 #include <object.h>
+#include <kernel/pointer.h>
 
 namespace Kernel {
 
-	class Pd;
-
-	class Tlb_invalidation;
-	class Thread_destruction;
 	class Inter_processor_work;
 
 	using Inter_processor_work_list =
 		Genode::List<Genode::List_element<Inter_processor_work> >;
 }
-
-
-class Kernel::Tlb_invalidation
-{
-	private:
-
-		Pd                   &_pd;
-		Genode::addr_t const  _addr;
-		Genode::size_t const  _size;
-
-	public:
-
-		Tlb_invalidation(Pd             &pd,
-		                 Genode::addr_t  addr,
-		                 Genode::size_t  size);
-
-		void execute();
-};
-
-
-class Kernel::Thread_destruction
-{
-	private:
-
-		Genode::Kernel_object<Thread> &_thread_to_destroy;
-
-	public:
-
-		Thread_destruction(Genode::Kernel_object<Thread> &thread_to_destroy);
-
-		void execute();
-};
 
 
 class Kernel::Inter_processor_work
@@ -73,13 +38,14 @@ class Kernel::Inter_processor_work
 
 		enum class Type { THREAD_DESTRUCTION, TLB_INVALIDATION };
 
-		Type                                 const  _type;
-		unsigned                                    _nr_of_pending_cpus;
-		Thread                                     &_caller;
-		Inter_processor_work_list                  &_work_list;
-		Genode::List_element<Inter_processor_work>  _le                 { this };
-		Genode::Constructible<Tlb_invalidation>     _tlb_invalidation   { };
-		Genode::Constructible<Thread_destruction>   _thread_destruction { };
+		Type                                      const  _type;
+		unsigned                                         _nr_of_pending_cpus;
+		Thread                                          &_caller;
+		Inter_processor_work_list                       &_work_list;
+		Genode::List_element<Inter_processor_work>       _le                 { this };
+		Kernel::Pointer<Genode::Kernel_object<Thread> >  _thread_to_destroy  { };
+
+		void _execute_tlb_invalidation();
 
 	public:
 
@@ -90,9 +56,6 @@ class Kernel::Inter_processor_work
 		 */
 		Inter_processor_work(Inter_processor_work_list &global_work_list,
 		                     Thread                    &caller,
-		                     Pd                        &pd,
-		                     Genode::addr_t             addr,
-		                     Genode::size_t             size,
 		                     unsigned                   nr_of_cpus);
 
 		/**

@@ -24,10 +24,10 @@ void Kernel::Inter_processor_work::execute()
 {
 	switch (_type) {
 	case Type::THREAD_DESTRUCTION:
-		_thread_destruction->execute();
+		_thread_to_destroy.object().destruct();
 		break;
 	case Type::TLB_INVALIDATION:
-		_tlb_invalidation->execute();
+		_execute_tlb_invalidation();
 		break;
 	}
 	_nr_of_pending_cpus--;
@@ -46,9 +46,9 @@ Inter_processor_work(Inter_processor_work_list &remote_work_list,
 	_type               { Type::THREAD_DESTRUCTION },
 	_nr_of_pending_cpus { 1 },
 	_caller             { caller },
-	_work_list          { remote_work_list }
+	_work_list          { remote_work_list },
+	_thread_to_destroy  { thread_to_destroy }
 {
-	_thread_destruction.construct(thread_to_destroy);
 	_work_list.insert(&_le);
 }
 
@@ -56,9 +56,6 @@ Inter_processor_work(Inter_processor_work_list &remote_work_list,
 Kernel::Inter_processor_work::
 Inter_processor_work(Inter_processor_work_list &global_work_list,
                      Thread                    &caller,
-                     Pd                        &pd,
-                     addr_t                     addr,
-                     size_t                     size,
                      unsigned                   nr_of_pending_cpus)
 :
 	_type               { Type::TLB_INVALIDATION },
@@ -66,29 +63,5 @@ Inter_processor_work(Inter_processor_work_list &global_work_list,
 	_caller             { caller },
 	_work_list          { global_work_list }
 {
-	_tlb_invalidation.construct(pd, addr, size);
 	_work_list.insert(&_le);
 }
-
-
-void Kernel::Thread_destruction::execute()
-{
-	_thread_to_destroy.destruct();
-}
-
-
-Kernel::Tlb_invalidation::Tlb_invalidation(Pd     &pd,
-                                           addr_t  addr,
-                                           size_t  size)
-:
-	_pd   { pd },
-	_addr { addr },
-	_size { size }
-{ }
-
-
-Kernel::Thread_destruction::
-Thread_destruction(Kernel_object<Thread> &thread_to_destroy)
-:
-	_thread_to_destroy { thread_to_destroy }
-{ }
