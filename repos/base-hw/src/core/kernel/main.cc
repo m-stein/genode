@@ -45,9 +45,8 @@ class Kernel::Main
 		friend time_t main_read_idle_thread_execution_time(unsigned cpu_idx);
 		friend void main_print_char(char c);
 
-		enum { SERIAL_BAUD_RATE = 115200 };
-
-		static Main *_instance;
+		static Board::Serial *_serial;
+		static Main          *_instance;
 
 		Lock                                    _data_lock           { };
 		Cpu_pool                                _cpu_pool;
@@ -56,9 +55,6 @@ class Kernel::Main
 		Genode::Core_platform_pd                _core_platform_pd    { _addr_space_id_alloc };
 		Genode::Constructible<Core_main_thread> _core_main_thread    { };
 		Board::Global_interrupt_controller      _global_irq_ctrl     { };
-		Board::Serial                           _serial              { Genode::Platform::mmio_to_virt(Board::UART_BASE),
-		                                                               Board::UART_CLOCK,
-		                                                               SERIAL_BAUD_RATE };
 
 		void _handle_kernel_entry();
 
@@ -70,6 +66,7 @@ class Kernel::Main
 };
 
 
+Board::Serial *Kernel::Main::_serial;
 Kernel::Main *Kernel::Main::_instance;
 
 
@@ -102,6 +99,24 @@ void Kernel::main_handle_kernel_entry()
 
 void Kernel::main_initialize_and_handle_kernel_entry()
 {
+	static volatile bool serial_initialized { false };
+
+	bool const primary_cpu { Genode::Cpu::executing_id() == Cpu::primary_id() };
+
+	if (primary_cpu) {
+
+		enum { SERIAL_BAUD_RATE = 115200 };
+		static Board::Serial _serial { Genode::Platform::mmio_to_virt(Board::UART_BASE),
+		                               Board::UART_CLOCK,
+		                               SERIAL_BAUD_RATE };
+		Main::_serial = &_serial;
+		serial_initialized = true;
+
+	} else {
+
+		while (!serial_initialized) { }
+	}
+
 	static_assert(sizeof(Genode::sizet_arithm_t) >= 2 * sizeof(size_t),
 		"Bad result type for size_t arithmetics.");
 
@@ -115,7 +130,6 @@ void Kernel::main_initialize_and_handle_kernel_entry()
 		*reinterpret_cast<Boot_info*>(Hw::Mm::boot_info().base) };
 
 	unsigned const nr_of_cpus  { boot_info.cpus };
-	bool     const primary_cpu { Genode::Cpu::executing_id() == Cpu::primary_id() };
 
 	if (primary_cpu) {
 
@@ -219,7 +233,7 @@ Genode::Platform_pd &Kernel::Main::core_platform_pd()
 
 void Kernel::main_print_char(char c)
 {
-	Main::_instance->_serial.put_char(c);
+	Main::_instance->_serial->put_char(c);
 }
 
 
