@@ -20,19 +20,15 @@ with Log;        use Log;
 
 package body Lock_Pkg is
 
-   function Get_Kernel_Data_Lock
-   return Lock_Reference_Type
-   is (
-      Kernel_Data_Lock'Access);
-
-   procedure Initialize_Lock_Pkg
+   procedure Initialize (
+      Lock : out Lock_Type)
    is
    begin
-      Kernel_Data_Lock.State        := Unlocked;
-      Kernel_Data_Lock.CPU_ID_Valid := False;
-      Kernel_Data_Lock.CPU_ID       := 0;
+      Lock.State        := Unlocked;
+      Lock.CPU_ID_Valid := False;
+      Lock.CPU_ID       := 0;
 
-   end Initialize_Lock_Pkg;
+   end Initialize;
 
    procedure Lock (
       Lock : in out Lock_Type)

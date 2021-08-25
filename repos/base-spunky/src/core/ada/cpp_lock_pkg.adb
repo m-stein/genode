@@ -22,16 +22,12 @@ package body CPP_Lock_Pkg is
    is (
       Lock'Size / 8);
 
-   function Get_Kernel_Data_Lock
-   return Lock_Reference_Type
-   is (
-      Lock_Pkg.Get_Kernel_Data_Lock);
-
-   procedure Initialize_Lock_Pkg
+   procedure Initialize (
+      Lock : out Lock_Type)
    is
    begin
-      Lock_Pkg.Initialize_Lock_Pkg;
-   end Initialize_Lock_Pkg;
+      Lock_Pkg.Initialize (Lock);
+   end Initialize;
 
    procedure Lock (
       Lock : in out Lock_Type)

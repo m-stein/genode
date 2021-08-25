@@ -21,13 +21,12 @@
 namespace Kernel {
 
 	struct Lock;
-
-	void initialize_lock_pkg();
 }
 
 
 struct Kernel::Lock : Opaque_ada_type<Lock, 12>
 {
+	Lock();
 	void lock();
 	void unlock();
 

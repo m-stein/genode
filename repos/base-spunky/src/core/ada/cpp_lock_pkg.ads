@@ -26,18 +26,12 @@ package CPP_Lock_Pkg is
       External_Name =>
          "_ZNK6Kernel15Opaque_ada_typeINS_4LockELm12EE9_ada_sizeEv";
 
-   function Get_Kernel_Data_Lock
-   return Lock_Reference_Type
+   procedure Initialize (
+      Lock : out Lock_Type)
    with
       Export,
       Convention    => C,
-      External_Name => "_ZN6Kernel9data_lockEv";
-
-   procedure Initialize_Lock_Pkg
-   with
-      Export,
-      Convention    => C,
-      External_Name => "_ZN6Kernel19initialize_lock_pkgEv";
+      External_Name => "_ZN6Kernel4LockC1Ev";
 
    procedure Lock (
       Lock : in out Lock_Type)

@@ -18,18 +18,12 @@ with CPP; use CPP;
 package Lock_Pkg is
 
    type Lock_Type is private;
-   type Lock_Reference_Type is not null access all Lock_Type;
 
    --
-   --  Return the global lock for all kernel state in memory
+   --  Initialize a new lock object
    --
-   function Get_Kernel_Data_Lock
-   return Lock_Reference_Type;
-
-   --
-   --  Initialize the global state of the lock package
-   --
-   procedure Initialize_Lock_Pkg;
+   procedure Initialize (
+      Lock : out Lock_Type);
 
    --
    --  Acquire a lock for the executing CPU
@@ -52,7 +46,5 @@ private
       CPU_ID_Valid : Boolean;
       CPU_ID       : CPU_ID_Type;
    end record;
-
-   Kernel_Data_Lock : aliased Lock_Type;
 
 end Lock_Pkg;

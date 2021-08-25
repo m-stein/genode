@@ -52,7 +52,6 @@ void Kernel::main_initialize_spunky()
 	Genode::Cpu::Mmu_context::assert_types_have_same_size();
 	Lock::assert_types_have_same_size();
 
-	initialize_lock_pkg();
 	initialize_irq_controller_pkg();
 }
 
