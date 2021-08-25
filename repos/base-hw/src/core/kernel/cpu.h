@@ -75,7 +75,7 @@ class Kernel::Cpu
 			 * Construct idle context for CPU 'cpu'
 			 */
 			Idle_thread(Board::Address_space_id_allocator &addr_space_id_alloc,
-		                Irq::Pool                         &user_irq_pool,
+			            Irq::Pool                         &user_irq_pool,
 			            Cpu_pool                          &cpu_pool,
 			            Cpu                               &cpu,
 			            Pd                                &core_pd);
