@@ -47,12 +47,11 @@ void Kernel::main_initialize_spunky()
 	Timer::assert_types_have_same_size();
 	Timeout::assert_types_have_same_size();
 	Board::Pic::assert_types_have_same_size();
+	Board::Global_interrupt_controller::assert_types_have_same_size();
 	Genode::Cpu::assert_types_have_same_size();
 	Genode::Cpu::Context::assert_types_have_same_size();
 	Genode::Cpu::Mmu_context::assert_types_have_same_size();
 	Lock::assert_types_have_same_size();
-
-	initialize_irq_controller_pkg();
 }
 
 addr_t lapic_virt_address()

@@ -17,16 +17,22 @@ with Interfaces; use Interfaces;
 
 package body CPP_IRQ_Controller_Pkg is
 
-   procedure Initialize_IRQ_Controller_Pkg
+   function Global_IRQ_Controller_Size (
+      GIC : Global_IRQ_Controller_Type)
+   return Size_Type
+   is (GIC'Size / 8);
+
+   procedure Initialize_Global_IRQ_Controller (
+      GIC : Global_IRQ_Controller_Reference_Type)
    is
    begin
-      IRQ_Controller_Pkg.Initialize_IRQ_Controller_Pkg;
-   end Initialize_IRQ_Controller_Pkg;
+      IRQ_Controller_Pkg.Initialize_Global_IRQ_Controller (GIC);
+   end Initialize_Global_IRQ_Controller;
 
    --
    --  IRQ_Controller_Size
    --
-   function IRQ_Controller_Size (Ctrl : IRQ_Controller_Reference_Type)
+   function IRQ_Controller_Size (Ctrl : IRQ_Controller_Type)
    return Size_Type
    is (Ctrl'Size / 8);
 
@@ -34,12 +40,11 @@ package body CPP_IRQ_Controller_Pkg is
    --  Initialize
    --
    procedure Initialize (
-      Ctrl        : IRQ_Controller_Reference_Type;
-      Global_Ctrl : Address_Type)
+      Ctrl : IRQ_Controller_Reference_Type;
+      GIC  : Global_IRQ_Controller_Reference_Type)
    is
-      pragma Unreferenced (Global_Ctrl);
    begin
-      IRQ_Controller_Pkg.Initialize (Ctrl);
+      IRQ_Controller_Pkg.Initialize (Ctrl, GIC);
    end Initialize;
 
    --
@@ -103,10 +108,10 @@ package body CPP_IRQ_Controller_Pkg is
       Trigger_Mode : Unsigned_Type;
       Polarity     : Unsigned_Type)
    is
-      pragma Unreferenced (Ctrl);
    begin
       IRQ_Controller_Pkg.IRQ_Mode (
-         IRQ_ID_Type (IRQ_ID), IRQ_Trigger_Mode_From_Unsigned (Trigger_Mode),
+         Ctrl, IRQ_ID_Type (IRQ_ID),
+         IRQ_Trigger_Mode_From_Unsigned (Trigger_Mode),
          IRQ_Polarity_From_Unsigned (Polarity));
    end IRQ_Mode;
 

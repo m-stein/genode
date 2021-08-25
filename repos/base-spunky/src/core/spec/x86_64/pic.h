@@ -20,12 +20,19 @@
 namespace Board {
 
 	struct Local_interrupt_controller;
-	struct Global_interrupt_controller { };
+	struct Global_interrupt_controller;
 }
 
-namespace Kernel { void initialize_irq_controller_pkg(); }
+struct Board::Global_interrupt_controller
+:
+	Kernel::Opaque_ada_type<Global_interrupt_controller, 544>
+{
+	Global_interrupt_controller();
+};
 
-struct Board::Local_interrupt_controller : Kernel::Opaque_ada_type<Local_interrupt_controller, 8>
+struct Board::Local_interrupt_controller
+:
+	Kernel::Opaque_ada_type<Local_interrupt_controller, 16>
 {
 	Local_interrupt_controller(Global_interrupt_controller &global_irq_ctrl);
 

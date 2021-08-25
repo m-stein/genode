@@ -19,30 +19,41 @@ with IRQ_Controller_Pkg; use IRQ_Controller_Pkg;
 
 package CPP_IRQ_Controller_Pkg is
 
-   procedure Initialize_IRQ_Controller_Pkg
+   function Global_IRQ_Controller_Size (
+      GIC : Global_IRQ_Controller_Type)
+   return Size_Type
    with
       Export,
       Convention    => C,
-      External_Name => "_ZN6Kernel29initialize_irq_controller_pkgEv";
+      External_Name =>
+         "_ZNK6Kernel15Opaque_ada_typeIN5Board27" &
+         "Global_interrupt_controllerELm544EE9_ada_sizeEv";
+
+   procedure Initialize_Global_IRQ_Controller (
+      GIC : Global_IRQ_Controller_Reference_Type)
+   with
+      Export,
+      Convention    => C,
+      External_Name => "_ZN5Board27Global_interrupt_controllerC1Ev";
 
    --
    --  IRQ_Controller_Size
    --
-   function IRQ_Controller_Size (Ctrl : IRQ_Controller_Reference_Type)
+   function IRQ_Controller_Size (Ctrl : IRQ_Controller_Type)
    return Size_Type
    with
       Export,
       Convention    => C,
       External_Name =>
          "_ZNK6Kernel15Opaque_ada_typeIN5Board" &
-         "26Local_interrupt_controllerELm8EE9_ada_sizeEv";
+         "26Local_interrupt_controllerELm16EE9_ada_sizeEv";
 
    --
    --  Initialize
    --
    procedure Initialize (
-      Ctrl        : IRQ_Controller_Reference_Type;
-      Global_Ctrl : Address_Type)
+      Ctrl : IRQ_Controller_Reference_Type;
+      GIC  : Global_IRQ_Controller_Reference_Type)
    with Export,
         Convention    => C,
         External_Name =>

@@ -22,19 +22,26 @@ use CPP;
 
 package IRQ_Controller_Pkg is
 
+   type Global_IRQ_Controller_Type is private;
+   type Global_IRQ_Controller_Reference_Type is
+      not null access all Global_IRQ_Controller_Type;
+
    type IRQ_Controller_Type is private;
    type IRQ_Controller_Reference_Type is
       not null access all IRQ_Controller_Type;
 
    --
-   --  Initialize the global state of the package
+   --  Initialize a new global IRQ controller object
    --
-   procedure Initialize_IRQ_Controller_Pkg;
+   procedure Initialize_Global_IRQ_Controller (
+      GIC : Global_IRQ_Controller_Reference_Type);
 
    --
    --  Initialize
    --
-   procedure Initialize (Ctrl : IRQ_Controller_Reference_Type);
+   procedure Initialize (
+      Ctrl : IRQ_Controller_Reference_Type;
+      GIC  : Global_IRQ_Controller_Reference_Type);
 
    --
    --  Take_Request
@@ -66,6 +73,7 @@ package IRQ_Controller_Pkg is
    --  IRQ_Mode
    --
    procedure IRQ_Mode (
+      Ctrl         : IRQ_Controller_Reference_Type;
       IRQ_ID       : IRQ_ID_Type;
       Trigger_Mode : IRQ_Trigger_Mode_Type;
       Polarity     : IRQ_Polarity_Type);
@@ -337,8 +345,10 @@ private
 
    type IRQ_Modes_Type is array (IRQ_Index_Type) of IRQ_Mode_Type;
 
-   Stored_APIC_IDs : Stored_APIC_IDs_Type;
-   IRQ_Modes       : IRQ_Modes_Type;
+   type Global_IRQ_Controller_Type is record
+      Stored_APIC_IDs : Stored_APIC_IDs_Type;
+      IRQ_Modes       : IRQ_Modes_Type;
+   end record;
 
    --
    --  IRQ controller
@@ -347,6 +357,7 @@ private
 
    type IRQ_Controller_Type is record
       Number_Of_IORedTbl_Regs : Number_Of_IORedTbl_Regs_Type;
+      GIC                     : Global_IRQ_Controller_Reference_Type;
    end record;
 
    --

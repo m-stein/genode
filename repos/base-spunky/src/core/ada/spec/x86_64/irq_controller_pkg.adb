@@ -20,27 +20,32 @@ with Log;                 use Log;
 
 package body IRQ_Controller_Pkg is
 
-   procedure Initialize_IRQ_Controller_Pkg
+   procedure Initialize_Global_IRQ_Controller (
+      GIC : Global_IRQ_Controller_Reference_Type)
    is
    begin
-      Stored_APIC_IDs := (others => 0);
-      IRQ_Modes       := (
+      GIC.Stored_APIC_IDs := (others => 0);
+      GIC.IRQ_Modes       := (
          others => (
             Trigger_Mode => Invalid,
             Polarity     => Invalid));
 
-   end Initialize_IRQ_Controller_Pkg;
+   end Initialize_Global_IRQ_Controller;
 
    --
    --  Initialize
    --
-   procedure Initialize (Ctrl : IRQ_Controller_Reference_Type)
+   procedure Initialize (
+      Ctrl : IRQ_Controller_Reference_Type;
+      GIC  : Global_IRQ_Controller_Reference_Type)
    is
    begin
 
       --
       --  I/O APIC
       --
+
+      Ctrl.GIC := GIC;
 
       --  Read the number of redirection entries
       IOAPIC_IORegSel_Reg := IOAPIC_IORegSel_IOAPICVer;
@@ -55,11 +60,11 @@ package body IRQ_Controller_Pkg is
          --  Set legacy/ISA IRQs to edge-triggerd and high polarity
          --
          if Idx in ISA_IRQ_Index_Type then
-            IRQ_Modes (Idx).Trigger_Mode := Edge;
-            IRQ_Modes (Idx).Polarity     := High;
+            GIC.IRQ_Modes (Idx).Trigger_Mode := Edge;
+            GIC.IRQ_Modes (Idx).Polarity     := High;
          else
-            IRQ_Modes (Idx).Trigger_Mode := Level;
-            IRQ_Modes (Idx).Polarity     := Low;
+            GIC.IRQ_Modes (Idx).Trigger_Mode := Level;
+            GIC.IRQ_Modes (Idx).Polarity     := Low;
          end if;
 
          --
@@ -80,11 +85,11 @@ package body IRQ_Controller_Pkg is
                IORedTbl_Low.Remote_IRR := 0;
                IORedTbl_Low.Delivery_Status := 0;
                IORedTbl_Low.Polarity :=
-                  IRQ_Polarity_To_Bitfield_1 (IRQ_Modes (Idx).Polarity);
+                  IRQ_Polarity_To_Bitfield_1 (GIC.IRQ_Modes (Idx).Polarity);
 
                IORedTbl_Low.Trigger_Mode :=
                   IRQ_Trigger_Mode_To_Bitfield_1 (
-                     IRQ_Modes (Idx).Trigger_Mode);
+                     GIC.IRQ_Modes (Idx).Trigger_Mode);
 
                IORedTbl_High.Destination_Field := 0;
 
@@ -299,7 +304,7 @@ package body IRQ_Controller_Pkg is
       --  flag and edge-triggered interrupts or:
       --  http://yarchive.net/comp/linux/edge_triggered_interrupts.html
       --
-      if IRQ_Modes (IRQ_Idx).Trigger_Mode = Edge and then Mask then
+      if Ctrl.GIC.IRQ_Modes (IRQ_Idx).Trigger_Mode = Edge and then Mask then
          return;
       end if;
 
@@ -350,6 +355,7 @@ package body IRQ_Controller_Pkg is
    --  IRQ_Mode
    --
    procedure IRQ_Mode (
+      Ctrl         : IRQ_Controller_Reference_Type;
       IRQ_ID       : IRQ_ID_Type;
       Trigger_Mode : IRQ_Trigger_Mode_Type;
       Polarity     : IRQ_Polarity_Type)
@@ -358,8 +364,8 @@ package body IRQ_Controller_Pkg is
          IRQ_Index_Type (IRQ_ID - IRQ_Remap_Base);
    begin
 
-      IRQ_Modes (IRQ_Idx).Trigger_Mode := Trigger_Mode;
-      IRQ_Modes (IRQ_Idx).Polarity := Polarity;
+      Ctrl.GIC.IRQ_Modes (IRQ_Idx).Trigger_Mode := Trigger_Mode;
+      Ctrl.GIC.IRQ_Modes (IRQ_Idx).Polarity := Polarity;
 
       --
       --  Update redirection table entry of the IRQ
@@ -374,10 +380,11 @@ package body IRQ_Controller_Pkg is
       begin
 
          IORedTbl_Low.Polarity :=
-            IRQ_Polarity_To_Bitfield_1 (IRQ_Modes (IRQ_Idx).Polarity);
+            IRQ_Polarity_To_Bitfield_1 (Ctrl.GIC.IRQ_Modes (IRQ_Idx).Polarity);
 
          IORedTbl_Low.Trigger_Mode :=
-            IRQ_Trigger_Mode_To_Bitfield_1 (IRQ_Modes (IRQ_Idx).Trigger_Mode);
+            IRQ_Trigger_Mode_To_Bitfield_1 (
+               Ctrl.GIC.IRQ_Modes (IRQ_Idx).Trigger_Mode);
 
          IOAPIC_IORedTbl_Low_Reg := IORedTbl_Low;
 
@@ -392,7 +399,6 @@ package body IRQ_Controller_Pkg is
       Ctrl    : IRQ_Controller_Reference_Type;
       CPU_Idx : CPU_Index_Type)
    is
-      pragma Unreferenced (Ctrl);
       ICR_High : LAPIC_ICR_High_Reg_Type;
       ICR_Low  : LAPIC_ICR_Low_Reg_Type;
       ICR_High_U32 : Unsigned_32 with Address => ICR_High'Address;
@@ -406,7 +412,9 @@ package body IRQ_Controller_Pkg is
 
       end loop Wait_For_Delivery_Status;
 
-      ICR_High.Destination    := Bitfield_8_Type (Stored_APIC_IDs (CPU_Idx));
+      ICR_High.Destination :=
+         Bitfield_8_Type (Ctrl.GIC.Stored_APIC_IDs (CPU_Idx));
+
       ICR_Low.Vector          := Interprocessor_IRQ_ID;
       ICR_Low.Delivery_Status := 0;
       ICR_Low.Level_Assert    := 1;
@@ -423,9 +431,10 @@ package body IRQ_Controller_Pkg is
       Ctrl    : IRQ_Controller_Reference_Type;
       CPU_Idx : CPU_Index_Type)
    is
-      pragma Unreferenced (Ctrl);
    begin
-      Stored_APIC_IDs (CPU_Idx) := Stored_APIC_ID_Type (LAPIC_ID_Reg.APIC_ID);
+      Ctrl.GIC.Stored_APIC_IDs (CPU_Idx) :=
+         Stored_APIC_ID_Type (LAPIC_ID_Reg.APIC_ID);
+
    end Store_APIC_ID;
 
    --
