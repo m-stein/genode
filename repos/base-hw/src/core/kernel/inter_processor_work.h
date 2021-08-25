@@ -26,9 +26,7 @@
 namespace Kernel {
 
 	class Inter_processor_work;
-
-	using Inter_processor_work_list =
-		Genode::List<Genode::List_element<Inter_processor_work> >;
+	class Inter_processor_work_list;
 }
 
 
@@ -44,8 +42,6 @@ class Kernel::Inter_processor_work
 		Inter_processor_work_list                       &_work_list;
 		Genode::List_element<Inter_processor_work>       _le                 { this };
 		Kernel::Pointer<Genode::Kernel_object<Thread> >  _thread_to_destroy  { };
-
-		void _execute_tlb_invalidation();
 
 	public:
 
@@ -64,6 +60,16 @@ class Kernel::Inter_processor_work
 		Inter_processor_work(Inter_processor_work_list     &remote_work_list,
 		                     Thread                        &caller,
 		                     Genode::Kernel_object<Thread> &thread_to_destroy);
+};
+
+
+class Kernel::Inter_processor_work_list : Genode::List<Genode::List_element<Inter_processor_work> >
+{
+	friend class Inter_processor_work;
+
+	public:
+
+		void execute_each();
 };
 
 #endif /* _KERNEL__INTER_PROCESSOR_WORK_H_ */

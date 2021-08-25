@@ -18,19 +18,9 @@ using namespace Kernel;
 
 void Cpu::Ipi::occurred()
 {
-	/* lambda to iterate over a work-list and execute all work items */
-	auto iterate = [] (Genode::List<Genode::List_element<Inter_processor_work>> & li) {
-		Genode::List_element<Inter_processor_work> const *e = li.first();
-		Genode::List_element<Inter_processor_work> const *next = nullptr;
-		for ( ; e; e = next) {
-			next = e->next();
-			e->object()->execute();
-		}
-	};
-
 	/* iterate through the local and global work-list */
-	iterate(cpu._local_work_list);
-	iterate(cpu._global_work_list);
+	cpu._local_work_list.execute_each();
+	cpu._global_work_list.execute_each();
 
 	/* mark the IPI as being received */
 	pending = false;

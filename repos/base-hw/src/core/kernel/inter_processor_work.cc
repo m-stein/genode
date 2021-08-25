@@ -21,6 +21,17 @@ using namespace Kernel;
 using namespace Genode;
 
 
+void Kernel::Inter_processor_work_list::execute_each()
+{
+	Genode::List_element<Inter_processor_work> const *e = first();
+	Genode::List_element<Inter_processor_work> const *next = nullptr;
+	for ( ; e; e = next) {
+		next = e->next();
+		e->object()->execute();
+	}
+}
+
+
 void Kernel::Inter_processor_work::execute()
 {
 	switch (_type) {
