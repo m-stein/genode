@@ -107,6 +107,7 @@ SRC_CC += kernel/main_initialize_spunky.cc
 SRC_CC += kernel/object.cc
 SRC_CC += kernel/thread.cc
 SRC_CC += kernel/timer.cc
+SRC_CC += kernel/inter_processor_work.cc
 SRC_CC += init_main_thread.cc
 SRC_CC += capability.cc
 SRC_CC += stack_area_addr.cc
