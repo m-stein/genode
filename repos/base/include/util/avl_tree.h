@@ -21,6 +21,7 @@ namespace Genode {
 	
 	class Avl_node_base;
 	template <typename> class Avl_node;
+	template <typename> class Avl_node_member;
 	template <typename> class Avl_tree;
 }
 
@@ -177,6 +178,36 @@ struct Genode::Avl_node : Avl_node_base
 		functor(*static_cast<NT const *>(this));
 		if (NT * r = child(Avl_node<NT>::RIGHT)) r->for_each(functor);
 	}
+};
+
+
+/**
+ * Helper for using member variables as AVL nodes
+ *
+ * \param T  type of compound object to be organized in an AVL tree
+ *
+ * This helper allow the creation of AVL trees that use member variables to
+ * connect their elements. This way, the organized type does not need to
+ * inherit 'Avl_node<NT>'. Furthermore objects can easily be organized in
+ * multiple AVL trees by embedding multiple 'Avl_node_member' member variables.
+ */
+template <typename NT>
+class Genode::Avl_node_member : public Avl_node<Avl_node_member<NT> >
+{
+	private:
+
+		NT &_object;
+
+	public:
+
+		Avl_node_member(NT &object) : _object(object) { }
+
+		NT &object() { return _object; }
+
+		bool higher(Avl_node_member<NT> *n) const
+		{
+			return _object.higher(&n->_object);
+		}
 };
 
 
