@@ -65,6 +65,22 @@ class Kernel::Timeout
 };
 
 
+class Kernel::Timer_irq
+{
+	private:
+
+		Kernel::Irq  _irq;
+		Cpu         &_cpu;
+
+	public:
+
+		Timer_irq(unsigned  id,
+		          Cpu      &cpu);
+
+		void occurred();
+};
+
+
 /**
  * A timer manages a continuous time and timeouts on it
  */
@@ -72,21 +88,8 @@ class Kernel::Timer
 {
 	private:
 
-		class Irq : private Kernel::Irq
-		{
-			private:
-
-				Cpu & _cpu;
-
-			public:
-
-				Irq(unsigned id, Cpu & cpu);
-
-				void occurred() override;
-		};
-
 		Board::Timer _device;
-		Irq          _irq;
+		Timer_irq    _irq;
 		time_t       _time                        { 0 };
 		time_t       _last_timeout_duration;
 		time_t       _time_between_schedule_calls { 0 };

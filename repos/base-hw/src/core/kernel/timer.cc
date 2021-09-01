@@ -53,17 +53,18 @@ void Timeout::handle() const
 }
 
 
-/****************
- ** Timer::Irq **
- ****************/
+/***************
+ ** Timer_irq **
+ ***************/
 
-void Timer::Irq::occurred() { _cpu.scheduler().timeout(); }
+void Timer_irq::occurred() { _cpu.scheduler().timeout(); }
 
 
-Timer::Irq::Irq(unsigned id, Cpu &cpu)
+Timer_irq::Timer_irq(unsigned  id,
+                     Cpu      &cpu)
 :
-	Kernel::Irq { id, cpu.irq_pool(), cpu.pic() },
-	_cpu        { cpu }
+	_irq { id, cpu.irq_pool(), cpu.pic(), *this },
+	_cpu { cpu }
 { }
 
 

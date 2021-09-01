@@ -38,36 +38,38 @@ namespace Kernel {
 }
 
 
+class Kernel::Inter_processor_irq
+{
+	private:
+
+		Irq   _irq;
+		Cpu  &_cpu;
+		bool  _pending { false };
+
+	public:
+
+		/**
+		 * Constructor
+		 *
+		 * \param cpu  cpu this IRQ belongs to
+		 */
+		Inter_processor_irq(Cpu &cpu);
+
+		void occurred();
+
+		bool pending() const { return _pending; }
+
+		void pending(bool v) { _pending = v; }
+};
+
+
 class Kernel::Cpu
 {
 	private:
 
 		typedef Cpu_job Job;
 
-		/**
-		 * Inter-processor-interrupt object of the cpu
-		 */
-		struct Ipi : Irq
-		{
-			Cpu & cpu;
-			bool  pending { false };
-
-			/**
-			 * Constructor
-			 *
-			 * \param cpu  cpu this IPI belongs to
-			 */
-			Ipi(Cpu & cpu);
-
-
-			/*********************
-			 **  Irq interface  **
-			 *********************/
-
-			void occurred() override;
-		};
-
-		friend void Ipi::occurred(void);
+		friend void Inter_processor_irq::occurred(void);
 
 		struct Idle_thread : Kernel::Thread
 		{
@@ -81,16 +83,15 @@ class Kernel::Cpu
 			            Pd                                &core_pd);
 		};
 
-		Genode::Cpu    _cpu_device { };
-		Irq::Pool      _irq_pool { };
-		Timeout        _timeout  { };
-		unsigned const _id;
-		Board::Pic     _pic;
-		Timer          _timer;
-		Cpu_scheduler  _scheduler;
-		Idle_thread    _idle;
-		Ipi            _ipi_irq;
-
+		Genode::Cpu                _cpu_device { };
+		Irq::Pool                  _irq_pool { };
+		Timeout                    _timeout  { };
+		unsigned const             _id;
+		Board::Pic                 _pic;
+		Timer                      _timer;
+		Cpu_scheduler              _scheduler;
+		Idle_thread                _idle;
+		Inter_processor_irq        _inter_processor_irq;
 		Inter_processor_work_list &_global_work_list;
 		Inter_processor_work_list  _local_work_list {};
 

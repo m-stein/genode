@@ -30,6 +30,9 @@ namespace Board {
 
 namespace Kernel {
 
+	class Timer_irq;
+	class Inter_processor_irq;
+
 	/**
 	 * Kernel back-end interface of an interrupt
 	 */
@@ -67,38 +70,40 @@ class Kernel::Irq
 			}
 		};
 
-	protected:
+	private:
 
-		Genode::Avl_node_member<Irq> _avl_node { *this };
-		unsigned                     _irq_nr; /* kernel name of the interrupt */
-		Pool                        &_irq_pool;
-		Board::Pic                  &_pic;
+		enum class Type { TIMER_IRQ, USER_IRQ, INTER_PROCESSOR_IRQ };
+
+		Genode::Avl_node_member<Irq>  _avl_node { *this };
+		unsigned               const  _irq_nr; /* kernel name of the interrupt */
+		Pool                         &_irq_pool;
+		Board::Pic                   &_pic;
+		Type                   const  _type;
+		Genode::addr_t         const  _typed_irq;
 
 	public:
 
-		/**
-		 * Constructor
-		 *
-		 * \param irq   interrupt number
-		 * \param pool  pool this interrupt shall belong to
-		 */
 		Irq(unsigned const  irq,
 		    Pool           &irq_pool,
-		    Board::Pic     &pic)
-		:
-			_irq_nr   { irq },
-			_irq_pool { irq_pool },
-			_pic      { pic }
-		{
-			_irq_pool.insert(&_avl_node);
-		}
+		    Board::Pic     &pic,
+		    Timer_irq      &timer_irq);
 
-		virtual ~Irq() { _irq_pool.remove(&_avl_node); }
+		Irq(unsigned const  irq,
+		    Pool           &irq_pool,
+		    Board::Pic     &pic,
+		    User_irq      &user_irq);
+
+		Irq(unsigned const       irq,
+		    Pool                &irq_pool,
+		    Board::Pic          &pic,
+		    Inter_processor_irq &inter_processor_irq);
+
+		~Irq() { _irq_pool.remove(&_avl_node); }
 
 		/**
 		 * Handle occurence of the interrupt
 		 */
-		virtual void occurred() { }
+		void occurred();
 
 		/**
 		 * Prevent interrupt from occurring
@@ -131,14 +136,16 @@ class Kernel::Irq
 			return (subtree) ? subtree->object().find(nr): nullptr;
 		}
 
+		User_irq *user_irq();
 };
 
 
-class Kernel::User_irq : public Kernel::Irq
+class Kernel::User_irq
 {
 	private:
 
-		Kernel::Object  _kernel_object { *this };
+		Irq             _irq;
+		Kernel::Object  _kernel_object { _irq };
 		Signal_context &_context;
 
 	public:
@@ -156,24 +163,23 @@ class Kernel::User_irq : public Kernel::Irq
 		/**
 		 * Destructor
 		 */
-		~User_irq() { disable(); }
+		~User_irq() { _irq.disable(); }
 
 		/**
 		 * Handle occurence of the interrupt
 		 */
-		void occurred() override
+		void occurred()
 		{
 			if (_context.can_submit(1)) {
 				_context.submit(1);
 			}
-			disable();
+			_irq.disable();
 		}
 
-		/**
-		 * Handle occurence of interrupt 'irq'
-		 */
-		static User_irq * object(Irq::Pool &user_irq_pool, unsigned const irq) {
-			return dynamic_cast<User_irq*>(user_irq_pool.object(irq)); }
+		static User_irq * object(Irq::Pool &user_irq_pool, unsigned const irq)
+		{
+			return user_irq_pool.object(irq)->user_irq();
+		}
 
 		/**
 		 * Syscall to create user irq object
@@ -203,6 +209,8 @@ class Kernel::User_irq : public Kernel::Irq
 			call(call_id_delete_irq(), (Call_arg) &irq); }
 
 		Object &kernel_object() { return _kernel_object; }
+
+		void enable() { _irq.enable(); }
 };
 
 #endif /* _CORE__KERNEL__IRQ_H_ */

@@ -16,31 +16,32 @@
 using namespace Kernel;
 
 
-void Cpu::Ipi::occurred()
+void Inter_processor_irq::occurred()
 {
 	/* iterate through the local and global work-list */
-	cpu._local_work_list.execute_each();
-	cpu._global_work_list.execute_each();
+	_cpu._local_work_list.execute_each();
+	_cpu._global_work_list.execute_each();
 
-	/* mark the IPI as being received */
-	pending = false;
+	/* mark the inter-processor IRQ as being received */
+	_pending = false;
 }
 
 
 void Cpu::trigger_ip_interrupt()
 {
-	/* check whether there is still an IPI send */
-	if (_ipi_irq.pending)
+	/* check whether there is still an inter-processor IRQ send */
+	if (_inter_processor_irq.pending())
 		return;
 
 	_pic.send_ipi(_id);
-	_ipi_irq.pending = true;
+	_inter_processor_irq.pending(true);
 }
 
 
-Cpu::Ipi::Ipi(Cpu & cpu)
+Inter_processor_irq::Inter_processor_irq(Cpu &cpu)
 :
-	Irq(Board::Pic::ipi(), cpu.irq_pool(), cpu.pic()), cpu(cpu)
+	_irq { Board::Pic::ipi(), cpu.irq_pool(), cpu.pic(), *this },
+	_cpu { cpu }
 {
-	cpu.pic().unmask(Board::Pic::ipi(), cpu.id());
+	_cpu.pic().unmask(Board::Pic::ipi(), _cpu.id());
 }

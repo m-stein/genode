@@ -184,14 +184,14 @@ Cpu::Cpu(unsigned                     const  id,
          Pd                                 &core_pd,
          Board::Global_interrupt_controller &global_irq_ctrl)
 :
-	_id               { id },
-	_pic              { global_irq_ctrl },
-	_timer            { *this },
-	_scheduler        { _idle, _quota(), _fill() },
-	_idle             { addr_space_id_alloc, user_irq_pool, cpu_pool, *this,
-	                    core_pd },
-	_ipi_irq          { *this },
-	_global_work_list { cpu_pool.work_list() }
+	_id                  { id },
+	_pic                 { global_irq_ctrl },
+	_timer               { *this },
+	_scheduler           { _idle, _quota(), _fill() },
+	_idle                { addr_space_id_alloc, user_irq_pool, cpu_pool, *this,
+	                       core_pd },
+	_inter_processor_irq { *this },
+	_global_work_list    { cpu_pool.work_list() }
 {
 	_arch_init();
 }
