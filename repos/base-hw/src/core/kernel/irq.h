@@ -51,28 +51,28 @@ namespace Genode {
 }
 
 
-class Kernel::Irq : Genode::Avl_node<Irq>
+class Kernel::Irq
 {
-	friend class Genode::Avl_tree<Irq>;
-	friend class Genode::Avl_node<Irq>;
-
 	public:
 
-		struct Pool : Genode::Avl_tree<Irq>
+		struct Pool : Genode::Avl_tree<Genode::Avl_node_member<Irq> >
 		{
 			Irq * object(unsigned const id) const
 			{
-				Irq * const irq = first();
-				if (!irq) return nullptr;
-				return irq->find(id);
+				Genode::Avl_node_member<Irq> * const node = first();
+				if (!node) {
+					return nullptr;
+				}
+				return node->object().find(id);
 			}
 		};
 
 	protected:
 
-		unsigned    _irq_nr; /* kernel name of the interrupt */
-		Pool       &_irq_pool;
-		Board::Pic &_pic;
+		Genode::Avl_node_member<Irq> _avl_node { *this };
+		unsigned                     _irq_nr; /* kernel name of the interrupt */
+		Pool                        &_irq_pool;
+		Board::Pic                  &_pic;
 
 	public:
 
@@ -90,10 +90,10 @@ class Kernel::Irq : Genode::Avl_node<Irq>
 			_irq_pool { irq_pool },
 			_pic      { pic }
 		{
-			_irq_pool.insert(this);
+			_irq_pool.insert(&_avl_node);
 		}
 
-		virtual ~Irq() { _irq_pool.remove(this); }
+		virtual ~Irq() { _irq_pool.remove(&_avl_node); }
 
 		/**
 		 * Handle occurence of the interrupt
@@ -125,8 +125,10 @@ class Kernel::Irq : Genode::Avl_node<Irq>
 		Irq * find(unsigned const nr)
 		{
 			if (nr == _irq_nr) return this;
-			Irq * const subtree = Genode::Avl_node<Irq>::child(nr > _irq_nr);
-			return (subtree) ? subtree->find(nr): nullptr;
+			Genode::Avl_node_member<Irq> * const subtree =
+				_avl_node.child(nr > _irq_nr);
+
+			return (subtree) ? subtree->object().find(nr): nullptr;
 		}
 
 };
