@@ -13,7 +13,8 @@
 
 pragma Ada_2012;
 
-with CPP;
+with CPP;              use CPP;
+with CPP_Architecture; use CPP_Architecture;
 
 package CPP_Thread is
 
@@ -79,8 +80,8 @@ package CPP_Thread is
 
    procedure Signal_Receive_Signal (
       Obj           : Object_Reference_Type;
-      Imprint       : CPP.Signal_Imprint_Type;
-      Nr_Of_Submits : CPP.Signal_Number_Of_Submits_Type)
+      Imprint       : Signal_Imprint_Type;
+      Nr_Of_Submits : Signal_Number_Of_Submits_Type)
    with
       Import,
       Convention    => C,
@@ -99,9 +100,22 @@ package CPP_Thread is
       Convention    => C,
       External_Name => "_ZN6Kernel6Thread14handle_timeoutEv";
 
+   procedure Destruct (Kernel_Object : Address_Type)
+   with
+      Import,
+      Convention    => C,
+      External_Name =>
+         "_Z15thread_destructRN6Genode13Kernel_objectIN6Kernel6ThreadEEE";
+
+   procedure Restart (Obj : Object_Reference_Type)
+   with
+      Import,
+      Convention    => C,
+      External_Name => "_ZN6Kernel6Thread8_restartEv";
+
 private
 
-   type Object_Type is array (1 .. 32) of CPP.Byte_Type
+   type Object_Type is array (1 .. 32) of Byte_Type
    with Pack;
 
 end CPP_Thread;

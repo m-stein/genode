@@ -7,6 +7,7 @@ include $(BASE_DIR)/../libports/lib/mk/spark_common.inc
 
 SRC_ADS += cpp_thread.ads
 
+SRC_ADB += interprocessor_task_pkg.adb
 SRC_ADB += lock_pkg.adb
 SRC_ADB += cpu_pkg.adb
 SRC_ADB += signal.adb
@@ -22,25 +23,28 @@ SRC_ADB += cpp_ipc_node.adb
 SRC_ADB += cpp_signal.adb
 SRC_ADB += cpp_cpu_scheduler.adb
 SRC_ADB += cpp_lock_pkg.adb
+SRC_ADB += cpp_interprocessor_task_pkg.adb
 
 INC_DIR += $(KERNEL_ADA_DIR)
 
-vpath lock_pkg.adb            $(KERNEL_ADA_DIR)
-vpath cpu_pkg.adb             $(KERNEL_ADA_DIR)
-vpath timer_pkg.adb           $(KERNEL_ADA_DIR)
-vpath cpp_timer_pkg.adb       $(KERNEL_ADA_DIR)
-vpath log.adb                 $(KERNEL_ADA_DIR)
-vpath signal.adb              $(KERNEL_ADA_DIR)
-vpath generic_queue.adb       $(KERNEL_ADA_DIR)
-vpath generic_double_list.adb $(KERNEL_ADA_DIR)
-vpath cpu_scheduler.adb       $(KERNEL_ADA_DIR)
-vpath ipc_node.adb            $(KERNEL_ADA_DIR)
-vpath cpp.adb                 $(KERNEL_ADA_DIR)
-vpath cpp_ipc_node.adb        $(KERNEL_ADA_DIR)
-vpath cpp_signal.adb          $(KERNEL_ADA_DIR)
-vpath cpp_cpu_scheduler.adb   $(KERNEL_ADA_DIR)
-vpath cpp_thread.ads          $(KERNEL_ADA_DIR)
-vpath cpp_lock_pkg.adb        $(KERNEL_ADA_DIR)
+vpath interprocessor_task_pkg.adb     $(KERNEL_ADA_DIR)
+vpath lock_pkg.adb                    $(KERNEL_ADA_DIR)
+vpath cpu_pkg.adb                     $(KERNEL_ADA_DIR)
+vpath timer_pkg.adb                   $(KERNEL_ADA_DIR)
+vpath cpp_timer_pkg.adb               $(KERNEL_ADA_DIR)
+vpath log.adb                         $(KERNEL_ADA_DIR)
+vpath signal.adb                      $(KERNEL_ADA_DIR)
+vpath generic_queue.adb               $(KERNEL_ADA_DIR)
+vpath generic_double_list.adb         $(KERNEL_ADA_DIR)
+vpath cpu_scheduler.adb               $(KERNEL_ADA_DIR)
+vpath ipc_node.adb                    $(KERNEL_ADA_DIR)
+vpath cpp.adb                         $(KERNEL_ADA_DIR)
+vpath cpp_ipc_node.adb                $(KERNEL_ADA_DIR)
+vpath cpp_signal.adb                  $(KERNEL_ADA_DIR)
+vpath cpp_cpu_scheduler.adb           $(KERNEL_ADA_DIR)
+vpath cpp_thread.ads                  $(KERNEL_ADA_DIR)
+vpath cpp_lock_pkg.adb                $(KERNEL_ADA_DIR)
+vpath cpp_interprocessor_task_pkg.adb $(KERNEL_ADA_DIR)
 
 CC_ADA_OPT += -gnatec=$(KERNEL_ADA_DIR)/ada.adc
 
@@ -107,7 +111,6 @@ SRC_CC += kernel/main_initialize_spunky.cc
 SRC_CC += kernel/object.cc
 SRC_CC += kernel/thread.cc
 SRC_CC += kernel/timer.cc
-SRC_CC += kernel/inter_processor_work.cc
 SRC_CC += init_main_thread.cc
 SRC_CC += capability.cc
 SRC_CC += stack_area_addr.cc

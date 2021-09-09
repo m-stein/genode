@@ -88,6 +88,26 @@ package body Generic_Double_List is
    end Remove;
 
    --
+   --  Remove_1
+   --
+   procedure Remove_1 (
+      List : List_Reference_Type;
+      Itm  : Item_Reference_Type)
+   is
+   begin
+      if Item_Pointer_Type (Itm) = List.Tail then
+         List.Tail := Itm.Prev;
+      else
+         Itm.Next.Prev := Itm.Prev;
+      end if;
+      if Item_Pointer_Type (Itm) = List.Head then
+         List.Head := Itm.Next;
+      else
+         Itm.Prev.Next := Itm.Next;
+      end if;
+   end Remove_1;
+
+   --
    --  Insert_Tail
    --
    procedure Insert_Tail (
@@ -122,6 +142,24 @@ package body Generic_Double_List is
       Itm.Prev := null;
       List.Head := Item_Pointer_Type (Itm);
    end Insert_Head;
+
+   --
+   --  Insert_Head_1
+   --
+   procedure Insert_Head_1 (
+      List : List_Reference_Type;
+      Itm  : Item_Reference_Type)
+   is
+   begin
+      if List.Head /= null then
+         List.Head.Prev := Item_Pointer_Type (Itm);
+      else
+         List.Tail := Item_Pointer_Type (Itm);
+      end if;
+      Itm.Next := List.Head;
+      Itm.Prev := null;
+      List.Head := Item_Pointer_Type (Itm);
+   end Insert_Head_1;
 
    --
    --  Insert_Behind

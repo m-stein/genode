@@ -21,6 +21,7 @@ is
    pragma Pure;
 
    type List_Type           is private;
+   type List_Reference_Type is not null access all List_Type;
    type Item_Type           is private;
    type Item_Pointer_Type   is access all Item_Type;
    type Item_Reference_Type is not null access all Item_Type;
@@ -50,6 +51,13 @@ is
       Itm  :        Item_Reference_Type);
 
    --
+   --  Remove_1
+   --
+   procedure Remove_1 (
+      List : List_Reference_Type;
+      Itm  : Item_Reference_Type);
+
+   --
    --  Insert_Tail
    --
    procedure Insert_Tail (
@@ -62,6 +70,13 @@ is
    procedure Insert_Head (
       List : in out List_Type;
       Itm  :        Item_Reference_Type);
+
+   --
+   --  Insert_Head_1
+   --
+   procedure Insert_Head_1 (
+      List : List_Reference_Type;
+      Itm  : Item_Reference_Type);
 
    --
    --  Insert_Behind

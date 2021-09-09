@@ -19,6 +19,8 @@
 #include <kernel/timer.h>
 #include <kernel/lock.h>
 #include <kernel/main.h>
+#include <kernel/thread.h>
+#include <kernel/inter_processor_work.h>
 #include <pic.h>
 #include <cpu.h>
 #include <platform.h>
@@ -59,4 +61,9 @@ addr_t lapic_virt_address()
 	return
 		Genode::Platform::mmio_to_virt(
 			Hw::Cpu_memory_map::lapic_phys_base());
+}
+
+void thread_destruct(Genode::Kernel_object<Thread> &thread)
+{
+	thread.destruct();
 }

@@ -32,6 +32,7 @@ package CPP is
    type IRQ_Polarity_Type             is (Invalid, High, Low);
    type IRQ_Trigger_Mode_Type         is (Invalid, Edge, Level);
    type Number_Of_IRQs_Type           is new Unsigned_Type;
+   type Number_Of_CPUs_Type           is new Unsigned_Type;
    type CPU_Index_Type                is range 0 .. 31;
 
    --
