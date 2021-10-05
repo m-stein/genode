@@ -1,0 +1,8 @@
+LICENSE   := GPLv2
+VERSION   := 1.34.0
+DOWNLOADS := busybox.archive
+
+URL(busybox) := https://busybox.net/downloads/busybox-$(VERSION).tar.bz2
+SHA(busybox) := ec8d1615edb045b83b81966604759c4d4ac921434ab4011da604f629c06074ce
+DIR(busybox) := src/busybox
+
