@@ -7,12 +7,13 @@
 #
 # 1) Establish a bridge between a TAP device and a physical network device in
 #    your Linux:
+#    ! export MY_NET_DEV=eth0
 #    ! sudo brctl addbr br0
-#    ! sudo ip addr flush dev eth0
-#    ! sudo brctl addif br0 eth0
-#    ! sudo ip tuntap add tap0 mode tap user shrimp
+#    ! sudo ip addr flush dev $MY_NET_DEV
+#    ! sudo brctl addif br0 $MY_NET_DEV
+#    ! sudo ip tuntap add tap0 mode tap user $USER
 #    ! sudo brctl addif br0 tap0
-#    ! sudo ifconfig eth0 up
+#    ! sudo ifconfig $MY_NET_DEV up
 #    ! sudo ifconfig tap0 up
 #    ! sudo ifconfig br0 up
 #    ! brctl show
@@ -25,11 +26,11 @@
 # 3) Clean up your Linux when done testing:
 #    ! sudo brctl delif br0 tap0
 #    ! sudo ip tuntap delete tap0 mode tap
-#    ! sudo brctl delif br0 eth0
+#    ! sudo brctl delif br0 $MY_NET_DEV
 #    ! sudo ifconfig br0 down
 #    ! sudo brctl delbr br0
-#    ! sudo ifconfig eth0 up
-#    ! sudo dhclient -v eth0
+#    ! sudo ifconfig $MY_NET_DEV up
+#    ! sudo dhclient -v $MY_NET_DEV
 #
 
 if {[have_spec foc] || [have_board rpi3] || [have_board imx53_qsb_tz]} {
