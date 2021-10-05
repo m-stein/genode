@@ -1,0 +1,7 @@
+LICENSE   := GPLv2
+VERSION   := git
+DOWNLOADS := wireguard-tools.git
+
+URL(wireguard-tools) := https://git.zx2c4.com/wireguard-tools
+DIR(wireguard-tools) := wireguard-tools
+REV(wireguard-tools) := 3ba6527130c502144e7388b900138bca6260f4e8
