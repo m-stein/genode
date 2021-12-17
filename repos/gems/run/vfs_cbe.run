@@ -269,7 +269,11 @@ append config {
 								<dir name="dev">
 									<fs label="cbe" buffer_size="1M"/>
 								</dir>
-								<rom name=".bashrc" label="vfs_cbe.sh"/>
+								<dir name="share">
+									<dir name="bash">
+										<rom name="bashrc" label="vfs_cbe.sh"/>
+									</dir>
+								</dir>
 							</vfs>
 							<arg value="bash"/>
 							<env key="TERM" value="screen"/>
