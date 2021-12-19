@@ -544,6 +544,10 @@ class Trust_anchor
 
 		void _close_handle(Vfs::Vfs_handle **handle)
 		{
+			if (*handle == nullptr) {
+				Genode::warning("skip closing invalid VFS handle");
+				return;
+			}
 			(*handle)->close();
 			(*handle) = nullptr;
 		}
