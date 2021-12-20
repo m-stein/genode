@@ -1,17 +1,9 @@
 assert_spec linux
 
-if {[expr ![info exists ::env(CBE_KEEP)]]} {
-exec rm -rf var/libcache/cbe
-exec rm -rf var/libcache/cbe_cxx
-exec rm -rf var/libcache/cbe_common
-exec rm -rf var/libcache/cbe_common_cxx
-exec rm -rf var/libcache/cbe_init
-exec rm -rf var/libcache/cbe_init_cxx
-exec rm -rf var/libcache/cbe_check
-exec rm -rf var/libcache/cbe_check_cxx
-exec rm -rf var/libcache/cbe_dump
-exec rm -rf var/libcache/cbe_dump_cxx
-}
+#
+# Clean up Ada/SPARK remnants of previous builds
+#
+exec rm -rf var/libcache/cbe*
 
 create_boot_directory
 
@@ -19,36 +11,42 @@ proc cbe_image_file { } {
 	return "vfs_cbe_block.img"
 }
 
-set use_interactively [expr ![get_cmd_switch --autopilot]]
+proc cbe_image_size_mb { } {
+	return 32
+}
 
-import_from_depot [depot_user]/pkg/[drivers_interactive_pkg] \
-                  [depot_user]/pkg/terminal \
-                  [depot_user]/src/ncurses \
-                  [depot_user]/src/bash \
-                  [depot_user]/src/coreutils \
-                  [depot_user]/src/nitpicker
-
+#
+# Overwrite exit procedure to ensure to always remove the CBE image
+#
+rename exit run_tool_exit
+proc exit {{status 0}} {
+	exec rm -rf bin/[cbe_image_file]
+	puts "rm -rf bin/[cbe_image_file]"
+	run_tool_exit $status
+}
 
 build {
 	core
 	timer
 	init
 	server/lx_fs
+	server/lx_block
 	lib/vfs/cbe
 	lib/vfs/cbe_crypto/aes_cbc
-	lib/vfs/cbe_crypto/memcopy
 	lib/vfs/cbe_trust_anchor
-	lib/vfs/import
 	lib/vfs/pipe
-	test/vfs_stress
-	test/libc
 	server/log_terminal
-	server/report_rom
 	server/fs_rom
+	server/terminal
+	server/vfs
+	app/cbe_init
 	app/cbe_init_trust_anchor
+	app/sequence
+	noux-pkg/coreutils
+	noux-pkg/bash
 }
 
-set config {
+append config {
 <config verbose="yes">
 	<parent-provides>
 		<service name="ROM"/>
@@ -65,101 +63,55 @@ set config {
 	<default-route>
 		<any-service> <parent/> <any-child/> </any-service>
 	</default-route>
+	<default caps="200"/>
 
-	<default caps="100"/>
 	<start name="timer">
 		<resource name="RAM" quantum="1M"/>
 		<provides><service name="Timer"/></provides>
 	</start>
 
-	<start name="drivers" caps="1000" managing_system="yes">
-		<resource name="RAM" quantum="32M"/>
-		<binary name="init"/>
-		<route>
-			<service name="ROM" label="config"> <parent label="drivers.config"/> </service>
-			<service name="Timer"> <child name="timer"/> </service>
-			<service name="Capture"> <child name="nitpicker"/> </service>
-			<service name="Event">   <child name="nitpicker"/> </service>
-			<any-service> <parent/> </any-service>
-		</route>
-	</start>}
-
-append_if $use_interactively config {
-
-	<start name="nitpicker">
-		<resource name="RAM" quantum="4M"/>
-		<provides>
-			<service name="Gui"/>
-			<service name="Capture"/>
-			<service name="Event"/>
-		</provides>
-		<config focus="rom" request_framebuffer="no" request_input="no">
-			<capture/> <event/>
-			<domain name="default" layer="2" content="client" label="no" hover="always"/>
-			<default-policy domain="default"/>
-		</config>
-		<route>
-			<any-service> <parent/> <any-child/> </any-service>
-		</route>
+	<start name="lx_block" ld="no">
+		<resource name="RAM" quantum="2M"/>
+		<provides> <service name="Block"/> </provides>
+		<config file="} [cbe_image_file] {" block_size="4K" writeable="yes"/>
 	</start>
 
-	<start name="terminal_service" caps="110">
-		<binary name="terminal"/>
-		<resource name="RAM" quantum="12M"/>
-		<provides><service name="Terminal"/></provides>
-		<route>
-			<service name="ROM" label="config"> <parent label="terminal.config"/> </service>
-			<service name="Gui"> <child name="nitpicker"/> </service>
-			<any-service> <parent/> <any-child/> </any-service>
-		</route>
-	</start>}
-
-append_if [expr !$use_interactively] config {
-	<start name="terminal_service" caps="110">
-		<binary name="log_terminal"/>
+	<start name="log_terminal">
 		<resource name="RAM" quantum="2M"/>
 		<provides><service name="Terminal"/></provides>
-		<route>
-			<any-service> <parent/> <any-child/> </any-service>
-		</route>
-	</start>}
+	</start>
 
-append config {
 	<start name="lx_fs" ld="no">
 		<resource name="RAM" quantum="4M"/>
 		<provides> <service name="File_system"/> </provides>
-		<config>
-			<default-policy root="/" writeable="yes"/>
-		</config>
+		<config> <default-policy root="/" writeable="yes"/> </config>
 	</start>
 
-	<start name="vfs_cbe_trust_anchor" caps="120">
+	<start name="vfs_cbe_trust_anchor" caps="1000">
 		<binary name="vfs"/>
 		<resource name="RAM" quantum="16M"/>
 		<provides><service name="File_system"/></provides>
 		<config>
 			<vfs>
-				<ram/>
-				<import>
-					<rom name="encrypted_private_key"/>
-					<rom name="superblock_hash"/>
-				</import>
+				<dir name="ta_storage">
+					<fs/>
+				</dir>
 
 				<dir name="dev">
 					<cbe_trust_anchor name="cbe_trust_anchor"
-					                  storage_dir="/"/>
+					                  storage_dir="/ta_storage"/>
 				</dir>
 			</vfs>
 
 			<default-policy root="/dev/cbe_trust_anchor" writeable="yes"/>
 		</config>
 		<route>
+			<service name="File_system"> <child name="lx_fs"/> </service>
 			<any-service> <parent/> </any-service>
 		</route>
 	</start>
 
-	<start name="initialize_cbe" caps="3000">
-		<binary name="sequence"/>
+	<start name="sequence" caps="3000">
 		<resource name="RAM" quantum="300M"/>
 		<config>
 
@@ -174,6 +126,28 @@ append config {
 				</config>
 			</start>
 
+			<start name="cbe_init">
+				<resource name="RAM" quantum="4M"/>
+				<config trust_anchor_dir="/trust_anchor">
+					<vfs>
+						<dir name="trust_anchor">
+							<fs label="ta"/>
+						</dir>
+					</vfs>
+
+					<key id="12"/>
+					<virtual-block-device
+						nr_of_levels="3"
+						nr_of_children="64"
+						nr_of_leafs="512" />
+
+					<free-tree
+						nr_of_levels="3"
+						nr_of_children="64"
+						nr_of_leafs="2048" />
+				</config>
+			</start>
+
 			<start name="init" caps="1600">
 				<resource name="RAM" quantum="256M"/>
 				<config verbose="yes">
@@ -184,14 +158,14 @@ append config {
 						<service name="RM"/>
 						<service name="CPU"/>
 						<service name="LOG"/>
-						<service name="Nic"/>
 						<service name="Timer"/>
 						<service name="File_system"/>
 						<service name="Terminal"/>
 					</parent-provides>
 
-					<default-route> <any-service> <parent/> </any-service> </default-route>
-
+					<default-route>
+						<any-service> <parent/> </any-service>
+					</default-route>
 					<default caps="100"/>
 
 					<start name="vfs_cbe" caps="200">
@@ -202,7 +176,9 @@ append config {
 							<vfs>
 								<fs buffer_size="1M" label="fs_backend"/>
 								<cbe_crypto_aes_cbc name="cbe_crypto"/>
-								<dir name="ta"> <fs buffer_size="1M" label="ta"/> </dir>
+								<dir name="ta">
+									<fs buffer_size="1M" label="ta"/>
+								</dir>
 								<dir name="dev">
 									<cbe name="cbe" debug="no" verbose="yes"
 										 block="/} [cbe_image_file] {"
@@ -242,15 +218,14 @@ append config {
 							<default-policy root="/" writeable="yes"/>
 						</config>
 						<route>
-							<service name="Terminal"> <parent label="terminal_service"/> </service>
+							<service name="Terminal"> <parent/> </service>
 							<service name="Timer"> <child name="timer"/> </service>
 							<any-service> <parent/> </any-service>
 						</route>
 					</start>
 
-					<start name="vfs_rom">
+					<start name="fs_rom">
 						<resource name="RAM" quantum="30M"/>
-						<binary name="fs_rom"/>
 						<provides> <service name="ROM"/> </provides>
 						<config/>
 						<route>
@@ -284,8 +259,8 @@ append config {
 							<service name="File_system" label="shell">  <child name="vfs"/> </service>
 							<service name="File_system" label="cbe">    <child name="vfs_cbe"/> </service>
 							<service name="ROM" label_suffix=".lib.so"> <parent/> </service>
-							<service name="ROM" label_last="/bin/bash"> <child name="vfs_rom"/> </service>
-							<service name="ROM" label_prefix="/bin">    <child name="vfs_rom"/> </service>
+							<service name="ROM" label_last="/bin/bash"> <child name="fs_rom"/> </service>
+							<service name="ROM" label_prefix="/bin">    <child name="fs_rom"/> </service>
 							<any-service> <parent/> <any-child/> </any-service>
 						</route>
 					</start>
@@ -293,10 +268,11 @@ append config {
 			</start>
 		</config>
 		<route>
-			<service name="Terminal"> <child name="terminal_service"/> </service>
+			<service name="Terminal"> <child name="log_terminal"/> </service>
 			<service name="File_system" label_last="fs"> <child name="lx_fs"/> </service>
 			<service name="File_system" label_last="ta"> <child name="vfs_cbe_trust_anchor"/> </service>
 			<service name="Timer"> <child name="timer"/> </service>
+			<service name="Block"> <child name="lx_block"/> </service>
 			<any-service> <parent/> </any-service>
 		</route>
 	</start>
@@ -305,50 +281,52 @@ append config {
 
 install_config $config
 
+#
+# Create empty image file that serves as CBE block back-end
+#
+exec rm -rf bin/[cbe_image_file]
+exec truncate -s [cbe_image_size_mb]M bin/[cbe_image_file]
+
+#
+# Copy shell script for automated testing in bash to 'bin/'
+#
 set shell_script "run/vfs_cbe.sh"
 set repo "[repository_contains $shell_script]"
 exec cp $repo/$shell_script bin/
 
 append boot_modules {
 	lx_fs
+	lx_block
+	cbe_init
+	cbe_init_cxx.lib.so
 	cbe_init_trust_anchor
 	spark.lib.so
 	libsparkcrypto.lib.so
 	cbe_cxx.lib.so
 	vfs_cbe.lib.so
 	vfs_cbe_crypto_aes_cbc.lib.so
-	vfs_cbe_crypto_memcopy.lib.so
 	vfs_cbe_trust_anchor.lib.so
 	vfs_cbe.sh
 	vfs.lib.so
-	vfs_import.lib.so
 	vfs_pipe.lib.so
+	vfs
 	posix.lib.so
 	libc.lib.so
+	libm.lib.so
 	libcrypto.lib.so
 	log_terminal
 	fs_rom
-	report_rom
 	sequence
 	init
 	core
 	timer
+	terminal
+	bash.tar
+	coreutils.tar
 	ld.lib.so
+	} [cbe_image_file] {
 }
-
-append boot_modules {
-	encrypted_private_key superblock_hash
-}
-append boot_modules [cbe_image_file]
-
-set fd [open [run_dir]/genode/focus w]
-puts $fd "<focus label=\"terminal_service -> \" domain=\"default\"/>"
-close $fd
 
 build_boot_image $boot_modules
 
-if {$use_interactively} {
-	run_genode_until forever
-} else {
-	run_genode_until {.*--- Automated CBE testing finished.*} 1800
-}
+run_genode_until {.*--- Automated CBE testing finished.*} 120

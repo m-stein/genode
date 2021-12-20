@@ -165,7 +165,7 @@ main() {
 
 	ls -l $cbe_dir
 
-	for i in $(seq 3); do
+	for i in $(seq 2); do
 
 		echo "--> Run $i:"
 
