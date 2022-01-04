@@ -1,5 +1,5 @@
 #
-# Linux kernel configuration
+# Provided variables: LX_ENABLE, LX_DISABLE
 #
 
 # kernel fundamentals
@@ -45,4 +45,5 @@ LX_DISABLE += $(addprefix NET_VENDOR_, ALACRITECH AMAZON AQUANTIA ARC BROADCOM \
                                        SUN SYNOPSYS TEHUTI TI VIA WIZNET XILINX \
                                        3COM ADAPTEC AGERE ALTEON AMD ATHEROS \
                                        BROCADE CHELSIO CISCO DEC NETERION)
+
 LX_DISABLE += WLAN

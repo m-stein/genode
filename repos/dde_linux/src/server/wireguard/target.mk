@@ -1,22 +1,22 @@
 TARGET    = wireguard_x86_64
 REQUIRES  = x86_64
-LIBS      = base
+LIBS      = base wireguard_x86_64_linux
 
-CONTRIB_DIR := /home/lypo/genodelabs/linux-5.15-rc2.wg_builds
+LX_OUT_DIR := $(BUILD_BASE_DIR)/server/wireguard/linux
 
-INC_DIR += $(CONTRIB_DIR)/arch/x86/include
-INC_DIR += $(CONTRIB_DIR)/arch/x86/include/generated
-INC_DIR += $(CONTRIB_DIR)/include
-INC_DIR += $(CONTRIB_DIR)/arch/x86/include/uapi
-INC_DIR += $(CONTRIB_DIR)/arch/x86/include/generated/uapi
-INC_DIR += $(CONTRIB_DIR)/include/uapi
-INC_DIR += $(CONTRIB_DIR)/include/generated/uapi
+INC_DIR += $(LX_OUT_DIR)/arch/x86/include
+INC_DIR += $(LX_OUT_DIR)/arch/x86/include/generated
+INC_DIR += $(LX_OUT_DIR)/include
+INC_DIR += $(LX_OUT_DIR)/arch/x86/include/uapi
+INC_DIR += $(LX_OUT_DIR)/arch/x86/include/generated/uapi
+INC_DIR += $(LX_OUT_DIR)/include/uapi
+INC_DIR += $(LX_OUT_DIR)/include/generated/uapi
 
 CC_C_OPT += -Wp,-MMD,drivers/net/wireguard/.main.o.d
 CC_C_OPT += -nostdinc
 #CC_C_OPT += -isystem /usr/local/genode/tool/19.05/bin/../lib/gcc/x86_64-pc-elf/8.3.0/include
-CC_C_OPT += -include $(CONTRIB_DIR)/include/linux/compiler-version.h -include
-CC_C_OPT += $(CONTRIB_DIR)/include/linux/kconfig.h -include $(CONTRIB_DIR)/include/linux/compiler_types.h
+CC_C_OPT += -include $(LX_OUT_DIR)/include/linux/compiler-version.h -include
+CC_C_OPT += $(LX_OUT_DIR)/include/linux/kconfig.h -include $(LX_OUT_DIR)/include/linux/compiler_types.h
 CC_C_OPT += -D__KERNEL__ -fmacro-prefix-map=./= -Wall -Wundef -Werror=strict-prototypes
 CC_C_OPT += -Wno-trigraphs -fno-strict-aliasing -fno-common -fshort-wchar -fno-PIE
 CC_C_OPT += -Werror=implicit-function-declaration -Werror=implicit-int -Werror=return-type
@@ -44,14 +44,14 @@ CC_C_OPT += -D__KBUILD_MODNAME=kmod_wireguard
 #CC_C_OPT += -DDEBUG
 CC_C_OPT += -c
 
-LX_OBJECTS  = $(wildcard $(CONTRIB_DIR)/drivers/net/wireguard/*.o)
-LX_REL_OBJ  = $(LX_OBJECTS:$(CONTRIB_DIR)/%=%)
-SRC_C      += $(LX_REL_OBJ:%.o=%.c))
+WG_OBJECTS_ABS := $(wildcard $(LX_OUT_DIR)/drivers/net/wireguard/*.o)
+WG_OBJECTS_REL := $(WG_OBJECTS_ABS:$(LX_OUT_DIR)/%=%)
+SRC_C          += $(WG_OBJECTS_REL:%.o=%.c))
 
-vpath %.c  $(CONTRIB_DIR)
+vpath %.c $(LX_OUT_DIR)
 
 define CC_OPT_LX_RULES =
 CC_OPT_$(1) = -DKBUILD_BASENAME='"$(notdir $(1))"'
 endef
 
-$(foreach file,$(LX_REL_OBJ),$(eval $(call CC_OPT_LX_RULES,$(file:%.o=%))))
+$(foreach file,$(WG_OBJECTS_REL),$(eval $(call CC_OPT_LX_RULES,$(file:%.o=%))))
