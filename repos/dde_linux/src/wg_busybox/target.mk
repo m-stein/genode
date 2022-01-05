@@ -9,7 +9,18 @@ PWD              := $(shell pwd)
 INITRAMFS_DIR    := $(PWD)/initramfs
 WG_TOOLS_DST_DIR := $(PWD)/wireguard-tools
 
-include $(REP_DIR)/src/wg_init/target.inc
+WG_1_PUBLIC_KEY  := r1Gslnm82X8NaijsWzPoSFzDZGl2tTJoPa+EJL4gYQw=
+WG_1_TUNNEL_IP   := 10.0.9.1
+WG_1_INTERNET_IP := 10.0.2.2
+WG_1_UDP_PORT    := 55551
+
+WG_2_PRIVATE_KEY := 8GRSQZMgG1uuvz4APIBqrDmiLj8L886r++hzixjjHFc=
+WG_2_TUNNEL_IP   := 10.0.9.2
+WG_2_UDP_PORT    := 55552
+
+WG_2_PEER_PUBLIC_KEY  := $(WG_1_PUBLIC_KEY)
+WG_2_PEER_ALLOWED_IPS := $(WG_1_TUNNEL_IP)/32
+WG_2_PEER_ENDPOINT    := $(WG_1_INTERNET_IP):$(WG_1_UDP_PORT)
 
 BUSYBOX_MK_ARGS = ARCH=x86_64
 
@@ -45,15 +56,6 @@ busybox_build.phony: busybox_config.tag
 	$(VERBOSE)cp /lib/x86_64-linux-gnu/libc.so.6 $(INITRAMFS_DIR)/lib/x86_64-linux-gnu/
 	$(VERBOSE)cp /lib64/ld-linux-x86-64.so.2 $(INITRAMFS_DIR)/lib64/
 	$(VERBOSE)cp $(WG_TOOLS_DST_DIR)/wg $(INITRAMFS_DIR)/bin
-# install 'tcpdump' tool and its library dependencies at initramfs
-	$(VERBOSE)mkdir -p $(addprefix $(INITRAMFS_DIR)/,lib/x86_64-linux-gnu lib64)
-	$(VERBOSE)cp /lib/x86_64-linux-gnu/libcrypto.so.1.1 $(INITRAMFS_DIR)/lib/x86_64-linux-gnu/
-	$(VERBOSE)cp /lib/x86_64-linux-gnu/libpcap.so.0.8 $(INITRAMFS_DIR)/lib/x86_64-linux-gnu/
-	$(VERBOSE)cp /lib/x86_64-linux-gnu/libc.so.6 $(INITRAMFS_DIR)/lib/x86_64-linux-gnu/
-	$(VERBOSE)cp /lib/x86_64-linux-gnu/libdl.so.2 $(INITRAMFS_DIR)/lib/x86_64-linux-gnu/
-	$(VERBOSE)cp /lib/x86_64-linux-gnu/libpthread.so.0 $(INITRAMFS_DIR)/lib/x86_64-linux-gnu/
-	$(VERBOSE)cp /lib64/ld-linux-x86-64.so.2 $(INITRAMFS_DIR)/lib64/
-	$(VERBOSE)cp /usr/sbin/tcpdump $(INITRAMFS_DIR)/usr/sbin
 # add init shell script
 	$(VERBOSE)echo $(WG_2_PRIVATE_KEY) > $(INITRAMFS_DIR)/wg_private_key
 	$(VERBOSE)chmod 700 $(INITRAMFS_DIR)/wg_private_key
