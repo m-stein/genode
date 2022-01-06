@@ -64,10 +64,15 @@ busybox_build.phony: busybox_config.tag
 	   echo "#!/bin/sh"; \
 	   echo "mknod /dev/urandom c 1 9"; \
 	   echo "mknod /dev/random c 1 8"; \
+	   echo "echo WGSETUP 1: ip link add wg0 type wireguard"; \
 	   echo "ip link add wg0 type wireguard"; \
+	   echo "echo WGSETUP 2: ip addr add $(WG_2_TUNNEL_IP)/24 dev wg0"; \
 	   echo "ip addr add $(WG_2_TUNNEL_IP)/24 dev wg0"; \
+	   echo "echo WGSETUP 3: wg set wg0 private-key /wg_private_key listen-port $(WG_2_UDP_PORT)"; \
 	   echo "wg set wg0 private-key /wg_private_key listen-port $(WG_2_UDP_PORT)"; \
+	   echo "echo WGSETUP 4: ip link set wg0 up"; \
 	   echo "ip link set wg0 up"; \
+	   echo "echo WGSETUP 5: wg set wg0 peer $(WG_2_PEER_PUBLIC_KEY) allowed-ips $(WG_2_PEER_ALLOWED_IPS) endpoint $(WG_2_PEER_ENDPOINT)"; \
 	   echo "wg set wg0 peer $(WG_2_PEER_PUBLIC_KEY) allowed-ips $(WG_2_PEER_ALLOWED_IPS) endpoint $(WG_2_PEER_ENDPOINT)"; \
 	   echo "exec /bin/sh +m"\
 	) > $(INITRAMFS_DIR)/etc/init.d/rcS
