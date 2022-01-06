@@ -13,7 +13,7 @@ assert_spec x86_64
 
 source ${genode_dir}/repos/dde_linux/run/wireguard.inc
 
-#build "wg_linux wg_busybox"
+build "wg_linux wg_busybox"
 
 wireguard_start
 
