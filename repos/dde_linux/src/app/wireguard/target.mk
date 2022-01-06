@@ -2,7 +2,7 @@ TARGET    = wireguard_x86_64
 REQUIRES  = x86_64
 LIBS      = base wireguard_x86_64_linux
 
-LX_OUT_DIR := $(BUILD_BASE_DIR)/server/wireguard/linux
+LX_OUT_DIR := $(BUILD_BASE_DIR)/app/wireguard/linux
 
 INC_DIR += $(LX_OUT_DIR)/arch/x86/include
 INC_DIR += $(LX_OUT_DIR)/arch/x86/include/generated

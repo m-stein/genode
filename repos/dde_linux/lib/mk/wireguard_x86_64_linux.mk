@@ -1,12 +1,12 @@
 #
-# Helper library for server/wireguard/target.mk for building the Linux tree
+# Helper library for app/wireguard/target.mk for building the Linux tree
 # before having to determine the wireguard source files (depends on the
 # output of the Linux build).
 #
 
 LX_CONTRIB_DIR := $(call select_from_ports,linux)/src/linux
-LX_SRC_DIR     := $(BUILD_BASE_DIR)/server/wireguard/linux
-LX_OUT_DIR     := $(BUILD_BASE_DIR)/server/wireguard/linux
+LX_SRC_DIR     := $(BUILD_BASE_DIR)/app/wireguard/linux
+LX_OUT_DIR     := $(BUILD_BASE_DIR)/app/wireguard/linux
 
 $(LX_OUT_DIR):
 	$(VERBOSE)rm -rf $(LX_SRC_DIR)
