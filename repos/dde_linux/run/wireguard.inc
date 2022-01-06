@@ -1,4 +1,5 @@
 proc wireguard_start {} {
+	puts "Apply host setup for Wireguard"
 	set fd [open udhcpd.conf w]
 	puts $fd "interface tap0"
 	puts $fd "start 10.0.2.3"
@@ -31,6 +32,8 @@ proc wireguard_start {} {
 }
 
 proc wireguard_exit {} {
+
+	puts "Undo host setup for Wireguard"
 	exec sudo pkill -F udhcpd.pid
 	exec sudo ip link set wg0 down
 	exec sudo ip link delete dev wg0

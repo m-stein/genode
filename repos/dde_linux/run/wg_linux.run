@@ -15,6 +15,16 @@ source ${genode_dir}/repos/dde_linux/run/wireguard.inc
 
 build "wg_linux wg_busybox"
 
+#
+# Overwrite exit procedure in order to always undo the host setup for Wireguard
+#
+rename exit run_tool_exit
+proc exit {{status 0}} {
+
+	wireguard_exit
+	run_tool_exit $status
+}
+
 wireguard_start
 
 eval spawn qemu-system-x86_64 \
@@ -31,7 +41,6 @@ set timeout -1
 interact {
 	\001 {
 		send_user "Expect: 'interact' received 'strg+A' and was cancelled\n";
-		wireguard_exit
 		exit
 	}
 }
