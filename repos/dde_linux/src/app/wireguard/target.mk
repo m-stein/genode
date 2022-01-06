@@ -1,8 +1,13 @@
 TARGET    = wireguard
 REQUIRES  = x86_64
-SRC_CC    = main.cc
 LIBS      = base wireguard_linux
 INC_DIR   = $(PRG_DIR)
+SRC_CC    = main.cc
+SRC_C     = dummies.c
+SRC_C    += $(notdir $(wildcard $(PRG_DIR)/generated_dummies.c))
+
+CC_OPT_dummies += -DKBUILD_MODFILE='"dummies"' -DKBUILD_BASENAME='"dummies"' -DKBUILD_MODNAME='"dummies"'
+CC_OPT_generated_dummies += -DKBUILD_MODFILE='"generated"' -DKBUILD_BASENAME='"generated"' -DKBUILD_MODNAME='"generated"'
 
 #
 # lx_emul library
