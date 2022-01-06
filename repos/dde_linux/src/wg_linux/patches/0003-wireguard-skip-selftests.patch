@@ -1,0 +1,31 @@
+From 27b5510b7e8d22fdb42d80297f0837e4150ee491 Mon Sep 17 00:00:00 2001
+From: Martin Stein <martin.stein@genode-labs.com>
+Date: Thu, 6 Jan 2022 13:06:37 +0100
+Subject: [PATCH 2/2] wireguard: skip selftests
+
+These tests might fail with too much debugging output, thereby rendering the
+module unusable.
+---
+ src/linux/drivers/net/wireguard/main.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git src/linux/drivers/net/wireguard/main.c src/linux/drivers/net/wireguard/main.c
+index e7789d5e1..d2da042d1 100644
+--- src/linux/drivers/net/wireguard/main.c
++++ src/linux/drivers/net/wireguard/main.c
+@@ -43,12 +43,6 @@ static int __init mod_init(void)
+ 	if (ret < 0)
+ 		goto err_allowedips;
+ 
+-#ifdef DEBUG
+-	ret = -ENOTRECOVERABLE;
+-	if (!wg_allowedips_selftest() || !wg_packet_counter_selftest() ||
+-	    !wg_ratelimiter_selftest())
+-		goto err_peer;
+-#endif
+ 	wg_noise_init();
+ 
+ 	ret = wg_peer_init();
+-- 
+2.25.1
+

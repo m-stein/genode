@@ -1,5 +1,5 @@
---- a/drivers/char/random.c
-+++ b/drivers/char/random.c
+--- src/linux/drivers/char/random.c
++++ src/linux/drivers/char/random.c
 @@ -461,7 +461,7 @@
   * its value (from 0->1->2).
   */

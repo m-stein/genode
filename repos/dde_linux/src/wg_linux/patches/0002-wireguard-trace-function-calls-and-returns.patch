@@ -1,0 +1,3305 @@
+From 7e125ef09d06c0196efffdd50e5e88c4ad93bcca Mon Sep 17 00:00:00 2001
+From: Martin Stein <martin.stein@genode-labs.com>
+Date: Thu, 6 Jan 2022 17:17:07 +0100
+Subject: [PATCH] wireguard: trace function calls and returns
+
+Tracing can be controlled through symbols beginning with mtrace/MTRACE in
+messages.h and main.c .
+---
+ src/linux/drivers/net/wireguard/allowedips.c  |  85 ++++++++++++
+ src/linux/drivers/net/wireguard/cookie.c      |  27 ++++
+ src/linux/drivers/net/wireguard/device.c      |  35 +++++
+ src/linux/drivers/net/wireguard/main.c        |  33 ++++-
+ src/linux/drivers/net/wireguard/messages.h    |  10 ++
+ src/linux/drivers/net/wireguard/netlink.c     |  52 ++++++++
+ src/linux/drivers/net/wireguard/noise.c       |  83 ++++++++++++
+ src/linux/drivers/net/wireguard/peer.c        |  38 ++++++
+ src/linux/drivers/net/wireguard/peerlookup.c  |  47 +++----
+ src/linux/drivers/net/wireguard/queueing.c    |  52 ++++----
+ src/linux/drivers/net/wireguard/ratelimiter.c |  37 +++---
+ src/linux/drivers/net/wireguard/receive.c     | 122 +++++++++---------
+ src/linux/drivers/net/wireguard/send.c        |  86 ++++++------
+ src/linux/drivers/net/wireguard/socket.c      | 100 +++++++-------
+ src/linux/drivers/net/wireguard/timers.c      |  68 +++++-----
+ 15 files changed, 616 insertions(+), 259 deletions(-)
+
+diff --git src/linux/drivers/net/wireguard/allowedips.c src/linux/drivers/net/wireguard/allowedips.c
+index b7197e80f..459367a55 100644
+--- src/linux/drivers/net/wireguard/allowedips.c
++++ src/linux/drivers/net/wireguard/allowedips.c
+@@ -10,17 +10,20 @@ static struct kmem_cache *node_cache;
+ 
+ static void swap_endian(u8 *dst, const u8 *src, u8 bits)
+ {
++MTRACE_FUNC_CALL
+ 	if (bits == 32) {
+ 		*(u32 *)dst = be32_to_cpu(*(const __be32 *)src);
+ 	} else if (bits == 128) {
+ 		((u64 *)dst)[0] = be64_to_cpu(((const __be64 *)src)[0]);
+ 		((u64 *)dst)[1] = be64_to_cpu(((const __be64 *)src)[1]);
+ 	}
++MTRACE_FUNC_RETURN
+ }
+ 
+ static void copy_and_assign_cidr(struct allowedips_node *node, const u8 *src,
+ 				 u8 cidr, u8 bits)
+ {
++MTRACE_FUNC_CALL
+ 	node->cidr = cidr;
+ 	node->bit_at_a = cidr / 8U;
+ #ifdef __LITTLE_ENDIAN
+@@ -29,29 +32,37 @@ static void copy_and_assign_cidr(struct allowedips_node *node, const u8 *src,
+ 	node->bit_at_b = 7U - (cidr % 8U);
+ 	node->bitlen = bits;
+ 	memcpy(node->bits, src, bits / 8U);
++MTRACE_FUNC_RETURN
+ }
+ 
+ static inline u8 choose(struct allowedips_node *node, const u8 *key)
+ {
++MTRACE_FUNC_CALL
++MTRACE_FUNC_RETURN
+ 	return (key[node->bit_at_a] >> node->bit_at_b) & 1;
+ }
+ 
+ static void push_rcu(struct allowedips_node **stack,
+ 		     struct allowedips_node __rcu *p, unsigned int *len)
+ {
++MTRACE_FUNC_CALL
+ 	if (rcu_access_pointer(p)) {
+ 		WARN_ON(IS_ENABLED(DEBUG) && *len >= 128);
+ 		stack[(*len)++] = rcu_dereference_raw(p);
+ 	}
++MTRACE_FUNC_RETURN
+ }
+ 
+ static void node_free_rcu(struct rcu_head *rcu)
+ {
++MTRACE_FUNC_CALL
+ 	kmem_cache_free(node_cache, container_of(rcu, struct allowedips_node, rcu));
++MTRACE_FUNC_RETURN
+ }
+ 
+ static void root_free_rcu(struct rcu_head *rcu)
+ {
++MTRACE_FUNC_CALL
+ 	struct allowedips_node *node, *stack[128] = {
+ 		container_of(rcu, struct allowedips_node, rcu) };
+ 	unsigned int len = 1;
+@@ -61,10 +72,12 @@ static void root_free_rcu(struct rcu_head *rcu)
+ 		push_rcu(stack, node->bit[1], &len);
+ 		kmem_cache_free(node_cache, node);
+ 	}
++MTRACE_FUNC_RETURN
+ }
+ 
+ static void root_remove_peer_lists(struct allowedips_node *root)
+ {
++MTRACE_FUNC_CALL
+ 	struct allowedips_node *node, *stack[128] = { root };
+ 	unsigned int len = 1;
+ 
+@@ -74,40 +87,54 @@ static void root_remove_peer_lists(struct allowedips_node *root)
+ 		if (rcu_access_pointer(node->peer))
+ 			list_del(&node->peer_list);
+ 	}
++MTRACE_FUNC_RETURN
+ }
+ 
+ static unsigned int fls128(u64 a, u64 b)
+ {
++MTRACE_FUNC_CALL
++MTRACE_FUNC_RETURN
+ 	return a ? fls64(a) + 64U : fls64(b);
+ }
+ 
+ static u8 common_bits(const struct allowedips_node *node, const u8 *key,
+ 		      u8 bits)
+ {
++MTRACE_FUNC_CALL
+ 	if (bits == 32)
++	{
++MTRACE_FUNC_RETURN
+ 		return 32U - fls(*(const u32 *)node->bits ^ *(const u32 *)key);
++	}
+ 	else if (bits == 128)
++	{
++MTRACE_FUNC_RETURN
+ 		return 128U - fls128(
+ 			*(const u64 *)&node->bits[0] ^ *(const u64 *)&key[0],
+ 			*(const u64 *)&node->bits[8] ^ *(const u64 *)&key[8]);
++	}
++MTRACE_FUNC_RETURN
+ 	return 0;
+ }
+ 
+ static bool prefix_matches(const struct allowedips_node *node, const u8 *key,
+ 			   u8 bits)
+ {
++MTRACE_FUNC_CALL
+ 	/* This could be much faster if it actually just compared the common
+ 	 * bits properly, by precomputing a mask bswap(~0 << (32 - cidr)), and
+ 	 * the rest, but it turns out that common_bits is already super fast on
+ 	 * modern processors, even taking into account the unfortunate bswap.
+ 	 * So, we just inline it like this instead.
+ 	 */
++MTRACE_FUNC_RETURN
+ 	return common_bits(node, key, bits) >= node->cidr;
+ }
+ 
+ static struct allowedips_node *find_node(struct allowedips_node *trie, u8 bits,
+ 					 const u8 *key)
+ {
++MTRACE_FUNC_CALL
+ 	struct allowedips_node *node = trie, *found = NULL;
+ 
+ 	while (node && prefix_matches(node, key, bits)) {
+@@ -117,6 +144,7 @@ static struct allowedips_node *find_node(struct allowedips_node *trie, u8 bits,
+ 			break;
+ 		node = rcu_dereference_bh(node->bit[choose(node, key)]);
+ 	}
++MTRACE_FUNC_RETURN
+ 	return found;
+ }
+ 
+@@ -124,6 +152,7 @@ static struct allowedips_node *find_node(struct allowedips_node *trie, u8 bits,
+ static struct wg_peer *lookup(struct allowedips_node __rcu *root, u8 bits,
+ 			      const void *be_ip)
+ {
++MTRACE_FUNC_CALL
+ 	/* Aligned so it can be passed to fls/fls64 */
+ 	u8 ip[16] __aligned(__alignof(u64));
+ 	struct allowedips_node *node;
+@@ -140,6 +169,7 @@ static struct wg_peer *lookup(struct allowedips_node __rcu *root, u8 bits,
+ 			goto retry;
+ 	}
+ 	rcu_read_unlock_bh();
++MTRACE_FUNC_RETURN
+ 	return peer;
+ }
+ 
+@@ -147,6 +177,7 @@ static bool node_placement(struct allowedips_node __rcu *trie, const u8 *key,
+ 			   u8 cidr, u8 bits, struct allowedips_node **rnode,
+ 			   struct mutex *lock)
+ {
++MTRACE_FUNC_CALL
+ 	struct allowedips_node *node = rcu_dereference_protected(trie, lockdep_is_held(lock));
+ 	struct allowedips_node *parent = NULL;
+ 	bool exact = false;
+@@ -160,47 +191,62 @@ static bool node_placement(struct allowedips_node __rcu *trie, const u8 *key,
+ 		node = rcu_dereference_protected(parent->bit[choose(parent, key)], lockdep_is_held(lock));
+ 	}
+ 	*rnode = parent;
++MTRACE_FUNC_RETURN
+ 	return exact;
+ }
+ 
+ static inline void connect_node(struct allowedips_node **parent, u8 bit, struct allowedips_node *node)
+ {
++MTRACE_FUNC_CALL
+ 	node->parent_bit_packed = (unsigned long)parent | bit;
+ 	rcu_assign_pointer(*parent, node);
++MTRACE_FUNC_RETURN
+ }
+ 
+ static inline void choose_and_connect_node(struct allowedips_node *parent, struct allowedips_node *node)
+ {
++MTRACE_FUNC_CALL
+ 	u8 bit = choose(parent, node->bits);
+ 	connect_node(&parent->bit[bit], bit, node);
++MTRACE_FUNC_RETURN
+ }
+ 
+ static int add(struct allowedips_node __rcu **trie, u8 bits, const u8 *key,
+ 	       u8 cidr, struct wg_peer *peer, struct mutex *lock)
+ {
++MTRACE_FUNC_CALL
+ 	struct allowedips_node *node, *parent, *down, *newnode;
+ 
+ 	if (unlikely(cidr > bits || !peer))
++	{
++MTRACE_FUNC_RETURN
+ 		return -EINVAL;
++	}
+ 
+ 	if (!rcu_access_pointer(*trie)) {
+ 		node = kmem_cache_zalloc(node_cache, GFP_KERNEL);
+ 		if (unlikely(!node))
++	{
++MTRACE_FUNC_RETURN
+ 			return -ENOMEM;
++	}
+ 		RCU_INIT_POINTER(node->peer, peer);
+ 		list_add_tail(&node->peer_list, &peer->allowedips_list);
+ 		copy_and_assign_cidr(node, key, cidr, bits);
+ 		connect_node(trie, 2, node);
++MTRACE_FUNC_RETURN
+ 		return 0;
+ 	}
+ 	if (node_placement(*trie, key, cidr, bits, &node, lock)) {
+ 		rcu_assign_pointer(node->peer, peer);
+ 		list_move_tail(&node->peer_list, &peer->allowedips_list);
++MTRACE_FUNC_RETURN
+ 		return 0;
+ 	}
+ 
+ 	newnode = kmem_cache_zalloc(node_cache, GFP_KERNEL);
+ 	if (unlikely(!newnode))
++MTRACE_FUNC_RETURN
+ 		return -ENOMEM;
+ 	RCU_INIT_POINTER(newnode->peer, peer);
+ 	list_add_tail(&newnode->peer_list, &peer->allowedips_list);
+@@ -213,6 +259,7 @@ static int add(struct allowedips_node __rcu **trie, u8 bits, const u8 *key,
+ 		down = rcu_dereference_protected(node->bit[bit], lockdep_is_held(lock));
+ 		if (!down) {
+ 			connect_node(&node->bit[bit], bit, newnode);
++MTRACE_FUNC_RETURN
+ 			return 0;
+ 		}
+ 	}
+@@ -225,6 +272,7 @@ static int add(struct allowedips_node __rcu **trie, u8 bits, const u8 *key,
+ 			connect_node(trie, 2, newnode);
+ 		else
+ 			choose_and_connect_node(parent, newnode);
++MTRACE_FUNC_RETURN
+ 		return 0;
+ 	}
+ 
+@@ -232,6 +280,7 @@ static int add(struct allowedips_node __rcu **trie, u8 bits, const u8 *key,
+ 	if (unlikely(!node)) {
+ 		list_del(&newnode->peer_list);
+ 		kmem_cache_free(node_cache, newnode);
++MTRACE_FUNC_RETURN
+ 		return -ENOMEM;
+ 	}
+ 	INIT_LIST_HEAD(&node->peer_list);
+@@ -243,17 +292,21 @@ static int add(struct allowedips_node __rcu **trie, u8 bits, const u8 *key,
+ 		connect_node(trie, 2, node);
+ 	else
+ 		choose_and_connect_node(parent, node);
++MTRACE_FUNC_RETURN
+ 	return 0;
+ }
+ 
+ void wg_allowedips_init(struct allowedips *table)
+ {
++MTRACE_FUNC_CALL
+ 	table->root4 = table->root6 = NULL;
+ 	table->seq = 1;
++MTRACE_FUNC_RETURN
+ }
+ 
+ void wg_allowedips_free(struct allowedips *table, struct mutex *lock)
+ {
++MTRACE_FUNC_CALL
+ 	struct allowedips_node __rcu *old4 = table->root4, *old6 = table->root6;
+ 
+ 	++table->seq;
+@@ -273,38 +326,47 @@ void wg_allowedips_free(struct allowedips *table, struct mutex *lock)
+ 		root_remove_peer_lists(node);
+ 		call_rcu(&node->rcu, root_free_rcu);
+ 	}
++MTRACE_FUNC_RETURN
+ }
+ 
+ int wg_allowedips_insert_v4(struct allowedips *table, const struct in_addr *ip,
+ 			    u8 cidr, struct wg_peer *peer, struct mutex *lock)
+ {
++MTRACE_FUNC_CALL
+ 	/* Aligned so it can be passed to fls */
+ 	u8 key[4] __aligned(__alignof(u32));
+ 
+ 	++table->seq;
+ 	swap_endian(key, (const u8 *)ip, 32);
++MTRACE_FUNC_RETURN
+ 	return add(&table->root4, 32, key, cidr, peer, lock);
+ }
+ 
+ int wg_allowedips_insert_v6(struct allowedips *table, const struct in6_addr *ip,
+ 			    u8 cidr, struct wg_peer *peer, struct mutex *lock)
+ {
++MTRACE_FUNC_CALL
+ 	/* Aligned so it can be passed to fls64 */
+ 	u8 key[16] __aligned(__alignof(u64));
+ 
+ 	++table->seq;
+ 	swap_endian(key, (const u8 *)ip, 128);
++MTRACE_FUNC_RETURN
+ 	return add(&table->root6, 128, key, cidr, peer, lock);
+ }
+ 
+ void wg_allowedips_remove_by_peer(struct allowedips *table,
+ 				  struct wg_peer *peer, struct mutex *lock)
+ {
++MTRACE_FUNC_CALL
+ 	struct allowedips_node *node, *child, **parent_bit, *parent, *tmp;
+ 	bool free_parent;
+ 
+ 	if (list_empty(&peer->allowedips_list))
++	{
++MTRACE_FUNC_RETURN
+ 		return;
++	}
+ 	++table->seq;
+ 	list_for_each_entry_safe(node, tmp, &peer->allowedips_list, peer_list) {
+ 		list_del_init(&node->peer_list);
+@@ -335,10 +397,12 @@ void wg_allowedips_remove_by_peer(struct allowedips *table,
+ 		*(struct allowedips_node **)(parent->parent_bit_packed & ~3UL) = child;
+ 		call_rcu(&parent->rcu, node_free_rcu);
+ 	}
++MTRACE_FUNC_RETURN
+ }
+ 
+ int wg_allowedips_read_node(struct allowedips_node *node, u8 ip[16], u8 *cidr)
+ {
++MTRACE_FUNC_CALL
+ 	const unsigned int cidr_bytes = DIV_ROUND_UP(node->cidr, 8U);
+ 	swap_endian(ip, node->bits, node->bitlen);
+ 	memset(ip + cidr_bytes, 0, node->bitlen / 8U - cidr_bytes);
+@@ -346,6 +410,7 @@ int wg_allowedips_read_node(struct allowedips_node *node, u8 ip[16], u8 *cidr)
+ 		ip[cidr_bytes - 1U] &= ~0U << (-node->cidr % 8U);
+ 
+ 	*cidr = node->cidr;
++MTRACE_FUNC_RETURN
+ 	return node->bitlen == 32 ? AF_INET : AF_INET6;
+ }
+ 
+@@ -353,10 +418,18 @@ int wg_allowedips_read_node(struct allowedips_node *node, u8 ip[16], u8 *cidr)
+ struct wg_peer *wg_allowedips_lookup_dst(struct allowedips *table,
+ 					 struct sk_buff *skb)
+ {
++MTRACE_FUNC_CALL
+ 	if (skb->protocol == htons(ETH_P_IP))
++	{
++MTRACE_FUNC_RETURN
+ 		return lookup(table->root4, 32, &ip_hdr(skb)->daddr);
++	}
+ 	else if (skb->protocol == htons(ETH_P_IPV6))
++	{
++MTRACE_FUNC_RETURN
+ 		return lookup(table->root6, 128, &ipv6_hdr(skb)->daddr);
++	}
++MTRACE_FUNC_RETURN
+ 	return NULL;
+ }
+ 
+@@ -364,23 +437,35 @@ struct wg_peer *wg_allowedips_lookup_dst(struct allowedips *table,
+ struct wg_peer *wg_allowedips_lookup_src(struct allowedips *table,
+ 					 struct sk_buff *skb)
+ {
++MTRACE_FUNC_CALL
+ 	if (skb->protocol == htons(ETH_P_IP))
++	{
++MTRACE_FUNC_RETURN
+ 		return lookup(table->root4, 32, &ip_hdr(skb)->saddr);
++	}
+ 	else if (skb->protocol == htons(ETH_P_IPV6))
++	{
++MTRACE_FUNC_RETURN
+ 		return lookup(table->root6, 128, &ipv6_hdr(skb)->saddr);
++	}
++MTRACE_FUNC_RETURN
+ 	return NULL;
+ }
+ 
+ int __init wg_allowedips_slab_init(void)
+ {
++MTRACE_FUNC_CALL
+ 	node_cache = KMEM_CACHE(allowedips_node, 0);
++MTRACE_FUNC_RETURN
+ 	return node_cache ? 0 : -ENOMEM;
+ }
+ 
+ void wg_allowedips_slab_uninit(void)
+ {
++MTRACE_FUNC_CALL
+ 	rcu_barrier();
+ 	kmem_cache_destroy(node_cache);
++MTRACE_FUNC_RETURN
+ }
+ 
+ #include "selftest/allowedips.c"
+diff --git src/linux/drivers/net/wireguard/cookie.c src/linux/drivers/net/wireguard/cookie.c
+index 4956f0499..55f9f8fa6 100644
+--- src/linux/drivers/net/wireguard/cookie.c
++++ src/linux/drivers/net/wireguard/cookie.c
+@@ -19,10 +19,12 @@
+ void wg_cookie_checker_init(struct cookie_checker *checker,
+ 			    struct wg_device *wg)
+ {
++MTRACE_FUNC_CALL
+ 	init_rwsem(&checker->secret_lock);
+ 	checker->secret_birthdate = ktime_get_coarse_boottime_ns();
+ 	get_random_bytes(checker->secret, NOISE_HASH_LEN);
+ 	checker->device = wg;
++MTRACE_FUNC_RETURN
+ }
+ 
+ enum { COOKIE_KEY_LABEL_LEN = 8 };
+@@ -33,17 +35,20 @@ static void precompute_key(u8 key[NOISE_SYMMETRIC_KEY_LEN],
+ 			   const u8 pubkey[NOISE_PUBLIC_KEY_LEN],
+ 			   const u8 label[COOKIE_KEY_LABEL_LEN])
+ {
++MTRACE_FUNC_CALL
+ 	struct blake2s_state blake;
+ 
+ 	blake2s_init(&blake, NOISE_SYMMETRIC_KEY_LEN);
+ 	blake2s_update(&blake, label, COOKIE_KEY_LABEL_LEN);
+ 	blake2s_update(&blake, pubkey, NOISE_PUBLIC_KEY_LEN);
+ 	blake2s_final(&blake, key);
++MTRACE_FUNC_RETURN
+ }
+ 
+ /* Must hold peer->handshake.static_identity->lock */
+ void wg_cookie_checker_precompute_device_keys(struct cookie_checker *checker)
+ {
++MTRACE_FUNC_CALL
+ 	if (likely(checker->device->static_identity.has_identity)) {
+ 		precompute_key(checker->cookie_encryption_key,
+ 			       checker->device->static_identity.static_public,
+@@ -56,41 +61,51 @@ void wg_cookie_checker_precompute_device_keys(struct cookie_checker *checker)
+ 		       NOISE_SYMMETRIC_KEY_LEN);
+ 		memset(checker->message_mac1_key, 0, NOISE_SYMMETRIC_KEY_LEN);
+ 	}
++MTRACE_FUNC_RETURN
+ }
+ 
+ void wg_cookie_checker_precompute_peer_keys(struct wg_peer *peer)
+ {
++MTRACE_FUNC_CALL
+ 	precompute_key(peer->latest_cookie.cookie_decryption_key,
+ 		       peer->handshake.remote_static, cookie_key_label);
+ 	precompute_key(peer->latest_cookie.message_mac1_key,
+ 		       peer->handshake.remote_static, mac1_key_label);
++MTRACE_FUNC_RETURN
+ }
+ 
+ void wg_cookie_init(struct cookie *cookie)
+ {
++MTRACE_FUNC_CALL
+ 	memset(cookie, 0, sizeof(*cookie));
+ 	init_rwsem(&cookie->lock);
++MTRACE_FUNC_RETURN
+ }
+ 
+ static void compute_mac1(u8 mac1[COOKIE_LEN], const void *message, size_t len,
+ 			 const u8 key[NOISE_SYMMETRIC_KEY_LEN])
+ {
++MTRACE_FUNC_CALL
+ 	len = len - sizeof(struct message_macs) +
+ 	      offsetof(struct message_macs, mac1);
+ 	blake2s(mac1, message, key, COOKIE_LEN, len, NOISE_SYMMETRIC_KEY_LEN);
++MTRACE_FUNC_RETURN
+ }
+ 
+ static void compute_mac2(u8 mac2[COOKIE_LEN], const void *message, size_t len,
+ 			 const u8 cookie[COOKIE_LEN])
+ {
++MTRACE_FUNC_CALL
+ 	len = len - sizeof(struct message_macs) +
+ 	      offsetof(struct message_macs, mac2);
+ 	blake2s(mac2, message, cookie, COOKIE_LEN, len, COOKIE_LEN);
++MTRACE_FUNC_RETURN
+ }
+ 
+ static void make_cookie(u8 cookie[COOKIE_LEN], struct sk_buff *skb,
+ 			struct cookie_checker *checker)
+ {
++MTRACE_FUNC_CALL
+ 	struct blake2s_state state;
+ 
+ 	if (wg_birthdate_has_expired(checker->secret_birthdate,
+@@ -114,12 +129,14 @@ static void make_cookie(u8 cookie[COOKIE_LEN], struct sk_buff *skb,
+ 	blake2s_final(&state, cookie);
+ 
+ 	up_read(&checker->secret_lock);
++MTRACE_FUNC_RETURN
+ }
+ 
+ enum cookie_mac_state wg_cookie_validate_packet(struct cookie_checker *checker,
+ 						struct sk_buff *skb,
+ 						bool check_cookie)
+ {
++MTRACE_FUNC_CALL
+ 	struct message_macs *macs = (struct message_macs *)
+ 		(skb->data + skb->len - sizeof(*macs));
+ 	enum cookie_mac_state ret;
+@@ -150,12 +167,14 @@ enum cookie_mac_state wg_cookie_validate_packet(struct cookie_checker *checker,
+ 	ret = VALID_MAC_WITH_COOKIE;
+ 
+ out:
++MTRACE_FUNC_RETURN
+ 	return ret;
+ }
+ 
+ void wg_cookie_add_mac_to_packet(void *message, size_t len,
+ 				 struct wg_peer *peer)
+ {
++MTRACE_FUNC_CALL
+ 	struct message_macs *macs = (struct message_macs *)
+ 		((u8 *)message + len - sizeof(*macs));
+ 
+@@ -175,12 +194,14 @@ void wg_cookie_add_mac_to_packet(void *message, size_t len,
+ 	else
+ 		memset(macs->mac2, 0, COOKIE_LEN);
+ 	up_read(&peer->latest_cookie.lock);
++MTRACE_FUNC_RETURN
+ }
+ 
+ void wg_cookie_message_create(struct message_handshake_cookie *dst,
+ 			      struct sk_buff *skb, __le32 index,
+ 			      struct cookie_checker *checker)
+ {
++MTRACE_FUNC_CALL
+ 	struct message_macs *macs = (struct message_macs *)
+ 		((u8 *)skb->data + skb->len - sizeof(*macs));
+ 	u8 cookie[COOKIE_LEN];
+@@ -193,11 +214,13 @@ void wg_cookie_message_create(struct message_handshake_cookie *dst,
+ 	xchacha20poly1305_encrypt(dst->encrypted_cookie, cookie, COOKIE_LEN,
+ 				  macs->mac1, COOKIE_LEN, dst->nonce,
+ 				  checker->cookie_encryption_key);
++MTRACE_FUNC_RETURN
+ }
+ 
+ void wg_cookie_message_consume(struct message_handshake_cookie *src,
+ 			       struct wg_device *wg)
+ {
++MTRACE_FUNC_CALL
+ 	struct wg_peer *peer = NULL;
+ 	u8 cookie[COOKIE_LEN];
+ 	bool ret;
+@@ -206,7 +229,10 @@ void wg_cookie_message_consume(struct message_handshake_cookie *src,
+ 						INDEX_HASHTABLE_HANDSHAKE |
+ 						INDEX_HASHTABLE_KEYPAIR,
+ 						src->receiver_index, &peer)))
++	{
++MTRACE_FUNC_RETURN
+ 		return;
++	}
+ 
+ 	down_read(&peer->latest_cookie.lock);
+ 	if (unlikely(!peer->latest_cookie.have_sent_mac1)) {
+@@ -233,4 +259,5 @@ void wg_cookie_message_consume(struct message_handshake_cookie *src,
+ 
+ out:
+ 	wg_peer_put(peer);
++MTRACE_FUNC_RETURN
+ }
+diff --git src/linux/drivers/net/wireguard/device.c src/linux/drivers/net/wireguard/device.c
+index 551ddaaaf..e63a33d8c 100644
+--- src/linux/drivers/net/wireguard/device.c
++++ src/linux/drivers/net/wireguard/device.c
+@@ -28,6 +28,7 @@ static LIST_HEAD(device_list);
+ 
+ static int wg_open(struct net_device *dev)
+ {
++MTRACE_FUNC_CALL
+ 	struct in_device *dev_v4 = __in_dev_get_rtnl(dev);
+ 	struct inet6_dev *dev_v6 = __in6_dev_get(dev);
+ 	struct wg_device *wg = netdev_priv(dev);
+@@ -56,6 +57,7 @@ static int wg_open(struct net_device *dev)
+ 	}
+ out:
+ 	mutex_unlock(&wg->device_update_lock);
++MTRACE_FUNC_RETURN
+ 	return ret;
+ }
+ 
+@@ -63,6 +65,7 @@ static int wg_open(struct net_device *dev)
+ static int wg_pm_notification(struct notifier_block *nb, unsigned long action,
+ 			      void *data)
+ {
++MTRACE_FUNC_CALL
+ 	struct wg_device *wg;
+ 	struct wg_peer *peer;
+ 
+@@ -71,10 +74,16 @@ static int wg_pm_notification(struct notifier_block *nb, unsigned long action,
+ 	 * don't actually want to clear keys.
+ 	 */
+ 	if (IS_ENABLED(CONFIG_PM_AUTOSLEEP) || IS_ENABLED(CONFIG_ANDROID))
++	{
++MTRACE_FUNC_RETURN
+ 		return 0;
++	}
+ 
+ 	if (action != PM_HIBERNATION_PREPARE && action != PM_SUSPEND_PREPARE)
++	{
++MTRACE_FUNC_RETURN
+ 		return 0;
++	}
+ 
+ 	rtnl_lock();
+ 	list_for_each_entry(wg, &device_list, device_list) {
+@@ -88,6 +97,7 @@ static int wg_pm_notification(struct notifier_block *nb, unsigned long action,
+ 	}
+ 	rtnl_unlock();
+ 	rcu_barrier();
++MTRACE_FUNC_RETURN
+ 	return 0;
+ }
+ 
+@@ -96,6 +106,7 @@ static struct notifier_block pm_notifier = { .notifier_call = wg_pm_notification
+ 
+ static int wg_stop(struct net_device *dev)
+ {
++MTRACE_FUNC_CALL
+ 	struct wg_device *wg = netdev_priv(dev);
+ 	struct wg_peer *peer;
+ 
+@@ -110,11 +121,13 @@ static int wg_stop(struct net_device *dev)
+ 	mutex_unlock(&wg->device_update_lock);
+ 	skb_queue_purge(&wg->incoming_handshakes);
+ 	wg_socket_reinit(wg, NULL, NULL);
++MTRACE_FUNC_RETURN
+ 	return 0;
+ }
+ 
+ static netdev_tx_t wg_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
++MTRACE_FUNC_CALL
+ 	struct wg_device *wg = netdev_priv(dev);
+ 	struct sk_buff_head packets;
+ 	struct wg_peer *peer;
+@@ -197,6 +210,7 @@ static netdev_tx_t wg_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	wg_packet_send_staged_packets(peer);
+ 
+ 	wg_peer_put(peer);
++MTRACE_FUNC_RETURN
+ 	return NETDEV_TX_OK;
+ 
+ err_peer:
+@@ -209,6 +223,7 @@ static netdev_tx_t wg_xmit(struct sk_buff *skb, struct net_device *dev)
+ err:
+ 	++dev->stats.tx_errors;
+ 	kfree_skb(skb);
++MTRACE_FUNC_RETURN
+ 	return ret;
+ }
+ 
+@@ -221,6 +236,7 @@ static const struct net_device_ops netdev_ops = {
+ 
+ static void wg_destruct(struct net_device *dev)
+ {
++MTRACE_FUNC_CALL
+ 	struct wg_device *wg = netdev_priv(dev);
+ 
+ 	rtnl_lock();
+@@ -249,12 +265,14 @@ static void wg_destruct(struct net_device *dev)
+ 
+ 	pr_debug("%s: Interface destroyed\n", dev->name);
+ 	free_netdev(dev);
++MTRACE_FUNC_RETURN
+ }
+ 
+ static const struct device_type device_type = { .name = KBUILD_MODNAME };
+ 
+ static void wg_setup(struct net_device *dev)
+ {
++MTRACE_FUNC_CALL
+ 	struct wg_device *wg = netdev_priv(dev);
+ 	enum { WG_NETDEV_FEATURES = NETIF_F_HW_CSUM | NETIF_F_RXCSUM |
+ 				    NETIF_F_SG | NETIF_F_GSO |
+@@ -285,12 +303,14 @@ static void wg_setup(struct net_device *dev)
+ 
+ 	memset(wg, 0, sizeof(*wg));
+ 	wg->dev = dev;
++MTRACE_FUNC_RETURN
+ }
+ 
+ static int wg_newlink(struct net *src_net, struct net_device *dev,
+ 		      struct nlattr *tb[], struct nlattr *data[],
+ 		      struct netlink_ext_ack *extack)
+ {
++MTRACE_FUNC_CALL
+ 	struct wg_device *wg = netdev_priv(dev);
+ 	int ret = -ENOMEM;
+ 
+@@ -306,7 +326,10 @@ static int wg_newlink(struct net *src_net, struct net_device *dev,
+ 
+ 	wg->peer_hashtable = wg_pubkey_hashtable_alloc();
+ 	if (!wg->peer_hashtable)
++	{
++MTRACE_FUNC_RETURN
+ 		return ret;
++	}
+ 
+ 	wg->index_hashtable = wg_index_hashtable_alloc();
+ 	if (!wg->index_hashtable)
+@@ -363,6 +386,7 @@ static int wg_newlink(struct net *src_net, struct net_device *dev,
+ 	dev->priv_destructor = wg_destruct;
+ 
+ 	pr_debug("%s: Interface created\n", dev->name);
++MTRACE_FUNC_RETURN
+ 	return ret;
+ 
+ err_uninit_ratelimiter:
+@@ -385,6 +409,7 @@ static int wg_newlink(struct net *src_net, struct net_device *dev,
+ 	kvfree(wg->index_hashtable);
+ err_free_peer_hashtable:
+ 	kvfree(wg->peer_hashtable);
++MTRACE_FUNC_RETURN
+ 	return ret;
+ }
+ 
+@@ -397,6 +422,7 @@ static struct rtnl_link_ops link_ops __read_mostly = {
+ 
+ static void wg_netns_pre_exit(struct net *net)
+ {
++MTRACE_FUNC_CALL
+ 	struct wg_device *wg;
+ 
+ 	rtnl_lock();
+@@ -411,6 +437,7 @@ static void wg_netns_pre_exit(struct net *net)
+ 		}
+ 	}
+ 	rtnl_unlock();
++MTRACE_FUNC_RETURN
+ }
+ 
+ static struct pernet_operations pernet_ops = {
+@@ -419,12 +446,16 @@ static struct pernet_operations pernet_ops = {
+ 
+ int __init wg_device_init(void)
+ {
++MTRACE_FUNC_CALL
+ 	int ret;
+ 
+ #ifdef CONFIG_PM_SLEEP
+ 	ret = register_pm_notifier(&pm_notifier);
+ 	if (ret)
++	{
++MTRACE_FUNC_RETURN
+ 		return ret;
++	}
+ #endif
+ 
+ 	ret = register_pernet_device(&pernet_ops);
+@@ -435,6 +466,7 @@ int __init wg_device_init(void)
+ 	if (ret)
+ 		goto error_pernet;
+ 
++MTRACE_FUNC_RETURN
+ 	return 0;
+ 
+ error_pernet:
+@@ -443,15 +475,18 @@ int __init wg_device_init(void)
+ #ifdef CONFIG_PM_SLEEP
+ 	unregister_pm_notifier(&pm_notifier);
+ #endif
++MTRACE_FUNC_RETURN
+ 	return ret;
+ }
+ 
+ void wg_device_uninit(void)
+ {
++MTRACE_FUNC_CALL
+ 	rtnl_link_unregister(&link_ops);
+ 	unregister_pernet_device(&pernet_ops);
+ #ifdef CONFIG_PM_SLEEP
+ 	unregister_pm_notifier(&pm_notifier);
+ #endif
+ 	rcu_barrier();
++MTRACE_FUNC_RETURN
+ }
+diff --git src/linux/drivers/net/wireguard/main.c src/linux/drivers/net/wireguard/main.c
+index c281685f2..aab264b1b 100644
+--- src/linux/drivers/net/wireguard/main.c
++++ src/linux/drivers/net/wireguard/main.c
+@@ -17,9 +17,32 @@
+ #include <linux/genetlink.h>
+ #include <net/rtnetlink.h>
+ 
++
++static unsigned mtrace_call_level;
++
++unsigned mtrace_get_call_level(void)
++{
++	return mtrace_call_level;
++}
++
++unsigned mtrace_incr_call_level(void)
++{
++	unsigned lvl = mtrace_call_level;
++	mtrace_call_level++;
++	return lvl;
++}
++
++unsigned mtrace_decr_call_level(void)
++{
++	mtrace_call_level--;
++	return mtrace_call_level;
++}
++
+ static int __init mod_init(void)
+ {
+ 	int ret;
++	mtrace_call_level = 0;
++	MTRACE_FUNC_CALL
+ 
+ 	ret = wg_allowedips_slab_init();
+ 	if (ret < 0)
+@@ -42,7 +65,7 @@ static int __init mod_init(void)
+ 	pr_info("WireGuard " WIREGUARD_VERSION " loaded. See www.wireguard.com for information.\n");
+ 	pr_info("Copyright (C) 2015-2019 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.\n");
+ 
+-	return 0;
++	{ MTRACE_FUNC_RETURN return  0; }
+ 
+ err_netlink:
+ 	wg_device_uninit();
+@@ -51,16 +74,16 @@ static int __init mod_init(void)
+ err_peer:
+ 	wg_allowedips_slab_uninit();
+ err_allowedips:
+-	return ret;
+-}
++	{ MTRACE_FUNC_RETURN return  ret; }
++MTRACE_FUNC_RETURN }
+ 
+ static void __exit mod_exit(void)
+-{
++{ MTRACE_FUNC_CALL
+ 	wg_genetlink_uninit();
+ 	wg_device_uninit();
+ 	wg_peer_uninit();
+ 	wg_allowedips_slab_uninit();
+-}
++MTRACE_FUNC_RETURN }
+ 
+ module_init(mod_init);
+ module_exit(mod_exit);
+diff --git src/linux/drivers/net/wireguard/messages.h src/linux/drivers/net/wireguard/messages.h
+index 208da7267..ea6b272a2 100644
+--- src/linux/drivers/net/wireguard/messages.h
++++ src/linux/drivers/net/wireguard/messages.h
+@@ -14,6 +14,16 @@
+ #include <linux/param.h>
+ #include <linux/skbuff.h>
+ 
++unsigned mtrace_incr_call_level(void);
++unsigned mtrace_decr_call_level(void);
++unsigned mtrace_get_call_level(void);
++
++#define MTRACE_FUNC_CALL \
++	{ if (mtrace_incr_call_level() == 0) pr_info("---------- C %s %d %d\n", __func__, __LINE__, mtrace_get_call_level() - 1); }
++
++#define MTRACE_FUNC_RETURN \
++	{ if (mtrace_decr_call_level() == 0) pr_info("---------- R %s %d %d\n", __func__, __LINE__, mtrace_get_call_level()); }
++
+ enum noise_lengths {
+ 	NOISE_PUBLIC_KEY_LEN = CURVE25519_KEY_SIZE,
+ 	NOISE_SYMMETRIC_KEY_LEN = CHACHA20POLY1305_KEY_SIZE,
+diff --git src/linux/drivers/net/wireguard/netlink.c src/linux/drivers/net/wireguard/netlink.c
+index d0f3b6d7f..a5949c79a 100644
+--- src/linux/drivers/net/wireguard/netlink.c
++++ src/linux/drivers/net/wireguard/netlink.c
+@@ -52,10 +52,14 @@ static const struct nla_policy allowedip_policy[WGALLOWEDIP_A_MAX + 1] = {
+ static struct wg_device *lookup_interface(struct nlattr **attrs,
+ 					  struct sk_buff *skb)
+ {
++MTRACE_FUNC_CALL
+ 	struct net_device *dev = NULL;
+ 
+ 	if (!attrs[WGDEVICE_A_IFINDEX] == !attrs[WGDEVICE_A_IFNAME])
++	{
++MTRACE_FUNC_RETURN
+ 		return ERR_PTR(-EBADR);
++	}
+ 	if (attrs[WGDEVICE_A_IFINDEX])
+ 		dev = dev_get_by_index(sock_net(skb->sk),
+ 				       nla_get_u32(attrs[WGDEVICE_A_IFINDEX]));
+@@ -63,33 +67,44 @@ static struct wg_device *lookup_interface(struct nlattr **attrs,
+ 		dev = dev_get_by_name(sock_net(skb->sk),
+ 				      nla_data(attrs[WGDEVICE_A_IFNAME]));
+ 	if (!dev)
++	{
++MTRACE_FUNC_RETURN
+ 		return ERR_PTR(-ENODEV);
++	}
+ 	if (!dev->rtnl_link_ops || !dev->rtnl_link_ops->kind ||
+ 	    strcmp(dev->rtnl_link_ops->kind, KBUILD_MODNAME)) {
+ 		dev_put(dev);
++MTRACE_FUNC_RETURN
+ 		return ERR_PTR(-EOPNOTSUPP);
+ 	}
++MTRACE_FUNC_RETURN
+ 	return netdev_priv(dev);
+ }
+ 
+ static int get_allowedips(struct sk_buff *skb, const u8 *ip, u8 cidr,
+ 			  int family)
+ {
++MTRACE_FUNC_CALL
+ 	struct nlattr *allowedip_nest;
+ 
+ 	allowedip_nest = nla_nest_start(skb, 0);
+ 	if (!allowedip_nest)
++	{
++MTRACE_FUNC_RETURN
+ 		return -EMSGSIZE;
++	}
+ 
+ 	if (nla_put_u8(skb, WGALLOWEDIP_A_CIDR_MASK, cidr) ||
+ 	    nla_put_u16(skb, WGALLOWEDIP_A_FAMILY, family) ||
+ 	    nla_put(skb, WGALLOWEDIP_A_IPADDR, family == AF_INET6 ?
+ 		    sizeof(struct in6_addr) : sizeof(struct in_addr), ip)) {
+ 		nla_nest_cancel(skb, allowedip_nest);
++MTRACE_FUNC_RETURN
+ 		return -EMSGSIZE;
+ 	}
+ 
+ 	nla_nest_end(skb, allowedip_nest);
++MTRACE_FUNC_RETURN
+ 	return 0;
+ }
+ 
+@@ -105,13 +120,17 @@ struct dump_ctx {
+ static int
+ get_peer(struct wg_peer *peer, struct sk_buff *skb, struct dump_ctx *ctx)
+ {
++MTRACE_FUNC_CALL
+ 
+ 	struct nlattr *allowedips_nest, *peer_nest = nla_nest_start(skb, 0);
+ 	struct allowedips_node *allowedips_node = ctx->next_allowedip;
+ 	bool fail;
+ 
+ 	if (!peer_nest)
++	{
++MTRACE_FUNC_RETURN
+ 		return -EMSGSIZE;
++	}
+ 
+ 	down_read(&peer->handshake.lock);
+ 	fail = nla_put(skb, WGPEER_A_PUBLIC_KEY, NOISE_PUBLIC_KEY_LEN,
+@@ -182,6 +201,7 @@ get_peer(struct wg_peer *peer, struct sk_buff *skb, struct dump_ctx *ctx)
+ 			nla_nest_end(skb, allowedips_nest);
+ 			nla_nest_end(skb, peer_nest);
+ 			ctx->next_allowedip = allowedips_node;
++MTRACE_FUNC_RETURN
+ 			return -EMSGSIZE;
+ 		}
+ 	}
+@@ -190,25 +210,33 @@ get_peer(struct wg_peer *peer, struct sk_buff *skb, struct dump_ctx *ctx)
+ 	nla_nest_end(skb, peer_nest);
+ 	ctx->next_allowedip = NULL;
+ 	ctx->allowedips_seq = 0;
++MTRACE_FUNC_RETURN
+ 	return 0;
+ err:
+ 	nla_nest_cancel(skb, peer_nest);
++MTRACE_FUNC_RETURN
+ 	return -EMSGSIZE;
+ }
+ 
+ static int wg_get_device_start(struct netlink_callback *cb)
+ {
++MTRACE_FUNC_CALL
+ 	struct wg_device *wg;
+ 
+ 	wg = lookup_interface(genl_dumpit_info(cb)->attrs, cb->skb);
+ 	if (IS_ERR(wg))
++	{
++MTRACE_FUNC_RETURN
+ 		return PTR_ERR(wg);
++	}
+ 	DUMP_CTX(cb)->wg = wg;
++MTRACE_FUNC_RETURN
+ 	return 0;
+ }
+ 
+ static int wg_get_device_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++MTRACE_FUNC_CALL
+ 	struct wg_peer *peer, *next_peer_cursor;
+ 	struct dump_ctx *ctx = DUMP_CTX(cb);
+ 	struct wg_device *wg = ctx->wg;
+@@ -285,14 +313,17 @@ static int wg_get_device_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 
+ 	if (ret) {
+ 		genlmsg_cancel(skb, hdr);
++MTRACE_FUNC_RETURN
+ 		return ret;
+ 	}
+ 	genlmsg_end(skb, hdr);
+ 	if (done) {
+ 		ctx->next_peer = NULL;
++MTRACE_FUNC_RETURN
+ 		return 0;
+ 	}
+ 	ctx->next_peer = next_peer_cursor;
++MTRACE_FUNC_RETURN
+ 	return skb->len;
+ 
+ 	/* At this point, we can't really deal ourselves with safely zeroing out
+@@ -303,38 +334,50 @@ static int wg_get_device_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 
+ static int wg_get_device_done(struct netlink_callback *cb)
+ {
++MTRACE_FUNC_CALL
+ 	struct dump_ctx *ctx = DUMP_CTX(cb);
+ 
+ 	if (ctx->wg)
+ 		dev_put(ctx->wg->dev);
+ 	wg_peer_put(ctx->next_peer);
++MTRACE_FUNC_RETURN
+ 	return 0;
+ }
+ 
+ static int set_port(struct wg_device *wg, u16 port)
+ {
++MTRACE_FUNC_CALL
+ 	struct wg_peer *peer;
+ 
+ 	if (wg->incoming_port == port)
++	{
++MTRACE_FUNC_RETURN
+ 		return 0;
++	}
+ 	list_for_each_entry(peer, &wg->peer_list, peer_list)
+ 		wg_socket_clear_peer_endpoint_src(peer);
+ 	if (!netif_running(wg->dev)) {
+ 		wg->incoming_port = port;
++MTRACE_FUNC_RETURN
+ 		return 0;
+ 	}
++MTRACE_FUNC_RETURN
+ 	return wg_socket_init(wg, port);
+ }
+ 
+ static int set_allowedip(struct wg_peer *peer, struct nlattr **attrs)
+ {
++MTRACE_FUNC_CALL
+ 	int ret = -EINVAL;
+ 	u16 family;
+ 	u8 cidr;
+ 
+ 	if (!attrs[WGALLOWEDIP_A_FAMILY] || !attrs[WGALLOWEDIP_A_IPADDR] ||
+ 	    !attrs[WGALLOWEDIP_A_CIDR_MASK])
++	{
++MTRACE_FUNC_RETURN
+ 		return ret;
++	}
+ 	family = nla_get_u16(attrs[WGALLOWEDIP_A_FAMILY]);
+ 	cidr = nla_get_u8(attrs[WGALLOWEDIP_A_CIDR_MASK]);
+ 
+@@ -351,11 +394,13 @@ static int set_allowedip(struct wg_peer *peer, struct nlattr **attrs)
+ 			nla_data(attrs[WGALLOWEDIP_A_IPADDR]), cidr, peer,
+ 			&peer->device->device_update_lock);
+ 
++MTRACE_FUNC_RETURN
+ 	return ret;
+ }
+ 
+ static int set_peer(struct wg_device *wg, struct nlattr **attrs)
+ {
++MTRACE_FUNC_CALL
+ 	u8 *public_key = NULL, *preshared_key = NULL;
+ 	struct wg_peer *peer = NULL;
+ 	u32 flags = 0;
+@@ -488,11 +533,13 @@ static int set_peer(struct wg_device *wg, struct nlattr **attrs)
+ 	if (attrs[WGPEER_A_PRESHARED_KEY])
+ 		memzero_explicit(nla_data(attrs[WGPEER_A_PRESHARED_KEY]),
+ 				 nla_len(attrs[WGPEER_A_PRESHARED_KEY]));
++MTRACE_FUNC_RETURN
+ 	return ret;
+ }
+ 
+ static int wg_set_device(struct sk_buff *skb, struct genl_info *info)
+ {
++MTRACE_FUNC_CALL
+ 	struct wg_device *wg = lookup_interface(info->attrs, skb);
+ 	u32 flags = 0;
+ 	int ret;
+@@ -601,6 +648,7 @@ static int wg_set_device(struct sk_buff *skb, struct genl_info *info)
+ 	if (info->attrs[WGDEVICE_A_PRIVATE_KEY])
+ 		memzero_explicit(nla_data(info->attrs[WGDEVICE_A_PRIVATE_KEY]),
+ 				 nla_len(info->attrs[WGDEVICE_A_PRIVATE_KEY]));
++MTRACE_FUNC_RETURN
+ 	return ret;
+ }
+ 
+@@ -631,10 +679,14 @@ static struct genl_family genl_family __ro_after_init = {
+ 
+ int __init wg_genetlink_init(void)
+ {
++MTRACE_FUNC_CALL
++MTRACE_FUNC_RETURN
+ 	return genl_register_family(&genl_family);
+ }
+ 
+ void __exit wg_genetlink_uninit(void)
+ {
++MTRACE_FUNC_CALL
+ 	genl_unregister_family(&genl_family);
++MTRACE_FUNC_RETURN
+ }
+diff --git src/linux/drivers/net/wireguard/noise.c src/linux/drivers/net/wireguard/noise.c
+index c0cfd9b36..2c94e966c 100644
+--- src/linux/drivers/net/wireguard/noise.c
++++ src/linux/drivers/net/wireguard/noise.c
+@@ -33,6 +33,7 @@ static atomic64_t keypair_counter = ATOMIC64_INIT(0);
+ 
+ void __init wg_noise_init(void)
+ {
++MTRACE_FUNC_CALL
+ 	struct blake2s_state blake;
+ 
+ 	blake2s(handshake_init_chaining_key, handshake_name, NULL,
+@@ -41,11 +42,13 @@ void __init wg_noise_init(void)
+ 	blake2s_update(&blake, handshake_init_chaining_key, NOISE_HASH_LEN);
+ 	blake2s_update(&blake, identifier_name, sizeof(identifier_name));
+ 	blake2s_final(&blake, handshake_init_hash);
++MTRACE_FUNC_RETURN
+ }
+ 
+ /* Must hold peer->handshake.static_identity->lock */
+ void wg_noise_precompute_static_static(struct wg_peer *peer)
+ {
++MTRACE_FUNC_CALL
+ 	down_write(&peer->handshake.lock);
+ 	if (!peer->handshake.static_identity->has_identity ||
+ 	    !curve25519(peer->handshake.precomputed_static_static,
+@@ -54,6 +57,7 @@ void wg_noise_precompute_static_static(struct wg_peer *peer)
+ 		memset(peer->handshake.precomputed_static_static, 0,
+ 		       NOISE_PUBLIC_KEY_LEN);
+ 	up_write(&peer->handshake.lock);
++MTRACE_FUNC_RETURN
+ }
+ 
+ void wg_noise_handshake_init(struct noise_handshake *handshake,
+@@ -62,6 +66,7 @@ void wg_noise_handshake_init(struct noise_handshake *handshake,
+ 			     const u8 peer_preshared_key[NOISE_SYMMETRIC_KEY_LEN],
+ 			     struct wg_peer *peer)
+ {
++MTRACE_FUNC_CALL
+ 	memset(handshake, 0, sizeof(*handshake));
+ 	init_rwsem(&handshake->lock);
+ 	handshake->entry.type = INDEX_HASHTABLE_HANDSHAKE;
+@@ -73,49 +78,62 @@ void wg_noise_handshake_init(struct noise_handshake *handshake,
+ 	handshake->static_identity = static_identity;
+ 	handshake->state = HANDSHAKE_ZEROED;
+ 	wg_noise_precompute_static_static(peer);
++MTRACE_FUNC_RETURN
+ }
+ 
+ static void handshake_zero(struct noise_handshake *handshake)
+ {
++MTRACE_FUNC_CALL
+ 	memset(&handshake->ephemeral_private, 0, NOISE_PUBLIC_KEY_LEN);
+ 	memset(&handshake->remote_ephemeral, 0, NOISE_PUBLIC_KEY_LEN);
+ 	memset(&handshake->hash, 0, NOISE_HASH_LEN);
+ 	memset(&handshake->chaining_key, 0, NOISE_HASH_LEN);
+ 	handshake->remote_index = 0;
+ 	handshake->state = HANDSHAKE_ZEROED;
++MTRACE_FUNC_RETURN
+ }
+ 
+ void wg_noise_handshake_clear(struct noise_handshake *handshake)
+ {
++MTRACE_FUNC_CALL
+ 	down_write(&handshake->lock);
+ 	wg_index_hashtable_remove(
+ 			handshake->entry.peer->device->index_hashtable,
+ 			&handshake->entry);
+ 	handshake_zero(handshake);
+ 	up_write(&handshake->lock);
++MTRACE_FUNC_RETURN
+ }
+ 
+ static struct noise_keypair *keypair_create(struct wg_peer *peer)
+ {
++MTRACE_FUNC_CALL
+ 	struct noise_keypair *keypair = kzalloc(sizeof(*keypair), GFP_KERNEL);
+ 
+ 	if (unlikely(!keypair))
++	{
++MTRACE_FUNC_RETURN
+ 		return NULL;
++	}
+ 	spin_lock_init(&keypair->receiving_counter.lock);
+ 	keypair->internal_id = atomic64_inc_return(&keypair_counter);
+ 	keypair->entry.type = INDEX_HASHTABLE_KEYPAIR;
+ 	keypair->entry.peer = peer;
+ 	kref_init(&keypair->refcount);
++MTRACE_FUNC_RETURN
+ 	return keypair;
+ }
+ 
+ static void keypair_free_rcu(struct rcu_head *rcu)
+ {
++MTRACE_FUNC_CALL
+ 	kfree_sensitive(container_of(rcu, struct noise_keypair, rcu));
++MTRACE_FUNC_RETURN
+ }
+ 
+ static void keypair_free_kref(struct kref *kref)
+ {
++MTRACE_FUNC_CALL
+ 	struct noise_keypair *keypair =
+ 		container_of(kref, struct noise_keypair, refcount);
+ 
+@@ -126,30 +144,42 @@ static void keypair_free_kref(struct kref *kref)
+ 	wg_index_hashtable_remove(keypair->entry.peer->device->index_hashtable,
+ 				  &keypair->entry);
+ 	call_rcu(&keypair->rcu, keypair_free_rcu);
++MTRACE_FUNC_RETURN
+ }
+ 
+ void wg_noise_keypair_put(struct noise_keypair *keypair, bool unreference_now)
+ {
++MTRACE_FUNC_CALL
+ 	if (unlikely(!keypair))
++	{
++MTRACE_FUNC_RETURN
+ 		return;
++	}
+ 	if (unlikely(unreference_now))
+ 		wg_index_hashtable_remove(
+ 			keypair->entry.peer->device->index_hashtable,
+ 			&keypair->entry);
+ 	kref_put(&keypair->refcount, keypair_free_kref);
++MTRACE_FUNC_RETURN
+ }
+ 
+ struct noise_keypair *wg_noise_keypair_get(struct noise_keypair *keypair)
+ {
++MTRACE_FUNC_CALL
+ 	RCU_LOCKDEP_WARN(!rcu_read_lock_bh_held(),
+ 		"Taking noise keypair reference without holding the RCU BH read lock");
+ 	if (unlikely(!keypair || !kref_get_unless_zero(&keypair->refcount)))
++	{
++MTRACE_FUNC_RETURN
+ 		return NULL;
++	}
++MTRACE_FUNC_RETURN
+ 	return keypair;
+ }
+ 
+ void wg_noise_keypairs_clear(struct noise_keypairs *keypairs)
+ {
++MTRACE_FUNC_CALL
+ 	struct noise_keypair *old;
+ 
+ 	spin_lock_bh(&keypairs->keypair_update_lock);
+@@ -174,10 +204,12 @@ void wg_noise_keypairs_clear(struct noise_keypairs *keypairs)
+ 	wg_noise_keypair_put(old, true);
+ 
+ 	spin_unlock_bh(&keypairs->keypair_update_lock);
++MTRACE_FUNC_RETURN
+ }
+ 
+ void wg_noise_expire_current_peer_keypairs(struct wg_peer *peer)
+ {
++MTRACE_FUNC_CALL
+ 	struct noise_keypair *keypair;
+ 
+ 	wg_noise_handshake_clear(&peer->handshake);
+@@ -193,11 +225,13 @@ void wg_noise_expire_current_peer_keypairs(struct wg_peer *peer)
+ 	if (keypair)
+ 		keypair->sending.is_valid = false;
+ 	spin_unlock_bh(&peer->keypairs.keypair_update_lock);
++MTRACE_FUNC_RETURN
+ }
+ 
+ static void add_new_keypair(struct noise_keypairs *keypairs,
+ 			    struct noise_keypair *new_keypair)
+ {
++MTRACE_FUNC_CALL
+ 	struct noise_keypair *previous_keypair, *next_keypair, *current_keypair;
+ 
+ 	spin_lock_bh(&keypairs->keypair_update_lock);
+@@ -248,11 +282,13 @@ static void add_new_keypair(struct noise_keypairs *keypairs,
+ 		wg_noise_keypair_put(previous_keypair, true);
+ 	}
+ 	spin_unlock_bh(&keypairs->keypair_update_lock);
++MTRACE_FUNC_RETURN
+ }
+ 
+ bool wg_noise_received_with_keypair(struct noise_keypairs *keypairs,
+ 				    struct noise_keypair *received_keypair)
+ {
++MTRACE_FUNC_CALL
+ 	struct noise_keypair *old_keypair;
+ 	bool key_is_new;
+ 
+@@ -260,7 +296,10 @@ bool wg_noise_received_with_keypair(struct noise_keypairs *keypairs,
+ 	key_is_new = received_keypair ==
+ 		     rcu_access_pointer(keypairs->next_keypair);
+ 	if (likely(!key_is_new))
++	{
++MTRACE_FUNC_RETURN
+ 		return false;
++	}
+ 
+ 	spin_lock_bh(&keypairs->keypair_update_lock);
+ 	/* After locking, we double check that things didn't change from
+@@ -270,6 +309,7 @@ bool wg_noise_received_with_keypair(struct noise_keypairs *keypairs,
+ 		    rcu_dereference_protected(keypairs->next_keypair,
+ 			    lockdep_is_held(&keypairs->keypair_update_lock)))) {
+ 		spin_unlock_bh(&keypairs->keypair_update_lock);
++MTRACE_FUNC_RETURN
+ 		return false;
+ 	}
+ 
+@@ -287,6 +327,7 @@ bool wg_noise_received_with_keypair(struct noise_keypairs *keypairs,
+ 	RCU_INIT_POINTER(keypairs->next_keypair, NULL);
+ 
+ 	spin_unlock_bh(&keypairs->keypair_update_lock);
++MTRACE_FUNC_RETURN
+ 	return true;
+ }
+ 
+@@ -295,6 +336,7 @@ void wg_noise_set_static_identity_private_key(
+ 	struct noise_static_identity *static_identity,
+ 	const u8 private_key[NOISE_PUBLIC_KEY_LEN])
+ {
++MTRACE_FUNC_CALL
+ 	memcpy(static_identity->static_private, private_key,
+ 	       NOISE_PUBLIC_KEY_LEN);
+ 	curve25519_clamp_secret(static_identity->static_private);
+@@ -310,6 +352,7 @@ static void kdf(u8 *first_dst, u8 *second_dst, u8 *third_dst, const u8 *data,
+ 		size_t first_len, size_t second_len, size_t third_len,
+ 		size_t data_len, const u8 chaining_key[NOISE_HASH_LEN])
+ {
++MTRACE_FUNC_CALL
+ 	u8 output[BLAKE2S_HASH_SIZE + 1];
+ 	u8 secret[BLAKE2S_HASH_SIZE];
+ 
+@@ -354,18 +397,21 @@ static void kdf(u8 *first_dst, u8 *second_dst, u8 *third_dst, const u8 *data,
+ 	/* Clear sensitive data from stack */
+ 	memzero_explicit(secret, BLAKE2S_HASH_SIZE);
+ 	memzero_explicit(output, BLAKE2S_HASH_SIZE + 1);
++MTRACE_FUNC_RETURN
+ }
+ 
+ static void derive_keys(struct noise_symmetric_key *first_dst,
+ 			struct noise_symmetric_key *second_dst,
+ 			const u8 chaining_key[NOISE_HASH_LEN])
+ {
++MTRACE_FUNC_CALL
+ 	u64 birthdate = ktime_get_coarse_boottime_ns();
+ 	kdf(first_dst->key, second_dst->key, NULL, NULL,
+ 	    NOISE_SYMMETRIC_KEY_LEN, NOISE_SYMMETRIC_KEY_LEN, 0, 0,
+ 	    chaining_key);
+ 	first_dst->birthdate = second_dst->birthdate = birthdate;
+ 	first_dst->is_valid = second_dst->is_valid = true;
++MTRACE_FUNC_RETURN
+ }
+ 
+ static bool __must_check mix_dh(u8 chaining_key[NOISE_HASH_LEN],
+@@ -373,13 +419,18 @@ static bool __must_check mix_dh(u8 chaining_key[NOISE_HASH_LEN],
+ 				const u8 private[NOISE_PUBLIC_KEY_LEN],
+ 				const u8 public[NOISE_PUBLIC_KEY_LEN])
+ {
++MTRACE_FUNC_CALL
+ 	u8 dh_calculation[NOISE_PUBLIC_KEY_LEN];
+ 
+ 	if (unlikely(!curve25519(dh_calculation, private, public)))
++	{
++MTRACE_FUNC_RETURN
+ 		return false;
++	}
+ 	kdf(chaining_key, key, NULL, dh_calculation, NOISE_HASH_LEN,
+ 	    NOISE_SYMMETRIC_KEY_LEN, 0, NOISE_PUBLIC_KEY_LEN, chaining_key);
+ 	memzero_explicit(dh_calculation, NOISE_PUBLIC_KEY_LEN);
++MTRACE_FUNC_RETURN
+ 	return true;
+ }
+ 
+@@ -387,65 +438,83 @@ static bool __must_check mix_precomputed_dh(u8 chaining_key[NOISE_HASH_LEN],
+ 					    u8 key[NOISE_SYMMETRIC_KEY_LEN],
+ 					    const u8 precomputed[NOISE_PUBLIC_KEY_LEN])
+ {
++MTRACE_FUNC_CALL
+ 	static u8 zero_point[NOISE_PUBLIC_KEY_LEN];
+ 	if (unlikely(!crypto_memneq(precomputed, zero_point, NOISE_PUBLIC_KEY_LEN)))
++	{
++MTRACE_FUNC_RETURN
+ 		return false;
++	}
+ 	kdf(chaining_key, key, NULL, precomputed, NOISE_HASH_LEN,
+ 	    NOISE_SYMMETRIC_KEY_LEN, 0, NOISE_PUBLIC_KEY_LEN,
+ 	    chaining_key);
++MTRACE_FUNC_RETURN
+ 	return true;
+ }
+ 
+ static void mix_hash(u8 hash[NOISE_HASH_LEN], const u8 *src, size_t src_len)
+ {
++MTRACE_FUNC_CALL
+ 	struct blake2s_state blake;
+ 
+ 	blake2s_init(&blake, NOISE_HASH_LEN);
+ 	blake2s_update(&blake, hash, NOISE_HASH_LEN);
+ 	blake2s_update(&blake, src, src_len);
+ 	blake2s_final(&blake, hash);
++MTRACE_FUNC_RETURN
+ }
+ 
+ static void mix_psk(u8 chaining_key[NOISE_HASH_LEN], u8 hash[NOISE_HASH_LEN],
+ 		    u8 key[NOISE_SYMMETRIC_KEY_LEN],
+ 		    const u8 psk[NOISE_SYMMETRIC_KEY_LEN])
+ {
++MTRACE_FUNC_RETURN
+ 	u8 temp_hash[NOISE_HASH_LEN];
+ 
+ 	kdf(chaining_key, temp_hash, key, psk, NOISE_HASH_LEN, NOISE_HASH_LEN,
+ 	    NOISE_SYMMETRIC_KEY_LEN, NOISE_SYMMETRIC_KEY_LEN, chaining_key);
+ 	mix_hash(hash, temp_hash, NOISE_HASH_LEN);
+ 	memzero_explicit(temp_hash, NOISE_HASH_LEN);
++MTRACE_FUNC_RETURN
+ }
+ 
+ static void handshake_init(u8 chaining_key[NOISE_HASH_LEN],
+ 			   u8 hash[NOISE_HASH_LEN],
+ 			   const u8 remote_static[NOISE_PUBLIC_KEY_LEN])
+ {
++MTRACE_FUNC_RETURN
+ 	memcpy(hash, handshake_init_hash, NOISE_HASH_LEN);
+ 	memcpy(chaining_key, handshake_init_chaining_key, NOISE_HASH_LEN);
+ 	mix_hash(hash, remote_static, NOISE_PUBLIC_KEY_LEN);
++MTRACE_FUNC_RETURN
+ }
+ 
+ static void message_encrypt(u8 *dst_ciphertext, const u8 *src_plaintext,
+ 			    size_t src_len, u8 key[NOISE_SYMMETRIC_KEY_LEN],
+ 			    u8 hash[NOISE_HASH_LEN])
+ {
++MTRACE_FUNC_RETURN
+ 	chacha20poly1305_encrypt(dst_ciphertext, src_plaintext, src_len, hash,
+ 				 NOISE_HASH_LEN,
+ 				 0 /* Always zero for Noise_IK */, key);
+ 	mix_hash(hash, dst_ciphertext, noise_encrypted_len(src_len));
++MTRACE_FUNC_RETURN
+ }
+ 
+ static bool message_decrypt(u8 *dst_plaintext, const u8 *src_ciphertext,
+ 			    size_t src_len, u8 key[NOISE_SYMMETRIC_KEY_LEN],
+ 			    u8 hash[NOISE_HASH_LEN])
+ {
++MTRACE_FUNC_RETURN
+ 	if (!chacha20poly1305_decrypt(dst_plaintext, src_ciphertext, src_len,
+ 				      hash, NOISE_HASH_LEN,
+ 				      0 /* Always zero for Noise_IK */, key))
++	{
++MTRACE_FUNC_RETURN
+ 		return false;
++	}
+ 	mix_hash(hash, src_ciphertext, src_len);
++MTRACE_FUNC_RETURN
+ 	return true;
+ }
+ 
+@@ -454,15 +523,18 @@ static void message_ephemeral(u8 ephemeral_dst[NOISE_PUBLIC_KEY_LEN],
+ 			      u8 chaining_key[NOISE_HASH_LEN],
+ 			      u8 hash[NOISE_HASH_LEN])
+ {
++MTRACE_FUNC_RETURN
+ 	if (ephemeral_dst != ephemeral_src)
+ 		memcpy(ephemeral_dst, ephemeral_src, NOISE_PUBLIC_KEY_LEN);
+ 	mix_hash(hash, ephemeral_src, NOISE_PUBLIC_KEY_LEN);
+ 	kdf(chaining_key, NULL, NULL, ephemeral_src, NOISE_HASH_LEN, 0, 0,
+ 	    NOISE_PUBLIC_KEY_LEN, chaining_key);
++MTRACE_FUNC_RETURN
+ }
+ 
+ static void tai64n_now(u8 output[NOISE_TIMESTAMP_LEN])
+ {
++MTRACE_FUNC_RETURN
+ 	struct timespec64 now;
+ 
+ 	ktime_get_real_ts64(&now);
+@@ -478,12 +550,14 @@ static void tai64n_now(u8 output[NOISE_TIMESTAMP_LEN])
+ 	/* https://cr.yp.to/libtai/tai64.html */
+ 	*(__be64 *)output = cpu_to_be64(0x400000000000000aULL + now.tv_sec);
+ 	*(__be32 *)(output + sizeof(__be64)) = cpu_to_be32(now.tv_nsec);
++MTRACE_FUNC_RETURN
+ }
+ 
+ bool
+ wg_noise_handshake_create_initiation(struct message_handshake_initiation *dst,
+ 				     struct noise_handshake *handshake)
+ {
++MTRACE_FUNC_CALL
+ 	u8 timestamp[NOISE_TIMESTAMP_LEN];
+ 	u8 key[NOISE_SYMMETRIC_KEY_LEN];
+ 	bool ret = false;
+@@ -544,6 +618,7 @@ wg_noise_handshake_create_initiation(struct message_handshake_initiation *dst,
+ 	up_write(&handshake->lock);
+ 	up_read(&handshake->static_identity->lock);
+ 	memzero_explicit(key, NOISE_SYMMETRIC_KEY_LEN);
++MTRACE_FUNC_RETURN
+ 	return ret;
+ }
+ 
+@@ -551,6 +626,7 @@ struct wg_peer *
+ wg_noise_handshake_consume_initiation(struct message_handshake_initiation *src,
+ 				      struct wg_device *wg)
+ {
++MTRACE_FUNC_CALL
+ 	struct wg_peer *peer = NULL, *ret_peer = NULL;
+ 	struct noise_handshake *handshake;
+ 	bool replay_attack, flood_attack;
+@@ -628,12 +704,14 @@ wg_noise_handshake_consume_initiation(struct message_handshake_initiation *src,
+ 	up_read(&wg->static_identity.lock);
+ 	if (!ret_peer)
+ 		wg_peer_put(peer);
++MTRACE_FUNC_RETURN
+ 	return ret_peer;
+ }
+ 
+ bool wg_noise_handshake_create_response(struct message_handshake_response *dst,
+ 					struct noise_handshake *handshake)
+ {
++MTRACE_FUNC_CALL
+ 	u8 key[NOISE_SYMMETRIC_KEY_LEN];
+ 	bool ret = false;
+ 
+@@ -688,6 +766,7 @@ bool wg_noise_handshake_create_response(struct message_handshake_response *dst,
+ 	up_write(&handshake->lock);
+ 	up_read(&handshake->static_identity->lock);
+ 	memzero_explicit(key, NOISE_SYMMETRIC_KEY_LEN);
++MTRACE_FUNC_RETURN
+ 	return ret;
+ }
+ 
+@@ -695,6 +774,7 @@ struct wg_peer *
+ wg_noise_handshake_consume_response(struct message_handshake_response *src,
+ 				    struct wg_device *wg)
+ {
++MTRACE_FUNC_CALL
+ 	enum noise_handshake_state state = HANDSHAKE_ZEROED;
+ 	struct wg_peer *peer = NULL, *ret_peer = NULL;
+ 	struct noise_handshake *handshake;
+@@ -777,12 +857,14 @@ wg_noise_handshake_consume_response(struct message_handshake_response *src,
+ 	memzero_explicit(static_private, NOISE_PUBLIC_KEY_LEN);
+ 	memzero_explicit(preshared_key, NOISE_SYMMETRIC_KEY_LEN);
+ 	up_read(&wg->static_identity.lock);
++MTRACE_FUNC_RETURN
+ 	return ret_peer;
+ }
+ 
+ bool wg_noise_handshake_begin_session(struct noise_handshake *handshake,
+ 				      struct noise_keypairs *keypairs)
+ {
++MTRACE_FUNC_CALL
+ 	struct noise_keypair *new_keypair;
+ 	bool ret = false;
+ 
+@@ -824,5 +906,6 @@ bool wg_noise_handshake_begin_session(struct noise_handshake *handshake,
+ 
+ out:
+ 	up_write(&handshake->lock);
++MTRACE_FUNC_RETURN
+ 	return ret;
+ }
+diff --git src/linux/drivers/net/wireguard/peer.c src/linux/drivers/net/wireguard/peer.c
+index 1acd00ab2..d402ca762 100644
+--- src/linux/drivers/net/wireguard/peer.c
++++ src/linux/drivers/net/wireguard/peer.c
+@@ -22,17 +22,24 @@ struct wg_peer *wg_peer_create(struct wg_device *wg,
+ 			       const u8 public_key[NOISE_PUBLIC_KEY_LEN],
+ 			       const u8 preshared_key[NOISE_SYMMETRIC_KEY_LEN])
+ {
++MTRACE_FUNC_CALL
+ 	struct wg_peer *peer;
+ 	int ret = -ENOMEM;
+ 
+ 	lockdep_assert_held(&wg->device_update_lock);
+ 
+ 	if (wg->num_peers >= MAX_PEERS_PER_DEVICE)
++	{
++MTRACE_FUNC_RETURN
+ 		return ERR_PTR(ret);
++	}
+ 
+ 	peer = kmem_cache_zalloc(peer_cache, GFP_KERNEL);
+ 	if (unlikely(!peer))
++	{
++MTRACE_FUNC_RETURN
+ 		return ERR_PTR(ret);
++	}
+ 	if (unlikely(dst_cache_init(&peer->endpoint_cache, GFP_KERNEL)))
+ 		goto err;
+ 
+@@ -62,24 +69,32 @@ struct wg_peer *wg_peer_create(struct wg_device *wg,
+ 	wg_pubkey_hashtable_add(wg->peer_hashtable, peer);
+ 	++wg->num_peers;
+ 	pr_debug("%s: Peer %llu created\n", wg->dev->name, peer->internal_id);
++MTRACE_FUNC_RETURN
+ 	return peer;
+ 
+ err:
+ 	kmem_cache_free(peer_cache, peer);
++MTRACE_FUNC_RETURN
+ 	return ERR_PTR(ret);
+ }
+ 
+ struct wg_peer *wg_peer_get_maybe_zero(struct wg_peer *peer)
+ {
++MTRACE_FUNC_CALL
+ 	RCU_LOCKDEP_WARN(!rcu_read_lock_bh_held(),
+ 			 "Taking peer reference without holding the RCU read lock");
+ 	if (unlikely(!peer || !kref_get_unless_zero(&peer->refcount)))
++	{
++MTRACE_FUNC_RETURN
+ 		return NULL;
++	}
++MTRACE_FUNC_RETURN
+ 	return peer;
+ }
+ 
+ static void peer_make_dead(struct wg_peer *peer)
+ {
++MTRACE_FUNC_CALL
+ 	/* Remove from configuration-time lookup structures. */
+ 	list_del_init(&peer->peer_list);
+ 	wg_allowedips_remove_by_peer(&peer->device->peer_allowedips, peer,
+@@ -90,10 +105,12 @@ static void peer_make_dead(struct wg_peer *peer)
+ 	WRITE_ONCE(peer->is_dead, true);
+ 
+ 	/* The caller must now synchronize_net() for this to take effect. */
++MTRACE_FUNC_RETURN
+ }
+ 
+ static void peer_remove_after_dead(struct wg_peer *peer)
+ {
++MTRACE_FUNC_CALL
+ 	WARN_ON(!peer->is_dead);
+ 
+ 	/* No more keypairs can be created for this peer, since is_dead protects
+@@ -148,6 +165,7 @@ static void peer_remove_after_dead(struct wg_peer *peer)
+ 
+ 	--peer->device->num_peers;
+ 	wg_peer_put(peer);
++MTRACE_FUNC_RETURN
+ }
+ 
+ /* We have a separate "remove" function make sure that all active places where
+@@ -156,17 +174,23 @@ static void peer_remove_after_dead(struct wg_peer *peer)
+  */
+ void wg_peer_remove(struct wg_peer *peer)
+ {
++MTRACE_FUNC_CALL
+ 	if (unlikely(!peer))
++	{
++MTRACE_FUNC_RETURN
+ 		return;
++	}
+ 	lockdep_assert_held(&peer->device->device_update_lock);
+ 
+ 	peer_make_dead(peer);
+ 	synchronize_net();
+ 	peer_remove_after_dead(peer);
++MTRACE_FUNC_RETURN
+ }
+ 
+ void wg_peer_remove_all(struct wg_device *wg)
+ {
++MTRACE_FUNC_CALL
+ 	struct wg_peer *peer, *temp;
+ 	LIST_HEAD(dead_peers);
+ 
+@@ -182,10 +206,12 @@ void wg_peer_remove_all(struct wg_device *wg)
+ 	synchronize_net();
+ 	list_for_each_entry_safe(peer, temp, &dead_peers, peer_list)
+ 		peer_remove_after_dead(peer);
++MTRACE_FUNC_RETURN
+ }
+ 
+ static void rcu_release(struct rcu_head *rcu)
+ {
++MTRACE_FUNC_CALL
+ 	struct wg_peer *peer = container_of(rcu, struct wg_peer, rcu);
+ 
+ 	dst_cache_destroy(&peer->endpoint_cache);
+@@ -196,10 +222,12 @@ static void rcu_release(struct rcu_head *rcu)
+ 	 */
+ 	memzero_explicit(peer, sizeof(*peer));
+ 	kmem_cache_free(peer_cache, peer);
++MTRACE_FUNC_RETURN
+ }
+ 
+ static void kref_release(struct kref *refcount)
+ {
++MTRACE_FUNC_CALL
+ 	struct wg_peer *peer = container_of(refcount, struct wg_peer, refcount);
+ 
+ 	pr_debug("%s: Peer %llu (%pISpfsc) destroyed\n",
+@@ -219,22 +247,32 @@ static void kref_release(struct kref *refcount)
+ 
+ 	/* Free the memory used. */
+ 	call_rcu(&peer->rcu, rcu_release);
++MTRACE_FUNC_RETURN
+ }
+ 
+ void wg_peer_put(struct wg_peer *peer)
+ {
++MTRACE_FUNC_CALL
+ 	if (unlikely(!peer))
++	{
++MTRACE_FUNC_RETURN
+ 		return;
++	}
+ 	kref_put(&peer->refcount, kref_release);
++MTRACE_FUNC_RETURN
+ }
+ 
+ int __init wg_peer_init(void)
+ {
++MTRACE_FUNC_CALL
+ 	peer_cache = KMEM_CACHE(wg_peer, 0);
++MTRACE_FUNC_RETURN
+ 	return peer_cache ? 0 : -ENOMEM;
+ }
+ 
+ void wg_peer_uninit(void)
+ {
++MTRACE_FUNC_CALL
+ 	kmem_cache_destroy(peer_cache);
++MTRACE_FUNC_RETURN
+ }
+diff --git src/linux/drivers/net/wireguard/peerlookup.c src/linux/drivers/net/wireguard/peerlookup.c
+index f2783aa7a..b29ebcd12 100644
+--- src/linux/drivers/net/wireguard/peerlookup.c
++++ src/linux/drivers/net/wireguard/peerlookup.c
+@@ -9,51 +9,53 @@
+ 
+ static struct hlist_head *pubkey_bucket(struct pubkey_hashtable *table,
+ 					const u8 pubkey[NOISE_PUBLIC_KEY_LEN])
+-{
++{ MTRACE_FUNC_CALL
+ 	/* siphash gives us a secure 64bit number based on a random key. Since
+ 	 * the bits are uniformly distributed, we can then mask off to get the
+ 	 * bits we need.
+ 	 */
+ 	const u64 hash = siphash(pubkey, NOISE_PUBLIC_KEY_LEN, &table->key);
+ 
+-	return &table->hashtable[hash & (HASH_SIZE(table->hashtable) - 1)];
++	{ MTRACE_FUNC_RETURN return  &table->hashtable[hash & (HASH_SIZE(table->hashtable) - 1)]; }
+ }
+ 
+ struct pubkey_hashtable *wg_pubkey_hashtable_alloc(void)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct pubkey_hashtable *table = kvmalloc(sizeof(*table), GFP_KERNEL);
+ 
+ 	if (!table)
+-		return NULL;
++		{ MTRACE_FUNC_RETURN return  NULL; }
+ 
+ 	get_random_bytes(&table->key, sizeof(table->key));
+ 	hash_init(table->hashtable);
+ 	mutex_init(&table->lock);
+-	return table;
++	{ MTRACE_FUNC_RETURN return  table; }
+ }
+ 
+ void wg_pubkey_hashtable_add(struct pubkey_hashtable *table,
+ 			     struct wg_peer *peer)
+-{
++{ MTRACE_FUNC_CALL
+ 	mutex_lock(&table->lock);
+ 	hlist_add_head_rcu(&peer->pubkey_hash,
+ 			   pubkey_bucket(table, peer->handshake.remote_static));
+ 	mutex_unlock(&table->lock);
++MTRACE_FUNC_RETURN
+ }
+ 
+ void wg_pubkey_hashtable_remove(struct pubkey_hashtable *table,
+ 				struct wg_peer *peer)
+-{
++{ MTRACE_FUNC_CALL
+ 	mutex_lock(&table->lock);
+ 	hlist_del_init_rcu(&peer->pubkey_hash);
+ 	mutex_unlock(&table->lock);
++MTRACE_FUNC_RETURN
+ }
+ 
+ /* Returns a strong reference to a peer */
+ struct wg_peer *
+ wg_pubkey_hashtable_lookup(struct pubkey_hashtable *table,
+ 			   const u8 pubkey[NOISE_PUBLIC_KEY_LEN])
+-{
++{ MTRACE_FUNC_CALL
+ 	struct wg_peer *iter_peer, *peer = NULL;
+ 
+ 	rcu_read_lock_bh();
+@@ -67,29 +69,29 @@ wg_pubkey_hashtable_lookup(struct pubkey_hashtable *table,
+ 	}
+ 	peer = wg_peer_get_maybe_zero(peer);
+ 	rcu_read_unlock_bh();
+-	return peer;
++	{ MTRACE_FUNC_RETURN return  peer; }
+ }
+ 
+ static struct hlist_head *index_bucket(struct index_hashtable *table,
+ 				       const __le32 index)
+-{
++{ MTRACE_FUNC_CALL
+ 	/* Since the indices are random and thus all bits are uniformly
+ 	 * distributed, we can find its bucket simply by masking.
+ 	 */
+-	return &table->hashtable[(__force u32)index &
+-				 (HASH_SIZE(table->hashtable) - 1)];
++	{ MTRACE_FUNC_RETURN return  &table->hashtable[(__force u32)index &
++				 (HASH_SIZE(table->hashtable) - 1)]; }
+ }
+ 
+ struct index_hashtable *wg_index_hashtable_alloc(void)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct index_hashtable *table = kvmalloc(sizeof(*table), GFP_KERNEL);
+ 
+ 	if (!table)
+-		return NULL;
++		{ MTRACE_FUNC_RETURN return  NULL; }
+ 
+ 	hash_init(table->hashtable);
+ 	spin_lock_init(&table->lock);
+-	return table;
++	{ MTRACE_FUNC_RETURN return  table; }
+ }
+ 
+ /* At the moment, we limit ourselves to 2^20 total peers, which generally might
+@@ -118,7 +120,7 @@ struct index_hashtable *wg_index_hashtable_alloc(void)
+ 
+ __le32 wg_index_hashtable_insert(struct index_hashtable *table,
+ 				 struct index_hashtable_entry *entry)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct index_hashtable_entry *existing_entry;
+ 
+ 	spin_lock_bh(&table->lock);
+@@ -160,13 +162,13 @@ __le32 wg_index_hashtable_insert(struct index_hashtable *table,
+ 
+ 	rcu_read_unlock_bh();
+ 
+-	return entry->index;
++	{ MTRACE_FUNC_RETURN return  entry->index; }
+ }
+ 
+ bool wg_index_hashtable_replace(struct index_hashtable *table,
+ 				struct index_hashtable_entry *old,
+ 				struct index_hashtable_entry *new)
+-{
++{ MTRACE_FUNC_CALL
+ 	bool ret;
+ 
+ 	spin_lock_bh(&table->lock);
+@@ -186,15 +188,16 @@ bool wg_index_hashtable_replace(struct index_hashtable *table,
+ 	INIT_HLIST_NODE(&old->index_hash);
+ out:
+ 	spin_unlock_bh(&table->lock);
+-	return ret;
++	{ MTRACE_FUNC_RETURN return  ret; }
+ }
+ 
+ void wg_index_hashtable_remove(struct index_hashtable *table,
+ 			       struct index_hashtable_entry *entry)
+-{
++{ MTRACE_FUNC_CALL
+ 	spin_lock_bh(&table->lock);
+ 	hlist_del_init_rcu(&entry->index_hash);
+ 	spin_unlock_bh(&table->lock);
++MTRACE_FUNC_RETURN
+ }
+ 
+ /* Returns a strong reference to a entry->peer */
+@@ -202,7 +205,7 @@ struct index_hashtable_entry *
+ wg_index_hashtable_lookup(struct index_hashtable *table,
+ 			  const enum index_hashtable_type type_mask,
+ 			  const __le32 index, struct wg_peer **peer)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct index_hashtable_entry *iter_entry, *entry = NULL;
+ 
+ 	rcu_read_lock_bh();
+@@ -222,5 +225,5 @@ wg_index_hashtable_lookup(struct index_hashtable *table,
+ 			entry = NULL;
+ 	}
+ 	rcu_read_unlock_bh();
+-	return entry;
++	{ MTRACE_FUNC_RETURN return  entry; }
+ }
+diff --git src/linux/drivers/net/wireguard/queueing.c src/linux/drivers/net/wireguard/queueing.c
+index 48e7b982a..751227c6a 100644
+--- src/linux/drivers/net/wireguard/queueing.c
++++ src/linux/drivers/net/wireguard/queueing.c
+@@ -7,49 +7,49 @@
+ 
+ struct multicore_worker __percpu *
+ wg_packet_percpu_multicore_worker_alloc(work_func_t function, void *ptr)
+-{
++{ MTRACE_FUNC_CALL
+ 	int cpu;
+ 	struct multicore_worker __percpu *worker = alloc_percpu(struct multicore_worker);
+ 
+ 	if (!worker)
+-		return NULL;
++		{ MTRACE_FUNC_RETURN return  NULL; }
+ 
+ 	for_each_possible_cpu(cpu) {
+ 		per_cpu_ptr(worker, cpu)->ptr = ptr;
+ 		INIT_WORK(&per_cpu_ptr(worker, cpu)->work, function);
+ 	}
+-	return worker;
+-}
++	{ MTRACE_FUNC_RETURN return  worker; }
++MTRACE_FUNC_RETURN }
+ 
+ int wg_packet_queue_init(struct crypt_queue *queue, work_func_t function,
+ 			 unsigned int len)
+-{
++{ MTRACE_FUNC_CALL
+ 	int ret;
+ 
+ 	memset(queue, 0, sizeof(*queue));
+ 	ret = ptr_ring_init(&queue->ring, len, GFP_KERNEL);
+ 	if (ret)
+-		return ret;
++		{ MTRACE_FUNC_RETURN return  ret; }
+ 	queue->worker = wg_packet_percpu_multicore_worker_alloc(function, queue);
+ 	if (!queue->worker) {
+ 		ptr_ring_cleanup(&queue->ring, NULL);
+-		return -ENOMEM;
++		{ MTRACE_FUNC_RETURN return  -ENOMEM; }
+ 	}
+-	return 0;
+-}
++	{ MTRACE_FUNC_RETURN return  0; }
++MTRACE_FUNC_RETURN }
+ 
+ void wg_packet_queue_free(struct crypt_queue *queue)
+-{
++{ MTRACE_FUNC_CALL
+ 	free_percpu(queue->worker);
+ 	WARN_ON(!__ptr_ring_empty(&queue->ring));
+ 	ptr_ring_cleanup(&queue->ring, NULL);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ #define NEXT(skb) ((skb)->prev)
+ #define STUB(queue) ((struct sk_buff *)&queue->empty)
+ 
+ void wg_prev_queue_init(struct prev_queue *queue)
+-{
++{ MTRACE_FUNC_CALL
+ 	NEXT(STUB(queue)) = NULL;
+ 	queue->head = queue->tail = STUB(queue);
+ 	queue->peeked = NULL;
+@@ -59,29 +59,29 @@ void wg_prev_queue_init(struct prev_queue *queue)
+ 							offsetof(struct prev_queue, empty) ||
+ 		offsetof(struct sk_buff, prev) != offsetof(struct prev_queue, empty.prev) -
+ 							 offsetof(struct prev_queue, empty));
+-}
++MTRACE_FUNC_RETURN }
+ 
+ static void __wg_prev_queue_enqueue(struct prev_queue *queue, struct sk_buff *skb)
+-{
++{ MTRACE_FUNC_CALL
+ 	WRITE_ONCE(NEXT(skb), NULL);
+ 	WRITE_ONCE(NEXT(xchg_release(&queue->head, skb)), skb);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ bool wg_prev_queue_enqueue(struct prev_queue *queue, struct sk_buff *skb)
+-{
++{ MTRACE_FUNC_CALL
+ 	if (!atomic_add_unless(&queue->count, 1, MAX_QUEUED_PACKETS))
+-		return false;
++		{ MTRACE_FUNC_RETURN return  false; }
+ 	__wg_prev_queue_enqueue(queue, skb);
+-	return true;
+-}
++	{ MTRACE_FUNC_RETURN return  true; }
++MTRACE_FUNC_RETURN }
+ 
+ struct sk_buff *wg_prev_queue_dequeue(struct prev_queue *queue)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct sk_buff *tail = queue->tail, *next = smp_load_acquire(&NEXT(tail));
+ 
+ 	if (tail == STUB(queue)) {
+ 		if (!next)
+-			return NULL;
++			{ MTRACE_FUNC_RETURN return  NULL; }
+ 		queue->tail = next;
+ 		tail = next;
+ 		next = smp_load_acquire(&NEXT(next));
+@@ -89,19 +89,19 @@ struct sk_buff *wg_prev_queue_dequeue(struct prev_queue *queue)
+ 	if (next) {
+ 		queue->tail = next;
+ 		atomic_dec(&queue->count);
+-		return tail;
++		{ MTRACE_FUNC_RETURN return  tail; }
+ 	}
+ 	if (tail != READ_ONCE(queue->head))
+-		return NULL;
++		{ MTRACE_FUNC_RETURN return  NULL; }
+ 	__wg_prev_queue_enqueue(queue, STUB(queue));
+ 	next = smp_load_acquire(&NEXT(tail));
+ 	if (next) {
+ 		queue->tail = next;
+ 		atomic_dec(&queue->count);
+-		return tail;
++		{ MTRACE_FUNC_RETURN return  tail; }
+ 	}
+-	return NULL;
+-}
++	{ MTRACE_FUNC_RETURN return  NULL; }
++MTRACE_FUNC_RETURN }
+ 
+ #undef NEXT
+ #undef STUB
+diff --git src/linux/drivers/net/wireguard/ratelimiter.c src/linux/drivers/net/wireguard/ratelimiter.c
+index 3fedd1d21..a7c7a3f36 100644
+--- src/linux/drivers/net/wireguard/ratelimiter.c
++++ src/linux/drivers/net/wireguard/ratelimiter.c
+@@ -4,6 +4,7 @@
+  */
+ 
+ #include "ratelimiter.h"
++#include "messages.h"
+ #include <linux/siphash.h>
+ #include <linux/mm.h>
+ #include <linux/slab.h>
+@@ -39,21 +40,21 @@ enum {
+ };
+ 
+ static void entry_free(struct rcu_head *rcu)
+-{
++{ MTRACE_FUNC_CALL
+ 	kmem_cache_free(entry_cache,
+ 			container_of(rcu, struct ratelimiter_entry, rcu));
+ 	atomic_dec(&total_entries);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ static void entry_uninit(struct ratelimiter_entry *entry)
+-{
++{ MTRACE_FUNC_CALL
+ 	hlist_del_rcu(&entry->hash);
+ 	call_rcu(&entry->rcu, entry_free);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ /* Calling this function with a NULL work uninits all entries. */
+ static void wg_ratelimiter_gc_entries(struct work_struct *work)
+-{
++{ MTRACE_FUNC_CALL
+ 	const u64 now = ktime_get_coarse_boottime_ns();
+ 	struct ratelimiter_entry *entry;
+ 	struct hlist_node *temp;
+@@ -79,10 +80,10 @@ static void wg_ratelimiter_gc_entries(struct work_struct *work)
+ 	}
+ 	if (likely(work))
+ 		queue_delayed_work(system_power_efficient_wq, &gc_work, HZ);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ bool wg_ratelimiter_allow(struct sk_buff *skb, struct net *net)
+-{
++{ MTRACE_FUNC_CALL
+ 	/* We only take the bottom half of the net pointer, so that we can hash
+ 	 * 3 words in the end. This way, siphash's len param fits into the final
+ 	 * u32, and we don't incur an extra round.
+@@ -106,7 +107,7 @@ bool wg_ratelimiter_allow(struct sk_buff *skb, struct net *net)
+ 	}
+ #endif
+ 	else
+-		return false;
++		{ MTRACE_FUNC_RETURN return false; }
+ 	rcu_read_lock();
+ 	hlist_for_each_entry_rcu(entry, bucket, hash) {
+ 		if (entry->net == net && entry->ip == ip) {
+@@ -127,7 +128,7 @@ bool wg_ratelimiter_allow(struct sk_buff *skb, struct net *net)
+ 			entry->tokens = ret ? tokens - PACKET_COST : tokens;
+ 			spin_unlock(&entry->lock);
+ 			rcu_read_unlock();
+-			return ret;
++			{ MTRACE_FUNC_RETURN return ret; }
+ 		}
+ 	}
+ 	rcu_read_unlock();
+@@ -148,15 +149,15 @@ bool wg_ratelimiter_allow(struct sk_buff *skb, struct net *net)
+ 	spin_lock(&table_lock);
+ 	hlist_add_head_rcu(&entry->hash, bucket);
+ 	spin_unlock(&table_lock);
+-	return true;
++	{ MTRACE_FUNC_RETURN return true; }
+ 
+ err_oom:
+ 	atomic_dec(&total_entries);
+-	return false;
+-}
++	{ MTRACE_FUNC_RETURN return false; }
++MTRACE_FUNC_RETURN }
+ 
+ int wg_ratelimiter_init(void)
+-{
++{ MTRACE_FUNC_CALL
+ 	mutex_lock(&init_lock);
+ 	if (++init_refcnt != 1)
+ 		goto out;
+@@ -192,18 +193,18 @@ int wg_ratelimiter_init(void)
+ 	get_random_bytes(&key, sizeof(key));
+ out:
+ 	mutex_unlock(&init_lock);
+-	return 0;
++	{ MTRACE_FUNC_RETURN return 0; }
+ 
+ err_kmemcache:
+ 	kmem_cache_destroy(entry_cache);
+ err:
+ 	--init_refcnt;
+ 	mutex_unlock(&init_lock);
+-	return -ENOMEM;
+-}
++	{ MTRACE_FUNC_RETURN return -ENOMEM; }
++MTRACE_FUNC_RETURN }
+ 
+ void wg_ratelimiter_uninit(void)
+-{
++{ MTRACE_FUNC_CALL
+ 	mutex_lock(&init_lock);
+ 	if (!init_refcnt || --init_refcnt)
+ 		goto out;
+@@ -218,6 +219,6 @@ void wg_ratelimiter_uninit(void)
+ 	kmem_cache_destroy(entry_cache);
+ out:
+ 	mutex_unlock(&init_lock);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ #include "selftest/ratelimiter.c"
+diff --git src/linux/drivers/net/wireguard/receive.c src/linux/drivers/net/wireguard/receive.c
+index 7dc84bcca..5e1731906 100644
+--- src/linux/drivers/net/wireguard/receive.c
++++ src/linux/drivers/net/wireguard/receive.c
+@@ -18,7 +18,7 @@
+ 
+ /* Must be called with bh disabled. */
+ static void update_rx_stats(struct wg_peer *peer, size_t len)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct pcpu_sw_netstats *tstats =
+ 		get_cpu_ptr(peer->device->dev->tstats);
+ 
+@@ -28,31 +28,31 @@ static void update_rx_stats(struct wg_peer *peer, size_t len)
+ 	peer->rx_bytes += len;
+ 	u64_stats_update_end(&tstats->syncp);
+ 	put_cpu_ptr(tstats);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ #define SKB_TYPE_LE32(skb) (((struct message_header *)(skb)->data)->type)
+ 
+ static size_t validate_header_len(struct sk_buff *skb)
+-{
++{ MTRACE_FUNC_CALL
+ 	if (unlikely(skb->len < sizeof(struct message_header)))
+-		return 0;
++		{ MTRACE_FUNC_RETURN return 0; }
+ 	if (SKB_TYPE_LE32(skb) == cpu_to_le32(MESSAGE_DATA) &&
+ 	    skb->len >= MESSAGE_MINIMUM_LENGTH)
+-		return sizeof(struct message_data);
++		{ MTRACE_FUNC_RETURN return sizeof(struct message_data); }
+ 	if (SKB_TYPE_LE32(skb) == cpu_to_le32(MESSAGE_HANDSHAKE_INITIATION) &&
+ 	    skb->len == sizeof(struct message_handshake_initiation))
+-		return sizeof(struct message_handshake_initiation);
++		{ MTRACE_FUNC_RETURN return sizeof(struct message_handshake_initiation); }
+ 	if (SKB_TYPE_LE32(skb) == cpu_to_le32(MESSAGE_HANDSHAKE_RESPONSE) &&
+ 	    skb->len == sizeof(struct message_handshake_response))
+-		return sizeof(struct message_handshake_response);
++		{ MTRACE_FUNC_RETURN return sizeof(struct message_handshake_response); }
+ 	if (SKB_TYPE_LE32(skb) == cpu_to_le32(MESSAGE_HANDSHAKE_COOKIE) &&
+ 	    skb->len == sizeof(struct message_handshake_cookie))
+-		return sizeof(struct message_handshake_cookie);
+-	return 0;
+-}
++		{ MTRACE_FUNC_RETURN return sizeof(struct message_handshake_cookie); }
++	{ MTRACE_FUNC_RETURN return 0; }
++MTRACE_FUNC_RETURN }
+ 
+ static int prepare_skb_header(struct sk_buff *skb, struct wg_device *wg)
+-{
++{ MTRACE_FUNC_CALL
+ 	size_t data_offset, data_len, header_len;
+ 	struct udphdr *udp;
+ 
+@@ -60,7 +60,7 @@ static int prepare_skb_header(struct sk_buff *skb, struct wg_device *wg)
+ 		     skb_transport_header(skb) < skb->head ||
+ 		     (skb_transport_header(skb) + sizeof(struct udphdr)) >
+ 			     skb_tail_pointer(skb)))
+-		return -EINVAL; /* Bogus IP header */
++		{ MTRACE_FUNC_RETURN return -EINVAL; /* Bogus IP header */ }
+ 	udp = udp_hdr(skb);
+ 	data_offset = (u8 *)udp - skb->data;
+ 	if (unlikely(data_offset > U16_MAX ||
+@@ -68,37 +68,37 @@ static int prepare_skb_header(struct sk_buff *skb, struct wg_device *wg)
+ 		/* Packet has offset at impossible location or isn't big enough
+ 		 * to have UDP fields.
+ 		 */
+-		return -EINVAL;
++		{ MTRACE_FUNC_RETURN return -EINVAL; }
+ 	data_len = ntohs(udp->len);
+ 	if (unlikely(data_len < sizeof(struct udphdr) ||
+ 		     data_len > skb->len - data_offset))
+ 		/* UDP packet is reporting too small of a size or lying about
+ 		 * its size.
+ 		 */
+-		return -EINVAL;
++		{ MTRACE_FUNC_RETURN return -EINVAL; }
+ 	data_len -= sizeof(struct udphdr);
+ 	data_offset = (u8 *)udp + sizeof(struct udphdr) - skb->data;
+ 	if (unlikely(!pskb_may_pull(skb,
+ 				data_offset + sizeof(struct message_header)) ||
+ 		     pskb_trim(skb, data_len + data_offset) < 0))
+-		return -EINVAL;
++		{ MTRACE_FUNC_RETURN return -EINVAL; }
+ 	skb_pull(skb, data_offset);
+ 	if (unlikely(skb->len != data_len))
+ 		/* Final len does not agree with calculated len */
+-		return -EINVAL;
++		{ MTRACE_FUNC_RETURN return -EINVAL; }
+ 	header_len = validate_header_len(skb);
+ 	if (unlikely(!header_len))
+-		return -EINVAL;
++		{ MTRACE_FUNC_RETURN return -EINVAL; }
+ 	__skb_push(skb, data_offset);
+ 	if (unlikely(!pskb_may_pull(skb, data_offset + header_len)))
+-		return -EINVAL;
++		{ MTRACE_FUNC_RETURN return -EINVAL; }
+ 	__skb_pull(skb, data_offset);
+-	return 0;
+-}
++	{ MTRACE_FUNC_RETURN return 0; }
++MTRACE_FUNC_RETURN }
+ 
+ static void wg_receive_handshake_packet(struct wg_device *wg,
+ 					struct sk_buff *skb)
+-{
++{ MTRACE_FUNC_CALL
+ 	enum cookie_mac_state mac_state;
+ 	struct wg_peer *peer = NULL;
+ 	/* This is global, so that our load calculation applies to the whole
+@@ -113,7 +113,7 @@ static void wg_receive_handshake_packet(struct wg_device *wg,
+ 					wg->dev->name, skb);
+ 		wg_cookie_message_consume(
+ 			(struct message_handshake_cookie *)skb->data, wg);
+-		return;
++		{ MTRACE_FUNC_RETURN return; }
+ 	}
+ 
+ 	under_load = skb_queue_len(&wg->incoming_handshakes) >=
+@@ -135,7 +135,7 @@ static void wg_receive_handshake_packet(struct wg_device *wg,
+ 	} else {
+ 		net_dbg_skb_ratelimited("%s: Invalid MAC of handshake, dropping packet from %pISpfsc\n",
+ 					wg->dev->name, skb);
+-		return;
++		{ MTRACE_FUNC_RETURN return; }
+ 	}
+ 
+ 	switch (SKB_TYPE_LE32(skb)) {
+@@ -146,13 +146,13 @@ static void wg_receive_handshake_packet(struct wg_device *wg,
+ 		if (packet_needs_cookie) {
+ 			wg_packet_send_handshake_cookie(wg, skb,
+ 							message->sender_index);
+-			return;
++			{ MTRACE_FUNC_RETURN return; }
+ 		}
+ 		peer = wg_noise_handshake_consume_initiation(message, wg);
+ 		if (unlikely(!peer)) {
+ 			net_dbg_skb_ratelimited("%s: Invalid handshake initiation from %pISpfsc\n",
+ 						wg->dev->name, skb);
+-			return;
++			{ MTRACE_FUNC_RETURN return; }
+ 		}
+ 		wg_socket_set_peer_endpoint_from_skb(peer, skb);
+ 		net_dbg_ratelimited("%s: Receiving handshake initiation from peer %llu (%pISpfsc)\n",
+@@ -168,13 +168,13 @@ static void wg_receive_handshake_packet(struct wg_device *wg,
+ 		if (packet_needs_cookie) {
+ 			wg_packet_send_handshake_cookie(wg, skb,
+ 							message->sender_index);
+-			return;
++			{ MTRACE_FUNC_RETURN return; }
+ 		}
+ 		peer = wg_noise_handshake_consume_response(message, wg);
+ 		if (unlikely(!peer)) {
+ 			net_dbg_skb_ratelimited("%s: Invalid handshake response from %pISpfsc\n",
+ 						wg->dev->name, skb);
+-			return;
++			{ MTRACE_FUNC_RETURN return; }
+ 		}
+ 		wg_socket_set_peer_endpoint_from_skb(peer, skb);
+ 		net_dbg_ratelimited("%s: Receiving handshake response from peer %llu (%pISpfsc)\n",
+@@ -198,7 +198,7 @@ static void wg_receive_handshake_packet(struct wg_device *wg,
+ 
+ 	if (unlikely(!peer)) {
+ 		WARN(1, "Somehow a wrong type of packet wound up in the handshake queue!\n");
+-		return;
++		{ MTRACE_FUNC_RETURN return; }
+ 	}
+ 
+ 	local_bh_disable();
+@@ -208,10 +208,10 @@ static void wg_receive_handshake_packet(struct wg_device *wg,
+ 	wg_timers_any_authenticated_packet_received(peer);
+ 	wg_timers_any_authenticated_packet_traversal(peer);
+ 	wg_peer_put(peer);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ void wg_packet_handshake_receive_worker(struct work_struct *work)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct wg_device *wg = container_of(work, struct multicore_worker,
+ 					    work)->ptr;
+ 	struct sk_buff *skb;
+@@ -221,15 +221,15 @@ void wg_packet_handshake_receive_worker(struct work_struct *work)
+ 		dev_kfree_skb(skb);
+ 		cond_resched();
+ 	}
+-}
++MTRACE_FUNC_RETURN }
+ 
+ static void keep_key_fresh(struct wg_peer *peer)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct noise_keypair *keypair;
+ 	bool send;
+ 
+ 	if (peer->sent_lastminute_handshake)
+-		return;
++		{ MTRACE_FUNC_RETURN return; }
+ 
+ 	rcu_read_lock_bh();
+ 	keypair = rcu_dereference_bh(peer->keypairs.current_keypair);
+@@ -243,23 +243,23 @@ static void keep_key_fresh(struct wg_peer *peer)
+ 		peer->sent_lastminute_handshake = true;
+ 		wg_packet_send_queued_handshake_initiation(peer, false);
+ 	}
+-}
++MTRACE_FUNC_RETURN }
+ 
+ static bool decrypt_packet(struct sk_buff *skb, struct noise_keypair *keypair)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct scatterlist sg[MAX_SKB_FRAGS + 8];
+ 	struct sk_buff *trailer;
+ 	unsigned int offset;
+ 	int num_frags;
+ 
+ 	if (unlikely(!keypair))
+-		return false;
++		{ MTRACE_FUNC_RETURN return false; }
+ 
+ 	if (unlikely(!READ_ONCE(keypair->receiving.is_valid) ||
+ 		  wg_birthdate_has_expired(keypair->receiving.birthdate, REJECT_AFTER_TIME) ||
+ 		  keypair->receiving_counter.counter >= REJECT_AFTER_MESSAGES)) {
+ 		WRITE_ONCE(keypair->receiving.is_valid, false);
+-		return false;
++		{ MTRACE_FUNC_RETURN return false; }
+ 	}
+ 
+ 	PACKET_CB(skb)->nonce =
+@@ -275,31 +275,31 @@ static bool decrypt_packet(struct sk_buff *skb, struct noise_keypair *keypair)
+ 	offset += sizeof(struct message_data);
+ 	skb_pull(skb, offset);
+ 	if (unlikely(num_frags < 0 || num_frags > ARRAY_SIZE(sg)))
+-		return false;
++		{ MTRACE_FUNC_RETURN return false; }
+ 
+ 	sg_init_table(sg, num_frags);
+ 	if (skb_to_sgvec(skb, sg, 0, skb->len) <= 0)
+-		return false;
++		{ MTRACE_FUNC_RETURN return false; }
+ 
+ 	if (!chacha20poly1305_decrypt_sg_inplace(sg, skb->len, NULL, 0,
+ 					         PACKET_CB(skb)->nonce,
+ 						 keypair->receiving.key))
+-		return false;
++		{ MTRACE_FUNC_RETURN return false; }
+ 
+ 	/* Another ugly situation of pushing and pulling the header so as to
+ 	 * keep endpoint information intact.
+ 	 */
+ 	skb_push(skb, offset);
+ 	if (pskb_trim(skb, skb->len - noise_encrypted_len(0)))
+-		return false;
++		{ MTRACE_FUNC_RETURN return false; }
+ 	skb_pull(skb, offset);
+ 
+-	return true;
+-}
++	{ MTRACE_FUNC_RETURN return true; }
++MTRACE_FUNC_RETURN }
+ 
+ /* This is RFC6479, a replay detection bitmap algorithm that avoids bitshifts */
+ static bool counter_validate(struct noise_replay_counter *counter, u64 their_counter)
+-{
++{ MTRACE_FUNC_CALL
+ 	unsigned long index, index_current, top, i;
+ 	bool ret = false;
+ 
+@@ -333,15 +333,15 @@ static bool counter_validate(struct noise_replay_counter *counter, u64 their_cou
+ 
+ out:
+ 	spin_unlock_bh(&counter->lock);
+-	return ret;
+-}
++	{ MTRACE_FUNC_RETURN return ret; }
++MTRACE_FUNC_RETURN }
+ 
+ #include "selftest/counter.c"
+ 
+ static void wg_packet_consume_data_done(struct wg_peer *peer,
+ 					struct sk_buff *skb,
+ 					struct endpoint *endpoint)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct net_device *dev = peer->device->dev;
+ 	unsigned int len, len_before_trim;
+ 	struct wg_peer *routed_peer;
+@@ -416,7 +416,7 @@ static void wg_packet_consume_data_done(struct wg_peer *peer,
+ 
+ 	napi_gro_receive(&peer->napi, skb);
+ 	update_rx_stats(peer, message_data_len(len_before_trim));
+-	return;
++	{ MTRACE_FUNC_RETURN return; }
+ 
+ dishonest_packet_peer:
+ 	net_dbg_skb_ratelimited("%s: Packet has unallowed src IP (%pISc) from peer %llu (%pISpfsc)\n",
+@@ -439,10 +439,10 @@ static void wg_packet_consume_data_done(struct wg_peer *peer,
+ 	goto packet_processed;
+ packet_processed:
+ 	dev_kfree_skb(skb);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ int wg_packet_rx_poll(struct napi_struct *napi, int budget)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct wg_peer *peer = container_of(napi, struct wg_peer, napi);
+ 	struct noise_keypair *keypair;
+ 	struct endpoint endpoint;
+@@ -452,7 +452,7 @@ int wg_packet_rx_poll(struct napi_struct *napi, int budget)
+ 	bool free;
+ 
+ 	if (unlikely(budget <= 0))
+-		return 0;
++		{ MTRACE_FUNC_RETURN return 0; }
+ 
+ 	while ((skb = wg_prev_queue_peek(&peer->rx_queue)) != NULL &&
+ 	       (state = atomic_read_acquire(&PACKET_CB(skb)->state)) !=
+@@ -493,11 +493,11 @@ int wg_packet_rx_poll(struct napi_struct *napi, int budget)
+ 	if (work_done < budget)
+ 		napi_complete_done(napi, work_done);
+ 
+-	return work_done;
+-}
++	{ MTRACE_FUNC_RETURN return work_done; }
++MTRACE_FUNC_RETURN }
+ 
+ void wg_packet_decrypt_worker(struct work_struct *work)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct crypt_queue *queue = container_of(work, struct multicore_worker,
+ 						 work)->ptr;
+ 	struct sk_buff *skb;
+@@ -510,10 +510,10 @@ void wg_packet_decrypt_worker(struct work_struct *work)
+ 		if (need_resched())
+ 			cond_resched();
+ 	}
+-}
++MTRACE_FUNC_RETURN }
+ 
+ static void wg_packet_consume_data(struct wg_device *wg, struct sk_buff *skb)
+-{
++{ MTRACE_FUNC_CALL
+ 	__le32 idx = ((struct message_data *)skb->data)->key_idx;
+ 	struct wg_peer *peer = NULL;
+ 	int ret;
+@@ -535,7 +535,7 @@ static void wg_packet_consume_data(struct wg_device *wg, struct sk_buff *skb)
+ 		wg_queue_enqueue_per_peer_rx(skb, PACKET_STATE_DEAD);
+ 	if (likely(!ret || ret == -EPIPE)) {
+ 		rcu_read_unlock_bh();
+-		return;
++		{ MTRACE_FUNC_RETURN return; }
+ 	}
+ err:
+ 	wg_noise_keypair_put(PACKET_CB(skb)->keypair, false);
+@@ -543,10 +543,10 @@ static void wg_packet_consume_data(struct wg_device *wg, struct sk_buff *skb)
+ 	rcu_read_unlock_bh();
+ 	wg_peer_put(peer);
+ 	dev_kfree_skb(skb);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ void wg_packet_receive(struct wg_device *wg, struct sk_buff *skb)
+-{
++{ MTRACE_FUNC_CALL
+ 	if (unlikely(prepare_skb_header(skb, wg) < 0))
+ 		goto err;
+ 	switch (SKB_TYPE_LE32(skb)) {
+@@ -579,8 +579,8 @@ void wg_packet_receive(struct wg_device *wg, struct sk_buff *skb)
+ 		WARN(1, "Non-exhaustive parsing of packet header lead to unknown packet type!\n");
+ 		goto err;
+ 	}
+-	return;
++	{ MTRACE_FUNC_RETURN return; }
+ 
+ err:
+ 	dev_kfree_skb(skb);
+-}
++MTRACE_FUNC_RETURN }
+diff --git src/linux/drivers/net/wireguard/send.c src/linux/drivers/net/wireguard/send.c
+index 5368f7c35..42e119171 100644
+--- src/linux/drivers/net/wireguard/send.c
++++ src/linux/drivers/net/wireguard/send.c
+@@ -19,12 +19,12 @@
+ #include <net/sock.h>
+ 
+ static void wg_packet_send_handshake_initiation(struct wg_peer *peer)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct message_handshake_initiation packet;
+ 
+ 	if (!wg_birthdate_has_expired(atomic64_read(&peer->last_sent_handshake),
+ 				      REKEY_TIMEOUT))
+-		return; /* This function is rate limited. */
++		{ MTRACE_FUNC_RETURN return; /* This function is rate limited. */ }
+ 
+ 	atomic64_set(&peer->last_sent_handshake, ktime_get_coarse_boottime_ns());
+ 	net_dbg_ratelimited("%s: Sending handshake initiation to peer %llu (%pISpfsc)\n",
+@@ -41,20 +41,20 @@ static void wg_packet_send_handshake_initiation(struct wg_peer *peer)
+ 					      HANDSHAKE_DSCP);
+ 		wg_timers_handshake_initiated(peer);
+ 	}
+-}
++MTRACE_FUNC_RETURN }
+ 
+ void wg_packet_handshake_send_worker(struct work_struct *work)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct wg_peer *peer = container_of(work, struct wg_peer,
+ 					    transmit_handshake_work);
+ 
+ 	wg_packet_send_handshake_initiation(peer);
+ 	wg_peer_put(peer);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ void wg_packet_send_queued_handshake_initiation(struct wg_peer *peer,
+ 						bool is_retry)
+-{
++{ MTRACE_FUNC_CALL
+ 	if (!is_retry)
+ 		peer->timer_handshake_attempts = 0;
+ 
+@@ -80,10 +80,10 @@ void wg_packet_send_queued_handshake_initiation(struct wg_peer *peer,
+ 		wg_peer_put(peer);
+ out:
+ 	rcu_read_unlock_bh();
+-}
++MTRACE_FUNC_RETURN }
+ 
+ void wg_packet_send_handshake_response(struct wg_peer *peer)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct message_handshake_response packet;
+ 
+ 	atomic64_set(&peer->last_sent_handshake, ktime_get_coarse_boottime_ns());
+@@ -105,12 +105,12 @@ void wg_packet_send_handshake_response(struct wg_peer *peer)
+ 						      HANDSHAKE_DSCP);
+ 		}
+ 	}
+-}
++MTRACE_FUNC_RETURN }
+ 
+ void wg_packet_send_handshake_cookie(struct wg_device *wg,
+ 				     struct sk_buff *initiating_skb,
+ 				     __le32 sender_index)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct message_handshake_cookie packet;
+ 
+ 	net_dbg_skb_ratelimited("%s: Sending cookie response for denied handshake message for %pISpfsc\n",
+@@ -119,10 +119,10 @@ void wg_packet_send_handshake_cookie(struct wg_device *wg,
+ 				 &wg->cookie_checker);
+ 	wg_socket_send_buffer_as_reply_to_skb(wg, initiating_skb, &packet,
+ 					      sizeof(packet));
+-}
++MTRACE_FUNC_RETURN }
+ 
+ static void keep_key_fresh(struct wg_peer *peer)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct noise_keypair *keypair;
+ 	bool send;
+ 
+@@ -136,14 +136,14 @@ static void keep_key_fresh(struct wg_peer *peer)
+ 
+ 	if (unlikely(send))
+ 		wg_packet_send_queued_handshake_initiation(peer, false);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ static unsigned int calculate_skb_padding(struct sk_buff *skb)
+-{
++{ MTRACE_FUNC_CALL
+ 	unsigned int padded_size, last_unit = skb->len;
+ 
+ 	if (unlikely(!PACKET_CB(skb)->mtu))
+-		return ALIGN(last_unit, MESSAGE_PADDING_MULTIPLE) - last_unit;
++		{ MTRACE_FUNC_RETURN return ALIGN(last_unit, MESSAGE_PADDING_MULTIPLE) - last_unit; }
+ 
+ 	/* We do this modulo business with the MTU, just in case the networking
+ 	 * layer gives us a packet that's bigger than the MTU. In that case, we
+@@ -156,11 +156,11 @@ static unsigned int calculate_skb_padding(struct sk_buff *skb)
+ 
+ 	padded_size = min(PACKET_CB(skb)->mtu,
+ 			  ALIGN(last_unit, MESSAGE_PADDING_MULTIPLE));
+-	return padded_size - last_unit;
+-}
++	{ MTRACE_FUNC_RETURN return padded_size - last_unit; }
++MTRACE_FUNC_RETURN }
+ 
+ static bool encrypt_packet(struct sk_buff *skb, struct noise_keypair *keypair)
+-{
++{ MTRACE_FUNC_CALL
+ 	unsigned int padding_len, plaintext_len, trailer_len;
+ 	struct scatterlist sg[MAX_SKB_FRAGS + 8];
+ 	struct message_data *header;
+@@ -180,7 +180,7 @@ static bool encrypt_packet(struct sk_buff *skb, struct noise_keypair *keypair)
+ 	/* Expand data section to have room for padding and auth tag. */
+ 	num_frags = skb_cow_data(skb, trailer_len, &trailer);
+ 	if (unlikely(num_frags < 0 || num_frags > ARRAY_SIZE(sg)))
+-		return false;
++		{ MTRACE_FUNC_RETURN return false; }
+ 
+ 	/* Set the padding to zeros, and make sure it and the auth tag are part
+ 	 * of the skb.
+@@ -191,12 +191,12 @@ static bool encrypt_packet(struct sk_buff *skb, struct noise_keypair *keypair)
+ 	 * stack's headers.
+ 	 */
+ 	if (unlikely(skb_cow_head(skb, DATA_PACKET_HEAD_ROOM) < 0))
+-		return false;
++		{ MTRACE_FUNC_RETURN return false; }
+ 
+ 	/* Finalize checksum calculation for the inner packet, if required. */
+ 	if (unlikely(skb->ip_summed == CHECKSUM_PARTIAL &&
+ 		     skb_checksum_help(skb)))
+-		return false;
++		{ MTRACE_FUNC_RETURN return false; }
+ 
+ 	/* Only after checksumming can we safely add on the padding at the end
+ 	 * and the header.
+@@ -212,21 +212,21 @@ static bool encrypt_packet(struct sk_buff *skb, struct noise_keypair *keypair)
+ 	sg_init_table(sg, num_frags);
+ 	if (skb_to_sgvec(skb, sg, sizeof(struct message_data),
+ 			 noise_encrypted_len(plaintext_len)) <= 0)
+-		return false;
+-	return chacha20poly1305_encrypt_sg_inplace(sg, plaintext_len, NULL, 0,
++		{ MTRACE_FUNC_RETURN return false; }
++	{ MTRACE_FUNC_RETURN return chacha20poly1305_encrypt_sg_inplace(sg, plaintext_len, NULL, 0,
+ 						   PACKET_CB(skb)->nonce,
+-						   keypair->sending.key);
+-}
++						   keypair->sending.key); }
++MTRACE_FUNC_RETURN }
+ 
+ void wg_packet_send_keepalive(struct wg_peer *peer)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct sk_buff *skb;
+ 
+ 	if (skb_queue_empty(&peer->staged_packet_queue)) {
+ 		skb = alloc_skb(DATA_PACKET_HEAD_ROOM + MESSAGE_MINIMUM_LENGTH,
+ 				GFP_ATOMIC);
+ 		if (unlikely(!skb))
+-			return;
++			{ MTRACE_FUNC_RETURN return; }
+ 		skb_reserve(skb, DATA_PACKET_HEAD_ROOM);
+ 		skb->dev = peer->device->dev;
+ 		PACKET_CB(skb)->mtu = skb->dev->mtu;
+@@ -237,10 +237,10 @@ void wg_packet_send_keepalive(struct wg_peer *peer)
+ 	}
+ 
+ 	wg_packet_send_staged_packets(peer);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ static void wg_packet_create_data_done(struct wg_peer *peer, struct sk_buff *first)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct sk_buff *skb, *next;
+ 	bool is_keepalive, data_sent = false;
+ 
+@@ -257,10 +257,10 @@ static void wg_packet_create_data_done(struct wg_peer *peer, struct sk_buff *fir
+ 		wg_timers_data_sent(peer);
+ 
+ 	keep_key_fresh(peer);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ void wg_packet_tx_worker(struct work_struct *work)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct wg_peer *peer = container_of(work, struct wg_peer, transmit_packet_work);
+ 	struct noise_keypair *keypair;
+ 	enum packet_state state;
+@@ -282,10 +282,10 @@ void wg_packet_tx_worker(struct work_struct *work)
+ 		if (need_resched())
+ 			cond_resched();
+ 	}
+-}
++MTRACE_FUNC_RETURN }
+ 
+ void wg_packet_encrypt_worker(struct work_struct *work)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct crypt_queue *queue = container_of(work, struct multicore_worker,
+ 						 work)->ptr;
+ 	struct sk_buff *first, *skb, *next;
+@@ -306,10 +306,10 @@ void wg_packet_encrypt_worker(struct work_struct *work)
+ 		if (need_resched())
+ 			cond_resched();
+ 	}
+-}
++MTRACE_FUNC_RETURN }
+ 
+ static void wg_packet_create_data(struct wg_peer *peer, struct sk_buff *first)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct wg_device *wg = peer->device;
+ 	int ret = -EINVAL;
+ 
+@@ -324,22 +324,22 @@ static void wg_packet_create_data(struct wg_peer *peer, struct sk_buff *first)
+ err:
+ 	rcu_read_unlock_bh();
+ 	if (likely(!ret || ret == -EPIPE))
+-		return;
++		{ MTRACE_FUNC_RETURN return; }
+ 	wg_noise_keypair_put(PACKET_CB(first)->keypair, false);
+ 	wg_peer_put(peer);
+ 	kfree_skb_list(first);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ void wg_packet_purge_staged_packets(struct wg_peer *peer)
+-{
++{ MTRACE_FUNC_CALL
+ 	spin_lock_bh(&peer->staged_packet_queue.lock);
+ 	peer->device->dev->stats.tx_dropped += peer->staged_packet_queue.qlen;
+ 	__skb_queue_purge(&peer->staged_packet_queue);
+ 	spin_unlock_bh(&peer->staged_packet_queue.lock);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ void wg_packet_send_staged_packets(struct wg_peer *peer)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct noise_keypair *keypair;
+ 	struct sk_buff_head packets;
+ 	struct sk_buff *skb;
+@@ -350,7 +350,7 @@ void wg_packet_send_staged_packets(struct wg_peer *peer)
+ 	skb_queue_splice_init(&peer->staged_packet_queue, &packets);
+ 	spin_unlock_bh(&peer->staged_packet_queue.lock);
+ 	if (unlikely(skb_queue_empty(&packets)))
+-		return;
++		{ MTRACE_FUNC_RETURN return; }
+ 
+ 	/* First we make sure we have a valid reference to a valid key. */
+ 	rcu_read_lock_bh();
+@@ -385,7 +385,7 @@ void wg_packet_send_staged_packets(struct wg_peer *peer)
+ 	wg_peer_get(keypair->entry.peer);
+ 	PACKET_CB(packets.next)->keypair = keypair;
+ 	wg_packet_create_data(peer, packets.next);
+-	return;
++	{ MTRACE_FUNC_RETURN return; }
+ 
+ out_invalid:
+ 	WRITE_ONCE(keypair->sending.is_valid, false);
+@@ -410,4 +410,4 @@ void wg_packet_send_staged_packets(struct wg_peer *peer)
+ 	 * means we should initiate a new handshake.
+ 	 */
+ 	wg_packet_send_queued_handshake_initiation(peer, false);
+-}
++MTRACE_FUNC_RETURN }
+diff --git src/linux/drivers/net/wireguard/socket.c src/linux/drivers/net/wireguard/socket.c
+index 8c496b747..727885cf1 100644
+--- src/linux/drivers/net/wireguard/socket.c
++++ src/linux/drivers/net/wireguard/socket.c
+@@ -19,7 +19,7 @@
+ 
+ static int send4(struct wg_device *wg, struct sk_buff *skb,
+ 		 struct endpoint *endpoint, u8 ds, struct dst_cache *cache)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct flowi4 fl = {
+ 		.saddr = endpoint->src4.s_addr,
+ 		.daddr = endpoint->addr4.sin_addr.s_addr,
+@@ -91,12 +91,12 @@ static int send4(struct wg_device *wg, struct sk_buff *skb,
+ 	kfree_skb(skb);
+ out:
+ 	rcu_read_unlock_bh();
+-	return ret;
+-}
++	{ MTRACE_FUNC_RETURN return ret; }
++MTRACE_FUNC_RETURN }
+ 
+ static int send6(struct wg_device *wg, struct sk_buff *skb,
+ 		 struct endpoint *endpoint, u8 ds, struct dst_cache *cache)
+-{
++{ MTRACE_FUNC_CALL
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	struct flowi6 fl = {
+ 		.saddr = endpoint->src6,
+@@ -158,14 +158,14 @@ static int send6(struct wg_device *wg, struct sk_buff *skb,
+ 	kfree_skb(skb);
+ out:
+ 	rcu_read_unlock_bh();
+-	return ret;
++	{ MTRACE_FUNC_RETURN return ret; }
+ #else
+-	return -EAFNOSUPPORT;
++	{ MTRACE_FUNC_RETURN return -EAFNOSUPPORT; }
+ #endif
+-}
++MTRACE_FUNC_RETURN }
+ 
+ int wg_socket_send_skb_to_peer(struct wg_peer *peer, struct sk_buff *skb, u8 ds)
+-{
++{ MTRACE_FUNC_CALL
+ 	size_t skb_len = skb->len;
+ 	int ret = -EAFNOSUPPORT;
+ 
+@@ -182,40 +182,40 @@ int wg_socket_send_skb_to_peer(struct wg_peer *peer, struct sk_buff *skb, u8 ds)
+ 		peer->tx_bytes += skb_len;
+ 	read_unlock_bh(&peer->endpoint_lock);
+ 
+-	return ret;
+-}
++	{ MTRACE_FUNC_RETURN return ret; }
++MTRACE_FUNC_RETURN }
+ 
+ int wg_socket_send_buffer_to_peer(struct wg_peer *peer, void *buffer,
+ 				  size_t len, u8 ds)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct sk_buff *skb = alloc_skb(len + SKB_HEADER_LEN, GFP_ATOMIC);
+ 
+ 	if (unlikely(!skb))
+-		return -ENOMEM;
++		{ MTRACE_FUNC_RETURN return -ENOMEM; }
+ 
+ 	skb_reserve(skb, SKB_HEADER_LEN);
+ 	skb_set_inner_network_header(skb, 0);
+ 	skb_put_data(skb, buffer, len);
+-	return wg_socket_send_skb_to_peer(peer, skb, ds);
+-}
++	{ MTRACE_FUNC_RETURN return wg_socket_send_skb_to_peer(peer, skb, ds); }
++MTRACE_FUNC_RETURN }
+ 
+ int wg_socket_send_buffer_as_reply_to_skb(struct wg_device *wg,
+ 					  struct sk_buff *in_skb, void *buffer,
+ 					  size_t len)
+-{
++{ MTRACE_FUNC_CALL
+ 	int ret = 0;
+ 	struct sk_buff *skb;
+ 	struct endpoint endpoint;
+ 
+ 	if (unlikely(!in_skb))
+-		return -EINVAL;
++		{ MTRACE_FUNC_RETURN return -EINVAL; }
+ 	ret = wg_socket_endpoint_from_skb(&endpoint, in_skb);
+ 	if (unlikely(ret < 0))
+-		return ret;
++		{ MTRACE_FUNC_RETURN return ret; }
+ 
+ 	skb = alloc_skb(len + SKB_HEADER_LEN, GFP_ATOMIC);
+ 	if (unlikely(!skb))
+-		return -ENOMEM;
++		{ MTRACE_FUNC_RETURN return -ENOMEM; }
+ 	skb_reserve(skb, SKB_HEADER_LEN);
+ 	skb_set_inner_network_header(skb, 0);
+ 	skb_put_data(skb, buffer, len);
+@@ -228,12 +228,12 @@ int wg_socket_send_buffer_as_reply_to_skb(struct wg_device *wg,
+ 	 * as we checked above.
+ 	 */
+ 
+-	return ret;
+-}
++	{ MTRACE_FUNC_RETURN return ret; }
++MTRACE_FUNC_RETURN }
+ 
+ int wg_socket_endpoint_from_skb(struct endpoint *endpoint,
+ 				const struct sk_buff *skb)
+-{
++{ MTRACE_FUNC_CALL
+ 	memset(endpoint, 0, sizeof(*endpoint));
+ 	if (skb->protocol == htons(ETH_P_IP)) {
+ 		endpoint->addr4.sin_family = AF_INET;
+@@ -249,14 +249,14 @@ int wg_socket_endpoint_from_skb(struct endpoint *endpoint,
+ 			&ipv6_hdr(skb)->saddr, skb->skb_iif);
+ 		endpoint->src6 = ipv6_hdr(skb)->daddr;
+ 	} else {
+-		return -EINVAL;
++		{ MTRACE_FUNC_RETURN return -EINVAL; }
+ 	}
+-	return 0;
+-}
++	{ MTRACE_FUNC_RETURN return 0; }
++MTRACE_FUNC_RETURN }
+ 
+ static bool endpoint_eq(const struct endpoint *a, const struct endpoint *b)
+-{
+-	return (a->addr.sa_family == AF_INET && b->addr.sa_family == AF_INET &&
++{ MTRACE_FUNC_CALL
++	{ MTRACE_FUNC_RETURN return (a->addr.sa_family == AF_INET && b->addr.sa_family == AF_INET &&
+ 		a->addr4.sin_port == b->addr4.sin_port &&
+ 		a->addr4.sin_addr.s_addr == b->addr4.sin_addr.s_addr &&
+ 		a->src4.s_addr == b->src4.s_addr && a->src_if4 == b->src_if4) ||
+@@ -266,19 +266,19 @@ static bool endpoint_eq(const struct endpoint *a, const struct endpoint *b)
+ 		ipv6_addr_equal(&a->addr6.sin6_addr, &b->addr6.sin6_addr) &&
+ 		a->addr6.sin6_scope_id == b->addr6.sin6_scope_id &&
+ 		ipv6_addr_equal(&a->src6, &b->src6)) ||
+-	       unlikely(!a->addr.sa_family && !b->addr.sa_family);
+-}
++	       unlikely(!a->addr.sa_family && !b->addr.sa_family); }
++MTRACE_FUNC_RETURN }
+ 
+ void wg_socket_set_peer_endpoint(struct wg_peer *peer,
+ 				 const struct endpoint *endpoint)
+-{
++{ MTRACE_FUNC_CALL
+ 	/* First we check unlocked, in order to optimize, since it's pretty rare
+ 	 * that an endpoint will change. If we happen to be mid-write, and two
+ 	 * CPUs wind up writing the same thing or something slightly different,
+ 	 * it doesn't really matter much either.
+ 	 */
+ 	if (endpoint_eq(endpoint, &peer->endpoint))
+-		return;
++		{ MTRACE_FUNC_RETURN return; }
+ 	write_lock_bh(&peer->endpoint_lock);
+ 	if (endpoint->addr.sa_family == AF_INET) {
+ 		peer->endpoint.addr4 = endpoint->addr4;
+@@ -293,27 +293,27 @@ void wg_socket_set_peer_endpoint(struct wg_peer *peer,
+ 	dst_cache_reset(&peer->endpoint_cache);
+ out:
+ 	write_unlock_bh(&peer->endpoint_lock);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ void wg_socket_set_peer_endpoint_from_skb(struct wg_peer *peer,
+ 					  const struct sk_buff *skb)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct endpoint endpoint;
+ 
+ 	if (!wg_socket_endpoint_from_skb(&endpoint, skb))
+ 		wg_socket_set_peer_endpoint(peer, &endpoint);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ void wg_socket_clear_peer_endpoint_src(struct wg_peer *peer)
+-{
++{ MTRACE_FUNC_CALL
+ 	write_lock_bh(&peer->endpoint_lock);
+ 	memset(&peer->endpoint.src6, 0, sizeof(peer->endpoint.src6));
+ 	dst_cache_reset(&peer->endpoint_cache);
+ 	write_unlock_bh(&peer->endpoint_lock);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ static int wg_receive(struct sock *sk, struct sk_buff *skb)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct wg_device *wg;
+ 
+ 	if (unlikely(!sk))
+@@ -323,30 +323,30 @@ static int wg_receive(struct sock *sk, struct sk_buff *skb)
+ 		goto err;
+ 	skb_mark_not_on_list(skb);
+ 	wg_packet_receive(wg, skb);
+-	return 0;
++	{ MTRACE_FUNC_RETURN return 0; }
+ 
+ err:
+ 	kfree_skb(skb);
+-	return 0;
+-}
++	{ MTRACE_FUNC_RETURN return 0; }
++MTRACE_FUNC_RETURN }
+ 
+ static void sock_free(struct sock *sock)
+-{
++{ MTRACE_FUNC_CALL
+ 	if (unlikely(!sock))
+-		return;
++		{ MTRACE_FUNC_RETURN return; }
+ 	sk_clear_memalloc(sock);
+ 	udp_tunnel_sock_release(sock->sk_socket);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ static void set_sock_opts(struct socket *sock)
+-{
++{ MTRACE_FUNC_CALL
+ 	sock->sk->sk_allocation = GFP_ATOMIC;
+ 	sock->sk->sk_sndbuf = INT_MAX;
+ 	sk_set_memalloc(sock->sk);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ int wg_socket_init(struct wg_device *wg, u16 port)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct net *net;
+ 	int ret;
+ 	struct udp_tunnel_sock_cfg cfg = {
+@@ -377,7 +377,7 @@ int wg_socket_init(struct wg_device *wg, u16 port)
+ 	net = net ? maybe_get_net(net) : NULL;
+ 	rcu_read_unlock();
+ 	if (unlikely(!net))
+-		return -ENONET;
++		{ MTRACE_FUNC_RETURN return -ENONET; }
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+ retry:
+@@ -412,12 +412,12 @@ int wg_socket_init(struct wg_device *wg, u16 port)
+ 	ret = 0;
+ out:
+ 	put_net(net);
+-	return ret;
+-}
++	{ MTRACE_FUNC_RETURN return ret; }
++MTRACE_FUNC_RETURN }
+ 
+ void wg_socket_reinit(struct wg_device *wg, struct sock *new4,
+ 		      struct sock *new6)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct sock *old4, *old6;
+ 
+ 	mutex_lock(&wg->socket_update_lock);
+@@ -433,4 +433,4 @@ void wg_socket_reinit(struct wg_device *wg, struct sock *new4,
+ 	synchronize_net();
+ 	sock_free(old4);
+ 	sock_free(old6);
+-}
++MTRACE_FUNC_RETURN }
+diff --git src/linux/drivers/net/wireguard/timers.c src/linux/drivers/net/wireguard/timers.c
+index d54d32ac9..dde0f194a 100644
+--- src/linux/drivers/net/wireguard/timers.c
++++ src/linux/drivers/net/wireguard/timers.c
+@@ -30,16 +30,16 @@
+ static inline void mod_peer_timer(struct wg_peer *peer,
+ 				  struct timer_list *timer,
+ 				  unsigned long expires)
+-{
++{ MTRACE_FUNC_CALL
+ 	rcu_read_lock_bh();
+ 	if (likely(netif_running(peer->device->dev) &&
+ 		   !READ_ONCE(peer->is_dead)))
+ 		mod_timer(timer, expires);
+ 	rcu_read_unlock_bh();
+-}
++MTRACE_FUNC_RETURN }
+ 
+ static void wg_expired_retransmit_handshake(struct timer_list *timer)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct wg_peer *peer = from_timer(peer, timer,
+ 					  timer_retransmit_handshake);
+ 
+@@ -74,10 +74,10 @@ static void wg_expired_retransmit_handshake(struct timer_list *timer)
+ 
+ 		wg_packet_send_queued_handshake_initiation(peer, true);
+ 	}
+-}
++MTRACE_FUNC_RETURN }
+ 
+ static void wg_expired_send_keepalive(struct timer_list *timer)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct wg_peer *peer = from_timer(peer, timer, timer_send_keepalive);
+ 
+ 	wg_packet_send_keepalive(peer);
+@@ -86,10 +86,10 @@ static void wg_expired_send_keepalive(struct timer_list *timer)
+ 		mod_peer_timer(peer, &peer->timer_send_keepalive,
+ 			       jiffies + KEEPALIVE_TIMEOUT * HZ);
+ 	}
+-}
++MTRACE_FUNC_RETURN }
+ 
+ static void wg_expired_new_handshake(struct timer_list *timer)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct wg_peer *peer = from_timer(peer, timer, timer_new_handshake);
+ 
+ 	pr_debug("%s: Retrying handshake with peer %llu (%pISpfsc) because we stopped hearing back after %d seconds\n",
+@@ -100,10 +100,10 @@ static void wg_expired_new_handshake(struct timer_list *timer)
+ 	 */
+ 	wg_socket_clear_peer_endpoint_src(peer);
+ 	wg_packet_send_queued_handshake_initiation(peer, false);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ static void wg_expired_zero_key_material(struct timer_list *timer)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct wg_peer *peer = from_timer(peer, timer, timer_zero_key_material);
+ 
+ 	rcu_read_lock_bh();
+@@ -117,10 +117,10 @@ static void wg_expired_zero_key_material(struct timer_list *timer)
+ 			wg_peer_put(peer);
+ 	}
+ 	rcu_read_unlock_bh();
+-}
++MTRACE_FUNC_RETURN }
+ 
+ static void wg_queued_expired_zero_key_material(struct work_struct *work)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct wg_peer *peer = container_of(work, struct wg_peer,
+ 					    clear_peer_work);
+ 
+@@ -130,29 +130,29 @@ static void wg_queued_expired_zero_key_material(struct work_struct *work)
+ 	wg_noise_handshake_clear(&peer->handshake);
+ 	wg_noise_keypairs_clear(&peer->keypairs);
+ 	wg_peer_put(peer);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ static void wg_expired_send_persistent_keepalive(struct timer_list *timer)
+-{
++{ MTRACE_FUNC_CALL
+ 	struct wg_peer *peer = from_timer(peer, timer,
+ 					  timer_persistent_keepalive);
+ 
+ 	if (likely(peer->persistent_keepalive_interval))
+ 		wg_packet_send_keepalive(peer);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ /* Should be called after an authenticated data packet is sent. */
+ void wg_timers_data_sent(struct wg_peer *peer)
+-{
++{ MTRACE_FUNC_CALL
+ 	if (!timer_pending(&peer->timer_new_handshake))
+ 		mod_peer_timer(peer, &peer->timer_new_handshake,
+ 			jiffies + (KEEPALIVE_TIMEOUT + REKEY_TIMEOUT) * HZ +
+ 			prandom_u32_max(REKEY_TIMEOUT_JITTER_MAX_JIFFIES));
+-}
++MTRACE_FUNC_RETURN }
+ 
+ /* Should be called after an authenticated data packet is received. */
+ void wg_timers_data_received(struct wg_peer *peer)
+-{
++{ MTRACE_FUNC_CALL
+ 	if (likely(netif_running(peer->device->dev))) {
+ 		if (!timer_pending(&peer->timer_send_keepalive))
+ 			mod_peer_timer(peer, &peer->timer_send_keepalive,
+@@ -160,64 +160,64 @@ void wg_timers_data_received(struct wg_peer *peer)
+ 		else
+ 			peer->timer_need_another_keepalive = true;
+ 	}
+-}
++MTRACE_FUNC_RETURN }
+ 
+ /* Should be called after any type of authenticated packet is sent, whether
+  * keepalive, data, or handshake.
+  */
+ void wg_timers_any_authenticated_packet_sent(struct wg_peer *peer)
+-{
++{ MTRACE_FUNC_CALL
+ 	del_timer(&peer->timer_send_keepalive);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ /* Should be called after any type of authenticated packet is received, whether
+  * keepalive, data, or handshake.
+  */
+ void wg_timers_any_authenticated_packet_received(struct wg_peer *peer)
+-{
++{ MTRACE_FUNC_CALL
+ 	del_timer(&peer->timer_new_handshake);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ /* Should be called after a handshake initiation message is sent. */
+ void wg_timers_handshake_initiated(struct wg_peer *peer)
+-{
++{ MTRACE_FUNC_CALL
+ 	mod_peer_timer(peer, &peer->timer_retransmit_handshake,
+ 		       jiffies + REKEY_TIMEOUT * HZ +
+ 		       prandom_u32_max(REKEY_TIMEOUT_JITTER_MAX_JIFFIES));
+-}
++MTRACE_FUNC_RETURN }
+ 
+ /* Should be called after a handshake response message is received and processed
+  * or when getting key confirmation via the first data message.
+  */
+ void wg_timers_handshake_complete(struct wg_peer *peer)
+-{
++{ MTRACE_FUNC_CALL
+ 	del_timer(&peer->timer_retransmit_handshake);
+ 	peer->timer_handshake_attempts = 0;
+ 	peer->sent_lastminute_handshake = false;
+ 	ktime_get_real_ts64(&peer->walltime_last_handshake);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ /* Should be called after an ephemeral key is created, which is before sending a
+  * handshake response or after receiving a handshake response.
+  */
+ void wg_timers_session_derived(struct wg_peer *peer)
+-{
++{ MTRACE_FUNC_CALL
+ 	mod_peer_timer(peer, &peer->timer_zero_key_material,
+ 		       jiffies + REJECT_AFTER_TIME * 3 * HZ);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ /* Should be called before a packet with authentication, whether
+  * keepalive, data, or handshakem is sent, or after one is received.
+  */
+ void wg_timers_any_authenticated_packet_traversal(struct wg_peer *peer)
+-{
++{ MTRACE_FUNC_CALL
+ 	if (peer->persistent_keepalive_interval)
+ 		mod_peer_timer(peer, &peer->timer_persistent_keepalive,
+ 			jiffies + peer->persistent_keepalive_interval * HZ);
+-}
++MTRACE_FUNC_RETURN }
+ 
+ void wg_timers_init(struct wg_peer *peer)
+-{
++{ MTRACE_FUNC_CALL
+ 	timer_setup(&peer->timer_retransmit_handshake,
+ 		    wg_expired_retransmit_handshake, 0);
+ 	timer_setup(&peer->timer_send_keepalive, wg_expired_send_keepalive, 0);
+@@ -230,14 +230,14 @@ void wg_timers_init(struct wg_peer *peer)
+ 	peer->timer_handshake_attempts = 0;
+ 	peer->sent_lastminute_handshake = false;
+ 	peer->timer_need_another_keepalive = false;
+-}
++MTRACE_FUNC_RETURN }
+ 
+ void wg_timers_stop(struct wg_peer *peer)
+-{
++{ MTRACE_FUNC_CALL
+ 	del_timer_sync(&peer->timer_retransmit_handshake);
+ 	del_timer_sync(&peer->timer_send_keepalive);
+ 	del_timer_sync(&peer->timer_new_handshake);
+ 	del_timer_sync(&peer->timer_zero_key_material);
+ 	del_timer_sync(&peer->timer_persistent_keepalive);
+ 	flush_work(&peer->clear_peer_work);
+-}
++MTRACE_FUNC_RETURN }
+-- 
+2.25.1
+

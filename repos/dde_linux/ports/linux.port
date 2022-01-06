@@ -6,6 +6,4 @@ URL(linux) := https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-$(VERSION).tar.
 SHA(linux) := 7e068b5e0d26a62b10e5320b25dce57588cbbc6f781c090442138c9c9c3271b2
 DIR(linux) := src/linux
 
-PATCHES += patches/linux.patch
-LINUX_OPT := -p1 -dsrc/linux
-PATCH_OPT(patches/linux.patch) := $(LINUX_OPT)
+PATCHES := $(sort $(wildcard $(REP_DIR)/src/wg_linux/patches/*.patch))
