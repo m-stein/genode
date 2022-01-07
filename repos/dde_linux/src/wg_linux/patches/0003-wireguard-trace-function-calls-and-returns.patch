@@ -1,18 +1,16 @@
-From 7e125ef09d06c0196efffdd50e5e88c4ad93bcca Mon Sep 17 00:00:00 2001
+From 26f981f17567ae36e7812ffccd77d6b20486c0e4 Mon Sep 17 00:00:00 2001
 From: Martin Stein <martin.stein@genode-labs.com>
-Date: Thu, 6 Jan 2022 17:17:07 +0100
+Date: Fri, 7 Jan 2022 16:25:52 +0100
 Subject: [PATCH] wireguard: trace function calls and returns
 
-Tracing can be controlled through symbols beginning with mtrace/MTRACE in
-messages.h and main.c .
 ---
  src/linux/drivers/net/wireguard/allowedips.c  |  85 ++++++++++++
  src/linux/drivers/net/wireguard/cookie.c      |  27 ++++
  src/linux/drivers/net/wireguard/device.c      |  35 +++++
- src/linux/drivers/net/wireguard/main.c        |  33 ++++-
- src/linux/drivers/net/wireguard/messages.h    |  10 ++
+ src/linux/drivers/net/wireguard/main.c        |  36 +++++-
+ src/linux/drivers/net/wireguard/messages.h    |  31 +++++
  src/linux/drivers/net/wireguard/netlink.c     |  52 ++++++++
- src/linux/drivers/net/wireguard/noise.c       |  83 ++++++++++++
+ src/linux/drivers/net/wireguard/noise.c       |  84 ++++++++++++
  src/linux/drivers/net/wireguard/peer.c        |  38 ++++++
  src/linux/drivers/net/wireguard/peerlookup.c  |  47 +++----
  src/linux/drivers/net/wireguard/queueing.c    |  52 ++++----
@@ -21,10 +19,10 @@ messages.h and main.c .
  src/linux/drivers/net/wireguard/send.c        |  86 ++++++------
  src/linux/drivers/net/wireguard/socket.c      | 100 +++++++-------
  src/linux/drivers/net/wireguard/timers.c      |  68 +++++-----
- 15 files changed, 616 insertions(+), 259 deletions(-)
+ 15 files changed, 641 insertions(+), 259 deletions(-)
 
 diff --git src/linux/drivers/net/wireguard/allowedips.c src/linux/drivers/net/wireguard/allowedips.c
-index b7197e80f..459367a55 100644
+index b7197e8..459367a 100644
 --- src/linux/drivers/net/wireguard/allowedips.c
 +++ src/linux/drivers/net/wireguard/allowedips.c
 @@ -10,17 +10,20 @@ static struct kmem_cache *node_cache;
@@ -420,7 +418,7 @@ index b7197e80f..459367a55 100644
  
  #include "selftest/allowedips.c"
 diff --git src/linux/drivers/net/wireguard/cookie.c src/linux/drivers/net/wireguard/cookie.c
-index 4956f0499..55f9f8fa6 100644
+index 4956f04..55f9f8f 100644
 --- src/linux/drivers/net/wireguard/cookie.c
 +++ src/linux/drivers/net/wireguard/cookie.c
 @@ -19,10 +19,12 @@
@@ -586,7 +584,7 @@ index 4956f0499..55f9f8fa6 100644
 +MTRACE_FUNC_RETURN
  }
 diff --git src/linux/drivers/net/wireguard/device.c src/linux/drivers/net/wireguard/device.c
-index 551ddaaaf..e63a33d8c 100644
+index 551ddaa..e63a33d 100644
 --- src/linux/drivers/net/wireguard/device.c
 +++ src/linux/drivers/net/wireguard/device.c
 @@ -28,6 +28,7 @@ static LIST_HEAD(device_list);
@@ -802,43 +800,46 @@ index 551ddaaaf..e63a33d8c 100644
 +MTRACE_FUNC_RETURN
  }
 diff --git src/linux/drivers/net/wireguard/main.c src/linux/drivers/net/wireguard/main.c
-index c281685f2..aab264b1b 100644
+index c281685..9f3c993 100644
 --- src/linux/drivers/net/wireguard/main.c
 +++ src/linux/drivers/net/wireguard/main.c
-@@ -17,9 +17,32 @@
+@@ -17,9 +17,35 @@
  #include <linux/genetlink.h>
  #include <net/rtnetlink.h>
  
 +
-+static unsigned mtrace_call_level;
++static unsigned _mtrace_call_level;
++static unsigned _mtrace_filters_enabled;
 +
-+unsigned mtrace_get_call_level(void)
-+{
-+	return mtrace_call_level;
-+}
++unsigned mtrace_call_level(void) { return _mtrace_call_level; }
 +
 +unsigned mtrace_incr_call_level(void)
 +{
-+	unsigned lvl = mtrace_call_level;
-+	mtrace_call_level++;
++	unsigned lvl = _mtrace_call_level;
++	_mtrace_call_level++;
 +	return lvl;
 +}
 +
 +unsigned mtrace_decr_call_level(void)
 +{
-+	mtrace_call_level--;
-+	return mtrace_call_level;
++	_mtrace_call_level--;
++	return _mtrace_call_level;
 +}
++
++void mtrace_enable_filters(void) { _mtrace_filters_enabled = 1; }
++void mtrace_disable_filters(void) { _mtrace_filters_enabled = 0; }
++unsigned mtrace_filters_enabled(void) { return _mtrace_filters_enabled; }
 +
  static int __init mod_init(void)
  {
  	int ret;
-+	mtrace_call_level = 0;
++	_mtrace_call_level = 0;
++	_mtrace_filters_enabled = 1;
 +	MTRACE_FUNC_CALL
  
  	ret = wg_allowedips_slab_init();
  	if (ret < 0)
-@@ -42,7 +65,7 @@ static int __init mod_init(void)
+@@ -42,7 +68,7 @@ static int __init mod_init(void)
  	pr_info("WireGuard " WIREGUARD_VERSION " loaded. See www.wireguard.com for information.\n");
  	pr_info("Copyright (C) 2015-2019 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.\n");
  
@@ -847,7 +848,7 @@ index c281685f2..aab264b1b 100644
  
  err_netlink:
  	wg_device_uninit();
-@@ -51,16 +74,16 @@ static int __init mod_init(void)
+@@ -51,16 +77,16 @@ static int __init mod_init(void)
  err_peer:
  	wg_allowedips_slab_uninit();
  err_allowedips:
@@ -869,28 +870,49 @@ index c281685f2..aab264b1b 100644
  module_init(mod_init);
  module_exit(mod_exit);
 diff --git src/linux/drivers/net/wireguard/messages.h src/linux/drivers/net/wireguard/messages.h
-index 208da7267..ea6b272a2 100644
+index 208da72..709da15 100644
 --- src/linux/drivers/net/wireguard/messages.h
 +++ src/linux/drivers/net/wireguard/messages.h
-@@ -14,6 +14,16 @@
+@@ -14,6 +14,37 @@
  #include <linux/param.h>
  #include <linux/skbuff.h>
  
++#pragma GCC diagnostic ignored "-Wdeclaration-after-statement"
++
 +unsigned mtrace_incr_call_level(void);
 +unsigned mtrace_decr_call_level(void);
-+unsigned mtrace_get_call_level(void);
++unsigned mtrace_call_level(void);
++void mtrace_enable_filters(void);
++void mtrace_disable_filters(void);
++unsigned mtrace_filters_enabled(void);
 +
 +#define MTRACE_FUNC_CALL \
-+	{ if (mtrace_incr_call_level() == 0) pr_info("---------- C %s %d %d\n", __func__, __LINE__, mtrace_get_call_level() - 1); }
++{ \
++	if (mtrace_filters_enabled() == 0 || \
++	    mtrace_call_level() == 0) \
++	{ \
++		pr_info("---------- C %s %d %d\n", __func__, __LINE__, \
++		        mtrace_call_level()); \
++	} \
++	mtrace_incr_call_level(); \
++}
 +
 +#define MTRACE_FUNC_RETURN \
-+	{ if (mtrace_decr_call_level() == 0) pr_info("---------- R %s %d %d\n", __func__, __LINE__, mtrace_get_call_level()); }
++{ \
++	mtrace_decr_call_level(); \
++	if (mtrace_filters_enabled() == 0 || \
++	    mtrace_call_level() == 0) \
++	{ \
++		pr_info("---------- R %s %d %d\n", __func__, __LINE__, \
++		        mtrace_call_level()); \
++	} \
++}
 +
  enum noise_lengths {
  	NOISE_PUBLIC_KEY_LEN = CURVE25519_KEY_SIZE,
  	NOISE_SYMMETRIC_KEY_LEN = CHACHA20POLY1305_KEY_SIZE,
 diff --git src/linux/drivers/net/wireguard/netlink.c src/linux/drivers/net/wireguard/netlink.c
-index d0f3b6d7f..a5949c79a 100644
+index d0f3b6d..a5949c7 100644
 --- src/linux/drivers/net/wireguard/netlink.c
 +++ src/linux/drivers/net/wireguard/netlink.c
 @@ -52,10 +52,14 @@ static const struct nla_policy allowedip_policy[WGALLOWEDIP_A_MAX + 1] = {
@@ -1134,7 +1156,7 @@ index d0f3b6d7f..a5949c79a 100644
 +MTRACE_FUNC_RETURN
  }
 diff --git src/linux/drivers/net/wireguard/noise.c src/linux/drivers/net/wireguard/noise.c
-index c0cfd9b36..2c94e966c 100644
+index c0cfd9b..2370ac4 100644
 --- src/linux/drivers/net/wireguard/noise.c
 +++ src/linux/drivers/net/wireguard/noise.c
 @@ -33,6 +33,7 @@ static atomic64_t keypair_counter = ATOMIC64_INIT(0);
@@ -1349,7 +1371,7 @@ index c0cfd9b36..2c94e966c 100644
  	return true;
  }
  
-@@ -295,6 +336,7 @@ void wg_noise_set_static_identity_private_key(
+@@ -295,11 +336,13 @@ void wg_noise_set_static_identity_private_key(
  	struct noise_static_identity *static_identity,
  	const u8 private_key[NOISE_PUBLIC_KEY_LEN])
  {
@@ -1357,7 +1379,13 @@ index c0cfd9b36..2c94e966c 100644
  	memcpy(static_identity->static_private, private_key,
  	       NOISE_PUBLIC_KEY_LEN);
  	curve25519_clamp_secret(static_identity->static_private);
-@@ -310,6 +352,7 @@ static void kdf(u8 *first_dst, u8 *second_dst, u8 *third_dst, const u8 *data,
+ 	static_identity->has_identity = curve25519_generate_public(
+ 		static_identity->static_public, private_key);
++MTRACE_FUNC_RETURN
+ }
+ 
+ /* This is Hugo Krawczyk's HKDF:
+@@ -310,6 +353,7 @@ static void kdf(u8 *first_dst, u8 *second_dst, u8 *third_dst, const u8 *data,
  		size_t first_len, size_t second_len, size_t third_len,
  		size_t data_len, const u8 chaining_key[NOISE_HASH_LEN])
  {
@@ -1365,7 +1393,7 @@ index c0cfd9b36..2c94e966c 100644
  	u8 output[BLAKE2S_HASH_SIZE + 1];
  	u8 secret[BLAKE2S_HASH_SIZE];
  
-@@ -354,18 +397,21 @@ static void kdf(u8 *first_dst, u8 *second_dst, u8 *third_dst, const u8 *data,
+@@ -354,18 +398,21 @@ static void kdf(u8 *first_dst, u8 *second_dst, u8 *third_dst, const u8 *data,
  	/* Clear sensitive data from stack */
  	memzero_explicit(secret, BLAKE2S_HASH_SIZE);
  	memzero_explicit(output, BLAKE2S_HASH_SIZE + 1);
@@ -1387,7 +1415,7 @@ index c0cfd9b36..2c94e966c 100644
  }
  
  static bool __must_check mix_dh(u8 chaining_key[NOISE_HASH_LEN],
-@@ -373,13 +419,18 @@ static bool __must_check mix_dh(u8 chaining_key[NOISE_HASH_LEN],
+@@ -373,13 +420,18 @@ static bool __must_check mix_dh(u8 chaining_key[NOISE_HASH_LEN],
  				const u8 private[NOISE_PUBLIC_KEY_LEN],
  				const u8 public[NOISE_PUBLIC_KEY_LEN])
  {
@@ -1406,7 +1434,7 @@ index c0cfd9b36..2c94e966c 100644
  	return true;
  }
  
-@@ -387,65 +438,83 @@ static bool __must_check mix_precomputed_dh(u8 chaining_key[NOISE_HASH_LEN],
+@@ -387,65 +439,83 @@ static bool __must_check mix_precomputed_dh(u8 chaining_key[NOISE_HASH_LEN],
  					    u8 key[NOISE_SYMMETRIC_KEY_LEN],
  					    const u8 precomputed[NOISE_PUBLIC_KEY_LEN])
  {
@@ -1490,7 +1518,7 @@ index c0cfd9b36..2c94e966c 100644
  	return true;
  }
  
-@@ -454,15 +523,18 @@ static void message_ephemeral(u8 ephemeral_dst[NOISE_PUBLIC_KEY_LEN],
+@@ -454,15 +524,18 @@ static void message_ephemeral(u8 ephemeral_dst[NOISE_PUBLIC_KEY_LEN],
  			      u8 chaining_key[NOISE_HASH_LEN],
  			      u8 hash[NOISE_HASH_LEN])
  {
@@ -1509,7 +1537,7 @@ index c0cfd9b36..2c94e966c 100644
  	struct timespec64 now;
  
  	ktime_get_real_ts64(&now);
-@@ -478,12 +550,14 @@ static void tai64n_now(u8 output[NOISE_TIMESTAMP_LEN])
+@@ -478,12 +551,14 @@ static void tai64n_now(u8 output[NOISE_TIMESTAMP_LEN])
  	/* https://cr.yp.to/libtai/tai64.html */
  	*(__be64 *)output = cpu_to_be64(0x400000000000000aULL + now.tv_sec);
  	*(__be32 *)(output + sizeof(__be64)) = cpu_to_be32(now.tv_nsec);
@@ -1524,7 +1552,7 @@ index c0cfd9b36..2c94e966c 100644
  	u8 timestamp[NOISE_TIMESTAMP_LEN];
  	u8 key[NOISE_SYMMETRIC_KEY_LEN];
  	bool ret = false;
-@@ -544,6 +618,7 @@ wg_noise_handshake_create_initiation(struct message_handshake_initiation *dst,
+@@ -544,6 +619,7 @@ wg_noise_handshake_create_initiation(struct message_handshake_initiation *dst,
  	up_write(&handshake->lock);
  	up_read(&handshake->static_identity->lock);
  	memzero_explicit(key, NOISE_SYMMETRIC_KEY_LEN);
@@ -1532,7 +1560,7 @@ index c0cfd9b36..2c94e966c 100644
  	return ret;
  }
  
-@@ -551,6 +626,7 @@ struct wg_peer *
+@@ -551,6 +627,7 @@ struct wg_peer *
  wg_noise_handshake_consume_initiation(struct message_handshake_initiation *src,
  				      struct wg_device *wg)
  {
@@ -1540,7 +1568,7 @@ index c0cfd9b36..2c94e966c 100644
  	struct wg_peer *peer = NULL, *ret_peer = NULL;
  	struct noise_handshake *handshake;
  	bool replay_attack, flood_attack;
-@@ -628,12 +704,14 @@ wg_noise_handshake_consume_initiation(struct message_handshake_initiation *src,
+@@ -628,12 +705,14 @@ wg_noise_handshake_consume_initiation(struct message_handshake_initiation *src,
  	up_read(&wg->static_identity.lock);
  	if (!ret_peer)
  		wg_peer_put(peer);
@@ -1555,7 +1583,7 @@ index c0cfd9b36..2c94e966c 100644
  	u8 key[NOISE_SYMMETRIC_KEY_LEN];
  	bool ret = false;
  
-@@ -688,6 +766,7 @@ bool wg_noise_handshake_create_response(struct message_handshake_response *dst,
+@@ -688,6 +767,7 @@ bool wg_noise_handshake_create_response(struct message_handshake_response *dst,
  	up_write(&handshake->lock);
  	up_read(&handshake->static_identity->lock);
  	memzero_explicit(key, NOISE_SYMMETRIC_KEY_LEN);
@@ -1563,7 +1591,7 @@ index c0cfd9b36..2c94e966c 100644
  	return ret;
  }
  
-@@ -695,6 +774,7 @@ struct wg_peer *
+@@ -695,6 +775,7 @@ struct wg_peer *
  wg_noise_handshake_consume_response(struct message_handshake_response *src,
  				    struct wg_device *wg)
  {
@@ -1571,7 +1599,7 @@ index c0cfd9b36..2c94e966c 100644
  	enum noise_handshake_state state = HANDSHAKE_ZEROED;
  	struct wg_peer *peer = NULL, *ret_peer = NULL;
  	struct noise_handshake *handshake;
-@@ -777,12 +857,14 @@ wg_noise_handshake_consume_response(struct message_handshake_response *src,
+@@ -777,12 +858,14 @@ wg_noise_handshake_consume_response(struct message_handshake_response *src,
  	memzero_explicit(static_private, NOISE_PUBLIC_KEY_LEN);
  	memzero_explicit(preshared_key, NOISE_SYMMETRIC_KEY_LEN);
  	up_read(&wg->static_identity.lock);
@@ -1586,7 +1614,7 @@ index c0cfd9b36..2c94e966c 100644
  	struct noise_keypair *new_keypair;
  	bool ret = false;
  
-@@ -824,5 +906,6 @@ bool wg_noise_handshake_begin_session(struct noise_handshake *handshake,
+@@ -824,5 +907,6 @@ bool wg_noise_handshake_begin_session(struct noise_handshake *handshake,
  
  out:
  	up_write(&handshake->lock);
@@ -1594,7 +1622,7 @@ index c0cfd9b36..2c94e966c 100644
  	return ret;
  }
 diff --git src/linux/drivers/net/wireguard/peer.c src/linux/drivers/net/wireguard/peer.c
-index 1acd00ab2..d402ca762 100644
+index 1acd00a..d402ca7 100644
 --- src/linux/drivers/net/wireguard/peer.c
 +++ src/linux/drivers/net/wireguard/peer.c
 @@ -22,17 +22,24 @@ struct wg_peer *wg_peer_create(struct wg_device *wg,
@@ -1760,7 +1788,7 @@ index 1acd00ab2..d402ca762 100644
 +MTRACE_FUNC_RETURN
  }
 diff --git src/linux/drivers/net/wireguard/peerlookup.c src/linux/drivers/net/wireguard/peerlookup.c
-index f2783aa7a..b29ebcd12 100644
+index f2783aa..b29ebcd 100644
 --- src/linux/drivers/net/wireguard/peerlookup.c
 +++ src/linux/drivers/net/wireguard/peerlookup.c
 @@ -9,51 +9,53 @@
@@ -1923,7 +1951,7 @@ index f2783aa7a..b29ebcd12 100644
 +	{ MTRACE_FUNC_RETURN return  entry; }
  }
 diff --git src/linux/drivers/net/wireguard/queueing.c src/linux/drivers/net/wireguard/queueing.c
-index 48e7b982a..751227c6a 100644
+index 48e7b98..751227c 100644
 --- src/linux/drivers/net/wireguard/queueing.c
 +++ src/linux/drivers/net/wireguard/queueing.c
 @@ -7,49 +7,49 @@
@@ -2053,7 +2081,7 @@ index 48e7b982a..751227c6a 100644
  #undef NEXT
  #undef STUB
 diff --git src/linux/drivers/net/wireguard/ratelimiter.c src/linux/drivers/net/wireguard/ratelimiter.c
-index 3fedd1d21..a7c7a3f36 100644
+index 3fedd1d..a7c7a3f 100644
 --- src/linux/drivers/net/wireguard/ratelimiter.c
 +++ src/linux/drivers/net/wireguard/ratelimiter.c
 @@ -4,6 +4,7 @@
@@ -2174,7 +2202,7 @@ index 3fedd1d21..a7c7a3f36 100644
  
  #include "selftest/ratelimiter.c"
 diff --git src/linux/drivers/net/wireguard/receive.c src/linux/drivers/net/wireguard/receive.c
-index 7dc84bcca..5e1731906 100644
+index 7dc84bc..5e17319 100644
 --- src/linux/drivers/net/wireguard/receive.c
 +++ src/linux/drivers/net/wireguard/receive.c
 @@ -18,7 +18,7 @@
@@ -2554,7 +2582,7 @@ index 7dc84bcca..5e1731906 100644
 -}
 +MTRACE_FUNC_RETURN }
 diff --git src/linux/drivers/net/wireguard/send.c src/linux/drivers/net/wireguard/send.c
-index 5368f7c35..42e119171 100644
+index 5368f7c..42e1191 100644
 --- src/linux/drivers/net/wireguard/send.c
 +++ src/linux/drivers/net/wireguard/send.c
 @@ -19,12 +19,12 @@
@@ -2828,7 +2856,7 @@ index 5368f7c35..42e119171 100644
 -}
 +MTRACE_FUNC_RETURN }
 diff --git src/linux/drivers/net/wireguard/socket.c src/linux/drivers/net/wireguard/socket.c
-index 8c496b747..727885cf1 100644
+index 8c496b7..727885c 100644
 --- src/linux/drivers/net/wireguard/socket.c
 +++ src/linux/drivers/net/wireguard/socket.c
 @@ -19,7 +19,7 @@
@@ -3092,7 +3120,7 @@ index 8c496b747..727885cf1 100644
 -}
 +MTRACE_FUNC_RETURN }
 diff --git src/linux/drivers/net/wireguard/timers.c src/linux/drivers/net/wireguard/timers.c
-index d54d32ac9..dde0f194a 100644
+index d54d32a..dde0f19 100644
 --- src/linux/drivers/net/wireguard/timers.c
 +++ src/linux/drivers/net/wireguard/timers.c
 @@ -30,16 +30,16 @@
