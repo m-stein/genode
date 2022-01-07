@@ -103,4 +103,6 @@ build { app/wireguard }
 
 build_boot_image { wireguard }
 
+append qemu_args "  -nographic"
+
 run_genode_until forever
