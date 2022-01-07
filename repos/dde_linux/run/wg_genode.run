@@ -2,6 +2,16 @@ assert_spec x86_64
 
 source ${genode_dir}/repos/dde_linux/run/wireguard.inc
 
+#
+# Overwrite exit procedure in order to always undo the host setup for Wireguard
+#
+rename exit run_tool_exit
+proc exit {{status 0}} {
+
+	wireguard_exit
+	run_tool_exit $status
+}
+
 wireguard_start
 
 create_boot_directory
@@ -93,6 +103,4 @@ build { app/wireguard }
 
 build_boot_image { wireguard }
 
-run_genode_until "HOLY SHIT" 120
-
-wireguard_exit
+run_genode_until forever
