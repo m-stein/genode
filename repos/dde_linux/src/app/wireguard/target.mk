@@ -6,12 +6,13 @@ SRC_CC    = main.cc
 SRC_C     = dummies.c
 SRC_C    += $(notdir $(wildcard $(PRG_DIR)/generated_dummies.c))
 
-CC_OPT_dummies += -DKBUILD_MODFILE='"dummies"' -DKBUILD_BASENAME='"dummies"' -DKBUILD_MODNAME='"dummies"'
-CC_OPT_generated_dummies += -DKBUILD_MODFILE='"generated"' -DKBUILD_BASENAME='"generated"' -DKBUILD_MODNAME='"generated"'
-
 #
 # lx_emul library
 #
+SRC_C   += lx_emul/clocksource.c
+SRC_C   += lx_emul/irqchip.c
+SRC_C   += lx_emul/spec/x86/start.c
+SRC_C   += lx_emul/start.c
 SRC_CC  += lx_emul/alloc.cc
 SRC_CC  += lx_emul/clock.cc
 SRC_CC  += lx_emul/debug.cc
@@ -76,11 +77,11 @@ CC_OPT_drivers/net/wireguard/allowedips += -Wno-frame-larger-than
 WG_OBJECTS_ABS := $(wildcard $(LX_OUT_DIR)/drivers/net/wireguard/*.o)
 WG_OBJECTS_REL := $(WG_OBJECTS_ABS:$(LX_OUT_DIR)/%=%)
 SRC_C          += $(WG_OBJECTS_REL:%.o=%.c))
-
 vpath %.c $(LX_OUT_DIR)
 
 define CC_OPT_LX_RULES =
 CC_OPT_$(1) += -DKBUILD_MODFILE='"$(1)"' -DKBUILD_BASENAME='"$(notdir $(1))"' -DKBUILD_MODNAME='"$(notdir $(1))"'
 endef
 
-$(foreach file,$(WG_OBJECTS_REL),$(eval $(call CC_OPT_LX_RULES,$(file:%.o=%))))
+MODULES := $(WG_OBJECTS_REL:%.o=%) lx_emul/start generated_dummies dummies lx_emul/irqchip lx_emul/clocksource
+$(foreach m,$(MODULES),$(eval $(call CC_OPT_LX_RULES,$(m))))

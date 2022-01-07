@@ -13,6 +13,10 @@
 
 #include <lx_emul.h>
 
+#include <asm/irq_regs.h>
+struct pt_regs * __irq_regs = NULL;
+
+
 #include <asm/preempt.h>
 
 int __preempt_count = 0;
@@ -21,6 +25,15 @@ int __preempt_count = 0;
 #include <linux/bitops.h>
 
 unsigned long __sw_hweight64(__u64 w)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/irq.h>
+#include <linux/irqdesc.h>
+
+int generic_handle_irq(unsigned int irq)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -42,3 +55,5 @@ void rcu_barrier(void)
 }
 
 
+void lx_user_init(void) {}
+void lx_emul_associate_page_selftest(void) {}

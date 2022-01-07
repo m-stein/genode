@@ -13,6 +13,7 @@
 
 #include <base/component.h>
 #include <lx_kit/env.h>
+#include <lx_emul/init.h>
 
 using namespace Genode;
 
@@ -25,7 +26,11 @@ struct Main
 {
 	Env & env;
 
-	Main(Env & env) : env(env) {}
+	Main(Env & env) : env(env)
+	{
+		Lx_kit::initialize(env);
+		lx_emul_start_kernel(nullptr);
+	}
 };
 
 

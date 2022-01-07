@@ -1,7 +1,7 @@
 /*
  * \brief  Dummy definitions of Linux Kernel functions
  * \author Automatically generated file - do no edit
- * \date   2022-01-06
+ * \date   2022-01-07
  */
 
 #include <lx_emul.h>
@@ -84,6 +84,22 @@ int __ipv6_addr_type(const struct in6_addr * addr)
 }
 
 
+#include <linux/irqdomain.h>
+
+struct irq_domain * __irq_domain_add(struct fwnode_handle * fwnode,int size,irq_hw_number_t hwirq_max,int direct_max,const struct irq_domain_ops * ops,void * host_data)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/irqdomain.h>
+
+struct irq_desc * __irq_resolve_mapping(struct irq_domain * domain,irq_hw_number_t hwirq,unsigned int * irq)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
 #include <linux/slab.h>
 
 void * __kmalloc(size_t size,gfp_t gfp)
@@ -140,6 +156,14 @@ void * __pskb_pull_tail(struct sk_buff * skb,int delta)
 }
 
 
+#include <linux/sched.h>
+
+void __set_task_comm(struct task_struct * tsk,const char * buf,bool exec)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
 #include <linux/skbuff.h>
 
 bool __skb_flow_dissect(const struct net * net,const struct sk_buff * skb,struct flow_dissector * flow_dissector,void * target_container,const void * data,__be16 proto,int nhoff,int hlen,unsigned int flags)
@@ -169,6 +193,13 @@ struct sk_buff * __skb_gso_segment(struct sk_buff * skb,netdev_features_t featur
 atomic_long_t _totalram_pages;
 
 
+extern void ack_bad_irq(unsigned int irq);
+void ack_bad_irq(unsigned int irq)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
 #include <linux/workqueue.h>
 
 __printf (1,4)struct workqueue_struct * alloc_workqueue(const char * fmt,unsigned int flags,int max_active,...)
@@ -196,6 +227,13 @@ void blake2s_final(struct blake2s_state * state,u8 * out)
 #include <crypto/blake2s.h>
 
 void blake2s_update(struct blake2s_state * state,const u8 * in,size_t inlen)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+extern int __init buses_init(void);
+int __init buses_init(void)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -244,6 +282,21 @@ void chacha20poly1305_encrypt(u8 * dst,const u8 * src,const size_t src_len,const
 #include <crypto/chacha20poly1305.h>
 
 bool chacha20poly1305_encrypt_sg_inplace(struct scatterlist * src,size_t src_len,const u8 * ad,const size_t ad_len,const u64 nonce,const u8 key[CHACHA20POLY1305_KEY_SIZE])
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+extern int __init classes_init(void);
+int __init classes_init(void)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/completion.h>
+
+void complete(struct completion * x)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -313,6 +366,13 @@ struct net_device * dev_get_by_name(struct net * net,const char * name)
 #include <linux/netdevice.h>
 
 void dev_get_tstats64(struct net_device * dev,struct rtnl_link_stats64 * s)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+extern int __init devices_init(void);
+int __init devices_init(void)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -398,6 +458,22 @@ void dst_release(struct dst_entry * dst)
 }
 
 
+#include <linux/interrupt.h>
+
+int __init early_irq_init(void)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/sched.h>
+
+struct task_struct * find_task_by_pid_ns(pid_t nr,struct pid_namespace * ns)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
 #include <net/flow_dissector.h>
 
 struct flow_dissector flow_keys_basic_dissector;
@@ -467,6 +543,14 @@ u32 get_random_u32(void)
 }
 
 
+#include <linux/hrtimer.h>
+
+void __init hrtimers_init(void)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
 #include <linux/siphash.h>
 
 u32 hsiphash_2u32(const u32 first,const u32 second,const hsiphash_key_t * key)
@@ -517,6 +601,14 @@ void init_timer_key(struct timer_list * timer,void (* func)(struct timer_list *)
 }
 
 
+#include <linux/timer.h>
+
+void __init init_timers(void)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
 #include <net/ipv6.h>
 
 int ip6_dst_hoplimit(struct dst_entry * dst)
@@ -562,9 +654,49 @@ bool ipv6_mod_enabled(void)
 }
 
 
+#include <linux/irqdomain.h>
+
+void irq_domain_free_irqs_common(struct irq_domain * domain,unsigned int virq,unsigned int nr_irqs)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/hardirq.h>
+
+void irq_enter(void)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/hardirq.h>
+
+void irq_exit(void)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/irqdomain.h>
+
+void irq_set_default_host(struct irq_domain * domain)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
 #include <linux/jiffies.h>
 
 unsigned long volatile __cacheline_aligned_in_smp __jiffy_arch_data jiffies;
+
+
+#include <linux/sched/task.h>
+
+pid_t kernel_thread(int (* fn)(void *),void * arg,unsigned long flags)
+{
+	lx_emul_trace_and_stop(__func__);
+}
 
 
 #include <linux/slab.h>
@@ -621,6 +753,27 @@ void kmem_cache_free(struct kmem_cache * c,void * b)
 {
 	lx_emul_trace_and_stop(__func__);
 }
+
+
+#include <linux/slab.h>
+
+void __init kmem_cache_init(void)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/kthread.h>
+
+int kthreadd(void * unused)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/kthread.h>
+
+struct task_struct *kthreadd_task;
 
 
 #include <linux/timekeeping.h>
@@ -759,6 +912,13 @@ int nla_put_64bit(struct sk_buff * skb,int attrtype,int attrlen,const void * dat
 }
 
 
+extern int __init platform_bus_init(void);
+int __init platform_bus_init(void)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
 #include <linux/prandom.h>
 
 u32 prandom_u32(void)
@@ -802,6 +962,14 @@ bool queue_delayed_work_on(int cpu,struct workqueue_struct * wq,struct delayed_w
 #include <linux/workqueue.h>
 
 bool queue_work_on(int cpu,struct workqueue_struct * wq,struct work_struct * work)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/radix-tree.h>
+
+void __init radix_tree_init(void)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -866,6 +1034,14 @@ void rtnl_lock(void)
 #include <linux/rtnetlink.h>
 
 void rtnl_unlock(void)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/sched/clock.h>
+
+void __init sched_clock_init(void)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -1015,9 +1191,30 @@ void skb_trim(struct sk_buff * skb,unsigned int len)
 }
 
 
+#include <linux/interrupt.h>
+
+void __init softirq_init(void)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/jump_label.h>
+
+bool static_key_initialized;
+
+
 #include <linux/string.h>
 
 size_t strlen(const char * s)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/string.h>
+
+char * strncpy(char * dest,const char * src,size_t count)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -1034,6 +1231,22 @@ void synchronize_net(void)
 #include <linux/workqueue.h>
 
 struct workqueue_struct *system_power_efficient_wq;
+
+
+#include <linux/tick.h>
+
+void __init tick_init(void)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/timekeeping.h>
+
+void __init timekeeping_init(void)
+{
+	lx_emul_trace_and_stop(__func__);
+}
 
 
 #include <net/udp_tunnel.h>
@@ -1100,9 +1313,33 @@ void up_write(struct rw_semaphore * sem)
 }
 
 
+#include <linux/completion.h>
+
+void __sched wait_for_completion(struct completion * x)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
 #include <linux/random.h>
 
 int wait_for_random_bytes(void)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/workqueue.h>
+
+void __init workqueue_init(void)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/workqueue.h>
+
+void __init workqueue_init_early(void)
 {
 	lx_emul_trace_and_stop(__func__);
 }
