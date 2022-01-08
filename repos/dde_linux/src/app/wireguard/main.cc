@@ -14,10 +14,16 @@
 
 /* base includes */
 #include <base/component.h>
+#include <base/attached_rom_dataspace.h>
 
 /* lx-kit includes */
 #include <lx_kit/env.h>
+
+/* lx-emul includes */
 #include <lx_emul/init.h>
+
+/* app/wireguard includes */
+#include <glue_cpp.h>
 
 using namespace Genode;
 
@@ -42,16 +48,31 @@ class Wireguard::Main
 {
 	private:
 
-		Env &_env;
+		Env                    &_env;
+		Attached_rom_dataspace  _config_rom { _env, "config" };
 
+		void _handle_config()
+		{
+			_config_rom.update();
+			Xml_node const &node { _config_rom.xml() };
+			glue_uint16_t listen_port {
+				node.attribute_value("listen_port", (uint16_t)0) };
+
+			if (listen_port == 0) {
+				class Failed_to_get_listen_port { };
+				throw Failed_to_get_listen_port { };
+			}
+			glue_wg_set(listen_port);
+		}
 
 	public:
 
 		Main(Env &env) : _env(env)
-	{
-		Lx_kit::initialize(_env);
-		lx_emul_start_kernel(nullptr);
-	}
+		{
+			Lx_kit::initialize(_env);
+			lx_emul_start_kernel(nullptr);
+			_handle_config();
+		}
 };
 
 

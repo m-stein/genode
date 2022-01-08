@@ -1,9 +1,10 @@
 TARGET    = wireguard
-REQUIRES  = x86_64
-LIBS      = base wireguard_linux
-INC_DIR   = $(PRG_DIR)
-SRC_CC    = main.cc
-SRC_C     = dummies.c
+REQUIRES += x86_64
+LIBS     += base wireguard_linux
+INC_DIR  += $(PRG_DIR)
+SRC_CC   += main.cc
+SRC_C    += dummies.c
+SRC_C    += glue.c
 SRC_C    += $(notdir $(wildcard $(PRG_DIR)/generated_dummies.c))
 
 #
