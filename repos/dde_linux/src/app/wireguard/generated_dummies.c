@@ -1,7 +1,7 @@
 /*
  * \brief  Dummy definitions of Linux Kernel functions
  * \author Automatically generated file - do no edit
- * \date   2022-01-07
+ * \date   2022-01-10
  */
 
 #include <lx_emul.h>
@@ -95,14 +95,6 @@ struct irq_domain * __irq_domain_add(struct fwnode_handle * fwnode,int size,irq_
 #include <linux/irqdomain.h>
 
 struct irq_desc * __irq_resolve_mapping(struct irq_domain * domain,irq_hw_number_t hwirq,unsigned int * irq)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/slab.h>
-
-void * __kmalloc(size_t size,gfp_t gfp)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -725,39 +717,7 @@ void kfree_skb_list(struct sk_buff * segs)
 
 #include <linux/slab.h>
 
-void * kmem_cache_alloc(struct kmem_cache * cachep,gfp_t flags)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/slab.h>
-
-struct kmem_cache * kmem_cache_create(const char * name,unsigned int size,unsigned int align,slab_flags_t flags,void (* ctor)(void *))
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/slab.h>
-
 void kmem_cache_destroy(struct kmem_cache * s)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/slab.h>
-
-void kmem_cache_free(struct kmem_cache * c,void * b)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/slab.h>
-
-void __init kmem_cache_init(void)
 {
 	lx_emul_trace_and_stop(__func__);
 }

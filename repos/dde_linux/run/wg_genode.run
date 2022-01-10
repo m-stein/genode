@@ -88,11 +88,22 @@ install_config {
 		</config>
 	</start>
 
+	<!-- platform driver only needed for memory allocation -->
+	<start name="platform_drv">
+		<resource name="RAM" quantum="32M"/>
+		<provides> <service name="Platform"/> </provides>
+		<route>
+			<any-service> <parent/> </any-service>
+		</route>
+		<config> <policy label="wireguard -> "/> </config>
+	</start>
+
 	<start name="wireguard">
 		<resource name="RAM" quantum="10M"/>
 		<route>
-			<service name="Timer">  <child name="timer"/> </service>
-			<service name="Nic">    <child name="nic_router"/> </service>
+			<service name="Timer">    <child name="timer"/> </service>
+			<service name="Nic">      <child name="nic_router"/> </service>
+			<service name="Platform"> <child name="platform_drv"/> </service>
 			<any-service> <parent/> </any-service>
 		</route>
 	</start>

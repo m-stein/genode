@@ -57,3 +57,4 @@ void rcu_barrier(void)
 
 void lx_user_init(void) {}
 void lx_emul_associate_page_selftest(void) {}
+void lx_emul_forget_pages(void const *virt, unsigned long size) {}
