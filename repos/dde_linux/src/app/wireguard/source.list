@@ -1,0 +1,15 @@
+drivers/net/wireguard/allowedips.c
+drivers/net/wireguard/cookie.c
+drivers/net/wireguard/device.c
+drivers/net/wireguard/main.c
+drivers/net/wireguard/netlink.c
+drivers/net/wireguard/noise.c
+drivers/net/wireguard/peerlookup.c
+drivers/net/wireguard/peer.c
+drivers/net/wireguard/queueing.c
+drivers/net/wireguard/ratelimiter.c
+drivers/net/wireguard/receive.c
+drivers/net/wireguard/send.c
+drivers/net/wireguard/socket.c
+drivers/net/wireguard/timers.c
+lib/string.c

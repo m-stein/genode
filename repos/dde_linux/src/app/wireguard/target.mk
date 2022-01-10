@@ -1,6 +1,6 @@
 TARGET    = wireguard
 REQUIRES += x86_64
-LIBS     += base wireguard_linux
+LIBS     += base
 INC_DIR  += $(PRG_DIR)
 SRC_CC   += main.cc
 SRC_C    += dummies.c
@@ -75,14 +75,17 @@ CC_C_OPT += -Wno-packed-not-aligned -D'pr_fmt(fmt)=KBUILD_MODNAME ": " fmt'
 
 CC_OPT_drivers/net/wireguard/allowedips += -Wno-frame-larger-than
 
-WG_OBJECTS_ABS := $(wildcard $(LX_OUT_DIR)/drivers/net/wireguard/*.o)
-WG_OBJECTS_REL := $(WG_OBJECTS_ABS:$(LX_OUT_DIR)/%=%)
-SRC_C          += $(WG_OBJECTS_REL:%.o=%.c))
+LX_SRC    = $(shell grep ".*\.c" $(PRG_DIR)/source.list)
+SRC_S    += $(shell grep ".*\.S" $(PRG_DIR)/source.list)
+SRC_C    += $(LX_SRC)
+SRC_S    += $(LX_ASM:$(LX_OUT_DIR)/%=%)
+
 vpath %.c $(LX_OUT_DIR)
+vpath %.S $(LX_OUT_DIR)
 
 define CC_OPT_LX_RULES =
 CC_OPT_$(1) += -DKBUILD_MODFILE='"$(1)"' -DKBUILD_BASENAME='"$(notdir $(1))"' -DKBUILD_MODNAME='"$(notdir $(1))"'
 endef
 
-MODULES := $(WG_OBJECTS_REL:%.o=%) lx_emul/start generated_dummies dummies lx_emul/irqchip lx_emul/clocksource
+MODULES := $(SRC_C:%.c=%)
 $(foreach m,$(MODULES),$(eval $(call CC_OPT_LX_RULES,$(m))))

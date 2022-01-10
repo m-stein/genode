@@ -808,14 +808,6 @@ void * kvmalloc_node(size_t size,gfp_t flags,int node)
 }
 
 
-#include <linux/string.h>
-
-__visible int memcmp(const void * cs,const void * ct,size_t count)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/timer.h>
 
 int mod_timer(struct timer_list * timer,unsigned long expires)
@@ -1202,22 +1194,6 @@ void __init softirq_init(void)
 #include <linux/jump_label.h>
 
 bool static_key_initialized;
-
-
-#include <linux/string.h>
-
-size_t strlen(const char * s)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/string.h>
-
-char * strncpy(char * dest,const char * src,size_t count)
-{
-	lx_emul_trace_and_stop(__func__);
-}
 
 
 #include <linux/netdevice.h>
