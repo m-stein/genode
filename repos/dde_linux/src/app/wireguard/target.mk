@@ -5,6 +5,7 @@ INC_DIR  += $(PRG_DIR)
 SRC_CC   += main.cc
 SRC_C    += dummies.c
 SRC_C    += glue.c
+SRC_C    += lx_emul.c
 SRC_C    += $(notdir $(wildcard $(PRG_DIR)/generated_dummies.c))
 
 #
@@ -12,6 +13,9 @@ SRC_C    += $(notdir $(wildcard $(PRG_DIR)/generated_dummies.c))
 #
 SRC_C   += lx_emul/clocksource.c
 SRC_C   += lx_emul/irqchip.c
+SRC_C   += lx_emul/shadow/kernel/fork.c
+SRC_C   += lx_emul/shadow/kernel/pid.c
+SRC_C   += lx_emul/shadow/kernel/sched/core.c
 SRC_C   += lx_emul/shadow/mm/slab_common.c
 SRC_C   += lx_emul/shadow/mm/slub.c
 SRC_C   += lx_emul/spec/x86/start.c

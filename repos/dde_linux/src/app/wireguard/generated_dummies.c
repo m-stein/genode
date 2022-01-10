@@ -52,6 +52,11 @@ int __sched __cond_resched(void)
 struct cpumask __cpu_online_mask;
 
 
+#include <linux/cpumask.h>
+
+struct cpumask __cpu_possible_mask;
+
+
 #include <crypto/algapi.h>
 
 noinline unsigned long __crypto_memneq(const void * a,const void * b,size_t size)
@@ -286,14 +291,6 @@ int __init classes_init(void)
 }
 
 
-#include <linux/completion.h>
-
-void complete(struct completion * x)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <crypto/curve25519.h>
 
 void curve25519_arch(u8 mypublic[CURVE25519_KEY_SIZE],const u8 secret[CURVE25519_KEY_SIZE],const u8 basepoint[CURVE25519_KEY_SIZE])
@@ -365,6 +362,14 @@ void dev_get_tstats64(struct net_device * dev,struct rtnl_link_stats64 * s)
 
 extern int __init devices_init(void);
 int __init devices_init(void)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/kernel.h>
+
+void __noreturn do_exit(long code)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -450,22 +455,6 @@ void dst_release(struct dst_entry * dst)
 }
 
 
-#include <linux/interrupt.h>
-
-int __init early_irq_init(void)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/sched.h>
-
-struct task_struct * find_task_by_pid_ns(pid_t nr,struct pid_namespace * ns)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <net/flow_dissector.h>
 
 struct flow_dissector flow_keys_basic_dissector;
@@ -535,14 +524,6 @@ u32 get_random_u32(void)
 }
 
 
-#include <linux/hrtimer.h>
-
-void __init hrtimers_init(void)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/siphash.h>
 
 u32 hsiphash_2u32(const u32 first,const u32 second,const hsiphash_key_t * key)
@@ -562,6 +543,14 @@ u32 hsiphash_3u32(const u32 first,const u32 second,const u32 third,const hsiphas
 #include <linux/icmpv6.h>
 
 void icmp6_send(struct sk_buff * skb,u8 type,u8 code,__u32 info,const struct in6_addr * force_saddr,const struct inet6_skb_parm * parm)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/sched/signal.h>
+
+void ignore_signals(struct task_struct * t)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -593,9 +582,9 @@ void init_timer_key(struct timer_list * timer,void (* func)(struct timer_list *)
 }
 
 
-#include <linux/timer.h>
+#include <linux/sched.h>
 
-void __init init_timers(void)
+long __sched io_schedule_timeout(long timeout)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -683,14 +672,6 @@ void irq_set_default_host(struct irq_domain * domain)
 unsigned long volatile __cacheline_aligned_in_smp __jiffy_arch_data jiffies;
 
 
-#include <linux/sched/task.h>
-
-pid_t kernel_thread(int (* fn)(void *),void * arg,unsigned long flags)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/slab.h>
 
 void kfree_sensitive(const void * p)
@@ -721,19 +702,6 @@ void kmem_cache_destroy(struct kmem_cache * s)
 {
 	lx_emul_trace_and_stop(__func__);
 }
-
-
-#include <linux/kthread.h>
-
-int kthreadd(void * unused)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/kthread.h>
-
-struct task_struct *kthreadd_task;
 
 
 #include <linux/timekeeping.h>
@@ -919,14 +887,6 @@ bool queue_work_on(int cpu,struct workqueue_struct * wq,struct work_struct * wor
 }
 
 
-#include <linux/radix-tree.h>
-
-void __init radix_tree_init(void)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/refcount.h>
 
 void refcount_warn_saturate(refcount_t * r,enum refcount_saturation_type t)
@@ -991,9 +951,9 @@ void rtnl_unlock(void)
 }
 
 
-#include <linux/sched/clock.h>
+#include <linux/sched.h>
 
-void __init sched_clock_init(void)
+signed long __sched schedule_timeout(signed long timeout)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -1143,14 +1103,6 @@ void skb_trim(struct sk_buff * skb,unsigned int len)
 }
 
 
-#include <linux/interrupt.h>
-
-void __init softirq_init(void)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/jump_label.h>
 
 bool static_key_initialized;
@@ -1167,22 +1119,6 @@ void synchronize_net(void)
 #include <linux/workqueue.h>
 
 struct workqueue_struct *system_power_efficient_wq;
-
-
-#include <linux/tick.h>
-
-void __init tick_init(void)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/timekeeping.h>
-
-void __init timekeeping_init(void)
-{
-	lx_emul_trace_and_stop(__func__);
-}
 
 
 #include <net/udp_tunnel.h>
@@ -1249,14 +1185,6 @@ void up_write(struct rw_semaphore * sem)
 }
 
 
-#include <linux/completion.h>
-
-void __sched wait_for_completion(struct completion * x)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/random.h>
 
 int wait_for_random_bytes(void)
@@ -1273,9 +1201,15 @@ void __init workqueue_init(void)
 }
 
 
-#include <linux/workqueue.h>
+extern void wq_worker_running(struct task_struct * task);
+void wq_worker_running(struct task_struct * task)
+{
+	lx_emul_trace_and_stop(__func__);
+}
 
-void __init workqueue_init_early(void)
+
+extern void wq_worker_sleeping(struct task_struct * task);
+void wq_worker_sleeping(struct task_struct * task)
 {
 	lx_emul_trace_and_stop(__func__);
 }

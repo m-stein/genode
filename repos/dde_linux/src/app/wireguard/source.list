@@ -12,4 +12,7 @@ drivers/net/wireguard/receive.c
 drivers/net/wireguard/send.c
 drivers/net/wireguard/socket.c
 drivers/net/wireguard/timers.c
+kernel/sched/completion.c
+kernel/sched/swait.c
+kernel/kthread.c
 lib/string.c
