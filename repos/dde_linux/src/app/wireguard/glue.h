@@ -11,5 +11,10 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
+#ifndef _GLUE_H_
+#define _GLUE_H_
+
 typedef unsigned char  glue_uint8_t;
 typedef unsigned short glue_uint16_t;
+
+#endif /* _GLUE_H_ */

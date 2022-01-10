@@ -24,6 +24,7 @@
 
 /* app/wireguard includes */
 #include <glue_cpp.h>
+#include <base64.h>
 
 using namespace Genode;
 
@@ -49,20 +50,32 @@ class Wireguard::Main
 	private:
 
 		Env                    &_env;
-		Attached_rom_dataspace  _config_rom { _env, "config" };
+		Attached_rom_dataspace  _config_rom      { _env, "config" };
+		Attached_rom_dataspace  _private_key_rom { _env, "private_key" };
 
 		void _handle_config()
 		{
 			_config_rom.update();
 			Xml_node const &node { _config_rom.xml() };
 			glue_uint16_t listen_port {
-				node.attribute_value("listen_port", (uint16_t)0) };
+				node.attribute_value("listen_port", (glue_uint16_t)0) };
 
 			if (listen_port == 0) {
 				class Failed_to_get_listen_port { };
 				throw Failed_to_get_listen_port { };
 			}
-			glue_wg_set(listen_port);
+			char private_key_base64[WG_KEY_LEN_BASE64];
+			memcpy(private_key_base64,
+			       _private_key_rom.local_addr<char>(),
+			       WG_KEY_LEN_BASE64);
+
+			private_key_base64[WG_KEY_LEN_BASE64 - 1] = '\0';
+			glue_uint8_t private_key[WG_KEY_LEN];
+			if (!key_from_base64(private_key, private_key_base64)) {
+				class Failed_to_decode_private_key { };
+				throw Failed_to_decode_private_key { };
+			}
+			glue_wg_set_device(listen_port, private_key);
 		}
 
 	public:
@@ -79,4 +92,10 @@ class Wireguard::Main
 void Component::construct(Env &env)
 {
 	static Wireguard::Main main { env };
+}
+
+
+extern "C" void print_hex(int x)
+{
+	log("--- ", Hex(x));
 }

@@ -3,6 +3,7 @@ REQUIRES += x86_64
 LIBS     += base
 INC_DIR  += $(PRG_DIR)
 SRC_CC   += main.cc
+SRC_CC   += base64.cc
 SRC_C    += dummies.c
 SRC_C    += glue.c
 SRC_C    += lx_emul.c

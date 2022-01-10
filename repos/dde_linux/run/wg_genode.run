@@ -100,10 +100,12 @@ install_config {
 
 	<start name="wireguard">
 		<resource name="RAM" quantum="10M"/>
+		<config listen_port="55552"/>
 		<route>
 			<service name="Timer">    <child name="timer"/> </service>
 			<service name="Nic">      <child name="nic_router"/> </service>
 			<service name="Platform"> <child name="platform_drv"/> </service>
+			<service name="ROM" label="private_key"> <parent/> </service>
 			<any-service> <parent/> </any-service>
 		</route>
 	</start>
@@ -111,6 +113,10 @@ install_config {
 }
 
 build { app/wireguard }
+
+set fd [open [run_dir]/genode/private_key w]
+puts $fd "8GRSQZMgG1uuvz4APIBqrDmiLj8L886r++hzixjjHFc="
+close $fd
 
 build_boot_image { wireguard }
 
