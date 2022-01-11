@@ -100,7 +100,12 @@ install_config {
 
 	<start name="wireguard">
 		<resource name="RAM" quantum="10M"/>
-		<config listen_port="55552"/>
+		<config listen_port="55552">
+			<peer public_key="r1Gslnm82X8NaijsWzPoSFzDZGl2tTJoPa+EJL4gYQw=">
+				<endpoint ip="10.0.2.2" port="55551"/>
+				<allowed-ip value="10.0.9.1/32"/>
+			</peer>
+		</config>
 		<route>
 			<service name="Timer">    <child name="timer"/> </service>
 			<service name="Nic">      <child name="nic_router"/> </service>

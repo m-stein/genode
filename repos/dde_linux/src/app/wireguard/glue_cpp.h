@@ -17,8 +17,17 @@
 /* app/wireguard includes */
 #include <glue.h>
 
-extern "C" void glue_wg_set_device(glue_uint16_t       listen_port,
-                                   glue_uint8_t const *private_key);
+extern "C" void glue_wg_setup();
 
+extern "C" void glue_wg_newlink();
+
+extern "C" void glue_wg_set_device_init(glue_uint16_t       listen_port,
+                                        glue_uint8_t const *private_key);
+
+extern "C" void glue_wg_open();
+
+extern "C" void glue_wg_set_device_peer(glue_uint8_t  const *public_key,
+                                        glue_uint8_t  const *endpoint_ip,
+                                        glue_uint16_t const  endpoint_port);
 
 #endif /* _GLUE_CPP_H_ */

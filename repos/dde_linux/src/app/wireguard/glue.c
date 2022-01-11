@@ -17,15 +17,32 @@
 /* contrib linux includes */
 #include <../drivers/net/wireguard/messages.h>
 
-void print_hex(int x);
+void print_hex(unsigned long x);
 
 
-void glue_wg_set_device(glue_uint16_t       listen_port,
-                        glue_uint8_t const *private_key)
+void glue_wg_setup(void) { }
+
+
+void glue_wg_newlink(void) { }
+
+
+void glue_wg_set_device_init(glue_uint16_t       listen_port,
+                             glue_uint8_t const *private_key) { }
+
+
+void glue_wg_open(void) { }
+
+
+void glue_wg_set_device_peer(glue_uint8_t  const *public_key,
+                             glue_uint8_t  const *endpoint_ip,
+                             glue_uint16_t const  endpoint_port)
 {
 	unsigned idx;
-	print_hex(listen_port);
 	for (idx = 0; idx < NOISE_PUBLIC_KEY_LEN; idx++) {
-		print_hex(private_key[idx]);
+		print_hex(public_key[idx]);
 	}
+	for (idx = 0; idx < 4; idx++) {
+		print_hex(endpoint_ip[idx]);
+	}
+	print_hex(endpoint_port);
 }
