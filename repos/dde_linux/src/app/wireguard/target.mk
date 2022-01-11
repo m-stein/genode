@@ -1,6 +1,6 @@
 TARGET    = wireguard
 REQUIRES += x86_64
-LIBS     += base
+LIBS     += base wireguard_linux
 INC_DIR  += $(PRG_DIR)
 SRC_CC   += main.cc
 SRC_CC   += base64.cc
