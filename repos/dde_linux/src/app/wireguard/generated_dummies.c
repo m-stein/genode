@@ -153,14 +153,6 @@ void * __pskb_pull_tail(struct sk_buff * skb,int delta)
 }
 
 
-#include <linux/sched.h>
-
-void __set_task_comm(struct task_struct * tsk,const char * buf,bool exec)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/skbuff.h>
 
 bool __skb_flow_dissect(const struct net * net,const struct sk_buff * skb,struct flow_dissector * flow_dissector,void * target_container,const void * data,__be16 proto,int nhoff,int hlen,unsigned int flags)
@@ -229,13 +221,6 @@ void blake2s_update(struct blake2s_state * state,const u8 * in,size_t inlen)
 }
 
 
-extern int __init buses_init(void);
-int __init buses_init(void)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/rcupdate.h>
 
 void call_rcu(struct rcu_head * head,rcu_callback_t func)
@@ -279,13 +264,6 @@ void chacha20poly1305_encrypt(u8 * dst,const u8 * src,const size_t src_len,const
 #include <crypto/chacha20poly1305.h>
 
 bool chacha20poly1305_encrypt_sg_inplace(struct scatterlist * src,size_t src_len,const u8 * ad,const size_t ad_len,const u64 nonce,const u8 key[CHACHA20POLY1305_KEY_SIZE])
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-extern int __init classes_init(void);
-int __init classes_init(void)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -355,13 +333,6 @@ struct net_device * dev_get_by_name(struct net * net,const char * name)
 #include <linux/netdevice.h>
 
 void dev_get_tstats64(struct net_device * dev,struct rtnl_link_stats64 * s)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-extern int __init devices_init(void);
-int __init devices_init(void)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -543,14 +514,6 @@ u32 hsiphash_3u32(const u32 first,const u32 second,const u32 third,const hsiphas
 #include <linux/icmpv6.h>
 
 void icmp6_send(struct sk_buff * skb,u8 type,u8 code,__u32 info,const struct in6_addr * force_saddr,const struct inet6_skb_parm * parm)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/sched/signal.h>
-
-void ignore_signals(struct task_struct * t)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -827,13 +790,6 @@ int nla_put(struct sk_buff * skb,int attrtype,int attrlen,const void * data)
 #include <net/netlink.h>
 
 int nla_put_64bit(struct sk_buff * skb,int attrtype,int attrlen,const void * data,int padattr)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-extern int __init platform_bus_init(void);
-int __init platform_bus_init(void)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -1188,14 +1144,6 @@ void up_write(struct rw_semaphore * sem)
 #include <linux/random.h>
 
 int wait_for_random_bytes(void)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/workqueue.h>
-
-void __init workqueue_init(void)
 {
 	lx_emul_trace_and_stop(__func__);
 }

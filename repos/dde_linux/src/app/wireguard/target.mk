@@ -14,6 +14,7 @@ SRC_C    += $(notdir $(wildcard $(PRG_DIR)/generated_dummies.c))
 #
 SRC_C   += lx_emul/clocksource.c
 SRC_C   += lx_emul/irqchip.c
+SRC_C   += lx_emul/shadow/fs/exec.c
 SRC_C   += lx_emul/shadow/kernel/fork.c
 SRC_C   += lx_emul/shadow/kernel/pid.c
 SRC_C   += lx_emul/shadow/kernel/sched/core.c

@@ -30,6 +30,30 @@ unsigned long __sw_hweight64(__u64 w)
 }
 
 
+extern int __init buses_init(void);
+int __init buses_init(void)
+{
+	lx_emul_trace(__func__);
+	return 0;
+}
+
+
+extern int __init classes_init(void);
+int __init classes_init(void)
+{
+	lx_emul_trace(__func__);
+	return 0;
+}
+
+
+extern int __init devices_init(void);
+int __init devices_init(void)
+{
+	lx_emul_trace(__func__);
+	return 0;
+}
+
+
 #include <linux/interrupt.h>
 
 int __init early_irq_init(void)
@@ -56,6 +80,14 @@ void __init hrtimers_init(void)
 }
 
 
+#include <linux/sched/signal.h>
+
+void ignore_signals(struct task_struct * t)
+{
+	lx_emul_trace(__func__);
+}
+
+
 #include <linux/timer.h>
 
 void __init init_timers(void)
@@ -67,6 +99,14 @@ void __init init_timers(void)
 #include <net/ipv6_stubs.h>
 
 const struct ipv6_stub *ipv6_stub = NULL;
+
+
+extern int __init platform_bus_init(void);
+int __init platform_bus_init(void)
+{
+	lx_emul_trace(__func__);
+	return 0;
+}
 
 
 #include <linux/radix-tree.h>
@@ -123,6 +163,14 @@ void __init timekeeping_init(void)
 #include <linux/workqueue.h>
 
 void __init workqueue_init_early(void)
+{
+	lx_emul_trace(__func__);
+}
+
+
+#include <linux/workqueue.h>
+
+void __init workqueue_init(void)
 {
 	lx_emul_trace(__func__);
 }
