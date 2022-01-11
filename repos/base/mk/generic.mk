@@ -115,7 +115,7 @@ b~%.ali b~%.o: b~%.adb
 #
 %.o: %.S
 	$(MSG_COMP)$@
-	$(VERBOSE)$(CC) $(CC_DEF) $(CC_OPT) -D__ASSEMBLY__ $(INCLUDES) -c $< -o $@
+	$(VERBOSE)$(CC) $(CC_DEF) $(CC_C_OPT) -D__ASSEMBLY__ $(INCLUDES) -c $< -o $@
 
 #
 # Link binary data
