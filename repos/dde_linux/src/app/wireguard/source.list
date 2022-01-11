@@ -1,3 +1,5 @@
+arch/x86/crypto/blake2s-core.S
+arch/x86/crypto/blake2s-glue.c
 drivers/net/wireguard/allowedips.c
 drivers/net/wireguard/cookie.c
 drivers/net/wireguard/device.c
@@ -15,4 +17,6 @@ drivers/net/wireguard/timers.c
 kernel/sched/completion.c
 kernel/sched/swait.c
 kernel/kthread.c
+lib/crypto/blake2s.c
+lib/crypto/blake2s-generic.c
 lib/string.c

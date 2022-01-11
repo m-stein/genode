@@ -1,7 +1,7 @@
 /*
  * \brief  Dummy definitions of Linux Kernel functions
  * \author Automatically generated file - do no edit
- * \date   2022-01-10
+ * \date   2022-01-11
  */
 
 #include <lx_emul.h>
@@ -197,30 +197,6 @@ __printf (1,4)struct workqueue_struct * alloc_workqueue(const char * fmt,unsigne
 }
 
 
-#include <crypto/blake2s.h>
-
-void blake2s256_hmac(u8 * out,const u8 * in,const u8 * key,const size_t inlen,const size_t keylen)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <crypto/blake2s.h>
-
-void blake2s_final(struct blake2s_state * state,u8 * out)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <crypto/blake2s.h>
-
-void blake2s_update(struct blake2s_state * state,const u8 * in,size_t inlen)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/rcupdate.h>
 
 void call_rcu(struct rcu_head * head,rcu_callback_t func)
@@ -264,6 +240,13 @@ void chacha20poly1305_encrypt(u8 * dst,const u8 * src,const size_t src_len,const
 #include <crypto/chacha20poly1305.h>
 
 bool chacha20poly1305_encrypt_sg_inplace(struct scatterlist * src,size_t src_len,const u8 * ad,const size_t ad_len,const u64 nonce,const u8 key[CHACHA20POLY1305_KEY_SIZE])
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+extern int cpu_has_xfeatures(u64 xfeatures_needed,const char ** feature_name);
+int cpu_has_xfeatures(u64 xfeatures_needed,const char ** feature_name)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -465,14 +448,6 @@ void free_percpu(void __percpu * ptr)
 
 #include <net/genetlink.h>
 
-int genl_register_family(struct genl_family * family)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <net/genetlink.h>
-
 void * genlmsg_put(struct sk_buff * skb,u32 portid,u32 seq,const struct genl_family * family,int flags,u8 cmd)
 {
 	lx_emul_trace_and_stop(__func__);
@@ -622,6 +597,13 @@ void irq_exit(void)
 }
 
 
+extern bool irq_fpu_usable(void);
+bool irq_fpu_usable(void)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
 #include <linux/irqdomain.h>
 
 void irq_set_default_host(struct irq_domain * domain)
@@ -633,6 +615,20 @@ void irq_set_default_host(struct irq_domain * domain)
 #include <linux/jiffies.h>
 
 unsigned long volatile __cacheline_aligned_in_smp __jiffy_arch_data jiffies;
+
+
+extern void kernel_fpu_begin_mask(unsigned int kfpu_mask);
+void kernel_fpu_begin_mask(unsigned int kfpu_mask)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+extern void kernel_fpu_end(void);
+void kernel_fpu_end(void)
+{
+	lx_emul_trace_and_stop(__func__);
+}
 
 
 #include <linux/slab.h>
@@ -803,14 +799,6 @@ u32 prandom_u32(void)
 }
 
 
-#include <linux/printk.h>
-
-asmlinkage __visible int printk(const char * fmt,...)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/skbuff.h>
 
 int pskb_expand_head(struct sk_buff * skb,int nhead,int ntail,gfp_t gfp_mask)
@@ -859,25 +847,9 @@ int register_netdevice(struct net_device * dev)
 }
 
 
-#include <net/net_namespace.h>
-
-int register_pernet_device(struct pernet_operations * ops)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/random.h>
 
 bool rng_is_initialized(void)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <net/rtnetlink.h>
-
-int rtnl_link_register(struct rtnl_link_ops * ops)
 {
 	lx_emul_trace_and_stop(__func__);
 }

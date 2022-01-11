@@ -17,6 +17,7 @@ SRC_C   += lx_emul/irqchip.c
 SRC_C   += lx_emul/shadow/fs/exec.c
 SRC_C   += lx_emul/shadow/kernel/fork.c
 SRC_C   += lx_emul/shadow/kernel/pid.c
+SRC_C   += lx_emul/shadow/kernel/printk/printk.c
 SRC_C   += lx_emul/shadow/kernel/sched/core.c
 SRC_C   += lx_emul/shadow/mm/slab_common.c
 SRC_C   += lx_emul/shadow/mm/slub.c
@@ -83,10 +84,9 @@ CC_C_OPT += -Wno-packed-not-aligned -D'pr_fmt(fmt)=KBUILD_MODNAME ": " fmt'
 
 CC_OPT_drivers/net/wireguard/allowedips += -Wno-frame-larger-than
 
-LX_SRC    = $(shell grep ".*\.c" $(PRG_DIR)/source.list)
-SRC_S    += $(shell grep ".*\.S" $(PRG_DIR)/source.list)
-SRC_C    += $(LX_SRC)
-SRC_S    += $(LX_ASM:$(LX_OUT_DIR)/%=%)
+LX_SRC  = $(shell grep ".*\.c" $(PRG_DIR)/source.list)
+SRC_S  += $(shell grep ".*\.S" $(PRG_DIR)/source.list)
+SRC_C  += $(LX_SRC)
 
 vpath %.c $(LX_OUT_DIR)
 vpath %.S $(LX_OUT_DIR)

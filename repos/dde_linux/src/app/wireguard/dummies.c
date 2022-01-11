@@ -30,6 +30,9 @@ unsigned long __sw_hweight64(__u64 w)
 }
 
 
+struct cpuinfo_x86 boot_cpu_data __read_mostly;
+
+
 extern int __init buses_init(void);
 int __init buses_init(void)
 {
@@ -69,6 +72,15 @@ int __init early_irq_init(void)
 int generic_handle_irq(unsigned int irq)
 {
 	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <net/genetlink.h>
+
+int genl_register_family(struct genl_family * family)
+{
+	lx_emul_trace(__func__);
+	return 0;
 }
 
 
@@ -125,6 +137,24 @@ void __init radix_tree_init(void)
 void rcu_barrier(void)
 {
 	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <net/net_namespace.h>
+
+int register_pernet_device(struct pernet_operations * ops)
+{
+	lx_emul_trace(__func__);
+	return 0;
+}
+
+
+#include <net/rtnetlink.h>
+
+int rtnl_link_register(struct rtnl_link_ops * ops)
+{
+	lx_emul_trace(__func__);
+	return 0;
 }
 
 
