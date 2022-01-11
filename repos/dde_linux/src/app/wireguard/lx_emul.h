@@ -17,3 +17,7 @@
 /* fix for missing includes in generated_dummies */
 #include <linux/compiler_attributes.h>
 #include <linux/sched/debug.h>
+#include <net/rtnetlink.h>
+
+
+struct rtnl_link_ops *wireguard_rtnl_link_ops(void);

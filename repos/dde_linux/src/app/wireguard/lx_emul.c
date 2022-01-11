@@ -11,7 +11,18 @@
  * version 2.
  */
 
+/* app/wireguard includes */
 #include <lx_emul.h>
+
+
+static struct rtnl_link_ops *_wireguard_rtnl_link_ops;
+
+
+struct rtnl_link_ops *wireguard_rtnl_link_ops()
+{
+	return _wireguard_rtnl_link_ops;
+}
+
 
 void lx_user_init(void) {}
 void lx_emul_associate_page_selftest(void) {}
@@ -26,3 +37,8 @@ void * kmalloc_order(size_t size,gfp_t flags,unsigned int order)
 }
 
 
+int rtnl_link_register(struct rtnl_link_ops * ops)
+{
+	_wireguard_rtnl_link_ops = ops;
+	return 0;
+}

@@ -149,15 +149,6 @@ int register_pernet_device(struct pernet_operations * ops)
 }
 
 
-#include <net/rtnetlink.h>
-
-int rtnl_link_register(struct rtnl_link_ops * ops)
-{
-	lx_emul_trace(__func__);
-	return 0;
-}
-
-
 #include <linux/sched/clock.h>
 
 void __init sched_clock_init(void)
