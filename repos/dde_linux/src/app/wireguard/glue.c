@@ -16,7 +16,6 @@
 #include <lx_emul.h>
 
 /* contrib linux includes */
-#include <../drivers/net/wireguard/messages.h>
 #include <../drivers/net/wireguard/device.h>
 
 /*
@@ -68,23 +67,24 @@ void glue_wg_newlink(void)
 }
 
 
-void glue_wg_set_device_init(glue_uint16_t       listen_port,
-                             glue_uint8_t const *private_key) { }
+void glue_wg_set_device_init(glue_uint16_t      listen_port,
+                             glue_uint8_t const private_key[GLUE_KEY_LEN]) { }
 
 
 void glue_wg_open(void) { }
 
 
-void glue_wg_set_device_peer(glue_uint8_t  const *public_key,
-                             glue_uint8_t  const *endpoint_ip,
-                             glue_uint16_t const  endpoint_port)
+void glue_wg_set_device_peer(glue_uint8_t  const public_key[GLUE_KEY_LEN],
+                             glue_uint8_t  const endpoint_ip[4],
+                             glue_uint16_t       endpoint_port,
+                             glue_uint8_t  const allowed_ip_addr[4],
+                             glue_uint8_t  const allowed_ip_subnet_mask[4])
 {
 	unsigned idx;
-	for (idx = 0; idx < NOISE_PUBLIC_KEY_LEN; idx++) {
-		print_hex(public_key[idx]);
+	printk("public key\n");
+	for (idx = 0; idx < GLUE_KEY_LEN; idx += 4) {
+		printk("  %d: %x %x %x %x\n", idx, public_key[idx + 0], public_key[idx + 1], public_key[idx + 2], public_key[idx + 3]);
 	}
-	for (idx = 0; idx < 4; idx++) {
-		print_hex(endpoint_ip[idx]);
-	}
-	print_hex(endpoint_port);
+	printk("endpoint ip %x %x %x %x port %x\n", endpoint_ip[0], endpoint_ip[1], endpoint_ip[2], endpoint_ip[3], endpoint_port);
+	printk("allowed ip %x %x %x %x subnet mask %x %x %x %X\n", allowed_ip_addr[0], allowed_ip_addr[1], allowed_ip_addr[2], allowed_ip_addr[3], allowed_ip_subnet_mask[0], allowed_ip_subnet_mask[1], allowed_ip_subnet_mask[2], allowed_ip_subnet_mask[3]);
 }

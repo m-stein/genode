@@ -16,9 +16,6 @@
 #include <base/component.h>
 #include <base/attached_rom_dataspace.h>
 
-/* os includes */
-#include <net/ipv4.h>
-
 /* lx-kit includes */
 #include <lx_kit/env.h>
 
@@ -28,6 +25,7 @@
 /* app/wireguard includes */
 #include <glue_cpp.h>
 #include <base64.h>
+#include <ipv4_address_prefix.h>
 
 using namespace Genode;
 using namespace Net;
@@ -143,9 +141,28 @@ class Wireguard::Main
 						throw Cannot_read_peer_endpoint { };
 					}
 				}
+				/* read allowed ips of the peer */
+				Ipv4_address_prefix allowed_ip { };
+				config.for_each_sub_node(
+					"allowed-ip", [&] (Xml_node const &allowed_ip_node)
+				{
+					if (allowed_ip.valid()) {
+						class Only_one_allowed_ip_per_peer_supported { };
+						throw Only_one_allowed_ip_per_peer_supported { };
+					}
+					allowed_ip =
+						allowed_ip_node.attribute_value(
+							"value", Ipv4_address_prefix { });
+
+					if (!allowed_ip.valid()) {
+						class Cannot_read_peer_allowed_ip { };
+						throw Cannot_read_peer_allowed_ip { };
+					}
+				});
 				/* install peer config at contrib code */
 				glue_wg_set_device_peer(
-					public_key, endpoint_ip.addr, endpoint_port);
+					public_key, endpoint_ip.addr, endpoint_port,
+					allowed_ip.address.addr, allowed_ip.subnet_mask().addr);
 			});
 		}
 

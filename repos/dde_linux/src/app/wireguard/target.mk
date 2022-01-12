@@ -4,6 +4,7 @@ LIBS     += base jitterentropy wireguard_linux
 INC_DIR  += $(PRG_DIR)
 SRC_CC   += main.cc
 SRC_CC   += base64.cc
+SRC_CC   += ipv4_address_prefix.cc
 SRC_CC   += random.cc
 SRC_C    += dummies.c
 SRC_C    += glue.c

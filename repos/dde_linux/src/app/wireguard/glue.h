@@ -14,6 +14,10 @@
 #ifndef _GLUE_H_
 #define _GLUE_H_
 
+enum {
+	GLUE_KEY_LEN = 32,
+};
+
 typedef unsigned char  glue_uint8_t;
 typedef unsigned short glue_uint16_t;
 
