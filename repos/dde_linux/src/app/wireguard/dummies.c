@@ -13,6 +13,16 @@
 
 #include <lx_emul.h>
 
+
+#include <linux/cpuhotplug.h>
+
+int __cpuhp_setup_state(enum cpuhp_state state,const char * name,bool invoke,int (* startup)(unsigned int cpu),int (* teardown)(unsigned int cpu),bool multi_instance)
+{
+	lx_emul_trace(__func__);
+	return 0;
+}
+
+
 #include <asm/irq_regs.h>
 struct pt_regs * __irq_regs = NULL;
 
@@ -84,6 +94,11 @@ int genl_register_family(struct genl_family * family)
 }
 
 
+#include <linux/tracepoint-defs.h>
+
+const struct trace_print_flags gfpflag_names[]  = { {0,NULL}};
+
+
 #include <linux/hrtimer.h>
 
 void __init hrtimers_init(void)
@@ -102,6 +117,14 @@ void ignore_signals(struct task_struct * t)
 
 #include <linux/timer.h>
 
+void init_timer_key(struct timer_list * timer,void (* func)(struct timer_list *),unsigned int flags,const char * name,struct lock_class_key * key)
+{
+	lx_emul_trace(__func__);
+}
+
+
+#include <linux/timer.h>
+
 void __init init_timers(void)
 {
 	lx_emul_trace(__func__);
@@ -113,19 +136,16 @@ void __init init_timers(void)
 const struct ipv6_stub *ipv6_stub = NULL;
 
 
+#include <linux/tracepoint-defs.h>
+
+const struct trace_print_flags pageflag_names[] = { {0,NULL}};
+
+
 extern int __init platform_bus_init(void);
 int __init platform_bus_init(void)
 {
 	lx_emul_trace(__func__);
 	return 0;
-}
-
-
-#include <linux/radix-tree.h>
-
-void __init radix_tree_init(void)
-{
-	lx_emul_trace(__func__);
 }
 
 
@@ -157,6 +177,15 @@ void __init sched_clock_init(void)
 }
 
 
+#include <linux/sched.h>
+
+signed long __sched schedule_timeout(signed long timeout)
+{
+	lx_emul_trace(__func__);
+	return timeout;
+}
+
+
 #include <linux/interrupt.h>
 
 void __init softirq_init(void)
@@ -181,19 +210,6 @@ void __init timekeeping_init(void)
 }
 
 
-#include <linux/workqueue.h>
+#include <linux/tracepoint-defs.h>
 
-void __init workqueue_init_early(void)
-{
-	lx_emul_trace(__func__);
-}
-
-
-#include <linux/workqueue.h>
-
-void __init workqueue_init(void)
-{
-	lx_emul_trace(__func__);
-}
-
-
+const struct trace_print_flags vmaflag_names[]  = { {0,NULL}};

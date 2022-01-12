@@ -42,15 +42,24 @@ static struct netlink_ext_ack _glue_wg_extack;
 void print_hex(unsigned long x);
 
 
+static struct rtnl_link_ops *_wireguard_rtnl_link_ops;
+
+
+void glue_wg_rtnl_link_ops(struct rtnl_link_ops * ops)
+{
+	_wireguard_rtnl_link_ops = ops;
+}
+
+
 void glue_wg_setup(void)
 {
-	wireguard_rtnl_link_ops()->setup(&_glue_wg_net_dev.public_data);
+	_wireguard_rtnl_link_ops->setup(&_glue_wg_net_dev.public_data);
 }
 
 
 void glue_wg_newlink(void)
 {
-	wireguard_rtnl_link_ops()->newlink(
+	_wireguard_rtnl_link_ops->newlink(
 		&_glue_wg_src_net,
 		&_glue_wg_net_dev.public_data,
 		 _glue_wg_tb,

@@ -15,18 +15,18 @@
 #include <lx_emul.h>
 
 
-static struct rtnl_link_ops *_wireguard_rtnl_link_ops;
-
-
-struct rtnl_link_ops *wireguard_rtnl_link_ops()
-{
-	return _wireguard_rtnl_link_ops;
-}
-
-
 void lx_user_init(void) {}
 void lx_emul_associate_page_selftest(void) {}
 void lx_emul_forget_pages(void const *virt, unsigned long size) {}
+
+
+#include <lx_emul/random.h>
+#include <linux/random.h>
+
+void get_random_bytes(void * buf,int nbytes)
+{
+	lx_emul_random_bytes(buf, nbytes);
+}
 
 
 #include <linux/slab.h>
@@ -37,8 +37,29 @@ void * kmalloc_order(size_t size,gfp_t flags,unsigned int order)
 }
 
 
+#include <linux/mm.h>
+
+void * kvmalloc_node(size_t size,gfp_t flags,int node)
+{
+	return kmalloc(size, flags);
+}
+
+
+#include <lx_emul/time.h>
+#include <linux/timekeeping.h>
+
+ktime_t ktime_get_coarse_with_offset(enum tk_offsets offs)
+{
+	return lx_emul_time_counter() * 1000;
+}
+
+
+#include <net/rtnetlink.h>
+
+extern void glue_wg_rtnl_link_ops(struct rtnl_link_ops * ops);
+
 int rtnl_link_register(struct rtnl_link_ops * ops)
 {
-	_wireguard_rtnl_link_ops = ops;
+	glue_wg_rtnl_link_ops(ops);
 	return 0;
 }
