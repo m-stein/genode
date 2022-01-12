@@ -45,15 +45,6 @@ void * kvmalloc_node(size_t size,gfp_t flags,int node)
 }
 
 
-#include <lx_emul/time.h>
-#include <linux/timekeeping.h>
-
-ktime_t ktime_get_coarse_with_offset(enum tk_offsets offs)
-{
-	return lx_emul_time_counter() * 1000;
-}
-
-
 #include <net/rtnetlink.h>
 
 extern void glue_wg_rtnl_link_ops(struct rtnl_link_ops * ops);

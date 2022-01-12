@@ -79,14 +79,6 @@ struct irq_desc * __irq_resolve_mapping(struct irq_domain * domain,irq_hw_number
 }
 
 
-#include <linux/bottom_half.h>
-
-void __local_bh_enable_ip(unsigned long ip,unsigned int cnt)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/netdevice.h>
 
 void __napi_schedule(struct napi_struct * n)
@@ -159,6 +151,14 @@ void __wake_up(struct wait_queue_head * wq_head,unsigned int mode,int nr_exclusi
 }
 
 
+#include <linux/uaccess.h>
+
+unsigned long _copy_to_user(void __user * to,const void * from,unsigned long n)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
 #include <linux/ctype.h>
 
 const unsigned char _ctype[] = {};
@@ -207,6 +207,14 @@ unsigned int _parse_integer_limit(const char * s,unsigned int base,unsigned long
 atomic_long_t _totalram_pages;
 
 
+#include <linux/kernel_stat.h>
+
+void account_process_tick(struct task_struct * p,int user_tick)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
 extern void ack_bad_irq(unsigned int irq);
 void ack_bad_irq(unsigned int irq)
 {
@@ -222,25 +230,17 @@ int add_random_ready_callback(struct random_ready_callback * rdy)
 }
 
 
-#include <linux/timer.h>
-
-void add_timer(struct timer_list * timer)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/timer.h>
-
-void add_timer_on(struct timer_list * timer,int cpu)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/wait.h>
 
 int autoremove_wake_function(struct wait_queue_entry * wq_entry,unsigned mode,int sync,void * key)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/sched/loadavg.h>
+
+void calc_global_load(void)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -312,14 +312,6 @@ void curve25519_base_arch(u8 pub[CURVE25519_KEY_SIZE],const u8 secret[CURVE25519
 #include <crypto/curve25519.h>
 
 const u8 curve25519_null_point[] = {};
-
-
-#include <linux/timer.h>
-
-int del_timer(struct timer_list * timer)
-{
-	lx_emul_trace_and_stop(__func__);
-}
 
 
 #include <linux/netdevice.h>
@@ -645,22 +637,6 @@ void irq_domain_free_irqs_common(struct irq_domain * domain,unsigned int virq,un
 }
 
 
-#include <linux/hardirq.h>
-
-void irq_enter(void)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/hardirq.h>
-
-void irq_exit(void)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 extern bool irq_fpu_usable(void);
 bool irq_fpu_usable(void)
 {
@@ -676,17 +652,17 @@ void irq_set_default_host(struct irq_domain * domain)
 }
 
 
-#include <linux/jiffies.h>
+#include <linux/irq_work.h>
 
-unsigned long volatile __cacheline_aligned_in_smp __jiffy_arch_data jiffies;
-
-
-#include <linux/jiffies.h>
-
-unsigned int jiffies_to_msecs(const unsigned long j)
+void irq_work_tick(void)
 {
 	lx_emul_trace_and_stop(__func__);
 }
+
+
+#include <linux/jiffies.h>
+
+unsigned long volatile __cacheline_aligned_in_smp __jiffy_arch_data jiffies;
 
 
 extern void kernel_fpu_begin_mask(unsigned int kfpu_mask);
@@ -735,9 +711,9 @@ void kmem_cache_destroy(struct kmem_cache * s)
 }
 
 
-#include <linux/timekeeping.h>
+#include <linux/kstrtox.h>
 
-void ktime_get_real_ts64(struct timespec64 * ts)
+int kstrtoll(const char * s,unsigned int base,long long * res)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -751,12 +727,9 @@ void kvfree(const void * addr)
 }
 
 
-#include <linux/timer.h>
+#include <linux/delay.h>
 
-int mod_timer(struct timer_list * timer,unsigned long expires)
-{
-	lx_emul_trace_and_stop(__func__);
-}
+unsigned long lpj_fine;
 
 
 #include <linux/netdevice.h>
@@ -847,6 +820,14 @@ bool prepare_to_wait_exclusive(struct wait_queue_head * wq_head,struct wait_queu
 }
 
 
+#include <linux/printk.h>
+
+int printk_deferred(const char * fmt,...)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
 #include <linux/skbuff.h>
 
 int pskb_expand_head(struct sk_buff * skb,int nhead,int ntail,gfp_t gfp_mask)
@@ -858,6 +839,14 @@ int pskb_expand_head(struct sk_buff * skb,int nhead,int ntail,gfp_t gfp_mask)
 #include <linux/skbuff.h>
 
 void * pskb_put(struct sk_buff * skb,struct sk_buff * tail,int len)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/rcupdate.h>
+
+void rcu_sched_clock_irq(int user)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -882,6 +871,14 @@ void refcount_warn_saturate(refcount_t * r,enum refcount_saturation_type t)
 #include <linux/netdevice.h>
 
 int register_netdevice(struct net_device * dev)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/syscore_ops.h>
+
+void register_syscore_ops(struct syscore_ops * ops)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -914,14 +911,6 @@ void rtnl_lock(void)
 #include <linux/rtnetlink.h>
 
 void rtnl_unlock(void)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/sched.h>
-
-signed long __sched schedule_timeout_interruptible(signed long timeout)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -1100,9 +1089,25 @@ void synchronize_net(void)
 }
 
 
-#include <linux/time.h>
+#include <linux/timerqueue.h>
 
-void time64_to_tm(time64_t totalsecs,int offset,struct tm * result)
+bool timerqueue_add(struct timerqueue_head * head,struct timerqueue_node * node)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/timerqueue.h>
+
+bool timerqueue_del(struct timerqueue_head * head,struct timerqueue_node * node)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/timerqueue.h>
+
+struct timerqueue_node * timerqueue_iterate_next(struct timerqueue_node * node)
 {
 	lx_emul_trace_and_stop(__func__);
 }

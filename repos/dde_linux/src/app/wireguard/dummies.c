@@ -59,6 +59,14 @@ int __init classes_init(void)
 }
 
 
+#include <linux/clocksource.h>
+
+void clocksource_arch_init(struct clocksource * cs)
+{
+	lx_emul_trace(__func__);
+}
+
+
 extern int __init devices_init(void);
 int __init devices_init(void)
 {
@@ -99,14 +107,6 @@ int genl_register_family(struct genl_family * family)
 const struct trace_print_flags gfpflag_names[]  = { {0,NULL}};
 
 
-#include <linux/hrtimer.h>
-
-void __init hrtimers_init(void)
-{
-	lx_emul_trace(__func__);
-}
-
-
 #include <linux/sched/signal.h>
 
 void ignore_signals(struct task_struct * t)
@@ -115,25 +115,14 @@ void ignore_signals(struct task_struct * t)
 }
 
 
-#include <linux/timer.h>
-
-void init_timer_key(struct timer_list * timer,void (* func)(struct timer_list *),unsigned int flags,const char * name,struct lock_class_key * key)
-{
-	lx_emul_trace(__func__);
-}
-
-
-#include <linux/timer.h>
-
-void __init init_timers(void)
-{
-	lx_emul_trace(__func__);
-}
-
-
 #include <net/ipv6_stubs.h>
 
 const struct ipv6_stub *ipv6_stub = NULL;
+
+
+#include <linux/prandom.h>
+
+unsigned long net_rand_noise;
 
 
 #include <linux/tracepoint-defs.h>
@@ -169,42 +158,9 @@ int register_pernet_device(struct pernet_operations * ops)
 }
 
 
-#include <linux/sched/clock.h>
+#include <linux/timekeeper_internal.h>
 
-void __init sched_clock_init(void)
-{
-	lx_emul_trace(__func__);
-}
-
-
-#include <linux/sched.h>
-
-signed long __sched schedule_timeout(signed long timeout)
-{
-	lx_emul_trace(__func__);
-	return timeout;
-}
-
-
-#include <linux/interrupt.h>
-
-void __init softirq_init(void)
-{
-	lx_emul_trace(__func__);
-}
-
-
-#include <linux/tick.h>
-
-void __init tick_init(void)
-{
-	lx_emul_trace(__func__);
-}
-
-
-#include <linux/timekeeping.h>
-
-void __init timekeeping_init(void)
+void update_vsyscall(struct timekeeper * tk)
 {
 	lx_emul_trace(__func__);
 }
