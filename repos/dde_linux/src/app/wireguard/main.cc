@@ -23,7 +23,7 @@
 #include <lx_emul/init.h>
 
 /* app/wireguard includes */
-#include <glue_cpp.h>
+#include <genode_c_api/wireguard.h>
 #include <base64.h>
 #include <ipv4_address_prefix.h>
 
@@ -63,15 +63,15 @@ class Wireguard::Main
 
 			/* read listen port attribute */
 			Xml_node const &config { _config_rom.xml() };
-			glue_uint16_t listen_port {
-				config.attribute_value("listen_port", (glue_uint16_t)0) };
+			uint16_t listen_port {
+				config.attribute_value("listen_port", (uint16_t)0) };
 
 			if (listen_port == 0) {
 				class Cannot_read_listen_port { };
 				throw Cannot_read_listen_port { };
 			}
 			/* read and decode private key from ROM */
-			glue_uint8_t private_key[WG_KEY_LEN];
+			uint8_t private_key[WG_KEY_LEN];
 			{
 				char private_key_base64[WG_KEY_LEN_BASE64];
 				memcpy(private_key_base64,
@@ -85,14 +85,14 @@ class Wireguard::Main
 				}
 			}
 			/* install listen port and private key at contrib code */
-			glue_wg_set_device_init(listen_port, private_key);
-			glue_wg_open();
+			genode_wg_set_device_init(listen_port, private_key);
+			genode_wg_open();
 
 			/* read and apply config of each configured peer */
 			config.for_each_sub_node("peer", [&] (Xml_node const &peer) {
 
 				/* read and decode public key of the peer*/
-				glue_uint8_t public_key[WG_KEY_LEN];
+				uint8_t public_key[WG_KEY_LEN];
 				{
 					String<WG_KEY_LEN_BASE64> public_key_base64 {
 						peer.attribute_value(
@@ -111,7 +111,7 @@ class Wireguard::Main
 				}
 				/* read endpoint config of the peer */
 				Ipv4_address  endpoint_ip   { };
-				glue_uint16_t endpoint_port { 0 };
+				uint16_t endpoint_port { 0 };
 				{
 					bool endpoint_missing { true };
 					peer.with_sub_node(
@@ -129,7 +129,7 @@ class Wireguard::Main
 						}
 						/* read endpoint port */
 						endpoint_port =
-							endpoint.attribute_value("port", (glue_uint16_t)0);
+							endpoint.attribute_value("port", (uint16_t)0);
 
 						if (endpoint_port == 0) {
 							class Cannot_read_peer_endpoint_port { };
@@ -160,7 +160,7 @@ class Wireguard::Main
 					}
 				});
 				/* install peer config at contrib code */
-				glue_wg_set_device_peer(
+				genode_wg_set_device_peer(
 					public_key, endpoint_ip.addr, endpoint_port,
 					allowed_ip.address.addr, allowed_ip.subnet_mask().addr);
 			});
@@ -174,8 +174,8 @@ class Wireguard::Main
 			lx_emul_start_kernel(nullptr);
 
 			/* initialize wireguard device at contrib code */
-			glue_wg_setup();
-			glue_wg_newlink();
+			genode_wg_setup();
+			genode_wg_newlink();
 
 			_handle_config();
 		}

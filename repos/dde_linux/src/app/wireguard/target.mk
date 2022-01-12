@@ -7,7 +7,7 @@ SRC_CC   += base64.cc
 SRC_CC   += ipv4_address_prefix.cc
 SRC_CC   += random.cc
 SRC_C    += dummies.c
-SRC_C    += glue.c
+SRC_C    += genode_c_api/wireguard.c
 SRC_C    += lx_emul.c
 SRC_C    += $(notdir $(wildcard $(PRG_DIR)/generated_dummies.c))
 

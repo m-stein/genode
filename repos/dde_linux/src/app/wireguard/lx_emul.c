@@ -47,10 +47,10 @@ void * kvmalloc_node(size_t size,gfp_t flags,int node)
 
 #include <net/rtnetlink.h>
 
-extern void glue_wg_rtnl_link_ops(struct rtnl_link_ops * ops);
+extern void genode_wg_rtnl_link_ops(struct rtnl_link_ops * ops);
 
 int rtnl_link_register(struct rtnl_link_ops * ops)
 {
-	glue_wg_rtnl_link_ops(ops);
+	genode_wg_rtnl_link_ops(ops);
 	return 0;
 }
