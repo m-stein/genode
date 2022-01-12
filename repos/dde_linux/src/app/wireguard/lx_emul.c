@@ -54,3 +54,14 @@ int rtnl_link_register(struct rtnl_link_ops * ops)
 	genode_wg_rtnl_link_ops(ops);
 	return 0;
 }
+
+
+#include <net/genetlink.h>
+
+extern void genode_wg_genl_family(struct genl_family * family);
+
+int genl_register_family(struct genl_family * family)
+{
+	genode_wg_genl_family(family);
+	return 0;
+}

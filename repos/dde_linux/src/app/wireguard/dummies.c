@@ -93,15 +93,6 @@ int generic_handle_irq(unsigned int irq)
 }
 
 
-#include <net/genetlink.h>
-
-int genl_register_family(struct genl_family * family)
-{
-	lx_emul_trace(__func__);
-	return 0;
-}
-
-
 #include <linux/tracepoint-defs.h>
 
 const struct trace_print_flags gfpflag_names[]  = { {0,NULL}};

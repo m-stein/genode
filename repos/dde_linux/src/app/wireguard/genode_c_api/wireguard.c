@@ -17,6 +17,8 @@
 
 /* contrib linux includes */
 #include <../drivers/net/wireguard/device.h>
+#include <uapi/linux/wireguard.h>
+#include <net/genetlink.h>
 
 
 /*
@@ -38,14 +40,21 @@ static struct net                   _genode_wg_src_net;
 static struct nlattr               *_genode_wg_tb[1];
 static struct nlattr               *_genode_wg_data[1];
 static struct netlink_ext_ack       _genode_wg_extack;
-
-
-static struct rtnl_link_ops *_genode_wg_rtnl_link_ops;
+static struct sk_buff               _genode_wg_sk_buff;
+static struct genl_info             _genode_wg_genl_info;
+static struct rtnl_link_ops        *_genode_wg_rtnl_link_ops;
+static struct genl_family          *_genode_wg_genl_family;
 
 
 void genode_wg_rtnl_link_ops(struct rtnl_link_ops *ops)
 {
 	_genode_wg_rtnl_link_ops = ops;
+}
+
+
+void genode_wg_genl_family(struct genl_family * family)
+{
+	_genode_wg_genl_family = family;
 }
 
 
@@ -65,7 +74,18 @@ void
 genode_wg_set_driver_config(genode_wg_u16      listen_port,
                             genode_wg_u8 const private_key[GENODE_WG_KEY_LEN])
 {
-	// wg_set_device(...);
+	unsigned idx;
+	unsigned found_wg_cmd = 0;
+	for (idx = 0; idx < _genode_wg_genl_family->n_ops; idx++) {
+		if (_genode_wg_genl_family->ops[idx].cmd == WG_CMD_SET_DEVICE) {
+			_genode_wg_genl_family->ops[idx].doit(&_genode_wg_sk_buff, &_genode_wg_genl_info);
+			found_wg_cmd = 1;
+		}
+	}
+	if (!found_wg_cmd) {
+		printk("Error: cannot find op WG_CMD_SET_DEVICE");
+		while (1) { }
+	}
 	// wg_open(...);
 }
 
