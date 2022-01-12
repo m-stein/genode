@@ -23,20 +23,18 @@ typedef unsigned short genode_wg_u16;
 extern "C" {
 #endif
 
-void genode_wg_setup(void);
+void genode_wg_initialize_driver(void);
 
-void genode_wg_newlink(void);
+void
+genode_wg_set_driver_config(genode_wg_u16      listen_port,
+                            genode_wg_u8 const private_key[GENODE_WG_KEY_LEN]);
 
-void genode_wg_set_device_init(genode_wg_u16      listen_port,
-                               genode_wg_u8 const private_key[GENODE_WG_KEY_LEN]);
-
-void genode_wg_open(void);
-
-void genode_wg_set_device_peer(genode_wg_u8 const public_key[GENODE_WG_KEY_LEN],
-                               genode_wg_u8 const endpoint_ip[4],
-                               genode_wg_u16      endpoint_port,
-                               genode_wg_u8 const allowed_ip_addr[4],
-                               genode_wg_u8 const allowed_ip_subnet_mask[4]);
+void
+genode_wg_set_peer_config(genode_wg_u8 const public_key[GENODE_WG_KEY_LEN],
+                          genode_wg_u8 const endpoint_ip[4],
+                          genode_wg_u16      endpoint_port,
+                          genode_wg_u8 const allowed_ip_addr[4],
+                          genode_wg_u8 const allowed_ip_subnet_mask[4]);
 
 #ifdef __cplusplus
 }

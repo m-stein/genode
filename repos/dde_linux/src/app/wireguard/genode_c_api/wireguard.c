@@ -40,9 +40,6 @@ static struct nlattr               *_genode_wg_data[1];
 static struct netlink_ext_ack       _genode_wg_extack;
 
 
-void print_hex(unsigned long x);
-
-
 static struct rtnl_link_ops *_genode_wg_rtnl_link_ops;
 
 
@@ -52,14 +49,9 @@ void genode_wg_rtnl_link_ops(struct rtnl_link_ops *ops)
 }
 
 
-void genode_wg_setup(void)
+void genode_wg_initialize_driver(void)
 {
 	_genode_wg_rtnl_link_ops->setup(&_genode_wg_net_dev.public_data);
-}
-
-
-void genode_wg_newlink(void)
-{
 	_genode_wg_rtnl_link_ops->newlink(
 		&_genode_wg_src_net,
 		&_genode_wg_net_dev.public_data,
@@ -69,18 +61,22 @@ void genode_wg_newlink(void)
 }
 
 
-void genode_wg_set_device_init(genode_wg_u16      listen_port,
-                               genode_wg_u8 const private_key[GENODE_WG_KEY_LEN]) { }
+void
+genode_wg_set_driver_config(genode_wg_u16      listen_port,
+                            genode_wg_u8 const private_key[GENODE_WG_KEY_LEN])
+{
+	// wg_set_device(...);
+	// wg_open(...);
+}
 
 
-void genode_wg_open(void) { }
 
-
-void genode_wg_set_device_peer(genode_wg_u8 const public_key[GENODE_WG_KEY_LEN],
-                               genode_wg_u8 const endpoint_ip[4],
-                               genode_wg_u16      endpoint_port,
-                               genode_wg_u8 const allowed_ip_addr[4],
-                               genode_wg_u8 const allowed_ip_subnet_mask[4])
+void
+genode_wg_set_peer_config(genode_wg_u8 const public_key[GENODE_WG_KEY_LEN],
+                          genode_wg_u8 const endpoint_ip[4],
+                          genode_wg_u16      endpoint_port,
+                          genode_wg_u8 const allowed_ip_addr[4],
+                          genode_wg_u8 const allowed_ip_subnet_mask[4])
 {
 	unsigned idx;
 	printk("public key\n");
@@ -89,4 +85,6 @@ void genode_wg_set_device_peer(genode_wg_u8 const public_key[GENODE_WG_KEY_LEN],
 	}
 	printk("endpoint ip %x %x %x %x port %x\n", endpoint_ip[0], endpoint_ip[1], endpoint_ip[2], endpoint_ip[3], endpoint_port);
 	printk("allowed ip %x %x %x %x subnet mask %x %x %x %X\n", allowed_ip_addr[0], allowed_ip_addr[1], allowed_ip_addr[2], allowed_ip_addr[3], allowed_ip_subnet_mask[0], allowed_ip_subnet_mask[1], allowed_ip_subnet_mask[2], allowed_ip_subnet_mask[3]);
+
+	// wg_set_device(...);
 }

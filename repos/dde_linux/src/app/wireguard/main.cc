@@ -85,8 +85,7 @@ class Wireguard::Main
 				}
 			}
 			/* install listen port and private key at contrib code */
-			genode_wg_set_device_init(listen_port, private_key);
-			genode_wg_open();
+			genode_wg_set_driver_config(listen_port, private_key);
 
 			/* read and apply config of each configured peer */
 			config.for_each_sub_node("peer", [&] (Xml_node const &peer) {
@@ -160,7 +159,7 @@ class Wireguard::Main
 					}
 				});
 				/* install peer config at contrib code */
-				genode_wg_set_device_peer(
+				genode_wg_set_peer_config(
 					public_key, endpoint_ip.addr, endpoint_port,
 					allowed_ip.address.addr, allowed_ip.subnet_mask().addr);
 			});
@@ -172,11 +171,7 @@ class Wireguard::Main
 		{
 			Lx_kit::initialize(_env);
 			lx_emul_start_kernel(nullptr);
-
-			/* initialize wireguard device at contrib code */
-			genode_wg_setup();
-			genode_wg_newlink();
-
+			genode_wg_initialize_driver();
 			_handle_config();
 		}
 };
