@@ -12,8 +12,15 @@
  */
 
 #include <lx_emul/init.h>
+#include <lx_emul/time.h>
 
-void time_init(void) {}
+#include <linux/delay.h>
+
+void time_init(void)
+{
+	lx_emul_time_init(); /* replaces timer_probe() */
+	lpj_fine = 1000000 / HZ;
+}
 
 
 void lx_emul_setup_arch(void *dtb) { }
