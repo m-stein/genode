@@ -60,7 +60,10 @@ void genode_wg_genl_family(struct genl_family * family)
 
 void genode_wg_initialize_driver(void)
 {
+	/* trigger execution of 'wg_setup' */
 	_genode_wg_rtnl_link_ops->setup(&_genode_wg_net_dev.public_data);
+
+	/* trigger execution of 'wg_newlink' */
 	_genode_wg_rtnl_link_ops->newlink(
 		&_genode_wg_src_net,
 		&_genode_wg_net_dev.public_data,
@@ -74,6 +77,10 @@ void
 genode_wg_set_driver_config(genode_wg_u16      listen_port,
                             genode_wg_u8 const private_key[GENODE_WG_KEY_LEN])
 {
+	/*
+	 * Trigger execution of 'wg_set_device' in order to install listen port
+	 * and private key.
+	 */
 	unsigned idx;
 	unsigned found_wg_cmd = 0;
 	for (idx = 0; idx < _genode_wg_genl_family->n_ops; idx++) {
@@ -86,7 +93,9 @@ genode_wg_set_driver_config(genode_wg_u16      listen_port,
 		printk("Error: cannot find op WG_CMD_SET_DEVICE");
 		while (1) { }
 	}
-	// wg_open(...);
+	/* trigger execution of 'wg_open' */
+	_genode_wg_net_dev.public_data.netdev_ops->ndo_open(
+		&_genode_wg_net_dev.public_data);
 }
 
 
