@@ -15,6 +15,13 @@
 #include <lx_emul/time.h>
 
 #include <linux/delay.h>
+#include <linux/sched/clock.h>
+
+unsigned long long sched_clock(void)
+{
+	return lx_emul_time_counter() * 1000;
+}
+
 
 void time_init(void)
 {
