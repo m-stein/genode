@@ -17,9 +17,22 @@
 
 /* contrib linux includes */
 #include <../drivers/net/wireguard/messages.h>
+#include <../drivers/net/wireguard/device.h>
 
+/*
+ * The contrib code expects the private device data to be located directly
+ + behind the public data with a certain alignment. It does pointer arithmetic
+ * based on a pointer to the public data in order to determine the private
+ * data's base.
+ */
+struct wg_net_device
+{
+	struct net_device public_data;
+	struct wg_device  private_data __attribute__((aligned(NETDEV_ALIGN)));
+}
+__attribute__((aligned(NETDEV_ALIGN)));
 
-static struct net_device      _glue_wg_dev;
+static struct wg_net_device   _glue_wg_net_dev;
 static struct net             _glue_wg_src_net;
 static struct nlattr         *_glue_wg_tb[1];
 static struct nlattr         *_glue_wg_data[1];
@@ -31,7 +44,7 @@ void print_hex(unsigned long x);
 
 void glue_wg_setup(void)
 {
-	wireguard_rtnl_link_ops()->setup(&_glue_wg_dev);
+	wireguard_rtnl_link_ops()->setup(&_glue_wg_net_dev.public_data);
 }
 
 
@@ -39,7 +52,7 @@ void glue_wg_newlink(void)
 {
 	wireguard_rtnl_link_ops()->newlink(
 		&_glue_wg_src_net,
-		&_glue_wg_dev,
+		&_glue_wg_net_dev.public_data,
 		 _glue_wg_tb,
 		 _glue_wg_data,
 		&_glue_wg_extack);
