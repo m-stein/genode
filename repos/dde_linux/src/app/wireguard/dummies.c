@@ -40,6 +40,23 @@ unsigned long __sw_hweight64(__u64 w)
 }
 
 
+#include <linux/kernel_stat.h>
+
+void account_process_tick(struct task_struct * p,int user_tick)
+{
+	lx_emul_trace(__func__);
+}
+
+
+#include <linux/random.h>
+
+int add_random_ready_callback(struct random_ready_callback * rdy)
+{
+	lx_emul_trace(__func__);
+	return 0;
+}
+
+
 struct cpuinfo_x86 boot_cpu_data __read_mostly;
 
 
@@ -48,6 +65,14 @@ int __init buses_init(void)
 {
 	lx_emul_trace(__func__);
 	return 0;
+}
+
+
+#include <linux/sched/loadavg.h>
+
+void calc_global_load(void)
+{
+	lx_emul_trace(__func__);
 }
 
 
@@ -90,6 +115,15 @@ int __init early_irq_init(void)
 int generic_handle_irq(unsigned int irq)
 {
 	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/random.h>
+
+int __must_check get_random_bytes_arch(void * buf,int nbytes)
+{
+	lx_emul_trace(__func__);
+	return 0;
 }
 
 
@@ -140,12 +174,28 @@ void rcu_barrier(void)
 }
 
 
+#include <linux/rcupdate.h>
+
+void rcu_sched_clock_irq(int user)
+{
+	lx_emul_trace(__func__);
+}
+
+
 #include <net/net_namespace.h>
 
 int register_pernet_device(struct pernet_operations * ops)
 {
 	lx_emul_trace(__func__);
 	return 0;
+}
+
+
+#include <linux/syscore_ops.h>
+
+void register_syscore_ops(struct syscore_ops * ops)
+{
+	lx_emul_trace(__func__);
 }
 
 

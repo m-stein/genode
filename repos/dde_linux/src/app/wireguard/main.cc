@@ -171,10 +171,19 @@ class Wireguard::Main
 		{
 			Lx_kit::initialize(_env);
 			lx_emul_start_kernel(nullptr);
-			genode_wg_initialize_driver();
-			_handle_config();
+
+			//FIXME: do not call Linux kernel functionality out of this non Linux task context
+			//       instead in the very beginning parse the config parameters, and register
+			//       them "at the C-side", then later use them inside genode_wg_initialize_driver
+			//_handle_config();
 		}
 };
+
+
+extern "C" void lx_user_init(void)
+{
+	genode_wg_initialize_driver();
+}
 
 
 void Component::construct(Env &env)

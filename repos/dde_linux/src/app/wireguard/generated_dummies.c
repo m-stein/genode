@@ -143,14 +143,6 @@ struct sk_buff * __skb_gso_segment(struct sk_buff * skb,netdev_features_t featur
 }
 
 
-#include <linux/wait.h>
-
-void __wake_up(struct wait_queue_head * wq_head,unsigned int mode,int nr_exclusive,void * key)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/uaccess.h>
 
 unsigned long _copy_to_user(void __user * to,const void * from,unsigned long n)
@@ -207,40 +199,8 @@ unsigned int _parse_integer_limit(const char * s,unsigned int base,unsigned long
 atomic_long_t _totalram_pages;
 
 
-#include <linux/kernel_stat.h>
-
-void account_process_tick(struct task_struct * p,int user_tick)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 extern void ack_bad_irq(unsigned int irq);
 void ack_bad_irq(unsigned int irq)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/random.h>
-
-int add_random_ready_callback(struct random_ready_callback * rdy)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/wait.h>
-
-int autoremove_wake_function(struct wait_queue_entry * wq_entry,unsigned mode,int sync,void * key)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/sched/loadavg.h>
-
-void calc_global_load(void)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -418,14 +378,6 @@ asmlinkage __visible void dump_stack(void)
 }
 
 
-#include <linux/wait.h>
-
-void finish_wait(struct wait_queue_head * wq_head,struct wait_queue_entry * wq_entry)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <net/flow_dissector.h>
 
 struct flow_dissector flow_keys_basic_dissector;
@@ -482,14 +434,6 @@ void fwnode_handle_put(struct fwnode_handle * fwnode)
 #include <net/genetlink.h>
 
 void * genlmsg_put(struct sk_buff * skb,u32 portid,u32 seq,const struct genl_family * family,int flags,u8 cmd)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/random.h>
-
-int __must_check get_random_bytes_arch(void * buf,int nbytes)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -812,14 +756,6 @@ u32 prandom_u32(void)
 }
 
 
-#include <linux/wait.h>
-
-bool prepare_to_wait_exclusive(struct wait_queue_head * wq_head,struct wait_queue_entry * wq_entry,int state)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/printk.h>
 
 int printk_deferred(const char * fmt,...)
@@ -844,14 +780,6 @@ void * pskb_put(struct sk_buff * skb,struct sk_buff * tail,int len)
 }
 
 
-#include <linux/rcupdate.h>
-
-void rcu_sched_clock_irq(int user)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/rcuwait.h>
 
 int rcuwait_wake_up(struct rcuwait * w)
@@ -871,14 +799,6 @@ void refcount_warn_saturate(refcount_t * r,enum refcount_saturation_type t)
 #include <linux/netdevice.h>
 
 int register_netdevice(struct net_device * dev)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/syscore_ops.h>
-
-void register_syscore_ops(struct syscore_ops * ops)
 {
 	lx_emul_trace_and_stop(__func__);
 }
