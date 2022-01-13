@@ -23,11 +23,9 @@ typedef unsigned short genode_wg_u16;
 extern "C" {
 #endif
 
-void genode_wg_initialize_driver(void);
-
 void
-genode_wg_set_driver_config(genode_wg_u16      listen_port,
-                            genode_wg_u8 const private_key[GENODE_WG_KEY_LEN]);
+genode_wg_initialize_driver(genode_wg_u16 listen_port,
+                            const char * const private_key_buf);
 
 void
 genode_wg_set_peer_config(genode_wg_u8 const public_key[GENODE_WG_KEY_LEN],

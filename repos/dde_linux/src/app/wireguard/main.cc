@@ -30,10 +30,7 @@
 using namespace Genode;
 using namespace Net;
 
-namespace Wireguard {
-
-	class Main;
-}
+namespace Wireguard { class Main; }
 
 
 /*
@@ -42,9 +39,7 @@ namespace Wireguard {
 Lx_kit::Device_list::Device_list(Entrypoint           &,
                                  Heap                 &,
                                  Platform::Connection &platform)
-:
-	_platform { platform }
-{ }
+: _platform { platform } { }
 
 
 class Wireguard::Main
@@ -54,39 +49,16 @@ class Wireguard::Main
 		Env                    &_env;
 		Attached_rom_dataspace  _config_rom      { _env, "config" };
 		Attached_rom_dataspace  _private_key_rom { _env, "private_key" };
+		uint16_t const          _listen_port;
+		char                    _private_key_base64[WG_KEY_LEN_BASE64];
 
-		void _handle_config()
-		{
-			/* update ROM contents */
-			_config_rom.update();
-			_private_key_rom.update();
+		uint16_t _read_config_listen_port();
+		void     _read_config_private_key();
 
-			/* read listen port attribute */
-			Xml_node const &config { _config_rom.xml() };
-			uint16_t listen_port {
-				config.attribute_value("listen_port", (uint16_t)0) };
+		void _handle_config() { _config_rom.update(); }
 
-			if (listen_port == 0) {
-				class Cannot_read_listen_port { };
-				throw Cannot_read_listen_port { };
-			}
-			/* read and decode private key from ROM */
-			uint8_t private_key[WG_KEY_LEN];
-			{
-				char private_key_base64[WG_KEY_LEN_BASE64];
-				memcpy(private_key_base64,
-				       _private_key_rom.local_addr<char>(),
-				       WG_KEY_LEN_BASE64);
-
-				private_key_base64[WG_KEY_LEN_BASE64 - 1] = '\0';
-				if (!key_from_base64(private_key, private_key_base64)) {
-					class Cannot_read_private_key { };
-					throw Cannot_read_private_key { };
-				}
-			}
-			/* install listen port and private key at contrib code */
-			genode_wg_set_driver_config(listen_port, private_key);
-
+// FIXME: put the below XML parsing code into a List_model that can be updated!
+#if 0
 			/* read and apply config of each configured peer */
 			config.for_each_sub_node("peer", [&] (Xml_node const &peer) {
 
@@ -164,25 +136,79 @@ class Wireguard::Main
 					allowed_ip.address.addr, allowed_ip.subnet_mask().addr);
 			});
 		}
+#endif
 
 	public:
 
-		Main(Env &env) : _env(env)
-		{
-			Lx_kit::initialize(_env);
-			lx_emul_start_kernel(nullptr);
+		Main(Env &env);
 
-			//FIXME: do not call Linux kernel functionality out of this non Linux task context
-			//       instead in the very beginning parse the config parameters, and register
-			//       them "at the C-side", then later use them inside genode_wg_initialize_driver
-			//_handle_config();
-		}
+		uint16_t listen_port() { return _listen_port;        }
+		char *   private_key() { return _private_key_base64; }
 };
+
+
+uint16_t Wireguard::Main::_read_config_listen_port()
+{
+	Xml_node const &config { _config_rom.xml() };
+	uint16_t listen_port = config.attribute_value("listen_port",
+	                                              (uint16_t)0U);
+
+	if (listen_port == 0) {
+		class Cannot_read_listen_port { };
+		throw Cannot_read_listen_port { };
+	}
+
+	return listen_port;
+}
+
+
+void Wireguard::Main::_read_config_private_key()
+{
+	uint8_t private_key[WG_KEY_LEN];
+
+	_private_key_rom.update();
+
+	memcpy(_private_key_base64,
+	       _private_key_rom.local_addr<char>(),
+	       WG_KEY_LEN_BASE64);
+
+	_private_key_base64[WG_KEY_LEN_BASE64 - 1] = '\0';
+
+	if (!key_from_base64(private_key, _private_key_base64)) {
+		class Cannot_read_private_key { };
+		throw Cannot_read_private_key { };
+	}
+}
+
+
+/**
+ * We need a gloabally available object here to access it from the
+ * C-ish Linux kernel world
+ */
+static Wireguard::Main * main_object = nullptr;
+
+
+Wireguard::Main::Main(Env &env)
+:
+	_env(env),
+	_listen_port(_read_config_listen_port())
+{
+	main_object = this;
+
+	_read_config_private_key();
+
+	Lx_kit::initialize(_env);
+	lx_emul_start_kernel(nullptr);
+}
 
 
 extern "C" void lx_user_init(void)
 {
-	genode_wg_initialize_driver();
+	if (!main_object)
+		return;
+
+	genode_wg_initialize_driver(main_object->listen_port(),
+	                            main_object->private_key());
 }
 
 
