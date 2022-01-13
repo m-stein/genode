@@ -46,12 +46,6 @@ static struct rtnl_link_ops        *_genode_wg_rtnl_link_ops;
 static struct genl_family          *_genode_wg_genl_family;
 
 
-bool genode_wg_is_correct_net_device(struct net_device *dev)
-{
-	return &_genode_wg_net_dev.public_data == dev;
-}
-
-
 void genode_wg_rtnl_link_ops(struct rtnl_link_ops *ops)
 {
 	_genode_wg_rtnl_link_ops = ops;

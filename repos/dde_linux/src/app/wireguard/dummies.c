@@ -182,6 +182,15 @@ void rcu_sched_clock_irq(int user)
 }
 
 
+#include <linux/netdevice.h>
+
+int register_netdevice(struct net_device * dev)
+{
+	lx_emul_trace(__func__);
+	return 0;
+}
+
+
 #include <net/net_namespace.h>
 
 int register_pernet_device(struct pernet_operations * ops)

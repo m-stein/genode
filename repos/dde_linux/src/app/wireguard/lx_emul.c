@@ -64,17 +64,3 @@ int genl_register_family(struct genl_family * family)
 	genode_wg_genl_family(family);
 	return 0;
 }
-
-
-#include <linux/netdevice.h>
-
-extern bool genode_wg_is_correct_net_device(struct net_device *dev);
-
-int register_netdevice(struct net_device * dev)
-{
-	if (!genode_wg_is_correct_net_device(dev)) {
-		printk("Error: attempt to register unknown net device\n");
-		while (1) { }
-	}
-	return 0;
-}
