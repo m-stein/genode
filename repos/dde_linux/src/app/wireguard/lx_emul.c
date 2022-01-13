@@ -64,3 +64,13 @@ int genl_register_family(struct genl_family * family)
 	genode_wg_genl_family(family);
 	return 0;
 }
+
+
+#include <linux/netdevice.h>
+
+extern struct net_device * genode_wg_net_device(void);
+
+struct net_device * dev_get_by_name(struct net * net,const char * name)
+{
+	return genode_wg_net_device();
+}

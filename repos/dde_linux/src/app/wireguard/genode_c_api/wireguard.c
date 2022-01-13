@@ -35,15 +35,28 @@ struct genode_wg_net_device
 __attribute__((aligned(NETDEV_ALIGN)));
 
 
+struct genode_wg_nlattr_ifname
+{
+	struct nlattr header;
+	char          data[1] __attribute__((aligned(NLA_ALIGNTO)));
+}
+__attribute__((aligned(NLA_ALIGNTO)));
+
+
 static struct genode_wg_net_device  _genode_wg_net_dev;
 static struct net                   _genode_wg_src_net;
 static struct nlattr               *_genode_wg_tb[1];
 static struct nlattr               *_genode_wg_data[1];
 static struct netlink_ext_ack       _genode_wg_extack;
-static struct sk_buff               _genode_wg_sk_buff;
-static struct genl_info             _genode_wg_genl_info;
 static struct rtnl_link_ops        *_genode_wg_rtnl_link_ops;
 static struct genl_family          *_genode_wg_genl_family;
+
+/* for the call to wg_set_device that installs listen port and private key */
+static struct sock                     _genode_wg_sock;
+static struct sk_buff                  _genode_wg_sk_buff;
+static struct genl_info                _genode_wg_genl_info;
+static struct nlattr                  *_genode_wg_genl_info_attrs[__WGDEVICE_A_LAST];
+static struct genode_wg_nlattr_ifname  _genode_wg_nlattr_ifname;
 
 
 void genode_wg_rtnl_link_ops(struct rtnl_link_ops *ops)
@@ -55,6 +68,12 @@ void genode_wg_rtnl_link_ops(struct rtnl_link_ops *ops)
 void genode_wg_genl_family(struct genl_family * family)
 {
 	_genode_wg_genl_family = family;
+}
+
+
+struct net_device * genode_wg_net_device(void)
+{
+	return &_genode_wg_net_dev.public_data;
 }
 
 
@@ -75,6 +94,13 @@ genode_wg_initialize_driver(genode_wg_u16      listen_port,
 		 _genode_wg_tb,
 		 _genode_wg_data,
 		&_genode_wg_extack);
+
+	/* prepare environment for the execution of 'wg_set_device' */
+	_genode_wg_net_dev.public_data.rtnl_link_ops = _genode_wg_rtnl_link_ops;
+	_genode_wg_sk_buff.sk = &_genode_wg_sock;
+	_genode_wg_genl_info.attrs = _genode_wg_genl_info_attrs;
+	_genode_wg_nlattr_ifname.data[0] = '\0';
+	_genode_wg_genl_info_attrs[WGDEVICE_A_IFNAME] = &_genode_wg_nlattr_ifname.header;
 
 	/*
 	 * Trigger execution of 'wg_set_device' in order to install listen port

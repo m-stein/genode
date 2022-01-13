@@ -96,8 +96,16 @@ SRC_C  += $(LX_SRC)
 vpath %.c $(LX_OUT_DIR)
 vpath %.S $(LX_OUT_DIR)
 
+#
+# FIXME
+#
+# We used to do -DKBUILD_MODNAME='"$(notdir $(1))"' but it results in
+# KBUILD_MODNAME == "device" in some places and KBUILD_MODNAME == "wireguard"
+# in others. This would produce problems and if I understand it right setting
+# it hard is no problem as long as there's only one module.
+#
 define CC_OPT_LX_RULES =
-CC_OPT_$(1) += -DKBUILD_MODFILE='"$(1)"' -DKBUILD_BASENAME='"$(notdir $(1))"' -DKBUILD_MODNAME='"$(notdir $(1))"'
+CC_OPT_$(1) += -DKBUILD_MODFILE='"$(1)"' -DKBUILD_BASENAME='"$(notdir $(1))"' -DKBUILD_MODNAME='"wireguard"'
 endef
 
 MODULES := $(SRC_C:%.c=%)

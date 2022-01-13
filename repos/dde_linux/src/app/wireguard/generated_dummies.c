@@ -284,14 +284,6 @@ struct net_device * dev_get_by_index(struct net * net,int ifindex)
 
 #include <linux/netdevice.h>
 
-struct net_device * dev_get_by_name(struct net * net,const char * name)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/netdevice.h>
-
 void dev_get_tstats64(struct net_device * dev,struct rtnl_link_stats64 * s)
 {
 	lx_emul_trace_and_stop(__func__);
