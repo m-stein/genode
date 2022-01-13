@@ -796,14 +796,6 @@ void refcount_warn_saturate(refcount_t * r,enum refcount_saturation_type t)
 }
 
 
-#include <linux/netdevice.h>
-
-int register_netdevice(struct net_device * dev)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/random.h>
 
 bool rng_is_initialized(void)

@@ -46,6 +46,12 @@ static struct rtnl_link_ops        *_genode_wg_rtnl_link_ops;
 static struct genl_family          *_genode_wg_genl_family;
 
 
+bool genode_wg_is_correct_net_device(struct net_device *dev)
+{
+	return &_genode_wg_net_dev.public_data == dev;
+}
+
+
 void genode_wg_rtnl_link_ops(struct rtnl_link_ops *ops)
 {
 	_genode_wg_rtnl_link_ops = ops;
@@ -82,15 +88,15 @@ genode_wg_set_driver_config(genode_wg_u16      listen_port,
 	 * and private key.
 	 */
 	unsigned idx;
-	unsigned found_wg_cmd = 0;
+	bool found_wg_cmd = false;
 	for (idx = 0; idx < _genode_wg_genl_family->n_ops; idx++) {
 		if (_genode_wg_genl_family->ops[idx].cmd == WG_CMD_SET_DEVICE) {
 			_genode_wg_genl_family->ops[idx].doit(&_genode_wg_sk_buff, &_genode_wg_genl_info);
-			found_wg_cmd = 1;
+			found_wg_cmd = true;
 		}
 	}
 	if (!found_wg_cmd) {
-		printk("Error: cannot find op WG_CMD_SET_DEVICE");
+		printk("Error: cannot find op WG_CMD_SET_DEVICE\n");
 		while (1) { }
 	}
 	/* trigger execution of 'wg_open' */
