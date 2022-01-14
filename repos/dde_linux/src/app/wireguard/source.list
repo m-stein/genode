@@ -1,5 +1,7 @@
 arch/x86/crypto/blake2s-core.S
 arch/x86/crypto/blake2s-glue.c
+arch/x86/crypto/curve25519-x86_64.c
+crypto/memneq.c
 drivers/net/wireguard/allowedips.c
 drivers/net/wireguard/cookie.c
 drivers/net/wireguard/device.c
@@ -39,8 +41,12 @@ kernel/workqueue.c
 lib/bitmap.c
 lib/crypto/blake2s-generic.c
 lib/crypto/blake2s.c
+lib/crypto/curve25519-generic.c
+lib/crypto/curve25519-hacl64.c
 lib/idr.c
 lib/radix-tree.c
+lib/refcount.c
+lib/siphash.c
 lib/string.c
 lib/vsprintf.c
 lib/xarray.c

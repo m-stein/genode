@@ -1,7 +1,7 @@
 /*
  * \brief  Dummy definitions of Linux Kernel functions
  * \author Automatically generated file - do no edit
- * \date   2022-01-12
+ * \date   2022-01-14
  */
 
 #include <lx_emul.h>
@@ -34,14 +34,6 @@ const char * __clk_get_name(const struct clk * clk)
 #include <linux/sched.h>
 
 int __sched __cond_resched(void)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <crypto/algapi.h>
-
-noinline unsigned long __crypto_memneq(const void * a,const void * b,size_t size)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -253,27 +245,6 @@ int cpu_has_xfeatures(u64 xfeatures_needed,const char ** feature_name)
 }
 
 
-#include <crypto/curve25519.h>
-
-void curve25519_arch(u8 mypublic[CURVE25519_KEY_SIZE],const u8 secret[CURVE25519_KEY_SIZE],const u8 basepoint[CURVE25519_KEY_SIZE])
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <crypto/curve25519.h>
-
-void curve25519_base_arch(u8 pub[CURVE25519_KEY_SIZE],const u8 secret[CURVE25519_KEY_SIZE])
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <crypto/curve25519.h>
-
-const u8 curve25519_null_point[] = {};
-
-
 #include <linux/netdevice.h>
 
 struct net_device * dev_get_by_index(struct net * net,int ifindex)
@@ -452,22 +423,6 @@ const char hex_asc[] = {};
 #include <linux/kernel.h>
 
 const char hex_asc_upper[] = {};
-
-
-#include <linux/siphash.h>
-
-u32 hsiphash_2u32(const u32 first,const u32 second,const hsiphash_key_t * key)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/siphash.h>
-
-u32 hsiphash_3u32(const u32 first,const u32 second,const u32 third,const hsiphash_key_t * key)
-{
-	lx_emul_trace_and_stop(__func__);
-}
 
 
 #include <linux/icmpv6.h>
@@ -780,14 +735,6 @@ int rcuwait_wake_up(struct rcuwait * w)
 }
 
 
-#include <linux/refcount.h>
-
-void refcount_warn_saturate(refcount_t * r,enum refcount_saturation_type t)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/random.h>
 
 bool rng_is_initialized(void)
@@ -815,22 +762,6 @@ void setup_udp_tunnel_sock(struct net * net,struct socket * sock,struct udp_tunn
 #include <linux/scatterlist.h>
 
 void sg_init_table(struct scatterlist * sgl,unsigned int nents)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/siphash.h>
-
-u64 siphash_1u64(const u64 first,const siphash_key_t * key)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/siphash.h>
-
-u64 siphash_4u64(const u64 first,const u64 second,const u64 third,const u64 forth,const siphash_key_t * key)
 {
 	lx_emul_trace_and_stop(__func__);
 }
