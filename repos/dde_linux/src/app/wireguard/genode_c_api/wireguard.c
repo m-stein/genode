@@ -38,7 +38,23 @@ __attribute__((aligned(NETDEV_ALIGN)));
 struct genode_wg_nlattr_ifname
 {
 	struct nlattr header;
-	char          data[1] __attribute__((aligned(NLA_ALIGNTO)));
+	char          ifname[1] __attribute__((aligned(NLA_ALIGNTO)));
+}
+__attribute__((aligned(NLA_ALIGNTO)));
+
+
+struct genode_wg_nlattr_key
+{
+	struct nlattr header;
+	char          key[GENODE_WG_KEY_LEN] __attribute__((aligned(NLA_ALIGNTO)));
+}
+__attribute__((aligned(NLA_ALIGNTO)));
+
+
+struct genode_wg_nlattr_port
+{
+	struct nlattr header;
+	genode_wg_u16 port __attribute__((aligned(NLA_ALIGNTO)));
 }
 __attribute__((aligned(NLA_ALIGNTO)));
 
@@ -57,6 +73,8 @@ static struct sk_buff                  _genode_wg_sk_buff;
 static struct genl_info                _genode_wg_genl_info;
 static struct nlattr                  *_genode_wg_genl_info_attrs[__WGDEVICE_A_LAST];
 static struct genode_wg_nlattr_ifname  _genode_wg_nlattr_ifname;
+static struct genode_wg_nlattr_port    _genode_wg_nlattr_listen_port;
+static struct genode_wg_nlattr_key     _genode_wg_nlattr_private_key;
 
 
 void genode_wg_rtnl_link_ops(struct rtnl_link_ops *ops)
@@ -78,8 +96,8 @@ struct net_device * genode_wg_net_device(void)
 
 
 void
-genode_wg_initialize_driver(genode_wg_u16      listen_port,
-                            const char * const private_key_buf)
+genode_wg_initialize_driver(genode_wg_u16              listen_port,
+                            const genode_wg_u8 * const private_key_buf)
 {
 	unsigned idx;
 	bool found_wg_cmd = false;
@@ -98,9 +116,20 @@ genode_wg_initialize_driver(genode_wg_u16      listen_port,
 	/* prepare environment for the execution of 'wg_set_device' */
 	_genode_wg_net_dev.public_data.rtnl_link_ops = _genode_wg_rtnl_link_ops;
 	_genode_wg_sk_buff.sk = &_genode_wg_sock;
-	_genode_wg_genl_info.attrs = _genode_wg_genl_info_attrs;
-	_genode_wg_nlattr_ifname.data[0] = '\0';
+
+	_genode_wg_nlattr_ifname.ifname[0] = '\0';
+	_genode_wg_nlattr_ifname.header.nla_len = sizeof(_genode_wg_nlattr_ifname.ifname) + NLA_HDRLEN;
 	_genode_wg_genl_info_attrs[WGDEVICE_A_IFNAME] = &_genode_wg_nlattr_ifname.header;
+
+	_genode_wg_nlattr_listen_port.port = 55552;
+	_genode_wg_nlattr_listen_port.header.nla_len = sizeof(_genode_wg_nlattr_listen_port.port) + NLA_HDRLEN;
+	_genode_wg_genl_info_attrs[WGDEVICE_A_LISTEN_PORT] = &_genode_wg_nlattr_listen_port.header;
+
+	memcpy(_genode_wg_nlattr_private_key.key, private_key_buf, GENODE_WG_KEY_LEN);
+	_genode_wg_nlattr_private_key.header.nla_len = sizeof(_genode_wg_nlattr_private_key.key) + NLA_HDRLEN;
+	_genode_wg_genl_info_attrs[WGDEVICE_A_PRIVATE_KEY] = &_genode_wg_nlattr_private_key.header;
+
+	_genode_wg_genl_info.attrs = _genode_wg_genl_info_attrs;
 
 	/*
 	 * Trigger execution of 'wg_set_device' in order to install listen port

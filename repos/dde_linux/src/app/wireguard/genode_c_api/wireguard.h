@@ -24,8 +24,8 @@ extern "C" {
 #endif
 
 void
-genode_wg_initialize_driver(genode_wg_u16 listen_port,
-                            const char * const private_key_buf);
+genode_wg_initialize_driver(genode_wg_u16              listen_port,
+                            const genode_wg_u8 * const private_key_buf);
 
 void
 genode_wg_set_peer_config(genode_wg_u8 const public_key[GENODE_WG_KEY_LEN],

@@ -51,6 +51,7 @@ class Wireguard::Main
 		Attached_rom_dataspace  _private_key_rom { _env, "private_key" };
 		uint16_t const          _listen_port;
 		char                    _private_key_base64[WG_KEY_LEN_BASE64];
+		uint8_t                 _private_key[WG_KEY_LEN];
 
 		uint16_t _read_config_listen_port();
 		void     _read_config_private_key();
@@ -142,8 +143,8 @@ class Wireguard::Main
 
 		Main(Env &env);
 
-		uint16_t listen_port() { return _listen_port;        }
-		char *   private_key() { return _private_key_base64; }
+		uint16_t listen_port() { return _listen_port; }
+		uint8_t *private_key() { return _private_key; }
 };
 
 
@@ -164,8 +165,6 @@ uint16_t Wireguard::Main::_read_config_listen_port()
 
 void Wireguard::Main::_read_config_private_key()
 {
-	uint8_t private_key[WG_KEY_LEN];
-
 	_private_key_rom.update();
 
 	memcpy(_private_key_base64,
@@ -174,7 +173,7 @@ void Wireguard::Main::_read_config_private_key()
 
 	_private_key_base64[WG_KEY_LEN_BASE64 - 1] = '\0';
 
-	if (!key_from_base64(private_key, _private_key_base64)) {
+	if (!key_from_base64(_private_key, _private_key_base64)) {
 		class Cannot_read_private_key { };
 		throw Cannot_read_private_key { };
 	}

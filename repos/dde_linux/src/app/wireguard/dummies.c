@@ -219,3 +219,19 @@ void update_vsyscall(struct timekeeper * tk)
 #include <linux/tracepoint-defs.h>
 
 const struct trace_print_flags vmaflag_names[]  = { {0,NULL}};
+
+
+#include <linux/rtnetlink.h>
+
+void rtnl_lock(void)
+{
+	lx_emul_trace(__func__);
+}
+
+
+#include <linux/rtnetlink.h>
+
+void rtnl_unlock(void)
+{
+	lx_emul_trace(__func__);
+}

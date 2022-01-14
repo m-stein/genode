@@ -804,22 +804,6 @@ void rtnl_link_unregister(struct rtnl_link_ops * ops)
 }
 
 
-#include <linux/rtnetlink.h>
-
-void rtnl_lock(void)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/rtnetlink.h>
-
-void rtnl_unlock(void)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <net/udp_tunnel.h>
 
 void setup_udp_tunnel_sock(struct net * net,struct socket * sock,struct udp_tunnel_sock_cfg * cfg)
