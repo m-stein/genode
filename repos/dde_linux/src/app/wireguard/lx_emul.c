@@ -74,3 +74,30 @@ struct net_device * dev_get_by_name(struct net * net,const char * name)
 {
 	return genode_wg_net_device();
 }
+
+
+#include <net/udp_tunnel.h>
+
+int udp_sock_create4(struct net * net,struct udp_port_cfg * cfg,struct socket ** sockp)
+{
+	*sockp = (struct socket*) kmalloc(sizeof(struct socket), GFP_KERNEL);
+	(*sockp)->sk = (struct sock*) kmalloc(sizeof(struct sock), GFP_KERNEL);
+	return 0;
+}
+
+
+#include <net/udp_tunnel.h>
+
+void setup_udp_tunnel_sock(struct net * net,struct socket * sock,struct udp_tunnel_sock_cfg * cfg)
+{
+	lx_emul_trace(__func__);
+}
+
+
+#include <linux/ipv6.h>
+
+bool ipv6_mod_enabled(void)
+{
+	return false;
+}
+

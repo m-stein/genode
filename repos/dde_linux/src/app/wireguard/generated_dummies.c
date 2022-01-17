@@ -512,14 +512,6 @@ int ipv6_chk_addr(struct net * net,const struct in6_addr * addr,const struct net
 }
 
 
-#include <linux/ipv6.h>
-
-bool ipv6_mod_enabled(void)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/irqdomain.h>
 
 void irq_domain_free_irqs_common(struct irq_domain * domain,unsigned int virq,unsigned int nr_irqs)
@@ -751,14 +743,6 @@ void rtnl_link_unregister(struct rtnl_link_ops * ops)
 }
 
 
-#include <net/udp_tunnel.h>
-
-void setup_udp_tunnel_sock(struct net * net,struct socket * sock,struct udp_tunnel_sock_cfg * cfg)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/scatterlist.h>
 
 void sg_init_table(struct scatterlist * sgl,unsigned int nents)
@@ -770,14 +754,6 @@ void sg_init_table(struct scatterlist * sgl,unsigned int nents)
 #include <net/sock.h>
 
 void sk_clear_memalloc(struct sock * sk)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <net/sock.h>
-
-void sk_set_memalloc(struct sock * sk)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -900,14 +876,6 @@ int string_escape_mem(const char * src,size_t isz,char * dst,size_t osz,unsigned
 }
 
 
-#include <linux/netdevice.h>
-
-void synchronize_net(void)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/timerqueue.h>
 
 bool timerqueue_add(struct timerqueue_head * head,struct timerqueue_node * node)
@@ -927,14 +895,6 @@ bool timerqueue_del(struct timerqueue_head * head,struct timerqueue_node * node)
 #include <linux/timerqueue.h>
 
 struct timerqueue_node * timerqueue_iterate_next(struct timerqueue_node * node)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <net/udp_tunnel.h>
-
-int udp_sock_create4(struct net * net,struct udp_port_cfg * cfg,struct socket ** sockp)
 {
 	lx_emul_trace_and_stop(__func__);
 }

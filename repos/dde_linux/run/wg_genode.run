@@ -100,17 +100,18 @@ install_config {
 
 	<start name="wireguard">
 		<resource name="RAM" quantum="10M"/>
-		<config listen_port="55552">
-			<peer public_key="r1Gslnm82X8NaijsWzPoSFzDZGl2tTJoPa+EJL4gYQw=">
-				<endpoint ip="10.0.2.2" port="55551"/>
-				<allowed-ip value="10.0.9.1/32"/>
-			</peer>
-		</config>
+		<config>
+			<iface listen_port="55552" private_key="8GRSQZMgG1uuvz4APIBqrDmiLj8L886r++hzixjjHFc=">
+				<peer public_key="r1Gslnm82X8NaijsWzPoSFzDZGl2tTJoPa+EJL4gYQw="
+				      ip="10.0.2.2" port="55551">
+					<allowed-ip value="10.0.9.1/32"/>
+				</peer>
+			</iface>
+			</config>
 		<route>
 			<service name="Timer">    <child name="timer"/> </service>
 			<service name="Nic">      <child name="nic_router"/> </service>
 			<service name="Platform"> <child name="platform_drv"/> </service>
-			<service name="ROM" label="private_key"> <parent/> </service>
 			<any-service> <parent/> </any-service>
 		</route>
 	</start>
@@ -118,10 +119,6 @@ install_config {
 }
 
 build { app/wireguard }
-
-set fd [open [run_dir]/genode/private_key w]
-puts $fd "8GRSQZMgG1uuvz4APIBqrDmiLj8L886r++hzixjjHFc="
-close $fd
 
 build_boot_image { wireguard }
 

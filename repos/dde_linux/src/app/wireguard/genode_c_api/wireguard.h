@@ -16,23 +16,50 @@
 
 enum { GENODE_WG_KEY_LEN = 32 };
 
-typedef unsigned char  genode_wg_u8;
-typedef unsigned short genode_wg_u16;
+typedef unsigned char  genode_wg_u8_t;
+typedef unsigned short genode_wg_u16_t;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void
-genode_wg_initialize_driver(genode_wg_u16              listen_port,
-                            const genode_wg_u8 * const private_key_buf);
+typedef void (*genode_wg_config_add_dev_t)
+	(genode_wg_u16_t listen_port, const genode_wg_u8_t * const priv_key);
 
-void
-genode_wg_set_peer_config(genode_wg_u8 const public_key[GENODE_WG_KEY_LEN],
-                          genode_wg_u8 const endpoint_ip[4],
-                          genode_wg_u16      endpoint_port,
-                          genode_wg_u8 const allowed_ip_addr[4],
-                          genode_wg_u8 const allowed_ip_subnet_mask[4]);
+typedef void (*genode_wg_config_rm_dev_t) (genode_wg_u16_t listen_port);
+
+typedef void (*genode_wg_config_add_peer_t)
+	(genode_wg_u16_t listen_port, genode_wg_u8_t const endpoint_ip[4],
+	 genode_wg_u16_t endpoint_port, const genode_wg_u8_t * const pub_key);
+
+typedef void (*genode_wg_config_rm_peer_t)
+	(genode_wg_u16_t listen_port, genode_wg_u8_t const endpoint_ip[4],
+	 genode_wg_u16_t endpoint_port);
+
+typedef void (*genode_wg_config_add_route_t)
+	(genode_wg_u16_t listen_port, genode_wg_u8_t const endpoint_ip[4],
+	 genode_wg_u16_t endpoint_port, genode_wg_u8_t const allowed_ip_addr[4],
+	 genode_wg_u8_t const allowed_ip_subnet_mask[4]);
+
+typedef void (*genode_wg_config_rm_route_t)
+	(genode_wg_u16_t listen_port, genode_wg_u8_t const endpoint_ip[4],
+	 genode_wg_u16_t endpoint_port, genode_wg_u8_t const allowed_ip_addr[4]);
+
+
+struct genode_wg_config_callbacks
+{
+	genode_wg_config_add_dev_t   add_device;
+	genode_wg_config_rm_dev_t    remove_device;
+	genode_wg_config_add_peer_t  add_peer;
+	genode_wg_config_rm_peer_t   remove_peer;
+	genode_wg_config_add_route_t add_route;
+	genode_wg_config_rm_route_t  remove_route;
+};
+
+
+void genode_wg_update_config(struct genode_wg_config_callbacks * callbacks);
+
+void genode_wg_notify_peers(void);
 
 #ifdef __cplusplus
 }

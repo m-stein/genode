@@ -208,6 +208,22 @@ void register_syscore_ops(struct syscore_ops * ops)
 }
 
 
+#include <net/sock.h>
+
+void sk_set_memalloc(struct sock * sk)
+{
+	lx_emul_trace(__func__);
+}
+
+
+#include <linux/netdevice.h>
+
+void synchronize_net(void)
+{
+	lx_emul_trace(__func__);
+}
+
+
 #include <linux/timekeeper_internal.h>
 
 void update_vsyscall(struct timekeeper * tk)
