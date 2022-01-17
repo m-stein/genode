@@ -38,40 +38,32 @@ __attribute__((aligned(NETDEV_ALIGN), packed));
 
 struct genode_wg_nlattr_ifname
 {
-	struct nlattr header;
-	char          data[1] __attribute__((aligned(NLA_ALIGNTO)));
+	struct nlattr  header;
+	genode_wg_u8_t data[1] __attribute__((aligned(NLA_ALIGNTO)));
 }
 __attribute__((aligned(NLA_ALIGNTO), packed));
 
 
 struct genode_wg_nlattr_private_key
 {
-	struct nlattr header;
-	char          data[NOISE_PUBLIC_KEY_LEN] __attribute__((aligned(NLA_ALIGNTO)));
+	struct nlattr  header;
+	genode_wg_u8_t data[NOISE_PUBLIC_KEY_LEN] __attribute__((aligned(NLA_ALIGNTO)));
 }
 __attribute__((aligned(NLA_ALIGNTO), packed));
 
 
 struct genode_wg_nlattr_public_key
 {
-	struct nlattr header;
-	char          data[NOISE_PUBLIC_KEY_LEN] __attribute__((aligned(NLA_ALIGNTO)));
-}
-__attribute__((aligned(NLA_ALIGNTO), packed));
-
-
-struct genode_wg_nlattr_symmetric_key
-{
-	struct nlattr header;
-	char          data[NOISE_SYMMETRIC_KEY_LEN] __attribute__((aligned(NLA_ALIGNTO)));
+	struct nlattr  header;
+	genode_wg_u8_t data[NOISE_PUBLIC_KEY_LEN] __attribute__((aligned(NLA_ALIGNTO)));
 }
 __attribute__((aligned(NLA_ALIGNTO), packed));
 
 
 struct genode_wg_nlattr_u8
 {
-	struct nlattr   header;
-	genode_wg_u8_t  data __attribute__((aligned(NLA_ALIGNTO)));
+	struct nlattr  header;
+	genode_wg_u8_t data __attribute__((aligned(NLA_ALIGNTO)));
 }
 __attribute__((aligned(NLA_ALIGNTO), packed));
 
@@ -92,14 +84,6 @@ struct genode_wg_nlattr_u32
 __attribute__((aligned(NLA_ALIGNTO), packed));
 
 
-struct genode_wg_nlattr_u64
-{
-	struct nlattr   header;
-	genode_wg_u64_t data __attribute__((aligned(NLA_ALIGNTO)));
-}
-__attribute__((aligned(NLA_ALIGNTO), packed));
-
-
 struct genode_wg_nlattr_in_addr
 {
 	struct nlattr  header;
@@ -116,15 +100,7 @@ struct genode_wg_nlattr_sockaddr
 __attribute__((aligned(NLA_ALIGNTO), packed));
 
 
-struct genode_wg_nlattr_kernel_timespec
-{
-	struct nlattr            header;
-	struct __kernel_timespec data __attribute__((aligned(NLA_ALIGNTO)));
-}
-__attribute__((aligned(NLA_ALIGNTO), packed));
-
-
-struct genode_wg_nlattr_allowed_ip
+struct genode_wg_nlattr_allowedip
 {
 	struct nlattr header;
 	struct genode_wg_nlattr_u16     family    __attribute__((aligned(NLA_ALIGNTO)));
@@ -134,27 +110,21 @@ struct genode_wg_nlattr_allowed_ip
 __attribute__((aligned(NLA_ALIGNTO), packed));
 
 
-struct genode_wg_nlattr_allowed_ips
+struct genode_wg_nlattr_allowedips
 {
 	struct nlattr header;
-	struct genode_wg_nlattr_allowed_ip ip_0 __attribute__((aligned(NLA_ALIGNTO)));
+	struct genode_wg_nlattr_allowedip ip_0 __attribute__((aligned(NLA_ALIGNTO)));
 }
 __attribute__((aligned(NLA_ALIGNTO), packed));
 
 
 struct genode_wg_nlattr_peer
 {
-	struct nlattr                           header;
-	struct genode_wg_nlattr_public_key      public_key          __attribute__((aligned(NLA_ALIGNTO)));
-	struct genode_wg_nlattr_symmetric_key   preshared_key       __attribute__((aligned(NLA_ALIGNTO)));
-	struct genode_wg_nlattr_u32             flags               __attribute__((aligned(NLA_ALIGNTO)));
-	struct genode_wg_nlattr_sockaddr        endpoint            __attribute__((aligned(NLA_ALIGNTO)));
-	struct genode_wg_nlattr_u16             pki                 __attribute__((aligned(NLA_ALIGNTO))); /* persistent keepalive internal */
-	struct genode_wg_nlattr_kernel_timespec last_handshake_time __attribute__((aligned(NLA_ALIGNTO)));
-	struct genode_wg_nlattr_u64             rx_bytes            __attribute__((aligned(NLA_ALIGNTO)));
-	struct genode_wg_nlattr_u64             tx_bytes            __attribute__((aligned(NLA_ALIGNTO)));
-	struct genode_wg_nlattr_allowed_ips     allowed_ips         __attribute__((aligned(NLA_ALIGNTO)));
-	struct genode_wg_nlattr_u32             protocol_version    __attribute__((aligned(NLA_ALIGNTO)));
+	struct nlattr                      header;
+	struct genode_wg_nlattr_public_key public_key __attribute__((aligned(NLA_ALIGNTO)));
+	struct genode_wg_nlattr_sockaddr   endpoint   __attribute__((aligned(NLA_ALIGNTO)));
+	struct genode_wg_nlattr_u32        flags      __attribute__((aligned(NLA_ALIGNTO)));
+	struct genode_wg_nlattr_allowedips allowedips __attribute__((aligned(NLA_ALIGNTO)));
 }
 __attribute__((aligned(NLA_ALIGNTO), packed));
 
@@ -289,28 +259,54 @@ _genode_wg_config_add_peer(genode_wg_u16_t              listen_port,
 	struct nlattr *attrs[__WGDEVICE_A_LAST];
 	struct genl_info info;
 	struct genode_wg_nlattr_peer *peer = &peers.peer_0;
+	struct genode_wg_nlattr_allowedip *allowedip = &peer->allowedips.ip_0;
 
 	ifname.data[0] = '\0';
 	ifname.header.nla_len = sizeof(ifname);
 
 	memset(&peers, 0, sizeof(peers));
 
+	peers.header.nla_type = WGDEVICE_A_PEERS | NLA_F_NESTED;
 	peers.header.nla_len = sizeof(peers);
 
-	peer->header.nla_len = sizeof(peers.peer_0);
+	peer->header.nla_len = sizeof(*peer);
 	peer->header.nla_type |= NLA_F_NESTED;
-	peer->public_key.header.nla_len          = sizeof(peer->public_key);
-	peer->preshared_key.header.nla_len       = sizeof(peer->preshared_key);
-	peer->flags.header.nla_len               = sizeof(peer->flags);
-	peer->endpoint.header.nla_len            = sizeof(peer->endpoint);
-	peer->pki.header.nla_len                 = sizeof(peer->pki);
-	peer->last_handshake_time.header.nla_len = sizeof(peer->last_handshake_time);
-	peer->rx_bytes.header.nla_len            = sizeof(peer->rx_bytes);
-	peer->tx_bytes.header.nla_len            = sizeof(peer->tx_bytes);
-	peer->allowed_ips.header.nla_len         = sizeof(peer->allowed_ips);
-	peer->protocol_version.header.nla_len    = sizeof(peer->protocol_version);
 
+	peer->public_key.header.nla_type = WGPEER_A_PUBLIC_KEY;
+	peer->public_key.header.nla_len = sizeof(peer->public_key);
 	memcpy(peer->public_key.data, pub_key, sizeof(peer->public_key.data));
+
+	peer->endpoint.header.nla_type = WGPEER_A_ENDPOINT;
+	peer->endpoint.header.nla_len = sizeof(peer->endpoint);
+	peer->endpoint.data.sa_family = AF_INET;
+	peer->endpoint.data.sa_data[0] = ((genode_wg_u8_t*)&endpoint_port)[1];
+	peer->endpoint.data.sa_data[1] = ((genode_wg_u8_t*)&endpoint_port)[0];
+	peer->endpoint.data.sa_data[2] = endpoint_ip[0];
+	peer->endpoint.data.sa_data[3] = endpoint_ip[1];
+	peer->endpoint.data.sa_data[4] = endpoint_ip[2];
+	peer->endpoint.data.sa_data[5] = endpoint_ip[3];
+
+	peer->flags.header.nla_type = WGPEER_A_FLAGS;
+	peer->flags.header.nla_len = sizeof(peer->flags);
+	peer->flags.data = 2; /* I don't know what this value means */
+
+	peer->allowedips.header.nla_len = sizeof(peer->allowedips);
+	peer->allowedips.header.nla_type = WGPEER_A_ALLOWEDIPS | NLA_F_NESTED;
+
+	allowedip->header.nla_type |= NLA_F_NESTED;
+	allowedip->header.nla_len = sizeof(*allowedip);
+
+	allowedip->family.header.nla_type = WGALLOWEDIP_A_FAMILY;
+	allowedip->family.header.nla_len = sizeof(allowedip->family.data) + NLA_HDRLEN;
+	allowedip->family.data = AF_INET;
+
+	allowedip->ipaddr.header.nla_type = WGALLOWEDIP_A_IPADDR;
+	allowedip->ipaddr.header.nla_len = sizeof(allowedip->ipaddr.data) + NLA_HDRLEN;
+	memcpy(&allowedip->ipaddr.data, allowed_ip_addr, 4);
+
+	allowedip->cidr_mask.header.nla_type = WGALLOWEDIP_A_CIDR_MASK;
+	allowedip->cidr_mask.header.nla_len = sizeof(allowedip->cidr_mask.data) + NLA_HDRLEN;
+	allowedip->cidr_mask.data = allowed_ip_prefix_length;
 
 	memset(attrs, 0, sizeof(attrs));
 	attrs[WGDEVICE_A_IFNAME] = &ifname.header;
