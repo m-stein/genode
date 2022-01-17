@@ -103,8 +103,7 @@ install_config {
 		<config>
 			<iface listen_port="55552" private_key="8GRSQZMgG1uuvz4APIBqrDmiLj8L886r++hzixjjHFc=">
 				<peer public_key="r1Gslnm82X8NaijsWzPoSFzDZGl2tTJoPa+EJL4gYQw="
-				      ip="10.0.2.2" port="55551">
-					<allowed-ip value="10.0.9.1/32"/>
+				      ip="10.0.2.2" port="55551" allowed_ip="10.0.9.1/32">
 				</peer>
 			</iface>
 			</config>

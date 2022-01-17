@@ -280,7 +280,9 @@ static void
 _genode_wg_config_add_peer(genode_wg_u16_t              listen_port,
                            genode_wg_u8_t const         endpoint_ip[4],
                            genode_wg_u16_t              endpoint_port,
-                           const genode_wg_u8_t * const pub_key)
+                           genode_wg_u8_t const *const  pub_key,
+                           genode_wg_u8_t const         allowed_ip_addr[4],
+                           genode_wg_u8_t const         allowed_ip_prefix_length)
 {
 	struct genode_wg_nlattr_ifname ifname;
 	struct genode_wg_nlattr_peers peers;
@@ -328,44 +330,11 @@ _genode_wg_config_rm_peer(genode_wg_u16_t      listen_port,
 }
 
 
-static void
-_genode_wg_config_add_route(genode_wg_u16_t      listen_port,
-                            genode_wg_u8_t const endpoint_ip[4],
-                            genode_wg_u16_t      endpoint_port,
-                            genode_wg_u8_t const allowed_ip_addr[4],
-                            genode_wg_u8_t const allowed_ip_subnet_mask[4])
-{
-	printk("%s not yet implemented\n", __func__);
-	printk("allowed ip %x %x %x %x subnet mask %x %x %x %X\n",
-	       allowed_ip_addr[0],
-	       allowed_ip_addr[1],
-	       allowed_ip_addr[2],
-	       allowed_ip_addr[3],
-	       allowed_ip_subnet_mask[0],
-	       allowed_ip_subnet_mask[1],
-	       allowed_ip_subnet_mask[2],
-	       allowed_ip_subnet_mask[3]);
-
-}
-
-
-static void
-_genode_wg_config_rm_route(genode_wg_u16_t      listen_port,
-                           genode_wg_u8_t const endpoint_ip[4],
-                           genode_wg_u16_t      endpoint_port,
-                           genode_wg_u8_t const allowed_ip_addr[4])
-{
-	printk("%s not yet implemented\n", __func__);
-}
-
-
 static struct genode_wg_config_callbacks _config_callbacks = {
 	.add_device    = _genode_wg_config_add_dev,
 	.remove_device = _genode_wg_config_rm_dev,
 	.add_peer      = _genode_wg_config_add_peer,
-	.remove_peer   = _genode_wg_config_rm_peer,
-	.add_route     = _genode_wg_config_add_route,
-	.remove_route  = _genode_wg_config_rm_route
+	.remove_peer   = _genode_wg_config_rm_peer
 };
 
 

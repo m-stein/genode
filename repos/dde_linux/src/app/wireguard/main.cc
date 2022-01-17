@@ -53,67 +53,15 @@ struct Wireguard::Config_model
 {
 	using Key_base64 = String<WG_KEY_LEN_BASE64>;
 
-	struct Allowed_ip : List_model<Allowed_ip>::Element
-	{
-		Ipv4_address_prefix ip_range;
-
-		Allowed_ip(Ipv4_address_prefix ip_range) : ip_range(ip_range) {}
-	};
-
-	struct Allowed_ip_update_policy : List_model<Allowed_ip>::Update_policy
-	{
-		Genode::Allocator          & alloc;
-		genode_wg_config_callbacks & callbacks;
-		uint16_t                     port;
-		Ipv4_address                 ip;
-		uint16_t                     peer_port;
-
-		Allowed_ip_update_policy(Allocator                  & a,
-		                         genode_wg_config_callbacks & c,
-		                         uint16_t                     p,
-		                         Ipv4_address                 i,
-		                         uint16_t                     pp)
-		: alloc(a), callbacks(c), port(p), ip(i), peer_port(pp) {}
-
-		void destroy_element(Element & e)
-		{
-			callbacks.remove_route(port, ip.addr, peer_port,
-			                       e.ip_range.address.addr);
-			destroy(alloc, &e);
-		}
-
-		Element & create_element(Xml_node node)
-		{
-			Ipv4_address_prefix p =
-				node.attribute_value("value", Ipv4_address_prefix { });
-			callbacks.add_route(port, ip.addr, peer_port,
-			                    p.address.addr, p.subnet_mask().addr);
-			return *(new (alloc) Element(p));
-		}
-
-		void update_element(Element &, Xml_node) {}
-
-		static bool element_matches_xml_node(Element const & e, Xml_node node)
-		{
-			Ipv4_address_prefix p =
-				node.attribute_value("value", Ipv4_address_prefix {});
-			return (e.ip_range.address == p.address) &&
-			       (e.ip_range.subnet_mask() == p.subnet_mask());
-		}
-
-		static bool node_is_element(Xml_node node) {
-			return node.has_type("allowed-ip"); }
-	};
-
 	struct Peer : List_model<Peer>::Element
 	{
 		Key_base64             public_key;
 		Ipv4_address           ip;
 		uint16_t               port;
-		List_model<Allowed_ip> allowed_ips {};
+		Ipv4_address_prefix    allowed_ip;
 
-		Peer(Key_base64 key, Ipv4_address ip, uint16_t port)
-		: public_key(key), ip(ip), port(port) { }
+		Peer(Key_base64 key, Ipv4_address ip, uint16_t port, Ipv4_address_prefix allowed_ip)
+		: public_key(key), ip(ip), port(port), allowed_ip(allowed_ip) { }
 	};
 
 	struct Peer_update_policy : List_model<Peer>::Update_policy
@@ -129,9 +77,6 @@ struct Wireguard::Config_model
 
 		void destroy_element(Element & e)
 		{
-			Allowed_ip_update_policy policy(alloc, callbacks, port,
-			                                e.ip, e.port);
-			e.allowed_ips.destroy_all_elements(policy);
 			callbacks.remove_peer(port, e.ip.addr, e.port);
 			destroy(alloc, &e);
 		}
@@ -139,23 +84,24 @@ struct Wireguard::Config_model
 		Element & create_element(Xml_node node)
 		{
 			uint8_t key_buf[WG_KEY_LEN];
-			Ipv4_address ip = node.attribute_value("ip", Ipv4_address { });
-			uint16_t      p = node.attribute_value("port", (uint16_t)0U );
-			Key_base64    k = node.attribute_value("public_key", Key_base64());
+			Ipv4_address        ip = node.attribute_value("ip", Ipv4_address { });
+			uint16_t             p = node.attribute_value("port", (uint16_t)0U );
+			Key_base64           k = node.attribute_value("public_key", Key_base64());
+			Ipv4_address_prefix  a = node.attribute_value("allowed_ip", Ipv4_address_prefix());
 
 			if (!k.valid() || !key_from_base64(key_buf, k.string()))
 				error("Invalid public key!");
 
-			callbacks.add_peer(port, ip.addr, p, key_buf);
-			return *(new (alloc) Element(k, ip, p));
+			if (!a.valid())
+				error("Invalid allowed ip!");
+
+			callbacks.add_peer(
+				port, ip.addr, p, key_buf, a.address.addr, a.prefix);
+
+			return *(new (alloc) Element(k, ip, p, a));
 		}
 
-		void update_element(Element & e, Xml_node node)
-		{
-			Allowed_ip_update_policy policy(alloc, callbacks, port,
-			                                e.ip, e.port);
-			e.allowed_ips.update_from_xml(policy, node);
-		}
+		void update_element(Element &, Xml_node) { }
 
 		static bool element_matches_xml_node(Element const & e, Xml_node node)
 		{

@@ -30,32 +30,26 @@ typedef void (*genode_wg_config_add_dev_t)
 
 typedef void (*genode_wg_config_rm_dev_t) (genode_wg_u16_t listen_port);
 
-typedef void (*genode_wg_config_add_peer_t)
-	(genode_wg_u16_t listen_port, genode_wg_u8_t const endpoint_ip[4],
-	 genode_wg_u16_t endpoint_port, const genode_wg_u8_t * const pub_key);
+typedef void (*genode_wg_config_add_peer_t) (
+	genode_wg_u16_t             listen_port,
+	genode_wg_u8_t const        endpoint_ip[4],
+	genode_wg_u16_t             endpoint_port,
+	genode_wg_u8_t const *const pub_key,
+	genode_wg_u8_t const        allowed_ip_addr[4],
+	genode_wg_u8_t const        allowed_ip_prefix
+);
 
 typedef void (*genode_wg_config_rm_peer_t)
 	(genode_wg_u16_t listen_port, genode_wg_u8_t const endpoint_ip[4],
 	 genode_wg_u16_t endpoint_port);
 
-typedef void (*genode_wg_config_add_route_t)
-	(genode_wg_u16_t listen_port, genode_wg_u8_t const endpoint_ip[4],
-	 genode_wg_u16_t endpoint_port, genode_wg_u8_t const allowed_ip_addr[4],
-	 genode_wg_u8_t const allowed_ip_subnet_mask[4]);
-
-typedef void (*genode_wg_config_rm_route_t)
-	(genode_wg_u16_t listen_port, genode_wg_u8_t const endpoint_ip[4],
-	 genode_wg_u16_t endpoint_port, genode_wg_u8_t const allowed_ip_addr[4]);
-
 
 struct genode_wg_config_callbacks
 {
-	genode_wg_config_add_dev_t   add_device;
-	genode_wg_config_rm_dev_t    remove_device;
-	genode_wg_config_add_peer_t  add_peer;
-	genode_wg_config_rm_peer_t   remove_peer;
-	genode_wg_config_add_route_t add_route;
-	genode_wg_config_rm_route_t  remove_route;
+	genode_wg_config_add_dev_t  add_device;
+	genode_wg_config_rm_dev_t   remove_device;
+	genode_wg_config_add_peer_t add_peer;
+	genode_wg_config_rm_peer_t  remove_peer;
 };
 
 
