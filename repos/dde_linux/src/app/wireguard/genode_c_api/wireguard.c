@@ -17,6 +17,7 @@
 
 /* contrib linux includes */
 #include <../drivers/net/wireguard/device.h>
+#include <../drivers/net/wireguard/messages.h>
 #include <uapi/linux/wireguard.h>
 #include <net/genetlink.h>
 
@@ -38,23 +39,131 @@ __attribute__((aligned(NETDEV_ALIGN)));
 struct genode_wg_nlattr_ifname
 {
 	struct nlattr header;
-	char          ifname[1] __attribute__((aligned(NLA_ALIGNTO)));
+	char          data[1] __attribute__((aligned(NLA_ALIGNTO)));
 }
 __attribute__((aligned(NLA_ALIGNTO)));
 
 
-struct genode_wg_nlattr_key
+struct genode_wg_nlattr_private_key
 {
 	struct nlattr header;
-	char          key[GENODE_WG_KEY_LEN] __attribute__((aligned(NLA_ALIGNTO)));
+	char          data[NOISE_PUBLIC_KEY_LEN] __attribute__((aligned(NLA_ALIGNTO)));
 }
 __attribute__((aligned(NLA_ALIGNTO)));
 
 
-struct genode_wg_nlattr_port
+struct genode_wg_nlattr_public_key
 {
 	struct nlattr header;
-	genode_wg_u16_t port __attribute__((aligned(NLA_ALIGNTO)));
+	char          data[NOISE_PUBLIC_KEY_LEN] __attribute__((aligned(NLA_ALIGNTO)));
+}
+__attribute__((aligned(NLA_ALIGNTO)));
+
+
+struct genode_wg_nlattr_symmetric_key
+{
+	struct nlattr header;
+	char          data[NOISE_SYMMETRIC_KEY_LEN] __attribute__((aligned(NLA_ALIGNTO)));
+}
+__attribute__((aligned(NLA_ALIGNTO)));
+
+
+struct genode_wg_nlattr_u8
+{
+	struct nlattr   header;
+	genode_wg_u8_t  data __attribute__((aligned(NLA_ALIGNTO)));
+}
+__attribute__((aligned(NLA_ALIGNTO)));
+
+
+struct genode_wg_nlattr_u16
+{
+	struct nlattr   header;
+	genode_wg_u16_t data __attribute__((aligned(NLA_ALIGNTO)));
+}
+__attribute__((aligned(NLA_ALIGNTO)));
+
+
+struct genode_wg_nlattr_u32
+{
+	struct nlattr   header;
+	genode_wg_u32_t data __attribute__((aligned(NLA_ALIGNTO)));
+}
+__attribute__((aligned(NLA_ALIGNTO)));
+
+
+struct genode_wg_nlattr_u64
+{
+	struct nlattr   header;
+	genode_wg_u64_t data __attribute__((aligned(NLA_ALIGNTO)));
+}
+__attribute__((aligned(NLA_ALIGNTO)));
+
+
+struct genode_wg_nlattr_in_addr
+{
+	struct nlattr  header;
+	struct in_addr data __attribute__((aligned(NLA_ALIGNTO)));
+}
+__attribute__((aligned(NLA_ALIGNTO)));
+
+
+struct genode_wg_nlattr_sockaddr
+{
+	struct nlattr   header;
+	struct sockaddr data __attribute__((aligned(NLA_ALIGNTO)));
+}
+__attribute__((aligned(NLA_ALIGNTO)));
+
+
+struct genode_wg_nlattr_kernel_timespec
+{
+	struct nlattr            header;
+	struct __kernel_timespec data __attribute__((aligned(NLA_ALIGNTO)));
+}
+__attribute__((aligned(NLA_ALIGNTO)));
+
+
+struct genode_wg_nlattr_allowed_ip
+{
+	struct nlattr header;
+	struct genode_wg_nlattr_u16     family    __attribute__((aligned(NLA_ALIGNTO)));
+	struct genode_wg_nlattr_in_addr ipaddr    __attribute__((aligned(NLA_ALIGNTO)));
+	struct genode_wg_nlattr_u8      cidr_mask __attribute__((aligned(NLA_ALIGNTO)));
+}
+__attribute__((aligned(NLA_ALIGNTO)));
+
+
+struct genode_wg_nlattr_allowed_ips
+{
+	struct nlattr header;
+	struct genode_wg_nlattr_allowed_ip ip_0 __attribute__((aligned(NLA_ALIGNTO)));
+}
+__attribute__((aligned(NLA_ALIGNTO)));
+
+
+struct genode_wg_nlattr_peer
+{
+	struct nlattr                           header;
+	struct genode_wg_nlattr_public_key      public_key          __attribute__((aligned(NLA_ALIGNTO)));
+	struct genode_wg_nlattr_symmetric_key   preshared_key       __attribute__((aligned(NLA_ALIGNTO)));
+	struct genode_wg_nlattr_u32             flags               __attribute__((aligned(NLA_ALIGNTO)));
+	struct genode_wg_nlattr_sockaddr        endpoint            __attribute__((aligned(NLA_ALIGNTO)));
+	struct genode_wg_nlattr_u16             pki                 __attribute__((aligned(NLA_ALIGNTO))); /* persisten
+t keepalive internal */
+	struct genode_wg_nlattr_kernel_timespec last_handshake_time __attribute__((aligned(NLA_ALIGNTO)));
+	struct genode_wg_nlattr_u64             rx_bytes            __attribute__((aligned(NLA_ALIGNTO)));
+	struct genode_wg_nlattr_u64             tx_bytes            __attribute__((aligned(NLA_ALIGNTO)));
+	struct genode_wg_nlattr_allowed_ips     allowed_ips         __attribute__((aligned(NLA_ALIGNTO)));
+	struct genode_wg_nlattr_u32             protocol_version    __attribute__((aligned(NLA_ALIGNTO)));
+}
+__attribute__((aligned(NLA_ALIGNTO)));
+
+
+struct genode_wg_nlattr_peers
+{
+	struct nlattr                header;
+	struct genode_wg_nlattr_peer peer_0 __attribute__((aligned(NLA_ALIGNTO)));
 }
 __attribute__((aligned(NLA_ALIGNTO)));
 
@@ -66,15 +175,11 @@ static struct nlattr               *_genode_wg_data[1];
 static struct netlink_ext_ack       _genode_wg_extack;
 static struct rtnl_link_ops        *_genode_wg_rtnl_link_ops;
 static struct genl_family          *_genode_wg_genl_family;
+static struct socket                _genode_wg_socket;
 
 /* for the call to wg_set_device that installs listen port and private key */
-static struct sock                     _genode_wg_sock;
-static struct sk_buff                  _genode_wg_sk_buff;
-static struct genl_info                _genode_wg_genl_info;
-static struct nlattr                  *_genode_wg_genl_info_attrs[__WGDEVICE_A_LAST];
-static struct genode_wg_nlattr_ifname  _genode_wg_nlattr_ifname;
-static struct genode_wg_nlattr_port    _genode_wg_nlattr_listen_port;
-static struct genode_wg_nlattr_key     _genode_wg_nlattr_private_key;
+static struct sock                  _genode_wg_sock;
+static struct sk_buff               _genode_wg_sk_buff;
 
 
 void genode_wg_rtnl_link_ops(struct rtnl_link_ops *ops)
@@ -95,61 +200,70 @@ struct net_device * genode_wg_net_device(void)
 }
 
 
+/**
+ * Call 'wg_set_device' in the contrib code
+ */
+static void
+_genode_wg_set_device(struct genl_info *info)
+{
+	unsigned idx;
+	bool     op_not_found = true;
+
+	for (idx = 0; idx < _genode_wg_genl_family->n_ops; idx++) {
+		if (_genode_wg_genl_family->ops[idx].cmd == WG_CMD_SET_DEVICE) {
+			_genode_wg_genl_family->ops[idx].doit(&_genode_wg_sk_buff, info);
+			op_not_found = false;
+		}
+	}
+	if (op_not_found) {
+		printk("Error: cannot find op WG_CMD_SET_DEVICE\n");
+		while (1) { }
+	}
+}
+
+
 static void
 _genode_wg_config_add_dev(genode_wg_u16_t              listen_port,
                           const genode_wg_u8_t * const priv_key)
 {
-	unsigned idx;
-	bool found_wg_cmd = false;
-
 	static unsigned called = 0;
 	if (called++) {
 		printk("%s re-called. Reconfiguration not supported yet\n", __func__);
 		return;
 	}
 
-	printk("private key\n");
-	printk("%s entered, listen port %d\n", __func__, listen_port);
-	for (idx = 0; idx < GENODE_WG_KEY_LEN; idx += 4) {
-		printk("  %d: %x %x %x %x\n", idx,
-		       priv_key[idx + 0],
-		       priv_key[idx + 1],
-		       priv_key[idx + 2],
-		       priv_key[idx + 3]);
-	}
-
 	/* prepare environment for the execution of 'wg_set_device' */
 	_genode_wg_net_dev.public_data.rtnl_link_ops = _genode_wg_rtnl_link_ops;
 	_genode_wg_sk_buff.sk = &_genode_wg_sock;
 
-	_genode_wg_nlattr_ifname.ifname[0] = '\0';
-	_genode_wg_nlattr_ifname.header.nla_len = sizeof(_genode_wg_nlattr_ifname.ifname) + NLA_HDRLEN;
-	_genode_wg_genl_info_attrs[WGDEVICE_A_IFNAME] = &_genode_wg_nlattr_ifname.header;
+	{
+		struct genode_wg_nlattr_ifname      ifname;
+		struct genode_wg_nlattr_u16         port;
+		struct genode_wg_nlattr_private_key private_key;
+		struct nlattr *                     attrs[__WGDEVICE_A_LAST];
+		struct genl_info                    info;
 
-	_genode_wg_nlattr_listen_port.port = listen_port;
-	_genode_wg_nlattr_listen_port.header.nla_len = sizeof(_genode_wg_nlattr_listen_port.port) + NLA_HDRLEN;
-	_genode_wg_genl_info_attrs[WGDEVICE_A_LISTEN_PORT] = &_genode_wg_nlattr_listen_port.header;
+		ifname.data[0]      = '\0';
+		ifname.header.nla_len = sizeof(ifname);
 
-	memcpy(_genode_wg_nlattr_private_key.key, priv_key, GENODE_WG_KEY_LEN);
-	_genode_wg_nlattr_private_key.header.nla_len = sizeof(_genode_wg_nlattr_private_key.key) + NLA_HDRLEN;
-	_genode_wg_genl_info_attrs[WGDEVICE_A_PRIVATE_KEY] = &_genode_wg_nlattr_private_key.header;
+		port.data = listen_port;
+		port.header.nla_len = sizeof(port);
 
-	_genode_wg_genl_info.attrs = _genode_wg_genl_info_attrs;
+		memcpy(private_key.data, priv_key, sizeof(private_key.data));
 
-	/*
-	 * Trigger execution of 'wg_set_device' in order to install listen port
-	 * and private key.
-	 */
-	for (idx = 0; idx < _genode_wg_genl_family->n_ops; idx++) {
-		if (_genode_wg_genl_family->ops[idx].cmd == WG_CMD_SET_DEVICE) {
-			_genode_wg_genl_family->ops[idx].doit(&_genode_wg_sk_buff, &_genode_wg_genl_info);
-			found_wg_cmd = true;
-		}
+		private_key.header.nla_len = sizeof(private_key);
+
+		memset(attrs, 0, sizeof(attrs));
+		attrs[WGDEVICE_A_IFNAME]      = &ifname.header;
+		attrs[WGDEVICE_A_LISTEN_PORT] = &port.header;
+		attrs[WGDEVICE_A_PRIVATE_KEY] = &private_key.header;
+
+		info.attrs = attrs;
+		_genode_wg_set_device(&info);
 	}
-	if (!found_wg_cmd) {
-		printk("Error: cannot find op WG_CMD_SET_DEVICE\n");
-		while (1) { }
-	}
+
+	/* prepare environment for the execution of 'wg_open' */
+	_genode_wg_socket.sk = &_genode_wg_sock;
 
 	/* trigger execution of 'wg_open' */
 	_genode_wg_net_dev.public_data.netdev_ops->ndo_open(
@@ -169,23 +283,40 @@ _genode_wg_config_add_peer(genode_wg_u16_t              listen_port,
                            genode_wg_u16_t              endpoint_port,
                            const genode_wg_u8_t * const pub_key)
 {
-	unsigned idx;
+	struct genode_wg_nlattr_ifname ifname;
+	struct genode_wg_nlattr_peers peers;
+	struct nlattr *attrs[__WGDEVICE_A_LAST];
+	struct genl_info info;
+	struct genode_wg_nlattr_peer *peer = &peers.peer_0;
 
-	printk("%s not yet implemented\n", __func__);
-	printk("public key\n");
-	for (idx = 0; idx < GENODE_WG_KEY_LEN; idx += 4) {
-		printk("  %d: %x %x %x %x\n", idx,
-		       pub_key[idx + 0],
-		       pub_key[idx + 1],
-		       pub_key[idx + 2],
-		       pub_key[idx + 3]);
-	}
-	printk("endpoint ip %x %x %x %x port %x\n",
-	       endpoint_ip[0],
-	       endpoint_ip[1],
-	       endpoint_ip[2],
-	       endpoint_ip[3],
-	       endpoint_port);
+	ifname.data[0] = '\0';
+	ifname.header.nla_len = sizeof(ifname);
+
+	memset(&peers, 0, sizeof(peers));
+
+	peers.header.nla_len = sizeof(peers);
+
+	peer->header.nla_len = sizeof(peers.peer_0);
+	peer->header.nla_type |= NLA_F_NESTED;
+	peer->public_key.header.nla_len          = sizeof(peer->public_key);
+	peer->preshared_key.header.nla_len       = sizeof(peer->preshared_key);
+	peer->flags.header.nla_len               = sizeof(peer->flags);
+	peer->endpoint.header.nla_len            = sizeof(peer->endpoint);
+	peer->pki.header.nla_len                 = sizeof(peer->pki);
+	peer->last_handshake_time.header.nla_len = sizeof(peer->last_handshake_time);
+	peer->rx_bytes.header.nla_len            = sizeof(peer->rx_bytes);
+	peer->tx_bytes.header.nla_len            = sizeof(peer->tx_bytes);
+	peer->allowed_ips.header.nla_len         = sizeof(peer->allowed_ips);
+	peer->protocol_version.header.nla_len    = sizeof(peer->protocol_version);
+
+	memcpy(peer->public_key.data, pub_key, sizeof(peer->public_key.data));
+
+	memset(attrs, 0, sizeof(attrs));
+	attrs[WGDEVICE_A_IFNAME] = &ifname.header;
+	attrs[WGDEVICE_A_PEERS]  = &peers.header;
+
+	info.attrs = attrs;
+	_genode_wg_set_device(&info);
 }
 
 
@@ -280,7 +411,6 @@ void lx_user_init(void)
 		 _genode_wg_tb,
 		 _genode_wg_data,
 		&_genode_wg_extack);
-
 
 	/* create user task, which handles network traffic and configuration changes */
 	pid = kernel_thread(user_task_function, NULL, CLONE_FS | CLONE_FILES);

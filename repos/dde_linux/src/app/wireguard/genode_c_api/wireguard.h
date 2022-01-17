@@ -16,8 +16,10 @@
 
 enum { GENODE_WG_KEY_LEN = 32 };
 
-typedef unsigned char  genode_wg_u8_t;
-typedef unsigned short genode_wg_u16_t;
+typedef unsigned char      genode_wg_u8_t;
+typedef unsigned short     genode_wg_u16_t;
+typedef unsigned int       genode_wg_u32_t;
+typedef unsigned long long genode_wg_u64_t;
 
 #ifdef __cplusplus
 extern "C" {
