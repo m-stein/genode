@@ -269,14 +269,6 @@ void __noreturn do_exit(long code)
 }
 
 
-#include <linux/netlink.h>
-
-void do_trace_netlink_extack(const char * msg)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <net/dst_cache.h>
 
 void dst_cache_destroy(struct dst_cache * dst_cache)

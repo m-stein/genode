@@ -251,3 +251,11 @@ void rtnl_unlock(void)
 {
 	lx_emul_trace(__func__);
 }
+
+
+#include <linux/netlink.h>
+
+void do_trace_netlink_extack(const char * msg)
+{
+	lx_emul_trace(__func__);
+}
