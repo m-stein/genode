@@ -1,7 +1,7 @@
 /*
  * \brief  Dummy definitions of Linux Kernel functions
  * \author Automatically generated file - do no edit
- * \date   2022-01-14
+ * \date   2022-01-17
  */
 
 #include <lx_emul.h>
@@ -10,6 +10,14 @@
 #include <linux/skbuff.h>
 
 int ___pskb_trim(struct sk_buff * skb,unsigned int len)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/ratelimit_types.h>
+
+int ___ratelimit(struct ratelimit_state * rs,const char * func)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -82,14 +90,6 @@ void __napi_schedule(struct napi_struct * n)
 #include <linux/netdevice.h>
 
 void __netif_napi_del(struct napi_struct * napi)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <net/netlink.h>
-
-int __nla_parse(struct nlattr ** tb,int maxtype,const struct nlattr * head,int len,const struct nla_policy * policy,unsigned int validate,struct netlink_ext_ack * extack)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -658,22 +658,6 @@ void netif_carrier_off(struct net_device * dev)
 #include <linux/netdevice.h>
 
 void netif_napi_add(struct net_device * dev,struct napi_struct * napi,int (* poll)(struct napi_struct *,int),int weight)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <net/netlink.h>
-
-int nla_put(struct sk_buff * skb,int attrtype,int attrlen,const void * data)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <net/netlink.h>
-
-int nla_put_64bit(struct sk_buff * skb,int attrtype,int attrlen,const void * data,int padattr)
 {
 	lx_emul_trace_and_stop(__func__);
 }

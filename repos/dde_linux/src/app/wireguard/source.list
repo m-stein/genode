@@ -44,6 +44,7 @@ lib/crypto/blake2s.c
 lib/crypto/curve25519-generic.c
 lib/crypto/curve25519-hacl64.c
 lib/idr.c
+lib/nlattr.c
 lib/radix-tree.c
 lib/refcount.c
 lib/siphash.c
