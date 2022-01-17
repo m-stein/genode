@@ -55,7 +55,14 @@ struct genode_wg_config_callbacks
 
 void genode_wg_update_config(struct genode_wg_config_callbacks * callbacks);
 
-void genode_wg_notify_peers(void);
+
+typedef void (*genode_wg_net_receive_t)
+	(genode_wg_u16_t listen_port, void * buf, unsigned long buf_size);
+
+void genode_wg_net_receive(genode_wg_net_receive_t recv_callback);
+
+
+int  genode_wg_net_send(void * buf, unsigned long buf_size, int up);
 
 #ifdef __cplusplus
 }

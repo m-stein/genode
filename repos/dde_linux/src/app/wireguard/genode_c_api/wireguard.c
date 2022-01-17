@@ -334,8 +334,12 @@ static struct genode_wg_config_callbacks _config_callbacks = {
 };
 
 
-void genode_wg_notify_peers(void)
+static void
+_genode_wg_net_receive(genode_wg_u16_t listen_port,
+                       void *          buf,
+                       unsigned long   buf_size)
 {
+	printk("%s not yet implemented\n", __func__);
 }
 
 
@@ -343,6 +347,8 @@ static int user_task_function(void *arg)
 {
 	for (;;) {
 		genode_wg_update_config(&_config_callbacks);
+
+		genode_wg_net_receive(&_genode_wg_net_receive);
 
 		/* block until lx_emul_task_unblock */
 		lx_emul_task_schedule(true);
