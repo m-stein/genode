@@ -33,7 +33,7 @@ struct genode_wg_net_device
 	struct net_device public_data;
 	struct wg_device  private_data __attribute__((aligned(NETDEV_ALIGN)));
 }
-__attribute__((aligned(NETDEV_ALIGN)));
+__attribute__((aligned(NETDEV_ALIGN), packed));
 
 
 struct genode_wg_nlattr_ifname
@@ -41,7 +41,7 @@ struct genode_wg_nlattr_ifname
 	struct nlattr header;
 	char          data[1] __attribute__((aligned(NLA_ALIGNTO)));
 }
-__attribute__((aligned(NLA_ALIGNTO)));
+__attribute__((aligned(NLA_ALIGNTO), packed));
 
 
 struct genode_wg_nlattr_private_key
@@ -49,7 +49,7 @@ struct genode_wg_nlattr_private_key
 	struct nlattr header;
 	char          data[NOISE_PUBLIC_KEY_LEN] __attribute__((aligned(NLA_ALIGNTO)));
 }
-__attribute__((aligned(NLA_ALIGNTO)));
+__attribute__((aligned(NLA_ALIGNTO), packed));
 
 
 struct genode_wg_nlattr_public_key
@@ -57,7 +57,7 @@ struct genode_wg_nlattr_public_key
 	struct nlattr header;
 	char          data[NOISE_PUBLIC_KEY_LEN] __attribute__((aligned(NLA_ALIGNTO)));
 }
-__attribute__((aligned(NLA_ALIGNTO)));
+__attribute__((aligned(NLA_ALIGNTO), packed));
 
 
 struct genode_wg_nlattr_symmetric_key
@@ -65,7 +65,7 @@ struct genode_wg_nlattr_symmetric_key
 	struct nlattr header;
 	char          data[NOISE_SYMMETRIC_KEY_LEN] __attribute__((aligned(NLA_ALIGNTO)));
 }
-__attribute__((aligned(NLA_ALIGNTO)));
+__attribute__((aligned(NLA_ALIGNTO), packed));
 
 
 struct genode_wg_nlattr_u8
@@ -73,7 +73,7 @@ struct genode_wg_nlattr_u8
 	struct nlattr   header;
 	genode_wg_u8_t  data __attribute__((aligned(NLA_ALIGNTO)));
 }
-__attribute__((aligned(NLA_ALIGNTO)));
+__attribute__((aligned(NLA_ALIGNTO), packed));
 
 
 struct genode_wg_nlattr_u16
@@ -81,7 +81,7 @@ struct genode_wg_nlattr_u16
 	struct nlattr   header;
 	genode_wg_u16_t data __attribute__((aligned(NLA_ALIGNTO)));
 }
-__attribute__((aligned(NLA_ALIGNTO)));
+__attribute__((aligned(NLA_ALIGNTO), packed));
 
 
 struct genode_wg_nlattr_u32
@@ -89,7 +89,7 @@ struct genode_wg_nlattr_u32
 	struct nlattr   header;
 	genode_wg_u32_t data __attribute__((aligned(NLA_ALIGNTO)));
 }
-__attribute__((aligned(NLA_ALIGNTO)));
+__attribute__((aligned(NLA_ALIGNTO), packed));
 
 
 struct genode_wg_nlattr_u64
@@ -97,7 +97,7 @@ struct genode_wg_nlattr_u64
 	struct nlattr   header;
 	genode_wg_u64_t data __attribute__((aligned(NLA_ALIGNTO)));
 }
-__attribute__((aligned(NLA_ALIGNTO)));
+__attribute__((aligned(NLA_ALIGNTO), packed));
 
 
 struct genode_wg_nlattr_in_addr
@@ -105,7 +105,7 @@ struct genode_wg_nlattr_in_addr
 	struct nlattr  header;
 	struct in_addr data __attribute__((aligned(NLA_ALIGNTO)));
 }
-__attribute__((aligned(NLA_ALIGNTO)));
+__attribute__((aligned(NLA_ALIGNTO), packed));
 
 
 struct genode_wg_nlattr_sockaddr
@@ -113,7 +113,7 @@ struct genode_wg_nlattr_sockaddr
 	struct nlattr   header;
 	struct sockaddr data __attribute__((aligned(NLA_ALIGNTO)));
 }
-__attribute__((aligned(NLA_ALIGNTO)));
+__attribute__((aligned(NLA_ALIGNTO), packed));
 
 
 struct genode_wg_nlattr_kernel_timespec
@@ -121,7 +121,7 @@ struct genode_wg_nlattr_kernel_timespec
 	struct nlattr            header;
 	struct __kernel_timespec data __attribute__((aligned(NLA_ALIGNTO)));
 }
-__attribute__((aligned(NLA_ALIGNTO)));
+__attribute__((aligned(NLA_ALIGNTO), packed));
 
 
 struct genode_wg_nlattr_allowed_ip
@@ -131,7 +131,7 @@ struct genode_wg_nlattr_allowed_ip
 	struct genode_wg_nlattr_in_addr ipaddr    __attribute__((aligned(NLA_ALIGNTO)));
 	struct genode_wg_nlattr_u8      cidr_mask __attribute__((aligned(NLA_ALIGNTO)));
 }
-__attribute__((aligned(NLA_ALIGNTO)));
+__attribute__((aligned(NLA_ALIGNTO), packed));
 
 
 struct genode_wg_nlattr_allowed_ips
@@ -139,7 +139,7 @@ struct genode_wg_nlattr_allowed_ips
 	struct nlattr header;
 	struct genode_wg_nlattr_allowed_ip ip_0 __attribute__((aligned(NLA_ALIGNTO)));
 }
-__attribute__((aligned(NLA_ALIGNTO)));
+__attribute__((aligned(NLA_ALIGNTO), packed));
 
 
 struct genode_wg_nlattr_peer
@@ -149,15 +149,14 @@ struct genode_wg_nlattr_peer
 	struct genode_wg_nlattr_symmetric_key   preshared_key       __attribute__((aligned(NLA_ALIGNTO)));
 	struct genode_wg_nlattr_u32             flags               __attribute__((aligned(NLA_ALIGNTO)));
 	struct genode_wg_nlattr_sockaddr        endpoint            __attribute__((aligned(NLA_ALIGNTO)));
-	struct genode_wg_nlattr_u16             pki                 __attribute__((aligned(NLA_ALIGNTO))); /* persisten
-t keepalive internal */
+	struct genode_wg_nlattr_u16             pki                 __attribute__((aligned(NLA_ALIGNTO))); /* persistent keepalive internal */
 	struct genode_wg_nlattr_kernel_timespec last_handshake_time __attribute__((aligned(NLA_ALIGNTO)));
 	struct genode_wg_nlattr_u64             rx_bytes            __attribute__((aligned(NLA_ALIGNTO)));
 	struct genode_wg_nlattr_u64             tx_bytes            __attribute__((aligned(NLA_ALIGNTO)));
 	struct genode_wg_nlattr_allowed_ips     allowed_ips         __attribute__((aligned(NLA_ALIGNTO)));
 	struct genode_wg_nlattr_u32             protocol_version    __attribute__((aligned(NLA_ALIGNTO)));
 }
-__attribute__((aligned(NLA_ALIGNTO)));
+__attribute__((aligned(NLA_ALIGNTO), packed));
 
 
 struct genode_wg_nlattr_peers
@@ -165,7 +164,7 @@ struct genode_wg_nlattr_peers
 	struct nlattr                header;
 	struct genode_wg_nlattr_peer peer_0 __attribute__((aligned(NLA_ALIGNTO)));
 }
-__attribute__((aligned(NLA_ALIGNTO)));
+__attribute__((aligned(NLA_ALIGNTO), packed));
 
 
 static struct genode_wg_net_device  _genode_wg_net_dev;
