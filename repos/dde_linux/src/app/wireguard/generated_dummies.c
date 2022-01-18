@@ -7,14 +7,6 @@
 #include <lx_emul.h>
 
 
-#include <linux/skbuff.h>
-
-int ___pskb_trim(struct sk_buff * skb,unsigned int len)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/ratelimit_types.h>
 
 int ___ratelimit(struct ratelimit_state * rs,const char * func)
@@ -23,9 +15,9 @@ int ___ratelimit(struct ratelimit_state * rs,const char * func)
 }
 
 
-#include <linux/skbuff.h>
+#include <linux/gfp.h>
 
-struct sk_buff * __alloc_skb(unsigned int size,gfp_t gfp_mask,int flags,int node)
+struct page * __alloc_pages(gfp_t gfp,unsigned int order,int preferred_nid,nodemask_t * nodemask)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -95,9 +87,9 @@ void __netif_napi_del(struct napi_struct * napi)
 }
 
 
-#include <linux/skbuff.h>
+#include <linux/mm.h>
 
-void * __pskb_pull_tail(struct sk_buff * skb,int delta)
+void __put_page(struct page * page)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -298,6 +290,14 @@ void free_netdev(struct net_device * dev)
 }
 
 
+#include <linux/sched/user.h>
+
+void free_uid(struct user_struct * up)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
 #include <linux/property.h>
 
 unsigned int fwnode_count_parents(const struct fwnode_handle * fwnode)
@@ -349,6 +349,14 @@ void * genlmsg_put(struct sk_buff * skb,u32 portid,u32 seq,const struct genl_fam
 #include <linux/random.h>
 
 u32 get_random_u32(void)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/gfp.h>
+
+bool gfp_pfmemalloc_allowed(gfp_t gfp_mask)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -440,14 +448,6 @@ struct rtable * ip_route_output_flow(struct net * net,struct flowi4 * flp4,const
 const struct header_ops ip_tunnel_header_ops;
 
 
-#include <net/ip_tunnels.h>
-
-__be16 ip_tunnel_parse_protocol(const struct sk_buff * skb)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <net/addrconf.h>
 
 int ipv6_chk_addr(struct net * net,const struct in6_addr * addr,const struct net_device * dev,int strict)
@@ -514,17 +514,9 @@ void kfree_sensitive(const void * p)
 }
 
 
-#include <linux/skbuff.h>
+#include <linux/slab.h>
 
-void kfree_skb(struct sk_buff * skb)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/skbuff.h>
-
-void kfree_skb_list(struct sk_buff * segs)
+int kmem_cache_alloc_bulk(struct kmem_cache * s,gfp_t flags,size_t size,void ** p)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -599,6 +591,14 @@ void netif_carrier_off(struct net_device * dev)
 }
 
 
+#include <linux/gfp.h>
+
+void page_frag_free(void * addr)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
 #include <linux/prandom.h>
 
 u32 prandom_u32(void)
@@ -610,22 +610,6 @@ u32 prandom_u32(void)
 #include <linux/printk.h>
 
 int printk_deferred(const char * fmt,...)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/skbuff.h>
-
-int pskb_expand_head(struct sk_buff * skb,int nhead,int ntail,gfp_t gfp_mask)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/skbuff.h>
-
-void * pskb_put(struct sk_buff * skb,struct sk_buff * tail,int len)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -671,6 +655,22 @@ void sk_clear_memalloc(struct sock * sk)
 }
 
 
+#include <net/sock.h>
+
+void sk_error_report(struct sock * sk)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <net/sock.h>
+
+void sk_free(struct sock * sk)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
 #include <linux/netdevice.h>
 
 int skb_checksum_help(struct sk_buff * skb)
@@ -679,97 +679,17 @@ int skb_checksum_help(struct sk_buff * skb)
 }
 
 
-#include <linux/skbuff.h>
+#include <net/sock.h>
 
-struct sk_buff * skb_clone(struct sk_buff * skb,gfp_t gfp_mask)
+void skb_set_owner_w(struct sk_buff * skb,struct sock * sk)
 {
 	lx_emul_trace_and_stop(__func__);
 }
 
 
-#include <linux/skbuff.h>
+#include <net/sock.h>
 
-int skb_copy_bits(const struct sk_buff * skb,int offset,void * to,int len)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/skbuff.h>
-
-int skb_cow_data(struct sk_buff * skb,int tailbits,struct sk_buff ** trailer)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/skbuff.h>
-
-struct sk_buff * skb_dequeue(struct sk_buff_head * list)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/skbuff.h>
-
-void * skb_pull(struct sk_buff * skb,unsigned int len)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/skbuff.h>
-
-void * skb_push(struct sk_buff * skb,unsigned int len)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/skbuff.h>
-
-void * skb_put(struct sk_buff * skb,unsigned int len)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/skbuff.h>
-
-void skb_queue_purge(struct sk_buff_head * list)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/skbuff.h>
-
-void skb_queue_tail(struct sk_buff_head * list,struct sk_buff * newsk)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/skbuff.h>
-
-void skb_scrub_packet(struct sk_buff * skb,bool xnet)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/skbuff.h>
-
-int skb_to_sgvec(struct sk_buff * skb,struct scatterlist * sg,int offset,int len)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/skbuff.h>
-
-void skb_trim(struct sk_buff * skb,unsigned int len)
+void sock_edemux(struct sk_buff * skb)
 {
 	lx_emul_trace_and_stop(__func__);
 }

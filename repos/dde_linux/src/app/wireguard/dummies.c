@@ -275,3 +275,13 @@ void napi_enable(struct napi_struct * n)
 {
 	lx_emul_trace(__func__);
 }
+
+
+#include <linux/mmzone.h>
+
+struct mem_section ** mem_section = NULL;
+
+
+#include <asm/page_64.h>
+
+unsigned long phys_base = 0;

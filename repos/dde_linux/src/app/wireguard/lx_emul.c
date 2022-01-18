@@ -88,9 +88,11 @@ int udp_sock_create4(struct net * net,struct udp_port_cfg * cfg,struct socket **
 
 #include <net/udp_tunnel.h>
 
+extern void genode_wg_udp_tunnel_sock_cfg(struct udp_tunnel_sock_cfg * cfg);
+
 void setup_udp_tunnel_sock(struct net * net,struct socket * sock,struct udp_tunnel_sock_cfg * cfg)
 {
-	lx_emul_trace(__func__);
+	genode_wg_udp_tunnel_sock_cfg(cfg);
 }
 
 
@@ -107,4 +109,34 @@ bool ipv6_mod_enabled(void)
 void udp_tunnel_xmit_skb(struct rtable * rt,struct sock * sk,struct sk_buff * skb,__be32 src,__be32 dst,__u8 tos,__u8 ttl,__be16 df,__be16 src_port,__be16 dst_port,bool xnet,bool nocheck)
 {
 	pr_info("Send packet over UDP tunnel");
+}
+
+
+#include <net/sock.h>
+
+DEFINE_STATIC_KEY_FALSE(memalloc_socks_key);
+EXPORT_SYMBOL_GPL(memalloc_socks_key);
+
+
+#include <linux/slab.h>
+
+struct kmem_cache * kmem_cache_create_usercopy(const char * name,
+                                               unsigned int size,
+                                               unsigned int align,
+                                               slab_flags_t flags,
+                                               unsigned int useroffset,
+                                               unsigned int usersize,
+                                               void (* ctor)(void *))
+{
+	return kmem_cache_create(name, size, align, flags, ctor);
+}
+
+
+#include <net/ip_tunnels.h>
+
+/* Returns either the correct skb->protocol value, or 0 if invalid. */
+__be16 ip_tunnel_parse_protocol(const struct sk_buff *skb)
+{
+	//FIXME: we just assume IPv4
+	return htons(ETH_P_IP);
 }

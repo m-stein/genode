@@ -20,6 +20,7 @@
 #include <../drivers/net/wireguard/messages.h>
 #include <uapi/linux/wireguard.h>
 #include <net/genetlink.h>
+#include <net/udp_tunnel.h>
 
 
 /*
@@ -149,6 +150,7 @@ static struct socket                _genode_wg_socket;
 /* for the call to wg_set_device that installs listen port and private key */
 static struct sock                  _genode_wg_sock;
 static struct sk_buff               _genode_wg_sk_buff;
+static struct udp_tunnel_sock_cfg   _genode_wg_udp_tunnel_cfg;
 
 
 void genode_wg_rtnl_link_ops(struct rtnl_link_ops *ops)
@@ -166,6 +168,11 @@ void genode_wg_genl_family(struct genl_family * family)
 struct net_device * genode_wg_net_device(void)
 {
 	return &_genode_wg_net_dev.public_data;
+}
+
+void genode_wg_udp_tunnel_sock_cfg(struct udp_tunnel_sock_cfg * cfg)
+{
+	_genode_wg_udp_tunnel_cfg = *cfg;
 }
 
 
@@ -204,6 +211,7 @@ _genode_wg_config_add_dev(genode_wg_u16_t              listen_port,
 	/* prepare environment for the execution of 'wg_set_device' */
 	_genode_wg_net_dev.public_data.rtnl_link_ops = _genode_wg_rtnl_link_ops;
 	_genode_wg_sk_buff.sk = &_genode_wg_sock;
+	_genode_wg_sock.sk_user_data = &_genode_wg_net_dev.private_data;
 
 	{
 		struct genode_wg_nlattr_ifname      ifname;
@@ -343,7 +351,16 @@ _genode_wg_net_receive(genode_wg_u16_t listen_port,
                        void *          buf,
                        unsigned long   buf_size)
 {
-	printk("%s not yet implemented\n", __func__);
+	struct sk_buff *skb = alloc_skb(buf_size, GFP_KERNEL);
+	if (!skb) {
+		printk("Error: alloc_skb failed!\n");
+		return;
+	}
+
+	skb_copy_to_linear_data(skb, buf, buf_size);
+	skb_put(skb, buf_size);
+
+	_genode_wg_udp_tunnel_cfg.encap_rcv(&_genode_wg_sock, skb);
 }
 
 
@@ -374,6 +391,8 @@ void lx_user_handle_io(void)
 void lx_user_init(void)
 {
 	pid_t pid;
+
+	skb_init();
 
 	/* trigger execution of 'wg_setup' */
 	_genode_wg_rtnl_link_ops->setup(&_genode_wg_net_dev.public_data);
