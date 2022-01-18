@@ -66,25 +66,29 @@ install_config {
 			<policy label_prefix="drivers"      domain="uplink"/>
 			<policy label="wireguard -> down"   domain="wg_down"/>
 			<policy label="wireguard -> uplink" domain="wg_up"/>
+			<default-policy                     domain="downlink"/>
 
 			<domain name="uplink">
+				<nat domain="wg_down" tcp-ports="16384" udp-ports="16384" icmp-ids="16384"/>
 
-				<nat domain="downlink"
-				     tcp-ports="16384"
-				     udp-ports="16384"
-				     icmp-ids="16384"/>
-
-				<udp-forward port="55552" domain="wg_down" to="10.0.3.2"/>
-
+				<udp-forward port="49002" domain="wg_down" to="10.0.3.2"/>
 			</domain>
 
 			<domain name="wg_down" interface="10.0.3.1/24">
-				<tcp dst="0.0.0.0/0"><permit-any domain="uplink" /></tcp>
-				<udp dst="0.0.0.0/0"><permit-any domain="uplink" /></udp>
-				<icmp dst="0.0.0.0/0" domain="uplink"/>
+				<udp dst="10.0.2.2/24"><permit port="49001" domain="uplink"/></udp>
 			</domain>
 
 			<domain name="wg_up" interface="10.1.1.1/24">
+				<nat domain="downlink" tcp-ports="16384" udp-ports="16384" icmp-ids="16384"/>
+			</domain>
+
+			<domain name="downlink" interface="10.1.2.1/24">
+				<dhcp-server ip_first="10.1.2.2"
+				             ip_last="10.1.2.100"
+				             dns_config_from="uplink"/>
+				<tcp dst="0.0.0.0/0"><permit-any domain="wg_up" /></tcp>
+				<udp dst="0.0.0.0/0"><permit-any domain="wg_up" /></udp>
+				<icmp dst="0.0.0.0/0" domain="wg_up"/>
 			</domain>
 		</config>
 	</start>
@@ -102,9 +106,9 @@ install_config {
 	<start name="wireguard" caps="200">
 		<resource name="RAM" quantum="10M"/>
 		<config>
-			<iface listen_port="55552" private_key="8GRSQZMgG1uuvz4APIBqrDmiLj8L886r++hzixjjHFc=">
+			<iface listen_port="49002" private_key="8GRSQZMgG1uuvz4APIBqrDmiLj8L886r++hzixjjHFc=">
 				<peer public_key="r1Gslnm82X8NaijsWzPoSFzDZGl2tTJoPa+EJL4gYQw="
-				      ip="10.0.2.2" port="55551" allowed_ip="10.0.9.1/32">
+				      ip="10.0.2.2" port="49001" allowed_ip="10.0.9.1/32">
 				</peer>
 			</iface>
 			</config>
@@ -123,6 +127,8 @@ build { app/wireguard }
 
 build_boot_image { wireguard }
 
-append qemu_args "  -nographic"
+proc board_qemu_args { } {
+	return " -nographic -machine q35 -netdev tap,id=net0,ifname=tap0,script=no,downscript=no -net nic,model=e1000,netdev=net0 "
+}
 
 run_genode_until forever

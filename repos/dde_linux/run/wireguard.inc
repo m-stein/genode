@@ -26,9 +26,9 @@ proc wireguard_start {} {
 	exec chmod 700 wg_private_key
 	exec sudo ip link add wg0 type wireguard
 	exec sudo ip addr add 10.0.9.1/24 dev wg0
-	exec sudo wg set wg0 private-key wg_private_key listen-port 55551
+	exec sudo wg set wg0 private-key wg_private_key listen-port 49001
 	exec sudo ip link set wg0 up
-	exec sudo wg set wg0 peer "GrvyALPZ3PQ2AWM+ovxJqnxSqKpmTyqUui5jH+C8I0E=" allowed-ips 10.0.9.2/32 endpoint 10.0.2.3:55552
+	exec sudo wg set wg0 peer "GrvyALPZ3PQ2AWM+ovxJqnxSqKpmTyqUui5jH+C8I0E=" allowed-ips 10.0.9.2/32 endpoint 10.0.2.3:49002
 }
 
 proc wireguard_exit {} {
