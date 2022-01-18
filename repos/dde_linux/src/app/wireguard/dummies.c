@@ -259,3 +259,19 @@ void do_trace_netlink_extack(const char * msg)
 {
 	lx_emul_trace(__func__);
 }
+
+
+#include <linux/netdevice.h>
+
+void netif_napi_add(struct net_device * dev,struct napi_struct * napi,int (* poll)(struct napi_struct *,int),int weight)
+{
+	lx_emul_trace(__func__);
+}
+
+
+#include <linux/netdevice.h>
+
+void napi_enable(struct napi_struct * n)
+{
+	lx_emul_trace(__func__);
+}

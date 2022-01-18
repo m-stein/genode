@@ -1,7 +1,7 @@
 /*
  * \brief  Dummy definitions of Linux Kernel functions
  * \author Automatically generated file - do no edit
- * \date   2022-01-17
+ * \date   2022-01-18
  */
 
 #include <lx_emul.h>
@@ -264,54 +264,6 @@ void dev_get_tstats64(struct net_device * dev,struct rtnl_link_stats64 * s)
 #include <linux/kernel.h>
 
 void __noreturn do_exit(long code)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <net/dst_cache.h>
-
-void dst_cache_destroy(struct dst_cache * dst_cache)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <net/dst_cache.h>
-
-struct rtable * dst_cache_get_ip4(struct dst_cache * dst_cache,__be32 * saddr)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <net/dst_cache.h>
-
-struct dst_entry * dst_cache_get_ip6(struct dst_cache * dst_cache,struct in6_addr * saddr)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <net/dst_cache.h>
-
-int dst_cache_init(struct dst_cache * dst_cache,gfp_t gfp)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <net/dst_cache.h>
-
-void dst_cache_set_ip4(struct dst_cache * dst_cache,struct dst_entry * dst,__be32 saddr)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <net/dst_cache.h>
-
-void dst_cache_set_ip6(struct dst_cache * dst_cache,struct dst_entry * dst,const struct in6_addr * saddr)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -625,14 +577,6 @@ void napi_disable(struct napi_struct * n)
 
 #include <linux/netdevice.h>
 
-void napi_enable(struct napi_struct * n)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/netdevice.h>
-
 gro_result_t napi_gro_receive(struct napi_struct * napi,struct sk_buff * skb)
 {
 	lx_emul_trace_and_stop(__func__);
@@ -650,14 +594,6 @@ bool napi_schedule_prep(struct napi_struct * n)
 #include <linux/netdevice.h>
 
 void netif_carrier_off(struct net_device * dev)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/netdevice.h>
-
-void netif_napi_add(struct net_device * dev,struct napi_struct * napi,int (* poll)(struct napi_struct *,int),int weight)
 {
 	lx_emul_trace_and_stop(__func__);
 }
