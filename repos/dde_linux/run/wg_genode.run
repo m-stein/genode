@@ -66,22 +66,22 @@ install_config {
 		        verbose_packet_drop="yes"
 		        dhcp_discover_timeout_sec="1">
 
-			<policy label_prefix="drivers"      domain="uplink"/>
-			<policy label="wireguard -> down"   domain="wg_down"/>
-			<policy label="wireguard -> uplink" domain="wg_up"/>
-			<default-policy                     domain="downlink"/>
+			<policy label_prefix="drivers"     domain="uplink"/>
+			<policy label="wireguard -> vpn"   domain="wg_vpn"/>
+			<policy label="wireguard -> local" domain="wg_local"/>
+			<default-policy                    domain="downlink"/>
 
 			<domain name="uplink">
-				<nat domain="wg_down" tcp-ports="16384" udp-ports="16384" icmp-ids="16384"/>
+				<nat domain="wg_local" tcp-ports="16384" udp-ports="16384" icmp-ids="16384"/>
 
-				<udp-forward port="49002" domain="wg_down" to="10.0.3.2"/>
+				<udp-forward port="49002" domain="wg_vpn" to="10.0.3.2"/>
 			</domain>
 
-			<domain name="wg_down" interface="10.0.3.1/24">
+			<domain name="wg_vpn" interface="10.0.3.1/24">
 				<udp dst="10.0.2.2/24"><permit port="49001" domain="uplink"/></udp>
 			</domain>
 
-			<domain name="wg_up" interface="10.1.1.1/24">
+			<domain name="wg_local" interface="10.1.1.1/24">
 				<nat domain="downlink" tcp-ports="16384" udp-ports="16384" icmp-ids="16384"/>
 			</domain>
 
@@ -89,9 +89,9 @@ install_config {
 				<dhcp-server ip_first="10.1.2.2"
 				             ip_last="10.1.2.100"
 				             dns_config_from="uplink"/>
-				<tcp dst="0.0.0.0/0"><permit-any domain="wg_up" /></tcp>
-				<udp dst="0.0.0.0/0"><permit-any domain="wg_up" /></udp>
-				<icmp dst="0.0.0.0/0" domain="wg_up"/>
+				<tcp dst="0.0.0.0/0"><permit-any domain="wg_local" /></tcp>
+				<udp dst="0.0.0.0/0"><permit-any domain="wg_local" /></udp>
+				<icmp dst="0.0.0.0/0" domain="wg_local"/>
 			</domain>
 		</config>
 	</start>
@@ -108,7 +108,7 @@ install_config {
 
 	<start name="wireguard" caps="200">
 		<resource name="RAM" quantum="10M"/>
-		<config interface="10.0.3.2/24">
+		<config vpn="10.0.3.2/24" local="10.1.1.2/24">
 			<iface listen_port="49002" private_key="8GRSQZMgG1uuvz4APIBqrDmiLj8L886r++hzixjjHFc=">
 				<peer public_key="r1Gslnm82X8NaijsWzPoSFzDZGl2tTJoPa+EJL4gYQw="
 				      ip="10.0.2.2" port="49001" allowed_ip="10.0.9.1/32">
