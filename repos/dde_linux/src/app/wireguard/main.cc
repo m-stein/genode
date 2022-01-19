@@ -16,11 +16,14 @@
 #include <base/component.h>
 #include <base/attached_rom_dataspace.h>
 #include <util/list_model.h>
-
 #include <base/session_label.h>
+
+/* os includes */
 #include <nic_session/connection.h>
 #include <uplink_session/connection.h>
 #include <nic/packet_allocator.h>
+#include <net/ethernet.h>
+#include "../../../../os/include/net/arp.h" /* FIXME: including this normally would clash with a Linux header name */
 
 /* lx-kit includes */
 #include <lx_kit/env.h>
@@ -191,6 +194,8 @@ class Wireguard::Main : private Entrypoint::Io_progress_handler
 {
 	private:
 
+		using Nic_source = ::Nic::Packet_stream_source< ::Nic::Session::Policy>;
+
 		Env                    &_env;
 		Heap                    _heap            { _env.ram(), _env.rm() };
 		Attached_rom_dataspace  _config_rom      { _env, "config"        };
@@ -203,16 +208,20 @@ class Wireguard::Main : private Entrypoint::Io_progress_handler
 		enum { PACKET_SIZE = Nic::Packet_allocator::DEFAULT_PACKET_SIZE  };
 		enum { BUF_SIZE    = Uplink::Session::QUEUE_SIZE * PACKET_SIZE   };
 
-		Nic::Packet_allocator   _packet_alloc_up { &_heap                };
-		Nic::Packet_allocator   _packet_alloc_dw { &_heap                };
-		Net::Mac_address const  _mac_address     { 3U                    };
-		Uplink::Connection      _uplink          { _env, &_packet_alloc_up,
-		                                           BUF_SIZE, BUF_SIZE,
-		                                           _mac_address, "uplink"};
-		Nic::Connection         _downlink        { _env, &_packet_alloc_dw,
-		                                           BUF_SIZE, BUF_SIZE,
-		                                           "down"};
-		bool                    _notify_peers    { true };
+		Nic::Packet_allocator   _packet_alloc_up  { &_heap                };
+		Nic::Packet_allocator   _packet_alloc_dw  { &_heap                };
+		Net::Mac_address const  _mac_address      { 2U                    };
+		Uplink::Connection      _uplink           { _env, &_packet_alloc_up,
+		                                            BUF_SIZE, BUF_SIZE,
+		                                            _mac_address, "uplink"};
+		Nic::Connection         _downlink         { _env, &_packet_alloc_dw,
+		                                            BUF_SIZE, BUF_SIZE,
+		                                            "down"};
+		bool                    _notify_peers     { true };
+		bool                    _verbose          { true };
+		bool                    _verbose_pkt_drop { true };
+		Ipv4_address_prefix     _interface        { _config_rom.xml().attribute_value("interface", Ipv4_address_prefix { }) };
+
 
 		void _handle_signal()
 		{
@@ -221,6 +230,116 @@ class Wireguard::Main : private Entrypoint::Io_progress_handler
 		}
 
 		void _handle_config() { _config_rom.update(); }
+
+		enum Handle_pkt_result { DROP_PACKET, ACK_PACKET };
+
+		enum Send_pkt_result { SUCCEEDED, FAILED };
+
+		enum {
+
+			ETHERNET_HEADER_SIZE = sizeof(Ethernet_frame),
+
+			ETHERNET_DATA_SIZE_WITH_ARP =
+				sizeof(Arp_packet) + ETHERNET_HEADER_SIZE < Ethernet_frame::MIN_SIZE ?
+					Ethernet_frame::MIN_SIZE - ETHERNET_HEADER_SIZE :
+					sizeof(Arp_packet),
+
+			ETHERNET_CRC_SIZE = sizeof(Genode::uint32_t),
+
+			ARP_PACKET_SIZE =
+				ETHERNET_HEADER_SIZE +
+				ETHERNET_DATA_SIZE_WITH_ARP +
+				ETHERNET_CRC_SIZE,
+		};
+
+		bool _link_state() { return true; }
+
+		Handle_pkt_result _drop_pkt(char const *packet_type,
+		                            char const *reason)
+		{
+			if (_verbose_pkt_drop) {
+				log("Drop ", packet_type, " - ", reason);
+			}
+			return Handle_pkt_result::DROP_PACKET;
+		}
+
+		template <typename FUNC>
+		Send_pkt_result _send(Genode::size_t pkt_size, FUNC && write_to_pkt)
+		{
+			if (!_link_state()) {
+				if (_verbose) {
+					log("Failed sending packet - Link is down");
+				}
+				return Send_pkt_result::FAILED;
+			}
+			try {
+				Packet_descriptor  pkt        { _downlink.tx()->alloc_packet(pkt_size) };
+				void              *pkt_base   { _downlink.tx()->packet_content(pkt) };
+				Size_guard         size_guard { pkt_size };
+
+				write_to_pkt(pkt_base, size_guard);
+				_downlink.tx()->submit_packet(pkt);
+			}
+			catch (Nic_source::Packet_alloc_failed) {
+				if (_verbose) {
+					log("Failed sending packet - Failed allocating packet");
+				}
+				return Send_pkt_result::FAILED;
+			}
+			return Send_pkt_result::SUCCEEDED;
+		}
+
+		Send_pkt_result _send_arp_reply(Ethernet_frame &request_eth,
+		                                Arp_packet     &request_arp)
+		{
+			return _send(ARP_PACKET_SIZE, [&] (void *reply_base, Size_guard &reply_guard) {
+
+				Ethernet_frame &reply_eth {
+					Ethernet_frame::construct_at(reply_base, reply_guard) };
+
+				reply_eth.dst(request_eth.src());
+				reply_eth.src(_mac_address);
+				reply_eth.type(Ethernet_frame::Type::ARP);
+
+				Arp_packet &reply_arp {
+					reply_eth.construct_at_data<Arp_packet>(reply_guard) };
+
+				reply_arp.hardware_address_type(Arp_packet::ETHERNET);
+				reply_arp.protocol_address_type(Arp_packet::IPV4);
+				reply_arp.hardware_address_size(sizeof(Mac_address));
+				reply_arp.protocol_address_size(sizeof(Ipv4_address));
+				reply_arp.opcode(Arp_packet::REPLY);
+				reply_arp.src_mac(_mac_address);
+				reply_arp.src_ip(request_arp.dst_ip());
+				reply_arp.dst_mac(request_arp.src_mac());
+				reply_arp.dst_ip(request_arp.src_ip());
+			});
+		}
+
+		Handle_pkt_result _handle_arp(Ethernet_frame &eth,
+		                              Size_guard     &size_guard)
+		{
+			Arp_packet &arp { eth.data<Arp_packet>(size_guard) };
+			if (!arp.ethernet_ipv4()) {
+				return _drop_pkt("ARP request", "Targets unknown protocol");
+			}
+			if (arp.opcode() != Arp_packet::REQUEST) {
+				return _drop_pkt("ARP packet", "Is not an ARP request");
+			}
+			if (!_interface.valid()) {
+				return _drop_pkt("ARP request", "I have no IP address so far");
+			}
+			if (_interface.address != arp.dst_ip()) {
+				return _drop_pkt("ARP request", "Doesn't target my IP address");
+			}
+			if (_verbose) {
+				log("Answer ARP request");
+			}
+			if (_send_arp_reply(eth, arp) != Send_pkt_result::SUCCEEDED) {
+				return _drop_pkt("ARP request", "Sending reply failed");
+			}
+			return Handle_pkt_result::ACK_PACKET;
+		}
 
 		template <typename SINK>
 		void _for_each_rx_packet(SINK & rx_sink, genode_wg_net_receive_t func)
@@ -237,13 +356,31 @@ class Wireguard::Main : private Entrypoint::Io_progress_handler
 				bool const packet_valid = rx_sink.packet_valid(packet)
 				                       && (packet.offset() >= 0);
 
-				void * content = rx_sink.packet_content(packet);
+				if (packet_valid) {
 
-				//FIXME: get listen port and put it into callback
-				if (packet_valid) func(0U, content, packet.size());
+					void *eth_base { rx_sink.packet_content(packet) };
+					Size_guard size_guard { packet.size() };
+					Ethernet_frame &eth { Ethernet_frame::cast_from(eth_base, size_guard) };
+					switch (eth.type()) {
+					case Ethernet_frame::Type::ARP:
 
-				_notify_peers = true;
+						log("Received an ARP packet");
+						 _handle_arp(eth, size_guard);
+						break;
 
+					case Ethernet_frame::Type::IPV4:
+
+						log("Received an IPv4 packet");
+
+						//FIXME: get listen port and put it into callback
+						func(0U, eth_base, packet.size());
+						_notify_peers = true;
+						break;
+
+					default:
+						_drop_pkt("packet", "Is not ARP");
+					}
+				}
 				(void)rx_sink.try_get_packet();
 				rx_sink.try_ack_packet(packet);
 			}

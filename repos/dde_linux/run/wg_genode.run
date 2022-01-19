@@ -61,6 +61,9 @@ install_config {
 			<service name="Uplink"/>
 		</provides>
 		<config verbose_domain_state="yes"
+		        verbose_packets="yes"
+		        verbose="yes"
+		        verbose_packet_drop="yes"
 		        dhcp_discover_timeout_sec="1">
 
 			<policy label_prefix="drivers"      domain="uplink"/>
@@ -105,7 +108,7 @@ install_config {
 
 	<start name="wireguard" caps="200">
 		<resource name="RAM" quantum="10M"/>
-		<config>
+		<config interface="10.0.3.2/24">
 			<iface listen_port="49002" private_key="8GRSQZMgG1uuvz4APIBqrDmiLj8L886r++hzixjjHFc=">
 				<peer public_key="r1Gslnm82X8NaijsWzPoSFzDZGl2tTJoPa+EJL4gYQw="
 				      ip="10.0.2.2" port="49001" allowed_ip="10.0.9.1/32">
