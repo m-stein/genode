@@ -351,14 +351,24 @@ _genode_wg_net_receive(genode_wg_u16_t listen_port,
                        void *          buf,
                        unsigned long   buf_size)
 {
-	struct sk_buff *skb = alloc_skb(buf_size, GFP_KERNEL);
+	struct sk_buff *skb = /*alloc_skb(buf_size, GFP_KERNEL);*/
+		netdev_alloc_skb_ip_align(genode_wg_net_device(), buf_size);
 	if (!skb) {
 		printk("Error: alloc_skb failed!\n");
 		return;
 	}
 
-	skb_copy_to_linear_data(skb, buf, buf_size);
-	skb_put(skb, buf_size);
+	printk("Created SKB of total size %u\n", buf_size);
+
+	memcpy(skb_put(skb, buf_size), buf, buf_size);
+	//skb_copy_to_linear_data(skb, buf, buf_size);
+	skb->protocol = htons(ETH_P_IP);
+	//skb_put(skb, buf_size);
+
+	skb_reset_network_header(skb);
+	if (!skb_transport_header_was_set(skb))
+		skb_reset_transport_header(skb);
+	skb_reset_mac_len(skb);
 
 	_genode_wg_udp_tunnel_cfg.encap_rcv(&_genode_wg_sock, skb);
 }

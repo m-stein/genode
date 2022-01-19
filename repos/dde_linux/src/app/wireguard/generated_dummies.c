@@ -1,7 +1,7 @@
 /*
  * \brief  Dummy definitions of Linux Kernel functions
  * \author Automatically generated file - do no edit
- * \date   2022-01-18
+ * \date   2022-01-19
  */
 
 #include <lx_emul.h>
@@ -586,6 +586,14 @@ bool napi_schedule_prep(struct napi_struct * n)
 #include <linux/netdevice.h>
 
 void netif_carrier_off(struct net_device * dev)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/gfp.h>
+
+void * page_frag_alloc_align(struct page_frag_cache * nc,unsigned int fragsz,gfp_t gfp_mask,unsigned int align_mask)
 {
 	lx_emul_trace_and_stop(__func__);
 }
