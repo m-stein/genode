@@ -6,4 +6,4 @@ URL(linux) := https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-$(VERSION).tar.
 SHA(linux) := f41a259cb2002dd2e3286524b2bb4e803f4f982992d092706ecea613584023b3
 DIR(linux) := src/linux
 
-PATCHES += $(REP_DIR)/src/wg_linux/patches/0001-crng-always-ready.patch
+PATCHES := $(sort $(wildcard $(REP_DIR)/src/wg_linux/patches/*.patch))
