@@ -1,6 +1,13 @@
 arch/x86/crypto/blake2s-core.S
 arch/x86/crypto/blake2s-glue.c
+arch/x86/crypto/chacha-avx2-x86_64.S
+arch/x86/crypto/chacha-avx512vl-x86_64.S
+arch/x86/crypto/chacha-ssse3-x86_64.S
+arch/x86/crypto/chacha_glue.c
 arch/x86/crypto/curve25519-x86_64.c
+arch/x86/crypto/poly1305-x86_64-cryptogams.S
+arch/x86/crypto/poly1305_glue.c
+crypto/algapi.c
 crypto/memneq.c
 drivers/net/wireguard/allowedips.c
 drivers/net/wireguard/cookie.c
@@ -41,8 +48,11 @@ kernel/workqueue.c
 lib/bitmap.c
 lib/crypto/blake2s-generic.c
 lib/crypto/blake2s.c
+lib/crypto/chacha.c
+lib/crypto/chacha20poly1305.c
 lib/crypto/curve25519-generic.c
 lib/crypto/curve25519-hacl64.c
+lib/crypto/libchacha.c
 lib/idr.c
 lib/nlattr.c
 lib/radix-tree.c

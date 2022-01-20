@@ -149,3 +149,7 @@ bool rng_is_initialized(void)
 	return true;
 }
 
+
+#include <asm/pgtable.h>
+
+unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)] = { 0 };

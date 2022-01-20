@@ -198,40 +198,16 @@ void call_rcu(struct rcu_head * head,rcu_callback_t func)
 }
 
 
-#include <crypto/chacha20poly1305.h>
-
-bool chacha20poly1305_decrypt(u8 * dst,const u8 * src,const size_t src_len,const u8 * ad,const size_t ad_len,const u64 nonce,const u8 key[CHACHA20POLY1305_KEY_SIZE])
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <crypto/chacha20poly1305.h>
-
-bool chacha20poly1305_decrypt_sg_inplace(struct scatterlist * src,size_t src_len,const u8 * ad,const size_t ad_len,const u64 nonce,const u8 key[CHACHA20POLY1305_KEY_SIZE])
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <crypto/chacha20poly1305.h>
-
-void chacha20poly1305_encrypt(u8 * dst,const u8 * src,const size_t src_len,const u8 * ad,const size_t ad_len,const u64 nonce,const u8 key[CHACHA20POLY1305_KEY_SIZE])
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <crypto/chacha20poly1305.h>
-
-bool chacha20poly1305_encrypt_sg_inplace(struct scatterlist * src,size_t src_len,const u8 * ad,const size_t ad_len,const u64 nonce,const u8 key[CHACHA20POLY1305_KEY_SIZE])
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 extern int cpu_has_xfeatures(u64 xfeatures_needed,const char ** feature_name);
 int cpu_has_xfeatures(u64 xfeatures_needed,const char ** feature_name)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <crypto/internal/skcipher.h>
+
+int crypto_register_skciphers(struct skcipher_alg * algs,int count)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -610,9 +586,49 @@ void rtnl_link_unregister(struct rtnl_link_ops * ops)
 }
 
 
+#include <crypto/scatterwalk.h>
+
+void scatterwalk_map_and_copy(void * buf,struct scatterlist * sg,unsigned int start,unsigned int nbytes,int out)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
 #include <linux/scatterlist.h>
 
 void sg_init_table(struct scatterlist * sgl,unsigned int nents)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/scatterlist.h>
+
+bool sg_miter_next(struct sg_mapping_iter * miter)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/scatterlist.h>
+
+void sg_miter_start(struct sg_mapping_iter * miter,struct scatterlist * sgl,unsigned int nents,unsigned int flags)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/scatterlist.h>
+
+void sg_miter_stop(struct sg_mapping_iter * miter)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/scatterlist.h>
+
+int sg_nents(struct scatterlist * sg)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -653,6 +669,22 @@ int skb_checksum_help(struct sk_buff * skb)
 #include <net/sock.h>
 
 void skb_set_owner_w(struct sk_buff * skb,struct sock * sk)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <crypto/internal/skcipher.h>
+
+int skcipher_walk_done(struct skcipher_walk * walk,int err)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <crypto/internal/skcipher.h>
+
+int skcipher_walk_virt(struct skcipher_walk * walk,struct skcipher_request * req,bool atomic)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -767,22 +799,6 @@ void wake_q_add_safe(struct wake_q_head * head,struct task_struct * task)
 #include <linux/sched/wake_q.h>
 
 void wake_up_q(struct wake_q_head * head)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <crypto/chacha20poly1305.h>
-
-bool xchacha20poly1305_decrypt(u8 * dst,const u8 * src,const size_t src_len,const u8 * ad,const size_t ad_len,const u8 nonce[XCHACHA20POLY1305_NONCE_SIZE],const u8 key[CHACHA20POLY1305_KEY_SIZE])
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <crypto/chacha20poly1305.h>
-
-void xchacha20poly1305_encrypt(u8 * dst,const u8 * src,const size_t src_len,const u8 * ad,const size_t ad_len,const u8 nonce[XCHACHA20POLY1305_NONCE_SIZE],const u8 key[CHACHA20POLY1305_KEY_SIZE])
 {
 	lx_emul_trace_and_stop(__func__);
 }

@@ -1,7 +1,7 @@
 TARGET    = wireguard
 REQUIRES += x86_64
 LIBS     += base jitterentropy
-INC_DIR  += $(PRG_DIR)
+INC_DIR  += $(PRG_DIR) $(PRG_DIR)/lx_emul/shadow
 SRC_CC   += main.cc
 SRC_CC   += base64.cc
 SRC_CC   += ipv4_address_prefix.cc
