@@ -18,6 +18,7 @@ SRC_C   += lx_emul/clocksource.c
 SRC_C   += lx_emul/irqchip.c
 SRC_C   += lx_emul/shadow/fs/exec.c
 SRC_C   += lx_emul/shadow/kernel/cpu.c
+SRC_C   += lx_emul/shadow/kernel/exit.c
 SRC_C   += lx_emul/shadow/kernel/fork.c
 SRC_C   += lx_emul/shadow/kernel/pid.c
 SRC_C   += lx_emul/shadow/kernel/printk/printk.c

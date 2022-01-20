@@ -140,3 +140,12 @@ __be16 ip_tunnel_parse_protocol(const struct sk_buff *skb)
 	//FIXME: we just assume IPv4
 	return htons(ETH_P_IP);
 }
+
+
+#include <linux/random.h>
+
+bool rng_is_initialized(void)
+{
+	return true;
+}
+

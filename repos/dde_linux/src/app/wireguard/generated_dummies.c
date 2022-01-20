@@ -1,7 +1,7 @@
 /*
  * \brief  Dummy definitions of Linux Kernel functions
  * \author Automatically generated file - do no edit
- * \date   2022-01-19
+ * \date   2022-01-20
  */
 
 #include <lx_emul.h>
@@ -34,6 +34,22 @@ const char * __clk_get_name(const struct clk * clk)
 #include <linux/sched.h>
 
 int __sched __cond_resched(void)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/once.h>
+
+void __do_once_done(bool * done,struct static_key_true * once_key,unsigned long * flags,struct module * mod)
+{
+	lx_emul_trace_and_stop(__func__);
+}
+
+
+#include <linux/once.h>
+
+bool __do_once_start(bool * done,unsigned long * flags)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -98,22 +114,6 @@ void __put_page(struct page * page)
 #include <linux/sched/task.h>
 
 void __put_task_struct(struct task_struct * tsk)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/skbuff.h>
-
-bool __skb_flow_dissect(const struct net * net,const struct sk_buff * skb,struct flow_dissector * flow_dissector,void * target_container,const void * data,__be16 proto,int nhoff,int hlen,unsigned int flags)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/skbuff.h>
-
-void __skb_get_hash(struct sk_buff * skb)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -253,14 +253,6 @@ void dev_get_tstats64(struct net_device * dev,struct rtnl_link_stats64 * s)
 }
 
 
-#include <linux/kernel.h>
-
-void __noreturn do_exit(long code)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <net/dst.h>
 
 void dst_release(struct dst_entry * dst)
@@ -275,11 +267,6 @@ asmlinkage __visible void dump_stack(void)
 {
 	lx_emul_trace_and_stop(__func__);
 }
-
-
-#include <net/flow_dissector.h>
-
-struct flow_dissector flow_keys_basic_dissector;
 
 
 #include <linux/netdevice.h>
@@ -593,14 +580,6 @@ void netif_carrier_off(struct net_device * dev)
 
 #include <linux/gfp.h>
 
-void * page_frag_alloc_align(struct page_frag_cache * nc,unsigned int fragsz,gfp_t gfp_mask,unsigned int align_mask)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/gfp.h>
-
 void page_frag_free(void * addr)
 {
 	lx_emul_trace_and_stop(__func__);
@@ -618,22 +597,6 @@ u32 prandom_u32(void)
 #include <linux/printk.h>
 
 int printk_deferred(const char * fmt,...)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/rcuwait.h>
-
-int rcuwait_wake_up(struct rcuwait * w)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/random.h>
-
-bool rng_is_initialized(void)
 {
 	lx_emul_trace_and_stop(__func__);
 }

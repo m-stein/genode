@@ -218,9 +218,7 @@ class Wireguard::Net_base
 						log("Received an IPv4 packet");
 
 						//FIXME: get listen port and put it into callback
-						enum { ETH_HDR_SZ = 14 };
-						addr_t ip_base = ETH_HDR_SZ + (addr_t)eth_base;
-						func(0U, (void*)ip_base, packet.size()-ETH_HDR_SZ);
+						func(0U, eth_base, packet.size());
 						_notify_peers = true;
 						break;
 						}

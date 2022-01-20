@@ -285,3 +285,8 @@ struct mem_section ** mem_section = NULL;
 #include <asm/page_64.h>
 
 unsigned long phys_base = 0;
+
+
+#include <asm/atomic.h>
+
+DEFINE_STATIC_KEY_FALSE(bpf_stats_enabled_key);

@@ -351,24 +351,25 @@ _genode_wg_net_receive(genode_wg_u16_t listen_port,
                        void *          buf,
                        unsigned long   buf_size)
 {
-	struct sk_buff *skb = /*alloc_skb(buf_size, GFP_KERNEL);*/
-		netdev_alloc_skb_ip_align(genode_wg_net_device(), buf_size);
+	struct iphdr * ip;
+	size_t data_offset;
+	struct sk_buff *skb = alloc_skb(buf_size, GFP_KERNEL);
 	if (!skb) {
 		printk("Error: alloc_skb failed!\n");
 		return;
 	}
 
-	printk("Created SKB of total size %u\n", buf_size);
-
-	memcpy(skb_put(skb, buf_size), buf, buf_size);
-	//skb_copy_to_linear_data(skb, buf, buf_size);
-	skb->protocol = htons(ETH_P_IP);
-	//skb_put(skb, buf_size);
-
 	skb_reset_network_header(skb);
-	if (!skb_transport_header_was_set(skb))
-		skb_reset_transport_header(skb);
-	skb_reset_mac_len(skb);
+	memcpy(skb_put(skb, buf_size), buf, buf_size);
+	skb->protocol = htons(ETH_P_IP);
+	skb->dev = genode_wg_net_device();
+
+	skb_pull(skb, ETH_HLEN);
+	skb_reset_network_header(skb);
+	ip = ip_hdr(skb);
+	data_offset = ip->ihl * 4;
+	skb_pull(skb, data_offset);
+	skb_reset_transport_header(skb);
 
 	_genode_wg_udp_tunnel_cfg.encap_rcv(&_genode_wg_sock, skb);
 }
