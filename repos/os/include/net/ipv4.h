@@ -198,6 +198,8 @@ class Net::Ipv4_packet
 		void checksum(Genode::uint16_t checksum) { _checksum = host_to_big_endian(checksum); }
 		void src(Ipv4_address v)                 { v.copy(&_src); }
 		void dst(Ipv4_address v)                 { v.copy(&_dst); }
+		void src_big_endian(Genode::uint32_t v)  { *(Genode::uint32_t *)&_src = v; }
+		void dst_big_endian(Genode::uint32_t v)  { *(Genode::uint32_t *)&_dst = v; }
 
 		void flags(Genode::uint8_t v)
 		{
