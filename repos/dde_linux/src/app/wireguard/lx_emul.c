@@ -131,27 +131,63 @@ void udp_tunnel_xmit_skb(
 	__be32 src,__be32 dst,__u8 tos,__u8 ttl,__be16 df,
 	__be16 src_port,__be16 dst_port,bool xnet,bool nocheck)
 {
-	if (df != 0) {
-		pr_info("Error: DF != 0 is not expected nor supported yet\n");
-		while (1) { }
-	}
+	/*
+	 * FIXME
+	 *
+	 * I don't propagate these values because I found that, at the call to
+	 * udp_tunnel_xmit_skb, Linux sets them hard to the values I'm checking
+	 * for in the following. Furthermore, I assume that they should not be
+	 * relevant for the port anyway.
+	 */
 	if (xnet != false) {
-		pr_info("Error: XNET != false is not expected nor supported yet\n");
+		pr_info("Error: XNET != false is not expected\n");
 		while (1) { }
 	}
 	if (nocheck != false) {
-		pr_info("Error: XNET != false is not expected nor supported yet\n");
+		pr_info("Error: NOCHECK != false is not expected\n");
 		while (1) { }
 	}
+	if (df != 0) {
+		pr_info("Error: DF != 0 is not expected\n");
+		while (1) { }
+	}
+	/*
+	 * FIXME
+	 *
+	 * Manually set TTL. In the Linux reference scenario this argument is
+	 * observed to be 64. Here it is 0. Further Linux contrib code would have
+	 * to be incorporated in order to make Wireguard provide a correct TTL
+	 * argument. However, it is simpler to set it manually.
+	 */
+	if (ttl != 0) {
+		pr_info("Error: TTL != 0 is not expected\n");
+		while (1) { }
+	}
+	ttl = 64;
+
+	/*
+	 * FIXME
+	 *
+	 * Manually set UDP destination port. In the Linux reference scenario this
+	 * argument is observed to be the listen port. Here it is som other port.
+	 * Further Linux contrib code would have to be incorporated in order to
+	 * make Wireguard provide a correct argument. However, it is simpler to
+	 * set it manually.
+	 */
+	src_port = htons(genode_wg_listen_port());
+
 	genode_wg_send_wg_prot_at_nic_connection(
-		skb->data, skb->len, src_port, dst_port, src, dst, tos, ttl);
+		skb->data, skb->len, src_port, dst_port, src, dst,
+		tos, ttl);
 
 /* handshake response
 
+	total pkt size == 134 bytes
+
 	src      == 0x302000a big endian == 10.0.2.3
 	dst      == 0x102000a big endian == 10.0.2.1
-	tos      == 88, type of service field of ipv4 header
-	ttl      == 40, time to live field of ipv4 header
+	tos      == 0x88, type of service field of ipv4 header
+	ttl      == 0x40, time to live field of ipv4 header
 	df       == 0, dont fragment field of ipv4 header
 	src_port == 0x6abf big endian == 49002, udp source port
 	dst_port == 0x69bf big endian == 49001, udp dest port
@@ -185,6 +221,43 @@ void udp_tunnel_xmit_skb(
 
 	The wireguard prot is not tunneled or encrypted but only encapsuled in
 	normal udp.
+
+	A wireshark hex dump of the whole handshake response
+
+0000   72 ae 11 31 58 a7 52 54 00 12 34 56 08 00 45 88
+0010   00 78 a0 9e 00 00 40 11 c1 4b 0a 00 02 03 0a 00
+             -----             ----- -----------
+             ip.id             ip.crc     ip.src
+0020   02 01 bf 6a bf 69 00 64 f9 e1 02 00 00 00 14 22
+             -----
+             udp.src
+0030   a9 bc aa 7b c2 f6 fe c4 ea 78 a1 1d 5f 4d 73 0f
+0040   cd d8 8e a7 40 7c 80 2a b7 d4 9e c0 a0 a3 6c 7f
+0050   ac a7 49 cc 59 50 70 9c 09 06 82 32 d6 7f 42 3e
+0060   42 24 1a c1 6c 02 02 0b c5 c2 c9 e1 dd fc 5a 4d
+0070   43 30 61 88 c7 91 00 00 00 00 00 00 00 00 00 00
+0080   00 00 00 00 00 00
+
+------------------------------------------------------
+
+0000   82 f1 5b 0b 24 04 52 54 00 12 34 56 08 00 45 88
+0010   00 78 00 00 00 00 40 11 60 eb 0a 00 03 02 0a 00
+             -----             ----- -----------
+             ip.id             ip.crc     ip.src
+0020   02 01 b0 48 bf 69 00 64 56 1d 02 00 00 00 25 ba
+             -----             ----- |
+             udp.src         udp.crc wg start
+0030   46 38 c2 47 2b dd 0d d0 f2 19 4d 07 72 55 82 df
+0040   dc 32 42 51 74 c7 b9 15 ef fb 8f c1 96 eb a6 4c
+0050   89 8a 7c d5 c5 77 76 aa dc e8 e7 be f6 18 aa 55
+0060   2d 2d ce ed ed 40 bd 34 ac e7 64 2b b5 1f 71 a2
+0070   3b b4 64 5b 52 b1 00 00 00 00 00 00 00 00 00 00
+0080   00 00 00 00 00 00
+                       |
+                       wg end
+
+
+
 */
 
 }

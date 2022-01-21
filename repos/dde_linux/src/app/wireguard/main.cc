@@ -122,7 +122,7 @@ class Wireguard::Main : private Entrypoint::Io_progress_handler
 			genode_wg_u16_t       udp_dst_port_big_endian,
 			genode_wg_u32_t       ipv4_src_addr_big_endian,
 			genode_wg_u32_t       ipv4_dst_addr_big_endian,
-			genode_wg_u8_t        ipv4_dscp,
+			genode_wg_u8_t        ipv4_dscp_ecn,
 			genode_wg_u8_t        ipv4_ttl);
 };
 
@@ -134,7 +134,7 @@ void Wireguard::Main::send_wg_prot_at_nic_connection(
 	genode_wg_u16_t       udp_dst_port_big_endian,
 	genode_wg_u32_t       ipv4_src_addr_big_endian,
 	genode_wg_u32_t       ipv4_dst_addr_big_endian,
-	genode_wg_u8_t        ipv4_dscp,
+	genode_wg_u8_t        ipv4_dscp_ecn,
 	genode_wg_u8_t        ipv4_ttl)
 {
 	_vpn.send_wg_prot(
@@ -144,7 +144,7 @@ void Wireguard::Main::send_wg_prot_at_nic_connection(
 		udp_dst_port_big_endian,
 		ipv4_src_addr_big_endian,
 		ipv4_dst_addr_big_endian,
-		ipv4_dscp,
+		ipv4_dscp_ecn,
 		ipv4_ttl);
 }
 
@@ -185,7 +185,7 @@ void genode_wg_send_wg_prot_at_nic_connection(
 	genode_wg_u16_t       udp_dst_port_big_endian,
 	genode_wg_u32_t       ipv4_src_addr_big_endian,
 	genode_wg_u32_t       ipv4_dst_addr_big_endian,
-	genode_wg_u8_t        ipv4_dscp,
+	genode_wg_u8_t        ipv4_dscp_ecn,
 	genode_wg_u8_t        ipv4_ttl)
 {
 	main_object(Lx_kit::env().env).send_wg_prot_at_nic_connection(
@@ -195,7 +195,7 @@ void genode_wg_send_wg_prot_at_nic_connection(
 		udp_dst_port_big_endian,
 		ipv4_src_addr_big_endian,
 		ipv4_dst_addr_big_endian,
-		ipv4_dscp,
+		ipv4_dscp_ecn,
 		ipv4_ttl);
 }
 

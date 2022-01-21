@@ -65,6 +65,9 @@ void genode_wg_net_receive(genode_wg_net_receive_t recv_callback);
 int genode_wg_net_send(void * buf, unsigned long buf_size, int up);
 
 
+genode_wg_u16_t genode_wg_listen_port(void);
+
+
 void genode_wg_send_wg_prot_at_nic_connection(
 	genode_wg_u8_t const *wg_prot_base,
 	genode_wg_u64_t       wg_prot_size,
@@ -72,7 +75,7 @@ void genode_wg_send_wg_prot_at_nic_connection(
 	genode_wg_u16_t       udp_dst_port_big_endian,
 	genode_wg_u32_t       ipv4_src_addr_big_endian,
 	genode_wg_u32_t       ipv4_dst_addr_big_endian,
-	genode_wg_u8_t        ipv4_dscp,
+	genode_wg_u8_t        ipv4_dscp_ecn,
 	genode_wg_u8_t        ipv4_ttl);
 
 #ifdef __cplusplus

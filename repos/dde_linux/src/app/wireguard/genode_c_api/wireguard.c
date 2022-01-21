@@ -151,6 +151,13 @@ static struct socket                _genode_wg_socket;
 static struct sock                  _genode_wg_sock;
 static struct sk_buff               _genode_wg_sk_buff;
 static struct udp_tunnel_sock_cfg   _genode_wg_udp_tunnel_cfg;
+genode_wg_u16_t                     _genode_wg_listen_port;
+
+
+genode_wg_u16_t genode_wg_listen_port(void)
+{
+	return _genode_wg_listen_port;
+}
 
 
 void genode_wg_rtnl_link_ops(struct rtnl_link_ops *ops)
@@ -207,6 +214,7 @@ _genode_wg_config_add_dev(genode_wg_u16_t              listen_port,
 		printk("%s re-called. Reconfiguration not supported yet\n", __func__);
 		return;
 	}
+	_genode_wg_listen_port = listen_port;
 
 	/* prepare environment for the execution of 'wg_set_device' */
 	_genode_wg_net_dev.public_data.rtnl_link_ops = _genode_wg_rtnl_link_ops;

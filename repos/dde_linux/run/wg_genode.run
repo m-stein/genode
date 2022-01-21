@@ -78,7 +78,7 @@ install_config {
 			</domain>
 
 			<domain name="wg_vpn" interface="10.0.3.1/24">
-				<udp dst="10.0.2.2/24"><permit port="49001" domain="uplink"/></udp>
+				<udp dst="10.0.2.1/24"><permit port="49001" domain="uplink"/></udp>
 			</domain>
 
 			<domain name="wg_local" interface="10.1.1.1/24">
@@ -111,7 +111,7 @@ install_config {
 		<config vpn="10.0.3.2/24" local="10.1.1.2/24">
 			<iface listen_port="49002" private_key="8GRSQZMgG1uuvz4APIBqrDmiLj8L886r++hzixjjHFc=">
 				<peer public_key="r1Gslnm82X8NaijsWzPoSFzDZGl2tTJoPa+EJL4gYQw="
-				      ip="10.0.2.2" port="49001" allowed_ip="10.0.9.1/32">
+				      ip="10.0.2.1" port="49001" allowed_ip="10.0.9.1/32">
 				</peer>
 			</iface>
 			</config>
