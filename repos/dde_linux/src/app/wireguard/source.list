@@ -61,6 +61,7 @@ lib/siphash.c
 lib/string.c
 lib/vsprintf.c
 lib/xarray.c
+net/core/dst.c
 net/core/dst_cache.c
 net/core/flow_dissector.c
 net/core/skbuff.c

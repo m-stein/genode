@@ -290,3 +290,12 @@ unsigned long phys_base = 0;
 #include <asm/atomic.h>
 
 DEFINE_STATIC_KEY_FALSE(bpf_stats_enabled_key);
+
+
+#include <linux/net.h>
+
+int net_ratelimit(void)
+{
+	lx_emul_trace(__func__);
+	return 0;
+}

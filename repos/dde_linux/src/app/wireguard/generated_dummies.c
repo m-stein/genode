@@ -1,7 +1,7 @@
 /*
  * \brief  Dummy definitions of Linux Kernel functions
  * \author Automatically generated file - do no edit
- * \date   2022-01-20
+ * \date   2022-01-21
  */
 
 #include <lx_emul.h>
@@ -26,14 +26,6 @@ struct page * __alloc_pages(gfp_t gfp,unsigned int order,int preferred_nid,nodem
 #include <linux/clk-provider.h>
 
 const char * __clk_get_name(const struct clk * clk)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/sched.h>
-
-int __sched __cond_resched(void)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -190,14 +182,6 @@ void ack_bad_irq(unsigned int irq)
 }
 
 
-#include <linux/rcupdate.h>
-
-void call_rcu(struct rcu_head * head,rcu_callback_t func)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 extern int cpu_has_xfeatures(u64 xfeatures_needed,const char ** feature_name);
 int cpu_has_xfeatures(u64 xfeatures_needed,const char ** feature_name)
 {
@@ -224,14 +208,6 @@ struct net_device * dev_get_by_index(struct net * net,int ifindex)
 #include <linux/netdevice.h>
 
 void dev_get_tstats64(struct net_device * dev,struct rtnl_link_stats64 * s)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <net/dst.h>
-
-void dst_release(struct dst_entry * dst)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -309,14 +285,6 @@ void * genlmsg_put(struct sk_buff * skb,u32 portid,u32 seq,const struct genl_fam
 }
 
 
-#include <linux/random.h>
-
-u32 get_random_u32(void)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/gfp.h>
 
 bool gfp_pfmemalloc_allowed(gfp_t gfp_mask)
@@ -353,14 +321,6 @@ void icmp6_send(struct sk_buff * skb,u8 type,u8 code,__u32 info,const struct in6
 const struct in6_addr in6addr_any;
 
 
-#include <linux/inetdevice.h>
-
-__be32 inet_confirm_addr(struct net * net,struct in_device * in_dev,__be32 dst,__be32 local,int scope)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <net/netfilter/nf_conntrack.h>
 
 struct net init_net;
@@ -393,14 +353,6 @@ long __sched io_schedule_timeout(long timeout)
 #include <net/ipv6.h>
 
 int ip6_dst_hoplimit(struct dst_entry * dst)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <net/route.h>
-
-struct rtable * ip_route_output_flow(struct net * net,struct flowi4 * flp4,const struct sock * sk)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -464,14 +416,6 @@ void kernel_fpu_begin_mask(unsigned int kfpu_mask)
 
 extern void kernel_fpu_end(void);
 void kernel_fpu_end(void)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/slab.h>
-
-void kfree_sensitive(const void * p)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -770,14 +714,6 @@ void unregister_pernet_device(struct pernet_operations * ops)
 #include <linux/uuid.h>
 
 const u8 uuid_index[16] = {};
-
-
-#include <linux/random.h>
-
-int wait_for_random_bytes(void)
-{
-	lx_emul_trace_and_stop(__func__);
-}
 
 
 #include <linux/sched/wake_q.h>

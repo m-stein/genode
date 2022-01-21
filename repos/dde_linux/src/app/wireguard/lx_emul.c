@@ -28,6 +28,25 @@ void get_random_bytes(void * buf,int nbytes)
 }
 
 
+#include <linux/random.h>
+
+int wait_for_random_bytes(void)
+{
+	lx_emul_trace(__func__);
+	return 0;
+}
+
+
+#include <linux/random.h>
+
+u32 get_random_u32(void)
+{
+	u8 buf[4];
+	lx_emul_random_bytes(buf, sizeof(buf));
+	return *((u32*)&buf);
+}
+
+
 #include <linux/slab.h>
 
 void * kmalloc_order(size_t size,gfp_t flags,unsigned int order)
@@ -108,7 +127,7 @@ bool ipv6_mod_enabled(void)
 
 void udp_tunnel_xmit_skb(struct rtable * rt,struct sock * sk,struct sk_buff * skb,__be32 src,__be32 dst,__u8 tos,__u8 ttl,__be16 df,__be16 src_port,__be16 dst_port,bool xnet,bool nocheck)
 {
-	pr_info("Send packet over UDP tunnel");
+	printk("Send packet over UDP tunnel\n");
 }
 
 
@@ -153,3 +172,57 @@ bool rng_is_initialized(void)
 #include <asm/pgtable.h>
 
 unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)] = { 0 };
+
+
+#include <linux/inetdevice.h>
+
+__be32 inet_confirm_addr(struct net * net,struct in_device * in_dev,__be32 dst,__be32 local,int scope)
+{
+	lx_emul_trace(__func__);
+	return local;
+}
+
+
+#include <net/route.h>
+
+struct rtable * ip_route_output_flow(struct net * net,struct flowi4 * flp4,const struct sock * sk)
+{
+	static bool initialized = false;
+	static struct dst_metrics dst_default_metrics;
+	static struct rtable rt;
+	if (!initialized) {
+		rt.dst.dev = genode_wg_net_device();
+		dst_init_metrics(&rt.dst, dst_default_metrics.metrics, true);
+		initialized = true;
+	}
+	return &rt;
+}
+
+
+#include <linux/sched.h>
+
+int __cond_resched(void)
+{
+	if (should_resched(0)) {
+		schedule();
+		return 1;
+	}
+	return 0;
+}
+
+
+#include <linux/rcupdate.h>
+
+void call_rcu(struct rcu_head * head,rcu_callback_t func)
+{
+	func(head);
+}
+
+
+#include <linux/slab.h>
+
+void kfree_sensitive(const void * p)
+{
+	kfree(p);
+}
+
