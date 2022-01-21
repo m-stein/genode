@@ -81,7 +81,7 @@ install_config {
 				<udp dst="10.0.2.1/24"><permit port="49001" domain="uplink"/></udp>
 			</domain>
 
-			<domain name="wg_local" interface="10.1.1.1/24">
+			<domain name="wg_local" interface="10.1.1.1/24" gateway="10.1.1.2">
 				<nat domain="downlink" tcp-ports="16384" udp-ports="16384" icmp-ids="16384"/>
 			</domain>
 
@@ -91,7 +91,7 @@ install_config {
 				             dns_config_from="uplink"/>
 				<tcp dst="0.0.0.0/0"><permit-any domain="wg_local" /></tcp>
 				<udp dst="0.0.0.0/0"><permit-any domain="wg_local" /></udp>
-				<icmp dst="0.0.0.0/0" domain="wg_local"/>
+				<icmp dst="10.0.9.1/24" domain="wg_local"/>
 			</domain>
 		</config>
 	</start>
@@ -123,12 +123,21 @@ install_config {
 			<any-service> <parent/> </any-service>
 		</route>
 	</start>
+
+	<start name="ping">
+		<resource name="RAM" quantum="4M"/>
+		<config dst_ip="10.0.9.1" period_sec="1" verbose="yes" count="3"/>
+		<route>
+			<service name="Nic"> <child name="nic_router"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
 </config>
 }
 
-build { app/wireguard }
+build { app/wireguard app/ping }
 
-build_boot_image { wireguard }
+build_boot_image { wireguard ping }
 
 proc board_qemu_args { } {
 	return " -nographic -machine q35 -netdev tap,id=net0,ifname=tap0,script=no,downscript=no -net nic,model=e1000,netdev=net0 "

@@ -57,7 +57,8 @@ void genode_wg_update_config(struct genode_wg_config_callbacks * callbacks);
 
 
 typedef void (*genode_wg_net_receive_t)
-	(genode_wg_u16_t listen_port, void * buf, unsigned long buf_size);
+	(genode_wg_u16_t listen_port, void * buf, unsigned long buf_size,
+	 int local);
 
 void genode_wg_net_receive(genode_wg_net_receive_t recv_callback);
 

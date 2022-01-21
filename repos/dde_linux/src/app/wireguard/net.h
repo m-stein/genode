@@ -49,6 +49,7 @@ class Wireguard::Net_base
 		Nic::Packet_allocator _packet_alloc { &_heap };
 		bool                  _notify_peers { true };
 		CONNECTION            _nic;
+		bool                  _local;
 
 		bool _verbose          { true };
 		bool _verbose_pkt_drop { true };
@@ -170,11 +171,12 @@ class Wireguard::Net_base
 
 		template <typename ... ARGS>
 		Net_base(Env & env, Heap & heap, Signal_context_capability sigh,
-		         Ipv4_address_prefix iface, ARGS ... args)
+		         Ipv4_address_prefix iface, bool local, ARGS ... args)
 		:
 			_heap(heap),
 			_interface(iface),
-			_nic(env, &_packet_alloc, BUF_SIZE, BUF_SIZE, args...)
+			_nic(env, &_packet_alloc, BUF_SIZE, BUF_SIZE, args...),
+			_local(local)
 		{
 			_nic.rx_channel()->sigh_ready_to_ack(sigh);
 			_nic.rx_channel()->sigh_packet_avail(sigh);
@@ -220,7 +222,7 @@ class Wireguard::Net_base
 						log("Received an IPv4 packet");
 
 						//FIXME: get listen port and put it into callback
-						func(0U, eth_base, packet.size());
+						func(0U, eth_base, packet.size(), _local);
 						_notify_peers = true;
 						break;
 						}
@@ -294,7 +296,7 @@ class Wireguard::Vpn : public Net_base<Nic::Connection>
 		Vpn(Env & env, Heap & heap, Signal_context_capability sigh,
 		    Ipv4_address_prefix iface)
 		:
-			Net_base<Nic::Connection>(env, heap, sigh, iface, "vpn") {}
+			Net_base<Nic::Connection>(env, heap, sigh, iface, false, "vpn") {}
 
 		Net::Mac_address mac_address() override { return _nic.mac_address(); }
 
@@ -322,7 +324,8 @@ class Wireguard::Local_net : public Net_base<Uplink::Connection>
 		Local_net(Env & env, Heap & heap, Signal_context_capability sigh,
 		          Ipv4_address_prefix iface)
 		:
-			Net_base<Uplink::Connection>(env, heap, sigh, iface, _mac_address(), "local") {}
+			Net_base<Uplink::Connection>(env, heap, sigh, iface, true,
+			                             _mac_address(), "local") {}
 
 		Net::Mac_address mac_address() override { return _mac_address(); }
 };

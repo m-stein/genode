@@ -357,7 +357,8 @@ static struct genode_wg_config_callbacks _config_callbacks = {
 static void
 _genode_wg_net_receive(genode_wg_u16_t listen_port,
                        void *          buf,
-                       unsigned long   buf_size)
+                       unsigned long   buf_size,
+                       int             local)
 {
 	struct iphdr * ip;
 	size_t data_offset;
@@ -379,7 +380,10 @@ _genode_wg_net_receive(genode_wg_u16_t listen_port,
 	skb_pull(skb, data_offset);
 	skb_reset_transport_header(skb);
 
-	_genode_wg_udp_tunnel_cfg.encap_rcv(&_genode_wg_sock, skb);
+	if (local)
+		printk("RECEIVED PACKET FROM LOCAL SIDE\n");
+	else
+		_genode_wg_udp_tunnel_cfg.encap_rcv(&_genode_wg_sock, skb);
 }
 
 
