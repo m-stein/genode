@@ -124,10 +124,69 @@ bool ipv6_mod_enabled(void)
 
 
 #include <net/udp_tunnel.h>
+#include <genode_c_api/wireguard.h>
 
-void udp_tunnel_xmit_skb(struct rtable * rt,struct sock * sk,struct sk_buff * skb,__be32 src,__be32 dst,__u8 tos,__u8 ttl,__be16 df,__be16 src_port,__be16 dst_port,bool xnet,bool nocheck)
+void udp_tunnel_xmit_skb(
+	struct rtable * rt,struct sock * sk,struct sk_buff * skb,
+	__be32 src,__be32 dst,__u8 tos,__u8 ttl,__be16 df,
+	__be16 src_port,__be16 dst_port,bool xnet,bool nocheck)
 {
-	printk("Send packet over UDP tunnel\n");
+	if (df != 0) {
+		pr_info("Error: DF != 0 is not expected nor supported yet\n");
+		while (1) { }
+	}
+	if (xnet != false) {
+		pr_info("Error: XNET != false is not expected nor supported yet\n");
+		while (1) { }
+	}
+	if (nocheck != false) {
+		pr_info("Error: XNET != false is not expected nor supported yet\n");
+		while (1) { }
+	}
+	genode_wg_send_wg_prot_at_nic_connection(
+		skb->data, skb->len, src_port, dst_port, src, dst, tos, ttl);
+
+/* handshake response
+
+	src      == 0x302000a big endian == 10.0.2.3
+	dst      == 0x102000a big endian == 10.0.2.1
+	tos      == 88, type of service field of ipv4 header
+	ttl      == 40, time to live field of ipv4 header
+	df       == 0, dont fragment field of ipv4 header
+	src_port == 0x6abf big endian == 49002, udp source port
+	dst_port == 0x69bf big endian == 49001, udp dest port
+	xnet     == 0, ?
+	nocheck  == 0, ?
+
+	skb->data[0]..skb->data[skb->len-1]:
+	  0:  2  0  0  0 <--- wireguard prot starts at idx 0
+	  4:  5 ae 65 ca
+	  8: 81 42 e9 48
+	 12: 1b bd  c 3a
+	 16: ed 3f b9 4c
+	 20: 70 91 f6 e3
+	 24: 8d 3f 77 1c
+	 28: ed e5 35 51
+	 32: b4 12 21 91
+	 36: df fb c8 1c
+	 40: 57 22  a  5
+	 44: de 50 8b c7
+	 48: 23 77 a0 25
+	 52: aa 53 5f 99
+	 56: 12 29 54 15
+	 60: ab c9 97 f3
+	 64: dd 20 a5 ec
+	 68: 5f c1 8e 74
+	 72: 9d 41 b8 9c
+	 76:  0  0  0  0
+	 80:  0  0  0  0
+	 84:  0  0  0  0
+	 88:  0  0  0  0 <--- wireguard prot ends at idx 91
+
+	The wireguard prot is not tunneled or encrypted but only encapsuled in
+	normal udp.
+*/
+
 }
 
 

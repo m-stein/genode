@@ -17,6 +17,7 @@
 #include <uplink_session/connection.h>
 #include <nic/packet_allocator.h>
 #include <net/ethernet.h>
+#include <../../../../os/include/net/udp.h>
 #include "../../../../os/include/net/arp.h" /* FIXME: including this normally would clash with a Linux header name */
 
 /* app/wireguard includes */
@@ -40,6 +41,7 @@ class Wireguard::Net_base
 	protected:
 
 		enum { PACKET_SIZE = Nic::Packet_allocator::DEFAULT_PACKET_SIZE    };
+		enum { WG_PROT_PACKET_SIZE = Nic::Packet_allocator::OFFSET_PACKET_SIZE };
 		enum { BUF_SIZE    = CONNECTION::Session::QUEUE_SIZE * PACKET_SIZE };
 
 		Heap                & _heap;
@@ -295,6 +297,16 @@ class Wireguard::Vpn : public Net_base<Nic::Connection>
 			Net_base<Nic::Connection>(env, heap, sigh, iface, "vpn") {}
 
 		Net::Mac_address mac_address() override { return _nic.mac_address(); }
+
+		void send_wg_prot(
+			genode_wg_u8_t const *wg_prot_base,
+			genode_wg_u64_t       wg_prot_size,
+			genode_wg_u16_t       udp_src_port_big_endian,
+			genode_wg_u16_t       udp_dst_port_big_endian,
+			genode_wg_u32_t       ipv4_src_addr_big_endian,
+			genode_wg_u32_t       ipv4_dst_addr_big_endian,
+			genode_wg_u8_t        ipv4_dscp,
+			genode_wg_u8_t        ipv4_ttl);
 };
 
 
@@ -314,3 +326,56 @@ class Wireguard::Local_net : public Net_base<Uplink::Connection>
 
 		Net::Mac_address mac_address() override { return _mac_address(); }
 };
+
+
+void Wireguard::Vpn::send_wg_prot(
+	genode_wg_u8_t const *wg_prot_base,
+	genode_wg_u64_t       wg_prot_size,
+	genode_wg_u16_t       udp_src_port_big_endian,
+	genode_wg_u16_t       udp_dst_port_big_endian,
+	genode_wg_u32_t       ipv4_src_addr_big_endian,
+	genode_wg_u32_t       ipv4_dst_addr_big_endian,
+	genode_wg_u8_t        ipv4_dscp,
+	genode_wg_u8_t        ipv4_ttl)
+{
+	_send(WG_PROT_PACKET_SIZE, [&] (void *pkt_base, Size_guard &size_guard) {
+
+		/*
+		 * FIXME We should do ARP here instead of assuming a certain MAC
+		 */
+		Mac_address nic_router_mac { 2 };
+		nic_router_mac.addr[5] = 0;
+
+		/* create ETH header */
+		Ethernet_frame &eth = Ethernet_frame::construct_at(pkt_base, size_guard);
+		eth.dst(nic_router_mac);
+		eth.src(mac_address());
+		eth.type(Ethernet_frame::Type::IPV4);
+
+		/* create IP header of the reply */
+		size_t const ip_off = size_guard.head_size();
+		Ipv4_packet &ip = eth.construct_at_data<Ipv4_packet>(size_guard);
+		ip.header_length(sizeof(Ipv4_packet) / 4);
+		ip.version(4);
+		ip.time_to_live(ipv4_ttl);
+		ip.diff_service(ipv4_dscp);
+		ip.protocol(Ipv4_packet::Protocol::UDP);
+		ip.src_big_endian(ipv4_src_addr_big_endian);
+		ip.dst_big_endian(ipv4_dst_addr_big_endian);
+
+		/* create UDP header of the reply */
+		size_t const udp_off = size_guard.head_size();
+		Udp_packet &udp = ip.construct_at_data<Udp_packet>(size_guard);
+		udp.src_port_big_endian(udp_src_port_big_endian);
+		udp.dst_port_big_endian(udp_dst_port_big_endian);
+
+		/* add Wireguard protocol data */
+		udp.memcpy_to_data((void *)wg_prot_base, wg_prot_size, size_guard);
+
+		/* fill in header values that need the packet to be complete already */
+		udp.length((uint16_t)(size_guard.head_size() - udp_off));
+		udp.update_checksum(ip.src(), ip.dst());
+		ip.total_length(size_guard.head_size() - ip_off);
+		ip.update_checksum();
+	});
+}

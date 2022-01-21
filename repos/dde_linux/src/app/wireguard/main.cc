@@ -114,7 +114,39 @@ class Wireguard::Main : private Entrypoint::Io_progress_handler
 			return to_local ? _local_net.tx_one_packet(buf, buf_size)
 			                : _vpn.tx_one_packet(buf, buf_size);
 		}
+
+		void send_wg_prot_at_nic_connection(
+			genode_wg_u8_t const *wg_prot_base,
+			genode_wg_u64_t       wg_prot_size,
+			genode_wg_u16_t       udp_src_port_big_endian,
+			genode_wg_u16_t       udp_dst_port_big_endian,
+			genode_wg_u32_t       ipv4_src_addr_big_endian,
+			genode_wg_u32_t       ipv4_dst_addr_big_endian,
+			genode_wg_u8_t        ipv4_dscp,
+			genode_wg_u8_t        ipv4_ttl);
 };
+
+
+void Wireguard::Main::send_wg_prot_at_nic_connection(
+	genode_wg_u8_t const *wg_prot_base,
+	genode_wg_u64_t       wg_prot_size,
+	genode_wg_u16_t       udp_src_port_big_endian,
+	genode_wg_u16_t       udp_dst_port_big_endian,
+	genode_wg_u32_t       ipv4_src_addr_big_endian,
+	genode_wg_u32_t       ipv4_dst_addr_big_endian,
+	genode_wg_u8_t        ipv4_dscp,
+	genode_wg_u8_t        ipv4_ttl)
+{
+	_vpn.send_wg_prot(
+		wg_prot_base,
+		wg_prot_size,
+		udp_src_port_big_endian,
+		udp_dst_port_big_endian,
+		ipv4_src_addr_big_endian,
+		ipv4_dst_addr_big_endian,
+		ipv4_dscp,
+		ipv4_ttl);
+}
 
 
 static Wireguard::Main & main_object(Genode::Env & env)
@@ -143,6 +175,28 @@ genode_wg_net_send(void * buf, unsigned long buf_size, int up)
 {
 	return (main_object(Lx_kit::env().env).net_send(buf, buf_size, up))
 		? 0 : -1;
+}
+
+
+void genode_wg_send_wg_prot_at_nic_connection(
+	genode_wg_u8_t const *wg_prot_base,
+	genode_wg_u64_t       wg_prot_size,
+	genode_wg_u16_t       udp_src_port_big_endian,
+	genode_wg_u16_t       udp_dst_port_big_endian,
+	genode_wg_u32_t       ipv4_src_addr_big_endian,
+	genode_wg_u32_t       ipv4_dst_addr_big_endian,
+	genode_wg_u8_t        ipv4_dscp,
+	genode_wg_u8_t        ipv4_ttl)
+{
+	main_object(Lx_kit::env().env).send_wg_prot_at_nic_connection(
+		wg_prot_base,
+		wg_prot_size,
+		udp_src_port_big_endian,
+		udp_dst_port_big_endian,
+		ipv4_src_addr_big_endian,
+		ipv4_dst_addr_big_endian,
+		ipv4_dscp,
+		ipv4_ttl);
 }
 
 
