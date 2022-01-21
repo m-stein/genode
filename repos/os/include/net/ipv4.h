@@ -191,6 +191,7 @@ class Net::Ipv4_packet
 		void version(Genode::uint8_t v)          { Offset_0_u8::Version::set(_offset_0_u8, v); }
 		void diff_service(Genode::uint8_t v)     { Offset_1_u8::Dscp::set(_offset_1_u8, v); }
 		void ecn(Genode::uint8_t v)              { Offset_1_u8::Ecn::set(_offset_1_u8, v); }
+		void diff_service_ecn(Genode::uint8_t v) { _offset_1_u8 = v; }
 		void total_length(Genode::size_t v)      { _total_length = host_to_big_endian((Genode::uint16_t)v); }
 		void identification(Genode::uint16_t v)  { _identification = host_to_big_endian(v); }
 		void time_to_live(Genode::uint8_t v)     { _time_to_live = v; }
