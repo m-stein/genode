@@ -381,7 +381,7 @@ _genode_wg_net_receive(genode_wg_u16_t listen_port,
 	skb_reset_transport_header(skb);
 
 	if (local)
-		printk("RECEIVED PACKET FROM LOCAL SIDE\n");
+		genode_wg_net_device()->netdev_ops->ndo_start_xmit(skb, genode_wg_net_device());
 	else
 		_genode_wg_udp_tunnel_cfg.encap_rcv(&_genode_wg_sock, skb);
 }

@@ -47,6 +47,16 @@ u32 get_random_u32(void)
 }
 
 
+#include <linux/prandom.h>
+
+u32 prandom_u32(void)
+{
+	u8 buf[4];
+	lx_emul_random_bytes(buf, sizeof(buf));
+	return *((u32*)&buf);
+}
+
+
 #include <linux/slab.h>
 
 void * kmalloc_order(size_t size,gfp_t flags,unsigned int order)

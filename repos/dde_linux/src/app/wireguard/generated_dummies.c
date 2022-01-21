@@ -506,14 +506,6 @@ void page_frag_free(void * addr)
 }
 
 
-#include <linux/prandom.h>
-
-u32 prandom_u32(void)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/printk.h>
 
 int printk_deferred(const char * fmt,...)
