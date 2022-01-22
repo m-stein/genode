@@ -368,3 +368,21 @@ void kfree_sensitive(const void * p)
 	kfree(p);
 }
 
+
+#include <linux/netdevice.h>
+
+gro_result_t napi_gro_receive(struct napi_struct * napi,struct sk_buff * skb)
+{
+	genode_wg_send_ip_at_uplink_connection(skb->data, skb->len);
+
+	/*
+	 * FIXME
+	 *
+	 * The Wireguard contrib code currently ignores this return value.
+	 * Considering the possibility that, one day, it does otherwise, I return
+	 * an invalid value here in the hope that it complains. The reason is that
+	 * I don't understand GRO and its return values fully and don't want to
+	 * dive into it because I hope that it will not become relevant anyway.
+	 */
+	return -1;
+}

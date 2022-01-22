@@ -79,6 +79,11 @@ void genode_wg_send_wg_prot_at_nic_connection(
 	genode_wg_u8_t        ipv4_dscp_ecn,
 	genode_wg_u8_t        ipv4_ttl);
 
+
+void genode_wg_send_ip_at_uplink_connection(
+	genode_wg_u8_t const *ip_base,
+	genode_wg_u64_t       ip_size);
+
 #ifdef __cplusplus
 }
 #endif

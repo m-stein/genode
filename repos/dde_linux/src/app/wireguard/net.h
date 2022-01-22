@@ -328,6 +328,10 @@ class Wireguard::Local_net : public Net_base<Uplink::Connection>
 			                             _mac_address(), "local") {}
 
 		Net::Mac_address mac_address() override { return _mac_address(); }
+
+		void send_ip(
+			genode_wg_u8_t const *ip_base,
+			genode_wg_u64_t       ip_size);
 };
 
 
@@ -385,4 +389,36 @@ void Wireguard::Vpn::send_wg_prot(
 		ip.total_length(size_guard.head_size() - ip_off);
 		ip.update_checksum();
 	});
+}
+
+
+void Wireguard::Local_net::send_ip(
+	genode_wg_u8_t const *ip_base,
+	genode_wg_u64_t       ip_size)
+{
+	Size_guard ip_guard { ip_size };
+	Ipv4_packet const &ip { Ipv4_packet::cast_from(ip_base, ip_guard) };
+	if (ip.version() != 4) {
+		log("Drop packet - IP versions other than 4 not supported");
+		return;
+	}
+	size_t const pkt_size { sizeof(Ethernet_frame) + ip_size };
+	_send(pkt_size, [&] (void *pkt_base, Size_guard &size_guard) {
+
+		/*
+		 * FIXME We should do ARP here instead of assuming a certain MAC
+		 */
+		Mac_address dst_mac { 2 };
+		dst_mac.addr[5] = 0;
+
+		/* create ETH header */
+		Ethernet_frame &eth = Ethernet_frame::construct_at(pkt_base, size_guard);
+		eth.dst(dst_mac);
+		eth.src(mac_address());
+		eth.type(Ethernet_frame::Type::IPV4);
+
+		/* add IP packet as payload */
+		eth.memcpy_to_data((void *)ip_base, ip_size, size_guard);
+	});
+	
 }

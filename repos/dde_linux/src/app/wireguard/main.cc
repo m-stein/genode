@@ -124,6 +124,10 @@ class Wireguard::Main : private Entrypoint::Io_progress_handler
 			genode_wg_u32_t       ipv4_dst_addr_big_endian,
 			genode_wg_u8_t        ipv4_dscp_ecn,
 			genode_wg_u8_t        ipv4_ttl);
+
+		void send_ip_at_uplink_connection(
+			genode_wg_u8_t const *ip_base,
+			genode_wg_u64_t       ip_size);
 };
 
 
@@ -146,6 +150,14 @@ void Wireguard::Main::send_wg_prot_at_nic_connection(
 		ipv4_dst_addr_big_endian,
 		ipv4_dscp_ecn,
 		ipv4_ttl);
+}
+
+
+void Wireguard::Main::send_ip_at_uplink_connection(
+	genode_wg_u8_t const *ip_base,
+	genode_wg_u64_t       ip_size)
+{
+	_local_net.send_ip(ip_base, ip_size);
 }
 
 
@@ -197,6 +209,16 @@ void genode_wg_send_wg_prot_at_nic_connection(
 		ipv4_dst_addr_big_endian,
 		ipv4_dscp_ecn,
 		ipv4_ttl);
+}
+
+
+void genode_wg_send_ip_at_uplink_connection(
+	genode_wg_u8_t const *ip_base,
+	genode_wg_u64_t       ip_size)
+{
+	main_object(Lx_kit::env().env).send_ip_at_uplink_connection(
+		ip_base,
+		ip_size);
 }
 
 

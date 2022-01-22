@@ -476,14 +476,6 @@ void napi_disable(struct napi_struct * n)
 
 #include <linux/netdevice.h>
 
-gro_result_t napi_gro_receive(struct napi_struct * napi,struct sk_buff * skb)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/netdevice.h>
-
 bool napi_schedule_prep(struct napi_struct * n)
 {
 	lx_emul_trace_and_stop(__func__);
