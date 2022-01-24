@@ -143,6 +143,13 @@ class Net::Ipv4_packet
 			UDP  = 17,
 		};
 
+		static Ipv4_packet const &cast_from(void const *base,
+		                                    Size_guard &size_guard)
+		{
+			size_guard.consume_head(sizeof(Ipv4_packet));
+			return *(Ipv4_packet const *)base;
+		}
+
 		template <typename T>
 		T const &data(Size_guard &size_guard) const
 		{
