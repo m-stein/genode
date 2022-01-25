@@ -14,11 +14,6 @@
 /* app/wireguard includes */
 #include <lx_emul.h>
 
-
-void lx_emul_associate_page_selftest(void) {}
-void lx_emul_forget_pages(void const *virt, unsigned long size) {}
-
-
 #include <lx_emul/random.h>
 #include <linux/random.h>
 
@@ -385,4 +380,12 @@ gro_result_t napi_gro_receive(struct napi_struct * napi,struct sk_buff * skb)
 	 * dive into it because I hope that it will not become relevant anyway.
 	 */
 	return -1;
+}
+
+
+#include <linux/netdevice.h>
+
+bool napi_schedule_prep(struct napi_struct * n)
+{
+	return true;
 }

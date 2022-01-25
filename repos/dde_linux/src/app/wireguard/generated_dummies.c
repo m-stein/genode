@@ -1,7 +1,7 @@
 /*
  * \brief  Dummy definitions of Linux Kernel functions
  * \author Automatically generated file - do no edit
- * \date   2022-01-21
+ * \date   2022-01-24
  */
 
 #include <lx_emul.h>
@@ -476,14 +476,6 @@ void napi_disable(struct napi_struct * n)
 
 #include <linux/netdevice.h>
 
-bool napi_schedule_prep(struct napi_struct * n)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/netdevice.h>
-
 void netif_carrier_off(struct net_device * dev)
 {
 	lx_emul_trace_and_stop(__func__);
@@ -509,54 +501,6 @@ int printk_deferred(const char * fmt,...)
 #include <net/rtnetlink.h>
 
 void rtnl_link_unregister(struct rtnl_link_ops * ops)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <crypto/scatterwalk.h>
-
-void scatterwalk_map_and_copy(void * buf,struct scatterlist * sg,unsigned int start,unsigned int nbytes,int out)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/scatterlist.h>
-
-void sg_init_table(struct scatterlist * sgl,unsigned int nents)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/scatterlist.h>
-
-bool sg_miter_next(struct sg_mapping_iter * miter)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/scatterlist.h>
-
-void sg_miter_start(struct sg_mapping_iter * miter,struct scatterlist * sgl,unsigned int nents,unsigned int flags)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/scatterlist.h>
-
-void sg_miter_stop(struct sg_mapping_iter * miter)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/scatterlist.h>
-
-int sg_nents(struct scatterlist * sg)
 {
 	lx_emul_trace_and_stop(__func__);
 }

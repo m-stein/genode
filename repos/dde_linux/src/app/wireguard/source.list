@@ -9,6 +9,7 @@ arch/x86/crypto/poly1305-x86_64-cryptogams.S
 arch/x86/crypto/poly1305_glue.c
 crypto/algapi.c
 crypto/memneq.c
+crypto/scatterwalk.c
 drivers/net/wireguard/allowedips.c
 drivers/net/wireguard/cookie.c
 drivers/net/wireguard/device.c
@@ -57,6 +58,7 @@ lib/idr.c
 lib/nlattr.c
 lib/radix-tree.c
 lib/refcount.c
+lib/scatterlist.c
 lib/siphash.c
 lib/string.c
 lib/vsprintf.c

@@ -29,6 +29,7 @@ SRC_C   += lx_emul/shadow/mm/slab_common.c
 SRC_C   += lx_emul/shadow/mm/slub.c
 SRC_C   += lx_emul/spec/x86/start.c
 SRC_C   += lx_emul/start.c
+SRC_C   += lx_emul/virt_to_page.c
 SRC_CC  += lx_emul/alloc.cc
 SRC_CC  += lx_emul/clock.cc
 SRC_CC  += lx_emul/debug.cc

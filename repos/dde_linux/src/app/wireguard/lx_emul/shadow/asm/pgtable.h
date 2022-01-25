@@ -1,16 +1,38 @@
-#ifndef _LX_EMUL__SHADOW__ASM__PGTABLE_H_
-#define _LX_EMUL__SHADOW__ASM__PGTABLE_H_
+/*
+ * \brief  Shadows Linux kernel arch/x86/include/asm/pgtable.h
+ * \author Stefan Kalkowski
+ * \date   2022-01-25
+ */
 
-#include_next <asm/pgtable.h>
+/*
+ * Copyright (C) 2022 Genode Labs GmbH
+ *
+ * This file is distributed under the terms of the GNU General Public License
+ * version 2.
+ */
 
-static inline struct page * __dummy_zero_page(void)
+#ifndef _ASM__X86__PGTABLE_H
+#define _ASM__X86__PGTABLE_H
+
+#include <linux/mem_encrypt.h>
+#include <asm/page.h>
+#include <asm/pgtable_types.h>
+
+#include <lx_emul/debug.h>
+
+static inline int p4d_none(p4d_t p4d) { return 0; }
+static inline int pud_none(pud_t pud) { return 0; }
+
+static inline pte_t pte_mkwrite(pte_t pte) { return pte; }
+
+static inline bool __pkru_allows_pkey(u16 pkey, bool write)
 {
-	//static struct page zero;
-	//zero.virtual = empty_zero_page;
-	return (struct page *)empty_zero_page;
+	lx_emul_trace_and_stop(__func__);
 }
 
-#undef  ZERO_PAGE
-#define ZERO_PAGE(vaddr) __dummy_zero_page()
+extern unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)];
 
-#endif /* _LX_EMUL__SHADOW__ASM__PGTABLE_H_ */
+#define ZERO_PAGE(vaddr) ((void)(vaddr),virt_to_page(empty_zero_page))
+
+#endif /*_ASM__X86__PGTABLE_H */
+
