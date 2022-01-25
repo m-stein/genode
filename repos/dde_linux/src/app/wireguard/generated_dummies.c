@@ -1,7 +1,7 @@
 /*
  * \brief  Dummy definitions of Linux Kernel functions
  * \author Automatically generated file - do no edit
- * \date   2022-01-24
+ * \date   2022-01-25
  */
 
 #include <lx_emul.h>
@@ -26,22 +26,6 @@ struct page * __alloc_pages(gfp_t gfp,unsigned int order,int preferred_nid,nodem
 #include <linux/clk-provider.h>
 
 const char * __clk_get_name(const struct clk * clk)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/once.h>
-
-void __do_once_done(bool * done,struct static_key_true * once_key,unsigned long * flags,struct module * mod)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/once.h>
-
-bool __do_once_start(bool * done,unsigned long * flags)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -74,14 +58,6 @@ struct irq_domain * __irq_domain_add(struct fwnode_handle * fwnode,int size,irq_
 #include <linux/irqdomain.h>
 
 struct irq_desc * __irq_resolve_mapping(struct irq_domain * domain,irq_hw_number_t hwirq,unsigned int * irq)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
-#include <linux/netdevice.h>
-
-void __napi_schedule(struct napi_struct * n)
 {
 	lx_emul_trace_and_stop(__func__);
 }
@@ -456,14 +432,6 @@ void kvfree(const void * addr)
 #include <linux/delay.h>
 
 unsigned long lpj_fine;
-
-
-#include <linux/netdevice.h>
-
-bool napi_complete_done(struct napi_struct * n,int work_done)
-{
-	lx_emul_trace_and_stop(__func__);
-}
 
 
 #include <linux/netdevice.h>

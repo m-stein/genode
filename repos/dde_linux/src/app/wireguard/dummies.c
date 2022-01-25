@@ -32,14 +32,6 @@ struct pt_regs * __irq_regs = NULL;
 int __preempt_count = 0;
 
 
-#include <linux/bitops.h>
-
-unsigned long __sw_hweight64(__u64 w)
-{
-	lx_emul_trace_and_stop(__func__);
-}
-
-
 #include <linux/kernel_stat.h>
 
 void account_process_tick(struct task_struct * p,int user_tick)
@@ -263,14 +255,6 @@ void do_trace_netlink_extack(const char * msg)
 
 #include <linux/netdevice.h>
 
-void netif_napi_add(struct net_device * dev,struct napi_struct * napi,int (* poll)(struct napi_struct *,int),int weight)
-{
-	lx_emul_trace(__func__);
-}
-
-
-#include <linux/netdevice.h>
-
 void napi_enable(struct napi_struct * n)
 {
 	lx_emul_trace(__func__);
@@ -298,4 +282,12 @@ int net_ratelimit(void)
 {
 	lx_emul_trace(__func__);
 	return 0;
+}
+
+
+#include <asm/checksum_64.h>
+
+__wsum csum_partial(const void * buff,int len,__wsum sum)
+{
+	lx_emul_trace_and_stop(__func__);
 }

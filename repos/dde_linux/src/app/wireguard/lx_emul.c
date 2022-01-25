@@ -385,7 +385,55 @@ gro_result_t napi_gro_receive(struct napi_struct * napi,struct sk_buff * skb)
 
 #include <linux/netdevice.h>
 
+void netif_napi_add(struct net_device * dev,struct napi_struct * napi,int (* poll)(struct napi_struct *,int),int weight)
+{
+	napi->dev = dev;
+	napi->poll = poll;
+	napi->weight = weight;
+}
+
+
+#include <linux/netdevice.h>
+
 bool napi_schedule_prep(struct napi_struct * n)
 {
 	return true;
 }
+
+
+#include <linux/netdevice.h>
+
+void __napi_schedule(struct napi_struct * n)
+{
+	int weight = n->weight;
+	if (n->poll(n, n->weight) >= weight) {
+		printk("Warning: more work to do?\n");
+		lx_emul_trace_and_stop(__func__);
+	}
+}
+
+
+#include <linux/netdevice.h>
+
+bool napi_complete_done(struct napi_struct * n,int work_done)
+{
+	lx_emul_trace(__func__);
+	return true;
+}
+
+
+#include <linux/once.h>
+
+void __do_once_done(bool * done,struct static_key_true * once_key,unsigned long * flags,struct module * mod)
+{
+	*done = true;
+}
+
+
+#include <linux/once.h>
+
+bool __do_once_start(bool * done,unsigned long * flags)
+{
+	return !*done;
+}
+

@@ -7,6 +7,7 @@ arch/x86/crypto/chacha_glue.c
 arch/x86/crypto/curve25519-x86_64.c
 arch/x86/crypto/poly1305-x86_64-cryptogams.S
 arch/x86/crypto/poly1305_glue.c
+arch/x86/lib/hweight.S
 crypto/algapi.c
 crypto/memneq.c
 crypto/scatterwalk.c
