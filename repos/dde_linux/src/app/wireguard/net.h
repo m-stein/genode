@@ -23,6 +23,8 @@
 /* app/wireguard includes */
 #include <genode_c_api/wireguard.h>
 #include <ipv4_address_prefix.h>
+#include <arp_waiter.h>
+#include <arp_cache.h>
 
 namespace Wireguard
 {
@@ -48,6 +50,8 @@ class Wireguard::Net_base
 		Ipv4_address_prefix   _interface;
 		Nic::Packet_allocator _packet_alloc { &_heap };
 		bool                  _notify_peers { true };
+		Arp_cache             _arp_cache    { };
+		Arp_waiter_list       _arp_waiters  { };
 		CONNECTION            _nic;
 		bool                  _local;
 
@@ -56,7 +60,7 @@ class Wireguard::Net_base
 
 		enum Handle_pkt_result { DROP_PACKET, ACK_PACKET };
 
-		enum Send_pkt_result { SUCCEEDED, FAILED };
+		enum Send_pkt_result { SUCCEEDED, FAILED, PACKET_WAITS_FOR_ARP };
 
 		enum {
 
@@ -114,6 +118,54 @@ class Wireguard::Net_base
 			return Send_pkt_result::SUCCEEDED;
 		}
 
+		Send_pkt_result
+		_finish_send_eth_ipv4_with_eth_dst_set_via_arp(Packet_descriptor  pkt,
+		                                               Mac_address const &eth_dst)
+		{
+			void           *pkt_base   { _nic.tx()->packet_content(pkt) };
+			Size_guard      size_guard { pkt.size() };
+			Ethernet_frame &eth        { Ethernet_frame::cast_from(pkt_base, size_guard) };
+
+			eth.dst(eth_dst);
+			_nic.tx()->submit_packet(pkt);
+			return Send_pkt_result::SUCCEEDED;
+		}
+
+		template <typename FUNC>
+		Send_pkt_result
+		_send_eth_ipv4_with_eth_eth_dst_set_via_arp(Genode::size_t      pkt_size,
+		                                            Ipv4_address const &dst_ip,
+		                                            FUNC            &&  write_to_pkt)
+		{
+			Send_pkt_result result { Send_pkt_result::FAILED };
+			using Nic_source = ::Nic::Packet_stream_source<::Nic::Session::Policy>;
+			try {
+				Packet_descriptor  pkt        { _nic.tx()->alloc_packet(pkt_size) };
+				void              *pkt_base   { _nic.tx()->packet_content(pkt) };
+				Size_guard         size_guard { pkt_size };
+				Ethernet_frame    &eth        { Ethernet_frame::construct_at(pkt_base, size_guard) };
+
+				write_to_pkt(eth, size_guard);
+				_arp_cache.find_by_ip(dst_ip).with_result(
+					[&] (Const_pointer<Arp_cache_entry> entry_ref) {
+						result = _finish_send_eth_ipv4_with_eth_dst_set_via_arp(
+							pkt, entry_ref.deref().mac());
+					},
+					[&] (Arp_cache_error) {
+						_broadcast_arp_request(_interface.address, dst_ip);
+						new (_heap) Arp_waiter { _arp_waiters, dst_ip, pkt };
+						result = Send_pkt_result::PACKET_WAITS_FOR_ARP;
+					}
+				);
+			}
+			catch (Nic_source::Packet_alloc_failed) {
+				if (_verbose) {
+					log("Failed sending packet - Failed allocating packet");
+				}
+			}
+			return result;
+		}
+
 		Send_pkt_result _send_arp_reply(Ethernet_frame &request_eth,
 		                                Arp_packet     &request_arp)
 		{
@@ -141,16 +193,9 @@ class Wireguard::Net_base
 			});
 		}
 
-		Handle_pkt_result _handle_arp(Ethernet_frame &eth,
-		                              Size_guard     &size_guard)
+		Handle_pkt_result _handle_arp_request(Ethernet_frame &eth,
+		                                      Arp_packet     &arp)
 		{
-			Arp_packet &arp { eth.data<Arp_packet>(size_guard) };
-			if (!arp.ethernet_ipv4()) {
-				return _drop_pkt("ARP request", "Targets unknown protocol");
-			}
-			if (arp.opcode() != Arp_packet::REQUEST) {
-				return _drop_pkt("ARP packet", "Is not an ARP request");
-			}
 			if (!_interface.valid()) {
 				return _drop_pkt("ARP request", "I have no IP address so far");
 			}
@@ -166,6 +211,72 @@ class Wireguard::Net_base
 			return Handle_pkt_result::ACK_PACKET;
 		}
 
+		Handle_pkt_result _handle_arp(Ethernet_frame &eth,
+		                              Size_guard     &size_guard)
+		{
+			Arp_packet &arp { eth.data<Arp_packet>(size_guard) };
+			if (!arp.ethernet_ipv4()) {
+				return _drop_pkt("ARP packet", "Targets unknown protocol");
+			}
+			switch (arp.opcode()) {
+			case Arp_packet::REQUEST: return _handle_arp_request(eth, arp);
+			case Arp_packet::REPLY:   return _handle_arp_reply(arp);
+			default:                  return _drop_pkt("ARP packet", "Unexpected opcode");
+			}
+		}
+
+		void _broadcast_arp_request(Ipv4_address const &src_ip,
+		                            Ipv4_address const &dst_ip)
+		{
+			_send(ARP_PACKET_SIZE, [&] (void *pkt_base, Size_guard &size_guard) {
+
+				/* write Ethernet header */
+				Ethernet_frame &eth = Ethernet_frame::construct_at(pkt_base, size_guard);
+				eth.dst(Mac_address(0xff));
+				eth.src(mac_address());
+				eth.type(Ethernet_frame::Type::ARP);
+
+				/* write ARP header */
+				Arp_packet &arp = eth.construct_at_data<Arp_packet>(size_guard);
+				arp.hardware_address_type(Arp_packet::ETHERNET);
+				arp.protocol_address_type(Arp_packet::IPV4);
+				arp.hardware_address_size(sizeof(Mac_address));
+				arp.protocol_address_size(sizeof(Ipv4_address));
+				arp.opcode(Arp_packet::REQUEST);
+				arp.src_mac(mac_address());
+				arp.src_ip(src_ip);
+				arp.dst_mac(Mac_address(0xff));
+				arp.dst_ip(dst_ip);
+			});
+		}
+
+		Handle_pkt_result _handle_arp_reply(Arp_packet &arp)
+		{
+			_arp_cache.find_by_ip(arp.src_ip()).with_result(
+				[&] (Const_pointer<Arp_cache_entry>) {
+					if (_verbose) {
+						log("ARP entry already exists"); }
+				},
+				[&] (Arp_cache_error) {
+
+					/* by now, no matching ARP cache entry exists, so create one */
+					Ipv4_address const ip = arp.src_ip();
+					_arp_cache.new_entry(ip, arp.src_mac());
+
+					/* finish sending packets that waited for the entry */
+					for (Arp_waiter_list_element *waiter_le = _arp_waiters.first();
+						 waiter_le; )
+					{
+						Arp_waiter &waiter = *waiter_le->object();
+						waiter_le = waiter_le->next();
+						if (ip != waiter.ip()) { continue; }
+						_finish_send_eth_ipv4_with_eth_dst_set_via_arp(waiter.packet(), arp.src_mac());
+						destroy(_heap, &waiter);
+					}
+				}
+			);
+			return Handle_pkt_result::ACK_PACKET;
+		}
 
 	public:
 
@@ -349,22 +460,18 @@ void Wireguard::Vpn::send_wg_prot(
 		sizeof(Ethernet_frame) + sizeof(Ipv4_packet) + sizeof(Udp_packet) +
 		wg_prot_size };
 
-	_send(pkt_size, [&] (void *pkt_base, Size_guard &size_guard) {
+	Ipv4_address const dst_ip {
+		Ipv4_address::from_uint32_big_endian(ipv4_dst_addr_big_endian) };
 
-		/*
-		 * FIXME We should do ARP here instead of assuming a certain MAC
-		 */
-		Mac_address nic_router_mac { 2 };
-		nic_router_mac.addr[5] = 0;
-
+	_send_eth_ipv4_with_eth_eth_dst_set_via_arp(
+		pkt_size, dst_ip, [&] (Ethernet_frame &eth, Size_guard &size_guard)
+	{
 		/* create ETH header */
-		Ethernet_frame &eth = Ethernet_frame::construct_at(pkt_base, size_guard);
-		eth.dst(nic_router_mac);
 		eth.src(mac_address());
 		eth.type(Ethernet_frame::Type::IPV4);
 
 		/* create IP header of the reply */
-		size_t const ip_off = size_guard.head_size();
+		size_t const ip_off { size_guard.head_size() };
 		Ipv4_packet &ip = eth.construct_at_data<Ipv4_packet>(size_guard);
 		ip.header_length(sizeof(Ipv4_packet) / 4);
 		ip.version(4);
@@ -375,7 +482,7 @@ void Wireguard::Vpn::send_wg_prot(
 		ip.dst_big_endian(ipv4_dst_addr_big_endian);
 
 		/* create UDP header of the reply */
-		size_t const udp_off = size_guard.head_size();
+		size_t const udp_off { size_guard.head_size() };
 		Udp_packet &udp = ip.construct_at_data<Udp_packet>(size_guard);
 		udp.src_port_big_endian(udp_src_port_big_endian);
 		udp.dst_port_big_endian(udp_dst_port_big_endian);
@@ -383,7 +490,7 @@ void Wireguard::Vpn::send_wg_prot(
 		/* add Wireguard protocol data */
 		udp.memcpy_to_data((void *)wg_prot_base, wg_prot_size, size_guard);
 
-		/* fill in header values that need the packet to be complete already */
+		/* set length and checksum header fields */
 		udp.length((uint16_t)(size_guard.head_size() - udp_off));
 		udp.update_checksum(ip.src(), ip.dst());
 		ip.total_length(size_guard.head_size() - ip_off);
@@ -403,22 +510,17 @@ void Wireguard::Local_net::send_ip(
 		return;
 	}
 	size_t const pkt_size { sizeof(Ethernet_frame) + ip_size };
-	_send(pkt_size, [&] (void *pkt_base, Size_guard &size_guard) {
 
-		/*
-		 * FIXME We should do ARP here instead of assuming a certain MAC
-		 */
-		Mac_address dst_mac { 2 };
-		dst_mac.addr[5] = 0;
+	_send_eth_ipv4_with_eth_eth_dst_set_via_arp(
+		pkt_size, ip.dst(),
+		[&] (Ethernet_frame &eth, Size_guard &size_guard) {
 
-		/* create ETH header */
-		Ethernet_frame &eth = Ethernet_frame::construct_at(pkt_base, size_guard);
-		eth.dst(dst_mac);
-		eth.src(mac_address());
-		eth.type(Ethernet_frame::Type::IPV4);
+			/* create ETH header */
+			eth.src(mac_address());
+			eth.type(Ethernet_frame::Type::IPV4);
 
-		/* add IP packet as payload */
-		eth.memcpy_to_data((void *)ip_base, ip_size, size_guard);
-	});
-	
+			/* add IP packet as payload */
+			eth.memcpy_to_data((void *)ip_base, ip_size, size_guard);
+		}
+	);
 }
