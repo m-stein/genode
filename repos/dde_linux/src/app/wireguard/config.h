@@ -119,12 +119,13 @@ struct Wireguard::Config_model
 		{
 			uint8_t    key_buf[WG_KEY_LEN];
 			Key_base64 key  = node.attribute_value("private_key", Key_base64());
+			Ipv4_address ip = node.attribute_value("listen_ip", Ipv4_address { });
 			uint16_t   port = node.attribute_value("listen_port", (uint16_t)0U);
 
 			if (!key.valid() || !key_from_base64(key_buf, key.string()))
 				error("Invalid private key!");
 
-			callbacks.add_device(port, key_buf);
+			callbacks.add_device(ip.to_uint32_big_endian(), port, key_buf);
 			return *(new (alloc) Element(key, port));
 		}
 

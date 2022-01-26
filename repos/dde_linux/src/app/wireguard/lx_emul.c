@@ -182,7 +182,7 @@ void udp_tunnel_xmit_skb(
 	src_port = htons(genode_wg_listen_port());
 
 	genode_wg_send_wg_prot_at_nic_connection(
-		skb->data, skb->len, src_port, dst_port, src, dst,
+		skb->data, skb->len, src_port, dst_port, genode_wg_listen_ip(), dst,
 		tos, ttl);
 
 /* handshake response
