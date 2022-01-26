@@ -451,7 +451,7 @@ void Wireguard::Vpn::send_wg_prot(
 	genode_wg_u64_t       wg_prot_size,
 	genode_wg_u16_t       udp_src_port_big_endian,
 	genode_wg_u16_t       udp_dst_port_big_endian,
-	genode_wg_u32_t       ipv4_src_addr_big_endian,
+	genode_wg_u32_t,
 	genode_wg_u32_t       ipv4_dst_addr_big_endian,
 	genode_wg_u8_t        ipv4_dscp_ecn,
 	genode_wg_u8_t        ipv4_ttl)
@@ -478,7 +478,7 @@ void Wireguard::Vpn::send_wg_prot(
 		ip.time_to_live(ipv4_ttl);
 		ip.diff_service_ecn(ipv4_dscp_ecn);
 		ip.protocol(Ipv4_packet::Protocol::UDP);
-		ip.src_big_endian(ipv4_src_addr_big_endian);
+		ip.src_big_endian(_interface.address.to_uint32_big_endian());
 		ip.dst_big_endian(ipv4_dst_addr_big_endian);
 
 		/* create UDP header of the reply */
