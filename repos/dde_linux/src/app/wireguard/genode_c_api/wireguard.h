@@ -26,8 +26,7 @@ extern "C" {
 #endif
 
 typedef void (*genode_wg_config_add_dev_t)
-	(genode_wg_u32_t listen_ip, genode_wg_u16_t listen_port,
-	 const genode_wg_u8_t * const priv_key);
+	(genode_wg_u16_t listen_port, const genode_wg_u8_t * const priv_key);
 
 typedef void (*genode_wg_config_rm_dev_t) (genode_wg_u16_t listen_port);
 
@@ -67,7 +66,6 @@ void genode_wg_net_receive(genode_wg_net_receive_t recv_callback);
 int genode_wg_net_send(void * buf, unsigned long buf_size, int up);
 
 
-genode_wg_u32_t genode_wg_listen_ip(void);
 genode_wg_u16_t genode_wg_listen_port(void);
 
 

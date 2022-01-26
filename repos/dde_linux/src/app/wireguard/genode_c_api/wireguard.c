@@ -151,14 +151,7 @@ static struct socket                _genode_wg_socket;
 static struct sock                  _genode_wg_sock;
 static struct sk_buff               _genode_wg_sk_buff;
 static struct udp_tunnel_sock_cfg   _genode_wg_udp_tunnel_cfg;
-genode_wg_u32_t                     _genode_wg_listen_ip;
 genode_wg_u16_t                     _genode_wg_listen_port;
-
-
-genode_wg_u32_t genode_wg_listen_ip(void)
-{
-	return _genode_wg_listen_ip;
-}
 
 
 genode_wg_u16_t genode_wg_listen_port(void)
@@ -213,8 +206,7 @@ _genode_wg_set_device(struct genl_info *info)
 
 
 static void
-_genode_wg_config_add_dev(genode_wg_u32_t              listen_ip,
-                          genode_wg_u16_t              listen_port,
+_genode_wg_config_add_dev(genode_wg_u16_t              listen_port,
                           const genode_wg_u8_t * const priv_key)
 {
 	static unsigned called = 0;
@@ -222,7 +214,6 @@ _genode_wg_config_add_dev(genode_wg_u32_t              listen_ip,
 		printk("%s re-called. Reconfiguration not supported yet\n", __func__);
 		return;
 	}
-	_genode_wg_listen_ip   = listen_ip;
 	_genode_wg_listen_port = listen_port;
 
 	/* prepare environment for the execution of 'wg_set_device' */
