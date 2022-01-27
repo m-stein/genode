@@ -62,7 +62,9 @@ class Wireguard::Main : private Entrypoint::Io_progress_handler
 		Vpn       _vpn       { _env, _heap, _signal_handler,
 		                       _config_rom.xml().attribute_value("vpn", Ipv4_address_prefix {}) };
 		Local_net _local_net { _env, _heap, _signal_handler,
-		                       _config_rom.xml().attribute_value("local", Ipv4_address_prefix {}) };
+		                       _config_rom.xml().attribute_value("local", Ipv4_address_prefix {}),
+		                       _config_rom.xml().attribute_value("user_ip", Ipv4_address { }),
+		                       _config_rom.xml().attribute_value("device_ip", Ipv4_address { }) };
 
 		void _handle_signal()
 		{

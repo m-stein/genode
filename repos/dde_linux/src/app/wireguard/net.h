@@ -50,6 +50,8 @@ class Wireguard::Net_base
 		bool                  _notify_peers { true };
 		CONNECTION            _nic;
 		bool                  _local;
+		Ipv4_address const    _user_ip;
+		Ipv4_address const    _device_ip;
 
 		bool _verbose          { true };
 		bool _verbose_pkt_drop { true };
@@ -171,12 +173,16 @@ class Wireguard::Net_base
 
 		template <typename ... ARGS>
 		Net_base(Env & env, Heap & heap, Signal_context_capability sigh,
-		         Ipv4_address_prefix iface, bool local, ARGS ... args)
+		         Ipv4_address_prefix iface, bool local,
+		         Ipv4_address const user_ip,
+		         Ipv4_address const device_ip, ARGS ... args)
 		:
 			_heap(heap),
 			_interface(iface),
 			_nic(env, &_packet_alloc, BUF_SIZE, BUF_SIZE, args...),
-			_local(local)
+			_local(local),
+			_user_ip(user_ip),
+			_device_ip(device_ip)
 		{
 			_nic.rx_channel()->sigh_ready_to_ack(sigh);
 			_nic.rx_channel()->sigh_packet_avail(sigh);
@@ -219,12 +225,20 @@ class Wireguard::Net_base
 					case Ethernet_frame::Type::IPV4:
 
 						{
-						log("Received an IPv4 packet");
+							log("Received an IPv4 packet");
 
-						//FIXME: get listen port and put it into callback
-						func(0U, eth_base, packet.size(), _local);
-						_notify_peers = true;
-						break;
+							if (_local) {
+
+								/* modify IP header in order to apply user NAT */
+								Ipv4_packet &ip = eth.data<Ipv4_packet>(size_guard);
+								ip.src(_device_ip);
+								ip.update_checksum();
+							}
+
+							//FIXME: get listen port and put it into callback
+							func(0U, eth_base, packet.size(), _local);
+							_notify_peers = true;
+							break;
 						}
 
 					default:
@@ -296,7 +310,10 @@ class Wireguard::Vpn : public Net_base<Nic::Connection>
 		Vpn(Env & env, Heap & heap, Signal_context_capability sigh,
 		    Ipv4_address_prefix iface)
 		:
-			Net_base<Nic::Connection>(env, heap, sigh, iface, false, "vpn") {}
+			Net_base<Nic::Connection>(env, heap, sigh, iface, false,
+			                          Ipv4_address { }, Ipv4_address { },
+			                          "vpn")
+		{ }
 
 		Net::Mac_address mac_address() override { return _nic.mac_address(); }
 
@@ -322,9 +339,12 @@ class Wireguard::Local_net : public Net_base<Uplink::Connection>
 	public:
 
 		Local_net(Env & env, Heap & heap, Signal_context_capability sigh,
-		          Ipv4_address_prefix iface)
+		          Ipv4_address_prefix iface,
+		          Ipv4_address const user_ip,
+		          Ipv4_address const device_ip)
 		:
 			Net_base<Uplink::Connection>(env, heap, sigh, iface, true,
+			                             user_ip, device_ip,
 			                             _mac_address(), "local") {}
 
 		Net::Mac_address mac_address() override { return _mac_address(); }
@@ -419,6 +439,12 @@ void Wireguard::Local_net::send_ip(
 
 		/* add IP packet as payload */
 		eth.memcpy_to_data((void *)ip_base, ip_size, size_guard);
+
+		/* modify IP header in order to apply user NAT */
+		Size_guard send_ip_guard { ip_size };
+		Ipv4_packet &ip = eth.data<Ipv4_packet>(send_ip_guard);
+		ip.dst(_user_ip);
+		ip.update_checksum();
 	});
 	
 }
