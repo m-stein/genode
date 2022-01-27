@@ -124,14 +124,6 @@ install_config {
 		</route>
 	</start>
 
-	<start name="ping">
-		<resource name="RAM" quantum="4M"/>
-		<config dst_ip="10.0.9.1" period_sec="1" verbose="yes" count="3"/>
-		<route>
-			<service name="Nic"> <child name="nic_router"/> </service>
-			<any-service> <parent/> <any-child/> </any-service>
-		</route>
-	</start>
 </config>
 }
 
