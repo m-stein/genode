@@ -242,7 +242,7 @@ class Wireguard::Net_base
 						}
 
 					default:
-						_drop_pkt("packet", "Is not ARP");
+						_drop_pkt("packet", "Unknown type in Ethernet header");
 					}
 				}
 				(void)rx_sink.try_get_packet();
