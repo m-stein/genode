@@ -61,9 +61,9 @@ install_config {
 			<service name="Uplink"/>
 		</provides>
 		<config verbose_domain_state="yes"
-		        verbose_packets="yes"
-		        verbose="yes"
-		        verbose_packet_drop="yes"
+		        verbose_packets="no"
+		        verbose="no"
+		        verbose_packet_drop="no"
 		        dhcp_discover_timeout_sec="1">
 
 			<policy label_prefix="drivers"     domain="uplink"/>
@@ -72,7 +72,7 @@ install_config {
 			<default-policy                    domain="downlink"/>
 
 			<domain name="uplink">
-				<nat domain="wg_local" tcp-ports="16384" udp-ports="16384" icmp-ids="16384"/>
+				<nat domain="wg_vpn" tcp-ports="16384" udp-ports="16384" icmp-ids="16384"/>
 
 				<udp-forward port="49002" domain="wg_vpn" to="10.0.3.2"/>
 			</domain>
@@ -87,10 +87,7 @@ install_config {
 
 			<domain name="downlink" interface="10.1.2.1/24">
 				<dhcp-server ip_first="10.1.2.2"
-				             ip_last="10.1.2.100"
-				             dns_config_from="uplink"/>
-				<tcp dst="0.0.0.0/0"><permit-any domain="wg_local" /></tcp>
-				<udp dst="0.0.0.0/0"><permit-any domain="wg_local" /></udp>
+				             ip_last="10.1.2.100"/>
 				<icmp dst="10.0.9.1/24" domain="wg_local"/>
 			</domain>
 		</config>
@@ -125,13 +122,14 @@ install_config {
 	</start>
 
 	<start name="ping">
-		<resource name="RAM" quantum="4M"/>
-		<config dst_ip="10.0.9.1" period_sec="1" verbose="yes" count="3"/>
+		<resource name="RAM" quantum="8M"/>
+		<config dst_ip="10.0.9.1" delay_sec="5" period_sec="1" verbose="no" count="3"/>
 		<route>
 			<service name="Nic"> <child name="nic_router"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>
+
 </config>
 }
 
@@ -143,4 +141,4 @@ proc board_qemu_args { } {
 	return " -nographic -machine q35 -netdev tap,id=net0,ifname=tap0,script=no,downscript=no -net nic,model=e1000,netdev=net0 "
 }
 
-run_genode_until forever
+run_genode_until ".*64 bytes from 10.0.9.1.*64 bytes from 10.0.9.1.*64 bytes from 10.0.9.1.*\n" 60
