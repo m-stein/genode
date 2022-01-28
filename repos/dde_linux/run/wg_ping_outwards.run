@@ -81,7 +81,7 @@ install_config {
 				<udp dst="10.0.2.1/24"><permit port="49001" domain="uplink"/></udp>
 			</domain>
 
-			<domain name="wg_local" interface="10.1.1.1/24" gateway="10.1.1.2" icmp_echo_server="yes">
+			<domain name="wg_local" interface="10.1.1.1/24" gateway="10.1.1.2">
 				<nat domain="downlink" tcp-ports="16384" udp-ports="16384" icmp-ids="16384"/>
 			</domain>
 
