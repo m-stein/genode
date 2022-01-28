@@ -21,6 +21,7 @@
 			<xs:attribute name="interface"  type="Ipv4_address_prefix" />
 			<xs:attribute name="gateway"    type="Ipv4_address" />
 			<xs:attribute name="period_sec" type="Seconds" />
+			<xs:attribute name="delay_sec"  type="Seconds" />
 			<xs:attribute name="count"      type="xs:positiveInteger" />
 		</xs:complexType>
 	</xs:element><!-- config -->

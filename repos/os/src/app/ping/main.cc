@@ -50,12 +50,14 @@ class Main : public Nic_handler,
 
 		using Signal_handler   = Genode::Signal_handler<Main>;
 		using Periodic_timeout = Timer::Periodic_timeout<Main>;
+		using One_shot_timeout = Timer::One_shot_timeout<Main>;
 
 		enum { IPV4_TIME_TO_LIVE  = 64 };
 		enum { DEFAULT_DST_PORT   = 50000 };
 		enum { ICMP_DATA_SIZE     = 56 };
 		enum { DEFAULT_COUNT      = 5 };
 		enum { DEFAULT_PERIOD_SEC = 5 };
+		enum { DEFAULT_DELAY_SEC  = 0 };
 		enum { SRC_PORT           = 50000 };
 
 		Env                            &_env;
@@ -63,6 +65,8 @@ class Main : public Nic_handler,
 		Xml_node                        _config        { _config_rom.xml() };
 		Timer::Connection               _timer         { _env };
 		Microseconds                    _send_time     { 0 };
+		Microseconds                    _delay_us      { read_sec_attr(_config, "delay_sec", (uint64_t)DEFAULT_DELAY_SEC) };
+		One_shot_timeout                _delay         { _timer, *this, &Main::_start_sending_ping };
 		Microseconds                    _period_us     { read_sec_attr(_config, "period_sec", (uint64_t)DEFAULT_PERIOD_SEC) };
 		Constructible<Periodic_timeout> _period        { };
 		Heap                            _heap          { &_env.ram(), &_env.rm() };
@@ -106,6 +110,8 @@ class Main : public Nic_handler,
 
 		void _send_ping(Duration not_used = Duration(Microseconds(0)));
 
+		void _start_sending_ping(Duration not_used = Duration(Microseconds(0)));
+
 	public:
 
 		struct Invalid_arguments : Exception { };
@@ -137,6 +143,15 @@ void Main::ip_config(Ipv4_config const &ip_config)
 		log("IP config: ", ip_config); }
 
 	_ip_config.construct(ip_config);
+
+	/* set the delay for start sending pings */
+	_delay.schedule(_delay_us);
+}
+
+
+void Main::_start_sending_ping(Duration)
+{
+	/* start sending pings periodically */
 	_period.construct(_timer, *this, &Main::_send_ping, _period_us);
 }
 
@@ -147,9 +162,9 @@ Main::Main(Env &env) : _env(env)
 	if (_dst_ip == Ipv4_address() || _count  == 0) {
 		throw Invalid_arguments(); }
 
-	/* if there is a static IP config, start sending pings periodically */
+	/* if there is a static IP config, set the delay for start sending pings */
 	if (ip_config().valid) {
-		_period.construct(_timer, *this, &Main::_send_ping, _period_us); }
+		_delay.schedule(_delay_us); }
 
 	/* else, start the DHCP client for requesting an IP config */
 	else {
