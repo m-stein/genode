@@ -22,7 +22,7 @@
 #include <nic_session/connection.h>
 #include <nic/packet_allocator.h>
 #include <net/ethernet.h>
-#include "../../../../os/include/net/arp.h" /* FIXME: including this normally would clash with a Linux header name */
+#include <net/arp.h>
 
 /* dde_linux wireguard includes */
 #include <ipv4_address_prefix.h>
