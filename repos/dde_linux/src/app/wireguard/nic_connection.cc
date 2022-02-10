@@ -16,7 +16,7 @@
 #include <nic_connection.h>
 
 /* os includes */
-#include "../../../../os/include/net/udp.h" /* FIXME: including this normally would clash with a Linux header name */
+#include <net/udp.h>
 
 using namespace Genode;
 using namespace Net;

@@ -17,8 +17,8 @@
 /* base includes */
 #include <timer_session/connection.h>
 
-/* os includes */
-#include <dhcp.h> /* FIXME: including this normally would clash with a Linux header name */
+/* dde_linux wireguard includes */
+#include <dhcp.h>
 
 namespace Wireguard {
 
