@@ -1,0 +1,14 @@
+<runtime ram="60M" caps="100" binary="wireguard">
+
+	<requires>
+		<nic/>
+		<uplink/>
+		<timer/>
+	</requires>
+
+	<content>
+		<rom label="ld.lib.so"/>
+		<rom label="wireguard"/>
+	</content>
+
+</runtime>
