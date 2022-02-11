@@ -182,7 +182,8 @@ Nic_connection::Nic_connection(Env                       &env,
 	_alloc              { alloc },
 	_dhcp_client        { timer, *this },
 	_ip_config          { config_node },
-	_connection         { env, &_packet_alloc, BUF_SIZE, BUF_SIZE, "vpn" },
+	_connection         { env, &_packet_alloc, BUF_SIZE, BUF_SIZE,
+	                      "nic_session" },
 	_ip_config_sigh     { ip_config_sigh },
 	_link_state_handler { env.ep(), *this, &Nic_connection::_handle_link_state }
 {

@@ -95,7 +95,7 @@ Uplink_connection::Uplink_connection(Env                       &env,
 :
 	_packet_alloc { &alloc },
 	_connection   { env, &_packet_alloc, BUF_SIZE, BUF_SIZE, _mac_address,
-	                "local" }
+	                "uplink_session" }
 {
 	_connection.rx_channel()->sigh_ready_to_ack(sigh);
 	_connection.rx_channel()->sigh_packet_avail(sigh);
