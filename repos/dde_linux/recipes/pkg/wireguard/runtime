@@ -1,8 +1,8 @@
 <runtime ram="60M" caps="100" binary="wireguard">
 
 	<requires>
-		<nic/>
-		<uplink/>
+		<nic label="nic_session"/>
+		<uplink label="uplink_session"/>
 		<timer/>
 	</requires>
 
