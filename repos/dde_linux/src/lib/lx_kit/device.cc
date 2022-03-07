@@ -347,15 +347,17 @@ Device::Device(Entrypoint           & ep,
  ** Device_list **
  *****************/
 
-Device_list::Device_list(Entrypoint           & ep,
-                         Heap                 & heap,
-                         Platform::Connection & platform)
-:
-	_platform(platform)
+void Device_list::update()
 {
 	_platform.with_xml([&] (Xml_node & xml) {
 		xml.for_each_sub_node("device", [&] (Xml_node node) {
-			insert(new (heap) Device(ep, _platform, node, heap));
+			insert(new (_heap) Device(_ep, _platform, node, _heap));
 		});
 	});
 }
+
+
+Device_list::Device_list(Entrypoint           & ep,
+                         Heap                 & heap,
+                         Platform::Connection & platform)
+: _ep(ep), _heap(heap), _platform(platform) { }

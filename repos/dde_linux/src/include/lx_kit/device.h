@@ -161,6 +161,8 @@ class Lx_kit::Device_list : List<Device>
 {
 	private:
 
+		Entrypoint           & _ep;
+		Heap                 & _heap;
 		Platform::Connection & _platform;
 
 	public:
@@ -168,6 +170,8 @@ class Lx_kit::Device_list : List<Device>
 		template <typename FN>
 		void for_each(FN const & fn) {
 			for (Device * d = first(); d; d = d->next()) fn(*d); }
+
+		void update();
 
 		Device_list(Entrypoint           & ep,
 		            Heap                 & heap,

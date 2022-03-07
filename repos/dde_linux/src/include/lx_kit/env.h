@@ -30,7 +30,7 @@ namespace Lx_kit {
 	/**
 	 * Returns the global Env object available
 	 *
-	 * \param env - pointer to Genode::Env used to construct object initially
+	 * \param env - pointer to Genode::env used to construct object initially
 	 */
 	Env & env(Genode::Env * env = nullptr);
 }
