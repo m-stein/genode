@@ -278,7 +278,7 @@ Platform::Device::Device(Connection &platform, Name name)
 unsigned Platform::Device::Config_space::read(unsigned char address,
                                               Access_size size)
 {
-	// 32bit BARs only for now
+	/* 32bit BARs only for now */
 	if (address >= 0x10 && address <= 0x24) {
 		unsigned const bar = (address - 0x10) / 4;
 		if (_device._bar_checked_for_size[bar]) {
@@ -315,7 +315,7 @@ void Platform::Device::Config_space::write(unsigned char address,
 	switch (address) {
 	case 0x04:
 		/*
-		 * TODO doing this multiple times induces multiple "assignment of PCI
+		 * Doing this multiple times induces multiple "assignment of PCI
 		 * device" diasgnostics currently.
 		 */
 		/* command register (value for enable io, memory, bus master) */
@@ -323,17 +323,16 @@ void Platform::Device::Config_space::write(unsigned char address,
 		break;
 
 	/*
-	 * TODO write in [0x40,0xff] should be okay if there are is no capability
+	 * Write in [0x40,0xff] should be okay if there are is no capability
 	 * list (status register bit 4 + capability list pointer). Otherwise,
 	 * writes into capability-list entries should be rejected.
 	 */
 
 	case 0xc0: /* UHCI BIOS handoff (UHCI_USBLEGSUP) */ break;
 	case 0xc4: /* UHCI INTEL resume-enable (USBRES_INTEL) */ break;
-	case 0x60 ... 0x6f: /* EHCI BIOS handoff (FIXME just empiric, address not fixed) */ break;
+	case 0x60 ... 0x6f: /* EHCI BIOS handoff (just empiric, address not fixed) */ break;
 
 	default:
-		Genode::error("skipping PCI config write to ", Genode::Hex(address));
 		return;
 	}
 
