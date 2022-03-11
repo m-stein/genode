@@ -194,7 +194,11 @@ _genode_wg_set_device(struct genl_info *info)
 
 	for (idx = 0; idx < _genode_wg_genl_family->n_ops; idx++) {
 		if (_genode_wg_genl_family->ops[idx].cmd == WG_CMD_SET_DEVICE) {
-			_genode_wg_genl_family->ops[idx].doit(&_genode_wg_sk_buff, info);
+			int result = _genode_wg_genl_family->ops[idx].doit(&_genode_wg_sk_buff, info);
+			if (result != 0) {
+				printk("Error: op WG_CMD_SET_DEVICE returned %d\n", result);
+				while (1) { }
+			}
 			op_not_found = false;
 		}
 	}
