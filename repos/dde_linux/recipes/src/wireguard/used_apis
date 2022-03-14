@@ -3,6 +3,5 @@ os
 nic_session
 uplink_session
 timer_session
-platform_session
 jitterentropy
 net
