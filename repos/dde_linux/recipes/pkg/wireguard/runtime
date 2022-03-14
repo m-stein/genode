@@ -4,7 +4,6 @@
 		<nic label="nic_session"/>
 		<uplink label="uplink_session"/>
 		<timer/>
-		<platform/>
 	</requires>
 
 	<config private_key="8GRSQZMgG1uuvz4APIBqrDmiLj8L886r++hzixjjHFc="
