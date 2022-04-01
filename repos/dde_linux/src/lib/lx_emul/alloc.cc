@@ -36,23 +36,13 @@ extern "C" void * lx_emul_mem_alloc_aligned_uncached(unsigned long size,
 
 extern "C" unsigned long lx_emul_mem_dma_addr(void * addr)
 {
-	unsigned long ret = Lx_kit::env().memory.dma_addr(addr);
-	if (ret)
-		return ret;
-	if (!(ret = Lx_kit::env().uncached_memory.dma_addr(addr)))
-		Genode::error(__func__, " called with invalid addr ", addr);
-	return ret;
+	return (unsigned long)addr;
 }
 
 
 extern "C" unsigned long lx_emul_mem_virt_addr(void * dma_addr)
 {
-	unsigned long ret = Lx_kit::env().memory.virt_addr(dma_addr);
-	if (ret)
-		return ret;
-	if (!(ret = Lx_kit::env().uncached_memory.virt_addr(dma_addr)))
-		Genode::error(__func__, " called with invalid addr ", dma_addr);
-	return ret;
+	return (unsigned long)dma_addr;
 }
 
 
