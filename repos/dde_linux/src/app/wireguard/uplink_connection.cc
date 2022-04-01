@@ -78,7 +78,6 @@ void Uplink_connection::for_each_rx_packet(Handle_packet_func handle_packet)
 
 			void *eth_base { rx_sink.packet_content(packet) };
 
-			log("Received a packet");
 			handle_packet(eth_base, packet.size());
 			_notify_peers = true;
 		}

@@ -65,7 +65,6 @@ void Arp_cache::new_entry(Ipv4_address const &ip, Mac_address const &mac)
 	_entries[_curr].construct(ip, mac);
 	Arp_cache_entry &entry = *_entries[_curr];
 	insert(&entry);
-	log("new ARP entry ", entry);
 	if (_curr < NR_OF_ENTRIES - 1) {
 		_curr++;
 	} else {

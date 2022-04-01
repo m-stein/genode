@@ -85,9 +85,6 @@ Nic_connection::_handle_arp_request(Ethernet_frame &eth,
 	if (ip_config().interface().address != arp.dst_ip()) {
 		return _drop_pkt("ARP request", "Doesn't target my IP address");
 	}
-	if (_verbose) {
-		log("Answer ARP request");
-	}
 	if (_send_arp_reply(eth, arp) != Send_pkt_result::SUCCEEDED) {
 		return _drop_pkt("ARP request", "Sending reply failed");
 	}
@@ -141,11 +138,7 @@ Nic_connection::Handle_pkt_result
 Nic_connection::_handle_arp_reply(Arp_packet &arp)
 {
 	_arp_cache.find_by_ip(arp.src_ip()).with_result(
-		[&] (Const_pointer<Arp_cache_entry>) {
-			if (_verbose) {
-				log("ARP entry already exists");
-			}
-		},
+		[&] (Const_pointer<Arp_cache_entry>) { },
 		[&] (Arp_cache_error) {
 
 			/* by now, no matching ARP cache entry exists, so create one */

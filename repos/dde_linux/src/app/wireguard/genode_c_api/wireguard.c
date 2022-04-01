@@ -257,8 +257,6 @@ _genode_wg_config_add_dev(genode_wg_u16_t              listen_port,
 	/* trigger execution of 'wg_open' */
 	_genode_wg_net_dev.public_data.netdev_ops->ndo_open(
 		&_genode_wg_net_dev.public_data);
-
-	pr_info("Device added\n");
 }
 
 
@@ -336,8 +334,6 @@ _genode_wg_config_add_peer(genode_wg_u16_t              listen_port,
 
 	info.attrs = attrs;
 	_genode_wg_set_device(&info);
-
-	pr_info("Peer added\n");
 }
 
 
