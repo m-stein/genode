@@ -2,7 +2,7 @@
 # Let the host Linux ping a Genode in Qemu through a Wireguard tunnel.
 #
 
-assert_spec x86_64
+#assert_spec x86_64
 
 if {[expr ![have_include power_on/qemu]]} {
 	puts "Test requires Qemu."
