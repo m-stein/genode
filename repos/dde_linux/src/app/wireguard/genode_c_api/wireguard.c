@@ -33,6 +33,7 @@ struct genode_wg_net_device
 {
 	struct net_device public_data;
 	struct wg_device  private_data __attribute__((aligned(NETDEV_ALIGN)));
+	int               pcpu_refcnt;
 }
 __attribute__((aligned(NETDEV_ALIGN), packed));
 
@@ -209,6 +210,10 @@ _genode_wg_set_device(struct genl_info *info)
 }
 
 
+void genode_wg_arch_net_dev_init(struct net_device *net_dev,
+                                 int               *pcpu_refcnt);
+
+
 static void
 _genode_wg_config_add_dev(genode_wg_u16_t              listen_port,
                           const genode_wg_u8_t * const priv_key)
@@ -222,6 +227,10 @@ _genode_wg_config_add_dev(genode_wg_u16_t              listen_port,
 
 	/* prepare environment for the execution of 'wg_set_device' */
 	_genode_wg_net_dev.public_data.rtnl_link_ops = _genode_wg_rtnl_link_ops;
+	_genode_wg_net_dev.pcpu_refcnt = 0;
+	genode_wg_arch_net_dev_init(
+		&_genode_wg_net_dev.public_data, &_genode_wg_net_dev.pcpu_refcnt);
+
 	_genode_wg_sk_buff.sk = &_genode_wg_sock;
 	_genode_wg_sock.sk_user_data = &_genode_wg_net_dev.private_data;
 
@@ -431,9 +440,14 @@ void lx_user_handle_io(void)
 }
 
 
+void genode_wg_arch_lx_user_init(void);
+
+
 void lx_user_init(void)
 {
 	pid_t pid;
+
+	genode_wg_arch_lx_user_init();
 
 	skb_init();
 

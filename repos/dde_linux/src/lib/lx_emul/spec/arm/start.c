@@ -21,6 +21,12 @@
 #include <linux/of_fdt.h>
 
 
+unsigned long long sched_clock(void)
+{
+	return lx_emul_time_counter() * 1000;
+}
+
+
 void time_init(void)
 {
 	/* arch/arm64/kernel/time.c */
@@ -30,8 +36,15 @@ void time_init(void)
 }
 
 
+#include <asm/pgtable.h>
+
+unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)];
+
 void lx_emul_setup_arch(void *dtb)
 {
+	/* fill zero page */
+	memset(empty_zero_page, 0, PAGE_SIZE);
+
 	/* calls from setup_arch of arch/arm64/kernel/setup.c */
 	early_init_dt_scan(dtb);
 	unflatten_device_tree();

@@ -9,28 +9,35 @@
 # dedicated INC_DIR settings (that of the library and that of the target).
 #
 
-PRG_DIR := $(REP_DIR)/src/app/wireguard/spec/x86_64
+PRG_DIR := $(REP_DIR)/src/app/wireguard/spec/arm_64
 GEN_DIR := $(PRG_DIR)/../..
 
 SRC_C += $(notdir $(wildcard $(PRG_DIR)/generated_dummies.c))
 SRC_C += dummies.c
 SRC_C += lx_emul.c
 SRC_C += wireguard.c
+SRC_C += arch/arm64/kernel/smp.c
+SRC_C += kernel/smp.c
+SRC_C += kernel_cpufeature.c
 SRC_C += genode_c_api_arch.c
 
-vpath wireguard.c $(GEN_DIR)/genode_c_api
-vpath %.c         $(PRG_DIR)
-vpath %.c         $(GEN_DIR)
+vpath arch/arm64/kernel/smp.c $(REP_DIR)/src/lib/lx_emul/shadow
+vpath kernel/smp.c            $(REP_DIR)/src/lib/lx_emul/shadow
+vpath wireguard.c             $(GEN_DIR)/genode_c_api
+vpath %.c                     $(PRG_DIR)
+vpath %.c                     $(GEN_DIR)
 
 INC_DIR += $(PRG_DIR)
 INC_DIR += $(GEN_DIR)
 
 LIBS += lx_emul virt_linux_generated
 
-SRC_S += arch/x86/crypto/poly1305-x86_64-cryptogams.S
+SRC_S += arch/arm64/crypto/poly1305-core.S
 
-arch/x86/crypto/poly1305-x86_64-cryptogams.S:
-	perl $(LX_SRC_DIR)/arch/x86/crypto/poly1305-x86_64-cryptogams.pl > $@
+arch/arm64/crypto/poly1305-core.S:
+	$(VERBOSE)perl $(LX_SRC_DIR)/arch/arm64/crypto/poly1305-armv8.pl > $@
+
+CC_OPT_arch/arm64/crypto/poly1305-core += -Dpoly1305_init=poly1305_init_arm64
 
 CC_OPT_wireguard += -DKBUILD_MODFILE='"wireguard"' \
                     -DKBUILD_BASENAME='"wireguard"' \
@@ -63,3 +70,6 @@ fix_modname_defs:
 		$(eval $(call FIX_MODNAME_DEF,$(file:%.o=%))))
 
 $(OBJECTS_TO_FIX_MODNAME_DEFS_FOR): fix_modname_defs
+
+
+CC_OPT += -Wno-address-of-packed-member

@@ -59,6 +59,11 @@ static inline struct page *virt_to_page(void const *v) { return lx_emul_virt_to_
 
 #define PCI_IO_START 0
 
+static inline unsigned long kaslr_offset(void)
+{
+	return 0;
+}
+
 #endif /* __ASSEMBLY__ */
 
 #endif /* __ASM_MEMORY_H */

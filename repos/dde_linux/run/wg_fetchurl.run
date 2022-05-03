@@ -1,9 +1,25 @@
 #
 # FetchURL downloading a file from a LightTPD server through a Wireguard VPN
 #
+# By default, the file is an short inline HTML file at lighttpd and downloaded
+# into RAM in fetchurl. However, when the test is run with base-linux,
+# lighttpd uses a file created by the host filled filled with zeroes and of
+# customizable size and fetchurl downloads into the host FS, so the test can
+# then check the MD5 sum of the file.
+#
 
-assert_spec x86_64
-assert_spec linux
+if {[expr ![have_spec arm_v8a] && ![have_spec x86_64]]} {
+	puts "Run script is not supported on this platform."
+	exit 0
+}
+
+if {[have_spec linux]} {
+	set linux 1
+	set not_linux 0
+} else {
+	set linux 0
+	set not_linux 1
+}
 
 create_boot_directory
 
@@ -16,7 +32,7 @@ import_from_depot [depot_user]/src/libc \
                   [depot_user]/src/vfs_lwip \
                   [depot_user]/src/zlib
 
-install_config {
+append config {
 
 <config>
 
@@ -52,7 +68,9 @@ install_config {
 			<service name="CPU"> <parent/> </service>
 			<service name="LOG"> <parent/> </service>
 		</route>
-	</start>
+	</start> }
+
+append_if $linux config {
 
 	<start name="lx_fs" ld="no" caps="1000">
 		<resource name="RAM" quantum="4M"/>
@@ -67,7 +85,9 @@ install_config {
 			<service name="CPU"> <parent/> </service>
 			<service name="LOG"> <parent/> </service>
 		</route>
-	</start>
+	</start> }
+
+append config {
 
 	<start name="fetchurl" caps="300">
 		<resource name="RAM" quantum="50M"/>
@@ -82,7 +102,19 @@ install_config {
 				<dir name="socket">
 					<lwip dhcp="yes"/>
 				</dir>
-				<dir name="vm"> <fs/> </dir>
+				<dir name="vm"> }
+
+append_if $linux config {
+
+					<fs/> }
+
+append_if $not_linux config {
+
+					<ram/> }
+
+append config {
+
+				</dir>
 			</vfs>
 			<libc stdout="/dev/log" stderr="/dev/log" rtc="/dev/rtc" socket="/socket"/>
 			<fetch url="10.0.9.2" path="/vm/index.html" retry="3"/>
@@ -287,8 +319,28 @@ EpA5DBBklj8UE2CdONvN
 						</inline>
 					</dir>
 				</dir>
-				<dir name="website">
-					<fs/>
+				<dir name="website"> }
+
+append_if $linux config {
+
+					<fs/> }
+
+append_if $not_linux config {
+
+					<inline name="index.html">
+<html>
+	<head>
+		<title>Hello</title>
+	</head>
+	<body>
+		<p>Hello Genode!</p>
+		<b>I am bold ;-)</b>
+	</body>
+</html>
+					</inline> }
+
+append config {
+
 				</dir>
 				<dir name="tmp"> <ram/> </dir>
 			</vfs>
@@ -311,39 +363,56 @@ EpA5DBBklj8UE2CdONvN
 </config>
 }
 
-build {
-	core init timer server/nic_router app/wireguard server/report_rom
-	app/fetchurl server/lx_fs }
+install_config $config
 
-build_boot_image {
-	core init timer nic_router wireguard fetchurl report_rom curl.lib.so lx_fs
+append targets {
+	core init timer server/nic_router app/wireguard server/report_rom
+	app/fetchurl }
+
+append boot_modules {
+	core init timer nic_router wireguard fetchurl report_rom curl.lib.so
 	ld.lib.so }
 
-# create the lx_fs root of fetchurl where it will store the downloaded file
-proc lx_fs_root {} { return [run_dir]/genode }
-exec rm -rf [lx_fs_root]/fetchurl_fs
-exec mkdir -p [lx_fs_root]/fetchurl_fs
+if $linux {
 
-# create the lx_fs root of lighttpd and the downloadable file inside it
-exec rm -rf [lx_fs_root]/lighttpd_fs
-exec mkdir -p [lx_fs_root]/lighttpd_fs
-exec head -c 10K /dev/zero > [lx_fs_root]/lighttpd_fs/index.html
+	append targets { server/lx_fs }
+	append boot_modules { lx_fs }
+
+	# create the lx_fs root of fetchurl where it will store the downloaded file
+	proc lx_fs_root {} { return [run_dir]/genode }
+	exec rm -rf [lx_fs_root]/fetchurl_fs
+	exec mkdir -p [lx_fs_root]/fetchurl_fs
+
+	# create the lx_fs root of lighttpd and the downloadable file inside it
+	exec rm -rf [lx_fs_root]/lighttpd_fs
+	exec mkdir -p [lx_fs_root]/lighttpd_fs
+	exec head -c 10K /dev/zero > [lx_fs_root]/lighttpd_fs/index.html
+}
+
+build $targets
+
+build_boot_image $boot_modules
+
+append qemu_args "-nographic "
 
 # run the scenario till fetchurl succeeded to download the file
 run_genode_until "fetchurl. exited with exit value 0" 60
 
-# check that the md5 sum of the downloaded file is correct
-set lighttpd_index_md5 [exec md5sum [lx_fs_root]/lighttpd_fs/index.html]
-set fetchurl_index_md5 [exec md5sum [lx_fs_root]/fetchurl_fs/index.html]
+if {$linux} {
 
-puts ""
-puts $lighttpd_index_md5
-puts $fetchurl_index_md5
-puts "MD5SUM of transferred files is correct"
+	# check that the md5 sum of the downloaded file is correct
+	set lighttpd_index_md5 [exec md5sum [lx_fs_root]/lighttpd_fs/index.html]
+	set fetchurl_index_md5 [exec md5sum [lx_fs_root]/fetchurl_fs/index.html]
 
-if {[string compare -length 32 $lighttpd_index_md5 $fetchurl_index_md5]} {
 	puts ""
-	puts "Error: MD5SUM of transferred files is incorrect"
-	puts ""
-	exit -1
+	puts $lighttpd_index_md5
+	puts $fetchurl_index_md5
+	puts "MD5SUM of transferred files is correct"
+
+	if {[string compare -length 32 $lighttpd_index_md5 $fetchurl_index_md5]} {
+		puts ""
+		puts "Error: MD5SUM of transferred files is incorrect"
+		puts ""
+		exit -1
+	}
 }

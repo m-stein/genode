@@ -2,29 +2,7 @@
 # Let the host Linux ping a Genode in Qemu through a Wireguard tunnel.
 #
 
-assert_spec x86_64
-
-if {[expr ![have_include power_on/qemu]]} {
-	puts "Test requires Qemu."
-	exit 0
-}
-
-source ${genode_dir}/repos/dde_linux/run/wireguard.inc
-
-#
-# Overwrite exit procedure in order to always undo the host setup for Wireguard
-#
-rename exit run_tool_exit
-proc exit {{status 0}} {
-
-	wireguard_exit
-	run_tool_exit $status
-}
-
-#
-# Set-up host Wireguard-device
-#
-wireguard_start
+source ${genode_dir}/repos/dde_linux/run/wg_qemu_tap_preamble.inc
 
 create_boot_directory
 
@@ -162,13 +140,6 @@ install_config {
 build { app/wireguard }
 
 build_boot_image { wireguard }
-
-proc board_qemu_args { } {
-	append result " -nographic -machine q35 "
-	append result " -netdev tap,id=net0,ifname=tap0,script=no,downscript=no "
-	append result " -net nic,model=e1000,netdev=net0 "
-	return $result
-}
 
 run_genode_until "uplink\] dynamic IP config: interface 10.0.2.3" 10
 
