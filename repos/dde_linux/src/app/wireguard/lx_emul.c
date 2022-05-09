@@ -193,87 +193,6 @@ void udp_tunnel_xmit_skb(
 	genode_wg_send_wg_prot_at_nic_connection(
 		skb->data, skb->len, src_port, dst_port, src, dst,
 		tos, ttl);
-
-/* handshake response
-
-	total pkt size == 134 bytes
-
-	src      == 0x302000a big endian == 10.0.2.3
-	dst      == 0x102000a big endian == 10.0.2.1
-	tos      == 0x88, type of service field of ipv4 header
-	ttl      == 0x40, time to live field of ipv4 header
-	df       == 0, dont fragment field of ipv4 header
-	src_port == 0x6abf big endian == 49002, udp source port
-	dst_port == 0x69bf big endian == 49001, udp dest port
-	xnet     == 0, ?
-	nocheck  == 0, ?
-
-	skb->data[0]..skb->data[skb->len-1]:
-	  0:  2  0  0  0 <--- wireguard prot starts at idx 0
-	  4:  5 ae 65 ca
-	  8: 81 42 e9 48
-	 12: 1b bd  c 3a
-	 16: ed 3f b9 4c
-	 20: 70 91 f6 e3
-	 24: 8d 3f 77 1c
-	 28: ed e5 35 51
-	 32: b4 12 21 91
-	 36: df fb c8 1c
-	 40: 57 22  a  5
-	 44: de 50 8b c7
-	 48: 23 77 a0 25
-	 52: aa 53 5f 99
-	 56: 12 29 54 15
-	 60: ab c9 97 f3
-	 64: dd 20 a5 ec
-	 68: 5f c1 8e 74
-	 72: 9d 41 b8 9c
-	 76:  0  0  0  0
-	 80:  0  0  0  0
-	 84:  0  0  0  0
-	 88:  0  0  0  0 <--- wireguard prot ends at idx 91
-
-	The wireguard prot is not tunneled or encrypted but only encapsuled in
-	normal udp.
-
-	A wireshark hex dump of the whole handshake response
-
-0000   72 ae 11 31 58 a7 52 54 00 12 34 56 08 00 45 88
-0010   00 78 a0 9e 00 00 40 11 c1 4b 0a 00 02 03 0a 00
-             -----             ----- -----------
-             ip.id             ip.crc     ip.src
-0020   02 01 bf 6a bf 69 00 64 f9 e1 02 00 00 00 14 22
-             -----
-             udp.src
-0030   a9 bc aa 7b c2 f6 fe c4 ea 78 a1 1d 5f 4d 73 0f
-0040   cd d8 8e a7 40 7c 80 2a b7 d4 9e c0 a0 a3 6c 7f
-0050   ac a7 49 cc 59 50 70 9c 09 06 82 32 d6 7f 42 3e
-0060   42 24 1a c1 6c 02 02 0b c5 c2 c9 e1 dd fc 5a 4d
-0070   43 30 61 88 c7 91 00 00 00 00 00 00 00 00 00 00
-0080   00 00 00 00 00 00
-
-------------------------------------------------------
-
-0000   82 f1 5b 0b 24 04 52 54 00 12 34 56 08 00 45 88
-0010   00 78 00 00 00 00 40 11 60 eb 0a 00 03 02 0a 00
-             -----             ----- -----------
-             ip.id             ip.crc     ip.src
-0020   02 01 b0 48 bf 69 00 64 56 1d 02 00 00 00 25 ba
-             -----             ----- |
-             udp.src         udp.crc wg start
-0030   46 38 c2 47 2b dd 0d d0 f2 19 4d 07 72 55 82 df
-0040   dc 32 42 51 74 c7 b9 15 ef fb 8f c1 96 eb a6 4c
-0050   89 8a 7c d5 c5 77 76 aa dc e8 e7 be f6 18 aa 55
-0060   2d 2d ce ed ed 40 bd 34 ac e7 64 2b b5 1f 71 a2
-0070   3b b4 64 5b 52 b1 00 00 00 00 00 00 00 00 00 00
-0080   00 00 00 00 00 00
-                       |
-                       wg end
-
-
-
-*/
-
 }
 
 
@@ -440,4 +359,3 @@ bool __do_once_start(bool * done,unsigned long * flags)
 {
 	return !*done;
 }
-
