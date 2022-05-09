@@ -6,10 +6,11 @@ PRG_DIR := $(REP_DIR)/src/app/wireguard/spec/arm_64
 
 SRC_C += arch/arm64/kernel/smp.c
 SRC_C += kernel/smp.c
-SRC_C += kernel_cpufeature.c
+SRC_C += arch/arm64/kernel/cpufeature.c
 
-vpath arch/arm64/kernel/smp.c $(REP_DIR)/src/lib/lx_emul/shadow
-vpath kernel/smp.c            $(REP_DIR)/src/lib/lx_emul/shadow
+vpath arch/arm64/kernel/smp.c        $(REP_DIR)/src/lib/lx_emul/shadow
+vpath kernel/smp.c                   $(REP_DIR)/src/lib/lx_emul/shadow
+vpath arch/arm64/kernel/cpufeature.c $(REP_DIR)/src/lib/lx_emul/shadow
 
 SRC_S += arch/arm64/crypto/poly1305-core.S
 

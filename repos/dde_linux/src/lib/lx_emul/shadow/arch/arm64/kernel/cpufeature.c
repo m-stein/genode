@@ -1,3 +1,16 @@
+/*
+ * \brief  Replaces arch/arm64/kernel/cpufeature.c
+ * \author Martin Stein
+ * \date   2022-05-09
+ */
+
+/*
+ * Copyright (C) 2022 Genode Labs GmbH
+ *
+ * This file is distributed under the terms of the GNU General Public License
+ * version 2.
+ */
+
 #include <linux/jump_label.h>
 #include <linux/types.h>
 
