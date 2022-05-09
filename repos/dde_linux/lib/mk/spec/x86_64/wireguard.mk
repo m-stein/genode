@@ -14,6 +14,7 @@ GEN_DIR := $(PRG_DIR)/../..
 
 SRC_C += $(notdir $(wildcard $(PRG_DIR)/generated_dummies.c))
 SRC_C += dummies.c
+SRC_C += dummies_arch.c
 SRC_C += lx_emul.c
 SRC_C += wireguard.c
 SRC_C += genode_c_api_arch.c

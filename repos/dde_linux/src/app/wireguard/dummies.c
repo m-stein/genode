@@ -1,11 +1,12 @@
 /**
  * \brief  Dummy definitions of Linux Kernel functions
  * \author Stefan Kalkowski
+ * \author Martin Stein
  * \date   2022-01-07
  */
 
 /*
- * Copyright (C) 2021 Genode Labs GmbH
+ * Copyright (C) 2022 Genode Labs GmbH
  *
  * This file is distributed under the terms of the GNU General Public License
  * version 2.
@@ -49,9 +50,6 @@ int add_random_ready_callback(struct random_ready_callback * rdy)
 }
 
 
-struct cpuinfo_x86 boot_cpu_data __read_mostly;
-
-
 extern int __init buses_init(void);
 int __init buses_init(void)
 {
@@ -73,14 +71,6 @@ int __init classes_init(void)
 {
 	lx_emul_trace(__func__);
 	return 0;
-}
-
-
-#include <linux/clocksource.h>
-
-void clocksource_arch_init(struct clocksource * cs)
-{
-	lx_emul_trace(__func__);
 }
 
 
@@ -149,7 +139,6 @@ int __init platform_bus_init(void)
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/rcupdate.h>
-#include <linux/rcutiny.h>
 
 void rcu_barrier(void)
 {
@@ -257,8 +246,6 @@ void napi_enable(struct napi_struct * n)
 struct mem_section ** mem_section = NULL;
 
 
-#include <asm/page_64.h>
-
 unsigned long phys_base = 0;
 
 
@@ -275,8 +262,6 @@ int net_ratelimit(void)
 	return 0;
 }
 
-
-#include <asm/checksum_64.h>
 
 __wsum csum_partial(const void * buff,int len,__wsum sum)
 {
