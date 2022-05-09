@@ -133,7 +133,7 @@ Genode::addr_t Lx_kit::Mem_allocator::virt_addr(void * dma_addr)
 }
 
 
-bool Lx_kit::Mem_allocator::free(void * ptr)
+bool Lx_kit::Mem_allocator::free(const void * ptr)
 {
 	if (!_mem.valid_addr((addr_t)ptr))
 		return false;
@@ -141,7 +141,7 @@ bool Lx_kit::Mem_allocator::free(void * ptr)
 	using Size_at_error = Allocator_avl::Size_at_error;
 
 	_mem.size_at(ptr).with_result(
-		[&] (size_t sz)        { /*_mem.free(const_cast<void*>(ptr));*/ memset(ptr, 0, sz); },
+		[&] (size_t)        { _mem.free(const_cast<void*>(ptr)); },
 		[ ] (Size_at_error) {                                    });
 
 	return true;

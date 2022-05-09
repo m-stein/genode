@@ -103,7 +103,7 @@ class Lx_kit::Mem_allocator
 		addr_t dma_addr(void * addr);
 		addr_t virt_addr(void * dma_addr);
 		size_t size(const void * ptr);
-		bool   free(void * ptr);
+		bool   free(const void * ptr);
 };
 
 #endif /* _LX_KIT__MEMORY_H_ */

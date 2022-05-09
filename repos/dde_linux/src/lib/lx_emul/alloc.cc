@@ -56,7 +56,7 @@ extern "C" unsigned long lx_emul_mem_virt_addr(void * dma_addr)
 }
 
 
-extern "C" void lx_emul_mem_free(void * ptr)
+extern "C" void lx_emul_mem_free(const void * ptr)
 {
 	if (!ptr)
 		return;
