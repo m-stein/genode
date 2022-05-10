@@ -22,7 +22,7 @@ if {[have_spec linux]} {
 }
 
 # note that in the no_linux case, the file size is a multiple of 100
-set file_size_in_bytes 1000000
+set file_size_in_bytes 10000000
 
 create_boot_directory
 
@@ -136,7 +136,7 @@ append config {
 
 	<start name="peer1_wireguard" caps="200">
 		<binary name="wireguard"/>
-		<resource name="RAM" quantum="20M"/>
+		<resource name="RAM" quantum="30M"/>
 		<config private_key="0CtU34qsl97IGiYKSO4tMaF/SJvy04zzeQkhZEbZSk0="
 		        listen_port="49001">
 
@@ -212,7 +212,7 @@ append config {
 
 	<start name="peer2_wireguard" caps="200">
 		<binary name="wireguard"/>
-		<resource name="RAM" quantum="20M"/>
+		<resource name="RAM" quantum="30M"/>
 		<config private_key="8GRSQZMgG1uuvz4APIBqrDmiLj8L886r++hzixjjHFc="
 		        listen_port="49002">
 
