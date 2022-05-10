@@ -22,6 +22,7 @@ struct genode_shared_dataspace : Lx_kit::Dma_buffer {};
 extern "C" struct genode_shared_dataspace *
 lx_emul_shared_dma_buffer_allocate(unsigned long size)
 {
+	size = align_addr(size, 12);
 	Lx_kit::Mem_allocator::Buffer & b = Lx_kit::env().memory.alloc_buffer(size);
 
 	/*
