@@ -396,7 +396,7 @@ build_boot_image $boot_modules
 append qemu_args "-nographic "
 
 # run the scenario till fetchurl succeeded to download the file
-run_genode_until "fetchurl. exited with exit value 0" 60
+run_genode_until "fetchurl. exited with exit value 0.*\n" 60
 
 if {$linux} {
 
