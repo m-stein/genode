@@ -23,6 +23,15 @@ using namespace Net;
 using namespace Wireguard;
 
 
+void Uplink_connection::_connection_tx_flush_acks()
+{
+	while (_connection.tx()->ack_avail()) {
+		_connection.tx()->release_packet(
+			_connection.tx()->get_acked_packet());
+	}
+}
+
+
 void Uplink_connection::send_ip(void const *ip_base,
                                 size_t      ip_size)
 {

@@ -49,6 +49,8 @@ class Wireguard::Uplink_connection
 		bool                const _verbose          { true };
 		bool                const _verbose_pkt_drop { true };
 
+		void _connection_tx_flush_acks();
+
 		template <typename WRITE_TO_PACKET_FUNC>
 		Send_pkt_result _send(Genode::size_t          pkt_size,
 		                      WRITE_TO_PACKET_FUNC && write_to_pkt)
@@ -59,12 +61,13 @@ class Wireguard::Uplink_connection
 				Net::Size_guard           size_guard { pkt_size };
 
 				write_to_pkt(pkt_base, size_guard);
+				_connection_tx_flush_acks();
 				_connection.tx()->submit_packet(pkt);
 			}
 			catch (Packet_source::Packet_alloc_failed) {
 				if (_verbose) {
 					Genode::log(
-						"Failed sending packet - Failed allocating packet");
+						"Failed sending uplink packet - Failed allocating packet");
 				}
 				return Send_pkt_result::FAILED;
 			}

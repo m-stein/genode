@@ -34,6 +34,15 @@ Nic_connection::_drop_pkt(char const *packet_type,
 }
 
 
+void Nic_connection::_connection_tx_flush_acks()
+{
+	while (_connection.tx()->ack_avail()) {
+		_connection.tx()->release_packet(
+			_connection.tx()->get_acked_packet());
+	}
+}
+
+
 Nic_connection::Send_pkt_result
 Nic_connection::_finish_send_eth_ipv4_with_eth_dst_set_via_arp(Packet_descriptor  pkt,
                                                                Mac_address const &eth_dst)
@@ -44,6 +53,7 @@ Nic_connection::_finish_send_eth_ipv4_with_eth_dst_set_via_arp(Packet_descriptor
 	Ethernet_frame &eth { Ethernet_frame::cast_from(pkt_base, size_guard) };
 
 	eth.dst(eth_dst);
+	_connection_tx_flush_acks();
 	_connection.tx()->submit_packet(pkt);
 	return Send_pkt_result::SUCCEEDED;
 }
@@ -293,7 +303,7 @@ Nic_connection::send_wg_prot(uint8_t const *wg_prot_base,
 	Ipv4_address const dst_ip {
 		Ipv4_address::from_uint32_big_endian(ipv4_dst_addr_big_endian) };
 
-	_send_eth_ipv4_with_eth_eth_dst_set_via_arp(
+	_send_eth_ipv4_with_eth_dst_set_via_arp(
 		pkt_size, dst_ip, [&] (Ethernet_frame &eth, Size_guard &size_guard)
 	{
 		/* create ETH header */
