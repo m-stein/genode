@@ -363,6 +363,23 @@ static struct genode_wg_config_callbacks _config_callbacks = {
 };
 
 
+static void _genode_wg_register_skb_data_mem_at_lx_emul(struct sk_buff *skb)
+{
+	unsigned long const mem_pages_start = (unsigned long)skb->head & PAGE_MASK;
+	unsigned long const mem_end =
+		(unsigned long)skb_end_pointer(skb)
+		+ SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+
+	unsigned long const mem_pages_end =
+		(mem_end + ~(unsigned long)PAGE_MASK) & PAGE_MASK;
+
+	unsigned long const mem_pages_size = mem_pages_end - mem_pages_start;
+	unsigned long const nr_of_mem_pages = mem_pages_size >> 12;
+
+	lx_emul_virt_to_pages((void *)mem_pages_start, nr_of_mem_pages);
+}
+
+
 static void _genode_wg_uplink_connection_receive(void             *buf_base,
                                                  genode_wg_size_t  buf_size)
 {
@@ -383,7 +400,7 @@ static void _genode_wg_uplink_connection_receive(void             *buf_base,
 	skb_reset_network_header(skb);
 	ip = ip_hdr(skb);
 	data_offset = ip->ihl * 4;
-
+	_genode_wg_register_skb_data_mem_at_lx_emul(skb);
 	genode_wg_net_device()->netdev_ops->ndo_start_xmit(skb, genode_wg_net_device());
 }
 
@@ -411,6 +428,7 @@ static void _genode_wg_nic_connection_receive(void             *buf_base,
 
 	skb_pull(skb, data_offset);
 	skb_reset_transport_header(skb);
+	_genode_wg_register_skb_data_mem_at_lx_emul(skb);
 	_genode_wg_udp_tunnel_cfg.encap_rcv(&_genode_wg_sock, skb);
 }
 
