@@ -18,6 +18,7 @@
 #include <lx_kit/memory.h>
 #include <lx_kit/map.h>
 #include <lx_kit/byte_range.h>
+#include <lx_emul/page_virt.h>
 
 
 void Lx_kit::Mem_allocator::free_buffer(void * addr)
@@ -88,6 +89,9 @@ void * Lx_kit::Mem_allocator::alloc(size_t size, size_t align)
 			Buffer & buffer = alloc_buffer(max(size + 1, min_buffer_size));
 
 			_mem.add_range(buffer.virt_addr(), buffer.size() - 1);
+
+			lx_emul_forget_pages((void*)buffer.virt_addr(), buffer.size());
+			lx_emul_virt_to_pages((void*)buffer.virt_addr(), (buffer.size() + 0xfff) >> 12);
 
 			/* re-try allocation */
 			return _mem.alloc_aligned(size, (unsigned)log2(align)).convert<void *>(

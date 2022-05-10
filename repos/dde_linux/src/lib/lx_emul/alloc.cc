@@ -20,7 +20,6 @@
 extern "C" void * lx_emul_mem_alloc_aligned(unsigned long size, unsigned long align)
 {
 	void * const ptr = Lx_kit::env().memory.alloc(size, align);
-	lx_emul_forget_pages(ptr, size);
 	return ptr;
 };
 
@@ -29,7 +28,6 @@ extern "C" void * lx_emul_mem_alloc_aligned_uncached(unsigned long size,
                                                      unsigned long align)
 {
 	void * const ptr = Lx_kit::env().uncached_memory.alloc(size, align);
-	lx_emul_forget_pages(ptr, size);
 	return ptr;
 };
 
