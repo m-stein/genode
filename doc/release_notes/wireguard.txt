@@ -1,0 +1,45 @@
+
+WireGuard support
+~~~~~~~~~~~~~~~~~
+
+[https://www.wireguard.com/ - WireGuard] is a protocol for encrypted, virtual
+private networks (VPNs) with a strong focus on security and ease-of-use. It is
+designed to be implemented both light-weighted and highly performant at the
+same time. For years now, we were keen to support WireGuard also in Genode as a
+native standard solution for peer-to-peer network encryption. With Genode
+22.05, we could finally accomplish that goal.
+
+After we had considered all the options, we choose to port the Linux kernel
+implementation of WireGuard using our modernized DDE-Linux tool set. The
+outcome is a user-land component that acts as client to one NIC session and one
+Uplink session. At the Uplink session, the WireGuard component plays the role
+of a VPN-internal network device that communicates plain-text with the VPN
+participants. At the NIC session, however, the component drives an encrypted
+UDP tunnel through the public network towards other WireGuard instances.
+
+In Genode, a WireGuard instance receives its parameters through the component
+configuration with the peer configuration being re-configurable:
+
+! <config private_key="0CtU34qsl97IGiYKSO4tMaF/SJvy04zzeQkhZEbZSk0="
+!         listen_port="49001">
+!
+!   <peer public_key="GrvyALPZ3PQ2AWM+ovxJqnxSqKpmTyqUui5jH+C8I0E="
+!         endpoint_ip="10.1.2.1"
+!         endpoint_port="49002"
+!         allowed_ip="10.0.9.2/32" />
+!
+! </config>
+
+For examples on how to integrate and route WireGuard in Genode, you may refer
+to the new run scripts 'wg_ping_inwards.run', 'wg_ping_outwards.run',
+'wg_lighttpd.run', and 'wg_fetchurl.run', all located in 'repos/dde_linux/run'.
+
+Please be aware that this is only the first official version of Genode's
+WireGuard component. Although we are convinced of the quality the underlying
+Linux implementation proved to have over the years, we strongly recommend not
+to base security-critical scenarios on Genode's port before it had the time to
+mature through real-world testing as well.
+
+For the whole story behind the new WieGuard support in Genode, have a look at
+the corresponding
+[http://genodians.org/m-stein/2022-05-31-wireguard-1 - Genodians article].
