@@ -190,9 +190,17 @@ void udp_tunnel_xmit_skb(
 	 */
 	src_port = htons(genode_wg_listen_port());
 
+	/*
+	 * This is the SKB that we put into WireGuard earlier in
+	 * _genode_wg_uplink_connection_receive. WireGuard modified it to become
+	 * the SKB that we want to send at the NIC connection. WireGuard
+	 * assumes that we free the SKB after having sent it.
+	 */
 	genode_wg_send_wg_prot_at_nic_connection(
 		skb->data, skb->len, src_port, dst_port, src, dst,
 		tos, ttl);
+
+	kfree_skb(skb);
 }
 
 
@@ -291,7 +299,14 @@ void kfree_sensitive(const void * p)
 
 gro_result_t napi_gro_receive(struct napi_struct * napi,struct sk_buff * skb)
 {
+	/*
+	 * This is the SKB that we put into WireGuard earlier in
+	 * _genode_wg_nic_connection_receive. WireGuard modified it to become
+	 * the SKB that we want to send at the Uplink connection. WireGuard
+	 * assumes that we free the SKB after having sent it.
+	 */
 	genode_wg_send_ip_at_uplink_connection(skb->data, skb->len);
+	kfree_skb(skb);
 
 	/*
 	 * FIXME
