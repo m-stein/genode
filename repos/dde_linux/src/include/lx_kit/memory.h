@@ -85,9 +85,8 @@ class Lx_kit::Mem_allocator
 		Platform::Connection  & _platform;
 		Cache                   _cache_attr;
 		Allocator_avl           _mem         { &_heap };
-		Map<Buffer_info>        _virt_to_dma {  _heap };
-		Map<Buffer_info>        _dma_to_virt {  _heap };
-		unsigned long           _nr_of_allocated_bytes { 0 };
+		Map<Buffer_info>         _virt_to_dma {  _heap };
+		Map<Buffer_info>         _dma_to_virt {  _heap };
 
 	public:
 

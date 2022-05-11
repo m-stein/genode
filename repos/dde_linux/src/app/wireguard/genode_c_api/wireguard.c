@@ -429,24 +429,6 @@ static int user_task_function(void *arg)
 	return 0;
 }
 
-void inline backtrace(void)
-{
-	unsigned long * fp;
-
-		asm volatile ("movq %%rbp, %0" : "=r"(fp) : :);
-
-		while (fp && *(fp + 1)) {
-			printk("0x%llx ", *(fp + 1));
-			fp = (unsigned long*)*fp;
-		}
-		printk("\n");
-}
-
-void _genode_wg_log_mem_alloc(unsigned long b, void *p, unsigned long s)
-{
-	printk("--- %d (0x%p O %d) ", b, p, s);
-	backtrace();
-}
 
 static struct task_struct * _user_task_struct_ptr = NULL;
 

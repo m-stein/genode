@@ -58,9 +58,6 @@ Genode::Dataspace_capability Lx_kit::Mem_allocator::attached_dataspace_cap(void 
 }
 
 
-extern "C" void _genode_wg_log_mem_alloc(unsigned long b, void *p, unsigned long s);
-
-
 void * Lx_kit::Mem_allocator::alloc(size_t size, size_t align)
 {
 	if (!size)
@@ -69,8 +66,6 @@ void * Lx_kit::Mem_allocator::alloc(size_t size, size_t align)
 	return _mem.alloc_aligned(size, (unsigned)log2(align)).convert<void *>(
 
 		[&] (void *ptr) {
-			_nr_of_allocated_bytes += size;
-			_genode_wg_log_mem_alloc(_nr_of_allocated_bytes, ptr, size);
 			memset(ptr, 0, size);
 			return ptr; },
 
@@ -102,13 +97,11 @@ void * Lx_kit::Mem_allocator::alloc(size_t size, size_t align)
 			return _mem.alloc_aligned(size, (unsigned)log2(align)).convert<void *>(
 
 				[&] (void *ptr) {
-					_nr_of_allocated_bytes += size;
-			_genode_wg_log_mem_alloc(_nr_of_allocated_bytes, ptr, size);
 					memset(ptr, 0, size);
 					return ptr; },
 
 				[&] (Range_allocator::Alloc_error) -> void * {
-					error("memory allocation failed for ", Genode::Hex(size), " align ", align);
+					error("memory allocation failed for ", size, " align ", align);
 					return nullptr; }
 			);
 		}
@@ -152,11 +145,7 @@ bool Lx_kit::Mem_allocator::free(const void * ptr)
 	using Size_at_error = Allocator_avl::Size_at_error;
 
 	_mem.size_at(ptr).with_result(
-		[&] (size_t size)        { _mem.free(const_cast<void*>(ptr));
-
-					_nr_of_allocated_bytes -= size;
-			Genode::log("--- ", _nr_of_allocated_bytes, " (", ptr, " X ", size, ")");
-},
+		[&] (size_t)        { _mem.free(const_cast<void*>(ptr)); },
 		[ ] (Size_at_error) {                                    });
 
 	return true;
