@@ -217,8 +217,6 @@ append config {
 		        listen_port="49002">
 
 			<peer public_key="r1Gslnm82X8NaijsWzPoSFzDZGl2tTJoPa+EJL4gYQw="
-			      endpoint_ip="10.0.2.1"
-			      endpoint_port="49001"
 			      allowed_ip="10.0.9.1/32" />
 
 		</config>
