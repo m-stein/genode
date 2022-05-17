@@ -159,10 +159,24 @@ genode_wg_u16_t genode_wg_listen_port(void)
 {
 	return _genode_wg_listen_port;
 }
+void inline backtrace(void)
+{
+	unsigned long * fp;
 
+	asm volatile ("mov %0, x29" : "=r"(fp) ::);
+
+	while (fp) {
+		unsigned long ip = fp[1];
+		fp = (unsigned long*) fp[0];
+		printk("0x%llx ", ip);
+	}
+	printk("\n");
+}
 
 void genode_wg_rtnl_link_ops(struct rtnl_link_ops *ops)
 {
+	printk("xxx1 \n");
+	backtrace();
 	_genode_wg_rtnl_link_ops = ops;
 }
 
@@ -451,6 +465,7 @@ void lx_user_init(void)
 
 	skb_init();
 
+	printk("xxx2 \n");
 	/* trigger execution of 'wg_setup' */
 	_genode_wg_rtnl_link_ops->setup(&_genode_wg_net_dev.public_data);
 
