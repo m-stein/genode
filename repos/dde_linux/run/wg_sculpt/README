@@ -1,0 +1,4 @@
+Prerequisites for a Sculpt scenario in which one Linux VM (vbox5_lx1) can
+access the HTTP service of another (vbox5_lx2) through a Wireguard tunnel.
+The folder contains the corresponding NIC router configuration (nic_router)
+and launchers for the two Wireguard instances (wg_1, wg_2).
