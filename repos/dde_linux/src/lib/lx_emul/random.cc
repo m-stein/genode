@@ -5,8 +5,16 @@
  * \author Martin Stein
  * \date   2022-05-19
  *
- * For all intents and purposes this random back end should be treated
- * as a gloryfied counter.
+ * :Warning:
+ *
+ * The output of the Xoroshiro128+ PRNG that is used in the implementation of
+ * the lx_emul randomness functions has known statistical problems (see
+ * https://en.wikipedia.org/wiki/Xoroshiro128%2B#Statistical_Quality).
+ * Furthermore, the integration of Xoroshir128+ with the lx_emul code was not
+ * reviewed/audited for its security-related properties, so far, and has the
+ * known deficiency of seeding the PRNG only once during initialization. Thus,
+ * we strongly advise against the use of the lx_emul randomness functions for
+ * security-critical purposes.
  */
 
 /*
