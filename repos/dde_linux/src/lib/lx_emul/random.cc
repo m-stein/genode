@@ -44,7 +44,7 @@ using namespace Genode;
  * (see http://xoroshiro.di.unimi.it/xorshift128plus.c and
  *      http://xoroshiro.di.unimi.it/splitmix64.c)
  */
-class Xoroshiro
+class Xoroshiro_128_plus
 {
 	private:
 
@@ -66,7 +66,7 @@ class Xoroshiro
 
 	public:
 
-		Xoroshiro(uint64_t seed) : _seed(seed)
+		Xoroshiro_128_plus(uint64_t seed) : _seed(seed)
 		{
 			_s[0] = _splitmix64();
 			_s[1] = _splitmix64();
@@ -107,9 +107,9 @@ static uint64_t jitterentropy_gen_random_u64()
 }
 
 
-static Xoroshiro &xoroshiro()
+static Xoroshiro_128_plus &xoroshiro()
 {
-	static Xoroshiro xoroshiro { jitterentropy_gen_random_u64() };
+	static Xoroshiro_128_plus xoroshiro { jitterentropy_gen_random_u64() };
 	return xoroshiro;
 }
 
