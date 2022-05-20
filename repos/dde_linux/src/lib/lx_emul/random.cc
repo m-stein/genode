@@ -11,8 +11,7 @@
  * the lx_emul randomness functions has known statistical problems (see
  * https://en.wikipedia.org/wiki/Xoroshiro128%2B#Statistical_Quality).
  * Furthermore, the integration of Xoroshir128+ with the lx_emul code was not
- * reviewed/audited for its security-related properties, so far, and has the
- * known deficiency of seeding the PRNG only once during initialization. Thus,
+ * reviewed/audited for its security-related properties, so far. Thus,
  * we strongly advise against the use of the lx_emul randomness functions for
  * security-critical purposes.
  */
@@ -38,31 +37,8 @@
 
 using namespace Genode;
 
-
-static uint64_t jitterentropy_gen_random_u64()
-{
-	static rand_data *jent { nullptr };
-	if (jent == nullptr) {
-		jitterentropy_init(Lx_kit::env().heap);
-
-		if (jent_entropy_init() != 0) {
-			Genode::error("jitterentropy library could not be initialized!");
-		}
-		jent = jent_entropy_collector_alloc(0, 0);
-		if (jent == nullptr) {
-			Genode::error("jitterentropy could not allocate entropy collector!");
-		}
-	}
-	uint64_t result;
-	jent_read_entropy(jent, (char*)&result, sizeof(result));
-	return result;
-}
-
-
 /*
  * Xoroshiro128+ written in 2014-2016 by Sebastiano Vigna (vigna@acm.org)
- * plus a self-written automatic re-seeding every X + random(0..255) bytes of
- * generated output.
  *
  * (see http://xoroshiro.di.unimi.it/xorshift128plus.c and
  *      http://xoroshiro.di.unimi.it/splitmix64.c)
@@ -71,20 +47,8 @@ class Xoroshiro_128_plus
 {
 	private:
 
-		enum { NR_OF_GEN_BYTES_BASE_LIMIT = 1024 * 1024 };
-
-		uint64_t _seed                  { 0 };
-		size_t   _nr_of_gen_bytes       { 0 };
-		size_t   _nr_of_gen_bytes_limit { 0 };
+		uint64_t _seed;
 		uint64_t _s[2];
-
-		void _gen_seed()
-		{
-			_seed = jitterentropy_gen_random_u64();
-			_nr_of_gen_bytes = 0;
-			_nr_of_gen_bytes_limit =
-				NR_OF_GEN_BYTES_BASE_LIMIT + (_seed & 0xff);
-		}
 
 		uint64_t _splitmix64()
 		{
@@ -101,21 +65,14 @@ class Xoroshiro_128_plus
 
 	public:
 
-		Xoroshiro_128_plus()
+		Xoroshiro_128_plus(uint64_t seed) : _seed(seed)
 		{
-			_gen_seed();
 			_s[0] = _splitmix64();
 			_s[1] = _splitmix64();
 		}
 
 		uint64_t get_u64()
 		{
-			/* consider re-seeding */
-			_nr_of_gen_bytes += 8;
-			if (_nr_of_gen_bytes > _nr_of_gen_bytes_limit) {
-				_gen_seed();
-			}
-
 			uint64_t const s0 = _s[0];
 			uint64_t       s1 = _s[1];
 			uint64_t const result = s0 + s1;
@@ -130,9 +87,104 @@ class Xoroshiro_128_plus
 };
 
 
-static Xoroshiro_128_plus &xoroshiro()
+class Entropy_source : Interface
 {
-	static Xoroshiro_128_plus xoroshiro { };
+	public:
+
+		virtual uint64_t gen_random_u64() = 0;
+};
+
+
+/*
+ * A wrapper for the Xoroshiro128+ PRNG that reseeds the PRNG every
+ * 1024 * 1024 + random(0..4095) bytes of generated output.
+ */
+class Xoroshiro_128_plus_reseeding
+{
+	private:
+
+		enum { NR_OF_GEN_BYTES_BASE_LIMIT = 1024 * 1024 };
+
+		Entropy_source                    &_entropy_src;
+		uint64_t                           _seed                  { 0 };
+		size_t                             _nr_of_gen_bytes       { 0 };
+		size_t                             _nr_of_gen_bytes_limit { 0 };
+		Constructible<Xoroshiro_128_plus>  _xoroshiro             { };
+
+		void _reseed()
+		{
+			_seed = _entropy_src.gen_random_u64();
+			_nr_of_gen_bytes = 0;
+			_nr_of_gen_bytes_limit =
+				NR_OF_GEN_BYTES_BASE_LIMIT + (_seed & 0xfff);
+
+			_xoroshiro.construct(_seed);
+		}
+
+	public:
+
+		Xoroshiro_128_plus_reseeding(Entropy_source &entropy_src)
+		:
+			_entropy_src { entropy_src }
+		{
+			_reseed();
+		}
+
+		uint64_t get_u64()
+		{
+			_nr_of_gen_bytes += 8;
+			if (_nr_of_gen_bytes >= _nr_of_gen_bytes_limit) {
+				_reseed();
+				_nr_of_gen_bytes += 8;
+			}
+			return _xoroshiro->get_u64();
+		}
+};
+
+
+class Jitterentropy : public Entropy_source
+{
+	private:
+
+		rand_data *_rand_data { nullptr };
+
+		Jitterentropy(Jitterentropy const &) = delete;
+
+		Jitterentropy & operator = (Jitterentropy const &) = delete;
+
+	public:
+
+		Jitterentropy(Allocator &alloc)
+		{
+			jitterentropy_init(alloc);
+
+			if (jent_entropy_init() != 0) {
+				error("jitterentropy library could not be initialized!");
+			}
+			_rand_data = jent_entropy_collector_alloc(0, 0);
+			if (_rand_data == nullptr) {
+				error("jitterentropy could not allocate entropy collector!");
+			}
+		}
+
+
+		/********************
+		 ** Entropy_source **
+		 ********************/
+
+		uint64_t gen_random_u64() override
+		{
+			uint64_t result;
+			jent_read_entropy(_rand_data, (char*)&result, sizeof(result));
+			return result;
+		}
+};
+
+
+static Xoroshiro_128_plus_reseeding &xoroshiro()
+{
+	static Jitterentropy                jitterentropy { Lx_kit::env().heap };
+	static Xoroshiro_128_plus_reseeding xoroshiro     { jitterentropy };
 	return xoroshiro;
 }
 
@@ -142,7 +194,7 @@ void lx_emul_gen_random_bytes(void          *dst,
 {
 	/* validate arguments */
 	if (dst == nullptr || nr_of_bytes == 0) {
-		Genode::error("lx_emul_gen_random_bytes called with invalid args!");
+		error("lx_emul_gen_random_bytes called with invalid args!");
 		return;
 	}
 	/* fill up the destination with random 64-bit values as far as possible */
@@ -161,7 +213,6 @@ void lx_emul_gen_random_bytes(void          *dst,
 	}
 	uint64_t const rand_u64 { xoroshiro().get_u64() };
 	Genode::memcpy(dst_char, &rand_u64, nr_of_bytes);
-
 }
 
 
