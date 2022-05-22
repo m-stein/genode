@@ -6,7 +6,7 @@ MIRRORED_FROM_REP_DIR := \
 	lib/import/import-lx_emul_common.inc \
 	lib/mk/spec/x86_64/virt_linux_generated.mk \
 	lib/mk/virt_linux_generated.inc \
-	src/virt_linux \
+	src/virt_linux/target.inc \
 	src/app/wireguard \
 	src/lib/lx_emul \
 	src/lib/lx_kit \
