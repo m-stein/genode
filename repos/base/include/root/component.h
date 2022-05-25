@@ -48,9 +48,11 @@ class Genode::Single_client
 
 		void aquire(const char *)
 		{
-			if (_used)
+			if (_used) {
+				warning("attempt to create multiple sessions at root with "
+				        "single-client policy");
 				throw Service_denied();
-
+			}
 			_used = true;
 		}
 
@@ -241,6 +243,7 @@ class Genode::Root_component : public Rpc_object<Typed_root<SESSION_TYPE> >,
 
 		virtual SESSION_TYPE *_create_session(const char *)
 		{
+			warning("root component doesn't implement session creation");
 			throw Service_denied();
 		}
 
@@ -337,15 +340,21 @@ class Genode::Root_component : public Rpc_object<Typed_root<SESSION_TYPE> >,
 		Session_capability session(Root::Session_args const &args,
 		                           Affinity           const &affinity) override
 		{
-			if (!args.valid_string()) throw Service_denied();
+			if (!args.valid_string()) {
+				warning("invalid argument string on session creation");
+				log(Genode::Cstring(args.base(), args.size()));
+				throw Service_denied();
+			}
 			SESSION_TYPE &session = _create(args.string(), affinity);
 			return session.cap();
 		}
 
 		void upgrade(Session_capability session, Root::Upgrade_args const &args) override
 		{
-			if (!args.valid_string()) throw Service_denied();
-
+			if (!args.valid_string()) {
+				warning("invalid argument string on session upgrade");
+				throw Service_denied();
+			}
 			_ep->apply(session, [&] (SESSION_TYPE *s) {
 				if (!s) return;
 
