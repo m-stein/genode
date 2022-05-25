@@ -7,7 +7,7 @@
 Genode SoC porting guide | 2022-05-25
 #####################################
 
-| In the second revision of the Genode Platform document, Genode Labs shares
+| In the second revision of the Genode Platforms document, Genode Labs shares
 | its former in-house expertise about moving Genode to new hardware devices.
 
 If you ever wondered how to make sense of highly-complex ARM SoCs without
