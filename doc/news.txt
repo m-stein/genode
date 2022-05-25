@@ -38,7 +38,7 @@ components. Along the way, there are countless little tips and tricks that
 help to turn low-level grunt work into a fun and worthwhile experience.
 
 The document closes with a glimpse at real-world scenarios, culminating in
-the setup the modem and the routing of audio signals to issue voice calls.
+the setup of the modem and the routing of audio signals to issue voice calls.
 
 
 Sculpt OS release 22.04 | 2022-04-28
