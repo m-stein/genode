@@ -54,7 +54,31 @@ class Net::Forward_rule : public Genode::Avl_node<Forward_rule>
 
 		Forward_rule(Domain_tree &domains, Genode::Xml_node const node);
 
-		Forward_rule const &find_by_port(Port const port) const;
+		template <typename HANDLE_MATCH_FN,
+		          typename HANDLE_NO_MATCH_FN>
+
+		void find_by_port(Port            const port,
+		                  HANDLE_MATCH_FN    && handle_match,
+		                  HANDLE_NO_MATCH_FN && handle_no_match) const
+		{
+			if (port.value != _port.value) {
+
+				Forward_rule *const rule {
+					Avl_node<Forward_rule>::child(port.value > _port.value) };
+
+				if (rule != nullptr) {
+
+					rule->find_by_port(port, handle_match, handle_no_match);
+
+				} else {
+
+					handle_no_match();
+				}
+			} else {
+
+				handle_match(*this);
+			}
+		}
 
 
 		/*********
@@ -86,7 +110,22 @@ struct Net::Forward_rule_tree : Avl_tree<Forward_rule>
 {
 	struct No_match : Genode::Exception { };
 
-	Forward_rule const &find_by_port(Port const port) const;
+	template <typename HANDLE_MATCH_FN,
+	          typename HANDLE_NO_MATCH_FN>
+
+	void find_by_port(Port            const port,
+	                  HANDLE_MATCH_FN    && handle_match,
+	                  HANDLE_NO_MATCH_FN && handle_no_match) const
+	{
+		if (first() != nullptr) {
+
+			first()->find_by_port(port, handle_match, handle_no_match);
+
+		} else {
+
+			handle_no_match();
+		}
+	}
 };
 
 #endif /* _FORWARD_RULE_H_ */
