@@ -23,9 +23,9 @@ namespace Genode { class Allocator; }
 
 namespace Net {
 
-	class  Configuration;
-	class  Transport_rule;
-	struct Transport_rule_list : Direct_rule_list<Transport_rule> { };
+	class Configuration;
+	class Transport_rule;
+	class Transport_rule_list;
 }
 
 
@@ -69,6 +69,36 @@ class Net::Transport_rule : public Direct_rule<Transport_rule>
 				_permit_single_rules.find_by_port(
 					port, handle_match, handle_no_match);
 			}
+		}
+};
+
+
+class Net::Transport_rule_list : public Direct_rule_list<Transport_rule>
+{
+	public:
+
+		template <typename HANDLE_MATCH_FN,
+		          typename HANDLE_NO_MATCH_FN>
+
+		void find_best_match(Ipv4_address    const &ip,
+		                     Port            const port,
+		                     HANDLE_MATCH_FN    && handle_match,
+		                     HANDLE_NO_MATCH_FN && handle_no_match) const
+		{
+			find_longest_prefix_match(
+				ip,
+				[&] /* handle_match */ (Transport_rule const &transport_rule)
+				{
+					transport_rule.find_permit_rule_by_port(
+						port,
+						[&] /* handle_match */ (Permit_rule const &permit_rule)
+						{
+							handle_match(transport_rule, permit_rule);
+						},
+						handle_no_match);
+				},
+				handle_no_match
+			);
 		}
 };
 
