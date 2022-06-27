@@ -1288,34 +1288,35 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 			}
 		}
 		/* try to route via transport and permit rules */
-		try {
-			_transport_rules(local_domain, prot).find_longest_prefix_match(
-				local_id.dst_ip,
-				[&] /* handle_match */ (Transport_rule const &transport_rule)
-				{
-					Permit_rule const &permit_rule =
-						transport_rule.permit_rule(local_id.dst_port);
+		_transport_rules(local_domain, prot).find_longest_prefix_match(
+			local_id.dst_ip,
+			[&] /* handle_match */ (Transport_rule const &transport_rule)
+			{
+				transport_rule.find_permit_rule_by_port(
+					local_id.dst_port,
+					[&] /* handle_match */ (Permit_rule const &permit_rule)
+					{
+						if(_config().verbose()) {
+							log("[", local_domain, "] using ",
+							    l3_protocol_name(prot), " rule: ",
+							    transport_rule, " ", permit_rule);
+						}
+						Domain &remote_domain = permit_rule.domain();
+						_adapt_eth(eth, local_id.dst_ip, pkt, remote_domain);
+						_nat_link_and_pass(
+							eth, size_guard, ip, prot, prot_base, prot_size,
+							local_id, local_domain, remote_domain);
 
-					if(_config().verbose()) {
-						log("[", local_domain, "] using ",
-						    l3_protocol_name(prot), " rule: ", transport_rule,
-						    " ", permit_rule);
-					}
-					Domain &remote_domain = permit_rule.domain();
-					_adapt_eth(eth, local_id.dst_ip, pkt, remote_domain);
-					_nat_link_and_pass(
-						eth, size_guard, ip, prot, prot_base, prot_size,
-						local_id, local_domain, remote_domain);
-
-					done = true;
-				},
-				[&] /* handle_no_match */ () { }
-			);
-			if (done) {
-				return;
-			}
+						done = true;
+					},
+					[&] /* handle_no_match */ () { }
+				);
+			},
+			[&] /* handle_no_match */ () { }
+		);
+		if (done) {
+			return;
 		}
-		catch (Permit_single_rule_tree::No_match) { }
 	}
 	catch (Interface::Bad_transport_protocol) { }
 
@@ -1937,11 +1938,18 @@ void Interface::_update_udp_tcp_links(L3_protocol  prot,
 							[&] /* handle_match */ (Transport_rule const &transport_rule)
 							{
 								/* try to find permit rule that matches the server port */
-								Permit_rule const &permit_rule =
-									transport_rule.permit_rule(link.client().dst_port());
-
-								_update_link_check_nat(link, permit_rule.domain(), prot, cln_dom);
-								done = true;
+								transport_rule.find_permit_rule_by_port(
+									link.client().dst_port(),
+									[&] /* handle_match */ (Permit_rule const &permit_rule)
+									{
+										_update_link_check_nat(link, permit_rule.domain(), prot, cln_dom);
+										done = true;
+									},
+									[&] /* handle_no_match */ ()
+									{
+										_dismiss_link_log(link, "no permit rule");
+									}
+								);
 							},
 							[&] /* handle_no_match */ ()
 							{
@@ -1952,8 +1960,7 @@ void Interface::_update_udp_tcp_links(L3_protocol  prot,
 							return;
 						}
 					}
-					catch (Permit_single_rule_tree::No_match) { _dismiss_link_log(link, "no permit rule"); }
-					catch (Dismiss_link)                      { }
+					catch (Dismiss_link) { }
 				}
 			);
 		}

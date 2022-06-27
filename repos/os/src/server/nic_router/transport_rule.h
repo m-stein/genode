@@ -53,7 +53,23 @@ class Net::Transport_rule : public Direct_rule<Transport_rule>
 
 		~Transport_rule();
 
-		Permit_rule const &permit_rule(Port const port) const;
+		template <typename HANDLE_MATCH_FN,
+		          typename HANDLE_NO_MATCH_FN>
+		void
+		find_permit_rule_by_port(Port            const port,
+		                         HANDLE_MATCH_FN    && handle_match,
+		                         HANDLE_NO_MATCH_FN && handle_no_match) const
+		{
+			if (_permit_any_rule.valid()) {
+
+				handle_match(_permit_any_rule());
+
+			} else {
+
+				_permit_single_rules.find_by_port(
+					port, handle_match, handle_no_match);
+			}
+		}
 };
 
 #endif /* _TRANSPORT_RULE_H_ */
