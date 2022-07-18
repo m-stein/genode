@@ -179,6 +179,7 @@ CC_OPT += $(CC_OPT_$(subst .,_,$*))
 #
 CC_OPT_PIC ?= -fPIC
 CC_OPT     += $(CC_OPT_PIC)
+CC_OPT += -fno-omit-frame-pointer
 
 #
 # Predefine C and C++ specific compiler options with their common values
