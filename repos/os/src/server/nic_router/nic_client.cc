@@ -170,9 +170,9 @@ Net::Nic_client_interface::Nic_client_interface(Env                 &env,
 	rx_channel()->sigh_packet_avail(_interface.pkt_stream_signal_handler());
 	tx_channel()->sigh_ack_avail   (_interface.pkt_stream_signal_handler());
 
-	/**
-	 * We do not install ready_to_submit because submission is only triggered by
-	 * incoming packets (and dropped if the submit queue is full).
+	/*
+	 * We do not install ready_to_submit because submission is only triggered
+	 * by incoming packets (and dropped if the submit queue is full).
 	 * The ack queue should never be full otherwise we'll be leaking packets.
 	 */
 

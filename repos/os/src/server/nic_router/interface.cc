@@ -1614,7 +1614,7 @@ void Interface::_handle_pkt_stream_signal()
 		}
 	}
 
-	/**
+	/*
 	 * Since we use the try_*() variants of the packet-stream API, we
 	 * haven't emitted any packet_avail, ack_avail, ready_to_submit or
 	 * ready_to_ack signal up to now. We've removed packets from our sink's
