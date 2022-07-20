@@ -1,15 +1,15 @@
 /*
- * \brief  Replacement of Timer::One_shot_timeout with lazy rescheduling
+ * \brief  A wrapper for Timer::One_shot_timeout with lazy re-scheduling
  * \author Johannes Schlatow
  * \date   2022-07-01
  *
  * NOTE: This implementation is not thread safe and should only be used in
  *       single-threaded components.
  *
- * This implementation prevents rescheduling when a timeout is frequently
+ * This implementation prevents re-scheduling when a timeout is frequently
  * updated with only marginal changes. Timeouts within a certain accuracy
  * threshold of the existing timeout will be ignored. Otherwise, earlier
- * timeouts will always be rescheduled whereas later timeouts are never
+ * timeouts will always be re-scheduled whereas later timeouts are never
  * applied immediately but only when the scheduled timeout occured.
  */
 
