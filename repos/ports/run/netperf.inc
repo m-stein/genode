@@ -162,7 +162,7 @@ append_if $use_wifi_driver  packages " [depot_user]/raw/wifi_firmware     "
 
 import_from_depot $packages
 
-set build_components { app/netperf }
+set build_components { app/netperf app/top }
 
 append_if $use_usb_driver build_components " drivers/usb_host "
 append_if $use_usb_driver build_components " drivers/usb_net  "
@@ -196,6 +196,7 @@ set config {
 		<service name="RM"/>
 		<service name="CPU"/>
 		<service name="LOG"/>
+		<service name="TRACE"/>
 	</parent-provides>
 	<default-route>
 		<any-service> <parent/> <any-child/> </any-service>
@@ -241,6 +242,13 @@ append  config { </wifi_config>
 		<provides><service name="ROM"/></provides>
 		<route>
 			<service name="File_system"> <child name="config_fs" /> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="top">
+		<resource name="RAM" quantum="4M"/>
+		<route>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>
@@ -433,7 +441,7 @@ append config {
 
 install_config $config
 
-set boot_modules { netserver }
+set boot_modules { netserver top }
 
 append_if $use_usb_driver boot_modules " [usb_host_drv_binary] "
 append_if $use_usb_driver boot_modules " usb_net_drv  "

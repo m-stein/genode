@@ -74,6 +74,7 @@ set build_components {
 	lib/vfs/wifi
 	lib/vfs/jitterentropy
 	lib/vfs/lwip
+	app/top
 }
 
 source ${genode_dir}/repos/base/run/platform_drv.inc
@@ -98,6 +99,7 @@ append config {
 		<service name="RM"/>
 		<service name="CPU"/>
 		<service name="LOG"/>
+		<service name="TRACE"/>
 	</parent-provides>
 	<default-route>
 		<any-service> <parent/> <any-child/> </any-service>
@@ -203,6 +205,13 @@ append config {
 		<config verbose="yes"/>
 	</start>
 
+	<start name="top" caps="100">
+		<resource name="RAM" quantum="4M"/>
+		<route>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
 	<start name="wifi_drv" caps="250" priority="-1">
 		<binary name="pc_wifi_drv"/>
 		<resource name="RAM" quantum="32M"/>
@@ -266,7 +275,7 @@ set boot_modules {
 	libc.lib.so vfs.lib.so libcrypto.lib.so libssl.lib.so
 	wpa_driver_nl80211.lib.so wpa_supplicant.lib.so
 	pc_wifi_drv wifi.lib.so vfs_wifi.lib.so
-	nic_router
+	nic_router top
 
 	test-lwip_httpsrv
 	vfs_lwip.lib.so
