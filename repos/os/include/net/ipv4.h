@@ -98,9 +98,6 @@ class Net::Ipv4_packet
 
 		void update_checksum(Internet_checksum_diff const &icd);
 
-		void update_checksum(Internet_checksum_diff const &icd,
-		                     Internet_checksum_diff       &caused_icd);
-
 		bool checksum_error() const;
 
 	private:
