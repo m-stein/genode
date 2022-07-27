@@ -293,26 +293,28 @@ void Interface::_destroy_link(Link &link)
 }
 
 
-void Interface::_pass_prot_to_domain(Domain             &domain,
-                                     Ethernet_frame     &eth,
-                                     Size_guard         &size_guard,
-                                     Ipv4_packet        &ip,
-                                     L3_protocol  const  prot,
-                                     void        *const  prot_base,
-                                     size_t       const  prot_size)
+void Interface::_pass_prot(Ethernet_frame       &eth,
+                           Size_guard           &size_guard,
+                           Ipv4_packet          &ip,
+                           L3_protocol    const  prot,
+                           void          *const  prot_base,
+                           size_t         const  prot_size)
 {
-	_update_checksum(
-		prot, prot_base, prot_size, ip.src(), ip.dst(), ip.total_length());
+	eth.src(_router_mac);
+	if (!_domain().use_arp()) {
+		eth.dst(_router_mac);
+	}
+	_update_checksum(prot, prot_base, prot_size, ip.src(), ip.dst(), ip.total_length());
+	_pass_ip(eth, size_guard, ip);
+}
 
+
+void Interface::_pass_ip(Ethernet_frame &eth,
+                         Size_guard     &size_guard,
+                         Ipv4_packet    &ip)
+{
 	ip.update_checksum();
-	domain.interfaces().for_each([&] (Interface &interface)
-	{
-		eth.src(_router_mac);
-		if (!domain.use_arp()) {
-			eth.dst(_router_mac);
-		}
-		interface.send(eth, size_guard);
-	});
+	send(eth, size_guard);
 }
 
 
@@ -604,9 +606,9 @@ void Interface::_nat_link_and_pass(Ethernet_frame        &eth,
 		Link_side_id const remote_id = { ip.dst(), _dst_port(prot, prot_base),
 		                                 ip.src(), _src_port(prot, prot_base) };
 		_new_link(prot, local_id, remote_port_alloc, remote_domain, remote_id);
-		_pass_prot_to_domain(
-			remote_domain, eth, size_guard, ip, prot, prot_base, prot_size);
-
+		remote_domain.interfaces().for_each([&] (Interface &interface) {
+			interface._pass_prot(eth, size_guard, ip, prot, prot_base, prot_size);
+		});
 	} catch (Port_allocator_guard::Out_of_indices) {
 		switch (prot) {
 		case L3_protocol::TCP:  _tcp_stats.refused_for_ports++;  break;
@@ -999,10 +1001,11 @@ void Interface::_handle_icmp_query(Ethernet_frame          &eth,
 			ip.dst(remote_side.src_ip());
 			_src_port(prot, prot_base, remote_side.dst_port());
 			_dst_port(prot, prot_base, remote_side.src_port());
-			_pass_prot_to_domain(
-				remote_domain, eth, size_guard, ip, prot, prot_base,
-				prot_size);
 
+			remote_domain.interfaces().for_each([&] (Interface &interface) {
+				interface._pass_prot(
+					eth, size_guard, ip, prot, prot_base, prot_size);
+			});
 			_link_packet(prot, prot_base, link, client);
 			done = true;
 		},
@@ -1246,10 +1249,11 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 				ip.dst(remote_side.src_ip());
 				_src_port(prot, prot_base, remote_side.dst_port());
 				_dst_port(prot, prot_base, remote_side.src_port());
-				_pass_prot_to_domain(
-					remote_domain, eth, size_guard, ip, prot, prot_base,
-					prot_size);
 
+				remote_domain.interfaces().for_each([&] (Interface &interface) {
+					interface._pass_prot(
+						eth, size_guard, ip, prot, prot_base, prot_size);
+				});
 				_link_packet(prot, prot_base, link, client);
 				done = true;
 			},
@@ -1326,10 +1330,11 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 
 			Domain &remote_domain = rule.domain();
 			_adapt_eth(eth, ip.dst(), pkt, remote_domain);
-			ip.update_checksum();
-			remote_domain.interfaces().for_each([&] (Interface &interface) {
-				interface.send(eth, size_guard);
-			});
+			remote_domain.interfaces().for_each(
+				[&] (Interface &interface) {
+					interface._pass_ip(eth, size_guard, ip);
+				}
+			);
 			done = true;
 		},
 		[&] /* handle_no_match */ () { }
