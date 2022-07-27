@@ -230,7 +230,6 @@ class Net::Interface : private Interface_list::Element
 		void _handle_icmp_query(Ethernet_frame          &eth,
 		                        Size_guard              &size_guard,
 		                        Ipv4_packet             &ip,
-		                        Internet_checksum_diff  &ip_icd,
 		                        Packet_descriptor const &pkt,
 		                        L3_protocol              prot,
 		                        void                    *prot_base,
@@ -240,7 +239,6 @@ class Net::Interface : private Interface_list::Element
 		void _handle_icmp_error(Ethernet_frame          &eth,
 		                        Size_guard              &size_guard,
 		                        Ipv4_packet             &ip,
-		                        Internet_checksum_diff  &ip_icd,
 		                        Packet_descriptor const &pkt,
 		                        Domain                  &local_domain,
 		                        Icmp_packet             &icmp,
@@ -249,7 +247,6 @@ class Net::Interface : private Interface_list::Element
 		void _handle_icmp(Ethernet_frame            &eth,
 		                  Size_guard                &size_guard,
 		                  Ipv4_packet               &ip,
-		                  Internet_checksum_diff    &ip_icd,
 		                  Packet_descriptor   const &pkt,
 		                  L3_protocol                prot,
 		                  void                      *prot_base,
@@ -265,7 +262,6 @@ class Net::Interface : private Interface_list::Element
 		void _nat_link_and_pass(Ethernet_frame         &eth,
 		                        Size_guard             &size_guard,
 		                        Ipv4_packet            &ip,
-		                        Internet_checksum_diff &ip_icd,
 		                        L3_protocol      const  prot,
 		                        void            *const  prot_base,
 		                        Genode::size_t   const  prot_size,
@@ -280,14 +276,13 @@ class Net::Interface : private Interface_list::Element
 		                       Size_guard     &size_guard,
 		                       Domain         &local_domain);
 
-		void _pass_prot_to_domain(Domain                       &domain,
-		                          Ethernet_frame               &eth,
-		                          Size_guard                   &size_guard,
-		                          Ipv4_packet                  &ip,
-		                          Internet_checksum_diff const &ip_icd,
-		                          L3_protocol            const  prot,
-		                          void                  *const  prot_base,
-		                          Genode::size_t         const  prot_size);
+		void _pass_prot_to_domain(Domain                &domain,
+		                          Ethernet_frame        &eth,
+		                          Size_guard            &size_guard,
+		                          Ipv4_packet           &ip,
+		                          L3_protocol     const  prot,
+		                          void           *const  prot_base,
+		                          Genode::size_t  const  prot_size);
 
 		void _handle_pkt();
 
