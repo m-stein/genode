@@ -1,0 +1,80 @@
+
+USB security tokens
+~~~~~~~~~~~~~~~~~~~
+
+With this release, Genode gains support for USB security tokens that are
+PKCS#11-compliant. A GOA-based port of the OpenSC PKCS#11-tool has become
+available in Sculpt through the package 'mstein -> tools -> pkcs11_tool'. The
+package merely requires a route to the USB session of your token device. The
+program can be configured through its launcher:
+
+! <launcher ...>
+!   ...
+!   <config>
+!
+!       <vfs>
+!         <dir name="dev">
+!           <log/> <libusb/> <dir name="pipe"> <pipe/> </dir>
+!         </dir>
+!       </vfs>
+!
+!       <libc stdout="/dev/log" stderr="/dev/log" pipe="/dev/pipe"/>
+!
+!       <arg value="pkcs11-tool" />
+!       <arg value="--module" />
+!       <arg value="opensc_pkcs11.lib.so" />
+!       <arg value="--login" />
+!       <arg value="--pin" />
+!       <arg value="123456" />
+!       <arg value="--list-objects" />
+!
+!   </config>
+! </launcher>
+
+If you want to build the tool yourself, you need to have the external sources
+from the
+[https://github.com/m-stein/goa_projects/tree/master/pkcs11_tool - m-stein/goa_projects repo]
+plus the current Genode source tree for some library dependencies. Make sure to
+have the following variables set appropriately in your '.goarc' file (example
+values):
+
+set depot_dir                        /home/martin/genode/depot/
+set depot_user                       martin
+set depot_overwrite                  1
+set version(local/api/pcsc-lite)     2022-07-01
+set version(local/src/pcsc-lite)     2022-07-01
+set version(local/src/libusb)        2022-06-30
+set version(local/src/vfs_libusb)    2022-07-01
+set version(local/api/libc)          2022-02-27
+set version(local/src/libc)          2022-06-30
+set version(local/api/posix)         2020-05-17
+set version(local/src/posix)         2022-04-12
+set version(local/api/vfs)           2022-02-27
+set version(local/src/vfs)           2022-06-30
+set version(local/src/opensc_pkcs11) 2022-07-01
+
+Build the listed src and api archives from the Genode repository into the
+configured depot directory and set the version values in the '.goarc' file
+accordingly. Now you can build and export the GOA project itself.
+
+Once you have exported the PKCS#11-tool package to the depot directory, you can
+use the 'repos/ports/run/pkcs11_tool.run' script in order to test-drive the
+program in a Qemu VM on your host Linux. The script passes through a host USB
+device to the PKCS#11 tool in the VM. Before running the script, you have to
+determine the USB bus address and device address of the token:
+
+! $ lsusb
+! ...
+! Bus 001 Device 004: ID 20a0:4108 Clay Logic Nitrokey Pro
+
+Then, you may have to make the USB device accessible to the user of the run
+script. A temporary way would be as follows:
+
+! $ sudo chmod u+rw /dev/bus/usb/001/004
+
+The run script finally can be invoked by:
+
+! $ make run/pkcs11_tool KERNEL=nova BOARD=pc USB_BUS_ADDR=1 USB_DEV_ADDR=4
+
+The PKCS#11 tool can be equipped with individual command line options inside
+the run script.
