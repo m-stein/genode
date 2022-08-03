@@ -307,9 +307,9 @@ void Interface::_pass_prot_to_domain(Domain             &domain,
 	ip.update_checksum();
 	domain.interfaces().for_each([&] (Interface &interface)
 	{
-		eth.src(_router_mac);
+		eth.src(interface._router_mac);
 		if (!domain.use_arp()) {
-			eth.dst(_router_mac);
+			eth.dst(interface._router_mac);
 		}
 		interface.send(eth, size_guard);
 	});
