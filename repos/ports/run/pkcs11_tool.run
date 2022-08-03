@@ -1,36 +1,56 @@
 #
-# Check that host device parameters are set for Qemu
+# This script can be used to run the ported PKCS#11 tool (see
+# https://github.com/m-stein/goa_projects/tree/master/pkcs11_tool) on Genode
+# within Qemu. The script configures Qemu to pass-through the USB token
+# device from the Linux host into the Qemu VM. In order to run the script,
+# you have to determine the USB bus address and device address of the
+# token first:
 #
-if {[have_include power_on/qemu]} {
+# $ lsusb
+# ...
+# Bus 001 Device 004: ID 20a0:4108 Clay Logic Nitrokey Pro
+#
+# Then, you may have to make the USB device accessible to the user of the run
+# script. A temporary way would be as follows:
+#
+# $ sudo chmod u+rw /dev/bus/usb/001/004
+#
+# The run script finally can be invoked by:
+#
+# $ make run/pkcs11_tool KERNEL=nova BOARD=pc USB_BUS_ADDR=1 USB_DEV_ADDR=4
+#
+# The device is then driven by the Genode USB driver which, in turn, provides
+# it through a USB session to the PKCS#11 tool. The PKCS#11 tool can be
+# equipped with individual command line options inside the run script. Some
+# typical commands can be easily selected through the test_id parameter in
+# the script.
+#
 
-	if {![info exists ::env(USB_BUS_ADDR)]} {
-		puts "\nPlease define the USB_BUS_ADDR environment variable\n"
-		exit 0
-	}
-	set usb_bus_addr $::env(USB_BUS_ADDR)
-
-	if {![info exists ::env(USB_DEV_ADDR)]} {
-		puts "\nPlease define the USB_DEV_ADDR environment variable\n"
-		exit 0
-	}
-	set usb_dev_addr $::env(USB_DEV_ADDR)
+if {[expr ![have_include power_on/qemu]]} {
+	puts "Run script is not supported on this platform."
+	exit 0
 }
+
+if {![info exists ::env(USB_BUS_ADDR)]} {
+	puts "\nPlease define the USB_BUS_ADDR environment variable\n"
+	exit 0
+}
+set usb_bus_addr $::env(USB_BUS_ADDR)
+
+if {![info exists ::env(USB_DEV_ADDR)]} {
+	puts "\nPlease define the USB_DEV_ADDR environment variable\n"
+	exit 0
+}
+set usb_dev_addr $::env(USB_DEV_ADDR)
 
 #
 # 0 show help
-# 1 show token info
-# 2 list token objects
-# 3 delete key pair
+# 1 show info
+# 2 list objects
+# 3 delete object
 # 4 generate key pair
 #
-set test_id 0
-
-
-#
-# Ensure that we have permission to access the usb device
-#
-#exec sudo chmod a+rw /dev/bus/usb/$usb_bus_addr/$usb_dev_addr
-
+set test_id 2
 
 #
 # Build
@@ -41,7 +61,6 @@ set build_components {
 	timer
 	drivers/usb_host
 	server/report_rom
-
 	lib/vfs/pipe
 }
 
@@ -64,11 +83,8 @@ import_from_depot [depot_user]/src/pkcs11_tool/2022-06-21 \
                   [depot_user]/src/libusb \
                   [depot_user]/src/vfs_libusb
 
-#
-# Generate config
-#
-
 append config {
+
 <config verbose="yes">
 	<parent-provides>
 		<service name="ROM"/>
@@ -226,31 +242,24 @@ append config {
 
 </config> }
 
-
 install_config $config
 
-#
-# Boot modules
-#
-
-# generic modules
-set boot_modules {
+append boot_modules {
 	core
 	ld.lib.so
 	init
 	timer
+	} [usb_host_drv_binary] {
 	report_rom
-
 	vfs_pipe.lib.so
 }
-
-
-append boot_modules [usb_host_drv_binary]
 
 append_platform_drv_boot_modules
 
 build_boot_image $boot_modules
 
-append qemu_args " -nographic -device nec-usb-xhci,id=xhci -device usb-host,hostbus=$usb_bus_addr,hostaddr=$usb_dev_addr,bus=xhci.0 -nographic"
+append qemu_args " -nographic "
+append qemu_args " -device nec-usb-xhci,id=xhci "
+append qemu_args " -device usb-host,hostbus=$usb_bus_addr,hostaddr=$usb_dev_addr,bus=xhci.0 "
 
 run_genode_until forever
