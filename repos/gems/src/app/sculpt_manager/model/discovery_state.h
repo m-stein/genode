@@ -52,6 +52,9 @@ struct Sculpt::Discovery_state
 		if (!all_devices_discovered)
 			return Storage_target { };
 
+		_done = true;
+		return { "ram_fs", Partition::Number() };
+
 		/*
 		 * Search for a partition with the magic label "GENODE*", or - if no
 		 * such partition is present - a whole-device file system.
