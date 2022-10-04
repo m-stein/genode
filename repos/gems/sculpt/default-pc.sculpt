@@ -11,6 +11,7 @@ launcher: vm_fs shared_fs usb_devices_rom
 
 build: app/driver_manager
 build: drivers/platform drivers/usb_host drivers/wifi drivers/framebuffer/intel
+build: app/pci_decode
 
 # selection of accepted depot-package providers
 depot: genodelabs cnuke alex-ab mstein nfeske cproc chelmuth jschlatow
