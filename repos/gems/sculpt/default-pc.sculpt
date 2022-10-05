@@ -15,4 +15,4 @@ build: app/pci_decode
 
 # selection of accepted depot-package providers
 depot: genodelabs cnuke alex-ab mstein nfeske cproc chelmuth jschlatow
-depot: ssumpf skalk
+depot: ssumpf skalk nfeske_test
