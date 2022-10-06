@@ -66,6 +66,8 @@ class Net::Configuration
 
 	public:
 
+		Net::Domain_name const verbose_tls_label;
+
 		Configuration(Genode::Xml_node  const  node,
 		              Genode::Allocator       &alloc);
 

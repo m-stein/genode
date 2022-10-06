@@ -189,7 +189,7 @@ append config {
 
 append_if [expr ![nic_router_2_managed]] config {
 
-		<config verbose_packets="no">
+		<config verbose_packets="no" verbose_tls_label="test_client -> ">
 
 			<policy label="test_client -> " domain="downlink"/>
 			<nic-client                     domain="uplink"/>

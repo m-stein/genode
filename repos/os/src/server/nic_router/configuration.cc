@@ -46,7 +46,8 @@ Configuration::Configuration(Xml_node const  node,
 	_udp_idle_timeout               { 0 },
 	_tcp_idle_timeout               { 0 },
 	_tcp_max_segm_lifetime          { 0 },
-	_node                           { node }
+	_node                           { node },
+	verbose_tls_label               { }
 { }
 
 
@@ -128,7 +129,8 @@ Configuration::Configuration(Env                             &env,
 	_udp_idle_timeout               { read_sec_attr(node,  "udp_idle_timeout_sec",      30) },
 	_tcp_idle_timeout               { read_sec_attr(node,  "tcp_idle_timeout_sec",      600) },
 	_tcp_max_segm_lifetime          { read_sec_attr(node,  "tcp_max_segm_lifetime_sec", 30) },
-	_node                           { node }
+	_node                           { node },
+	verbose_tls_label               { node.attribute_value("verbose_tls_label", Domain_name { }) }
 {
 	/* do parts of domain initialization that do not lookup other domains */
 	node.for_each_sub_node("domain", [&] (Xml_node const node) {

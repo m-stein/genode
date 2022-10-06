@@ -48,10 +48,13 @@ Interface_policy::Interface_policy(Genode::Session_label const &label,
                                    Session_env           const &session_env,
                                    Configuration         const &config)
 :
-	_label       { label },
-	_config      { config },
-	_session_env { session_env }
+	_label                { label },
+	_config               { config },
+	_session_env          { session_env },
+	_transient_link_state { DOWN },
+	_verbose_tls          { _config().verbose_tls_label == _label }
 {
+	_log_tls(false);
 	_session_link_state_transition(DOWN);
 }
 
@@ -79,9 +82,10 @@ Net::Nic_session_component::Interface_policy::determine_domain_name() const
 
 
 void Net::Nic_session_component::
-Interface_policy::_session_link_state_transition(Transient_link_state tls)
+Interface_policy::_session_link_state_transition(Transient_link_state tls, bool ack)
 {
 	_transient_link_state = tls;
+	_log_tls(true, ack);
 	Signal_transmitter(_session_link_state_sigh).submit();
 }
 
@@ -100,11 +104,13 @@ Nic_session_component::Interface_policy::handle_domain_ready_state(bool state)
 		case DOWN:
 
 			_transient_link_state = DOWN_UP;
+			_log_tls(false);
 			break;
 
 		case UP_DOWN:
 
 			_transient_link_state = UP_DOWN_UP;
+			_log_tls(false);
 			break;
 
 		case DOWN_UP:
@@ -114,6 +120,7 @@ Nic_session_component::Interface_policy::handle_domain_ready_state(bool state)
 		case DOWN_UP_DOWN:
 
 			_transient_link_state = DOWN_UP;
+			_log_tls(false);
 			break;
 
 		case UP_ACKNOWLEDGED: break;
@@ -132,11 +139,13 @@ Nic_session_component::Interface_policy::handle_domain_ready_state(bool state)
 		case UP:
 
 			_transient_link_state = UP_DOWN;
+			_log_tls(false);
 			break;
 
 		case DOWN_UP:
 
 			_transient_link_state = DOWN_UP_DOWN;
+			_log_tls(false);
 			break;
 
 		case UP_DOWN:
@@ -146,6 +155,7 @@ Nic_session_component::Interface_policy::handle_domain_ready_state(bool state)
 		case UP_DOWN_UP:
 
 			_transient_link_state = UP_DOWN;
+			_log_tls(false);
 			break;
 
 		case DOWN_ACKNOWLEDGED: break;
@@ -173,6 +183,32 @@ Net::Nic_session_component::Interface_policy::interface_link_state() const
 }
 
 
+char const *
+Net::Nic_session_component::Interface_policy::_tls_name()
+{
+	switch (_transient_link_state) {
+	case DOWN_ACKNOWLEDGED: return "DOWN_ACKNOWLEDGED";
+	case DOWN:              return "DOWN             ";
+	case DOWN_UP:           return "DOWN_UP          ";
+	case DOWN_UP_DOWN:      return "DOWN_UP_DOWN     ";
+	case UP_ACKNOWLEDGED:   return "UP_ACKNOWLEDGED  ";
+	case UP:                return "UP               ";
+	case UP_DOWN:           return "UP_DOWN          ";
+	case UP_DOWN_UP:        return "UP_DOWN_UP       ";
+	}
+	class Never_reached { };
+	throw Never_reached { };
+}
+
+
+void Net::Nic_session_component::Interface_policy::_log_tls(bool submit, bool ack)
+{
+	if (_verbose_tls) {
+		log("### ", _label, ": ack=", ack, " tls=", _tls_name(), " sigh=", _session_link_state_sigh.valid(), " submit=", submit);
+	}
+}
+
+
 bool
 Net::Nic_session_component::Interface_policy::read_and_ack_session_link_state()
 {
@@ -184,16 +220,17 @@ Net::Nic_session_component::Interface_policy::read_and_ack_session_link_state()
 	case DOWN:
 
 		_transient_link_state = DOWN_ACKNOWLEDGED;
+		_log_tls(false, true);
 		return false;
 
 	case DOWN_UP:
 
-		_session_link_state_transition(UP);
+		_session_link_state_transition(UP, true);
 		return false;
 
 	case DOWN_UP_DOWN:
 
-		_session_link_state_transition(UP_DOWN);
+		_session_link_state_transition(UP_DOWN, true);
 		return false;
 
 	case UP_ACKNOWLEDGED:
@@ -203,16 +240,17 @@ Net::Nic_session_component::Interface_policy::read_and_ack_session_link_state()
 	case UP:
 
 		_transient_link_state = UP_ACKNOWLEDGED;
+		_log_tls(false, true);
 		return true;
 
 	case UP_DOWN:
 
-		_session_link_state_transition(DOWN);
+		_session_link_state_transition(DOWN, true);
 		return true;
 
 	case UP_DOWN_UP:
 
-		_session_link_state_transition(DOWN_UP);
+		_session_link_state_transition(DOWN_UP, true);
 		return true;
 	}
 	class Never_reached { };

@@ -94,10 +94,15 @@ class Net::Nic_session_component : private Nic_session_component_base,
 				Genode::Session_label    const  _label;
 				Const_reference<Configuration>  _config;
 				Genode::Session_env      const &_session_env;
-				Transient_link_state            _transient_link_state    { DOWN_ACKNOWLEDGED };
+				Transient_link_state            _transient_link_state;
+				bool                            _verbose_tls;
 				Signal_context_capability       _session_link_state_sigh { };
 
-				void _session_link_state_transition(Transient_link_state tls);
+				char const * _tls_name();
+
+				void _log_tls(bool submit, bool ack = false);
+
+				void _session_link_state_transition(Transient_link_state tls, bool ack = false);
 
 			public:
 
