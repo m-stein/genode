@@ -10,7 +10,7 @@ import: pkg/drivers_managed-pc pkg/wifi src/ipxe_nic_drv
 launcher: vm_fs shared_fs usb_devices_rom
 
 build: app/driver_manager app/sculpt_manager
-build: drivers/platform drivers/usb_host drivers/wifi drivers/framebuffer/intel
+build: drivers/platform drivers/nic
 build: app/pci_decode
 
 # selection of accepted depot-package providers

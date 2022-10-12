@@ -99,8 +99,12 @@ class Platform::Connection : public Genode::Connection<Session>,
 
 		Capability<Device_interface> acquire_device(Device_name const &name) override
 		{
+
+//	Genode::log(">>> ", __func__ ," ",__LINE__ );
 			return _wait_for_device([&] () {
 				return retry_with_upgrade(Ram_quota{6*1024}, Cap_quota{6}, [&] () {
+
+//	Genode::log(">>> ", __func__ ," ",__LINE__ );
 					return Client::acquire_device(name); });
 			});
 		}

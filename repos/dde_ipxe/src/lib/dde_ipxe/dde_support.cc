@@ -181,6 +181,8 @@ struct Pci_driver
 
 	Pci_driver(Genode::Env &env) : _env(env)
 	{
+
+//	Genode::log(">>> ", __func__ ," ",__LINE__ );
 		_pci.update();
 		_pci.with_xml([&] (Xml_node node) {
 			node.with_optional_sub_node("device", [&] (Xml_node node)

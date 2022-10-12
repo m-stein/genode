@@ -76,7 +76,7 @@ class Driver::Device_pd
 		          Ram_quota_guard &ram_guard,
 		          Cap_quota_guard &cap_guard);
 
-		void attach_dma_mem(Dataspace_capability, addr_t dma_addr);
+		void attach_dma_mem(Dataspace_capability, addr_t dma_addr, bool debug=false);
 		void assign_pci(Io_mem_dataspace_capability const, Pci::Bdf const);
 };
 

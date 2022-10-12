@@ -32,6 +32,7 @@ Session_component::_acquire(Device & device)
 
 void Session_component::_release_device(Device_component & dc)
 {
+	if (_debug) { Genode::log("### ", __func__ ," ",__LINE__ ); }
 	Device::Name name = dc.device();
 	_env.ep().rpc_ep().dissolve(&dc);
 	destroy(heap(), &dc);
@@ -43,6 +44,7 @@ void Session_component::_release_device(Device_component & dc)
 
 void Session_component::_free_dma_buffer(Dma_buffer & buf)
 {
+	if (_debug) { log("### ", __func__, " ", __LINE__, " ", &buf); }
 	Ram_dataspace_capability cap = buf.cap;
 	destroy(heap(), &buf);
 	_env_ram.free(cap);
@@ -131,6 +133,7 @@ Genode::Rom_session_capability Session_component::devices_rom() {
 Genode::Capability<Platform::Device_interface>
 Session_component::acquire_device(Platform::Session::Device_name const &name)
 {
+	if (_debug) { Genode::log("### ", __func__, " ",__LINE__ ); }
 	Capability<Platform::Device_interface> cap;
 
 	_devices.for_each([&] (Device & dev)
@@ -152,9 +155,15 @@ Session_component::acquire_single_device()
 {
 	Capability<Platform::Device_interface> cap;
 
+	if (_debug) { Genode::log("### acquire_single_device ",__LINE__ ); }
+
 	_devices.for_each([&] (Device & dev) {
 		if (!cap.valid() && matches(dev) && !dev.owner().valid())
-			cap = _acquire(dev); });
+{
+	if (_debug) { Genode::log("### acquire_single_device ",__LINE__ ); }
+			cap = _acquire(dev);
+}
+});
 
 	return cap;
 }
@@ -162,6 +171,7 @@ Session_component::acquire_single_device()
 
 void Session_component::release_device(Capability<Platform::Device_interface> device_cap)
 {
+	if (_debug) { Genode::log("### ", __func__, " ",__LINE__ ); }
 	if (!device_cap.valid())
 		return;
 
@@ -185,7 +195,9 @@ Session_component::alloc_dma_buffer(size_t const size, Cache cache)
 	try {
 		Dma_buffer & buf =
 			*(new (heap()) Dma_buffer(_buffer_registry, ram_cap));
-		_device_pd.attach_dma_mem(ram_cap, _env.pd().dma_addr(buf.cap));
+
+	if (_debug) { log("### ", __func__, " ", __LINE__, " ", &buf); }
+		_device_pd.attach_dma_mem(ram_cap, _env.pd().dma_addr(buf.cap), _debug);
 	} catch (Out_of_ram)  {
 		_env_ram.free(ram_cap);
 		throw;
@@ -204,7 +216,10 @@ void Session_component::free_dma_buffer(Ram_dataspace_capability ram_cap)
 
 	_buffer_registry.for_each([&] (Dma_buffer & buf) {
 		if (buf.cap.local_name() == ram_cap.local_name())
-			_free_dma_buffer(buf); });
+{
+			_free_dma_buffer(buf);
+}
+});
 }
 
 
@@ -238,6 +253,12 @@ Session_component::Session_component(Env                          & env,
 	Dynamic_rom_session::Xml_producer("devices"),
 	_env(env), _config(config), _devices(devices), _info(info), _version(version)
 {
+	log("### ",__func__, " " ,__LINE__, " ", label);
+	if (label.last_element() == "nic") {
+		error("### ",__func__, " " ,__LINE__);
+		_debug = true;
+	}
+
 	/*
 	 * FIXME: As the ROM session does not propagate Out_of_*
 	 *        exceptions resp. does not account costs for the ROM

@@ -117,6 +117,7 @@ class Driver::Session_component
 		Device_capability _acquire(Device & device);
 		void              _release_device(Device_component & dc);
 		void              _free_dma_buffer(Dma_buffer & buf);
+		bool _debug {false};
 		
 		/*
 		 * Noncopyable

@@ -68,12 +68,16 @@ void Device_pd::Region_map_client::upgrade_caps()
 
 
 void Device_pd::attach_dma_mem(Dataspace_capability ds_cap,
-                               addr_t const         dma_addr)
+                               addr_t const         dma_addr,
+bool debug)
 {
 	using namespace Genode;
 
+	
+
 	bool             retry = false;
 	Dataspace_client ds_client(ds_cap);
+	if (debug) { log("### ", __func__, " ", __LINE__, " ", Hex(dma_addr), " ", Hex(ds_client.size()));}
 
 	do {
 		_pd.attach_dma(ds_cap, dma_addr).with_result(
