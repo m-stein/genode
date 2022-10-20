@@ -25,9 +25,12 @@
 #pragma GCC diagnostic ignored "-Wconversion"
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h> /* perror */
+#include <linux/fs.h>
+
 #pragma GCC diagnostic pop  /* restore -Wconversion warnings */
 
 static bool xml_attr_ok(Genode::Xml_node node, char const *attr)
@@ -42,7 +45,13 @@ class Lx_block_driver : public Block::Driver
 
 		Genode::Env &_env;
 
-		Block::Session::Info const _info;
+		Block::Session::Info _info;
+
+		/*
+		 * We observed (SmartCard-HSM 4K Swissbit MicroSD) that the block
+		 * size of a special block device is 0 when read via a 'stat' call.
+		 */
+		bool const _special_blk_dev { _info.block_count == 0 };
 
 		typedef Genode::String<256> File_name;
 
@@ -82,6 +91,23 @@ class Lx_block_driver : public Block::Driver
 
 		int _fd { -1 };
 
+		void _check_buf_alignm(char const *buf) const
+		{
+			using namespace Genode;
+			if (!_special_blk_dev) {
+				return;
+			}
+			/*
+			 * We observed (SmartCard-HSM 4K Swissbit MicroSD) that the buffer
+			 * for accessing a special block device must be block size aligned.
+			 * Note that we open such devices with O_DIRECT.
+			 */
+			if (!aligned((addr_t)buf, (unsigned)_info.align_log2)) {
+				Genode::warning("buffer for special block device not aligned");
+				throw Io_error();
+			}
+		}
+
 	public:
 
 		struct Could_not_open_file : Genode::Exception { };
@@ -93,13 +119,62 @@ class Lx_block_driver : public Block::Driver
 			_info(_init_info(config))
 		{
 			/* open file */
+			int flags { 0 };
+			if (_info.writeable) {
+				flags |= O_RDWR;
+			} else {
+				flags |= O_RDONLY;
+			}
+			if (_special_blk_dev) {
+				flags |= O_SYNC | O_DIRECT;
+			}
 			File_name const file_name = _file_name(config);
-			_fd = open(file_name.string(), _info.writeable ? O_RDWR : O_RDONLY);
+			_fd = open(file_name.string(), flags);
+
 			if (_fd == -1) {
 				Genode::error("open ", file_name.string());
 				throw Could_not_open_file();
 			}
+			/*
+			 * In case we're dealing with a special block device, we
+			 * observed (SmartCard-HSM 4K Swissbit MicroSD), that the 'stat'
+			 * call used to initialize the device info doesn't yield the
+			 * correct values for block count and block size. We rather have
+			 * to use 'ioctl' calls for that.
+			 */
+			if (_special_blk_dev) {
 
+				Genode::uint64_t blk_dev_size { 0 };
+				Genode::uint64_t blk_size     { 0 };
+				Genode::uint64_t sector_size  { 0 };
+
+				int ret { 0 };
+				ret = ioctl(_fd, BLKBSZGET, &blk_size);
+				if (ret == 0) {
+
+					ret = ioctl(_fd, BLKSSZGET, &sector_size);
+					if (ret == 0) {
+
+						/*
+						 * If the sector size is smaller than the block size,
+						 * we observed (SmartCard-HSM 4K Swissbit MicroSD) that
+						 * the block size changes to the sector size when
+						 * mounting the device.
+						 */
+						if (sector_size < blk_size) {
+							blk_size = sector_size;
+						}
+						ret = ioctl(_fd, BLKGETSIZE64, &blk_dev_size);
+						if (ret == 0) {
+
+							_info.block_size  = blk_size;
+							_info.block_count = blk_dev_size / blk_size;
+							_info.align_log2  = Genode::log2(blk_size);
+						}
+					}
+
+				}
+			}
 			Genode::log("Provide '", file_name, "' as block device "
 			            "block_size:  ", _info.block_size, " "
 			            "block_count: ", _info.block_count, " "
@@ -125,6 +200,8 @@ class Lx_block_driver : public Block::Driver
 		          char                     *buffer,
 		          Block::Packet_descriptor &packet) override
 		{
+			_check_buf_alignm(buffer);
+
 			Block::sector_t const offset = block_number * _info.block_size;
 			size_t          const count  = block_count  * _info.block_size;
 
@@ -142,6 +219,8 @@ class Lx_block_driver : public Block::Driver
 		           char const               *buffer,
 		           Block::Packet_descriptor &packet) override
 		{
+			_check_buf_alignm(buffer);
+
 			/* range check is done by Block::Driver */
 			if (!_info.writeable) {
 				throw Io_error();
