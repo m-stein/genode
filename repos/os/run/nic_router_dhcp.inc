@@ -58,7 +58,8 @@ append config {
 						<domain name="downlink" interface="10.2.3.1/24">
 
 							<dhcp-server ip_first="10.2.3.2"
-							             ip_last="10.2.3.2">
+							             ip_last="10.2.3.2"
+							             ip_lease_time_sec="1">
 
 								<dns-server ip="1.2.3.4"/>
 								<dns-server ip="2.3.4.5"/>

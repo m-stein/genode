@@ -55,6 +55,20 @@ Ipv4_config::Ipv4_config(Ipv4_config const &ip_config,
 }
 
 
+Ipv4_config::Ipv4_config(Ipv4_config const &ip_config)
+:
+	_alloc      { ip_config._alloc },
+	_interface  { ip_config._interface },
+	_gateway    { ip_config._gateway }
+{
+	ip_config.for_each_dns_server([&] (Dns_server const &dns_server) {
+		_dns_servers.insert_as_tail(
+			*new (_alloc) Dns_server(dns_server.ip()));
+	});
+	_dns_domain_name.set_to(ip_config.dns_domain_name());
+}
+
+
 Ipv4_config::Ipv4_config(Dhcp_packet  &dhcp_ack,
                          Allocator    &alloc,
                          Domain const &domain)
