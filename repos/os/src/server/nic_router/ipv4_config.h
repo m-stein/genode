@@ -59,6 +59,8 @@ class Net::Ipv4_config
 		Ipv4_config(Ipv4_config const &ip_config,
 		            Genode::Allocator &alloc);
 
+		Ipv4_config(Ipv4_config const &ip_config);
+
 		Ipv4_config(Genode::Allocator &alloc);
 
 		~Ipv4_config();
