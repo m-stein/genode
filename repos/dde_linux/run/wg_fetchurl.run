@@ -13,11 +13,19 @@ if {[expr ![have_spec arm_64] && ![have_spec x86_64]]} {
 	exit 0
 }
 
+if {[have_spec linux]} {
+	set linux 1
+	set not_linux 0
+} else {
+	set linux 0
+	set not_linux 1
+}
+
 #
 # Note that in the not_linux case, the file size is rounded
 # down to a multiple of 100.
 #
-set file_size_in_bytes 100
+set file_size_in_bytes 1000000
 
 create_boot_directory
 
@@ -70,6 +78,23 @@ append config {
 		</route>
 	</start> }
 
+append_if $linux config {
+
+	<start name="lx_fs" ld="no" caps="1000">
+		<resource name="RAM" quantum="4M"/>
+		<provides> <service name="File_system"/> </provides>
+		<config>
+			<policy label_prefix="fetchurl" root="/fetchurl_fs/" writeable="yes"/>
+			<policy label_prefix="lighttpd" root="/lighttpd_fs/" writeable="yes"/>
+		</config>
+		<route>
+			<service name="ROM"> <parent/> </service>
+			<service name="PD">  <parent/> </service>
+			<service name="CPU"> <parent/> </service>
+			<service name="LOG"> <parent/> </service>
+		</route>
+	</start> }
+
 append config {
 
 	<start name="fetchurl" caps="300">
@@ -87,7 +112,11 @@ append config {
 				</dir>
 				<dir name="vm"> }
 
-append config {
+append_if $linux config {
+
+					<fs/> }
+
+append_if $not_linux config {
 
 					<ram/> }
 
@@ -298,6 +327,12 @@ EpA5DBBklj8UE2CdONvN
 				</dir>
 				<dir name="website"> }
 
+append_if $linux config {
+
+					<fs/> }
+
+if {$not_linux} {
+
 	append config {<inline name="index.html">}
 	for {set i 0} {$i < $file_size_in_bytes} {incr i 64} {
 
@@ -305,6 +340,7 @@ EpA5DBBklj8UE2CdONvN
 		append config {0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000}
 	}
 	append config {</inline>}
+}
 
 append config {
 
@@ -338,7 +374,23 @@ append targets {
 
 append boot_modules {
 	core init timer nic_router wireguard fetchurl report_rom curl.lib.so
-	ld.lib.so wireguard_gen_psk.lib.so stdcxx.lib.so }
+	ld.lib.so }
+
+if $linux {
+
+	append targets { server/lx_fs }
+	append boot_modules { lx_fs }
+
+	# create the lx_fs root of fetchurl where it will store the downloaded file
+	proc lx_fs_root {} { return [run_dir]/genode }
+	exec rm -rf [lx_fs_root]/fetchurl_fs
+	exec mkdir -p [lx_fs_root]/fetchurl_fs
+
+	# create the lx_fs root of lighttpd and the downloadable file inside it
+	exec rm -rf [lx_fs_root]/lighttpd_fs
+	exec mkdir -p [lx_fs_root]/lighttpd_fs
+	exec head -c $file_size_in_bytes /dev/zero > [lx_fs_root]/lighttpd_fs/index.html
+}
 
 build $targets
 
@@ -348,3 +400,22 @@ append qemu_args "-nographic "
 
 # run the scenario till fetchurl succeeded to download the file
 run_genode_until "fetchurl. exited with exit value 0.*\n" 60
+
+if {$linux} {
+
+	# check that the md5 sum of the downloaded file is correct
+	set lighttpd_index_md5 [exec md5sum [lx_fs_root]/lighttpd_fs/index.html]
+	set fetchurl_index_md5 [exec md5sum [lx_fs_root]/fetchurl_fs/index.html]
+
+	puts ""
+	puts $lighttpd_index_md5
+	puts $fetchurl_index_md5
+	puts "MD5SUM of transferred files is correct"
+
+	if {[string compare -length 32 $lighttpd_index_md5 $fetchurl_index_md5]} {
+		puts ""
+		puts "Error: MD5SUM of transferred files is incorrect"
+		puts ""
+		exit -1
+	}
+}
