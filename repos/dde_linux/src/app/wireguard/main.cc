@@ -39,6 +39,8 @@ using namespace Genode;
 
 namespace Wireguard { class  Main; }
 
+extern "C" int generate_psk();
+
 
 class Wireguard::Main : private Entrypoint::Io_progress_handler,
                         private Nic_connection_notifier
@@ -97,6 +99,8 @@ class Wireguard::Main : private Entrypoint::Io_progress_handler,
 
 			/* trigger signal handling once after construction */
 			Signal_transmitter(_signal_handler).submit();
+
+			log("------------- generate_psk: ", generate_psk());
 		}
 
 		/**
