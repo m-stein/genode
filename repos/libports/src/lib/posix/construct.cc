@@ -34,7 +34,9 @@ static void construct_component(Libc::Env &env)
 
 	environ = envp;
 
-	exit(main(argc, argv, envp));
+	int const result { main(argc, argv, envp) };
+	Genode::log("POSIX component exits with return value ", result);
+	exit(result);
 }
 
 
