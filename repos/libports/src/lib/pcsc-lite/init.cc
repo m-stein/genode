@@ -21,9 +21,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-/* libusb includes */
-#include <libusb.h>
-
 /* pcsc-lite includes */
 extern "C" {
 #include <debuglog.h>
@@ -50,36 +47,10 @@ struct Pcsc_lite_initializer
 		 * and add it as reader.
 		 */
 
-		libusb_context *ctx = nullptr;
-
-		libusb_init(&ctx);
-
-		libusb_device **devs = nullptr;
-
-		if (libusb_get_device_list(ctx, &devs) < 1) {
-			Genode::error("Could not find a USB device.");
-			exit(1);
-		}
-
-		struct libusb_device_descriptor device_descriptor;
-
-		if (libusb_get_device_descriptor(devs[0], &device_descriptor) < 0) {
-			Genode::error("Could not read the device descriptor of the "
-			              "USB device.");
-			exit(1);
-		}
-
-		libusb_free_device_list(devs, 1);
-
-		libusb_exit(ctx);
-
-		char device[14];
-
-		snprintf(device, sizeof(device), "usb:%04x/%04x",
-		         device_descriptor.idVendor, device_descriptor.idProduct);
+		char device[] { 0 };
 
 		RFAllocateReaderSpace(0);
-		(void)RFAddReader("CCID", 0, "/", device);
+		(void)RFAddReader("Secure Flash Card", 0, "/", device);
 	}
 };
 

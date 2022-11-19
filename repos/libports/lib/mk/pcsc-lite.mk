@@ -2,7 +2,7 @@ PCSC_LITE_DIR := $(call select_from_ports,pcsc-lite)/src/lib/pcsc-lite
 
 include $(call select_from_repositories,lib/import/import-pcsc-lite.mk)
 
-LIBS += ccid libc libusb
+LIBS += ifd_sfc libc
 
 # find 'config.h'
 INC_DIR += $(REP_DIR)/src/lib/pcsc-lite
@@ -44,7 +44,7 @@ CC_OPT_winscard = -DSCardEstablishContext=SCardEstablishContextImpl \
                   -DSCardGetAttrib=SCardGetAttribImpl \
                   -DSCardSetAttrib=SCardSetAttribImpl \
                   -DSCardTransmit=SCardTransmitImpl
-                  
+
 vpath %.c $(PCSC_LITE_DIR)/src
 vpath %.cc $(REP_DIR)/src/lib/pcsc-lite
 
