@@ -216,131 +216,33 @@ the matching sub node, and one that is called if no such sub node exists.
 NIC router
 ==========
 
-; @m-stein
+The NIC router now generates reports triggered by internal events
+(re-configuration, link state change, etc.) asynchronously. This has the
+benefit that the potentially expensive report update does not delay the event
+processing that triggered the update and that a report is guaranteed to reflect
+a consistent state of the router's internals.
 
-commit b82d83e2716f78534686c31ec394e8f02d2a5a0d
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Wed Sep 7 10:43:53 2022 +0200
+Furthermore, if the <report> flag 'link_state_triggers' is set, the router now
+updates the report also whenever a network session gets constructed or
+destructed. This is definitely necessary with sessions whose link state
+is "up" because we should consider a non-existent session to be "down".
+However, in real-world scenarios, a subscriber might want to know about the
+construction and destruction of sessions that are "down" as well because he
+has to be able to synchronize the lifetime of local objects that keep track
+of the link states.
 
-    nic_router: handle bad DNS in DHCP ACK gracefully
-    
-    The DHCP client of the NIC router used to end up in an uncaught exception if
-    an IP address in the DNS server option of a DHCP ACK was invalid. This commit
-    makes the 'Dns_server' constructor (where the exception originated from)
-    private and instead introduces a public lambda method 'construct' that calls
-    one lambda argument on success and another on failure. This is also in line
-    with the most recent changes to the 'find_by_*' methods of other classes in
-    the NIC router and contributes to the goal of reducing expensive exception
-    handling.
-    
-    Fixes #4465
-
-commit aff1db15433dd107ff6ab9fb3be094f9e9d9ab42
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Wed Sep 7 14:44:39 2022 +0200
-
-    nic_router: generate reports asynchronously
-    
-    The NIC router used to generate reports triggered by IP config changes or link
-    state changes synchonously, i.e., inline with the activation context that
-    caused the change. This has two disadvantages. First, it can lead to an
-    excessive number of report updates in situations with quick bursts of
-    triggering changes. In such situations it is preferable to collect the changes
-    and reflect them with only one final report update.
-    
-    Second, synchronous reporting may happen while the router is in a state that
-    leads to an incorrect report (e.g. during reconfiguration). To prevent this
-    from happening, the router so far explicitely switched off reporting when
-    entering incoherent states and back on when leaving them. However, this
-    solution is error-prone as the exclusion windows must be maintained manually.
-    
-    Both issues can be solved by not directly generating a report when necessary
-    but instead submitting a signal and letting the signal handler do the work in
-    a dedicated activation context.
-    
-    Ref #4462
-
-commit 79cc9af2121442a7933cebe749b5a8f05306c679
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Wed Sep 7 20:24:10 2022 +0200
-
-    nic_router: intf. con/destruct reports link state
-    
-    Creating and destructing an interface was not considered a change of its real
-    link state as defined in the description of the <report link_state_triggers="">
-    config attribute in the router's README. In case of Uplink sessions this is
-    obviously a problem as they communicate their real link state through session
-    lifetime. But also in case of NIC sessions it's a possible to create an
-    interface that is immediately "up" after creation or destruct an interface
-    without its link state going "down" beforehand.
-    
-    Taking into account also the practical application of the
-    <report link_state_triggers=""> attribute, reporting only on destruction and
-    construction of interfaces that are "up" seems shorthanded. This is because a
-    report-receiver most likely needs to be able to synchronize the lifetime of
-    the objects that keep track of the link states with the lifetime of the
-    corresponding sessions.
-    
-    That said, with this commit, the router triggers a report update on each
-    session construction/destruction when <report link_state_triggers=""> is
-    set.
-    
-    Fixes #4462
-
-commit 99254b4d52ace5f663cb5af43fd42783a2ffaa4a
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Wed Sep 14 14:30:56 2022 +0200
-
-    nic_router: bind link state to remote DNS config
-    
-    The NIC router README claims that the 'dns_config_from' attribute in a DHCP
-    server configuration binds the propagated link state of all interfaces at the
-    domain of the server to the validity of the IP config of the domain that is
-    given through 'dns_config_from'.
-    
-    However, this was not true. The router missed to implement this detail which
-    led to clients of such a DHCP server sending DHCP DISCOVER packets too early.
-    These early DHCP DISCOVER packets were dropped by the router potentially
-    causing a big delay until the client started a new attempt. Unnecessary long
-    network boot-up delays were observed with at least the lwip run script and
-    Sculpt on the PinePhone and could be tracked down to this former
-    inconsistency in the router.
-    
-    This commit fixes the inconsistency.
-    
-    Fixes #4612
-
-commit f59ee209d2177a2978791a226dde74d332d4bdf5
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Mon Sep 26 16:03:37 2022 +0200
-
-    nic_router: use exact packet sizes in dhcp client
-    
-    The DHCP client used to always send packets with a size of 1024 regardless of
-    the size of the actual content, which was always significantly lower. 1024
-    bytes was simply a guess to provide enough space for all types of DHCP client
-    packets. As we know the exact size of each packet the DHCP client sends even
-    before packet creation, this commit makes use of the knowledge resulting in
-    much smaller packets sent by the DHCP client.
-    
-    Fixes #4619
-
-commit c83f307b62babd936f752eb81c199704924ec2f2
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Mon Oct 10 14:00:29 2022 +0200
-
-    nic_router: consider DHCP client optimization
-    
-    Some DHCP clients (Debian VM in Sculpt) persistently store the last lease they
-    obtained and try to directly DHCP REQUEST it on a new startup whithout doing
-    DHCP DISCOVER beforehand. In case the NIC router doesn't know about the lease
-    anymore (timeout, new router instance), the router used to just ignore the DHCP
-    REQUEST. This led to significant delays in the network startup of the client
-    (delayed retries until give-up and DHCP DISCOVER). With this commit, the router
-    answers such packets with a DHCP NAK instead, causing the client to directly
-    switch to DHCP DISCOVER.
-    
-    Fixes #4634
+Beside the polishing of the report functionality, there are some improvements
+connected to the DHCP processing in the router. First, the router is now robust
+against invalid DNS addresses in DHCP ACK packets. Next, the DHCP client
+doesn't produce oversized Ethernet packets anymore. This is important in
+networks with a low bandwidth. Then, the link state of a session that is bound
+to the state of a another domain via the <dhcp-server> attribute
+'dns_config_from' is now correctly synchronized to whether that domain has an
+IP configuration or not. And, last but not least, the DHCP server now accepts
+the optimized startup sequence of clients like Debian that store their lease
+persistently and directly try re-requesting it on boot-up (no DHCP DISCOVER).
+These last two changes both prevent DHCP re-attempts that could cause a
+significantly delayed network boot-up at applications behind the router.
 
 
 Improved support for time-multiplexed GPIO pins
@@ -1615,22 +1517,9 @@ For more details please refer to the dedicated Genodians.org article.
 Configurable Intel HWP mode
 ===========================
 
-; @m-stein
-
-commit ede007c2dd90d774864149dad663b4d3a7f72c5f
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Mon Sep 5 13:34:36 2022 +0200
-
-    Bender: Intel HWP mode configurable via RUN_OPT
-    
-    The updated Bender version is configurable regarding the mode in which to run
-    the Intel HWP plugin. This can now be controlled via the new run option
-    '--bender-intel-hwp-mode' (only when running on NOVA). The option knows 4 valid
-    values 'off', 'performance', 'balanced', and 'power_saving'. When running on
-    NOVA, the default value applied by the run tool is 'performance'. when running
-    on any other kernel, the default value of Bender ('off') is used. Therefore,
-    when not setting the new '--bender-intel-hwp-mode' flag, the behavior is the
-    same as before this commit.
-    
-    Fixes #4224
-
+We updated our version of Bender to be configurable regarding the mode in which
+to run Intel's Hardware P-States (HWP). When running Genode on NOVA, The HWP
+mode can now be controlled via the new run option '--bender-intel-hwp-mode'.
+The option knows 4 valid values 'off', 'performance', 'balanced', and
+'power_saving'. The default value is 'performance' in order to stay backwards
+compatible. On kernels other than NOVA, HWP remains turned off in general.
