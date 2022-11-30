@@ -26,8 +26,8 @@ void Cpu_scheduler::_reset(Cpu_share &share)
 
 void Cpu_scheduler::_reset_claims(unsigned const p)
 {
-	_rcl[p].for_each([&] (Cpu_share &share) { _reset(share); });
-	_ucl[p].for_each([&] (Cpu_share &share) { _reset(share); });
+	_ready_claims[p].for_each([&] (Cpu_share &share) { _reset(share); });
+	_unready_claims[p].for_each([&] (Cpu_share &share) { _reset(share); });
 }
 
 
@@ -58,7 +58,7 @@ void Cpu_scheduler::_set_head(Share &s, unsigned const q, bool const c)
 void Cpu_scheduler::_next_fill()
 {
 	_head->_fill = _fill;
-	_fills.head_to_tail();
+	_ready_fills.head_to_tail();
 }
 
 
@@ -72,13 +72,13 @@ void Cpu_scheduler::_head_claimed(unsigned const r)
 	if (_head->_claim || !_head->_ready)
 		return;
 
-	_rcl[_head->_prio].to_tail(&_head->_claim_item);
+	_ready_claims[_head->_prio].to_tail(&_head->_claim_item);
 }
 
 
 void Cpu_scheduler::_head_filled(unsigned const r)
 {
-	if (_fills.head() != &_head->_fill_item)
+	if (_ready_fills.head() != &_head->_fill_item)
 		return;
 
 	if (r)
@@ -92,7 +92,7 @@ bool Cpu_scheduler::_claim_for_head()
 {
 	bool result { false };
 	_for_each_prio([&] (Cpu_priority const p, bool &cancel_for_each_prio) {
-		Double_list_item<Cpu_share> *const item { _rcl[p].head() };
+		Double_list_item<Cpu_share> *const item { _ready_claims[p].head() };
 
 		if (!item)
 			return;
@@ -112,7 +112,7 @@ bool Cpu_scheduler::_claim_for_head()
 
 bool Cpu_scheduler::_fill_for_head()
 {
-	Double_list_item<Cpu_share> *const item { _fills.head() };
+	Double_list_item<Cpu_share> *const item { _ready_fills.head() };
 	if (!item)
 		return 0;
 
@@ -136,18 +136,18 @@ unsigned Cpu_scheduler::_trim_consumption(unsigned &q)
 void Cpu_scheduler::_quota_introduction(Share &s)
 {
 	if (s._ready)
-		_rcl[s._prio].insert_tail(&s._claim_item);
+		_ready_claims[s._prio].insert_tail(&s._claim_item);
 	else
-		_ucl[s._prio].insert_tail(&s._claim_item);
+		_unready_claims[s._prio].insert_tail(&s._claim_item);
 }
 
 
 void Cpu_scheduler::_quota_revokation(Share &s)
 {
 	if (s._ready)
-		_rcl[s._prio].remove(&s._claim_item);
+		_ready_claims[s._prio].remove(&s._claim_item);
 	else
-		_ucl[s._prio].remove(&s._claim_item);
+		_unready_claims[s._prio].remove(&s._claim_item);
 }
 
 
@@ -228,17 +228,17 @@ void Cpu_scheduler::ready(Share &s)
 
 	s._ready = 1;
 	s._fill = _fill;
-	_fills.insert_tail(&s._fill_item);
+	_ready_fills.insert_tail(&s._fill_item);
 
 	if (!s._quota)
 		return;
 
-	_ucl[s._prio].remove(&s._claim_item);
+	_unready_claims[s._prio].remove(&s._claim_item);
 
 	if (s._claim)
-		_rcl[s._prio].insert_head(&s._claim_item);
+		_ready_claims[s._prio].insert_head(&s._claim_item);
 	else
-		_rcl[s._prio].insert_tail(&s._claim_item);
+		_ready_claims[s._prio].insert_tail(&s._claim_item);
 }
 
 
@@ -249,13 +249,13 @@ void Cpu_scheduler::unready(Share &s)
 	_need_to_schedule = true;
 
 	s._ready = 0;
-	_fills.remove(&s._fill_item);
+	_ready_fills.remove(&s._fill_item);
 
 	if (!s._quota)
 		return;
 
-	_rcl[s._prio].remove(&s._claim_item);
-	_ucl[s._prio].insert_tail(&s._claim_item);
+	_ready_claims[s._prio].remove(&s._claim_item);
+	_unready_claims[s._prio].insert_tail(&s._claim_item);
 }
 
 
@@ -276,15 +276,15 @@ void Cpu_scheduler::remove(Share &s)
 		_head = nullptr;
 
 	if (s._ready)
-		_fills.remove(&s._fill_item);
+		_ready_fills.remove(&s._fill_item);
 
 	if (!s._quota)
 		return;
 
 	if (s._ready)
-		_rcl[s._prio].remove(&s._claim_item);
+		_ready_claims[s._prio].remove(&s._claim_item);
 	else
-		_ucl[s._prio].remove(&s._claim_item);
+		_unready_claims[s._prio].remove(&s._claim_item);
 }
 
 
@@ -298,7 +298,7 @@ void Cpu_scheduler::insert(Share &s)
 		return;
 
 	s._claim = s._quota;
-	_ucl[s._prio].insert_head(&s._claim_item);
+	_unready_claims[s._prio].insert_head(&s._claim_item);
 }
 
 

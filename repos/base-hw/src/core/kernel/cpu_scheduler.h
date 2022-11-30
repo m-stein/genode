@@ -112,9 +112,9 @@ class Kernel::Cpu_scheduler
 		typedef Cpu_share    Share;
 		typedef Cpu_priority Prio;
 
-		Double_list<Cpu_share>  _rcl[Prio::max() + 1]; /* ready claims */
-		Double_list<Cpu_share>  _ucl[Prio::max() + 1]; /* unready claims */
-		Double_list<Cpu_share>  _fills { };          /* ready fills */
+		Double_list<Cpu_share>  _ready_claims[Prio::max() + 1];
+		Double_list<Cpu_share>  _unready_claims[Prio::max() + 1];
+		Double_list<Cpu_share>  _ready_fills { };
 		Share                  &_idle;
 		Share                  *_head = nullptr;
 		unsigned                _head_quota  = 0;
