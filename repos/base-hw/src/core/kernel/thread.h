@@ -186,14 +186,14 @@ class Kernel::Thread : private Kernel::Object, public Cpu_job, private Timeout
 		void _become_inactive(State const s);
 
 		/**
-		 * Activate our CPU-share and those of our helpers
+		 * Activate our scheduling context and those of our helpers
 		 */
-		void _activate_used_shares();
+		void _activate_used_scheduling_contexts();
 
 		/**
-		 * Deactivate our CPU-share and those of our helpers
+		 * Deactivate our scheduling context and those of our helpers
 		 */
-		void _deactivate_used_shares();
+		void _deactivate_used_scheduling_contexts();
 
 		/**
 		 * Suspend unrecoverably from execution
@@ -320,7 +320,7 @@ class Kernel::Thread : private Kernel::Object, public Cpu_job, private Timeout
 		       char                 const *const  label)
 		:
 			Thread(addr_space_id_alloc, user_irq_pool, cpu_pool, core_pd,
-			       Cpu_priority::min(), 0, label, CORE)
+			       Priority::min(), 0, label, CORE)
 		{ }
 
 		~Thread();

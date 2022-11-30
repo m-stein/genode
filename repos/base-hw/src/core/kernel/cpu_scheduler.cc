@@ -1,5 +1,5 @@
 /*
- * \brief   Schedules CPU shares for the execution time of a CPU
+ * \brief   Schedules scheduling contexts for the execution time of a CPU
  * \author  Martin Stein
  * \date    2014-10-09
  */
@@ -11,34 +11,39 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
+/* base/include */
 #include <base/log.h>
+
+/* base-hw/src/include */
 #include <hw/assert.h>
+
+/* base-hw/src/core */
 #include <kernel/cpu_scheduler.h>
 
 using namespace Kernel;
 
 
-void Cpu_scheduler::_reset(Cpu_share &share)
+void Scheduler::_reset(Scheduling_context &context)
 {
-	share._claim = share._quota;
+	context._claim = context._quota;
 }
 
 
-void Cpu_scheduler::_reset_claims(unsigned const p)
+void Scheduler::_reset_claims(unsigned const p)
 {
-	_ready_claims[p].for_each([&] (Cpu_share &share) { _reset(share); });
-	_unready_claims[p].for_each([&] (Cpu_share &share) { _reset(share); });
+	_ready_claims[p].for_each([&] (Scheduling_context &context) { _reset(context); });
+	_unready_claims[p].for_each([&] (Scheduling_context &context) { _reset(context); });
 }
 
 
-void Cpu_scheduler::_next_round()
+void Scheduler::_next_round()
 {
 	_residual = _quota;
-	_for_each_prio([&] (Cpu_priority const p, bool &) { _reset_claims(p); });
+	_for_each_prio([&] (Priority const p, bool &) { _reset_claims(p); });
 }
 
 
-void Cpu_scheduler::_consumed(unsigned const q)
+void Scheduler::_consumed(unsigned const q)
 {
 	if (_residual > q)
 		_residual -= q;
@@ -47,22 +52,22 @@ void Cpu_scheduler::_consumed(unsigned const q)
 }
 
 
-void Cpu_scheduler::_set_head(Share &s, unsigned const q, bool const c)
+void Scheduler::_set_head(Scheduling_context &context, unsigned const q, bool const c)
 {
 	_head_quota = q;
 	_head_claims = c;
-	_head = &s;
+	_head = &context;
 }
 
 
-void Cpu_scheduler::_next_fill()
+void Scheduler::_next_fill()
 {
 	_head->_fill = _fill;
 	_ready_fills.head_to_tail();
 }
 
 
-void Cpu_scheduler::_head_claimed(unsigned const r)
+void Scheduler::_head_claimed(unsigned const r)
 {
 	if (!_head->_quota)
 		return;
@@ -76,7 +81,7 @@ void Cpu_scheduler::_head_claimed(unsigned const r)
 }
 
 
-void Cpu_scheduler::_head_filled(unsigned const r)
+void Scheduler::_head_filled(unsigned const r)
 {
 	if (_ready_fills.head() != &_head->_fill_item)
 		return;
@@ -88,21 +93,21 @@ void Cpu_scheduler::_head_filled(unsigned const r)
 }
 
 
-bool Cpu_scheduler::_claim_for_head()
+bool Scheduler::_claim_for_head()
 {
 	bool result { false };
-	_for_each_prio([&] (Cpu_priority const p, bool &cancel_for_each_prio) {
-		Double_list_item<Cpu_share> *const item { _ready_claims[p].head() };
+	_for_each_prio([&] (Priority const p, bool &cancel_for_each_prio) {
+		Double_list_item<Scheduling_context> *const item { _ready_claims[p].head() };
 
 		if (!item)
 			return;
 
-		Cpu_share &share { item->payload() };
+		Scheduling_context &context { item->payload() };
 
-		if (!share._claim)
+		if (!context._claim)
 			return;
 
-		_set_head(share, share._claim, 1);
+		_set_head(context, context._claim, 1);
 		result = true;
 		cancel_for_each_prio = true;
 	});
@@ -110,19 +115,19 @@ bool Cpu_scheduler::_claim_for_head()
 }
 
 
-bool Cpu_scheduler::_fill_for_head()
+bool Scheduler::_fill_for_head()
 {
-	Double_list_item<Cpu_share> *const item { _ready_fills.head() };
+	Double_list_item<Scheduling_context> *const item { _ready_fills.head() };
 	if (!item)
 		return 0;
 
-	Share &share = item->payload();
-	_set_head(share, share._fill, 0);
+	Scheduling_context &context = item->payload();
+	_set_head(context, context._fill, 0);
 	return 1;
 }
 
 
-unsigned Cpu_scheduler::_trim_consumption(unsigned &q)
+unsigned Scheduler::_trim_consumption(unsigned &q)
 {
 	q = Genode::min(Genode::min(q, _head_quota), _residual);
 	if (!_head_yields)
@@ -133,37 +138,36 @@ unsigned Cpu_scheduler::_trim_consumption(unsigned &q)
 }
 
 
-void Cpu_scheduler::_quota_introduction(Share &s)
+void Scheduler::_quota_introduction(Scheduling_context &context)
 {
-	if (s._ready)
-		_ready_claims[s._prio].insert_tail(&s._claim_item);
+	if (context._ready)
+		_ready_claims[context._prio].insert_tail(&context._claim_item);
 	else
-		_unready_claims[s._prio].insert_tail(&s._claim_item);
+		_unready_claims[context._prio].insert_tail(&context._claim_item);
 }
 
 
-void Cpu_scheduler::_quota_revokation(Share &s)
+void Scheduler::_quota_revokation(Scheduling_context &context)
 {
-	if (s._ready)
-		_ready_claims[s._prio].remove(&s._claim_item);
+	if (context._ready)
+		_ready_claims[context._prio].remove(&context._claim_item);
 	else
-		_unready_claims[s._prio].remove(&s._claim_item);
+		_unready_claims[context._prio].remove(&context._claim_item);
 }
 
 
-void Cpu_scheduler::_quota_adaption(Share &s, unsigned const q)
+void Scheduler::_quota_adaption(Scheduling_context &context, unsigned const q)
 {
 	if (q) {
-		if (s._claim > q)
-			s._claim = q;
+		if (context._claim > q)
+			context._claim = q;
 	} else {
-		_quota_revokation(s);
+		_quota_revokation(context);
 	}
-
 }
 
 
-void Cpu_scheduler::update_head(time_t time)
+void Scheduler::update_head(time_t time)
 {
 	unsigned duration = (unsigned) (time - _time_at_last_update);
 	_time_at_last_update = time;
@@ -191,7 +195,7 @@ void Cpu_scheduler::update_head(time_t time)
 }
 
 
-void Cpu_scheduler::ready_check(Share &s1)
+void Scheduler::ready_check(Scheduling_context &s1)
 {
 	assert(_head);
 
@@ -200,7 +204,7 @@ void Cpu_scheduler::ready_check(Share &s1)
 	if (_head_outdated)
 		return;
 
-	Share * s2 = _head;
+	Scheduling_context * s2 = _head;
 	if (!s1._claim) {
 		_head_outdated = s2 == &_idle;
 	} else if (!_head_claims) {
@@ -211,8 +215,8 @@ void Cpu_scheduler::ready_check(Share &s1)
 		for (
 			; s2 && s2 != &s1;
 			s2 =
-				Double_list<Cpu_share>::next(&s2->_claim_item) != nullptr ?
-					&Double_list<Cpu_share>::next(&s2->_claim_item)->payload() :
+				Double_list<Scheduling_context>::next(&s2->_claim_item) != nullptr ?
+					&Double_list<Scheduling_context>::next(&s2->_claim_item)->payload() :
 					nullptr) ;
 
 		_head_outdated = !s2;
@@ -220,109 +224,109 @@ void Cpu_scheduler::ready_check(Share &s1)
 }
 
 
-void Cpu_scheduler::ready(Share &s)
+void Scheduler::ready(Scheduling_context &context)
 {
-	assert(!s._ready && &s != &_idle);
+	assert(!context._ready && &context != &_idle);
 
 	_head_outdated = true;
 
-	s._ready = 1;
-	s._fill = _fill;
-	_ready_fills.insert_tail(&s._fill_item);
+	context._ready = 1;
+	context._fill = _fill;
+	_ready_fills.insert_tail(&context._fill_item);
 
-	if (!s._quota)
+	if (!context._quota)
 		return;
 
-	_unready_claims[s._prio].remove(&s._claim_item);
+	_unready_claims[context._prio].remove(&context._claim_item);
 
-	if (s._claim)
-		_ready_claims[s._prio].insert_head(&s._claim_item);
+	if (context._claim)
+		_ready_claims[context._prio].insert_head(&context._claim_item);
 	else
-		_ready_claims[s._prio].insert_tail(&s._claim_item);
+		_ready_claims[context._prio].insert_tail(&context._claim_item);
 }
 
 
-void Cpu_scheduler::unready(Share &s)
+void Scheduler::unready(Scheduling_context &context)
 {
-	assert(s._ready && &s != &_idle);
+	assert(context._ready && &context != &_idle);
 
 	_head_outdated = true;
 
-	s._ready = 0;
-	_ready_fills.remove(&s._fill_item);
+	context._ready = 0;
+	_ready_fills.remove(&context._fill_item);
 
-	if (!s._quota)
+	if (!context._quota)
 		return;
 
-	_ready_claims[s._prio].remove(&s._claim_item);
-	_unready_claims[s._prio].insert_tail(&s._claim_item);
+	_ready_claims[context._prio].remove(&context._claim_item);
+	_unready_claims[context._prio].insert_tail(&context._claim_item);
 }
 
 
-void Cpu_scheduler::yield()
+void Scheduler::yield()
 {
 	_head_yields = true;
 	_head_outdated = true;
 }
 
 
-void Cpu_scheduler::remove(Share &s)
+void Scheduler::remove(Scheduling_context &context)
 {
-	assert(&s != &_idle);
+	assert(&context != &_idle);
 
 	_head_outdated = true;
 
-	if (&s == _head)
+	if (&context == _head)
 		_head = nullptr;
 
-	if (s._ready)
-		_ready_fills.remove(&s._fill_item);
+	if (context._ready)
+		_ready_fills.remove(&context._fill_item);
 
-	if (!s._quota)
+	if (!context._quota)
 		return;
 
-	if (s._ready)
-		_ready_claims[s._prio].remove(&s._claim_item);
+	if (context._ready)
+		_ready_claims[context._prio].remove(&context._claim_item);
 	else
-		_unready_claims[s._prio].remove(&s._claim_item);
+		_unready_claims[context._prio].remove(&context._claim_item);
 }
 
 
-void Cpu_scheduler::insert(Share &s)
+void Scheduler::insert(Scheduling_context &context)
 {
-	assert(!s._ready);
+	assert(!context._ready);
 
 	_head_outdated = true;
 
-	if (!s._quota)
+	if (!context._quota)
 		return;
 
-	s._claim = s._quota;
-	_unready_claims[s._prio].insert_head(&s._claim_item);
+	context._claim = context._quota;
+	_unready_claims[context._prio].insert_head(&context._claim_item);
 }
 
 
-void Cpu_scheduler::quota(Share &s, unsigned const q)
+void Scheduler::quota(Scheduling_context &context, unsigned const q)
 {
-	assert(&s != &_idle);
+	assert(&context != &_idle);
 
-	if (s._quota)
-		_quota_adaption(s, q);
+	if (context._quota)
+		_quota_adaption(context, q);
 	else if (q)
-		_quota_introduction(s);
+		_quota_introduction(context);
 
-	s._quota = q;
+	context._quota = q;
 }
 
 
-Cpu_share &Cpu_scheduler::head() const
+Scheduling_context &Scheduler::head() const
 {
 	assert(_head);
 	return *_head;
 }
 
 
-Cpu_scheduler::Cpu_scheduler(Share &i, unsigned const q, unsigned const f)
+Scheduler::Scheduler(Scheduling_context &i, unsigned const q, unsigned const f)
 :
 	_idle(i), _quota(q), _residual(q), _fill(f)
 {

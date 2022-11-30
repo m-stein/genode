@@ -28,10 +28,10 @@ using namespace Kernel;
  ** Cpu_job **
  *************/
 
-void Cpu_job::_activate_own_share() { _cpu->schedule(this); }
+void Cpu_job::_activate_own_scheduling_context() { _cpu->schedule(this); }
 
 
-void Cpu_job::_deactivate_own_share()
+void Cpu_job::_deactivate_own_scheduling_context()
 {
 	assert(_cpu->id() == Cpu::executing_id());
 	_cpu->scheduler().unready(*this);
@@ -77,13 +77,13 @@ void Cpu_job::quota(unsigned const q)
 	if (_cpu)
 		_cpu->scheduler().quota(*this, q);
 	else
-		Cpu_share::quota(q);
+		Scheduling_context::quota(q);
 }
 
 
-Cpu_job::Cpu_job(Cpu_priority const p, unsigned const q)
+Cpu_job::Cpu_job(Priority const p, unsigned const q)
 :
-	Cpu_share(p, q), _cpu(0)
+	Scheduling_context(p, q), _cpu(0)
 { }
 
 
@@ -110,7 +110,7 @@ Cpu::Idle_thread::Idle_thread(Board::Address_space_id_allocator &addr_space_id_a
                               Pd                                &core_pd)
 :
 	Thread { addr_space_id_alloc, user_irq_pool, cpu_pool, core_pd,
-	         Cpu_priority::min(), 0, "idle", Thread::IDLE }
+	         Priority::min(), 0, "idle", Thread::IDLE }
 {
 	regs->ip = (addr_t)&idle_thread_main;
 
@@ -122,9 +122,9 @@ Cpu::Idle_thread::Idle_thread(Board::Address_space_id_allocator &addr_space_id_a
 void Cpu::schedule(Job * const job)
 {
 	if (_id == executing_id())
-		_scheduler.ready(job->share());
+		_scheduler.ready(job->scheduling_context());
 	else {
-		_scheduler.ready_check(job->share());
+		_scheduler.ready_check(job->scheduling_context());
 
 		if (_scheduler.head_outdated())
 			trigger_ip_interrupt();

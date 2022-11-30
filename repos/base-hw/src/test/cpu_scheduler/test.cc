@@ -25,15 +25,15 @@
 using Genode::size_t;
 using Genode::addr_t;
 using Genode::construct_at;
-using Kernel::Cpu_share;
-using Kernel::Cpu_scheduler;
+using Kernel::Scheduling_context;
+using Kernel::Scheduler;
 
 
 struct Data
 {
-	Cpu_share idle;
-	Cpu_scheduler scheduler;
-	char shares[9][sizeof(Cpu_share)];
+	Scheduling_context idle;
+	Scheduler scheduler;
+	char scheduling_contexts[9][sizeof(Scheduling_context)];
 
 	Data() : idle(0, 0), scheduler(idle, 1000, 100) { }
 };
@@ -53,48 +53,48 @@ void done()
 }
 
 
-unsigned share_id(void * const pointer)
+unsigned scheduling_context_id(void * const pointer)
 {
 	addr_t const address = (addr_t)pointer;
-	addr_t const base = (addr_t)data()->shares;
-	if (address < base || address >= base + sizeof(data()->shares)) {
+	addr_t const base = (addr_t)data()->scheduling_contexts;
+	if (address < base || address >= base + sizeof(data()->scheduling_contexts)) {
 		return 0; }
-	return (unsigned)((address - base) / sizeof(Cpu_share) + 1);
+	return (unsigned)((address - base) / sizeof(Scheduling_context) + 1);
 }
 
 
-Cpu_share * share(unsigned const id)
+Scheduling_context * context(unsigned const id)
 {
 	if (!id) { return &data()->idle; }
-	return reinterpret_cast<Cpu_share *>(&data()->shares[id - 1]);
+	return reinterpret_cast<Scheduling_context *>(&data()->scheduling_contexts[id - 1]);
 }
 
 
 void create(unsigned const id)
 {
-	Cpu_share * const s = share(id);
-	void * const p = (void *)s;
+	Scheduling_context * const context = context(id);
+	void * const p = (void *)context;
 	switch (id) {
-	case 1: construct_at<Cpu_share>(p, 2, 230); break;
-	case 2: construct_at<Cpu_share>(p, 0, 170); break;
-	case 3: construct_at<Cpu_share>(p, 3, 110); break;
-	case 4: construct_at<Cpu_share>(p, 1,  90); break;
-	case 5: construct_at<Cpu_share>(p, 3, 120); break;
-	case 6: construct_at<Cpu_share>(p, 3,   0); break;
-	case 7: construct_at<Cpu_share>(p, 2, 180); break;
-	case 8: construct_at<Cpu_share>(p, 2, 100); break;
-	case 9: construct_at<Cpu_share>(p, 2,   0); break;
+	case 1: construct_at<Scheduling_context>(p, 2, 230); break;
+	case 2: construct_at<Scheduling_context>(p, 0, 170); break;
+	case 3: construct_at<Scheduling_context>(p, 3, 110); break;
+	case 4: construct_at<Scheduling_context>(p, 1,  90); break;
+	case 5: construct_at<Scheduling_context>(p, 3, 120); break;
+	case 6: construct_at<Scheduling_context>(p, 3,   0); break;
+	case 7: construct_at<Scheduling_context>(p, 2, 180); break;
+	case 8: construct_at<Scheduling_context>(p, 2, 100); break;
+	case 9: construct_at<Scheduling_context>(p, 2,   0); break;
 	default: return;
 	}
-	data()->scheduler.insert(*s);
+	data()->scheduler.insert(*context);
 }
 
 
 void destroy(unsigned const id)
 {
-	Cpu_share * const s = share(id);
-	data()->scheduler.remove(*s);
-	s->~Cpu_share();
+	Scheduling_context * const context = context(id);
+	data()->scheduler.remove(*context);
+	context->~Scheduling_context();
 }
 
 
@@ -106,7 +106,7 @@ unsigned time()
 
 
 void update_check(unsigned const l, unsigned const c, unsigned const t,
-                  unsigned const s, unsigned const q)
+                  unsigned const context, unsigned const q)
 {
 	data()->scheduler.update_head(c);
 	unsigned const st = time();
@@ -114,11 +114,11 @@ void update_check(unsigned const l, unsigned const c, unsigned const t,
 		Genode::log("wrong time ", st, " in line ", l);
 		done();
 	}
-	Cpu_share &hs = data()->scheduler.head();
+	Scheduling_context &hs = data()->scheduler.head();
 	unsigned const hq = data()->scheduler.head_quota();
-	if (&hs != share(s)) {
-		unsigned const hi = share_id(&hs);
-		Genode::log("wrong share ", hi, " in line ", l);
+	if (&hs != context(context)) {
+		unsigned const hi = scheduling_context_id(&hs);
+		Genode::log("wrong context ", hi, " in line ", l);
 		done();
 	}
 	if (hq != q) {
@@ -128,9 +128,9 @@ void update_check(unsigned const l, unsigned const c, unsigned const t,
 }
 
 
-void ready_check(unsigned const l, unsigned const s, bool const x)
+void ready_check(unsigned const l, unsigned const context, bool const x)
 {
-	data()->scheduler.ready_check(*share(s));
+	data()->scheduler.ready_check(*context(context));
 	if (data()->scheduler.head_outdated() != x) {
 		Genode::log("wrong check result ", data()->scheduler.head_outdated(), " in line ", l);
 		done();
@@ -142,15 +142,15 @@ void ready_check(unsigned const l, unsigned const s, bool const x)
  * Shortcuts for all basic operations that the test consists of
  */
 
-#define C(s)       create(s);
-#define D(s)       destroy(s);
-#define A(s)       data()->scheduler.ready(*share(s));
-#define I(s)       data()->scheduler.unready(*share(s));
+#define C(context)       create(context);
+#define D(context)       destroy(context);
+#define A(context)       data()->scheduler.ready(*context(context));
+#define I(context)       data()->scheduler.unready(*context(context));
 #define Y          data()->scheduler.yield();
-#define Q(s, q)    data()->scheduler.quota(*share(s), q);
-#define U(c, t, s, q) update_check(__LINE__, c, t, s, q);
-#define O(s)       ready_check(__LINE__, s, true);
-#define N(s)       ready_check(__LINE__, s, false);
+#define Q(context, q)    data()->scheduler.quota(*context(context), q);
+#define U(c, t, context, q) update_check(__LINE__, c, t, context, q);
+#define O(context)       ready_check(__LINE__, context, true);
+#define N(context)       ready_check(__LINE__, context, false);
 
 
 /**
@@ -162,26 +162,26 @@ void Component::construct(Genode::Env &)
 	 * Step-by-step testing
 	 *
 	 * Every line in this test is structured according to the scheme
-	 * '<ops> U(t,c,s,q) <doc>' where the symbols are defined as follows:
+	 * '<ops> U(t,c,context,q) <doc>' where the symbols are defined as follows:
 	 *
 	 * ops  Operations that affect the schedule but not the head of the
 	 *      scheduler (which is a buffer to remember the last scheduling
 	 *      choice). These operations are:
 	 *
-	 *      C(s)  construct the context with ID 's' and insert it
-	 *      D(s)  remove the context with ID 's' and destruct it
-	 *      A(s)  set the context with ID 's' active
-	 *      I(s)  set the context with ID 's' inactive
-	 *      O(s)  do 'A(s)' and check that this will outdate the head
-	 *      N(s)  do 'A(s)' and check that this won't outdate the head
-	 *      Y     annotate that the current head wants to yield
+	 *      C(context)  construct the context with ID 'context' and insert it
+	 *      D(context)  remove the context with ID 'context' and destruct it
+	 *      A(context)  set the context with ID 'context' active
+	 *      I(context)  set the context with ID 'context' inactive
+	 *      O(context)  do 'A(context)' and check that this will outdate the head
+	 *      N(context)  do 'A(context)' and check that this won't outdate the head
+	 *      Y           annotate that the current head wants to yield
 	 *
-	 * U(c,t,s,q) 
+	 * U(c,t,context,q)
 	 *           First update the head and time of the scheduler according to
-	 *           the new schedule and the fact that the head consumed a 
+	 *           the new schedule and the fact that the head consumed a
 	 *           quantum of 'c'. Then, check the consumed time 't' for the
-	 *           actual round and if the new head is the context with ID 's'
-	 *           that has a quota of 'q'.
+	 *           actual round and if the new head is the context with ID
+	 *           'context' that has a quota of 'q'.
 	 *
 	 * doc  Documents the expected schedule for the point after the head
 	 *      update in the corresponding line. First it lists all claims
