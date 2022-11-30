@@ -126,7 +126,7 @@ void Cpu::schedule(Job * const job)
 	else {
 		_scheduler.ready_check(job->share());
 
-		if (_scheduler.need_to_schedule())
+		if (_scheduler.head_outdated())
 			trigger_ip_interrupt();
 	}
 }
@@ -150,15 +150,15 @@ Cpu_job & Cpu::schedule()
 	Job & old_job = scheduled_job();
 	old_job.exception(*this);
 
-	if (_scheduler.need_to_schedule()) {
+	if (_scheduler.head_outdated()) {
+
 		_timer.process_timeouts();
-		_scheduler.update(_timer.time());
+		_scheduler.update_head(_timer.time());
 		time_t t = _scheduler.head_quota();
 		_timer.set_timeout(this, t);
 		time_t duration = _timer.schedule_timeout();
 		old_job.update_execution_time(duration);
 	}
-
 	/* return new job */
 	return scheduled_job();
 }

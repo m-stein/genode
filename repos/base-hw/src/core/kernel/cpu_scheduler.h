@@ -123,8 +123,8 @@ class Kernel::Cpu_scheduler
 		unsigned const          _quota;
 		unsigned                _residual;
 		unsigned const          _fill;
-		bool                    _need_to_schedule { true };
-		time_t                  _last_time { 0 };
+		bool                    _head_outdated { true };
+		time_t                  _time_at_last_update { 0 };
 
 		template <typename F> void _for_each_prio(F f)
 		{
@@ -176,13 +176,14 @@ class Kernel::Cpu_scheduler
 		 */
 		Cpu_scheduler(Share &i, unsigned const q, unsigned const f);
 
-		bool need_to_schedule() { return _need_to_schedule; }
-		void timeout()          { _need_to_schedule = true; }
+		bool head_outdated() const { return _head_outdated; }
+
+		void timeout() { _head_outdated = true; }
 
 		/**
 		 * Update head according to the consumed time
 		 */
-		void update(time_t time);
+		void update_head(time_t time);
 
 		/**
 		 * Set 's1' ready and return wether this outdates current head

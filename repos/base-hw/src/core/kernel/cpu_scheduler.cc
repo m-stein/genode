@@ -163,11 +163,11 @@ void Cpu_scheduler::_quota_adaption(Share &s, unsigned const q)
 }
 
 
-void Cpu_scheduler::update(time_t time)
+void Cpu_scheduler::update_head(time_t time)
 {
-	unsigned duration = (unsigned) (time - _last_time);
-	_last_time        = time;
-	_need_to_schedule = false;
+	unsigned duration = (unsigned) (time - _time_at_last_update);
+	_time_at_last_update = time;
+	_head_outdated = false;
 
 	/* do not detract the quota if the head context was removed even now */
 	if (_head) {
@@ -197,16 +197,16 @@ void Cpu_scheduler::ready_check(Share &s1)
 
 	ready(s1);
 
-	if (_need_to_schedule)
+	if (_head_outdated)
 		return;
 
 	Share * s2 = _head;
 	if (!s1._claim) {
-		_need_to_schedule = s2 == &_idle;
+		_head_outdated = s2 == &_idle;
 	} else if (!_head_claims) {
-		_need_to_schedule = true;
+		_head_outdated = true;
 	} else if (s1._prio != s2->_prio) {
-		_need_to_schedule = s1._prio > s2->_prio;
+		_head_outdated = s1._prio > s2->_prio;
 	} else {
 		for (
 			; s2 && s2 != &s1;
@@ -215,7 +215,7 @@ void Cpu_scheduler::ready_check(Share &s1)
 					&Double_list<Cpu_share>::next(&s2->_claim_item)->payload() :
 					nullptr) ;
 
-		_need_to_schedule = !s2;
+		_head_outdated = !s2;
 	}
 }
 
@@ -224,7 +224,7 @@ void Cpu_scheduler::ready(Share &s)
 {
 	assert(!s._ready && &s != &_idle);
 
-	_need_to_schedule = true;
+	_head_outdated = true;
 
 	s._ready = 1;
 	s._fill = _fill;
@@ -246,7 +246,7 @@ void Cpu_scheduler::unready(Share &s)
 {
 	assert(s._ready && &s != &_idle);
 
-	_need_to_schedule = true;
+	_head_outdated = true;
 
 	s._ready = 0;
 	_ready_fills.remove(&s._fill_item);
@@ -262,7 +262,7 @@ void Cpu_scheduler::unready(Share &s)
 void Cpu_scheduler::yield()
 {
 	_head_yields = true;
-	_need_to_schedule = true;
+	_head_outdated = true;
 }
 
 
@@ -270,7 +270,7 @@ void Cpu_scheduler::remove(Share &s)
 {
 	assert(&s != &_idle);
 
-	_need_to_schedule = true;
+	_head_outdated = true;
 
 	if (&s == _head)
 		_head = nullptr;
@@ -292,7 +292,7 @@ void Cpu_scheduler::insert(Share &s)
 {
 	assert(!s._ready);
 
-	_need_to_schedule = true;
+	_head_outdated = true;
 
 	if (!s._quota)
 		return;

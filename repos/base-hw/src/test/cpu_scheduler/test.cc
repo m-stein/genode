@@ -108,7 +108,7 @@ unsigned time()
 void update_check(unsigned const l, unsigned const c, unsigned const t,
                   unsigned const s, unsigned const q)
 {
-	data()->scheduler.update(c);
+	data()->scheduler.update_head(c);
 	unsigned const st = time();
 	if (t != st) {
 		Genode::log("wrong time ", st, " in line ", l);
@@ -131,8 +131,8 @@ void update_check(unsigned const l, unsigned const c, unsigned const t,
 void ready_check(unsigned const l, unsigned const s, bool const x)
 {
 	data()->scheduler.ready_check(*share(s));
-	if (data()->scheduler.need_to_schedule() != x) {
-		Genode::log("wrong check result ", data()->scheduler.need_to_schedule(), " in line ", l);
+	if (data()->scheduler.head_outdated() != x) {
+		Genode::log("wrong check result ", data()->scheduler.head_outdated(), " in line ", l);
 		done();
 	}
 }
