@@ -21,106 +21,104 @@
 using namespace Genode;
 using namespace Kernel;
 
-class Main
+struct Main
 {
-	private:
+	enum { MAX_SHARES = 10 };
 
-		enum { MAX_SHARES = 10 };
+	Constructible<Cpu_share> shares[MAX_SHARES] {};
+	Cpu_scheduler            scheduler;
+	time_t                   current_time { 0 };
 
-		Constructible<Cpu_share> shares[MAX_SHARES] {};
-		Cpu_scheduler            scheduler;
-		time_t                   current_time { 0 };
+	Cpu_share & _idle()
+	{
+		if (!shares[0].constructed()) shares[0].construct(0, 0);
+		return *shares[0];
+	}
 
-		Cpu_share & _idle()
-		{
-			if (!shares[0].constructed()) shares[0].construct(0, 0);
-			return *shares[0];
+	Main() : scheduler(_idle(), 1000, 100) { }
+
+	void done()
+	{
+		Genode::log("done");
+		while (1) ;
+	}
+
+	unsigned share_id(Cpu_share & share)
+	{
+		for (unsigned i = 0; i < MAX_SHARES; i++)
+			if (shares[i].constructed() && (&*shares[i] == &share))
+				return i;
+		return ~0U;
+	}
+
+	Cpu_share & share(unsigned const id)
+	{
+		return *shares[id];
+	}
+
+	void create(unsigned const id)
+	{
+		switch (id) {
+			case 1: shares[id].construct(2, 230); break;
+			case 2: shares[id].construct(0, 170); break;
+			case 3: shares[id].construct(3, 110); break;
+			case 4: shares[id].construct(1,  90); break;
+			case 5: shares[id].construct(3, 120); break;
+			case 6: shares[id].construct(3,   0); break;
+			case 7: shares[id].construct(2, 180); break;
+			case 8: shares[id].construct(2, 100); break;
+			case 9: shares[id].construct(2,   0); break;
+			default: return;
 		}
+		scheduler.insert(*shares[id]);
+	}
 
-		void done()
-		{
-			Genode::log("done");
-			while (1) ;
+	void destroy(unsigned const id)
+	{
+		if (!id || id >= MAX_SHARES)
+			return;
+
+		scheduler.remove(share(id));
+		shares[id].destruct();
+	}
+
+	unsigned time()
+	{
+		return scheduler.quota() - scheduler.residual();
+	}
+
+	void update_check(unsigned const l, unsigned const c, unsigned const t,
+	                  unsigned const s, unsigned const q)
+	{
+		current_time += c;
+		scheduler.update(current_time);
+		unsigned const st = time();
+		if (t != st) {
+			log("wrong time ", st, " in line ", l);
+			done();
 		}
-
-		unsigned share_id(Cpu_share & share)
-		{
-			for (unsigned i = 0; i < MAX_SHARES; i++)
-				if (shares[i].constructed() && (&*shares[i] == &share))
-					return i;
-			return ~0U;
+		Cpu_share & hs = scheduler.head();
+		unsigned const hq = scheduler.head_quota();
+		if (&hs != &share(s)) {
+			log("wrong share ", share_id(hs), " in line ", l);
+			done();
 		}
-
-		Cpu_share & share(unsigned const id)
-		{
-			return *shares[id];
+		if (hq != q) {
+			log("wrong quota ", hq, " in line ", l);
+			done();
 		}
+	}
 
-		void create(unsigned const id)
-		{
-			switch (id) {
-				case 1: shares[id].construct(2, 230); break;
-				case 2: shares[id].construct(0, 170); break;
-				case 3: shares[id].construct(3, 110); break;
-				case 4: shares[id].construct(1,  90); break;
-				case 5: shares[id].construct(3, 120); break;
-				case 6: shares[id].construct(3,   0); break;
-				case 7: shares[id].construct(2, 180); break;
-				case 8: shares[id].construct(2, 100); break;
-				case 9: shares[id].construct(2,   0); break;
-				default: return;
-			}
-			scheduler.insert(*shares[id]);
+	void ready_check(unsigned const l, unsigned const s, bool const x)
+	{
+		scheduler.ready(share(s));
+		if (scheduler.need_to_schedule() != x) {
+			log("wrong check result ", scheduler.need_to_schedule(), " in line ", l);
+			done();
 		}
+	}
 
-		void destroy(unsigned const id)
-		{
-			if (!id || id >= MAX_SHARES)
-				return;
-
-			scheduler.remove(share(id));
-			shares[id].destruct();
-		}
-
-		unsigned time()
-		{
-			return scheduler.quota() - scheduler.residual();
-		}
-
-		void update_check(unsigned const l, unsigned const c, unsigned const t,
-		                  unsigned const s, unsigned const q)
-		{
-			current_time += c;
-			scheduler.update(current_time);
-			unsigned const st = time();
-			if (t != st) {
-				log("wrong time ", st, " in line ", l);
-				done();
-			}
-			Cpu_share & hs = scheduler.head();
-			unsigned const hq = scheduler.head_quota();
-			if (&hs != &share(s)) {
-				log("wrong share ", share_id(hs), " in line ", l);
-				done();
-			}
-			if (hq != q) {
-				log("wrong quota ", hq, " in line ", l);
-				done();
-			}
-		}
-
-		void ready_check(unsigned const l, unsigned const s, bool const x)
-		{
-			scheduler.ready(share(s));
-			if (scheduler.need_to_schedule() != x) {
-				log("wrong check result ", scheduler.need_to_schedule(), " in line ", l);
-				done();
-			}
-		}
-
-	public:
-
-		Main();
+	void test();
 };
 
 
@@ -145,12 +143,12 @@ class Main
  */
 void Component::construct(Genode::Env &)
 {
-	static Main main { };
+	static Main main;
+	main.test();
 }
 
 
-
-Main::Main() : scheduler(_idle(), 1000, 100)
+void Main::test()
 {
 	/*
 	 * Step-by-step testing
