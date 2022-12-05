@@ -92,7 +92,9 @@ static void _destroy_links(Link_list   &links,
 {
 	_destroy_dissolved_links<LINK_TYPE>(dissolved_links, dealloc);
 	while (Link *link = links.first()) {
-		_destroy_link<LINK_TYPE>(*link, links, dealloc); }
+		error("---- _destroy_links link ", *link);
+		_destroy_link<LINK_TYPE>(*link, links, dealloc);
+	}
 }
 
 
@@ -436,6 +438,8 @@ void Interface::attach_to_ip_config(Domain            &domain,
 
 void Interface::detach_from_ip_config(Domain &domain)
 {
+	error("[",domain,"] detach_from_ip_config ", _policy.label());
+
 	/* destroy our own ARP waiters */
 	while (_own_arp_waiters.first()) {
 		cancel_arp_waiting(*_own_arp_waiters.first()->object());

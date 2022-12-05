@@ -105,7 +105,7 @@ append config {
 					</config>
 
 				</inline>
-				<sleep milliseconds="5000"/>
+				<sleep milliseconds="6000"/>
 				<inline>
 
 					<config verbose="no"
