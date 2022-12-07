@@ -24,6 +24,76 @@ void Cpu_scheduler::_reset(Cpu_share &share)
 }
 
 
+void Cpu_scheduler::print(Genode::Output &output) const
+{
+	Genode::print(
+		output, "{\n  residual: ", _residual, " quota: ", _quota, " fill: ",
+		_fill, " need to schedule: ", _need_to_schedule, " last_time: ",
+		_last_time, "\n");
+
+	if (_head != nullptr) {
+		Genode::print(
+			output, "  head: { id: ", _head->_id, ", claims: ", _head_claims,
+			", quota: ", _head_quota, ", yields: ", _head_yields, " }\n");
+	}
+	_for_each_prio([&] (Cpu_priority const prio, bool &) {
+		if (_rcl[prio].empty() && _ucl[prio].empty()) {
+
+			return;
+		}
+		Genode::print(output, "  prio ", (unsigned)prio, " { ");
+		if (!_rcl[prio].empty()) {
+
+			Genode::print(output, "ready: [ ");
+			bool first { true };
+			_rcl[prio].for_each([&] (Cpu_share const &share) {
+
+				Genode::print(
+					output, first ? "" : ", ", share._id , ": ", share._claim,
+					"/", share._quota);
+
+				first = false;
+			});
+			Genode::print(output, " ]");
+		}
+		if (!_ucl[prio].empty()) {
+
+			Genode::print(output, "unready: [ ");
+			bool first { true };
+			_ucl[prio].for_each([&] (Cpu_share const &share) {
+
+				Genode::print(
+					output, first ? "" : ", ", share._id , ": ", share._claim,
+					"/", share._quota);
+
+				first = false;
+			});
+			Genode::print(output, " ]");
+		}
+		Genode::print(output, " }\n");
+	});
+	if (!_fills.empty()) {
+
+		Genode::print(output, "  fills: [ ");
+		bool first { true };
+		_fills.for_each([&] (Cpu_share const &share) {
+
+			if (first) {
+
+				Genode::print(output, share._id, ": ", share._fill);
+				first = false;
+
+			} else {
+
+				Genode::print(output, ", ", share._id);
+			}
+		});
+		Genode::print(output, " ]\n");
+	}
+	Genode::print(output, "}\n");
+}
+
+
 void Cpu_scheduler::_reset_claims(unsigned const p)
 {
 	_rcl[p].for_each([&] (Cpu_share &share) { _reset(share); });

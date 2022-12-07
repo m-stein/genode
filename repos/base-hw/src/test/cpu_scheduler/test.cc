@@ -111,7 +111,7 @@ class Cpu_scheduler_test::Main
 					_env.parent().exit(-1);
 					break;
 			}
-			_shares[id].construct(prio, quota);
+			_shares[id].construct(prio, quota, id);
 			_scheduler.insert(*_shares[id]);
 		}
 
@@ -383,6 +383,7 @@ Cpu_scheduler_test::Main::Main(Env &env)
 	_update_head_and_check( 10, 320, 2,  40, __LINE__); /* 5°120 3°110 - 1°0 7°180 8°0 - 4°90 - 2'0 - 2'40 */
 
 	/* Runtime Error */
+	Genode::log(_scheduler);
 	_set_share_ready_and_check(1, false, __LINE__);
 	_update_head_and_check(200, 360, 1, 100, __LINE__); /* 5°120 3°110 - 1°0 7°180 8°0 - 4°90 - 2'0 - 1'100 2 */
 	_update_head_and_check( 10, 370, 1,  90, __LINE__); /* 5°120 3°110 - 1'0 7°180 8°0 - 4°90 - 2'0 - 1'90 2 */
