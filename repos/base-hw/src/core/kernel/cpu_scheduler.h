@@ -85,6 +85,7 @@ class Kernel::Cpu_share
 		unsigned                    _claim;
 		unsigned                    _fill       { 0 };
 		bool                        _ready      { false };
+		unsigned                    _id;
 
 	public:
 
@@ -94,8 +95,8 @@ class Kernel::Cpu_share
 		 * \param p  claimed priority
 		 * \param q  claimed quota
 		 */
-		Cpu_share(Cpu_priority const p, unsigned const q)
-		: _prio(p), _quota(q), _claim(q) { }
+		Cpu_share(Cpu_priority const p, unsigned const q, unsigned const id = 0)
+		: _prio(p), _quota(q), _claim(q), _id(id) { }
 
 		/*
 		 * Accessors
@@ -125,6 +126,16 @@ class Kernel::Cpu_scheduler
 		unsigned const          _fill;
 		bool                    _need_to_schedule { true };
 		time_t                  _last_time { 0 };
+
+		template <typename F> void _for_each_prio(F f) const
+		{
+			bool cancel_for_each_prio { false };
+			for (unsigned p = Prio::max(); p != Prio::min() - 1; p--) {
+				f(p, cancel_for_each_prio);
+				if (cancel_for_each_prio)
+					return;
+			}
+		}
 
 		template <typename F> void _for_each_prio(F f)
 		{
@@ -223,6 +234,13 @@ class Kernel::Cpu_scheduler
 			return Genode::min(_head_quota, _residual); }
 		unsigned quota() const { return _quota; }
 		unsigned residual() const { return _residual; }
+
+
+		/*********
+		 ** log **
+		 *********/
+
+		void print(Genode::Output &output) const;
 };
 
 #endif /* _CORE__KERNEL__CPU_SCHEDULER_H_ */

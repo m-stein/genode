@@ -46,6 +46,8 @@ class Kernel::Double_list_item
 		Double_list_item(T &payload) : _payload(payload) { }
 
 		T &payload() { return _payload; }
+
+		T const &payload() const { return _payload; }
 };
 
 
@@ -148,10 +150,14 @@ class Kernel::Double_list
 		template <typename F> void for_each(F f) {
 			for (Item * i = _head; i; i = i->_next) { f(i->payload()); } }
 
+		template <typename F> void for_each(F f) const {
+			for (Item const * i = _head; i; i = i->_next) { f(i->payload()); } }
+
 		/*
 		 * Accessors
 		 */
 
+		bool          empty() const        { return _head == nullptr; }
 		Item *        head() const         { return _head; }
 		static Item * next(Item * const i) { return i->_next; }
 };
