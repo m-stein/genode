@@ -414,7 +414,8 @@ Cpu_scheduler_test::Main::Main(Env &env)
 	_update_head_and_check( 10, 540, 7,  90, __LINE__); /* 5°0 3°110 - 7'0 1°0 8°0 - 4°90 - 2'0 - 7'90 2 */
 
 	_scheduler.unready(_share(7));
-	_set_share_ready_and_check(5, false, __LINE__);
+
+	_set_share_ready_and_check(5, true, __LINE__);
 	_update_head_and_check( 10, 550, 2, 100, __LINE__); /* 5'0 3°110 - 7°0 1°0 8°0 - 4°90 - 2'0 - 2'100 5 */
 
 	_set_share_ready_and_check(7, false, __LINE__);
@@ -460,7 +461,7 @@ Cpu_scheduler_test::Main::Main(Env &env)
 	_update_head_and_check( 20, 900, 4,  90, __LINE__); /* 5°0 3°110 - 7°0 8°0 1°0 - 4'90 - 2°0 - 4'100 */
 
 	_set_share_ready_and_check(3, true, __LINE__);
-	_set_share_ready_and_check(1, false, __LINE__);
+	_set_share_ready_and_check(1, true, __LINE__);
 	_update_head_and_check( 10, 910, 3,  90, __LINE__); /* 3'110 5°0 - 1'0 7°0 8°0 - 4'80 - 2°0 - 4'100 3 1 */
 
 	_set_share_ready_and_check(5, false, __LINE__);
@@ -480,7 +481,7 @@ Cpu_scheduler_test::Main::Main(Env &env)
 	_update_head_and_check( 10, 960, 3,  40, __LINE__); /* 3'70 5'0 - 1'0 7°0 8°0 - 4°80 - 2°0 - 1'90 5 3 */
 
 	_scheduler.unready(_share(3));
-	_set_share_ready_and_check(4, false, __LINE__);
+	_set_share_ready_and_check(4, true, __LINE__);
 	_update_head_and_check( 10, 970, 4,  30, __LINE__); /* 5'0 3°60 - 1'0 7°0 8°0 - 4'80 - 2°0 - 1'90 5 4 */
 
 	_scheduler.unready(_share(4));
@@ -509,7 +510,7 @@ Cpu_scheduler_test::Main::Main(Env &env)
 	_update_head_and_check( 20,  80, 1, 210, __LINE__); /* 5°60 - 1'210 8°100 - 2°170 - 1'80 4 */
 
 	_scheduler.unready(_share(1));
-	_set_share_ready_and_check(9, false, __LINE__);
+	_set_share_ready_and_check(9, true, __LINE__);
 	_update_head_and_check( 40, 120, 9, 100, __LINE__); /* 5°60 - 1°170 8°100 - 2°170 - 9'100 */
 
 	_scheduler.ready(_share(5));
@@ -663,14 +664,14 @@ Cpu_scheduler_test::Main::Main(Env &env)
 	_update_head_and_check( 20, 740, 9, 100, __LINE__); /* 6'0 3°110 - 9'0 8'0 - 4°0 - 2°50 - 9'100 1 5 8 6 */
 
 	_scheduler.unready(_share(9));
-	_set_share_ready_and_check(4, false, __LINE__);
+	_set_share_ready_and_check(4, true, __LINE__);
 	_update_head_and_check( 50, 790, 1, 100, __LINE__); /* 6'0 3°110 - 9°0 8'0 - 4'0 - 2°50 - 1'100 5 8 6 4 */
 
 	_set_share_ready_and_check(2, true, __LINE__);
 	_update_head_and_check(170, 890, 2,  50, __LINE__); /* 6'0 3°110 - 9°0 8'0 - 4'0 - 2'50 - 5'100 8 6 4 2 1 */
 
 	_scheduler.yield();
-	_set_share_ready_and_check(9, false, __LINE__);
+	_set_share_ready_and_check(9, true, __LINE__);
 	_update_head_and_check( 60, 940, 5,  60, __LINE__); /* 6'0 3°110 - 9'0 8'0 - 4'0 - 2'0 - 5'100 8 6 4 2 1 9 */
 
 	_scheduler.unready(_share(6));
