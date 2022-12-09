@@ -186,14 +186,14 @@ class Kernel::Thread : private Kernel::Object, public Cpu_job, private Timeout
 		void _become_inactive(State const s);
 
 		/**
-		 * Activate our CPU-share and those of our helpers
+		 * Activate our scheduling context and those of our helpers
 		 */
-		void _activate_used_shares();
+		void _activate_used_sched_contexts();
 
 		/**
-		 * Deactivate our CPU-share and those of our helpers
+		 * Deactivate our scheduling context and those of our helpers
 		 */
-		void _deactivate_used_shares();
+		void _deactivate_used_sched_contexts();
 
 		/**
 		 * Suspend unrecoverably from execution

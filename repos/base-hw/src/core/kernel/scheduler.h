@@ -1,5 +1,5 @@
 /*
- * \brief   Schedules CPU shares for the execution time of a CPU
+ * \brief   Schedules scheduling contexts for the execution time of a CPU
  * \author  Martin Stein
  * \date    2014-10-09
  */
@@ -28,12 +28,12 @@ namespace Kernel {
 	class Priority;
 
 	/**
-	 * Scheduling context that is both claim and fill
+	 * Subject that participates in the scheduling for execution time
 	 */
-	class Cpu_share;
+	class Scheduling_context;
 
 	/**
-	 * Schedules CPU shares for the execution time of a CPU
+	 * Schedules scheduling contexts for the execution time of a CPU
 	 */
 	class Scheduler;
 }
@@ -72,20 +72,20 @@ class Kernel::Priority
 };
 
 
-class Kernel::Cpu_share
+class Kernel::Scheduling_context
 {
 	friend class Scheduler;
 
 	private:
 
-		Double_list_item<Cpu_share> _fill_item  { *this };
-		Double_list_item<Cpu_share> _claim_item { *this };
-		Priority          const _prio;
-		unsigned                    _quota;
-		unsigned                    _claim;
-		unsigned                    _fill       { 0 };
-		bool                        _ready      { false };
-		unsigned                    _id;
+		Double_list_item<Scheduling_context> _fill_item  { *this };
+		Double_list_item<Scheduling_context> _claim_item { *this };
+		Priority const                       _prio;
+		unsigned                             _quota;
+		unsigned                             _claim;
+		unsigned                             _fill       { 0 };
+		bool                                 _ready      { false };
+		unsigned                             _id;
 
 	public:
 
@@ -95,7 +95,7 @@ class Kernel::Cpu_share
 		 * \param p  claimed priority
 		 * \param q  claimed quota
 		 */
-		Cpu_share(Priority const p, unsigned const q, unsigned const id = 0)
+		Scheduling_context(Priority const p, unsigned const q, unsigned const id = 0)
 		: _prio(p), _quota(q), _claim(q), _id(id) { }
 
 		/*
@@ -110,21 +110,19 @@ class Kernel::Scheduler
 {
 	private:
 
-		typedef Cpu_share    Share;
-
-		Double_list<Cpu_share>  _rcl[Priority::max() + 1]; /* ready claims */
-		Double_list<Cpu_share>  _ucl[Priority::max() + 1]; /* unready claims */
-		Double_list<Cpu_share>  _fills { };          /* ready fills */
-		Share                  &_idle;
-		Share                  *_head = nullptr;
-		unsigned                _head_quota  = 0;
-		bool                    _head_claims = false;
-		bool                    _head_yields = false;
-		unsigned const          _quota;
-		unsigned                _residual;
-		unsigned const          _fill;
-		bool                    _need_to_schedule { true };
-		time_t                  _last_time { 0 };
+		Double_list<Scheduling_context>  _rcl[Priority::max() + 1]; /* ready claims */
+		Double_list<Scheduling_context>  _ucl[Priority::max() + 1]; /* unready claims */
+		Double_list<Scheduling_context>  _fills { };          /* ready fills */
+		Scheduling_context              &_idle;
+		Scheduling_context              *_head = nullptr;
+		unsigned                         _head_quota  = 0;
+		bool                             _head_claims = false;
+		bool                             _head_yields = false;
+		unsigned const                   _quota;
+		unsigned                         _residual;
+		unsigned const                   _fill;
+		bool                             _need_to_schedule { true };
+		time_t                           _last_time { 0 };
 
 		template <typename F> void _for_each_prio(F f) const
 		{
@@ -146,12 +144,12 @@ class Kernel::Scheduler
 			}
 		}
 
-		static void _reset(Cpu_share &share);
+		static void _reset(Scheduling_context &context);
 
 		void     _reset_claims(unsigned const p);
 		void     _next_round();
 		void     _consumed(unsigned const q);
-		void     _set_head(Share &s, unsigned const q, bool const c);
+		void     _set_head(Scheduling_context &context, unsigned const q, bool const c);
 		void     _next_fill();
 		void     _head_claimed(unsigned const r);
 		void     _head_filled(unsigned const r);
@@ -159,32 +157,25 @@ class Kernel::Scheduler
 		bool     _fill_for_head();
 		unsigned _trim_consumption(unsigned &q);
 
-		/**
-		 * Fill 's' becomes a claim due to a quota donation
-		 */
-		void _quota_introduction(Share &s);
+		void _quota_introduction(Scheduling_context &context);
 
-		/**
-		 * Claim 's' looses its state as claim due to quota revokation
-		 */
-		void _quota_revokation(Share &s);
+		void _quota_revokation(Scheduling_context &context);
 
-		/**
-		 * The quota of claim 's' changes to 'q'
-		 */
-		void _quota_adaption(Share &s, unsigned const q);
+		void _quota_adaption(Scheduling_context &context, unsigned const q);
 
 	public:
 
 		/**
 		 * Constructor
 		 *
-		 * \param i  Gets scheduled with static quota when no other share
-		 *           is schedulable. Unremovable. All values get ignored.
-		 * \param q  total amount of time quota that can be claimed by shares
+		 * \param i  Gets scheduled with static quota when no other scheduling
+		 *           context can be scheduled. Unremovable. All values get
+		 *           ignored.
+		 * \param q  total amount of time quota that can be claimed by
+		 *           scheduling contexts
 		 * \param f  time-slice length of the fill round-robin
 		 */
-		Scheduler(Share &i, unsigned const q, unsigned const f);
+		Scheduler(Scheduling_context &i, unsigned const q, unsigned const f);
 
 		bool need_to_schedule() { return _need_to_schedule; }
 		void timeout()          { _need_to_schedule = true; }
@@ -195,14 +186,14 @@ class Kernel::Scheduler
 		void update(time_t time);
 
 		/**
-		 * Set share 's' ready
+		 * Set scheduling context ready
 		 */
-		void ready(Share &s);
+		void ready(Scheduling_context &context);
 
 		/**
-		 * Set share 's' unready
+		 * Set scheduling context unready
 		 */
-		void unready(Share &s);
+		void unready(Scheduling_context &context);
 
 		/**
 		 * Current head looses its current claim/fill for this round
@@ -210,25 +201,25 @@ class Kernel::Scheduler
 		void yield();
 
 		/**
-		 * Remove share 's' from scheduler
+		 * Remove scheduling context from scheduler
 		 */
-		void remove(Share &s);
+		void remove(Scheduling_context &context);
 
 		/**
-		 * Insert share 's' into scheduler
+		 * Insert scheduling context into scheduler
 		 */
-		void insert(Share &s);
+		void insert(Scheduling_context &context);
 
 		/**
-		 * Set quota of share 's' to 'q'
+		 * Set quota of scheduling context
 		 */
-		void quota(Share &s, unsigned const q);
+		void quota(Scheduling_context &context, unsigned const q);
 
 		/*
 		 * Accessors
 		 */
 
-		Share &head() const;
+		Scheduling_context &head() const;
 		unsigned head_quota() const {
 			return Genode::min(_head_quota, _residual); }
 		unsigned quota() const { return _quota; }

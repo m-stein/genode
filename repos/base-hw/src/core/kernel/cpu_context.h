@@ -30,11 +30,11 @@ namespace Kernel {
 }
 
 
-class Kernel::Cpu_job : private Cpu_share
+class Kernel::Cpu_job : private Scheduling_context
 {
 	private:
 
-		friend class Cpu; /* static_cast from 'Cpu_share' to 'Cpu_job' */
+		friend class Cpu; /* static_cast from 'Scheduling_context' to 'Cpu_job' */
 
 		time_t _execution_time { 0 };
 
@@ -54,22 +54,22 @@ class Kernel::Cpu_job : private Cpu_share
 		void _interrupt(Irq::Pool &user_irq_pool, unsigned const id);
 
 		/**
-		 * Activate our own CPU-share
+		 * Activate our own scheduling context
 		 */
-		void _activate_own_share();
+		void _activate_own_sched_context();
 
 		/**
-		 * Deactivate our own CPU-share
+		 * Deactivate our own scheduling context
 		 */
-		void _deactivate_own_share();
+		void _deactivate_own_sched_context();
 
 		/**
-		 * Yield the currently scheduled CPU share of this context
+		 * Yield the currently scheduled scheduling context of this job
 		 */
 		void _yield();
 
 		/**
-		 * Return wether we are allowed to help job 'j' with our CPU-share
+		 * Return wether we are allowed to help job 'j' with our scheduling context
 		 */
 		bool _helping_possible(Cpu_job const &j) const { return j._cpu == _cpu; }
 
@@ -86,7 +86,7 @@ class Kernel::Cpu_job : private Cpu_share
 		virtual void proceed(Cpu & cpu) = 0;
 
 		/**
-		 * Return which job currently uses our CPU-share
+		 * Return which job currently uses our scheduling context
 		 */
 		virtual Cpu_job * helping_sink() = 0;
 
@@ -111,9 +111,9 @@ class Kernel::Cpu_job : private Cpu_share
 		void quota(unsigned const q);
 
 		/**
-		 * Return wether our CPU-share is currently active
+		 * Return wether our scheduling context is currently active
 		 */
-		bool own_share_active() { return Cpu_share::ready(); }
+		bool own_sched_context_active() { return Scheduling_context::ready(); }
 
 		/**
 		 * Update total execution time
@@ -132,7 +132,7 @@ class Kernel::Cpu_job : private Cpu_share
 
 		void cpu(Cpu &cpu) { _cpu = &cpu; }
 
-		Cpu_share &share() { return *this; }
+		Scheduling_context &scheduling_context() { return *this; }
 };
 
 #endif /* _CORE__KERNEL__CPU_CONTEXT_H_ */

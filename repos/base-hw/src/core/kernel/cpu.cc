@@ -28,10 +28,10 @@ using namespace Kernel;
  ** Cpu_job **
  *************/
 
-void Cpu_job::_activate_own_share() { _cpu->schedule(this); }
+void Cpu_job::_activate_own_sched_context() { _cpu->schedule(this); }
 
 
-void Cpu_job::_deactivate_own_share()
+void Cpu_job::_deactivate_own_sched_context()
 {
 	assert(_cpu->id() == Cpu::executing_id());
 	_cpu->scheduler().unready(*this);
@@ -77,13 +77,13 @@ void Cpu_job::quota(unsigned const q)
 	if (_cpu)
 		_cpu->scheduler().quota(*this, q);
 	else
-		Cpu_share::quota(q);
+		Scheduling_context::quota(q);
 }
 
 
 Cpu_job::Cpu_job(Priority const p, unsigned const q)
 :
-	Cpu_share(p, q), _cpu(0)
+	Scheduling_context(p, q), _cpu(0)
 { }
 
 
@@ -121,7 +121,7 @@ Cpu::Idle_thread::Idle_thread(Board::Address_space_id_allocator &addr_space_id_a
 
 void Cpu::schedule(Job * const job)
 {
-	_scheduler.ready(job->share());
+	_scheduler.ready(job->scheduling_context());
 	if (_id != executing_id() && _scheduler.need_to_schedule())
 		trigger_ip_interrupt();
 }

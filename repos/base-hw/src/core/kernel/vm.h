@@ -125,14 +125,14 @@ class Kernel::Vm : private Kernel::Object, public Cpu_job
 
 		void run()
 		{
-			if (_scheduled != ACTIVE) Cpu_job::_activate_own_share();
+			if (_scheduled != ACTIVE) Cpu_job::_activate_own_sched_context();
 			_scheduled = ACTIVE;
 		}
 
 		void pause()
 		{
 			if (_scheduled != INACTIVE)
-				Cpu_job::_deactivate_own_share();
+				Cpu_job::_deactivate_own_sched_context();
 
 			_scheduled = INACTIVE;
 		}
