@@ -77,7 +77,7 @@ void Cpu_job::quota(unsigned const q)
 	if (_cpu)
 		_cpu->scheduler().quota(*this, q);
 	else
-		Scheduling_context::quota(q);
+		Scheduling_context::quota_per_round(q);
 }
 
 

@@ -20,7 +20,7 @@ using namespace Kernel;
 
 void Scheduler::_reset(Scheduling_context &context)
 {
-	context._claim = context._quota;
+	context._remaining_quota = context._quota_per_round;
 }
 
 
@@ -69,7 +69,8 @@ void Scheduler::print(Genode::Output &output) const
 
 						Genode::print(
 							output, first_ctx ? "\"" : ", \"", context._id ,
-							":", context._claim, "/", context._quota, "\"");
+							":", context._remaining_quota, "/",
+							context._quota_per_round, "\"");
 
 						first_ctx = false;
 					});
@@ -83,7 +84,8 @@ void Scheduler::print(Genode::Output &output) const
 
 						Genode::print(
 							output, first_ctx ? "\"" : ", \"", context._id ,
-							":", context._claim, "/", context._quota, "\"");
+							":", context._remaining_quota, "/",
+							context._quota_per_round, "\"");
 
 						first_ctx = false;
 					});
@@ -158,15 +160,15 @@ void Scheduler::_next_fill()
 
 void Scheduler::_head_claimed(unsigned const r)
 {
-	if (!_head->_quota)
+	if (!_head->_quota_per_round)
 		return;
 
-	_head->_claim = r > _head->_quota ? _head->_quota : r;
+	_head->_remaining_quota = r > _head->_quota_per_round ? _head->_quota_per_round : r;
 
-	if (_head->_claim || !_head->_ready)
+	if (_head->_remaining_quota || !_head->_ready)
 		return;
 
-	_rcl[_head->_prio].to_tail(&_head->_claim_item);
+	_rcl[_head->_prio].to_tail(&_head->_quota_sched_item);
 }
 
 
@@ -193,10 +195,10 @@ bool Scheduler::_claim_for_head()
 
 		Scheduling_context &context { item->payload() };
 
-		if (!context._claim)
+		if (!context._remaining_quota)
 			return;
 
-		_set_head(context, context._claim, 1);
+		_set_head(context, context._remaining_quota, 1);
 		result = true;
 		cancel_for_each_prio = true;
 	});
@@ -230,26 +232,26 @@ unsigned Scheduler::_trim_consumption(unsigned &q)
 void Scheduler::_quota_introduction(Scheduling_context &context)
 {
 	if (context._ready)
-		_rcl[context._prio].insert_tail(&context._claim_item);
+		_rcl[context._prio].insert_tail(&context._quota_sched_item);
 	else
-		_ucl[context._prio].insert_tail(&context._claim_item);
+		_ucl[context._prio].insert_tail(&context._quota_sched_item);
 }
 
 
 void Scheduler::_quota_revokation(Scheduling_context &context)
 {
 	if (context._ready)
-		_rcl[context._prio].remove(&context._claim_item);
+		_rcl[context._prio].remove(&context._quota_sched_item);
 	else
-		_ucl[context._prio].remove(&context._claim_item);
+		_ucl[context._prio].remove(&context._quota_sched_item);
 }
 
 
 void Scheduler::_quota_adaption(Scheduling_context &context, unsigned const q)
 {
 	if (q) {
-		if (context._claim > q)
-			context._claim = q;
+		if (context._remaining_quota > q)
+			context._remaining_quota = q;
 	} else {
 		_quota_revokation(context);
 	}
@@ -290,12 +292,12 @@ void Scheduler::ready(Scheduling_context &context)
 	assert(!context._ready && &context != &_idle);
 
 	context._ready = 1;
-	if (context._quota) {
+	if (context._quota_per_round) {
 
-		_ucl[context._prio].remove(&context._claim_item);
-		if (context._claim) {
+		_ucl[context._prio].remove(&context._quota_sched_item);
+		if (context._remaining_quota) {
 
-			_rcl[context._prio].insert_head(&context._claim_item);
+			_rcl[context._prio].insert_head(&context._quota_sched_item);
 			if (_head && _head_claims) {
 
 				if (context._prio >= _head->_prio) {
@@ -308,7 +310,7 @@ void Scheduler::ready(Scheduling_context &context)
 			}
 		} else {
 
-			_rcl[context._prio].insert_tail(&context._claim_item);;
+			_rcl[context._prio].insert_tail(&context._quota_sched_item);;
 		}
 	}
 
@@ -331,11 +333,11 @@ void Scheduler::unready(Scheduling_context &context)
 	context._ready = 0;
 	_fills.remove(&context._fill_item);
 
-	if (!context._quota)
+	if (!context._quota_per_round)
 		return;
 
-	_rcl[context._prio].remove(&context._claim_item);
-	_ucl[context._prio].insert_tail(&context._claim_item);
+	_rcl[context._prio].remove(&context._quota_sched_item);
+	_ucl[context._prio].insert_tail(&context._quota_sched_item);
 }
 
 
@@ -355,10 +357,10 @@ void Scheduler::remove(Scheduling_context &context)
 	if (&context == _head)
 		_head = nullptr;
 
-	if (!context._quota)
+	if (!context._quota_per_round)
 		return;
 
-	_ucl[context._prio].remove(&context._claim_item);
+	_ucl[context._prio].remove(&context._quota_sched_item);
 }
 
 
@@ -366,11 +368,11 @@ void Scheduler::insert(Scheduling_context &context)
 {
 	assert(!context._ready);
 
-	if (!context._quota)
+	if (!context._quota_per_round)
 		return;
 
-	context._claim = context._quota;
-	_ucl[context._prio].insert_head(&context._claim_item);
+	context._remaining_quota = context._quota_per_round;
+	_ucl[context._prio].insert_head(&context._quota_sched_item);
 }
 
 
@@ -378,12 +380,12 @@ void Scheduler::quota(Scheduling_context &context, unsigned const q)
 {
 	assert(&context != &_idle);
 
-	if (context._quota)
+	if (context._quota_per_round)
 		_quota_adaption(context, q);
 	else if (q)
 		_quota_introduction(context);
 
-	context._quota = q;
+	context._quota_per_round = q;
 }
 
 

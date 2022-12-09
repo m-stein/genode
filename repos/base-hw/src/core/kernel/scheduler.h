@@ -23,7 +23,7 @@
 namespace Kernel {
 
 	/**
-	 * Priority of an unconsumed CPU claim versus other unconsumed CPU claims
+	 * Absolute priority of a scheduling context with unconsumed quota
 	 */
 	class Priority;
 
@@ -78,40 +78,34 @@ class Kernel::Scheduling_context
 
 	private:
 
-		Double_list_item<Scheduling_context> _fill_item  { *this };
-		Double_list_item<Scheduling_context> _claim_item { *this };
+		Double_list_item<Scheduling_context> _fill_item        { *this };
+		Double_list_item<Scheduling_context> _quota_sched_item { *this };
 		Priority const                       _prio;
-		unsigned                             _quota;
-		unsigned                             _claim;
-		unsigned                             _fill       { 0 };
-		bool                                 _ready      { false };
+		unsigned                             _quota_per_round;
+		unsigned                             _remaining_quota;
+		unsigned                             _fill             { 0 };
+		bool                                 _ready            { false };
 		unsigned                             _id;
 
 	public:
 
-		/**
-		 * Constructor
-		 *
-		 * \param p  claimed priority
-		 * \param q  claimed quota
-		 */
-		Scheduling_context(Priority const p, unsigned const q, unsigned const id = 0)
-		: _prio(p), _quota(q), _claim(q), _id(id) { }
+		Scheduling_context(Priority const p, unsigned const quota_per_round, unsigned const id = 0)
+		: _prio(p), _quota_per_round(quota_per_round), _remaining_quota(quota_per_round), _id(id) { }
 
 		/*
 		 * Accessors
 		 */
 
 		bool ready() const { return _ready; }
-		void quota(unsigned const q) { _quota = q; }
+		void quota_per_round(unsigned const quota_per_round) { _quota_per_round = quota_per_round; }
 };
 
 class Kernel::Scheduler
 {
 	private:
 
-		Double_list<Scheduling_context>  _rcl[Priority::max() + 1]; /* ready claims */
-		Double_list<Scheduling_context>  _ucl[Priority::max() + 1]; /* unready claims */
+		Double_list<Scheduling_context>  _rcl[Priority::max() + 1];
+		Double_list<Scheduling_context>  _ucl[Priority::max() + 1];
 		Double_list<Scheduling_context>  _fills { };          /* ready fills */
 		Scheduling_context              &_idle;
 		Scheduling_context              *_head = nullptr;
