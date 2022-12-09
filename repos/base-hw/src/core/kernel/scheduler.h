@@ -11,8 +11,8 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-#ifndef _CORE__KERNEL__CPU_SCHEDULER_H_
-#define _CORE__KERNEL__CPU_SCHEDULER_H_
+#ifndef _CORE__KERNEL__SCHEDULER_H_
+#define _CORE__KERNEL__SCHEDULER_H_
 
 /* core includes */
 #include <util.h>
@@ -35,7 +35,7 @@ namespace Kernel {
 	/**
 	 * Schedules CPU shares for the execution time of a CPU
 	 */
-	class Cpu_scheduler;
+	class Scheduler;
 }
 
 
@@ -74,7 +74,7 @@ class Kernel::Cpu_priority
 
 class Kernel::Cpu_share
 {
-	friend class Cpu_scheduler;
+	friend class Scheduler;
 
 	private:
 
@@ -106,7 +106,7 @@ class Kernel::Cpu_share
 		void quota(unsigned const q) { _quota = q; }
 };
 
-class Kernel::Cpu_scheduler
+class Kernel::Scheduler
 {
 	private:
 
@@ -185,7 +185,7 @@ class Kernel::Cpu_scheduler
 		 * \param q  total amount of time quota that can be claimed by shares
 		 * \param f  time-slice length of the fill round-robin
 		 */
-		Cpu_scheduler(Share &i, unsigned const q, unsigned const f);
+		Scheduler(Share &i, unsigned const q, unsigned const f);
 
 		bool need_to_schedule() { return _need_to_schedule; }
 		void timeout()          { _need_to_schedule = true; }
@@ -243,4 +243,4 @@ class Kernel::Cpu_scheduler
 		void print(Genode::Output &output) const;
 };
 
-#endif /* _CORE__KERNEL__CPU_SCHEDULER_H_ */
+#endif /* _CORE__KERNEL__SCHEDULER_H_ */

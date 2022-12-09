@@ -1,5 +1,5 @@
 /*
- * \brief  Test CPU-scheduler implementation of the kernel
+ * \brief  Test scheduler implementation of the kernel
  * \author Martin Stein
  * \date   2014-09-30
  */
@@ -16,18 +16,18 @@
 #include <base/component.h>
 
 /* core includes */
-#include <kernel/cpu_scheduler.h>
+#include <kernel/scheduler.h>
 
 using namespace Genode;
 using namespace Kernel;
 
-namespace Cpu_scheduler_test {
+namespace Scheduler_test {
 
 	class Main;
 }
 
 
-class Cpu_scheduler_test::Main
+class Scheduler_test::Main
 {
 	private:
 
@@ -39,7 +39,7 @@ class Cpu_scheduler_test::Main
 		Cpu_share                 _idle_share               { 0, 0 };
 		Constructible<Cpu_share>  _shares[MAX_NR_OF_SHARES] { };
 		time_t                    _current_time             { 0 };
-		Cpu_scheduler             _scheduler;
+		Scheduler                 _scheduler;
 
 		unsigned _id_of_share(Cpu_share const &share) const
 		{
@@ -185,7 +185,7 @@ class Cpu_scheduler_test::Main
 };
 
 
-Cpu_scheduler_test::Main::Main(Env &env)
+Scheduler_test::Main::Main(Env &env)
 :
 	_env       { env },
 	_scheduler { _idle_share, 1000, 100 }
@@ -739,5 +739,5 @@ Cpu_scheduler_test::Main::Main(Env &env)
 
 void Component::construct(Env &env)
 {
-	static Cpu_scheduler_test::Main main { env };
+	static Scheduler_test::Main main { env };
 }
