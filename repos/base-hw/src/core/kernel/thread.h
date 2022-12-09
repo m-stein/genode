@@ -320,7 +320,7 @@ class Kernel::Thread : private Kernel::Object, public Cpu_job, private Timeout
 		       char                 const *const  label)
 		:
 			Thread(addr_space_id_alloc, user_irq_pool, cpu_pool, core_pd,
-			       Cpu_priority::min(), 0, label, CORE)
+			       Priority::min(), 0, label, CORE)
 		{ }
 
 		~Thread();

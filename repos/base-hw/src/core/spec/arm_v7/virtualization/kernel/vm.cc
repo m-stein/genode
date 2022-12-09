@@ -140,7 +140,7 @@ Kernel::Vm::Vm(Irq::Pool              & user_irq_pool,
                Identity               & id)
 :
 	Kernel::Object { *this },
-	Cpu_job(Cpu_priority::min(), 0),
+	Cpu_job(Priority::min(), 0),
 	_user_irq_pool(user_irq_pool),
 	_state(state),
 	_context(context),

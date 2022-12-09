@@ -42,7 +42,7 @@ void Scheduler::print(Genode::Output &output) const
 		Genode::print(output, "}");
 	}
 	bool prios_empty { true };
-	_for_each_prio([&] (Cpu_priority const prio, bool &) {
+	_for_each_prio([&] (Priority const prio, bool &) {
 		if (prios_empty && (!_rcl[prio].empty() || !_ucl[prio].empty())) {
 			prios_empty = false;
 		}
@@ -51,7 +51,7 @@ void Scheduler::print(Genode::Output &output) const
 
 		Genode::print(output, ",\n   \"prios\": [");
 		bool first_prio { true };
-		_for_each_prio([&] (Cpu_priority const prio, bool &) {
+		_for_each_prio([&] (Priority const prio, bool &) {
 
 			if (!_rcl[prio].empty() || !_ucl[prio].empty()) {
 
@@ -126,7 +126,7 @@ void Scheduler::_reset_claims(unsigned const p)
 void Scheduler::_next_round()
 {
 	_residual = _quota;
-	_for_each_prio([&] (Cpu_priority const p, bool &) { _reset_claims(p); });
+	_for_each_prio([&] (Priority const p, bool &) { _reset_claims(p); });
 }
 
 
@@ -183,7 +183,7 @@ void Scheduler::_head_filled(unsigned const r)
 bool Scheduler::_claim_for_head()
 {
 	bool result { false };
-	_for_each_prio([&] (Cpu_priority const p, bool &cancel_for_each_prio) {
+	_for_each_prio([&] (Priority const p, bool &cancel_for_each_prio) {
 		Double_list_item<Cpu_share> *const item { _rcl[p].head() };
 
 		if (!item)

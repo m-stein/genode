@@ -25,7 +25,7 @@ namespace Kernel {
 	/**
 	 * Priority of an unconsumed CPU claim versus other unconsumed CPU claims
 	 */
-	class Cpu_priority;
+	class Priority;
 
 	/**
 	 * Scheduling context that is both claim and fill
@@ -39,7 +39,7 @@ namespace Kernel {
 }
 
 
-class Kernel::Cpu_priority
+class Kernel::Priority
 {
 	private:
 
@@ -53,7 +53,7 @@ class Kernel::Cpu_priority
 		/**
 		 * Construct priority with value 'v'
 		 */
-		Cpu_priority(unsigned const v)
+		Priority(unsigned const v)
 		:
 			_value { Genode::min(v, max()) }
 		{ }
@@ -62,7 +62,7 @@ class Kernel::Cpu_priority
 		 * Standard operators
 		 */
 
-		Cpu_priority &operator =(unsigned const v)
+		Priority &operator =(unsigned const v)
 		{
 			_value = Genode::min(v, max());
 			return *this;
@@ -80,7 +80,7 @@ class Kernel::Cpu_share
 
 		Double_list_item<Cpu_share> _fill_item  { *this };
 		Double_list_item<Cpu_share> _claim_item { *this };
-		Cpu_priority          const _prio;
+		Priority          const _prio;
 		unsigned                    _quota;
 		unsigned                    _claim;
 		unsigned                    _fill       { 0 };
@@ -95,7 +95,7 @@ class Kernel::Cpu_share
 		 * \param p  claimed priority
 		 * \param q  claimed quota
 		 */
-		Cpu_share(Cpu_priority const p, unsigned const q, unsigned const id = 0)
+		Cpu_share(Priority const p, unsigned const q, unsigned const id = 0)
 		: _prio(p), _quota(q), _claim(q), _id(id) { }
 
 		/*
@@ -111,10 +111,9 @@ class Kernel::Scheduler
 	private:
 
 		typedef Cpu_share    Share;
-		typedef Cpu_priority Prio;
 
-		Double_list<Cpu_share>  _rcl[Prio::max() + 1]; /* ready claims */
-		Double_list<Cpu_share>  _ucl[Prio::max() + 1]; /* unready claims */
+		Double_list<Cpu_share>  _rcl[Priority::max() + 1]; /* ready claims */
+		Double_list<Cpu_share>  _ucl[Priority::max() + 1]; /* unready claims */
 		Double_list<Cpu_share>  _fills { };          /* ready fills */
 		Share                  &_idle;
 		Share                  *_head = nullptr;
@@ -130,7 +129,7 @@ class Kernel::Scheduler
 		template <typename F> void _for_each_prio(F f) const
 		{
 			bool cancel_for_each_prio { false };
-			for (unsigned p = Prio::max(); p != Prio::min() - 1; p--) {
+			for (unsigned p = Priority::max(); p != Priority::min() - 1; p--) {
 				f(p, cancel_for_each_prio);
 				if (cancel_for_each_prio)
 					return;
@@ -140,7 +139,7 @@ class Kernel::Scheduler
 		template <typename F> void _for_each_prio(F f)
 		{
 			bool cancel_for_each_prio { false };
-			for (unsigned p = Prio::max(); p != Prio::min() - 1; p--) {
+			for (unsigned p = Priority::max(); p != Priority::min() - 1; p--) {
 				f(p, cancel_for_each_prio);
 				if (cancel_for_each_prio)
 					return;

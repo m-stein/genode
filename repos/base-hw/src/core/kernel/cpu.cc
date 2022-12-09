@@ -81,7 +81,7 @@ void Cpu_job::quota(unsigned const q)
 }
 
 
-Cpu_job::Cpu_job(Cpu_priority const p, unsigned const q)
+Cpu_job::Cpu_job(Priority const p, unsigned const q)
 :
 	Cpu_share(p, q), _cpu(0)
 { }
@@ -110,7 +110,7 @@ Cpu::Idle_thread::Idle_thread(Board::Address_space_id_allocator &addr_space_id_a
                               Pd                                &core_pd)
 :
 	Thread { addr_space_id_alloc, user_irq_pool, cpu_pool, core_pd,
-	         Cpu_priority::min(), 0, "idle", Thread::IDLE }
+	         Priority::min(), 0, "idle", Thread::IDLE }
 {
 	regs->ip = (addr_t)&idle_thread_main;
 

@@ -93,7 +93,7 @@ class Kernel::Cpu_job : private Cpu_share
 		/**
 		 * Construct a job with scheduling priority 'p' and time quota 'q'
 		 */
-		Cpu_job(Cpu_priority const p, unsigned const q);
+		Cpu_job(Priority const p, unsigned const q);
 
 		/**
 		 * Destructor
