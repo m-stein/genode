@@ -339,7 +339,9 @@ class Net::Interface : private Interface_list::Element
 		void _dismiss_link_log(Link       &link,
 		                       char const *reason);
 
+public:
 		void _destroy_link(Link &link);
+private:
 
 		void _update_domain_object(Domain &new_domain);
 
