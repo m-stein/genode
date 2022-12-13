@@ -68,6 +68,7 @@ static void _destroy_dissolved_links(Link_list   &dissolved_links,
                                      Deallocator &dealloc)
 {
 	while (Link *link = dissolved_links.first()) {
+		error("---- _destroy_links link ", *link);
 		dissolved_links.remove(link);
 		destroy(dealloc, static_cast<LINK_TYPE *>(link));
 	}
@@ -79,6 +80,7 @@ static void _destroy_link(Link        &link,
                           Link_list   &links,
                           Deallocator &dealloc)
 {
+	error("---- _destroy_link \"", link, "\"");
 	link.dissolve(false);
 	links.remove(&link);
 	destroy(dealloc, static_cast<LINK_TYPE *>(&link));
@@ -92,7 +94,6 @@ static void _destroy_links(Link_list   &links,
 {
 	_destroy_dissolved_links<LINK_TYPE>(dissolved_links, dealloc);
 	while (Link *link = links.first()) {
-		error("---- _destroy_links link ", *link);
 		_destroy_link<LINK_TYPE>(*link, links, dealloc);
 	}
 }
@@ -438,7 +439,7 @@ void Interface::attach_to_ip_config(Domain            &domain,
 
 void Interface::detach_from_ip_config(Domain &domain)
 {
-	error("[",domain,"] detach_from_ip_config ", _policy.label());
+	error("[",domain,"] detach_from_ip_config ", __LINE__, " \"", _policy.label(), "\"");
 
 	/* destroy our own ARP waiters */
 	while (_own_arp_waiters.first()) {
@@ -447,7 +448,10 @@ void Interface::detach_from_ip_config(Domain &domain)
 	/* destroy links */
 	_destroy_links<Tcp_link> (_tcp_links,  _dissolved_tcp_links,  _alloc);
 	_destroy_links<Udp_link> (_udp_links,  _dissolved_udp_links,  _alloc);
+
+	error("[",domain,"] detach_from_ip_config ", __LINE__, " \"", _policy.label(), "\"");
 	_destroy_links<Icmp_link>(_icmp_links, _dissolved_icmp_links, _alloc);
+	error("[",domain,"] detach_from_ip_config ", __LINE__, " \"", _policy.label(), "\"");
 
 	/* destroy DHCP allocations */
 	_destroy_released_dhcp_allocations(domain);
@@ -2069,11 +2073,13 @@ void Interface::_update_icmp_links(Domain &cln_dom)
 				link.client().dst_ip(),
 				[&] /* handle_match */ (Ip_rule const &rule)
 				{
+	error("---- [", _domain(), "] \"", _policy.label(), "\" update ICMP link \"", link, "\"");
 					_update_link_check_nat(link, rule.domain(), prot, cln_dom);
 					done = true;
 				},
 				[&] /* handle_no_match */ ()
 				{
+	error("---- dismiss ICMP link \"", link, "\"");
 					_dismiss_link_log(link, "no ICMP rule");
 				}
 			);
