@@ -331,8 +331,6 @@ class Net::Interface : private Interface_list::Element
 		void _dismiss_link_log(Link       &link,
 		                       char const *reason);
 
-		void _destroy_link(Link &link);
-
 		void _update_domain_object(Domain &new_domain);
 
 		void _detach_from_domain_raw();
@@ -439,6 +437,8 @@ class Net::Interface : private Interface_list::Element
 		void handle_interface_link_state();
 
 		void report(Genode::Xml_generator &xml);
+
+		void destroy_link(Link &link);
 
 
 		/***************

@@ -282,7 +282,7 @@ void Interface_object_stats::report(Genode::Xml_generator &xml)
  ** Interface **
  ***************/
 
-void Interface::_destroy_link(Link &link)
+void Interface::destroy_link(Link &link)
 {
 	L3_protocol const prot = link.protocol();
 	switch (prot) {
@@ -1897,7 +1897,7 @@ void Interface::_update_udp_tcp_links(L3_protocol  prot,
 			catch (Dismiss_link)                      { }
 		}
 		catch (Dismiss_link) { }
-		_destroy_link(link);
+		destroy_link(link);
 	});
 }
 
@@ -1915,7 +1915,7 @@ void Interface::_update_icmp_links(Domain &cln_dom)
 		}
 		catch (Ip_rule_list::No_match) { _dismiss_link_log(link, "no ICMP rule"); }
 		catch (Dismiss_link) { }
-		_destroy_link(link);
+		destroy_link(link);
 	});
 }
 
