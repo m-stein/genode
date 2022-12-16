@@ -93,7 +93,7 @@ class Kernel::Ipc_node
 		/**
 		 * Return wether we are the source of a helping relationship
 		 */
-		bool _helps_outbuf_dst();
+		bool _helps_outbuf_dst() const;
 
 		/**
 		 * Make the class noncopyable because it has pointer members
@@ -123,7 +123,7 @@ class Kernel::Ipc_node
 		 * \param callee    targeted IPC node
 		 * \param help      wether the request implies a helping relationship
 		 */
-		bool can_send_request();
+		bool can_send_request() const;
 		void send_request(Ipc_node &callee,
 		                  bool      help);
 
@@ -155,7 +155,7 @@ class Kernel::Ipc_node
 		 *
 		 * \return  wether a request could be received already
 		 */
-		bool can_await_request();
+		bool can_await_request() const;
 		void await_request();
 
 		/**
