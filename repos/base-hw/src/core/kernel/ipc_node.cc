@@ -102,7 +102,7 @@ void Ipc_node::_outbuf_request_cancelled()
 }
 
 
-bool Ipc_node::_helps_outbuf_dst() const
+bool Ipc_node::_helping() const
 {
 	return (_state == AWAIT_REPLY) && _help;
 }
@@ -129,7 +129,7 @@ void Ipc_node::send_request(Ipc_node &callee, bool help)
 
 Thread &Ipc_node::helping_sink()
 {
-	return _helps_outbuf_dst() ? _callee->helping_sink() : _thread;
+	return _helping() ? _callee->helping_sink() : _thread;
 }
 
 
