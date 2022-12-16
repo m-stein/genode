@@ -25,10 +25,10 @@
 using namespace Kernel;
 
 
-void Ipc_node::_receive_request(Ipc_node &caller)
+void Ipc_node::_receive_from(Ipc_node &node)
 {
-	_thread.ipc_copy_msg(caller._thread);
-	_caller = &caller;
+	_thread.ipc_copy_msg(node._thread);
+	_caller = &node;
 	_state  = INACTIVE;
 }
 
@@ -45,7 +45,7 @@ void Ipc_node::_announce_request(Ipc_node &node)
 {
 	/* directly receive request if we've awaited it */
 	if (_state == AWAIT_REQUEST) {
-		_receive_request(node);
+		_receive_from(node);
 		_thread.ipc_await_request_succeeded();
 		return;
 	}
@@ -143,7 +143,7 @@ void Ipc_node::await_request()
 {
 	_state = AWAIT_REQUEST;
 	_request_queue.dequeue([&] (Queue_item &item) {
-		_receive_request(item.object());
+		_receive_from(item.object());
 	});
 }
 
