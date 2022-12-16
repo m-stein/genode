@@ -61,11 +61,6 @@ class Kernel::Ipc_node
 		void _announce_request(Ipc_node &node);
 
 		/**
-		 * Cancel all requests in request queue
-		 */
-		void _cancel_request_queue();
-
-		/**
 		 * Cancel an ongoing send operation
 		 */
 		void _cancel_send();
