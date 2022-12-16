@@ -50,6 +50,16 @@ class Kernel::Ipc_node
 		bool        _help               { false };
 		Queue       _request_queue      { };
 
+		bool _out_sending() const
+		{
+			return _state == AWAIT_REPLY;
+		}
+
+		bool _in_waiting() const
+		{
+			return _state == AWAIT_REQUEST;
+		}
+
 		/**
 		 * Receive a message from another IPC node
 		 */
@@ -138,7 +148,7 @@ class Kernel::Ipc_node
 		 */
 		void cancel_waiting();
 
-		bool awaits_request() const { return _state == AWAIT_REQUEST; }
+		bool awaits_request() const { return _in_waiting(); }
 };
 
 #endif /* _CORE__KERNEL__IPC_NODE_H_ */
