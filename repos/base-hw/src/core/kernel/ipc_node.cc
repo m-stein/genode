@@ -134,7 +134,10 @@ void Ipc_node::cancel_waiting()
 }
 
 
-Ipc_node::Ipc_node(Thread & thread) : _thread(thread) { }
+Ipc_node::Ipc_node(Thread &thread)
+:
+	_thread(thread)
+{ }
 
 
 Ipc_node::~Ipc_node()
