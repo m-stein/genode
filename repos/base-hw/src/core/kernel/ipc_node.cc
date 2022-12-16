@@ -25,34 +25,26 @@
 using namespace Kernel;
 
 
-void Ipc_node::_receive(Ipc_node & from)
+void Ipc_node::_receive_from(Ipc_node &node)
 {
-	_thread.ipc_copy_msg(from._thread);
+	_thread.ipc_copy_msg(node._thread);
 	_in.state = In::REPLY;
-}
-
-
-void Ipc_node::_cancel_receive(Ipc_node & from)
-{
-	/*
-	 * Check whether this node already actively replies
-	 * the message that needs to be canceled
-	 */
-	if (_in.state == In::REPLY)
-		_in.queue.head([&] (Queue_item &item) {
-			if (&item == &from._queue_item) _in.state = In::REPLY_NO_SENDER; });
-
-	_in.queue.remove(from._queue_item);
 }
 
 
 void Ipc_node::_cancel_send()
 {
 	if (_out.node) {
-		_out.node->_cancel_receive(*this);
+		if (_out.node->_in.state == In::REPLY) {
+			_out.node->_in.queue.head([&] (Queue_item &item) {
+				if (&item == &_queue_item) {
+					_out.node->_in.state = In::REPLY_NO_SENDER;
+				}
+			});
+		}
+		_out.node->_in.queue.remove(_queue_item);
 		_out.node = nullptr;
 	}
-
 	if (_out.sending()) {
 		_thread.ipc_send_request_failed();
 		_out.state = Out::READY;
@@ -72,16 +64,15 @@ bool Ipc_node::can_send_request() const
 }
 
 
-void Ipc_node::send_request(Ipc_node & to, bool help)
+void Ipc_node::send_request(Ipc_node &node, bool help)
 {
-	to._in.queue.enqueue(_queue_item);
+	node._in.queue.enqueue(_queue_item);
 
-	if (to._in.waiting()) {
-		to._receive(*this);
-		to._thread.ipc_await_request_succeeded();
+	if (node._in.waiting()) {
+		node._receive_from(*this);
+		node._thread.ipc_await_request_succeeded();
 	}
-
-	_out.node  = &to;
+	_out.node  = &node;
 	_out.state = help ? Out::SEND_HELPING : Out::SEND;
 }
 
@@ -101,32 +92,32 @@ bool Ipc_node::can_await_request() const
 void Ipc_node::await_request()
 {
 	_in.state = In::WAIT;
-
 	_in.queue.head([&] (Queue_item &item) {
-		_receive(item.object()); });
+		_receive_from(item.object());
+	});
 }
 
 
 void Ipc_node::send_reply()
 {
-	if (_in.state == In::REPLY)
-		_in.queue.dequeue([&] (Queue_item &item)
-		{
-			Ipc_node & from = item.object();
-			from._thread.ipc_copy_msg(_thread);
-			from._out.node  = nullptr;
-			from._out.state = Out::READY;
-			from._thread.ipc_send_request_succeeded();
+	if (_in.state == In::REPLY) {
+		_in.queue.dequeue([&] (Queue_item &item) {
+			Ipc_node &node { item.object() };
+			node._thread.ipc_copy_msg(_thread);
+			node._out.node  = nullptr;
+			node._out.state = Out::READY;
+			node._thread.ipc_send_request_succeeded();
 		});
-
+	}
 	_in.state = In::READY;
 }
 
 
 void Ipc_node::cancel_waiting()
 {
-	if (_out.sending()) _cancel_send();
-
+	if (_out.sending()) {
+		_cancel_send();
+	}
 	if (_in.waiting()) {
 		_in.state = In::READY;
 		_thread.ipc_await_request_failed();
@@ -134,7 +125,10 @@ void Ipc_node::cancel_waiting()
 }
 
 
-Ipc_node::Ipc_node(Thread & thread) : _thread(thread) { }
+Ipc_node::Ipc_node(Thread &thread)
+:
+	_thread(thread)
+{ }
 
 
 Ipc_node::~Ipc_node()
@@ -145,5 +139,6 @@ Ipc_node::~Ipc_node()
 	_cancel_send();
 
 	_in.queue.for_each([&] (Queue_item &item) {
-		item.object()._cancel_send(); });
+		item.object()._cancel_send();
+	});
 }

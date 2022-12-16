@@ -33,42 +33,56 @@ class Kernel::Ipc_node
 	private:
 
 		using Queue_item = Genode::Fifo_element<Ipc_node>;
-
-		Thread     & _thread;
-		Queue_item   _queue_item { *this };
-
-		struct Out
-		{
-			enum State { READY, SEND, SEND_HELPING, DESTRUCT };
-
-			State      state { READY   };
-			Ipc_node * node  { nullptr };
-
-			bool sending() const {
-				return state == SEND_HELPING || state == SEND; }
-		} _out {};
+		using Queue      = Genode::Fifo<Queue_item>;
 
 		struct In
 		{
-			using Queue = Genode::Fifo<Queue_item>;
-
-			enum State { READY, WAIT, REPLY, REPLY_NO_SENDER, DESTRUCT };
+			enum State
+			{
+				READY,
+				WAIT,
+				REPLY,
+				REPLY_NO_SENDER,
+				DESTRUCT
+			};
 
 			State state { READY };
 			Queue queue { };
 
-			bool waiting() const { return state == WAIT; }
-		} _in {};
+			bool waiting() const
+			{
+				return state == WAIT;
+			}
+		};
+
+		struct Out
+		{
+			enum State
+			{
+				READY,
+				SEND,
+				SEND_HELPING,
+				DESTRUCT
+			};
+
+			State     state { READY   };
+			Ipc_node *node  { nullptr };
+
+			bool sending() const
+			{
+				return state == SEND_HELPING || state == SEND;
+			}
+		};
+
+		Thread     &_thread;
+		Queue_item  _queue_item { *this };
+		Out         _out        { };
+		In          _in         { };
 
 		/**
-		 * Receive a message from ipc node 'from'
+		 * Receive a message from another IPC node
 		 */
-		void _receive(Ipc_node & from);
-
-		/**
-		 * Cancel incoming message of ipc node 'from'
-		 */
-		void _cancel_receive(Ipc_node & from);
+		void _receive_from(Ipc_node &node);
 
 		/**
 		 * Cancel an ongoing send operation
@@ -76,12 +90,12 @@ class Kernel::Ipc_node
 		void _cancel_send();
 
 		/**
-		 * Return wether this ipc node is helping another one
+		 * Return wether this IPC node is helping another one
 		 */
 		bool _helping() const;
 
 		/**
-		 * Non-copyable
+		 * Noncopyable
 		 */
 		Ipc_node(const Ipc_node&) = delete;
 		const Ipc_node& operator=(const Ipc_node&) = delete;
@@ -101,11 +115,11 @@ class Kernel::Ipc_node
 		/**
 		 * Send a request and wait for the according reply
 		 *
-		 * \param callee    targeted IPC node
-		 * \param help      wether the request implies a helping relationship
+		 * \param node  targeted IPC node
+		 * \param help  wether the request implies a helping relationship
 		 */
 		bool can_send_request() const;
-		void send_request(Ipc_node &callee,
+		void send_request(Ipc_node &node,
 		                  bool      help);
 
 		/**
@@ -119,7 +133,11 @@ class Kernel::Ipc_node
 		template <typename F> void for_each_helper(F f)
 		{
 			_in.queue.for_each([f] (Queue_item &item) {
-				if (item.object()._helping()) f(item.object()._thread); });
+				Ipc_node &node { item.object() };
+
+				if (node._helping())
+					f(node._thread);
+			});
 		}
 
 		/**
