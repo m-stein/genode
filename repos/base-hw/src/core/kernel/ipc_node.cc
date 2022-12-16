@@ -109,24 +109,26 @@ void Ipc_node::await_request()
 
 void Ipc_node::send_reply()
 {
-	if (_in.state == In::REPLY)
+	if (_in.state == In::REPLY) {
+
 		_in.queue.dequeue([&] (Queue_item &item)
 		{
-			Ipc_node & from = item.object();
-			from._thread.ipc_copy_msg(_thread);
-			from._out.node  = nullptr;
-			from._out.state = Out::READY;
-			from._thread.ipc_send_request_succeeded();
+			Ipc_node &node { item.object() };
+			node._thread.ipc_copy_msg(_thread);
+			node._out.node  = nullptr;
+			node._out.state = Out::READY;
+			node._thread.ipc_send_request_succeeded();
 		});
-
+	}
 	_in.state = In::READY;
 }
 
 
 void Ipc_node::cancel_waiting()
 {
-	if (_out.sending()) _cancel_send();
-
+	if (_out.sending()) {
+		_cancel_send();
+	}
 	if (_in.waiting()) {
 		_in.state = In::READY;
 		_thread.ipc_await_request_failed();

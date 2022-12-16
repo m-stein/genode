@@ -44,8 +44,11 @@ class Kernel::Ipc_node
 			State      state { READY   };
 			Ipc_node * node  { nullptr };
 
-			bool sending() const {
-				return state == SEND_HELPING || state == SEND; }
+			bool sending() const
+			{
+				return state == SEND_HELPING || state == SEND;
+			}
+
 		} _out {};
 
 		struct In
@@ -57,7 +60,11 @@ class Kernel::Ipc_node
 			State state { READY };
 			Queue queue { };
 
-			bool waiting() const { return state == WAIT; }
+			bool waiting() const
+			{
+				return state == WAIT;
+			}
+
 		} _in {};
 
 		/**
