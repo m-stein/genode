@@ -81,9 +81,13 @@ class Kernel::Ipc_node
 		bool _helping() const;
 
 		/**
-		 * Non-copyable
+		 * Make the class noncopyable because it has pointer members
 		 */
 		Ipc_node(const Ipc_node&) = delete;
+
+		/**
+		 * Make the class noncopyable because it has pointer members
+		 */
 		const Ipc_node& operator=(const Ipc_node&) = delete;
 
 	public:
@@ -119,7 +123,11 @@ class Kernel::Ipc_node
 		template <typename F> void for_each_helper(F f)
 		{
 			_in.queue.for_each([f] (Queue_item &item) {
-				if (item.object()._helping()) f(item.object()._thread); });
+				Ipc_node &node { item.object() };
+
+				if (node._helping())
+					f(node._thread);
+			});
 		}
 
 		/**
