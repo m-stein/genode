@@ -71,9 +71,9 @@ class Kernel::Ipc_node
 		void _cancel_request_queue();
 
 		/**
-		 * Cancel request in outgoing buffer
+		 * Cancel an ongoing send operation
 		 */
-		void _cancel_outbuf_request();
+		void _cancel_send();
 
 		/**
 		 * Cancel request in incoming buffer
