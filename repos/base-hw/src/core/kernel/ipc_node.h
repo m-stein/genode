@@ -91,9 +91,9 @@ class Kernel::Ipc_node
 		void _outbuf_request_cancelled();
 
 		/**
-		 * Return wether we are the source of a helping relationship
+		 * Return wether this IPC node is helping another one
 		 */
-		bool _helps_outbuf_dst() const;
+		bool _helping() const;
 
 		/**
 		 * Make the class noncopyable because it has pointer members
