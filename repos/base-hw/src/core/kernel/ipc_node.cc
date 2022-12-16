@@ -33,76 +33,20 @@ void Ipc_node::_receive_from(Ipc_node &node)
 }
 
 
-void Ipc_node::_receive_reply(Ipc_node &callee)
-{
-	_thread.ipc_copy_msg(callee._thread);
-	_state = INACTIVE;
-	_thread.ipc_send_request_succeeded();
-}
-
-
-void Ipc_node::_announce_request(Ipc_node &node)
-{
-	/* directly receive request if we've awaited it */
-	if (_state == AWAIT_REQUEST) {
-		_receive_from(node);
-		_thread.ipc_await_request_succeeded();
-		return;
-	}
-
-	/* cannot receive yet, so queue request */
-	_request_queue.enqueue(node._request_queue_item);
-}
-
-
-void Ipc_node::_cancel_request_queue()
-{
-	_request_queue.dequeue_all([] (Queue_item &item) {
-		Ipc_node &node { item.object() };
-		node._outbuf_request_cancelled();
-	});
-}
-
-
 void Ipc_node::_cancel_send()
 {
 	if (_callee) {
-		_callee->_announced_request_cancelled(*this);
+		if (_callee->_caller == this) {
+			_callee->_caller = nullptr;
+		} else {
+			_callee->_request_queue.remove(_request_queue_item);
+		}
 		_callee = nullptr;
 	}
 	if (_state == AWAIT_REPLY) {
 		_thread.ipc_send_request_failed();
 		_state = INACTIVE;
 	}
-}
-
-
-void Ipc_node::_cancel_inbuf_request()
-{
-	if (_caller) {
-		_caller->_outbuf_request_cancelled();
-		_caller = nullptr;
-	}
-}
-
-
-void Ipc_node::_announced_request_cancelled(Ipc_node &node)
-{
-	if (_caller == &node)
-		_caller = nullptr;
-	else
-		_request_queue.remove(node._request_queue_item);
-}
-
-
-void Ipc_node::_outbuf_request_cancelled()
-{
-	if (_callee == nullptr)
-		return;
-
-	_callee = nullptr;
-	_state  = INACTIVE;
-	_thread.ipc_send_request_failed();
 }
 
 
@@ -124,9 +68,12 @@ void Ipc_node::send_request(Ipc_node &callee, bool help)
 	_callee   = &callee;
 	_help     = false;
 
-	/* announce request */
-	_callee->_announce_request(*this);
-
+	if (_callee->_state == AWAIT_REQUEST) {
+		_callee->_receive_from(*this);
+		_callee->_thread.ipc_await_request_succeeded();
+	} else {
+		_callee->_request_queue.enqueue(_request_queue_item);
+	}
 	_help = help;
 }
 
@@ -154,9 +101,10 @@ void Ipc_node::await_request()
 
 void Ipc_node::send_reply()
 {
-	/* reply to the last request if we have to */
 	if (_state == INACTIVE && _caller) {
-		_caller->_receive_reply(*this);
+		_caller->_thread.ipc_copy_msg(_thread);
+		_caller->_state = INACTIVE;
+		_caller->_thread.ipc_send_request_succeeded();
 		_caller = nullptr;
 	}
 }
@@ -186,8 +134,23 @@ Ipc_node::Ipc_node(Thread &thread)
 
 Ipc_node::~Ipc_node()
 {
-	_cancel_request_queue();
-	_cancel_inbuf_request();
 	_cancel_send();
+
+	if (_caller) {
+		if (_caller->_callee) {
+			_caller->_callee = nullptr;
+			_caller->_state  = INACTIVE;
+			_caller->_thread.ipc_send_request_failed();
+			_caller = nullptr;
+		}
+	}
+	_request_queue.dequeue_all([] (Queue_item &item) {
+		Ipc_node &node { item.object() };
+		if (node._callee) {
+			node._callee = nullptr;
+			node._state  = INACTIVE;
+			node._thread.ipc_send_request_failed();
+		}
+	});
 }
 

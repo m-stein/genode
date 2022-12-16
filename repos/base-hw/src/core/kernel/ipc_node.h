@@ -56,39 +56,9 @@ class Kernel::Ipc_node
 		void _receive_from(Ipc_node &node);
 
 		/**
-		 * Receive a given reply if one is expected
-		 */
-		void _receive_reply(Ipc_node &callee);
-
-		/**
-		 * Insert 'r' into request queue, buffer it if we were waiting for it
-		 */
-		void _announce_request(Ipc_node &node);
-
-		/**
-		 * Cancel all requests in request queue
-		 */
-		void _cancel_request_queue();
-
-		/**
 		 * Cancel an ongoing send operation
 		 */
 		void _cancel_send();
-
-		/**
-		 * Cancel request in incoming buffer
-		 */
-		void _cancel_inbuf_request();
-
-		/**
-		 * A request 'r' in inbuf or request queue was cancelled by sender
-		 */
-		void _announced_request_cancelled(Ipc_node &node);
-
-		/**
-		 * The request in the outbuf was cancelled by receiver
-		 */
-		void _outbuf_request_cancelled();
 
 		/**
 		 * Return wether this IPC node is helping another one
