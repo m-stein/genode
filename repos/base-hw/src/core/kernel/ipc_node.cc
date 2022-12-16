@@ -36,7 +36,7 @@ void Ipc_node::_receive_from(Ipc_node &node)
 void Ipc_node::_announce_request(Ipc_node &node)
 {
 	/* directly receive request if we've awaited it */
-	if (_state == AWAIT_REQUEST) {
+	if (_in_waiting()) {
 		_receive_from(node);
 		_thread.ipc_await_request_succeeded();
 		return;
@@ -57,7 +57,7 @@ void Ipc_node::_cancel_send()
 		}
 		_callee = nullptr;
 	}
-	if (_state == AWAIT_REPLY) {
+	if (_out_sending()) {
 		_thread.ipc_send_request_failed();
 		_state = INACTIVE;
 	}
@@ -123,16 +123,11 @@ void Ipc_node::send_reply()
 
 void Ipc_node::cancel_waiting()
 {
-	switch (_state) {
-	case AWAIT_REPLY:
+	if (_out_sending()) {
 		_cancel_send();
-		break;
-	case AWAIT_REQUEST:
+	} else if (_in_waiting()) {
 		_state = INACTIVE;
 		_thread.ipc_await_request_failed();
-		break;
-		return;
-	default: return;
 	}
 }
 
