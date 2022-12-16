@@ -64,7 +64,7 @@ void Ipc_node::_cancel_request_queue()
 }
 
 
-void Ipc_node::_cancel_outbuf_request()
+void Ipc_node::_cancel_send()
 {
 	if (_callee) {
 		_callee->_announced_request_cancelled(*this);
@@ -162,7 +162,7 @@ void Ipc_node::cancel_waiting()
 {
 	switch (_state) {
 	case AWAIT_REPLY:
-		_cancel_outbuf_request();
+		_cancel_send();
 		_state = INACTIVE;
 		_thread.ipc_send_request_failed();
 		break;
@@ -186,6 +186,6 @@ Ipc_node::~Ipc_node()
 {
 	_cancel_request_queue();
 	_cancel_inbuf_request();
-	_cancel_outbuf_request();
+	_cancel_send();
 }
 
