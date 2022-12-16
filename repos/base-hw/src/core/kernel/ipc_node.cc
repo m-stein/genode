@@ -43,7 +43,7 @@ void Ipc_node::_cancel_send()
 		}
 		_callee = nullptr;
 	}
-	if (_state == AWAIT_REPLY) {
+	if (_out_sending()) {
 		_thread.ipc_send_request_failed();
 		_state = INACTIVE;
 	}
@@ -68,7 +68,7 @@ void Ipc_node::send_request(Ipc_node &callee, bool help)
 	_callee   = &callee;
 	_help     = false;
 
-	if (_callee->_state == AWAIT_REQUEST) {
+	if (_callee->_in_waiting()) {
 		_callee->_receive_from(*this);
 		_callee->_thread.ipc_await_request_succeeded();
 	} else {
@@ -112,16 +112,11 @@ void Ipc_node::send_reply()
 
 void Ipc_node::cancel_waiting()
 {
-	switch (_state) {
-	case AWAIT_REPLY:
+	if (_out_sending()) {
 		_cancel_send();
-		break;
-	case AWAIT_REQUEST:
+	} else if (_in_waiting()) {
 		_state = INACTIVE;
 		_thread.ipc_await_request_failed();
-		break;
-		return;
-	default: return;
 	}
 }
 
