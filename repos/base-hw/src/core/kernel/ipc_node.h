@@ -61,9 +61,9 @@ class Kernel::Ipc_node
 		} _in {};
 
 		/**
-		 * Receive a message from ipc node 'from'
+		 * Receive a message from another IPC node
 		 */
-		void _receive(Ipc_node & from);
+		void _receive_from(Ipc_node &node);
 
 		/**
 		 * Cancel incoming message of ipc node 'from'

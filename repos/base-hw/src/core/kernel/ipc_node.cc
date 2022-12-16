@@ -25,9 +25,9 @@
 using namespace Kernel;
 
 
-void Ipc_node::_receive(Ipc_node & from)
+void Ipc_node::_receive_from(Ipc_node &node)
 {
-	_thread.ipc_copy_msg(from._thread);
+	_thread.ipc_copy_msg(node._thread);
 	_in.state = In::REPLY;
 }
 
@@ -77,7 +77,7 @@ void Ipc_node::send_request(Ipc_node & to, bool help)
 	to._in.queue.enqueue(_queue_item);
 
 	if (to._in.waiting()) {
-		to._receive(*this);
+		to._receive_from(*this);
 		to._thread.ipc_await_request_succeeded();
 	}
 
@@ -103,7 +103,7 @@ void Ipc_node::await_request()
 	_in.state = In::WAIT;
 
 	_in.queue.head([&] (Queue_item &item) {
-		_receive(item.object()); });
+		_receive_from(item.object()); });
 }
 
 
