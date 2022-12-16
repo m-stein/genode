@@ -51,9 +51,9 @@ class Kernel::Ipc_node
 		Queue       _request_queue      { };
 
 		/**
-		 * Buffer next request from request queue in 'r' to handle it
+		 * Receive a message from another IPC node
 		 */
-		void _receive_request(Ipc_node &caller);
+		void _receive_from(Ipc_node &node);
 
 		/**
 		 * Receive a given reply if one is expected
@@ -71,9 +71,9 @@ class Kernel::Ipc_node
 		void _cancel_request_queue();
 
 		/**
-		 * Cancel request in outgoing buffer
+		 * Cancel an ongoing send operation
 		 */
-		void _cancel_outbuf_request();
+		void _cancel_send();
 
 		/**
 		 * Cancel request in incoming buffer
@@ -91,9 +91,9 @@ class Kernel::Ipc_node
 		void _outbuf_request_cancelled();
 
 		/**
-		 * Return wether we are the source of a helping relationship
+		 * Return wether this IPC node is helping another one
 		 */
-		bool _helps_outbuf_dst() const;
+		bool _helping() const;
 
 		/**
 		 * Make the class noncopyable because it has pointer members

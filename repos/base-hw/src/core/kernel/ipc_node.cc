@@ -25,10 +25,10 @@
 using namespace Kernel;
 
 
-void Ipc_node::_receive_request(Ipc_node &caller)
+void Ipc_node::_receive_from(Ipc_node &node)
 {
-	_thread.ipc_copy_msg(caller._thread);
-	_caller = &caller;
+	_thread.ipc_copy_msg(node._thread);
+	_caller = &node;
 	_state  = INACTIVE;
 }
 
@@ -45,7 +45,7 @@ void Ipc_node::_announce_request(Ipc_node &node)
 {
 	/* directly receive request if we've awaited it */
 	if (_state == AWAIT_REQUEST) {
-		_receive_request(node);
+		_receive_from(node);
 		_thread.ipc_await_request_succeeded();
 		return;
 	}
@@ -64,7 +64,7 @@ void Ipc_node::_cancel_request_queue()
 }
 
 
-void Ipc_node::_cancel_outbuf_request()
+void Ipc_node::_cancel_send()
 {
 	if (_callee) {
 		_callee->_announced_request_cancelled(*this);
@@ -102,7 +102,7 @@ void Ipc_node::_outbuf_request_cancelled()
 }
 
 
-bool Ipc_node::_helps_outbuf_dst() const
+bool Ipc_node::_helping() const
 {
 	return (_state == AWAIT_REPLY) && _help;
 }
@@ -129,7 +129,7 @@ void Ipc_node::send_request(Ipc_node &callee, bool help)
 
 Thread &Ipc_node::helping_sink()
 {
-	return _helps_outbuf_dst() ? _callee->helping_sink() : _thread;
+	return _helping() ? _callee->helping_sink() : _thread;
 }
 
 
@@ -143,7 +143,7 @@ void Ipc_node::await_request()
 {
 	_state = AWAIT_REQUEST;
 	_request_queue.dequeue([&] (Queue_item &item) {
-		_receive_request(item.object());
+		_receive_from(item.object());
 	});
 }
 
@@ -162,7 +162,7 @@ void Ipc_node::cancel_waiting()
 {
 	switch (_state) {
 	case AWAIT_REPLY:
-		_cancel_outbuf_request();
+		_cancel_send();
 		_state = INACTIVE;
 		_thread.ipc_send_request_failed();
 		break;
@@ -186,6 +186,6 @@ Ipc_node::~Ipc_node()
 {
 	_cancel_request_queue();
 	_cancel_inbuf_request();
-	_cancel_outbuf_request();
+	_cancel_send();
 }
 
