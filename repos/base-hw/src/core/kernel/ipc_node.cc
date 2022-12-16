@@ -70,6 +70,10 @@ void Ipc_node::_cancel_send()
 		_callee->_announced_request_cancelled(*this);
 		_callee = nullptr;
 	}
+	if (_state == AWAIT_REPLY) {
+		_thread.ipc_send_request_failed();
+		_state = INACTIVE;
+	}
 }
 
 
@@ -163,8 +167,6 @@ void Ipc_node::cancel_waiting()
 	switch (_state) {
 	case AWAIT_REPLY:
 		_cancel_send();
-		_state = INACTIVE;
-		_thread.ipc_send_request_failed();
 		break;
 	case AWAIT_REQUEST:
 		_state = INACTIVE;
