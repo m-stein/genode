@@ -102,13 +102,13 @@ void Ipc_node::_outbuf_request_cancelled()
 }
 
 
-bool Ipc_node::_helps_outbuf_dst()
+bool Ipc_node::_helps_outbuf_dst() const
 {
 	return (_state == AWAIT_REPLY) && _help;
 }
 
 
-bool Ipc_node::can_send_request()
+bool Ipc_node::can_send_request() const
 {
 	return _state == INACTIVE;
 }
@@ -133,7 +133,7 @@ Thread &Ipc_node::helping_sink()
 }
 
 
-bool Ipc_node::can_await_request()
+bool Ipc_node::can_await_request() const
 {
 	return _state == INACTIVE;
 }
