@@ -51,9 +51,9 @@ class Kernel::Ipc_node
 		Queue       _request_queue      { };
 
 		/**
-		 * Buffer next request from request queue in 'r' to handle it
+		 * Receive a message from another IPC node
 		 */
-		void _receive_request(Ipc_node &caller);
+		void _receive_from(Ipc_node &node);
 
 		/**
 		 * Receive a given reply if one is expected
