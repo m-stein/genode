@@ -47,15 +47,6 @@ void Ipc_node::_announce_request(Ipc_node &node)
 }
 
 
-void Ipc_node::_cancel_request_queue()
-{
-	_request_queue.dequeue_all([] (Queue_item &item) {
-		Ipc_node &node { item.object() };
-		node._outbuf_request_cancelled();
-	});
-}
-
-
 void Ipc_node::_cancel_send()
 {
 	if (_callee) {
@@ -179,8 +170,11 @@ Ipc_node::Ipc_node(Thread &thread)
 
 Ipc_node::~Ipc_node()
 {
-	_cancel_request_queue();
 	_cancel_inbuf_request();
 	_cancel_send();
+
+	_request_queue.dequeue_all([] (Queue_item &item) {
+		item.object()._outbuf_request_cancelled();
+	});
 }
 
