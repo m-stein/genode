@@ -33,14 +33,6 @@ void Ipc_node::_receive_from(Ipc_node &node)
 }
 
 
-void Ipc_node::_receive_reply(Ipc_node &callee)
-{
-	_thread.ipc_copy_msg(callee._thread);
-	_state = INACTIVE;
-	_thread.ipc_send_request_succeeded();
-}
-
-
 void Ipc_node::_announce_request(Ipc_node &node)
 {
 	/* directly receive request if we've awaited it */
@@ -154,9 +146,10 @@ void Ipc_node::await_request()
 
 void Ipc_node::send_reply()
 {
-	/* reply to the last request if we have to */
 	if (_state == INACTIVE && _caller) {
-		_caller->_receive_reply(*this);
+		_caller->_thread.ipc_copy_msg(_thread);
+		_caller->_state = INACTIVE;
+		_caller->_thread.ipc_send_request_succeeded();
 		_caller = nullptr;
 	}
 }
