@@ -76,7 +76,7 @@ class Kernel::Ipc_node
 		void _cancel_send();
 
 		/**
-		 * Return wether this ipc node is helping another one
+		 * Return wether this IPC node is helping another one
 		 */
 		bool _helping() const;
 
