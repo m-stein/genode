@@ -71,11 +71,6 @@ class Kernel::Ipc_node
 		void _cancel_inbuf_request();
 
 		/**
-		 * A request 'r' in inbuf or request queue was cancelled by sender
-		 */
-		void _announced_request_cancelled(Ipc_node &node);
-
-		/**
 		 * The request in the outbuf was cancelled by receiver
 		 */
 		void _outbuf_request_cancelled();
