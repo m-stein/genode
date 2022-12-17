@@ -73,11 +73,6 @@ class Kernel::Ipc_node
 		void _receive_from(Ipc_node &node);
 
 		/**
-		 * Cancel incoming message of ipc node 'from'
-		 */
-		void _cancel_receive(Ipc_node & from);
-
-		/**
 		 * Cancel an ongoing send operation
 		 */
 		void _cancel_send();
