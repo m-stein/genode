@@ -114,7 +114,8 @@ void Ipc_node::cancel_waiting()
 {
 	if (_out_sending()) {
 		_cancel_send();
-	} else if (_in_waiting()) {
+	}
+	if (_in_waiting()) {
 		_state = INACTIVE;
 		_thread.ipc_await_request_failed();
 	}
