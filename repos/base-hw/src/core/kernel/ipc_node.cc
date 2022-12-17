@@ -50,7 +50,11 @@ void Ipc_node::_announce_request(Ipc_node &node)
 void Ipc_node::_cancel_send()
 {
 	if (_callee) {
-		_callee->_announced_request_cancelled(*this);
+		if (_callee->_caller == this) {
+			_callee->_caller = nullptr;
+		} else {
+			_callee->_request_queue.remove(_request_queue_item);
+		}
 		_callee = nullptr;
 	}
 	if (_state == AWAIT_REPLY) {
@@ -66,15 +70,6 @@ void Ipc_node::_cancel_inbuf_request()
 		_caller->_outbuf_request_cancelled();
 		_caller = nullptr;
 	}
-}
-
-
-void Ipc_node::_announced_request_cancelled(Ipc_node &node)
-{
-	if (_caller == &node)
-		_caller = nullptr;
-	else
-		_request_queue.remove(node._request_queue_item);
 }
 
 
