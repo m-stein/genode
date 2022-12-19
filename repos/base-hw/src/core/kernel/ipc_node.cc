@@ -64,15 +64,15 @@ bool Ipc_node::can_send_request() const
 }
 
 
-void Ipc_node::send_request(Ipc_node &node, bool help)
+void Ipc_node::send_request(Ipc_node &callee, bool help)
 {
-	node._in.queue.enqueue(_queue_item);
+	callee._in.queue.enqueue(_queue_item);
 
-	if (node._in.waiting()) {
-		node._receive_from(*this);
-		node._thread.ipc_await_request_succeeded();
+	if (callee._in.waiting()) {
+		callee._receive_from(*this);
+		callee._thread.ipc_await_request_succeeded();
 	}
-	_out.node  = &node;
+	_out.node  = &callee;
 	_out.state = help ? Out::SEND_HELPING : Out::SEND;
 }
 
