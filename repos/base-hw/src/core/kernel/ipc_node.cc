@@ -35,13 +35,13 @@ void Ipc_node::_receive_from(Ipc_node &node)
 
 void Ipc_node::_cancel_send()
 {
-	if (_callee) {
-		if (_callee->_caller == this) {
-			_callee->_caller = nullptr;
+	if (_out_node) {
+		if (_out_node->_caller == this) {
+			_out_node->_caller = nullptr;
 		} else {
-			_callee->_request_queue.remove(_request_queue_item);
+			_out_node->_in_queue.remove(_queue_item);
 		}
-		_callee = nullptr;
+		_out_node = nullptr;
 	}
 	if (_out_sending()) {
 		_thread.ipc_send_request_failed();
@@ -62,17 +62,17 @@ bool Ipc_node::can_send_request() const
 }
 
 
-void Ipc_node::send_request(Ipc_node &callee, bool help)
+void Ipc_node::send_request(Ipc_node &node, bool help)
 {
 	_state    = AWAIT_REPLY;
-	_callee   = &callee;
+	_out_node = &node;
 	_help     = false;
 
-	if (_callee->_in_waiting()) {
-		_callee->_receive_from(*this);
-		_callee->_thread.ipc_await_request_succeeded();
+	if (_out_node->_in_waiting()) {
+		_out_node->_receive_from(*this);
+		_out_node->_thread.ipc_await_request_succeeded();
 	} else {
-		_callee->_request_queue.enqueue(_request_queue_item);
+		_out_node->_in_queue.enqueue(_queue_item);
 	}
 	_help = help;
 }
@@ -80,7 +80,7 @@ void Ipc_node::send_request(Ipc_node &callee, bool help)
 
 Thread &Ipc_node::helping_sink()
 {
-	return _helping() ? _callee->helping_sink() : _thread;
+	return _helping() ? _out_node->helping_sink() : _thread;
 }
 
 
@@ -93,7 +93,7 @@ bool Ipc_node::can_await_request() const
 void Ipc_node::await_request()
 {
 	_state = AWAIT_REQUEST;
-	_request_queue.dequeue([&] (Queue_item &item) {
+	_in_queue.dequeue([&] (Queue_item &item) {
 		_receive_from(item.object());
 	});
 }
@@ -102,9 +102,10 @@ void Ipc_node::await_request()
 void Ipc_node::send_reply()
 {
 	if (_state == INACTIVE && _caller) {
-		_caller->_thread.ipc_copy_msg(_thread);
-		_caller->_state = INACTIVE;
-		_caller->_thread.ipc_send_request_succeeded();
+		Ipc_node &node { *_caller };
+		node._thread.ipc_copy_msg(_thread);
+		node._state = INACTIVE;
+		node._thread.ipc_send_request_succeeded();
 		_caller = nullptr;
 	}
 }
@@ -135,17 +136,17 @@ Ipc_node::~Ipc_node()
 	_cancel_send();
 
 	if (_caller) {
-		if (_caller->_callee) {
-			_caller->_callee = nullptr;
+		if (_caller->_out_node) {
+			_caller->_out_node = nullptr;
 			_caller->_state  = INACTIVE;
 			_caller->_thread.ipc_send_request_failed();
 			_caller = nullptr;
 		}
 	}
-	_request_queue.dequeue_all([] (Queue_item &item) {
+	_in_queue.dequeue_all([] (Queue_item &item) {
 		Ipc_node &node { item.object() };
-		if (node._callee) {
-			node._callee = nullptr;
+		if (node._out_node) {
+			node._out_node = nullptr;
 			node._state  = INACTIVE;
 			node._thread.ipc_send_request_failed();
 		}
