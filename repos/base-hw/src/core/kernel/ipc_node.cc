@@ -35,13 +35,9 @@ void Ipc_node::_receive_from(Ipc_node &node)
 void Ipc_node::_cancel_send()
 {
 	if (_out.node) {
-
 		if (_out.node->_in.state == In::REPLY) {
-
 			_out.node->_in.queue.head([&] (Queue_item &item) {
-
 				if (&item == &_queue_item) {
-
 					_out.node->_in.state = In::REPLY_NO_SENDER;
 				}
 			});
@@ -50,7 +46,6 @@ void Ipc_node::_cancel_send()
 		_out.node = nullptr;
 	}
 	if (_out.sending()) {
-
 		_thread.ipc_send_request_failed();
 		_out.state = Out::READY;
 	}
@@ -77,7 +72,6 @@ void Ipc_node::send_request(Ipc_node &callee, bool help)
 		callee._receive_from(*this);
 		callee._thread.ipc_await_request_succeeded();
 	}
-
 	_out.node  = &callee;
 	_out.state = help ? Out::SEND_HELPING : Out::SEND;
 }
@@ -98,18 +92,16 @@ bool Ipc_node::can_await_request() const
 void Ipc_node::await_request()
 {
 	_in.state = In::WAIT;
-
 	_in.queue.head([&] (Queue_item &item) {
-		_receive_from(item.object()); });
+		_receive_from(item.object());
+	});
 }
 
 
 void Ipc_node::send_reply()
 {
 	if (_in.state == In::REPLY) {
-
-		_in.queue.dequeue([&] (Queue_item &item)
-		{
+		_in.queue.dequeue([&] (Queue_item &item) {
 			Ipc_node &node { item.object() };
 			node._thread.ipc_copy_msg(_thread);
 			node._out.node  = nullptr;
