@@ -130,6 +130,8 @@ Ipc_node::Ipc_node(Thread &thread)
 
 Ipc_node::~Ipc_node()
 {
+	_state = DESTRUCT;
+
 	_cancel_send();
 
 	if (_caller) {

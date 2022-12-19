@@ -40,6 +40,7 @@ class Kernel::Ipc_node
 			INACTIVE      = 1,
 			AWAIT_REPLY   = 2,
 			AWAIT_REQUEST = 3,
+			DESTRUCT      = 4,
 		};
 
 		Thread     &_thread;
