@@ -56,11 +56,6 @@ class Kernel::Ipc_node
 		void _receive_from(Ipc_node &node);
 
 		/**
-		 * Insert 'r' into request queue, buffer it if we were waiting for it
-		 */
-		void _announce_request(Ipc_node &node);
-
-		/**
 		 * Cancel an ongoing send operation
 		 */
 		void _cancel_send();
