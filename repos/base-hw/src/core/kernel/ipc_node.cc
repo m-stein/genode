@@ -64,15 +64,6 @@ void Ipc_node::_cancel_send()
 }
 
 
-void Ipc_node::_cancel_inbuf_request()
-{
-	if (_caller) {
-		_caller->_outbuf_request_cancelled();
-		_caller = nullptr;
-	}
-}
-
-
 void Ipc_node::_outbuf_request_cancelled()
 {
 	if (_callee == nullptr)
@@ -165,9 +156,12 @@ Ipc_node::Ipc_node(Thread &thread)
 
 Ipc_node::~Ipc_node()
 {
-	_cancel_inbuf_request();
 	_cancel_send();
 
+	if (_caller) {
+		_caller->_outbuf_request_cancelled();
+		_caller = nullptr;
+	}
 	_request_queue.dequeue_all([] (Queue_item &item) {
 		item.object()._outbuf_request_cancelled();
 	});

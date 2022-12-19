@@ -66,11 +66,6 @@ class Kernel::Ipc_node
 		void _cancel_send();
 
 		/**
-		 * Cancel request in incoming buffer
-		 */
-		void _cancel_inbuf_request();
-
-		/**
 		 * The request in the outbuf was cancelled by receiver
 		 */
 		void _outbuf_request_cancelled();
