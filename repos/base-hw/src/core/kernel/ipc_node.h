@@ -107,11 +107,11 @@ class Kernel::Ipc_node
 		/**
 		 * Send a request and wait for the according reply
 		 *
-		 * \param node  targeted IPC node
-		 * \param help  wether the request implies a helping relationship
+		 * \param callee    targeted IPC node
+		 * \param help      wether the request implies a helping relationship
 		 */
 		bool can_send_request() const;
-		void send_request(Ipc_node &node,
+		void send_request(Ipc_node &callee,
 		                  bool      help);
 
 		/**
