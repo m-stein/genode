@@ -33,20 +33,6 @@ void Ipc_node::_receive_from(Ipc_node &node)
 }
 
 
-void Ipc_node::_announce_request(Ipc_node &node)
-{
-	/* directly receive request if we've awaited it */
-	if (_in_waiting()) {
-		_receive_from(node);
-		_thread.ipc_await_request_succeeded();
-		return;
-	}
-
-	/* cannot receive yet, so queue request */
-	_request_queue.enqueue(node._request_queue_item);
-}
-
-
 void Ipc_node::_cancel_send()
 {
 	if (_callee) {
@@ -82,9 +68,12 @@ void Ipc_node::send_request(Ipc_node &callee, bool help)
 	_callee   = &callee;
 	_help     = false;
 
-	/* announce request */
-	_callee->_announce_request(*this);
-
+	if (_callee->_in_waiting()) {
+		_callee->_receive_from(*this);
+		_callee->_thread.ipc_await_request_succeeded();
+	} else {
+		_callee->_request_queue.enqueue(_request_queue_item);
+	}
 	_help = help;
 }
 
