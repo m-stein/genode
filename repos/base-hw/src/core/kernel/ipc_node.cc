@@ -64,16 +64,16 @@ bool Ipc_node::can_send_request() const
 
 void Ipc_node::send_request(Ipc_node &node, bool help)
 {
-	_state    = AWAIT_REPLY;
-	_out_node = &node;
-	_help     = false;
+	_help = false;
 
-	if (_out_node->_in_waiting()) {
-		_out_node->_receive_from(*this);
-		_out_node->_thread.ipc_await_request_succeeded();
+	if (node._in_waiting()) {
+		node._receive_from(*this);
+		node._thread.ipc_await_request_succeeded();
 	} else {
-		_out_node->_request_queue.enqueue(_request_queue_item);
+		node._request_queue.enqueue(_request_queue_item);
 	}
+	_out_node = &node;
+	_state = AWAIT_REPLY;
 	_help = help;
 }
 
