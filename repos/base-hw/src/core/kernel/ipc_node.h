@@ -47,7 +47,7 @@ class Kernel::Ipc_node
 		Queue_item  _request_queue_item { *this };
 		State       _state              { INACTIVE };
 		Ipc_node   *_caller             { nullptr };
-		Ipc_node   *_callee             { nullptr };
+		Ipc_node   *_out_node           { nullptr };
 		bool        _help               { false };
 		Queue       _request_queue      { };
 
@@ -101,11 +101,11 @@ class Kernel::Ipc_node
 		/**
 		 * Send a request and wait for the according reply
 		 *
-		 * \param callee    targeted IPC node
-		 * \param help      wether the request implies a helping relationship
+		 * \param node  targeted IPC node
+		 * \param help  wether the request implies a helping relationship
 		 */
 		bool can_send_request() const;
-		void send_request(Ipc_node &callee,
+		void send_request(Ipc_node &node,
 		                  bool      help);
 
 		/**
