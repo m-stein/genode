@@ -135,20 +135,9 @@ Ipc_node::~Ipc_node()
 	_cancel_send();
 
 	if (_caller) {
-		if (_caller->_out_node) {
-			_caller->_out_node = nullptr;
-			_caller->_state  = INACTIVE;
-			_caller->_thread.ipc_send_request_failed();
-			_caller = nullptr;
-		}
+		_caller->_cancel_send();
 	}
 	_request_queue.dequeue_all([] (Queue_item &item) {
-		Ipc_node &node { item.object() };
-		if (node._out_node) {
-			node._out_node = nullptr;
-			node._state  = INACTIVE;
-			node._thread.ipc_send_request_failed();
-		}
+		item.object()._cancel_send();
 	});
 }
-
