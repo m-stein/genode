@@ -64,17 +64,6 @@ void Ipc_node::_cancel_send()
 }
 
 
-void Ipc_node::_outbuf_request_cancelled()
-{
-	if (_callee == nullptr)
-		return;
-
-	_callee = nullptr;
-	_state  = INACTIVE;
-	_thread.ipc_send_request_failed();
-}
-
-
 bool Ipc_node::_helping() const
 {
 	return (_state == AWAIT_REPLY) && _help;
@@ -159,11 +148,20 @@ Ipc_node::~Ipc_node()
 	_cancel_send();
 
 	if (_caller) {
-		_caller->_outbuf_request_cancelled();
-		_caller = nullptr;
+		if (_caller->_callee) {
+			_caller->_callee = nullptr;
+			_caller->_state  = INACTIVE;
+			_caller->_thread.ipc_send_request_failed();
+			_caller = nullptr;
+		}
 	}
 	_request_queue.dequeue_all([] (Queue_item &item) {
-		item.object()._outbuf_request_cancelled();
+		Ipc_node &node { item.object() };
+		if (node._callee) {
+			node._callee = nullptr;
+			node._state  = INACTIVE;
+			node._thread.ipc_send_request_failed();
+		}
 	});
 }
 

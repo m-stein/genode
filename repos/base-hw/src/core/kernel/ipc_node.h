@@ -66,11 +66,6 @@ class Kernel::Ipc_node
 		void _cancel_send();
 
 		/**
-		 * The request in the outbuf was cancelled by receiver
-		 */
-		void _outbuf_request_cancelled();
-
-		/**
 		 * Return wether this IPC node is helping another one
 		 */
 		bool _helping() const;
