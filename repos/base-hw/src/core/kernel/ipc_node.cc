@@ -137,7 +137,7 @@ Ipc_node::~Ipc_node()
 
 	_cancel_send();
 
-	_in_queue.dequeue_all([] (Queue_item &item) {
+	_in_queue.for_each([&] (Queue_item &item) {
 		item.object()._cancel_send();
 	});
 }
