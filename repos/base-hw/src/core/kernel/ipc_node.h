@@ -35,40 +35,49 @@ class Kernel::Ipc_node
 		using Queue_item = Genode::Fifo_element<Ipc_node>;
 		using Queue      = Genode::Fifo<Queue_item>;
 
-		enum In_state
+		struct In
 		{
-			IN_READY,
-			IN_WAIT,
-			IN_REPLY,
-			IN_REPLY_NO_SENDER,
-			IN_DESTRUCT,
+			enum State
+			{
+				READY,
+				WAIT,
+				REPLY,
+				REPLY_NO_SENDER,
+				DESTRUCT
+			};
+
+			State state { READY };
+			Queue queue { };
+
+			bool waiting() const
+			{
+				return state == WAIT;
+			}
 		};
 
-		enum Out_state
+		struct Out
 		{
-			OUT_READY,
-			OUT_SEND,
-			OUT_SEND_HELPING,
-			OUT_DESTRUCT,
+			enum State
+			{
+				READY,
+				SEND,
+				SEND_HELPING,
+				DESTRUCT
+			};
+
+			State     state { READY   };
+			Ipc_node *node  { nullptr };
+
+			bool sending() const
+			{
+				return state == SEND_HELPING || state == SEND;
+			}
 		};
 
 		Thread     &_thread;
 		Queue_item  _queue_item { *this };
-		In_state    _in_state   { IN_READY };
-		Out_state   _out_state  { OUT_READY };
-		Ipc_node   *_caller     { nullptr };
-		Ipc_node   *_out_node   { nullptr };
-		Queue       _in_queue   { };
-
-		bool _out_sending() const
-		{
-			return _out_state == OUT_SEND_HELPING || _out_state == OUT_SEND;
-		}
-
-		bool _in_waiting() const
-		{
-			return _in_state == IN_WAIT;
-		}
+		Out         _out        { };
+		In          _in         { };
 
 		/**
 		 * Receive a message from another IPC node
@@ -127,7 +136,7 @@ class Kernel::Ipc_node
 		 */
 		template <typename F> void for_each_helper(F f)
 		{
-			_in_queue.for_each([f] (Queue_item &item) {
+			_in.queue.for_each([f] (Queue_item &item) {
 				Ipc_node &node { item.object() };
 
 				if (node._helping())
@@ -153,7 +162,7 @@ class Kernel::Ipc_node
 		 */
 		void cancel_waiting();
 
-		bool awaits_request() const { return _in_waiting(); }
+		bool awaits_request() const { return _in.waiting(); }
 };
 
 #endif /* _CORE__KERNEL__IPC_NODE_H_ */
