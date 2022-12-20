@@ -34,25 +34,6 @@ class Kernel::Ipc_node
 
 		using Queue_item = Genode::Fifo_element<Ipc_node>;
 
-		struct Out
-		{
-			enum State
-			{
-				READY,
-				SEND,
-				SEND_HELPING,
-				DESTRUCT
-			};
-
-			State     state { READY   };
-			Ipc_node *node  { nullptr };
-
-			bool sending() const
-			{
-				return state == SEND_HELPING || state == SEND;
-			}
-		};
-
 		struct In
 		{
 			using Queue = Genode::Fifo<Queue_item>;
@@ -72,6 +53,25 @@ class Kernel::Ipc_node
 			bool waiting() const
 			{
 				return state == WAIT;
+			}
+		};
+
+		struct Out
+		{
+			enum State
+			{
+				READY,
+				SEND,
+				SEND_HELPING,
+				DESTRUCT
+			};
+
+			State     state { READY   };
+			Ipc_node *node  { nullptr };
+
+			bool sending() const
+			{
+				return state == SEND_HELPING || state == SEND;
 			}
 		};
 
