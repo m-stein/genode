@@ -34,28 +34,37 @@ class Kernel::Ipc_node
 
 		using Queue_item = Genode::Fifo_element<Ipc_node>;
 
-		Thread     & _thread;
-		Queue_item   _queue_item { *this };
-
 		struct Out
 		{
-			enum State { READY, SEND, SEND_HELPING, DESTRUCT };
+			enum State
+			{
+				READY,
+				SEND,
+				SEND_HELPING,
+				DESTRUCT
+			};
 
-			State      state { READY   };
-			Ipc_node * node  { nullptr };
+			State     state { READY   };
+			Ipc_node *node  { nullptr };
 
 			bool sending() const
 			{
 				return state == SEND_HELPING || state == SEND;
 			}
-
-		} _out {};
+		};
 
 		struct In
 		{
 			using Queue = Genode::Fifo<Queue_item>;
 
-			enum State { READY, WAIT, REPLY, REPLY_NO_SENDER, DESTRUCT };
+			enum State
+			{
+				READY,
+				WAIT,
+				REPLY,
+				REPLY_NO_SENDER,
+				DESTRUCT
+			};
 
 			State state { READY };
 			Queue queue { };
@@ -64,8 +73,12 @@ class Kernel::Ipc_node
 			{
 				return state == WAIT;
 			}
+		};
 
-		} _in {};
+		Thread     &_thread;
+		Queue_item  _queue_item { *this };
+		Out         _out        { };
+		In          _in         { };
 
 		/**
 		 * Receive a message from another IPC node
