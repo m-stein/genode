@@ -37,10 +37,11 @@ class Kernel::Ipc_node
 
 		enum State
 		{
-			INACTIVE      = 1,
-			AWAIT_REPLY   = 2,
-			AWAIT_REQUEST = 3,
-			DESTRUCT      = 4,
+			INACTIVE            = 1,
+			AWAIT_REPLY         = 2,
+			AWAIT_REPLY_HELPING = 3,
+			AWAIT_REQUEST       = 4,
+			DESTRUCT            = 5,
 		};
 
 		Thread     &_thread;
@@ -48,12 +49,11 @@ class Kernel::Ipc_node
 		State       _state      { INACTIVE };
 		Ipc_node   *_caller     { nullptr };
 		Ipc_node   *_out_node   { nullptr };
-		bool        _help       { false };
 		Queue       _in_queue   { };
 
 		bool _out_sending() const
 		{
-			return _state == AWAIT_REPLY;
+			return _state == AWAIT_REPLY_HELPING || _state == AWAIT_REPLY;
 		}
 
 		bool _in_waiting() const
@@ -119,14 +119,14 @@ class Kernel::Ipc_node
 		template <typename F> void for_each_helper(F f)
 		{
 			/* if we have a helper in the receive buffer, call 'f' for it */
-			if (_caller && _caller->_help)
+			if (_caller && _caller->_helping())
 				f(_caller->_thread);
 
 			/* call 'f' for each helper in our request queue */
 			_in_queue.for_each([f] (Queue_item &item) {
 				Ipc_node &node { item.object() };
 
-				if (node._help)
+				if (node._helping())
 					f(node._thread);
 			});
 		}
