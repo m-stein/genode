@@ -35,30 +35,39 @@ class Kernel::Ipc_node
 		using Queue_item = Genode::Fifo_element<Ipc_node>;
 		using Queue      = Genode::Fifo<Queue_item>;
 
-		enum State
+		enum In_state
 		{
-			READY,
+			IN_READY,
+			IN_WAIT,
+			IN_REPLY,
+			IN_REPLY_NO_SENDER,
+			IN_DESTRUCT,
+		};
+
+		enum Out_state
+		{
+			OUT_READY,
 			OUT_SEND,
 			OUT_SEND_HELPING,
-			IN_WAIT,
-			DESTRUCT,
+			OUT_DESTRUCT,
 		};
 
 		Thread     &_thread;
 		Queue_item  _queue_item { *this };
-		State       _state      { READY };
+		In_state    _in_state   { IN_READY };
+		Out_state   _out_state  { OUT_READY };
 		Ipc_node   *_caller     { nullptr };
 		Ipc_node   *_out_node   { nullptr };
 		Queue       _in_queue   { };
 
 		bool _out_sending() const
 		{
-			return _state == OUT_SEND_HELPING || _state == OUT_SEND;
+			return _out_state == OUT_SEND_HELPING || _out_state == OUT_SEND;
 		}
 
 		bool _in_waiting() const
 		{
-			return _state == IN_WAIT;
+			return _in_state == IN_WAIT;
 		}
 
 		/**
