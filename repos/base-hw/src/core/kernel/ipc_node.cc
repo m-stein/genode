@@ -28,7 +28,6 @@ using namespace Kernel;
 void Ipc_node::_receive_from(Ipc_node &node)
 {
 	_thread.ipc_copy_msg(node._thread);
-	_caller = &node;
 	_in_state  = IN_REPLY;
 }
 
@@ -36,12 +35,14 @@ void Ipc_node::_receive_from(Ipc_node &node)
 void Ipc_node::_cancel_send()
 {
 	if (_out_node) {
-		if (_out_node->_caller == this) {
-			_out_node->_in_state = IN_REPLY_NO_SENDER;
-			_out_node->_caller = nullptr;
-		} else {
-			_out_node->_in_queue.remove(_queue_item);
+		if (_out_node->_in_state == IN_REPLY) {
+			_out_node->_in_queue.head([&] (Queue_item &item) {
+				if (&item == &_queue_item) {
+					_out_node->_in_state = IN_REPLY_NO_SENDER;
+				}
+			});
 		}
+		_out_node->_in_queue.remove(_queue_item);
 		_out_node = nullptr;
 	}
 	if (_out_sending()) {
@@ -68,9 +69,8 @@ void Ipc_node::send_request(Ipc_node &node, bool help)
 	if (node._in_waiting()) {
 		node._receive_from(*this);
 		node._thread.ipc_await_request_succeeded();
-	} else {
-		node._in_queue.enqueue(_queue_item);
 	}
+	node._in_queue.enqueue(_queue_item);
 	_out_node = &node;
 	_out_state = help ? OUT_SEND_HELPING : OUT_SEND;
 }
@@ -91,7 +91,7 @@ bool Ipc_node::can_await_request() const
 void Ipc_node::await_request()
 {
 	_in_state = IN_WAIT;
-	_in_queue.dequeue([&] (Queue_item &item) {
+	_in_queue.head([&] (Queue_item &item) {
 		_receive_from(item.object());
 	});
 }
@@ -100,12 +100,13 @@ void Ipc_node::await_request()
 void Ipc_node::send_reply()
 {
 	if (_in_state == IN_REPLY) {
-		Ipc_node &node { *_caller };
-		node._thread.ipc_copy_msg(_thread);
-		node._out_node  = nullptr;
-		node._out_state = OUT_READY;
-		node._thread.ipc_send_request_succeeded();
-		_caller = nullptr;
+		_in_queue.dequeue([&] (Queue_item &item) {
+			Ipc_node &node { item.object() };
+			node._thread.ipc_copy_msg(_thread);
+			node._out_node  = nullptr;
+			node._out_state = OUT_READY;
+			node._thread.ipc_send_request_succeeded();
+		});
 	}
 	_in_state = IN_READY;
 }
@@ -136,9 +137,6 @@ Ipc_node::~Ipc_node()
 
 	_cancel_send();
 
-	if (_caller) {
-		_caller->_cancel_send();
-	}
 	_in_queue.dequeue_all([] (Queue_item &item) {
 		item.object()._cancel_send();
 	});
