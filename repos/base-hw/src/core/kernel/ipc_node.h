@@ -37,28 +37,28 @@ class Kernel::Ipc_node
 
 		enum State
 		{
-			INACTIVE            = 1,
-			AWAIT_REPLY         = 2,
-			AWAIT_REPLY_HELPING = 3,
-			AWAIT_REQUEST       = 4,
-			DESTRUCT            = 5,
+			READY,
+			OUT_SEND,
+			OUT_SEND_HELPING,
+			IN_WAIT,
+			DESTRUCT,
 		};
 
 		Thread     &_thread;
 		Queue_item  _queue_item { *this };
-		State       _state      { INACTIVE };
+		State       _state      { READY };
 		Ipc_node   *_caller     { nullptr };
 		Ipc_node   *_out_node   { nullptr };
 		Queue       _in_queue   { };
 
 		bool _out_sending() const
 		{
-			return _state == AWAIT_REPLY_HELPING || _state == AWAIT_REPLY;
+			return _state == OUT_SEND_HELPING || _state == OUT_SEND;
 		}
 
 		bool _in_waiting() const
 		{
-			return _state == AWAIT_REQUEST;
+			return _state == IN_WAIT;
 		}
 
 		/**
