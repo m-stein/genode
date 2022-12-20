@@ -53,7 +53,7 @@ void Ipc_node::_cancel_send()
 
 bool Ipc_node::_helping() const
 {
-	return _out_state == OUT_SEND_HELPING;
+	return _out_state == OUT_SEND_HELPING && _out_node;
 }
 
 
@@ -65,9 +65,6 @@ bool Ipc_node::can_send_request() const
 
 void Ipc_node::send_request(Ipc_node &node, bool help)
 {
-	if (_out_state == OUT_SEND_HELPING) {
-		_out_state = OUT_SEND;
-	}
 	if (node._in_waiting()) {
 		node._receive_from(*this);
 		node._thread.ipc_await_request_succeeded();
@@ -105,6 +102,7 @@ void Ipc_node::send_reply()
 	if (_in_state == IN_REPLY) {
 		Ipc_node &node { *_caller };
 		node._thread.ipc_copy_msg(_thread);
+		node._out_node  = nullptr;
 		node._out_state = OUT_READY;
 		node._thread.ipc_send_request_succeeded();
 		_caller = nullptr;
