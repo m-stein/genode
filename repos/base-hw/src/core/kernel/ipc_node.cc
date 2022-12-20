@@ -60,7 +60,7 @@ bool Ipc_node::_helping() const
 
 bool Ipc_node::can_send_request() const
 {
-	return _out_state == OUT_READY;
+	return _out_state == OUT_READY && !_in.waiting();
 }
 
 
