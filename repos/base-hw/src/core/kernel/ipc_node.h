@@ -44,12 +44,12 @@ class Kernel::Ipc_node
 		};
 
 		Thread     &_thread;
-		Queue_item  _request_queue_item { *this };
-		State       _state              { INACTIVE };
-		Ipc_node   *_caller             { nullptr };
-		Ipc_node   *_out_node           { nullptr };
-		bool        _help               { false };
-		Queue       _request_queue      { };
+		Queue_item  _queue_item { *this };
+		State       _state      { INACTIVE };
+		Ipc_node   *_caller     { nullptr };
+		Ipc_node   *_out_node   { nullptr };
+		bool        _help       { false };
+		Queue       _in_queue   { };
 
 		bool _out_sending() const
 		{
@@ -123,7 +123,7 @@ class Kernel::Ipc_node
 				f(_caller->_thread);
 
 			/* call 'f' for each helper in our request queue */
-			_request_queue.for_each([f] (Queue_item &item) {
+			_in_queue.for_each([f] (Queue_item &item) {
 				Ipc_node &node { item.object() };
 
 				if (node._help)
