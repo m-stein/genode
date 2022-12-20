@@ -29,7 +29,7 @@ void Ipc_node::_receive_from(Ipc_node &node)
 {
 	_thread.ipc_copy_msg(node._thread);
 	_caller = &node;
-	_state  = INACTIVE;
+	_state  = READY;
 }
 
 
@@ -45,27 +45,27 @@ void Ipc_node::_cancel_send()
 	}
 	if (_out_sending()) {
 		_thread.ipc_send_request_failed();
-		_state = INACTIVE;
+		_state = READY;
 	}
 }
 
 
 bool Ipc_node::_helping() const
 {
-	return _state == AWAIT_REPLY_HELPING;
+	return _state == OUT_SEND_HELPING;
 }
 
 
 bool Ipc_node::can_send_request() const
 {
-	return _state == INACTIVE;
+	return _state == READY;
 }
 
 
 void Ipc_node::send_request(Ipc_node &node, bool help)
 {
-	if (_state == AWAIT_REPLY_HELPING) {
-		_state = AWAIT_REPLY;
+	if (_state == OUT_SEND_HELPING) {
+		_state = OUT_SEND;
 	}
 	if (node._in_waiting()) {
 		node._receive_from(*this);
@@ -74,7 +74,7 @@ void Ipc_node::send_request(Ipc_node &node, bool help)
 		node._in_queue.enqueue(_queue_item);
 	}
 	_out_node = &node;
-	_state = help ? AWAIT_REPLY_HELPING : AWAIT_REPLY;
+	_state = help ? OUT_SEND_HELPING : OUT_SEND;
 }
 
 
@@ -86,13 +86,13 @@ Thread &Ipc_node::helping_sink()
 
 bool Ipc_node::can_await_request() const
 {
-	return _state == INACTIVE;
+	return _state == READY;
 }
 
 
 void Ipc_node::await_request()
 {
-	_state = AWAIT_REQUEST;
+	_state = IN_WAIT;
 	_in_queue.dequeue([&] (Queue_item &item) {
 		_receive_from(item.object());
 	});
@@ -101,10 +101,10 @@ void Ipc_node::await_request()
 
 void Ipc_node::send_reply()
 {
-	if (_state == INACTIVE && _caller) {
+	if (_state == READY && _caller) {
 		Ipc_node &node { *_caller };
 		node._thread.ipc_copy_msg(_thread);
-		node._state = INACTIVE;
+		node._state = READY;
 		node._thread.ipc_send_request_succeeded();
 		_caller = nullptr;
 	}
@@ -117,7 +117,7 @@ void Ipc_node::cancel_waiting()
 		_cancel_send();
 	}
 	if (_in_waiting()) {
-		_state = INACTIVE;
+		_state = READY;
 		_thread.ipc_await_request_failed();
 	}
 }
