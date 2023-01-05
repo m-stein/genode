@@ -66,11 +66,12 @@ bool Ipc_node::can_send_request() const
 
 void Ipc_node::send_request(Ipc_node &node, bool help)
 {
+	node._in_queue.enqueue(_queue_item);
+
 	if (node._in_waiting()) {
 		node._receive_from(*this);
 		node._thread.ipc_await_request_succeeded();
 	}
-	node._in_queue.enqueue(_queue_item);
 	_out_node = &node;
 	_out_state = help ? OUT_SEND_HELPING : OUT_SEND;
 }
