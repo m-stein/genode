@@ -33,11 +33,10 @@ class Kernel::Ipc_node
 	private:
 
 		using Queue_item = Genode::Fifo_element<Ipc_node>;
+		using Queue      = Genode::Fifo<Queue_item>;
 
 		struct In
 		{
-			using Queue = Genode::Fifo<Queue_item>;
-
 			enum State
 			{
 				READY,
