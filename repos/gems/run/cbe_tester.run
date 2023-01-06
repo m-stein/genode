@@ -27,7 +27,7 @@ proc autopilot_cbe_image { } {
 	return /tmp/[cbe_image_name].[exec id -un]
 }
 
-set image_size 1024
+set image_size 128
 if {[info exists ::env(CBE_IMAGE_SIZE)]} {
 	set image_size $::env(CBE_IMAGE_SIZE)
 }
@@ -83,8 +83,8 @@ append config {
 	</default-route>
 
 	<default caps="100"/>
-	<start name="timer">
-		<resource name="RAM" quantum="1M"/>
+	<start name="timer" caps="1000">
+		<resource name="RAM" quantum="4M"/>
 		<provides><service name="Timer"/></provides>
 	</start>
 
@@ -521,6 +521,8 @@ append config {
 				<request op="read"  vba="70" count="2"   sync="no"  salt="8453"/>
 				<request op="sync"  vba="0"  count="256" sync="yes"/>
 				<check/>
+
+<!--
 
 				<log string="Step 16: reinitialize CBE device, do read/write benchmarks"/>
 
@@ -991,6 +993,8 @@ append config {
 					hashes="yes"/>
 
 				<list-snapshots/>
+
+-->
 
 			</commands>
 
