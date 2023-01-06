@@ -201,23 +201,19 @@ class Trust_anchor
 		{
 			bool progress = false;
 
-			switch (_job_state) {
-			case Job_state::INIT_READ_JITTERENTROPY_PENDING:
-			case Job_state::PENDING:
-			{
+			auto try_start_reading_jitterentropy_file { [&] () {
+
 				if (!_open_jitterentropy_file_and_queue_read()) {
-					break;
+					return;
 				}
 				_job_state = Job_state::IN_PROGRESS;
 				progress = true;
-			}
-			[[fallthrough]];
+			} };
 
-			case Job_state::INIT_READ_JITTERENTROPY_IN_PROGRESS:
-			case Job_state::IN_PROGRESS:
-			{
+			auto try_finish_reading_jitterentropy_file { [&] () {
+
 				if (!_read_jitterentropy_file_finished()) {
-					break;
+					return;
 				}
 				if (_jitterentropy_io_job_buffer.size != (size_t)Key::KEY_LEN) {
 					class Bad_jitterentropy_io_buffer_size { };
@@ -230,13 +226,38 @@ class Trust_anchor
 				_job_state = Job_state::COMPLETE;
 				_job_success = true;
 				progress = true;
-				break;
-			}
+			} };
 
-			case Job_state::COMPLETE:
-			case Job_state::FINAL_SYNC:
-			case Job_state::NONE:
+			switch (_job_state) {
+			case Job_state::INIT_READ_JITTERENTROPY_PENDING:
+
+				try_start_reading_jitterentropy_file();
+				if (progress) {
+					try_finish_reading_jitterentropy_file();
+				}
 				break;
+
+			case Job_state::PENDING:
+
+				try_start_reading_jitterentropy_file();
+				if (progress) {
+					try_finish_reading_jitterentropy_file();
+				}
+				break;
+
+			case Job_state::INIT_READ_JITTERENTROPY_IN_PROGRESS:
+
+				try_finish_reading_jitterentropy_file();
+				break;
+
+			case Job_state::IN_PROGRESS:
+
+				try_finish_reading_jitterentropy_file();
+				break;
+
+			case Job_state::COMPLETE:   break;
+			case Job_state::FINAL_SYNC: break;
+			case Job_state::NONE:       break;
 			}
 
 			return progress;
@@ -246,22 +267,19 @@ class Trust_anchor
 		{
 			bool progress = false;
 
-			switch (_job_state) {
-			case Job_state::PENDING:
-			{
+			auto try_start_reading_key_file { [&] () {
+
 				if (!_open_key_file_and_queue_read(_base_path)) {
-					break;
+					return;
 				}
-
 				_job_state = Job_state::IN_PROGRESS;
-				progress |= true;
-			}
+				progress = true;
+			} };
 
-			[[fallthrough]];
-			case Job_state::IN_PROGRESS:
-			{
+			auto try_finish_reading_key_file { [&] () {
+
 				if (!_read_key_file_finished()) {
-					break;
+					return;
 				}
 				if (_key_io_job_buffer.size == Aes_256_key_wrap::CIPHERTEXT_SIZE) {
 
@@ -297,14 +315,27 @@ class Trust_anchor
 					_job_success = false;
 					progress = true;
 				}
-			}
+			} };
 
-			[[fallthrough]];
-			case Job_state::COMPLETE:
+			switch (_job_state) {
+			case Job_state::PENDING:
+
+				try_start_reading_key_file();
+				if (progress) {
+					try_finish_reading_key_file();
+				}
 				break;
 
-			case Job_state::NONE: [[fallthrough]];
-			default:              break;
+			case Job_state::IN_PROGRESS:
+
+				try_finish_reading_key_file();
+				break;
+
+			case Job_state::COMPLETE:                            break;
+			case Job_state::NONE:                                break;
+			case Job_state::INIT_READ_JITTERENTROPY_PENDING:     break;
+			case Job_state::INIT_READ_JITTERENTROPY_IN_PROGRESS: break;
+			case Job_state::FINAL_SYNC:                          break;
 			}
 
 			return progress;
@@ -314,20 +345,19 @@ class Trust_anchor
 		{
 			bool progress = false;
 
-			switch (_job_state) {
-			case Job_state::INIT_READ_JITTERENTROPY_PENDING:
-			{
+			auto try_start_reading_private_key_file { [&] () {
+
 				if (!_open_private_key_file_and_queue_read()) {
-					break;
+					return;
 				}
 				_job_state = Job_state::INIT_READ_JITTERENTROPY_IN_PROGRESS;
 				progress = true;
-			}
-			[[fallthrough]];
-			case Job_state::INIT_READ_JITTERENTROPY_IN_PROGRESS:
-			{
+			} };
+
+			auto try_finish_reading_private_key_file { [&] () {
+
 				if (!_read_private_key_file_finished()) {
-					break;
+					return;
 				}
 				if (_private_key_io_job_buffer.size != (size_t)PRIVATE_KEY_SIZE) {
 					class Bad_private_key_io_buffer_size { };
@@ -349,21 +379,39 @@ class Trust_anchor
 
 				_job_state = Job_state::PENDING;
 				progress = true;
-			}
-			[[fallthrough]];
-			case Job_state::PENDING:
-			{
+			} };
+
+			auto try_start_writing_key_file { [&] () {
+
 				if (!_open_key_file_and_write(_base_path)) {
 					_job_state = Job_state::COMPLETE;
 					_job_success = false;
-					return true;
+					progress = true;
+					return;
 				}
-
 				_job_state = Job_state::IN_PROGRESS;
-				progress |= true;
+				progress = true;
 			}
 
-			[[fallthrough]];
+			switch (_job_state) {
+			case Job_state::INIT_READ_JITTERENTROPY_PENDING:
+
+				try_start_reading_private_key_file();
+				[[fallthrough]];
+
+			case Job_state::INIT_READ_JITTERENTROPY_IN_PROGRESS:
+
+				try_finish_reading_private_key_file();
+				[[fallthrough]];
+
+			case Job_state::PENDING:
+
+				try_start_writing_key_file();
+				if (_job_state == Job_state::COMPLETE) {
+					break;
+				}
+				[[fallthrough]];
+
 			case Job_state::IN_PROGRESS:
 				if (!_write_op_on_key_file_is_in_final_sync_step()) {
 					break;
