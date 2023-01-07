@@ -42,20 +42,14 @@ namespace Vfs_cbe_trust_anchor {
 	class Encrypt_file_system;
 	class Decrypt_file_system;
 	class Initialize_file_system;
-
-	struct Local_factory;
-	class  File_system;
+	class Local_factory;
+	class File_system;
 }
 
 
 class Trust_anchor
 {
 	public:
-
-		using Path = Genode::Path<256>;
-
-		Path const key_file_name  { "encrypted_private_key" };
-		Path const hash_file_name { "superblock_hash" };
 
 		struct Complete_request
 		{
@@ -65,24 +59,24 @@ class Trust_anchor
 
 	private:
 
-		Trust_anchor(Trust_anchor const &) = delete;
-		Trust_anchor &operator=(Trust_anchor const&) = delete;
-
+		using Path   = Genode::Path<256>;
 		using size_t = Genode::size_t;
 
-		Vfs::Env &_vfs_env;
-
-		enum class State {
+		enum class State
+		{
 			UNINITIALIZED,
 			INITIALIZIE_IN_PROGRESS,
 			INITIALIZED,
 		};
-		State _state { State::UNINITIALIZED };
 
-		enum class Lock_state { LOCKED, UNLOCKED };
-		Lock_state _lock_state { Lock_state::LOCKED };
+		enum class Lock_state
+		{
+			LOCKED,
+			UNLOCKED
+		};
 
-		enum class Job {
+		enum class Job
+		{
 			NONE,
 			DECRYPT,
 			ENCRYPT,
@@ -92,7 +86,6 @@ class Trust_anchor
 			UPDATE_HASH,
 			UNLOCK
 		};
-		Job _job { Job::NONE };
 
 		enum class Job_state
 		{
@@ -105,33 +98,118 @@ class Trust_anchor
 			COMPLETE
 		};
 
-		Job_state _job_state { Job_state::NONE };
-
-		bool _job_success { false };
-
 		struct Private_key
 		{
 			unsigned char value[PRIVATE_KEY_SIZE] { };
 		};
-		Private_key _private_key { };
 
 		struct Last_hash
 		{
 			enum { HASH_LEN = 32 };
+
+			static constexpr size_t length { HASH_LEN };
+
 			unsigned char value[HASH_LEN] { };
-			static constexpr size_t length = HASH_LEN;
 		};
-		Last_hash _last_hash { };
 
 		struct Key
 		{
 			enum { KEY_LEN = 32 };
+
+			static constexpr size_t length { KEY_LEN };
+
 			unsigned char value[KEY_LEN] { };
-			static constexpr size_t length = KEY_LEN;
 		};
-		Key _decrypt_key   { };
-		Key _encrypt_key   { };
-		Key _generated_key { };
+
+		struct Jitterentropy_io_job_buffer : Util::Io_job::Buffer
+		{
+			char buffer[32] { };
+
+			Jitterentropy_io_job_buffer()
+			{
+				Buffer::base = buffer;
+				Buffer::size = sizeof (buffer);
+			}
+		};
+
+		struct Private_key_io_job_buffer : Util::Io_job::Buffer
+		{
+			char buffer[PRIVATE_KEY_SIZE] { };
+
+			Private_key_io_job_buffer()
+			{
+				Buffer::base = buffer;
+				Buffer::size = sizeof (buffer);
+			}
+		};
+
+		struct Key_io_job_buffer : Util::Io_job::Buffer
+		{
+			char buffer[Aes_256_key_wrap::CIPHERTEXT_SIZE] { };
+
+			Key_io_job_buffer()
+			{
+				Buffer::base = buffer;
+				Buffer::size = sizeof (buffer);
+			}
+		};
+
+		struct Passphrase_hash_buffer : Util::Io_job::Buffer
+		{
+			char buffer[PASSPHRASE_HASH_SIZE] { };
+
+			Passphrase_hash_buffer()
+			{
+				Buffer::base = buffer;
+				Buffer::size = sizeof (buffer);
+			}
+		};
+
+		struct Hash_io_job_buffer : Util::Io_job::Buffer
+		{
+			char buffer[64] { };
+
+			Hash_io_job_buffer()
+			{
+				Buffer::base = buffer;
+				Buffer::size = sizeof (buffer);
+			}
+		};
+
+		static constexpr char const *_key_file_name  { "encrypted_private_key" };
+		static constexpr char const *_hash_file_name { "superblock_hash" };
+
+		Vfs::Env                            &_vfs_env;
+		Path const                           _base_path;
+		State                                _state                       { State::UNINITIALIZED };
+		Lock_state                           _lock_state                  { Lock_state::LOCKED };
+		Job                                  _job                         { Job::NONE };
+		Job_state                            _job_state                   { Job_state::NONE };
+		bool                                 _job_success                 { false };
+		Private_key                          _private_key                 { };
+		Last_hash                            _last_hash                   { };
+		Key                                  _decrypt_key                 { };
+		Key                                  _encrypt_key                 { };
+		Key                                  _generated_key               { };
+		Vfs::Vfs_handle                     *_jitterentropy_handle        { nullptr };
+		Genode::Constructible<Util::Io_job>  _jitterentropy_io_job        { };
+		Jitterentropy_io_job_buffer          _jitterentropy_io_job_buffer { };
+		Vfs::Vfs_handle                     *_private_key_handle          { nullptr };
+		Genode::Constructible<Util::Io_job>  _private_key_io_job          { };
+		Private_key_io_job_buffer            _private_key_io_job_buffer   { };
+		Vfs::Vfs_handle                     *_key_handle                  { nullptr };
+		Genode::Constructible<Util::Io_job>  _key_io_job                  { };
+		Key_io_job_buffer                    _key_io_job_buffer           { };
+		Passphrase_hash_buffer               _passphrase_hash_buffer      { };
+		Vfs::Vfs_handle                     *_hash_handle                 { nullptr };
+		Genode::Constructible<Util::Io_job>  _hash_io_job                 { };
+		Hash_io_job_buffer                   _hash_io_job_buffer          { };
+
+		/**
+		 * Noncopyable
+		 */
+		Trust_anchor(Trust_anchor const &) = delete;
+		Trust_anchor &operator=(Trust_anchor const&) = delete;
 
 		bool _execute_encrypt()
 		{
@@ -439,7 +517,6 @@ class Trust_anchor
 			return progress;
 		}
 
-
 		bool _execute_update_hash()
 		{
 			bool progress = false;
@@ -523,71 +600,10 @@ class Trust_anchor
 			(*handle) = nullptr;
 		}
 
-		struct Jitterentropy_io_job_buffer : Util::Io_job::Buffer
-		{
-			char buffer[32] { };
-
-			Jitterentropy_io_job_buffer()
-			{
-				Buffer::base = buffer;
-				Buffer::size = sizeof (buffer);
-			}
-		};
-
-		Vfs::Vfs_handle *_jitterentropy_handle  { nullptr };
-		Genode::Constructible<Util::Io_job> _jitterentropy_io_job { };
-		Jitterentropy_io_job_buffer _jitterentropy_io_job_buffer { };
-
-
-		struct Private_key_io_job_buffer : Util::Io_job::Buffer
-		{
-			char buffer[PRIVATE_KEY_SIZE] { };
-
-			Private_key_io_job_buffer()
-			{
-				Buffer::base = buffer;
-				Buffer::size = sizeof (buffer);
-			}
-		};
-
-		Vfs::Vfs_handle *_private_key_handle { nullptr };
-		Genode::Constructible<Util::Io_job> _private_key_io_job { };
-		Private_key_io_job_buffer _private_key_io_job_buffer { };
-
-		/* key */
-
-		Vfs::Vfs_handle *_key_handle  { nullptr };
-		Genode::Constructible<Util::Io_job> _key_io_job { };
-
-		struct Key_io_job_buffer : Util::Io_job::Buffer
-		{
-			char buffer[Aes_256_key_wrap::CIPHERTEXT_SIZE] { };
-
-			Key_io_job_buffer()
-			{
-				Buffer::base = buffer;
-				Buffer::size = sizeof (buffer);
-			}
-		};
-
-		struct Passphrase_hash_buffer : Util::Io_job::Buffer
-		{
-			char buffer[PASSPHRASE_HASH_SIZE] { };
-
-			Passphrase_hash_buffer()
-			{
-				Buffer::base = buffer;
-				Buffer::size = sizeof (buffer);
-			}
-		};
-
-		Key_io_job_buffer      _key_io_job_buffer      { };
-		Passphrase_hash_buffer _passphrase_hash_buffer { };
-
 		bool _check_key_file(Path const &path)
 		{
 			Path file_path = path;
-			file_path.append_element(key_file_name.string());
+			file_path.append_element(_key_file_name);
 
 			using Stat_result = Vfs::Directory_service::Stat_result;
 
@@ -663,7 +679,7 @@ class Trust_anchor
 		bool _open_key_file_and_queue_read(Path const &path)
 		{
 			Path file_path = path;
-			file_path.append_element(key_file_name.string());
+			file_path.append_element(_key_file_name);
 
 			using Result = Vfs::Directory_service::Open_result;
 
@@ -751,7 +767,7 @@ class Trust_anchor
 			using Result = Vfs::Directory_service::Open_result;
 
 			Path file_path = path;
-			file_path.append_element(key_file_name.string());
+			file_path.append_element(_key_file_name);
 
 			unsigned const mode =
 				Vfs::Directory_service::OPEN_MODE_WRONLY | Vfs::Directory_service::OPEN_MODE_CREATE;
@@ -772,32 +788,12 @@ class Trust_anchor
 			return true;
 		}
 
-
-		/* hash */
-
-		Vfs::Vfs_handle *_hash_handle { nullptr };
-
-		Genode::Constructible<Util::Io_job> _hash_io_job { };
-
-		struct Hash_io_job_buffer : Util::Io_job::Buffer
-		{
-			char buffer[64] { };
-
-			Hash_io_job_buffer()
-			{
-				Buffer::base = buffer;
-				Buffer::size = sizeof (buffer);
-			}
-		};
-
-		Hash_io_job_buffer _hash_io_job_buffer { };
-
 		bool _open_hash_file_and_queue_read(Path const &path)
 		{
 			using Result = Vfs::Directory_service::Open_result;
 
 			Path file_path = path;
-			file_path.append_element(hash_file_name.string());
+			file_path.append_element(_hash_file_name);
 
 			Result const res =
 				_vfs_env.root_dir().open(file_path.string(),
@@ -851,7 +847,7 @@ class Trust_anchor
 			using Result = Vfs::Directory_service::Open_result;
 
 			Path file_path = path;
-			file_path.append_element(hash_file_name.string());
+			file_path.append_element(_hash_file_name);
 
 			using Stat_result = Vfs::Directory_service::Stat_result;
 
@@ -937,8 +933,6 @@ class Trust_anchor
 			}
 			return progress && completed;
 		}
-
-		Path const _base_path;
 
 	public:
 
@@ -1246,110 +1240,119 @@ class Vfs_cbe_trust_anchor::Hashsum_file_system : public Vfs::Single_file_system
 {
 	private:
 
-		Trust_anchor &_trust_anchor;
-
-		struct Hashsum_handle : Single_vfs_handle
+		class Hashsum_handle : public Single_vfs_handle
 		{
-			Trust_anchor &_trust_anchor;
+			private:
 
-			enum class State { NONE, PENDING_WRITE_ACK, PENDING_READ };
-			State _state { State::NONE };
+				enum class State
+				{
+					NONE,
+					PENDING_WRITE_ACK,
+					PENDING_READ
+				};
 
-			Hashsum_handle(Directory_service &ds,
-			               File_io_service   &fs,
-			               Genode::Allocator &alloc,
-			               Trust_anchor      &ta)
-			:
-				Single_vfs_handle { ds, fs, alloc, 0 },
-				_trust_anchor     { ta }
-			{ }
+				Trust_anchor &_trust_anchor;
+				State         _state { State::NONE };
 
-			Read_result read(char *src, file_size count,
-			                 file_size &out_count) override
-			{
-				_trust_anchor.execute();
+			public:
 
-				if (_state == State::NONE) {
+				Hashsum_handle(Directory_service &ds,
+				               File_io_service   &fs,
+				               Genode::Allocator &alloc,
+				               Trust_anchor      &ta)
+				:
+					Single_vfs_handle { ds, fs, alloc, 0 },
+					_trust_anchor     { ta }
+				{ }
+
+				Read_result read(char *src, file_size count,
+				                 file_size &out_count) override
+				{
+					_trust_anchor.execute();
+
+					if (_state == State::NONE) {
+						try {
+							bool const ok =
+								_trust_anchor.queue_read_last_hash();
+							if (!ok) {
+								return READ_ERR_IO;
+							}
+							_state = State::PENDING_READ;
+						} catch (...) {
+							return READ_ERR_INVALID;
+						}
+
+						_trust_anchor.execute();
+						return READ_QUEUED;
+					} else
+
+					if (_state == State::PENDING_READ) {
+						try {
+							Trust_anchor::Complete_request const cr =
+								_trust_anchor.complete_read_last_hash(src, count);
+							if (!cr.valid) {
+								_trust_anchor.execute();
+								return READ_QUEUED;
+							}
+
+							_state = State::NONE;
+							out_count = count;
+							return cr.success ? READ_OK : READ_ERR_IO;
+						} catch (...) {
+							return READ_ERR_INVALID;
+						}
+					} else
+
+					if (_state == State::PENDING_WRITE_ACK) {
+						try {
+							Trust_anchor::Complete_request const cr =
+								_trust_anchor.complete_update_last_hash();
+							if (!cr.valid) {
+								_trust_anchor.execute();
+								return READ_QUEUED;
+							}
+
+							_state = State::NONE;
+							out_count = count;
+							return cr.success ? READ_OK : READ_ERR_IO;
+						} catch (...) {
+							return READ_ERR_INVALID;
+						}
+					}
+
+					return READ_ERR_IO;
+				}
+
+				Write_result write(char const *src, file_size count,
+				                   file_size &out_count) override
+				{
+					_trust_anchor.execute();
+
+					if (_state != State::NONE) {
+						return WRITE_ERR_IO;
+					}
+
 					try {
 						bool const ok =
-							_trust_anchor.queue_read_last_hash();
+							_trust_anchor.queue_update_last_hash(src, count);
 						if (!ok) {
-							return READ_ERR_IO;
+							return WRITE_ERR_IO;
 						}
-						_state = State::PENDING_READ;
+						_state = State::PENDING_WRITE_ACK;
 					} catch (...) {
-						return READ_ERR_INVALID;
+						return WRITE_ERR_INVALID;
 					}
 
 					_trust_anchor.execute();
-					return READ_QUEUED;
-				} else
-
-				if (_state == State::PENDING_READ) {
-					try {
-						Trust_anchor::Complete_request const cr =
-							_trust_anchor.complete_read_last_hash(src, count);
-						if (!cr.valid) {
-							_trust_anchor.execute();
-							return READ_QUEUED;
-						}
-
-						_state = State::NONE;
-						out_count = count;
-						return cr.success ? READ_OK : READ_ERR_IO;
-					} catch (...) {
-						return READ_ERR_INVALID;
-					}
-				} else
-
-				if (_state == State::PENDING_WRITE_ACK) {
-					try {
-						Trust_anchor::Complete_request const cr =
-							_trust_anchor.complete_update_last_hash();
-						if (!cr.valid) {
-							_trust_anchor.execute();
-							return READ_QUEUED;
-						}
-
-						_state = State::NONE;
-						out_count = count;
-						return cr.success ? READ_OK : READ_ERR_IO;
-					} catch (...) {
-						return READ_ERR_INVALID;
-					}
+					out_count = count;
+					return WRITE_OK;
 				}
 
-				return READ_ERR_IO;
-			}
-
-			Write_result write(char const *src, file_size count,
-			                   file_size &out_count) override
-			{
-				_trust_anchor.execute();
-
-				if (_state != State::NONE) {
-					return WRITE_ERR_IO;
-				}
-
-				try {
-					bool const ok =
-						_trust_anchor.queue_update_last_hash(src, count);
-					if (!ok) {
-						return WRITE_ERR_IO;
-					}
-					_state = State::PENDING_WRITE_ACK;
-				} catch (...) {
-					return WRITE_ERR_INVALID;
-				}
-
-				_trust_anchor.execute();
-				out_count = count;
-				return WRITE_OK;
-			}
-
-			bool read_ready()  const override { return true; }
-			bool write_ready() const override { return true; }
+				bool read_ready()  const override { return true; }
+				bool write_ready() const override { return true; }
 		};
+
+		Trust_anchor &_trust_anchor;
 
 	public:
 
@@ -1407,56 +1410,64 @@ class Vfs_cbe_trust_anchor::Generate_key_file_system : public Vfs::Single_file_s
 {
 	private:
 
-		Trust_anchor &_trust_anchor;
-
-		struct Gen_key_handle : Single_vfs_handle
+		class Gen_key_handle : public Single_vfs_handle
 		{
-			Trust_anchor &_trust_anchor;
+			private:
 
-			enum class State { NONE, PENDING };
-			State _state { State::NONE, };
+				enum class State
+				{
+					NONE,
+					PENDING
+				};
 
-			Gen_key_handle(Directory_service &ds,
-			               File_io_service   &fs,
-			               Genode::Allocator &alloc,
-			               Trust_anchor      &ta)
-			:
-				Single_vfs_handle { ds, fs, alloc, 0 },
-				_trust_anchor     { ta }
-			{ }
+				Trust_anchor &_trust_anchor;
+				State         _state { State::NONE, };
 
-			Read_result read(char *dst, file_size count,
-			                 file_size &out_count) override
-			{
-				if (_state == State::NONE) {
+			public:
 
-					if (!_trust_anchor.queue_generate_key()) {
+				Gen_key_handle(Directory_service &ds,
+				               File_io_service   &fs,
+				               Genode::Allocator &alloc,
+				               Trust_anchor      &ta)
+				:
+					Single_vfs_handle { ds, fs, alloc, 0 },
+					_trust_anchor     { ta }
+				{ }
+
+				Read_result read(char *dst, file_size count,
+				                 file_size &out_count) override
+				{
+					if (_state == State::NONE) {
+
+						if (!_trust_anchor.queue_generate_key()) {
+							return READ_QUEUED;
+						}
+						_state = State::PENDING;
+					}
+
+					(void)_trust_anchor.execute();
+
+					Trust_anchor::Complete_request const cr =
+						_trust_anchor.complete_generate_key(dst, count);
+					if (!cr.valid) {
 						return READ_QUEUED;
 					}
-					_state = State::PENDING;
+
+					_state = State::NONE;
+					out_count = count;
+					return cr.success ? READ_OK : READ_ERR_IO;
 				}
 
-				(void)_trust_anchor.execute();
-
-				Trust_anchor::Complete_request const cr =
-					_trust_anchor.complete_generate_key(dst, count);
-				if (!cr.valid) {
-					return READ_QUEUED;
+				Write_result write(char const *, file_size , file_size &) override
+				{
+					return WRITE_ERR_IO;
 				}
 
-				_state = State::NONE;
-				out_count = count;
-				return cr.success ? READ_OK : READ_ERR_IO;
-			}
-
-			Write_result write(char const *, file_size , file_size &) override
-			{
-				return WRITE_ERR_IO;
-			}
-
-			bool read_ready()  const override { return true; }
-			bool write_ready() const override { return false; }
+				bool read_ready()  const override { return true; }
+				bool write_ready() const override { return false; }
 		};
+
+		Trust_anchor &_trust_anchor;
 
 	public:
 
@@ -1514,78 +1525,85 @@ class Vfs_cbe_trust_anchor::Encrypt_file_system : public Vfs::Single_file_system
 {
 	private:
 
-		Trust_anchor &_trust_anchor;
-
-		struct Encrypt_handle : Single_vfs_handle
+		class Encrypt_handle : public Single_vfs_handle
 		{
-			Trust_anchor &_trust_anchor;
+			private:
 
-			enum State { NONE, PENDING };
-			State _state;
+				enum State
+				{
+					NONE,
+					PENDING
+				};
 
-			Encrypt_handle(Directory_service &ds,
-			               File_io_service   &fs,
-			               Genode::Allocator &alloc,
-			               Trust_anchor      &ta)
-			:
-				Single_vfs_handle { ds, fs, alloc, 0 },
-				_trust_anchor { ta },
-				_state        { State::NONE }
-			{ }
+				Trust_anchor &_trust_anchor;
+				State         _state { State::NONE };
 
-			Read_result read(char *dst, file_size count,
-			                 file_size &out_count) override
-			{
-				if (_state != State::PENDING) {
+			public:
+
+				Encrypt_handle(Directory_service &ds,
+				               File_io_service   &fs,
+				               Genode::Allocator &alloc,
+				               Trust_anchor      &ta)
+				:
+					Single_vfs_handle { ds, fs, alloc, 0 },
+					_trust_anchor     { ta }
+				{ }
+
+				Read_result read(char *dst, file_size count,
+				                 file_size &out_count) override
+				{
+					if (_state != State::PENDING) {
+						return READ_ERR_IO;
+					}
+
+					_trust_anchor.execute();
+
+					try {
+						Trust_anchor::Complete_request const cr =
+							_trust_anchor.complete_encrypt_key(dst, count);
+						if (!cr.valid) {
+							return READ_QUEUED;
+						}
+
+						_state = State::NONE;
+
+						out_count = count;
+						return cr.success ? READ_OK : READ_ERR_IO;
+					} catch (...) {
+						return READ_ERR_INVALID;
+					}
+
 					return READ_ERR_IO;
 				}
 
-				_trust_anchor.execute();
-
-				try {
-					Trust_anchor::Complete_request const cr =
-						_trust_anchor.complete_encrypt_key(dst, count);
-					if (!cr.valid) {
-						return READ_QUEUED;
-					}
-
-					_state = State::NONE;
-
-					out_count = count;
-					return cr.success ? READ_OK : READ_ERR_IO;
-				} catch (...) {
-					return READ_ERR_INVALID;
-				}
-
-				return READ_ERR_IO;
-			}
-
-			Write_result write(char const *src, file_size count,
-			                   file_size &out_count) override
-			{
-				if (_state != State::NONE) {
-					return WRITE_ERR_IO;
-				}
-
-				try {
-					bool const ok =
-						_trust_anchor.queue_encrypt_key(src, count);
-					if (!ok) {
+				Write_result write(char const *src, file_size count,
+				                   file_size &out_count) override
+				{
+					if (_state != State::NONE) {
 						return WRITE_ERR_IO;
 					}
-					_state = State::PENDING;
-				} catch (...) {
-					return WRITE_ERR_INVALID;
+
+					try {
+						bool const ok =
+							_trust_anchor.queue_encrypt_key(src, count);
+						if (!ok) {
+							return WRITE_ERR_IO;
+						}
+						_state = State::PENDING;
+					} catch (...) {
+						return WRITE_ERR_INVALID;
+					}
+
+					_trust_anchor.execute();
+					out_count = count;
+					return WRITE_OK;
 				}
 
-				_trust_anchor.execute();
-				out_count = count;
-				return WRITE_OK;
-			}
-
-			bool read_ready()  const override { return true; }
-			bool write_ready() const override { return true; }
+				bool read_ready()  const override { return true; }
+				bool write_ready() const override { return true; }
 		};
+
+		Trust_anchor &_trust_anchor;
 
 	public:
 
@@ -1642,78 +1660,85 @@ class Vfs_cbe_trust_anchor::Decrypt_file_system : public Vfs::Single_file_system
 {
 	private:
 
-		Trust_anchor &_trust_anchor;
-
-		struct Decrypt_handle : Single_vfs_handle
+		class Decrypt_handle : public Single_vfs_handle
 		{
-			Trust_anchor &_trust_anchor;
+			private:
 
-			enum State { NONE, PENDING };
-			State _state;
+				enum State
+				{
+					NONE,
+					PENDING
+				};
 
-			Decrypt_handle(Directory_service &ds,
-			               File_io_service   &fs,
-			               Genode::Allocator &alloc,
-			               Trust_anchor      &ta)
-			:
-				Single_vfs_handle { ds, fs, alloc, 0 },
-				_trust_anchor { ta },
-				_state        { State::NONE }
-			{ }
+				Trust_anchor &_trust_anchor;
+				State         _state { State::NONE };
 
-			Read_result read(char *dst, file_size count,
-			                 file_size &out_count) override
-			{
-				if (_state != State::PENDING) {
+			public:
+
+				Decrypt_handle(Directory_service &ds,
+				               File_io_service   &fs,
+				               Genode::Allocator &alloc,
+				               Trust_anchor      &ta)
+				:
+					Single_vfs_handle { ds, fs, alloc, 0 },
+					_trust_anchor     { ta }
+				{ }
+
+				Read_result read(char *dst, file_size count,
+				                 file_size &out_count) override
+				{
+					if (_state != State::PENDING) {
+						return READ_ERR_IO;
+					}
+
+					_trust_anchor.execute();
+
+					try {
+						Trust_anchor::Complete_request const cr =
+							_trust_anchor.complete_decrypt_key(dst, count);
+						if (!cr.valid) {
+							return READ_QUEUED;
+						}
+
+						_state = State::NONE;
+
+						out_count = count;
+						return cr.success ? READ_OK : READ_ERR_IO;
+					} catch (...) {
+						return READ_ERR_INVALID;
+					}
+
 					return READ_ERR_IO;
 				}
 
-				_trust_anchor.execute();
-
-				try {
-					Trust_anchor::Complete_request const cr =
-						_trust_anchor.complete_decrypt_key(dst, count);
-					if (!cr.valid) {
-						return READ_QUEUED;
-					}
-
-					_state = State::NONE;
-
-					out_count = count;
-					return cr.success ? READ_OK : READ_ERR_IO;
-				} catch (...) {
-					return READ_ERR_INVALID;
-				}
-
-				return READ_ERR_IO;
-			}
-
-			Write_result write(char const *src, file_size count,
-			                   file_size &out_count) override
-			{
-				if (_state != State::NONE) {
-					return WRITE_ERR_IO;
-				}
-
-				try {
-					bool const ok =
-						_trust_anchor.queue_decrypt_key(src, count);
-					if (!ok) {
+				Write_result write(char const *src, file_size count,
+				                   file_size &out_count) override
+				{
+					if (_state != State::NONE) {
 						return WRITE_ERR_IO;
 					}
-					_state = State::PENDING;
-				} catch (...) {
-					return WRITE_ERR_INVALID;
+
+					try {
+						bool const ok =
+							_trust_anchor.queue_decrypt_key(src, count);
+						if (!ok) {
+							return WRITE_ERR_IO;
+						}
+						_state = State::PENDING;
+					} catch (...) {
+						return WRITE_ERR_INVALID;
+					}
+
+					_trust_anchor.execute();
+					out_count = count;
+					return WRITE_OK;
 				}
 
-				_trust_anchor.execute();
-				out_count = count;
-				return WRITE_OK;
-			}
-
-			bool read_ready()  const override { return true; }
-			bool write_ready() const override { return true; }
+				bool read_ready()  const override { return true; }
+				bool write_ready() const override { return true; }
 		};
+
+		Trust_anchor &_trust_anchor;
 
 	public:
 
@@ -1770,71 +1795,74 @@ class Vfs_cbe_trust_anchor::Initialize_file_system : public Vfs::Single_file_sys
 {
 	private:
 
-		Trust_anchor &_trust_anchor;
-
-		struct Initialize_handle : Single_vfs_handle
+		class Initialize_handle : public Single_vfs_handle
 		{
-			Trust_anchor &_trust_anchor;
+			private:
 
-			enum class State { NONE, PENDING };
-			State _state { State::NONE };
+				enum class State { NONE, PENDING };
 
-			bool _init_pending { false };
+				Trust_anchor &_trust_anchor;
+				State         _state        { State::NONE };
+				bool          _init_pending { false };
 
-			Initialize_handle(Directory_service &ds,
-			                  File_io_service   &fs,
-			                  Genode::Allocator &alloc,
-			                  Trust_anchor      &ta)
-			:
-				Single_vfs_handle { ds, fs, alloc, 0 },
-				_trust_anchor     { ta }
-			{ }
+			public:
 
-			Read_result read(char *, file_size, file_size &) override
-			{
-				if (_state != State::PENDING) {
-					return READ_ERR_INVALID;
+				Initialize_handle(Directory_service &ds,
+				                  File_io_service   &fs,
+				                  Genode::Allocator &alloc,
+				                  Trust_anchor      &ta)
+				:
+					Single_vfs_handle { ds, fs, alloc, 0 },
+					_trust_anchor     { ta }
+				{ }
+
+				Read_result read(char *, file_size, file_size &) override
+				{
+					if (_state != State::PENDING) {
+						return READ_ERR_INVALID;
+					}
+
+					(void)_trust_anchor.execute();
+
+					Trust_anchor::Complete_request const cr =
+						_init_pending ? _trust_anchor.complete_queue_unlock()
+						              : _trust_anchor.complete_queue_initialize();
+					if (!cr.valid) {
+						return READ_QUEUED;
+					}
+
+					_state        = State::NONE;
+					_init_pending = false;
+
+					return cr.success ? READ_OK : READ_ERR_IO;
 				}
 
-				(void)_trust_anchor.execute();
+				Write_result write(char const *src, file_size count,
+				                   file_size &out_count) override
+				{
+					if (_state != State::NONE) {
+						return WRITE_ERR_INVALID;
+					}
 
-				Trust_anchor::Complete_request const cr =
-					_init_pending ? _trust_anchor.complete_queue_unlock()
-					              : _trust_anchor.complete_queue_initialize();
-				if (!cr.valid) {
-					return READ_QUEUED;
+					_init_pending = _trust_anchor.initialized();
+
+					bool const res = _init_pending ? _trust_anchor.queue_unlock(src, count)
+					                               : _trust_anchor.queue_initialize(src, count);
+
+					if (!res) {
+						return WRITE_ERR_IO;
+					}
+					_state = State::PENDING;
+
+					out_count = count;
+					return WRITE_OK;
 				}
 
-				_state        = State::NONE;
-				_init_pending = false;
-
-				return cr.success ? READ_OK : READ_ERR_IO;
-			}
-
-			Write_result write(char const *src, file_size count,
-			                   file_size &out_count) override
-			{
-				if (_state != State::NONE) {
-					return WRITE_ERR_INVALID;
-				}
-
-				_init_pending = _trust_anchor.initialized();
-
-				bool const res = _init_pending ? _trust_anchor.queue_unlock(src, count)
-				                               : _trust_anchor.queue_initialize(src, count);
-
-				if (!res) {
-					return WRITE_ERR_IO;
-				}
-				_state = State::PENDING;
-
-				out_count = count;
-				return WRITE_OK;
-			}
-
-			bool read_ready()  const override { return true; }
-			bool write_ready() const override { return true; }
+				bool read_ready()  const override { return true; }
+				bool write_ready() const override { return true; }
 		};
+
+		Trust_anchor &_trust_anchor;
 
 	public:
 
@@ -1888,66 +1916,72 @@ class Vfs_cbe_trust_anchor::Initialize_file_system : public Vfs::Single_file_sys
 };
 
 
-struct Vfs_cbe_trust_anchor::Local_factory : File_system_factory
+class Vfs_cbe_trust_anchor::Local_factory : public File_system_factory
 {
-	Trust_anchor _trust_anchor;
+	private:
 
-	Decrypt_file_system      _decrypt_fs;
-	Encrypt_file_system      _encrypt_fs;
-	Generate_key_file_system _gen_key_fs;
-	Hashsum_file_system      _hash_fs;
-	Initialize_file_system   _init_fs;
+		using Storage_path = String<256>;
 
-	using Storage_path = String<256>;
-	static Storage_path _storage_path(Xml_node const &node)
-	{
-		if (!node.has_attribute("storage_dir")) {
-			error("mandatory 'storage_dir' attribute missing");
-			struct Missing_storage_dir_attribute { };
-			throw Missing_storage_dir_attribute();
-		}
-		return node.attribute_value("storage_dir", Storage_path());
-	}
+		Trust_anchor             _trust_anchor;
+		Decrypt_file_system      _decrypt_fs;
+		Encrypt_file_system      _encrypt_fs;
+		Generate_key_file_system _gen_key_fs;
+		Hashsum_file_system      _hash_fs;
+		Initialize_file_system   _init_fs;
 
-	Local_factory(Vfs::Env &vfs_env, Xml_node config)
-	:
-		_trust_anchor { vfs_env, _storage_path(config).string() },
-		_decrypt_fs   { _trust_anchor },
-		_encrypt_fs   { _trust_anchor },
-		_gen_key_fs   { _trust_anchor },
-		_hash_fs      { _trust_anchor },
-		_init_fs      { _trust_anchor }
-	{ }
-
-	Vfs::File_system *create(Vfs::Env&, Xml_node node) override
-	{
-		if (node.has_type(Decrypt_file_system::type_name())) {
-			return &_decrypt_fs;
+		static Storage_path _storage_path(Xml_node const &node)
+		{
+			if (!node.has_attribute("storage_dir")) {
+				error("mandatory 'storage_dir' attribute missing");
+				struct Missing_storage_dir_attribute { };
+				throw Missing_storage_dir_attribute();
+			}
+			return node.attribute_value("storage_dir", Storage_path());
 		}
 
-		if (node.has_type(Encrypt_file_system::type_name())) {
-			return &_encrypt_fs;
-		}
+	public:
 
-		if (node.has_type(Generate_key_file_system::type_name())) {
-			return &_gen_key_fs;
-		}
+		Local_factory(Vfs::Env &vfs_env, Xml_node config)
+		:
+			_trust_anchor { vfs_env, _storage_path(config).string() },
+			_decrypt_fs   { _trust_anchor },
+			_encrypt_fs   { _trust_anchor },
+			_gen_key_fs   { _trust_anchor },
+			_hash_fs      { _trust_anchor },
+			_init_fs      { _trust_anchor }
+		{ }
 
-		if (node.has_type(Hashsum_file_system::type_name())) {
-			return &_hash_fs;
-		}
+		Vfs::File_system *create(Vfs::Env&, Xml_node node) override
+		{
+			if (node.has_type(Decrypt_file_system::type_name())) {
+				return &_decrypt_fs;
+			}
 
-		if (node.has_type(Initialize_file_system::type_name())) {
-			return &_init_fs;
-		}
+			if (node.has_type(Encrypt_file_system::type_name())) {
+				return &_encrypt_fs;
+			}
 
-		return nullptr;
-	}
+			if (node.has_type(Generate_key_file_system::type_name())) {
+				return &_gen_key_fs;
+			}
+
+			if (node.has_type(Hashsum_file_system::type_name())) {
+				return &_hash_fs;
+			}
+
+			if (node.has_type(Initialize_file_system::type_name())) {
+				return &_init_fs;
+			}
+
+			return nullptr;
+		}
 };
 
 
-class Vfs_cbe_trust_anchor::File_system : private Local_factory,
-                                          public Vfs::Dir_file_system
+class Vfs_cbe_trust_anchor::File_system
+:
+	private Local_factory,
+	public  Vfs::Dir_file_system
 {
 	private:
 
