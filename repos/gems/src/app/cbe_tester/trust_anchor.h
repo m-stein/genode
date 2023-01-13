@@ -45,8 +45,8 @@ class Trust_anchor
 			Cbe::Hash                 hash                 { };
 			Cbe::Key_plaintext_value  key_plaintext_value  { };
 			Cbe::Key_ciphertext_value key_ciphertext_value { };
-			Vfs::file_offset          fl_offset            { 0 };
-			Vfs::file_size            fl_size              { 0 };
+			Vfs::file_offset          file_offset          { 0 };
+			Vfs::file_size            file_size            { 0 };
 		};
 
 		Vfs::Env                  &_vfs_env;
