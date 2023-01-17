@@ -1987,72 +1987,48 @@ void Interface::_update_udp_tcp_links(L3_protocol  prot,
 {
 	links(prot).for_each([&] (Link &link) {
 
-		try {
-			/* try to find forward rule that matches the server port */
-			bool done { false };
-			_forward_rules(cln_dom, prot).find_by_port(
-				link.client().dst_port(),
-				[&] /* handle_match */ (Forward_rule const &rule)
-				{
-					/* if destination IP of forwarding changed, dismiss link */
-					if (rule.to_ip() != link.server().src_ip()) {
-						_dismiss_link_log(link, "other forward-rule to");
-						throw Dismiss_link();
-					}
-					/*
-					 * If destination port of forwarding was set and then was
-					 * modified or unset, dismiss link
-					 */
-					if (!(link.server().src_port() == link.client().dst_port())) {
-						if (!(rule.to_port() == link.server().src_port())) {
-							_dismiss_link_log(link, "other forward-rule to_port");
-							throw Dismiss_link();
-						}
-					}
-					/*
-					 * If destination port of forwarding was not set and then was
-					 * set, dismiss link
-					 */
-					else {
-						if (!(rule.to_port() == link.server().src_port()) &&
-						    !(rule.to_port() == Port(0)))
-						{
-							_dismiss_link_log(link, "new forward-rule to_port");
-							throw Dismiss_link();
-						}
-					}
-					_update_link_check_nat(link, rule.domain(), prot, cln_dom);
+		bool keep_link { false };
+
+		_forward_rules(cln_dom, prot).find_by_port(
+			link.client().dst_port(),
+			[&] /* handle_match */ (Forward_rule const &rule)
+			{
+				if (rule.to_ip() != link.server().src_ip())
 					return;
-				},
-				[&] /* handle_no_match */ () {
-					try {
-						/* try to find transport rule that matches the server IP */
-						_transport_rules(cln_dom, prot).find_best_match(
-							link.client().dst_ip(),
-							link.client().dst_port(),
-							[&] /* handle_match */ (Transport_rule const &,
-							                        Permit_rule    const &permit_rule)
-							{
-								_update_link_check_nat(link, permit_rule.domain(), prot, cln_dom);
-								done = true;
-							},
-							[&] /* handle_no_match */ ()
-							{
-								_dismiss_link_log(link, "no matching transport/permit/forward rule");
-							}
-						);
-						if (done) {
-							return;
-						}
-					}
-					catch (Dismiss_link) { }
+
+				if (rule.to_port() == Port { 0 }) {
+
+					if (link.server().src_port() != link.client().dst_port())
+						return;
+
+				} else {
+
+					if (rule.to_port() != link.server().src_port())
+						return;
 				}
-			);
-			if (done) {
-				return;
-			}
-		}
-		catch (Dismiss_link) { }
+				_update_link_check_nat(link, rule.domain(), prot, cln_dom);
+				keep_link = true;
+			},
+			[&] /* handle_no_match */ () { }
+		);
+		if (keep_link)
+			return;
+
+		_transport_rules(cln_dom, prot).find_best_match(
+			link.client().dst_ip(),
+			link.client().dst_port(),
+			[&] /* handle_match */ (Transport_rule const &,
+			                        Permit_rule    const &rule)
+			{
+				_update_link_check_nat(link, rule.domain(), prot, cln_dom);
+				keep_link = true;
+			},
+			[&] /* handle_no_match */ () { }
+		);
+		if (keep_link)
+			return;
+
+		_dismiss_link_log(link, "no matching rule");
 		destroy_link(link);
 	});
 }
