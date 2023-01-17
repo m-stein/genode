@@ -102,6 +102,10 @@ class Net::Link_side : public Genode::Avl_node<Link_side>
 		          Link_side_id const &id,
 		          Link               &link);
 
+		~Link_side();
+
+		void dissolve(bool timeout);
+
 		template <typename HANDLE_MATCH_FN,
 		          typename HANDLE_NO_MATCH_FN>
 

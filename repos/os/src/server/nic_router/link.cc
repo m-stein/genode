@@ -55,10 +55,22 @@ Link_side::Link_side(Domain             &domain,
 :
 	_domain(domain), _id(id), _link(link)
 {
-	if (link.config().verbose()) {
-		log("[", domain, "] new ", l3_protocol_name(link.protocol()),
-		    " link ", is_client() ? "client" : "server", ": ", *this);
-	}
+	log("[", domain, "] Create ", l3_protocol_name(_link.protocol()),
+	    " link ", is_client() ? "client" : "server", ": ", *this);
+}
+
+
+Link_side::~Link_side()
+{
+	log("[", _domain(), "] Destroy ", l3_protocol_name(_link.protocol()),
+	    " link ", is_client() ? "client" : "server", ": ", *this);
+}
+
+
+void Link_side::dissolve(bool timeout)
+{
+	log("[", _domain(), "] Dissolve ", l3_protocol_name(_link.protocol()),
+	    " link ", is_client() ? "client" : "server", ": ", *this, " (timeout: ", timeout, ")");
 }
 
 
@@ -142,9 +154,9 @@ void Link::dissolve(bool timeout)
 	_stats_curr()++;
 
 	_client.domain().links(_protocol).remove(&_client);
+	_client.dissolve(timeout);
 	_server.domain().links(_protocol).remove(&_server);
-	if (_config().verbose()) {
-		log("Dissolve ", l3_protocol_name(_protocol), " link: ", *this); }
+	_server.dissolve(timeout);
 
 	try {
 		if (_config().verbose()) {
