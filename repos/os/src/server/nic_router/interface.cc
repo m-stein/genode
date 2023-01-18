@@ -1740,6 +1740,55 @@ void Interface::_handle_eth(Ethernet_frame           &eth,
 }
 
 
+static bool log_packet(Ethernet_frame &eth,
+                       Size_guard     &size_guard_arg)
+{
+	Size_guard size_guard { size_guard_arg };
+
+	switch (eth.type()) {
+	case Ethernet_frame::Type::IPV4: {
+
+		Ipv4_packet &ip { eth.data<Ipv4_packet>(size_guard) };
+
+		L3_protocol  const prot      { ip.protocol() };
+		void        *const prot_base { _prot_base(prot, size_guard, ip) };
+		Port         const dst_port  { _dst_port(prot, prot_base) };
+		Port         const src_port  { _src_port(prot, prot_base) };
+
+		switch (prot) {
+		case L3_protocol::UDP: {
+
+			if (src_port == Port { 53 }   ||
+			    dst_port == Port { 53 }   ||
+			    src_port == Port { 123 }  ||
+			    dst_port == Port { 123 }  ||
+			    src_port == Port { 5353 } ||
+			    dst_port == Port { 5353 })
+				return false;
+
+			break;
+		}
+		case L3_protocol::TCP: {
+
+			if (src_port == Port { 80 }   ||
+			    dst_port == Port { 80 }   ||
+			    src_port == Port { 631 }  ||
+			    dst_port == Port { 631 }  ||
+			    src_port == Port { 443 } ||
+			    dst_port == Port { 443 })
+				return false;
+
+			break;
+		}
+		default: break;
+		}
+	}
+	default: break;
+	}
+	return true;
+}
+
+
 void Interface::_handle_eth(void              *const  eth_base,
                             Size_guard               &size_guard,
                             Packet_descriptor  const &pkt)
@@ -1757,10 +1806,11 @@ void Interface::_handle_eth(void              *const  eth_base,
 				_destroy_released_dhcp_allocations(local_domain);
 
 				/* log received packet if desired */
-				if (local_domain.verbose_packets()) {
+				bool const log_pkt { log_packet(eth, size_guard) };
+				if (local_domain.verbose_packets() && log_pkt) {
 					log("[", local_domain, "] rcv ", eth); }
 
-				if (local_domain.trace_packets())
+				if (local_domain.trace_packets() && log_pkt)
 					Genode::Trace::Ethernet_packet(local_domain.name().string(),
 					                               Genode::Trace::Ethernet_packet::Direction::RECV,
 					                               eth_base,
@@ -1873,16 +1923,18 @@ void Interface::_send_submit_pkt(Packet_descriptor &pkt,
 {
 	Domain &local_domain = _domain();
 	local_domain.raise_tx_bytes(pkt_size);
-	if (local_domain.verbose_packets()) {
-		try {
-			Size_guard size_guard(pkt_size);
-			log("[", local_domain, "] snd ",
-			    Ethernet_frame::cast_from(pkt_base, size_guard));
-		}
-		catch (Size_guard::Exceeded) { log("[", local_domain, "] snd ?"); }
-	}
 
-	if (local_domain.trace_packets())
+	Size_guard size_guard { pkt_size };
+	Ethernet_frame &eth { Ethernet_frame::cast_from(pkt_base, size_guard) };
+
+	bool const log_pkt { log_packet(eth, size_guard) };
+	try {
+		if (local_domain.verbose_packets() && log_pkt)
+			log("[", local_domain, "] snd ", eth);
+	}
+	catch (Size_guard::Exceeded) { log("[", local_domain, "] snd ?"); }
+
+	if (local_domain.trace_packets() && log_pkt)
 		Genode::Trace::Ethernet_packet(local_domain.name().string(),
 		                               Genode::Trace::Ethernet_packet::Direction::SENT,
 		                               pkt_base,
