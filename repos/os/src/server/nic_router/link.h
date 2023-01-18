@@ -95,12 +95,14 @@ class Net::Link_side : public Genode::Avl_node<Link_side>
 		Reference<Domain>   _domain;
 		Link_side_id const  _id;
 		Link               &_link;
+		bool                _verbose;
 
 	public:
 
 		Link_side(Domain             &domain,
 		          Link_side_id const &id,
-		          Link               &link);
+		          Link               &link,
+		          bool                verbose);
 
 		~Link_side();
 
@@ -228,6 +230,26 @@ class Net::Link : public Link_list::Element
 		                   Domain                        &srv_domain,
 		                   Pointer<Port_allocator_guard>  srv_port_alloc,
 		                   Configuration                 &config);
+
+		static bool verbose(L3_protocol  const  prot,
+		                    Link_side_id const &srv_id)
+		{
+			if (prot == L3_protocol::UDP) {
+
+				if (srv_id.src_port == Port { 53 } ||
+				    srv_id.src_port == Port { 123 } ||
+				    srv_id.src_port == Port { 5353 })
+					return false;
+			}
+			if (prot == L3_protocol::TCP) {
+
+				if (srv_id.src_port == Port { 80 } ||
+				    srv_id.src_port == Port { 631 } ||
+				    srv_id.src_port == Port { 443 })
+					return false;
+			}
+			return true;
+		}
 
 		/*********
 		 ** Log **
