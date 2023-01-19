@@ -52,12 +52,13 @@ bool Link_side_id::operator > (Link_side_id const &id) const
 Link_side::Link_side(Domain             &domain,
                      Link_side_id const &id,
                      Link               &link,
-                     bool                verbose)
+                     bool                verbose,
+                     Cached_timer       &timer)
 :
-	_domain(domain), _id(id), _link(link), _verbose(verbose)
+	_domain(domain), _id(id), _link(link), _verbose(verbose), _timer(timer)
 {
 	if (_verbose)
-		log("[", domain, "] Create ", l3_protocol_name(_link.protocol()),
+		log("[", domain, " ", _timer.curr_time().trunc_to_plain_ms().value, "] Create ", l3_protocol_name(_link.protocol()),
 		    " link ", is_client() ? "client" : "server", ": ", *this);
 }
 
@@ -65,7 +66,7 @@ Link_side::Link_side(Domain             &domain,
 Link_side::~Link_side()
 {
 	if (_verbose)
-		log("[", _domain(), "] Destroy ", l3_protocol_name(_link.protocol()),
+		log("[", _domain(), " ", _timer.curr_time().trunc_to_plain_ms().value, "] Destroy ", l3_protocol_name(_link.protocol()),
 		    " link ", is_client() ? "client" : "server", ": ", *this);
 }
 
@@ -73,7 +74,7 @@ Link_side::~Link_side()
 void Link_side::dissolve(bool timeout)
 {
 	if (_verbose)
-		log("[", _domain(), "] Dissolve ", l3_protocol_name(_link.protocol()),
+		log("[", _domain(), " ", _timer.curr_time().trunc_to_plain_ms().value, "] Dissolve ", l3_protocol_name(_link.protocol()),
 		    " link ", is_client() ? "client" : "server", ": ", *this,
 		    " (timeout: ", timeout, ")");
 }
@@ -121,8 +122,8 @@ Link::Link(Interface                     &cln_interface,
 	                  Microseconds { 100 * 1000 }),
 	_dissolve_timeout_us(dissolve_timeout),
 	_protocol(protocol),
-	_client(cln_interface.domain(), cln_id, *this, _verbose),
-	_server(srv_domain, srv_id, *this, _verbose),
+	_client(cln_interface.domain(), cln_id, *this, _verbose, timer),
+	_server(srv_domain, srv_id, *this, _verbose, timer),
 	_stats(stats),
 	_stats_curr(stats.opening)
 {

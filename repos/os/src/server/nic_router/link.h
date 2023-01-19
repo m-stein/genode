@@ -102,13 +102,15 @@ class Net::Link_side : public Genode::Avl_node<Link_side>
 		Link_side_id const  _id;
 		Link               &_link;
 		bool                _verbose;
+		Cached_timer       &_timer;
 
 	public:
 
 		Link_side(Domain             &domain,
 		          Link_side_id const &id,
 		          Link               &link,
-		          bool                verbose);
+		          bool                verbose,
+		          Cached_timer       &timer);
 
 		~Link_side();
 

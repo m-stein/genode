@@ -1835,7 +1835,7 @@ void Interface::_handle_eth(void              *const  eth_base,
 				/* log received packet if desired */
 				bool const log_pkt { log_packet(eth, size_guard) };
 				if (local_domain.verbose_packets() && log_pkt) {
-					log("[", local_domain, "] rcv ", eth); }
+					log("[", local_domain, " ", _timer.curr_time().trunc_to_plain_ms().value, "] rcv ", eth); }
 
 				if (local_domain.trace_packets() && log_pkt)
 					Genode::Trace::Ethernet_packet(local_domain.name().string(),
@@ -1957,9 +1957,9 @@ void Interface::_send_submit_pkt(Packet_descriptor &pkt,
 	bool const log_pkt { log_packet(eth, size_guard) };
 	try {
 		if (local_domain.verbose_packets() && log_pkt)
-			log("[", local_domain, "] snd ", eth);
+			log("[", local_domain, " ", _timer.curr_time().trunc_to_plain_ms().value, "] snd ", eth);
 	}
-	catch (Size_guard::Exceeded) { log("[", local_domain, "] snd ?"); }
+	catch (Size_guard::Exceeded) { log("[", local_domain, " ", _timer.curr_time().trunc_to_plain_ms().value, "] snd ?"); }
 
 	if (local_domain.trace_packets() && log_pkt)
 		Genode::Trace::Ethernet_packet(local_domain.name().string(),
