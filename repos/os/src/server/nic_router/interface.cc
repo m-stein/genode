@@ -1744,47 +1744,49 @@ static bool log_packet(Ethernet_frame &eth,
                        Size_guard     &size_guard_arg)
 {
 	Size_guard size_guard { size_guard_arg };
+	try {
+		switch (eth.type()) {
+		case Ethernet_frame::Type::IPV4: {
 
-	switch (eth.type()) {
-	case Ethernet_frame::Type::IPV4: {
+			Ipv4_packet &ip { eth.data<Ipv4_packet>(size_guard) };
 
-		Ipv4_packet &ip { eth.data<Ipv4_packet>(size_guard) };
+			L3_protocol  const prot      { ip.protocol() };
+			void        *const prot_base { _prot_base(prot, size_guard, ip) };
+			Port         const dst_port  { _dst_port(prot, prot_base) };
+			Port         const src_port  { _src_port(prot, prot_base) };
 
-		L3_protocol  const prot      { ip.protocol() };
-		void        *const prot_base { _prot_base(prot, size_guard, ip) };
-		Port         const dst_port  { _dst_port(prot, prot_base) };
-		Port         const src_port  { _src_port(prot, prot_base) };
+			switch (prot) {
+			case L3_protocol::UDP: {
 
-		switch (prot) {
-		case L3_protocol::UDP: {
+				if (src_port == Port { 53 }   ||
+					dst_port == Port { 53 }   ||
+					src_port == Port { 123 }  ||
+					dst_port == Port { 123 }  ||
+					src_port == Port { 5353 } ||
+					dst_port == Port { 5353 })
+					return false;
 
-			if (src_port == Port { 53 }   ||
-			    dst_port == Port { 53 }   ||
-			    src_port == Port { 123 }  ||
-			    dst_port == Port { 123 }  ||
-			    src_port == Port { 5353 } ||
-			    dst_port == Port { 5353 })
-				return false;
+				break;
+			}
+			case L3_protocol::TCP: {
 
-			break;
-		}
-		case L3_protocol::TCP: {
+				if (src_port == Port { 80 }   ||
+					dst_port == Port { 80 }   ||
+					src_port == Port { 631 }  ||
+					dst_port == Port { 631 }  ||
+					src_port == Port { 443 } ||
+					dst_port == Port { 443 })
+					return false;
 
-			if (src_port == Port { 80 }   ||
-			    dst_port == Port { 80 }   ||
-			    src_port == Port { 631 }  ||
-			    dst_port == Port { 631 }  ||
-			    src_port == Port { 443 } ||
-			    dst_port == Port { 443 })
-				return false;
-
-			break;
+				break;
+			}
+			default: break;
+			}
 		}
 		default: break;
 		}
 	}
-	default: break;
-	}
+	catch (...) { }
 	return true;
 }
 
