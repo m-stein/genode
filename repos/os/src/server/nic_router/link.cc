@@ -113,6 +113,7 @@ Link::Link(Interface                     &cln_interface,
            Microseconds            const  dissolve_timeout,
            Interface_link_stats          &stats)
 :
+	_verbose(verbose(protocol, cln_id, srv_id)),
 	_config(config),
 	_client_interface(cln_interface),
 	_server_port_alloc(srv_port_alloc),
@@ -120,8 +121,8 @@ Link::Link(Interface                     &cln_interface,
 	                  Microseconds { 100 * 1000 }),
 	_dissolve_timeout_us(dissolve_timeout),
 	_protocol(protocol),
-	_client(cln_interface.domain(), cln_id, *this, verbose(protocol, srv_id)),
-	_server(srv_domain, srv_id, *this, verbose(protocol, srv_id)),
+	_client(cln_interface.domain(), cln_id, *this, _verbose),
+	_server(srv_domain, srv_id, *this, _verbose),
 	_stats(stats),
 	_stats_curr(stats.opening)
 {

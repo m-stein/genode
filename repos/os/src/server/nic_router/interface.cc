@@ -41,6 +41,37 @@ using Genode::Signal_transmitter;
 using Dhcp_options = Dhcp_packet::Options_aggregator<Size_guard>;
 
 
+namespace Net {
+
+	bool log_udp_port(Port const port)
+	{
+		if (port == Port { 53 }   ||
+			port == Port { 123 }  ||
+			port == Port { 5353 }) {
+			return false;
+		}
+		return true;
+	}
+
+	bool log_tcp_port(Port const port)
+	{
+		if (port == Port { 80 }   ||
+			port == Port { 631 }  ||
+			port == Port { 443 }) {
+			return false;
+		}
+		return true;
+	}
+
+	bool log_ip_addr(Ipv4_address const ip)
+	{
+		return
+			!ip.is_multicast() &&
+			!(ip == Ipv4_packet::broadcast());
+	}
+}
+
+
 /***************
  ** Utilities **
  ***************/
@@ -1750,6 +1781,10 @@ static bool log_packet(Ethernet_frame &eth,
 
 			Ipv4_packet &ip { eth.data<Ipv4_packet>(size_guard) };
 
+			if (!log_ip_addr(ip.src()) ||
+			    !log_ip_addr(ip.dst()))
+				return false;
+
 			L3_protocol  const prot      { ip.protocol() };
 			void        *const prot_base { _prot_base(prot, size_guard, ip) };
 			Port         const dst_port  { _dst_port(prot, prot_base) };
@@ -1758,25 +1793,15 @@ static bool log_packet(Ethernet_frame &eth,
 			switch (prot) {
 			case L3_protocol::UDP: {
 
-				if (src_port == Port { 53 }   ||
-					dst_port == Port { 53 }   ||
-					src_port == Port { 123 }  ||
-					dst_port == Port { 123 }  ||
-					src_port == Port { 5353 } ||
-					dst_port == Port { 5353 })
-					return false;
+				return log_udp_port(src_port) &&
+				       log_udp_port(dst_port);
 
 				break;
 			}
 			case L3_protocol::TCP: {
 
-				if (src_port == Port { 80 }   ||
-					dst_port == Port { 80 }   ||
-					src_port == Port { 631 }  ||
-					dst_port == Port { 631 }  ||
-					src_port == Port { 443 } ||
-					dst_port == Port { 443 })
-					return false;
+				return log_tcp_port(src_port) &&
+				       log_tcp_port(dst_port);
 
 				break;
 			}

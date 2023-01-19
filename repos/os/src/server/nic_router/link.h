@@ -60,6 +60,12 @@ namespace Net {
 	class  Tcp_link;
 	class  Udp_link;
 	class  Icmp_link;
+
+	bool log_udp_port(Port const port);
+
+	bool log_tcp_port(Port const port);
+
+	bool log_ip_addr(Ipv4_address const ip);
 }
 
 
@@ -191,6 +197,7 @@ class Net::Link : public Link_list::Element
 {
 	protected:
 
+		bool const                     _verbose;
 		Reference<Configuration>       _config;
 		Interface                     &_client_interface;
 		Pointer<Port_allocator_guard>  _server_port_alloc;
@@ -232,22 +239,25 @@ class Net::Link : public Link_list::Element
 		                   Configuration                 &config);
 
 		static bool verbose(L3_protocol  const  prot,
+		                    Link_side_id const &cln_id,
 		                    Link_side_id const &srv_id)
 		{
-			if (prot == L3_protocol::UDP) {
+			if (!log_ip_addr(cln_id.src_ip) ||
+			    !log_ip_addr(cln_id.dst_ip) ||
+			    !log_ip_addr(srv_id.src_ip) ||
+			    !log_ip_addr(srv_id.dst_ip))
+				return false;
 
-				if (srv_id.src_port == Port { 53 } ||
-				    srv_id.src_port == Port { 123 } ||
-				    srv_id.src_port == Port { 5353 })
-					return false;
-			}
-			if (prot == L3_protocol::TCP) {
+			if (prot == L3_protocol::UDP)
+				return
+					log_udp_port(cln_id.dst_port) &&
+					log_udp_port(srv_id.src_port);
 
-				if (srv_id.src_port == Port { 80 } ||
-				    srv_id.src_port == Port { 631 } ||
-				    srv_id.src_port == Port { 443 })
-					return false;
-			}
+			if (prot == L3_protocol::TCP)
+				return
+					log_tcp_port(cln_id.dst_port) &&
+					log_tcp_port(srv_id.src_port);
+
 			return true;
 		}
 
