@@ -2498,20 +2498,24 @@ class Main : Vfs::Env::User
 			while (progress) {
 
 				progress = false;
+/*
 				_execute_command_pool(progress);
 				_execute_cbe_init(progress);
 
 				_blk_io.execute(
 					_cbe, _cbe_init, _cbe_dump, _cbe_check, _verbose_node,
 					_blk_buf, progress);
+*/
 
 				_execute_trust_anchor(progress);
+/*
 				_execute_cbe_check(progress);
 				_execute_cbe_dump(progress);
 				_execute_crypto(progress);
 				if (_cbe.constructed()) {
 					_execute_cbe(progress);
 				}
+*/
 			}
 			_vfs_env.io().commit();
 		}

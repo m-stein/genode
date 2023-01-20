@@ -280,6 +280,7 @@ void Trust_anchor::_execute_read_operation(Vfs_handle        &file,
 			}
 			_job.state = Job_state::COMPLETE;
 			progress = true;
+			error("Success ", Cstring { read_buf });
 			return;
 
 		default:
@@ -302,7 +303,15 @@ Trust_anchor::Trust_anchor(Vfs::Env       &vfs_env,
 :
 	_vfs_env { vfs_env },
 	_path    { xml_node.attribute_value("path", String<128>()) }
-{ }
+{
+	Cbe::Trust_anchor_request request {
+		Cbe::Trust_anchor_request::Operation::CREATE_KEY, false, 0
+	};
+	_job.request = request;
+	_job.state = Job_state::READ_PENDING;
+	_job.file_offset = 0;
+	_job.file_size = 1;
+}
 
 
 bool Trust_anchor::request_acceptable() const
@@ -434,6 +443,7 @@ void Trust_anchor::submit_request(Trust_anchor_request const &request)
 void Trust_anchor::execute(bool &progress)
 {
 	switch (_job.request.operation()) {
+/*
 	case Operation::INITIALIZE:
 
 		_execute_write_operation(
@@ -457,15 +467,15 @@ void Trust_anchor::execute(bool &progress)
 			_job.hash.values, progress);
 
 		break;
-
+*/
 	case Operation::CREATE_KEY:
 
 		_execute_read_operation(
-			_generate_key_file, _generate_key_path,
-			_job.key_plaintext_value.value, progress);
+			_responses_file, _responses_path,
+			_responses_read_buf, progress);
 
 		break;
-
+/*
 	case Operation::ENCRYPT_KEY:
 
 		_execute_write_read_operation(
@@ -489,7 +499,7 @@ void Trust_anchor::execute(bool &progress)
 			progress);
 
 		break;
-
+*/
 	case Operation::INVALID:
 
 		break;

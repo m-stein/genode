@@ -52,6 +52,7 @@ class Trust_anchor
 		Vfs::Env                  &_vfs_env;
 		char                       _read_buf[64];
 		Genode::String<128> const  _path;
+/*
 		Genode::String<128> const  _decrypt_path      { _path, "/decrypt" };
 		Vfs::Vfs_handle           &_decrypt_file      { vfs_open_rw(_vfs_env, { _decrypt_path }) };
 		Genode::String<128> const  _encrypt_path      { _path, "/encrypt" };
@@ -62,7 +63,13 @@ class Trust_anchor
 		Vfs::Vfs_handle           &_initialize_file   { vfs_open_rw(_vfs_env, { _initialize_path }) };
 		Genode::String<128> const  _hashsum_path      { _path, "/hashsum" };
 		Vfs::Vfs_handle           &_hashsum_file      { vfs_open_rw(_vfs_env, { _hashsum_path }) };
+*/
 		Job                        _job               { };
+
+		Genode::String<128> const  _responses_path { _path, "/responses" };
+		Vfs::Vfs_handle           &_responses_file { vfs_open_rw(_vfs_env, { _responses_path }) };
+		char                       _responses_read_buf_storage[8];
+		char *                     _responses_read_buf { _responses_read_buf_storage };
 
 		void _execute_write_read_operation(Vfs::Vfs_handle           &file,
 		                                   Genode::String<128> const &file_path,
