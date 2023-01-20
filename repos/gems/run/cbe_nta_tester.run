@@ -2,17 +2,6 @@
 assert_spec linux
 assert_spec x86_64
 
-exec rm -rf var/libcache/cbe
-exec rm -rf var/libcache/cbe_cxx
-exec rm -rf var/libcache/cbe_common
-exec rm -rf var/libcache/cbe_common_cxx
-exec rm -rf var/libcache/cbe_init
-exec rm -rf var/libcache/cbe_init_cxx
-exec rm -rf var/libcache/cbe_check
-exec rm -rf var/libcache/cbe_check_cxx
-exec rm -rf var/libcache/cbe_dump
-exec rm -rf var/libcache/cbe_dump_cxx
-
 set dd [installed_command dd]
 
 proc cbe_image_name { } {
