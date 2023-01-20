@@ -24,10 +24,7 @@ File_access::File_access(Vfs::Env        &vfs_env,
 :
 	_vfs_env   { vfs_env },
 	_file_path { file_path }
-{
-	for (Job &job : _jobs)
-		job = Job { };
-}
+{ }
 
 void File_access::execute(bool &progress)
 {
