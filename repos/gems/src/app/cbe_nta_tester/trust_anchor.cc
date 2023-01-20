@@ -19,6 +19,83 @@ using namespace Cbe;
 using namespace Vfs;
 
 
+File_access::File_access(Vfs::Env        &vfs_env,
+                         File_path const &file_path)
+:
+	_vfs_env   { vfs_env },
+	_file_path { file_path }
+{
+	for (Job &job : _jobs)
+		job = Job { };
+}
+
+void File_access::execute(bool &progress)
+{
+	for (Job &job : _jobs) {
+
+		switch (job.request.type) {
+		case Request::READ:    _execute_read(job, progress); break;
+		case Request::INVALID:                               break;
+		}
+	}
+}
+
+void File_access::_execute_read(Job  &job,
+                                bool &progress)
+{
+	Request &req { job.request };
+
+	switch (job.state) {
+	case Job::INIT:
+
+		_file.seek(req.file_offset);
+
+		if (!_file.fs().queue_read(&_file, req.buf_size))
+			return;
+
+		job.state = Job::READ_IN_PROGRESS;
+		progress = true;
+		return;
+
+	case Job::READ_IN_PROGRESS:
+	{
+		file_size nr_of_read_bytes { 0 };
+		Read_result const result {
+			_file.fs().complete_read(
+				&_file, req.buf_ptr, req.buf_size, nr_of_read_bytes) };
+
+		switch (result) {
+		case Read_result::READ_QUEUED:
+		case Read_result::READ_ERR_WOULD_BLOCK:
+
+			return;
+
+		case Read_result::READ_OK:
+
+			error(nr_of_read_bytes);
+			req.nr_of_processed_bytes = nr_of_read_bytes;
+			req.success = true;
+			job.state = Job::COMPLETED;
+			progress = true;
+			return;
+
+		case Read_result::READ_ERR_INVALID:
+		case Read_result::READ_ERR_IO:
+
+			req.success = false;
+			job.state = Job::COMPLETED;
+			progress = true;
+			return;
+		}
+	}
+	case Job::COMPLETED:
+
+		return;
+	}
+}
+
+
+
 void Trust_anchor::_execute_write_read_operation(Vfs_handle        &file,
                                                  String<128> const &file_path,
                                                  char        const *write_buf,
@@ -442,8 +519,37 @@ void Trust_anchor::submit_request(Trust_anchor_request const &request)
 
 void Trust_anchor::execute(bool &progress)
 {
-	switch (_job.request.operation()) {
+	static bool done = false;
+	if (!done) {
+		if (_responses.ready_to_submit_request()) {
+
+			using Request = File_access::Request;
+			_responses.submit_request(
+				Request {
+					Request::READ, 0, _responses_read_buf,
+					sizeof(_responses_read_buf_storage) - 1 });
+
+			done = true;
+		}
+	}
+	_responses.execute(progress);
+	{
+		using Request = File_access::Request;
+		Request const *req { _responses.peek_completed_request() };
+		if (req) {
+			if (req->success) {
+
+				_responses_read_buf_storage[req->nr_of_processed_bytes] = 0;
+				error("success reading ", req->nr_of_processed_bytes,
+				      " bytes from file: ", Cstring { _responses_read_buf });
+				_responses.drop_completed_request();
+			} else {
+				error("failed reading responses file ");
+			}
+		}
+	}
 /*
+	switch (_job.request.operation()) {
 	case Operation::INITIALIZE:
 
 		_execute_write_operation(
@@ -467,7 +573,7 @@ void Trust_anchor::execute(bool &progress)
 			_job.hash.values, progress);
 
 		break;
-*/
+
 	case Operation::CREATE_KEY:
 
 		_execute_read_operation(
@@ -475,7 +581,7 @@ void Trust_anchor::execute(bool &progress)
 			_responses_read_buf, progress);
 
 		break;
-/*
+
 	case Operation::ENCRYPT_KEY:
 
 		_execute_write_read_operation(
@@ -499,7 +605,7 @@ void Trust_anchor::execute(bool &progress)
 			progress);
 
 		break;
-*/
+
 	case Operation::INVALID:
 
 		break;
@@ -509,6 +615,7 @@ void Trust_anchor::execute(bool &progress)
 		class Bad_operation { };
 		throw Bad_operation { };
 	}
+*/
 }
 
 

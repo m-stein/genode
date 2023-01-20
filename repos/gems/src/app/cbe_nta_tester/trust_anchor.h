@@ -20,6 +20,125 @@
 /* CBE tester includes */
 #include <vfs_utilities.h>
 
+/*
+namespace Module {
+
+	class Request
+	{
+		private:
+
+			unsigned long _client_id;
+			unsigned long _server_id;
+
+		public:
+	};
+};
+
+enum Trust_anchor_module_id { USER_REQUESTS, FILE_ACCESS };
+*/
+
+
+
+using File_path = Genode::String<128>;
+
+class File_access
+{
+	public:
+
+		struct Request
+		{
+			enum Type { INVALID, READ };
+
+			Type            type                  { INVALID };
+			Genode::off_t   file_offset           { 0 };
+			char           *buf_ptr               { nullptr };
+			Genode::size_t  buf_size              { 0 };
+			Genode::size_t  nr_of_processed_bytes { 0 };
+			bool            success               { false };
+		};
+
+	private:
+
+		using Read_result = Vfs::File_io_service::Read_result;
+		using Write_result = Vfs::File_io_service::Write_result;
+
+		struct Job
+		{
+			enum State { INIT, READ_IN_PROGRESS, COMPLETED };
+
+			Request request { };
+			State   state   { INIT };
+		};
+
+		Job              _jobs[1];
+		Job             *_unused_job_ptr { _jobs };
+		Job             *_completed_job_ptr { _jobs };
+		Vfs::Env        &_vfs_env;
+		File_path const  _file_path;
+		Vfs::Vfs_handle &_file           { vfs_open_rw(_vfs_env, _file_path) };
+
+		void _execute_read(Job  &job,
+		                   bool &progress);
+
+	public:
+
+		File_access(Vfs::Env        &vfs_env,
+		            File_path const &file_path);
+
+
+		void execute(bool &progress);
+
+
+		bool ready_to_submit_request() { return _unused_job_ptr != nullptr; }
+
+		void submit_request(Request req)
+		{
+			if (_unused_job_ptr == nullptr) {
+				class Invalid_attempt_to_submit_request { };
+				throw Invalid_attempt_to_submit_request { };
+			}
+			_unused_job_ptr->request = req;
+			_unused_job_ptr = nullptr;
+
+			for (Job &job : _jobs) {
+				if (job.request.type == Request::INVALID) {
+					_unused_job_ptr = &job;
+					break;
+				}
+			}
+		}
+
+
+		Request const *peek_completed_request() const
+		{
+			for (Job const &job : _jobs) {
+				if (job.state == Job::COMPLETED) {
+					return &job.request;
+				}
+			}
+			return nullptr;
+		}
+
+		void drop_completed_request()
+		{
+			for (Job &job : _jobs) {
+				if (job.state == Job::COMPLETED) {
+					job = Job { };
+				}
+			}
+		}
+
+
+		Request peek_generated_request() const { return Request { }; }
+
+		void drop_generated_request() { }
+
+		void generated_request_completed(Request const &) { };
+};
+
+
+
+
 class Trust_anchor
 {
 	private:
@@ -66,9 +185,11 @@ class Trust_anchor
 */
 		Job                        _job               { };
 
+		File_access _responses { _vfs_env, File_path { _path, "/responses" } };
+
 		Genode::String<128> const  _responses_path { _path, "/responses" };
 		Vfs::Vfs_handle           &_responses_file { vfs_open_rw(_vfs_env, { _responses_path }) };
-		char                       _responses_read_buf_storage[8];
+		char                       _responses_read_buf_storage[12];
 		char *                     _responses_read_buf { _responses_read_buf_storage };
 
 		void _execute_write_read_operation(Vfs::Vfs_handle           &file,
