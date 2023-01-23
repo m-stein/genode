@@ -136,12 +136,13 @@ struct File_access_request
 {
 	enum Type { INVALID, READ };
 
-	Type            type                  { INVALID };
-	Genode::off_t   file_offset           { 0 };
-	char           *buf_ptr               { nullptr };
-	Genode::size_t  buf_size              { 0 };
-	Genode::size_t  nr_of_processed_bytes { 0 };
-	bool            success               { false };
+	Type             type                  { INVALID };
+	Vfs::Vfs_handle *file_ptr              { nullptr };
+	Genode::off_t    file_offset           { 0 };
+	char            *buf_ptr               { nullptr };
+	Genode::size_t   buf_size              { 0 };
+	Genode::size_t   nr_of_processed_bytes { 0 };
+	bool             success               { false };
 };
 
 struct File_access_job
@@ -176,18 +177,15 @@ class File_access : public Module<File_access_request, File_access_job, 1>
 		using Read_result = Vfs::File_io_service::Read_result;
 		using Write_result = Vfs::File_io_service::Write_result;
 
-		Job             *_completed_job_ptr { _jobs };
-		Vfs::Env        &_vfs_env;
-		File_path const  _file_path;
-		Vfs::Vfs_handle &_file           { vfs_open_rw(_vfs_env, _file_path) };
+		Job      *_completed_job_ptr { _jobs };
+		Vfs::Env &_vfs_env;
 
 		void _execute_read(Job  &job,
 		                   bool &progress);
 
 	public:
 
-		File_access(Vfs::Env        &vfs_env,
-		            File_path const &file_path);
+		File_access(Vfs::Env &vfs_env);
 
 		void execute(bool &progress);
 };
@@ -241,7 +239,7 @@ class Trust_anchor
 */
 		Job                        _job               { };
 
-		File_access _responses { _vfs_env, File_path { _path, "/responses" } };
+		File_access _file_access { _vfs_env };
 
 		Genode::String<128> const  _responses_path { _path, "/responses" };
 		Vfs::Vfs_handle           &_responses_file { vfs_open_rw(_vfs_env, { _responses_path }) };

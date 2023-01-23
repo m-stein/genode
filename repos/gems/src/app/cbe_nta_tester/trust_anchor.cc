@@ -19,11 +19,9 @@ using namespace Cbe;
 using namespace Vfs;
 
 
-File_access::File_access(Vfs::Env        &vfs_env,
-                         File_path const &file_path)
+File_access::File_access(Vfs::Env &vfs_env)
 :
-	_vfs_env   { vfs_env },
-	_file_path { file_path }
+	_vfs_env { vfs_env }
 { }
 
 void File_access::execute(bool &progress)
@@ -45,9 +43,9 @@ void File_access::_execute_read(Job  &job,
 	switch (job.state) {
 	case Job::INIT:
 
-		_file.seek(req.file_offset);
+		req.file_ptr->seek(req.file_offset);
 
-		if (!_file.fs().queue_read(&_file, req.buf_size))
+		if (!req.file_ptr->fs().queue_read(req.file_ptr, req.buf_size))
 			return;
 
 		job.state = Job::READ_IN_PROGRESS;
@@ -58,8 +56,8 @@ void File_access::_execute_read(Job  &job,
 	{
 		file_size nr_of_read_bytes { 0 };
 		Read_result const result {
-			_file.fs().complete_read(
-				&_file, req.buf_ptr, req.buf_size, nr_of_read_bytes) };
+			req.file_ptr->fs().complete_read(
+				req.file_ptr, req.buf_ptr, req.buf_size, nr_of_read_bytes) };
 
 		switch (result) {
 		case Read_result::READ_QUEUED:
@@ -518,28 +516,28 @@ void Trust_anchor::execute(bool &progress)
 {
 	static bool done = false;
 	if (!done) {
-		if (_responses.ready_to_submit_request()) {
+		if (_file_access.ready_to_submit_request()) {
 
 			using Request = File_access::Request;
-			_responses.submit_request(
+			_file_access.submit_request(
 				Request {
-					Request::READ, 0, _responses_read_buf,
+					Request::READ, &_responses_file, 0, _responses_read_buf,
 					sizeof(_responses_read_buf_storage) - 1 });
 
 			done = true;
 		}
 	}
-	_responses.execute(progress);
+	_file_access.execute(progress);
 	{
 		using Request = File_access::Request;
-		Request const *req { _responses.peek_completed_request() };
+		Request const *req { _file_access.peek_completed_request() };
 		if (req) {
 			if (req->success) {
 
 				_responses_read_buf_storage[req->nr_of_processed_bytes] = 0;
 				error("success reading ", req->nr_of_processed_bytes,
 				      " bytes from file: ", Cstring { _responses_read_buf });
-				_responses.drop_completed_request();
+				_file_access.drop_completed_request();
 			} else {
 				error("failed reading responses file ");
 			}
