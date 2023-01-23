@@ -44,6 +44,7 @@ class Net::Main
 		Signal_handler<Main>            _config_handler      { _env.ep(), *this, &Main::_handle_config };
 		Nic_session_root                _nic_session_root    { _env, _timer, _heap, _config(), _shared_quota, _interfaces };
 		Uplink_session_root             _uplink_session_root { _env, _timer, _heap, _config(), _shared_quota, _interfaces };
+		bool                            _services_announced  { false };
 
 		void _handle_report();
 
@@ -80,8 +81,6 @@ Net::Main::Main(Env &env) : _env(env)
 {
 	_config_rom.sigh(_config_handler);
 	_handle_config();
-	env.parent().announce(env.ep().manage(_nic_session_root));
-	env.parent().announce(env.ep().manage(_uplink_session_root));
 }
 
 
@@ -102,6 +101,22 @@ void Net::Main::_handle_config()
 	_for_each_interface([&] (Interface &intf) { intf.handle_config_3(); });
 
 	destroy(_heap, &old_config);
+
+	/*
+	 * Defer the announcement of the NIC router services until the first
+	 * valid configuration becomes available. Otherwise, in scenarios with a
+	 * dynamically generated configuration, a session request from a client
+	 * might be denied because of the configuration still being invalid.
+	 */
+	if (_services_announced)
+		return;
+
+	if (_config_rom.xml().type() == "config") {
+	  _env.parent().announce(_env.ep().manage(_nic_session_root));
+	  _env.parent().announce(_env.ep().manage(_uplink_session_root));
+		_services_announced = true;
+	}
+
 }
 
 
