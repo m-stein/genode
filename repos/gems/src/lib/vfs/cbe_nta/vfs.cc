@@ -17,6 +17,7 @@
 
 /* local includes */
 #include <readonly_xml_file_system.h>
+#include <writeonly_xml_file_system.h>
 
 namespace Vfs_cbe_trust_anchor {
 
@@ -53,8 +54,9 @@ class Vfs_cbe_trust_anchor::Internal_file_system_factory
 {
 	private:
 
-		Plugin                        _plugin;
-		Vfs::Readonly_xml_file_system _responses_fs { "responses", _plugin };
+		Plugin                                           _plugin;
+		Vfs::Readonly_xml_file_system                    _responses_fs { "responses", _plugin };
+		Vfs::Writeonly_xml_file_system<Genode::uint64_t> _requests_fs  { "requests", "12345678" };
 
 		static Storage_dir _storage_dir(Genode::Xml_node const &node);
 
@@ -143,6 +145,9 @@ Vfs::File_system *Internal_file_system_factory::create(Vfs::Env &,
 	if (node.has_type("responses")) {
 		return &_responses_fs;
 	}
+	if (node.has_type("requests")) {
+		return &_requests_fs;
+	}
 	return nullptr;
 }
 
@@ -167,6 +172,7 @@ Root_dir_file_system::_config(Genode::Xml_node const &node)
 		xml.node("dir", [&] () {
 			xml.attribute("name", node.attribute_value("name", String<32>("")));
 			xml.node("responses", [&] () {});
+			xml.node("requests", [&] () {});
 		});
 	});
 
