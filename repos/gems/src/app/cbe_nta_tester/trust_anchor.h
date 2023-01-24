@@ -243,7 +243,7 @@ class Trust_anchor
 
 		Genode::String<128> const  _responses_path { _path, "/responses" };
 		Vfs::Vfs_handle           &_responses_file { vfs_open_rw(_vfs_env, { _responses_path }) };
-		char                       _responses_read_buf_storage[12];
+		char                       _responses_read_buf_storage[512];
 		char *                     _responses_read_buf { _responses_read_buf_storage };
 
 		void _execute_write_read_operation(Vfs::Vfs_handle           &file,

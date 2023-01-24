@@ -67,7 +67,6 @@ void File_access::_execute_read(Job  &job,
 
 		case Read_result::READ_OK:
 
-			error(nr_of_read_bytes);
 			req.nr_of_processed_bytes = nr_of_read_bytes;
 			req.success = true;
 			job.state = Job::COMPLETED;
@@ -535,8 +534,9 @@ void Trust_anchor::execute(bool &progress)
 			if (req->success) {
 
 				_responses_read_buf_storage[req->nr_of_processed_bytes] = 0;
-				error("success reading ", req->nr_of_processed_bytes,
-				      " bytes from file: ", Cstring { _responses_read_buf });
+				log("success reading ", req->nr_of_processed_bytes,
+				    " bytes from file: ");
+				log(Cstring { _responses_read_buf });
 				_file_access.drop_completed_request();
 			} else {
 				error("failed reading responses file ");
