@@ -1,11 +1,22 @@
+/*
+ * \brief  Software trust-anchor for the CBE implemented as VFS plugin
+ * \author Martin Stein
+ * \date   2023-01-24
+ */
 
-/* base includes */
-#include <util/xml_generator.h>
+/*
+ * Copyright (C) 2023 Genode Labs GmbH
+ *
+ * This file is part of the Genode OS framework, which is distributed
+ * under the terms of the GNU Affero General Public License version 3.
+ */
 
 /* os includes */
 #include <vfs/file_system_factory.h>
 #include <vfs/dir_file_system.h>
-#include <vfs/readonly_value_file_system.h>
+
+/* local includes */
+#include <readonly_xml_file_system.h>
 
 namespace Vfs_cbe_trust_anchor {
 
@@ -19,11 +30,15 @@ namespace Vfs_cbe_trust_anchor {
 
 
 class Vfs_cbe_trust_anchor::Plugin
+:
+	public Vfs::Readonly_xml_file_system::Xml_producer
 {
 	private:
 
 		Vfs::Env          &_env;
 		Storage_dir const  _storage_dir;
+
+		void produce_xml(Genode::Xml_generator &) override;
 
 	public:
 
@@ -38,8 +53,8 @@ class Vfs_cbe_trust_anchor::Internal_file_system_factory
 {
 	private:
 
-		Plugin                                            _plugin;
-		Vfs::Readonly_value_file_system<Genode::uint64_t> _responses_fs { "responses", 0 };
+		Plugin                        _plugin;
+		Vfs::Readonly_xml_file_system _responses_fs { "responses", _plugin };
 
 		static Storage_dir _storage_dir(Genode::Xml_node const &node);
 
@@ -95,9 +110,16 @@ using namespace Vfs_cbe_trust_anchor;
 Plugin::Plugin(Vfs::Env          &env,
                Storage_dir const &storage_dir)
 :
+	Xml_producer { "responses" },
 	_env         { env },
 	_storage_dir { storage_dir }
 { }
+
+
+void Plugin::produce_xml(Genode::Xml_generator &xml)
+{
+	xml.node("hallo");
+}
 
 
 /**********************************

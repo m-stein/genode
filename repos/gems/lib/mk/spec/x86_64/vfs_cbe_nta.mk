@@ -1,6 +1,7 @@
 OPENSSL_DIR := $(call select_from_ports,openssl)
 
 SRC_CC += vfs.cc
+SRC_CC += readonly_xml_file_system.cc
 SRC_CC += aes_256.cc
 SRC_CC += integer.cc
 
