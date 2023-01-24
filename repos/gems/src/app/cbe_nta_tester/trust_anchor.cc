@@ -11,6 +11,9 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
+/* base includes */
+#include <util/xml_generator.h>
+
 /* local includes */
 #include <trust_anchor.h>
 
@@ -29,8 +32,9 @@ void File_access::execute(bool &progress)
 	for (Job &job : _jobs) {
 
 		switch (job.request.type) {
-		case Request::READ:    _execute_read(job, progress); break;
-		case Request::INVALID:                               break;
+		case Request::READ:    _execute_read(job, progress);  break;
+		case Request::WRITE:   _execute_write(job, progress); break;
+		case Request::INVALID:                                break;
 		}
 	}
 }
@@ -48,11 +52,11 @@ void File_access::_execute_read(Job  &job,
 		if (!req.file_ptr->fs().queue_read(req.file_ptr, req.buf_size))
 			return;
 
-		job.state = Job::READ_IN_PROGRESS;
+		job.state = Job::IN_PROGRESS;
 		progress = true;
 		return;
 
-	case Job::READ_IN_PROGRESS:
+	case Job::IN_PROGRESS:
 	{
 		file_size nr_of_read_bytes { 0 };
 		Read_result const result {
@@ -82,6 +86,79 @@ void File_access::_execute_read(Job  &job,
 			return;
 		}
 	}
+	case Job::COMPLETED:
+
+		return;
+	}
+}
+
+void File_access::_call_file_write_once(Job  &job,
+                                        bool &progress)
+{
+	using Write_result = Vfs::File_io_service::Write_result;
+
+	Request &req { job.request };
+
+	file_size nr_of_written_bytes { 0 };
+	Write_result const result {
+		req.file_ptr->fs().write(
+			req.file_ptr,
+			req.buf_ptr + job.nr_of_processed_bytes,
+			req.buf_size - job.nr_of_processed_bytes,
+			nr_of_written_bytes) };
+
+	switch (result) {
+	case Write_result::WRITE_ERR_WOULD_BLOCK:
+
+		return;
+
+	case Write_result::WRITE_OK:
+
+		nr_of_written_bytes =
+			min(req.buf_size - job.nr_of_processed_bytes,
+			    nr_of_written_bytes);
+
+		job.nr_of_processed_bytes += nr_of_written_bytes;
+
+		if (job.nr_of_processed_bytes < req.buf_size) {
+
+			job.state = Job::IN_PROGRESS;
+			req.file_ptr->advance_seek(nr_of_written_bytes);
+
+		} else {
+
+			req.nr_of_processed_bytes = nr_of_written_bytes;
+			req.success = true;
+			job.state = Job::COMPLETED;
+		}
+		progress = true;
+		return;
+
+	case Write_result::WRITE_ERR_INVALID:
+	case Write_result::WRITE_ERR_IO:
+
+		req.success = false;
+		job.state = Job::COMPLETED;
+		progress = true;
+		return;
+	}
+}
+
+void File_access::_execute_write(Job  &job,
+                                 bool &progress)
+{
+	switch (job.state) {
+	case Job::INIT:
+
+		job.nr_of_processed_bytes = 0;
+		_call_file_write_once(job, progress);
+		return;
+
+	case Job::IN_PROGRESS:
+
+		_call_file_write_once(job, progress);
+		return;
+
 	case Job::COMPLETED:
 
 		return;
@@ -513,34 +590,75 @@ void Trust_anchor::submit_request(Trust_anchor_request const &request)
 
 void Trust_anchor::execute(bool &progress)
 {
-	static bool done = false;
-	if (!done) {
+	using Request = File_access::Request;
+
+	static bool read_submitted = false;
+	static bool write_submitted = false;
+
+	if (!read_submitted) {
 		if (_file_access.ready_to_submit_request()) {
 
-			using Request = File_access::Request;
 			_file_access.submit_request(
 				Request {
 					Request::READ, &_responses_file, 0, _responses_read_buf,
 					sizeof(_responses_read_buf_storage) - 1 });
 
-			done = true;
+			read_submitted = true;
+		}
+	}
+	if (!write_submitted) {
+		if (_file_access.ready_to_submit_request()) {
+
+			Xml_generator xml {
+				_requests_write_buf_storage,
+				sizeof(_requests_write_buf_storage),
+				"requests",
+				[&] () {
+					xml.node("requests");
+				}
+			};
+
+			_file_access.submit_request(
+				Request {
+					Request::WRITE, &_requests_file, 0, _requests_write_buf,
+					sizeof(_requests_write_buf_storage) });
+
+			write_submitted = true;
 		}
 	}
 	_file_access.execute(progress);
 	{
-		using Request = File_access::Request;
 		Request const *req { _file_access.peek_completed_request() };
 		if (req) {
-			if (req->success) {
+			if (req->type == Request::READ) {
+				if (req->success) {
 
-				_responses_read_buf_storage[req->nr_of_processed_bytes] = 0;
-				log("success reading ", req->nr_of_processed_bytes,
-				    " bytes from file: ");
-				log(Cstring { _responses_read_buf });
-				_file_access.drop_completed_request();
-			} else {
-				error("failed reading responses file ");
+					_responses_read_buf_storage[req->nr_of_processed_bytes] = 0;
+					log("success reading ", req->nr_of_processed_bytes,
+						" bytes from file: ");
+
+					log(Cstring { _responses_read_buf });
+
+				} else {
+
+					error("failed reading from file ");
+				}
 			}
+			if (req->type == Request::WRITE) {
+				if (req->success) {
+
+					log("success writing ", req->nr_of_processed_bytes,
+						" bytes to file");
+
+					log(Cstring { _requests_write_buf });
+
+				} else {
+
+					error("failed writing to file ");
+				}
+			}
+			_file_access.drop_completed_request();
+			progress = true;
 		}
 	}
 /*

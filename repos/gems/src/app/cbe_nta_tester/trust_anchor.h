@@ -89,6 +89,7 @@ class Module
 			for (JOB &job : _jobs) {
 				if (job.completed()) {
 					job = JOB { };
+					_unused_job_ptr = &job;
 					return;
 				}
 			}
@@ -134,7 +135,7 @@ using File_path = Genode::String<128>;
 
 struct File_access_request
 {
-	enum Type { INVALID, READ };
+	enum Type { INVALID, READ, WRITE };
 
 	Type             type                  { INVALID };
 	Vfs::Vfs_handle *file_ptr              { nullptr };
@@ -147,10 +148,11 @@ struct File_access_request
 
 struct File_access_job
 {
-	enum State { INIT, READ_IN_PROGRESS, COMPLETED };
+	enum State { INIT, IN_PROGRESS, COMPLETED };
 
-	File_access_request request { };
-	State               state   { INIT };
+	File_access_request request               { };
+	State               state                 { INIT };
+	Genode::size_t      nr_of_processed_bytes { 0 };
 
 	bool unused() { return request.type == File_access_request::INVALID; }
 
@@ -179,6 +181,12 @@ class File_access : public Module<File_access_request, File_access_job, 1>
 
 		Job      *_completed_job_ptr { _jobs };
 		Vfs::Env &_vfs_env;
+
+		void _call_file_write_once(Job  &job,
+		                           bool &progress);
+
+		void _execute_write(Job  &job,
+		                    bool &progress);
 
 		void _execute_read(Job  &job,
 		                   bool &progress);
@@ -245,6 +253,11 @@ class Trust_anchor
 		Vfs::Vfs_handle           &_responses_file { vfs_open_rw(_vfs_env, { _responses_path }) };
 		char                       _responses_read_buf_storage[512];
 		char *                     _responses_read_buf { _responses_read_buf_storage };
+
+		Genode::String<128> const  _requests_path { _path, "/requests" };
+		Vfs::Vfs_handle           &_requests_file { vfs_open_rw(_vfs_env, { _requests_path }) };
+		char                       _requests_write_buf_storage[512];
+		char *                     _requests_write_buf { _requests_write_buf_storage };
 
 		void _execute_write_read_operation(Vfs::Vfs_handle           &file,
 		                                   Genode::String<128> const &file_path,
