@@ -59,7 +59,7 @@ class Vfs_cbe_trust_anchor::Internal_file_system_factory
 
 		Plugin                         _plugin;
 		Vfs::Readonly_xml_file_system  _responses_fs { "responses", _plugin };
-		Vfs::Writeonly_xml_file_system _requests_fs  { "requests", _plugin, "12345678" };
+		Vfs::Writeonly_xml_file_system _requests_fs  { "requests", _plugin };
 
 		static Storage_dir _storage_dir(Genode::Xml_node const &node);
 

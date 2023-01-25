@@ -157,8 +157,8 @@ Readonly_xml_file_system::_config(File_name const &file_name) const
 {
 	char buf[Config::capacity()] { };
 
-	Genode::Xml_generator xml(buf, sizeof(buf), _static_type(), [&] () {
+	Xml_generator xml(buf, sizeof(buf), _static_type(), [&] () {
 		xml.attribute("name", file_name);
 	});
-	return Config { Genode::Cstring { buf } };
+	return Config { Cstring { buf } };
 }
