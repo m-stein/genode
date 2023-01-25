@@ -16,35 +16,57 @@
 
 /* base includes */
 #include <util/xml_generator.h>
+#include <base/registry.h>
 
 /* os includes */
 #include <vfs/single_file_system.h>
 
 namespace Vfs {
-	template <typename, unsigned BUF_SIZE = 64>
+
 	class Writeonly_xml_file_system;
 }
 
 
-template <typename T, unsigned BUF_SIZE>
 class Vfs::Writeonly_xml_file_system : public Vfs::Single_file_system
 {
 	public:
 
 		typedef Genode::String<64> Name;
 
+		class Content_consumer : public Genode::Interface
+		{
+			public:
+
+				virtual void consume_content(char const     *buf_ptr,
+				                             Genode::size_t  buf_size) = 0;
+		};
+
+		class Xml_consumer : public Content_consumer
+		{
+			private:
+
+				void consume_content(char const     *buf_ptr,
+				                     Genode::size_t  buf_size) override;
+
+			public:
+
+				Xml_consumer();
+
+				virtual void consume_xml(Genode::Xml_node const &node) = 0;
+		};
+
 	private:
 
-		typedef Genode::String<BUF_SIZE + 1> Buffer;
+		typedef Genode::String<1024 + 1> Buffer;
 
-		Name const _file_name;
-
-		Buffer _buffer { };
+		Name const    _file_name;
+		Xml_consumer &_xml_consumer;
+		Buffer        _buffer { };
 
 		struct Vfs_handle : Single_vfs_handle
 		{
 			Writeonly_xml_file_system &_value_fs;
-			Buffer            &_buffer{ _value_fs._buffer };
+			Buffer                    &_buffer{ _value_fs._buffer };
 
 			Vfs_handle(Writeonly_xml_file_system &value_fs,
 			           Allocator         &alloc)
@@ -70,19 +92,19 @@ class Vfs::Writeonly_xml_file_system : public Vfs::Single_file_system
 				return READ_OK;
 			}
 
-			Write_result write(char const *src, file_size count, file_size &out_count) override
+			Write_result write(char const *src,
+			                   file_size   count,
+			                   file_size  &out_count) override
 			{
 				out_count = 0;
-				if (seek() > BUF_SIZE)
+				try {
+					_value_fs._xml_consumer.consume_xml(
+						Xml_node { src, count });
+				}
+				catch (...) {
 					return WRITE_ERR_INVALID;
-
-				Genode::size_t const len = min((size_t)(BUF_SIZE- seek()), (size_t)count);
-				_buffer = Buffer(Genode::Cstring(src, len));
-				out_count = len;
-
-				/* inform watchers */
-				_value_fs._watch_response();
-
+				}
+				out_count = count;
 				return WRITE_OK;
 			}
 
@@ -117,11 +139,13 @@ class Vfs::Writeonly_xml_file_system : public Vfs::Single_file_system
 			});
 		}
 
+		static char const *_static_type() { return "value"; }
+
 		typedef Genode::String<200> Config;
 		Config _config(Name const &name) const
 		{
 			char buf[Config::capacity()] { };
-			Genode::Xml_generator xml(buf, sizeof(buf), type_name(), [&] () {
+			Genode::Xml_generator xml(buf, sizeof(buf), _static_type(), [&] () {
 				xml.attribute("name", name); });
 			return Config(Genode::Cstring(buf));
 		}
@@ -130,27 +154,28 @@ class Vfs::Writeonly_xml_file_system : public Vfs::Single_file_system
 	public:
 
 		Writeonly_xml_file_system(Name   const &name,
+		                          Xml_consumer &xml_consumer,
 		                          Buffer const &initial_value)
 		:
-			Single_file_system(Node_type::TRANSACTIONAL_FILE, type(),
-			                   Node_rwx::rw(), Xml_node(_config(name).string())),
-			_file_name(name)
+			Single_file_system { Node_type::TRANSACTIONAL_FILE, type(),
+			                     Node_rwx::rw(),
+			                     Xml_node { _config(name).string() } },
+			_file_name         { name },
+			_xml_consumer      { xml_consumer }
 		{
 			value(initial_value);
 		}
 
-		static char const *type_name() { return "value"; }
-
-		char const *type() override { return type_name(); }
+		char const *type() override { return _static_type(); }
 
 		void value(Buffer const &value)
 		{
 			_buffer = Buffer(value);
 		}
 
-		T value()
+		Genode::uint64_t value()
 		{
-			T val { 0 };
+			Genode::uint64_t val { 0 };
 			Genode::ascii_to(_buffer.string(), val);
 
 			return val;
@@ -160,7 +185,7 @@ class Vfs::Writeonly_xml_file_system : public Vfs::Single_file_system
 
 		bool matches(Xml_node node) const
 		{
-			return node.has_type(type_name()) &&
+			return node.has_type(_static_type()) &&
 			       node.attribute_value("name", Name()) == _file_name;
 		}
 
@@ -171,7 +196,7 @@ class Vfs::Writeonly_xml_file_system : public Vfs::Single_file_system
 
 		Ftruncate_result ftruncate(Vfs::Vfs_handle *, file_size size) override
 		{
-			if (size >= BUF_SIZE)
+			if (size >= 1024)
 				return FTRUNCATE_ERR_NO_SPACE;
 
 			return FTRUNCATE_OK;

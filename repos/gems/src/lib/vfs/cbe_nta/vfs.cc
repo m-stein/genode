@@ -32,14 +32,17 @@ namespace Vfs_cbe_trust_anchor {
 
 class Vfs_cbe_trust_anchor::Plugin
 :
-	public Vfs::Readonly_xml_file_system::Xml_producer
+	public Vfs::Readonly_xml_file_system::Xml_producer,
+	public Vfs::Writeonly_xml_file_system::Xml_consumer
 {
 	private:
 
 		Vfs::Env          &_env;
 		Storage_dir const  _storage_dir;
 
-		void produce_xml(Genode::Xml_generator &) override;
+		void produce_xml(Genode::Xml_generator &xml) override;
+
+		void consume_xml(Genode::Xml_node const &node) override;
 
 	public:
 
@@ -54,9 +57,9 @@ class Vfs_cbe_trust_anchor::Internal_file_system_factory
 {
 	private:
 
-		Plugin                                           _plugin;
-		Vfs::Readonly_xml_file_system                    _responses_fs { "responses", _plugin };
-		Vfs::Writeonly_xml_file_system<Genode::uint64_t> _requests_fs  { "requests", "12345678" };
+		Plugin                         _plugin;
+		Vfs::Readonly_xml_file_system  _responses_fs { "responses", _plugin };
+		Vfs::Writeonly_xml_file_system _requests_fs  { "requests", _plugin, "12345678" };
 
 		static Storage_dir _storage_dir(Genode::Xml_node const &node);
 
@@ -121,6 +124,13 @@ Plugin::Plugin(Vfs::Env          &env,
 void Plugin::produce_xml(Genode::Xml_generator &xml)
 {
 	xml.node("hallo");
+}
+
+
+void Plugin::consume_xml(Genode::Xml_node const &node)
+{
+	log("CONSUME");
+	log(node);
 }
 
 
