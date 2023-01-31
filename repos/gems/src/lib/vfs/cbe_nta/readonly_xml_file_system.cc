@@ -162,3 +162,10 @@ Readonly_xml_file_system::_config(File_name const &file_name) const
 	});
 	return Config { Cstring { buf } };
 }
+
+
+void Readonly_xml_file_system::trigger_watch_responses()
+{
+	_handle_registry.for_each([] (Registered_watch_handle &handle) {
+		handle.watch_response(); });
+}

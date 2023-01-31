@@ -592,10 +592,9 @@ void Trust_anchor::execute(bool &progress)
 {
 	using Request = File_access::Request;
 
-	static bool read_submitted = false;
 	static bool write_submitted = false;
 
-	if (!read_submitted) {
+	if (_responses_read_required) {
 		if (_file_access.ready_to_submit_request()) {
 
 			_file_access.submit_request(
@@ -603,7 +602,7 @@ void Trust_anchor::execute(bool &progress)
 					Request::READ, &_responses_file, 0, _responses_read_buf,
 					sizeof(_responses_read_buf_storage) - 1 });
 
-			read_submitted = true;
+			_responses_read_required = false;
 		}
 	}
 	if (!write_submitted) {

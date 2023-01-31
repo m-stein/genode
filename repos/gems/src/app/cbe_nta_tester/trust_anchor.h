@@ -14,6 +14,9 @@
 #ifndef _CBE_TESTER__TRUST_ANCHOR_H_
 #define _CBE_TESTER__TRUST_ANCHOR_H_
 
+/* os includes */
+#include <os/vfs.h>
+
 /* CBE includes */
 #include <cbe/types.h>
 
@@ -249,15 +252,19 @@ class Trust_anchor
 
 		File_access _file_access { _vfs_env };
 
-		Genode::String<128> const  _responses_path { _path, "/responses" };
-		Vfs::Vfs_handle           &_responses_file { vfs_open_rw(_vfs_env, { _responses_path }) };
-		char                       _responses_read_buf_storage[512];
-		char *                     _responses_read_buf { _responses_read_buf_storage };
+		Genode::String<128> const            _responses_path          { _path, "/responses" };
+		Vfs::Vfs_handle                     &_responses_file          { vfs_open_rw(_vfs_env, { _responses_path }) };
+		char                                 _responses_read_buf_storage[512];
+		char *                               _responses_read_buf      { _responses_read_buf_storage };
+		bool                                 _responses_read_required { true };
+		Genode::Watch_handler<Trust_anchor>  _responses_handler       { _vfs_env.root_dir(), _responses_path, _vfs_env.alloc(), *this, &Trust_anchor::_handle_responses };
 
 		Genode::String<128> const  _requests_path { _path, "/requests" };
 		Vfs::Vfs_handle           &_requests_file { vfs_open_rw(_vfs_env, { _requests_path }) };
 		char                       _requests_write_buf_storage[512];
 		char *                     _requests_write_buf { _requests_write_buf_storage };
+
+		void _handle_responses() { _responses_read_required = true; }
 
 		void _execute_write_read_operation(Vfs::Vfs_handle           &file,
 		                                   Genode::String<128> const &file_path,
@@ -275,6 +282,9 @@ class Trust_anchor
 		                             Genode::String<128> const &file_path,
 		                             char                      *read_buf,
 		                             bool                      &progress);
+
+		Trust_anchor(const Trust_anchor&) = delete;
+		Trust_anchor &operator=(const Trust_anchor&) = delete;
 
 	public:
 

@@ -124,6 +124,9 @@ class Vfs::Readonly_xml_file_system : public Vfs::Single_file_system
 		                   Allocator         &alloc) override;
 
 		void close(Vfs_watch_handle *handle) override;
+
+
+		void trigger_watch_responses();
 };
 
 #endif /* _READONLY_XML_FILE_SYSTEM_H_ */

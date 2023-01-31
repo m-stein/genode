@@ -123,6 +123,7 @@ append config {
 		</config>
 		<route>
 			<service name="File_system"> <child name="lx_fs"/> </service>
+			<service name="Timer"> <child name="timer"/> </service>
 			<any-service> <parent/> </any-service>
 		</route>
 	</start>

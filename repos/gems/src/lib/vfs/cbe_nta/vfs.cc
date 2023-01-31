@@ -12,6 +12,7 @@
  */
 
 /* os includes */
+#include <timer_session/connection.h>
 #include <vfs/file_system_factory.h>
 #include <vfs/dir_file_system.h>
 
@@ -37,17 +38,33 @@ class Vfs_cbe_trust_anchor::Plugin
 {
 	private:
 
-		Vfs::Env          &_env;
-		Storage_dir const  _storage_dir;
+		Vfs::Env                       &_env;
+		Timer::Connection               _timer        { _env.env() };
+		Timer::Periodic_timeout<Plugin> _timeout      { _timer, *this, &Plugin::_handle_timeout, Genode::Microseconds { 1000000 } };
+		Vfs::Readonly_xml_file_system   _responses_fs { "responses", *this };
+		Vfs::Writeonly_xml_file_system  _requests_fs  { "requests", *this };
+		unsigned long                   _time         { 0 };
+		Storage_dir const               _storage_dir;
 
 		void produce_xml(Genode::Xml_generator &xml) override;
 
 		void consume_xml(Genode::Xml_node const &node) override;
 
+		void _handle_timeout(Genode::Duration time)
+		{
+			_time = time.trunc_to_plain_ms().value;
+			_responses_fs.trigger_watch_responses();
+			_env.user().wakeup_vfs_user();
+		}
+
 	public:
 
 		Plugin(Vfs::Env          &env,
 		       Storage_dir const &storage_dir);
+
+		Vfs::File_system &responses_fs() { return _responses_fs; }
+
+		Vfs::File_system &requests_fs() { return _requests_fs; }
 };
 
 
@@ -57,9 +74,7 @@ class Vfs_cbe_trust_anchor::Internal_file_system_factory
 {
 	private:
 
-		Plugin                         _plugin;
-		Vfs::Readonly_xml_file_system  _responses_fs { "responses", _plugin };
-		Vfs::Writeonly_xml_file_system _requests_fs  { "requests", _plugin };
+		Plugin _plugin;
 
 		static Storage_dir _storage_dir(Genode::Xml_node const &node);
 
@@ -123,7 +138,9 @@ Plugin::Plugin(Vfs::Env          &env,
 
 void Plugin::produce_xml(Genode::Xml_generator &xml)
 {
-	xml.node("hallo");
+	xml.node("time", [&] () {
+		xml.attribute("value", _time);
+	});
 }
 
 
@@ -153,10 +170,10 @@ Vfs::File_system *Internal_file_system_factory::create(Vfs::Env &,
                                                        Xml_node  node)
 {
 	if (node.has_type("responses")) {
-		return &_responses_fs;
+		return &_plugin.responses_fs();
 	}
 	if (node.has_type("requests")) {
-		return &_requests_fs;
+		return &_plugin.requests_fs();
 	}
 	return nullptr;
 }
