@@ -69,7 +69,7 @@ class Genode::Request_processor
 		{
 			for (CHANNEL const &channel : _channels) {
 				if (channel.completed())
-					return &channel.request;
+					return &channel.request();
 			}
 			return nullptr;
 		}

@@ -18,154 +18,14 @@
 #include <trust_anchor.h>
 
 using namespace Genode;
+using namespace Cbe_tester;
 using namespace Cbe;
 using namespace Vfs;
 
 
-File_access::File_access(Vfs::Env &vfs_env)
-:
-	_vfs_env { vfs_env }
-{ }
-
-void File_access::execute(bool &progress)
-{
-	for (Channel &channel : _channels) {
-
-		switch (channel.request.type) {
-		case Request::READ:    _execute_read(channel, progress);  break;
-		case Request::WRITE:   _execute_write(channel, progress); break;
-		case Request::INVALID:                                    break;
-		}
-	}
-}
-
-void File_access::_execute_read(Channel &channel,
-                                bool    &progress)
-{
-	Request &req { channel.request };
-
-	switch (channel.state) {
-	case Channel::UNINITIALIZED:
-
-		req.file_ptr->seek(req.file_offset);
-
-		if (!req.file_ptr->fs().queue_read(req.file_ptr, req.buf_size))
-			return;
-
-		channel.state = Channel::IN_PROGRESS;
-		progress = true;
-		return;
-
-	case Channel::IN_PROGRESS:
-	{
-		file_size nr_of_read_bytes { 0 };
-		Read_result const result {
-			req.file_ptr->fs().complete_read(
-				req.file_ptr, req.buf_ptr, req.buf_size, nr_of_read_bytes) };
-
-		switch (result) {
-		case Read_result::READ_QUEUED:
-		case Read_result::READ_ERR_WOULD_BLOCK:
-
-			return;
-
-		case Read_result::READ_OK:
-
-			req.nr_of_processed_bytes = nr_of_read_bytes;
-			req.success = true;
-			channel.state = Channel::COMPLETED;
-			progress = true;
-			return;
-
-		case Read_result::READ_ERR_INVALID:
-		case Read_result::READ_ERR_IO:
-
-			req.success = false;
-			channel.state = Channel::COMPLETED;
-			progress = true;
-			return;
-		}
-	}
-	case Channel::COMPLETED:
-
-		return;
-	}
-}
-
-void File_access::_call_file_write_once(Channel &channel,
-                                        bool    &progress)
-{
-	using Write_result = Vfs::File_io_service::Write_result;
-
-	Request &req { channel.request };
-
-	file_size nr_of_written_bytes { 0 };
-	Write_result const result {
-		req.file_ptr->fs().write(
-			req.file_ptr,
-			req.buf_ptr + channel.nr_of_processed_bytes,
-			req.buf_size - channel.nr_of_processed_bytes,
-			nr_of_written_bytes) };
-
-	switch (result) {
-	case Write_result::WRITE_ERR_WOULD_BLOCK:
-
-		return;
-
-	case Write_result::WRITE_OK:
-
-		nr_of_written_bytes =
-			min(req.buf_size - channel.nr_of_processed_bytes,
-			    nr_of_written_bytes);
-
-		channel.nr_of_processed_bytes += nr_of_written_bytes;
-
-		if (channel.nr_of_processed_bytes < req.buf_size) {
-
-			channel.state = Channel::IN_PROGRESS;
-			req.file_ptr->advance_seek(nr_of_written_bytes);
-
-		} else {
-
-			req.nr_of_processed_bytes = nr_of_written_bytes;
-			req.success = true;
-			channel.state = Channel::COMPLETED;
-		}
-		progress = true;
-		return;
-
-	case Write_result::WRITE_ERR_INVALID:
-	case Write_result::WRITE_ERR_IO:
-
-		req.success = false;
-		channel.state = Channel::COMPLETED;
-		progress = true;
-		return;
-	}
-}
-
-void File_access::_execute_write(Channel &channel,
-                                 bool    &progress)
-{
-	switch (channel.state) {
-	case Channel::UNINITIALIZED:
-
-		channel.nr_of_processed_bytes = 0;
-		_call_file_write_once(channel, progress);
-		return;
-
-	case Channel::IN_PROGRESS:
-
-		_call_file_write_once(channel, progress);
-		return;
-
-	case Channel::COMPLETED:
-
-		return;
-	}
-}
-
-
+/******************
+ ** Trust_anchor **
+ ******************/
 
 void Trust_anchor::_execute_write_read_operation(Vfs_handle        &file,
                                                  String<128> const &file_path,
@@ -590,7 +450,7 @@ void Trust_anchor::submit_request(Trust_anchor_request const &request)
 
 void Trust_anchor::execute(bool &progress)
 {
-	using Request = File_access::Request;
+	using Request = File_access_request;
 
 	static bool write_submitted = false;
 
@@ -599,7 +459,7 @@ void Trust_anchor::execute(bool &progress)
 
 			_file_access.submit_request(
 				Request {
-					Request::READ, &_responses_file, 0, _responses_read_buf,
+					Request::READ, _responses_file, 0, _responses_read_buf,
 					sizeof(_responses_read_buf_storage) - 1 });
 
 			_responses_read_required = false;
@@ -619,7 +479,7 @@ void Trust_anchor::execute(bool &progress)
 
 			_file_access.submit_request(
 				Request {
-					Request::WRITE, &_requests_file, 0, _requests_write_buf,
+					Request::WRITE, _requests_file, 0, _requests_write_buf,
 					sizeof(_requests_write_buf_storage) });
 
 			write_submitted = true;
@@ -629,11 +489,11 @@ void Trust_anchor::execute(bool &progress)
 	{
 		Request const *req { _file_access.peek_completed_request() };
 		if (req) {
-			if (req->type == Request::READ) {
-				if (req->success) {
+			if (req->type() == Request::READ) {
+				if (req->success()) {
 
-					_responses_read_buf_storage[req->nr_of_processed_bytes] = 0;
-					log("success reading ", req->nr_of_processed_bytes,
+					_responses_read_buf_storage[req->nr_of_processed_bytes()] = 0;
+					log("success reading ", req->nr_of_processed_bytes(),
 						" bytes from file: ");
 
 					log(Cstring { _responses_read_buf });
@@ -643,10 +503,10 @@ void Trust_anchor::execute(bool &progress)
 					error("failed reading from file ");
 				}
 			}
-			if (req->type == Request::WRITE) {
-				if (req->success) {
+			if (req->type() == Request::WRITE) {
+				if (req->success()) {
 
-					log("success writing ", req->nr_of_processed_bytes,
+					log("success writing ", req->nr_of_processed_bytes(),
 						" bytes to file");
 
 					log(Cstring { _requests_write_buf });

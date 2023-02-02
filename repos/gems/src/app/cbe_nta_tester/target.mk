@@ -3,6 +3,7 @@ REQUIRES := x86_64
 TARGET  := cbe_nta_tester
 SRC_CC  += main.cc
 SRC_CC  += crypto.cc
+SRC_CC  += file_access.cc
 SRC_CC  += trust_anchor.cc
 SRC_CC  += vfs_utilities.cc
 

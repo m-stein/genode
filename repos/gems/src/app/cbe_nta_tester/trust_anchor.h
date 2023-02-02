@@ -24,80 +24,10 @@
 #include <vfs_utilities.h>
 
 /* local includes */
-#include <request_processor.h>
+#include <file_access.h>
 
 
 using File_path = Genode::String<128>;
-
-struct File_access_request
-{
-	enum Type { INVALID, READ, WRITE };
-
-	Type             type                  { INVALID };
-	Vfs::Vfs_handle *file_ptr              { nullptr };
-	Genode::off_t    file_offset           { 0 };
-	char            *buf_ptr               { nullptr };
-	Genode::size_t   buf_size              { 0 };
-	Genode::size_t   nr_of_processed_bytes { 0 };
-	bool             success               { false };
-};
-
-struct File_access_channel
-{
-	enum State { UNINITIALIZED, IN_PROGRESS, COMPLETED };
-
-	State               state                 { UNINITIALIZED };
-	File_access_request request               { };
-	Genode::size_t      nr_of_processed_bytes { 0 };
-
-	bool unused() { return request.type == File_access_request::INVALID; }
-
-	void use(File_access_request req) { request = req; }
-
-	bool completed() const { return state == COMPLETED; }
-
-	bool has_generated_request(File_access_request &) const { return false; }
-
-	bool drop_generated_request() const { return false; }
-
-	bool generated_request_completed(File_access_request const &) const { return false; }
-};
-
-class File_access
-:
-	public Genode::Request_processor<File_access_request,
-	                                 File_access_channel, 4>
-{
-	public:
-
-		using Request = File_access_request;
-
-	private:
-
-		using Channel = File_access_channel;
-		using Read_result = Vfs::File_io_service::Read_result;
-		using Write_result = Vfs::File_io_service::Write_result;
-
-		Channel  *_completed_channel_ptr { _channels };
-		Vfs::Env &_vfs_env;
-
-		void _call_file_write_once(Channel &channel,
-		                           bool    &progress);
-
-		void _execute_write(Channel &channel,
-		                    bool    &progress);
-
-		void _execute_read(Channel &channel,
-		                   bool    &progress);
-
-	public:
-
-		File_access(Vfs::Env &vfs_env);
-
-		void execute(bool &progress);
-};
-
-
 
 
 class Trust_anchor
@@ -146,7 +76,7 @@ class Trust_anchor
 */
 		Job                        _job               { };
 
-		File_access _file_access { _vfs_env };
+		Cbe_tester::File_access _file_access { _vfs_env };
 
 		Genode::String<128> const            _responses_path          { _path, "/responses" };
 		Vfs::Vfs_handle                     &_responses_file          { vfs_open_rw(_vfs_env, { _responses_path }) };
