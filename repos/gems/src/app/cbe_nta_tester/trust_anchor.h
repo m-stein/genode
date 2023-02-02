@@ -23,115 +23,8 @@
 /* CBE tester includes */
 #include <vfs_utilities.h>
 
-/*
-namespace Module {
-
-	class Request
-	{
-		private:
-
-			unsigned long _client_id;
-			unsigned long _server_id;
-
-		public:
-	};
-};
-
-enum Trust_anchor_module_id { USER_REQUESTS, FILE_ACCESS };
-*/
-
-
-
-
-template <typename REQUEST, typename JOB, unsigned long NR_OF_JOBS>
-class Module
-{
-	protected:
-
-		JOB  _jobs[NR_OF_JOBS];
-		JOB *_unused_job_ptr { _jobs };
-
-	public:
-
-		Module()
-		{
-			for (JOB &job : _jobs)
-				job = JOB { };
-		}
-
-		bool ready_to_submit_request() { return _unused_job_ptr != nullptr; }
-
-		void submit_request(REQUEST req)
-		{
-			if (_unused_job_ptr == nullptr) {
-				class Invalid_call_to_submit_request { };
-				throw Invalid_call_to_submit_request { };
-			}
-			_unused_job_ptr->use(req);
-			_unused_job_ptr = nullptr;
-
-			for (JOB &job : _jobs) {
-				if (job.unused()) {
-					_unused_job_ptr = &job;
-					break;
-				}
-			}
-		}
-
-		REQUEST const *peek_completed_request() const
-		{
-			for (JOB const &job : _jobs) {
-				if (job.completed())
-					return &job.request;
-			}
-			return nullptr;
-		}
-
-		void drop_completed_request()
-		{
-			for (JOB &job : _jobs) {
-				if (job.completed()) {
-					job = JOB { };
-					_unused_job_ptr = &job;
-					return;
-				}
-			}
-			class Invalid_call_to_drop_completed_request { };
-			throw Invalid_call_to_drop_completed_request { };
-		}
-
-		REQUEST peek_generated_request() const
-		{
-			for (JOB const &job : _jobs) {
-				REQUEST req;
-				if (job.has_generated_request(req))
-					return req;
-			}
-			return REQUEST { };
-		}
-
-		void drop_generated_request()
-		{
-			for (JOB const &job : _jobs) {
-				if (job.drop_generated_request())
-					return;
-			}
-			class Invalid_call_to_drop_generated_request { };
-			throw Invalid_call_to_drop_generated_request { };
-		}
-
-		void generated_request_completed(REQUEST const &req)
-		{
-			for (JOB const &job : _jobs) {
-				if (job.generated_request_completed(req))
-					return;
-			}
-			class Invalid_call_to_generated_request_completed { };
-			throw Invalid_call_to_generated_request_completed { };
-		}
-};
-
-
+/* local includes */
+#include <request_processor.h>
 
 
 using File_path = Genode::String<128>;
@@ -149,12 +42,12 @@ struct File_access_request
 	bool             success               { false };
 };
 
-struct File_access_job
+struct File_access_channel
 {
-	enum State { INIT, IN_PROGRESS, COMPLETED };
+	enum State { UNINITIALIZED, IN_PROGRESS, COMPLETED };
 
+	State               state                 { UNINITIALIZED };
 	File_access_request request               { };
-	State               state                 { INIT };
 	Genode::size_t      nr_of_processed_bytes { 0 };
 
 	bool unused() { return request.type == File_access_request::INVALID; }
@@ -170,29 +63,32 @@ struct File_access_job
 	bool generated_request_completed(File_access_request const &) const { return false; }
 };
 
-class File_access : public Module<File_access_request, File_access_job, 1>
+class File_access
+:
+	public Genode::Request_processor<File_access_request,
+	                                 File_access_channel, 4>
 {
 	public:
 
-		using Job = File_access_job;
 		using Request = File_access_request;
 
 	private:
 
+		using Channel = File_access_channel;
 		using Read_result = Vfs::File_io_service::Read_result;
 		using Write_result = Vfs::File_io_service::Write_result;
 
-		Job      *_completed_job_ptr { _jobs };
+		Channel  *_completed_channel_ptr { _channels };
 		Vfs::Env &_vfs_env;
 
-		void _call_file_write_once(Job  &job,
-		                           bool &progress);
+		void _call_file_write_once(Channel &channel,
+		                           bool    &progress);
 
-		void _execute_write(Job  &job,
-		                    bool &progress);
+		void _execute_write(Channel &channel,
+		                    bool    &progress);
 
-		void _execute_read(Job  &job,
-		                   bool &progress);
+		void _execute_read(Channel &channel,
+		                   bool    &progress);
 
 	public:
 

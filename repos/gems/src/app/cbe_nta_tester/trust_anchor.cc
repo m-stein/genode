@@ -29,34 +29,34 @@ File_access::File_access(Vfs::Env &vfs_env)
 
 void File_access::execute(bool &progress)
 {
-	for (Job &job : _jobs) {
+	for (Channel &channel : _channels) {
 
-		switch (job.request.type) {
-		case Request::READ:    _execute_read(job, progress);  break;
-		case Request::WRITE:   _execute_write(job, progress); break;
-		case Request::INVALID:                                break;
+		switch (channel.request.type) {
+		case Request::READ:    _execute_read(channel, progress);  break;
+		case Request::WRITE:   _execute_write(channel, progress); break;
+		case Request::INVALID:                                    break;
 		}
 	}
 }
 
-void File_access::_execute_read(Job  &job,
-                                bool &progress)
+void File_access::_execute_read(Channel &channel,
+                                bool    &progress)
 {
-	Request &req { job.request };
+	Request &req { channel.request };
 
-	switch (job.state) {
-	case Job::INIT:
+	switch (channel.state) {
+	case Channel::UNINITIALIZED:
 
 		req.file_ptr->seek(req.file_offset);
 
 		if (!req.file_ptr->fs().queue_read(req.file_ptr, req.buf_size))
 			return;
 
-		job.state = Job::IN_PROGRESS;
+		channel.state = Channel::IN_PROGRESS;
 		progress = true;
 		return;
 
-	case Job::IN_PROGRESS:
+	case Channel::IN_PROGRESS:
 	{
 		file_size nr_of_read_bytes { 0 };
 		Read_result const result {
@@ -73,7 +73,7 @@ void File_access::_execute_read(Job  &job,
 
 			req.nr_of_processed_bytes = nr_of_read_bytes;
 			req.success = true;
-			job.state = Job::COMPLETED;
+			channel.state = Channel::COMPLETED;
 			progress = true;
 			return;
 
@@ -81,30 +81,30 @@ void File_access::_execute_read(Job  &job,
 		case Read_result::READ_ERR_IO:
 
 			req.success = false;
-			job.state = Job::COMPLETED;
+			channel.state = Channel::COMPLETED;
 			progress = true;
 			return;
 		}
 	}
-	case Job::COMPLETED:
+	case Channel::COMPLETED:
 
 		return;
 	}
 }
 
-void File_access::_call_file_write_once(Job  &job,
-                                        bool &progress)
+void File_access::_call_file_write_once(Channel &channel,
+                                        bool    &progress)
 {
 	using Write_result = Vfs::File_io_service::Write_result;
 
-	Request &req { job.request };
+	Request &req { channel.request };
 
 	file_size nr_of_written_bytes { 0 };
 	Write_result const result {
 		req.file_ptr->fs().write(
 			req.file_ptr,
-			req.buf_ptr + job.nr_of_processed_bytes,
-			req.buf_size - job.nr_of_processed_bytes,
+			req.buf_ptr + channel.nr_of_processed_bytes,
+			req.buf_size - channel.nr_of_processed_bytes,
 			nr_of_written_bytes) };
 
 	switch (result) {
@@ -115,21 +115,21 @@ void File_access::_call_file_write_once(Job  &job,
 	case Write_result::WRITE_OK:
 
 		nr_of_written_bytes =
-			min(req.buf_size - job.nr_of_processed_bytes,
+			min(req.buf_size - channel.nr_of_processed_bytes,
 			    nr_of_written_bytes);
 
-		job.nr_of_processed_bytes += nr_of_written_bytes;
+		channel.nr_of_processed_bytes += nr_of_written_bytes;
 
-		if (job.nr_of_processed_bytes < req.buf_size) {
+		if (channel.nr_of_processed_bytes < req.buf_size) {
 
-			job.state = Job::IN_PROGRESS;
+			channel.state = Channel::IN_PROGRESS;
 			req.file_ptr->advance_seek(nr_of_written_bytes);
 
 		} else {
 
 			req.nr_of_processed_bytes = nr_of_written_bytes;
 			req.success = true;
-			job.state = Job::COMPLETED;
+			channel.state = Channel::COMPLETED;
 		}
 		progress = true;
 		return;
@@ -138,28 +138,28 @@ void File_access::_call_file_write_once(Job  &job,
 	case Write_result::WRITE_ERR_IO:
 
 		req.success = false;
-		job.state = Job::COMPLETED;
+		channel.state = Channel::COMPLETED;
 		progress = true;
 		return;
 	}
 }
 
-void File_access::_execute_write(Job  &job,
-                                 bool &progress)
+void File_access::_execute_write(Channel &channel,
+                                 bool    &progress)
 {
-	switch (job.state) {
-	case Job::INIT:
+	switch (channel.state) {
+	case Channel::UNINITIALIZED:
 
-		job.nr_of_processed_bytes = 0;
-		_call_file_write_once(job, progress);
+		channel.nr_of_processed_bytes = 0;
+		_call_file_write_once(channel, progress);
 		return;
 
-	case Job::IN_PROGRESS:
+	case Channel::IN_PROGRESS:
 
-		_call_file_write_once(job, progress);
+		_call_file_write_once(channel, progress);
 		return;
 
-	case Job::COMPLETED:
+	case Channel::COMPLETED:
 
 		return;
 	}
