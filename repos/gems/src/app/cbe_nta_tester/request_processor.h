@@ -16,7 +16,8 @@
 
 namespace Genode {
 
-	template <typename      REQUEST,
+	template <typename      DERIVED_TYPE,
+	          typename      REQUEST,
 	          typename      CHANNEL,
 	          unsigned long NR_OF_CHANNELS>
 
@@ -24,7 +25,8 @@ namespace Genode {
 }
 
 
-template <typename      REQUEST,
+template <typename      DERIVED_TYPE,
+          typename      REQUEST,
           typename      CHANNEL,
           unsigned long NR_OF_CHANNELS>
 
@@ -34,6 +36,12 @@ class Genode::Request_processor
 
 		CHANNEL  _channels[NR_OF_CHANNELS];
 		CHANNEL *_unused_channel_ptr { _channels };
+		bool     _progress_possible  { false };
+
+		DERIVED_TYPE &_derived_obj()
+		{
+			return *static_cast<DERIVED_TYPE *>(this);
+		}
 
 	public:
 
@@ -56,6 +64,7 @@ class Genode::Request_processor
 			}
 			_unused_channel_ptr->use(req);
 			_unused_channel_ptr = nullptr;
+			_progress_possible = true;
 
 			for (CHANNEL &channel : _channels) {
 				if (channel.unused()) {
@@ -110,11 +119,32 @@ class Genode::Request_processor
 		void generated_request_completed(REQUEST const &req)
 		{
 			for (CHANNEL const &channel : _channels) {
-				if (channel.generated_request_completed(req))
+				if (channel.generated_request_completed(req)) {
+					_progress_possible = true;
 					return;
+				}
 			}
 			class Invalid_call_to_generated_request_completed { };
 			throw Invalid_call_to_generated_request_completed { };
+		}
+
+		void execute(bool &progress)
+		{
+			if (!_progress_possible)
+				return;
+
+			while (true) {
+
+				bool local_progress { false };
+				_derived_obj().execute_one_step(local_progress);
+
+				if (local_progress) {
+					progress = true;
+				} else {
+					_progress_possible = false;
+					return;
+				}
+			}
 		}
 };
 

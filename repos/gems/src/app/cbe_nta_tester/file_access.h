@@ -92,7 +92,8 @@ class Cbe_tester::File_access_channel
 
 class Cbe_tester::File_access
 :
-	public Genode::Request_processor<File_access_request,
+	public Genode::Request_processor<File_access,
+	                                 File_access_request,
 	                                 File_access_channel, 4>
 {
 	private:
@@ -118,7 +119,7 @@ class Cbe_tester::File_access
 
 		File_access(Vfs::Env &vfs_env);
 
-		void execute(bool &progress);
+		void execute_one_step(bool &progress);
 };
 
 #endif /* _FILE_ACCESS_H_ */

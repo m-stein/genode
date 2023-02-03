@@ -50,14 +50,14 @@ File_access::File_access(Vfs::Env &vfs_env)
 { }
 
 
-void File_access::execute(bool &progress)
+void File_access::execute_one_step(bool &progress)
 {
 	for (Channel &channel : _channels) {
 
 		switch (channel._request._type) {
+		case Request::INVALID:                                    break;
 		case Request::READ:    _execute_read(channel, progress);  break;
 		case Request::WRITE:   _execute_write(channel, progress); break;
-		case Request::INVALID:                                    break;
 		}
 	}
 }
