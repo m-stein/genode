@@ -96,26 +96,6 @@ class Genode::Request_processor
 			throw Invalid_call_to_drop_completed_request { };
 		}
 
-		REQUEST peek_generated_request() const
-		{
-			for (CHANNEL const &channel : _channels) {
-				REQUEST req;
-				if (channel.has_generated_request(req))
-					return req;
-			}
-			return REQUEST { };
-		}
-
-		void drop_generated_request()
-		{
-			for (CHANNEL const &channel : _channels) {
-				if (channel.drop_generated_request())
-					return;
-			}
-			class Invalid_call_to_drop_generated_request { };
-			throw Invalid_call_to_drop_generated_request { };
-		}
-
 		void generated_request_completed(REQUEST const &req)
 		{
 			for (CHANNEL const &channel : _channels) {
