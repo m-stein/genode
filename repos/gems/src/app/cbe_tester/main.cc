@@ -28,13 +28,29 @@
 #include <cbe/init/configuration.h>
 
 /* CBE tester includes */
+#include <cbe_librara.h>
 #include <crypto.h>
 #include <trust_anchor.h>
 #include <verbose_node.h>
+#include <client_data.h>
 
 using namespace Genode;
 using namespace Cbe;
 using namespace Vfs;
+
+namespace Cbe {
+
+	char const *module_name(unsigned long id)
+	{
+		switch (id) {
+		case CRYPTO: return "crypto";
+		case CBE_LIBRARA: return "cbe_librara";
+		case CLIENT_DATA: return "client_data";
+		default: break;
+		}
+		return "?";
+	}
+}
 
 
 enum class Module_type : uint8_t
@@ -1503,7 +1519,7 @@ class Command_pool {
 			});
 		}
 
-		void generate_blk_data(Cbe::Request           cbe_req,
+		void generate_blk_data(uint64_t               cbe_req_tag,
 		                       Virtual_block_address  vba,
 		                       Block_data            &blk_data) const
 		{
@@ -1513,7 +1529,7 @@ class Command_pool {
 				if (exit_loop) {
 					return;
 				}
-				if (cmd.id() != cbe_req.tag()) {
+				if (cmd.id() != cbe_req_tag) {
 					return;
 				}
 				if (cmd.type() != Command::REQUEST) {
@@ -1522,16 +1538,15 @@ class Command_pool {
 				}
 				Request_node const &req_node { cmd.request_node() };
 				if (req_node.salt_avail()) {
-
 					_generate_blk_data(blk_data, vba, req_node.salt());
 				}
 				exit_loop = true;
 			});
 		}
 
-		void verify_blk_data(Cbe::Request           cbe_req,
+		void verify_blk_data(uint64_t               cbe_req_tag,
 		                     Virtual_block_address  vba,
-		                     Block_data      const &blk_data)
+		                     Block_data            &blk_data)
 		{
 			bool exit_loop { false };
 			_cmd_queue.for_each([&] (Command &cmd)
@@ -1539,7 +1554,7 @@ class Command_pool {
 				if (exit_loop) {
 					return;
 				}
-				if (cmd.id() != cbe_req.tag()) {
+				if (cmd.id() != cbe_req_tag) {
 					return;
 				}
 				if (cmd.type() != Command::REQUEST) {
@@ -1548,7 +1563,6 @@ class Command_pool {
 				}
 				Request_node const &req_node { cmd.request_node() };
 				if (req_node.salt_avail()) {
-
 					Block_data gen_blk_data { };
 					_generate_blk_data(gen_blk_data, vba, req_node.salt());
 
@@ -1561,7 +1575,7 @@ class Command_pool {
 
 						if (_verbose_node.client_data_mismatch()) {
 							log("client data mismatch: vba=", vba,
-							    " req=(", cbe_req, ")");
+							    " req_tag=(", cbe_req_tag, ")");
 							log("client data should be:");
 							print_blk_data(gen_blk_data);
 							log("client data is:");
@@ -1596,29 +1610,38 @@ class Command_pool {
 };
 
 
-class Main : Vfs::Env::User
+class Main : Vfs::Env::User, public Cbe::Module
 {
 	private:
 
+		enum { NR_OF_MODULES = 3 };
+
 		Genode::Env                 &_env;
-		Attached_rom_dataspace       _config_rom           { _env, "config" };
-		Verbose_node                 _verbose_node         { _config_rom.xml() };
-		Heap                         _heap                 { _env.ram(), _env.rm() };
-		Vfs::Simple_env              _vfs_env              { _env, _heap, _config_rom.xml().sub_node("vfs"), *this };
-		Signal_handler<Main>         _sigh                 { _env.ep(), *this, &Main::_execute };
-		Block_io                    &_blk_io               { _init_blk_io(_config_rom.xml(), _heap, _env, _vfs_env, _sigh) };
-		Io_buffer                    _blk_buf              { };
-		Command_pool                 _cmd_pool             { _heap, _config_rom.xml(), _verbose_node };
-		Constructible<Cbe::Library>  _cbe                  { };
-		Cbe_check::Library           _cbe_check            { };
-		Cbe_dump::Library            _cbe_dump             { };
-		Cbe_init::Library            _cbe_init             { };
-		Benchmark                    _benchmark            { _env };
-		Trust_anchor                 _trust_anchor         { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
-		Crypto_plain_buffer          _crypto_plain_buf     { };
-		Crypto_cipher_buffer         _crypto_cipher_buf    { };
-		Crypto                       _crypto               { _vfs_env,
-		                                                     _config_rom.xml().sub_node("crypto") };
+		Attached_rom_dataspace       _config_rom                 { _env, "config" };
+		Verbose_node                 _verbose_node               { _config_rom.xml() };
+		Heap                         _heap                       { _env.ram(), _env.rm() };
+		Vfs::Simple_env              _vfs_env                    { _env, _heap, _config_rom.xml().sub_node("vfs"), *this };
+		Signal_handler<Main>         _sigh                       { _env.ep(), *this, &Main::_execute };
+		Block_io                    &_blk_io                     { _init_blk_io(_config_rom.xml(), _heap, _env, _vfs_env, _sigh) };
+		Io_buffer                    _blk_buf                    { };
+		Command_pool                 _cmd_pool                   { _heap, _config_rom.xml(), _verbose_node };
+		Constructible<Cbe::Library>  _cbe                        { };
+		Cbe_check::Library           _cbe_check                  { };
+		Cbe_dump::Library            _cbe_dump                   { };
+		Cbe_init::Library            _cbe_init                   { };
+		Benchmark                    _benchmark                  { _env };
+		Trust_anchor                 _trust_anchor               { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
+		Crypto                       _crypto                     { _vfs_env, _config_rom.xml().sub_node("crypto") };
+		Cbe::Librara                 _cbe_librara                { _cbe, _blk_buf };
+		Client_data_request          _client_data_request        { };
+
+		Module *_module_ptrs[NR_OF_MODULES] { };
+
+		/*
+		 * Noncopyable
+		 */
+		Main(Main const &) = delete;
+		Main &operator = (Main const &) = delete;
 
 		Block_io &_init_blk_io(Xml_node            const &config,
 		                       Heap                      &heap,
@@ -1801,205 +1824,107 @@ class Main : Vfs::Env::User
 			_handle_completed_client_requests_of_module(_cbe_init, progress);
 		}
 
-		void _cbe_transfer_client_data_that_was_read(bool &progress)
+		bool ready_to_submit_request() override
 		{
-			while (true) {
-
-				Cbe::Request request { };
-				uint64_t vba { 0 };
-				Crypto_plain_buffer::Index plain_buf_idx { 0 };
-				_cbe->client_transfer_read_data_required(
-					request, vba, plain_buf_idx);
-
-				if (!request.valid()) {
-					break;
-				}
-				_cmd_pool.verify_blk_data(
-					request, vba, _crypto_plain_buf.item(plain_buf_idx));
-
-				_cbe->client_transfer_read_data_in_progress(plain_buf_idx);
-				_cbe->client_transfer_read_data_completed(plain_buf_idx, true);
-				_benchmark.raise_nr_of_virt_blks_read();
-				progress = true;
-
-				if (_verbose_node.client_data_transferred()) {
-					log("client data: vba=", vba, " req=(", request, ")");
-				}
-			}
+			return _client_data_request._type == Client_data_request::INVALID;
 		}
 
-		void _cbe_transfer_client_data_that_will_be_written(bool &progress)
+		void submit_request(Module_request &req) override
 		{
-			while (true) {
+			if (_client_data_request._type != Client_data_request::INVALID) {
 
-				Cbe::Request request { };
-				uint64_t vba { 0 };
-				Crypto_plain_buffer::Index plain_buf_idx { 0 };
-				_cbe->client_transfer_write_data_required(
-					request, vba, plain_buf_idx);
+				class Exception_1 { };
+				throw Exception_1 { };
+			}
+			req.dst_request_id(0);
+			_client_data_request = *dynamic_cast<Client_data_request *>(&req);
+			switch (_client_data_request._type) {
+			case Client_data_request::OBTAIN_PLAINTEXT_BLK:
 
-				if (!request.valid()) {
-					return;
-				}
 				_cmd_pool.generate_blk_data(
-					request, vba, _crypto_plain_buf.item(plain_buf_idx));
-
-				_cbe->client_transfer_write_data_in_progress(plain_buf_idx);
-				_cbe->client_transfer_write_data_completed(
-					plain_buf_idx, true);
+					_client_data_request._client_req_tag,
+					_client_data_request._vba,
+					*(Block_data *)_client_data_request._plaintext_blk_ptr);
 
 				_benchmark.raise_nr_of_virt_blks_written();
-				progress = true;
 
-				if (_verbose_node.client_data_transferred()) {
-					log("client data: vba=", vba, " req=(", request, ")");
-				}
+				if (_verbose_node.client_data_transferred())
+					log("client data: vba=", _client_data_request._vba,
+					    " req_tag=", _client_data_request._client_req_tag);
+
+				_client_data_request._success = true;
+				break;
+
+			case Client_data_request::SUPPLY_PLAINTEXT_BLK:
+
+				_cmd_pool.verify_blk_data(
+					_client_data_request._client_req_tag,
+					_client_data_request._vba,
+					*(Block_data *)_client_data_request._plaintext_blk_ptr);
+
+				_benchmark.raise_nr_of_virt_blks_read();
+
+				if (_verbose_node.client_data_transferred())
+					log("client data: vba=", _client_data_request._vba,
+					    " req_tag=", _client_data_request._client_req_tag);
+
+				_client_data_request._success = true;
+				break;
+
+			case Client_data_request::INVALID:
+
+				class Exception_2 { };
+				throw Exception_2 { };
 			}
 		}
 
-		void _cbe_handle_crypto_add_key_requests(bool &progress)
+		void execute(bool &) override { }
+
+		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
+		                             Genode::size_t   buf_size) override
 		{
-			while (true) {
-
-				Key key;
-				Cbe::Request request { _cbe->crypto_add_key_required(key) };
-				if (!request.valid()) {
-					return;
+			if (_client_data_request._type != Client_data_request::INVALID) {
+				if (sizeof(_client_data_request) > buf_size) {
+					class Exception_1 { };
+					throw Exception_1 { };
 				}
-				switch (_crypto.add_key(key)) {
-				case Crypto::Result::SUCCEEDED:
-
-					if (_verbose_node.crypto_req_in_progress()) {
-						log("crypto req in progress: ", request);
-					}
-					_cbe->crypto_add_key_requested(request);
-
-					if (_verbose_node.crypto_req_completed()) {
-						log("crypto req completed: ", request);
-					}
-					request.success(true);
-					_cbe->crypto_add_key_completed(request);
-					progress = true;
-					break;
-
-				case Crypto::Result::FAILED:
-
-					class Add_key_failed { };
-					throw Add_key_failed { };
-
-				case Crypto::Result::RETRY_LATER:
-
-					return;
-				}
+				Genode::memcpy(buf_ptr, &_client_data_request,
+				               sizeof(_client_data_request));;
+				return true;
 			}
+			return false;
 		}
 
-		void _cbe_handle_crypto_remove_key_requests(bool &progress)
+		void _drop_completed_request(Module_request &) override
 		{
-			while (true) {
-
-				Key::Id key_id;
-				Cbe::Request request {
-					_cbe->crypto_remove_key_required(key_id) };
-
-				if (!request.valid()) {
-					break;
-				}
-				switch (_crypto.remove_key(key_id)) {
-				case Crypto::Result::SUCCEEDED:
-
-					if (_verbose_node.crypto_req_in_progress()) {
-						log("crypto req in progress: ", request);
-					}
-					_cbe->crypto_remove_key_requested(request);
-
-					if (_verbose_node.crypto_req_completed()) {
-						log("crypto req completed: ", request);
-					}
-					request.success(true);
-					_cbe->crypto_remove_key_completed(request);
-					progress = true;
-					break;
-
-				case Crypto::Result::FAILED:
-
-					class Remove_key_failed { };
-					throw Remove_key_failed { };
-
-				case Crypto::Result::RETRY_LATER:
-
-					return;
-				}
+			if (_client_data_request._type == Client_data_request::INVALID) {
+				class Exception_2 { };
+				throw Exception_2 { };
 			}
+			_client_data_request._type = Client_data_request::INVALID;
 		}
 
-		void _cbe_handle_crypto_encrypt_requests(bool &progress)
+		bool _peek_generated_request(Genode::uint8_t *,
+		                             Genode::size_t   ) override
 		{
-			while (true) {
-
-				if (!_crypto.request_acceptable()) {
-					break;
-				}
-				Crypto_plain_buffer::Index data_index { 0 };
-				Cbe::Request request {
-					_cbe->crypto_cipher_data_required(data_index) };
-
-				if (!request.valid()) {
-					break;
-				}
-				request.tag(data_index.value);
-				_crypto.submit_request(
-				    request, Crypto::Operation::ENCRYPT_BLOCK,
-				    data_index,
-				    Crypto_cipher_buffer::Index { data_index.value });
-
-				_cbe->crypto_cipher_data_requested(data_index);
-				if (_verbose_node.crypto_req_in_progress()) {
-					log("crypto req in progress: ", request);
-				}
-				progress = true;
-			}
+			return false;
 		}
 
-		void _cbe_handle_crypto_decrypt_requests(bool &progress)
+		void _drop_generated_request(Module_request &) override
 		{
-			while (true) {
-
-				if (!_crypto.request_acceptable()) {
-					break;
-				}
-				Crypto_cipher_buffer::Index data_index { 0 };
-				Cbe::Request request {
-					_cbe->crypto_plain_data_required(data_index) };
-
-				if (!request.valid()) {
-					break;
-				}
-				request.tag(data_index.value);
-				_crypto.submit_request(
-				    request, Crypto::Operation::DECRYPT_BLOCK,
-				    Crypto_plain_buffer::Index { data_index.value },
-				    data_index);
-
-				_cbe->crypto_plain_data_requested(data_index);
-				if (_verbose_node.crypto_req_in_progress()) {
-					log("crypto req in progress: ", request);
-				}
-				progress = true;
-			}
+			class Exception_1 { };
+			throw Exception_1 { };
 		}
 
-		void _cbe_handle_crypto_requests(bool &progress)
+		void generated_request_complete(Module_request &) override
 		{
-			_cbe_handle_crypto_add_key_requests(progress);
-			_cbe_handle_crypto_remove_key_requests(progress);
-			_cbe_handle_crypto_encrypt_requests(progress);
-			_cbe_handle_crypto_decrypt_requests(progress);
+			class Exception_1 { };
+			throw Exception_1 { };
 		}
 
 		void _execute_cbe(bool &progress)
 		{
-			_cbe->execute(_blk_buf, _crypto_plain_buf, _crypto_cipher_buf);
+			_cbe->execute(_blk_buf);
 			if (_cbe->execute_progress()) {
 				progress = true;
 			}
@@ -2009,9 +1934,6 @@ class Main : Vfs::Env::User
 			_handle_pending_ta_requests_of_module(
 				*_cbe, Module_type::CBE, progress);
 
-			_cbe_handle_crypto_requests(progress);
-			_cbe_transfer_client_data_that_was_read(progress);
-			_cbe_transfer_client_data_that_will_be_written(progress);
 			_handle_completed_client_requests_of_module(*_cbe, progress);
 		}
 
@@ -2441,55 +2363,38 @@ class Main : Vfs::Env::User
 			_trust_anchor_handle_completed_requests(progress);
 		}
 
-		void _crypto_handle_completed_encrypt_requests(bool &progress)
+		void _modules_execute(bool &progress)
 		{
-			while (true) {
+			for (unsigned long id { 0 }; id < NR_OF_MODULES; id++) {
 
-				Cbe::Request const request {
-					_crypto.peek_completed_encryption_request() };
-
-				if (!request.valid()) {
-					break;
-				}
-				Crypto_cipher_buffer::Index const data_idx { request.tag() };
-				_cbe->supply_crypto_cipher_data(data_idx, request.success());
-
-				_crypto.drop_completed_request();
-				progress = true;
-
-				if (_verbose_node.crypto_req_completed()) {
-					log("crypto req completed: ", request);
-				}
+				Module *module_ptr { _module_ptrs[id] };
+				module_ptr->execute(progress);
+				module_ptr->for_each_generated_request([&] (Module_request &req) {
+					if (req.dst_module_id() >= NR_OF_MODULES) {
+						class Bad_dst_module { };
+						throw Bad_dst_module { };
+					}
+					Module &dst_module { *_module_ptrs[req.dst_module_id()] };
+					if (!dst_module.ready_to_submit_request()) {
+						Genode::log(module_name(id), ":", req.src_request_id_str(), " --", req.type_name(), "-| ", module_name(req.dst_module_id()));
+						return Module::REQUEST_NOT_HANDLED;
+					}
+					dst_module.submit_request(req);
+					//Genode::log(module_name(id), ":", req.src_request_id_str(), " --", req.type_name(), "--> ", module_name(req.dst_module_id()), ":", req.dst_request_id_str());
+					progress = true;
+					return Module::REQUEST_HANDLED;
+				});
+				module_ptr->for_each_completed_request([&] (Module_request &req) {
+					if (req.src_module_id() >= NR_OF_MODULES) {
+						class Bad_src_module { };
+						throw Bad_src_module { };
+					}
+					//Genode::log(module_name(req.src_module_id()), ":", req.src_request_id_str(), " <--", req.type_name(), "-- ", module_name(id), ":", req.dst_request_id_str());
+					Module &src_module { *_module_ptrs[req.src_module_id()] };
+					src_module.generated_request_complete(req);
+					progress = true;
+				});
 			}
-		}
-
-		void _crypto_handle_completed_decrypt_requests(bool &progress)
-		{
-			while (true) {
-
-				Cbe::Request const request {
-					_crypto.peek_completed_decryption_request() };
-
-				if (!request.valid()) {
-					break;
-				}
-				Crypto_plain_buffer::Index const data_idx { request.tag() };
-				_cbe->supply_crypto_plain_data(data_idx, request.success());
-
-				_crypto.drop_completed_request();
-				progress = true;
-
-				if (_verbose_node.crypto_req_completed()) {
-					log("crypto req completed: ", request);
-				}
-			}
-		}
-
-		void _execute_crypto(bool &progress)
-		{
-			_crypto.execute(_crypto_plain_buf, _crypto_cipher_buf, progress);
-			_crypto_handle_completed_encrypt_requests(progress);
-			_crypto_handle_completed_decrypt_requests(progress);
 		}
 
 		void _execute()
@@ -2508,7 +2413,7 @@ class Main : Vfs::Env::User
 				_execute_trust_anchor(progress);
 				_execute_cbe_check(progress);
 				_execute_cbe_dump(progress);
-				_execute_crypto(progress);
+				_modules_execute(progress);
 				if (_cbe.constructed()) {
 					_execute_cbe(progress);
 				}
@@ -2522,6 +2427,9 @@ class Main : Vfs::Env::User
 		:
 			_env { env }
 		{
+			_module_ptrs[CRYPTO]      = &_crypto;
+			_module_ptrs[CBE_LIBRARA] = &_cbe_librara;
+			_module_ptrs[CLIENT_DATA] = this;
 			_execute();
 		}
 };

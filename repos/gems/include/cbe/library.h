@@ -52,12 +52,6 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 
 		void _has_io_request(Request &, Io_buffer::Index &) const;
 
-		void _crypto_add_key_required(Request &, Key &) const;
-		void _crypto_remove_key_required(Request &, Key::Id &) const;
-
-		void _crypto_cipher_data_required(Request &, Crypto_plain_buffer::Index &) const;
-		void _crypto_plain_data_required(Request &, Crypto_cipher_buffer::Index &) const;
-
 		void _info(Info &) const;
 
 		void _peek_generated_ta_request(Trust_anchor_request &) const;
@@ -88,9 +82,7 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 		return inf;
 	}
 
-	void execute(Io_buffer            &io_buf,
-	             Crypto_plain_buffer  &crypto_plain_buf,
-	             Crypto_cipher_buffer &crypto_cipher_buf);
+	void execute(Io_buffer &io_buf);
 
 	/**
 	 * Return whether the last call to 'execute' has made progress or not
@@ -180,131 +172,12 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 	 */
 	void io_request_in_progress(Io_buffer::Index const &data_index);
 
-	void client_transfer_read_data_required(Request &,
-	                                        uint64_t &,
-	                                        Crypto_plain_buffer::Index &) const;
-
-	void client_transfer_read_data_in_progress(Crypto_plain_buffer::Index const &);
-
-	void client_transfer_read_data_completed(Crypto_plain_buffer::Index const &, bool);
-
-	void client_transfer_write_data_required(Request &,
-	                                         uint64_t &,
-	                                         Crypto_plain_buffer::Index &) const;
-
-	void client_transfer_write_data_in_progress(Crypto_plain_buffer::Index const &);
-
-	void client_transfer_write_data_completed(Crypto_plain_buffer::Index const &, bool);
-
 	/**
 	 * Query list of active snapshots
 	 *
 	 * \param  ids  reference to destination buffer
 	 */
 	void active_snapshot_ids(Active_snapshot_ids &ids) const;
-
-	Request crypto_add_key_required(Key &key) const
-	{
-		Request result { };
-		_crypto_add_key_required(result, key);
-		return result;
-	}
-
-	void crypto_add_key_requested(Request const &req);
-
-	void crypto_add_key_completed(Request const &req);
-
-	Request crypto_remove_key_required(Key::Id &key_id) const
-	{
-		Request result { };
-		_crypto_remove_key_required(result, key_id);
-		return result;
-	}
-
-	void crypto_remove_key_requested(Request const &req);
-
-	void crypto_remove_key_completed(Request const &req);
-
-	/**
-	 * CBE requests encrytion
-	 *
-	 * \param result  valid request in case the is one pending that
-	 *                needs encrytion, otherwise an invalid one is
-	 *                returned
-	 */
-	Request crypto_cipher_data_required(Crypto_plain_buffer::Index &data_index) const
-	{
-		Request result { };
-		_crypto_cipher_data_required(result, data_index);
-		return result;
-	}
-
-	/**
-	 *  Return plain data for given encryption request
-	 *
-	 * \param  request  reference to the Block::Request processed
-	 *                  by the CBE
-	 * \param  data     reference to the data associated with the
-	 *                  Block::Request
-	 */
-	void crypto_cipher_data_requested(
-		Crypto_plain_buffer::Index const &data_index);
-
-	/**
-	 *  Collect cipher data for given completed encryption request
-	 *
-	 * \param  request  reference to the Block::Request processed
-	 *                  by the CBE
-	 * \param  data     reference to the data associated with the
-	 *                  Block::Request
-	 *
-	 * \return  true if the CBE could obtain the encrypted data,
-	 *          otherwise false
-	 */
-	void supply_crypto_cipher_data(Crypto_cipher_buffer::Index const &data_index,
-	                               bool                        const  data_valid);
-
-	/**
-	 * CBE requests decryption
-	 *
-	 * \param result  valid request in case the is one pending that
-	 *                needs decrytion, otherwise an invalid one is
-	 *                returned
-	 */
-	Request crypto_plain_data_required(Crypto_cipher_buffer::Index &data_index) const
-	{
-		Request result { };
-		_crypto_plain_data_required(result, data_index);
-		return result;
-	}
-
-	/**
-	 *  Return cipher data for given decryption request
-	 *
-	 * \param  request  reference to the Block::Request processed
-	 *                  by the CBE
-	 * \param  data     reference to the data associated with the
-	 *                  Block::Request
-	 *
-	 * \return  true if the CBE could supply the ciphr data,
-	 *          otherwise false
-	 */
-	void crypto_plain_data_requested(
-		Crypto_cipher_buffer::Index const &data_index);
-
-	/**
-	 *  Collect plain data for given completed decryption request
-	 *
-	 * \param  request  reference to the Block::Request processed
-	 *                  by the CBE
-	 * \param  data     reference to the data associated with the
-	 *                  Block::Request
-	 *
-	 * \return  true if the CBE could obtain the decrypted data,
-	 *          otherwise false
-	 */
-	void supply_crypto_plain_data(Crypto_plain_buffer::Index const &data_index,
-	                              bool                       const  data_valid);
 
 	/**
 	 * CBE trust anchor request
@@ -407,6 +280,16 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 	 */
 	void mark_generated_ta_last_sb_hash_request_complete(Trust_anchor_request const &request,
 	                                                     Hash                 const &hash);
+
+		bool librara__peek_generated_request(Genode::uint8_t *buf_ptr,
+		                                     Genode::size_t   buf_size,
+		                                     Io_buffer       &io_buf);
+
+		void librara__drop_generated_request(void *prim_ptr);
+
+		void librara__generated_request_complete(void *prim_ptr,
+		                                         void *blk_data_ptr,
+		                                         bool  success);
 };
 
 #endif /* _CBE_LIBRARY_H_ */

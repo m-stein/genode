@@ -31,6 +31,14 @@ enum { VERBOSE = 0 };
 
 using namespace Genode;
 
+namespace Cbe {
+
+	char const *module_name(unsigned long)
+	{
+		return "?";
+	}
+}
+
 class Main : Vfs::Env::User
 {
 	private:
