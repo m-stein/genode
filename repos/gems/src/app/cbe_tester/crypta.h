@@ -4,272 +4,166 @@
 
 namespace Cbe
 {
-	using Virtual_Block_Address_Type = Genode::addr_t;
-	using Key_Plaintext_Type = Key_plaintext_value;
-	using Block_IO_Data_Index_Type = unsigned long;
-	using Jobs_Index_Type = unsigned long;
-	using Key_ID_Type = unsigned long;
-	using Cipher_Buffer_Index_Type = unsigned long;
-	using Plain_Buffer_Index_Type = unsigned long;
-	using Boolean = bool;
+	class Crypta;
+	class Crypta_request;
+	class Crypta_channel;
 
-	class Primitive { };
-
-	class Crypta_Job_Type
-	{
-		private:
-
-			enum Job_State_Type
-			{
-				DSCD_Submitted,
-				DSCD_Completed,
-
-				DSCD_Decrypt_Data_Pending,
-				DSCD_Decrypt_Data_In_Progress,
-				DSCD_Decrypt_Data_Completed,
-
-				DSCD_Supply_Data_Pending,
-				DSCD_Supply_Data_In_Progress,
-				DSCD_Supply_Data_Completed,
-
-				OECD_Submitted,
-				OECD_Completed,
-
-				OECD_Encrypt_Data_Pending,
-				OECD_Encrypt_Data_In_Progress,
-				OECD_Encrypt_Data_Completed,
-
-				OECD_Obtain_Data_Pending,
-				OECD_Obtain_Data_In_Progress,
-				OECD_Obtain_Data_Completed,
-
-				Invalid,
-				Pending,
-				In_Progress,
-				Complete
-			};
-
-			Job_State_Type             State           ;
-			Primitive                  Prim            ;
-			Primitive                  Submitted_Prim  ;
-			Primitive                  Generated_Prim  ;
-			Request                    Req             ;
-			Virtual_Block_Address_Type VBA             ;
-			Key_Plaintext_Type         Key             ;
-			Block_IO_Data_Index_Type   Blk_IO_Data_Idx ;
-	};
-
-	class Crypta
-	{
-		private:
-
-			using Job_Type = Crypta_Job_Type;
-
-			Job_Type Jobs[1];
-
-			//
-			//  Execute_Decrypt_And_Supply_Client_Data
-			//
-			void Execute_Decrypt_And_Supply_Client_Data (
-				Job_Type Job,
-				Jobs_Index_Type Job_Idx,
-				Boolean Progress);
-
-			//
-			//  Execute_Obtain_And_Encrypt_Client_Data
-			//
-			void Execute_Obtain_And_Encrypt_Client_Data (
-				Job_Type Job,
-				Jobs_Index_Type Job_Idx,
-				Boolean Progress);
-
-		public:
-
-			//
-			//  Initialized_Object
-			//
-			Crypta();
-
-			//
-			//  Primitive_Acceptable
-			//
-			Boolean Primitive_Acceptable ();
-
-			//
-			//  Submit_Primitive
-			//
-			void Submit_Primitive (
-				Primitive Prim,
-				Key_ID_Type Key_ID,
-				Jobs_Index_Type Data_Idx);
-
-			//
-			//  Submit_Primitive_Key
-			//
-			void Submit_Primitive_Key (
-				Primitive Prim,
-				Key_Plaintext_Type Key);
-
-			//
-			//  Submit_Primitive_Key_ID
-			//
-			void Submit_Primitive_Key_ID (
-				Primitive Prim,
-				Key_ID_Type Key_ID);
-
-			//
-			//  Submit_Primitive_Encrypt_Client_Data
-			//
-			void Submit_Primitive_Encrypt_Client_Data (
-				Primitive Prim,
-				Request Req,
-				Virtual_Block_Address_Type VBA,
-				Key_ID_Type Key_ID,
-				Block_IO_Data_Index_Type Blk_IO_Data_Idx);
-
-			//
-			//  Submit_Primitive_Decrypt_Client_Data
-			//
-			void Submit_Primitive_Decrypt_Client_Data (
-				Primitive Prim,
-				Request Req,
-				Virtual_Block_Address_Type VBA,
-				Key_ID_Type Key_ID,
-				Cipher_Buffer_Index_Type Cipher_Buf_Idx);
-
-			//
-			//  Submit_Completed_Primitive
-			//
-			void Submit_Completed_Primitive (
-				Primitive Prim,
-				Key_ID_Type Key_ID,
-				Jobs_Index_Type Data_Idx);
-
-			//
-			//  Peek_Generated_Primitive
-			//
-			void Peek_Generated_Primitive (
-				Jobs_Index_Type Job_Idx,
-				Primitive Prim);
-
-			//
-			//  Peek_Generated_Crypto_Dev_Primitive
-			//
-			Primitive Peek_Generated_Crypto_Dev_Primitive ();
-
-			//
-			//  Peek_Generated_Client_Primitive
-			//
-			Primitive Peek_Generated_Client_Primitive ();
-
-			//
-			//  Peek_Generated_Key_ID
-			//
-			Key_ID_Type Peek_Generated_Key_ID (
-				Jobs_Index_Type Job_Idx);
-
-			//
-			//  Peek_Generated_Key_ID_New
-			//
-			Key_ID_Type Peek_Generated_Key_ID_New (
-				Primitive Prim);
-
-			//
-			//  Peek_Generated_Cipher_Buf_Idx
-			//
-			Cipher_Buffer_Index_Type Peek_Generated_Cipher_Buf_Idx (
-				Primitive Prim);
-
-			//
-			//  Peek_Generated_Plain_Buf_Idx
-			//
-			Plain_Buffer_Index_Type Peek_Generated_Plain_Buf_Idx (
-				Primitive Prim);
-
-			//
-			//  Peek_Generated_Req
-			//
-			Request Peek_Generated_Req (
-				Primitive Prim);
-
-			//
-			//  Peek_Generated_VBA
-			//
-			Virtual_Block_Address_Type Peek_Generated_VBA (
-				Primitive Prim);
-
-			//
-			//  Peek_Generated_Key
-			//
-			Key_Plaintext_Type Peek_Generated_Key (
-				Jobs_Index_Type Job_Idx);
-
-			//
-			//  Drop_Generated_Primitive
-			//
-			void Drop_Generated_Primitive (
-				Jobs_Index_Type Job_Idx);
-
-			//
-			//  Drop_Generated_Primitive_New
-			//
-			void Drop_Generated_Primitive_New (
-				Jobs_Index_Type Job_Idx);
-
-			//
-			//  Execute
-			//
-			void Execute (
-				Boolean Progress);
-
-			//
-			//  Peek_Completed_Primitive
-			//
-			Primitive Peek_Completed_Primitive ();
-
-			//
-			//  Peek_Completed_Cipher_Buf_Idx
-			//
-			Jobs_Index_Type Peek_Completed_Cipher_Buf_Idx (
-				Primitive Prim);
-
-			//
-			//  Peek_Completed_Blk_IO_Data_Idx
-			//
-			Block_IO_Data_Index_Type Peek_Completed_Blk_IO_Data_Idx (
-				Primitive Prim);
-
-			//
-			//  Drop_Completed_Primitive
-			//
-			void Drop_Completed_Primitive ();
-
-			//
-			//  Drop_Completed_Primitive_New
-			//
-			void Drop_Completed_Primitive_New (
-				Primitive Prim);
-
-			//
-			//  Mark_Completed_Primitive
-			//
-			void Mark_Completed_Primitive (
-				Jobs_Index_Type Job_Idx,
-				Boolean Success);
-
-			//
-			//  Mark_Generated_Primitive_Complete
-			//
-			void Mark_Generated_Primitive_Complete (
-				Plain_Buffer_Index_Type Plain_Buf_Idx,
-				Boolean Success);
-
-			//
-			//  Data_Index
-			//
-			Jobs_Index_Type Data_Index (
-				Primitive Prim);
-	};
+	enum { KEY_SIZE = 32 };
+	enum { PRIM_BUF_SIZE = 128 };
 }
+
+class Cbe::Crypta_request
+{
+	public:
+
+		enum Type
+		{
+			INVALID,
+
+			/* from: VBD Rekeying
+			   args: key id, cipher data idx */
+			DECRYPT,
+
+			/* from: VBD Rekeying
+			   args: key id, plaintext data idx */
+			ENCRYPT,
+
+			/* from: SB Ctrl
+			   args: plaintext key */
+			ADD_KEY,
+
+			/* from: SB Ctrl
+			   args: key id */
+			REMOVE_KEY,
+
+			/* from: Blk IO
+			   args: req, vba, key id, cipher data index */
+			DECRYPT_AND_SUPPLY_CLIENT_DATA,
+
+			/* from: Blk IO
+			   args: req, vba, key id, plaintext data index */
+			OBTAIN_AND_ENCRYPT_CLIENT_DATA,
+		};
+
+	private:
+
+		friend class Crypta;
+		friend class Crypta_channel;
+
+		Type          _type       { INVALID };
+		unsigned long _key_id     { 0 };
+		unsigned long _data_idx   { 0 };
+		unsigned long _block_addr { 0 };
+		Request       _request    { };
+		unsigned char _prim_buf[PRIM_BUF_SIZE];
+		unsigned char _plaintext_key[KEY_SIZE];
+
+		Crypta_request() { }
+
+	public:
+
+		Crypta_request(Type type)
+		:
+			_type { type }
+		{ }
+};
+
+class Cbe::Crypta_channel
+{
+	private:
+
+		friend class Crypta;
+
+		enum State { INACTIVE, IN_PROGRESS, COMPLETED };
+
+		State          _state   { INACTIVE };
+		Crypta_request _request { };
+
+	public:
+
+		Crypta_request const &request() const { return _request; }
+};
+
+class Cbe::Crypta
+{
+	private:
+
+		using Request = Crypta_request;
+		using Channel = Crypta_channel;
+
+		Channel _channels[4];
+
+	public:
+
+		bool ready_to_submit_request()
+		{
+			log(__func__, " ", __LINE__); while(1);
+			for (Channel &channel : _channels) {
+				if (channel._state == Channel::INACTIVE)
+					return true;
+			}
+			return false;
+		}
+
+		void submit_request(Request &request)
+		{
+			log(__func__, " ", __LINE__); while(1);
+			for (Channel &channel : _channels) {
+				if (channel._state == Channel::INACTIVE) {
+					channel._request = request;
+					channel._state = Channel::IN_PROGRESS;
+					return;
+				}
+			}
+			throw -1;
+		}
+
+		template <typename FUNC>
+		void with_completed_request(FUNC && functor) const
+		{
+			log(__func__, " ", __LINE__); while(1);
+			for (Channel &channel : _channels) {
+				if (channel._state == Channel::COMPLETED) {
+					functor(channel._request);
+					return;
+				}
+			}
+		}
+
+		void execute(bool &/*progress*/)
+		{
+			log(__func__, " ", __LINE__); while(1);
+/*
+			for (Channel &channel : _channels) {
+				if (channel._state != INVALID) {
+					switch (channel._request._type) {
+					case:
+			
+					}
+				}
+			}
+*/
+		}
+
+		template <typename FUNC>
+		void with_generated_request(FUNC && functor) const
+		{
+			log(__func__, " ", __LINE__); while(1);
+		}
+
+		void generated_request_completed(unsigned long  /*dst_id*/,
+		                                 void          * /*req_ptr*/)
+		{
+			log(__func__, " ", __LINE__); while(1);
+			throw -1;
+		}
+
+		Crypta()
+		{
+			log(__func__, " ", __LINE__); while(1);
+			for (Channel &channel : _channels)
+				channel = Channel { };
+		}
+};
 
 #endif /* _CRYPTA_H_ */
