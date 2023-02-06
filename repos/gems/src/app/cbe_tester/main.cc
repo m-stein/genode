@@ -26,6 +26,7 @@
 #include <cbe/dump/configuration.h>
 #include <cbe/init/library.h>
 #include <cbe/init/configuration.h>
+#include <crypta.h>
 
 /* CBE tester includes */
 #include <crypto.h>
