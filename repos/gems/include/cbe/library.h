@@ -319,6 +319,8 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 		return request;
 	}
 
+	void peek_generated_request(void *req);
+
 	/**
 	 * Drop generated TA request
 	 *

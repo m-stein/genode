@@ -1596,6 +1596,17 @@ class Command_pool {
 		unsigned long nr_of_errors()           { return _nr_of_errors; }
 };
 
+void create_crypta_request(
+	void *req,
+	bool prim_valid,
+	void *prim_ptr,
+	size_t prim_size,
+	bool key_id_valid,
+	void *key_id_ptr,
+	size_t key_id_size)
+{
+	error(__func__, " ", req, " ", prim_valid, " ", prim_ptr, " ", prim_size, " ", key_id_valid, " ", key_id_ptr, " ", key_id_size);
+}
 
 class Main : Vfs::Env::User
 {
@@ -1620,6 +1631,7 @@ class Main : Vfs::Env::User
 		Crypto_cipher_buffer         _crypto_cipher_buf    { };
 		Crypto                       _crypto               { _vfs_env,
 		                                                     _config_rom.xml().sub_node("crypto") };
+		Crypta                       _crypta               { };
 
 		Block_io &_init_blk_io(Xml_node            const &config,
 		                       Heap                      &heap,
@@ -1998,19 +2010,40 @@ class Main : Vfs::Env::User
 			_cbe_handle_crypto_decrypt_requests(progress);
 		}
 
+		void _cbe_handle_generated_requests(bool &progress)
+		{
+			while (true) {
+
+				Crypta_request req { };
+				_cbe->peek_generated_request(&req);
+				if (req.type() == Crypta_request::INVALID)
+					return;
+
+				if (!_crypta.ready_to_submit_request())
+					return;
+
+				_crypta.submit_request(req);
+
+				/* FIXME missing to drop request at cbe */
+				progress = true;
+			}
+		}
+
 		void _execute_cbe(bool &progress)
 		{
 			_cbe->execute(_blk_buf, _crypto_plain_buf, _crypto_cipher_buf);
 			if (_cbe->execute_progress()) {
 				progress = true;
 			}
+			_cbe_handle_generated_requests(progress);
+
 			_handle_pending_blk_io_requests_of_module(
 				*_cbe, Module_type::CBE, progress);
 
 			_handle_pending_ta_requests_of_module(
 				*_cbe, Module_type::CBE, progress);
 
-			_cbe_handle_crypto_requests(progress);
+			//_cbe_handle_crypto_requests(progress);
 			_cbe_transfer_client_data_that_was_read(progress);
 			_cbe_transfer_client_data_that_will_be_written(progress);
 			_handle_completed_client_requests_of_module(*_cbe, progress);

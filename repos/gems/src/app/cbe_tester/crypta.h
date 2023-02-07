@@ -58,14 +58,16 @@ class Cbe::Crypta_request
 		unsigned char _prim_buf[PRIM_BUF_SIZE];
 		unsigned char _plaintext_key[KEY_SIZE];
 
-		Crypta_request() { }
-
 	public:
+
+		Crypta_request() { }
 
 		Crypta_request(Type type)
 		:
 			_type { type }
 		{ }
+
+		Type type() const { return _type; }
 };
 
 class Cbe::Crypta_channel
@@ -160,7 +162,6 @@ class Cbe::Crypta
 
 		Crypta()
 		{
-			log(__func__, " ", __LINE__); while(1);
 			for (Channel &channel : _channels)
 				channel = Channel { };
 		}
