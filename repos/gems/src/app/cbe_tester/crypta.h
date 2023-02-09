@@ -103,7 +103,7 @@ class Cbe::Crypta_channel
 
 		friend class Crypta;
 
-		enum State { INACTIVE, IN_PROGRESS, COMPLETED };
+		enum State { INACTIVE, PENDING, IN_PROGRESS, COMPLETED };
 
 		State          _state   { INACTIVE };
 		Crypta_request _request { };
@@ -138,7 +138,7 @@ class Cbe::Crypta
 			for (Channel &channel : _channels) {
 				if (channel._state == Channel::INACTIVE) {
 					channel._request = *dynamic_cast<Request *>(&mod_request);
-					channel._state = Channel::IN_PROGRESS;
+					channel._state = Channel::PENDING;
 					log("Crypta::", __func__, ": type ", (int)channel._request._type, " key id ", channel._request._key_id);
 					return;
 				}
@@ -164,19 +164,19 @@ class Cbe::Crypta
 			for (Channel &channel : _channels) {
 				if (channel._state != Channel::INACTIVE) {
 					log(__func__, " ", __LINE__); while(1);
-/*
 					switch (channel._request._type) {
-					case:
+					case Request::REMOVE_KEY:
+					case Request::ADD_KEY:
+
+						break;
 					}
-*/
 				}
 			}
 		}
 
 		template <typename FUNC>
-		void with_generated_request(FUNC && functor) const
+		void for_each_generated_request(FUNC && functor) const
 		{
-			log(__func__, " ", __LINE__); while(1);
 		}
 
 		void generated_request_completed(unsigned long  /*dst_id*/,
