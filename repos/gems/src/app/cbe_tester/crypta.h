@@ -2,8 +2,17 @@
 #ifndef _CRYPTA_H_
 #define _CRYPTA_H_
 
+/* gems includes */
+#include <cbe/types.h>
+#include <cbe/module.h>
+
 namespace Cbe
 {
+	enum Module_id
+	{
+		CRYPTA = 0
+	};
+
 	class Crypta;
 	class Crypta_request;
 	class Crypta_channel;
@@ -12,7 +21,7 @@ namespace Cbe
 	enum { PRIM_BUF_SIZE = 128 };
 }
 
-class Cbe::Crypta_request
+class Cbe::Crypta_request : public Module_request
 {
 	public:
 
@@ -30,11 +39,11 @@ class Cbe::Crypta_request
 
 			/* from: SB Ctrl
 			   args: plaintext key */
-			ADD_KEY,
+			ADD_KEY = 1,
 
 			/* from: SB Ctrl
 			   args: key id */
-			REMOVE_KEY,
+			REMOVE_KEY = 2,
 
 			/* from: Blk IO
 			   args: req, vba, key id, cipher data index */
@@ -50,24 +59,42 @@ class Cbe::Crypta_request
 		friend class Crypta;
 		friend class Crypta_channel;
 
-		Type          _type       { INVALID };
-		unsigned long _key_id     { 0 };
-		unsigned long _data_idx   { 0 };
-		unsigned long _block_addr { 0 };
-		Request       _request    { };
-		unsigned char _prim_buf[PRIM_BUF_SIZE];
-		unsigned char _plaintext_key[KEY_SIZE];
+		Type             _type                    { INVALID };
+		Genode::uint32_t _key_id                  { 0 };
+		unsigned long    _data_idx                { 0 };
+		Genode::uint64_t _block_addr              { 0 };
+		::Cbe::Request   _request                 { };
+		Genode::uint8_t  _prim[PRIM_BUF_SIZE]     { };
+		Genode::uint8_t  _key_plaintext[KEY_SIZE] { };
 
 	public:
 
 		Crypta_request() { }
 
-		Crypta_request(Type type)
+		Type type() const { return _type; }
+
+
+		/*****************************************************
+		 ** can be removed once the cbe translation is done **
+		 *****************************************************/
+
+		Crypta_request(unsigned long dst_module_id)
 		:
-			_type { type }
+			Module_request { dst_module_id }
 		{ }
 
-		Type type() const { return _type; }
+		static void create(
+			void   *buf_ptr,
+			size_t  buf_size,
+			size_t  req_type,
+			void   *prim_ptr,
+			size_t  prim_size,
+			void   *key_id_ptr,
+			size_t  key_id_size,
+			void   *key_plaintext_ptr,
+			size_t  key_plaintext_size);
+
+		void *prim() override { return (void *)&_prim; }
 };
 
 class Cbe::Crypta_channel
@@ -99,7 +126,6 @@ class Cbe::Crypta
 
 		bool ready_to_submit_request()
 		{
-			log(__func__, " ", __LINE__); while(1);
 			for (Channel &channel : _channels) {
 				if (channel._state == Channel::INACTIVE)
 					return true;
@@ -107,17 +133,18 @@ class Cbe::Crypta
 			return false;
 		}
 
-		void submit_request(Request &request)
+		void submit_request(Module_request &mod_request)
 		{
-			log(__func__, " ", __LINE__); while(1);
 			for (Channel &channel : _channels) {
 				if (channel._state == Channel::INACTIVE) {
-					channel._request = request;
+					channel._request = *dynamic_cast<Request *>(&mod_request);
 					channel._state = Channel::IN_PROGRESS;
+					log("Crypta::", __func__, ": type ", (int)channel._request._type, " key id ", channel._request._key_id);
 					return;
 				}
 			}
-			throw -1;
+			class Invalid_call { };
+			throw Invalid_call { };
 		}
 
 		template <typename FUNC>
@@ -134,17 +161,16 @@ class Cbe::Crypta
 
 		void execute(bool &/*progress*/)
 		{
-			log(__func__, " ", __LINE__); while(1);
-/*
 			for (Channel &channel : _channels) {
-				if (channel._state != INVALID) {
+				if (channel._state != Channel::INACTIVE) {
+					log(__func__, " ", __LINE__); while(1);
+/*
 					switch (channel._request._type) {
 					case:
-			
 					}
+*/
 				}
 			}
-*/
 		}
 
 		template <typename FUNC>

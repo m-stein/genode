@@ -21,6 +21,7 @@
 
 /* CBE includes */
 #include <cbe/types.h>
+#include <cbe/module.h>
 #include <cbe/spark_object.h>
 
 
@@ -319,7 +320,35 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 		return request;
 	}
 
-	void peek_generated_request(void *req);
+	void peek_generated_request(void *buf_ptr, Genode::size_t buf_size);
+
+	void drop_generated_request(void *prim);
+
+	template <typename FUNC>
+	void for_each_generated_request(FUNC && handle_generated_request)
+	{
+		Genode::uint8_t buf[256];
+		while (true) {
+
+			memset(buf, (int)0, sizeof(buf));
+			peek_generated_request((void *)buf, sizeof(buf));
+			Module_request &req = *(Module_request *)buf;
+			if (!req.valid())
+				return;
+
+			switch (handle_generated_request(req)) {
+			case Module_request::HANDLED:
+
+				error("Library::for_each_generated_request: drop request");
+				drop_generated_request(req.prim());
+				break;
+
+			case Module_request::NOT_HANDLED:
+
+				return;
+			}
+		}
+	}
 
 	/**
 	 * Drop generated TA request

@@ -26,9 +26,9 @@
 #include <cbe/dump/configuration.h>
 #include <cbe/init/library.h>
 #include <cbe/init/configuration.h>
-#include <crypta.h>
 
 /* CBE tester includes */
+#include <crypta.h>
 #include <crypto.h>
 #include <trust_anchor.h>
 #include <verbose_node.h>
@@ -1596,17 +1596,6 @@ class Command_pool {
 		unsigned long nr_of_errors()           { return _nr_of_errors; }
 };
 
-void create_crypta_request(
-	void *req,
-	bool prim_valid,
-	void *prim_ptr,
-	size_t prim_size,
-	bool key_id_valid,
-	void *key_id_ptr,
-	size_t key_id_size)
-{
-	error(__func__, " ", req, " ", prim_valid, " ", prim_ptr, " ", prim_size, " ", key_id_valid, " ", key_id_ptr, " ", key_id_size);
-}
 
 class Main : Vfs::Env::User
 {
@@ -2012,21 +2001,19 @@ class Main : Vfs::Env::User
 
 		void _cbe_handle_generated_requests(bool &progress)
 		{
-			while (true) {
+			_cbe->for_each_generated_request([&] (Module_request &req) {
 
-				Crypta_request req { };
-				_cbe->peek_generated_request(&req);
-				if (req.type() == Crypta_request::INVALID)
-					return;
-
+				if (req.dst_module_id() != CRYPTA) {
+					class Bad_module { };
+					throw Bad_module { };
+				}
 				if (!_crypta.ready_to_submit_request())
-					return;
+					return Module_request::NOT_HANDLED;
 
 				_crypta.submit_request(req);
-
-				/* FIXME missing to drop request at cbe */
 				progress = true;
-			}
+				return Module_request::HANDLED;
+			});
 		}
 
 		void _execute_cbe(bool &progress)
@@ -2526,6 +2513,11 @@ class Main : Vfs::Env::User
 			_crypto_handle_completed_decrypt_requests(progress);
 		}
 
+		void _execute_crypta(bool &progress)
+		{
+			_crypta.execute(progress);
+		}
+
 		void _execute()
 		{
 			bool progress { true };
@@ -2543,6 +2535,7 @@ class Main : Vfs::Env::User
 				_execute_cbe_check(progress);
 				_execute_cbe_dump(progress);
 				_execute_crypto(progress);
+				_execute_crypta(progress);
 				if (_cbe.constructed()) {
 					_execute_cbe(progress);
 				}
