@@ -339,7 +339,7 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 			switch (handle_generated_request(req)) {
 			case Module::REQUEST_HANDLED:
 
-				error("Library::for_each_generated_request: drop request");
+				log("Library::for_each_generated_request: drop request");
 				drop_generated_request(req.prim());
 				break;
 

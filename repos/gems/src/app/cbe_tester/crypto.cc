@@ -116,9 +116,9 @@ Crypto::Result Crypto::remove_key(Cbe::Key::Id key_id)
 
 
 void Crypto::submit_request(Cbe::Request          const &request,
-                    Operation                    op,
-                    Crypto_plain_buffer::Index   plain_buf_idx,
-                    Crypto_cipher_buffer::Index  cipher_buf_idx)
+                            Operation                    op,
+                            Crypto_plain_buffer::Index   plain_buf_idx,
+                            Crypto_cipher_buffer::Index  cipher_buf_idx)
 {
 	switch (op) {
 	case Operation::ENCRYPT_BLOCK:
@@ -145,6 +145,7 @@ void Crypto::submit_request(Cbe::Request          const &request,
 
 		break;
 
+	case Operation::ADD_KEY:
 	case Operation::INVALID:
 
 		class Bad_operation { };
@@ -177,12 +178,24 @@ Cbe::Request Crypto::peek_completed_decryption_request() const
 
 void Crypto::drop_completed_request()
 {
-	if (_job.state != Job_state::COMPLETE) {
+	switch (_job.op) {
+	case Operation::ENCRYPT_BLOCK:
+	case Operation::DECRYPT_BLOCK:
 
-		class Bad_state { };
-		throw Bad_state { };
+		if (_job.state != Job_state::COMPLETE) {
+
+			class Bad_state { };
+			throw Bad_state { };
+		}
+		_job.op = Operation::INVALID;
+		break;
+
+	case Operation::ADD_KEY:
+	case Operation::INVALID:
+
+		class Bad_op { };
+		throw Bad_op { };
 	}
-	_job.op = Operation::INVALID;
 }
 
 
@@ -315,8 +328,8 @@ void Crypto::_execute_encrypt_block(Job                  &job,
 
 
 void Crypto::execute(Crypto_plain_buffer  &plain_buf,
-             Crypto_cipher_buffer &cipher_buf,
-             bool                 &progress)
+                     Crypto_cipher_buffer &cipher_buf,
+                     bool                 &progress)
 {
 	switch (_job.op) {
 	case Operation::ENCRYPT_BLOCK:
@@ -329,6 +342,7 @@ void Crypto::execute(Crypto_plain_buffer  &plain_buf,
 		_execute_decrypt_block(_job, plain_buf, cipher_buf, progress);
 		break;
 
+	case Operation::ADD_KEY:
 	case Operation::INVALID:
 
 		break;

@@ -392,23 +392,40 @@ namespace Cbe {
 		bool extending_vbd;
 		bool extending_ft;
 	} __attribute__((packed));
+}
+
+namespace Cbe {
 
 	class Crypto_request : public Module_request
 	{
+		public:
+
+			enum Type { INVALID, ADD_KEY };
+
 		private:
 
-			::Cbe::Request _request;
-			Key            _key;
+			Type           _type    { INVALID };
+			::Cbe::Request _request { };
+			Key            _key     { };
 
 		public:
 
-			Crypto_request(Request const &request,
+			Crypto_request() { }
+
+			Crypto_request(Type           type,
+			               Request const &request,
 			               Key     const &key)
 			:
 				Module_request { CRYPTO },
+				_type          { type },
 				_request       { request },
 				_key           { key }
 			{ }
+
+			Type type() const { return _type; }
+			Key const &key() const { return _key; }
+			void success(bool v) { _request.success(v); }
+			unsigned long src_channel_id() const { return _request.tag(); }
 	};
 }
 

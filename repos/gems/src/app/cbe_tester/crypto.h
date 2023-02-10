@@ -20,7 +20,7 @@
 /* CBE tester includes */
 #include <vfs_utilities.h>
 
-class Crypto
+class Crypto : public Cbe::Module
 {
 	public:
 
@@ -28,7 +28,8 @@ class Crypto
 		{
 			INVALID,
 			DECRYPT_BLOCK,
-			ENCRYPT_BLOCK
+			ENCRYPT_BLOCK,
+			ADD_KEY
 		};
 
 		enum class Result
@@ -66,6 +67,7 @@ class Crypto
 			Operation                         op             { Operation::INVALID };
 			Cbe::Crypto_cipher_buffer::Index  cipher_buf_idx { 0 };
 			Cbe::Crypto_plain_buffer::Index   plain_buf_idx  { 0 };
+			Cbe::Crypto_request               crypto_request { };
 		};
 
 		Vfs::Env                 &_env;
@@ -88,6 +90,23 @@ class Crypto
 		                            Cbe::Crypto_plain_buffer  &plain_buf,
 		                            Cbe::Crypto_cipher_buffer &cipher_buf,
 		                            bool                      &progress);
+
+
+		/************
+		 ** Module **
+		 ************/
+
+		bool _peek_generated_request(Genode::uint8_t *,
+		                             Genode::size_t   ) override
+		{
+			return false;
+		}
+
+		void _drop_generated_request(Cbe::Module_request &) override
+		{
+			class Bad_call { };
+			throw Bad_call { };
+		}
 
 	public:
 
@@ -113,6 +132,72 @@ class Crypto
 		void execute(Cbe::Crypto_plain_buffer  &plain_buf,
 		             Cbe::Crypto_cipher_buffer &cipher_buf,
 		             bool                      &progress);
+
+
+		/************
+		 ** Module **
+		 ************/
+
+		void execute(bool &progress) override
+		{
+			switch (_job.op) {
+			case Operation::ADD_KEY:
+
+				if (_job.state == Job_state::SUBMITTED) {
+					switch (add_key(_job.crypto_request.key())) {
+					case Crypto::Result::SUCCEEDED:
+
+						_job.crypto_request.success(true);
+						_job.state = Job_state::COMPLETE;
+						progress = true;
+						class Xeah { };
+						throw Xeah { };
+						break;
+
+					case Crypto::Result::FAILED:
+
+						class Add_key_failed_0 { };
+						throw Add_key_failed_0 { };
+
+					case Crypto::Result::RETRY_LATER:
+
+						class Add_key_failed_1 { };
+						throw Add_key_failed_1 { };
+					}
+				}
+
+			case Operation::INVALID:
+			case Operation::ENCRYPT_BLOCK:
+			case Operation::DECRYPT_BLOCK:
+
+				break;
+			}
+		}
+
+		bool ready_to_submit_request() override
+		{
+			return _job.op == Operation::INVALID;
+		}
+
+		void submit_request(Cbe::Module_request &mod_request) override
+		{
+			Cbe::Crypto_request &crypto_req {
+				*dynamic_cast<Cbe::Crypto_request *>(&mod_request) };
+
+			switch (crypto_req.type()) {
+			case Cbe::Crypto_request::ADD_KEY:
+
+				_job.state          = Job_state::SUBMITTED;
+				_job.op             = Operation::ADD_KEY;
+				_job.crypto_request = crypto_req;
+				break;
+
+			default:
+
+				class Bad_type { };
+				throw Bad_type { };
+			}
+		}
 };
 
 #endif /* _CBE_TESTER__CRYPTO_H_ */

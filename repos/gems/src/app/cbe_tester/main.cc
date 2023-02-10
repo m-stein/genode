@@ -1601,7 +1601,7 @@ class Main : Vfs::Env::User
 {
 	private:
 
-		enum { NR_OF_MODULES = 1 };
+		enum { NR_OF_MODULES = 2 };
 
 		Genode::Env                 &_env;
 		Attached_rom_dataspace       _config_rom                 { _env, "config" };
@@ -1623,7 +1623,9 @@ class Main : Vfs::Env::User
 		Crypto                       _crypto                     { _vfs_env,
 		                                                           _config_rom.xml().sub_node("crypto") };
 		Crypta                       _crypta                     { };
-		Module                      *_module_ptrs[NR_OF_MODULES] { &_crypta };
+
+		Module *_module_ptrs[NR_OF_MODULES] {
+			&_crypta, &_crypto };
 
 		/*
 		 * Noncopyable
@@ -2002,7 +2004,7 @@ class Main : Vfs::Env::User
 
 		void _cbe_handle_crypto_requests(bool &progress)
 		{
-			_cbe_handle_crypto_add_key_requests(progress);
+			//_cbe_handle_crypto_add_key_requests(progress);
 			_cbe_handle_crypto_remove_key_requests(progress);
 			_cbe_handle_crypto_encrypt_requests(progress);
 			_cbe_handle_crypto_decrypt_requests(progress);

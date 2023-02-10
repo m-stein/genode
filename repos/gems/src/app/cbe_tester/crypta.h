@@ -137,7 +137,7 @@ class Cbe::Crypta : public Module
 						Genode::memcpy(key.value, channel._request._key_plaintext, sizeof(key.value));
 						key.id.value = channel._request._key_id;
 						Cbe::Request cbe_req { Cbe::Request::Operation::READ, false, 0, 0, 1, 0, idx };
-						Crypto_request req { cbe_req, key };
+						Crypto_request req { Crypto_request::ADD_KEY, cbe_req, key };
 
 						if (sizeof(req) > buf_size) {
 							class Bad_size_2 { };
@@ -155,23 +155,31 @@ class Cbe::Crypta : public Module
 			return false;
 		}
 
-		void _drop_generated_request(Module_request &) override
+		void _drop_generated_request(Module_request &mod_req) override
 		{
-			for (Channel const &channel : _channels) {
-				if (channel._state == Channel::PENDING) {
+			unsigned long id { 0 };
+			switch (mod_req.dst_module_id()) {
+			case CRYPTO:
 
-					switch (channel._request._type) {
-					case Request::ADD_KEY:
-					{
-						class Drop { };
-						throw Drop { };
-					}
-					default:
-						class Bad_type { };
-						throw Bad_type { };
-					}
-				}
+				 id = dynamic_cast<Crypto_request *>(&mod_req)->src_channel_id();
+				break;
+
+			case CRYPTA:
+
+				class Bad_module { };
+				throw Bad_module { };
 			}
+			if (id >= NR_OF_CHANNELS) {
+
+				class Bad_id { };
+				throw Bad_id { };
+			}
+			if (_channels[id]._state != Channel::PENDING) {
+
+				class Bad_state { };
+				throw Bad_state { };
+			}
+			_channels[id]._state = Channel::IN_PROGRESS;
 		}
 
 	public:
