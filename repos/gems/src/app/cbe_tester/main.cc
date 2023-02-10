@@ -1621,6 +1621,13 @@ class Main : Vfs::Env::User
 		Crypto                       _crypto               { _vfs_env,
 		                                                     _config_rom.xml().sub_node("crypto") };
 		Crypta                       _crypta               { };
+		Module                      *_module_ptrs[1]       { &_crypta };
+
+		/*
+		 * Noncopyable
+		 */
+		Main(Main const &) = delete;
+		Main &operator = (Main const &) = delete;
 
 		Block_io &_init_blk_io(Xml_node            const &config,
 		                       Heap                      &heap,
@@ -2003,7 +2010,7 @@ class Main : Vfs::Env::User
 		{
 			_cbe->for_each_generated_request([&] (Module_request &req) {
 
-				if (req.dst_module_id() != CRYPTA) {
+				if (req.dst_module_id() != (unsigned long)CRYPTA) {
 					class Bad_module { };
 					throw Bad_module { };
 				}
@@ -2513,9 +2520,24 @@ class Main : Vfs::Env::User
 			_crypto_handle_completed_decrypt_requests(progress);
 		}
 
-		void _execute_crypta(bool &progress)
+		void _execute_modules(bool &progress)
 		{
-			_crypta.execute(progress);
+			for (Module *module : _module_ptrs) {
+
+				module->execute(progress);
+/*
+				_module.for_each_generated_request([&] (Module_request &req) {
+
+					Module &dst_module { _modules[req.dst_module_id()] };
+					if (!dst_module.ready_to_submit_request())
+						return Module_request::NOT_HANDLED;
+
+					dst_module.submit_request(req);
+					progress = true;
+					return Module_request::HANDLED;
+				});
+*/
+			}
 		}
 
 		void _execute()
@@ -2535,7 +2557,7 @@ class Main : Vfs::Env::User
 				_execute_cbe_check(progress);
 				_execute_cbe_dump(progress);
 				_execute_crypto(progress);
-				_execute_crypta(progress);
+				_execute_modules(progress);
 				if (_cbe.constructed()) {
 					_execute_cbe(progress);
 				}

@@ -8,11 +8,6 @@
 
 namespace Cbe
 {
-	enum Module_id
-	{
-		CRYPTA = 0
-	};
-
 	class Crypta;
 	class Crypta_request;
 	class Crypta_channel;
@@ -113,14 +108,16 @@ class Cbe::Crypta_channel
 		Crypta_request const &request() const { return _request; }
 };
 
-class Cbe::Crypta
+class Cbe::Crypta : public Module
 {
 	private:
 
 		using Request = Crypta_request;
 		using Channel = Crypta_channel;
 
-		Channel _channels[4];
+		enum { NR_OF_CHANNELS = 4 };
+
+		Channel _channels[NR_OF_CHANNELS];
 
 	public:
 
@@ -159,16 +156,19 @@ class Cbe::Crypta
 			}
 		}
 
-		void execute(bool &/*progress*/)
+		void execute(bool &/*progress*/) override
 		{
 			for (Channel &channel : _channels) {
 				if (channel._state != Channel::INACTIVE) {
-					log(__func__, " ", __LINE__); while(1);
 					switch (channel._request._type) {
 					case Request::REMOVE_KEY:
 					case Request::ADD_KEY:
-
+						class Yeah { };
+						throw Yeah { };
 						break;
+					default:
+						class Bad_request_type { };
+						throw Bad_request_type { };
 					}
 				}
 			}
@@ -177,6 +177,15 @@ class Cbe::Crypta
 		template <typename FUNC>
 		void for_each_generated_request(FUNC && functor) const
 		{
+/*
+			for (unsigned long idx { 0 }; idx < NR_OF_CHANNELS; idx++) {
+				Channel &channel { _channels[idx] };
+				if (channel._state == PENDING) {
+					Request req {
+						Request::READ, false, 0, 0, 1, 0, idx };
+				}
+			}
+*/
 		}
 
 		void generated_request_completed(unsigned long  /*dst_id*/,

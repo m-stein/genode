@@ -41,6 +41,15 @@ namespace Cbe {
 
 			virtual ~Module_request() { }
 	};
+
+	class Module
+	{
+		public:
+
+			virtual void execute(bool &progress) = 0;
+
+			virtual ~Module() { }
+	};
 }
 
 #endif /* _MODULE_H_ */
