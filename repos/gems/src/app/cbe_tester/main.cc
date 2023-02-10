@@ -1601,27 +1601,29 @@ class Main : Vfs::Env::User
 {
 	private:
 
+		enum { NR_OF_MODULES = 1 };
+
 		Genode::Env                 &_env;
-		Attached_rom_dataspace       _config_rom           { _env, "config" };
-		Verbose_node                 _verbose_node         { _config_rom.xml() };
-		Heap                         _heap                 { _env.ram(), _env.rm() };
-		Vfs::Simple_env              _vfs_env              { _env, _heap, _config_rom.xml().sub_node("vfs"), *this };
-		Signal_handler<Main>         _sigh                 { _env.ep(), *this, &Main::_execute };
-		Block_io                    &_blk_io               { _init_blk_io(_config_rom.xml(), _heap, _env, _vfs_env, _sigh) };
-		Io_buffer                    _blk_buf              { };
-		Command_pool                 _cmd_pool             { _heap, _config_rom.xml(), _verbose_node };
-		Constructible<Cbe::Library>  _cbe                  { };
-		Cbe_check::Library           _cbe_check            { };
-		Cbe_dump::Library            _cbe_dump             { };
-		Cbe_init::Library            _cbe_init             { };
-		Benchmark                    _benchmark            { _env };
-		Trust_anchor                 _trust_anchor         { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
-		Crypto_plain_buffer          _crypto_plain_buf     { };
-		Crypto_cipher_buffer         _crypto_cipher_buf    { };
-		Crypto                       _crypto               { _vfs_env,
-		                                                     _config_rom.xml().sub_node("crypto") };
-		Crypta                       _crypta               { };
-		Module                      *_module_ptrs[1]       { &_crypta };
+		Attached_rom_dataspace       _config_rom                 { _env, "config" };
+		Verbose_node                 _verbose_node               { _config_rom.xml() };
+		Heap                         _heap                       { _env.ram(), _env.rm() };
+		Vfs::Simple_env              _vfs_env                    { _env, _heap, _config_rom.xml().sub_node("vfs"), *this };
+		Signal_handler<Main>         _sigh                       { _env.ep(), *this, &Main::_execute };
+		Block_io                    &_blk_io                     { _init_blk_io(_config_rom.xml(), _heap, _env, _vfs_env, _sigh) };
+		Io_buffer                    _blk_buf                    { };
+		Command_pool                 _cmd_pool                   { _heap, _config_rom.xml(), _verbose_node };
+		Constructible<Cbe::Library>  _cbe                        { };
+		Cbe_check::Library           _cbe_check                  { };
+		Cbe_dump::Library            _cbe_dump                   { };
+		Cbe_init::Library            _cbe_init                   { };
+		Benchmark                    _benchmark                  { _env };
+		Trust_anchor                 _trust_anchor               { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
+		Crypto_plain_buffer          _crypto_plain_buf           { };
+		Crypto_cipher_buffer         _crypto_cipher_buf          { };
+		Crypto                       _crypto                     { _vfs_env,
+		                                                           _config_rom.xml().sub_node("crypto") };
+		Crypta                       _crypta                     { };
+		Module                      *_module_ptrs[NR_OF_MODULES] { &_crypta };
 
 		/*
 		 * Noncopyable
@@ -2015,11 +2017,11 @@ class Main : Vfs::Env::User
 					throw Bad_module { };
 				}
 				if (!_crypta.ready_to_submit_request())
-					return Module_request::NOT_HANDLED;
+					return Module::REQUEST_NOT_HANDLED;
 
 				_crypta.submit_request(req);
 				progress = true;
-				return Module_request::HANDLED;
+				return Module::REQUEST_HANDLED;
 			});
 		}
 
@@ -2520,23 +2522,24 @@ class Main : Vfs::Env::User
 			_crypto_handle_completed_decrypt_requests(progress);
 		}
 
-		void _execute_modules(bool &progress)
+		void _modules_execute(bool &progress)
 		{
-			for (Module *module : _module_ptrs) {
+			for (Module *module_ptr : _module_ptrs) {
 
-				module->execute(progress);
-/*
-				_module.for_each_generated_request([&] (Module_request &req) {
-
-					Module &dst_module { _modules[req.dst_module_id()] };
+				module_ptr->execute(progress);
+				module_ptr->for_each_generated_request([&] (Module_request &req) {
+					if (req.dst_module_id() > NR_OF_MODULES - 1) {
+						class Bad_dst_module { };
+						throw Bad_dst_module { };
+					}
+					Module &dst_module { *_module_ptrs[req.dst_module_id()] };
 					if (!dst_module.ready_to_submit_request())
-						return Module_request::NOT_HANDLED;
+						return Module::REQUEST_NOT_HANDLED;
 
 					dst_module.submit_request(req);
 					progress = true;
-					return Module_request::HANDLED;
+					return Module::REQUEST_HANDLED;
 				});
-*/
 			}
 		}
 
@@ -2557,7 +2560,7 @@ class Main : Vfs::Env::User
 				_execute_cbe_check(progress);
 				_execute_cbe_dump(progress);
 				_execute_crypto(progress);
-				_execute_modules(progress);
+				_modules_execute(progress);
 				if (_cbe.constructed()) {
 					_execute_cbe(progress);
 				}

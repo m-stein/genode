@@ -119,9 +119,64 @@ class Cbe::Crypta : public Module
 
 		Channel _channels[NR_OF_CHANNELS];
 
+		bool _peek_generated_request(Genode::uint8_t *buf_ptr,
+		                             Genode::size_t   buf_size) override
+		{
+			for (Genode::uint32_t idx { 0 }; idx < NR_OF_CHANNELS; idx++) {
+				Channel &channel { _channels[idx] };
+				if (channel._state == Channel::PENDING) {
+
+					switch (channel._request._type) {
+					case Request::ADD_KEY:
+					{
+						Key key;
+						if (sizeof(key.value) != sizeof(channel._request._key_plaintext)) {
+							class Bad_size_1 { };
+							throw Bad_size_1 { };
+						}
+						Genode::memcpy(key.value, channel._request._key_plaintext, sizeof(key.value));
+						key.id.value = channel._request._key_id;
+						Cbe::Request cbe_req { Cbe::Request::Operation::READ, false, 0, 0, 1, 0, idx };
+						Crypto_request req { cbe_req, key };
+
+						if (sizeof(req) > buf_size) {
+							class Bad_size_2 { };
+							throw Bad_size_2 { };
+						}
+						Genode::memcpy(buf_ptr, &req, sizeof(req));;
+						return true;
+					}
+					default:
+						class Bad_type { };
+						throw Bad_type { };
+					}
+				}
+			}
+			return false;
+		}
+
+		void _drop_generated_request(Module_request &) override
+		{
+			for (Channel const &channel : _channels) {
+				if (channel._state == Channel::PENDING) {
+
+					switch (channel._request._type) {
+					case Request::ADD_KEY:
+					{
+						class Drop { };
+						throw Drop { };
+					}
+					default:
+						class Bad_type { };
+						throw Bad_type { };
+					}
+				}
+			}
+		}
+
 	public:
 
-		bool ready_to_submit_request()
+		bool ready_to_submit_request() override
 		{
 			for (Channel &channel : _channels) {
 				if (channel._state == Channel::INACTIVE)
@@ -130,7 +185,7 @@ class Cbe::Crypta : public Module
 			return false;
 		}
 
-		void submit_request(Module_request &mod_request)
+		void submit_request(Module_request &mod_request) override
 		{
 			for (Channel &channel : _channels) {
 				if (channel._state == Channel::INACTIVE) {
@@ -163,8 +218,6 @@ class Cbe::Crypta : public Module
 					switch (channel._request._type) {
 					case Request::REMOVE_KEY:
 					case Request::ADD_KEY:
-						class Yeah { };
-						throw Yeah { };
 						break;
 					default:
 						class Bad_request_type { };
@@ -174,10 +227,16 @@ class Cbe::Crypta : public Module
 			}
 		}
 
-		template <typename FUNC>
-		void for_each_generated_request(FUNC && functor) const
-		{
 /*
+		void for_each_generated_request(
+			Handle_request_result (*handle_request) (Module_request &req)) override
+		{
+			error("Hallo ", handle_request);
+		}
+
+		template <typename FUNC>
+		void for_each_generated_request(FUNC && functor) const override
+		{
 			for (unsigned long idx { 0 }; idx < NR_OF_CHANNELS; idx++) {
 				Channel &channel { _channels[idx] };
 				if (channel._state == PENDING) {
@@ -185,8 +244,8 @@ class Cbe::Crypta : public Module
 						Request::READ, false, 0, 0, 1, 0, idx };
 				}
 			}
-*/
 		}
+*/
 
 		void generated_request_completed(unsigned long  /*dst_id*/,
 		                                 void          * /*req_ptr*/)

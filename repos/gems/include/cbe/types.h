@@ -146,69 +146,6 @@ namespace Cbe {
 
 	} __attribute__((packed));
 
-//	class Crypto_request : public Module_request
-//	{
-//		public:
-//
-//			enum Type
-//			{
-//				INVALID,
-//
-//				/* from: VBD Rekeying
-//				   args: key id, cipher data idx */
-//				DECRYPT,
-//
-//				/* from: VBD Rekeying
-//				   args: key id, plaintext data idx */
-//				ENCRYPT,
-//
-//				/* from: SB Ctrl
-//				   args: plaintext key */
-//				ADD_KEY = 1,
-//
-//				/* from: SB Ctrl
-//				   args: key id */
-//				REMOVE_KEY = 2,
-//
-//				/* from: Blk IO
-//				   args: req, vba, key id, cipher data index */
-//				DECRYPT_AND_SUPPLY_CLIENT_DATA,
-//
-//				/* from: Blk IO
-//				   args: req, vba, key id, plaintext data index */
-//				OBTAIN_AND_ENCRYPT_CLIENT_DATA,
-//			};
-//
-//		private:
-//
-//			friend class Crypta;
-//			friend class Crypta_channel;
-//
-//			Type             _type                    { INVALID };
-//			Genode::uint32_t _key_id                  { 0 };
-//			unsigned long    _data_idx                { 0 };
-//			Genode::uint64_t _block_addr              { 0 };
-//			::Cbe::Request   _request                 { };
-//			Genode::uint8_t  _prim[PRIM_BUF_SIZE]     { };
-//			Genode::uint8_t  _key_plaintext[KEY_SIZE] { };
-//
-//		public:
-//
-//			Crypto_request() { }
-//
-//			Type type() const { return _type; }
-//
-//
-//			/*****************************************************
-//			 ** can be removed once the cbe translation is done **
-//			 *****************************************************/
-//
-//			Crypto_request(unsigned long dst_module_id)
-//			:
-//				Module_request { dst_module_id }
-//			{ }
-//	};
-
 	class Trust_anchor_request
 	{
 		public:
@@ -455,6 +392,24 @@ namespace Cbe {
 		bool extending_vbd;
 		bool extending_ft;
 	} __attribute__((packed));
+
+	class Crypto_request : public Module_request
+	{
+		private:
+
+			::Cbe::Request _request;
+			Key            _key;
+
+		public:
+
+			Crypto_request(Request const &request,
+			               Key     const &key)
+			:
+				Module_request { CRYPTO },
+				_request       { request },
+				_key           { key }
+			{ }
+	};
 }
 
 
