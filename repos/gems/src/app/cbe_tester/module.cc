@@ -1,8 +1,14 @@
 
 #include <cbe/module.h>
+#include <cbe/types.h>
 
-Cbe::Module_request::Module_request(unsigned long dst_module_id)
+using namespace Genode;
+
+Cbe::Module_request::Module_request(unsigned long src_module_id,
+                                    unsigned long dst_module_id)
 :
-	_valid         { true },
+	_src_module_id { src_module_id },
 	_dst_module_id { dst_module_id }
-{ }
+{
+	log(__func__, " src ", _src_module_id, " dst ", _dst_module_id);
+}

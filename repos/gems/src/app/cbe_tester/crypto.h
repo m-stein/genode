@@ -96,6 +96,44 @@ class Crypto : public Cbe::Module
 		 ** Module **
 		 ************/
 
+		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
+		                             Genode::size_t   buf_size) override
+		{
+			switch (_job.op) {
+			case Operation::ADD_KEY:
+
+				if (_job.state == Job_state::COMPLETE) {
+
+					if (sizeof(_job.crypto_request) > buf_size) {
+						class Bad_size_2 { };
+						throw Bad_size_2 { };
+					}
+					Genode::memcpy(buf_ptr, &_job.crypto_request, sizeof(_job.crypto_request));;
+					return true;
+				}
+
+			case Operation::INVALID:
+			case Operation::ENCRYPT_BLOCK:
+			case Operation::DECRYPT_BLOCK:
+
+				break;
+			}
+			return false;
+		}
+
+		void _drop_completed_request(Cbe::Module_request &/*mod_req*/) override
+		{
+			if (_job.op != Operation::ADD_KEY) {
+				class Bad_call_1 { };
+				throw Bad_call_1 { };
+			}
+			if (_job.state != Job_state::COMPLETE) {
+				class Bad_call_2 { };
+				throw Bad_call_2 { };
+			}
+			_job.op = Operation::INVALID;
+		}
+
 		bool _peek_generated_request(Genode::uint8_t *,
 		                             Genode::size_t   ) override
 		{
@@ -150,8 +188,6 @@ class Crypto : public Cbe::Module
 						_job.crypto_request.success(true);
 						_job.state = Job_state::COMPLETE;
 						progress = true;
-						class Xeah { };
-						throw Xeah { };
 						break;
 
 					case Crypto::Result::FAILED:
@@ -197,6 +233,12 @@ class Crypto : public Cbe::Module
 				class Bad_type { };
 				throw Bad_type { };
 			}
+		}
+
+		void generated_request_complete(Cbe::Module_request &) override
+		{
+			class Bad_call { };
+			throw Bad_call { };
 		}
 };
 

@@ -73,9 +73,9 @@ class Cbe::Crypta_request : public Module_request
 		 ** can be removed once the cbe translation is done **
 		 *****************************************************/
 
-		Crypta_request(unsigned long dst_module_id)
+		Crypta_request(unsigned long src_module_id)
 		:
-			Module_request { dst_module_id }
+			Module_request { src_module_id, CRYPTA }
 		{ }
 
 		static void create(
@@ -98,7 +98,7 @@ class Cbe::Crypta_channel
 
 		friend class Crypta;
 
-		enum State { INACTIVE, PENDING, IN_PROGRESS, COMPLETED };
+		enum State { INACTIVE, PENDING, IN_PROGRESS, COMPLETE };
 
 		State          _state   { INACTIVE };
 		Crypta_request _request { };
@@ -119,6 +119,34 @@ class Cbe::Crypta : public Module
 
 		Channel _channels[NR_OF_CHANNELS];
 
+
+		/************
+		 ** Module **
+		 ************/
+
+		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
+		                             Genode::size_t   buf_size) override
+		{
+			for (Channel &channel : _channels) {
+				if (channel._state == Channel::COMPLETE) {
+					if (sizeof(channel._request) > buf_size) {
+						class Bad_size_2 { };
+						throw Bad_size_2 { };
+					}
+					Genode::memcpy(buf_ptr, &channel._request, sizeof(channel._request));;
+					log("Crypta::", __func__, ": type ", (int)channel._request._type, " key id ", channel._request._key_id);
+					return true;
+				}
+			}
+			return false;
+		}
+
+		void _drop_completed_request(Module_request &) override
+		{
+			class Bad_call { };
+			throw Bad_call { };
+		}
+
 		bool _peek_generated_request(Genode::uint8_t *buf_ptr,
 		                             Genode::size_t   buf_size) override
 		{
@@ -137,7 +165,7 @@ class Cbe::Crypta : public Module
 						Genode::memcpy(key.value, channel._request._key_plaintext, sizeof(key.value));
 						key.id.value = channel._request._key_id;
 						Cbe::Request cbe_req { Cbe::Request::Operation::READ, false, 0, 0, 1, 0, idx };
-						Crypto_request req { Crypto_request::ADD_KEY, cbe_req, key };
+						Crypto_request req { CRYPTA, Crypto_request::ADD_KEY, cbe_req, key };
 
 						if (sizeof(req) > buf_size) {
 							class Bad_size_2 { };
@@ -161,7 +189,7 @@ class Cbe::Crypta : public Module
 			switch (mod_req.dst_module_id()) {
 			case CRYPTO:
 
-				 id = dynamic_cast<Crypto_request *>(&mod_req)->src_channel_id();
+				id = dynamic_cast<Crypto_request *>(&mod_req)->src_channel_id();
 				break;
 
 			case CRYPTA:
@@ -207,17 +235,10 @@ class Cbe::Crypta : public Module
 			throw Invalid_call { };
 		}
 
-		template <typename FUNC>
-		void with_completed_request(FUNC && functor) const
-		{
-			log(__func__, " ", __LINE__); while(1);
-			for (Channel &channel : _channels) {
-				if (channel._state == Channel::COMPLETED) {
-					functor(channel._request);
-					return;
-				}
-			}
-		}
+
+		/************
+		 ** Module **
+		 ************/
 
 		void execute(bool &/*progress*/) override
 		{
@@ -235,31 +256,31 @@ class Cbe::Crypta : public Module
 			}
 		}
 
-/*
-		void for_each_generated_request(
-			Handle_request_result (*handle_request) (Module_request &req)) override
+		void generated_request_complete(Module_request &mod_req) override
 		{
-			error("Hallo ", handle_request);
-		}
+			unsigned long id { 0 };
+			switch (mod_req.dst_module_id()) {
+			case CRYPTO:
 
-		template <typename FUNC>
-		void for_each_generated_request(FUNC && functor) const override
-		{
-			for (unsigned long idx { 0 }; idx < NR_OF_CHANNELS; idx++) {
-				Channel &channel { _channels[idx] };
-				if (channel._state == PENDING) {
-					Request req {
-						Request::READ, false, 0, 0, 1, 0, idx };
-				}
+				 id = dynamic_cast<Crypto_request *>(&mod_req)->src_channel_id();
+				break;
+
+			case CRYPTA:
+
+				class Bad_module { };
+				throw Bad_module { };
 			}
-		}
-*/
+			if (id >= NR_OF_CHANNELS) {
 
-		void generated_request_completed(unsigned long  /*dst_id*/,
-		                                 void          * /*req_ptr*/)
-		{
-			log(__func__, " ", __LINE__); while(1);
-			throw -1;
+				class Bad_id { };
+				throw Bad_id { };
+			}
+			if (_channels[id]._state != Channel::IN_PROGRESS) {
+
+				class Bad_state { };
+				throw Bad_state { };
+			}
+			_channels[id]._state = Channel::COMPLETE;
 		}
 
 		Crypta()

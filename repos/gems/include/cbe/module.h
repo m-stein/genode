@@ -10,16 +10,17 @@ namespace Cbe {
 	{
 		private:
 
-			bool          _valid         { false };
-			unsigned long _dst_module_id { 0 };
+			unsigned long _src_module_id  { 0 };
+			unsigned long _dst_module_id  { 0 };
 
 		public:
 
 			Module_request() { }
 
-			Module_request(unsigned long dst_module_id);
+			Module_request(unsigned long src_module_id,
+			               unsigned long dst_module_id);
 
-			bool valid() const { return _valid; }
+			unsigned long src_module_id() const { return _src_module_id; }
 
 			unsigned long dst_module_id() const { return _dst_module_id; }
 
@@ -42,6 +43,11 @@ namespace Cbe {
 	{
 		private:
 
+			virtual bool _peek_completed_request(Genode::uint8_t *buf_ptr,
+			                                     Genode::size_t   buf_size) = 0;
+
+			virtual void _drop_completed_request(Module_request &req) = 0;
+
 			virtual bool _peek_generated_request(Genode::uint8_t *buf_ptr,
 			                                     Genode::size_t   buf_size) = 0;
 
@@ -62,16 +68,15 @@ namespace Cbe {
 			template <typename FUNC>
 			void for_each_generated_request(FUNC && handle_request)
 			{
-				Genode::uint8_t buf[256];
+				Genode::uint8_t buf[300];
 				while (_peek_generated_request(buf, sizeof(buf))) {
 
 					Module_request &req = *(Module_request *)buf;
-					if (!req.valid())
-						return;
-
+					Genode::log("Module::for_each_generated_request: from module ", req.src_module_id(), " to ", req.dst_module_id(), " handle");
 					switch (handle_request(req)) {
 					case Module::REQUEST_HANDLED:
 
+						Genode::log("Module::for_each_generated_request: from module ", req.src_module_id(), " to ", req.dst_module_id(), " drop");
 						_drop_generated_request(req);
 						break;
 
@@ -79,6 +84,22 @@ namespace Cbe {
 
 						return;
 					}
+				}
+			}
+
+			virtual void generated_request_complete(Module_request &req) = 0;
+
+			template <typename FUNC>
+			void for_each_completed_request(FUNC && handle_request)
+			{
+				Genode::uint8_t buf[300];
+				while (_peek_completed_request(buf, sizeof(buf))) {
+
+					Module_request &req = *(Module_request *)buf;
+					Genode::log("Module::for_each_completed_request: from module ", req.src_module_id(), " to ", req.dst_module_id(), " handle");
+					handle_request(req);
+					Genode::log("Module::for_each_completed_request: from module ", req.src_module_id(), " to ", req.dst_module_id(), " drop");
+					_drop_completed_request(req);
 				}
 			}
 

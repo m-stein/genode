@@ -26,10 +26,11 @@
 
 namespace Cbe {
 
-	enum Module_id
+	enum Module_id : unsigned long
 	{
-		CRYPTA = 0,
-		CRYPTO = 1,
+		CRYPTA      = 0,
+		CRYPTO      = 1,
+		CBE_LIBRARA = 2,
 	};
 
 	enum { INVALID_GENERATION = 0 };
@@ -412,11 +413,12 @@ namespace Cbe {
 
 			Crypto_request() { }
 
-			Crypto_request(Type           type,
+			Crypto_request(unsigned long  src_module_id,
+			               Type           type,
 			               Request const &request,
 			               Key     const &key)
 			:
-				Module_request { CRYPTO },
+				Module_request { src_module_id, CRYPTO },
 				_type          { type },
 				_request       { request },
 				_key           { key }

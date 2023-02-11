@@ -28,6 +28,7 @@
 #include <cbe/init/configuration.h>
 
 /* CBE tester includes */
+#include <cbe_librara.h>
 #include <crypta.h>
 #include <crypto.h>
 #include <trust_anchor.h>
@@ -1601,7 +1602,7 @@ class Main : Vfs::Env::User
 {
 	private:
 
-		enum { NR_OF_MODULES = 2 };
+		enum { NR_OF_MODULES = 3 };
 
 		Genode::Env                 &_env;
 		Attached_rom_dataspace       _config_rom                 { _env, "config" };
@@ -1623,9 +1624,9 @@ class Main : Vfs::Env::User
 		Crypto                       _crypto                     { _vfs_env,
 		                                                           _config_rom.xml().sub_node("crypto") };
 		Crypta                       _crypta                     { };
+		Cbe::Librara                 _cbe_librara                { _cbe };
 
-		Module *_module_ptrs[NR_OF_MODULES] {
-			&_crypta, &_crypto };
+		Module *_module_ptrs[NR_OF_MODULES] { };
 
 		/*
 		 * Noncopyable
@@ -2010,31 +2011,12 @@ class Main : Vfs::Env::User
 			_cbe_handle_crypto_decrypt_requests(progress);
 		}
 
-		void _cbe_handle_generated_requests(bool &progress)
-		{
-			_cbe->for_each_generated_request([&] (Module_request &req) {
-
-				if (req.dst_module_id() != (unsigned long)CRYPTA) {
-					class Bad_module { };
-					throw Bad_module { };
-				}
-				if (!_crypta.ready_to_submit_request())
-					return Module::REQUEST_NOT_HANDLED;
-
-				_crypta.submit_request(req);
-				progress = true;
-				return Module::REQUEST_HANDLED;
-			});
-		}
-
 		void _execute_cbe(bool &progress)
 		{
 			_cbe->execute(_blk_buf, _crypto_plain_buf, _crypto_cipher_buf);
 			if (_cbe->execute_progress()) {
 				progress = true;
 			}
-			_cbe_handle_generated_requests(progress);
-
 			_handle_pending_blk_io_requests_of_module(
 				*_cbe, Module_type::CBE, progress);
 
@@ -2530,7 +2512,7 @@ class Main : Vfs::Env::User
 
 				module_ptr->execute(progress);
 				module_ptr->for_each_generated_request([&] (Module_request &req) {
-					if (req.dst_module_id() > NR_OF_MODULES - 1) {
+					if (req.dst_module_id() >= NR_OF_MODULES) {
 						class Bad_dst_module { };
 						throw Bad_dst_module { };
 					}
@@ -2541,6 +2523,15 @@ class Main : Vfs::Env::User
 					dst_module.submit_request(req);
 					progress = true;
 					return Module::REQUEST_HANDLED;
+				});
+				module_ptr->for_each_completed_request([&] (Module_request &req) {
+					if (req.src_module_id() >= NR_OF_MODULES) {
+						class Bad_src_module { };
+						throw Bad_src_module { };
+					}
+					Module &src_module { *_module_ptrs[req.src_module_id()] };
+					src_module.generated_request_complete(req);
+					progress = true;
 				});
 			}
 		}
@@ -2576,6 +2567,9 @@ class Main : Vfs::Env::User
 		:
 			_env { env }
 		{
+			_module_ptrs[CRYPTA]      = &_crypta;
+			_module_ptrs[CRYPTO]      = &_crypto;
+			_module_ptrs[CBE_LIBRARA] = &_cbe_librara;
 			_execute();
 		}
 };
