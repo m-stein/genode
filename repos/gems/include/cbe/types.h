@@ -411,6 +411,16 @@ namespace Cbe {
 
 		public:
 
+			char const *type_name() override
+			{
+				switch (_type) {
+				case INVALID: return "invalid";
+				case ADD_KEY: return "add_key";
+				default: break;
+				}
+				return "?";
+			}
+
 			Crypto_request() { }
 
 			Crypto_request(unsigned long  src_module_id,

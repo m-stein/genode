@@ -38,6 +38,20 @@ using namespace Genode;
 using namespace Cbe;
 using namespace Vfs;
 
+namespace Cbe {
+
+	char const *module_name(unsigned long id)
+	{
+		switch (id) {
+		case CRYPTA: return "crypta";
+		case CRYPTO: return "crypto";
+		case CBE_LIBRARA: return "cbe_librara";
+		default: break;
+		}
+		return "?";
+	}
+}
+
 
 enum class Module_type : uint8_t
 {
@@ -1871,43 +1885,6 @@ class Main : Vfs::Env::User
 			}
 		}
 
-		void _cbe_handle_crypto_add_key_requests(bool &progress)
-		{
-			while (true) {
-
-				Key key;
-				Cbe::Request request { _cbe->crypto_add_key_required(key) };
-				if (!request.valid()) {
-					return;
-				}
-				switch (_crypto.add_key(key)) {
-				case Crypto::Result::SUCCEEDED:
-
-					if (_verbose_node.crypto_req_in_progress()) {
-						log("crypto req in progress: ", request);
-					}
-					_cbe->crypto_add_key_requested(request);
-
-					if (_verbose_node.crypto_req_completed()) {
-						log("crypto req completed: ", request);
-					}
-					request.success(true);
-					_cbe->crypto_add_key_completed(request);
-					progress = true;
-					break;
-
-				case Crypto::Result::FAILED:
-
-					class Add_key_failed { };
-					throw Add_key_failed { };
-
-				case Crypto::Result::RETRY_LATER:
-
-					return;
-				}
-			}
-		}
-
 		void _cbe_handle_crypto_remove_key_requests(bool &progress)
 		{
 			while (true) {
@@ -2005,7 +1982,6 @@ class Main : Vfs::Env::User
 
 		void _cbe_handle_crypto_requests(bool &progress)
 		{
-			//_cbe_handle_crypto_add_key_requests(progress);
 			_cbe_handle_crypto_remove_key_requests(progress);
 			_cbe_handle_crypto_encrypt_requests(progress);
 			_cbe_handle_crypto_decrypt_requests(progress);
@@ -2023,7 +1999,7 @@ class Main : Vfs::Env::User
 			_handle_pending_ta_requests_of_module(
 				*_cbe, Module_type::CBE, progress);
 
-			//_cbe_handle_crypto_requests(progress);
+			_cbe_handle_crypto_requests(progress);
 			_cbe_transfer_client_data_that_was_read(progress);
 			_cbe_transfer_client_data_that_will_be_written(progress);
 			_handle_completed_client_requests_of_module(*_cbe, progress);
@@ -2508,8 +2484,9 @@ class Main : Vfs::Env::User
 
 		void _modules_execute(bool &progress)
 		{
-			for (Module *module_ptr : _module_ptrs) {
+			for (unsigned long id { 0 }; id < NR_OF_MODULES; id++) {
 
+				Module *module_ptr { _module_ptrs[id] };
 				module_ptr->execute(progress);
 				module_ptr->for_each_generated_request([&] (Module_request &req) {
 					if (req.dst_module_id() >= NR_OF_MODULES) {
@@ -2517,11 +2494,13 @@ class Main : Vfs::Env::User
 						throw Bad_dst_module { };
 					}
 					Module &dst_module { *_module_ptrs[req.dst_module_id()] };
-					if (!dst_module.ready_to_submit_request())
+					if (!dst_module.ready_to_submit_request()) {
+						Genode::log(module_name(id), ":", req.src_request_id_str(), " --", req.type_name(), "-| ", module_name(req.dst_module_id()));
 						return Module::REQUEST_NOT_HANDLED;
-
+					}
 					dst_module.submit_request(req);
 					progress = true;
+					Genode::log(module_name(id), ":", req.src_request_id_str(), " --", req.type_name(), "--> ", module_name(req.dst_module_id()), ":", req.dst_request_id_str());
 					return Module::REQUEST_HANDLED;
 				});
 				module_ptr->for_each_completed_request([&] (Module_request &req) {
@@ -2529,6 +2508,7 @@ class Main : Vfs::Env::User
 						class Bad_src_module { };
 						throw Bad_src_module { };
 					}
+					Genode::log(module_name(req.src_module_id()), ":", req.src_request_id_str(), " <--", req.type_name(), "-- ", module_name(id), ":", req.dst_request_id_str());
 					Module &src_module { *_module_ptrs[req.src_module_id()] };
 					src_module.generated_request_complete(req);
 					progress = true;

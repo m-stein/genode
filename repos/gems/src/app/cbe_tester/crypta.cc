@@ -45,8 +45,6 @@ void Cbe::Crypta_request::create(
 			throw Bad_size_3 { };
 		}
 		Genode::memcpy(&req._key_plaintext, key_plaintext_ptr, key_plaintext_size);
-
-		log("Crypta_request::create: add key");
 		break;
 
 	default:

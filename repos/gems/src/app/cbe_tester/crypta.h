@@ -23,30 +23,7 @@ class Cbe::Crypta_request : public Module_request
 		enum Type
 		{
 			INVALID,
-
-			/* from: VBD Rekeying
-			   args: key id, cipher data idx */
-			DECRYPT,
-
-			/* from: VBD Rekeying
-			   args: key id, plaintext data idx */
-			ENCRYPT,
-
-			/* from: SB Ctrl
-			   args: plaintext key */
-			ADD_KEY = 1,
-
-			/* from: SB Ctrl
-			   args: key id */
-			REMOVE_KEY = 2,
-
-			/* from: Blk IO
-			   args: req, vba, key id, cipher data index */
-			DECRYPT_AND_SUPPLY_CLIENT_DATA,
-
-			/* from: Blk IO
-			   args: req, vba, key id, plaintext data index */
-			OBTAIN_AND_ENCRYPT_CLIENT_DATA,
+			ADD_KEY = 1
 		};
 
 	private:
@@ -64,6 +41,16 @@ class Cbe::Crypta_request : public Module_request
 		bool             _success                 { false };
 
 	public:
+
+		char const *type_name() override
+		{
+			switch (_type) {
+			case INVALID: return "invalid";
+			case ADD_KEY: return "add_key";
+			default: break;
+			}
+			return "?";
+		}
 
 		Crypta_request() { }
 
@@ -136,7 +123,6 @@ class Cbe::Crypta : public Module
 						throw Bad_size_2 { };
 					}
 					Genode::memcpy(buf_ptr, &channel._request, sizeof(channel._request));;
-					log("Crypta::", __func__, ": type ", (int)channel._request._type, " key id ", channel._request._key_id);
 					return true;
 				}
 			}
@@ -258,7 +244,6 @@ class Cbe::Crypta : public Module
 			for (Channel &channel : _channels) {
 				if (channel._state != Channel::INACTIVE) {
 					switch (channel._request._type) {
-					case Request::REMOVE_KEY:
 					case Request::ADD_KEY:
 						break;
 					default:

@@ -53,7 +53,6 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 
 		void _has_io_request(Request &, Io_buffer::Index &) const;
 
-		void _crypto_add_key_required(Request &, Key &) const;
 		void _crypto_remove_key_required(Request &, Key::Id &) const;
 
 		void _crypto_cipher_data_required(Request &, Crypto_plain_buffer::Index &) const;
@@ -203,17 +202,6 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 		 * \param  ids  reference to destination buffer
 		 */
 		void active_snapshot_ids(Active_snapshot_ids &ids) const;
-
-		Request crypto_add_key_required(Key &key) const
-		{
-			Request result { };
-			_crypto_add_key_required(result, key);
-			return result;
-		}
-
-		void crypto_add_key_requested(Request const &req);
-
-		void crypto_add_key_completed(Request const &req);
 
 		Request crypto_remove_key_required(Key::Id &key_id) const
 		{
