@@ -412,7 +412,9 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 		bool librara__peek_generated_request(Genode::uint8_t *buf_ptr,
 		                                     Genode::size_t   buf_size);
 
-		void librara__drop_generated_request(void *prim);
+		void librara__drop_generated_request(void *prim_ptr);
+
+		void librara__generated_request_complete(void *prim_ptr, bool success);
 };
 
 #endif /* _CBE_LIBRARY_H_ */

@@ -10,19 +10,43 @@ namespace Cbe {
 	{
 		private:
 
-			unsigned long _src_module_id  { 0 };
-			unsigned long _dst_module_id  { 0 };
+			unsigned long _src_module_id   { ~0UL };
+			unsigned long _src_request_id  { ~0UL };
+			unsigned long _dst_module_id   { ~0UL };
+			unsigned long _dst_request_id  { ~0UL };
+			bool          _success         { false };
 
 		public:
 
 			Module_request() { }
 
 			Module_request(unsigned long src_module_id,
+			               unsigned long src_request_id,
 			               unsigned long dst_module_id);
 
 			unsigned long src_module_id() const { return _src_module_id; }
-
+			unsigned long src_request_id() const { return _src_request_id; }
 			unsigned long dst_module_id() const { return _dst_module_id; }
+			unsigned long dst_request_id() const { return _dst_request_id; }
+			bool success() const { return _success; }
+
+			void dst_request_id(unsigned long id)
+			{
+				_dst_request_id = id;
+
+				Genode::log(
+					"Module_request::", __func__, " src ", _src_module_id, " src req ",
+					_src_request_id, " dst ", _dst_module_id, " dst req ", _dst_request_id);
+			}
+
+			void success(bool succ)
+			{
+				_success = succ;
+
+				Genode::log(
+					"Module_request::", __func__, " src ", _src_module_id, " src req ",
+					_src_request_id, " dst ", _dst_module_id, " dst req ", _dst_request_id, " success ", _success);
+			}
 
 
 			/*****************************************************
@@ -31,9 +55,8 @@ namespace Cbe {
 
 			virtual void *prim()
 			{
-				Genode::error(__func__, " ", __LINE__);
-				throw -1;
-				return nullptr;
+				class Bad_call { };
+				throw Bad_call { };
 			};
 
 			virtual ~Module_request() { }

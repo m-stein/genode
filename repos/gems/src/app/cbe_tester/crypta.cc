@@ -20,7 +20,7 @@ void Cbe::Crypta_request::create(
 	void   *key_plaintext_ptr,
 	size_t  key_plaintext_size)
 {
-	Crypta_request req { CBE_LIBRARA };
+	Crypta_request req { CBE_LIBRARA, ~0UL };
 	switch (req_type) {
 	case ADD_KEY:
 

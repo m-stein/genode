@@ -57,11 +57,7 @@ class Cbe::Librara : public Module
 		 ** Module **
 		 ************/
 
-		void generated_request_complete(Module_request &) override
-		{
-			class Bad_call { };
-			throw Bad_call { };
-		}
+		void generated_request_complete(Module_request &) override;
 
 		bool ready_to_submit_request() override
 		{

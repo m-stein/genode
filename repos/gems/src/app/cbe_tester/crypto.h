@@ -223,6 +223,7 @@ class Crypto : public Cbe::Module
 			switch (crypto_req.type()) {
 			case Cbe::Crypto_request::ADD_KEY:
 
+				crypto_req.dst_request_id(0);
 				_job.state          = Job_state::SUBMITTED;
 				_job.op             = Operation::ADD_KEY;
 				_job.crypto_request = crypto_req;

@@ -414,11 +414,12 @@ namespace Cbe {
 			Crypto_request() { }
 
 			Crypto_request(unsigned long  src_module_id,
+			               unsigned long  src_request_id,
 			               Type           type,
 			               Request const &request,
 			               Key     const &key)
 			:
-				Module_request { src_module_id, CRYPTO },
+				Module_request { src_module_id, src_request_id, CRYPTO },
 				_type          { type },
 				_request       { request },
 				_key           { key }
@@ -426,8 +427,6 @@ namespace Cbe {
 
 			Type type() const { return _type; }
 			Key const &key() const { return _key; }
-			void success(bool v) { _request.success(v); }
-			unsigned long src_channel_id() const { return _request.tag(); }
 	};
 }
 

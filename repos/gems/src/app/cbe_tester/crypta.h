@@ -61,6 +61,7 @@ class Cbe::Crypta_request : public Module_request
 		::Cbe::Request   _request                 { };
 		Genode::uint8_t  _prim[PRIM_BUF_SIZE]     { };
 		Genode::uint8_t  _key_plaintext[KEY_SIZE] { };
+		bool             _success                 { false };
 
 	public:
 
@@ -73,9 +74,10 @@ class Cbe::Crypta_request : public Module_request
 		 ** can be removed once the cbe translation is done **
 		 *****************************************************/
 
-		Crypta_request(unsigned long src_module_id)
+		Crypta_request(unsigned long src_module_id,
+		               unsigned long src_request_id)
 		:
-			Module_request { src_module_id, CRYPTA }
+			Module_request { src_module_id, src_request_id, CRYPTA }
 		{ }
 
 		static void create(
@@ -141,10 +143,21 @@ class Cbe::Crypta : public Module
 			return false;
 		}
 
-		void _drop_completed_request(Module_request &) override
+		void _drop_completed_request(Module_request &req) override
 		{
-			class Bad_call { };
-			throw Bad_call { };
+			unsigned long id { 0 };
+			id = req.dst_request_id();
+			if (id >= NR_OF_CHANNELS) {
+
+				class Bad_id { };
+				throw Bad_id { };
+			}
+			if (_channels[id]._state != Channel::COMPLETE) {
+
+				class Bad_state { };
+				throw Bad_state { };
+			}
+			_channels[id]._state = Channel::INACTIVE;
 		}
 
 		bool _peek_generated_request(Genode::uint8_t *buf_ptr,
@@ -165,7 +178,7 @@ class Cbe::Crypta : public Module
 						Genode::memcpy(key.value, channel._request._key_plaintext, sizeof(key.value));
 						key.id.value = channel._request._key_id;
 						Cbe::Request cbe_req { Cbe::Request::Operation::READ, false, 0, 0, 1, 0, idx };
-						Crypto_request req { CRYPTA, Crypto_request::ADD_KEY, cbe_req, key };
+						Crypto_request req { CRYPTA, idx, Crypto_request::ADD_KEY, cbe_req, key };
 
 						if (sizeof(req) > buf_size) {
 							class Bad_size_2 { };
@@ -189,7 +202,7 @@ class Cbe::Crypta : public Module
 			switch (mod_req.dst_module_id()) {
 			case CRYPTO:
 
-				id = dynamic_cast<Crypto_request *>(&mod_req)->src_channel_id();
+				id = dynamic_cast<Crypto_request *>(&mod_req)->src_request_id();
 				break;
 
 			case CRYPTA:
@@ -221,13 +234,13 @@ class Cbe::Crypta : public Module
 			return false;
 		}
 
-		void submit_request(Module_request &mod_request) override
+		void submit_request(Module_request &req) override
 		{
-			for (Channel &channel : _channels) {
-				if (channel._state == Channel::INACTIVE) {
-					channel._request = *dynamic_cast<Request *>(&mod_request);
-					channel._state = Channel::PENDING;
-					log("Crypta::", __func__, ": type ", (int)channel._request._type, " key id ", channel._request._key_id);
+			for (unsigned long id { 0 }; id < NR_OF_CHANNELS; id++) {
+				if (_channels[id]._state == Channel::INACTIVE) {
+					req.dst_request_id(id);
+					_channels[id]._request = *dynamic_cast<Request *>(&req);
+					_channels[id]._state = Channel::PENDING;
 					return;
 				}
 			}
@@ -240,7 +253,7 @@ class Cbe::Crypta : public Module
 		 ** Module **
 		 ************/
 
-		void execute(bool &/*progress*/) override
+		void execute(bool &) override
 		{
 			for (Channel &channel : _channels) {
 				if (channel._state != Channel::INACTIVE) {
@@ -258,28 +271,16 @@ class Cbe::Crypta : public Module
 
 		void generated_request_complete(Module_request &mod_req) override
 		{
-			unsigned long id { 0 };
-			switch (mod_req.dst_module_id()) {
-			case CRYPTO:
-
-				 id = dynamic_cast<Crypto_request *>(&mod_req)->src_channel_id();
-				break;
-
-			case CRYPTA:
-
-				class Bad_module { };
-				throw Bad_module { };
-			}
+			unsigned long const id { mod_req.src_request_id() };
 			if (id >= NR_OF_CHANNELS) {
-
 				class Bad_id { };
 				throw Bad_id { };
 			}
 			if (_channels[id]._state != Channel::IN_PROGRESS) {
-
 				class Bad_state { };
 				throw Bad_state { };
 			}
+			_channels[id]._request.success(mod_req.success());
 			_channels[id]._state = Channel::COMPLETE;
 		}
 
