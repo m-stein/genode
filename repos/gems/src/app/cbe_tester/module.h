@@ -1,7 +1,20 @@
+/*
+ * \brief  Framework for component internal modularization
+ * \author Martin Stein
+ * \date   2023-02-13
+ */
+
+/*
+ * Copyright (C) 2023 Genode Labs GmbH
+ *
+ * This file is part of the Genode OS framework, which is distributed
+ * under the terms of the GNU Affero General Public License version 3.
+ */
 
 #ifndef _MODULE_H_
 #define _MODULE_H_
 
+/* base includes */
 #include <util/string.h>
 #include <base/log.h>
 
@@ -129,6 +142,13 @@ namespace Cbe {
 			}
 
 			virtual ~Module() { }
+	};
+
+	enum Module_id : unsigned long
+	{
+		CRYPTA      = 0,
+		CRYPTO      = 1,
+		CBE_LIBRARA = 2,
 	};
 }
 

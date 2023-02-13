@@ -1,3 +1,16 @@
+/*
+ * \brief  Temporary module compliant wrapper for the CBE library
+ * \author Martin Stein
+ * \date   2023-02-13
+ */
+
+/*
+ * Copyright (C) 2023 Genode Labs GmbH
+ *
+ * This file is part of the Genode OS framework, which is distributed
+ * under the terms of the GNU Affero General Public License version 3.
+ */
+
 #ifndef _CBE_LIBRARA_H_
 #define _CBE_LIBRARA_H_
 
@@ -6,7 +19,9 @@
 
 /* gems includes */
 #include <cbe/library.h>
-#include <cbe/module.h>
+
+/* cbe tester includes */
+#include <module.h>
 
 namespace Cbe {
 
