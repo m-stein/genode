@@ -27,7 +27,7 @@ namespace Cbe {
 	{
 		public:
 
-			enum Type { INVALID, ADD_KEY };
+			enum Type { INVALID, ADD_KEY, REMOVE_KEY };
 
 		private:
 
@@ -42,6 +42,7 @@ namespace Cbe {
 				switch (_type) {
 				case INVALID: return "invalid";
 				case ADD_KEY: return "add_key";
+				case REMOVE_KEY: return "remove_key";
 				default: break;
 				}
 				return "?";
@@ -75,7 +76,8 @@ class Crypto : public Cbe::Module
 			INVALID,
 			DECRYPT_BLOCK,
 			ENCRYPT_BLOCK,
-			ADD_KEY
+			ADD_KEY,
+			REMOVE_KEY
 		};
 
 		enum class Result
@@ -147,6 +149,7 @@ class Crypto : public Cbe::Module
 		{
 			switch (_job.op) {
 			case Operation::ADD_KEY:
+			case Operation::REMOVE_KEY:
 
 				if (_job.state == Job_state::COMPLETE) {
 
@@ -169,7 +172,9 @@ class Crypto : public Cbe::Module
 
 		void _drop_completed_request(Cbe::Module_request &/*mod_req*/) override
 		{
-			if (_job.op != Operation::ADD_KEY) {
+			if (_job.op != Operation::ADD_KEY &&
+			    _job.op != Operation::REMOVE_KEY) {
+
 				class Bad_call_1 { };
 				throw Bad_call_1 { };
 			}
@@ -247,6 +252,31 @@ class Crypto : public Cbe::Module
 						throw Add_key_failed_1 { };
 					}
 				}
+				break;
+
+			case Operation::REMOVE_KEY:
+
+				if (_job.state == Job_state::SUBMITTED) {
+					switch (remove_key(_job.crypto_request.key().id)) {
+					case Crypto::Result::SUCCEEDED:
+
+						_job.crypto_request.success(true);
+						_job.state = Job_state::COMPLETE;
+						progress = true;
+						break;
+
+					case Crypto::Result::FAILED:
+
+						class Remove_key_failed_0 { };
+						throw Remove_key_failed_0 { };
+
+					case Crypto::Result::RETRY_LATER:
+
+						class Remove_key_failed_1 { };
+						throw Remove_key_failed_1 { };
+					}
+				}
+				break;
 
 			case Operation::INVALID:
 			case Operation::ENCRYPT_BLOCK:
@@ -272,6 +302,14 @@ class Crypto : public Cbe::Module
 				crypto_req.dst_request_id(0);
 				_job.state          = Job_state::SUBMITTED;
 				_job.op             = Operation::ADD_KEY;
+				_job.crypto_request = crypto_req;
+				break;
+
+			case Cbe::Crypto_request::REMOVE_KEY:
+
+				crypto_req.dst_request_id(0);
+				_job.state          = Job_state::SUBMITTED;
+				_job.op             = Operation::REMOVE_KEY;
 				_job.crypto_request = crypto_req;
 				break;
 

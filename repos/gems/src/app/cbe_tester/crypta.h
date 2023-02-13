@@ -25,7 +25,8 @@ class Cbe::Crypta_request : public Module_request
 		enum Type
 		{
 			INVALID,
-			ADD_KEY = 1
+			ADD_KEY = 1,
+			REMOVE_KEY = 2
 		};
 
 	private:
@@ -49,6 +50,7 @@ class Cbe::Crypta_request : public Module_request
 			switch (_type) {
 			case INVALID: return "invalid";
 			case ADD_KEY: return "add_key";
+			case REMOVE_KEY: return "remove_key";
 			default: break;
 			}
 			return "?";
@@ -189,6 +191,7 @@ class Cbe::Crypta : public Module
 				if (channel._state != Channel::INACTIVE) {
 					switch (channel._request._type) {
 					case Request::ADD_KEY:
+					case Request::REMOVE_KEY:
 						break;
 					default:
 						class Bad_request_type { };

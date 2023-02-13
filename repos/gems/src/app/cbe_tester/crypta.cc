@@ -52,6 +52,24 @@ void Cbe::Crypta_request::create(
 		Genode::memcpy(&req._key_plaintext, key_plaintext_ptr, key_plaintext_size);
 		break;
 
+	case REMOVE_KEY:
+
+		req._type = REMOVE_KEY;
+		if (prim_size > sizeof(req._prim)) {
+			error(prim_size, " ", sizeof(req._prim));
+			class Bad_size_4 { };
+			throw Bad_size_4 { };
+		}
+		Genode::memcpy(&req._prim, prim_ptr, prim_size);
+
+		if (key_id_size != sizeof(req._key_id)) {
+			error(key_id_size, " ", sizeof(req._key_id));
+			class Bad_size_5 { };
+			throw Bad_size_5 { };
+		}
+		Genode::memcpy(&req._key_id, key_id_ptr, key_id_size);
+		break;
+
 	default:
 
 		class Bad_type { };
@@ -89,6 +107,20 @@ bool Cbe::Crypta::_peek_generated_request(Genode::uint8_t *buf_ptr,
 				key.id.value = channel._request._key_id;
 				Cbe::Request cbe_req { Cbe::Request::Operation::READ, false, 0, 0, 1, 0, idx };
 				Crypto_request req { CRYPTA, idx, Crypto_request::ADD_KEY, cbe_req, key };
+
+				if (sizeof(req) > buf_size) {
+					class Bad_size_2 { };
+					throw Bad_size_2 { };
+				}
+				Genode::memcpy(buf_ptr, &req, sizeof(req));;
+				return true;
+			}
+			case Request::REMOVE_KEY:
+			{
+				Key key;
+				key.id.value = channel._request._key_id;
+				Cbe::Request cbe_req { Cbe::Request::Operation::READ, false, 0, 0, 1, 0, idx };
+				Crypto_request req { CRYPTA, idx, Crypto_request::REMOVE_KEY, cbe_req, key };
 
 				if (sizeof(req) > buf_size) {
 					class Bad_size_2 { };

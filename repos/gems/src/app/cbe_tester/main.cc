@@ -1885,45 +1885,6 @@ class Main : Vfs::Env::User
 			}
 		}
 
-		void _cbe_handle_crypto_remove_key_requests(bool &progress)
-		{
-			while (true) {
-
-				Key::Id key_id;
-				Cbe::Request request {
-					_cbe->crypto_remove_key_required(key_id) };
-
-				if (!request.valid()) {
-					break;
-				}
-				switch (_crypto.remove_key(key_id)) {
-				case Crypto::Result::SUCCEEDED:
-
-					if (_verbose_node.crypto_req_in_progress()) {
-						log("crypto req in progress: ", request);
-					}
-					_cbe->crypto_remove_key_requested(request);
-
-					if (_verbose_node.crypto_req_completed()) {
-						log("crypto req completed: ", request);
-					}
-					request.success(true);
-					_cbe->crypto_remove_key_completed(request);
-					progress = true;
-					break;
-
-				case Crypto::Result::FAILED:
-
-					class Remove_key_failed { };
-					throw Remove_key_failed { };
-
-				case Crypto::Result::RETRY_LATER:
-
-					return;
-				}
-			}
-		}
-
 		void _cbe_handle_crypto_encrypt_requests(bool &progress)
 		{
 			while (true) {
@@ -1982,7 +1943,6 @@ class Main : Vfs::Env::User
 
 		void _cbe_handle_crypto_requests(bool &progress)
 		{
-			_cbe_handle_crypto_remove_key_requests(progress);
 			_cbe_handle_crypto_encrypt_requests(progress);
 			_cbe_handle_crypto_decrypt_requests(progress);
 		}

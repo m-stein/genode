@@ -146,6 +146,7 @@ void Crypto::submit_request(Cbe::Request          const &request,
 		break;
 
 	case Operation::ADD_KEY:
+	case Operation::REMOVE_KEY:
 	case Operation::INVALID:
 
 		class Bad_operation { };
@@ -191,6 +192,7 @@ void Crypto::drop_completed_request()
 		break;
 
 	case Operation::ADD_KEY:
+	case Operation::REMOVE_KEY:
 	case Operation::INVALID:
 
 		class Bad_op { };
@@ -343,6 +345,7 @@ void Crypto::execute(Crypto_plain_buffer  &plain_buf,
 		break;
 
 	case Operation::ADD_KEY:
+	case Operation::REMOVE_KEY:
 	case Operation::INVALID:
 
 		break;
