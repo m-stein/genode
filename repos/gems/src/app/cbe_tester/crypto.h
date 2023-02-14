@@ -21,19 +21,32 @@
 #include <vfs_utilities.h>
 #include <module.h>
 
+class Crypto;
+
 namespace Cbe {
 
 	class Crypto_request : public Module_request
 	{
 		public:
 
-			enum Type { INVALID, ADD_KEY, REMOVE_KEY };
+			enum Type
+			{
+				INVALID,
+				ADD_KEY,
+				REMOVE_KEY,
+				ENCRYPT_BLOCK,
+				DECRYPT_BLOCK
+			};
 
 		private:
 
-			Type           _type    { INVALID };
-			::Cbe::Request _request { };
-			Key            _key     { };
+			friend class ::Crypto;
+
+			Type           _type                { INVALID };
+			::Cbe::Request _request             { };
+			Key            _key                 { };
+			Genode::addr_t _cipher_data_blk_ptr { };
+			Genode::addr_t _plain_data_blk_ptr  { };
 
 		public:
 
@@ -43,6 +56,8 @@ namespace Cbe {
 				case INVALID: return "invalid";
 				case ADD_KEY: return "add_key";
 				case REMOVE_KEY: return "remove_key";
+				case ENCRYPT_BLOCK: return "encrypt_block";
+				case DECRYPT_BLOCK: return "decrypt_block";
 				default: break;
 				}
 				return "?";
@@ -50,16 +65,20 @@ namespace Cbe {
 
 			Crypto_request() { }
 
-			Crypto_request(unsigned long  src_module_id,
-			               unsigned long  src_request_id,
-			               Type           type,
-			               Request const &request,
-			               Key     const &key)
+			Crypto_request(unsigned long   src_module_id,
+			               unsigned long   src_request_id,
+			               Type            type,
+			               Request const  &request,
+			               Key     const  &key,
+			               Genode::addr_t  cipher_data_blk_ptr,
+			               Genode::addr_t  plain_data_blk_ptr)
 			:
-				Module_request { src_module_id, src_request_id, CRYPTO },
-				_type          { type },
-				_request       { request },
-				_key           { key }
+				Module_request       { src_module_id, src_request_id, CRYPTO },
+				_type                { type },
+				_request             { request },
+				_key                 { key },
+				_cipher_data_blk_ptr { cipher_data_blk_ptr },
+				_plain_data_blk_ptr  { plain_data_blk_ptr }
 			{ }
 
 			Type type() const { return _type; }
@@ -76,8 +95,7 @@ class Crypto : public Cbe::Module
 			INVALID,
 			DECRYPT_BLOCK,
 			ENCRYPT_BLOCK,
-			ADD_KEY,
-			REMOVE_KEY
+			MODULE_REQUEST
 		};
 
 		enum class Result
@@ -129,15 +147,15 @@ class Crypto : public Cbe::Module
 
 		Key_directory &_lookup_key_dir(Genode::uint32_t key_id);
 
-		void _execute_decrypt_block(Job                       &job,
-		                            Cbe::Crypto_plain_buffer  &plain_buf,
-		                            Cbe::Crypto_cipher_buffer &cipher_buf,
-		                            bool                      &progress);
+		void _execute_decrypt_block(Job             &job,
+		                            Genode::uint8_t *plain_data_blk_ptr,
+		                            Genode::uint8_t *cipher_data_blk_ptr,
+		                            bool            &progress);
 
-		void _execute_encrypt_block(Job                       &job,
-		                            Cbe::Crypto_plain_buffer  &plain_buf,
-		                            Cbe::Crypto_cipher_buffer &cipher_buf,
-		                            bool                      &progress);
+		void _execute_encrypt_block(Job             &job,
+		                            Genode::uint8_t *plain_data_blk_ptr,
+		                            Genode::uint8_t *cipher_data_blk_ptr,
+		                            bool            &progress);
 
 
 		/************
@@ -147,34 +165,23 @@ class Crypto : public Cbe::Module
 		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
 		                             Genode::size_t   buf_size) override
 		{
-			switch (_job.op) {
-			case Operation::ADD_KEY:
-			case Operation::REMOVE_KEY:
+			if (_job.op != Operation::MODULE_REQUEST)
+				return false;
 
-				if (_job.state == Job_state::COMPLETE) {
+			if (_job.state != Job_state::COMPLETE)
+				return false;
 
-					if (sizeof(_job.crypto_request) > buf_size) {
-						class Bad_size_2 { };
-						throw Bad_size_2 { };
-					}
-					Genode::memcpy(buf_ptr, &_job.crypto_request, sizeof(_job.crypto_request));;
-					return true;
-				}
-
-			case Operation::INVALID:
-			case Operation::ENCRYPT_BLOCK:
-			case Operation::DECRYPT_BLOCK:
-
-				break;
+			if (sizeof(_job.crypto_request) > buf_size) {
+				class Bad_size_2 { };
+				throw Bad_size_2 { };
 			}
-			return false;
+			Genode::memcpy(buf_ptr, &_job.crypto_request, sizeof(_job.crypto_request));;
+			return true;
 		}
 
 		void _drop_completed_request(Cbe::Module_request &/*mod_req*/) override
 		{
-			if (_job.op != Operation::ADD_KEY &&
-			    _job.op != Operation::REMOVE_KEY) {
-
+			if (_job.op != Operation::MODULE_REQUEST) {
 				class Bad_call_1 { };
 				throw Bad_call_1 { };
 			}
@@ -229,8 +236,11 @@ class Crypto : public Cbe::Module
 
 		void execute(bool &progress) override
 		{
-			switch (_job.op) {
-			case Operation::ADD_KEY:
+			if (_job.op != Operation::MODULE_REQUEST)
+				return;
+
+			switch (_job.crypto_request._type) {
+			case Cbe::Crypto_request::ADD_KEY:
 
 				if (_job.state == Job_state::SUBMITTED) {
 					switch (add_key(_job.crypto_request.key())) {
@@ -254,7 +264,7 @@ class Crypto : public Cbe::Module
 				}
 				break;
 
-			case Operation::REMOVE_KEY:
+			case Cbe::Crypto_request::REMOVE_KEY:
 
 				if (_job.state == Job_state::SUBMITTED) {
 					switch (remove_key(_job.crypto_request.key().id)) {
@@ -278,10 +288,34 @@ class Crypto : public Cbe::Module
 				}
 				break;
 
-			case Operation::INVALID:
-			case Operation::ENCRYPT_BLOCK:
-			case Operation::DECRYPT_BLOCK:
+			case Cbe::Crypto_request::DECRYPT_BLOCK:
 
+				if (_job.state == Job_state::SUBMITTED) {
+					_job.handle =
+						_lookup_key_dir(_job.crypto_request._key.id.value).decrypt_handle;
+				}
+				_execute_decrypt_block(
+					_job, (Genode::uint8_t *)_job.crypto_request._plain_data_blk_ptr,
+					(Genode::uint8_t *)_job.crypto_request._cipher_data_blk_ptr, progress);
+
+				break;
+
+			case Cbe::Crypto_request::ENCRYPT_BLOCK:
+
+				if (_job.state == Job_state::SUBMITTED) {
+					_job.handle =
+						_lookup_key_dir(_job.crypto_request._key.id.value).encrypt_handle;
+				}
+				_execute_encrypt_block(
+					_job, (Genode::uint8_t *)_job.crypto_request._plain_data_blk_ptr,
+					(Genode::uint8_t *)_job.crypto_request._cipher_data_blk_ptr, progress);
+
+				break;
+
+			case Cbe::Crypto_request::INVALID:
+
+				class Exception_1 { };
+				throw Exception_1 { };
 				break;
 			}
 		}
@@ -296,28 +330,12 @@ class Crypto : public Cbe::Module
 			Cbe::Crypto_request &crypto_req {
 				*dynamic_cast<Cbe::Crypto_request *>(&mod_request) };
 
-			switch (crypto_req.type()) {
-			case Cbe::Crypto_request::ADD_KEY:
+			crypto_req.dst_request_id(0);
 
-				crypto_req.dst_request_id(0);
-				_job.state          = Job_state::SUBMITTED;
-				_job.op             = Operation::ADD_KEY;
-				_job.crypto_request = crypto_req;
-				break;
-
-			case Cbe::Crypto_request::REMOVE_KEY:
-
-				crypto_req.dst_request_id(0);
-				_job.state          = Job_state::SUBMITTED;
-				_job.op             = Operation::REMOVE_KEY;
-				_job.crypto_request = crypto_req;
-				break;
-
-			default:
-
-				class Bad_type { };
-				throw Bad_type { };
-			}
+			_job.state          = Job_state::SUBMITTED;
+			_job.op             = Operation::MODULE_REQUEST;
+			_job.crypto_request = crypto_req;
+			_job.request        = crypto_req._request;
 		}
 
 		void generated_request_complete(Cbe::Module_request &) override

@@ -24,9 +24,11 @@ class Cbe::Crypta_request : public Module_request
 
 		enum Type
 		{
-			INVALID,
+			INVALID = 0,
 			ADD_KEY = 1,
-			REMOVE_KEY = 2
+			REMOVE_KEY = 2,
+			DECRYPT_BLOCK = 3,
+			ENCRYPT_BLOCK = 4
 		};
 
 	private:
@@ -37,10 +39,12 @@ class Cbe::Crypta_request : public Module_request
 		Type             _type                    { INVALID };
 		Genode::uint32_t _key_id                  { 0 };
 		unsigned long    _data_idx                { 0 };
-		Genode::uint64_t _block_addr              { 0 };
+		Genode::uint64_t _blk_nr                  { 0 };
 		::Cbe::Request   _request                 { };
 		Genode::uint8_t  _prim[PRIM_BUF_SIZE]     { };
 		Genode::uint8_t  _key_plaintext[KEY_SIZE] { };
+		Genode::addr_t   _plain_data_blk_ptr      { 0 };
+		Genode::addr_t   _cipher_data_blk_ptr     { 0 };
 		bool             _success                 { false };
 
 	public:
@@ -48,9 +52,10 @@ class Cbe::Crypta_request : public Module_request
 		char const *type_name() override
 		{
 			switch (_type) {
-			case INVALID: return "invalid";
 			case ADD_KEY: return "add_key";
 			case REMOVE_KEY: return "remove_key";
+			case ENCRYPT_BLOCK: return "encrypt_block";
+			case DECRYPT_BLOCK: return "decrypt_block";
 			default: break;
 			}
 			return "?";
@@ -72,17 +77,20 @@ class Cbe::Crypta_request : public Module_request
 		{ }
 
 		static void create(
-			void   *buf_ptr,
-			size_t  buf_size,
-			size_t  req_type,
-			void   *prim_ptr,
-			size_t  prim_size,
-			void   *key_id_ptr,
-			size_t  key_id_size,
-			void   *key_plaintext_ptr,
-			size_t  key_plaintext_size);
+			void     *buf_ptr,
+			size_t    buf_size,
+			size_t    req_type,
+			void     *prim_ptr,
+			size_t    prim_size,
+			void     *key_id_ptr,
+			size_t    key_id_size,
+			void     *key_plaintext_ptr,
+			size_t    key_plaintext_size,
+			uint64_t  blk_nr);
 
 		void *prim() override { return (void *)&_prim; }
+		void *plain_data_blk_ptr() { return (void *)_plain_data_blk_ptr; }
+		void *cipher_data_blk_ptr() { return (void *)_cipher_data_blk_ptr; }
 };
 
 class Cbe::Crypta_channel
@@ -93,8 +101,10 @@ class Cbe::Crypta_channel
 
 		enum State { INACTIVE, PENDING, IN_PROGRESS, COMPLETE };
 
-		State          _state   { INACTIVE };
-		Crypta_request _request { };
+		State           _state                       { INACTIVE };
+		Genode::uint8_t _plain_data_blk[BLOCK_SIZE]  { };
+		Genode::uint8_t _cipher_data_blk[BLOCK_SIZE] { };
+		Crypta_request  _request                     { };
 
 	public:
 
@@ -108,7 +118,7 @@ class Cbe::Crypta : public Module
 		using Request = Crypta_request;
 		using Channel = Crypta_channel;
 
-		enum { NR_OF_CHANNELS = 4 };
+		enum { NR_OF_CHANNELS = 1 };
 
 		Channel _channels[NR_OF_CHANNELS];
 
@@ -166,12 +176,15 @@ class Cbe::Crypta : public Module
 			return false;
 		}
 
-		void submit_request(Module_request &req) override
+		void submit_request(Module_request &mod_req) override
 		{
+			Request &req { *dynamic_cast<Request *>(&mod_req) };
 			for (unsigned long id { 0 }; id < NR_OF_CHANNELS; id++) {
 				if (_channels[id]._state == Channel::INACTIVE) {
 					req.dst_request_id(id);
-					_channels[id]._request = *dynamic_cast<Request *>(&req);
+					req._plain_data_blk_ptr = (Genode::addr_t)&_channels[id]._plain_data_blk;
+					req._cipher_data_blk_ptr = (Genode::addr_t)&_channels[id]._cipher_data_blk;
+					_channels[id]._request = req;
 					_channels[id]._state = Channel::PENDING;
 					return;
 				}
@@ -192,6 +205,8 @@ class Cbe::Crypta : public Module
 					switch (channel._request._type) {
 					case Request::ADD_KEY:
 					case Request::REMOVE_KEY:
+					case Request::ENCRYPT_BLOCK:
+					case Request::DECRYPT_BLOCK:
 						break;
 					default:
 						class Bad_request_type { };
