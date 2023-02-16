@@ -15,16 +15,15 @@ using namespace Cbe;
  *************************/
 
 void Cbe::Crypta_request::create(
-	void     *buf_ptr,
-	size_t    buf_size,
-	size_t    req_type,
-	void     *prim_ptr,
-	size_t    prim_size,
-	void     *key_id_ptr,
-	size_t    key_id_size,
-	void     *key_plaintext_ptr,
-	size_t    key_plaintext_size,
-	uint64_t  blk_nr)
+	void   *buf_ptr,
+	size_t  buf_size,
+	size_t  req_type,
+	void   *prim_ptr,
+	size_t  prim_size,
+	void   *key_id_ptr,
+	size_t  key_id_size,
+	void   *key_plaintext_ptr,
+	size_t  key_plaintext_size)
 {
 	Crypta_request req { CBE_LIBRARA, ~0UL };
 	switch (req_type) {
@@ -71,46 +70,6 @@ void Cbe::Crypta_request::create(
 		Genode::memcpy(&req._key_id, key_id_ptr, key_id_size);
 		break;
 
-	case DECRYPT_BLOCK:
-
-		req._type = DECRYPT_BLOCK;
-		if (prim_size > sizeof(req._prim)) {
-			error(prim_size, " ", sizeof(req._prim));
-			class Bad_size_4 { };
-			throw Bad_size_4 { };
-		}
-		Genode::memcpy(&req._prim, prim_ptr, prim_size);
-
-		if (key_id_size != sizeof(req._key_id)) {
-			error(key_id_size, " ", sizeof(req._key_id));
-			class Bad_size_5 { };
-			throw Bad_size_5 { };
-		}
-		Genode::memcpy(&req._key_id, key_id_ptr, key_id_size);
-
-		req._blk_nr = blk_nr;
-		break;
-
-	case ENCRYPT_BLOCK:
-
-		req._type = ENCRYPT_BLOCK;
-		if (prim_size > sizeof(req._prim)) {
-			error(prim_size, " ", sizeof(req._prim));
-			class Bad_size_4 { };
-			throw Bad_size_4 { };
-		}
-		Genode::memcpy(&req._prim, prim_ptr, prim_size);
-
-		if (key_id_size != sizeof(req._key_id)) {
-			error(key_id_size, " ", sizeof(req._key_id));
-			class Bad_size_5 { };
-			throw Bad_size_5 { };
-		}
-		Genode::memcpy(&req._key_id, key_id_ptr, key_id_size);
-
-		req._blk_nr = blk_nr;
-		break;
-
 	default:
 
 		class Bad_type { };
@@ -147,10 +106,7 @@ bool Cbe::Crypta::_peek_generated_request(Genode::uint8_t *buf_ptr,
 				Genode::memcpy(key.value, channel._request._key_plaintext, sizeof(key.value));
 				key.id.value = channel._request._key_id;
 				Cbe::Request cbe_req { Cbe::Request::Operation::READ, false, 0, 0, 1, 0, idx };
-				Crypto_request req {
-					CRYPTA, idx, Crypto_request::ADD_KEY, cbe_req, key,
-					(addr_t)&channel._plain_data_blk,
-					(addr_t)&channel._cipher_data_blk };
+				Crypto_request req { CRYPTA, idx, Crypto_request::ADD_KEY, cbe_req, key };
 
 				if (sizeof(req) > buf_size) {
 					class Bad_size_2 { };
@@ -164,44 +120,7 @@ bool Cbe::Crypta::_peek_generated_request(Genode::uint8_t *buf_ptr,
 				Key key;
 				key.id.value = channel._request._key_id;
 				Cbe::Request cbe_req { Cbe::Request::Operation::READ, false, 0, 0, 1, 0, idx };
-				Crypto_request req {
-					CRYPTA, idx, Crypto_request::REMOVE_KEY, cbe_req, key,
-					(addr_t)&channel._plain_data_blk,
-					(addr_t)&channel._cipher_data_blk };
-
-				if (sizeof(req) > buf_size) {
-					class Bad_size_2 { };
-					throw Bad_size_2 { };
-				}
-				Genode::memcpy(buf_ptr, &req, sizeof(req));;
-				return true;
-			}
-			case Request::DECRYPT_BLOCK:
-			{
-				Key key;
-				key.id.value = channel._request._key_id;
-				Cbe::Request cbe_req { Cbe::Request::Operation::READ, false, channel._request._blk_nr, 0, 1, key.id.value, 0 };
-				Crypto_request req {
-					CRYPTA, idx, Crypto_request::DECRYPT_BLOCK,
-					cbe_req, key, (addr_t)&channel._plain_data_blk,
-					(addr_t)&channel._cipher_data_blk };
-
-				if (sizeof(req) > buf_size) {
-					class Bad_size_2 { };
-					throw Bad_size_2 { };
-				}
-				Genode::memcpy(buf_ptr, &req, sizeof(req));;
-				return true;
-			}
-			case Request::ENCRYPT_BLOCK:
-			{
-				Key key;
-				key.id.value = channel._request._key_id;
-				Cbe::Request cbe_req { Cbe::Request::Operation::WRITE, false, channel._request._blk_nr, 0, 1, key.id.value, 0 };
-				Crypto_request req {
-					CRYPTA, idx, Crypto_request::ENCRYPT_BLOCK,
-					cbe_req, key, (addr_t)&channel._plain_data_blk,
-					(addr_t)&channel._cipher_data_blk };
+				Crypto_request req { CRYPTA, idx, Crypto_request::REMOVE_KEY, cbe_req, key };
 
 				if (sizeof(req) > buf_size) {
 					class Bad_size_2 { };

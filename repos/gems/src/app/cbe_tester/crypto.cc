@@ -145,7 +145,8 @@ void Crypto::submit_request(Cbe::Request          const &request,
 
 		break;
 
-	case Operation::MODULE_REQUEST:
+	case Operation::ADD_KEY:
+	case Operation::REMOVE_KEY:
 	case Operation::INVALID:
 
 		class Bad_operation { };
@@ -190,7 +191,8 @@ void Crypto::drop_completed_request()
 		_job.op = Operation::INVALID;
 		break;
 
-	case Operation::MODULE_REQUEST:
+	case Operation::ADD_KEY:
+	case Operation::REMOVE_KEY:
 	case Operation::INVALID:
 
 		class Bad_op { };
@@ -199,20 +201,22 @@ void Crypto::drop_completed_request()
 }
 
 
-void Crypto::_execute_decrypt_block(Job     &job,
-                                    uint8_t *plain_data_blk_ptr,
-                                    uint8_t *cipher_data_blk_ptr,
-                                    bool    &progress)
+void Crypto::_execute_decrypt_block(Job                  &job,
+                            Crypto_plain_buffer  &plain_buf,
+                            Crypto_cipher_buffer &cipher_buf,
+                            bool                 &progress)
 {
 	switch (job.state) {
 	case Job_state::SUBMITTED:
 	{
-		error("decrypt request ", job.request);
 		job.handle->seek(job.request.block_number() * Cbe::BLOCK_SIZE);
 		file_size nr_of_written_bytes { 0 };
 
 		job.handle->fs().write(
-			job.handle, (char const *)cipher_data_blk_ptr, sizeof (Cbe::Block_data),
+			job.handle,
+			reinterpret_cast<char const*>(
+				&cipher_buf.item(job.cipher_buf_idx)),
+			file_size(sizeof (Cbe::Block_data)),
 			nr_of_written_bytes);
 
 		job.state = Job_state::OP_WRITTEN_TO_VFS_HANDLE;
@@ -238,7 +242,10 @@ void Crypto::_execute_decrypt_block(Job     &job,
 		file_size nr_of_read_bytes { 0 };
 		Read_result const result =
 			job.handle->fs().complete_read(
-				job.handle, (char *)plain_data_blk_ptr, sizeof (Cbe::Block_data),
+				job.handle,
+				reinterpret_cast<char *>(
+					&plain_buf.item(job.plain_buf_idx)),
+				sizeof (Cbe::Block_data),
 				nr_of_read_bytes);
 
 		switch (result) {
@@ -247,9 +254,6 @@ void Crypto::_execute_decrypt_block(Job     &job,
 		default: break;
 		}
 		job.request.success(result == Read_result::READ_OK);
-		if (job.op == Operation::MODULE_REQUEST) {
-			job.crypto_request.success(result == Read_result::READ_OK);
-		}
 		job.state = Job_state::COMPLETE;
 		progress = true;
 		return;
@@ -261,21 +265,23 @@ void Crypto::_execute_decrypt_block(Job     &job,
 }
 
 
-void Crypto::_execute_encrypt_block(Job     &job,
-                                    uint8_t *plain_data_blk_ptr,
-                                    uint8_t *cipher_data_blk_ptr,
-                                    bool    &progress)
+void Crypto::_execute_encrypt_block(Job                  &job,
+                            Crypto_plain_buffer  &plain_buf,
+                            Crypto_cipher_buffer &cipher_buf,
+                            bool                 &progress)
 {
 	switch (job.state) {
 	case Job_state::SUBMITTED:
 	{
-		error("encrypt request ", job.request);
 		job.handle->seek(job.request.block_number() * Cbe::BLOCK_SIZE);
 		file_size nr_of_written_bytes { 0 };
 
 		job.handle->fs().write(
-			job.handle, (char const *)plain_data_blk_ptr,
-			sizeof (Cbe::Block_data), nr_of_written_bytes);
+			job.handle,
+			reinterpret_cast<char const*>(
+				&plain_buf.item(job.plain_buf_idx)),
+			file_size(sizeof (Cbe::Block_data)),
+			nr_of_written_bytes);
 
 		job.state = Job_state::OP_WRITTEN_TO_VFS_HANDLE;
 		progress = true;
@@ -300,8 +306,11 @@ void Crypto::_execute_encrypt_block(Job     &job,
 		file_size nr_of_read_bytes { 0 };
 		Read_result const result {
 			job.handle->fs().complete_read(
-				job.handle, (char *)cipher_data_blk_ptr,
-				sizeof (Cbe::Block_data), nr_of_read_bytes) };
+				job.handle,
+				reinterpret_cast<char *>(
+					&cipher_buf.item(job.cipher_buf_idx)),
+				sizeof (Cbe::Block_data),
+				nr_of_read_bytes) };
 
 		switch (result) {
 		case Read_result::READ_QUEUED:          return;
@@ -309,9 +318,6 @@ void Crypto::_execute_encrypt_block(Job     &job,
 		default: break;
 		}
 		job.request.success(result == Read_result::READ_OK);
-		if (job.op == Operation::MODULE_REQUEST) {
-			job.crypto_request.success(result == Read_result::READ_OK);
-		}
 		job.state = Job_state::COMPLETE;
 		progress = true;
 		return;
@@ -330,21 +336,16 @@ void Crypto::execute(Crypto_plain_buffer  &plain_buf,
 	switch (_job.op) {
 	case Operation::ENCRYPT_BLOCK:
 
-		_execute_encrypt_block(
-			_job, (uint8_t *)(&plain_buf.item(_job.plain_buf_idx)),
-			(uint8_t *)(&cipher_buf.item(_job.cipher_buf_idx)), progress);
-
+		_execute_encrypt_block(_job, plain_buf, cipher_buf, progress);
 		break;
 
 	case Operation::DECRYPT_BLOCK:
 
-		_execute_decrypt_block(
-			_job, (uint8_t *)(&plain_buf.item(_job.plain_buf_idx)),
-			(uint8_t *)(&cipher_buf.item(_job.cipher_buf_idx)), progress);
-
+		_execute_decrypt_block(_job, plain_buf, cipher_buf, progress);
 		break;
 
-	case Operation::MODULE_REQUEST:
+	case Operation::ADD_KEY:
+	case Operation::REMOVE_KEY:
 	case Operation::INVALID:
 
 		break;
