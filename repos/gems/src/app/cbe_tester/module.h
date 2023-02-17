@@ -147,8 +147,7 @@ namespace Cbe {
 	enum Module_id : unsigned long
 	{
 		CRYPTA      = 0,
-		CRYPTO      = 1,
-		CBE_LIBRARA = 2,
+		CBE_LIBRARA = 1,
 	};
 }
 

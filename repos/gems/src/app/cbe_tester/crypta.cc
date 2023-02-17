@@ -4,7 +4,6 @@
 
 /* local includes */
 #include <crypta.h>
-#include <crypto.h>
 
 using namespace Genode;
 using namespace Cbe;
@@ -15,16 +14,22 @@ using namespace Cbe;
  *************************/
 
 void Cbe::Crypta_request::create(
-	void   *buf_ptr,
-	size_t  buf_size,
-	size_t  req_type,
-	void   *prim_ptr,
-	size_t  prim_size,
-	void   *key_id_ptr,
-	size_t  key_id_size,
-	void   *key_plaintext_ptr,
-	size_t  key_plaintext_size)
+	void     * /*buf_ptr*/,
+	size_t     /*buf_size*/,
+	size_t     req_type,
+	uint64_t   /*req_blk_nr*/,
+	void     * /*prim_ptr*/,
+	size_t     /*prim_size*/,
+	uint32_t   /*key_id*/,
+	void     * /*key_plain_ptr*/,
+	uint64_t   /*pba*/,
+	uint64_t   /*vba*/,
+	void     * /*plain_blk_ptr*/,
+	void     * /*cipher_blk_ptr*/)
 {
+	error("Crypta_request::create: type ", req_type);
+	throw -1;
+/*
 	Crypta_request req { CBE_LIBRARA, ~0UL };
 	switch (req_type) {
 	case ADD_KEY:
@@ -81,6 +86,7 @@ void Cbe::Crypta_request::create(
 		throw Bad_size_0 { };
 	}
 	memcpy(buf_ptr, &req, sizeof(req));
+*/
 }
 
 
@@ -88,9 +94,10 @@ void Cbe::Crypta_request::create(
  ** Cbe::Crypta **
  *****************/
 
-bool Cbe::Crypta::_peek_generated_request(Genode::uint8_t *buf_ptr,
-                                          Genode::size_t   buf_size)
+bool Cbe::Crypta::_peek_generated_request(Genode::uint8_t *,
+                                          Genode::size_t   )
 {
+/*
 	for (Genode::uint32_t idx { 0 }; idx < NR_OF_CHANNELS; idx++) {
 		Channel &channel { _channels[idx] };
 		if (channel._state == Channel::PENDING) {
@@ -135,12 +142,14 @@ bool Cbe::Crypta::_peek_generated_request(Genode::uint8_t *buf_ptr,
 			}
 		}
 	}
+*/
 	return false;
 }
 
 
-void Cbe::Crypta::_drop_generated_request(Module_request &mod_req)
+void Cbe::Crypta::_drop_generated_request(Module_request &)
 {
+/*
 	unsigned long id { 0 };
 	switch (mod_req.dst_module_id()) {
 	case CRYPTO:
@@ -159,9 +168,11 @@ void Cbe::Crypta::_drop_generated_request(Module_request &mod_req)
 		throw Bad_id { };
 	}
 	if (_channels[id]._state != Channel::PENDING) {
-
+*/
 		class Bad_state { };
 		throw Bad_state { };
+/*
 	}
 	_channels[id]._state = Channel::IN_PROGRESS;
+*/
 }

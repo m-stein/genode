@@ -13,7 +13,8 @@ void Cbe::Librara::_drop_generated_request(Module_request &mod_req)
 		class Bad_call { };
 		throw Bad_call { };
 	}
-	_lib->librara__drop_generated_request(dynamic_cast<Crypta_request *>(&mod_req)->prim());
+	_lib->librara__drop_generated_request(
+		dynamic_cast<Crypta_request *>(&mod_req)->prim());
 }
 
 
@@ -29,5 +30,6 @@ void Cbe::Librara::generated_request_complete(Module_request &mod_req)
 	}
 	_lib->librara__generated_request_complete(
 		dynamic_cast<Crypta_request *>(&mod_req)->prim(),
+		dynamic_cast<Crypta_request *>(&mod_req)->result_blk_ptr(),
 		mod_req.success());
 }

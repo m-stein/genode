@@ -24,9 +24,13 @@ class Cbe::Crypta_request : public Module_request
 
 		enum Type
 		{
-			INVALID,
+			INVALID = 0,
 			ADD_KEY = 1,
-			REMOVE_KEY = 2
+			REMOVE_KEY = 2,
+			DECRYPT = 3,
+			ENCRYPT = 4,
+			DECRYPT_CLIENT_DATA = 5,
+			ENCRYPT_CLIENT_DATA = 6
 		};
 
 	private:
@@ -72,17 +76,38 @@ class Cbe::Crypta_request : public Module_request
 		{ }
 
 		static void create(
-			void   *buf_ptr,
-			size_t  buf_size,
-			size_t  req_type,
-			void   *prim_ptr,
-			size_t  prim_size,
-			void   *key_id_ptr,
-			size_t  key_id_size,
-			void   *key_plaintext_ptr,
-			size_t  key_plaintext_size);
+			void     * /*buf_ptr*/,
+			Genode::size_t     /*buf_size*/,
+			Genode::size_t     req_type,
+			Genode::uint64_t   /*req_blk_nr*/,
+			void     * /*prim_ptr*/,
+			size_t     /*prim_size*/,
+			Genode::uint32_t   /*key_id*/,
+			void     * /*key_plain_ptr*/,
+			Genode::uint64_t   /*pba*/,
+			Genode::uint64_t   /*vba*/,
+			void     * /*plain_blk_ptr*/,
+			void     * /*cipher_blk_ptr*/);
 
 		void *prim() override { return (void *)&_prim; }
+		void *result_blk_ptr()
+		{
+			switch (_type) {
+			case DECRYPT:
+				class Not_yet_implemented_1 { };
+				throw Not_yet_implemented_1 { };
+			case ENCRYPT:
+				class Not_yet_implemented_2 { };
+				throw Not_yet_implemented_2 { };
+			case INVALID:
+			case ADD_KEY:
+			case REMOVE_KEY:
+			case DECRYPT_CLIENT_DATA:
+			case ENCRYPT_CLIENT_DATA:
+				break;
+			}
+			return nullptr;
+		}
 };
 
 class Cbe::Crypta_channel

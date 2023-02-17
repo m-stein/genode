@@ -30,7 +30,6 @@
 /* CBE tester includes */
 #include <cbe_librara.h>
 #include <crypta.h>
-#include <crypto.h>
 #include <trust_anchor.h>
 #include <verbose_node.h>
 
@@ -44,7 +43,6 @@ namespace Cbe {
 	{
 		switch (id) {
 		case CRYPTA: return "crypta";
-		case CRYPTO: return "crypto";
 		case CBE_LIBRARA: return "cbe_librara";
 		default: break;
 		}
@@ -1616,7 +1614,7 @@ class Main : Vfs::Env::User
 {
 	private:
 
-		enum { NR_OF_MODULES = 3 };
+		enum { NR_OF_MODULES = 2 };
 
 		Genode::Env                 &_env;
 		Attached_rom_dataspace       _config_rom                 { _env, "config" };
@@ -1633,12 +1631,12 @@ class Main : Vfs::Env::User
 		Cbe_init::Library            _cbe_init                   { };
 		Benchmark                    _benchmark                  { _env };
 		Trust_anchor                 _trust_anchor               { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
-		Crypto_plain_buffer          _crypto_plain_buf           { };
-		Crypto_cipher_buffer         _crypto_cipher_buf          { };
-		Crypto                       _crypto                     { _vfs_env,
-		                                                           _config_rom.xml().sub_node("crypto") };
+		//Crypto_plain_buffer          _crypto_plain_buf           { };
+		//Crypto_cipher_buffer         _crypto_cipher_buf          { };
+		//Crypto                       _crypto                     { _vfs_env,
+		//                                                           _config_rom.xml().sub_node("crypto") };
 		Crypta                       _crypta                     { };
-		Cbe::Librara                 _cbe_librara                { _cbe };
+		Cbe::Librara                 _cbe_librara                { _cbe, _blk_buf };
 
 		Module *_module_ptrs[NR_OF_MODULES] { };
 
@@ -1829,6 +1827,7 @@ class Main : Vfs::Env::User
 			_handle_completed_client_requests_of_module(_cbe_init, progress);
 		}
 
+/*
 		void _cbe_transfer_client_data_that_was_read(bool &progress)
 		{
 			while (true) {
@@ -1946,10 +1945,11 @@ class Main : Vfs::Env::User
 			_cbe_handle_crypto_encrypt_requests(progress);
 			_cbe_handle_crypto_decrypt_requests(progress);
 		}
+*/
 
 		void _execute_cbe(bool &progress)
 		{
-			_cbe->execute(_blk_buf, _crypto_plain_buf, _crypto_cipher_buf);
+			_cbe->execute(_blk_buf);
 			if (_cbe->execute_progress()) {
 				progress = true;
 			}
@@ -1959,9 +1959,9 @@ class Main : Vfs::Env::User
 			_handle_pending_ta_requests_of_module(
 				*_cbe, Module_type::CBE, progress);
 
-			_cbe_handle_crypto_requests(progress);
-			_cbe_transfer_client_data_that_was_read(progress);
-			_cbe_transfer_client_data_that_will_be_written(progress);
+			//_cbe_handle_crypto_requests(progress);
+			//_cbe_transfer_client_data_that_was_read(progress);
+			//_cbe_transfer_client_data_that_will_be_written(progress);
 			_handle_completed_client_requests_of_module(*_cbe, progress);
 		}
 
@@ -2391,6 +2391,7 @@ class Main : Vfs::Env::User
 			_trust_anchor_handle_completed_requests(progress);
 		}
 
+/*
 		void _crypto_handle_completed_encrypt_requests(bool &progress)
 		{
 			while (true) {
@@ -2441,6 +2442,7 @@ class Main : Vfs::Env::User
 			_crypto_handle_completed_encrypt_requests(progress);
 			_crypto_handle_completed_decrypt_requests(progress);
 		}
+*/
 
 		void _modules_execute(bool &progress)
 		{
@@ -2492,7 +2494,6 @@ class Main : Vfs::Env::User
 				_execute_trust_anchor(progress);
 				_execute_cbe_check(progress);
 				_execute_cbe_dump(progress);
-				_execute_crypto(progress);
 				_modules_execute(progress);
 				if (_cbe.constructed()) {
 					_execute_cbe(progress);
@@ -2508,7 +2509,6 @@ class Main : Vfs::Env::User
 			_env { env }
 		{
 			_module_ptrs[CRYPTA]      = &_crypta;
-			_module_ptrs[CRYPTO]      = &_crypto;
 			_module_ptrs[CBE_LIBRARA] = &_cbe_librara;
 			_execute();
 		}
