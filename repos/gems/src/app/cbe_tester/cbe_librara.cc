@@ -28,8 +28,7 @@ void Cbe::Librara::generated_request_complete(Module_request &mod_req)
 		class Bad_call { };
 		throw Bad_call { };
 	}
+	Crypta_request &req { *dynamic_cast<Crypta_request *>(&mod_req) };
 	_lib->librara__generated_request_complete(
-		dynamic_cast<Crypta_request *>(&mod_req)->prim(),
-		dynamic_cast<Crypta_request *>(&mod_req)->result_blk_ptr(),
-		mod_req.success());
+		req.prim(), req.result_blk_ptr(), req.success());
 }

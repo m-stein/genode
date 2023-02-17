@@ -1631,11 +1631,7 @@ class Main : Vfs::Env::User
 		Cbe_init::Library            _cbe_init                   { };
 		Benchmark                    _benchmark                  { _env };
 		Trust_anchor                 _trust_anchor               { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
-		//Crypto_plain_buffer          _crypto_plain_buf           { };
-		//Crypto_cipher_buffer         _crypto_cipher_buf          { };
-		//Crypto                       _crypto                     { _vfs_env,
-		//                                                           _config_rom.xml().sub_node("crypto") };
-		Crypta                       _crypta                     { };
+		Crypta                       _crypta                     { _vfs_env, _config_rom.xml().sub_node("crypto") };
 		Cbe::Librara                 _cbe_librara                { _cbe, _blk_buf };
 
 		Module *_module_ptrs[NR_OF_MODULES] { };

@@ -7,6 +7,7 @@
 
 /* cbe tester includes */
 #include <module.h>
+#include <vfs_utilities.h>
 
 namespace Cbe
 {
@@ -76,20 +77,21 @@ class Cbe::Crypta_request : public Module_request
 		{ }
 
 		static void create(
-			void     * /*buf_ptr*/,
-			Genode::size_t     /*buf_size*/,
+			void             * buf_ptr,
+			Genode::size_t     buf_size,
 			Genode::size_t     req_type,
-			Genode::uint64_t   /*req_blk_nr*/,
-			void     * /*prim_ptr*/,
-			size_t     /*prim_size*/,
-			Genode::uint32_t   /*key_id*/,
-			void     * /*key_plain_ptr*/,
-			Genode::uint64_t   /*pba*/,
-			Genode::uint64_t   /*vba*/,
-			void     * /*plain_blk_ptr*/,
-			void     * /*cipher_blk_ptr*/);
+			Genode::uint64_t   req_blk_nr,
+			void             * prim_ptr,
+			size_t             prim_size,
+			Genode::uint32_t   key_id,
+			void             * key_plain_ptr,
+			Genode::uint64_t   pba,
+			Genode::uint64_t   vba,
+			void             * plain_blk_ptr,
+			void             * cipher_blk_ptr);
 
 		void *prim() override { return (void *)&_prim; }
+
 		void *result_blk_ptr()
 		{
 			switch (_type) {
@@ -108,6 +110,8 @@ class Cbe::Crypta_request : public Module_request
 			}
 			return nullptr;
 		}
+
+		bool success() const { return _success; }
 };
 
 class Cbe::Crypta_channel
@@ -116,7 +120,7 @@ class Cbe::Crypta_channel
 
 		friend class Crypta;
 
-		enum State { INACTIVE, PENDING, IN_PROGRESS, COMPLETE };
+		enum State { INACTIVE, SUBMITTED, COMPLETE };
 
 		State          _state   { INACTIVE };
 		Crypta_request _request { };
@@ -132,10 +136,24 @@ class Cbe::Crypta : public Module
 
 		using Request = Crypta_request;
 		using Channel = Crypta_channel;
+		using Write_result = Vfs::File_io_service::Write_result;
 
 		enum { NR_OF_CHANNELS = 4 };
 
-		Channel _channels[NR_OF_CHANNELS];
+		struct Key_directory
+		{
+			Vfs::Vfs_handle  *encrypt_handle { nullptr };
+			Vfs::Vfs_handle  *decrypt_handle { nullptr };
+			Genode::uint32_t  key_id         { 0 };
+		};
+
+		Vfs::Env                 &_vfs_env;
+		Genode::String<32> const  _path;
+		Vfs::Vfs_handle          &_add_key_handle;
+		Channel                   _channels[NR_OF_CHANNELS];
+		Key_directory             _key_dirs[2] { { }, { } };
+
+		Key_directory &_get_unused_key_dir();
 
 
 		/************
@@ -148,10 +166,11 @@ class Cbe::Crypta : public Module
 			for (Channel &channel : _channels) {
 				if (channel._state == Channel::COMPLETE) {
 					if (sizeof(channel._request) > buf_size) {
-						class Bad_size_2 { };
-						throw Bad_size_2 { };
+						class Exception_1 { };
+						throw Exception_1 { };
 					}
-					Genode::memcpy(buf_ptr, &channel._request, sizeof(channel._request));;
+					Genode::memcpy(buf_ptr, &channel._request,
+					               sizeof(channel._request));;
 					return true;
 				}
 			}
@@ -163,14 +182,12 @@ class Cbe::Crypta : public Module
 			unsigned long id { 0 };
 			id = req.dst_request_id();
 			if (id >= NR_OF_CHANNELS) {
-
-				class Bad_id { };
-				throw Bad_id { };
+				class Exception_1 { };
+				throw Exception_1 { };
 			}
 			if (_channels[id]._state != Channel::COMPLETE) {
-
-				class Bad_state { };
-				throw Bad_state { };
+				class Exception_2 { };
+				throw Exception_2 { };
 			}
 			_channels[id]._state = Channel::INACTIVE;
 		}
@@ -181,6 +198,14 @@ class Cbe::Crypta : public Module
 		void _drop_generated_request(Module_request &mod_req) override;
 
 	public:
+
+		Crypta(Vfs::Env               &vfs_env,
+		       Genode::Xml_node const &xml_node);
+
+
+		/************
+		 ** Module **
+		 ************/
 
 		bool ready_to_submit_request() override
 		{
@@ -197,7 +222,7 @@ class Cbe::Crypta : public Module
 				if (_channels[id]._state == Channel::INACTIVE) {
 					req.dst_request_id(id);
 					_channels[id]._request = *dynamic_cast<Request *>(&req);
-					_channels[id]._state = Channel::PENDING;
+					_channels[id]._state = Channel::SUBMITTED;
 					return;
 				}
 			}
@@ -205,29 +230,11 @@ class Cbe::Crypta : public Module
 			throw Invalid_call { };
 		}
 
+		void execute(bool &) override;
 
-		/************
-		 ** Module **
-		 ************/
-
-		void execute(bool &) override
+		void generated_request_complete(Module_request &) override
 		{
-			for (Channel &channel : _channels) {
-				if (channel._state != Channel::INACTIVE) {
-					switch (channel._request._type) {
-					case Request::ADD_KEY:
-					case Request::REMOVE_KEY:
-						break;
-					default:
-						class Bad_request_type { };
-						throw Bad_request_type { };
-					}
-				}
-			}
-		}
-
-		void generated_request_complete(Module_request &mod_req) override
-		{
+/*
 			unsigned long const id { mod_req.src_request_id() };
 			if (id >= NR_OF_CHANNELS) {
 				class Bad_id { };
@@ -239,12 +246,7 @@ class Cbe::Crypta : public Module
 			}
 			_channels[id]._request.success(mod_req.success());
 			_channels[id]._state = Channel::COMPLETE;
-		}
-
-		Crypta()
-		{
-			for (Channel &channel : _channels)
-				channel = Channel { };
+*/
 		}
 };
 

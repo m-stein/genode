@@ -30,7 +30,6 @@ namespace Cbe {
 			unsigned long _src_request_id  { ~0UL };
 			unsigned long _dst_module_id   { ~0UL };
 			unsigned long _dst_request_id  { ~0UL };
-			bool          _success         { false };
 
 		public:
 
@@ -44,10 +43,8 @@ namespace Cbe {
 			unsigned long src_request_id() const { return _src_request_id; }
 			unsigned long dst_module_id() const { return _dst_module_id; }
 			unsigned long dst_request_id() const { return _dst_request_id; }
-			bool success() const { return _success; }
 
 			void dst_request_id(unsigned long id) { _dst_request_id = id; }
-			void success(bool succ) { _success = succ; }
 
 			virtual char const *type_name() { return "?"; };
 
