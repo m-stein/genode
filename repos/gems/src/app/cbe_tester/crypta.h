@@ -40,12 +40,14 @@ class Cbe::Crypta_request : public Module_request
 		friend class Crypta_channel;
 
 		Type             _type                    { INVALID };
+		Genode::uint64_t _req_blk_nr              { 0 };
+		Genode::uint64_t _pba                     { 0 };
+		Genode::uint64_t _vba                     { 0 };
 		Genode::uint32_t _key_id                  { 0 };
-		unsigned long    _data_idx                { 0 };
-		Genode::uint64_t _block_addr              { 0 };
-		::Cbe::Request   _request                 { };
 		Genode::uint8_t  _prim[PRIM_BUF_SIZE]     { };
 		Genode::uint8_t  _key_plaintext[KEY_SIZE] { };
+		Genode::addr_t   _plaintext_blk_ptr       { 0 };
+		Genode::addr_t   _ciphertext_blk_ptr      { 0 };
 		bool             _success                 { false };
 
 	public:
@@ -56,6 +58,7 @@ class Cbe::Crypta_request : public Module_request
 			case INVALID: return "invalid";
 			case ADD_KEY: return "add_key";
 			case REMOVE_KEY: return "remove_key";
+			case ENCRYPT_CLIENT_DATA: return "encrypt_client_data";
 			default: break;
 			}
 			return "?";
@@ -84,11 +87,11 @@ class Cbe::Crypta_request : public Module_request
 			void             * prim_ptr,
 			size_t             prim_size,
 			Genode::uint32_t   key_id,
-			void             * key_plain_ptr,
+			void             * key_plaintext_ptr,
 			Genode::uint64_t   pba,
 			Genode::uint64_t   vba,
-			void             * plain_blk_ptr,
-			void             * cipher_blk_ptr);
+			void             * plaintext_blk_ptr,
+			void             * ciphertext_blk_ptr);
 
 		void *prim() override { return (void *)&_prim; }
 
@@ -120,10 +123,16 @@ class Cbe::Crypta_channel
 
 		friend class Crypta;
 
-		enum State { INACTIVE, SUBMITTED, COMPLETE };
+		enum State {
+			INACTIVE, SUBMITTED, COMPLETE, OBTAIN_PLAINTEXT_BLK_PENDING,
+			OBTAIN_PLAINTEXT_BLK_IN_PROGRESS, OBTAIN_PLAINTEXT_BLK_COMPLETE,
+			OP_WRITTEN_TO_VFS_HANDLE, QUEUE_READ_SUCCEEDED };
 
-		State          _state   { INACTIVE };
-		Crypta_request _request { };
+		State            _state                 { INACTIVE };
+		Crypta_request   _request               { };
+		bool             _generated_req_success { false };
+		Vfs::Vfs_handle *_vfs_handle            { nullptr };
+		char            *_plaintext_blk_ptr     { nullptr };
 
 	public:
 
@@ -137,6 +146,7 @@ class Cbe::Crypta : public Module
 		using Request = Crypta_request;
 		using Channel = Crypta_channel;
 		using Write_result = Vfs::File_io_service::Write_result;
+		using Read_result = Vfs::File_io_service::Read_result;
 
 		enum { NR_OF_CHANNELS = 4 };
 
@@ -153,7 +163,20 @@ class Cbe::Crypta : public Module
 		Channel                   _channels[NR_OF_CHANNELS];
 		Key_directory             _key_dirs[2] { { }, { } };
 
-		Key_directory &_get_unused_key_dir();
+		Key_directory &_lookup_key_dir(Genode::uint32_t key_id);
+
+		void _execute_add_key(Channel &channel,
+		                      bool    &progress);
+
+		void _execute_encrypt_client_data(Channel &channel,
+		                                  bool    &progress);
+
+		void _mark_req_failed(Channel    &channel,
+		                      bool       &progress,
+		                      char const *str);
+
+		void _mark_req_successful(Channel &channel,
+		                          bool    &progress);
 
 
 		/************
