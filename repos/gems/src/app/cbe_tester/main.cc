@@ -32,6 +32,7 @@
 #include <crypta.h>
 #include <trust_anchor.h>
 #include <verbose_node.h>
+#include <client_data.h>
 
 using namespace Genode;
 using namespace Cbe;
@@ -44,6 +45,7 @@ namespace Cbe {
 		switch (id) {
 		case CRYPTA: return "crypta";
 		case CBE_LIBRARA: return "cbe_librara";
+		case CLIENT_DATA: return "client_data";
 		default: break;
 		}
 		return "?";
@@ -1517,7 +1519,7 @@ class Command_pool {
 			});
 		}
 
-		void generate_blk_data(Cbe::Request           cbe_req,
+		void generate_blk_data(uint64_t               cbe_req_tag,
 		                       Virtual_block_address  vba,
 		                       Block_data            &blk_data) const
 		{
@@ -1527,7 +1529,7 @@ class Command_pool {
 				if (exit_loop) {
 					return;
 				}
-				if (cmd.id() != cbe_req.tag()) {
+				if (cmd.id() != cbe_req_tag) {
 					return;
 				}
 				if (cmd.type() != Command::REQUEST) {
@@ -1610,11 +1612,11 @@ class Command_pool {
 };
 
 
-class Main : Vfs::Env::User
+class Main : Vfs::Env::User, public Cbe::Module
 {
 	private:
 
-		enum { NR_OF_MODULES = 2 };
+		enum { NR_OF_MODULES = 3 };
 
 		Genode::Env                 &_env;
 		Attached_rom_dataspace       _config_rom                 { _env, "config" };
@@ -1633,6 +1635,7 @@ class Main : Vfs::Env::User
 		Trust_anchor                 _trust_anchor               { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
 		Crypta                       _crypta                     { _vfs_env, _config_rom.xml().sub_node("crypto") };
 		Cbe::Librara                 _cbe_librara                { _cbe, _blk_buf };
+		Client_data_request          _client_data_request        { };
 
 		Module *_module_ptrs[NR_OF_MODULES] { };
 
@@ -1821,6 +1824,80 @@ class Main : Vfs::Env::User
 				_cbe_init, Module_type::CBE_INIT, progress);
 
 			_handle_completed_client_requests_of_module(_cbe_init, progress);
+		}
+
+		bool ready_to_submit_request() override
+		{
+			return _client_data_request._type == Client_data_request::INVALID;
+		}
+
+		void submit_request(Module_request &req) override
+		{
+			if (_client_data_request._type != Client_data_request::INVALID) {
+				class Exception_1 { };
+				throw Exception_1 { };
+			}
+			req.dst_request_id(0);
+			_client_data_request = *dynamic_cast<Client_data_request *>(&req);
+			switch (_client_data_request._type) {
+			case Client_data_request::OBTAIN_PLAINTEXT_BLK:
+
+				_cmd_pool.generate_blk_data(
+					_client_data_request._cbe_req_tag,
+					_client_data_request._vba,
+					*(Block_data *)_client_data_request._plaintext_blk_ptr);
+
+				_client_data_request._success = true;
+				break;
+
+			default:
+
+				break;
+			}
+		}
+
+		void execute(bool &) override { }
+
+		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
+		                             Genode::size_t   buf_size) override
+		{
+			if (_client_data_request._type != Client_data_request::INVALID) {
+				if (sizeof(_client_data_request) > buf_size) {
+					class Exception_1 { };
+					throw Exception_1 { };
+				}
+				Genode::memcpy(buf_ptr, &_client_data_request,
+				               sizeof(_client_data_request));;
+				return true;
+			}
+			return false;
+		}
+
+		void _drop_completed_request(Module_request &) override
+		{
+			if (_client_data_request._type == Client_data_request::INVALID) {
+				class Exception_2 { };
+				throw Exception_2 { };
+			}
+			_client_data_request._type = Client_data_request::INVALID;
+		}
+
+		bool _peek_generated_request(Genode::uint8_t *,
+		                             Genode::size_t   ) override
+		{
+			return false;
+		}
+
+		void _drop_generated_request(Module_request &) override
+		{
+			class Exception_1 { };
+			throw Exception_1 { };
+		}
+
+		void generated_request_complete(Module_request &) override
+		{
+			class Exception_1 { };
+			throw Exception_1 { };
 		}
 
 /*
@@ -2506,6 +2583,7 @@ class Main : Vfs::Env::User
 		{
 			_module_ptrs[CRYPTA]      = &_crypta;
 			_module_ptrs[CBE_LIBRARA] = &_cbe_librara;
+			_module_ptrs[CLIENT_DATA] = this;
 			_execute();
 		}
 };

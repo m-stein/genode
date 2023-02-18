@@ -40,7 +40,9 @@ class Cbe::Crypta_request : public Module_request
 		friend class Crypta_channel;
 
 		Type             _type                    { INVALID };
-		Genode::uint64_t _req_blk_nr              { 0 };
+		Genode::uint64_t _cbe_req_blk_nr          { 0 };
+		Genode::uint64_t _cbe_req_offset          { 0 };
+		Genode::uint64_t _cbe_req_tag             { 0 };
 		Genode::uint64_t _pba                     { 0 };
 		Genode::uint64_t _vba                     { 0 };
 		Genode::uint32_t _key_id                  { 0 };
@@ -83,7 +85,9 @@ class Cbe::Crypta_request : public Module_request
 			void             * buf_ptr,
 			Genode::size_t     buf_size,
 			Genode::size_t     req_type,
-			Genode::uint64_t   req_blk_nr,
+			Genode::uint64_t   cbe_req_blk_nr,
+			Genode::uint64_t   cbe_req_offset,
+			Genode::uint64_t   cbe_req_tag,
 			void             * prim_ptr,
 			size_t             prim_size,
 			Genode::uint32_t   key_id,
@@ -128,11 +132,11 @@ class Cbe::Crypta_channel
 			OBTAIN_PLAINTEXT_BLK_IN_PROGRESS, OBTAIN_PLAINTEXT_BLK_COMPLETE,
 			OP_WRITTEN_TO_VFS_HANDLE, QUEUE_READ_SUCCEEDED };
 
-		State            _state                 { INACTIVE };
-		Crypta_request   _request               { };
-		bool             _generated_req_success { false };
-		Vfs::Vfs_handle *_vfs_handle            { nullptr };
-		char            *_plaintext_blk_ptr     { nullptr };
+		State            _state                          { INACTIVE };
+		Crypta_request   _request                        { };
+		bool             _generated_req_success          { false };
+		Vfs::Vfs_handle *_vfs_handle                     { nullptr };
+		char             _plaintext_blk[Cbe::BLOCK_SIZE] {  };
 
 	public:
 
@@ -255,22 +259,7 @@ class Cbe::Crypta : public Module
 
 		void execute(bool &) override;
 
-		void generated_request_complete(Module_request &) override
-		{
-/*
-			unsigned long const id { mod_req.src_request_id() };
-			if (id >= NR_OF_CHANNELS) {
-				class Bad_id { };
-				throw Bad_id { };
-			}
-			if (_channels[id]._state != Channel::IN_PROGRESS) {
-				class Bad_state { };
-				throw Bad_state { };
-			}
-			_channels[id]._request.success(mod_req.success());
-			_channels[id]._state = Channel::COMPLETE;
-*/
-		}
+		void generated_request_complete(Module_request &req) override;
 };
 
 #endif /* _CRYPTA_H_ */

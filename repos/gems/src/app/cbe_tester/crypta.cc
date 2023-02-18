@@ -4,6 +4,7 @@
 
 /* cbe tester includes */
 #include <crypta.h>
+#include <client_data.h>
 
 using namespace Genode;
 using namespace Cbe;
@@ -17,7 +18,9 @@ void Cbe::Crypta_request::create(
 	void     * buf_ptr,
 	size_t     buf_size,
 	size_t     req_type,
-	uint64_t   req_blk_nr,
+	uint64_t   cbe_req_blk_nr,
+	uint64_t   cbe_req_offset,
+	uint64_t   cbe_req_tag,
 	void     * prim_ptr,
 	size_t     prim_size,
 	uint32_t   key_id,
@@ -45,7 +48,9 @@ void Cbe::Crypta_request::create(
 	case ENCRYPT_CLIENT_DATA:
 
 		req._type = ENCRYPT_CLIENT_DATA;
-		req._req_blk_nr = req_blk_nr;
+		req._cbe_req_blk_nr = cbe_req_blk_nr;
+		req._cbe_req_offset = cbe_req_offset;
+		req._cbe_req_tag = cbe_req_tag;
 		if (prim_size > sizeof(req._prim)) {
 			error(prim_size, " ", sizeof(req._prim));
 			class Bad_size_1 { };
@@ -94,14 +99,26 @@ void Cbe::Crypta_request::create(
  ** Cbe::Crypta **
  *****************/
 
-bool Cbe::Crypta::_peek_generated_request(uint8_t *,
-                                          size_t   )
+bool Cbe::Crypta::_peek_generated_request(uint8_t *buf_ptr,
+                                          size_t   buf_size)
 {
-/*
 	for (uint32_t idx { 0 }; idx < NR_OF_CHANNELS; idx++) {
 		Channel &channel { _channels[idx] };
-		if (channel._state == Channel::PENDING) {
+		if (channel._state == Channel::OBTAIN_PLAINTEXT_BLK_PENDING) {
 
+			Client_data_request const req {
+				CRYPTA, idx, Client_data_request::OBTAIN_PLAINTEXT_BLK,
+				channel._request._cbe_req_blk_nr, channel._request._cbe_req_offset,
+				channel._request._cbe_req_tag, channel._request._vba,
+				(addr_t)&channel._plaintext_blk };
+
+			if (sizeof(req) > buf_size) {
+				class Exception_1 { };
+				throw Exception_1 { };
+			}
+			memcpy(buf_ptr, &req, sizeof(req));;
+			return true;
+/*
 			switch (channel._request._type) {
 			case Request::ADD_KEY:
 			{
@@ -140,41 +157,28 @@ bool Cbe::Crypta::_peek_generated_request(uint8_t *,
 				class Bad_type { };
 				throw Bad_type { };
 			}
+*/
 		}
 	}
-*/
 	return false;
 }
 
 
-void Cbe::Crypta::_drop_generated_request(Module_request &)
+void Cbe::Crypta::_drop_generated_request(Module_request &req)
 {
-/*
-	unsigned long id { 0 };
-	switch (mod_req.dst_module_id()) {
-	case CRYPTO:
-
-		id = dynamic_cast<Crypto_request *>(&mod_req)->src_request_id();
-		break;
-
-	case CRYPTA:
-
-		class Bad_module { };
-		throw Bad_module { };
-	}
+	unsigned long const id { req.src_request_id() };
 	if (id >= NR_OF_CHANNELS) {
-
 		class Bad_id { };
 		throw Bad_id { };
 	}
-	if (_channels[id]._state != Channel::PENDING) {
-*/
+	switch (_channels[id]._state) {
+	case Channel::OBTAIN_PLAINTEXT_BLK_PENDING:
+		_channels[id]._state = Channel::OBTAIN_PLAINTEXT_BLK_IN_PROGRESS;
+		break;
+	default:
 		class Bad_state { };
 		throw Bad_state { };
-/*
 	}
-	_channels[id]._state = Channel::IN_PROGRESS;
-*/
 }
 
 
@@ -290,12 +294,12 @@ void Crypta::_execute_encrypt_client_data(Channel &channel,
 			return;
 		}
 		channel._vfs_handle = _lookup_key_dir(req._key_id).encrypt_handle;
-		channel._vfs_handle->seek(req._req_blk_nr * Cbe::BLOCK_SIZE);
+		channel._vfs_handle->seek(req._cbe_req_blk_nr * Cbe::BLOCK_SIZE);
 		Vfs::file_size nr_of_written_bytes { 0 };
 
 		channel._vfs_handle->fs().write(
-			channel._vfs_handle, channel._plaintext_blk_ptr, Cbe::BLOCK_SIZE,
-			nr_of_written_bytes);
+			channel._vfs_handle, (char *)&channel._plaintext_blk,
+			Cbe::BLOCK_SIZE, nr_of_written_bytes);
 
 		channel._state = Channel::OP_WRITTEN_TO_VFS_HANDLE;
 		progress = true;
@@ -303,7 +307,7 @@ void Crypta::_execute_encrypt_client_data(Channel &channel,
 	}
 	case Channel::OP_WRITTEN_TO_VFS_HANDLE:
 	{
-		channel._vfs_handle->seek(req._req_blk_nr * Cbe::BLOCK_SIZE);
+		channel._vfs_handle->seek(req._cbe_req_blk_nr * Cbe::BLOCK_SIZE);
 		bool success {
 			channel._vfs_handle->fs().queue_read(
 				channel._vfs_handle, Cbe::BLOCK_SIZE) };
@@ -382,4 +386,23 @@ Crypta::Crypta(Vfs::Env       &vfs_env,
 {
 	for (Channel &channel : _channels)
 		channel = Channel { };
+}
+
+void Crypta::generated_request_complete(Module_request &req)
+{
+	unsigned long const id { req.src_request_id() };
+	if (id >= NR_OF_CHANNELS) {
+		class Bad_id { };
+		throw Bad_id { };
+	}
+	switch (_channels[id]._state) {
+	case Channel::OBTAIN_PLAINTEXT_BLK_IN_PROGRESS:
+		_channels[id]._state = Channel::OBTAIN_PLAINTEXT_BLK_COMPLETE;
+		_channels[id]._generated_req_success =
+			dynamic_cast<Client_data_request *>(&req)->success();
+		break;
+	default:
+		class Bad_state { };
+		throw Bad_state { };
+	}
 }

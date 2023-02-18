@@ -145,6 +145,7 @@ namespace Cbe {
 	{
 		CRYPTA      = 0,
 		CBE_LIBRARA = 1,
+		CLIENT_DATA = 2,
 	};
 }
 
