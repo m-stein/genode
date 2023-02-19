@@ -61,7 +61,9 @@ class Cbe::Crypta_request : public Module_request
 			case ADD_KEY: return "add_key";
 			case REMOVE_KEY: return "remove_key";
 			case ENCRYPT_CLIENT_DATA: return "encrypt_client_data";
-			default: break;
+			case DECRYPT_CLIENT_DATA: return "decrypt_client_data";
+			case ENCRYPT: return "encrypt";
+			case DECRYPT: return "decrypt";
 			}
 			return "?";
 		}
@@ -130,7 +132,9 @@ class Cbe::Crypta_channel
 		enum State {
 			INACTIVE, SUBMITTED, COMPLETE, OBTAIN_PLAINTEXT_BLK_PENDING,
 			OBTAIN_PLAINTEXT_BLK_IN_PROGRESS, OBTAIN_PLAINTEXT_BLK_COMPLETE,
-			OP_WRITTEN_TO_VFS_HANDLE, QUEUE_READ_SUCCEEDED };
+			SUPPLY_PLAINTEXT_BLK_PENDING, SUPPLY_PLAINTEXT_BLK_IN_PROGRESS,
+			SUPPLY_PLAINTEXT_BLK_COMPLETE, OP_WRITTEN_TO_VFS_HANDLE,
+			QUEUE_READ_SUCCEEDED };
 
 		State            _state                          { INACTIVE };
 		Crypta_request   _request                        { };
@@ -173,6 +177,9 @@ class Cbe::Crypta : public Module
 		                      bool    &progress);
 
 		void _execute_encrypt_client_data(Channel &channel,
+		                                  bool    &progress);
+
+		void _execute_decrypt_client_data(Channel &channel,
 		                                  bool    &progress);
 
 		void _mark_req_failed(Channel    &channel,

@@ -62,6 +62,24 @@ void Cbe::Crypta_request::create(
 		req._vba = vba;
 		req._ciphertext_blk_ptr = (addr_t)ciphertext_blk_ptr;
 		break;
+
+	case DECRYPT_CLIENT_DATA:
+
+		req._type = DECRYPT_CLIENT_DATA;
+		req._cbe_req_blk_nr = cbe_req_blk_nr;
+		req._cbe_req_offset = cbe_req_offset;
+		req._cbe_req_tag = cbe_req_tag;
+		if (prim_size > sizeof(req._prim)) {
+			error(prim_size, " ", sizeof(req._prim));
+			class Bad_size_1 { };
+			throw Bad_size_1 { };
+		}
+		memcpy(&req._prim, prim_ptr, prim_size);
+		req._key_id = key_id;
+		req._pba = pba;
+		req._vba = vba;
+		req._ciphertext_blk_ptr = (addr_t)ciphertext_blk_ptr;
+		break;
 /*
 	case REMOVE_KEY:
 
@@ -104,8 +122,9 @@ bool Cbe::Crypta::_peek_generated_request(uint8_t *buf_ptr,
 {
 	for (uint32_t idx { 0 }; idx < NR_OF_CHANNELS; idx++) {
 		Channel &channel { _channels[idx] };
-		if (channel._state == Channel::OBTAIN_PLAINTEXT_BLK_PENDING) {
-
+		switch (channel._state) {
+		case Channel::OBTAIN_PLAINTEXT_BLK_PENDING:
+		{
 			Client_data_request const req {
 				CRYPTA, idx, Client_data_request::OBTAIN_PLAINTEXT_BLK,
 				channel._request._cbe_req_blk_nr, channel._request._cbe_req_offset,
@@ -118,46 +137,25 @@ bool Cbe::Crypta::_peek_generated_request(uint8_t *buf_ptr,
 			}
 			memcpy(buf_ptr, &req, sizeof(req));;
 			return true;
-/*
-			switch (channel._request._type) {
-			case Request::ADD_KEY:
-			{
-				Key key;
-				if (sizeof(key.value) != sizeof(channel._request._key_plaintext)) {
-					class Bad_size_1 { };
-					throw Bad_size_1 { };
-				}
-				memcpy(key.value, channel._request._key_plaintext, sizeof(key.value));
-				key.id.value = channel._request._key_id;
-				Cbe::Request cbe_req { Cbe::Request::Operation::READ, false, 0, 0, 1, 0, idx };
-				Crypto_request req { CRYPTA, idx, Crypto_request::ADD_KEY, cbe_req, key };
+		}
+		case Channel::SUPPLY_PLAINTEXT_BLK_PENDING:
+		{
+			Client_data_request const req {
+				CRYPTA, idx, Client_data_request::SUPPLY_PLAINTEXT_BLK,
+				channel._request._cbe_req_blk_nr, channel._request._cbe_req_offset,
+				channel._request._cbe_req_tag, channel._request._vba,
+				(addr_t)&channel._plaintext_blk };
 
-				if (sizeof(req) > buf_size) {
-					class Bad_size_2 { };
-					throw Bad_size_2 { };
-				}
-				memcpy(buf_ptr, &req, sizeof(req));;
-				return true;
+			if (sizeof(req) > buf_size) {
+				class Exception_1 { };
+				throw Exception_1 { };
 			}
-			case Request::REMOVE_KEY:
-			{
-				Key key;
-				key.id.value = channel._request._key_id;
-				Cbe::Request cbe_req { Cbe::Request::Operation::READ, false, 0, 0, 1, 0, idx };
-				Crypto_request req { CRYPTA, idx, Crypto_request::REMOVE_KEY, cbe_req, key };
+			memcpy(buf_ptr, &req, sizeof(req));;
+			return true;
+		}
+		default:
 
-				if (sizeof(req) > buf_size) {
-					class Bad_size_2 { };
-					throw Bad_size_2 { };
-				}
-				memcpy(buf_ptr, &req, sizeof(req));;
-				return true;
-			}
-			default:
-				class Bad_type { };
-				throw Bad_type { };
-			}
-*/
+			break;
 		}
 	}
 	return false;
@@ -174,6 +172,9 @@ void Cbe::Crypta::_drop_generated_request(Module_request &req)
 	switch (_channels[id]._state) {
 	case Channel::OBTAIN_PLAINTEXT_BLK_PENDING:
 		_channels[id]._state = Channel::OBTAIN_PLAINTEXT_BLK_IN_PROGRESS;
+		break;
+	case Channel::SUPPLY_PLAINTEXT_BLK_PENDING:
+		_channels[id]._state = Channel::SUPPLY_PLAINTEXT_BLK_IN_PROGRESS;
 		break;
 	default:
 		class Bad_state { };
@@ -197,7 +198,7 @@ void Crypta::_mark_req_failed(Channel    &channel,
                               bool       &progress,
                               char const *str)
 {
-	error("request failed: ", str);
+	error("request failed: failed to ", str);
 	channel._request._success = false;
 	channel._state = Channel::COMPLETE;
 	progress = true;
@@ -242,7 +243,7 @@ void Crypta::_execute_add_key(Channel &channel,
 			}
 			if (key_dir_ptr == nullptr) {
 
-				_mark_req_failed(channel, progress, "no key dir");
+				_mark_req_failed(channel, progress, "find unused key dir");
 				return;
 			}
 			key_dir_ptr->key_id = req._key_id;
@@ -263,7 +264,7 @@ void Crypta::_execute_add_key(Channel &channel,
 		case Write_result::WRITE_ERR_INVALID:
 		case Write_result::WRITE_ERR_IO:
 
-			_mark_req_failed(channel, progress, "vfs write error");
+			_mark_req_failed(channel, progress, "write operation");
 			return;
 		}
 		return;
@@ -290,7 +291,7 @@ void Crypta::_execute_encrypt_client_data(Channel &channel,
 	{
 		if (!channel._generated_req_success) {
 
-			_mark_req_failed(channel, progress, "no plaintext block");
+			_mark_req_failed(channel, progress, "obtain plaintext block");
 			return;
 		}
 		channel._vfs_handle = _lookup_key_dir(req._key_id).encrypt_handle;
@@ -341,10 +342,88 @@ void Crypta::_execute_encrypt_client_data(Channel &channel,
 		case Read_result::READ_ERR_IO:
 		case Read_result::READ_ERR_INVALID:
 
-			_mark_req_failed(channel, progress, "vfs read error");
+			_mark_req_failed(channel, progress, "read ciphertext data");
 			return;
 		}
 	}
+	default:
+
+		return;
+	}
+}
+
+
+void Crypta::_execute_decrypt_client_data(Channel &channel,
+                                          bool    &progress)
+{
+	Request &req { channel._request };
+	switch (channel._state) {
+	case Channel::SUBMITTED:
+	{
+		channel._vfs_handle = _lookup_key_dir(req._key_id).decrypt_handle;
+		channel._vfs_handle->seek(req._cbe_req_blk_nr * Cbe::BLOCK_SIZE);
+		Vfs::file_size nr_of_written_bytes { 0 };
+
+		channel._vfs_handle->fs().write(
+			channel._vfs_handle, (char *)&channel._request._ciphertext_blk_ptr,
+			Cbe::BLOCK_SIZE, nr_of_written_bytes);
+
+		channel._state = Channel::OP_WRITTEN_TO_VFS_HANDLE;
+		progress = true;
+		return;
+	}
+	case Channel::OP_WRITTEN_TO_VFS_HANDLE:
+	{
+		channel._vfs_handle->seek(req._cbe_req_blk_nr * Cbe::BLOCK_SIZE);
+		bool success {
+			channel._vfs_handle->fs().queue_read(
+				channel._vfs_handle, Cbe::BLOCK_SIZE) };
+
+		if (!success)
+			return;
+
+		channel._state = Channel::QUEUE_READ_SUCCEEDED;
+		progress = true;
+		return;
+	}
+	case Channel::QUEUE_READ_SUCCEEDED:
+	{
+		Vfs::file_size nr_of_read_bytes { 0 };
+		Read_result const result {
+			channel._vfs_handle->fs().complete_read(
+				channel._vfs_handle, (char *)&channel._plaintext_blk,
+				Cbe::BLOCK_SIZE, nr_of_read_bytes) };
+
+		switch (result) {
+		case Read_result::READ_OK:
+
+			channel._state = Channel::SUPPLY_PLAINTEXT_BLK_PENDING;
+			progress = true;
+			return;
+
+		case Read_result::READ_QUEUED:
+		case Read_result::READ_ERR_WOULD_BLOCK:
+
+			return;
+
+		case Read_result::READ_ERR_IO:
+		case Read_result::READ_ERR_INVALID:
+
+			_mark_req_failed(channel, progress, "read plaintext data");
+			return;
+		}
+		return;
+	}
+	case Channel::SUPPLY_PLAINTEXT_BLK_COMPLETE:
+
+		if (!channel._generated_req_success) {
+
+			_mark_req_failed(channel, progress, "supply plaintext block");
+			return;
+		}
+		_mark_req_successful(channel, progress);
+		return;
+
 	default:
 
 		return;
@@ -358,16 +437,9 @@ void Crypta::execute(bool &progress)
 		if (channel._state != Channel::INACTIVE) {
 
 			switch (channel._request._type) {
-			case Request::ADD_KEY:
-
-				_execute_add_key(channel, progress);
-				break;
-
-			case Request::ENCRYPT_CLIENT_DATA:
-
-				_execute_encrypt_client_data(channel, progress);
-				break;
-
+			case Request::ADD_KEY:             _execute_add_key(channel, progress);             break;
+			case Request::ENCRYPT_CLIENT_DATA: _execute_encrypt_client_data(channel, progress); break;
+			case Request::DECRYPT_CLIENT_DATA: _execute_decrypt_client_data(channel, progress); break;
 			default:
 
 				class Bad_request_type { };
@@ -398,6 +470,11 @@ void Crypta::generated_request_complete(Module_request &req)
 	switch (_channels[id]._state) {
 	case Channel::OBTAIN_PLAINTEXT_BLK_IN_PROGRESS:
 		_channels[id]._state = Channel::OBTAIN_PLAINTEXT_BLK_COMPLETE;
+		_channels[id]._generated_req_success =
+			dynamic_cast<Client_data_request *>(&req)->success();
+		break;
+	case Channel::SUPPLY_PLAINTEXT_BLK_IN_PROGRESS:
+		_channels[id]._state = Channel::SUPPLY_PLAINTEXT_BLK_COMPLETE;
 		_channels[id]._generated_req_success =
 			dynamic_cast<Client_data_request *>(&req)->success();
 		break;

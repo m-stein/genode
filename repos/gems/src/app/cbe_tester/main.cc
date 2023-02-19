@@ -1545,9 +1545,9 @@ class Command_pool {
 			});
 		}
 
-		void verify_blk_data(Cbe::Request           cbe_req,
+		void verify_blk_data(uint64_t               cbe_req_tag,
 		                     Virtual_block_address  vba,
-		                     Block_data      const &blk_data)
+		                     Block_data            &blk_data)
 		{
 			bool exit_loop { false };
 			_cmd_queue.for_each([&] (Command &cmd)
@@ -1555,7 +1555,7 @@ class Command_pool {
 				if (exit_loop) {
 					return;
 				}
-				if (cmd.id() != cbe_req.tag()) {
+				if (cmd.id() != cbe_req_tag) {
 					return;
 				}
 				if (cmd.type() != Command::REQUEST) {
@@ -1577,7 +1577,7 @@ class Command_pool {
 
 						if (_verbose_node.client_data_mismatch()) {
 							log("client data mismatch: vba=", vba,
-							    " req=(", cbe_req, ")");
+							    " req_tag=(", cbe_req_tag, ")");
 							log("client data should be:");
 							print_blk_data(gen_blk_data);
 							log("client data is:");
@@ -1834,6 +1834,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 		void submit_request(Module_request &req) override
 		{
 			if (_client_data_request._type != Client_data_request::INVALID) {
+
 				class Exception_1 { };
 				throw Exception_1 { };
 			}
@@ -1847,12 +1848,35 @@ class Main : Vfs::Env::User, public Cbe::Module
 					_client_data_request._vba,
 					*(Block_data *)_client_data_request._plaintext_blk_ptr);
 
+				_benchmark.raise_nr_of_virt_blks_written();
+
+				if (_verbose_node.client_data_transferred())
+					log("client data: vba=", _client_data_request._vba,
+					    " req_tag=", _client_data_request._cbe_req_tag);
+
 				_client_data_request._success = true;
 				break;
 
-			default:
+			case Client_data_request::SUPPLY_PLAINTEXT_BLK:
 
+				_cmd_pool.verify_blk_data(
+					_client_data_request._cbe_req_tag,
+					_client_data_request._vba,
+					*(Block_data *)_client_data_request._plaintext_blk_ptr);
+
+				_benchmark.raise_nr_of_virt_blks_read();
+
+				if (_verbose_node.client_data_transferred())
+					log("client data: vba=", _client_data_request._vba,
+					    " req_tag=", _client_data_request._cbe_req_tag);
+
+				_client_data_request._success = true;
 				break;
+
+			case Client_data_request::INVALID:
+
+				class Exception_2 { };
+				throw Exception_2 { };
 			}
 		}
 
@@ -2533,9 +2557,9 @@ class Main : Vfs::Env::User, public Cbe::Module
 						Genode::log(module_name(id), ":", req.src_request_id_str(), " --", req.type_name(), "-| ", module_name(req.dst_module_id()));
 						return Module::REQUEST_NOT_HANDLED;
 					}
+					Genode::log(module_name(id), ":", req.src_request_id_str(), " --", req.type_name(), "--> ", module_name(req.dst_module_id()), ":", req.dst_request_id_str());
 					dst_module.submit_request(req);
 					progress = true;
-					Genode::log(module_name(id), ":", req.src_request_id_str(), " --", req.type_name(), "--> ", module_name(req.dst_module_id()), ":", req.dst_request_id_str());
 					return Module::REQUEST_HANDLED;
 				});
 				module_ptr->for_each_completed_request([&] (Module_request &req) {

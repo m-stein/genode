@@ -19,19 +19,19 @@ class Cbe::Client_data_request : public Module_request
 {
 	public:
 
-		enum Type { INVALID, OBTAIN_PLAINTEXT_BLK };
+		enum Type { INVALID, OBTAIN_PLAINTEXT_BLK, SUPPLY_PLAINTEXT_BLK };
 
 	private:
 
 		friend class ::Main;
 
-		Type             _type                    { INVALID };
-		Genode::uint64_t _cbe_req_blk_nr          { 0 };
-		Genode::uint64_t _cbe_req_offset          { 0 };
-		Genode::uint64_t _cbe_req_tag             { 0 };
-		Genode::uint64_t _vba                     { 0 };
-		Genode::addr_t   _plaintext_blk_ptr       { 0 };
-		bool             _success                 { false };
+		Type             _type              { INVALID };
+		Genode::uint64_t _cbe_req_blk_nr    { 0 };
+		Genode::uint64_t _cbe_req_offset    { 0 };
+		Genode::uint64_t _cbe_req_tag       { 0 };
+		Genode::uint64_t _vba               { 0 };
+		Genode::addr_t   _plaintext_blk_ptr { 0 };
+		bool             _success           { false };
 
 	public:
 
@@ -39,7 +39,8 @@ class Cbe::Client_data_request : public Module_request
 		{
 			switch (_type) {
 			case INVALID: return "invalid";
-			case OBTAIN_PLAINTEXT_BLK: return "obtain_plaintext_ptr";
+			case OBTAIN_PLAINTEXT_BLK: return "obtain_plaintext_blk";
+			case SUPPLY_PLAINTEXT_BLK: return "supply_plaintext_blk";
 			}
 			return "?";
 		}
