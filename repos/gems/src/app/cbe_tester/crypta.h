@@ -146,11 +146,11 @@ class Cbe::Crypta_channel
 			SUPPLY_PLAINTEXT_BLK_COMPLETE, OP_WRITTEN_TO_VFS_HANDLE,
 			QUEUE_READ_SUCCEEDED };
 
-		State            _state                          { INACTIVE };
-		Crypta_request   _request                        { };
-		bool             _generated_req_success          { false };
-		Vfs::Vfs_handle *_vfs_handle                     { nullptr };
-		char             _plaintext_blk[Cbe::BLOCK_SIZE] {  };
+		State            _state                    { INACTIVE };
+		Crypta_request   _request                  { };
+		bool             _generated_req_success    { false };
+		Vfs::Vfs_handle *_vfs_handle               { nullptr };
+		char             _blk_buf[Cbe::BLOCK_SIZE] {  };
 
 	public:
 
@@ -191,6 +191,9 @@ class Cbe::Crypta : public Module
 		                         bool    &progress);
 
 		void _execute_decrypt(Channel &channel,
+		                      bool    &progress);
+
+		void _execute_encrypt(Channel &channel,
 		                      bool    &progress);
 
 		void _execute_encrypt_client_data(Channel &channel,

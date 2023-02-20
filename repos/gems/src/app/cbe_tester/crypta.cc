@@ -76,7 +76,7 @@ bool Cbe::Crypta::_peek_generated_request(uint8_t *buf_ptr,
 				CRYPTA, idx, Client_data_request::OBTAIN_PLAINTEXT_BLK,
 				channel._request._cbe_req_blk_nr, channel._request._cbe_req_offset,
 				channel._request._cbe_req_tag, channel._request._vba,
-				(addr_t)&channel._plaintext_blk };
+				(addr_t)&channel._blk_buf };
 
 			if (sizeof(req) > buf_size) {
 				class Exception_1 { };
@@ -91,7 +91,7 @@ bool Cbe::Crypta::_peek_generated_request(uint8_t *buf_ptr,
 				CRYPTA, idx, Client_data_request::SUPPLY_PLAINTEXT_BLK,
 				channel._request._cbe_req_blk_nr, channel._request._cbe_req_offset,
 				channel._request._cbe_req_tag, channel._request._vba,
-				(addr_t)&channel._plaintext_blk };
+				(addr_t)&channel._blk_buf };
 
 			if (sizeof(req) > buf_size) {
 				class Exception_1 { };
@@ -289,7 +289,7 @@ void Crypta::_execute_encrypt_client_data(Channel &channel,
 		Vfs::file_size nr_of_written_bytes { 0 };
 
 		channel._vfs_handle->fs().write(
-			channel._vfs_handle, (char *)&channel._plaintext_blk,
+			channel._vfs_handle, (char *)&channel._blk_buf,
 			Cbe::BLOCK_SIZE, nr_of_written_bytes);
 
 		channel._state = Channel::OP_WRITTEN_TO_VFS_HANDLE;
@@ -324,7 +324,7 @@ void Crypta::_execute_encrypt_client_data(Channel &channel,
 			_mark_req_successful(channel, progress);
 
 //{
-//	Genode::uint64_t *x = (Genode::uint64_t *)&channel._plaintext_blk;
+//	Genode::uint64_t *x = (Genode::uint64_t *)&channel._blk_buf;
 //	Genode::log("encrypt: plaintext blk:");
 //	Genode::log("   ",
 //		Genode::Hex(x[0], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
@@ -401,6 +401,73 @@ void Crypta::_execute_encrypt_client_data(Channel &channel,
 }
 
 
+void Crypta::_execute_encrypt(Channel &channel,
+                              bool    &progress)
+{
+	Request &req { channel._request };
+	switch (channel._state) {
+	case Channel::SUBMITTED:
+	{
+		channel._vfs_handle = _lookup_key_dir(req._key_id).encrypt_handle;
+		channel._vfs_handle->seek(req._cbe_req_blk_nr * Cbe::BLOCK_SIZE);
+		Vfs::file_size nr_of_written_bytes { 0 };
+
+		channel._vfs_handle->fs().write(
+			channel._vfs_handle, (char *)req._plaintext_blk_ptr,
+			Cbe::BLOCK_SIZE, nr_of_written_bytes);
+
+		channel._state = Channel::OP_WRITTEN_TO_VFS_HANDLE;
+		progress = true;
+		return;
+	}
+	case Channel::OP_WRITTEN_TO_VFS_HANDLE:
+	{
+		channel._vfs_handle->seek(req._cbe_req_blk_nr * Cbe::BLOCK_SIZE);
+		bool success {
+			channel._vfs_handle->fs().queue_read(
+				channel._vfs_handle, Cbe::BLOCK_SIZE) };
+
+		if (!success)
+			return;
+
+		channel._state = Channel::QUEUE_READ_SUCCEEDED;
+		progress = true;
+		return;
+	}
+	case Channel::QUEUE_READ_SUCCEEDED:
+	{
+		Vfs::file_size nr_of_read_bytes { 0 };
+		Read_result const result {
+			channel._vfs_handle->fs().complete_read(
+				channel._vfs_handle, (char *)&channel._blk_buf,
+				Cbe::BLOCK_SIZE, nr_of_read_bytes) };
+
+		switch (result) {
+		case Read_result::READ_OK:
+
+			req._ciphertext_blk_ptr = (addr_t)&channel._blk_buf;
+			_mark_req_successful(channel, progress);
+			return;
+
+		case Read_result::READ_QUEUED:
+		case Read_result::READ_ERR_WOULD_BLOCK:
+
+			return;
+
+		case Read_result::READ_ERR_IO:
+		case Read_result::READ_ERR_INVALID:
+
+			_mark_req_failed(channel, progress, "read ciphertext data");
+			return;
+		}
+	}
+	default:
+
+		return;
+	}
+}
+
+
 void Crypta::_execute_decrypt(Channel &channel,
                               bool    &progress)
 {
@@ -440,13 +507,13 @@ void Crypta::_execute_decrypt(Channel &channel,
 		Vfs::file_size nr_of_read_bytes { 0 };
 		Read_result const result {
 			channel._vfs_handle->fs().complete_read(
-				channel._vfs_handle, (char *)&channel._plaintext_blk,
+				channel._vfs_handle, (char *)&channel._blk_buf,
 				Cbe::BLOCK_SIZE, nr_of_read_bytes) };
 
 		switch (result) {
 		case Read_result::READ_OK:
 
-			req._plaintext_blk_ptr = (addr_t)&channel._plaintext_blk;
+			req._plaintext_blk_ptr = (addr_t)&channel._blk_buf;
 			_mark_req_successful(channel, progress);
 			return;
 
@@ -527,15 +594,15 @@ void Crypta::_execute_decrypt_client_data(Channel &channel,
 		Vfs::file_size nr_of_read_bytes { 0 };
 		Read_result const result {
 			channel._vfs_handle->fs().complete_read(
-				channel._vfs_handle, (char *)&channel._plaintext_blk,
+				channel._vfs_handle, (char *)&channel._blk_buf,
 				Cbe::BLOCK_SIZE, nr_of_read_bytes) };
 
 //error("decrypt: queue read: size ", Cbe::BLOCK_SIZE, " result ", (int)result,
 //" data ",
-//	((uint64_t *)&channel._plaintext_blk)[0],
-//	((uint64_t *)&channel._plaintext_blk)[1],
-//	((uint64_t *)&channel._plaintext_blk)[(BLOCK_SIZE / 8)-2],
-//	((uint64_t *)&channel._plaintext_blk)[(BLOCK_SIZE / 8)-1]
+//	((uint64_t *)&channel._blk_buf)[0],
+//	((uint64_t *)&channel._blk_buf)[1],
+//	((uint64_t *)&channel._blk_buf)[(BLOCK_SIZE / 8)-2],
+//	((uint64_t *)&channel._blk_buf)[(BLOCK_SIZE / 8)-1]
 //	);
 
 		switch (result) {
@@ -571,7 +638,7 @@ void Crypta::_execute_decrypt_client_data(Channel &channel,
 //}
 //
 //{
-//	Genode::uint64_t *x = (Genode::uint64_t *)&channel._plaintext_blk;
+//	Genode::uint64_t *x = (Genode::uint64_t *)&channel._blk_buf;
 //	Genode::log("decrypt: plaintext blk:");
 //	Genode::log("   ",
 //		Genode::Hex(x[0], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
@@ -641,6 +708,7 @@ void Crypta::execute(bool &progress)
 			case Request::ADD_KEY:             _execute_add_key(channel, progress);             break;
 			case Request::REMOVE_KEY:          _execute_remove_key(channel, progress);          break;
 			case Request::DECRYPT:             _execute_decrypt(channel, progress);             break;
+			case Request::ENCRYPT:             _execute_encrypt(channel, progress);             break;
 			case Request::DECRYPT_CLIENT_DATA: _execute_decrypt_client_data(channel, progress); break;
 			case Request::ENCRYPT_CLIENT_DATA: _execute_encrypt_client_data(channel, progress); break;
 			default:
