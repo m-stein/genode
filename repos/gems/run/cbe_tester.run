@@ -142,7 +142,7 @@ append config {
 
 		<binary name="cbe_tester"/>
 		<resource name="RAM" quantum="80M"/>
-		<config>
+		<config ld_verbose="yes">
 
 			<verbose
 				cmd_pool_cmd_pending="no"

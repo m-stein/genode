@@ -118,12 +118,8 @@ class Cbe::Crypta_request : public Module_request
 		void *result_blk_ptr()
 		{
 			switch (_type) {
-			case DECRYPT:
-				class Not_yet_implemented_1 { };
-				throw Not_yet_implemented_1 { };
-			case ENCRYPT:
-				class Not_yet_implemented_2 { };
-				throw Not_yet_implemented_2 { };
+			case DECRYPT: return (void *)_plaintext_blk_ptr;
+			case ENCRYPT: return (void *)_ciphertext_blk_ptr;
 			case INVALID:
 			case ADD_KEY:
 			case REMOVE_KEY:
@@ -193,6 +189,9 @@ class Cbe::Crypta : public Module
 
 		void _execute_remove_key(Channel &channel,
 		                         bool    &progress);
+
+		void _execute_decrypt(Channel &channel,
+		                      bool    &progress);
 
 		void _execute_encrypt_client_data(Channel &channel,
 		                                  bool    &progress);

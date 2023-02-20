@@ -401,6 +401,75 @@ void Crypta::_execute_encrypt_client_data(Channel &channel,
 }
 
 
+void Crypta::_execute_decrypt(Channel &channel,
+                              bool    &progress)
+{
+	Request &req { channel._request };
+	switch (channel._state) {
+	case Channel::SUBMITTED:
+	{
+		channel._vfs_handle = _lookup_key_dir(req._key_id).decrypt_handle;
+		channel._vfs_handle->seek(req._cbe_req_blk_nr * Cbe::BLOCK_SIZE);
+
+		Vfs::file_size nr_of_written_bytes { 0 };
+		channel._vfs_handle->fs().write(
+			channel._vfs_handle, (char *)channel._request._ciphertext_blk_ptr,
+			Cbe::BLOCK_SIZE, nr_of_written_bytes);
+
+		channel._state = Channel::OP_WRITTEN_TO_VFS_HANDLE;
+		progress = true;
+		return;
+	}
+	case Channel::OP_WRITTEN_TO_VFS_HANDLE:
+	{
+		channel._vfs_handle->seek(req._cbe_req_blk_nr * Cbe::BLOCK_SIZE);
+
+		bool success {
+			channel._vfs_handle->fs().queue_read(
+				channel._vfs_handle, Cbe::BLOCK_SIZE) };
+
+		if (!success)
+			return;
+
+		channel._state = Channel::QUEUE_READ_SUCCEEDED;
+		progress = true;
+		return;
+	}
+	case Channel::QUEUE_READ_SUCCEEDED:
+	{
+		Vfs::file_size nr_of_read_bytes { 0 };
+		Read_result const result {
+			channel._vfs_handle->fs().complete_read(
+				channel._vfs_handle, (char *)&channel._plaintext_blk,
+				Cbe::BLOCK_SIZE, nr_of_read_bytes) };
+
+		switch (result) {
+		case Read_result::READ_OK:
+
+			req._plaintext_blk_ptr = (addr_t)&channel._plaintext_blk;
+			_mark_req_successful(channel, progress);
+			return;
+
+		case Read_result::READ_QUEUED:
+		case Read_result::READ_ERR_WOULD_BLOCK:
+
+			return;
+
+		case Read_result::READ_ERR_IO:
+		case Read_result::READ_ERR_INVALID:
+
+			_mark_req_failed(channel, progress, "read plaintext data");
+			return;
+		}
+		return;
+	}
+	default:
+
+		return;
+	}
+}
+
+
 void Crypta::_execute_decrypt_client_data(Channel &channel,
                                           bool    &progress)
 {
@@ -571,8 +640,9 @@ void Crypta::execute(bool &progress)
 			switch (channel._request._type) {
 			case Request::ADD_KEY:             _execute_add_key(channel, progress);             break;
 			case Request::REMOVE_KEY:          _execute_remove_key(channel, progress);          break;
-			case Request::ENCRYPT_CLIENT_DATA: _execute_encrypt_client_data(channel, progress); break;
+			case Request::DECRYPT:             _execute_decrypt(channel, progress);             break;
 			case Request::DECRYPT_CLIENT_DATA: _execute_decrypt_client_data(channel, progress); break;
+			case Request::ENCRYPT_CLIENT_DATA: _execute_encrypt_client_data(channel, progress); break;
 			default:
 
 				class Bad_request_type { };
