@@ -15,108 +15,43 @@ using namespace Cbe;
  *************************/
 
 void Cbe::Crypta_request::create(
-	void     * buf_ptr,
-	size_t     buf_size,
-	size_t     req_type,
-	uint64_t   cbe_req_blk_nr,
-	uint64_t   cbe_req_offset,
-	uint64_t   cbe_req_tag,
-	void     * prim_ptr,
-	size_t     prim_size,
-	uint32_t   key_id,
-	void     * key_plaintext_ptr,
-	uint64_t   pba,
-	uint64_t   vba,
-	void     * /*plaintext_blk_ptr*/,
-	void     * ciphertext_blk_ptr)
+	void     *buf_ptr,
+	size_t    buf_size,
+	size_t    req_type,
+	uint64_t  cbe_req_blk_nr,
+	uint64_t  cbe_req_offset,
+	uint64_t  cbe_req_tag,
+	void     *prim_ptr,
+	size_t    prim_size,
+	uint32_t  key_id,
+	void     *key_plaintext_ptr,
+	uint64_t  pba,
+	uint64_t  vba,
+	void     *plaintext_blk_ptr,
+	void     *ciphertext_blk_ptr)
 {
 	Crypta_request req { CBE_LIBRARA, ~0UL };
-	switch (req_type) {
-	case ADD_KEY:
-
-		req._type = ADD_KEY;
-		if (prim_size > sizeof(req._prim)) {
-			error(prim_size, " ", sizeof(req._prim));
-			class Bad_size_1 { };
-			throw Bad_size_1 { };
-		}
-		memcpy(&req._prim, prim_ptr, prim_size);
-		req._key_id = key_id;
-		memcpy(&req._key_plaintext, key_plaintext_ptr, sizeof(req._key_plaintext));
-		break;
-
-	case REMOVE_KEY:
-
-		req._type = REMOVE_KEY;
-		if (prim_size > sizeof(req._prim)) {
-			error(prim_size, " ", sizeof(req._prim));
-			class Bad_size_1 { };
-			throw Bad_size_1 { };
-		}
-		memcpy(&req._prim, prim_ptr, prim_size);
-		req._key_id = key_id;
-		break;
-
-	case ENCRYPT_CLIENT_DATA:
-
-		req._type = ENCRYPT_CLIENT_DATA;
-		req._cbe_req_blk_nr = cbe_req_blk_nr;
-		req._cbe_req_offset = cbe_req_offset;
-		req._cbe_req_tag = cbe_req_tag;
-		if (prim_size > sizeof(req._prim)) {
-			error(prim_size, " ", sizeof(req._prim));
-			class Bad_size_1 { };
-			throw Bad_size_1 { };
-		}
-		memcpy(&req._prim, prim_ptr, prim_size);
-		req._key_id = key_id;
-		req._pba = pba;
-		req._vba = vba;
-		req._ciphertext_blk_ptr = (addr_t)ciphertext_blk_ptr;
-		break;
-
-	case DECRYPT_CLIENT_DATA:
-
-		req._type = DECRYPT_CLIENT_DATA;
-		req._cbe_req_blk_nr = cbe_req_blk_nr;
-		req._cbe_req_offset = cbe_req_offset;
-		req._cbe_req_tag = cbe_req_tag;
-		if (prim_size > sizeof(req._prim)) {
-			error(prim_size, " ", sizeof(req._prim));
-			class Bad_size_1 { };
-			throw Bad_size_1 { };
-		}
-		memcpy(&req._prim, prim_ptr, prim_size);
-		req._key_id = key_id;
-		req._pba = pba;
-		req._vba = vba;
-		req._ciphertext_blk_ptr = (addr_t)ciphertext_blk_ptr;
-		break;
-/*
-	case REMOVE_KEY:
-
-		req._type = REMOVE_KEY;
-		if (prim_size > sizeof(req._prim)) {
-			error(prim_size, " ", sizeof(req._prim));
-			class Bad_size_4 { };
-			throw Bad_size_4 { };
-		}
-		memcpy(&req._prim, prim_ptr, prim_size);
-
-		if (key_id_size != sizeof(req._key_id)) {
-			error(key_id_size, " ", sizeof(req._key_id));
-			class Bad_size_5 { };
-			throw Bad_size_5 { };
-		}
-		memcpy(&req._key_id, key_id_ptr, key_id_size);
-		break;
-*/
-	default:
-
-		error("Bad crypta request type: ", req_type);
-		class Bad_type { };
-		throw Bad_type { };
+	req._type = (Type)req_type;
+	req._cbe_req_blk_nr = cbe_req_blk_nr;
+	req._cbe_req_offset = cbe_req_offset;
+	req._cbe_req_tag = cbe_req_tag;
+	if (prim_size > sizeof(req._prim)) {
+		error(prim_size, " ", sizeof(req._prim));
+		class Bad_size_1 { };
+		throw Bad_size_1 { };
 	}
+	memcpy(&req._prim, prim_ptr, prim_size);
+	req._key_id = key_id;
+	if (key_plaintext_ptr != nullptr)
+		memcpy(
+			&req._key_plaintext, key_plaintext_ptr,
+			sizeof(req._key_plaintext));
+
+	req._pba = pba;
+	req._vba = vba;
+	req._plaintext_blk_ptr = (addr_t)plaintext_blk_ptr;
+	req._ciphertext_blk_ptr = (addr_t)ciphertext_blk_ptr;
+
 	if (sizeof(req) > buf_size) {
 		class Bad_size_0 { };
 		throw Bad_size_0 { };
