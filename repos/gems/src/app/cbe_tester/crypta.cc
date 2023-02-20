@@ -332,6 +332,64 @@ void Crypta::_execute_encrypt_client_data(Channel &channel,
 		case Read_result::READ_OK:
 
 			_mark_req_successful(channel, progress);
+
+//{
+//	Genode::uint64_t *x = (Genode::uint64_t *)&channel._plaintext_blk;
+//	Genode::log("encrypt: plaintext blk:");
+//	Genode::log("   ",
+//		Genode::Hex(x[0], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[1], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[2], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[3], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[4], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[5], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[6], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[7], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[8], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[9], Genode::Hex::OMIT_PREFIX, Hex::PAD)
+//	);
+//	Genode::log("   ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) - 10], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  9], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  8], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  7], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  6], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  5], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  4], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  3], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  2], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  1], Genode::Hex::OMIT_PREFIX, Hex::PAD)
+//	);
+//}
+//{
+//	Genode::uint64_t *x = (Genode::uint64_t *)req._ciphertext_blk_ptr;
+//	Genode::log("encrypt: ciphertext blk:");
+//	Genode::log("   ",
+//		Genode::Hex(x[0], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[1], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[2], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[3], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[4], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[5], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[6], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[7], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[8], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[9], Genode::Hex::OMIT_PREFIX, Hex::PAD)
+//	);
+//	Genode::log("   ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) - 10], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  9], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  8], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  7], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  6], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  5], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  4], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  3], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  2], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  1], Genode::Hex::OMIT_PREFIX, Hex::PAD)
+//	);
+//}
+
 			return;
 
 		case Read_result::READ_QUEUED:
@@ -361,12 +419,26 @@ void Crypta::_execute_decrypt_client_data(Channel &channel,
 	case Channel::SUBMITTED:
 	{
 		channel._vfs_handle = _lookup_key_dir(req._key_id).decrypt_handle;
+
+//error("decrypt: lookup: ", req._key_id);
+
 		channel._vfs_handle->seek(req._cbe_req_blk_nr * Cbe::BLOCK_SIZE);
+
+//error("decrypt: seek: ", req._cbe_req_blk_nr * Cbe::BLOCK_SIZE);
+
 		Vfs::file_size nr_of_written_bytes { 0 };
 
 		channel._vfs_handle->fs().write(
-			channel._vfs_handle, (char *)&channel._request._ciphertext_blk_ptr,
+			channel._vfs_handle, (char *)channel._request._ciphertext_blk_ptr,
 			Cbe::BLOCK_SIZE, nr_of_written_bytes);
+
+//error("decrypt: write: ",
+//	"size ", Cbe::BLOCK_SIZE, " bytes ", nr_of_written_bytes, " data ",
+//	((uint64_t *)&channel._request._ciphertext_blk_ptr)[0],
+//	((uint64_t *)&channel._request._ciphertext_blk_ptr)[1],
+//	((uint64_t *)&channel._request._ciphertext_blk_ptr)[(BLOCK_SIZE / 8)-2],
+//	((uint64_t *)&channel._request._ciphertext_blk_ptr)[(BLOCK_SIZE / 8)-1]
+//);
 
 		channel._state = Channel::OP_WRITTEN_TO_VFS_HANDLE;
 		progress = true;
@@ -375,9 +447,14 @@ void Crypta::_execute_decrypt_client_data(Channel &channel,
 	case Channel::OP_WRITTEN_TO_VFS_HANDLE:
 	{
 		channel._vfs_handle->seek(req._cbe_req_blk_nr * Cbe::BLOCK_SIZE);
+
+//error("decrypt: seek: ", req._cbe_req_blk_nr * Cbe::BLOCK_SIZE);
+
 		bool success {
 			channel._vfs_handle->fs().queue_read(
 				channel._vfs_handle, Cbe::BLOCK_SIZE) };
+
+//error("decrypt: queue read: size ", Cbe::BLOCK_SIZE, " result ", success);
 
 		if (!success)
 			return;
@@ -394,9 +471,74 @@ void Crypta::_execute_decrypt_client_data(Channel &channel,
 				channel._vfs_handle, (char *)&channel._plaintext_blk,
 				Cbe::BLOCK_SIZE, nr_of_read_bytes) };
 
+//error("decrypt: queue read: size ", Cbe::BLOCK_SIZE, " result ", (int)result,
+//" data ",
+//	((uint64_t *)&channel._plaintext_blk)[0],
+//	((uint64_t *)&channel._plaintext_blk)[1],
+//	((uint64_t *)&channel._plaintext_blk)[(BLOCK_SIZE / 8)-2],
+//	((uint64_t *)&channel._plaintext_blk)[(BLOCK_SIZE / 8)-1]
+//	);
+
 		switch (result) {
 		case Read_result::READ_OK:
 
+//{
+//	Genode::uint64_t *x = (Genode::uint64_t *)req._ciphertext_blk_ptr;
+//	Genode::log("decrypt: ciphertext blk:");
+//	Genode::log("   ",
+//		Genode::Hex(x[0], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[1], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[2], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[3], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[4], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[5], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[6], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[7], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[8], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[9], Genode::Hex::OMIT_PREFIX, Hex::PAD)
+//	);
+//	Genode::log("   ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) - 10], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  9], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  8], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  7], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  6], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  5], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  4], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  3], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  2], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  1], Genode::Hex::OMIT_PREFIX, Hex::PAD)
+//	);
+//}
+//
+//{
+//	Genode::uint64_t *x = (Genode::uint64_t *)&channel._plaintext_blk;
+//	Genode::log("decrypt: plaintext blk:");
+//	Genode::log("   ",
+//		Genode::Hex(x[0], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[1], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[2], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[3], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[4], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[5], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[6], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[7], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[8], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[9], Genode::Hex::OMIT_PREFIX, Hex::PAD)
+//	);
+//	Genode::log("   ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) - 10], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  9], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  8], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  7], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  6], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  5], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  4], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  3], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  2], Genode::Hex::OMIT_PREFIX, Hex::PAD), " ",
+//		Genode::Hex(x[(BLOCK_SIZE/sizeof(Genode::uint64_t)) -  1], Genode::Hex::OMIT_PREFIX, Hex::PAD)
+//	);
+//}
 			channel._state = Channel::SUPPLY_PLAINTEXT_BLK_PENDING;
 			progress = true;
 			return;

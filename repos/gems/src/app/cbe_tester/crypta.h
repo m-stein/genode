@@ -68,6 +68,20 @@ class Cbe::Crypta_request : public Module_request
 			return "?";
 		}
 
+		void do_log() {
+			Genode::error(
+				"type=", type_name(), " crbn=", _cbe_req_blk_nr,
+				" cro=", _cbe_req_offset, " crt=", _cbe_req_tag, " pba=", _pba,
+				" vba=", _vba, " kid=", _key_id, " kpt=",
+				Genode::Hex(_key_plaintext[0]), " ",
+				Genode::Hex(_key_plaintext[1]), " ",
+				Genode::Hex(_key_plaintext[KEY_SIZE-2]), " ",
+				Genode::Hex(_key_plaintext[KEY_SIZE-1]), " ptbp=",
+				Genode::Hex(_plaintext_blk_ptr), " ctbp=",
+				Genode::Hex(_ciphertext_blk_ptr), " suc=",
+				_success);
+		}
+
 		Crypta_request() { }
 
 		Type type() const { return _type; }
@@ -156,7 +170,7 @@ class Cbe::Crypta : public Module
 		using Write_result = Vfs::File_io_service::Write_result;
 		using Read_result = Vfs::File_io_service::Read_result;
 
-		enum { NR_OF_CHANNELS = 4 };
+		enum { NR_OF_CHANNELS = 1 };
 
 		struct Key_directory
 		{
