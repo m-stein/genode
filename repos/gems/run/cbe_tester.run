@@ -152,8 +152,6 @@ append config {
 				blk_io_req_completed="no"
 				ta_req_in_progress="no"
 				ta_req_completed="no"
-				crypto_req_completed="no"
-				crypto_req_in_progress="no"
 				client_data_mismatch="yes"
 				client_data_transferred="no"/>
 

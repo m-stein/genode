@@ -28,8 +28,6 @@ class Verbose_node
 		bool _blk_io_req_completed     { false };
 		bool _ta_req_in_progress       { false };
 		bool _ta_req_completed         { false };
-		bool _crypto_req_completed     { false };
-		bool _crypto_req_in_progress   { false };
 		bool _client_data_mismatch     { false };
 		bool _client_data_transferred  { false };
 
@@ -46,8 +44,6 @@ class Verbose_node
 				_blk_io_req_completed     = verbose.attribute_value("blk_io_req_completed"    , false);
 				_ta_req_in_progress       = verbose.attribute_value("ta_req_in_progress"      , false);
 				_ta_req_completed         = verbose.attribute_value("ta_req_completed"        , false);
-				_crypto_req_completed     = verbose.attribute_value("crypto_req_completed"    , false);
-				_crypto_req_in_progress   = verbose.attribute_value("crypto_req_in_progress"  , false);
 				_client_data_mismatch     = verbose.attribute_value("client_data_mismatch"    , false);
 				_client_data_transferred  = verbose.attribute_value("client_data_transferred" , false);
 			});
@@ -60,8 +56,6 @@ class Verbose_node
 		bool blk_io_req_completed    () const { return _blk_io_req_completed    ; }
 		bool ta_req_in_progress      () const { return _ta_req_in_progress      ; }
 		bool ta_req_completed        () const { return _ta_req_completed        ; }
-		bool crypto_req_completed    () const { return _crypto_req_completed    ; }
-		bool crypto_req_in_progress  () const { return _crypto_req_in_progress  ; }
 		bool client_data_mismatch    () const { return _client_data_mismatch    ; }
 		bool client_data_transferred () const { return _client_data_transferred ; }
 };
