@@ -45,6 +45,18 @@ void Cbe::Crypta_request::create(
 		memcpy(&req._key_plaintext, key_plaintext_ptr, sizeof(req._key_plaintext));
 		break;
 
+	case REMOVE_KEY:
+
+		req._type = REMOVE_KEY;
+		if (prim_size > sizeof(req._prim)) {
+			error(prim_size, " ", sizeof(req._prim));
+			class Bad_size_1 { };
+			throw Bad_size_1 { };
+		}
+		memcpy(&req._prim, prim_ptr, prim_size);
+		req._key_id = key_id;
+		break;
+
 	case ENCRYPT_CLIENT_DATA:
 
 		req._type = ENCRYPT_CLIENT_DATA;
@@ -264,10 +276,53 @@ void Crypta::_execute_add_key(Channel &channel,
 		case Write_result::WRITE_ERR_INVALID:
 		case Write_result::WRITE_ERR_IO:
 
-			_mark_req_failed(channel, progress, "write operation");
+			_mark_req_failed(channel, progress, "write command");
 			return;
 		}
 		return;
+	}
+	default:
+
+		return;
+	}
+}
+
+
+void Crypta::_execute_remove_key(Channel &channel,
+                                 bool    &progress)
+{
+	Request &req { channel._request };
+	switch (channel._state) {
+	case Channel::SUBMITTED:
+	{
+		_remove_key_handle.seek(0);
+
+		Vfs::file_size nr_of_written_bytes { 0 };
+		Write_result const result =
+			_remove_key_handle.fs().write(
+				&_remove_key_handle, (char const*)&req._key_id,
+				sizeof(req._key_id), nr_of_written_bytes);
+
+		switch (result) {
+		case Write_result::WRITE_OK:
+		{
+			Key_directory &key_dir { _lookup_key_dir(req._key_id) };
+			_vfs_env.root_dir().close(key_dir.encrypt_handle);
+			key_dir.encrypt_handle = nullptr;
+			_vfs_env.root_dir().close(key_dir.decrypt_handle);
+			key_dir.decrypt_handle = nullptr;
+			key_dir.key_id = 0;
+
+			_mark_req_successful(channel, progress);
+			return;
+		}
+		case Write_result::WRITE_ERR_WOULD_BLOCK:
+		case Write_result::WRITE_ERR_INVALID:
+		case Write_result::WRITE_ERR_IO:
+
+			_mark_req_failed(channel, progress, "write command");
+			return;
+		}
 	}
 	default:
 
@@ -580,6 +635,7 @@ void Crypta::execute(bool &progress)
 
 			switch (channel._request._type) {
 			case Request::ADD_KEY:             _execute_add_key(channel, progress);             break;
+			case Request::REMOVE_KEY:          _execute_remove_key(channel, progress);          break;
 			case Request::ENCRYPT_CLIENT_DATA: _execute_encrypt_client_data(channel, progress); break;
 			case Request::DECRYPT_CLIENT_DATA: _execute_decrypt_client_data(channel, progress); break;
 			default:
@@ -596,7 +652,8 @@ Crypta::Crypta(Vfs::Env       &vfs_env,
 :
 	_vfs_env           { vfs_env },
 	_path              { xml_node.attribute_value("path", String<32>()) },
-	_add_key_handle    { vfs_open_wo(_vfs_env, { _path.string(), "/add_key" }) }
+	_add_key_handle    { vfs_open_wo(_vfs_env, { _path.string(), "/add_key" }) },
+	_remove_key_handle { vfs_open_wo(_vfs_env, { _path.string(), "/remove_key" }) }
 {
 	for (Channel &channel : _channels)
 		channel = Channel { };

@@ -182,6 +182,7 @@ class Cbe::Crypta : public Module
 		Vfs::Env                 &_vfs_env;
 		Genode::String<32> const  _path;
 		Vfs::Vfs_handle          &_add_key_handle;
+		Vfs::Vfs_handle          &_remove_key_handle;
 		Channel                   _channels[NR_OF_CHANNELS];
 		Key_directory             _key_dirs[2] { { }, { } };
 
@@ -189,6 +190,9 @@ class Cbe::Crypta : public Module
 
 		void _execute_add_key(Channel &channel,
 		                      bool    &progress);
+
+		void _execute_remove_key(Channel &channel,
+		                         bool    &progress);
 
 		void _execute_encrypt_client_data(Channel &channel,
 		                                  bool    &progress);
