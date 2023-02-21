@@ -3,7 +3,7 @@
 #include <base/log.h>
 
 /* cbe tester includes */
-#include <crypta.h>
+#include <crypto.h>
 #include <client_data.h>
 
 using namespace Genode;
@@ -11,10 +11,10 @@ using namespace Cbe;
 
 
 /*************************
- ** Cbe::Crypta_request **
+ ** Cbe::Crypto_request **
  *************************/
 
-void Cbe::Crypta_request::create(
+void Cbe::Crypto_request::create(
 	void     *buf_ptr,
 	size_t    buf_size,
 	size_t    req_type,
@@ -30,7 +30,7 @@ void Cbe::Crypta_request::create(
 	void     *plaintext_blk_ptr,
 	void     *ciphertext_blk_ptr)
 {
-	Crypta_request req { CBE_LIBRARA, ~0UL };
+	Crypto_request req { CBE_LIBRARA, ~0UL };
 	req._type = (Type)req_type;
 	req._cbe_req_blk_nr = cbe_req_blk_nr;
 	req._cbe_req_offset = cbe_req_offset;
@@ -61,10 +61,10 @@ void Cbe::Crypta_request::create(
 
 
 /*****************
- ** Cbe::Crypta **
+ ** Cbe::Crypto **
  *****************/
 
-bool Cbe::Crypta::_peek_generated_request(uint8_t *buf_ptr,
+bool Cbe::Crypto::_peek_generated_request(uint8_t *buf_ptr,
                                           size_t   buf_size)
 {
 	for (uint32_t idx { 0 }; idx < NR_OF_CHANNELS; idx++) {
@@ -73,7 +73,7 @@ bool Cbe::Crypta::_peek_generated_request(uint8_t *buf_ptr,
 		case Channel::OBTAIN_PLAINTEXT_BLK_PENDING:
 		{
 			Client_data_request const req {
-				CRYPTA, idx, Client_data_request::OBTAIN_PLAINTEXT_BLK,
+				CRYPTO, idx, Client_data_request::OBTAIN_PLAINTEXT_BLK,
 				channel._request._cbe_req_blk_nr, channel._request._cbe_req_offset,
 				channel._request._cbe_req_tag, channel._request._vba,
 				(addr_t)&channel._blk_buf };
@@ -88,7 +88,7 @@ bool Cbe::Crypta::_peek_generated_request(uint8_t *buf_ptr,
 		case Channel::SUPPLY_PLAINTEXT_BLK_PENDING:
 		{
 			Client_data_request const req {
-				CRYPTA, idx, Client_data_request::SUPPLY_PLAINTEXT_BLK,
+				CRYPTO, idx, Client_data_request::SUPPLY_PLAINTEXT_BLK,
 				channel._request._cbe_req_blk_nr, channel._request._cbe_req_offset,
 				channel._request._cbe_req_tag, channel._request._vba,
 				(addr_t)&channel._blk_buf };
@@ -109,7 +109,7 @@ bool Cbe::Crypta::_peek_generated_request(uint8_t *buf_ptr,
 }
 
 
-void Cbe::Crypta::_drop_generated_request(Module_request &req)
+void Cbe::Crypto::_drop_generated_request(Module_request &req)
 {
 	unsigned long const id { req.src_request_id() };
 	if (id >= NR_OF_CHANNELS) {
@@ -130,7 +130,7 @@ void Cbe::Crypta::_drop_generated_request(Module_request &req)
 }
 
 
-Crypta::Key_directory &Crypta::_lookup_key_dir(uint32_t key_id)
+Crypto::Key_directory &Crypto::_lookup_key_dir(uint32_t key_id)
 {
 	for (Key_directory &key_dir : _key_dirs) {
 		if (key_dir.key_id == key_id) {
@@ -141,7 +141,7 @@ Crypta::Key_directory &Crypta::_lookup_key_dir(uint32_t key_id)
 	throw Exception_1 { };
 }
 
-void Crypta::_mark_req_failed(Channel    &channel,
+void Crypto::_mark_req_failed(Channel    &channel,
                               bool       &progress,
                               char const *str)
 {
@@ -152,7 +152,7 @@ void Crypta::_mark_req_failed(Channel    &channel,
 }
 
 
-void Crypta::_mark_req_successful(Channel &channel,
+void Crypto::_mark_req_successful(Channel &channel,
                                   bool    &progress)
 {
 	channel._request._success = true;
@@ -161,7 +161,7 @@ void Crypta::_mark_req_successful(Channel &channel,
 }
 
 
-void Crypta::_execute_add_key(Channel &channel,
+void Crypto::_execute_add_key(Channel &channel,
                               bool    &progress)
 {
 	Request &req { channel._request };
@@ -223,7 +223,7 @@ void Crypta::_execute_add_key(Channel &channel,
 }
 
 
-void Crypta::_execute_remove_key(Channel &channel,
+void Crypto::_execute_remove_key(Channel &channel,
                                  bool    &progress)
 {
 	Request &req { channel._request };
@@ -266,7 +266,7 @@ void Crypta::_execute_remove_key(Channel &channel,
 }
 
 
-void Crypta::_execute_encrypt_client_data(Channel &channel,
+void Crypto::_execute_encrypt_client_data(Channel &channel,
                                           bool    &progress)
 {
 	Request &req { channel._request };
@@ -401,7 +401,7 @@ void Crypta::_execute_encrypt_client_data(Channel &channel,
 }
 
 
-void Crypta::_execute_encrypt(Channel &channel,
+void Crypto::_execute_encrypt(Channel &channel,
                               bool    &progress)
 {
 	Request &req { channel._request };
@@ -468,7 +468,7 @@ void Crypta::_execute_encrypt(Channel &channel,
 }
 
 
-void Crypta::_execute_decrypt(Channel &channel,
+void Crypto::_execute_decrypt(Channel &channel,
                               bool    &progress)
 {
 	Request &req { channel._request };
@@ -537,7 +537,7 @@ void Crypta::_execute_decrypt(Channel &channel,
 }
 
 
-void Crypta::_execute_decrypt_client_data(Channel &channel,
+void Crypto::_execute_decrypt_client_data(Channel &channel,
                                           bool    &progress)
 {
 	Request &req { channel._request };
@@ -699,7 +699,7 @@ void Crypta::_execute_decrypt_client_data(Channel &channel,
 }
 
 
-void Crypta::execute(bool &progress)
+void Crypto::execute(bool &progress)
 {
 	for (Channel &channel : _channels) {
 		if (channel._state != Channel::INACTIVE) {
@@ -720,7 +720,7 @@ void Crypta::execute(bool &progress)
 	}
 }
 
-Crypta::Crypta(Vfs::Env       &vfs_env,
+Crypto::Crypto(Vfs::Env       &vfs_env,
                Xml_node const &xml_node)
 :
 	_vfs_env           { vfs_env },
@@ -732,7 +732,7 @@ Crypta::Crypta(Vfs::Env       &vfs_env,
 		channel = Channel { };
 }
 
-void Crypta::generated_request_complete(Module_request &req)
+void Crypto::generated_request_complete(Module_request &req)
 {
 	unsigned long const id { req.src_request_id() };
 	if (id >= NR_OF_CHANNELS) {

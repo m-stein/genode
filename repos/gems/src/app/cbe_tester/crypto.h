@@ -1,6 +1,6 @@
 
-#ifndef _CRYPTA_H_
-#define _CRYPTA_H_
+#ifndef _CRYPTO_H_
+#define _CRYPTO_H_
 
 /* gems includes */
 #include <cbe/types.h>
@@ -11,15 +11,15 @@
 
 namespace Cbe
 {
-	class Crypta;
-	class Crypta_request;
-	class Crypta_channel;
+	class Crypto;
+	class Crypto_request;
+	class Crypto_channel;
 
 	enum { KEY_SIZE = 32 };
 	enum { PRIM_BUF_SIZE = 128 };
 }
 
-class Cbe::Crypta_request : public Module_request
+class Cbe::Crypto_request : public Module_request
 {
 	public:
 
@@ -36,8 +36,8 @@ class Cbe::Crypta_request : public Module_request
 
 	private:
 
-		friend class Crypta;
-		friend class Crypta_channel;
+		friend class Crypto;
+		friend class Crypto_channel;
 
 		Type             _type                    { INVALID };
 		Genode::uint64_t _cbe_req_blk_nr          { 0 };
@@ -82,7 +82,7 @@ class Cbe::Crypta_request : public Module_request
 				_success);
 		}
 
-		Crypta_request() { }
+		Crypto_request() { }
 
 		Type type() const { return _type; }
 
@@ -91,10 +91,10 @@ class Cbe::Crypta_request : public Module_request
 		 ** can be removed once the cbe translation is done **
 		 *****************************************************/
 
-		Crypta_request(unsigned long src_module_id,
+		Crypto_request(unsigned long src_module_id,
 		               unsigned long src_request_id)
 		:
-			Module_request { src_module_id, src_request_id, CRYPTA }
+			Module_request { src_module_id, src_request_id, CRYPTO }
 		{ }
 
 		static void create(
@@ -133,11 +133,11 @@ class Cbe::Crypta_request : public Module_request
 		bool success() const { return _success; }
 };
 
-class Cbe::Crypta_channel
+class Cbe::Crypto_channel
 {
 	private:
 
-		friend class Crypta;
+		friend class Crypto;
 
 		enum State {
 			INACTIVE, SUBMITTED, COMPLETE, OBTAIN_PLAINTEXT_BLK_PENDING,
@@ -147,22 +147,22 @@ class Cbe::Crypta_channel
 			QUEUE_READ_SUCCEEDED };
 
 		State            _state                    { INACTIVE };
-		Crypta_request   _request                  { };
+		Crypto_request   _request                  { };
 		bool             _generated_req_success    { false };
 		Vfs::Vfs_handle *_vfs_handle               { nullptr };
 		char             _blk_buf[Cbe::BLOCK_SIZE] {  };
 
 	public:
 
-		Crypta_request const &request() const { return _request; }
+		Crypto_request const &request() const { return _request; }
 };
 
-class Cbe::Crypta : public Module
+class Cbe::Crypto : public Module
 {
 	private:
 
-		using Request = Crypta_request;
-		using Channel = Crypta_channel;
+		using Request = Crypto_request;
+		using Channel = Crypto_channel;
 		using Write_result = Vfs::File_io_service::Write_result;
 		using Read_result = Vfs::File_io_service::Read_result;
 
@@ -253,7 +253,7 @@ class Cbe::Crypta : public Module
 
 	public:
 
-		Crypta(Vfs::Env               &vfs_env,
+		Crypto(Vfs::Env               &vfs_env,
 		       Genode::Xml_node const &xml_node);
 
 
@@ -289,4 +289,4 @@ class Cbe::Crypta : public Module
 		void generated_request_complete(Module_request &req) override;
 };
 
-#endif /* _CRYPTA_H_ */
+#endif /* _CRYPTO_H_ */

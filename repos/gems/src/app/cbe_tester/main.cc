@@ -29,7 +29,7 @@
 
 /* CBE tester includes */
 #include <cbe_librara.h>
-#include <crypta.h>
+#include <crypto.h>
 #include <trust_anchor.h>
 #include <verbose_node.h>
 #include <client_data.h>
@@ -43,7 +43,7 @@ namespace Cbe {
 	char const *module_name(unsigned long id)
 	{
 		switch (id) {
-		case CRYPTA: return "crypta";
+		case CRYPTO: return "crypto";
 		case CBE_LIBRARA: return "cbe_librara";
 		case CLIENT_DATA: return "client_data";
 		default: break;
@@ -1631,7 +1631,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 		Cbe_init::Library            _cbe_init                   { };
 		Benchmark                    _benchmark                  { _env };
 		Trust_anchor                 _trust_anchor               { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
-		Crypta                       _crypta                     { _vfs_env, _config_rom.xml().sub_node("crypto") };
+		Crypto                       _crypto                     { _vfs_env, _config_rom.xml().sub_node("crypto") };
 		Cbe::Librara                 _cbe_librara                { _cbe, _blk_buf };
 		Client_data_request          _client_data_request        { };
 
@@ -2427,7 +2427,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 		:
 			_env { env }
 		{
-			_module_ptrs[CRYPTA]      = &_crypta;
+			_module_ptrs[CRYPTO]      = &_crypto;
 			_module_ptrs[CBE_LIBRARA] = &_cbe_librara;
 			_module_ptrs[CLIENT_DATA] = this;
 			_execute();

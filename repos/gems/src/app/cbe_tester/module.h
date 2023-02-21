@@ -143,7 +143,7 @@ namespace Cbe {
 
 	enum Module_id : unsigned long
 	{
-		CRYPTA      = 0,
+		CRYPTO      = 0,
 		CBE_LIBRARA = 1,
 		CLIENT_DATA = 2,
 	};
