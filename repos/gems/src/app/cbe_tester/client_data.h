@@ -1,3 +1,15 @@
+/*
+ * \brief  Module that provides access to the client request data
+ * \author Martin Stein
+ * \date   2023-02-13
+ */
+
+/*
+ * Copyright (C) 2023 Genode Labs GmbH
+ *
+ * This file is part of the Genode OS framework, which is distributed
+ * under the terms of the GNU Affero General Public License version 3.
+ */
 
 #ifndef _CLIENT_DATA_H_
 #define _CLIENT_DATA_H_

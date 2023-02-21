@@ -1538,6 +1538,7 @@ class Command_pool {
 				}
 				Request_node const &req_node { cmd.request_node() };
 				if (req_node.salt_avail()) {
+
 					_generate_blk_data(blk_data, vba, req_node.salt());
 				}
 				exit_loop = true;
