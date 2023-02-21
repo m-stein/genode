@@ -40,9 +40,8 @@ class Cbe::Crypto_request : public Module_request
 		friend class Crypto_channel;
 
 		Type             _type                    { INVALID };
-		Genode::uint64_t _cbe_req_blk_nr          { 0 };
-		Genode::uint64_t _cbe_req_offset          { 0 };
-		Genode::uint64_t _cbe_req_tag             { 0 };
+		Genode::uint64_t _client_req_offset       { 0 };
+		Genode::uint64_t _client_req_tag          { 0 };
 		Genode::uint64_t _pba                     { 0 };
 		Genode::uint64_t _vba                     { 0 };
 		Genode::uint32_t _key_id                  { 0 };
@@ -68,20 +67,6 @@ class Cbe::Crypto_request : public Module_request
 			return "?";
 		}
 
-		void do_log() {
-			Genode::error(
-				"type=", type_name(), " crbn=", _cbe_req_blk_nr,
-				" cro=", _cbe_req_offset, " crt=", _cbe_req_tag, " pba=", _pba,
-				" vba=", _vba, " kid=", _key_id, " kpt=",
-				Genode::Hex(_key_plaintext[0]), " ",
-				Genode::Hex(_key_plaintext[1]), " ",
-				Genode::Hex(_key_plaintext[KEY_SIZE-2]), " ",
-				Genode::Hex(_key_plaintext[KEY_SIZE-1]), " ptbp=",
-				Genode::Hex(_plaintext_blk_ptr), " ctbp=",
-				Genode::Hex(_ciphertext_blk_ptr), " suc=",
-				_success);
-		}
-
 		Crypto_request() { }
 
 		Type type() const { return _type; }
@@ -101,9 +86,8 @@ class Cbe::Crypto_request : public Module_request
 			void             * buf_ptr,
 			Genode::size_t     buf_size,
 			Genode::size_t     req_type,
-			Genode::uint64_t   cbe_req_blk_nr,
-			Genode::uint64_t   cbe_req_offset,
-			Genode::uint64_t   cbe_req_tag,
+			Genode::uint64_t   client_req_offset,
+			Genode::uint64_t   client_req_tag,
 			void             * prim_ptr,
 			size_t             prim_size,
 			Genode::uint32_t   key_id,

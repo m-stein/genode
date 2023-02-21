@@ -26,9 +26,9 @@ class Cbe::Client_data_request : public Module_request
 		friend class ::Main;
 
 		Type             _type              { INVALID };
-		Genode::uint64_t _cbe_req_blk_nr    { 0 };
-		Genode::uint64_t _cbe_req_offset    { 0 };
-		Genode::uint64_t _cbe_req_tag       { 0 };
+		Genode::uint64_t _client_req_offset { 0 };
+		Genode::uint64_t _client_req_tag    { 0 };
+		Genode::uint64_t _pba               { 0 };
 		Genode::uint64_t _vba               { 0 };
 		Genode::addr_t   _plaintext_blk_ptr { 0 };
 		bool             _success           { false };
@@ -57,17 +57,17 @@ class Cbe::Client_data_request : public Module_request
 		Client_data_request(unsigned long    src_module_id,
 		                    unsigned long    src_request_id,
 		                    Type             type,
-		                    Genode::uint64_t cbe_req_blk_nr,
-		                    Genode::uint64_t cbe_req_offset,
-		                    Genode::uint64_t cbe_req_tag,
+		                    Genode::uint64_t client_req_offset,
+		                    Genode::uint64_t client_req_tag,
+		                    Genode::uint64_t pba,
 		                    Genode::uint64_t vba,
 		                    Genode::addr_t   plaintext_blk_ptr)
 		:
 			Module_request     { src_module_id, src_request_id, CLIENT_DATA },
 			_type              { type },
-			_cbe_req_blk_nr    { cbe_req_blk_nr },
-			_cbe_req_offset    { cbe_req_offset },
-			_cbe_req_tag       { cbe_req_tag },
+			_client_req_offset { client_req_offset },
+			_client_req_tag    { client_req_tag },
+			_pba               { pba },
 			_vba               { vba },
 			_plaintext_blk_ptr { plaintext_blk_ptr }
 		{ }

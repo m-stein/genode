@@ -1842,7 +1842,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 			case Client_data_request::OBTAIN_PLAINTEXT_BLK:
 
 				_cmd_pool.generate_blk_data(
-					_client_data_request._cbe_req_tag,
+					_client_data_request._client_req_tag,
 					_client_data_request._vba,
 					*(Block_data *)_client_data_request._plaintext_blk_ptr);
 
@@ -1850,7 +1850,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 
 				if (_verbose_node.client_data_transferred())
 					log("client data: vba=", _client_data_request._vba,
-					    " req_tag=", _client_data_request._cbe_req_tag);
+					    " req_tag=", _client_data_request._client_req_tag);
 
 				_client_data_request._success = true;
 				break;
@@ -1858,7 +1858,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 			case Client_data_request::SUPPLY_PLAINTEXT_BLK:
 
 				_cmd_pool.verify_blk_data(
-					_client_data_request._cbe_req_tag,
+					_client_data_request._client_req_tag,
 					_client_data_request._vba,
 					*(Block_data *)_client_data_request._plaintext_blk_ptr);
 
@@ -1866,7 +1866,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 
 				if (_verbose_node.client_data_transferred())
 					log("client data: vba=", _client_data_request._vba,
-					    " req_tag=", _client_data_request._cbe_req_tag);
+					    " req_tag=", _client_data_request._client_req_tag);
 
 				_client_data_request._success = true;
 				break;
