@@ -23,23 +23,22 @@ using namespace Cbe;
 
 
 /*************************
- ** Cbe::Crypto_request **
+ ** Crypto_request **
  *************************/
 
-void Cbe::Crypto_request::create(
-	void     *buf_ptr,
-	size_t    buf_size,
-	size_t    req_type,
-	uint64_t  client_req_offset,
-	uint64_t  client_req_tag,
-	void     *prim_ptr,
-	size_t    prim_size,
-	uint32_t  key_id,
-	void     *key_plaintext_ptr,
-	uint64_t  pba,
-	uint64_t  vba,
-	void     *plaintext_blk_ptr,
-	void     *ciphertext_blk_ptr)
+void Crypto_request::create(void     *buf_ptr,
+                            size_t    buf_size,
+                            size_t    req_type,
+                            uint64_t  client_req_offset,
+                            uint64_t  client_req_tag,
+                            void     *prim_ptr,
+                            size_t    prim_size,
+                            uint32_t  key_id,
+                            void     *key_plaintext_ptr,
+                            uint64_t  pba,
+                            uint64_t  vba,
+                            void     *plaintext_blk_ptr,
+                            void     *ciphertext_blk_ptr)
 {
 	Crypto_request req { CBE_LIBRARA, ~0UL };
 	req._type = (Type)req_type;
@@ -70,16 +69,54 @@ void Cbe::Crypto_request::create(
 }
 
 
+void *Crypto_request::result_blk_ptr()
+{
+	switch (_type) {
+	case DECRYPT: return (void *)_plaintext_blk_ptr;
+	case ENCRYPT: return (void *)_ciphertext_blk_ptr;
+	case INVALID:
+	case ADD_KEY:
+	case REMOVE_KEY:
+	case DECRYPT_CLIENT_DATA:
+	case ENCRYPT_CLIENT_DATA:
+		break;
+	}
+	return nullptr;
+}
+
+
+Crypto_request::Crypto_request(unsigned long src_module_id,
+                               unsigned long src_request_id)
+:
+	Module_request { src_module_id, src_request_id, CRYPTO }
+{ }
+
+
+char const *Crypto_request::type_name()
+{
+	switch (_type) {
+	case INVALID: return "invalid";
+	case ADD_KEY: return "add_key";
+	case REMOVE_KEY: return "remove_key";
+	case ENCRYPT_CLIENT_DATA: return "encrypt_client_data";
+	case DECRYPT_CLIENT_DATA: return "decrypt_client_data";
+	case ENCRYPT: return "encrypt";
+	case DECRYPT: return "decrypt";
+	}
+	return "?";
+}
+
+
 /*****************
- ** Cbe::Crypto **
+ ** Crypto **
  *****************/
 
-bool Cbe::Crypto::_peek_generated_request(uint8_t *buf_ptr,
-                                          size_t   buf_size)
+bool Crypto::_peek_generated_request(uint8_t *buf_ptr,
+                                     size_t   buf_size)
 {
-	for (uint32_t idx { 0 }; idx < NR_OF_CHANNELS; idx++) {
+	for (uint32_t id { 0 }; id < NR_OF_CHANNELS; id++) {
 
-		Channel &chan { _channels[idx] };
+		Channel const &chan { _channels[id] };
 		Client_data_request::Type cd_req_type {
 			chan._state == Channel::OBTAIN_PLAINTEXT_BLK_PENDING ?
 			   Client_data_request::OBTAIN_PLAINTEXT_BLK :
@@ -89,9 +126,9 @@ bool Cbe::Crypto::_peek_generated_request(uint8_t *buf_ptr,
 
 		if (cd_req_type != Client_data_request::INVALID) {
 
-			Request &req { chan._request };
+			Request const &req { chan._request };
 			Client_data_request const cd_req {
-				CRYPTO, idx, cd_req_type, req._client_req_offset,
+				CRYPTO, id, cd_req_type, req._client_req_offset,
 				req._client_req_tag, req._pba, req._vba,
 				(addr_t)&chan._blk_buf };
 
@@ -107,7 +144,7 @@ bool Cbe::Crypto::_peek_generated_request(uint8_t *buf_ptr,
 }
 
 
-void Cbe::Crypto::_drop_generated_request(Module_request &req)
+void Crypto::_drop_generated_request(Module_request &req)
 {
 	unsigned long const id { req.src_request_id() };
 	if (id >= NR_OF_CHANNELS) {
@@ -122,8 +159,8 @@ void Cbe::Crypto::_drop_generated_request(Module_request &req)
 		_channels[id]._state = Channel::SUPPLY_PLAINTEXT_BLK_IN_PROGRESS;
 		break;
 	default:
-		class Bad_state { };
-		throw Bad_state { };
+		class Exception_1 { };
+		throw Exception_1 { };
 	}
 }
 
@@ -283,12 +320,12 @@ void Crypto::_execute_encrypt_client_data(Channel &channel,
 			return;
 		}
 		channel._vfs_handle = _lookup_key_dir(req._key_id).encrypt_handle;
-		channel._vfs_handle->seek(req._pba * Cbe::BLOCK_SIZE);
+		channel._vfs_handle->seek(req._pba * BLOCK_SIZE);
 		Vfs::file_size nr_of_written_bytes { 0 };
 
 		channel._vfs_handle->fs().write(
 			channel._vfs_handle, (char *)&channel._blk_buf,
-			Cbe::BLOCK_SIZE, nr_of_written_bytes);
+			BLOCK_SIZE, nr_of_written_bytes);
 
 		channel._state = Channel::OP_WRITTEN_TO_VFS_HANDLE;
 		progress = true;
@@ -296,10 +333,10 @@ void Crypto::_execute_encrypt_client_data(Channel &channel,
 	}
 	case Channel::OP_WRITTEN_TO_VFS_HANDLE:
 	{
-		channel._vfs_handle->seek(req._pba * Cbe::BLOCK_SIZE);
+		channel._vfs_handle->seek(req._pba * BLOCK_SIZE);
 		bool success {
 			channel._vfs_handle->fs().queue_read(
-				channel._vfs_handle, Cbe::BLOCK_SIZE) };
+				channel._vfs_handle, BLOCK_SIZE) };
 
 		if (!success)
 			return;
@@ -314,7 +351,7 @@ void Crypto::_execute_encrypt_client_data(Channel &channel,
 		Read_result const result {
 			channel._vfs_handle->fs().complete_read(
 				channel._vfs_handle, (char *)req._ciphertext_blk_ptr,
-				Cbe::BLOCK_SIZE, nr_of_read_bytes) };
+				BLOCK_SIZE, nr_of_read_bytes) };
 
 		switch (result) {
 		case Read_result::READ_OK:
@@ -349,12 +386,12 @@ void Crypto::_execute_encrypt(Channel &channel,
 	case Channel::SUBMITTED:
 	{
 		channel._vfs_handle = _lookup_key_dir(req._key_id).encrypt_handle;
-		channel._vfs_handle->seek(req._pba * Cbe::BLOCK_SIZE);
+		channel._vfs_handle->seek(req._pba * BLOCK_SIZE);
 		Vfs::file_size nr_of_written_bytes { 0 };
 
 		channel._vfs_handle->fs().write(
 			channel._vfs_handle, (char *)req._plaintext_blk_ptr,
-			Cbe::BLOCK_SIZE, nr_of_written_bytes);
+			BLOCK_SIZE, nr_of_written_bytes);
 
 		channel._state = Channel::OP_WRITTEN_TO_VFS_HANDLE;
 		progress = true;
@@ -362,10 +399,10 @@ void Crypto::_execute_encrypt(Channel &channel,
 	}
 	case Channel::OP_WRITTEN_TO_VFS_HANDLE:
 	{
-		channel._vfs_handle->seek(req._pba * Cbe::BLOCK_SIZE);
+		channel._vfs_handle->seek(req._pba * BLOCK_SIZE);
 		bool success {
 			channel._vfs_handle->fs().queue_read(
-				channel._vfs_handle, Cbe::BLOCK_SIZE) };
+				channel._vfs_handle, BLOCK_SIZE) };
 
 		if (!success)
 			return;
@@ -380,7 +417,7 @@ void Crypto::_execute_encrypt(Channel &channel,
 		Read_result const result {
 			channel._vfs_handle->fs().complete_read(
 				channel._vfs_handle, (char *)&channel._blk_buf,
-				Cbe::BLOCK_SIZE, nr_of_read_bytes) };
+				BLOCK_SIZE, nr_of_read_bytes) };
 
 		switch (result) {
 		case Read_result::READ_OK:
@@ -416,12 +453,12 @@ void Crypto::_execute_decrypt(Channel &channel,
 	case Channel::SUBMITTED:
 	{
 		channel._vfs_handle = _lookup_key_dir(req._key_id).decrypt_handle;
-		channel._vfs_handle->seek(req._pba * Cbe::BLOCK_SIZE);
+		channel._vfs_handle->seek(req._pba * BLOCK_SIZE);
 
 		Vfs::file_size nr_of_written_bytes { 0 };
 		channel._vfs_handle->fs().write(
 			channel._vfs_handle, (char *)channel._request._ciphertext_blk_ptr,
-			Cbe::BLOCK_SIZE, nr_of_written_bytes);
+			BLOCK_SIZE, nr_of_written_bytes);
 
 		channel._state = Channel::OP_WRITTEN_TO_VFS_HANDLE;
 		progress = true;
@@ -429,11 +466,11 @@ void Crypto::_execute_decrypt(Channel &channel,
 	}
 	case Channel::OP_WRITTEN_TO_VFS_HANDLE:
 	{
-		channel._vfs_handle->seek(req._pba * Cbe::BLOCK_SIZE);
+		channel._vfs_handle->seek(req._pba * BLOCK_SIZE);
 
 		bool success {
 			channel._vfs_handle->fs().queue_read(
-				channel._vfs_handle, Cbe::BLOCK_SIZE) };
+				channel._vfs_handle, BLOCK_SIZE) };
 
 		if (!success)
 			return;
@@ -448,7 +485,7 @@ void Crypto::_execute_decrypt(Channel &channel,
 		Read_result const result {
 			channel._vfs_handle->fs().complete_read(
 				channel._vfs_handle, (char *)&channel._blk_buf,
-				Cbe::BLOCK_SIZE, nr_of_read_bytes) };
+				BLOCK_SIZE, nr_of_read_bytes) };
 
 		switch (result) {
 		case Read_result::READ_OK:
@@ -485,12 +522,12 @@ void Crypto::_execute_decrypt_client_data(Channel &channel,
 	case Channel::SUBMITTED:
 	{
 		channel._vfs_handle = _lookup_key_dir(req._key_id).decrypt_handle;
-		channel._vfs_handle->seek(req._pba * Cbe::BLOCK_SIZE);
+		channel._vfs_handle->seek(req._pba * BLOCK_SIZE);
 
 		Vfs::file_size nr_of_written_bytes { 0 };
 		channel._vfs_handle->fs().write(
 			channel._vfs_handle, (char *)channel._request._ciphertext_blk_ptr,
-			Cbe::BLOCK_SIZE, nr_of_written_bytes);
+			BLOCK_SIZE, nr_of_written_bytes);
 
 		channel._state = Channel::OP_WRITTEN_TO_VFS_HANDLE;
 		progress = true;
@@ -498,11 +535,11 @@ void Crypto::_execute_decrypt_client_data(Channel &channel,
 	}
 	case Channel::OP_WRITTEN_TO_VFS_HANDLE:
 	{
-		channel._vfs_handle->seek(req._pba * Cbe::BLOCK_SIZE);
+		channel._vfs_handle->seek(req._pba * BLOCK_SIZE);
 
 		bool success {
 			channel._vfs_handle->fs().queue_read(
-				channel._vfs_handle, Cbe::BLOCK_SIZE) };
+				channel._vfs_handle, BLOCK_SIZE) };
 
 		if (!success)
 			return;
@@ -517,7 +554,7 @@ void Crypto::_execute_decrypt_client_data(Channel &channel,
 		Read_result const result {
 			channel._vfs_handle->fs().complete_read(
 				channel._vfs_handle, (char *)&channel._blk_buf,
-				Cbe::BLOCK_SIZE, nr_of_read_bytes) };
+				BLOCK_SIZE, nr_of_read_bytes) };
 
 		switch (result) {
 		case Read_result::READ_OK:
@@ -559,23 +596,24 @@ void Crypto::_execute_decrypt_client_data(Channel &channel,
 void Crypto::execute(bool &progress)
 {
 	for (Channel &channel : _channels) {
-		if (channel._state != Channel::INACTIVE) {
 
-			switch (channel._request._type) {
-			case Request::ADD_KEY:             _execute_add_key(channel, progress);             break;
-			case Request::REMOVE_KEY:          _execute_remove_key(channel, progress);          break;
-			case Request::DECRYPT:             _execute_decrypt(channel, progress);             break;
-			case Request::ENCRYPT:             _execute_encrypt(channel, progress);             break;
-			case Request::DECRYPT_CLIENT_DATA: _execute_decrypt_client_data(channel, progress); break;
-			case Request::ENCRYPT_CLIENT_DATA: _execute_encrypt_client_data(channel, progress); break;
-			default:
+		if (channel._state == Channel::INACTIVE)
+			continue;
 
-				class Bad_request_type { };
-				throw Bad_request_type { };
-			}
+		switch (channel._request._type) {
+		case Request::ADD_KEY:             _execute_add_key(channel, progress);             break;
+		case Request::REMOVE_KEY:          _execute_remove_key(channel, progress);          break;
+		case Request::DECRYPT:             _execute_decrypt(channel, progress);             break;
+		case Request::ENCRYPT:             _execute_encrypt(channel, progress);             break;
+		case Request::DECRYPT_CLIENT_DATA: _execute_decrypt_client_data(channel, progress); break;
+		case Request::ENCRYPT_CLIENT_DATA: _execute_encrypt_client_data(channel, progress); break;
+		default:
+			class Exception_1 { };
+			throw Exception_1 { };
 		}
 	}
 }
+
 
 Crypto::Crypto(Vfs::Env       &vfs_env,
                Xml_node const &xml_node)
@@ -584,17 +622,15 @@ Crypto::Crypto(Vfs::Env       &vfs_env,
 	_path              { xml_node.attribute_value("path", String<32>()) },
 	_add_key_handle    { vfs_open_wo(_vfs_env, { _path.string(), "/add_key" }) },
 	_remove_key_handle { vfs_open_wo(_vfs_env, { _path.string(), "/remove_key" }) }
-{
-	for (Channel &channel : _channels)
-		channel = Channel { };
-}
+{ }
+
 
 void Crypto::generated_request_complete(Module_request &req)
 {
 	unsigned long const id { req.src_request_id() };
 	if (id >= NR_OF_CHANNELS) {
-		class Bad_id { };
-		throw Bad_id { };
+		class Exception_1 { };
+		throw Exception_1 { };
 	}
 	switch (_channels[id]._state) {
 	case Channel::OBTAIN_PLAINTEXT_BLK_IN_PROGRESS:
@@ -608,7 +644,64 @@ void Crypto::generated_request_complete(Module_request &req)
 			dynamic_cast<Client_data_request *>(&req)->success();
 		break;
 	default:
-		class Bad_state { };
-		throw Bad_state { };
+		class Exception_2 { };
+		throw Exception_2 { };
 	}
+}
+
+
+bool Crypto::_peek_completed_request(uint8_t *buf_ptr,
+                                     size_t   buf_size)
+{
+	for (Channel &channel : _channels) {
+		if (channel._state == Channel::COMPLETE) {
+			if (sizeof(channel._request) > buf_size) {
+				class Exception_1 { };
+				throw Exception_1 { };
+			}
+			memcpy(buf_ptr, &channel._request, sizeof(channel._request));
+			return true;
+		}
+	}
+	return false;
+}
+
+
+void Crypto::_drop_completed_request(Module_request &req)
+{
+	unsigned long id { 0 };
+	id = req.dst_request_id();
+	if (id >= NR_OF_CHANNELS) {
+		class Exception_1 { };
+		throw Exception_1 { };
+	}
+	if (_channels[id]._state != Channel::COMPLETE) {
+		class Exception_2 { };
+		throw Exception_2 { };
+	}
+	_channels[id]._state = Channel::INACTIVE;
+}
+
+
+bool Crypto::ready_to_submit_request()
+{
+	for (Channel &channel : _channels) {
+		if (channel._state == Channel::INACTIVE)
+			return true;
+	}
+	return false;
+}
+
+void Crypto::submit_request(Module_request &req)
+{
+	for (unsigned long id { 0 }; id < NR_OF_CHANNELS; id++) {
+		if (_channels[id]._state == Channel::INACTIVE) {
+			req.dst_request_id(id);
+			_channels[id]._request = *dynamic_cast<Request *>(&req);
+			_channels[id]._state = Channel::SUBMITTED;
+			return;
+		}
+	}
+	class Invalid_call { };
+	throw Invalid_call { };
 }
