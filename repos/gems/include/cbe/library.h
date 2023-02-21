@@ -179,108 +179,6 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 	 */
 	void active_snapshot_ids(Active_snapshot_ids &ids) const;
 
-	/**
-	 * CBE trust anchor request
-	 *
-	 * \return  valid TA request in case there is one pending, otherwise an
-	 *          invalid one is returned
-	 */
-	Trust_anchor_request peek_generated_ta_request() const
-	{
-		Trust_anchor_request request { };
-		_peek_generated_ta_request(request);
-		return request;
-	}
-
-	/**
-	 * Drop generated TA request
-	 *
-	 * \param  request  reference to the request processed by the TA
-	 */
-	void drop_generated_ta_request(Trust_anchor_request const &request);
-
-	/**
-	 * Peek generated TA superblock hash
-	 *
-	 * \param  request  reference to the request
-	 * \return superblock hash
-	 */
-	Hash peek_generated_ta_sb_hash(Trust_anchor_request const &request) const
-	{
-		Cbe::Hash hash { };
-		_peek_generated_ta_sb_hash(request, hash);
-		return hash;
-	}
-
-	/**
-	 * Mark generated TA secure superblock request complete
-	 *
-	 * \param  request  reference to the request completed by the TA
-	 */
-	void mark_generated_ta_secure_sb_request_complete(Trust_anchor_request const &request);
-
-	/**
-	 * Mark generated TA create key request complete
-	 *
-	 * \param  request  reference to the request completed by the TA
-	 * \param  key      reference to the key plaintext created by the TA
-	 */
-	void mark_generated_ta_create_key_request_complete(Trust_anchor_request const &request,
-	                                                   Key_plaintext_value  const &key);
-
-	/**
-	 * Peek generated TA key ciphertext
-	 *
-	 * \param  request  reference to the request
-	 * \return key ciphertext
-	 */
-	Key_ciphertext_value peek_generated_ta_key_value_ciphertext(Trust_anchor_request const &request) const
-	{
-		Cbe::Key_ciphertext_value ck { };
-		_peek_generated_ta_key_value_ciphertext(request, ck);
-		return ck;
-	}
-
-	/**
-	 * Peek generated TA key plaintext
-	 *
-	 * \param  request  reference to the request
-	 * \return key plaintext
-	 */
-	Key_plaintext_value peek_generated_ta_key_value_plaintext(Trust_anchor_request const &request) const
-	{
-		Cbe::Key_plaintext_value pk { };
-		_peek_generated_ta_key_value_plaintext(request, pk);
-		return pk;
-	}
-
-	/**
-	 * Mark generated TA decrypt key request complete
-	 *
-	 * \param  request  reference to the request completed by the TA
-	 * \param  key      reference to the key plaintext decrypted by the TA
-	 */
-	void mark_generated_ta_decrypt_key_request_complete(Trust_anchor_request const &reference,
-	                                                    Key_plaintext_value  const &key);
-
-	/**
-	 * Mark generated TA encrypt key request complete
-	 *
-	 * \param  request  reference to the request completed by the TA
-	 * \param  key      reference to the key ciphertext encrypted by the TA
-	 */
-	void mark_generated_ta_encrypt_key_request_complete(Trust_anchor_request const &request,
-	                                                    Key_ciphertext_value const &key);
-
-	/**
-	 * Mark generated TA last superblock hash request complete
-	 *
-	 * \param  request  reference to the request completed by the TA
-	 * \param  hash     reference to the superblock hash stored in the TA
-	 */
-	void mark_generated_ta_last_sb_hash_request_complete(Trust_anchor_request const &request,
-	                                                     Hash                 const &hash);
-
 		bool librara__peek_generated_request(Genode::uint8_t *buf_ptr,
 		                                     Genode::size_t   buf_size,
 		                                     Io_buffer       &io_buf);
@@ -289,6 +187,9 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 
 		void librara__generated_request_complete(void *prim_ptr,
 		                                         void *blk_data_ptr,
+		                                         void *key_plain_ptr,
+		                                         void *key_cipher_ptr,
+		                                         void *hash_ptr,
 		                                         bool  success);
 };
 

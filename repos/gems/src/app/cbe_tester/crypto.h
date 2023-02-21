@@ -26,9 +26,6 @@ namespace Cbe
 	class Crypto;
 	class Crypto_request;
 	class Crypto_channel;
-
-	enum { KEY_SIZE = 32 };
-	enum { PRIM_BUF_SIZE = 128 };
 }
 
 class Cbe::Crypto_request : public Module_request
@@ -50,8 +47,8 @@ class Cbe::Crypto_request : public Module_request
 		Genode::uint64_t _pba                     { 0 };
 		Genode::uint64_t _vba                     { 0 };
 		Genode::uint32_t _key_id                  { 0 };
-		Genode::uint8_t  _prim[PRIM_BUF_SIZE]     { };
-		Genode::uint8_t  _key_plaintext[KEY_SIZE] { };
+		Genode::uint8_t  _prim[PRIM_BUF_SIZE]     { 0 };
+		Genode::uint8_t  _key_plaintext[KEY_SIZE] { 0 };
 		Genode::addr_t   _plaintext_blk_ptr       { 0 };
 		Genode::addr_t   _ciphertext_blk_ptr      { 0 };
 		bool             _success                 { false };
@@ -61,8 +58,6 @@ class Cbe::Crypto_request : public Module_request
 		Crypto_request() { }
 
 		Type type() const { return _type; }
-
-
 
 		Crypto_request(unsigned long src_module_id,
 		               unsigned long src_request_id);
@@ -112,7 +107,7 @@ class Cbe::Crypto_channel
 		Crypto_request   _request                  { };
 		bool             _generated_req_success    { false };
 		Vfs::Vfs_handle *_vfs_handle               { nullptr };
-		char             _blk_buf[Cbe::BLOCK_SIZE] {  };
+		char             _blk_buf[Cbe::BLOCK_SIZE] { 0 };
 
 	public:
 

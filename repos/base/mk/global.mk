@@ -154,8 +154,8 @@ CC_CXX_WARN ?= $(CC_WARN) $(CC_CXX_WARN_STRICT)
 #
 # Additional warnings for Ada/SPARK
 #
-CC_ADA_WARN_STRICT ?= -gnatwe -gnatyyBdSux
-CC_ADA_WARN        ?= -gnatwa $(CC_ADA_WARN_STRICT)
+CC_ADA_WARN_STRICT ?= 
+CC_ADA_WARN        ?= 
 
 #
 # Aggregate compiler options that are common for C and C++

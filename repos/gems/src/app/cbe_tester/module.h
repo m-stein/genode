@@ -22,10 +22,15 @@ namespace Cbe {
 
 	enum Module_id : unsigned long
 	{
-		CRYPTO      = 0,
-		CBE_LIBRARA = 1,
-		CLIENT_DATA = 2,
+		CRYPTO       = 0,
+		CBE_LIBRARA  = 1,
+		CLIENT_DATA  = 2,
+		TRUST_ANCHOA = 3,
 	};
+
+	enum { HASH_SIZE = 32 };
+	enum { KEY_SIZE = 32 };
+	enum { PRIM_BUF_SIZE = 128 };
 
 	char const *module_name(unsigned long module_id);
 
@@ -77,10 +82,17 @@ class Cbe::Module
 
 		virtual void _drop_completed_request(Module_request &req) = 0;
 
-		virtual bool _peek_generated_request(Genode::uint8_t *buf_ptr,
-		                                     Genode::size_t   buf_size) = 0;
+		virtual bool _peek_generated_request(Genode::uint8_t *,
+		                                     Genode::size_t   )
+		{
+			return false;
+		}
 
-		virtual void _drop_generated_request(Module_request &req) = 0;
+		virtual void _drop_generated_request(Module_request &)
+		{
+			class Exception_1 { };
+			throw Exception_1 { };
+		}
 
 	public:
 
@@ -115,7 +127,11 @@ class Cbe::Module
 			}
 		}
 
-		virtual void generated_request_complete(Module_request &req) = 0;
+		virtual void generated_request_complete(Module_request &)
+		{
+			class Exception_1 { };
+			throw Exception_1 { };
+		}
 
 		template <typename FUNC>
 		void for_each_completed_request(FUNC && handle_request)

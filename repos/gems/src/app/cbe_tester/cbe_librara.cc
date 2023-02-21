@@ -43,5 +43,6 @@ void Cbe::Librara::generated_request_complete(Module_request &mod_req)
 	}
 	Crypto_request &req { *dynamic_cast<Crypto_request *>(&mod_req) };
 	_lib->librara__generated_request_complete(
-		req.prim(), req.result_blk_ptr(), req.success());
+		req.prim(), req.result_blk_ptr(), nullptr, nullptr, nullptr,
+		req.success());
 }
