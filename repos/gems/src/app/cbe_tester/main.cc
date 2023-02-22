@@ -2150,6 +2150,8 @@ class Main : Vfs::Env::User, public Cbe::Module
 			}
 		}
 
+		enum { VERBOSE_MODULE_COMMUNICATION = 1 };
+
 		void _modules_add(unsigned long  module_id,
 		                  Module        &module)
 		{
@@ -2173,11 +2175,24 @@ class Main : Vfs::Env::User, public Cbe::Module
 					}
 					Module &dst_module { *_module_ptrs[req.dst_module_id()] };
 					if (!dst_module.ready_to_submit_request()) {
-						Genode::log(module_name(id), ":", req.src_request_id_str(), " --", req.type_name(), "-| ", module_name(req.dst_module_id()));
+
+						if (VERBOSE_MODULE_COMMUNICATION)
+							Genode::log(
+								module_name(id), ":", req.src_request_id_str(),
+								" --", req.type_name(), "-| ",
+								module_name(req.dst_module_id()));
+
 						return Module::REQUEST_NOT_HANDLED;
 					}
 					dst_module.submit_request(req);
-					//Genode::log(module_name(id), ":", req.src_request_id_str(), " --", req.type_name(), "--> ", module_name(req.dst_module_id()), ":", req.dst_request_id_str());
+
+					if (VERBOSE_MODULE_COMMUNICATION)
+						Genode::log(
+							module_name(id), ":", req.src_request_id_str(),
+							" --", req.type_name(), "--> ",
+							module_name(req.dst_module_id()), ":",
+							req.dst_request_id_str());
+
 					progress = true;
 					return Module::REQUEST_HANDLED;
 				});
@@ -2186,7 +2201,13 @@ class Main : Vfs::Env::User, public Cbe::Module
 						class Bad_src_module { };
 						throw Bad_src_module { };
 					}
-					//Genode::log(module_name(req.src_module_id()), ":", req.src_request_id_str(), " <--", req.type_name(), "-- ", module_name(id), ":", req.dst_request_id_str());
+					if (VERBOSE_MODULE_COMMUNICATION)
+						Genode::log(
+							module_name(req.src_module_id()), ":",
+							req.src_request_id_str(), " <--", req.type_name(),
+							"-- ", module_name(id), ":",
+							req.dst_request_id_str());
+
 					Module &src_module { *_module_ptrs[req.src_module_id()] };
 					src_module.generated_request_complete(req);
 					progress = true;
