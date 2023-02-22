@@ -27,19 +27,19 @@ using namespace Cbe;
 
 void Trust_anchoa_request::create(void       *buf_ptr,
                                   size_t      buf_size,
+                                  size_t      src_module_id,
+                                  size_t      src_request_id,
                                   size_t      req_type,
                                   void       *prim_ptr,
                                   size_t      prim_size,
                                   void       *key_plaintext_ptr,
                                   void       *key_ciphertext_ptr,
                                   char const *passphrase_ptr,
-                                  uint32_t    tag,
                                   void       *hash_ptr)
 {
-	Trust_anchoa_request req { CBE_LIBRARA, ~0UL };
+	Trust_anchoa_request req { src_module_id, src_request_id };
 	req._type = (Type)req_type;
-	req._passphrase_ptr = passphrase_ptr;
-	req._tag = tag;
+	req._passphrase_ptr = (addr_t)passphrase_ptr;
 	if (prim_ptr != nullptr) {
 		if (prim_size > sizeof(req._prim)) {
 			error(prim_size, " ", sizeof(req._prim));

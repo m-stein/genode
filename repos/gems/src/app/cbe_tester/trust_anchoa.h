@@ -45,8 +45,7 @@ class Cbe::Trust_anchoa_request : public Module_request
 		Genode::uint8_t _key_plaintext[KEY_SIZE]  { 0 };
 		Genode::uint8_t _key_ciphertext[KEY_SIZE] { 0 };
 		Genode::uint8_t _hash[HASH_SIZE]          { 0 };
-		Genode::addr_t  _passphrase_ptr           { nullptr };
-		uint32_t        _tag                      { 0 };
+		Genode::addr_t  _passphrase_ptr           { 00 };
 		bool            _success                  { false };
 
 	public:
@@ -58,16 +57,21 @@ class Cbe::Trust_anchoa_request : public Module_request
 
 		static void create(void             *buf_ptr,
 		                   Genode::size_t    buf_size,
+		                   size_t            src_module_id,
+		                   size_t            src_request_id,
 		                   Genode::size_t    req_type,
 		                   void             *prim_ptr,
 		                   size_t            prim_size,
 		                   void             *key_plaintext_ptr,
 		                   void             *key_ciphertext_ptr,
 		                   char const       *passphrase_ptr,
-		                   Genode::uint32_t  tag,
 		                   void             *hash_ptr);
 
 		void *prim() { return (void *)&_prim; }
+
+		Type type() const { return _type; }
+
+		bool success() const { return _success; }
 
 
 		/********************

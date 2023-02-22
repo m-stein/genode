@@ -22,10 +22,12 @@ namespace Cbe {
 
 	enum Module_id : unsigned long
 	{
+		/* Warning: don't change the numeric values, they are used in Ada */
 		CRYPTO       = 0,
 		CBE_LIBRARA  = 1,
 		CLIENT_DATA  = 2,
 		TRUST_ANCHOA = 3,
+		COMMAND_POOL = 4,
 	};
 
 	enum { HASH_SIZE = 32 };
@@ -77,10 +79,17 @@ class Cbe::Module
 {
 	private:
 
-		virtual bool _peek_completed_request(Genode::uint8_t *buf_ptr,
-		                                     Genode::size_t   buf_size) = 0;
+		virtual bool _peek_completed_request(Genode::uint8_t *,
+		                                     Genode::size_t   )
+		{
+			return false;
+		}
 
-		virtual void _drop_completed_request(Module_request &req) = 0;
+		virtual void _drop_completed_request(Module_request &)
+		{
+			class Exception_1 { };
+			throw Exception_1 { };
+		}
 
 		virtual bool _peek_generated_request(Genode::uint8_t *,
 		                                     Genode::size_t   )
@@ -101,11 +110,15 @@ class Cbe::Module
 		typedef Handle_request_result (
 			*Handle_request_function)(Module_request &req);
 
-		virtual bool ready_to_submit_request() = 0;
+		virtual bool ready_to_submit_request() { return false; };
 
-		virtual void submit_request(Module_request &req) = 0;
+		virtual void submit_request(Module_request &)
+		{
+			class Exception_1 { };
+			throw Exception_1 { };
+		}
 
-		virtual void execute(bool &progress) = 0;
+		virtual void execute(bool &) { }
 
 		template <typename FUNC>
 		void for_each_generated_request(FUNC && handle_request)
