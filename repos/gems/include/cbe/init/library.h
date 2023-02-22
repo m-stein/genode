@@ -60,6 +60,10 @@ struct Cbe_init::Library : Cbe::Spark_object<60960>
 	void has_io_request(Cbe::Request &, Cbe::Io_buffer::Index &) const;
 
 	void io_request_in_progress(Cbe::Io_buffer::Index const &data_index);
+
+
+		bool librara__peek_generated_request(Genode::uint8_t *buf_ptr,
+		                                     Genode::size_t   buf_size);
 };
 
 #endif /* _CBE__INIT__LIBRARY_H_ */

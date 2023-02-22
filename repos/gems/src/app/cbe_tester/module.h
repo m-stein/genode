@@ -23,11 +23,12 @@ namespace Cbe {
 	enum Module_id : unsigned long
 	{
 		/* Warning: don't change the numeric values, they are used in Ada */
-		CRYPTO       = 0,
-		CBE_LIBRARA  = 1,
-		CLIENT_DATA  = 2,
-		TRUST_ANCHOA = 3,
-		COMMAND_POOL = 4,
+		CRYPTO           = 0,
+		CBE_LIBRARA      = 1,
+		CLIENT_DATA      = 2,
+		TRUST_ANCHOA     = 3,
+		COMMAND_POOL     = 4,
+		CBE_INIT_LIBRARA = 5,
 	};
 
 	enum { HASH_SIZE = 32 };

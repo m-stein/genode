@@ -41,18 +41,6 @@ class Cbe::Librara : public Module
 		 ** Module **
 		 ************/
 
-		bool _peek_completed_request(Genode::uint8_t *,
-		                             Genode::size_t   ) override
-		{
-			return false;
-		}
-
-		void _drop_completed_request(Module_request &) override
-		{
-			class Bad_call { };
-			throw Bad_call { };
-		}
-
 		bool _peek_generated_request(Genode::uint8_t *buf_ptr,
 		                             Genode::size_t   buf_size) override
 		{
@@ -79,22 +67,6 @@ class Cbe::Librara : public Module
 		 ************/
 
 		void generated_request_complete(Module_request &) override;
-
-		bool ready_to_submit_request() override
-		{
-			class Bad_call { };
-			throw Bad_call { };
-		};
-
-		void submit_request(Module_request &) override
-		{
-			class Bad_call { };
-			throw Bad_call { };
-		}
-
-		void execute(bool &) override
-		{
-		}
 };
 
 #endif /* _CBE_LIBRARA_H_ */

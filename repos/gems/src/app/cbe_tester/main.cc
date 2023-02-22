@@ -21,14 +21,15 @@
 
 /* CBE includes */
 #include <cbe/library.h>
+#include <cbe/init/library.h>
 #include <cbe/check/library.h>
 #include <cbe/dump/library.h>
 #include <cbe/dump/configuration.h>
-#include <cbe/init/library.h>
 #include <cbe/init/configuration.h>
 
 /* CBE tester includes */
 #include <cbe_librara.h>
+#include <cbe_init_librara.h>
 #include <crypto.h>
 #include <trust_anchor.h>
 #include <trust_anchoa.h>
@@ -46,8 +47,10 @@ namespace Cbe {
 		switch (id) {
 		case CRYPTO: return "crypto";
 		case CBE_LIBRARA: return "cbe_librara";
+		case CBE_INIT_LIBRARA: return "cbe_init_librara";
 		case CLIENT_DATA: return "client_data";
 		case TRUST_ANCHOA: return "trust_anchoa";
+		case COMMAND_POOL: return "command_pool";
 		default: break;
 		}
 		return "?";
@@ -1676,7 +1679,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 {
 	private:
 
-		enum { NR_OF_MODULES = 4 };
+		enum { NR_OF_MODULES = 6 };
 
 		Genode::Env                 &_env;
 		Attached_rom_dataspace       _config_rom                 { _env, "config" };
@@ -1695,6 +1698,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 		Trust_anchoa                 _trust_anchoa               { };
 		Crypto                       _crypto                     { _vfs_env, _config_rom.xml().sub_node("crypto") };
 		Cbe::Librara                 _cbe_librara                { _cbe, _blk_buf };
+		Cbe_init::Librara            _cbe_init_librara           { _cbe_init };
 		Client_data_request          _client_data_request        { };
 
 		Module *_module_ptrs[NR_OF_MODULES] { };
@@ -2244,10 +2248,12 @@ class Main : Vfs::Env::User, public Cbe::Module
 		:
 			_env { env }
 		{
-			_modules_add(CRYPTO,       _crypto);
-			_modules_add(TRUST_ANCHOA, _trust_anchoa);
-			_modules_add(CBE_LIBRARA,  _cbe_librara);
-			_modules_add(CLIENT_DATA,  *this);
+			_modules_add(CRYPTO,            _crypto);
+			_modules_add(TRUST_ANCHOA,      _trust_anchoa);
+			_modules_add(CBE_LIBRARA,       _cbe_librara);
+			_modules_add(CLIENT_DATA,      *this);
+			_modules_add(COMMAND_POOL,      _cmd_pool);
+			_modules_add(CBE_INIT_LIBRARA,  _cbe_init_librara);
 			_execute();
 		}
 };
