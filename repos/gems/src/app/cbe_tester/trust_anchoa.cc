@@ -112,7 +112,12 @@ void Trust_anchoa::execute(bool &)
 }
 
 
-Trust_anchoa::Trust_anchoa() { }
+Trust_anchoa::Trust_anchoa(Vfs::Env       &vfs_env,
+                           Xml_node const &xml_node)
+:
+	_vfs_env { vfs_env },
+	_path    { xml_node.attribute_value("path", String<128>()) }
+{ }
 
 
 bool Trust_anchoa::_peek_completed_request(uint8_t *buf_ptr,

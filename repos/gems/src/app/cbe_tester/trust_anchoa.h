@@ -19,6 +19,7 @@
 
 /* cbe tester includes */
 #include <module.h>
+#include <vfs_utilities.h>
 
 namespace Cbe
 {
@@ -99,10 +100,25 @@ class Cbe::Trust_anchoa : public Module
 
 		using Request = Trust_anchoa_request;
 		using Channel = Trust_anchoa_channel;
+		using Read_result = Vfs::File_io_service::Read_result;
+		using Write_result = Vfs::File_io_service::Write_result;
 
-		enum { NR_OF_CHANNELS = 4 };
+		enum { NR_OF_CHANNELS = 1 };
 
-		Channel _channels[NR_OF_CHANNELS] { };
+		Vfs::Env                  &_vfs_env;
+		char                       _read_buf[64];
+		Genode::String<128> const  _path;
+		Genode::String<128> const  _decrypt_path             { _path, "/decrypt" };
+		Vfs::Vfs_handle           &_decrypt_file             { vfs_open_rw(_vfs_env, { _decrypt_path }) };
+		Genode::String<128> const  _encrypt_path             { _path, "/encrypt" };
+		Vfs::Vfs_handle           &_encrypt_file             { vfs_open_rw(_vfs_env, { _encrypt_path }) };
+		Genode::String<128> const  _generate_key_path        { _path, "/generate_key" };
+		Vfs::Vfs_handle           &_generate_key_file        { vfs_open_rw(_vfs_env, { _generate_key_path }) };
+		Genode::String<128> const  _initialize_path          { _path, "/initialize" };
+		Vfs::Vfs_handle           &_initialize_file          { vfs_open_rw(_vfs_env, { _initialize_path }) };
+		Genode::String<128> const  _hashsum_path             { _path, "/hashsum" };
+		Vfs::Vfs_handle           &_hashsum_file             { vfs_open_rw(_vfs_env, { _hashsum_path }) };
+		Channel                    _channels[NR_OF_CHANNELS] { };
 
 
 		/************
@@ -116,7 +132,8 @@ class Cbe::Trust_anchoa : public Module
 
 	public:
 
-		Trust_anchoa();
+		Trust_anchoa(Vfs::Env               &vfs_env,
+		             Genode::Xml_node const &xml_node);
 
 
 		/************

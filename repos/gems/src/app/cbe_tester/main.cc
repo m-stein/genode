@@ -1695,7 +1695,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 		Cbe_dump::Library            _cbe_dump                   { };
 		Cbe_init::Library            _cbe_init                   { };
 		Benchmark                    _benchmark                  { _env };
-		Trust_anchoa                 _trust_anchoa               { };
+		Trust_anchoa                 _trust_anchoa               { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
 		Crypto                       _crypto                     { _vfs_env, _config_rom.xml().sub_node("crypto") };
 		Cbe::Librara                 _cbe_librara                { _cbe, _blk_buf };
 		Cbe_init::Librara            _cbe_init_librara           { _cbe_init };
