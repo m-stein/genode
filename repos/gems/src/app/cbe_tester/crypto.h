@@ -76,7 +76,7 @@ class Cbe::Crypto_request : public Module_request
 		                   void             *plaintext_blk_ptr,
 		                   void             *ciphertext_blk_ptr);
 
-		void *prim() { return (void *)&_prim; }
+		void *prim_ptr() { return (void *)&_prim; }
 
 		void *result_blk_ptr();
 

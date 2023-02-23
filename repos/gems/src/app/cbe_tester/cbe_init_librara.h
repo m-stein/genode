@@ -22,11 +22,14 @@
 
 namespace Cbe_init {
 
+	using Cbe::Module;
+	using Cbe::Module_request;
+
 	class Librara;
 }
 
 
-class Cbe_init::Librara : public Cbe::Module
+class Cbe_init::Librara : public Module
 {
 	private:
 
@@ -42,6 +45,10 @@ class Cbe_init::Librara : public Cbe::Module
 		{
 			return _lib.librara__peek_generated_request(buf_ptr, buf_size);
 		}
+
+		void _drop_generated_request(Module_request &) override;
+
+		void generated_request_complete(Module_request &) override;
 
 	public:
 

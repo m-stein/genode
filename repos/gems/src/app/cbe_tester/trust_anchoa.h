@@ -68,7 +68,10 @@ class Cbe::Trust_anchoa_request : public Module_request
 		                   char const       *passphrase_ptr,
 		                   void             *hash_ptr);
 
-		void *prim() { return (void *)&_prim; }
+		void *prim_ptr() { return (void *)&_prim; }
+		void *hash_ptr() { return (void *)&_hash; }
+		void *key_plaintext_ptr() { return (void *)&_key_plaintext; }
+		void *key_ciphertext_ptr() { return (void *)&_key_ciphertext; }
 
 		Type type() const { return _type; }
 

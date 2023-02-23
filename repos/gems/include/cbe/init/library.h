@@ -64,6 +64,14 @@ struct Cbe_init::Library : Cbe::Spark_object<60960>
 
 		bool librara__peek_generated_request(Genode::uint8_t *buf_ptr,
 		                                     Genode::size_t   buf_size);
+
+		void librara__drop_generated_request(void *prim_ptr);
+
+
+		void librara__generated_request_complete(void *prim_ptr,
+		                                         void *key_plain_ptr,
+		                                         void *key_cipher_ptr,
+		                                         bool  success);
 };
 
 #endif /* _CBE__INIT__LIBRARY_H_ */
