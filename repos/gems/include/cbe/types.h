@@ -137,64 +137,6 @@ namespace Cbe {
 
 	} __attribute__((packed));
 
-	class Trust_anchor_request
-	{
-		public:
-
-			enum class Operation : uint32_t {
-				INVALID           = 0,
-				CREATE_KEY        = 1,
-				SECURE_SUPERBLOCK = 2,
-				ENCRYPT_KEY       = 3,
-				DECRYPT_KEY       = 4,
-				LAST_SB_HASH      = 5,
-				INITIALIZE        = 6,
-			};
-
-		private:
-
-			Operation _operation;
-			bool      _success;
-			uint32_t  _tag;
-
-		public:
-
-			Trust_anchor_request()
-			:
-				_operation { Operation::INVALID },
-				_success   { false },
-				_tag       { 0 }
-			{ }
-
-			Trust_anchor_request(Operation operation,
-			                     bool      success,
-			                     uint32_t  tag)
-			:
-				_operation { operation },
-				_success   { success },
-				_tag       { tag }
-			{ }
-
-			void print(Genode::Output &out) const;
-
-			bool valid()             const { return _operation != Operation::INVALID; }
-			bool create_key()        const { return _operation == Operation::CREATE_KEY; }
-			bool secure_superblock() const { return _operation == Operation::SECURE_SUPERBLOCK; }
-			bool encrypt_key()       const { return _operation == Operation::ENCRYPT_KEY; }
-			bool decrypt_key()       const { return _operation == Operation::DECRYPT_KEY; }
-			bool last_sb_hash()      const { return _operation == Operation::LAST_SB_HASH; }
-			bool initialize()        const { return _operation == Operation::INITIALIZE; }
-
-			Operation operation() const { return _operation; }
-			bool      success()   const { return _success; }
-			uint32_t  tag()       const { return _tag; }
-
-			void tag(uint32_t arg) { _tag = arg; }
-			void success(bool arg) { _success = arg; }
-
-	} __attribute__((packed));
-
-
 	struct Block_data
 	{
 		char values[BLOCK_SIZE];
@@ -349,23 +291,6 @@ inline char const *to_string(Cbe::Request::Operation op)
 	throw Unknown_operation_type();
 }
 
-
-inline char const *to_string(Cbe::Trust_anchor_request::Operation op)
-{
-	struct Unknown_operation_type : Genode::Exception { };
-	switch (op) {
-	case Cbe::Trust_anchor_request::Operation::INVALID: return "invalid";
-	case Cbe::Trust_anchor_request::Operation::CREATE_KEY: return "create_key";
-	case Cbe::Trust_anchor_request::Operation::INITIALIZE: return "initialize";
-	case Cbe::Trust_anchor_request::Operation::SECURE_SUPERBLOCK: return "secure_superblock";
-	case Cbe::Trust_anchor_request::Operation::ENCRYPT_KEY: return "encrypt_key";
-	case Cbe::Trust_anchor_request::Operation::DECRYPT_KEY: return "decrypt_key";
-	case Cbe::Trust_anchor_request::Operation::LAST_SB_HASH: return "last_sb_hash";
-	}
-	throw Unknown_operation_type();
-}
-
-
 inline void Cbe::Request::print(Genode::Output &out) const
 {
 	if (!valid()) {
@@ -381,14 +306,4 @@ inline void Cbe::Request::print(Genode::Output &out) const
 	Genode::print(out, " succ=", _success);
 }
 
-inline void Cbe::Trust_anchor_request::print(Genode::Output &out) const
-{
-	if (!valid()) {
-		Genode::print(out, "<invalid>");
-		return;
-	}
-	Genode::print(out, "op=", to_string (_operation));
-	Genode::print(out, " tag=", _tag);
-	Genode::print(out, " succ=", _success);
-}
 #endif /* _CBE_TYPES_H_ */

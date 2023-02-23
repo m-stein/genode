@@ -13,7 +13,7 @@
 
 /* local includes */
 #include <cbe_init_librara.h>
-#include <trust_anchoa.h>
+#include <trust_anchor.h>
 
 using namespace Genode;
 using namespace Cbe;
@@ -22,10 +22,10 @@ using namespace Cbe;
 void Cbe_init::Librara::_drop_generated_request(Module_request &mod_req)
 {
 	switch (mod_req.dst_module_id()) {
-	case TRUST_ANCHOA:
+	case TRUST_ANCHOR:
 	{
-		Trust_anchoa_request &req {
-			*dynamic_cast<Trust_anchoa_request *>(&mod_req) };
+		Trust_anchor_request &req {
+			*dynamic_cast<Trust_anchor_request *>(&mod_req) };
 
 		_lib.librara__drop_generated_request(req.prim_ptr());
 		break;
@@ -40,10 +40,10 @@ void Cbe_init::Librara::_drop_generated_request(Module_request &mod_req)
 void Cbe_init::Librara::generated_request_complete(Module_request &mod_req)
 {
 	switch (mod_req.dst_module_id()) {
-	case TRUST_ANCHOA:
+	case TRUST_ANCHOR:
 	{
-		Trust_anchoa_request &req {
-			*dynamic_cast<Trust_anchoa_request *>(&mod_req) };
+		Trust_anchor_request &req {
+			*dynamic_cast<Trust_anchor_request *>(&mod_req) };
 
 		_lib.librara__generated_request_complete(
 			req.prim_ptr(), req.key_plaintext_ptr(), req.key_ciphertext_ptr(),

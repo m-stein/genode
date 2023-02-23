@@ -146,8 +146,8 @@ append config {
 
 			<verbose
 				cmd_pool_cmd_pending="no"
-				cmd_pool_cmd_in_progress="yes"
-				cmd_pool_cmd_completed="yes"
+				cmd_pool_cmd_in_progress="no"
+				cmd_pool_cmd_completed="no"
 				blk_io_req_in_progress="no"
 				blk_io_req_completed="no"
 				ta_req_in_progress="no"

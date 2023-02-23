@@ -32,7 +32,6 @@
 #include <cbe_init_librara.h>
 #include <crypto.h>
 #include <trust_anchor.h>
-#include <trust_anchoa.h>
 #include <verbose_node.h>
 #include <client_data.h>
 
@@ -49,7 +48,7 @@ namespace Cbe {
 		case CBE_LIBRARA: return "cbe_librara";
 		case CBE_INIT_LIBRARA: return "cbe_init_librara";
 		case CLIENT_DATA: return "client_data";
-		case TRUST_ANCHOA: return "trust_anchoa";
+		case TRUST_ANCHOR: return "trust_anchor";
 		case COMMAND_POOL: return "command_pool";
 		default: break;
 		}
@@ -1000,7 +999,7 @@ class Trust_anchor_node
 {
 	private:
 
-		using Operation = Trust_anchor_request::Operation;
+		using Operation = Trust_anchor_request::Type;
 
 		Operation  const _op;
 		String<64> const _passphrase;
@@ -1038,7 +1037,9 @@ class Trust_anchor_node
 
 		void print(Genode::Output &out) const
 		{
-			Genode::print(out, "op=", to_string(_op));
+			Genode::print(out, "op=",
+				Trust_anchor_request::type_to_string(_op));
+
 			if (has_attr_passphrase()) {
 				Genode::print(out, " passphrase=", _passphrase);
 			}
@@ -1408,11 +1409,11 @@ class Command_pool : public Module {
 
 			Trust_anchor_node const &node { cmd.trust_anchor_node() };
 			switch (node.op()) {
-			case Trust_anchor_request::Operation::INITIALIZE:
+			case Trust_anchor_request::INITIALIZE:
 
-				Trust_anchoa_request::create(
+				Trust_anchor_request::create(
 					buf_ptr, buf_size, COMMAND_POOL, cmd.id(),
-					(unsigned long)Trust_anchoa_request::INITIALIZE,
+					(unsigned long)Trust_anchor_request::INITIALIZE,
 					nullptr, 0, nullptr, nullptr, node.passphrase().string(),
 					nullptr);
 
@@ -1426,14 +1427,14 @@ class Command_pool : public Module {
 
 		void _drop_generated_request(Module_request &mod_req) override
 		{
-			if (mod_req.dst_module_id() != TRUST_ANCHOA) {
+			if (mod_req.dst_module_id() != TRUST_ANCHOR) {
 				class Exception_1 { };
 				throw Exception_1 { };
 			}
-			Trust_anchoa_request const &ta_req {
-				*dynamic_cast<Trust_anchoa_request *>(&mod_req)};
+			Trust_anchor_request const &ta_req {
+				*dynamic_cast<Trust_anchor_request *>(&mod_req)};
 
-			if (ta_req.type() != Trust_anchoa_request::INITIALIZE) {
+			if (ta_req.type() != Trust_anchor_request::INITIALIZE) {
 				class Exception_2 { };
 				throw Exception_2 { };
 			}
@@ -1442,14 +1443,14 @@ class Command_pool : public Module {
 
 		void generated_request_complete(Module_request &mod_req) override
 		{
-			if (mod_req.dst_module_id() != TRUST_ANCHOA) {
+			if (mod_req.dst_module_id() != TRUST_ANCHOR) {
 				class Exception_1 { };
 				throw Exception_1 { };
 			}
-			Trust_anchoa_request const &ta_req {
-				*dynamic_cast<Trust_anchoa_request *>(&mod_req)};
+			Trust_anchor_request const &ta_req {
+				*dynamic_cast<Trust_anchor_request *>(&mod_req)};
 
-			if (ta_req.type() != Trust_anchoa_request::INITIALIZE) {
+			if (ta_req.type() != Trust_anchor_request::INITIALIZE) {
 				class Exception_2 { };
 				throw Exception_2 { };
 			}
@@ -1695,7 +1696,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 		Cbe_dump::Library            _cbe_dump                   { };
 		Cbe_init::Library            _cbe_init                   { };
 		Benchmark                    _benchmark                  { _env };
-		Trust_anchoa                 _trust_anchoa               { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
+		Trust_anchor                 _trust_anchor               { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
 		Crypto                       _crypto                     { _vfs_env, _config_rom.xml().sub_node("crypto") };
 		Cbe::Librara                 _cbe_librara                { _cbe, _blk_buf };
 		Cbe_init::Librara            _cbe_init_librara           { _cbe_init };
@@ -2249,7 +2250,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 			_env { env }
 		{
 			_modules_add(CRYPTO,            _crypto);
-			_modules_add(TRUST_ANCHOA,      _trust_anchoa);
+			_modules_add(TRUST_ANCHOR,      _trust_anchor);
 			_modules_add(CBE_LIBRARA,       _cbe_librara);
 			_modules_add(CLIENT_DATA,      *this);
 			_modules_add(COMMAND_POOL,      _cmd_pool);

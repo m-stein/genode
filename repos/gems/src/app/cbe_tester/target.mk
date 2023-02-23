@@ -3,7 +3,6 @@ REQUIRES := x86_64
 TARGET  := cbe_tester
 SRC_CC  += main.cc
 SRC_CC  += crypto.cc
-SRC_CC  += trust_anchoa.cc
 SRC_CC  += trust_anchor.cc
 SRC_CC  += vfs_utilities.cc
 SRC_CC  += module.cc

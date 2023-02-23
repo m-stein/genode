@@ -181,16 +181,6 @@ class Cbe::Crypto : public Module
 
 		void _drop_generated_request(Module_request &mod_req) override;
 
-	public:
-
-		Crypto(Vfs::Env               &vfs_env,
-		       Genode::Xml_node const &xml_node);
-
-
-		/************
-		 ** Module **
-		 ************/
-
 		bool ready_to_submit_request() override;
 
 		void submit_request(Module_request &req) override;
@@ -198,6 +188,11 @@ class Cbe::Crypto : public Module
 		void execute(bool &) override;
 
 		void generated_request_complete(Module_request &req) override;
+
+	public:
+
+		Crypto(Vfs::Env               &vfs_env,
+		       Genode::Xml_node const &xml_node);
 };
 
 #endif /* _CRYPTO_H_ */

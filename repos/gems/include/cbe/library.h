@@ -54,11 +54,6 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 
 		void _info(Info &) const;
 
-		void _peek_generated_ta_request(Trust_anchor_request &) const;
-		void _peek_generated_ta_sb_hash(Trust_anchor_request const &, Hash &) const;
-		void _peek_generated_ta_key_value_plaintext(Trust_anchor_request const &, Key_plaintext_value &) const;
-		void _peek_generated_ta_key_value_ciphertext(Trust_anchor_request const &, Key_ciphertext_value &) const;
-
 	public:
 
 	Library();

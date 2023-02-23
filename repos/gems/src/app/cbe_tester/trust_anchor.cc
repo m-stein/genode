@@ -1,45 +1,123 @@
 /*
- * \brief  Implementation of the TA module API using the TA VFS API
+ * \brief  Module for encrypting/decrypting single data blocks
  * \author Martin Stein
- * \date   2020-10-29
+ * \date   2023-02-13
  */
 
 /*
- * Copyright (C) 2020 Genode Labs GmbH
+ * Copyright (C) 2023 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-/* local includes */
+/* base includes */
+#include <base/log.h>
+
+/* cbe tester includes */
 #include <trust_anchor.h>
 
 using namespace Genode;
 using namespace Cbe;
-using namespace Vfs;
 
 
-void Trust_anchor::_execute_write_read_operation(Vfs_handle        &file,
+/**************************
+ ** Trust_anchor_request **
+ **************************/
+
+void Trust_anchor_request::create(void       *buf_ptr,
+                                  size_t      buf_size,
+                                  size_t      src_module_id,
+                                  size_t      src_request_id,
+                                  size_t      req_type,
+                                  void       *prim_ptr,
+                                  size_t      prim_size,
+                                  void       *key_plaintext_ptr,
+                                  void       *key_ciphertext_ptr,
+                                  char const *passphrase_ptr,
+                                  void       *hash_ptr)
+{
+	Trust_anchor_request req { src_module_id, src_request_id };
+	req._type = (Type)req_type;
+	req._passphrase_ptr = (addr_t)passphrase_ptr;
+	if (prim_ptr != nullptr) {
+		if (prim_size > sizeof(req._prim)) {
+			error(prim_size, " ", sizeof(req._prim));
+			class Exception_1 { };
+			throw Exception_1 { };
+		}
+		memcpy(&req._prim, prim_ptr, prim_size);
+	}
+	if (key_plaintext_ptr != nullptr)
+		memcpy(
+			&req._key_plaintext, key_plaintext_ptr,
+			sizeof(req._key_plaintext));
+
+	if (key_ciphertext_ptr != nullptr)
+		memcpy(
+			&req._key_ciphertext, key_ciphertext_ptr,
+			sizeof(req._key_ciphertext));
+
+	if (hash_ptr != nullptr)
+		memcpy(&req._hash, hash_ptr, sizeof(req._hash));
+
+	if (sizeof(req) > buf_size) {
+		class Exception_2 { };
+		throw Exception_2 { };
+	}
+	memcpy(buf_ptr, &req, sizeof(req));
+}
+
+
+Trust_anchor_request::Trust_anchor_request(unsigned long src_module_id,
+                                           unsigned long src_request_id)
+:
+	Module_request { src_module_id, src_request_id, TRUST_ANCHOR }
+{ }
+
+
+char const *Trust_anchor_request::type_to_string(Type type)
+{
+	switch (type) {
+	case INVALID: return "invalid";
+	case CREATE_KEY: return "create_key";
+	case ENCRYPT_KEY: return "encrypt_key";
+	case DECRYPT_KEY: return "decrypt_key";
+	case SECURE_SUPERBLOCK: return "secure_superblock";
+	case GET_LAST_SB_HASH: return "get_last_sb_hash";
+	case INITIALIZE: return "initialize";
+	}
+	return "?";
+}
+
+
+/******************
+ ** Trust_anchor **
+ ******************/
+
+void Trust_anchor::_execute_write_read_operation(Vfs::Vfs_handle   &file,
                                                  String<128> const &file_path,
+                                                 Channel           &channel,
                                                  char        const *write_buf,
                                                  char              *read_buf,
-                                                 file_size          read_size,
+                                                 Vfs::file_size     read_size,
                                                  bool              &progress)
 {
-	switch (_job.state) {
-	case Job_state::WRITE_PENDING:
+	Request &req { channel._request };
+	switch (channel._state) {
+	case Channel::WRITE_PENDING:
 
-		file.seek(_job.fl_offset);
-		_job.state = Job_state::WRITE_IN_PROGRESS;
+		file.seek(channel._file_offset);
+		channel._state = Channel::WRITE_IN_PROGRESS;
 		progress = true;
 		return;
 
-	case Job_state::WRITE_IN_PROGRESS:
+	case Channel::WRITE_IN_PROGRESS:
 	{
-		file_size nr_of_written_bytes { 0 };
+		Vfs::file_size nr_of_written_bytes { 0 };
 		Write_result const result =
-			file.fs().write(&file, write_buf + _job.fl_offset,
-			                _job.fl_size, nr_of_written_bytes);
+			file.fs().write(&file, write_buf + channel._file_offset,
+			                channel._file_size, nr_of_written_bytes);
 		switch (result) {
 
 		case Write_result::WRITE_ERR_WOULD_BLOCK:
@@ -47,47 +125,47 @@ void Trust_anchor::_execute_write_read_operation(Vfs_handle        &file,
 
 		case Write_result::WRITE_OK:
 
-			_job.fl_offset += nr_of_written_bytes;
-			_job.fl_size -= nr_of_written_bytes;
+			channel._file_offset += nr_of_written_bytes;
+			channel._file_size -= nr_of_written_bytes;
 
-			if (_job.fl_size > 0) {
+			if (channel._file_size > 0) {
 
-				_job.state = Job_state::WRITE_PENDING;
+				channel._state = Channel::WRITE_PENDING;
 				progress = true;
 				return;
 			}
-			_job.state = Job_state::READ_PENDING;
-			_job.fl_offset = 0;
-			_job.fl_size = read_size;
+			channel._state = Channel::READ_PENDING;
+			channel._file_offset = 0;
+			channel._file_size = read_size;
 			progress = true;
 			return;
 
 		default:
 
-			_job.request.success(false);
+			req._success = false;
 			error("failed to write file ", file_path);
-			_job.state = Job_state::COMPLETE;
+			channel._state = Channel::COMPLETE;
 			progress = true;
 			return;
 		}
 	}
-	case Job_state::READ_PENDING:
+	case Channel::READ_PENDING:
 
-		file.seek(_job.fl_offset);
+		file.seek(channel._file_offset);
 
-		if (!file.fs().queue_read(&file, _job.fl_size)) {
+		if (!file.fs().queue_read(&file, channel._file_size)) {
 			return;
 		}
-		_job.state = Job_state::READ_IN_PROGRESS;
+		channel._state = Channel::READ_IN_PROGRESS;
 		progress = true;
 		return;
 
-	case Job_state::READ_IN_PROGRESS:
+	case Channel::READ_IN_PROGRESS:
 	{
-		file_size nr_of_read_bytes { 0 };
+		Vfs::file_size nr_of_read_bytes { 0 };
 		Read_result const result {
 			file.fs().complete_read(
-				&file, read_buf + _job.fl_offset, _job.fl_size,
+				&file, read_buf + channel._file_offset, channel._file_size,
 				nr_of_read_bytes) };
 
 		switch (result) {
@@ -98,25 +176,25 @@ void Trust_anchor::_execute_write_read_operation(Vfs_handle        &file,
 
 		case Read_result::READ_OK:
 
-			_job.fl_offset += nr_of_read_bytes;
-			_job.fl_size -= nr_of_read_bytes;
-			_job.request.success(true);
+			channel._file_offset += nr_of_read_bytes;
+			channel._file_size -= nr_of_read_bytes;
+			req._success = true;
 
-			if (_job.fl_size > 0) {
+			if (channel._file_size > 0) {
 
-				_job.state = Job_state::READ_PENDING;
+				channel._state = Channel::READ_PENDING;
 				progress = true;
 				return;
 			}
-			_job.state = Job_state::COMPLETE;
+			channel._state = Channel::COMPLETE;
 			progress = true;
 			return;
 
 		default:
 
-			_job.request.success(false);
+			req._success = false;
 			error("failed to read file ", file_path);
-			_job.state = Job_state::COMPLETE;
+			channel._state = Channel::COMPLETE;
 			return;
 		}
 	}
@@ -127,26 +205,28 @@ void Trust_anchor::_execute_write_read_operation(Vfs_handle        &file,
 }
 
 
-void Trust_anchor::_execute_write_operation(Vfs_handle        &file,
+void Trust_anchor::_execute_write_operation(Vfs::Vfs_handle   &file,
                                             String<128> const &file_path,
+                                            Channel           &channel,
                                             char        const *write_buf,
                                             bool              &progress)
 {
-	switch (_job.state) {
-	case Job_state::WRITE_PENDING:
+	Request &req { channel._request };
+	switch (channel._state) {
+	case Channel::WRITE_PENDING:
 
-		file.seek(_job.fl_offset);
-		_job.state = Job_state::WRITE_IN_PROGRESS;
+		file.seek(channel._file_offset);
+		channel._state = Channel::WRITE_IN_PROGRESS;
 		progress = true;
 		return;
 
-	case Job_state::WRITE_IN_PROGRESS:
+	case Channel::WRITE_IN_PROGRESS:
 	{
-		file_size nr_of_written_bytes { 0 };
+		Vfs::file_size nr_of_written_bytes { 0 };
 		Write_result const result =
 			file.fs().write(
-				&file, write_buf + _job.fl_offset,
-				_job.fl_size, nr_of_written_bytes);
+				&file, write_buf + channel._file_offset,
+				channel._file_size, nr_of_written_bytes);
 
 		switch (result) {
 
@@ -155,47 +235,47 @@ void Trust_anchor::_execute_write_operation(Vfs_handle        &file,
 
 		case Write_result::WRITE_OK:
 
-			_job.fl_offset += nr_of_written_bytes;
-			_job.fl_size -= nr_of_written_bytes;
+			channel._file_offset += nr_of_written_bytes;
+			channel._file_size -= nr_of_written_bytes;
 
-			if (_job.fl_size > 0) {
+			if (channel._file_size > 0) {
 
-				_job.state = Job_state::WRITE_PENDING;
+				channel._state = Channel::WRITE_PENDING;
 				progress = true;
 				return;
 			}
-			_job.state = Job_state::READ_PENDING;
-			_job.fl_offset = 0;
-			_job.fl_size = 0;
+			channel._state = Channel::READ_PENDING;
+			channel._file_offset = 0;
+			channel._file_size = 0;
 			progress = true;
 			return;
 
 		default:
 
-			_job.request.success(false);
+			req._success = false;
 			error("failed to write file ", file_path);
-			_job.state = Job_state::COMPLETE;
+			channel._state = Channel::COMPLETE;
 			progress = true;
 			return;
 		}
 	}
-	case Job_state::READ_PENDING:
+	case Channel::READ_PENDING:
 
-		file.seek(_job.fl_offset);
+		file.seek(channel._file_offset);
 
-		if (!file.fs().queue_read(&file, _job.fl_size)) {
+		if (!file.fs().queue_read(&file, channel._file_size)) {
 			return;
 		}
-		_job.state = Job_state::READ_IN_PROGRESS;
+		channel._state = Channel::READ_IN_PROGRESS;
 		progress = true;
 		return;
 
-	case Job_state::READ_IN_PROGRESS:
+	case Channel::READ_IN_PROGRESS:
 	{
-		file_size nr_of_read_bytes { 0 };
+		Vfs::file_size nr_of_read_bytes { 0 };
 		Read_result const result {
 			file.fs().complete_read(
-				&file, _read_buf + _job.fl_offset, _job.fl_size,
+				&file, _read_buf + channel._file_offset, channel._file_size,
 				nr_of_read_bytes) };
 
 		switch (result) {
@@ -206,25 +286,25 @@ void Trust_anchor::_execute_write_operation(Vfs_handle        &file,
 
 		case Read_result::READ_OK:
 
-			_job.fl_offset += nr_of_read_bytes;
-			_job.fl_size -= nr_of_read_bytes;
-			_job.request.success(true);
+			channel._file_offset += nr_of_read_bytes;
+			channel._file_size -= nr_of_read_bytes;
+			req._success = true;
 
-			if (_job.fl_size > 0) {
+			if (channel._file_size > 0) {
 
-				_job.state = Job_state::READ_PENDING;
+				channel._state = Channel::READ_PENDING;
 				progress = true;
 				return;
 			}
-			_job.state = Job_state::COMPLETE;
+			channel._state = Channel::COMPLETE;
 			progress = true;
 			return;
 
 		default:
 
-			_job.request.success(false);
+			req._success = false;
 			error("failed to read file ", file_path);
-			_job.state = Job_state::COMPLETE;
+			channel._state = Channel::COMPLETE;
 			return;
 		}
 	}
@@ -235,29 +315,31 @@ void Trust_anchor::_execute_write_operation(Vfs_handle        &file,
 }
 
 
-void Trust_anchor::_execute_read_operation(Vfs_handle        &file,
+void Trust_anchor::_execute_read_operation(Vfs::Vfs_handle   &file,
                                            String<128> const &file_path,
+                                           Channel           &channel,
                                            char              *read_buf,
                                            bool              &progress)
 {
-	switch (_job.state) {
-	case Job_state::READ_PENDING:
+	Request &req { channel._request };
+	switch (channel._state) {
+	case Channel::READ_PENDING:
 
-		file.seek(_job.fl_offset);
+		file.seek(channel._file_offset);
 
-		if (!file.fs().queue_read(&file, _job.fl_size)) {
+		if (!file.fs().queue_read(&file, channel._file_size)) {
 			return;
 		}
-		_job.state = Job_state::READ_IN_PROGRESS;
+		channel._state = Channel::READ_IN_PROGRESS;
 		progress = true;
 		return;
 
-	case Job_state::READ_IN_PROGRESS:
+	case Channel::READ_IN_PROGRESS:
 	{
-		file_size nr_of_read_bytes { 0 };
+		Vfs::file_size nr_of_read_bytes { 0 };
 		Read_result const result {
 			file.fs().complete_read(
-				&file, read_buf + _job.fl_offset, _job.fl_size,
+				&file, read_buf + channel._file_offset, channel._file_size,
 				nr_of_read_bytes) };
 
 		switch (result) {
@@ -268,31 +350,134 @@ void Trust_anchor::_execute_read_operation(Vfs_handle        &file,
 
 		case Read_result::READ_OK:
 
-			_job.fl_offset += nr_of_read_bytes;
-			_job.fl_size -= nr_of_read_bytes;
-			_job.request.success(true);
+			channel._file_offset += nr_of_read_bytes;
+			channel._file_size -= nr_of_read_bytes;
+			req._success = true;
 
-			if (_job.fl_size > 0) {
+			if (channel._file_size > 0) {
 
-				_job.state = Job_state::READ_PENDING;
+				channel._state = Channel::READ_PENDING;
 				progress = true;
 				return;
 			}
-			_job.state = Job_state::COMPLETE;
+			channel._state = Channel::COMPLETE;
 			progress = true;
 			return;
 
 		default:
 
-			_job.request.success(false);
+			req._success = false;
 			error("failed to read file ", file_path);
-			_job.state = Job_state::COMPLETE;
+			channel._state = Channel::COMPLETE;
 			return;
 		}
 	}
 	default:
 
 		return;
+	}
+}
+
+
+void Trust_anchor::execute(bool &progress)
+{
+	for (Channel &channel : _channels) {
+
+		if (channel._state == Channel::INACTIVE)
+			continue;
+
+		Request &req { channel._request };
+		switch (req._type) {
+		case Request::INITIALIZE:
+
+			if (channel._state == Channel::SUBMITTED) {
+				channel._state = Channel::WRITE_PENDING;
+				channel._file_offset = 0;
+				channel._file_size =
+					strlen((char const *)req._passphrase_ptr);
+			}
+			_execute_write_operation(
+				_initialize_file, _initialize_path, channel,
+				(char const *)req._passphrase_ptr, progress);
+
+			break;
+
+		case Request::SECURE_SUPERBLOCK:
+
+			if (channel._state == Channel::SUBMITTED) {
+				channel._state = Channel::WRITE_PENDING;
+				channel._file_offset = 0;
+				channel._file_size = sizeof(req._hash);
+			}
+			_execute_write_operation(
+				_hashsum_file, _hashsum_path, channel,
+				(char const *)req._hash, progress);
+
+			break;
+
+		case Request::GET_LAST_SB_HASH:
+
+			if (channel._state == Channel::SUBMITTED) {
+				channel._state = Channel::READ_PENDING;
+				channel._file_offset = 0;
+				channel._file_size = sizeof(req._hash);
+			}
+			_execute_read_operation(
+				_hashsum_file, _hashsum_path, channel,
+				(char *)req._hash, progress);
+
+			break;
+
+		case Request::CREATE_KEY:
+
+			if (channel._state == Channel::SUBMITTED) {
+				channel._state = Channel::READ_PENDING;
+				channel._file_offset = 0;
+				channel._file_size = sizeof(req._key_plaintext);
+			}
+			_execute_read_operation(
+				_generate_key_file, _generate_key_path, channel,
+				(char *)req._key_plaintext, progress);
+
+			break;
+
+		case Request::ENCRYPT_KEY:
+
+			if (channel._state == Channel::SUBMITTED) {
+				channel._state = Channel::WRITE_PENDING;
+				channel._file_offset = 0;
+				channel._file_size = sizeof(req._key_plaintext);
+			}
+			_execute_write_read_operation(
+				_encrypt_file, _encrypt_path, channel,
+				(char const *)req._key_plaintext,
+				(char *)req._key_ciphertext,
+				sizeof(req._key_ciphertext),
+				progress);
+
+			break;
+
+		case Request::DECRYPT_KEY:
+
+			if (channel._state == Channel::SUBMITTED) {
+				channel._state = Channel::WRITE_PENDING;
+				channel._file_offset = 0;
+				channel._file_size = sizeof(req._key_ciphertext);
+			}
+			_execute_write_read_operation(
+				_decrypt_file, _decrypt_path, channel,
+				(char const *)req._key_ciphertext,
+				(char *)req._key_plaintext,
+				sizeof(req._key_plaintext),
+				progress);
+
+			break;
+
+		default:
+
+			class Exception_1 { };
+			throw Exception_1 { };
+		}
 	}
 }
 
@@ -305,270 +490,58 @@ Trust_anchor::Trust_anchor(Vfs::Env       &vfs_env,
 { }
 
 
-bool Trust_anchor::request_acceptable() const
+bool Trust_anchor::_peek_completed_request(uint8_t *buf_ptr,
+                                           size_t   buf_size)
 {
-	return _job.request.operation() == Operation::INVALID;
+	for (Channel &channel : _channels) {
+		if (channel._state == Channel::COMPLETE) {
+			if (sizeof(channel._request) > buf_size) {
+				class Exception_1 { };
+				throw Exception_1 { };
+			}
+			memcpy(buf_ptr, &channel._request, sizeof(channel._request));
+			return true;
+		}
+	}
+	return false;
 }
 
 
-void
-Trust_anchor::submit_request_passphrase(Trust_anchor_request const &request,
-                                        String<64>           const &passphrase)
+void Trust_anchor::_drop_completed_request(Module_request &req)
 {
-	switch (request.operation()) {
-	case Operation::INITIALIZE:
-
-		_job.request    = request;
-		_job.passphrase = passphrase;
-		_job.state      = Job_state::WRITE_PENDING;
-		_job.fl_offset  = 0;
-		_job.fl_size    = _job.passphrase.length();
-		break;
-
-	default:
-
-		class Bad_operation { };
-		throw Bad_operation { };
+	unsigned long id { 0 };
+	id = req.dst_request_id();
+	if (id >= NR_OF_CHANNELS) {
+		class Exception_1 { };
+		throw Exception_1 { };
 	}
+	if (_channels[id]._state != Channel::COMPLETE) {
+		class Exception_2 { };
+		throw Exception_2 { };
+	}
+	_channels[id]._state = Channel::INACTIVE;
 }
 
 
-void
-Trust_anchor::
-submit_request_key_plaintext_value(Trust_anchor_request const &request,
-                                   Key_plaintext_value  const &key_plaintext_value)
+bool Trust_anchor::ready_to_submit_request()
 {
-	switch (request.operation()) {
-	case Operation::ENCRYPT_KEY:
-
-		_job.request             = request;
-		_job.key_plaintext_value = key_plaintext_value;
-		_job.state               = Job_state::WRITE_PENDING;
-		_job.fl_offset           = 0;
-		_job.fl_size             = sizeof(_job.key_plaintext_value.value) /
-		                           sizeof(_job.key_plaintext_value.value[0]);
-		break;
-
-	default:
-
-		class Bad_operation { };
-		throw Bad_operation { };
+	for (Channel &channel : _channels) {
+		if (channel._state == Channel::INACTIVE)
+			return true;
 	}
+	return false;
 }
 
-
-void
-Trust_anchor::
-submit_request_key_ciphertext_value(Trust_anchor_request const &request,
-                                    Key_ciphertext_value const &key_ciphertext_value)
+void Trust_anchor::submit_request(Module_request &req)
 {
-	switch (request.operation()) {
-	case Operation::DECRYPT_KEY:
-
-		_job.request              = request;
-		_job.key_ciphertext_value = key_ciphertext_value;
-		_job.state                = Job_state::WRITE_PENDING;
-		_job.fl_offset            = 0;
-		_job.fl_size              = sizeof(_job.key_ciphertext_value.value) /
-		                            sizeof(_job.key_ciphertext_value.value[0]);
-		break;
-
-	default:
-
-		class Bad_operation { };
-		throw Bad_operation { };
+	for (unsigned long id { 0 }; id < NR_OF_CHANNELS; id++) {
+		if (_channels[id]._state == Channel::INACTIVE) {
+			req.dst_request_id(id);
+			_channels[id]._request = *dynamic_cast<Request *>(&req);
+			_channels[id]._state = Channel::SUBMITTED;
+			return;
+		}
 	}
-}
-
-
-void Trust_anchor::submit_request_hash(Trust_anchor_request const &request,
-                                       Hash                 const &hash)
-{
-	switch (request.operation()) {
-	case Operation::SECURE_SUPERBLOCK:
-
-		_job.request   = request;
-		_job.hash      = hash;
-		_job.state     = Job_state::WRITE_PENDING;
-		_job.fl_offset = 0;
-		_job.fl_size   = sizeof(_job.hash.values) /
-		                 sizeof(_job.hash.values[0]);
-		break;
-
-	default:
-
-		class Bad_operation { };
-		throw Bad_operation { };
-	}
-}
-
-void Trust_anchor::submit_request(Trust_anchor_request const &request)
-{
-	switch (request.operation()) {
-	case Operation::LAST_SB_HASH:
-
-		_job.request   = request;
-		_job.state     = Job_state::READ_PENDING;
-		_job.fl_offset = 0;
-		_job.fl_size   = sizeof(_job.hash.values) /
-		                 sizeof(_job.hash.values[0]);
-		break;
-
-	case Operation::CREATE_KEY:
-
-		_job.request   = request;
-		_job.state     = Job_state::READ_PENDING;
-		_job.fl_offset = 0;
-		_job.fl_size   = sizeof(_job.key_plaintext_value.value) /
-		                 sizeof(_job.key_plaintext_value.value[0]);
-		break;
-
-	default:
-
-		class Bad_operation { };
-		throw Bad_operation { };
-	}
-}
-
-
-void Trust_anchor::execute(bool &progress)
-{
-	switch (_job.request.operation()) {
-	case Operation::INITIALIZE:
-
-		_execute_write_operation(
-			_initialize_file, _initialize_path,
-			_job.passphrase.string(), progress);
-
-		break;
-
-	case Operation::SECURE_SUPERBLOCK:
-
-		_execute_write_operation(
-			_hashsum_file, _hashsum_path,
-			_job.hash.values, progress);
-
-		break;
-
-	case Operation::LAST_SB_HASH:
-
-		_execute_read_operation(
-			_hashsum_file, _hashsum_path,
-			_job.hash.values, progress);
-
-		break;
-
-	case Operation::CREATE_KEY:
-
-		_execute_read_operation(
-			_generate_key_file, _generate_key_path,
-			_job.key_plaintext_value.value, progress);
-
-		break;
-
-	case Operation::ENCRYPT_KEY:
-
-		_execute_write_read_operation(
-			_encrypt_file, _encrypt_path,
-			_job.key_plaintext_value.value,
-			_job.key_ciphertext_value.value,
-			sizeof(_job.key_ciphertext_value.value) /
-				sizeof(_job.key_ciphertext_value.value[0]),
-			progress);
-
-		break;
-
-	case Operation::DECRYPT_KEY:
-
-		_execute_write_read_operation(
-			_decrypt_file, _decrypt_path,
-			_job.key_ciphertext_value.value,
-			_job.key_plaintext_value.value,
-			sizeof(_job.key_plaintext_value.value) /
-				sizeof(_job.key_plaintext_value.value[0]),
-			progress);
-
-		break;
-
-	case Operation::INVALID:
-
-		break;
-
-	default:
-
-		class Bad_operation { };
-		throw Bad_operation { };
-	}
-}
-
-
-Trust_anchor_request Trust_anchor::peek_completed_request() const
-{
-	if (_job.state != Job_state::COMPLETE) {
-
-		return Trust_anchor_request { };
-	}
-	return _job.request;
-}
-
-
-Hash const &Trust_anchor::peek_completed_hash() const
-{
-	if (_job.request.operation() != Operation::LAST_SB_HASH) {
-
-		class Bad_operation { };
-		throw Bad_operation { };
-	}
-	if (_job.state != Job_state::COMPLETE) {
-
-		class Bad_state { };
-		throw Bad_state { };
-	}
-	return _job.hash;
-}
-
-
-Key_plaintext_value const &
-Trust_anchor::peek_completed_key_plaintext_value() const
-{
-	if (_job.request.operation() != Operation::CREATE_KEY &&
-	    _job.request.operation() != Operation::DECRYPT_KEY) {
-
-		class Bad_operation { };
-		throw Bad_operation { };
-	}
-	if (_job.state != Job_state::COMPLETE) {
-
-		class Bad_state { };
-		throw Bad_state { };
-	}
-	return _job.key_plaintext_value;
-}
-
-
-Key_ciphertext_value const &
-Trust_anchor::peek_completed_key_ciphertext_value() const
-{
-	if (_job.request.operation() != Operation::ENCRYPT_KEY) {
-
-		class Bad_operation { };
-		throw Bad_operation { };
-	}
-	if (_job.state != Job_state::COMPLETE) {
-
-		class Bad_state { };
-		throw Bad_state { };
-	}
-	return _job.key_ciphertext_value;
-}
-
-
-void Trust_anchor::drop_completed_request()
-{
-	if (_job.state != Job_state::COMPLETE) {
-
-		class Bad_state { };
-		throw Bad_state { };
-	}
-	_job.request = Trust_anchor_request { };
+	class Invalid_call { };
+	throw Invalid_call { };
 }

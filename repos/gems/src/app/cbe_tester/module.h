@@ -26,7 +26,7 @@ namespace Cbe {
 		CRYPTO           = 0,
 		CBE_LIBRARA      = 1,
 		CLIENT_DATA      = 2,
-		TRUST_ANCHOA     = 3,
+		TRUST_ANCHOR     = 3,
 		COMMAND_POOL     = 4,
 		CBE_INIT_LIBRARA = 5,
 	};

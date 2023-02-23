@@ -1,122 +1,180 @@
 /*
- * \brief  Implementation of the TA module API using the TA VFS API
+ * \brief  Module for accessing the systems trust anchor
  * \author Martin Stein
- * \date   2020-10-29
+ * \date   2023-02-13
  */
 
 /*
- * Copyright (C) 2020 Genode Labs GmbH
+ * Copyright (C) 2023 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-#ifndef _CBE_TESTER__TRUST_ANCHOR_H_
-#define _CBE_TESTER__TRUST_ANCHOR_H_
+#ifndef _TRUST_ANCHOR_H_
+#define _TRUST_ANCHOR_H_
 
-/* CBE includes */
+/* gems includes */
 #include <cbe/types.h>
 
-/* CBE tester includes */
+/* cbe tester includes */
+#include <module.h>
 #include <vfs_utilities.h>
 
-class Trust_anchor
+namespace Cbe
+{
+	class Trust_anchor;
+	class Trust_anchor_request;
+	class Trust_anchor_channel;
+}
+
+class Cbe::Trust_anchor_request : public Module_request
+{
+	public:
+
+		enum Type {
+			INVALID = 0, CREATE_KEY = 1, ENCRYPT_KEY = 2, DECRYPT_KEY = 3,
+			SECURE_SUPERBLOCK = 4, GET_LAST_SB_HASH = 5, INITIALIZE = 6 };
+
+	private:
+
+		friend class Trust_anchor;
+		friend class Trust_anchor_channel;
+
+		Type            _type                     { INVALID };
+		Genode::uint8_t _prim[PRIM_BUF_SIZE]      { 0 };
+		Genode::uint8_t _key_plaintext[KEY_SIZE]  { 0 };
+		Genode::uint8_t _key_ciphertext[KEY_SIZE] { 0 };
+		Genode::uint8_t _hash[HASH_SIZE]          { 0 };
+		Genode::addr_t  _passphrase_ptr           { 00 };
+		bool            _success                  { false };
+
+	public:
+
+		Trust_anchor_request() { }
+
+		Trust_anchor_request(unsigned long src_module_id,
+		                     unsigned long src_request_id);
+
+		static void create(void             *buf_ptr,
+		                   Genode::size_t    buf_size,
+		                   size_t            src_module_id,
+		                   size_t            src_request_id,
+		                   Genode::size_t    req_type,
+		                   void             *prim_ptr,
+		                   size_t            prim_size,
+		                   void             *key_plaintext_ptr,
+		                   void             *key_ciphertext_ptr,
+		                   char const       *passphrase_ptr,
+		                   void             *hash_ptr);
+
+		void *prim_ptr() { return (void *)&_prim; }
+		void *hash_ptr() { return (void *)&_hash; }
+		void *key_plaintext_ptr() { return (void *)&_key_plaintext; }
+		void *key_ciphertext_ptr() { return (void *)&_key_ciphertext; }
+
+		Type type() const { return _type; }
+
+		bool success() const { return _success; }
+
+		static char const *type_to_string(Type type);
+
+
+		/********************
+		 ** Module_request **
+		 ********************/
+
+		char const *type_name() override { return type_to_string(_type); }
+};
+
+class Cbe::Trust_anchor_channel
 {
 	private:
 
+		friend class Trust_anchor;
+
+		enum State {
+			INACTIVE, SUBMITTED, WRITE_PENDING, WRITE_IN_PROGRESS,
+			READ_PENDING, READ_IN_PROGRESS, COMPLETE };
+
+		State                _state       { INACTIVE };
+		Trust_anchor_request _request     { };
+		Vfs::file_offset     _file_offset { 0 };
+		Vfs::file_size       _file_size   { 0 };
+};
+
+class Cbe::Trust_anchor : public Module
+{
+	private:
+
+		using Request = Trust_anchor_request;
+		using Channel = Trust_anchor_channel;
 		using Read_result = Vfs::File_io_service::Read_result;
 		using Write_result = Vfs::File_io_service::Write_result;
-		using Operation = Cbe::Trust_anchor_request::Operation;
 
-		enum Job_state
-		{
-			WRITE_PENDING,
-			WRITE_IN_PROGRESS,
-			READ_PENDING,
-			READ_IN_PROGRESS,
-			COMPLETE
-		};
-
-		struct Job
-		{
-			Cbe::Trust_anchor_request request              { };
-			Job_state                 state                { Job_state::COMPLETE };
-			Genode::String<64>        passphrase           { };
-			Cbe::Hash                 hash                 { };
-			Cbe::Key_plaintext_value  key_plaintext_value  { };
-			Cbe::Key_ciphertext_value key_ciphertext_value { };
-			Vfs::file_offset          fl_offset            { 0 };
-			Vfs::file_size            fl_size              { 0 };
-		};
+		enum { NR_OF_CHANNELS = 1 };
 
 		Vfs::Env                  &_vfs_env;
 		char                       _read_buf[64];
 		Genode::String<128> const  _path;
-		Genode::String<128> const  _decrypt_path      { _path, "/decrypt" };
-		Vfs::Vfs_handle           &_decrypt_file      { vfs_open_rw(_vfs_env, { _decrypt_path }) };
-		Genode::String<128> const  _encrypt_path      { _path, "/encrypt" };
-		Vfs::Vfs_handle           &_encrypt_file      { vfs_open_rw(_vfs_env, { _encrypt_path }) };
-		Genode::String<128> const  _generate_key_path { _path, "/generate_key" };
-		Vfs::Vfs_handle           &_generate_key_file { vfs_open_rw(_vfs_env, { _generate_key_path }) };
-		Genode::String<128> const  _initialize_path   { _path, "/initialize" };
-		Vfs::Vfs_handle           &_initialize_file   { vfs_open_rw(_vfs_env, { _initialize_path }) };
-		Genode::String<128> const  _hashsum_path      { _path, "/hashsum" };
-		Vfs::Vfs_handle           &_hashsum_file      { vfs_open_rw(_vfs_env, { _hashsum_path }) };
-		Job                        _job               { };
+		Genode::String<128> const  _decrypt_path             { _path, "/decrypt" };
+		Vfs::Vfs_handle           &_decrypt_file             { vfs_open_rw(_vfs_env, { _decrypt_path }) };
+		Genode::String<128> const  _encrypt_path             { _path, "/encrypt" };
+		Vfs::Vfs_handle           &_encrypt_file             { vfs_open_rw(_vfs_env, { _encrypt_path }) };
+		Genode::String<128> const  _generate_key_path        { _path, "/generate_key" };
+		Vfs::Vfs_handle           &_generate_key_file        { vfs_open_rw(_vfs_env, { _generate_key_path }) };
+		Genode::String<128> const  _initialize_path          { _path, "/initialize" };
+		Vfs::Vfs_handle           &_initialize_file          { vfs_open_rw(_vfs_env, { _initialize_path }) };
+		Genode::String<128> const  _hashsum_path             { _path, "/hashsum" };
+		Vfs::Vfs_handle           &_hashsum_file             { vfs_open_rw(_vfs_env, { _hashsum_path }) };
+		Channel                    _channels[NR_OF_CHANNELS] { };
 
-		void _execute_write_read_operation(Vfs::Vfs_handle           &file,
-		                                   Genode::String<128> const &file_path,
-		                                   char                const *write_buf,
-		                                   char                      *read_buf,
-		                                   Vfs::file_size             read_size,
-		                                   bool                      &progress);
+		void
+		_execute_write_read_operation(Vfs::Vfs_handle           &file,
+		                              Genode::String<128> const &file_path,
+		                              Channel                   &channel,
+		                              char                const *write_buf,
+		                              char                      *read_buf,
+		                              Vfs::file_size             read_size,
+		                              bool                      &progress);
 
 		void _execute_write_operation(Vfs::Vfs_handle           &file,
 		                              Genode::String<128> const &file_path,
+		                              Channel                   &channel,
 		                              char                const *write_buf,
 		                              bool                      &progress);
 
 		void _execute_read_operation(Vfs::Vfs_handle           &file,
 		                             Genode::String<128> const &file_path,
+		                             Channel                   &channel,
 		                             char                      *read_buf,
 		                             bool                      &progress);
 
+
+		/************
+		 ** Module **
+		 ************/
+
+		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
+		                             Genode::size_t   buf_size) override;
+
+		void _drop_completed_request(Module_request &req) override;
+
 	public:
 
-		Trust_anchor(Vfs::Env                          &vfs_env,
-		             Genode::Xml_node            const &xml_node);
+		Trust_anchor(Vfs::Env               &vfs_env,
+		             Genode::Xml_node const &xml_node);
 
-		bool request_acceptable() const;
 
-		void submit_request_passphrase(Cbe::Trust_anchor_request const &request,
-		                               Genode::String<64>        const &passphrase);
+		/************
+		 ** Module **
+		 ************/
 
-		void
-		submit_request_key_plaintext_value(Cbe::Trust_anchor_request const &request,
-		                                   Cbe::Key_plaintext_value  const &key_plaintext_value);
+		bool ready_to_submit_request() override;
 
-		void
-		submit_request_key_ciphertext_value(Cbe::Trust_anchor_request const &request,
-		                                    Cbe::Key_ciphertext_value const &key_ciphertext_value);
+		void submit_request(Module_request &req) override;
 
-		void submit_request_hash(Cbe::Trust_anchor_request const &request,
-		                         Cbe::Hash                 const &hash);
-
-		void submit_request(Cbe::Trust_anchor_request const &request);
-
-		void execute(bool &progress);
-
-		Cbe::Trust_anchor_request peek_completed_request() const;
-
-		Cbe::Hash const &peek_completed_hash() const;
-
-		Cbe::Key_plaintext_value const &
-		peek_completed_key_plaintext_value() const;
-
-		Cbe::Key_ciphertext_value const &
-		peek_completed_key_ciphertext_value() const;
-
-		void drop_completed_request();
+		void execute(bool &) override;
 };
 
-#endif /* _CBE_TESTER__TRUST_ANCHOR_H_ */
+#endif /* _TRUST_ANCHOR_H_ */

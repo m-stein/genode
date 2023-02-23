@@ -13,7 +13,7 @@
 
 /* local includes */
 #include <crypto.h>
-#include <trust_anchoa.h>
+#include <trust_anchor.h>
 #include <cbe_librara.h>
 
 
@@ -32,10 +32,10 @@ void Cbe::Librara::_drop_generated_request(Module_request &mod_req)
 		_lib->librara__drop_generated_request(req.prim_ptr());
 		break;
 	}
-	case TRUST_ANCHOA:
+	case TRUST_ANCHOR:
 	{
-		Trust_anchoa_request &req {
-			*dynamic_cast<Trust_anchoa_request *>(&mod_req) };
+		Trust_anchor_request &req {
+			*dynamic_cast<Trust_anchor_request *>(&mod_req) };
 
 		_lib->librara__drop_generated_request(req.prim_ptr());
 		break;
@@ -65,10 +65,10 @@ void Cbe::Librara::generated_request_complete(Module_request &mod_req)
 
 		break;
 	}
-	case TRUST_ANCHOA:
+	case TRUST_ANCHOR:
 	{
-		Trust_anchoa_request &req {
-			*dynamic_cast<Trust_anchoa_request *>(&mod_req) };
+		Trust_anchor_request &req {
+			*dynamic_cast<Trust_anchor_request *>(&mod_req) };
 
 		_lib->librara__generated_request_complete(
 			req.prim_ptr(), nullptr, req.key_plaintext_ptr(),
