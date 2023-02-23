@@ -88,10 +88,14 @@ class Cbe::Trust_anchoa_channel
 
 		friend class Trust_anchoa;
 
-		enum State { INACTIVE, SUBMITTED, COMPLETE };
+		enum State {
+			INACTIVE, SUBMITTED, WRITE_PENDING, WRITE_IN_PROGRESS,
+			READ_PENDING, READ_IN_PROGRESS, COMPLETE };
 
-		State                _state   { INACTIVE };
-		Trust_anchoa_request _request { };
+		State                _state       { INACTIVE };
+		Trust_anchoa_request _request     { };
+		Vfs::file_offset     _file_offset { 0 };
+		Vfs::file_size       _file_size   { 0 };
 };
 
 class Cbe::Trust_anchoa : public Module
@@ -119,6 +123,27 @@ class Cbe::Trust_anchoa : public Module
 		Genode::String<128> const  _hashsum_path             { _path, "/hashsum" };
 		Vfs::Vfs_handle           &_hashsum_file             { vfs_open_rw(_vfs_env, { _hashsum_path }) };
 		Channel                    _channels[NR_OF_CHANNELS] { };
+
+		void
+		_execute_write_read_operation(Vfs::Vfs_handle           &file,
+		                              Genode::String<128> const &file_path,
+		                              Channel                   &channel,
+		                              char                const *write_buf,
+		                              char                      *read_buf,
+		                              Vfs::file_size             read_size,
+		                              bool                      &progress);
+
+		void _execute_write_operation(Vfs::Vfs_handle           &file,
+		                              Genode::String<128> const &file_path,
+		                              Channel                   &channel,
+		                              char                const *write_buf,
+		                              bool                      &progress);
+
+		void _execute_read_operation(Vfs::Vfs_handle           &file,
+		                             Genode::String<128> const &file_path,
+		                             Channel                   &channel,
+		                             char                      *read_buf,
+		                             bool                      &progress);
 
 
 		/************

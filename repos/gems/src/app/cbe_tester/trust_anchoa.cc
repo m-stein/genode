@@ -95,16 +95,386 @@ char const *Trust_anchoa_request::type_name()
  ** Trust_anchoa **
  ******************/
 
+void Trust_anchoa::_execute_write_read_operation(Vfs::Vfs_handle   &file,
+                                                 String<128> const &file_path,
+                                                 Channel           &channel,
+                                                 char        const *write_buf,
+                                                 char              *read_buf,
+                                                 Vfs::file_size     read_size,
+                                                 bool              &progress)
+{
+	Request &req { channel._request };
+	switch (channel._state) {
+	case Channel::WRITE_PENDING:
 
-void Trust_anchoa::execute(bool &)
+		file.seek(channel._file_offset);
+		channel._state = Channel::WRITE_IN_PROGRESS;
+		progress = true;
+		return;
+
+	case Channel::WRITE_IN_PROGRESS:
+	{
+		Vfs::file_size nr_of_written_bytes { 0 };
+		Write_result const result =
+			file.fs().write(&file, write_buf + channel._file_offset,
+			                channel._file_size, nr_of_written_bytes);
+		switch (result) {
+
+		case Write_result::WRITE_ERR_WOULD_BLOCK:
+			return;
+
+		case Write_result::WRITE_OK:
+
+			channel._file_offset += nr_of_written_bytes;
+			channel._file_size -= nr_of_written_bytes;
+
+			if (channel._file_size > 0) {
+
+				channel._state = Channel::WRITE_PENDING;
+				progress = true;
+				return;
+			}
+			channel._state = Channel::READ_PENDING;
+			channel._file_offset = 0;
+			channel._file_size = read_size;
+			progress = true;
+			return;
+
+		default:
+
+			req._success = false;
+			error("failed to write file ", file_path);
+			channel._state = Channel::COMPLETE;
+			progress = true;
+			return;
+		}
+	}
+	case Channel::READ_PENDING:
+
+		file.seek(channel._file_offset);
+
+		if (!file.fs().queue_read(&file, channel._file_size)) {
+			return;
+		}
+		channel._state = Channel::READ_IN_PROGRESS;
+		progress = true;
+		return;
+
+	case Channel::READ_IN_PROGRESS:
+	{
+		Vfs::file_size nr_of_read_bytes { 0 };
+		Read_result const result {
+			file.fs().complete_read(
+				&file, read_buf + channel._file_offset, channel._file_size,
+				nr_of_read_bytes) };
+
+		switch (result) {
+		case Read_result::READ_QUEUED:
+		case Read_result::READ_ERR_WOULD_BLOCK:
+
+			return;
+
+		case Read_result::READ_OK:
+
+			channel._file_offset += nr_of_read_bytes;
+			channel._file_size -= nr_of_read_bytes;
+			req._success = true;
+
+			if (channel._file_size > 0) {
+
+				channel._state = Channel::READ_PENDING;
+				progress = true;
+				return;
+			}
+			channel._state = Channel::COMPLETE;
+			progress = true;
+			return;
+
+		default:
+
+			req._success = false;
+			error("failed to read file ", file_path);
+			channel._state = Channel::COMPLETE;
+			return;
+		}
+	}
+	default:
+
+		return;
+	}
+}
+
+
+void Trust_anchoa::_execute_write_operation(Vfs::Vfs_handle   &file,
+                                            String<128> const &file_path,
+                                            Channel           &channel,
+                                            char        const *write_buf,
+                                            bool              &progress)
+{
+	Request &req { channel._request };
+	switch (channel._state) {
+	case Channel::WRITE_PENDING:
+
+		file.seek(channel._file_offset);
+		channel._state = Channel::WRITE_IN_PROGRESS;
+		progress = true;
+		return;
+
+	case Channel::WRITE_IN_PROGRESS:
+	{
+		Vfs::file_size nr_of_written_bytes { 0 };
+		Write_result const result =
+			file.fs().write(
+				&file, write_buf + channel._file_offset,
+				channel._file_size, nr_of_written_bytes);
+
+		switch (result) {
+
+		case Write_result::WRITE_ERR_WOULD_BLOCK:
+			return;
+
+		case Write_result::WRITE_OK:
+
+			channel._file_offset += nr_of_written_bytes;
+			channel._file_size -= nr_of_written_bytes;
+
+			if (channel._file_size > 0) {
+
+				channel._state = Channel::WRITE_PENDING;
+				progress = true;
+				return;
+			}
+			channel._state = Channel::READ_PENDING;
+			channel._file_offset = 0;
+			channel._file_size = 0;
+			progress = true;
+			return;
+
+		default:
+
+			req._success = false;
+			error("failed to write file ", file_path);
+			channel._state = Channel::COMPLETE;
+			progress = true;
+			return;
+		}
+	}
+	case Channel::READ_PENDING:
+
+		file.seek(channel._file_offset);
+
+		if (!file.fs().queue_read(&file, channel._file_size)) {
+			return;
+		}
+		channel._state = Channel::READ_IN_PROGRESS;
+		progress = true;
+		return;
+
+	case Channel::READ_IN_PROGRESS:
+	{
+		Vfs::file_size nr_of_read_bytes { 0 };
+		Read_result const result {
+			file.fs().complete_read(
+				&file, _read_buf + channel._file_offset, channel._file_size,
+				nr_of_read_bytes) };
+
+		switch (result) {
+		case Read_result::READ_QUEUED:
+		case Read_result::READ_ERR_WOULD_BLOCK:
+
+			return;
+
+		case Read_result::READ_OK:
+
+			channel._file_offset += nr_of_read_bytes;
+			channel._file_size -= nr_of_read_bytes;
+			req._success = true;
+
+			if (channel._file_size > 0) {
+
+				channel._state = Channel::READ_PENDING;
+				progress = true;
+				return;
+			}
+			channel._state = Channel::COMPLETE;
+			progress = true;
+			return;
+
+		default:
+
+			req._success = false;
+			error("failed to read file ", file_path);
+			channel._state = Channel::COMPLETE;
+			return;
+		}
+	}
+	default:
+
+		return;
+	}
+}
+
+
+void Trust_anchoa::_execute_read_operation(Vfs::Vfs_handle   &file,
+                                           String<128> const &file_path,
+                                           Channel           &channel,
+                                           char              *read_buf,
+                                           bool              &progress)
+{
+	Request &req { channel._request };
+	switch (channel._state) {
+	case Channel::READ_PENDING:
+
+		file.seek(channel._file_offset);
+
+		if (!file.fs().queue_read(&file, channel._file_size)) {
+			return;
+		}
+		channel._state = Channel::READ_IN_PROGRESS;
+		progress = true;
+		return;
+
+	case Channel::READ_IN_PROGRESS:
+	{
+		Vfs::file_size nr_of_read_bytes { 0 };
+		Read_result const result {
+			file.fs().complete_read(
+				&file, read_buf + channel._file_offset, channel._file_size,
+				nr_of_read_bytes) };
+
+		switch (result) {
+		case Read_result::READ_QUEUED:
+		case Read_result::READ_ERR_WOULD_BLOCK:
+
+			return;
+
+		case Read_result::READ_OK:
+
+			channel._file_offset += nr_of_read_bytes;
+			channel._file_size -= nr_of_read_bytes;
+			req._success = true;
+
+			if (channel._file_size > 0) {
+
+				channel._state = Channel::READ_PENDING;
+				progress = true;
+				return;
+			}
+			channel._state = Channel::COMPLETE;
+			progress = true;
+			return;
+
+		default:
+
+			req._success = false;
+			error("failed to read file ", file_path);
+			channel._state = Channel::COMPLETE;
+			return;
+		}
+	}
+	default:
+
+		return;
+	}
+}
+
+
+void Trust_anchoa::execute(bool &progress)
 {
 	for (Channel &channel : _channels) {
 
 		if (channel._state == Channel::INACTIVE)
 			continue;
 
-		switch (channel._request._type) {
+		Request &req { channel._request };
+		switch (req._type) {
+		case Request::INITIALIZE:
+
+			if (channel._state == Channel::SUBMITTED) {
+				channel._state = Channel::WRITE_PENDING;
+				channel._file_offset = 0;
+				channel._file_size =
+					strlen((char const *)req._passphrase_ptr);
+			}
+			_execute_write_operation(
+				_initialize_file, _initialize_path, channel,
+				(char const *)req._passphrase_ptr, progress);
+
+			break;
+
+		case Request::SECURE_SUPERBLOCK:
+
+			if (channel._state == Channel::SUBMITTED) {
+				channel._state = Channel::WRITE_PENDING;
+				channel._file_offset = 0;
+				channel._file_size = sizeof(req._hash);
+			}
+			_execute_write_operation(
+				_hashsum_file, _hashsum_path, channel,
+				(char const *)req._hash, progress);
+
+			break;
+
+		case Request::GET_LAST_SB_HASH:
+
+			if (channel._state == Channel::SUBMITTED) {
+				channel._state = Channel::READ_PENDING;
+				channel._file_offset = 0;
+				channel._file_size = sizeof(req._hash);
+			}
+			_execute_read_operation(
+				_hashsum_file, _hashsum_path, channel,
+				(char *)req._hash, progress);
+
+			break;
+
+		case Request::CREATE_KEY:
+
+			if (channel._state == Channel::SUBMITTED) {
+				channel._state = Channel::READ_PENDING;
+				channel._file_offset = 0;
+				channel._file_size = sizeof(req._key_plaintext);
+			}
+			_execute_read_operation(
+				_generate_key_file, _generate_key_path, channel,
+				(char *)req._key_plaintext, progress);
+
+			break;
+
+		case Request::ENCRYPT_KEY:
+
+			if (channel._state == Channel::SUBMITTED) {
+				channel._state = Channel::WRITE_PENDING;
+				channel._file_offset = 0;
+				channel._file_size = sizeof(req._key_plaintext);
+			}
+			_execute_write_read_operation(
+				_encrypt_file, _encrypt_path, channel,
+				(char const *)req._key_plaintext,
+				(char *)req._key_ciphertext,
+				sizeof(req._key_ciphertext),
+				progress);
+
+			break;
+
+		case Request::DECRYPT_KEY:
+
+			if (channel._state == Channel::SUBMITTED) {
+				channel._state = Channel::WRITE_PENDING;
+				channel._file_offset = 0;
+				channel._file_size = sizeof(req._key_ciphertext);
+			}
+			_execute_write_read_operation(
+				_decrypt_file, _decrypt_path, channel,
+				(char const *)req._key_ciphertext,
+				(char *)req._key_plaintext,
+				sizeof(req._key_plaintext),
+				progress);
+
+			break;
+
 		default:
+
 			class Exception_1 { };
 			throw Exception_1 { };
 		}
