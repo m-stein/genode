@@ -32,7 +32,9 @@ class Cbe::Block_io_request : public Module_request
 {
 	public:
 
-		enum Type { INVALID = 0, READ = 1, WRITE = 2, SYNC = 3 };
+		enum Type {
+			INVALID = 0, READ = 1, WRITE = 2, SYNC = 3, WRITE_CLIENT_DATA = 4,
+			READ_CLIENT_DATA = 5 };
 
 	private:
 
