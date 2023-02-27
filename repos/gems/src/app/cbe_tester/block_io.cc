@@ -20,6 +20,106 @@
 using namespace Genode;
 using namespace Cbe;
 
+/*
+
+      --
+      --  Block IO -> Crypto
+      --
+      declare
+         Prim : constant Primitive.Object_Type :=
+            Block_IO.Peek_Generated_Crypto_Primitive (Obj.IO_Obj);
+      begin
+
+         if Primitive.Valid (Prim) then
+
+            case Primitive.Tag (Prim) is
+            when Primitive.Tag_Blk_IO_Crypto_Decrypt_And_Supply_Client_Data =>
+
+               declare
+                  Req : constant Request.Object_Type :=
+                     Block_IO.Peek_Generated_Req (Obj.IO_Obj, Prim);
+               begin
+
+                  Create_Crypto_Req (
+                     Buf_Ptr        => Buf_Ptr,
+                     Buf_Size       => Buf_Size,
+                     Req_Type       => 5,
+                     CBE_Req_Offset => CXX_UInt64_Type (Request.Offset (Req)),
+                     CBE_Req_Tag    => CXX_UInt64_Type (Request.Tag (Req)),
+                     Prim_Ptr       => Prim'Address,
+                     Prim_Size      => Prim'Size / 8,
+                     Key_ID         =>
+                        CXX_UInt32_Type (
+                           Block_IO.Peek_Generated_Key_ID (Obj.IO_Obj, Prim)),
+
+                     Key_Plain_Ptr  => System.Null_Address,
+                     PBA            =>
+                        CXX_UInt64_Type (Primitive.Block_Number (Prim)),
+
+                     VBA            =>
+                        CXX_UInt64_Type (
+                           Block_IO.Peek_Generated_VBA (Obj.IO_Obj, Prim)),
+
+                     Plain_Blk_Ptr  => System.Null_Address,
+                     Cipher_Blk_Ptr =>
+                        Blk_IO_Buf (
+                           Block_IO.Peek_Generated_Data_Index (
+                              Obj.IO_Obj, Prim)
+                        )'Address
+                  );
+                  return 1;
+
+               end;
+
+            when Primitive.Tag_Blk_IO_Crypto_Obtain_And_Encrypt_Client_Data =>
+
+               declare
+                  Req : constant Request.Object_Type :=
+                     Block_IO.Peek_Generated_Req (Obj.IO_Obj, Prim);
+               begin
+
+                  Create_Crypto_Req (
+                     Buf_Ptr        => Buf_Ptr,
+                     Buf_Size       => Buf_Size,
+                     Req_Type       => 6,
+                     CBE_Req_Offset => CXX_UInt64_Type (Request.Offset (Req)),
+                     CBE_Req_Tag    => CXX_UInt64_Type (Request.Tag (Req)),
+                     Prim_Ptr       => Prim'Address,
+                     Prim_Size      => Prim'Size / 8,
+                     Key_ID         =>
+                        CXX_UInt32_Type (
+                           Block_IO.Peek_Generated_Key_ID (Obj.IO_Obj, Prim)),
+
+                     Key_Plain_Ptr  => System.Null_Address,
+                     PBA            =>
+                        CXX_UInt64_Type (Primitive.Block_Number (Prim)),
+
+                     VBA            =>
+                        CXX_UInt64_Type (
+                           Block_IO.Peek_Generated_VBA (Obj.IO_Obj, Prim)),
+
+                     Plain_Blk_Ptr  => System.Null_Address,
+                     Cipher_Blk_Ptr =>
+                        Blk_IO_Buf (
+                           Block_IO.Peek_Generated_Data_Index (
+                              Obj.IO_Obj, Prim)
+                        )'Address
+                  );
+                  return 1;
+
+               end;
+
+            when others =>
+
+               null;
+
+            end case;
+
+         end if;
+
+      end;
+*/
+
 
 /**************************
  ** Block_io_request **
