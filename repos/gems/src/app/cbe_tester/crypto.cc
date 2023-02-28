@@ -28,6 +28,8 @@ using namespace Cbe;
 
 void Crypto_request::create(void     *buf_ptr,
                             size_t    buf_size,
+                            uint64_t  src_module_id,
+                            uint64_t  src_request_id,
                             size_t    req_type,
                             uint64_t  client_req_offset,
                             uint64_t  client_req_tag,
@@ -40,7 +42,7 @@ void Crypto_request::create(void     *buf_ptr,
                             void     *plaintext_blk_ptr,
                             void     *ciphertext_blk_ptr)
 {
-	Crypto_request req { CBE_LIBRARA, ~0UL };
+	Crypto_request req { src_module_id, src_request_id };
 	req._type = (Type)req_type;
 	req._client_req_offset = client_req_offset;
 	req._client_req_tag = client_req_tag;
@@ -175,6 +177,7 @@ Crypto::Key_directory &Crypto::_lookup_key_dir(uint32_t key_id)
 	class Exception_1 { };
 	throw Exception_1 { };
 }
+
 
 void Crypto::_mark_req_failed(Channel    &channel,
                               bool       &progress,

@@ -33,7 +33,6 @@ class Cbe::Librara : public Module
 {
 	private:
 
-		Io_buffer                      &_blk_io_buf;
 		Genode::Constructible<Library> &_lib;
 
 
@@ -47,18 +46,16 @@ class Cbe::Librara : public Module
 			if (!_lib.constructed())
 				return false;
 
-			return _lib->librara__peek_generated_request(buf_ptr, buf_size, _blk_io_buf);
+			return _lib->librara__peek_generated_request(buf_ptr, buf_size);
 		}
 
 		void _drop_generated_request(Module_request &mod_req) override;
 
 	public:
 
-		Librara(Genode::Constructible<Library> &lib,
-		        Io_buffer                      &blk_io_buf)
+		Librara(Genode::Constructible<Library> &lib)
 		:
-			_blk_io_buf { blk_io_buf },
-			_lib        { lib }
+			_lib { lib }
 		{ }
 
 

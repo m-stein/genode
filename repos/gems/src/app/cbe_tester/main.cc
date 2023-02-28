@@ -1684,7 +1684,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 		Trust_anchor                 _trust_anchor               { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
 		Crypto                       _crypto                     { _vfs_env, _config_rom.xml().sub_node("crypto") };
 		Block_ia                     _block_io                   { _vfs_env, _config_rom.xml().sub_node("block-io") };
-		Cbe::Librara                 _cbe_librara                { _cbe, _blk_buf };
+		Cbe::Librara                 _cbe_librara                { _cbe, };
 		Cbe_init::Librara            _cbe_init_librara           { _cbe_init };
 		Client_data_request          _client_data_request        { };
 
@@ -1879,7 +1879,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 
 		void _execute_cbe(bool &progress)
 		{
-			_cbe->execute(_blk_buf);
+			_cbe->execute();
 			if (_cbe->execute_progress()) {
 				progress = true;
 			}

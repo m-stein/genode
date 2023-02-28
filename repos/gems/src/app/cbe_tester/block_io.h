@@ -42,10 +42,15 @@ class Cbe::Block_io_request : public Module_request
 		friend class Block_io_channel;
 
 		Type             _type                { INVALID };
+		Genode::uint64_t _client_req_offset   { 0 };
+		Genode::uint64_t _client_req_tag      { 0 };
 		Genode::uint8_t  _prim[PRIM_BUF_SIZE] { 0 };
-		Genode::uint64_t _blk_nr              { 0 };
+		Genode::uint32_t _key_id              { 0 };
+		Genode::uint64_t _pba                 { 0 };
+		Genode::uint64_t _vba                 { 0 };
 		Genode::uint64_t _blk_count           { 0 };
 		Genode::addr_t   _blk_ptr             { 0 };
+		Genode::uint8_t  _hash[HASH_SIZE]     { 0 };
 		bool             _success             { false };
 
 	public:
@@ -57,16 +62,22 @@ class Cbe::Block_io_request : public Module_request
 
 		static void create(void             *buf_ptr,
 		                   Genode::size_t    buf_size,
-		                   Genode::size_t    src_module_id,
-		                   Genode::size_t    src_request_id,
+		                   Genode::uint64_t  src_module_id,
+		                   Genode::uint64_t  src_request_id,
 		                   Genode::size_t    req_type,
+		                   Genode::uint64_t  client_req_offset,
+		                   Genode::uint64_t  client_req_tag,
 		                   void             *prim_ptr,
 		                   Genode::size_t    prim_size,
-		                   Genode::uint64_t  blk_nr,
+		                   Genode::uint32_t  key_id,
+		                   Genode::uint64_t  pba,
+		                   Genode::uint64_t  vba,
 		                   Genode::uint64_t  blk_count,
 		                   void             *blk_ptr);
 
 		void *prim_ptr() { return (void *)&_prim; }
+
+		void *hash_ptr() { return (void *)&_hash; }
 
 		Type type() const { return _type; }
 
@@ -88,12 +99,22 @@ class Cbe::Block_io_channel
 
 		friend class Block_ia;
 
-		enum State { INACTIVE, SUBMITTED, PENDING, IN_PROGRESS, COMPLETE };
+		enum State {
+			INACTIVE, SUBMITTED, PENDING, IN_PROGRESS, COMPLETE,
+			ENCRYPT_CLIENT_DATA_PENDING,
+			ENCRYPT_CLIENT_DATA_IN_PROGRESS,
+			ENCRYPT_CLIENT_DATA_COMPLETE,
+			DECRYPT_CLIENT_DATA_PENDING,
+			DECRYPT_CLIENT_DATA_IN_PROGRESS,
+			DECRYPT_CLIENT_DATA_COMPLETE
+		};
 
-		State            _state                 { INACTIVE };
-		Block_io_request _request               { };
-		Vfs::file_offset _nr_of_processed_bytes { 0 };
-		Vfs::file_size   _nr_of_remaining_bytes { 0 };
+		State            _state                    { INACTIVE };
+		Block_io_request _request                  { };
+		Vfs::file_offset _nr_of_processed_bytes    { 0 };
+		Vfs::file_size   _nr_of_remaining_bytes    { 0 };
+		char             _blk_buf[Cbe::BLOCK_SIZE] { 0 };
+		bool             _generated_req_success    { false };
 };
 
 class Cbe::Block_ia : public Module
@@ -120,23 +141,21 @@ class Cbe::Block_ia : public Module
 		void _execute_write(Channel &channel,
 		                    bool    &progress);
 
+		void _execute_read_client_data(Channel &channel,
+		                               bool    &progress);
+
+		void _execute_write_client_data(Channel &channel,
+		                                bool    &progress);
+
 		void _execute_sync(Channel &channel,
 		                   bool    &progress);
 
+		void _mark_req_failed(Channel    &channel,
+		                      bool       &progress,
+		                      char const *str);
 
-		/************
-		 ** Module **
-		 ************/
-
-		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t   buf_size) override;
-
-		void _drop_completed_request(Module_request &req) override;
-
-	public:
-
-		Block_ia(Vfs::Env               &vfs_env,
-		         Genode::Xml_node const &xml_node);
+		void _mark_req_successful(Channel &channel,
+		                          bool    &progress);
 
 
 		/************
@@ -147,7 +166,29 @@ class Cbe::Block_ia : public Module
 
 		void submit_request(Module_request &req) override;
 
+		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
+		                             Genode::size_t   buf_size) override;
+
+		void _drop_completed_request(Module_request &req) override;
+
 		void execute(bool &) override;
+
+		bool _peek_generated_request(Genode::uint8_t *buf_ptr,
+		                             Genode::size_t   buf_size) override;
+
+		void _drop_generated_request(Module_request &mod_req) override;
+
+		void generated_request_complete(Module_request &req) override;
+
+	public:
+
+		Block_ia(Vfs::Env               &vfs_env,
+		         Genode::Xml_node const &xml_node);
+
+
+		/************
+		 ** Module **
+		 ************/
 };
 
 #endif /* _BLOCK_IO_H_ */

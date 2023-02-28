@@ -27,8 +27,8 @@ using namespace Cbe;
 
 void Trust_anchor_request::create(void       *buf_ptr,
                                   size_t      buf_size,
-                                  size_t      src_module_id,
-                                  size_t      src_request_id,
+                                  uint64_t    src_module_id,
+                                  uint64_t    src_request_id,
                                   size_t      req_type,
                                   void       *prim_ptr,
                                   size_t      prim_size,

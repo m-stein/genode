@@ -64,6 +64,8 @@ class Cbe::Crypto_request : public Module_request
 
 		static void create(void             *buf_ptr,
 		                   Genode::size_t    buf_size,
+		                   Genode::uint64_t  src_module_id,
+		                   Genode::uint64_t  src_request_id,
 		                   Genode::size_t    req_type,
 		                   Genode::uint64_t  client_req_offset,
 		                   Genode::uint64_t  client_req_tag,
@@ -171,21 +173,21 @@ class Cbe::Crypto : public Module
 		 ** Module **
 		 ************/
 
+		bool ready_to_submit_request() override;
+
+		void submit_request(Module_request &req) override;
+
 		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
 		                             Genode::size_t   buf_size) override;
 
 		void _drop_completed_request(Module_request &req) override;
 
+		void execute(bool &) override;
+
 		bool _peek_generated_request(Genode::uint8_t *buf_ptr,
 		                             Genode::size_t   buf_size) override;
 
 		void _drop_generated_request(Module_request &mod_req) override;
-
-		bool ready_to_submit_request() override;
-
-		void submit_request(Module_request &req) override;
-
-		void execute(bool &) override;
 
 		void generated_request_complete(Module_request &req) override;
 

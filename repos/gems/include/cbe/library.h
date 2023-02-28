@@ -50,8 +50,6 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 		 * procedures that return the 'progress' result as last out parameter.
 		 */
 
-		void _has_io_request(Request &, Io_buffer::Index &) const;
-
 		void _info(Info &) const;
 
 	public:
@@ -77,7 +75,7 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 		return inf;
 	}
 
-	void execute(Io_buffer &io_buf);
+	void execute();
 
 	/**
 	 * Return whether the last call to 'execute' has made progress or not
@@ -133,8 +131,12 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 	 *
 	 * \return  true if the CBE acknowledged the request
 	 */
-	void io_request_completed(Io_buffer::Index const &data_index,
-	                          bool             const  success);
+	void io_request_completed(Io_buffer::Index const &,
+	                          bool             const  )
+	{
+		class Exception_1 { };
+		throw Exception_1 { };
+	}
 
 	/**
 	 * Return a write request for the backend block session
@@ -142,15 +144,14 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 	 * \param result  valid request in case the is one pending that
 	 *                needs data, otherwise an invalid one is returned
 	 */
-	Request has_io_request(Io_buffer::Index &data_index) const
+	Request has_io_request(Io_buffer::Index &) const
 	{
 		Request result { };
-		_has_io_request(result, data_index);
 		return result;
 	}
-	void has_io_request(Request &req, Io_buffer::Index &data_index) const
+	void has_io_request(Request &req, Io_buffer::Index &) const
 	{
-		_has_io_request(req, data_index);
+		req = Request { };
 	}
 
 	/**
@@ -165,7 +166,11 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 	 *
 	 * \return  true if the CBE could process the request
 	 */
-	void io_request_in_progress(Io_buffer::Index const &data_index);
+	void io_request_in_progress(Io_buffer::Index const &)
+	{
+		class Exception_1 { };
+		throw Exception_1 { };
+	}
 
 	/**
 	 * Query list of active snapshots
@@ -175,8 +180,7 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 	void active_snapshot_ids(Active_snapshot_ids &ids) const;
 
 		bool librara__peek_generated_request(Genode::uint8_t *buf_ptr,
-		                                     Genode::size_t   buf_size,
-		                                     Io_buffer       &io_buf);
+		                                     Genode::size_t   buf_size);
 
 		void librara__drop_generated_request(void *prim_ptr);
 

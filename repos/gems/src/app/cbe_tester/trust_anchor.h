@@ -58,8 +58,8 @@ class Cbe::Trust_anchor_request : public Module_request
 
 		static void create(void             *buf_ptr,
 		                   Genode::size_t    buf_size,
-		                   size_t            src_module_id,
-		                   size_t            src_request_id,
+		                   Genode::uint64_t  src_module_id,
+		                   Genode::uint64_t  src_request_id,
 		                   Genode::size_t    req_type,
 		                   void             *prim_ptr,
 		                   size_t            prim_size,
