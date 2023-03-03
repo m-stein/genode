@@ -14,12 +14,8 @@
 #ifndef _CACHE_H_
 #define _CACHE_H_
 
-/* gems includes */
-#include <cbe/types.h>
-
 /* cbe tester includes */
 #include <module.h>
-#include <vfs_utilities.h>
 
 namespace Cbe
 {

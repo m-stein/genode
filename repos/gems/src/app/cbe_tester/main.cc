@@ -48,6 +48,7 @@ namespace Cbe {
 		case CBE_LIBRARA: return "cbe";
 		case CBE_INIT_LIBRARA: return "cbe_init";
 		case CACHE: return "cache";
+		case META_TREE: return "meta_tree";
 		case CLIENT_DATA: return "client_data";
 		case TRUST_ANCHOR: return "trust_anchor";
 		case COMMAND_POOL: return "command_pool";

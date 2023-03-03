@@ -70,7 +70,7 @@ void Cbe::Librara::generated_request_complete(Module_request &mod_req)
 
 		_lib->librara__generated_request_complete(
 			req.prim_ptr(), req.result_blk_ptr(), nullptr, nullptr, nullptr,
-			req.success());
+			0, req.success());
 
 		break;
 	}
@@ -82,7 +82,7 @@ void Cbe::Librara::generated_request_complete(Module_request &mod_req)
 		_lib->librara__generated_request_complete(
 			req.prim_ptr(), nullptr, req.key_plaintext_ptr(),
 			req.key_ciphertext_ptr(), req.hash_ptr(),
-			req.success());
+			0, req.success());
 
 		break;
 	}
@@ -93,7 +93,7 @@ void Cbe::Librara::generated_request_complete(Module_request &mod_req)
 
 		_lib->librara__generated_request_complete(
 			req.prim_ptr(), nullptr, nullptr, nullptr, req.hash_ptr(),
-			req.success());
+			0, req.success());
 
 		break;
 	}

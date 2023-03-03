@@ -128,12 +128,13 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 
 		void librara__drop_generated_request(void *prim_ptr);
 
-		void librara__generated_request_complete(void *prim_ptr,
-		                                         void *blk_data_ptr,
-		                                         void *key_plain_ptr,
-		                                         void *key_cipher_ptr,
-		                                         void *hash_ptr,
-		                                         bool  success);
+		void librara__generated_request_complete(void             *prim_ptr,
+		                                         void             *blk_data_ptr,
+		                                         void             *key_plain_ptr,
+		                                         void             *key_cipher_ptr,
+		                                         void             *hash_ptr,
+		                                         Genode::uint64_t  new_pba,
+		                                         bool              success);
 };
 
 #endif /* _CBE_LIBRARY_H_ */
