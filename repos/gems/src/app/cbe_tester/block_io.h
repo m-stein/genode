@@ -14,11 +14,9 @@
 #ifndef _BLOCK_IO_H_
 #define _BLOCK_IO_H_
 
-/* gems includes */
-#include <cbe/types.h>
-
 /* cbe tester includes */
 #include <module.h>
+#include <cbe_types.h>
 #include <vfs_utilities.h>
 
 namespace Cbe
@@ -184,11 +182,6 @@ class Cbe::Block_io : public Module
 
 		Block_io(Vfs::Env               &vfs_env,
 		         Genode::Xml_node const &xml_node);
-
-
-		/************
-		 ** Module **
-		 ************/
 };
 
 #endif /* _BLOCK_IO_H_ */

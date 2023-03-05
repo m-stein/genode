@@ -33,6 +33,7 @@
 #include <verbose_node.h>
 #include <client_data.h>
 #include <block_io.h>
+#include <meta_tree.h>
 
 using namespace Genode;
 using namespace Cbe;
@@ -998,7 +999,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 {
 	private:
 
-		enum { NR_OF_MODULES = 7 };
+		enum { NR_OF_MODULES = 9 };
 
 		Genode::Env                 &_env;
 		Attached_rom_dataspace       _config_rom                 { _env, "config" };
@@ -1010,6 +1011,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 		Constructible<Cbe::Library>  _cbe                        { };
 		Cbe_init::Library            _cbe_init                   { };
 		Benchmark                    _benchmark                  { _env };
+		Meta_tree                    _meta_tree                  { };
 		Trust_anchor                 _trust_anchor               { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
 		Crypto                       _crypto                     { _vfs_env, _config_rom.xml().sub_node("crypto") };
 		Block_io                     _block_io                   { _vfs_env, _config_rom.xml().sub_node("block-io") };
@@ -1406,12 +1408,19 @@ class Main : Vfs::Env::User, public Cbe::Module
 				class Exception_1 { };
 				throw Exception_1 { };
 			}
+			if (_module_ptrs[module_id] != nullptr) {
+				class Exception_2 { };
+				throw Exception_2 { };
+			}
 			_module_ptrs[module_id] = &module;
 		}
 
 		void _modules_execute(bool &progress)
 		{
 			for (unsigned long id { 0 }; id < NR_OF_MODULES; id++) {
+
+				if (_module_ptrs[id] == nullptr)
+					continue;
 
 				Module *module_ptr { _module_ptrs[id] };
 				module_ptr->execute(progress);
@@ -1483,6 +1492,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 		:
 			_env { env }
 		{
+			_modules_add(META_TREE,         _meta_tree);
 			_modules_add(CRYPTO,            _crypto);
 			_modules_add(TRUST_ANCHOR,      _trust_anchor);
 			_modules_add(CBE_LIBRARA,       _cbe_librara);

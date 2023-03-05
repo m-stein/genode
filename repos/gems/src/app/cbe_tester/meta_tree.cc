@@ -36,10 +36,26 @@
 
 /* cbe tester includes */
 #include <meta_tree.h>
+#include <sha256_4k_hash.h>
 
 using namespace Genode;
 using namespace Cbe;
 
+
+/***************
+ ** Utilities **
+ ***************/
+
+static bool check_level_0_usable(Generation   gen,
+                                 Type_2_node &node)
+{
+	return node.alloc_gen != gen;
+}
+
+
+/***********************
+ ** Meta_tree_request **
+ ***********************/
 
 void Meta_tree_request::create(void     *buf_ptr,
                                size_t    buf_size,
@@ -65,7 +81,7 @@ void Meta_tree_request::create(void     *buf_ptr,
 	req._mt_max_lvl       = mt_max_lvl;
 	req._mt_edges         = mt_edges;
 	req._mt_leaves        = mt_leaves;
-	req._curr_gen         = curr_gen;
+	req._current_gen      = curr_gen;
 	req._old_pba          = old_pba;
 	if (prim_ptr != nullptr) {
 		if (prim_size > sizeof(req._prim)) {
@@ -94,7 +110,549 @@ char const *Meta_tree_request::type_to_string(Type type)
 {
 	switch (type) {
 	case INVALID: return "invalid";
-	case COW_UPDATE: return "cow_update";
+	case UPDATE: return "update";
 	}
 	return "?";
+}
+
+
+/***************
+ ** Meta_tree **
+ ***************/
+
+bool Meta_tree::_peek_generated_request(uint8_t * /*buf_ptr */,
+                                        size_t    /*buf_size*/)
+{
+/*
+	for (uint32_t id { 0 }; id < NR_OF_CHANNELS; id++) {
+
+		Channel const &channel { _channels[id] };
+		Block_io_request::Type blk_io_req_type {
+			channel._state == Channel::DECRYPT_CLIENT_DATA_PENDING ?
+			           Block_io_request::DECRYPT_CLIENT_DATA :
+			           Block_io_request::INVALID };
+
+		if (blk_io_req_type != Block_io_request::INVALID) {
+
+			Request const &req { channel._request };
+			Block_io_request::create(
+				buf_ptr, buf_size, BLOCK_IO, id, blk_io_req_type,
+				req._client_req_offset, req._client_req_tag, nullptr, 0,
+				req._key_id, nullptr, req._pba, req._vba, nullptr,
+				(void *)channel._blk_buf);
+
+			return true;
+		}
+	}
+*/
+	return false;
+}
+
+
+void Meta_tree::_drop_generated_request(Module_request &/*req*/)
+{
+/*
+	unsigned long const id { req.src_request_id() };
+	if (id >= NR_OF_CHANNELS) {
+		class Bad_id { };
+		throw Bad_id { };
+	}
+	switch (_channels[id]._state) {
+	case Channel::DECRYPT_CLIENT_DATA_PENDING:
+		_channels[id]._state = Channel::DECRYPT_CLIENT_DATA_IN_PROGRESS;
+		break;
+	case Channel::ENCRYPT_CLIENT_DATA_PENDING:
+		_channels[id]._state = Channel::ENCRYPT_CLIENT_DATA_IN_PROGRESS;
+		break;
+	default:
+*/
+		class Exception_1 { };
+		throw Exception_1 { };
+/*
+	}
+*/
+}
+
+
+void Meta_tree::generated_request_complete(Module_request &/*req*/)
+{
+/*
+	unsigned long const id { req.src_request_id() };
+	if (id >= NR_OF_CHANNELS) {
+		class Exception_1 { };
+		throw Exception_1 { };
+	}
+	switch (_channels[id]._state) {
+	case Channel::DECRYPT_CLIENT_DATA_IN_PROGRESS:
+		_channels[id]._state = Channel::DECRYPT_CLIENT_DATA_COMPLETE;
+		_channels[id]._generated_req_success =
+			dynamic_cast<Crypto_request *>(&req)->success();
+		break;
+	case Channel::ENCRYPT_CLIENT_DATA_IN_PROGRESS:
+		_channels[id]._state = Channel::ENCRYPT_CLIENT_DATA_COMPLETE;
+		_channels[id]._generated_req_success =
+			dynamic_cast<Crypto_request *>(&req)->success();
+		break;
+	default:
+*/
+		class Exception_2 { };
+		throw Exception_2 { };
+/*
+	}
+*/
+}
+
+
+void Meta_tree::_mark_req_failed(Channel    &channel,
+                                 bool       &progress,
+                                 char const *str)
+{
+	error("request failed: failed to ", str);
+	channel._request._success = false;
+	channel._state = Channel::COMPLETE;
+	progress = true;
+}
+
+
+void Meta_tree::_mark_req_successful(Channel &channel,
+                                     bool    &progress)
+{
+	channel._request._success = true;
+	channel._state = Channel::COMPLETE;
+	progress = true;
+}
+
+
+void Meta_tree::_update_parent(Type_1_node &node,
+                               uint8_t     *blk_ptr,
+                               uint64_t     gen,
+                               uint64_t     pba)
+{
+	sha256_4k_hash((void *)blk_ptr, (void *)&node.hash);
+	node.gen = gen;
+	node.pba = pba;
+}
+
+
+void Meta_tree::_exchange_nv_inner_nodes(Channel     &channel,
+                                         Type_2_node &t2_entry,
+                                         bool        &exchanged)
+{
+	Request &req { channel._request };
+	uint64_t pba;
+	exchanged = false;
+
+	// loop non-volatile inner nodes
+	for (uint64_t lvl = 2; lvl < TREE_MAX_NR_OF_LEVELS; lvl++) {
+
+		Type_1_info &t1_info { channel._level_n_nodes[lvl] };
+		if (t1_info.node.valid() && !t1_info.volatil) {
+
+			pba = t1_info.node.pba;
+			t1_info.node.pba = t2_entry.pba;
+			t1_info.node.gen = req._current_gen;
+			t1_info.volatil  = true;
+
+			t2_entry.pba       = pba;
+			t2_entry.alloc_gen = req._current_gen;
+			t2_entry.free_gen  = req._current_gen;
+			t2_entry.reserved  = false;
+
+			exchanged = true;
+			break;
+		}
+	}
+}
+
+
+void Meta_tree::_exchange_nv_level_1_node(Channel     &channel,
+                                          Type_2_node &t2_entry,
+                                          bool        &exchanged)
+{
+	Request &req { channel._request };
+	uint64_t pba { channel._level_1_node.node.pba };
+	exchanged = false;
+
+	if (!channel._level_1_node.volatil) {
+
+		channel._level_1_node.node.pba = t2_entry.pba;
+		channel._level_1_node.volatil  = true;
+
+		t2_entry.pba       = pba;
+		t2_entry.alloc_gen = req._current_gen;
+		t2_entry.free_gen  = req._current_gen;
+		t2_entry.reserved  = false;
+
+		exchanged = true;
+	}
+}
+
+
+void Meta_tree::_exchange_request_pba(Channel     &channel,
+                                      Type_2_node &t2_entry)
+{
+	Request req { channel._request };
+	req._success = true;
+	req._new_pba = t2_entry.pba;
+	channel._finished = true;
+
+	t2_entry.pba       = req._old_pba;
+	t2_entry.alloc_gen = req._current_gen;
+	t2_entry.free_gen  = req._current_gen;
+	t2_entry.reserved  = false;
+}
+
+
+void Meta_tree::_handle_level_0_nodes(Channel &channel,
+                                      bool    &handled)
+{
+	Request req { channel._request };
+	Type_2_node tmp_t2_entry;
+	handled = false;
+
+	for(unsigned i = 0; i <= req._mt_edges - 1; i++) {
+
+		tmp_t2_entry = channel._level_1_node.entries[i];
+
+		if (tmp_t2_entry.valid() &&
+			check_level_0_usable(req._current_gen, tmp_t2_entry))
+		{
+			bool exchanged_level_1;
+			bool exchanged_level_n { false };
+			bool exchanged_request_pba { false };
+
+			// first try to exchange the level 1 node ...
+			_exchange_nv_level_1_node(
+				channel, tmp_t2_entry, exchanged_level_1);
+
+			// ... next the inner level n nodes ...
+			if (!exchanged_level_1)
+				_exchange_nv_inner_nodes(
+					channel, tmp_t2_entry, exchanged_level_n);
+
+			// ... and than satisfy the original mt request
+			if (!exchanged_level_1 && !exchanged_level_n) {
+				_exchange_request_pba(channel, tmp_t2_entry);
+				exchanged_request_pba = true;
+			}
+			channel._level_1_node.entries[i] = tmp_t2_entry;
+			handled = true;
+
+			if (exchanged_request_pba)
+				return;
+		}
+	}
+}
+
+
+void Meta_tree::_handle_level_1_node(Channel &channel,
+                                     bool    &handled)
+{
+	Type_1_info &t1_info { channel._level_n_nodes[2] };
+	Type_2_info &t2_info { channel._level_1_node };
+	Request req { channel._request };
+
+	switch (t2_info.state) {
+	case Type_2_info::INVALID:
+
+		handled = false;
+		return;
+
+	case Type_2_info::READ:
+
+		channel._cache_request = Local_cache_request {
+			Local_cache_request::PENDING, Local_cache_request::READ, false,
+			t2_info.node.pba, 1, nullptr };
+
+		handled = true;
+		return;
+
+	case Type_2_info::READ_COMPLETE:
+
+		_handle_level_0_nodes(channel, handled);
+		if (handled) {
+			t2_info.state = Type_2_info::WRITE;
+		} else {
+			t2_info.state = Type_2_info::COMPLETE;
+			handled = true;
+		}
+		return;
+
+	case Type_2_info::WRITE:
+
+		_update_parent(
+			t1_info.entries[t1_info.index], (uint8_t *)&t2_info.entries,
+			req._current_gen, t2_info.node.pba);
+
+		channel._cache_request = Local_cache_request {
+			Local_cache_request::PENDING, Local_cache_request::WRITE, false,
+			t2_info.node.pba, 1, (uint8_t *)&t2_info.entries };
+
+		t1_info.dirty = true;
+		handled = true;
+		return;
+
+	case Type_2_info::WRITE_COMPLETE:
+
+		t1_info.index++;
+		t2_info.state = Type_2_info::INVALID;
+		handled = true;
+		return;
+
+	case Type_2_info::COMPLETE:
+
+		t1_info.index++;
+		t2_info.state = Type_2_info::INVALID;
+		handled = true;
+		return;
+	}
+}
+
+
+void Meta_tree::_execute_update(Channel &channel,
+                                bool    &progress)
+{
+	bool handled_level_1_node;
+	bool handled_level_n_nodes;
+	_handle_level_1_node(channel, handled_level_1_node);
+	if (handled_level_1_node) {
+		progress = true;
+		return;
+	}
+	_handle_level_n_nodes(channel, handled_level_n_nodes);
+	progress = progress || handled_level_n_nodes;
+}
+
+
+void Meta_tree::execute(bool &progress)
+{
+	for (Channel &channel : _channels) {
+
+		Request req { channel._request };
+		if (req._type == Request::INVALID)
+			return;
+
+		switch(channel._state) {
+		case Channel::UPDATE:
+			_execute_update(channel, progress);
+		case Channel::COMPLETE:
+		case Channel::INVALID:
+			break;
+		case Channel::TREE_HASH_MISMATCH:
+			class Exception_1 { };
+			throw Exception_1 { };
+		}
+	}
+}
+
+
+Meta_tree::Meta_tree() { }
+
+
+bool Meta_tree::_peek_completed_request(uint8_t *buf_ptr,
+                                       size_t   buf_size)
+{
+	for (Channel &channel : _channels) {
+		if (channel._state == Channel::COMPLETE) {
+			if (sizeof(channel._request) > buf_size) {
+				class Exception_1 { };
+				throw Exception_1 { };
+			}
+			memcpy(buf_ptr, &channel._request, sizeof(channel._request));
+			return true;
+		}
+	}
+	return false;
+}
+
+
+void Meta_tree::_drop_completed_request(Module_request &req)
+{
+	unsigned long id { 0 };
+	id = req.dst_request_id();
+	if (id >= NR_OF_CHANNELS) {
+		class Exception_1 { };
+		throw Exception_1 { };
+	}
+	if (_channels[id]._state != Channel::COMPLETE) {
+		class Exception_2 { };
+		throw Exception_2 { };
+	}
+	_channels[id]._state = Channel::INVALID;
+}
+
+
+bool Meta_tree::ready_to_submit_request()
+{
+	for (Channel &channel : _channels) {
+		if (channel._state == Channel::INVALID)
+			return true;
+	}
+	return false;
+}
+
+
+bool Meta_tree::_node_volatile(Type_1_node t1_node,
+                               uint64_t    gen)
+{
+   return t1_node.gen == 0 || t1_node.gen != gen;
+}
+
+
+void Meta_tree::submit_request(Module_request &mod_req)
+{
+	for (unsigned long id { 0 }; id < NR_OF_CHANNELS; id++) {
+		Channel &chan { _channels[id] };
+		if (chan._state == Channel::INVALID) {
+
+			mod_req.dst_request_id(id);
+			chan._request = *dynamic_cast<Request *>(&mod_req);
+			Request &req { chan._request };
+			chan._state = Channel::UPDATE;
+			chan._finished = false;
+			for (Type_1_info &t1_info : chan._level_n_nodes) {
+				t1_info = Type_1_info { };
+			}
+			chan._level_1_node  = Type_2_info { };
+
+			Type_1_node root_node { };
+			root_node.pba = *(uint64_t *)req._mt_root_pba_ptr;
+			root_node.gen = *(uint64_t *)req._mt_root_gen_ptr;
+			memcpy(&root_node.hash, (uint8_t *)req._mt_root_hash_ptr,
+			       HASH_SIZE);
+
+			chan._level_n_nodes[req._mt_max_lvl].node = root_node;
+			chan._level_n_nodes[req._mt_max_lvl].state = Type_1_info::READ;
+			chan._level_n_nodes[req._mt_max_lvl].volatil =
+				_node_volatile(root_node, req._current_gen);
+
+			return;
+		}
+	}
+	class Invalid_call { };
+	throw Invalid_call { };
+}
+
+
+void Meta_tree::_handle_level_n_nodes(Channel &channel,
+                                      bool    &handled)
+{
+	Request &req { channel._request };
+	handled = false;
+
+	for (uint64_t lvl = FIRST_LVL_N; lvl < LAST_LVL_N; lvl++) {
+
+		Type_1_info &t1_info { channel._level_n_nodes[lvl] };
+
+		switch (t1_info.state) {
+		case Type_1_info::INVALID:
+
+			return;
+
+		case Type_1_info::READ:
+
+			channel._cache_request = Local_cache_request {
+				Local_cache_request::PENDING, Local_cache_request::READ, false,
+				t1_info.node.pba, lvl, nullptr };
+
+			handled = true;
+			return;
+
+		case Type_1_info::READ_COMPLETE:
+
+			if (t1_info.index < req._mt_edges &&
+				t1_info.entries[t1_info.index].valid() &&
+				!channel._finished) {
+
+				if (lvl > FIRST_LVL_N) {
+					channel._level_n_nodes[lvl - 1] = {
+						Type_1_info::READ, t1_info.entries[t1_info.index],
+						{ }, 0, false,
+						_node_volatile(t1_info.node, req._current_gen) };
+
+				} else {
+					channel._level_1_node = {
+						Type_2_info::READ, t1_info.entries[t1_info.index],
+						{ }, 0,
+						_node_volatile(t1_info.node, req._current_gen) };
+				}
+
+			} else {
+
+				if (t1_info.dirty)
+					t1_info.state = Type_1_info::WRITE;
+				else
+					t1_info.state = Type_1_info::COMPLETE;
+			}
+			handled = true;
+			return;
+
+		case Type_1_info::WRITE:
+		{
+			uint8_t block_data[BLOCK_SIZE];
+			memcpy(&block_data, &t1_info.entries, BLOCK_SIZE);
+
+			if (lvl == req._mt_max_lvl) {
+
+				Type_1_node root_node { };
+				root_node.pba = *(uint64_t *)req._mt_root_pba_ptr;
+				root_node.gen = *(uint64_t *)req._mt_root_gen_ptr;
+				memcpy(&root_node.hash, (uint8_t *)req._mt_root_hash_ptr,
+				       HASH_SIZE);
+
+				_update_parent(
+					root_node, block_data, req._current_gen,
+					t1_info.node.pba);
+
+				*(uint64_t *)req._mt_root_pba_ptr = root_node.pba;
+				*(uint64_t *)req._mt_root_gen_ptr = root_node.gen;
+				memcpy((uint8_t *)req._mt_root_hash_ptr, &root_node.hash,
+				       HASH_SIZE);
+
+				channel._root_dirty = true;
+
+			} else {
+
+				Type_1_info parent { channel._level_n_nodes[lvl + 1] };
+				_update_parent(
+					parent.entries[parent.index], block_data,
+					req._current_gen, t1_info.node.pba);
+
+				parent.dirty = true;
+			}
+
+			channel._cache_request = Local_cache_request {
+				Local_cache_request::PENDING, Local_cache_request::WRITE,
+				false, t1_info.node.pba, lvl, block_data };
+
+			handled = true;
+			return;
+		}
+		case Type_1_info::WRITE_COMPLETE:
+
+			if (lvl == req._mt_max_lvl)
+				channel._state = Channel::COMPLETE;
+			else
+				channel._level_n_nodes[lvl + 1].index++;
+
+			channel._cache_request = Local_cache_request {
+				Local_cache_request::INVALID, Local_cache_request::READ,
+				false, 0, 0, nullptr };
+
+			t1_info.state = Type_1_info::INVALID;
+			handled = true;
+			return;
+
+		case Type_1_info::COMPLETE:
+
+			if (lvl == req._mt_max_lvl)
+				channel._state = Channel::COMPLETE;
+			else
+				channel._level_n_nodes[lvl + 1].index++;
+
+			t1_info.state = Type_1_info::INVALID;
+			handled = true;
+			return;
+		}
+	}
 }

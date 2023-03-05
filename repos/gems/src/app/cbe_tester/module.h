@@ -34,7 +34,6 @@ namespace Cbe {
 		META_TREE        = 8,
 	};
 
-	enum { HASH_SIZE = 32 };
 	enum { KEY_SIZE = 32 };
 	enum { PRIM_BUF_SIZE = 128 };
 

@@ -1,0 +1,111 @@
+/*
+ * \brief  Basic types regarding the CBE
+ * \author Martin Stein
+ * \date   2023-02-13
+ */
+
+/*
+ * Copyright (C) 2023 Genode Labs GmbH
+ *
+ * This file is part of the Genode OS framework, which is distributed
+ * under the terms of the GNU Affero General Public License version 3.
+ */
+
+#ifndef _CBE_TYPES_H_
+#define _CBE_TYPES_H_
+
+/* cbe includes */
+#include <cbe/types.h>
+
+/* base includes */
+#include <base/stdint.h>
+
+namespace Cbe {
+
+	enum {
+		HASH_SIZE = 32,
+		TYPE_1_NODE_STORAGE_SIZE = 64,
+		TYPE_2_NODE_STORAGE_SIZE = 64,
+		TREE_MAX_LEVEL = 6,
+		TREE_MAX_NR_OF_LEVELS = TREE_MAX_LEVEL + 1,
+		NR_OF_TYPE_2_NODES_PER_BLK =
+			BLOCK_SIZE / TYPE_2_NODE_STORAGE_SIZE,
+
+		NR_OF_TYPE_1_NODES_PER_BLK =
+			BLOCK_SIZE / TYPE_1_NODE_STORAGE_SIZE,
+	};
+
+
+	struct Type_1_node
+	{
+		Genode::uint64_t pba             { 0 };
+		Genode::uint32_t gen             { 0 };
+		Genode::uint8_t  hash[HASH_SIZE] { 0 };
+
+		bool valid() const
+		{
+			Type_1_node node { };
+			return Genode::memcmp(this, &node, sizeof(node)) != 0;
+		}
+	}
+	__attribute__((packed));
+
+
+	struct Type_2_node
+	{
+		Genode::uint64_t pba         { 0 };
+		Genode::uint64_t last_vba    { 0 };
+		Genode::uint64_t alloc_gen   { 0 };
+		Genode::uint64_t free_gen    { 0 };
+		Genode::uint32_t last_key_id { 0 };
+		Genode::uint8_t  reserved    { 0 };
+
+		bool valid() const
+		{
+			Type_2_node node { };
+			return Genode::memcmp(this, &node, sizeof(node)) != 0;
+		}
+	}
+	__attribute__((packed));
+
+
+	struct Type_1_info
+	{
+		enum State {
+			INVALID,
+			READ,
+			READ_COMPLETE,
+			WRITE,
+			WRITE_COMPLETE,
+			COMPLETE
+		};
+
+		State           state                               { INVALID };
+		Type_1_node     node                                { };
+		Type_1_node     entries[NR_OF_TYPE_1_NODES_PER_BLK] { };
+		Genode::uint8_t index                               { (Genode::uint8_t)~0UL };
+		bool            dirty                               { false };
+		bool            volatil                             { false };
+	};
+
+
+	struct Type_2_info
+	{
+		enum State {
+			INVALID,
+			READ,
+			READ_COMPLETE,
+			WRITE,
+			WRITE_COMPLETE,
+			COMPLETE
+		};
+
+		State           state                               { INVALID };
+		Type_1_node     node                                { };
+		Type_2_node     entries[NR_OF_TYPE_2_NODES_PER_BLK] { };
+		Genode::uint8_t index                               { (Genode::uint8_t)~0UL };
+		bool            volatil                             { false };
+	};
+}
+
+#endif /* _CBE_TYPES_H_ */

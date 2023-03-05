@@ -14,11 +14,9 @@
 #ifndef _TRUST_ANCHOR_H_
 #define _TRUST_ANCHOR_H_
 
-/* gems includes */
-#include <cbe/types.h>
-
 /* cbe tester includes */
 #include <module.h>
+#include <cbe_types.h>
 #include <vfs_utilities.h>
 
 namespace Cbe

@@ -15,6 +15,9 @@
 #define _META_TREE_H_
 
 /* cbe tester includes */
+#include <cbe_types.h>
+
+/* cbe tester includes */
 #include <module.h>
 
 namespace Cbe
@@ -28,7 +31,7 @@ class Cbe::Meta_tree_request : public Module_request
 {
 	public:
 
-		enum Type { INVALID = 0, COW_UPDATE = 1 };
+		enum Type { INVALID = 0, UPDATE = 1 };
 
 	private:
 
@@ -43,7 +46,7 @@ class Cbe::Meta_tree_request : public Module_request
 		Genode::uint64_t _mt_max_lvl          { 0 };
 		Genode::uint64_t _mt_edges            { 0 };
 		Genode::uint64_t _mt_leaves           { 0 };
-		Genode::uint64_t _curr_gen            { 0 };
+		Genode::uint64_t _current_gen         { 0 };
 		Genode::uint64_t _old_pba             { 0 };
 		Genode::uint64_t _new_pba             { 0 };
 		bool             _success             { false };
@@ -89,6 +92,7 @@ class Cbe::Meta_tree_request : public Module_request
 		char const *type_name() override { return type_to_string(_type); }
 };
 
+
 class Cbe::Meta_tree_channel
 {
 	private:
@@ -96,21 +100,53 @@ class Cbe::Meta_tree_channel
 		friend class Meta_tree;
 
 		enum State {
-			INACTIVE, SUBMITTED, PENDING, IN_PROGRESS, COMPLETE,
-			ENCRYPT_CLIENT_DATA_PENDING,
-			ENCRYPT_CLIENT_DATA_IN_PROGRESS,
-			ENCRYPT_CLIENT_DATA_COMPLETE,
-			DECRYPT_CLIENT_DATA_PENDING,
-			DECRYPT_CLIENT_DATA_IN_PROGRESS,
-			DECRYPT_CLIENT_DATA_COMPLETE
+			INVALID,
+			UPDATE,
+			COMPLETE,
+			TREE_HASH_MISMATCH
 		};
 
-		State             _state                    { INACTIVE };
-		Meta_tree_request _request                  { };
-		Vfs::file_offset  _nr_of_processed_bytes    { 0 };
-		Vfs::file_size    _nr_of_remaining_bytes    { 0 };
-		char              _blk_buf[Cbe::BLOCK_SIZE] { 0 };
-		bool              _generated_req_success    { false };
+		struct Local_cache_request
+		{
+			enum State { INVALID, PENDING, IN_PROGRESS };
+			enum Op { READ, WRITE, SYNC };
+
+			State            state                  { INVALID };
+			Op               op                     { READ };
+			bool             success                { false };
+			Genode::uint64_t pba                    { 0 };
+			Genode::uint64_t level                  { 0 };
+			Genode::uint8_t  block_data[BLOCK_SIZE] { 0 };
+
+			Local_cache_request(State             state,
+			                    Op                op,
+			                    bool              success,
+			                    Genode::uint64_t  pba,
+			                    Genode::uint64_t  level,
+			                    Genode::uint8_t  *blk_ptr)
+			:
+				state   { state },
+				op      { op },
+				success { success },
+				pba     { pba },
+				level   { level }
+			{
+				if (blk_ptr != nullptr) {
+					Genode::memcpy(&block_data, blk_ptr, BLOCK_SIZE);
+				}
+			}
+
+			Local_cache_request() { }
+		};
+
+		State               _state                                { INVALID };
+		Meta_tree_request   _request                              { };
+		Local_cache_request _cache_request                        { };
+		Genode::uint8_t     _block_io_data[Cbe::BLOCK_SIZE]       { 0 };
+		Type_2_info         _level_1_node                         { };
+		Type_1_info         _level_n_nodes[TREE_MAX_NR_OF_LEVELS] { };
+		bool                _finished                             { false };
+		bool                _root_dirty                           { false };
 };
 
 class Cbe::Meta_tree : public Module
@@ -119,32 +155,48 @@ class Cbe::Meta_tree : public Module
 
 		using Request = Meta_tree_request;
 		using Channel = Meta_tree_channel;
-		using Read_result = Vfs::File_io_service::Read_result;
-		using Write_result = Vfs::File_io_service::Write_result;
-		using file_size = Vfs::file_size;
-		using file_offset = Vfs::file_offset;
+		using Local_cache_request = Channel::Local_cache_request;
 
-		enum { NR_OF_CHANNELS = 1 };
+		enum {
+			NR_OF_CHANNELS = 1,
+			FIRST_LVL_N = 2,
+			LAST_LVL_N = TREE_MAX_NR_OF_LEVELS - 1,
+		};
 
-		String<32> const  _path;
-		Vfs::Env         &_vfs_env;
-		Vfs::Vfs_handle  &_vfs_handle               { vfs_open_rw(_vfs_env, _path) };
-		Channel           _channels[NR_OF_CHANNELS] { };
+		Channel _channels[NR_OF_CHANNELS] { };
 
-		void _execute_read(Channel &channel,
-		                   bool    &progress);
+		void _handle_level_n_nodes(Channel &channel,
+		                           bool    &handled);
 
-		void _execute_write(Channel &channel,
-		                    bool    &progress);
+		void _handle_level_1_node(Channel &channel,
+		                          bool    &handled);
 
-		void _execute_read_client_data(Channel &channel,
-		                               bool    &progress);
+		void _exchange_request_pba(Channel     &channel,
+		                           Type_2_node &t2_entry);
 
-		void _execute_write_client_data(Channel &channel,
-		                                bool    &progress);
+		void _exchange_nv_inner_nodes(Channel     &channel,
+		                              Type_2_node &t2_entry,
+		                              bool        &exchanged);
 
-		void _execute_sync(Channel &channel,
-		                   bool    &progress);
+		void _exchange_nv_level_1_node(Channel     &channel,
+		                               Type_2_node &t2_entry,
+		                               bool        &exchanged);
+
+		bool _node_volatile(Type_1_node      t1_node,
+		                    Genode::uint64_t gen);
+
+		void _handle_level_0_nodes(Channel &channel,
+		                           bool    &handled);
+
+		void _update_parent(Type_1_node      &node,
+		                    Genode::uint8_t  *blk_ptr,
+		                    Genode::uint64_t  gen,
+		                    Genode::uint64_t  pba);
+
+		void _handle_level_0_nodes(bool &handled);
+
+		void _execute_update(Channel &channel,
+		                     bool    &progress);
 
 		void _mark_req_failed(Channel    &channel,
 		                      bool       &progress,
@@ -178,13 +230,7 @@ class Cbe::Meta_tree : public Module
 
 	public:
 
-		Meta_tree(Vfs::Env               &vfs_env,
-		          Genode::Xml_node const &xml_node);
-
-
-		/************
-		 ** Module **
-		 ************/
+		Meta_tree();
 };
 
 #endif /* _META_TREE_H_ */

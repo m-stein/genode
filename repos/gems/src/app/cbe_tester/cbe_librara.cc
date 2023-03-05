@@ -15,6 +15,7 @@
 #include <crypto.h>
 #include <trust_anchor.h>
 #include <block_io.h>
+#include <meta_tree.h>
 #include <cbe_librara.h>
 
 
@@ -45,6 +46,14 @@ void Cbe::Librara::_drop_generated_request(Module_request &mod_req)
 	{
 		Block_io_request &req {
 			*dynamic_cast<Block_io_request *>(&mod_req) };
+
+		_lib->librara__drop_generated_request(req.prim_ptr());
+		break;
+	}
+	case META_TREE:
+	{
+		Meta_tree_request &req {
+			*dynamic_cast<Meta_tree_request *>(&mod_req) };
 
 		_lib->librara__drop_generated_request(req.prim_ptr());
 		break;
@@ -94,6 +103,17 @@ void Cbe::Librara::generated_request_complete(Module_request &mod_req)
 		_lib->librara__generated_request_complete(
 			req.prim_ptr(), nullptr, nullptr, nullptr, req.hash_ptr(),
 			0, req.success());
+
+		break;
+	}
+	case META_TREE:
+	{
+		Meta_tree_request &req {
+			*dynamic_cast<Meta_tree_request *>(&mod_req) };
+
+		_lib->librara__generated_request_complete(
+			req.prim_ptr(), nullptr, nullptr, nullptr, nullptr,
+			req.new_pba(), req.success());
 
 		break;
 	}

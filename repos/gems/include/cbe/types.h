@@ -12,8 +12,8 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-#ifndef _CBE_TYPES_H_
-#define _CBE_TYPES_H_
+#ifndef _CBE__TYPES_H_
+#define _CBE__TYPES_H_
 
 /* Genode includes */
 #include <base/stdint.h>
@@ -276,4 +276,4 @@ inline void Cbe::Request::print(Genode::Output &out) const
 	Genode::print(out, " succ=", _success);
 }
 
-#endif /* _CBE_TYPES_H_ */
+#endif /* _CBE__TYPES_H_ */
