@@ -581,27 +581,36 @@ bool Block_io::_peek_completed_request(uint8_t *buf_ptr,
 {
 	for (Channel &channel : _channels) {
 		if (channel._state == Channel::COMPLETE) {
-			if (sizeof(channel._request) > buf_size) {
+			Request &req { channel._request };
+			if (sizeof(req) > buf_size) {
 				class Exception_1 { };
 				throw Exception_1 { };
 			}
-			memcpy(buf_ptr, &channel._request, sizeof(channel._request));
+			memcpy(buf_ptr, &req, sizeof(req));
 
-			if (VERBOSE_BLOCK_IO && channel._request._pba == 162) {
+			if (VERBOSE_BLOCK_IO && req._pba == 162) {
 
-				switch (channel._request._type) {
+				switch (req._type) {
 				case Request::READ:
 				case Request::WRITE:
 				{
-					uint64_t *blk_ptr { (uint64_t *)channel._request._blk_ptr };
-					log(channel._request.type_name(), " pba ", channel._request._pba);
+					uint8_t hash[HASH_SIZE];
+					sha256_4k_hash((void *)req._blk_ptr, (void *)hash);
+					uint64_t *blk_ptr { (uint64_t *)req._blk_ptr };
+					uint64_t *hash_ptr { (uint64_t *)hash };
+					log(req.type_name(), " pba ", req._pba);
+					log("  got hash: ",
+						Hex(hash_ptr[0], Hex::OMIT_PREFIX, Hex::PAD), " ",
+						Hex(hash_ptr[1], Hex::OMIT_PREFIX, Hex::PAD), " ",
+						Hex(hash_ptr[2], Hex::OMIT_PREFIX, Hex::PAD), " ",
+						Hex(hash_ptr[3], Hex::OMIT_PREFIX, Hex::PAD));
 					log("  data: ",
 						Hex(blk_ptr[0], Hex::OMIT_PREFIX, Hex::PAD), " ",
 						Hex(blk_ptr[1], Hex::OMIT_PREFIX, Hex::PAD), " ",
-						Hex(blk_ptr[200], Hex::OMIT_PREFIX, Hex::PAD), " ",
-						Hex(blk_ptr[201], Hex::OMIT_PREFIX, Hex::PAD),
-						Hex(blk_ptr[400], Hex::OMIT_PREFIX, Hex::PAD), " ",
-						Hex(blk_ptr[401], Hex::OMIT_PREFIX, Hex::PAD));
+						Hex(blk_ptr[2], Hex::OMIT_PREFIX, Hex::PAD), " ",
+						Hex(blk_ptr[3], Hex::OMIT_PREFIX, Hex::PAD), " ",
+						Hex(blk_ptr[4], Hex::OMIT_PREFIX, Hex::PAD), " ",
+						Hex(blk_ptr[5], Hex::OMIT_PREFIX, Hex::PAD));
 					break;
 				}
 				default:

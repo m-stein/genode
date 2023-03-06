@@ -227,6 +227,31 @@ log("type_1 hash mismatch: pba ", local_req.pba);
 			if (!check_node_hash(channel._blk_io_data, t2_info.node.hash)) {
 
 log("type_2 hash mismatch: pba ", local_req.pba);
+
+				uint64_t *blk_ptr { (uint64_t *)channel._blk_io_data };
+				uint8_t got_hash[HASH_SIZE];
+				sha256_4k_hash((void *)blk_ptr, (void *)got_hash);
+				uint64_t *got_hash_ptr { (uint64_t *)got_hash };
+				uint8_t exp_hash[HASH_SIZE];
+				memcpy((void *)exp_hash, (void *)t2_info.node.hash, HASH_SIZE);
+				uint64_t *exp_hash_ptr { (uint64_t *)exp_hash };
+				log("  exp hash: ",
+					Hex(exp_hash_ptr[0], Hex::OMIT_PREFIX, Hex::PAD), " ",
+					Hex(exp_hash_ptr[1], Hex::OMIT_PREFIX, Hex::PAD), " ",
+					Hex(exp_hash_ptr[2], Hex::OMIT_PREFIX, Hex::PAD), " ",
+					Hex(exp_hash_ptr[3], Hex::OMIT_PREFIX, Hex::PAD));
+				log("  got hash: ",
+					Hex(got_hash_ptr[0], Hex::OMIT_PREFIX, Hex::PAD), " ",
+					Hex(got_hash_ptr[1], Hex::OMIT_PREFIX, Hex::PAD), " ",
+					Hex(got_hash_ptr[2], Hex::OMIT_PREFIX, Hex::PAD), " ",
+					Hex(got_hash_ptr[3], Hex::OMIT_PREFIX, Hex::PAD));
+				log("  data: ",
+					Hex(blk_ptr[0], Hex::OMIT_PREFIX, Hex::PAD), " ",
+					Hex(blk_ptr[1], Hex::OMIT_PREFIX, Hex::PAD), " ",
+					Hex(blk_ptr[2], Hex::OMIT_PREFIX, Hex::PAD), " ",
+					Hex(blk_ptr[3], Hex::OMIT_PREFIX, Hex::PAD), " ",
+					Hex(blk_ptr[4], Hex::OMIT_PREFIX, Hex::PAD), " ",
+					Hex(blk_ptr[5], Hex::OMIT_PREFIX, Hex::PAD));
 				channel._state = Channel::TREE_HASH_MISMATCH;
 
 			} else {
