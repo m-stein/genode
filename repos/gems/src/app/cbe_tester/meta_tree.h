@@ -142,7 +142,7 @@ class Cbe::Meta_tree_channel
 		State               _state                                { INVALID };
 		Meta_tree_request   _request                              { };
 		Local_cache_request _cache_request                        { };
-		Genode::uint8_t     _block_io_data[Cbe::BLOCK_SIZE]       { 0 };
+		Genode::uint8_t     _blk_io_data[Cbe::BLOCK_SIZE]         { 0 };
 		Type_2_info         _level_1_node                         { };
 		Type_1_info         _level_n_nodes[TREE_MAX_NR_OF_LEVELS] { };
 		bool                _finished                             { false };

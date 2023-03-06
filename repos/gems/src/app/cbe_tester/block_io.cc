@@ -22,6 +22,10 @@
 using namespace Genode;
 using namespace Cbe;
 
+enum {
+	VERBOSE_BLOCK_IO = 1,
+};
+
 
 /**********************
  ** Block_io_request **
@@ -582,6 +586,28 @@ bool Block_io::_peek_completed_request(uint8_t *buf_ptr,
 				throw Exception_1 { };
 			}
 			memcpy(buf_ptr, &channel._request, sizeof(channel._request));
+
+			if (VERBOSE_BLOCK_IO && channel._request._pba == 162) {
+
+				switch (channel._request._type) {
+				case Request::READ:
+				case Request::WRITE:
+				{
+					uint64_t *blk_ptr { (uint64_t *)channel._request._blk_ptr };
+					log(channel._request.type_name(), " pba ", channel._request._pba);
+					log("  data: ",
+						Hex(blk_ptr[0], Hex::OMIT_PREFIX, Hex::PAD), " ",
+						Hex(blk_ptr[1], Hex::OMIT_PREFIX, Hex::PAD), " ",
+						Hex(blk_ptr[200], Hex::OMIT_PREFIX, Hex::PAD), " ",
+						Hex(blk_ptr[201], Hex::OMIT_PREFIX, Hex::PAD),
+						Hex(blk_ptr[400], Hex::OMIT_PREFIX, Hex::PAD), " ",
+						Hex(blk_ptr[401], Hex::OMIT_PREFIX, Hex::PAD));
+					break;
+				}
+				default:
+					break;
+				}
+			}
 			return true;
 		}
 	}

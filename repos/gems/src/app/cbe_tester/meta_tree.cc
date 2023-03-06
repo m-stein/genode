@@ -36,6 +36,7 @@
 
 /* cbe tester includes */
 #include <meta_tree.h>
+#include <block_io.h>
 #include <sha256_4k_hash.h>
 
 using namespace Genode;
@@ -50,6 +51,15 @@ static bool check_level_0_usable(Generation   gen,
                                  Type_2_node &node)
 {
 	return node.alloc_gen != gen;
+}
+
+
+static bool check_node_hash(uint8_t *blk_ptr,
+                            uint8_t *exp_hash_ptr)
+{
+	uint8_t got_hash[HASH_SIZE];
+	sha256_4k_hash((void *)blk_ptr, (void *)got_hash);
+	return !memcmp(got_hash, exp_hash_ptr, HASH_SIZE);
 }
 
 
@@ -120,86 +130,137 @@ char const *Meta_tree_request::type_to_string(Type type)
  ** Meta_tree **
  ***************/
 
-bool Meta_tree::_peek_generated_request(uint8_t * /*buf_ptr */,
-                                        size_t    /*buf_size*/)
+bool Meta_tree::_peek_generated_request(uint8_t *buf_ptr,
+                                        size_t   buf_size)
 {
-/*
 	for (uint32_t id { 0 }; id < NR_OF_CHANNELS; id++) {
 
 		Channel const &channel { _channels[id] };
-		Block_io_request::Type blk_io_req_type {
-			channel._state == Channel::DECRYPT_CLIENT_DATA_PENDING ?
-			           Block_io_request::DECRYPT_CLIENT_DATA :
-			           Block_io_request::INVALID };
+		Local_cache_request const &local_req { channel._cache_request };
+		if (local_req.state == Local_cache_request::PENDING) {
 
-		if (blk_io_req_type != Block_io_request::INVALID) {
+			Block_io_request::Type blk_io_req_type {
+				local_req.op == Local_cache_request::READ ?
+				                   Block_io_request::READ :
+				                Local_cache_request::WRITE ?
+				                   Block_io_request::WRITE :
+				                   Block_io_request::INVALID };
 
-			Request const &req { channel._request };
-			Block_io_request::create(
-				buf_ptr, buf_size, BLOCK_IO, id, blk_io_req_type,
-				req._client_req_offset, req._client_req_tag, nullptr, 0,
-				req._key_id, nullptr, req._pba, req._vba, nullptr,
-				(void *)channel._blk_buf);
+			if (blk_io_req_type != Block_io_request::INVALID) {
+				Block_io_request::create(
+					buf_ptr, buf_size, META_TREE, id, blk_io_req_type,
+					0, 0, nullptr, 0, 0, local_req.pba, 0, 1,
+					(void *)channel._blk_io_data);
 
-			return true;
+				return true;
+			}
 		}
 	}
-*/
 	return false;
 }
 
 
-void Meta_tree::_drop_generated_request(Module_request &/*req*/)
+void Meta_tree::_drop_generated_request(Module_request &mod_req)
 {
-/*
-	unsigned long const id { req.src_request_id() };
+	unsigned long const id { mod_req.src_request_id() };
 	if (id >= NR_OF_CHANNELS) {
-		class Bad_id { };
-		throw Bad_id { };
-	}
-	switch (_channels[id]._state) {
-	case Channel::DECRYPT_CLIENT_DATA_PENDING:
-		_channels[id]._state = Channel::DECRYPT_CLIENT_DATA_IN_PROGRESS;
-		break;
-	case Channel::ENCRYPT_CLIENT_DATA_PENDING:
-		_channels[id]._state = Channel::ENCRYPT_CLIENT_DATA_IN_PROGRESS;
-		break;
-	default:
-*/
 		class Exception_1 { };
 		throw Exception_1 { };
-/*
 	}
-*/
+	Local_cache_request &local_req { _channels[id]._cache_request };
+	if (local_req.state != Local_cache_request::PENDING) {
+		class Exception_2 { };
+		throw Exception_2 { };
+	}
+	local_req.state = Local_cache_request::IN_PROGRESS;
 }
 
 
-void Meta_tree::generated_request_complete(Module_request &/*req*/)
+void Meta_tree::generated_request_complete(Module_request &mod_req)
 {
-/*
-	unsigned long const id { req.src_request_id() };
+	unsigned long const id { mod_req.src_request_id() };
 	if (id >= NR_OF_CHANNELS) {
 		class Exception_1 { };
 		throw Exception_1 { };
 	}
-	switch (_channels[id]._state) {
-	case Channel::DECRYPT_CLIENT_DATA_IN_PROGRESS:
-		_channels[id]._state = Channel::DECRYPT_CLIENT_DATA_COMPLETE;
-		_channels[id]._generated_req_success =
-			dynamic_cast<Crypto_request *>(&req)->success();
-		break;
-	case Channel::ENCRYPT_CLIENT_DATA_IN_PROGRESS:
-		_channels[id]._state = Channel::ENCRYPT_CLIENT_DATA_COMPLETE;
-		_channels[id]._generated_req_success =
-			dynamic_cast<Crypto_request *>(&req)->success();
-		break;
-	default:
-*/
+	Local_cache_request &local_req { _channels[id]._cache_request };
+	if (local_req.state != Local_cache_request::IN_PROGRESS) {
 		class Exception_2 { };
 		throw Exception_2 { };
-/*
 	}
-*/
+	Block_io_request &blk_io_req { *dynamic_cast<Block_io_request *>(&mod_req) };
+	Channel &channel { _channels[id] };
+	if (!blk_io_req.success()) {
+
+		channel._request._success = false;
+		channel._request._new_pba = INVALID_PBA;
+		channel._state = Channel::COMPLETE;
+		return;
+
+	}
+	Type_1_info &t1_info { channel._level_n_nodes[local_req.level] };
+	Type_2_info &t2_info { channel._level_1_node };
+
+	switch (local_req.op) {
+	case Local_cache_request::SYNC:
+
+		class Exception_3 { };
+		throw Exception_3 { };
+
+	case Local_cache_request::READ:
+
+		if (local_req.level > TYPE_2_NODE_LVL) {
+
+			if (!check_node_hash(channel._blk_io_data, t1_info.node.hash)) {
+
+log("type_1 hash mismatch: pba ", local_req.pba);
+				channel._state = Channel::TREE_HASH_MISMATCH;
+
+			} else {
+
+				memcpy(t1_info.entries, channel._blk_io_data, BLOCK_SIZE);
+				t1_info.index = 0;
+				t1_info.state = Type_1_info::READ_COMPLETE;
+			}
+		} else if (local_req.level == TYPE_2_NODE_LVL) {
+
+			if (!check_node_hash(channel._blk_io_data, t2_info.node.hash)) {
+
+log("type_2 hash mismatch: pba ", local_req.pba);
+				channel._state = Channel::TREE_HASH_MISMATCH;
+
+			} else {
+
+				memcpy(t2_info.entries, channel._blk_io_data, BLOCK_SIZE);
+				t2_info.index = 0;
+				t2_info.state = Type_2_info::READ_COMPLETE;
+			}
+		} else {
+			class Exception_4 { };
+			throw Exception_4 { };
+		}
+		break;
+
+	case Local_cache_request::WRITE:
+
+		if (local_req.level > TYPE_2_NODE_LVL) {
+
+			t1_info.state = Type_1_info::WRITE_COMPLETE;
+
+		} else if (local_req.level == TYPE_2_NODE_LVL) {
+
+			t2_info.state = Type_2_info::WRITE_COMPLETE;
+
+		} else {
+
+			class Exception_5 { };
+			throw Exception_5 { };
+		}
+		break;
+	}
+	local_req = Local_cache_request {
+		Local_cache_request::INVALID, Local_cache_request::READ,
+		false, 0, 0, nullptr };
 }
 
 
@@ -428,8 +489,7 @@ void Meta_tree::execute(bool &progress)
 {
 	for (Channel &channel : _channels) {
 
-		Request req { channel._request };
-		if (req._type == Request::INVALID)
+		if (channel._cache_request.state != Local_cache_request::INVALID)
 			return;
 
 		switch(channel._state) {
