@@ -23,13 +23,16 @@
 namespace Cbe {
 
 	enum {
-		INVALID_PBA = (Genode::uint64_t)~(Genode::uint64_t)0,
+		INVALID_PBA = 0xffff'ffff'ffff'ffff,
+		INVALID_NODE_INDEX = 0xff,
 		HASH_SIZE = 32,
 		TYPE_1_NODE_STORAGE_SIZE = 64,
 		TYPE_2_NODE_STORAGE_SIZE = 64,
 		TREE_MAX_LEVEL = 6,
 		TREE_MAX_NR_OF_LEVELS = TREE_MAX_LEVEL + 1,
-		TYPE_2_NODE_LVL = 1,
+		T2_NODE_LVL = 1,
+		LOWEST_T1_NODE_LVL = 2,
+		HIGHEST_T1_NODE_LVL = TREE_MAX_LEVEL,
 		NR_OF_TYPE_2_NODES_PER_BLK =
 			BLOCK_SIZE / TYPE_2_NODE_STORAGE_SIZE,
 
@@ -85,7 +88,7 @@ namespace Cbe {
 		State           state                               { INVALID };
 		Type_1_node     node                                { };
 		Type_1_node     entries[NR_OF_TYPE_1_NODES_PER_BLK] { };
-		Genode::uint8_t index                               { (Genode::uint8_t)~0UL };
+		Genode::uint8_t index                               { INVALID_NODE_INDEX };
 		bool            dirty                               { false };
 		bool            volatil                             { false };
 	};
@@ -105,7 +108,7 @@ namespace Cbe {
 		State           state                               { INVALID };
 		Type_1_node     node                                { };
 		Type_2_node     entries[NR_OF_TYPE_2_NODES_PER_BLK] { };
-		Genode::uint8_t index                               { (Genode::uint8_t)~0UL };
+		Genode::uint8_t index                               { INVALID_NODE_INDEX };
 		bool            volatil                             { false };
 	};
 }

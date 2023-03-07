@@ -142,7 +142,7 @@ class Cbe::Meta_tree_channel
 		State               _state                                { INVALID };
 		Meta_tree_request   _request                              { };
 		Local_cache_request _cache_request                        { };
-		Genode::uint8_t     _blk_io_data[Cbe::BLOCK_SIZE]         { 0 };
+		Genode::uint8_t     _blk_io_data[BLOCK_SIZE]              { 0 };
 		Type_2_info         _level_1_node                         { };
 		Type_1_info         _level_n_nodes[TREE_MAX_NR_OF_LEVELS] { };
 		bool                _finished                             { false };
@@ -157,11 +157,7 @@ class Cbe::Meta_tree : public Module
 		using Channel = Meta_tree_channel;
 		using Local_cache_request = Channel::Local_cache_request;
 
-		enum {
-			NR_OF_CHANNELS = 1,
-			FIRST_LVL_N = 2,
-			LAST_LVL_N = TREE_MAX_NR_OF_LEVELS - 1,
-		};
+		enum { NR_OF_CHANNELS = 1 };
 
 		Channel _channels[NR_OF_CHANNELS] { };
 
@@ -188,10 +184,10 @@ class Cbe::Meta_tree : public Module
 		void _handle_level_0_nodes(Channel &channel,
 		                           bool    &handled);
 
-		void _update_parent(Type_1_node      &node,
-		                    Genode::uint8_t  *blk_ptr,
-		                    Genode::uint64_t  gen,
-		                    Genode::uint64_t  pba);
+		void _update_parent(Type_1_node           &node,
+		                    Genode::uint8_t const *blk_ptr,
+		                    Genode::uint64_t       gen,
+		                    Genode::uint64_t       pba);
 
 		void _handle_level_0_nodes(bool &handled);
 
