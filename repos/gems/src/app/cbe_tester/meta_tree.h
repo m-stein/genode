@@ -133,10 +133,6 @@ class Cbe::Meta_tree_channel
 				level   { level }
 			{
 				if (blk_ptr != nullptr) {
-
-uint8_t hash_3[HASH_SIZE];
-sha256_4k_hash((void *)blk_ptr, (void *)hash_3);
-log("meta_tree: set cache req hash ", Hex(*(uint64_t *)hash_3));
 					Genode::memcpy(&block_data, blk_ptr, BLOCK_SIZE);
 				}
 			}
