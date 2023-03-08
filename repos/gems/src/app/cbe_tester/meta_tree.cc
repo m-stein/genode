@@ -147,6 +147,8 @@ bool Meta_tree::_peek_generated_request(uint8_t *buf_ptr,
 				                   Block_io_request::INVALID };
 
 			if (blk_io_req_type != Block_io_request::INVALID) {
+
+				memcpy((void *)channel._blk_io_data, (void *)channel._cache_request.block_data, BLOCK_SIZE);
 				Block_io_request::create(
 					buf_ptr, buf_size, META_TREE, id, blk_io_req_type,
 					0, 0, nullptr, 0, 0, local_req.pba, 0, 1,
@@ -213,6 +215,32 @@ void Meta_tree::generated_request_complete(Module_request &mod_req)
 
 			if (!check_node_hash(channel._blk_io_data, t1_info.node.hash)) {
 
+log("meta_tree: hash mismatch a pba ", local_req.pba, " node ptr ", &t1_info, " lvl ", local_req.level);
+uint64_t *blk_ptr { (uint64_t *)channel._blk_io_data };
+uint8_t got_hash[HASH_SIZE];
+sha256_4k_hash((void *)blk_ptr, (void *)got_hash);
+uint64_t *got_hash_ptr { (uint64_t *)got_hash };
+uint8_t exp_hash[HASH_SIZE];
+memcpy((void *)exp_hash, (void *)t1_info.node.hash, HASH_SIZE);
+uint64_t *exp_hash_ptr { (uint64_t *)exp_hash };
+log("  exp hash: ",
+	Hex(exp_hash_ptr[0], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(exp_hash_ptr[1], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(exp_hash_ptr[2], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(exp_hash_ptr[3], Hex::OMIT_PREFIX, Hex::PAD));
+log("  got hash: ",
+	Hex(got_hash_ptr[0], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(got_hash_ptr[1], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(got_hash_ptr[2], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(got_hash_ptr[3], Hex::OMIT_PREFIX, Hex::PAD));
+log("  data: ",
+	Hex(blk_ptr[0], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(blk_ptr[1], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(blk_ptr[2], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(blk_ptr[3], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(blk_ptr[4], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(blk_ptr[5], Hex::OMIT_PREFIX, Hex::PAD));
+
 				channel._state = Channel::TREE_HASH_MISMATCH;
 
 			} else {
@@ -225,30 +253,32 @@ void Meta_tree::generated_request_complete(Module_request &mod_req)
 
 			if (!check_node_hash(channel._blk_io_data, t2_info.node.hash)) {
 
-				uint64_t *blk_ptr { (uint64_t *)channel._blk_io_data };
-				uint8_t got_hash[HASH_SIZE];
-				sha256_4k_hash((void *)blk_ptr, (void *)got_hash);
-				uint64_t *got_hash_ptr { (uint64_t *)got_hash };
-				uint8_t exp_hash[HASH_SIZE];
-				memcpy((void *)exp_hash, (void *)t2_info.node.hash, HASH_SIZE);
-				uint64_t *exp_hash_ptr { (uint64_t *)exp_hash };
-				log("  exp hash: ",
-					Hex(exp_hash_ptr[0], Hex::OMIT_PREFIX, Hex::PAD), " ",
-					Hex(exp_hash_ptr[1], Hex::OMIT_PREFIX, Hex::PAD), " ",
-					Hex(exp_hash_ptr[2], Hex::OMIT_PREFIX, Hex::PAD), " ",
-					Hex(exp_hash_ptr[3], Hex::OMIT_PREFIX, Hex::PAD));
-				log("  got hash: ",
-					Hex(got_hash_ptr[0], Hex::OMIT_PREFIX, Hex::PAD), " ",
-					Hex(got_hash_ptr[1], Hex::OMIT_PREFIX, Hex::PAD), " ",
-					Hex(got_hash_ptr[2], Hex::OMIT_PREFIX, Hex::PAD), " ",
-					Hex(got_hash_ptr[3], Hex::OMIT_PREFIX, Hex::PAD));
-				log("  data: ",
-					Hex(blk_ptr[0], Hex::OMIT_PREFIX, Hex::PAD), " ",
-					Hex(blk_ptr[1], Hex::OMIT_PREFIX, Hex::PAD), " ",
-					Hex(blk_ptr[2], Hex::OMIT_PREFIX, Hex::PAD), " ",
-					Hex(blk_ptr[3], Hex::OMIT_PREFIX, Hex::PAD), " ",
-					Hex(blk_ptr[4], Hex::OMIT_PREFIX, Hex::PAD), " ",
-					Hex(blk_ptr[5], Hex::OMIT_PREFIX, Hex::PAD));
+log("meta_tree: hash mismatch b pba ", local_req.pba);
+uint64_t *blk_ptr { (uint64_t *)channel._blk_io_data };
+uint8_t got_hash[HASH_SIZE];
+sha256_4k_hash((void *)blk_ptr, (void *)got_hash);
+uint64_t *got_hash_ptr { (uint64_t *)got_hash };
+uint8_t exp_hash[HASH_SIZE];
+memcpy((void *)exp_hash, (void *)t2_info.node.hash, HASH_SIZE);
+uint64_t *exp_hash_ptr { (uint64_t *)exp_hash };
+log("  exp hash: ",
+	Hex(exp_hash_ptr[0], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(exp_hash_ptr[1], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(exp_hash_ptr[2], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(exp_hash_ptr[3], Hex::OMIT_PREFIX, Hex::PAD));
+log("  got hash: ",
+	Hex(got_hash_ptr[0], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(got_hash_ptr[1], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(got_hash_ptr[2], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(got_hash_ptr[3], Hex::OMIT_PREFIX, Hex::PAD));
+log("  data: ",
+	Hex(blk_ptr[0], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(blk_ptr[1], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(blk_ptr[2], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(blk_ptr[3], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(blk_ptr[4], Hex::OMIT_PREFIX, Hex::PAD), " ",
+	Hex(blk_ptr[5], Hex::OMIT_PREFIX, Hex::PAD));
+
 				channel._state = Channel::TREE_HASH_MISMATCH;
 
 			} else {
@@ -311,7 +341,7 @@ void Meta_tree::_update_parent(Type_1_node   &node,
                                uint64_t       gen,
                                uint64_t       pba)
 {
-	sha256_4k_hash((void *)blk_ptr, (void *)&node.hash);
+	sha256_4k_hash((void *)blk_ptr, (void *)node.hash);
 	node.gen = gen;
 	node.pba = pba;
 }
@@ -334,6 +364,10 @@ void Meta_tree::_exchange_nv_inner_nodes(Channel     &channel,
 			pba = t1_info.node.pba;
 			t1_info.node.pba = t2_entry.pba;
 			t1_info.node.gen = req._current_gen;
+
+uint8_t exp_hash[HASH_SIZE];
+memcpy((void *)exp_hash, (void *)t1_info.node.hash, HASH_SIZE);
+log("meta_tree: exchange_nv_inner_nodes node ptr ", &t1_info.node, " pba ", (uint64_t)t1_info.node.pba, " gen ", (uint64_t)t1_info.node.gen, " hash ", Hex(*(uint64_t *)exp_hash));
 			t1_info.volatil  = true;
 
 			t2_entry.pba       = pba;
@@ -469,6 +503,11 @@ void Meta_tree::_handle_level_1_node(Channel &channel,
 		_update_parent(
 			t1_info.entries.nodes[t1_info.index], block_data, req._current_gen,
 			t2_info.node.pba);
+
+Type_1_node &exp_node { t1_info.entries.nodes[t1_info.index] };
+uint8_t exp_hash[HASH_SIZE];
+memcpy((void *)exp_hash, (void *)exp_node.hash, HASH_SIZE);
+log("meta_tree: update_parent 1 node ptr ", &exp_node, " pba ", (uint64_t)exp_node.pba, " gen ", (uint64_t)exp_node.gen, " hash ", Hex(*(uint64_t *)exp_hash));
 
 		channel._cache_request = Local_cache_request {
 			Local_cache_request::PENDING, Local_cache_request::WRITE, false,
@@ -657,15 +696,13 @@ void Meta_tree::_handle_level_n_nodes(Channel &channel,
 			handled = true;
 			return;
 
-//----------- bis hierher zweiter abgleich mit ada durch ------------------------
-
 		case Type_1_info::READ_COMPLETE:
 
 			if (t1_info.index < req._mt_edges &&
 				t1_info.entries.nodes[t1_info.index].valid() &&
 				!channel._finished) {
 
-				if (lvl > LOWEST_T1_NODE_LVL) {
+				if (lvl != LOWEST_T1_NODE_LVL) {
 					channel._level_n_nodes[lvl - 1] = {
 						Type_1_info::READ, t1_info.entries.nodes[t1_info.index],
 						{ }, 0, false,
@@ -693,6 +730,11 @@ void Meta_tree::_handle_level_n_nodes(Channel &channel,
 			uint8_t block_data[BLOCK_SIZE];
 			memcpy(&block_data, &t1_info.entries, BLOCK_SIZE);
 
+
+uint8_t hash_1[HASH_SIZE];
+sha256_4k_hash((void *)block_data, (void *)hash_1);
+log("meta_tree: update_parent 7 ", Hex(*(uint64_t *)hash_1));
+
 			if (lvl == req._mt_max_lvl) {
 
 				Type_1_node root_node { };
@@ -710,18 +752,30 @@ void Meta_tree::_handle_level_n_nodes(Channel &channel,
 				memcpy((uint8_t *)req._mt_root_hash_ptr, &root_node.hash,
 				       HASH_SIZE);
 
+uint8_t exp_hash[HASH_SIZE];
+memcpy((void *)exp_hash, (void *)req._mt_root_hash_ptr, HASH_SIZE);
+log("meta_tree: update_parent 2 node ptr <mt_root> pba ", *(uint64_t *)req._mt_root_pba_ptr, " gen ", *(uint64_t *)req._mt_root_gen_ptr, " hash ", Hex(*(uint64_t *)exp_hash), " data ", Hex(*(uint64_t *)block_data, Hex::OMIT_PREFIX, Hex::PAD));
+
 				channel._root_dirty = true;
 
 			} else {
 
-				Type_1_info parent { channel._level_n_nodes[lvl + 1] };
+				Type_1_info &parent { channel._level_n_nodes[lvl + 1] };
 				_update_parent(
 					parent.entries.nodes[parent.index], block_data,
 					req._current_gen, t1_info.node.pba);
 
+Type_1_node &exp_node { parent.entries.nodes[parent.index] };
+uint8_t exp_hash[HASH_SIZE];
+memcpy((void *)exp_hash, (void *)exp_node.hash, HASH_SIZE);
+log("meta_tree: update_parent 3 node ptr ", &exp_node, " pba ", (uint64_t)exp_node.pba, " gen ", (uint64_t)exp_node.gen, " hash ", Hex(*(uint64_t *)exp_hash));
+
 				parent.dirty = true;
 			}
 
+uint8_t hash_2[HASH_SIZE];
+sha256_4k_hash((void *)block_data, (void *)hash_2);
+log("meta_tree: update_parent 8 ", Hex(*(uint64_t *)hash_1));
 			channel._cache_request = Local_cache_request {
 				Local_cache_request::PENDING, Local_cache_request::WRITE,
 				false, t1_info.node.pba, lvl, block_data };

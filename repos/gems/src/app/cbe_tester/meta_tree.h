@@ -19,6 +19,7 @@
 
 /* cbe tester includes */
 #include <module.h>
+#include <sha256_4k_hash.h>
 
 namespace Cbe
 {
@@ -47,8 +48,8 @@ class Cbe::Meta_tree_request : public Module_request
 		Genode::uint64_t _mt_edges            { 0 };
 		Genode::uint64_t _mt_leaves           { 0 };
 		Genode::uint64_t _current_gen         { 0 };
-		Genode::uint64_t _old_pba             { 0 };
-		Genode::uint64_t _new_pba             { 0 };
+		Genode::uint64_t _old_pba             { INVALID_PBA };
+		Genode::uint64_t _new_pba             { INVALID_PBA };
 		bool             _success             { false };
 
 	public:
@@ -132,6 +133,10 @@ class Cbe::Meta_tree_channel
 				level   { level }
 			{
 				if (blk_ptr != nullptr) {
+
+uint8_t hash_3[HASH_SIZE];
+sha256_4k_hash((void *)blk_ptr, (void *)hash_3);
+log("meta_tree: set cache req hash ", Hex(*(uint64_t *)hash_3));
 					Genode::memcpy(&block_data, blk_ptr, BLOCK_SIZE);
 				}
 			}
