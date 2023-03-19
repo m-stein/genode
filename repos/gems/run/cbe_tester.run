@@ -183,7 +183,7 @@ append config {
 				</initialize>
 				<check/>
 				<construct/>
-<!--
+
 				<log string="Step 2: test synchronous write, read"/>
 
 				<request op="write" vba="1"   count="1"   sync="yes" salt="1234"/>
@@ -192,7 +192,7 @@ append config {
 				<request op="read"  vba="12"  count="10"  sync="yes"/>
 				<request op="write" vba="24"  count="40" sync="yes"/>
 				<request op="read"  vba="24"  count="40" sync="yes"/>
--->
+
 				<log string="Step 3: test synchronous write, read, compare"/>
 
 				<request op="write" vba="9"  count="1"  sync="yes" salt="4321"/>

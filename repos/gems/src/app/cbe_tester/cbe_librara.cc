@@ -12,62 +12,17 @@
  */
 
 /* local includes */
-#include <crypto.h>
-#include <trust_anchor.h>
-#include <block_io.h>
-#include <meta_tree.h>
-#include <free_tree.h>
-#include <virtual_block_device.h>
+#include <superblock_control.h>
 #include <cbe_librara.h>
 
 
 void Cbe::Librara::_drop_generated_request(Module_request &mod_req)
 {
 	switch (mod_req.dst_module_id()) {
-	case CRYPTO:
+	case SUPERBLOCK_CONTROL:
 	{
-		Crypto_request &req {
-			*dynamic_cast<Crypto_request *>(&mod_req) };
-
-		_lib.librara__drop_generated_request(req.prim_ptr());
-		break;
-	}
-	case TRUST_ANCHOR:
-	{
-		Trust_anchor_request &req {
-			*dynamic_cast<Trust_anchor_request *>(&mod_req) };
-
-		_lib.librara__drop_generated_request(req.prim_ptr());
-		break;
-	}
-	case BLOCK_IO:
-	{
-		Block_io_request &req {
-			*dynamic_cast<Block_io_request *>(&mod_req) };
-
-		_lib.librara__drop_generated_request(req.prim_ptr());
-		break;
-	}
-	case META_TREE:
-	{
-		Meta_tree_request &req {
-			*dynamic_cast<Meta_tree_request *>(&mod_req) };
-
-		_lib.librara__drop_generated_request(req.prim_ptr());
-		break;
-	}
-	case FREE_TREE:
-	{
-		Free_tree_request &req {
-			*dynamic_cast<Free_tree_request *>(&mod_req) };
-
-		_lib.librara__drop_generated_request(req.prim_ptr());
-		break;
-	}
-	case VIRTUAL_BLOCK_DEVICE:
-	{
-		Virtual_block_device_request &req {
-			*dynamic_cast<Virtual_block_device_request *>(&mod_req) };
+		Superblock_control_request &req {
+			*dynamic_cast<Superblock_control_request *>(&mod_req) };
 
 		_lib.librara__drop_generated_request(req.prim_ptr());
 		break;
@@ -82,70 +37,13 @@ void Cbe::Librara::_drop_generated_request(Module_request &mod_req)
 void Cbe::Librara::generated_request_complete(Module_request &mod_req)
 {
 	switch (mod_req.dst_module_id()) {
-	case CRYPTO:
+	case SUPERBLOCK_CONTROL:
 	{
-		Crypto_request &req {
-			*dynamic_cast<Crypto_request *>(&mod_req) };
+		Superblock_control_request &req {
+			*dynamic_cast<Superblock_control_request *>(&mod_req) };
 
 		_lib.librara__generated_request_complete(
-			req.prim_ptr(), req.result_blk_ptr(), nullptr, nullptr, nullptr,
-			nullptr, 0, req.success());
-
-		break;
-	}
-	case TRUST_ANCHOR:
-	{
-		Trust_anchor_request &req {
-			*dynamic_cast<Trust_anchor_request *>(&mod_req) };
-
-		_lib.librara__generated_request_complete(
-			req.prim_ptr(), nullptr, req.key_plaintext_ptr(),
-			req.key_ciphertext_ptr(), req.hash_ptr(), nullptr,
-			0, req.success());
-
-		break;
-	}
-	case BLOCK_IO:
-	{
-		Block_io_request &req {
-			*dynamic_cast<Block_io_request *>(&mod_req) };
-
-		_lib.librara__generated_request_complete(
-			req.prim_ptr(), nullptr, nullptr, nullptr, req.hash_ptr(), nullptr,
-			0, req.success());
-
-		break;
-	}
-	case META_TREE:
-	{
-		Meta_tree_request &req {
-			*dynamic_cast<Meta_tree_request *>(&mod_req) };
-
-		_lib.librara__generated_request_complete(
-			req.prim_ptr(), nullptr, nullptr, nullptr, nullptr, nullptr,
-			req.new_pba(), req.success());
-
-		break;
-	}
-	case FREE_TREE:
-	{
-		Free_tree_request &req {
-			*dynamic_cast<Free_tree_request *>(&mod_req) };
-
-		_lib.librara__generated_request_complete(
-			req.prim_ptr(), nullptr, nullptr, nullptr, nullptr, nullptr, 0,
-			req.success());
-
-		break;
-	}
-	case VIRTUAL_BLOCK_DEVICE:
-	{
-		Virtual_block_device_request &req {
-			*dynamic_cast<Virtual_block_device_request *>(&mod_req) };
-
-		_lib.librara__generated_request_complete(
-			req.prim_ptr(), nullptr, nullptr, nullptr, nullptr,
-			req.snapshot_ptr(), 0, req.success());
+			req.prim_ptr(), req.sb_state(), req.success());
 
 		break;
 	}

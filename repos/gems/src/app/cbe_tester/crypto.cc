@@ -24,9 +24,9 @@ using namespace Cbe;
 enum { VERBOSE_CRYPTO = 0 };
 
 
-/*************************
+/********************
  ** Crypto_request **
- *************************/
+ ********************/
 
 void Crypto_request::create(void     *buf_ptr,
                             size_t    buf_size,
@@ -111,9 +111,9 @@ char const *Crypto_request::type_name()
 }
 
 
-/*****************
+/************
  ** Crypto **
- *****************/
+ ************/
 
 bool Crypto::_peek_generated_request(uint8_t *buf_ptr,
                                      size_t   buf_size)

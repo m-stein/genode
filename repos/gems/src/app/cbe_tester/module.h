@@ -33,7 +33,8 @@ namespace Cbe {
 		CACHE                = 7,
 		META_TREE            = 8,
 		FREE_TREE            = 9,
-		VIRTUAL_BLOCK_DEVICE = 10
+		VIRTUAL_BLOCK_DEVICE = 10,
+		SUPERBLOCK_CONTROL   = 11,
 	};
 
 	char const *module_name(unsigned long module_id);

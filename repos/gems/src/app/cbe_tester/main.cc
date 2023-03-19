@@ -36,6 +36,7 @@
 #include <meta_tree.h>
 #include <free_tree.h>
 #include <virtual_block_device.h>
+#include <superblock_control.h>
 
 using namespace Genode;
 using namespace Cbe;
@@ -54,6 +55,7 @@ namespace Cbe {
 		case META_TREE: return "meta_tree";
 		case FREE_TREE: return "free_tree";
 		case VIRTUAL_BLOCK_DEVICE: return "vbd";
+		case SUPERBLOCK_CONTROL: return "sb_control";
 		case CLIENT_DATA: return "client_data";
 		case TRUST_ANCHOR: return "trust_anchor";
 		case COMMAND_POOL: return "command_pool";
@@ -1002,7 +1004,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 {
 	private:
 
-		enum { NR_OF_MODULES = 11 };
+		enum { NR_OF_MODULES = 12 };
 
 		Genode::Env                        &_env;
 		Attached_rom_dataspace              _config_rom                 { _env, "config" };
@@ -1015,6 +1017,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 		Constructible<Free_tree>            _free_tree                  { };
 		Constructible<Virtual_block_device> _vbd                        { };
 		Constructible<Cbe::Librara>         _cbe_librara                { };
+		Constructible<Superblock_control>   _sb_control                 { };
 		Cbe_init::Library                   _cbe_init                   { };
 		Benchmark                           _benchmark                  { _env };
 		Meta_tree                           _meta_tree                  { };
@@ -1042,6 +1045,9 @@ class Main : Vfs::Env::User, public Cbe::Module
 			_vbd.construct();
 			_modules_add(VIRTUAL_BLOCK_DEVICE, *_vbd);
 
+			_sb_control.construct();
+			_modules_add(SUPERBLOCK_CONTROL, *_sb_control);
+
 			_cbe_librara.construct(*_cbe);
 			_modules_add(CBE_LIBRARA, *_cbe_librara);
 		}
@@ -1050,6 +1056,9 @@ class Main : Vfs::Env::User, public Cbe::Module
 		{
 			_modules_remove(CBE_LIBRARA);
 			_cbe_librara.destruct();
+
+			_modules_remove(SUPERBLOCK_CONTROL);
+			_sb_control.destruct();
 
 			_modules_remove(VIRTUAL_BLOCK_DEVICE);
 			_vbd.destruct();
@@ -1432,7 +1441,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 			}
 		}
 
-		enum { VERBOSE_MODULE_COMMUNICATION = 0 };
+		enum { VERBOSE_MODULE_COMMUNICATION = 1 };
 
 		void _modules_add(unsigned long  module_id,
 		                  Module        &module)
@@ -1472,8 +1481,8 @@ class Main : Vfs::Env::User, public Cbe::Module
 				module_ptr->execute(progress);
 				module_ptr->for_each_generated_request([&] (Module_request &req) {
 					if (req.dst_module_id() >= NR_OF_MODULES) {
-						class Bad_dst_module { };
-						throw Bad_dst_module { };
+						class Exception_1 { };
+						throw Exception_1 { };
 					}
 					Module &dst_module { *_module_ptrs[req.dst_module_id()] };
 					if (!dst_module.ready_to_submit_request()) {
@@ -1500,8 +1509,8 @@ class Main : Vfs::Env::User, public Cbe::Module
 				});
 				module_ptr->for_each_completed_request([&] (Module_request &req) {
 					if (req.src_module_id() >= NR_OF_MODULES) {
-						class Bad_src_module { };
-						throw Bad_src_module { };
+						class Exception_2 { };
+						throw Exception_2 { };
 					}
 					if (VERBOSE_MODULE_COMMUNICATION)
 						Genode::log(
