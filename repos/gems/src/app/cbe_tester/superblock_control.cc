@@ -905,7 +905,146 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 bool Superblock_control::_peek_generated_request(uint8_t *,
                                                  size_t   )
 {
-	
+	for (unsigned idx = 0; idx < NR_OF_CHANNELS; idx++) {
+		Channel &chan { _channels[idx] };
+		Request &req { chan._request };
+		if (req._type == Request::INVALID)
+			continue;
+
+		switch (chan._state) {
+		case Channel::CREATE_KEY_PENDING:
+		case Channel::ENCRYPT_CURRENT_KEY_PENDING:
+		case Channel::ENCRYPT_PREVIOUS_KEY_PENDING:
+		case Channel::DECRYPT_CURRENT_KEY_PENDING:
+		case Channel::DECRYPT_PREVIOUS_KEY_PENDING:
+		case Channel::SECURE_SB_PENDING:
+		case Channel::LAST_SB_HASH_PENDING:
+
+			return ta prim via generated prim
+
+		case Channel::ADD_KEY_AT_CRYPTO_MODULE_PENDING:
+
+			Crypto_request::create(
+				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
+				Crypto_request::ADD_KEY, 0, 0, nullptr, 0,
+				chan._key_plaintext.id, &chan._key_plaintext.value,
+				0, 0, nullptr, nullptr);
+
+			return 1;
+
+		case Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_PENDING:
+
+			Crypto_request::create(
+				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
+				Crypto_request::ADD_KEY, 0, 0, nullptr, 0,
+				chan._curr_key_plaintext.id, &chan._curr_key_plaintext.value,
+				0, 0, nullptr, nullptr);
+
+			return 1;
+
+		case Channel::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_PENDING:
+
+			Crypto_request::create(
+				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
+				Crypto_request::ADD_KEY, 0, 0, nullptr, 0,
+				chan._prev_key_plaintext.id, &chan._prev_key_plaintext.value,
+				0, 0, nullptr, nullptr);
+
+			return 1;
+
+		case Channel::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_PENDING:
+
+			Crypto_request::create(
+				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
+				Crypto_request::REMOVE_KEY, 0, 0, nullptr, 0,
+				chan._prev_key_plaintext.id, &chan._prev_key_plaintext.value,
+				0, 0, nullptr, nullptr);
+
+			return 1;
+
+		case Channel::REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_PENDING:
+
+			Crypto_request::create(
+				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
+				Crypto_request::REMOVE_KEY, 0, 0, nullptr, 0,
+				chan._curr_key_plaintext.id, &chan._curr_key_plaintext.value,
+				0, 0, nullptr, nullptr);
+
+			return 1;
+
+		case Channel::READ_VBA_AT_VBD_PENDING:
+
+			Virtual_block_device_request::create(
+				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
+				Virtual_block_device_request::READ_VBA, nullptr, 0,
+				req._client_req_offset, req._client_req_tag,
+				_superblock.last_secure_generation,
+				&_superblock.free_number,
+				&_superblock.free_gen,
+				&_superblock.free_hash,
+				_superblock.free_max_level,
+				_superblock.free_degree,
+				_superblock.free_leaves,
+				&_superblock.meta_number,
+				&_superblock.meta_gen,
+				&_superblock.meta_hash,
+				_superblock.meta_max_level,
+				_superblock.meta_degree,
+				_superblock.meta_leaves,
+				_superblock.degree,
+				_max_vba(),
+				_superblock.state == REKEYING ? 1 : 0,
+				req._vba,
+				&_superblock.snapshots.items[_superblock.curr_snap],
+				_superblock.degree,
+				_curr_gen,
+				chan._key_plaintext.id);
+
+			return 1;
+
+		case Channel::WRITE_VBA_AT_VBD_PENDING:
+
+			Virtual_block_device_request::create(
+				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
+				Virtual_block_device_request::READ_VBA, nullptr, 0,
+				req._client_req_offset, req._client_req_tag,
+				_superblock.last_secure_generation,
+				&_superblock.free_number,
+				&_superblock.free_gen,
+				&_superblock.free_hash,
+				_superblock.free_max_level,
+				_superblock.free_degree,
+				_superblock.free_leaves,
+				&_superblock.meta_number,
+				&_superblock.meta_gen,
+				&_superblock.meta_hash,
+				_superblock.meta_max_level,
+				_superblock.meta_degree,
+				_superblock.meta_leaves,
+				_superblock.degree,
+				_max_vba(),
+				_superblock.state == REKEYING ? 1 : 0,
+				req._vba,
+				&_superblock.snapshots.items[_superblock.curr_snap],
+				_superblock.degree,
+				_curr_gen,
+				chan._key_plaintext.id);
+
+			return 1;
+
+		case Channel::REKEY_VBA_IN_VBD_PENDING:
+		case Channel::VBD_EXT_STEP_IN_VBD_PENDING:
+		case Channel::FT_EXT_STEP_IN_FT_PENDING:
+
+			class Exception_1 { };
+			throw Exception_1 { };
+
+		default:
+
+			class Exception_1 { };
+			throw Exception_1 { };
+		}
+	}
 	return false;
 }
 
