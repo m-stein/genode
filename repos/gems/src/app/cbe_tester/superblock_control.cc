@@ -16,6 +16,7 @@
 
 /* cbe tester includes */
 #include <superblock_control.h>
+#include <sha256_4k_hash.h>
 
 using namespace Genode;
 using namespace Cbe;
@@ -77,6 +78,12 @@ char const *Superblock_control_request::type_name()
 	case SYNC: return "sync";
 	case INITIALIZE: return "initialize";
 	case DEINITIALIZE: return "deinitialize";
+	case VBD_EXTENSION_STEP: return "vbd_ext_step";
+	case FT_EXTENSION_STEP: return "ft_ext_step";
+	case CREATE_SNAPSHOT: return "create_snap";
+	case DISCARD_SNAPSHOT: return "discard_snap";
+	case INITIALIZE_REKEYING: return "init_rekeying";
+	case REKEY_VBA: return "rekey_vba";
 	}
 	return "?";
 }
@@ -86,9 +93,819 @@ char const *Superblock_control_request::type_name()
  ** Superblock_control **
  ************************/
 
+void Superblock_control::_execute_read_vba(Channel          &channel,
+                                           uint64_t   const job_idx,
+                                           Superblock const &sb,
+                                           bool             &progress)
+{
+	switch (channel._state) {
+	case Channel::State::SUBMITTED:
+		switch (sb.state) {
+		case Superblock_state::REKEYING: {
+			auto const vba = channel._request._vba;
+
+			if (vba < sb.rekeying_vba)
+				channel._curr_key_plaintext.id = sb.current_key.id;
+			else
+				channel._curr_key_plaintext.id = sb.previous_key.id;
+
+			break;
+		}
+		case Superblock_state::NORMAL:
+		case Superblock_state::EXTENDING_FT:
+		case Superblock_state::EXTENDING_VBD:
+			channel._curr_key_plaintext.id = sb.current_key.id;
+			break;
+		case Superblock_state::INVALID:
+			class Superblock_not_valid { };
+			throw Superblock_not_valid { };
+
+			break;
+		}
+
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::READ,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_VBD_RKG_READ_VBA,
+			.blk_nr = channel._request._vba,
+			.idx    = job_idx
+		};
+
+		channel._state = Channel::State::READ_VBA_AT_VBD_PENDING;
+		progress = true;
+
+		break;
+	case Channel::State::READ_VBA_AT_VBD_COMPLETED:
+		channel._request._success = channel._generated_prim.succ;
+		channel._state = Channel::State::COMPLETED;
+		progress = true;
+
+		break;
+	default:
+		break;
+	}
+}
+
+
+void Superblock_control::_execute_write_vba(Channel         &channel,
+                                            uint64_t   const job_idx,
+                                            Superblock       &sb,
+                                            Generation const &curr_gen,
+                                            bool             &progress)
+{
+	switch (channel._state) {
+	case Channel::State::SUBMITTED:
+		switch (sb.state) {
+		case Superblock_state::REKEYING: {
+			auto const vba = channel._request._vba;
+
+			if (vba < sb.rekeying_vba)
+				channel._curr_key_plaintext.id = sb.current_key.id;
+			else
+				channel._curr_key_plaintext.id = sb.previous_key.id;
+
+			break;
+		}
+		case Superblock_state::NORMAL:
+		case Superblock_state::EXTENDING_FT:
+		case Superblock_state::EXTENDING_VBD:
+			channel._curr_key_plaintext.id = sb.current_key.id;
+
+			break;
+		case Superblock_state::INVALID:
+			class Superblock_not_valid_write { };
+			throw Superblock_not_valid_write { };
+
+			break;
+		}
+
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::WRITE,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_VBD_RKG_WRITE_VBA,
+			.blk_nr = channel._request._vba,
+			.idx    = job_idx
+		};
+
+		channel._state = Channel::State::WRITE_VBA_AT_VBD_PENDING;
+		progress = true;
+
+		break;
+	case Channel::State::WRITE_VBA_AT_VBD_COMPLETED:
+		if (sb.snapshots.items[sb.curr_snap].gen < curr_gen) {
+
+			sb.curr_snap = idx_of_invalid_or_lowest_gen_evictable_snap(sb.snapshots, curr_gen, sb.last_secured_generation);
+
+			sb.snapshots.items[sb.curr_snap] = channel._snapshots.items[0];
+			sb.snapshots.items[sb.curr_snap].keep = false;
+		} else if (sb.snapshots.items[sb.curr_snap].gen == curr_gen) {
+			sb.snapshots.items[sb.curr_snap] = channel._snapshots.items[0];
+		} else {
+			class Superblock_write_vba_at_vbd { };
+			throw Superblock_write_vba_at_vbd { };
+		}
+
+		channel._request._success = channel._generated_prim.succ;
+		channel._state = Channel::State::COMPLETED;
+		progress = true;
+
+		break;
+	default:
+		break;
+	}
+}
+
+
+void Superblock_control::_discard_disposable_snapshots(Snapshots &snapshots,
+                                                       Generation const curr_gen,
+                                                       Generation const last_secured_gen)
+{
+	for (auto &snapshot : snapshots.items)
+	{
+		if (snapshot.valid and not snapshot.keep and
+		    snapshot.gen != curr_gen and snapshot.gen != last_secured_gen)
+			snapshot.valid = false;
+	}
+}
+
+
+void Superblock_control::_init_sb_without_key_values(Superblock const &sb_in,
+                                                     Superblock       &sb_out)
+{
+	sb_out.state                   = sb_in.state;
+	sb_out.rekeying_vba            = sb_in.rekeying_vba;
+	sb_out.resizing_nr_of_pbas     = sb_in.resizing_nr_of_pbas;
+	sb_out.resizing_nr_of_leaves   = sb_in.resizing_nr_of_leaves;
+	sb_out.first_pba               = sb_in.first_pba;
+	sb_out.nr_of_pbas              = sb_in.nr_of_pbas;
+	memset(&sb_out.previous_key.value, 0, sizeof(sb_out.previous_key.value));
+	sb_out.previous_key.id         = sb_in.previous_key.id;
+	memset(&sb_out.current_key.value,  0, sizeof(sb_out.current_key.value));
+	sb_out.current_key.id          = sb_in.current_key.id;
+	sb_out.snapshots               = sb_in.snapshots;
+	sb_out.last_secured_generation = sb_in.last_secured_generation;
+	sb_out.curr_snap               = sb_in.curr_snap;
+	sb_out.degree                  = sb_in.degree;
+	sb_out.free_gen                = sb_in.free_gen;
+	sb_out.free_number             = sb_in.free_number;
+	sb_out.free_hash               = sb_in.free_hash;
+	sb_out.free_max_level          = sb_in.free_max_level;
+	sb_out.free_degree             = sb_in.free_degree;
+	sb_out.free_leaves             = sb_in.free_leaves;
+	sb_out.meta_gen                = sb_in.meta_gen;
+	sb_out.meta_number             = sb_in.meta_number;
+	sb_out.meta_hash               = sb_in.meta_hash;
+	sb_out.meta_max_level          = sb_in.meta_max_level;
+	sb_out.meta_degree             = sb_in.meta_degree;
+	sb_out.meta_leaves             = sb_in.meta_leaves;
+}
+
+
+void Superblock_control::_execute_sync(Channel           &channel,
+                                       uint64_t   const   job_idx,
+                                       Superblock        &sb,
+                                       Superblocks_index &sb_idx,
+                                       Generation        &curr_gen,
+                                       bool              &progress)
+{
+	switch (channel._state) {
+	case Channel::State::SUBMITTED:
+
+		_discard_disposable_snapshots(sb.snapshots, sb.last_secured_generation,
+		                              curr_gen);
+
+		sb.last_secured_generation = curr_gen;
+		sb.snapshots.items[sb.curr_snap].gen = curr_gen;
+
+		_init_sb_without_key_values(sb, channel._sb_ciphertext);
+
+		channel._key_plaintext = sb.current_key;
+
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::READ,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_TA_ENCRYPT_KEY,
+			.blk_nr = 0,
+			.idx    = job_idx
+		};
+
+		channel._state = Channel::State::ENCRYPT_CURRENT_KEY_PENDING;
+		progress = true;
+
+		break;
+	case Channel::State::ENCRYPT_CURRENT_KEY_COMPLETED:
+		if (not channel._generated_prim.succ) {
+			class Encrypt_current_key_error { };
+			throw Encrypt_current_key_error { };
+		}
+
+		switch (sb.state) {
+		case Superblock_state::REKEYING:
+
+			channel._key_plaintext = sb.previous_key;
+
+			channel._generated_prim = {
+				.op     = Channel::Generated_prim::Type::READ,
+				.succ   = false,
+				.tg     = Channel::Tag_type::TAG_SB_CTRL_TA_ENCRYPT_KEY,
+				.blk_nr = 0,
+				.idx    = job_idx
+			};
+
+			channel._state = Channel::State::ENCRYPT_PREVIOUS_KEY_PENDING;
+			progress = true;
+
+			break;
+		default:
+
+			channel._generated_prim = {
+				.op     = Channel::Generated_prim::Type::SYNC,
+				.succ   = false,
+				.tg     = Channel::Tag_type::TAG_SB_CTRL_CACHE,
+				.blk_nr = 0,
+				.idx    = job_idx
+			};
+
+			channel._state = Channel::State::SYNC_CACHE_PENDING;
+			progress = true;
+
+			break;
+		}
+
+		break;
+	case Channel::State::ENCRYPT_PREVIOUS_KEY_COMPLETED:
+		if (not channel._generated_prim.succ) {
+			class Encrypt_previous_key_error { };
+			throw Encrypt_previous_key_error { };
+		}
+
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::SYNC,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_CACHE,
+			.blk_nr = 0,
+			.idx    = job_idx
+		};
+
+		channel._state = Channel::State::SYNC_CACHE_PENDING;
+		progress = true;
+
+		break;
+	case Channel::State::SYNC_CACHE_COMPLETED:
+		if (not channel._generated_prim.succ) {
+			class Sync_cache_error { };
+			throw Sync_cache_error { };
+		}
+
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::WRITE,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_BLK_IO_WRITE_SB,
+			.blk_nr = sb_idx,
+			.idx    = job_idx
+		};
+
+		channel._state = Channel::State::WRITE_SB_PENDING;
+		progress = true;
+
+		break;
+	case Channel::State::WRITE_SB_COMPLETED:
+		if (not channel._generated_prim.succ) {
+			class Write_sb_completed_error { };
+			throw Write_sb_completed_error { };
+		}
+
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::SYNC,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_BLK_IO_SYNC,
+			.blk_nr = sb_idx,
+			.idx    = job_idx
+		};
+
+		channel._state = Channel::State::SYNC_BLK_IO_PENDING;
+		progress = true;
+
+		break;
+	case Channel::State::SYNC_BLK_IO_COMPLETED:
+		if (not channel._generated_prim.succ) {
+			class Sync_blk_io_completed_error { };
+			throw Sync_blk_io_completed_error { };
+		}
+
+		calc_sha256_4k_hash(&channel._sb_ciphertext, channel._hash.bytes);
+
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::READ,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_TA_SECURE_SB,
+			.blk_nr = 0,
+			.idx    = job_idx
+		};
+
+		channel._state = Channel::State::SECURE_SB_PENDING;
+
+		if (sb_idx < MAX_SUPERBLOCK_INDEX)
+            sb_idx = sb_idx + 1;
+		else
+			sb_idx = 0;
+
+		channel._generation = curr_gen;
+		curr_gen = curr_gen + 1;
+
+		progress = true;
+
+		break;
+	case Channel::State::SECURE_SB_COMPLETED:
+		if (not channel._generated_prim.succ) {
+			class Secure_sb_completed_error { };
+			throw Secure_sb_completed_error { };
+		}
+
+		sb.last_secured_generation = channel._generation;
+
+		channel._request._success = true;
+		channel._state = Channel::State::COMPLETED;
+		progress = true;
+		break;
+	default:
+		break;
+	}
+}
+
+
+void Superblock_control::_execute_initialize(Channel           &channel,
+                                             uint64_t const     job_idx,
+                                             Superblock        &sb,
+                                             Superblocks_index &sb_idx,
+                                             Generation        &curr_gen,
+                                             bool              &progress)
+{
+	switch (channel._state) {
+	case Channel::State::SUBMITTED:
+		channel._sb_found = false;
+
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::READ,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_TA_LAST_SB_HASH,
+			.blk_nr = 0,
+			.idx    = job_idx
+		};
+
+		channel._state = Channel::State::LAST_SB_HASH_PENDING;
+		progress = true;
+
+		break;
+	case Channel::State::LAST_SB_HASH_COMPLETED:
+		channel._read_sb_idx = 0;
+
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::READ,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_BLK_IO_READ_SB,
+			.blk_nr = channel._read_sb_idx,
+			.idx    = job_idx
+		};
+
+		channel._state = Channel::State::READ_SB_PENDING;
+		progress = true;
+
+		break;
+	case Channel::State::READ_SB_COMPLETED:
+		if (not channel._generated_prim.succ) {
+			class Execute_initialize_error { };
+			throw Execute_initialize_error { };
+		}
+
+		if (channel._sb_ciphertext.state != Superblock_state::INVALID) {
+
+			auto const &cipher       = channel._sb_ciphertext;
+			auto const snap_index    = newest_snapshot_idx(cipher.snapshots);
+			auto const sb_generation = cipher.snapshots.items[snap_index].gen;
+
+			if (check_sha256_4k_hash(&cipher, channel._hash.bytes)) {
+				channel._generation = sb_generation;
+				channel._sb_idx     = channel._read_sb_idx;
+				channel._sb_found   = true;
+			}
+		}
+
+		if (channel._read_sb_idx < MAX_SUPERBLOCK_INDEX) {
+			channel._read_sb_idx = channel._read_sb_idx + 1;
+
+			channel._generated_prim = {
+				.op     = Channel::Generated_prim::Type::READ,
+				.succ   = false,
+				.tg     = Channel::Tag_type::TAG_SB_CTRL_BLK_IO_READ_SB,
+				.blk_nr = channel._read_sb_idx,
+				.idx    = job_idx
+			};
+
+			channel._state = Channel::State::READ_SB_PENDING;
+			progress       = true;
+		} else {
+			if (not channel._sb_found) {
+				class Execute_initialize_sb_found_error { };
+				throw Execute_initialize_sb_found_error { };
+			}
+
+			channel._generated_prim = {
+				.op     = Channel::Generated_prim::Type::READ,
+				.succ   = false,
+				.tg     = Channel::Tag_type::TAG_SB_CTRL_BLK_IO_READ_SB,
+				.blk_nr = channel._sb_idx,
+				.idx    = job_idx
+			};
+
+			channel._state = Channel::State::READ_CURRENT_SB_PENDING;
+			progress       = true;
+		}
+
+		break;
+	case Channel::State::READ_CURRENT_SB_COMPLETED:
+		if (not channel._generated_prim.succ) {
+			class Execute_initialize_read_current_sb_error { };
+			throw Execute_initialize_read_current_sb_error { };
+		}
+
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::READ,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_TA_DECRYPT_KEY,
+			.blk_nr = 0,
+			.idx    = job_idx
+		};
+
+		channel._state = Channel::State::DECRYPT_CURRENT_KEY_PENDING;
+		progress       = true;
+
+		break;
+	case Channel::State::DECRYPT_CURRENT_KEY_COMPLETED:
+		if (not channel._generated_prim.succ) {
+			class Execute_initialize_decrypt_current_key_error { };
+			throw Execute_initialize_decrypt_current_key_error { };
+		}
+
+		channel._curr_key_plaintext.id = channel._sb_ciphertext.current_key.id;
+
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::READ,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_CRYPTO_ADD_KEY,
+			.blk_nr = 0,
+			.idx    = job_idx
+		};
+
+		channel._state = Channel::State::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_PENDING;
+		progress       = true;
+
+		break;
+	case Channel::State::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_COMPLETED:
+		if (not channel._generated_prim.succ) {
+			class Execute_add_current_key_at_crypto_error { };
+			throw Execute_add_current_key_at_crypto_error { };
+		}
+
+		switch (channel._sb_ciphertext.state) {
+		case Superblock_state::INVALID:
+			class Execute_add_current_key_at_crypto_invalid_error { };
+			throw Execute_add_current_key_at_crypto_invalid_error { };
+
+			break;
+		case Superblock_state::REKEYING:
+
+			channel._generated_prim = {
+				.op     = Channel::Generated_prim::Type::READ,
+				.succ   = false,
+				.tg     = Channel::Tag_type::TAG_SB_CTRL_TA_DECRYPT_KEY,
+				.blk_nr = 0,
+				.idx    = job_idx
+			};
+
+			channel._state = Channel::State::DECRYPT_PREVIOUS_KEY_PENDING;
+			progress       = true;
+
+			break;
+		case Superblock_state::NORMAL:
+		case Superblock_state::EXTENDING_VBD:
+		case Superblock_state::EXTENDING_FT:
+
+			_init_sb_without_key_values(channel._sb_ciphertext, sb);
+
+			sb.current_key.value = channel._curr_key_plaintext.value;
+			sb_idx               = channel._sb_idx;
+			curr_gen             = channel._generation + 1;
+
+			sb_idx = channel._sb_idx;
+			curr_gen = channel._generation + 1;
+
+			if (sb.free_max_level < FREE_TREE_MIN_MAX_LEVEL) {
+				class Execute_add_current_key_at_crypto_max_level_error { };
+				throw Execute_add_current_key_at_crypto_max_level_error { };
+			}
+
+			channel._request._success = true;
+
+			channel._state = Channel::State::COMPLETED;
+			progress       = true;
+
+			break;
+		}
+
+		break;
+	case Channel::State::DECRYPT_PREVIOUS_KEY_COMPLETED:
+		if (not channel._generated_prim.succ) {
+			class Decrypt_previous_key_error { };
+			throw Decrypt_previous_key_error { };
+		}
+
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::READ,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_CRYPTO_ADD_KEY,
+			.blk_nr = 0,
+			.idx    = job_idx
+		};
+
+		channel._state = Channel::State::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_PENDING;
+		progress       = true;
+
+		break;
+	case Channel::State::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_COMPLETED:
+		if (not channel._generated_prim.succ) {
+			class Add_previous_key_at_crypto_module_error { };
+			throw Add_previous_key_at_crypto_module_error { };
+		}
+
+		_init_sb_without_key_values(channel._sb_ciphertext, sb);
+
+		sb.current_key.value  = channel._curr_key_plaintext.value;
+		sb.previous_key.value = channel._prev_key_plaintext.value;
+
+		sb_idx   = channel._sb_idx;
+		curr_gen = channel._generation + 1;
+
+		channel._request._success = true;
+
+		channel._state = Channel::State::COMPLETED;
+		progress       = true;
+
+		break;
+	default:
+		break;
+	}
+}
+
+
+void Superblock_control::_execute_deinitialize(Channel           &channel,
+                                               uint64_t const     job_idx,
+                                               Superblock        &sb,
+                                               Superblocks_index &sb_idx,
+                                               Generation        &curr_gen,
+                                               bool              &progress)
+{
+	switch (channel._state) {
+	case Channel::State::SUBMITTED:
+
+		_discard_disposable_snapshots(sb.snapshots, sb.last_secured_generation,
+		                              curr_gen);
+
+		sb.last_secured_generation           = curr_gen;
+		sb.snapshots.items[sb.curr_snap].gen = curr_gen;
+
+		_init_sb_without_key_values(sb, channel._sb_ciphertext);
+		channel._key_plaintext = sb.current_key;
+
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::READ,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_TA_ENCRYPT_KEY,
+			.blk_nr = 0,
+			.idx    = job_idx
+		};
+
+		channel._state = Channel::State::ENCRYPT_CURRENT_KEY_PENDING;
+		progress       = true;
+
+		break;
+	case Channel::State::ENCRYPT_CURRENT_KEY_COMPLETED:
+		if (not channel._generated_prim.succ) {
+			class Deinitialize_encrypt_current_key_error { };
+			throw Deinitialize_encrypt_current_key_error { };
+		}
+
+		switch (sb.state) {
+		case Superblock_state::REKEYING:
+			channel._key_plaintext = sb.previous_key;
+
+			channel._generated_prim = {
+				.op     = Channel::Generated_prim::Type::READ,
+				.succ   = false,
+				.tg     = Channel::Tag_type::TAG_SB_CTRL_TA_ENCRYPT_KEY,
+				.blk_nr = 0,
+				.idx    = job_idx
+			};
+
+			channel._state = Channel::State::ENCRYPT_PREVIOUS_KEY_PENDING;
+			progress       = true;
+
+			break;
+
+		default:
+			channel._generated_prim = {
+				.op     = Channel::Generated_prim::Type::SYNC,
+				.succ   = false,
+				.tg     = Channel::Tag_type::TAG_SB_CTRL_CACHE,
+				.blk_nr = 0,
+				.idx    = job_idx
+			};
+
+			channel._state = Channel::State::SYNC_CACHE_PENDING;
+			progress       = true;
+
+			break;
+		}
+
+		break;
+	case Channel::State::ENCRYPT_PREVIOUS_KEY_COMPLETED:
+
+		if (not channel._generated_prim.succ) {
+			class Deinitialize_encrypt_previous_key_error { };
+			throw Deinitialize_encrypt_previous_key_error { };
+		}
+
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::SYNC,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_CACHE,
+			.blk_nr = 0,
+			.idx    = job_idx
+		};
+
+		channel._state = Channel::State::SYNC_CACHE_PENDING;
+		progress       = true;
+
+		break;
+	case Channel::State::SYNC_CACHE_COMPLETED:
+
+		if (not channel._generated_prim.succ) {
+			class Deinitialize_sync_cache_error { };
+			throw Deinitialize_sync_cache_error { };
+		}
+
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::WRITE,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_BLK_IO_WRITE_SB,
+			.blk_nr = sb_idx,
+			.idx    = job_idx
+		};
+
+		channel._state = Channel::State::WRITE_SB_PENDING;
+		progress       = true;
+
+		break;
+	case Channel::State::WRITE_SB_COMPLETED:
+
+		if (not channel._generated_prim.succ) {
+			class Deinitialize_write_sb_error { };
+			throw Deinitialize_write_sb_error { };
+		}
+
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::SYNC,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_BLK_IO_SYNC,
+			.blk_nr = sb_idx,
+			.idx    = job_idx
+		};
+
+		channel._state = Channel::State::SYNC_BLK_IO_PENDING;
+		progress       = true;
+
+		break;
+	case Channel::State::SYNC_BLK_IO_COMPLETED:
+
+		if (not channel._generated_prim.succ) {
+			class Deinitialize_sync_blk_io_error { };
+			throw Deinitialize_sync_blk_io_error { };
+		}
+
+		calc_sha256_4k_hash(&channel._sb_ciphertext, channel._hash.bytes);
+
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::READ,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_TA_SECURE_SB,
+			.blk_nr = 0,
+			.idx    = job_idx
+		};
+
+		channel._state = Channel::State::SECURE_SB_PENDING;
+
+		if (sb_idx < MAX_SUPERBLOCK_INDEX)
+			sb_idx = sb_idx + 1;
+		else
+			sb_idx = 0;
+
+		channel._generation = curr_gen;
+		curr_gen = curr_gen + 1;
+
+		progress = true;
+
+		break;
+	case Channel::State::SECURE_SB_COMPLETED:
+
+		if (not channel._generated_prim.succ) {
+			class Deinitialize_secure_sb_error { };
+			throw Deinitialize_secure_sb_error { };
+		}
+
+		sb.last_secured_generation = channel._generation;
+
+		channel._request._success = true;
+
+		channel._curr_key_plaintext.id = sb.current_key.id;
+
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::READ,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_CRYPTO_REMOVE_KEY,
+			.blk_nr = 0,
+			.idx    = job_idx
+		};
+
+		channel._state = Channel::State::REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_PENDING;
+		progress       = true;
+
+		break;
+	case Channel::State::REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_COMPLETED:
+
+		if (not channel._generated_prim.succ) {
+			class Deinitialize_remove_current_key_error { };
+			throw Deinitialize_remove_current_key_error { };
+		}
+
+		switch (sb.state) {
+		default:
+			class Deinitialize_remove_current_key_invalid_error { };
+			throw Deinitialize_remove_current_key_invalid_error { };
+			break;
+		case Superblock_state::REKEYING:
+
+			channel._prev_key_plaintext.id = sb.previous_key.id;
+
+			channel._generated_prim = {
+				.op     = Channel::Generated_prim::Type::READ,
+				.succ   = false,
+				.tg     = Channel::Tag_type::TAG_SB_CTRL_CRYPTO_REMOVE_KEY,
+				.blk_nr = 0,
+				.idx    = job_idx
+			};
+
+			channel._state = Channel::State::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_PENDING;
+			progress       = true;
+
+			break;
+		case Superblock_state::NORMAL:
+		case Superblock_state::EXTENDING_VBD:
+		case Superblock_state::EXTENDING_FT:
+
+			channel._request._success = true;
+
+			channel._state = Channel::State::COMPLETED;
+			progress       = true;
+
+			break;
+		}
+
+		break;
+	case Channel::State::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_COMPLETED:
+
+		if (not channel._generated_prim.succ) {
+			class Deinitialize_remove_previous_key_error { };
+			throw Deinitialize_remove_previous_key_error { };
+		}
+
+		sb.state = Superblock_state::INVALID;
+
+		channel._request._success = true;
+
+		channel._state = Channel::State::COMPLETED;
+		progress       = true;
+
+		break;
+	default:
+		break;
+	}
+}
+
+
 bool Superblock_control::_peek_generated_request(uint8_t *,
                                                  size_t   )
 {
+	
 	return false;
 }
 
@@ -108,17 +925,68 @@ void Superblock_control::_drop_generated_request(Module_request &req)
 }
 
 
-void Superblock_control::execute(bool &)
+void Superblock_control::execute(bool &progress)
 {
-	for (Channel &channel : _channels) {
+	for (unsigned idx = 0; idx < NR_OF_CHANNELS; idx++) {
 
-		if (channel._state == Channel::INACTIVE)
-			continue;
+		Channel &channel = _channels[idx];
+		Request &request { channel._request };
 
-		switch (channel._request._type) {
-		default:
-			class Exception_1 { };
-			throw Exception_1 { };
+		switch (request._type) {
+		case Request::READ_VBA:
+			_execute_read_vba(channel, idx, _superblock, progress);
+
+			break;
+		case Request::WRITE_VBA:
+			_execute_write_vba(channel, idx, _superblock, _curr_gen, progress);
+
+			break;
+		case Request::SYNC:
+			_execute_sync(channel, idx, _superblock, _sb_idx, _curr_gen, progress);
+
+			break;
+		case Request::INITIALIZE_REKEYING:
+			class Superblock_control_initialize_rekeying { };
+			throw Superblock_control_initialize_rekeying { };
+
+			break;
+		case Request::REKEY_VBA:
+			class Superblock_control_rekey_vba { };
+			throw Superblock_control_rekey_vba { };
+
+			break;
+		case Request::VBD_EXTENSION_STEP:
+			class Superblock_control_vbd_extension_step { };
+			throw Superblock_control_vbd_extension_step { };
+
+			break;
+		case Request::FT_EXTENSION_STEP:
+			class Superblock_control_ft_extension_step { };
+			throw Superblock_control_ft_extension_step { };
+
+			break;
+		case Request::CREATE_SNAPSHOT:
+			class Superblock_control_create_snapshot { };
+			throw Superblock_control_create_snapshot { };
+
+			break;
+		case Request::DISCARD_SNAPSHOT:
+			class Superblock_control_discard_snapshot { };
+			throw Superblock_control_discard_snapshot { };
+
+			break;
+		case Request::INITIALIZE:
+			_execute_initialize(channel, idx, _superblock, _sb_idx, _curr_gen,
+			                    progress);
+
+			break;
+		case Request::DEINITIALIZE:
+			_execute_deinitialize (channel, idx, _superblock, _sb_idx,
+			                       _curr_gen, progress);
+
+			break;
+		case Request::INVALID:
+			break;
 		}
 	}
 }
@@ -143,7 +1011,9 @@ bool Superblock_control::_peek_completed_request(uint8_t *buf_ptr,
                                      size_t   buf_size)
 {
 	for (Channel &channel : _channels) {
-		if (channel._state == Channel::COMPLETE) {
+		if (channel._request._type != Request::INVALID &&
+		    channel._state == Channel::COMPLETED) {
+
 			if (sizeof(channel._request) > buf_size) {
 				class Exception_1 { };
 				throw Exception_1 { };
@@ -164,27 +1034,32 @@ void Superblock_control::_drop_completed_request(Module_request &req)
 		class Exception_1 { };
 		throw Exception_1 { };
 	}
-	if (_channels[id]._state != Channel::COMPLETE) {
+	if (_channels[id]._request._type == Request::INVALID) {
 		class Exception_2 { };
 		throw Exception_2 { };
 	}
-	_channels[id]._state = Channel::INACTIVE;
+	if (_channels[id]._state == Channel::COMPLETED) {
+		class Exception_2 { };
+		throw Exception_2 { };
+	}
+	_channels[id]._request._type = Request::INVALID;
 }
 
 
 bool Superblock_control::ready_to_submit_request()
 {
-	for (Channel &channel : _channels) {
-		if (channel._state == Channel::INACTIVE)
+	for (Channel const &channel : _channels) {
+		if (channel._request._type == Request::INVALID)
 			return true;
 	}
 	return false;
 }
 
+
 void Superblock_control::submit_request(Module_request &req)
 {
 	for (unsigned long id { 0 }; id < NR_OF_CHANNELS; id++) {
-		if (_channels[id]._state == Channel::INACTIVE) {
+		if (_channels[id]._request._type == Request::INVALID) {
 			req.dst_request_id(id);
 			_channels[id]._request = *dynamic_cast<Request *>(&req);
 			_channels[id]._state = Channel::SUBMITTED;
