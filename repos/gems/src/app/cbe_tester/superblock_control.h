@@ -79,6 +79,7 @@ class Cbe::Superblock_control_request : public Module_request
 		Genode::uint64_t      _client_req_tag          { 0 };
 		Virtual_block_address _vba                     { 0 };
 		Genode::uint8_t       _prim[PRIM_BUF_SIZE]     { 0 };
+		Superblock_state      _sb_state                { INVALID };
 		bool                  _success                 { false };
 
 	public:
@@ -103,7 +104,7 @@ class Cbe::Superblock_control_request : public Module_request
 
 		void *prim_ptr() { return (void *)&_prim; }
 
-		Superblock_state sb_state() { class Exception_1 { }; throw Exception_1 { }; }
+		Superblock_state sb_state() { return _sb_state; }
 
 		bool success() const { return _success; }
 
@@ -231,6 +232,7 @@ class Cbe::Superblock_control_channel
 		Hash_new                   _hash               { };
 		Key_new                    _curr_key_plaintext { };
 		Key_new                    _prev_key_plaintext { };
+		Block_data                 _blk_io_data        { };
 
 	public:
 
@@ -271,6 +273,8 @@ class Cbe::Superblock_control : public Module
 		void _execute_deinitialize(Channel &, uint64_t const job_idx,
 		                           Superblock &, Superblocks_index &,
 		                           Generation &, bool &progress);
+
+		Virtual_block_address _max_vba() const;
 
 
 		/************

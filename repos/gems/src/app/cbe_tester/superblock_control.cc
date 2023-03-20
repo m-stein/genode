@@ -16,6 +16,10 @@
 
 /* cbe tester includes */
 #include <superblock_control.h>
+#include <crypto.h>
+#include <block_io.h>
+#include <trust_anchor.h>
+#include <virtual_block_device.h>
 #include <sha256_4k_hash.h>
 
 using namespace Genode;
@@ -39,7 +43,6 @@ void Superblock_control_request::create(void     *buf_ptr,
                                         uint64_t  client_req_tag,
                                         uint64_t  vba)
 {
-error(__func__);
 	Superblock_control_request req { src_module_id, src_request_id };
 	req._type = (Type)req_type;
 
@@ -92,6 +95,16 @@ char const *Superblock_control_request::type_name()
 /************************
  ** Superblock_control **
  ************************/
+
+Virtual_block_address Superblock_control::_max_vba() const
+{
+	if (_superblock.state == INVALID) {
+		class Exception_1 { };
+		throw Exception_1 { };
+	}
+	return _superblock.snapshots.items[_superblock.curr_snap].nr_of_leaves - 1;
+}
+
 
 void Superblock_control::_execute_read_vba(Channel          &channel,
                                            uint64_t   const job_idx,
@@ -605,6 +618,7 @@ void Superblock_control::_execute_initialize(Channel           &channel,
 				throw Execute_add_current_key_at_crypto_max_level_error { };
 			}
 
+			channel._request._sb_state = _superblock.state;
 			channel._request._success = true;
 
 			channel._state = Channel::State::COMPLETED;
@@ -646,6 +660,7 @@ void Superblock_control::_execute_initialize(Channel           &channel,
 		sb_idx   = channel._sb_idx;
 		curr_gen = channel._generation + 1;
 
+		channel._request._sb_state = _superblock.state;
 		channel._request._success = true;
 
 		channel._state = Channel::State::COMPLETED;
@@ -902,30 +917,78 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 }
 
 
-bool Superblock_control::_peek_generated_request(uint8_t *,
-                                                 size_t   )
+bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
+                                                 size_t   buf_size)
 {
-	for (unsigned idx = 0; idx < NR_OF_CHANNELS; idx++) {
-		Channel &chan { _channels[idx] };
+	for (unsigned id = 0; id < NR_OF_CHANNELS; id++) {
+
+		Channel &chan { _channels[id] };
 		Request &req { chan._request };
 		if (req._type == Request::INVALID)
 			continue;
 
 		switch (chan._state) {
 		case Channel::CREATE_KEY_PENDING:
+
+			Trust_anchor_request::create(
+				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
+				Trust_anchor_request::CREATE_KEY, nullptr, 0, nullptr,
+				nullptr, nullptr, nullptr);
+
+			return 1;
+
 		case Channel::ENCRYPT_CURRENT_KEY_PENDING:
 		case Channel::ENCRYPT_PREVIOUS_KEY_PENDING:
+
+			Trust_anchor_request::create(
+				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
+				Trust_anchor_request::ENCRYPT_KEY, nullptr, 0,
+				&chan._key_plaintext.value, nullptr, nullptr, nullptr);
+
+			return 1;
+
 		case Channel::DECRYPT_CURRENT_KEY_PENDING:
+
+			Trust_anchor_request::create(
+				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
+				Trust_anchor_request::DECRYPT_KEY, nullptr, 0,
+				nullptr, &chan._sb_ciphertext.current_key.value,
+				nullptr, nullptr);
+
+			return 1;
+
 		case Channel::DECRYPT_PREVIOUS_KEY_PENDING:
+
+			Trust_anchor_request::create(
+				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
+				Trust_anchor_request::DECRYPT_KEY, nullptr, 0,
+				nullptr, &chan._sb_ciphertext.previous_key.value,
+				nullptr, nullptr);
+
+			return 1;
+
 		case Channel::SECURE_SB_PENDING:
+
+			Trust_anchor_request::create(
+				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
+				Trust_anchor_request::SECURE_SUPERBLOCK, nullptr, 0,
+				nullptr, nullptr, nullptr, &chan._hash);
+
+			return 1;
+
 		case Channel::LAST_SB_HASH_PENDING:
 
-			return ta prim via generated prim
+			Trust_anchor_request::create(
+				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
+				Trust_anchor_request::GET_LAST_SB_HASH, nullptr, 0,
+				nullptr, nullptr, nullptr, nullptr);
+
+			return 1;
 
 		case Channel::ADD_KEY_AT_CRYPTO_MODULE_PENDING:
 
 			Crypto_request::create(
-				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
+				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
 				Crypto_request::ADD_KEY, 0, 0, nullptr, 0,
 				chan._key_plaintext.id, &chan._key_plaintext.value,
 				0, 0, nullptr, nullptr);
@@ -935,7 +998,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *,
 		case Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_PENDING:
 
 			Crypto_request::create(
-				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
+				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
 				Crypto_request::ADD_KEY, 0, 0, nullptr, 0,
 				chan._curr_key_plaintext.id, &chan._curr_key_plaintext.value,
 				0, 0, nullptr, nullptr);
@@ -945,7 +1008,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *,
 		case Channel::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_PENDING:
 
 			Crypto_request::create(
-				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
+				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
 				Crypto_request::ADD_KEY, 0, 0, nullptr, 0,
 				chan._prev_key_plaintext.id, &chan._prev_key_plaintext.value,
 				0, 0, nullptr, nullptr);
@@ -955,7 +1018,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *,
 		case Channel::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_PENDING:
 
 			Crypto_request::create(
-				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
+				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
 				Crypto_request::REMOVE_KEY, 0, 0, nullptr, 0,
 				chan._prev_key_plaintext.id, &chan._prev_key_plaintext.value,
 				0, 0, nullptr, nullptr);
@@ -965,7 +1028,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *,
 		case Channel::REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_PENDING:
 
 			Crypto_request::create(
-				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
+				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
 				Crypto_request::REMOVE_KEY, 0, 0, nullptr, 0,
 				chan._curr_key_plaintext.id, &chan._curr_key_plaintext.value,
 				0, 0, nullptr, nullptr);
@@ -975,19 +1038,19 @@ bool Superblock_control::_peek_generated_request(uint8_t *,
 		case Channel::READ_VBA_AT_VBD_PENDING:
 
 			Virtual_block_device_request::create(
-				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
+				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
 				Virtual_block_device_request::READ_VBA, nullptr, 0,
 				req._client_req_offset, req._client_req_tag,
-				_superblock.last_secure_generation,
-				&_superblock.free_number,
-				&_superblock.free_gen,
-				&_superblock.free_hash,
+				_superblock.last_secured_generation,
+				(addr_t)&_superblock.free_number,
+				(addr_t)&_superblock.free_gen,
+				(addr_t)&_superblock.free_hash,
 				_superblock.free_max_level,
 				_superblock.free_degree,
 				_superblock.free_leaves,
-				&_superblock.meta_number,
-				&_superblock.meta_gen,
-				&_superblock.meta_hash,
+				(addr_t)&_superblock.meta_number,
+				(addr_t)&_superblock.meta_gen,
+				(addr_t)&_superblock.meta_hash,
 				_superblock.meta_max_level,
 				_superblock.meta_degree,
 				_superblock.meta_leaves,
@@ -998,26 +1061,26 @@ bool Superblock_control::_peek_generated_request(uint8_t *,
 				&_superblock.snapshots.items[_superblock.curr_snap],
 				_superblock.degree,
 				_curr_gen,
-				chan._key_plaintext.id);
+				chan._curr_key_plaintext.id);
 
 			return 1;
 
 		case Channel::WRITE_VBA_AT_VBD_PENDING:
 
 			Virtual_block_device_request::create(
-				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
+				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
 				Virtual_block_device_request::READ_VBA, nullptr, 0,
 				req._client_req_offset, req._client_req_tag,
-				_superblock.last_secure_generation,
-				&_superblock.free_number,
-				&_superblock.free_gen,
-				&_superblock.free_hash,
+				_superblock.last_secured_generation,
+				(addr_t)&_superblock.free_number,
+				(addr_t)&_superblock.free_gen,
+				(addr_t)&_superblock.free_hash,
 				_superblock.free_max_level,
 				_superblock.free_degree,
 				_superblock.free_leaves,
-				&_superblock.meta_number,
-				&_superblock.meta_gen,
-				&_superblock.meta_hash,
+				(addr_t)&_superblock.meta_number,
+				(addr_t)&_superblock.meta_gen,
+				(addr_t)&_superblock.meta_hash,
 				_superblock.meta_max_level,
 				_superblock.meta_degree,
 				_superblock.meta_leaves,
@@ -1028,9 +1091,40 @@ bool Superblock_control::_peek_generated_request(uint8_t *,
 				&_superblock.snapshots.items[_superblock.curr_snap],
 				_superblock.degree,
 				_curr_gen,
-				chan._key_plaintext.id);
+				chan._curr_key_plaintext.id);
 
 			return 1;
+
+		case Channel::READ_SB_PENDING:
+		case Channel::READ_CURRENT_SB_PENDING:
+
+			Block_io_request::create(
+				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
+				Block_io_request::READ, 0, 0, nullptr, 0, 0,
+				chan._generated_prim.blk_nr, 0, 1, &chan._blk_io_data);
+
+			return true;
+
+		case Channel::SYNC_BLK_IO_PENDING:
+		case Channel::SYNC_CACHE_PENDING:
+
+			Block_io_request::create(
+				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
+				Block_io_request::SYNC, 0, 0, nullptr, 0, 0,
+				chan._generated_prim.blk_nr, 0, 1, nullptr);
+
+			return true;
+
+		case Channel::WRITE_SB_PENDING:
+
+			memset(&chan._blk_io_data, 0, BLOCK_SIZE);
+			memcpy(&chan._blk_io_data, &chan._sb_ciphertext, sizeof(chan._sb_ciphertext));
+			Block_io_request::create(
+				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
+				Block_io_request::WRITE, 0, 0, nullptr, 0, 0,
+				chan._generated_prim.blk_nr, 0, 1, &chan._blk_io_data);
+
+			return true;
 
 		case Channel::REKEY_VBA_IN_VBD_PENDING:
 		case Channel::VBD_EXT_STEP_IN_VBD_PENDING:
@@ -1039,24 +1133,49 @@ bool Superblock_control::_peek_generated_request(uint8_t *,
 			class Exception_1 { };
 			throw Exception_1 { };
 
-		default:
-
-			class Exception_1 { };
-			throw Exception_1 { };
+		default: break;
 		}
 	}
 	return false;
 }
 
 
-void Superblock_control::_drop_generated_request(Module_request &req)
+void Superblock_control::_drop_generated_request(Module_request &mod_req)
 {
-	unsigned long const id { req.src_request_id() };
+	unsigned long const id { mod_req.src_request_id() };
 	if (id >= NR_OF_CHANNELS) {
-		class Bad_id { };
-		throw Bad_id { };
+		class Exception_3 { };
+		throw Exception_3 { };
 	}
-	switch (_channels[id]._state) {
+	Channel &chan { _channels[id] };
+	Request &req { chan._request };
+	if (req._type == Request::INVALID) {
+		class Exception_2 { };
+		throw Exception_2 { };
+	}
+	switch (chan._state) {
+	case Channel::CREATE_KEY_PENDING: chan._state = Channel::CREATE_KEY_IN_PROGRESS; break;
+	case Channel::ENCRYPT_CURRENT_KEY_PENDING: chan._state = Channel::ENCRYPT_CURRENT_KEY_IN_PROGRESS; break;
+	case Channel::ENCRYPT_PREVIOUS_KEY_PENDING: chan._state = Channel::ENCRYPT_PREVIOUS_KEY_IN_PROGRESS; break;
+	case Channel::DECRYPT_CURRENT_KEY_PENDING: chan._state = Channel::DECRYPT_CURRENT_KEY_IN_PROGRESS; break;
+	case Channel::DECRYPT_PREVIOUS_KEY_PENDING: chan._state = Channel::DECRYPT_PREVIOUS_KEY_IN_PROGRESS; break;
+	case Channel::SECURE_SB_PENDING: chan._state = Channel::SECURE_SB_IN_PROGRESS; break;
+	case Channel::LAST_SB_HASH_PENDING: chan._state = Channel::LAST_SB_HASH_IN_PROGRESS; break;
+	case Channel::ADD_KEY_AT_CRYPTO_MODULE_PENDING: chan._state = Channel::ADD_KEY_AT_CRYPTO_MODULE_IN_PROGRESS; break;
+	case Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_PENDING: chan._state = Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_IN_PROGRESS; break;
+	case Channel::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_PENDING: chan._state = Channel::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_IN_PROGRESS; break;
+	case Channel::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_PENDING: chan._state = Channel::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_IN_PROGRESS; break;
+	case Channel::REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_PENDING: chan._state = Channel::REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_IN_PROGRESS; break;
+	case Channel::READ_VBA_AT_VBD_PENDING: chan._state = Channel::READ_VBA_AT_VBD_IN_PROGRESS; break;
+	case Channel::WRITE_VBA_AT_VBD_PENDING: chan._state = Channel::WRITE_VBA_AT_VBD_IN_PROGRESS; break;
+	case Channel::READ_SB_PENDING: chan._state = Channel::READ_SB_IN_PROGRESS; break;
+	case Channel::READ_CURRENT_SB_PENDING: chan._state = Channel::READ_CURRENT_SB_IN_PROGRESS; break;
+	case Channel::SYNC_BLK_IO_PENDING: chan._state = Channel::SYNC_BLK_IO_IN_PROGRESS; break;
+	case Channel::SYNC_CACHE_PENDING: chan._state = Channel::SYNC_CACHE_IN_PROGRESS; break;
+	case Channel::WRITE_SB_PENDING: chan._state = Channel::WRITE_SB_IN_PROGRESS; break;
+	case Channel::REKEY_VBA_IN_VBD_PENDING: chan._state = Channel::REKEY_VBA_IN_VBD_IN_PROGRESS; break;
+	case Channel::VBD_EXT_STEP_IN_VBD_PENDING: chan._state = Channel::VBD_EXT_STEP_IN_VBD_IN_PROGRESS; break;
+	case Channel::FT_EXT_STEP_IN_FT_PENDING: chan._state = Channel::FT_EXT_STEP_IN_FT_IN_PROGRESS; break;
 	default:
 		class Exception_1 { };
 		throw Exception_1 { };
@@ -1131,17 +1250,108 @@ void Superblock_control::execute(bool &progress)
 }
 
 
-void Superblock_control::generated_request_complete(Module_request &req)
+void Superblock_control::generated_request_complete(Module_request &mod_req)
 {
-	unsigned long const id { req.src_request_id() };
+	unsigned long const id { mod_req.src_request_id() };
 	if (id >= NR_OF_CHANNELS) {
 		class Exception_1 { };
 		throw Exception_1 { };
 	}
-	switch (_channels[id]._state) {
+	Channel &chan { _channels[id] };
+	switch (mod_req.dst_module_id()) {
+	case TRUST_ANCHOR:
+	{
+		Trust_anchor_request &gen_req { *dynamic_cast<Trust_anchor_request*>(&mod_req) };
+		chan._generated_prim.succ = gen_req.success();
+		switch (chan._state) {
+		case Channel::CREATE_KEY_IN_PROGRESS:
+			chan._state = Channel::CREATE_KEY_COMPLETED;
+			memcpy(&chan._key_plaintext.value, gen_req.key_plaintext_ptr(), KEY_SIZE);
+			break;
+		case Channel::ENCRYPT_CURRENT_KEY_IN_PROGRESS:
+			chan._state = Channel::ENCRYPT_CURRENT_KEY_COMPLETED;
+			memcpy(&chan._sb_ciphertext.current_key.value, gen_req.key_ciphertext_ptr(), KEY_SIZE);
+			break;
+		case Channel::ENCRYPT_PREVIOUS_KEY_IN_PROGRESS:
+			chan._state = Channel::ENCRYPT_PREVIOUS_KEY_COMPLETED;
+			memcpy(&chan._sb_ciphertext.previous_key.value, gen_req.key_ciphertext_ptr(), KEY_SIZE);
+			break;
+		case Channel::DECRYPT_CURRENT_KEY_IN_PROGRESS:
+			chan._state = Channel::DECRYPT_CURRENT_KEY_COMPLETED;
+			memcpy(&chan._curr_key_plaintext.value, gen_req.key_plaintext_ptr(), KEY_SIZE);
+			break;
+		case Channel::DECRYPT_PREVIOUS_KEY_IN_PROGRESS:
+			chan._state = Channel::DECRYPT_PREVIOUS_KEY_COMPLETED;
+			memcpy(&chan._prev_key_plaintext.value, gen_req.key_plaintext_ptr(), KEY_SIZE);
+			break;
+		case Channel::SECURE_SB_IN_PROGRESS: chan._state = Channel::SECURE_SB_COMPLETED; break;
+		case Channel::LAST_SB_HASH_IN_PROGRESS:
+			chan._state = Channel::LAST_SB_HASH_COMPLETED;
+			memcpy(&chan._hash, gen_req.hash_ptr(), HASH_SIZE);
+			break;
+		default:
+			class Exception_4 { };
+			throw Exception_4 { };
+		}
+		break;
+	}
+	case CRYPTO:
+	{
+		Crypto_request &gen_req { *dynamic_cast<Crypto_request*>(&mod_req) };
+		chan._generated_prim.succ = gen_req.success();
+		switch (chan._state) {
+		case Channel::ADD_KEY_AT_CRYPTO_MODULE_IN_PROGRESS: chan._state = Channel::ADD_KEY_AT_CRYPTO_MODULE_COMPLETED; break;
+		case Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_IN_PROGRESS: chan._state = Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_COMPLETED; break;
+		case Channel::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_IN_PROGRESS: chan._state = Channel::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_COMPLETED; break;
+		case Channel::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_IN_PROGRESS: chan._state = Channel::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_COMPLETED; break;
+		case Channel::REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_IN_PROGRESS: chan._state = Channel::REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_COMPLETED; break;
+		default:
+			class Exception_5 { };
+			throw Exception_5 { };
+		}
+		break;
+	}
+	case VIRTUAL_BLOCK_DEVICE:
+	{
+		Virtual_block_device_request &gen_req { *dynamic_cast<Virtual_block_device_request*>(&mod_req) };
+		chan._generated_prim.succ = gen_req.success();
+		switch (chan._state) {
+		case Channel::READ_VBA_AT_VBD_IN_PROGRESS: chan._state = Channel::READ_VBA_AT_VBD_COMPLETED; break;
+		case Channel::WRITE_VBA_AT_VBD_IN_PROGRESS:
+			chan._state = Channel::WRITE_VBA_AT_VBD_COMPLETED;
+			chan._snapshots.items[0] = *(gen_req.snapshot_ptr());
+			break;
+		default:
+			class Exception_6 { };
+			throw Exception_6 { };
+		}
+		break;
+	}
+	case BLOCK_IO:
+	{
+		Block_io_request &gen_req { *dynamic_cast<Block_io_request*>(&mod_req) };
+		chan._generated_prim.succ = gen_req.success();
+		switch (chan._state) {
+		case Channel::READ_SB_IN_PROGRESS:
+			chan._state = Channel::READ_SB_COMPLETED;
+			memcpy(&chan._sb_ciphertext, &chan._blk_io_data, sizeof(chan._sb_ciphertext));
+			break;
+		case Channel::READ_CURRENT_SB_IN_PROGRESS:
+			chan._state = Channel::READ_CURRENT_SB_COMPLETED;
+			memcpy(&chan._sb_ciphertext, &chan._blk_io_data, sizeof(chan._sb_ciphertext));
+			break;
+		case Channel::SYNC_BLK_IO_IN_PROGRESS: chan._state = Channel::SYNC_BLK_IO_COMPLETED; break;
+		case Channel::SYNC_CACHE_IN_PROGRESS: chan._state = Channel::SYNC_CACHE_COMPLETED; break;
+		case Channel::WRITE_SB_IN_PROGRESS: chan._state = Channel::WRITE_SB_COMPLETED; break;
+		default:
+			class Exception_7 { };
+			throw Exception_7 { };
+		}
+		break;
+	}
 	default:
-		class Exception_2 { };
-		throw Exception_2 { };
+		class Exception_8 { };
+		throw Exception_8 { };
 	}
 }
 
@@ -1177,9 +1387,9 @@ void Superblock_control::_drop_completed_request(Module_request &req)
 		class Exception_2 { };
 		throw Exception_2 { };
 	}
-	if (_channels[id]._state == Channel::COMPLETED) {
-		class Exception_2 { };
-		throw Exception_2 { };
+	if (_channels[id]._state != Channel::COMPLETED) {
+		class Exception_3 { };
+		throw Exception_3 { };
 	}
 	_channels[id]._request._type = Request::INVALID;
 }

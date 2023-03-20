@@ -387,9 +387,12 @@ void Virtual_block_device::_execute_read_vba(Channel &channel,
 		break;
 	}
 	case Channel::State::READ_INNER_NODE_COMPLETED:
+
 		_execute_read_vba_read_inner_node_completed (channel, idx, progress);
 		break;
 	case Channel::State::READ_CLIENT_DATA_FROM_LEAF_NODE_COMPLETED:
+
+		_check_that_primitive_was_successful(channel._generated_prim);
 		channel._request._success = channel._generated_prim.succ;
 		channel._state            = Channel::State::COMPLETED;
 		progress                  = true;
