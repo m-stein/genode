@@ -95,13 +95,12 @@ char const *Superblock_control_request::type_name()
  ** Superblock_control **
  ************************/
 
-Virtual_block_address Superblock_control::_max_vba() const
+Virtual_block_address Superblock_control::max_vba() const
 {
-	if (_superblock.state == INVALID) {
-		class Exception_1 { };
-		throw Exception_1 { };
-	}
-	return _superblock.snapshots.items[_superblock.curr_snap].nr_of_leaves - 1;
+	if (_superblock.valid())
+		return _superblock.snapshots.items[_superblock.curr_snap].nr_of_leaves - 1;
+	else
+		return 0;
 }
 
 
@@ -1040,7 +1039,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 				_superblock.meta_degree,
 				_superblock.meta_leaves,
 				_superblock.degree,
-				_max_vba(),
+				max_vba(),
 				_superblock.state == REKEYING ? 1 : 0,
 				req._vba,
 				&_superblock.snapshots.items[_superblock.curr_snap],
@@ -1070,7 +1069,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 				_superblock.meta_degree,
 				_superblock.meta_leaves,
 				_superblock.degree,
-				_max_vba(),
+				max_vba(),
 				_superblock.state == REKEYING ? 1 : 0,
 				req._vba,
 				&_superblock.snapshots.items[_superblock.curr_snap],

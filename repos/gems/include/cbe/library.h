@@ -45,20 +45,6 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 
 		Library();
 
-		/**
-		 * Get highest virtual-block-address useable by the current active snapshot
-		 *
-		 * \return  highest addressable virtual-block-address
-		 */
-		Virtual_block_address max_vba() const { class Exception_1 { }; throw Exception_1 { }; }
-
-		/**
-		 * Get information about the CBE
-		 *
-		 * \return  information structure
-		 */
-		Info info() const { class Exception_1 { }; throw Exception_1 { }; }
-
 		void execute();
 
 		/**
@@ -99,13 +85,6 @@ class Cbe::Library : public Cbe::Spark_object<353944>
 		 *
 		 */
 		void drop_completed_client_request(Request const &req);
-
-		/**
-		 * Query list of active snapshots
-		 *
-		 * \param  ids  reference to destination buffer
-		 */
-		void active_snapshot_ids(Active_snapshot_ids &) const { class Exception_1 { }; throw Exception_1 { }; }
 
 		bool librara__peek_generated_request(Genode::uint8_t *buf_ptr,
 		                                     Genode::size_t   buf_size);

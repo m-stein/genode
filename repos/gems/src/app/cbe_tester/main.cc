@@ -1360,7 +1360,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 					break;
 				}
 				Active_snapshot_ids ids;
-				_cbe->active_snapshot_ids(ids);
+				_sb_control->active_snapshot_ids(ids);
 				unsigned snap_nr { 0 };
 				log("");
 				log("List snapshots (command ID ", cmd.id(), ")");

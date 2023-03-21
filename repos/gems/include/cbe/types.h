@@ -226,19 +226,14 @@ namespace Cbe {
 	} __attribute__((packed));
 
 
-	struct Active_snapshot_ids
-	{
-		uint64_t values[NR_OF_SNAPSHOTS];
-	} __attribute__((packed));
-
-
 	struct Info
 	{
-		bool valid;
-		bool rekeying;
-		bool extending_vbd;
-		bool extending_ft;
-	} __attribute__((packed));
+		bool valid         { false };
+		bool rekeying      { false };
+		bool extending_vbd { false };
+		bool extending_ft  { false };
+	}
+	__attribute__((packed));
 
 
 	using Number_of_blocks_new   = Genode::uint64_t;
@@ -512,6 +507,8 @@ namespace Cbe {
 			meta_leaves             = 0;
 		}
 
+		bool valid() const { return state != INVALID; }
+
 		void print(Genode::Output &out) const
 		{
 			using namespace Genode;
@@ -600,6 +597,12 @@ namespace Cbe {
 		class Idx_of_invalid_or_lowest_gen_evictable_snap_error { };
 		throw Idx_of_invalid_or_lowest_gen_evictable_snap_error { };
 	}
+
+	struct Active_snapshot_ids
+	{
+		Generation values[MAX_NR_OF_SNAPSHOTS_PER_SB] { 0 };
+	}
+	__attribute__((packed));
 }
 
 

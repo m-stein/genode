@@ -108,8 +108,6 @@ class Cbe::Superblock_control_request : public Module_request
 
 		bool success() const { return _success; }
 
-void xxx() { Genode::log(type_name(), ": ", _vba); }
-
 
 		/********************
 		 ** Module_request **
@@ -278,8 +276,6 @@ class Cbe::Superblock_control : public Module
 		                           Superblock &, Superblocks_index &,
 		                           Generation &, bool &progress);
 
-		Virtual_block_address _max_vba() const;
-
 
 		/************
 		 ** Module **
@@ -302,6 +298,44 @@ class Cbe::Superblock_control : public Module
 		void _drop_generated_request(Module_request &mod_req) override;
 
 		void generated_request_complete(Module_request &req) override;
+
+	public:
+
+		Virtual_block_address max_vba() const;
+
+		void active_snapshot_ids(Active_snapshot_ids &snap_ids) const
+		{
+			if (_superblock.valid()) {
+
+				for (Snapshots_index idx { 0 };
+				     idx < MAX_NR_OF_SNAPSHOTS_PER_SB;
+				     idx++) {
+
+					Snapshot const &snap { _superblock.snapshots.items[idx] };
+					if (snap.valid && snap.keep)
+						snap_ids.values[idx] = snap.gen;
+					else
+						snap_ids.values[idx] = 0;
+				}
+			} else {
+
+				snap_ids = Active_snapshot_ids { };
+			}
+		}
+
+		Info info() const
+		{
+			if (_superblock.valid())
+
+				return Info {
+					true, _superblock.state == REKEYING,
+					_superblock.state == EXTENDING_FT,
+					_superblock.state == EXTENDING_VBD };
+
+			else
+
+				return Info { };
+		}
 };
 
 #endif /* _SUPERBLOCK_CONTROL_H_ */
