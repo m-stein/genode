@@ -124,6 +124,8 @@ namespace Cbe
 			void success(bool arg) { _success = arg; }
 			void tag(uint32_t arg)    { _tag = arg; }
 
+			char const *type_name() override;
+
 	} __attribute__((packed));
 
 }
@@ -287,7 +289,29 @@ class Cbe::Request_pool : public Module
 		void _execute_deinitialize(Channel &, Index_queue &, Slots_index const,
 		                           bool &);
 
+
+		/************
+		 ** Module **
+		 ************/
+
+		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
+		                             Genode::size_t   buf_size) override;
+
+		void _drop_completed_request(Module_request &req) override;
+
+		void execute(bool &) override;
+
+		bool _peek_generated_request(Genode::uint8_t *buf_ptr,
+		                             Genode::size_t   buf_size) override;
+
+		void _drop_generated_request(Module_request &mod_req) override;
+
+		void generated_request_complete(Module_request &req) override;
+
 	public:
+
+		Request_pool();
+
 
 		/************
 		 ** Module **
@@ -296,8 +320,6 @@ class Cbe::Request_pool : public Module
 		bool ready_to_submit_request() override { return !_indices.full(); }
 
 		void submit_request(Module_request &req) override;
-
-		void execute(bool &) override;
 };
 
 

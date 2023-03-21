@@ -847,6 +847,15 @@ class Command_pool : public Module {
 					sb_req.src_request_id(), sb_req.success());
 				break;
 			}
+			case REQUEST_POOL:
+			{
+				Request const &rp_req {
+					*dynamic_cast<Request *>(&mod_req)};
+
+				mark_command_completed(
+					rp_req.src_request_id(), rp_req.success());
+				break;
+			}
 			default:
 			{
 				class Exception_1 { };
@@ -1269,12 +1278,6 @@ class Main : Vfs::Env::User, public Cbe::Module
 			_client_data_request._type = Client_data_request::INVALID;
 		}
 
-		void _execute_cbe(bool &)
-		{
-			class Cbe_execute__execute_progress__handle_completed_requests { };
-			throw Cbe_execute__execute_progress__handle_completed_requests { };
-		}
-
 		void _cmd_pool_handle_pending_check_cmds(bool &progress)
 		{
 			Command const cmd {
@@ -1349,6 +1352,12 @@ class Main : Vfs::Env::User, public Cbe::Module
 					COMMAND_POOL, cmd.id() };
 
 				_request_pool->submit_request(cbe_req);
+				Genode::log(
+					module_name(cbe_req.src_module_id()), ":", cbe_req.src_request_id_str(),
+					" --", cbe_req.type_name(), "--> ",
+					module_name(cbe_req.dst_module_id()), ":",
+					cbe_req.dst_request_id_str());
+
 				_cmd_pool.mark_command_in_progress(cmd.id());
 				progress = true;
 			}
@@ -1493,7 +1502,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 			}
 		}
 
-		enum { VERBOSE_MODULE_COMMUNICATION = 0 };
+		enum { VERBOSE_MODULE_COMMUNICATION = 1 };
 
 		void _modules_add(unsigned long  module_id,
 		                  Module        &module)
@@ -1585,9 +1594,6 @@ class Main : Vfs::Env::User, public Cbe::Module
 				progress = false;
 				_execute_command_pool(progress);
 				_modules_execute(progress);
-				if (_request_pool.constructed()) {
-					_execute_cbe(progress);
-				}
 			}
 			_vfs_env.io().commit();
 		}
