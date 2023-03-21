@@ -353,7 +353,8 @@ void Virtual_block_device::_execute_read_vba(Channel &channel,
                                              bool &progress)
 {
 	switch (channel._state) {
-	case Channel::State::SUBMITTED: {
+	case Channel::State::SUBMITTED:
+	{
 		Request &request  = channel._request;
 
 		channel._snapshot_idx = 0;
@@ -382,14 +383,15 @@ void Virtual_block_device::_execute_read_vba(Channel &channel,
 		break;
 	}
 	case Channel::State::READ_ROOT_NODE_COMPLETED:
-	{
+
 		_execute_read_vba_read_inner_node_completed (channel, idx, progress);
 		break;
-	}
+
 	case Channel::State::READ_INNER_NODE_COMPLETED:
 
 		_execute_read_vba_read_inner_node_completed (channel, idx, progress);
 		break;
+
 	case Channel::State::READ_CLIENT_DATA_FROM_LEAF_NODE_COMPLETED:
 
 		_check_that_primitive_was_successful(channel._generated_prim);
