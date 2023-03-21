@@ -14,9 +14,6 @@
 #ifndef _CBE_LIBRARA_H_
 #define _CBE_LIBRARA_H_
 
-/* gems includes */
-#include <cbe/library.h>
-
 /* cbe tester includes */
 #include <module.h>
 

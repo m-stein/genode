@@ -24,6 +24,108 @@ namespace Cbe
 	class Request_pool;
 	class Request_pool_request;
 	class Request_pool_channel;
+
+
+	class Request : public Module_request
+	{
+		public:
+
+			enum Operation : uint32_t {
+				INVALID = 0,
+				READ = 1,
+				WRITE = 2,
+				SYNC = 3,
+				CREATE_SNAPSHOT = 4,
+				DISCARD_SNAPSHOT = 5,
+				REKEY = 6,
+				EXTEND_VBD = 7,
+				EXTEND_FT = 8,
+				RESUME_REKEYING = 10,
+				DEINITIALIZE = 11,
+				INITIALIZE = 12,
+			};
+
+		private:
+
+			Operation            _operation;
+			bool                 _success;
+			uint64_t             _block_number;
+			uint64_t             _offset;
+			Number_of_blocks_old _count;
+			uint32_t             _key_id;
+			uint32_t             _tag;
+
+		public:
+
+			Request(Operation            operation,
+			        bool                 success,
+			        uint64_t             block_number,
+			        uint64_t             offset,
+			        Number_of_blocks_old count,
+			        uint32_t             key_id,
+			        uint32_t             tag,
+			        unsigned long        src_module_id,
+			        unsigned long        src_request_id)
+			:
+				Module_request { src_module_id, src_request_id, REQUEST_POOL },
+				_operation     { operation    },
+				_success       { success      },
+				_block_number  { block_number },
+				_offset        { offset       },
+				_count         { count        },
+				_key_id        { key_id       },
+				_tag           { tag          }
+			{ }
+
+			Request()
+			:
+				Module_request { },
+				_operation     { Operation::INVALID },
+				_success       { false },
+				_block_number  { 0 },
+				_offset        { 0 },
+				_count         { 0 },
+				_key_id        { 0 },
+				_tag           { 0 }
+			{ }
+
+			bool valid() const
+			{
+				return _operation != Operation::INVALID;
+			}
+
+			void print(Genode::Output &out) const;
+
+
+			/***************
+			 ** Accessors **
+			 ***************/
+
+			bool read()             const { return _operation == Operation::READ; }
+			bool write()            const { return _operation == Operation::WRITE; }
+			bool sync()             const { return _operation == Operation::SYNC; }
+			bool create_snapshot()  const { return _operation == Operation::CREATE_SNAPSHOT; }
+			bool discard_snapshot() const { return _operation == Operation::DISCARD_SNAPSHOT; }
+			bool rekey()            const { return _operation == Operation::REKEY; }
+			bool extend_vbd()       const { return _operation == Operation::EXTEND_VBD; }
+			bool extend_ft()        const { return _operation == Operation::EXTEND_FT; }
+			bool resume_rekeying()  const { return _operation == Operation::RESUME_REKEYING; }
+			bool deinitialize()     const { return _operation == Operation::DEINITIALIZE; }
+			bool initialize()       const { return _operation == Operation::INITIALIZE; }
+
+			Operation            operation()    const { return _operation; }
+			bool                 success()      const { return _success; }
+			uint64_t             block_number() const { return _block_number; }
+			uint64_t             offset()       const { return _offset; }
+			Number_of_blocks_old count()        const { return _count; }
+			uint32_t             key_id()       const { return _key_id; }
+			uint32_t             tag()          const { return _tag; }
+
+			void success(bool arg) { _success = arg; }
+			void tag(uint32_t arg)    { _tag = arg; }
+
+	} __attribute__((packed));
+
 }
 
 class Cbe::Request_pool_channel
@@ -119,21 +221,21 @@ class Cbe::Request_pool : public Module
 
 		using Channel = Request_pool_channel;
 		using Request = Cbe::Request;
+		using Slots_index = Genode::uint32_t;
 
-		enum { MAX_NUMBER_OF_REQUESTS_IN_POOL = 16 };
+		enum { NR_OF_CHANNELS = 16 };
 
-		using Slots_index          = Genode::uint32_t; /* XXX */
-
-		struct Index_queue {
-			Slots_index          _head { };
-			Slots_index          _tail { };
-			unsigned             _nr_of_used_slots { };
-			Slots_index          _slots[MAX_NUMBER_OF_REQUESTS_IN_POOL] { };
+		struct Index_queue
+		{
+			Slots_index _head                  { 0 };
+			Slots_index _tail                  { 0 };
+			unsigned    _nr_of_used_slots      { 0 };
+			Slots_index _slots[NR_OF_CHANNELS] { 0 };
 
 			bool empty() const { return _nr_of_used_slots == 0; }
 
 			bool full() const {
-				return _nr_of_used_slots >= MAX_NUMBER_OF_REQUESTS_IN_POOL; }
+				return _nr_of_used_slots >= NR_OF_CHANNELS; }
 
 			Slots_index head() const
 			{
@@ -153,7 +255,7 @@ class Cbe::Request_pool : public Module
 
 				_slots[_tail] = idx;
 
-				_tail = (_tail + 1) % MAX_NUMBER_OF_REQUESTS_IN_POOL;
+				_tail = (_tail + 1) % NR_OF_CHANNELS;
 
 				_nr_of_used_slots += 1;
 			}
@@ -165,20 +267,19 @@ class Cbe::Request_pool : public Module
 					throw Index_queue_dequeue_error { };
 				}
 
-				_head = (_head + 1) % MAX_NUMBER_OF_REQUESTS_IN_POOL;
+				_head = (_head + 1) % NR_OF_CHANNELS;
 
 				_nr_of_used_slots -= 1;
 			}
 		};
 
-		enum { NR_OF_CHANNELS = 1 }; /* XXX */
-
-		Channel _channels[NR_OF_CHANNELS] { };
-
-		Index_queue      _indices { };
+		Channel     _channels[NR_OF_CHANNELS] { };
+		Index_queue _indices { };
 
 		void _execute_read (Channel &, Index_queue &, Slots_index const, bool &);
+
 		void _execute_write(Channel &, Index_queue &, Slots_index const, bool &);
+
 		void _execute_sync (Channel &, Index_queue &, Slots_index const, bool &);
 
 		void _execute_initialize(Channel &, Index_queue &, Slots_index const,
@@ -186,11 +287,54 @@ class Cbe::Request_pool : public Module
 		void _execute_deinitialize(Channel &, Index_queue &, Slots_index const,
 		                           bool &);
 
+	public:
+
 		/************
 		 ** Module **
 		 ************/
 
+		bool ready_to_submit_request() override { return !_indices.full(); }
+
+		void submit_request(Module_request &req) override;
+
 		void execute(bool &) override;
 };
+
+
+inline char const *to_string(Cbe::Request::Operation op)
+{
+	struct Unknown_operation_type : Genode::Exception { };
+	switch (op) {
+	case Cbe::Request::Operation::INVALID: return "invalid";
+	case Cbe::Request::Operation::READ: return "read";
+	case Cbe::Request::Operation::WRITE: return "write";
+	case Cbe::Request::Operation::SYNC: return "sync";
+	case Cbe::Request::Operation::CREATE_SNAPSHOT: return "create_snapshot";
+	case Cbe::Request::Operation::DISCARD_SNAPSHOT: return "discard_snapshot";
+	case Cbe::Request::Operation::REKEY: return "rekey";
+	case Cbe::Request::Operation::EXTEND_VBD: return "extend_vbd";
+	case Cbe::Request::Operation::EXTEND_FT: return "extend_ft";
+	case Cbe::Request::Operation::RESUME_REKEYING: return "resume_rekeying";
+	case Cbe::Request::Operation::DEINITIALIZE: return "deinitialize";
+	case Cbe::Request::Operation::INITIALIZE: return "initialize";
+	}
+	throw Unknown_operation_type();
+}
+
+
+inline void Cbe::Request::print(Genode::Output &out) const
+{
+	if (!valid()) {
+		Genode::print(out, "<invalid>");
+		return;
+	}
+	Genode::print(out, "op=", to_string (_operation));
+	Genode::print(out, " vba=", _block_number);
+	Genode::print(out, " cnt=", _count);
+	Genode::print(out, " tag=", _tag);
+	Genode::print(out, " key=", _key_id);
+	Genode::print(out, " off=", _offset);
+	Genode::print(out, " succ=", _success);
+}
 
 #endif /* _REQUEST_POOL_H_ */

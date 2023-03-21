@@ -20,14 +20,10 @@
 #include <vfs/simple_env.h>
 
 /* CBE includes */
-#include <cbe/library.h>
-#include <cbe/init/library.h>
 #include <cbe/dump/configuration.h>
 #include <cbe/init/configuration.h>
 
 /* CBE tester includes */
-#include <cbe_librara.h>
-#include <cbe_init_librara.h>
 #include <crypto.h>
 #include <trust_anchor.h>
 #include <verbose_node.h>
@@ -54,8 +50,6 @@ namespace Cbe {
 		switch (id) {
 		case CRYPTO: return "crypto";
 		case BLOCK_IO: return "block_io";
-		case CBE_LIBRARA: return "cbe";
-		case CBE_INIT_LIBRARA: return "cbe_init";
 		case CACHE: return "cache";
 		case META_TREE: return "meta_tree";
 		case FREE_TREE: return "free_tree";
@@ -1117,10 +1111,8 @@ class Main : Vfs::Env::User, public Cbe::Module
 		Vfs::Simple_env                     _vfs_env                    { _env, _heap, _config_rom.xml().sub_node("vfs"), *this };
 		Signal_handler<Main>                _sigh                       { _env.ep(), *this, &Main::_execute };
 		Command_pool                        _cmd_pool                   { _heap, _config_rom.xml(), _verbose_node };
-		Constructible<Cbe::Library>         _cbe                        { };
 		Constructible<Free_tree>            _free_tree                  { };
 		Constructible<Virtual_block_device> _vbd                        { };
-		Constructible<Cbe::Librara>         _cbe_librara                { };
 		Constructible<Superblock_control>   _sb_control                 { };
 		Constructible<Request_pool>         _request_pool               { };
 		Benchmark                           _benchmark                  { _env };
@@ -1144,8 +1136,6 @@ class Main : Vfs::Env::User, public Cbe::Module
 
 		void _construct_cbe()
 		{
-			_cbe.construct();
-
 			_free_tree.construct();
 			_modules_add(FREE_TREE, *_free_tree);
 
@@ -1157,16 +1147,10 @@ class Main : Vfs::Env::User, public Cbe::Module
 
 			_request_pool.construct();
 			_modules_add(REQUEST_POOL, *_request_pool);
-
-			_cbe_librara.construct(*_cbe);
-			_modules_add(CBE_LIBRARA, *_cbe_librara);
 		}
 
 		void _destruct_cbe()
 		{
-			_modules_remove(CBE_LIBRARA);
-			_cbe_librara.destruct();
-
 			_modules_remove(REQUEST_POOL);
 			_request_pool.destruct();
 
@@ -1178,8 +1162,6 @@ class Main : Vfs::Env::User, public Cbe::Module
 
 			_modules_remove(FREE_TREE);
 			_free_tree.destruct();
-
-			_cbe.destruct();
 		}
 
 		/**
@@ -1287,13 +1269,10 @@ class Main : Vfs::Env::User, public Cbe::Module
 			_client_data_request._type = Client_data_request::INVALID;
 		}
 
-		void _execute_cbe(bool &progress)
+		void _execute_cbe(bool &)
 		{
-			_cbe->execute();
-			if (_cbe->execute_progress()) {
-				progress = true;
-			}
-			_handle_completed_client_requests_of_module(*_cbe, progress);
+			class Cbe_execute__execute_progress__handle_completed_requests { };
+			throw Cbe_execute__execute_progress__handle_completed_requests { };
 		}
 
 		void _cmd_pool_handle_pending_check_cmds(bool &progress)
@@ -1314,7 +1293,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 		{
 			while (true) {
 
-				if (!_cbe->client_request_acceptable()) {
+				if (!_request_pool->ready_to_submit_request()) {
 					break;
 				}
 				Command const cmd {
@@ -1358,17 +1337,18 @@ class Main : Vfs::Env::User, public Cbe::Module
 					progress = true;
 					continue;
 				}
-				Request_node const &req_node { cmd.request_node() };
-				Cbe::Request const &cbe_req {
+				Request_node req_node { cmd.request_node() };
+				Cbe::Request cbe_req {
 					cmd.request_node().op(),
 					false,
 					req_node.has_attr_vba() ? req_node.vba() : 0,
 					0,
 					req_node.has_attr_count() ? req_node.count() : 0,
 					0,
-					cmd.id() };
+					cmd.id(),
+					COMMAND_POOL, cmd.id() };
 
-				_cbe->submit_client_request(cbe_req, 0);
+				_request_pool->submit_request(cbe_req);
 				_cmd_pool.mark_command_in_progress(cmd.id());
 				progress = true;
 			}
@@ -1488,7 +1468,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 
 		void _execute_command_pool(bool &progress)
 		{
-			if (_cbe.constructed()) {
+			if (_request_pool.constructed()) {
 				_cmd_pool_handle_pending_cbe_cmds(progress);
 				_cmd_pool_handle_pending_list_snapshots_cmds(progress);
 			}
@@ -1605,7 +1585,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 				progress = false;
 				_execute_command_pool(progress);
 				_modules_execute(progress);
-				if (_cbe.constructed()) {
+				if (_request_pool.constructed()) {
 					_execute_cbe(progress);
 				}
 			}
@@ -1652,9 +1632,6 @@ void Libc::Component::construct(Libc::Env &) { }
 void Component::construct(Genode::Env &env)
 {
 	env.exec_static_constructors();
-
-	Cbe::assert_valid_object_size<Cbe::Library>();
-	cbe_cxx_init();
 
 	static Main main(env);
 

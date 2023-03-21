@@ -34,7 +34,7 @@ Module_request::Module_request(unsigned long src_module_id,
 String<32> Module_request::src_request_id_str() const
 {
 	return
-		_src_request_id == ~0UL ?
+		_src_request_id == INVALID_MODULE_REQUEST_ID ?
 			String<32> { "?" } : String<32> { _src_request_id };
 }
 
@@ -42,6 +42,6 @@ String<32> Module_request::src_request_id_str() const
 String<32> Module_request::dst_request_id_str() const
 {
 	return
-		_dst_request_id == ~0UL ?
+		_dst_request_id == INVALID_MODULE_REQUEST_ID ?
 			String<32> { "?" } : String<32> { _dst_request_id };
 }

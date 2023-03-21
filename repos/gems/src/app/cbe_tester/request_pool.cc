@@ -165,7 +165,9 @@ void Request_pool::_execute_sync(Channel &channel, Index_queue &indices,
 			                                channel._gen /* offset */,
 			                                channel._request.count(),
 			                                channel._request.key_id(),
-			                                channel._request.tag());
+			                                channel._request.tag(),
+			                                channel._request.src_module_id(),
+			                                channel._request.src_request_id());
 		} else
 			channel._request.success(false);
 
@@ -213,20 +215,20 @@ void Request_pool::_execute_initialize(Channel &channel, Index_queue &indices,
 
 			break;
 		case Superblock_state::NORMAL:
+
 			indices.dequeue(idx);
-
 			channel.invalidate();
-
 			progress = true;
 
 			break;
+
 		case Superblock_state::REKEYING:
 
 			channel._request = Cbe::Request(Request::Operation::REKEY,
-			                                false, 0, 0, 0, 0, 0);
-
+			                                false, 0, 0, 0, 0, 0,
+			                                INVALID_MODULE_ID,
+			                                INVALID_MODULE_REQUEST_ID);
 			indices.enqueue(idx);
-
 			progress = true;
 
 			break;
@@ -235,7 +237,9 @@ void Request_pool::_execute_initialize(Channel &channel, Index_queue &indices,
 			channel._state = Channel::State::SUBMITTED;
 
 			channel._request = Cbe::Request(Request::Operation::EXTEND_VBD,
-			                                false, 0, 0, 0, 0, 0);
+			                                false, 0, 0, 0, 0, 0,
+			                                INVALID_MODULE_ID,
+			                                INVALID_MODULE_REQUEST_ID);
 
 			indices.enqueue(idx);
 
@@ -247,7 +251,9 @@ void Request_pool::_execute_initialize(Channel &channel, Index_queue &indices,
 			channel._state = Channel::State::SUBMITTED;
 
 			channel._request = Cbe::Request(Request::Operation::EXTEND_FT,
-			                                false, 0, 0, 0, 0, 0);
+			                                false, 0, 0, 0, 0, 0,
+			                                INVALID_MODULE_ID,
+			                                INVALID_MODULE_REQUEST_ID);
 
 			indices.enqueue(idx);
 
@@ -370,4 +376,39 @@ void Request_pool::execute(bool &progress)
 	default:
 		break;
 	}
+}
+
+
+void Request_pool::submit_request(Module_request &mod_req)
+{
+	for (unsigned long idx { 0 }; idx < NR_OF_CHANNELS; idx++) {
+		if (_channels[idx]._state == Channel::INVALID) {
+
+			Request &req { *dynamic_cast<Request *>(&mod_req) };
+			req.dst_request_id(idx);
+			switch (req.operation()) {
+			case Request::INITIALIZE:
+
+				class Exception_1 { };
+				throw Exception_1 { };
+
+			case Request::SYNC:
+			case Request::READ:
+			case Request::WRITE:
+			case Request::DEINITIALIZE:
+
+				_channels[idx]._state = Channel::SUBMITTED;
+				_channels[idx]._request = req;
+				_indices.enqueue(idx);
+				return;
+
+			default:
+
+				class Exception_2 { };
+				throw Exception_2 { };
+			}
+		}
+	}
+	class Exception_3 { };
+	throw Exception_3 { };
 }

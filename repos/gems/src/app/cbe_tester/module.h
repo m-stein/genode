@@ -20,6 +20,11 @@
 
 namespace Cbe {
 
+	enum {
+		INVALID_MODULE_ID = ~0UL,
+		INVALID_MODULE_REQUEST_ID = ~0UL,
+	};
+
 	enum Module_id : unsigned long
 	{
 		/* Warning: don't change the numeric values, they are used in Ada */
@@ -53,10 +58,10 @@ class Cbe::Module_request
 {
 	private:
 
-		unsigned long _src_module_id   { ~0UL };
-		unsigned long _src_request_id  { ~0UL };
-		unsigned long _dst_module_id   { ~0UL };
-		unsigned long _dst_request_id  { ~0UL };
+		unsigned long _src_module_id   { INVALID_MODULE_ID };
+		unsigned long _src_request_id  { INVALID_MODULE_REQUEST_ID };
+		unsigned long _dst_module_id   { INVALID_MODULE_ID };
+		unsigned long _dst_request_id  { INVALID_MODULE_REQUEST_ID };
 
 	public:
 
