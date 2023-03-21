@@ -371,8 +371,3 @@ void Request_pool::execute(bool &progress)
 		break;
 	}
 }
-
-
-Request_pool::Request_pool(Vfs::Env       &,
-                           Xml_node const &)
-{ }

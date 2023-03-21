@@ -35,6 +35,7 @@
 #include <block_io.h>
 #include <meta_tree.h>
 #include <free_tree.h>
+#include <request_pool.h>
 #include <block_allocator.h>
 #include <vbd_initializer.h>
 #include <ft_initializer.h>
@@ -67,6 +68,7 @@ namespace Cbe {
 		case VBD_INITIALIZER: return "vbd_initializer";
 		case FT_INITIALIZER: return "ft_initializer";
 		case SB_INITIALIZER: return "sb_initializer";
+		case REQUEST_POOL: return "request_pool";
 		default: break;
 		}
 		return "?";
@@ -1106,7 +1108,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 {
 	private:
 
-		enum { NR_OF_MODULES = 16 };
+		enum { NR_OF_MODULES = 17 };
 
 		Genode::Env                        &_env;
 		Attached_rom_dataspace              _config_rom                 { _env, "config" };
@@ -1120,6 +1122,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 		Constructible<Virtual_block_device> _vbd                        { };
 		Constructible<Cbe::Librara>         _cbe_librara                { };
 		Constructible<Superblock_control>   _sb_control                 { };
+		Constructible<Request_pool>         _request_pool               { };
 		Benchmark                           _benchmark                  { _env };
 		Meta_tree                           _meta_tree                  { };
 		Trust_anchor                        _trust_anchor               { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
@@ -1152,6 +1155,9 @@ class Main : Vfs::Env::User, public Cbe::Module
 			_sb_control.construct();
 			_modules_add(SUPERBLOCK_CONTROL, *_sb_control);
 
+			_request_pool.construct();
+			_modules_add(REQUEST_POOL, *_request_pool);
+
 			_cbe_librara.construct(*_cbe);
 			_modules_add(CBE_LIBRARA, *_cbe_librara);
 		}
@@ -1160,6 +1166,9 @@ class Main : Vfs::Env::User, public Cbe::Module
 		{
 			_modules_remove(CBE_LIBRARA);
 			_cbe_librara.destruct();
+
+			_modules_remove(REQUEST_POOL);
+			_request_pool.destruct();
 
 			_modules_remove(SUPERBLOCK_CONTROL);
 			_sb_control.destruct();

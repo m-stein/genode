@@ -22,9 +22,9 @@
 namespace Cbe
 {
 	class Request_pool;
+	class Request_pool_request;
 	class Request_pool_channel;
 }
-
 
 class Cbe::Request_pool_channel
 {
@@ -191,11 +191,6 @@ class Cbe::Request_pool : public Module
 		 ************/
 
 		void execute(bool &) override;
-
-	public:
-
-		Request_pool(Vfs::Env               &vfs_env,
-		             Genode::Xml_node const &xml_node);
 };
 
 #endif /* _REQUEST_POOL_H_ */

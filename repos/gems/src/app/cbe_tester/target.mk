@@ -3,6 +3,7 @@ REQUIRES := x86_64
 TARGET  := cbe_tester
 SRC_CC  += main.cc
 SRC_CC  += crypto.cc
+SRC_CC  += request_pool.cc
 SRC_CC  += sha256_4k_hash.cc
 SRC_CC  += trust_anchor.cc
 SRC_CC  += block_io.cc

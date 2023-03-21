@@ -39,6 +39,7 @@ namespace Cbe {
 		VBD_INITIALIZER      = 13,
 		FT_INITIALIZER       = 14,
 		SB_INITIALIZER       = 15,
+		REQUEST_POOL         = 16,
 	};
 
 	char const *module_name(unsigned long module_id);
