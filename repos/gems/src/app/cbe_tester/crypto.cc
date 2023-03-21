@@ -49,7 +49,6 @@ void Crypto_request::create(void     *buf_ptr,
 	req._client_req_offset = client_req_offset;
 	req._client_req_tag = client_req_tag;
 	if (prim_size > sizeof(req._prim)) {
-		error(prim_size, " ", sizeof(req._prim));
 		class Bad_size_1 { };
 		throw Bad_size_1 { };
 	}
@@ -208,7 +207,6 @@ void Crypto::_execute_add_key(Channel &channel,
 	switch (channel._state) {
 	case Channel::SUBMITTED:
 	{
-		error("crypto: add key: key id ", req._key_id);
 		_add_key_handle.seek(0);
 
 		char buf[sizeof(req._key_plaintext) + sizeof(req._key_id)] { };
@@ -527,7 +525,6 @@ void Crypto::_execute_decrypt_client_data(Channel &channel,
 	switch (channel._state) {
 	case Channel::SUBMITTED:
 	{
-		error("crypto: decrypt cd: key id ", req._key_id);
 		channel._vfs_handle = _lookup_key_dir(req._key_id).decrypt_handle;
 		if (channel._vfs_handle == nullptr) {
 			_mark_req_failed(channel, progress, "lookup key dir");

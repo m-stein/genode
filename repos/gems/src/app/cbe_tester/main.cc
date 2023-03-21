@@ -1441,7 +1441,7 @@ class Main : Vfs::Env::User, public Cbe::Module
 			}
 		}
 
-		enum { VERBOSE_MODULE_COMMUNICATION = 1 };
+		enum { VERBOSE_MODULE_COMMUNICATION = 0 };
 
 		void _modules_add(unsigned long  module_id,
 		                  Module        &module)

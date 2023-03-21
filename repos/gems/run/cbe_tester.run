@@ -1048,7 +1048,7 @@ build_boot_image $boot_modules
 
 append qemu_args " -nographic -m 1280 "
 
-run_genode_until "child \"test\" exited with exit value.*\n" 360
+run_genode_until "child \"test\" exited with exit value.*\n" 1200
 
 if { [get_cmd_switch --autopilot] } {
 

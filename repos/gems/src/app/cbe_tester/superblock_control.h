@@ -108,6 +108,8 @@ class Cbe::Superblock_control_request : public Module_request
 
 		bool success() const { return _success; }
 
+void xxx() { Genode::log(type_name(), ": ", _vba); }
+
 
 		/********************
 		 ** Module_request **
@@ -223,7 +225,7 @@ class Cbe::Superblock_control_channel
 		Superblock_control_request _request            { };
 		Generated_prim             _generated_prim     { };
 		Key_new                    _key_plaintext      { };
-		Superblock                 _sb_ciphertext      { };
+		Block_data                 _sb_ciphertext_blk  { };
 		Superblocks_index          _sb_idx             { 0 };
 		bool                       _sb_found           { false };
 		Superblocks_index          _read_sb_idx        { 0 };
@@ -233,6 +235,8 @@ class Cbe::Superblock_control_channel
 		Key_new                    _curr_key_plaintext { };
 		Key_new                    _prev_key_plaintext { };
 		Block_data                 _blk_io_data        { };
+
+		Superblock &_sb_ciphertext() { return *(Superblock *)&_sb_ciphertext_blk; }
 
 	public:
 

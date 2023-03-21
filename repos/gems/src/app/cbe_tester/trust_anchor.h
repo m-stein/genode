@@ -45,8 +45,8 @@ class Cbe::Trust_anchor_request : public Module_request
 		Genode::uint8_t _prim[PRIM_BUF_SIZE]      { 0 };
 		Genode::uint8_t _key_plaintext[KEY_SIZE]  { 0 };
 		Genode::uint8_t _key_ciphertext[KEY_SIZE] { 0 };
-		Genode::uint8_t _hash[HASH_SIZE]          { 0 };
-		Genode::addr_t  _passphrase_ptr           { 00 };
+		Hash_new        _hash                     { };
+		Genode::addr_t  _passphrase_ptr           { 0 };
 		bool            _success                  { false };
 
 	public:

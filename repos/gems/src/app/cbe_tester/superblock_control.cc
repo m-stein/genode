@@ -47,7 +47,6 @@ void Superblock_control_request::create(void     *buf_ptr,
 	req._type = (Type)req_type;
 
 	if (prim_size > sizeof(req._prim)) {
-		error(prim_size, " ", sizeof(req._prim));
 		class Bad_size_1 { };
 		throw Bad_size_1 { };
 	}
@@ -235,8 +234,8 @@ void Superblock_control::_discard_disposable_snapshots(Snapshots &snapshots,
 {
 	for (auto &snapshot : snapshots.items)
 	{
-		if (snapshot.valid and not snapshot.keep and
-		    snapshot.gen != curr_gen and snapshot.gen != last_secured_gen)
+		if (snapshot.valid && !snapshot.keep &&
+		    snapshot.gen != curr_gen && snapshot.gen != last_secured_gen)
 			snapshot.valid = false;
 	}
 }
@@ -284,16 +283,14 @@ void Superblock_control::_execute_sync(Channel           &channel,
 	switch (channel._state) {
 	case Channel::State::SUBMITTED:
 
-		_discard_disposable_snapshots(sb.snapshots, sb.last_secured_generation,
-		                              curr_gen);
+		_discard_disposable_snapshots(
+			sb.snapshots, sb.last_secured_generation, curr_gen);
 
 		sb.last_secured_generation = curr_gen;
 		sb.snapshots.items[sb.curr_snap].gen = curr_gen;
-
-		_init_sb_without_key_values(sb, channel._sb_ciphertext);
+		_init_sb_without_key_values(sb, channel._sb_ciphertext());
 
 		channel._key_plaintext = sb.current_key;
-
 		channel._generated_prim = {
 			.op     = Channel::Generated_prim::Type::READ,
 			.succ   = false,
@@ -301,22 +298,20 @@ void Superblock_control::_execute_sync(Channel           &channel,
 			.blk_nr = 0,
 			.idx    = job_idx
 		};
-
 		channel._state = Channel::State::ENCRYPT_CURRENT_KEY_PENDING;
 		progress = true;
-
 		break;
+
 	case Channel::State::ENCRYPT_CURRENT_KEY_COMPLETED:
-		if (not channel._generated_prim.succ) {
+
+		if (!channel._generated_prim.succ) {
 			class Encrypt_current_key_error { };
 			throw Encrypt_current_key_error { };
 		}
-
 		switch (sb.state) {
 		case Superblock_state::REKEYING:
 
 			channel._key_plaintext = sb.previous_key;
-
 			channel._generated_prim = {
 				.op     = Channel::Generated_prim::Type::READ,
 				.succ   = false,
@@ -324,11 +319,10 @@ void Superblock_control::_execute_sync(Channel           &channel,
 				.blk_nr = 0,
 				.idx    = job_idx
 			};
-
 			channel._state = Channel::State::ENCRYPT_PREVIOUS_KEY_PENDING;
 			progress = true;
-
 			break;
+
 		default:
 
 			channel._generated_prim = {
@@ -338,20 +332,18 @@ void Superblock_control::_execute_sync(Channel           &channel,
 				.blk_nr = 0,
 				.idx    = job_idx
 			};
-
 			channel._state = Channel::State::SYNC_CACHE_PENDING;
 			progress = true;
-
 			break;
 		}
-
 		break;
+
 	case Channel::State::ENCRYPT_PREVIOUS_KEY_COMPLETED:
-		if (not channel._generated_prim.succ) {
+
+		if (!channel._generated_prim.succ) {
 			class Encrypt_previous_key_error { };
 			throw Encrypt_previous_key_error { };
 		}
-
 		channel._generated_prim = {
 			.op     = Channel::Generated_prim::Type::SYNC,
 			.succ   = false,
@@ -359,17 +351,16 @@ void Superblock_control::_execute_sync(Channel           &channel,
 			.blk_nr = 0,
 			.idx    = job_idx
 		};
-
 		channel._state = Channel::State::SYNC_CACHE_PENDING;
 		progress = true;
-
 		break;
+
 	case Channel::State::SYNC_CACHE_COMPLETED:
-		if (not channel._generated_prim.succ) {
+
+		if (!channel._generated_prim.succ) {
 			class Sync_cache_error { };
 			throw Sync_cache_error { };
 		}
-
 		channel._generated_prim = {
 			.op     = Channel::Generated_prim::Type::WRITE,
 			.succ   = false,
@@ -377,17 +368,16 @@ void Superblock_control::_execute_sync(Channel           &channel,
 			.blk_nr = sb_idx,
 			.idx    = job_idx
 		};
-
 		channel._state = Channel::State::WRITE_SB_PENDING;
 		progress = true;
-
 		break;
+
 	case Channel::State::WRITE_SB_COMPLETED:
-		if (not channel._generated_prim.succ) {
+
+		if (!channel._generated_prim.succ) {
 			class Write_sb_completed_error { };
 			throw Write_sb_completed_error { };
 		}
-
 		channel._generated_prim = {
 			.op     = Channel::Generated_prim::Type::SYNC,
 			.succ   = false,
@@ -395,19 +385,17 @@ void Superblock_control::_execute_sync(Channel           &channel,
 			.blk_nr = sb_idx,
 			.idx    = job_idx
 		};
-
 		channel._state = Channel::State::SYNC_BLK_IO_PENDING;
 		progress = true;
-
 		break;
+
 	case Channel::State::SYNC_BLK_IO_COMPLETED:
-		if (not channel._generated_prim.succ) {
+
+		if (!channel._generated_prim.succ) {
 			class Sync_blk_io_completed_error { };
 			throw Sync_blk_io_completed_error { };
 		}
-
-		calc_sha256_4k_hash(&channel._sb_ciphertext, channel._hash.bytes);
-
+		calc_sha256_4k_hash(&channel._sb_ciphertext_blk, &channel._hash);
 		channel._generated_prim = {
 			.op     = Channel::Generated_prim::Type::READ,
 			.succ   = false,
@@ -415,7 +403,6 @@ void Superblock_control::_execute_sync(Channel           &channel,
 			.blk_nr = 0,
 			.idx    = job_idx
 		};
-
 		channel._state = Channel::State::SECURE_SB_PENDING;
 
 		if (sb_idx < MAX_SUPERBLOCK_INDEX)
@@ -425,23 +412,23 @@ void Superblock_control::_execute_sync(Channel           &channel,
 
 		channel._generation = curr_gen;
 		curr_gen = curr_gen + 1;
-
 		progress = true;
-
 		break;
+
 	case Channel::State::SECURE_SB_COMPLETED:
-		if (not channel._generated_prim.succ) {
+
+		if (!channel._generated_prim.succ) {
 			class Secure_sb_completed_error { };
 			throw Secure_sb_completed_error { };
 		}
-
 		sb.last_secured_generation = channel._generation;
-
 		channel._request._success = true;
 		channel._state = Channel::State::COMPLETED;
 		progress = true;
 		break;
+
 	default:
+
 		break;
 	}
 }
@@ -456,8 +443,8 @@ void Superblock_control::_execute_initialize(Channel           &channel,
 {
 	switch (channel._state) {
 	case Channel::State::SUBMITTED:
-		channel._sb_found = false;
 
+		channel._sb_found = false;
 		channel._generated_prim = {
 			.op     = Channel::Generated_prim::Type::READ,
 			.succ   = false,
@@ -465,14 +452,13 @@ void Superblock_control::_execute_initialize(Channel           &channel,
 			.blk_nr = 0,
 			.idx    = job_idx
 		};
-
 		channel._state = Channel::State::LAST_SB_HASH_PENDING;
 		progress = true;
-
 		break;
-	case Channel::State::LAST_SB_HASH_COMPLETED:
-		channel._read_sb_idx = 0;
 
+	case Channel::State::LAST_SB_HASH_COMPLETED:
+
+		channel._read_sb_idx = 0;
 		channel._generated_prim = {
 			.op     = Channel::Generated_prim::Type::READ,
 			.succ   = false,
@@ -480,33 +466,31 @@ void Superblock_control::_execute_initialize(Channel           &channel,
 			.blk_nr = channel._read_sb_idx,
 			.idx    = job_idx
 		};
-
 		channel._state = Channel::State::READ_SB_PENDING;
 		progress = true;
-
 		break;
+
 	case Channel::State::READ_SB_COMPLETED:
-		if (not channel._generated_prim.succ) {
+
+		if (!channel._generated_prim.succ) {
 			class Execute_initialize_error { };
 			throw Execute_initialize_error { };
 		}
+		if (channel._sb_ciphertext().state != Superblock_state::INVALID) {
 
-		if (channel._sb_ciphertext.state != Superblock_state::INVALID) {
+			Superblock const &cipher { channel._sb_ciphertext() };
+			Snapshots_index const snap_index { newest_snapshot_idx(cipher.snapshots) };
+			Generation const sb_generation { cipher.snapshots.items[snap_index].gen };
 
-			auto const &cipher       = channel._sb_ciphertext;
-			auto const snap_index    = newest_snapshot_idx(cipher.snapshots);
-			auto const sb_generation = cipher.snapshots.items[snap_index].gen;
-
-			if (check_sha256_4k_hash(&cipher, channel._hash.bytes)) {
+			if (check_sha256_4k_hash(&channel._sb_ciphertext_blk, channel._hash.bytes)) {
 				channel._generation = sb_generation;
 				channel._sb_idx     = channel._read_sb_idx;
 				channel._sb_found   = true;
 			}
 		}
-
 		if (channel._read_sb_idx < MAX_SUPERBLOCK_INDEX) {
-			channel._read_sb_idx = channel._read_sb_idx + 1;
 
+			channel._read_sb_idx = channel._read_sb_idx + 1;
 			channel._generated_prim = {
 				.op     = Channel::Generated_prim::Type::READ,
 				.succ   = false,
@@ -514,11 +498,12 @@ void Superblock_control::_execute_initialize(Channel           &channel,
 				.blk_nr = channel._read_sb_idx,
 				.idx    = job_idx
 			};
-
 			channel._state = Channel::State::READ_SB_PENDING;
 			progress       = true;
+
 		} else {
-			if (not channel._sb_found) {
+
+			if (!channel._sb_found) {
 				class Execute_initialize_sb_found_error { };
 				throw Execute_initialize_sb_found_error { };
 			}
@@ -534,10 +519,11 @@ void Superblock_control::_execute_initialize(Channel           &channel,
 			channel._state = Channel::State::READ_CURRENT_SB_PENDING;
 			progress       = true;
 		}
-
 		break;
+
 	case Channel::State::READ_CURRENT_SB_COMPLETED:
-		if (not channel._generated_prim.succ) {
+
+		if (!channel._generated_prim.succ) {
 			class Execute_initialize_read_current_sb_error { };
 			throw Execute_initialize_read_current_sb_error { };
 		}
@@ -555,12 +541,12 @@ void Superblock_control::_execute_initialize(Channel           &channel,
 
 		break;
 	case Channel::State::DECRYPT_CURRENT_KEY_COMPLETED:
-		if (not channel._generated_prim.succ) {
+		if (!channel._generated_prim.succ) {
 			class Execute_initialize_decrypt_current_key_error { };
 			throw Execute_initialize_decrypt_current_key_error { };
 		}
 
-		channel._curr_key_plaintext.id = channel._sb_ciphertext.current_key.id;
+		channel._curr_key_plaintext.id = channel._sb_ciphertext().current_key.id;
 
 		channel._generated_prim = {
 			.op     = Channel::Generated_prim::Type::READ,
@@ -575,12 +561,12 @@ void Superblock_control::_execute_initialize(Channel           &channel,
 
 		break;
 	case Channel::State::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_COMPLETED:
-		if (not channel._generated_prim.succ) {
+		if (!channel._generated_prim.succ) {
 			class Execute_add_current_key_at_crypto_error { };
 			throw Execute_add_current_key_at_crypto_error { };
 		}
 
-		switch (channel._sb_ciphertext.state) {
+		switch (channel._sb_ciphertext().state) {
 		case Superblock_state::INVALID:
 			class Execute_add_current_key_at_crypto_invalid_error { };
 			throw Execute_add_current_key_at_crypto_invalid_error { };
@@ -604,7 +590,7 @@ void Superblock_control::_execute_initialize(Channel           &channel,
 		case Superblock_state::EXTENDING_VBD:
 		case Superblock_state::EXTENDING_FT:
 
-			_init_sb_without_key_values(channel._sb_ciphertext, sb);
+			_init_sb_without_key_values(channel._sb_ciphertext(), sb);
 
 			sb.current_key.value = channel._curr_key_plaintext.value;
 			sb_idx               = channel._sb_idx;
@@ -629,7 +615,7 @@ void Superblock_control::_execute_initialize(Channel           &channel,
 
 		break;
 	case Channel::State::DECRYPT_PREVIOUS_KEY_COMPLETED:
-		if (not channel._generated_prim.succ) {
+		if (!channel._generated_prim.succ) {
 			class Decrypt_previous_key_error { };
 			throw Decrypt_previous_key_error { };
 		}
@@ -647,12 +633,12 @@ void Superblock_control::_execute_initialize(Channel           &channel,
 
 		break;
 	case Channel::State::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_COMPLETED:
-		if (not channel._generated_prim.succ) {
+		if (!channel._generated_prim.succ) {
 			class Add_previous_key_at_crypto_module_error { };
 			throw Add_previous_key_at_crypto_module_error { };
 		}
 
-		_init_sb_without_key_values(channel._sb_ciphertext, sb);
+		_init_sb_without_key_values(channel._sb_ciphertext(), sb);
 
 		sb.current_key.value  = channel._curr_key_plaintext.value;
 		sb.previous_key.value = channel._prev_key_plaintext.value;
@@ -689,7 +675,7 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 		sb.last_secured_generation           = curr_gen;
 		sb.snapshots.items[sb.curr_snap].gen = curr_gen;
 
-		_init_sb_without_key_values(sb, channel._sb_ciphertext);
+		_init_sb_without_key_values(sb, channel._sb_ciphertext());
 		channel._key_plaintext = sb.current_key;
 
 		channel._generated_prim = {
@@ -705,7 +691,7 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 
 		break;
 	case Channel::State::ENCRYPT_CURRENT_KEY_COMPLETED:
-		if (not channel._generated_prim.succ) {
+		if (!channel._generated_prim.succ) {
 			class Deinitialize_encrypt_current_key_error { };
 			throw Deinitialize_encrypt_current_key_error { };
 		}
@@ -745,7 +731,7 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 		break;
 	case Channel::State::ENCRYPT_PREVIOUS_KEY_COMPLETED:
 
-		if (not channel._generated_prim.succ) {
+		if (!channel._generated_prim.succ) {
 			class Deinitialize_encrypt_previous_key_error { };
 			throw Deinitialize_encrypt_previous_key_error { };
 		}
@@ -764,7 +750,7 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 		break;
 	case Channel::State::SYNC_CACHE_COMPLETED:
 
-		if (not channel._generated_prim.succ) {
+		if (!channel._generated_prim.succ) {
 			class Deinitialize_sync_cache_error { };
 			throw Deinitialize_sync_cache_error { };
 		}
@@ -783,7 +769,7 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 		break;
 	case Channel::State::WRITE_SB_COMPLETED:
 
-		if (not channel._generated_prim.succ) {
+		if (!channel._generated_prim.succ) {
 			class Deinitialize_write_sb_error { };
 			throw Deinitialize_write_sb_error { };
 		}
@@ -802,12 +788,11 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 		break;
 	case Channel::State::SYNC_BLK_IO_COMPLETED:
 
-		if (not channel._generated_prim.succ) {
+		if (!channel._generated_prim.succ) {
 			class Deinitialize_sync_blk_io_error { };
 			throw Deinitialize_sync_blk_io_error { };
 		}
-
-		calc_sha256_4k_hash(&channel._sb_ciphertext, channel._hash.bytes);
+		calc_sha256_4k_hash(&channel._sb_ciphertext_blk, &channel._hash);
 
 		channel._generated_prim = {
 			.op     = Channel::Generated_prim::Type::READ,
@@ -832,7 +817,7 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 		break;
 	case Channel::State::SECURE_SB_COMPLETED:
 
-		if (not channel._generated_prim.succ) {
+		if (!channel._generated_prim.succ) {
 			class Deinitialize_secure_sb_error { };
 			throw Deinitialize_secure_sb_error { };
 		}
@@ -857,7 +842,7 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 		break;
 	case Channel::State::REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_COMPLETED:
 
-		if (not channel._generated_prim.succ) {
+		if (!channel._generated_prim.succ) {
 			class Deinitialize_remove_current_key_error { };
 			throw Deinitialize_remove_current_key_error { };
 		}
@@ -898,7 +883,7 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 		break;
 	case Channel::State::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_COMPLETED:
 
-		if (not channel._generated_prim.succ) {
+		if (!channel._generated_prim.succ) {
 			class Deinitialize_remove_previous_key_error { };
 			throw Deinitialize_remove_previous_key_error { };
 		}
@@ -952,7 +937,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 			Trust_anchor_request::create(
 				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
 				Trust_anchor_request::DECRYPT_KEY, nullptr, 0,
-				nullptr, &chan._sb_ciphertext.current_key.value,
+				nullptr, &chan._sb_ciphertext().current_key.value,
 				nullptr, nullptr);
 
 			return 1;
@@ -962,7 +947,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 			Trust_anchor_request::create(
 				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
 				Trust_anchor_request::DECRYPT_KEY, nullptr, 0,
-				nullptr, &chan._sb_ciphertext.previous_key.value,
+				nullptr, &chan._sb_ciphertext().previous_key.value,
 				nullptr, nullptr);
 
 			return 1;
@@ -1069,7 +1054,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 
 			Virtual_block_device_request::create(
 				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Virtual_block_device_request::READ_VBA, nullptr, 0,
+				Virtual_block_device_request::WRITE_VBA, nullptr, 0,
 				req._client_req_offset, req._client_req_tag,
 				_superblock.last_secured_generation,
 				(addr_t)&_superblock.free_number,
@@ -1117,8 +1102,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 
 		case Channel::WRITE_SB_PENDING:
 
-			memset(&chan._blk_io_data, 0, BLOCK_SIZE);
-			memcpy(&chan._blk_io_data, &chan._sb_ciphertext, sizeof(chan._sb_ciphertext));
+			memcpy(&chan._blk_io_data, &chan._sb_ciphertext_blk, BLOCK_SIZE);
 			Block_io_request::create(
 				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
 				Block_io_request::WRITE, 0, 0, nullptr, 0, 0,
@@ -1270,11 +1254,11 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 			break;
 		case Channel::ENCRYPT_CURRENT_KEY_IN_PROGRESS:
 			chan._state = Channel::ENCRYPT_CURRENT_KEY_COMPLETED;
-			memcpy(&chan._sb_ciphertext.current_key.value, gen_req.key_ciphertext_ptr(), KEY_SIZE);
+			memcpy(&chan._sb_ciphertext().current_key.value, gen_req.key_ciphertext_ptr(), KEY_SIZE);
 			break;
 		case Channel::ENCRYPT_PREVIOUS_KEY_IN_PROGRESS:
 			chan._state = Channel::ENCRYPT_PREVIOUS_KEY_COMPLETED;
-			memcpy(&chan._sb_ciphertext.previous_key.value, gen_req.key_ciphertext_ptr(), KEY_SIZE);
+			memcpy(&chan._sb_ciphertext().previous_key.value, gen_req.key_ciphertext_ptr(), KEY_SIZE);
 			break;
 		case Channel::DECRYPT_CURRENT_KEY_IN_PROGRESS:
 			chan._state = Channel::DECRYPT_CURRENT_KEY_COMPLETED;
@@ -1334,11 +1318,11 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 		switch (chan._state) {
 		case Channel::READ_SB_IN_PROGRESS:
 			chan._state = Channel::READ_SB_COMPLETED;
-			memcpy(&chan._sb_ciphertext, &chan._blk_io_data, sizeof(chan._sb_ciphertext));
+			memcpy(&chan._sb_ciphertext_blk, &chan._blk_io_data, BLOCK_SIZE);
 			break;
 		case Channel::READ_CURRENT_SB_IN_PROGRESS:
 			chan._state = Channel::READ_CURRENT_SB_COMPLETED;
-			memcpy(&chan._sb_ciphertext, &chan._blk_io_data, sizeof(chan._sb_ciphertext));
+			memcpy(&chan._sb_ciphertext_blk, &chan._blk_io_data, BLOCK_SIZE);
 			break;
 		case Channel::SYNC_BLK_IO_IN_PROGRESS: chan._state = Channel::SYNC_BLK_IO_COMPLETED; break;
 		case Channel::SYNC_CACHE_IN_PROGRESS: chan._state = Channel::SYNC_CACHE_COMPLETED; break;
@@ -1466,7 +1450,7 @@ void Superblock_control::submit_request(Module_request &req)
    begin
       Find_Invalid_Snap_Idx :
       for Idx in Snapshots'Range loop
-         if not Snapshots (Idx).Valid then
+         if !Snapshots (Idx).Valid then
             return Idx;
          end if;
       end loop Find_Invalid_Snap_Idx;
@@ -1505,7 +1489,7 @@ void Superblock_control::submit_request(Module_request &req)
                   Obj.SB_Ctrl);
          begin
             exit Loop_Generated_FT_Rszg_Prims when
-               not Primitive.Valid (Prim);
+               !Primitive.Valid (Prim);
 
             raise Program_Error;
 
@@ -1966,7 +1950,7 @@ void Superblock_control::submit_request(Module_request &req)
             Prim : constant Primitive.Object_Type :=
                Superblock_Control.Peek_Completed_Primitive (Obj.SB_Ctrl);
          begin
-            exit Loop_Completed_Prims when not Primitive.Valid (Prim);
+            exit Loop_Completed_Prims when !Primitive.Valid (Prim);
 
             case Primitive.Tag (Prim) is
             when

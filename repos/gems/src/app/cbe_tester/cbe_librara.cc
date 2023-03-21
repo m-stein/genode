@@ -42,6 +42,8 @@ void Cbe::Librara::generated_request_complete(Module_request &mod_req)
 		Superblock_control_request &req {
 			*dynamic_cast<Superblock_control_request *>(&mod_req) };
 
+		req.xxx();
+
 		_lib.librara__generated_request_complete(
 			req.prim_ptr(), req.sb_state(), req.success());
 

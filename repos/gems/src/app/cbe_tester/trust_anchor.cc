@@ -411,7 +411,7 @@ void Trust_anchor::execute(bool &progress)
 			}
 			_execute_write_operation(
 				_hashsum_file, _hashsum_path, channel,
-				(char const *)req._hash, progress);
+				(char const *)&req._hash, progress);
 
 			break;
 
@@ -424,7 +424,7 @@ void Trust_anchor::execute(bool &progress)
 			}
 			_execute_read_operation(
 				_hashsum_file, _hashsum_path, channel,
-				(char *)req._hash, progress);
+				(char *)&req._hash, progress);
 
 			break;
 
