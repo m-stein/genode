@@ -164,15 +164,8 @@ void Request_pool::_execute_sync(Channel &channel, Index_queue &indices,
 	case Channel::State::SYNC_AT_SB_CTRL_COMPLETE:
 
 		if (channel._prim.succ) {
-			channel._request = Cbe::Request(channel._request.operation(),
-			                                true /* success */,
-			                                channel._request.block_number(),
-			                                channel._gen /* offset */,
-			                                channel._request.count(),
-			                                channel._request.key_id(),
-			                                channel._request.tag(),
-			                                channel._request.src_module_id(),
-			                                channel._request.src_request_id());
+			channel._request.success(false);
+			channel._request.offset(channel._gen);
 		} else
 			channel._request.success(false);
 
@@ -206,6 +199,7 @@ void Request_pool::_execute_initialize(Channel &channel, Index_queue &indices,
 		progress       = true;
 
 		break;
+
 	case Channel::State::INITIALIZE_SB_CTRL_COMPLETE:
 
 		if (not channel._prim.succ) {
@@ -229,6 +223,8 @@ void Request_pool::_execute_initialize(Channel &channel, Index_queue &indices,
 
 		case Superblock_state::REKEYING:
 
+			class Exception_rekeying { };
+			throw Exception_rekeying { };
 			channel._request = Cbe::Request(Request::Operation::REKEY,
 			                                false, 0, 0, 0, 0, 0,
 			                                INVALID_MODULE_ID,
@@ -239,6 +235,8 @@ void Request_pool::_execute_initialize(Channel &channel, Index_queue &indices,
 			break;
 		case Superblock_state::EXTENDING_VBD:
 
+			class Exception_ext_vbd { };
+			throw Exception_ext_vbd { };
 			channel._state = Channel::State::SUBMITTED;
 
 			channel._request = Cbe::Request(Request::Operation::EXTEND_VBD,
@@ -253,6 +251,8 @@ void Request_pool::_execute_initialize(Channel &channel, Index_queue &indices,
 			break;
 		case Superblock_state::EXTENDING_FT:
 
+			class Exception_ext_ft { };
+			throw Exception_ext_ft { };
 			channel._state = Channel::State::SUBMITTED;
 
 			channel._request = Cbe::Request(Request::Operation::EXTEND_FT,
@@ -388,7 +388,6 @@ void Request_pool::submit_request(Module_request &mod_req)
 {
 	for (unsigned long idx { 0 }; idx < NR_OF_CHANNELS; idx++) {
 		if (_channels[idx]._state == Channel::INVALID) {
-			mod_req.dst_request_id(idx);
 			Request &req { *dynamic_cast<Request *>(&mod_req) };
 			switch (req.operation()) {
 			case Request::INITIALIZE:
@@ -401,6 +400,7 @@ void Request_pool::submit_request(Module_request &mod_req)
 			case Request::WRITE:
 			case Request::DEINITIALIZE:
 
+				mod_req.dst_request_id(idx);
 				_channels[idx]._state = Channel::SUBMITTED;
 				_channels[idx]._request = req;
 				_indices.enqueue(idx);

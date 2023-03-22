@@ -121,6 +121,7 @@ namespace Cbe
 			uint32_t             key_id()       const { return _key_id; }
 			uint32_t             tag()          const { return _tag; }
 
+			void offset(uint64_t arg) { _offset = arg; }
 			void success(bool arg) { _success = arg; }
 			void tag(uint32_t arg)    { _tag = arg; }
 
@@ -264,7 +265,7 @@ class Cbe::Request_pool : public Module
 
 			void dequeue(Slots_index const idx)
 			{
-				if (empty() or _head != idx) {
+				if (empty() or head() != idx) {
 					class Index_queue_dequeue_error { };
 					throw Index_queue_dequeue_error { };
 				}

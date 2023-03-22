@@ -43,6 +43,8 @@ using namespace Genode;
 using namespace Cbe;
 using namespace Vfs;
 
+enum { VERBOSE_MODULE_COMMUNICATION = 0 };
+
 namespace Cbe {
 
 	char const *module_name(unsigned long id)
@@ -1352,11 +1354,13 @@ class Main : Vfs::Env::User, public Cbe::Module
 					COMMAND_POOL, cmd.id() };
 
 				_request_pool->submit_request(cbe_req);
-				Genode::log(
-					module_name(cbe_req.src_module_id()), ":", cbe_req.src_request_id_str(),
-					" --", cbe_req.type_name(), "--> ",
-					module_name(cbe_req.dst_module_id()), ":",
-					cbe_req.dst_request_id_str());
+				if (VERBOSE_MODULE_COMMUNICATION)
+					Genode::log(
+						module_name(cbe_req.src_module_id()), ":",
+						cbe_req.src_request_id_str(),
+						" --", cbe_req.type_name(), "--> ",
+						module_name(cbe_req.dst_module_id()), ":",
+						cbe_req.dst_request_id_str());
 
 				_cmd_pool.mark_command_in_progress(cmd.id());
 				progress = true;
@@ -1501,8 +1505,6 @@ class Main : Vfs::Env::User, public Cbe::Module
 				}
 			}
 		}
-
-		enum { VERBOSE_MODULE_COMMUNICATION = 1 };
 
 		void _modules_add(unsigned long  module_id,
 		                  Module        &module)
