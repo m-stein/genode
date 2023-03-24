@@ -933,7 +933,7 @@ class Vfs_cbe::Wrapper : public Cbe::Module
 		void *_lookup_read_buffer(Genode::uint64_t tag, Genode::uint64_t vba)
 		{
 			if (_helper_read_request.in_progress())
-				return (void *)&_helper_write_request.block_data;
+				return (void *)&_helper_read_request.block_data;
 			if (_frontend_request.in_progress())
 				return (void *)_frontend_request.data;
 
