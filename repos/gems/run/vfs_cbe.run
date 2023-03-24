@@ -33,6 +33,7 @@ build {
 	server/report_rom
 	server/fs_rom
 	app/cbe_init_trust_anchor
+	app/sequence
 }
 
 set config {
