@@ -1,5 +1,3 @@
-assert_spec x86_64
-
 build { app/file_vault }
 
 create_boot_directory
@@ -279,8 +277,6 @@ puts $fd "<focus label=\"file_vault -> \"/>"
 close $fd
 
 if {[have_board linux]} {
-	exec rm -rf bin/file_vault_dir/data
-	exec rm -rf bin/file_vault_dir/trust_anchor
 	exec mkdir -p bin/file_vault_dir/data
 	exec mkdir -p bin/file_vault_dir/trust_anchor
 }

@@ -22,7 +22,7 @@
 using namespace Genode;
 using namespace Cbe;
 
-enum { VERBOSE_CRYPTO = 1 };
+enum { VERBOSE_CRYPTO = 0 };
 
 
 /********************
@@ -636,7 +636,7 @@ bool Crypto::_peek_completed_request(uint8_t *buf_ptr,
 			memcpy(buf_ptr, &channel._request, sizeof(channel._request));
 
 			Request &req { channel._request };
-			if (VERBOSE_CRYPTO && req._vba == 0) {
+			if (VERBOSE_CRYPTO) {
 
 				switch (req._type) {
 				case Request::DECRYPT_CLIENT_DATA:

@@ -361,7 +361,7 @@ class Vfs_cbe::Wrapper : public Cbe::Module
 
 		void _read_config(Xml_node config)
 		{
-			_verbose      = true;
+			_verbose      = config.attribute_value("verbose", _verbose);
 			_debug        = config.attribute_value("debug",   _debug);
 		}
 
