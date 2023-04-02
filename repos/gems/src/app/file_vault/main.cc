@@ -979,7 +979,7 @@ void Main::_handle_rekeying_fs_query_listing(Xml_node const &node)
 		switch (_rekeying_state) {
 		case Rekeying_state::WAIT_TILL_DEVICE_IS_READY:
 
-			if (cbe_control_file_yields_state_idle(node, "rekey")) {
+			if (cbe_control_file_yields_state_idle(node, "rekey_progress")) {
 
 				_rekeying_state = Rekeying_state::ISSUE_REQUEST_AT_DEVICE;
 				Signal_transmitter(_state_handler).submit();
@@ -988,7 +988,7 @@ void Main::_handle_rekeying_fs_query_listing(Xml_node const &node)
 
 		case Rekeying_state::IN_PROGRESS_AT_DEVICE:
 
-			if (cbe_control_file_yields_state_idle(node, "rekey")) {
+			if (cbe_control_file_yields_state_idle(node, "rekey_progress")) {
 
 				_rekeying_state = Rekeying_state::INACTIVE;
 				Signal_transmitter(_state_handler).submit();

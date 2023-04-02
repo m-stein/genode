@@ -30,7 +30,6 @@ namespace Cbe {
 
 	enum Module_id : unsigned long
 	{
-		/* Warning: don't change the numeric values, they are used in Ada */
 		CRYPTO               = 0,
 		CBE_LIBRARA          = 1,
 		CLIENT_DATA          = 2,
@@ -62,10 +61,10 @@ class Cbe::Module_request
 {
 	private:
 
-		unsigned long _src_module_id   { INVALID_MODULE_ID };
-		unsigned long _src_request_id  { INVALID_MODULE_REQUEST_ID };
-		unsigned long _dst_module_id   { INVALID_MODULE_ID };
-		unsigned long _dst_request_id  { INVALID_MODULE_REQUEST_ID };
+		unsigned long _src_module_id  { INVALID_MODULE_ID };
+		unsigned long _src_request_id { INVALID_MODULE_REQUEST_ID };
+		unsigned long _dst_module_id  { INVALID_MODULE_ID };
+		unsigned long _dst_request_id { INVALID_MODULE_REQUEST_ID };
 
 	public:
 
@@ -75,20 +74,25 @@ class Cbe::Module_request
 		               unsigned long src_request_id,
 		               unsigned long dst_module_id);
 
-		unsigned long src_module_id() const { return _src_module_id; }
-		unsigned long src_request_id() const { return _src_request_id; }
-		unsigned long dst_module_id() const { return _dst_module_id; }
-		unsigned long dst_request_id() const { return _dst_request_id; }
-
 		void dst_request_id(unsigned long id) { _dst_request_id = id; }
-
-		virtual char const *type_name() { return "?"; };
 
 		Genode::String<32> src_request_id_str() const;
 
 		Genode::String<32> dst_request_id_str() const;
 
+		virtual void print(Genode::Output &) const { }
+
 		virtual ~Module_request() { }
+
+
+		/***************
+		 ** Accessors **
+		 ***************/
+
+		unsigned long src_module_id() const { return _src_module_id; }
+		unsigned long src_request_id() const { return _src_request_id; }
+		unsigned long dst_module_id() const { return _dst_module_id; }
+		unsigned long dst_request_id() const { return _dst_request_id; }
 };
 
 

@@ -21,9 +21,13 @@
 #include <base/exception.h>
 #include <util/string.h>
 
+/* CBE includes */
+#include <cbe/verbosity.h>
+
 namespace Cbe {
 
 	enum { INVALID_GENERATION = 0 };
+	enum { INITIAL_GENERATION = 0 };
 
 	using namespace Genode;
 	using Number_of_primitives   = size_t;
@@ -139,15 +143,17 @@ namespace Cbe {
 	__attribute__((packed));
 
 
-	using Tree_level_index       = Genode::uint32_t;
-	using Tree_degree            = Genode::uint32_t;
-	using Tree_degree_log_2      = Genode::uint32_t;
-	using Tree_number_of_leaves  = Genode::uint64_t;
-	using Key_id                 = Genode::uint32_t;
-	using Snapshot_id            = Genode::uint32_t;
-	using Snapshots_index        = Genode::uint32_t;
-	using Node_index             = Genode::uint8_t;
-	using Superblocks_index      = Genode::uint8_t;
+	using Tree_level_index         = Genode::uint32_t;
+	using Tree_degree              = Genode::uint32_t;
+	using Tree_degree_log_2        = Genode::uint32_t;
+	using Tree_number_of_leaves    = Genode::uint64_t;
+	using Key_id                   = Genode::uint32_t;
+	using Snapshot_id              = Genode::uint32_t;
+	using Snapshots_index          = Genode::uint32_t;
+	using Node_index               = Genode::uint8_t;
+	using Superblocks_index        = Genode::uint8_t;
+	using Type_1_node_blocks_index = Genode::uint64_t;
+	using Type_1_node_block_index  = Genode::uint64_t;
 
 	enum {
 		PRIM_BUF_SIZE = 128,
@@ -181,6 +187,15 @@ namespace Cbe {
 	struct Key_value
 	{
 		Genode::uint8_t bytes[KEY_SIZE];
+
+		void print(Genode::Output &out) const
+		{
+			using namespace Genode;
+			for (unsigned idx { 0 }; idx < KEY_SIZE; idx++)
+				Genode::print(
+					out, idx && !(idx % 4) ? " " : "",
+					Hex(bytes[idx], Hex::OMIT_PREFIX, Hex::PAD));
+		}
 	}
 	__attribute__((packed));
 
@@ -207,20 +222,12 @@ namespace Cbe {
 	}
 	__attribute__((packed));
 
-	struct Type_1_node_unpadded
-	{
-		Genode::uint64_t pba             { 0 };
-		Genode::uint64_t gen             { 0 };
-		Genode::uint8_t  hash[HASH_SIZE] { 0 };
-	}
-	__attribute__((packed));
-
 	struct Type_1_node
 	{
-		Genode::uint64_t pba             { 0 };
-		Genode::uint64_t gen             { 0 };
-		Genode::uint8_t  hash[HASH_SIZE] { 0 };
-		Genode::uint8_t  padding[16]     { 0 };
+		Physical_block_address pba         { 0 };
+		Generation             gen         { 0 };
+		Hash_new               hash        { };
+		Genode::uint8_t        padding[16] { 0 };
 
 		bool valid() const
 		{
@@ -230,17 +237,38 @@ namespace Cbe {
 
 		void print(Genode::Output &out) const
 		{
-			using namespace Genode;
-
-			Genode::print(out, "pba: ", pba, " gen: ", gen, " hash: ");
-			for (uint8_t const byte : hash)
-				Genode::print(out, Hex(byte, Hex::OMIT_PREFIX, Hex::PAD));
+			Genode::print(out, "pba ", pba, " gen ", gen);
 		}
 	}
 	__attribute__((packed));
 
 	static_assert(sizeof(Type_1_node) == TYPE_1_NODE_STORAGE_SIZE);
 
+	struct Type_1_node_unpadded
+	{
+		Physical_block_address pba  { 0 };
+		Generation             gen  { 0 };
+		Hash_new               hash { };
+
+		Type_1_node_unpadded() { };
+
+		Type_1_node_unpadded(Physical_block_address pba,
+		                     Generation             gen,
+		                     Hash_new               hash)
+		:
+			pba  { pba },
+			gen  { gen },
+			hash { hash }
+		{ }
+
+		Type_1_node_unpadded(Type_1_node const &node)
+		{
+			pba = node.pba;
+			gen = node.gen;
+			hash = node.hash;
+		}
+	}
+	__attribute__((packed));
 
 	struct Type_1_node_block
 	{
@@ -310,25 +338,15 @@ namespace Cbe {
 		bool                   valid;
 		Snapshot_id            id;
 		bool                   keep;
-
-		Genode::uint8_t        unused[6] { };
+		Genode::uint8_t        padding[6] { };
 
 		void print(Genode::Output &out) const
 		{
-			using namespace Genode;
-
-			Genode::print(out, "hash: ");
-			for (uint8_t const byte : hash.bytes)
-				Genode::print(out, Hex(byte, Hex::OMIT_PREFIX, Hex::PAD));
-
-			Genode::print(out, " "
-			                   "pba: ", pba, " "
-			                   "gen: ", gen, " "
-			                   "nr_of_leaves: ", nr_of_leaves, " "
-			                   "max_level: ", max_level, " "
-			                   "valid: ", valid, " "
-			                   "id: ", id, " "
-			                   "keep: ", keep);
+			if (valid)
+				Genode::print(out, "pba ", (Physical_block_address)pba, " "
+				                   "gen ", (Generation)gen);
+			else
+				Genode::print(out, "<invalid>");
 		}
 	}
 	__attribute__((packed));
@@ -427,13 +445,13 @@ namespace Cbe {
 
 	struct Type_1_node_walk
 	{
-		Type_1_node_unpadded nodes[TREE_MAX_NR_OF_LEVELS];
+		Type_1_node_unpadded nodes[TREE_MAX_NR_OF_LEVELS] { };
 	}
 	__attribute__((packed));
 
 	struct Tree_walk_pbas
 	{
-		Physical_block_address pbas[TREE_MAX_NR_OF_LEVELS];
+		Physical_block_address pbas[TREE_MAX_NR_OF_LEVELS] { 0 };
 	}
 	__attribute__((packed));
 

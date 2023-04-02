@@ -40,6 +40,7 @@ namespace Vfs_cbe {
 
 	class Extend_file_system;
 	class Rekey_file_system;
+	class Rekey_progress_file_system;
 	class Deinitialize_file_system;
 	class Create_snapshot_file_system;
 	class Discard_snapshot_file_system;
@@ -113,12 +114,6 @@ namespace Cbe {
 		return "?";
 	}
 }
-
-
-extern "C" void adainit();
-
-
-extern "C" void print_u8(unsigned char const u) { Genode::log(u); }
 
 
 class Vfs_cbe::Wrapper : public Cbe::Module
@@ -266,6 +261,15 @@ class Vfs_cbe::Wrapper : public Cbe::Module
 			Result   last_result;
 			uint32_t key_id;
 
+			Virtual_block_address max_vba;
+			Virtual_block_address rekeying_vba;
+			uint32_t percent_done;
+
+			bool idle()        const { return state == IDLE; }
+			bool in_progress() const { return state == IN_PROGRESS; }
+
+			bool success()     const { return last_result == SUCCESS; }
+
 			static char const *state_to_cstring(State const s)
 			{
 				switch (s) {
@@ -334,9 +338,12 @@ class Vfs_cbe::Wrapper : public Cbe::Module
 	private:
 
 		Rekeying _rekey_obj {
-			.state       = Rekeying::State::UNKNOWN,
-			.last_result = Rekeying::Result::NONE,
-			.key_id      = 0, };
+			.state        = Rekeying::State::UNKNOWN,
+			.last_result  = Rekeying::Result::NONE,
+			.key_id       = 0,
+			.max_vba      = 0,
+			.rekeying_vba = 0,
+			.percent_done = 0, };
 
 		Deinitialize _deinit_obj
 		{
@@ -350,10 +357,11 @@ class Vfs_cbe::Wrapper : public Cbe::Module
 			.last_result = Extending::Result::NONE,
 		};
 
-		Pointer<Snapshots_file_system>    _snapshots_fs { };
-		Pointer<Extend_file_system>       _extend_fs    { };
-		Pointer<Rekey_file_system>        _rekey_fs     { };
-		Pointer<Deinitialize_file_system> _deinit_fs    { };
+		Pointer<Snapshots_file_system>      _snapshots_fs      { };
+		Pointer<Extend_file_system>         _extend_fs         { };
+		Pointer<Rekey_file_system>          _rekey_fs          { };
+		Pointer<Rekey_progress_file_system> _rekey_progress_fs { };
+		Pointer<Deinitialize_file_system>   _deinit_fs         { };
 
 		/* configuration options */
 		bool _verbose       { false };
@@ -435,8 +443,8 @@ class Vfs_cbe::Wrapper : public Cbe::Module
 
 						if (VERBOSE_MODULE_COMMUNICATION)
 							Genode::log(
-								module_name(id), ":", req.src_request_id_str(),
-								" --", req.type_name(), "-| ",
+								module_name(id), " ", req.src_request_id_str(),
+								" --", req, "-| ",
 								module_name(req.dst_module_id()));
 
 						return Module::REQUEST_NOT_HANDLED;
@@ -445,9 +453,9 @@ class Vfs_cbe::Wrapper : public Cbe::Module
 
 					if (VERBOSE_MODULE_COMMUNICATION)
 						Genode::log(
-							module_name(id), ":", req.src_request_id_str(),
-							" --", req.type_name(), "--> ",
-							module_name(req.dst_module_id()), ":",
+							module_name(id), " ", req.src_request_id_str(),
+							" --", req, "--> ",
+							module_name(req.dst_module_id()), " ",
 							req.dst_request_id_str());
 
 					progress = true;
@@ -460,9 +468,9 @@ class Vfs_cbe::Wrapper : public Cbe::Module
 					}
 					if (VERBOSE_MODULE_COMMUNICATION)
 						Genode::log(
-							module_name(req.src_module_id()), ":",
-							req.src_request_id_str(), " <--", req.type_name(),
-							"-- ", module_name(id), ":",
+							module_name(req.src_module_id()), " ",
+							req.src_request_id_str(), " <--", req,
+							"-- ", module_name(id), " ",
 							req.dst_request_id_str());
 					Module &src_module { *_module_ptrs[req.src_module_id()] };
 					src_module.generated_request_complete(req);
@@ -505,6 +513,7 @@ class Vfs_cbe::Wrapper : public Cbe::Module
 					                                    : Rekeying::Result::FAILED;
 
 					_rekey_fs_trigger_watch_response();
+					_rekey_progress_fs_trigger_watch_response();
 					break;
 				}
 
@@ -760,6 +769,34 @@ class Vfs_cbe::Wrapper : public Cbe::Module
 
 				class No_rekey_file_system_managed { };
 				throw No_rekey_file_system_managed { };
+			}
+		}
+
+		void manage_rekey_progress_file_system(Rekey_progress_file_system &rekey_progress_fs)
+		{
+			if (_rekey_progress_fs.valid()) {
+
+				class Already_managing_an_rekey_progress_file_system { };
+				throw Already_managing_an_rekey_progress_file_system { };
+			}
+			_rekey_progress_fs = rekey_progress_fs;
+		}
+
+		void dissolve_rekey_progress_file_system(Rekey_progress_file_system &rekey_progress_fs)
+		{
+			if (_rekey_progress_fs.valid()) {
+
+				if (&_rekey_progress_fs.obj() != &rekey_progress_fs) {
+
+					class Rekey_progress_file_system_not_managed { };
+					throw Rekey_progress_file_system_not_managed { };
+				}
+				_rekey_progress_fs = Pointer<Rekey_progress_file_system> { };
+
+			} else {
+
+				class No_rekey_progress_file_system_managed { };
+				throw No_rekey_progress_file_system_managed { };
 			}
 		}
 
@@ -1029,7 +1066,7 @@ class Vfs_cbe::Wrapper : public Cbe::Module
 				_frontend_request.state = Frontend_request::State::PENDING;
 			}
 
-			_frontend_request.data   = data;
+			_frontend_request.data   = data.start;
 			_frontend_request.offset = offset;
 			_frontend_request.cbe_request = Cbe::Request(
 				op,
@@ -1065,6 +1102,8 @@ class Vfs_cbe::Wrapper : public Cbe::Module
 		void _extend_fs_trigger_watch_response();
 
 		void _rekey_fs_trigger_watch_response();
+
+		void _rekey_progress_fs_trigger_watch_response();
 
 		void _deinit_fs_trigger_watch_response();
 
@@ -1102,12 +1141,25 @@ class Vfs_cbe::Wrapper : public Cbe::Module
 					_extend_fs_trigger_watch_response();
 				}
 			}
+
 			using RS = Rekeying::State;
 			if (_rekey_obj.state == RS::UNKNOWN && info.valid) {
 				_rekey_obj.state =
 					info.rekeying ? RS::IN_PROGRESS : RS::IDLE;
 
 				_rekey_fs_trigger_watch_response();
+			}
+
+			if (_rekey_obj.in_progress()) {
+				_rekey_obj.rekeying_vba = _sb_control->rekeying_vba();
+
+				/* update user-facing state */
+				uint32_t const last_percent_done = _rekey_obj.percent_done;
+				_rekey_obj.percent_done =
+					_rekey_obj.rekeying_vba * 100 / _rekey_obj.max_vba;
+
+				if (last_percent_done != _rekey_obj.percent_done)
+					_rekey_progress_fs_trigger_watch_response();
 			}
 		}
 
@@ -1135,9 +1187,12 @@ class Vfs_cbe::Wrapper : public Cbe::Module
 			}
 
 			_request_pool->submit_request(req);
-			_rekey_obj.state       = Rekeying::State::IN_PROGRESS;
-			_rekey_obj.last_result = Rekeying::Rekeying::FAILED;
+			_rekey_obj.state        = Rekeying::State::IN_PROGRESS;
+			_rekey_obj.last_result  = Rekeying::Rekeying::FAILED;
+			_rekey_obj.max_vba      = _sb_control->max_vba();
+			_rekey_obj.rekeying_vba = _sb_control->rekeying_vba();
 			_rekey_fs_trigger_watch_response();
+			_rekey_progress_fs_trigger_watch_response();
 
 			// XXX kick-off rekeying
 			handle_frontend_request();
@@ -1759,36 +1814,21 @@ class Vfs_cbe::Rekey_file_system : public Vfs::Single_file_system
 
 		using Content_string = String<32>;
 
-		static Content_string content_string(Wrapper const &wrapper)
+		static file_size copy_content(Content_string const &content,
+		                              char *dst, file_size const count)
 		{
-			Wrapper::Rekeying const & rekeying_progress {
-				wrapper.rekeying_progress() };
-
-			bool const in_progress {
-				rekeying_progress.state ==
-					Wrapper::Rekeying::State::IN_PROGRESS };
-
-			bool const last_result {
-				!in_progress &&
-				rekeying_progress.last_result !=
-					Wrapper::Rekeying::Result::NONE };
-
-			bool const success {
-				rekeying_progress.last_result ==
-					Wrapper::Rekeying::Result::SUCCESS };
-
-			Content_string const result {
-				Wrapper::Rekeying::state_to_cstring(rekeying_progress.state),
-				" last-result:",
-				last_result ? success ? "success" : "failed" : "none",
-				"\n" };
-
-			return result;
+			copy_cstring(dst, content.string(), count);
+			size_t const length_without_nul = content.length() - 1;
+			return count > length_without_nul - 1 ? length_without_nul
+			                                      : count;
 		}
 
 		struct Vfs_handle : Single_vfs_handle
 		{
 			Wrapper &_w;
+
+			/* store VBA in case the handle is kept open */
+			Virtual_block_address _last_rekeying_vba;
 
 			Vfs_handle(Directory_service &ds,
 			           File_io_service   &fs,
@@ -1796,22 +1836,40 @@ class Vfs_cbe::Rekey_file_system : public Vfs::Single_file_system
 			           Wrapper &w)
 			:
 				Single_vfs_handle(ds, fs, alloc, 0),
-				_w(w)
+				_w(w),
+				_last_rekeying_vba(_w.rekeying_progress().rekeying_vba)
 			{ }
 
 			Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 			{
+				/* EOF */
 				if (seek() != 0) {
 					out_count = 0;
 					return READ_OK;
 				}
-				Content_string const result { content_string(_w) };
-				copy_cstring(dst.start, result.string(), dst.num_bytes);
-				size_t const length_without_nul = result.length() - 1;
-				out_count = dst.num_bytes > length_without_nul - 1 ?
-				            length_without_nul : dst.num_bytes;
 
-				return READ_OK;
+				/*
+				 * For now trigger rekeying execution via this hook
+				 * like we do in the Data_file_system.
+				 */
+				_w.handle_frontend_request();
+
+				Wrapper::Rekeying const & rekeying {
+					_w.rekeying_progress() };
+
+				if (rekeying.in_progress())
+					return READ_QUEUED;
+
+				if (rekeying.idle()) {
+					Content_string const content {
+						rekeying.success() ? "successful"
+						                   : "failed" };
+					copy_content(content, dst.start, dst.num_bytes);
+					out_count = dst.num_bytes;
+					return READ_OK;
+				}
+
+				return READ_ERR_IO;
 			}
 
 			Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
@@ -1913,7 +1971,176 @@ class Vfs_cbe::Rekey_file_system : public Vfs::Single_file_system
 		Stat_result stat(char const *path, Stat &out) override
 		{
 			Stat_result result = Single_file_system::stat(path, out);
-			out.size = content_string(_w).length() - 1;
+			out.size = Content_string::size();
+			return result;
+		}
+
+
+		/********************************
+		 ** File I/O service interface **
+		 ********************************/
+
+		Ftruncate_result ftruncate(Vfs::Vfs_handle *handle, file_size) override
+		{
+			return FTRUNCATE_OK;
+		}
+};
+
+
+class Vfs_cbe::Rekey_progress_file_system : public Vfs::Single_file_system
+{
+	private:
+
+		typedef Registered<Vfs_watch_handle>      Registered_watch_handle;
+		typedef Registry<Registered_watch_handle> Watch_handle_registry;
+
+		Watch_handle_registry _handle_registry { };
+
+		Wrapper &_w;
+
+		using Content_string = String<32>;
+
+		static file_size copy_content(Content_string const &content,
+		                              char *dst, file_size const count)
+		{
+			copy_cstring(dst, content.string(), count);
+			size_t const length_without_nul = content.length() - 1;
+			return count > length_without_nul - 1 ? length_without_nul
+			                                      : count;
+		}
+
+		struct Vfs_handle : Single_vfs_handle
+		{
+			Wrapper &_w;
+
+			Vfs_handle(Directory_service &ds,
+			           File_io_service   &fs,
+			           Genode::Allocator &alloc,
+			           Wrapper &w)
+			:
+				Single_vfs_handle(ds, fs, alloc, 0),
+				_w(w)
+			{ }
+
+			Read_result read(Byte_range_ptr const &dst,
+			                 size_t               &out_count) override
+			{
+				/* EOF */
+				if (seek() != 0) {
+					out_count = 0;
+					return READ_OK;
+				}
+
+				/*
+				 * For now trigger rekeying execution via this hook
+				 * like we do in the Data_file_system.
+				 */
+				_w.handle_frontend_request();
+
+				Wrapper::Rekeying const & rekeying {
+					_w.rekeying_progress() };
+
+				if (rekeying.idle()) {
+					Content_string const content { "idle" };
+					copy_content(content, dst.start, dst.num_bytes);
+					out_count = dst.num_bytes;
+					return READ_OK;
+				}
+
+				if (rekeying.in_progress()) {
+					Content_string const content { "at ", rekeying.percent_done, "%" };
+					copy_content(content, dst.start, dst.num_bytes);
+					out_count = dst.num_bytes;
+					return READ_OK;
+				}
+
+				return READ_ERR_IO;
+			}
+
+			Write_result write(Const_byte_range_ptr const &,
+			                   size_t                     &) override
+			{
+				return WRITE_ERR_IO;
+			}
+
+			bool read_ready()  const override { return true; }
+			bool write_ready() const override { return true; }
+		};
+
+	public:
+
+		Rekey_progress_file_system(Wrapper &w)
+		:
+			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(),
+			                   Node_rwx::rw(), Xml_node("<rekey_progress/>")),
+			_w(w)
+		{
+			_w.manage_rekey_progress_file_system(*this);
+		}
+
+		~Rekey_progress_file_system()
+		{
+			_w.dissolve_rekey_progress_file_system(*this);
+		}
+
+		static char const *type_name() { return "rekey_progress"; }
+
+		char const *type() override { return type_name(); }
+
+		void trigger_watch_response()
+		{
+			_handle_registry.for_each([this] (Registered_watch_handle &handle) {
+				handle.watch_response(); });
+		}
+
+		Watch_result watch(char const        *path,
+		                   Vfs_watch_handle **handle,
+		                   Allocator         &alloc) override
+		{
+			if (!_single_file(path))
+				return WATCH_ERR_UNACCESSIBLE;
+
+			try {
+				*handle = new (alloc)
+					Registered_watch_handle(_handle_registry, *this, alloc);
+
+				return WATCH_OK;
+			}
+			catch (Out_of_ram)  { return WATCH_ERR_OUT_OF_RAM;  }
+			catch (Out_of_caps) { return WATCH_ERR_OUT_OF_CAPS; }
+		}
+
+		void close(Vfs_watch_handle *handle) override
+		{
+			destroy(handle->alloc(),
+			        static_cast<Registered_watch_handle *>(handle));
+		}
+
+
+		/*********************************
+		 ** Directory-service interface **
+		 *********************************/
+
+		Open_result open(char const  *path, unsigned,
+		                 Vfs::Vfs_handle **out_handle,
+		                 Genode::Allocator   &alloc) override
+		{
+			if (!_single_file(path))
+				return OPEN_ERR_UNACCESSIBLE;
+
+			try {
+				*out_handle =
+					new (alloc) Vfs_handle(*this, *this, alloc, _w);
+				return OPEN_OK;
+			}
+			catch (Genode::Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
+			catch (Genode::Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
+		}
+
+		Stat_result stat(char const *path, Stat &out) override
+		{
+			Stat_result result = Single_file_system::stat(path, out);
+			out.size = Content_string::size();
 			return result;
 		}
 
@@ -2927,6 +3154,7 @@ class Vfs_cbe::Snapshots_file_system : public Vfs::File_system
 struct Vfs_cbe::Control_local_factory : File_system_factory
 {
 	Rekey_file_system             _rekeying_fs;
+	Rekey_progress_file_system    _rekeying_progress_fs;
 	Deinitialize_file_system      _deinitialize_fs;
 	Create_snapshot_file_system   _create_snapshot_fs;
 	Discard_snapshot_file_system  _discard_snapshot_fs;
@@ -2937,6 +3165,7 @@ struct Vfs_cbe::Control_local_factory : File_system_factory
 	                      Wrapper      &cbe)
 	:
 		_rekeying_fs(cbe),
+		_rekeying_progress_fs(cbe),
 		_deinitialize_fs(cbe),
 		_create_snapshot_fs(cbe),
 		_discard_snapshot_fs(cbe),
@@ -2948,6 +3177,11 @@ struct Vfs_cbe::Control_local_factory : File_system_factory
 		if (node.has_type(Rekey_file_system::type_name())) {
 			return &_rekeying_fs;
 		}
+
+		if (node.has_type(Rekey_progress_file_system::type_name())) {
+			return &_rekeying_progress_fs;
+		}
+
 		if (node.has_type(Deinitialize_file_system::type_name())) {
 			return &_deinitialize_fs;
 		}
@@ -2983,6 +3217,7 @@ class Vfs_cbe::Control_file_system : private Control_local_factory,
 			Xml_generator xml(buf, sizeof(buf), "dir", [&] () {
 				xml.attribute("name", "control");
 				xml.node("rekey", [&] () { });
+				xml.node("rekey_progress", [&] () { });
 				xml.node("extend", [&] () { });
 				xml.node("create_snapshot", [&] () { });
 				xml.node("discard_snapshot", [&] () { });
@@ -3151,6 +3386,14 @@ void Vfs_cbe::Wrapper::_rekey_fs_trigger_watch_response()
 }
 
 
+void Vfs_cbe::Wrapper::_rekey_progress_fs_trigger_watch_response()
+{
+	if (_rekey_progress_fs.valid()) {
+		_rekey_progress_fs.obj().trigger_watch_response();
+	}
+}
+
+
 void Vfs_cbe::Wrapper::_deinit_fs_trigger_watch_response()
 {
 	if (_deinit_fs.valid()) {
@@ -3217,4 +3460,4 @@ void Vfs_cbe::Snapshots_file_system::Snapshot_registry::update(Vfs::Env &vfs_env
 	if (trigger_watch_response) {
 		_snapshots_fs.trigger_watch_response();
 	}
-}
+}  

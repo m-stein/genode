@@ -72,12 +72,31 @@ class Cbe::Crypto_request : public Module_request
 
 		bool success() const { return _success; }
 
+		static const char *type_to_string(Type type);
+
 
 		/********************
 		 ** Module_request **
 		 ********************/
 
-		char const *type_name() override;
+		void print(Genode::Output &out) const override
+		{
+			Genode::print(out, type_to_string(_type));
+			switch (_type) {
+			case ADD_KEY:
+			case REMOVE_KEY:
+				Genode::print(out, " ", _key_id);
+				break;
+			case DECRYPT:
+			case ENCRYPT:
+			case DECRYPT_CLIENT_DATA:
+			case ENCRYPT_CLIENT_DATA:
+				Genode::print(out, " pba ", _pba);
+				break;
+			default:
+				break;
+			}
+		}
 };
 
 class Cbe::Crypto_channel

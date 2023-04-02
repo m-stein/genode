@@ -54,6 +54,7 @@ class Cbe::Superblock_control_request : public Module_request
 		Genode::uint8_t       _prim[PRIM_BUF_SIZE]     { 0 };
 		Superblock_state      _sb_state                { INVALID };
 		bool                  _success                 { false };
+		bool                  _request_finished        { false };
 
 	public:
 
@@ -81,12 +82,28 @@ class Cbe::Superblock_control_request : public Module_request
 
 		bool success() const { return _success; }
 
+		bool request_finished() const { return _request_finished; }
+
+		static char const *type_to_string(Type type);
+
 
 		/********************
 		 ** Module_request **
 		 ********************/
 
-		char const *type_name() override;
+		void print(Genode::Output &out) const override
+		{
+			Genode::print(out, type_to_string(_type));
+			switch (_type) {
+			case REKEY_VBA:
+			case READ_VBA:
+			case WRITE_VBA:
+				Genode::print(out, " ", _vba);
+				break;
+			default:
+				break;
+			}
+		}
 };
 
 class Cbe::Superblock_control_channel
@@ -167,6 +184,7 @@ class Cbe::Superblock_control_channel
 		};
 
 		enum Tag_type {
+			TAG_SB_CTRL_VBD_RKG_REKEY_VBA,
 			TAG_SB_CTRL_VBD_RKG_READ_VBA,
 			TAG_SB_CTRL_VBD_RKG_WRITE_VBA,
 			TAG_SB_CTRL_TA_ENCRYPT_KEY,
@@ -177,6 +195,7 @@ class Cbe::Superblock_control_channel
 			TAG_SB_CTRL_TA_SECURE_SB,
 			TAG_SB_CTRL_TA_LAST_SB_HASH,
 			TAG_SB_CTRL_TA_DECRYPT_KEY,
+			TAG_SB_CTRL_TA_CREATE_KEY,
 			TAG_SB_CTRL_CRYPTO_ADD_KEY,
 			TAG_SB_CTRL_CRYPTO_REMOVE_KEY,
 		};
@@ -219,18 +238,59 @@ class Cbe::Superblock_control : public Module
 
 		using Request = Superblock_control_request;
 		using Channel = Superblock_control_channel;
+		using Generated_prim = Channel::Generated_prim;
 
 		enum { NR_OF_CHANNELS = 1 };
 
-		Superblock        _superblock               { };
+		Superblock        _sb                       { };
 		Superblocks_index _sb_idx                   { 0 };
 		Generation        _curr_gen                 { 0 };
 		Channel           _channels[NR_OF_CHANNELS] { };
+
+		void _mark_req_failed(Channel    &chan,
+		                      bool       &progress,
+		                      char const *str);
+
+		void _mark_req_successful(Channel &chan,
+		                          bool    &progress);
+
+		void _secure_sb_init(Channel  &chan,
+		                     uint64_t  chan_idx,
+		                     bool     &progress);
+
+		void _secure_sb_encr_curr_key_compl(Channel  &chan,
+		                                    uint64_t  chan_idx,
+		                                    bool     &progress);
+
+		void _secure_sb_encr_prev_key_compl(Channel  &chan,
+		                                    uint64_t  chan_idx,
+		                                    bool     &progress);
+
+		void _secure_sb_sync_cache_compl(Channel  &chan,
+		                                 uint64_t  chan_idx,
+		                                 bool     &progress);
+
+		void _secure_sb_write_sb_compl(Channel  &chan,
+		                               uint64_t  chan_idx,
+		                               bool     &progress);
+
+		void _secure_sb_sync_blk_io_compl(Channel  &chan,
+		                                  uint64_t  chan_idx,
+		                                  bool     &progress);
 
 		void _init_sb_without_key_values(Superblock const &, Superblock &);
 
 		void _execute_sync(Channel &, uint64_t const job_idx, Superblock &,
                            Superblocks_index &, Generation &, bool &progress);
+
+		void _execute_rekey_vba(Channel  &chan,
+		                        uint64_t  chan_idx,
+		                        bool     &progress);
+
+		void _execute_initialize_rekeying(Channel  &chan,
+		                                  uint64_t  chan_idx,
+		                                  bool     &progress);
+
 		void _execute_read_vba(Channel &, uint64_t const job_idx,
 		                       Superblock const &, bool &progress);
 
@@ -275,15 +335,17 @@ class Cbe::Superblock_control : public Module
 
 		Virtual_block_address max_vba() const;
 
+		Virtual_block_address rekeying_vba() const;
+
 		void active_snapshot_ids(Active_snapshot_ids &snap_ids) const
 		{
-			if (_superblock.valid()) {
+			if (_sb.valid()) {
 
 				for (Snapshots_index idx { 0 };
 				     idx < MAX_NR_OF_SNAPSHOTS_PER_SB;
 				     idx++) {
 
-					Snapshot const &snap { _superblock.snapshots.items[idx] };
+					Snapshot const &snap { _sb.snapshots.items[idx] };
 					if (snap.valid && snap.keep)
 						snap_ids.values[idx] = snap.gen;
 					else
@@ -297,12 +359,12 @@ class Cbe::Superblock_control : public Module
 
 		Info info() const
 		{
-			if (_superblock.valid())
+			if (_sb.valid())
 
 				return Info {
-					true, _superblock.state == REKEYING,
-					_superblock.state == EXTENDING_FT,
-					_superblock.state == EXTENDING_VBD };
+					true, _sb.state == REKEYING,
+					_sb.state == EXTENDING_FT,
+					_sb.state == EXTENDING_VBD };
 
 			else
 

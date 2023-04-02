@@ -84,7 +84,7 @@ class Cbe::Trust_anchor_request : public Module_request
 		 ** Module_request **
 		 ********************/
 
-		char const *type_name() override { return type_to_string(_type); }
+		void print(Genode::Output &out) const override { Genode::print(out, type_to_string(_type)); }
 };
 
 class Cbe::Trust_anchor_channel

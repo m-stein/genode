@@ -74,12 +74,14 @@ class Cbe::Block_io_request : public Module_request
 
 		static char const *type_to_string(Type type);
 
+		char const *type_name() const { return type_to_string(_type); }
+
 
 		/********************
 		 ** Module_request **
 		 ********************/
 
-		char const *type_name() override { return type_to_string(_type); }
+		void print(Genode::Output &out) const override;
 };
 
 class Cbe::Block_io_channel

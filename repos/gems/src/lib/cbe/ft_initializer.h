@@ -55,15 +55,6 @@ class Cbe::Ft_initializer_request : public Module_request
 		Ft_initializer_request(unsigned long src_module_id,
 		                        unsigned long src_request_id);
 
-		void print(Genode::Output &out) const
-		{
-			Genode::print(out, "src: ", src_module_id(), ":", src_request_id(),
-			                   " type: ",          (unsigned)_type,
-			                   " max_level_idx: ", _max_level_idx,
-			                   " max_child_idx: ", _max_child_idx,
-			                   " nr_of_leaves: ",  _nr_of_leaves);
-		}
-
 		static void create(void             *buf_ptr,
 		                   size_t            buf_size,
 		                   Genode::uint64_t  src_module_id,
@@ -90,7 +81,7 @@ class Cbe::Ft_initializer_request : public Module_request
 		 ** Module_request **
 		 ********************/
 
-		char const *type_name() override { return type_to_string(_type); }
+		void print(Genode::Output &out) const override { Genode::print(out, type_to_string(_type)); }
 };
 
 

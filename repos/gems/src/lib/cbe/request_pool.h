@@ -98,8 +98,6 @@ namespace Cbe
 				return _operation != Operation::INVALID;
 			}
 
-			void print(Genode::Output &out) const;
-
 
 			/***************
 			 ** Accessors **
@@ -131,7 +129,29 @@ namespace Cbe
 			void tag(uint32_t arg)    { _tag = arg; }
 			void snap_id(uint32_t arg) { _snap_id = arg; }
 
-			char const *type_name() override;
+			static char const *op_to_string(Operation op);
+
+
+			/********************
+			 ** Module_request **
+			 ********************/
+
+			void print(Genode::Output &out) const override
+			{
+				Genode::print(out, op_to_string(_operation));
+				switch (_operation) {
+				case READ:
+				case WRITE:
+				case SYNC:
+					if (_count > 1)
+						Genode::print(out, " vbas ", _block_number, "..", _block_number + _count - 1);
+					else
+						Genode::print(out, " vba ", _block_number);
+					break;
+				default:
+					break;
+				}
+			}
 
 	} __attribute__((packed));
 
@@ -191,6 +211,8 @@ class Cbe::Request_pool_channel
 			TAG_POOL_SB_CTRL_SYNC,
 			TAG_POOL_SB_CTRL_INITIALIZE,
 			TAG_POOL_SB_CTRL_DEINITIALIZE,
+			TAG_POOL_SB_CTRL_INIT_REKEY,
+			TAG_POOL_SB_CTRL_REKEY_VBA,
 		};
 
 		using Index_type = Genode::uint32_t; /* XXX */
@@ -206,12 +228,14 @@ class Cbe::Request_pool_channel
 			uint64_t   idx;
 		};
 
-		Cbe::Request     _request    { };
-		State            _state      { INVALID };
-		Generated_prim   _prim       { };
-		uint64_t         _nr_of_blks { 0 };
-		Generation       _gen        { };
-		Superblock_state _sb_state   { Superblock_state::INVALID };
+		Cbe::Request     _request                 { };
+		State            _state                   { INVALID };
+		Generated_prim   _prim                    { };
+		uint64_t         _nr_of_blks              { 0 };
+		Generation       _gen                     { };
+		Superblock_state _sb_state                { Superblock_state::INVALID };
+		uint32_t         _nr_of_requests_preponed { 0 };
+		bool             _request_finished        { false };
 
 		void invalidate()
 		{
@@ -228,14 +252,19 @@ class Cbe::Request_pool : public Module
 {
 	private:
 
+		enum { MAX_NR_OF_REQUESTS_PREPONED_AT_A_TIME = 8 };
+
 		using Channel = Request_pool_channel;
 		using Request = Cbe::Request;
 		using Slots_index = Genode::uint32_t;
+		using Pool_index = Channel::Index_type; /* XXX */
 
 		enum { NR_OF_CHANNELS = 16 };
 
 		struct Index_queue
 		{
+			using Index = Slots_index;
+
 			Slots_index _head                  { 0 };
 			Slots_index _tail                  { 0 };
 			unsigned    _nr_of_used_slots      { 0 };
@@ -269,6 +298,79 @@ class Cbe::Request_pool : public Module
 				_nr_of_used_slots += 1;
 			}
 
+			void move_one_item_towards_tail(Index idx)
+			{
+				Slots_index slot_idx { _head };
+				Slots_index next_slot_idx;
+				Index next_idx;
+
+				if (empty()) {
+					class Exception_1 { };
+					throw Exception_1 { };
+				}
+				while (true) {
+
+					if (slot_idx < NR_OF_CHANNELS - 1)
+						next_slot_idx = slot_idx + 1;
+					else
+						next_slot_idx = 0;
+
+					if (next_slot_idx == _tail) {
+						class Exception_2 { };
+						throw Exception_2 { };
+					}
+					if (_slots[slot_idx] == idx) {
+						next_idx = _slots[next_slot_idx];
+						_slots[next_slot_idx] = _slots[slot_idx];
+						_slots[slot_idx] = next_idx;
+						return;
+					} else
+						slot_idx = next_slot_idx;
+				}
+			}
+
+			bool item_is_tail(Slots_index idx) const
+			{
+				Slots_index slot_idx;
+
+				if (empty()) {
+					class Exception_1 { };
+					throw Exception_1 { };
+				}
+				if (_tail > 0)
+					slot_idx = _tail - 1;
+				else
+					slot_idx = NR_OF_CHANNELS - 1;
+
+				return _slots[slot_idx] == idx;
+			}
+
+			Index next_item(Index idx) const
+			{
+				Slots_index slot_idx { _head };
+				Slots_index next_slot_idx;
+				if (empty()) {
+					class Exception_1 { };
+					throw Exception_1 { };
+				}
+				while (true) {
+
+					if (slot_idx < NR_OF_CHANNELS - 1)
+						next_slot_idx = slot_idx + 1;
+					else
+						next_slot_idx = 0;
+
+					if (next_slot_idx == _tail) {
+						class Exception_2 { };
+						throw Exception_2 { };
+					}
+					if (_slots[slot_idx] == idx)
+						return _slots[next_slot_idx];
+					else
+						slot_idx = next_slot_idx;
+				}
+			}
+
 			void dequeue(Slots_index const idx)
 			{
 				if (empty() or head() != idx) {
@@ -290,6 +392,11 @@ class Cbe::Request_pool : public Module
 		void _execute_write(Channel &, Index_queue &, Slots_index const, bool &);
 
 		void _execute_sync (Channel &, Index_queue &, Slots_index const, bool &);
+
+		void _execute_rekey(Channel     &chan,
+		                    Index_queue &indices,
+		                    Slots_index  idx,
+		                    bool        &progress);
 
 		void _execute_initialize(Channel &, Index_queue &, Slots_index const,
 		                         bool &);
@@ -348,22 +455,6 @@ inline char const *to_string(Cbe::Request::Operation op)
 	case Cbe::Request::Operation::INITIALIZE: return "initialize";
 	}
 	throw Unknown_operation_type();
-}
-
-
-inline void Cbe::Request::print(Genode::Output &out) const
-{
-	if (!valid()) {
-		Genode::print(out, "<invalid>");
-		return;
-	}
-	Genode::print(out, "op=", to_string (_operation));
-	Genode::print(out, " vba=", _block_number);
-	Genode::print(out, " cnt=", _count);
-	Genode::print(out, " tag=", _tag);
-	Genode::print(out, " key=", _key_id);
-	Genode::print(out, " off=", _offset);
-	Genode::print(out, " succ=", _success);
 }
 
 #endif /* _REQUEST_POOL_H_ */

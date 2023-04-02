@@ -24,6 +24,24 @@ vbd_node_lowest_vba(Tree_degree_log_2     vbd_degree_log_2,
 }
 
 
+static Number_of_blocks vbd_node_nr_of_vbas(Tree_degree_log_2 vbd_degree_log_2,
+                                            Tree_level_index  vbd_level)
+{
+	return (Number_of_blocks)1 << (vbd_level * vbd_degree_log_2);
+}
+
+
+static Virtual_block_address
+vbd_node_highest_vba(Tree_degree_log_2     vbd_degree_log_2,
+                     Tree_level_index      vbd_level,
+                     Virtual_block_address vbd_leaf_vba)
+{
+	return
+		vbd_node_lowest_vba(vbd_degree_log_2, vbd_level, vbd_leaf_vba) +
+		(vbd_node_nr_of_vbas(vbd_degree_log_2, vbd_level) - 1);
+}
+
+
 /***********************
  ** Free_tree_request **
  ***********************/
@@ -351,7 +369,7 @@ Free_tree::_exchange_type_2_leaves(Generation              free_gen,
                                    Type_2_node_block      &entries,
                                    Number_of_blocks       &exchanged,
                                    bool                   &handled,
-                                   Virtual_block_address   /*vbd_highest_vba*/,
+                                   Virtual_block_address   vbd_highest_vba,
                                    bool                    rekeying,
                                    Key_id                  previous_key_id,
                                    Key_id                  current_key_id,
@@ -397,77 +415,50 @@ Free_tree::_exchange_type_2_leaves(Generation              free_gen,
 					break;
 
 				case Request::ALLOC_FOR_RKG_CURR_GEN_BLKS:
-/*
+
 					new_blocks.pbas[i] = t2_node.pba;
 
-					t2_node.pba =
-						old_blocks.nodes[i].pba;
-
-					t2_node.alloc_gen =
-						old_blocks.nodes[i].gen;
-					t2_node.free_gen =
-						free_gen;
-
-					t2_node.last_vba    =
+					t2_node.pba       = old_blocks.nodes[i].pba;
+					t2_node.alloc_gen = old_blocks.nodes[i].gen;
+					t2_node.free_gen  = free_gen;
+					t2_node.last_vba  =
 						vbd_node_lowest_vba (vbd_degree_log_2, i, vba);
 
-					t2_node.last_key_id =
-						previous_key_id;
-
+					t2_node.last_key_id = previous_key_id;
 					t2_node.reserved = false;
 					break;
-*/
-					class Exception_4 { };
-					throw Exception_4 { };
 
 				case Request::ALLOC_FOR_RKG_OLD_GEN_BLKS:
-/*
+				{
 					new_blocks.pbas[i] = t2_node.pba;
 
-					t2_node.alloc_gen =
-						old_blocks.nodes[i].gen;
-					t2_node.free_gen =
-						free_gen;
+					t2_node.alloc_gen = old_blocks.nodes[i].gen;
+					t2_node.free_gen  = free_gen;
 
+					Virtual_block_address const node_highest_vba {
+						vbd_node_highest_vba(vbd_degree_log_2, i, vba) };
+
+					if (rekeying_vba < node_highest_vba &&
+					    rekeying_vba < vbd_highest_vba)
 					{
-						node_highest_vba :
-						constant virtual_block_address =
-							vbd_node_highest_vba (vbd_degree_log_2, i, vba);
+						t2_node.last_key_id = previous_key_id;
+						t2_node.last_vba    = rekeying_vba + 1;
 
-						if rekeying_vba < node_highest_vba &&
-						rekeying_vba < vbd_highest_vba)
-						{
+					} else if (rekeying_vba == node_highest_vba ||
+					           rekeying_vba == vbd_highest_vba) {
 
-						t2_node.last_vba    =
-							rekeying_vba + 1;
-
-						t2_node.last_key_id =
-							previous_key_id;
-
-						elsif (rekeying_vba == node_highest_vba ||
-							   rekeying_vba == vbd_highest_vba) {
-
+						t2_node.last_key_id = current_key_id;
 						t2_node.last_vba    =
 							vbd_node_lowest_vba (vbd_degree_log_2, i, vba);
 
-						t2_node.last_key_id =
-							current_key_id;
-
-						else
+					} else {
 
 						class Exception_1 { };
 						throw Exception_1 { };
-
-						}
-
 					}
-
 					t2_node.reserved = true;
 					break;
-*/
-					class Exception_3 { };
-					throw Exception_3 { };
-
+				}
 				default:
 
 					class Exception_2 { };

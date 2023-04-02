@@ -26,6 +26,7 @@ build {
 	lib/vfs_cbe_crypto_memcopy
 	lib/vfs_cbe_trust_anchor
 	lib/vfs_import
+	lib/vfs_jitterentropy
 	lib/vfs_pipe
 	test/vfs_stress
 	test/libc
@@ -133,6 +134,7 @@ append config {
 				</import>
 
 				<dir name="dev">
+					<jitterentropy/>
 					<cbe_trust_anchor name="cbe_trust_anchor"
 					                  storage_dir="/"/>
 				</dir>
@@ -303,6 +305,7 @@ append boot_modules {
 	vfs_cbe.sh
 	vfs.lib.so
 	vfs_import.lib.so
+	vfs_jitterentropy.lib.so
 	vfs_pipe.lib.so
 	posix.lib.so
 	libc.lib.so

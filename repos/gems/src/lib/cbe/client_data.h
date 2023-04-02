@@ -56,16 +56,6 @@ class Cbe::Client_data_request : public Module_request
 
 	public:
 
-		char const *type_name() override
-		{
-			switch (_type) {
-			case INVALID: return "invalid";
-			case OBTAIN_PLAINTEXT_BLK: return "obtain_plaintext_blk";
-			case SUPPLY_PLAINTEXT_BLK: return "supply_plaintext_blk";
-			}
-			return "?";
-		}
-
 		Client_data_request() { }
 
 		Type type() const { return _type; }
@@ -94,6 +84,23 @@ class Cbe::Client_data_request : public Module_request
 		{ }
 
 		bool success() const { return _success; }
+
+		static char const *type_to_string(Type type)
+		{
+			switch (type) {
+			case INVALID: return "invalid";
+			case OBTAIN_PLAINTEXT_BLK: return "obtain_plaintext_blk";
+			case SUPPLY_PLAINTEXT_BLK: return "supply_plaintext_blk";
+			}
+			return "?";
+		}
+
+
+		/********************
+		 ** Module_request **
+		 ********************/
+
+		void print(Genode::Output &out) const override { Genode::print(out, type_to_string(_type)); }
 };
 
 #endif /* _CLIENT_DATA_H_ */

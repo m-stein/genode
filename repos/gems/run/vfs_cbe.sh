@@ -77,7 +77,7 @@ test_discard_snapshot() {
 	echo $snap_id > $cbe_dir/control/discard_snapshot
 }
 
-test_rekey() {
+test_rekey_start() {
 	local cbe_dir="$1"
 
 	echo "Start rekeying"
@@ -106,31 +106,54 @@ test_ft_extension() {
 test_rekey_state() {
 	local cbe_dir="$1"
 	local state="$(< $cbe_dir/control/rekey)"
+	local progress="$(< $cbe_dir/control/rekey_progress)"
 
-	echo "Rekeying state: $state"
+	local result="unknown"
+	case "$progress" in
+	*at*)
+		result="$progress"
+		;;
+	*idle*)
+		result="done"
+		;;
+	esac
+
+	echo "Rekeying state: $state progress: $result"
 }
 
-test_rekey_state() {
+test_rekey() {
 	local cbe_dir="$1"
-	local state="$(< $cbe_dir/control/rekey)"
 
-	echo "Rekeying state: $state"
+	test_rekey_start "$cbe_dir"
+
+	wait_for_rekeying "$cbe_dir" "yes"
 }
 
 wait_for_rekeying() {
 	local cbe_dir="$1"
+	local verbose="$2"
+	local result="unknown"
 
 	echo "Wait for rekeying to finish..."
 	while : ; do
-		local file_content="$(< $cbe_dir/control/rekey)"
-		local state="${file_content:0:4}"
-		if [ "$state" = "idle" ]; then
-			local result="${file_content:5}"
-			echo "Reykeying done: $result"
-			break;
+		local done=0
+		local file_content="$(< $cbe_dir/control/rekey_progress)"
+		echo "file_content: ${file_content}"
+		case "$file_content" in
+		*at*)
+			if [ "$verbose" = "yes" ]; then
+				echo "Rekeying: $file_content"
+			fi
+			;;
+		*idle*)
+			done=1;
+			;;
+		esac
+		if [ $done -gt 0 ]; then
+			break
 		fi
-		sleep 2
 	done
+	echo "Rekeying done"
 }
 
 wait_for_vbd_extension() {
@@ -220,24 +243,26 @@ main() {
 		test_read_compare_1 "$data_file" "490"
 
 		#test_rekey "$cbe_dir"
+
+		test_rekey_start "$cbe_dir"
 		test_write_1 "$data_file" "0"
-		#test_rekey_state "$cbe_dir"
+		test_rekey_state "$cbe_dir"
 		test_read_compare_1 "$data_file" "490"
-		#test_rekey_state "$cbe_dir"
+		test_rekey_state "$cbe_dir"
 		test_write_1 "$data_file" "16"
-		#test_rekey_state "$cbe_dir"
+		test_rekey_state "$cbe_dir"
 		test_read_compare_1 "$data_file" "468"
-		#test_rekey_state "$cbe_dir"
+		test_rekey_state "$cbe_dir"
 		test_read_compare_1 "$data_file" "8"
-		#test_rekey_state "$cbe_dir"
+		test_rekey_state "$cbe_dir"
 		test_read_compare_1 "$data_file" "16"
-		#test_rekey_state "$cbe_dir"
+		test_rekey_state "$cbe_dir"
 		test_read_compare_1 "$data_file" "0"
 		test_write_1 "$data_file" "300"
 		test_write_1 "$data_file" "240"
 		test_write_1 "$data_file" "201"
 		test_write_1 "$data_file" "328"
-		#wait_for_rekeying "$cbe_dir"
+		wait_for_rekeying "$cbe_dir" "yes"
 
 		echo "--> Run $i done"
 

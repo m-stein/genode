@@ -179,8 +179,8 @@ class Main : Vfs::Env::User, public Cbe::Module
 
 						if (VERBOSE_MODULE_COMMUNICATION)
 							Genode::log(
-								module_name(id), ":", req.src_request_id_str(),
-								" --", req.type_name(), "-| ",
+								module_name(id), " ", req.src_request_id_str(),
+								" --", req, "-| ",
 								module_name(req.dst_module_id()));
 
 						return Module::REQUEST_NOT_HANDLED;
@@ -189,9 +189,9 @@ class Main : Vfs::Env::User, public Cbe::Module
 
 					if (VERBOSE_MODULE_COMMUNICATION)
 						Genode::log(
-							module_name(id), ":", req.src_request_id_str(),
-							" --", req.type_name(), "--> ",
-							module_name(req.dst_module_id()), ":",
+							module_name(id), " ", req.src_request_id_str(),
+							" --", req, "--> ",
+							module_name(req.dst_module_id()), " ",
 							req.dst_request_id_str());
 
 					progress = true;
@@ -204,9 +204,9 @@ class Main : Vfs::Env::User, public Cbe::Module
 					}
 					if (VERBOSE_MODULE_COMMUNICATION)
 						Genode::log(
-							module_name(req.src_module_id()), ":",
-							req.src_request_id_str(), " <--", req.type_name(),
-							"-- ", module_name(id), ":",
+							module_name(req.src_module_id()), " ",
+							req.src_request_id_str(), " <--", req,
+							"-- ", module_name(id), " ",
 							req.dst_request_id_str());
 					Module &src_module { *_module_ptrs[req.src_module_id()] };
 					src_module.generated_request_complete(req);

@@ -99,8 +99,11 @@ class Cbe::Virtual_block_device_request : public Module_request
 		                   Genode::uint64_t       vbd_highest_vba,
 		                   bool                   rekeying,
 		                   Virtual_block_address  vba,
-		                   Snapshot const        *snapshot_ptr,
+		                   Snapshot  const       *snapshot_ptr,
+		                   Snapshots const       *snapshots_ptr,
 		                   Tree_degree            snapshots_degree,
+		                   Key_id                 old_key_id,
+		                   Key_id                 new_key_id,
 		                   Generation             current_gen,
 		                   Key_id                 key_id);
 
@@ -110,14 +113,18 @@ class Cbe::Virtual_block_device_request : public Module_request
 
 		Snapshot *snapshot_ptr() { return &_snapshots.items[0]; }
 
+		Snapshots *snapshots_ptr() { return &_snapshots; }
+
 		static char const *type_to_string(Type type);
+
+		char const *type_name() const { return type_to_string(_type); }
 
 
 		/********************
 		 ** Module_request **
 		 ********************/
 
-		char const *type_name() override { return type_to_string(_type); }
+		void print(Genode::Output &out) const override { Genode::print(out, type_to_string(_type)); }
 };
 
 class Cbe::Virtual_block_device_channel
@@ -170,8 +177,14 @@ class Cbe::Virtual_block_device_channel
 			COMPLETED
 		};
 
-		struct Type_1_node_blocks {
-			Type_1_node_block blk [TREE_MAX_LEVEL];
+		struct Type_1_node_blocks
+		{
+			Type_1_node_block blk [TREE_MAX_LEVEL] { };
+		};
+
+		struct Type_1_node_blocks_pbas
+		{
+			Physical_block_address items[TREE_MAX_LEVEL] { 0 };
 		};
 
 		enum Tag_type
@@ -179,8 +192,13 @@ class Cbe::Virtual_block_device_channel
 			TAG_INVALID,
 			TAG_VBD_CACHE,
 			TAG_VBD_BLK_IO_WRITE_CLIENT_DATA,
+			TAG_VBD_BLK_IO_READ_CLIENT_DATA,
+			TAG_VBD_BLK_IO,
 			TAG_VBD_FT_ALLOC_FOR_NON_RKG,
-			TAG_VBD_BLK_IO_READ_CLIENT_DATA
+			TAG_VBD_FT_ALLOC_FOR_RKG_CURR_GEN_BLKS,
+			TAG_VBD_FT_ALLOC_FOR_RKG_OLD_GEN_BLKS,
+			TAG_VBD_CRYPTO_ENCRYPT,
+			TAG_VBD_CRYPTO_DECRYPT,
 		};
 
 		struct Generated_prim
@@ -208,6 +226,7 @@ class Cbe::Virtual_block_device_channel
 		Generated_prim               _generated_prim   { };
 		Snapshots_index              _snapshot_idx     { 0 };
 		Type_1_node_blocks           _t1_blks          { };
+		Type_1_node_blocks_pbas      _t1_blks_old_pbas { };
 		Tree_level_index             _t1_blk_idx       { 0 };
 		Virtual_block_address        _vba              { 0 };
 		Type_1_node_walk             _t1_node_walk     { };
@@ -217,6 +236,8 @@ class Cbe::Virtual_block_device_channel
 		Generation                   _last_secured_gen { 0 };
 		Generation                   _free_gen         { 0 };
 		Block_data                   _data_blk         { };
+		Physical_block_address       _data_blk_old_pba { 0 };
+		bool                         _first_snapshot   { false };
 };
 
 class Cbe::Virtual_block_device : public Module
@@ -225,15 +246,34 @@ class Cbe::Virtual_block_device : public Module
 
 		using Channel = Virtual_block_device_channel;
 		using Request = Virtual_block_device_request;
+		using Generated_prim = Channel::Generated_prim;
+		using Type_1_node_blocks = Channel::Type_1_node_blocks;
 
 		enum { NR_OF_CHANNELS = 1 };
+		enum { FIRST_T1_NODE_BLKS_IDX = 1 };
+		enum { LAST_T1_NODE_BLKS_IDX = 6 };
 
 		Channel _channels[NR_OF_CHANNELS] { };
 
+		static char const *_state_to_step_label(Channel::State state);
+
+		bool _handle_failed_generated_req(Channel &chan,
+		                                  bool    &progress);
+
+		bool _find_next_snap_to_rekey_vba_at(Channel const   &chan,
+		                                     Snapshots_index &next_snap_idx);
+
 		void _execute_read_vba           (Channel &, uint64_t, bool &);
 		void _execute_write_vba          (Channel &, uint64_t, bool &);
-		void _execute_rekey_vba          (Channel &, bool &);
+		void _execute_rekey_vba          (Channel &, uint64_t, bool &);
 		void _execute_vbd_extension_step (Channel &, bool &);
+
+		void _mark_req_failed(Channel    &chan,
+		                      bool       &progress,
+		                      char const *str);
+
+		void _mark_req_successful(Channel &chan,
+		                          bool    &progress);
 
 		void _check_that_primitive_was_successful(Channel::Generated_prim const &);
 
@@ -280,6 +320,10 @@ class Cbe::Virtual_block_device : public Module
 		                                                               Channel::State           &state,
 		                                                               Channel::Generated_prim  &prim,
 		                                                               bool                     &progress);
+
+		void _set_args_for_alloc_of_new_pbas_for_rekeying(Channel                  &chan,
+		                                                  uint64_t                  chan_idx,
+		                                                  Type_1_node_blocks_index  min_lvl);
 
 		void _set_args_in_order_to_read_type_1_node(Snapshot const &snapshot,
 		                                            uint64_t          const  snapshots_degree,

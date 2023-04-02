@@ -736,7 +736,7 @@ class Command_pool : public Module {
 		bool _peek_generated_request(Genode::uint8_t *buf_ptr,
 		                             Genode::size_t   buf_size) override
 		{
-			/* TRUST_ANCHOR */ {
+			{
 				Command const cmd {
 					peek_pending_command(Command::TRUST_ANCHOR) };
 
@@ -761,7 +761,7 @@ class Command_pool : public Module {
 				}
 			}
 
-			/* INITIALIZE */ {
+			{
 				Command const cmd {
 					peek_pending_command(Command::INITIALIZE) };
 
@@ -986,6 +986,7 @@ class Command_pool : public Module {
 					_nr_of_uncompleted_cmds--;
 					cmd.success(success);
 					if (!cmd.success()) {
+						error("cmd failed");
 						_nr_of_errors++;
 					}
 					exit_loop = true;
@@ -1050,6 +1051,7 @@ class Command_pool : public Module {
 					           sizeof(blk_data.values[0]))) {
 
 						cmd.data_mismatch(true);
+						error("client data mismatch");
 						_nr_of_errors++;
 
 						if (_verbose_node.client_data_mismatch()) {
@@ -1310,13 +1312,6 @@ class Cbe_tester::Main : Vfs::Env::User, public Cbe::Module
 				if (cmd.type() == Command::INVALID) {
 					break;
 				}
-				if (cmd.request_node().op() == Cbe::Request::Operation::REKEY) {
-					warning("skip <request op=\"rekey\"/> command because it is temporarily not supported");
-					_cmd_pool.mark_command_in_progress(cmd.id());
-					_cmd_pool.mark_command_completed(cmd.id(), true);
-					progress = true;
-					continue;
-				}
 				if (cmd.request_node().op() == Cbe::Request::Operation::EXTEND_FT) {
 					warning("skip <request op=\"extend_ft\"/> command because it is temporarily not supported");
 					_cmd_pool.mark_command_in_progress(cmd.id());
@@ -1360,10 +1355,10 @@ class Cbe_tester::Main : Vfs::Env::User, public Cbe::Module
 				_request_pool->submit_request(cbe_req);
 				if (VERBOSE_MODULE_COMMUNICATION)
 					Genode::log(
-						module_name(cbe_req.src_module_id()), ":",
+						module_name(cbe_req.src_module_id()), " ",
 						cbe_req.src_request_id_str(),
-						" --", cbe_req.type_name(), "--> ",
-						module_name(cbe_req.dst_module_id()), ":",
+						" --", cbe_req, "--> ",
+						module_name(cbe_req.dst_module_id()), " ",
 						cbe_req.dst_request_id_str());
 
 				_cmd_pool.mark_command_in_progress(cmd.id());
@@ -1556,8 +1551,8 @@ class Cbe_tester::Main : Vfs::Env::User, public Cbe::Module
 
 						if (VERBOSE_MODULE_COMMUNICATION)
 							Genode::log(
-								module_name(id), ":", req.src_request_id_str(),
-								" --", req.type_name(), "-| ",
+								module_name(id), " ", req.src_request_id_str(),
+								" --", req, "-| ",
 								module_name(req.dst_module_id()));
 
 						return Module::REQUEST_NOT_HANDLED;
@@ -1566,9 +1561,9 @@ class Cbe_tester::Main : Vfs::Env::User, public Cbe::Module
 
 					if (VERBOSE_MODULE_COMMUNICATION)
 						Genode::log(
-							module_name(id), ":", req.src_request_id_str(),
-							" --", req.type_name(), "--> ",
-							module_name(req.dst_module_id()), ":",
+							module_name(id), " ", req.src_request_id_str(),
+							" --", req, "--> ",
+							module_name(req.dst_module_id()), " ",
 							req.dst_request_id_str());
 
 					progress = true;
@@ -1581,10 +1576,11 @@ class Cbe_tester::Main : Vfs::Env::User, public Cbe::Module
 					}
 					if (VERBOSE_MODULE_COMMUNICATION)
 						Genode::log(
-							module_name(req.src_module_id()), ":",
-							req.src_request_id_str(), " <--", req.type_name(),
-							"-- ", module_name(id), ":",
+							module_name(req.src_module_id()), " ",
+							req.src_request_id_str(), " <--", req,
+							"-- ", module_name(id), " ",
 							req.dst_request_id_str());
+
 					Module &src_module { *_module_ptrs[req.src_module_id()] };
 					src_module.generated_request_complete(req);
 					progress = true;

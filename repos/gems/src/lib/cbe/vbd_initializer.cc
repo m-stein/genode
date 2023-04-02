@@ -212,7 +212,7 @@ void Vbd_initializer::_execute_inner_t1_child(Channel                           
 
 			Vbd_initializer_channel::reset_node(child);
 			child.pba = channel._blk_nr;
-			calc_sha256_4k_hash(&child_level.children, child.hash);
+			calc_sha256_4k_hash(&child_level.children, &child.hash);
 			child_state = CS::WRITE_BLOCK;
 			progress = true;
 

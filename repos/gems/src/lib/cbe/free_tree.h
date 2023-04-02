@@ -33,11 +33,8 @@ class Cbe::Free_tree_request : public Module_request
 	public:
 
 		enum Type {
-			INVALID = 0,
-			ALLOC_FOR_NON_RKG = 1,
-			ALLOC_FOR_RKG_CURR_GEN_BLKS = 2,
-			ALLOC_FOR_RKG_OLD_GEN_BLKS = 3,
-		};
+			INVALID = 0, ALLOC_FOR_NON_RKG = 1, ALLOC_FOR_RKG_CURR_GEN_BLKS = 2,
+			ALLOC_FOR_RKG_OLD_GEN_BLKS = 3 };
 
 	private:
 
@@ -120,7 +117,7 @@ class Cbe::Free_tree_request : public Module_request
 		 ** Module_request **
 		 ********************/
 
-		char const *type_name() override { return type_to_string(_type); }
+		void print(Genode::Output &out) const override { Genode::print(out, type_to_string(_type)); }
 };
 
 

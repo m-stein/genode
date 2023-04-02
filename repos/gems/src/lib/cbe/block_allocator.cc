@@ -28,6 +28,12 @@ Block_allocator_request::Block_allocator_request(unsigned long src_module_id,
 { }
 
 
+void Block_allocator_request::print(Genode::Output &out) const
+{
+	Genode::print(out, type_to_string(_type));
+}
+
+
 void Block_allocator_request::create(void             *buf_ptr,
                                      size_t            buf_size,
                                      Genode::uint64_t  src_module_id,

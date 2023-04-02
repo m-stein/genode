@@ -74,7 +74,7 @@ class Cbe::Block_allocator_request : public Module_request
 		 ** Module_request **
 		 ********************/
 
-		char const *type_name() override { return type_to_string(_type); }
+		void print(Genode::Output &out) const override;
 };
 
 

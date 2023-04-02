@@ -23,8 +23,6 @@
 using namespace Genode;
 using namespace Cbe;
 
-enum { VERBOSE_BLOCK_IO = 0 };
-
 
 /**********************
  ** Block_io_request **
@@ -53,6 +51,15 @@ Block_io_request::Block_io_request(uint64_t  src_module_id,
 	_blk_ptr           { (addr_t)blk_ptr },
 	_hash_ptr          { (addr_t)hash_ptr }
 { }
+
+
+void Block_io_request::print(Output &out) const
+{
+	if (_blk_count > 1)
+		Genode::print(out, type_to_string(_type), " pbas ", _pba, "..", _pba + _blk_count - 1);
+	else
+		Genode::print(out, type_to_string(_type), " pba ", _pba);
+}
 
 
 char const *Block_io_request::type_to_string(Type type)

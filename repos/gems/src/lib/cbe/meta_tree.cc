@@ -261,7 +261,7 @@ void Meta_tree::_update_parent(Type_1_node   &node,
                                uint64_t       gen,
                                uint64_t       pba)
 {
-	calc_sha256_4k_hash(blk_ptr, node.hash);
+	calc_sha256_4k_hash(blk_ptr, &node.hash);
 	node.gen = gen;
 	node.pba = pba;
 }

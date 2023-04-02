@@ -102,18 +102,9 @@ void Sb_initializer::_populate_sb_slot(Channel &channel,
 	Type_1_node const &ft_node  = channel._ft_node;
 	Type_1_node const &mt_node  = channel._mt_node;
 
-	Hash_new vbd_hash { };
-	memcpy(&vbd_hash, vbd_node.hash, sizeof(vbd_hash));
-
-	Hash_new ft_hash { };
-	memcpy(&ft_hash, ft_node.hash, sizeof(ft_hash));
-
-	Hash_new mt_hash { };
-	memcpy(&mt_hash, mt_node.hash, sizeof(mt_hash));
-
 	sb.state = Superblock_state::NORMAL;
 	sb.snapshots.items[0] = Snapshot {
-		.hash         = vbd_hash,
+		.hash         = vbd_node.hash,
 		.pba          = vbd_node.pba,
 		.gen          = 0,
 		.nr_of_leaves = req._vbd_nr_of_leaves,
@@ -135,13 +126,13 @@ void Sb_initializer::_populate_sb_slot(Channel &channel,
 	sb.last_secured_generation = 0;
 	sb.free_gen                = 0;
 	sb.free_number             = ft_node.pba;
-	sb.free_hash               = ft_hash;
+	sb.free_hash               = ft_node.hash;
 	sb.free_max_level          = req._ft_max_level_idx;
 	sb.free_degree             = req._ft_max_child_idx;
 	sb.free_leaves             = req._ft_nr_of_leaves;
 	sb.meta_gen                = 0;
 	sb.meta_number             = mt_node.pba;
-	sb.meta_hash               = mt_hash;
+	sb.meta_hash               = mt_node.hash;
 	sb.meta_max_level          = req._mt_max_level_idx;
 	sb.meta_degree             = req._mt_max_child_idx;
 	sb.meta_leaves             = req._mt_nr_of_leaves;
