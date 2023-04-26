@@ -1844,6 +1844,8 @@ class Main : Vfs::Env::User
 				_cmd_pool.generate_blk_data(
 					request, vba, _crypto_plain_buf.item(plain_buf_idx));
 
+log("   write client data ", _crypto_plain_buf.item(plain_buf_idx, " hash ", client);
+
 				_cbe->client_transfer_write_data_in_progress(plain_buf_idx);
 				_cbe->client_transfer_write_data_completed(
 					plain_buf_idx, true);
