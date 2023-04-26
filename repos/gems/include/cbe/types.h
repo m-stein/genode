@@ -194,6 +194,14 @@ namespace Cbe {
 
 	} __attribute__((packed));
 
+	inline void print_byte_range(Genode::Output        &out,
+	                             Genode::uint8_t const *range_ptr,
+	                             Genode::size_t         range_size)
+	{
+		using namespace Genode;
+		for (unsigned idx { 0 }; idx < range_size; idx++)
+			Genode::print(out, range_ptr[idx], " ");
+	}
 
 	struct Block_data
 	{
@@ -201,11 +209,8 @@ namespace Cbe {
 
 		void print(Genode::Output &out) const
 		{
-			using namespace Genode;
-			for (char const c : values) {
-				Genode::print(out, Hex(c, Hex::OMIT_PREFIX, Hex::PAD), " ");
-			}
-			Genode::print(out, "\n");
+			print_byte_range(out, (Genode::uint8_t *)values, 16);
+			Genode::print(out, "…");
 		}
 	} __attribute__((packed));
 
@@ -307,25 +312,10 @@ namespace Cbe {
 		/* hash as hex value plus "0x" prefix and terminating null */
 		using String = Genode::String<sizeof(values) * 2 + 3>;
 
-		/* debug */
 		void print(Genode::Output &out) const
 		{
-			using namespace Genode;
-			Genode::print(out, "0x");
-			bool leading_zero = true;
-			for (char const c : values) {
-				if (leading_zero) {
-					if (c) {
-						leading_zero = false;
-						Genode::print(out, Hex(c, Hex::OMIT_PREFIX));
-					}
-				} else {
-					Genode::print(out, Hex(c, Hex::OMIT_PREFIX, Hex::PAD));
-				}
-			}
-			if (leading_zero) {
-				Genode::print(out, "0");
-			}
+			print_byte_range(out, (Genode::uint8_t *)values, 4);
+			Genode::print(out, "…");
 		}
 	};
 

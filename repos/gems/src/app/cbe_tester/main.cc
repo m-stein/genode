@@ -36,6 +36,11 @@ using namespace Genode;
 using namespace Cbe;
 using namespace Vfs;
 
+namespace Sha256 {
+
+	void hash(void const* const data_ptr,
+	          void      *       hash_ptr);
+}
 
 enum class Module_type : uint8_t
 {
@@ -375,6 +380,10 @@ class Vfs_block_io_job
 
 			switch (_state) {
 			case State::PENDING:
+			{
+Hash h { };
+Sha256::hash(&io_data.item(_cbe_req_io_buf_idx(_cbe_req)), &h);
+log("     write  blk: pba ", _cbe_req.block_number(), " data ",  io_data.item(_cbe_req_io_buf_idx(_cbe_req)), " hash ", h);
 
 				_handle.seek(_cbe_req.block_number() * Cbe::BLOCK_SIZE +
 				             _nr_of_processed_bytes);
@@ -382,7 +391,7 @@ class Vfs_block_io_job
 				_state = State::IN_PROGRESS;
 				progress = true;
 				break;
-
+			}
 			case State::IN_PROGRESS:
 			{
 				size_t written_bytes = 0;
@@ -1844,7 +1853,9 @@ class Main : Vfs::Env::User
 				_cmd_pool.generate_blk_data(
 					request, vba, _crypto_plain_buf.item(plain_buf_idx));
 
-log("   write client data ", _crypto_plain_buf.item(plain_buf_idx, " hash ", client);
+Hash h { };
+Sha256::hash(&_crypto_plain_buf.item(plain_buf_idx), &h);
+log("     write leaf: vba ", request.block_number(), " plain ",  _crypto_plain_buf.item(plain_buf_idx), " hash ", h);
 
 				_cbe->client_transfer_write_data_in_progress(plain_buf_idx);
 				_cbe->client_transfer_write_data_completed(
