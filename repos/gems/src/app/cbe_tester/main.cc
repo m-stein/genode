@@ -382,11 +382,9 @@ class Vfs_block_io_job
 			case State::PENDING:
 			{
 
-if (_cbe_req.block_number() < 8) {
 Hash h { };
 Sha256::hash(&io_data.item(_cbe_req_io_buf_idx(_cbe_req)), &h);
-log("     write  blk: pba ", _cbe_req.block_number(), " data ",  *(Block_data_sb *)&io_data.item(_cbe_req_io_buf_idx(_cbe_req)), " hash ", h);
-}
+log("block_io: write pba ", _cbe_req.block_number(), " data ",  *(Block_data_sb *)&io_data.item(_cbe_req_io_buf_idx(_cbe_req)), " hash ", h);
 
 				_handle.seek(_cbe_req.block_number() * Cbe::BLOCK_SIZE +
 				             _nr_of_processed_bytes);
@@ -1855,10 +1853,6 @@ class Main : Vfs::Env::User
 				}
 				_cmd_pool.generate_blk_data(
 					request, vba, _crypto_plain_buf.item(plain_buf_idx));
-
-Hash h { };
-Sha256::hash(&_crypto_plain_buf.item(plain_buf_idx), &h);
-log("     write leaf: vba ", request.block_number(), " plain ",  _crypto_plain_buf.item(plain_buf_idx), " hash ", h);
 
 				_cbe->client_transfer_write_data_in_progress(plain_buf_idx);
 				_cbe->client_transfer_write_data_completed(

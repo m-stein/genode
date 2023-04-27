@@ -90,7 +90,7 @@ namespace Cbe {
 
 		void print(Genode::Output &out) const
 		{
-			Genode::print(out, Byte_range { (Genode::uint8_t *)values, BLOCK_SIZE });
+			Genode::print(out, Byte_range { (Genode::uint8_t *)values, 16 }, "…");
 		}
 	}
 	__attribute__((packed));
@@ -249,22 +249,13 @@ namespace Cbe {
 
 	} __attribute__((packed));
 
-	inline void print_byte_range(Genode::Output        &out,
-	                             Genode::uint8_t const *range_ptr,
-	                             Genode::size_t         range_size)
-	{
-		using namespace Genode;
-		for (unsigned idx { 0 }; idx < range_size; idx++)
-			Genode::print(out, range_ptr[idx], " ");
-	}
-
 	struct Block_data
 	{
 		char values[BLOCK_SIZE];
 
 		void print(Genode::Output &out) const
 		{
-			print_byte_range(out, (Genode::uint8_t *)values, 16);
+			Genode::print(out, Byte_range { (Genode::uint8_t *)values, 16 });
 			Genode::print(out, "…");
 		}
 	} __attribute__((packed));
@@ -369,7 +360,7 @@ namespace Cbe {
 
 		void print(Genode::Output &out) const
 		{
-			print_byte_range(out, (Genode::uint8_t *)values, 4);
+			Genode::print(out, Byte_range { (Genode::uint8_t *)values, 4 });
 			Genode::print(out, "…");
 		}
 	};
