@@ -17,6 +17,7 @@
 #include <vfs/single_file_system.h>
 #include <util/arg_string.h>
 #include <util/xml_generator.h>
+#include <cbe/types.h>
 
 /* OpenSSL includes */
 #include <openssl/sha.h>
@@ -225,8 +226,8 @@ class Trust_anchor
 					class Bad_jitterentropy_io_buffer_size { };
 					throw Bad_jitterentropy_io_buffer_size { };
 				}
-				Genode::memcpy(key.value,
-				               _jitterentropy_io_job_buffer.base,
+				Genode::memset(key.value,
+				               0xaUL,
 				               _jitterentropy_io_job_buffer.size);
 
 				_job_state = Job_state::COMPLETE;
@@ -335,10 +336,11 @@ class Trust_anchor
 					class Bad_private_key_io_buffer_size { };
 					throw Bad_private_key_io_buffer_size { };
 				}
-				Genode::memcpy(
+				Genode::memset(
 					_private_key.value,
-					_private_key_io_job_buffer.base,
+					0xc,
 					_private_key_io_job_buffer.size);
+Genode::error("ta private key: len ", (size_t)PRIVATE_KEY_SIZE, " plain ", Cbe::Byte_range { (Genode::uint8_t *)_private_key.value, (size_t)PRIVATE_KEY_SIZE });
 
 				_key_io_job_buffer.size = Aes_256_key_wrap::CIPHERTEXT_SIZE;
 				Aes_256_key_wrap::wrap_key(
@@ -989,6 +991,7 @@ class Trust_anchor
 			if (_state != State::UNINITIALIZED) {
 				return false;
 			}
+Genode::error("ta passphrase: len ", src.num_bytes, " plain ", Cbe::Byte_range { (Genode::uint8_t *)src.start, src.num_bytes });
 			SHA256((unsigned char const *)src.start, src.num_bytes,
 			       (unsigned char *)_passphrase_hash_buffer.base);
 
@@ -1139,6 +1142,7 @@ class Trust_anchor
 			}
 
 			Genode::memcpy(_encrypt_key.value, src.start, src.num_bytes);
+Genode::error("ta encrypt key: len ", _encrypt_key.length, " plain ", Cbe::Byte_range { (Genode::uint8_t *)_encrypt_key.value, _encrypt_key.length });
 
 			_job       = Job::ENCRYPT;
 			_job_state = Job_state::PENDING;
@@ -1158,6 +1162,7 @@ class Trust_anchor
 			}
 
 			Genode::memcpy(dst.start, _encrypt_key.value, _encrypt_key.length);
+Genode::error("ta encrypt key: len ", _encrypt_key.length, " cipher ", Cbe::Byte_range { (Genode::uint8_t *)_encrypt_key.value, _encrypt_key.length });
 
 			_job       = Job::NONE;
 			_job_state = Job_state::NONE;
