@@ -381,9 +381,12 @@ class Vfs_block_io_job
 			switch (_state) {
 			case State::PENDING:
 			{
+
+if (_cbe_req.block_number() < 8) {
 Hash h { };
 Sha256::hash(&io_data.item(_cbe_req_io_buf_idx(_cbe_req)), &h);
-log("     write  blk: pba ", _cbe_req.block_number(), " data ",  io_data.item(_cbe_req_io_buf_idx(_cbe_req)), " hash ", h);
+log("     write  blk: pba ", _cbe_req.block_number(), " data ",  *(Block_data_sb *)&io_data.item(_cbe_req_io_buf_idx(_cbe_req)), " hash ", h);
+}
 
 				_handle.seek(_cbe_req.block_number() * Cbe::BLOCK_SIZE +
 				             _nr_of_processed_bytes);
@@ -2339,6 +2342,7 @@ log("     write leaf: vba ", request.block_number(), " plain ",  _crypto_plain_b
 			switch (ta_req.operation()) {
 			case Ta_operation::CREATE_KEY:
 
+				error("ta create key: ", _trust_anchor.peek_completed_key_plaintext_value());
 				module.mark_generated_ta_create_key_request_complete(
 					ta_req,
 					_trust_anchor.peek_completed_key_plaintext_value());

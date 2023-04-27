@@ -40,6 +40,61 @@ namespace Cbe {
 	static constexpr uint32_t BLOCK_SIZE = 4096;
 	static constexpr uint32_t NR_OF_SNAPSHOTS = 48;
 
+	struct Byte_range
+	{
+		Genode::uint8_t const *ptr;
+		Genode::size_t         size;
+
+		void print(Genode::Output &out) const
+		{
+			using namespace Genode;
+
+			enum { MAX_LINE_SIZE = 64 };
+			enum { MAX_WORD_SIZE = 4 };
+
+			if (size > 0xffff) {
+				class Exception_1 { };
+				throw Exception_1 { };
+			}
+			if (size > MAX_LINE_SIZE) {
+
+				for (uint16_t idx { 0 }; idx < size; idx++) {
+
+					if (idx % MAX_LINE_SIZE == 0)
+
+						Genode::print(out, "\n  ", Hex(idx, Hex::PREFIX, Hex::PAD), ": ");
+
+					else if (idx % MAX_WORD_SIZE == 0)
+
+						Genode::print(out, " ");
+
+					Genode::print(out, Hex(ptr[idx], Hex::OMIT_PREFIX, Hex::PAD));
+				}
+
+			} else {
+
+				for (size_t idx { 0 }; idx < size; idx++) {
+
+					if (idx % MAX_WORD_SIZE == 0 && idx != 0)
+						Genode::print(out, " ");
+
+					Genode::print(out, Hex(ptr[idx], Hex::OMIT_PREFIX, Hex::PAD));
+				}
+			}
+		}
+	};
+
+	struct Block_data_sb
+	{
+		char values[BLOCK_SIZE];
+
+		void print(Genode::Output &out) const
+		{
+			Genode::print(out, Byte_range { (Genode::uint8_t *)values, BLOCK_SIZE });
+		}
+	}
+	__attribute__((packed));
+
 
 	class Request
 	{
@@ -323,6 +378,11 @@ namespace Cbe {
 	{
 		enum { KEY_SIZE = 32 };
 		char value[KEY_SIZE];
+
+		void print(Genode::Output &out) const
+		{
+			Genode::print(out, Byte_range { (Genode::uint8_t *)value, KEY_SIZE });
+		}
 	};
 
 	struct Key_ciphertext_value
