@@ -190,8 +190,8 @@ void Sb_initializer::_execute(Channel &channel,
 	case CS::TA_REQUEST_ENCRYPT_KEY_COMPLETE:
 
 		_populate_sb_slot(channel,
-		                  Physical_block_address { block_allocator_first_block() },
-		                  Number_of_blocks       { (uint32_t)block_allocator_nr_of_blks() });
+		                  Physical_block_address { block_allocator_first_block() } - NR_OF_SUPERBLOCK_SLOTS,
+		                  Number_of_blocks       { (uint32_t)block_allocator_nr_of_blks() + NR_OF_SUPERBLOCK_SLOTS });
 		memcpy(&channel._sb_slot, &channel._sb, sizeof(channel._sb));
 		calc_sha256_4k_hash(&channel._sb_slot, (void*)&channel._sb_hash);
 
