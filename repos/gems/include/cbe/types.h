@@ -26,6 +26,50 @@
 
 namespace Cbe {
 
+	struct Byte_range
+	{
+		Genode::uint8_t const *ptr;
+		Genode::size_t         size;
+
+		void print(Genode::Output &out) const
+		{
+			using namespace Genode;
+
+			enum { MAX_LINE_SIZE = 64 };
+			enum { MAX_WORD_SIZE = 4 };
+
+			if (size > 0xffff) {
+				class Exception_1 { };
+				throw Exception_1 { };
+			}
+			if (size > MAX_LINE_SIZE) {
+
+				for (uint16_t idx { 0 }; idx < size; idx++) {
+
+					if (idx % MAX_LINE_SIZE == 0)
+
+						Genode::print(out, "\n  ", Hex(idx, Hex::PREFIX, Hex::PAD), ": ");
+
+					else if (idx % MAX_WORD_SIZE == 0)
+
+						Genode::print(out, " ");
+
+					Genode::print(out, Hex(ptr[idx], Hex::OMIT_PREFIX, Hex::PAD));
+				}
+
+			} else {
+
+				for (size_t idx { 0 }; idx < size; idx++) {
+
+					if (idx % MAX_WORD_SIZE == 0 && idx != 0)
+						Genode::print(out, " ");
+
+					Genode::print(out, Hex(ptr[idx], Hex::OMIT_PREFIX, Hex::PAD));
+				}
+			}
+		}
+	};
+
 	enum { INVALID_GENERATION = 0 };
 	enum { INITIAL_GENERATION = 0 };
 
@@ -50,11 +94,7 @@ namespace Cbe {
 
 		void print(Genode::Output &out) const
 		{
-			using namespace Genode;
-			for (unsigned idx { 0 }; idx < 16; idx++)
-				Genode::print(
-					out, idx && !(idx % 4) ? " " : "",
-					Hex(values[idx], Hex::OMIT_PREFIX, Hex::PAD));
+			Genode::print(out, Byte_range { (Genode::uint8_t *)values, 16 }, "…");
 		}
 	}
 	__attribute__((packed));
@@ -73,22 +113,7 @@ namespace Cbe {
 		/* debug */
 		void print(Genode::Output &out) const
 		{
-			using namespace Genode;
-			Genode::print(out, "0x");
-			bool leading_zero = true;
-			for (char const c : values) {
-				if (leading_zero) {
-					if (c) {
-						leading_zero = false;
-						Genode::print(out, Hex(c, Hex::OMIT_PREFIX));
-					}
-				} else {
-					Genode::print(out, Hex(c, Hex::OMIT_PREFIX, Hex::PAD));
-				}
-			}
-			if (leading_zero) {
-				Genode::print(out, "0");
-			}
+			Genode::print(out, Byte_range { (Genode::uint8_t *)values, 4 }, "…");
 		}
 	};
 
@@ -123,12 +148,7 @@ namespace Cbe {
 
 		void print(Genode::Output &out) const
 		{
-			using namespace Genode;
-			Genode::print(out, "[", id.value, ", ");
-			for (uint32_t i = 0; i < 4; i++) {
-				Genode::print(out, Hex(value[i], Hex::OMIT_PREFIX, Hex::PAD));
-			}
-			Genode::print(out, "...]");
+			Genode::print(out, Byte_range { (Genode::uint8_t *)value, KEY_SIZE });
 		}
 	} __attribute__((packed));
 
@@ -190,11 +210,7 @@ namespace Cbe {
 
 		void print(Genode::Output &out) const
 		{
-			using namespace Genode;
-			for (unsigned idx { 0 }; idx < KEY_SIZE; idx++)
-				Genode::print(
-					out, idx && !(idx % 4) ? " " : "",
-					Hex(bytes[idx], Hex::OMIT_PREFIX, Hex::PAD));
+			Genode::print(out, Byte_range { bytes, KEY_SIZE });
 		}
 	}
 	__attribute__((packed));
@@ -213,11 +229,7 @@ namespace Cbe {
 
 		void print(Genode::Output &out) const
 		{
-			using namespace Genode;
-			for (unsigned idx { 0 }; idx < 8; idx++)
-				Genode::print(
-					out, idx && !(idx % 4) ? " " : "",
-					Hex(bytes[idx], Hex::OMIT_PREFIX, Hex::PAD));
+			Genode::print(out, Byte_range { bytes, 4 }, "…");
 		}
 	}
 	__attribute__((packed));
@@ -237,7 +249,7 @@ namespace Cbe {
 
 		void print(Genode::Output &out) const
 		{
-			Genode::print(out, "pba ", pba, " gen ", gen);
+			Genode::print(out, "pba ", pba, " gen ", gen, " hash ", hash);
 		}
 	}
 	__attribute__((packed));
@@ -266,6 +278,11 @@ namespace Cbe {
 			pba = node.pba;
 			gen = node.gen;
 			hash = node.hash;
+		}
+
+		void print(Genode::Output &out) const
+		{
+			Genode::print(out, "pba ", pba, " gen ", gen);
 		}
 	}
 	__attribute__((packed));
@@ -343,8 +360,9 @@ namespace Cbe {
 		void print(Genode::Output &out) const
 		{
 			if (valid)
-				Genode::print(out, "pba ", (Physical_block_address)pba, " "
-				                   "gen ", (Generation)gen);
+				Genode::print(out, "pba ", (Physical_block_address)pba,
+				              " gen ", (Generation)gen, " hash ", hash,
+				              " leaves ", nr_of_leaves, " maxlvl ", max_level);
 			else
 				Genode::print(out, "<invalid>");
 		}
