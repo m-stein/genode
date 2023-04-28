@@ -513,7 +513,7 @@ void Free_tree::_execute_update(Channel         &chan,
 		bool handled;
 
 		_exchange_type_2_leaves(
-			req._free_gen, req._ft_max_level,
+			req._free_gen, req._max_level,
 			*(Type_1_node_walk *)req._old_blocks_ptr,
 			*(Tree_walk_pbas *)req._new_blocks_ptr,
 			req._vba, chan._vbd_degree_log_2, req._type, chan._level_0_stack,
