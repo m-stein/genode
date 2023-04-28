@@ -30,6 +30,7 @@
 enum { PRIVATE_KEY_SIZE = 32 };
 enum { PASSPHRASE_HASH_SIZE = 32 };
 enum { VERBOSE = 0 };
+enum { DEBUG_MODE_STATIC_KEYS_OF_VALUE_0 = 0 };
 
 
 namespace Vfs_cbe_trust_anchor {
@@ -225,10 +226,16 @@ class Trust_anchor
 					class Bad_jitterentropy_io_buffer_size { };
 					throw Bad_jitterentropy_io_buffer_size { };
 				}
-				Genode::memcpy(key.value,
-				               _jitterentropy_io_job_buffer.base,
-				               _jitterentropy_io_job_buffer.size);
-
+				if (DEBUG_MODE_STATIC_KEYS_OF_VALUE_0) {
+					Genode::warning("DEBUG MODE active! "
+					                "Using static keys of value 0!");
+					Genode::memset(key.value, 0,
+					               _jitterentropy_io_job_buffer.size);
+				} else {
+					Genode::memcpy(key.value,
+					               _jitterentropy_io_job_buffer.base,
+					               _jitterentropy_io_job_buffer.size);
+				}
 				_job_state = Job_state::COMPLETE;
 				_job_success = true;
 				progress = true;
@@ -335,11 +342,18 @@ class Trust_anchor
 					class Bad_private_key_io_buffer_size { };
 					throw Bad_private_key_io_buffer_size { };
 				}
-				Genode::memcpy(
-					_private_key.value,
-					_private_key_io_job_buffer.base,
-					_private_key_io_job_buffer.size);
-
+				if (DEBUG_MODE_STATIC_KEYS_OF_VALUE_0) {
+					Genode::warning("DEBUG MODE active! "
+					                "Using static keys of value 0!");
+					Genode::memset(
+						_private_key.value, 0,
+						_private_key_io_job_buffer.size);
+				} else {
+					Genode::memcpy(
+						_private_key.value,
+						_private_key_io_job_buffer.base,
+						_private_key_io_job_buffer.size);
+				}
 				_key_io_job_buffer.size = Aes_256_key_wrap::CIPHERTEXT_SIZE;
 				Aes_256_key_wrap::wrap_key(
 					(unsigned char *)_key_io_job_buffer.base,
