@@ -150,7 +150,7 @@ class Cbe::Sb_initializer_channel
 
 		void clean_data()
 		{
-			_sb.initialize_invalid();
+			_sb = Superblock { };
 			memset(&_sb_slot, 0, sizeof(_sb_slot));
 
 			memset(&_blk_io_data, 0, sizeof(_blk_io_data));

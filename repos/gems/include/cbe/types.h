@@ -26,6 +26,23 @@
 
 namespace Cbe {
 
+	template <typename T>
+	constexpr T to_the_power_of(T base, T exponent)
+	{
+		if (exponent < 0) {
+			class Negative_exponent { };
+			throw Negative_exponent { };
+		}
+		if (exponent == 0)
+			return 1;
+
+		T result { base };
+		for (T round { 1 }; round < exponent; round++)
+			result *= base;
+
+		return result;
+	}
+
 	struct Byte_range
 	{
 		Genode::uint8_t const *ptr;
@@ -178,8 +195,11 @@ namespace Cbe {
 	enum {
 		PRIM_BUF_SIZE = 128,
 		INVALID_PBA = 0xffff'ffff'ffff'ffff,
+		LAST_PBA = 0xffff'ffff'ffff'ffff,
 		INVALID_VBA = 0xffff'ffff'ffff'ffff,
 		INVALID_NODE_INDEX = 0xff,
+		LAST_GENERATION = 0xffff'ffff'ffff'ffff,
+		LAST_SNAPSHOT_ID = 0xffff'ffff,
 		HASH_SIZE = 32,
 		TYPE_1_NODE_STORAGE_SIZE = 64,
 		TYPE_2_NODE_STORAGE_SIZE = 64,
@@ -202,6 +222,11 @@ namespace Cbe {
 		NR_OF_SUPERBLOCK_SLOTS = 8,
 		MAX_SUPERBLOCK_INDEX = NR_OF_SUPERBLOCK_SLOTS - 1,
 		FREE_TREE_MIN_MAX_LEVEL = 2,
+		TREE_MAX_NR_OF_LEAVES =
+			to_the_power_of<Genode::uint64_t>(
+				TREE_MAX_DEGREE, (TREE_MAX_LEVEL - 1)),
+
+		TREE_MIN_DEGREE = 1,
 	};
 
 	struct Key_value
@@ -347,15 +372,15 @@ namespace Cbe {
 
 	struct Snapshot
 	{
-		Hash_new               hash;
-		Physical_block_address pba;
-		Generation             gen;
-		Tree_number_of_leaves  nr_of_leaves;
-		Tree_level_index       max_level;
-		bool                   valid;
-		Snapshot_id            id;
-		bool                   keep;
-		Genode::uint8_t        padding[6] { };
+		Hash_new               hash         { };
+		Physical_block_address pba          { INVALID_PBA };
+		Generation             gen          { LAST_GENERATION };
+		Tree_number_of_leaves  nr_of_leaves { TREE_MAX_NR_OF_LEAVES };
+		Tree_level_index       max_level    { TREE_MAX_LEVEL };
+		bool                   valid        { false };
+		Snapshot_id            id           { LAST_SNAPSHOT_ID };
+		bool                   keep         { false };
+		Genode::uint8_t        padding[6]   { 0 };
 
 		void print(Genode::Output &out) const
 		{
@@ -390,55 +415,31 @@ namespace Cbe {
 
 	struct Superblock
 	{
-		Superblock_state       state;
-		Virtual_block_address  rekeying_vba;
-		Number_of_blocks       resizing_nr_of_pbas;
-		Tree_number_of_leaves  resizing_nr_of_leaves;
-		Key_new                previous_key;
-		Key_new                current_key;
-		Snapshots              snapshots;
-		Generation             last_secured_generation;
-		Snapshots_index        curr_snap;
-		Tree_degree            degree;
-		Physical_block_address first_pba;
-		Number_of_blocks       nr_of_pbas;
-		Generation             free_gen;
-		Physical_block_address free_number;
-		Hash_new               free_hash;
-		Tree_level_index       free_max_level;
-		Tree_degree            free_degree;
-		Tree_number_of_leaves  free_leaves;
-		Generation             meta_gen;
-		Physical_block_address meta_number;
-		Hash_new               meta_hash;
-		Tree_level_index       meta_max_level;
-		Tree_degree            meta_degree;
-		Tree_number_of_leaves  meta_leaves;
-
-		void initialize_invalid()
-		{
-			memset(this, 0, sizeof(*this));
-
-			state                   = Superblock_state::INVALID;
-			rekeying_vba            = 0;
-			resizing_nr_of_pbas     = 0;
-			resizing_nr_of_leaves   = 0;
-			last_secured_generation = 0;
-			curr_snap               = 0;
-			degree                  = 1;
-			first_pba               = 0;
-			nr_of_pbas              = 0;
-			free_gen                = 0;
-			free_number             = 0;
-			free_max_level          = 0;
-			free_degree             = 1;
-			free_leaves             = 0;
-			meta_gen                = 0;
-			meta_number             = 0;
-			meta_max_level          = 0;
-			meta_degree             = 1;
-			meta_leaves             = 0;
-		}
+		Superblock_state       state                   { INVALID };         // offset 0
+		Virtual_block_address  rekeying_vba            { 0 };               // offset 1
+		Number_of_blocks       resizing_nr_of_pbas     { 0 };               // offset 9
+		Tree_number_of_leaves  resizing_nr_of_leaves   { 0 };               // offset 17
+		Key_new                previous_key            { };                 // offset 25
+		Key_new                current_key             { };                 // offset 61
+		Snapshots              snapshots               { };                 // offset 97
+		Generation             last_secured_generation { };                 // offset 3553
+		Snapshots_index        curr_snap               { };                 // offset 3561
+		Tree_degree            degree                  { TREE_MIN_DEGREE }; // offset 3565
+		Physical_block_address first_pba               { 0 };               // offset 3569
+		Number_of_blocks       nr_of_pbas              { 0 };               // offset 3577
+		Generation             free_gen                { 0 };               // offset 3585
+		Physical_block_address free_number             { 0 };               // offset 3593
+		Hash_new               free_hash               { 0 };               // offset 3601
+		Tree_level_index       free_max_level          { 0 };               // offset 3633
+		Tree_degree            free_degree             { TREE_MIN_DEGREE }; // offset 3637
+		Tree_number_of_leaves  free_leaves             { 0 };               // offset 3641
+		Generation             meta_gen                { 0 };               // offset 3649
+		Physical_block_address meta_number             { 0 };               // offset 3657
+		Hash_new               meta_hash               { 0 };               // offset 3665
+		Tree_level_index       meta_max_level          { 0 };               // offset 3697
+		Tree_degree            meta_degree             { TREE_MIN_DEGREE }; // offset 3701
+		Tree_number_of_leaves  meta_leaves             { 0 };               // offset 3705
+		Genode::uint8_t        padding[383]            { 0 };               // offset 3713
 
 		bool valid() const { return state != INVALID; }
 
@@ -460,6 +461,8 @@ namespace Cbe {
 		}
 	}
 	__attribute__((packed));
+
+	static_assert(sizeof(Superblock) == BLOCK_SIZE);
 
 	struct Type_1_node_walk
 	{
