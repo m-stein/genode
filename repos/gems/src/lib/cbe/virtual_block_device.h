@@ -179,7 +179,7 @@ class Cbe::Virtual_block_device_channel
 
 		struct Type_1_node_blocks
 		{
-			Type_1_node_block blk [TREE_MAX_LEVEL] { };
+			Type_1_node_block items[TREE_MAX_LEVEL] { };
 		};
 
 		struct Type_1_node_blocks_pbas
