@@ -1319,13 +1319,6 @@ class Cbe_tester::Main : Vfs::Env::User, public Cbe::Module
 					progress = true;
 					continue;
 				}
-				if (cmd.request_node().op() == Cbe::Request::Operation::EXTEND_VBD) {
-					warning("skip <request op=\"extend_vbd\"/> command because it is temporarily not supported");
-					_cmd_pool.mark_command_in_progress(cmd.id());
-					_cmd_pool.mark_command_completed(cmd.id(), true);
-					progress = true;
-					continue;
-				}
 				if (cmd.request_node().op() == Cbe::Request::Operation::CREATE_SNAPSHOT) {
 					warning("skip <request op=\"create_snapshot\"/> command because it is temporarily not supported");
 					_cmd_pool.mark_command_in_progress(cmd.id());

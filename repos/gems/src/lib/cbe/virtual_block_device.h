@@ -38,33 +38,36 @@ class Cbe::Virtual_block_device_request : public Module_request
 		friend class Virtual_block_device;
 		friend class Virtual_block_device_channel;
 
-		Type                  _type                    { INVALID };
-		Genode::uint8_t       _prim[PRIM_BUF_SIZE]     { 0 };
-		Virtual_block_address _vba                     { 0 };
-		Snapshots             _snapshots               { };
-		Tree_degree           _snapshots_degree        { 0 };
-		Generation            _curr_gen                { INVALID_GENERATION };
-		Key_id                _new_key_id              { 0 };
-		Key_id                _old_key_id              { 0 };
-		Genode::addr_t        _ft_root_pba_ptr         { 0 };
-		Genode::addr_t        _ft_root_gen_ptr         { 0 };
-		Genode::addr_t        _ft_root_hash_ptr        { 0 };
-		Genode::uint64_t      _ft_max_level            { 0 };
-		Genode::uint64_t      _ft_degree               { 0 };
-		Genode::uint64_t      _ft_leaves               { 0 };
-		Genode::addr_t        _mt_root_pba_ptr         { 0 };
-		Genode::addr_t        _mt_root_gen_ptr         { 0 };
-		Genode::addr_t        _mt_root_hash_ptr        { 0 };
-		Genode::uint64_t      _mt_max_level            { 0 };
-		Genode::uint64_t      _mt_degree               { 0 };
-		Genode::uint64_t      _mt_leaves               { 0 };
-		Genode::uint64_t      _vbd_degree              { 0 };
-		Genode::uint64_t      _vbd_highest_vba         { 0 };
-		bool                  _rekeying                { 0 };
-		Genode::uint64_t      _client_req_offset       { 0 };
-		Genode::uint64_t      _client_req_tag          { 0 };
-		Generation            _last_secured_generation { INVALID_GENERATION };
-		bool                  _success                 { false };
+		Type                   _type                    { INVALID };
+		Genode::uint8_t        _prim[PRIM_BUF_SIZE]     { 0 };
+		Virtual_block_address  _vba                     { 0 };
+		Snapshots              _snapshots               { };
+		Tree_degree            _snapshots_degree        { 0 };
+		Generation             _curr_gen                { INVALID_GENERATION };
+		Key_id                 _new_key_id              { 0 };
+		Key_id                 _old_key_id              { 0 };
+		Genode::addr_t         _ft_root_pba_ptr         { 0 };
+		Genode::addr_t         _ft_root_gen_ptr         { 0 };
+		Genode::addr_t         _ft_root_hash_ptr        { 0 };
+		Genode::uint64_t       _ft_max_level            { 0 };
+		Genode::uint64_t       _ft_degree               { 0 };
+		Genode::uint64_t       _ft_leaves               { 0 };
+		Genode::addr_t         _mt_root_pba_ptr         { 0 };
+		Genode::addr_t         _mt_root_gen_ptr         { 0 };
+		Genode::addr_t         _mt_root_hash_ptr        { 0 };
+		Genode::uint64_t       _mt_max_level            { 0 };
+		Genode::uint64_t       _mt_degree               { 0 };
+		Genode::uint64_t       _mt_leaves               { 0 };
+		Genode::uint64_t       _vbd_degree              { 0 };
+		Genode::uint64_t       _vbd_highest_vba         { 0 };
+		bool                   _rekeying                { 0 };
+		Genode::uint64_t       _client_req_offset       { 0 };
+		Genode::uint64_t       _client_req_tag          { 0 };
+		Generation             _last_secured_generation { INVALID_GENERATION };
+		Physical_block_address _pba                     { 0 };
+		Number_of_blocks       _nr_of_pbas              { 0 };
+		Number_of_leaves       _nr_of_leaves            { 0 };
+		bool                   _success                 { false };
 
 	public:
 
@@ -105,9 +108,17 @@ class Cbe::Virtual_block_device_request : public Module_request
 		                   Key_id                 old_key_id,
 		                   Key_id                 new_key_id,
 		                   Generation             current_gen,
-		                   Key_id                 key_id);
+		                   Key_id                 key_id,
+		                   Physical_block_address first_pba,
+		                   Number_of_blocks       nr_of_pbas);
 
 		bool success() const { return _success; }
+
+		Physical_block_address pba() const { return _pba; }
+
+		Number_of_blocks nr_of_pbas() const { return _nr_of_pbas; }
+
+		Number_of_leaves nr_of_leaves() const { return _nr_of_leaves; }
 
 		void *prim_ptr() { return (void *)&_prim; }
 
@@ -221,6 +232,8 @@ class Cbe::Virtual_block_device_channel
 			throw Snapshot_idx_too_large { };
 		}
 
+		Snapshot &snap();
+
 		Virtual_block_device_request _request          { };
 		State                        _state            { SUBMITTED };
 		Generated_prim               _generated_prim   { };
@@ -266,7 +279,7 @@ class Cbe::Virtual_block_device : public Module
 		void _execute_read_vba           (Channel &, uint64_t, bool &);
 		void _execute_write_vba          (Channel &, uint64_t, bool &);
 		void _execute_rekey_vba          (Channel &, uint64_t, bool &);
-		void _execute_vbd_extension_step (Channel &, bool &);
+		void _execute_vbd_extension_step (Channel &, uint64_t, bool &);
 
 		void _mark_req_failed(Channel    &chan,
 		                      bool       &progress,
@@ -281,6 +294,9 @@ class Cbe::Virtual_block_device : public Module
 		                                                 uint64_t const  job_idx,
 		                                                 bool &progress);
 
+		Virtual_block_address _tree_max_max_vba(Tree_degree     snap_degree,
+		                                        Snapshot const &snap);
+
 		void _update_nodes_of_branch_of_written_vba(Snapshot &snapshot,
 		                                            uint64_t const snapshot_degree,
 		                                            uint64_t const vba,
@@ -289,11 +305,31 @@ class Cbe::Virtual_block_device : public Module
 		                                            uint64_t curr_gen,
 		                                            Channel::Type_1_node_blocks &t1_blks);
 
+		void
+		_alloc_pba_from_resizing_contingent(Physical_block_address &first_pba,
+		                                    Number_of_blocks       &nr_of_pbas,
+		                                    Physical_block_address &allocated_pba);
+
 		void _set_args_in_order_to_write_client_data_to_leaf_node(Tree_walk_pbas const &,
 		                                                          uint64_t                const  job_idx,
 		                                                          Channel::State                &,
 		                                                          Channel::Generated_prim       &,
 		                                                          bool                          &progress);
+
+		void _set_new_pbas_identical_to_current_pbas(Channel &chan);
+
+		void
+		_add_new_branch_to_snap_using_pba_contingent(Channel                 &chan,
+		                                             Tree_level_index         mount_at_lvl,
+		                                             Type_1_node_block_index  mount_at_child_idx);
+
+		void
+		_set_args_for_alloc_of_new_pbas_for_resizing(Channel          &chan,
+		                                             uint64_t          chan_idx,
+		                                             Tree_level_index  min_lvl,
+		                                             bool             &progress);
+
+		void _add_new_root_lvl_to_snap_using_pba_contingent(Channel &chan);
 
 		void _check_hash_of_read_type_1_node(Snapshot const &snapshot,
 		                                     uint64_t const snapshots_degree,

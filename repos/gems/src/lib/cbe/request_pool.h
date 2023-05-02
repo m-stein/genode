@@ -206,6 +206,7 @@ class Cbe::Request_pool_channel
 		};
 
 		enum Tag_type {
+			TAG_POOL_SB_CTRL_VBD_EXT_STEP,
 			TAG_POOL_SB_CTRL_READ_VBA,
 			TAG_POOL_SB_CTRL_WRITE_VBA,
 			TAG_POOL_SB_CTRL_SYNC,
@@ -258,6 +259,7 @@ class Cbe::Request_pool : public Module
 		using Request = Cbe::Request;
 		using Slots_index = Genode::uint32_t;
 		using Pool_index = Channel::Index_type; /* XXX */
+		using Generated_prim = Channel::Generated_prim;
 
 		enum { NR_OF_CHANNELS = 16 };
 
@@ -384,6 +386,19 @@ class Cbe::Request_pool : public Module
 			}
 		};
 
+		static char const *_state_to_step_label(Channel::State state);
+
+		void _mark_req_successful(Channel     &chan,
+		                          Slots_index  idx,
+		                          bool        &progress);
+
+		bool _handle_failed_generated_req(Channel &chan,
+		                                  bool    &progress);
+
+		void _mark_req_failed(Channel    &chan,
+		                      bool       &progress,
+		                      char const *str);
+
 		Channel     _channels[NR_OF_CHANNELS] { };
 		Index_queue _indices { };
 
@@ -397,6 +412,10 @@ class Cbe::Request_pool : public Module
 		                    Index_queue &indices,
 		                    Slots_index  idx,
 		                    bool        &progress);
+
+		void _execute_extend_vbd(Channel     &chan,
+		                         Slots_index  idx,
+		                         bool        &progress);
 
 		void _execute_initialize(Channel &, Index_queue &, Slots_index const,
 		                         bool &);

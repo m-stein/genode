@@ -30,16 +30,17 @@ using namespace Cbe;
  ** Superblock_control_request **
  ********************************/
 
-void Superblock_control_request::create(void     *buf_ptr,
-                                        size_t    buf_size,
-                                        uint64_t  src_module_id,
-                                        uint64_t  src_request_id,
-                                        size_t    req_type,
-                                        void     *prim_ptr,
-                                        size_t    prim_size,
-                                        uint64_t  client_req_offset,
-                                        uint64_t  client_req_tag,
-                                        uint64_t  vba)
+void Superblock_control_request::create(void             *buf_ptr,
+                                        size_t            buf_size,
+                                        uint64_t          src_module_id,
+                                        uint64_t          src_request_id,
+                                        size_t            req_type,
+                                        void             *prim_ptr,
+                                        size_t            prim_size,
+                                        uint64_t          client_req_offset,
+                                        uint64_t          client_req_tag,
+                                        Number_of_blocks  nr_of_blks,
+                                        uint64_t          vba)
 {
 	Superblock_control_request req { src_module_id, src_request_id };
 	req._type = (Type)req_type;
@@ -51,6 +52,7 @@ void Superblock_control_request::create(void     *buf_ptr,
 	memcpy(&req._prim, prim_ptr, prim_size);
 	req._client_req_offset = client_req_offset;
 	req._client_req_tag = client_req_tag;
+	req._nr_of_blks = nr_of_blks;
 	req._vba = vba;
 
 	if (sizeof(req) > buf_size) {
@@ -326,6 +328,142 @@ void Superblock_control::_init_sb_without_key_values(Superblock const &sb_in,
 	sb_out.meta_degree             = sb_in.meta_degree;
 	sb_out.meta_leaves             = sb_in.meta_leaves;
 }
+
+
+char const *Superblock_control::_state_to_step_label(Channel::State state)
+{
+	switch (state) {
+	case Channel::VBD_EXT_STEP_IN_VBD_COMPLETED: return "vbd ext step in vbd";
+	case Channel::SECURE_SB_COMPLETED: return "secure sb";
+	default: break;
+	}
+	return "?";
+}
+
+
+bool Superblock_control::_handle_failed_generated_req(Channel &chan,
+                                                      bool    &progress)
+{
+	if (chan._generated_prim.succ)
+		return false;
+
+	_mark_req_failed(chan, progress, _state_to_step_label(chan._state));
+	return true;
+}
+
+
+void Superblock_control::_execute_vbd_ext_step(Channel  &chan,
+                                               uint64_t  chan_idx,
+                                               bool     &progress)
+{
+	Request &req { chan._request };
+	switch (chan._state) {
+	case Channel::SUBMITTED:
+	{
+		Physical_block_address const last_used_pba     { _sb.first_pba + (_sb.nr_of_pbas - 1) };
+		Number_of_blocks       const nr_of_unused_pbas { LAST_PBA - last_used_pba };
+
+		if (req._nr_of_blks > nr_of_unused_pbas) {
+			_mark_req_failed(chan, progress, "check number of unused blocks");
+			break;
+		}
+		switch(_sb.state) {
+		case NORMAL:
+		{
+			req._request_finished = false;
+			_sb.state = EXTENDING_VBD;
+			_sb.resizing_nr_of_pbas = req._nr_of_blks;
+			_sb.resizing_nr_of_leaves = 0;
+			chan._pba = last_used_pba + 1;
+
+			if (VERBOSE_VBD_EXTENSION)
+				log("vbd ext init: pbas ", chan._pba, "..",
+				    chan._pba + (Number_of_blocks)_sb.resizing_nr_of_pbas - 1,
+				    " leaves ", (Number_of_blocks)_sb.resizing_nr_of_leaves);
+
+			_secure_sb_init(chan, chan_idx, progress);
+			break;
+		}
+		case EXTENDING_VBD:
+		{
+			chan._pba = last_used_pba + 1;
+			req._nr_of_blks = _sb.resizing_nr_of_pbas;
+
+			if (VERBOSE_VBD_EXTENSION)
+				log("vbd ext step: pbas ", chan._pba, "..",
+				    chan._pba + (Number_of_blocks)_sb.resizing_nr_of_pbas - 1,
+				    " leaves ", (Number_of_blocks)_sb.resizing_nr_of_leaves);
+
+			chan._generated_prim = {
+				.op     = Generated_prim::READ,
+				.succ   = false,
+				.tg     = Channel::TAG_SB_CTRL_VBD_VBD_EXT_STEP,
+				.blk_nr = 0,
+				.idx    = chan_idx
+			};
+			chan._state = Channel::VBD_EXT_STEP_IN_VBD_PENDING;
+			progress = true;
+			break;
+		}
+		default:
+
+			_mark_req_failed(chan, progress, "check superblock state");
+			break;
+		}
+		break;
+	}
+	case Channel::VBD_EXT_STEP_IN_VBD_COMPLETED:
+	{
+		if (_handle_failed_generated_req(chan, progress))
+			break;
+
+		if (req._nr_of_blks >= _sb.resizing_nr_of_pbas) {
+			_mark_req_failed(chan, progress, "check number of pbas");
+			break;
+		}
+		Number_of_blocks       const nr_of_added_pbas     { _sb.resizing_nr_of_pbas - req._nr_of_blks };
+		Physical_block_address const new_first_unused_pba { _sb.first_pba + (_sb.nr_of_pbas + nr_of_added_pbas) };
+
+		if (chan._pba != new_first_unused_pba) {
+			_mark_req_failed(chan, progress, "check new first unused pba");
+			break;
+		}
+		_sb.nr_of_pbas = _sb.nr_of_pbas + nr_of_added_pbas;
+		_sb.snapshots = chan._snapshots;
+		_sb.curr_snap = newest_snapshot_idx(chan._snapshots);
+
+		if (req._nr_of_blks > 0) {
+
+			_sb.resizing_nr_of_pbas = req._nr_of_blks;
+			_sb.resizing_nr_of_leaves += chan._nr_of_leaves;
+
+		} else {
+
+			_sb.state = NORMAL;
+			req._request_finished = true;
+		}
+		_secure_sb_init(chan, chan_idx, progress);
+		break;
+	}
+	case Channel::ENCRYPT_CURRENT_KEY_COMPLETED:  _secure_sb_encr_curr_key_compl(chan, chan_idx, progress); break;
+	case Channel::ENCRYPT_PREVIOUS_KEY_COMPLETED: _secure_sb_encr_prev_key_compl(chan, chan_idx, progress); break;
+	case Channel::SYNC_CACHE_COMPLETED:           _secure_sb_sync_cache_compl(chan, chan_idx, progress); break;
+	case Channel::WRITE_SB_COMPLETED:             _secure_sb_write_sb_compl(chan, chan_idx, progress); break;
+	case Channel::SYNC_BLK_IO_COMPLETED:          _secure_sb_sync_blk_io_compl(chan, chan_idx, progress); break;
+	case Channel::SECURE_SB_COMPLETED:
+
+		if (_handle_failed_generated_req(chan, progress))
+			break;
+
+		_sb.last_secured_generation = chan._generation;
+		_mark_req_successful(chan, progress);
+		break;
+
+	default:
+		break;
+	}
+}
+
 
 
 void Superblock_control::_execute_rekey_vba(Channel  &chan,
@@ -1445,7 +1583,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 				nullptr,
 				_sb.degree, 0, 0,
 				_curr_gen,
-				chan._curr_key_plaintext.id);
+				chan._curr_key_plaintext.id, 0, 0);
 
 			return 1;
 
@@ -1476,7 +1614,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 				nullptr,
 				_sb.degree, 0, 0,
 				_curr_gen,
-				chan._curr_key_plaintext.id);
+				chan._curr_key_plaintext.id, 0, 0);
 
 			return 1;
 
@@ -1540,11 +1678,45 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 				_sb.previous_key.id,
 				_sb.current_key.id,
 				_curr_gen,
-				chan._curr_key_plaintext.id);
+				chan._curr_key_plaintext.id, 0, 0);
 
 			return 1;
 
 		case Channel::VBD_EXT_STEP_IN_VBD_PENDING:
+
+			Virtual_block_device_request::create(
+				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
+				Virtual_block_device_request::VBD_EXTENSION_STEP, nullptr, 0,
+				req._client_req_offset, req._client_req_tag,
+				_sb.last_secured_generation,
+				(addr_t)&_sb.free_number,
+				(addr_t)&_sb.free_gen,
+				(addr_t)&_sb.free_hash,
+				_sb.free_max_level,
+				_sb.free_degree,
+				_sb.free_leaves,
+				(addr_t)&_sb.meta_number,
+				(addr_t)&_sb.meta_gen,
+				(addr_t)&_sb.meta_hash,
+				_sb.meta_max_level,
+				_sb.meta_degree,
+				_sb.meta_leaves,
+				_sb.degree,
+				max_vba(),
+				_sb.state == REKEYING ? 1 : 0,
+				0,
+				nullptr,
+				&_sb.snapshots,
+				_sb.degree,
+				0,
+				0,
+				_curr_gen,
+				0,
+				_sb.first_pba + _sb.nr_of_pbas,
+				_sb.resizing_nr_of_pbas);
+
+			return 1;
+
 		case Channel::FT_EXT_STEP_IN_FT_PENDING:
 
 			class Exception_1 { };
@@ -1622,12 +1794,7 @@ void Superblock_control::execute(bool &progress)
 			break;
 		case Request::INITIALIZE_REKEYING: _execute_initialize_rekeying(channel, idx, progress); break;
 		case Request::REKEY_VBA:           _execute_rekey_vba(channel, idx, progress); break;
-
-		case Request::VBD_EXTENSION_STEP:
-			class Superblock_control_vbd_extension_step { };
-			throw Superblock_control_vbd_extension_step { };
-
-			break;
+		case Request::VBD_EXTENSION_STEP:  _execute_vbd_ext_step(channel, idx, progress); break;
 		case Request::FT_EXTENSION_STEP:
 			class Superblock_control_ft_extension_step { };
 			throw Superblock_control_ft_extension_step { };
@@ -1734,6 +1901,13 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 		case Channel::REKEY_VBA_IN_VBD_IN_PROGRESS:
 			chan._state = Channel::REKEY_VBA_IN_VBD_COMPLETED;
 			chan._snapshots = *(gen_req.snapshots_ptr());
+			break;
+		case Channel::VBD_EXT_STEP_IN_VBD_IN_PROGRESS:
+			chan._state = Channel::VBD_EXT_STEP_IN_VBD_COMPLETED;
+			chan._snapshots = *(gen_req.snapshots_ptr());
+			chan._pba = gen_req.pba();
+			chan._request._nr_of_blks = gen_req.nr_of_pbas();
+			chan._nr_of_leaves = gen_req.nr_of_leaves();
 			break;
 		default:
 			class Exception_6 { };

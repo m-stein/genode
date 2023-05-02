@@ -180,6 +180,145 @@ void Request_pool::_execute_sync(Channel &channel, Index_queue &indices,
 }
 
 
+char const *Request_pool::_state_to_step_label(Channel::State state)
+{
+	switch (state) {
+	case Channel::State::VBD_EXTENSION_STEP_COMPLETE: return "vbd ext step";
+	default: break;
+	}
+	return "?";
+}
+
+
+void Request_pool::_mark_req_failed(Channel    &chan,
+                                    bool       &progress,
+                                    char const *str)
+{
+	error("request_pool: request (", chan._request,
+	      ") failed at step \"", str, "\"");
+
+	chan._request.success(false);
+	chan._state = Channel::COMPLETE;
+	progress = true;
+}
+
+
+bool Request_pool::_handle_failed_generated_req(Channel &chan,
+                                                bool    &progress)
+{
+	if (chan._prim.succ)
+		return false;
+
+	_mark_req_failed(chan, progress, _state_to_step_label(chan._state));
+	return true;
+}
+
+
+void Request_pool::_mark_req_successful(Channel     &chan,
+                                        Slots_index  idx,
+                                        bool        &progress)
+{
+	chan._request.success(true);
+	chan._state = Channel::COMPLETE;
+	_indices.dequeue(idx);
+	progress = true;
+}
+
+
+void Request_pool::_execute_extend_vbd(Channel     &chan,
+                                       Slots_index  idx,
+                                       bool        &progress)
+{
+	//Request &req { chan._request };
+
+	switch (chan._state) {
+	case Channel::SUBMITTED:
+
+		chan._prim = {
+			.op     = Generated_prim::Type::READ,
+			.succ   = false,
+			.tg     = Channel::TAG_POOL_SB_CTRL_VBD_EXT_STEP,
+			.pl_idx = idx,
+			.blk_nr = 0,
+			.idx    = 0
+		};
+		chan._state = Channel::VBD_EXTENSION_STEP_PENDING;
+		progress = true;
+		break;
+
+	case Channel::State::VBD_EXTENSION_STEP_COMPLETE:
+
+		if (_handle_failed_generated_req(chan, progress))
+			break;
+
+		if (chan._request_finished) {
+
+			_mark_req_successful(chan, idx, progress);
+
+		} else {
+
+			chan._nr_of_requests_preponed = 0;
+			chan._state = Channel::PREPONE_REQUESTS_PENDING;
+			progress = true;
+		}
+		break;
+
+	case Channel::PREPONE_REQUESTS_PENDING:
+	{
+		bool requests_preponed { false };
+		bool at_req_that_cannot_be_preponed { false };
+
+		while (chan._nr_of_requests_preponed < MAX_NR_OF_REQUESTS_PREPONED_AT_A_TIME &&
+		       !at_req_that_cannot_be_preponed &&
+		       !_indices.item_is_tail(idx))
+		{
+			Pool_index const next_idx { _indices.next_item(idx) };
+			switch (_channels[next_idx]._request.operation()) {
+			case Request::READ:
+			case Request::WRITE:
+			case Request::SYNC:
+			case Request::DISCARD_SNAPSHOT:
+
+				_indices.move_one_item_towards_tail(idx);
+				chan._nr_of_requests_preponed++;
+				requests_preponed = true;
+				progress = true;
+				break;
+
+			default:
+
+				at_req_that_cannot_be_preponed = true;
+				break;
+			}
+		}
+		if (!requests_preponed) {
+
+			chan._state = Channel::PREPONE_REQUESTS_COMPLETE;
+			progress = true;
+		}
+		break;
+	}
+	case Channel::PREPONE_REQUESTS_COMPLETE:
+
+		chan._prim = {
+			.op     = Generated_prim::Type::READ,
+			.succ   = false,
+			.tg     = Channel::TAG_POOL_SB_CTRL_VBD_EXT_STEP,
+			.pl_idx = idx,
+			.blk_nr = 0,
+			.idx    = 0
+		};
+		chan._state = Channel::VBD_EXTENSION_STEP_PENDING;
+		progress = true;
+		break;
+
+	default:
+
+		break;
+	}
+}
+
+
 void Request_pool::_execute_rekey(Channel     &chan,
                                   Index_queue &indices,
                                   Slots_index  idx,
@@ -463,11 +602,7 @@ void Request_pool::execute(bool &progress)
 		_execute_rekey(channel, _indices, idx, progress);
 		break;
 	case Cbe::Request::Operation::EXTEND_VBD:
-/*
-               Execute_Extend_VBD (Obj.Jobs, Obj.Indices, Idx, Progress);
-*/
-		throw Not_implemented { };
-
+		_execute_extend_vbd(channel, idx, progress);
 		break;
 	case Cbe::Request::Operation::EXTEND_FT:
 /*
@@ -518,6 +653,7 @@ void Request_pool::submit_request(Module_request &mod_req)
 			case Request::WRITE:
 			case Request::DEINITIALIZE:
 			case Request::REKEY:
+			case Request::EXTEND_VBD:
 
 				mod_req.dst_request_id(idx);
 				_channels[idx]._state = Channel::SUBMITTED;
@@ -555,12 +691,13 @@ bool Request_pool::_peek_generated_request(uint8_t *buf_ptr,
 	case Channel::DEINITIALIZE_SB_CTRL_PENDING: scr_type = Superblock_control_request::DEINITIALIZE; break;
 	case Channel::REKEY_INIT_PENDING:           scr_type = Superblock_control_request::INITIALIZE_REKEYING; break;
 	case Channel::REKEY_VBA_PENDING:            scr_type = Superblock_control_request::REKEY_VBA; break;
+	case Channel::VBD_EXTENSION_STEP_PENDING:   scr_type = Superblock_control_request::VBD_EXTENSION_STEP; break;
 	default: return false;
 	}
 	Superblock_control_request::create(
 		buf_ptr, buf_size, REQUEST_POOL, idx, scr_type, nullptr, 0,
 		chan._request.offset(), chan._request.tag(),
-		chan._prim.blk_nr);
+		chan._request.count(), chan._prim.blk_nr);
 
 	return true;
 }
@@ -610,10 +747,25 @@ void Request_pool::generated_request_complete(Module_request &mod_req)
 		case Channel::READ_VBA_AT_SB_CTRL_IN_PROGRESS: chan._state = Channel::READ_VBA_AT_SB_CTRL_COMPLETE; break;
 		case Channel::WRITE_VBA_AT_SB_CTRL_IN_PROGRESS: chan._state = Channel::WRITE_VBA_AT_SB_CTRL_COMPLETE; break;
 		case Channel::SYNC_AT_SB_CTRL_IN_PROGRESS: chan._state = Channel::SYNC_AT_SB_CTRL_COMPLETE; break;
-		case Channel::VBD_EXTENSION_STEP_IN_PROGRESS: chan._state = Channel::VBD_EXTENSION_STEP_COMPLETE; break;
-		case Channel::FT_EXTENSION_STEP_IN_PROGRESS: chan._state = Channel::FT_EXTENSION_STEP_COMPLETE; break;
-		case Channel::CREATE_SNAP_AT_SB_CTRL_IN_PROGRESS: chan._state = Channel::CREATE_SNAP_AT_SB_CTRL_COMPLETE; break;
-		case Channel::DISCARD_SNAP_AT_SB_CTRL_IN_PROGRESS: chan._state = Channel::DISCARD_SNAP_AT_SB_CTRL_COMPLETE; break;
+		case Channel::VBD_EXTENSION_STEP_IN_PROGRESS:
+			chan._state = Channel::VBD_EXTENSION_STEP_COMPLETE;
+			chan._request_finished = gen_req.request_finished();
+			break;
+		case Channel::FT_EXTENSION_STEP_IN_PROGRESS:
+			chan._state = Channel::FT_EXTENSION_STEP_COMPLETE;
+			class Exception_3 { };
+			throw Exception_3 { };
+			break;
+		case Channel::CREATE_SNAP_AT_SB_CTRL_IN_PROGRESS:
+			chan._state = Channel::CREATE_SNAP_AT_SB_CTRL_COMPLETE;
+			class Exception_6 { };
+			throw Exception_6 { };
+			break;
+		case Channel::DISCARD_SNAP_AT_SB_CTRL_IN_PROGRESS:
+			chan._state = Channel::DISCARD_SNAP_AT_SB_CTRL_COMPLETE;
+			class Exception_4 { };
+			throw Exception_4 { };
+			break;
 		case Channel::INITIALIZE_SB_CTRL_IN_PROGRESS:
 			chan._sb_state = gen_req.sb_state();
 			chan._state = Channel::INITIALIZE_SB_CTRL_COMPLETE;

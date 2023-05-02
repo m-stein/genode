@@ -53,6 +53,7 @@ class Cbe::Superblock_control_request : public Module_request
 		Virtual_block_address _vba                     { 0 };
 		Genode::uint8_t       _prim[PRIM_BUF_SIZE]     { 0 };
 		Superblock_state      _sb_state                { INVALID };
+		Number_of_blocks      _nr_of_blks              { 0 };
 		bool                  _success                 { false };
 		bool                  _request_finished        { false };
 
@@ -74,6 +75,7 @@ class Cbe::Superblock_control_request : public Module_request
 		                   size_t            prim_size,
 		                   Genode::uint64_t  client_req_offset,
 		                   Genode::uint64_t  client_req_tag,
+		                   Number_of_blocks  nr_of_blks,
 		                   Genode::uint64_t  vba);
 
 		void *prim_ptr() { return (void *)&_prim; }
@@ -184,6 +186,7 @@ class Cbe::Superblock_control_channel
 		};
 
 		enum Tag_type {
+			TAG_SB_CTRL_VBD_VBD_EXT_STEP,
 			TAG_SB_CTRL_VBD_RKG_REKEY_VBA,
 			TAG_SB_CTRL_VBD_RKG_READ_VBA,
 			TAG_SB_CTRL_VBD_RKG_WRITE_VBA,
@@ -224,6 +227,8 @@ class Cbe::Superblock_control_channel
 		Hash_new                   _hash               { };
 		Key_new                    _curr_key_plaintext { };
 		Key_new                    _prev_key_plaintext { };
+		Physical_block_address     _pba                { 0 };
+		Number_of_blocks           _nr_of_leaves       { 0 };
 
 		Superblock &_sb_ciphertext() { return *(Superblock *)&_sb_ciphertext_blk; }
 
@@ -254,6 +259,11 @@ class Cbe::Superblock_control : public Module
 		void _mark_req_successful(Channel &chan,
 		                          bool    &progress);
 
+		static char const *_state_to_step_label(Channel::State state);
+
+		bool _handle_failed_generated_req(Channel &chan,
+		                                  bool    &progress);
+
 		void _secure_sb_init(Channel  &chan,
 		                     uint64_t  chan_idx,
 		                     bool     &progress);
@@ -282,6 +292,10 @@ class Cbe::Superblock_control : public Module
 
 		void _execute_sync(Channel &, uint64_t const job_idx, Superblock &,
                            Superblocks_index &, Generation &, bool &progress);
+
+		void _execute_vbd_ext_step(Channel  &chan,
+		                           uint64_t  chan_idx,
+		                           bool     &progress);
 
 		void _execute_rekey_vba(Channel  &chan,
 		                        uint64_t  chan_idx,
