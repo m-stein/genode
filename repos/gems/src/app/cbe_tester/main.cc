@@ -36,6 +36,9 @@
 #include <vbd_initializer.h>
 #include <ft_initializer.h>
 #include <sb_initializer.h>
+#include <sb_check.h>
+#include <vbd_check.h>
+#include <ft_check.h>
 #include <virtual_block_device.h>
 #include <superblock_control.h>
 
@@ -48,32 +51,6 @@ enum { VERBOSE_MODULE_COMMUNICATION = 0 };
 namespace Cbe_tester {
 
 	class Main;
-}
-
-namespace Cbe {
-
-	char const *module_name(unsigned long id)
-	{
-		switch (id) {
-		case CRYPTO: return "crypto";
-		case BLOCK_IO: return "block_io";
-		case CACHE: return "cache";
-		case META_TREE: return "meta_tree";
-		case FREE_TREE: return "free_tree";
-		case VIRTUAL_BLOCK_DEVICE: return "vbd";
-		case SUPERBLOCK_CONTROL: return "sb_control";
-		case CLIENT_DATA: return "client_data";
-		case TRUST_ANCHOR: return "trust_anchor";
-		case COMMAND_POOL: return "command_pool";
-		case BLOCK_ALLOCATOR: return "block_allocator";
-		case VBD_INITIALIZER: return "vbd_initializer";
-		case FT_INITIALIZER: return "ft_initializer";
-		case SB_INITIALIZER: return "sb_initializer";
-		case REQUEST_POOL: return "request_pool";
-		default: break;
-		}
-		return "?";
-	}
 }
 
 
@@ -787,6 +764,19 @@ class Command_pool : public Module {
 				}
 			}
 
+			{
+				Command const cmd {
+					peek_pending_command(Command::CHECK) };
+
+				if (cmd.type() != Command::INVALID) {
+
+					Sb_check_request::create(
+						buf_ptr, buf_size, COMMAND_POOL, cmd.id(),
+						(unsigned long)Sb_check_request::CHECK);
+
+					return true;
+				}
+			}
 			return false;
 		}
 
@@ -811,10 +801,22 @@ class Command_pool : public Module {
 					*static_cast<Sb_initializer_request *>(&mod_req)};
 
 				if (sb_req.type() != Sb_initializer_request::INIT) {
-					class Exception_2 { };
-					throw Exception_2 { };
+					class Exception_4 { };
+					throw Exception_4 { };
 				}
 				mark_command_in_progress(sb_req.src_request_id());
+				break;
+			}
+			case SB_CHECK:
+			{
+				Sb_check_request const &req {
+					*static_cast<Sb_check_request *>(&mod_req)};
+
+				if (req.type() != Sb_check_request::CHECK) {
+					class Exception_3 { };
+					throw Exception_3 { };
+				}
+				mark_command_in_progress(req.src_request_id());
 				break;
 			}
 			default:
@@ -847,6 +849,19 @@ class Command_pool : public Module {
 					*static_cast<Sb_initializer_request *>(&mod_req)};
 
 				if (sb_req.type() != Sb_initializer_request::INIT) {
+					class Exception_2 { };
+					throw Exception_2 { };
+				}
+				mark_command_completed(
+					sb_req.src_request_id(), sb_req.success());
+				break;
+			}
+			case SB_CHECK:
+			{
+				Sb_check_request const &sb_req {
+					*static_cast<Sb_check_request *>(&mod_req)};
+
+				if (sb_req.type() != Sb_check_request::CHECK) {
 					class Exception_2 { };
 					throw Exception_2 { };
 				}
@@ -1121,26 +1136,29 @@ class Cbe_tester::Main : Vfs::Env::User, public Cbe::Module
 	private:
 
 		Genode::Env                        &_env;
-		Attached_rom_dataspace              _config_rom                 { _env, "config" };
-		Verbose_node                        _verbose_node               { _config_rom.xml() };
-		Heap                                _heap                       { _env.ram(), _env.rm() };
-		Vfs::Simple_env                     _vfs_env                    { _env, _heap, _config_rom.xml().sub_node("vfs"), *this };
-		Signal_handler<Main>                _sigh                       { _env.ep(), *this, &Main::_execute };
-		Command_pool                        _cmd_pool                   { _heap, _config_rom.xml(), _verbose_node };
-		Constructible<Free_tree>            _free_tree                  { };
-		Constructible<Virtual_block_device> _vbd                        { };
-		Constructible<Superblock_control>   _sb_control                 { };
-		Constructible<Request_pool>         _request_pool               { };
-		Benchmark                           _benchmark                  { _env };
-		Meta_tree                           _meta_tree                  { };
-		Trust_anchor                        _trust_anchor               { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
-		Crypto                              _crypto                     { _vfs_env, _config_rom.xml().sub_node("crypto") };
-		Block_io                            _block_io                   { _vfs_env, _config_rom.xml().sub_node("block-io") };
-		Block_allocator                     _block_allocator            { NR_OF_SUPERBLOCK_SLOTS };
-		Vbd_initializer                     _vbd_initializer            { };
-		Ft_initializer                      _ft_initializer             { };
-		Sb_initializer                      _sb_initializer             { };
-		Client_data_request                 _client_data_request        { };
+		Attached_rom_dataspace              _config_rom          { _env, "config" };
+		Verbose_node                        _verbose_node        { _config_rom.xml() };
+		Heap                                _heap                { _env.ram(), _env.rm() };
+		Vfs::Simple_env                     _vfs_env             { _env, _heap, _config_rom.xml().sub_node("vfs"), *this };
+		Signal_handler<Main>                _sigh                { _env.ep(), *this, &Main::_execute };
+		Command_pool                        _cmd_pool            { _heap, _config_rom.xml(), _verbose_node };
+		Constructible<Free_tree>            _free_tree           { };
+		Constructible<Virtual_block_device> _vbd                 { };
+		Constructible<Superblock_control>   _sb_control          { };
+		Constructible<Request_pool>         _request_pool        { };
+		Benchmark                           _benchmark           { _env };
+		Meta_tree                           _meta_tree           { };
+		Trust_anchor                        _trust_anchor        { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
+		Crypto                              _crypto              { _vfs_env, _config_rom.xml().sub_node("crypto") };
+		Block_io                            _block_io            { _vfs_env, _config_rom.xml().sub_node("block-io") };
+		Block_allocator                     _block_allocator     { NR_OF_SUPERBLOCK_SLOTS };
+		Vbd_initializer                     _vbd_initializer     { };
+		Ft_initializer                      _ft_initializer      { };
+		Sb_initializer                      _sb_initializer      { };
+		Sb_check                            _sb_check            { };
+		Vbd_check                           _vbd_check           { };
+		Ft_check                            _ft_check            { };
+		Client_data_request                 _client_data_request { };
 
 		Module *_module_ptrs[MAX_MODULE_ID + 1] { };
 
@@ -1283,20 +1301,6 @@ class Cbe_tester::Main : Vfs::Env::User, public Cbe::Module
 				throw Exception_2 { };
 			}
 			_client_data_request._type = Client_data_request::INVALID;
-		}
-
-		void _cmd_pool_handle_pending_check_cmds(bool &progress)
-		{
-			Command const cmd {
-				_cmd_pool.peek_pending_command(Command::CHECK) };
-
-			if (cmd.type() == Command::INVALID) {
-				return;
-			}
-			warning("skip <check/> command because it is temporarily not supported");
-			_cmd_pool.mark_command_in_progress(cmd.id());
-			_cmd_pool.mark_command_completed(cmd.id(), true);
-			progress = true;
 		}
 
 		void _cmd_pool_handle_pending_cbe_cmds(bool &progress)
@@ -1482,7 +1486,6 @@ class Cbe_tester::Main : Vfs::Env::User, public Cbe::Module
 			_cmd_pool_handle_pending_construct_cmds(progress);
 			_cmd_pool_handle_pending_destruct_cmds(progress);
 			_cmd_pool_handle_pending_dump_cmds(progress);
-			_cmd_pool_handle_pending_check_cmds(progress);
 
 			if (_cmd_pool.nr_of_uncompleted_cmds() == 0) {
 
@@ -1536,6 +1539,10 @@ class Cbe_tester::Main : Vfs::Env::User, public Cbe::Module
 				module_ptr->execute(progress);
 				module_ptr->for_each_generated_request([&] (Module_request &req) {
 					if (req.dst_module_id() > MAX_MODULE_ID) {
+						class Exception_1 { };
+						throw Exception_1 { };
+					}
+					if (_module_ptrs[req.dst_module_id()] == nullptr) {
 						class Exception_1 { };
 						throw Exception_1 { };
 					}
@@ -1599,16 +1606,19 @@ class Cbe_tester::Main : Vfs::Env::User, public Cbe::Module
 		:
 			_env { env }
 		{
-			_modules_add(META_TREE,         _meta_tree);
-			_modules_add(CRYPTO,            _crypto);
-			_modules_add(TRUST_ANCHOR,      _trust_anchor);
-			_modules_add(CLIENT_DATA,      *this);
-			_modules_add(COMMAND_POOL,      _cmd_pool);
-			_modules_add(BLOCK_IO,          _block_io);
-			_modules_add(BLOCK_ALLOCATOR,   _block_allocator);
-			_modules_add(VBD_INITIALIZER,   _vbd_initializer);
-			_modules_add(FT_INITIALIZER,    _ft_initializer);
-			_modules_add(SB_INITIALIZER,    _sb_initializer);
+			_modules_add(META_TREE,        _meta_tree);
+			_modules_add(CRYPTO,           _crypto);
+			_modules_add(TRUST_ANCHOR,     _trust_anchor);
+			_modules_add(CLIENT_DATA,     *this);
+			_modules_add(COMMAND_POOL,     _cmd_pool);
+			_modules_add(BLOCK_IO,         _block_io);
+			_modules_add(BLOCK_ALLOCATOR,  _block_allocator);
+			_modules_add(VBD_INITIALIZER,  _vbd_initializer);
+			_modules_add(FT_INITIALIZER,   _ft_initializer);
+			_modules_add(SB_INITIALIZER,   _sb_initializer);
+			_modules_add(SB_CHECK,         _sb_check);
+			_modules_add(VBD_CHECK,        _vbd_check);
+			_modules_add(FT_CHECK,         _ft_check);
 
 			_block_allocator_ptr = &_block_allocator;
 

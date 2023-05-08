@@ -45,3 +45,30 @@ String<32> Module_request::dst_request_id_str() const
 		_dst_request_id == INVALID_MODULE_REQUEST_ID ?
 			String<32> { "?" } : String<32> { _dst_request_id };
 }
+
+
+char const *Cbe::module_name(unsigned long id)
+{
+	switch (id) {
+	case CRYPTO: return "crypto";
+	case BLOCK_IO: return "block_io";
+	case CACHE: return "cache";
+	case META_TREE: return "meta_tree";
+	case FREE_TREE: return "free_tree";
+	case VIRTUAL_BLOCK_DEVICE: return "vbd";
+	case SUPERBLOCK_CONTROL: return "sb_control";
+	case CLIENT_DATA: return "client_data";
+	case TRUST_ANCHOR: return "trust_anchor";
+	case COMMAND_POOL: return "command_pool";
+	case BLOCK_ALLOCATOR: return "block_allocator";
+	case VBD_INITIALIZER: return "vbd_initializer";
+	case FT_INITIALIZER: return "ft_initializer";
+	case SB_INITIALIZER: return "sb_initializer";
+	case SB_CHECK: return "sb_check";
+	case VBD_CHECK: return "vbd_check";
+	case FT_CHECK: return "ft_check";
+	case REQUEST_POOL: return "request_pool";
+	default: break;
+	}
+	return "?";
+}

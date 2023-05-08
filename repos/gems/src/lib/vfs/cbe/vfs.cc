@@ -87,35 +87,6 @@ namespace Vfs_cbe {
 }
 
 
-namespace Cbe {
-
-	char const *module_name(unsigned long id)
-	{
-		switch (id) {
-		case CRYPTO: return "crypto";
-		case BLOCK_IO: return "block_io";
-		case CBE_LIBRARA: return "cbe";
-		case CBE_INIT_LIBRARA: return "cbe_init";
-		case CACHE: return "cache";
-		case META_TREE: return "meta_tree";
-		case FREE_TREE: return "free_tree";
-		case VIRTUAL_BLOCK_DEVICE: return "vbd";
-		case SUPERBLOCK_CONTROL: return "sb_control";
-		case CLIENT_DATA: return "client_data";
-		case TRUST_ANCHOR: return "trust_anchor";
-		case COMMAND_POOL: return "command_pool";
-		case BLOCK_ALLOCATOR: return "block_allocator";
-		case VBD_INITIALIZER: return "vbd_initializer";
-		case FT_INITIALIZER: return "ft_initializer";
-		case SB_INITIALIZER: return "sb_initializer";
-		case REQUEST_POOL: return "request_pool";
-		default: break;
-		}
-		return "?";
-	}
-}
-
-
 class Vfs_cbe::Wrapper : public Cbe::Module
 {
 	private:

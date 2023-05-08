@@ -21,6 +21,7 @@ namespace Cbe {
 	enum { VERBOSE_VBA_ACCESS    = 0 };
 	enum { VERBOSE_CRYPTO        = 0 };
 	enum { VERBOSE_BLOCK_IO      = 0 };
+	enum { VERBOSE_CHECK         = 0 };
 }
 
 #endif /* _CBE_VERBOSITY_H_ */

@@ -191,6 +191,7 @@ namespace Cbe {
 	using Superblocks_index        = Genode::uint8_t;
 	using Type_1_node_blocks_index = Genode::uint64_t;
 	using Type_1_node_block_index  = Genode::uint64_t;
+	using Type_2_node_block_index  = Genode::uint64_t;
 
 	enum {
 		PRIM_BUF_SIZE = 128,
@@ -214,10 +215,13 @@ namespace Cbe {
 		TREE_MAX_LEVEL = 6,
 		TREE_MAX_NR_OF_LEVELS = TREE_MAX_LEVEL + 1,
 		T2_NODE_LVL = 1,
+		FIRST_VBD_T1_LVL_IDX = 1,
+		FIRST_FT_T1_LVL_IDX = 2,
 		LOWEST_T1_NODE_LVL = 2,
 		HIGHEST_T1_NODE_LVL = TREE_MAX_LEVEL,
 		KEY_SIZE = 32,
 		MAX_NR_OF_SNAPSHOTS_PER_SB = 48,
+		LAST_SNAPSHOTS_INDEX = MAX_NR_OF_SNAPSHOTS_PER_SB - 1,
 		SNAPSHOT_STORAGE_SIZE = 72,
 		NR_OF_SUPERBLOCK_SLOTS = 8,
 		MAX_SUPERBLOCK_INDEX = NR_OF_SUPERBLOCK_SLOTS - 1,
@@ -256,6 +260,16 @@ namespace Cbe {
 		{
 			Genode::print(out, Byte_range { bytes, 4 }, "…");
 		}
+
+		bool operator == (Hash_new const &other) const
+		{
+			return !Genode::memcmp(bytes, other.bytes, sizeof(bytes));
+		}
+
+		bool operator != (Hash_new const &other) const
+		{
+			return !(*this == other);
+		}
 	}
 	__attribute__((packed));
 
@@ -269,7 +283,8 @@ namespace Cbe {
 		bool valid() const
 		{
 			Type_1_node node { };
-			return Genode::memcmp(this, &node, sizeof(node)) != 0;
+			return
+				pba != node.pba || gen != node.gen || hash != node.hash;
 		}
 
 		void print(Genode::Output &out) const
