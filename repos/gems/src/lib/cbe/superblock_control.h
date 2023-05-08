@@ -133,10 +133,9 @@ class Cbe::Superblock_control_channel
 			REKEY_VBA_IN_VBD_COMPLETED,
 			VBD_EXT_STEP_IN_VBD_PENDING,
 			VBD_EXT_STEP_IN_VBD_IN_PROGRESS,
-			VBD_EXT_STEP_IN_VBD_COMPLETED,
 			FT_EXT_STEP_IN_FT_PENDING,
 			FT_EXT_STEP_IN_FT_IN_PROGRESS,
-			FT_EXT_STEP_IN_FT_COMPLETED,
+			TREE_EXT_STEP_IN_TREE_COMPLETED,
 			CREATE_KEY_PENDING,
 			CREATE_KEY_IN_PROGRESS,
 			CREATE_KEY_COMPLETED,
@@ -187,6 +186,7 @@ class Cbe::Superblock_control_channel
 
 		enum Tag_type {
 			TAG_SB_CTRL_VBD_VBD_EXT_STEP,
+			TAG_SB_CTRL_FT_FT_EXT_STEP,
 			TAG_SB_CTRL_VBD_RKG_REKEY_VBA,
 			TAG_SB_CTRL_VBD_RKG_READ_VBA,
 			TAG_SB_CTRL_VBD_RKG_WRITE_VBA,
@@ -229,6 +229,9 @@ class Cbe::Superblock_control_channel
 		Key_new                    _prev_key_plaintext { };
 		Physical_block_address     _pba                { 0 };
 		Number_of_blocks           _nr_of_leaves       { 0 };
+		Type_1_node                _ft_root            { };
+		Tree_level_index           _ft_max_lvl         { 0 };
+		Number_of_leaves           _ft_nr_of_leaves    { 0 };
 
 		Superblock &_sb_ciphertext() { return *(Superblock *)&_sb_ciphertext_blk; }
 
@@ -244,6 +247,7 @@ class Cbe::Superblock_control : public Module
 		using Request = Superblock_control_request;
 		using Channel = Superblock_control_channel;
 		using Generated_prim = Channel::Generated_prim;
+		using Tag = Channel::Tag_type;
 
 		enum { NR_OF_CHANNELS = 1 };
 
@@ -293,9 +297,14 @@ class Cbe::Superblock_control : public Module
 		void _execute_sync(Channel &, uint64_t const job_idx, Superblock &,
                            Superblocks_index &, Generation &, bool &progress);
 
-		void _execute_vbd_ext_step(Channel  &chan,
-		                           uint64_t  chan_idx,
-		                           bool     &progress);
+		void _execute_tree_ext_step(Channel           &chan,
+		                            uint64_t           chan_idx,
+		                            Superblock_state   tree_ext_sb_state,
+		                            bool               tree_ext_verbose,
+		                            Tag                tree_ext_tag,
+		                            Channel::State     tree_ext_pending_state,
+		                            Genode::String<4>  tree_name,
+		                            bool              &progress);
 
 		void _execute_rekey_vba(Channel  &chan,
 		                        uint64_t  chan_idx,

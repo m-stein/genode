@@ -173,11 +173,9 @@ class Cbe::Request_pool_channel
 			PREPONE_REQUESTS_PENDING,
 			PREPONE_REQUESTS_COMPLETE,
 			VBD_EXTENSION_STEP_PENDING,
-			VBD_EXTENSION_STEP_IN_PROGRESS,
-			VBD_EXTENSION_STEP_COMPLETE,
 			FT_EXTENSION_STEP_PENDING,
-			FT_EXTENSION_STEP_IN_PROGRESS,
-			FT_EXTENSION_STEP_COMPLETE,
+			TREE_EXTENSION_STEP_IN_PROGRESS,
+			TREE_EXTENSION_STEP_COMPLETE,
 			CREATE_SNAP_AT_SB_CTRL_PENDING,
 			CREATE_SNAP_AT_SB_CTRL_IN_PROGRESS,
 			CREATE_SNAP_AT_SB_CTRL_COMPLETE,
@@ -206,7 +204,7 @@ class Cbe::Request_pool_channel
 		};
 
 		enum Tag_type {
-			TAG_POOL_SB_CTRL_VBD_EXT_STEP,
+			TAG_POOL_SB_CTRL_TREE_EXT_STEP,
 			TAG_POOL_SB_CTRL_READ_VBA,
 			TAG_POOL_SB_CTRL_WRITE_VBA,
 			TAG_POOL_SB_CTRL_SYNC,
@@ -413,9 +411,10 @@ class Cbe::Request_pool : public Module
 		                    Slots_index  idx,
 		                    bool        &progress);
 
-		void _execute_extend_vbd(Channel     &chan,
-		                         Slots_index  idx,
-		                         bool        &progress);
+		void _execute_extend_tree(Channel       &chan,
+		                         Slots_index     idx,
+		                         Channel::State  tree_ext_step_pending,
+		                         bool           &progress);
 
 		void _execute_initialize(Channel &, Index_queue &, Slots_index const,
 		                         bool &);

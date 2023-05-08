@@ -50,7 +50,8 @@ namespace Cbe {
 		SB_CHECK             = 17,
 		VBD_CHECK            = 18,
 		FT_CHECK             = 19,
-		MAX_MODULE_ID        = 19,
+		FT_RESIZING          = 20,
+		MAX_MODULE_ID        = 20,
 	};
 
 	char const *module_name(unsigned long module_id);

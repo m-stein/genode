@@ -22,18 +22,6 @@
 using namespace Genode;
 using namespace Cbe;
 
-struct Level_indent
-{
-	Tree_level_index lvl;
-	Tree_level_index max_lvl;
-
-	void print(Genode::Output &out) const
-	{
-		for (Tree_level_index i { 0 }; i < max_lvl + 1 - lvl; i++)
-			Genode::print(out, "  ");
-	}
-};
-
 
 /***********************
  ** Vbd_check_request **

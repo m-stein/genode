@@ -15,6 +15,7 @@ SRC_CC += vbd_initializer.cc
 SRC_CC += ft_initializer.cc
 SRC_CC += sb_initializer.cc
 SRC_CC += vfs_utilities.cc
+SRC_CC += ft_resizing.cc
 SRC_CC += sb_check.cc
 SRC_CC += vbd_check.cc
 SRC_CC += ft_check.cc

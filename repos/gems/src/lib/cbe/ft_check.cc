@@ -63,6 +63,7 @@ void Ft_check::_execute_inner_t2_child(Channel                 &chan,
                                        Type_1_node_block_index  child_idx,
                                        bool                    &progress)
 {
+	Request &req { chan._request };
 	Child_state &child_state { chan._t1_lvls[lvl].children_state[child_idx] };
 	Type_1_node const &child { chan._t1_lvls[lvl].children.nodes[child_idx] };
 	Type_2_level &child_lvl { chan._t2_lvl };
@@ -77,12 +78,14 @@ void Ft_check::_execute_inner_t2_child(Channel                 &chan,
 				progress = true;
 
 				if (VERBOSE_CHECK)
-					log("    lvl ", lvl, " child ", child_idx, " unused");
+					log(Level_indent { lvl, req._max_lvl },
+					    "    lvl ", lvl, " child ", child_idx, " unused");
 
 			} else {
 
 				if (VERBOSE_CHECK)
-					log("    lvl ", lvl, " child ", child_idx, " unexpectedly in use");
+					log(Level_indent { lvl, req._max_lvl },
+					    "    lvl ", lvl, " child ", child_idx, " unexpectedly in use");
 
 				_mark_req_failed(chan, progress, "check for valid child");
 			}
@@ -97,6 +100,10 @@ void Ft_check::_execute_inner_t2_child(Channel                 &chan,
 
 			chan._lvl_to_read = lvl - 1;
 			progress = true;
+
+			if (VERBOSE_CHECK)
+				log(Level_indent { lvl, req._max_lvl },
+				    "    lvl ", lvl, " child ", child_idx, " (", child, "): load to lvl ", lvl - 1);
 
 		} else if (chan._gen_prim.tag != Channel::BLOCK_IO ||
 		           chan._gen_prim.blk_nr != child.pba) {
@@ -125,12 +132,14 @@ void Ft_check::_execute_inner_t2_child(Channel                 &chan,
 			progress = true;
 
 			if (VERBOSE_CHECK)
-				log("    lvl ", lvl, " child ", child_idx, " has good hash");
+				log(Level_indent { lvl, req._max_lvl },
+				    "    lvl ", lvl, " child ", child_idx, " has good hash");
 
 		} else {
 
 			if (VERBOSE_CHECK)
-				log("    lvl ", lvl, " child ", child_idx, " has bad hash");
+				log(Level_indent { lvl, req._max_lvl },
+				    "    lvl ", lvl, " child ", child_idx, " has bad hash");
 
 			_mark_req_failed(chan, progress, "check inner hash");
 		}
@@ -146,6 +155,7 @@ void Ft_check::_execute_inner_t1_child(Channel                 &chan,
                                        Type_1_node_block_index  child_idx,
                                        bool                    &progress)
 {
+	Request &req { chan._request };
 	if (child_state == Channel::READ_BLOCK) {
 
 		if (!child.valid()) {
@@ -156,12 +166,14 @@ void Ft_check::_execute_inner_t1_child(Channel                 &chan,
 				progress = true;
 
 				if (VERBOSE_CHECK)
-					log("    lvl ", lvl, " child ", child_idx, " unused");
+					log(Level_indent { lvl, req._max_lvl },
+					    "    lvl ", lvl, " child ", child_idx, " unused");
 
 			} else {
 
 				if (VERBOSE_CHECK)
-					log("    lvl ", lvl, " child ", child_idx, " unexpectedly in use");
+					log(Level_indent { lvl, req._max_lvl },
+					    "    lvl ", lvl, " child ", child_idx, " unexpectedly in use");
 
 				_mark_req_failed(chan, progress, "check for valid child");
 			}
@@ -176,6 +188,10 @@ void Ft_check::_execute_inner_t1_child(Channel                 &chan,
 
 			chan._lvl_to_read = lvl - 1;
 			progress = true;
+
+			if (VERBOSE_CHECK)
+				log(Level_indent { lvl, req._max_lvl },
+				    "    lvl ", lvl, " child ", child_idx, " (", child, "): load to lvl ", lvl - 1);
 
 		} else if (chan._gen_prim.tag != Channel::BLOCK_IO ||
 		           chan._gen_prim.blk_nr != child.pba) {
@@ -207,12 +223,14 @@ void Ft_check::_execute_inner_t1_child(Channel                 &chan,
 			progress = true;
 
 			if (VERBOSE_CHECK)
-				log("    lvl ", lvl, " child ", child_idx, " has good hash");
+				log(Level_indent { lvl, req._max_lvl },
+				    "    lvl ", lvl, " child ", child_idx, " has good hash");
 
 		} else {
 
 			if (VERBOSE_CHECK)
-				log("    lvl ", lvl, " child ", child_idx, " has bad hash");
+				log(Level_indent { lvl, req._max_lvl },
+				    "    lvl ", lvl, " child ", child_idx, " has bad hash");
 
 			_mark_req_failed(chan, progress, "check inner hash");
 		}
@@ -224,6 +242,7 @@ void Ft_check::_execute_leaf_child(Channel                 &chan,
                                    Type_2_node_block_index  child_idx,
                                    bool                    &progress)
 {
+	Request &req { chan._request };
 	Type_2_node const &child { chan._t2_lvl.children.nodes[child_idx] };
 	Child_state &child_state { chan._t2_lvl.children_state[child_idx] };
 
@@ -234,7 +253,8 @@ void Ft_check::_execute_leaf_child(Channel                 &chan,
 			if (child.valid()) {
 
 				if (VERBOSE_CHECK)
-					log("    lvl 1 child ", child_idx, " unexpectedly in use");
+					log(Level_indent { 1, req._max_lvl },
+					    "    lvl 1 child ", child_idx, " unexpectedly in use");
 
 				_mark_req_failed(chan, progress, "check for unused child");
 
@@ -244,7 +264,8 @@ void Ft_check::_execute_leaf_child(Channel                 &chan,
 				progress = true;
 
 				if (VERBOSE_CHECK)
-					log("    lvl 1 child ", child_idx, " unused");
+					log(Level_indent { 1, req._max_lvl },
+					    "    lvl 1 child ", child_idx, " unused");
 			}
 
 		} else {
@@ -254,7 +275,8 @@ void Ft_check::_execute_leaf_child(Channel                 &chan,
 			progress = true;
 
 			if (VERBOSE_CHECK)
-				log("    lvl 1 child ", child_idx, " done");
+				log(Level_indent { 1, req._max_lvl },
+				    "    lvl 1 child ", child_idx, " done");
 
 		}
 	}

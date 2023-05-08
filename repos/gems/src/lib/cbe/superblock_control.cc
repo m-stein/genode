@@ -20,6 +20,7 @@
 #include <block_io.h>
 #include <trust_anchor.h>
 #include <virtual_block_device.h>
+#include <ft_resizing.h>
 #include <sha256_4k_hash.h>
 
 using namespace Genode;
@@ -333,7 +334,7 @@ void Superblock_control::_init_sb_without_key_values(Superblock const &sb_in,
 char const *Superblock_control::_state_to_step_label(Channel::State state)
 {
 	switch (state) {
-	case Channel::VBD_EXT_STEP_IN_VBD_COMPLETED: return "vbd ext step in vbd";
+	case Channel::TREE_EXT_STEP_IN_TREE_COMPLETED: return "tree ext step in tree";
 	case Channel::SECURE_SB_COMPLETED: return "secure sb";
 	default: break;
 	}
@@ -352,9 +353,14 @@ bool Superblock_control::_handle_failed_generated_req(Channel &chan,
 }
 
 
-void Superblock_control::_execute_vbd_ext_step(Channel  &chan,
-                                               uint64_t  chan_idx,
-                                               bool     &progress)
+void Superblock_control::_execute_tree_ext_step(Channel          &chan,
+                                                uint64_t          chan_idx,
+                                                Superblock_state  tree_ext_sb_state,
+                                                bool              tree_ext_verbose,
+                                                Tag               tree_ext_tag,
+                                                Channel::State    tree_ext_pending_state,
+                                                String<4>         tree_name,
+                                                bool             &progress)
 {
 	Request &req { chan._request };
 	switch (chan._state) {
@@ -367,52 +373,51 @@ void Superblock_control::_execute_vbd_ext_step(Channel  &chan,
 			_mark_req_failed(chan, progress, "check number of unused blocks");
 			break;
 		}
-		switch(_sb.state) {
-		case NORMAL:
-		{
+		if (_sb.state == NORMAL) {
+
 			req._request_finished = false;
-			_sb.state = EXTENDING_VBD;
+			_sb.state = tree_ext_sb_state;
 			_sb.resizing_nr_of_pbas = req._nr_of_blks;
 			_sb.resizing_nr_of_leaves = 0;
 			chan._pba = last_used_pba + 1;
 
-			if (VERBOSE_VBD_EXTENSION)
-				log("vbd ext init: pbas ", chan._pba, "..",
+			if (tree_ext_verbose)
+				log(tree_name, " ext init: pbas ", chan._pba, "..",
 				    chan._pba + (Number_of_blocks)_sb.resizing_nr_of_pbas - 1,
 				    " leaves ", (Number_of_blocks)_sb.resizing_nr_of_leaves);
 
 			_secure_sb_init(chan, chan_idx, progress);
 			break;
-		}
-		case EXTENDING_VBD:
-		{
+
+		} else if (_sb.state == tree_ext_sb_state) {
+
 			chan._pba = last_used_pba + 1;
 			req._nr_of_blks = _sb.resizing_nr_of_pbas;
 
-			if (VERBOSE_VBD_EXTENSION)
-				log("vbd ext step: pbas ", chan._pba, "..",
+			if (tree_ext_verbose)
+				log(tree_name, " ext step: pbas ", chan._pba, "..",
 				    chan._pba + (Number_of_blocks)_sb.resizing_nr_of_pbas - 1,
 				    " leaves ", (Number_of_blocks)_sb.resizing_nr_of_leaves);
 
 			chan._generated_prim = {
 				.op     = Generated_prim::READ,
 				.succ   = false,
-				.tg     = Channel::TAG_SB_CTRL_VBD_VBD_EXT_STEP,
+				.tg     = tree_ext_tag,
 				.blk_nr = 0,
 				.idx    = chan_idx
 			};
-			chan._state = Channel::VBD_EXT_STEP_IN_VBD_PENDING;
+			chan._state = tree_ext_pending_state;
 			progress = true;
 			break;
-		}
-		default:
+
+		} else {
 
 			_mark_req_failed(chan, progress, "check superblock state");
 			break;
 		}
 		break;
 	}
-	case Channel::VBD_EXT_STEP_IN_VBD_COMPLETED:
+	case Channel::TREE_EXT_STEP_IN_TREE_COMPLETED:
 	{
 		if (_handle_failed_generated_req(chan, progress))
 			break;
@@ -429,15 +434,28 @@ void Superblock_control::_execute_vbd_ext_step(Channel  &chan,
 			break;
 		}
 		_sb.nr_of_pbas = _sb.nr_of_pbas + nr_of_added_pbas;
-		_sb.snapshots = chan._snapshots;
-		_sb.curr_snap = newest_snapshot_idx(chan._snapshots);
+		_sb.resizing_nr_of_pbas = req._nr_of_blks;
+		_sb.resizing_nr_of_leaves += chan._nr_of_leaves;
 
-		if (req._nr_of_blks > 0) {
+		if (tree_name == "vbd") {
 
-			_sb.resizing_nr_of_pbas = req._nr_of_blks;
-			_sb.resizing_nr_of_leaves += chan._nr_of_leaves;
+			_sb.snapshots = chan._snapshots;
+			_sb.curr_snap = newest_snapshot_idx(chan._snapshots);
+
+		} else if (tree_name == "ft") {
+
+			_sb.free_gen       = chan._ft_root.gen;
+			_sb.free_number    = chan._ft_root.pba;
+			_sb.free_hash      = chan._ft_root.hash;
+			_sb.free_max_level = chan._ft_max_lvl;
+			_sb.free_leaves    = chan._ft_nr_of_leaves;
 
 		} else {
+
+			class Exception_1 { };
+			throw Exception_1 { };
+		}
+		if (req._nr_of_blks == 0) {
 
 			_sb.state = NORMAL;
 			req._request_finished = true;
@@ -1719,8 +1737,23 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 
 		case Channel::FT_EXT_STEP_IN_FT_PENDING:
 
-			class Exception_1 { };
-			throw Exception_1 { };
+			construct_in_buf<Ft_resizing_request>(
+				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
+				Ft_resizing_request::FT_EXTENSION_STEP, _curr_gen,
+				Type_1_node { _sb.free_number, _sb.free_gen, _sb.free_hash },
+				(Tree_level_index)_sb.free_max_level,
+				(Number_of_leaves)_sb.free_leaves,
+				(Tree_degree)_sb.free_degree,
+				(addr_t)&_sb.meta_number,
+				(addr_t)&_sb.meta_gen,
+				(addr_t)&_sb.meta_hash,
+				(Tree_level_index)_sb.meta_max_level,
+				(Tree_degree)_sb.meta_degree,
+				(Number_of_leaves)_sb.meta_leaves,
+				_sb.first_pba + _sb.nr_of_pbas,
+				(Number_of_blocks)_sb.resizing_nr_of_pbas);
+
+			return 1;
 
 		default: break;
 		}
@@ -1794,12 +1827,8 @@ void Superblock_control::execute(bool &progress)
 			break;
 		case Request::INITIALIZE_REKEYING: _execute_initialize_rekeying(channel, idx, progress); break;
 		case Request::REKEY_VBA:           _execute_rekey_vba(channel, idx, progress); break;
-		case Request::VBD_EXTENSION_STEP:  _execute_vbd_ext_step(channel, idx, progress); break;
-		case Request::FT_EXTENSION_STEP:
-			class Superblock_control_ft_extension_step { };
-			throw Superblock_control_ft_extension_step { };
-
-			break;
+		case Request::VBD_EXTENSION_STEP:  _execute_tree_ext_step(channel, idx, EXTENDING_VBD, VERBOSE_VBD_EXTENSION, Channel::TAG_SB_CTRL_VBD_VBD_EXT_STEP, Channel::VBD_EXT_STEP_IN_VBD_PENDING, "vbd", progress); break;
+		case Request::FT_EXTENSION_STEP:   _execute_tree_ext_step(channel, idx, EXTENDING_FT, VERBOSE_FT_EXTENSION, Channel::TAG_SB_CTRL_FT_FT_EXT_STEP, Channel::FT_EXT_STEP_IN_FT_PENDING, "ft", progress); break;
 		case Request::CREATE_SNAPSHOT:
 			class Superblock_control_create_snapshot { };
 			throw Superblock_control_create_snapshot { };
@@ -1903,7 +1932,7 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 			chan._snapshots = *(gen_req.snapshots_ptr());
 			break;
 		case Channel::VBD_EXT_STEP_IN_VBD_IN_PROGRESS:
-			chan._state = Channel::VBD_EXT_STEP_IN_VBD_COMPLETED;
+			chan._state = Channel::TREE_EXT_STEP_IN_TREE_COMPLETED;
 			chan._snapshots = *(gen_req.snapshots_ptr());
 			chan._pba = gen_req.pba();
 			chan._request._nr_of_blks = gen_req.nr_of_pbas();
@@ -1912,6 +1941,26 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 		default:
 			class Exception_6 { };
 			throw Exception_6 { };
+		}
+		break;
+	}
+	case FT_RESIZING:
+	{
+		Ft_resizing_request &gen_req { *static_cast<Ft_resizing_request*>(&mod_req) };
+		chan._generated_prim.succ = gen_req.success();
+		switch (chan._state) {
+		case Channel::FT_EXT_STEP_IN_FT_IN_PROGRESS:
+			chan._state = Channel::TREE_EXT_STEP_IN_TREE_COMPLETED;
+			chan._ft_root = gen_req.ft_root();
+			chan._ft_max_lvl = gen_req.ft_max_lvl();
+			chan._ft_nr_of_leaves = gen_req.ft_nr_of_leaves();
+			chan._pba = gen_req.pba();
+			chan._request._nr_of_blks = gen_req.nr_of_pbas();
+			chan._nr_of_leaves = gen_req.nr_of_leaves();
+			break;
+		default:
+			class Exception_16 { };
+			throw Exception_16 { };
 		}
 		break;
 	}

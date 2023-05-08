@@ -41,6 +41,7 @@
 #include <ft_check.h>
 #include <virtual_block_device.h>
 #include <superblock_control.h>
+#include <ft_resizing.h>
 
 using namespace Genode;
 using namespace Cbe;
@@ -1146,6 +1147,7 @@ class Cbe_tester::Main : Vfs::Env::User, public Cbe::Module
 		Constructible<Virtual_block_device> _vbd                 { };
 		Constructible<Superblock_control>   _sb_control          { };
 		Constructible<Request_pool>         _request_pool        { };
+		Constructible<Ft_resizing>          _ft_resizing         { };
 		Benchmark                           _benchmark           { _env };
 		Meta_tree                           _meta_tree           { };
 		Trust_anchor                        _trust_anchor        { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
@@ -1181,10 +1183,16 @@ class Cbe_tester::Main : Vfs::Env::User, public Cbe::Module
 
 			_request_pool.construct();
 			_modules_add(REQUEST_POOL, *_request_pool);
+
+			_ft_resizing.construct();
+			_modules_add(FT_RESIZING, *_ft_resizing);
 		}
 
 		void _destruct_cbe()
 		{
+			_modules_remove(FT_RESIZING);
+			_ft_resizing.destruct();
+
 			_modules_remove(REQUEST_POOL);
 			_request_pool.destruct();
 
@@ -1315,13 +1323,6 @@ class Cbe_tester::Main : Vfs::Env::User, public Cbe::Module
 
 				if (cmd.type() == Command::INVALID) {
 					break;
-				}
-				if (cmd.request_node().op() == Cbe::Request::Operation::EXTEND_FT) {
-					warning("skip <request op=\"extend_ft\"/> command because it is temporarily not supported");
-					_cmd_pool.mark_command_in_progress(cmd.id());
-					_cmd_pool.mark_command_completed(cmd.id(), true);
-					progress = true;
-					continue;
 				}
 				if (cmd.request_node().op() == Cbe::Request::Operation::CREATE_SNAPSHOT) {
 					warning("skip <request op=\"create_snapshot\"/> command because it is temporarily not supported");

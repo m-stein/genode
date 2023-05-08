@@ -26,60 +26,6 @@ using namespace Genode;
 using namespace Cbe;
 
 
-/***************
- ** Utilities **
- ***************/
-
-static void discard_disposable_snapshots(Snapshots  &snapshots,
-                                         Generation  curr_gen,
-                                         Generation  last_secured_gen)
-{
-	for (Snapshots_index snap_idx { 0 };
-	     snap_idx < MAX_NR_OF_SNAPSHOTS_PER_SB;
-	     snap_idx++) {
-
-		Snapshot &snap { snapshots.items[snap_idx] };
-		if (snap.valid &&
-		    !snap.keep &&
-		    snap.gen != curr_gen &&
-		    snap.gen != last_secured_gen)
-			snap.valid = false;
-	}
-}
-
-
-static bool snapshot_contains_vba(Snapshot        const &snap,
-                                  Virtual_block_address  vba)
-{
-	return vba <= snap.nr_of_leaves - 1;
-}
-
-
-static uint64_t log_2(uint64_t const value)
-{
-	class Log_2_error { };
-
-	if (value == 0)
-		throw Log_2_error { };
-
-	uint64_t result = log2(value);
-	if (result >= sizeof(value) * 8)
-		throw Log_2_error { };
-
-	return result;
-}
-
-static Node_index child_idx_for_vba(Virtual_block_address const vba,
-                                    Tree_level_index      const lvl,
-                                    Tree_degree           const degr)
-{
-	uint64_t const degree_log_2 { log_2(degr) };
-	uint64_t const degree_mask  { ((uint64_t)1 << (uint64_t)degree_log_2) - (uint64_t)1 };
-	uint64_t const vba_rshift   { (uint64_t)degree_log_2 * ((uint64_t)lvl - (uint64_t)1) };
-	return (uint64_t)degree_mask & (uint64_t)((uint64_t)vba >> (uint64_t)vba_rshift);
-}
-
-
 /**********************************
  ** Virtual_block_device_request **
  **********************************/
@@ -282,7 +228,7 @@ void Virtual_block_device::_execute_read_vba_read_inner_node_completed (Channel 
 		auto const parent_lvl = channel._t1_blk_idx;
 		auto const child_lvl  = channel._t1_blk_idx - 1;
 
-		auto const  child_idx = child_idx_for_vba(channel._request._vba, parent_lvl, channel._request._snapshots_degree);
+		auto const  child_idx = t1_child_idx_for_vba(channel._request._vba, parent_lvl, channel._request._snapshots_degree);
 		auto const &child     = channel._t1_blks.items[parent_lvl].nodes[child_idx];
 
 		channel._t1_blk_idx = child_lvl;
@@ -307,7 +253,7 @@ void Virtual_block_device::_execute_read_vba_read_inner_node_completed (Channel 
 
 		Tree_level_index const parent_lvl { channel._t1_blk_idx };
 		Node_index const child_idx {
-			child_idx_for_vba(
+			t1_child_idx_for_vba(
 				channel._request._vba, parent_lvl,
 				channel._request._snapshots_degree) };
 
@@ -399,7 +345,7 @@ void Virtual_block_device::_update_nodes_of_branch_of_written_vba(Snapshot &snap
 
 		if (lvl == 0) {
 
-			auto const  child_idx = child_idx_for_vba(vba, lvl + 1, snapshot_degree);
+			auto const  child_idx = t1_child_idx_for_vba(vba, lvl + 1, snapshot_degree);
 			auto       &node      = t1_blks.items[lvl + 1].nodes[child_idx];
 
 			node.pba  = new_pbas.pbas[lvl];
@@ -408,7 +354,7 @@ void Virtual_block_device::_update_nodes_of_branch_of_written_vba(Snapshot &snap
 
 		} else if (lvl < snapshot.max_level) {
 
-			auto const  child_idx = child_idx_for_vba(vba, lvl + 1, snapshot_degree);
+			auto const  child_idx = t1_child_idx_for_vba(vba, lvl + 1, snapshot_degree);
 			auto       &node      = t1_blks.items[lvl + 1].nodes[child_idx];
 
 			node.pba   = new_pbas.pbas[lvl];
@@ -468,7 +414,7 @@ void Virtual_block_device::_check_hash_of_read_type_1_node(Snapshot const &snaps
 			throw Program_error_hash_of_read_type_1 { };
 		}
 	} else {
-		uint64_t    const  child_idx = child_idx_for_vba(vba, t1_blk_idx + 1, snapshots_degree);
+		uint64_t    const  child_idx = t1_child_idx_for_vba(vba, t1_blk_idx + 1, snapshots_degree);
 		Type_1_node const &child     = t1_blks.items[t1_blk_idx + 1].nodes[child_idx];
 		if (!check_sha256_4k_hash(&t1_blks.items[t1_blk_idx], &child.hash)) {
 			class Program_error_hash_of_read_type_1_B { };
@@ -497,7 +443,7 @@ void Virtual_block_device::_set_args_in_order_to_read_type_1_node(Snapshot const
 			.idx    = job_idx
 		};
 	} else {
-		auto const  child_idx = child_idx_for_vba(vba, t1_blk_idx + 1, snapshots_degree);
+		auto const  child_idx = t1_child_idx_for_vba(vba, t1_blk_idx + 1, snapshots_degree);
 		auto const &child     = t1_blks.items[t1_blk_idx + 1].nodes[child_idx];
 
 		prim = {
@@ -549,7 +495,7 @@ _initialize_new_pbas_and_determine_nr_of_pbas_to_allocate(uint64_t              
 		} else {
 
 			Node_index const child_idx {
-				child_idx_for_vba(vba, lvl + 1, snapshots_degree) };
+				t1_child_idx_for_vba(vba, lvl + 1, snapshots_degree) };
 
 			Type_1_node const &child {
 				t1_blks.items[lvl + 1].nodes[child_idx] };
@@ -602,7 +548,7 @@ _set_args_for_alloc_of_new_pbas_for_branch_of_written_vba(uint64_t curr_gen,
 			node.gen  = snapshot.gen;
 			node.hash = snapshot.hash;
 		} else {
-			auto const   child_idx = child_idx_for_vba(vba, lvl + 1, snapshots_degree);
+			auto const   child_idx = t1_child_idx_for_vba(vba, lvl + 1, snapshots_degree);
 			t1_walk.nodes[lvl] = *(Type_1_node_unpadded*)&t1_blks.items[lvl + 1].nodes[child_idx];
 		}
 	}
@@ -861,7 +807,7 @@ Virtual_block_device::_find_next_snap_to_rekey_vba_at(Channel const   &chan,
 	     snap_idx++) {
 
 		Snapshot const &snap { req._snapshots.items[snap_idx] };
-		if (snap.valid && snapshot_contains_vba(snap, req._vba)) {
+		if (snap.valid && snap.contains_vba(req._vba)) {
 
 			if (next_snap_idx_valid) {
 
@@ -927,14 +873,14 @@ _set_args_for_alloc_of_new_pbas_for_rekeying(Channel                  &chan,
 			chan._nr_of_blks++;
 			new_pbas.pbas[lvl] = 0;
 			Node_index const child_idx {
-				child_idx_for_vba(vba, lvl + 1, snap_degree) };
+				t1_child_idx_for_vba(vba, lvl + 1, snap_degree) };
 
 			t1_walk.nodes[lvl] = t1_blks.items[lvl + 1].nodes[child_idx];
 
 		} else {
 
 			Node_index const child_idx {
-				child_idx_for_vba(vba, lvl + 1, snap_degree) };
+				t1_child_idx_for_vba(vba, lvl + 1, snap_degree) };
 
 			Type_1_node const &child { t1_blks.items[lvl + 1].nodes[child_idx] };
 			t1_walk.nodes[lvl] = { new_pbas.pbas[lvl], child.gen, child.hash};
@@ -971,8 +917,8 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 	switch (chan._state) {
 	case Channel::State::SUBMITTED:
 	{
-		discard_disposable_snapshots(
-			req._snapshots, req._curr_gen, req._last_secured_generation);
+		req._snapshots.discard_disposable_snapshots(
+			req._curr_gen, req._last_secured_generation);
 
 		Snapshots_index first_snap_idx { 0 };
 		bool first_snap_idx_found { false };
@@ -1037,7 +983,7 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 
 			Type_1_node_blocks_index const parent_lvl { chan._t1_blk_idx + 1 };
 			Type_1_node_block_index const child_idx {
-				child_idx_for_vba(req._vba, parent_lvl, req._snapshots_degree) };
+				t1_child_idx_for_vba(req._vba, parent_lvl, req._snapshots_degree) };
 
 			if (!check_sha256_4k_hash(&chan._t1_blks.items[chan._t1_blk_idx],
 			                          &chan._t1_blks.items[parent_lvl].nodes[child_idx].hash)) {
@@ -1051,7 +997,7 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 			Type_1_node_blocks_index const parent_lvl { chan._t1_blk_idx };
 			Type_1_node_blocks_index const child_lvl { parent_lvl - 1 };
 			Type_1_node_block_index const child_idx {
-				child_idx_for_vba(req._vba, parent_lvl, req._snapshots_degree) };
+				t1_child_idx_for_vba(req._vba, parent_lvl, req._snapshots_degree) };
 
 			Type_1_node const &child { chan._t1_blks.items[parent_lvl].nodes[child_idx] };
 
@@ -1091,7 +1037,7 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 
 			Type_1_node_blocks_index const parent_lvl { chan._t1_blk_idx };
 			Type_1_node_block_index const child_idx {
-				child_idx_for_vba(req._vba, parent_lvl, req._snapshots_degree) };
+				t1_child_idx_for_vba(req._vba, parent_lvl, req._snapshots_degree) };
 
 			Type_1_node const &child { chan._t1_blks.items[parent_lvl].nodes[child_idx] };
 
@@ -1147,7 +1093,7 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 
 		Type_1_node_blocks_index const parent_lvl { FIRST_T1_NODE_BLKS_IDX };
 		Type_1_node_block_index const child_idx {
-			child_idx_for_vba(req._vba, parent_lvl, req._snapshots_degree) };
+			t1_child_idx_for_vba(req._vba, parent_lvl, req._snapshots_degree) };
 
 		Type_1_node &node {
 			chan._t1_blks.items[parent_lvl].nodes[child_idx] };
@@ -1248,7 +1194,7 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 		Physical_block_address   const child_pba  { chan._new_pbas.pbas[child_lvl] };
 		Physical_block_address   const parent_pba { chan._new_pbas.pbas[parent_lvl] };
 		Type_1_node_block_index  const child_idx  {
-			child_idx_for_vba(req._vba, parent_lvl, req._snapshots_degree) };
+			t1_child_idx_for_vba(req._vba, parent_lvl, req._snapshots_degree) };
 
 		Type_1_node &node { chan._t1_blks.items[parent_lvl].nodes[child_idx] };
 		node.pba = child_pba;
@@ -1280,7 +1226,7 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 		Physical_block_address   const  child_pba  { chan._new_pbas.pbas[child_lvl] };
 		Physical_block_address   const  parent_pba { chan._new_pbas.pbas[parent_lvl] };
 		Type_1_node_block_index  const  child_idx  {
-			child_idx_for_vba(req._vba, parent_lvl, req._snapshots_degree) };;
+			t1_child_idx_for_vba(req._vba, parent_lvl, req._snapshots_degree) };;
 
 		Type_1_node &node { chan._t1_blks.items[parent_lvl].nodes[child_idx] };
 		node.pba = child_pba;
@@ -1508,7 +1454,7 @@ Virtual_block_device::_set_new_pbas_identical_to_current_pbas(Channel &chan)
 		} else {
 
 			Type_1_node_block_index const child_idx {
-				child_idx_for_vba(chan._vba, lvl + 1, req._snapshots_degree) };
+				t1_child_idx_for_vba(chan._vba, lvl + 1, req._snapshots_degree) };
 
 			Type_1_node const &child {
 				chan._t1_blks.items[lvl + 1].nodes[child_idx] };
@@ -1516,16 +1462,6 @@ Virtual_block_device::_set_new_pbas_identical_to_current_pbas(Channel &chan)
 			chan._new_pbas.pbas[lvl] = child.pba;
 		}
 	}
-}
-
-
-Virtual_block_address
-Virtual_block_device::_tree_max_max_vba(Tree_degree     snap_degree,
-                                        Snapshot const &snap)
-{
-	return
-		to_the_power_of<Virtual_block_address>(
-			snap_degree, snap.max_level) - 1;
 }
 
 
@@ -1562,7 +1498,7 @@ _set_args_for_alloc_of_new_pbas_for_resizing(Channel          &chan,
 		} else {
 
 			Type_1_node_block_index const child_idx {
-				child_idx_for_vba(
+				t1_child_idx_for_vba(
 					chan._vba, lvl + 1, req._snapshots_degree) };
 
 			Type_1_node const &child {
@@ -1623,8 +1559,8 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 	switch (chan._state) {
 	case Channel::State::SUBMITTED:
 	{
-		discard_disposable_snapshots(
-			req._snapshots, req._curr_gen, req._last_secured_generation);
+		req._snapshots.discard_disposable_snapshots(
+			req._curr_gen, req._last_secured_generation);
 
 		req._nr_of_leaves = 0;
 		chan._snapshot_idx = newest_snapshot_idx(req._snapshots);
@@ -1633,7 +1569,7 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 		chan._t1_blk_idx = chan.snap().max_level;
 		chan._t1_blks_old_pbas.items[chan._t1_blk_idx] = chan.snap().pba;
 
-		if (chan._vba <= _tree_max_max_vba(req._snapshots_degree, chan.snap())) {
+		if (chan._vba <= tree_max_max_vba(req._snapshots_degree, chan.snap().max_level)) {
 
 			chan._generated_prim = {
 				.op     = Generated_prim::READ,
@@ -1685,7 +1621,7 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 
 			Type_1_node_blocks_index const parent_lvl { chan._t1_blk_idx + 1 };
 			Type_1_node_block_index const child_idx {
-				child_idx_for_vba(chan._vba, parent_lvl, req._snapshots_degree) };
+				t1_child_idx_for_vba(chan._vba, parent_lvl, req._snapshots_degree) };
 
 			if (!check_sha256_4k_hash(&chan._t1_blks.items[chan._t1_blk_idx],
 			                          &chan._t1_blks.items[parent_lvl].nodes[child_idx].hash)) {
@@ -1699,7 +1635,7 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 			Type_1_node_blocks_index const parent_lvl { chan._t1_blk_idx };
 			Type_1_node_blocks_index const child_lvl { parent_lvl - 1 };
 			Type_1_node_block_index const child_idx {
-				child_idx_for_vba(chan._vba, parent_lvl, req._snapshots_degree) };
+				t1_child_idx_for_vba(chan._vba, parent_lvl, req._snapshots_degree) };
 
 			Type_1_node const &child { chan._t1_blks.items[parent_lvl].nodes[child_idx] };
 
@@ -1731,7 +1667,7 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 
 			Type_1_node_blocks_index const parent_lvl { chan._t1_blk_idx };
 			Type_1_node_block_index const child_idx {
-				child_idx_for_vba(chan._vba, parent_lvl, req._snapshots_degree) };
+				t1_child_idx_for_vba(chan._vba, parent_lvl, req._snapshots_degree) };
 
 			_add_new_branch_to_snap_using_pba_contingent(chan, parent_lvl, child_idx);
 			_set_args_for_alloc_of_new_pbas_for_resizing(chan, chan_idx, parent_lvl, progress);
@@ -1778,7 +1714,7 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 
 		Type_1_node_blocks_index const  parent_lvl { chan._t1_blk_idx + 1 };
 		Type_1_node_blocks_index const  child_lvl  { chan._t1_blk_idx };
-		Type_1_node_block_index  const  child_idx  { child_idx_for_vba(chan._vba, parent_lvl, req._snapshots_degree) };
+		Type_1_node_block_index  const  child_idx  { t1_child_idx_for_vba(chan._vba, parent_lvl, req._snapshots_degree) };
 		Physical_block_address   const  child_pba  { chan._new_pbas.pbas[child_lvl] };
 		Physical_block_address   const  parent_pba { chan._new_pbas.pbas[parent_lvl] };
 		Type_1_node                    &child      { chan._t1_blks.items[parent_lvl].nodes[child_idx] };

@@ -87,6 +87,7 @@ namespace Cbe {
 		}
 	};
 
+	enum { INVALID_KEY_ID = 0 };
 	enum { INVALID_GENERATION = 0 };
 	enum { INITIAL_GENERATION = 0 };
 
@@ -193,11 +194,16 @@ namespace Cbe {
 	using Type_1_node_block_index  = Genode::uint64_t;
 	using Type_2_node_block_index  = Genode::uint64_t;
 
+	constexpr Virtual_block_address tree_max_max_vba(Tree_degree      degree,
+	                                                 Tree_level_index max_lvl)
+	{
+		return to_the_power_of<Virtual_block_address>(degree, max_lvl) - 1;
+	}
+
 	enum {
 		PRIM_BUF_SIZE = 128,
 		INVALID_PBA = 0xffff'ffff'ffff'ffff,
 		LAST_PBA = 0xffff'ffff'ffff'ffff,
-		INVALID_VBA = 0xffff'ffff'ffff'ffff,
 		INVALID_NODE_INDEX = 0xff,
 		LAST_GENERATION = 0xffff'ffff'ffff'ffff,
 		LAST_SNAPSHOT_ID = 0xffff'ffff,
@@ -230,6 +236,11 @@ namespace Cbe {
 			to_the_power_of<Genode::uint64_t>(
 				TREE_MAX_DEGREE, (TREE_MAX_LEVEL - 1)),
 
+		/*
+		 * FIXME This should be 0xff... but for backwards compatibility it
+		 *       still gets set to this legacy value.
+		 */
+		INVALID_VBA = to_the_power_of<Virtual_block_address>(TREE_MAX_DEGREE, TREE_MAX_LEVEL - 1),
 		TREE_MIN_DEGREE = 1,
 	};
 
@@ -406,6 +417,11 @@ namespace Cbe {
 			else
 				Genode::print(out, "<invalid>");
 		}
+
+		bool contains_vba(Virtual_block_address vba) const
+		{
+			return vba <= nr_of_leaves - 1;
+		}
 	}
 	__attribute__((packed));
 
@@ -415,6 +431,24 @@ namespace Cbe {
 	struct Snapshots
 	{
 		Snapshot items[MAX_NR_OF_SNAPSHOTS_PER_SB];
+
+		void discard_disposable_snapshots(Generation curr_gen,
+		                                  Generation last_secured_gen)
+		{
+			for (Snapshots_index snap_idx { 0 };
+			     snap_idx < MAX_NR_OF_SNAPSHOTS_PER_SB;
+			     snap_idx++) {
+
+				Snapshot &snap { items[snap_idx] };
+
+				if (snap.valid &&
+				    !snap.keep &&
+				    snap.gen != curr_gen &&
+				    snap.gen != last_secured_gen)
+
+					snap.valid = false;
+			}
+		}
 	}
 	__attribute__((packed));
 
@@ -554,6 +588,69 @@ namespace Cbe {
 		Generation values[MAX_NR_OF_SNAPSHOTS_PER_SB] { 0 };
 	}
 	__attribute__((packed));
+
+	inline Physical_block_address alloc_pba_from_resizing_contingent(Physical_block_address &first_pba,
+	                                                                 Number_of_blocks       &nr_of_pbas)
+	{
+		if (nr_of_pbas == 0) {
+			class Program_error_ft_resizing_nr_of_pbas_zero { };
+			throw Program_error_ft_resizing_nr_of_pbas_zero { };
+		}
+
+		auto const allocated_pba = first_pba;
+
+		first_pba  = first_pba  + 1;
+		nr_of_pbas = nr_of_pbas - 1;
+
+		return allocated_pba;
+	}
+
+
+	inline uint64_t log_2(uint64_t const value)
+	{
+		class Log_2_error { };
+
+		if (value == 0)
+			throw Log_2_error { };
+
+		uint64_t result = log2(value);
+		if (result >= sizeof(value) * 8)
+			throw Log_2_error { };
+
+		return result;
+	}
+
+	inline Node_index t1_child_idx_for_vba(Virtual_block_address const vba,
+	                                       Tree_level_index      const lvl,
+	                                       Tree_degree           const degr)
+	{
+		uint64_t const degree_log_2 { log_2(degr) };
+		uint64_t const degree_mask  { ((uint64_t)1ull << (uint64_t)degree_log_2) - (uint64_t)1 };
+		uint64_t const vba_rshift   { (uint64_t)degree_log_2 * ((uint64_t)lvl - (uint64_t)1) };
+		return (Node_index)((uint64_t)degree_mask & (uint64_t)((uint64_t)vba >> (uint64_t)vba_rshift));
+	}
+
+
+	inline Node_index t2_child_idx_for_vba(Virtual_block_address const vba,
+	                                       Tree_degree           const degr)
+	{
+		uint64_t const degree_log_2 { log_2(degr) };
+		uint64_t const degree_mask  { ((uint64_t)1ull << (uint64_t)degree_log_2) - (uint64_t)1 };
+
+		return (Node_index)((uint64_t)vba & (uint64_t)degree_mask);
+	}
+
+	struct Level_indent
+	{
+		Tree_level_index lvl;
+		Tree_level_index max_lvl;
+
+		void print(Genode::Output &out) const
+		{
+			for (Tree_level_index i { 0 }; i < max_lvl + 1 - lvl; i++)
+				Genode::print(out, "  ");
+		}
+	};
 }
 
 #endif /* _CBE__TYPES_H_ */

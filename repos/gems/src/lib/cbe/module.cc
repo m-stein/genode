@@ -67,6 +67,7 @@ char const *Cbe::module_name(unsigned long id)
 	case SB_CHECK: return "sb_check";
 	case VBD_CHECK: return "vbd_check";
 	case FT_CHECK: return "ft_check";
+	case FT_RESIZING: return "ft_resizing";
 	case REQUEST_POOL: return "request_pool";
 	default: break;
 	}
