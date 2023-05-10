@@ -1544,8 +1544,8 @@ class Cbe_tester::Main : Vfs::Env::User, public Cbe::Module
 						throw Exception_1 { };
 					}
 					if (_module_ptrs[req.dst_module_id()] == nullptr) {
-						class Exception_1 { };
-						throw Exception_1 { };
+						class Exception_2 { };
+						throw Exception_2 { };
 					}
 					Module &dst_module { *_module_ptrs[req.dst_module_id()] };
 					if (!dst_module.ready_to_submit_request()) {
@@ -1572,8 +1572,8 @@ class Cbe_tester::Main : Vfs::Env::User, public Cbe::Module
 				});
 				module_ptr->for_each_completed_request([&] (Module_request &req) {
 					if (req.src_module_id() > MAX_MODULE_ID) {
-						class Exception_2 { };
-						throw Exception_2 { };
+						class Exception_3 { };
+						throw Exception_3 { };
 					}
 					if (VERBOSE_MODULE_COMMUNICATION)
 						Genode::log(

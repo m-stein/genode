@@ -131,6 +131,12 @@ Virtual_block_address Superblock_control::rekeying_vba() const
 }
 
 
+Virtual_block_address Superblock_control::resizing_nr_of_pbas() const
+{
+	return _sb.resizing_nr_of_pbas;
+}
+
+
 void Superblock_control::_execute_read_vba(Channel          &channel,
                                            uint64_t   const job_idx,
                                            Superblock const &sb,

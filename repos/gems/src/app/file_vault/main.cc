@@ -895,7 +895,7 @@ void Main::_handle_resizing_fs_query_listing(Xml_node const &node)
 		switch (_resizing_state) {
 		case Resizing_state::WAIT_TILL_DEVICE_IS_READY:
 
-			if (cbe_control_file_yields_state_idle(node, "extend")) {
+			if (cbe_control_file_yields_state_idle(node, "extend_progress")) {
 
 				_resizing_state = Resizing_state::ISSUE_REQUEST_AT_DEVICE;
 				Signal_transmitter(_state_handler).submit();
@@ -904,7 +904,7 @@ void Main::_handle_resizing_fs_query_listing(Xml_node const &node)
 
 		case Resizing_state::IN_PROGRESS_AT_DEVICE:
 
-			if (cbe_control_file_yields_state_idle(node, "extend")) {
+			if (cbe_control_file_yields_state_idle(node, "extend_progress")) {
 
 				switch (_resizing_type) {
 				case Resizing_type::EXPAND_CLIENT_FS:
@@ -1705,7 +1705,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 			if (gen_start_button) {
 
 				gen_action_button_at_bottom(
-					xml, "ok", "Start",
+					xml, "ok", "Unlock",
 					_setup_obtain_params_hover == Setup_obtain_params_hover::START_BUTTON,
 					_setup_obtain_params_select == Setup_obtain_params_select::START_BUTTON);
 			}
@@ -3471,7 +3471,7 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 
 					_expand_snapshot_buf_select = Expand_snapshot_buf_select::NONE;
 					_resizing_type = Resizing_type::EXPAND_SNAPSHOT_BUF;
-					_resizing_state = Resizing_state::WAIT_TILL_DEVICE_IS_READY;
+					_resizing_state = Resizing_state::ADAPT_CBE_IMAGE_SIZE;
 
 					update_sandbox_config = true;
 					update_dialog = true;

@@ -138,6 +138,7 @@ wait_for_rekeying() {
 	while : ; do
 		local done=0
 		local file_content="$(< $cbe_dir/control/rekey_progress)"
+		# XXX remove later
 		echo "file_content: ${file_content}"
 		case "$file_content" in
 		*at*)
@@ -161,15 +162,25 @@ wait_for_vbd_extension() {
 
 	echo "Wait for VBD extension to finish..."
 	while : ; do
-		local file_content="$(< $cbe_dir/control/extend)"
-		local state="${file_content:0:4}"
-		if [ "$state" = "idle" ]; then
-			local result="${file_content:5}"
-			echo "VBD extension done: $result"
-			break;
+		local done=0
+		local file_content="$(< $cbe_dir/control/extend_progress)"
+		# XXX remove later
+		echo "file_content: ${file_content}"
+		case "$file_content" in
+		*at*)
+			if [ "$verbose" = "yes" ]; then
+				echo "Extending VBD: $file_content"
+			fi
+			;;
+		*idle*)
+			done=1;
+			;;
+		esac
+		if [ $done -gt 0 ]; then
+			break
 		fi
-		sleep 2
 	done
+	echo "VBD extension done"
 }
 
 wait_for_ft_extension() {
@@ -177,15 +188,25 @@ wait_for_ft_extension() {
 
 	echo "Wait for FT extension to finish..."
 	while : ; do
-		local file_content="$(< $cbe_dir/control/extend)"
-		local state="${file_content:0:4}"
-		if [ "$state" = "idle" ]; then
-			local result="${file_content:5}"
-			echo "VBD extension done: $result"
-			break;
+		local done=0
+		local file_content="$(< $cbe_dir/control/extend_progress)"
+		# XXX remove later
+		echo "file_content: ${file_content}"
+		case "$file_content" in
+		*at*)
+			if [ "$verbose" = "yes" ]; then
+				echo "Extending FT: $file_content"
+			fi
+			;;
+		*idle*)
+			done=1;
+			;;
+		esac
+		if [ $done -gt 0 ]; then
+			break
 		fi
-		sleep 2
 	done
+	echo "FT extension done"
 }
 
 main() {
@@ -207,7 +228,7 @@ main() {
 		test_write_1 "$data_file"  "63"
 		test_write_1 "$data_file" "333"
 
-		#test_vbd_extension "$cbe_dir" "1000"
+		test_vbd_extension "$cbe_dir" "1000"
 		test_read_compare_1 "$data_file" "63"
 		test_write_1 "$data_file" "175"
 		test_read_compare_1 "$data_file" "419"
@@ -215,7 +236,7 @@ main() {
 		test_read_compare_1 "$data_file" "175"
 		test_read_compare_1 "$data_file" "91"
 		test_read_compare_1 "$data_file" "333"
-		#wait_for_vbd_extension "$cbe_dir"
+		wait_for_vbd_extension "$cbe_dir"
 
 		test_write_1 "$data_file"  "32"
 		test_write_1 "$data_file"  "77"
