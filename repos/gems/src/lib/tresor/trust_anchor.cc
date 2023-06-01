@@ -508,6 +508,9 @@ bool Trust_anchor::_peek_completed_request(uint8_t *buf_ptr,
 				class Exception_1 { };
 				throw Exception_1 { };
 			}
+			if (channel._request._type == Request::SECURE_SUPERBLOCK)
+				log("Superblock secured!");
+
 			memcpy(buf_ptr, &channel._request, sizeof(channel._request));
 			return true;
 		}
