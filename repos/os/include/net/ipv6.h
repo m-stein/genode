@@ -1,5 +1,5 @@
 /*
- * \brief  Internet protocol version 6
+ * \brief  Common utilities for parsing and generating IPv6 packets
  * \author Martin Stein
  * \date   2023-06-06
  */

@@ -16,6 +16,7 @@
 
 /* os includes */
 #include <net/ipv6.h>
+#include <net/icmpv6.h>
 
 using namespace Genode;
 using namespace Net;
@@ -29,8 +30,9 @@ class Ipv6_router::Main
 {
 	private:
 
-		Env         &_env;
-		Ipv6_packet  _pkt { };
+		Env           &_env;
+		Ipv6_packet    _pkt1 { };
+		Icmpv6_packet  _pkt2 { };
 
 	public:
 
