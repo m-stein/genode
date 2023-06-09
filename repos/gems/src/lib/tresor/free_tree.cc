@@ -192,7 +192,9 @@ void Free_tree::_populate_lower_n_stack(Type_1_info_stack &stack,
                                         Generation         current_gen)
 {
 	stack.reset();
-	memcpy(&entries, &block_data, BLOCK_SIZE);
+	Block_pull blk_pull { block_data };
+	entries.pull_from_blk(blk_pull);
+
 	for (Tree_node_index idx = 0; idx < NR_OF_T1_NODES_PER_BLK; idx++) {
 
 		if (entries.nodes[idx].pba != 0) {
@@ -246,7 +248,9 @@ void Free_tree::_populate_level_0_stack(Type_2_info_stack     &stack,
                                         Virtual_block_address  rekeying_vba)
 {
 	stack.reset();
-	memcpy(&entries, &block_data, BLOCK_SIZE);
+	Block_pull blk_pull { block_data };
+	entries.pull_from_blk(blk_pull);
+
 	for (Tree_node_index idx = 0; idx < NR_OF_T1_NODES_PER_BLK; idx++) {
 		if (_check_type_2_leaf_usable(active_snaps, secured_gen,
 		                              entries.nodes[idx], rekeying,
@@ -629,8 +633,9 @@ void Free_tree::_execute_update(Channel         &chan,
 					}
 				}
 				if (l >= 2) {
-					memcpy(&chan._cache_block_data,
-					       &chan._level_n_nodes[l - 1], BLOCK_SIZE);
+
+					Block_push blk_push { chan._cache_block_data };
+					chan._level_n_nodes[l - 1].push_to_blk(blk_push);
 
 					if (l < req._ft_max_level) {
 						_update_upper_n_stack(

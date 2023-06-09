@@ -49,7 +49,7 @@ class Tresor::Superblock_control_request : public Module_request
 		uint64_t              _client_req_offset { 0 };
 		uint64_t              _client_req_tag    { 0 };
 		Virtual_block_address _vba               { 0 };
-		Superblock::State     _sb_state          { INVALID };
+		Superblock::State     _sb_state          { Superblock::INVALID };
 		Number_of_blocks      _nr_of_blks        { 0 };
 		bool                  _success           { false };
 		bool                  _request_finished  { false };

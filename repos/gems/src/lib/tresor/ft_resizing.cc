@@ -550,7 +550,6 @@ req._nr_of_leaves);
 				.pba     = chan._new_pbas.pbas[child_lvl_idx],
 				.gen     = req._curr_gen,
 				.hash    = { },
-				.padding = { }
 			};
 
 			calc_sha256_4k_hash(&chan._t1_blks.items[child_lvl_idx],
@@ -579,7 +578,6 @@ req._nr_of_leaves);
 			child = {
 				.pba = chan._new_pbas.pbas[child_lvl_idx],
 				.gen = req._curr_gen,
-				.padding = {}
 			};
 
 			calc_sha256_4k_hash(&chan._t2_blk, &child.hash);
@@ -613,7 +611,6 @@ req._nr_of_leaves);
 		req._ft_root = {
 			.pba = child_pba,
 			.gen = req._curr_gen,
-			.padding = {}
 		};
 
 		calc_sha256_4k_hash(&chan._t1_blks.items[child_lvl_idx], &req._ft_root.hash);
