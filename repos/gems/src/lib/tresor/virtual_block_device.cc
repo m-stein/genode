@@ -401,14 +401,14 @@ void Virtual_block_device::_check_hash_of_read_type_1_node(Snapshot const &snaps
                                                            uint64_t const vba)
 {
 	if (t1_blk_idx == snapshot.max_level) {
-		if (!check_sha256_4k_hash(&t1_blks.items[t1_blk_idx], &snapshot.hash)) {
+		if (!check_sha256_4k_hash(chan._encoded_blk, &snapshot.hash)) {
 			class Program_error_hash_of_read_type_1 { };
 			throw Program_error_hash_of_read_type_1 { };
 		}
 	} else {
 		uint64_t    const  child_idx = t1_child_idx_for_vba(vba, t1_blk_idx + 1, snapshots_degree);
 		Type_1_node const &child     = t1_blks.items[t1_blk_idx + 1].nodes[child_idx];
-		if (!check_sha256_4k_hash(&t1_blks.items[t1_blk_idx], &child.hash)) {
+		if (!check_sha256_4k_hash(chan._encoded_blk, &child.hash)) {
 			class Program_error_hash_of_read_type_1_B { };
 			throw Program_error_hash_of_read_type_1_B { };
 		}
@@ -1816,11 +1816,12 @@ bool Virtual_block_device::_peek_generated_request(uint8_t *buf_ptr,
 		case Channel::WRITE_ROOT_NODE_PENDING:
 		case Channel::WRITE_INNER_NODE_PENDING:
 
+			chan._t1_blks.items[chan._t1_blk_idx].encode_to_blk(chan._encoded_blk);
 			construct_in_buf<Block_io_request>(
 				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
 				Block_io_request::WRITE, 0, 0, 0,
 				chan._generated_prim.blk_nr, 0, 1,
-				&chan._t1_blks.items[chan._t1_blk_idx], nullptr);
+				&chan._encoded_blk, nullptr);
 
 			return true;
 
@@ -1852,7 +1853,7 @@ bool Virtual_block_device::_peek_generated_request(uint8_t *buf_ptr,
 				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
 				Block_io_request::READ, 0, 0, 0,
 				chan._generated_prim.blk_nr, 0, 1,
-				&chan._t1_blks.items[chan._t1_blk_idx], nullptr);
+				&chan._encoded_blk, nullptr);
 
 			return true;
 
@@ -1991,8 +1992,14 @@ void Virtual_block_device::generated_request_complete(Module_request &mod_req)
 		Block_io_request &blk_io_req { *static_cast<Block_io_request *>(&mod_req) };
 		chan._generated_prim.succ = blk_io_req.success();
 		switch (chan._state) {
-		case Channel::READ_ROOT_NODE_IN_PROGRESS: chan._state = Channel::READ_ROOT_NODE_COMPLETED; break;
-		case Channel::READ_INNER_NODE_IN_PROGRESS: chan._state = Channel::READ_INNER_NODE_COMPLETED; break;
+		case Channel::READ_ROOT_NODE_IN_PROGRESS:
+			chan._t1_blks.items[chan._t1_blk_idx].decode_from_blk(chan._encoded_blk);
+			chan._state = Channel::READ_ROOT_NODE_COMPLETED;
+			break;
+		case Channel::READ_INNER_NODE_IN_PROGRESS:
+			chan._t1_blks.items[chan._t1_blk_idx].decode_from_blk(chan._encoded_blk);
+			chan._state = Channel::READ_INNER_NODE_COMPLETED;
+			break;
 		case Channel::WRITE_ROOT_NODE_IN_PROGRESS: chan._state = Channel::WRITE_ROOT_NODE_COMPLETED; break;
 		case Channel::WRITE_INNER_NODE_IN_PROGRESS: chan._state = Channel::WRITE_INNER_NODE_COMPLETED; break;
 		case Channel::READ_LEAF_NODE_IN_PROGRESS: chan._state = Channel::READ_LEAF_NODE_COMPLETED; break;

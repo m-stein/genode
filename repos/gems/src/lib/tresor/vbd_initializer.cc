@@ -463,12 +463,11 @@ bool Vbd_initializer::_peek_generated_request(uint8_t *buf_ptr,
 			Block_io_request::Type const block_io_req_type {
 				Block_io_request::WRITE };
 
+			channel._t1_levels[channel._level_to_write].children.encode_to_blk(channel._encoded_blk);
 			construct_in_buf<Block_io_request>(
 				buf_ptr, buf_size, VBD_INITIALIZER, id,
 				block_io_req_type, 0, 0, 0,
-				channel._child_pba, 0,
-				1, &channel._t1_levels[channel._level_to_write].children,
-				nullptr);
+				channel._child_pba, 0, 1, &channel._encoded_blk, nullptr);
 
 			if (DEBUG) {
 				log("BLOCK_IO_PENDING write ", channel._child_pba);

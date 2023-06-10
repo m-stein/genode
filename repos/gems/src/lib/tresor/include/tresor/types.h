@@ -83,8 +83,8 @@ namespace Tresor {
 	struct Key;
 	struct Hash;
 	struct Block;
-	struct Block_pull;
-	struct Block_push;
+	class Block_pull;
+	class Block_push;
 	struct Superblock;
 	struct Superblock_info;
 	struct Snapshot;
@@ -367,9 +367,11 @@ class Tresor::Block_push
 			push(src);
 		}
 
-		void skip_padding(size_t num_bytes)
+		void zero_fill_padding(size_t num_bytes)
 		{
+			void *blk_pos { _current_position() };
 			_advance_position(num_bytes);
+			memset(blk_pos, 0, sizeof(num_bytes));
 		}
 
 		~Block_push()
@@ -393,13 +395,13 @@ struct Tresor::Key
 	Key_value value { };
 	Key_id    id    { INVALID_KEY_ID };
 
-	void pull_from_blk(Block_pull &blk_pull)
+	void decode_from_blk(Block_pull &blk_pull)
 	{
 		blk_pull.pull(value);
 		blk_pull.pull(id);
 	}
 
-	void push_to_blk(Block_push &blk_push)
+	void encode_to_blk(Block_push &blk_push) const
 	{
 		blk_push.push(value);
 		blk_push.push(id);
@@ -413,7 +415,7 @@ struct Tresor::Type_1_node
 	Generation             gen  { 0 };
 	Hash                   hash { };
 
-	void pull_from_blk(Block_pull &blk_pull)
+	void decode_from_blk(Block_pull &blk_pull)
 	{
 		blk_pull.pull(pba);
 		blk_pull.pull(gen);
@@ -421,12 +423,12 @@ struct Tresor::Type_1_node
 		blk_pull.skip_padding(16);
 	}
 
-	void push_to_blk(Block_push &blk_push)
+	void encode_to_blk(Block_push &blk_push) const
 	{
 		blk_push.push(pba);
 		blk_push.push(gen);
 		blk_push.push(hash);
-		blk_push.skip_padding(16);
+		blk_push.zero_fill_padding(16);
 	}
 
 	bool valid() const
@@ -447,16 +449,18 @@ struct Tresor::Type_1_node_block
 {
 	Type_1_node nodes[NR_OF_T1_NODES_PER_BLK] { };
 
-	void pull_from_blk(Block_pull &blk_pull)
+	void decode_from_blk(Block const &blk)
 	{
+		Block_pull blk_pull { blk };
 		for (Type_1_node &node : nodes)
-			node.pull_from_blk(blk_pull);
+			node.decode_from_blk(blk_pull);
 	}
 
-	void push_to_blk(Block_push &blk_push)
+	void encode_to_blk(Block &blk) const
 	{
-		for (Type_1_node &node : nodes)
-			node.push_to_blk(blk_push);
+		Block_push blk_push { blk };
+		for (Type_1_node const &node : nodes)
+			node.encode_to_blk(blk_push);
 	}
 };
 
@@ -470,7 +474,7 @@ struct Tresor::Type_2_node
 	Key_id                 last_key_id { 0 };
 	bool                   reserved    { 0 };
 
-	void pull_from_blk(Block_pull &blk_pull)
+	void decode_from_blk(Block_pull &blk_pull)
 	{
 		blk_pull.pull(pba);
 		blk_pull.pull(last_vba);
@@ -481,7 +485,7 @@ struct Tresor::Type_2_node
 		blk_pull.skip_padding(27);
 	}
 
-	void push_to_blk(Block_push &blk_push)
+	void encode_to_blk(Block_push &blk_push) const
 	{
 		blk_push.push(pba);
 		blk_push.push(last_vba);
@@ -489,7 +493,7 @@ struct Tresor::Type_2_node
 		blk_push.push(free_gen);
 		blk_push.push(last_key_id);
 		blk_push.push(reserved);
-		blk_push.skip_padding(27);
+		blk_push.zero_fill_padding(27);
 	}
 
 	bool valid() const
@@ -511,16 +515,18 @@ struct Tresor::Type_2_node_block
 {
 	Type_2_node nodes[NR_OF_T2_NODES_PER_BLK] { };
 
-	void pull_from_blk(Block_pull &blk_pull)
+	void decode_from_blk(Block const &blk)
 	{
+		Block_pull blk_pull { blk };
 		for (Type_2_node &node : nodes)
-			node.pull_from_blk(blk_pull);
+			node.decode_from_blk(blk_pull);
 	}
 
-	void push_to_blk(Block_push &blk_push)
+	void encode_to_blk(Block &blk) const
 	{
-		for (Type_2_node &node : nodes)
-			node.push_to_blk(blk_push);
+		Block_push blk_push { blk };
+		for (Type_2_node const &node : nodes)
+			node.encode_to_blk(blk_push);
 	}
 };
 
@@ -536,7 +542,7 @@ struct Tresor::Snapshot
 	Snapshot_id            id           { MAX_SNAP_ID };
 	bool                   keep         { false };
 
-	void pull_from_blk(Block_pull &blk_pull)
+	void decode_from_blk(Block_pull &blk_pull)
 	{
 		blk_pull.pull(hash);
 		blk_pull.pull(pba);
@@ -549,7 +555,7 @@ struct Tresor::Snapshot
 		blk_pull.skip_padding(6);
 	}
 
-	void push_to_blk(Block_push &blk_push)
+	void encode_to_blk(Block_push &blk_push) const
 	{
 		blk_push.push(hash);
 		blk_push.push(pba);
@@ -559,7 +565,7 @@ struct Tresor::Snapshot
 		blk_push.push(valid);
 		blk_push.push(id);
 		blk_push.push(keep);
-		blk_push.skip_padding(6);
+		blk_push.zero_fill_padding(6);
 	}
 
 	void print(Output &out) const
@@ -584,16 +590,16 @@ struct Tresor::Snapshots
 {
 	Snapshot items[MAX_NR_OF_SNAPSHOTS];
 
-	void pull_from_blk(Block_pull &blk_pull)
+	void decode_from_blk(Block_pull &blk_pull)
 	{
 		for (Snapshot &snap : items)
-			snap.pull_from_blk(blk_pull);
+			snap.decode_from_blk(blk_pull);
 	}
 
-	void push_to_blk(Block_push &blk_push)
+	void encode_to_blk(Block_push &blk_push) const
 	{
-		for (Snapshot &snap : items)
-			snap.push_to_blk(blk_push);
+		for (Snapshot const &snap : items)
+			snap.encode_to_blk(blk_push);
 	}
 
 	void discard_disposable_snapshots(Generation curr_gen,
@@ -722,15 +728,16 @@ struct Tresor::Superblock
 		ASSERT_NEVER_REACHED;
 	}
 
-	void pull_from_blk(Block_pull &blk_pull)
+	void decode_from_blk(Block const &blk)
 	{
+		Block_pull blk_pull { blk };
 		state = decode_state(blk_pull.pull_value<On_disc_state>());
 		blk_pull.pull(rekeying_vba);
 		blk_pull.pull(resizing_nr_of_pbas);
 		blk_pull.pull(resizing_nr_of_leaves);
-		previous_key.pull_from_blk(blk_pull);
-		current_key.pull_from_blk(blk_pull);
-		snapshots.pull_from_blk(blk_pull);
+		previous_key.decode_from_blk(blk_pull);
+		current_key.decode_from_blk(blk_pull);
+		snapshots.decode_from_blk(blk_pull);
 		blk_pull.pull(last_secured_generation);
 		blk_pull.pull(curr_snap);
 		blk_pull.pull(degree);
@@ -751,15 +758,16 @@ struct Tresor::Superblock
 		blk_pull.skip_padding(383);
 	}
 
-	void push_to_blk(Block_push &blk_push)
+	void encode_to_blk(Block &blk) const
 	{
+		Block_push blk_push { blk };
 		blk_push.push_value(encode_state(state));
 		blk_push.push(rekeying_vba);
 		blk_push.push(resizing_nr_of_pbas);
 		blk_push.push(resizing_nr_of_leaves);
-		previous_key.push_to_blk(blk_push);
-		current_key.push_to_blk(blk_push);
-		snapshots.push_to_blk(blk_push);
+		previous_key.encode_to_blk(blk_push);
+		current_key.encode_to_blk(blk_push);
+		snapshots.encode_to_blk(blk_push);
 		blk_push.push(last_secured_generation);
 		blk_push.push(curr_snap);
 		blk_push.push(degree);
@@ -777,7 +785,7 @@ struct Tresor::Superblock
 		blk_push.push(meta_max_level);
 		blk_push.push(meta_degree);
 		blk_push.push(meta_leaves);
-		blk_push.skip_padding(383);
+		blk_push.zero_fill_padding(383);
 	}
 
 	bool valid() const { return state != INVALID; }
@@ -836,5 +844,6 @@ struct Tresor::Level_indent
 			Genode::print(out, "  ");
 	}
 };
+
 
 #endif /* _TRESOR__TYPES_H_ */

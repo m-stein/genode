@@ -364,7 +364,7 @@ bool Vbd_check::_peek_generated_request(uint8_t *buf_ptr,
 				chan._gen_prim.blk_nr, 0, 1,
 				chan._lvl_to_read == 0 ?
 					(void *)&chan._leaf_lvl :
-					(void *)&chan._t1_lvls[chan._lvl_to_read].children,
+					(void *)&chan._encoded_blk,
 				nullptr);
 
 			return true;
@@ -404,6 +404,8 @@ void Vbd_check::generated_request_complete(Module_request &mod_req)
 	{
 		Block_io_request &gen_req { *static_cast<Block_io_request*>(&mod_req) };
 		chan._gen_prim.success = gen_req.success();
+		if (chan._lvl_to_read > 0)
+			chan._t1_lvls[chan._lvl_to_read].children.decode_from_blk(chan._encoded_blk);
 		break;
 	}
 	default:
