@@ -327,7 +327,8 @@ class Tresor::Virtual_block_device : public Module
 
 		void _add_new_root_lvl_to_snap_using_pba_contingent(Channel &chan);
 
-		void _check_hash_of_read_type_1_node(Snapshot const &snapshot,
+		void _check_hash_of_read_type_1_node(Channel &chan,
+		                                     Snapshot const &snapshot,
 		                                     uint64_t const snapshots_degree,
 		                                     uint64_t const t1_blk_idx,
 		                                     Channel::Type_1_node_blocks const &t1_blks,

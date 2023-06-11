@@ -192,6 +192,7 @@ void Vbd_initializer::_execute_inner_t1_child(Channel                           
 			break;
 
 		case Channel::BLOCK_ALLOC_COMPLETE:
+		{
 			/* bail early in case the allocator failed */
 			if (!channel._generated_req_success) {
 				_mark_req_failed(channel, progress,
@@ -202,7 +203,11 @@ void Vbd_initializer::_execute_inner_t1_child(Channel                           
 
 			Vbd_initializer_channel::reset_node(child);
 			child.pba = channel._blk_nr;
-			calc_sha256_4k_hash(&child_level.children, &child.hash);
+
+			Block blk { };
+			child_level.children.encode_to_blk(blk);
+			calc_sha256_4k_hash(blk, child.hash);
+
 			child_state = CS::WRITE_BLOCK;
 			progress = true;
 
@@ -210,7 +215,7 @@ void Vbd_initializer::_execute_inner_t1_child(Channel                           
 				log("[vbd_init] node: ", level_index, " ", child_index,
 				    " assign pba: ", channel._blk_nr);
 			break;
-
+		}
 		default:
 			break;
 		}

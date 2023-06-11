@@ -702,7 +702,8 @@ void Superblock_control::_secure_sb_sync_blk_io_compl(Channel  &chan,
 		}
 		Block blk { };
 		chan._sb_ciphertext.encode_to_blk(blk);
-		calc_sha256_4k_hash(&blk, &chan._hash);
+		calc_sha256_4k_hash(blk, chan._hash);
+
 		chan._generated_prim = {
 			.op     = Generated_prim::READ,
 			.succ   = false,
@@ -955,7 +956,8 @@ void Superblock_control::_execute_sync(Channel           &channel,
 		}
 		Block blk { };
 		channel._sb_ciphertext.encode_to_blk(blk);
-		calc_sha256_4k_hash(&blk, &channel._hash);
+		calc_sha256_4k_hash(blk, channel._hash);
+
 		channel._generated_prim = {
 			.op     = Channel::Generated_prim::Type::READ,
 			.succ   = false,
@@ -1042,7 +1044,7 @@ void Superblock_control::_execute_initialize(Channel           &channel,
 			Snapshot_index const snap_index { cipher.snapshots.newest_snapshot_idx() };
 			Generation const sb_generation { cipher.snapshots.items[snap_index].gen };
 
-			if (check_sha256_4k_hash(&channel._encoded_blk, channel._hash.bytes)) {
+			if (check_sha256_4k_hash(channel._encoded_blk, channel._hash)) {
 				channel._generation = sb_generation;
 				channel._sb_idx     = channel._read_sb_idx;
 				channel._sb_found   = true;
@@ -1354,7 +1356,7 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 		}
 		Block blk { };
 		channel._sb_ciphertext.encode_to_blk(blk);
-		calc_sha256_4k_hash(&blk, &channel._hash);
+		calc_sha256_4k_hash(blk, channel._hash);
 
 		channel._generated_prim = {
 			.op     = Channel::Generated_prim::Type::READ,

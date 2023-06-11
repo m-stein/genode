@@ -156,7 +156,6 @@ class Tresor::Vbd_check : public Module
 
 		void _execute_leaf_child(Channel           &chan,
 		                         Type_1_node const &child,
-		                         Block       const &child_lvl,
 		                         Child_state       &child_state,
 		                         Tree_level_index   lvl,
 		                         Tree_node_index    child_idx,

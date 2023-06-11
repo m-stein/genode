@@ -90,8 +90,8 @@ void Ft_resizing::_execute_ft_ext_step_read_inner_node_completed(Channel        
 
 		if (channel._lvl_idx == req._ft_max_lvl) {
 
-			if (not check_sha256_4k_hash(&channel._t1_blks.items[channel._lvl_idx],
-                                         &req._ft_root.hash)) {
+			if (not check_sha256_4k_hash(channel._encoded_blk,
+                                         req._ft_root.hash)) {
 				class Program_error_ft_resizing_hash_mismatch { };
 				throw Program_error_ft_resizing_hash_mismatch { };
 			}
@@ -102,8 +102,8 @@ void Ft_resizing::_execute_ft_ext_step_read_inner_node_completed(Channel        
 			Tree_node_index const child_idx = t1_child_idx_for_vba(channel._vba, parent_lvl_idx, req._ft_degree);
 			Type_1_node const &child = channel._t1_blks.items[parent_lvl_idx].nodes[child_idx];
 
-			if (not check_sha256_4k_hash(&channel._t1_blks.items[channel._lvl_idx],
-			                             &child.hash)) {
+			if (not check_sha256_4k_hash(channel._encoded_blk,
+			                             child.hash)) {
 				class Program_error_ft_resizing_hash_mismatch_2 { };
 				throw Program_error_ft_resizing_hash_mismatch_2 { };
 			}
@@ -181,8 +181,8 @@ void Ft_resizing::_execute_ft_ext_step_read_inner_node_completed(Channel        
 			Tree_level_index const parent_lvl_idx = channel._lvl_idx + 1;
 			Tree_node_index const child_idx = t1_child_idx_for_vba(channel._vba, parent_lvl_idx, req._ft_degree);
 
-			if (not check_sha256_4k_hash(&channel._t2_blk,
-			                             &channel._t1_blks.items[parent_lvl_idx].nodes[child_idx].hash)) {
+			if (not check_sha256_4k_hash(channel._encoded_blk,
+			                             channel._t1_blks.items[parent_lvl_idx].nodes[child_idx].hash)) {
 				class Program_error_ft_resizing_hash_mismatch_3 { };
 				throw Program_error_ft_resizing_hash_mismatch_3 { };
 			}
@@ -552,8 +552,7 @@ req._nr_of_leaves);
 				.hash    = { },
 			};
 
-			calc_sha256_4k_hash(&chan._t1_blks.items[child_lvl_idx],
-			                    &child.hash);
+			calc_sha256_4k_hash(chan._encoded_blk, child.hash);
 
 			if (VERBOSE_FT_EXTENSION)
 				log("  set lvl a ", parent_lvl_idx, " child ", child_idx,
@@ -580,7 +579,7 @@ req._nr_of_leaves);
 				.gen = req._curr_gen,
 			};
 
-			calc_sha256_4k_hash(&chan._t2_blk, &child.hash);
+			calc_sha256_4k_hash(chan._encoded_blk, child.hash);
 
 			if (VERBOSE_FT_EXTENSION)
 				log("  set lvl b ", parent_lvl_idx, " child ", child_idx,
@@ -613,7 +612,7 @@ req._nr_of_leaves);
 			.gen = req._curr_gen,
 		};
 
-		calc_sha256_4k_hash(&chan._t1_blks.items[child_lvl_idx], &req._ft_root.hash);
+		calc_sha256_4k_hash(chan._encoded_blk, req._ft_root.hash);
 
 		req._ft_nr_of_leaves += req._nr_of_leaves;
 

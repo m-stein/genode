@@ -11,14 +11,15 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
+/* tresor includes */
+#include <tresor/sha256_4k_hash.h>
+#include <tresor/types.h>
+
 /* base includes */
 #include <util/string.h>
 
 /* libcrypto */
 #include <openssl/sha.h>
-
-/* tresor includes */
-#include <tresor/sha256_4k_hash.h>
 
 
 bool Tresor::check_sha256_4k_hash(Block const &blk,
@@ -42,7 +43,7 @@ void Tresor::calc_sha256_4k_hash(Block const &blk,
 		class Calc_sha256_4k_hash_update_error { };
 		throw Calc_sha256_4k_hash_update_error { };
 	}
-	if (!SHA256_Final(static_cast<unsigned char *>(&hash), &context)) {
+	if (!SHA256_Final((unsigned char *)(&hash), &context)) {
 		class Calc_sha256_4k_hash_final_error { };
 		throw Calc_sha256_4k_hash_final_error { };
 	}

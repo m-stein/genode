@@ -174,7 +174,7 @@ void Meta_tree::generated_request_complete(Module_request &mod_req)
 
 		if (local_req.level > T2_NODE_LVL) {
 
-			if (!check_sha256_4k_hash(&channel._cache_request.encoded_blk, &t1_info.node.hash)) {
+			if (!check_sha256_4k_hash(channel._cache_request.encoded_blk, t1_info.node.hash)) {
 
 				channel._state = Channel::TREE_HASH_MISMATCH;
 
@@ -186,7 +186,7 @@ void Meta_tree::generated_request_complete(Module_request &mod_req)
 			}
 		} else if (local_req.level == T2_NODE_LVL) {
 
-			if (!check_sha256_4k_hash(&channel._cache_request.encoded_blk, &t2_info.node.hash)) {
+			if (!check_sha256_4k_hash(channel._cache_request.encoded_blk, t2_info.node.hash)) {
 
 				channel._state = Channel::TREE_HASH_MISMATCH;
 
@@ -250,7 +250,7 @@ void Meta_tree::_update_parent(Type_1_node &node,
                                uint64_t     gen,
                                uint64_t     pba)
 {
-	calc_sha256_4k_hash(&encoded_blk, &node.hash);
+	calc_sha256_4k_hash(encoded_blk, node.hash);
 	node.gen = gen;
 	node.pba = pba;
 }

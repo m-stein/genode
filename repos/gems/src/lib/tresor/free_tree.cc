@@ -507,7 +507,7 @@ void Free_tree::_update_upper_n_stack(Type_1_info const &t,
 {
 	entries.nodes[t.index].pba = t.node.pba;
 	entries.nodes[t.index].gen = gen;
-	calc_sha256_4k_hash(&block_data, &entries.nodes[t.index].hash);
+	calc_sha256_4k_hash(block_data, entries.nodes[t.index].hash);
 }
 
 
@@ -639,8 +639,8 @@ void Free_tree::_execute_update(Channel         &chan,
 							n, req._current_gen, chan._cache_block_data,
 							chan._level_n_nodes[l]);
 					} else {
-						calc_sha256_4k_hash(&chan._cache_block_data,
-						                    (void *)req._ft_root_hash_ptr);
+						calc_sha256_4k_hash(chan._cache_block_data,
+						                    *(Hash *)req._ft_root_hash_ptr);
 
 						*(Generation *)req._ft_root_gen_ptr = req._current_gen;
 						*(Physical_block_address *)req._ft_root_pba_ptr =
@@ -935,7 +935,7 @@ void Free_tree::generated_request_complete(Module_request &mod_req)
 
 		case Local_cache_request::READ:
 
-			if (check_sha256_4k_hash(&channel._cache_block_data, &n.node.hash)) {
+			if (check_sha256_4k_hash(channel._cache_block_data, n.node.hash)) {
 
 				n.state = Type_1_info::AVAILABLE;
 				channel._level_n_stacks[local_req.level].update_top(n);

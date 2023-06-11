@@ -14,10 +14,10 @@
 #ifndef _TRESOR__SHAE256_4K_HASH_H_
 #define _TRESOR__SHAE256_4K_HASH_H_
 
-/* tresor includes */
-#include <tresor/types.h>
-
 namespace Tresor {
+
+	class Block;
+	class Hash;
 
 	void calc_sha256_4k_hash(Block const &blk,
 	                         Hash        &hash);

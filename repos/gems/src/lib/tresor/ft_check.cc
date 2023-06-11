@@ -125,7 +125,7 @@ void Ft_check::_execute_inner_t2_child(Channel          &chan,
 	} else if (child_state == Channel::CHECK_HASH) {
 
 		if (child.gen == INITIAL_GENERATION ||
-		    check_sha256_4k_hash(&child_lvl.children, &child.hash)) {
+		    check_sha256_4k_hash(chan._encoded_blk, child.hash)) {
 
 			child_state = Channel::DONE;
 			progress = true;
@@ -213,7 +213,7 @@ void Ft_check::_execute_inner_t1_child(Channel           &chan,
 	} else if (child_state == Channel::CHECK_HASH) {
 
 		if (child.gen == INITIAL_GENERATION ||
-		    check_sha256_4k_hash(&child_lvl.children, &child.hash)) {
+			check_sha256_4k_hash(chan._encoded_blk, child.hash)) {
 
 			child_state = Channel::DONE;
 			if (&child_state == &chan._root_state) {

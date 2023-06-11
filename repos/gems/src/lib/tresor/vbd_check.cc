@@ -125,7 +125,7 @@ void Vbd_check::_execute_inner_t1_child(Channel           &chan,
 	} else if (child_state == Channel::CHECK_HASH) {
 
 		if (child.gen == INITIAL_GENERATION ||
-		    check_sha256_4k_hash(&child_lvl.children, &child.hash)) {
+		    check_sha256_4k_hash(chan._encoded_blk, child.hash)) {
 
 			child_state = Channel::DONE;
 			if (&child_state == &chan._root_state) {
@@ -142,7 +142,7 @@ void Vbd_check::_execute_inner_t1_child(Channel           &chan,
 			if (VERBOSE_CHECK) {
 
 				Hash hash;
-				calc_sha256_4k_hash(&child_lvl.children, &hash);
+				calc_sha256_4k_hash(chan._encoded_blk, hash);
 				log(Level_indent { lvl, req._max_lvl },
 				    "    lvl ", lvl, " child ", child_idx, " (", child, "): bad hash ", hash);
 			}
@@ -155,7 +155,6 @@ void Vbd_check::_execute_inner_t1_child(Channel           &chan,
 
 void Vbd_check::_execute_leaf_child(Channel           &chan,
                                     Type_1_node const &child,
-                                    Block       const &child_lvl,
                                     Child_state       &child_state,
                                     Tree_level_index   lvl,
                                     Tree_node_index  child_idx,
@@ -226,7 +225,7 @@ void Vbd_check::_execute_leaf_child(Channel           &chan,
 
 	} else if (child_state == Channel::CHECK_HASH) {
 
-		if (check_sha256_4k_hash(&child_lvl, &child.hash)) {
+		if (check_sha256_4k_hash(chan._encoded_blk, child.hash)) {
 
 			req._nr_of_leaves--;
 			child_state = Channel::DONE;
@@ -241,7 +240,7 @@ void Vbd_check::_execute_leaf_child(Channel           &chan,
 			if (VERBOSE_CHECK) {
 
 				Hash hash;
-				calc_sha256_4k_hash(&child_lvl, &hash);
+				calc_sha256_4k_hash(chan._encoded_blk, hash);
 				log(Level_indent { lvl, req._max_lvl },
 				    "    lvl ", lvl, " child ", child_idx, " (", child, "): bad hash ", hash);
 			}
@@ -268,7 +267,6 @@ void Vbd_check::_execute_check(Channel &chan,
 					_execute_leaf_child(
 						chan,
 						chan._t1_lvls[lvl].children.nodes[child_idx],
-						chan._leaf_lvl,
 						chan._t1_lvls[lvl].children_state[child_idx],
 						lvl, child_idx, progress);
 				else
