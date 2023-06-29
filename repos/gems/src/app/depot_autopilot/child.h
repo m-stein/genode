@@ -195,6 +195,8 @@ class Depot_deploy::Log_event : public Event,
 
 		Log_event const & operator=(const Log_event&);
 
+		Log_prefix _init_log_prefix(Xml_node const &xml);
+
 	public:
 
 		Log_event(Allocator      &alloc,
