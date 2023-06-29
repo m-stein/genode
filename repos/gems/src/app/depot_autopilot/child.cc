@@ -78,14 +78,15 @@ static Filter const *filter_to_apply(FILTERS const &filters,
 static size_t sanitize_pattern(char *const base,
                                size_t      size)
 {
-	static Filters<5> pattern_filters
+	static Filters<6> pattern_filters
 	{
 		{
 			{ "\x9", "" },
 			{ "\xa", "" },
 			{ "&lt;", "<" },
 			{ "&amp;", "&" },
-			{ "&#42;", "*" }
+			{ "&#42;", "*" },
+			{ "&quot;", "\"" }
 		}
 	};
 	struct Bad_filter : Exception { };
@@ -1110,12 +1111,30 @@ Log_event::~Log_event()
 }
 
 
+Log_prefix Log_event::_init_log_prefix(Xml_node const &xml)
+{
+	if (!xml.has_attribute("log_prefix"))
+		return Log_prefix { };
+
+	char buf[Log_prefix::size()];
+	size_t buf_str_size { 0 };
+	xml.attribute("log_prefix").with_raw_value([&] (char const *src_ptr, size_t src_size) {
+
+		size_t const cpy_size = min(src_size, sizeof(buf) - 1);
+		memcpy(buf, src_ptr, cpy_size);
+		buf[cpy_size] = 0;
+		buf_str_size = sanitize_pattern(buf, cpy_size + 1);
+	});
+	return Cstring { buf, buf_str_size };
+}
+
+
 Log_event::Log_event(Allocator      &alloc,
                      Xml_node const &xml)
 :
 	Event             { xml, Type::LOG },
 	_alloc            { alloc },
-	_log_prefix       { Xml_unquoted { xml.attribute_value("log_prefix", Log_prefix { }) } },
+	_log_prefix       { _init_log_prefix(xml) },
 	_log_prefix_valid { _log_prefix != Log_prefix { } }
 {
 	char const *const base   { xml_content_base(xml) };
