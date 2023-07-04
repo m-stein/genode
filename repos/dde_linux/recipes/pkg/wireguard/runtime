@@ -3,6 +3,7 @@
 	<requires>
 		<nic label="nic_session"/>
 		<uplink label="uplink_session"/>
+		<rtc/>
 		<timer/>
 	</requires>
 

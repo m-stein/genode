@@ -138,6 +138,11 @@ $(MIRRORED_FROM_PORT_DIR):
 	mkdir -p $(dir $@)
 	cp -r $(addprefix $(PORT_DIR)/,$@) $@
 
+content: src/lib/musl_tm
+src/lib/musl_tm:
+	mkdir -p src/lib
+	cp -r $(GENODE_DIR)/repos/libports/$@ $@
+
 content: LICENSE
 LICENSE:
 	cp $(PORT_DIR)/src/linux/COPYING $@

@@ -18,3 +18,10 @@ SRC_CC += uplink_connection.cc
 
 vpath %.cc $(REP_DIR)/src/app/wireguard
 vpath %.cc $(REP_DIR)/src/lib
+
+# musl-libc contrib sources
+MUSL_TM  = $(call select_from_repositories,src/lib/musl_tm)
+SRC_C   += tm_to_secs.c
+INC_DIR += $(MUSL_TM)
+
+vpath tm_to_secs.c $(MUSL_TM)

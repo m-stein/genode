@@ -343,3 +343,15 @@ bool __do_once_start(bool * done,unsigned long * flags)
 DEFINE_PER_CPU(void *, hardirq_stack_ptr);
 #endif
 DEFINE_PER_CPU(bool, hardirq_stack_inuse);
+
+
+#include <linux/time.h>
+
+extern __s64 genode_wg_initial_ts_sec(void);
+extern long  genode_wg_initial_ts_nsec(void);
+
+void read_persistent_clock64(struct timespec64 *ts)
+{
+	ts->tv_sec  = genode_wg_initial_ts_sec();
+	ts->tv_nsec = genode_wg_initial_ts_nsec();
+}
