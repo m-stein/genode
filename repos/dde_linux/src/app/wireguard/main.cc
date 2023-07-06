@@ -22,7 +22,7 @@
 #include <rtc_session/connection.h>
 #include <timer_session/connection.h>
 
-/* musl_tm for Rtc::Timer to seconds conversion */
+/* musl-tm includes */
 #include <tm.h>
 
 /* lx-kit includes */
@@ -44,34 +44,6 @@ using namespace Genode;
 namespace Wireguard { class  Main; }
 
 
-/* this prevents us from including a linux kernel header here. */
-struct timespec64 {
-	Genode::int64_t  tv_sec;    /* seconds */
-	long             tv_nsec;   /* nanoseconds */
-};
-
-
-/* definde in lx_emul.c */
-extern struct timespec64 initial_ts;
-
-Genode::int64_t rtc_timestamp_to_seconds(Rtc::Timestamp const &ts)
-{
-	tm tm { .tm_sec      = static_cast<int>(ts.second),
-	        .tm_min      = static_cast<int>(ts.minute),
-	        .tm_hour     = static_cast<int>(ts.hour),
-	        .tm_mday     = static_cast<int>(ts.day),
-	        .tm_mon      = static_cast<int>(ts.month - 1),
-	        .tm_year     = static_cast<int>(ts.year - 1900),
-	        .tm_wday     = 0,
-	        .tm_yday     = 0,
-	        .tm_isdst    = 0,
-	        .__tm_gmtoff = 0,
-	        .__tm_zone   = 0 };
-
-	return tm_to_secs(&tm);
-}
-
-
 class Wireguard::Main : private Entrypoint::Io_progress_handler,
                         private Nic_connection_notifier
 {
@@ -87,8 +59,8 @@ class Wireguard::Main : private Entrypoint::Io_progress_handler,
 		Signal_handler<Main>              _nic_ip_config_handler { _env.ep(), *this, &Main::_handle_nic_ip_config };
 		Nic_connection                    _nic_connection        { _env, _heap, _signal_handler, _config_rom.xml(), _timer, *this };
 		Constructible<Uplink_connection>  _uplink_connection     { };
-		int64_t                           _seconds_from_rtc      { 0 };
-		long                              _nano_seconds_from_rtc { 0 };
+		int64_t                           _initial_ts_sec        { 0 };
+		long                              _initial_ts_nsec       { 0 };
 
 		void _handle_signal()
 		{
@@ -99,6 +71,8 @@ class Wireguard::Main : private Entrypoint::Io_progress_handler,
 		void _handle_config() { _config_rom.update(); }
 
 		void _handle_nic_ip_config();
+
+		int64_t _rtc_timestamp_to_seconds(Rtc::Timestamp const &ts);
 
 
 		/*****************************
@@ -116,11 +90,11 @@ class Wireguard::Main : private Entrypoint::Io_progress_handler,
 		:
 			_env(env)
 		{
-			Rtc::Connection      rtc              { env };
+			Rtc::Connection rtc { env };
 			Rtc::Timestamp const rtc_current_time { rtc.current_time() };
 		
-			_seconds_from_rtc      = rtc_timestamp_to_seconds(rtc_current_time);
-			_nano_seconds_from_rtc = rtc_current_time.microsecond * 1000;
+			_initial_ts_sec = _rtc_timestamp_to_seconds(rtc_current_time);
+			_initial_ts_nsec = rtc_current_time.microsecond * 1000;
 
 			Lx_kit::initialize(_env);
 
@@ -178,9 +152,28 @@ class Wireguard::Main : private Entrypoint::Io_progress_handler,
 			genode_wg_u8_t const *ip_base,
 			genode_wg_size_t      ip_size);
 
-		int64_t initial_sec()  const { return _seconds_from_rtc; }
-		long    initial_nsec() const { return _nano_seconds_from_rtc; }
+		int64_t initial_ts_sec()  const { return _initial_ts_sec; }
+
+		long initial_ts_nsec() const { return _initial_ts_nsec; }
 };
+
+
+int64_t Wireguard::Main::_rtc_timestamp_to_seconds(Rtc::Timestamp const &ts)
+{
+	tm tm { .tm_sec      = static_cast<int>(ts.second),
+	        .tm_min      = static_cast<int>(ts.minute),
+	        .tm_hour     = static_cast<int>(ts.hour),
+	        .tm_mday     = static_cast<int>(ts.day),
+	        .tm_mon      = static_cast<int>(ts.month - 1),
+	        .tm_year     = static_cast<int>(ts.year - 1900),
+	        .tm_wday     = 0,
+	        .tm_yday     = 0,
+	        .tm_isdst    = 0,
+	        .__tm_gmtoff = 0,
+	        .__tm_zone   = 0 };
+
+	return tm_to_secs(&tm);
+}
 
 
 void Wireguard::Main::_handle_nic_ip_config()
@@ -286,17 +279,15 @@ void genode_wg_send_ip_at_uplink_connection(
 }
 
 
-extern "C" Genode::int64_t
-genode_wg_initial_ts_sec()
+extern "C" int64_t genode_wg_initial_ts_sec()
 {
-	return main_object(Lx_kit::env().env).initial_sec();
+	return main_object(Lx_kit::env().env).initial_ts_sec();
 }
 
 
-extern "C" long
-genode_wg_initial_ts_nsec()
+extern "C" long genode_wg_initial_ts_nsec()
 {
-	return main_object(Lx_kit::env().env).initial_nsec();
+	return main_object(Lx_kit::env().env).initial_ts_nsec();
 }
 
 
