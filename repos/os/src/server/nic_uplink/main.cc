@@ -68,18 +68,28 @@ namespace Nic_uplink {
 
 class Net::Network_interface
 {
+	public:
+
+		using Label = String<32>;
 	private:
 
 		Packet_stream_sink &_sink;
 		Packet_stream_source &_source;
+		Label const _label;
+
+		Network_interface(Network_interface const &) = delete;
+
+		Network_interface & operator = (Network_interface const &) = delete;
 
 	public:
 
 		Network_interface(Packet_stream_sink &sink,
-		                  Packet_stream_source &source)
+		                  Packet_stream_source &source,
+		                  Label const &label)
 		:
 			_sink { sink },
-			_source { source }
+			_source { source },
+			_label { label }
 		{ }
 
 		virtual ~Network_interface() { }
@@ -88,7 +98,7 @@ class Net::Network_interface
 		void send_packet(size_t pkt_size, GENERATE_PKT && generate_pkt)
 		{
 			if (!_source.ready_to_submit()) {
-				error("failed to send packet");
+				error("[", _label, "] failed to send packet");
 				return;
 			}
 			_source.alloc_packet_attempt(pkt_size).with_result(
@@ -97,12 +107,12 @@ class Net::Network_interface
 					void *pkt_base { _source.packet_content(pkt) };
 					generate_pkt(Byte_range_ptr { (char *)pkt_base, pkt_size });
 					Size_guard size_guard1(pkt_size);
-					log("snd ", Ethernet_frame::cast_from(pkt_base, size_guard1));
+					log("[", _label, "] snd ", Ethernet_frame::cast_from(pkt_base, size_guard1));
 					_source.try_submit_packet(pkt);
 				},
 				[&] (Packet_stream_source::Alloc_packet_error)
 				{
-					error("failed to alloc packet");
+					error("[", _label, "] failed to alloc packet");
 				}
 			);
 		}
@@ -117,7 +127,7 @@ class Net::Network_interface
 				Packet_descriptor const pkt { _sink.get_packet() };
 				handle_pkt(Byte_range_ptr { _sink.packet_content(pkt), pkt.size() });
 				if (!_sink.try_ack_packet(pkt))
-					error("failed to ack packet");
+					error("[", _label, "] failed to ack packet");
 			}
 			_source.wakeup();
 			_sink.wakeup();
@@ -151,8 +161,9 @@ class Net::Uplink_session_component
 	private:
 
 		Ram_dataspace_capability const _ram_ds;
-		Network_interface _net_if { *_tx.sink(), *_rx.source() };
+		Network_interface _net_if { *_tx.sink(), *_rx.source(), "uplink" };
 		Signal_handler<Uplink_session_component> _pkt_stream_signal_handler;
+		Mac_address const _mac;
 
 		void _handle_pkt_stream_signal();
 
@@ -164,6 +175,8 @@ class Net::Uplink_session_component
 		                         Mac_address const mac,
 		                         Ram_dataspace_capability const ram_ds);
 
+		void send_packet(Byte_range_ptr const &src);
+
 
 		/***************
 		 ** Accessors **
@@ -171,6 +184,7 @@ class Net::Uplink_session_component
 
 		Ram_dataspace_capability ram_ds() const { return _ram_ds; };
 		Session_env const &session_env() const { return _session_env; };
+		Mac_address const &mac() { return _mac; }
 };
 
 
@@ -182,6 +196,8 @@ class Net::Uplink_session_root
 
 		Env &_env;
 		Quota &_shared_quota;
+		Uplink_session_component * &_uplink_session;
+		Nic_session_component * &_nic_session;
 
 
 		/********************
@@ -195,7 +211,9 @@ class Net::Uplink_session_root
 
 		Uplink_session_root(Env &env,
 		                    Allocator &alloc,
-		                    Quota &shared_quota);
+		                    Quota &shared_quota,
+		                    Uplink_session_component * &uplink_session,
+		                    Nic_session_component * &nic_session);
 };
 
 
@@ -225,15 +243,19 @@ class Net::Nic_session_component
 	private:
 
 		Ram_dataspace_capability const _ram_ds;
+		Network_interface _net_if { *_tx.sink(), *_rx.source(), "nic" };
 		Signal_handler<Nic_session_component> _pkt_stream_signal_handler;
 		Signal_context_capability _link_state_sigh { };
+		Uplink_session_component * &_uplink_session;
+		Mac_address const _mac { 0x02 };
 
 	public:
 
 		Nic_session_component(Session_env &session_env,
 		                      size_t const tx_buf_size,
 		                      size_t const rx_buf_size,
-		                      Ram_dataspace_capability const ram_ds);
+		                      Ram_dataspace_capability const ram_ds,
+		                      Uplink_session_component * &uplink_session);
 
 		void _handle_pkt_stream_signal();
 
@@ -264,6 +286,8 @@ class Net::Nic_session_root
 
 		Env &_env;
 		Quota &_shared_quota;
+		Uplink_session_component * &_uplink_session;
+		Nic_session_component * &_nic_session;
 
 
 		/********************
@@ -277,7 +301,9 @@ class Net::Nic_session_root
 
 		Nic_session_root(Env &env,
 		                 Allocator &alloc,
-		                 Quota &shared_quota);
+		                 Quota &shared_quota,
+		                 Uplink_session_component * &uplink_session,
+		                 Nic_session_component * &nic_session);
 };
 
 
@@ -286,9 +312,16 @@ class Nic_uplink::Main
 	private:
 
 		Env &_env;
-		Net::Quota _shared_quota { };
+		Quota _shared_quota { };
 		Heap _heap { &_env.ram(), &_env.rm() };
-		Net::Uplink_session_root _uplink_session_root { _env, _heap, _shared_quota };
+		Uplink_session_component *_uplink_session { nullptr };
+		Nic_session_component *_nic_session { nullptr };
+		Uplink_session_root _uplink_session_root { _env, _heap, _shared_quota, _uplink_session, _nic_session };
+		Nic_session_root _nic_session_root { _env, _heap, _shared_quota, _uplink_session, _nic_session };
+
+		Main(Main const &) = delete;
+
+		Main & operator = (Main const &) = delete;
 
 	public:
 
@@ -319,14 +352,16 @@ Nic_session_component_base::Nic_session_component_base(Session_env &session_env,
 Net::Nic_session_component::Nic_session_component(Session_env &session_env,
                                                   size_t const tx_buf_size,
                                                   size_t const rx_buf_size,
-                                                  Ram_dataspace_capability const ram_ds)
+                                                  Ram_dataspace_capability const ram_ds,
+                                                  Uplink_session_component * &uplink_session)
 :
 	Nic_session_component_base { session_env, tx_buf_size,rx_buf_size },
 	Session_rpc_object {
 		_session_env, _tx_buf.ds(), _rx_buf.ds(), &_packet_alloc,
 		_session_env.ep().rpc_ep() },
 	_ram_ds { ram_ds },
-	_pkt_stream_signal_handler { session_env.ep(), *this, &Nic_session_component::_handle_pkt_stream_signal }
+	_pkt_stream_signal_handler { session_env.ep(), *this, &Nic_session_component::_handle_pkt_stream_signal },
+	_uplink_session { uplink_session }
 {
 	/* install packet stream signal handlers */
 	_tx.sigh_packet_avail(_pkt_stream_signal_handler);
@@ -337,26 +372,35 @@ Net::Nic_session_component::Nic_session_component(Session_env &session_env,
 	 * incoming packets (and dropped if the submit queue is full).
 	 * The ack queue should never be full otherwise we'll be leaking packets.
 	 */
+
+	log("nic session created!");
 }
 
 
 void Net::Nic_session_component::_handle_pkt_stream_signal()
 {
-	error(__func__, __LINE__);
+	_net_if.handle_received_packets([&] (Byte_range_ptr const &src) {
+		Size_guard size_guard { src.num_bytes };
+		Ethernet_frame &eth { Ethernet_frame::cast_from(src.start, size_guard) };
+
+		log("[nic] rcv ", eth);
+		if (_uplink_session != nullptr) {
+			eth.src(_uplink_session->mac());
+			_uplink_session->send_packet(src);
+		}
+	});
 }
 
 
 Mac_address Net::Nic_session_component::mac_address()
 {
-	error(__func__, __LINE__);
-	return Mac_address { };
+	return _mac;
 }
 
 
 bool Net::Nic_session_component::link_state()
 {
-	error(__func__, __LINE__);
-	return false;
+	return (_uplink_session != nullptr);
 }
 
 
@@ -387,12 +431,20 @@ Uplink_session_component_base(Session_env &session_env,
  ** Net::Uplink_session_component **
  ***********************************/
 
+void Net::Uplink_session_component::send_packet(Byte_range_ptr const &src)
+{
+	_net_if.send_packet(src.num_bytes, [&] (Byte_range_ptr const &dst) {
+		memcpy(dst.start, src.start, dst.num_bytes);
+	});
+}
+
+
 void Net::Uplink_session_component::_handle_pkt_stream_signal()
 {
 	_net_if.handle_received_packets([&] (Byte_range_ptr const &src) {
 		Size_guard size_guard { src.num_bytes };
 		Ethernet_frame &eth { Ethernet_frame::cast_from(src.start, size_guard) };
-		log("rcv ", eth);
+		log("[uplink] rcv ", eth);
 	});
 }
 
@@ -404,10 +456,12 @@ Net::Uplink_session_component::Uplink_session_component(Session_env &session_env
                                                         Ram_dataspace_capability const ram_ds)
 :
 	Uplink_session_component_base { session_env, tx_buf_size,rx_buf_size },
-	Session_rpc_object { _session_env, _tx_buf.ds(), _rx_buf.ds(),
-	                                &_packet_alloc, _session_env.ep().rpc_ep() },
+	Session_rpc_object {
+		_session_env, _tx_buf.ds(), _rx_buf.ds(), &_packet_alloc,
+		_session_env.ep().rpc_ep() },
 	_ram_ds { ram_ds },
-	_pkt_stream_signal_handler { session_env.ep(), *this, &Uplink_session_component::_handle_pkt_stream_signal }
+	_pkt_stream_signal_handler { session_env.ep(), *this, &Uplink_session_component::_handle_pkt_stream_signal },
+	_mac { mac }
 {
 	/* install packet stream signal handlers */
 	_tx.sigh_packet_avail(_pkt_stream_signal_handler);
@@ -429,17 +483,25 @@ Net::Uplink_session_component::Uplink_session_component(Session_env &session_env
 
 Net::Uplink_session_root::Uplink_session_root(Env &env,
                                               Allocator &alloc,
-                                              Quota &shared_quota)
+                                              Quota &shared_quota,
+                                              Uplink_session_component * &uplink_session,
+                                              Nic_session_component * &nic_session)
 :
 	Root_component<Uplink_session_component> { &env.ep().rpc_ep(), &alloc },
 	_env { env },
-	_shared_quota { shared_quota }
+	_shared_quota { shared_quota },
+	_uplink_session { uplink_session },
+	_nic_session { nic_session }
 { }
 
 
 Uplink_session_component *
 Net::Uplink_session_root::_create_session(char const *args)
 {
+	if (_uplink_session != nullptr) {
+		warning("failed to create session (multiple sessions not supported)");
+		throw Service_denied();
+	}
 	try {
 		/* create session environment temporarily on the stack */
 		Session_env session_env_stack { _env, _shared_quota,
@@ -478,12 +540,14 @@ Net::Uplink_session_root::_create_session(char const *args)
 			}
 			/* create new session object behind session env in the RAM block */
 			try {
-				return construct_at<Uplink_session_component>(
+				_uplink_session = construct_at<Uplink_session_component>(
 					(void*)((addr_t)ram_ptr + sizeof(Session_env)),
 					session_env,
 					Arg_string::find_arg(args, "tx_buf_size").ulong_value(0),
 					Arg_string::find_arg(args, "rx_buf_size").ulong_value(0),
 					mac, ram_ds);
+
+				return _uplink_session;
 			}
 			catch (Out_of_ram) {
 				Session_env session_env_stack { session_env };
@@ -534,6 +598,13 @@ Net::Uplink_session_root::_create_session(char const *args)
 void
 Net::Uplink_session_root::_destroy_session(Uplink_session_component *session)
 {
+	if (_uplink_session != session) {
+		warning("failed to destroy session (unknown session)");
+		class Unknown_session { };
+		throw Unknown_session { };
+	}
+	_uplink_session = nullptr;
+
 	/* read out initial dataspace and session env and destruct session */
 	Ram_dataspace_capability ram_ds { session->ram_ds() };
 	Session_env const &session_env { session->session_env() };
@@ -561,16 +632,24 @@ Net::Uplink_session_root::_destroy_session(Uplink_session_component *session)
 
 Net::Nic_session_root::Nic_session_root(Env &env,
                                         Allocator &alloc,
-                                        Quota &shared_quota)
+                                        Quota &shared_quota,
+                                        Uplink_session_component * &uplink_session,
+                                        Nic_session_component * &nic_session)
 :
 	Root_component<Nic_session_component> { &env.ep().rpc_ep(), &alloc },
 	_env { env },
-	_shared_quota { shared_quota }
+	_shared_quota { shared_quota },
+	_uplink_session { uplink_session },
+	_nic_session { nic_session }
 { }
 
 
 Nic_session_component *Net::Nic_session_root::_create_session(char const *args)
 {
+	if (_nic_session != nullptr) {
+		warning("failed to create session (multiple sessions not supported)");
+		throw Service_denied();
+	}
 	try {
 		/* create session environment temporarily on the stack */
 		Session_env session_env_stack { _env, _shared_quota,
@@ -588,12 +667,14 @@ Nic_session_component *Net::Nic_session_root::_create_session(char const *args)
 
 			/* create new session object behind session env in the RAM block */
 			try {
-				return construct_at<Nic_session_component>(
+				_nic_session = construct_at<Nic_session_component>(
 					(void*)((addr_t)ram_ptr + sizeof(Session_env)),
 					session_env,
 					Arg_string::find_arg(args, "tx_buf_size").ulong_value(0),
 					Arg_string::find_arg(args, "rx_buf_size").ulong_value(0),
-					ram_ds);
+					ram_ds, _uplink_session);
+
+				return _nic_session;
 			}
 			catch (Out_of_ram) {
 				Session_env session_env_stack { session_env };
@@ -643,6 +724,13 @@ Nic_session_component *Net::Nic_session_root::_create_session(char const *args)
 
 void Net::Nic_session_root::_destroy_session(Nic_session_component *session)
 {
+	if (_nic_session != session) {
+		warning("failed to destroy session (unknown session)");
+		class Unknown_session { };
+		throw Unknown_session { };
+	}
+	_nic_session = nullptr;
+
 	/* read out initial dataspace and session env and destruct session */
 	Ram_dataspace_capability ram_ds { session->ram_ds() };
 	Session_env const &session_env { session->session_env() };
@@ -673,6 +761,7 @@ Nic_uplink::Main::Main(Env &env)
 	_env { env }
 {
 	env.parent().announce(env.ep().manage(_uplink_session_root));
+	env.parent().announce(env.ep().manage(_nic_session_root));
 }
 
 

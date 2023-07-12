@@ -1,9 +1,5 @@
 append build_components {
-	core
-	init
-	timer
-	server/nic_uplink
-}
+	core init timer server/nic_uplink app/ping }
 
 build $build_components
 
@@ -59,7 +55,10 @@ append config {
 
 		<start name="nic_uplink" caps="100">
 			<resource name="RAM" quantum="1M"/>
-			<provides><service name="Uplink"/></provides>
+			<provides>
+				<service name="Uplink"/>
+				<service name="Nic"/>
+			</provides>
 			<route>
 				<service name="Timer">  <child name="timer"/> </service>
 				<service name="PD"> <parent/> </service>
@@ -68,6 +67,19 @@ append config {
 				<service name="CPU"> <parent/> </service>
 			</route>
 		</start>
+
+	<start name="ping" caps="100">
+		<resource name="RAM" quantum="8M"/>
+		<config interface="10.0.2.55/24" gateway="10.0.2.2" dst_ip="10.0.2.2" period_sec="1" count="3"/>
+		<route>
+			<service name="Nic"> <child name="nic_uplink"/> </service>
+				<service name="Timer">  <child name="timer"/> </service>
+				<service name="PD"> <parent/> </service>
+				<service name="ROM"> <parent/> </service>
+				<service name="LOG"> <parent/> </service>
+				<service name="CPU"> <parent/> </service>
+		</route>
+	</start>
 
 	</config>
 }
