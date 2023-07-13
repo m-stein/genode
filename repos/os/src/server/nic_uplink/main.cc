@@ -1,7 +1,7 @@
 /*
  * \brief  Component construct and main component object
  * \author Martin Stein
- * \date   2023-06-06
+ * \date   2023-07-13
  */
 
 /*
@@ -14,21 +14,12 @@
 /* base includes */
 #include <base/component.h>
 #include <base/heap.h>
-#include <util/xml_generator.h>
 #include <root/component.h>
-#include <base/log.h>
-#include <base/sleep.h>
+#include <base/attached_rom_dataspace.h>
 
-namespace Net {
-
-	class Quota;
-}
-
-struct Net::Quota
-{
-	Genode::size_t ram { 0 };
-	Genode::size_t cap { 0 };
-};
+/* nic_uplink includes */
+#include <quota.h>
+#include <assertion.h>
 
 /* nic_router includes */
 #include <session_env.h>
@@ -36,20 +27,9 @@ struct Net::Quota
 
 /* os includes */
 #include <net/ethernet.h>
-#include <net/internet_checksum.h>
 #include <nic/packet_allocator.h>
 #include <uplink_session/rpc_object.h>
 #include <nic_session/rpc_object.h>
-
-
-#define ASSERT(condition) \
-	do { \
-		if (!(condition)) { \
-			Genode::error(__FILE__, ":", __LINE__, ": ", " assertion \"", #condition, "\" failed "); \
-			Genode::sleep_forever(); \
-		} \
-	} while (false)
-
 
 using namespace Genode;
 using namespace Net;
@@ -64,6 +44,13 @@ using namespace Nic_uplink;
 namespace Net {
 
 	enum { PKT_STREAM_QUEUE_SIZE = 1024 };
+
+	template <typename... ARGS>
+	void log_if(bool condition, ARGS &&... args)
+	{
+		if (condition)
+			log(args...);
+	}
 
 	using Packet_descriptor = Genode::Packet_descriptor;
 	using Packet_stream_policy = Genode::Packet_stream_policy<Packet_descriptor, PKT_STREAM_QUEUE_SIZE, PKT_STREAM_QUEUE_SIZE, char>;
@@ -91,20 +78,19 @@ class Net::Network_interface
 		Packet_stream_sink &_sink;
 		Packet_stream_source &_source;
 		Label const _label;
-
-		Network_interface(Network_interface const &) = delete;
-
-		Network_interface & operator = (Network_interface const &) = delete;
+		bool const _verbose;
 
 	public:
 
 		Network_interface(Packet_stream_sink &sink,
 		                  Packet_stream_source &source,
-		                  Label const &label)
+		                  Label const &label,
+		                  bool verbose)
 		:
 			_sink { sink },
 			_source { source },
-			_label { label }
+			_label { label },
+			_verbose { verbose }
 		{ }
 
 		virtual ~Network_interface() { }
@@ -113,7 +99,7 @@ class Net::Network_interface
 		void send_packet(size_t pkt_size, GENERATE_PKT && generate_pkt)
 		{
 			if (!_source.ready_to_submit()) {
-				log("[", _label, "] failed to send packet");
+				log_if(_verbose, "[", _label, "] failed to send packet");
 				return;
 			}
 			_source.alloc_packet_attempt(pkt_size).with_result(
@@ -122,12 +108,12 @@ class Net::Network_interface
 					void *pkt_base { _source.packet_content(pkt) };
 					generate_pkt(Byte_range_ptr { (char *)pkt_base, pkt_size });
 					Size_guard size_guard1(pkt_size);
-					log("[", _label, "] snd ", Ethernet_frame::cast_from(pkt_base, size_guard1));
+					log_if(_verbose, "[", _label, "] snd ", Ethernet_frame::cast_from(pkt_base, size_guard1));
 					_source.try_submit_packet(pkt);
 				},
 				[&] (Packet_stream_source::Alloc_packet_error)
 				{
-					log("[", _label, "] failed to alloc packet");
+					log_if(_verbose, "[", _label, "] failed to alloc packet");
 				}
 			);
 		}
@@ -144,7 +130,7 @@ class Net::Network_interface
 				Packet_descriptor const pkt { _sink.get_packet() };
 				handle_pkt(Byte_range_ptr { _sink.packet_content(pkt), pkt.size() });
 				if (!_sink.try_ack_packet(pkt))
-					log("[", _label, "] failed to ack packet");
+					log_if(_verbose, "[", _label, "] failed to ack packet");
 			}
 			_source.wakeup();
 			_sink.wakeup();
@@ -177,10 +163,10 @@ class Net::Uplink_session_component
 {
 	private:
 
-		Ram_dataspace_capability const _ram_ds;
-		Network_interface _net_if { *_tx.sink(), *_rx.source(), "uplink" };
-		Signal_handler<Uplink_session_component> _pkt_stream_signal_handler;
 		Main &_main;
+		Ram_dataspace_capability const _ram_ds;
+		Network_interface _net_if;
+		Signal_handler<Uplink_session_component> _pkt_stream_signal_handler;
 
 		void _handle_pkt_stream_signal();
 
@@ -256,11 +242,11 @@ class Net::Nic_session_component
 {
 	private:
 
+		Main &_main;
 		Ram_dataspace_capability const _ram_ds;
-		Network_interface _net_if { *_tx.sink(), *_rx.source(), "nic" };
+		Network_interface _net_if;
 		Signal_handler<Nic_session_component> _pkt_stream_signal_handler;
 		Signal_context_capability _link_state_sigh { };
-		Main &_main;
 
 		void _handle_pkt_stream_signal();
 
@@ -334,6 +320,8 @@ class Nic_uplink::Main
 		bool _nic_service_announced { false };
 		Mac_address _uplink_mac { };
 		bool _uplink_mac_valid { false };
+		Attached_rom_dataspace _config_rom { _env, "config" };
+		bool const _verbose { _config_rom.xml().attribute_value("verbose", false) };
 
 		Main(Main const &) = delete;
 
@@ -342,6 +330,8 @@ class Nic_uplink::Main
 	public:
 
 		Main(Env &env);
+
+		bool verbose() const { return _verbose; }
 
 		bool ready_to_manage_uplink_session() const { return !_uplink_session_ptr; }
 
@@ -402,9 +392,10 @@ Net::Nic_session_component::Nic_session_component(Session_env &session_env,
 	Session_rpc_object {
 		_session_env, _tx_buf.ds(), _rx_buf.ds(), &_packet_alloc,
 		_session_env.ep().rpc_ep() },
+	_main { main },
 	_ram_ds { ram_ds },
-	_pkt_stream_signal_handler { session_env.ep(), *this, &Nic_session_component::_handle_pkt_stream_signal },
-	_main { main }
+	_net_if { *_tx.sink(), *_rx.source(), "nic", _main.verbose() },
+	_pkt_stream_signal_handler { session_env.ep(), *this, &Nic_session_component::_handle_pkt_stream_signal }
 {
 	/* install packet stream signal handlers */
 	_tx.sigh_packet_avail(_pkt_stream_signal_handler);
@@ -424,7 +415,7 @@ void Net::Nic_session_component::_handle_pkt_stream_signal()
 
 		Size_guard size_guard { src.num_bytes };
 		Ethernet_frame &eth { Ethernet_frame::cast_from(src.start, size_guard) };
-		log("[nic] rcv ", eth);
+		log_if(_main.verbose(), "[nic] rcv ", eth);
 
 		_main.with_uplink_session([&] (Uplink_session_component &uplink_session,
 		                               Mac_address const &)
@@ -504,7 +495,7 @@ void Net::Uplink_session_component::_handle_pkt_stream_signal()
 	{
 		Size_guard size_guard { src.num_bytes };
 		Ethernet_frame &eth { Ethernet_frame::cast_from(src.start, size_guard) };
-		log("[uplink] rcv ", eth);
+		log_if(_main.verbose(), "[uplink] rcv ", eth);
 
 		_main.with_nic_session([&] (Nic_session_component &nic_session)
 		{
@@ -524,9 +515,10 @@ Net::Uplink_session_component::Uplink_session_component(Session_env &session_env
 	Session_rpc_object {
 		_session_env, _tx_buf.ds(), _rx_buf.ds(), &_packet_alloc,
 		_session_env.ep().rpc_ep() },
+	_main { main },
 	_ram_ds { ram_ds },
-	_pkt_stream_signal_handler { session_env.ep(), *this, &Uplink_session_component::_handle_pkt_stream_signal },
-	_main { main }
+	_net_if { *_tx.sink(), *_rx.source(), "uplink", _main.verbose() },
+	_pkt_stream_signal_handler { session_env.ep(), *this, &Uplink_session_component::_handle_pkt_stream_signal }
 {
 	/* install packet stream signal handlers */
 	_tx.sigh_packet_avail(_pkt_stream_signal_handler);
@@ -560,7 +552,7 @@ Uplink_session_component *
 Net::Uplink_session_root::_create_session(char const *args)
 {
 	if (!_main.ready_to_manage_uplink_session()) {
-		log("[uplink] failed to manage new session");
+		log_if(_main.verbose(), "[uplink] failed to manage new session");
 		throw Service_denied();
 	}
 	try {
@@ -586,7 +578,7 @@ Net::Uplink_session_root::_create_session(char const *args)
 				Session_env session_env_stack { session_env };
 				session_env_stack.detach(ram_ptr);
 				session_env_stack.free(ram_ds);
-				log("[uplink] failed to find 'mac_address' arg");
+				log_if(_main.verbose(), "[uplink] failed to find 'mac_address' arg");
 				throw Service_denied();
 			}
 			mac_arg.string(mac_str, MAC_STR_LENGTH, "");
@@ -596,7 +588,7 @@ Net::Uplink_session_root::_create_session(char const *args)
 				Session_env session_env_stack { session_env };
 				session_env_stack.detach(ram_ptr);
 				session_env_stack.free(ram_ds);
-				log("[uplink] malformed 'mac_address' arg");
+				log_if(_main.verbose(), "[uplink] malformed 'mac_address' arg");
 				throw Service_denied();
 			}
 			/* create new session object behind session env in the RAM block */
@@ -616,44 +608,44 @@ Net::Uplink_session_root::_create_session(char const *args)
 				Session_env session_env_stack { session_env };
 				session_env_stack.detach(ram_ptr);
 				session_env_stack.free(ram_ds);
-				log("[uplink] insufficient session RAM quota");
+				log_if(_main.verbose(), "[uplink] insufficient session RAM quota");
 				throw Insufficient_ram_quota();
 			}
 			catch (Out_of_caps) {
 				Session_env session_env_stack { session_env };
 				session_env_stack.detach(ram_ptr);
 				session_env_stack.free(ram_ds);
-				log("[uplink] insufficient session CAP quota");
+				log_if(_main.verbose(), "[uplink] insufficient session CAP quota");
 				throw Insufficient_cap_quota();
 			}
 		}
 		catch (Region_map::Invalid_dataspace) {
 			session_env_stack.free(ram_ds);
-			log("[uplink] failed to attach RAM");
+			log_if(_main.verbose(), "[uplink] failed to attach RAM");
 			throw Service_denied();
 		}
 		catch (Region_map::Region_conflict) {
 			session_env_stack.free(ram_ds);
-			log("[uplink] failed to attach RAM");
+			log_if(_main.verbose(), "[uplink] failed to attach RAM");
 			throw Service_denied();
 		}
 		catch (Out_of_ram) {
 			session_env_stack.free(ram_ds);
-			log("[uplink] insufficient session RAM quota");
+			log_if(_main.verbose(), "[uplink] insufficient session RAM quota");
 			throw Insufficient_ram_quota();
 		}
 		catch (Out_of_caps) {
 			session_env_stack.free(ram_ds);
-			log("[uplink] insufficient session CAP quota");
+			log_if(_main.verbose(), "[uplink] insufficient session CAP quota");
 			throw Insufficient_cap_quota();
 		}
 	}
 	catch (Out_of_ram) {
-		log("[uplink] insufficient session RAM quota");
+		log_if(_main.verbose(), "[uplink] insufficient session RAM quota");
 		throw Insufficient_ram_quota();
 	}
 	catch (Out_of_caps) {
-		log("[uplink] insufficient session CAP quota");
+		log_if(_main.verbose(), "[uplink] insufficient session CAP quota");
 		throw Insufficient_cap_quota();
 	}
 }
@@ -675,10 +667,10 @@ void Net::Uplink_session_root::_destroy_session(Uplink_session_component *sessio
 
 	/* check for leaked quota */
 	if (session_env_stack.ram_guard().used().value)
-		log("[uplink] session leaks RAM quota of ",
+		log_if(_main.verbose(), "[uplink] session leaks RAM quota of ",
 		      session_env_stack.ram_guard().used().value, " byte(s)");
 	if (session_env_stack.cap_guard().used().value)
-		log("[uplink] session leaks CAP quota of ",
+		log_if(_main.verbose(), "[uplink] session leaks CAP quota of ",
 		    session_env_stack.cap_guard().used().value, " cap(s)");
 }
 
@@ -737,44 +729,44 @@ Nic_session_component *Net::Nic_session_root::_create_session(char const *args)
 				Session_env session_env_stack { session_env };
 				session_env_stack.detach(ram_ptr);
 				session_env_stack.free(ram_ds);
-				log("[nic] insufficient session RAM quota");
+				log_if(_main.verbose(), "[nic] insufficient session RAM quota");
 				throw Insufficient_ram_quota();
 			}
 			catch (Out_of_caps) {
 				Session_env session_env_stack { session_env };
 				session_env_stack.detach(ram_ptr);
 				session_env_stack.free(ram_ds);
-				log("[nic] insufficient session CAP quota");
+				log_if(_main.verbose(), "[nic] insufficient session CAP quota");
 				throw Insufficient_cap_quota();
 			}
 		}
 		catch (Region_map::Invalid_dataspace) {
 			session_env_stack.free(ram_ds);
-			log("[nic] failed to attach RAM");
+			log_if(_main.verbose(), "[nic] failed to attach RAM");
 			throw Service_denied();
 		}
 		catch (Region_map::Region_conflict) {
 			session_env_stack.free(ram_ds);
-			log("[nic] failed to attach RAM");
+			log_if(_main.verbose(), "[nic] failed to attach RAM");
 			throw Service_denied();
 		}
 		catch (Out_of_ram) {
 			session_env_stack.free(ram_ds);
-			log("[nic] insufficient session RAM quota");
+			log_if(_main.verbose(), "[nic] insufficient session RAM quota");
 			throw Insufficient_ram_quota();
 		}
 		catch (Out_of_caps) {
 			session_env_stack.free(ram_ds);
-			log("[nic] insufficient session CAP quota");
+			log_if(_main.verbose(), "[nic] insufficient session CAP quota");
 			throw Insufficient_cap_quota();
 		}
 	}
 	catch (Out_of_ram) {
-		log("[nic] insufficient session RAM quota");
+		log_if(_main.verbose(), "[nic] insufficient session RAM quota");
 		throw Insufficient_ram_quota();
 	}
 	catch (Out_of_caps) {
-		log("[nic] insufficient session CAP quota");
+		log_if(_main.verbose(), "[nic] insufficient session CAP quota");
 		throw Insufficient_cap_quota();
 	}
 }
@@ -796,10 +788,10 @@ void Net::Nic_session_root::_destroy_session(Nic_session_component *session_ptr)
 
 	/* check for leaked quota */
 	if (session_env_stack.ram_guard().used().value)
-		log("[nic] session leaks RAM quota of ",
+		log_if(_main.verbose(), "[nic] session leaks RAM quota of ",
 		    session_env_stack.ram_guard().used().value, " byte(s)");
 	if (session_env_stack.cap_guard().used().value)
-		log("[nic] session leaks CAP quota of ",
+		log_if(_main.verbose(), "[nic] session leaks CAP quota of ",
 		    session_env_stack.cap_guard().used().value, " cap(s)");
 }
 
@@ -831,7 +823,7 @@ void Nic_uplink::Main::manage_uplink_session(Uplink_session_component &session,
 		_env.parent().announce(_env.ep().manage(_nic_session_root));
 		_nic_service_announced = true;
 	}
-	log("[uplink] session created! mac=", _uplink_mac);
+	log_if(_verbose, "[uplink] session created! mac=", _uplink_mac);
 }
 
 
@@ -839,7 +831,7 @@ void Nic_uplink::Main::manage_nic_session(Nic_session_component &session)
 {
 	ASSERT(!_nic_session_ptr);
 	_nic_session_ptr = &session;
-	log("[nic] session created!");
+	log_if(_verbose, "[nic] session created!");
 }
 
 
@@ -847,7 +839,7 @@ void Nic_uplink::Main::dissolve_uplink_session(Uplink_session_component &session
 {
 	ASSERT(_uplink_session_ptr == &session);
 	_uplink_session_ptr = nullptr;
-	log("[uplink] session dissolved!");
+	log_if(_verbose, "[uplink] session dissolved!");
 }
 
 
@@ -855,7 +847,7 @@ void Nic_uplink::Main::dissolve_nic_session(Nic_session_component &session)
 {
 	ASSERT(_nic_session_ptr == &session);
 	_nic_session_ptr = nullptr;
-	log("[nic] session dissolved!");
+	log_if(_verbose, "[nic] session dissolved!");
 }
 
 

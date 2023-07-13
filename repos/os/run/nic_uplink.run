@@ -1,11 +1,23 @@
-append build_components {
-	core init timer server/nic_uplink app/ping }
+proc test_timeout { } {
+	if {[have_spec sel4] && [have_board pc]} { return 60 }
+	return 30
+}
 
-build $build_components
+proc dst_ip { } {
+	if {[expr ![have_include power_on/qemu]]} {
+		return "10.0.0.2"
+	} else {
+		return "10.0.2.2"
+	}
+}
+
+build { server/nic_uplink app/ping }
 
 create_boot_directory
 
-import_from_depot [depot_user]/pkg/[drivers_nic_pkg]
+import_from_depot [depot_user]/src/[base_src] \
+                  [depot_user]/pkg/[drivers_nic_pkg] \
+                  [depot_user]/src/init
 
 append config {
 
@@ -35,7 +47,7 @@ append config {
 			</route>
 		</start>
 
-		<start name="drivers" caps="1000" managing_system="yes">
+		<start name="drivers" caps="1200" managing_system="yes">
 			<resource name="RAM" quantum="32M"/>
 			<binary name="init"/>
 			<route>
@@ -59,6 +71,7 @@ append config {
 				<service name="Uplink"/>
 				<service name="Nic"/>
 			</provides>
+			<config verbose="yes"/>
 			<route>
 				<service name="Timer">  <child name="timer"/> </service>
 				<service name="PD"> <parent/> </service>
@@ -68,18 +81,18 @@ append config {
 			</route>
 		</start>
 
-	<start name="ping" caps="100">
-		<resource name="RAM" quantum="8M"/>
-		<config dst_ip="10.0.2.2" period_sec="1" count="3"/>
-		<route>
-			<service name="Nic"> <child name="nic_uplink"/> </service>
+		<start name="ping" caps="100">
+			<resource name="RAM" quantum="8M"/>
+			<config dst_ip="} [dst_ip] {" period_sec="1" count="3"/>
+			<route>
+				<service name="Nic"> <child name="nic_uplink"/> </service>
 				<service name="Timer">  <child name="timer"/> </service>
 				<service name="PD"> <parent/> </service>
 				<service name="ROM"> <parent/> </service>
 				<service name="LOG"> <parent/> </service>
 				<service name="CPU"> <parent/> </service>
-		</route>
-	</start>
+			</route>
+		</start>
 
 	</config>
 }
@@ -91,4 +104,4 @@ build_boot_image [build_artifacts]
 append qemu_args " -nographic "
 append_qemu_nic_args
 
-run_genode_until "child \"ping\" exited with exit value 0" 30
+run_genode_until "child \"ping\" exited with exit value 0.*\n" [test_timeout]
