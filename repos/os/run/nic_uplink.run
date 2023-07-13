@@ -70,7 +70,7 @@ append config {
 
 	<start name="ping" caps="100">
 		<resource name="RAM" quantum="8M"/>
-		<config interface="10.0.2.55/24" gateway="10.0.2.2" dst_ip="10.0.2.2" period_sec="1" count="3"/>
+		<config dst_ip="10.0.2.2" period_sec="1" count="3"/>
 		<route>
 			<service name="Nic"> <child name="nic_uplink"/> </service>
 				<service name="Timer">  <child name="timer"/> </service>
@@ -89,6 +89,6 @@ install_config $config
 build_boot_image [build_artifacts]
 
 append qemu_args " -nographic "
-append_qemu_nic_args "ipv6=on"
+append_qemu_nic_args
 
-run_genode_until "foobar" 30
+run_genode_until "child \"ping\" exited with exit value 0" 30
