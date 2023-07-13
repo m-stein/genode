@@ -109,7 +109,7 @@ time_t Timer::_duration() const
 	 *    ensure that we use a pre-IRQ (non-wrapped) counter value.
 	 */
 	Device::Cnt::access_t const curr_cnt { _device.read<Device::Cnt>() };
-	if (_device.read<Device::Sr::Ocif>()) {
+	if (_device.read<Device::Sr::Ocif>())
 		return _max_value() - _device.read<Device::Cnt>() + initial_cnt;
 	else
 		return initial_cnt - curr_cnt;
