@@ -32,7 +32,7 @@ struct Sculpt::Nic_target : Noncopyable
 	 * config is provided, it takes precedence over the 'UNDEFINED' managed
 	 * state.
 	 */
-	enum Type { UNDEFINED, OFF, DISCONNECTED, WIRED, WIFI, MODEM };
+	enum Type { UNDEFINED, OFF, DISCONNECTED, WIRED_NO_ROUTER, WIRED, WIFI, MODEM };
 
 	/**
 	 * Interactive selection by the user, used when managed policy is in effect
@@ -68,16 +68,18 @@ struct Sculpt::Nic_target : Noncopyable
 		return (result == UNDEFINED) ? OFF : result;
 	}
 
-	bool local() const { return type() == DISCONNECTED; }
-	bool wired() const { return type() == WIRED; }
-	bool wifi()  const { return type() == WIFI; }
-	bool modem() const { return type() == MODEM; }
+	bool local()           const { return type() == DISCONNECTED; }
+	bool wired()           const { return type() == WIRED; }
+	bool wired_no_router() const { return type() == WIRED_NO_ROUTER; }
+	bool wifi()            const { return type() == WIFI; }
+	bool modem()           const { return type() == MODEM; }
 
-	bool nic_router_needed() const { return type() != OFF; }
+	bool nic_router_needed() const { return type() != OFF && type() != WIRED_NO_ROUTER; }
 
-	bool ready() const { return type() == WIRED ||
-	                            type() == WIFI  ||
-	                            type() == MODEM ||
+	bool ready() const { return type() == WIRED           ||
+	                            type() == WIRED_NO_ROUTER ||
+	                            type() == WIFI            ||
+	                            type() == MODEM           ||
 	                            type() == DISCONNECTED; }
 };
 

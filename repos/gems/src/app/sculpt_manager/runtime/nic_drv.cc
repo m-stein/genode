@@ -14,7 +14,8 @@
 #include <runtime.h>
 #include <uplink_session/uplink_session.h>
 
-void Sculpt::gen_nic_drv_start_content(Xml_generator &xml)
+void Sculpt::gen_nic_drv_start_content(Xml_generator &xml,
+                                       char const *uplink_server_child_name)
 {
 	gen_common_start_content(xml, "nic_drv",
 	                         Cap_quota{300}, Ram_quota{20*1024*1024},
@@ -28,7 +29,7 @@ void Sculpt::gen_nic_drv_start_content(Xml_generator &xml)
 
 		gen_service_node<Uplink::Session>(xml, [&] () {
 			xml.node("child", [&] () {
-				xml.attribute("name", "nic_router"); }); });
+				xml.attribute("name", uplink_server_child_name); }); });
 
 		gen_service_node<Platform::Session>(xml, [&] () {
 			xml.node("parent", [&] () {

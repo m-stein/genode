@@ -60,6 +60,7 @@ struct Sculpt::Fs_dialog : Noncopyable, Dialog
 			});
 		}
 
+log("3 ", _used_target.valid(), " ", _used_target == _target, " ", _used_target.device, " ", _target.device);
 		if (!_used_target.valid() || _used_target == _target) {
 			xml.node("button", [&] () {
 				_use_item.gen_button_attr(xml, "use");

@@ -24,6 +24,7 @@
 #include <runtime/gpt_write.cc>
 #include <runtime/nic_drv.cc>
 #include <runtime/nic_router.cc>
+#include <runtime/nic_uplink.cc>
 #include <runtime/prepare.cc>
 #include <runtime/ram_fs.cc>
 #include <runtime/runtime_view.cc>

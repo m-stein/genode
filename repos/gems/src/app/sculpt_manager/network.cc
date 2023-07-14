@@ -55,7 +55,6 @@ void Sculpt::Network::handle_key_press(Codepoint code)
 	_action.update_network_dialog();
 }
 
-
 void Sculpt::Network::_generate_nic_router_config()
 {
 	if (_nic_router_config.try_generate_manually_managed())
@@ -229,11 +228,20 @@ void Sculpt::Network::_handle_nic_router_config(Xml_node config)
 void Sculpt::Network::gen_runtime_start_nodes(Xml_generator &xml) const
 {
 	switch (_nic_target.type()) {
+	case Nic_target::WIRED_NO_ROUTER:
+
+		xml.node("start", [&] () {
+			xml.attribute("version", _nic_drv_version);
+			gen_nic_drv_start_content(xml, "nic_uplink");
+		});
+		xml.node("start", [&] () { gen_nic_uplink_start_content(xml); });
+		break;
+
 	case Nic_target::WIRED:
 
 		xml.node("start", [&] () {
 			xml.attribute("version", _nic_drv_version);
-			gen_nic_drv_start_content(xml);
+			gen_nic_drv_start_content(xml, "nic_router");
 		});
 		xml.node("start", [&] () { gen_nic_router_start_content(xml); });
 		break;

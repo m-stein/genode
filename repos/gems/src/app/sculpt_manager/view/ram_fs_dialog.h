@@ -55,7 +55,9 @@ struct Sculpt::Ram_fs_dialog : Noncopyable, Dialog
 
 	void generate(Xml_generator &xml, Ram_fs_state const &ram_fs_state) const
 	{
+log("1");
 		_fs_dialog.generate(xml, ram_fs_state);
+log("2");
 
 		if (!_used_target.ram_fs() && !ram_fs_state.inspected) {
 			xml.node("button", [&] () {

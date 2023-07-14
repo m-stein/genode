@@ -238,6 +238,10 @@ void Network_dialog::generate(Xml_generator &xml) const
 					if (_pci_info.lan_present)
 						gen_nic_button("wired", Nic_target::WIRED, "Wired");
 
+				if (_nic_target.managed())
+					if (_pci_info.lan_present)
+						gen_nic_button("wired_no_router", Nic_target::WIRED_NO_ROUTER, "Wired (No Router)");
+
 				if (_nic_target.managed() || _nic_target.manual_type == Nic_target::WIFI)
 					if (_pci_info.wifi_present)
 						gen_nic_button("wifi",  Nic_target::WIFI,  "Wifi");
@@ -247,7 +251,7 @@ void Network_dialog::generate(Xml_generator &xml) const
 						gen_nic_button("modem",  Nic_target::MODEM,  "Mobile data");
 			});
 
-			if (_nic_target.wifi() || _nic_target.wired() || _nic_target.modem()) {
+			if (_nic_target.wifi() || _nic_target.wired() || _nic_target.wired_no_router() || _nic_target.modem()) {
 				gen_named_node(xml, "frame", "nic_info", [&] () {
 					xml.node("vbox", [&] () {
 
@@ -294,11 +298,12 @@ Dialog::Hover_result Network_dialog::hover(Xml_node hover)
 
 void Network_dialog::click(Action &action)
 {
-	if (_nic_item.hovered("off"))          action.nic_target(Nic_target::OFF);
-	if (_nic_item.hovered("disconnected")) action.nic_target(Nic_target::DISCONNECTED);
-	if (_nic_item.hovered("wired"))        action.nic_target(Nic_target::WIRED);
-	if (_nic_item.hovered("wifi"))         action.nic_target(Nic_target::WIFI);
-	if (_nic_item.hovered("modem"))        action.nic_target(Nic_target::MODEM);
+	if (_nic_item.hovered("off"))             action.nic_target(Nic_target::OFF);
+	if (_nic_item.hovered("disconnected"))    action.nic_target(Nic_target::DISCONNECTED);
+	if (_nic_item.hovered("wired"))           action.nic_target(Nic_target::WIRED);
+	if (_nic_item.hovered("wired_no_router")) action.nic_target(Nic_target::WIRED_NO_ROUTER);
+	if (_nic_item.hovered("wifi"))            action.nic_target(Nic_target::WIFI);
+	if (_nic_item.hovered("modem"))           action.nic_target(Nic_target::MODEM);
 
 	if (_wifi_connection.connected() && _ap_item.hovered(_wifi_connection.bssid)) {
 		action.wifi_disconnect();

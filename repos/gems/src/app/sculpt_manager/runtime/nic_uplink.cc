@@ -1,7 +1,7 @@
 /*
- * \brief  XML configuration for the NIC router
- * \author Norman Feske
- * \date   2018-05-08
+ * \brief  XML configuration for the NIC Uplink adapter
+ * \author Martin Stein
+ * \date   2018-07-14
  */
 
 /*
@@ -17,10 +17,10 @@
 /* local includes */
 #include <runtime.h>
 
-void Sculpt::gen_nic_router_start_content(Xml_generator &xml)
+void Sculpt::gen_nic_uplink_start_content(Xml_generator &xml)
 {
-	gen_common_start_content(xml, "nic_router",
-	                         Cap_quota{300}, Ram_quota{10*1024*1024},
+	gen_common_start_content(xml, "nic_uplink",
+	                         Cap_quota{100}, Ram_quota{1*1024*1024},
 	                         Priority::NETWORK);
 
 	xml.node("provides", [&] () {
@@ -32,15 +32,16 @@ void Sculpt::gen_nic_router_start_content(Xml_generator &xml)
 		});
 	});
 
+	xml.node("config", [&] () {
+		xml.attribute("verbose", "yes");
+	});
+
 	xml.node("route", [&] () {
-		gen_parent_rom_route(xml, "nic_router");
+		gen_parent_rom_route(xml, "nic_uplink");
 		gen_parent_rom_route(xml, "ld.lib.so");
-		gen_parent_rom_route(xml, "config", "config -> managed/nic_router");
-		gen_parent_route<Cpu_session>     (xml);
-		gen_parent_route<Pd_session>      (xml);
-		gen_parent_route<Rm_session>      (xml);
-		gen_parent_route<Log_session>     (xml);
-		gen_parent_route<Timer::Session>  (xml);
-		gen_parent_route<Report::Session> (xml);
+		gen_parent_route<Cpu_session> (xml);
+		gen_parent_route<Pd_session> (xml);
+		gen_parent_route<Rm_session> (xml);
+		gen_parent_route<Log_session> (xml);
 	});
 }
