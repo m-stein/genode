@@ -33,6 +33,7 @@ _/src/zlib
 _/src/log_core
 _/src/part_block
 _/src/nic_router
+_/src/nic_uplink
 _/src/fs_utils
 _/src/wm
 _/src/themed_decorator
