@@ -1,0 +1,5 @@
+<launcher pkg="ping">
+	<route>
+		<service name="Nic"> <child name="nic_uplink"/> </service>
+	</route>
+</launcher>
