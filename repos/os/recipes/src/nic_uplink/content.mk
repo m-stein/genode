@@ -2,7 +2,9 @@ MIRROR_FROM_REP_DIR := \
 	$(addprefix src/server/nic_router/, \
 		communication_buffer.cc \
 		communication_buffer.h \
-		session_env.h)
+		session_env.h \
+		list.h \
+	)
 
 content: $(MIRROR_FROM_REP_DIR)
 

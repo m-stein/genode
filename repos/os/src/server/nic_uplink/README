@@ -10,10 +10,11 @@ must have the same MAC address as the first one or they will be denied.
 This implies that switching between two network devices is not possible without
 restarting the component.
 
-The component supports only one Uplink session and one NIC session at a time
-and connects them on packet level, i.e., the packets are forwarded without any
-modification. The link state of the NIC session is equal to the existence
-of an Uplink session.
+The component supports only one Uplink session but multiple NIC session at a
+time. A packet received at the Uplink session is forwarded unmodified to all
+NIC sessions that exist at that time. A packet received at a NIC session is
+forwarded to the one Uplink session if it exists. The link state of each NIC
+session is equal to the existence of an Uplink session.
 
 This is an exemplary configuration of the component:
 

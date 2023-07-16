@@ -24,6 +24,7 @@
 /* nic_router includes */
 #include <session_env.h>
 #include <communication_buffer.h>
+#include <list.h>
 
 /* os includes */
 #include <net/ethernet.h>
@@ -64,6 +65,8 @@ namespace Net {
 	class Nic_session_component_base;
 	class Nic_session_component;
 	class Nic_session_root;
+	using Nic_session_list_item = List_element<Nic_session_component>;
+	using Nic_session_list = Net::List<Nic_session_list_item>;
 }
 
 
@@ -247,6 +250,7 @@ class Net::Nic_session_component
 		Network_interface _net_if;
 		Signal_handler<Nic_session_component> _pkt_stream_signal_handler;
 		Signal_context_capability _link_state_sigh { };
+		Nic_session_list_item _list_item { this };
 
 		void _handle_pkt_stream_signal();
 
@@ -278,6 +282,9 @@ class Net::Nic_session_component
 
 		Ram_dataspace_capability ram_ds() const { return _ram_ds; };
 		Session_env const &session_env() const { return _session_env; };
+
+		template <typename FUNC>
+		void with_list_item(FUNC && func) { func(_list_item); }
 };
 
 
@@ -316,7 +323,7 @@ class Nic_uplink::Main
 		Quota _shared_quota { };
 		Heap _heap { &_env.ram(), &_env.rm() };
 		Uplink_session_component *_uplink_session_ptr { nullptr };
-		Nic_session_component *_nic_session_ptr { nullptr };
+		Nic_session_list _nic_session_list { };
 		Uplink_session_root _uplink_session_root { _env, _heap, _shared_quota, *this };
 		Nic_session_root _nic_session_root { _env, _heap, _shared_quota, *this };
 		bool _nic_service_announced { false };
@@ -349,15 +356,15 @@ class Nic_uplink::Main
 
 		void dissolve_uplink_session(Uplink_session_component &session);
 
-		bool ready_to_manage_nic_session() const { return !_nic_session_ptr; }
-
 		void manage_nic_session(Nic_session_component &session);
 
 		template <typename FUNC>
-		void with_nic_session(FUNC && func)
+		void for_each_nic_session(FUNC && func)
 		{
-			if (_nic_session_ptr)
-				func(*_nic_session_ptr);
+			_nic_session_list.for_each([&] (Nic_session_list_item &list_item)
+			{
+				func(*list_item.object());
+			});
 		}
 
 		void dissolve_nic_session(Nic_session_component &session);
@@ -505,7 +512,7 @@ void Net::Uplink_session_component::_handle_pkt_stream_signal()
 		Ethernet_frame &eth { Ethernet_frame::cast_from(src.start, size_guard) };
 		log_if(_main.verbose(), "[uplink] rcv ", eth);
 
-		_main.with_nic_session([&] (Nic_session_component &nic_session)
+		_main.for_each_nic_session([&] (Nic_session_component &nic_session)
 		{
 			nic_session.forward_packet(src);
 		});
@@ -701,10 +708,6 @@ Net::Nic_session_root::Nic_session_root(Env &env,
 
 Nic_session_component *Net::Nic_session_root::_create_session(char const *args)
 {
-	if (!_main.ready_to_manage_nic_session()) {
-		warning("[nic] failed to manage new session");
-		throw Service_denied();
-	}
 	try {
 		/* create session environment temporarily on the stack */
 		Session_env session_env_stack { _env, _shared_quota,
@@ -831,7 +834,7 @@ void Nic_uplink::Main::manage_uplink_session(Uplink_session_component &session,
 		_env.parent().announce(_env.ep().manage(_nic_session_root));
 		_nic_service_announced = true;
 	}
-	with_nic_session([&] (Nic_session_component &nic_session)
+	for_each_nic_session([&] (Nic_session_component &nic_session)
 	{
 		nic_session.submit_link_state_signal();
 	});
@@ -841,8 +844,10 @@ void Nic_uplink::Main::manage_uplink_session(Uplink_session_component &session,
 
 void Nic_uplink::Main::manage_nic_session(Nic_session_component &session)
 {
-	ASSERT(!_nic_session_ptr);
-	_nic_session_ptr = &session;
+	session.with_list_item([&] (Nic_session_list_item &item)
+	{
+		_nic_session_list.insert(&item);
+	});
 	log_if(_verbose, "[nic] session created!");
 }
 
@@ -851,7 +856,7 @@ void Nic_uplink::Main::dissolve_uplink_session(Uplink_session_component &session
 {
 	ASSERT(_uplink_session_ptr == &session);
 	_uplink_session_ptr = nullptr;
-	with_nic_session([&] (Nic_session_component &nic_session)
+	for_each_nic_session([&] (Nic_session_component &nic_session)
 	{
 		nic_session.submit_link_state_signal();
 	});
@@ -861,8 +866,10 @@ void Nic_uplink::Main::dissolve_uplink_session(Uplink_session_component &session
 
 void Nic_uplink::Main::dissolve_nic_session(Nic_session_component &session)
 {
-	ASSERT(_nic_session_ptr == &session);
-	_nic_session_ptr = nullptr;
+	session.with_list_item([&] (Nic_session_list_item &item)
+	{
+		_nic_session_list.remove(&item);
+	});
 	log_if(_verbose, "[nic] session dissolved!");
 }
 
