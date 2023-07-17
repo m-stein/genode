@@ -53,6 +53,7 @@ class Tresor::Superblock_control_request : public Module_request
 		Number_of_blocks      _nr_of_blks        { 0 };
 		bool                  _success           { false };
 		bool                  _request_finished  { false };
+		addr_t                _generation_ptr    { 0 };
 
 	public:
 
@@ -71,7 +72,8 @@ class Tresor::Superblock_control_request : public Module_request
 		                   uint64_t          client_req_offset,
 		                   uint64_t          client_req_tag,
 		                   Number_of_blocks  nr_of_blks,
-		                   uint64_t          vba);
+		                   uint64_t          vba,
+		                   Generation       &gen);
 
 		Superblock::State sb_state() { return _sb_state; }
 
@@ -288,6 +290,9 @@ class Tresor::Superblock_control : public Module
 
 		void _execute_sync(Channel &, uint64_t const job_idx, Superblock &,
                            Superblock_index &, Generation &, bool &progress);
+
+		void _execute_create_snap(Channel &, uint64_t const job_idx, Superblock &,
+                                          Superblock_index &, Generation &, bool &progress);
 
 		void _execute_tree_ext_step(Channel           &chan,
 		                            uint64_t           chan_idx,
