@@ -212,6 +212,8 @@ class Tresor::Request_pool_channel
 			TAG_POOL_SB_CTRL_DEINITIALIZE,
 			TAG_POOL_SB_CTRL_INIT_REKEY,
 			TAG_POOL_SB_CTRL_REKEY_VBA,
+			TAG_POOL_SB_CTRL_CREATE_SNAP,
+			TAG_POOL_SB_CTRL_DISCARD_SNAP
 		};
 
 		using Pool_index = uint32_t;
@@ -405,6 +407,11 @@ class Tresor::Request_pool : public Module
 		void _execute_write(Channel &, Index_queue &, Slots_index const, bool &);
 
 		void _execute_sync (Channel &, Index_queue &, Slots_index const, bool &);
+
+		void _execute_create_snap(Channel &channel,
+		                          Index_queue &indices,
+		                          Slots_index const idx,
+		                          bool &progress);
 
 		void _execute_rekey(Channel     &chan,
 		                    Index_queue &indices,

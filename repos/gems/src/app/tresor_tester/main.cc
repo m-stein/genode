@@ -1266,13 +1266,6 @@ class Tresor_tester::Main
 				if (cmd.type() == Command::INVALID) {
 					break;
 				}
-				if (cmd.request_node().op() == Tresor::Request::Operation::CREATE_SNAPSHOT) {
-					warning("skip <request op=\"create_snapshot\"/> command because it is temporarily not supported");
-					_cmd_pool.mark_command_in_progress(cmd.id());
-					_cmd_pool.mark_command_completed(cmd.id(), true);
-					progress = true;
-					continue;
-				}
 				if (cmd.request_node().op() == Tresor::Request::Operation::DISCARD_SNAPSHOT) {
 					warning("skip <request op=\"discard_snapshot\"/> command because it is temporarily not supported");
 					_cmd_pool.mark_command_in_progress(cmd.id());
