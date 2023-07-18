@@ -22,7 +22,7 @@
 #include <assertion.h>
 
 /* nic_router includes */
-#include <session_env.h>
+#include <create_session_guard.h>
 #include <communication_buffer.h>
 #include <list.h>
 
@@ -566,51 +566,34 @@ Net::Uplink_session_root::Uplink_session_root(Env &env,
 Uplink_session_component *
 Net::Uplink_session_root::_create_session(char const *args)
 {
+	Create_session_guard guard { };
 	if (!_main.ready_to_manage_uplink_session()) {
 		log_if(_main.verbose(), "[uplink] failed to manage new session");
 		throw Service_denied();
 	}
 	try {
-		/* create session environment temporarily on the stack */
-		Session_env session_env_stack { _env, _shared_quota,
-			Ram_quota { Arg_string::find_arg(args, "ram_quota").ulong_value(0) },
-			Cap_quota { Arg_string::find_arg(args, "cap_quota").ulong_value(0) } };
+		return guard.create_session<Uplink_session_component>(
+			_env, _shared_quota, args,
+			[&] (Session_env &session_env, void *session_at, Ram_dataspace_capability ram_ds)
+			{
+				enum { MAC_STR_LENGTH = 19 };
+				char mac_str [MAC_STR_LENGTH];
+				Arg mac_arg { Arg_string::find_arg(args, "mac_address") };
 
-		/* alloc/attach RAM block and move session env to base of the block */
-		Ram_dataspace_capability ram_ds {
-			session_env_stack.alloc(sizeof(Session_env) +
-			                        sizeof(Uplink_session_component), CACHED) };
-		try {
-			void * const ram_ptr { session_env_stack.attach(ram_ds) };
-			Session_env &session_env {
-				*construct_at<Session_env>(ram_ptr, session_env_stack) };
-
-			enum { MAC_STR_LENGTH = 19 };
-			char mac_str [MAC_STR_LENGTH];
-			Arg mac_arg { Arg_string::find_arg(args, "mac_address") };
-
-			if (!mac_arg.valid()) {
-				Session_env session_env_stack { session_env };
-				session_env_stack.detach(ram_ptr);
-				session_env_stack.free(ram_ds);
-				log_if(_main.verbose(), "[uplink] failed to find 'mac_address' arg");
-				throw Service_denied();
-			}
-			mac_arg.string(mac_str, MAC_STR_LENGTH, "");
-			Mac_address mac { };
-			ascii_to(mac_str, mac);
-			if (mac == Mac_address { }) {
-				Session_env session_env_stack { session_env };
-				session_env_stack.detach(ram_ptr);
-				session_env_stack.free(ram_ds);
-				log_if(_main.verbose(), "[uplink] malformed 'mac_address' arg");
-				throw Service_denied();
-			}
-			/* create new session object behind session env in the RAM block */
-			try {
+				if (!mac_arg.valid()) {
+					log_if(_main.verbose(), "[uplink] failed to find 'mac_address' arg");
+					throw Service_denied();
+				}
+				mac_arg.string(mac_str, MAC_STR_LENGTH, "");
+				Mac_address mac { };
+				ascii_to(mac_str, mac);
+				if (mac == Mac_address { }) {
+					log_if(_main.verbose(), "[uplink] malformed 'mac_address' arg");
+					throw Service_denied();
+				}
 				Uplink_session_component &session {
 					*construct_at<Uplink_session_component>(
-						(void*)((addr_t)ram_ptr + sizeof(Session_env)),
+						session_at,
 						session_env,
 						Arg_string::find_arg(args, "tx_buf_size").ulong_value(0),
 						Arg_string::find_arg(args, "rx_buf_size").ulong_value(0),
@@ -618,42 +601,15 @@ Net::Uplink_session_root::_create_session(char const *args)
 
 				_main.manage_uplink_session(session, mac);
 				return &session;
-			}
-			catch (Out_of_ram) {
-				Session_env session_env_stack { session_env };
-				session_env_stack.detach(ram_ptr);
-				session_env_stack.free(ram_ds);
-				log_if(_main.verbose(), "[uplink] insufficient session RAM quota");
-				throw Insufficient_ram_quota();
-			}
-			catch (Out_of_caps) {
-				Session_env session_env_stack { session_env };
-				session_env_stack.detach(ram_ptr);
-				session_env_stack.free(ram_ds);
-				log_if(_main.verbose(), "[uplink] insufficient session CAP quota");
-				throw Insufficient_cap_quota();
-			}
-		}
-		catch (Region_map::Invalid_dataspace) {
-			session_env_stack.free(ram_ds);
-			log_if(_main.verbose(), "[uplink] failed to attach RAM");
-			throw Service_denied();
-		}
-		catch (Region_map::Region_conflict) {
-			session_env_stack.free(ram_ds);
-			log_if(_main.verbose(), "[uplink] failed to attach RAM");
-			throw Service_denied();
-		}
-		catch (Out_of_ram) {
-			session_env_stack.free(ram_ds);
-			log_if(_main.verbose(), "[uplink] insufficient session RAM quota");
-			throw Insufficient_ram_quota();
-		}
-		catch (Out_of_caps) {
-			session_env_stack.free(ram_ds);
-			log_if(_main.verbose(), "[uplink] insufficient session CAP quota");
-			throw Insufficient_cap_quota();
-		}
+			});
+	}
+	catch (Region_map::Invalid_dataspace) {
+		log_if(_main.verbose(), "[uplink] failed to attach RAM");
+		throw Service_denied();
+	}
+	catch (Region_map::Region_conflict) {
+		log_if(_main.verbose(), "[uplink] failed to attach RAM");
+		throw Service_denied();
 	}
 	catch (Out_of_ram) {
 		log_if(_main.verbose(), "[uplink] insufficient session RAM quota");
@@ -708,27 +664,15 @@ Net::Nic_session_root::Nic_session_root(Env &env,
 
 Nic_session_component *Net::Nic_session_root::_create_session(char const *args)
 {
+	Create_session_guard guard { };
 	try {
-		/* create session environment temporarily on the stack */
-		Session_env session_env_stack { _env, _shared_quota,
-			Ram_quota { Arg_string::find_arg(args, "ram_quota").ulong_value(0) },
-			Cap_quota { Arg_string::find_arg(args, "cap_quota").ulong_value(0) } };
-
-		/* alloc/attach RAM block and move session env to base of the block */
-		Ram_dataspace_capability ram_ds {
-			session_env_stack.alloc(sizeof(Session_env) +
-			                        sizeof(Nic_session_component), CACHED) };
-		try {
-			void * const ram_ptr { session_env_stack.attach(ram_ds) };
-			Session_env &session_env {
-				*construct_at<Session_env>(ram_ptr, session_env_stack) };
-
-			/* create new session object behind session env in the RAM block */
-			try {
+		return guard.create_session<Nic_session_component>(
+			_env, _shared_quota, args,
+			[&] (Session_env &session_env, void *session_at, Ram_dataspace_capability ram_ds)
+			{
 				Nic_session_component &session {
 					*construct_at<Nic_session_component>(
-						(void*)((addr_t)ram_ptr + sizeof(Session_env)),
-						session_env,
+						session_at, session_env,
 						Arg_string::find_arg(args, "tx_buf_size").ulong_value(0),
 						Arg_string::find_arg(args, "rx_buf_size").ulong_value(0),
 						ram_ds, _main) };
@@ -736,41 +680,15 @@ Nic_session_component *Net::Nic_session_root::_create_session(char const *args)
 				_main.manage_nic_session(session);
 				return &session;
 			}
-			catch (Out_of_ram) {
-				Session_env session_env_stack { session_env };
-				session_env_stack.detach(ram_ptr);
-				session_env_stack.free(ram_ds);
-				log_if(_main.verbose(), "[nic] insufficient session RAM quota");
-				throw Insufficient_ram_quota();
-			}
-			catch (Out_of_caps) {
-				Session_env session_env_stack { session_env };
-				session_env_stack.detach(ram_ptr);
-				session_env_stack.free(ram_ds);
-				log_if(_main.verbose(), "[nic] insufficient session CAP quota");
-				throw Insufficient_cap_quota();
-			}
-		}
-		catch (Region_map::Invalid_dataspace) {
-			session_env_stack.free(ram_ds);
-			log_if(_main.verbose(), "[nic] failed to attach RAM");
-			throw Service_denied();
-		}
-		catch (Region_map::Region_conflict) {
-			session_env_stack.free(ram_ds);
-			log_if(_main.verbose(), "[nic] failed to attach RAM");
-			throw Service_denied();
-		}
-		catch (Out_of_ram) {
-			session_env_stack.free(ram_ds);
-			log_if(_main.verbose(), "[nic] insufficient session RAM quota");
-			throw Insufficient_ram_quota();
-		}
-		catch (Out_of_caps) {
-			session_env_stack.free(ram_ds);
-			log_if(_main.verbose(), "[nic] insufficient session CAP quota");
-			throw Insufficient_cap_quota();
-		}
+		);
+	}
+	catch (Region_map::Invalid_dataspace) {
+		log_if(_main.verbose(), "[nic] failed to attach RAM");
+		throw Service_denied();
+	}
+	catch (Region_map::Region_conflict) {
+		log_if(_main.verbose(), "[nic] failed to attach RAM");
+		throw Service_denied();
 	}
 	catch (Out_of_ram) {
 		log_if(_main.verbose(), "[nic] insufficient session RAM quota");
