@@ -1,11 +1,14 @@
 <runtime ram="25M" caps="600" binary="init">
 
+	<requires> <timer/> <platform/> </requires>
+
 	<provides> <nic/> </provides>
 
 	<content>
 		<rom label="ld.lib.so"/>
 		<rom label="nic_uplink"/>
-		<rom label="nic_drv"/>
+		<rom label="pc_nic_drv"/>
+		<rom label="init"/>
 	</content>
 
 	<config>
@@ -53,7 +56,7 @@
 				<service name="CPU"> <parent/> </service>
 				<service name="LOG"> <parent/> </service>
 				<service name="Timer"> <parent/> </service>
-				<service name="Platform"> <parent/> </service>
+				<service name="Platform"> <parent label="nic"/> </service>
 			</route>
 			<config> <report mac_address="yes"/> </config>
 		</start>
