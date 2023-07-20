@@ -19,8 +19,6 @@
 /* Genode includes */
 #include <util/xml_node.h>
 
-enum { PKT_SIZE = 1024 };
-
 struct Send_buffer_too_small : Genode::Exception { };
 struct Bad_send_dhcp_args    : Genode::Exception { };
 
@@ -109,7 +107,7 @@ void Dhcp_client::_handle_timeout(Duration)
 	switch (_state) {
 	case State::BOUND: _rerequest(State::RENEW);  break;
 	case State::RENEW: _rerequest(State::REBIND); break;
-	case State::REBIND: _nic.discard_ip_config(); [[fallthrough]];
+	case State::REBIND: _handler.discard_ip_config(); [[fallthrough]];
 	default: _discover();
 	}
 }
@@ -271,4 +269,6 @@ void Dhcp_client::_send(Message_type msg_type,
 		ip.total_length(size_guard.head_size() - ip_off);
 		ip.update_checksum();
 	});
+
+	_nic.wakeup_source();
 }

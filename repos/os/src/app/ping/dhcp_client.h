@@ -44,6 +44,8 @@ class Net::Dhcp_client_handler
 {
 	public:
 
+		virtual void discard_ip_config() = 0;
+
 		virtual void ip_config(Ipv4_config const &ip_config) = 0;
 
 		virtual Ipv4_config const &ip_config() const = 0;
