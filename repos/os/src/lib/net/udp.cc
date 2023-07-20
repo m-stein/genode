@@ -21,10 +21,13 @@
 using namespace Net;
 using namespace Genode;
 
+#include <util/formatted_output.h>
+//	Genode::print(output, Genode::Hex_dump{{ (char *)this, sizeof(*this) }}, "\n");
 
 void Net::Udp_packet::print(Genode::Output &output) const
 {
 	Genode::print(output, "UDP ", src_port(), " > ", dst_port(), " ");
+	Genode::print(output, "\n", Genode::Hex_dump{{ (char *)this, sizeof(*this) }}, "\n");
 	if (Dhcp_packet::is_dhcp(this)) {
 		Genode::print(output, *reinterpret_cast<Dhcp_packet const *>(_data));
 	}

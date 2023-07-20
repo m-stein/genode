@@ -23,10 +23,13 @@
 using namespace Genode;
 using namespace Net;
 
+#include <util/formatted_output.h>
+//	Genode::print(output, Genode::Hex_dump{{ (char *)this, sizeof(*this) }}, "\n");
 
 void Net::Ipv4_packet::print(Genode::Output &output) const
 {
 	Genode::print(output, "IPV4 ", src(), " > ", dst(), " ");
+	Genode::print(output, "\n", Genode::Hex_dump{{ (char *)this, sizeof(*this) }}, "\n");
 	switch (protocol()) {
 	case Protocol::TCP:
 		Genode::print(output, *reinterpret_cast<Tcp_packet const *>(_data));

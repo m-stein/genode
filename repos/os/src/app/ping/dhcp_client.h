@@ -85,7 +85,8 @@ class Net::Dhcp_client
 		void _send(Dhcp_packet::Message_type msg_type,
 		           Ipv4_address              client_ip,
 		           Ipv4_address              server_ip,
-		           Ipv4_address              requested_ip);
+		           Ipv4_address              requested_ip,
+		           Genode::size_t            pkt_size);
 
 		void _discover();
 

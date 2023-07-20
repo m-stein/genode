@@ -17,10 +17,13 @@
 #include <net/ipv4.h>
 #include <base/output.h>
 
+#include <util/formatted_output.h>
+//	Genode::print(output, Genode::Hex_dump{{ (char *)this, sizeof(*this) }}, "\n");
 
 void Net::Ethernet_frame::print(Genode::Output &output) const
 {
 	Genode::print(output, "ETH ", src(), " > ", dst(), " ");
+	Genode::print(output, "\n", Genode::Hex_dump{{ (char *)this, sizeof(*this) }}, "\n");
 	switch (type()) {
 	case Ethernet_frame::Type::ARP:
 		Genode::print(output, *reinterpret_cast<Arp_packet const *>(_data));

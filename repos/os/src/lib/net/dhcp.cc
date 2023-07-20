@@ -19,6 +19,8 @@ using namespace Genode;
 
 using Message_type = Net::Dhcp_packet::Message_type;
 
+#include <util/formatted_output.h>
+//	Genode::print(output, Genode::Hex_dump{{ (char *)this, sizeof(*this) }}, "\n");
 
 static char const *msg_type_to_string(Message_type type)
 {
@@ -70,4 +72,5 @@ void Net::Dhcp_packet::print(Genode::Output &output) const
 		Genode::print(output, "DHCP ", opcode_to_string(op()),
 		              " ", client_mac(), " > ", siaddr());
 	}
+	Genode::print(output, "\n", Genode::Hex_dump{{ (char *)this, sizeof(*this) }}, "\n");
 }

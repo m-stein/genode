@@ -117,6 +117,8 @@ class Net::Nic
 				Genode::warning("failed to allocate packet"); }
 		}
 
+		void discard_ip_config() { class Not_implemented { }; throw Not_implemented { }; }
+
 
 		/***************
 		 ** Accessors **

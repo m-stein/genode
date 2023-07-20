@@ -134,7 +134,7 @@ append config {
 			<policy label_prefix="drivers" domain="uplink"/>
 			<policy label_prefix="ping"    domain="downlink"/>
 
-			<domain name="uplink">
+			<domain name="uplink" verbose_packets="yes">
 
 				<nat domain="downlink" icmp-ids="100" udp-ports="100"/>
 

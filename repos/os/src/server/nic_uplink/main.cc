@@ -110,8 +110,8 @@ class Net::Network_interface
 				{
 					void *pkt_base { _source.packet_content(pkt) };
 					generate_pkt(Byte_range_ptr { (char *)pkt_base, pkt_size });
-					Size_guard size_guard1(pkt_size);
-					log_if(_verbose, "[", _label, "] snd ", Ethernet_frame::cast_from(pkt_base, size_guard1));
+					Size_guard size_guard(pkt_size);
+					log_if(_verbose, "[", _label, "] snd ", Ethernet_frame::cast_from(pkt_base, size_guard));
 					_source.try_submit_packet(pkt);
 				},
 				[&] (Packet_stream_source::Alloc_packet_error)
