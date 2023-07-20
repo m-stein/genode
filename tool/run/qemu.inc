@@ -16,7 +16,7 @@ proc qemu_args { } {
 
 proc append_qemu_nic_args { { extra_netdev_args "" } } {
 	global qemu_args
-	append qemu_args " -netdev user,id=net0"
+	append qemu_args " -netdev user,id=net0 -object filter-dump,id=f1,netdev=net0,file=/tmp/dump.dat"
 
 	if { $extra_netdev_args ne "" } {
 		append qemu_args ",$extra_netdev_args"
