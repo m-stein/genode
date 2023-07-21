@@ -1,0 +1,24 @@
+<config arch="">
+
+	<common_routes>
+		<service name="ROM" label_last="ld.lib.so"> <parent/> </service>
+		<service name="ROM" label_last="init">      <parent/> </service>
+		<service name="CPU">   <parent/> </service>
+		<service name="PD">    <parent/> </service>
+		<service name="LOG">   <parent/> </service>
+		<service name="Timer"> <parent/> </service>
+	</common_routes>
+
+	<start pkg="pc_nic">
+		<route>
+			<service name="Platform"> <parent label="nic"/> </service>
+		</route>
+	</start>
+
+	<start pkg="ping">
+		<route>
+			<service name="Nic"> <child name="pc_nic"/> </service>
+		</route>
+	</start>
+
+</config>

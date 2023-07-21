@@ -1,9 +1,7 @@
 # configuration decisions
-drivers: pc
+drivers: net_test-pc
 ram_fs: depot
-
-# selection of launcher-menu entries
-launcher: ping pc_nic
+deploy: net_test-pc
 
 # supplemental depot content added to the system image
-import: pkg/drivers_managed-pc src/pc_nic_drv pkg/pc_nic pkg/ping
+import: pkg/drivers_net_test-pc src/pc_nic_drv pkg/pc_nic pkg/ping
