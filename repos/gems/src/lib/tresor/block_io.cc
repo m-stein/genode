@@ -612,7 +612,8 @@ bool Block_io::_peek_completed_request(uint8_t *buf_ptr,
 			}
 			memcpy(buf_ptr, &req, sizeof(req));
 
-			if (req._pba == 46) {
+			if (VERBOSE_BLOCK_IO) {
+
 				switch (req._type) {
 				case Request::READ:
 				case Request::WRITE:

@@ -209,8 +209,6 @@ void Superblock_control::_execute_write_vba(Channel         &channel,
 {
 	switch (channel._state) {
 	case Channel::State::SUBMITTED:
-
-error("snapshots W ", sb.snapshots);
 		switch (sb.state) {
 		case Superblock::REKEYING: {
 			Virtual_block_address const vba = channel._request._vba;
@@ -846,10 +844,8 @@ void Superblock_control::_execute_create_snap(Channel           &channel,
 	switch (channel._state) {
 	case Channel::State::SUBMITTED:
 
-error("snapshots A ", sb.snapshots);
 		_discard_disposable_snapshots(
 			sb.snapshots, sb.last_secured_generation, curr_gen);
-error("snapshots B ", sb.snapshots);
 
 		sb.last_secured_generation = curr_gen;
 		sb.snapshots.items[sb.curr_snap].keep = true;
@@ -994,7 +990,6 @@ error("snapshots B ", sb.snapshots);
 		channel._request._success = true;
 		channel._state = Channel::State::COMPLETED;
 		progress = true;
-error("snapshots C ", sb.snapshots);
 		break;
 
 	default:
@@ -2103,7 +2098,7 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 		case Channel::READ_VBA_AT_VBD_IN_PROGRESS: chan._state = Channel::READ_VBA_AT_VBD_COMPLETED; break;
 		case Channel::WRITE_VBA_AT_VBD_IN_PROGRESS:
 			chan._state = Channel::WRITE_VBA_AT_VBD_COMPLETED;
-			chan._snapshots.items[0] = gen_req.snapshots_ptr()->items[gen_req.snap_idx()];
+			chan._snapshots.items[0] = gen_req.snapshots_ptr()->items[gen_req.curr_snap_idx()];
 			break;
 		case Channel::REKEY_VBA_IN_VBD_IN_PROGRESS:
 			chan._state = Channel::REKEY_VBA_IN_VBD_COMPLETED;

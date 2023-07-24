@@ -256,18 +256,18 @@ append config {
 
 						<virtual-block-device
 							nr_of_levels="3"
-							nr_of_children="4"
-							nr_of_leafs="16" />
+							nr_of_children="8"
+							nr_of_leafs="64" />
 
 						<free-tree
 							nr_of_levels="3"
-							nr_of_children="4"
-							nr_of_leafs="16" />
+							nr_of_children="8"
+							nr_of_leafs="64" />
 
 					</initialize>
 					<check/>
 					<construct/>
-<!--
+
 					<log string="Step 2: test synchronous write, read"/>
 
 					<request op="write" vba="1"   count="1"   sync="yes" salt="1234"/>
@@ -335,18 +335,25 @@ append config {
 					<destruct/>
 					<check/>
 					<construct/>
--->
+
 					<log string="Step 7: test synchronous snapshot creation"/>
 
-					<request op="write" vba="1" count="1"   sync="yes"/>
+					<request op="write" vba="20" count="3"   sync="yes" salt="7304"/>
 					<request op="create_snapshot"            sync="yes"/>
-					<request op="write" vba="1" count="1"   sync="yes"/>
+					<request op="read"  vba="21" count="1"   sync="yes" salt="7304"/>
+					<request op="write" vba="15" count="10"  sync="yes" salt="9612"/>
+					<request op="write" vba="15" count="4"   sync="yes" salt="6111"/>
+					<request op="read"  vba="21" count="3"   sync="yes" salt="9612"/>
+					<request op="read"  vba="19" count="3"   sync="yes" salt="9612"/>
+					<request op="write" vba="17" count="5"   sync="yes" salt="5353"/>
 					<request op="create_snapshot"            sync="yes"/>
-					<request op="write" vba="1" count="1"   sync="yes"/>
-					<request op="sync"  vba="0" count="16" sync="yes"/>
+					<request op="create_snapshot"            sync="yes"/>
+					<request op="read"  vba="22" count="3"   sync="yes" salt="9612"/>
+					<request op="read"  vba="15" count="2"   sync="yes" salt="6111"/>
+					<request op="write" vba="11" count="6"   sync="yes" salt="5436"/>
+					<request op="sync"  vba="0"  count="256" sync="yes"/>
 					<check/>
 
-<!--
 					<log string="Step 8: test asynchronous snapshot creation"/>
 
 					<request op="write" vba="20" count="3"   sync="no" salt="7384"/>
@@ -427,6 +434,9 @@ append config {
 
 					<log string="Step 11: test asynchronous rekeying (SKIPPED BECAUSE OF KNOWN BUG)"/>
 
+<!-- FIXME: this step would yet trigger a hash mismatch in the
+            VBD rekeying module
+
 					<request op="write" vba="20" count="3"   sync="no" salt="7384"/>
 					<request op="rekey"                      sync="no"/>
 					<request op="read"  vba="21" count="1"   sync="no" salt="7384"/>
@@ -458,6 +468,7 @@ append config {
 					<request op="read"  vba="10" count="2"   sync="no" salt="3758"/>
 					<request op="sync"  vba="0"  count="256" sync="yes"/>
 					<check/>
+-->
 
 					<log string="Step 12: test synchronous free tree extension"/>
 
@@ -1066,7 +1077,6 @@ append config {
 					<request op="create_snapshot" sync="no"/>
 
 					<list-snapshots/>
--->
 
 				</commands>
 
