@@ -214,18 +214,39 @@ Free_tree::_check_type_2_leaf_usable(Snapshots       const &snapshots,
                                      Key_id                 previous_key_id,
                                      Virtual_block_address  rekeying_vba)
 {
+
 	if (node.pba == 0 ||
 	    node.pba == INVALID_PBA ||
 	    node.free_gen > last_secured_gen)
 		return false;
 
 	if (!node.reserved)
+{
+if (node.pba == 80) {
+	log(__func__, " frg ", node.free_gen, " lsg ", last_secured_gen, " res ",
+!node.reserved, " rek ", rekeying, " lki ", node.last_key_id, " pki ",
+previous_key_id, " lav ", node.last_vba, " rkv ", rekeying_vba, " alg ", node.alloc_gen);
+
+log(__func__, " snp ", snapshots);
+log(__func__, " true 1");
+}
 		return true;
+}
 
 	if (rekeying &&
 	    node.last_key_id == previous_key_id &&
 	    node.last_vba < rekeying_vba)
+{
+if (node.pba == 80) {
+	log(__func__, " frg ", node.free_gen, " lsg ", last_secured_gen, " res ",
+!node.reserved, " rek ", rekeying, " lki ", node.last_key_id, " pki ",
+previous_key_id, " lav ", node.last_vba, " rkv ", rekeying_vba, " alg ", node.alloc_gen);
+
+log(__func__, " snp ", snapshots);
+log(__func__, " true 2");
+}
 		return true;
+}
 
 	for (Snapshot const &snap : snapshots.items) {
 		if (snap.valid &&
@@ -233,6 +254,16 @@ Free_tree::_check_type_2_leaf_usable(Snapshots       const &snapshots,
 		    node.alloc_gen < snap.gen + 1)
 			return false;
 	}
+{
+if (node.pba == 80) {
+	log(__func__, " frg ", node.free_gen, " lsg ", last_secured_gen, " res ",
+!node.reserved, " rek ", rekeying, " lki ", node.last_key_id, " pki ",
+previous_key_id, " lav ", node.last_vba, " rkv ", rekeying_vba, " alg ", node.alloc_gen);
+
+log(__func__, " snp ", snapshots);
+log(__func__, " true");
+}
+}
 	return true;
 }
 

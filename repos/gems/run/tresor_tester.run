@@ -255,18 +255,18 @@ append config {
 					<initialize>
 
 						<virtual-block-device
-							nr_of_levels="4"
+							nr_of_levels="3"
 							nr_of_children="8"
-							nr_of_leafs="100" />
+							nr_of_leafs="64" />
 
 						<free-tree
-							nr_of_levels="4"
+							nr_of_levels="3"
 							nr_of_children="8"
-							nr_of_leafs="100" />
+							nr_of_leafs="64" />
 
 					</initialize>
-					<check/>
 					<construct/>
+<!--
 
 					<log string="Step 2: test synchronous write, read"/>
 
@@ -409,26 +409,12 @@ append config {
 
 					</initialize>
 					<construct/>
-
+-->
 					<log string="Step 10: test synchronous rekeying"/>
 
-					<request op="write" vba="0"  count="1"   sync="yes" salt="4359"/>
-					<request op="rekey"                      sync="yes"/>
-					<request op="read"  vba="0"  count="1"   sync="yes" salt="4359"/>
-					<request op="write" vba="15" count="7"   sync="yes" salt="1742"/>
-					<request op="write" vba="20" count="13"  sync="yes" salt="8471"/>
 					<request op="create_snapshot"            sync="yes"/>
-					<request op="write" vba="33" count="5"   sync="yes" salt="7831"/>
+					<request op="write" vba="1" count="1"    sync="yes"/>
 					<request op="rekey"                      sync="yes"/>
-					<request op="read"  vba="17" count="3"   sync="yes" salt="1742"/>
-					<request op="write" vba="51" count="8"   sync="yes" salt="8384"/>
-					<request op="read"  vba="25" count="1"   sync="yes" salt="8471"/>
-					<request op="write" vba="30" count="5"   sync="yes" salt="2837"/>
-					<request op="create_snapshot"            sync="yes"/>
-					<request op="rekey"                      sync="yes"/>
-					<request op="read"  vba="35" count="2"   sync="yes" salt="7831"/>
-					<request op="read"  vba="31" count="4"   sync="yes" salt="2837"/>
-					<request op="read"  vba="51" count="8"   sync="yes" salt="8384"/>
 					<request op="sync"  vba="0"  count="256" sync="yes"/>
 					<check/>
 

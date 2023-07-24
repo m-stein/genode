@@ -292,7 +292,7 @@ class Tresor::Superblock_control : public Module
                            Superblock_index &, Generation &, bool &progress);
 
 		void _execute_create_snap(Channel &, uint64_t const job_idx, Superblock &,
-                                  Superblock_index &, Generation &, bool &progress);
+                                          Superblock_index &, Generation &, bool &progress);
 
 		void _execute_tree_ext_step(Channel           &chan,
 		                            uint64_t           chan_idx,

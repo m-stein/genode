@@ -104,12 +104,10 @@ void Virtual_block_device_request::create(void                  *buf_ptr,
 		req._new_key_id         = key_id;
 		break;
 	case REKEY_VBA:
-		req._snapshots = *snapshots_ptr;
 		req._old_key_id = old_key_id;
 		req._new_key_id = new_key_id;
 		break;
 	case VBD_EXTENSION_STEP:
-		req._snapshots  = *snapshots_ptr;
 		req._pba        = first_pba;
 		req._nr_of_pbas = nr_of_pbas;
 		break;
@@ -975,6 +973,9 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 
 			if (!check_sha256_4k_hash(chan._encoded_blk, snap.hash)) {
 
+Hash hash { };
+calc_sha256_4k_hash(chan._encoded_blk, hash);
+log("read: pba ", chan._generated_prim.blk_nr, " node hash ", snap.hash, " blk hash ", hash);
 				_mark_req_failed(chan, progress, "check root node hash");
 				break;
 			}
@@ -988,6 +989,10 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 			if (!check_sha256_4k_hash(chan._encoded_blk,
 			                          chan._t1_blks.items[parent_lvl].nodes[child_idx].hash)) {
 
+
+Hash hash { };
+calc_sha256_4k_hash(chan._encoded_blk, hash);
+log("read: pba ", chan._generated_prim.blk_nr, " lvl ", parent_lvl, " node ", child_idx, " node hash ", chan._t1_blks.items[parent_lvl].nodes[child_idx].hash, " blk hash ", hash);
 				_mark_req_failed(chan, progress, "check inner node hash");
 				break;
 			}

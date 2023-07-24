@@ -16,13 +16,15 @@
 
 namespace Tresor {
 
-	enum { VERBOSE_MODULE_COMMUNICATION = 0 };
+	enum { VERBOSE_MODULE_COMMUNICATION = 1 };
 	enum { VERBOSE_VBD_EXTENSION        = 0 };
 	enum { VERBOSE_FT_EXTENSION         = 0 };
-	enum { VERBOSE_REKEYING             = 0 };
+	enum { VERBOSE_REKEYING             = 1 };
 	enum { VERBOSE_VBA_ACCESS           = 0 };
 	enum { VERBOSE_CRYPTO               = 0 };
-	enum { VERBOSE_BLOCK_IO             = 0 };
+	enum { VERBOSE_BLOCK_IO             = 1 };
+	enum { VERBOSE_BLOCK_IO_PBA_FILTER  = 1 };
+	enum { VERBOSE_BLOCK_IO_PBA         = 80 };
 	enum { VERBOSE_CHECK                = 0 };
 }
 
