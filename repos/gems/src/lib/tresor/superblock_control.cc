@@ -209,6 +209,8 @@ void Superblock_control::_execute_write_vba(Channel         &channel,
 {
 	switch (channel._state) {
 	case Channel::State::SUBMITTED:
+
+error("snapshots W ", sb.snapshots);
 		switch (sb.state) {
 		case Superblock::REKEYING: {
 			Virtual_block_address const vba = channel._request._vba;
@@ -844,8 +846,10 @@ void Superblock_control::_execute_create_snap(Channel           &channel,
 	switch (channel._state) {
 	case Channel::State::SUBMITTED:
 
+error("snapshots A ", sb.snapshots);
 		_discard_disposable_snapshots(
 			sb.snapshots, sb.last_secured_generation, curr_gen);
+error("snapshots B ", sb.snapshots);
 
 		sb.last_secured_generation = curr_gen;
 		sb.snapshots.items[sb.curr_snap].keep = true;
@@ -990,6 +994,7 @@ void Superblock_control::_execute_create_snap(Channel           &channel,
 		channel._request._success = true;
 		channel._state = Channel::State::COMPLETED;
 		progress = true;
+error("snapshots C ", sb.snapshots);
 		break;
 
 	default:
@@ -1773,8 +1778,8 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 				max_vba(),
 				_sb.state == Superblock::REKEYING ? 1 : 0,
 				req._vba,
-				&_sb.snapshots.items[_sb.curr_snap],
-				nullptr,
+				_sb.curr_snap,
+				&_sb.snapshots,
 				_sb.degree, 0, 0,
 				_curr_gen,
 				chan._curr_key_plaintext.id, 0, 0);
@@ -1804,8 +1809,8 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 				max_vba(),
 				_sb.state == Superblock::REKEYING ? 1 : 0,
 				req._vba,
-				&_sb.snapshots.items[_sb.curr_snap],
-				nullptr,
+				_sb.curr_snap,
+				&_sb.snapshots,
 				_sb.degree, 0, 0,
 				_curr_gen,
 				chan._curr_key_plaintext.id, 0, 0);
@@ -1867,7 +1872,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 				max_vba(),
 				_sb.state == Superblock::REKEYING ? 1 : 0,
 				_sb.rekeying_vba,
-				nullptr,
+				_sb.curr_snap,
 				&_sb.snapshots,
 				_sb.degree,
 				_sb.previous_key.id,
@@ -1900,7 +1905,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 				max_vba(),
 				_sb.state == Superblock::REKEYING ? 1 : 0,
 				0,
-				nullptr,
+				_sb.curr_snap,
 				&_sb.snapshots,
 				_sb.degree,
 				0,
@@ -2098,7 +2103,7 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 		case Channel::READ_VBA_AT_VBD_IN_PROGRESS: chan._state = Channel::READ_VBA_AT_VBD_COMPLETED; break;
 		case Channel::WRITE_VBA_AT_VBD_IN_PROGRESS:
 			chan._state = Channel::WRITE_VBA_AT_VBD_COMPLETED;
-			chan._snapshots.items[0] = *(gen_req.snapshot_ptr());
+			chan._snapshots.items[0] = gen_req.snapshots_ptr()->items[gen_req.snap_idx()];
 			break;
 		case Channel::REKEY_VBA_IN_VBD_IN_PROGRESS:
 			chan._state = Channel::REKEY_VBA_IN_VBD_COMPLETED;

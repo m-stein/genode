@@ -65,7 +65,7 @@ void Virtual_block_device_request::create(void                  *buf_ptr,
                                           uint64_t               vbd_highest_vba,
                                           bool                   rekeying,
                                           Virtual_block_address  vba,
-                                          Snapshot  const       *snapshot_ptr,
+                                          Snapshot_index         snap_idx,
                                           Snapshots const       *snapshots_ptr,
                                           Tree_degree            snapshots_degree,
                                           Key_id                 old_key_id,
@@ -77,30 +77,31 @@ void Virtual_block_device_request::create(void                  *buf_ptr,
 {
 	Virtual_block_device_request req { src_module_id, src_request_id };
 
-	req._type                    = (Type)req_type;
+	req._type= (Type)req_type;
 	req._last_secured_generation = last_secured_generation;
-	req._ft_root_pba_ptr         = (addr_t)ft_root_pba_ptr;
-	req._ft_root_gen_ptr         = (addr_t)ft_root_gen_ptr;
-	req._ft_root_hash_ptr        = (addr_t)ft_root_hash_ptr;
-	req._ft_max_level            = ft_max_level;
-	req._ft_degree               = ft_degree;
-	req._ft_leaves               = ft_leaves;
-	req._mt_root_pba_ptr         = (addr_t)mt_root_pba_ptr;
-	req._mt_root_gen_ptr         = (addr_t)mt_root_gen_ptr;
-	req._mt_root_hash_ptr        = (addr_t)mt_root_hash_ptr;
-	req._mt_max_level            = mt_max_level;
-	req._mt_degree               = mt_degree;
-	req._mt_leaves               = mt_leaves;
-	req._vbd_degree              = vbd_degree;
-	req._vbd_highest_vba         = vbd_highest_vba;
-	req._rekeying                = rekeying;
-	req._vba                     = vba;
+	req._ft_root_pba_ptr = (addr_t)ft_root_pba_ptr;
+	req._ft_root_gen_ptr = (addr_t)ft_root_gen_ptr;
+	req._ft_root_hash_ptr= (addr_t)ft_root_hash_ptr;
+	req._ft_max_level= ft_max_level;
+	req._ft_degree = ft_degree;
+	req._ft_leaves = ft_leaves;
+	req._mt_root_pba_ptr = (addr_t)mt_root_pba_ptr;
+	req._mt_root_gen_ptr = (addr_t)mt_root_gen_ptr;
+	req._mt_root_hash_ptr= (addr_t)mt_root_hash_ptr;
+	req._mt_max_level= mt_max_level;
+	req._mt_degree = mt_degree;
+	req._mt_leaves = mt_leaves;
+	req._vbd_degree= vbd_degree;
+	req._vbd_highest_vba = vbd_highest_vba;
+	req._rekeying= rekeying;
+	req._vba = vba;
+	req._snap_idx  = snap_idx;
+	req._snapshots  = *snapshots_ptr;
 
 	switch (req_type) {
 	case READ_VBA:
 	case WRITE_VBA:
-		req._snapshots.items[0] = *snapshot_ptr;
-		req._new_key_id         = key_id;
+		req._new_key_id = key_id;
 		break;
 	case REKEY_VBA:
 		req._snapshots = *snapshots_ptr;
@@ -142,7 +143,7 @@ Virtual_block_device_request::Virtual_block_device_request(Module_id         src
 
 Snapshot &Virtual_block_device_channel::snap()
 {
-	return _request._snapshots.items[_snapshot_idx];
+	return _request._snapshots.items[_request._snap_idx];
 }
 
 
@@ -207,8 +208,8 @@ void Virtual_block_device::_execute_read_vba_read_inner_node_completed (Channel 
                                                                         bool           &progress)
 {
 	_check_that_primitive_was_successful(channel._generated_prim);
-
-	auto &snapshot = channel.snapshots(channel._snapshot_idx);
+	Request &req { channel._request };
+	auto &snapshot = channel.snapshots(req._snap_idx);
 
 	_check_hash_of_read_type_1_node(channel, snapshot,
 	                                channel._request._snapshots_degree,
@@ -279,12 +280,9 @@ void Virtual_block_device::_execute_read_vba(Channel &channel,
 	switch (channel._state) {
 	case Channel::State::SUBMITTED:
 	{
-		Request &request  = channel._request;
-
-		channel._snapshot_idx = 0;
-		channel._vba          = request._vba;
-
-		Snapshot &snapshot = channel.snapshots(channel._snapshot_idx);
+		Request &req  = channel._request;
+		channel._vba = req._vba;
+		Snapshot &snapshot = channel.snapshots(req._snap_idx);
 		channel._t1_blk_idx = snapshot.max_level;
 
 		channel._generated_prim = {
@@ -574,13 +572,13 @@ void Virtual_block_device::_execute_write_vba(Channel        &chan,
 	Request &req { chan._request };
 	switch (chan._state) {
 	case Channel::State::SUBMITTED: {
-		Request &request { chan._request };
 
-		chan._snapshot_idx = 0;
-		chan._vba = request._vba;
-		chan._t1_blk_idx = chan.snapshots(chan._snapshot_idx).max_level;
+//error("----- 1 snapshots ", req._snapshots);
+		Request &req { chan._request };
+		chan._vba = req._vba;
+		chan._t1_blk_idx = chan.snapshots(req._snap_idx).max_level;
 
-		_set_args_in_order_to_read_type_1_node(chan.snapshots(chan._snapshot_idx),
+		_set_args_in_order_to_read_type_1_node(chan.snapshots(req._snap_idx),
 		                                       chan._request._snapshots_degree,
 		                                       chan._t1_blk_idx,
 		                                       chan._t1_blks,
@@ -598,9 +596,10 @@ void Virtual_block_device::_execute_write_vba(Channel        &chan,
 		break;
 	}
 	case Channel::State::READ_INNER_NODE_COMPLETED:
+//error("----- 2 snapshots ", req._snapshots);
 
 		_check_that_primitive_was_successful(chan._generated_prim);
-		_check_hash_of_read_type_1_node(chan, chan.snapshots(chan._snapshot_idx),
+		_check_hash_of_read_type_1_node(chan, chan.snapshots(req._snap_idx),
 		                                chan._request._snapshots_degree,
 		                                chan._t1_blk_idx, chan._t1_blks,
 		                                chan._vba);
@@ -608,7 +607,7 @@ void Virtual_block_device::_execute_write_vba(Channel        &chan,
 		if (chan._t1_blk_idx > 1) {
 			chan._t1_blk_idx = chan._t1_blk_idx - 1;
 
-			_set_args_in_order_to_read_type_1_node(chan.snapshots(chan._snapshot_idx),
+			_set_args_in_order_to_read_type_1_node(chan.snapshots(req._snap_idx),
 			                                       chan._request._snapshots_degree,
 			                                       chan._t1_blk_idx,
 			                                       chan._t1_blks,
@@ -625,7 +624,7 @@ void Virtual_block_device::_execute_write_vba(Channel        &chan,
 
 		} else {
 			_initialize_new_pbas_and_determine_nr_of_pbas_to_allocate(req._curr_gen,
-			                                                          chan.snapshots(chan._snapshot_idx),
+			                                                          chan.snapshots(req._snap_idx),
 			                                                          chan._request._snapshots_degree,
 			                                                          chan._vba,
 			                                                          chan._t1_blks,
@@ -634,7 +633,7 @@ void Virtual_block_device::_execute_write_vba(Channel        &chan,
 
 			if (chan._nr_of_blks > 0) {
 				_set_args_for_alloc_of_new_pbas_for_branch_of_written_vba(req._curr_gen,
-				                                                          chan.snapshots(chan._snapshot_idx),
+				                                                          chan.snapshots(req._snap_idx),
 				                                                          chan._request._snapshots_degree,
 				                                                          chan._vba,
 				                                                          chan._t1_blks,
@@ -662,6 +661,7 @@ void Virtual_block_device::_execute_write_vba(Channel        &chan,
 
 		break;
 	case Channel::State::ALLOC_PBAS_AT_LEAF_LVL_COMPLETED:
+//error("----- 3 snapshots ", req._snapshots);
 
 		_check_that_primitive_was_successful(chan._generated_prim);
 
@@ -670,7 +670,7 @@ void Virtual_block_device::_execute_write_vba(Channel        &chan,
 			    chan._nr_of_blks > 1 ? "s" : "");
 
 			for (Tree_level_index lvl = TREE_MAX_LEVEL; ; lvl--) {
-				if (lvl <= chan.snapshots(chan._snapshot_idx).max_level) {
+				if (lvl <= chan.snapshots(req._snap_idx).max_level) {
 					Type_1_node &node = chan._t1_node_walk.nodes[lvl];
 					log("    lvl ", lvl, " gen ", (Generation)node.gen,
 					    " pba ", (Physical_block_address)node.pba, " -> ",
@@ -693,15 +693,16 @@ void Virtual_block_device::_execute_write_vba(Channel        &chan,
 		break;
 
 	case Channel::State::WRITE_CLIENT_DATA_TO_LEAF_NODE_COMPLETED:
+//error("----- 4 snapshots ", req._snapshots);
 
 		_check_that_primitive_was_successful(chan._generated_prim);
 		_update_nodes_of_branch_of_written_vba(
-			chan.snapshots(chan._snapshot_idx),
+			chan.snapshots(req._snap_idx),
 			chan._request._snapshots_degree, chan._vba,
 			chan._new_pbas, chan._hash, req._curr_gen, chan._t1_blks);
 
 		_set_args_for_write_back_of_t1_lvl(
-			chan.snapshots(chan._snapshot_idx).max_level, chan._t1_blk_idx,
+			chan.snapshots(req._snap_idx).max_level, chan._t1_blk_idx,
 			chan._new_pbas.pbas[chan._t1_blk_idx], job_idx, chan._state,
 			progress, chan._generated_prim);
 
@@ -712,12 +713,13 @@ void Virtual_block_device::_execute_write_vba(Channel        &chan,
 		break;
 
 	case Channel::State::WRITE_INNER_NODE_COMPLETED:
+//error("----- 5 snapshots ", req._snapshots);
 
 		_check_that_primitive_was_successful(chan._generated_prim);
 		chan._t1_blk_idx = chan._t1_blk_idx + 1;
 
 		_set_args_for_write_back_of_t1_lvl(
-			chan.snapshots(chan._snapshot_idx).max_level,
+			chan.snapshots(req._snap_idx).max_level,
 			chan._t1_blk_idx, chan._new_pbas.pbas[chan._t1_blk_idx],
 			job_idx, chan._state, progress, chan._generated_prim);
 
@@ -727,6 +729,7 @@ void Virtual_block_device::_execute_write_vba(Channel        &chan,
 
 		break;
 	case Channel::State::WRITE_ROOT_NODE_COMPLETED:
+//error("----- 6 snapshots ", req._snapshots);
 
 		_check_that_primitive_was_successful(chan._generated_prim);
 		chan._state = Channel::State::COMPLETED;
@@ -799,7 +802,7 @@ Virtual_block_device::_find_next_snap_to_rekey_vba_at(Channel const  &chan,
 {
 	bool next_snap_idx_valid { false };
 	Request const &req { chan._request };
-	Snapshot const &old_snap { req._snapshots.items[chan._snapshot_idx] };
+	Snapshot const &old_snap { req._snapshots.items[req._snap_idx] };
 
 	for (Snapshot_index snap_idx { 0 };
 	     snap_idx < MAX_NR_OF_SNAPSHOTS;
@@ -836,7 +839,8 @@ _set_args_for_alloc_of_new_pbas_for_rekeying(Channel          &chan,
 {
 	bool const for_curr_gen_blks { chan._first_snapshot };
 	Generation const curr_gen { chan._request._curr_gen };
-	Snapshot const &snap { chan._request._snapshots.items[chan._snapshot_idx] };
+	Request const &req { chan._request };
+	Snapshot const &snap { chan._request._snapshots.items[req._snap_idx] };
 	Tree_degree const snap_degree { chan._request._snapshots_degree };
 	Virtual_block_address const vba { chan._request._vba };
 	Type_1_node_blocks const &t1_blks { chan._t1_blks };
@@ -939,15 +943,15 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 			class Exception_1 { };
 			throw Exception_1 { };
 		}
-		chan._snapshot_idx = first_snap_idx;
+		req._snap_idx = first_snap_idx;
 		chan._first_snapshot = true;
 
-		Snapshot const &snap { req._snapshots.items[chan._snapshot_idx] };
+		Snapshot const &snap { req._snapshots.items[req._snap_idx] };
 		chan._t1_blk_idx = snap.max_level;
 		chan._t1_blks_old_pbas.items[chan._t1_blk_idx] = snap.pba;
 
 		if (VERBOSE_REKEYING) {
-			log("    snapshot ", chan._snapshot_idx, ":");
+			log("    snapshot ", req._snap_idx, ":");
 			log("      lvl ", (Tree_level_index)snap.max_level + 1,
 			    ": old snap: ", snap);
 		}
@@ -969,7 +973,7 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 		if (_handle_failed_generated_req(chan, progress))
 			break;
 
-		Snapshot const &snap { req._snapshots.items[chan._snapshot_idx] };
+		Snapshot const &snap { req._snapshots.items[req._snap_idx] };
 		if (chan._t1_blk_idx == snap.max_level) {
 
 			if (!check_sha256_4k_hash(chan._encoded_blk, snap.hash)) {
@@ -1219,7 +1223,7 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 		if (_handle_failed_generated_req(chan, progress))
 			break;
 
-		Snapshot               const &snap       { req._snapshots.items[chan._snapshot_idx] };
+		Snapshot               const &snap       { req._snapshots.items[req._snap_idx] };
 		Tree_level_index       const  parent_lvl { chan._t1_blk_idx + 1 };
 		Tree_level_index       const  child_lvl  { chan._t1_blk_idx };
 		Physical_block_address const  child_pba  { chan._new_pbas.pbas[child_lvl] };
@@ -1256,7 +1260,7 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 		if (_handle_failed_generated_req(chan, progress))
 			break;
 
-		Snapshot                     &snap      { req._snapshots.items[chan._snapshot_idx] };
+		Snapshot                     &snap      { req._snapshots.items[req._snap_idx] };
 		Tree_level_index       const  child_lvl { chan._t1_blk_idx };
 		Physical_block_address const  child_pba { chan._new_pbas.pbas[child_lvl] };
 
@@ -1270,8 +1274,8 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 		Snapshot_index next_snap_idx { 0 };
 		if (_find_next_snap_to_rekey_vba_at(chan, next_snap_idx)) {
 
-			chan._snapshot_idx = next_snap_idx;
-			Snapshot const &snap { req._snapshots.items[chan._snapshot_idx] };
+			req._snap_idx = next_snap_idx;
+			Snapshot const &snap { req._snapshots.items[req._snap_idx] };
 
 			chan._first_snapshot = false;
 			chan._t1_blk_idx = snap.max_level;
@@ -1293,7 +1297,7 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 				progress = true;
 
 				if (VERBOSE_REKEYING)
-					log("    snapshot ", chan._snapshot_idx, ":");
+					log("    snapshot ", req._snap_idx, ":");
 			}
 
 		} else {
@@ -1321,8 +1325,8 @@ void Virtual_block_device::
 _add_new_root_lvl_to_snap_using_pba_contingent(Channel &chan)
 {
 	Request                &req     { chan._request };
-	Snapshot_index const    old_idx { chan._snapshot_idx };
-	Snapshot_index         &idx     { chan._snapshot_idx };
+	Snapshot_index const    old_idx { req._snap_idx };
+	Snapshot_index         &idx     { req._snap_idx };
 	Snapshot               *snap    { req._snapshots.items };
 	Physical_block_address  new_pba;
 
@@ -1439,7 +1443,7 @@ void
 Virtual_block_device::_set_new_pbas_identical_to_current_pbas(Channel &chan)
 {
 	Request &req { chan._request };
-	Snapshot &snap { chan._request._snapshots.items[chan._snapshot_idx] };
+	Snapshot &snap { chan._request._snapshots.items[req._snap_idx] };
 
 	for (Tree_level_index lvl { 0 }; lvl <= TREE_MAX_LEVEL; lvl++) {
 
@@ -1472,7 +1476,7 @@ _set_args_for_alloc_of_new_pbas_for_resizing(Channel          &chan,
                                              bool             &progress)
 {
 	Request const &req { chan._request };
-	Snapshot const &snap { req._snapshots.items[chan._snapshot_idx] };
+	Snapshot const &snap { req._snapshots.items[req._snap_idx] };
 
 	if (min_lvl > snap.max_level) {
 
@@ -1563,7 +1567,7 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 			req._curr_gen, req._last_secured_generation);
 
 		req._nr_of_leaves = 0;
-		chan._snapshot_idx = req._snapshots.newest_snapshot_idx();
+		req._snap_idx = req._snapshots.newest_snapshot_idx();
 
 		chan._vba = chan.snap().nr_of_leaves;
 		chan._t1_blk_idx = chan.snap().max_level;
@@ -1581,7 +1585,7 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 
 			if (VERBOSE_VBD_EXTENSION)
 				log("  read lvl ", chan._t1_blk_idx,
-				    " parent snap ", chan._snapshot_idx,
+				    " parent snap ", req._snap_idx,
 				    " ", chan.snap());
 
 			chan._state = Channel::READ_ROOT_NODE_PENDING;
@@ -1590,7 +1594,7 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 		} else {
 
 			_add_new_root_lvl_to_snap_using_pba_contingent(chan);
-			_add_new_branch_to_snap_using_pba_contingent(chan, req._snapshots.items[chan._snapshot_idx].max_level, 1);
+			_add_new_branch_to_snap_using_pba_contingent(chan, req._snapshots.items[req._snap_idx].max_level, 1);
 			_set_new_pbas_identical_to_current_pbas(chan);
 			_set_args_for_write_back_of_t1_lvl(
 				chan.snap().max_level, chan._t1_blk_idx,
@@ -1749,19 +1753,19 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 
 		Tree_level_index       const  child_lvl { chan._t1_blk_idx };
 		Physical_block_address const  child_pba { chan._new_pbas.pbas[child_lvl] };
-		Snapshot               const &old_snap  { req._snapshots.items[chan._snapshot_idx] };
+		Snapshot               const &old_snap  { req._snapshots.items[req._snap_idx] };
 
 		if (old_snap.gen < req._curr_gen) {
 
-			chan._snapshot_idx =
+			req._snap_idx =
 				req._snapshots.idx_of_invalid_or_lowest_gen_evictable_snap(
 					req._curr_gen, req._last_secured_generation);
 
 			if (VERBOSE_VBD_EXTENSION)
-				log("  new snap ", chan._snapshot_idx);
+				log("  new snap ", req._snap_idx);
 		}
 
-		Snapshot &new_snap { req._snapshots.items[chan._snapshot_idx] };
+		Snapshot &new_snap { req._snapshots.items[req._snap_idx] };
 		new_snap = {
 			Hash { }, child_pba, req._curr_gen,
 			old_snap.nr_of_leaves + req._nr_of_leaves, old_snap.max_level,
@@ -1770,7 +1774,7 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 		calc_sha256_4k_hash(chan._encoded_blk, new_snap.hash);
 
 		if (VERBOSE_VBD_EXTENSION)
-			log("  update snap ", chan._snapshot_idx, " ", new_snap);
+			log("  update snap ", req._snap_idx, " ", new_snap);
 
 		_mark_req_successful(chan, progress);
 		break;
@@ -1930,7 +1934,7 @@ bool Virtual_block_device::_peek_generated_request(uint8_t *buf_ptr,
 				req._mt_leaves, &req._snapshots, req._last_secured_generation,
 				req._curr_gen, chan._free_gen, chan._nr_of_blks,
 				(addr_t)&chan._new_pbas, (addr_t)&chan._t1_node_walk,
-				(uint64_t)req._snapshots.items[chan._snapshot_idx].max_level,
+				(uint64_t)req._snapshots.items[req._snap_idx].max_level,
 				chan._vba, req._vbd_degree, req._vbd_highest_vba,
 				req._rekeying, req._old_key_id, req._new_key_id, chan._vba);
 

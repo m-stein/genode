@@ -41,6 +41,7 @@ class Tresor::Virtual_block_device_request : public Module_request
 		Type                   _type                    { INVALID };
 		Virtual_block_address  _vba                     { 0 };
 		Snapshots              _snapshots               { };
+		Snapshot_index         _snap_idx                { 0 };
 		Tree_degree            _snapshots_degree        { 0 };
 		Generation             _curr_gen                { INVALID_GENERATION };
 		Key_id                 _new_key_id              { 0 };
@@ -99,7 +100,7 @@ class Tresor::Virtual_block_device_request : public Module_request
 		                   uint64_t                vbd_highest_vba,
 		                   bool                    rekeying,
 		                   Virtual_block_address   vba,
-		                   Snapshot  const        *snapshot_ptr,
+		                   Snapshot_index          snap_idx,
 		                   Snapshots const        *snapshots_ptr,
 		                   Tree_degree             snapshots_degree,
 		                   Key_id                  old_key_id,
@@ -117,7 +118,7 @@ class Tresor::Virtual_block_device_request : public Module_request
 
 		Number_of_leaves nr_of_leaves() const { return _nr_of_leaves; }
 
-		Snapshot *snapshot_ptr() { return &_snapshots.items[0]; }
+		Snapshot_index snap_idx() const { return _snap_idx; }
 
 		Snapshots *snapshots_ptr() { return &_snapshots; }
 
@@ -232,7 +233,6 @@ class Tresor::Virtual_block_device_channel
 		Virtual_block_device_request _request          { };
 		State                        _state            { SUBMITTED };
 		Generated_prim               _generated_prim   { };
-		Snapshot_index               _snapshot_idx     { 0 };
 		Type_1_node_blocks           _t1_blks          { };
 		Type_1_node_blocks_pbas      _t1_blks_old_pbas { };
 		Tree_level_index             _t1_blk_idx       { 0 };

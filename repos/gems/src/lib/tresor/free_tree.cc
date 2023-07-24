@@ -219,13 +219,29 @@ Free_tree::_check_type_2_leaf_usable(Snapshots       const &snapshots,
 	    node.free_gen > last_secured_gen)
 		return false;
 
-	if (!node.reserved)
+	if (!node.reserved) {
+
+if (node.pba == 46) {
+error("pba ", node.pba);
+error("  snp ", snapshots);
+error("  lsg ", last_secured_gen);
+error("  nod ", node);
+}
 		return true;
+}
 
 	if (rekeying &&
 	    node.last_key_id == previous_key_id &&
 	    node.last_vba < rekeying_vba)
+{
+if (node.pba == 46) {
+error("pba ", node.pba);
+error("  snp ", snapshots);
+error("  lsg ", last_secured_gen);
+error("  nod ", node);
+}
 		return true;
+}
 
 	for (Snapshot const &snap : snapshots.items) {
 		if (snap.valid &&
@@ -233,7 +249,15 @@ Free_tree::_check_type_2_leaf_usable(Snapshots       const &snapshots,
 		    node.alloc_gen < snap.gen + 1)
 			return false;
 	}
+{
+if (node.pba == 46) {
+error("pba ", node.pba);
+error("  snp ", snapshots);
+error("  lsg ", last_secured_gen);
+error("  nod ", node);
+}
 	return true;
+}
 }
 
 
