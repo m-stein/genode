@@ -129,9 +129,7 @@ Free_tree_request::Free_tree_request(uint64_t         src_module_id,
 	_rekeying_vba            { rekeying_vba },
 	_snapshots_ptr           { (addr_t)snapshots_ptr },
 	_last_secured_generation { last_secured_generation }
-{
-	error("BBB ", _rekeying_vba);
-}
+{ }
 
 
 /***************
@@ -216,51 +214,25 @@ Free_tree::_check_type_2_leaf_usable(Snapshots       const &snapshots,
                                      Key_id                 previous_key_id,
                                      Virtual_block_address  rekeying_vba)
 {
-
 	if (node.pba == 0 ||
 	    node.pba == INVALID_PBA ||
 	    node.free_gen > last_secured_gen)
-	{
-		if (node.pba == 80)
-			log("   CHK ",node.pba," VAL => 0");
-
 		return false;
-	}
 
 	if (!node.reserved)
-	{
-		if (node.pba == 80)
-			log("   CHK ",node.pba," RES => 1");
-
 		return true;
-	}
 
 	if (rekeying &&
 	    node.last_key_id == previous_key_id &&
 	    node.last_vba < rekeying_vba)
-	{
-		if (node.pba == 80)
-			log("   CHK ",node.pba," LKI ", node.last_key_id, " PKI ",
-			previous_key_id, " LAV ", node.last_vba, " RKV ", rekeying_vba," => 1");
-
 		return true;
-	}
 
 	for (Snapshot const &snap : snapshots.items) {
 		if (snap.valid &&
 		    node.free_gen > snap.gen &&
 		    node.alloc_gen < snap.gen + 1)
-		{
-			if (node.pba == 80)
-				log("   CHK ",node.pba," SNAP PBA ",snap.pba," GEN ",snap.gen," FGEN ",node.free_gen, " AGEN ",node.alloc_gen," RES => 0");
-
 			return false;
-		}
 	}
-
-	if (node.pba == 80)
-		log("   CHK 80 END => 1");
-
 	return true;
 }
 
@@ -341,7 +313,6 @@ void Free_tree::_execute_scan(Channel         &chan,
 						active_snaps, last_secured_gen,
 						req._rekeying, req._previous_key_id,
 						req._rekeying_vba);
-error("CCC ", req._rekeying_vba);
 				}
 				t1_info.state = Type_1_info::READ;
 				chan._level_n_stacks[lvl].update_top(t1_info);

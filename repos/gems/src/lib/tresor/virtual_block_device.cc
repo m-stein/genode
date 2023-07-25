@@ -974,9 +974,6 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 
 			if (!check_sha256_4k_hash(chan._encoded_blk, snap.hash)) {
 
-Hash hash { };
-calc_sha256_4k_hash(chan._encoded_blk, hash);
-log("read: pba ", chan._generated_prim.blk_nr, " node hash ", snap.hash, " blk hash ", hash);
 				_mark_req_failed(chan, progress, "check root node hash");
 				break;
 			}
@@ -990,10 +987,6 @@ log("read: pba ", chan._generated_prim.blk_nr, " node hash ", snap.hash, " blk h
 			if (!check_sha256_4k_hash(chan._encoded_blk,
 			                          chan._t1_blks.items[parent_lvl].nodes[child_idx].hash)) {
 
-
-Hash hash { };
-calc_sha256_4k_hash(chan._encoded_blk, hash);
-log("read: pba ", chan._generated_prim.blk_nr, " lvl ", parent_lvl, " node ", child_idx, " node hash ", chan._t1_blks.items[parent_lvl].nodes[child_idx].hash, " blk hash ", hash);
 				_mark_req_failed(chan, progress, "check inner node hash");
 				break;
 			}
@@ -1940,8 +1933,6 @@ bool Virtual_block_device::_peek_generated_request(uint8_t *buf_ptr,
 				(uint64_t)req._snapshots.items[chan._snapshot_idx].max_level,
 				chan._vba, req._vbd_degree, req._vbd_highest_vba,
 				req._rekeying, req._old_key_id, req._new_key_id, chan._vba);
-
-	error("AAA ", chan._vba);
 
 			return true;
 		}

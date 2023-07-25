@@ -281,8 +281,6 @@ void Superblock_control::_execute_write_vba(Channel         &channel,
 		channel._state = Channel::State::COMPLETED;
 		progress = true;
 
-		log("write vba, snapshots: ", sb.snapshots);
-
 		break;
 	default:
 		break;
@@ -589,8 +587,6 @@ void Superblock_control::_execute_rekey_vba(Channel  &chan,
 		}
 		_sb.last_secured_generation = chan._generation;
 		_mark_req_successful(chan, progress);
-
-		log("rekey vba, snapshots: ", _sb.snapshots);
 		break;
 
 	default:
@@ -855,8 +851,6 @@ void Superblock_control::_execute_create_snap(Channel           &channel,
 		sb.snapshots.items[sb.curr_snap].keep = true;
 		sb.snapshots.items[sb.curr_snap].gen = curr_gen;
 		_init_sb_without_key_values(sb, channel._sb_ciphertext);
-
-		log("create snap, snapshots: ", sb.snapshots);
 
 		channel._key_plaintext = sb.current_key;
 		channel._generated_prim = {
