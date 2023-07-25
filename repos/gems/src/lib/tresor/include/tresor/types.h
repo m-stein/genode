@@ -219,7 +219,7 @@ struct Tresor::Hash
 
 	void print(Output &out) const
 	{
-		Genode::print(out, Byte_range { bytes, 4 }, "…");
+		Genode::print(out, bytes[0]," ",bytes[1]," ",bytes[2]," ",bytes[3], " …");
 	}
 
 	bool operator == (Hash const &other) const
@@ -238,9 +238,9 @@ struct Tresor::Block
 {
 	uint8_t bytes[BLOCK_SIZE] { 0 };
 
-	void print(Output &out) const
+	void print(Output &/*out*/) const
 	{
-		Genode::print(out, Byte_range { bytes, 16 }, "…");
+		//Genode::print(out, Byte_range { bytes, 16 }, "…");
 	}
 };
 
