@@ -575,6 +575,111 @@ class Vfs_block_io_job
 };
 
 
+struct Byte_range
+{
+	uint8_t const *ptr;
+	size_t         size;
+
+	void print(Output &out) const
+	{
+		using Genode::print;
+
+		enum { MAX_BYTES_PER_LINE = 64 };
+		enum { MAX_BYTES_PER_WORD = 4 };
+
+		if (size > 0xffff) {
+			class Exception_1 { };
+			throw Exception_1 { };
+		}
+		if (size > MAX_BYTES_PER_LINE) {
+
+			for (size_t idx { 0 }; idx < size; idx++) {
+
+				if (idx % MAX_BYTES_PER_LINE == 0)
+					print(out, "\n  ",
+					      Hex((uint16_t)idx, Hex::PREFIX, Hex::PAD), ": ");
+
+				else if (idx % MAX_BYTES_PER_WORD == 0)
+					print(out, " ");
+
+				print(out, Hex(ptr[idx], Hex::OMIT_PREFIX, Hex::PAD));
+			}
+
+		} else {
+
+			for (size_t idx { 0 }; idx < size; idx++) {
+
+				if (idx % MAX_BYTES_PER_WORD == 0 && idx != 0)
+					print(out, " ");
+
+				print(out, Hex(ptr[idx], Hex::OMIT_PREFIX, Hex::PAD));
+			}
+		}
+	}
+};
+
+
+struct Tresor::Hashy
+{
+	uint8_t bytes[HASH_SIZE] { 0 };
+
+	void print(Output &out) const
+	{
+		Genode::print(out, Byte_range { bytes, 4 }, "…");
+	}
+
+	bool operator == (Hashy const &other) const
+	{
+		return !memcmp(bytes, other.bytes, sizeof(bytes));
+	}
+
+	bool operator != (Hashy const &other) const
+	{
+		return !(*this == other);
+	}
+};
+
+
+struct Tresor::Blocky
+{
+	uint8_t bytes[BLOCK_SIZE] { 0 };
+
+	void print(Output &out) const
+	{
+		Genode::print(out, Byte_range { bytes, 16 }, "…");
+	}
+};
+
+
+
+bool Tresor::check_sha256_4k_hash(Blocky const &blk,
+                                  Hashy  const &expected_hash)
+{
+	Hashy got_hash;
+	calc_sha256_4k_hash(blk, got_hash);
+	return got_hash == expected_hash;
+}
+
+
+void Tresor::calc_sha256_4k_hash(Blocky const &blk,
+                                 Hashy        &hash)
+{
+	SHA256_CTX context { };
+	if (!SHA256_Init(&context)) {
+		class Calc_sha256_4k_hash_init_error { };
+		throw Calc_sha256_4k_hash_init_error { };
+	}
+	if (!SHA256_Update(&context, &blk, BLOCK_SIZE)) {
+		class Calc_sha256_4k_hash_update_error { };
+		throw Calc_sha256_4k_hash_update_error { };
+	}
+	if (!SHA256_Final((unsigned char *)(&hash), &context)) {
+		class Calc_sha256_4k_hash_final_error { };
+		throw Calc_sha256_4k_hash_final_error { };
+	}
+}
+
+
 class Vfs_block_io : public Block_io
 {
 	private:
