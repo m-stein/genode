@@ -27,7 +27,7 @@ proc autopilot_cbe_image { } {
 	return /tmp/[cbe_image_name].[exec id -un]
 }
 
-set image_size 1024
+set image_size 256
 if {[info exists ::env(CBE_IMAGE_SIZE)]} {
 	set image_size $::env(CBE_IMAGE_SIZE)
 }
@@ -124,7 +124,7 @@ append config {
 				</dir>
 
 				<dir name="dev">
-					<jitterentropy name="jitterentropy"/>
+					<inline name="jitterentropy">11111111111111111111111111111111</inline>
 					<cbe_trust_anchor name="cbe_trust_anchor"
 					                  storage_dir="/storage"/>
 				</dir>
@@ -256,7 +256,7 @@ append boot_modules [cbe_image_name]
 
 build_boot_image $boot_modules
 
-append qemu_args " -nographic -m 1280 "
+append qemu_args " -nographic -m 512 "
 
 run_genode_until "child \"test\" exited with exit value.*\n" 360
 
