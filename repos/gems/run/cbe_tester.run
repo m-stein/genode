@@ -146,8 +146,8 @@ append config {
 
 			<verbose
 				cmd_pool_cmd_pending="no"
-				cmd_pool_cmd_in_progress="yes"
-				cmd_pool_cmd_completed="yes"
+				cmd_pool_cmd_in_progress="no"
+				cmd_pool_cmd_completed="no"
 				blk_io_req_in_progress="no"
 				blk_io_req_completed="no"
 				ta_req_in_progress="no"
@@ -178,13 +178,13 @@ append config {
 
 						<virtual-block-device
 							nr_of_levels="3"
-							nr_of_children="8"
-							nr_of_leafs="64" />
+							nr_of_children="3"
+							nr_of_leafs="9" />
 
 						<free-tree
 							nr_of_levels="3"
-							nr_of_children="8"
-							nr_of_leafs="64" />
+							nr_of_children="4"
+							nr_of_leafs="11" />
 
 					</initialize>
 					<construct/>
