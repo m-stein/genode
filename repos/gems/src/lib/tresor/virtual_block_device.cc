@@ -905,14 +905,6 @@ _set_args_for_alloc_of_new_pbas_for_rekeying(Channel          &chan,
 			.idx    = chan_idx
 		};
 	}
-
-	log(
-"   alloc: blks ", chan._nr_of_blks,
-"  fgen ", chan._free_gen,
-"  cgen ", curr_gen,
-"  minlvl ", min_lvl);
-	log("      old nodes: ",t1_walk);
-	log("      new pbas: ", chan._new_pbas);
 }
 
 
@@ -924,7 +916,6 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 	switch (chan._state) {
 	case Channel::State::SUBMITTED:
 	{
-log("      vbd ln ", __LINE__);
 		req._snapshots.discard_disposable_snapshots(
 			req._curr_gen, req._last_secured_generation);
 
@@ -973,29 +964,22 @@ log("      vbd ln ", __LINE__);
 		break;
 	}
 	case Channel::READ_ROOT_NODE_COMPLETED:
-log("      vbd ln ", __LINE__);
 	case Channel::READ_INNER_NODE_COMPLETED:
 	{
-log("      vbd ln ", __LINE__);
 		if (_handle_failed_generated_req(chan, progress))
 			break;
 
 		Snapshot const &snap { req._snapshots.items[chan._snapshot_idx] };
 		if (chan._t1_blk_idx == snap.max_level) {
 
-log("      vbd ln ", __LINE__);
 			if (!check_sha256_4k_hash(chan._encoded_blk, snap.hash)) {
 
-Hash hash { };
-calc_sha256_4k_hash(chan._encoded_blk, hash);
-log("read: pba ", chan._generated_prim.blk_nr, " node hash ", snap.hash, " blk hash ", hash);
 				_mark_req_failed(chan, progress, "check root node hash");
 				break;
 			}
 
 		} else {
 
-log("      vbd ln ", __LINE__);
 			Tree_level_index const parent_lvl { chan._t1_blk_idx + 1 };
 			Tree_node_index  const child_idx  {
 				t1_child_idx_for_vba(req._vba, parent_lvl, req._snapshots_degree) };
@@ -1003,17 +987,12 @@ log("      vbd ln ", __LINE__);
 			if (!check_sha256_4k_hash(chan._encoded_blk,
 			                          chan._t1_blks.items[parent_lvl].nodes[child_idx].hash)) {
 
-
-Hash hash { };
-calc_sha256_4k_hash(chan._encoded_blk, hash);
-log("read: pba ", chan._generated_prim.blk_nr, " lvl ", parent_lvl, " node ", child_idx, " node hash ", chan._t1_blks.items[parent_lvl].nodes[child_idx].hash, " blk hash ", hash);
 				_mark_req_failed(chan, progress, "check inner node hash");
 				break;
 			}
 		}
 		if (chan._t1_blk_idx > 1) {
 
-log("      vbd ln ", __LINE__);
 			Tree_level_index const parent_lvl { chan._t1_blk_idx };
 			Tree_level_index const child_lvl  { parent_lvl - 1 };
 			Tree_node_index  const child_idx  {
@@ -1027,7 +1006,6 @@ log("      vbd ln ", __LINE__);
 
 			if (!chan._first_snapshot &&
 			    chan._t1_blks_old_pbas.items[child_lvl] == child.pba) {
-log("      vbd ln ", __LINE__);
 
 				/*
 				 * The rest of this branch has already been rekeyed while
@@ -1040,7 +1018,6 @@ log("      vbd ln ", __LINE__);
 				progress = true;
 
 			} else {
-log("      vbd ln ", __LINE__);
 
 				chan._t1_blk_idx = child_lvl;
 				chan._t1_blks_old_pbas.items[child_lvl] = child.pba;
@@ -1056,7 +1033,6 @@ log("      vbd ln ", __LINE__);
 			}
 
 		} else {
-log("      vbd ln ", __LINE__);
 
 			Tree_level_index const parent_lvl { chan._t1_blk_idx };
 			Tree_node_index  const child_idx  {
@@ -1070,7 +1046,6 @@ log("      vbd ln ", __LINE__);
 
 			if (!chan._first_snapshot
 			    && chan._data_blk_old_pba == child.pba) {
-log("      vbd ln ", __LINE__);
 
 				/*
 				 * The leaf node of this branch has already been rekeyed while
@@ -1084,7 +1059,6 @@ log("      vbd ln ", __LINE__);
 				progress = true;
 
 			} else if (child.gen == INITIAL_GENERATION) {
-log("      vbd ln ", __LINE__);
 
 				/*
 				 * The leaf node of this branch is still unused and can
@@ -1096,7 +1070,6 @@ log("      vbd ln ", __LINE__);
 				progress = true;
 
 			} else {
-log("      vbd ln ", __LINE__);
 
 				chan._data_blk_old_pba = child.pba;
 				chan._generated_prim = {
@@ -1114,7 +1087,6 @@ log("      vbd ln ", __LINE__);
 	}
 	case Channel::READ_LEAF_NODE_COMPLETED:
 	{
-log("      vbd ln ", __LINE__);
 		if (_handle_failed_generated_req(chan, progress))
 			break;
 
@@ -1146,7 +1118,6 @@ log("      vbd ln ", __LINE__);
 		break;
 	}
 	case Channel::DECRYPT_LEAF_NODE_COMPLETED:
-log("      vbd ln ", __LINE__);
 
 		if (_handle_failed_generated_req(chan, progress))
 			break;
@@ -1160,7 +1131,6 @@ log("      vbd ln ", __LINE__);
 		break;
 
 	case Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_COMPLETED:
-log("      vbd ln ", __LINE__);
 
 		if (_handle_failed_generated_req(chan, progress))
 			break;
@@ -1170,7 +1140,6 @@ log("      vbd ln ", __LINE__);
 		break;
 
 	case Channel::ALLOC_PBAS_AT_LEAF_LVL_COMPLETED:
-log("      vbd ln ", __LINE__);
 
 		if (_handle_failed_generated_req(chan, progress))
 			break;
@@ -1192,7 +1161,6 @@ log("      vbd ln ", __LINE__);
 
 	case Channel::ENCRYPT_LEAF_NODE_COMPLETED:
 	{
-log("      vbd ln ", __LINE__);
 		if (_handle_failed_generated_req(chan, progress))
 			break;
 
@@ -1217,7 +1185,6 @@ log("      vbd ln ", __LINE__);
 	}
 	case Channel::WRITE_LEAF_NODE_COMPLETED:
 	{
-log("      vbd ln ", __LINE__);
 		if (_handle_failed_generated_req(chan, progress))
 			break;
 
@@ -1234,7 +1201,7 @@ log("      vbd ln ", __LINE__);
 
 		if (VERBOSE_REKEYING)
 			log("      lvl ", parent_lvl,
-			    ": new t1 node A ", child_idx, ": ", node);
+			    ": new t1 node ", child_idx, ": ", node);
 
 		chan._generated_prim = {
 			.op     = Generated_prim::WRITE,
@@ -1249,7 +1216,6 @@ log("      vbd ln ", __LINE__);
 	}
 	case Channel::WRITE_INNER_NODE_COMPLETED:
 	{
-log("      vbd ln ", __LINE__);
 		if (_handle_failed_generated_req(chan, progress))
 			break;
 
@@ -1267,7 +1233,7 @@ log("      vbd ln ", __LINE__);
 
 		if (VERBOSE_REKEYING)
 			log("      lvl ", parent_lvl,
-			    ": new t1 node B ", child_idx, ": ", node);
+			    ": new t1 node ", child_idx, ": ", node);
 
 		chan._t1_blk_idx++;
 		chan._generated_prim = {
@@ -1287,7 +1253,6 @@ log("      vbd ln ", __LINE__);
 	}
 	case Channel::WRITE_ROOT_NODE_COMPLETED:
 	{
-log("      vbd ln ", __LINE__);
 		if (_handle_failed_generated_req(chan, progress))
 			break;
 
@@ -1310,7 +1275,6 @@ log("      vbd ln ", __LINE__);
 
 			chan._first_snapshot = false;
 			chan._t1_blk_idx = snap.max_level;
-
 			if (chan._t1_blks_old_pbas.items[chan._t1_blk_idx] == snap.pba) {
 
 				progress = true;
@@ -1342,15 +1306,12 @@ log("      vbd ln ", __LINE__);
 		break;
 	}
 	case Channel::ALLOC_PBAS_AT_HIGHER_INNER_LVL_COMPLETED:
-log("      vbd ln ", __LINE__);
 
 		if (_handle_failed_generated_req(chan, progress))
 			break;
 
 		chan._state = Channel::WRITE_INNER_NODE_COMPLETED;
 		progress = true;
-
-	log("   alloc result: ", chan._new_pbas);
 
 	default:
 
