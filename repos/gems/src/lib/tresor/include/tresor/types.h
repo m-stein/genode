@@ -834,12 +834,40 @@ struct Tresor::Superblock
 struct Tresor::Type_1_node_walk
 {
 	Type_1_node nodes[TREE_MAX_NR_OF_LEVELS] { };
+
+	void print(Output &out) const
+	{
+		bool first { true };
+		for (unsigned idx { 0 }; idx < TREE_MAX_NR_OF_LEVELS; idx++) {
+
+			if (!nodes[idx].valid())
+				continue;
+
+			Genode::print(out, first ? "" : " ", idx, "[", nodes[idx], "]");
+			if (first)
+				first = false;
+		}
+	}
 };
 
 
 struct Tresor::Tree_walk_pbas
 {
 	Physical_block_address pbas[TREE_MAX_NR_OF_LEVELS] { 0 };
+
+	void print(Output &out) const
+	{
+		bool first { true };
+		for (unsigned idx { 0 }; idx < TREE_MAX_NR_OF_LEVELS; idx++) {
+
+			if (!pbas[idx])
+				continue;
+
+			Genode::print(out, first ? "" : " ", idx, ":", pbas[idx]);
+			if (first)
+				first = false;
+		}
+	}
 };
 
 
