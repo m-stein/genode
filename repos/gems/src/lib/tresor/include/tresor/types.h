@@ -581,8 +581,8 @@ struct Tresor::Snapshot
 		if (valid)
 			Genode::print(
 				out, "pba ", (Physical_block_address)pba, " gen ",
-				(Generation)gen, " hash ", hash, " leaves ", nr_of_leaves,
-				" max_lvl ", max_level, " keep ", keep);
+				(Generation)gen, " keep ", keep, " id ", id, " leaves ",
+				nr_of_leaves, " maxlvl ", max_level, " hash ", hash);
 		else
 			Genode::print(out, "<invalid>");
 	}
@@ -600,11 +600,9 @@ struct Tresor::Snapshots
 
 	void print(Output &out) const
 	{
-		bool first { true };
 		for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++)
 			if (items[idx].valid) {
-				Genode::print(out, !first ? ", " : "", idx, ": ", items[idx]);
-				first = false;
+				Genode::print(out, "\n   ", idx, ": ", items[idx]);
 			}
 	}
 
