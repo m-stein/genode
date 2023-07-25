@@ -192,6 +192,7 @@ void Virtual_block_device::submit_request(Module_request &mod_req)
 		if (chan._request._type == Request::INVALID) {
 			mod_req.dst_request_id(id);
 			chan._request = *static_cast<Request *>(&mod_req);
+			chan._vba = chan._request._vba;
 			chan._state = Channel::SUBMITTED;
 			return;
 		}
@@ -1939,6 +1940,8 @@ bool Virtual_block_device::_peek_generated_request(uint8_t *buf_ptr,
 				(uint64_t)req._snapshots.items[chan._snapshot_idx].max_level,
 				chan._vba, req._vbd_degree, req._vbd_highest_vba,
 				req._rekeying, req._old_key_id, req._new_key_id, chan._vba);
+
+	error("AAA ", chan._vba);
 
 			return true;
 		}

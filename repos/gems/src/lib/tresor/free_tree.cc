@@ -129,7 +129,9 @@ Free_tree_request::Free_tree_request(uint64_t         src_module_id,
 	_rekeying_vba            { rekeying_vba },
 	_snapshots_ptr           { (addr_t)snapshots_ptr },
 	_last_secured_generation { last_secured_generation }
-{ }
+{
+	error("BBB ", _rekeying_vba);
+}
 
 
 /***************
@@ -339,6 +341,7 @@ void Free_tree::_execute_scan(Channel         &chan,
 						active_snaps, last_secured_gen,
 						req._rekeying, req._previous_key_id,
 						req._rekeying_vba);
+error("CCC ", req._rekeying_vba);
 				}
 				t1_info.state = Type_1_info::READ;
 				chan._level_n_stacks[lvl].update_top(t1_info);
