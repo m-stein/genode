@@ -124,7 +124,7 @@ append config {
 				</dir>
 
 				<dir name="dev">
-					<inline name="jitterentropy">11111111111111111111111111111111</inline>
+					<inline name="jitterentropy">0123456789abcdefghijklmnopqrstuv</inline>
 					<cbe_trust_anchor name="cbe_trust_anchor"
 					                  storage_dir="/storage"/>
 				</dir>
@@ -169,32 +169,38 @@ append config {
 				</dir>
 			</vfs>
 
-			<commands>
+				<commands>
 
-				<log string="Step 1: Initialize Trust Anchor and CBE device, start CBE library"/>
+					<log string="Step 1: Initialize Trust Anchor and Tresor device, start Tresor library"/>
 
-				<trust-anchor op="initialize" passphrase="foobar"/>
-				<initialize>
+					<trust-anchor op="initialize" passphrase="foobar"/>
+					<initialize>
 
-					<virtual-block-device
-						nr_of_levels="3"
-						nr_of_children="8"
-						nr_of_leafs="64" />
+						<virtual-block-device
+							nr_of_levels="3"
+							nr_of_children="8"
+							nr_of_leafs="64" />
 
-					<free-tree
-						nr_of_levels="3"
-						nr_of_children="8"
-						nr_of_leafs="64" />
+						<free-tree
+							nr_of_levels="3"
+							nr_of_children="8"
+							nr_of_leafs="64" />
 
-				</initialize>
-				<construct/>
+					</initialize>
+					<construct/>
 
-				<request op="create_snapshot"           sync="yes"/>
-				<request op="write" vba="2" count="1"   sync="yes"/>
-				<request op="rekey"                     sync="yes"/>
-				<request op="sync"  vba="0"  count="64" sync="yes"/>
+					<log string="Step 10: test synchronous rekeying"/>
 
-			</commands>
+					<request op="write" vba="20" count="1"  sync="yes"/>
+					<request op="create_snapshot"           sync="yes"/>
+					<request op="write" vba="33" count="1"  sync="yes"/>
+					<request op="rekey"                     sync="yes"/>
+					<request op="create_snapshot"           sync="yes"/>
+					<request op="sync"  vba="0"  count="64" sync="yes"/>
+					<check/>
+
+
+				</commands>
 
 		</config>
 
