@@ -905,6 +905,14 @@ _set_args_for_alloc_of_new_pbas_for_rekeying(Channel          &chan,
 			.idx    = chan_idx
 		};
 	}
+
+	log(
+"   alloc: blks ", chan._nr_of_blks,
+"  fgen ", chan._free_gen,
+"  cgen ", curr_gen,
+"  minlvl ", min_lvl);
+	log("      old nodes: ",t1_walk);
+	log("      new pbas: ", chan._new_pbas);
 }
 
 
@@ -1031,9 +1039,6 @@ log("      vbd ln ", __LINE__);
 				chan._state = Channel::ALLOC_PBAS_AT_HIGHER_INNER_LVL_PENDING;
 				progress = true;
 
-log("alloc 3: ", chan._t1_node_walk);
-log("alloc 3: ", chan._new_pbas);
-
 			} else {
 log("      vbd ln ", __LINE__);
 
@@ -1078,9 +1083,6 @@ log("      vbd ln ", __LINE__);
 				chan._state = Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_PENDING;
 				progress = true;
 
-log("alloc 1b: ", chan._t1_node_walk);
-log("alloc 1b: ", chan._new_pbas);
-
 			} else if (child.gen == INITIAL_GENERATION) {
 log("      vbd ln ", __LINE__);
 
@@ -1092,9 +1094,6 @@ log("      vbd ln ", __LINE__);
 				_set_args_for_alloc_of_new_pbas_for_rekeying(chan, chan_idx, 0);
 				chan._state = Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_PENDING;
 				progress = true;
-
-log("alloc 1a: ", chan._t1_node_walk);
-log("alloc 1a: ", chan._new_pbas);
 
 			} else {
 log("      vbd ln ", __LINE__);
@@ -1158,14 +1157,10 @@ log("      vbd ln ", __LINE__);
 		_set_args_for_alloc_of_new_pbas_for_rekeying(chan, chan_idx, 0);
 		chan._state = Channel::ALLOC_PBAS_AT_LEAF_LVL_PENDING;
 		progress = true;
-
-log("alloc 2: ", chan._t1_node_walk);
-log("alloc 2: ", chan._new_pbas);
 		break;
 
 	case Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_COMPLETED:
 log("      vbd ln ", __LINE__);
-log("alloc 1: ", chan._new_pbas);
 
 		if (_handle_failed_generated_req(chan, progress))
 			break;
@@ -1176,7 +1171,6 @@ log("alloc 1: ", chan._new_pbas);
 
 	case Channel::ALLOC_PBAS_AT_LEAF_LVL_COMPLETED:
 log("      vbd ln ", __LINE__);
-log("alloc 2: ", chan._new_pbas);
 
 		if (_handle_failed_generated_req(chan, progress))
 			break;
@@ -1353,10 +1347,10 @@ log("      vbd ln ", __LINE__);
 		if (_handle_failed_generated_req(chan, progress))
 			break;
 
-log("alloc 3: ", chan._new_pbas);
-
 		chan._state = Channel::WRITE_INNER_NODE_COMPLETED;
 		progress = true;
+
+	log("   alloc result: ", chan._new_pbas);
 
 	default:
 
