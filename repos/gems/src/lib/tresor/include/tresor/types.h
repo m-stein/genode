@@ -219,7 +219,7 @@ struct Tresor::Hash
 
 	void print(Output &out) const
 	{
-		Genode::print(out, bytes[0]," ",bytes[1]," ",bytes[2]," ",bytes[3], " …");
+		Genode::print(out, Byte_range { bytes, 4 }, "…");
 	}
 
 	bool operator == (Hash const &other) const

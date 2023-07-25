@@ -30,7 +30,7 @@ vbd_node_lowest_vba(Tree_degree_log_2     vbd_degree_log_2,
                     Virtual_block_address vbd_leaf_vba)
 {
 	return vbd_leaf_vba &
-		(0xffff'ffff'ffff'ffff <<
+		((uint64_t)0xffff'ffff'ffff'ffff <<
 			((uint32_t)vbd_degree_log_2 * (uint32_t)vbd_level));
 }
 
@@ -412,6 +412,7 @@ Free_tree::_exchange_type_2_leaves(Generation              free_gen,
 					t2_node.free_gen  = free_gen;
 					t2_node.last_vba  =
 						vbd_node_lowest_vba(vbd_degree_log_2, i, vba);
+//log("last_vba 1: dl2 ",vbd_degree_log_2, " i ",i, " vba ",vba, " => ", t2_node.last_vba);
 
 					if (rekeying) {
 
@@ -437,6 +438,8 @@ Free_tree::_exchange_type_2_leaves(Generation              free_gen,
 					t2_node.last_vba  =
 						vbd_node_lowest_vba (vbd_degree_log_2, i, vba);
 
+//log("last_vba 2: dl2 ",vbd_degree_log_2, " i ",i, " vba ",vba, " => ", t2_node.last_vba);
+
 					t2_node.last_key_id = previous_key_id;
 					t2_node.reserved = false;
 					break;
@@ -456,6 +459,7 @@ Free_tree::_exchange_type_2_leaves(Generation              free_gen,
 					{
 						t2_node.last_key_id = previous_key_id;
 						t2_node.last_vba    = rekeying_vba + 1;
+//log("last_vba 3: => ", t2_node.last_vba);
 
 					} else if (rekeying_vba == node_highest_vba ||
 					           rekeying_vba == vbd_highest_vba) {
@@ -463,6 +467,7 @@ Free_tree::_exchange_type_2_leaves(Generation              free_gen,
 						t2_node.last_key_id = current_key_id;
 						t2_node.last_vba    =
 							vbd_node_lowest_vba (vbd_degree_log_2, i, vba);
+//log("last_vba 4: dl2 ",vbd_degree_log_2, " i ",i, " vba ",vba, " => ", t2_node.last_vba);
 
 					} else {
 
@@ -789,6 +794,7 @@ void Free_tree::submit_request(Module_request &mod_req)
 			mod_req.dst_request_id(id);
 
 			chan._request = *static_cast<Request *>(&mod_req);
+//log("ft request vba: ", chan._request._vba);
 			chan._exchanged_blocks = 0;
 			_reset_block_state(chan);
 
