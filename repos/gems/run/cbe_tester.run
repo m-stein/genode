@@ -146,8 +146,8 @@ append config {
 
 			<verbose
 				cmd_pool_cmd_pending="no"
-				cmd_pool_cmd_in_progress="yes"
-				cmd_pool_cmd_completed="yes"
+				cmd_pool_cmd_in_progress="no"
+				cmd_pool_cmd_completed="no"
 				blk_io_req_in_progress="no"
 				blk_io_req_completed="no"
 				ta_req_in_progress="no"
@@ -178,27 +178,26 @@ append config {
 
 						<virtual-block-device
 							nr_of_levels="3"
-							nr_of_children="8"
-							nr_of_leafs="64" />
+							nr_of_children="3"
+							nr_of_leafs="9" />
 
 						<free-tree
 							nr_of_levels="3"
-							nr_of_children="8"
-							nr_of_leafs="64" />
+							nr_of_children="4"
+							nr_of_leafs="11" />
 
 					</initialize>
 					<construct/>
 
 					<log string="Step 10: test synchronous rekeying"/>
 
-					<request op="write" vba="20" count="1"  sync="yes"/>
-					<request op="create_snapshot"           sync="yes"/>
-					<request op="write" vba="33" count="1"  sync="yes"/>
-					<request op="rekey"                     sync="yes"/>
-					<request op="create_snapshot"           sync="yes"/>
-					<request op="sync"  vba="0"  count="64" sync="yes"/>
+					<request op="write" vba="8" count="1"  sync="yes"/>
+					<request op="create_snapshot"          sync="yes"/>
+					<request op="write" vba="2" count="1"  sync="yes"/>
+					<request op="rekey"                    sync="yes"/>
+					<request op="create_snapshot"          sync="yes"/>
+					<request op="sync"  vba="0"  count="9" sync="yes"/>
 					<check/>
-
 
 				</commands>
 
