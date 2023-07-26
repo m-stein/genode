@@ -450,6 +450,14 @@ class Vfs_block_io_job
 						_state = State::COMPLETE;
 						_cbe_req.success(true);
 
+Hashy hash { };
+Blocky *blk {
+	reinterpret_cast<Blocky *>(
+		&io_data.item(_cbe_req_io_buf_idx(_cbe_req))) };
+calc_sha256_4k_hash(*blk, hash);
+
+log("block_io: read pba ", _cbe_req.block_number(), " data  hash ", hash);
+
 						_mark_req_completed_at_module(
 							cbe, cbe_init, cbe_dump, cbe_check,
 							verbose_node, progress);
@@ -510,12 +518,14 @@ Blocky *blk {
 calc_sha256_4k_hash(*blk, hash);
 
 log("block_io: write pba ", _cbe_req.block_number(), " data  hash ", hash);
+/*
 if (_cbe_req.block_number() == 37) {
 	log("--- data ---");
 	Byte_range b { (Genode::uint8_t const *)&io_data.item(_cbe_req_io_buf_idx(_cbe_req)), 4096 };
 	log(b);
 	log("------------");
 }
+*/
 				_state = State::IN_PROGRESS;
 				progress = true;
 				break;

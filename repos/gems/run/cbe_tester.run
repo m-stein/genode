@@ -146,7 +146,7 @@ append config {
 
 			<verbose
 				cmd_pool_cmd_pending="no"
-				cmd_pool_cmd_in_progress="no"
+				cmd_pool_cmd_in_progress="yes"
 				cmd_pool_cmd_completed="no"
 				blk_io_req_in_progress="no"
 				blk_io_req_completed="no"
@@ -229,7 +229,7 @@ if { [get_cmd_switch --autopilot] } {
 
 } else {
 
-	catch { exec $dd if=/dev/urandom of=[local_cbe_image] bs=1M count=[cbe_image_size_mb] }
+	catch { exec $dd if=/dev/null of=[local_cbe_image] bs=1M count=[cbe_image_size_mb] }
 }
 
 append boot_modules {
