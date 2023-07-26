@@ -288,33 +288,6 @@ void Superblock_control::_execute_write_vba(Channel         &channel,
 }
 
 
-void Superblock_control::_discard_disposable_snapshots(Snapshots &snapshots,
-                                                       Generation const curr_gen,
-                                                       Generation const last_secured_gen)
-{
-	for (auto &snap : snapshots.items)
-	{
-
-if (snap.valid){
-log(
-"sbc gc snap: ",
-" ", snap.pba,
-" ", snap.gen,
-" ", snap.hash.bytes[0],
-" ", snap.hash.bytes[1],
-" ", snap.hash.bytes[2],
-" ", snap.hash.bytes[3],
-"  ", snap.keep ? "True":"False",
-" ", (snap.valid && !snap.keep && snap.gen != curr_gen && snap.gen != last_secured_gen) ? "True":"False"
-);
-}
-		if (snap.valid && !snap.keep &&
-		    snap.gen != curr_gen && snap.gen != last_secured_gen)
-			snap.valid = false;
-	}
-}
-
-
 void Superblock_control::_init_sb_without_key_values(Superblock const &sb_in,
                                                      Superblock       &sb_out)
 {
@@ -858,9 +831,7 @@ void Superblock_control::_execute_create_snap(Channel           &channel,
 	switch (channel._state) {
 	case Channel::State::SUBMITTED:
 
-		_discard_disposable_snapshots(
-			sb.snapshots, sb.last_secured_generation, curr_gen);
-
+		sb.snapshots.discard_disposable_snapshots(sb.last_secured_generation, curr_gen);
 		sb.last_secured_generation = curr_gen;
 		sb.snapshots.items[sb.curr_snap].keep = true;
 		sb.snapshots.items[sb.curr_snap].gen = curr_gen;
@@ -1023,9 +994,7 @@ void Superblock_control::_execute_sync(Channel           &channel,
 	switch (channel._state) {
 	case Channel::State::SUBMITTED:
 
-		_discard_disposable_snapshots(
-			sb.snapshots, sb.last_secured_generation, curr_gen);
-
+		sb.snapshots.discard_disposable_snapshots(sb.last_secured_generation, curr_gen);
 		sb.last_secured_generation = curr_gen;
 		sb.snapshots.items[sb.curr_snap].gen = curr_gen;
 		_init_sb_without_key_values(sb, channel._sb_ciphertext);
@@ -1412,9 +1381,7 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 	switch (channel._state) {
 	case Channel::State::SUBMITTED:
 
-		_discard_disposable_snapshots(sb.snapshots, sb.last_secured_generation,
-		                              curr_gen);
-
+		sb.snapshots.discard_disposable_snapshots(sb.last_secured_generation, curr_gen);
 		sb.last_secured_generation           = curr_gen;
 		sb.snapshots.items[sb.curr_snap].gen = curr_gen;
 

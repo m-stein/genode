@@ -623,6 +623,20 @@ struct Tresor::Snapshots
 	{
 		for (Snapshot &snap : items) {
 
+if (snap.valid){
+log(
+"sbc gc snap: ",
+" ", snap.pba,
+" ", snap.gen,
+" ", snap.hash.bytes[0],
+" ", snap.hash.bytes[1],
+" ", snap.hash.bytes[2],
+" ", snap.hash.bytes[3],
+"  ", snap.keep ? "True":"False",
+" ", (snap.valid && !snap.keep && snap.gen != curr_gen && snap.gen != last_secured_gen) ? "True":"False"
+);
+}
+
 			if (snap.valid &&
 			    !snap.keep &&
 			    snap.gen != curr_gen &&
