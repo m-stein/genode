@@ -617,19 +617,30 @@ bool Block_io::_peek_completed_request(uint8_t *buf_ptr,
 			      VERBOSE_BLOCK_IO_PBA == req._pba)) {
 
 				switch (req._type) {
+				case Request::READ:
 				case Request::WRITE:
 				{
 					Hash hash;
 					calc_sha256_4k_hash(*(Block *)req._blk_ptr, hash);
 					log("block_io: ", req.type_name(), " pba ", req._pba,
 					    " data ", *(Block *)req._blk_ptr, " hash ", hash);
-					if (req._pba == 34 || req._pba == 35) {
+					if (req._pba == 37) {
 /*
 log("--- data ---");
 log(Byte_range((uint8_t *)req._blk_ptr, 4096));
 log("------------");
 */
 					}
+
+					break;
+				}
+				case Request::READ_CLIENT_DATA:
+				{
+					Hash hash;
+					calc_sha256_4k_hash(channel._blk_buf, hash);
+					log("block_io: read pba ", req._pba,
+					    " data ", channel._blk_buf,
+					    " hash ", hash);
 
 					break;
 				}

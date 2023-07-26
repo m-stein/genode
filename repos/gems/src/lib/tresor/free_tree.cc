@@ -618,6 +618,7 @@ void Free_tree::_execute_update(Channel         &chan,
 					Local_meta_tree_request &mtr { chan._meta_tree_request };
 					if (mtr.state == Local_meta_tree_request::INVALID) {
 
+log("ft create mt req: pba ", n.node.pba);
 						mtr = _new_meta_tree_request(n.node.pba);
 						progress = true;
 						break;
@@ -857,6 +858,7 @@ bool Free_tree::_peek_generated_request(uint8_t *buf_ptr,
 				class Exception_1 { };
 				throw Exception_1 { };
 			}
+log("ft to mt req:: pba ", local_mtr.pba);
 			Meta_tree_request::create(
 				buf_ptr, buf_size, FREE_TREE, id, mt_req_type,
 				(void*)channel._request._mt_root_pba_ptr,
