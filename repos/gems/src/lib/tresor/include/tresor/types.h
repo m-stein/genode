@@ -442,7 +442,7 @@ struct Tresor::Type_1_node
 
 	void print(Output &out) const
 	{
-		Genode::print(out, "pba ", pba, " gen ", gen, " hash ", hash);
+		Genode::print(out, "pba ", pba, " gen ", gen, " hash ", hash.bytes[0], " ", hash.bytes[1], " ", hash.bytes[2], " ", hash.bytes[3], " ");
 	}
 };
 
@@ -843,7 +843,8 @@ struct Tresor::Type_1_node_walk
 			if (!nodes[idx].valid())
 				continue;
 
-			Genode::print(out, first ? "" : " ", idx, "[", nodes[idx], "]");
+			//Genode::print(out, first ? "" : " ", idx, "[", nodes[idx], "]");
+			Genode::print(out, first ? "   " : "\n   Node ", nodes[idx]);
 			if (first)
 				first = false;
 		}
@@ -863,7 +864,8 @@ struct Tresor::Tree_walk_pbas
 			if (!pbas[idx])
 				continue;
 
-			Genode::print(out, first ? "" : " ", idx, ":", pbas[idx]);
+			//Genode::print(out, first ? "" : " ", idx, ":", pbas[idx]);
+			Genode::print(out, first ? "   " : "\n   PBA ",pbas[idx]);
 			if (first)
 				first = false;
 		}

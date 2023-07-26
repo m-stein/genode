@@ -71,6 +71,42 @@ class Tresor::Free_tree_request : public Module_request
 
 	public:
 
+		void dump() {
+log(
+"ft req 0: ", (uint64_t)_current_gen,
+" ", (uint64_t)_free_gen,
+" ", (uint64_t)_requested_blocks,
+" ", (uint64_t)_max_level,
+" ", (uint64_t)_vba,
+" ", (uint64_t)_vbd_degree,
+" ", (uint64_t)_vbd_highest_vba,
+" ", (uint64_t)_rekeying,
+" ", (uint64_t)_last_secured_generation
+);
+log(*(Tree_walk_pbas *)_new_blocks_ptr);
+log(*(Type_1_node_walk *)_old_blocks_ptr);
+log(
+"ft req 1: ", *(uint64_t*)_ft_root_pba_ptr,
+" ", *(uint64_t*)_ft_root_gen_ptr,
+" ", ((uint8_t*)_ft_root_hash_ptr)[0],
+" ", ((uint8_t*)_ft_root_hash_ptr)[1],
+" ", ((uint8_t*)_ft_root_hash_ptr)[2],
+" ", _ft_max_level,
+" ", _ft_degree,
+" ", _ft_leaves
+);
+log(
+"ft req 2: ", *(uint64_t*)_mt_root_pba_ptr,
+" ", *(uint64_t*)_mt_root_gen_ptr,
+" ", ((uint8_t*)_mt_root_hash_ptr)[0],
+" ", ((uint8_t*)_mt_root_hash_ptr)[1],
+" ", ((uint8_t*)_mt_root_hash_ptr)[2],
+" ", _mt_max_level,
+" ", _mt_degree,
+" ", _mt_leaves
+);
+		}
+
 		Free_tree_request() { }
 
 		Free_tree_request(uint64_t         src_module_id,

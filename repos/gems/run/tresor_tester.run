@@ -310,7 +310,7 @@ if {[have_board linux]} {
 
 	} else {
 
-		catch { exec $dd if=/dev/urandom of=[lx_local_tresor_image] bs=1M count=[lx_tresor_image_size_mb] }
+		catch { exec $dd if=/dev/null of=[lx_local_tresor_image] bs=1M count=[lx_tresor_image_size_mb] }
 	}
 }
 

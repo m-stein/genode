@@ -795,6 +795,7 @@ void Free_tree::submit_request(Module_request &mod_req)
 			mod_req.dst_request_id(id);
 
 			chan._request = *static_cast<Request *>(&mod_req);
+chan._request.dump();
 //log("ft request vba: ", chan._request._vba);
 			chan._exchanged_blocks = 0;
 			_reset_block_state(chan);
