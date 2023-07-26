@@ -80,31 +80,59 @@ log(
 " ", (uint64_t)_vba,
 " ", (uint64_t)_vbd_degree,
 " ", (uint64_t)_vbd_highest_vba,
-" ", (uint64_t)_rekeying,
-" ", (uint64_t)_last_secured_generation
+" ", _rekeying ? "True" : "False"
 );
-log(*(Tree_walk_pbas *)_new_blocks_ptr);
-log(*(Type_1_node_walk *)_old_blocks_ptr);
+
+{
+		bool first { true };
+		for (unsigned idx { 0 }; idx < TREE_MAX_NR_OF_LEVELS; idx++) {
+
+			if (!(*(Tree_walk_pbas *)_new_blocks_ptr).pbas[idx])
+				continue;
+
+			//Genode::print(out, first ? "" : " ", idx, ":", pbas[idx]);
+			log(first ? "   pba " : "   pba ",(*(Tree_walk_pbas *)_new_blocks_ptr).pbas[idx]);
+			if (first)
+				first = false;
+		}
+}
+{
+		bool first { true };
+		for (unsigned idx { 0 }; idx < TREE_MAX_NR_OF_LEVELS; idx++) {
+
+			if (!(*(Type_1_node_walk *)_old_blocks_ptr).nodes[idx].valid())
+				continue;
+
+			//Genode::print(out, first ? "" : " ", idx, "[", nodes[idx], "]");
+			log(first ? "   Node " : "   Node ", (*(Type_1_node_walk *)_old_blocks_ptr).nodes[idx]);
+			if (first)
+				first = false;
+		}
+}
 log(
 "ft req 1: ", *(uint64_t*)_ft_root_pba_ptr,
 " ", *(uint64_t*)_ft_root_gen_ptr,
 " ", ((uint8_t*)_ft_root_hash_ptr)[0],
 " ", ((uint8_t*)_ft_root_hash_ptr)[1],
 " ", ((uint8_t*)_ft_root_hash_ptr)[2],
+" ", ((uint8_t*)_ft_root_hash_ptr)[3],
 " ", _ft_max_level,
 " ", _ft_degree,
 " ", _ft_leaves
 );
+/*
 log(
 "ft req 2: ", *(uint64_t*)_mt_root_pba_ptr,
 " ", *(uint64_t*)_mt_root_gen_ptr,
 " ", ((uint8_t*)_mt_root_hash_ptr)[0],
 " ", ((uint8_t*)_mt_root_hash_ptr)[1],
 " ", ((uint8_t*)_mt_root_hash_ptr)[2],
+" ", ((uint8_t*)_mt_root_hash_ptr)[3],
 " ", _mt_max_level,
 " ", _mt_degree,
 " ", _mt_leaves
 );
+*/
 		}
 
 		Free_tree_request() { }

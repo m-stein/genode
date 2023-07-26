@@ -214,6 +214,18 @@ Free_tree::_check_type_2_leaf_usable(Snapshots       const &snapshots,
                                      Key_id                 previous_key_id,
                                      Virtual_block_address  rekeying_vba)
 {
+log(
+"ft chk: ", node.pba,
+" ", node.free_gen,
+" ", node.alloc_gen,
+" ", last_secured_gen,
+" ", node.reserved ? "True": "False",
+" ", rekeying ? "True" : "False",
+" ", node.last_key_id,
+" ", previous_key_id,
+" ", node.last_vba,
+" ", rekeying_vba
+);
 	if (node.pba == 0 ||
 	    node.pba == INVALID_PBA ||
 	    node.free_gen > last_secured_gen)
@@ -226,6 +238,21 @@ Free_tree::_check_type_2_leaf_usable(Snapshots       const &snapshots,
 	    node.last_key_id == previous_key_id &&
 	    node.last_vba < rekeying_vba)
 		return true;
+
+	for (Snapshot const &snap : snapshots.items) {
+if (snap.valid){
+log(
+"ft chk snap: ",
+" ", snap.pba,
+" ", snap.gen,
+" ", snap.hash.bytes[0],
+" ", snap.hash.bytes[1],
+" ", snap.hash.bytes[2],
+" ", snap.hash.bytes[3],
+"  ", snap.keep ? "True":"False"
+);
+}
+	}
 
 	for (Snapshot const &snap : snapshots.items) {
 		if (snap.valid &&

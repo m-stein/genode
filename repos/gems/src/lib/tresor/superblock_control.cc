@@ -292,11 +292,25 @@ void Superblock_control::_discard_disposable_snapshots(Snapshots &snapshots,
                                                        Generation const curr_gen,
                                                        Generation const last_secured_gen)
 {
-	for (auto &snapshot : snapshots.items)
+	for (auto &snap : snapshots.items)
 	{
-		if (snapshot.valid && !snapshot.keep &&
-		    snapshot.gen != curr_gen && snapshot.gen != last_secured_gen)
-			snapshot.valid = false;
+
+if (snap.valid){
+log(
+"sbc gc snap: ",
+" ", snap.pba,
+" ", snap.gen,
+" ", snap.hash.bytes[0],
+" ", snap.hash.bytes[1],
+" ", snap.hash.bytes[2],
+" ", snap.hash.bytes[3],
+"  ", snap.keep ? "True":"False",
+" ", (snap.valid && !snap.keep && snap.gen != curr_gen && snap.gen != last_secured_gen) ? "True":"False"
+);
+}
+		if (snap.valid && !snap.keep &&
+		    snap.gen != curr_gen && snap.gen != last_secured_gen)
+			snap.valid = false;
 	}
 }
 
