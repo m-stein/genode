@@ -324,6 +324,7 @@ void Virtual_block_device::_execute_read_vba(Channel &channel,
 	}
 }
 
+#include <util/formatted_output.h>
 
 void Virtual_block_device::_update_nodes_of_branch_of_written_vba(Snapshot &snapshot,
                                                                   uint64_t const snapshot_degree,
@@ -333,12 +334,20 @@ void Virtual_block_device::_update_nodes_of_branch_of_written_vba(Snapshot &snap
                                                                   uint64_t curr_gen,
                                                                   Channel::Type_1_node_blocks &t1_blks)
 {
+	if (VERBOSE_VBA_ACCESS)
+		log("  lvl 0: update tree branch");
+
 	for (Tree_level_index lvl = 0; lvl <= snapshot.max_level; lvl++) {
 
 		if (lvl == 0) {
 
 			auto const  child_idx = t1_child_idx_for_vba(vba, lvl + 1, snapshot_degree);
 			auto       &node      = t1_blks.items[lvl + 1].nodes[child_idx];
+
+			if (VERBOSE_VBA_ACCESS)
+				log(
+					"    lvl ", lvl + 1, ": t1 node ", child_idx, ": ", node,
+					" -> ", Type_1_node { new_pbas.pbas[lvl], curr_gen, leaf_hash });
 
 			node.pba  = new_pbas.pbas[lvl];
 			node.gen  = curr_gen;
@@ -349,20 +358,38 @@ void Virtual_block_device::_update_nodes_of_branch_of_written_vba(Snapshot &snap
 			auto const  child_idx = t1_child_idx_for_vba(vba, lvl + 1, snapshot_degree);
 			auto       &node      = t1_blks.items[lvl + 1].nodes[child_idx];
 
-			node.pba   = new_pbas.pbas[lvl];
-			node.gen   = curr_gen;
-
 			Block blk { };
 			t1_blks.items[lvl].encode_to_blk(blk);
+
+			if (VERBOSE_VBA_ACCESS) {
+
+				Hash hash { };
+				calc_sha256_4k_hash(blk, hash);
+				log(
+					"    lvl ", lvl + 1, ": t1 node ", child_idx, ": ", node,
+					" -> ", Type_1_node { new_pbas.pbas[lvl], curr_gen, hash });
+			}
+			node.pba   = new_pbas.pbas[lvl];
+			node.gen   = curr_gen;
 			calc_sha256_4k_hash(blk, node.hash);
 
 		} else {
 
+			Block blk { };
+			t1_blks.items[lvl].encode_to_blk(blk);
+
+			if (VERBOSE_VBA_ACCESS) {
+
+				Hash hash { };
+				calc_sha256_4k_hash(blk, hash);
+				log(
+					"    lvl ", lvl + 1, ": snap: ",
+					Type_1_node { snapshot.pba, snapshot.gen, snapshot.hash },
+					" -> ", Type_1_node { new_pbas.pbas[lvl], curr_gen, hash });
+			}
 			snapshot.pba   = new_pbas.pbas[lvl];
 			snapshot.gen   = curr_gen;
 
-			Block blk { };
-			t1_blks.items[lvl].encode_to_blk(blk);
 			calc_sha256_4k_hash(blk, snapshot.hash);
 		}
 	}
@@ -672,7 +699,7 @@ void Virtual_block_device::_execute_write_vba(Channel        &chan,
 			for (Tree_level_index lvl = TREE_MAX_LEVEL; ; lvl--) {
 				if (lvl <= chan.snapshots(chan._snapshot_idx).max_level) {
 					Type_1_node &node = chan._t1_node_walk.nodes[lvl];
-					log("    lvl ", lvl, " gen ", (Generation)node.gen,
+					log("    lvl ", lvl, ": gen ", (Generation)node.gen,
 					    " pba ", (Physical_block_address)node.pba, " -> ",
 					    (Physical_block_address)chan._new_pbas.pbas[lvl]);
 				}
@@ -1109,9 +1136,10 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 		chan._state = Channel::DECRYPT_LEAF_NODE_PENDING;
 		progress = true;
 
-		if (VERBOSE_REKEYING)
-			log("      lvl 0: old data: cipher ", chan._data_blk);
-
+		if (VERBOSE_REKEYING) {
+			log("      lvl 0: re-encrypt data");
+			log("        old cipher ", chan._data_blk);
+		}
 		break;
 	}
 	case Channel::DECRYPT_LEAF_NODE_COMPLETED:
@@ -1120,7 +1148,7 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 			break;
 
 		if (VERBOSE_REKEYING)
-			log("                       plain  ", chan._data_blk);
+			log("        plain      ", chan._data_blk);
 
 		_set_args_for_alloc_of_new_pbas_for_rekeying(chan, chan_idx, 0);
 		chan._state = Channel::ALLOC_PBAS_AT_LEAF_LVL_PENDING;
@@ -1150,10 +1178,6 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 		};
 		chan._state = Channel::ENCRYPT_LEAF_NODE_PENDING;
 		progress = true;
-
-		if (VERBOSE_REKEYING)
-			log("      lvl 0: new data: plain  ", chan._data_blk);
-
 		break;
 
 	case Channel::ENCRYPT_LEAF_NODE_COMPLETED:
@@ -1176,7 +1200,7 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 		progress = true;
 
 		if (VERBOSE_REKEYING)
-			log("                       cipher ", chan._data_blk);
+			log("        new cipher ", chan._data_blk);
 
 		break;
 	}
@@ -1683,7 +1707,7 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 		if (VERBOSE_VBD_EXTENSION) {
 			log("  allocated ", chan._nr_of_blks, " pbas");
 			for (Tree_level_index lvl { 0 }; lvl < chan.snap().max_level; lvl++) {
-				log("    lvl ", lvl, " ",
+				log("    lvl ", lvl, ": ",
 				    chan._t1_node_walk.nodes[lvl], " -> pba ",
 				    (Physical_block_address)chan._new_pbas.pbas[lvl]);
 			}

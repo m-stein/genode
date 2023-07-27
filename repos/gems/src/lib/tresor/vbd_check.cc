@@ -142,13 +142,10 @@ void Vbd_check::_execute_inner_t1_child(Channel           &chan,
 
 		} else {
 
-			if (VERBOSE_CHECK) {
-
 				Hash hash;
 				calc_sha256_4k_hash(blk, hash);
 				log(Level_indent { lvl, req._max_lvl },
 				    "    lvl ", lvl, " child ", child_idx, " (", child, "): bad hash ", hash);
-			}
 
 			_mark_req_failed(chan, progress, "check inner hash");
 		}
