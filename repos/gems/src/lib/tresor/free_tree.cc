@@ -217,22 +217,47 @@ Free_tree::_check_type_2_leaf_usable(Snapshots       const &snapshots,
 	if (node.pba == 0 ||
 	    node.pba == INVALID_PBA ||
 	    node.free_gen > last_secured_gen)
+	{
+		if (node.pba == 80)
+			log("   CHK ",node.pba," VAL => 0");
+
 		return false;
+	}
 
 	if (!node.reserved)
+	{
+		if (node.pba == 80)
+			log("   CHK ",node.pba," RES => 1");
+
 		return true;
+	}
 
 	if (rekeying &&
 	    node.last_key_id == previous_key_id &&
 	    node.last_vba < rekeying_vba)
+	{
+		if (node.pba == 80)
+			log("   CHK ",node.pba," LKI ", node.last_key_id, " PKI ",
+			previous_key_id, " LAV ", node.last_vba, " RKV ", rekeying_vba," => 1");
+
 		return true;
+	}
 
 	for (Snapshot const &snap : snapshots.items) {
 		if (snap.valid &&
 		    node.free_gen > snap.gen &&
 		    node.alloc_gen < snap.gen + 1)
+		{
+			if (node.pba == 80)
+				log("   CHK ",node.pba," SNAP PBA ",snap.pba," GEN ",snap.gen," FGEN ",node.free_gen, " AGEN ",node.alloc_gen," RES => 0");
+
 			return false;
+		}
 	}
+
+	if (node.pba == 80)
+		log("   CHK 80 END => 1");
+
 	return true;
 }
 
