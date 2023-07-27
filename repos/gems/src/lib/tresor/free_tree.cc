@@ -30,7 +30,7 @@ vbd_node_lowest_vba(Tree_degree_log_2     vbd_degree_log_2,
                     Virtual_block_address vbd_leaf_vba)
 {
 	return vbd_leaf_vba &
-		(0xffff'ffff'ffff'ffff <<
+		((uint64_t)0xffff'ffff'ffff'ffff <<
 			((uint32_t)vbd_degree_log_2 * (uint32_t)vbd_level));
 }
 
@@ -214,6 +214,18 @@ Free_tree::_check_type_2_leaf_usable(Snapshots       const &snapshots,
                                      Key_id                 previous_key_id,
                                      Virtual_block_address  rekeying_vba)
 {
+log(
+"ft chk: ", node.pba,
+" ", node.free_gen,
+" ", node.alloc_gen,
+" ", last_secured_gen,
+" ", node.reserved ? "True": "False",
+" ", rekeying ? "True" : "False",
+" ", node.last_key_id,
+" ", previous_key_id,
+" ", node.last_vba,
+" ", rekeying_vba
+);
 	if (node.pba == 0 ||
 	    node.pba == INVALID_PBA ||
 	    node.free_gen > last_secured_gen)
@@ -226,6 +238,21 @@ Free_tree::_check_type_2_leaf_usable(Snapshots       const &snapshots,
 	    node.last_key_id == previous_key_id &&
 	    node.last_vba < rekeying_vba)
 		return true;
+
+	for (Snapshot const &snap : snapshots.items) {
+if (snap.valid){
+log(
+"ft chk snap: ",
+" ", snap.pba,
+" ", snap.gen,
+" ", snap.hash.bytes[0],
+" ", snap.hash.bytes[1],
+" ", snap.hash.bytes[2],
+" ", snap.hash.bytes[3],
+"  ", snap.keep ? "True":"False"
+);
+}
+	}
 
 	for (Snapshot const &snap : snapshots.items) {
 		if (snap.valid &&
@@ -412,6 +439,7 @@ Free_tree::_exchange_type_2_leaves(Generation              free_gen,
 					t2_node.free_gen  = free_gen;
 					t2_node.last_vba  =
 						vbd_node_lowest_vba(vbd_degree_log_2, i, vba);
+//log("last_vba 1: dl2 ",vbd_degree_log_2, " i ",i, " vba ",vba, " => ", t2_node.last_vba);
 
 					if (rekeying) {
 
@@ -437,6 +465,8 @@ Free_tree::_exchange_type_2_leaves(Generation              free_gen,
 					t2_node.last_vba  =
 						vbd_node_lowest_vba (vbd_degree_log_2, i, vba);
 
+//log("last_vba 2: dl2 ",vbd_degree_log_2, " i ",i, " vba ",vba, " => ", t2_node.last_vba);
+
 					t2_node.last_key_id = previous_key_id;
 					t2_node.reserved = false;
 					break;
@@ -456,6 +486,7 @@ Free_tree::_exchange_type_2_leaves(Generation              free_gen,
 					{
 						t2_node.last_key_id = previous_key_id;
 						t2_node.last_vba    = rekeying_vba + 1;
+//log("last_vba 3: => ", t2_node.last_vba);
 
 					} else if (rekeying_vba == node_highest_vba ||
 					           rekeying_vba == vbd_highest_vba) {
@@ -463,6 +494,7 @@ Free_tree::_exchange_type_2_leaves(Generation              free_gen,
 						t2_node.last_key_id = current_key_id;
 						t2_node.last_vba    =
 							vbd_node_lowest_vba (vbd_degree_log_2, i, vba);
+//log("last_vba 4: dl2 ",vbd_degree_log_2, " i ",i, " vba ",vba, " => ", t2_node.last_vba);
 
 					} else {
 
@@ -613,6 +645,7 @@ void Free_tree::_execute_update(Channel         &chan,
 					Local_meta_tree_request &mtr { chan._meta_tree_request };
 					if (mtr.state == Local_meta_tree_request::INVALID) {
 
+log("ft create mt req: pba ", n.node.pba);
 						mtr = _new_meta_tree_request(n.node.pba);
 						progress = true;
 						break;
@@ -789,6 +822,8 @@ void Free_tree::submit_request(Module_request &mod_req)
 			mod_req.dst_request_id(id);
 
 			chan._request = *static_cast<Request *>(&mod_req);
+chan._request.dump();
+//log("ft request vba: ", chan._request._vba);
 			chan._exchanged_blocks = 0;
 			_reset_block_state(chan);
 
@@ -851,6 +886,7 @@ bool Free_tree::_peek_generated_request(uint8_t *buf_ptr,
 				class Exception_1 { };
 				throw Exception_1 { };
 			}
+log("ft to mt req:: pba ", local_mtr.pba);
 			Meta_tree_request::create(
 				buf_ptr, buf_size, FREE_TREE, id, mt_req_type,
 				(void*)channel._request._mt_root_pba_ptr,
