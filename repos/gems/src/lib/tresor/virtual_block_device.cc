@@ -1292,8 +1292,11 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 				chan._state = Channel::READ_ROOT_NODE_PENDING;
 				progress = true;
 
-				if (VERBOSE_REKEYING)
+				if (VERBOSE_REKEYING) {
 					log("    snapshot ", chan._snapshot_idx, ":");
+					log("      lvl ", (Tree_level_index)snap.max_level + 1,
+						": old snap: ", snap);
+				}
 			}
 
 		} else {
