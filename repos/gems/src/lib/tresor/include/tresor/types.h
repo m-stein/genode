@@ -581,8 +581,8 @@ struct Tresor::Snapshot
 		if (valid)
 			Genode::print(
 				out, "pba ", (Physical_block_address)pba, " gen ",
-				(Generation)gen, " hash ", hash, " leaves ", nr_of_leaves,
-				" max_lvl ", max_level);
+				(Generation)gen, " keep ", keep, " id ", id, " leaves ",
+				nr_of_leaves, " maxlvl ", max_level, " hash ", hash);
 		else
 			Genode::print(out, "<invalid>");
 	}
@@ -597,6 +597,19 @@ struct Tresor::Snapshot
 struct Tresor::Snapshots
 {
 	Snapshot items[MAX_NR_OF_SNAPSHOTS];
+
+	void print(Output &out) const
+	{
+		bool first { false };
+		for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++) {
+
+			if (!items[idx].valid)
+				continue;
+
+			Genode::print(out, first ? "" : "\n", idx, ": ", items[idx]);
+			first = false;
+		}
+	}
 
 	void decode_from_blk(Block_scanner &scanner)
 	{
@@ -826,12 +839,38 @@ struct Tresor::Superblock
 struct Tresor::Type_1_node_walk
 {
 	Type_1_node nodes[TREE_MAX_NR_OF_LEVELS] { };
+
+	void print(Output &out) const
+	{
+		bool first { true };
+		for (unsigned idx { 0 }; idx < TREE_MAX_NR_OF_LEVELS; idx++) {
+
+			if (!nodes[idx].valid())
+				continue;
+
+			Genode::print(out, first ? "" : "\n", idx, ": ", nodes[idx]);
+			first = false;
+		}
+	}
 };
 
 
 struct Tresor::Tree_walk_pbas
 {
 	Physical_block_address pbas[TREE_MAX_NR_OF_LEVELS] { 0 };
+
+	void print(Output &out) const
+	{
+		bool first { true };
+		for (unsigned idx { 0 }; idx < TREE_MAX_NR_OF_LEVELS; idx++) {
+
+			if (!pbas[idx])
+				continue;
+
+			Genode::print(out, first ? "" : "\n", idx, ": ", pbas[idx]);
+			first = false;
+		}
+	}
 };
 
 
