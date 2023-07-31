@@ -441,7 +441,6 @@ void Virtual_block_device::_check_hash_of_read_type_1_node(Channel &chan,
 	} else {
 		uint64_t    const  child_idx = t1_child_idx_for_vba(vba, t1_blk_idx + 1, snapshots_degree);
 		Type_1_node const &child     = t1_blks.items[t1_blk_idx + 1].nodes[child_idx];
-
 		if (!check_sha256_4k_hash(chan._encoded_blk, child.hash)) {
 			class Program_error_hash_of_read_type_1_B { };
 			throw Program_error_hash_of_read_type_1_B { };
@@ -461,7 +460,6 @@ void Virtual_block_device::_set_args_in_order_to_read_type_1_node(Snapshot const
                                                                   bool &progress)
 {
 	if (t1_blk_idx == snapshot.max_level) {
-
 		prim = {
 			.op     = Channel::Generated_prim::Type::READ,
 			.succ   = false,
@@ -936,6 +934,9 @@ _set_args_for_alloc_of_new_pbas_for_rekeying(Channel          &chan,
 
 void Virtual_block_device_channel::_log_rekeying_pba_alloc(Tree_level_index min_lvl) const
 {
+	if (!VERBOSE_REKEYING)
+		return;
+
 	log("      lvl ", min_lvl, ": alloc ", _nr_of_blks, " pba", _nr_of_blks > 1 ? "s" : "");
 	for (Tree_level_index lvl = 0; lvl <= TREE_MAX_LEVEL; lvl++) {
 		if (_t1_node_walk.nodes[lvl].pba != _new_pbas.pbas[lvl])

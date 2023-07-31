@@ -172,6 +172,7 @@ void Sb_check::_execute_check(Channel &chan,
 					chan._gen_prim_blk_nr = snap.pba;
 					progress = true;
 
+					if (VERBOSE_CHECK)
 						log("  check snap ", chan._snap_idx, " (", snap, ")");
 
 				} else {
