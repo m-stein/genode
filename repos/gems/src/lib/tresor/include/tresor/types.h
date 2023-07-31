@@ -581,8 +581,8 @@ struct Tresor::Snapshot
 		if (valid)
 			Genode::print(
 				out, "pba ", (Physical_block_address)pba, " gen ",
-				(Generation)gen, " keep ", keep, " id ", id, " leaves ",
-				nr_of_leaves, " maxlvl ", max_level, " hash ", hash);
+				(Generation)gen, " hash ", hash, " maxlvl ", max_level, " leaves ",
+				nr_of_leaves, " keep ", keep, " id ", id);
 		else
 			Genode::print(out, "<invalid>");
 	}

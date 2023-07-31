@@ -256,7 +256,7 @@ append config {
 
 						<virtual-block-device
 							nr_of_levels="3"
-							nr_of_children="3"
+							nr_of_children="4"
 							nr_of_leafs="9" />
 
 						<free-tree
