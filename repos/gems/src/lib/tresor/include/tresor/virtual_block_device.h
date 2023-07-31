@@ -232,7 +232,7 @@ class Tresor::Virtual_block_device_channel
 
 		Snapshot &snap();
 
-		void _log_rekeying_pba_alloc(Tree_level_index min_lvl) const;
+		void _log_rekeying_pba_alloc() const;
 
 		Virtual_block_device_request _request          { };
 		State                        _state            { SUBMITTED };
