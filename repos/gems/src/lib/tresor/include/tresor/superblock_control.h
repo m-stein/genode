@@ -289,10 +289,13 @@ class Tresor::Superblock_control : public Module
 		void _init_sb_without_key_values(Superblock const &, Superblock &);
 
 		void _execute_sync(Channel &, uint64_t const job_idx, Superblock &,
-                           Superblock_index &, Generation &, bool &progress);
+		                   Superblock_index &, Generation &, bool &progress);
 
 		void _execute_create_snap(Channel &, uint64_t const job_idx, Superblock &,
-                                          Superblock_index &, Generation &, bool &progress);
+		                          Superblock_index &, Generation &, bool &progress);
+
+		void _execute_discard_snap(Channel &, uint64_t const job_idx, Superblock &,
+		                           Superblock_index &, Generation &, bool &progress);
 
 		void _execute_tree_ext_step(Channel           &chan,
 		                            uint64_t           chan_idx,
@@ -315,7 +318,7 @@ class Tresor::Superblock_control : public Module
 		                       Superblock const &, bool &progress);
 
 		void _execute_write_vba(Channel &, uint64_t const job_idx,
-                              Superblock &, Generation const &, bool &progress);
+		                        Superblock &, Generation const &, bool &progress);
 
 		void _execute_initialize(Channel &, uint64_t const job_idx,
 		                         Superblock &, Superblock_index &,
