@@ -829,6 +829,186 @@ Superblock_control::_execute_initialize_rekeying(Channel           &chan,
 }
 
 
+void Superblock_control::_execute_discard_snap(Channel           &channel,
+                                               uint64_t   const   job_idx,
+                                               Superblock        &sb,
+                                               Superblock_index  &sb_idx,
+                                               Generation        &curr_gen,
+                                               bool              &progress)
+{
+	Request &req { channel._request };
+	switch (channel._state) {
+	case Channel::State::SUBMITTED:
+	{
+		bool snap_found { false };
+		Snapshot_index snap_idx { 0 };
+		for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++) {
+			Snapshot &snap { sb.snapshots.items[idx] };
+			if (snap.valid && snap.keep && snap.gen == *(Generation *)req._generation_ptr) {
+				snap_idx = idx;
+				snap_found = true;
+				break;
+			}
+		}
+		if (snap_found) {
+			Snapshot &snap { sb.snapshots.items[snap_idx] };
+			snap.keep = false;
+			sb.snapshots.discard_disposable_snapshots(sb.last_secured_generation, curr_gen);
+			sb.last_secured_generation = curr_gen;
+			sb.snapshots.items[sb.curr_snap].gen = curr_gen;
+			_init_sb_without_key_values(sb, channel._sb_ciphertext);
+			channel._key_plaintext = sb.current_key;
+			channel._generated_prim = {
+				.op     = Channel::Generated_prim::Type::READ,
+				.succ   = false,
+				.tg     = Channel::Tag_type::TAG_SB_CTRL_TA_ENCRYPT_KEY,
+				.blk_nr = 0,
+				.idx    = job_idx
+			};
+			channel._state = Channel::State::ENCRYPT_CURRENT_KEY_PENDING;
+		} else {
+			channel._request._success = true;
+			channel._state = Channel::State::COMPLETED;
+		}
+		progress = true;
+		break;
+	}
+	case Channel::State::ENCRYPT_CURRENT_KEY_COMPLETED:
+
+		if (!channel._generated_prim.succ) {
+			class Encrypt_current_key_error { };
+			throw Encrypt_current_key_error { };
+		}
+		switch (sb.state) {
+		case Superblock::REKEYING:
+
+			channel._key_plaintext = sb.previous_key;
+			channel._generated_prim = {
+				.op     = Channel::Generated_prim::Type::READ,
+				.succ   = false,
+				.tg     = Channel::Tag_type::TAG_SB_CTRL_TA_ENCRYPT_KEY,
+				.blk_nr = 0,
+				.idx    = job_idx
+			};
+			channel._state = Channel::State::ENCRYPT_PREVIOUS_KEY_PENDING;
+			progress = true;
+			break;
+
+		default:
+
+			channel._generated_prim = {
+				.op     = Channel::Generated_prim::Type::SYNC,
+				.succ   = false,
+				.tg     = Channel::Tag_type::TAG_SB_CTRL_CACHE,
+				.blk_nr = 0,
+				.idx    = job_idx
+			};
+			channel._state = Channel::State::SYNC_CACHE_PENDING;
+			progress = true;
+			break;
+		}
+		break;
+
+	case Channel::State::ENCRYPT_PREVIOUS_KEY_COMPLETED:
+
+		if (!channel._generated_prim.succ) {
+			class Encrypt_previous_key_error { };
+			throw Encrypt_previous_key_error { };
+		}
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::SYNC,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_CACHE,
+			.blk_nr = 0,
+			.idx    = job_idx
+		};
+		channel._state = Channel::State::SYNC_CACHE_PENDING;
+		progress = true;
+		break;
+
+	case Channel::State::SYNC_CACHE_COMPLETED:
+
+		if (!channel._generated_prim.succ) {
+			class Sync_cache_error { };
+			throw Sync_cache_error { };
+		}
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::WRITE,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_BLK_IO_WRITE_SB,
+			.blk_nr = sb_idx,
+			.idx    = job_idx
+		};
+		channel._state = Channel::State::WRITE_SB_PENDING;
+		progress = true;
+		break;
+
+	case Channel::State::WRITE_SB_COMPLETED:
+
+		if (!channel._generated_prim.succ) {
+			class Write_sb_completed_error { };
+			throw Write_sb_completed_error { };
+		}
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::SYNC,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_BLK_IO_SYNC,
+			.blk_nr = sb_idx,
+			.idx    = job_idx
+		};
+		channel._state = Channel::State::SYNC_BLK_IO_PENDING;
+		progress = true;
+		break;
+
+	case Channel::State::SYNC_BLK_IO_COMPLETED:
+	{
+		if (!channel._generated_prim.succ) {
+			class Sync_blk_io_completed_error { };
+			throw Sync_blk_io_completed_error { };
+		}
+		Block blk { };
+		channel._sb_ciphertext.encode_to_blk(blk);
+		calc_sha256_4k_hash(blk, channel._hash);
+
+		channel._generated_prim = {
+			.op     = Channel::Generated_prim::Type::READ,
+			.succ   = false,
+			.tg     = Channel::Tag_type::TAG_SB_CTRL_TA_SECURE_SB,
+			.blk_nr = 0,
+			.idx    = job_idx
+		};
+		channel._state = Channel::State::SECURE_SB_PENDING;
+
+		if (sb_idx < MAX_SUPERBLOCK_INDEX)
+            sb_idx = sb_idx + 1;
+		else
+			sb_idx = 0;
+
+		channel._generation = curr_gen;
+		curr_gen = curr_gen + 1;
+		progress = true;
+		break;
+	}
+	case Channel::State::SECURE_SB_COMPLETED:
+
+		if (!channel._generated_prim.succ) {
+			class Secure_sb_completed_error { };
+			throw Secure_sb_completed_error { };
+		}
+		sb.last_secured_generation = channel._generation;
+		*(Generation *)req._generation_ptr = channel._generation;
+		channel._request._success = true;
+		channel._state = Channel::State::COMPLETED;
+		progress = true;
+		break;
+
+	default:
+
+		break;
+	}
+}
+
+
 void Superblock_control::_execute_create_snap(Channel           &channel,
                                               uint64_t   const   job_idx,
                                               Superblock        &sb,
@@ -836,6 +1016,7 @@ void Superblock_control::_execute_create_snap(Channel           &channel,
                                               Generation        &curr_gen,
                                               bool              &progress)
 {
+	Request &req { channel._request };
 	switch (channel._state) {
 	case Channel::State::SUBMITTED:
 
@@ -980,6 +1161,7 @@ void Superblock_control::_execute_create_snap(Channel           &channel,
 			throw Secure_sb_completed_error { };
 		}
 		sb.last_secured_generation = channel._generation;
+		*(Generation *)req._generation_ptr = channel._generation;
 		channel._request._success = true;
 		channel._state = Channel::State::COMPLETED;
 		progress = true;
@@ -1997,11 +2179,7 @@ void Superblock_control::execute(bool &progress)
 		case Request::VBD_EXTENSION_STEP:  _execute_tree_ext_step(channel, idx, Superblock::EXTENDING_VBD, VERBOSE_VBD_EXTENSION, Channel::TAG_SB_CTRL_VBD_VBD_EXT_STEP, Channel::VBD_EXT_STEP_IN_VBD_PENDING, "vbd", progress); break;
 		case Request::FT_EXTENSION_STEP:   _execute_tree_ext_step(channel, idx, Superblock::EXTENDING_FT, VERBOSE_FT_EXTENSION, Channel::TAG_SB_CTRL_FT_FT_EXT_STEP, Channel::FT_EXT_STEP_IN_FT_PENDING, "ft", progress); break;
 		case Request::CREATE_SNAPSHOT:     _execute_create_snap(channel, idx, _sb, _sb_idx, _curr_gen, progress); break;
-		case Request::DISCARD_SNAPSHOT:
-			class Superblock_control_discard_snapshot { };
-			throw Superblock_control_discard_snapshot { };
-
-			break;
+		case Request::DISCARD_SNAPSHOT:    _execute_discard_snap(channel, idx, _sb, _sb_idx, _curr_gen, progress); break;
 		case Request::INITIALIZE:
 			_execute_initialize(channel, idx, _sb, _sb_idx, _curr_gen,
 			                    progress);
