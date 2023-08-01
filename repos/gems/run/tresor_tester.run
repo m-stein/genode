@@ -260,9 +260,9 @@ append config {
 							nr_of_leafs="64" />
 
 						<free-tree
-							nr_of_levels="3"
+							nr_of_levels="4"
 							nr_of_children="8"
-							nr_of_leafs="64" />
+							nr_of_leafs="100" />
 
 					</initialize>
 					<check/>
