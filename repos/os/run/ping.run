@@ -60,7 +60,7 @@ import_from_depot [depot_user]/src/[base_src] \
                   [depot_user]/src/init \
                   [depot_user]/src/nic_router
 
-build { app/ping }
+build { app/ping server/dynamic_rom }
 
 proc dst_ip { } {
 
@@ -104,12 +104,61 @@ append config {
 		<provides><service name="Timer"/></provides>
 	</start>
 
-	<start name="drivers" caps="1200" managing_system="yes">
-		<resource name="RAM" quantum="32M"/>
-		<binary name="init"/>
+	<start name="dynamic_rom">
+		<resource name="RAM" quantum="4M"/>
+		<provides><service name="ROM"/></provides>
+		<config verbose="no">
+			<rom name="init_config">
+				<inline>
+					<config>
+						<parent-provides>
+							<service name="ROM"/>
+							<service name="IRQ"/>
+							<service name="IO_MEM"/>
+							<service name="IO_PORT"/>
+							<service name="PD"/>
+							<service name="RM"/>
+							<service name="CPU"/>
+							<service name="LOG"/>
+							<service name="Uplink"/>
+							<service name="Timer"/>
+						</parent-provides>
+
+						<default-route>
+							<any-service> <parent/> <any-child/> </any-service>
+						</default-route>
+
+						<default caps="100"/>
+
+						<start name="drivers" caps="1200" managing_system="yes">
+							<resource name="RAM" quantum="32M"/>
+							<binary name="init"/>
+							<route>
+								<service name="ROM" label="config"> <parent label="drivers.config"/> </service>
+								<service name="Uplink"> <parent/> </service>
+								<service name="Timer"> <parent/> </service>
+								<service name="ROM"> <parent/> </service>
+								<service name="IRQ"> <parent/> </service>
+								<service name="IO_MEM"> <parent/> </service>
+								<service name="IO_PORT"> <parent/> </service>
+								<service name="PD"> <parent/> </service>
+								<service name="RM"> <parent/> </service>
+								<service name="CPU"> <parent/> </service>
+								<service name="LOG"> <parent/> </service>
+							</route>
+						</start>
+
+					</config>
+				</inline>
+				<sleep milliseconds="600000"/> <!-- 10 minutes -->
+			</rom>
+		</config>
+	</start>
+
+	<start name="init" caps="2400" managing_system="yes">
+		<resource name="RAM" quantum="64M"/>
 		<route>
-			<service name="ROM" label="config"> <parent label="drivers.config"/> </service>
-			<service name="Uplink"> <child name="nic_router"/> </service>
+			<service name="ROM" label="config"> <child name="dynamic_rom" label="init_config"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>
@@ -122,7 +171,7 @@ append config {
 		</provides>
 		<config dhcp_discover_timeout_sec="1">
 
-			<policy label_prefix="drivers" domain="uplink"/>
+			<policy label_prefix="init -> drivers" domain="uplink"/>
 			<policy label_prefix="ping"    domain="downlink"/>
 
 			<domain name="uplink">
