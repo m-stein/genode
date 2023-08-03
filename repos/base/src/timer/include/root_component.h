@@ -48,8 +48,10 @@ class Timer::Root_component : public Genode::Root_component<Session_component>
 			if (ram_quota < sizeof(Session_component)) {
 				throw Insufficient_ram_quota(); }
 
+			Genode::Session_label const label { label_from_args(args) };
+
 			return new (md_alloc())
-				Session_component(_timeout_scheduler);
+				Session_component(_timeout_scheduler, label);
 		}
 
 	public:

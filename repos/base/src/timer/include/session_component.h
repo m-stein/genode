@@ -19,6 +19,7 @@
 
 /* Genode includes */
 #include <util/list.h>
+#include <base/session_label.h>
 #include <timer_session/timer_session.h>
 #include <base/rpc_server.h>
 #include <timer/timeout.h>
@@ -40,9 +41,15 @@ class Timer::Session_component : public  Genode::Rpc_object<Session>,
 
 		friend class Genode::List<Session_component>;
 
+		enum { ELAPSED_US_STATIC_CNT_MAX = 500 };
+
 		Genode::Timeout                    _timeout;
 		Genode::Timeout_scheduler         &_timeout_scheduler;
 		Genode::Signal_context_capability  _sigh { };
+		Genode::Session_label const        _label;
+		uint64_t                           _elapsed_us_last_result { ~(uint64_t)0 };
+		uint64_t                           _elapsed_us_static_cnt { 0 };
+		bool                               _elapsed_us_static_detection { true };
 
 		uint64_t const _init_time_us =
 			_timeout_scheduler.curr_time().trunc_to_plain_us().value;
@@ -57,8 +64,8 @@ class Timer::Session_component : public  Genode::Rpc_object<Session>,
 
 	public:
 
-		Session_component(Genode::Timeout_scheduler &timeout_scheduler)
-		: _timeout(timeout_scheduler), _timeout_scheduler(timeout_scheduler) { }
+		Session_component(Genode::Timeout_scheduler &timeout_scheduler, Genode::Session_label const &label)
+		: _timeout(timeout_scheduler), _timeout_scheduler(timeout_scheduler), _label(label) { }
 
 
 		/********************
@@ -98,9 +105,31 @@ class Timer::Session_component : public  Genode::Rpc_object<Session>,
 		uint64_t elapsed_ms() const override {
 			return elapsed_us() / 1000; }
 
-		uint64_t elapsed_us() const override {
-			return _timeout_scheduler.curr_time().trunc_to_plain_us().value -
-			       _init_time_us; }
+		uint64_t elapsed_us() const override
+		{
+			uint64_t result =
+				_timeout_scheduler.curr_time().trunc_to_plain_us().value - _init_time_us;
+
+			if (_elapsed_us_static_detection) {
+				Session_component &s { *const_cast<Session_component *>(this) };
+				if (result == s._elapsed_us_last_result)
+					if (s._elapsed_us_static_cnt < ELAPSED_US_STATIC_CNT_MAX)
+						s._elapsed_us_static_cnt++;
+					else {
+						warning(
+							"XXXXXXXXXX session \"", s._label,
+							"\" returned an elapsed time of ", result, " us ",
+							s._elapsed_us_static_cnt, " times in a row XXXXXXXXXX");
+
+						s._elapsed_us_static_detection = false;
+					}
+				else {
+					s._elapsed_us_static_cnt = 0;
+					s._elapsed_us_last_result = result;
+				}
+			}
+			return result;
+		}
 
 		void msleep(uint64_t) override { /* never called at the server side */ }
 		void usleep(uint64_t) override { /* never called at the server side */ }
