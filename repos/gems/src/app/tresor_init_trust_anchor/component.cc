@@ -22,8 +22,8 @@
 #include <vfs/file_system_factory.h>
 #include <vfs/simple_env.h>
 
-/* Tresor includes */
-#include <tresor/vfs/io_job.h>
+/* vfs tresor trust anchor includes */
+#include <io_job.h>
 
 using namespace Genode;
 
