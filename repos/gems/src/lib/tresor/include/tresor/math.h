@@ -32,6 +32,13 @@ namespace Tresor {
 
 		return result;
 	}
+
+	template <typename T>
+	bool is_power_of_2(T val)
+	{
+		for (; val && (val & 1) == 0; val >>= 1);
+		return val == 1;
+	}
 }
 
 #endif /* _TRESOR__MATH_H_ */

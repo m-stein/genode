@@ -12,8 +12,8 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-#ifndef _TRESOR__INIT__CONFIGURATION_H_
-#define _TRESOR__INIT__CONFIGURATION_H_
+#ifndef _TRESOR_INIT__CONFIGURATION_H_
+#define _TRESOR_INIT__CONFIGURATION_H_
 
 /* base includes */
 #include <util/xml_node.h>
@@ -39,12 +39,6 @@ class Tresor_init::Configuration
 		uint64_t _ft_nr_of_lvls      { 0 };
 		uint64_t _ft_nr_of_children  { 0 };
 		uint64_t _ft_nr_of_leafs     { 0 };
-
-		static bool _is_power_of_2(uint64_t val)
-		{
-			for (; val && (val & 1) == 0; val >>= 1);
-			return val == 1;
-		}
 
 	public:
 
@@ -75,12 +69,12 @@ class Tresor_init::Configuration
 			ASSERT(_vbd_nr_of_lvls);
 			ASSERT(_vbd_nr_of_lvls <= TREE_MAX_NR_OF_LEVELS);
 			ASSERT(_vbd_nr_of_leafs);
-			ASSERT(_is_power_of_2(_vbd_nr_of_children));
+			ASSERT(is_power_of_2(_vbd_nr_of_children));
 			ASSERT(_vbd_nr_of_children <= NR_OF_T1_NODES_PER_BLK);
 			ASSERT(_ft_nr_of_lvls);
 			ASSERT(_ft_nr_of_lvls <= TREE_MAX_NR_OF_LEVELS);
 			ASSERT(_ft_nr_of_leafs);
-			ASSERT(_is_power_of_2(_ft_nr_of_children));
+			ASSERT(is_power_of_2(_ft_nr_of_children));
 			ASSERT(_ft_nr_of_children <= NR_OF_T1_NODES_PER_BLK);
 			ASSERT(_ft_nr_of_children <= NR_OF_T2_NODES_PER_BLK);
 		}
@@ -114,4 +108,4 @@ class Tresor_init::Configuration
 		}
 };
 
-#endif /* _TRESOR__INIT__CONFIGURATION_H_ */
+#endif /* _TRESOR_INIT__CONFIGURATION_H_ */
