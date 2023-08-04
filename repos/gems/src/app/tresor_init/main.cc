@@ -101,19 +101,22 @@ class Main
 		 */
 		void wakeup_vfs_user() override { _sigh.local_submit(); }
 
-		void _execute()
+		void _wakeup_back_end_services()
 		{
-			bool progress { true };
-			while (progress) {
-
-				progress = false;
-				execute_modules(progress);
-			}
-
 			_vfs_env.io().commit();
+		}
 
+		void _try_end_program()
+		{
 			if (_state == COMPLETE)
 				_env.parent().exit(0);
+		}
+
+		void _execute()
+		{
+			execute_modules();
+			_try_end_program();
+			_wakeup_back_end_services();
 		}
 
 		/****************
