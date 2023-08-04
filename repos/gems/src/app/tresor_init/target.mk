@@ -2,7 +2,7 @@ TARGET := tresor_init
 
 SRC_CC += main.cc
 
-INC_DIR += $(PRG_DIR)
+INC_DIR += $(PRG_DIR)/include
 
 LIBS += base
 LIBS += tresor
