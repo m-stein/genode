@@ -1056,12 +1056,7 @@ class Vfs_tresor::Wrapper
 
 		void handle_frontend_request()
 		{
-			bool progress { true };
-			while (progress) {
-
-				progress = false;
-				execute_modules(progress);
-			}
+			execute_modules();
 			_vfs_env.io().commit();
 
 			Tresor::Superblock_info const sb_info {
