@@ -682,24 +682,75 @@ class Snapshot_reference_tree : public Avl_tree<Snapshot_reference>
 };
 
 
-class Command_pool : public Module {
+static Block_allocator *_block_allocator_ptr;
 
+
+Genode::uint64_t block_allocator_first_block()
+{
+	if (!_block_allocator_ptr) {
+		struct Exception_1 { };
+		throw Exception_1();
+	}
+
+	return _block_allocator_ptr->first_block();
+}
+
+
+Genode::uint64_t block_allocator_nr_of_blks()
+{
+	if (!_block_allocator_ptr) {
+		struct Exception_1 { };
+		throw Exception_1();
+	}
+
+	return _block_allocator_ptr->nr_of_blks();
+}
+
+
+class Tresor_tester::Main
+:
+	private Vfs::Env::User,
+	private Tresor::Module_composition,
+	public  Tresor::Module
+{
 	private:
 
-		Allocator &_alloc;
-		Verbose_node const &_verbose_node;
+		Genode::Env &_env;
+		Attached_rom_dataspace _config_rom { _env, "config" };
+		Verbose_node _verbose_node { _config_rom.xml() };
+		Heap _heap { _env.ram(), _env.rm() };
+		Vfs::Simple_env _vfs_env { _env, _heap, _config_rom.xml().sub_node("vfs"), *this };
+		Signal_handler<Main> _signal_handler { _env.ep(), *this, &Main::_handle_signal };
+		Benchmark _benchmark { _env };
 		Fifo<Command> _cmd_queue { };
 		uint32_t _next_command_id { 0 };
 		unsigned long _nr_of_uncompleted_cmds { 0 };
 		unsigned long _nr_of_errors { 0 };
 		Tresor::Block _blk_data { };
 		Snapshot_reference_tree _snap_refs { };
+		Constructible<Free_tree> _free_tree { };
+		Constructible<Virtual_block_device> _vbd { };
+		Constructible<Superblock_control> _sb_control { };
+		Constructible<Request_pool> _request_pool { };
+		Constructible<Ft_resizing> _ft_resizing { };
+		Meta_tree _meta_tree { };
+		Trust_anchor _trust_anchor { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
+		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto") };
+		Block_io _block_io { _vfs_env, _config_rom.xml().sub_node("block-io") };
+		Block_allocator _block_allocator { NR_OF_SUPERBLOCK_SLOTS };
+		Vbd_initializer _vbd_initializer { };
+		Ft_initializer _ft_initializer { };
+		Sb_initializer _sb_initializer { };
+		Sb_check _sb_check { };
+		Vbd_check _vbd_check { };
+		Ft_check _ft_check { };
+		Client_data_request _client_data_request { };
 
 		void _read_cmd_node(Xml_node const &node,
 		                    Command::Type   cmd_type)
 		{
 			Command &cmd {
-				*new (_alloc) Command(cmd_type, node, _next_command_id++) };
+				*new (_heap) Command(cmd_type, node, _next_command_id++) };
 
 			_nr_of_uncompleted_cmds++;
 			_cmd_queue.enqueue(cmd);
@@ -724,125 +775,15 @@ class Command_pool : public Module {
 			}
 		}
 
-
-		/************
-		 ** Module **
-		 ************/
-
-		bool _peek_generated_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t   buf_size) override
+		Generation _snap_id_to_gen(Snapshot_id id)
 		{
+			Generation gen { INVALID_GENERATION };
+			_snap_refs.find(id, [&] (Snapshot_reference const &snap_ref)
 			{
-				Command const cmd {
-					peek_pending_command(Command::TRUST_ANCHOR) };
-
-				if (cmd.type() != Command::INVALID) {
-
-					Trust_anchor_node const &node { cmd.trust_anchor_node() };
-					switch (node.op()) {
-					case Trust_anchor_request::INITIALIZE:
-
-						Trust_anchor_request::create(
-							buf_ptr, buf_size, COMMAND_POOL, cmd.id(),
-							Trust_anchor_request::INITIALIZE,
-							nullptr, nullptr, node.passphrase().string(),
-							nullptr);
-
-						return true;
-
-					default: break;
-					}
-					class Exception_1 { };
-					throw Exception_1 { };
-				}
-			}
-
-			{
-				Command const cmd {
-					peek_pending_command(Command::INITIALIZE) };
-
-				if (cmd.type() != Command::INVALID) {
-
-					Tresor_init::Configuration const &cfg { cmd.initialize() };
-
-					Sb_initializer_request::create(
-						buf_ptr, buf_size, COMMAND_POOL, cmd.id(),
-						Sb_initializer_request::INIT,
-						(Tree_level_index)(cfg.vbd_nr_of_lvls() - 1),
-						(Tree_degree)cfg.vbd_nr_of_children(),
-						cfg.vbd_nr_of_leafs(),
-						(Tree_level_index)cfg.ft_nr_of_lvls() - 1,
-						(Tree_degree)cfg.ft_nr_of_children(),
-						cfg.ft_nr_of_leafs(),
-						(Tree_level_index)cfg.ft_nr_of_lvls() - 1,
-						(Tree_degree)cfg.ft_nr_of_children(),
-						cfg.ft_nr_of_leafs());
-
-					return true;
-				}
-			}
-
-			{
-				Command const cmd {
-					peek_pending_command(Command::CHECK) };
-
-				if (cmd.type() != Command::INVALID) {
-
-					Sb_check_request::create(
-						buf_ptr, buf_size, COMMAND_POOL, cmd.id(),
-						Sb_check_request::CHECK);
-
-					return true;
-				}
-			}
-			return false;
-		}
-
-		void _drop_generated_request(Module_request &mod_req) override
-		{
-			switch (mod_req.dst_module_id()) {
-			case TRUST_ANCHOR:
-			{
-				Trust_anchor_request const &ta_req {
-					*static_cast<Trust_anchor_request *>(&mod_req)};
-
-				if (ta_req.type() != Trust_anchor_request::INITIALIZE) {
-					class Exception_2 { };
-					throw Exception_2 { };
-				}
-				mark_command_in_progress(ta_req.src_request_id());
-				break;
-			}
-			case SB_INITIALIZER:
-			{
-				Sb_initializer_request const &sb_req {
-					*static_cast<Sb_initializer_request *>(&mod_req)};
-
-				if (sb_req.type() != Sb_initializer_request::INIT) {
-					class Exception_4 { };
-					throw Exception_4 { };
-				}
-				mark_command_in_progress(sb_req.src_request_id());
-				break;
-			}
-			case SB_CHECK:
-			{
-				Sb_check_request const &req {
-					*static_cast<Sb_check_request *>(&mod_req)};
-
-				if (req.type() != Sb_check_request::CHECK) {
-					class Exception_3 { };
-					throw Exception_3 { };
-				}
-				mark_command_in_progress(req.src_request_id());
-				break;
-			}
-			default:
-			{
-				class Exception_1 { };
-				throw Exception_1 { };
-			}
-			}
+				gen = snap_ref.gen();
+			},
+			[&] () { ASSERT_NEVER_REACHED; });
+			return gen;
 		}
 
 		template <typename HANDLE_MATCH_FN, typename HANDLE_NO_MATCH_FN>
@@ -863,101 +804,6 @@ class Command_pool : public Module {
 			});
 			if (!cmd_found)
 				handle_no_match_fn();
-		}
-
-		void generated_request_complete(Module_request &mod_req) override
-		{
-			switch (mod_req.dst_module_id()) {
-			case TRUST_ANCHOR:
-			{
-				Trust_anchor_request const &ta_req {
-					*static_cast<Trust_anchor_request *>(&mod_req)};
-
-				if (ta_req.type() != Trust_anchor_request::INITIALIZE) {
-					class Exception_2 { };
-					throw Exception_2 { };
-				}
-				mark_command_completed(
-					ta_req.src_request_id(), ta_req.success());
-				break;
-			}
-			case SB_INITIALIZER:
-			{
-				Sb_initializer_request const &sb_req {
-					*static_cast<Sb_initializer_request *>(&mod_req)};
-
-				if (sb_req.type() != Sb_initializer_request::INIT) {
-					class Exception_2 { };
-					throw Exception_2 { };
-				}
-				mark_command_completed(
-					sb_req.src_request_id(), sb_req.success());
-				break;
-			}
-			case SB_CHECK:
-			{
-				Sb_check_request const &sb_req {
-					*static_cast<Sb_check_request *>(&mod_req)};
-
-				if (sb_req.type() != Sb_check_request::CHECK) {
-					class Exception_2 { };
-					throw Exception_2 { };
-				}
-				mark_command_completed(
-					sb_req.src_request_id(), sb_req.success());
-				break;
-			}
-			case REQUEST_POOL:
-			{
-				Request const &rp_req {
-					*static_cast<Request *>(&mod_req)};
-
-				Module_request_id const cmd_id { rp_req.src_request_id() };
-				bool const success { rp_req.success() };
-				if (success && rp_req.operation() == Tresor::Request::CREATE_SNAPSHOT) {
-					find_cmd(cmd_id, [&] (Command &cmd)
-					{
-						_snap_refs.insert(new (_alloc)
-							Snapshot_reference { cmd.request_node().snap_id(), rp_req.gen() });
-					},
-					[&] () { ASSERT_NEVER_REACHED; });
-				}
-				mark_command_completed(cmd_id, success);
-				break;
-			}
-			default:
-			{
-				class Exception_1 { };
-				throw Exception_1 { };
-			}
-			}
-		}
-
-	public:
-
-		Command_pool(Allocator          &alloc,
-		             Xml_node     const &config_xml,
-		             Verbose_node const &verbose_node)
-		:
-			_alloc        { alloc },
-			_verbose_node { verbose_node }
-		{
-			config_xml.sub_node("commands").for_each_sub_node(
-				[&] (Xml_node const &node)
-			{
-				_read_cmd_node(node, Command::type_from_string(node.type()));
-			});
-		}
-
-		Generation snap_id_to_gen(Snapshot_id id)
-		{
-			Generation gen { INVALID_GENERATION };
-			_snap_refs.find(id, [&] (Snapshot_reference const &snap_ref)
-			{
-				gen = snap_ref.gen();
-			},
-			[&] () { ASSERT_NEVER_REACHED; });
-			return gen;
 		}
 
 		Command peek_pending_command(Command::Type type) const
@@ -1059,6 +905,7 @@ class Command_pool : public Module {
 					_generate_blk_data(blk_data, vba, req_node.salt());
 			},
 			[&] () { ASSERT_NEVER_REACHED; });
+			_benchmark.raise_nr_of_virt_blks_written();
 		}
 
 		void verify_blk_data(uint64_t               tresor_req_tag,
@@ -1091,95 +938,10 @@ class Command_pool : public Module {
 				}
 			},
 			[&] () { ASSERT_NEVER_REACHED; });
+			_benchmark.raise_nr_of_virt_blks_read();
 		}
 
-		void print_failed_cmds() const
-		{
-			_cmd_queue.for_each([&] (Command &cmd)
-			{
-				if (cmd.state() != Command::COMPLETED) {
-					return;
-				}
-				if (cmd.success() &&
-				    (!cmd.has_attr_data_mismatch() || !cmd.data_mismatch())) {
-
-					return;
-				}
-				log("cmd failed: ", cmd);
-			});
-		}
-
-		unsigned long nr_of_uncompleted_cmds() { return _nr_of_uncompleted_cmds; }
-		unsigned long nr_of_errors()           { return _nr_of_errors; }
-};
-
-
-static Block_allocator *_block_allocator_ptr;
-
-
-Genode::uint64_t block_allocator_first_block()
-{
-	if (!_block_allocator_ptr) {
-		struct Exception_1 { };
-		throw Exception_1();
-	}
-
-	return _block_allocator_ptr->first_block();
-}
-
-
-Genode::uint64_t block_allocator_nr_of_blks()
-{
-	if (!_block_allocator_ptr) {
-		struct Exception_1 { };
-		throw Exception_1();
-	}
-
-	return _block_allocator_ptr->nr_of_blks();
-}
-
-
-class Tresor_tester::Main
-:
-	private Vfs::Env::User,
-	private Tresor::Module_composition,
-	public  Tresor::Module
-{
-	private:
-
-		Genode::Env                        &_env;
-		Attached_rom_dataspace              _config_rom          { _env, "config" };
-		Verbose_node                        _verbose_node        { _config_rom.xml() };
-		Heap                                _heap                { _env.ram(), _env.rm() };
-		Vfs::Simple_env                     _vfs_env             { _env, _heap, _config_rom.xml().sub_node("vfs"), *this };
-		Signal_handler<Main>                _sigh                { _env.ep(), *this, &Main::_execute };
-		Command_pool                        _cmd_pool            { _heap, _config_rom.xml(), _verbose_node };
-		Constructible<Free_tree>            _free_tree           { };
-		Constructible<Virtual_block_device> _vbd                 { };
-		Constructible<Superblock_control>   _sb_control          { };
-		Constructible<Request_pool>         _request_pool        { };
-		Constructible<Ft_resizing>          _ft_resizing         { };
-		Benchmark                           _benchmark           { _env };
-		Meta_tree                           _meta_tree           { };
-		Trust_anchor                        _trust_anchor        { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
-		Crypto                              _crypto              { _vfs_env, _config_rom.xml().sub_node("crypto") };
-		Block_io                            _block_io            { _vfs_env, _config_rom.xml().sub_node("block-io") };
-		Block_allocator                     _block_allocator     { NR_OF_SUPERBLOCK_SLOTS };
-		Vbd_initializer                     _vbd_initializer     { };
-		Ft_initializer                      _ft_initializer      { };
-		Sb_initializer                      _sb_initializer      { };
-		Sb_check                            _sb_check            { };
-		Vbd_check                           _vbd_check           { };
-		Ft_check                            _ft_check            { };
-		Client_data_request                 _client_data_request { };
-
-		/*
-		 * Noncopyable
-		 */
-		Main(Main const &) = delete;
-		Main &operator = (Main const &) = delete;
-
-		void _construct_tresor()
+		void _construct_tresor_modules()
 		{
 			_free_tree.construct();
 			add_module(FREE_TREE, *_free_tree);
@@ -1197,7 +959,7 @@ class Tresor_tester::Main
 			add_module(FT_RESIZING, *_ft_resizing);
 		}
 
-		void _destruct_tresor()
+		void _destruct_tresor_modules()
 		{
 			remove_module(FT_RESIZING);
 			_ft_resizing.destruct();
@@ -1215,10 +977,60 @@ class Tresor_tester::Main
 			_free_tree.destruct();
 		}
 
-		/**
-		 * Vfs::Env::User interface
-		 */
-		void wakeup_vfs_user() override { _sigh.local_submit(); }
+		void _try_end_program()
+		{
+			if (_nr_of_uncompleted_cmds == 0) {
+				if (_nr_of_errors > 0) {
+					_cmd_queue.for_each([&] (Command &cmd)
+					{
+						if (cmd.state() != Command::COMPLETED) {
+							return;
+						}
+						if (cmd.success() &&
+							(!cmd.has_attr_data_mismatch() || !cmd.data_mismatch())) {
+
+							return;
+						}
+						log("cmd failed: ", cmd);
+					});
+					_env.parent().exit(-1);
+				} else
+					_env.parent().exit(0);
+			}
+		}
+
+		void _wakeup_back_end_services()
+		{
+			_vfs_env.io().commit();
+		}
+
+		void _handle_signal()
+		{
+			execute_modules();
+			_try_end_program();
+			_wakeup_back_end_services();
+		}
+
+
+		/****************************
+		 ** Make class noncopyable **
+		 ****************************/
+
+		Main(Main const &) = delete;
+
+		Main &operator = (Main const &) = delete;
+
+
+		/********************
+		 ** Vfs::Env::User **
+		 ********************/
+
+		void wakeup_vfs_user() override { _signal_handler.local_submit(); }
+
+
+		/********************
+		 ** Tresor::Module **
+		 ********************/
 
 		bool ready_to_submit_request() override
 		{
@@ -1237,12 +1049,10 @@ class Tresor_tester::Main
 			switch (_client_data_request._type) {
 			case Client_data_request::OBTAIN_PLAINTEXT_BLK:
 
-				_cmd_pool.generate_blk_data(
+				generate_blk_data(
 					_client_data_request._client_req_tag,
 					_client_data_request._vba,
 					*(Tresor::Block *)_client_data_request._plaintext_blk_ptr);
-
-				_benchmark.raise_nr_of_virt_blks_written();
 
 				if (_verbose_node.client_data_transferred())
 					log("client data: vba=", _client_data_request._vba,
@@ -1253,12 +1063,10 @@ class Tresor_tester::Main
 
 			case Client_data_request::SUPPLY_PLAINTEXT_BLK:
 
-				_cmd_pool.verify_blk_data(
+				verify_blk_data(
 					_client_data_request._client_req_tag,
 					_client_data_request._vba,
 					*(Tresor::Block *)_client_data_request._plaintext_blk_ptr);
-
-				_benchmark.raise_nr_of_virt_blks_read();
 
 				if (_verbose_node.client_data_transferred())
 					log("client data: vba=", _client_data_request._vba,
@@ -1273,8 +1081,6 @@ class Tresor_tester::Main
 				throw Exception_2 { };
 			}
 		}
-
-		void execute(bool &) override { }
 
 		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
 		                             Genode::size_t   buf_size) override
@@ -1300,178 +1106,220 @@ class Tresor_tester::Main
 			_client_data_request._type = Client_data_request::INVALID;
 		}
 
-		void _cmd_pool_handle_pending_tresor_cmds(bool &progress)
+		void execute(bool &progress) override
 		{
-			while (true) {
-
-				if (!_request_pool->ready_to_submit_request()) {
-					break;
+			{
+				Command const cmd { peek_pending_command(Command::LOG) };
+				if (cmd.type() != Command::INVALID) {
+					log("\n", cmd.log_node().string(), "\n");
+					mark_command_in_progress(cmd.id());
+					mark_command_completed(cmd.id(), true);
+					progress = true;
+					return;
 				}
-				Command const cmd {
-					_cmd_pool.peek_pending_command(Command::REQUEST) };
-
-				if (cmd.type() == Command::INVALID) {
-					break;
-				}
-				Request_node req_node { cmd.request_node() };
-				Generation gen { INVALID_GENERATION };
-				if (req_node.op() == Request::DISCARD_SNAPSHOT)
-					gen = _cmd_pool.snap_id_to_gen(req_node.snap_id());
-
-				Tresor::Request tresor_req {
-					cmd.request_node().op(),
-					false,
-					req_node.has_attr_vba() ? req_node.vba() : 0,
-					0,
-					req_node.has_attr_count() ? req_node.count() : 0,
-					0,
-					cmd.id(), gen, COMMAND_POOL, cmd.id() };
-
-				_request_pool->submit_request(tresor_req);
-				if (VERBOSE_MODULE_COMMUNICATION)
-					Genode::log(
-						module_name(tresor_req.src_module_id()), " ",
-						tresor_req.src_request_id_str(),
-						" --", tresor_req, "--> ",
-						module_name(tresor_req.dst_module_id()), " ",
-						tresor_req.dst_request_id_str());
-
-				_cmd_pool.mark_command_in_progress(cmd.id());
-				progress = true;
 			}
-		}
-
-		void _cmd_pool_handle_pending_construct_cmds(bool &progress)
-		{
-			while (true) {
-
-				Command const cmd {
-					_cmd_pool.peek_pending_command(Command::CONSTRUCT) };
-
-				if (cmd.type() == Command::INVALID) {
-					break;
+			{
+				Command const cmd { peek_pending_command(Command::BENCHMARK) };
+				if (cmd.type() != Command::INVALID) {
+					_benchmark.submit_request(cmd.benchmark_node());
+					mark_command_in_progress(cmd.id());
+					mark_command_completed(cmd.id(), true);
+					progress = true;
+					return;
 				}
-				_construct_tresor();
-				_cmd_pool.mark_command_in_progress(cmd.id());
-				_cmd_pool.mark_command_completed(cmd.id(), true);
-				progress = true;
 			}
-		}
-
-		void _cmd_pool_handle_pending_destruct_cmds(bool &progress)
-		{
-			while (true) {
-
-				Command const cmd {
-					_cmd_pool.peek_pending_command(Command::DESTRUCT) };
-
-				if (cmd.type() == Command::INVALID) {
-					break;
+			{
+				Command const cmd { peek_pending_command(Command::CONSTRUCT) };
+				if (cmd.type() != Command::INVALID) {
+					_construct_tresor_modules();
+					mark_command_in_progress(cmd.id());
+					mark_command_completed(cmd.id(), true);
+					progress = true;
+					return;
 				}
-				_destruct_tresor();
-				_cmd_pool.mark_command_in_progress(cmd.id());
-				_cmd_pool.mark_command_completed(cmd.id(), true);
-				progress = true;
 			}
-		}
-
-		void _cmd_pool_handle_pending_list_snapshots_cmds(bool &progress)
-		{
-			while (true) {
-
-				Command const cmd {
-					_cmd_pool.peek_pending_command(Command::LIST_SNAPSHOTS) };
-
-				if (cmd.type() == Command::INVALID) {
-					break;
+			{
+				Command const cmd { peek_pending_command(Command::DESTRUCT) };
+				if (cmd.type() != Command::INVALID) {
+					_destruct_tresor_modules();
+					mark_command_in_progress(cmd.id());
+					mark_command_completed(cmd.id(), true);
+					progress = true;
+					return;
 				}
-				Snapshot_generations generations;
-				_sb_control->snapshot_generations(generations);
-				unsigned snap_nr { 0 };
-				log("");
-				log("List snapshots (command ID ", cmd.id(), ")");
-				for (Generation const &gen : generations.items) {
-					if (gen != INVALID_GENERATION) {
-						log("   Snapshot #", snap_nr, " is generation ", gen);
-						snap_nr++;
+			}
+			{
+				Command const cmd { peek_pending_command(Command::LIST_SNAPSHOTS) };
+				if (cmd.type() != Command::INVALID) {
+					Snapshot_generations generations;
+					_sb_control->snapshot_generations(generations);
+					unsigned snap_nr { 0 };
+					log("");
+					log("List snapshots (command ID ", cmd.id(), ")");
+					for (Generation const &gen : generations.items) {
+						if (gen != INVALID_GENERATION) {
+							log("   Snapshot #", snap_nr, " is generation ", gen);
+							snap_nr++;
+						}
 					}
-				}
-				log("");
-				_cmd_pool.mark_command_in_progress(cmd.id());
-				_cmd_pool.mark_command_completed(cmd.id(), true);
-				progress = true;
-			}
-		}
-
-		void _cmd_pool_handle_pending_log_cmds(bool &progress)
-		{
-			while (true) {
-
-				Command const cmd {
-					_cmd_pool.peek_pending_command(Command::LOG) };
-
-				if (cmd.type() == Command::INVALID) {
-					break;
-				}
-				log("\n", cmd.log_node().string(), "\n");
-				_cmd_pool.mark_command_in_progress(cmd.id());
-				_cmd_pool.mark_command_completed(cmd.id(), true);
-				progress = true;
-			}
-		}
-
-		void _cmd_pool_handle_pending_benchmark_cmds(bool &progress)
-		{
-			while (true) {
-
-				Command const cmd {
-					_cmd_pool.peek_pending_command(Command::BENCHMARK) };
-
-				if (cmd.type() == Command::INVALID) {
-					break;
-				}
-				_benchmark.submit_request(cmd.benchmark_node());
-				_cmd_pool.mark_command_in_progress(cmd.id());
-				_cmd_pool.mark_command_completed(cmd.id(), true);
-				progress = true;
-			}
-		}
-
-		void _execute_command_pool(bool &progress)
-		{
-			if (_request_pool.constructed()) {
-				_cmd_pool_handle_pending_tresor_cmds(progress);
-				_cmd_pool_handle_pending_list_snapshots_cmds(progress);
-			}
-			_cmd_pool_handle_pending_log_cmds(progress);
-			_cmd_pool_handle_pending_benchmark_cmds(progress);
-			_cmd_pool_handle_pending_construct_cmds(progress);
-			_cmd_pool_handle_pending_destruct_cmds(progress);
-
-			if (_cmd_pool.nr_of_uncompleted_cmds() == 0) {
-
-				if (_cmd_pool.nr_of_errors() > 0) {
-
-					_cmd_pool.print_failed_cmds();
-					_env.parent().exit(-1);
-
-				} else {
-
-					_env.parent().exit(0);
+					log("");
+					mark_command_in_progress(cmd.id());
+					mark_command_completed(cmd.id(), true);
+					progress = true;
+					return;
 				}
 			}
 		}
 
-		void _execute()
+		bool _peek_generated_request(Genode::uint8_t *buf_ptr,
+		                             Genode::size_t   buf_size) override
 		{
-			bool progress { true };
-			while (progress) {
+			{
+				Command const cmd { peek_pending_command(Command::TRUST_ANCHOR) };
+				if (cmd.type() != Command::INVALID) {
 
-				progress = false;
-				_execute_command_pool(progress);
-				execute_modules(progress);
+					Trust_anchor_node const &node { cmd.trust_anchor_node() };
+					switch (node.op()) {
+					case Trust_anchor_request::INITIALIZE:
+
+						Trust_anchor_request::create(
+							buf_ptr, buf_size, COMMAND_POOL, cmd.id(),
+							Trust_anchor_request::INITIALIZE,
+							nullptr, nullptr, node.passphrase().string(),
+							nullptr);
+
+						return true;
+
+					default: break;
+					}
+					class Exception_1 { };
+					throw Exception_1 { };
+				}
 			}
-			_vfs_env.io().commit();
+			{
+				Command const cmd { peek_pending_command(Command::INITIALIZE) };
+				if (cmd.type() != Command::INVALID) {
+
+					Tresor_init::Configuration const &cfg { cmd.initialize() };
+
+					Sb_initializer_request::create(
+						buf_ptr, buf_size, COMMAND_POOL, cmd.id(),
+						Sb_initializer_request::INIT,
+						(Tree_level_index)(cfg.vbd_nr_of_lvls() - 1),
+						(Tree_degree)cfg.vbd_nr_of_children(),
+						cfg.vbd_nr_of_leafs(),
+						(Tree_level_index)cfg.ft_nr_of_lvls() - 1,
+						(Tree_degree)cfg.ft_nr_of_children(),
+						cfg.ft_nr_of_leafs(),
+						(Tree_level_index)cfg.ft_nr_of_lvls() - 1,
+						(Tree_degree)cfg.ft_nr_of_children(),
+						cfg.ft_nr_of_leafs());
+
+					return true;
+				}
+			}
+			{
+				Command const cmd { peek_pending_command(Command::CHECK) };
+				if (cmd.type() != Command::INVALID) {
+
+					Sb_check_request::create(
+						buf_ptr, buf_size, COMMAND_POOL, cmd.id(),
+						Sb_check_request::CHECK);
+
+					return true;
+				}
+			}
+			{
+				Command const cmd { peek_pending_command(Command::REQUEST) };
+				if (cmd.type() != Command::INVALID) {
+					Request_node req_node { cmd.request_node() };
+					Generation gen { INVALID_GENERATION };
+					if (req_node.op() == Request::DISCARD_SNAPSHOT)
+						gen = _snap_id_to_gen(req_node.snap_id());
+
+					construct_at<Tresor::Request>(
+						buf_ptr, cmd.request_node().op(), false,
+						req_node.has_attr_vba() ? req_node.vba() : 0,
+						0, req_node.has_attr_count() ? req_node.count() : 0,
+						0, cmd.id(), gen, COMMAND_POOL, cmd.id());
+
+					return true;
+				}
+			}
+			return false;
+		}
+
+		void _drop_generated_request(Module_request &mod_req) override
+		{
+			mark_command_in_progress(mod_req.src_request_id());
+		}
+
+		void generated_request_complete(Module_request &mod_req) override
+		{
+			switch (mod_req.dst_module_id()) {
+			case TRUST_ANCHOR:
+			{
+				Trust_anchor_request const &ta_req {
+					*static_cast<Trust_anchor_request *>(&mod_req)};
+
+				if (ta_req.type() != Trust_anchor_request::INITIALIZE) {
+					class Exception_2 { };
+					throw Exception_2 { };
+				}
+				mark_command_completed(
+					ta_req.src_request_id(), ta_req.success());
+				break;
+			}
+			case SB_INITIALIZER:
+			{
+				Sb_initializer_request const &sb_req {
+					*static_cast<Sb_initializer_request *>(&mod_req)};
+
+				if (sb_req.type() != Sb_initializer_request::INIT) {
+					class Exception_2 { };
+					throw Exception_2 { };
+				}
+				mark_command_completed(
+					sb_req.src_request_id(), sb_req.success());
+				break;
+			}
+			case SB_CHECK:
+			{
+				Sb_check_request const &sb_req {
+					*static_cast<Sb_check_request *>(&mod_req)};
+
+				if (sb_req.type() != Sb_check_request::CHECK) {
+					class Exception_2 { };
+					throw Exception_2 { };
+				}
+				mark_command_completed(
+					sb_req.src_request_id(), sb_req.success());
+				break;
+			}
+			case REQUEST_POOL:
+			{
+				Request const &rp_req {
+					*static_cast<Request *>(&mod_req)};
+
+				Module_request_id const cmd_id { rp_req.src_request_id() };
+				bool const success { rp_req.success() };
+				if (success && rp_req.operation() == Tresor::Request::CREATE_SNAPSHOT) {
+					find_cmd(cmd_id, [&] (Command &cmd)
+					{
+						_snap_refs.insert(new (_heap)
+							Snapshot_reference { cmd.request_node().snap_id(), rp_req.gen() });
+					},
+					[&] () { ASSERT_NEVER_REACHED; });
+				}
+				mark_command_completed(cmd_id, success);
+				break;
+			}
+			default:
+			{
+				class Exception_1 { };
+				throw Exception_1 { };
+			}
+			}
 		}
 
 	public:
@@ -1484,7 +1332,7 @@ class Tresor_tester::Main
 			add_module(CRYPTO,           _crypto);
 			add_module(TRUST_ANCHOR,     _trust_anchor);
 			add_module(CLIENT_DATA,     *this);
-			add_module(COMMAND_POOL,     _cmd_pool);
+			add_module(COMMAND_POOL,    *this);
 			add_module(BLOCK_IO,         _block_io);
 			add_module(BLOCK_ALLOCATOR,  _block_allocator);
 			add_module(VBD_INITIALIZER,  _vbd_initializer);
@@ -1496,7 +1344,12 @@ class Tresor_tester::Main
 
 			_block_allocator_ptr = &_block_allocator;
 
-			_execute();
+			_config_rom.xml().sub_node("commands").for_each_sub_node(
+				[&] (Xml_node const &node)
+			{
+				_read_cmd_node(node, Command::type_from_string(node.type()));
+			});
+			_handle_signal();
 		}
 };
 
