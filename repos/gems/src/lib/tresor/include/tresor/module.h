@@ -227,64 +227,69 @@ class Tresor::Module_composition
 			_module_ptrs[module_id] = nullptr;
 		}
 
-		void execute_modules(bool &progress)
+		void execute_modules()
 		{
-			for (Module_id id { 0 }; id <= MAX_MODULE_ID; id++) {
+			bool progress { true };
+			while (progress) {
 
-				if (_module_ptrs[id] == nullptr)
-					continue;
+				progress = false;
+				for (Module_id id { 0 }; id <= MAX_MODULE_ID; id++) {
 
-				Module *module_ptr { _module_ptrs[id] };
-				module_ptr->execute(progress);
-				module_ptr->for_each_generated_request([&] (Module_request &req) {
-					if (req.dst_module_id() > MAX_MODULE_ID) {
-						class Exception_1 { };
-						throw Exception_1 { };
-					}
-					if (_module_ptrs[req.dst_module_id()] == nullptr) {
-						class Exception_2 { };
-						throw Exception_2 { };
-					}
-					Module &dst_module { *_module_ptrs[req.dst_module_id()] };
-					if (!dst_module.ready_to_submit_request()) {
+					if (_module_ptrs[id] == nullptr)
+						continue;
+
+					Module *module_ptr { _module_ptrs[id] };
+					module_ptr->execute(progress);
+					module_ptr->for_each_generated_request([&] (Module_request &req) {
+						if (req.dst_module_id() > MAX_MODULE_ID) {
+							class Exception_1 { };
+							throw Exception_1 { };
+						}
+						if (_module_ptrs[req.dst_module_id()] == nullptr) {
+							class Exception_2 { };
+							throw Exception_2 { };
+						}
+						Module &dst_module { *_module_ptrs[req.dst_module_id()] };
+						if (!dst_module.ready_to_submit_request()) {
+
+							if (VERBOSE_MODULE_COMMUNICATION)
+								log(
+									module_name(id), " ", req.src_request_id_str(),
+									" --", req, "-| ",
+									module_name(req.dst_module_id()));
+
+							return Module::REQUEST_NOT_HANDLED;
+						}
+						dst_module.submit_request(req);
 
 						if (VERBOSE_MODULE_COMMUNICATION)
 							log(
 								module_name(id), " ", req.src_request_id_str(),
-								" --", req, "-| ",
-								module_name(req.dst_module_id()));
+								" --", req, "--> ",
+								module_name(req.dst_module_id()), " ",
+								req.dst_request_id_str());
 
-						return Module::REQUEST_NOT_HANDLED;
-					}
-					dst_module.submit_request(req);
+						progress = true;
+						return Module::REQUEST_HANDLED;
+					});
+					module_ptr->for_each_completed_request([&] (Module_request &req) {
+						if (req.src_module_id() > MAX_MODULE_ID) {
+							class Exception_3 { };
+							throw Exception_3 { };
+						}
+						if (VERBOSE_MODULE_COMMUNICATION)
+							log(
+								module_name(req.src_module_id()), " ",
+								req.src_request_id_str(), " <--", req,
+								"-- ", module_name(id), " ",
+								req.dst_request_id_str());
 
-					if (VERBOSE_MODULE_COMMUNICATION)
-						log(
-							module_name(id), " ", req.src_request_id_str(),
-							" --", req, "--> ",
-							module_name(req.dst_module_id()), " ",
-							req.dst_request_id_str());
-
-					progress = true;
-					return Module::REQUEST_HANDLED;
-				});
-				module_ptr->for_each_completed_request([&] (Module_request &req) {
-					if (req.src_module_id() > MAX_MODULE_ID) {
-						class Exception_3 { };
-						throw Exception_3 { };
-					}
-					if (VERBOSE_MODULE_COMMUNICATION)
-						log(
-							module_name(req.src_module_id()), " ",
-							req.src_request_id_str(), " <--", req,
-							"-- ", module_name(id), " ",
-							req.dst_request_id_str());
-
-					Module &src_module { *_module_ptrs[req.src_module_id()] };
-					src_module.generated_request_complete(req);
-					progress = true;
-				});
-			}
+						Module &src_module { *_module_ptrs[req.src_module_id()] };
+						src_module.generated_request_complete(req);
+						progress = true;
+					});
+				}
+			};
 		}
 };
 
