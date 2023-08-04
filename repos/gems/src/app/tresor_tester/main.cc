@@ -20,8 +20,10 @@
 #include <block_session/connection.h>
 #include <vfs/simple_env.h>
 
+/* tresor init configuration */
+#include <tresor_init/configuration.h>
+
 /* tresor includes */
-#include <tresor/init/configuration.h>
 #include <tresor/crypto.h>
 #include <tresor/trust_anchor.h>
 #include <tresor/client_data.h>
@@ -39,9 +41,6 @@
 #include <tresor/virtual_block_device.h>
 #include <tresor/superblock_control.h>
 #include <tresor/ft_resizing.h>
-
-/* tresor tester includes */
-#include <verbose_node.h>
 
 using namespace Genode;
 using namespace Tresor;
@@ -73,6 +72,50 @@ T read_attribute(Xml_node const &node,
 	}
 	return value;
 }
+
+
+class Verbose_node
+{
+	private:
+
+		bool _cmd_pool_cmd_pending     { false };
+		bool _cmd_pool_cmd_in_progress { false };
+		bool _cmd_pool_cmd_completed   { false };
+		bool _blk_io_req_in_progress   { false };
+		bool _blk_io_req_completed     { false };
+		bool _ta_req_in_progress       { false };
+		bool _ta_req_completed         { false };
+		bool _client_data_mismatch     { false };
+		bool _client_data_transferred  { false };
+
+	public:
+
+		Verbose_node(Genode::Xml_node const &config)
+		{
+			config.with_optional_sub_node("verbose", [&] (Genode::Xml_node const &verbose)
+			{
+				_cmd_pool_cmd_pending     = verbose.attribute_value("cmd_pool_cmd_pending"    , false);
+				_cmd_pool_cmd_in_progress = verbose.attribute_value("cmd_pool_cmd_in_progress", false);
+				_cmd_pool_cmd_completed   = verbose.attribute_value("cmd_pool_cmd_completed"  , false);
+				_blk_io_req_in_progress   = verbose.attribute_value("blk_io_req_in_progress"  , false);
+				_blk_io_req_completed     = verbose.attribute_value("blk_io_req_completed"    , false);
+				_ta_req_in_progress       = verbose.attribute_value("ta_req_in_progress"      , false);
+				_ta_req_completed         = verbose.attribute_value("ta_req_completed"        , false);
+				_client_data_mismatch     = verbose.attribute_value("client_data_mismatch"    , false);
+				_client_data_transferred  = verbose.attribute_value("client_data_transferred" , false);
+			});
+		}
+
+		bool cmd_pool_cmd_pending    () const { return _cmd_pool_cmd_pending    ; }
+		bool cmd_pool_cmd_in_progress() const { return _cmd_pool_cmd_in_progress; }
+		bool cmd_pool_cmd_completed  () const { return _cmd_pool_cmd_completed  ; }
+		bool blk_io_req_in_progress  () const { return _blk_io_req_in_progress  ; }
+		bool blk_io_req_completed    () const { return _blk_io_req_completed    ; }
+		bool ta_req_in_progress      () const { return _ta_req_in_progress      ; }
+		bool ta_req_completed        () const { return _ta_req_completed        ; }
+		bool client_data_mismatch    () const { return _client_data_mismatch    ; }
+		bool client_data_transferred () const { return _client_data_transferred ; }
+};
 
 
 class Log_node
