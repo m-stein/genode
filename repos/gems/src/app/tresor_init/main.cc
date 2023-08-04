@@ -23,7 +23,6 @@
 #include <vfs/simple_env.h>
 
 /* tresor includes */
-#include <tresor/init/configuration.h>
 #include <tresor/block_allocator.h>
 #include <tresor/block_io.h>
 #include <tresor/crypto.h>
@@ -32,6 +31,8 @@
 #include <tresor/trust_anchor.h>
 #include <tresor/vbd_initializer.h>
 
+/* tresor init includes */
+#include <tresor_init/configuration.h>
 
 enum { VERBOSE = 0 };
 
