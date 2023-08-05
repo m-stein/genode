@@ -30,7 +30,7 @@ namespace Vfs_tresor {
 
 namespace Tresor_tester {
 
-	class Main;
+	class Client_data;
 }
 
 class Tresor::Client_data_request : public Module_request
@@ -42,7 +42,7 @@ class Tresor::Client_data_request : public Module_request
 	private:
 
 		friend class ::Vfs_tresor::Wrapper;
-		friend class ::Tresor_tester::Main;
+		friend class ::Tresor_tester::Client_data;
 
 		Type     _type              { INVALID };
 		uint64_t _client_req_offset { 0 };
