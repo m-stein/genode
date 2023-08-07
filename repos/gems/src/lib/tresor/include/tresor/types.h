@@ -46,6 +46,8 @@ namespace Tresor {
 	using Snapshot_index         = uint32_t;
 	using Superblock_index       = uint8_t;
 	using On_disc_bool           = uint8_t;
+	using Request_offset         = uint64_t;
+	using Request_tag            = uint32_t;
 
 	enum { BLOCK_SIZE = 4096 };
 	enum { INVALID_KEY_ID = 0 };

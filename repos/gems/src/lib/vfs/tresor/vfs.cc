@@ -419,7 +419,7 @@ class Vfs_tresor::Wrapper
 				Request const &tresor_request {
 					*static_cast<Request *>(&mod_req)};
 
-				if (tresor_request.operation() == Tresor::Request::Operation::REKEY) {
+				if (tresor_request.op() == Tresor::Request::Operation::REKEY) {
 					bool const req_sucess = tresor_request.success();
 					if (_verbose) {
 						log("Complete request: backend request (", tresor_request, ")");
@@ -433,7 +433,7 @@ class Vfs_tresor::Wrapper
 					break;
 				}
 
-				if (tresor_request.operation() == Tresor::Request::Operation::DEINITIALIZE) {
+				if (tresor_request.op() == Tresor::Request::Operation::DEINITIALIZE) {
 					bool const req_sucess = tresor_request.success();
 					if (_verbose) {
 						log("Complete request: backend request (", tresor_request, ")");
@@ -446,7 +446,7 @@ class Vfs_tresor::Wrapper
 					break;
 				}
 
-				if (tresor_request.operation() == Tresor::Request::Operation::EXTEND_VBD) {
+				if (tresor_request.op() == Tresor::Request::Operation::EXTEND_VBD) {
 					bool const req_sucess = tresor_request.success();
 					if (_verbose) {
 						log("Complete request: backend request (", tresor_request, ")");
@@ -461,7 +461,7 @@ class Vfs_tresor::Wrapper
 					break;
 				}
 
-				if (tresor_request.operation() == Tresor::Request::Operation::EXTEND_FT) {
+				if (tresor_request.op() == Tresor::Request::Operation::EXTEND_FT) {
 					bool const req_sucess = tresor_request.success();
 					if (_verbose) {
 						log("Complete request: backend request (", tresor_request, ")");
@@ -475,7 +475,7 @@ class Vfs_tresor::Wrapper
 					break;
 				}
 
-				if (tresor_request.operation() == Tresor::Request::Operation::CREATE_SNAPSHOT) {
+				if (tresor_request.op() == Tresor::Request::Operation::CREATE_SNAPSHOT) {
 					if (_verbose) {
 						log("Complete request: (", tresor_request, ")");
 					}
@@ -484,7 +484,7 @@ class Vfs_tresor::Wrapper
 					break;
 				}
 
-				if (tresor_request.operation() == Tresor::Request::Operation::DISCARD_SNAPSHOT) {
+				if (tresor_request.op() == Tresor::Request::Operation::DISCARD_SNAPSHOT) {
 					if (_verbose) {
 						log("Complete request: (", tresor_request, ")");
 					}
@@ -497,7 +497,7 @@ class Vfs_tresor::Wrapper
 					_helper_read_request.state  = Helper_request::State::NONE;
 					_helper_write_request.state = Helper_request::State::NONE;
 
-					bool const eof = tresor_request.block_number() > _sb_control->max_vba();
+					bool const eof = tresor_request.vba() > _sb_control->max_vba();
 					_frontend_request.state = eof ? ST::ERROR_EOF : ST::ERROR;
 					_frontend_request.tresor_request.success(false);
 					if (_verbose) {
@@ -527,7 +527,7 @@ class Vfs_tresor::Wrapper
 				}
 
 				if (_helper_read_request.complete()) {
-					if (_frontend_request.tresor_request.read()) {
+					if (_frontend_request.tresor_request.op() == Tresor::Request::READ) {
 						char       * dst = reinterpret_cast<char*>
 							(_frontend_request.tresor_request.offset());
 						char const * src = reinterpret_cast<char const*>
@@ -549,7 +549,7 @@ class Vfs_tresor::Wrapper
 						}
 					}
 
-					if (_frontend_request.tresor_request.write()) {
+					if (_frontend_request.tresor_request.op() == Tresor::Request::WRITE) {
 						/* copy whole block first */
 						{
 							char       * dst = reinterpret_cast<char*>
@@ -572,7 +572,7 @@ class Vfs_tresor::Wrapper
 						_helper_write_request.tresor_request = Tresor::Request(
 							Tresor::Request::Operation::WRITE,
 							false,
-							_helper_read_request.tresor_request.block_number(),
+							_helper_read_request.tresor_request.vba(),
 							(uint64_t) &_helper_write_request.block_data,
 							_helper_read_request.tresor_request.count(),
 							_helper_read_request.tresor_request.key_id(),
@@ -1261,33 +1261,24 @@ class Vfs_tresor::Wrapper
 
 		bool create_snapshot()
 		{
-			if (!_request_pool.constructed()) {
+			if (!_request_pool.constructed())
 				_initialize_tresor();
-			}
 
-			if (!_request_pool->ready_to_submit_request()) {
+			if (!_request_pool->ready_to_submit_request())
 				return false;
-			}
 
-			if (_create_snapshot_request.tresor_request.valid()) {
+			if (_create_snapshot_request.tresor_request.op() != Tresor::Request::INVALID)
 				return false;
-			}
 
-			Tresor::Request::Operation const op =
-				Tresor::Request::Operation::CREATE_SNAPSHOT;
-
+			Tresor::Request::Operation const op = Tresor::Request::Operation::CREATE_SNAPSHOT;
 			_create_snapshot_request.tresor_request =
-				Tresor::Request(op, false, 0, 0, 1, 0, 0, 0,
-				             COMMAND_POOL, 0);
+				Tresor::Request(op, false, 0, 0, 1, 0, 0, 0, COMMAND_POOL, 0);
 
-			if (_verbose) {
+			if (_verbose)
 				Genode::log("Req: (req: ", _create_snapshot_request.tresor_request, ")");
-			}
 
 			_request_pool->submit_request(_create_snapshot_request.tresor_request);
-
-			_create_snapshot_request.state =
-				Frontend_request::State::IN_PROGRESS;
+			_create_snapshot_request.state = Frontend_request::State::IN_PROGRESS;
 
 			// XXX kick-off snapshot creation request
 			handle_frontend_request();
@@ -1298,17 +1289,14 @@ class Vfs_tresor::Wrapper
 
 		bool discard_snapshot(Generation snap_gen)
 		{
-			if (!_request_pool.constructed()) {
+			if (!_request_pool.constructed())
 				_initialize_tresor();
-			}
 
-			if (!_request_pool->ready_to_submit_request()) {
+			if (!_request_pool->ready_to_submit_request())
 				return false;
-			}
 
-			if (_discard_snapshot_request.tresor_request.valid()) {
+			if (_discard_snapshot_request.tresor_request.op() != Tresor::Request::INVALID)
 				return false;
-			}
 
 			Tresor::Request::Operation const op =
 				Tresor::Request::Operation::DISCARD_SNAPSHOT;
@@ -1316,9 +1304,8 @@ class Vfs_tresor::Wrapper
 			_discard_snapshot_request.tresor_request =
 				Tresor::Request(op, false, 0, 0, 1, 0, 0, snap_gen, COMMAND_POOL, 0);
 
-			if (_verbose) {
+			if (_verbose)
 				Genode::log("Req: (req: ", _discard_snapshot_request.tresor_request, ")");
-			}
 
 			_request_pool->submit_request(_discard_snapshot_request.tresor_request);
 
@@ -1362,49 +1349,39 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 
 			Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 			{
-				Genode::Mutex::Guard guard { _w.frontend_mtx() };
-
 				using State = Wrapper::Frontend_request::State;
-
+				Genode::Mutex::Guard guard { _w.frontend_mtx() };
 				State state = _w.frontend_request().state;
 				if (state == State::NONE) {
-
 					if (!_w.client_request_acceptable()) {
 						return READ_QUEUED;
 					}
 					using Op = Tresor::Request::Operation;
-
 					bool const accepted =
 						_w.submit_frontend_request(*this, dst, Op::READ, _snap_gen);
 					if (!accepted) { return READ_ERR_IO; }
 				}
-
 				_w.handle_frontend_request();
 				state = _w.frontend_request().state;
-
 				if (   state == State::PENDING
 				    || state == State::IN_PROGRESS) {
 					return READ_QUEUED;
 				}
-
 				if (state == State::COMPLETE) {
 					out_count = _w.frontend_request().count;
 					_w.ack_frontend_request(*this);
 					return READ_OK;
 				}
-
 				if (state == State::ERROR_EOF) {
 					out_count = 0;
 					_w.ack_frontend_request(*this);
 					return READ_OK;
 				}
-
 				if (state == State::ERROR) {
 					out_count = 0;
 					_w.ack_frontend_request(*this);
 					return READ_ERR_IO;
 				}
-
 				return READ_ERR_IO;
 			}
 
