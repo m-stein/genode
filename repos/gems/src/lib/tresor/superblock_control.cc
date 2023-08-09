@@ -30,6 +30,25 @@ using namespace Tresor;
  ** Superblock_control_request **
  ********************************/
 
+Superblock_control_request::Superblock_control_request(Module_id src_module_id,
+                                                       Module_request_id src_request_id,
+                                                       Type type,
+                                                       Request_offset client_req_offset,
+                                                       Request_tag client_req_tag,
+                                                       Number_of_blocks nr_of_blks,
+                                                       Virtual_block_address vba,
+                                                       Generation &generation)
+:
+	Module_request { src_module_id, src_request_id, SUPERBLOCK_CONTROL },
+	_type { type },
+	_client_req_offset { client_req_offset },
+	_client_req_tag { client_req_tag },
+	_nr_of_blks { nr_of_blks },
+	_vba { vba },
+	_generation_ptr { (addr_t)&generation }
+{ }
+
+
 void Superblock_control_request::create(void             *buf_ptr,
                                         size_t            buf_size,
                                         uint64_t          src_module_id,

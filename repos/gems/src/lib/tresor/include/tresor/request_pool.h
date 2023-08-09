@@ -108,13 +108,13 @@ class Tresor::Request : public Module_request
 		}
 };
 
-class Tresor::Request_pool_channel
+class Tresor::Request_pool_channel : public Module_channel
 {
 	private:
 
 		friend class Request_pool;
 
-		enum State {
+		enum State : State_uint {
 			INVALID, SUBMITTED, SUBMITTED_RESUME_REKEYING, REKEY_INIT_PENDING,
 			REKEY_INIT_IN_PROGRESS, REKEY_INIT_COMPLETE, PREPONE_REQUESTS_PENDING,
 			PREPONE_REQUESTS_COMPLETE, VBD_EXTENSION_STEP_PENDING,
@@ -129,7 +129,8 @@ class Tresor::Request_pool_channel
 			DISCARD_SNAP_AT_SB_CTRL_COMPLETE, REKEY_VBA_PENDING, REKEY_VBA_IN_PROGRESS,
 			REKEY_VBA_COMPLETE, INITIALIZE_SB_CTRL_PENDING, INITIALIZE_SB_CTRL_IN_PROGRESS,
 			INITIALIZE_SB_CTRL_COMPLETE, DEINITIALIZE_SB_CTRL_PENDING,
-			DEINITIALIZE_SB_CTRL_IN_PROGRESS, DEINITIALIZE_SB_CTRL_COMPLETE, COMPLETE };
+			DEINITIALIZE_SB_CTRL_IN_PROGRESS, DEINITIALIZE_SB_CTRL_COMPLETE, COMPLETE,
+			GENERATED_REQUEST };
 
 		Tresor::Request _req { };
 		State _state { INVALID };
@@ -139,6 +140,24 @@ class Tresor::Request_pool_channel
 		uint32_t _nr_of_requests_preponed { 0 };
 		bool _request_finished { false };
 		bool _generated_req_success { false };
+
+		void _generated_req_complete(State_uint state_uint) override { _state = (State)state_uint; }
+
+		Request_pool_channel() {
+				log("rqp channel: ", this);
+		}
+
+		void _reset()
+		{
+			_req = Request { };
+			_state = INVALID;
+			_nr_of_blks = 0;
+			_vba = 0;
+			_sb_state = Superblock::INVALID;
+			_nr_of_requests_preponed = 0;
+			_request_finished = false;
+			_generated_req_success = false;
+		}
 };
 
 class Tresor::Request_pool : public Module

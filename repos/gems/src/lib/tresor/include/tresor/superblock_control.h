@@ -48,9 +48,9 @@ class Tresor::Superblock_control_request : public Module_request
 		Type                  _type              { INVALID };
 		uint64_t              _client_req_offset { 0 };
 		uint64_t              _client_req_tag    { 0 };
-		Virtual_block_address _vba               { 0 };
 		Superblock::State     _sb_state          { Superblock::INVALID };
 		Number_of_blocks      _nr_of_blks        { 0 };
+		Virtual_block_address _vba               { 0 };
 		bool                  _success           { false };
 		bool                  _request_finished  { false };
 		addr_t                _generation_ptr    { 0 };
@@ -63,6 +63,15 @@ class Tresor::Superblock_control_request : public Module_request
 
 		Superblock_control_request(Module_id         src_module_id,
 		                           Module_request_id src_request_id);
+
+		Superblock_control_request(Module_id src_module_id,
+		                           Module_request_id src_request_id,
+		                           Type type,
+		                           Request_offset client_req_offset,
+		                           Request_tag client_req_tag,
+		                           Number_of_blocks nr_of_blks,
+		                           Virtual_block_address vba,
+		                           Generation &generation);
 
 		static void create(void             *buf_ptr,
 		                   size_t            buf_size,
