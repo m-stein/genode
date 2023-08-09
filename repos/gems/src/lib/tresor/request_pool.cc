@@ -54,13 +54,11 @@ void Request_pool::_execute_read(Channel &chan, Channel_index chan_idx, bool &pr
 		if (chan._nr_of_blks < chan._req._count) {
 			chan._vba = chan._req._vba + chan._nr_of_blks;
 			chan._state = Channel::State::READ_VBA_AT_SB_CTRL_PENDING;
-		} else {
-			chan._req._success = true;
-			chan._state = Channel::State::COMPLETE;
-			_chan_idx_queue.dequeue(chan_idx);
-		}
-		progress = true;
+			progress = true;
+		} else
+			_mark_req_successful(chan, chan_idx, progress);
 		break;
+
 	default:
 		break;
 	}
@@ -85,12 +83,9 @@ void Request_pool::_execute_write(Channel &chan, Channel_index chan_idx, bool &p
 		if (chan._nr_of_blks < chan._req._count) {
 			chan._vba = chan._req._vba + chan._nr_of_blks;
 			chan._state = Channel::State::WRITE_VBA_AT_SB_CTRL_PENDING;
-		} else {
-			chan._req._success = true;
-			chan._state = Channel::State::COMPLETE;
-			_chan_idx_queue.dequeue(chan_idx);
-		}
-		progress = true;
+			progress = true;
+		} else
+			_mark_req_successful(chan, chan_idx, progress);
 		break;
 
 	default: break;
@@ -262,7 +257,6 @@ void Request_pool::_execute_extend_tree(Channel &chan, Channel_index chan_idx,
 
 void Request_pool::_execute_rekey(Channel &chan, Channel_index chan_idx, bool &progress)
 {
-	Request &req { chan._req };
 	switch (chan._state) {
 	case Channel::State::SUBMITTED:
 
@@ -289,15 +283,13 @@ void Request_pool::_execute_rekey(Channel &chan, Channel_index chan_idx, bool &p
 	case Channel::State::REKEY_VBA_COMPLETE:
 
 		if (_handle_failed_generated_req(chan, chan_idx, progress, __LINE__)) break;
-		if (chan._request_finished) {
-			req._success = true;
-			chan._state = Channel::State::COMPLETE;
-			_chan_idx_queue.dequeue(chan_idx);
-		} else {
+		if (chan._request_finished)
+			_mark_req_successful(chan, chan_idx, progress);
+		else {
 			chan._nr_of_requests_preponed = 0;
 			chan._state = Channel::State::PREPONE_REQUESTS_PENDING;
+			progress = true;
 		}
-		progress = true;
 		break;
 
 	case Channel::State::PREPONE_REQUESTS_PENDING:
@@ -305,7 +297,8 @@ void Request_pool::_execute_rekey(Channel &chan, Channel_index chan_idx, bool &p
 		bool requests_preponed { false };
 		while (1) {
 			bool exit_loop { false };
-			if (chan._nr_of_requests_preponed >= MAX_NR_OF_REQUESTS_PREPONED_AT_A_TIME || _chan_idx_queue.is_tail(chan_idx))
+			if (chan._nr_of_requests_preponed >= MAX_NR_OF_REQUESTS_PREPONED_AT_A_TIME ||
+			    _chan_idx_queue.is_tail(chan_idx))
 				break;
 
 			switch (_channels[_chan_idx_queue.next(chan_idx)]._req._op) {
@@ -425,10 +418,7 @@ void Request_pool::_execute_deinitialize(Channel &chan, Channel_index chan_idx, 
 	case Channel::State::DEINITIALIZE_SB_CTRL_COMPLETE:
 
 		if (_handle_failed_generated_req(chan, chan_idx, progress, __LINE__)) break;
-		chan._req._success = true;
-		chan._state = Channel::State::COMPLETE;
-		_chan_idx_queue.dequeue(chan_idx);
-		progress = true;
+		_mark_req_successful(chan, chan_idx, progress);
 		break;
 
 	default: break;
