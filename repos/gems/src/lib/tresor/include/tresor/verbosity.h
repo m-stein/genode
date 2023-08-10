@@ -16,7 +16,7 @@
 
 namespace Tresor {
 
-	enum { VERBOSE_MODULE_COMMUNICATION = 1 };
+	enum { VERBOSE_MODULE_COMMUNICATION = 0 };
 	enum { VERBOSE_VBD_EXTENSION        = 0 };
 	enum { VERBOSE_FT_EXTENSION         = 0 };
 	enum { VERBOSE_REKEYING             = 0 };

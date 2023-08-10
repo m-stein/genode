@@ -54,7 +54,8 @@ void Request_pool::_execute_read(Channel &chan, Channel_index chan_idx, bool &pr
 	case Channel::READ_VBA_AT_SB_CTRL_COMPLETE:
 
 		if (_handle_failed_generated_req(chan, chan_idx, progress, __LINE__)) break;
-		if (chan._nr_of_blks++ < chan._req._count) {
+		chan._nr_of_blks++;
+		if (chan._nr_of_blks < chan._req._count) {
 			chan.generate_req<Superblock_control_request>(
 				Channel::READ_VBA_AT_SB_CTRL_COMPLETE, progress, REQUEST_POOL,
 				chan_idx, Superblock_control_request::READ_VBA, req._offset, req._tag,
@@ -522,7 +523,6 @@ void Request_pool::_drop_generated_request(Module_request &mod_req)
 	ASSERT(chan_idx < NR_OF_CHANNELS);
 	Channel &chan { _channels[chan_idx] };
 	switch (chan._state) {
-	case Channel::READ_VBA_AT_SB_CTRL_PENDING: chan._state = Channel::READ_VBA_AT_SB_CTRL_IN_PROGRESS; break;
 	case Channel::WRITE_VBA_AT_SB_CTRL_PENDING: chan._state = Channel::WRITE_VBA_AT_SB_CTRL_IN_PROGRESS; break;
 	case Channel::SYNC_AT_SB_CTRL_PENDING: chan._state = Channel::SYNC_AT_SB_CTRL_IN_PROGRESS; break;
 	case Channel::REKEY_INIT_PENDING: chan._state = Channel::REKEY_INIT_IN_PROGRESS; break;
