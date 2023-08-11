@@ -51,7 +51,7 @@ class Tresor::Superblock_control_request : public Module_request
 		Superblock::State     _sb_state          { Superblock::INVALID };
 		Number_of_blocks      _nr_of_blks        { 0 };
 		Virtual_block_address _vba               { 0 };
-		bool                  _success           { false };
+		addr_t                _success_ptr       { 0 };
 		bool                  _request_finished  { false };
 		addr_t                _generation_ptr    { 0 };
 
@@ -71,18 +71,20 @@ class Tresor::Superblock_control_request : public Module_request
 		                           Request_tag client_req_tag,
 		                           Number_of_blocks nr_of_blks,
 		                           Virtual_block_address vba,
+		                           bool &success,
 		                           Generation &generation);
 
-		static void create(void             *buf_ptr,
-		                   size_t            buf_size,
-		                   uint64_t          src_module_id,
-		                   uint64_t          src_request_id,
-		                   size_t            req_type,
-		                   uint64_t          client_req_offset,
-		                   uint64_t          client_req_tag,
-		                   Number_of_blocks  nr_of_blks,
-		                   uint64_t          vba,
-		                   Generation       &gen);
+		static void create(void *buf_ptr,
+		                   size_t buf_size,
+		                   uint64_t src_module_id,
+		                   uint64_t src_request_id,
+		                   size_t req_type,
+		                   uint64_t client_req_offset,
+		                   uint64_t client_req_tag,
+		                   Number_of_blocks nr_of_blks,
+		                   uint64_t vba,
+		                   bool &success,
+		                   Generation &gen);
 
 		Superblock::State sb_state() { return _sb_state; }
 
@@ -90,7 +92,7 @@ class Tresor::Superblock_control_request : public Module_request
 
 		void gen(Generation g) { *(Generation *)_generation_ptr = g; }
 
-		bool success() const { return _success; }
+		bool success() const { return *(bool *)_success_ptr; }
 
 		bool request_finished() const { return _request_finished; }
 

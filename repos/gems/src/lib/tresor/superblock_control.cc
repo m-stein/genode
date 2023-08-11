@@ -37,6 +37,7 @@ Superblock_control_request::Superblock_control_request(Module_id src_module_id,
                                                        Request_tag client_req_tag,
                                                        Number_of_blocks nr_of_blks,
                                                        Virtual_block_address vba,
+                                                       bool &success,
                                                        Generation &generation)
 :
 	Module_request { src_module_id, src_request_id, SUPERBLOCK_CONTROL },
@@ -45,20 +46,22 @@ Superblock_control_request::Superblock_control_request(Module_id src_module_id,
 	_client_req_tag { client_req_tag },
 	_nr_of_blks { nr_of_blks },
 	_vba { vba },
+	_success_ptr { (addr_t)&success },
 	_generation_ptr { (addr_t)&generation }
 { }
 
 
-void Superblock_control_request::create(void             *buf_ptr,
-                                        size_t            buf_size,
-                                        uint64_t          src_module_id,
-                                        uint64_t          src_request_id,
-                                        size_t            req_type,
-                                        uint64_t          client_req_offset,
-                                        uint64_t          client_req_tag,
-                                        Number_of_blocks  nr_of_blks,
-                                        uint64_t          vba,
-                                        Generation       &gen)
+void Superblock_control_request::create(void *buf_ptr,
+                                        size_t buf_size,
+                                        uint64_t src_module_id,
+                                        uint64_t src_request_id,
+                                        size_t req_type,
+                                        uint64_t client_req_offset,
+                                        uint64_t client_req_tag,
+                                        Number_of_blocks nr_of_blks,
+                                        uint64_t vba,
+                                        bool &success,
+                                        Generation &gen)
 {
 	Superblock_control_request req { src_module_id, src_request_id };
 
@@ -67,6 +70,7 @@ void Superblock_control_request::create(void             *buf_ptr,
 	req._client_req_tag = client_req_tag;
 	req._nr_of_blks = nr_of_blks;
 	req._vba = vba;
+	req._success_ptr = (addr_t)&success;
 	req._generation_ptr = (addr_t)&gen;
 
 	if (sizeof(req) > buf_size) {
@@ -114,7 +118,7 @@ void Superblock_control::_mark_req_failed(Channel    &chan,
                                           char const *str)
 {
 	error("sb control: request (", chan._request, ") failed at step \"", str, "\"");
-	chan._request._success = false;
+	*(bool *)chan._request._success_ptr = false;
 	chan._state = Channel::COMPLETED;
 	progress = true;
 }
@@ -123,7 +127,7 @@ void Superblock_control::_mark_req_failed(Channel    &chan,
 void Superblock_control::_mark_req_successful(Channel &chan,
                                               bool    &progress)
 {
-	chan._request._success = true;
+	*(bool *)chan._request._success_ptr = true;
 	chan._state = Channel::COMPLETED;
 	progress = true;
 }
@@ -174,7 +178,7 @@ void Superblock_control::_execute_read_vba(Channel          &channel,
 		{
 			Virtual_block_address const vba = channel._request._vba;
 			if (vba > max_vba()) {
-				channel._request._success = false;
+				*(bool *)channel._request._success_ptr = false;
 				channel._state = Channel::State::COMPLETED;
 				progress = true;
 				return;
@@ -211,7 +215,7 @@ void Superblock_control::_execute_read_vba(Channel          &channel,
 
 		break;
 	case Channel::State::READ_VBA_AT_VBD_COMPLETED:
-		channel._request._success = channel._generated_prim.succ;
+		*(bool *)channel._request._success_ptr = channel._generated_prim.succ;
 		channel._state = Channel::State::COMPLETED;
 		progress = true;
 
@@ -247,7 +251,7 @@ void Superblock_control::_execute_write_vba(Channel         &channel,
 		{
 			Virtual_block_address const vba = channel._request._vba;
 			if (vba > max_vba()) {
-				channel._request._success = false;
+				*(bool *)channel._request._success_ptr = false;
 				channel._state = Channel::State::COMPLETED;
 				progress = true;
 				return;
@@ -301,7 +305,7 @@ void Superblock_control::_execute_write_vba(Channel         &channel,
 			throw Superblock_write_vba_at_vbd { };
 		}
 
-		channel._request._success = channel._generated_prim.succ;
+		*(bool *)channel._request._success_ptr = channel._generated_prim.succ;
 		channel._state = Channel::State::COMPLETED;
 		progress = true;
 
@@ -1065,9 +1069,7 @@ void Superblock_control::_execute_sync(Channel           &channel,
 		if (!_secure_sb_finish(channel, progress))
 			break;
 
-		channel._request._success = true;
-		channel._state = Channel::State::COMPLETED;
-		progress = true;
+		_mark_req_successful(channel, progress);
 		break;
 
 	default:
@@ -1249,11 +1251,7 @@ void Superblock_control::_execute_initialize(Channel           &channel,
 			}
 
 			channel._request._sb_state = _sb.state;
-			channel._request._success = true;
-
-			channel._state = Channel::State::COMPLETED;
-			progress       = true;
-
+			_mark_req_successful(channel, progress);
 			break;
 		}
 
@@ -1291,11 +1289,7 @@ void Superblock_control::_execute_initialize(Channel           &channel,
 		curr_gen = channel._generation + 1;
 
 		channel._request._sb_state = _sb.state;
-		channel._request._success = true;
-
-		channel._state = Channel::State::COMPLETED;
-		progress       = true;
-
+		_mark_req_successful(channel, progress);
 		break;
 	default:
 		break;
@@ -1465,8 +1459,6 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 		if (!_secure_sb_finish(channel, progress))
 			break;
 
-		channel._request._success = true;
-
 		channel._curr_key_plaintext.id = sb.current_key.id;
 
 		channel._generated_prim = {
@@ -1513,11 +1505,7 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 		case Superblock::EXTENDING_VBD:
 		case Superblock::EXTENDING_FT:
 
-			channel._request._success = true;
-
-			channel._state = Channel::State::COMPLETED;
-			progress       = true;
-
+			_mark_req_successful(channel, progress);
 			break;
 		}
 
@@ -1528,14 +1516,8 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 			class Deinitialize_remove_previous_key_error { };
 			throw Deinitialize_remove_previous_key_error { };
 		}
-
 		sb.state = Superblock::INVALID;
-
-		channel._request._success = true;
-
-		channel._state = Channel::State::COMPLETED;
-		progress       = true;
-
+		_mark_req_successful(channel, progress);
 		break;
 	default:
 		break;

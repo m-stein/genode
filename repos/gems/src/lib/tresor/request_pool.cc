@@ -13,7 +13,6 @@
 
 /* tresor includes */
 #include <tresor/request_pool.h>
-#include <tresor/superblock_control.h>
 
 using namespace Tresor;
 
@@ -37,37 +36,39 @@ char const *Request::op_to_string(Operation op)
 }
 
 
+void Request_pool::_gen_superblock_control_req(Channel &chan, Channel_index chan_idx, bool &progress,
+                                               Superblock_control_request::Type type, Virtual_block_address vba,
+                                               Channel::State complete_state)
+{
+	chan.generate_req<Superblock_control_request>(
+		complete_state, progress, REQUEST_POOL, chan_idx, type, chan._req._offset,
+		chan._req._tag, chan._req._count, vba, chan._generated_req_success, chan._req._gen);
+
+	chan._state = Channel::GENERATED_REQUEST;
+}
+
+
 void Request_pool::_execute_read(Channel &chan, Channel_index chan_idx, bool &progress)
 {
-	Request &req { chan._req };
 	switch (chan._state) {
 	case Channel::SUBMITTED:
 
-		chan.generate_req<Superblock_control_request>(
-			Channel::READ_VBA_AT_SB_CTRL_COMPLETE, progress, REQUEST_POOL,
-			chan_idx, Superblock_control_request::READ_VBA, req._offset, req._tag,
-			req._count, chan._req._vba + chan._nr_of_blks, req._gen);
-
-		chan._state = Channel::GENERATED_REQUEST;
+		_gen_superblock_control_req(
+			chan, chan_idx, progress, Superblock_control_request::READ_VBA,
+			chan._req._vba + chan._nr_of_blks, Channel::READ_VBA_AT_SB_CTRL_SUCCEEDED);
 		break;
 
-	case Channel::READ_VBA_AT_SB_CTRL_COMPLETE:
+	case Channel::READ_VBA_AT_SB_CTRL_SUCCEEDED:
 
-		if (_handle_failed_generated_req(chan, chan_idx, progress, __LINE__)) break;
-		chan._nr_of_blks++;
-		if (chan._nr_of_blks < chan._req._count) {
-			chan.generate_req<Superblock_control_request>(
-				Channel::READ_VBA_AT_SB_CTRL_COMPLETE, progress, REQUEST_POOL,
-				chan_idx, Superblock_control_request::READ_VBA, req._offset, req._tag,
-				req._count, chan._req._vba + chan._nr_of_blks, req._gen);
-
-			chan._state = Channel::GENERATED_REQUEST;
-		} else
+		if (++chan._nr_of_blks < chan._req._count)
+			_gen_superblock_control_req(
+				chan, chan_idx, progress, Superblock_control_request::READ_VBA,
+				chan._req._vba + chan._nr_of_blks, Channel::READ_VBA_AT_SB_CTRL_SUCCEEDED);
+		else
 			_mark_req_successful(chan, chan_idx, progress);
 		break;
 
-	default:
-		break;
+	default: break;
 	}
 }
 
@@ -77,21 +78,18 @@ void Request_pool::_execute_write(Channel &chan, Channel_index chan_idx, bool &p
 	switch (chan._state) {
 	case Channel::State::SUBMITTED:
 
-		chan._nr_of_blks = 0;
-		chan._vba = chan._req._vba + chan._nr_of_blks;
-		chan._state = Channel::State::WRITE_VBA_AT_SB_CTRL_PENDING;
-		progress = true;
+		_gen_superblock_control_req(
+			chan, chan_idx, progress, Superblock_control_request::WRITE_VBA,
+			chan._req._vba + chan._nr_of_blks, Channel::WRITE_VBA_AT_SB_CTRL_SUCCEEDED);
 		break;
 
-	case Channel::State::WRITE_VBA_AT_SB_CTRL_COMPLETE:
+	case Channel::State::WRITE_VBA_AT_SB_CTRL_SUCCEEDED:
 
-		if (_handle_failed_generated_req(chan, chan_idx, progress, __LINE__)) break;
-		chan._nr_of_blks++;
-		if (chan._nr_of_blks < chan._req._count) {
-			chan._vba = chan._req._vba + chan._nr_of_blks;
-			chan._state = Channel::State::WRITE_VBA_AT_SB_CTRL_PENDING;
-			progress = true;
-		} else
+		if (++chan._nr_of_blks < chan._req._count)
+			_gen_superblock_control_req(
+				chan, chan_idx, progress, Superblock_control_request::WRITE_VBA,
+				chan._req._vba + chan._nr_of_blks, Channel::WRITE_VBA_AT_SB_CTRL_SUCCEEDED);
+		else
 			_mark_req_successful(chan, chan_idx, progress);
 		break;
 
@@ -498,7 +496,6 @@ bool Request_pool::_peek_generated_request(uint8_t *buf_ptr, size_t buf_size)
 	Request &req { chan._req };
 	Superblock_control_request::Type req_type;
 	switch (chan._state) {
-	case Channel::WRITE_VBA_AT_SB_CTRL_PENDING: req_type = Superblock_control_request::WRITE_VBA; break;
 	case Channel::SYNC_AT_SB_CTRL_PENDING: req_type = Superblock_control_request::SYNC; break;
 	case Channel::CREATE_SNAP_AT_SB_CTRL_PENDING: req_type = Superblock_control_request::CREATE_SNAPSHOT; break;
 	case Channel::DISCARD_SNAP_AT_SB_CTRL_PENDING: req_type = Superblock_control_request::DISCARD_SNAPSHOT; break;
@@ -511,7 +508,7 @@ bool Request_pool::_peek_generated_request(uint8_t *buf_ptr, size_t buf_size)
 	default: return false;
 	}
 	Superblock_control_request::create(
-		buf_ptr, buf_size, REQUEST_POOL, chan_idx, req_type, req._offset, req._tag, req._count, chan._vba, req._gen);
+		buf_ptr, buf_size, REQUEST_POOL, chan_idx, req_type, req._offset, req._tag, req._count, chan._vba, chan._generated_req_success, req._gen);
 
 	return true;
 }
@@ -523,7 +520,6 @@ void Request_pool::_drop_generated_request(Module_request &mod_req)
 	ASSERT(chan_idx < NR_OF_CHANNELS);
 	Channel &chan { _channels[chan_idx] };
 	switch (chan._state) {
-	case Channel::WRITE_VBA_AT_SB_CTRL_PENDING: chan._state = Channel::WRITE_VBA_AT_SB_CTRL_IN_PROGRESS; break;
 	case Channel::SYNC_AT_SB_CTRL_PENDING: chan._state = Channel::SYNC_AT_SB_CTRL_IN_PROGRESS; break;
 	case Channel::REKEY_INIT_PENDING: chan._state = Channel::REKEY_INIT_IN_PROGRESS; break;
 	case Channel::REKEY_VBA_PENDING: chan._state = Channel::REKEY_VBA_IN_PROGRESS; break;
@@ -549,7 +545,6 @@ void Request_pool::generated_request_complete(Module_request &mod_req)
 		Superblock_control_request &gen_req { *static_cast<Superblock_control_request *>(&mod_req) };
 		chan._generated_req_success = gen_req.success();
 		switch (chan._state) {
-		case Channel::WRITE_VBA_AT_SB_CTRL_IN_PROGRESS: chan._state = Channel::WRITE_VBA_AT_SB_CTRL_COMPLETE; break;
 		case Channel::SYNC_AT_SB_CTRL_IN_PROGRESS: chan._state = Channel::SYNC_AT_SB_CTRL_COMPLETE; break;
 		case Channel::TREE_EXTENSION_STEP_IN_PROGRESS:
 			chan._state = Channel::TREE_EXTENSION_STEP_COMPLETE;

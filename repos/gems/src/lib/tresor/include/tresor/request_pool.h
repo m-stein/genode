@@ -18,6 +18,7 @@
 #include <tresor/module.h>
 #include <tresor/types.h>
 #include <tresor/vfs_utilities.h>
+#include <tresor/superblock_control.h>
 
 namespace Tresor {
 
@@ -29,6 +30,7 @@ namespace Tresor {
 class Tresor::Request : public Module_request
 {
 	friend class Request_pool;
+	friend class Request_pool_channel;
 
 	public:
 
@@ -122,9 +124,7 @@ class Tresor::Request_pool_channel : public Module_channel
 			TREE_EXTENSION_STEP_COMPLETE, CREATE_SNAP_AT_SB_CTRL_PENDING,
 			CREATE_SNAP_AT_SB_CTRL_IN_PROGRESS, CREATE_SNAP_AT_SB_CTRL_COMPLETE,
 			SYNC_AT_SB_CTRL_PENDING, SYNC_AT_SB_CTRL_IN_PROGRESS, SYNC_AT_SB_CTRL_COMPLETE,
-			READ_VBA_AT_SB_CTRL_PENDING, READ_VBA_AT_SB_CTRL_IN_PROGRESS,
-			READ_VBA_AT_SB_CTRL_COMPLETE, WRITE_VBA_AT_SB_CTRL_PENDING,
-			WRITE_VBA_AT_SB_CTRL_IN_PROGRESS, WRITE_VBA_AT_SB_CTRL_COMPLETE,
+			READ_VBA_AT_SB_CTRL_SUCCEEDED, WRITE_VBA_AT_SB_CTRL_SUCCEEDED,
 			DISCARD_SNAP_AT_SB_CTRL_PENDING, DISCARD_SNAP_AT_SB_CTRL_IN_PROGRESS,
 			DISCARD_SNAP_AT_SB_CTRL_COMPLETE, REKEY_VBA_PENDING, REKEY_VBA_IN_PROGRESS,
 			REKEY_VBA_COMPLETE, INITIALIZE_SB_CTRL_PENDING, INITIALIZE_SB_CTRL_IN_PROGRESS,
@@ -141,10 +141,14 @@ class Tresor::Request_pool_channel : public Module_channel
 		bool _request_finished { false };
 		bool _generated_req_success { false };
 
-		void _generated_req_complete(State_uint state_uint) override { _state = (State)state_uint; }
-
-		Request_pool_channel() {
-				log("rqp channel: ", this);
+		void _generated_req_complete(State_uint state_uint) override
+		{
+			if (!_generated_req_success) {
+				error("request_pool: request (", _req, ") failed because generated request failed)");
+				_req._success = false;
+				_state = COMPLETE;
+			} else
+				_state = (State)state_uint;
 		}
 
 		void _reset()
@@ -291,6 +295,8 @@ class Tresor::Request_pool : public Module
 		void _execute_initialize(Channel &, Channel_index, bool &);
 
 		void _execute_deinitialize(Channel &, Channel_index, bool &);
+
+		void _gen_superblock_control_req(Channel &, Channel_index, bool &, Superblock_control_request::Type, Virtual_block_address, Channel::State);
 
 
 		/************
