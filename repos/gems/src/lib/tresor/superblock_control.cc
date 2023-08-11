@@ -38,6 +38,8 @@ Superblock_control_request::Superblock_control_request(Module_id src_module_id,
                                                        Number_of_blocks nr_of_blks,
                                                        Virtual_block_address vba,
                                                        bool &success,
+                                                       bool &request_finished,
+                                                       Superblock::State &sb_state,
                                                        Generation &generation)
 :
 	Module_request { src_module_id, src_request_id, SUPERBLOCK_CONTROL },
@@ -47,6 +49,8 @@ Superblock_control_request::Superblock_control_request(Module_id src_module_id,
 	_nr_of_blks { nr_of_blks },
 	_vba { vba },
 	_success_ptr { (addr_t)&success },
+	_request_finished_ptr { (addr_t)&request_finished },
+	_sb_state_ptr { (addr_t)&sb_state },
 	_generation_ptr { (addr_t)&generation }
 { }
 
@@ -61,6 +65,8 @@ void Superblock_control_request::create(void *buf_ptr,
                                         Number_of_blocks nr_of_blks,
                                         uint64_t vba,
                                         bool &success,
+                                        bool &request_finished,
+                                        Superblock::State &sb_state,
                                         Generation &gen)
 {
 	Superblock_control_request req { src_module_id, src_request_id };
@@ -71,6 +77,8 @@ void Superblock_control_request::create(void *buf_ptr,
 	req._nr_of_blks = nr_of_blks;
 	req._vba = vba;
 	req._success_ptr = (addr_t)&success;
+	req._request_finished_ptr = (addr_t)&request_finished;
+	req._sb_state_ptr = (addr_t)&sb_state;
 	req._generation_ptr = (addr_t)&gen;
 
 	if (sizeof(req) > buf_size) {
@@ -393,7 +401,7 @@ void Superblock_control::_execute_tree_ext_step(Channel          &chan,
 		}
 		if (_sb.state == Superblock::NORMAL) {
 
-			req._request_finished = false;
+			*(bool *)req._request_finished_ptr = false;
 			_sb.state = tree_ext_sb_state;
 			_sb.resizing_nr_of_pbas = req._nr_of_blks;
 			_sb.resizing_nr_of_leaves = 0;
@@ -476,7 +484,7 @@ void Superblock_control::_execute_tree_ext_step(Channel          &chan,
 		if (req._nr_of_blks == 0) {
 
 			_sb.state = Superblock::NORMAL;
-			req._request_finished = true;
+			*(bool *)req._request_finished_ptr = true;
 		}
 		_secure_sb_init(chan, chan_idx, progress);
 		break;
@@ -550,7 +558,7 @@ void Superblock_control::_execute_rekey_vba(Channel  &chan,
 		if (_sb.rekeying_vba < max_nr_of_leaves - 1) {
 
 			_sb.rekeying_vba++;
-			req._request_finished = false;
+			*(bool *)req._request_finished_ptr = false;
 			_secure_sb_init(chan, chan_idx, progress);
 
 			if (VERBOSE_REKEYING)
@@ -582,7 +590,7 @@ void Superblock_control::_execute_rekey_vba(Channel  &chan,
 		}
 		_sb.previous_key = { };
 		_sb.state = Superblock::NORMAL;
-		req._request_finished = true;
+		*(bool *)req._request_finished_ptr = true;
 		_secure_sb_init(chan, chan_idx, progress);
 
 		if (VERBOSE_REKEYING)
@@ -1250,7 +1258,7 @@ void Superblock_control::_execute_initialize(Channel           &channel,
 				throw Execute_add_current_key_at_crypto_max_level_error { };
 			}
 
-			channel._request._sb_state = _sb.state;
+			*(Superblock::State *)channel._request._sb_state_ptr = _sb.state;
 			_mark_req_successful(channel, progress);
 			break;
 		}
@@ -1288,7 +1296,7 @@ void Superblock_control::_execute_initialize(Channel           &channel,
 		sb_idx   = channel._sb_idx;
 		curr_gen = channel._generation + 1;
 
-		channel._request._sb_state = _sb.state;
+		*(Superblock::State *)channel._request._sb_state_ptr = _sb.state;
 		_mark_req_successful(channel, progress);
 		break;
 	default:

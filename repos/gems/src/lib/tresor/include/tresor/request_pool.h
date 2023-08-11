@@ -117,20 +117,13 @@ class Tresor::Request_pool_channel : public Module_channel
 		friend class Request_pool;
 
 		enum State : State_uint {
-			INVALID, SUBMITTED, SUBMITTED_RESUME_REKEYING, REKEY_INIT_PENDING,
-			REKEY_INIT_IN_PROGRESS, REKEY_INIT_COMPLETE, PREPONE_REQUESTS_PENDING,
+			INVALID, SUBMITTED, SUBMITTED_RESUME_REKEYING, REKEY_INIT_SUCCEEDED, PREPONE_REQUESTS_PENDING,
 			PREPONE_REQUESTS_COMPLETE, VBD_EXTENSION_STEP_PENDING,
 			FT_EXTENSION_STEP_PENDING, TREE_EXTENSION_STEP_IN_PROGRESS,
-			TREE_EXTENSION_STEP_COMPLETE, CREATE_SNAP_AT_SB_CTRL_PENDING,
-			CREATE_SNAP_AT_SB_CTRL_IN_PROGRESS, CREATE_SNAP_AT_SB_CTRL_COMPLETE,
-			SYNC_AT_SB_CTRL_PENDING, SYNC_AT_SB_CTRL_IN_PROGRESS, SYNC_AT_SB_CTRL_COMPLETE,
-			READ_VBA_AT_SB_CTRL_SUCCEEDED, WRITE_VBA_AT_SB_CTRL_SUCCEEDED,
-			DISCARD_SNAP_AT_SB_CTRL_PENDING, DISCARD_SNAP_AT_SB_CTRL_IN_PROGRESS,
-			DISCARD_SNAP_AT_SB_CTRL_COMPLETE, REKEY_VBA_PENDING, REKEY_VBA_IN_PROGRESS,
-			REKEY_VBA_COMPLETE, INITIALIZE_SB_CTRL_PENDING, INITIALIZE_SB_CTRL_IN_PROGRESS,
-			INITIALIZE_SB_CTRL_COMPLETE, DEINITIALIZE_SB_CTRL_PENDING,
-			DEINITIALIZE_SB_CTRL_IN_PROGRESS, DEINITIALIZE_SB_CTRL_COMPLETE, COMPLETE,
-			GENERATED_REQUEST };
+			TREE_EXTENSION_STEP_COMPLETE,
+			FORWARD_TO_SB_CTRL_SUCCEEDED, ACCESS_VBA_AT_SB_CTRL_SUCCEEDED,
+			REKEY_VBA_SUCCEEDED, INITIALIZE_SB_CTRL_SUCCEEDED, DEINITIALIZE_SB_CTRL_SUCCEEDED,
+			COMPLETE, GENERATED_REQUEST };
 
 		Tresor::Request _req { };
 		State _state { INVALID };
@@ -278,25 +271,17 @@ class Tresor::Request_pool : public Module
 
 		void _mark_req_failed(Channel &, bool &, unsigned long line);
 
-		void _execute_read(Channel &, Channel_index, bool &);
-
-		void _execute_write(Channel &, Channel_index, bool &);
-
-		void _execute_sync(Channel &, Channel_index, bool &);
-
-		void _execute_create_snap(Channel &, Channel_index, bool &);
-
-		void _execute_discard_snap(Channel &, Channel_index, bool &);
-
 		void _execute_rekey(Channel &, Channel_index, bool &);
 
 		void _execute_extend_tree(Channel &, Channel_index, Channel::State, bool &);
 
 		void _execute_initialize(Channel &, Channel_index, bool &);
 
-		void _execute_deinitialize(Channel &, Channel_index, bool &);
-
 		void _gen_superblock_control_req(Channel &, Channel_index, bool &, Superblock_control_request::Type, Virtual_block_address, Channel::State);
+
+		void _forward_to_sb_ctrl(Channel &, Channel_index, bool &, Superblock_control_request::Type);
+
+		void _execute_access_vbas(Channel &, Channel_index, bool &, Superblock_control_request::Type);
 
 
 		/************

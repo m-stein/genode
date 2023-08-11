@@ -45,15 +45,15 @@ class Tresor::Superblock_control_request : public Module_request
 		friend class Superblock_control;
 		friend class Superblock_control_channel;
 
-		Type                  _type              { INVALID };
-		uint64_t              _client_req_offset { 0 };
-		uint64_t              _client_req_tag    { 0 };
-		Superblock::State     _sb_state          { Superblock::INVALID };
-		Number_of_blocks      _nr_of_blks        { 0 };
-		Virtual_block_address _vba               { 0 };
-		addr_t                _success_ptr       { 0 };
-		bool                  _request_finished  { false };
-		addr_t                _generation_ptr    { 0 };
+		Type                  _type                 { INVALID };
+		uint64_t              _client_req_offset    { 0 };
+		uint64_t              _client_req_tag       { 0 };
+		Number_of_blocks      _nr_of_blks           { 0 };
+		Virtual_block_address _vba                  { 0 };
+		addr_t                _success_ptr          { 0 };
+		addr_t                _request_finished_ptr { 0 };
+		addr_t                _sb_state_ptr         { 0 };
+		addr_t                _generation_ptr       { 0 };
 
 	public:
 
@@ -72,6 +72,8 @@ class Tresor::Superblock_control_request : public Module_request
 		                           Number_of_blocks nr_of_blks,
 		                           Virtual_block_address vba,
 		                           bool &success,
+		                           bool &request_finished,
+		                           Superblock::State &sb_state,
 		                           Generation &generation);
 
 		static void create(void *buf_ptr,
@@ -84,9 +86,9 @@ class Tresor::Superblock_control_request : public Module_request
 		                   Number_of_blocks nr_of_blks,
 		                   uint64_t vba,
 		                   bool &success,
+		                   bool &request_finished,
+		                   Superblock::State &sb_state,
 		                   Generation &gen);
-
-		Superblock::State sb_state() { return _sb_state; }
 
 		Generation gen() const { return *(Generation const *)_generation_ptr; }
 
@@ -94,7 +96,7 @@ class Tresor::Superblock_control_request : public Module_request
 
 		bool success() const { return *(bool *)_success_ptr; }
 
-		bool request_finished() const { return _request_finished; }
+		bool request_finished() const { return *(bool *)_request_finished_ptr; }
 
 		static char const *type_to_string(Type type);
 
