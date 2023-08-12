@@ -103,6 +103,40 @@ void Request_pool::_mark_req_successful(Channel &chan, Channel_index chan_idx, b
 }
 
 
+void Request_pool::_try_prepone_requests(Channel &chan, Channel_index chan_idx, bool &progress)
+{
+	bool requests_preponed { false };
+	bool at_req_that_cannot_be_preponed { false };
+	chan._nr_of_requests_preponed = 0;
+	while (chan._nr_of_requests_preponed < MAX_NR_OF_REQUESTS_PREPONED_AT_A_TIME &&
+	       !at_req_that_cannot_be_preponed &&
+	       !_chan_idx_queue.is_tail(chan_idx))
+	{
+		switch (_channels[_chan_idx_queue.next(chan_idx)]._req._op) {
+		case Request::READ:
+		case Request::WRITE:
+		case Request::SYNC:
+		case Request::DISCARD_SNAPSHOT:
+
+			_chan_idx_queue.move_one_slot_towards_tail(chan_idx);
+			chan._nr_of_requests_preponed++;
+			requests_preponed = true;
+			progress = true;
+			break;
+
+		default:
+
+			at_req_that_cannot_be_preponed = true;
+			break;
+		}
+	}
+	if (!requests_preponed) {
+		chan._state = Channel::PREPONE_REQUESTS_COMPLETE;
+		progress = true;
+	}
+}
+
+
 void Request_pool::_execute_extend_tree(Channel &chan, Channel_index chan_idx,
                                         Channel::State tree_ext_step_pending, bool &progress)
 {
@@ -119,46 +153,10 @@ void Request_pool::_execute_extend_tree(Channel &chan, Channel_index chan_idx,
 		if (_handle_failed_generated_req(chan, chan_idx, progress, __LINE__)) break;
 		if (chan._request_finished)
 			_mark_req_successful(chan, chan_idx, progress);
-		else {
-			chan._nr_of_requests_preponed = 0;
-			chan._state = Channel::PREPONE_REQUESTS_PENDING;
-			progress = true;
-		}
+		else
+			_try_prepone_requests(chan, chan_idx, progress);
 		break;
 
-	case Channel::PREPONE_REQUESTS_PENDING:
-	{
-		bool requests_preponed { false };
-		bool at_req_that_cannot_be_preponed { false };
-
-		while (chan._nr_of_requests_preponed < MAX_NR_OF_REQUESTS_PREPONED_AT_A_TIME &&
-		       !at_req_that_cannot_be_preponed &&
-		       !_chan_idx_queue.is_tail(chan_idx))
-		{
-			switch (_channels[_chan_idx_queue.next(chan_idx)]._req._op) {
-			case Request::READ:
-			case Request::WRITE:
-			case Request::SYNC:
-			case Request::DISCARD_SNAPSHOT:
-
-				_chan_idx_queue.move_one_slot_towards_tail(chan_idx);
-				chan._nr_of_requests_preponed++;
-				requests_preponed = true;
-				progress = true;
-				break;
-
-			default:
-
-				at_req_that_cannot_be_preponed = true;
-				break;
-			}
-		}
-		if (!requests_preponed) {
-			chan._state = Channel::PREPONE_REQUESTS_COMPLETE;
-			progress = true;
-		}
-		break;
-	}
 	case Channel::PREPONE_REQUESTS_COMPLETE:
 
 		chan._vba = 0;
@@ -185,64 +183,22 @@ void Request_pool::_execute_rekey(Channel &chan, Channel_index chan_idx, bool &p
 
 	case Channel::State::SUBMITTED_RESUME_REKEYING:
 
-		chan._nr_of_requests_preponed = 0;
-		chan._state = Channel::State::PREPONE_REQUESTS_PENDING;
-		progress = true;
+		_try_prepone_requests(chan, chan_idx, progress);
 		break;
 
 	case Channel::State::REKEY_INIT_SUCCEEDED:
 
-		chan._nr_of_requests_preponed = 0;
-		chan._state = Channel::State::PREPONE_REQUESTS_PENDING;
-		progress = true;
+		_try_prepone_requests(chan, chan_idx, progress);
 		break;
 
 	case Channel::State::REKEY_VBA_SUCCEEDED:
 
 		if (chan._request_finished)
 			_mark_req_successful(chan, chan_idx, progress);
-		else {
-			chan._nr_of_requests_preponed = 0;
-			chan._state = Channel::State::PREPONE_REQUESTS_PENDING;
-			progress = true;
-		}
+		else
+			_try_prepone_requests(chan, chan_idx, progress);
 		break;
 
-	case Channel::State::PREPONE_REQUESTS_PENDING:
-	{
-		bool requests_preponed { false };
-		while (1) {
-			bool exit_loop { false };
-			if (chan._nr_of_requests_preponed >= MAX_NR_OF_REQUESTS_PREPONED_AT_A_TIME ||
-			    _chan_idx_queue.is_tail(chan_idx))
-				break;
-
-			switch (_channels[_chan_idx_queue.next(chan_idx)]._req._op) {
-			case Request::READ:
-			case Request::WRITE:
-			case Request::SYNC:
-			case Request::DISCARD_SNAPSHOT:
-
-				_chan_idx_queue.move_one_slot_towards_tail(chan_idx);
-				chan._nr_of_requests_preponed++;
-				requests_preponed = true;
-				progress = true;
-				break;
-
-			default:
-
-				exit_loop = true;
-				break;
-			}
-			if (exit_loop)
-				break;
-		}
-		if (!requests_preponed) {
-			chan._state = Channel::State::PREPONE_REQUESTS_COMPLETE;
-			progress = true;
-		}
-		break;
-	}
 	case Channel::State::PREPONE_REQUESTS_COMPLETE:
 
 		_gen_superblock_control_req(

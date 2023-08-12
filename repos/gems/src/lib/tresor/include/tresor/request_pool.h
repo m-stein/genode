@@ -283,6 +283,8 @@ class Tresor::Request_pool : public Module
 
 		void _execute_access_vbas(Channel &, Channel_index, bool &, Superblock_control_request::Type);
 
+		void _try_prepone_requests(Channel &chan, Channel_index chan_idx, bool &progress);
+
 
 		/************
 		 ** Module **
