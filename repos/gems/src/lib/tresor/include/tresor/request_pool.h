@@ -51,27 +51,16 @@ class Tresor::Request : public Module_request
 
 	public:
 
-		Request(Operation op,
-		        bool success,
-		        Virtual_block_address vba,
-		        Request_offset offset,
-		        Number_of_blocks count,
-		        Key_id key_id,
-		        Request_tag tag,
-		        Generation gen,
-		        Module_id src_module_id,
-		        Module_request_id src_request_id)
+		Request(Operation op, bool success, Virtual_block_address vba, Request_offset offset,
+		        Number_of_blocks count, Key_id key_id, Request_tag tag, Generation gen,
+		        Module_id src_module_id, Module_request_id src_request_id)
 		:
 			Module_request { src_module_id, src_request_id, REQUEST_POOL },
-			_op { op },
-			_success { success },
-			_vba { vba },
-			_offset { offset },
-			_count { count },
-			_key_id { key_id },
-			_tag { tag },
-			_gen { gen }
+			_op { op }, _success { success }, _vba { vba }, _offset { offset },
+			_count { count }, _key_id { key_id }, _tag { tag }, _gen { gen }
 		{ }
+
+		Request(Operation op) : _op { op } { }
 
 		Request() { }
 
@@ -112,49 +101,27 @@ class Tresor::Request : public Module_request
 
 class Tresor::Request_pool_channel : public Module_channel
 {
+	friend class Request_pool;
+
 	private:
 
-		friend class Request_pool;
-
 		enum State : State_uint {
-			INVALID, SUBMITTED, SUBMITTED_RESUME_REKEYING, REKEY_INIT_SUCCEEDED, PREPONE_REQUESTS_PENDING,
-			PREPONE_REQUESTS_COMPLETE, VBD_EXTENSION_STEP_PENDING,
-			FT_EXTENSION_STEP_PENDING, TREE_EXTENSION_STEP_IN_PROGRESS,
-			TREE_EXTENSION_STEP_COMPLETE,
-			FORWARD_TO_SB_CTRL_SUCCEEDED, ACCESS_VBA_AT_SB_CTRL_SUCCEEDED,
-			REKEY_VBA_SUCCEEDED, INITIALIZE_SB_CTRL_SUCCEEDED, DEINITIALIZE_SB_CTRL_SUCCEEDED,
-			COMPLETE, GENERATED_REQUEST };
+			INVALID, REQ_SUBMITTED, REQ_RESUMED, REQ_GENERATED, REKEY_INIT_SUCCEEDED, PREPONED_REQUESTS_COMPLETE,
+			TREE_EXTENSION_STEP_SUCCEEDED, FORWARD_TO_SB_CTRL_SUCCEEDED, ACCESS_VBA_AT_SB_CTRL_SUCCEEDED,
+			REKEY_VBA_SUCCEEDED, INITIALIZE_SB_CTRL_SUCCEEDED, DEINITIALIZE_SB_CTRL_SUCCEEDED, REQ_COMPLETE };
 
 		Tresor::Request _req { };
 		State _state { INVALID };
-		Number_of_blocks _nr_of_blks { 0 };
+		Number_of_blocks _num_blks { 0 };
 		Virtual_block_address _vba { 0 };
 		Superblock::State _sb_state { Superblock::INVALID };
-		uint32_t _nr_of_requests_preponed { 0 };
+		uint32_t _num_requests_preponed { 0 };
 		bool _request_finished { false };
 		bool _generated_req_success { false };
 
-		void _generated_req_complete(State_uint state_uint) override
-		{
-			if (!_generated_req_success) {
-				error("request_pool: request (", _req, ") failed because generated request failed)");
-				_req._success = false;
-				_state = COMPLETE;
-			} else
-				_state = (State)state_uint;
-		}
+		void _generated_req_complete(State_uint) override;
 
-		void _reset()
-		{
-			_req = Request { };
-			_state = INVALID;
-			_nr_of_blks = 0;
-			_vba = 0;
-			_sb_state = Superblock::INVALID;
-			_nr_of_requests_preponed = 0;
-			_request_finished = false;
-			_generated_req_success = false;
-		}
+		void _reset();
 };
 
 class Tresor::Request_pool : public Module
@@ -164,8 +131,8 @@ class Tresor::Request_pool : public Module
 		using Channel = Request_pool_channel;
 		using Channel_index = uint64_t;
 
-		enum { MAX_NR_OF_REQUESTS_PREPONED_AT_A_TIME = 8 };
-		enum { NR_OF_CHANNELS = 16 };
+		enum { MAX_NUM_REQUESTS_PREPONED = 8 };
+		enum { NUM_CHANNELS = 16 };
 
 		class Channel_index_queue
 		{
@@ -175,14 +142,14 @@ class Tresor::Request_pool : public Module
 
 				Slot_index _head { 0 };
 				Slot_index _tail { 0 };
-				unsigned long _nr_of_used_slots { 0 };
-				Channel_index _slots[NR_OF_CHANNELS] { 0 };
+				unsigned long _num_used_slots { 0 };
+				Channel_index _slots[NUM_CHANNELS] { 0 };
 
 			public:
 
-				bool empty() const { return _nr_of_used_slots == 0; }
+				bool empty() const { return _num_used_slots == 0; }
 
-				bool full() const { return _nr_of_used_slots >= NR_OF_CHANNELS; }
+				bool full() const { return _num_used_slots >= NUM_CHANNELS; }
 
 				Channel_index head() const
 				{
@@ -194,8 +161,8 @@ class Tresor::Request_pool : public Module
 				{
 					ASSERT(!full());
 					_slots[_tail] = chan_idx;
-					_tail = (_tail + 1) % NR_OF_CHANNELS;
-					_nr_of_used_slots += 1;
+					_tail = (_tail + 1) % NUM_CHANNELS;
+					_num_used_slots += 1;
 				}
 
 				void move_one_slot_towards_tail(Channel_index chan_idx)
@@ -205,7 +172,7 @@ class Tresor::Request_pool : public Module
 					Channel_index chan_idx_buf;
 					ASSERT(!empty());
 					while (1) {
-						if (slot_idx < NR_OF_CHANNELS - 1)
+						if (slot_idx < NUM_CHANNELS - 1)
 							next_slot_idx = slot_idx + 1;
 						else
 							next_slot_idx = 0;
@@ -228,7 +195,7 @@ class Tresor::Request_pool : public Module
 					if (_tail > 0)
 						slot_idx = _tail - 1;
 					else
-						slot_idx = NR_OF_CHANNELS - 1;
+						slot_idx = NUM_CHANNELS - 1;
 
 					return _slots[slot_idx] == chan_idx;
 				}
@@ -239,7 +206,7 @@ class Tresor::Request_pool : public Module
 					Slot_index next_slot_idx;
 					ASSERT(!empty());
 					while (1) {
-						if (slot_idx < NR_OF_CHANNELS - 1)
+						if (slot_idx < NUM_CHANNELS - 1)
 							next_slot_idx = slot_idx + 1;
 						else
 							next_slot_idx = 0;
@@ -255,12 +222,12 @@ class Tresor::Request_pool : public Module
 				void dequeue(Channel_index const chan_idx)
 				{
 					ASSERT(!empty() && head() == chan_idx);
-					_head = (_head + 1) % NR_OF_CHANNELS;
-					_nr_of_used_slots -= 1;
+					_head = (_head + 1) % NUM_CHANNELS;
+					_num_used_slots -= 1;
 				}
 		};
 
-		Channel _channels[NR_OF_CHANNELS] { };
+		Channel _channels[NUM_CHANNELS] { };
 		Channel_index_queue _chan_idx_queue { };
 
 		static char const *_state_to_step_label(Channel::State);
@@ -273,7 +240,7 @@ class Tresor::Request_pool : public Module
 
 		void _execute_rekey(Channel &, Channel_index, bool &);
 
-		void _execute_extend_tree(Channel &, Channel_index, Channel::State, bool &);
+		void _execute_extend_tree(Channel &, Channel_index, Superblock_control_request::Type, bool &);
 
 		void _execute_initialize(Channel &, Channel_index, bool &);
 
@@ -283,7 +250,9 @@ class Tresor::Request_pool : public Module
 
 		void _execute_access_vbas(Channel &, Channel_index, bool &, Superblock_control_request::Type);
 
-		void _try_prepone_requests(Channel &chan, Channel_index chan_idx, bool &progress);
+		void _try_prepone_requests(Channel &, Channel_index, bool &);
+
+		void _resume_request(Channel &, Channel_index, bool &, Request::Operation);
 
 
 		/************
@@ -296,10 +265,6 @@ class Tresor::Request_pool : public Module
 
 		void execute(bool &) override;
 
-		bool _peek_generated_request(uint8_t *, size_t) override;
-
-		void _drop_generated_request(Module_request &) override;
-
 	public:
 
 		Request_pool();
@@ -308,8 +273,6 @@ class Tresor::Request_pool : public Module
 		/************
 		 ** Module **
 		 ************/
-
-		void generated_request_complete(Module_request &) override;
 
 		bool ready_to_submit_request() override { return !_chan_idx_queue.full(); }
 
