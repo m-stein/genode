@@ -38,26 +38,26 @@ namespace Tresor {
 
 	enum Module_id_enum : Module_id
 	{
-		CRYPTO               = 0,
-		CLIENT_DATA          = 1,
-		TRUST_ANCHOR         = 2,
-		COMMAND_POOL         = 3,
-		BLOCK_IO             = 4,
-		CACHE                = 5,
-		META_TREE            = 6,
-		FREE_TREE            = 7,
+		CRYPTO = 0,
+		CLIENT_DATA = 1,
+		TRUST_ANCHOR = 2,
+		COMMAND_POOL = 3,
+		BLOCK_IO = 4,
+		CACHE = 5,
+		META_TREE = 6,
+		FREE_TREE = 7,
 		VIRTUAL_BLOCK_DEVICE = 8,
-		SUPERBLOCK_CONTROL   = 9,
-		BLOCK_ALLOCATOR      = 10,
-		VBD_INITIALIZER      = 11,
-		FT_INITIALIZER       = 12,
-		SB_INITIALIZER       = 13,
-		REQUEST_POOL         = 14,
-		SB_CHECK             = 15,
-		VBD_CHECK            = 16,
-		FT_CHECK             = 17,
-		FT_RESIZING          = 18,
-		MAX_MODULE_ID        = 18,
+		SUPERBLOCK_CONTROL = 9,
+		BLOCK_ALLOCATOR = 10,
+		VBD_INITIALIZER = 11,
+		FT_INITIALIZER = 12,
+		SB_INITIALIZER = 13,
+		REQUEST_POOL = 14,
+		SB_CHECK = 15,
+		VBD_CHECK = 16,
+		FT_CHECK = 17,
+		FT_RESIZING = 18,
+		MAX_MODULE_ID = 18,
 	};
 
 	char const *module_name(Module_id module_id);
@@ -73,18 +73,18 @@ class Tresor::Module_request : public Interface
 {
 	private:
 
-		Module_id         _src_module_id  { INVALID_MODULE_ID };
+		Module_id _src_module_id { INVALID_MODULE_ID };
 		Module_request_id _src_request_id { INVALID_MODULE_REQUEST_ID };
-		Module_id         _dst_module_id  { INVALID_MODULE_ID };
+		Module_id _dst_module_id { INVALID_MODULE_ID };
 		Module_request_id _dst_request_id { INVALID_MODULE_REQUEST_ID };
 
 	public:
 
 		Module_request() { }
 
-		Module_request(Module_id         src_module_id,
+		Module_request(Module_id src_module_id,
 		               Module_request_id src_request_id,
-		               Module_id         dst_module_id);
+		               Module_id dst_module_id);
 
 		void dst_request_id(Module_request_id id) { _dst_request_id = id; }
 
@@ -101,9 +101,9 @@ class Tresor::Module_request : public Interface
 		 ** Accessors **
 		 ***************/
 
-		Module_id         src_module_id() const { return _src_module_id; }
+		Module_id src_module_id() const { return _src_module_id; }
 		Module_request_id src_request_id() const { return _src_request_id; }
-		Module_id         dst_module_id() const { return _dst_module_id; }
+		Module_id dst_module_id() const { return _dst_module_id; }
 		Module_request_id dst_request_id() const { return _dst_request_id; }
 };
 
@@ -111,7 +111,6 @@ class Tresor::Module_request : public Interface
 class Tresor::Module_channel : private Avl_node<Module_channel>
 {
 	friend class Module;
-	friend class Module_composition;
 	friend class Avl_node<Module_channel>;
 	friend class Avl_tree<Module_channel>;
 
@@ -176,27 +175,13 @@ class Tresor::Module : public Interface
 
 		Avl_tree<Module_channel> _channels { };
 
-		virtual bool _peek_completed_request(uint8_t *,
-		                                     size_t   )
-		{
-			return false;
-		}
+		virtual bool _peek_completed_request(uint8_t *, size_t) { return false; }
 
-		virtual void _drop_completed_request(Module_request &)
-		{
-			ASSERT_NEVER_REACHED;
-		}
+		virtual void _drop_completed_request(Module_request &) { ASSERT_NEVER_REACHED; }
 
-		virtual bool _peek_generated_request(uint8_t *,
-		                                     size_t   )
-		{
-			return false;
-		}
+		virtual bool _peek_generated_request(uint8_t *, size_t) { return false; }
 
-		virtual void _drop_generated_request(Module_request &)
-		{
-			ASSERT_NEVER_REACHED;
-		}
+		virtual void _drop_generated_request(Module_request &) { ASSERT_NEVER_REACHED; }
 
 		template <typename FUNC>
 		void _with_channel(Module_channel::Index idx, FUNC && func)
@@ -219,15 +204,11 @@ class Tresor::Module : public Interface
 
 		enum Handle_request_result { REQUEST_HANDLED, REQUEST_NOT_HANDLED };
 
-		typedef Handle_request_result (
-			*Handle_request_function)(Module_request &req);
+		typedef Handle_request_result (*Handle_request_function)(Module_request &req);
 
 		virtual bool ready_to_submit_request() { return false; };
 
-		virtual void submit_request(Module_request &)
-		{
-			ASSERT_NEVER_REACHED;
-		}
+		virtual void submit_request(Module_request &) { ASSERT_NEVER_REACHED; }
 
 		virtual void execute(bool &) { }
 
