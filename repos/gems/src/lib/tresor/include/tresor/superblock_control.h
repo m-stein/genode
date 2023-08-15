@@ -210,6 +210,15 @@ class Tresor::Superblock_control_channel : public Module_channel
 			_req_ptr = static_cast<Superblock_control_request *>(submitted_req_ptr());
 			_state = SUBMITTED;
 		}
+
+		bool _request_complete() override
+		{
+			if (_req_ptr && _state == COMPLETED) {
+				_req_ptr = nullptr;
+				return true;
+			}
+			return false;
+		}
 };
 
 class Tresor::Superblock_control : public Module
@@ -311,11 +320,6 @@ class Tresor::Superblock_control : public Module
 		/************
 		 ** Module **
 		 ************/
-
-		bool _peek_completed_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_completed_request(Module_request &req) override;
 
 		void execute(bool &) override;
 

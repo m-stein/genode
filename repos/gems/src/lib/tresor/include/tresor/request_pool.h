@@ -98,6 +98,8 @@ class Tresor::Request_pool_channel : public Module_channel
 
 		void _request_submitted() override { }
 
+		bool _request_complete() override { return false; }
+
 		void _reset();
 };
 
