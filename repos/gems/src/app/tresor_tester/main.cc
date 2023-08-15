@@ -366,7 +366,7 @@ class Request_node
 
 		void print(Genode::Output &out) const
 		{
-			Genode::print(out, "op=", to_string(_op));
+			Genode::print(out, "op=", Request::op_to_string(_op));
 			if (has_attr_vba()) {
 				Genode::print(out, " vba=", _vba);
 			}
@@ -985,7 +985,7 @@ class Tresor_tester::Main
 			Module_request_id const cmd_id { mod_req.src_request_id() };
 			if (mod_req.dst_module_id() == REQUEST_POOL && success) {
 				Tresor::Request &req { *static_cast<Request *>(&mod_req) };
-				if (req.operation() == Tresor::Request::CREATE_SNAPSHOT) {
+				if (req.op() == Tresor::Request::CREATE_SNAPSHOT) {
 					find_cmd(cmd_id, [&] (Command const &cmd) {
 						_snap_refs.insert(new (_heap)
 							Snapshot_reference { cmd.request_node().snap_id(), req.gen() });
