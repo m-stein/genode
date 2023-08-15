@@ -125,7 +125,7 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 
 		enum Generated_request_state { NONE = 0, PENDING = 1, IN_PROGRESS = 2 };
 
-		Module_request *_submitted_req_ptr { nullptr };
+		Module_request *_req_ptr { nullptr };
 		Generated_request_state _gen_req_state { NONE };
 		uint8_t _gen_req_buf[GEN_REQ_BUF_SIZE] { };
 		State_uint _gen_req_complete_state { 0 };
@@ -150,11 +150,11 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 
 		bool _try_submit_request(Module_request &req)
 		{
-			if (_submitted_req_ptr)
+			if (_req_ptr)
 				return false;
 
 			req.dst_request_id(_idx);
-			_submitted_req_ptr = &req;
+			_req_ptr = &req;
 			_request_submitted();
 			return true;
 		}
@@ -179,7 +179,9 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 			progress = true;
 		}
 
-		Module_request *submitted_req_ptr() { return _submitted_req_ptr; }
+		bool req_valid() { return _req_ptr; }
+
+		Module_request &request() { return *_req_ptr; }
 
 		virtual ~Module_channel() { }
 };
@@ -310,10 +312,9 @@ class Tresor::Module : public Interface
 			if (new_submit_request()) {
 				_channels.for_each([&] (Module_channel const &const_chan) {
 					Module_channel &chan { *const_cast<Module_channel *>(&const_chan) };
-					if (chan._request_complete()) {
-						ASSERT(chan._submitted_req_ptr);
-						handle_request(*chan._submitted_req_ptr);
-						chan._submitted_req_ptr = nullptr;
+					if (chan._req_ptr && chan._request_complete()) {
+						handle_request(*chan._req_ptr);
+						chan._req_ptr = nullptr;
 					}
 				});
 				return;

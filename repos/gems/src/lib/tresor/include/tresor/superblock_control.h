@@ -79,9 +79,11 @@ class Tresor::Superblock_control_request : Module_request, Noncopyable
 
 class Tresor::Superblock_control_channel : public Module_channel
 {
+	friend class Superblock_control;
+
 	private:
 
-		friend class Superblock_control;
+		using Request = Superblock_control_request;
 
 		enum State {
 			SUBMITTED,
@@ -184,7 +186,6 @@ class Tresor::Superblock_control_channel : public Module_channel
 		};
 
 		State _state { SUBMITTED };
-		Superblock_control_request *_req_ptr { nullptr };
 		Generated_prim _generated_prim { };
 		Key _key_plaintext { };
 		Superblock _sb_ciphertext { };
@@ -203,22 +204,13 @@ class Tresor::Superblock_control_channel : public Module_channel
 		Tree_level_index _ft_max_lvl { 0 };
 		Number_of_leaves _ft_nr_of_leaves { 0 };
 
+		Request &req() { return *static_cast<Superblock_control_request *>(&request()); }
+
 		void _generated_req_complete(State_uint) override { }
 
-		void _request_submitted() override
-		{
-			_req_ptr = static_cast<Superblock_control_request *>(submitted_req_ptr());
-			_state = SUBMITTED;
-		}
+		void _request_submitted() override { _state = SUBMITTED; }
 
-		bool _request_complete() override
-		{
-			if (_req_ptr && _state == COMPLETED) {
-				_req_ptr = nullptr;
-				return true;
-			}
-			return false;
-		}
+		bool _request_complete() override { return _state == COMPLETED; }
 };
 
 class Tresor::Superblock_control : public Module
