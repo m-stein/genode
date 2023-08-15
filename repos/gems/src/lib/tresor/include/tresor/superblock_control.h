@@ -77,7 +77,7 @@ class Tresor::Superblock_control_request : Module_request, Noncopyable
 		}
 };
 
-class Tresor::Superblock_control_channel
+class Tresor::Superblock_control_channel : public Module_channel
 {
 	private:
 
@@ -202,6 +202,14 @@ class Tresor::Superblock_control_channel
 		Type_1_node _ft_root { };
 		Tree_level_index _ft_max_lvl { 0 };
 		Number_of_leaves _ft_nr_of_leaves { 0 };
+
+		void _generated_req_complete(State_uint) override { }
+
+		void _request_submitted() override
+		{
+			_req_ptr = static_cast<Superblock_control_request *>(submitted_req_ptr());
+			_state = SUBMITTED;
+		}
 };
 
 class Tresor::Superblock_control : public Module
@@ -304,10 +312,6 @@ class Tresor::Superblock_control : public Module
 		 ** Module **
 		 ************/
 
-		bool ready_to_submit_request() override;
-
-		void submit_request(Module_request &req) override;
-
 		bool _peek_completed_request(uint8_t *buf_ptr,
 		                             size_t   buf_size) override;
 
@@ -321,6 +325,8 @@ class Tresor::Superblock_control : public Module
 		void _drop_generated_request(Module_request &mod_req) override;
 
 		void generated_request_complete(Module_request &req) override;
+
+		bool new_submit_request() override { return true; }
 
 	public:
 
@@ -363,6 +369,8 @@ class Tresor::Superblock_control : public Module
 
 				return Superblock_info { };
 		}
+
+		Superblock_control() { register_channels(_channels, NR_OF_CHANNELS); }
 };
 
 #endif /* _TRESOR__SUPERBLOCK_CONTROL_H_ */

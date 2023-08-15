@@ -16,6 +16,33 @@
 
 using namespace Tresor;
 
+Request::Request(Operation op, bool success, Virtual_block_address vba, Request_offset offset,
+                 Number_of_blocks count, Key_id key_id, Request_tag tag, Generation gen,
+                 Module_id src_module_id, Module_request_id src_request_id)
+:
+	Module_request { src_module_id, src_request_id, REQUEST_POOL },
+	_op { op }, _success { success }, _vba { vba }, _offset { offset },
+	_count { count }, _key_id { key_id }, _tag { tag }, _gen { gen }
+{ }
+
+
+void Request::print(Output &out) const
+{
+	Genode::print(out, op_to_string(_op));
+	switch (_op) {
+	case READ:
+	case WRITE:
+	case SYNC:
+		if (_count > 1)
+			Genode::print(out, " vbas ", _vba, "..", _vba + _count - 1);
+		else
+			Genode::print(out, " vba ", _vba);
+		break;
+	default: break;
+	}
+}
+
+
 char const *Request::op_to_string(Operation op)
 {
 	switch (op) {
@@ -88,7 +115,7 @@ bool Request_pool::_handle_failed_generated_req(Channel &chan, Channel_index cha
 		return false;
 
 	_mark_req_failed(chan, progress, line);
-	_chan_idx_queue.dequeue(chan_idx);
+	_chan_queue.dequeue(chan_idx);
 	return true;
 }
 
@@ -97,7 +124,7 @@ void Request_pool::_mark_req_successful(Channel &chan, Channel_index chan_idx, b
 {
 	chan._req._success = true;
 	chan._state = Channel::REQ_COMPLETE;
-	_chan_idx_queue.dequeue(chan_idx);
+	_chan_queue.dequeue(chan_idx);
 	progress = true;
 }
 
@@ -109,15 +136,15 @@ void Request_pool::_try_prepone_requests(Channel &chan, Channel_index chan_idx, 
 	chan._num_requests_preponed = 0;
 	while (chan._num_requests_preponed < MAX_NUM_REQUESTS_PREPONED &&
 	       !at_req_that_cannot_be_preponed &&
-	       !_chan_idx_queue.is_tail(chan_idx)) {
+	       !_chan_queue.is_tail(chan_idx)) {
 
-		switch (_channels[_chan_idx_queue.next(chan_idx)]._req._op) {
+		switch (_channels[_chan_queue.next(chan_idx)]._req._op) {
 		case Request::READ:
 		case Request::WRITE:
 		case Request::SYNC:
 		case Request::DISCARD_SNAPSHOT:
 
-			_chan_idx_queue.move_one_slot_towards_tail(chan_idx);
+			_chan_queue.move_one_slot_towards_tail(chan_idx);
 			chan._num_requests_preponed++;
 			requests_preponed = true;
 			progress = true;
@@ -204,7 +231,7 @@ void Request_pool::_resume_request(Channel &chan, Channel_index chan_idx, bool &
 {
 	chan._state = Channel::REQ_RESUMED;
 	chan._req = Request { op };
-	_chan_idx_queue.enqueue(chan_idx);
+	_chan_queue.enqueue(chan_idx);
 	progress = true;
 }
 
@@ -226,7 +253,7 @@ void Request_pool::_execute_initialize(Channel &chan, Channel_index chan_idx, bo
 		case Superblock::INVALID: ASSERT_NEVER_REACHED;
 		case Superblock::NORMAL:
 
-			_chan_idx_queue.dequeue(chan_idx);
+			_chan_queue.dequeue(chan_idx);
 			chan._reset();
 			progress = true;
 			break;
@@ -258,10 +285,10 @@ void Request_pool::_forward_to_sb_ctrl(Channel &chan, Channel_index chan_idx, bo
 
 void Request_pool::execute(bool &progress)
 {
-	if (_chan_idx_queue.empty())
+	if (_chan_queue.empty())
 		return;
 
-	Channel_index const chan_idx { _chan_idx_queue.head() };
+	Channel_index const chan_idx { _chan_queue.head() };
 	ASSERT(chan_idx < NUM_CHANNELS);
 	Channel &chan { _channels[chan_idx] };
 	switch (chan._req._op) {
@@ -300,7 +327,7 @@ void Request_pool::submit_request(Module_request &mod_req)
 				mod_req.dst_request_id(chan_idx);
 				_channels[chan_idx]._state = Channel::REQ_SUBMITTED;
 				_channels[chan_idx]._req = req;
-				_chan_idx_queue.enqueue((Channel_index)chan_idx);
+				_chan_queue.enqueue((Channel_index)chan_idx);
 				return;
 
 			default: ASSERT_NEVER_REACHED;
@@ -315,7 +342,7 @@ Request_pool::Request_pool()
 {
 	register_channels(_channels, NUM_CHANNELS);
 	Channel_index const chan_idx { 0 };
-	_chan_idx_queue.enqueue(chan_idx);
+	_chan_queue.enqueue(chan_idx);
 	_channels[chan_idx]._state = Channel::REQ_SUBMITTED;
 	_channels[chan_idx]._req = Request {
 		Request::INITIALIZE, false, 0, 0, 0, 0, 0, 0,
@@ -365,4 +392,85 @@ void Request_pool_channel::_reset()
 	_sb_state = Superblock::INVALID;
 	_num_blks = _vba = _num_requests_preponed = 0;
 	_request_finished = _generated_req_success = false;
+}
+
+
+Request_pool::Channel_index Request_pool::Channel_queue::head() const
+{
+	ASSERT(!empty());
+	return _slots[_head];
+}
+
+
+void Request_pool::Channel_queue::enqueue(Channel_index chan_idx)
+{
+	ASSERT(!full());
+	_slots[_tail] = chan_idx;
+	_tail = (_tail + 1) % NUM_CHANNELS;
+	_num_used_slots++;
+}
+
+
+void Request_pool::Channel_queue::move_one_slot_towards_tail(Channel_index chan_idx)
+{
+	Slot_index slot_idx { _head };
+	Slot_index next_slot_idx;
+	Channel_index chan_idx_buf;
+	ASSERT(!empty());
+	while (1) {
+		if (slot_idx < NUM_CHANNELS - 1)
+			next_slot_idx = slot_idx + 1;
+		else
+			next_slot_idx = 0;
+
+		ASSERT(next_slot_idx != _tail);
+		if (_slots[slot_idx] == chan_idx) {
+			chan_idx_buf = _slots[next_slot_idx];
+			_slots[next_slot_idx] = _slots[slot_idx];
+			_slots[slot_idx] = chan_idx_buf;
+			return;
+		} else
+			slot_idx = next_slot_idx;
+	}
+}
+
+
+bool Request_pool::Channel_queue::is_tail(Channel_index chan_idx) const
+{
+	Slot_index slot_idx;
+	ASSERT(!empty());
+	if (_tail > 0)
+		slot_idx = _tail - 1;
+	else
+		slot_idx = NUM_CHANNELS - 1;
+
+	return _slots[slot_idx] == chan_idx;
+}
+
+
+Request_pool::Channel_index Request_pool::Channel_queue::next(Channel_index chan_idx) const
+{
+	Slot_index slot_idx { _head };
+	Slot_index next_slot_idx;
+	ASSERT(!empty());
+	while (1) {
+		if (slot_idx < NUM_CHANNELS - 1)
+			next_slot_idx = slot_idx + 1;
+		else
+			next_slot_idx = 0;
+
+		ASSERT(next_slot_idx != _tail);
+		if (_slots[slot_idx] == chan_idx)
+			return _slots[next_slot_idx];
+		else
+			slot_idx = next_slot_idx;
+	}
+}
+
+
+void Request_pool::Channel_queue::dequeue(Channel_index chan_idx)
+{
+	ASSERT(!empty() && head() == chan_idx);
+	_head = (_head + 1) % NUM_CHANNELS;
+	_num_used_slots--;
 }

@@ -51,14 +51,8 @@ class Tresor::Request : public Module_request
 
 	public:
 
-		Request(Operation op, bool success, Virtual_block_address vba, Request_offset offset,
-		        Number_of_blocks count, Key_id key_id, Request_tag tag, Generation gen,
-		        Module_id src_module_id, Module_request_id src_request_id)
-		:
-			Module_request { src_module_id, src_request_id, REQUEST_POOL },
-			_op { op }, _success { success }, _vba { vba }, _offset { offset },
-			_count { count }, _key_id { key_id }, _tag { tag }, _gen { gen }
-		{ }
+		Request(Operation, bool, Virtual_block_address, Request_offset, Number_of_blocks,
+		        Key_id, Request_tag, Generation, Module_id, Module_request_id src_request_id);
 
 		Request(Operation op) : _op { op } { }
 
@@ -77,26 +71,7 @@ class Tresor::Request : public Module_request
 
 		static char const *op_to_string(Operation);
 
-
-		/********************
-		 ** Module_request **
-		 ********************/
-
-		void print(Output &out) const override
-		{
-			Genode::print(out, op_to_string(_op));
-			switch (_op) {
-			case READ:
-			case WRITE:
-			case SYNC:
-				if (_count > 1)
-					Genode::print(out, " vbas ", _vba, "..", _vba + _count - 1);
-				else
-					Genode::print(out, " vba ", _vba);
-				break;
-			default: break;
-			}
-		}
+		void print(Output &) const override;
 };
 
 class Tresor::Request_pool_channel : public Module_channel
@@ -121,6 +96,8 @@ class Tresor::Request_pool_channel : public Module_channel
 
 		void _generated_req_complete(State_uint) override;
 
+		void _request_submitted() override { }
+
 		void _reset();
 };
 
@@ -134,11 +111,11 @@ class Tresor::Request_pool : public Module
 		enum { MAX_NUM_REQUESTS_PREPONED = 8 };
 		enum { NUM_CHANNELS = 16 };
 
-		class Channel_index_queue
+		class Channel_queue
 		{
 			private:
 
-				using Slot_index = uint32_t;
+				using Slot_index = uint64_t;
 
 				Slot_index _head { 0 };
 				Slot_index _tail { 0 };
@@ -151,84 +128,21 @@ class Tresor::Request_pool : public Module
 
 				bool full() const { return _num_used_slots >= NUM_CHANNELS; }
 
-				Channel_index head() const
-				{
-					ASSERT(!empty());
-					return _slots[_head];
-				}
+				Channel_index head() const;
 
-				void enqueue(Channel_index const chan_idx)
-				{
-					ASSERT(!full());
-					_slots[_tail] = chan_idx;
-					_tail = (_tail + 1) % NUM_CHANNELS;
-					_num_used_slots += 1;
-				}
+				void enqueue(Channel_index);
 
-				void move_one_slot_towards_tail(Channel_index chan_idx)
-				{
-					Slot_index slot_idx { _head };
-					Slot_index next_slot_idx;
-					Channel_index chan_idx_buf;
-					ASSERT(!empty());
-					while (1) {
-						if (slot_idx < NUM_CHANNELS - 1)
-							next_slot_idx = slot_idx + 1;
-						else
-							next_slot_idx = 0;
+				void move_one_slot_towards_tail(Channel_index);
 
-						ASSERT(next_slot_idx != _tail);
-						if (_slots[slot_idx] == chan_idx) {
-							chan_idx_buf = _slots[next_slot_idx];
-							_slots[next_slot_idx] = _slots[slot_idx];
-							_slots[slot_idx] = chan_idx_buf;
-							return;
-						} else
-							slot_idx = next_slot_idx;
-					}
-				}
+				bool is_tail(Channel_index) const;
 
-				bool is_tail(Channel_index chan_idx) const
-				{
-					Slot_index slot_idx;
-					ASSERT(!empty());
-					if (_tail > 0)
-						slot_idx = _tail - 1;
-					else
-						slot_idx = NUM_CHANNELS - 1;
+				Channel_index next(Channel_index) const;
 
-					return _slots[slot_idx] == chan_idx;
-				}
-
-				Channel_index next(Channel_index chan_idx) const
-				{
-					Slot_index slot_idx { _head };
-					Slot_index next_slot_idx;
-					ASSERT(!empty());
-					while (1) {
-						if (slot_idx < NUM_CHANNELS - 1)
-							next_slot_idx = slot_idx + 1;
-						else
-							next_slot_idx = 0;
-
-						ASSERT(next_slot_idx != _tail);
-						if (_slots[slot_idx] == chan_idx)
-							return _slots[next_slot_idx];
-						else
-							slot_idx = next_slot_idx;
-					}
-				}
-
-				void dequeue(Channel_index const chan_idx)
-				{
-					ASSERT(!empty() && head() == chan_idx);
-					_head = (_head + 1) % NUM_CHANNELS;
-					_num_used_slots -= 1;
-				}
+				void dequeue(Channel_index);
 		};
 
 		Channel _channels[NUM_CHANNELS] { };
-		Channel_index_queue _chan_idx_queue { };
+		Channel_queue _chan_queue { };
 
 		static char const *_state_to_step_label(Channel::State);
 
@@ -254,11 +168,6 @@ class Tresor::Request_pool : public Module
 
 		void _resume_request(Channel &, Channel_index, bool &, Request::Operation);
 
-
-		/************
-		 ** Module **
-		 ************/
-
 		bool _peek_completed_request(uint8_t *, size_t) override;
 
 		void _drop_completed_request(Module_request &) override;
@@ -269,12 +178,7 @@ class Tresor::Request_pool : public Module
 
 		Request_pool();
 
-
-		/************
-		 ** Module **
-		 ************/
-
-		bool ready_to_submit_request() override { return !_chan_idx_queue.full(); }
+		bool ready_to_submit_request() override { return !_chan_queue.full(); }
 
 		void submit_request(Module_request &) override;
 };

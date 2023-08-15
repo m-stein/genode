@@ -125,12 +125,15 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 
 		enum Generated_request_state { NONE = 0, PENDING = 1, IN_PROGRESS = 2 };
 
+		Module_request *_submitted_req_ptr { nullptr };
 		Generated_request_state _gen_req_state { NONE };
 		uint8_t _gen_req_buf[GEN_REQ_BUF_SIZE] { };
 		State_uint _gen_req_complete_state { 0 };
 		Index _idx { 0 };
 
 		virtual void _generated_req_complete(State_uint state_uint) = 0;
+
+		virtual void _request_submitted() = 0;
 
 		template <typename FUNC>
 		void _with_channel(Index idx, FUNC && func)
@@ -141,6 +144,17 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 					chan_ptr->_with_channel(idx, func);
 			} else
 				func(*this);
+		}
+
+		bool _try_submit_request(Module_request &req)
+		{
+			if (_submitted_req_ptr)
+				return false;
+
+			req.dst_request_id(_idx);
+			_submitted_req_ptr = &req;
+			_request_submitted();
+			return true;
 		}
 
 
@@ -162,6 +176,8 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 			_gen_req_complete_state = complete_state;
 			progress = true;
 		}
+
+		Module_request *submitted_req_ptr() { return _submitted_req_ptr; }
 
 		virtual ~Module_channel() { }
 };
@@ -209,6 +225,22 @@ class Tresor::Module : public Interface
 		virtual bool ready_to_submit_request() { return false; };
 
 		virtual void submit_request(Module_request &) { ASSERT_NEVER_REACHED; }
+
+		virtual bool new_submit_request() { return false; }
+
+		bool try_submit_request(Module_request &req)
+		{
+			bool success { false };
+			_channels.for_each([&] (Module_channel const &const_chan) {
+				Module_channel &chan { *const_cast<Module_channel *>(&const_chan) };
+				if (success)
+					return;
+
+				if (chan._try_submit_request(req))
+					success = true;
+			});
+			return success;
+		}
 
 		virtual void execute(bool &) { }
 
@@ -275,9 +307,14 @@ class Tresor::Module : public Interface
 		{
 			uint8_t buf[4000];
 			while (_peek_completed_request(buf, sizeof(buf))) {
-
 				Module_request &req = *(Module_request *)buf;
+				Module_channel::Index const chan_idx { req.dst_request_id() };
 				handle_request(req);
+				if (new_submit_request()) {
+					_with_channel(chan_idx, [&] (Module_channel &chan) {
+						chan._submitted_req_ptr = nullptr;
+					});
+				}
 				_drop_completed_request(req);
 			}
 		}
@@ -338,8 +375,19 @@ class Tresor::Module_composition
 						ASSERT(req.dst_module_id() <= MAX_MODULE_ID);
 						ASSERT(_module_ptrs[req.dst_module_id()]);
 						Module &dst_module { *_module_ptrs[req.dst_module_id()] };
-						if (!dst_module.ready_to_submit_request()) {
+						if (dst_module.new_submit_request()) {
 
+							if (dst_module.try_submit_request(req)) {
+								if (VERBOSE_MODULE_COMMUNICATION)
+									log(
+										module_name(id), " ", req.src_request_id_str(),
+										" --", req, "--> ",
+										module_name(req.dst_module_id()), " ",
+										req.dst_request_id_str());
+
+								progress = true;
+								return Module::REQUEST_HANDLED;
+							}
 							if (VERBOSE_MODULE_COMMUNICATION)
 								log(
 									module_name(id), " ", req.src_request_id_str(),
@@ -347,18 +395,31 @@ class Tresor::Module_composition
 									module_name(req.dst_module_id()));
 
 							return Module::REQUEST_NOT_HANDLED;
+
+						} else {
+
+							if (!dst_module.ready_to_submit_request()) {
+
+								if (VERBOSE_MODULE_COMMUNICATION)
+									log(
+										module_name(id), " ", req.src_request_id_str(),
+										" --", req, "-| ",
+										module_name(req.dst_module_id()));
+
+								return Module::REQUEST_NOT_HANDLED;
+							}
+							dst_module.submit_request(req);
+
+							if (VERBOSE_MODULE_COMMUNICATION)
+								log(
+									module_name(id), " ", req.src_request_id_str(),
+									" --", req, "--> ",
+									module_name(req.dst_module_id()), " ",
+									req.dst_request_id_str());
+
+							progress = true;
+							return Module::REQUEST_HANDLED;
 						}
-						dst_module.submit_request(req);
-
-						if (VERBOSE_MODULE_COMMUNICATION)
-							log(
-								module_name(id), " ", req.src_request_id_str(),
-								" --", req, "--> ",
-								module_name(req.dst_module_id()), " ",
-								req.dst_request_id_str());
-
-						progress = true;
-						return Module::REQUEST_HANDLED;
 					});
 					module_ptr->for_each_completed_request([&] (Module_request &req) {
 						ASSERT(req.src_module_id() <= MAX_MODULE_ID);

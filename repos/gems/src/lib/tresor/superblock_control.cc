@@ -2040,28 +2040,3 @@ void Superblock_control::_drop_completed_request(Module_request &req)
 	}
 	_channels[id]._req_ptr = nullptr;
 }
-
-
-bool Superblock_control::ready_to_submit_request()
-{
-	for (Channel const &channel : _channels) {
-		if (!channel._req_ptr)
-			return true;
-	}
-	return false;
-}
-
-
-void Superblock_control::submit_request(Module_request &req)
-{
-	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
-		if (!_channels[id]._req_ptr) {
-			req.dst_request_id(id);
-			_channels[id]._req_ptr = static_cast<Request *>(&req);
-			_channels[id]._state = Channel::SUBMITTED;
-			return;
-		}
-	}
-	class Invalid_call { };
-	throw Invalid_call { };
-}
