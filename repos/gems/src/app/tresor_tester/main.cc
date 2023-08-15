@@ -619,6 +619,8 @@ class Tresor_tester::Client_data : public Tresor::Module
 
 		void _drop_completed_request(Module_request &) override;
 
+		bool new_submit_request() override { return false; }
+
 	public:
 
 		Client_data(Main &main) : _main { main } { }
@@ -995,6 +997,8 @@ class Tresor_tester::Main
 			}
 			mark_command_completed(cmd_id, success);
 		}
+
+		bool new_submit_request() override { return false; }
 
 	public:
 

@@ -492,6 +492,8 @@ class Tresor::Free_tree : public Module
 		void _drop_generated_request(Module_request &mod_req) override;
 
 		void generated_request_complete(Module_request &req) override;
+
+		bool new_submit_request() override { return false; }
 };
 
 #endif /* _TRESOR__FREE_TREE_H_ */

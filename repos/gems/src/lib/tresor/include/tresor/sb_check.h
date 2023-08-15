@@ -149,6 +149,8 @@ class Tresor::Sb_check : public Module
 
 		void generated_request_complete(Module_request &req) override;
 
+		bool new_submit_request() override { return false; }
+
 
 	public:
 

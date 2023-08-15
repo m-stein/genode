@@ -402,6 +402,8 @@ class Tresor::Virtual_block_device : public Module
 		void _drop_generated_request(Module_request &mod_req) override;
 
 		void generated_request_complete(Module_request &req) override;
+
+		bool new_submit_request() override { return false; }
 };
 
 #endif /* _TRESOR__VIRTUAL_BLOCK_DEVICE_H_ */

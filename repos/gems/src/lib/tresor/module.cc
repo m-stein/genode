@@ -22,29 +22,25 @@ using namespace Tresor;
  ** Module_request **
  ********************/
 
-Module_request::Module_request(Module_id         src_module_id,
-                               Module_request_id src_request_id,
-                               Module_id         dst_module_id)
+Module_request::Module_request(Module_id src_module_id,
+                               Module_channel_id src_chan_id,
+                               Module_id dst_module_id)
 :
-	_src_module_id  { src_module_id },
-	_src_request_id { src_request_id },
-	_dst_module_id  { dst_module_id }
+	_src_module_id { src_module_id },
+	_src_chan_id { src_chan_id },
+	_dst_module_id { dst_module_id }
 { }
 
 
-String<32> Module_request::src_request_id_str() const
+String<32> Module_request::src_chan_id_str() const
 {
-	return
-		_src_request_id == INVALID_MODULE_REQUEST_ID ?
-			String<32> { "?" } : String<32> { _src_request_id };
+	return _src_chan_id == INVALID_MODULE_CHANNEL_ID ? "?" : String<32> { _src_chan_id };
 }
 
 
-String<32> Module_request::dst_request_id_str() const
+String<32> Module_request::dst_chan_id_str() const
 {
-	return
-		_dst_request_id == INVALID_MODULE_REQUEST_ID ?
-			String<32> { "?" } : String<32> { _dst_request_id };
+	return _dst_chan_id == INVALID_MODULE_CHANNEL_ID ? "?" : String<32> { _dst_chan_id };
 }
 
 
