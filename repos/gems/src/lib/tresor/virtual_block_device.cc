@@ -55,11 +55,10 @@ Virtual_block_device_request(Module_id src_module_id,
                              Snapshot_index curr_snap_idx,
                              Snapshots &snapshots,
                              Tree_degree snapshots_degree,
-                             Key_id old_key_id,
-                             Key_id new_key_id,
+                             Key_id prev_key_id,
+                             Key_id curr_key_id,
                              Generation curr_gen,
-                             Key_id key_id,
-                             Physical_block_address first_pba,
+                             Physical_block_address pba,
                              bool &success,
                              Number_of_leaves &nr_of_leaves,
                              Number_of_blocks nr_of_pbas)
@@ -71,9 +70,8 @@ Virtual_block_device_request(Module_id src_module_id,
 	_curr_snap_idx { curr_snap_idx },
 	_snapshots_degree { snapshots_degree },
 	_curr_gen { curr_gen },
-	_new_key_id { type == READ_VBA || type == WRITE_VBA ? key_id :
-	              type == REKEY_VBA ? new_key_id : (Key_id)INVALID_KEY_ID },
-	_old_key_id { type == REKEY_VBA ? old_key_id : (Key_id)INVALID_KEY_ID },
+	_curr_key_id { curr_key_id },
+	_prev_key_id { prev_key_id },
 	_ft_root_pba_ptr { (addr_t)&ft_root_pba },
 	_ft_root_gen_ptr { (addr_t)&ft_root_gen },
 	_ft_root_hash_ptr { (addr_t)&ft_root_hash },
@@ -92,7 +90,7 @@ Virtual_block_device_request(Module_id src_module_id,
 	_client_req_offset { client_req_offset },
 	_client_req_tag { client_req_tag },
 	_last_secured_generation { last_secured_generation },
-	_pba { type == VBD_EXTENSION_STEP ? first_pba : (Physical_block_address)INVALID_PBA },
+	_pba { type == VBD_EXTENSION_STEP ? pba : (Physical_block_address)INVALID_PBA },
 	_nr_of_pbas { type == VBD_EXTENSION_STEP ? nr_of_pbas : 0 },
 	_nr_of_leaves_ptr { (addr_t)&nr_of_leaves },
 	_success_ptr { (addr_t)&success }
@@ -138,11 +136,10 @@ void Virtual_block_device_request::create(void *buf_ptr,
                                           Snapshot_index curr_snap_idx,
                                           Snapshots *snapshots_ptr,
                                           Tree_degree snapshots_degree,
-                                          Key_id old_key_id,
-                                          Key_id new_key_id,
+                                          Key_id prev_key_id,
+                                          Key_id curr_key_id,
                                           Generation current_gen,
-                                          Key_id key_id,
-                                          Physical_block_address first_pba,
+                                          Physical_block_address pba,
                                           bool &success,
                                           Number_of_leaves &nr_of_leaves,
                                           Number_of_blocks nr_of_pbas)
@@ -170,24 +167,10 @@ void Virtual_block_device_request::create(void *buf_ptr,
 	req._snapshots_ptr = (addr_t)snapshots_ptr;
 	req._success_ptr = (addr_t)&success;
 	req._nr_of_leaves_ptr = (addr_t)&nr_of_leaves;
-
-	switch (req_type) {
-	case READ_VBA:
-	case WRITE_VBA:
-		req._new_key_id = key_id;
-		break;
-	case REKEY_VBA:
-		req._old_key_id = old_key_id;
-		req._new_key_id = new_key_id;
-		break;
-	case VBD_EXTENSION_STEP:
-		req._pba = first_pba;
-		req._nr_of_pbas = nr_of_pbas;
-		break;
-	default:
-		class Exception_3 { };
-		throw Exception_3 { };
-	}
+	req._prev_key_id = prev_key_id;
+	req._curr_key_id = curr_key_id;
+	req._pba = pba;
+	req._nr_of_pbas = nr_of_pbas;
 	req._snapshots_degree = snapshots_degree;
 	req._client_req_offset = client_req_offset;
 	req._client_req_tag = client_req_tag;
@@ -1914,7 +1897,7 @@ bool Virtual_block_device::_peek_generated_request(uint8_t *buf_ptr,
 			construct_in_buf<Block_io_request>(
 				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
 				Block_io_request::WRITE_CLIENT_DATA, req._client_req_offset,
-				req._client_req_tag, req._new_key_id,
+				req._client_req_tag, req._curr_key_id,
 				chan._generated_prim.blk_nr, chan._vba, 1, nullptr,
 				&chan._hash);
 
@@ -1945,7 +1928,7 @@ bool Virtual_block_device::_peek_generated_request(uint8_t *buf_ptr,
 			construct_in_buf<Block_io_request>(
 				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
 				Block_io_request::READ_CLIENT_DATA, req._client_req_offset,
-				req._client_req_tag, req._new_key_id,
+				req._client_req_tag, req._curr_key_id,
 				chan._generated_prim.blk_nr, chan._vba, 1, nullptr, nullptr);
 
 			return true;
@@ -1955,7 +1938,7 @@ bool Virtual_block_device::_peek_generated_request(uint8_t *buf_ptr,
 			construct_in_buf<Crypto_request>(
 				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
 				Crypto_request::DECRYPT,
-				0, 0, req._old_key_id, nullptr,
+				0, 0, req._prev_key_id, nullptr,
 				chan._generated_prim.blk_nr, 0, &chan._data_blk,
 				&chan._data_blk);
 
@@ -1966,7 +1949,7 @@ bool Virtual_block_device::_peek_generated_request(uint8_t *buf_ptr,
 			construct_in_buf<Crypto_request>(
 				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
 				Crypto_request::ENCRYPT,
-				0, 0, req._new_key_id, nullptr,
+				0, 0, req._curr_key_id, nullptr,
 				chan._generated_prim.blk_nr, 0, &chan._data_blk,
 				&chan._data_blk);
 
@@ -1999,7 +1982,7 @@ bool Virtual_block_device::_peek_generated_request(uint8_t *buf_ptr,
 				(addr_t)&chan._new_pbas, (addr_t)&chan._t1_node_walk,
 				(uint64_t)(*(Snapshots *)req._snapshots_ptr).items[chan._snapshot_idx].max_level,
 				chan._vba, req._vbd_degree, req._vbd_highest_vba,
-				req._rekeying, req._old_key_id, req._new_key_id, chan._vba);
+				req._rekeying, req._prev_key_id, req._curr_key_id, chan._vba);
 
 			return true;
 		}
