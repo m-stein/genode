@@ -61,6 +61,7 @@ Virtual_block_device_request(Module_id src_module_id,
                              Key_id key_id,
                              Physical_block_address first_pba,
                              bool &success,
+                             Number_of_leaves &nr_of_leaves,
                              Number_of_blocks nr_of_pbas)
 :
 	Module_request { src_module_id, src_request_id, VIRTUAL_BLOCK_DEVICE },
@@ -93,6 +94,7 @@ Virtual_block_device_request(Module_id src_module_id,
 	_last_secured_generation { last_secured_generation },
 	_pba { type == VBD_EXTENSION_STEP ? first_pba : (Physical_block_address)INVALID_PBA },
 	_nr_of_pbas { type == VBD_EXTENSION_STEP ? nr_of_pbas : 0 },
+	_nr_of_leaves_ptr { (addr_t)&nr_of_leaves },
 	_success_ptr { (addr_t)&success }
 { }
 
@@ -142,6 +144,7 @@ void Virtual_block_device_request::create(void *buf_ptr,
                                           Key_id key_id,
                                           Physical_block_address first_pba,
                                           bool &success,
+                                          Number_of_leaves &nr_of_leaves,
                                           Number_of_blocks nr_of_pbas)
 {
 	Virtual_block_device_request req { src_module_id, src_request_id };
@@ -166,6 +169,7 @@ void Virtual_block_device_request::create(void *buf_ptr,
 	req._curr_snap_idx = curr_snap_idx;
 	req._snapshots_ptr = (addr_t)snapshots_ptr;
 	req._success_ptr = (addr_t)&success;
+	req._nr_of_leaves_ptr = (addr_t)&nr_of_leaves;
 
 	switch (req_type) {
 	case READ_VBA:
@@ -1447,7 +1451,7 @@ _add_new_branch_to_snap_using_pba_contingent(Channel          &chan,
                                              Tree_node_index   mount_at_child_idx)
 {
 	Request &req { chan._request };
-	req._nr_of_leaves = 0;
+	*(Number_of_leaves *)req._nr_of_leaves_ptr = 0;
 	chan._t1_blk_idx = mount_at_lvl;
 
 	/* reset all levels below mount point */
@@ -1494,7 +1498,7 @@ _add_new_branch_to_snap_using_pba_contingent(Channel          &chan,
 				if (!add_child_at_curr_lvl_and_child_idx())
 					return;
 
-				req._nr_of_leaves++;
+				(*(Number_of_leaves *)req._nr_of_leaves_ptr)++;
 			}
 		}
 	}
@@ -1625,7 +1629,7 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 	switch (chan._state) {
 	case Channel::State::SUBMITTED:
 	{
-		req._nr_of_leaves = 0;
+		*(Number_of_leaves *)req._nr_of_leaves_ptr = 0;
 		chan._snapshot_idx = (*(Snapshots *)req._snapshots_ptr).newest_snapshot_idx();
 
 		chan._vba = chan.snap().nr_of_leaves;
@@ -1827,7 +1831,7 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 		Snapshot &new_snap { (*(Snapshots *)req._snapshots_ptr).items[chan._snapshot_idx] };
 		new_snap = {
 			Hash { }, child_pba, req._curr_gen,
-			old_snap.nr_of_leaves + req._nr_of_leaves, old_snap.max_level,
+			old_snap.nr_of_leaves + *(Number_of_leaves *)req._nr_of_leaves_ptr, old_snap.max_level,
 			true, 0, false };
 
 		calc_sha256_4k_hash(chan._encoded_blk, new_snap.hash);
