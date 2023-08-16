@@ -29,6 +29,72 @@ using namespace Tresor;
  ** Virtual_block_device_request **
  **********************************/
 
+Virtual_block_device_request::
+Virtual_block_device_request(Module_id src_module_id,
+                             Module_request_id src_request_id,
+                             Type type,
+                             Request_offset client_req_offset,
+                             Request_tag client_req_tag,
+                             Generation last_secured_generation,
+                             Physical_block_address &ft_root_pba,
+                             Generation &ft_root_gen,
+                             Hash &ft_root_hash,
+                             Tree_level_index ft_max_level,
+                             Tree_degree ft_degree,
+                             Number_of_leaves ft_leaves,
+                             Physical_block_address &mt_root_pba,
+                             Generation &mt_root_gen,
+                             Hash &mt_root_hash,
+                             Tree_level_index mt_max_level,
+                             Tree_degree mt_degree,
+                             Number_of_leaves mt_leaves,
+                             Tree_degree vbd_degree,
+                             Virtual_block_address vbd_highest_vba,
+                             bool rekeying,
+                             Virtual_block_address vba,
+                             Snapshot_index curr_snap_idx,
+                             Snapshots const &snapshots,
+                             Tree_degree snapshots_degree,
+                             Key_id old_key_id,
+                             Key_id new_key_id,
+                             Generation curr_gen,
+                             Key_id key_id,
+                             Physical_block_address first_pba,
+                             Number_of_blocks nr_of_pbas)
+:
+	Module_request { src_module_id, src_request_id, VIRTUAL_BLOCK_DEVICE },
+	_type { type },
+	_vba { vba },
+	_snapshots { snapshots },
+	_curr_snap_idx { curr_snap_idx },
+	_snapshots_degree { snapshots_degree },
+	_curr_gen { curr_gen },
+	_new_key_id { type == READ_VBA || type == WRITE_VBA ? key_id :
+	              type == REKEY_VBA ? new_key_id : (Key_id)INVALID_KEY_ID },
+	_old_key_id { type == REKEY_VBA ? old_key_id : (Key_id)INVALID_KEY_ID },
+	_ft_root_pba_ptr { (addr_t)&ft_root_pba },
+	_ft_root_gen_ptr { (addr_t)&ft_root_gen },
+	_ft_root_hash_ptr { (addr_t)&ft_root_hash },
+	_ft_max_level { ft_max_level },
+	_ft_degree { ft_degree },
+	_ft_leaves { ft_leaves },
+	_mt_root_pba_ptr { (addr_t)&mt_root_pba },
+	_mt_root_gen_ptr { (addr_t)&mt_root_gen },
+	_mt_root_hash_ptr { (addr_t)&mt_root_hash },
+	_mt_max_level { mt_max_level },
+	_mt_degree { mt_degree },
+	_mt_leaves { mt_leaves },
+	_vbd_degree { vbd_degree },
+	_vbd_highest_vba { vbd_highest_vba },
+	_rekeying { rekeying },
+	_client_req_offset { client_req_offset },
+	_client_req_tag { client_req_tag },
+	_last_secured_generation { last_secured_generation },
+	_pba { type == VBD_EXTENSION_STEP ? first_pba : (Physical_block_address)INVALID_PBA },
+	_nr_of_pbas { type == VBD_EXTENSION_STEP ? nr_of_pbas : 0 }
+{ }
+
+
 char const *Virtual_block_device_request::type_to_string(Type op)
 {
 	switch (op) {
