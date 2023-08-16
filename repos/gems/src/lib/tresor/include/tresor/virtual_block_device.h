@@ -67,7 +67,7 @@ class Tresor::Virtual_block_device_request : public Module_request
 		Physical_block_address _pba                     { 0 };
 		Number_of_blocks       _nr_of_pbas              { 0 };
 		Number_of_leaves       _nr_of_leaves            { 0 };
-		bool                   _success                 { false };
+		addr_t                 _success_ptr             { 0 };
 
 	public:
 
@@ -106,6 +106,7 @@ class Tresor::Virtual_block_device_request : public Module_request
 		                             Generation current_gen,
 		                             Key_id key_id,
 		                             Physical_block_address first_pba,
+		                             bool &success,
 		                             Number_of_blocks nr_of_pbas);
 
 		static void create(void                   *buf_ptr,
@@ -140,9 +141,8 @@ class Tresor::Virtual_block_device_request : public Module_request
 		                   Generation              current_gen,
 		                   Key_id                  key_id,
 		                   Physical_block_address  first_pba,
+		                   bool                   &success,
 		                   Number_of_blocks        nr_of_pbas);
-
-		bool success() const { return _success; }
 
 		Physical_block_address pba() const { return _pba; }
 
