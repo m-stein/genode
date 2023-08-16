@@ -194,7 +194,6 @@ class Tresor::Superblock_control_channel : public Module_channel
 		bool _sb_found { false };
 		Superblock_index _read_sb_idx { 0 };
 		Generation _gen { INVALID_GENERATION };
-		Snapshots _snapshots { };
 		Hash _hash { };
 		Key _curr_key_plaintext { };
 		Key _prev_key_plaintext { };

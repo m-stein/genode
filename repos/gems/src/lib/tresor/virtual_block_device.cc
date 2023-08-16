@@ -53,7 +53,7 @@ Virtual_block_device_request(Module_id src_module_id,
                              bool rekeying,
                              Virtual_block_address vba,
                              Snapshot_index curr_snap_idx,
-                             Snapshots const &snapshots,
+                             Snapshots &snapshots,
                              Tree_degree snapshots_degree,
                              Key_id old_key_id,
                              Key_id new_key_id,
@@ -65,7 +65,7 @@ Virtual_block_device_request(Module_id src_module_id,
 	Module_request { src_module_id, src_request_id, VIRTUAL_BLOCK_DEVICE },
 	_type { type },
 	_vba { vba },
-	_snapshots { snapshots },
+	_snapshots_ptr { (addr_t)&snapshots },
 	_curr_snap_idx { curr_snap_idx },
 	_snapshots_degree { snapshots_degree },
 	_curr_gen { curr_gen },
@@ -132,7 +132,7 @@ void Virtual_block_device_request::create(void                  *buf_ptr,
                                           bool                   rekeying,
                                           Virtual_block_address  vba,
                                           Snapshot_index         curr_snap_idx,
-                                          Snapshots const       *snapshots_ptr,
+                                          Snapshots             *snapshots_ptr,
                                           Tree_degree            snapshots_degree,
                                           Key_id                 old_key_id,
                                           Key_id                 new_key_id,
@@ -162,7 +162,7 @@ void Virtual_block_device_request::create(void                  *buf_ptr,
 	req._rekeying                = rekeying;
 	req._vba                     = vba;
 	req._curr_snap_idx           = curr_snap_idx;
-	req._snapshots               = *snapshots_ptr;
+	req._snapshots_ptr           = (addr_t)snapshots_ptr;
 
 	switch (req_type) {
 	case READ_VBA:
@@ -207,7 +207,7 @@ Virtual_block_device_request::Virtual_block_device_request(Module_id         src
 
 Snapshot &Virtual_block_device_channel::snap()
 {
-	return _request._snapshots.items[_snapshot_idx];
+	return (*(Snapshots *)_request._snapshots_ptr).items[_snapshot_idx];
 }
 
 
@@ -837,18 +837,18 @@ Virtual_block_device::_find_next_snap_to_rekey_vba_at(Channel const  &chan,
 {
 	bool next_snap_idx_valid { false };
 	Request const &req { chan._request };
-	Snapshot const &old_snap { req._snapshots.items[chan._snapshot_idx] };
+	Snapshot const &old_snap { (*(Snapshots *)req._snapshots_ptr).items[chan._snapshot_idx] };
 
 	for (Snapshot_index snap_idx { 0 };
 	     snap_idx < MAX_NR_OF_SNAPSHOTS;
 	     snap_idx++) {
 
-		Snapshot const &snap { req._snapshots.items[snap_idx] };
+		Snapshot const &snap { (*(Snapshots *)req._snapshots_ptr).items[snap_idx] };
 		if (snap.valid && snap.contains_vba(req._vba)) {
 
 			if (next_snap_idx_valid) {
 
-				Snapshot const &next_snap { req._snapshots.items[next_snap_idx] };
+				Snapshot const &next_snap { (*(Snapshots *)req._snapshots_ptr).items[next_snap_idx] };
 				if (snap.gen > next_snap.gen &&
 				    snap.gen < old_snap.gen)
 					next_snap_idx = snap_idx;
@@ -874,7 +874,7 @@ _set_args_for_alloc_of_new_pbas_for_rekeying(Channel          &chan,
 {
 	bool const for_curr_gen_blks { chan._first_snapshot };
 	Generation const curr_gen { chan._request._curr_gen };
-	Snapshot const &snap { chan._request._snapshots.items[chan._snapshot_idx] };
+	Snapshot const &snap { (*(Snapshots *)chan._request._snapshots_ptr).items[chan._snapshot_idx] };
 	Tree_degree const snap_degree { chan._request._snapshots_degree };
 	Virtual_block_address const vba { chan._request._vba };
 	Type_1_node_blocks const &t1_blks { chan._t1_blks };
@@ -967,8 +967,8 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 		     snap_idx < MAX_NR_OF_SNAPSHOTS;
 		     snap_idx++) {
 
-			Snapshot const &snap { req._snapshots.items[snap_idx] };
-			Snapshot const &first_snap { req._snapshots.items[first_snap_idx] };
+			Snapshot const &snap { (*(Snapshots *)req._snapshots_ptr).items[snap_idx] };
+			Snapshot const &first_snap { (*(Snapshots *)req._snapshots_ptr).items[first_snap_idx] };
 			if (snap.valid &&
 			    (!first_snap_idx_found || snap.gen > first_snap.gen)) {
 
@@ -984,7 +984,7 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 		chan._snapshot_idx = first_snap_idx;
 		chan._first_snapshot = true;
 
-		Snapshot const &snap { req._snapshots.items[chan._snapshot_idx] };
+		Snapshot const &snap { (*(Snapshots *)req._snapshots_ptr).items[chan._snapshot_idx] };
 		chan._t1_blk_idx = snap.max_level;
 		chan._t1_blks_old_pbas.items[chan._t1_blk_idx] = snap.pba;
 
@@ -1011,7 +1011,7 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 		if (_handle_failed_generated_req(chan, progress))
 			break;
 
-		Snapshot const &snap { req._snapshots.items[chan._snapshot_idx] };
+		Snapshot const &snap { (*(Snapshots *)req._snapshots_ptr).items[chan._snapshot_idx] };
 		if (chan._t1_blk_idx == snap.max_level) {
 
 			if (!check_sha256_4k_hash(chan._encoded_blk, snap.hash)) {
@@ -1275,7 +1275,7 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 		if (_handle_failed_generated_req(chan, progress))
 			break;
 
-		Snapshot               const &snap       { req._snapshots.items[chan._snapshot_idx] };
+		Snapshot               const &snap       { (*(Snapshots *)req._snapshots_ptr).items[chan._snapshot_idx] };
 		Tree_level_index       const  parent_lvl { chan._t1_blk_idx + 1 };
 		Tree_level_index       const  child_lvl  { chan._t1_blk_idx };
 		Physical_block_address const  child_pba  { chan._new_pbas.pbas[child_lvl] };
@@ -1311,7 +1311,7 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 		if (_handle_failed_generated_req(chan, progress))
 			break;
 
-		Snapshot                     &snap      { req._snapshots.items[chan._snapshot_idx] };
+		Snapshot                     &snap      { (*(Snapshots *)req._snapshots_ptr).items[chan._snapshot_idx] };
 		Tree_level_index       const  child_lvl { chan._t1_blk_idx };
 		Physical_block_address const  child_pba { chan._new_pbas.pbas[child_lvl] };
 
@@ -1325,7 +1325,7 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 		if (_find_next_snap_to_rekey_vba_at(chan, next_snap_idx)) {
 
 			chan._snapshot_idx = next_snap_idx;
-			Snapshot const &snap { req._snapshots.items[chan._snapshot_idx] };
+			Snapshot const &snap { (*(Snapshots *)req._snapshots_ptr).items[chan._snapshot_idx] };
 
 			chan._first_snapshot = false;
 			chan._t1_blk_idx = snap.max_level;
@@ -1386,7 +1386,7 @@ _add_new_root_lvl_to_snap_using_pba_contingent(Channel &chan)
 	Request                &req     { chan._request };
 	Snapshot_index const    old_idx { chan._snapshot_idx };
 	Snapshot_index         &idx     { chan._snapshot_idx };
-	Snapshot               *snap    { req._snapshots.items };
+	Snapshot               *snap    { (*(Snapshots *)req._snapshots_ptr).items };
 	Physical_block_address  new_pba;
 
 	if (snap[idx].max_level == TREE_MAX_LEVEL) {
@@ -1401,7 +1401,7 @@ _add_new_root_lvl_to_snap_using_pba_contingent(Channel &chan)
 	if (snap[idx].gen < req._curr_gen) {
 
 		idx =
-			req._snapshots.idx_of_invalid_or_lowest_gen_evictable_snap(
+			(*(Snapshots *)req._snapshots_ptr).idx_of_invalid_or_lowest_gen_evictable_snap(
 				req._curr_gen, req._last_secured_generation);
 
 		if (VERBOSE_VBD_EXTENSION)
@@ -1502,7 +1502,7 @@ void
 Virtual_block_device::_set_new_pbas_identical_to_current_pbas(Channel &chan)
 {
 	Request &req { chan._request };
-	Snapshot &snap { chan._request._snapshots.items[chan._snapshot_idx] };
+	Snapshot &snap { (*(Snapshots *)chan._request._snapshots_ptr).items[chan._snapshot_idx] };
 
 	for (Tree_level_index lvl { 0 }; lvl <= TREE_MAX_LEVEL; lvl++) {
 
@@ -1535,7 +1535,7 @@ _set_args_for_alloc_of_new_pbas_for_resizing(Channel          &chan,
                                              bool             &progress)
 {
 	Request const &req { chan._request };
-	Snapshot const &snap { req._snapshots.items[chan._snapshot_idx] };
+	Snapshot const &snap { (*(Snapshots *)req._snapshots_ptr).items[chan._snapshot_idx] };
 
 	if (min_lvl > snap.max_level) {
 
@@ -1623,7 +1623,7 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 	case Channel::State::SUBMITTED:
 	{
 		req._nr_of_leaves = 0;
-		chan._snapshot_idx = req._snapshots.newest_snapshot_idx();
+		chan._snapshot_idx = (*(Snapshots *)req._snapshots_ptr).newest_snapshot_idx();
 
 		chan._vba = chan.snap().nr_of_leaves;
 		chan._t1_blk_idx = chan.snap().max_level;
@@ -1650,7 +1650,7 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 		} else {
 
 			_add_new_root_lvl_to_snap_using_pba_contingent(chan);
-			_add_new_branch_to_snap_using_pba_contingent(chan, req._snapshots.items[chan._snapshot_idx].max_level, 1);
+			_add_new_branch_to_snap_using_pba_contingent(chan, (*(Snapshots *)req._snapshots_ptr).items[chan._snapshot_idx].max_level, 1);
 			_set_new_pbas_identical_to_current_pbas(chan);
 			_set_args_for_write_back_of_t1_lvl(
 				chan.snap().max_level, chan._t1_blk_idx,
@@ -1809,19 +1809,19 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 
 		Tree_level_index       const  child_lvl { chan._t1_blk_idx };
 		Physical_block_address const  child_pba { chan._new_pbas.pbas[child_lvl] };
-		Snapshot               const &old_snap  { req._snapshots.items[chan._snapshot_idx] };
+		Snapshot               const &old_snap  { (*(Snapshots *)req._snapshots_ptr).items[chan._snapshot_idx] };
 
 		if (old_snap.gen < req._curr_gen) {
 
 			chan._snapshot_idx =
-				req._snapshots.idx_of_invalid_or_lowest_gen_evictable_snap(
+				(*(Snapshots *)req._snapshots_ptr).idx_of_invalid_or_lowest_gen_evictable_snap(
 					req._curr_gen, req._last_secured_generation);
 
 			if (VERBOSE_VBD_EXTENSION)
 				log("  new snap ", chan._snapshot_idx);
 		}
 
-		Snapshot &new_snap { req._snapshots.items[chan._snapshot_idx] };
+		Snapshot &new_snap { (*(Snapshots *)req._snapshots_ptr).items[chan._snapshot_idx] };
 		new_snap = {
 			Hash { }, child_pba, req._curr_gen,
 			old_snap.nr_of_leaves + req._nr_of_leaves, old_snap.max_level,
@@ -1987,10 +1987,10 @@ bool Virtual_block_device::_peek_generated_request(uint8_t *buf_ptr,
 				req._ft_max_level, req._ft_degree, req._ft_leaves,
 				req._mt_root_pba_ptr, req._mt_root_gen_ptr,
 				req._mt_root_hash_ptr, req._mt_max_level, req._mt_degree,
-				req._mt_leaves, &req._snapshots, req._last_secured_generation,
+				req._mt_leaves, (Snapshots *)req._snapshots_ptr, req._last_secured_generation,
 				req._curr_gen, chan._free_gen, chan._nr_of_blks,
 				(addr_t)&chan._new_pbas, (addr_t)&chan._t1_node_walk,
-				(uint64_t)req._snapshots.items[chan._snapshot_idx].max_level,
+				(uint64_t)(*(Snapshots *)req._snapshots_ptr).items[chan._snapshot_idx].max_level,
 				chan._vba, req._vbd_degree, req._vbd_highest_vba,
 				req._rekeying, req._old_key_id, req._new_key_id, chan._vba);
 

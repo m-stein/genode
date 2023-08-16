@@ -242,10 +242,8 @@ void Superblock_control::_execute_write_vba(Channel         &channel,
 				sb.snapshots.idx_of_invalid_or_lowest_gen_evictable_snap(
 					curr_gen, sb.last_secured_generation);
 
-			sb.snapshots.items[sb.curr_snap] = channel._snapshots.items[0];
 			sb.snapshots.items[sb.curr_snap].keep = false;
 		} else if (sb.snapshots.items[sb.curr_snap].gen == curr_gen) {
-			sb.snapshots.items[sb.curr_snap] = channel._snapshots.items[0];
 		} else {
 			class Superblock_write_vba_at_vbd { };
 			throw Superblock_write_vba_at_vbd { };
@@ -403,8 +401,7 @@ void Superblock_control::_execute_tree_ext_step(Channel          &chan,
 
 		if (tree_name == "vbd") {
 
-			_sb.snapshots = chan._snapshots;
-			_sb.curr_snap = chan._snapshots.newest_snapshot_idx();
+			_sb.curr_snap = _sb.snapshots.newest_snapshot_idx();
 
 		} else if (tree_name == "ft") {
 
@@ -486,7 +483,6 @@ void Superblock_control::_execute_rekey_vba(Channel  &chan,
 			_mark_req_failed(chan, progress, "rekey vba at vbd");
 			break;
 		}
-		_sb.snapshots = chan._snapshots;
 		Number_of_leaves max_nr_of_leaves { 0 };
 
 		for (Snapshot const &snap : _sb.snapshots.items) {
@@ -1927,15 +1923,12 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 		case Channel::READ_VBA_AT_VBD_IN_PROGRESS: chan._state = Channel::READ_VBA_AT_VBD_COMPLETED; break;
 		case Channel::WRITE_VBA_AT_VBD_IN_PROGRESS:
 			chan._state = Channel::WRITE_VBA_AT_VBD_COMPLETED;
-			chan._snapshots.items[0] = gen_req.snapshots_ptr()->items[gen_req.curr_snap_idx()];
 			break;
 		case Channel::REKEY_VBA_IN_VBD_IN_PROGRESS:
 			chan._state = Channel::REKEY_VBA_IN_VBD_COMPLETED;
-			chan._snapshots = *(gen_req.snapshots_ptr());
 			break;
 		case Channel::VBD_EXT_STEP_IN_VBD_IN_PROGRESS:
 			chan._state = Channel::TREE_EXT_STEP_IN_TREE_COMPLETED;
-			chan._snapshots = *(gen_req.snapshots_ptr());
 			chan._pba = gen_req.pba();
 			chan.req()._nr_of_blks = gen_req.nr_of_pbas();
 			chan._nr_of_leaves = gen_req.nr_of_leaves();
