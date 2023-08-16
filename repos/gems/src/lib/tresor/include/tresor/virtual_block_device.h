@@ -44,8 +44,8 @@ class Tresor::Virtual_block_device_request : public Module_request
 		Snapshot_index         _curr_snap_idx           { 0 };
 		Tree_degree            _snapshots_degree        { 0 };
 		Generation             _curr_gen                { INVALID_GENERATION };
-		Key_id                 _new_key_id              { 0 };
-		Key_id                 _old_key_id              { 0 };
+		Key_id                 _curr_key_id             { 0 };
+		Key_id                 _prev_key_id             { 0 };
 		addr_t                 _ft_root_pba_ptr         { 0 };
 		addr_t                 _ft_root_gen_ptr         { 0 };
 		addr_t                 _ft_root_hash_ptr        { 0 };
@@ -101,11 +101,10 @@ class Tresor::Virtual_block_device_request : public Module_request
 		                             Snapshot_index curr_snap_idx,
 		                             Snapshots &snapshots,
 		                             Tree_degree snapshots_degree,
-		                             Key_id old_key_id,
-		                             Key_id new_key_id,
+		                             Key_id prev_key_id,
+		                             Key_id curr_key_id,
 		                             Generation current_gen,
-		                             Key_id key_id,
-		                             Physical_block_address first_pba,
+		                             Physical_block_address pba,
 		                             bool &success,
 		                             Number_of_leaves &nr_of_leaves,
 		                             Number_of_blocks nr_of_pbas);
@@ -137,11 +136,10 @@ class Tresor::Virtual_block_device_request : public Module_request
 		                   Snapshot_index curr_snap_idx,
 		                   Snapshots *snapshots_ptr,
 		                   Tree_degree snapshots_degree,
-		                   Key_id old_key_id,
-		                   Key_id new_key_id,
+		                   Key_id prev_key_id,
+		                   Key_id curr_key_id,
 		                   Generation current_gen,
-		                   Key_id key_id,
-		                   Physical_block_address first_pba,
+		                   Physical_block_address pba,
 		                   bool &success,
 		                   Number_of_leaves &nr_of_leaves,
 		                   Number_of_blocks nr_of_pbas);
