@@ -60,6 +60,7 @@ Virtual_block_device_request(Module_id src_module_id,
                              Generation curr_gen,
                              Key_id key_id,
                              Physical_block_address first_pba,
+                             bool &success,
                              Number_of_blocks nr_of_pbas)
 :
 	Module_request { src_module_id, src_request_id, VIRTUAL_BLOCK_DEVICE },
@@ -91,7 +92,8 @@ Virtual_block_device_request(Module_id src_module_id,
 	_client_req_tag { client_req_tag },
 	_last_secured_generation { last_secured_generation },
 	_pba { type == VBD_EXTENSION_STEP ? first_pba : (Physical_block_address)INVALID_PBA },
-	_nr_of_pbas { type == VBD_EXTENSION_STEP ? nr_of_pbas : 0 }
+	_nr_of_pbas { type == VBD_EXTENSION_STEP ? nr_of_pbas : 0 },
+	_success_ptr { (addr_t)&success }
 { }
 
 
@@ -107,84 +109,85 @@ char const *Virtual_block_device_request::type_to_string(Type op)
 	return "?";
 }
 
-void Virtual_block_device_request::create(void                  *buf_ptr,
-                                          size_t                 buf_size,
-                                          uint64_t               src_module_id,
-                                          uint64_t               src_request_id,
-                                          size_t                 req_type,
-                                          uint64_t               client_req_offset,
-                                          uint64_t               client_req_tag,
-                                          Generation             last_secured_generation,
-                                          addr_t                 ft_root_pba_ptr,
-                                          addr_t                 ft_root_gen_ptr,
-                                          addr_t                 ft_root_hash_ptr,
-                                          uint64_t               ft_max_level,
-                                          uint64_t               ft_degree,
-                                          uint64_t               ft_leaves,
-                                          addr_t                 mt_root_pba_ptr,
-                                          addr_t                 mt_root_gen_ptr,
-                                          addr_t                 mt_root_hash_ptr,
-                                          uint64_t               mt_max_level,
-                                          uint64_t               mt_degree,
-                                          uint64_t               mt_leaves,
-                                          uint64_t               vbd_degree,
-                                          uint64_t               vbd_highest_vba,
-                                          bool                   rekeying,
-                                          Virtual_block_address  vba,
-                                          Snapshot_index         curr_snap_idx,
-                                          Snapshots             *snapshots_ptr,
-                                          Tree_degree            snapshots_degree,
-                                          Key_id                 old_key_id,
-                                          Key_id                 new_key_id,
-                                          Generation             current_gen,
-                                          Key_id                 key_id,
+void Virtual_block_device_request::create(void *buf_ptr,
+                                          size_t buf_size,
+                                          uint64_t src_module_id,
+                                          uint64_t src_request_id,
+                                          size_t req_type,
+                                          uint64_t client_req_offset,
+                                          uint64_t client_req_tag,
+                                          Generation last_secured_generation,
+                                          addr_t ft_root_pba_ptr,
+                                          addr_t ft_root_gen_ptr,
+                                          addr_t ft_root_hash_ptr,
+                                          uint64_t ft_max_level,
+                                          uint64_t ft_degree,
+                                          uint64_t ft_leaves,
+                                          addr_t mt_root_pba_ptr,
+                                          addr_t mt_root_gen_ptr,
+                                          addr_t mt_root_hash_ptr,
+                                          uint64_t mt_max_level,
+                                          uint64_t mt_degree,
+                                          uint64_t mt_leaves,
+                                          uint64_t vbd_degree,
+                                          uint64_t vbd_highest_vba,
+                                          bool rekeying,
+                                          Virtual_block_address vba,
+                                          Snapshot_index curr_snap_idx,
+                                          Snapshots *snapshots_ptr,
+                                          Tree_degree snapshots_degree,
+                                          Key_id old_key_id,
+                                          Key_id new_key_id,
+                                          Generation current_gen,
+                                          Key_id key_id,
                                           Physical_block_address first_pba,
-                                          Number_of_blocks       nr_of_pbas)
+                                          bool &success,
+                                          Number_of_blocks nr_of_pbas)
 {
 	Virtual_block_device_request req { src_module_id, src_request_id };
-
-	req._type                    = (Type)req_type;
+	req._type = (Type)req_type;
 	req._last_secured_generation = last_secured_generation;
-	req._ft_root_pba_ptr         = (addr_t)ft_root_pba_ptr;
-	req._ft_root_gen_ptr         = (addr_t)ft_root_gen_ptr;
-	req._ft_root_hash_ptr        = (addr_t)ft_root_hash_ptr;
-	req._ft_max_level            = ft_max_level;
-	req._ft_degree               = ft_degree;
-	req._ft_leaves               = ft_leaves;
-	req._mt_root_pba_ptr         = (addr_t)mt_root_pba_ptr;
-	req._mt_root_gen_ptr         = (addr_t)mt_root_gen_ptr;
-	req._mt_root_hash_ptr        = (addr_t)mt_root_hash_ptr;
-	req._mt_max_level            = mt_max_level;
-	req._mt_degree               = mt_degree;
-	req._mt_leaves               = mt_leaves;
-	req._vbd_degree              = vbd_degree;
-	req._vbd_highest_vba         = vbd_highest_vba;
-	req._rekeying                = rekeying;
-	req._vba                     = vba;
-	req._curr_snap_idx           = curr_snap_idx;
-	req._snapshots_ptr           = (addr_t)snapshots_ptr;
+	req._ft_root_pba_ptr = (addr_t)ft_root_pba_ptr;
+	req._ft_root_gen_ptr = (addr_t)ft_root_gen_ptr;
+	req._ft_root_hash_ptr = (addr_t)ft_root_hash_ptr;
+	req._ft_max_level = ft_max_level;
+	req._ft_degree = ft_degree;
+	req._ft_leaves = ft_leaves;
+	req._mt_root_pba_ptr = (addr_t)mt_root_pba_ptr;
+	req._mt_root_gen_ptr = (addr_t)mt_root_gen_ptr;
+	req._mt_root_hash_ptr = (addr_t)mt_root_hash_ptr;
+	req._mt_max_level = mt_max_level;
+	req._mt_degree = mt_degree;
+	req._mt_leaves = mt_leaves;
+	req._vbd_degree = vbd_degree;
+	req._vbd_highest_vba = vbd_highest_vba;
+	req._rekeying = rekeying;
+	req._vba = vba;
+	req._curr_snap_idx = curr_snap_idx;
+	req._snapshots_ptr = (addr_t)snapshots_ptr;
+	req._success_ptr = (addr_t)&success;
 
 	switch (req_type) {
 	case READ_VBA:
 	case WRITE_VBA:
-		req._new_key_id         = key_id;
+		req._new_key_id = key_id;
 		break;
 	case REKEY_VBA:
 		req._old_key_id = old_key_id;
 		req._new_key_id = new_key_id;
 		break;
 	case VBD_EXTENSION_STEP:
-		req._pba        = first_pba;
+		req._pba = first_pba;
 		req._nr_of_pbas = nr_of_pbas;
 		break;
 	default:
 		class Exception_3 { };
 		throw Exception_3 { };
 	}
-	req._snapshots_degree  = snapshots_degree;
+	req._snapshots_degree = snapshots_degree;
 	req._client_req_offset = client_req_offset;
-	req._client_req_tag    = client_req_tag;
-	req._curr_gen          = current_gen;
+	req._client_req_tag = client_req_tag;
+	req._curr_gen = current_gen;
 
 	if (sizeof(req) > buf_size) {
 		class Exception_2 { };
@@ -374,7 +377,7 @@ void Virtual_block_device::_execute_read_vba(Channel &channel,
 	case Channel::State::READ_CLIENT_DATA_FROM_LEAF_NODE_COMPLETED:
 
 		_check_that_primitive_was_successful(channel._generated_prim);
-		channel._request._success = channel._generated_prim.succ;
+		*(bool *)channel._request._success_ptr = channel._generated_prim.succ;
 		channel._state            = Channel::State::COMPLETED;
 		progress                  = true;
 		break;
@@ -768,7 +771,7 @@ void Virtual_block_device::_execute_write_vba(Channel        &chan,
 
 		_check_that_primitive_was_successful(chan._generated_prim);
 		chan._state = Channel::State::COMPLETED;
-		chan._request._success = true;
+		*(bool *)chan._request._success_ptr = true;
 		progress = true;
 		break;
 
@@ -783,7 +786,7 @@ void Virtual_block_device::_mark_req_failed(Channel    &chan,
                                             char const *str)
 {
 	error(chan._request.type_name(), " request failed at step \"", str, "\"");
-	chan._request._success = false;
+	*(bool *)chan._request._success_ptr = false;
 	chan._state = Channel::COMPLETED;
 	progress = true;
 }
@@ -792,7 +795,7 @@ void Virtual_block_device::_mark_req_failed(Channel    &chan,
 void Virtual_block_device::_mark_req_successful(Channel &chan,
                                                 bool    &progress)
 {
-	chan._request._success = true;
+	*(bool *)chan._request._success_ptr = true;
 	chan._state = Channel::COMPLETED;
 	progress = true;
 }
