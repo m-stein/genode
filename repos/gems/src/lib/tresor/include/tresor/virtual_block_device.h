@@ -40,7 +40,7 @@ class Tresor::Virtual_block_device_request : public Module_request
 
 		Type                   _type                    { INVALID };
 		Virtual_block_address  _vba                     { 0 };
-		Snapshots              _snapshots               { };
+		addr_t                 _snapshots_ptr           { };
 		Snapshot_index         _curr_snap_idx           { 0 };
 		Tree_degree            _snapshots_degree        { 0 };
 		Generation             _curr_gen                { INVALID_GENERATION };
@@ -99,7 +99,7 @@ class Tresor::Virtual_block_device_request : public Module_request
 		                             bool rekeying,
 		                             Virtual_block_address vba,
 		                             Snapshot_index curr_snap_idx,
-		                             Snapshots const &snapshots,
+		                             Snapshots &snapshots,
 		                             Tree_degree snapshots_degree,
 		                             Key_id old_key_id,
 		                             Key_id new_key_id,
@@ -133,7 +133,7 @@ class Tresor::Virtual_block_device_request : public Module_request
 		                   bool                    rekeying,
 		                   Virtual_block_address   vba,
 		                   Snapshot_index          curr_snap_idx,
-		                   Snapshots const        *snapshots_ptr,
+		                   Snapshots              *snapshots_ptr,
 		                   Tree_degree             snapshots_degree,
 		                   Key_id                  old_key_id,
 		                   Key_id                  new_key_id,
@@ -151,8 +151,6 @@ class Tresor::Virtual_block_device_request : public Module_request
 		Number_of_leaves nr_of_leaves() const { return _nr_of_leaves; }
 
 		Snapshot_index curr_snap_idx() const { return _curr_snap_idx; }
-
-		Snapshots *snapshots_ptr() { return &_snapshots; }
 
 		static char const *type_to_string(Type type);
 
@@ -256,7 +254,7 @@ class Tresor::Virtual_block_device_channel
 		Snapshot &snapshots(Snapshot_index idx)
 		{
 			if (idx < MAX_NR_OF_SNAPSHOTS)
-				return _request._snapshots.items[idx];
+				return (*(Snapshots *)_request._snapshots_ptr).items[idx];
 
 			class Snapshot_idx_too_large { };
 			throw Snapshot_idx_too_large { };
