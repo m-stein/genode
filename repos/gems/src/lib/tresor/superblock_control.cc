@@ -1608,7 +1608,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 				&_sb.snapshots,
 				_sb.degree, 0, 0,
 				_curr_gen,
-				chan._curr_key_plaintext.id, 0, chan._generated_prim.succ, 0);
+				chan._curr_key_plaintext.id, 0, chan._generated_prim.succ, chan._nr_of_leaves, 0);
 
 			return 1;
 
@@ -1639,7 +1639,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 				&_sb.snapshots,
 				_sb.degree, 0, 0,
 				_curr_gen,
-				chan._curr_key_plaintext.id, 0, chan._generated_prim.succ, 0);
+				chan._curr_key_plaintext.id, 0, chan._generated_prim.succ, chan._nr_of_leaves, 0);
 
 			return 1;
 
@@ -1704,7 +1704,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 				_sb.previous_key.id,
 				_sb.current_key.id,
 				_curr_gen,
-				chan._curr_key_plaintext.id, 0, chan._generated_prim.succ, 0);
+				chan._curr_key_plaintext.id, 0, chan._generated_prim.succ, chan._nr_of_leaves, 0);
 
 			return 1;
 
@@ -1738,7 +1738,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 				0,
 				_curr_gen,
 				0,
-				_sb.first_pba + _sb.nr_of_pbas, chan._generated_prim.succ,
+				_sb.first_pba + _sb.nr_of_pbas, chan._generated_prim.succ, chan._nr_of_leaves,
 				_sb.resizing_nr_of_pbas);
 
 			return 1;
@@ -1928,7 +1928,6 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 			chan._state = Channel::TREE_EXT_STEP_IN_TREE_COMPLETED;
 			chan._pba = gen_req.pba();
 			chan._req_ptr->_nr_of_blks = gen_req.nr_of_pbas();
-			chan._nr_of_leaves = gen_req.nr_of_leaves();
 			break;
 		default:
 			class Exception_6 { };
@@ -1948,7 +1947,6 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 			chan._ft_nr_of_leaves = gen_req.ft_nr_of_leaves();
 			chan._pba = gen_req.pba();
 			chan._req_ptr->_nr_of_blks = gen_req.nr_of_pbas();
-			chan._nr_of_leaves = gen_req.nr_of_leaves();
 			break;
 		default:
 			class Exception_16 { };
