@@ -66,7 +66,7 @@ class Tresor::Virtual_block_device_request : public Module_request
 		Generation             _last_secured_generation { INVALID_GENERATION };
 		Physical_block_address _pba                     { 0 };
 		Number_of_blocks       _nr_of_pbas              { 0 };
-		Number_of_leaves       _nr_of_leaves            { 0 };
+		addr_t                 _nr_of_leaves_ptr        { 0 };
 		addr_t                 _success_ptr             { 0 };
 
 	public:
@@ -107,48 +107,48 @@ class Tresor::Virtual_block_device_request : public Module_request
 		                             Key_id key_id,
 		                             Physical_block_address first_pba,
 		                             bool &success,
+		                             Number_of_leaves &nr_of_leaves,
 		                             Number_of_blocks nr_of_pbas);
 
-		static void create(void                   *buf_ptr,
-		                   size_t                  buf_size,
-		                   uint64_t                src_module_id,
-		                   uint64_t                src_request_id,
-		                   size_t                  req_type,
-		                   uint64_t                client_req_offset,
-		                   uint64_t                client_req_tag,
-		                   Generation              last_secured_generation,
-		                   addr_t                  ft_root_pba_ptr,
-		                   addr_t                  ft_root_gen_ptr,
-		                   addr_t                  ft_root_hash_ptr,
-		                   uint64_t                ft_max_level,
-		                   uint64_t                ft_degree,
-		                   uint64_t                ft_leaves,
-		                   addr_t                  mt_root_pba_ptr,
-		                   addr_t                  mt_root_gen_ptr,
-		                   addr_t                  mt_root_hash_ptr,
-		                   uint64_t                mt_max_level,
-		                   uint64_t                mt_degree,
-		                   uint64_t                mt_leaves,
-		                   uint64_t                vbd_degree,
-		                   uint64_t                vbd_highest_vba,
-		                   bool                    rekeying,
-		                   Virtual_block_address   vba,
-		                   Snapshot_index          curr_snap_idx,
-		                   Snapshots              *snapshots_ptr,
-		                   Tree_degree             snapshots_degree,
-		                   Key_id                  old_key_id,
-		                   Key_id                  new_key_id,
-		                   Generation              current_gen,
-		                   Key_id                  key_id,
-		                   Physical_block_address  first_pba,
-		                   bool                   &success,
-		                   Number_of_blocks        nr_of_pbas);
+		static void create(void *buf_ptr,
+		                   size_t buf_size,
+		                   uint64_t src_module_id,
+		                   uint64_t src_request_id,
+		                   size_t req_type,
+		                   uint64_t client_req_offset,
+		                   uint64_t client_req_tag,
+		                   Generation last_secured_generation,
+		                   addr_t ft_root_pba_ptr,
+		                   addr_t ft_root_gen_ptr,
+		                   addr_t ft_root_hash_ptr,
+		                   uint64_t ft_max_level,
+		                   uint64_t ft_degree,
+		                   uint64_t ft_leaves,
+		                   addr_t mt_root_pba_ptr,
+		                   addr_t mt_root_gen_ptr,
+		                   addr_t mt_root_hash_ptr,
+		                   uint64_t mt_max_level,
+		                   uint64_t mt_degree,
+		                   uint64_t mt_leaves,
+		                   uint64_t vbd_degree,
+		                   uint64_t vbd_highest_vba,
+		                   bool rekeying,
+		                   Virtual_block_address vba,
+		                   Snapshot_index curr_snap_idx,
+		                   Snapshots *snapshots_ptr,
+		                   Tree_degree snapshots_degree,
+		                   Key_id old_key_id,
+		                   Key_id new_key_id,
+		                   Generation current_gen,
+		                   Key_id key_id,
+		                   Physical_block_address first_pba,
+		                   bool &success,
+		                   Number_of_leaves &nr_of_leaves,
+		                   Number_of_blocks nr_of_pbas);
 
 		Physical_block_address pba() const { return _pba; }
 
 		Number_of_blocks nr_of_pbas() const { return _nr_of_pbas; }
-
-		Number_of_leaves nr_of_leaves() const { return _nr_of_leaves; }
 
 		Snapshot_index curr_snap_idx() const { return _curr_snap_idx; }
 
