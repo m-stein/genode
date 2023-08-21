@@ -366,7 +366,7 @@ class Tresor::Superblock_control : public Module
 				return Superblock_info { };
 		}
 
-		Superblock_control() { register_channels(_channels, NR_OF_CHANNELS); }
+		Superblock_control() { register_channels(_channels, NR_OF_CHANNELS, SUPERBLOCK_CONTROL); }
 };
 
 #endif /* _TRESOR__SUPERBLOCK_CONTROL_H_ */

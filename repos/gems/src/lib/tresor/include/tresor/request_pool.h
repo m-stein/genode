@@ -88,11 +88,11 @@ class Tresor::Request_pool_channel : public Module_channel
 		Tresor::Request _req { };
 		State _state { INVALID };
 		Number_of_blocks _num_blks { 0 };
-		Virtual_block_address _vba { 0 };
 		Superblock::State _sb_state { Superblock::INVALID };
 		uint32_t _num_requests_preponed { 0 };
 		bool _request_finished { false };
 		bool _generated_req_success { false };
+		Request_pool *_pool_ptr { nullptr };
 
 		void _generated_req_complete(State_uint) override;
 
@@ -100,17 +100,36 @@ class Tresor::Request_pool_channel : public Module_channel
 
 		bool _request_complete() override { return false; }
 
+		void _access_vbas(bool &, Superblock_control_request::Type);
+
+		void _forward_to_sb_ctrl(bool &, Superblock_control_request::Type);
+
+		void _gen_sb_control_req(bool &, Superblock_control_request::Type, State, Virtual_block_address);
+
+		void _rekey(bool &);
+
+		void _mark_req_successful(bool &);
+
 		void _reset();
+
+		void _try_prepone_requests(bool &);
+
+		void _extend_tree(Superblock_control_request::Type, bool &);
+
+		void _initialize(bool &);
+
+		void _resume_request(bool &, Request::Operation);
 };
 
 class Tresor::Request_pool : public Module
 {
+	friend class Request_pool_channel;
+
 	private:
 
 		using Channel = Request_pool_channel;
-		using Channel_index = uint64_t;
+		using Channel_id = Module_channel_id;
 
-		enum { MAX_NUM_REQUESTS_PREPONED = 8 };
 		enum { NUM_CHANNELS = 16 };
 
 		class Channel_queue
@@ -122,7 +141,7 @@ class Tresor::Request_pool : public Module
 				Slot_index _head { 0 };
 				Slot_index _tail { 0 };
 				unsigned long _num_used_slots { 0 };
-				Channel_index _slots[NUM_CHANNELS] { 0 };
+				Channel *_slots[NUM_CHANNELS] { 0 };
 
 			public:
 
@@ -130,39 +149,21 @@ class Tresor::Request_pool : public Module
 
 				bool full() const { return _num_used_slots >= NUM_CHANNELS; }
 
-				Channel_index head() const;
+				Channel &head() const;
 
-				void enqueue(Channel_index);
+				void enqueue(Channel &);
 
-				void move_one_slot_towards_tail(Channel_index);
+				void move_one_slot_towards_tail(Channel const &);
 
-				bool is_tail(Channel_index) const;
+				bool is_tail(Channel const &) const;
 
-				Channel_index next(Channel_index) const;
+				Channel &next(Channel const &) const;
 
-				void dequeue(Channel_index);
+				void dequeue(Channel const &);
 		};
 
 		Channel _channels[NUM_CHANNELS] { };
 		Channel_queue _chan_queue { };
-
-		void _mark_req_successful(Channel &, Channel_index, bool &);
-
-		void _execute_rekey(Channel &, Channel_index, bool &);
-
-		void _execute_extend_tree(Channel &, Channel_index, Superblock_control_request::Type, bool &);
-
-		void _execute_initialize(Channel &, Channel_index, bool &);
-
-		void _gen_superblock_control_req(Channel &, Channel_index, bool &, Superblock_control_request::Type, Virtual_block_address, Channel::State);
-
-		void _forward_to_sb_ctrl(Channel &, Channel_index, bool &, Superblock_control_request::Type);
-
-		void _execute_access_vbas(Channel &, Channel_index, bool &, Superblock_control_request::Type);
-
-		void _try_prepone_requests(Channel &, Channel_index, bool &);
-
-		void _resume_request(Channel &, Channel_index, bool &, Request::Operation);
 
 		bool _peek_completed_request(uint8_t *, size_t) override;
 
