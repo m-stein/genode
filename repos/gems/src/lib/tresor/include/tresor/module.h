@@ -129,8 +129,8 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 		{
 			if (id != _id) {
 				Module_channel *chan_ptr { Avl_node<Module_channel>::child(id > _id) };
-				if (chan_ptr)
-					chan_ptr->_with_channel(id, func);
+				ASSERT(chan_ptr);
+				chan_ptr->_with_channel(id, func);
 			} else
 				func(*this);
 		}
@@ -214,13 +214,11 @@ class Tresor::Module : public Interface
 
 		virtual bool new_submit_request() { return false; }
 
-		template <typename FUNC, typename FUNC2>
-		void with_channel(Module_channel_id id, FUNC && func, FUNC2 && func2 = [] () { ASSERT_NEVER_REACHED; })
+		template <typename FUNC>
+		void with_channel(Module_channel_id id, FUNC && func)
 		{
-			if (_channels.first())
-				_channels.first()->_with_channel(id, func);
-			else
-				func2();
+			ASSERT(_channels.first());
+			_channels.first()->_with_channel(id, func);
 		}
 
 		template <typename FUNC>
@@ -292,6 +290,9 @@ class Tresor::Module : public Interface
 		bool new_generated_request_complete(Module_request &req)
 		{
 			bool result { false };
+			if (!_channels.first())
+				return result;
+
 			Module_channel_id const chan_id { req.src_chan_id() };
 			with_channel(chan_id, [&] (Module_channel &chan)
 			{

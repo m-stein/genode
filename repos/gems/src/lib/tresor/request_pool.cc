@@ -18,9 +18,9 @@ using namespace Tresor;
 
 Request::Request(Operation op, bool success, Virtual_block_address vba, Request_offset offset,
                  Number_of_blocks count, Key_id key_id, Request_tag tag, Generation gen,
-                 Module_id src_module_id, Module_request_id src_request_id)
+                 Module_id src_module_id, Module_channel_id src_chan_id)
 :
-	Module_request { src_module_id, src_request_id, REQUEST_POOL },
+	Module_request { src_module_id, src_chan_id, REQUEST_POOL },
 	_op { op }, _success { success }, _vba { vba }, _offset { offset },
 	_count { count }, _key_id { key_id }, _tag { tag }, _gen { gen }
 { }
@@ -289,7 +289,7 @@ void Request_pool::submit_request(Module_request &mod_req)
 		case Request::CREATE_SNAPSHOT:
 		case Request::DISCARD_SNAPSHOT:
 
-			mod_req.dst_request_id(chan.id());
+			mod_req.dst_chan_id(chan.id());
 			chan._state = Channel::REQ_SUBMITTED;
 			chan._req = req;
 			_chan_queue.enqueue(chan);
@@ -309,10 +309,12 @@ Request_pool::Request_pool()
 		chan._pool_ptr = this;
 
 	register_channels(_channels, NUM_CHANNELS, REQUEST_POOL);
-	Channel &chan { _channels[0] };
-	chan._state = Channel::REQ_SUBMITTED;
-	chan._req = { Request::INITIALIZE, false, 0, 0, 0, 0, 0, 0, INVALID_MODULE_ID, INVALID_MODULE_CHANNEL_ID };
-	_chan_queue.enqueue(chan);
+	with_channel(0, [&] (Module_channel &mod_chan) {
+		Channel &chan { *static_cast<Channel *>(&mod_chan) };
+		chan._state = Channel::REQ_SUBMITTED;
+		chan._req = { Request::INITIALIZE, false, 0, 0, 0, 0, 0, 0, INVALID_MODULE_ID, INVALID_MODULE_CHANNEL_ID };
+		_chan_queue.enqueue(chan);
+	});
 }
 
 
@@ -338,8 +340,7 @@ bool Request_pool::_peek_completed_request(uint8_t *buf_ptr, size_t buf_size)
 
 void Request_pool::_drop_completed_request(Module_request &req)
 {
-	Channel_id chan_id {  };
-	with_channel(req.dst_channel_id(), [&] (Module_channel &mod_chan) {
+	with_channel(req.dst_chan_id(), [&] (Module_channel &mod_chan) {
 		Channel &chan { *static_cast<Channel *>(&mod_chan) };
 		ASSERT(chan._req._op != Request::INVALID && chan._state == Channel::REQ_COMPLETE);
 		chan._reset();
