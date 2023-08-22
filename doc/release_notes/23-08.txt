@@ -338,28 +338,29 @@ Libraries and applications
 New NIC server for raw uplink connectivity
 ==========================================
 
-; @m-stein
+With Genode 21.02, we transitioned all network device drivers to act as session
+clients in order to make them pluggable. We achieved this by introducing a new
+service named Uplink that is very similar to the Nic service but with the peer
+roles switched. Up to now, the only Uplink server and Uplink-to-Nic adapter was
+the NIC router. This is reasonable as it is the standard network multiplexer in
+Genode and therefore normally sits in front of each network device driver
+anyway. However, there is one major issue with this approach: It binds physical
+network access to layer 3 and 4 routing respectively layer 2 multiplexing,
+which, in our case, means that Nic clients can talk to the physical network
+only with what is protocol-wise supported by the NIC router.
 
-commit c23491ef3ce831553395c2ea450f59cad9a5619a
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Wed Jul 12 11:41:31 2023 +0200
+That's why Genode 23.08 introduces the new Nic-Uplink adapter component. It
+re-enables raw access to physical networks in Genode by forwarding packets
+unmodified and unfiltered between multiple Nic sessions and one Uplink session.
+The new component is accompanied by a test script nic_uplink.run that
+demonstrates the low-level integration and a Sculpt package pkg/pc_nic that can
+be used for deployment in more sophisticated systems together with the PC
+NIC-driver as back end.
 
-    nic_uplink: connect a Nic to an Uplink session
-    
-    * Adds a new component server/nic_uplink that forwards packets unmodified
-      between one Uplink session at one side and potentially multiple Nic sessions
-      at the other side.
-    * Adds a new run script nic_uplink.run that does a basic test with multiple
-      Nic clients on this component and adds it to the autopilot list.
-    * Adds a new depot recipe src/nic_uplink for this component.
-    * Adds a new depot recipe pkg/pc_nic for deploying the pc_nic_driver together
-      with a nic_uplink server. This allows for raw access to the network connected
-      to the Nic of the system in contrast to the commonly used routed and NAT'd
-      access via NIC router. That said, it enables the use of network protocols
-      not yet supported by the NIC router at the cost of less protection.
-    
-    Ref #4966
-
+One constellation in which the Nic-Uplink server will be especially useful for
+us is the planned enablement of IPv6 on different layers of Genodes network
+stack. More specifically, the tool will allow us to work at IPv6 support in
+both Genodes ported TCP/IP stacks and the NIC router at the same time.
 
 New depot-remove component
 ==========================
@@ -449,70 +450,21 @@ Date:   Thu Jul 6 13:02:04 2023 +0200
 Tresor block encryptor
 ======================
 
-; @m-stein
+We further polished the Tresor Tester in order to make it run on a broad
+spectrum of target platforms. For instance, the test can now be run without
+entropy input (permanently warning the user about the security risk) because
+some of our test hardware lacks support for it. Besides that, we mainly worked
+at the resource consumption of the test - made it more adaptable or reduced it
+through improvements. This pleased not only less powerful hardware but our test
+management as well.
 
-; Not sure how far we should go into detail...
-
-commit dea53f635fe21ead98864cad93a560edc4cc7e55
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Thu Jun 1 15:56:07 2023 +0200
-
-    Refine tresor tests
-    
-    * Use jitterentropy only if supported.
-      On certain targets like pbxa9 or zynq_qemu, the performance counter always
-      yields 0, which renders jitterentropy unusable. On these platforms, the
-      Tresor tests now use a static value as entropy source instead.
-    
-    * Adds a new package test-file_vault_config_report_no_entropy that is used by
-      the Depot Autopilot on targets without jitterentropy support instead of
-      test-file_vault_config_report. The only difference between the two packages
-      is the value of the above described new config attribute of the File Vault.
-    
-    * Circumvent alignment fault.
-      The Tresor lib for now has the deficiency of using on-disc data structures
-      directly in code instead of decoding them first to unpacked, naturally
-      aligned structures. This causes problems with memory-access alignment on
-      several platforms (rpi, imx6q_sabrelite, imx53_qsb, imx7d_sabre). As fixing
-      this properly is a bit of work, the commit disables the tresor_tester and
-      file_vault_config_report test on the affected platforms in autopilot mode for
-      now.
-    
-    * Further adjustments
-      * Make benchmarks optional
-      * Use a smaller tresor for rekeying
-      * Clean up image parameters
-      * No use implicit routes/resources
-      * Reduce ram consumption
-      * Reduce test timeout
-      * Raise cap quota, required for sel4 x86_64.
-    
-    Ref #4819
-
-commit abe163c3356855e56ab62cef61c97d52e49b9f9c
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Fri Jun 9 13:50:34 2023 +0200
-
-    tresor: do not use on-disc-layouted structs
-    
-    * Removes all previous structs that represented an on-disc block layout
-      and were therfore subject to a number of layout restrictions (packed,
-      padding members, enum representations, etc.).
-    * Adds a replacement struct without any layout restrictions for each of the
-      removed structs. The new structs are named similar to the old structs.
-    * Adds block encoding and decoding utilities for easily converting from the
-      new structs to on-disc blocks and vice-versa (Block_scanner, Block_generator,
-      T::decode_to_blk, T::encode_from_blk)
-    * Adapts all affected places in the library to encode and decode proberly
-      instead of simply casting pointers.
-    * Thereby cleans up the hashing utilities to use typed-reference args instead
-      of void pointers.
-    * Re-enables run/tresor_tester and test-file_vault_vonfig_report for platforms
-      rpi, imx53_qsb, imx53_qsb_tz, imx6q_sabrelite, imx7d_sabre.
-    
-    Ref #4819
-
-
+Furthermore, we fixed a significant former deficiency with the Tresor library.
+The library used to work on the raw on-disc data without decoding first. This
+worked fine for some platforms but caused alignment faults on others. That
+said, the Tresor library now always decodes into naturally typed and aligned
+C++ structs before accessing the data. The speed-up of accessing decoded data
+seems to compensate for the decoding effort because we did not observe a
+significant performance regression.
 
 Device drivers
 ##############
@@ -974,57 +926,71 @@ Build system and tools
 Depot autopilot on-target test orchestrator
 ===========================================
 
-; @m-stein
+As the rough plan to support automated testing in Goa is shaping up, it makes
+sense to share one convention about expressing the success criteria for a
+package under test between the Depot Autopilot and Goa. This merge motivated
+us to review the convention that was used with the Depot Autopilot up until
+now. The old syntax looked as follows:
+```
+<runtime ...>
+  <events>
+    <timeout meaning="failed" sec="20"/>
+    <log meaning="succeeded">
+      [init -> rom_logger] ROM 'generated':*
+      [init -> dynamic_rom] xray: change (finished)
+    </log>
+    <log meaning="succeeded">child exited</log>
+    <log meaning="failed">Error: </log>
+  </events>
+  ...
+</runtime>
+```
 
-; Maybe reuse parts of the issue text (for the rationale)?
+We found that we wanted to apply various simplifications to this syntax:
+* Drop the intermediate <events> tag.
+* Replace <log meaning="succeeded"> by <succeed>.
+* Replace <log meaning="failed"> by <fail>.
+* Replace <timeout meaning="failed" sec="20"/> by an after_seconds
+  attribute of the <success> or <fail> tags.
 
-commit c47a6b0830afe17b57e9587cc1eaa006b743e228
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Sat Jun 24 16:57:19 2023 +0200
+So, the above example would become the following:
+```
+<runtime ...>
+  <fail after_seconds="20"/>
+  <succeed>
+    [init -> rom_logger] ROM 'generated':*
+    [init -> dynamic_rom] xray: change (finished)
+  </succeed>
+  <succeed>child exited</succeed>
+  <fail>Error: </fail>
+  ...
+</runtime>
+```
 
-    depot_autopilot: simplify success-criterion syntax
-    
-    * Removes the <event> tag from all test package runtime files and replaces the
-      contained <timeout> and <log> sub-tags with the new tags <succeed> and
-      <fail>. If a <succeed> or <fail> tag has a content, it defines a log pattern
-      that should be recognized and render the test failed or successful. If a
-      <succeed> or <fail> tag has an attribute after_seconds that is not set to 0,
-      it defines a timeout after which the test should be rendered failed or
-      successful.
-    
-    * Adapts the Depot Autopilot to support the new syntax in the test-package
-      runtime files. However, for now, the Depot Autopilot is kept compatible to
-      the old syntax as well. If the <events> tag is present, it is prioritized
-      over the new syntax.
-    
-    Fixes #4922
+Genode 23.08 adds support for this new scheme to the Depot Autopilot but keeps
+backwards-compatibility for now in order to allow Genode users to adapt to the
+change progressively. The Depot Autopilot always looks out for an <event> tag:
+If the tag is present in a package runtime, the old scheme is being used.
+Otherwise, the new one. Note that backwards-compatibility is planned to be
+removed after a short transition period.
 
-commit 987dea5f7f006319aec9dd27670cca55424224de
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Tue Jun 27 12:13:42 2023 +0200
+All test packages of the official Genode repositories have already been updated
+to the new convention. From this experience, we can tell that automation via a
+combination of xslt script and sed commands can be worth the effort if you're
+maintaining a considerable number of test packages.
 
-    depot_autiopilot: consider log_prefix attribute
-    
-    The new 'log_prefix' attribute is effective when used in a tests runtime in
-    <succeed> or <fail> tags that have a non-empty content string. When matching
-    the log against the pattern given in the affected <succeed> or <fail> tag, the
-    Depot Autopilot will consider only those test-log lines that start with the
-    given prefix.
-    
-    Ref #4922
+Furthermore, we took the opportunity to also add a new feature. The optional
+'log_prefix' attribute in the <succeed> and <fail> tags is a simple but handy
+white-list filter when it comes to typical Genode logs. When matching the test
+log against the pattern given in the affected <succeed> or <fail> tag, the
+Depot Autopilot will consider only those log lines that start with the given
+prefix. This is an easy way to watch only specific Genode components and solve
+problems with the log order of simultaneously running components.
 
-commit d8c51656d7d391f5cec0c1c920fe9bf39b798333
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Fri Jun 30 11:48:16 2023 +0200
-
-    depot_autopilot: forward tabs and color sequences
-    
-    The Depot Autopilot used to filter out tabs and color sequences before
-    forwarding the test log to the own log. This commit prevents this and further
-    cleans up the string-filters code.
-    
-    Ref #4922
-
+Last but not least, the transition prompted us to fix a minor issue with the
+Depot Autopilot log-processing. Color sequences will now be forwarded correctly
+from the test runtime to the log output of the Depot Autopilot, making the
+analysis of test batteries a more pleasant experience.
 
 Updated run-tool defaults for x86_64
 ====================================
