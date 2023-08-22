@@ -25,6 +25,7 @@ namespace Tresor {
 	class Request;
 	class Request_pool;
 	class Request_pool_channel;
+	class Request_pool_channel_queue;
 }
 
 class Tresor::Request : public Module_request
@@ -92,7 +93,7 @@ class Tresor::Request_pool_channel : public Module_channel
 		uint32_t _num_requests_preponed { 0 };
 		bool _request_finished { false };
 		bool _generated_req_success { false };
-		Request_pool *_pool_ptr { nullptr };
+		Request_pool_channel_queue &_chan_queue;
 
 		void _generated_req_complete(State_uint) override;
 
@@ -121,51 +122,63 @@ class Tresor::Request_pool_channel : public Module_channel
 		void _resume_request(bool &, Request::Operation);
 
 		void _execute(bool &);
+
+		Request_pool_channel(Request_pool_channel const &) = delete;
+
+		Request_pool_channel &operator = (Request_pool_channel const &) = delete;
+
+	public:
+
+		Request_pool_channel(Module_channel_id id, Request_pool_channel_queue &chan_queue) : Module_channel { REQUEST_POOL, id }, _chan_queue { chan_queue } { }
 };
 
-class Tresor::Request_pool : public Module
+
+class Tresor::Request_pool_channel_queue
 {
-	friend class Request_pool_channel;
+	public:
+
+		enum { NUM_SLOTS = 16 };
 
 	private:
 
 		using Channel = Request_pool_channel;
-		using Channel_id = Module_channel_id;
+		using Slot_index = uint64_t;
 
-		enum { NUM_CHANNELS = 16 };
+		Slot_index _head { 0 };
+		Slot_index _tail { 0 };
+		unsigned long _num_used_slots { 0 };
+		Channel *_slots[NUM_SLOTS] { 0 };
 
-		class Channel_queue
-		{
-			private:
+	public:
 
-				using Slot_index = uint64_t;
+		bool empty() const { return _num_used_slots == 0; }
 
-				Slot_index _head { 0 };
-				Slot_index _tail { 0 };
-				unsigned long _num_used_slots { 0 };
-				Channel *_slots[NUM_CHANNELS] { 0 };
+		bool full() const { return _num_used_slots >= NUM_SLOTS; }
 
-			public:
+		Channel &head() const;
 
-				bool empty() const { return _num_used_slots == 0; }
+		void enqueue(Channel &);
 
-				bool full() const { return _num_used_slots >= NUM_CHANNELS; }
+		void move_one_slot_towards_tail(Channel const &);
 
-				Channel &head() const;
+		bool is_tail(Channel const &) const;
 
-				void enqueue(Channel &);
+		Channel &next(Channel const &) const;
 
-				void move_one_slot_towards_tail(Channel const &);
+		void dequeue(Channel const &);
+};
 
-				bool is_tail(Channel const &) const;
 
-				Channel &next(Channel const &) const;
+class Tresor::Request_pool : public Module
+{
+	private:
 
-				void dequeue(Channel const &);
-		};
+		using Channel = Request_pool_channel;
 
-		Channel _channels[NUM_CHANNELS] { };
-		Channel_queue _chan_queue { };
+		enum { NUM_CHANNELS = Request_pool_channel_queue::NUM_SLOTS };
+
+		Constructible<Channel> _channels[NUM_CHANNELS] { };
+		Request_pool_channel_queue _chan_queue { };
 
 		bool _peek_completed_request(uint8_t *, size_t) override;
 

@@ -94,7 +94,7 @@ void Request_pool_channel::_mark_req_successful(bool &progress)
 {
 	_req._success = true;
 	_state = REQ_COMPLETE;
-	_pool_ptr->_chan_queue.dequeue(*this);
+	_chan_queue.dequeue(*this);
 	progress = true;
 }
 
@@ -104,20 +104,19 @@ void Request_pool_channel::_try_prepone_requests(bool &progress)
 	enum { MAX_NUM_REQUESTS_PREPONED = 8 };
 	bool requests_preponed { false };
 	bool at_req_that_cannot_be_preponed { false };
-	Request_pool::Channel_queue &chan_queue { _pool_ptr->_chan_queue };
 	_num_requests_preponed = 0;
 
 	while (_num_requests_preponed < MAX_NUM_REQUESTS_PREPONED &&
 	       !at_req_that_cannot_be_preponed &&
-	       !chan_queue.is_tail(*this)) {
+	       !_chan_queue.is_tail(*this)) {
 
-		switch (chan_queue.next(*this)._req._op) {
+		switch (_chan_queue.next(*this)._req._op) {
 		case Request::READ:
 		case Request::WRITE:
 		case Request::SYNC:
 		case Request::DISCARD_SNAPSHOT:
 
-			chan_queue.move_one_slot_towards_tail(*this);
+			_chan_queue.move_one_slot_towards_tail(*this);
 			_num_requests_preponed++;
 			requests_preponed = true;
 			progress = true;
@@ -194,7 +193,7 @@ void Request_pool_channel::_resume_request(bool &progress, Request::Operation op
 {
 	_state = REQ_RESUMED;
 	_req = Request { op };
-	_pool_ptr->_chan_queue.enqueue(*this);
+	_chan_queue.enqueue(*this);
 	progress = true;
 }
 
@@ -213,7 +212,7 @@ void Request_pool_channel::_initialize(bool &progress)
 		case Superblock::INVALID: ASSERT_NEVER_REACHED;
 		case Superblock::NORMAL:
 
-			_pool_ptr->_chan_queue.dequeue(*this);
+			_chan_queue.dequeue(*this);
 			_reset();
 			progress = true;
 			break;
@@ -305,10 +304,10 @@ void Request_pool::submit_request(Module_request &mod_req)
 
 Request_pool::Request_pool()
 {
-	for (Channel &chan : _channels)
-		chan._pool_ptr = this;
-
-	register_channels(_channels, NUM_CHANNELS, REQUEST_POOL);
+	for (Module_channel_id id { 0 }; id < NUM_CHANNELS; id++) {
+		_channels[id].construct(id, _chan_queue);
+		add_channel(*_channels[id]);
+	}
 	with_channel(0, [&] (Module_channel &mod_chan) {
 		Channel &chan { *static_cast<Channel *>(&mod_chan) };
 		chan._state = Channel::REQ_SUBMITTED;
@@ -369,30 +368,30 @@ void Request_pool_channel::_reset()
 }
 
 
-Request_pool::Channel &Request_pool::Channel_queue::head() const
+Request_pool_channel &Request_pool_channel_queue::head() const
 {
 	ASSERT(!empty());
 	return *_slots[_head];
 }
 
 
-void Request_pool::Channel_queue::enqueue(Channel &chan)
+void Request_pool_channel_queue::enqueue(Channel &chan)
 {
 	ASSERT(!full());
 	_slots[_tail] = &chan;
-	_tail = (_tail + 1) % NUM_CHANNELS;
+	_tail = (_tail + 1) % NUM_SLOTS;
 	_num_used_slots++;
 }
 
 
-void Request_pool::Channel_queue::move_one_slot_towards_tail(Channel const &chan)
+void Request_pool_channel_queue::move_one_slot_towards_tail(Channel const &chan)
 {
 	Slot_index slot_idx { _head };
 	Slot_index next_slot_idx;
 	Channel *buf;
 	ASSERT(!empty());
 	while (1) {
-		if (slot_idx < NUM_CHANNELS - 1)
+		if (slot_idx < NUM_SLOTS - 1)
 			next_slot_idx = slot_idx + 1;
 		else
 			next_slot_idx = 0;
@@ -409,26 +408,26 @@ void Request_pool::Channel_queue::move_one_slot_towards_tail(Channel const &chan
 }
 
 
-bool Request_pool::Channel_queue::is_tail(Channel const &chan) const
+bool Request_pool_channel_queue::is_tail(Channel const &chan) const
 {
 	Slot_index slot_idx;
 	ASSERT(!empty());
 	if (_tail)
 		slot_idx = _tail - 1;
 	else
-		slot_idx = NUM_CHANNELS - 1;
+		slot_idx = NUM_SLOTS - 1;
 
 	return _slots[slot_idx] == &chan;
 }
 
 
-Request_pool_channel &Request_pool::Channel_queue::next(Channel const &chan) const
+Request_pool_channel &Request_pool_channel_queue::next(Channel const &chan) const
 {
 	Slot_index slot_idx { _head };
 	Slot_index next_slot_idx;
 	ASSERT(!empty());
 	while (1) {
-		if (slot_idx < NUM_CHANNELS - 1)
+		if (slot_idx < NUM_SLOTS - 1)
 			next_slot_idx = slot_idx + 1;
 		else
 			next_slot_idx = 0;
@@ -442,9 +441,9 @@ Request_pool_channel &Request_pool::Channel_queue::next(Channel const &chan) con
 }
 
 
-void Request_pool::Channel_queue::dequeue(Channel const &chan)
+void Request_pool_channel_queue::dequeue(Channel const &chan)
 {
 	ASSERT(!empty() && &head() == &chan);
-	_head = (_head + 1) % NUM_CHANNELS;
+	_head = (_head + 1) % NUM_SLOTS;
 	_num_used_slots--;
 }

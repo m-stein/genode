@@ -146,14 +146,17 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 			return true;
 		}
 
-
-		/**************
-		 ** Avl_node **
-		 **************/
-
 		bool higher(Module_channel *ptr) { return ptr->_id > _id; }
 
+		Module_channel(Module_channel const &) = delete;
+		Module_channel &operator = (Module_channel const &) = delete;
+
 	public:
+
+		/* FIXME: deprecated, only kept for transitioning phase */
+		Module_channel() { }
+
+		Module_channel(Module_id module_id, Module_channel_id id) : _module_id { module_id }, _id { id } { };
 
 		template <typename REQUEST, typename... ARGS>
 		void generate_req(State_uint complete_state, bool &progress, ARGS &&... args)
@@ -326,6 +329,11 @@ class Tresor::Module : public Interface
 				handle_request(req);
 				_drop_completed_request(req);
 			}
+		}
+
+		void add_channel(Module_channel &chan)
+		{
+			_channels.insert(&chan);
 		}
 
 		template <typename T>
