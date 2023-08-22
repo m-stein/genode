@@ -192,15 +192,6 @@ class Tresor::Module : public Interface
 
 		virtual void _drop_generated_request(Module_request &) { ASSERT_NEVER_REACHED; }
 
-	protected:
-
-		template <typename FUNC>
-		void _with_channel(Module_channel_id id, FUNC && func)
-		{
-			if (_channels.first())
-				_channels.first()->_with_channel(id, func);
-		}
-
 
 		/****************************
 		 ** Make class noncopyable **
@@ -223,11 +214,30 @@ class Tresor::Module : public Interface
 
 		virtual bool new_submit_request() { return false; }
 
+		template <typename FUNC, typename FUNC2>
+		void with_channel(Module_channel_id id, FUNC && func, FUNC2 && func2 = [] () { ASSERT_NEVER_REACHED; })
+		{
+			if (_channels.first())
+				_channels.first()->_with_channel(id, func);
+			else
+				func2();
+		}
+
+		template <typename FUNC>
+		void for_each_channel(FUNC && func)
+		{
+			_channels.for_each([&] (Module_channel const &const_chan)
+			{
+				Module_channel &chan { *const_cast<Module_channel *>(&const_chan) };
+				func(chan);
+			});
+		}
+
 		bool try_submit_request(Module_request &req)
 		{
 			bool success { false };
-			_channels.for_each([&] (Module_channel const &const_chan) {
-				Module_channel &chan { *const_cast<Module_channel *>(&const_chan) };
+			for_each_channel([&] (Module_channel &chan)
+			{
 				if (success)
 					return;
 
@@ -257,9 +267,8 @@ class Tresor::Module : public Interface
 					return;
 				}
 			}
-			_channels.for_each([&] (Module_channel const &const_chan) {
-
-				Module_channel &chan { *const_cast<Module_channel *>(&const_chan) };
+			for_each_channel([&] (Module_channel &chan)
+			{
 				if (chan._gen_req_state != Module_channel::PENDING)
 					return;
 
@@ -284,8 +293,8 @@ class Tresor::Module : public Interface
 		{
 			bool result { false };
 			Module_channel_id const chan_id { req.src_chan_id() };
-			_with_channel(chan_id, [&] (Module_channel &chan) {
-
+			with_channel(chan_id, [&] (Module_channel &chan)
+			{
 				if (chan._gen_req_state == Module_channel::NONE)
 					return;
 
@@ -301,8 +310,8 @@ class Tresor::Module : public Interface
 		void for_each_completed_request(FUNC && handle_request)
 		{
 			if (new_submit_request()) {
-				_channels.for_each([&] (Module_channel const &const_chan) {
-					Module_channel &chan { *const_cast<Module_channel *>(&const_chan) };
+				for_each_channel([&] (Module_channel &chan)
+				{
 					if (chan._req_ptr && chan._request_complete()) {
 						handle_request(*chan._req_ptr);
 						chan._req_ptr = nullptr;

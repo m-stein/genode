@@ -119,6 +119,8 @@ class Tresor::Request_pool_channel : public Module_channel
 		void _initialize(bool &);
 
 		void _resume_request(bool &, Request::Operation);
+
+		void _execute(bool &);
 };
 
 class Tresor::Request_pool : public Module

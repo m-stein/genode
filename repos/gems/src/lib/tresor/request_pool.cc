@@ -241,21 +241,24 @@ void Request_pool_channel::_forward_to_sb_ctrl(bool &progress, Superblock_contro
 
 void Request_pool::execute(bool &progress)
 {
-	if (_chan_queue.empty())
-		return;
+	if (!_chan_queue.empty())
+		_chan_queue.head()._execute(progress);
+}
 
-	Channel &chan { _chan_queue.head() };
-	switch (chan._req._op) {
-	case Request::READ: chan._access_vbas(progress, Superblock_control_request::READ_VBA); break;
-	case Request::WRITE: chan._access_vbas(progress, Superblock_control_request::WRITE_VBA); break;
-	case Request::SYNC: chan._forward_to_sb_ctrl(progress, Superblock_control_request::SYNC); break;
-	case Request::REKEY: chan._rekey(progress); break;
-	case Request::EXTEND_VBD: chan._extend_tree(Superblock_control_request::VBD_EXTENSION_STEP, progress); break;
-	case Request::EXTEND_FT: chan._extend_tree(Superblock_control_request::FT_EXTENSION_STEP, progress); break;
-	case Request::INITIALIZE: chan._initialize(progress); break;
-	case Request::DEINITIALIZE: chan._forward_to_sb_ctrl(progress, Superblock_control_request::DEINITIALIZE); break;
-	case Request::CREATE_SNAPSHOT: chan._forward_to_sb_ctrl(progress, Superblock_control_request::CREATE_SNAPSHOT); break;
-	case Request::DISCARD_SNAPSHOT: chan._forward_to_sb_ctrl(progress, Superblock_control_request::DISCARD_SNAPSHOT); break;
+
+void Request_pool_channel::_execute(bool &progress)
+{
+	switch (_req._op) {
+	case Request::READ: _access_vbas(progress, Superblock_control_request::READ_VBA); break;
+	case Request::WRITE: _access_vbas(progress, Superblock_control_request::WRITE_VBA); break;
+	case Request::SYNC: _forward_to_sb_ctrl(progress, Superblock_control_request::SYNC); break;
+	case Request::REKEY: _rekey(progress); break;
+	case Request::EXTEND_VBD: _extend_tree(Superblock_control_request::VBD_EXTENSION_STEP, progress); break;
+	case Request::EXTEND_FT: _extend_tree(Superblock_control_request::FT_EXTENSION_STEP, progress); break;
+	case Request::INITIALIZE: _initialize(progress); break;
+	case Request::DEINITIALIZE: _forward_to_sb_ctrl(progress, Superblock_control_request::DEINITIALIZE); break;
+	case Request::CREATE_SNAPSHOT: _forward_to_sb_ctrl(progress, Superblock_control_request::CREATE_SNAPSHOT); break;
+	case Request::DISCARD_SNAPSHOT: _forward_to_sb_ctrl(progress, Superblock_control_request::DISCARD_SNAPSHOT); break;
 	default: break;
 	}
 }
@@ -263,32 +266,40 @@ void Request_pool::execute(bool &progress)
 
 void Request_pool::submit_request(Module_request &mod_req)
 {
-	for (Channel_id chan_id { 0 }; chan_id < NUM_CHANNELS; chan_id++) {
-		if (_channels[chan_id]._state == Channel::INVALID) {
-			Request &req { *static_cast<Request *>(&mod_req) };
-			switch (req._op) {
-			case Request::INITIALIZE: ASSERT_NEVER_REACHED;
-			case Request::SYNC:
-			case Request::READ:
-			case Request::WRITE:
-			case Request::DEINITIALIZE:
-			case Request::REKEY:
-			case Request::EXTEND_VBD:
-			case Request::EXTEND_FT:
-			case Request::CREATE_SNAPSHOT:
-			case Request::DISCARD_SNAPSHOT:
+	bool success { false };
+	for_each_channel([&] (Module_channel &mod_chan)
+	{
+		if (success)
+			return;
 
-				mod_req.dst_request_id(chan_id);
-				_channels[chan_id]._state = Channel::REQ_SUBMITTED;
-				_channels[chan_id]._req = req;
-				_chan_queue.enqueue(_channels[chan_id]);
-				return;
+		Channel &chan { *static_cast<Channel *>(&mod_chan) };
+		if (chan._state != Channel::INVALID)
+			return;
 
-			default: ASSERT_NEVER_REACHED;
-			}
+		Request &req { *static_cast<Request *>(&mod_req) };
+		switch (req._op) {
+		case Request::INITIALIZE: ASSERT_NEVER_REACHED;
+		case Request::SYNC:
+		case Request::READ:
+		case Request::WRITE:
+		case Request::DEINITIALIZE:
+		case Request::REKEY:
+		case Request::EXTEND_VBD:
+		case Request::EXTEND_FT:
+		case Request::CREATE_SNAPSHOT:
+		case Request::DISCARD_SNAPSHOT:
+
+			mod_req.dst_request_id(chan.id());
+			chan._state = Channel::REQ_SUBMITTED;
+			chan._req = req;
+			_chan_queue.enqueue(chan);
+			success = true;
+			return;
+
+		default: ASSERT_NEVER_REACHED;
 		}
-	}
-	ASSERT_NEVER_REACHED;
+	});
+	ASSERT(success);
 }
 
 
@@ -307,24 +318,32 @@ Request_pool::Request_pool()
 
 bool Request_pool::_peek_completed_request(uint8_t *buf_ptr, size_t buf_size)
 {
-	for (Channel &chan : _channels) {
+	bool success { false };
+	for_each_channel([&] (Module_channel &mod_chan)
+	{
+		if (success)
+			return;
+
+		Channel &chan { *static_cast<Channel *>(&mod_chan) };
 		if (chan._req._op != Request::INVALID && chan._state == Channel::REQ_COMPLETE) {
 			ASSERT(sizeof(chan._req) <= buf_size);
 			memcpy(buf_ptr, &chan._req, sizeof(chan._req));
-			return true;
+			success = true;
+			return;
 		}
-	}
-	return false;
+	});
+	return success;
 }
 
 
 void Request_pool::_drop_completed_request(Module_request &req)
 {
-	Channel_id chan_id { req.dst_request_id() };
-	ASSERT(chan_id < NUM_CHANNELS);
-	Channel &chan { _channels[chan_id] };
-	ASSERT(chan._req._op != Request::INVALID && chan._state == Channel::REQ_COMPLETE);
-	chan._reset();
+	Channel_id chan_id {  };
+	with_channel(req.dst_channel_id(), [&] (Module_channel &mod_chan) {
+		Channel &chan { *static_cast<Channel *>(&mod_chan) };
+		ASSERT(chan._req._op != Request::INVALID && chan._state == Channel::REQ_COMPLETE);
+		chan._reset();
+	});
 }
 
 
