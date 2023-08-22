@@ -224,17 +224,6 @@ append config {
 			<resource name="RAM" quantum="10M"/>
 			<config ld_verbose="yes">
 
-				<verbose
-					cmd_pool_cmd_pending="no"
-					cmd_pool_cmd_in_progress="no"
-					cmd_pool_cmd_completed="no"
-					blk_io_req_in_progress="no"
-					blk_io_req_completed="no"
-					ta_req_in_progress="no"
-					ta_req_completed="no"
-					client_data_mismatch="yes"
-					client_data_transferred="no"/>
-
 				<block-io type="vfs" path="/} [tresor_image_name] {"/>
 				<crypto path="/crypto"/>
 				<trust-anchor path="/trust_anchor"/>
