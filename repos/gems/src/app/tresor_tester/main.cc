@@ -63,50 +63,6 @@ T read_attribute(Xml_node const &node,
 }
 
 
-class Verbose_node
-{
-	private:
-
-		bool _cmd_pool_cmd_pending { false };
-		bool _cmd_pool_cmd_in_progress { false };
-		bool _cmd_pool_cmd_completed { false };
-		bool _blk_io_req_in_progress { false };
-		bool _blk_io_req_completed { false };
-		bool _ta_req_in_progress { false };
-		bool _ta_req_completed { false };
-		bool _client_data_mismatch { false };
-		bool _client_data_transferred { false };
-
-	public:
-
-		Verbose_node(Genode::Xml_node const &config)
-		{
-			config.with_optional_sub_node("verbose", [&] (Genode::Xml_node const &verbose)
-			{
-				_cmd_pool_cmd_pending = verbose.attribute_value("cmd_pool_cmd_pending"    , false);
-				_cmd_pool_cmd_in_progress = verbose.attribute_value("cmd_pool_cmd_in_progress", false);
-				_cmd_pool_cmd_completed = verbose.attribute_value("cmd_pool_cmd_completed"  , false);
-				_blk_io_req_in_progress = verbose.attribute_value("blk_io_req_in_progress"  , false);
-				_blk_io_req_completed = verbose.attribute_value("blk_io_req_completed"    , false);
-				_ta_req_in_progress = verbose.attribute_value("ta_req_in_progress"      , false);
-				_ta_req_completed = verbose.attribute_value("ta_req_completed"        , false);
-				_client_data_mismatch = verbose.attribute_value("client_data_mismatch"    , false);
-				_client_data_transferred = verbose.attribute_value("client_data_transferred" , false);
-			});
-		}
-
-		bool cmd_pool_cmd_pending () const { return _cmd_pool_cmd_pending ; }
-		bool cmd_pool_cmd_in_progress() const { return _cmd_pool_cmd_in_progress; }
-		bool cmd_pool_cmd_completed () const { return _cmd_pool_cmd_completed ; }
-		bool blk_io_req_in_progress () const { return _blk_io_req_in_progress ; }
-		bool blk_io_req_completed () const { return _blk_io_req_completed ; }
-		bool ta_req_in_progress () const { return _ta_req_in_progress ; }
-		bool ta_req_completed () const { return _ta_req_completed ; }
-		bool client_data_mismatch () const { return _client_data_mismatch ; }
-		bool client_data_transferred () const { return _client_data_transferred ; }
-};
-
-
 class Log_node
 {
 	private:
@@ -679,7 +635,6 @@ class Tresor_tester::Main
 
 		Genode::Env &_env;
 		Attached_rom_dataspace _config_rom { _env, "config" };
-		Verbose_node _verbose_node { _config_rom.xml() };
 		Heap _heap { _env.ram(), _env.rm() };
 		Vfs::Simple_env _vfs_env { _env, _heap, _config_rom.xml().sub_node("vfs"), *this };
 		Signal_handler<Main> _signal_handler { _env.ep(), *this, &Main::_handle_signal };
@@ -716,10 +671,6 @@ class Tresor_tester::Main
 
 			_nr_of_uncompleted_cmds++;
 			_cmd_queue.enqueue(cmd);
-
-			if (_verbose_node.cmd_pool_cmd_pending()) {
-				log("cmd pending: ", cmd);
-			}
 		}
 
 		static void _generate_blk_data(Tresor::Block &blk_data,
@@ -798,8 +749,6 @@ class Tresor_tester::Main
 			{
 				ASSERT(cmd.state() == Command::PENDING);
 				cmd.state(Command::IN_PROGRESS);
-				if (_verbose_node.cmd_pool_cmd_in_progress())
-					log("cmd in progress: ", cmd);
 			},
 			[&] () { ASSERT_NEVER_REACHED; });
 		}
@@ -814,11 +763,9 @@ class Tresor_tester::Main
 				_nr_of_uncompleted_cmds--;
 				cmd.success(success);
 				if (!cmd.success()) {
-					error("cmd failed");
+					warning("cmd ", cmd, " failed");
 					_nr_of_errors++;
 				}
-				if (_verbose_node.cmd_pool_cmd_completed())
-					log("cmd completed: ", cmd);
 			},
 			[&] () { ASSERT_NEVER_REACHED; });
 		}
@@ -1089,9 +1036,6 @@ class Tresor_tester::Main
 			},
 			[&] () { ASSERT_NEVER_REACHED; });
 			_benchmark.raise_nr_of_virt_blks_written();
-
-			if (_verbose_node.client_data_transferred())
-				log("client data: vba=", vba, " req_tag=", tresor_req_tag);
 		}
 
 		void verify_blk_data(uint64_t tresor_req_tag,
@@ -1107,26 +1051,14 @@ class Tresor_tester::Main
 					_generate_blk_data(gen_blk_data, vba, req_node.salt());
 
 					if (memcmp(&blk_data, &gen_blk_data, BLOCK_SIZE)) {
-
 						cmd.data_mismatch(true);
-						error("client data mismatch");
+						warning("client data mismatch: vba=", vba, " req_tag=", tresor_req_tag);
 						_nr_of_errors++;
-
-						if (_verbose_node.client_data_mismatch()) {
-							log("client data mismatch: vba=", vba,
-							    " req_tag=(", tresor_req_tag, ")");
-							log("client data should be: ", gen_blk_data);
-							log("client data is: ", blk_data);
-							ASSERT_NEVER_REACHED;
-						}
 					}
 				}
 			},
 			[&] () { ASSERT_NEVER_REACHED; });
 			_benchmark.raise_nr_of_virt_blks_read();
-
-			if (_verbose_node.client_data_transferred())
-				log("client data: vba=", vba, " req_tag=", tresor_req_tag);
 		}
 };
 
