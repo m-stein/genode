@@ -124,15 +124,15 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 
 		virtual bool _request_complete() = 0;
 
-		template <typename FUNC>
+		template <typename CHAN, typename FUNC>
 		void _with_channel(Module_channel_id id, FUNC && func)
 		{
 			if (id != _id) {
 				Module_channel *chan_ptr { Avl_node<Module_channel>::child(id > _id) };
 				ASSERT(chan_ptr);
-				chan_ptr->_with_channel(id, func);
+				chan_ptr->_with_channel<CHAN>(id, func);
 			} else
-				func(*this);
+				func(*static_cast<CHAN *>(this));
 		}
 
 		bool _try_submit_request(Module_request &req)
@@ -217,28 +217,24 @@ class Tresor::Module : public Interface
 
 		virtual bool new_submit_request() { return false; }
 
-		template <typename FUNC>
+		template <typename CHAN = Module_channel, typename FUNC>
 		void with_channel(Module_channel_id id, FUNC && func)
 		{
 			ASSERT(_channels.first());
-			_channels.first()->_with_channel(id, func);
+			_channels.first()->_with_channel<CHAN>(id, func);
 		}
 
-		template <typename FUNC>
+		template <typename CHAN = Module_channel, typename FUNC>
 		void for_each_channel(FUNC && func)
 		{
-			_channels.for_each([&] (Module_channel const &const_chan)
-			{
-				Module_channel &chan { *const_cast<Module_channel *>(&const_chan) };
-				func(chan);
-			});
+			_channels.for_each([&] (Module_channel const &const_chan) {
+				func(*static_cast<CHAN *>(const_cast<Module_channel *>(&const_chan))); });
 		}
 
 		bool try_submit_request(Module_request &req)
 		{
 			bool success { false };
-			for_each_channel([&] (Module_channel &chan)
-			{
+			for_each_channel([&] (Module_channel &chan) {
 				if (success)
 					return;
 
@@ -268,8 +264,7 @@ class Tresor::Module : public Interface
 					return;
 				}
 			}
-			for_each_channel([&] (Module_channel &chan)
-			{
+			for_each_channel([&] (Module_channel &chan) {
 				if (chan._gen_req_state != Module_channel::PENDING)
 					return;
 

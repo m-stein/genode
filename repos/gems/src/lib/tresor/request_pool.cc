@@ -266,37 +266,18 @@ void Request_pool_channel::_execute(bool &progress)
 void Request_pool::submit_request(Module_request &mod_req)
 {
 	bool success { false };
-	for_each_channel([&] (Module_channel &mod_chan)
-	{
+	for_each_channel<Channel>([&] (Channel &chan) {
 		if (success)
 			return;
 
-		Channel &chan { *static_cast<Channel *>(&mod_chan) };
 		if (chan._state != Channel::INVALID)
 			return;
 
-		Request &req { *static_cast<Request *>(&mod_req) };
-		switch (req._op) {
-		case Request::INITIALIZE: ASSERT_NEVER_REACHED;
-		case Request::SYNC:
-		case Request::READ:
-		case Request::WRITE:
-		case Request::DEINITIALIZE:
-		case Request::REKEY:
-		case Request::EXTEND_VBD:
-		case Request::EXTEND_FT:
-		case Request::CREATE_SNAPSHOT:
-		case Request::DISCARD_SNAPSHOT:
-
-			mod_req.dst_chan_id(chan.id());
-			chan._state = Channel::REQ_SUBMITTED;
-			chan._req = req;
-			_chan_queue.enqueue(chan);
-			success = true;
-			return;
-
-		default: ASSERT_NEVER_REACHED;
-		}
+		mod_req.dst_chan_id(chan.id());
+		chan._state = Channel::REQ_SUBMITTED;
+		chan._req = *static_cast<Request *>(&mod_req);
+		_chan_queue.enqueue(chan);
+		success = true;
 	});
 	ASSERT(success);
 }
@@ -308,8 +289,7 @@ Request_pool::Request_pool()
 		_channels[id].construct(id, _chan_queue);
 		add_channel(*_channels[id]);
 	}
-	with_channel(0, [&] (Module_channel &mod_chan) {
-		Channel &chan { *static_cast<Channel *>(&mod_chan) };
+	with_channel<Channel>(0, [&] (Channel &chan) {
 		chan._state = Channel::REQ_SUBMITTED;
 		chan._req = { Request::INITIALIZE, false, 0, 0, 0, 0, 0, 0, INVALID_MODULE_ID, INVALID_MODULE_CHANNEL_ID };
 		_chan_queue.enqueue(chan);
@@ -320,12 +300,10 @@ Request_pool::Request_pool()
 bool Request_pool::_peek_completed_request(uint8_t *buf_ptr, size_t buf_size)
 {
 	bool success { false };
-	for_each_channel([&] (Module_channel &mod_chan)
-	{
+	for_each_channel<Channel>([&] (Channel &chan) {
 		if (success)
 			return;
 
-		Channel &chan { *static_cast<Channel *>(&mod_chan) };
 		if (chan._req._op != Request::INVALID && chan._state == Channel::REQ_COMPLETE) {
 			ASSERT(sizeof(chan._req) <= buf_size);
 			memcpy(buf_ptr, &chan._req, sizeof(chan._req));
@@ -339,8 +317,7 @@ bool Request_pool::_peek_completed_request(uint8_t *buf_ptr, size_t buf_size)
 
 void Request_pool::_drop_completed_request(Module_request &req)
 {
-	with_channel(req.dst_chan_id(), [&] (Module_channel &mod_chan) {
-		Channel &chan { *static_cast<Channel *>(&mod_chan) };
+	with_channel<Channel>(req.dst_chan_id(), [&] (Channel &chan) {
 		ASSERT(chan._req._op != Request::INVALID && chan._state == Channel::REQ_COMPLETE);
 		chan._reset();
 	});
