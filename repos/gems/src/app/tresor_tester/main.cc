@@ -429,26 +429,11 @@ class Command : public Fifo<Command>::Element
 {
 	public:
 
-		enum Type
-		{
-			INVALID,
-			REQUEST,
-			TRUST_ANCHOR,
-			BENCHMARK,
-			CONSTRUCT,
-			DESTRUCT,
-			INITIALIZE,
-			CHECK,
-			LIST_SNAPSHOTS,
-			LOG
-		};
+		enum Type {
+			INVALID, REQUEST, TRUST_ANCHOR, BENCHMARK, CONSTRUCT, DESTRUCT, INITIALIZE,
+			CHECK, LIST_SNAPSHOTS, LOG };
 
-		enum State
-		{
-			PENDING,
-			IN_PROGRESS,
-			COMPLETED
-		};
+		enum State { PENDING, IN_PROGRESS, COMPLETED };
 
 	private:
 
@@ -492,14 +477,9 @@ class Command : public Fifo<Command>::Element
 
 	public:
 
-		Command() { }
-
-		Command(Type type,
-		        Xml_node const &node,
-		        uint32_t id)
+		Command(Type type, Xml_node const &node, uint32_t id)
 		:
-			_type { type },
-			_id { id }
+			_type { type }, _id { id }
 		{
 			switch (_type) {
 			case INITIALIZE: _initialize.construct(node); break;
@@ -511,34 +491,14 @@ class Command : public Fifo<Command>::Element
 			}
 		}
 
-		Command(Command &other)
-		:
-			_type { other._type },
-			_id { other._id },
-			_state { other._state },
-			_success { other._success }
-		{
-			switch (_type) {
-			case INITIALIZE: _initialize.construct(*other._initialize); break;
-			case REQUEST: _request_node.construct(*other._request_node); break;
-			case TRUST_ANCHOR: _trust_anchor_node.construct(*other._trust_anchor_node); break;
-			case BENCHMARK: _benchmark_node.construct(*other._benchmark_node); break;
-			case LOG: _log_node.construct(*other._log_node); break;
-			default: break;
-			}
-		}
-
 		bool has_attr_data_mismatch() const
 		{
-			return
-				_type == REQUEST &&
-				_request_node->op() == Tresor::Request::Operation::READ &&
-				_request_node->salt_avail();
+			return _type == REQUEST && _request_node->op() == Tresor::Request::Operation::READ &&
+			       _request_node->salt_avail();
 		}
 
 		bool synchronize() const
 		{
-			class Bad_type { };
 			switch (_type) {
 			case INITIALIZE: return true;
 			case BENCHMARK: return true;
@@ -571,7 +531,6 @@ class Command : public Fifo<Command>::Element
 		void print(Genode::Output &out) const
 		{
 			Genode::print(out, "id=", _id, " type=", _type_to_string());
-			class Bad_type { };
 			switch (_type) {
 			case INITIALIZE: Genode::print(out, " cfg=(", *_initialize, ")"); break;
 			case REQUEST: Genode::print(out, " cfg=(", *_request_node, ")"); break;
@@ -585,9 +544,9 @@ class Command : public Fifo<Command>::Element
 			case LIST_SNAPSHOTS: break;
 			}
 			Genode::print(out, " succ=", _success);
-			if (has_attr_data_mismatch()) {
+			if (has_attr_data_mismatch())
 				Genode::print(out, " bad_data=", _data_mismatch);
-			}
+
 			Genode::print(out, " state=", _state_to_string());
 		}
 
