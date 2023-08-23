@@ -381,15 +381,17 @@ class Request_node
 };
 
 
-class Command : public Fifo<Command>::Element
+class Command : private Fifo<Command>::Element, public Module_channel
 {
+	friend class Fifo<Command>;
+
 	public:
 
 		enum Type {
 			INVALID, REQUEST, TRUST_ANCHOR, BENCHMARK, CONSTRUCT, DESTRUCT, INITIALIZE,
 			CHECK, LIST_SNAPSHOTS, LOG };
 
-		enum State { PENDING, IN_PROGRESS, COMPLETED };
+		enum State { PENDING, IN_PROGRESS, COMPLETED, GENERATED_REQ };
 
 	private:
 
@@ -403,6 +405,12 @@ class Command : public Fifo<Command>::Element
 		Constructible<Benchmark_node> _benchmark_node { };
 		Constructible<Log_node> _log_node { };
 		Constructible<Tresor_init::Configuration> _initialize { };
+
+		void _generated_req_complete(State_uint) override { ASSERT_NEVER_REACHED; }
+
+		void _request_submitted() override { ASSERT_NEVER_REACHED; }
+
+		bool _request_complete() override { return false; }
 
 		char const *_state_to_string() const
 		{
