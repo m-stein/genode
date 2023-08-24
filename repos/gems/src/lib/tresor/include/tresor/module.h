@@ -112,8 +112,8 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 		enum Generated_request_state { NONE = 0, PENDING = 1, IN_PROGRESS = 2 };
 
 		Module_request *_req_ptr { nullptr };
-		Module_id _module_id { 0 };
-		Module_channel_id _id { 0 };
+		Module_id _module_id { INVALID_MODULE_ID };
+		Module_channel_id _id { INVALID_MODULE_CHANNEL_ID };
 		Generated_request_state _gen_req_state { NONE };
 		uint8_t _gen_req_buf[GEN_REQ_BUF_SIZE] { };
 		State_uint _gen_req_complete_state { 0 };
@@ -292,8 +292,7 @@ class Tresor::Module : public Interface
 				return result;
 
 			Module_channel_id const chan_id { req.src_chan_id() };
-			with_channel(chan_id, [&] (Module_channel &chan)
-			{
+			with_channel(chan_id, [&] (Module_channel &chan) {
 				if (chan._gen_req_state == Module_channel::NONE)
 					return;
 
