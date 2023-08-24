@@ -124,6 +124,8 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 
 		virtual bool _request_complete() = 0;
 
+		virtual void _request_dropped() { }
+
 		template <typename CHAN, typename FUNC>
 		void _with_channel(Module_channel_id id, FUNC && func)
 		{
@@ -308,11 +310,11 @@ class Tresor::Module : public Interface
 		void for_each_completed_request(FUNC && handle_request)
 		{
 			if (new_submit_request()) {
-				for_each_channel([&] (Module_channel &chan)
-				{
+				for_each_channel([&] (Module_channel &chan) {
 					if (chan._req_ptr && chan._request_complete()) {
 						handle_request(*chan._req_ptr);
 						chan._req_ptr = nullptr;
+						chan._request_dropped();
 					}
 				});
 				return;

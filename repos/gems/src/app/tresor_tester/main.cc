@@ -397,10 +397,8 @@ class Command : public Module_channel
 		Type _type { INVALID };
 		uint32_t _id { 0 };
 		State _state { PENDING };
-public:
 		bool _success { false };
 		Generation _gen { INVALID_GENERATION };
-private:
 		bool _data_mismatch { false };
 		Constructible<Request_node> _request_node { };
 		Constructible<Trust_anchor_node> _trust_anchor_node { };
@@ -663,7 +661,7 @@ class Tresor_tester::Main
 		Constructible<Request_pool> _request_pool { };
 		Constructible<Ft_resizing> _ft_resizing { };
 		Constructible<Client_data> _client_data { };
-		Meta_tree _meta_tree { };
+		Constructible<Meta_tree> _meta_tree { };
 		Trust_anchor _trust_anchor { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
 		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto") };
 		Block_io _block_io { _vfs_env, _config_rom.xml().sub_node("block-io") };
@@ -712,61 +710,6 @@ class Tresor_tester::Main
 						first_uncompleted_cmd = false;
 				}
 			});
-		}
-
-		void mark_command_in_progress(Module_request_id cmd_id)
-		{
-			with_channel<Command>(cmd_id, [&] (Command &cmd) {
-				ASSERT(cmd.state() == Command::PENDING);
-				cmd.state(Command::IN_PROGRESS);
-			});
-		}
-
-		void mark_command_completed(Module_request_id cmd_id,
-		                            bool success)
-		{
-			with_channel<Command>(cmd_id, [&] (Command &cmd) {
-				ASSERT(cmd.state() == Command::IN_PROGRESS);
-				cmd.state(Command::COMPLETED);
-				_nr_of_uncompleted_cmds--;
-				cmd.success(success);
-				if (!cmd.success()) {
-					warning("cmd ", cmd, " failed");
-					_nr_of_errors++;
-				}
-			});
-		}
-
-		void _construct_tresor_modules()
-		{
-			_free_tree.construct();
-			_vbd.construct();
-			_sb_control.construct();
-			_request_pool.construct();
-			_ft_resizing.construct();
-			_client_data.construct(*this);
-			add_module(FREE_TREE, *_free_tree);
-			add_module(VIRTUAL_BLOCK_DEVICE, *_vbd);
-			add_module(SUPERBLOCK_CONTROL, *_sb_control);
-			add_module(REQUEST_POOL, *_request_pool);
-			add_module(FT_RESIZING, *_ft_resizing);
-			add_module(CLIENT_DATA, *_client_data);
-		}
-
-		void _destruct_tresor_modules()
-		{
-			remove_module(CLIENT_DATA);
-			remove_module(FT_RESIZING);
-			remove_module(REQUEST_POOL);
-			remove_module(SUPERBLOCK_CONTROL);
-			remove_module(VIRTUAL_BLOCK_DEVICE);
-			remove_module(FREE_TREE);
-			_client_data.destruct();
-			_ft_resizing.destruct();
-			_request_pool.destruct();
-			_sb_control.destruct();
-			_vbd.destruct();
-			_free_tree.destruct();
 		}
 
 		void _try_end_program()
@@ -915,7 +858,6 @@ class Tresor_tester::Main
 
 		Main(Genode::Env &env) : _env { env }
 		{
-			add_module(META_TREE, _meta_tree);
 			add_module(CRYPTO, _crypto);
 			add_module(TRUST_ANCHOR, _trust_anchor);
 			add_module(COMMAND_POOL, *this);
@@ -935,6 +877,29 @@ class Tresor_tester::Main
 				_nr_of_uncompleted_cmds++;
 			});
 			_handle_signal();
+		}
+
+		void mark_command_in_progress(Module_request_id cmd_id)
+		{
+			with_channel<Command>(cmd_id, [&] (Command &cmd) {
+				ASSERT(cmd.state() == Command::PENDING);
+				cmd.state(Command::IN_PROGRESS);
+			});
+		}
+
+		void mark_command_completed(Module_request_id cmd_id,
+		                            bool success)
+		{
+			with_channel<Command>(cmd_id, [&] (Command &cmd) {
+				ASSERT(cmd.state() == Command::IN_PROGRESS);
+				cmd.state(Command::COMPLETED);
+				_nr_of_uncompleted_cmds--;
+				cmd.success(success);
+				if (!cmd.success()) {
+					warning("cmd ", cmd, " failed");
+					_nr_of_errors++;
+				}
+			});
 		}
 
 		Generation snap_id_to_gen(Snapshot_id id)
@@ -986,6 +951,60 @@ class Tresor_tester::Main
 			});
 			_benchmark.raise_nr_of_virt_blks_read();
 		}
+
+		void construct_tresor_modules()
+		{
+			_free_tree.construct();
+			_vbd.construct();
+			_sb_control.construct();
+			_request_pool.construct();
+			_ft_resizing.construct();
+			_client_data.construct(*this);
+			_meta_tree.construct();
+			add_module(FREE_TREE, *_free_tree);
+			add_module(VIRTUAL_BLOCK_DEVICE, *_vbd);
+			add_module(SUPERBLOCK_CONTROL, *_sb_control);
+			add_module(REQUEST_POOL, *_request_pool);
+			add_module(FT_RESIZING, *_ft_resizing);
+			add_module(CLIENT_DATA, *_client_data);
+			add_module(META_TREE, *_meta_tree);
+		}
+
+		void destruct_tresor_modules()
+		{
+			remove_module(META_TREE);
+			remove_module(CLIENT_DATA);
+			remove_module(FT_RESIZING);
+			remove_module(REQUEST_POOL);
+			remove_module(SUPERBLOCK_CONTROL);
+			remove_module(VIRTUAL_BLOCK_DEVICE);
+			remove_module(FREE_TREE);
+			_meta_tree.destruct();
+			_client_data.destruct();
+			_ft_resizing.destruct();
+			_request_pool.destruct();
+			_sb_control.destruct();
+			_vbd.destruct();
+			_free_tree.destruct();
+		}
+
+		void list_snapshots(Module_channel_id cmd_id)
+		{
+			Snapshot_generations generations;
+			_sb_control->snapshot_generations(generations);
+			unsigned snap_nr { 0 };
+			log("");
+			log("List snapshots (command ID ", cmd_id, ")");
+			for (Generation const &gen : generations.items) {
+				if (gen != INVALID_GENERATION) {
+					log("   Snapshot #", snap_nr, " is generation ", gen);
+					snap_nr++;
+				}
+			}
+			log("");
+		}
+
+		Benchmark &benchmark() { return _benchmark; }
 };
 
 
@@ -1051,9 +1070,7 @@ void Command::_generated_req_complete(State_uint state_uint)
 	if (state_uint == CREATE_SNAP_COMPLETED)
 		_main.add_snap_ref(request_node().snap_id(), _gen);
 
-	_state = COMPLETED;
-	if (!_success)
-		error("command pool: command (", *this, ") failed");
+	_main.mark_command_completed(id(), _success);
 }
 
 
@@ -1076,7 +1093,7 @@ void Command::execute(bool &progress)
 				state, progress, node.op(), _success, node.has_attr_vba() ? node.vba() : 0,
 				0, node.has_attr_count() ? node.count() : 0, 0, id(), _gen);
 
-			mark_command_in_progress(id());
+			_main.mark_command_in_progress(id());
 			break;
 		}
 	case LOG:
@@ -1084,39 +1101,26 @@ void Command::execute(bool &progress)
 		executed_local_cmd = true;
 		break;
 	case BENCHMARK:
-		_benchmark.execute_cmd(benchmark_node());
+		_main.benchmark().execute_cmd(benchmark_node());
 		executed_local_cmd = true;
 		break;
 	case CONSTRUCT:
-		_construct_tresor_modules();
+		_main.construct_tresor_modules();
 		executed_local_cmd = true;
 		break;
 	case DESTRUCT:
-		_destruct_tresor_modules();
+		_main.destruct_tresor_modules();
 		executed_local_cmd = true;
 		break;
 	case LIST_SNAPSHOTS:
-		{
-			Snapshot_generations generations;
-			_sb_control->snapshot_generations(generations);
-			unsigned snap_nr { 0 };
-			log("");
-			log("List snapshots (command ID ", id(), ")");
-			for (Generation const &gen : generations.items) {
-				if (gen != INVALID_GENERATION) {
-					log("   Snapshot #", snap_nr, " is generation ", gen);
-					snap_nr++;
-				}
-			}
-			log("");
-			executed_local_cmd = true;
-			break;
-		}
+		_main.list_snapshots(id());
+		executed_local_cmd = true;
+		break;
 	default: break;
 	}
 	if (executed_local_cmd) {
-		mark_command_in_progress(id());
-		mark_command_completed(id(), true);
+		_main.mark_command_in_progress(id());
+		_main.mark_command_completed(id(), true);
 		progress = true;
 	}
 }

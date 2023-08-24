@@ -60,6 +60,7 @@ class Tresor::Request : public Module_request
 		Request() { }
 
 		Operation op() const { return _op; }
+		void op(Operation op) { _op = op; }
 		bool success() const { return *(bool *)_success_ptr; }
 		void success(bool arg) { *(bool *)_success_ptr = arg; }
 		Virtual_block_address vba() const { return _vba; }
@@ -86,7 +87,6 @@ class Tresor::Request_pool_channel : public Module_channel
 			TREE_EXTENSION_STEP_SUCCEEDED, FORWARD_TO_SB_CTRL_SUCCEEDED, ACCESS_VBA_AT_SB_CTRL_SUCCEEDED,
 			REKEY_VBA_SUCCEEDED, INITIALIZE_SB_CTRL_SUCCEEDED, DEINITIALIZE_SB_CTRL_SUCCEEDED, REQ_COMPLETE };
 
-		Tresor::Request _req { };
 		State _state { INVALID };
 		Number_of_blocks _num_blks { 0 };
 		Superblock::State _sb_state { Superblock::INVALID };
@@ -95,11 +95,15 @@ class Tresor::Request_pool_channel : public Module_channel
 		bool _generated_req_success { false };
 		Request_pool_channel_queue &_chan_queue;
 
+		Request &_req() { return *static_cast<Request *>(&request()); }
+
 		void _generated_req_complete(State_uint) override;
 
-		void _request_submitted() override { }
+		void _request_submitted() override;
 
-		bool _request_complete() override { return false; }
+		bool _request_complete() override { return _state == REQ_COMPLETE; }
+
+		void _request_dropped() override { _reset(); }
 
 		void _access_vbas(bool &, Superblock_control_request::Type);
 
@@ -177,22 +181,17 @@ class Tresor::Request_pool : public Module
 
 		enum { NUM_CHANNELS = Request_pool_channel_queue::NUM_SLOTS };
 
+		Request _initialize_req { Request::INITIALIZE };
 		Constructible<Channel> _channels[NUM_CHANNELS] { };
 		Request_pool_channel_queue _chan_queue { };
 
-		bool _peek_completed_request(uint8_t *, size_t) override;
-
-		void _drop_completed_request(Module_request &) override;
+	public:
 
 		void execute(bool &) override;
 
-	public:
-
 		Request_pool();
 
-		bool ready_to_submit_request() override { return !_chan_queue.full(); }
-
-		void submit_request(Module_request &) override;
+		bool new_submit_request() override { return true; }
 };
 
 #endif /* _TRESOR__REQUEST_POOL_H_ */
