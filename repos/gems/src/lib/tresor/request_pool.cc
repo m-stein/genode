@@ -16,13 +16,13 @@
 
 using namespace Tresor;
 
-Request::Request(Operation op, bool success, Virtual_block_address vba, Request_offset offset,
-                 Number_of_blocks count, Key_id key_id, Request_tag tag, Generation gen,
-                 Module_id src_module_id, Module_channel_id src_chan_id)
+Request::Request(Module_id src_module_id, Module_channel_id src_chan_id, Operation op,
+                 bool &success, Virtual_block_address vba, Request_offset offset,
+                 Number_of_blocks count, Key_id key_id, Request_tag tag, Generation &gen)
 :
 	Module_request { src_module_id, src_chan_id, REQUEST_POOL },
-	_op { op }, _success { success }, _vba { vba }, _offset { offset },
-	_count { count }, _key_id { key_id }, _tag { tag }, _gen { gen }
+	_op { op }, _success_ptr { (addr_t)&success }, _vba { vba }, _offset { offset },
+	_count { count }, _key_id { key_id }, _tag { tag }, _gen_ptr { (addr_t)&gen }
 { }
 
 
@@ -69,7 +69,7 @@ void Request_pool_channel::_gen_sb_control_req(bool &progress, Superblock_contro
 	_state = REQ_GENERATED;
 	generate_req<Superblock_control_request>(
 		complete_state, progress, type, _req._offset, _req._tag, _req._count, vba, _generated_req_success,
-		_request_finished, _sb_state, _req._gen);
+		_request_finished, _sb_state, *(Generation *)_req._gen_ptr);
 }
 
 
@@ -92,7 +92,7 @@ void Request_pool_channel::_access_vbas(bool &progress, Superblock_control_reque
 
 void Request_pool_channel::_mark_req_successful(bool &progress)
 {
-	_req._success = true;
+	*(bool *)_req._success_ptr = true;
 	_state = REQ_COMPLETE;
 	_chan_queue.dequeue(*this);
 	progress = true;
@@ -291,7 +291,7 @@ Request_pool::Request_pool()
 	}
 	with_channel<Channel>(0, [&] (Channel &chan) {
 		chan._state = Channel::REQ_SUBMITTED;
-		chan._req = { Request::INITIALIZE, false, 0, 0, 0, 0, 0, 0, INVALID_MODULE_ID, INVALID_MODULE_CHANNEL_ID };
+		chan._req = { Request::INITIALIZE };
 		_chan_queue.enqueue(chan);
 	});
 }
@@ -328,7 +328,7 @@ void Request_pool_channel::_generated_req_complete(State_uint state_uint)
 {
 	if (!_generated_req_success) {
 		error("request_pool: request (", _req, ") failed because generated request failed)");
-		_req._success = false;
+		*(bool *)_req._success_ptr = false;
 		_state = REQ_COMPLETE;
 	} else
 		_state = (State)state_uint;

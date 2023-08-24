@@ -42,33 +42,33 @@ class Tresor::Request : public Module_request
 	private:
 
 		Operation _op { Operation::INVALID };
-		bool _success { false };
+		addr_t _success_ptr { 0 };
 		Virtual_block_address _vba { 0 };
 		Request_offset _offset { 0 };
 		Number_of_blocks _count { 0 };
 		Key_id _key_id { 0 };
 		Request_tag _tag { 0 };
-		Generation _gen { 0 };
+		addr_t _gen_ptr { 0 };
 
 	public:
 
-		Request(Operation, bool, Virtual_block_address, Request_offset, Number_of_blocks,
-		        Key_id, Request_tag, Generation, Module_id, Module_request_id src_request_id);
+		Request(Module_id, Module_channel_id, Operation, bool &, Virtual_block_address, Request_offset,
+		        Number_of_blocks, Key_id, Request_tag, Generation &);
 
 		Request(Operation op) : _op { op } { }
 
 		Request() { }
 
 		Operation op() const { return _op; }
-		bool success() const { return _success; }
-		void success(bool arg) { _success = arg; }
+		bool success() const { return *(bool *)_success_ptr; }
+		void success(bool arg) { *(bool *)_success_ptr = arg; }
 		Virtual_block_address vba() const { return _vba; }
 		Request_offset offset() const { return _offset; }
 		Number_of_blocks count() const { return _count; }
 		Key_id key_id() const { return _key_id; }
 		Request_tag tag() const { return _tag; }
-		Generation gen() const { return _gen; }
-		void gen(Generation arg) { _gen = arg; }
+		Generation gen() const { return *(Generation *)_gen_ptr; }
+		void gen(Generation arg) { *(Generation *)_gen_ptr = arg; }
 
 		static char const *op_to_string(Operation);
 

@@ -381,24 +381,26 @@ class Request_node
 };
 
 
-class Command : private Fifo<Command>::Element, public Module_channel
+class Command : public Module_channel
 {
-	friend class Fifo<Command>;
-
 	public:
 
 		enum Type {
 			INVALID, REQUEST, TRUST_ANCHOR, BENCHMARK, CONSTRUCT, DESTRUCT, INITIALIZE,
 			CHECK, LIST_SNAPSHOTS, LOG };
 
-		enum State { PENDING, IN_PROGRESS, COMPLETED, GENERATED_REQ };
+		enum State { PENDING, IN_PROGRESS, CREATE_SNAP_COMPLETED, COMPLETED };
 
 	private:
 
+		Tresor_tester::Main &_main;
 		Type _type { INVALID };
 		uint32_t _id { 0 };
 		State _state { PENDING };
+public:
 		bool _success { false };
+		Generation _gen { INVALID_GENERATION };
+private:
 		bool _data_mismatch { false };
 		Constructible<Request_node> _request_node { };
 		Constructible<Trust_anchor_node> _trust_anchor_node { };
@@ -406,7 +408,7 @@ class Command : private Fifo<Command>::Element, public Module_channel
 		Constructible<Log_node> _log_node { };
 		Constructible<Tresor_init::Configuration> _initialize { };
 
-		void _generated_req_complete(State_uint) override { ASSERT_NEVER_REACHED; }
+		void _generated_req_complete(State_uint state_uint) override;
 
 		void _request_submitted() override { ASSERT_NEVER_REACHED; }
 
@@ -456,9 +458,9 @@ class Command : private Fifo<Command>::Element, public Module_channel
 
 	public:
 
-		Command(Xml_node const &node, uint32_t id)
+		Command(Xml_node const &node, Tresor_tester::Main &main, uint32_t id)
 		:
-			Module_channel { COMMAND_POOL, id }, _type { _type_from_string(node.type()) }, _id { id }
+			Module_channel { COMMAND_POOL, id }, _main { main }, _type { _type_from_string(node.type()) }, _id { id }
 		{
 			switch (_type) {
 			case INITIALIZE: _initialize.construct(node); break;
@@ -529,6 +531,8 @@ class Command : private Fifo<Command>::Element, public Module_channel
 		void state (State state) { _state = state; }
 		void success (bool success) { _success = success; }
 		void data_mismatch (bool data_mismatch) { _data_mismatch = data_mismatch; }
+
+		void execute(bool &progress);
 };
 
 
@@ -686,17 +690,6 @@ class Tresor_tester::Main
 			}
 		}
 
-		Generation _snap_id_to_gen(Snapshot_id id)
-		{
-			Generation gen { INVALID_GENERATION };
-			_snap_refs.find(id, [&] (Snapshot_reference const &snap_ref)
-			{
-				gen = snap_ref.gen();
-			},
-			[&] () { ASSERT_NEVER_REACHED; });
-			return gen;
-		}
-
 		template <typename FUNC>
 		void _with_first_processable_cmd(FUNC && func)
 		{
@@ -825,11 +818,17 @@ class Tresor_tester::Main
 		 ** Tresor::Module **
 		 ********************/
 
+		void execute(bool &progress) override
+		{
+			_with_first_processable_cmd([&] (Command &cmd) {
+				cmd.execute(progress); });
+		}
+
 		bool _peek_generated_request(Genode::uint8_t *buf_ptr,
 		                             Genode::size_t buf_size) override
 		{
 			while (true) {
-				enum Result { NO_CMD, CMD_COMPLETED, CMD_IN_BUF } result { NO_CMD };
+				enum Result { NO_CMD, CMD_IN_BUF } result { NO_CMD };
 				_with_first_processable_cmd([&] (Command &cmd) {
 					switch (cmd.type()) {
 					case Command::TRUST_ANCHOR:
@@ -871,65 +870,11 @@ class Tresor_tester::Main
 
 							result = CMD_IN_BUF;
 							break;
-					case Command::REQUEST:
-						{
-							Request_node req_node { cmd.request_node() };
-							Generation gen { INVALID_GENERATION };
-							if (req_node.op() == Request::DISCARD_SNAPSHOT)
-								gen = _snap_id_to_gen(req_node.snap_id());
-
-							construct_at<Tresor::Request>(
-								buf_ptr, cmd.request_node().op(), false,
-								req_node.has_attr_vba() ? req_node.vba() : 0,
-								0, req_node.has_attr_count() ? req_node.count() : 0,
-								0, cmd.id(), gen, COMMAND_POOL, cmd.id());
-
-							result = CMD_IN_BUF;
-							break;
-						}
-					case Command::LOG:
-						log("\n", cmd.log_node().string(), "\n");
-						result = CMD_COMPLETED;
-						break;
-					case Command::BENCHMARK:
-						_benchmark.execute_cmd(cmd.benchmark_node());
-						result = CMD_COMPLETED;
-						break;
-					case Command::CONSTRUCT:
-						_construct_tresor_modules();
-						result = CMD_COMPLETED;
-						break;
-					case Command::DESTRUCT:
-						_destruct_tresor_modules();
-						result = CMD_COMPLETED;
-						break;
-					case Command::LIST_SNAPSHOTS:
-						{
-							Snapshot_generations generations;
-							_sb_control->snapshot_generations(generations);
-							unsigned snap_nr { 0 };
-							log("");
-							log("List snapshots (command ID ", cmd.id(), ")");
-							for (Generation const &gen : generations.items) {
-								if (gen != INVALID_GENERATION) {
-									log("   Snapshot #", snap_nr, " is generation ", gen);
-									snap_nr++;
-								}
-							}
-							log("");
-							result = CMD_COMPLETED;
-							break;
-						}
 					default: break;
-					}
-					if (result == CMD_COMPLETED) {
-						mark_command_in_progress(cmd.id());
-						mark_command_completed(cmd.id(), true);
 					}
 				});
 				switch(result) {
 				case CMD_IN_BUF: return true;
-				case CMD_COMPLETED: continue;
 				case NO_CMD: return false; }
 			}
 		}
@@ -986,10 +931,26 @@ class Tresor_tester::Main
 			_block_allocator_ptr = &_block_allocator;
 
 			_config_rom.xml().sub_node("commands").for_each_sub_node([&] (Xml_node const &node) {
-				add_channel(*new (_heap) Command(node, _next_command_id++));
+				add_channel(*new (_heap) Command(node, *this, _next_command_id++));
 				_nr_of_uncompleted_cmds++;
 			});
 			_handle_signal();
+		}
+
+		Generation snap_id_to_gen(Snapshot_id id)
+		{
+			Generation gen { INVALID_GENERATION };
+			_snap_refs.find(id, [&] (Snapshot_reference const &snap_ref)
+			{
+				gen = snap_ref.gen();
+			},
+			[&] () { ASSERT_NEVER_REACHED; });
+			return gen;
+		}
+
+		void add_snap_ref(Snapshot_id id, Generation gen)
+		{
+			_snap_refs.insert(new (_heap) Snapshot_reference { id, gen });
 		}
 
 		void generate_blk_data(uint64_t tresor_req_tag,
@@ -1082,6 +1043,82 @@ void Tresor_tester::Client_data::_drop_completed_request(Module_request &)
 {
 	ASSERT(_request._type != Client_data_request::INVALID);
 	_request._type = Client_data_request::INVALID;
+}
+
+
+void Command::_generated_req_complete(State_uint state_uint)
+{
+	if (state_uint == CREATE_SNAP_COMPLETED)
+		_main.add_snap_ref(request_node().snap_id(), _gen);
+
+	_state = COMPLETED;
+	if (!_success)
+		error("command pool: command (", *this, ") failed");
+}
+
+
+void Command::execute(bool &progress)
+{
+	bool executed_local_cmd { false };
+	switch (type()) {
+	case REQUEST:
+		{
+			Request_node node { request_node() };
+			State state { COMPLETED };
+			_gen = INVALID_GENERATION;
+			if (node.op() == Request::DISCARD_SNAPSHOT)
+				_gen = _main.snap_id_to_gen(node.snap_id());
+
+			if (node.op() == Request::CREATE_SNAPSHOT)
+				state = CREATE_SNAP_COMPLETED;
+
+			generate_req<Tresor::Request>(
+				state, progress, node.op(), _success, node.has_attr_vba() ? node.vba() : 0,
+				0, node.has_attr_count() ? node.count() : 0, 0, id(), _gen);
+
+			mark_command_in_progress(id());
+			break;
+		}
+	case LOG:
+		log("\n", log_node().string(), "\n");
+		executed_local_cmd = true;
+		break;
+	case BENCHMARK:
+		_benchmark.execute_cmd(benchmark_node());
+		executed_local_cmd = true;
+		break;
+	case CONSTRUCT:
+		_construct_tresor_modules();
+		executed_local_cmd = true;
+		break;
+	case DESTRUCT:
+		_destruct_tresor_modules();
+		executed_local_cmd = true;
+		break;
+	case LIST_SNAPSHOTS:
+		{
+			Snapshot_generations generations;
+			_sb_control->snapshot_generations(generations);
+			unsigned snap_nr { 0 };
+			log("");
+			log("List snapshots (command ID ", id(), ")");
+			for (Generation const &gen : generations.items) {
+				if (gen != INVALID_GENERATION) {
+					log("   Snapshot #", snap_nr, " is generation ", gen);
+					snap_nr++;
+				}
+			}
+			log("");
+			executed_local_cmd = true;
+			break;
+		}
+	default: break;
+	}
+	if (executed_local_cmd) {
+		mark_command_in_progress(id());
+		mark_command_completed(id(), true);
+		progress = true;
+	}
 }
 
 
