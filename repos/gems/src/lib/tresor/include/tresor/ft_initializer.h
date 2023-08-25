@@ -241,6 +241,8 @@ class Tresor::Ft_initializer : public Module
 
 		void generated_request_complete(Module_request &req) override;
 
+		bool new_submit_request() override { return false; }
+
 
 	public:
 
