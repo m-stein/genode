@@ -21,6 +21,7 @@
 
 /* tresor includes */
 #include <tresor/verbosity.h>
+#include <tresor/noncopyable.h>
 #include <tresor/assertion.h>
 #include <tresor/construct_in_buf.h>
 
@@ -118,13 +119,11 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 		uint8_t _gen_req_buf[GEN_REQ_BUF_SIZE] { };
 		State_uint _gen_req_complete_state { 0 };
 
-		virtual void _generated_req_complete(State_uint state_uint) = 0;
+		virtual void _generated_req_completed(State_uint state_uint) = 0;
 
-		virtual void _request_submitted() = 0;
+		virtual void _request_submitted(Module_request &req) = 0;
 
 		virtual bool _request_complete() = 0;
-
-		virtual void _request_dropped() { }
 
 		template <typename CHAN, typename FUNC>
 		void _with_channel(Module_channel_id id, FUNC && func)
@@ -144,7 +143,7 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 
 			req.dst_chan_id(_id);
 			_req_ptr = &req;
-			_request_submitted();
+			_request_submitted(req);
 			return true;
 		}
 
@@ -157,6 +156,7 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 
 		/* FIXME: deprecated, only kept for transitioning phase */
 		Module_channel() { }
+		bool req_valid() { return _req_ptr; }
 
 		Module_channel(Module_id module_id, Module_channel_id id) : _module_id { module_id }, _id { id } { };
 
@@ -170,10 +170,6 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 			_gen_req_complete_state = complete_state;
 			progress = true;
 		}
-
-		bool req_valid() { return _req_ptr; }
-
-		Module_request &request() { return *_req_ptr; }
 
 		Module_channel_id id() const { return _id; }
 
@@ -300,7 +296,7 @@ class Tresor::Module : public Interface
 
 				ASSERT(chan._gen_req_state == Module_channel::IN_PROGRESS);
 				chan._gen_req_state = Module_channel::NONE;
-				chan._generated_req_complete(chan._gen_req_complete_state);
+				chan._generated_req_completed(chan._gen_req_complete_state);
 				result = true;
 			});
 			return result;
@@ -314,7 +310,6 @@ class Tresor::Module : public Interface
 					if (chan._req_ptr && chan._request_complete()) {
 						handle_request(*chan._req_ptr);
 						chan._req_ptr = nullptr;
-						chan._request_dropped();
 					}
 				});
 				return;

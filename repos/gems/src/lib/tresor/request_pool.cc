@@ -20,9 +20,8 @@ Request::Request(Module_id src_module_id, Module_channel_id src_chan_id, Operati
                  bool &success, Virtual_block_address vba, Request_offset offset,
                  Number_of_blocks count, Key_id key_id, Request_tag tag, Generation &gen)
 :
-	Module_request { src_module_id, src_chan_id, REQUEST_POOL },
-	_op { op }, _success_ptr { (addr_t)&success }, _vba { vba }, _offset { offset },
-	_count { count }, _key_id { key_id }, _tag { tag }, _gen_ptr { (addr_t)&gen }
+	Module_request { src_module_id, src_chan_id, REQUEST_POOL }, _op { op }, _vba { vba }, _offset { offset },
+	_count { count }, _key_id { key_id }, _tag { tag }, _gen { gen }, _success { success }
 { }
 
 
@@ -46,7 +45,6 @@ void Request::print(Output &out) const
 char const *Request::op_to_string(Operation op)
 {
 	switch (op) {
-	case Request::INVALID: return "invalid";
 	case Request::READ: return "read";
 	case Request::WRITE: return "write";
 	case Request::SYNC: return "sync";
@@ -68,8 +66,8 @@ void Request_pool_channel::_gen_sb_control_req(bool &progress, Superblock_contro
 {
 	_state = REQ_GENERATED;
 	generate_req<Superblock_control_request>(
-		complete_state, progress, type, _req()._offset, _req()._tag, _req()._count, vba, _generated_req_success,
-		_request_finished, _sb_state, *(Generation *)_req()._gen_ptr);
+		complete_state, progress, type, _req_ptr->_offset, _req_ptr->_tag, _req_ptr->_count, vba, _generated_req_success,
+		_request_finished, _sb_state, _req_ptr->_gen);
 }
 
 
@@ -77,11 +75,11 @@ void Request_pool_channel::_access_vbas(bool &progress, Superblock_control_reque
 {
 	switch (_state) {
 	case REQ_SUBMITTED:
-		_gen_sb_control_req(progress, type, ACCESS_VBA_AT_SB_CTRL_SUCCEEDED, _req()._vba + _num_blks);
+		_gen_sb_control_req(progress, type, ACCESS_VBA_AT_SB_CTRL_SUCCEEDED, _req_ptr->_vba + _num_blks);
 		break;
 	case ACCESS_VBA_AT_SB_CTRL_SUCCEEDED:
-		if (++_num_blks < _req()._count)
-			_gen_sb_control_req(progress, type, ACCESS_VBA_AT_SB_CTRL_SUCCEEDED, _req()._vba + _num_blks);
+		if (++_num_blks < _req_ptr->_count)
+			_gen_sb_control_req(progress, type, ACCESS_VBA_AT_SB_CTRL_SUCCEEDED, _req_ptr->_vba + _num_blks);
 		else
 			_mark_req_successful(progress);
 		break;
@@ -92,9 +90,10 @@ void Request_pool_channel::_access_vbas(bool &progress, Superblock_control_reque
 
 void Request_pool_channel::_mark_req_successful(bool &progress)
 {
-	*(bool *)_req()._success_ptr = true;
+	_req_ptr->_success = true;
 	_state = REQ_COMPLETE;
 	_chan_queue.dequeue(*this);
+	_req_ptr = nullptr;
 	progress = true;
 }
 
@@ -110,7 +109,7 @@ void Request_pool_channel::_try_prepone_requests(bool &progress)
 	       !at_req_that_cannot_be_preponed &&
 	       !_chan_queue.is_tail(*this)) {
 
-		switch (_chan_queue.next(*this)._req()._op) {
+		switch (_chan_queue.next(*this)._req_ptr->_op) {
 		case Request::READ:
 		case Request::WRITE:
 		case Request::SYNC:
@@ -192,10 +191,7 @@ void Request_pool_channel::_rekey(bool &progress)
 void Request_pool_channel::_resume_request(bool &progress, Request::Operation op)
 {
 	_state = REQ_RESUMED;
-	_req().op(op);
-
-	/* FIXME unnecessary!? */
-	_chan_queue.enqueue(*this);
+	_req_ptr->_op = op;
 	progress = true;
 }
 
@@ -243,13 +239,13 @@ void Request_pool_channel::_forward_to_sb_ctrl(bool &progress, Superblock_contro
 void Request_pool::execute(bool &progress)
 {
 	if (!_chan_queue.empty())
-		_chan_queue.head()._execute(progress);
+		_chan_queue.head().execute(progress);
 }
 
 
-void Request_pool_channel::_execute(bool &progress)
+void Request_pool_channel::execute(bool &progress)
 {
-	switch (_req()._op) {
+	switch (_req_ptr->_op) {
 	case Request::READ: _access_vbas(progress, Superblock_control_request::READ_VBA); break;
 	case Request::WRITE: _access_vbas(progress, Superblock_control_request::WRITE_VBA); break;
 	case Request::SYNC: _forward_to_sb_ctrl(progress, Superblock_control_request::SYNC); break;
@@ -271,16 +267,18 @@ Request_pool::Request_pool()
 		_channels[id].construct(id, _chan_queue);
 		add_channel(*_channels[id]);
 	}
-	ASSERT(try_submit_request(_initialize_req));
+	ASSERT(try_submit_request(_init_req));
 }
 
 
-void Request_pool_channel::_generated_req_complete(State_uint state_uint)
+void Request_pool_channel::_generated_req_completed(State_uint state_uint)
 {
 	if (!_generated_req_success) {
-		error("request_pool: request (", _req(), ") failed because generated request failed)");
-		*(bool *)_req()._success_ptr = false;
+		error("request_pool: request (", *_req_ptr, ") failed because generated request failed)");
+		_req_ptr->_success = false;
 		_state = REQ_COMPLETE;
+		_chan_queue.dequeue(*this);
+		_req_ptr = nullptr;
 	} else
 		_state = (State)state_uint;
 }
@@ -291,7 +289,7 @@ void Request_pool_channel::_reset()
 	_state = INVALID;
 	_sb_state = Superblock::INVALID;
 	_num_blks = _num_requests_preponed = 0;
-	_request_finished = _generated_req_success = false;
+	_request_finished = false;
 }
 
 
@@ -315,7 +313,6 @@ void Request_pool_channel_queue::move_one_slot_towards_tail(Channel const &chan)
 {
 	Slot_index slot_idx { _head };
 	Slot_index next_slot_idx;
-	Channel *buf;
 	ASSERT(!empty());
 	while (1) {
 		if (slot_idx < NUM_SLOTS - 1)
@@ -325,12 +322,12 @@ void Request_pool_channel_queue::move_one_slot_towards_tail(Channel const &chan)
 
 		ASSERT(next_slot_idx != _tail);
 		if (_slots[slot_idx] == &chan) {
-			buf = _slots[next_slot_idx];
+			Channel *chan_ptr = _slots[next_slot_idx];
 			_slots[next_slot_idx] = _slots[slot_idx];
-			_slots[slot_idx] = buf;
+			_slots[slot_idx] = chan_ptr;
 			return;
-		} else
-			slot_idx = next_slot_idx;
+		}
+		slot_idx = next_slot_idx;
 	}
 }
 
@@ -376,8 +373,10 @@ void Request_pool_channel_queue::dequeue(Channel const &chan)
 }
 
 
-void Request_pool_channel::_request_submitted()
+void Request_pool_channel::_request_submitted(Module_request &req)
 {
+	_reset();
+	_req_ptr = static_cast<Request *>(&req);
 	_state = REQ_SUBMITTED;
 	_chan_queue.enqueue(*this);
 }

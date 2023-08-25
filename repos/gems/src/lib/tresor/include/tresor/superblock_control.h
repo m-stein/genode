@@ -203,12 +203,11 @@ class Tresor::Superblock_control_channel : public Module_channel
 		Type_1_node _ft_root { };
 		Tree_level_index _ft_max_lvl { 0 };
 		Number_of_leaves _ft_nr_of_leaves { 0 };
+		Request *_req_ptr { nullptr };
 
-		Request &req() { return *static_cast<Superblock_control_request *>(&request()); }
+		void _generated_req_completed(State_uint) override { }
 
-		void _generated_req_complete(State_uint) override { }
-
-		void _request_submitted() override { _state = SUBMITTED; }
+		void _request_submitted(Module_request &) override;
 
 		bool _request_complete() override { return _state == COMPLETED; }
 };

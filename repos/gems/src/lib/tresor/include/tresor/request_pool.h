@@ -30,56 +30,39 @@ namespace Tresor {
 
 class Tresor::Request : public Module_request
 {
-	friend class Request_pool;
+	NONCOPYABLE(Request);
+
 	friend class Request_pool_channel;
 
 	public:
 
 		enum Operation {
-			INVALID, READ, WRITE, SYNC, CREATE_SNAPSHOT, DISCARD_SNAPSHOT,
-			REKEY, EXTEND_VBD, EXTEND_FT, RESUME_REKEYING, DEINITIALIZE, INITIALIZE, };
+			READ, WRITE, SYNC, CREATE_SNAPSHOT, DISCARD_SNAPSHOT, REKEY, EXTEND_VBD,
+			EXTEND_FT, RESUME_REKEYING, DEINITIALIZE, INITIALIZE, };
 
 	private:
 
-		Operation _op { Operation::INVALID };
-		addr_t _success_ptr { 0 };
-		Virtual_block_address _vba { 0 };
-		Request_offset _offset { 0 };
-		Number_of_blocks _count { 0 };
-		Key_id _key_id { 0 };
-		Request_tag _tag { 0 };
-		addr_t _gen_ptr { 0 };
+		Operation _op;
+		Virtual_block_address _vba;
+		Request_offset _offset;
+		Number_of_blocks _count;
+		Key_id _key_id;
+		Request_tag _tag;
+		Generation &_gen;
+		bool &_success;
 
 	public:
 
+		static char const *op_to_string(Operation);
+
 		Request(Module_id, Module_channel_id, Operation, bool &, Virtual_block_address, Request_offset,
 		        Number_of_blocks, Key_id, Request_tag, Generation &);
-
-		Request(Operation op) : _op { op } { }
-
-		Request() { }
-
-		Operation op() const { return _op; }
-		void op(Operation op) { _op = op; }
-		bool success() const { return *(bool *)_success_ptr; }
-		void success(bool arg) { *(bool *)_success_ptr = arg; }
-		Virtual_block_address vba() const { return _vba; }
-		Request_offset offset() const { return _offset; }
-		Number_of_blocks count() const { return _count; }
-		Key_id key_id() const { return _key_id; }
-		Request_tag tag() const { return _tag; }
-		Generation gen() const { return *(Generation *)_gen_ptr; }
-		void gen(Generation arg) { *(Generation *)_gen_ptr = arg; }
-
-		static char const *op_to_string(Operation);
 
 		void print(Output &) const override;
 };
 
 class Tresor::Request_pool_channel : public Module_channel
 {
-	friend class Request_pool;
-
 	private:
 
 		enum State : State_uint {
@@ -94,16 +77,15 @@ class Tresor::Request_pool_channel : public Module_channel
 		bool _request_finished { false };
 		bool _generated_req_success { false };
 		Request_pool_channel_queue &_chan_queue;
+		Request *_req_ptr { nullptr };
 
-		Request &_req() { return *static_cast<Request *>(&request()); }
+		NONCOPYABLE(Request_pool_channel);
 
-		void _generated_req_complete(State_uint) override;
+		void _generated_req_completed(State_uint) override;
 
-		void _request_submitted() override;
+		void _request_submitted(Module_request &req) override;
 
 		bool _request_complete() override { return _state == REQ_COMPLETE; }
-
-		void _request_dropped() override { _reset(); }
 
 		void _access_vbas(bool &, Superblock_control_request::Type);
 
@@ -125,20 +107,18 @@ class Tresor::Request_pool_channel : public Module_channel
 
 		void _resume_request(bool &, Request::Operation);
 
-		void _execute(bool &);
-
-		Request_pool_channel(Request_pool_channel const &) = delete;
-
-		Request_pool_channel &operator = (Request_pool_channel const &) = delete;
-
 	public:
 
 		Request_pool_channel(Module_channel_id id, Request_pool_channel_queue &chan_queue) : Module_channel { REQUEST_POOL, id }, _chan_queue { chan_queue } { }
+
+		void execute(bool &);
 };
 
 
 class Tresor::Request_pool_channel_queue
 {
+	NONCOPYABLE(Request_pool_channel_queue);
+
 	public:
 
 		enum { NUM_SLOTS = 16 };
@@ -147,13 +127,16 @@ class Tresor::Request_pool_channel_queue
 
 		using Channel = Request_pool_channel;
 		using Slot_index = uint64_t;
+		using Number_of_slots = uint64_t;
 
 		Slot_index _head { 0 };
 		Slot_index _tail { 0 };
-		unsigned long _num_used_slots { 0 };
+		Number_of_slots _num_used_slots { 0 };
 		Channel *_slots[NUM_SLOTS] { 0 };
 
 	public:
+
+		Request_pool_channel_queue() { }
 
 		bool empty() const { return _num_used_slots == 0; }
 
@@ -175,13 +158,17 @@ class Tresor::Request_pool_channel_queue
 
 class Tresor::Request_pool : public Module
 {
+	NONCOPYABLE(Request_pool);
+
 	private:
 
 		using Channel = Request_pool_channel;
 
 		enum { NUM_CHANNELS = Request_pool_channel_queue::NUM_SLOTS };
 
-		Request _initialize_req { Request::INITIALIZE };
+		bool _init_success { false };
+		Generation _init_gen { INVALID_GENERATION };
+		Request _init_req { INVALID_MODULE_ID, INVALID_MODULE_CHANNEL_ID, Request::INITIALIZE, _init_success, 0, 0, 0, 0, 0, _init_gen };
 		Constructible<Channel> _channels[NUM_CHANNELS] { };
 		Request_pool_channel_queue _chan_queue { };
 

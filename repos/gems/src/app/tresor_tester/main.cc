@@ -406,9 +406,9 @@ class Command : public Module_channel
 		Constructible<Log_node> _log_node { };
 		Constructible<Tresor_init::Configuration> _initialize { };
 
-		void _generated_req_complete(State_uint state_uint) override;
+		void _generated_req_completed(State_uint state_uint) override;
 
-		void _request_submitted() override { ASSERT_NEVER_REACHED; }
+		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
 
 		bool _request_complete() override { return false; }
 
@@ -835,25 +835,17 @@ class Tresor_tester::Main
 			case TRUST_ANCHOR: return static_cast<Trust_anchor_request *>(&mod_req)->success();
 			case SB_INITIALIZER: return static_cast<Sb_initializer_request *>(&mod_req)->success();
 			case SB_CHECK: return static_cast<Sb_check_request *>(&mod_req)->success();
-			case REQUEST_POOL: return static_cast<Request *>(&mod_req)->success();
+			default: break;
 			}
 			ASSERT_NEVER_REACHED;
 		}
 
 		void generated_request_complete(Module_request &mod_req) override
 		{
-			bool const success { _req_success(mod_req) };
-			Module_request_id const cmd_id { mod_req.src_request_id() };
-			if (mod_req.dst_module_id() == REQUEST_POOL && success) {
-				Tresor::Request &req { *static_cast<Request *>(&mod_req) };
-				if (req.op() == Tresor::Request::CREATE_SNAPSHOT) {
-					with_channel<Command>(cmd_id, [&] (Command &cmd) {
-						_snap_refs.insert(new (_heap)
-							Snapshot_reference { cmd.request_node().snap_id(), req.gen() });
-					});
-				}
-			}
-			mark_command_completed(cmd_id, success);
+			if (mod_req.dst_module_id() == REQUEST_POOL)
+				ASSERT_NEVER_REACHED;
+
+			mark_command_completed(mod_req.src_request_id(), _req_success(mod_req));
 		}
 
 		bool new_submit_request() override { return false; }
@@ -1069,7 +1061,7 @@ void Tresor_tester::Client_data::_drop_completed_request(Module_request &)
 }
 
 
-void Command::_generated_req_complete(State_uint state_uint)
+void Command::_generated_req_completed(State_uint state_uint)
 {
 	if (state_uint == CREATE_SNAP_COMPLETED)
 		_main.add_snap_ref(request_node().snap_id(), _gen);
