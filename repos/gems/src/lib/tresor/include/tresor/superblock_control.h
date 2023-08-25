@@ -45,17 +45,21 @@ class Tresor::Superblock_control_request : public Module_request
 		friend class Superblock_control;
 		friend class Superblock_control_channel;
 
-		Type                  _type              { INVALID };
-		uint64_t              _client_req_offset { 0 };
-		uint64_t              _client_req_tag    { 0 };
-		Virtual_block_address _vba               { 0 };
-		Superblock::State     _sb_state          { Superblock::INVALID };
-		Number_of_blocks      _nr_of_blks        { 0 };
-		bool                  _success           { false };
-		bool                  _request_finished  { false };
-		addr_t                _generation_ptr    { 0 };
+		Type                  _type                  { INVALID };
+		uint64_t              _client_req_offset     { 0 };
+		uint64_t              _client_req_tag        { 0 };
+		Number_of_blocks      _nr_of_blks            { 0 };
+		Virtual_block_address _vba                   { 0 };
+		addr_t                _success_ptr           { 0 };
+		addr_t                _request_finished_ptr  { 0 };
+		addr_t                _sb_state_ptr          { Superblock::INVALID };
+		addr_t                _generation_ptr        { 0 };
 
 	public:
+
+		Superblock_control_request(Module_id, Module_request_id, Type, Request_offset,
+		                           Request_tag, Number_of_blocks, Virtual_block_address,
+		                           bool &, bool &, Superblock::State &, Generation &);
 
 		Superblock_control_request() { }
 
@@ -74,16 +78,6 @@ class Tresor::Superblock_control_request : public Module_request
 		                   Number_of_blocks  nr_of_blks,
 		                   uint64_t          vba,
 		                   Generation       &gen);
-
-		Superblock::State sb_state() { return _sb_state; }
-
-		Generation gen() const { return *(Generation const *)_generation_ptr; }
-
-		void gen(Generation g) { *(Generation *)_generation_ptr = g; }
-
-		bool success() const { return _success; }
-
-		bool request_finished() const { return _request_finished; }
 
 		static char const *type_to_string(Type type);
 

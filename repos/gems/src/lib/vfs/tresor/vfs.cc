@@ -419,7 +419,7 @@ class Vfs_tresor::Wrapper
 				Request const &tresor_request {
 					*static_cast<Request *>(&mod_req)};
 
-				if (tresor_request.operation() == Tresor::Request::Operation::REKEY) {
+				if (tresor_request.op() == Tresor::Request::Operation::REKEY) {
 					bool const req_sucess = tresor_request.success();
 					if (_verbose) {
 						log("Complete request: backend request (", tresor_request, ")");
@@ -433,7 +433,7 @@ class Vfs_tresor::Wrapper
 					break;
 				}
 
-				if (tresor_request.operation() == Tresor::Request::Operation::DEINITIALIZE) {
+				if (tresor_request.op() == Tresor::Request::Operation::DEINITIALIZE) {
 					bool const req_sucess = tresor_request.success();
 					if (_verbose) {
 						log("Complete request: backend request (", tresor_request, ")");
@@ -446,7 +446,7 @@ class Vfs_tresor::Wrapper
 					break;
 				}
 
-				if (tresor_request.operation() == Tresor::Request::Operation::EXTEND_VBD) {
+				if (tresor_request.op() == Tresor::Request::Operation::EXTEND_VBD) {
 					bool const req_sucess = tresor_request.success();
 					if (_verbose) {
 						log("Complete request: backend request (", tresor_request, ")");
@@ -461,7 +461,7 @@ class Vfs_tresor::Wrapper
 					break;
 				}
 
-				if (tresor_request.operation() == Tresor::Request::Operation::EXTEND_FT) {
+				if (tresor_request.op() == Tresor::Request::Operation::EXTEND_FT) {
 					bool const req_sucess = tresor_request.success();
 					if (_verbose) {
 						log("Complete request: backend request (", tresor_request, ")");
@@ -475,7 +475,7 @@ class Vfs_tresor::Wrapper
 					break;
 				}
 
-				if (tresor_request.operation() == Tresor::Request::Operation::CREATE_SNAPSHOT) {
+				if (tresor_request.op() == Tresor::Request::Operation::CREATE_SNAPSHOT) {
 					if (_verbose) {
 						log("Complete request: (", tresor_request, ")");
 					}
@@ -484,7 +484,7 @@ class Vfs_tresor::Wrapper
 					break;
 				}
 
-				if (tresor_request.operation() == Tresor::Request::Operation::DISCARD_SNAPSHOT) {
+				if (tresor_request.op() == Tresor::Request::Operation::DISCARD_SNAPSHOT) {
 					if (_verbose) {
 						log("Complete request: (", tresor_request, ")");
 					}
@@ -497,7 +497,7 @@ class Vfs_tresor::Wrapper
 					_helper_read_request.state  = Helper_request::State::NONE;
 					_helper_write_request.state = Helper_request::State::NONE;
 
-					bool const eof = tresor_request.block_number() > _sb_control->max_vba();
+					bool const eof = tresor_request.vba() > _sb_control->max_vba();
 					_frontend_request.state = eof ? ST::ERROR_EOF : ST::ERROR;
 					_frontend_request.tresor_request.success(false);
 					if (_verbose) {
@@ -527,7 +527,7 @@ class Vfs_tresor::Wrapper
 				}
 
 				if (_helper_read_request.complete()) {
-					if (_frontend_request.tresor_request.read()) {
+					if (_frontend_request.tresor_request.op() == Tresor::Request::READ) {
 						char       * dst = reinterpret_cast<char*>
 							(_frontend_request.tresor_request.offset());
 						char const * src = reinterpret_cast<char const*>
@@ -549,7 +549,7 @@ class Vfs_tresor::Wrapper
 						}
 					}
 
-					if (_frontend_request.tresor_request.write()) {
+					if (_frontend_request.tresor_request.op() == Tresor::Request::WRITE) {
 						/* copy whole block first */
 						{
 							char       * dst = reinterpret_cast<char*>
@@ -572,7 +572,7 @@ class Vfs_tresor::Wrapper
 						_helper_write_request.tresor_request = Tresor::Request(
 							Tresor::Request::Operation::WRITE,
 							false,
-							_helper_read_request.tresor_request.block_number(),
+							_helper_read_request.tresor_request.vba(),
 							(uint64_t) &_helper_write_request.block_data,
 							_helper_read_request.tresor_request.count(),
 							_helper_read_request.tresor_request.key_id(),
@@ -1269,7 +1269,7 @@ class Vfs_tresor::Wrapper
 				return false;
 			}
 
-			if (_create_snapshot_request.tresor_request.valid()) {
+			if (_create_snapshot_request.tresor_request.op() != Tresor::Request::INVALID) {
 				return false;
 			}
 
@@ -1306,7 +1306,7 @@ class Vfs_tresor::Wrapper
 				return false;
 			}
 
-			if (_discard_snapshot_request.tresor_request.valid()) {
+			if (_discard_snapshot_request.tresor_request.op() != Tresor::Request::INVALID) {
 				return false;
 			}
 
