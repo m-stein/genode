@@ -40,51 +40,14 @@ Superblock_control_request(Module_id src_module_id, Module_request_id src_reques
 :
 	Module_request { src_module_id, src_request_id, SUPERBLOCK_CONTROL }, _type { type },
 	_client_req_offset { client_req_offset }, _client_req_tag { client_req_tag },
-	_nr_of_blks { nr_of_blks }, _vba { vba }, _success_ptr { (addr_t)&success },
-	_request_finished_ptr { (addr_t)&client_req_finished }, _sb_state_ptr { (addr_t)&sb_state }, _generation_ptr { (addr_t)&gen }
-{ }
-
-
-void Superblock_control_request::create(void             *buf_ptr,
-                                        size_t            buf_size,
-                                        uint64_t          src_module_id,
-                                        uint64_t          src_request_id,
-                                        size_t            req_type,
-                                        uint64_t          client_req_offset,
-                                        uint64_t          client_req_tag,
-                                        Number_of_blocks  nr_of_blks,
-                                        uint64_t          vba,
-                                        Generation       &gen)
-{
-	Superblock_control_request req { src_module_id, src_request_id };
-
-	req._type = (Type)req_type;
-	req._client_req_offset = client_req_offset;
-	req._client_req_tag = client_req_tag;
-	req._nr_of_blks = nr_of_blks;
-	req._vba = vba;
-	req._generation_ptr = (addr_t)&gen;
-
-	if (sizeof(req) > buf_size) {
-		class Bad_size_0 { };
-		throw Bad_size_0 { };
-	}
-	memcpy(buf_ptr, &req, sizeof(req));
-}
-
-
-Superblock_control_request::
-Superblock_control_request(Module_id         src_module_id,
-                           Module_request_id src_request_id)
-:
-	Module_request { src_module_id, src_request_id, SUPERBLOCK_CONTROL }
+	_nr_of_blks { nr_of_blks }, _vba { vba }, _success { success },
+	_client_req_finished { client_req_finished }, _sb_state { sb_state }, _gen { gen }
 { }
 
 
 char const *Superblock_control_request::type_to_string(Type type)
 {
 	switch (type) {
-	case INVALID: return "invalid";
 	case READ_VBA: return "read_vba";
 	case WRITE_VBA: return "write_vba";
 	case SYNC: return "sync";
@@ -109,8 +72,8 @@ void Superblock_control::_mark_req_failed(Channel    &chan,
                                           bool       &progress,
                                           char const *str)
 {
-	error("sb control: request (", chan._request, ") failed at step \"", str, "\"");
-	*(bool *)chan._request._success_ptr = false;
+	error("sb control: request (", *chan._req_ptr, ") failed at step \"", str, "\"");
+	chan._req_ptr->_success = false;
 	chan._state = Channel::COMPLETED;
 	progress = true;
 }
@@ -119,7 +82,7 @@ void Superblock_control::_mark_req_failed(Channel    &chan,
 void Superblock_control::_mark_req_successful(Channel &chan,
                                               bool    &progress)
 {
-	*(bool *)chan._request._success_ptr = true;
+	chan._req_ptr->_success = true;
 	chan._state = Channel::COMPLETED;
 	progress = true;
 }
@@ -157,7 +120,7 @@ void Superblock_control::_execute_read_vba(Channel          &channel,
 		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
 		switch (sb.state) {
 		case Superblock::REKEYING: {
-			Virtual_block_address const vba = channel._request._vba;
+			Virtual_block_address const vba = channel._req_ptr->_vba;
 
 			if (vba < sb.rekeying_vba)
 				channel._curr_key_plaintext.id = sb.current_key.id;
@@ -168,9 +131,9 @@ void Superblock_control::_execute_read_vba(Channel          &channel,
 		}
 		case Superblock::NORMAL:
 		{
-			Virtual_block_address const vba = channel._request._vba;
+			Virtual_block_address const vba = channel._req_ptr->_vba;
 			if (vba > max_vba()) {
-				*(bool *)channel._request._success_ptr = false;
+				channel._req_ptr->_success = false;
 				channel._state = Channel::State::COMPLETED;
 				progress = true;
 				return;
@@ -193,7 +156,7 @@ void Superblock_control::_execute_read_vba(Channel          &channel,
 			.op     = Channel::Generated_prim::Type::READ,
 			.succ   = false,
 			.tg     = Channel::Tag_type::TAG_SB_CTRL_VBD_RKG_READ_VBA,
-			.blk_nr = channel._request._vba,
+			.blk_nr = channel._req_ptr->_vba,
 			.idx    = job_idx
 		};
 
@@ -201,13 +164,13 @@ void Superblock_control::_execute_read_vba(Channel          &channel,
 		progress = true;
 
 		if (VERBOSE_READ_VBA)
-			log("read vba ", channel._request._vba,
+			log("read vba ", channel._req_ptr->_vba,
 			    ": snap ", (Snapshot_index)_sb.curr_snap,
 			    " key ", (Key_id)channel._curr_key_plaintext.id);
 
 		break;
 	case Channel::State::READ_VBA_AT_VBD_COMPLETED:
-		*(bool *)channel._request._success_ptr = channel._generated_prim.succ;
+		channel._req_ptr->_success = channel._generated_prim.succ;
 		channel._state = Channel::State::COMPLETED;
 		progress = true;
 
@@ -230,7 +193,7 @@ void Superblock_control::_execute_write_vba(Channel         &channel,
 		sb.snapshots.discard_disposable_snapshots(sb.last_secured_generation, curr_gen);
 		switch (sb.state) {
 		case Superblock::REKEYING: {
-			Virtual_block_address const vba = channel._request._vba;
+			Virtual_block_address const vba = channel._req_ptr->_vba;
 
 			if (vba < sb.rekeying_vba)
 				channel._curr_key_plaintext.id = sb.current_key.id;
@@ -241,9 +204,9 @@ void Superblock_control::_execute_write_vba(Channel         &channel,
 		}
 		case Superblock::NORMAL:
 		{
-			Virtual_block_address const vba = channel._request._vba;
+			Virtual_block_address const vba = channel._req_ptr->_vba;
 			if (vba > max_vba()) {
-				*(bool *)channel._request._success_ptr = false;
+				channel._req_ptr->_success = false;
 				channel._state = Channel::State::COMPLETED;
 				progress = true;
 				return;
@@ -267,7 +230,7 @@ void Superblock_control::_execute_write_vba(Channel         &channel,
 			.op     = Channel::Generated_prim::Type::WRITE,
 			.succ   = false,
 			.tg     = Channel::Tag_type::TAG_SB_CTRL_VBD_RKG_WRITE_VBA,
-			.blk_nr = channel._request._vba,
+			.blk_nr = channel._req_ptr->_vba,
 			.idx    = job_idx
 		};
 
@@ -275,7 +238,7 @@ void Superblock_control::_execute_write_vba(Channel         &channel,
 		progress = true;
 
 		if (VERBOSE_WRITE_VBA)
-			log("write vba ", channel._request._vba,
+			log("write vba ", channel._req_ptr->_vba,
 			    ": snap ", (Snapshot_index)_sb.curr_snap,
 			    " key ", (Key_id)channel._curr_key_plaintext.id,
 			    " gen ", curr_gen);
@@ -297,7 +260,7 @@ void Superblock_control::_execute_write_vba(Channel         &channel,
 			throw Superblock_write_vba_at_vbd { };
 		}
 
-		*(bool *)channel._request._success_ptr = channel._generated_prim.succ;
+		channel._req_ptr->_success = channel._generated_prim.succ;
 		channel._state = Channel::State::COMPLETED;
 		progress = true;
 
@@ -371,7 +334,7 @@ void Superblock_control::_execute_tree_ext_step(Channel          &chan,
                                                 String<4>         tree_name,
                                                 bool             &progress)
 {
-	Request &req { chan._request };
+	Request &req { *chan._req_ptr };
 	switch (chan._state) {
 	case Channel::SUBMITTED:
 	{
@@ -385,7 +348,7 @@ void Superblock_control::_execute_tree_ext_step(Channel          &chan,
 		}
 		if (_sb.state == Superblock::NORMAL) {
 
-			*(bool *)req._request_finished_ptr = false;
+			req._client_req_finished = false;
 			_sb.state = tree_ext_sb_state;
 			_sb.resizing_nr_of_pbas = req._nr_of_blks;
 			_sb.resizing_nr_of_leaves = 0;
@@ -468,7 +431,7 @@ void Superblock_control::_execute_tree_ext_step(Channel          &chan,
 		if (req._nr_of_blks == 0) {
 
 			_sb.state = Superblock::NORMAL;
-			*(bool *)req._request_finished_ptr = true;
+			req._client_req_finished = true;
 		}
 		_secure_sb_init(chan, chan_idx, progress);
 		break;
@@ -497,8 +460,7 @@ void Superblock_control::_execute_rekey_vba(Channel  &chan,
                                             uint64_t  chan_idx,
                                             bool     &progress)
 {
-	Request &req { chan._request };
-
+	Request &req { *chan._req_ptr };
 	switch (chan._state) {
 	case Channel::SUBMITTED:
 
@@ -542,7 +504,7 @@ void Superblock_control::_execute_rekey_vba(Channel  &chan,
 		if (_sb.rekeying_vba < max_nr_of_leaves - 1) {
 
 			_sb.rekeying_vba++;
-			*(bool *)req._request_finished_ptr = false;
+			req._client_req_finished = false;
 			_secure_sb_init(chan, chan_idx, progress);
 
 			if (VERBOSE_REKEYING)
@@ -574,7 +536,7 @@ void Superblock_control::_execute_rekey_vba(Channel  &chan,
 		}
 		_sb.previous_key = { };
 		_sb.state = Superblock::NORMAL;
-		*(bool *)req._request_finished_ptr = true;
+		req._client_req_finished = true;
 		_secure_sb_init(chan, chan_idx, progress);
 
 		if (VERBOSE_REKEYING)
@@ -725,7 +687,7 @@ void Superblock_control::_secure_sb_sync_blk_io_compl(Channel  &chan,
 		else
 			_sb_idx = 0;
 
-		chan._generation = _curr_gen;
+		chan._gen = _curr_gen;
 		_curr_gen++;
 		progress = true;
 }
@@ -757,7 +719,7 @@ bool Superblock_control::_secure_sb_finish(Channel &chan,
 	if (_handle_failed_generated_req(chan, progress))
 		return false;
 
-	_sb.last_secured_generation = chan._generation;
+	_sb.last_secured_generation = chan._gen;
 	return true;
 }
 
@@ -852,12 +814,12 @@ Superblock_control::_execute_initialize_rekeying(Channel           &chan,
 
 void Superblock_control::_execute_discard_snap(Channel &chan, uint64_t chan_idx, bool &progress)
 {
-	Request &req { chan._request };
+	Request &req { *chan._req_ptr };
 	switch (chan._state) {
 	case Channel::State::SUBMITTED:
 	{
 		for (Snapshot &snap : _sb.snapshots.items)
-			if (snap.valid && snap.gen == *(Generation *)req._generation_ptr && snap.keep)
+			if (snap.valid && snap.gen == req._gen && snap.keep)
 				snap.keep = false;
 
 		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
@@ -874,7 +836,7 @@ void Superblock_control::_execute_discard_snap(Channel &chan, uint64_t chan_idx,
 		if (!_secure_sb_finish(chan, progress))
 			break;
 
-		*(Generation *)req._generation_ptr = chan._generation;
+		req._gen = chan._gen;
 		_mark_req_successful(chan, progress);
 		break;
 
@@ -885,7 +847,7 @@ void Superblock_control::_execute_discard_snap(Channel &chan, uint64_t chan_idx,
 
 void Superblock_control::_execute_create_snap(Channel &chan, uint64_t chan_idx, bool &progress)
 {
-	Request &req { chan._request };
+	Request &req { *chan._req_ptr };
 	switch (chan._state) {
 	case Channel::State::SUBMITTED:
 
@@ -909,7 +871,7 @@ void Superblock_control::_execute_create_snap(Channel &chan, uint64_t chan_idx, 
 		if (!_secure_sb_finish(chan, progress))
 			break;
 
-		*(Generation *)req._generation_ptr = chan._generation;
+		req._gen = chan._gen;
 		_mark_req_successful(chan, progress);
 		break;
 
@@ -1056,7 +1018,7 @@ void Superblock_control::_execute_sync(Channel           &channel,
 		else
 			sb_idx = 0;
 
-		channel._generation = curr_gen;
+		channel._gen = curr_gen;
 		curr_gen = curr_gen + 1;
 		progress = true;
 		break;
@@ -1066,9 +1028,7 @@ void Superblock_control::_execute_sync(Channel           &channel,
 		if (!_secure_sb_finish(channel, progress))
 			break;
 
-		*(bool *)channel._request._success_ptr = true;
-		channel._state = Channel::State::COMPLETED;
-		progress = true;
+		_mark_req_successful(channel, progress);
 		break;
 
 	default:
@@ -1128,7 +1088,7 @@ void Superblock_control::_execute_initialize(Channel           &channel,
 			Generation const sb_generation { cipher.snapshots.items[snap_index].gen };
 
 			if (check_sha256_4k_hash(channel._encoded_blk, channel._hash)) {
-				channel._generation = sb_generation;
+				channel._gen = sb_generation;
 				channel._sb_idx     = channel._read_sb_idx;
 				channel._sb_found   = true;
 			}
@@ -1239,22 +1199,18 @@ void Superblock_control::_execute_initialize(Channel           &channel,
 
 			sb.current_key.value = channel._curr_key_plaintext.value;
 			sb_idx               = channel._sb_idx;
-			curr_gen             = channel._generation + 1;
+			curr_gen             = channel._gen + 1;
 
 			sb_idx = channel._sb_idx;
-			curr_gen = channel._generation + 1;
+			curr_gen = channel._gen + 1;
 
 			if (sb.free_max_level < FREE_TREE_MIN_MAX_LEVEL) {
 				class Execute_add_current_key_at_crypto_max_level_error { };
 				throw Execute_add_current_key_at_crypto_max_level_error { };
 			}
 
-			*(Superblock::State *)channel._request._sb_state_ptr = _sb.state;
-			*(bool *)channel._request._success_ptr = true;
-
-			channel._state = Channel::State::COMPLETED;
-			progress       = true;
-
+			channel._req_ptr->_sb_state = _sb.state;
+			_mark_req_successful(channel, progress);
 			break;
 		}
 
@@ -1289,14 +1245,10 @@ void Superblock_control::_execute_initialize(Channel           &channel,
 		sb.previous_key.value = channel._prev_key_plaintext.value;
 
 		sb_idx   = channel._sb_idx;
-		curr_gen = channel._generation + 1;
+		curr_gen = channel._gen + 1;
 
-		*(Superblock::State *)channel._request._sb_state_ptr = _sb.state;
-		*(bool *)channel._request._success_ptr = true;
-
-		channel._state = Channel::State::COMPLETED;
-		progress       = true;
-
+		channel._req_ptr->_sb_state = _sb.state;
+		_mark_req_successful(channel, progress);
 		break;
 	default:
 		break;
@@ -1454,7 +1406,7 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 		else
 			sb_idx = 0;
 
-		channel._generation = curr_gen;
+		channel._gen = curr_gen;
 		curr_gen = curr_gen + 1;
 
 		progress = true;
@@ -1465,8 +1417,6 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 
 		if (!_secure_sb_finish(channel, progress))
 			break;
-
-		*(bool *)channel._request._success_ptr = true;
 
 		channel._curr_key_plaintext.id = sb.current_key.id;
 
@@ -1514,11 +1464,7 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 		case Superblock::EXTENDING_VBD:
 		case Superblock::EXTENDING_FT:
 
-			*(bool *)channel._request._success_ptr = true;
-
-			channel._state = Channel::State::COMPLETED;
-			progress       = true;
-
+			_mark_req_successful(channel, progress);
 			break;
 		}
 
@@ -1529,14 +1475,8 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 			class Deinitialize_remove_previous_key_error { };
 			throw Deinitialize_remove_previous_key_error { };
 		}
-
 		sb.state = Superblock::INVALID;
-
-		*(bool *)channel._request._success_ptr = true;
-
-		channel._state = Channel::State::COMPLETED;
-		progress       = true;
-
+		_mark_req_successful(channel, progress);
 		break;
 	default:
 		break;
@@ -1550,10 +1490,10 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 	for (unsigned id = 0; id < NR_OF_CHANNELS; id++) {
 
 		Channel &chan { _channels[id] };
-		Request &req { chan._request };
-		if (req._type == Request::INVALID)
+		if (!chan.req_valid())
 			continue;
 
+		Request &req { *chan._req_ptr };
 		switch (chan._state) {
 		case Channel::CREATE_KEY_PENDING:
 
@@ -1857,11 +1797,6 @@ void Superblock_control::_drop_generated_request(Module_request &mod_req)
 		throw Exception_3 { };
 	}
 	Channel &chan { _channels[id] };
-	Request &req { chan._request };
-	if (req._type == Request::INVALID) {
-		class Exception_2 { };
-		throw Exception_2 { };
-	}
 	switch (chan._state) {
 	case Channel::CREATE_KEY_PENDING: chan._state = Channel::CREATE_KEY_IN_PROGRESS; break;
 	case Channel::ENCRYPT_CURRENT_KEY_PENDING: chan._state = Channel::ENCRYPT_CURRENT_KEY_IN_PROGRESS; break;
@@ -1897,8 +1832,10 @@ void Superblock_control::execute(bool &progress)
 	for (unsigned idx = 0; idx < NR_OF_CHANNELS; idx++) {
 
 		Channel &channel = _channels[idx];
-		Request &request { channel._request };
+		if (!channel.req_valid())
+			continue;
 
+		Request &request { *channel._req_ptr };
 		switch (request._type) {
 		case Request::READ_VBA:
 			_execute_read_vba(channel, idx, _sb, progress);
@@ -1928,8 +1865,6 @@ void Superblock_control::execute(bool &progress)
 			                       _curr_gen, progress);
 
 			break;
-		case Request::INVALID:
-			break;
 		}
 	}
 }
@@ -1943,6 +1878,7 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 		throw Exception_1 { };
 	}
 	Channel &chan { _channels[id] };
+	ASSERT(chan.req_valid());
 	switch (mod_req.dst_module_id()) {
 	case TRUST_ANCHOR:
 	{
@@ -2014,7 +1950,7 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 			chan._state = Channel::TREE_EXT_STEP_IN_TREE_COMPLETED;
 			chan._snapshots = *(gen_req.snapshots_ptr());
 			chan._pba = gen_req.pba();
-			chan._request._nr_of_blks = gen_req.nr_of_pbas();
+			chan._req_ptr->_nr_of_blks = gen_req.nr_of_pbas();
 			chan._nr_of_leaves = gen_req.nr_of_leaves();
 			break;
 		default:
@@ -2034,7 +1970,7 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 			chan._ft_max_lvl = gen_req.ft_max_lvl();
 			chan._ft_nr_of_leaves = gen_req.ft_nr_of_leaves();
 			chan._pba = gen_req.pba();
-			chan._request._nr_of_blks = gen_req.nr_of_pbas();
+			chan._req_ptr->_nr_of_blks = gen_req.nr_of_pbas();
 			chan._nr_of_leaves = gen_req.nr_of_leaves();
 			break;
 		default:
@@ -2072,65 +2008,8 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 }
 
 
-bool Superblock_control::_peek_completed_request(uint8_t *buf_ptr,
-                                                 size_t   buf_size)
+void Superblock_control_channel::_request_submitted(Module_request &req)
 {
-	for (Channel &channel : _channels) {
-		if (channel._request._type != Request::INVALID &&
-		    channel._state == Channel::COMPLETED) {
-
-			if (sizeof(channel._request) > buf_size) {
-				class Exception_1 { };
-				throw Exception_1 { };
-			}
-			memcpy(buf_ptr, &channel._request, sizeof(channel._request));
-			return true;
-		}
-	}
-	return false;
-}
-
-
-void Superblock_control::_drop_completed_request(Module_request &req)
-{
-	Module_request_id id { 0 };
-	id = req.dst_request_id();
-	if (id >= NR_OF_CHANNELS) {
-		class Exception_1 { };
-		throw Exception_1 { };
-	}
-	if (_channels[id]._request._type == Request::INVALID) {
-		class Exception_2 { };
-		throw Exception_2 { };
-	}
-	if (_channels[id]._state != Channel::COMPLETED) {
-		class Exception_3 { };
-		throw Exception_3 { };
-	}
-	_channels[id]._request._type = Request::INVALID;
-}
-
-
-bool Superblock_control::ready_to_submit_request()
-{
-	for (Channel const &channel : _channels) {
-		if (channel._request._type == Request::INVALID)
-			return true;
-	}
-	return false;
-}
-
-
-void Superblock_control::submit_request(Module_request &req)
-{
-	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
-		if (_channels[id]._request._type == Request::INVALID) {
-			req.dst_request_id(id);
-			_channels[id]._request = *static_cast<Request *>(&req);
-			_channels[id]._state = Channel::SUBMITTED;
-			return;
-		}
-	}
-	class Invalid_call { };
-	throw Invalid_call { };
+	_req_ptr = static_cast<Request *>(&req);
+	_state = SUBMITTED;
 }

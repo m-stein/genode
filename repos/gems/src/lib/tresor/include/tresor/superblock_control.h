@@ -25,59 +25,35 @@ namespace Tresor {
 	class Superblock_control_channel;
 }
 
-class Tresor::Superblock_control_request : public Module_request
+class Tresor::Superblock_control_request : Module_request, Noncopyable
 {
+	friend class Superblock_control;
+	friend class Superblock_control_channel;
+
 	public:
 
 		enum Type {
-			INVALID = 0, READ_VBA = 1, WRITE_VBA = 2, SYNC = 3, INITIALIZE = 4,
-			DEINITIALIZE = 5,
-			VBD_EXTENSION_STEP = 6,
-			FT_EXTENSION_STEP = 7,
-			CREATE_SNAPSHOT = 8,
-			DISCARD_SNAPSHOT = 9,
-			INITIALIZE_REKEYING = 10,
-			REKEY_VBA = 11
-		};
+			READ_VBA, WRITE_VBA, SYNC, INITIALIZE, DEINITIALIZE, VBD_EXTENSION_STEP,
+			FT_EXTENSION_STEP, CREATE_SNAPSHOT, DISCARD_SNAPSHOT, INITIALIZE_REKEYING,
+			REKEY_VBA };
 
 	private:
 
-		friend class Superblock_control;
-		friend class Superblock_control_channel;
-
-		Type                  _type                  { INVALID };
-		uint64_t              _client_req_offset     { 0 };
-		uint64_t              _client_req_tag        { 0 };
-		Number_of_blocks      _nr_of_blks            { 0 };
-		Virtual_block_address _vba                   { 0 };
-		addr_t                _success_ptr           { 0 };
-		addr_t                _request_finished_ptr  { 0 };
-		addr_t                _sb_state_ptr          { Superblock::INVALID };
-		addr_t                _generation_ptr        { 0 };
+		Type _type;
+		Request_offset _client_req_offset;
+		Request_tag _client_req_tag;
+		Number_of_blocks _nr_of_blks;
+		Virtual_block_address _vba;
+		bool &_success;
+		bool &_client_req_finished;
+		Superblock::State &_sb_state;
+		Generation &_gen;
 
 	public:
 
 		Superblock_control_request(Module_id, Module_request_id, Type, Request_offset,
 		                           Request_tag, Number_of_blocks, Virtual_block_address,
 		                           bool &, bool &, Superblock::State &, Generation &);
-
-		Superblock_control_request() { }
-
-		Type type() const { return _type; }
-
-		Superblock_control_request(Module_id         src_module_id,
-		                           Module_request_id src_request_id);
-
-		static void create(void             *buf_ptr,
-		                   size_t            buf_size,
-		                   uint64_t          src_module_id,
-		                   uint64_t          src_request_id,
-		                   size_t            req_type,
-		                   uint64_t          client_req_offset,
-		                   uint64_t          client_req_tag,
-		                   Number_of_blocks  nr_of_blks,
-		                   uint64_t          vba,
-		                   Generation       &gen);
 
 		static char const *type_to_string(Type type);
 
@@ -101,11 +77,13 @@ class Tresor::Superblock_control_request : public Module_request
 		}
 };
 
-class Tresor::Superblock_control_channel
+class Tresor::Superblock_control_channel : public Module_channel
 {
+	friend class Superblock_control;
+
 	private:
 
-		friend class Superblock_control;
+		using Request = Superblock_control_request;
 
 		enum State {
 			SUBMITTED,
@@ -207,29 +185,31 @@ class Tresor::Superblock_control_channel
 			uint64_t idx    { 0 };
 		};
 
-		State                      _state              { SUBMITTED };
-		Superblock_control_request _request            { };
-		Generated_prim             _generated_prim     { };
-		Key                        _key_plaintext      { };
-		Superblock                 _sb_ciphertext      { };
-		Block                      _encoded_blk        { };
-		Superblock_index           _sb_idx             { 0 };
-		bool                       _sb_found           { false };
-		Superblock_index           _read_sb_idx        { 0 };
-		Generation                 _generation         { 0 };
-		Snapshots                  _snapshots          { };
-		Hash                       _hash               { };
-		Key                        _curr_key_plaintext { };
-		Key                        _prev_key_plaintext { };
-		Physical_block_address     _pba                { 0 };
-		Number_of_blocks           _nr_of_leaves       { 0 };
-		Type_1_node                _ft_root            { };
-		Tree_level_index           _ft_max_lvl         { 0 };
-		Number_of_leaves           _ft_nr_of_leaves    { 0 };
+		State _state { SUBMITTED };
+		Generated_prim _generated_prim { };
+		Key _key_plaintext { };
+		Superblock _sb_ciphertext { };
+		Block _encoded_blk { };
+		Superblock_index _sb_idx { 0 };
+		bool _sb_found { false };
+		Superblock_index _read_sb_idx { 0 };
+		Generation _gen { INVALID_GENERATION };
+		Snapshots _snapshots { };
+		Hash _hash { };
+		Key _curr_key_plaintext { };
+		Key _prev_key_plaintext { };
+		Physical_block_address _pba { 0 };
+		Number_of_blocks _nr_of_leaves { 0 };
+		Type_1_node _ft_root { };
+		Tree_level_index _ft_max_lvl { 0 };
+		Number_of_leaves _ft_nr_of_leaves { 0 };
+		Request *_req_ptr { nullptr };
 
-	public:
+		void _generated_req_completed(State_uint) override { }
 
-		Superblock_control_request const &request() const { return _request; }
+		void _request_submitted(Module_request &) override;
+
+		bool _request_complete() override { return _state == COMPLETED; }
 };
 
 class Tresor::Superblock_control : public Module
@@ -332,15 +312,6 @@ class Tresor::Superblock_control : public Module
 		 ** Module **
 		 ************/
 
-		bool ready_to_submit_request() override;
-
-		void submit_request(Module_request &req) override;
-
-		bool _peek_completed_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_completed_request(Module_request &req) override;
-
 		void execute(bool &) override;
 
 		bool _peek_generated_request(uint8_t *buf_ptr,
@@ -349,8 +320,6 @@ class Tresor::Superblock_control : public Module
 		void _drop_generated_request(Module_request &mod_req) override;
 
 		void generated_request_complete(Module_request &req) override;
-
-		bool new_submit_request() override { return false; }
 
 	public:
 
@@ -393,6 +362,8 @@ class Tresor::Superblock_control : public Module
 
 				return Superblock_info { };
 		}
+
+		Superblock_control() { register_channels(_channels, NR_OF_CHANNELS, SUPERBLOCK_CONTROL); }
 };
 
 #endif /* _TRESOR__SUPERBLOCK_CONTROL_H_ */
