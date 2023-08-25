@@ -155,6 +155,8 @@ class Tresor::Trust_anchor : public Module
 
 		void _drop_completed_request(Module_request &req) override;
 
+		bool new_submit_request() override { return false; }
+
 	public:
 
 		Trust_anchor(Vfs::Env       &vfs_env,

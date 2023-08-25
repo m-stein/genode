@@ -322,8 +322,6 @@ class Tresor::Superblock_control : public Module
 
 		void generated_request_complete(Module_request &req) override;
 
-		bool new_submit_request() override { return true; }
-
 	public:
 
 		Virtual_block_address max_vba() const;

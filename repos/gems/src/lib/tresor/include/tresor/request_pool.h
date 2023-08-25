@@ -190,8 +190,6 @@ class Tresor::Request_pool : public Module
 		void execute(bool &) override;
 
 		Request_pool();
-
-		bool new_submit_request() override { return true; }
 };
 
 #endif /* _TRESOR__REQUEST_POOL_H_ */

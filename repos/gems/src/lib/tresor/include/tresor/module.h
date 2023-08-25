@@ -217,7 +217,7 @@ class Tresor::Module : public Interface
 
 		virtual void submit_request(Module_request &) { ASSERT_NEVER_REACHED; }
 
-		virtual bool new_submit_request() { return false; }
+		virtual bool new_submit_request() { return true; }
 
 		template <typename CHAN = Module_channel, typename FUNC>
 		void with_channel(Module_channel_id id, FUNC && func)

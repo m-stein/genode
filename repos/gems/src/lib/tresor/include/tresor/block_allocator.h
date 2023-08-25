@@ -118,6 +118,8 @@ class Tresor::Block_allocator : public Module
 
 		void _drop_completed_request(Module_request &req) override;
 
+		bool new_submit_request() override { return false; }
+
 	public:
 
 		Block_allocator(uint64_t first_block);
