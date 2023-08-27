@@ -64,8 +64,8 @@ class Tresor::Virtual_block_device_request : public Module_request
 		uint64_t               _client_req_offset       { 0 };
 		uint64_t               _client_req_tag          { 0 };
 		Generation             _last_secured_generation { INVALID_GENERATION };
-		Physical_block_address _pba                     { 0 };
-		Number_of_blocks       _nr_of_pbas              { 0 };
+		addr_t                 _pba_ptr                 { 0 };
+		addr_t                 _nr_of_pbas_ptr          { 0 };
 		addr_t                 _nr_of_leaves_ptr        { 0 };
 		addr_t                 _success_ptr             { 0 };
 
@@ -104,10 +104,10 @@ class Tresor::Virtual_block_device_request : public Module_request
 		                             Key_id prev_key_id,
 		                             Key_id curr_key_id,
 		                             Generation current_gen,
-		                             Physical_block_address pba,
+		                             Physical_block_address &pba,
 		                             bool &success,
 		                             Number_of_leaves &nr_of_leaves,
-		                             Number_of_blocks nr_of_pbas);
+		                             Number_of_blocks &nr_of_pbas);
 
 		static void create(void *buf_ptr,
 		                   size_t buf_size,
@@ -139,16 +139,10 @@ class Tresor::Virtual_block_device_request : public Module_request
 		                   Key_id prev_key_id,
 		                   Key_id curr_key_id,
 		                   Generation current_gen,
-		                   Physical_block_address pba,
+		                   Physical_block_address &pba,
 		                   bool &success,
 		                   Number_of_leaves &nr_of_leaves,
-		                   Number_of_blocks nr_of_pbas);
-
-		Physical_block_address pba() const { return _pba; }
-
-		Number_of_blocks nr_of_pbas() const { return _nr_of_pbas; }
-
-		Snapshot_index curr_snap_idx() const { return _curr_snap_idx; }
+		                   Number_of_blocks &nr_of_pbas);
 
 		static char const *type_to_string(Type type);
 

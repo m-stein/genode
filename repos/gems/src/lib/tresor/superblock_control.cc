@@ -361,6 +361,8 @@ void Superblock_control::_execute_tree_ext_step(Channel          &chan,
 				.blk_nr = 0,
 				.idx    = chan_idx
 			};
+			chan._pba = _sb.first_pba + _sb.nr_of_pbas;
+			chan._req_ptr->_nr_of_blks = _sb.resizing_nr_of_pbas;
 			chan._state = tree_ext_pending_state;
 			progress = true;
 			break;
@@ -1608,7 +1610,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 				&_sb.snapshots,
 				_sb.degree, 0, chan._curr_key_plaintext.id,
 				_curr_gen,
-				0, chan._generated_prim.succ, chan._nr_of_leaves, 0);
+				chan._pba, chan._generated_prim.succ, chan._nr_of_leaves, chan._req_ptr->_nr_of_blks);
 
 			return 1;
 
@@ -1639,7 +1641,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 				&_sb.snapshots,
 				_sb.degree, 0, chan._curr_key_plaintext.id,
 				_curr_gen,
-				0, chan._generated_prim.succ, chan._nr_of_leaves, 0);
+				chan._pba, chan._generated_prim.succ, chan._nr_of_leaves, chan._req_ptr->_nr_of_blks);
 
 			return 1;
 
@@ -1704,7 +1706,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 				_sb.previous_key.id,
 				_sb.current_key.id,
 				_curr_gen,
-				0, chan._generated_prim.succ, chan._nr_of_leaves, 0);
+				chan._pba, chan._generated_prim.succ, chan._nr_of_leaves, chan._req_ptr->_nr_of_blks);
 
 			return 1;
 
@@ -1737,8 +1739,8 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 				0,
 				0,
 				_curr_gen,
-				_sb.first_pba + _sb.nr_of_pbas, chan._generated_prim.succ, chan._nr_of_leaves,
-				_sb.resizing_nr_of_pbas);
+				chan._pba, chan._generated_prim.succ, chan._nr_of_leaves,
+				chan._req_ptr->_nr_of_blks);
 
 			return 1;
 
@@ -1757,8 +1759,8 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 				(Tree_level_index)_sb.meta_max_level,
 				(Tree_degree)_sb.meta_degree,
 				(Number_of_leaves)_sb.meta_leaves,
-				_sb.first_pba + _sb.nr_of_pbas,
-				(Number_of_blocks)_sb.resizing_nr_of_pbas);
+				chan._pba,
+				chan._req_ptr->_nr_of_blks);
 
 			return 1;
 
@@ -1914,7 +1916,6 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 	}
 	case VIRTUAL_BLOCK_DEVICE:
 	{
-		Virtual_block_device_request &gen_req { *static_cast<Virtual_block_device_request*>(&mod_req) };
 		switch (chan._state) {
 		case Channel::READ_VBA_AT_VBD_IN_PROGRESS: chan._state = Channel::READ_VBA_AT_VBD_COMPLETED; break;
 		case Channel::WRITE_VBA_AT_VBD_IN_PROGRESS:
@@ -1925,8 +1926,6 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 			break;
 		case Channel::VBD_EXT_STEP_IN_VBD_IN_PROGRESS:
 			chan._state = Channel::TREE_EXT_STEP_IN_TREE_COMPLETED;
-			chan._pba = gen_req.pba();
-			chan._req_ptr->_nr_of_blks = gen_req.nr_of_pbas();
 			break;
 		default:
 			class Exception_6 { };

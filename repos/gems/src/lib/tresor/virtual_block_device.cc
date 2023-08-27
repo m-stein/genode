@@ -58,10 +58,10 @@ Virtual_block_device_request(Module_id src_module_id,
                              Key_id prev_key_id,
                              Key_id curr_key_id,
                              Generation curr_gen,
-                             Physical_block_address pba,
+                             Physical_block_address &pba,
                              bool &success,
                              Number_of_leaves &nr_of_leaves,
-                             Number_of_blocks nr_of_pbas)
+                             Number_of_blocks &nr_of_pbas)
 :
 	Module_request { src_module_id, src_request_id, VIRTUAL_BLOCK_DEVICE },
 	_type { type },
@@ -90,8 +90,8 @@ Virtual_block_device_request(Module_id src_module_id,
 	_client_req_offset { client_req_offset },
 	_client_req_tag { client_req_tag },
 	_last_secured_generation { last_secured_generation },
-	_pba { type == VBD_EXTENSION_STEP ? pba : (Physical_block_address)INVALID_PBA },
-	_nr_of_pbas { type == VBD_EXTENSION_STEP ? nr_of_pbas : 0 },
+	_pba_ptr { (addr_t)&pba },
+	_nr_of_pbas_ptr { (addr_t)&nr_of_pbas },
 	_nr_of_leaves_ptr { (addr_t)&nr_of_leaves },
 	_success_ptr { (addr_t)&success }
 { }
@@ -139,10 +139,10 @@ void Virtual_block_device_request::create(void *buf_ptr,
                                           Key_id prev_key_id,
                                           Key_id curr_key_id,
                                           Generation current_gen,
-                                          Physical_block_address pba,
+                                          Physical_block_address &pba,
                                           bool &success,
                                           Number_of_leaves &nr_of_leaves,
-                                          Number_of_blocks nr_of_pbas)
+                                          Number_of_blocks &nr_of_pbas)
 {
 	Virtual_block_device_request req { src_module_id, src_request_id };
 	req._type = (Type)req_type;
@@ -169,8 +169,8 @@ void Virtual_block_device_request::create(void *buf_ptr,
 	req._nr_of_leaves_ptr = (addr_t)&nr_of_leaves;
 	req._prev_key_id = prev_key_id;
 	req._curr_key_id = curr_key_id;
-	req._pba = pba;
-	req._nr_of_pbas = nr_of_pbas;
+	req._pba_ptr = (addr_t)&pba;
+	req._nr_of_pbas_ptr = (addr_t)&nr_of_pbas;
 	req._snapshots_degree = snapshots_degree;
 	req._client_req_offset = client_req_offset;
 	req._client_req_tag = client_req_tag;
@@ -1399,7 +1399,7 @@ _add_new_root_lvl_to_snap_using_pba_contingent(Channel &chan)
 	}
 
 	_alloc_pba_from_resizing_contingent(
-		req._pba, req._nr_of_pbas, new_pba);
+		*(Physical_block_address *)req._pba_ptr, *(Number_of_blocks *)req._nr_of_pbas_ptr, new_pba);
 
 	snap[idx] = {
 		Hash { }, new_pba, req._curr_gen, snap[old_idx].nr_of_leaves,
@@ -1442,7 +1442,7 @@ _add_new_branch_to_snap_using_pba_contingent(Channel          &chan,
 		for (Tree_level_index lvl { 1 }; lvl < mount_at_lvl; lvl++)
 			chan._t1_blks.items[lvl] = { };
 	}
-	if (!req._nr_of_pbas)
+	if (!*(Number_of_blocks *)req._nr_of_pbas_ptr)
 		return;
 
 	/* set child PBAs of new branch */
@@ -1454,12 +1454,12 @@ _add_new_branch_to_snap_using_pba_contingent(Channel          &chan,
 
 		auto add_child_at_curr_lvl_and_child_idx = [&] () {
 
-			if (!req._nr_of_pbas)
+			if (!*(Number_of_blocks *)req._nr_of_pbas_ptr)
 				return false;
 
 			Physical_block_address child_pba;
 			_alloc_pba_from_resizing_contingent(
-				req._pba, req._nr_of_pbas, child_pba);
+				*(Physical_block_address *)req._pba_ptr, *(Number_of_blocks *)req._nr_of_pbas_ptr, child_pba);
 
 			Type_1_node &child { chan._t1_blks.items[lvl].nodes[child_idx] };
 			child = { child_pba, INITIAL_GENERATION, Hash { } };
