@@ -25,7 +25,6 @@ void Sculpt::gen_wifi_drv_start_content(Xml_generator &xml)
 
 		xml.node("vfs", [&] () {
 			gen_named_node(xml, "dir", "dev", [&] () {
-				xml.node("null", [&] () {});
 				xml.node("zero", [&] () {});
 				xml.node("log",  [&] () {});
 				xml.node("null", [&] () {});
