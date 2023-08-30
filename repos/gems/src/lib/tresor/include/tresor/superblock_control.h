@@ -86,10 +86,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 		using Request = Superblock_control_request;
 
 		enum State {
-			SUBMITTED,
-			READ_VBA_AT_VBD_PENDING,
-			READ_VBA_AT_VBD_IN_PROGRESS,
-			READ_VBA_AT_VBD_COMPLETED,
+			SUBMITTED, READ_VBA_AT_VBD_SUCCEEDED,
 			WRITE_VBA_AT_VBD_PENDING,
 			WRITE_VBA_AT_VBD_IN_PROGRESS,
 			WRITE_VBA_AT_VBD_COMPLETED,
@@ -152,7 +149,8 @@ class Tresor::Superblock_control_channel : public Module_channel
 			MAX_SB_HASH_PENDING,
 			MAX_SB_HASH_IN_PROGRESS,
 			MAX_SB_HASH_COMPLETED,
-			COMPLETED
+			COMPLETED,
+			REQ_GENERATED,
 		};
 
 		enum Tag_type {
@@ -178,11 +176,11 @@ class Tresor::Superblock_control_channel : public Module_channel
 		{
 			enum Type { READ, WRITE, SYNC };
 
-			Type     op     { READ };
-			bool     succ   { false };
-			Tag_type tg     { };
+			Type op { READ };
+			bool succ { false };
+			Tag_type tg { };
 			uint64_t blk_nr { 0 };
-			uint64_t idx    { 0 };
+			uint64_t idx { 0 };
 		};
 
 		State _state { SUBMITTED };
@@ -204,15 +202,23 @@ class Tresor::Superblock_control_channel : public Module_channel
 		Number_of_leaves _ft_nr_of_leaves { 0 };
 		Request *_req_ptr { nullptr };
 
-		void _generated_req_completed(State_uint) override { }
+		void _generated_req_completed(State_uint) override;
 
 		void _request_submitted(Module_request &) override;
 
 		bool _request_complete() override { return _state == COMPLETED; }
+
+		void _mark_req_successful(bool &);
+
+		void _mark_req_failed(bool &, char const *);
+
+		void _read_vba(Superblock_control &, bool &);
 };
 
 class Tresor::Superblock_control : public Module
 {
+	friend class Superblock_control_channel;
+
 	private:
 
 		using Request = Superblock_control_request;
@@ -220,51 +226,44 @@ class Tresor::Superblock_control : public Module
 		using Generated_prim = Channel::Generated_prim;
 		using Tag = Channel::Tag_type;
 
-		enum { NR_OF_CHANNELS = 1 };
+		enum { NUM_CHANNELS = 1 };
 
-		Superblock        _sb                       { };
-		Superblock_index _sb_idx                   { 0 };
-		Generation        _curr_gen                 { 0 };
-		Channel           _channels[NR_OF_CHANNELS] { };
-
-		void _mark_req_failed(Channel    &chan,
-		                      bool       &progress,
-		                      char const *str);
-
-		void _mark_req_successful(Channel &chan,
-		                          bool    &progress);
+		Superblock _sb { };
+		Superblock_index _sb_idx { 0 };
+		Generation _curr_gen { 0 };
+		Channel _channels[NUM_CHANNELS] { };
 
 		static char const *_state_to_step_label(Channel::State state);
 
 		bool _handle_failed_generated_req(Channel &chan,
-		                                  bool    &progress);
+		                                  bool &progress);
 
-		void _secure_sb_init(Channel  &chan,
-		                     uint64_t  chan_idx,
-		                     bool     &progress);
+		void _secure_sb_init(Channel &chan,
+		                     uint64_t chan_idx,
+		                     bool &progress);
 
-		void _secure_sb_encr_curr_key_compl(Channel  &chan,
-		                                    uint64_t  chan_idx,
-		                                    bool     &progress);
+		void _secure_sb_encr_curr_key_compl(Channel &chan,
+		                                    uint64_t chan_idx,
+		                                    bool &progress);
 
-		void _secure_sb_encr_prev_key_compl(Channel  &chan,
-		                                    uint64_t  chan_idx,
-		                                    bool     &progress);
+		void _secure_sb_encr_prev_key_compl(Channel &chan,
+		                                    uint64_t chan_idx,
+		                                    bool &progress);
 
-		void _secure_sb_sync_cache_compl(Channel  &chan,
-		                                 uint64_t  chan_idx,
-		                                 bool     &progress);
+		void _secure_sb_sync_cache_compl(Channel &chan,
+		                                 uint64_t chan_idx,
+		                                 bool &progress);
 
-		void _secure_sb_write_sb_compl(Channel  &chan,
-		                               uint64_t  chan_idx,
-		                               bool     &progress);
+		void _secure_sb_write_sb_compl(Channel &chan,
+		                               uint64_t chan_idx,
+		                               bool &progress);
 
-		void _secure_sb_sync_blk_io_compl(Channel  &chan,
-		                                  uint64_t  chan_idx,
-		                                  bool     &progress);
+		void _secure_sb_sync_blk_io_compl(Channel &chan,
+		                                  uint64_t chan_idx,
+		                                  bool &progress);
 
 		bool _secure_sb_finish(Channel &chan,
-		                       bool    &progress);
+		                       bool &progress);
 
 		void _init_sb_without_key_values(Superblock const &, Superblock &);
 
@@ -275,25 +274,22 @@ class Tresor::Superblock_control : public Module
 
 		void _execute_discard_snap(Channel &, uint64_t, bool &progress);
 
-		void _execute_tree_ext_step(Channel           &chan,
-		                            uint64_t           chan_idx,
-		                            Superblock::State  tree_ext_sb_state,
-		                            bool               tree_ext_verbose,
-		                            Tag                tree_ext_tag,
-		                            Channel::State     tree_ext_pending_state,
-		                            String<4>  tree_name,
-		                            bool              &progress);
+		void _execute_tree_ext_step(Channel &chan,
+		                            uint64_t chan_idx,
+		                            Superblock::State tree_ext_sb_state,
+		                            bool tree_ext_verbose,
+		                            Tag tree_ext_tag,
+		                            Channel::State tree_ext_pending_state,
+		                            String<4> tree_name,
+		                            bool &progress);
 
-		void _execute_rekey_vba(Channel  &chan,
-		                        uint64_t  chan_idx,
-		                        bool     &progress);
+		void _execute_rekey_vba(Channel &chan,
+		                        uint64_t chan_idx,
+		                        bool &progress);
 
-		void _execute_initialize_rekeying(Channel  &chan,
-		                                  uint64_t  chan_idx,
-		                                  bool     &progress);
-
-		void _execute_read_vba(Channel &, uint64_t const job_idx,
-		                       Superblock const &, bool &progress);
+		void _execute_initialize_rekeying(Channel &chan,
+		                                  uint64_t chan_idx,
+		                                  bool &progress);
 
 		void _execute_write_vba(Channel &, uint64_t const job_idx,
 		                        Superblock &, Generation const &, bool &progress);
@@ -313,8 +309,7 @@ class Tresor::Superblock_control : public Module
 
 		void execute(bool &) override;
 
-		bool _peek_generated_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
+		bool _peek_generated_request(uint8_t *, size_t) override;
 
 		void _drop_generated_request(Module_request &mod_req) override;
 
@@ -362,7 +357,7 @@ class Tresor::Superblock_control : public Module
 				return Superblock_info { };
 		}
 
-		Superblock_control() { register_channels(_channels, NR_OF_CHANNELS, SUPERBLOCK_CONTROL); }
+		Superblock_control() { register_channels(_channels, NUM_CHANNELS, SUPERBLOCK_CONTROL); }
 };
 
 #endif /* _TRESOR__SUPERBLOCK_CONTROL_H_ */
