@@ -1,0 +1,127 @@
+<runtime ram="64M" caps="1000" binary="init">
+
+	<requires> <timer/> <platform/> </requires>
+
+	<provides> <nic/> </provides>
+
+	<content>
+		<rom label="ld.lib.so"/>
+		<rom label="nic_uplink"/>
+		<rom label="init"/>
+		<rom label="dynamic_rom"/>
+		<rom label="report_rom"/>
+		<rom label="vfs_jitterentropy.lib.so"/>
+		<rom label="libc.lib.so"/>
+		<rom label="libm.lib.so"/>
+		<rom label="vfs.lib.so"/>
+		<rom label="libcrypto.lib.so"/>
+		<rom label="libssl.lib.so"/>
+		<rom label="wpa_driver_nl80211.lib.so"/>
+		<rom label="wpa_supplicant.lib.so"/>
+		<rom label="wifi_drv"/>
+		<rom label="pc_wifi.lib.so"/>
+		<rom label="pc_wifi_firmware.tar"/>
+	</content>
+
+	<config>
+
+		<parent-provides>
+			<service name="ROM"/>
+			<service name="PD"/>
+			<service name="RM"/>
+			<service name="CPU"/>
+			<service name="LOG"/>
+			<service name="Timer"/>
+			<service name="Platform"/>
+		</parent-provides>
+
+		<service name="Nic">
+			<default-policy> <child name="nic_uplink"/> </default-policy>
+		</service>
+
+		<start name="nic_uplink" caps="100">
+			<resource name="RAM" quantum="1M"/>
+			<provides>
+				<service name="Uplink"/>
+				<service name="Nic"/>
+			</provides>
+			<config/>
+			<route>
+				<service name="Timer"> <parent/> </service>
+				<service name="PD"> <parent/> </service>
+				<service name="ROM"> <parent/> </service>
+				<service name="LOG"> <parent/> </service>
+				<service name="CPU"> <parent/> </service>
+			</route>
+		</start>
+
+		<start name="dynamic_rom" caps="100">
+			<resource name="RAM" quantum="8M"/>
+			<provides><service name="ROM"/></provides>
+			<config verbose="yes">
+				<rom name="wifi_config">
+					<inline description="CONNECT">
+						<wifi_config connected_scan_interval="0" scan_interval="5" rfkill="no" verbose="yes" verbose_state="yes">
+						   <network ssid="" protection="WPA2" passphrase=""/>
+						</wifi_config>
+					</inline>
+					<sleep milliseconds="3600000"/>
+				</rom>
+			</config>
+			<route>
+				<service name="Timer"> <parent/> </service>
+				<service name="PD"> <parent/> </service>
+				<service name="ROM"> <parent/> </service>
+				<service name="LOG"> <parent/> </service>
+				<service name="CPU"> <parent/> </service>
+			</route>
+		</start>
+
+		<start name="report_rom" caps="100">
+			<resource name="RAM" quantum="2M"/>
+			<provides> <service name="Report"/> <service name="ROM"/> </provides>
+			<config verbose="yes"/>
+			<route>
+				<service name="PD"> <parent/> </service>
+				<service name="ROM"> <parent/> </service>
+				<service name="LOG"> <parent/> </service>
+				<service name="CPU"> <parent/> </service>
+			</route>
+		</start>
+
+		<start name="wifi_drv" caps="300">
+			<resource name="RAM" quantum="32M"/>
+			<config ld_verbose="yes">
+				<report mac_address="true"/>
+				<vfs>
+					<dir name="dev">
+						<zero/> <null/> <log/>
+						<jitterentropy name="random"/>
+						<jitterentropy name="urandom"/>
+						<inline name="rtc">2018-01-01 00:01</inline>
+					</dir>
+					<dir name="firmware"><tar name="wifi_firmware.tar"/></dir>
+				</vfs>
+				<libc stdout="/dev/log" stderr="/dev/log" rtc="/dev/rtc"/>
+			</config>
+			<route>
+				<service name="Uplink"> <child name="nic_uplink"/> </service>
+				<service name="Platform"> <parent label="wifi"/> </service>
+				<service name="Report" label="accesspoints"> <child name="report_rom"/> </service>
+				<service name="Report" label="state"> <child name="state_report_rom"/> </service>
+				<service name="Report" label="devices"> <child name="report_rom"/> </service>
+				<service name="ROM" label="wifi_config"> <child name="dynamic_rom"/> </service>
+				<service name="ROM" label="wifi.lib.so"> <parent label="pc_wifi.lib.so"/> </service>
+				<service name="ROM" label="wifi_firmware.tar"> <parent label="pc_wifi_firmware.tar"/> </service>
+				<service name="Timer"> <parent/> </service>
+				<service name="Rtc"> <parent/> </service>
+				<service name="PD"> <parent/> </service>
+				<service name="ROM"> <parent/> </service>
+				<service name="LOG"> <parent/> </service>
+				<service name="CPU"> <parent/> </service>
+			</route>
+		</start>
+
+	</config>
+
+</runtime>
