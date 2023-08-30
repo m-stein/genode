@@ -1,0 +1,6 @@
+<launcher name="pc_wifi" pkg="pc_wifi_uplink">
+	<route>
+		<service name="Timer"> <parent/> </service>
+		<service name="Platform"> <parent label="wifi"/> </service>
+	</route>
+</launcher>
