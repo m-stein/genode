@@ -10,17 +10,38 @@
 		<rom label="init"/>
 		<rom label="dynamic_rom"/>
 		<rom label="report_rom"/>
-		<rom label="vfs_jitterentropy.lib.so"/>
+		<rom label="pc_wifi_drv"/>
+		<rom label="libcrypto.lib.so"/>
+		<rom label="vfs.lib.so"/>
 		<rom label="libc.lib.so"/>
 		<rom label="libm.lib.so"/>
-		<rom label="vfs.lib.so"/>
-		<rom label="libcrypto.lib.so"/>
+		<rom label="vfs_jitterentropy.lib.so"/>
+		<rom label="vfs_wifi.lib.so"/>
 		<rom label="libssl.lib.so"/>
+		<rom label="wifi.lib.so"/>
 		<rom label="wpa_driver_nl80211.lib.so"/>
 		<rom label="wpa_supplicant.lib.so"/>
-		<rom label="wifi_drv"/>
-		<rom label="pc_wifi.lib.so"/>
-		<rom label="pc_wifi_firmware.tar"/>
+		<rom label="iwlwifi-1000-5.ucode"/>
+		<rom label="iwlwifi-3160-17.ucode"/>
+		<rom label="iwlwifi-5000-5.ucode"/>
+		<rom label="iwlwifi-6000-4.ucode"/>
+		<rom label="iwlwifi-6000g2a-6.ucode"/>
+		<rom label="iwlwifi-6000g2b-6.ucode"/>
+		<rom label="iwlwifi-7260-17.ucode"/>
+		<rom label="iwlwifi-7265-17.ucode"/>
+		<rom label="iwlwifi-7265D-29.ucode"/>
+		<rom label="iwlwifi-8000C-36.ucode"/>
+		<rom label="iwlwifi-8265-36.ucode"/>
+		<rom label="iwlwifi-9000-pu-b0-jf-b0-46.ucode"/>
+		<rom label="iwlwifi-9260-th-b0-jf-b0-46.ucode"/>
+		<rom label="iwlwifi-QuZ-a0-hr-b0-68.ucode"/>
+		<rom label="iwlwifi-so-a0-hr-b0-68.ucode"/>
+		<rom label="iwlwifi-so-a0-gf-a0-68.ucode"/>
+		<rom label="iwlwifi-so-a0-gf-a0.pnvm"/>
+		<rom label="iwlwifi-ty-a0-gf-a0-68.ucode"/>
+		<rom label="iwlwifi-ty-a0-gf-a0.pnvm"/>
+		<rom label="regulatory.db"/>
+		<rom label="regulatory.db.p7s"/>
 	</content>
 
 	<config>
@@ -62,7 +83,7 @@
 				<rom name="wifi_config">
 					<inline description="CONNECT">
 						<wifi_config connected_scan_interval="0" scan_interval="5" rfkill="no" verbose="yes" verbose_state="yes">
-						   <network ssid="manufaktur5" protection="WPA2" passphrase="GenodeLabsEnter"/>
+						   <network ssid="" protection="WPA2" passphrase=""/>
 						</wifi_config>
 					</inline>
 					<sleep milliseconds="3600000"/>
@@ -89,34 +110,30 @@
 			</route>
 		</start>
 
-		<start name="wifi_drv" caps="300">
+		<start name="pc_wifi_drv" caps="300">
 			<resource name="RAM" quantum="32M"/>
 			<config ld_verbose="yes">
 				<report mac_address="true"/>
 				<vfs>
 					<dir name="dev">
-						<zero/> <null/> <log/>
+						<zero/> <null/> <log/> <wifi/>
 						<jitterentropy name="random"/>
 						<jitterentropy name="urandom"/>
 						<inline name="rtc">2018-01-01 00:01</inline>
 					</dir>
-					<dir name="firmware"><tar name="wifi_firmware.tar"/></dir>
 				</vfs>
 				<libc stdout="/dev/log" stderr="/dev/log" rtc="/dev/rtc"/>
 			</config>
 			<route>
 				<service name="Uplink"> <child name="nic_uplink"/> </service>
 				<service name="Platform"> <parent label="wifi"/> </service>
-				<service name="Report" label="accesspoints"> <child name="report_rom"/> </service>
-				<service name="Report" label="state"> <child name="state_report_rom"/> </service>
-				<service name="Report" label="devices"> <child name="report_rom"/> </service>
+				<service name="Report"> <child name="report_rom"/> </service>
 				<service name="ROM" label="wifi_config"> <child name="dynamic_rom"/> </service>
-				<service name="ROM" label="wifi.lib.so"> <parent label="pc_wifi.lib.so"/> </service>
-				<service name="ROM" label="wifi_firmware.tar"> <parent label="pc_wifi_firmware.tar"/> </service>
+				<service name="ROM"> <parent/> </service>
 				<service name="Timer"> <parent/> </service>
 				<service name="Rtc"> <parent/> </service>
 				<service name="PD"> <parent/> </service>
-				<service name="ROM"> <parent/> </service>
+				<service name="RM"> <parent/> </service>
 				<service name="LOG"> <parent/> </service>
 				<service name="CPU"> <parent/> </service>
 			</route>

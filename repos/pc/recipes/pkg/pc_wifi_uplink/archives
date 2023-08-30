@@ -1,5 +1,5 @@
 _/src/nic_uplink
-_/pkg/pc_wifi
+_/pkg/wifi
 _/src/report_rom
 _/src/dynamic_rom
 _/src/init
