@@ -7,7 +7,7 @@
 	<content>
 		<rom label="ld.lib.so"/>
 		<rom label="nic_uplink"/>
-		<rom label="pc_nic_drv"/>
+		<rom label="ipxe_nic_drv"/>
 		<rom label="init"/>
 	</content>
 
@@ -43,7 +43,7 @@
 			</route>
 		</start>
 
-		<start name="nic_drv" caps="300">
+		<start name="ipxe_nic_drv" caps="300">
 			<binary name="pc_nic_drv"/>
 			<resource name="RAM" quantum="20M"/>
 			<resource name="CPU" quantum="10"/>
@@ -58,7 +58,6 @@
 				<service name="Timer"> <parent/> </service>
 				<service name="Platform"> <parent label="nic"/> </service>
 			</route>
-			<config> <report mac_address="yes"/> </config>
 		</start>
 
 	</config>

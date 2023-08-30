@@ -1,0 +1,4 @@
+<launcher pkg="system_clock-pc">
+	<service name="IRQ"> <parent/> </service>
+	<service name="IO_PORT"> <parent/> </service>
+</launcher>
