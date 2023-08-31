@@ -387,9 +387,9 @@ class Command : public Module_channel
 
 		enum Type {
 			INVALID, REQUEST, TRUST_ANCHOR, BENCHMARK, CONSTRUCT, DESTRUCT, INITIALIZE,
-			CHECK, LIST_SNAPSHOTS, LOG };
+			CHECK, CHECK_SNAPSHOTS, LOG };
 
-		enum State { PENDING, IN_PROGRESS, CREATE_SNAP_COMPLETED, COMPLETED };
+		enum State { PENDING, IN_PROGRESS, CREATE_SNAP_COMPLETED, DISCARD_SNAP_COMPLETED, COMPLETED };
 
 	private:
 
@@ -434,7 +434,7 @@ class Command : public Module_channel
 			case CONSTRUCT: return "construct";
 			case DESTRUCT: return "destruct";
 			case CHECK: return "check";
-			case LIST_SNAPSHOTS: return "list_snapshots";
+			case CHECK_SNAPSHOTS: return "check_snapshots";
 			case LOG: return "log";
 			}
 			return "?";
@@ -449,7 +449,7 @@ class Command : public Module_channel
 			if (str == "construct") { return CONSTRUCT; }
 			if (str == "destruct") { return DESTRUCT; }
 			if (str == "check") { return CHECK; }
-			if (str == "list-snapshots") { return LIST_SNAPSHOTS; }
+			if (str == "check-snapshots") { return CHECK_SNAPSHOTS; }
 			if (str == "log") { return LOG; }
 			ASSERT_NEVER_REACHED;
 		}
@@ -485,7 +485,7 @@ class Command : public Module_channel
 			case DESTRUCT: return true;
 			case CHECK: return true;
 			case TRUST_ANCHOR: return true;
-			case LIST_SNAPSHOTS: return true;
+			case CHECK_SNAPSHOTS: return true;
 			case LOG: return true;
 			case REQUEST: return _request_node->sync();
 			case INVALID: break;
@@ -506,7 +506,7 @@ class Command : public Module_channel
 			case CHECK: break;
 			case CONSTRUCT: break;
 			case DESTRUCT: break;
-			case LIST_SNAPSHOTS: break;
+			case CHECK_SNAPSHOTS: break;
 			}
 			Genode::print(out, " succ=", _success);
 			if (has_attr_data_mismatch())
@@ -545,50 +545,38 @@ class Snapshot_reference : public Genode::Avl_node<Snapshot_reference>
 
 		Snapshot_reference(Snapshot_id id, Generation gen) : _id { id }, _gen { gen } { }
 
-		Snapshot_id id() const { return _id; }
-		Generation gen() const { return _gen; }
-
-		template <typename HANDLE_MATCH_FN, typename HANDLE_NO_MATCH_FN>
-		void find(Snapshot_id const id,
-		          HANDLE_MATCH_FN && handle_match,
-		          HANDLE_NO_MATCH_FN && handle_no_match) const
+		template <typename FUNC>
+		void with_ref(Snapshot_id id, FUNC && func) const
 		{
 			if (id != _id) {
 				Snapshot_reference *child_ptr { Avl_node<Snapshot_reference>::child(id > _id) };
 				if (child_ptr)
-					child_ptr->find(id, handle_match, handle_no_match);
+					child_ptr->with_ref(id, func);
 				else
-					handle_no_match();
+					ASSERT_NEVER_REACHED;
 			} else
-				handle_match(*this);
+				func(*this);
 		}
 
-		void print(Genode::Output &out) const
-		{
-			Genode::print(out, " id ", _id, " gen ", _gen);
-		}
+		void print(Genode::Output &out) const { Genode::print(out, "id ", _id, " gen ", _gen); }
 
-		bool higher(Snapshot_reference *other_ptr)
-		{
-			return other_ptr->_id > _id;
-		}
+		bool higher(Snapshot_reference *other_ptr) { return other_ptr->_id > _id; }
+
+		Snapshot_id id() const { return _id; }
+		Generation gen() const { return _gen; }
 };
 
 
-class Snapshot_reference_tree : public Avl_tree<Snapshot_reference>
+struct Snapshot_reference_tree : public Avl_tree<Snapshot_reference>
 {
-	public:
-
-		template <typename HANDLE_MATCH_FN, typename HANDLE_NO_MATCH_FN>
-		void find(Snapshot_id const snap_id,
-		          HANDLE_MATCH_FN && handle_match,
-		          HANDLE_NO_MATCH_FN && handle_no_match) const
-		{
-			if (first() != nullptr)
-				first()->find(snap_id, handle_match, handle_no_match);
-			else
-				handle_no_match();
-		}
+	template <typename FUNC>
+	void with_ref(Snapshot_id id, FUNC && func) const
+	{
+		if (first())
+			first()->with_ref(id, func);
+		else
+			ASSERT_NEVER_REACHED;
+	}
 };
 
 
@@ -791,6 +779,7 @@ class Tresor_tester::Main
 						}
 					case Command::INITIALIZE:
 						{
+							reset_snap_refs();
 							Tresor_init::Configuration const &cfg { cmd.initialize() };
 							Sb_initializer_request::create(
 								buf_ptr, buf_size, COMMAND_POOL, cmd.id(),
@@ -850,6 +839,13 @@ class Tresor_tester::Main
 
 		bool new_submit_request() override { return false; }
 
+		void _remove_snap_ref(Snapshot_reference &ref)
+		{
+			_snap_refs.remove(&ref);
+			ref.~Snapshot_reference();
+			destroy(_heap, &ref);
+		}
+
 	public:
 
 		Main(Genode::Env &env) : _env { env }
@@ -901,17 +897,37 @@ class Tresor_tester::Main
 		Generation snap_id_to_gen(Snapshot_id id)
 		{
 			Generation gen { INVALID_GENERATION };
-			_snap_refs.find(id, [&] (Snapshot_reference const &snap_ref)
-			{
-				gen = snap_ref.gen();
-			},
-			[&] () { ASSERT_NEVER_REACHED; });
+			_snap_refs.with_ref(id, [&] (Snapshot_reference const &ref) {
+				gen = ref.gen(); });
+
 			return gen;
 		}
 
 		void add_snap_ref(Snapshot_id id, Generation gen)
 		{
 			_snap_refs.insert(new (_heap) Snapshot_reference { id, gen });
+		}
+
+		void remove_snap_refs_with_same_gen(Snapshot_id id)
+		{
+			Generation gen { snap_id_to_gen(id) };
+			while (1) {
+				Snapshot_reference *ref_ptr { nullptr };
+				_snap_refs.for_each([&] (Snapshot_reference const &ref) {
+					if (!ref_ptr && ref.gen() == gen)
+						ref_ptr = const_cast<Snapshot_reference *>(&ref);
+				});
+				if (ref_ptr)
+					_remove_snap_ref(*ref_ptr);
+				else
+					break;
+			}
+		}
+
+		void reset_snap_refs()
+		{
+			while (_snap_refs.first())
+				_remove_snap_ref(*_snap_refs.first());
 		}
 
 		void generate_blk_data(uint64_t tresor_req_tag,
@@ -984,20 +1000,36 @@ class Tresor_tester::Main
 			_free_tree.destruct();
 		}
 
-		void list_snapshots(Module_channel_id cmd_id)
+		void check_snapshots(Command &cmd, bool &progress)
 		{
-			Snapshot_generations generations;
-			_sb_control->snapshot_generations(generations);
-			unsigned snap_nr { 0 };
-			log("");
-			log("List snapshots (command ID ", cmd_id, ")");
-			for (Generation const &gen : generations.items) {
-				if (gen != INVALID_GENERATION) {
-					log("   Snapshot #", snap_nr, " is generation ", gen);
-					snap_nr++;
+			mark_command_in_progress(cmd.id());
+			bool success { true };
+			Snapshot_generations snap_gens;
+			_sb_control->snapshot_generations(snap_gens);
+			bool snap_gen_ok[MAX_NR_OF_SNAPSHOTS] { false };
+			_snap_refs.for_each([&] (Snapshot_reference const &snap_ref) {
+				bool snap_ref_ok { false };
+				for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++) {
+					if (snap_gens.items[idx] == snap_ref.gen()) {
+						snap_ref_ok = true;
+						snap_gen_ok[idx] = true;
+					}
+				}
+				if (!snap_ref_ok) {
+					warning("snap (", snap_ref, ") not known to tresor");
+					_nr_of_errors++;
+					success = false;
+				}
+			});
+			for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++) {
+				if (snap_gens.items[idx] != INVALID_GENERATION && !snap_gen_ok[idx]) {
+					warning("snap (idx ", idx, " gen ", snap_gens.items[idx], ") not known to tester");
+					_nr_of_errors++;
+					success = false;
 				}
 			}
-			log("");
+			mark_command_completed(cmd.id(), success);
+			progress = true;
 		}
 
 		Benchmark &benchmark() { return _benchmark; }
@@ -1066,22 +1098,25 @@ void Command::_generated_req_completed(State_uint state_uint)
 	if (state_uint == CREATE_SNAP_COMPLETED)
 		_main.add_snap_ref(request_node().snap_id(), _gen);
 
+	if (state_uint == DISCARD_SNAP_COMPLETED)
+		_main.remove_snap_refs_with_same_gen(request_node().snap_id());
+
 	_main.mark_command_completed(id(), _success);
 }
 
 
 void Command::execute(bool &progress)
 {
-	bool executed_local_cmd { false };
 	switch (type()) {
 	case REQUEST:
 		{
 			Request_node node { request_node() };
 			State state { COMPLETED };
 			_gen = INVALID_GENERATION;
-			if (node.op() == Request::DISCARD_SNAPSHOT)
+			if (node.op() == Request::DISCARD_SNAPSHOT) {
 				_gen = _main.snap_id_to_gen(node.snap_id());
-
+				state = DISCARD_SNAP_COMPLETED;
+			}
 			if (node.op() == Request::CREATE_SNAPSHOT)
 				state = CREATE_SNAP_COMPLETED;
 
@@ -1094,30 +1129,30 @@ void Command::execute(bool &progress)
 		}
 	case LOG:
 		log("\n", log_node().string(), "\n");
-		executed_local_cmd = true;
-		break;
-	case BENCHMARK:
-		_main.benchmark().execute_cmd(benchmark_node());
-		executed_local_cmd = true;
-		break;
-	case CONSTRUCT:
-		_main.construct_tresor_modules();
-		executed_local_cmd = true;
-		break;
-	case DESTRUCT:
-		_main.destruct_tresor_modules();
-		executed_local_cmd = true;
-		break;
-	case LIST_SNAPSHOTS:
-		_main.list_snapshots(id());
-		executed_local_cmd = true;
-		break;
-	default: break;
-	}
-	if (executed_local_cmd) {
 		_main.mark_command_in_progress(id());
 		_main.mark_command_completed(id(), true);
 		progress = true;
+		break;
+	case BENCHMARK:
+		_main.benchmark().execute_cmd(benchmark_node());
+		_main.mark_command_in_progress(id());
+		_main.mark_command_completed(id(), true);
+		progress = true;
+		break;
+	case CONSTRUCT:
+		_main.construct_tresor_modules();
+		_main.mark_command_in_progress(id());
+		_main.mark_command_completed(id(), true);
+		progress = true;
+		break;
+	case DESTRUCT:
+		_main.destruct_tresor_modules();
+		_main.mark_command_in_progress(id());
+		_main.mark_command_completed(id(), true);
+		progress = true;
+		break;
+	case CHECK_SNAPSHOTS: _main.check_snapshots(*this, progress); break;
+	default: break;
 	}
 }
 
