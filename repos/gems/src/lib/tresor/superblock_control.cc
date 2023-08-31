@@ -889,9 +889,14 @@ void Superblock_control::_execute_create_snap(Channel &chan, uint64_t chan_idx, 
 	switch (chan._state) {
 	case Channel::State::SUBMITTED:
 
-		_sb.snapshots.items[_sb.curr_snap].keep = true;
-		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
-		_secure_sb_init(chan, chan_idx, progress);
+		if (_sb.snapshots.items[_sb.curr_snap].keep) {
+			req._gen = _sb.snapshots.items[_sb.curr_snap].gen;
+			_mark_req_successful(chan, progress);
+		} else {
+			_sb.snapshots.items[_sb.curr_snap].keep = true;
+			_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
+			_secure_sb_init(chan, chan_idx, progress);
+		}
 		break;
 
 	case Channel::ENCRYPT_CURRENT_KEY_COMPLETED: _secure_sb_encr_curr_key_compl(chan, chan_idx, progress); break;
