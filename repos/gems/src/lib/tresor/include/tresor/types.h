@@ -612,7 +612,7 @@ struct Tresor::Snapshots
 
 	void print(Output &out) const
 	{
-		bool first { false };
+		bool first { true };
 		for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++) {
 
 			if (!items[idx].valid)
