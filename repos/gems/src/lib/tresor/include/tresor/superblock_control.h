@@ -17,6 +17,7 @@
 /* tresor includes */
 #include <tresor/types.h>
 #include <tresor/module.h>
+#include <tresor/virtual_block_device.h>
 
 namespace Tresor {
 
@@ -86,10 +87,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 		using Request = Superblock_control_request;
 
 		enum State {
-			SUBMITTED, READ_VBA_AT_VBD_SUCCEEDED,
-			WRITE_VBA_AT_VBD_PENDING,
-			WRITE_VBA_AT_VBD_IN_PROGRESS,
-			WRITE_VBA_AT_VBD_COMPLETED,
+			SUBMITTED, ACCESS_VBA_AT_VBD_SUCCEEDED,
 			READ_SB_PENDING,
 			READ_SB_IN_PROGRESS,
 			READ_SB_COMPLETED,
@@ -212,7 +210,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 		void _mark_req_failed(bool &, char const *);
 
-		void _read_vba(Superblock_control &, bool &);
+		void _access_vba(Superblock_control &, Virtual_block_device_request::Type, bool &);
 };
 
 class Tresor::Superblock_control : public Module
@@ -290,9 +288,6 @@ class Tresor::Superblock_control : public Module
 		void _execute_initialize_rekeying(Channel &chan,
 		                                  uint64_t chan_idx,
 		                                  bool &progress);
-
-		void _execute_write_vba(Channel &, uint64_t const job_idx,
-		                        Superblock &, Generation const &, bool &progress);
 
 		void _execute_initialize(Channel &, uint64_t const job_idx,
 		                         Superblock &, Superblock_index &,
