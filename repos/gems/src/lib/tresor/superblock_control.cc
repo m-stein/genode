@@ -355,31 +355,26 @@ void Superblock_control::_execute_rekey_vba(Channel  &chan,
 			chan._mark_req_failed(progress, "check superblock state");
 			break;
 		}
-		chan._generated_prim = {
-			.op     = Generated_prim::READ,
-			.succ   = false,
-			.tg     = Channel::TAG_SB_CTRL_VBD_RKG_REKEY_VBA,
-			.blk_nr = _sb.rekeying_vba,
-			.idx    = chan_idx
-		};
-		chan._state = Channel::REKEY_VBA_IN_VBD_PENDING;
-		progress = true;
+		chan.generate_req<Virtual_block_device_request>(
+			Channel::REKEY_VBA_AT_VBD_SUCCEEDED, progress,
+			Virtual_block_device_request::REKEY_VBA, req._client_req_offset,
+			req._client_req_tag, _sb.last_secured_generation, _sb.free_number,
+			_sb.free_gen, _sb.free_hash, _sb.free_max_level, _sb.free_degree,
+			_sb.free_leaves, _sb.meta_number, _sb.meta_gen, _sb.meta_hash,
+			_sb.meta_max_level, _sb.meta_degree, _sb.meta_leaves, _sb.degree, max_vba(),
+			_sb.state == Superblock::REKEYING, _sb.rekeying_vba, _sb.curr_snap,
+			_sb.snapshots, _sb.degree, _sb.previous_key.id, _sb.current_key.id, _curr_gen,
+			chan._pba, chan._generated_prim.succ, chan._nr_of_leaves, req._nr_of_blks);
 
+		chan._state = Channel::REQ_GENERATED;
 		if (VERBOSE_REKEYING) {
-			log("rekey vba ", (Virtual_block_address)_sb.rekeying_vba, ":");
-			log("  update vbd: keys ", (Key_id)_sb.previous_key.id,
-			    ",", (Key_id)_sb.current_key.id,
-			    " generations ", (Generation)_sb.last_secured_generation,
-			    ",", _curr_gen);
+			log("rekey vba ", _sb.rekeying_vba, ":");
+			log("  update vbd: keys ", _sb.previous_key.id, ",", _sb.current_key.id, " generations ", _sb.last_secured_generation, ",", _curr_gen);
 		}
 		break;
 
-	case Channel::REKEY_VBA_IN_VBD_COMPLETED:
+	case Channel::REKEY_VBA_AT_VBD_SUCCEEDED:
 	{
-		if (!chan._generated_prim.succ) {
-			chan._mark_req_failed(progress, "rekey vba at vbd");
-			break;
-		}
 		Number_of_leaves max_nr_of_leaves { 0 };
 
 		for (Snapshot const &snap : _sb.snapshots.items) {
@@ -1517,39 +1512,6 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 
 			return true;
 
-		case Channel::REKEY_VBA_IN_VBD_PENDING:
-
-			Virtual_block_device_request::create(
-				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Virtual_block_device_request::REKEY_VBA,
-				req._client_req_offset, req._client_req_tag,
-				_sb.last_secured_generation,
-				(addr_t)&_sb.free_number,
-				(addr_t)&_sb.free_gen,
-				(addr_t)&_sb.free_hash,
-				_sb.free_max_level,
-				_sb.free_degree,
-				_sb.free_leaves,
-				(addr_t)&_sb.meta_number,
-				(addr_t)&_sb.meta_gen,
-				(addr_t)&_sb.meta_hash,
-				_sb.meta_max_level,
-				_sb.meta_degree,
-				_sb.meta_leaves,
-				_sb.degree,
-				max_vba(),
-				_sb.state == Superblock::REKEYING ? 1 : 0,
-				_sb.rekeying_vba,
-				_sb.curr_snap,
-				&_sb.snapshots,
-				_sb.degree,
-				_sb.previous_key.id,
-				_sb.current_key.id,
-				_curr_gen,
-				chan._pba, chan._generated_prim.succ, chan._nr_of_leaves, chan._req_ptr->_nr_of_blks);
-
-			return 1;
-
 		case Channel::VBD_EXT_STEP_IN_VBD_PENDING:
 
 			Virtual_block_device_request::create(
@@ -1637,7 +1599,6 @@ void Superblock_control::_drop_generated_request(Module_request &mod_req)
 	case Channel::SYNC_BLK_IO_PENDING: chan._state = Channel::SYNC_BLK_IO_IN_PROGRESS; break;
 	case Channel::SYNC_CACHE_PENDING: chan._state = Channel::SYNC_CACHE_IN_PROGRESS; break;
 	case Channel::WRITE_SB_PENDING: chan._state = Channel::WRITE_SB_IN_PROGRESS; break;
-	case Channel::REKEY_VBA_IN_VBD_PENDING: chan._state = Channel::REKEY_VBA_IN_VBD_IN_PROGRESS; break;
 	case Channel::VBD_EXT_STEP_IN_VBD_PENDING: chan._state = Channel::VBD_EXT_STEP_IN_VBD_IN_PROGRESS; break;
 	case Channel::FT_EXT_STEP_IN_FT_PENDING: chan._state = Channel::FT_EXT_STEP_IN_FT_IN_PROGRESS; break;
 	default:
@@ -1748,9 +1709,6 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 	case VIRTUAL_BLOCK_DEVICE:
 	{
 		switch (chan._state) {
-		case Channel::REKEY_VBA_IN_VBD_IN_PROGRESS:
-			chan._state = Channel::REKEY_VBA_IN_VBD_COMPLETED;
-			break;
 		case Channel::VBD_EXT_STEP_IN_VBD_IN_PROGRESS:
 			chan._state = Channel::TREE_EXT_STEP_IN_TREE_COMPLETED;
 			break;
