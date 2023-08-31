@@ -107,7 +107,7 @@ void Sb_initializer::_populate_sb_slot(Channel &channel,
 	sb.resizing_nr_of_leaves   = 0;
 	memset(&sb.previous_key, 0, sizeof(sb.previous_key));
 	sb.current_key             = channel._key_cipher;
-	sb.curr_snap               = 0;
+	sb.curr_snap_idx           = 0;
 	sb.degree                  = req._vbd_max_child_idx;
 	sb.first_pba               = first;
 	sb.nr_of_pbas              = num;

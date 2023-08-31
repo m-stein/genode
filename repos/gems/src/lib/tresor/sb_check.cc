@@ -109,9 +109,7 @@ void Sb_check::_execute_check(Channel &chan,
 			if (_handle_failed_generated_req(chan, progress))
 				break;
 
-			Snapshot &snap {
-				chan._sb_slot.snapshots.items[chan._sb_slot.curr_snap] };
-
+			Snapshot &snap { chan._sb_slot.curr_snap() };
 			if (chan._sb_slot.valid() &&
 			    snap.gen > chan._highest_gen) {
 

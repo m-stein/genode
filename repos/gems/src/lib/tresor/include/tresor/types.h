@@ -672,9 +672,11 @@ struct Tresor::Snapshots
 		throw Exception_1 { };
 	}
 
-	Snapshot_index
-	idx_of_invalid_or_lowest_gen_evictable_snap(Generation curr_gen,
-	                                            Generation last_secured_gen) const
+	/**
+	 * Returns the index of an unused slot or, if all are used, of the slot
+	 * that contains the lowest-generation evictable snapshot (no "keep" flag).
+	 */
+	Snapshot_index alloc_idx(Generation curr_gen, Generation last_secured_gen) const
 	{
 		Snapshot_index result { INVALID_SNAP_IDX };
 		for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx ++) {
@@ -694,11 +696,8 @@ struct Tresor::Snapshots
 
 			result = idx;
 		}
-		if (result != INVALID_SNAP_IDX)
-			return result;
-
-		class Exception_1 { };
-		throw Exception_1 { };
+		ASSERT(result != INVALID_SNAP_IDX);
+		return result;
 	}
 };
 
@@ -718,7 +717,7 @@ struct Tresor::Superblock
 	Key                    current_key             { };                 // offset 61
 	Snapshots              snapshots               { };                 // offset 97
 	Generation             last_secured_generation { };                 // offset 3553
-	Snapshot_index         curr_snap               { };                 // offset 3561
+	Snapshot_index         curr_snap_idx           { };                 // offset 3561
 	Tree_degree            degree                  { TREE_MIN_DEGREE }; // offset 3565
 	Physical_block_address first_pba               { 0 };               // offset 3569
 	Number_of_blocks       nr_of_pbas              { 0 };               // offset 3577
@@ -773,7 +772,7 @@ struct Tresor::Superblock
 		current_key.decode_from_blk(scanner);
 		snapshots.decode_from_blk(scanner);
 		scanner.fetch(last_secured_generation);
-		scanner.fetch(curr_snap);
+		scanner.fetch(curr_snap_idx);
 		scanner.fetch(degree);
 		scanner.fetch(first_pba);
 		scanner.fetch(nr_of_pbas);
@@ -803,7 +802,7 @@ struct Tresor::Superblock
 		current_key.encode_to_blk(generator);
 		snapshots.encode_to_blk(generator);
 		generator.append(last_secured_generation);
-		generator.append(curr_snap);
+		generator.append(curr_snap_idx);
 		generator.append(degree);
 		generator.append(first_pba);
 		generator.append(nr_of_pbas);
@@ -838,7 +837,7 @@ struct Tresor::Superblock
 	{
 		Genode::print(
 			out, "state ", state_to_str(state), " last_secured_gen ",
-			last_secured_generation, " curr_snap ", curr_snap, " degr ",
+			last_secured_generation, " curr_snap ", curr_snap_idx, " degr ",
 			degree, " first_pba ", first_pba, " pbas ", nr_of_pbas,
 			" snapshots");
 
@@ -846,6 +845,9 @@ struct Tresor::Superblock
 			if (snap.valid)
 				Genode::print(out, " ", snap);
 	}
+
+	Snapshot &curr_snap() { return snapshots.items[curr_snap_idx]; }
+	Snapshot const &curr_snap() const { return snapshots.items[curr_snap_idx]; }
 };
 
 
