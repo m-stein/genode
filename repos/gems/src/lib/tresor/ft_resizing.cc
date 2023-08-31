@@ -28,38 +28,40 @@ using namespace Tresor;
  *************************/
 
 Ft_resizing_request::
-Ft_resizing_request(uint64_t               src_module_id,
-                    uint64_t               src_request_id,
-                    Type                   type,
-                    Generation             curr_gen,
-                    Type_1_node            ft_root,
-                    Tree_level_index       ft_max_lvl,
-                    Number_of_leaves       ft_nr_of_leaves,
-                    Tree_degree            ft_degree,
-                    addr_t                 mt_root_pba_ptr,
-                    addr_t                 mt_root_gen_ptr,
-                    addr_t                 mt_root_hash_ptr,
-                    Tree_level_index       mt_max_level,
-                    Tree_degree            mt_degree,
-                    Number_of_leaves       mt_leaves,
-                    Physical_block_address pba,
-                    Number_of_blocks       nr_of_pbas)
+Ft_resizing_request(Module_id src_module_id,
+                    Module_channel_id src_request_id,
+                    Type type,
+                    Generation curr_gen,
+                    Type_1_node &ft_root,
+                    Tree_level_index &ft_max_lvl,
+                    Number_of_leaves &ft_nr_of_leaves,
+                    Tree_degree ft_degree,
+                    Physical_block_address &mt_root_pba,
+                    Generation &mt_root_gen,
+                    Hash &mt_root_hash,
+                    Tree_level_index mt_max_level,
+                    Tree_degree mt_degree,
+                    Number_of_leaves mt_leaves,
+                    Physical_block_address &pba,
+                    Number_of_blocks &nr_of_pbas,
+                    bool &success)
 :
-	Module_request    { src_module_id, src_request_id, FT_RESIZING },
-	_type             { type             },
-	_curr_gen         { curr_gen         },
-	_ft_root          { ft_root          },
-	_ft_max_lvl       { ft_max_lvl       },
-	_ft_nr_of_leaves  { ft_nr_of_leaves  },
-	_ft_degree        { ft_degree        },
-	_mt_root_pba_ptr  { mt_root_pba_ptr  },
-	_mt_root_gen_ptr  { mt_root_gen_ptr  },
-	_mt_root_hash_ptr { mt_root_hash_ptr },
-	_mt_max_level     { mt_max_level     },
-	_mt_degree        { mt_degree        },
-	_mt_leaves        { mt_leaves        },
-	_pba              { pba              },
-	_nr_of_pbas       { nr_of_pbas       }
+	Module_request { src_module_id, src_request_id, FT_RESIZING },
+	_type { type },
+	_curr_gen { curr_gen },
+	_ft_root_ptr { (addr_t)&ft_root },
+	_ft_max_lvl_ptr { (addr_t)&ft_max_lvl },
+	_ft_nr_of_leaves_ptr { (addr_t)&ft_nr_of_leaves },
+	_ft_degree { ft_degree },
+	_mt_root_pba_ptr { (addr_t)&mt_root_pba },
+	_mt_root_gen_ptr { (addr_t)&mt_root_gen },
+	_mt_root_hash_ptr { (addr_t)&mt_root_hash },
+	_mt_max_level { mt_max_level },
+	_mt_degree { mt_degree },
+	_mt_leaves { mt_leaves },
+	_pba_ptr { (addr_t)&pba },
+	_nr_of_pbas_ptr { (addr_t)&nr_of_pbas },
+	_success_ptr { (addr_t)&success }
 { }
 
 char const *Ft_resizing_request::type_to_string(Type op)
@@ -88,10 +90,10 @@ void Ft_resizing::_execute_ft_ext_step_read_inner_node_completed(Channel        
 
 	if (channel._lvl_idx > 1) {
 
-		if (channel._lvl_idx == req._ft_max_lvl) {
+		if (channel._lvl_idx == req._ft_max_lvl()) {
 
 			if (not check_sha256_4k_hash(channel._encoded_blk,
-                                         req._ft_root.hash)) {
+                                         req._ft_root().hash)) {
 				class Program_error_ft_resizing_hash_mismatch { };
 				throw Program_error_ft_resizing_hash_mismatch { };
 			}
@@ -142,13 +144,13 @@ void Ft_resizing::_execute_ft_ext_step_read_inner_node_completed(Channel        
 			                                           child_idx,
 			                                           req._ft_degree,
 			                                           req._curr_gen,
-			                                           req._pba,
-			                                           req._nr_of_pbas,
+			                                           req._pba(),
+			                                           req._nr_of_pbas(),
 			                                           channel._t1_blks,
 			                                           channel._t2_blk,
 			                                           channel._new_pbas,
 			                                           channel._lvl_idx,
-			                                           req._nr_of_leaves);
+			                                           channel._nr_of_leaves);
 
 			channel._alloc_lvl_idx = parent_lvl_idx;
 
@@ -202,13 +204,13 @@ void Ft_resizing::_execute_ft_ext_step_read_inner_node_completed(Channel        
 			                                           child_idx,
 			                                           req._ft_degree,
 			                                           req._curr_gen,
-			                                           req._pba,
-			                                           req._nr_of_pbas,
+			                                           req._pba(),
+			                                           req._nr_of_pbas(),
 			                                           channel._t1_blks,
 			                                           channel._t2_blk,
 			                                           channel._new_pbas,
 			                                           channel._lvl_idx,
-			                                           req._nr_of_leaves);
+			                                           channel._nr_of_leaves);
 
 			channel._alloc_lvl_idx = parent_lvl_idx;
 
@@ -398,31 +400,31 @@ void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
 	switch (chan._state) {
 	case Channel::State::SUBMITTED:
 
-		req._nr_of_leaves = 0;
-		chan._vba          = req._ft_nr_of_leaves;
+		chan._nr_of_leaves = 0;
+		chan._vba          = req._ft_nr_of_leaves();
 
 		chan._old_pbas        = { };
 		chan._old_generations = { };
 		chan._new_pbas        = { };
 
-		chan._lvl_idx                              = req._ft_max_lvl;
-		chan._old_pbas.pbas[chan._lvl_idx]         = req._ft_root.pba;
-		chan._old_generations.items[chan._lvl_idx] = req._ft_root.gen;
+		chan._lvl_idx                              = req._ft_max_lvl();
+		chan._old_pbas.pbas[chan._lvl_idx]         = req._ft_root().pba;
+		chan._old_generations.items[chan._lvl_idx] = req._ft_root().gen;
 
-		if (chan._vba <= tree_max_max_vba(req._ft_degree, req._ft_max_lvl)) {
+		if (chan._vba <= tree_max_max_vba(req._ft_degree, req._ft_max_lvl())) {
 
 			chan._generated_prim = {
 				.op     = Channel::Generated_prim::Type::READ,
 				.succ   = false,
 				.tg     = Channel::Tag_type::TAG_FT_RSZG_CACHE,
-				.blk_nr = req._ft_root.pba,
+				.blk_nr = req._ft_root().pba,
 				.idx    = chan_idx
 			};
 
 			if (VERBOSE_FT_EXTENSION)
-				log("  root (", req._ft_root,
-				    " leaves ", req._ft_nr_of_leaves,
-				    " max lvl ", req._ft_max_lvl,
+				log("  root (", req._ft_root(),
+				    " leaves ", req._ft_nr_of_leaves(),
+				    " max lvl ", req._ft_max_lvl(),
 				    "): load to lvl ", chan._lvl_idx);
 
 			chan._state = Channel::State::READ_ROOT_NODE_PENDING;
@@ -430,31 +432,31 @@ void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
 
 		} else {
 
-			_add_new_root_lvl_to_ft_using_pba_contingent(req._ft_root,
-			                                             req._ft_max_lvl,
-			                                             req._ft_nr_of_leaves,
+			_add_new_root_lvl_to_ft_using_pba_contingent(req._ft_root(),
+			                                             req._ft_max_lvl(),
+			                                             req._ft_nr_of_leaves(),
 			                                             req._curr_gen,
 			                                             chan._t1_blks,
 			                                             chan._new_pbas,
-			                                             req._pba,
-			                                             req._nr_of_pbas);
+			                                             req._pba(),
+			                                             req._nr_of_pbas());
 
-			_add_new_branch_to_ft_using_pba_contingent(req._ft_max_lvl,
+			_add_new_branch_to_ft_using_pba_contingent(req._ft_max_lvl(),
 			                                           1,
 			                                           req._ft_degree,
 			                                           req._curr_gen,
-			                                           req._pba,
-			                                           req._nr_of_pbas,
+			                                           req._pba(),
+			                                           req._nr_of_pbas(),
 			                                           chan._t1_blks,
 			                                           chan._t2_blk,
 			                                           chan._new_pbas,
 			                                           chan._lvl_idx,
-			                                           req._nr_of_leaves);
+			                                           chan._nr_of_leaves);
 
 			if (VERBOSE_FT_EXTENSION)
 				log("  pbas allocated: curr gen ", req._curr_gen);
 
-			_set_args_for_write_back_of_inner_lvl(req._ft_max_lvl,
+			_set_args_for_write_back_of_inner_lvl(req._ft_max_lvl(),
 			                                      chan._lvl_idx,
 			                                      chan._new_pbas.pbas[chan._lvl_idx],
 			                                      chan_idx,
@@ -472,7 +474,7 @@ void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
 		_execute_ft_ext_step_read_inner_node_completed(chan, chan_idx, progress);
 		break;
 	case Channel::State::ALLOC_PBA_COMPLETED:
-		if (chan._alloc_lvl_idx < req._ft_max_lvl) {
+		if (chan._alloc_lvl_idx < req._ft_max_lvl()) {
 
 			chan._alloc_lvl_idx = chan._alloc_lvl_idx + 1;
 
@@ -503,7 +505,7 @@ void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
 			if (VERBOSE_FT_EXTENSION)
 				log("  pbas allocated: curr gen ", req._curr_gen);
 
-			_set_args_for_write_back_of_inner_lvl(req._ft_max_lvl,
+			_set_args_for_write_back_of_inner_lvl(req._ft_max_lvl(),
 			                                      chan._lvl_idx,
 			                                      chan._new_pbas.pbas[chan._lvl_idx],
 			                                      chan_idx,
@@ -541,7 +543,7 @@ void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
 				log("  set lvl a ", parent_lvl_idx, " child ", child_idx,
 				    ": ", child);
 
-			_set_args_for_write_back_of_inner_lvl(req._ft_max_lvl,
+			_set_args_for_write_back_of_inner_lvl(req._ft_max_lvl(),
 			                                      parent_lvl_idx,
 			                                      chan._new_pbas.pbas[parent_lvl_idx],
 			                                      chan_idx,
@@ -568,7 +570,7 @@ void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
 				log("  set lvl b ", parent_lvl_idx, " child ", child_idx,
 				    ": ", child);
 
-			_set_args_for_write_back_of_inner_lvl(req._ft_max_lvl,
+			_set_args_for_write_back_of_inner_lvl(req._ft_max_lvl(),
 			                                      parent_lvl_idx,
 			                                      chan._new_pbas.pbas[parent_lvl_idx],
 			                                      chan_idx,
@@ -590,16 +592,16 @@ void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
 		Tree_level_index const child_lvl_idx = chan._lvl_idx;
 		Physical_block_address const child_pba = chan._new_pbas.pbas[child_lvl_idx];
 
-		req._ft_root = {
+		req._ft_root() = {
 			.pba = child_pba,
 			.gen = req._curr_gen,
 		};
 
-		calc_sha256_4k_hash(chan._encoded_blk, req._ft_root.hash);
+		calc_sha256_4k_hash(chan._encoded_blk, req._ft_root().hash);
 
-		req._ft_nr_of_leaves += req._nr_of_leaves;
+		req._ft_nr_of_leaves() += chan._nr_of_leaves;
 
-		req._success = true;
+		req._success() = true;
 
 		chan._state = Channel::State::COMPLETED;
 		progress       = true;

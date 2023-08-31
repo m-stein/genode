@@ -73,9 +73,6 @@ class Tresor::Virtual_block_device_request : public Module_request
 
 		Virtual_block_device_request() { }
 
-		Virtual_block_device_request(Module_id         src_module_id,
-		                             Module_request_id src_request_id);
-
 		Virtual_block_device_request(Module_id src_module_id,
 		                             Module_request_id src_request_id,
 		                             Type type,
@@ -108,41 +105,6 @@ class Tresor::Virtual_block_device_request : public Module_request
 		                             bool &success,
 		                             Number_of_leaves &nr_of_leaves,
 		                             Number_of_blocks &nr_of_pbas);
-
-		static void create(void *buf_ptr,
-		                   size_t buf_size,
-		                   uint64_t src_module_id,
-		                   uint64_t src_request_id,
-		                   size_t req_type,
-		                   uint64_t client_req_offset,
-		                   uint64_t client_req_tag,
-		                   Generation last_secured_generation,
-		                   addr_t ft_root_pba_ptr,
-		                   addr_t ft_root_gen_ptr,
-		                   addr_t ft_root_hash_ptr,
-		                   uint64_t ft_max_level,
-		                   uint64_t ft_degree,
-		                   uint64_t ft_leaves,
-		                   addr_t mt_root_pba_ptr,
-		                   addr_t mt_root_gen_ptr,
-		                   addr_t mt_root_hash_ptr,
-		                   uint64_t mt_max_level,
-		                   uint64_t mt_degree,
-		                   uint64_t mt_leaves,
-		                   uint64_t vbd_degree,
-		                   uint64_t vbd_highest_vba,
-		                   bool rekeying,
-		                   Virtual_block_address vba,
-		                   Snapshot_index curr_snap_idx,
-		                   Snapshots *snapshots_ptr,
-		                   Tree_degree snapshots_degree,
-		                   Key_id prev_key_id,
-		                   Key_id curr_key_id,
-		                   Generation current_gen,
-		                   Physical_block_address &pba,
-		                   bool &success,
-		                   Number_of_leaves &nr_of_leaves,
-		                   Number_of_blocks &nr_of_pbas);
 
 		static char const *type_to_string(Type type);
 

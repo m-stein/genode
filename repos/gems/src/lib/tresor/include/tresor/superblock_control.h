@@ -94,8 +94,6 @@ class Tresor::Superblock_control_channel : public Module_channel
 			READ_CURRENT_SB_PENDING,
 			READ_CURRENT_SB_IN_PROGRESS,
 			READ_CURRENT_SB_COMPLETED,
-			VBD_EXT_STEP_IN_VBD_PENDING,
-			VBD_EXT_STEP_IN_VBD_IN_PROGRESS,
 			FT_EXT_STEP_IN_FT_PENDING,
 			FT_EXT_STEP_IN_FT_IN_PROGRESS,
 			TREE_EXT_STEP_IN_TREE_COMPLETED,
@@ -208,6 +206,9 @@ class Tresor::Superblock_control_channel : public Module_channel
 		void _mark_req_failed(bool &, char const *);
 
 		void _access_vba(Superblock_control &, Virtual_block_device_request::Type, bool &);
+
+		void _generate_vbd_req(Superblock_control &, Virtual_block_device_request::Type,
+		                       State, bool &, Key_id, Virtual_block_address);
 };
 
 class Tresor::Superblock_control : public Module

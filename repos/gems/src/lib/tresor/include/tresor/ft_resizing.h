@@ -38,56 +38,61 @@ class Tresor::Ft_resizing_request : public Module_request
 		friend class Ft_resizing;
 		friend class Ft_resizing_channel;
 
-		Type                   _type             { INVALID };
-		Generation             _curr_gen         { INVALID_GENERATION };
-		Type_1_node            _ft_root          { };
-		Tree_level_index       _ft_max_lvl       { 0 };
-		Number_of_leaves       _ft_nr_of_leaves  { 0 };
-		Tree_degree            _ft_degree        { TREE_MIN_DEGREE };
-		addr_t                 _mt_root_pba_ptr  { 0 };
-		addr_t                 _mt_root_gen_ptr  { 0 };
-		addr_t                 _mt_root_hash_ptr { 0 };
-		Tree_level_index       _mt_max_level     { 0 };
-		Tree_degree            _mt_degree        { 0 };
-		Number_of_leaves       _mt_leaves        { 0 };
-		Physical_block_address _pba              { 0 };
-		Number_of_blocks       _nr_of_pbas       { 0 };
-		Number_of_leaves       _nr_of_leaves     { 0 };
-		bool                   _success          { false };
+		Type _type { INVALID };
+		Generation _curr_gen { INVALID_GENERATION };
+		addr_t _ft_root_ptr { };
+		addr_t _ft_max_lvl_ptr { 0 };
+		addr_t _ft_nr_of_leaves_ptr { 0 };
+		Tree_degree _ft_degree { TREE_MIN_DEGREE };
+		addr_t _mt_root_pba_ptr { 0 };
+		addr_t _mt_root_gen_ptr { 0 };
+		addr_t _mt_root_hash_ptr { 0 };
+		Tree_level_index _mt_max_level { 0 };
+		Tree_degree _mt_degree { 0 };
+		Number_of_leaves _mt_leaves { 0 };
+		addr_t _pba_ptr { 0 };
+		addr_t _nr_of_pbas_ptr { 0 };
+		addr_t _success_ptr { 0 };
+
+		Number_of_leaves &_ft_nr_of_leaves() { return *(Number_of_leaves*)_ft_nr_of_leaves_ptr; }
+		Tree_level_index &_ft_max_lvl() { return *(Tree_level_index*)_ft_max_lvl_ptr; }
+		Type_1_node &_ft_root() { return *(Type_1_node*)_ft_root_ptr; }
+		bool &_success() { return *(bool*)_success_ptr; }
+		Physical_block_address &_pba() { return *(Physical_block_address*)_pba_ptr; }
+		Number_of_blocks &_nr_of_pbas() { return *(Number_of_blocks*)_nr_of_pbas_ptr; }
+
+		Number_of_leaves const &_ft_nr_of_leaves() const { return *(Number_of_leaves*)_ft_nr_of_leaves_ptr; }
+		Tree_level_index const &_ft_max_lvl() const { return *(Tree_level_index*)_ft_max_lvl_ptr; }
+		Type_1_node const &_ft_root() const { return *(Type_1_node*)_ft_root_ptr; }
+		bool const &_success() const { return *(bool*)_success_ptr; }
+		Physical_block_address const &_pba() const { return *(Physical_block_address*)_pba_ptr; }
+		Number_of_blocks const &_nr_of_pbas() const { return *(Number_of_blocks*)_nr_of_pbas_ptr; }
 
 	public:
 
 		Ft_resizing_request() { }
 
-		Ft_resizing_request(uint64_t               src_module_id,
-		                    uint64_t               src_request_id,
-		                    Type                   type,
-		                    Generation             curr_gen,
-		                    Type_1_node            ft_root,
-		                    Tree_level_index       ft_max_lvl,
-		                    Number_of_leaves       ft_nr_of_leaves,
-		                    Tree_degree            ft_degree,
-		                    addr_t                 mt_root_pba_ptr,
-		                    addr_t                 mt_root_gen_ptr,
-		                    addr_t                 mt_root_hash_ptr,
-		                    Tree_level_index       mt_max_level,
-		                    Tree_degree            mt_degree,
-		                    Number_of_leaves       mt_leaves,
-		                    Physical_block_address pba,
-		                    Number_of_blocks       nr_of_pbas);
+		Ft_resizing_request(Module_id src_module_id,
+		                    Module_channel_id src_request_id,
+		                    Type type,
+		                    Generation curr_gen,
+		                    Type_1_node &ft_root,
+		                    Tree_level_index &ft_max_lvl,
+		                    Number_of_leaves &ft_nr_of_leaves,
+		                    Tree_degree ft_degree,
+		                    Physical_block_address &mt_root_pba,
+		                    Generation &mt_root_gen,
+		                    Hash &mt_root_hash,
+		                    Tree_level_index mt_max_level,
+		                    Tree_degree mt_degree,
+		                    Number_of_leaves mt_leaves,
+		                    Physical_block_address &pba,
+		                    Number_of_blocks &nr_of_pbas,
+		                    bool &success);
 
 		Type type() const { return _type; }
 
-		bool success() const { return _success; }
-
 		static char const *type_to_string(Type type);
-
-		Type_1_node ft_root() const { return _ft_root; }
-		Tree_level_index ft_max_lvl() const { return _ft_max_lvl; }
-		Number_of_leaves ft_nr_of_leaves() const { return _ft_nr_of_leaves; }
-		Number_of_leaves nr_of_leaves() const { return _nr_of_leaves; }
-		Physical_block_address pba() const { return _pba; }
-		Number_of_blocks nr_of_pbas() const { return _nr_of_pbas; }
 
 
 		/********************
@@ -96,7 +101,7 @@ class Tresor::Ft_resizing_request : public Module_request
 
 		void print(Output &out) const override
 		{
-			Genode::print(out, type_to_string(_type), " root ", _ft_root, " leaves ", _ft_nr_of_leaves, " max_lvl ", _ft_max_lvl);
+			Genode::print(out, type_to_string(_type), " root ", _ft_root(), " leaves ", _ft_nr_of_leaves(), " max_lvl ", _ft_max_lvl());
 		}
 };
 
@@ -176,6 +181,7 @@ class Tresor::Ft_resizing_channel
 		Generations           _old_generations { };
 		Tree_walk_pbas        _new_pbas        { };
 		Block                 _encoded_blk     { };
+		Number_of_leaves      _nr_of_leaves    { 0 };
 };
 
 class Tresor::Ft_resizing : public Module

@@ -109,87 +109,6 @@ char const *Virtual_block_device_request::type_to_string(Type op)
 	return "?";
 }
 
-void Virtual_block_device_request::create(void *buf_ptr,
-                                          size_t buf_size,
-                                          uint64_t src_module_id,
-                                          uint64_t src_request_id,
-                                          size_t req_type,
-                                          uint64_t client_req_offset,
-                                          uint64_t client_req_tag,
-                                          Generation last_secured_generation,
-                                          addr_t ft_root_pba_ptr,
-                                          addr_t ft_root_gen_ptr,
-                                          addr_t ft_root_hash_ptr,
-                                          uint64_t ft_max_level,
-                                          uint64_t ft_degree,
-                                          uint64_t ft_leaves,
-                                          addr_t mt_root_pba_ptr,
-                                          addr_t mt_root_gen_ptr,
-                                          addr_t mt_root_hash_ptr,
-                                          uint64_t mt_max_level,
-                                          uint64_t mt_degree,
-                                          uint64_t mt_leaves,
-                                          uint64_t vbd_degree,
-                                          uint64_t vbd_highest_vba,
-                                          bool rekeying,
-                                          Virtual_block_address vba,
-                                          Snapshot_index curr_snap_idx,
-                                          Snapshots *snapshots_ptr,
-                                          Tree_degree snapshots_degree,
-                                          Key_id prev_key_id,
-                                          Key_id curr_key_id,
-                                          Generation current_gen,
-                                          Physical_block_address &pba,
-                                          bool &success,
-                                          Number_of_leaves &nr_of_leaves,
-                                          Number_of_blocks &nr_of_pbas)
-{
-	Virtual_block_device_request req { src_module_id, src_request_id };
-	req._type = (Type)req_type;
-	req._last_secured_generation = last_secured_generation;
-	req._ft_root_pba_ptr = (addr_t)ft_root_pba_ptr;
-	req._ft_root_gen_ptr = (addr_t)ft_root_gen_ptr;
-	req._ft_root_hash_ptr = (addr_t)ft_root_hash_ptr;
-	req._ft_max_level = ft_max_level;
-	req._ft_degree = ft_degree;
-	req._ft_leaves = ft_leaves;
-	req._mt_root_pba_ptr = (addr_t)mt_root_pba_ptr;
-	req._mt_root_gen_ptr = (addr_t)mt_root_gen_ptr;
-	req._mt_root_hash_ptr = (addr_t)mt_root_hash_ptr;
-	req._mt_max_level = mt_max_level;
-	req._mt_degree = mt_degree;
-	req._mt_leaves = mt_leaves;
-	req._vbd_degree = vbd_degree;
-	req._vbd_highest_vba = vbd_highest_vba;
-	req._rekeying = rekeying;
-	req._vba = vba;
-	req._curr_snap_idx = curr_snap_idx;
-	req._snapshots_ptr = (addr_t)snapshots_ptr;
-	req._success_ptr = (addr_t)&success;
-	req._nr_of_leaves_ptr = (addr_t)&nr_of_leaves;
-	req._prev_key_id = prev_key_id;
-	req._curr_key_id = curr_key_id;
-	req._pba_ptr = (addr_t)&pba;
-	req._nr_of_pbas_ptr = (addr_t)&nr_of_pbas;
-	req._snapshots_degree = snapshots_degree;
-	req._client_req_offset = client_req_offset;
-	req._client_req_tag = client_req_tag;
-	req._curr_gen = current_gen;
-
-	if (sizeof(req) > buf_size) {
-		class Exception_2 { };
-		throw Exception_2 { };
-	}
-	memcpy(buf_ptr, &req, sizeof(req));
-}
-
-
-Virtual_block_device_request::Virtual_block_device_request(Module_id         src_module_id,
-                                                           Module_request_id src_request_id)
-:
-	Module_request { src_module_id, src_request_id, VIRTUAL_BLOCK_DEVICE }
-{ }
-
 
 /**********************************
  ** Virtual_block_device_channel **
@@ -1391,7 +1310,7 @@ _add_new_root_lvl_to_snap_using_pba_contingent(Channel &chan)
 	if (snap[idx].gen < req._curr_gen) {
 
 		idx =
-			(*(Snapshots *)req._snapshots_ptr).idx_of_invalid_or_lowest_gen_evictable_snap(
+			(*(Snapshots *)req._snapshots_ptr).alloc_idx(
 				req._curr_gen, req._last_secured_generation);
 
 		if (VERBOSE_VBD_EXTENSION)
@@ -1804,7 +1723,7 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 		if (old_snap.gen < req._curr_gen) {
 
 			chan._snapshot_idx =
-				(*(Snapshots *)req._snapshots_ptr).idx_of_invalid_or_lowest_gen_evictable_snap(
+				(*(Snapshots *)req._snapshots_ptr).alloc_idx(
 					req._curr_gen, req._last_secured_generation);
 
 			if (VERBOSE_VBD_EXTENSION)
