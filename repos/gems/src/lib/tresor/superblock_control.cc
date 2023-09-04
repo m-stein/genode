@@ -200,7 +200,6 @@ void Superblock_control::_init_sb_without_key_values(Superblock const &sb_in,
 char const *Superblock_control::_state_to_step_label(Channel::State state)
 {
 	switch (state) {
-	case Channel::TREE_EXT_STEP_IN_TREE_COMPLETED: return "tree ext step in tree";
 	case Channel::SECURE_SB_COMPLETED: return "secure sb";
 	default: break;
 	}
@@ -219,22 +218,20 @@ bool Superblock_control::_handle_failed_generated_req(Channel &chan,
 }
 
 
-void Superblock_control::_execute_tree_ext_step(Channel          &chan,
-                                                uint64_t          chan_idx,
-                                                Superblock::State  tree_ext_sb_state,
-                                                bool              tree_ext_verbose,
-                                                Tag               tree_ext_tag,
-                                                Channel::State    tree_ext_pending_state,
-                                                String<4>         tree_name,
-                                                bool             &progress)
+void Superblock_control::_execute_tree_ext_step(Channel &chan,
+                                                uint64_t chan_idx,
+                                                Superblock::State tree_ext_sb_state,
+                                                bool tree_ext_verbose,
+                                                String<4> tree_name,
+                                                bool &progress)
 {
 	Request &req { *chan._req_ptr };
 	switch (chan._state) {
 	case Channel::SUBMITTED:
 	{
 		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
-		Physical_block_address const last_used_pba     { _sb.first_pba + (_sb.nr_of_pbas - 1) };
-		Number_of_blocks       const nr_of_unused_pbas { MAX_PBA - last_used_pba };
+		Physical_block_address const last_used_pba { _sb.first_pba + (_sb.nr_of_pbas - 1) };
+		Number_of_blocks const nr_of_unused_pbas { MAX_PBA - last_used_pba };
 
 		if (req._nr_of_blks > nr_of_unused_pbas) {
 			chan._mark_req_failed(progress, "check number of unused blocks");
@@ -272,39 +269,34 @@ void Superblock_control::_execute_tree_ext_step(Channel          &chan,
 
 				chan._generate_vbd_req(
 					*this, Virtual_block_device_request::VBD_EXTENSION_STEP,
-					Channel::TREE_EXT_STEP_IN_TREE_COMPLETED, progress, _sb.current_key.id);
+					Channel::TREE_EXT_STEP_IN_TREE_SUCCEEDED, progress, _sb.current_key.id);
 
 			} else if (tree_name == "ft") {
 
-				chan._generated_prim = {
-					.op     = Generated_prim::READ,
-					.succ   = false,
-					.tg     = tree_ext_tag,
-					.blk_nr = 0,
-					.idx    = chan_idx
-				};
-				chan._state = tree_ext_pending_state;
-				progress = true;
+				chan._state = Channel::REQ_GENERATED;
+				chan._ft_root = Type_1_node { _sb.free_number, _sb.free_gen, _sb.free_hash };
+				chan._ft_max_lvl = _sb.free_max_level;
+				chan._ft_nr_of_leaves = _sb.free_leaves;
+				chan.generate_req<Ft_resizing_request>(
+					Channel::TREE_EXT_STEP_IN_TREE_SUCCEEDED, progress, Ft_resizing_request::FT_EXTENSION_STEP,
+					_curr_gen, chan._ft_root, chan._ft_max_lvl, chan._ft_nr_of_leaves,
+					_sb.free_degree, _sb.meta_number, _sb.meta_gen, _sb.meta_hash,
+					_sb.meta_max_level, _sb.meta_degree, _sb.meta_leaves, chan._pba,
+					chan._req_ptr->_nr_of_blks, chan._generated_prim.succ);
 			}
-			break;
 
-		} else {
-
+		} else
 			chan._mark_req_failed(progress, "check superblock state");
-			break;
-		}
+
 		break;
 	}
-	case Channel::TREE_EXT_STEP_IN_TREE_COMPLETED:
+	case Channel::TREE_EXT_STEP_IN_TREE_SUCCEEDED:
 	{
-		if (_handle_failed_generated_req(chan, progress))
-			break;
-
 		if (req._nr_of_blks >= _sb.resizing_nr_of_pbas) {
 			chan._mark_req_failed(progress, "check number of pbas");
 			break;
 		}
-		Number_of_blocks       const nr_of_added_pbas     { _sb.resizing_nr_of_pbas - req._nr_of_blks };
+		Number_of_blocks const nr_of_added_pbas { _sb.resizing_nr_of_pbas - req._nr_of_blks };
 		Physical_block_address const new_first_unused_pba { _sb.first_pba + (_sb.nr_of_pbas + nr_of_added_pbas) };
 
 		if (chan._pba != new_first_unused_pba) {
@@ -321,11 +313,11 @@ void Superblock_control::_execute_tree_ext_step(Channel          &chan,
 
 		} else if (tree_name == "ft") {
 
-			_sb.free_gen       = chan._ft_root.gen;
-			_sb.free_number    = chan._ft_root.pba;
-			_sb.free_hash      = chan._ft_root.hash;
+			_sb.free_gen = chan._ft_root.gen;
+			_sb.free_number = chan._ft_root.pba;
+			_sb.free_hash = chan._ft_root.hash;
 			_sb.free_max_level = chan._ft_max_lvl;
-			_sb.free_leaves    = chan._ft_nr_of_leaves;
+			_sb.free_leaves = chan._ft_nr_of_leaves;
 
 		} else {
 
@@ -340,11 +332,11 @@ void Superblock_control::_execute_tree_ext_step(Channel          &chan,
 		_secure_sb_init(chan, chan_idx, progress);
 		break;
 	}
-	case Channel::ENCRYPT_CURRENT_KEY_COMPLETED:  _secure_sb_encr_curr_key_compl(chan, chan_idx, progress); break;
+	case Channel::ENCRYPT_CURRENT_KEY_COMPLETED: _secure_sb_encr_curr_key_compl(chan, chan_idx, progress); break;
 	case Channel::ENCRYPT_PREVIOUS_KEY_COMPLETED: _secure_sb_encr_prev_key_compl(chan, chan_idx, progress); break;
-	case Channel::SYNC_CACHE_COMPLETED:           _secure_sb_sync_cache_compl(chan, chan_idx, progress); break;
-	case Channel::WRITE_SB_COMPLETED:             _secure_sb_write_sb_compl(chan, chan_idx, progress); break;
-	case Channel::SYNC_BLK_IO_COMPLETED:          _secure_sb_sync_blk_io_compl(chan, chan_idx, progress); break;
+	case Channel::SYNC_CACHE_COMPLETED: _secure_sb_sync_cache_compl(chan, chan_idx, progress); break;
+	case Channel::WRITE_SB_COMPLETED: _secure_sb_write_sb_compl(chan, chan_idx, progress); break;
+	case Channel::SYNC_BLK_IO_COMPLETED: _secure_sb_sync_blk_io_compl(chan, chan_idx, progress); break;
 	case Channel::SECURE_SB_COMPLETED:
 
 		if (!_secure_sb_finish(chan, progress))
@@ -1523,30 +1515,6 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 
 			return true;
 
-		case Channel::FT_EXT_STEP_IN_FT_PENDING:
-
-			chan._ft_root = Type_1_node { _sb.free_number, _sb.free_gen, _sb.free_hash };
-			chan._ft_max_lvl = _sb.free_max_level;
-			chan._ft_nr_of_leaves = _sb.free_leaves;
-			construct_in_buf<Ft_resizing_request>(
-				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Ft_resizing_request::FT_EXTENSION_STEP, _curr_gen,
-				chan._ft_root,
-				chan._ft_max_lvl,
-				chan._ft_nr_of_leaves,
-				_sb.free_degree,
-				_sb.meta_number,
-				_sb.meta_gen,
-				_sb.meta_hash,
-				_sb.meta_max_level,
-				_sb.meta_degree,
-				_sb.meta_leaves,
-				chan._pba,
-				chan._req_ptr->_nr_of_blks,
-				chan._generated_prim.succ);
-
-			return 1;
-
 		default: break;
 		}
 	}
@@ -1580,7 +1548,6 @@ void Superblock_control::_drop_generated_request(Module_request &mod_req)
 	case Channel::SYNC_BLK_IO_PENDING: chan._state = Channel::SYNC_BLK_IO_IN_PROGRESS; break;
 	case Channel::SYNC_CACHE_PENDING: chan._state = Channel::SYNC_CACHE_IN_PROGRESS; break;
 	case Channel::WRITE_SB_PENDING: chan._state = Channel::WRITE_SB_IN_PROGRESS; break;
-	case Channel::FT_EXT_STEP_IN_FT_PENDING: chan._state = Channel::FT_EXT_STEP_IN_FT_IN_PROGRESS; break;
 	default:
 		class Exception_1 { };
 		throw Exception_1 { };
@@ -1605,8 +1572,8 @@ void Superblock_control::execute(bool &progress)
 			break;
 		case Request::INITIALIZE_REKEYING: _execute_initialize_rekeying(chan, idx, progress); break;
 		case Request::REKEY_VBA:           _execute_rekey_vba(chan, idx, progress); break;
-		case Request::VBD_EXTENSION_STEP:  _execute_tree_ext_step(chan, idx, Superblock::EXTENDING_VBD, VERBOSE_VBD_EXTENSION, Channel::TAG_SB_CTRL_VBD_VBD_EXT_STEP, Channel::COMPLETED, "vbd", progress); break;
-		case Request::FT_EXTENSION_STEP:   _execute_tree_ext_step(chan, idx, Superblock::EXTENDING_FT, VERBOSE_FT_EXTENSION, Channel::TAG_SB_CTRL_FT_FT_EXT_STEP, Channel::FT_EXT_STEP_IN_FT_PENDING, "ft", progress); break;
+		case Request::VBD_EXTENSION_STEP:  _execute_tree_ext_step(chan, idx, Superblock::EXTENDING_VBD, VERBOSE_VBD_EXTENSION, "vbd", progress); break;
+		case Request::FT_EXTENSION_STEP:   _execute_tree_ext_step(chan, idx, Superblock::EXTENDING_FT, VERBOSE_FT_EXTENSION, "ft", progress); break;
 		case Request::CREATE_SNAPSHOT:     _execute_create_snap(chan, idx, progress); break;
 		case Request::DISCARD_SNAPSHOT:    _execute_discard_snap(chan, idx, progress); break;
 		case Request::INITIALIZE:
@@ -1683,18 +1650,6 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 		default:
 			class Exception_5 { };
 			throw Exception_5 { };
-		}
-		break;
-	}
-	case FT_RESIZING:
-	{
-		switch (chan._state) {
-		case Channel::FT_EXT_STEP_IN_FT_IN_PROGRESS:
-			chan._state = Channel::TREE_EXT_STEP_IN_TREE_COMPLETED;
-			break;
-		default:
-			class Exception_16 { };
-			throw Exception_16 { };
 		}
 		break;
 	}
