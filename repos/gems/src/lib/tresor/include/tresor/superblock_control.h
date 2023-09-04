@@ -94,9 +94,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 			READ_CURRENT_SB_PENDING,
 			READ_CURRENT_SB_IN_PROGRESS,
 			READ_CURRENT_SB_COMPLETED,
-			FT_EXT_STEP_IN_FT_PENDING,
-			FT_EXT_STEP_IN_FT_IN_PROGRESS,
-			TREE_EXT_STEP_IN_TREE_COMPLETED,
+			TREE_EXT_STEP_IN_TREE_SUCCEEDED,
 			CREATE_KEY_PENDING,
 			CREATE_KEY_IN_PROGRESS,
 			CREATE_KEY_COMPLETED,
@@ -147,8 +145,6 @@ class Tresor::Superblock_control_channel : public Module_channel
 		};
 
 		enum Tag_type {
-			TAG_SB_CTRL_VBD_VBD_EXT_STEP,
-			TAG_SB_CTRL_FT_FT_EXT_STEP,
 			TAG_SB_CTRL_VBD_RKG_REKEY_VBA,
 			TAG_SB_CTRL_VBD_RKG_READ_VBA,
 			TAG_SB_CTRL_VBD_RKG_WRITE_VBA,
@@ -274,8 +270,6 @@ class Tresor::Superblock_control : public Module
 		                            uint64_t chan_idx,
 		                            Superblock::State tree_ext_sb_state,
 		                            bool tree_ext_verbose,
-		                            Tag tree_ext_tag,
-		                            Channel::State tree_ext_pending_state,
 		                            String<4> tree_name,
 		                            bool &progress);
 
