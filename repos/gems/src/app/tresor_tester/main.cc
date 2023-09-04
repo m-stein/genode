@@ -247,7 +247,7 @@ class Trust_anchor_node
 		using Operation = Trust_anchor_request::Type;
 
 		Operation const _op;
-		String<64> const _passphrase;
+		Passphrase const _passphrase;
 
 		Operation _read_op_attr(Xml_node const &node)
 		{
@@ -262,12 +262,12 @@ class Trust_anchor_node
 		:
 			_op { _read_op_attr(node) },
 			_passphrase { has_attr_passphrase() ?
-			              node.attribute_value("passphrase", String<64>()) :
-			              String<64>() }
+			              node.attribute_value("passphrase", Passphrase()) :
+			              Passphrase() }
 		{ }
 
 		Operation op() const { return _op; }
-		String<64> const &passphrase() const { return _passphrase; }
+		Passphrase const &passphrase() const { return _passphrase; }
 
 		bool has_attr_passphrase() const
 		{
