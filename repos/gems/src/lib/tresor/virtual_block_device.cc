@@ -1854,23 +1854,21 @@ bool Virtual_block_device::_peek_generated_request(uint8_t *buf_ptr,
 
 		case Channel::DECRYPT_LEAF_NODE_PENDING:
 
-			construct_in_buf<Crypto_request>(
-				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
-				Crypto_request::DECRYPT,
-				0, 0, req._prev_key_id, nullptr,
-				chan._generated_prim.blk_nr, 0, &chan._data_blk,
-				&chan._data_blk);
+			ASSERT(sizeof(Crypto_request) <= buf_size);
+			construct_at<Crypto_request>(
+				buf_ptr, VIRTUAL_BLOCK_DEVICE, id, Crypto_request::DECRYPT, 0, INVALID_REQ_TAG, req._prev_key_id,
+				chan._dummy_key, chan._generated_prim.blk_nr, INVALID_VBA, chan._data_blk, chan._data_blk,
+				chan._generated_prim.succ);
 
 			return true;
 
 		case Channel::ENCRYPT_LEAF_NODE_PENDING:
 
-			construct_in_buf<Crypto_request>(
-				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
-				Crypto_request::ENCRYPT,
-				0, 0, req._curr_key_id, nullptr,
-				chan._generated_prim.blk_nr, 0, &chan._data_blk,
-				&chan._data_blk);
+			ASSERT(sizeof(Crypto_request) <= buf_size);
+			construct_at<Crypto_request>(
+				buf_ptr, VIRTUAL_BLOCK_DEVICE, id, Crypto_request::ENCRYPT, 0, INVALID_REQ_TAG, req._curr_key_id,
+				chan._dummy_key, chan._generated_prim.blk_nr, INVALID_VBA, chan._data_blk, chan._data_blk,
+				chan._generated_prim.succ);
 
 			return true;
 
@@ -1952,14 +1950,10 @@ void Virtual_block_device::generated_request_complete(Module_request &mod_req)
 	switch (mod_req.dst_module_id()) {
 	case CRYPTO:
 	{
-		Crypto_request &crypto_req { *static_cast<Crypto_request *>(&mod_req) };
-		chan._generated_prim.succ = crypto_req.success();
 		switch (chan._state) {
 		case Channel::DECRYPT_LEAF_NODE_IN_PROGRESS: chan._state = Channel::DECRYPT_LEAF_NODE_COMPLETED; break;
 		case Channel::ENCRYPT_LEAF_NODE_IN_PROGRESS: chan._state = Channel::ENCRYPT_LEAF_NODE_COMPLETED; break;
-		default:
-			class Exception_3 { };
-			throw Exception_3 { };
+		default: ASSERT_NEVER_REACHED;
 		}
 		break;
 	}

@@ -27,35 +27,21 @@ using namespace Tresor;
  ** Crypto_request **
  ********************/
 
-Crypto_request::Crypto_request(uint64_t  src_module_id,
-                               uint64_t  src_request_id,
-                               size_t    req_type,
-                               uint64_t  client_req_offset,
-                               uint64_t  client_req_tag,
-                               uint32_t  key_id,
-                               void     *key_plaintext_ptr,
-                               uint64_t  pba,
-                               uint64_t  vba,
-                               void     *plaintext_blk_ptr,
-                               void     *ciphertext_blk_ptr)
+Crypto_request::Crypto_request(Module_id src_module_id, Module_channel_id src_chan_id, Type type,
+                               Request_offset client_req_offset, Request_tag client_req_tag, Key_id key_id,
+                               Key_value const &key_plaintext, Physical_block_address pba,
+                               Virtual_block_address vba, Block &plaintext_blk, Block &ciphertext_blk, bool &success)
 :
-	Module_request      { src_module_id, src_request_id, CRYPTO },
-	_type               { (Type)req_type },
-	_client_req_offset  { client_req_offset },
-	_client_req_tag     { client_req_tag },
-	_pba                { pba },
-	_vba                { vba },
-	_key_id             { key_id },
-	_key_plaintext_ptr  { (addr_t)key_plaintext_ptr },
-	_plaintext_blk_ptr  { (addr_t)plaintext_blk_ptr },
-	_ciphertext_blk_ptr { (addr_t)ciphertext_blk_ptr }
+	Module_request { src_module_id, src_chan_id, CRYPTO }, _type { type },
+	_client_req_offset { client_req_offset }, _client_req_tag { client_req_tag },
+	_pba { pba }, _vba { vba }, _key_id { key_id }, _key_plaintext { key_plaintext },
+	_plaintext_blk { plaintext_blk }, _ciphertext_blk { ciphertext_blk }, _success { success }
 { }
 
 
 char const *Crypto_request::type_to_string(Type type)
 {
 	switch (type) {
-	case INVALID: return "invalid";
 	case ADD_KEY: return "add_key";
 	case REMOVE_KEY: return "remove_key";
 	case ENCRYPT_CLIENT_DATA: return "encrypt_client_data";
@@ -168,7 +154,7 @@ void Crypto::_execute_add_key(Channel &channel,
 
 		char buf[sizeof(req._key_id) + KEY_SIZE] { };
 		memcpy(buf, &req._key_id, sizeof(req._key_id));
-		memcpy(buf + sizeof(req._key_id), (void *)req._key_plaintext_ptr, KEY_SIZE);
+		memcpy(buf + sizeof(req._key_id), &req._key_plaintext, KEY_SIZE);
 
 		Const_byte_range_ptr const src(buf, sizeof(buf));
 		size_t nr_of_written_bytes { 0 };
@@ -314,9 +300,7 @@ void Crypto::_execute_encrypt_client_data(Channel &channel,
 	{
 		size_t nr_of_read_bytes { 0 };
 
-		Byte_range_ptr dst {
-			(char *)req._ciphertext_blk_ptr, BLOCK_SIZE };
-
+		Byte_range_ptr dst { (char *)&req._ciphertext_blk, BLOCK_SIZE };
 		Read_result const result {
 			channel._vfs_handle->fs().complete_read(
 				channel._vfs_handle, dst, nr_of_read_bytes) };
@@ -357,8 +341,7 @@ void Crypto::_execute_encrypt(Channel &channel,
 		channel._vfs_handle->seek(req._pba * BLOCK_SIZE);
 		size_t nr_of_written_bytes { 0 };
 
-		Const_byte_range_ptr src {
-			(char *)req._plaintext_blk_ptr, BLOCK_SIZE };
+		Const_byte_range_ptr src { (char *)&req._plaintext_blk, BLOCK_SIZE };
 
 		channel._vfs_handle->fs().write(
 			channel._vfs_handle, src, nr_of_written_bytes);
@@ -385,8 +368,7 @@ void Crypto::_execute_encrypt(Channel &channel,
 	{
 		size_t nr_of_read_bytes { 0 };
 
-		Byte_range_ptr dst { (char *)req._ciphertext_blk_ptr, BLOCK_SIZE };
-
+		Byte_range_ptr dst { (char *)&req._ciphertext_blk, BLOCK_SIZE };
 		Read_result const result {
 			channel._vfs_handle->fs().complete_read(
 				channel._vfs_handle, dst, nr_of_read_bytes) };
@@ -428,8 +410,7 @@ void Crypto::_execute_decrypt(Channel &channel,
 
 		size_t nr_of_written_bytes { 0 };
 
-		Const_byte_range_ptr src {
-			(char *)channel._request._ciphertext_blk_ptr, BLOCK_SIZE };
+		Const_byte_range_ptr src { (char *)&channel._request._ciphertext_blk, BLOCK_SIZE };
 
 		channel._vfs_handle->fs().write(
 			channel._vfs_handle, src, nr_of_written_bytes);
@@ -456,8 +437,7 @@ void Crypto::_execute_decrypt(Channel &channel,
 	case Channel::QUEUE_READ_SUCCEEDED:
 	{
 		size_t nr_of_read_bytes { 0 };
-		Byte_range_ptr dst {
-			(char *)req._plaintext_blk_ptr, BLOCK_SIZE };
+		Byte_range_ptr dst { (char *)&req._plaintext_blk, BLOCK_SIZE };
 
 		Read_result const result {
 			channel._vfs_handle->fs().complete_read(
@@ -504,8 +484,7 @@ void Crypto::_execute_decrypt_client_data(Channel &channel,
 		channel._vfs_handle->seek(req._pba * BLOCK_SIZE);
 
 		size_t nr_of_written_bytes { 0 };
-		Const_byte_range_ptr src {
-			(char *)channel._request._ciphertext_blk_ptr, BLOCK_SIZE };
+		Const_byte_range_ptr src { (char *)&channel._request._ciphertext_blk, BLOCK_SIZE };
 
 		channel._vfs_handle->fs().write(
 			channel._vfs_handle, src, nr_of_written_bytes);
@@ -656,17 +635,17 @@ bool Crypto::_peek_completed_request(uint8_t *buf_ptr,
 			if (VERBOSE_WRITE_VBA && req._type == Request::ENCRYPT_CLIENT_DATA) {
 
 				Hash hash { };
-				calc_sha256_4k_hash(*(Block *)channel._blk_buf, hash);
-				log("  encrypt leaf data: plaintext ", *(Block *)channel._blk_buf, " hash ", hash);
+				calc_sha256_4k_hash(channel._blk_buf, hash);
+				log("  encrypt leaf data: plaintext ", channel._blk_buf, " hash ", hash);
 				log("  update branch:");
-				log("    ", Branch_lvl_prefix("leaf data: "), *(Block *)req._ciphertext_blk_ptr);
+				log("    ", Branch_lvl_prefix("leaf data: "), req._ciphertext_blk);
 			}
 			if (VERBOSE_READ_VBA && req._type == Request::DECRYPT_CLIENT_DATA) {
 
 				Hash hash { };
-				calc_sha256_4k_hash(*(Block *)channel._blk_buf, hash);
-				log("    ", Branch_lvl_prefix("leaf data: "), *(Block *)req._ciphertext_blk_ptr);
-				log("  decrypt leaf data: plaintext ", *(Block *)channel._blk_buf, " hash ", hash);
+				calc_sha256_4k_hash(channel._blk_buf, hash);
+				log("    ", Branch_lvl_prefix("leaf data: "), req._ciphertext_blk);
+				log("  decrypt leaf data: plaintext ", channel._blk_buf, " hash ", hash);
 			}
 			if (VERBOSE_CRYPTO) {
 
@@ -677,8 +656,8 @@ bool Crypto::_peek_completed_request(uint8_t *buf_ptr,
 					log("crypto: ", req.type_to_string(req._type),
 					    " pba ", req._pba,
 					    " vba ", req._vba,
-					    " plain ", *(Block *)channel._blk_buf,
-					    " cipher ", *(Block *)req._ciphertext_blk_ptr);
+					    " plain ", channel._blk_buf,
+					    " cipher ", req._ciphertext_blk);
 
 					break;
 				}
@@ -723,7 +702,7 @@ void Crypto::submit_request(Module_request &req)
 	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 		if (_channels[id]._state == Channel::INACTIVE) {
 			req.dst_request_id(id);
-			_channels[id]._request = *static_cast<Request *>(&req);
+			memcpy(&_channels[id]._request, &req, sizeof(Request));
 			_channels[id]._state = Channel::SUBMITTED;
 			return;
 		}

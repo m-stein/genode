@@ -30,45 +30,29 @@ class Tresor::Crypto_request : public Module_request
 {
 	public:
 
-		enum Type {
-			INVALID = 0, ADD_KEY = 1, REMOVE_KEY = 2, DECRYPT = 3, ENCRYPT = 4,
-			DECRYPT_CLIENT_DATA = 5, ENCRYPT_CLIENT_DATA = 6 };
+		enum Type { ADD_KEY, REMOVE_KEY, DECRYPT, ENCRYPT, DECRYPT_CLIENT_DATA, ENCRYPT_CLIENT_DATA };
 
 	private:
 
 		friend class Crypto;
-		friend class Crypto_channel;
 
-		Type     _type                { INVALID };
-		uint64_t _client_req_offset   { 0 };
-		uint64_t _client_req_tag      { 0 };
-		uint64_t _pba                 { 0 };
-		uint64_t _vba                 { 0 };
-		uint32_t _key_id              { 0 };
-		addr_t   _key_plaintext_ptr   { 0 };
-		addr_t   _plaintext_blk_ptr   { 0 };
-		addr_t   _ciphertext_blk_ptr  { 0 };
-		bool     _success             { false };
+		Type const _type;
+		Request_offset const _client_req_offset;
+		Request_tag const _client_req_tag;
+		Physical_block_address const _pba;
+		Virtual_block_address const _vba;
+		Key_id const _key_id;
+		Key_value const &_key_plaintext;
+		Block &_plaintext_blk;
+		Block &_ciphertext_blk;
+		bool &_success;
 
 	public:
 
-		Crypto_request() { }
+		Crypto_request(Module_id, Module_channel_id, Type, Request_offset, Request_tag, Key_id,
+		               Key_value const &, Physical_block_address, Virtual_block_address, Block &,
+		               Block &, bool &);
 
-		Type type() const { return _type; }
-
-		Crypto_request(uint64_t  src_module_id,
-		               uint64_t  src_request_id,
-		               size_t    req_type,
-		               uint64_t  client_req_offset,
-		               uint64_t  client_req_tag,
-		               uint32_t  key_id,
-		               void     *key_plaintext_ptr,
-		               uint64_t  pba,
-		               uint64_t  vba,
-		               void     *plaintext_blk_ptr,
-		               void     *ciphertext_blk_ptr);
-
-		bool success() const { return _success; }
 
 		static const char *type_to_string(Type type);
 
@@ -110,11 +94,14 @@ class Tresor::Crypto_channel
 			SUPPLY_PLAINTEXT_BLK_COMPLETE, OP_WRITTEN_TO_VFS_HANDLE,
 			QUEUE_READ_SUCCEEDED };
 
-		State            _state                 { INACTIVE };
-		Crypto_request   _request               { };
-		bool             _generated_req_success { false };
-		Vfs::Vfs_handle *_vfs_handle            { nullptr };
-		char             _blk_buf[BLOCK_SIZE]   { 0 };
+		State _state { INACTIVE };
+		Key_value _dummy_key { };
+		bool _generated_req_success { false };
+		Vfs::Vfs_handle *_vfs_handle { nullptr };
+		Block _blk_buf { };
+		Crypto_request _request {
+			INVALID_MODULE_ID, INVALID_MODULE_CHANNEL_ID, Crypto_request::ADD_KEY, 0, INVALID_REQ_TAG, INVALID_KEY_ID,
+			_dummy_key, INVALID_PBA, INVALID_VBA, _blk_buf, _blk_buf, _generated_req_success };
 
 	public:
 

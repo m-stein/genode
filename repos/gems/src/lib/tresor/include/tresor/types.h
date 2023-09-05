@@ -52,6 +52,7 @@ namespace Tresor {
 
 	enum { BLOCK_SIZE = 4096 };
 	enum { INVALID_KEY_ID = 0 };
+	enum { INVALID_REQ_TAG = 0xffff'ffff };
 	enum { INVALID_GENERATION = 0 };
 	enum { INITIAL_GENERATION = 0 };
 	enum { MAX_PBA = 0xffff'ffff'ffff'ffff };

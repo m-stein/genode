@@ -39,32 +39,32 @@ class Tresor::Block_io_request : public Module_request
 		friend class Block_io;
 		friend class Block_io_channel;
 
-		Type     _type              { INVALID };
+		Type _type { INVALID };
 		uint64_t _client_req_offset { 0 };
-		uint64_t _client_req_tag    { 0 };
-		uint32_t _key_id            { 0 };
-		uint64_t _pba               { 0 };
-		uint64_t _vba               { 0 };
-		uint64_t _blk_count         { 0 };
-		addr_t   _blk_ptr           { 0 };
-		addr_t   _hash_ptr          { 0 };
-		bool     _success           { false };
+		Request_tag _client_req_tag { 0 };
+		uint32_t _key_id { 0 };
+		uint64_t _pba { 0 };
+		uint64_t _vba { 0 };
+		uint64_t _blk_count { 0 };
+		addr_t _blk_ptr { 0 };
+		addr_t _hash_ptr { 0 };
+		bool _success { false };
 
 	public:
 
 		Block_io_request() { }
 
-		Block_io_request(uint64_t  src_module_id,
-		                 uint64_t  src_request_id,
-		                 size_t    req_type,
-		                 uint64_t  client_req_offset,
-		                 uint64_t  client_req_tag,
-		                 uint32_t  key_id,
-		                 uint64_t  pba,
-		                 uint64_t  vba,
-		                 uint64_t  blk_count,
-		                 void     *blk_ptr,
-		                 void     *hash_ptr);
+		Block_io_request(uint64_t src_module_id,
+		                 uint64_t src_request_id,
+		                 size_t req_type,
+		                 uint64_t client_req_offset,
+		                 Request_tag client_req_tag,
+		                 uint32_t key_id,
+		                 uint64_t pba,
+		                 uint64_t vba,
+		                 uint64_t blk_count,
+		                 void *blk_ptr,
+		                 void *hash_ptr);
 
 		Type type() const { return _type; }
 
@@ -98,12 +98,13 @@ class Tresor::Block_io_channel
 			DECRYPT_CLIENT_DATA_COMPLETE
 		};
 
-		State            _state                 { INACTIVE };
-		Block_io_request _request               { };
+		State _state { INACTIVE };
+		Key_value _dummy_key { };
+		Block_io_request _request { };
 		Vfs::file_offset _nr_of_processed_bytes { 0 };
-		size_t           _nr_of_remaining_bytes { 0 };
-		Block            _blk_buf               { };
-		bool             _generated_req_success { false };
+		size_t _nr_of_remaining_bytes { 0 };
+		Block _blk_buf { };
+		bool _generated_req_success { false };
 };
 
 class Tresor::Block_io : public Module
