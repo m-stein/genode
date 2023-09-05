@@ -1149,7 +1149,6 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 {
 	switch (channel._state) {
 	case Channel::SUBMITTED:
-
 		sb.snapshots.discard_disposable_snapshots(sb.last_secured_generation, curr_gen);
 		sb.last_secured_generation           = curr_gen;
 		sb.curr_snap().gen = curr_gen;
@@ -1380,58 +1379,64 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 		switch (chan._state) {
 		case Channel::CREATE_KEY_PENDING:
 
-			Trust_anchor_request::create(
-				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Trust_anchor_request::CREATE_KEY, nullptr,
-				nullptr, nullptr, nullptr);
+			ASSERT(sizeof(Trust_anchor_request) <= buf_size);
+			construct_at<Trust_anchor_request>(
+				buf_ptr, SUPERBLOCK_CONTROL, id, Trust_anchor_request::CREATE_KEY,
+				chan._key_plaintext.value, chan._sb_ciphertext.current_key.value, chan._hash, Passphrase { }, chan._generated_prim.succ);
 
 			return 1;
 
 		case Channel::ENCRYPT_CURRENT_KEY_PENDING:
+
+			ASSERT(sizeof(Trust_anchor_request) <= buf_size);
+			construct_at<Trust_anchor_request>(
+				buf_ptr, SUPERBLOCK_CONTROL, id, Trust_anchor_request::ENCRYPT_KEY,
+				chan._key_plaintext.value, chan._sb_ciphertext.current_key.value, chan._hash, Passphrase { }, chan._generated_prim.succ);
+
+			return 1;
+
 		case Channel::ENCRYPT_PREVIOUS_KEY_PENDING:
 
-			Trust_anchor_request::create(
-				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Trust_anchor_request::ENCRYPT_KEY,
-				&chan._key_plaintext.value, nullptr, nullptr, nullptr);
+			ASSERT(sizeof(Trust_anchor_request) <= buf_size);
+			construct_at<Trust_anchor_request>(
+				buf_ptr, SUPERBLOCK_CONTROL, id, Trust_anchor_request::ENCRYPT_KEY,
+				chan._key_plaintext.value, chan._sb_ciphertext.previous_key.value, chan._hash, Passphrase { }, chan._generated_prim.succ);
 
 			return 1;
 
 		case Channel::DECRYPT_CURRENT_KEY_PENDING:
 
-			Trust_anchor_request::create(
-				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Trust_anchor_request::DECRYPT_KEY,
-				nullptr, &chan._sb_ciphertext.current_key.value,
-				nullptr, nullptr);
+			ASSERT(sizeof(Trust_anchor_request) <= buf_size);
+			construct_at<Trust_anchor_request>(
+				buf_ptr, SUPERBLOCK_CONTROL, id, Trust_anchor_request::DECRYPT_KEY,
+				chan._curr_key_plaintext.value, chan._sb_ciphertext.current_key.value, chan._hash, Passphrase { }, chan._generated_prim.succ);
 
 			return 1;
 
 		case Channel::DECRYPT_PREVIOUS_KEY_PENDING:
 
-			Trust_anchor_request::create(
-				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Trust_anchor_request::DECRYPT_KEY,
-				nullptr, &chan._sb_ciphertext.previous_key.value,
-				nullptr, nullptr);
+			ASSERT(sizeof(Trust_anchor_request) <= buf_size);
+			construct_at<Trust_anchor_request>(
+				buf_ptr, SUPERBLOCK_CONTROL, id, Trust_anchor_request::DECRYPT_KEY,
+				chan._prev_key_plaintext.value, chan._sb_ciphertext.previous_key.value, chan._hash, Passphrase { }, chan._generated_prim.succ);
 
 			return 1;
 
 		case Channel::SECURE_SB_PENDING:
 
-			Trust_anchor_request::create(
-				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Trust_anchor_request::SECURE_SUPERBLOCK,
-				nullptr, nullptr, nullptr, &chan._hash);
+			ASSERT(sizeof(Trust_anchor_request) <= buf_size);
+			construct_at<Trust_anchor_request>(
+				buf_ptr, SUPERBLOCK_CONTROL, id, Trust_anchor_request::SECURE_SUPERBLOCK,
+				chan._key_plaintext.value, chan._sb_ciphertext.current_key.value, chan._hash, Passphrase { }, chan._generated_prim.succ);
 
 			return 1;
 
 		case Channel::MAX_SB_HASH_PENDING:
 
-			Trust_anchor_request::create(
-				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Trust_anchor_request::GET_LAST_SB_HASH,
-				nullptr, nullptr, nullptr, nullptr);
+			ASSERT(sizeof(Trust_anchor_request) <= buf_size);
+			construct_at<Trust_anchor_request>(
+				buf_ptr, SUPERBLOCK_CONTROL, id, Trust_anchor_request::GET_LAST_SB_HASH,
+				chan._key_plaintext.value, chan._sb_ciphertext.current_key.value, chan._hash, Passphrase { }, chan._generated_prim.succ);
 
 			return 1;
 
@@ -1603,37 +1608,15 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 	switch (mod_req.dst_module_id()) {
 	case TRUST_ANCHOR:
 	{
-		Trust_anchor_request &gen_req { *static_cast<Trust_anchor_request*>(&mod_req) };
-		chan._generated_prim.succ = gen_req.success();
 		switch (chan._state) {
-		case Channel::CREATE_KEY_IN_PROGRESS:
-			chan._state = Channel::CREATE_KEY_COMPLETED;
-			memcpy(&chan._key_plaintext.value, gen_req.key_plaintext_ptr(), KEY_SIZE);
-			break;
-		case Channel::ENCRYPT_CURRENT_KEY_IN_PROGRESS:
-			chan._state = Channel::ENCRYPT_CURRENT_KEY_COMPLETED;
-			memcpy(&chan._sb_ciphertext.current_key.value, gen_req.key_ciphertext_ptr(), KEY_SIZE);
-			break;
-		case Channel::ENCRYPT_PREVIOUS_KEY_IN_PROGRESS:
-			chan._state = Channel::ENCRYPT_PREVIOUS_KEY_COMPLETED;
-			memcpy(&chan._sb_ciphertext.previous_key.value, gen_req.key_ciphertext_ptr(), KEY_SIZE);
-			break;
-		case Channel::DECRYPT_CURRENT_KEY_IN_PROGRESS:
-			chan._state = Channel::DECRYPT_CURRENT_KEY_COMPLETED;
-			memcpy(&chan._curr_key_plaintext.value, gen_req.key_plaintext_ptr(), KEY_SIZE);
-			break;
-		case Channel::DECRYPT_PREVIOUS_KEY_IN_PROGRESS:
-			chan._state = Channel::DECRYPT_PREVIOUS_KEY_COMPLETED;
-			memcpy(&chan._prev_key_plaintext.value, gen_req.key_plaintext_ptr(), KEY_SIZE);
-			break;
+		case Channel::CREATE_KEY_IN_PROGRESS: chan._state = Channel::CREATE_KEY_COMPLETED; break;
+		case Channel::ENCRYPT_CURRENT_KEY_IN_PROGRESS: chan._state = Channel::ENCRYPT_CURRENT_KEY_COMPLETED; break;
+		case Channel::ENCRYPT_PREVIOUS_KEY_IN_PROGRESS: chan._state = Channel::ENCRYPT_PREVIOUS_KEY_COMPLETED; break;
+		case Channel::DECRYPT_CURRENT_KEY_IN_PROGRESS: chan._state = Channel::DECRYPT_CURRENT_KEY_COMPLETED; break;
+		case Channel::DECRYPT_PREVIOUS_KEY_IN_PROGRESS: chan._state = Channel::DECRYPT_PREVIOUS_KEY_COMPLETED; break;
 		case Channel::SECURE_SB_IN_PROGRESS: chan._state = Channel::SECURE_SB_COMPLETED; break;
-		case Channel::MAX_SB_HASH_IN_PROGRESS:
-			chan._state = Channel::MAX_SB_HASH_COMPLETED;
-			memcpy(&chan._hash, gen_req.hash_ptr(), HASH_SIZE);
-			break;
-		default:
-			class Exception_4 { };
-			throw Exception_4 { };
+		case Channel::MAX_SB_HASH_IN_PROGRESS: chan._state = Channel::MAX_SB_HASH_COMPLETED; break;
+		default: ASSERT_NEVER_REACHED;
 		}
 		break;
 	}

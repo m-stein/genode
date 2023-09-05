@@ -175,6 +175,7 @@ void Sb_initializer::_execute(Channel &channel,
 
 	case CS::TA_REQUEST_ENCRYPT_KEY_COMPLETE:
 
+		channel._key_cipher.id = 1;
 		_populate_sb_slot(channel,
 		                  Physical_block_address { block_allocator_first_block() } - NR_OF_SUPERBLOCK_SLOTS,
 		                  Number_of_blocks       { (uint32_t)block_allocator_nr_of_blks() + NR_OF_SUPERBLOCK_SLOTS });
@@ -374,7 +375,7 @@ bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
 
 	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 
-		Channel const &channel { _channels[id] };
+		Channel &channel { _channels[id] };
 
 		if (channel._state == CS::INACTIVE)
 			continue;
@@ -449,39 +450,28 @@ bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
 		}
 		case CS::TA_REQUEST_CREATE_KEY_PENDING:
 		{
-			Trust_anchor_request::Type const trust_anchor_req_type {
-				Trust_anchor_request::CREATE_KEY };
-
-			Trust_anchor_request::create(
-				buf_ptr, buf_size, SB_INITIALIZER, id,
-				trust_anchor_req_type,
-				nullptr, nullptr, nullptr, nullptr);
+			ASSERT(sizeof(Trust_anchor_request) <= buf_size);
+			construct_at<Trust_anchor_request>(
+				buf_ptr, SB_INITIALIZER, id, Trust_anchor_request::CREATE_KEY,
+				channel._key_plain.value, channel._key_cipher.value, channel._sb_hash, Passphrase { }, channel._generated_req_success);
 
 			return true;
 		}
 		case CS::TA_REQUEST_ENCRYPT_KEY_PENDING:
 		{
-			Trust_anchor_request::Type const trust_anchor_req_type {
-				Trust_anchor_request::ENCRYPT_KEY };
-
-			Trust_anchor_request::create(
-				buf_ptr, buf_size, SB_INITIALIZER, id,
-				trust_anchor_req_type,
-				(void*)&channel._key_plain.value,
-				nullptr, nullptr, nullptr);
+			ASSERT(sizeof(Trust_anchor_request) <= buf_size);
+			construct_at<Trust_anchor_request>(
+				buf_ptr, SB_INITIALIZER, id, Trust_anchor_request::ENCRYPT_KEY,
+				channel._key_plain.value, channel._key_cipher.value, channel._sb_hash, Passphrase { }, channel._generated_req_success);
 
 			return true;
 		}
 		case CS::TA_REQUEST_SECURE_SB_PENDING:
 		{
-			Trust_anchor_request::Type const trust_anchor_req_type {
-				Trust_anchor_request::SECURE_SUPERBLOCK };
-
-			Trust_anchor_request::create(
-				buf_ptr, buf_size, SB_INITIALIZER, id,
-				trust_anchor_req_type,
-				nullptr, nullptr, nullptr,
-				(void*)&channel._sb_hash);
+			ASSERT(sizeof(Trust_anchor_request) <= buf_size);
+			construct_at<Trust_anchor_request>(
+				buf_ptr, SB_INITIALIZER, id, Trust_anchor_request::SECURE_SUPERBLOCK,
+				channel._key_plain.value, channel._key_cipher.value, channel._sb_hash, Passphrase { }, channel._generated_req_success);
 
 			return true;
 		}
@@ -589,55 +579,9 @@ void Sb_initializer::generated_request_complete(Module_request &req)
 			ft_initializer_req->success();
 		break;
 	}
-	case Channel::TA_REQUEST_CREATE_KEY_IN_PROGRESS:
-	{
-		if (req.dst_module_id() != TRUST_ANCHOR) {
-			class Exception_6 { };
-			throw Exception_6 { };
-		}
-		Trust_anchor_request const *trust_anchor_req = static_cast<Trust_anchor_request const*>(&req);
-		channel._state = Channel::TA_REQUEST_CREATE_KEY_COMPLETE;
-		channel._generated_req_success = trust_anchor_req->success();
-		memcpy(&channel._key_plain.value,
-		       const_cast<Trust_anchor_request*>(trust_anchor_req)->key_plaintext_ptr(),
-		       sizeof(channel._key_plain.value));
-
-		break;
-	}
-	case Channel::TA_REQUEST_ENCRYPT_KEY_IN_PROGRESS:
-	{
-		if (req.dst_module_id() != TRUST_ANCHOR) {
-			class Exception_7 { };
-			throw Exception_7 { };
-		}
-		channel._state = Channel::TA_REQUEST_ENCRYPT_KEY_COMPLETE;
-		Trust_anchor_request const *trust_anchor_req =
-			static_cast<Trust_anchor_request const*>(&req);
-
-		/* store and set ID to copy later on */
-		memcpy(&channel._key_cipher.value,
-		       const_cast<Trust_anchor_request*>(trust_anchor_req)->key_ciphertext_ptr(),
-		       sizeof(channel._key_cipher.value));
-		channel._key_cipher.id = 1;
-
-		channel._generated_req_success =
-			trust_anchor_req->success();
-		break;
-	}
-	case Channel::TA_REQUEST_SECURE_SB_IN_PROGRESS:
-	{
-		if (req.dst_module_id() != TRUST_ANCHOR) {
-			class Exception_8 { };
-			throw Exception_8 { };
-		}
-		channel._state = Channel::TA_REQUEST_SECURE_SB_COMPLETE;
-		Trust_anchor_request const *trust_anchor_req =
-			static_cast<Trust_anchor_request const*>(&req);
-
-		channel._generated_req_success =
-			trust_anchor_req->success();
-		break;
-	}
+	case Channel::TA_REQUEST_CREATE_KEY_IN_PROGRESS: channel._state = Channel::TA_REQUEST_CREATE_KEY_COMPLETE; break;
+	case Channel::TA_REQUEST_ENCRYPT_KEY_IN_PROGRESS: channel._state = Channel::TA_REQUEST_ENCRYPT_KEY_COMPLETE; break;
+	case Channel::TA_REQUEST_SECURE_SB_IN_PROGRESS: channel._state = Channel::TA_REQUEST_SECURE_SB_COMPLETE; break;
 	case Channel::WRITE_REQUEST_IN_PROGRESS:
 	{
 		if (req.dst_module_id() != BLOCK_IO) {

@@ -662,6 +662,9 @@ class Tresor_tester::Main
 		Sb_check _sb_check { };
 		Vbd_check _vbd_check { };
 		Ft_check _ft_check { };
+		Key_value _dummy_key { };
+		Hash _dummy_hash { };
+		bool _generated_req_success { false };
 
 		static void _generate_blk_data(Tresor::Block &blk_data,
 		                               Virtual_block_address vba,
@@ -766,13 +769,10 @@ class Tresor_tester::Main
 					switch (cmd.type()) {
 					case Command::TRUST_ANCHOR:
 						{
-							Trust_anchor_node const &node { cmd.trust_anchor_node() };
-							ASSERT(node.op() == Trust_anchor_request::INITIALIZE);
-							Trust_anchor_request::create(
-								buf_ptr, buf_size, COMMAND_POOL, cmd.id(),
-								Trust_anchor_request::INITIALIZE,
-								nullptr, nullptr, node.passphrase().string(),
-								nullptr);
+							ASSERT(sizeof(Trust_anchor_request) <= buf_size);
+							construct_at<Trust_anchor_request>(
+								buf_ptr, COMMAND_POOL, cmd.id(), Trust_anchor_request::INITIALIZE,
+								_dummy_key, _dummy_key, _dummy_hash, cmd.trust_anchor_node().passphrase(), _generated_req_success);
 
 							result = CMD_IN_BUF;
 							break;
@@ -818,10 +818,10 @@ class Tresor_tester::Main
 			mark_command_in_progress(mod_req.src_request_id());
 		}
 
-		static bool _req_success(Module_request &mod_req)
+		bool _req_success(Module_request &mod_req) const
 		{
 			switch (mod_req.dst_module_id()) {
-			case TRUST_ANCHOR: return static_cast<Trust_anchor_request *>(&mod_req)->success();
+			case TRUST_ANCHOR: return _generated_req_success;
 			case SB_INITIALIZER: return static_cast<Sb_initializer_request *>(&mod_req)->success();
 			case SB_CHECK: return static_cast<Sb_check_request *>(&mod_req)->success();
 			default: break;

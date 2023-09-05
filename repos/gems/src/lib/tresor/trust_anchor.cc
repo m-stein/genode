@@ -24,51 +24,23 @@ using namespace Tresor;
  ** Trust_anchor_request **
  **************************/
 
-void Trust_anchor_request::create(void       *buf_ptr,
-                                  size_t      buf_size,
-                                  uint64_t    src_module_id,
-                                  uint64_t    src_request_id,
-                                  size_t      req_type,
-                                  void       *key_plaintext_ptr,
-                                  void       *key_ciphertext_ptr,
-                                  char const *passphrase_ptr,
-                                  void       *hash_ptr)
-{
-	Trust_anchor_request req { src_module_id, src_request_id };
-	req._type = (Type)req_type;
-	req._passphrase_ptr = (addr_t)passphrase_ptr;
-	if (key_plaintext_ptr != nullptr)
-		memcpy(
-			&req._key_plaintext, key_plaintext_ptr,
-			sizeof(req._key_plaintext));
-
-	if (key_ciphertext_ptr != nullptr)
-		memcpy(
-			&req._key_ciphertext, key_ciphertext_ptr,
-			sizeof(req._key_ciphertext));
-
-	if (hash_ptr != nullptr)
-		memcpy(&req._hash, hash_ptr, sizeof(req._hash));
-
-	if (sizeof(req) > buf_size) {
-		class Exception_2 { };
-		throw Exception_2 { };
-	}
-	memcpy(buf_ptr, &req, sizeof(req));
-}
-
-
-Trust_anchor_request::Trust_anchor_request(Module_id         src_module_id,
-                                           Module_request_id src_request_id)
+Trust_anchor_request::Trust_anchor_request(Module_id src_module_id,
+                                           Module_channel_id src_chan_id,
+                                           Type type,
+                                           Key_value &key_plaintext,
+                                           Key_value &key_ciphertext,
+                                           Hash &hash,
+                                           Passphrase passphrase,
+                                           bool &success)
 :
-	Module_request { src_module_id, src_request_id, TRUST_ANCHOR }
+	Module_request { src_module_id, src_chan_id, TRUST_ANCHOR }, _type { type }, _key_plaintext { key_plaintext },
+	_key_ciphertext { key_ciphertext }, _hash { hash }, _passphrase { passphrase }, _success { success }
 { }
 
 
 char const *Trust_anchor_request::type_to_string(Type type)
 {
 	switch (type) {
-	case INVALID: return "invalid";
 	case CREATE_KEY: return "create_key";
 	case ENCRYPT_KEY: return "encrypt_key";
 	case DECRYPT_KEY: return "decrypt_key";
@@ -402,12 +374,10 @@ void Trust_anchor::execute(bool &progress)
 			if (channel._state == Channel::SUBMITTED) {
 				channel._state = Channel::WRITE_PENDING;
 				channel._file_offset = 0;
-				channel._file_size =
-					strlen((char const *)req._passphrase_ptr);
+				channel._file_size = req._passphrase.length() - 1;
 			}
 			_execute_write_operation(
-				_initialize_file, _initialize_path, channel,
-				(char const *)req._passphrase_ptr, progress, true);
+				_initialize_file, _initialize_path, channel, req._passphrase.string(), progress, true);
 
 			break;
 
@@ -446,7 +416,7 @@ void Trust_anchor::execute(bool &progress)
 			}
 			_execute_read_operation(
 				_generate_key_file, _generate_key_path, channel,
-				(char *)req._key_plaintext, progress);
+				(char *)&req._key_plaintext, progress);
 
 			break;
 
@@ -459,8 +429,8 @@ void Trust_anchor::execute(bool &progress)
 			}
 			_execute_write_read_operation(
 				_encrypt_file, _encrypt_path, channel,
-				(char const *)req._key_plaintext,
-				(char *)req._key_ciphertext,
+				(char const *)&req._key_plaintext,
+				(char *)&req._key_ciphertext,
 				sizeof(req._key_ciphertext),
 				progress);
 
@@ -475,8 +445,8 @@ void Trust_anchor::execute(bool &progress)
 			}
 			_execute_write_read_operation(
 				_decrypt_file, _decrypt_path, channel,
-				(char const *)req._key_ciphertext,
-				(char *)req._key_plaintext,
+				(char const *)&req._key_ciphertext,
+				(char *)&req._key_plaintext,
 				sizeof(req._key_plaintext),
 				progress);
 
@@ -546,7 +516,7 @@ void Trust_anchor::submit_request(Module_request &req)
 	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 		if (_channels[id]._state == Channel::INACTIVE) {
 			req.dst_request_id(id);
-			_channels[id]._request = *static_cast<Request *>(&req);
+			memcpy(&_channels[id]._request, &req, sizeof(Request));
 			_channels[id]._state = Channel::SUBMITTED;
 			return;
 		}

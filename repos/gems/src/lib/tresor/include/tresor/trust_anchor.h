@@ -30,53 +30,25 @@ class Tresor::Trust_anchor_request : public Module_request
 {
 	public:
 
-		enum Type {
-			INVALID = 0, CREATE_KEY = 1, ENCRYPT_KEY = 2, DECRYPT_KEY = 3,
-			SECURE_SUPERBLOCK = 4, GET_LAST_SB_HASH = 5, INITIALIZE = 6 };
+		enum Type { CREATE_KEY, ENCRYPT_KEY, DECRYPT_KEY, SECURE_SUPERBLOCK, GET_LAST_SB_HASH, INITIALIZE };
 
 	private:
 
 		friend class Trust_anchor;
-		friend class Trust_anchor_channel;
 
-		Type    _type                     { INVALID };
-		uint8_t _key_plaintext[KEY_SIZE]  { 0 };
-		uint8_t _key_ciphertext[KEY_SIZE] { 0 };
-		Hash    _hash                     { };
-		addr_t  _passphrase_ptr           { 0 };
-		bool    _success                  { false };
+		Type const _type;
+		Key_value &_key_plaintext;
+		Key_value &_key_ciphertext;
+		Hash &_hash;
+		Passphrase const _passphrase;
+		bool &_success;
 
 	public:
 
-		Trust_anchor_request() { }
-
-		Trust_anchor_request(Module_id         src_module_id,
-		                     Module_request_id src_request_id);
-
-		static void create(void       *buf_ptr,
-		                   size_t      buf_size,
-		                   uint64_t    src_module_id,
-		                   uint64_t    src_request_id,
-		                   size_t      req_type,
-		                   void       *key_plaintext_ptr,
-		                   void       *key_ciphertext_ptr,
-		                   char const *passphrase_ptr,
-		                   void       *hash_ptr);
-
-		void *hash_ptr() { return (void *)&_hash; }
-		void *key_plaintext_ptr() { return (void *)&_key_plaintext; }
-		void *key_ciphertext_ptr() { return (void *)&_key_ciphertext; }
-
-		Type type() const { return _type; }
-
-		bool success() const { return _success; }
+		Trust_anchor_request(Module_id src, Module_channel_id, Type, Key_value &, Key_value &, Hash &,
+		                     Passphrase, bool &);
 
 		static char const *type_to_string(Type type);
-
-
-		/********************
-		 ** Module_request **
-		 ********************/
 
 		void print(Output &out) const override { Genode::print(out, type_to_string(_type)); }
 };
@@ -91,10 +63,14 @@ class Tresor::Trust_anchor_channel
 			INACTIVE, SUBMITTED, WRITE_PENDING, WRITE_IN_PROGRESS,
 			READ_PENDING, READ_IN_PROGRESS, COMPLETE };
 
-		State                _state       { INACTIVE };
-		Trust_anchor_request _request     { };
-		Vfs::file_offset     _file_offset { 0 };
-		size_t               _file_size   { 0 };
+		Key_value _dummy_key { };
+		Hash _dummy_hash { };
+		bool _dummy_success { };
+		State _state { INACTIVE };
+		Trust_anchor_request _request { INVALID_MODULE_ID, INVALID_MODULE_CHANNEL_ID, Trust_anchor_request::INITIALIZE, _dummy_key,
+		                                _dummy_key, _dummy_hash, Passphrase { }, _dummy_success };
+		Vfs::file_offset _file_offset { 0 };
+		size_t _file_size { 0 };
 };
 
 class Tresor::Trust_anchor : public Module
