@@ -15,7 +15,6 @@
 #include <tresor/superblock_control.h>
 #include <tresor/crypto.h>
 #include <tresor/block_io.h>
-#include <tresor/trust_anchor.h>
 #include <tresor/ft_resizing.h>
 #include <tresor/sha256_4k_hash.h>
 
@@ -128,6 +127,14 @@ _generate_vbd_req(Superblock_control &mod, Virtual_block_device_request::Type ty
 		sb.meta_leaves, sb.degree, mod.max_vba(), sb.state == Superblock::REKEYING, vba,
 		sb.curr_snap_idx, sb.snapshots, sb.degree, sb.previous_key.id, key_id, mod._curr_gen,
 		_pba, _generated_prim.succ, _nr_of_leaves, req._nr_of_blks);
+}
+
+void Superblock_control_channel::_generate_ta_req(Trust_anchor_request::Type type, State complete_state,
+                                                  bool &progress, Key_value &key_ciphertext)
+{
+	_state = REQ_GENERATED;
+	generate_req<Trust_anchor_request>(
+		complete_state, progress, type, _key_plaintext.value, key_ciphertext, _hash, Passphrase { }, _generated_prim.succ);
 }
 
 
@@ -617,23 +624,12 @@ Superblock_control::_execute_initialize_rekeying(Channel           &chan,
 	case Channel::SUBMITTED:
 
 		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
-		chan._generated_prim = {
-			.op     = Generated_prim::READ,
-			.succ   = false,
-			.tg     = Channel::TAG_SB_CTRL_TA_CREATE_KEY,
-			.blk_nr = 0,
-			.idx    = chan_idx
-		};
-		chan._state = Channel::CREATE_KEY_PENDING;
-		progress = true;
+		chan._generate_ta_req(Trust_anchor_request::CREATE_KEY, Channel::CREATE_KEY_SUCCEEDED,
+		                      progress, chan._sb_ciphertext.current_key.value);
 		break;
 
-	case Channel::CREATE_KEY_COMPLETED:
+	case Channel::CREATE_KEY_SUCCEEDED:
 
-		if (!chan._generated_prim.succ) {
-			chan._mark_req_failed(progress, "create key");
-			break;
-		}
 		if (_sb.state != Superblock::NORMAL) {
 			chan._mark_req_failed(progress, "check superblock state");
 			break;
@@ -1377,15 +1373,6 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 			continue;
 
 		switch (chan._state) {
-		case Channel::CREATE_KEY_PENDING:
-
-			ASSERT(sizeof(Trust_anchor_request) <= buf_size);
-			construct_at<Trust_anchor_request>(
-				buf_ptr, SUPERBLOCK_CONTROL, id, Trust_anchor_request::CREATE_KEY,
-				chan._key_plaintext.value, chan._sb_ciphertext.current_key.value, chan._hash, Passphrase { }, chan._generated_prim.succ);
-
-			return 1;
-
 		case Channel::ENCRYPT_CURRENT_KEY_PENDING:
 
 			ASSERT(sizeof(Trust_anchor_request) <= buf_size);
@@ -1536,7 +1523,6 @@ void Superblock_control::_drop_generated_request(Module_request &mod_req)
 	}
 	Channel &chan { _channels[id] };
 	switch (chan._state) {
-	case Channel::CREATE_KEY_PENDING: chan._state = Channel::CREATE_KEY_IN_PROGRESS; break;
 	case Channel::ENCRYPT_CURRENT_KEY_PENDING: chan._state = Channel::ENCRYPT_CURRENT_KEY_IN_PROGRESS; break;
 	case Channel::ENCRYPT_PREVIOUS_KEY_PENDING: chan._state = Channel::ENCRYPT_PREVIOUS_KEY_IN_PROGRESS; break;
 	case Channel::DECRYPT_CURRENT_KEY_PENDING: chan._state = Channel::DECRYPT_CURRENT_KEY_IN_PROGRESS; break;
@@ -1609,7 +1595,6 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 	case TRUST_ANCHOR:
 	{
 		switch (chan._state) {
-		case Channel::CREATE_KEY_IN_PROGRESS: chan._state = Channel::CREATE_KEY_COMPLETED; break;
 		case Channel::ENCRYPT_CURRENT_KEY_IN_PROGRESS: chan._state = Channel::ENCRYPT_CURRENT_KEY_COMPLETED; break;
 		case Channel::ENCRYPT_PREVIOUS_KEY_IN_PROGRESS: chan._state = Channel::ENCRYPT_PREVIOUS_KEY_COMPLETED; break;
 		case Channel::DECRYPT_CURRENT_KEY_IN_PROGRESS: chan._state = Channel::DECRYPT_CURRENT_KEY_COMPLETED; break;
