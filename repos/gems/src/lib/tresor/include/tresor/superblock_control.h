@@ -89,16 +89,13 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 		enum State {
 			SUBMITTED, ACCESS_VBA_AT_VBD_SUCCEEDED, REKEY_VBA_AT_VBD_SUCCEEDED, CREATE_KEY_SUCCEEDED, ENCRYPT_CURRENT_KEY_SUCCEEDED,
-			TREE_EXT_STEP_IN_TREE_SUCCEEDED, ENCRYPT_PREVIOUS_KEY_SUCCEEDED,
+			TREE_EXT_STEP_IN_TREE_SUCCEEDED, ENCRYPT_PREVIOUS_KEY_SUCCEEDED, DECRYPT_CURRENT_KEY_SUCCEEDED,
 			READ_SB_PENDING,
 			READ_SB_IN_PROGRESS,
 			READ_SB_COMPLETED,
 			READ_CURRENT_SB_PENDING,
 			READ_CURRENT_SB_IN_PROGRESS,
 			READ_CURRENT_SB_COMPLETED,
-			DECRYPT_CURRENT_KEY_PENDING,
-			DECRYPT_CURRENT_KEY_IN_PROGRESS,
-			DECRYPT_CURRENT_KEY_COMPLETED,
 			DECRYPT_PREVIOUS_KEY_PENDING,
 			DECRYPT_PREVIOUS_KEY_IN_PROGRESS,
 			DECRYPT_PREVIOUS_KEY_COMPLETED,
@@ -193,7 +190,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 		void _generate_vbd_req(Superblock_control &, Virtual_block_device_request::Type,
 		                       State, bool &, Key_id, Virtual_block_address);
 
-		void _generate_ta_req(Trust_anchor_request::Type, State, bool &, Key_value &);
+		void _generate_ta_req(Trust_anchor_request::Type, State, bool &, Key_value &, Key_value &);
 };
 
 class Tresor::Superblock_control : public Module
