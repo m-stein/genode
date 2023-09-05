@@ -721,18 +721,11 @@ void Superblock_control::_execute_initialize(Channel           &chan,
 
 		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
 		chan._sb_found = false;
-		chan._generated_prim = {
-			.op     = Channel::Generated_prim::Type::READ,
-			.succ   = false,
-			.tg     = Channel::Tag_type::TAG_SB_CTRL_TA_LAST_SB_HASH,
-			.blk_nr = 0,
-			.idx    = job_idx
-		};
-		chan._state = Channel::MAX_SB_HASH_PENDING;
-		progress = true;
+		chan._generate_ta_req(Trust_anchor_request::GET_LAST_SB_HASH, Channel::GET_LAST_SB_HASH_SUCCEEDED,
+		                      progress, chan._sb_ciphertext.current_key.value, chan._key_plaintext.value);
 		break;
 
-	case Channel::MAX_SB_HASH_COMPLETED:
+	case Channel::GET_LAST_SB_HASH_SUCCEEDED:
 
 		chan._read_sb_idx = 0;
 		chan._generated_prim = {
@@ -996,15 +989,6 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 			continue;
 
 		switch (chan._state) {
-		case Channel::MAX_SB_HASH_PENDING:
-
-			ASSERT(sizeof(Trust_anchor_request) <= buf_size);
-			construct_at<Trust_anchor_request>(
-				buf_ptr, SUPERBLOCK_CONTROL, id, Trust_anchor_request::GET_LAST_SB_HASH,
-				chan._key_plaintext.value, chan._sb_ciphertext.current_key.value, chan._hash, Passphrase { }, chan._generated_prim.succ);
-
-			return 1;
-
 		case Channel::ADD_KEY_AT_CRYPTO_MODULE_PENDING:
 
 			construct_in_buf<Crypto_request>(
@@ -1101,7 +1085,6 @@ void Superblock_control::_drop_generated_request(Module_request &mod_req)
 	}
 	Channel &chan { _channels[id] };
 	switch (chan._state) {
-	case Channel::MAX_SB_HASH_PENDING: chan._state = Channel::MAX_SB_HASH_IN_PROGRESS; break;
 	case Channel::ADD_KEY_AT_CRYPTO_MODULE_PENDING: chan._state = Channel::ADD_KEY_AT_CRYPTO_MODULE_IN_PROGRESS; break;
 	case Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_PENDING: chan._state = Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_IN_PROGRESS; break;
 	case Channel::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_PENDING: chan._state = Channel::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_IN_PROGRESS; break;
@@ -1154,14 +1137,6 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 	Channel &chan { _channels[id] };
 	ASSERT(chan.req_valid());
 	switch (mod_req.dst_module_id()) {
-	case TRUST_ANCHOR:
-	{
-		switch (chan._state) {
-		case Channel::MAX_SB_HASH_IN_PROGRESS: chan._state = Channel::MAX_SB_HASH_COMPLETED; break;
-		default: ASSERT_NEVER_REACHED;
-		}
-		break;
-	}
 	case CRYPTO:
 	{
 		Crypto_request &gen_req { *static_cast<Crypto_request*>(&mod_req) };
