@@ -62,7 +62,7 @@ class Tresor::Virtual_block_device_request : public Module_request
 		uint64_t               _vbd_highest_vba         { 0 };
 		bool                   _rekeying                { 0 };
 		uint64_t               _client_req_offset       { 0 };
-		uint64_t               _client_req_tag          { 0 };
+		Request_tag            _client_req_tag          { 0 };
 		Generation             _last_secured_generation { INVALID_GENERATION };
 		addr_t                 _pba_ptr                 { 0 };
 		addr_t                 _nr_of_pbas_ptr          { 0 };
@@ -218,24 +218,25 @@ class Tresor::Virtual_block_device_channel
 
 		void _log_rekeying_pba_alloc() const;
 
-		Virtual_block_device_request _request          { };
-		State                        _state            { SUBMITTED };
-		Generated_prim               _generated_prim   { };
-		Snapshot_index               _snapshot_idx     { 0 };
-		Type_1_node_blocks           _t1_blks          { };
-		Type_1_node_blocks_pbas      _t1_blks_old_pbas { };
-		Tree_level_index             _t1_blk_idx       { 0 };
-		Virtual_block_address        _vba              { 0 };
-		Type_1_node_walk             _t1_node_walk     { };
-		Tree_walk_pbas               _new_pbas         { };
-		Hash                         _hash             { };
-		Number_of_blocks             _nr_of_blks       { 0 };
-		Generation                   _last_secured_gen { 0 };
-		Generation                   _free_gen         { 0 };
-		Block                        _encoded_blk      { };
-		Block                        _data_blk         { };
-		Physical_block_address       _data_blk_old_pba { 0 };
-		bool                         _first_snapshot   { false };
+		Virtual_block_device_request _request { };
+		Key_value _dummy_key { };
+		State _state { SUBMITTED };
+		Generated_prim _generated_prim { };
+		Snapshot_index _snapshot_idx { 0 };
+		Type_1_node_blocks _t1_blks { };
+		Type_1_node_blocks_pbas _t1_blks_old_pbas { };
+		Tree_level_index _t1_blk_idx { 0 };
+		Virtual_block_address _vba { 0 };
+		Type_1_node_walk _t1_node_walk { };
+		Tree_walk_pbas _new_pbas { };
+		Hash _hash { };
+		Number_of_blocks _nr_of_blks { 0 };
+		Generation _last_secured_gen { 0 };
+		Generation _free_gen { 0 };
+		Block _encoded_blk { };
+		Block _data_blk { };
+		Physical_block_address _data_blk_old_pba { 0 };
+		bool _first_snapshot { false };
 };
 
 class Tresor::Virtual_block_device : public Module

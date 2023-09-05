@@ -27,17 +27,17 @@ using namespace Tresor;
  ** Block_io_request **
  **********************/
 
-Block_io_request::Block_io_request(uint64_t  src_module_id,
-                                   uint64_t  src_request_id,
-                                   size_t    req_type,
-                                   uint64_t  client_req_offset,
-                                   uint64_t  client_req_tag,
-                                   uint32_t  key_id,
-                                   uint64_t  pba,
-                                   uint64_t  vba,
-                                   uint64_t  blk_count,
-                                   void     *blk_ptr,
-                                   void     *hash_ptr)
+Block_io_request::Block_io_request(uint64_t src_module_id,
+                                   uint64_t src_request_id,
+                                   size_t req_type,
+                                   uint64_t client_req_offset,
+                                   Request_tag client_req_tag,
+                                   uint32_t key_id,
+                                   uint64_t pba,
+                                   uint64_t vba,
+                                   uint64_t blk_count,
+                                   void *blk_ptr,
+                                   void *hash_ptr)
 :
 	Module_request     { src_module_id, src_request_id, BLOCK_IO },
 	_type              { (Type)req_type },
@@ -84,25 +84,20 @@ bool Block_io::_peek_generated_request(uint8_t *buf_ptr,
 {
 	for (uint32_t id { 0 }; id < NR_OF_CHANNELS; id++) {
 
-		Channel const &channel { _channels[id] };
-		Crypto_request::Type crypto_req_type {
-			channel._state == Channel::DECRYPT_CLIENT_DATA_PENDING ?
-			           Crypto_request::DECRYPT_CLIENT_DATA :
-			channel._state == Channel::ENCRYPT_CLIENT_DATA_PENDING ?
-			           Crypto_request::ENCRYPT_CLIENT_DATA :
-			           Crypto_request::INVALID };
-
-		if (crypto_req_type != Crypto_request::INVALID) {
-
-			Request const &req { channel._request };
-			construct_in_buf<Crypto_request>(
-				buf_ptr, buf_size, BLOCK_IO, id, crypto_req_type,
-				req._client_req_offset, req._client_req_tag,
-				req._key_id, nullptr, req._pba, req._vba, nullptr,
-				(void *)&channel._blk_buf);
-
-			return true;
+		Channel &channel { _channels[id] };
+		Request &req { channel._request };
+		Crypto_request::Type crypto_req_type;
+		switch (channel._state) {
+		case Channel::DECRYPT_CLIENT_DATA_PENDING: crypto_req_type = Crypto_request::DECRYPT_CLIENT_DATA; break;
+		case Channel::ENCRYPT_CLIENT_DATA_PENDING: crypto_req_type = Crypto_request::ENCRYPT_CLIENT_DATA; break;
+		default: continue;
 		}
+		ASSERT(sizeof(Crypto_request) <= buf_size);
+		construct_at<Crypto_request>(
+			buf_ptr, BLOCK_IO, id, crypto_req_type, req._client_req_offset, req._client_req_tag, req._key_id,
+			channel._dummy_key, req._pba, req._vba, channel._blk_buf, channel._blk_buf, _channels[id]._generated_req_success);
+
+		return true;
 	}
 	return false;
 }
@@ -116,15 +111,9 @@ void Block_io::_drop_generated_request(Module_request &req)
 		throw Bad_id { };
 	}
 	switch (_channels[id]._state) {
-	case Channel::DECRYPT_CLIENT_DATA_PENDING:
-		_channels[id]._state = Channel::DECRYPT_CLIENT_DATA_IN_PROGRESS;
-		break;
-	case Channel::ENCRYPT_CLIENT_DATA_PENDING:
-		_channels[id]._state = Channel::ENCRYPT_CLIENT_DATA_IN_PROGRESS;
-		break;
-	default:
-		class Exception_1 { };
-		throw Exception_1 { };
+	case Channel::DECRYPT_CLIENT_DATA_PENDING: _channels[id]._state = Channel::DECRYPT_CLIENT_DATA_IN_PROGRESS; break;
+	case Channel::ENCRYPT_CLIENT_DATA_PENDING: _channels[id]._state = Channel::ENCRYPT_CLIENT_DATA_IN_PROGRESS; break;
+	default: ASSERT_NEVER_REACHED;
 	}
 }
 
@@ -136,28 +125,10 @@ void Block_io::generated_request_complete(Module_request &mod_req)
 		class Exception_1 { };
 		throw Exception_1 { };
 	}
-	switch (mod_req.dst_module_id()) {
-	case CRYPTO:
-	{
-		Crypto_request const &gen_req { *static_cast<Crypto_request *>(&mod_req) };
-		switch (_channels[id]._state) {
-		case Channel::DECRYPT_CLIENT_DATA_IN_PROGRESS:
-			_channels[id]._state = Channel::DECRYPT_CLIENT_DATA_COMPLETE;
-			_channels[id]._generated_req_success = gen_req.success();
-			break;
-		case Channel::ENCRYPT_CLIENT_DATA_IN_PROGRESS:
-			_channels[id]._state = Channel::ENCRYPT_CLIENT_DATA_COMPLETE;
-			_channels[id]._generated_req_success = gen_req.success();
-			break;
-		default:
-			class Exception_2 { };
-			throw Exception_2 { };
-		}
-		break;
-	}
-	default:
-		class Exception_3 { };
-		throw Exception_3 { };
+	switch (_channels[id]._state) {
+	case Channel::DECRYPT_CLIENT_DATA_IN_PROGRESS: _channels[id]._state = Channel::DECRYPT_CLIENT_DATA_COMPLETE; break;
+	case Channel::ENCRYPT_CLIENT_DATA_IN_PROGRESS: _channels[id]._state = Channel::ENCRYPT_CLIENT_DATA_COMPLETE; break;
+	default: ASSERT_NEVER_REACHED;
 	}
 }
 

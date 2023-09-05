@@ -982,7 +982,7 @@ void Superblock_control::_execute_deinitialize(Channel &chan, uint64_t chan_idx,
 bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
                                                  size_t   buf_size)
 {
-	for (unsigned id = 0; id < NUM_CHANNELS; id++) {
+	for (Module_channel_id id = 0; id < NUM_CHANNELS; id++) {
 
 		Channel &chan { _channels[id] };
 		if (!chan.req_valid())
@@ -991,49 +991,51 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 		switch (chan._state) {
 		case Channel::ADD_KEY_AT_CRYPTO_MODULE_PENDING:
 
-			construct_in_buf<Crypto_request>(
-				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Crypto_request::ADD_KEY, 0, 0, (Key_id)chan._key_plaintext.id,
-				&chan._key_plaintext.value, 0, 0, nullptr, nullptr);
+			ASSERT(sizeof(Crypto_request) <= buf_size);
+			construct_at<Crypto_request>(
+				buf_ptr, SUPERBLOCK_CONTROL, id, Crypto_request::ADD_KEY, 0, INVALID_REQ_TAG, chan._key_plaintext.id,
+				chan._key_plaintext.value, INVALID_PBA, INVALID_VBA, chan._encoded_blk, chan._encoded_blk,
+				chan._generated_prim.succ);
 
 			return 1;
 
 		case Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_PENDING:
 
-			construct_in_buf<Crypto_request>(
-				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Crypto_request::ADD_KEY, 0, 0, (Key_id)chan._curr_key_plaintext.id,
-				&chan._curr_key_plaintext.value, 0, 0, nullptr, nullptr);
+			ASSERT(sizeof(Crypto_request) <= buf_size);
+			construct_at<Crypto_request>(
+				buf_ptr, SUPERBLOCK_CONTROL, id, Crypto_request::ADD_KEY, 0, INVALID_REQ_TAG, chan._curr_key_plaintext.id,
+				chan._curr_key_plaintext.value, INVALID_PBA, INVALID_VBA, chan._encoded_blk, chan._encoded_blk,
+				chan._generated_prim.succ);
 
 			return 1;
 
 		case Channel::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_PENDING:
 
-			construct_in_buf<Crypto_request>(
-				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Crypto_request::ADD_KEY, 0, 0,
-				(Key_id)chan._prev_key_plaintext.id, &chan._prev_key_plaintext.value,
-				0, 0, nullptr, nullptr);
+			ASSERT(sizeof(Crypto_request) <= buf_size);
+			construct_at<Crypto_request>(
+				buf_ptr, SUPERBLOCK_CONTROL, id, Crypto_request::ADD_KEY, 0, INVALID_REQ_TAG, chan._prev_key_plaintext.id,
+				chan._prev_key_plaintext.value, INVALID_PBA, INVALID_VBA, chan._encoded_blk, chan._encoded_blk,
+				chan._generated_prim.succ);
 
 			return 1;
 
 		case Channel::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_PENDING:
 
-			construct_in_buf<Crypto_request>(
-				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Crypto_request::REMOVE_KEY, 0, 0,
-				(Key_id)chan._prev_key_plaintext.id, nullptr,
-				0, 0, nullptr, nullptr);
+			ASSERT(sizeof(Crypto_request) <= buf_size);
+			construct_at<Crypto_request>(
+				buf_ptr, SUPERBLOCK_CONTROL, id, Crypto_request::REMOVE_KEY, 0, INVALID_REQ_TAG, chan._prev_key_plaintext.id,
+				chan._prev_key_plaintext.value, INVALID_PBA, INVALID_VBA, chan._encoded_blk, chan._encoded_blk,
+				chan._generated_prim.succ);
 
 			return 1;
 
 		case Channel::REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_PENDING:
 
-			construct_in_buf<Crypto_request>(
-				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Crypto_request::REMOVE_KEY, 0, 0,
-				(Key_id)chan._curr_key_plaintext.id, nullptr,
-				0, 0, nullptr, nullptr);
+			ASSERT(sizeof(Crypto_request) <= buf_size);
+			construct_at<Crypto_request>(
+				buf_ptr, SUPERBLOCK_CONTROL, id, Crypto_request::REMOVE_KEY, 0, INVALID_REQ_TAG, chan._curr_key_plaintext.id,
+				chan._curr_key_plaintext.value, INVALID_PBA, INVALID_VBA, chan._encoded_blk, chan._encoded_blk,
+				chan._generated_prim.succ);
 
 			return 1;
 
@@ -1139,8 +1141,6 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 	switch (mod_req.dst_module_id()) {
 	case CRYPTO:
 	{
-		Crypto_request &gen_req { *static_cast<Crypto_request*>(&mod_req) };
-		chan._generated_prim.succ = gen_req.success();
 		switch (chan._state) {
 		case Channel::ADD_KEY_AT_CRYPTO_MODULE_IN_PROGRESS: chan._state = Channel::ADD_KEY_AT_CRYPTO_MODULE_COMPLETED; break;
 		case Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_IN_PROGRESS: chan._state = Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_COMPLETED; break;
