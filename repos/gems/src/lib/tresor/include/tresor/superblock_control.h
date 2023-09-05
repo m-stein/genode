@@ -89,16 +89,13 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 		enum State {
 			SUBMITTED, ACCESS_VBA_AT_VBD_SUCCEEDED, REKEY_VBA_AT_VBD_SUCCEEDED, CREATE_KEY_SUCCEEDED, ENCRYPT_CURRENT_KEY_SUCCEEDED,
-			TREE_EXT_STEP_IN_TREE_SUCCEEDED,
+			TREE_EXT_STEP_IN_TREE_SUCCEEDED, ENCRYPT_PREVIOUS_KEY_SUCCEEDED,
 			READ_SB_PENDING,
 			READ_SB_IN_PROGRESS,
 			READ_SB_COMPLETED,
 			READ_CURRENT_SB_PENDING,
 			READ_CURRENT_SB_IN_PROGRESS,
 			READ_CURRENT_SB_COMPLETED,
-			ENCRYPT_PREVIOUS_KEY_PENDING,
-			ENCRYPT_PREVIOUS_KEY_IN_PROGRESS,
-			ENCRYPT_PREVIOUS_KEY_COMPLETED,
 			DECRYPT_CURRENT_KEY_PENDING,
 			DECRYPT_CURRENT_KEY_IN_PROGRESS,
 			DECRYPT_CURRENT_KEY_COMPLETED,
@@ -140,7 +137,6 @@ class Tresor::Superblock_control_channel : public Module_channel
 		};
 
 		enum Tag_type {
-			TAG_SB_CTRL_TA_ENCRYPT_KEY,
 			TAG_SB_CTRL_CACHE,
 			TAG_SB_CTRL_BLK_IO_READ_SB,
 			TAG_SB_CTRL_BLK_IO_WRITE_SB,
@@ -227,9 +223,7 @@ class Tresor::Superblock_control : public Module
 
 		void _secure_sb_encr_curr_key_succ(Channel &, uint64_t, bool &);
 
-		void _secure_sb_encr_prev_key_compl(Channel &chan,
-		                                    uint64_t chan_idx,
-		                                    bool &progress);
+		void _secure_sb_encr_prev_key_succ(Channel &, uint64_t, bool &);
 
 		void _secure_sb_sync_cache_compl(Channel &chan,
 		                                 uint64_t chan_idx,
