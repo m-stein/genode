@@ -18,6 +18,7 @@
 #include <tresor/types.h>
 #include <tresor/module.h>
 #include <tresor/virtual_block_device.h>
+#include <tresor/trust_anchor.h>
 
 namespace Tresor {
 
@@ -87,7 +88,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 		using Request = Superblock_control_request;
 
 		enum State {
-			SUBMITTED, ACCESS_VBA_AT_VBD_SUCCEEDED, REKEY_VBA_AT_VBD_SUCCEEDED,
+			SUBMITTED, ACCESS_VBA_AT_VBD_SUCCEEDED, REKEY_VBA_AT_VBD_SUCCEEDED, CREATE_KEY_SUCCEEDED,
 			READ_SB_PENDING,
 			READ_SB_IN_PROGRESS,
 			READ_SB_COMPLETED,
@@ -95,9 +96,6 @@ class Tresor::Superblock_control_channel : public Module_channel
 			READ_CURRENT_SB_IN_PROGRESS,
 			READ_CURRENT_SB_COMPLETED,
 			TREE_EXT_STEP_IN_TREE_SUCCEEDED,
-			CREATE_KEY_PENDING,
-			CREATE_KEY_IN_PROGRESS,
-			CREATE_KEY_COMPLETED,
 			ENCRYPT_CURRENT_KEY_PENDING,
 			ENCRYPT_CURRENT_KEY_IN_PROGRESS,
 			ENCRYPT_CURRENT_KEY_COMPLETED,
@@ -156,7 +154,6 @@ class Tresor::Superblock_control_channel : public Module_channel
 			TAG_SB_CTRL_TA_SECURE_SB,
 			TAG_SB_CTRL_TA_LAST_SB_HASH,
 			TAG_SB_CTRL_TA_DECRYPT_KEY,
-			TAG_SB_CTRL_TA_CREATE_KEY,
 			TAG_SB_CTRL_CRYPTO_ADD_KEY,
 			TAG_SB_CTRL_CRYPTO_REMOVE_KEY,
 		};
@@ -205,6 +202,8 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 		void _generate_vbd_req(Superblock_control &, Virtual_block_device_request::Type,
 		                       State, bool &, Key_id, Virtual_block_address);
+
+		void _generate_ta_req(Trust_anchor_request::Type, State, bool &, Key_value &);
 };
 
 class Tresor::Superblock_control : public Module
