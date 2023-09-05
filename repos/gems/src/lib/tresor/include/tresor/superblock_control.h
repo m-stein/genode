@@ -88,17 +88,14 @@ class Tresor::Superblock_control_channel : public Module_channel
 		using Request = Superblock_control_request;
 
 		enum State {
-			SUBMITTED, ACCESS_VBA_AT_VBD_SUCCEEDED, REKEY_VBA_AT_VBD_SUCCEEDED, CREATE_KEY_SUCCEEDED,
+			SUBMITTED, ACCESS_VBA_AT_VBD_SUCCEEDED, REKEY_VBA_AT_VBD_SUCCEEDED, CREATE_KEY_SUCCEEDED, ENCRYPT_CURRENT_KEY_SUCCEEDED,
+			TREE_EXT_STEP_IN_TREE_SUCCEEDED,
 			READ_SB_PENDING,
 			READ_SB_IN_PROGRESS,
 			READ_SB_COMPLETED,
 			READ_CURRENT_SB_PENDING,
 			READ_CURRENT_SB_IN_PROGRESS,
 			READ_CURRENT_SB_COMPLETED,
-			TREE_EXT_STEP_IN_TREE_SUCCEEDED,
-			ENCRYPT_CURRENT_KEY_PENDING,
-			ENCRYPT_CURRENT_KEY_IN_PROGRESS,
-			ENCRYPT_CURRENT_KEY_COMPLETED,
 			ENCRYPT_PREVIOUS_KEY_PENDING,
 			ENCRYPT_PREVIOUS_KEY_IN_PROGRESS,
 			ENCRYPT_PREVIOUS_KEY_COMPLETED,
@@ -143,9 +140,6 @@ class Tresor::Superblock_control_channel : public Module_channel
 		};
 
 		enum Tag_type {
-			TAG_SB_CTRL_VBD_RKG_REKEY_VBA,
-			TAG_SB_CTRL_VBD_RKG_READ_VBA,
-			TAG_SB_CTRL_VBD_RKG_WRITE_VBA,
 			TAG_SB_CTRL_TA_ENCRYPT_KEY,
 			TAG_SB_CTRL_CACHE,
 			TAG_SB_CTRL_BLK_IO_READ_SB,
@@ -229,13 +223,9 @@ class Tresor::Superblock_control : public Module
 		bool _handle_failed_generated_req(Channel &chan,
 		                                  bool &progress);
 
-		void _secure_sb_init(Channel &chan,
-		                     uint64_t chan_idx,
-		                     bool &progress);
+		void _secure_sb_init(Channel &, bool &);
 
-		void _secure_sb_encr_curr_key_compl(Channel &chan,
-		                                    uint64_t chan_idx,
-		                                    bool &progress);
+		void _secure_sb_encr_curr_key_succ(Channel &, uint64_t, bool &);
 
 		void _secure_sb_encr_prev_key_compl(Channel &chan,
 		                                    uint64_t chan_idx,
@@ -258,8 +248,7 @@ class Tresor::Superblock_control : public Module
 
 		void _init_sb_without_key_values(Superblock const &, Superblock &);
 
-		void _execute_sync(Channel &, uint64_t const job_idx, Superblock &,
-		                   Superblock_index &, Generation &, bool &progress);
+		void _execute_sync(Channel &, uint64_t, bool &);
 
 		void _execute_create_snap(Channel &, uint64_t, bool &progress);
 
@@ -284,9 +273,7 @@ class Tresor::Superblock_control : public Module
 		                         Superblock &, Superblock_index &,
 		                         Generation &, bool &progress);
 
-		void _execute_deinitialize(Channel &, uint64_t const job_idx,
-		                           Superblock &, Superblock_index &,
-		                           Generation &, bool &progress);
+		void _execute_deinitialize(Channel &, uint64_t, bool &);
 
 
 		/************
