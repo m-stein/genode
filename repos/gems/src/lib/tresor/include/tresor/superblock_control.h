@@ -90,6 +90,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 		enum State {
 			SUBMITTED, ACCESS_VBA_AT_VBD_SUCCEEDED, REKEY_VBA_AT_VBD_SUCCEEDED, CREATE_KEY_SUCCEEDED, ENCRYPT_CURRENT_KEY_SUCCEEDED,
 			TREE_EXT_STEP_IN_TREE_SUCCEEDED, ENCRYPT_PREVIOUS_KEY_SUCCEEDED, DECRYPT_CURRENT_KEY_SUCCEEDED, DECRYPT_PREVIOUS_KEY_SUCCEEDED,
+			SECURE_SB_SUCCEEDED,
 			READ_SB_PENDING,
 			READ_SB_IN_PROGRESS,
 			READ_SB_COMPLETED,
@@ -120,9 +121,6 @@ class Tresor::Superblock_control_channel : public Module_channel
 			SYNC_BLK_IO_PENDING,
 			SYNC_BLK_IO_IN_PROGRESS,
 			SYNC_BLK_IO_COMPLETED,
-			SECURE_SB_PENDING,
-			SECURE_SB_IN_PROGRESS,
-			SECURE_SB_COMPLETED,
 			MAX_SB_HASH_PENDING,
 			MAX_SB_HASH_IN_PROGRESS,
 			MAX_SB_HASH_COMPLETED,
@@ -135,7 +133,6 @@ class Tresor::Superblock_control_channel : public Module_channel
 			TAG_SB_CTRL_BLK_IO_READ_SB,
 			TAG_SB_CTRL_BLK_IO_WRITE_SB,
 			TAG_SB_CTRL_BLK_IO_SYNC,
-			TAG_SB_CTRL_TA_SECURE_SB,
 			TAG_SB_CTRL_TA_LAST_SB_HASH,
 			TAG_SB_CTRL_CRYPTO_ADD_KEY,
 			TAG_SB_CTRL_CRYPTO_REMOVE_KEY,
@@ -207,11 +204,6 @@ class Tresor::Superblock_control : public Module
 		Generation _curr_gen { 0 };
 		Channel _channels[NUM_CHANNELS] { };
 
-		static char const *_state_to_step_label(Channel::State state);
-
-		bool _handle_failed_generated_req(Channel &chan,
-		                                  bool &progress);
-
 		void _secure_sb_init(Channel &, bool &);
 
 		void _secure_sb_encr_curr_key_succ(Channel &, uint64_t, bool &);
@@ -226,12 +218,9 @@ class Tresor::Superblock_control : public Module
 		                               uint64_t chan_idx,
 		                               bool &progress);
 
-		void _secure_sb_sync_blk_io_compl(Channel &chan,
-		                                  uint64_t chan_idx,
-		                                  bool &progress);
+		void _secure_sb_sync_blk_io_compl(Channel &, bool &);
 
-		bool _secure_sb_finish(Channel &chan,
-		                       bool &progress);
+		void _secure_sb_finish(Channel &);
 
 		void _init_sb_without_key_values(Superblock const &, Superblock &);
 
