@@ -204,27 +204,6 @@ void Superblock_control::_init_sb_without_key_values(Superblock const &sb_in,
 }
 
 
-char const *Superblock_control::_state_to_step_label(Channel::State state)
-{
-	switch (state) {
-	case Channel::SECURE_SB_COMPLETED: return "secure sb";
-	default: break;
-	}
-	return "?";
-}
-
-
-bool Superblock_control::_handle_failed_generated_req(Channel &chan,
-                                                      bool    &progress)
-{
-	if (chan._generated_prim.succ)
-		return false;
-
-	chan._mark_req_failed(progress, _state_to_step_label(chan._state));
-	return true;
-}
-
-
 void Superblock_control::_execute_tree_ext_step(Channel &chan,
                                                 uint64_t chan_idx,
                                                 Superblock::State tree_ext_sb_state,
@@ -343,12 +322,10 @@ void Superblock_control::_execute_tree_ext_step(Channel &chan,
 	case Channel::ENCRYPT_PREVIOUS_KEY_SUCCEEDED: _secure_sb_encr_prev_key_succ(chan, chan_idx, progress); break;
 	case Channel::SYNC_CACHE_COMPLETED: _secure_sb_sync_cache_compl(chan, chan_idx, progress); break;
 	case Channel::WRITE_SB_COMPLETED: _secure_sb_write_sb_compl(chan, chan_idx, progress); break;
-	case Channel::SYNC_BLK_IO_COMPLETED: _secure_sb_sync_blk_io_compl(chan, chan_idx, progress); break;
-	case Channel::SECURE_SB_COMPLETED:
+	case Channel::SYNC_BLK_IO_COMPLETED: _secure_sb_sync_blk_io_compl(chan, progress); break;
+	case Channel::SECURE_SB_SUCCEEDED:
 
-		if (!_secure_sb_finish(chan, progress))
-			break;
-
+		_secure_sb_finish(chan);
 		chan._mark_req_successful(progress);
 		break;
 
@@ -439,12 +416,10 @@ void Superblock_control::_execute_rekey_vba(Channel  &chan,
 	case Channel::ENCRYPT_PREVIOUS_KEY_SUCCEEDED: _secure_sb_encr_prev_key_succ(chan, chan_idx, progress); break;
 	case Channel::SYNC_CACHE_COMPLETED:           _secure_sb_sync_cache_compl(chan, chan_idx, progress); break;
 	case Channel::WRITE_SB_COMPLETED:             _secure_sb_write_sb_compl(chan, chan_idx, progress); break;
-	case Channel::SYNC_BLK_IO_COMPLETED:          _secure_sb_sync_blk_io_compl(chan, chan_idx, progress); break;
-	case Channel::SECURE_SB_COMPLETED:
+	case Channel::SYNC_BLK_IO_COMPLETED:          _secure_sb_sync_blk_io_compl(chan, progress); break;
+	case Channel::SECURE_SB_SUCCEEDED:
 
-		if (!_secure_sb_finish(chan, progress))
-			break;
-
+		_secure_sb_finish(chan);
 		chan._mark_req_successful(progress);
 		break;
 
@@ -519,9 +494,7 @@ void Superblock_control::_secure_sb_sync_cache_compl(Channel  &chan,
 }
 
 
-void Superblock_control::_secure_sb_sync_blk_io_compl(Channel  &chan,
-                                                      uint64_t  chan_idx,
-                                                      bool     &progress)
+void Superblock_control::_secure_sb_sync_blk_io_compl(Channel &chan, bool &progress)
 {
 		if (!chan._generated_prim.succ) {
 			chan._mark_req_failed(progress, "sync block io");
@@ -530,15 +503,9 @@ void Superblock_control::_secure_sb_sync_blk_io_compl(Channel  &chan,
 		Block blk { };
 		chan._sb_ciphertext.encode_to_blk(blk);
 		calc_sha256_4k_hash(blk, chan._hash);
+		chan._generate_ta_req(Trust_anchor_request::SECURE_SUPERBLOCK, Channel::SECURE_SB_SUCCEEDED,
+		                      progress, chan._sb_ciphertext.current_key.value, chan._key_plaintext.value);
 
-		chan._generated_prim = {
-			.op     = Generated_prim::READ,
-			.succ   = false,
-			.tg     = Channel::TAG_SB_CTRL_TA_SECURE_SB,
-			.blk_nr = 0,
-			.idx    = chan_idx
-		};
-		chan._state = Channel::SECURE_SB_PENDING;
 		if (_sb_idx < MAX_SUPERBLOCK_INDEX)
 			_sb_idx++;
 		else
@@ -546,7 +513,6 @@ void Superblock_control::_secure_sb_sync_blk_io_compl(Channel  &chan,
 
 		chan._gen = _curr_gen;
 		_curr_gen++;
-		progress = true;
 }
 
 
@@ -570,14 +536,9 @@ void Superblock_control::_secure_sb_write_sb_compl(Channel  &chan,
 }
 
 
-bool Superblock_control::_secure_sb_finish(Channel &chan,
-                                           bool    &progress)
+void Superblock_control::_secure_sb_finish(Channel &chan)
 {
-	if (_handle_failed_generated_req(chan, progress))
-		return false;
-
 	_sb.last_secured_generation = chan._gen;
-	return true;
 }
 
 
@@ -642,12 +603,10 @@ Superblock_control::_execute_initialize_rekeying(Channel           &chan,
 	case Channel::ENCRYPT_PREVIOUS_KEY_SUCCEEDED: _secure_sb_encr_prev_key_succ(chan, chan_idx, progress); break;
 	case Channel::SYNC_CACHE_COMPLETED:           _secure_sb_sync_cache_compl(chan, chan_idx, progress); break;
 	case Channel::WRITE_SB_COMPLETED:             _secure_sb_write_sb_compl(chan, chan_idx, progress); break;
-	case Channel::SYNC_BLK_IO_COMPLETED:          _secure_sb_sync_blk_io_compl(chan, chan_idx, progress); break;
-	case Channel::SECURE_SB_COMPLETED:
+	case Channel::SYNC_BLK_IO_COMPLETED:          _secure_sb_sync_blk_io_compl(chan, progress); break;
+	case Channel::SECURE_SB_SUCCEEDED:
 
-		if (!_secure_sb_finish(chan, progress))
-			break;
-
+		_secure_sb_finish(chan);
 		chan._mark_req_successful(progress);
 		break;
 
@@ -676,12 +635,10 @@ void Superblock_control::_execute_discard_snap(Channel &chan, uint64_t chan_idx,
 	case Channel::ENCRYPT_PREVIOUS_KEY_SUCCEEDED: _secure_sb_encr_prev_key_succ(chan, chan_idx, progress); break;
 	case Channel::SYNC_CACHE_COMPLETED: _secure_sb_sync_cache_compl(chan, chan_idx, progress); break;
 	case Channel::WRITE_SB_COMPLETED: _secure_sb_write_sb_compl(chan, chan_idx, progress); break;
-	case Channel::SYNC_BLK_IO_COMPLETED: _secure_sb_sync_blk_io_compl(chan, chan_idx, progress); break;
-	case Channel::SECURE_SB_COMPLETED:
+	case Channel::SYNC_BLK_IO_COMPLETED: _secure_sb_sync_blk_io_compl(chan, progress); break;
+	case Channel::SECURE_SB_SUCCEEDED:
 
-		if (!_secure_sb_finish(chan, progress))
-			break;
-
+		_secure_sb_finish(chan);
 		req._gen = chan._gen;
 		chan._mark_req_successful(progress);
 		break;
@@ -711,12 +668,10 @@ void Superblock_control::_execute_create_snap(Channel &chan, uint64_t chan_idx, 
 	case Channel::ENCRYPT_PREVIOUS_KEY_SUCCEEDED: _secure_sb_encr_prev_key_succ(chan, chan_idx, progress); break;
 	case Channel::SYNC_CACHE_COMPLETED: _secure_sb_sync_cache_compl(chan, chan_idx, progress); break;
 	case Channel::WRITE_SB_COMPLETED: _secure_sb_write_sb_compl(chan, chan_idx, progress); break;
-	case Channel::SYNC_BLK_IO_COMPLETED: _secure_sb_sync_blk_io_compl(chan, chan_idx, progress); break;
-	case Channel::SECURE_SB_COMPLETED:
+	case Channel::SYNC_BLK_IO_COMPLETED: _secure_sb_sync_blk_io_compl(chan, progress); break;
+	case Channel::SECURE_SB_SUCCEEDED:
 
-		if (!_secure_sb_finish(chan, progress))
-			break;
-
+		_secure_sb_finish(chan);
 		req._gen = chan._gen;
 		chan._mark_req_successful(progress);
 		break;
@@ -740,12 +695,10 @@ void Superblock_control::_execute_sync(Channel &chan, uint64_t chan_idx, bool &p
 	case Channel::ENCRYPT_PREVIOUS_KEY_SUCCEEDED: _secure_sb_encr_prev_key_succ(chan, chan_idx, progress); break;
 	case Channel::SYNC_CACHE_COMPLETED: _secure_sb_sync_cache_compl(chan, chan_idx, progress); break;
 	case Channel::WRITE_SB_COMPLETED: _secure_sb_write_sb_compl(chan, chan_idx, progress); break;
-	case Channel::SYNC_BLK_IO_COMPLETED: _secure_sb_sync_blk_io_compl(chan, chan_idx, progress); break;
-	case Channel::SECURE_SB_COMPLETED:
+	case Channel::SYNC_BLK_IO_COMPLETED: _secure_sb_sync_blk_io_compl(chan, progress); break;
+	case Channel::SECURE_SB_SUCCEEDED:
 
-		if (!_secure_sb_finish(chan, progress))
-			break;
-
+		_secure_sb_finish(chan);
 		chan._mark_req_successful(progress);
 		break;
 
@@ -963,12 +916,10 @@ void Superblock_control::_execute_deinitialize(Channel &chan, uint64_t chan_idx,
 	case Channel::ENCRYPT_PREVIOUS_KEY_SUCCEEDED: _secure_sb_encr_prev_key_succ(chan, chan_idx, progress); break;
 	case Channel::SYNC_CACHE_COMPLETED: _secure_sb_sync_cache_compl(chan, chan_idx, progress); break;
 	case Channel::WRITE_SB_COMPLETED: _secure_sb_write_sb_compl(chan, chan_idx, progress); break;
-	case Channel::SYNC_BLK_IO_COMPLETED: _secure_sb_sync_blk_io_compl(chan, chan_idx, progress); break;
-	case Channel::SECURE_SB_COMPLETED:
+	case Channel::SYNC_BLK_IO_COMPLETED: _secure_sb_sync_blk_io_compl(chan, progress); break;
+	case Channel::SECURE_SB_SUCCEEDED:
 
-		if (!_secure_sb_finish(chan, progress))
-			break;
-
+		_secure_sb_finish(chan);
 		chan._curr_key_plaintext.id = _sb.current_key.id;
 
 		chan._generated_prim = {
@@ -1045,15 +996,6 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 			continue;
 
 		switch (chan._state) {
-		case Channel::SECURE_SB_PENDING:
-
-			ASSERT(sizeof(Trust_anchor_request) <= buf_size);
-			construct_at<Trust_anchor_request>(
-				buf_ptr, SUPERBLOCK_CONTROL, id, Trust_anchor_request::SECURE_SUPERBLOCK,
-				chan._key_plaintext.value, chan._sb_ciphertext.current_key.value, chan._hash, Passphrase { }, chan._generated_prim.succ);
-
-			return 1;
-
 		case Channel::MAX_SB_HASH_PENDING:
 
 			ASSERT(sizeof(Trust_anchor_request) <= buf_size);
@@ -1159,7 +1101,6 @@ void Superblock_control::_drop_generated_request(Module_request &mod_req)
 	}
 	Channel &chan { _channels[id] };
 	switch (chan._state) {
-	case Channel::SECURE_SB_PENDING: chan._state = Channel::SECURE_SB_IN_PROGRESS; break;
 	case Channel::MAX_SB_HASH_PENDING: chan._state = Channel::MAX_SB_HASH_IN_PROGRESS; break;
 	case Channel::ADD_KEY_AT_CRYPTO_MODULE_PENDING: chan._state = Channel::ADD_KEY_AT_CRYPTO_MODULE_IN_PROGRESS; break;
 	case Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_PENDING: chan._state = Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_IN_PROGRESS; break;
@@ -1216,7 +1157,6 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 	case TRUST_ANCHOR:
 	{
 		switch (chan._state) {
-		case Channel::SECURE_SB_IN_PROGRESS: chan._state = Channel::SECURE_SB_COMPLETED; break;
 		case Channel::MAX_SB_HASH_IN_PROGRESS: chan._state = Channel::MAX_SB_HASH_COMPLETED; break;
 		default: ASSERT_NEVER_REACHED;
 		}
