@@ -881,18 +881,8 @@ void Superblock_control::_execute_initialize(Channel           &chan,
 
 			break;
 		case Superblock::REKEYING:
-
-			chan._generated_prim = {
-				.op     = Channel::Generated_prim::Type::READ,
-				.succ   = false,
-				.tg     = Channel::Tag_type::TAG_SB_CTRL_TA_DECRYPT_KEY,
-				.blk_nr = 0,
-				.idx    = job_idx
-			};
-
-			chan._state = Channel::DECRYPT_PREVIOUS_KEY_PENDING;
-			progress       = true;
-
+			chan._generate_ta_req(Trust_anchor_request::DECRYPT_KEY, Channel::DECRYPT_PREVIOUS_KEY_SUCCEEDED,
+			                      progress, chan._sb_ciphertext.previous_key.value, chan._prev_key_plaintext.value);
 			break;
 		case Superblock::NORMAL:
 		case Superblock::EXTENDING_VBD:
@@ -918,7 +908,7 @@ void Superblock_control::_execute_initialize(Channel           &chan,
 		}
 
 		break;
-	case Channel::DECRYPT_PREVIOUS_KEY_COMPLETED:
+	case Channel::DECRYPT_PREVIOUS_KEY_SUCCEEDED:
 		if (!chan._generated_prim.succ) {
 			class Decrypt_previous_key_error { };
 			throw Decrypt_previous_key_error { };
@@ -1055,15 +1045,6 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 			continue;
 
 		switch (chan._state) {
-		case Channel::DECRYPT_PREVIOUS_KEY_PENDING:
-
-			ASSERT(sizeof(Trust_anchor_request) <= buf_size);
-			construct_at<Trust_anchor_request>(
-				buf_ptr, SUPERBLOCK_CONTROL, id, Trust_anchor_request::DECRYPT_KEY,
-				chan._prev_key_plaintext.value, chan._sb_ciphertext.previous_key.value, chan._hash, Passphrase { }, chan._generated_prim.succ);
-
-			return 1;
-
 		case Channel::SECURE_SB_PENDING:
 
 			ASSERT(sizeof(Trust_anchor_request) <= buf_size);
@@ -1178,7 +1159,6 @@ void Superblock_control::_drop_generated_request(Module_request &mod_req)
 	}
 	Channel &chan { _channels[id] };
 	switch (chan._state) {
-	case Channel::DECRYPT_PREVIOUS_KEY_PENDING: chan._state = Channel::DECRYPT_PREVIOUS_KEY_IN_PROGRESS; break;
 	case Channel::SECURE_SB_PENDING: chan._state = Channel::SECURE_SB_IN_PROGRESS; break;
 	case Channel::MAX_SB_HASH_PENDING: chan._state = Channel::MAX_SB_HASH_IN_PROGRESS; break;
 	case Channel::ADD_KEY_AT_CRYPTO_MODULE_PENDING: chan._state = Channel::ADD_KEY_AT_CRYPTO_MODULE_IN_PROGRESS; break;
@@ -1236,7 +1216,6 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 	case TRUST_ANCHOR:
 	{
 		switch (chan._state) {
-		case Channel::DECRYPT_PREVIOUS_KEY_IN_PROGRESS: chan._state = Channel::DECRYPT_PREVIOUS_KEY_COMPLETED; break;
 		case Channel::SECURE_SB_IN_PROGRESS: chan._state = Channel::SECURE_SB_COMPLETED; break;
 		case Channel::MAX_SB_HASH_IN_PROGRESS: chan._state = Channel::MAX_SB_HASH_COMPLETED; break;
 		default: ASSERT_NEVER_REACHED;
