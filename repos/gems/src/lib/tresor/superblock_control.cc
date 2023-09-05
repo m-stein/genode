@@ -381,27 +381,19 @@ void Superblock_control::_execute_rekey_vba(Channel  &chan,
 		} else {
 
 			chan._prev_key_plaintext.id = _sb.previous_key.id;
-			chan._generated_prim = {
-				.op     = Generated_prim::READ,
-				.succ   = false,
-				.tg     = Channel::TAG_SB_CTRL_CRYPTO_REMOVE_KEY,
-				.blk_nr = 0,
-				.idx    = chan_idx
-			};
-			chan._state = Channel::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_PENDING;
-			progress = true;
+			chan._state = Channel::REQ_GENERATED;
+			chan.generate_req<Crypto_request>(
+				Channel::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_SUCCEEDED, progress, Crypto_request::REMOVE_KEY, 0, INVALID_REQ_TAG, chan._prev_key_plaintext.id,
+				chan._prev_key_plaintext.value, INVALID_PBA, INVALID_VBA, chan._encoded_blk, chan._encoded_blk,
+				chan._generated_prim.succ);
 
 			if (VERBOSE_REKEYING)
 				log("  remove key ", (Key_id)chan._key_plaintext.id);
 		}
 		break;
 	}
-	case Channel::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_COMPLETED:
+	case Channel::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_SUCCEEDED:
 
-		if (!chan._generated_prim.succ) {
-			chan._mark_req_failed(progress, "remove key at crypto");
-			break;
-		}
 		_sb.previous_key = { };
 		_sb.state = Superblock::NORMAL;
 		req._client_req_finished = true;
@@ -569,15 +561,11 @@ Superblock_control::_execute_initialize_rekeying(Channel           &chan,
 			.id    = _sb.previous_key.id + 1
 		};
 		chan._key_plaintext = _sb.current_key;
-		chan._generated_prim = {
-			.op     = Generated_prim::READ,
-			.succ   = false,
-			.tg     = Channel::TAG_SB_CTRL_CRYPTO_ADD_KEY,
-			.blk_nr = 0,
-			.idx    = chan_idx
-		};
-		chan._state = Channel::ADD_KEY_AT_CRYPTO_MODULE_PENDING;
-		progress = true;
+		chan._state = Channel::REQ_GENERATED;
+		chan.generate_req<Crypto_request>(
+			Channel::ADD_KEY_AT_CRYPTO_MODULE_SUCCEEDED, progress, Crypto_request::ADD_KEY, 0, INVALID_REQ_TAG, chan._key_plaintext.id,
+			chan._key_plaintext.value, INVALID_PBA, INVALID_VBA, chan._encoded_blk, chan._encoded_blk,
+			chan._generated_prim.succ);
 
 		if (VERBOSE_REKEYING) {
 			log("start rekeying:");
@@ -586,14 +574,9 @@ Superblock_control::_execute_initialize_rekeying(Channel           &chan,
 		}
 		break;
 
-	case Channel::ADD_KEY_AT_CRYPTO_MODULE_COMPLETED:
+	case Channel::ADD_KEY_AT_CRYPTO_MODULE_SUCCEEDED:
 
-		if (!chan._generated_prim.succ) {
-			chan._mark_req_failed(progress, "add key at crypto");
-			break;
-		}
 		_secure_sb_init(chan, progress);
-
 		if (VERBOSE_REKEYING)
 			log("  secure sb: gen ", _curr_gen);
 
@@ -803,22 +786,14 @@ void Superblock_control::_execute_initialize(Channel           &chan,
 	case Channel::DECRYPT_CURRENT_KEY_SUCCEEDED:
 
 		chan._curr_key_plaintext.id = chan._sb_ciphertext.current_key.id;
-		chan._generated_prim = {
-			.op     = Channel::Generated_prim::Type::READ,
-			.succ   = false,
-			.tg     = Channel::Tag_type::TAG_SB_CTRL_CRYPTO_ADD_KEY,
-			.blk_nr = 0,
-			.idx    = job_idx
-		};
-		chan._state = Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_PENDING;
-		progress       = true;
+		chan._state = Channel::REQ_GENERATED;
+		chan.generate_req<Crypto_request>(
+			Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_SUCCEEDED, progress, Crypto_request::ADD_KEY, 0, INVALID_REQ_TAG, chan._curr_key_plaintext.id,
+			chan._curr_key_plaintext.value, INVALID_PBA, INVALID_VBA, chan._encoded_blk, chan._encoded_blk,
+			chan._generated_prim.succ);
 		break;
 
-	case Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_COMPLETED:
-		if (!chan._generated_prim.succ) {
-			class Execute_add_current_key_at_crypto_error { };
-			throw Execute_add_current_key_at_crypto_error { };
-		}
+	case Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_SUCCEEDED:
 
 		switch (chan._sb_ciphertext.state) {
 		case Superblock::INVALID:
@@ -859,25 +834,14 @@ void Superblock_control::_execute_initialize(Channel           &chan,
 			class Decrypt_previous_key_error { };
 			throw Decrypt_previous_key_error { };
 		}
-
-		chan._generated_prim = {
-			.op     = Channel::Generated_prim::Type::READ,
-			.succ   = false,
-			.tg     = Channel::Tag_type::TAG_SB_CTRL_CRYPTO_ADD_KEY,
-			.blk_nr = 0,
-			.idx    = job_idx
-		};
-
-		chan._state = Channel::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_PENDING;
-		progress       = true;
-
+		chan._state = Channel::REQ_GENERATED;
+		chan.generate_req<Crypto_request>(
+			Channel::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_SUCCEEDED, progress, Crypto_request::ADD_KEY, 0, INVALID_REQ_TAG, chan._prev_key_plaintext.id,
+			chan._prev_key_plaintext.value, INVALID_PBA, INVALID_VBA, chan._encoded_blk, chan._encoded_blk,
+			chan._generated_prim.succ);
 		break;
-	case Channel::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_COMPLETED:
-		if (!chan._generated_prim.succ) {
-			class Add_previous_key_at_crypto_module_error { };
-			throw Add_previous_key_at_crypto_module_error { };
-		}
 
+	case Channel::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_SUCCEEDED:
 		_init_sb_without_key_values(chan._sb_ciphertext, sb);
 
 		sb.current_key.value  = chan._curr_key_plaintext.value;
@@ -914,62 +878,27 @@ void Superblock_control::_execute_deinitialize(Channel &chan, uint64_t chan_idx,
 
 		_secure_sb_finish(chan);
 		chan._curr_key_plaintext.id = _sb.current_key.id;
-
-		chan._generated_prim = {
-			.op     = Channel::Generated_prim::Type::READ,
-			.succ   = false,
-			.tg     = Channel::Tag_type::TAG_SB_CTRL_CRYPTO_REMOVE_KEY,
-			.blk_nr = 0,
-			.idx    = chan_idx
-		};
-
-		chan._state = Channel::REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_PENDING;
-		progress       = true;
-
+		chan.generate_req<Crypto_request>(
+			Channel::REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_SUCCEEDED, progress, Crypto_request::REMOVE_KEY, 0, INVALID_REQ_TAG, chan._curr_key_plaintext.id,
+			chan._curr_key_plaintext.value, INVALID_PBA, INVALID_VBA, chan._encoded_blk, chan._encoded_blk,
+			chan._generated_prim.succ);
 		break;
-	case Channel::REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_COMPLETED:
 
-		if (!chan._generated_prim.succ) {
-			class Deinitialize_remove_current_key_error { };
-			throw Deinitialize_remove_current_key_error { };
-		}
+	case Channel::REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_SUCCEEDED:
 
-		switch (_sb.state) {
-		default:
-			class Deinitialize_remove_current_key_invalid_error { };
-			throw Deinitialize_remove_current_key_invalid_error { };
-			break;
-		case Superblock::REKEYING:
-
+		if (_sb.state == Superblock::REKEYING) {
 			chan._prev_key_plaintext.id = _sb.previous_key.id;
-
-			chan._generated_prim = {
-				.op     = Channel::Generated_prim::Type::READ,
-				.succ   = false,
-				.tg     = Channel::Tag_type::TAG_SB_CTRL_CRYPTO_REMOVE_KEY,
-				.blk_nr = 0,
-				.idx    = chan_idx
-			};
-
-			chan._state = Channel::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_PENDING;
-			progress       = true;
-
-			break;
-		case Superblock::NORMAL:
-		case Superblock::EXTENDING_VBD:
-		case Superblock::EXTENDING_FT:
-
+			chan._state = Channel::REQ_GENERATED;
+			chan.generate_req<Crypto_request>(
+				Channel::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_SUCCEEDED, progress, Crypto_request::REMOVE_KEY, 0, INVALID_REQ_TAG, chan._prev_key_plaintext.id,
+				chan._prev_key_plaintext.value, INVALID_PBA, INVALID_VBA, chan._encoded_blk, chan._encoded_blk,
+				chan._generated_prim.succ);
+		} else
 			chan._mark_req_successful(progress);
-			break;
-		}
-
 		break;
-	case Channel::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_COMPLETED:
 
-		if (!chan._generated_prim.succ) {
-			class Deinitialize_remove_previous_key_error { };
-			throw Deinitialize_remove_previous_key_error { };
-		}
+	case Channel::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_SUCCEEDED:
+
 		_sb.state = Superblock::INVALID;
 		chan._mark_req_successful(progress);
 		break;
@@ -989,56 +918,6 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 			continue;
 
 		switch (chan._state) {
-		case Channel::ADD_KEY_AT_CRYPTO_MODULE_PENDING:
-
-			ASSERT(sizeof(Crypto_request) <= buf_size);
-			construct_at<Crypto_request>(
-				buf_ptr, SUPERBLOCK_CONTROL, id, Crypto_request::ADD_KEY, 0, INVALID_REQ_TAG, chan._key_plaintext.id,
-				chan._key_plaintext.value, INVALID_PBA, INVALID_VBA, chan._encoded_blk, chan._encoded_blk,
-				chan._generated_prim.succ);
-
-			return 1;
-
-		case Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_PENDING:
-
-			ASSERT(sizeof(Crypto_request) <= buf_size);
-			construct_at<Crypto_request>(
-				buf_ptr, SUPERBLOCK_CONTROL, id, Crypto_request::ADD_KEY, 0, INVALID_REQ_TAG, chan._curr_key_plaintext.id,
-				chan._curr_key_plaintext.value, INVALID_PBA, INVALID_VBA, chan._encoded_blk, chan._encoded_blk,
-				chan._generated_prim.succ);
-
-			return 1;
-
-		case Channel::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_PENDING:
-
-			ASSERT(sizeof(Crypto_request) <= buf_size);
-			construct_at<Crypto_request>(
-				buf_ptr, SUPERBLOCK_CONTROL, id, Crypto_request::ADD_KEY, 0, INVALID_REQ_TAG, chan._prev_key_plaintext.id,
-				chan._prev_key_plaintext.value, INVALID_PBA, INVALID_VBA, chan._encoded_blk, chan._encoded_blk,
-				chan._generated_prim.succ);
-
-			return 1;
-
-		case Channel::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_PENDING:
-
-			ASSERT(sizeof(Crypto_request) <= buf_size);
-			construct_at<Crypto_request>(
-				buf_ptr, SUPERBLOCK_CONTROL, id, Crypto_request::REMOVE_KEY, 0, INVALID_REQ_TAG, chan._prev_key_plaintext.id,
-				chan._prev_key_plaintext.value, INVALID_PBA, INVALID_VBA, chan._encoded_blk, chan._encoded_blk,
-				chan._generated_prim.succ);
-
-			return 1;
-
-		case Channel::REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_PENDING:
-
-			ASSERT(sizeof(Crypto_request) <= buf_size);
-			construct_at<Crypto_request>(
-				buf_ptr, SUPERBLOCK_CONTROL, id, Crypto_request::REMOVE_KEY, 0, INVALID_REQ_TAG, chan._curr_key_plaintext.id,
-				chan._curr_key_plaintext.value, INVALID_PBA, INVALID_VBA, chan._encoded_blk, chan._encoded_blk,
-				chan._generated_prim.succ);
-
-			return 1;
-
 		case Channel::READ_SB_PENDING:
 		case Channel::READ_CURRENT_SB_PENDING:
 
@@ -1087,11 +966,6 @@ void Superblock_control::_drop_generated_request(Module_request &mod_req)
 	}
 	Channel &chan { _channels[id] };
 	switch (chan._state) {
-	case Channel::ADD_KEY_AT_CRYPTO_MODULE_PENDING: chan._state = Channel::ADD_KEY_AT_CRYPTO_MODULE_IN_PROGRESS; break;
-	case Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_PENDING: chan._state = Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_IN_PROGRESS; break;
-	case Channel::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_PENDING: chan._state = Channel::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_IN_PROGRESS; break;
-	case Channel::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_PENDING: chan._state = Channel::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_IN_PROGRESS; break;
-	case Channel::REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_PENDING: chan._state = Channel::REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_IN_PROGRESS; break;
 	case Channel::READ_SB_PENDING: chan._state = Channel::READ_SB_IN_PROGRESS; break;
 	case Channel::READ_CURRENT_SB_PENDING: chan._state = Channel::READ_CURRENT_SB_IN_PROGRESS; break;
 	case Channel::SYNC_BLK_IO_PENDING: chan._state = Channel::SYNC_BLK_IO_IN_PROGRESS; break;
@@ -1139,20 +1013,6 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 	Channel &chan { _channels[id] };
 	ASSERT(chan.req_valid());
 	switch (mod_req.dst_module_id()) {
-	case CRYPTO:
-	{
-		switch (chan._state) {
-		case Channel::ADD_KEY_AT_CRYPTO_MODULE_IN_PROGRESS: chan._state = Channel::ADD_KEY_AT_CRYPTO_MODULE_COMPLETED; break;
-		case Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_IN_PROGRESS: chan._state = Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_COMPLETED; break;
-		case Channel::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_IN_PROGRESS: chan._state = Channel::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_COMPLETED; break;
-		case Channel::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_IN_PROGRESS: chan._state = Channel::REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_COMPLETED; break;
-		case Channel::REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_IN_PROGRESS: chan._state = Channel::REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_COMPLETED; break;
-		default:
-			class Exception_5 { };
-			throw Exception_5 { };
-		}
-		break;
-	}
 	case BLOCK_IO:
 	{
 		Block_io_request &gen_req { *static_cast<Block_io_request*>(&mod_req) };
