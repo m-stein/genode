@@ -14,7 +14,6 @@
 /* tresor includes */
 #include <tresor/superblock_control.h>
 #include <tresor/crypto.h>
-#include <tresor/block_io.h>
 #include <tresor/ft_resizing.h>
 #include <tresor/sha256_4k_hash.h>
 
@@ -481,6 +480,7 @@ void Superblock_control::_secure_sb_sync_cache_compl(Channel  &chan,
 		.blk_nr = _sb_idx,
 		.idx    = chan_idx
 	};
+	chan._sb_ciphertext.encode_to_blk(chan._encoded_blk);
 	chan._state = Channel::WRITE_SB_PENDING;
 	progress = true;
 }
@@ -693,7 +693,6 @@ void Superblock_control::_execute_sync(Channel &chan, uint64_t chan_idx, bool &p
 
 
 void Superblock_control::_execute_initialize(Channel           &chan,
-                                             uint64_t const     job_idx,
                                              Superblock        &sb,
                                              Superblock_index  &sb_idx,
                                              Generation        &curr_gen,
@@ -711,23 +710,12 @@ void Superblock_control::_execute_initialize(Channel           &chan,
 	case Channel::GET_LAST_SB_HASH_SUCCEEDED:
 
 		chan._read_sb_idx = 0;
-		chan._generated_prim = {
-			.op     = Channel::Generated_prim::Type::READ,
-			.succ   = false,
-			.tg     = Channel::Tag_type::TAG_SB_CTRL_BLK_IO_READ_SB,
-			.blk_nr = chan._read_sb_idx,
-			.idx    = job_idx
-		};
-		chan._state = Channel::READ_SB_PENDING;
-		progress = true;
+		chan._generate_blk_req(Block_io_request::READ, chan._read_sb_idx, Channel::READ_SB_COMPLETED, progress);
 		break;
 
 	case Channel::READ_SB_COMPLETED:
 
-		if (!chan._generated_prim.succ) {
-			class Execute_initialize_error { };
-			throw Execute_initialize_error { };
-		}
+		chan._sb_ciphertext.decode_from_blk(chan._encoded_blk);
 		if (chan._sb_ciphertext.state != Superblock::INVALID) {
 
 			Superblock const &cipher { chan._sb_ciphertext };
@@ -741,44 +729,17 @@ void Superblock_control::_execute_initialize(Channel           &chan,
 			}
 		}
 		if (chan._read_sb_idx < MAX_SUPERBLOCK_INDEX) {
-
-			chan._read_sb_idx = chan._read_sb_idx + 1;
-			chan._generated_prim = {
-				.op     = Channel::Generated_prim::Type::READ,
-				.succ   = false,
-				.tg     = Channel::Tag_type::TAG_SB_CTRL_BLK_IO_READ_SB,
-				.blk_nr = chan._read_sb_idx,
-				.idx    = job_idx
-			};
-			chan._state = Channel::READ_SB_PENDING;
-			progress       = true;
-
+			chan._read_sb_idx++;
+			chan._generate_blk_req(Block_io_request::READ, chan._read_sb_idx, Channel::READ_SB_COMPLETED, progress);
 		} else {
-
-			if (!chan._sb_found) {
-				class Execute_initialize_sb_found_error { };
-				throw Execute_initialize_sb_found_error { };
-			}
-
-			chan._generated_prim = {
-				.op     = Channel::Generated_prim::Type::READ,
-				.succ   = false,
-				.tg     = Channel::Tag_type::TAG_SB_CTRL_BLK_IO_READ_SB,
-				.blk_nr = chan._sb_idx,
-				.idx    = job_idx
-			};
-
-			chan._state = Channel::READ_CURRENT_SB_PENDING;
-			progress       = true;
+			ASSERT(chan._sb_found);
+			chan._generate_blk_req(Block_io_request::READ, chan._sb_idx, Channel::READ_CURRENT_SB_COMPLETED, progress);
 		}
 		break;
 
 	case Channel::READ_CURRENT_SB_COMPLETED:
 
-		if (!chan._generated_prim.succ) {
-			class Execute_initialize_read_current_sb_error { };
-			throw Execute_initialize_read_current_sb_error { };
-		}
+		chan._sb_ciphertext.decode_from_blk(chan._encoded_blk);
 		chan._generate_ta_req(Trust_anchor_request::DECRYPT_KEY, Channel::DECRYPT_CURRENT_KEY_SUCCEEDED,
 		                      progress, chan._sb_ciphertext.current_key.value, chan._curr_key_plaintext.value);
 		break;
@@ -908,6 +869,15 @@ void Superblock_control::_execute_deinitialize(Channel &chan, uint64_t chan_idx,
 }
 
 
+void Superblock_control_channel::_generate_blk_req(Block_io_request::Type type, Physical_block_address pba, State complete_state,
+                                                   bool &progress)
+{
+	_state = REQ_GENERATED;
+	generate_req<Block_io_request>(
+		complete_state, progress, type, 0, 0, 0, pba, 0, 1, _encoded_blk, _hash, _generated_prim.succ);
+}
+
+
 bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
                                                  size_t   buf_size)
 {
@@ -918,18 +888,6 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 			continue;
 
 		switch (chan._state) {
-		case Channel::READ_SB_PENDING:
-		case Channel::READ_CURRENT_SB_PENDING:
-
-			ASSERT(sizeof(Block_io_request) <= buf_size);
-			construct_at<Block_io_request>(
-				buf_ptr, SUPERBLOCK_CONTROL, id,
-				Block_io_request::READ, 0, 0, 0,
-				chan._generated_prim.blk_nr, 0, 1, chan._encoded_blk,
-				chan._hash, chan._generated_prim.succ);
-
-			return true;
-
 		case Channel::SYNC_BLK_IO_PENDING:
 		case Channel::SYNC_CACHE_PENDING:
 
@@ -970,8 +928,6 @@ void Superblock_control::_drop_generated_request(Module_request &mod_req)
 	}
 	Channel &chan { _channels[id] };
 	switch (chan._state) {
-	case Channel::READ_SB_PENDING: chan._state = Channel::READ_SB_IN_PROGRESS; break;
-	case Channel::READ_CURRENT_SB_PENDING: chan._state = Channel::READ_CURRENT_SB_IN_PROGRESS; break;
 	case Channel::SYNC_BLK_IO_PENDING: chan._state = Channel::SYNC_BLK_IO_IN_PROGRESS; break;
 	case Channel::SYNC_CACHE_PENDING: chan._state = Channel::SYNC_CACHE_IN_PROGRESS; break;
 	case Channel::WRITE_SB_PENDING: chan._state = Channel::WRITE_SB_IN_PROGRESS; break;
@@ -1000,7 +956,7 @@ void Superblock_control::execute(bool &progress)
 		case Request::FT_EXTENSION_STEP: _execute_tree_ext_step(chan, idx, Superblock::EXTENDING_FT, VERBOSE_FT_EXTENSION, "ft", progress); break;
 		case Request::CREATE_SNAPSHOT: _execute_create_snap(chan, idx, progress); break;
 		case Request::DISCARD_SNAPSHOT: _execute_discard_snap(chan, idx, progress); break;
-		case Request::INITIALIZE: _execute_initialize(chan, idx, _sb, _sb_idx, _curr_gen, progress); break;
+		case Request::INITIALIZE: _execute_initialize(chan, _sb, _sb_idx, _curr_gen, progress); break;
 		case Request::DEINITIALIZE: _execute_deinitialize (chan, idx, progress); break;
 		}
 	}
@@ -1020,14 +976,6 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 	case BLOCK_IO:
 	{
 		switch (chan._state) {
-		case Channel::READ_SB_IN_PROGRESS:
-			chan._sb_ciphertext.decode_from_blk(chan._encoded_blk);
-			chan._state = Channel::READ_SB_COMPLETED;
-			break;
-		case Channel::READ_CURRENT_SB_IN_PROGRESS:
-			chan._sb_ciphertext.decode_from_blk(chan._encoded_blk);
-			chan._state = Channel::READ_CURRENT_SB_COMPLETED;
-			break;
 		case Channel::SYNC_BLK_IO_IN_PROGRESS: chan._state = Channel::SYNC_BLK_IO_COMPLETED; break;
 		case Channel::SYNC_CACHE_IN_PROGRESS: chan._state = Channel::SYNC_CACHE_COMPLETED; break;
 		case Channel::WRITE_SB_IN_PROGRESS: chan._state = Channel::WRITE_SB_COMPLETED; break;
