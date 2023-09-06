@@ -19,6 +19,7 @@
 #include <tresor/module.h>
 #include <tresor/virtual_block_device.h>
 #include <tresor/trust_anchor.h>
+#include <tresor/block_io.h>
 
 namespace Tresor {
 
@@ -165,10 +166,11 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 		void _access_vba(Superblock_control &, Virtual_block_device_request::Type, bool &);
 
-		void _generate_vbd_req(Superblock_control &, Virtual_block_device_request::Type,
-		                       State, bool &, Key_id, Virtual_block_address);
+		void _generate_vbd_req(Superblock_control &, Virtual_block_device_request::Type, State, bool &, Key_id, Virtual_block_address);
 
 		void _generate_ta_req(Trust_anchor_request::Type, State, bool &, Key_value &, Key_value &);
+
+		void _generate_blk_req(Block_io_request::Type, Physical_block_address, State, bool &);
 };
 
 class Tresor::Superblock_control : public Module
@@ -230,7 +232,7 @@ class Tresor::Superblock_control : public Module
 		                                  uint64_t chan_idx,
 		                                  bool &progress);
 
-		void _execute_initialize(Channel &, uint64_t const job_idx,
+		void _execute_initialize(Channel &,
 		                         Superblock &, Superblock_index &,
 		                         Generation &, bool &progress);
 
