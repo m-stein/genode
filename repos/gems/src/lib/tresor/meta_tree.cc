@@ -96,21 +96,17 @@ bool Meta_tree::_peek_generated_request(uint8_t *buf_ptr,
 		Local_cache_request const &local_req { channel._cache_request };
 		if (local_req.state == Local_cache_request::PENDING) {
 
-			Block_io_request::Type blk_io_req_type {
-				local_req.op == Local_cache_request::READ ?
-				                   Block_io_request::READ :
-				                Local_cache_request::WRITE ?
-				                   Block_io_request::WRITE :
-				                   Block_io_request::INVALID };
-
-			if (blk_io_req_type == Block_io_request::INVALID) {
-				class Exception_1 { };
-				throw Exception_1 { };
+			Block_io_request::Type blk_io_req_type;
+			switch(local_req.op) {
+			case Local_cache_request::READ: blk_io_req_type = Block_io_request::READ; break;
+			case Local_cache_request::WRITE: blk_io_req_type = Block_io_request::WRITE; break;
+			default: ASSERT_NEVER_REACHED;
 			}
-			construct_in_buf<Block_io_request>(
-				buf_ptr, buf_size, META_TREE, id, blk_io_req_type,
+			ASSERT(sizeof(Block_io_request) <= buf_size);
+			construct_at<Block_io_request>(
+				buf_ptr, META_TREE, id, blk_io_req_type,
 				0, 0, 0, local_req.pba, 0, 1,
-				(void *)&channel._cache_request.block_data, nullptr);
+				channel._cache_request.block_data, channel._dummy_hash, channel._generated_req_success);
 
 			return true;
 		}
@@ -151,9 +147,8 @@ void Meta_tree::generated_request_complete(Module_request &mod_req)
 		class Exception_3 { };
 		throw Exception_3 { };
 	}
-	Block_io_request &blk_io_req { *static_cast<Block_io_request *>(&mod_req) };
 	Channel &channel { _channels[id] };
-	if (!blk_io_req.success()) {
+	if (!channel._generated_req_success) {
 
 		channel._request._success = false;
 		channel._request._new_pba = INVALID_PBA;

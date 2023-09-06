@@ -160,13 +160,15 @@ class Tresor::Meta_tree_channel
 			Local_cache_request() { }
 		};
 
-		State               _state                                { INVALID };
-		Meta_tree_request   _request                              { };
-		Local_cache_request _cache_request                        { };
-		Type_2_info         _level_1_node                         { };
-		Type_1_info         _level_n_nodes[TREE_MAX_NR_OF_LEVELS] { }; /* index starts at 2 */
-		bool                _finished                             { false };
-		bool                _root_dirty                           { false };
+		State _state { INVALID };
+		Meta_tree_request _request { };
+		Hash _dummy_hash { };
+		Local_cache_request _cache_request { };
+		Type_2_info _level_1_node { };
+		Type_1_info _level_n_nodes[TREE_MAX_NR_OF_LEVELS] { }; /* index starts at 2 */
+		bool _finished { false };
+		bool _root_dirty { false };
+		bool _generated_req_success { false };
 };
 
 class Tresor::Meta_tree : public Module

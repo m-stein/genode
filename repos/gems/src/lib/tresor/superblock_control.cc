@@ -921,32 +921,36 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 		case Channel::READ_SB_PENDING:
 		case Channel::READ_CURRENT_SB_PENDING:
 
-			construct_in_buf<Block_io_request>(
-				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
+			ASSERT(sizeof(Block_io_request) <= buf_size);
+			construct_at<Block_io_request>(
+				buf_ptr, SUPERBLOCK_CONTROL, id,
 				Block_io_request::READ, 0, 0, 0,
-				chan._generated_prim.blk_nr, 0, 1, &chan._encoded_blk,
-				nullptr);
+				chan._generated_prim.blk_nr, 0, 1, chan._encoded_blk,
+				chan._hash, chan._generated_prim.succ);
 
 			return true;
 
 		case Channel::SYNC_BLK_IO_PENDING:
 		case Channel::SYNC_CACHE_PENDING:
 
-			construct_in_buf<Block_io_request>(
-				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
+			ASSERT(sizeof(Block_io_request) <= buf_size);
+			construct_at<Block_io_request>(
+				buf_ptr, SUPERBLOCK_CONTROL, id,
 				Block_io_request::SYNC, 0, 0, 0,
-				chan._generated_prim.blk_nr, 0, 1, nullptr, nullptr);
+				chan._generated_prim.blk_nr, 0, 1, chan._encoded_blk, chan._hash, chan._generated_prim.succ);
 
 			return true;
 
 		case Channel::WRITE_SB_PENDING:
 
 			chan._sb_ciphertext.encode_to_blk(chan._encoded_blk);
-			construct_in_buf<Block_io_request>(
-				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
+
+			ASSERT(sizeof(Block_io_request) <= buf_size);
+			construct_at<Block_io_request>(
+				buf_ptr, SUPERBLOCK_CONTROL, id,
 				Block_io_request::WRITE, 0, 0, 0,
-				chan._generated_prim.blk_nr, 0, 1, &chan._encoded_blk,
-				nullptr);
+				chan._generated_prim.blk_nr, 0, 1, chan._encoded_blk,
+				chan._hash, chan._generated_prim.succ);
 
 			return true;
 
@@ -1015,8 +1019,6 @@ void Superblock_control::generated_request_complete(Module_request &mod_req)
 	switch (mod_req.dst_module_id()) {
 	case BLOCK_IO:
 	{
-		Block_io_request &gen_req { *static_cast<Block_io_request*>(&mod_req) };
-		chan._generated_prim.succ = gen_req.success();
 		switch (chan._state) {
 		case Channel::READ_SB_IN_PROGRESS:
 			chan._sb_ciphertext.decode_from_blk(chan._encoded_blk);

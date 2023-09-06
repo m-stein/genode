@@ -89,20 +89,21 @@ class Tresor::Sb_check_channel
 			FT_CHECK_STARTED, FT_CHECK_DROPPED, FT_CHECK_DONE,
 			MT_CHECK_STARTED, MT_CHECK_DROPPED, MT_CHECK_DONE };
 
-		State                  _state            { INSPECT_SBS };
-		Request                _request          { };
-		Generation             _highest_gen      { 0 };
-		Superblock_index       _last_sb_slot_idx { 0 };
-		Sb_slot_state          _sb_slot_state    { INACTIVE };
-		Superblock_index       _sb_slot_idx      { 0 };
-		Superblock             _sb_slot          { };
-		Snapshot_index         _snap_idx         { 0 };
-		Type_1_node            _vbd              { };
-		Type_1_node            _ft               { };
-		Type_1_node            _mt               { };
-		Physical_block_address _gen_prim_blk_nr  { 0 };
-		bool                   _gen_prim_success { false };
-		Block                  _encoded_blk      { };
+		State _state { INSPECT_SBS };
+		Request _request { };
+		Generation _highest_gen { 0 };
+		Superblock_index _last_sb_slot_idx { 0 };
+		Sb_slot_state _sb_slot_state { INACTIVE };
+		Superblock_index _sb_slot_idx { 0 };
+		Superblock _sb_slot { };
+		Snapshot_index _snap_idx { 0 };
+		Type_1_node _vbd { };
+		Type_1_node _ft { };
+		Type_1_node _mt { };
+		Hash _dummy_hash { };
+		Physical_block_address _gen_prim_blk_nr { 0 };
+		bool _gen_prim_success { false };
+		Block _encoded_blk { };
 };
 
 

@@ -688,31 +688,35 @@ bool Ft_resizing::_peek_generated_request(uint8_t *buf_ptr,
 				chan._t1_blks.items[chan._lvl_idx].encode_to_blk(chan._encoded_blk);
 			else
 				chan._t2_blk.encode_to_blk(chan._encoded_blk);
-			construct_in_buf<Block_io_request>(
-				buf_ptr, buf_size, FT_RESIZING, id,
+
+			ASSERT(sizeof(Block_io_request) <= buf_size);
+			construct_at<Block_io_request>(
+				buf_ptr, FT_RESIZING, id,
 				Block_io_request::WRITE, 0, 0, 0,
 				chan._generated_prim.blk_nr, 0, 1,
-				(void *)&chan._encoded_blk, nullptr);
+				chan._encoded_blk, chan._dummy_hash, chan._generated_prim.succ);
 
 			return true;
 
 		case Channel::READ_ROOT_NODE_PENDING:
 
-			construct_in_buf<Block_io_request>(
-				buf_ptr, buf_size, FT_RESIZING, id,
+			ASSERT(sizeof(Block_io_request) <= buf_size);
+			construct_at<Block_io_request>(
+				buf_ptr, FT_RESIZING, id,
 				Block_io_request::READ, 0, 0, 0,
 				chan._generated_prim.blk_nr, 0, 1,
-				(void *)&chan._encoded_blk, nullptr);
+				chan._encoded_blk, chan._dummy_hash, chan._generated_prim.succ);
 
 			return true;
 
 		case Channel::READ_INNER_NODE_PENDING:
 
-			construct_in_buf<Block_io_request>(
-				buf_ptr, buf_size, FT_RESIZING, id,
+			ASSERT(sizeof(Block_io_request) <= buf_size);
+			construct_at<Block_io_request>(
+				buf_ptr, FT_RESIZING, id,
 				Block_io_request::READ, 0, 0, 0,
-				chan._generated_prim.blk_nr, 0, 1, (void *)&chan._encoded_blk,
-				nullptr);
+				chan._generated_prim.blk_nr, 0, 1, chan._encoded_blk,
+				chan._dummy_hash, chan._generated_prim.succ);
 
 			return true;
 
@@ -775,8 +779,6 @@ void Ft_resizing::generated_request_complete(Module_request &mod_req)
 	switch (mod_req.dst_module_id()) {
 	case BLOCK_IO:
 	{
-		Block_io_request &blk_io_req { *static_cast<Block_io_request *>(&mod_req) };
-		chan._generated_prim.succ = blk_io_req.success();
 		switch (chan._state) {
 		case Channel::READ_ROOT_NODE_IN_PROGRESS:
 			chan._t1_blks.items[chan._lvl_idx].decode_from_blk(chan._encoded_blk);

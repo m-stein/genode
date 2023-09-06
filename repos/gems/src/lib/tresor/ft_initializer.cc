@@ -627,10 +627,11 @@ bool Ft_initializer::_peek_generated_request(uint8_t *buf_ptr,
 			else
 				channel._t1_levels[channel._level_to_write].children.encode_to_blk(channel._encoded_blk);
 
-			construct_in_buf<Block_io_request>(
-				buf_ptr, buf_size, FT_INITIALIZER, id, block_io_req_type, 0,
+			ASSERT(sizeof(Block_io_request) <= buf_size);
+			construct_at<Block_io_request>(
+				buf_ptr, FT_INITIALIZER, id, block_io_req_type, 0,
 				0, 0, channel._child_pba, 0, 1,
-				(void *)&channel._encoded_blk, nullptr);
+				channel._encoded_blk, channel._dummy_hash, channel._generated_req_success);
 
 			if (DEBUG) {
 				log("BLOCK_IO_PENDING write ", channel._child_pba);
@@ -697,9 +698,7 @@ void Ft_initializer::generated_request_complete(Module_request &req)
 			class Exception_4 { };
 			throw Exception_4 { };
 		}
-		Block_io_request const *block_io_req = static_cast<Block_io_request const*>(&req);
 		_channels[id]._state = Channel::BLOCK_IO_COMPLETE;
-		_channels[id]._generated_req_success = block_io_req->success();
 		break;
 	}
 	default:

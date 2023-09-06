@@ -1793,62 +1793,69 @@ bool Virtual_block_device::_peek_generated_request(uint8_t *buf_ptr,
 		case Channel::WRITE_INNER_NODE_PENDING:
 
 			chan._t1_blks.items[chan._t1_blk_idx].encode_to_blk(chan._encoded_blk);
-			construct_in_buf<Block_io_request>(
-				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
+
+			ASSERT(sizeof(Block_io_request) <= buf_size);
+			construct_at<Block_io_request>(
+				buf_ptr, VIRTUAL_BLOCK_DEVICE, id,
 				Block_io_request::WRITE, 0, 0, 0,
 				chan._generated_prim.blk_nr, 0, 1,
-				&chan._encoded_blk, nullptr);
+				chan._encoded_blk, chan._hash, chan._generated_prim.succ);
 
 			return true;
 
 		case Channel::WRITE_LEAF_NODE_PENDING:
 
-			construct_in_buf<Block_io_request>(
-				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
+			ASSERT(sizeof(Block_io_request) <= buf_size);
+			construct_at<Block_io_request>(
+				buf_ptr, VIRTUAL_BLOCK_DEVICE, id,
 				Block_io_request::WRITE, 0, 0, 0,
 				chan._generated_prim.blk_nr, 0, 1,
-				&chan._data_blk, nullptr);
+				chan._data_blk, chan._hash, chan._generated_prim.succ);
 
 			return true;
 
 		case Channel::WRITE_CLIENT_DATA_TO_LEAF_NODE_PENDING:
 
-			construct_in_buf<Block_io_request>(
-				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
+			ASSERT(sizeof(Block_io_request) <= buf_size);
+			construct_at<Block_io_request>(
+				buf_ptr, VIRTUAL_BLOCK_DEVICE, id,
 				Block_io_request::WRITE_CLIENT_DATA, req._client_req_offset,
 				req._client_req_tag, req._curr_key_id,
-				chan._generated_prim.blk_nr, chan._vba, 1, nullptr,
-				&chan._hash);
+				chan._generated_prim.blk_nr, chan._vba, 1, chan._data_blk,
+				chan._hash, chan._generated_prim.succ);
 
 			return true;
 
 		case Channel::READ_ROOT_NODE_PENDING:
 		case Channel::READ_INNER_NODE_PENDING:
 
-			construct_in_buf<Block_io_request>(
-				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
+			ASSERT(sizeof(Block_io_request) <= buf_size);
+			construct_at<Block_io_request>(
+				buf_ptr, VIRTUAL_BLOCK_DEVICE, id,
 				Block_io_request::READ, 0, 0, 0,
 				chan._generated_prim.blk_nr, 0, 1,
-				&chan._encoded_blk, nullptr);
+				chan._encoded_blk, chan._hash, chan._generated_prim.succ);
 
 			return true;
 
 		case Channel::READ_LEAF_NODE_PENDING:
 
-			construct_in_buf<Block_io_request>(
-				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
+			ASSERT(sizeof(Block_io_request) <= buf_size);
+			construct_at<Block_io_request>(
+				buf_ptr, VIRTUAL_BLOCK_DEVICE, id,
 				Block_io_request::READ, 0, 0, 0,
-				chan._generated_prim.blk_nr, 0, 1, &chan._data_blk, nullptr);
+				chan._generated_prim.blk_nr, 0, 1, chan._data_blk, chan._hash, chan._generated_prim.succ);
 
 			return true;
 
 		case Channel::READ_CLIENT_DATA_FROM_LEAF_NODE_PENDING:
 
-			construct_in_buf<Block_io_request>(
-				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
+			ASSERT(sizeof(Block_io_request) <= buf_size);
+			construct_at<Block_io_request>(
+				buf_ptr, VIRTUAL_BLOCK_DEVICE, id,
 				Block_io_request::READ_CLIENT_DATA, req._client_req_offset,
 				req._client_req_tag, req._curr_key_id,
-				chan._generated_prim.blk_nr, chan._vba, 1, nullptr, nullptr);
+				chan._generated_prim.blk_nr, chan._vba, 1, chan._data_blk, chan._hash, chan._generated_prim.succ);
 
 			return true;
 
@@ -1959,8 +1966,6 @@ void Virtual_block_device::generated_request_complete(Module_request &mod_req)
 	}
 	case BLOCK_IO:
 	{
-		Block_io_request &blk_io_req { *static_cast<Block_io_request *>(&mod_req) };
-		chan._generated_prim.succ = blk_io_req.success();
 		switch (chan._state) {
 		case Channel::READ_ROOT_NODE_IN_PROGRESS:
 			chan._t1_blks.items[chan._t1_blk_idx].decode_from_blk(chan._encoded_blk);

@@ -320,11 +320,12 @@ bool Sb_check::_peek_generated_request(uint8_t *buf_ptr,
 		switch (chan._sb_slot_state) {
 		case Channel::READ_STARTED:
 
-			construct_in_buf<Block_io_request>(
-				buf_ptr, buf_size, SB_CHECK, id,
+			ASSERT(sizeof(Block_io_request) <= buf_size);
+			construct_at<Block_io_request>(
+				buf_ptr, SB_CHECK, id,
 				Block_io_request::READ, 0, 0, 0,
-				chan._gen_prim_blk_nr, 0, 1, &chan._encoded_blk,
-				nullptr);
+				chan._gen_prim_blk_nr, 0, 1, chan._encoded_blk,
+				chan._dummy_hash, chan._gen_prim_success);
 
 			return true;
 
@@ -411,8 +412,6 @@ void Sb_check::generated_request_complete(Module_request &mod_req)
 	switch (mod_req.dst_module_id()) {
 	case BLOCK_IO:
 	{
-		Block_io_request &gen_req { *static_cast<Block_io_request*>(&mod_req) };
-		chan._gen_prim_success = gen_req.success();
 		switch (chan._sb_slot_state) {
 		case Channel::READ_DROPPED:
 			chan._sb_slot.decode_from_blk(chan._encoded_blk);

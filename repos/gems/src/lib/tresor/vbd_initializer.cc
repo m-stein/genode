@@ -469,10 +469,11 @@ bool Vbd_initializer::_peek_generated_request(uint8_t *buf_ptr,
 				Block_io_request::WRITE };
 
 			channel._t1_levels[channel._level_to_write].children.encode_to_blk(channel._encoded_blk);
-			construct_in_buf<Block_io_request>(
-				buf_ptr, buf_size, VBD_INITIALIZER, id,
+			ASSERT(sizeof(Block_io_request) <= buf_size);
+			construct_at<Block_io_request>(
+				buf_ptr, VBD_INITIALIZER, id,
 				block_io_req_type, 0, 0, 0,
-				channel._child_pba, 0, 1, &channel._encoded_blk, nullptr);
+				channel._child_pba, 0, 1, channel._encoded_blk, channel._dummy_hash, channel._generated_req_success);
 
 			if (DEBUG) {
 				log("BLOCK_IO_PENDING write ", channel._child_pba);
@@ -535,11 +536,9 @@ void Vbd_initializer::generated_request_complete(Module_request &mod_req)
 	}
 	case BLOCK_IO:
 	{
-		Block_io_request const &gen_req { *static_cast<Block_io_request *>(&mod_req) };
 		switch (_channels[id]._state) {
 		case Channel::BLOCK_IO_IN_PROGRESS:
 			_channels[id]._state = Channel::BLOCK_IO_COMPLETE;
-			_channels[id]._generated_req_success = gen_req.success();
 			break;
 		default:
 			class Exception_2 { };

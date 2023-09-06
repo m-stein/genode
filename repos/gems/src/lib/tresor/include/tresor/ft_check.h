@@ -124,14 +124,15 @@ class Tresor::Ft_check_channel
 			bool valid() const { return tag != INVALID; }
 		};
 
-		Generated_primitive   _gen_prim                { };
-		Tree_level_index      _lvl_to_read             { 0 };
-		Child_state           _root_state              { DONE };
-		Type_2_level          _t2_lvl                  { };
-		Type_1_level          _t1_lvls[TREE_MAX_LEVEL] { };
-		Number_of_leaves      _nr_of_leaves            { 0 };
-		Request               _request                 { };
-		Block                 _encoded_blk             { };
+		Generated_primitive _gen_prim { };
+		Tree_level_index _lvl_to_read { 0 };
+		Child_state _root_state { DONE };
+		Type_2_level _t2_lvl { };
+		Type_1_level _t1_lvls[TREE_MAX_LEVEL] { };
+		Hash _dummy_hash { };
+		Number_of_leaves _nr_of_leaves { 0 };
+		Request _request { };
+		Block _encoded_blk { };
 };
 
 

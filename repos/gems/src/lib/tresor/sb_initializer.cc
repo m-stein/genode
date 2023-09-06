@@ -428,10 +428,11 @@ bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
 			Block_io_request::Type const block_io_req_type {
 				Block_io_request::WRITE };
 
-			construct_in_buf<Block_io_request>(
-				buf_ptr, buf_size, SB_INITIALIZER, id, block_io_req_type, 0, 0,
-				0, channel._sb_slot_index, 0, 1, (void *)&channel._encoded_blk,
-				nullptr);
+			ASSERT(sizeof(Block_io_request) <= buf_size);
+			construct_at<Block_io_request>(
+				buf_ptr, SB_INITIALIZER, id, block_io_req_type, 0, 0,
+				0, channel._sb_slot_index, 0, 1, channel._encoded_blk,
+				channel._dummy_hash, channel._generated_req_success);
 
 			return true;
 		}
@@ -440,11 +441,12 @@ bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
 			Block_io_request::Type const block_io_req_type {
 				Block_io_request::SYNC };
 
-			construct_in_buf<Block_io_request>(
-				buf_ptr, buf_size, SB_INITIALIZER, id,
+			ASSERT(sizeof(Block_io_request) <= buf_size);
+			construct_at<Block_io_request>(
+				buf_ptr, SB_INITIALIZER, id,
 				block_io_req_type, 0, 0, 0,
 				channel._sb_slot_index, 0,
-				0, nullptr, nullptr);
+				0, channel._encoded_blk, channel._dummy_hash, channel._generated_req_success);
 
 			return true;
 		}
@@ -589,11 +591,6 @@ void Sb_initializer::generated_request_complete(Module_request &req)
 			throw Exception_9 { };
 		}
 		channel._state = Channel::WRITE_REQUEST_COMPLETE;
-		Block_io_request const *block_io_req =
-			static_cast<Block_io_request const*>(&req);
-
-		channel._generated_req_success =
-			block_io_req->success();
 		break;
 	}
 	case Channel::SYNC_REQUEST_IN_PROGRESS:
@@ -603,11 +600,6 @@ void Sb_initializer::generated_request_complete(Module_request &req)
 			throw Exception_10 { };
 		}
 		channel._state = Channel::SYNC_REQUEST_COMPLETE;
-		Block_io_request const *block_io_req =
-			static_cast<Block_io_request const*>(&req);
-
-		channel._generated_req_success =
-			block_io_req->success();
 		break;
 	}
 	default:
