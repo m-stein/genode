@@ -30,54 +30,29 @@ class Tresor::Block_io_request : public Module_request
 {
 	public:
 
-		enum Type {
-			INVALID = 0, READ = 1, WRITE = 2, SYNC = 3, READ_CLIENT_DATA = 4,
-			WRITE_CLIENT_DATA = 5 };
+		enum Type { READ, WRITE, SYNC, READ_CLIENT_DATA, WRITE_CLIENT_DATA };
 
 	private:
 
 		friend class Block_io;
-		friend class Block_io_channel;
 
-		Type _type { INVALID };
-		uint64_t _client_req_offset { 0 };
-		Request_tag _client_req_tag { 0 };
-		uint32_t _key_id { 0 };
-		uint64_t _pba { 0 };
-		uint64_t _vba { 0 };
-		uint64_t _blk_count { 0 };
-		addr_t _blk_ptr { 0 };
-		addr_t _hash_ptr { 0 };
-		bool _success { false };
+		Type _type;
+		Request_offset _client_req_offset;
+		Request_tag _client_req_tag;
+		Key_id _key_id;
+		Physical_block_address _pba;
+		Virtual_block_address _vba;
+		Number_of_blocks _blk_count;
+		Block &_blk;
+		Hash &_hash;
+		bool &_success;
 
 	public:
 
-		Block_io_request() { }
-
-		Block_io_request(uint64_t src_module_id,
-		                 uint64_t src_request_id,
-		                 size_t req_type,
-		                 uint64_t client_req_offset,
-		                 Request_tag client_req_tag,
-		                 uint32_t key_id,
-		                 uint64_t pba,
-		                 uint64_t vba,
-		                 uint64_t blk_count,
-		                 void *blk_ptr,
-		                 void *hash_ptr);
-
-		Type type() const { return _type; }
-
-		bool success() const { return _success; }
+		Block_io_request(Module_id, Module_channel_id, Type, Request_offset, Request_tag, Key_id,
+		                 Physical_block_address, Virtual_block_address, Number_of_blocks, Block &, Hash &, bool &);
 
 		static char const *type_to_string(Type type);
-
-		char const *type_name() const { return type_to_string(_type); }
-
-
-		/********************
-		 ** Module_request **
-		 ********************/
 
 		void print(Output &out) const override;
 };
@@ -100,11 +75,14 @@ class Tresor::Block_io_channel
 
 		State _state { INACTIVE };
 		Key_value _dummy_key { };
-		Block_io_request _request { };
+		Hash _dummy_hash { };
 		Vfs::file_offset _nr_of_processed_bytes { 0 };
 		size_t _nr_of_remaining_bytes { 0 };
 		Block _blk_buf { };
 		bool _generated_req_success { false };
+		Block_io_request _request {
+			INVALID_MODULE_ID, INVALID_MODULE_CHANNEL_ID, Block_io_request::READ, 0, INVALID_REQ_TAG,
+			INVALID_KEY_ID, INVALID_PBA, INVALID_VBA, 0, _blk_buf, _dummy_hash, _generated_req_success };
 };
 
 class Tresor::Block_io : public Module

@@ -112,13 +112,14 @@ class Tresor::Vbd_check_channel
 			bool valid() const { return tag != INVALID; }
 		};
 
-		Generated_primitive _gen_prim                { };
-		Tree_level_index    _lvl_to_read             { 0 };
-		Child_state         _root_state              { DONE };
-		Block               _leaf_lvl                { };
-		Block               _encoded_blk             { };
-		Type_1_level        _t1_lvls[TREE_MAX_LEVEL] { };
-		Request             _request                 { };
+		Generated_primitive _gen_prim { };
+		Tree_level_index _lvl_to_read { 0 };
+		Child_state _root_state { DONE };
+		Block _leaf_lvl { };
+		Block _encoded_blk { };
+		Hash _dummy_hash { };
+		Type_1_level _t1_lvls[TREE_MAX_LEVEL] { };
+		Request _request { };
 };
 
 

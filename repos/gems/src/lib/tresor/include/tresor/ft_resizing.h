@@ -169,19 +169,20 @@ class Tresor::Ft_resizing_channel
 			Generation items[TREE_MAX_LEVEL + 1] { };
 		};
 
-		Ft_resizing_request   _request         { };
-		State                 _state           { SUBMITTED };
-		Generated_prim        _generated_prim  { };
-		Type_1_node_blocks    _t1_blks         { };
-		Type_2_node_block     _t2_blk          { };
-		Tree_level_index      _lvl_idx         { 0 };
-		Tree_level_index      _alloc_lvl_idx   { 0 };
-		Virtual_block_address _vba             { };
-		Tree_walk_pbas        _old_pbas        { };
-		Generations           _old_generations { };
-		Tree_walk_pbas        _new_pbas        { };
-		Block                 _encoded_blk     { };
-		Number_of_leaves      _nr_of_leaves    { 0 };
+		Ft_resizing_request _request { };
+		State _state { SUBMITTED };
+		Generated_prim _generated_prim { };
+		Type_1_node_blocks _t1_blks { };
+		Type_2_node_block _t2_blk { };
+		Tree_level_index _lvl_idx { 0 };
+		Tree_level_index _alloc_lvl_idx { 0 };
+		Virtual_block_address _vba { };
+		Tree_walk_pbas _old_pbas { };
+		Generations _old_generations { };
+		Tree_walk_pbas _new_pbas { };
+		Block _encoded_blk { };
+		Number_of_leaves _nr_of_leaves { 0 };
+		Hash _dummy_hash { };
 };
 
 class Tresor::Ft_resizing : public Module

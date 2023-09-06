@@ -123,18 +123,19 @@ class Tresor::Sb_initializer_channel
 			WRITE_REQUEST_PENDING,
 		};
 
-		State                  _state                 { INACTIVE };
-		Sb_initializer_request _request               { };
-		Superblock_index       _sb_slot_index         { 0 };
-		Superblock             _sb                    { };
-		Block                  _encoded_blk           { };
-		Key                    _key_plain             { };
-		Key                    _key_cipher            { };
-		Hash                   _sb_hash               { };
-		Type_1_node            _vbd_node              { };
-		Type_1_node            _ft_node               { };
-		Type_1_node            _mt_node               { };
-		bool                   _generated_req_success { false };
+		State _state { INACTIVE };
+		Sb_initializer_request _request { };
+		Superblock_index _sb_slot_index { 0 };
+		Superblock _sb { };
+		Block _encoded_blk { };
+		Key _key_plain { };
+		Key _key_cipher { };
+		Hash _sb_hash { };
+		Hash _dummy_hash { };
+		Type_1_node _vbd_node { };
+		Type_1_node _ft_node { };
+		Type_1_node _mt_node { };
+		bool _generated_req_success { false };
 
 		void clean_data()
 		{

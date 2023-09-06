@@ -27,28 +27,15 @@ using namespace Tresor;
  ** Block_io_request **
  **********************/
 
-Block_io_request::Block_io_request(uint64_t src_module_id,
-                                   uint64_t src_request_id,
-                                   size_t req_type,
-                                   uint64_t client_req_offset,
-                                   Request_tag client_req_tag,
-                                   uint32_t key_id,
-                                   uint64_t pba,
-                                   uint64_t vba,
-                                   uint64_t blk_count,
-                                   void *blk_ptr,
-                                   void *hash_ptr)
+Block_io_request::Block_io_request(Module_id src_module_id, Module_channel_id src_chan_id, Type type,
+                                   Request_offset client_req_offset, Request_tag client_req_tag, Key_id key_id,
+                                   Physical_block_address pba, Virtual_block_address vba,
+                                   Number_of_blocks blk_count, Block &blk, Hash &hash, bool &success)
 :
-	Module_request     { src_module_id, src_request_id, BLOCK_IO },
-	_type              { (Type)req_type },
-	_client_req_offset { client_req_offset },
-	_client_req_tag    { client_req_tag },
-	_key_id            { key_id },
-	_pba               { pba },
-	_vba               { vba },
-	_blk_count         { blk_count },
-	_blk_ptr           { (addr_t)blk_ptr },
-	_hash_ptr          { (addr_t)hash_ptr }
+	Module_request { src_module_id, src_chan_id, BLOCK_IO }, _type { type },
+	_client_req_offset { client_req_offset }, _client_req_tag { client_req_tag },
+	_key_id { key_id }, _pba { pba }, _vba { vba }, _blk_count { blk_count }, _blk { blk },
+	_hash { hash }, _success { success }
 { }
 
 
@@ -64,7 +51,6 @@ void Block_io_request::print(Output &out) const
 char const *Block_io_request::type_to_string(Type type)
 {
 	switch (type) {
-	case INVALID: return "invalid";
 	case READ: return "read";
 	case WRITE: return "write";
 	case SYNC: return "sync";
@@ -186,7 +172,7 @@ void Block_io::_execute_read(Channel &channel,
 		size_t nr_of_read_bytes { 0 };
 
 		Byte_range_ptr dst {
-			(char *)req._blk_ptr + channel._nr_of_processed_bytes,
+			(char *)&req._blk + channel._nr_of_processed_bytes,
 			channel._nr_of_remaining_bytes };
 
 		Result const result {
@@ -348,7 +334,7 @@ void Block_io::_execute_write_client_data(Channel &channel,
 			_mark_req_failed(channel, progress, "encrypt client data");
 			return;
 		}
-		calc_sha256_4k_hash(channel._blk_buf, *(Hash *)req._hash_ptr);
+		calc_sha256_4k_hash(channel._blk_buf, req._hash);
 		_vfs_handle.seek(req._pba * BLOCK_SIZE +
 		                 channel._nr_of_processed_bytes);
 
@@ -432,7 +418,7 @@ void Block_io::_execute_write(Channel &channel,
 		size_t nr_of_written_bytes { 0 };
 
 		Const_byte_range_ptr src {
-			(char const *)req._blk_ptr + channel._nr_of_processed_bytes,
+			(char const *)&req._blk + channel._nr_of_processed_bytes,
 			channel._nr_of_remaining_bytes };
 
 		Result const result =
@@ -592,9 +578,9 @@ bool Block_io::_peek_completed_request(uint8_t *buf_ptr,
 				case Request::WRITE:
 				{
 					Hash hash;
-					calc_sha256_4k_hash(*(Block *)req._blk_ptr, hash);
-					log("block_io: ", req.type_name(), " pba ", req._pba,
-					    " data ", *(Block *)req._blk_ptr, " hash ", hash);
+					calc_sha256_4k_hash(req._blk, hash);
+					log("block_io: ", req.type_to_string(req._type), " pba ", req._pba,
+					    " data ", req._blk, " hash ", hash);
 
 					break;
 				}
@@ -603,7 +589,7 @@ bool Block_io::_peek_completed_request(uint8_t *buf_ptr,
 				{
 					Hash hash;
 					calc_sha256_4k_hash(channel._blk_buf, hash);
-					log("block_io: ", req.type_name(), " pba ", req._pba,
+					log("block_io: ", req.type_to_string(req._type), " pba ", req._pba,
 					    " data ", channel._blk_buf,
 					    " hash ", hash);
 
@@ -650,7 +636,7 @@ void Block_io::submit_request(Module_request &req)
 	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 		if (_channels[id]._state == Channel::INACTIVE) {
 			req.dst_request_id(id);
-			_channels[id]._request = *static_cast<Request *>(&req);
+			memcpy(&_channels[id]._request, &req, sizeof(Request));
 			_channels[id]._state = Channel::SUBMITTED;
 			return;
 		}

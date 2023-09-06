@@ -339,22 +339,24 @@ class Tresor::Free_tree_channel
 				bool full() const { return _used == MAX_USED_VALUE; };
 		};
 
-		State                   _state                                 { INVALID };
-		Request                 _request                               { };
-		uint64_t                _needed_blocks                         { 0 };
-		uint64_t                _found_blocks                          { 0 };
-		uint64_t                _exchanged_blocks                      { 0 };
-		Local_meta_tree_request _meta_tree_request                     { };
-		Local_cache_request     _cache_request                         { };
-		Block                   _cache_block_data                      { };
-		Type_1_info_stack       _level_n_stacks[TREE_MAX_NR_OF_LEVELS] { };
-		Type_2_info_stack       _level_0_stack                         { };
-		Type_1_node_block       _level_n_nodes[TREE_MAX_NR_OF_LEVELS]  { };
-		Type_1_node_block       _level_n_node                          { };
-		Type_2_node_block       _level_0_node                          { };
-		Node_queue              _type_2_leafs                          { };
-		uint64_t                _vbd_degree_log_2                      { 0 };
-		bool                    _wb_data_prim_success                  { false };
+		State _state { INVALID };
+		Request _request { };
+		uint64_t _needed_blocks { 0 };
+		uint64_t _found_blocks { 0 };
+		uint64_t _exchanged_blocks { 0 };
+		Local_meta_tree_request _meta_tree_request { };
+		Local_cache_request _cache_request { };
+		Block _cache_block_data { };
+		Type_1_info_stack _level_n_stacks[TREE_MAX_NR_OF_LEVELS] { };
+		Type_2_info_stack _level_0_stack { };
+		Type_1_node_block _level_n_nodes[TREE_MAX_NR_OF_LEVELS]  { };
+		Type_1_node_block _level_n_node { };
+		Type_2_node_block _level_0_node { };
+		Node_queue _type_2_leafs { };
+		uint64_t _vbd_degree_log_2 { 0 };
+		bool _wb_data_prim_success { false };
+		bool _generated_req_success { false };
+		Hash _dummy_hash { };
 
 		Type_1_node _root_node() const
 		{
