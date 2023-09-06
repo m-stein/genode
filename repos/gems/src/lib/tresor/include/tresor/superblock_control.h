@@ -193,17 +193,13 @@ class Tresor::Superblock_control : public Module
 
 		void _secure_sb_init(Channel &, bool &);
 
-		void _secure_sb_encr_curr_key_succ(Channel &, uint64_t, bool &);
+		void _secure_sb_encr_curr_key_succ(Channel &, bool &);
 
-		void _secure_sb_encr_prev_key_succ(Channel &, uint64_t, bool &);
+		void _secure_sb_encr_prev_key_succ(Channel &, bool &);
 
-		void _secure_sb_sync_cache_compl(Channel &chan,
-		                                 uint64_t chan_idx,
-		                                 bool &progress);
+		void _secure_sb_sync_cache_compl(Channel &, uint64_t, bool &);
 
-		void _secure_sb_write_sb_compl(Channel &chan,
-		                               uint64_t chan_idx,
-		                               bool &progress);
+		void _secure_sb_write_sb_compl(Channel &, bool &);
 
 		void _secure_sb_sync_blk_io_compl(Channel &, bool &);
 
