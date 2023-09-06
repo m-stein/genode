@@ -89,54 +89,20 @@ class Tresor::Superblock_control_channel : public Module_channel
 		using Request = Superblock_control_request;
 
 		enum State {
-			SUBMITTED, ACCESS_VBA_AT_VBD_SUCCEEDED, REKEY_VBA_AT_VBD_SUCCEEDED, CREATE_KEY_SUCCEEDED, ENCRYPT_CURRENT_KEY_SUCCEEDED,
-			TREE_EXT_STEP_IN_TREE_SUCCEEDED, ENCRYPT_PREVIOUS_KEY_SUCCEEDED, DECRYPT_CURRENT_KEY_SUCCEEDED, DECRYPT_PREVIOUS_KEY_SUCCEEDED,
-			SECURE_SB_SUCCEEDED, GET_LAST_SB_HASH_SUCCEEDED, ADD_KEY_AT_CRYPTO_MODULE_SUCCEEDED,
-			ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_SUCCEEDED, ADD_CURRENT_KEY_AT_CRYPTO_MODULE_SUCCEEDED,
-			REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_SUCCEEDED, REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_SUCCEEDED,
+			INVALID, REQ_SUBMITTED, ACCESS_VBA_AT_VBD_SUCCEEDED,
+			REKEY_VBA_AT_VBD_SUCCEEDED, CREATE_KEY_SUCCEEDED,
+			ENCRYPT_CURRENT_KEY_SUCCEEDED, TREE_EXT_STEP_IN_TREE_SUCCEEDED,
+			ENCRYPT_PREVIOUS_KEY_SUCCEEDED, DECRYPT_CURRENT_KEY_SUCCEEDED,
+			DECRYPT_PREVIOUS_KEY_SUCCEEDED, SECURE_SB_SUCCEEDED,
+			GET_LAST_SB_HASH_SUCCEEDED, ADD_KEY_AT_CRYPTO_MODULE_SUCCEEDED,
+			ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_SUCCEEDED,
+			ADD_CURRENT_KEY_AT_CRYPTO_MODULE_SUCCEEDED,
+			REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_SUCCEEDED,
+			REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_SUCCEEDED, READ_SB_SUCCEEDED,
+			READ_CURRENT_SB_SUCCEEDED, SYNC_CACHE_SUCCEEDED, WRITE_SB_SUCCEEDED,
+			SYNC_BLK_IO_SUCCEEDED, REQ_COMPLETE, REQ_GENERATED, };
 
-			READ_SB_PENDING,
-			READ_SB_IN_PROGRESS,
-			READ_SB_COMPLETED,
-			READ_CURRENT_SB_PENDING,
-			READ_CURRENT_SB_IN_PROGRESS,
-			READ_CURRENT_SB_COMPLETED,
-			SYNC_CACHE_PENDING,
-			SYNC_CACHE_IN_PROGRESS,
-			SYNC_CACHE_COMPLETED,
-			WRITE_SB_PENDING,
-			WRITE_SB_IN_PROGRESS,
-			WRITE_SB_COMPLETED,
-			SYNC_BLK_IO_PENDING,
-			SYNC_BLK_IO_IN_PROGRESS,
-			SYNC_BLK_IO_COMPLETED,
-			COMPLETED,
-			REQ_GENERATED,
-		};
-
-		enum Tag_type {
-			TAG_SB_CTRL_CACHE,
-			TAG_SB_CTRL_BLK_IO_READ_SB,
-			TAG_SB_CTRL_BLK_IO_WRITE_SB,
-			TAG_SB_CTRL_BLK_IO_SYNC,
-			TAG_SB_CTRL_TA_LAST_SB_HASH,
-			TAG_SB_CTRL_CRYPTO_ADD_KEY,
-			TAG_SB_CTRL_CRYPTO_REMOVE_KEY,
-		};
-
-		struct Generated_prim
-		{
-			enum Type { READ, WRITE, SYNC };
-
-			Type op { READ };
-			bool succ { false };
-			Tag_type tg { };
-			uint64_t blk_nr { 0 };
-			uint64_t idx { 0 };
-		};
-
-		State _state { SUBMITTED };
-		Generated_prim _generated_prim { };
+		State _state { INVALID };
 		Key _key_plaintext { };
 		Superblock _sb_ciphertext { };
 		Block _encoded_blk { };
@@ -153,12 +119,13 @@ class Tresor::Superblock_control_channel : public Module_channel
 		Tree_level_index _ft_max_lvl { 0 };
 		Number_of_leaves _ft_nr_of_leaves { 0 };
 		Request *_req_ptr { nullptr };
+		bool _gen_req_success { false };
 
 		void _generated_req_completed(State_uint) override;
 
 		void _request_submitted(Module_request &) override;
 
-		bool _request_complete() override { return _state == COMPLETED; }
+		bool _request_complete() override { return _state == REQ_COMPLETE; }
 
 		void _mark_req_successful(bool &);
 
@@ -181,8 +148,6 @@ class Tresor::Superblock_control : public Module
 
 		using Request = Superblock_control_request;
 		using Channel = Superblock_control_channel;
-		using Generated_prim = Channel::Generated_prim;
-		using Tag = Channel::Tag_type;
 
 		enum { NUM_CHANNELS = 1 };
 
@@ -197,7 +162,7 @@ class Tresor::Superblock_control : public Module
 
 		void _secure_sb_encr_prev_key_succ(Channel &, bool &);
 
-		void _secure_sb_sync_cache_compl(Channel &, uint64_t, bool &);
+		void _secure_sb_sync_cache_compl(Channel &, bool &);
 
 		void _secure_sb_write_sb_compl(Channel &, bool &);
 
@@ -207,32 +172,29 @@ class Tresor::Superblock_control : public Module
 
 		void _init_sb_without_key_values(Superblock const &, Superblock &);
 
-		void _execute_sync(Channel &, uint64_t, bool &);
+		void _execute_sync(Channel &, bool &);
 
-		void _execute_create_snap(Channel &, uint64_t, bool &progress);
+		void _execute_create_snap(Channel &, bool &progress);
 
-		void _execute_discard_snap(Channel &, uint64_t, bool &progress);
+		void _execute_discard_snap(Channel &, bool &progress);
 
 		void _execute_tree_ext_step(Channel &chan,
-		                            uint64_t chan_idx,
 		                            Superblock::State tree_ext_sb_state,
 		                            bool tree_ext_verbose,
 		                            String<4> tree_name,
 		                            bool &progress);
 
 		void _execute_rekey_vba(Channel &chan,
-		                        uint64_t chan_idx,
 		                        bool &progress);
 
 		void _execute_initialize_rekeying(Channel &chan,
-		                                  uint64_t chan_idx,
 		                                  bool &progress);
 
 		void _execute_initialize(Channel &,
 		                         Superblock &, Superblock_index &,
 		                         Generation &, bool &progress);
 
-		void _execute_deinitialize(Channel &, uint64_t, bool &);
+		void _execute_deinitialize(Channel &, bool &);
 
 
 		/************
@@ -240,12 +202,6 @@ class Tresor::Superblock_control : public Module
 		 ************/
 
 		void execute(bool &) override;
-
-		bool _peek_generated_request(uint8_t *, size_t) override;
-
-		void _drop_generated_request(Module_request &mod_req) override;
-
-		void generated_request_complete(Module_request &req) override;
 
 	public:
 
