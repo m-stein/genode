@@ -25,7 +25,7 @@ namespace Tresor {
 
 namespace Vfs_tresor {
 
-	class Wrapper;
+	class Client_data;
 }
 
 namespace Tresor_tester {
@@ -41,7 +41,7 @@ class Tresor::Client_data_request : public Module_request
 
 	private:
 
-		friend class ::Vfs_tresor::Wrapper;
+		friend class ::Vfs_tresor::Client_data;
 		friend class ::Tresor_tester::Client_data;
 
 		Type     _type              { INVALID };
