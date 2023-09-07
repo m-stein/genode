@@ -135,7 +135,29 @@ class Tresor::Trust_anchor : public Module
 
 	public:
 
-		struct Create_key : Request { Create_key(Module_id m, Module_channel_id c, Key_value &k, bool &s) : Request(m, c, Request::CREATE_KEY, k, *(Key_value*)0, *(Hash*)0, Passphrase(), s) { } };
+		struct Create_key : Request
+		{
+			Create_key(Module_id m, Module_channel_id c, Key_value &k, bool &s)
+			: Request(m, c, Request::CREATE_KEY, k, *(Key_value*)0, *(Hash*)0, Passphrase(), s) { }
+		};
+
+		struct Encrypt_key : Request
+		{
+			Encrypt_key(Module_id m, Module_channel_id c, Key_value const &kp, Key_value &kc, bool &s)
+			: Request(m, c, Request::ENCRYPT_KEY, *const_cast<Key_value*>(&kp), kc, *(Hash*)0, Passphrase(), s) { }
+		};
+
+		struct Write_hash : Request
+		{
+			Write_hash(Module_id m, Module_channel_id c, Hash const &h, bool &s)
+			: Request(m, c, Request::SECURE_SUPERBLOCK, *(Key_value*)0, *(Key_value*)0, *const_cast<Hash*>(&h), Passphrase(), s) { }
+		};
+
+		struct Read_hash : Request
+		{
+			Read_hash(Module_id m, Module_channel_id c, Hash &h, bool &s)
+			: Request(m, c, Request::GET_LAST_SB_HASH, *(Key_value*)0, *(Key_value*)0, h, Passphrase(), s) { }
+		};
 
 		Trust_anchor(Vfs::Env       &vfs_env,
 		             Xml_node const &xml_node);

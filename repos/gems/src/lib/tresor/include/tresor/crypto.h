@@ -187,7 +187,29 @@ class Tresor::Crypto : public Module
 
 	public:
 
-		struct Add_key : Request { Add_key(Module_id m, Module_channel_id c, Key &k, bool &s) : Request(m, c, Request::ADD_KEY, 0, 0, k.id, k.value, 0, 0, *(Block*)0, *(Block*)0, s) { } };
+		struct Add_key : Request
+		{
+			Add_key(Module_id m, Module_channel_id c, Key &k, bool &s)
+			: Request(m, c, Request::ADD_KEY, 0, 0, k.id, k.value, 0, 0, *(Block*)0, *(Block*)0, s) { }
+		};
+
+		struct Remove_key : Request
+		{
+			Remove_key(Module_id m, Module_channel_id c, Key_id k, bool &s)
+			: Request(m, c, Request::REMOVE_KEY, 0, 0, k, *(Key_value*)0, 0, 0, *(Block*)0, *(Block*)0, s) { }
+		};
+
+		struct Decrypt : Request
+		{
+			Decrypt(Module_id m, Module_channel_id c, Key_id k, Physical_block_address pa, Block &bp, Block const &bc, bool &s)
+			: Request(m, c, Request::DECRYPT, 0, 0, k, *(Key_value*)0, pa, 0, bp, *const_cast<Block*>(&bc), s) { }
+		};
+
+		struct Encrypt : Request
+		{
+			Encrypt(Module_id m, Module_channel_id c, Key_id k, Physical_block_address pa, Block const &bp, Block &bc, bool &s)
+			: Request(m, c, Request::DECRYPT, 0, 0, k, *(Key_value*)0, pa, 0, *const_cast<Block*>(&bp), bc, s) { }
+		};
 
 		Crypto(Vfs::Env       &vfs_env,
 		       Xml_node const &xml_node);
