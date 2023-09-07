@@ -849,6 +849,34 @@ struct Tresor::Superblock
 
 	Snapshot &curr_snap() { return snapshots.items[curr_snap_idx]; }
 	Snapshot const &curr_snap() const { return snapshots.items[curr_snap_idx]; }
+
+	void copy_all_but_key_values_from(Superblock const &sb)
+	{
+		state = sb.state;
+		rekeying_vba = sb.rekeying_vba;
+		resizing_nr_of_pbas = sb.resizing_nr_of_pbas;
+		resizing_nr_of_leaves = sb.resizing_nr_of_leaves;
+		first_pba = sb.first_pba;
+		nr_of_pbas = sb.nr_of_pbas;
+		previous_key.id = sb.previous_key.id;
+		current_key.id = sb.current_key.id;
+		snapshots = sb.snapshots;
+		last_secured_generation = sb.last_secured_generation;
+		curr_snap_idx = sb.curr_snap_idx;
+		degree = sb.degree;
+		free_gen = sb.free_gen;
+		free_number = sb.free_number;
+		free_hash = sb.free_hash;
+		free_max_level = sb.free_max_level;
+		free_degree = sb.free_degree;
+		free_leaves = sb.free_leaves;
+		meta_gen = sb.meta_gen;
+		meta_number = sb.meta_number;
+		meta_hash = sb.meta_hash;
+		meta_max_level = sb.meta_max_level;
+		meta_degree = sb.meta_degree;
+		meta_leaves = sb.meta_leaves;
+	}
 };
 
 

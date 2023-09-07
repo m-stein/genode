@@ -182,38 +182,6 @@ void Superblock_control_channel::_access_vba(Superblock_control &mod, Virtual_bl
 }
 
 
-void Superblock_control::_init_sb_without_key_values(Superblock const &sb_in,
-                                                     Superblock       &sb_out)
-{
-	sb_out.state                   = sb_in.state;
-	sb_out.rekeying_vba            = sb_in.rekeying_vba;
-	sb_out.resizing_nr_of_pbas     = sb_in.resizing_nr_of_pbas;
-	sb_out.resizing_nr_of_leaves   = sb_in.resizing_nr_of_leaves;
-	sb_out.first_pba               = sb_in.first_pba;
-	sb_out.nr_of_pbas              = sb_in.nr_of_pbas;
-	memset(&sb_out.previous_key.value, 0, sizeof(sb_out.previous_key.value));
-	sb_out.previous_key.id         = sb_in.previous_key.id;
-	memset(&sb_out.current_key.value,  0, sizeof(sb_out.current_key.value));
-	sb_out.current_key.id          = sb_in.current_key.id;
-	sb_out.snapshots               = sb_in.snapshots;
-	sb_out.last_secured_generation = sb_in.last_secured_generation;
-	sb_out.curr_snap_idx               = sb_in.curr_snap_idx;
-	sb_out.degree                  = sb_in.degree;
-	sb_out.free_gen                = sb_in.free_gen;
-	sb_out.free_number             = sb_in.free_number;
-	sb_out.free_hash               = sb_in.free_hash;
-	sb_out.free_max_level          = sb_in.free_max_level;
-	sb_out.free_degree             = sb_in.free_degree;
-	sb_out.free_leaves             = sb_in.free_leaves;
-	sb_out.meta_gen                = sb_in.meta_gen;
-	sb_out.meta_number             = sb_in.meta_number;
-	sb_out.meta_hash               = sb_in.meta_hash;
-	sb_out.meta_max_level          = sb_in.meta_max_level;
-	sb_out.meta_degree             = sb_in.meta_degree;
-	sb_out.meta_leaves             = sb_in.meta_leaves;
-}
-
-
 void Superblock_control::_execute_tree_ext_step(Channel &chan,
                                                 Superblock::State tree_ext_sb_state,
                                                 bool tree_ext_verbose,
@@ -418,7 +386,7 @@ void Superblock_control::_secure_sb(Channel &chan, bool &progress)
 	case Channel::STARTED:
 
 		_sb.curr_snap().gen = _curr_gen;
-		_init_sb_without_key_values(_sb, chan._sb_ciphertext);
+		chan._sb_ciphertext.copy_all_but_key_values_from(_sb);
 		chan._generate_ta_req(
 			Trust_anchor_request::ENCRYPT_KEY, Channel::ENCRYPT_CURR_KEY_SUCCEEDED, progress,
 			chan._sb_ciphertext.current_key.value, _sb.current_key.value);
@@ -678,7 +646,7 @@ void Superblock_control::_execute_initialize(Channel           &chan,
 				Trust_anchor_request::DECRYPT_KEY, Channel::DECRYPT_PREV_KEY_SUCCEEDED, progress,
 				chan._sb_ciphertext.previous_key.value, sb.previous_key.value);
 		} else {
-			_init_sb_without_key_values(chan._sb_ciphertext, sb);
+			sb.copy_all_but_key_values_from(chan._sb_ciphertext);
 			sb_idx = chan._sb_idx;
 			curr_gen = chan._gen + 1;
 			ASSERT(sb.free_max_level >= FREE_TREE_MIN_MAX_LEVEL);
@@ -698,7 +666,7 @@ void Superblock_control::_execute_initialize(Channel           &chan,
 
 	case Channel::ADD_PREV_KEY_SUCCEEDED:
 
-		_init_sb_without_key_values(chan._sb_ciphertext, sb);
+		sb.copy_all_but_key_values_from(chan._sb_ciphertext);
 		sb_idx   = chan._sb_idx;
 		curr_gen = chan._gen + 1;
 		chan._req_ptr->_sb_state = _sb.state;
