@@ -42,11 +42,11 @@ class Tresor::Superblock_control_request : Module_request, Noncopyable
 
 	private:
 
-		Type _type;
-		Request_offset _client_req_offset;
-		Request_tag _client_req_tag;
+		Type const _type;
+		Request_offset const _client_req_offset;
+		Request_tag const _client_req_tag;
 		Number_of_blocks _nr_of_blks;
-		Virtual_block_address _vba;
+		Virtual_block_address const _vba;
 		bool &_success;
 		bool &_client_req_finished;
 		Superblock::State &_sb_state;
@@ -60,24 +60,7 @@ class Tresor::Superblock_control_request : Module_request, Noncopyable
 
 		static char const *type_to_string(Type type);
 
-
-		/********************
-		 ** Module_request **
-		 ********************/
-
-		void print(Output &out) const override
-		{
-			Genode::print(out, type_to_string(_type));
-			switch (_type) {
-			case REKEY_VBA:
-			case READ_VBA:
-			case WRITE_VBA:
-				Genode::print(out, " ", _vba);
-				break;
-			default:
-				break;
-			}
-		}
+		void print(Output &out) const override;
 };
 
 class Tresor::Superblock_control_channel : public Module_channel
@@ -103,7 +86,6 @@ class Tresor::Superblock_control_channel : public Module_channel
 			SYNC_BLK_IO_SUCCEEDED, REQ_COMPLETE, REQ_GENERATED, };
 
 		State _state { INVALID };
-		Key _key_plaintext { };
 		Superblock _sb_ciphertext { };
 		Block _encoded_blk { };
 		Superblock_index _sb_idx { 0 };
@@ -116,8 +98,6 @@ class Tresor::Superblock_control_channel : public Module_channel
 		Physical_block_address _pba { 0 };
 		Number_of_blocks _nr_of_leaves { 0 };
 		Type_1_node _ft_root { };
-		Tree_level_index _ft_max_lvl { 0 };
-		Number_of_leaves _ft_nr_of_leaves { 0 };
 		Request *_req_ptr { nullptr };
 		bool _gen_req_success { false };
 
