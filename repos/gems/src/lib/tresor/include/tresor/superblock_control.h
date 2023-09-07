@@ -72,19 +72,23 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 		using Request = Superblock_control_request;
 
-		enum State {
-			INVALID, REQ_SUBMITTED, ACCESS_VBA_AT_VBD_SUCCEEDED,
+		enum State : State_uint {
+			INACTIVE, REQ_SUBMITTED, ACCESS_VBA_AT_VBD_SUCCEEDED,
 			REKEY_VBA_AT_VBD_SUCCEEDED, CREATE_KEY_SUCCEEDED,
-			ENCRYPT_CURRENT_KEY_SUCCEEDED, TREE_EXT_STEP_IN_TREE_SUCCEEDED,
-			ENCRYPT_PREVIOUS_KEY_SUCCEEDED, DECRYPT_CURRENT_KEY_SUCCEEDED,
-			DECRYPT_PREVIOUS_KEY_SUCCEEDED, SECURE_SB_SUCCEEDED,
-			GET_LAST_SB_HASH_SUCCEEDED, ADD_KEY_AT_CRYPTO_MODULE_SUCCEEDED,
-			ADD_PREV_KEY_SUCCEEDED, ADD_CURR_KEY_SUCCEEDED,
-			REMOVE_PREV_KEY_SUCCEEDED, REMOVE_CURR_KEY_SUCCEEDED, READ_SB_SUCCEEDED,
-			READ_CURRENT_SB_SUCCEEDED, SYNC_CACHE_SUCCEEDED, WRITE_SB_SUCCEEDED,
-			SYNC_BLK_IO_SUCCEEDED, REQ_COMPLETE, REQ_GENERATED };
+			TREE_EXT_STEP_IN_TREE_SUCCEEDED, DECRYPT_CURR_KEY_SUCCEEDED,
+			DECRYPT_PREV_KEY_SUCCEEDED, GET_LAST_SB_HASH_SUCCEEDED,
+			ADD_KEY_AT_CRYPTO_MODULE_SUCCEEDED, ADD_PREV_KEY_SUCCEEDED,
+			ADD_CURR_KEY_SUCCEEDED, REMOVE_PREV_KEY_SUCCEEDED, REMOVE_CURR_KEY_SUCCEEDED,
+			READ_SB_SUCCEEDED, READ_CURR_SB_SUCCEEDED, REQ_COMPLETE, REQ_GENERATED,
+			SECURE_SB, SECURE_SB_DONE };
 
-		State _state { INVALID };
+		enum Secure_sb_state : State_uint {
+			SECURE_SB_INACTIVE, STARTED, ENCRYPT_CURR_KEY_SUCCEEDED,
+			SECURE_SB_REQ_GENERATED, ENCRYPT_PREV_KEY_SUCCEEDED, SYNC_CACHE_SUCCEEDED,
+			WRITE_SB_SUCCEEDED, SYNC_BLK_IO_SUCCEEDED, SECURE_SB_AT_TA_SUCCEEDED };
+
+		State _state { INACTIVE };
+		Secure_sb_state _secure_sb_state { SECURE_SB_INACTIVE };
 		Superblock _sb_ciphertext { };
 		Block _encoded_blk { };
 		Superblock_index _sb_idx { 0 };
@@ -110,16 +114,19 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 		void _access_vba(Superblock_control &, Virtual_block_device_request::Type, bool &);
 
-		void _generate_vbd_req(Superblock_control &, Virtual_block_device_request::Type, State, bool &, Key_id, Virtual_block_address);
+		void _generate_vbd_req(Superblock_control &, Virtual_block_device_request::Type, State_uint, bool &, Key_id, Virtual_block_address);
 
-		void _generate_ta_req(Trust_anchor_request::Type, State, bool &, Key_value &, Key_value &);
+		void _generate_ta_req(Trust_anchor_request::Type, State_uint, bool &, Key_value &, Key_value &);
 
-		void _generate_blk_req(Block_io_request::Type, Physical_block_address, State, bool &);
+		void _generate_blk_req(Block_io_request::Type, Physical_block_address, State_uint, bool &);
 
 		template <typename REQUEST, typename... ARGS>
 		void _generate_req(State_uint complete_state, bool &progress, ARGS &&... args)
 		{
-			_state = REQ_GENERATED;
+			if (_state == SECURE_SB)
+				_secure_sb_state = SECURE_SB_REQ_GENERATED;
+			else
+				_state = REQ_GENERATED;
 			generate_req<REQUEST>(complete_state, progress, args..., _gen_req_success);
 		}
 };
@@ -139,20 +146,6 @@ class Tresor::Superblock_control : public Module
 		Superblock_index _sb_idx { 0 };
 		Generation _curr_gen { 0 };
 		Channel _channels[NUM_CHANNELS] { };
-
-		void _secure_sb_init(Channel &, bool &);
-
-		void _secure_sb_encr_curr_key_succ(Channel &, bool &);
-
-		void _secure_sb_encr_prev_key_succ(Channel &, bool &);
-
-		void _secure_sb_sync_cache_compl(Channel &, bool &);
-
-		void _secure_sb_write_sb_compl(Channel &, bool &);
-
-		void _secure_sb_sync_blk_io_compl(Channel &, bool &);
-
-		void _secure_sb_finish(Channel &);
 
 		void _init_sb_without_key_values(Superblock const &, Superblock &);
 
@@ -179,6 +172,10 @@ class Tresor::Superblock_control : public Module
 		                         Generation &, bool &progress);
 
 		void _execute_deinitialize(Channel &, bool &);
+
+		void _start_secure_sb(Channel &, bool &);
+
+		void _secure_sb(Channel &, bool &);
 
 
 		/************
