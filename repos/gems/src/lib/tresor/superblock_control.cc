@@ -487,16 +487,14 @@ void Superblock_control::_execute_initialize_rekeying(Channel &chan, bool &progr
 		_sb.rekeying_vba = 0;
 		_sb.previous_key = _sb.current_key;
 		_sb.current_key.id++;
-		chan._generate_req<Trust_anchor::Create_key>(Channel::CREATE_KEY_SUCCEEDED, progress, _sb.current_key.value, chan._gen_req_success);
+		chan._generate_req<Trust_anchor::Create_key>(Channel::CREATE_KEY_SUCCEEDED, progress, _sb.current_key.value);
 		break;
 
 	case Channel::CREATE_KEY_SUCCEEDED:
 
-		chan._generate_req<Crypto::Add_key>(Channel::ADD_KEY_AT_CRYPTO_MODULE_SUCCEEDED, progress, _sb.current_key, chan._gen_req_success);
-		if (VERBOSE_REKEYING) {
-			log("start rekeying:");
-			log("  update sb: keys ", _sb.previous_key.id, ",", _sb.current_key.id);
-		}
+		chan._generate_req<Crypto::Add_key>(Channel::ADD_KEY_AT_CRYPTO_MODULE_SUCCEEDED, progress, _sb.current_key);
+		if (VERBOSE_REKEYING)
+			log("start rekeying:\n  update sb: keys ", _sb.previous_key.id, ",", _sb.current_key.id);
 		break;
 
 	case Channel::ADD_KEY_AT_CRYPTO_MODULE_SUCCEEDED:
@@ -504,7 +502,6 @@ void Superblock_control::_execute_initialize_rekeying(Channel &chan, bool &progr
 		_secure_sb_init(chan, progress);
 		if (VERBOSE_REKEYING)
 			log("  secure sb: gen ", _curr_gen);
-
 		break;
 
 	case Channel::ENCRYPT_CURRENT_KEY_SUCCEEDED: _secure_sb_encr_curr_key_succ(chan, progress); break;
@@ -687,7 +684,7 @@ void Superblock_control::_execute_initialize(Channel           &chan,
 	case Channel::DECRYPT_CURRENT_KEY_SUCCEEDED:
 
 		sb.current_key.id = chan._sb_ciphertext.current_key.id;
-		chan._generate_req<Crypto::Add_key>(Channel::ADD_CURR_KEY_SUCCEEDED, progress, sb.current_key, chan._gen_req_success);
+		chan._generate_req<Crypto::Add_key>(Channel::ADD_CURR_KEY_SUCCEEDED, progress, sb.current_key);
 		break;
 
 	case Channel::ADD_CURR_KEY_SUCCEEDED:
