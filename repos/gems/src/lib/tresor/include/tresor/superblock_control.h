@@ -90,7 +90,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 		State _state { INACTIVE };
 		Secure_sb_state _secure_sb_state { SECURE_SB_INACTIVE };
 		Superblock _sb_ciphertext { };
-		Block _encoded_blk { };
+		Block _blk { };
 		Superblock_index _sb_idx { 0 };
 		bool _sb_found { false };
 		Superblock_index _read_sb_idx { 0 };
@@ -101,6 +101,11 @@ class Tresor::Superblock_control_channel : public Module_channel
 		Type_1_node _ft_root { };
 		Request *_req_ptr { nullptr };
 		bool _gen_req_success { false };
+		Superblock &_sb;
+		Superblock_index &_mod_sb_idx;
+		Generation &_curr_gen;
+
+		NONCOPYABLE(Superblock_control_channel);
 
 		void _generated_req_completed(State_uint) override;
 
@@ -129,6 +134,14 @@ class Tresor::Superblock_control_channel : public Module_channel
 				_state = REQ_GENERATED;
 			generate_req<REQUEST>(complete_state, progress, args..., _gen_req_success);
 		}
+
+		void _start_secure_sb(bool &);
+
+		void _secure_sb(bool &);
+
+	public:
+
+		Superblock_control_channel(Module_channel_id id, Superblock &sb, Superblock_index &sb_idx, Generation &curr_gen) : Module_channel(SUPERBLOCK_CONTROL, id), _sb(sb), _mod_sb_idx(sb_idx), _curr_gen(curr_gen) { }
 };
 
 class Tresor::Superblock_control : public Module
@@ -143,9 +156,9 @@ class Tresor::Superblock_control : public Module
 		enum { NUM_CHANNELS = 1 };
 
 		Superblock _sb { };
-		Superblock_index _sb_idx { 0 };
-		Generation _curr_gen { 0 };
-		Channel _channels[NUM_CHANNELS] { };
+		Superblock_index _sb_idx { INVALID_SB_IDX };
+		Generation _curr_gen { INVALID_GENERATION };
+		Constructible<Channel> _channels[NUM_CHANNELS] { };
 
 		void _init_sb_without_key_values(Superblock const &, Superblock &);
 
@@ -172,10 +185,6 @@ class Tresor::Superblock_control : public Module
 		                         Generation &, bool &progress);
 
 		void _execute_deinitialize(Channel &, bool &);
-
-		void _start_secure_sb(Channel &, bool &);
-
-		void _secure_sb(Channel &, bool &);
 
 
 		/************
@@ -226,7 +235,13 @@ class Tresor::Superblock_control : public Module
 				return Superblock_info { };
 		}
 
-		Superblock_control() { register_channels(_channels, NUM_CHANNELS, SUPERBLOCK_CONTROL); }
+		Superblock_control()
+		{
+			for (Module_channel_id id { 0 }; id < NUM_CHANNELS; id++) {
+				_channels[id].construct(id, _sb, _sb_idx, _curr_gen);
+				add_channel(*_channels[id]);
+			}
+		}
 };
 
 #endif /* _TRESOR__SUPERBLOCK_CONTROL_H_ */
