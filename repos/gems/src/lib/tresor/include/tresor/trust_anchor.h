@@ -135,6 +135,8 @@ class Tresor::Trust_anchor : public Module
 
 	public:
 
+		struct Create_key : Request { Create_key(Module_id m, Module_channel_id c, Key_value &k, bool &s) : Request(m, c, Request::CREATE_KEY, k, *(Key_value*)0, *(Hash*)0, Passphrase(), s) { } };
+
 		Trust_anchor(Vfs::Env       &vfs_env,
 		             Xml_node const &xml_node);
 

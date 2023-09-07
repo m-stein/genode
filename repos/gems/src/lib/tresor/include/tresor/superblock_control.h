@@ -79,10 +79,8 @@ class Tresor::Superblock_control_channel : public Module_channel
 			ENCRYPT_PREVIOUS_KEY_SUCCEEDED, DECRYPT_CURRENT_KEY_SUCCEEDED,
 			DECRYPT_PREVIOUS_KEY_SUCCEEDED, SECURE_SB_SUCCEEDED,
 			GET_LAST_SB_HASH_SUCCEEDED, ADD_KEY_AT_CRYPTO_MODULE_SUCCEEDED,
-			ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_SUCCEEDED,
-			ADD_CURRENT_KEY_AT_CRYPTO_MODULE_SUCCEEDED,
-			REMOVE_PREVIOUS_KEY_AT_CRYPTO_MODULE_SUCCEEDED,
-			REMOVE_CURRENT_KEY_AT_CRYPTO_MODULE_SUCCEEDED, READ_SB_SUCCEEDED,
+			ADD_PREV_KEY_SUCCEEDED, ADD_CURR_KEY_SUCCEEDED,
+			REMOVE_PREV_KEY_SUCCEEDED, REMOVE_CURR_KEY_SUCCEEDED, READ_SB_SUCCEEDED,
 			READ_CURRENT_SB_SUCCEEDED, SYNC_CACHE_SUCCEEDED, WRITE_SB_SUCCEEDED,
 			SYNC_BLK_IO_SUCCEEDED, REQ_COMPLETE, REQ_GENERATED, };
 
@@ -94,8 +92,6 @@ class Tresor::Superblock_control_channel : public Module_channel
 		Superblock_index _read_sb_idx { 0 };
 		Generation _gen { INVALID_GENERATION };
 		Hash _hash { };
-		Key _curr_key_plaintext { };
-		Key _prev_key_plaintext { };
 		Physical_block_address _pba { 0 };
 		Number_of_blocks _nr_of_leaves { 0 };
 		Type_1_node _ft_root { };
@@ -119,6 +115,13 @@ class Tresor::Superblock_control_channel : public Module_channel
 		void _generate_ta_req(Trust_anchor_request::Type, State, bool &, Key_value &, Key_value &);
 
 		void _generate_blk_req(Block_io_request::Type, Physical_block_address, State, bool &);
+
+		template <typename REQUEST, typename... ARGS>
+		void _generate_req(State_uint complete_state, bool &progress, ARGS &&... args)
+		{
+			_state = REQ_GENERATED;
+			generate_req<REQUEST>(complete_state, progress, args...);
+		}
 };
 
 class Tresor::Superblock_control : public Module
