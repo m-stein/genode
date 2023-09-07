@@ -63,6 +63,7 @@ class Tresor::Superblock_control_request : Module_request, Noncopyable
 		void print(Output &out) const override;
 };
 
+
 class Tresor::Superblock_control_channel : public Module_channel
 {
 	friend class Superblock_control;
