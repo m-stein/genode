@@ -82,7 +82,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 			ADD_PREV_KEY_SUCCEEDED, ADD_CURR_KEY_SUCCEEDED,
 			REMOVE_PREV_KEY_SUCCEEDED, REMOVE_CURR_KEY_SUCCEEDED, READ_SB_SUCCEEDED,
 			READ_CURRENT_SB_SUCCEEDED, SYNC_CACHE_SUCCEEDED, WRITE_SB_SUCCEEDED,
-			SYNC_BLK_IO_SUCCEEDED, REQ_COMPLETE, REQ_GENERATED, };
+			SYNC_BLK_IO_SUCCEEDED, REQ_COMPLETE, REQ_GENERATED };
 
 		State _state { INVALID };
 		Superblock _sb_ciphertext { };
@@ -120,7 +120,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 		void _generate_req(State_uint complete_state, bool &progress, ARGS &&... args)
 		{
 			_state = REQ_GENERATED;
-			generate_req<REQUEST>(complete_state, progress, args...);
+			generate_req<REQUEST>(complete_state, progress, args..., _gen_req_success);
 		}
 };
 
