@@ -187,6 +187,8 @@ class Tresor::Crypto : public Module
 
 	public:
 
+		struct Add_key : Request { Add_key(Module_id m, Module_channel_id c, Key &k, bool &s) : Request(m, c, Request::ADD_KEY, 0, 0, k.id, k.value, 0, 0, *(Block*)0, *(Block*)0, s) { } };
+
 		Crypto(Vfs::Env       &vfs_env,
 		       Xml_node const &xml_node);
 };
