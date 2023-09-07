@@ -690,60 +690,37 @@ void Superblock_control::_execute_initialize(Channel           &chan,
 		chan._sb_ciphertext.decode_from_blk(chan._encoded_blk);
 		chan._generate_ta_req(
 			Trust_anchor_request::DECRYPT_KEY, Channel::DECRYPT_CURRENT_KEY_SUCCEEDED, progress,
-			chan._sb_ciphertext.current_key.value, chan._curr_key_plaintext.value);
+			chan._sb_ciphertext.current_key.value, sb.current_key.value);
 		break;
 
 	case Channel::DECRYPT_CURRENT_KEY_SUCCEEDED:
 
-		chan._curr_key_plaintext.id = chan._sb_ciphertext.current_key.id;
 		chan._state = Channel::REQ_GENERATED;
 		chan.generate_req<Crypto_request>(
-			Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_SUCCEEDED, progress, Crypto_request::ADD_KEY, 0, INVALID_REQ_TAG, chan._curr_key_plaintext.id,
-			chan._curr_key_plaintext.value, INVALID_PBA, INVALID_VBA, chan._encoded_blk, chan._encoded_blk,
+			Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_SUCCEEDED, progress, Crypto_request::ADD_KEY, 0, INVALID_REQ_TAG,
+			chan._sb_ciphertext.current_key.id, sb.current_key.value, INVALID_PBA, INVALID_VBA, chan._encoded_blk, chan._encoded_blk,
 			chan._gen_req_success);
 		break;
 
 	case Channel::ADD_CURRENT_KEY_AT_CRYPTO_MODULE_SUCCEEDED:
 
-		switch (chan._sb_ciphertext.state) {
-		case Superblock::INVALID:
-			class Execute_add_current_key_at_crypto_invalid_error { };
-			throw Execute_add_current_key_at_crypto_invalid_error { };
-
-			break;
-		case Superblock::REKEYING:
+		ASSERT(chan._sb_ciphertext.state != Superblock::INVALID);
+		if (chan._sb_ciphertext.state == Superblock::REKEYING) {
 			chan._generate_ta_req(
 				Trust_anchor_request::DECRYPT_KEY, Channel::DECRYPT_PREVIOUS_KEY_SUCCEEDED, progress,
 				chan._sb_ciphertext.previous_key.value, chan._prev_key_plaintext.value);
-			break;
-		case Superblock::NORMAL:
-		case Superblock::EXTENDING_VBD:
-		case Superblock::EXTENDING_FT:
-
+		} else {
 			_init_sb_without_key_values(chan._sb_ciphertext, sb);
-
-			sb.current_key.value = chan._curr_key_plaintext.value;
-			sb_idx               = chan._sb_idx;
-			curr_gen             = chan._gen + 1;
-
 			sb_idx = chan._sb_idx;
 			curr_gen = chan._gen + 1;
-
-			if (sb.free_max_level < FREE_TREE_MIN_MAX_LEVEL) {
-				class Execute_add_current_key_at_crypto_max_level_error { };
-				throw Execute_add_current_key_at_crypto_max_level_error { };
-			}
+			ASSERT(sb.free_max_level >= FREE_TREE_MIN_MAX_LEVEL);
 			chan._req_ptr->_sb_state = _sb.state;
 			chan._mark_req_successful(progress);
-			break;
 		}
-
 		break;
+
 	case Channel::DECRYPT_PREVIOUS_KEY_SUCCEEDED:
-		if (!chan._gen_req_success) {
-			class Decrypt_previous_key_error { };
-			throw Decrypt_previous_key_error { };
-		}
+
 		chan._state = Channel::REQ_GENERATED;
 		chan.generate_req<Crypto_request>(
 			Channel::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_SUCCEEDED, progress, Crypto_request::ADD_KEY, 0, INVALID_REQ_TAG, chan._prev_key_plaintext.id,
@@ -752,14 +729,11 @@ void Superblock_control::_execute_initialize(Channel           &chan,
 		break;
 
 	case Channel::ADD_PREVIOUS_KEY_AT_CRYPTO_MODULE_SUCCEEDED:
+
 		_init_sb_without_key_values(chan._sb_ciphertext, sb);
-
-		sb.current_key.value  = chan._curr_key_plaintext.value;
 		sb.previous_key.value = chan._prev_key_plaintext.value;
-
 		sb_idx   = chan._sb_idx;
 		curr_gen = chan._gen + 1;
-
 		chan._req_ptr->_sb_state = _sb.state;
 		chan._mark_req_successful(progress);
 		break;
