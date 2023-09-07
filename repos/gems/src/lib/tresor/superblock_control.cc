@@ -105,15 +105,23 @@ void Superblock_control_channel::_generated_req_completed(State_uint state_uint)
 		_req_ptr->_success = false;
 		_state = REQ_COMPLETE;
 		_req_ptr = nullptr;
-	} else
-		_state = (State)state_uint;
+	} else {
+		if (_state == SECURE_SB)
+			_secure_sb_state = (Secure_sb_state)state_uint;
+		else
+			_state = (State)state_uint;
+	}
 }
 
 
 void Superblock_control_channel::
 _generate_vbd_req(Superblock_control &mod, Virtual_block_device_request::Type type,
-                  State complete_state, bool &progress, Key_id key_id, Virtual_block_address vba = INVALID_VBA)
+                  State_uint complete_state, bool &progress, Key_id key_id, Virtual_block_address vba = INVALID_VBA)
 {
+	if (_state == SECURE_SB)
+		_secure_sb_state = SECURE_SB_REQ_GENERATED;
+	else
+		_state = REQ_GENERATED;
 	Request &req { *_req_ptr };
 	Superblock &sb { mod._sb };
 	_state = REQ_GENERATED;
@@ -128,10 +136,13 @@ _generate_vbd_req(Superblock_control &mod, Virtual_block_device_request::Type ty
 		_pba, _gen_req_success, _nr_of_leaves, req._nr_of_blks);
 }
 
-void Superblock_control_channel::_generate_ta_req(Trust_anchor_request::Type type, State complete_state,
+void Superblock_control_channel::_generate_ta_req(Trust_anchor_request::Type type, State_uint complete_state,
                                                   bool &progress, Key_value &key_ciphertext, Key_value &key_plaintext)
 {
-	_state = REQ_GENERATED;
+	if (_state == SECURE_SB)
+		_secure_sb_state = SECURE_SB_REQ_GENERATED;
+	else
+		_state = REQ_GENERATED;
 	generate_req<Trust_anchor_request>(
 		complete_state, progress, type, key_plaintext, key_ciphertext, _hash, Passphrase { }, _gen_req_success);
 }
@@ -234,7 +245,7 @@ void Superblock_control::_execute_tree_ext_step(Channel &chan,
 				    chan._pba + (Number_of_blocks)_sb.resizing_nr_of_pbas - 1,
 				    " leaves ", (Number_of_blocks)_sb.resizing_nr_of_leaves);
 
-			_secure_sb_init(chan, progress);
+			_start_secure_sb(chan, progress);
 			break;
 
 		} else if (_sb.state == tree_ext_sb_state) {
@@ -301,17 +312,12 @@ void Superblock_control::_execute_tree_ext_step(Channel &chan,
 			_sb.state = Superblock::NORMAL;
 			req._client_req_finished = true;
 		}
-		_secure_sb_init(chan, progress);
+		_start_secure_sb(chan, progress);
 		break;
 	}
-	case Channel::ENCRYPT_CURRENT_KEY_SUCCEEDED: _secure_sb_encr_curr_key_succ(chan, progress); break;
-	case Channel::ENCRYPT_PREVIOUS_KEY_SUCCEEDED: _secure_sb_encr_prev_key_succ(chan, progress); break;
-	case Channel::SYNC_CACHE_SUCCEEDED: _secure_sb_sync_cache_compl(chan, progress); break;
-	case Channel::WRITE_SB_SUCCEEDED: _secure_sb_write_sb_compl(chan, progress); break;
-	case Channel::SYNC_BLK_IO_SUCCEEDED: _secure_sb_sync_blk_io_compl(chan, progress); break;
-	case Channel::SECURE_SB_SUCCEEDED:
+	case Channel::SECURE_SB: _secure_sb(chan, progress); break;
+	case Channel::SECURE_SB_DONE:
 
-		_secure_sb_finish(chan);
 		chan._mark_req_successful(progress);
 		break;
 
@@ -357,7 +363,7 @@ void Superblock_control::_execute_rekey_vba(Channel  &chan,
 
 			_sb.rekeying_vba++;
 			req._client_req_finished = false;
-			_secure_sb_init(chan, progress);
+			_start_secure_sb(chan, progress);
 
 			if (VERBOSE_REKEYING)
 				log("  secure sb: gen ", _curr_gen);
@@ -380,21 +386,14 @@ void Superblock_control::_execute_rekey_vba(Channel  &chan,
 		_sb.previous_key = { };
 		_sb.state = Superblock::NORMAL;
 		req._client_req_finished = true;
-		_secure_sb_init(chan, progress);
-
+		_start_secure_sb(chan, progress);
 		if (VERBOSE_REKEYING)
 			log("  secure sb: gen ", _curr_gen);
-
 		break;
 
-	case Channel::ENCRYPT_CURRENT_KEY_SUCCEEDED:  _secure_sb_encr_curr_key_succ(chan, progress); break;
-	case Channel::ENCRYPT_PREVIOUS_KEY_SUCCEEDED: _secure_sb_encr_prev_key_succ(chan, progress); break;
-	case Channel::SYNC_CACHE_SUCCEEDED:           _secure_sb_sync_cache_compl(chan, progress); break;
-	case Channel::WRITE_SB_SUCCEEDED:             _secure_sb_write_sb_compl(chan, progress); break;
-	case Channel::SYNC_BLK_IO_SUCCEEDED:          _secure_sb_sync_blk_io_compl(chan, progress); break;
-	case Channel::SECURE_SB_SUCCEEDED:
+	case Channel::SECURE_SB: _secure_sb(chan, progress); break;
+	case Channel::SECURE_SB_DONE:
 
-		_secure_sb_finish(chan);
 		chan._mark_req_successful(progress);
 		break;
 
@@ -405,46 +404,58 @@ void Superblock_control::_execute_rekey_vba(Channel  &chan,
 }
 
 
-void Superblock_control::_secure_sb_init(Channel &chan, bool &progress)
+void Superblock_control::_start_secure_sb(Channel &chan, bool &progress)
 {
-	_sb.curr_snap().gen = _curr_gen;
-	_init_sb_without_key_values(_sb, chan._sb_ciphertext);
-	chan._generate_ta_req(
-		Trust_anchor_request::ENCRYPT_KEY, Channel::ENCRYPT_CURRENT_KEY_SUCCEEDED, progress,
-		chan._sb_ciphertext.current_key.value, _sb.current_key.value);
+	chan._state = Channel::SECURE_SB;
+	chan._secure_sb_state = Channel::STARTED;
+	progress = true;
 }
 
 
-void Superblock_control::_secure_sb_encr_curr_key_succ(Channel &chan, bool &progress)
+void Superblock_control::_secure_sb(Channel &chan, bool &progress)
 {
-	if (_sb.state == Superblock::REKEYING)
+	switch (chan._secure_sb_state) {
+	case Channel::STARTED:
+
+		_sb.curr_snap().gen = _curr_gen;
+		_init_sb_without_key_values(_sb, chan._sb_ciphertext);
 		chan._generate_ta_req(
-			Trust_anchor_request::ENCRYPT_KEY, Channel::ENCRYPT_PREVIOUS_KEY_SUCCEEDED, progress,
-			chan._sb_ciphertext.previous_key.value, _sb.previous_key.value);
-	else
+			Trust_anchor_request::ENCRYPT_KEY, Channel::ENCRYPT_CURR_KEY_SUCCEEDED, progress,
+			chan._sb_ciphertext.current_key.value, _sb.current_key.value);
+		break;
+
+	case Channel::ENCRYPT_CURR_KEY_SUCCEEDED:
+
+		if (_sb.state == Superblock::REKEYING)
+			chan._generate_ta_req(
+				Trust_anchor_request::ENCRYPT_KEY, Channel::ENCRYPT_PREV_KEY_SUCCEEDED, progress,
+				chan._sb_ciphertext.previous_key.value, _sb.previous_key.value);
+		else
+			chan._generate_blk_req(Block_io_request::SYNC, 0, Channel::SYNC_CACHE_SUCCEEDED, progress);
+		break;
+
+	case Channel::ENCRYPT_PREV_KEY_SUCCEEDED:
+
 		chan._generate_blk_req(Block_io_request::SYNC, 0, Channel::SYNC_CACHE_SUCCEEDED, progress);
-}
+		break;
 
+	case Channel::SYNC_CACHE_SUCCEEDED:
 
-void Superblock_control::_secure_sb_encr_prev_key_succ(Channel &chan, bool &progress)
-{
-	chan._generate_blk_req(Block_io_request::SYNC, 0, Channel::SYNC_CACHE_SUCCEEDED, progress);
-}
+		chan._sb_ciphertext.encode_to_blk(chan._encoded_blk);
+		chan._generate_blk_req(Block_io_request::WRITE, _sb_idx, Channel::WRITE_SB_SUCCEEDED, progress);
+		break;
 
+	case Channel::WRITE_SB_SUCCEEDED:
 
-void Superblock_control::_secure_sb_sync_cache_compl(Channel &chan, bool &progress)
-{
-	chan._sb_ciphertext.encode_to_blk(chan._encoded_blk);
-	chan._generate_blk_req(Block_io_request::WRITE, _sb_idx, Channel::WRITE_SB_SUCCEEDED, progress);
-}
+		chan._generate_blk_req(Block_io_request::SYNC, _sb_idx, Channel::SYNC_BLK_IO_SUCCEEDED, progress);
+		break;
 
-
-void Superblock_control::_secure_sb_sync_blk_io_compl(Channel &chan, bool &progress)
-{
+	case Channel::SYNC_BLK_IO_SUCCEEDED:
+	{
 		Block blk { };
 		chan._sb_ciphertext.encode_to_blk(blk);
 		calc_sha256_4k_hash(blk, chan._hash);
-		chan._generate_ta_req(Trust_anchor_request::SECURE_SUPERBLOCK, Channel::SECURE_SB_SUCCEEDED,
+		chan._generate_ta_req(Trust_anchor_request::SECURE_SUPERBLOCK, Channel::SECURE_SB_AT_TA_SUCCEEDED,
 		                      progress, chan._sb_ciphertext.current_key.value, _sb.current_key.value);
 
 		if (_sb_idx < MAX_SUPERBLOCK_INDEX)
@@ -454,22 +465,16 @@ void Superblock_control::_secure_sb_sync_blk_io_compl(Channel &chan, bool &progr
 
 		chan._gen = _curr_gen;
 		_curr_gen++;
-}
-
-
-void Superblock_control::_secure_sb_write_sb_compl(Channel &chan, bool &progress)
-{
-	if (!chan._gen_req_success) {
-		chan._mark_req_failed(progress, "write superblock");
-		return;
+		break;
 	}
-	chan._generate_blk_req(Block_io_request::SYNC, _sb_idx, Channel::SYNC_BLK_IO_SUCCEEDED, progress);
-}
+	case Channel::SECURE_SB_AT_TA_SUCCEEDED:
 
+		_sb.last_secured_generation = chan._gen;
+		chan._state = Channel::SECURE_SB_DONE;
+		break;
 
-void Superblock_control::_secure_sb_finish(Channel &chan)
-{
-	_sb.last_secured_generation = chan._gen;
+	default: break;
+	}
 }
 
 
@@ -499,19 +504,14 @@ void Superblock_control::_execute_initialize_rekeying(Channel &chan, bool &progr
 
 	case Channel::ADD_KEY_AT_CRYPTO_MODULE_SUCCEEDED:
 
-		_secure_sb_init(chan, progress);
 		if (VERBOSE_REKEYING)
 			log("  secure sb: gen ", _curr_gen);
+		_start_secure_sb(chan, progress);
 		break;
 
-	case Channel::ENCRYPT_CURRENT_KEY_SUCCEEDED: _secure_sb_encr_curr_key_succ(chan, progress); break;
-	case Channel::ENCRYPT_PREVIOUS_KEY_SUCCEEDED: _secure_sb_encr_prev_key_succ(chan, progress); break;
-	case Channel::SYNC_CACHE_SUCCEEDED: _secure_sb_sync_cache_compl(chan, progress); break;
-	case Channel::WRITE_SB_SUCCEEDED: _secure_sb_write_sb_compl(chan, progress); break;
-	case Channel::SYNC_BLK_IO_SUCCEEDED: _secure_sb_sync_blk_io_compl(chan, progress); break;
-	case Channel::SECURE_SB_SUCCEEDED:
+	case Channel::SECURE_SB: _secure_sb(chan, progress); break;
+	case Channel::SECURE_SB_DONE:
 
-		_secure_sb_finish(chan);
 		chan._mark_req_successful(progress);
 		break;
 
@@ -525,23 +525,18 @@ void Superblock_control::_execute_discard_snap(Channel &chan, bool &progress)
 	Request &req { *chan._req_ptr };
 	switch (chan._state) {
 	case Channel::REQ_SUBMITTED:
-	{
+
 		for (Snapshot &snap : _sb.snapshots.items)
 			if (snap.valid && snap.gen == req._gen && snap.keep)
 				snap.keep = false;
 
 		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
-		_secure_sb_init(chan, progress);
+		_start_secure_sb(chan, progress);
 		break;
-	}
-	case Channel::ENCRYPT_CURRENT_KEY_SUCCEEDED: _secure_sb_encr_curr_key_succ(chan, progress); break;
-	case Channel::ENCRYPT_PREVIOUS_KEY_SUCCEEDED: _secure_sb_encr_prev_key_succ(chan, progress); break;
-	case Channel::SYNC_CACHE_SUCCEEDED: _secure_sb_sync_cache_compl(chan, progress); break;
-	case Channel::WRITE_SB_SUCCEEDED: _secure_sb_write_sb_compl(chan, progress); break;
-	case Channel::SYNC_BLK_IO_SUCCEEDED: _secure_sb_sync_blk_io_compl(chan, progress); break;
-	case Channel::SECURE_SB_SUCCEEDED:
 
-		_secure_sb_finish(chan);
+	case Channel::SECURE_SB: _secure_sb(chan, progress); break;
+	case Channel::SECURE_SB_DONE:
+
 		req._gen = chan._gen;
 		chan._mark_req_successful(progress);
 		break;
@@ -563,18 +558,13 @@ void Superblock_control::_execute_create_snap(Channel &chan, bool &progress)
 		} else {
 			_sb.curr_snap().keep = true;
 			_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
-			_secure_sb_init(chan, progress);
+			_start_secure_sb(chan, progress);
 		}
 		break;
 
-	case Channel::ENCRYPT_CURRENT_KEY_SUCCEEDED: _secure_sb_encr_curr_key_succ(chan, progress); break;
-	case Channel::ENCRYPT_PREVIOUS_KEY_SUCCEEDED: _secure_sb_encr_prev_key_succ(chan, progress); break;
-	case Channel::SYNC_CACHE_SUCCEEDED: _secure_sb_sync_cache_compl(chan, progress); break;
-	case Channel::WRITE_SB_SUCCEEDED: _secure_sb_write_sb_compl(chan, progress); break;
-	case Channel::SYNC_BLK_IO_SUCCEEDED: _secure_sb_sync_blk_io_compl(chan, progress); break;
-	case Channel::SECURE_SB_SUCCEEDED:
+	case Channel::SECURE_SB: _secure_sb(chan, progress); break;
+	case Channel::SECURE_SB_DONE:
 
-		_secure_sb_finish(chan);
 		req._gen = chan._gen;
 		chan._mark_req_successful(progress);
 		break;
@@ -591,23 +581,16 @@ void Superblock_control::_execute_sync(Channel &chan, bool &progress)
 
 		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
 		_sb.last_secured_generation = _curr_gen;
-		_secure_sb_init(chan, progress);
+		_start_secure_sb(chan, progress);
 		break;
 
-	case Channel::ENCRYPT_CURRENT_KEY_SUCCEEDED: _secure_sb_encr_curr_key_succ(chan, progress); break;
-	case Channel::ENCRYPT_PREVIOUS_KEY_SUCCEEDED: _secure_sb_encr_prev_key_succ(chan, progress); break;
-	case Channel::SYNC_CACHE_SUCCEEDED: _secure_sb_sync_cache_compl(chan, progress); break;
-	case Channel::WRITE_SB_SUCCEEDED: _secure_sb_write_sb_compl(chan, progress); break;
-	case Channel::SYNC_BLK_IO_SUCCEEDED: _secure_sb_sync_blk_io_compl(chan, progress); break;
-	case Channel::SECURE_SB_SUCCEEDED:
+	case Channel::SECURE_SB: _secure_sb(chan, progress); break;
+	case Channel::SECURE_SB_DONE:
 
-		_secure_sb_finish(chan);
 		chan._mark_req_successful(progress);
 		break;
 
-	default:
-
-		break;
+	default: break;
 	}
 }
 
@@ -669,19 +652,19 @@ void Superblock_control::_execute_initialize(Channel           &chan,
 			chan._generate_blk_req(Block_io_request::READ, chan._read_sb_idx, Channel::READ_SB_SUCCEEDED, progress);
 		} else {
 			ASSERT(chan._sb_found);
-			chan._generate_blk_req(Block_io_request::READ, chan._sb_idx, Channel::READ_CURRENT_SB_SUCCEEDED, progress);
+			chan._generate_blk_req(Block_io_request::READ, chan._sb_idx, Channel::READ_CURR_SB_SUCCEEDED, progress);
 		}
 		break;
 
-	case Channel::READ_CURRENT_SB_SUCCEEDED:
+	case Channel::READ_CURR_SB_SUCCEEDED:
 
 		chan._sb_ciphertext.decode_from_blk(chan._encoded_blk);
 		chan._generate_ta_req(
-			Trust_anchor_request::DECRYPT_KEY, Channel::DECRYPT_CURRENT_KEY_SUCCEEDED, progress,
+			Trust_anchor_request::DECRYPT_KEY, Channel::DECRYPT_CURR_KEY_SUCCEEDED, progress,
 			chan._sb_ciphertext.current_key.value, sb.current_key.value);
 		break;
 
-	case Channel::DECRYPT_CURRENT_KEY_SUCCEEDED:
+	case Channel::DECRYPT_CURR_KEY_SUCCEEDED:
 
 		sb.current_key.id = chan._sb_ciphertext.current_key.id;
 		chan._generate_req<Crypto::Add_key>(Channel::ADD_CURR_KEY_SUCCEEDED, progress, sb.current_key);
@@ -692,7 +675,7 @@ void Superblock_control::_execute_initialize(Channel           &chan,
 		ASSERT(chan._sb_ciphertext.state != Superblock::INVALID);
 		if (chan._sb_ciphertext.state == Superblock::REKEYING) {
 			chan._generate_ta_req(
-				Trust_anchor_request::DECRYPT_KEY, Channel::DECRYPT_PREVIOUS_KEY_SUCCEEDED, progress,
+				Trust_anchor_request::DECRYPT_KEY, Channel::DECRYPT_PREV_KEY_SUCCEEDED, progress,
 				chan._sb_ciphertext.previous_key.value, sb.previous_key.value);
 		} else {
 			_init_sb_without_key_values(chan._sb_ciphertext, sb);
@@ -704,7 +687,7 @@ void Superblock_control::_execute_initialize(Channel           &chan,
 		}
 		break;
 
-	case Channel::DECRYPT_PREVIOUS_KEY_SUCCEEDED:
+	case Channel::DECRYPT_PREV_KEY_SUCCEEDED:
 
 		chan._state = Channel::REQ_GENERATED;
 		chan.generate_req<Crypto_request>(
@@ -734,17 +717,12 @@ void Superblock_control::_execute_deinitialize(Channel &chan, bool &progress)
 
 		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
 		_sb.last_secured_generation = _curr_gen;
-		_secure_sb_init(chan, progress);
+		_start_secure_sb(chan, progress);
 		break;
 
-	case Channel::ENCRYPT_CURRENT_KEY_SUCCEEDED: _secure_sb_encr_curr_key_succ(chan, progress); break;
-	case Channel::ENCRYPT_PREVIOUS_KEY_SUCCEEDED: _secure_sb_encr_prev_key_succ(chan, progress); break;
-	case Channel::SYNC_CACHE_SUCCEEDED: _secure_sb_sync_cache_compl(chan, progress); break;
-	case Channel::WRITE_SB_SUCCEEDED: _secure_sb_write_sb_compl(chan, progress); break;
-	case Channel::SYNC_BLK_IO_SUCCEEDED: _secure_sb_sync_blk_io_compl(chan, progress); break;
-	case Channel::SECURE_SB_SUCCEEDED:
+	case Channel::SECURE_SB: _secure_sb(chan, progress); break;
+	case Channel::SECURE_SB_DONE:
 
-		_secure_sb_finish(chan);
 		chan.generate_req<Crypto_request>(
 			Channel::REMOVE_CURR_KEY_SUCCEEDED, progress, Crypto_request::REMOVE_KEY, 0, INVALID_REQ_TAG, _sb.current_key.id,
 			_sb.current_key.value, INVALID_PBA, INVALID_VBA, chan._encoded_blk, chan._encoded_blk,
@@ -774,10 +752,13 @@ void Superblock_control::_execute_deinitialize(Channel &chan, bool &progress)
 }
 
 
-void Superblock_control_channel::_generate_blk_req(Block_io_request::Type type, Physical_block_address pba, State complete_state,
+void Superblock_control_channel::_generate_blk_req(Block_io_request::Type type, Physical_block_address pba, State_uint complete_state,
                                                    bool &progress)
 {
-	_state = REQ_GENERATED;
+	if (_state == SECURE_SB)
+		_secure_sb_state = SECURE_SB_REQ_GENERATED;
+	else
+		_state = REQ_GENERATED;
 	generate_req<Block_io_request>(
 		complete_state, progress, type, 0, 0, 0, pba, 0, 1, _encoded_blk, _hash, _gen_req_success);
 }
