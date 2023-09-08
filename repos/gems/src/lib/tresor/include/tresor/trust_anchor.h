@@ -147,6 +147,12 @@ class Tresor::Trust_anchor : public Module
 			: Request(m, c, Request::ENCRYPT_KEY, *const_cast<Key_value*>(&kp), kc, *(Hash*)0, Passphrase(), s) { }
 		};
 
+		struct Decrypt_key : Request
+		{
+			Decrypt_key(Module_id m, Module_channel_id c, Key_value &kp, Key_value const &kc, bool &s)
+			: Request(m, c, Request::DECRYPT_KEY, kp, *const_cast<Key_value*>(&kc), *(Hash*)0, Passphrase(), s) { }
+		};
+
 		struct Write_hash : Request
 		{
 			Write_hash(Module_id m, Module_channel_id c, Hash const &h, bool &s)
