@@ -96,7 +96,7 @@ namespace Tresor {
 	struct Superblock;
 	struct Superblock_info;
 	struct Snapshot;
-	struct Snapshot_generations;
+	struct Snapshots_info;
 	struct Snapshots;
 	struct Type_1_node;
 	struct Type_1_node_block;
@@ -851,6 +851,12 @@ struct Tresor::Superblock
 	Snapshot &curr_snap() { return snapshots.items[curr_snap_idx]; }
 	Snapshot const &curr_snap() const { return snapshots.items[curr_snap_idx]; }
 
+	Virtual_block_address max_vba() const
+	{
+		ASSERT(valid());
+		return curr_snap().nr_of_leaves - 1;
+	}
+
 	void copy_all_but_key_values_from(Superblock const &sb)
 	{
 		state = sb.state;
@@ -919,9 +925,15 @@ struct Tresor::Tree_walk_pbas
 };
 
 
-struct Tresor::Snapshot_generations
+struct Tresor::Snapshots_info
 {
-	Generation items[MAX_NR_OF_SNAPSHOTS] { 0 };
+	Generation generations[MAX_NR_OF_SNAPSHOTS] { };
+
+	Snapshots_info()
+	{
+		for (Generation &gen : generations)
+			gen = INVALID_GENERATION;
+	}
 };
 
 

@@ -1004,13 +1004,12 @@ class Tresor_tester::Main
 		{
 			mark_command_in_progress(cmd.id());
 			bool success { true };
-			Snapshot_generations snap_gens;
-			_sb_control->snapshot_generations(snap_gens);
+			Snapshots_info snap_info { _sb_control->snapshots_info() };
 			bool snap_gen_ok[MAX_NR_OF_SNAPSHOTS] { false };
 			_snap_refs.for_each([&] (Snapshot_reference const &snap_ref) {
 				bool snap_ref_ok { false };
 				for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++) {
-					if (snap_gens.items[idx] == snap_ref.gen()) {
+					if (snap_info.generations[idx] == snap_ref.gen()) {
 						snap_ref_ok = true;
 						snap_gen_ok[idx] = true;
 					}
@@ -1022,8 +1021,8 @@ class Tresor_tester::Main
 				}
 			});
 			for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++) {
-				if (snap_gens.items[idx] != INVALID_GENERATION && !snap_gen_ok[idx]) {
-					warning("snap (idx ", idx, " gen ", snap_gens.items[idx], ") not known to tester");
+				if (snap_info.generations[idx] != INVALID_GENERATION && !snap_gen_ok[idx]) {
+					warning("snap (idx ", idx, " gen ", snap_info.generations[idx], ") not known to tester");
 					_nr_of_errors++;
 					success = false;
 				}
