@@ -152,6 +152,27 @@ class Tresor::Block_io : public Module
 
 	public:
 
+		struct Read : Request
+		{
+			Read(Module_id m, Module_channel_id c, Physical_block_address a, Number_of_blocks n, Block &b, bool &s)
+			: Request(m, c, Request::READ, 0, 0, 0, a, 0, n, b, *(Hash*)0, s) { }
+		};
+
+		struct Write : Request
+		{
+			Write(Module_id m, Module_channel_id c, Physical_block_address a, Number_of_blocks n, Block const &b, bool &s)
+			: Request(m, c, Request::WRITE, 0, 0, 0, a, 0, n, *const_cast<Block*>(&b), *(Hash*)0, s) { }
+		};
+
+		struct Sync : Request
+		{
+			Sync(Module_id m, Module_channel_id c, bool &s)
+			: Request(m, c, Request::SYNC, 0, 0, 0, 0, 0, 0, *(Block*)0, *(Hash*)0, s) { }
+		};
+/*
+		Block_io_request(Module_id, Module_channel_id, Type, Request_offset, Request_tag, Key_id,
+		                 Physical_block_address, Virtual_block_address, Number_of_blocks, Block &, Hash &, bool &);
+*/
 		Block_io(Vfs::Env       &vfs_env,
 		         Xml_node const &xml_node);
 };

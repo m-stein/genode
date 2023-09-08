@@ -121,10 +121,6 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 		void _generate_vbd_req(Superblock_control &, Virtual_block_device_request::Type, State_uint, bool &, Key_id, Virtual_block_address);
 
-		void _generate_ta_req(Trust_anchor_request::Type, State_uint, bool &, Key_value &, Key_value &);
-
-		void _generate_blk_req(Block_io_request::Type, Physical_block_address, State_uint, bool &);
-
 		template <typename REQUEST, typename... ARGS>
 		void _generate_req(State_uint complete_state, bool &progress, ARGS &&... args)
 		{
