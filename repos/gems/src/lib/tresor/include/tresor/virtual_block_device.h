@@ -118,7 +118,7 @@ class Tresor::Virtual_block_device_request : public Module_request
 		void print(Output &out) const override { Genode::print(out, type_to_string(_type)); }
 };
 
-class Tresor::Virtual_block_device_channel
+class Tresor::Virtual_block_device_channel : public Module_channel
 {
 	private:
 
@@ -127,7 +127,7 @@ class Tresor::Virtual_block_device_channel
 		using Request = Virtual_block_device_request;
 
 		enum State {
-			SUBMITTED,
+			SUBMITTED, REQ_GENERATED, REQ_COMPLETE,
 			READ_ROOT_NODE_PENDING,
 			READ_ROOT_NODE_IN_PROGRESS,
 			READ_ROOT_NODE_COMPLETED,
@@ -140,8 +140,6 @@ class Tresor::Virtual_block_device_channel
 			READ_CLIENT_DATA_FROM_LEAF_NODE_PENDING,
 			READ_CLIENT_DATA_FROM_LEAF_NODE_IN_PROGRESS,
 			READ_CLIENT_DATA_FROM_LEAF_NODE_COMPLETED,
-			WRITE_CLIENT_DATA_TO_LEAF_NODE_PENDING,
-			WRITE_CLIENT_DATA_TO_LEAF_NODE_IN_PROGRESS,
 			WRITE_CLIENT_DATA_TO_LEAF_NODE_COMPLETED,
 			DECRYPT_LEAF_NODE_PENDING,
 			DECRYPT_LEAF_NODE_IN_PROGRESS,
@@ -158,14 +156,8 @@ class Tresor::Virtual_block_device_channel
 			ENCRYPT_LEAF_NODE_PENDING,
 			ENCRYPT_LEAF_NODE_IN_PROGRESS,
 			ENCRYPT_LEAF_NODE_COMPLETED,
-			WRITE_LEAF_NODE_PENDING,
-			WRITE_LEAF_NODE_IN_PROGRESS,
 			WRITE_LEAF_NODE_COMPLETED,
-			WRITE_INNER_NODE_PENDING,
-			WRITE_INNER_NODE_IN_PROGRESS,
 			WRITE_INNER_NODE_COMPLETED,
-			WRITE_ROOT_NODE_PENDING,
-			WRITE_ROOT_NODE_IN_PROGRESS,
 			WRITE_ROOT_NODE_COMPLETED,
 			COMPLETED
 		};
@@ -237,6 +229,19 @@ class Tresor::Virtual_block_device_channel
 		Block _data_blk { };
 		Physical_block_address _data_blk_old_pba { 0 };
 		bool _first_snapshot { false };
+
+		template <typename REQUEST, typename... ARGS>
+		void _generate_req(State_uint complete_state, bool &progress, ARGS &&... args)
+		{
+			generate_req<REQUEST>(complete_state, progress, args..., _generated_prim.succ);
+			_state = REQ_GENERATED;
+		}
+
+		void _request_submitted(Module_request &) override { }
+
+		bool _request_complete() override { return _state == REQ_COMPLETE; }
+
+		void _generated_req_completed(State_uint) override;
 };
 
 class Tresor::Virtual_block_device : public Module
@@ -296,12 +301,6 @@ class Tresor::Virtual_block_device : public Module
 		                                    Number_of_blocks       &nr_of_pbas,
 		                                    Physical_block_address &allocated_pba);
 
-		void _set_args_in_order_to_write_client_data_to_leaf_node(Tree_walk_pbas          const &,
-		                                                          uint64_t                const  job_idx,
-		                                                          Channel::State                &,
-		                                                          Channel::Generated_prim       &,
-		                                                          bool                          &progress);
-
 		void _set_new_pbas_identical_to_current_pbas(Channel &chan);
 
 		void
@@ -358,13 +357,10 @@ class Tresor::Virtual_block_device : public Module
 		                                            Channel::Generated_prim &prim,
 		                                            bool &progress);
 
-		void _set_args_for_write_back_of_t1_lvl(Tree_level_index const max_lvl_idx,
+		void _set_args_for_write_back_of_t1_lvl(Channel &, Tree_level_index const max_lvl_idx,
 		                                        uint64_t const  t1_lvl_idx,
 		                                        uint64_t const  pba,
-		                                        uint64_t const  prim_idx,
-		                                        Channel::State &state,
-		                                        bool &progress,
-		                                        Channel::Generated_prim &prim);
+		                                        bool &progress);
 
 		/************
 		 ** Module **
@@ -389,6 +385,10 @@ class Tresor::Virtual_block_device : public Module
 		void generated_request_complete(Module_request &req) override;
 
 		bool new_submit_request() override { return false; }
+
+	public:
+
+		Virtual_block_device() { register_channels<Channel>(_channels, NR_OF_CHANNELS, VIRTUAL_BLOCK_DEVICE); };
 };
 
 #endif /* _TRESOR__VIRTUAL_BLOCK_DEVICE_H_ */
