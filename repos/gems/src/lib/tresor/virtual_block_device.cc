@@ -110,42 +110,34 @@ char const *Virtual_block_device_request::type_to_string(Type op)
 }
 
 
-/**********************************
- ** Virtual_block_device_channel **
- **********************************/
-
 Snapshot &Virtual_block_device_channel::snap()
 {
 	return (*(Snapshots *)_request._snapshots_ptr).items[_snapshot_idx];
 }
 
 
-/**************************
- ** Virtual_block_device **
- **************************/
+void Virtual_block_device_channel::_generated_req_completed(State_uint state_uint)
+{
+	if (!_generated_prim.succ) {
+		error("request_pool: request (", _request, ") failed because generated request failed)");
+		*(bool*)_request._success_ptr = false;
+		_state = REQ_COMPLETE;
+		return;
+	}
+	_state = (State)state_uint;
+}
 
-void Virtual_block_device::_set_args_for_write_back_of_t1_lvl(Tree_level_index const   max_lvl,
+void Virtual_block_device::_set_args_for_write_back_of_t1_lvl(Channel &chan, Tree_level_index const   max_lvl,
                                                               uint64_t const           t1_lvl,
                                                               uint64_t const           pba,
-                                                              uint64_t const           prim_idx,
-                                                              Channel::State          &state,
-                                                              bool                    &progress,
-                                                              Channel::Generated_prim &prim)
+                                                              bool                    &progress)
 {
-	prim = {
-		.op     = Channel::Generated_prim::Type::WRITE,
-		.succ   = false,
-		.tg     = Channel::Tag_type::TAG_VBD_CACHE,
-		.blk_nr = pba,
-		.idx    = prim_idx
-	};
-
 	if (t1_lvl < max_lvl) {
-		state = Channel::State::WRITE_INNER_NODE_PENDING;
-		progress = true;
+		chan._t1_blks.items[chan._t1_blk_idx].encode_to_blk(chan._encoded_blk);
+		chan._generate_req<Block_io::Write>(Channel::WRITE_INNER_NODE_COMPLETED, progress, pba, chan._encoded_blk);
 	} else {
-		state = Channel::State::WRITE_ROOT_NODE_PENDING;
-		progress = true;
+		chan._t1_blks.items[chan._t1_blk_idx].encode_to_blk(chan._encoded_blk);
+		chan._generate_req<Block_io::Write>(Channel::WRITE_ROOT_NODE_COMPLETED, progress, pba, chan._encoded_blk);
 	}
 }
 
@@ -240,51 +232,43 @@ void Virtual_block_device::_execute_read_vba_read_inner_node_completed (Channel 
 }
 
 
-void Virtual_block_device::_execute_read_vba(Channel &channel,
+void Virtual_block_device::_execute_read_vba(Channel &chan,
                                              uint64_t const idx,
                                              bool &progress)
 {
-	switch (channel._state) {
+	switch (chan._state) {
 	case Channel::State::SUBMITTED:
 	{
-		Request &request  = channel._request;
+		Request &request  = chan._request;
 
-		channel._snapshot_idx = request._curr_snap_idx;
-		channel._vba          = request._vba;
+		chan._snapshot_idx = request._curr_snap_idx;
+		chan._vba          = request._vba;
 
-		Snapshot &snapshot = channel.snapshots(channel._snapshot_idx);
-		channel._t1_blk_idx = snapshot.max_level;
-
-		channel._generated_prim = {
-			.op     = Channel::Generated_prim::Type::READ,
-			.succ   = false,
-			.tg     = Channel::Tag_type::TAG_VBD_CACHE,
-			.blk_nr = snapshot.pba,
-			.idx    = idx
-		};
+		Snapshot &snapshot = chan.snapshots(chan._snapshot_idx);
+		chan._t1_blk_idx = snapshot.max_level;
 		if (VERBOSE_READ_VBA) {
 			log("  load branch:");
 			log("    ", Branch_lvl_prefix("root: "), snapshot);
 		}
-		channel._state = Channel::State::READ_ROOT_NODE_PENDING;
-		progress       = true;
+		chan._generate_req<Block_io::Read>(Channel::READ_ROOT_NODE_COMPLETED, progress, snapshot.pba, chan._encoded_blk);
 		break;
 	}
 	case Channel::State::READ_ROOT_NODE_COMPLETED:
 
-		_execute_read_vba_read_inner_node_completed (channel, idx, progress);
+		chan._t1_blks.items[chan._t1_blk_idx].decode_from_blk(chan._encoded_blk);
+		_execute_read_vba_read_inner_node_completed (chan, idx, progress);
 		break;
 
 	case Channel::State::READ_INNER_NODE_COMPLETED:
 
-		_execute_read_vba_read_inner_node_completed (channel, idx, progress);
+		_execute_read_vba_read_inner_node_completed (chan, idx, progress);
 		break;
 
 	case Channel::State::READ_CLIENT_DATA_FROM_LEAF_NODE_COMPLETED:
 
-		_check_that_primitive_was_successful(channel._generated_prim);
-		*(bool *)channel._request._success_ptr = channel._generated_prim.succ;
-		channel._state            = Channel::State::COMPLETED;
+		_check_that_primitive_was_successful(chan._generated_prim);
+		*(bool *)chan._request._success_ptr = chan._generated_prim.succ;
+		chan._state            = Channel::State::COMPLETED;
 		progress                  = true;
 		break;
 	default:
@@ -343,26 +327,6 @@ void Virtual_block_device::_update_nodes_of_branch_of_written_vba(Snapshot &snap
 				log("    ", Branch_lvl_prefix("root: "), snapshot);
 		}
 	}
-}
-
-
-void Virtual_block_device::
-_set_args_in_order_to_write_client_data_to_leaf_node(Tree_walk_pbas const &new_pbas,
-                                                     uint64_t                const  job_idx,
-                                                     Channel::State                &state,
-                                                     Channel::Generated_prim       &prim,
-                                                     bool                          &progress)
-{
-	prim = {
-		.op     = Channel::Generated_prim::Type::WRITE,
-		.succ   = false,
-		.tg     = Channel::Tag_type::TAG_VBD_BLK_IO_WRITE_CLIENT_DATA,
-		.blk_nr = new_pbas.pbas[0],
-		.idx    = job_idx
-	};
-
-	state    = Channel::State::WRITE_CLIENT_DATA_TO_LEAF_NODE_PENDING;
-	progress = true;
 }
 
 
@@ -623,11 +587,10 @@ void Virtual_block_device::_execute_write_vba(Channel        &chan,
 
 			} else {
 
-				_set_args_in_order_to_write_client_data_to_leaf_node(chan._new_pbas,
-				                                                     job_idx,
-				                                                     chan._state,
-				                                                     chan._generated_prim,
-				                                                     progress);
+				chan._generate_req<Block_io::Write_client_data>(
+					Channel::WRITE_CLIENT_DATA_TO_LEAF_NODE_COMPLETED, progress, chan._new_pbas.pbas[0],
+					chan._vba, req._curr_key_id, req._client_req_tag, req._client_req_offset,
+					chan._data_blk, chan._hash);
 			}
 		}
 
@@ -639,43 +602,38 @@ void Virtual_block_device::_execute_write_vba(Channel        &chan,
 		if (VERBOSE_WRITE_VBA)
 			log("  alloc pba", chan._nr_of_blks > 1 ? "s" : "", ": ", Pba_allocation(chan._t1_node_walk, chan._new_pbas));
 
-		_set_args_in_order_to_write_client_data_to_leaf_node(chan._new_pbas,
-		                                                     job_idx,
-		                                                     chan._state,
-		                                                     chan._generated_prim,
-		                                                     progress);
+		chan._generate_req<Block_io::Write_client_data>(
+			Channel::WRITE_CLIENT_DATA_TO_LEAF_NODE_COMPLETED, progress, chan._new_pbas.pbas[0],
+			chan._vba, req._curr_key_id, req._client_req_tag, req._client_req_offset,
+			chan._data_blk, chan._hash);
 
 		break;
 
 	case Channel::State::WRITE_CLIENT_DATA_TO_LEAF_NODE_COMPLETED:
 
-		_check_that_primitive_was_successful(chan._generated_prim);
 		_update_nodes_of_branch_of_written_vba(
 			chan.snapshots(chan._snapshot_idx),
 			chan._request._snapshots_degree, chan._vba,
 			chan._new_pbas, chan._hash, req._curr_gen, chan._t1_blks);
 
-		_set_args_for_write_back_of_t1_lvl(
+		_set_args_for_write_back_of_t1_lvl(chan,
 			chan.snapshots(chan._snapshot_idx).max_level, chan._t1_blk_idx,
-			chan._new_pbas.pbas[chan._t1_blk_idx], job_idx, chan._state,
-			progress, chan._generated_prim);
+			chan._new_pbas.pbas[chan._t1_blk_idx],
+			progress);
 
 		break;
 
 	case Channel::State::WRITE_INNER_NODE_COMPLETED:
 
-		_check_that_primitive_was_successful(chan._generated_prim);
-		chan._t1_blk_idx = chan._t1_blk_idx + 1;
-
-		_set_args_for_write_back_of_t1_lvl(
+		chan._t1_blk_idx++;
+		_set_args_for_write_back_of_t1_lvl(chan,
 			chan.snapshots(chan._snapshot_idx).max_level,
 			chan._t1_blk_idx, chan._new_pbas.pbas[chan._t1_blk_idx],
-			job_idx, chan._state, progress, chan._generated_prim);
+			progress);
 
 		break;
 	case Channel::State::WRITE_ROOT_NODE_COMPLETED:
 
-		_check_that_primitive_was_successful(chan._generated_prim);
 		chan._state = Channel::State::COMPLETED;
 		*(bool *)chan._request._success_ptr = true;
 		progress = true;
@@ -714,15 +672,11 @@ char const *Virtual_block_device::_state_to_step_label(Channel::State state)
 	case Channel::READ_INNER_NODE_COMPLETED: return "read inner node";
 	case Channel::READ_LEAF_NODE_COMPLETED: return "read leaf node";
 	case Channel::READ_CLIENT_DATA_FROM_LEAF_NODE_COMPLETED: return "read client data from leaf node";
-	case Channel::WRITE_CLIENT_DATA_TO_LEAF_NODE_COMPLETED: return "write client data to leaf node";
 	case Channel::DECRYPT_LEAF_NODE_COMPLETED: return "decrypt leaf node";
 	case Channel::ALLOC_PBAS_AT_LEAF_LVL_COMPLETED: return "alloc pbas at leaf lvl";
 	case Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_COMPLETED: return "alloc pbas at lowest inner lvl";
 	case Channel::ALLOC_PBAS_AT_HIGHER_INNER_LVL_COMPLETED: return "alloc pbas at higher inner lvl";
 	case Channel::ENCRYPT_LEAF_NODE_COMPLETED: return "encrypt leaf node";
-	case Channel::WRITE_LEAF_NODE_COMPLETED: return "write leaf node";
-	case Channel::WRITE_INNER_NODE_COMPLETED: return "write inner node";
-	case Channel::WRITE_ROOT_NODE_COMPLETED: return "write root node";
 	default: break;
 	}
 	return "?";
@@ -902,19 +856,13 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 			log("      load branch:");
 			log("        ", Branch_lvl_prefix("root: "), snap);
 		}
-		chan._generated_prim = {
-			.op     = Generated_prim::READ,
-			.succ   = false,
-			.tg     = Channel::TAG_VBD_CACHE,
-			.blk_nr = snap.pba,
-			.idx    = chan_idx
-		};
-		chan._state = Channel::READ_ROOT_NODE_PENDING;
-		progress = true;
-
+		chan._generate_req<Block_io::Read>(Channel::READ_ROOT_NODE_COMPLETED, progress, snap.pba, chan._encoded_blk);
 		break;
 	}
 	case Channel::READ_ROOT_NODE_COMPLETED:
+
+		chan._t1_blks.items[chan._t1_blk_idx].decode_from_blk(chan._encoded_blk);
+
 	case Channel::READ_INNER_NODE_COMPLETED:
 	{
 		if (_handle_failed_generated_req(chan, progress))
@@ -1129,20 +1077,7 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 		if (_handle_failed_generated_req(chan, progress))
 			break;
 
-		Tree_level_index const child_lvl { 0 };
-		Physical_block_address const child_pba {
-			chan._new_pbas.pbas[child_lvl] };
-
-		chan._generated_prim = {
-			.op     = Generated_prim::WRITE,
-			.succ   = false,
-			.tg     = Channel::TAG_VBD_BLK_IO,
-			.blk_nr = child_pba,
-			.idx    = chan_idx
-		};
-		chan._state = Channel::WRITE_LEAF_NODE_PENDING;
-		progress = true;
-
+		chan._generate_req<Block_io::Write>(Channel::WRITE_LEAF_NODE_COMPLETED, progress, chan._new_pbas.pbas[0], chan._data_blk);
 		if (VERBOSE_REKEYING) {
 			log("      update branch:");
 			log("        ", Branch_lvl_prefix("leaf data: "), chan._data_blk);
@@ -1151,9 +1086,6 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 	}
 	case Channel::WRITE_LEAF_NODE_COMPLETED:
 	{
-		if (_handle_failed_generated_req(chan, progress))
-			break;
-
 		Tree_level_index       const parent_lvl { 1 };
 		Tree_level_index       const child_lvl  { 0 };
 		Physical_block_address const child_pba  { chan._new_pbas.pbas[child_lvl] };
@@ -1168,22 +1100,12 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 		if (VERBOSE_REKEYING)
 			log("        ", Branch_lvl_prefix("lvl ", parent_lvl, " node ", child_idx, ": "), node);
 
-		chan._generated_prim = {
-			.op     = Generated_prim::WRITE,
-			.succ   = false,
-			.tg     = Channel::TAG_VBD_CACHE,
-			.blk_nr = parent_pba,
-			.idx    = chan_idx
-		};
-		chan._state = Channel::WRITE_INNER_NODE_PENDING;
-		progress = true;
+		chan._t1_blks.items[chan._t1_blk_idx].encode_to_blk(chan._encoded_blk);
+		chan._generate_req<Block_io::Write>(Channel::WRITE_INNER_NODE_COMPLETED, progress, parent_pba, chan._encoded_blk);
 		break;
 	}
 	case Channel::WRITE_INNER_NODE_COMPLETED:
 	{
-		if (_handle_failed_generated_req(chan, progress))
-			break;
-
 		Snapshot               const &snap       { (*(Snapshots *)req._snapshots_ptr).items[chan._snapshot_idx] };
 		Tree_level_index       const  parent_lvl { chan._t1_blk_idx + 1 };
 		Tree_level_index       const  child_lvl  { chan._t1_blk_idx };
@@ -1200,26 +1122,18 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 			log("        ", Branch_lvl_prefix("lvl ", parent_lvl, " node ", child_idx, ": "), node);
 
 		chan._t1_blk_idx++;
-		chan._generated_prim = {
-			.op     = Generated_prim::WRITE,
-			.succ   = false,
-			.tg     = Channel::TAG_VBD_CACHE,
-			.blk_nr = parent_pba,
-			.idx    = chan_idx
-		};
-		if (chan._t1_blk_idx < snap.max_level)
-			chan._state = Channel::WRITE_INNER_NODE_PENDING;
-		else
-			chan._state = Channel::WRITE_ROOT_NODE_PENDING;
-
+		if (chan._t1_blk_idx < snap.max_level) {
+			chan._t1_blks.items[chan._t1_blk_idx].encode_to_blk(chan._encoded_blk);
+			chan._generate_req<Block_io::Write>(Channel::WRITE_INNER_NODE_COMPLETED, progress, parent_pba, chan._encoded_blk);
+		} else {
+			chan._t1_blks.items[chan._t1_blk_idx].encode_to_blk(chan._encoded_blk);
+			chan._generate_req<Block_io::Write>(Channel::WRITE_ROOT_NODE_COMPLETED, progress, parent_pba, chan._encoded_blk);
+		}
 		progress = true;
 		break;
 	}
 	case Channel::WRITE_ROOT_NODE_COMPLETED:
 	{
-		if (_handle_failed_generated_req(chan, progress))
-			break;
-
 		Snapshot                     &snap      { (*(Snapshots *)req._snapshots_ptr).items[chan._snapshot_idx] };
 		Tree_level_index       const  child_lvl { chan._t1_blk_idx };
 		Physical_block_address const  child_pba { chan._new_pbas.pbas[child_lvl] };
@@ -1245,16 +1159,7 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 			} else {
 
 				chan._t1_blks_old_pbas.items[chan._t1_blk_idx] = snap.pba;
-				chan._generated_prim = {
-					.op     = Generated_prim::READ,
-					.succ   = false,
-					.tg     = Channel::TAG_VBD_CACHE,
-					.blk_nr = snap.pba,
-					.idx    = chan_idx
-				};
-				chan._state = Channel::READ_ROOT_NODE_PENDING;
-				progress = true;
-
+				chan._generate_req<Block_io::Read>(Channel::READ_ROOT_NODE_COMPLETED, progress, snap.pba, chan._encoded_blk);
 				if (VERBOSE_REKEYING) {
 					log("    snapshot ", chan._snapshot_idx, ":");
 					log("      load branch:");
@@ -1540,31 +1445,21 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 
 		if (chan._vba <= tree_max_max_vba(req._snapshots_degree, chan.snap().max_level)) {
 
-			chan._generated_prim = {
-				.op     = Generated_prim::READ,
-				.succ   = false,
-				.tg     = Channel::TAG_VBD_CACHE,
-				.blk_nr = chan.snap().pba,
-				.idx    = chan_idx
-			};
-
 			if (VERBOSE_VBD_EXTENSION)
 				log("  read lvl ", chan._t1_blk_idx,
 				    " parent snap ", chan._snapshot_idx,
 				    " ", chan.snap());
 
-			chan._state = Channel::READ_ROOT_NODE_PENDING;
-			progress = true;
+			chan._generate_req<Block_io::Read>(Channel::READ_ROOT_NODE_COMPLETED, progress, chan.snap().pba, chan._encoded_blk);
 
 		} else {
 
 			_add_new_root_lvl_to_snap_using_pba_contingent(chan);
 			_add_new_branch_to_snap_using_pba_contingent(chan, (*(Snapshots *)req._snapshots_ptr).items[chan._snapshot_idx].max_level, 1);
 			_set_new_pbas_identical_to_current_pbas(chan);
-			_set_args_for_write_back_of_t1_lvl(
+			_set_args_for_write_back_of_t1_lvl(chan,
 				chan.snap().max_level, chan._t1_blk_idx,
-				chan._new_pbas.pbas[chan._t1_blk_idx], chan_idx,
-				chan._state, progress, chan._generated_prim);
+				chan._new_pbas.pbas[chan._t1_blk_idx], progress);
 
 			if (VERBOSE_VBD_EXTENSION)
 				log("  write 1 lvl ", chan._t1_blk_idx, " pba ",
@@ -1573,6 +1468,9 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 		break;
 	}
 	case Channel::READ_ROOT_NODE_COMPLETED:
+
+		chan._t1_blks.items[chan._t1_blk_idx].decode_from_blk(chan._encoded_blk);
+
 	case Channel::READ_INNER_NODE_COMPLETED:
 	{
 		if (_handle_failed_generated_req(chan, progress))
@@ -1661,26 +1559,18 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 			}
 			log("  write 1 lvl ", chan._t1_blk_idx, " pba ", new_pba);
 		}
-		chan._generated_prim = {
-			.op     = Generated_prim::WRITE,
-			.succ   = false,
-			.tg     = Channel::TAG_VBD_CACHE,
-			.blk_nr = new_pba,
-			.idx    = chan_idx
-		};
-		if (chan._t1_blk_idx < chan.snap().max_level)
-			chan._state = Channel::WRITE_INNER_NODE_PENDING;
-		else
-			chan._state = Channel::WRITE_ROOT_NODE_PENDING;
-
+		if (chan._t1_blk_idx < chan.snap().max_level) {
+			chan._t1_blks.items[chan._t1_blk_idx].encode_to_blk(chan._encoded_blk);
+			chan._generate_req<Block_io::Write>(Channel::WRITE_INNER_NODE_COMPLETED, progress, new_pba, chan._encoded_blk);
+		} else {
+			chan._t1_blks.items[chan._t1_blk_idx].encode_to_blk(chan._encoded_blk);
+			chan._generate_req<Block_io::Write>(Channel::WRITE_ROOT_NODE_COMPLETED, progress, new_pba, chan._encoded_blk);
+		}
 		progress = true;
 		break;
 	}
 	case Channel::WRITE_INNER_NODE_COMPLETED:
 	{
-		if (_handle_failed_generated_req(chan, progress))
-			break;
-
 		Tree_level_index       const  parent_lvl { chan._t1_blk_idx + 1 };
 		Tree_level_index       const  child_lvl  { chan._t1_blk_idx };
 		Tree_node_index        const  child_idx  { t1_child_idx_for_vba(chan._vba, parent_lvl, req._snapshots_degree) };
@@ -1696,26 +1586,18 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 			log("  write 2 lvl ", parent_lvl, " pba ", parent_pba);
 		}
 		chan._t1_blk_idx++;
-		chan._generated_prim = {
-			.op     = Generated_prim::WRITE,
-			.succ   = false,
-			.tg     = Channel::TAG_VBD_CACHE,
-			.blk_nr = parent_pba,
-			.idx    = chan_idx
-		};
-		if (chan._t1_blk_idx < chan.snap().max_level)
-			chan._state = Channel::WRITE_INNER_NODE_PENDING;
-		else
-			chan._state = Channel::WRITE_ROOT_NODE_PENDING;
-
+		if (chan._t1_blk_idx < chan.snap().max_level) {
+			chan._t1_blks.items[chan._t1_blk_idx].encode_to_blk(chan._encoded_blk);
+			chan._generate_req<Block_io::Write>(Channel::WRITE_INNER_NODE_COMPLETED, progress, parent_pba, chan._encoded_blk);
+		} else {
+			chan._t1_blks.items[chan._t1_blk_idx].encode_to_blk(chan._encoded_blk);
+			chan._generate_req<Block_io::Write>(Channel::WRITE_ROOT_NODE_COMPLETED, progress, parent_pba, chan._encoded_blk);
+		}
 		progress = true;
 		break;
 	}
 	case Channel::WRITE_ROOT_NODE_COMPLETED:
 	{
-		if (_handle_failed_generated_req(chan, progress))
-			break;
-
 		Tree_level_index       const  child_lvl { chan._t1_blk_idx };
 		Physical_block_address const  child_pba { chan._new_pbas.pbas[child_lvl] };
 		Snapshot               const &old_snap  { (*(Snapshots *)req._snapshots_ptr).items[chan._snapshot_idx] };
@@ -1789,44 +1671,6 @@ bool Virtual_block_device::_peek_generated_request(uint8_t *buf_ptr,
 			continue;
 
 		switch (chan._state) {
-		case Channel::WRITE_ROOT_NODE_PENDING:
-		case Channel::WRITE_INNER_NODE_PENDING:
-
-			chan._t1_blks.items[chan._t1_blk_idx].encode_to_blk(chan._encoded_blk);
-
-			ASSERT(sizeof(Block_io_request) <= buf_size);
-			construct_at<Block_io_request>(
-				buf_ptr, VIRTUAL_BLOCK_DEVICE, id,
-				Block_io_request::WRITE, 0, 0, 0,
-				chan._generated_prim.blk_nr, 0, 1,
-				chan._encoded_blk, chan._hash, chan._generated_prim.succ);
-
-			return true;
-
-		case Channel::WRITE_LEAF_NODE_PENDING:
-
-			ASSERT(sizeof(Block_io_request) <= buf_size);
-			construct_at<Block_io_request>(
-				buf_ptr, VIRTUAL_BLOCK_DEVICE, id,
-				Block_io_request::WRITE, 0, 0, 0,
-				chan._generated_prim.blk_nr, 0, 1,
-				chan._data_blk, chan._hash, chan._generated_prim.succ);
-
-			return true;
-
-		case Channel::WRITE_CLIENT_DATA_TO_LEAF_NODE_PENDING:
-
-			ASSERT(sizeof(Block_io_request) <= buf_size);
-			construct_at<Block_io_request>(
-				buf_ptr, VIRTUAL_BLOCK_DEVICE, id,
-				Block_io_request::WRITE_CLIENT_DATA, req._client_req_offset,
-				req._client_req_tag, req._curr_key_id,
-				chan._generated_prim.blk_nr, chan._vba, 1, chan._data_blk,
-				chan._hash, chan._generated_prim.succ);
-
-			return true;
-
-		case Channel::READ_ROOT_NODE_PENDING:
 		case Channel::READ_INNER_NODE_PENDING:
 
 			ASSERT(sizeof(Block_io_request) <= buf_size);
@@ -1835,6 +1679,7 @@ bool Virtual_block_device::_peek_generated_request(uint8_t *buf_ptr,
 				Block_io_request::READ, 0, 0, 0,
 				chan._generated_prim.blk_nr, 0, 1,
 				chan._encoded_blk, chan._hash, chan._generated_prim.succ);
+
 
 			return true;
 
@@ -1926,14 +1771,9 @@ void Virtual_block_device::_drop_generated_request(Module_request &mod_req)
 	}
 	Channel &chan { _channels[id] };
 	switch (chan._state) {
-	case Channel::READ_ROOT_NODE_PENDING: chan._state = Channel::READ_ROOT_NODE_IN_PROGRESS; break;
 	case Channel::READ_INNER_NODE_PENDING: chan._state = Channel::READ_INNER_NODE_IN_PROGRESS; break;
-	case Channel::WRITE_ROOT_NODE_PENDING: chan._state = Channel::WRITE_ROOT_NODE_IN_PROGRESS; break;
-	case Channel::WRITE_INNER_NODE_PENDING: chan._state = Channel::WRITE_INNER_NODE_IN_PROGRESS; break;
 	case Channel::READ_LEAF_NODE_PENDING: chan._state = Channel::READ_LEAF_NODE_IN_PROGRESS; break;
 	case Channel::READ_CLIENT_DATA_FROM_LEAF_NODE_PENDING: chan._state = Channel::READ_CLIENT_DATA_FROM_LEAF_NODE_IN_PROGRESS; break;
-	case Channel::WRITE_LEAF_NODE_PENDING: chan._state = Channel::WRITE_LEAF_NODE_IN_PROGRESS; break;
-	case Channel::WRITE_CLIENT_DATA_TO_LEAF_NODE_PENDING: chan._state = Channel::WRITE_CLIENT_DATA_TO_LEAF_NODE_IN_PROGRESS; break;
 	case Channel::DECRYPT_LEAF_NODE_PENDING: chan._state = Channel::DECRYPT_LEAF_NODE_IN_PROGRESS; break;
 	case Channel::ENCRYPT_LEAF_NODE_PENDING: chan._state = Channel::ENCRYPT_LEAF_NODE_IN_PROGRESS; break;
 	case Channel::ALLOC_PBAS_AT_LEAF_LVL_PENDING: chan._state = Channel::ALLOC_PBAS_AT_LEAF_LVL_IN_PROGRESS; break;
@@ -1967,20 +1807,12 @@ void Virtual_block_device::generated_request_complete(Module_request &mod_req)
 	case BLOCK_IO:
 	{
 		switch (chan._state) {
-		case Channel::READ_ROOT_NODE_IN_PROGRESS:
-			chan._t1_blks.items[chan._t1_blk_idx].decode_from_blk(chan._encoded_blk);
-			chan._state = Channel::READ_ROOT_NODE_COMPLETED;
-			break;
 		case Channel::READ_INNER_NODE_IN_PROGRESS:
 			chan._t1_blks.items[chan._t1_blk_idx].decode_from_blk(chan._encoded_blk);
 			chan._state = Channel::READ_INNER_NODE_COMPLETED;
 			break;
-		case Channel::WRITE_ROOT_NODE_IN_PROGRESS: chan._state = Channel::WRITE_ROOT_NODE_COMPLETED; break;
-		case Channel::WRITE_INNER_NODE_IN_PROGRESS: chan._state = Channel::WRITE_INNER_NODE_COMPLETED; break;
 		case Channel::READ_LEAF_NODE_IN_PROGRESS: chan._state = Channel::READ_LEAF_NODE_COMPLETED; break;
 		case Channel::READ_CLIENT_DATA_FROM_LEAF_NODE_IN_PROGRESS: chan._state = Channel::READ_CLIENT_DATA_FROM_LEAF_NODE_COMPLETED; break;
-		case Channel::WRITE_LEAF_NODE_IN_PROGRESS: chan._state = Channel::WRITE_LEAF_NODE_COMPLETED; break;
-		case Channel::WRITE_CLIENT_DATA_TO_LEAF_NODE_IN_PROGRESS: chan._state = Channel::WRITE_CLIENT_DATA_TO_LEAF_NODE_COMPLETED; break;
 		default:
 			class Exception_4 { };
 			throw Exception_4 { };
