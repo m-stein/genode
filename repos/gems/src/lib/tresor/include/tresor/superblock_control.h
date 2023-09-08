@@ -1,5 +1,5 @@
 /*
- * \brief  Module for management of the superblocks
+ * \brief  Module for accessing and managing the superblocks
  * \author Martin Stein
  * \date   2023-02-13
  */
@@ -30,7 +30,6 @@ namespace Tresor {
 
 class Tresor::Superblock_control_request : Module_request, Noncopyable
 {
-	friend class Superblock_control;
 	friend class Superblock_control_channel;
 
 	public:
@@ -66,8 +65,6 @@ class Tresor::Superblock_control_request : Module_request, Noncopyable
 
 class Tresor::Superblock_control_channel : public Module_channel
 {
-	friend class Superblock_control;
-
 	private:
 
 		using Request = Superblock_control_request;
@@ -76,11 +73,10 @@ class Tresor::Superblock_control_channel : public Module_channel
 			INACTIVE, REQ_SUBMITTED, ACCESS_VBA_AT_VBD_SUCCEEDED,
 			REKEY_VBA_AT_VBD_SUCCEEDED, CREATE_KEY_SUCCEEDED,
 			TREE_EXT_STEP_IN_TREE_SUCCEEDED, DECRYPT_CURR_KEY_SUCCEEDED,
-			DECRYPT_PREV_KEY_SUCCEEDED, READ_SB_HASH_SUCCEEDED,
-			ADD_KEY_AT_CRYPTO_MODULE_SUCCEEDED, ADD_PREV_KEY_SUCCEEDED,
+			DECRYPT_PREV_KEY_SUCCEEDED, READ_SB_HASH_SUCCEEDED, ADD_PREV_KEY_SUCCEEDED,
 			ADD_CURR_KEY_SUCCEEDED, REMOVE_PREV_KEY_SUCCEEDED, REMOVE_CURR_KEY_SUCCEEDED,
 			READ_SB_SUCCEEDED, READ_CURR_SB_SUCCEEDED, REQ_COMPLETE, REQ_GENERATED,
-			SECURE_SB, SECURE_SB_DONE };
+			SECURE_SB, SECURE_SB_SUCCEEDED };
 
 		enum Secure_sb_state : State_uint {
 			SECURE_SB_INACTIVE, STARTED, ENCRYPT_CURR_KEY_SUCCEEDED,
@@ -91,18 +87,17 @@ class Tresor::Superblock_control_channel : public Module_channel
 		Secure_sb_state _secure_sb_state { SECURE_SB_INACTIVE };
 		Superblock _sb_ciphertext { };
 		Block _blk { };
-		Superblock_index _sb_idx { 0 };
 		bool _sb_found { false };
-		Superblock_index _read_sb_idx { 0 };
+		Superblock_index _read_sb_idx { INVALID_SB_IDX };
 		Generation _gen { INVALID_GENERATION };
 		Hash _hash { };
-		Physical_block_address _pba { 0 };
+		Physical_block_address _pba { INVALID_PBA };
 		Number_of_blocks _nr_of_leaves { 0 };
 		Type_1_node _ft_root { };
 		Request *_req_ptr { nullptr };
 		bool _gen_req_success { false };
 		Superblock &_sb;
-		Superblock_index &_mod_sb_idx;
+		Superblock_index &_sb_idx;
 		Generation &_curr_gen;
 
 		NONCOPYABLE(Superblock_control_channel);
@@ -117,36 +112,51 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 		void _mark_req_failed(bool &, char const *);
 
-		void _access_vba(Superblock_control &, Virtual_block_device_request::Type, bool &);
+		void _access_vba(Virtual_block_device_request::Type, bool &);
 
-		void _generate_vbd_req(Superblock_control &, Virtual_block_device_request::Type, State_uint, bool &, Key_id, Virtual_block_address);
+		void _generate_vbd_req(Virtual_block_device_request::Type, State_uint, bool &, Key_id, Virtual_block_address);
 
 		template <typename REQUEST, typename... ARGS>
 		void _generate_req(State_uint complete_state, bool &progress, ARGS &&... args)
 		{
+			generate_req<REQUEST>(complete_state, progress, args..., _gen_req_success);
 			if (_state == SECURE_SB)
 				_secure_sb_state = SECURE_SB_REQ_GENERATED;
 			else
 				_state = REQ_GENERATED;
-			generate_req<REQUEST>(complete_state, progress, args..., _gen_req_success);
 		}
 
 		void _start_secure_sb(bool &);
 
 		void _secure_sb(bool &);
 
+		void _tree_ext_step(Superblock::State, bool, String<4>, bool &);
+
+		void _rekey_vba(bool &);
+
+		void _init_rekeying(bool &);
+
+		void _discard_snap(bool &);
+
+		void _create_snap(bool &);
+
+		void _sync(bool &);
+
+		void _initialize(bool &);
+
+		void _deinitialize(bool &);
+
 	public:
 
-		Superblock_control_channel(Module_channel_id id, Superblock &sb, Superblock_index &sb_idx, Generation &curr_gen) : Module_channel(SUPERBLOCK_CONTROL, id), _sb(sb), _mod_sb_idx(sb_idx), _curr_gen(curr_gen) { }
+		void execute(bool &);
+
+		Superblock_control_channel(Module_channel_id, Superblock &, Superblock_index &, Generation &);
 };
 
 class Tresor::Superblock_control : public Module
 {
-	friend class Superblock_control_channel;
-
 	private:
 
-		using Request = Superblock_control_request;
 		using Channel = Superblock_control_channel;
 
 		enum { NUM_CHANNELS = 1 };
@@ -156,88 +166,21 @@ class Tresor::Superblock_control : public Module
 		Generation _curr_gen { INVALID_GENERATION };
 		Constructible<Channel> _channels[NUM_CHANNELS] { };
 
-		void _init_sb_without_key_values(Superblock const &, Superblock &);
-
-		void _execute_sync(Channel &, bool &);
-
-		void _execute_create_snap(Channel &, bool &progress);
-
-		void _execute_discard_snap(Channel &, bool &progress);
-
-		void _execute_tree_ext_step(Channel &chan,
-		                            Superblock::State tree_ext_sb_state,
-		                            bool tree_ext_verbose,
-		                            String<4> tree_name,
-		                            bool &progress);
-
-		void _execute_rekey_vba(Channel &chan,
-		                        bool &progress);
-
-		void _execute_initialize_rekeying(Channel &chan,
-		                                  bool &progress);
-
-		void _execute_initialize(Channel &,
-		                         Superblock &, Superblock_index &,
-		                         Generation &, bool &progress);
-
-		void _execute_deinitialize(Channel &, bool &);
-
-
-		/************
-		 ** Module **
-		 ************/
-
 		void execute(bool &) override;
 
 	public:
 
-		Virtual_block_address max_vba() const;
+		Virtual_block_address max_vba() const { return _sb.max_vba(); };
 
-		Virtual_block_address resizing_nr_of_pbas() const;
+		Virtual_block_address resizing_nr_of_pbas() const { return _sb.resizing_nr_of_pbas; }
 
-		Virtual_block_address rekeying_vba() const;
+		Virtual_block_address rekeying_vba() const { return _sb.rekeying_vba; }
 
-		void snapshot_generations(Snapshot_generations &generations) const
-		{
-			if (_sb.valid()) {
+		Snapshots_info snapshots_info() const;
 
-				for (Snapshot_index idx { 0 };
-				     idx < MAX_NR_OF_SNAPSHOTS;
-				     idx++) {
+		Superblock_info sb_info() const;
 
-					Snapshot const &snap { _sb.snapshots.items[idx] };
-					if (snap.valid && snap.keep)
-						generations.items[idx] = snap.gen;
-					else
-						generations.items[idx] = INVALID_GENERATION;
-				}
-			} else {
-
-				generations = Snapshot_generations { };
-			}
-		}
-
-		Superblock_info sb_info() const
-		{
-			if (_sb.valid())
-
-				return Superblock_info {
-					true, _sb.state == Superblock::REKEYING,
-					_sb.state == Superblock::EXTENDING_FT,
-					_sb.state == Superblock::EXTENDING_VBD };
-
-			else
-
-				return Superblock_info { };
-		}
-
-		Superblock_control()
-		{
-			for (Module_channel_id id { 0 }; id < NUM_CHANNELS; id++) {
-				_channels[id].construct(id, _sb, _sb_idx, _curr_gen);
-				add_channel(*_channels[id]);
-			}
-		}
+		Superblock_control();
 };
 
 #endif /* _TRESOR__SUPERBLOCK_CONTROL_H_ */
