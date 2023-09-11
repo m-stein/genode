@@ -49,19 +49,19 @@ class Tresor::Virtual_block_device_request : public Module_request
 		addr_t                 _ft_root_pba_ptr         { 0 };
 		addr_t                 _ft_root_gen_ptr         { 0 };
 		addr_t                 _ft_root_hash_ptr        { 0 };
-		uint64_t               _ft_max_level            { 0 };
-		uint64_t               _ft_degree               { 0 };
-		uint64_t               _ft_leaves               { 0 };
+		Tree_level_index               _ft_max_level            { 0 };
+		Tree_degree               _ft_degree               { 0 };
+		Number_of_leaves               _ft_leaves               { 0 };
 		addr_t                 _mt_root_pba_ptr         { 0 };
 		addr_t                 _mt_root_gen_ptr         { 0 };
 		addr_t                 _mt_root_hash_ptr        { 0 };
-		uint64_t               _mt_max_level            { 0 };
-		uint64_t               _mt_degree               { 0 };
-		uint64_t               _mt_leaves               { 0 };
-		uint64_t               _vbd_degree              { 0 };
-		uint64_t               _vbd_highest_vba         { 0 };
+		Tree_level_index               _mt_max_level            { 0 };
+		Tree_degree               _mt_degree               { 0 };
+		Number_of_leaves               _mt_leaves               { 0 };
+		Tree_degree               _vbd_degree              { 0 };
+		Virtual_block_address               _vbd_highest_vba         { 0 };
 		bool                   _rekeying                { 0 };
-		uint64_t               _client_req_offset       { 0 };
+		Request_offset               _client_req_offset       { 0 };
 		Request_tag            _client_req_tag          { 0 };
 		Generation             _last_secured_generation { INVALID_GENERATION };
 		addr_t                 _pba_ptr                 { 0 };
@@ -210,6 +210,8 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		void _log_rekeying_pba_alloc() const;
 
+		Constructible<Free_tree_root> _ft { };
+		Constructible<Meta_tree_root> _mt { };
 		Virtual_block_device_request _request { };
 		Key_value _dummy_key { };
 		State _state { SUBMITTED };
