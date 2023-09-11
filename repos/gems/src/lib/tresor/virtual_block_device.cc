@@ -599,15 +599,9 @@ void Virtual_block_device::_mark_req_successful(Channel &chan,
 char const *Virtual_block_device::_state_to_step_label(Channel::State state)
 {
 	switch (state) {
-	case Channel::READ_ROOT_NODE_COMPLETED: return "read root node";
-	case Channel::READ_INNER_NODE_COMPLETED: return "read inner node";
-	case Channel::READ_LEAF_NODE_COMPLETED: return "read leaf node";
-	case Channel::READ_CLIENT_DATA_FROM_LEAF_NODE_COMPLETED: return "read client data from leaf node";
-	case Channel::DECRYPT_LEAF_NODE_COMPLETED: return "decrypt leaf node";
 	case Channel::ALLOC_PBAS_AT_LEAF_LVL_COMPLETED: return "alloc pbas at leaf lvl";
 	case Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_COMPLETED: return "alloc pbas at lowest inner lvl";
 	case Channel::ALLOC_PBAS_AT_HIGHER_INNER_LVL_COMPLETED: return "alloc pbas at higher inner lvl";
-	case Channel::ENCRYPT_LEAF_NODE_COMPLETED: return "encrypt leaf node";
 	default: break;
 	}
 	return "?";
@@ -915,15 +909,8 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 			_mark_req_failed(chan, progress, "check leaf node hash");
 			break;
 		}
-		chan._generated_prim = {
-			.op     = Generated_prim::READ,
-			.succ   = false,
-			.tg     = Channel::TAG_VBD_CRYPTO_DECRYPT,
-			.blk_nr = chan._data_blk_old_pba,
-			.idx    = chan_idx
-		};
-		chan._state = Channel::DECRYPT_LEAF_NODE_PENDING;
-		progress = true;
+		chan._generate_req<Crypto::Decrypt>(
+			Channel::DECRYPT_LEAF_NODE_COMPLETED, progress, req._prev_key_id, chan._data_blk_old_pba, chan._data_blk);
 
 		if (VERBOSE_REKEYING)
 			log("        ", Branch_lvl_prefix("leaf data: "), chan._data_blk);
@@ -931,9 +918,6 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 		break;
 	}
 	case Channel::DECRYPT_LEAF_NODE_COMPLETED:
-
-		if (_handle_failed_generated_req(chan, progress))
-			break;
 
 		_set_args_for_alloc_of_new_pbas_for_rekeying(chan, chan_idx, 0);
 		chan._state = Channel::ALLOC_PBAS_AT_LEAF_LVL_PENDING;
@@ -966,22 +950,12 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 			break;
 
 		chan._log_rekeying_pba_alloc();
-		chan._generated_prim = {
-			.op     = Generated_prim::WRITE,
-			.succ   = false,
-			.tg     = Channel::TAG_VBD_CRYPTO_ENCRYPT,
-			.blk_nr = chan._new_pbas.pbas[0],
-			.idx    = chan_idx
-		};
-		chan._state = Channel::ENCRYPT_LEAF_NODE_PENDING;
-		progress = true;
+		chan._generate_req<Crypto::Encrypt>(
+			Channel::ENCRYPT_LEAF_NODE_COMPLETED, progress, req._curr_key_id, chan._new_pbas.pbas[0], chan._data_blk);
 		break;
 
 	case Channel::ENCRYPT_LEAF_NODE_COMPLETED:
 	{
-		if (_handle_failed_generated_req(chan, progress))
-			break;
-
 		chan._generate_req<Block_io::Write>(Channel::WRITE_LEAF_NODE_COMPLETED, progress, chan._new_pbas.pbas[0], chan._data_blk);
 		if (VERBOSE_REKEYING) {
 			log("      update branch:");
@@ -1562,26 +1536,6 @@ bool Virtual_block_device::_peek_generated_request(uint8_t *buf_ptr,
 			continue;
 
 		switch (chan._state) {
-		case Channel::DECRYPT_LEAF_NODE_PENDING:
-
-			ASSERT(sizeof(Crypto_request) <= buf_size);
-			construct_at<Crypto_request>(
-				buf_ptr, VIRTUAL_BLOCK_DEVICE, id, Crypto_request::DECRYPT, 0, INVALID_REQ_TAG, req._prev_key_id,
-				chan._dummy_key, chan._generated_prim.blk_nr, INVALID_VBA, chan._data_blk, chan._data_blk,
-				chan._generated_prim.succ);
-
-			return true;
-
-		case Channel::ENCRYPT_LEAF_NODE_PENDING:
-
-			ASSERT(sizeof(Crypto_request) <= buf_size);
-			construct_at<Crypto_request>(
-				buf_ptr, VIRTUAL_BLOCK_DEVICE, id, Crypto_request::ENCRYPT, 0, INVALID_REQ_TAG, req._curr_key_id,
-				chan._dummy_key, chan._generated_prim.blk_nr, INVALID_VBA, chan._data_blk, chan._data_blk,
-				chan._generated_prim.succ);
-
-			return true;
-
 		case Channel::ALLOC_PBAS_AT_LEAF_LVL_PENDING:
 		case Channel::ALLOC_PBAS_AT_HIGHER_INNER_LVL_PENDING:
 		case Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_PENDING:
@@ -1629,8 +1583,6 @@ void Virtual_block_device::_drop_generated_request(Module_request &mod_req)
 	}
 	Channel &chan { _channels[id] };
 	switch (chan._state) {
-	case Channel::DECRYPT_LEAF_NODE_PENDING: chan._state = Channel::DECRYPT_LEAF_NODE_IN_PROGRESS; break;
-	case Channel::ENCRYPT_LEAF_NODE_PENDING: chan._state = Channel::ENCRYPT_LEAF_NODE_IN_PROGRESS; break;
 	case Channel::ALLOC_PBAS_AT_LEAF_LVL_PENDING: chan._state = Channel::ALLOC_PBAS_AT_LEAF_LVL_IN_PROGRESS; break;
 	case Channel::ALLOC_PBAS_AT_HIGHER_INNER_LVL_PENDING: chan._state = Channel::ALLOC_PBAS_AT_HIGHER_INNER_LVL_IN_PROGRESS; break;
 	case Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_PENDING: chan._state = Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_IN_PROGRESS; break;
@@ -1650,15 +1602,6 @@ void Virtual_block_device::generated_request_complete(Module_request &mod_req)
 	}
 	Channel &chan { _channels[id] };
 	switch (mod_req.dst_module_id()) {
-	case CRYPTO:
-	{
-		switch (chan._state) {
-		case Channel::DECRYPT_LEAF_NODE_IN_PROGRESS: chan._state = Channel::DECRYPT_LEAF_NODE_COMPLETED; break;
-		case Channel::ENCRYPT_LEAF_NODE_IN_PROGRESS: chan._state = Channel::ENCRYPT_LEAF_NODE_COMPLETED; break;
-		default: ASSERT_NEVER_REACHED;
-		}
-		break;
-	}
 	case FREE_TREE:
 	{
 		Free_tree_request &ft_req { *static_cast<Free_tree_request *>(&mod_req) };
