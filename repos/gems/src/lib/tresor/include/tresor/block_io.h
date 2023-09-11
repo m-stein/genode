@@ -177,6 +177,13 @@ class Tresor::Block_io : public Module
 			: Request(m, c, Request::WRITE_CLIENT_DATA, o, t, k, p, v, 1, *const_cast<Block*>(&b), h, s) { }
 		};
 
+		struct Read_client_data : Request
+		{
+			Read_client_data(Module_id m, Module_channel_id c, Physical_block_address p, Virtual_block_address v,
+			                  Key_id k, Request_tag t, Request_offset o, Block &b, bool &s)
+			: Request(m, c, Request::READ_CLIENT_DATA, o, t, k, p, v, 1, b, *(Hash*)0, s) { }
+		};
+
 		Block_io(Vfs::Env       &vfs_env,
 		         Xml_node const &xml_node);
 };

@@ -267,7 +267,7 @@ class Tresor::Virtual_block_device : public Module
 		bool _find_next_snap_to_rekey_vba_at(Channel const   &chan,
 		                                     Snapshot_index  &next_snap_idx);
 
-		void _execute_read_vba           (Channel &, uint64_t, bool &);
+		void _execute_read_vba           (Channel &, bool &);
 		void _execute_write_vba          (Channel &, uint64_t, bool &);
 		void _execute_rekey_vba          (Channel &, uint64_t, bool &);
 		void _execute_vbd_extension_step (Channel &, uint64_t, bool &);
@@ -282,7 +282,6 @@ class Tresor::Virtual_block_device : public Module
 		void _check_that_primitive_was_successful(Channel::Generated_prim const &);
 
 		void _execute_read_vba_read_inner_node_completed(Channel &channel,
-		                                                 uint64_t const  job_idx,
 		                                                 bool &progress);
 
 		Virtual_block_address _tree_max_max_vba(Tree_degree     snap_degree,
@@ -346,16 +345,6 @@ class Tresor::Virtual_block_device : public Module
 		void _set_args_for_alloc_of_new_pbas_for_rekeying(Channel          &chan,
 		                                                  uint64_t  chan_idx,
 		                                                  Tree_level_index  min_lvl);
-
-		void _set_args_in_order_to_read_type_1_node(Snapshot const &snapshot,
-		                                            uint64_t const  snapshots_degree,
-		                                            uint64_t const  t1_blk_idx,
-		                                            Channel::Type_1_node_blocks const &t1_blks,
-		                                            uint64_t const  vba,
-		                                            uint64_t const  job_idx,
-		                                            Channel::State &state,
-		                                            Channel::Generated_prim &prim,
-		                                            bool &progress);
 
 		void _set_args_for_write_back_of_t1_lvl(Channel &, Tree_level_index const max_lvl_idx,
 		                                        uint64_t const  t1_lvl_idx,
