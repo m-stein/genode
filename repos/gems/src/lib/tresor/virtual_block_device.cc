@@ -1540,30 +1540,35 @@ bool Virtual_block_device::_peek_generated_request(uint8_t *buf_ptr,
 		case Channel::ALLOC_PBAS_AT_HIGHER_INNER_LVL_PENDING:
 		case Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_PENDING:
 		{
-			Free_tree_request::Type ftrt { Free_tree_request::INVALID };
+			Free_tree_request::Type ftrt;
 			switch (chan._generated_prim.tg) {
 			case Channel::TAG_VBD_FT_ALLOC_FOR_NON_RKG:           ftrt = Free_tree_request::ALLOC_FOR_NON_RKG; break;
 			case Channel::TAG_VBD_FT_ALLOC_FOR_RKG_CURR_GEN_BLKS: ftrt = Free_tree_request::ALLOC_FOR_RKG_CURR_GEN_BLKS; break;
 			case Channel::TAG_VBD_FT_ALLOC_FOR_RKG_OLD_GEN_BLKS:  ftrt = Free_tree_request::ALLOC_FOR_RKG_OLD_GEN_BLKS; break;
-			default: break;
+			default: ASSERT_NEVER_REACHED;
 			}
-			if (ftrt == Free_tree_request::INVALID) {
-				class Exception_1 { };
-				throw Exception_1 { };
-			}
+			chan._ft.construct(
+				*(Physical_block_address*)req._ft_root_pba_ptr,
+				*(Generation*)req._ft_root_gen_ptr,
+				*(Hash*)req._ft_root_hash_ptr, req._ft_max_level, req._ft_degree, req._ft_leaves);
+			chan._mt.construct(
+				*(Physical_block_address*)req._mt_root_pba_ptr,
+				*(Generation*)req._mt_root_gen_ptr,
+				*(Hash*)req._mt_root_hash_ptr, req._mt_max_level, req._mt_degree, req._mt_leaves);
 			construct_in_buf<Free_tree_request>(
 				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
-				ftrt, req._ft_root_pba_ptr,
-				req._ft_root_gen_ptr, req._ft_root_hash_ptr,
-				req._ft_max_level, req._ft_degree, req._ft_leaves,
-				req._mt_root_pba_ptr, req._mt_root_gen_ptr,
-				req._mt_root_hash_ptr, req._mt_max_level, req._mt_degree,
-				req._mt_leaves, (Snapshots *)req._snapshots_ptr, req._last_secured_generation,
-				req._curr_gen, chan._free_gen, chan._nr_of_blks,
-				(addr_t)&chan._new_pbas, (addr_t)&chan._t1_node_walk,
-				(uint64_t)(*(Snapshots *)req._snapshots_ptr).items[chan._snapshot_idx].max_level,
+				ftrt,
+				*chan._ft,
+				*chan._mt,
+				*(Snapshots *)req._snapshots_ptr,
+				req._last_secured_generation,
+				req._curr_gen,
+				chan._free_gen,
+				chan._nr_of_blks,
+				chan._new_pbas, chan._t1_node_walk,
+				(*(Snapshots *)req._snapshots_ptr).items[chan._snapshot_idx].max_level,
 				chan._vba, req._vbd_degree, req._vbd_highest_vba,
-				req._rekeying, req._prev_key_id, req._curr_key_id, chan._vba);
+				req._rekeying, req._prev_key_id, req._curr_key_id, chan._vba, chan._generated_prim.succ);
 
 			return true;
 		}
@@ -1604,8 +1609,6 @@ void Virtual_block_device::generated_request_complete(Module_request &mod_req)
 	switch (mod_req.dst_module_id()) {
 	case FREE_TREE:
 	{
-		Free_tree_request &ft_req { *static_cast<Free_tree_request *>(&mod_req) };
-		chan._generated_prim.succ = ft_req.success();
 		switch (chan._state) {
 		case Channel::ALLOC_PBAS_AT_LEAF_LVL_IN_PROGRESS: chan._state = Channel::ALLOC_PBAS_AT_LEAF_LVL_COMPLETED; break;
 		case Channel::ALLOC_PBAS_AT_HIGHER_INNER_LVL_IN_PROGRESS: chan._state = Channel::ALLOC_PBAS_AT_HIGHER_INNER_LVL_COMPLETED; break;

@@ -105,6 +105,8 @@ namespace Tresor {
 	struct Type_2_node_block;
 	struct Tree_walk_pbas;
 	struct Level_indent;
+	struct Free_tree_root;
+	struct Meta_tree_root;
 
 	template <size_t LEN>
 	class Fixed_length;
@@ -162,6 +164,28 @@ namespace Tresor {
 		return (Tree_node_index)((uint64_t)vba & degr_mask);
 	}
 }
+
+
+struct Tresor::Free_tree_root
+{
+	Physical_block_address &pba;
+	Generation &gen;
+	Hash &hash;
+	Tree_level_index max_lvl;
+	Tree_degree degree;
+	Number_of_leaves num_leaves;
+};
+
+
+struct Tresor::Meta_tree_root
+{
+	Physical_block_address &pba;
+	Generation &gen;
+	Hash &hash;
+	Tree_level_index max_lvl;
+	Tree_degree degree;
+	Number_of_leaves num_leaves;
+};
 
 
 struct Tresor::Byte_range
