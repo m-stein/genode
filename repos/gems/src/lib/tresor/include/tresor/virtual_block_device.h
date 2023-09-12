@@ -33,90 +33,43 @@ class Tresor::Virtual_block_device_request : public Module_request
 {
 	public:
 
-		enum Type {
-			INVALID = 0, REKEY_VBA = 3, READ_VBA = 1, WRITE_VBA = 2, VBD_EXTENSION_STEP = 4 };
+		enum Type { REKEY_VBA, READ_VBA, WRITE_VBA, VBD_EXTENSION_STEP };
 
 	private:
 
 		friend class Virtual_block_device;
 		friend class Virtual_block_device_channel;
 
-		Type                   _type                    { INVALID };
-		Virtual_block_address  _vba                     { 0 };
-		addr_t                 _snapshots_ptr           { };
-		Snapshot_index         _curr_snap_idx           { 0 };
-		Tree_degree            _snapshots_degree        { 0 };
-		Generation             _curr_gen                { INVALID_GENERATION };
-		Key_id                 _curr_key_id             { 0 };
-		Key_id                 _prev_key_id             { 0 };
-		addr_t                 _ft_root_pba_ptr         { 0 };
-		addr_t                 _ft_root_gen_ptr         { 0 };
-		addr_t                 _ft_root_hash_ptr        { 0 };
-		Tree_level_index               _ft_max_level            { 0 };
-		Tree_degree               _ft_degree               { 0 };
-		Number_of_leaves               _ft_leaves               { 0 };
-		addr_t                 _mt_root_pba_ptr         { 0 };
-		addr_t                 _mt_root_gen_ptr         { 0 };
-		addr_t                 _mt_root_hash_ptr        { 0 };
-		Tree_level_index               _mt_max_level            { 0 };
-		Tree_degree               _mt_degree               { 0 };
-		Number_of_leaves               _mt_leaves               { 0 };
-		Tree_degree               _vbd_degree              { 0 };
-		Virtual_block_address               _vbd_highest_vba         { 0 };
-		bool                   _rekeying                { 0 };
-		Request_offset               _client_req_offset       { 0 };
-		Request_tag            _client_req_tag          { 0 };
-		Generation             _last_secured_generation { INVALID_GENERATION };
-		addr_t                 _pba_ptr                 { 0 };
-		addr_t                 _nr_of_pbas_ptr          { 0 };
-		addr_t                 _nr_of_leaves_ptr        { 0 };
-		addr_t                 _success_ptr             { 0 };
+		Type _type;
+		Virtual_block_address _vba;
+		Snapshots &_snapshots;
+		Snapshot_index _curr_snap_idx;
+		Tree_degree _snapshots_degree;
+		Generation _curr_gen;
+		Key_id _curr_key_id;
+		Key_id _prev_key_id;
+		Free_tree_root &_ft;
+		Meta_tree_root &_mt;
+		Tree_degree _vbd_degree;
+		Virtual_block_address _vbd_highest_vba;
+		bool _rekeying;
+		Request_offset _client_req_offset;
+		Request_tag _client_req_tag;
+		Generation _last_secured_generation;
+		Physical_block_address &_pba;
+		Number_of_blocks &_nr_of_pbas;
+		Number_of_leaves &_nr_of_leaves;
+		bool &_success;
 
 	public:
 
-		Virtual_block_device_request() { }
-
-		Virtual_block_device_request(Module_id src_module_id,
-		                             Module_request_id src_request_id,
-		                             Type type,
-		                             Request_offset client_req_offset,
-		                             Request_tag client_req_tag,
-		                             Generation last_secured_generation,
-		                             Physical_block_address &ft_root_pba,
-		                             Generation &ft_root_gen,
-		                             Hash &ft_root_hash,
-		                             Tree_level_index ft_max_level,
-		                             Tree_degree ft_degree,
-		                             Number_of_leaves ft_leaves,
-		                             Physical_block_address &mt_root_pba,
-		                             Generation &mt_root_gen,
-		                             Hash &mt_root_hash,
-		                             Tree_level_index mt_max_level,
-		                             Tree_degree mt_degree,
-		                             Number_of_leaves mt_leaves,
-		                             Tree_degree vbd_degree,
-		                             Virtual_block_address vbd_highest_vba,
-		                             bool rekeying,
-		                             Virtual_block_address vba,
-		                             Snapshot_index curr_snap_idx,
-		                             Snapshots &snapshots,
-		                             Tree_degree snapshots_degree,
-		                             Key_id prev_key_id,
-		                             Key_id curr_key_id,
-		                             Generation current_gen,
-		                             Physical_block_address &pba,
-		                             bool &success,
-		                             Number_of_leaves &nr_of_leaves,
-		                             Number_of_blocks &nr_of_pbas);
+		Virtual_block_device_request(Module_id, Module_channel_id, Type, Request_offset, Request_tag, Generation,
+		                             Free_tree_root &, Meta_tree_root &, Tree_degree, Virtual_block_address, bool,
+		                             Virtual_block_address, Snapshot_index, Snapshots &, Tree_degree, Key_id,
+		                             Key_id, Generation, Physical_block_address &, bool &, Number_of_leaves &,
+		                             Number_of_blocks &);
 
 		static char const *type_to_string(Type type);
-
-		char const *type_name() const { return type_to_string(_type); }
-
-
-		/********************
-		 ** Module_request **
-		 ********************/
 
 		void print(Output &out) const override { Genode::print(out, type_to_string(_type)); }
 };
@@ -130,40 +83,14 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		using Request = Virtual_block_device_request;
 
 		enum State {
-			SUBMITTED, REQ_GENERATED, REQ_COMPLETE,
-			READ_ROOT_NODE_PENDING,
-			READ_ROOT_NODE_IN_PROGRESS,
-			READ_ROOT_NODE_COMPLETED,
-			READ_INNER_NODE_PENDING,
-			READ_INNER_NODE_IN_PROGRESS,
-			READ_INNER_NODE_COMPLETED,
-			READ_LEAF_NODE_PENDING,
-			READ_LEAF_NODE_IN_PROGRESS,
-			READ_LEAF_NODE_COMPLETED,
-			READ_CLIENT_DATA_FROM_LEAF_NODE_PENDING,
-			READ_CLIENT_DATA_FROM_LEAF_NODE_IN_PROGRESS,
-			READ_CLIENT_DATA_FROM_LEAF_NODE_COMPLETED,
-			WRITE_CLIENT_DATA_TO_LEAF_NODE_COMPLETED,
-			DECRYPT_LEAF_NODE_PENDING,
-			DECRYPT_LEAF_NODE_IN_PROGRESS,
-			DECRYPT_LEAF_NODE_COMPLETED,
-			ALLOC_PBAS_AT_LEAF_LVL_PENDING,
-			ALLOC_PBAS_AT_LEAF_LVL_IN_PROGRESS,
-			ALLOC_PBAS_AT_LEAF_LVL_COMPLETED,
-			ALLOC_PBAS_AT_LOWEST_INNER_LVL_PENDING,
-			ALLOC_PBAS_AT_LOWEST_INNER_LVL_IN_PROGRESS,
-			ALLOC_PBAS_AT_LOWEST_INNER_LVL_COMPLETED,
-			ALLOC_PBAS_AT_HIGHER_INNER_LVL_PENDING,
-			ALLOC_PBAS_AT_HIGHER_INNER_LVL_IN_PROGRESS,
-			ALLOC_PBAS_AT_HIGHER_INNER_LVL_COMPLETED,
-			ENCRYPT_LEAF_NODE_PENDING,
-			ENCRYPT_LEAF_NODE_IN_PROGRESS,
-			ENCRYPT_LEAF_NODE_COMPLETED,
-			WRITE_LEAF_NODE_COMPLETED,
-			WRITE_INNER_NODE_COMPLETED,
-			WRITE_ROOT_NODE_COMPLETED,
-			COMPLETED
-		};
+			INACTIVE, SUBMITTED, REQ_GENERATED, REQ_COMPLETE, READ_ROOT_NODE_SUCCEEDED,
+			READ_INNER_NODE_SUCCEEDED, READ_LEAF_NODE_SUCCEEDED,
+			READ_CLIENT_DATA_FROM_LEAF_NODE_SUCCEEDED,
+			WRITE_CLIENT_DATA_TO_LEAF_NODE_SUCCEEDED, DECRYPT_LEAF_NODE_SUCCEEDED,
+			ALLOC_PBAS_AT_LEAF_LVL_SUCCEEDED, ALLOC_PBAS_AT_LOWEST_INNER_LVL_SUCCEEDED,
+			ALLOC_PBAS_AT_HIGHER_INNER_LVL_SUCCEEDED, ENCRYPT_LEAF_NODE_SUCCEEDED,
+			WRITE_LEAF_NODE_SUCCEEDED, WRITE_INNER_NODE_SUCCEEDED,
+			WRITE_ROOT_NODE_SUCCEEDED, COMPLETED };
 
 		struct Type_1_node_blocks
 		{
@@ -175,24 +102,13 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 			Physical_block_address items[TREE_MAX_LEVEL] { 0 };
 		};
 
-		Snapshot &snapshots(Snapshot_index idx)
-		{
-			if (idx < MAX_NR_OF_SNAPSHOTS)
-				return (*(Snapshots *)_request._snapshots_ptr).items[idx];
+		Virtual_block_device_request _request {
+			0, 0, Request::REKEY_VBA, 0, 0, 0, *(Free_tree_root*)0, *(Meta_tree_root*)0, 0,
+			0, 0, 0, 0, *(Snapshots*)0, 0, 0, 0, 0, *(Physical_block_address*)0, *(bool*)0,
+			*(Number_of_leaves*)0, *(Number_of_blocks*)0 };
 
-			class Snapshot_idx_too_large { };
-			throw Snapshot_idx_too_large { };
-		}
-
-		Snapshot &snap();
-
-		void _log_rekeying_pba_alloc() const;
-
-		Constructible<Free_tree_root> _ft { };
-		Constructible<Meta_tree_root> _mt { };
-		Virtual_block_device_request _request { };
 		Key_value _dummy_key { };
-		State _state { SUBMITTED };
+		State _state { INACTIVE };
 		Snapshot_index _snapshot_idx { 0 };
 		Type_1_node_blocks _t1_blks { };
 		Type_1_node_blocks_pbas _t1_blks_old_pbas { };
@@ -226,6 +142,16 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		void _generate_ft_req(State, bool, Free_tree_request::Type);
 
 		Free_tree_request::Type _ft_rkg_alloc_type() const;
+
+		Snapshot &snapshots(Snapshot_index idx)
+		{
+			ASSERT(idx < MAX_NR_OF_SNAPSHOTS);
+			return _request._snapshots.items[idx];
+		}
+
+		Snapshot &snap();
+
+		void _log_rekeying_pba_alloc() const;
 };
 
 class Tresor::Virtual_block_device : public Module
@@ -339,8 +265,7 @@ class Tresor::Virtual_block_device : public Module
 
 		void submit_request(Module_request &mod_req) override;
 
-		bool _peek_completed_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
+		bool _peek_completed_request(uint8_t *, size_t) override;
 
 		void _drop_completed_request(Module_request &req) override;
 
