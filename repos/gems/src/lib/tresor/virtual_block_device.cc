@@ -20,7 +20,6 @@
 #include <tresor/sha256_4k_hash.h>
 #include <tresor/block_io.h>
 #include <tresor/crypto.h>
-#include <tresor/free_tree.h>
 
 using namespace Tresor;
 
@@ -408,16 +407,16 @@ _initialize_new_pbas_and_determine_nr_of_pbas_to_allocate(uint64_t              
 
 
 void Virtual_block_device::
-_set_args_for_alloc_of_new_pbas_for_branch_of_written_vba(uint64_t curr_gen,
+_set_args_for_alloc_of_new_pbas_for_branch_of_written_vba(Channel &chan, uint64_t curr_gen,
                                                           Snapshot const &snapshot,
                                                           uint64_t const snapshots_degree,
                                                           uint64_t const vba,
                                                           Channel::Type_1_node_blocks const &t1_blks,
-                                                          uint64_t const prim_idx,
+                                                          uint64_t const ,
                                                           uint64_t                 &free_gen,
                                                           Type_1_node_walk         &t1_walk,
-                                                          Channel::State           &state,
-                                                          Channel::Generated_prim  &prim,
+                                                          Channel::State           &,
+                                                          Channel::Generated_prim  &,
                                                           bool                     &progress)
 {
 	for (Tree_level_index lvl = 0; lvl <= TREE_MAX_LEVEL; lvl++) {
@@ -434,19 +433,8 @@ _set_args_for_alloc_of_new_pbas_for_branch_of_written_vba(uint64_t curr_gen,
 			t1_walk.nodes[lvl] = t1_blks.items[lvl + 1].nodes[child_idx];
 		}
 	}
-
 	free_gen = curr_gen;
-
-	prim = {
-		.op     = Channel::Generated_prim::Type::READ,
-		.succ   = false,
-		.tg     = Channel::Tag_type::TAG_VBD_FT_ALLOC_FOR_NON_RKG,
-		.blk_nr = 0,
-		.idx    = prim_idx
-	};
-
-	state = Channel::State::ALLOC_PBAS_AT_LEAF_LVL_PENDING;
-	progress = true;
+	chan._generate_ft_req(Channel::ALLOC_PBAS_AT_LEAF_LVL_COMPLETED, progress, Free_tree_request::ALLOC_FOR_NON_RKG);
 }
 
 
@@ -508,7 +496,7 @@ void Virtual_block_device::_execute_write_vba(Channel        &chan,
 			                                                          chan._nr_of_blks);
 
 			if (chan._nr_of_blks > 0)
-				_set_args_for_alloc_of_new_pbas_for_branch_of_written_vba(req._curr_gen,
+				_set_args_for_alloc_of_new_pbas_for_branch_of_written_vba(chan, req._curr_gen,
 				                                                          chan.snapshots(chan._snapshot_idx),
 				                                                          chan._request._snapshots_degree,
 				                                                          chan._vba,
@@ -657,7 +645,7 @@ Virtual_block_device::_find_next_snap_to_rekey_vba_at(Channel const  &chan,
 
 void Virtual_block_device::
 _set_args_for_alloc_of_new_pbas_for_rekeying(Channel          &chan,
-                                             uint64_t          chan_idx,
+                                             uint64_t          ,
                                              Tree_level_index  min_lvl)
 {
 	bool const for_curr_gen_blks { chan._first_snapshot };
@@ -711,26 +699,6 @@ _set_args_for_alloc_of_new_pbas_for_rekeying(Channel          &chan,
 			t1_walk.nodes[lvl] = { new_pbas.pbas[lvl], child.gen, child.hash};
 		}
 	}
-	if (for_curr_gen_blks) {
-
-		chan._generated_prim = {
-			.op     = Generated_prim::READ,
-			.succ   = false,
-			.tg     = Channel::TAG_VBD_FT_ALLOC_FOR_RKG_CURR_GEN_BLKS,
-			.blk_nr = 0,
-			.idx    = chan_idx
-		};
-
-	} else {
-
-		chan._generated_prim = {
-			.op     = Generated_prim::READ,
-			.succ   = false,
-			.tg     = Channel::TAG_VBD_FT_ALLOC_FOR_RKG_OLD_GEN_BLKS,
-			.blk_nr = 0,
-			.idx    = chan_idx
-		};
-	}
 }
 
 
@@ -738,6 +706,14 @@ void Virtual_block_device_channel::_log_rekeying_pba_alloc() const
 {
 	if (VERBOSE_REKEYING)
 		log("      alloc pba", _nr_of_blks > 1 ? "s" : "", ": ", Pba_allocation { _t1_node_walk, _new_pbas });
+}
+
+
+Free_tree_request::Type Virtual_block_device_channel::_ft_rkg_alloc_type() const
+{
+	return _first_snapshot ?
+		Free_tree_request::ALLOC_FOR_RKG_CURR_GEN_BLKS :
+		Free_tree_request::ALLOC_FOR_RKG_OLD_GEN_BLKS;
 }
 
 
@@ -832,12 +808,9 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 				 */
 				chan._t1_blk_idx = child_lvl;
 				_set_args_for_alloc_of_new_pbas_for_rekeying(chan, chan_idx, parent_lvl);
-				chan._state = Channel::ALLOC_PBAS_AT_HIGHER_INNER_LVL_PENDING;
-
+				chan._generate_ft_req(Channel::ALLOC_PBAS_AT_HIGHER_INNER_LVL_COMPLETED, progress, chan._ft_rkg_alloc_type());
 				if (VERBOSE_REKEYING)
 					log("        [child already rekeyed at pba ", chan._new_pbas.pbas[child_lvl], "]");
-
-				progress = true;
 
 			} else {
 				chan._t1_blk_idx = child_lvl;
@@ -864,14 +837,10 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 				 * rekeying the vba at another snapshot and can therefore be
 				 * skipped.
 				 */
-				_set_args_for_alloc_of_new_pbas_for_rekeying(
-					chan, chan_idx, parent_lvl);
-
+				_set_args_for_alloc_of_new_pbas_for_rekeying(chan, chan_idx, parent_lvl);
+				chan._generate_ft_req(Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_COMPLETED, progress, chan._ft_rkg_alloc_type());
 				if (VERBOSE_REKEYING)
 					log("        [child already rekeyed at pba ", chan._new_pbas.pbas[0], "]");
-
-				chan._state = Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_PENDING;
-				progress = true;
 
 			} else if (child.gen == INITIAL_GENERATION) {
 
@@ -881,12 +850,9 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 				 * zeroes for it regardless of the used key.
 				 */
 				_set_args_for_alloc_of_new_pbas_for_rekeying(chan, chan_idx, 0);
-
+				chan._generate_ft_req(Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_COMPLETED, progress, chan._ft_rkg_alloc_type());
 				if (VERBOSE_REKEYING)
 					log("        [child needs no rekeying]");
-
-				chan._state = Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_PENDING;
-				progress = true;
 
 			} else {
 				chan._data_blk_old_pba = child.pba;
@@ -920,14 +886,12 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 	case Channel::DECRYPT_LEAF_NODE_COMPLETED:
 
 		_set_args_for_alloc_of_new_pbas_for_rekeying(chan, chan_idx, 0);
-		chan._state = Channel::ALLOC_PBAS_AT_LEAF_LVL_PENDING;
-
+		chan._generate_ft_req(Channel::ALLOC_PBAS_AT_LEAF_LVL_COMPLETED, progress, chan._ft_rkg_alloc_type());
 		if (VERBOSE_REKEYING) {
 			Hash hash { };
 			calc_sha256_4k_hash(chan._data_blk, hash);
 			log("      re-encrypt leaf data: plaintext ", chan._data_blk, " hash ", hash);
 		}
-		progress = true;
 		break;
 
 	case Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_COMPLETED:
@@ -1223,7 +1187,7 @@ Virtual_block_device::_set_new_pbas_identical_to_current_pbas(Channel &chan)
 
 void Virtual_block_device::
 _set_args_for_alloc_of_new_pbas_for_resizing(Channel          &chan,
-                                             uint64_t          chan_idx,
+                                             uint64_t          ,
                                              Tree_level_index  min_lvl,
                                              bool             &progress)
 {
@@ -1293,15 +1257,7 @@ _set_args_for_alloc_of_new_pbas_for_resizing(Channel          &chan,
 			}
 		}
 	}
-	chan._generated_prim = {
-		.op     = Channel::Generated_prim::Type::READ,
-		.succ   = false,
-		.tg     = Channel::Tag_type::TAG_VBD_FT_ALLOC_FOR_NON_RKG,
-		.blk_nr = 0,
-		.idx    = chan_idx
-	};
-	chan._state = Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_PENDING;
-	progress = true;
+	chan._generate_ft_req(Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_COMPLETED, progress, Free_tree_request::ALLOC_FOR_NON_RKG);
 }
 
 
@@ -1524,105 +1480,23 @@ void Virtual_block_device::execute(bool &progress)
 	}
 }
 
-
-bool Virtual_block_device::_peek_generated_request(uint8_t *buf_ptr,
-                                                   size_t   buf_size)
+void Virtual_block_device_channel::_generate_ft_req(State complete_state, bool progress, Free_tree_request::Type type)
 {
-	for (uint32_t id { 0 }; id < NR_OF_CHANNELS; id++) {
-
-		Channel &chan { _channels[id] };
-		Request &req { chan._request };
-		if (req._type == Request::INVALID)
-			continue;
-
-		switch (chan._state) {
-		case Channel::ALLOC_PBAS_AT_LEAF_LVL_PENDING:
-		case Channel::ALLOC_PBAS_AT_HIGHER_INNER_LVL_PENDING:
-		case Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_PENDING:
-		{
-			Free_tree_request::Type ftrt;
-			switch (chan._generated_prim.tg) {
-			case Channel::TAG_VBD_FT_ALLOC_FOR_NON_RKG:           ftrt = Free_tree_request::ALLOC_FOR_NON_RKG; break;
-			case Channel::TAG_VBD_FT_ALLOC_FOR_RKG_CURR_GEN_BLKS: ftrt = Free_tree_request::ALLOC_FOR_RKG_CURR_GEN_BLKS; break;
-			case Channel::TAG_VBD_FT_ALLOC_FOR_RKG_OLD_GEN_BLKS:  ftrt = Free_tree_request::ALLOC_FOR_RKG_OLD_GEN_BLKS; break;
-			default: ASSERT_NEVER_REACHED;
-			}
-			chan._ft.construct(
-				*(Physical_block_address*)req._ft_root_pba_ptr,
-				*(Generation*)req._ft_root_gen_ptr,
-				*(Hash*)req._ft_root_hash_ptr, req._ft_max_level, req._ft_degree, req._ft_leaves);
-			chan._mt.construct(
-				*(Physical_block_address*)req._mt_root_pba_ptr,
-				*(Generation*)req._mt_root_gen_ptr,
-				*(Hash*)req._mt_root_hash_ptr, req._mt_max_level, req._mt_degree, req._mt_leaves);
-			construct_in_buf<Free_tree_request>(
-				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
-				ftrt,
-				*chan._ft,
-				*chan._mt,
-				*(Snapshots *)req._snapshots_ptr,
-				req._last_secured_generation,
-				req._curr_gen,
-				chan._free_gen,
-				chan._nr_of_blks,
-				chan._new_pbas, chan._t1_node_walk,
-				(*(Snapshots *)req._snapshots_ptr).items[chan._snapshot_idx].max_level,
-				chan._vba, req._vbd_degree, req._vbd_highest_vba,
-				req._rekeying, req._prev_key_id, req._curr_key_id, chan._vba, chan._generated_prim.succ);
-
-			return true;
-		}
-		default: break;
-		}
-	}
-	return false;
-}
-
-
-void Virtual_block_device::_drop_generated_request(Module_request &mod_req)
-{
-	Module_request_id const id { mod_req.src_request_id() };
-	if (id >= NR_OF_CHANNELS) {
-		class Exception_1 { };
-		throw Exception_1 { };
-	}
-	Channel &chan { _channels[id] };
-	switch (chan._state) {
-	case Channel::ALLOC_PBAS_AT_LEAF_LVL_PENDING: chan._state = Channel::ALLOC_PBAS_AT_LEAF_LVL_IN_PROGRESS; break;
-	case Channel::ALLOC_PBAS_AT_HIGHER_INNER_LVL_PENDING: chan._state = Channel::ALLOC_PBAS_AT_HIGHER_INNER_LVL_IN_PROGRESS; break;
-	case Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_PENDING: chan._state = Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_IN_PROGRESS; break;
-	default:
-		class Exception_2 { };
-		throw Exception_2 { };
-	}
-}
-
-
-void Virtual_block_device::generated_request_complete(Module_request &mod_req)
-{
-	Module_request_id const id { mod_req.src_request_id() };
-	if (id >= NR_OF_CHANNELS) {
-		class Exception_1 { };
-		throw Exception_1 { };
-	}
-	Channel &chan { _channels[id] };
-	switch (mod_req.dst_module_id()) {
-	case FREE_TREE:
-	{
-		switch (chan._state) {
-		case Channel::ALLOC_PBAS_AT_LEAF_LVL_IN_PROGRESS: chan._state = Channel::ALLOC_PBAS_AT_LEAF_LVL_COMPLETED; break;
-		case Channel::ALLOC_PBAS_AT_HIGHER_INNER_LVL_IN_PROGRESS: chan._state = Channel::ALLOC_PBAS_AT_HIGHER_INNER_LVL_COMPLETED; break;
-		case Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_IN_PROGRESS: chan._state = Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_COMPLETED; break;
-		default:
-			class Exception_2 { };
-			throw Exception_2 { };
-		}
-		break;
-	}
-	default:
-		class Exception_5 { };
-		throw Exception_5 { };
-	}
+	Request &req { _request };
+	_ft.construct(
+		*(Physical_block_address*)req._ft_root_pba_ptr,
+		*(Generation*)req._ft_root_gen_ptr,
+		*(Hash*)req._ft_root_hash_ptr, req._ft_max_level, req._ft_degree, req._ft_leaves);
+	_mt.construct(
+		*(Physical_block_address*)req._mt_root_pba_ptr,
+		*(Generation*)req._mt_root_gen_ptr,
+		*(Hash*)req._mt_root_hash_ptr, req._mt_max_level, req._mt_degree, req._mt_leaves);
+	_generate_req<Free_tree_request>(
+		complete_state, progress, type, *_ft, *_mt, *(Snapshots *)req._snapshots_ptr,
+		req._last_secured_generation, req._curr_gen, _free_gen, _nr_of_blks, _new_pbas,
+		_t1_node_walk, (*(Snapshots
+		*)req._snapshots_ptr).items[_snapshot_idx].max_level, _vba, req._vbd_degree,
+		req._vbd_highest_vba, req._rekeying, req._prev_key_id, req._curr_key_id, _vba);
 }
 
 

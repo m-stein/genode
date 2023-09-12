@@ -14,10 +14,13 @@
 #ifndef _TRESOR__VIRTUAL_BLOCK_DEVICE_H_
 #define _TRESOR__VIRTUAL_BLOCK_DEVICE_H_
 
+/* base includes */
+#include <util/reconstructible.h>
+
 /* tresor includes */
 #include <tresor/module.h>
 #include <tresor/types.h>
-#include <tresor/vfs_utilities.h>
+#include <tresor/free_tree.h>
 
 namespace Tresor {
 
@@ -244,6 +247,10 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		bool _request_complete() override { return _state == REQ_COMPLETE; }
 
 		void _generated_req_completed(State_uint) override;
+
+		void _generate_ft_req(State, bool, Free_tree_request::Type);
+
+		Free_tree_request::Type _ft_rkg_alloc_type() const;
 };
 
 class Tresor::Virtual_block_device : public Module
@@ -332,7 +339,7 @@ class Tresor::Virtual_block_device : public Module
 		                                                               Tree_walk_pbas &new_pbas,
 		                                                               uint64_t &nr_of_blks);
 
-		void _set_args_for_alloc_of_new_pbas_for_branch_of_written_vba(uint64_t curr_gen,
+		void _set_args_for_alloc_of_new_pbas_for_branch_of_written_vba(Channel &chan, uint64_t curr_gen,
 		                                                               Snapshot const &snapshot,
 		                                                               uint64_t const snapshots_degree,
 		                                                               uint64_t const vba,
@@ -367,13 +374,6 @@ class Tresor::Virtual_block_device : public Module
 		void _drop_completed_request(Module_request &req) override;
 
 		void execute(bool &) override;
-
-		bool _peek_generated_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_generated_request(Module_request &mod_req) override;
-
-		void generated_request_complete(Module_request &req) override;
 
 		bool new_submit_request() override { return false; }
 
