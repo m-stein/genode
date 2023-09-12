@@ -97,12 +97,11 @@ _generate_vbd_req(Virtual_block_device_request::Type type, State_uint complete_s
 
 	_state = REQ_GENERATED;
 	_pba = _sb.first_pba + _sb.nr_of_pbas;
+	_ft.construct(_sb.free_number, _sb.free_gen, _sb.free_hash, _sb.free_max_level, _sb.free_degree, _sb.free_leaves);
+	_mt.construct(_sb.meta_number, _sb.meta_gen, _sb.meta_hash, _sb.meta_max_level, _sb.meta_degree, _sb.meta_leaves);
 	generate_req<Virtual_block_device_request>(
 		complete_state, progress, type, _req_ptr->_client_req_offset, _req_ptr->_client_req_tag,
-		_sb.last_secured_generation, _sb.free_number, _sb.free_gen, _sb.free_hash,
-		_sb.free_max_level, _sb.free_degree, _sb.free_leaves, _sb.meta_number,
-		_sb.meta_gen, _sb.meta_hash, _sb.meta_max_level, _sb.meta_degree,
-		_sb.meta_leaves, _sb.degree, _sb.max_vba(), _sb.state == Superblock::REKEYING,
+		_sb.last_secured_generation, *_ft, *_mt, _sb.degree, _sb.max_vba(), _sb.state == Superblock::REKEYING,
 		vba, _sb.curr_snap_idx, _sb.snapshots, _sb.degree, _sb.previous_key.id, key_id,
 		_curr_gen, _pba, _gen_req_success, _nr_of_leaves, _req_ptr->_nr_of_blks);
 }
