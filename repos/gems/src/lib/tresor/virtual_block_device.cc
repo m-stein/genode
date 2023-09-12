@@ -117,7 +117,7 @@ Snapshot &Virtual_block_device_channel::snap()
 
 void Virtual_block_device_channel::_generated_req_completed(State_uint state_uint)
 {
-	if (!_generated_prim.succ) {
+	if (!_gen_req_success) {
 		error("request_pool: request (", _request, ") failed because generated request failed)");
 		*(bool*)_request._success_ptr = false;
 		_state = REQ_COMPLETE;
@@ -215,24 +215,18 @@ void Virtual_block_device::_execute_read_vba_read_inner_node_completed (Channel 
 }
 
 
-void Virtual_block_device::_execute_read_vba(Channel &chan,
-                                             bool &progress)
+void Virtual_block_device::_execute_read_vba(Channel &chan, bool &progress)
 {
 	switch (chan._state) {
 	case Channel::State::SUBMITTED:
 	{
-		Request &request  = chan._request;
-
-		chan._snapshot_idx = request._curr_snap_idx;
-		chan._vba          = request._vba;
-
-		Snapshot &snapshot = chan.snapshots(chan._snapshot_idx);
-		chan._t1_blk_idx = snapshot.max_level;
-		if (VERBOSE_READ_VBA) {
-			log("  load branch:");
-			log("    ", Branch_lvl_prefix("root: "), snapshot);
-		}
-		chan._generate_req<Block_io::Read>(Channel::READ_ROOT_NODE_COMPLETED, progress, snapshot.pba, chan._encoded_blk);
+		chan._snapshot_idx = chan._request._curr_snap_idx;
+		chan._vba = chan._request._vba;
+		Snapshot &snap = chan.snapshots(chan._snapshot_idx);
+		chan._t1_blk_idx = snap.max_level;
+		chan._generate_req<Block_io::Read>(Channel::READ_ROOT_NODE_COMPLETED, progress, snap.pba, chan._encoded_blk);
+		if (VERBOSE_READ_VBA)
+			log("  load branch:\n    ", Branch_lvl_prefix("root: "), snap);
 		break;
 	}
 	case Channel::State::READ_ROOT_NODE_COMPLETED:
@@ -242,13 +236,7 @@ void Virtual_block_device::_execute_read_vba(Channel &chan,
 		_execute_read_vba_read_inner_node_completed (chan, progress);
 		break;
 
-	case Channel::State::READ_CLIENT_DATA_FROM_LEAF_NODE_COMPLETED:
-
-		*(bool *)chan._request._success_ptr = chan._generated_prim.succ;
-		chan._state = Channel::State::COMPLETED;
-		progress = true;
-		break;
-
+	case Channel::State::READ_CLIENT_DATA_FROM_LEAF_NODE_COMPLETED: _mark_req_successful(chan, progress); break;
 	default: break;
 	}
 }
@@ -304,17 +292,6 @@ void Virtual_block_device::_update_nodes_of_branch_of_written_vba(Snapshot &snap
 				log("    ", Branch_lvl_prefix("root: "), snapshot);
 		}
 	}
-}
-
-
-void Virtual_block_device::
-_check_that_primitive_was_successful(Channel::Generated_prim const &prim)
-{
-	if (prim.succ)
-		return;
-
-	class Primitive_not_successfull { };
-	throw Primitive_not_successfull { };
 }
 
 
@@ -416,7 +393,6 @@ _set_args_for_alloc_of_new_pbas_for_branch_of_written_vba(Channel &chan, uint64_
                                                           uint64_t                 &free_gen,
                                                           Type_1_node_walk         &t1_walk,
                                                           Channel::State           &,
-                                                          Channel::Generated_prim  &,
                                                           bool                     &progress)
 {
 	for (Tree_level_index lvl = 0; lvl <= TREE_MAX_LEVEL; lvl++) {
@@ -505,7 +481,6 @@ void Virtual_block_device::_execute_write_vba(Channel        &chan,
 				                                                          chan._free_gen,
 				                                                          chan._t1_node_walk,
 				                                                          chan._state,
-				                                                          chan._generated_prim,
 				                                                          progress);
 			else
 				chan._generate_req<Block_io::Write_client_data>(
@@ -516,8 +491,6 @@ void Virtual_block_device::_execute_write_vba(Channel        &chan,
 
 		break;
 	case Channel::State::ALLOC_PBAS_AT_LEAF_LVL_COMPLETED:
-
-		_check_that_primitive_was_successful(chan._generated_prim);
 
 		if (VERBOSE_WRITE_VBA)
 			log("  alloc pba", chan._nr_of_blks > 1 ? "s" : "", ": ", Pba_allocation(chan._t1_node_walk, chan._new_pbas));
@@ -596,20 +569,7 @@ char const *Virtual_block_device::_state_to_step_label(Channel::State state)
 }
 
 
-bool Virtual_block_device::_handle_failed_generated_req(Channel &chan,
-                                                        bool    &progress)
-{
-	if (chan._generated_prim.succ)
-		return false;
-
-	_mark_req_failed(chan, progress, _state_to_step_label(chan._state));
-	return true;
-}
-
-
-bool
-Virtual_block_device::_find_next_snap_to_rekey_vba_at(Channel const  &chan,
-                                                      Snapshot_index &next_snap_idx)
+bool Virtual_block_device::_find_next_snap_to_rekey_vba_at(Channel const &chan, Snapshot_index &next_snap_idx)
 {
 	bool next_snap_idx_valid { false };
 	Request const &req { chan._request };
@@ -896,9 +856,6 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 
 	case Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_COMPLETED:
 
-		if (_handle_failed_generated_req(chan, progress))
-			break;
-
 		chan._log_rekeying_pba_alloc();
 
 		if (VERBOSE_REKEYING)
@@ -909,9 +866,6 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 		break;
 
 	case Channel::ALLOC_PBAS_AT_LEAF_LVL_COMPLETED:
-
-		if (_handle_failed_generated_req(chan, progress))
-			break;
 
 		chan._log_rekeying_pba_alloc();
 		chan._generate_req<Crypto::Encrypt>(
@@ -1017,9 +971,6 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 		break;
 	}
 	case Channel::ALLOC_PBAS_AT_HIGHER_INNER_LVL_COMPLETED:
-
-		if (_handle_failed_generated_req(chan, progress))
-			break;
 
 		chan._log_rekeying_pba_alloc();
 		chan._t1_blks.items[chan._t1_blk_idx].encode_to_blk(chan._encoded_blk);
@@ -1365,9 +1316,6 @@ void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
 	}
 	case Channel::ALLOC_PBAS_AT_LOWEST_INNER_LVL_COMPLETED:
 	{
-		if (_handle_failed_generated_req(chan, progress))
-			break;
-
 		Physical_block_address const new_pba {
 			chan._new_pbas.pbas[chan._t1_blk_idx] };
 
@@ -1462,20 +1410,11 @@ void Virtual_block_device::execute(bool &progress)
 		Request &request { channel._request };
 
 		switch (request._type) {
-		case Request::INVALID:
-			break;
-		case Request::READ_VBA:
-			_execute_read_vba(channel, progress);
-			break;
-		case Request::WRITE_VBA:
-			_execute_write_vba(channel, idx, progress);
-			break;
-		case Request::REKEY_VBA:
-			_execute_rekey_vba(channel, idx, progress);
-			break;
-		case Request::VBD_EXTENSION_STEP:
-			_execute_vbd_extension_step(channel, idx, progress);
-			break;
+		case Request::INVALID: break;
+		case Request::READ_VBA: _execute_read_vba(channel, progress); break;
+		case Request::WRITE_VBA: _execute_write_vba(channel, idx, progress); break;
+		case Request::REKEY_VBA: _execute_rekey_vba(channel, idx, progress); break;
+		case Request::VBD_EXTENSION_STEP: _execute_vbd_extension_step(channel, idx, progress); break;
 		}
 	}
 }

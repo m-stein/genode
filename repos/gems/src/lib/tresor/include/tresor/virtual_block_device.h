@@ -175,31 +175,6 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 			Physical_block_address items[TREE_MAX_LEVEL] { 0 };
 		};
 
-		enum Tag_type
-		{
-			TAG_INVALID,
-			TAG_VBD_CACHE,
-			TAG_VBD_BLK_IO_WRITE_CLIENT_DATA,
-			TAG_VBD_BLK_IO_READ_CLIENT_DATA,
-			TAG_VBD_BLK_IO,
-			TAG_VBD_FT_ALLOC_FOR_NON_RKG,
-			TAG_VBD_FT_ALLOC_FOR_RKG_CURR_GEN_BLKS,
-			TAG_VBD_FT_ALLOC_FOR_RKG_OLD_GEN_BLKS,
-			TAG_VBD_CRYPTO_ENCRYPT,
-			TAG_VBD_CRYPTO_DECRYPT,
-		};
-
-		struct Generated_prim
-		{
-			enum Type { READ, WRITE };
-
-			Type     op     { READ };
-			bool     succ   { false };
-			Tag_type tg     { TAG_INVALID };
-			uint64_t blk_nr { 0 };
-			uint64_t idx    { 0 };
-		};
-
 		Snapshot &snapshots(Snapshot_index idx)
 		{
 			if (idx < MAX_NR_OF_SNAPSHOTS)
@@ -218,7 +193,6 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		Virtual_block_device_request _request { };
 		Key_value _dummy_key { };
 		State _state { SUBMITTED };
-		Generated_prim _generated_prim { };
 		Snapshot_index _snapshot_idx { 0 };
 		Type_1_node_blocks _t1_blks { };
 		Type_1_node_blocks_pbas _t1_blks_old_pbas { };
@@ -234,11 +208,12 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		Block _data_blk { };
 		Physical_block_address _data_blk_old_pba { 0 };
 		bool _first_snapshot { false };
+		bool _gen_req_success { false };
 
 		template <typename REQUEST, typename... ARGS>
 		void _generate_req(State_uint complete_state, bool &progress, ARGS &&... args)
 		{
-			generate_req<REQUEST>(complete_state, progress, args..., _generated_prim.succ);
+			generate_req<REQUEST>(complete_state, progress, args..., _gen_req_success);
 			_state = REQ_GENERATED;
 		}
 
@@ -259,7 +234,6 @@ class Tresor::Virtual_block_device : public Module
 
 		using Channel = Virtual_block_device_channel;
 		using Request = Virtual_block_device_request;
-		using Generated_prim = Channel::Generated_prim;
 		using Type_1_node_blocks = Channel::Type_1_node_blocks;
 
 		enum { NR_OF_CHANNELS = 1 };
@@ -287,8 +261,6 @@ class Tresor::Virtual_block_device : public Module
 
 		void _mark_req_successful(Channel &chan,
 		                          bool    &progress);
-
-		void _check_that_primitive_was_successful(Channel::Generated_prim const &);
 
 		void _execute_read_vba_read_inner_node_completed(Channel &channel,
 		                                                 bool &progress);
@@ -348,7 +320,6 @@ class Tresor::Virtual_block_device : public Module
 		                                                               uint64_t                 &free_gen,
 		                                                               Type_1_node_walk         &t1_walk,
 		                                                               Channel::State           &state,
-		                                                               Channel::Generated_prim  &prim,
 		                                                               bool                     &progress);
 
 		void _set_args_for_alloc_of_new_pbas_for_rekeying(Channel          &chan,
