@@ -102,10 +102,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 			Physical_block_address items[TREE_MAX_LEVEL] { 0 };
 		};
 
-		Virtual_block_device_request _request {
-			0, 0, Request::REKEY_VBA, 0, 0, 0, *(Free_tree_root*)0, *(Meta_tree_root*)0, 0,
-			0, 0, 0, 0, *(Snapshots*)0, 0, 0, 0, 0, *(Physical_block_address*)0, *(bool*)0,
-			*(Number_of_leaves*)0, *(Number_of_blocks*)0 };
+		Constructible<Virtual_block_device_request> _request { };
 
 		Key_value _dummy_key { };
 		State _state { INACTIVE };
@@ -146,7 +143,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		Snapshot &snapshots(Snapshot_index idx)
 		{
 			ASSERT(idx < MAX_NR_OF_SNAPSHOTS);
-			return _request._snapshots.items[idx];
+			return _request->_snapshots.items[idx];
 		}
 
 		Snapshot &snap();
