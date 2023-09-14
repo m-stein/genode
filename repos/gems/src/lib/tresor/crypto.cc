@@ -72,17 +72,14 @@ bool Crypto::_peek_generated_request(uint8_t *buf_ptr,
 
 		if (cd_req_type != Client_data_request::INVALID) {
 
-			Request const &req { chan._request };
-			Client_data_request const cd_req {
-				CRYPTO, id, cd_req_type, req._client_req_offset,
-				req._client_req_tag, req._pba, req._vba,
-				(addr_t)&chan._blk_buf };
-
-			if (sizeof(cd_req) > buf_size) {
+			if (sizeof(Client_data_request) > buf_size) {
 				class Exception_1 { };
 				throw Exception_1 { };
 			}
-			memcpy(buf_ptr, &cd_req, sizeof(cd_req));;
+			Request const &req { *chan._request };
+			construct_at<Client_data_request>(buf_ptr, CRYPTO, id, cd_req_type, req._client_req_offset,
+				req._client_req_tag, req._pba, req._vba,
+				(addr_t)&chan._blk_buf);;
 			return true;
 		}
 	}
@@ -128,7 +125,7 @@ void Crypto::_mark_req_failed(Channel    &channel,
                               char const *str)
 {
 	error("crypto: request (", channel._request, ") failed at step \"", str, "\"");
-	channel._request._success = false;
+	channel._request->_success = false;
 	channel._state = Channel::COMPLETE;
 	progress = true;
 }
@@ -137,7 +134,7 @@ void Crypto::_mark_req_failed(Channel    &channel,
 void Crypto::_mark_req_successful(Channel &channel,
                                   bool    &progress)
 {
-	channel._request._success = true;
+	channel._request->_success = true;
 	channel._state = Channel::COMPLETE;
 	progress = true;
 }
@@ -146,7 +143,7 @@ void Crypto::_mark_req_successful(Channel &channel,
 void Crypto::_execute_add_key(Channel &channel,
                               bool    &progress)
 {
-	Request &req { channel._request };
+	Request &req { *channel._request };
 	switch (channel._state) {
 	case Channel::SUBMITTED:
 	{
@@ -208,7 +205,7 @@ void Crypto::_execute_add_key(Channel &channel,
 void Crypto::_execute_remove_key(Channel &channel,
                                  bool    &progress)
 {
-	Request &req { channel._request };
+	Request &req { *channel._request };
 	switch (channel._state) {
 	case Channel::SUBMITTED:
 	{
@@ -253,7 +250,7 @@ void Crypto::_execute_remove_key(Channel &channel,
 void Crypto::_execute_encrypt_client_data(Channel &channel,
                                           bool    &progress)
 {
-	Request &req { channel._request };
+	Request &req { *channel._request };
 	switch (channel._state) {
 	case Channel::SUBMITTED:
 
@@ -333,7 +330,7 @@ void Crypto::_execute_encrypt_client_data(Channel &channel,
 void Crypto::_execute_encrypt(Channel &channel,
                               bool    &progress)
 {
-	Request &req { channel._request };
+	Request &req { *channel._request };
 	switch (channel._state) {
 	case Channel::SUBMITTED:
 	{
@@ -401,7 +398,7 @@ void Crypto::_execute_encrypt(Channel &channel,
 void Crypto::_execute_decrypt(Channel &channel,
                               bool    &progress)
 {
-	Request &req { channel._request };
+	Request &req { *channel._request };
 	switch (channel._state) {
 	case Channel::SUBMITTED:
 	{
@@ -410,7 +407,7 @@ void Crypto::_execute_decrypt(Channel &channel,
 
 		size_t nr_of_written_bytes { 0 };
 
-		Const_byte_range_ptr src { (char *)&channel._request._ciphertext_blk, BLOCK_SIZE };
+		Const_byte_range_ptr src { (char *)&channel._request->_ciphertext_blk, BLOCK_SIZE };
 
 		channel._vfs_handle->fs().write(
 			channel._vfs_handle, src, nr_of_written_bytes);
@@ -472,7 +469,7 @@ void Crypto::_execute_decrypt(Channel &channel,
 void Crypto::_execute_decrypt_client_data(Channel &channel,
                                           bool    &progress)
 {
-	Request &req { channel._request };
+	Request &req { *channel._request };
 	switch (channel._state) {
 	case Channel::SUBMITTED:
 	{
@@ -484,7 +481,7 @@ void Crypto::_execute_decrypt_client_data(Channel &channel,
 		channel._vfs_handle->seek(req._pba * BLOCK_SIZE);
 
 		size_t nr_of_written_bytes { 0 };
-		Const_byte_range_ptr src { (char *)&channel._request._ciphertext_blk, BLOCK_SIZE };
+		Const_byte_range_ptr src { (char *)&channel._request->_ciphertext_blk, BLOCK_SIZE };
 
 		channel._vfs_handle->fs().write(
 			channel._vfs_handle, src, nr_of_written_bytes);
@@ -562,7 +559,7 @@ void Crypto::execute(bool &progress)
 		if (channel._state == Channel::INACTIVE)
 			continue;
 
-		switch (channel._request._type) {
+		switch (channel._request->_type) {
 		case Request::ADD_KEY:             _execute_add_key(channel, progress);             break;
 		case Request::REMOVE_KEY:          _execute_remove_key(channel, progress);          break;
 		case Request::DECRYPT:             _execute_decrypt(channel, progress);             break;
@@ -629,9 +626,13 @@ bool Crypto::_peek_completed_request(uint8_t *buf_ptr,
 				class Exception_1 { };
 				throw Exception_1 { };
 			}
-			memcpy(buf_ptr, &channel._request, sizeof(channel._request));
+			Request &req { *channel._request };
+			construct_at<Request>(buf_ptr, req.src_module_id(), req.src_chan_id(), req._type,
+				req._client_req_offset, req._client_req_tag, req._key_id,
+				req._key_plaintext, req._pba,
+				req._vba, req._plaintext_blk, req._ciphertext_blk, req._success);
+			(*(Request*)buf_ptr).dst_request_id(req.dst_chan_id());
 
-			Request &req { channel._request };
 			if (VERBOSE_WRITE_VBA && req._type == Request::ENCRYPT_CLIENT_DATA) {
 
 				Hash hash { };
@@ -702,7 +703,13 @@ void Crypto::submit_request(Module_request &req)
 	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 		if (_channels[id]._state == Channel::INACTIVE) {
 			req.dst_request_id(id);
-			memcpy(&_channels[id]._request, &req, sizeof(Request));
+			Request &r { *static_cast<Request *>(&req) };
+			_channels[id]._request.construct(
+				r.src_module_id(), r.src_chan_id(), r._type,
+				r._client_req_offset, r._client_req_tag, r._key_id,
+				r._key_plaintext, r._pba,
+				r._vba, r._plaintext_blk, r._ciphertext_blk, r._success);
+			_channels[id]._request->dst_request_id(id);
 			_channels[id]._state = Channel::SUBMITTED;
 			return;
 		}

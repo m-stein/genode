@@ -71,13 +71,13 @@ bool Block_io::_peek_generated_request(uint8_t *buf_ptr,
 	for (uint32_t id { 0 }; id < NR_OF_CHANNELS; id++) {
 
 		Channel &channel { _channels[id] };
-		Request &req { channel._request };
 		Crypto_request::Type crypto_req_type;
 		switch (channel._state) {
 		case Channel::DECRYPT_CLIENT_DATA_PENDING: crypto_req_type = Crypto_request::DECRYPT_CLIENT_DATA; break;
 		case Channel::ENCRYPT_CLIENT_DATA_PENDING: crypto_req_type = Crypto_request::ENCRYPT_CLIENT_DATA; break;
 		default: continue;
 		}
+		Request &req { *channel._request };
 		ASSERT(sizeof(Crypto_request) <= buf_size);
 		construct_at<Crypto_request>(
 			buf_ptr, BLOCK_IO, id, crypto_req_type, req._client_req_offset, req._client_req_tag, req._key_id,
@@ -124,7 +124,7 @@ void Block_io::_mark_req_failed(Channel    &channel,
                                 char const *str)
 {
 	error("request failed: failed to ", str);
-	channel._request._success = false;
+	channel._request->_success = false;
 	channel._state = Channel::COMPLETE;
 	progress = true;
 }
@@ -133,7 +133,7 @@ void Block_io::_mark_req_failed(Channel    &channel,
 void Block_io::_mark_req_successful(Channel &channel,
                                     bool    &progress)
 {
-	channel._request._success = true;
+	channel._request->_success = true;
 	channel._state = Channel::COMPLETE;
 	progress = true;
 }
@@ -144,7 +144,7 @@ void Block_io::_execute_read(Channel &channel,
 {
 	using Result = Vfs::File_io_service::Read_result;
 
-	Request &req { channel._request };
+	Request &req { *channel._request };
 	switch (channel._state) {
 	case Channel::PENDING:
 
@@ -237,7 +237,7 @@ void Block_io::_execute_read_client_data(Channel &channel,
 {
 	using Result = Vfs::File_io_service::Read_result;
 
-	Request &req { channel._request };
+	Request &req { *channel._request };
 	switch (channel._state) {
 	case Channel::PENDING:
 
@@ -320,7 +320,7 @@ void Block_io::_execute_write_client_data(Channel &channel,
 {
 	using Result = Vfs::File_io_service::Write_result;
 
-	Request &req { channel._request };
+	Request &req { *channel._request };
 	switch (channel._state) {
 	case Channel::PENDING:
 
@@ -402,7 +402,7 @@ void Block_io::_execute_write(Channel &channel,
 {
 	using Result = Vfs::File_io_service::Write_result;
 
-	Request &req { channel._request };
+	Request &req { *channel._request };
 	switch (channel._state) {
 	case Channel::PENDING:
 
@@ -472,7 +472,7 @@ void Block_io::_execute_sync(Channel &channel,
 {
 	using Result = Vfs::File_io_service::Sync_result;
 
-	Request &req { channel._request };
+	Request &req { *channel._request };
 	switch (channel._state) {
 	case Channel::PENDING:
 
@@ -521,7 +521,7 @@ void Block_io::execute(bool &progress)
 		if (channel._state == Channel::INACTIVE)
 			continue;
 
-		Request &req { channel._request };
+		Request &req { *channel._request };
 		if (channel._state == Channel::SUBMITTED) {
 
 			uint64_t const nr_of_remaining_bytes {
@@ -562,12 +562,17 @@ bool Block_io::_peek_completed_request(uint8_t *buf_ptr,
 {
 	for (Channel &channel : _channels) {
 		if (channel._state == Channel::COMPLETE) {
-			Request &req { channel._request };
+			Request &req { *channel._request };
 			if (sizeof(req) > buf_size) {
 				class Exception_1 { };
 				throw Exception_1 { };
 			}
-			memcpy(buf_ptr, &req, sizeof(req));
+
+			construct_at<Request>(buf_ptr, req.src_module_id(), req.src_chan_id(), req._type,
+				req._client_req_offset, req._client_req_tag, req._key_id,
+				req._pba, req._vba,
+				req._blk_count, req._blk, req._hash, req._success);
+			(*(Request*)buf_ptr).dst_request_id(req.dst_chan_id());
 
 			if (VERBOSE_BLOCK_IO &&
 			    (!VERBOSE_BLOCK_IO_PBA_FILTER ||
@@ -636,7 +641,13 @@ void Block_io::submit_request(Module_request &req)
 	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 		if (_channels[id]._state == Channel::INACTIVE) {
 			req.dst_request_id(id);
-			memcpy(&_channels[id]._request, &req, sizeof(Request));
+			Request &r { *static_cast<Request *>(&req) };
+			_channels[id]._request.construct(r.src_module_id(), r.src_chan_id(),
+				r._type,
+				r._client_req_offset, r._client_req_tag, r._key_id,
+				r._pba, r._vba,
+				r._blk_count, r._blk, r._hash, r._success);
+			_channels[id]._request->dst_request_id(id);
 			_channels[id]._state = Channel::SUBMITTED;
 			return;
 		}

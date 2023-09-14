@@ -14,6 +14,9 @@
 #ifndef _TRESOR__FREE_TREE_H_
 #define _TRESOR__FREE_TREE_H_
 
+/* base includes */
+#include <util/reconstructible.h>
+
 /* tresor includes */
 #include <tresor/types.h>
 #include <tresor/module.h>
@@ -306,12 +309,7 @@ class Tresor::Free_tree_channel
 		};
 
 		State _state { INVALID };
-
-		Request _request {
-			0, 0, Request::ALLOC_FOR_NON_RKG, *(Free_tree_root*)0, *(Meta_tree_root*)0,
-			*(Snapshots const *)0, 0, 0, 0, 0, *(Tree_walk_pbas*)0, *(Type_1_node_walk const *)0,
-			0, 0, 0, 0, false, 0, 0, 0, *(bool*)0 };
-
+		Constructible<Request> _request { };
 		uint64_t _needed_blocks { 0 };
 		uint64_t _found_blocks { 0 };
 		uint64_t _exchanged_blocks { 0 };
@@ -332,9 +330,9 @@ class Tresor::Free_tree_channel
 		Type_1_node _root_node() const
 		{
 			Type_1_node node { };
-			node.pba = _request._ft.pba;
-			node.gen = _request._ft.gen;
-			memcpy(&node.hash, &_request._ft.hash, HASH_SIZE);
+			node.pba = _request->_ft.pba;
+			node.gen = _request->_ft.gen;
+			memcpy(&node.hash, &_request->_ft.hash, HASH_SIZE);
 			return node;
 		}
 };

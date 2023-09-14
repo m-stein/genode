@@ -95,17 +95,14 @@ class Tresor::Crypto_channel
 			QUEUE_READ_SUCCEEDED };
 
 		State _state { INACTIVE };
-		Key_value _dummy_key { };
 		bool _generated_req_success { false };
 		Vfs::Vfs_handle *_vfs_handle { nullptr };
 		Block _blk_buf { };
-		Crypto_request _request {
-			INVALID_MODULE_ID, INVALID_MODULE_CHANNEL_ID, Crypto_request::ADD_KEY, 0, INVALID_REQ_TAG, INVALID_KEY_ID,
-			_dummy_key, INVALID_PBA, INVALID_VBA, _blk_buf, _blk_buf, _generated_req_success };
+		Constructible<Crypto_request> _request { };
 
 	public:
 
-		Crypto_request const &request() const { return _request; }
+		Crypto_request const &request() const { return *_request; }
 };
 
 class Tresor::Crypto : public Module

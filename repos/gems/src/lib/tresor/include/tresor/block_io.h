@@ -80,9 +80,7 @@ class Tresor::Block_io_channel
 		size_t _nr_of_remaining_bytes { 0 };
 		Block _blk_buf { };
 		bool _generated_req_success { false };
-		Block_io_request _request {
-			INVALID_MODULE_ID, INVALID_MODULE_CHANNEL_ID, Block_io_request::READ, 0, INVALID_REQ_TAG,
-			INVALID_KEY_ID, INVALID_PBA, INVALID_VBA, 0, _blk_buf, _dummy_hash, _generated_req_success };
+		Constructible<Block_io_request> _request { };
 };
 
 class Tresor::Block_io : public Module
