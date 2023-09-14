@@ -102,8 +102,6 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 			Physical_block_address items[TREE_MAX_LEVEL] { 0 };
 		};
 
-		Constructible<Virtual_block_device_request> _requestx { };
-
 		Request *_req_ptr { nullptr };
 		Key_value _dummy_key { };
 		State _state { INACTIVE };
@@ -131,7 +129,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 			_state = REQ_GENERATED;
 		}
 
-		void _request_submitted(Module_request &) override { }
+		void _request_submitted(Module_request &) override;
 
 		bool _request_complete() override { return _state == COMPLETED; }
 
@@ -255,21 +253,7 @@ class Tresor::Virtual_block_device : public Module
 		                                        uint64_t const  pba,
 		                                        bool &progress);
 
-		/************
-		 ** Module **
-		 ************/
-
-		bool ready_to_submit_request() override;
-
-		void submit_request(Module_request &mod_req) override;
-
-		bool _peek_completed_request(uint8_t *, size_t) override;
-
-		void _drop_completed_request(Module_request &req) override;
-
 		void execute(bool &) override;
-
-		bool new_submit_request() override { return false; }
 
 	public:
 

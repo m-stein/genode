@@ -23,7 +23,6 @@
 
 using namespace Tresor;
 
-
 Virtual_block_device_request::
 Virtual_block_device_request(Module_id src_module_id, Module_channel_id src_chan_id, Type type,
                              Request_offset client_req_offset, Request_tag client_req_tag,
@@ -68,6 +67,7 @@ void Virtual_block_device_channel::_generated_req_completed(State_uint state_uin
 		error("request_pool: request (", *_req_ptr, ") failed because generated request failed)");
 		_req_ptr->_success = false;
 		_state = COMPLETED;
+		_req_ptr = nullptr;
 		return;
 	}
 	_state = (State)state_uint;
@@ -85,46 +85,6 @@ void Virtual_block_device::_set_args_for_write_back_of_t1_lvl(Channel &chan, Tre
 		chan._t1_blks.items[chan._t1_blk_idx].encode_to_blk(chan._encoded_blk);
 		chan._generate_req<Block_io::Write>(Channel::WRITE_ROOT_NODE_SUCCEEDED, progress, pba, chan._encoded_blk);
 	}
-}
-
-
-bool Virtual_block_device::ready_to_submit_request()
-{
-	for (Channel &channel : _channels) {
-		if (channel._state == Channel::INACTIVE)
-			return true;
-	}
-	return false;
-}
-
-
-void Virtual_block_device::submit_request(Module_request &mod_req)
-{
-	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
-		Channel &chan { _channels[id] };
-		if (chan._state == Channel::INACTIVE) {
-			mod_req.dst_request_id(id);
-			ASSERT(!chan._req_ptr);
-			Request &r = *static_cast<Request *>(&mod_req);
-			chan._requestx.construct(
-				r.src_module_id(), r.src_chan_id(), r._type,
-				r._client_req_offset, r._client_req_tag,
-				r._last_secured_generation, r._ft, r._mt,
-				r._vbd_degree, r._vbd_highest_vba, r._rekeying,
-				r._vba, r._curr_snap_idx, r._snapshots,
-				r._snapshots_degree, r._prev_key_id, r._curr_key_id,
-				r._curr_gen, r._pba, r._success,
-				r._nr_of_leaves, r._nr_of_pbas);
-
-			chan._req_ptr = &*chan._requestx;
-			chan._req_ptr->dst_request_id(id);
-			chan._vba = chan._req_ptr->_vba;
-			chan._state = Channel::SUBMITTED;
-			return;
-		}
-	}
-	class Invalid_call { };
-	throw Invalid_call { };
 }
 
 
@@ -489,6 +449,7 @@ void Virtual_block_device::_execute_write_vba(Channel        &chan,
 
 		chan._state = Channel::State::COMPLETED;
 		chan._req_ptr->_success = true;
+		chan._req_ptr = nullptr;
 		progress = true;
 		break;
 
@@ -504,6 +465,7 @@ void Virtual_block_device::_mark_req_failed(Channel    &chan,
 	error(Request::type_to_string(chan._req_ptr->_type), " request failed at step \"", str, "\"");
 	chan._req_ptr->_success = false;
 	chan._state = Channel::COMPLETED;
+	chan._req_ptr = nullptr;
 	progress = true;
 }
 
@@ -513,6 +475,7 @@ void Virtual_block_device::_mark_req_successful(Channel &chan,
 {
 	chan._req_ptr->_success = true;
 	chan._state = Channel::COMPLETED;
+	chan._req_ptr = nullptr;
 	progress = true;
 }
 
@@ -645,6 +608,7 @@ void Virtual_block_device::_execute_rekey_vba(Channel  &chan,
 	switch (chan._state) {
 	case Channel::State::SUBMITTED:
 	{
+		chan._vba = req._vba;
 		Snapshot_index first_snap_idx { 0 };
 		bool first_snap_idx_found { false };
 		for (Snapshot_index snap_idx { 0 };
@@ -1172,6 +1136,12 @@ _set_args_for_alloc_of_new_pbas_for_resizing(Channel          &chan,
 }
 
 
+void Virtual_block_device_channel::_request_submitted(Module_request &req)
+{
+	_req_ptr = static_cast<Request *>(&req);
+	_state = SUBMITTED;
+}
+
 
 void Virtual_block_device::_execute_vbd_extension_step(Channel  &chan,
                                                        uint64_t  chan_idx,
@@ -1367,10 +1337,8 @@ void Virtual_block_device::execute(bool &progress)
 	for (unsigned idx = 0; idx < NR_OF_CHANNELS; idx++) {
 
 		Channel &chan = _channels[idx];
-		if (chan._state == Channel::INACTIVE)
+		if (!chan._req_ptr)
 			continue;
-
-		ASSERT(chan._req_ptr == &*chan._requestx);
 
 		switch (chan._req_ptr->_type) {
 		case Request::READ_VBA: _execute_read_vba(chan, progress); break;
@@ -1389,53 +1357,4 @@ void Virtual_block_device_channel::_generate_ft_req(State complete_state, bool p
 		req._last_secured_generation, req._curr_gen, _free_gen, _nr_of_blks, _new_pbas,
 		_t1_node_walk, req._snapshots.items[_snapshot_idx].max_level, _vba, req._vbd_degree,
 		req._vbd_highest_vba, req._rekeying, req._prev_key_id, req._curr_key_id, _vba);
-}
-
-
-bool Virtual_block_device::_peek_completed_request(uint8_t *buf_ptr,
-                                                   size_t   buf_size)
-{
-	for (Channel &channel : _channels) {
-		if (channel._state == Channel::COMPLETED) {
-			if (sizeof(Request) > buf_size) {
-				class Exception_1 { };
-				throw Exception_1 { };
-			}
-			ASSERT(channel._req_ptr == &*channel._requestx);
-			Request &r = *channel._req_ptr;
-			construct_at<Request>(buf_ptr,
-				r.src_module_id(), r.src_chan_id(), r._type,
-				r._client_req_offset, r._client_req_tag,
-				r._last_secured_generation, r._ft, r._mt,
-				r._vbd_degree, r._vbd_highest_vba, r._rekeying,
-				r._vba, r._curr_snap_idx, r._snapshots,
-				r._snapshots_degree, r._prev_key_id, r._curr_key_id,
-				r._curr_gen, r._pba, r._success,
-				r._nr_of_leaves, r._nr_of_pbas);
-
-			(*(Request*)buf_ptr).dst_request_id(r.dst_chan_id());
-			return true;
-		}
-	}
-	return false;
-}
-
-
-void Virtual_block_device::_drop_completed_request(Module_request &req)
-{
-	Module_request_id id { 0 };
-	id = req.dst_request_id();
-	if (id >= NR_OF_CHANNELS) {
-		class Exception_1 { };
-		throw Exception_1 { };
-	}
-	Channel &chan { _channels[id] };
-	if (chan._state != Channel::COMPLETED) {
-
-		class Exception_2 { };
-		throw Exception_2 { };
-	}
-	ASSERT(chan._req_ptr == &*chan._requestx);
-	chan._req_ptr = nullptr;
-	chan._state = Channel::INACTIVE;
 }
