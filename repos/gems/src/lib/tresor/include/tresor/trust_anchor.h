@@ -14,6 +14,9 @@
 #ifndef _TRESOR__TRUST_ANCHOR_H_
 #define _TRESOR__TRUST_ANCHOR_H_
 
+/* base includes */
+#include <util/reconstructible.h>
+
 /* tresor includes */
 #include <tresor/types.h>
 #include <tresor/module.h>
@@ -67,8 +70,7 @@ class Tresor::Trust_anchor_channel
 		Hash _dummy_hash { };
 		bool _dummy_success { };
 		State _state { INACTIVE };
-		Trust_anchor_request _request { INVALID_MODULE_ID, INVALID_MODULE_CHANNEL_ID, Trust_anchor_request::INITIALIZE, _dummy_key,
-		                                _dummy_key, _dummy_hash, Passphrase { }, _dummy_success };
+		Constructible<Trust_anchor_request> _request { };
 		Vfs::file_offset _file_offset { 0 };
 		size_t _file_size { 0 };
 };

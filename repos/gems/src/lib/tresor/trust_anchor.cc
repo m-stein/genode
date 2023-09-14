@@ -64,7 +64,7 @@ void Trust_anchor::_execute_write_read_operation(Vfs::Vfs_handle   &file,
                                                  size_t             read_size,
                                                  bool              &progress)
 {
-	Request &req { channel._request };
+	Request &req { *channel._request };
 	switch (channel._state) {
 	case Channel::WRITE_PENDING:
 
@@ -179,7 +179,7 @@ void Trust_anchor::_execute_write_operation(Vfs::Vfs_handle   &file,
                                             bool              &progress,
                                             bool               result_via_read)
 {
-	Request &req { channel._request };
+	Request &req { *channel._request };
 	switch (channel._state) {
 	case Channel::WRITE_PENDING:
 
@@ -301,7 +301,7 @@ void Trust_anchor::_execute_read_operation(Vfs::Vfs_handle   &file,
                                            char              *read_buf,
                                            bool              &progress)
 {
-	Request &req { channel._request };
+	Request &req { *channel._request };
 	switch (channel._state) {
 	case Channel::READ_PENDING:
 
@@ -367,7 +367,7 @@ void Trust_anchor::execute(bool &progress)
 		if (channel._state == Channel::INACTIVE)
 			continue;
 
-		Request &req { channel._request };
+		Request &req { *channel._request };
 		switch (req._type) {
 		case Request::INITIALIZE:
 
@@ -478,7 +478,12 @@ bool Trust_anchor::_peek_completed_request(uint8_t *buf_ptr,
 				class Exception_1 { };
 				throw Exception_1 { };
 			}
-			memcpy(buf_ptr, &channel._request, sizeof(channel._request));
+
+			Request &r { *channel._request };
+			construct_at<Request>(buf_ptr, r.src_module_id(), r.src_chan_id(), r._type,
+				r._key_plaintext, r._key_ciphertext, r._hash, r._passphrase, r._success);
+			(*(Request*)buf_ptr).dst_request_id(r.dst_chan_id());
+
 			return true;
 		}
 	}
@@ -516,7 +521,12 @@ void Trust_anchor::submit_request(Module_request &req)
 	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 		if (_channels[id]._state == Channel::INACTIVE) {
 			req.dst_request_id(id);
-			memcpy(&_channels[id]._request, &req, sizeof(Request));
+
+			Request &r { *static_cast<Request *>(&req) };
+			_channels[id]._request.construct(r.src_module_id(), r.src_chan_id(), r._type,
+				r._key_plaintext, r._key_ciphertext, r._hash, r._passphrase, r._success);
+			_channels[id]._request->dst_request_id(id);
+
 			_channels[id]._state = Channel::SUBMITTED;
 			return;
 		}

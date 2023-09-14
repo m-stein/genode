@@ -120,9 +120,12 @@ Free_tree_request::Free_tree_request(Module_id src_module_id,
 void Free_tree::execute(bool &progress)
 {
 	for (Channel &channel : _channels) {
+		if (channel._state == Channel::INVALID)
+			continue;
+
 		_execute(
-			channel, channel._request._snapshots,
-			channel._request._last_secured_gen, progress);
+			channel, channel._request->_snapshots,
+			channel._request->_last_secured_gen, progress);
 	}
 }
 
@@ -246,7 +249,7 @@ void Free_tree::_execute_scan(Channel         &chan,
                               Generation       last_secured_gen,
                               bool            &progress)
 {
-	Request &req { chan._request };
+	Request &req { *chan._request };
 	bool end_of_tree  = false;
 	bool enough_found = false;
 
@@ -497,7 +500,7 @@ void Free_tree::_execute_update(Channel         &chan,
                                 Generation       last_secured_gen,
                                 bool            &progress)
 {
-	Request &req { chan._request };
+	Request &req { *chan._request };
 	bool exchange_finished { false };
 	bool update_finished { false };
 	Number_of_blocks exchanged;
@@ -670,8 +673,8 @@ void Free_tree::_mark_req_failed(Channel    &chan,
                                  bool       &progress,
                                  char const *str)
 {
-	error(Request::type_to_string(chan._request._type), " request failed, reason: \"", str, "\"");
-	chan._request._success = false;
+	error(Request::type_to_string(chan._request->_type), " request failed, reason: \"", str, "\"");
+	chan._request->_success = false;
 	chan._state = Channel::COMPLETE;
 	progress = true;
 }
@@ -680,7 +683,7 @@ void Free_tree::_mark_req_failed(Channel    &chan,
 void Free_tree::_mark_req_successful(Channel &channel,
                                      bool    &progress)
 {
-	channel._request._success = true;
+	channel._request->_success = true;
 	channel._state = Channel::COMPLETE;
 	progress = true;
 }
@@ -739,7 +742,7 @@ bool Free_tree::ready_to_submit_request()
 
 void Free_tree::_reset_block_state(Channel &chan)
 {
-	Request &req { chan._request };
+	Request &req { *chan._request };
 	chan._needed_blocks = req._num_requested_blks;
 	chan._found_blocks = 0;
 	for (Type_1_info_stack &stack : chan._level_n_stacks)
@@ -769,11 +772,18 @@ void Free_tree::submit_request(Module_request &mod_req)
 
 			mod_req.dst_request_id(id);
 
-			memcpy(&chan._request, static_cast<Request *>(&mod_req), sizeof(Request));
+			Request &r { *static_cast<Request *>(&mod_req) };
+			_channels[id]._request.construct(r.src_module_id(), r.src_chan_id(), r._type,
+				r._ft, r._mt, r._snapshots, r._last_secured_gen, r._curr_gen,
+				r._free_gen, r._num_requested_blks, r._new_blocks, r._old_blocks,
+				r._max_lvl, r._vba, r._vbd_degree, r._vbd_highest_vba, r._rekeying,
+				r._prev_key_id, r._curr_key_id, r._rekeying_vba, r._success);
+			chan._request->dst_request_id(id);
+
 			chan._exchanged_blocks = 0;
 			_reset_block_state(chan);
 
-			Request &req { chan._request };
+			Request &req { *chan._request };
 			Type_1_node root_node { };
 			root_node.pba = req._ft.pba;
 			root_node.gen = req._ft.gen;
@@ -830,13 +840,13 @@ bool Free_tree::_peek_generated_request(uint8_t *buf_ptr,
 			}
 			Meta_tree_request::create(
 				buf_ptr, buf_size, FREE_TREE, id, mt_req_type,
-				(void*)&channel._request._mt.pba,
-				(void*)&channel._request._mt.gen,
-				(void*)&channel._request._mt.hash,
-				channel._request._mt.max_lvl,
-				channel._request._mt.degree,
-				channel._request._mt.num_leaves,
-				channel._request._curr_gen,
+				(void*)&channel._request->_mt.pba,
+				(void*)&channel._request->_mt.gen,
+				(void*)&channel._request->_mt.hash,
+				channel._request->_mt.max_lvl,
+				channel._request->_mt.degree,
+				channel._request->_mt.num_leaves,
+				channel._request->_curr_gen,
 				local_mtr.pba);
 
 			return true;
@@ -963,7 +973,15 @@ bool Free_tree::_peek_completed_request(uint8_t *buf_ptr,
 				class Exception_1 { };
 				throw Exception_1 { };
 			}
-			memcpy(buf_ptr, &channel._request, sizeof(channel._request));
+
+			Request &r { *channel._request };
+			construct_at<Request>(buf_ptr, r.src_module_id(), r.src_chan_id(), r._type,
+				r._ft, r._mt, r._snapshots, r._last_secured_gen, r._curr_gen,
+				r._free_gen, r._num_requested_blks, r._new_blocks, r._old_blocks,
+				r._max_lvl, r._vba, r._vbd_degree, r._vbd_highest_vba, r._rekeying,
+				r._prev_key_id, r._curr_key_id, r._rekeying_vba, r._success);
+			(*(Request*)buf_ptr).dst_request_id(r.dst_chan_id());
+
 			return true;
 		}
 	}
