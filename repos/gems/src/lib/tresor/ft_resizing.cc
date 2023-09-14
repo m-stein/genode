@@ -101,7 +101,7 @@ void Ft_resizing::_execute_ft_ext_step_read_inner_node_completed(Channel        
 		} else {
 
 			Tree_level_index const parent_lvl_idx = channel._lvl_idx + 1;
-			Tree_node_index const child_idx = t1_child_idx_for_vba(channel._vba, parent_lvl_idx, req._ft_degree);
+			Tree_node_index const child_idx = t1_node_idx_for_vba(channel._vba, parent_lvl_idx, req._ft_degree);
 			Type_1_node const &child = channel._t1_blks.items[parent_lvl_idx].nodes[child_idx];
 
 			if (not check_sha256_4k_hash(channel._encoded_blk,
@@ -114,7 +114,7 @@ void Ft_resizing::_execute_ft_ext_step_read_inner_node_completed(Channel        
 
 		Tree_level_index const parent_lvl_idx = channel._lvl_idx;
 		Tree_level_index const child_lvl_idx = channel._lvl_idx - 1;
-		Tree_node_index const child_idx = t1_child_idx_for_vba(channel._vba, parent_lvl_idx, req._ft_degree);
+		Tree_node_index const child_idx = t1_node_idx_for_vba(channel._vba, parent_lvl_idx, req._ft_degree);
 		Type_1_node const &child = channel._t1_blks.items[parent_lvl_idx].nodes[child_idx];
 
 		if (child.valid()) {
@@ -181,7 +181,7 @@ void Ft_resizing::_execute_ft_ext_step_read_inner_node_completed(Channel        
 
 		{
 			Tree_level_index const parent_lvl_idx = channel._lvl_idx + 1;
-			Tree_node_index const child_idx = t1_child_idx_for_vba(channel._vba, parent_lvl_idx, req._ft_degree);
+			Tree_node_index const child_idx = t1_node_idx_for_vba(channel._vba, parent_lvl_idx, req._ft_degree);
 
 			if (not check_sha256_4k_hash(channel._encoded_blk,
 			                             channel._t1_blks.items[parent_lvl_idx].nodes[child_idx].hash)) {
@@ -526,7 +526,7 @@ void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
 
 			Tree_level_index const parent_lvl_idx = chan._lvl_idx + 1;
 			Tree_level_index const child_lvl_idx  = chan._lvl_idx;
-			Tree_node_index const child_idx = t1_child_idx_for_vba(chan._vba, parent_lvl_idx, req._ft_degree);
+			Tree_node_index const child_idx = t1_node_idx_for_vba(chan._vba, parent_lvl_idx, req._ft_degree);
 
 			Type_1_node &child {
 				chan._t1_blks.items[parent_lvl_idx].nodes[child_idx] };
@@ -557,7 +557,7 @@ void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
 
 			Tree_level_index const parent_lvl_idx = chan._lvl_idx + 1;
 			Tree_level_index const child_lvl_idx = chan._lvl_idx;
-			Tree_node_index const child_idx = t1_child_idx_for_vba(chan._vba, parent_lvl_idx, req._ft_degree);
+			Tree_node_index const child_idx = t1_node_idx_for_vba(chan._vba, parent_lvl_idx, req._ft_degree);
 			Type_1_node &child = chan._t1_blks.items[parent_lvl_idx].nodes[child_idx];
 			child = {
 				.pba = chan._new_pbas.pbas[child_lvl_idx],
