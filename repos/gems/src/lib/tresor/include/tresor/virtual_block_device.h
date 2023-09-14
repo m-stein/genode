@@ -44,7 +44,7 @@ class Tresor::Virtual_block_device_request : public Module_request
 		Virtual_block_address _vba;
 		Snapshots &_snapshots;
 		Snapshot_index _curr_snap_idx;
-		Tree_degree _snapshots_degree;
+		Tree_degree _snap_degr;
 		Generation _curr_gen;
 		Key_id _curr_key_id;
 		Key_id _prev_key_id;
@@ -85,7 +85,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		enum State {
 			INACTIVE, SUBMITTED, REQ_GENERATED, REQ_COMPLETE, READ_ROOT_NODE_SUCCEEDED,
 			READ_INNER_NODE_SUCCEEDED, READ_LEAF_NODE_SUCCEEDED,
-			READ_CLIENT_DATA_FROM_LEAF_NODE_SUCCEEDED,
+			READ_CLIENT_DATA_FROM_LEAF_NODE_SUCCEEDED, READ_BLK_SUCCEEDED, WRITE_BLK_SUCCEEDED,
 			WRITE_CLIENT_DATA_TO_LEAF_NODE_SUCCEEDED, DECRYPT_LEAF_NODE_SUCCEEDED,
 			ALLOC_PBAS_AT_LEAF_LVL_SUCCEEDED, ALLOC_PBAS_AT_LOWEST_INNER_LVL_SUCCEEDED,
 			ALLOC_PBAS_AT_HIGHER_INNER_LVL_SUCCEEDED, ENCRYPT_LEAF_NODE_SUCCEEDED,
@@ -107,7 +107,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		Snapshot_index _snap_idx { 0 };
 		Type_1_node_blocks _t1_blks { };
 		Type_1_node_blocks_pbas _t1_blks_old_pbas { };
-		Tree_level_index _t1_blk_idx { 0 };
+		Tree_level_index _lvl { 0 };
 		Virtual_block_address _vba { 0 };
 		Type_1_node_walk _t1_node_walk { };
 		Tree_walk_pbas _new_pbas { };
@@ -159,6 +159,14 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		void _mark_req_successful(bool &);
 
 		void _mark_req_failed(bool &, char const *);
+
+		void _set_new_pbas_and_nr_of_blks_for_alloc();
+
+		void _generate_ft_alloc_req_for_write_vba(bool &);
+
+		void _write_vba(bool &);
+
+		void _update_nodes_of_branch_of_written_vba();
 };
 
 class Tresor::Virtual_block_device : public Module
@@ -180,7 +188,6 @@ class Tresor::Virtual_block_device : public Module
 		bool _handle_failed_generated_req(Channel &chan,
 		                                  bool    &progress);
 
-		void _execute_write_vba          (Channel &, bool &);
 		void _execute_rekey_vba          (Channel &, bool &);
 		void _execute_vbd_extension_step (Channel &, bool &);
 
@@ -189,14 +196,6 @@ class Tresor::Virtual_block_device : public Module
 
 		Virtual_block_address _tree_max_max_vba(Tree_degree     snap_degree,
 		                                        Snapshot const &snap);
-
-		void _update_nodes_of_branch_of_written_vba(Snapshot &snapshot,
-		                                            uint64_t const snapshot_degree,
-		                                            uint64_t const vba,
-		                                            Tree_walk_pbas const &new_pbas,
-		                                            Hash const & leaf_hash,
-		                                            uint64_t curr_gen,
-		                                            Channel::Type_1_node_blocks &t1_blks);
 
 		void
 		_alloc_pba_from_resizing_contingent(Physical_block_address &first_pba,
@@ -216,24 +215,6 @@ class Tresor::Virtual_block_device : public Module
 		                                             bool             &progress);
 
 		void _add_new_root_lvl_to_snap_using_pba_contingent(Channel &chan);
-
-		void _initialize_new_pbas_and_determine_nr_of_pbas_to_allocate(uint64_t const curr_gen,
-		                                                               Snapshot const &snapshot,
-		                                                               uint64_t const snapshots_degree,
-		                                                               uint64_t const vba,
-		                                                               Channel::Type_1_node_blocks const &t1_blks,
-		                                                               Tree_walk_pbas &new_pbas,
-		                                                               uint64_t &nr_of_blks);
-
-		void _set_args_for_alloc_of_new_pbas_for_branch_of_written_vba(Channel &chan, uint64_t curr_gen,
-		                                                               Snapshot const &snapshot,
-		                                                               uint64_t const snapshots_degree,
-		                                                               uint64_t const vba,
-		                                                               Channel::Type_1_node_blocks const &t1_blks,
-		                                                               uint64_t                 &free_gen,
-		                                                               Type_1_node_walk         &t1_walk,
-		                                                               Channel::State           &state,
-		                                                               bool                     &progress);
 
 		void _set_args_for_alloc_of_new_pbas_for_rekeying(Channel          &chan,
 		                                                  Tree_level_index  min_lvl);
