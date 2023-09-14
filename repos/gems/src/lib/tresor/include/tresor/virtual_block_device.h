@@ -83,7 +83,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		using Request = Virtual_block_device_request;
 
 		enum State {
-			INACTIVE, SUBMITTED, REQ_GENERATED, REQ_COMPLETE, READ_ROOT_NODE_SUCCEEDED,
+			INACTIVE, SUBMITTED, REQ_GENERATED, READ_ROOT_NODE_SUCCEEDED,
 			READ_INNER_NODE_SUCCEEDED, READ_LEAF_NODE_SUCCEEDED,
 			READ_CLIENT_DATA_FROM_LEAF_NODE_SUCCEEDED,
 			WRITE_CLIENT_DATA_TO_LEAF_NODE_SUCCEEDED, DECRYPT_LEAF_NODE_SUCCEEDED,
@@ -102,8 +102,9 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 			Physical_block_address items[TREE_MAX_LEVEL] { 0 };
 		};
 
-		Constructible<Virtual_block_device_request> _request { };
+		Constructible<Virtual_block_device_request> _requestx { };
 
+		Request *_req_ptr { nullptr };
 		Key_value _dummy_key { };
 		State _state { INACTIVE };
 		Snapshot_index _snapshot_idx { 0 };
@@ -132,7 +133,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		void _request_submitted(Module_request &) override { }
 
-		bool _request_complete() override { return _state == REQ_COMPLETE; }
+		bool _request_complete() override { return _state == COMPLETED; }
 
 		void _generated_req_completed(State_uint) override;
 
@@ -143,7 +144,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		Snapshot &snapshots(Snapshot_index idx)
 		{
 			ASSERT(idx < MAX_NR_OF_SNAPSHOTS);
-			return _request->_snapshots.items[idx];
+			return _req_ptr->_snapshots.items[idx];
 		}
 
 		Snapshot &snap();
