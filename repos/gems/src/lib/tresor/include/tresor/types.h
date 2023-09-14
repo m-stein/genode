@@ -136,9 +136,7 @@ namespace Tresor {
 	}
 
 	inline Tree_node_index
-	t1_child_idx_for_vba_typed(Virtual_block_address vba,
-	                           Tree_level_index      lvl,
-	                           Tree_degree           degr)
+	t1_node_idx_for_vba_typed(Virtual_block_address vba, Tree_level_index lvl, Tree_degree degr)
 	{
 		uint64_t const degr_log_2 { log2(degr) };
 		uint64_t const degr_mask  { ((uint64_t)1 << degr_log_2) - 1 };
@@ -147,17 +145,12 @@ namespace Tresor {
 	}
 
 	template <typename T1, typename T2, typename T3>
-	inline Tree_node_index t1_child_idx_for_vba(T1 vba,
-	                                       T2 lvl,
-	                                       T3 degr)
+	inline Tree_node_index t1_node_idx_for_vba(T1 vba, T2 lvl, T3 degr)
 	{
-		return t1_child_idx_for_vba_typed((Virtual_block_address)vba,
-		                                  (Tree_level_index)lvl,
-		                                  (Tree_degree)degr);
+		return t1_node_idx_for_vba_typed((Virtual_block_address)vba, (Tree_level_index)lvl, (Tree_degree)degr);
 	}
 
-	inline Tree_node_index t2_child_idx_for_vba(Virtual_block_address vba,
-	                                       Tree_degree           degr)
+	inline Tree_node_index t2_child_idx_for_vba(Virtual_block_address vba, Tree_degree degr)
 	{
 		uint64_t const degr_log_2 { log2(degr) };
 		uint64_t const degr_mask  { ((uint64_t)1 << degr_log_2) - 1 };

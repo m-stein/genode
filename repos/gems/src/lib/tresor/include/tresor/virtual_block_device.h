@@ -76,21 +76,21 @@ class Tresor::Virtual_block_device_request : public Module_request
 
 class Tresor::Virtual_block_device_channel : public Module_channel
 {
-	private:
+	friend class Virtual_block_device;
 
-		friend class Virtual_block_device;
+	private:
 
 		using Request = Virtual_block_device_request;
 
 		enum State {
-			INACTIVE, SUBMITTED, REQ_GENERATED, READ_ROOT_NODE_SUCCEEDED,
+			INACTIVE, SUBMITTED, REQ_GENERATED, REQ_COMPLETE, READ_ROOT_NODE_SUCCEEDED,
 			READ_INNER_NODE_SUCCEEDED, READ_LEAF_NODE_SUCCEEDED,
 			READ_CLIENT_DATA_FROM_LEAF_NODE_SUCCEEDED,
 			WRITE_CLIENT_DATA_TO_LEAF_NODE_SUCCEEDED, DECRYPT_LEAF_NODE_SUCCEEDED,
 			ALLOC_PBAS_AT_LEAF_LVL_SUCCEEDED, ALLOC_PBAS_AT_LOWEST_INNER_LVL_SUCCEEDED,
 			ALLOC_PBAS_AT_HIGHER_INNER_LVL_SUCCEEDED, ENCRYPT_LEAF_NODE_SUCCEEDED,
 			WRITE_LEAF_NODE_SUCCEEDED, WRITE_INNER_NODE_SUCCEEDED,
-			WRITE_ROOT_NODE_SUCCEEDED, COMPLETED };
+			WRITE_ROOT_NODE_SUCCEEDED };
 
 		struct Type_1_node_blocks
 		{
@@ -103,9 +103,8 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		};
 
 		Request *_req_ptr { nullptr };
-		Key_value _dummy_key { };
 		State _state { INACTIVE };
-		Snapshot_index _snapshot_idx { 0 };
+		Snapshot_index _snap_idx { 0 };
 		Type_1_node_blocks _t1_blks { };
 		Type_1_node_blocks_pbas _t1_blks_old_pbas { };
 		Tree_level_index _t1_blk_idx { 0 };
@@ -131,7 +130,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		void _request_submitted(Module_request &) override;
 
-		bool _request_complete() override { return _state == COMPLETED; }
+		bool _request_complete() override { return _state == REQ_COMPLETE; }
 
 		void _generated_req_completed(State_uint) override;
 
@@ -145,9 +144,21 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 			return _req_ptr->_snapshots.items[idx];
 		}
 
-		Snapshot &snap();
+		Snapshot &snap() { return _req_ptr->_snapshots.items[_snap_idx]; }
 
 		void _log_rekeying_pba_alloc() const;
+
+		void _generate_write_node_req(bool &);
+
+		bool _find_next_snap_to_rekey_vba_at(Snapshot_index &) const;
+
+		void _read_vba(bool &);
+
+		void _check_and_decode_read_t1_blk(bool &);
+
+		void _mark_req_successful(bool &);
+
+		void _mark_req_failed(bool &, char const *);
 };
 
 class Tresor::Virtual_block_device : public Module
@@ -169,20 +180,9 @@ class Tresor::Virtual_block_device : public Module
 		bool _handle_failed_generated_req(Channel &chan,
 		                                  bool    &progress);
 
-		bool _find_next_snap_to_rekey_vba_at(Channel const   &chan,
-		                                     Snapshot_index  &next_snap_idx);
-
-		void _execute_read_vba           (Channel &, bool &);
-		void _execute_write_vba          (Channel &, uint64_t, bool &);
-		void _execute_rekey_vba          (Channel &, uint64_t, bool &);
-		void _execute_vbd_extension_step (Channel &, uint64_t, bool &);
-
-		void _mark_req_failed(Channel    &chan,
-		                      bool       &progress,
-		                      char const *str);
-
-		void _mark_req_successful(Channel &chan,
-		                          bool    &progress);
+		void _execute_write_vba          (Channel &, bool &);
+		void _execute_rekey_vba          (Channel &, bool &);
+		void _execute_vbd_extension_step (Channel &, bool &);
 
 		void _execute_read_vba_read_inner_node_completed(Channel &channel,
 		                                                 bool &progress);
@@ -212,18 +212,10 @@ class Tresor::Virtual_block_device : public Module
 
 		void
 		_set_args_for_alloc_of_new_pbas_for_resizing(Channel          &chan,
-		                                             uint64_t          chan_idx,
 		                                             Tree_level_index  min_lvl,
 		                                             bool             &progress);
 
 		void _add_new_root_lvl_to_snap_using_pba_contingent(Channel &chan);
-
-		void _check_hash_of_read_type_1_node(Channel &chan,
-		                                     Snapshot const &snapshot,
-		                                     uint64_t const snapshots_degree,
-		                                     uint64_t const t1_blk_idx,
-		                                     Channel::Type_1_node_blocks const &t1_blks,
-		                                     uint64_t const vba);
 
 		void _initialize_new_pbas_and_determine_nr_of_pbas_to_allocate(uint64_t const curr_gen,
 		                                                               Snapshot const &snapshot,
@@ -238,20 +230,13 @@ class Tresor::Virtual_block_device : public Module
 		                                                               uint64_t const snapshots_degree,
 		                                                               uint64_t const vba,
 		                                                               Channel::Type_1_node_blocks const &t1_blks,
-		                                                               uint64_t const prim_idx,
 		                                                               uint64_t                 &free_gen,
 		                                                               Type_1_node_walk         &t1_walk,
 		                                                               Channel::State           &state,
 		                                                               bool                     &progress);
 
 		void _set_args_for_alloc_of_new_pbas_for_rekeying(Channel          &chan,
-		                                                  uint64_t  chan_idx,
 		                                                  Tree_level_index  min_lvl);
-
-		void _set_args_for_write_back_of_t1_lvl(Channel &, Tree_level_index const max_lvl_idx,
-		                                        uint64_t const  t1_lvl_idx,
-		                                        uint64_t const  pba,
-		                                        bool &progress);
 
 		void execute(bool &) override;
 
