@@ -84,10 +84,10 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		enum State {
 			INACTIVE, SUBMITTED, REQ_GENERATED, REQ_COMPLETE, READ_ROOT_NODE_SUCCEEDED,
-			READ_INNER_NODE_SUCCEEDED, READ_LEAF_NODE_SUCCEEDED,
-			READ_CLIENT_DATA_FROM_LEAF_NODE_SUCCEEDED, READ_BLK_SUCCEEDED, WRITE_BLK_SUCCEEDED,
-			WRITE_CLIENT_DATA_TO_LEAF_NODE_SUCCEEDED, DECRYPT_LEAF_NODE_SUCCEEDED,
-			ALLOC_PBAS_AT_LEAF_LVL_SUCCEEDED, ALLOC_PBAS_AT_LOWEST_INNER_LVL_SUCCEEDED,
+			READ_INNER_NODE_SUCCEEDED, READ_LEAF_NODE_SUCCEEDED, READ_BLK_SUCCEEDED,
+			WRITE_BLK_SUCCEEDED, WRITE_CLIENT_DATA_TO_LEAF_NODE_SUCCEEDED,
+			DECRYPT_LEAF_NODE_SUCCEEDED, ALLOC_PBAS_AT_LEAF_LVL_SUCCEEDED,
+			ALLOC_PBAS_AT_LOWEST_INNER_LVL_SUCCEEDED,
 			ALLOC_PBAS_AT_HIGHER_INNER_LVL_SUCCEEDED, ENCRYPT_LEAF_NODE_SUCCEEDED,
 			WRITE_LEAF_NODE_SUCCEEDED, WRITE_INNER_NODE_SUCCEEDED,
 			WRITE_ROOT_NODE_SUCCEEDED };
@@ -97,19 +97,14 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 			Type_1_node_block items[TREE_MAX_LEVEL] { };
 		};
 
-		struct Type_1_node_blocks_pbas
-		{
-			Physical_block_address items[TREE_MAX_LEVEL] { 0 };
-		};
-
 		Request *_req_ptr { nullptr };
 		State _state { INACTIVE };
 		Snapshot_index _snap_idx { 0 };
 		Type_1_node_blocks _t1_blks { };
-		Type_1_node_blocks_pbas _t1_blks_old_pbas { };
 		Tree_level_index _lvl { 0 };
 		Virtual_block_address _vba { 0 };
 		Type_1_node_walk _t1_node_walk { };
+		Tree_walk_pbas _old_pbas { };
 		Tree_walk_pbas _new_pbas { };
 		Hash _hash { };
 		Number_of_blocks _nr_of_blks { 0 };
@@ -161,6 +156,10 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		void _write_vba(bool &);
 
 		void _update_nodes_of_branch_of_written_vba();
+
+		void _rekey_vba(bool &);
+
+		void _set_args_for_alloc_of_new_pbas_for_rekeying(Tree_level_index);
 };
 
 class Tresor::Virtual_block_device : public Module
@@ -171,7 +170,6 @@ class Tresor::Virtual_block_device : public Module
 		using Request = Virtual_block_device_request;
 
 		enum { NR_OF_CHANNELS = 1 };
-		enum { FIRST_T1_NODE_BLKS_IDX = 1 };
 		enum { MAX_T1_NODE_BLKS_IDX = 6 };
 
 		Channel _channels[NR_OF_CHANNELS] { };
@@ -181,7 +179,6 @@ class Tresor::Virtual_block_device : public Module
 		bool _handle_failed_generated_req(Channel &chan,
 		                                  bool    &progress);
 
-		void _execute_rekey_vba          (Channel &, bool &);
 		void _execute_vbd_extension_step (Channel &, bool &);
 
 		void _execute_read_vba_read_inner_node_completed(Channel &channel,
@@ -208,9 +205,6 @@ class Tresor::Virtual_block_device : public Module
 		                                             bool             &progress);
 
 		void _add_new_root_lvl_to_snap_using_pba_contingent(Channel &chan);
-
-		void _set_args_for_alloc_of_new_pbas_for_rekeying(Channel          &chan,
-		                                                  Tree_level_index  min_lvl);
 
 		void execute(bool &) override;
 
