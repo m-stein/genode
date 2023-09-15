@@ -669,26 +669,20 @@ struct Tresor::Snapshots
 		}
 	}
 
-	Snapshot_index newest_snapshot_idx() const
+	Snapshot_index newest_snap_idx() const
 	{
 		Snapshot_index result { INVALID_SNAP_IDX };
 		for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx ++) {
-
-			Snapshot const &snap { items[idx] };
-			if (!snap.valid)
+			if (!items[idx].valid)
 				continue;
 
-			if (result != INVALID_SNAP_IDX &&
-			    snap.gen <= items[result].gen)
+			if (result != INVALID_SNAP_IDX && items[idx].gen <= items[result].gen)
 				continue;
 
 			result = idx;
 		}
-		if (result != INVALID_SNAP_IDX)
-			return result;
-
-		class Exception_1 { };
-		throw Exception_1 { };
+		ASSERT(result != INVALID_SNAP_IDX);
+		return result;
 	}
 
 	/**

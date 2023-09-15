@@ -218,7 +218,7 @@ void Superblock_control_channel::_tree_ext_step(Superblock::State sb_state, bool
 		_sb.resizing_nr_of_leaves += _nr_of_leaves;
 
 		if (tree_name == "vbd")
-			_sb.curr_snap_idx = _sb.snapshots.newest_snapshot_idx();
+			_sb.curr_snap_idx = _sb.snapshots.newest_snap_idx();
 		else if (tree_name == "ft") {
 			_sb.free_gen = _ft_root.gen;
 			_sb.free_number = _ft_root.pba;
@@ -499,7 +499,7 @@ void Superblock_control_channel::_initialize(bool &progress)
 		if (_sb_ciphertext.state != Superblock::INVALID) {
 
 			Superblock const &cipher { _sb_ciphertext };
-			Snapshot_index const snap_index { cipher.snapshots.newest_snapshot_idx() };
+			Snapshot_index const snap_index { cipher.snapshots.newest_snap_idx() };
 			Generation const sb_generation { cipher.snapshots.items[snap_index].gen };
 
 			if (check_sha256_4k_hash(_blk, _hash)) {
