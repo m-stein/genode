@@ -112,7 +112,6 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		Generation _free_gen { 0 };
 		Block _encoded_blk { };
 		Block _data_blk { };
-		Physical_block_address _data_blk_old_pba { 0 };
 		bool _first_snapshot { false };
 		bool _gen_req_success { false };
 
