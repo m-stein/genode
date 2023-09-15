@@ -134,7 +134,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		Snapshot &snap() { return _req_ptr->_snapshots.items[_snap_idx]; }
 
-		void _log_rekeying_pba_alloc() const;
+		void _log_rekeying_alloc_result() const;
 
 		void _generate_write_node_req(bool &);
 
@@ -142,7 +142,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		void _read_vba(bool &);
 
-		void _check_and_decode_read_t1_blk(bool &);
+		bool _check_and_decode_read_blk(bool &, bool);
 
 		void _mark_req_successful(bool &);
 
