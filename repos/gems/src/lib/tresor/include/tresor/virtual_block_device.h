@@ -138,12 +138,6 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		Free_tree_request::Type _ft_rkg_alloc_type() const;
 
-		Snapshot &snapshots(Snapshot_index idx)
-		{
-			ASSERT(idx < MAX_NR_OF_SNAPSHOTS);
-			return _req_ptr->_snapshots.items[idx];
-		}
-
 		Snapshot &snap() { return _req_ptr->_snapshots.items[_snap_idx]; }
 
 		void _log_rekeying_pba_alloc() const;
@@ -175,7 +169,6 @@ class Tresor::Virtual_block_device : public Module
 
 		using Channel = Virtual_block_device_channel;
 		using Request = Virtual_block_device_request;
-		using Type_1_node_blocks = Channel::Type_1_node_blocks;
 
 		enum { NR_OF_CHANNELS = 1 };
 		enum { FIRST_T1_NODE_BLKS_IDX = 1 };
