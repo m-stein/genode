@@ -354,7 +354,7 @@ _set_args_for_alloc_of_new_pbas_for_rekeying(Channel          &chan,
 	Snapshot const &snap { (chan._req_ptr->_snapshots).items[chan._snap_idx] };
 	Tree_degree const snap_degree { chan._req_ptr->_snap_degr };
 	Virtual_block_address const vba { chan._req_ptr->_vba };
-	Type_1_node_blocks const &t1_blks { chan._t1_blks };
+	Channel::Type_1_node_blocks const &t1_blks { chan._t1_blks };
 	Type_1_node_walk &t1_walk { chan._t1_node_walk };
 	Tree_walk_pbas &new_pbas { chan._new_pbas };
 
