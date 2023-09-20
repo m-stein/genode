@@ -75,8 +75,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 			TREE_EXT_STEP_IN_TREE_SUCCEEDED, DECRYPT_CURR_KEY_SUCCEEDED,
 			DECRYPT_PREV_KEY_SUCCEEDED, READ_SB_HASH_SUCCEEDED, ADD_PREV_KEY_SUCCEEDED,
 			ADD_CURR_KEY_SUCCEEDED, REMOVE_PREV_KEY_SUCCEEDED, REMOVE_CURR_KEY_SUCCEEDED,
-			READ_SB_SUCCEEDED, READ_CURR_SB_SUCCEEDED, REQ_COMPLETE, REQ_GENERATED,
-			SECURE_SB, SECURE_SB_SUCCEEDED };
+			READ_SB_SUCCEEDED, REQ_COMPLETE, REQ_GENERATED, SECURE_SB, SECURE_SB_SUCCEEDED };
 
 		enum Secure_sb_state : State_uint {
 			SECURE_SB_INACTIVE, STARTED, ENCRYPT_CURR_KEY_SUCCEEDED,
@@ -89,8 +88,6 @@ class Tresor::Superblock_control_channel : public Module_channel
 		Secure_sb_state _secure_sb_state { SECURE_SB_INACTIVE };
 		Superblock _sb_ciphertext { };
 		Block _blk { };
-		bool _sb_found { false };
-		Superblock_index _read_sb_idx { INVALID_SB_IDX };
 		Generation _gen { INVALID_GENERATION };
 		Hash _hash { };
 		Physical_block_address _pba { INVALID_PBA };
