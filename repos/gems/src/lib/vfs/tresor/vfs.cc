@@ -1017,9 +1017,9 @@ class Vfs_tresor::Wrapper
 		Extending const extending_progress() const {
 			return _extend_obj; }
 
-		void snapshot_generations(Tresor::Snapshot_generations &generations)
+		void snapshots_info(Tresor::Snapshots_info &info)
 		{
-			_sb_control->snapshot_generations(generations);
+			info = _sb_control->snapshots_info();
 			execute();
 		}
 
@@ -3320,14 +3320,14 @@ void Vfs_tresor::Wrapper::_deinit_fs_trigger_watch_response()
 
 void Vfs_tresor::Snapshots_file_system::Snapshot_registry::update(Vfs::Env &vfs_env)
 {
-	Tresor::Snapshot_generations generations { };
-	_wrapper.snapshot_generations(generations);
+	Tresor::Snapshots_info snap_info { };
+	_wrapper.snapshots_info(snap_info);
 	bool trigger_watch_response { false };
 
 	/* alloc new */
 	for (size_t i = 0; i < MAX_NR_OF_SNAPSHOTS; i++) {
 
-		Generation const snap_gen = generations.items[i];
+		Generation const snap_gen = snap_info.generations[i];
 		if (snap_gen == INVALID_GENERATION)
 			continue;
 
@@ -3353,7 +3353,7 @@ void Vfs_tresor::Snapshots_file_system::Snapshot_registry::update(Vfs::Env &vfs_
 	{
 		bool is_stale = true;
 		for (size_t i = 0; i < MAX_NR_OF_SNAPSHOTS; i++) {
-			Generation const snap_gen = generations.items[i];
+			Generation const snap_gen = snap_info.generations[i];
 			if (snap_gen == INVALID_GENERATION)
 				continue;
 
