@@ -172,7 +172,7 @@ class Tresor::Superblock_control : public Module
 
 	public:
 
-		Virtual_block_address max_vba() const { return _sb.max_vba(); };
+		Virtual_block_address max_vba() const { return _sb.valid() ? _sb.max_vba() : 0; };
 
 		Virtual_block_address resizing_nr_of_pbas() const { return _sb.resizing_nr_of_pbas; }
 
