@@ -483,47 +483,29 @@ void Superblock_control_channel::_initialize(bool &progress)
 	case REQ_SUBMITTED:
 
 		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
-		_sb_found = false;
 		_generate_req<Trust_anchor::Read_hash>(READ_SB_HASH_SUCCEEDED, progress, _hash);
 		break;
 
 	case READ_SB_HASH_SUCCEEDED:
 
-		_read_sb_idx = 0;
-		_generate_req<Block_io::Read>(READ_SB_SUCCEEDED, progress, _read_sb_idx, _blk);
+		_sb_idx = 0;
+		_generate_req<Block_io::Read>(READ_SB_SUCCEEDED, progress, _sb_idx, _blk);
 		break;
 
 	case READ_SB_SUCCEEDED:
 
 		_sb_ciphertext.decode_from_blk(_blk);
-		if (_sb_ciphertext.state != Superblock::INVALID) {
-
-			Superblock const &cipher { _sb_ciphertext };
-			Snapshot_index const snap_index { cipher.snapshots.newest_snap_idx() };
-			Generation const sb_generation { cipher.snapshots.items[snap_index].gen };
-
-			if (check_sha256_4k_hash(_blk, _hash)) {
-				_gen = sb_generation;
-				_sb_idx = _read_sb_idx;
-				_sb_found = true;
-			}
-		}
-		if (_read_sb_idx < MAX_SUPERBLOCK_INDEX) {
-			_read_sb_idx++;
-			_generate_req<Block_io::Read>(READ_SB_SUCCEEDED, progress, _read_sb_idx, _blk);
-		} else {
-			ASSERT(_sb_found);
-			_generate_req<Block_io::Read>(READ_CURR_SB_SUCCEEDED, progress, _sb_idx, _blk);
-		}
-		break;
-
-	case READ_CURR_SB_SUCCEEDED:
-
-		_sb_ciphertext.decode_from_blk(_blk);
-		ASSERT(_sb_ciphertext.state != Superblock::INVALID);
-		_sb.copy_all_but_key_values_from(_sb_ciphertext);
-		_generate_req<Trust_anchor::Encrypt_key>(
-			DECRYPT_CURR_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb_ciphertext.current_key.value);
+		if (check_sha256_4k_hash(_blk, _hash)) {
+			_gen = _sb_ciphertext.snapshots.items[_sb_ciphertext.snapshots.newest_snap_idx()].gen;
+			_sb.copy_all_but_key_values_from(_sb_ciphertext);
+			_generate_req<Trust_anchor::Encrypt_key>(
+				DECRYPT_CURR_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb_ciphertext.current_key.value);
+		} else
+			if (_sb_idx < MAX_SUPERBLOCK_INDEX) {
+				_sb_idx++;
+				_generate_req<Block_io::Read>(READ_SB_SUCCEEDED, progress, _sb_idx, _blk);
+			} else
+				_mark_req_failed(progress, "superblock not found");
 		break;
 
 	case DECRYPT_CURR_KEY_SUCCEEDED:
