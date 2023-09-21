@@ -14,7 +14,7 @@
 /* tresor includes */
 #include <tresor/meta_tree.h>
 #include <tresor/block_io.h>
-#include <tresor/sha256_4k_hash.h>
+#include <tresor/hash.h>
 
 using namespace Tresor;
 
@@ -169,7 +169,7 @@ void Meta_tree::generated_request_complete(Module_request &mod_req)
 
 		if (local_req.level > T2_NODE_LVL) {
 
-			if (!check_sha256_4k_hash(channel._cache_request.block_data, t1_info.node.hash)) {
+			if (!check_hash(channel._cache_request.block_data, t1_info.node.hash)) {
 
 				channel._state = Channel::TREE_HASH_MISMATCH;
 
@@ -181,7 +181,7 @@ void Meta_tree::generated_request_complete(Module_request &mod_req)
 			}
 		} else if (local_req.level == T2_NODE_LVL) {
 
-			if (!check_sha256_4k_hash(channel._cache_request.block_data, t2_info.node.hash)) {
+			if (!check_hash(channel._cache_request.block_data, t2_info.node.hash)) {
 
 				channel._state = Channel::TREE_HASH_MISMATCH;
 
@@ -245,7 +245,7 @@ void Meta_tree::_update_parent(Type_1_node &node,
                                uint64_t     gen,
                                uint64_t     pba)
 {
-	calc_sha256_4k_hash(blk, node.hash);
+	calc_hash(blk, node.hash);
 	node.gen = gen;
 	node.pba = pba;
 }

@@ -20,7 +20,6 @@
 /* tresor includes */
 #include <tresor/types.h>
 #include <tresor/module.h>
-#include <tresor/sha256_4k_hash.h>
 
 namespace Tresor {
 

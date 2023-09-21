@@ -15,7 +15,7 @@
 #include <tresor/superblock_control.h>
 #include <tresor/crypto.h>
 #include <tresor/ft_resizing.h>
-#include <tresor/sha256_4k_hash.h>
+#include <tresor/hash.h>
 
 using namespace Tresor;
 
@@ -336,7 +336,7 @@ void Superblock_control_channel::_secure_sb(bool &progress)
 	case SYNC_BLK_IO_SUCCEEDED:
 	{
 		_sb_ciphertext.encode_to_blk(_blk);
-		calc_sha256_4k_hash(_blk, _hash);
+		calc_hash(_blk, _hash);
 		_generate_req<Trust_anchor::Write_hash>(WRITE_SB_HASH_SUCCEEDED, progress, _hash);
 		if (_sb_idx < MAX_SUPERBLOCK_INDEX)
 			_sb_idx++;
@@ -495,7 +495,7 @@ void Superblock_control_channel::_initialize(bool &progress)
 	case READ_SB_SUCCEEDED:
 
 		_sb_ciphertext.decode_from_blk(_blk);
-		if (check_sha256_4k_hash(_blk, _hash)) {
+		if (check_hash(_blk, _hash)) {
 			_gen = _sb_ciphertext.snapshots.items[_sb_ciphertext.snapshots.newest_snap_idx()].gen;
 			_sb.copy_all_but_key_values_from(_sb_ciphertext);
 			_generate_req<Trust_anchor::Encrypt_key>(

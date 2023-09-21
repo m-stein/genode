@@ -17,7 +17,7 @@
 /* tresor includes */
 #include <tresor/block_allocator.h>
 #include <tresor/block_io.h>
-#include <tresor/sha256_4k_hash.h>
+#include <tresor/hash.h>
 #include <tresor/ft_initializer.h>
 
 using namespace Tresor;
@@ -205,7 +205,7 @@ void Ft_initializer::_execute_inner_t2_child(Channel                            
 
 			Block blk { };
 			child_level.children.encode_to_blk(blk);
-			calc_sha256_4k_hash(blk, child.hash);
+			calc_hash(blk, child.hash);
 
 			child_state = CS::WRITE_BLOCK;
 			progress = true;
@@ -335,7 +335,7 @@ void Ft_initializer::_execute_inner_t1_child(Channel                            
 
 			Block blk { };
 			child_level.children.encode_to_blk(blk);
-			calc_sha256_4k_hash(blk, child.hash);
+			calc_hash(blk, child.hash);
 
 			child_state = CS::WRITE_BLOCK;
 			progress = true;

@@ -17,7 +17,7 @@
 /* tresor includes */
 #include <tresor/ft_check.h>
 #include <tresor/block_io.h>
-#include <tresor/sha256_4k_hash.h>
+#include <tresor/hash.h>
 
 using namespace Tresor;
 
@@ -128,7 +128,7 @@ void Ft_check::_execute_inner_t2_child(Channel          &chan,
 		child_lvl.children.encode_to_blk(blk);
 
 		if (child.gen == INITIAL_GENERATION ||
-		    check_sha256_4k_hash(blk, child.hash)) {
+		    check_hash(blk, child.hash)) {
 
 			child_state = Channel::DONE;
 			progress = true;
@@ -219,7 +219,7 @@ void Ft_check::_execute_inner_t1_child(Channel           &chan,
 		child_lvl.children.encode_to_blk(blk);
 
 		if (child.gen == INITIAL_GENERATION ||
-		    check_sha256_4k_hash(blk, child.hash)) {
+		    check_hash(blk, child.hash)) {
 
 			child_state = Channel::DONE;
 			if (&child_state == &chan._root_state) {

@@ -18,7 +18,7 @@
 /* tresor includes */
 #include <tresor/crypto.h>
 #include <tresor/block_io.h>
-#include <tresor/sha256_4k_hash.h>
+#include <tresor/hash.h>
 
 using namespace Tresor;
 
@@ -334,7 +334,7 @@ void Block_io::_execute_write_client_data(Channel &channel,
 			_mark_req_failed(channel, progress, "encrypt client data");
 			return;
 		}
-		calc_sha256_4k_hash(channel._blk_buf, req._hash);
+		calc_hash(channel._blk_buf, req._hash);
 		_vfs_handle.seek(req._pba * BLOCK_SIZE +
 		                 channel._nr_of_processed_bytes);
 
@@ -582,21 +582,17 @@ bool Block_io::_peek_completed_request(uint8_t *buf_ptr,
 				case Request::READ:
 				case Request::WRITE:
 				{
-					Hash hash;
-					calc_sha256_4k_hash(req._blk, hash);
 					log("block_io: ", req.type_to_string(req._type), " pba ", req._pba,
-					    " data ", req._blk, " hash ", hash);
+					    " data ", req._blk, " hash ", hash(req._blk));
 
 					break;
 				}
 				case Request::READ_CLIENT_DATA:
 				case Request::WRITE_CLIENT_DATA:
 				{
-					Hash hash;
-					calc_sha256_4k_hash(channel._blk_buf, hash);
 					log("block_io: ", req.type_to_string(req._type), " pba ", req._pba,
 					    " data ", channel._blk_buf,
-					    " hash ", hash);
+					    " hash ", hash(channel._blk_buf));
 
 					break;
 				}
