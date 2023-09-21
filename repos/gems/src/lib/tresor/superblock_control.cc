@@ -183,7 +183,7 @@ void Superblock_control_channel::_tree_ext_step(Superblock::State sb_state, bool
 			if (tree_name == "vbd") {
 
 				_generate_vbd_req(
-					Virtual_block_device_request::VBD_EXTENSION_STEP,
+					Virtual_block_device_request::EXTENSION_STEP,
 					TREE_EXT_STEP_IN_TREE_SUCCEEDED, progress, _sb.current_key.id);
 
 			} else if (tree_name == "ft") {
