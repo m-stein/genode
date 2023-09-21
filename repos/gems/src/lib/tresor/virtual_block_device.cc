@@ -63,10 +63,13 @@ void Virtual_block_device_channel::_generated_req_completed(State_uint state_uin
 }
 
 
-void Virtual_block_device_channel::_generate_write_node_req(bool &progress)
+void Virtual_block_device_channel::_generate_write_blk_req(bool &progress)
 {
-	_t1_blks.items[_lvl].encode_to_blk(_encoded_blk);
-	_generate_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _encoded_blk);
+	if (_lvl) {
+		_t1_blks.items[_lvl].encode_to_blk(_encoded_blk);
+		_generate_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _encoded_blk);
+	} else
+		_generate_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _data_blk);
 }
 
 
@@ -264,13 +267,12 @@ void Virtual_block_device_channel::_write_vba(bool &progress)
 
 	case WRITE_BLK_SUCCEEDED:
 
-		if (_lvl == 0)
+		if (!_lvl)
 			_update_nodes_of_branch_of_written_vba();
 
 		if (_lvl < snap().max_level) {
 			_lvl++;
-			_t1_blks.items[_lvl].encode_to_blk(_encoded_blk);
-			_generate_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _encoded_blk);
+			_generate_write_blk_req(progress);
 		} else
 		 	_mark_req_successful(progress);
 		break;
@@ -415,11 +417,8 @@ void Virtual_block_device_channel::_rekey_vba(bool &progress)
 	case DECRYPT_LEAF_DATA_SUCCEEDED:
 	{
 		_generate_ft_alloc_req_for_rekeying(_lvl, progress);
-		if (VERBOSE_REKEYING) {
-			Hash hash { };
-			calc_sha256_4k_hash(_data_blk, hash);
-			log("      re-encrypt leaf data: plaintext ", _data_blk, " hash ", hash);
-		}
+		if (VERBOSE_REKEYING)
+			log("      re-encrypt leaf data: plaintext ", _data_blk, " hash ", sha256_4k_hash(_data_blk));
 		break;
 	}
 	case ALLOC_PBAS_SUCCEEDED:
@@ -443,7 +442,7 @@ void Virtual_block_device_channel::_rekey_vba(bool &progress)
 
 	case ENCRYPT_LEAF_DATA_SUCCEEDED:
 
-		_generate_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[0], _data_blk);
+		_generate_write_blk_req(progress);
 		if (VERBOSE_REKEYING)
 			log("      update branch:\n        ", Branch_lvl_prefix("leaf data: "), _data_blk);
 		break;
@@ -457,8 +456,7 @@ void Virtual_block_device_channel::_rekey_vba(bool &progress)
 			Block &blk { _lvl ? _encoded_blk : _data_blk };
 			calc_sha256_4k_hash(blk, node.hash);
 			_lvl++;
-			_t1_blks.items[_lvl].encode_to_blk(_encoded_blk);
-			_generate_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _encoded_blk);
+			_generate_write_blk_req(progress);
 			if (VERBOSE_REKEYING)
 				log("        ", Branch_lvl_prefix("lvl ", _lvl, " node ", node_idx, ": "), node);
 		} else {
@@ -651,7 +649,7 @@ void Virtual_block_device_channel::_extension_step(bool &progress)
 			_add_new_root_lvl_to_snap();
 			_add_new_branch_to_snap(req._snapshots.items[_snap_idx].max_level, 1);
 			_set_new_pbas_identical_to_curr_pbas();
-			_generate_write_node_req(progress);
+			_generate_write_blk_req(progress);
 			if (VERBOSE_VBD_EXTENSION)
 				log("  write 1 lvl ", _lvl, " pba ", _new_pbas.pbas[_lvl]);
 		}
@@ -701,9 +699,7 @@ void Virtual_block_device_channel::_extension_step(bool &progress)
 
 			log("  write 1 lvl ", _lvl, " pba ", new_pba);
 		}
-		_t1_blks.items[_lvl].encode_to_blk(_encoded_blk);
-		_generate_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, new_pba, _encoded_blk);
-		progress = true;
+		_generate_write_blk_req(progress);
 		break;
 	}
 	case WRITE_BLK_SUCCEEDED:
@@ -714,11 +710,9 @@ void Virtual_block_device_channel::_extension_step(bool &progress)
 			Type_1_node &node { _t1_blks.items[_lvl].nodes[node_idx] };
 			calc_sha256_4k_hash(_encoded_blk, node.hash);
 			node.pba = _new_pbas.pbas[_lvl - 1];
+			_generate_write_blk_req(progress);
 			if (VERBOSE_VBD_EXTENSION)
 				log("  update lvl ", _lvl, " node ", node_idx, " ", node, "\n  write 2 lvl ", _lvl, " pba ", _new_pbas.pbas[_lvl]);
-
-			_t1_blks.items[_lvl].encode_to_blk(_encoded_blk);
-			_generate_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _encoded_blk);
 		} else {
 			Snapshot &old_snap { snap() };
 			if (snap().gen < req._curr_gen) {

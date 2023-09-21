@@ -48,3 +48,11 @@ void Tresor::calc_sha256_4k_hash(Block const &blk,
 		throw Calc_sha256_4k_hash_final_error { };
 	}
 }
+
+
+Tresor::Hash Tresor::sha256_4k_hash(Block const &blk)
+{
+	Hash hash { };
+	calc_sha256_4k_hash(blk, hash);
+	return hash;
+}

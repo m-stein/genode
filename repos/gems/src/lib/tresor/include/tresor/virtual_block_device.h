@@ -131,7 +131,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		Snapshot &snap() { return _req_ptr->_snapshots.items[_snap_idx]; }
 
-		void _generate_write_node_req(bool &);
+		void _generate_write_blk_req(bool &);
 
 		bool _find_next_snap_to_rekey_vba_at(Snapshot_index &) const;
 
