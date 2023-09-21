@@ -39,26 +39,28 @@ class Tresor::Virtual_block_device_request : public Module_request
 
 	private:
 
-		Type _type;
-		Virtual_block_address _vba;
+		Type const _type;
+		Virtual_block_address const _vba;
 		Snapshots &_snapshots;
-		Snapshot_index _curr_snap_idx;
-		Tree_degree _snap_degr;
-		Generation _curr_gen;
-		Key_id _curr_key_id;
-		Key_id _prev_key_id;
+		Snapshot_index const _curr_snap_idx;
+		Tree_degree const _snap_degr;
+		Generation const _curr_gen;
+		Key_id const _curr_key_id;
+		Key_id const _prev_key_id;
 		Free_tree_root &_ft;
 		Meta_tree_root &_mt;
-		Tree_degree _vbd_degree;
-		Virtual_block_address _vbd_highest_vba;
-		bool _rekeying;
-		Request_offset _client_req_offset;
-		Request_tag _client_req_tag;
-		Generation _last_secured_generation;
+		Tree_degree const _vbd_degree;
+		Virtual_block_address const _vbd_highest_vba;
+		bool const _rekeying;
+		Request_offset const _client_req_offset;
+		Request_tag const _client_req_tag;
+		Generation const _last_secured_gen;
 		Physical_block_address &_pba;
 		Number_of_blocks &_num_pbas;
 		Number_of_leaves &_num_leaves;
 		bool &_success;
+
+		NONCOPYABLE(Virtual_block_device_request);
 
 	public:
 
@@ -80,32 +82,20 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		using Request = Virtual_block_device_request;
 
 		enum State {
-			INACTIVE, SUBMITTED, REQ_GENERATED, REQ_COMPLETE, READ_ROOT_NODE_SUCCEEDED,
-			READ_INNER_NODE_SUCCEEDED, READ_LEAF_NODE_SUCCEEDED, READ_BLK_SUCCEEDED,
-			WRITE_BLK_SUCCEEDED, WRITE_CLIENT_DATA_TO_LEAF_NODE_SUCCEEDED,
-			DECRYPT_LEAF_DATA_SUCCEEDED, ALLOC_PBAS_AT_LEAF_LVL_SUCCEEDED,
-			ALLOC_PBAS_AT_LOWEST_INNER_LVL_SUCCEEDED,
-			ALLOC_PBAS_AT_HIGHER_INNER_LVL_SUCCEEDED, ENCRYPT_LEAF_DATA_SUCCEEDED,
-			WRITE_LEAF_NODE_SUCCEEDED, WRITE_INNER_NODE_SUCCEEDED,
-			WRITE_ROOT_NODE_SUCCEEDED, ALLOC_PBAS_SUCCEEDED };
-
-		struct Type_1_node_blocks
-		{
-			Type_1_node_block items[TREE_MAX_LEVEL] { };
-		};
+			SUBMITTED, REQ_GENERATED, REQ_COMPLETE, READ_BLK_SUCCEEDED, WRITE_BLK_SUCCEEDED,
+			DECRYPT_LEAF_DATA_SUCCEEDED, ENCRYPT_LEAF_DATA_SUCCEEDED, ALLOC_PBAS_SUCCEEDED };
 
 		Request *_req_ptr { nullptr };
-		State _state { INACTIVE };
+		State _state { REQ_COMPLETE };
 		Snapshot_index _snap_idx { 0 };
-		Type_1_node_blocks _t1_blks { };
+		Type_1_node_block_walk _t1_blks { };
+		Type_1_node_walk _t1_nodes { };
 		Tree_level_index _lvl { 0 };
 		Virtual_block_address _vba { 0 };
-		Type_1_node_walk _t1_node_walk { };
 		Tree_walk_pbas _old_pbas { };
 		Tree_walk_pbas _new_pbas { };
 		Hash _hash { };
 		Number_of_blocks _num_blks { 0 };
-		Generation _last_secured_gen { 0 };
 		Generation _free_gen { 0 };
 		Block _encoded_blk { };
 		Block _data_blk { };
@@ -181,6 +171,8 @@ class Tresor::Virtual_block_device : public Module
 		using Channel = Virtual_block_device_channel;
 
 		Constructible<Channel> _channels[1] { };
+
+		NONCOPYABLE(Virtual_block_device);
 
 		void execute(bool &) override;
 
