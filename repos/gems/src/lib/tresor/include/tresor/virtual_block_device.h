@@ -56,8 +56,8 @@ class Tresor::Virtual_block_device_request : public Module_request
 		Request_tag _client_req_tag;
 		Generation _last_secured_generation;
 		Physical_block_address &_pba;
-		Number_of_blocks &_nr_of_pbas;
-		Number_of_leaves &_nr_of_leaves;
+		Number_of_blocks &_num_pbas;
+		Number_of_leaves &_num_leaves;
 		bool &_success;
 
 	public:
@@ -83,11 +83,11 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 			INACTIVE, SUBMITTED, REQ_GENERATED, REQ_COMPLETE, READ_ROOT_NODE_SUCCEEDED,
 			READ_INNER_NODE_SUCCEEDED, READ_LEAF_NODE_SUCCEEDED, READ_BLK_SUCCEEDED,
 			WRITE_BLK_SUCCEEDED, WRITE_CLIENT_DATA_TO_LEAF_NODE_SUCCEEDED,
-			DECRYPT_LEAF_NODE_SUCCEEDED, ALLOC_PBAS_AT_LEAF_LVL_SUCCEEDED,
+			DECRYPT_LEAF_DATA_SUCCEEDED, ALLOC_PBAS_AT_LEAF_LVL_SUCCEEDED,
 			ALLOC_PBAS_AT_LOWEST_INNER_LVL_SUCCEEDED,
-			ALLOC_PBAS_AT_HIGHER_INNER_LVL_SUCCEEDED, ENCRYPT_LEAF_NODE_SUCCEEDED,
+			ALLOC_PBAS_AT_HIGHER_INNER_LVL_SUCCEEDED, ENCRYPT_LEAF_DATA_SUCCEEDED,
 			WRITE_LEAF_NODE_SUCCEEDED, WRITE_INNER_NODE_SUCCEEDED,
-			WRITE_ROOT_NODE_SUCCEEDED };
+			WRITE_ROOT_NODE_SUCCEEDED, ALLOC_PBAS_SUCCEEDED };
 
 		struct Type_1_node_blocks
 		{
@@ -104,7 +104,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		Tree_walk_pbas _old_pbas { };
 		Tree_walk_pbas _new_pbas { };
 		Hash _hash { };
-		Number_of_blocks _nr_of_blks { 0 };
+		Number_of_blocks _num_blks { 0 };
 		Generation _last_secured_gen { 0 };
 		Generation _free_gen { 0 };
 		Block _encoded_blk { };
@@ -129,11 +129,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		void _generate_ft_req(State, bool, Free_tree_request::Type);
 
-		Free_tree_request::Type _ft_rkg_alloc_type() const;
-
 		Snapshot &snap() { return _req_ptr->_snapshots.items[_snap_idx]; }
-
-		void _log_rekeying_alloc_result() const;
 
 		void _generate_write_node_req(bool &);
 
@@ -147,7 +143,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		void _mark_req_failed(bool &, char const *);
 
-		void _set_new_pbas_and_nr_of_blks_for_alloc();
+		void _set_new_pbas_and_num_blks_for_alloc();
 
 		void _generate_ft_alloc_req_for_write_vba(bool &);
 
@@ -157,7 +153,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		void _rekey_vba(bool &);
 
-		void _generate_ft_alloc_req_for_rekeying(Tree_level_index);
+		void _generate_ft_alloc_req_for_rekeying(Tree_level_index, bool &);
 
 		void _add_new_root_lvl_to_snap();
 
