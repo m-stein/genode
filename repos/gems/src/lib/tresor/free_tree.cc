@@ -130,16 +130,6 @@ void Free_tree::execute(bool &progress)
 }
 
 
-Free_tree::Local_cache_request Free_tree::_new_cache_request(Physical_block_address  pba,
-                                                             Local_cache_request::Op op,
-                                                             Tree_level_index        lvl)
-{
-	return Local_cache_request {
-		Local_cache_request::PENDING, op, false,
-		pba, lvl };
-}
-
-
 void Free_tree::_check_type_2_stack(Type_2_info_stack &stack,
                                     Type_1_info_stack &stack_next,
                                     Node_queue        &leaves,
@@ -244,6 +234,39 @@ void Free_tree::_populate_level_0_stack(Type_2_info_stack     &stack,
 }
 
 
+void Free_tree_channel::_generated_req_completed(State_uint state_uint)
+{
+	ASSERT(_generated_req_state == REQ_IN_PROGRESS);
+	if (!_generated_req_success) {
+		error("free tree: request (", *_request, ") failed because generated request failed)");
+		_request->_success = false;
+		_state = COMPLETE;
+		return;
+	}
+	_generated_req_state = (Gen_req_state)state_uint;
+	switch (_generated_req_state) {
+	case READ_COMPLETE:
+	{
+		Type_1_info n { _level_n_stacks[_generated_req_lvl].peek_top() };
+		if (check_hash(_cache_block_data, n.node.hash)) {
+			n.state = Type_1_info::AVAILABLE;
+			_level_n_stacks[_generated_req_lvl].update_top(n);
+		} else
+			_state = TREE_HASH_MISMATCH;
+		break;
+	}
+	case WRITE_COMPLETE:
+	{
+		Type_1_info n { _level_n_stacks[_generated_req_lvl].peek_top() };
+		n.state = Type_1_info::COMPLETE;
+		_level_n_stacks[_generated_req_lvl].update_top(n);
+		break;
+	}
+	default: ASSERT_NEVER_REACHED;
+	}
+}
+
+
 void Free_tree::_execute_scan(Channel         &chan,
                               Snapshots const &active_snaps,
                               Generation       last_secured_gen,
@@ -272,19 +295,14 @@ void Free_tree::_execute_scan(Channel         &chan,
 			switch (t1_info.state) {
 			case Type_1_info::INVALID:
 
-				if (chan._cache_request.state != Local_cache_request::INVALID) {
-					class Exception_1 { };
-					throw Exception_1 { };
-				}
-				chan._cache_request = _new_cache_request(
-					t1_info.node.pba, Local_cache_request::READ, lvl);
-
-				progress = true;
+				ASSERT(chan._generated_req_state == Channel::REQ_INVALID);
+				chan._generate_cache_req<Block_io::Read>(
+					Channel::READ_COMPLETE, progress, lvl, t1_info.node.pba, chan._cache_block_data);
 				break;
 
 			case Type_1_info::AVAILABLE:
 
-				chan._cache_request.state = Local_cache_request::INVALID;
+				chan._generated_req_state = Channel::REQ_INVALID;
 				if (lvl >= 2) {
 					_populate_lower_n_stack(
 						chan._level_n_stacks[lvl - 1],
@@ -542,20 +560,14 @@ void Free_tree::_execute_update(Channel         &chan,
 			switch (n.state) {
 			case Type_1_info::INVALID:
 
-				if (chan._cache_request.state != Local_cache_request::INVALID) {
-					class Exception_1 { };
-					throw Exception_1 { };
-				}
-				chan._cache_request =
-					_new_cache_request(
-						n.node.pba, Local_cache_request::READ, l);
-
-				progress = true;
+				ASSERT(chan._generated_req_state == Channel::REQ_INVALID);
+				chan._generate_cache_req<Block_io::Read>(
+					Channel::READ_COMPLETE, progress, l, n.node.pba, chan._cache_block_data);
 				break;
 
 			case Type_1_info::AVAILABLE:
 
-				chan._cache_request.state = Local_cache_request::INVALID;
+				chan._generated_req_state = Channel::REQ_INVALID;
 				if (l >= 2) {
 
 					_populate_lower_n_stack(
@@ -637,15 +649,13 @@ void Free_tree::_execute_update(Channel         &chan,
 						n, req._curr_gen, chan._cache_block_data,
 						chan._level_n_nodes[l]);
 				}
-				chan._cache_request = _new_cache_request(
-					n.node.pba, Local_cache_request::WRITE, l);
-
-				progress = true;
+				chan._generate_cache_req<Block_io::Write>(
+					Channel::WRITE_COMPLETE, progress, l, n.node.pba, chan._cache_block_data);
 				break;
 
 			case Type_1_info::COMPLETE:
 
-				chan._cache_request.state = Local_cache_request::INVALID;
+				chan._generated_req_state = Channel::REQ_INVALID;
 				stack.pop();
 
 				if (exchange_finished)
@@ -698,8 +708,7 @@ void Free_tree::_execute(Channel         &chan,
 	    chan._meta_tree_request.state == Local_meta_tree_request::IN_PROGRESS)
 		return;
 
-	if (chan._cache_request.state == Local_cache_request::PENDING ||
-	    chan._cache_request.state == Local_cache_request::IN_PROGRESS)
+	if (chan._generated_req_state == Channel::REQ_IN_PROGRESS)
 		return;
 
 	switch (chan._state) {
@@ -809,6 +818,7 @@ bool Free_tree::_peek_generated_request(uint8_t *buf_ptr,
 	for (uint32_t id { 0 }; id < NR_OF_CHANNELS; id++) {
 
 		Channel &channel { _channels[id] };
+/*
 		Local_cache_request const &local_crq { channel._cache_request };
 		if (local_crq.state == Local_cache_request::PENDING) {
 
@@ -825,6 +835,7 @@ bool Free_tree::_peek_generated_request(uint8_t *buf_ptr,
 
 			return true;
 		}
+*/
 
 		Local_meta_tree_request const &local_mtr { channel._meta_tree_request };
 		if (local_mtr.state == Local_meta_tree_request::PENDING) {
@@ -863,6 +874,7 @@ void Free_tree::_drop_generated_request(Module_request &mod_req)
 		throw Exception_1 { };
 	}
 	switch (mod_req.dst_module_id()) {
+/*
 	case BLOCK_IO:
 	{
 		Local_cache_request &local_req { _channels[id]._cache_request };
@@ -873,6 +885,7 @@ void Free_tree::_drop_generated_request(Module_request &mod_req)
 		local_req.state = Local_cache_request::IN_PROGRESS;
 		break;
 	}
+*/
 	case META_TREE:
 	{
 		Local_meta_tree_request &local_req { _channels[id]._meta_tree_request };
@@ -898,6 +911,7 @@ void Free_tree::generated_request_complete(Module_request &mod_req)
 		throw Exception_1 { };
 	}
 	switch (mod_req.dst_module_id()) {
+/*
 	case BLOCK_IO:
 	{
 		Local_cache_request &local_req { _channels[id]._cache_request };
@@ -940,6 +954,7 @@ void Free_tree::generated_request_complete(Module_request &mod_req)
 		}
 		break;
 	}
+*/
 	case META_TREE:
 	{
 		Local_meta_tree_request &local_req { _channels[id]._meta_tree_request };

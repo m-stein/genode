@@ -89,7 +89,7 @@ class Tresor::Free_tree_request : public Module_request
 };
 
 
-class Tresor::Free_tree_channel
+class Tresor::Free_tree_channel : public Module_channel
 {
 	private:
 
@@ -106,6 +106,13 @@ class Tresor::Free_tree_channel
 			COMPLETE,
 			NOT_ENOUGH_FREE_BLOCKS,
 			TREE_HASH_MISMATCH
+		};
+
+		enum Gen_req_state {
+			REQ_INVALID,
+			REQ_IN_PROGRESS,
+			READ_COMPLETE,
+			WRITE_COMPLETE
 		};
 
 		struct Type_1_info
@@ -127,18 +134,6 @@ class Tresor::Free_tree_channel
 			State           state { INVALID };
 			Type_2_node     node  { };
 			Tree_node_index index { INVALID_NODE_INDEX };
-		};
-
-		struct Local_cache_request
-		{
-			enum State { INVALID, PENDING, IN_PROGRESS, COMPLETE };
-			enum Op { READ, WRITE, SYNC };
-
-			State    state   { INVALID };
-			Op       op      { READ };
-			bool     success { false };
-			uint64_t pba     { 0 };
-			uint64_t level   { 0 };
 		};
 
 		struct Local_meta_tree_request
@@ -313,7 +308,6 @@ class Tresor::Free_tree_channel
 		uint64_t _found_blocks { 0 };
 		uint64_t _exchanged_blocks { 0 };
 		Local_meta_tree_request _meta_tree_request { };
-		Local_cache_request _cache_request { };
 		Block _cache_block_data { };
 		Type_1_info_stack _level_n_stacks[TREE_MAX_NR_OF_LEVELS] { };
 		Type_2_info_stack _level_0_stack { };
@@ -323,6 +317,8 @@ class Tresor::Free_tree_channel
 		Node_queue _type_2_leafs { };
 		Tree_degree_log_2 _vbd_degree_log_2 { 0 };
 		bool _wb_data_prim_success { false };
+		Gen_req_state _generated_req_state { REQ_INVALID };
+		Tree_level_index _generated_req_lvl { 0 };
 		bool _generated_req_success { false };
 		Hash _dummy_hash { };
 
@@ -334,6 +330,21 @@ class Tresor::Free_tree_channel
 			memcpy(&node.hash, &_request->_ft.hash, HASH_SIZE);
 			return node;
 		}
+
+		void _generated_req_completed(State_uint) override;
+
+		template <typename REQUEST, typename... ARGS>
+		void _generate_cache_req(State_uint state, bool &progress, Tree_level_index lvl, ARGS &&... args)
+		{
+			ASSERT(_generated_req_state == REQ_INVALID);
+			_generated_req_lvl = lvl;
+			_generated_req_state = REQ_IN_PROGRESS;
+			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
+		}
+
+		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
+
+		bool _request_complete() override { ASSERT_NEVER_REACHED; }
 };
 
 class Tresor::Free_tree : public Module
@@ -342,7 +353,6 @@ class Tresor::Free_tree : public Module
 
 		using Request = Free_tree_request;
 		using Channel = Free_tree_channel;
-		using Local_cache_request = Channel::Local_cache_request;
 		using Local_meta_tree_request = Channel::Local_meta_tree_request;
 		using Type_1_info = Channel::Type_1_info;
 		using Type_2_info = Channel::Type_2_info;
@@ -437,10 +447,6 @@ class Tresor::Free_tree : public Module
 		                         Node_queue        &leaves,
 		                         Number_of_blocks  &found);
 
-		Local_cache_request _new_cache_request(Physical_block_address  pba,
-		                                       Local_cache_request::Op op,
-		                                       Tree_level_index        lvl);
-
 		/************
 		 ** Module **
 		 ************/
@@ -464,6 +470,12 @@ class Tresor::Free_tree : public Module
 		void generated_request_complete(Module_request &req) override;
 
 		bool new_submit_request() override { return false; }
+
+	public:
+
+		Free_tree() {
+			register_channels<Channel>(_channels, NR_OF_CHANNELS, FREE_TREE);
+		}
 };
 
 #endif /* _TRESOR__FREE_TREE_H_ */
