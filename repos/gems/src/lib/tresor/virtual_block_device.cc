@@ -53,7 +53,7 @@ char const *Virtual_block_device_request::type_to_string(Type op)
 void Virtual_block_device_channel::_generated_req_completed(State_uint state_uint)
 {
 	if (!_gen_req_success) {
-		error("request_pool: request (", *_req_ptr, ") failed because generated request failed)");
+		error("virtual block device: request (", *_req_ptr, ") failed because generated request failed)");
 		_req_ptr->_success = false;
 		_state = REQ_COMPLETE;
 		_req_ptr = nullptr;

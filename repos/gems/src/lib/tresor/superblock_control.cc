@@ -73,7 +73,7 @@ void Superblock_control_channel::_mark_req_successful(bool &progress)
 void Superblock_control_channel::_generated_req_completed(State_uint state_uint)
 {
 	if (!_gen_req_success) {
-		error("request_pool: request (", *_req_ptr, ") failed because generated request failed)");
+		error("superblock control: request (", *_req_ptr, ") failed because generated request failed)");
 		_req_ptr->_success = false;
 		_state = REQ_COMPLETE;
 		_req_ptr = nullptr;
