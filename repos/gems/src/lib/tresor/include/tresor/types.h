@@ -101,6 +101,7 @@ namespace Tresor {
 	struct Type_1_node;
 	struct Type_1_node_block;
 	struct Type_1_node_walk;
+	struct Type_1_node_block_walk;
 	struct Type_2_node;
 	struct Type_2_node_block;
 	struct Tree_walk_pbas;
@@ -496,6 +497,12 @@ struct Tresor::Type_1_node_block
 		for (Type_1_node const &node : nodes)
 			node.encode_to_blk(generator);
 	}
+};
+
+
+struct Tresor::Type_1_node_block_walk
+{
+	Type_1_node_block items[TREE_MAX_LEVEL] { };
 };
 
 
