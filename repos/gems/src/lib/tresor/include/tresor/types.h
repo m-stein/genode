@@ -736,13 +736,13 @@ struct Tresor::Superblock
 	Number_of_blocks       nr_of_pbas              { 0 };               // offset 3577
 	Generation             free_gen                { 0 };               // offset 3585
 	Physical_block_address free_number             { 0 };               // offset 3593
-	Hash                   free_hash               { 0 };               // offset 3601
+	Hash                   free_hash               { };                 // offset 3601
 	Tree_level_index       free_max_level          { 0 };               // offset 3633
 	Tree_degree            free_degree             { TREE_MIN_DEGREE }; // offset 3637
 	Number_of_leaves       free_leaves             { 0 };               // offset 3641
 	Generation             meta_gen                { 0 };               // offset 3649
 	Physical_block_address meta_number             { 0 };               // offset 3657
-	Hash                   meta_hash               { 0 };               // offset 3665
+	Hash                   meta_hash               { };                 // offset 3665
 	Tree_level_index       meta_max_level          { 0 };               // offset 3697
 	Tree_degree            meta_degree             { TREE_MIN_DEGREE }; // offset 3701
 	Number_of_leaves       meta_leaves             { 0 };               // offset 3705

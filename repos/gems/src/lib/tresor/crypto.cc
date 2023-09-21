@@ -18,7 +18,7 @@
 /* tresor includes */
 #include <tresor/crypto.h>
 #include <tresor/client_data.h>
-#include <tresor/sha256_4k_hash.h>
+#include <tresor/hash.h>
 
 using namespace Tresor;
 
@@ -635,18 +635,14 @@ bool Crypto::_peek_completed_request(uint8_t *buf_ptr,
 
 			if (VERBOSE_WRITE_VBA && req._type == Request::ENCRYPT_CLIENT_DATA) {
 
-				Hash hash { };
-				calc_sha256_4k_hash(channel._blk_buf, hash);
-				log("  encrypt leaf data: plaintext ", channel._blk_buf, " hash ", hash);
+				log("  encrypt leaf data: plaintext ", channel._blk_buf, " hash ", hash(channel._blk_buf));
 				log("  update branch:");
 				log("    ", Branch_lvl_prefix("leaf data: "), req._ciphertext_blk);
 			}
 			if (VERBOSE_READ_VBA && req._type == Request::DECRYPT_CLIENT_DATA) {
 
-				Hash hash { };
-				calc_sha256_4k_hash(channel._blk_buf, hash);
 				log("    ", Branch_lvl_prefix("leaf data: "), req._ciphertext_blk);
-				log("  decrypt leaf data: plaintext ", channel._blk_buf, " hash ", hash);
+				log("  decrypt leaf data: plaintext ", channel._blk_buf, " hash ", hash(channel._blk_buf));
 			}
 			if (VERBOSE_CRYPTO) {
 

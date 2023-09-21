@@ -15,7 +15,7 @@
 #include <base/log.h>
 
 /* tresor includes */
-#include <tresor/sha256_4k_hash.h>
+#include <tresor/hash.h>
 #include <tresor/block_allocator.h>
 #include <tresor/block_io.h>
 #include <tresor/vbd_initializer.h>
@@ -181,7 +181,7 @@ void Sb_initializer::_execute(Channel &channel,
 		                  Number_of_blocks       { (uint32_t)block_allocator_nr_of_blks() + NR_OF_SUPERBLOCK_SLOTS });
 
 		channel._sb.encode_to_blk(channel._encoded_blk);
-		calc_sha256_4k_hash(channel._encoded_blk, channel._sb_hash);
+		calc_hash(channel._encoded_blk, channel._sb_hash);
 
 		channel._state = CS::WRITE_REQUEST_PENDING;
 		progress = true;

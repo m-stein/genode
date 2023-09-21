@@ -13,7 +13,7 @@
 
 /* tresor includes */
 #include <tresor/virtual_block_device.h>
-#include <tresor/sha256_4k_hash.h>
+#include <tresor/hash.h>
 #include <tresor/block_io.h>
 #include <tresor/crypto.h>
 
@@ -131,7 +131,7 @@ void Virtual_block_device_channel::_update_nodes_of_branch_of_written_vba()
 		node.gen = req._curr_gen;
 		Block blk { };
 		_t1_blks.items[lvl].encode_to_blk(blk);
-		calc_sha256_4k_hash(blk, node.hash);
+		calc_hash(blk, node.hash);
 		if (VERBOSE_WRITE_VBA)
 			log("    ", Branch_lvl_prefix("lvl ", lvl + 1, " node ", node_idx, ": "), node);
 	}
@@ -139,7 +139,7 @@ void Virtual_block_device_channel::_update_nodes_of_branch_of_written_vba()
 	snap().gen = req._curr_gen;
 	Block blk { };
 	_t1_blks.items[snap().max_level].encode_to_blk(blk);
-	calc_sha256_4k_hash(blk, snap().hash);
+	calc_hash(blk, snap().hash);
 	if (VERBOSE_WRITE_VBA)
 		log("    ", Branch_lvl_prefix("root: "), snap());
 }
@@ -155,7 +155,7 @@ bool Virtual_block_device_channel::_check_and_decode_read_blk(bool &progress, bo
 		_t1_blks.items[_lvl + 1].nodes[t1_node_idx_for_vba(_vba, _lvl + 1, _req_ptr->_snap_degr)].hash :
 		snap().hash };
 
-	if (!check_sha256_4k_hash(blk, hash)) {
+	if (!check_hash(blk, hash)) {
 		_mark_req_failed(progress, "check hash of read block");
 		return false;
 	}
@@ -418,7 +418,7 @@ void Virtual_block_device_channel::_rekey_vba(bool &progress)
 	{
 		_generate_ft_alloc_req_for_rekeying(_lvl, progress);
 		if (VERBOSE_REKEYING)
-			log("      re-encrypt leaf data: plaintext ", _data_blk, " hash ", sha256_4k_hash(_data_blk));
+			log("      re-encrypt leaf data: plaintext ", _data_blk, " hash ", hash(_data_blk));
 		break;
 	}
 	case ALLOC_PBAS_SUCCEEDED:
@@ -454,14 +454,14 @@ void Virtual_block_device_channel::_rekey_vba(bool &progress)
 			Type_1_node &node { _t1_blks.items[_lvl + 1].nodes[node_idx] };
 			node.pba = _new_pbas.pbas[_lvl];
 			Block &blk { _lvl ? _encoded_blk : _data_blk };
-			calc_sha256_4k_hash(blk, node.hash);
+			calc_hash(blk, node.hash);
 			_lvl++;
 			_generate_write_blk_req(progress);
 			if (VERBOSE_REKEYING)
 				log("        ", Branch_lvl_prefix("lvl ", _lvl, " node ", node_idx, ": "), node);
 		} else {
 			snap().pba = _new_pbas.pbas[_lvl];
-			calc_sha256_4k_hash(_encoded_blk, snap().hash);
+			calc_hash(_encoded_blk, snap().hash);
 			if (VERBOSE_REKEYING)
 				log("        ", Branch_lvl_prefix("root: "), snap());
 
@@ -659,13 +659,13 @@ void Virtual_block_device_channel::_extension_step(bool &progress)
 
 		_t1_blks.items[_lvl].decode_from_blk(_encoded_blk);
 		if (_lvl == snap().max_level) {
-			if (!check_sha256_4k_hash(_encoded_blk, snap().hash)) {
+			if (!check_hash(_encoded_blk, snap().hash)) {
 				_mark_req_failed(progress, "check root node hash");
 				break;
 			}
 		} else {
 			Tree_node_index node_idx { t1_node_idx_for_vba(_vba, _lvl + 1, req._snap_degr) };
-			if (!check_sha256_4k_hash(_encoded_blk, _t1_blks.items[_lvl + 1].nodes[node_idx].hash)) {
+			if (!check_hash(_encoded_blk, _t1_blks.items[_lvl + 1].nodes[node_idx].hash)) {
 				_mark_req_failed(progress, "check inner node hash");
 				break;
 			}
@@ -708,7 +708,7 @@ void Virtual_block_device_channel::_extension_step(bool &progress)
 			_lvl++;
 			Tree_node_index node_idx { t1_node_idx_for_vba(_vba, _lvl, req._snap_degr) };
 			Type_1_node &node { _t1_blks.items[_lvl].nodes[node_idx] };
-			calc_sha256_4k_hash(_encoded_blk, node.hash);
+			calc_hash(_encoded_blk, node.hash);
 			node.pba = _new_pbas.pbas[_lvl - 1];
 			_generate_write_blk_req(progress);
 			if (VERBOSE_VBD_EXTENSION)
@@ -722,7 +722,7 @@ void Virtual_block_device_channel::_extension_step(bool &progress)
 			}
 			Number_of_leaves num_leaves { old_snap.nr_of_leaves + req._num_leaves };
 			snap() = { { }, _new_pbas.pbas[_lvl], req._curr_gen, num_leaves, old_snap.max_level, true, 0, false };
-			calc_sha256_4k_hash(_encoded_blk, snap().hash);
+			calc_hash(_encoded_blk, snap().hash);
 			_mark_req_successful(progress);
 			if (VERBOSE_VBD_EXTENSION)
 				log("  update snap ", _snap_idx, " ", snap());
