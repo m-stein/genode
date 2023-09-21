@@ -31,14 +31,13 @@ namespace Tresor {
 
 class Tresor::Virtual_block_device_request : public Module_request
 {
+	friend class Virtual_block_device_channel;
+
 	public:
 
-		enum Type { REKEY_VBA, READ_VBA, WRITE_VBA, VBD_EXTENSION_STEP };
+		enum Type { REKEY_VBA, READ_VBA, WRITE_VBA, EXTENSION_STEP };
 
 	private:
-
-		friend class Virtual_block_device;
-		friend class Virtual_block_device_channel;
 
 		Type _type;
 		Virtual_block_address _vba;
@@ -76,8 +75,6 @@ class Tresor::Virtual_block_device_request : public Module_request
 
 class Tresor::Virtual_block_device_channel : public Module_channel
 {
-	friend class Virtual_block_device;
-
 	private:
 
 		using Request = Virtual_block_device_request;
@@ -114,6 +111,8 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		Block _data_blk { };
 		bool _first_snapshot { false };
 		bool _gen_req_success { false };
+
+		NONCOPYABLE(Virtual_block_device_channel);
 
 		template <typename REQUEST, typename... ARGS>
 		void _generate_req(State_uint complete_state, bool &progress, ARGS &&... args)
@@ -158,7 +157,25 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		void _rekey_vba(bool &);
 
-		void _set_args_for_alloc_of_new_pbas_for_rekeying(Tree_level_index);
+		void _generate_ft_alloc_req_for_rekeying(Tree_level_index);
+
+		void _add_new_root_lvl_to_snap();
+
+		void _add_new_branch_to_snap(Tree_level_index, Tree_node_index);
+
+		Physical_block_address _alloc_pba_for_resizing();
+
+		void _set_new_pbas_identical_to_curr_pbas();
+
+		void _generate_ft_alloc_req_for_resizing(Tree_level_index, bool &);
+
+		void _extension_step(bool &);
+
+	public:
+
+		Virtual_block_device_channel(Module_channel_id id) : Module_channel { VIRTUAL_BLOCK_DEVICE, id } { }
+
+		void execute(bool &);
 };
 
 class Tresor::Virtual_block_device : public Module
@@ -166,50 +183,14 @@ class Tresor::Virtual_block_device : public Module
 	private:
 
 		using Channel = Virtual_block_device_channel;
-		using Request = Virtual_block_device_request;
 
-		enum { NR_OF_CHANNELS = 1 };
-		enum { MAX_T1_NODE_BLKS_IDX = 6 };
-
-		Channel _channels[NR_OF_CHANNELS] { };
-
-		static char const *_state_to_step_label(Channel::State state);
-
-		bool _handle_failed_generated_req(Channel &chan,
-		                                  bool    &progress);
-
-		void _execute_vbd_extension_step (Channel &, bool &);
-
-		void _execute_read_vba_read_inner_node_completed(Channel &channel,
-		                                                 bool &progress);
-
-		Virtual_block_address _tree_max_max_vba(Tree_degree     snap_degree,
-		                                        Snapshot const &snap);
-
-		void
-		_alloc_pba_from_resizing_contingent(Physical_block_address &first_pba,
-		                                    Number_of_blocks       &nr_of_pbas,
-		                                    Physical_block_address &allocated_pba);
-
-		void _set_new_pbas_identical_to_current_pbas(Channel &chan);
-
-		void
-		_add_new_branch_to_snap_using_pba_contingent(Channel           &chan,
-		                                             Tree_level_index   mount_at_lvl,
-		                                             Tree_node_index    mount_at_child_idx);
-
-		void
-		_set_args_for_alloc_of_new_pbas_for_resizing(Channel          &chan,
-		                                             Tree_level_index  min_lvl,
-		                                             bool             &progress);
-
-		void _add_new_root_lvl_to_snap_using_pba_contingent(Channel &chan);
+		Constructible<Channel> _channels[1] { };
 
 		void execute(bool &) override;
 
 	public:
 
-		Virtual_block_device() { register_channels<Channel>(_channels, NR_OF_CHANNELS, VIRTUAL_BLOCK_DEVICE); };
+		Virtual_block_device();
 };
 
 #endif /* _TRESOR__VIRTUAL_BLOCK_DEVICE_H_ */
