@@ -98,7 +98,6 @@ class Tresor::Free_tree_channel : public Module_channel
 		using Request = Free_tree_request;
 
 		enum State {
-			INVALID,
 			SCAN,
 			SCAN_COMPLETE,
 			UPDATE,
@@ -293,8 +292,8 @@ class Tresor::Free_tree_channel : public Module_channel
 				bool full() const { return _used == MAX_USED_VALUE; };
 		};
 
-		State _state { INVALID };
-		Constructible<Request> _request { };
+		State _state { COMPLETE };
+		Request *_req_ptr { nullptr };
 		uint64_t _needed_blocks { 0 };
 		uint64_t _found_blocks { 0 };
 		uint64_t _exchanged_blocks { 0 };
@@ -315,9 +314,9 @@ class Tresor::Free_tree_channel : public Module_channel
 		Type_1_node _root_node() const
 		{
 			Type_1_node node { };
-			node.pba = _request->_ft.pba;
-			node.gen = _request->_ft.gen;
-			memcpy(&node.hash, &_request->_ft.hash, HASH_SIZE);
+			node.pba = _req_ptr->_ft.pba;
+			node.gen = _req_ptr->_ft.gen;
+			node.hash = _req_ptr->_ft.hash;
 			return node;
 		}
 
@@ -334,9 +333,9 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		void _generate_mt_req(State_uint state, bool &progress, Physical_block_address pba);
 
-		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
+		void _request_submitted(Module_request &) override;
 
-		bool _request_complete() override { ASSERT_NEVER_REACHED; }
+		bool _request_complete() override { return _state == COMPLETE; }
 };
 
 class Tresor::Free_tree : public Module
@@ -357,8 +356,6 @@ class Tresor::Free_tree : public Module
 		enum { NR_OF_CHANNELS = 1 };
 
 		Channel _channels[NR_OF_CHANNELS] { };
-
-		void _reset_block_state(Channel &chan);
 
 		void _update_upper_n_stack(Type_1_info const &t,
 		                           Generation         gen,
@@ -417,9 +414,6 @@ class Tresor::Free_tree : public Module
 		                     Generation       last_secured_gen,
 		                     bool            &progress);
 
-		bool _node_volatile(Type_1_node const &node,
-		                    uint64_t           gen);
-
 		void _execute_scan(Channel         &chan,
 		                   Snapshots const &active_snaps,
 		                   Generation       last_secured_gen,
@@ -435,22 +429,7 @@ class Tresor::Free_tree : public Module
 		                         Node_queue        &leaves,
 		                         Number_of_blocks  &found);
 
-		/************
-		 ** Module **
-		 ************/
-
-		bool ready_to_submit_request() override;
-
-		void submit_request(Module_request &req) override;
-
-		bool _peek_completed_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_completed_request(Module_request &req) override;
-
 		void execute(bool &) override;
-
-		bool new_submit_request() override { return false; }
 
 	public:
 

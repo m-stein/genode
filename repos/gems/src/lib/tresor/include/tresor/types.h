@@ -473,6 +473,11 @@ struct Tresor::Type_1_node
 			hash != node.hash;
 	}
 
+	bool is_volatile(Generation curr_gen) const
+	{
+	   return gen == INITIAL_GENERATION || gen == curr_gen;
+	}
+
 	void print(Output &out) const
 	{
 		Genode::print(out, "pba ", pba, " gen ", gen, " hash ", hash);
