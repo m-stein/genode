@@ -243,8 +243,11 @@ void Free_tree_channel::_generated_req_completed(State_uint state_uint)
 		if (check_hash(_cache_block_data, n.node.hash)) {
 			n.state = Type_1_info::AVAILABLE;
 			_level_n_stacks[_generated_req_lvl].update_top(n);
-		} else
-			_state = TREE_HASH_MISMATCH;
+		} else {
+			error(Request::type_to_string(_req_ptr->_type), " request failed, reason: \"node hash mismatch\"");
+			_req_ptr->_success = false;
+			_state = COMPLETE;
+		}
 		break;
 	}
 	case WRITE_COMPLETE:
@@ -346,7 +349,7 @@ void Free_tree::_execute_scan(Channel         &chan,
 		return;
 
 	if (enough_found) {
-		chan._state = Channel::SCAN_COMPLETE;
+		chan._state = Channel::UPDATE;
 
 		for (Type_1_info_stack &stack : chan._level_n_stacks)
 			stack = { };
@@ -361,7 +364,7 @@ void Free_tree::_execute_scan(Channel         &chan,
 	}
 
 	if (end_of_tree && !enough_found)
-		chan._state = Channel::NOT_ENOUGH_FREE_BLOCKS;
+		chan._mark_req_failed(progress, "not enough free blocks");
 }
 
 
@@ -658,17 +661,15 @@ void Free_tree::_execute_update(Channel         &chan,
 		return;
 
 	if (exchange_finished && update_finished)
-		chan._state = Channel::UPDATE_COMPLETE;
+		_mark_req_successful(chan, progress);
 }
 
 
-void Free_tree::_mark_req_failed(Channel    &chan,
-                                 bool       &progress,
-                                 char const *str)
+void Free_tree_channel::_mark_req_failed(bool &progress, char const *str)
 {
-	error(Request::type_to_string(chan._req_ptr->_type), " request failed, reason: \"", str, "\"");
-	chan._req_ptr->_success = false;
-	chan._state = Channel::COMPLETE;
+	error(Request::type_to_string(_req_ptr->_type), " request failed, reason: \"", str, "\"");
+	_req_ptr->_success = false;
+	_state = COMPLETE;
 	progress = true;
 }
 
@@ -694,24 +695,10 @@ void Free_tree::_execute(Channel         &chan,
 	case Channel::SCAN:
 		_execute_scan(chan, active_snaps, last_secured_gen, progress);
 		break;
-	case Channel::SCAN_COMPLETE:
-		chan._state = Channel::UPDATE;
-		progress = true;
-		break;
 	case Channel::UPDATE:
 		_execute_update(chan, active_snaps, last_secured_gen, progress);
 		break;
-	case Channel::UPDATE_COMPLETE:
-		_mark_req_successful(chan, progress);
-		break;
-	case Channel::COMPLETE:
-		break;
-	case Channel::NOT_ENOUGH_FREE_BLOCKS:
-		_mark_req_failed(chan, progress, "not enough free blocks");
-		break;
-	case Channel::TREE_HASH_MISMATCH:
-		_mark_req_failed(chan, progress, "node hash mismatch");
-		break;
+	default: break;
 	}
 }
 
