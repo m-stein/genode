@@ -112,7 +112,8 @@ class Tresor::Free_tree_channel : public Module_channel
 			REQ_INVALID,
 			REQ_IN_PROGRESS,
 			READ_COMPLETE,
-			WRITE_COMPLETE
+			WRITE_COMPLETE,
+			ALLOC_COMPLETE
 		};
 
 		struct Type_1_info
@@ -134,16 +135,6 @@ class Tresor::Free_tree_channel : public Module_channel
 			State           state { INVALID };
 			Type_2_node     node  { };
 			Tree_node_index index { INVALID_NODE_INDEX };
-		};
-
-		struct Local_meta_tree_request
-		{
-			enum State { INVALID, PENDING, IN_PROGRESS, COMPLETE };
-			enum Op { READ, WRITE, SYNC };
-
-			State    state { INVALID };
-			Op       op    { READ };
-			uint64_t pba   { 0 };
 		};
 
 		class Type_1_info_stack {
@@ -307,7 +298,6 @@ class Tresor::Free_tree_channel : public Module_channel
 		uint64_t _needed_blocks { 0 };
 		uint64_t _found_blocks { 0 };
 		uint64_t _exchanged_blocks { 0 };
-		Local_meta_tree_request _meta_tree_request { };
 		Block _cache_block_data { };
 		Type_1_info_stack _level_n_stacks[TREE_MAX_NR_OF_LEVELS] { };
 		Type_2_info_stack _level_0_stack { };
@@ -319,8 +309,8 @@ class Tresor::Free_tree_channel : public Module_channel
 		bool _wb_data_prim_success { false };
 		Gen_req_state _generated_req_state { REQ_INVALID };
 		Tree_level_index _generated_req_lvl { 0 };
+		Physical_block_address _generated_req_pba { 0 };
 		bool _generated_req_success { false };
-		Hash _dummy_hash { };
 
 		Type_1_node _root_node() const
 		{
@@ -342,6 +332,8 @@ class Tresor::Free_tree_channel : public Module_channel
 			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 		}
 
+		void _generate_mt_req(State_uint state, bool &progress, Physical_block_address pba);
+
 		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
 
 		bool _request_complete() override { ASSERT_NEVER_REACHED; }
@@ -353,7 +345,6 @@ class Tresor::Free_tree : public Module
 
 		using Request = Free_tree_request;
 		using Channel = Free_tree_channel;
-		using Local_meta_tree_request = Channel::Local_meta_tree_request;
 		using Type_1_info = Channel::Type_1_info;
 		using Type_2_info = Channel::Type_2_info;
 		using Type_1_info_stack = Channel::Type_1_info_stack;
@@ -368,9 +359,6 @@ class Tresor::Free_tree : public Module
 		Channel _channels[NR_OF_CHANNELS] { };
 
 		void _reset_block_state(Channel &chan);
-
-		static Local_meta_tree_request
-		_new_meta_tree_request(Physical_block_address pba);
 
 		void _update_upper_n_stack(Type_1_info const &t,
 		                           Generation         gen,
@@ -461,13 +449,6 @@ class Tresor::Free_tree : public Module
 		void _drop_completed_request(Module_request &req) override;
 
 		void execute(bool &) override;
-
-		bool _peek_generated_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_generated_request(Module_request &mod_req) override;
-
-		void generated_request_complete(Module_request &req) override;
 
 		bool new_submit_request() override { return false; }
 
