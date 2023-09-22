@@ -30,62 +30,28 @@ static bool check_level_0_usable(Generation   gen,
 }
 
 
-/***********************
- ** Meta_tree_request **
- ***********************/
-
-void Meta_tree_request::create(void     *buf_ptr,
-                               size_t    buf_size,
-                               uint64_t  src_module_id,
-                               uint64_t  src_request_id,
-                               size_t    req_type,
-                               void     *mt_root_pba_ptr,
-                               void     *mt_root_gen_ptr,
-                               void     *mt_root_hash_ptr,
-                               uint64_t  mt_max_lvl,
-                               uint64_t  mt_edges,
-                               uint64_t  mt_leaves,
-                               uint64_t  curr_gen,
-                               uint64_t  old_pba)
-{
-	Meta_tree_request req { src_module_id, src_request_id };
-	req._type             = (Type)req_type;
-	req._mt_root_pba_ptr  = (addr_t)mt_root_pba_ptr;
-	req._mt_root_gen_ptr  = (addr_t)mt_root_gen_ptr;
-	req._mt_root_hash_ptr = (addr_t)mt_root_hash_ptr;
-	req._mt_max_lvl       = mt_max_lvl;
-	req._mt_edges         = mt_edges;
-	req._mt_leaves        = mt_leaves;
-	req._current_gen      = curr_gen;
-	req._old_pba          = old_pba;
-	if (sizeof(req) > buf_size) {
-		class Exception_2 { };
-		throw Exception_2 { };
-	}
-	memcpy(buf_ptr, &req, sizeof(req));
-}
-
-
-Meta_tree_request::Meta_tree_request(Module_id         src_module_id,
-                                     Module_request_id src_request_id)
+Meta_tree_request::Meta_tree_request(Module_id               src_module_id,
+                                     Module_channel_id       src_channel_id,
+                                     Type                    type,
+                                     Meta_tree_root         &mt,
+                                     Generation              curr_gen,
+                                     Physical_block_address  old_pba,
+                                     Physical_block_address &new_pba,
+                                     bool &success)
 :
-	Module_request { src_module_id, src_request_id, META_TREE }
+	Module_request { src_module_id, src_channel_id, META_TREE }, _type { type }, _mt { mt },
+	_curr_gen { curr_gen }, _old_pba { old_pba }, _new_pba { new_pba }, _success { success }
 { }
 
 
 char const *Meta_tree_request::type_to_string(Type type)
 {
 	switch (type) {
-	case INVALID: return "invalid";
-	case UPDATE: return "update";
+	case ALLOC_PBA: return "update";
 	}
 	return "?";
 }
 
-
-/***************
- ** Meta_tree **
- ***************/
 
 bool Meta_tree::_peek_generated_request(uint8_t *buf_ptr,
                                         size_t   buf_size)
@@ -150,8 +116,8 @@ void Meta_tree::generated_request_complete(Module_request &mod_req)
 	Channel &channel { _channels[id] };
 	if (!channel._generated_req_success) {
 
-		channel._request._success = false;
-		channel._request._new_pba = INVALID_PBA;
+		channel._request->_success = false;
+		channel._request->_new_pba = INVALID_PBA;
 		channel._state = Channel::COMPLETE;
 		return;
 
@@ -224,8 +190,8 @@ void Meta_tree::_mark_req_failed(Channel    &chan,
                                  bool       &progress,
                                  char const *str)
 {
-	error(chan._request.type_name(), " request failed, reason: \"", str, "\"");
-	chan._request._success = false;
+	error(chan._request->type_to_string(chan._request->_type), " request failed, reason: \"", str, "\"");
+	chan._request->_success = false;
 	chan._state = Channel::COMPLETE;
 	progress = true;
 }
@@ -234,7 +200,7 @@ void Meta_tree::_mark_req_failed(Channel    &chan,
 void Meta_tree::_mark_req_successful(Channel &channel,
                                      bool    &progress)
 {
-	channel._request._success = true;
+	channel._request->_success = true;
 	channel._state = Channel::COMPLETE;
 	progress = true;
 }
@@ -255,7 +221,7 @@ void Meta_tree::_exchange_nv_inner_nodes(Channel     &channel,
                                          Type_2_node &t2_entry,
                                          bool        &exchanged)
 {
-	Request &req { channel._request };
+	Request &req { *channel._request };
 	uint64_t pba;
 	exchanged = false;
 
@@ -267,11 +233,11 @@ void Meta_tree::_exchange_nv_inner_nodes(Channel     &channel,
 
 			pba = t1_info.node.pba;
 			t1_info.node.pba   = t2_entry.pba;
-			t1_info.node.gen   = req._current_gen;
+			t1_info.node.gen   = req._curr_gen;
 			t1_info.volatil    = true;
 			t2_entry.pba       = pba;
-			t2_entry.alloc_gen = req._current_gen;
-			t2_entry.free_gen  = req._current_gen;
+			t2_entry.alloc_gen = req._curr_gen;
+			t2_entry.free_gen  = req._curr_gen;
 			t2_entry.reserved  = false;
 
 			exchanged = true;
@@ -285,7 +251,7 @@ void Meta_tree::_exchange_nv_level_1_node(Channel     &channel,
                                           Type_2_node &t2_entry,
                                           bool        &exchanged)
 {
-	Request &req { channel._request };
+	Request &req { *channel._request };
 	uint64_t pba { channel._level_1_node.node.pba };
 	exchanged = false;
 
@@ -295,8 +261,8 @@ void Meta_tree::_exchange_nv_level_1_node(Channel     &channel,
 		channel._level_1_node.volatil  = true;
 
 		t2_entry.pba       = pba;
-		t2_entry.alloc_gen = req._current_gen;
-		t2_entry.free_gen  = req._current_gen;
+		t2_entry.alloc_gen = req._curr_gen;
+		t2_entry.free_gen  = req._curr_gen;
 		t2_entry.reserved  = false;
 
 		exchanged = true;
@@ -307,14 +273,14 @@ void Meta_tree::_exchange_nv_level_1_node(Channel     &channel,
 void Meta_tree::_exchange_request_pba(Channel     &channel,
                                       Type_2_node &t2_entry)
 {
-	Request &req { channel._request };
+	Request &req { *channel._request };
 	req._success = true;
 	req._new_pba = t2_entry.pba;
 	channel._finished = true;
 
 	t2_entry.pba       = req._old_pba;
-	t2_entry.alloc_gen = req._current_gen;
-	t2_entry.free_gen  = req._current_gen;
+	t2_entry.alloc_gen = req._curr_gen;
+	t2_entry.free_gen  = req._curr_gen;
 	t2_entry.reserved  = false;
 }
 
@@ -322,16 +288,16 @@ void Meta_tree::_exchange_request_pba(Channel     &channel,
 void Meta_tree::_handle_level_0_nodes(Channel &channel,
                                       bool    &handled)
 {
-	Request &req { channel._request };
+	Request &req { *channel._request };
 	Type_2_node tmp_t2_entry;
 	handled = false;
 
-	for(unsigned i = 0; i <= req._mt_edges - 1; i++) {
+	for(unsigned i = 0; i <= req._mt.degree - 1; i++) {
 
 		tmp_t2_entry = channel._level_1_node.entries.nodes[i];
 
 		if (tmp_t2_entry.valid() &&
-			check_level_0_usable(req._current_gen, tmp_t2_entry))
+			check_level_0_usable(req._curr_gen, tmp_t2_entry))
 		{
 			bool exchanged_level_1;
 			bool exchanged_level_n { false };
@@ -366,7 +332,7 @@ void Meta_tree::_handle_level_1_node(Channel &channel,
 {
 	Type_1_info &t1_info { channel._level_n_nodes[MT_LOWEST_T1_LVL] };
 	Type_2_info &t2_info { channel._level_1_node };
-	Request &req { channel._request };
+	Request &req { *channel._request };
 
 	switch (t2_info.state) {
 	case Type_2_info::INVALID:
@@ -401,7 +367,7 @@ void Meta_tree::_handle_level_1_node(Channel &channel,
 
 		_update_parent(
 			t1_info.entries.nodes[t1_info.index], block_data,
-			req._current_gen, t2_info.node.pba);
+			req._curr_gen, t2_info.node.pba);
 
 		channel._cache_request = Local_cache_request {
 			Local_cache_request::PENDING, Local_cache_request::WRITE, false,
@@ -479,6 +445,12 @@ bool Meta_tree::_peek_completed_request(uint8_t *buf_ptr,
 				throw Exception_1 { };
 			}
 			memcpy(buf_ptr, &channel._request, sizeof(channel._request));
+
+			Request &r { *channel._request };
+			construct_at<Request>(buf_ptr, r.src_module_id(), r.src_chan_id(), r._type,
+				r._mt, r._curr_gen, r._old_pba,
+				r._new_pba, r._success);
+			(*(Request*)buf_ptr).dst_request_id(r.dst_chan_id());
 			return true;
 		}
 	}
@@ -527,7 +499,12 @@ void Meta_tree::submit_request(Module_request &mod_req)
 
 			mod_req.dst_request_id(id);
 
-			chan._request = *static_cast<Request *>(&mod_req);
+			Request &r { *static_cast<Request *>(&mod_req) };
+			chan._request.construct(
+				r.src_module_id(), r.src_chan_id(), r._type, r._mt, r._curr_gen, r._old_pba,
+				r._new_pba, r._success);
+			chan._request->dst_request_id(id);
+
 			chan._finished = false;
 			chan._state = Channel::UPDATE;
 			for (Type_1_info &t1_info : chan._level_n_nodes) {
@@ -535,17 +512,16 @@ void Meta_tree::submit_request(Module_request &mod_req)
 			}
 			chan._level_1_node = Type_2_info { };
 
-			Request &req { chan._request };
+			Request &req { *chan._request };
 			Type_1_node root_node { };
-			root_node.pba = *(uint64_t *)req._mt_root_pba_ptr;
-			root_node.gen = *(uint64_t *)req._mt_root_gen_ptr;
-			memcpy(&root_node.hash, (uint8_t *)req._mt_root_hash_ptr,
-			       HASH_SIZE);
+			root_node.pba = req._mt.pba;
+			root_node.gen = req._mt.gen;
+			root_node.hash = req._mt.hash;
 
-			chan._level_n_nodes[req._mt_max_lvl].node = root_node;
-			chan._level_n_nodes[req._mt_max_lvl].state = Type_1_info::READ;
-			chan._level_n_nodes[req._mt_max_lvl].volatil =
-				_node_volatile(root_node, req._current_gen);
+			chan._level_n_nodes[req._mt.max_lvl].node = root_node;
+			chan._level_n_nodes[req._mt.max_lvl].state = Type_1_info::READ;
+			chan._level_n_nodes[req._mt.max_lvl].volatil =
+				_node_volatile(root_node, req._curr_gen);
 
 			return;
 		}
@@ -558,7 +534,7 @@ void Meta_tree::submit_request(Module_request &mod_req)
 void Meta_tree::_handle_level_n_nodes(Channel &channel,
                                       bool    &handled)
 {
-	Request &req { channel._request };
+	Request &req { *channel._request };
 	handled = false;
 
 	for (uint64_t lvl { MT_LOWEST_T1_LVL }; lvl <= TREE_MAX_LEVEL; lvl++) {
@@ -581,7 +557,7 @@ void Meta_tree::_handle_level_n_nodes(Channel &channel,
 
 		case Type_1_info::READ_COMPLETE:
 
-			if (t1_info.index < req._mt_edges &&
+			if (t1_info.index < req._mt.degree &&
 				t1_info.entries.nodes[t1_info.index].valid() &&
 				!channel._finished) {
 
@@ -589,13 +565,13 @@ void Meta_tree::_handle_level_n_nodes(Channel &channel,
 					channel._level_n_nodes[lvl - 1] = {
 						Type_1_info::READ, t1_info.entries.nodes[t1_info.index],
 						{ }, 0, false,
-						_node_volatile(t1_info.node, req._current_gen) };
+						_node_volatile(t1_info.node, req._curr_gen) };
 
 				} else {
 					channel._level_1_node = {
 						Type_2_info::READ, t1_info.entries.nodes[t1_info.index],
 						{ }, 0,
-						_node_volatile(t1_info.node, req._current_gen) };
+						_node_volatile(t1_info.node, req._curr_gen) };
 				}
 
 			} else {
@@ -613,22 +589,20 @@ void Meta_tree::_handle_level_n_nodes(Channel &channel,
 			Block block_data;
 			t1_info.entries.encode_to_blk(block_data);
 
-			if (lvl == req._mt_max_lvl) {
+			if (lvl == req._mt.max_lvl) {
 
 				Type_1_node root_node { };
-				root_node.pba = *(uint64_t *)req._mt_root_pba_ptr;
-				root_node.gen = *(uint64_t *)req._mt_root_gen_ptr;
-				memcpy(&root_node.hash, (uint8_t *)req._mt_root_hash_ptr,
-				       HASH_SIZE);
+				root_node.pba  = req._mt.pba;
+				root_node.gen  = req._mt.gen;
+				root_node.hash = req._mt.hash;
 
 				_update_parent(
-					root_node, block_data, req._current_gen,
+					root_node, block_data, req._curr_gen,
 					t1_info.node.pba);
 
-				*(uint64_t *)req._mt_root_pba_ptr = root_node.pba;
-				*(uint64_t *)req._mt_root_gen_ptr = root_node.gen;
-				memcpy((uint8_t *)req._mt_root_hash_ptr, &root_node.hash,
-				       HASH_SIZE);
+				req._mt.pba = root_node.pba;
+				req._mt.gen = root_node.gen;
+				req._mt.hash = root_node.hash;
 
 				channel._root_dirty = true;
 
@@ -637,7 +611,7 @@ void Meta_tree::_handle_level_n_nodes(Channel &channel,
 				Type_1_info &parent { channel._level_n_nodes[lvl + 1] };
 				_update_parent(
 					parent.entries.nodes[parent.index], block_data,
-					req._current_gen, t1_info.node.pba);
+					req._curr_gen, t1_info.node.pba);
 
 				parent.dirty = true;
 			}
@@ -650,7 +624,7 @@ void Meta_tree::_handle_level_n_nodes(Channel &channel,
 		}
 		case Type_1_info::WRITE_COMPLETE:
 
-			if (lvl == req._mt_max_lvl)
+			if (lvl == req._mt.max_lvl)
 				channel._state = Channel::COMPLETE;
 			else
 				channel._level_n_nodes[lvl + 1].index++;
@@ -665,7 +639,7 @@ void Meta_tree::_handle_level_n_nodes(Channel &channel,
 
 		case Type_1_info::COMPLETE:
 
-			if (lvl == req._mt_max_lvl)
+			if (lvl == req._mt.max_lvl)
 				channel._state = Channel::COMPLETE;
 			else
 				channel._level_n_nodes[lvl + 1].index++;

@@ -837,28 +837,16 @@ bool Free_tree::_peek_generated_request(uint8_t *buf_ptr,
 		}
 */
 
-		Local_meta_tree_request const &local_mtr { channel._meta_tree_request };
+		Local_meta_tree_request &local_mtr { channel._meta_tree_request };
 		if (local_mtr.state == Local_meta_tree_request::PENDING) {
 
-			Meta_tree_request::Type mt_req_type {
-				local_mtr.op == Local_meta_tree_request::READ ?
-				                      Meta_tree_request::UPDATE :
-				                      Meta_tree_request::INVALID };
-
-			if (mt_req_type == Meta_tree_request::INVALID) {
-				class Exception_1 { };
-				throw Exception_1 { };
-			}
-			Meta_tree_request::create(
-				buf_ptr, buf_size, FREE_TREE, id, mt_req_type,
-				(void*)&channel._request->_mt.pba,
-				(void*)&channel._request->_mt.gen,
-				(void*)&channel._request->_mt.hash,
-				channel._request->_mt.max_lvl,
-				channel._request->_mt.degree,
-				channel._request->_mt.num_leaves,
+			ASSERT(buf_size >= sizeof(Meta_tree_request));
+			construct_at<Meta_tree_request>(
+				buf_ptr, FREE_TREE, id, Meta_tree_request::ALLOC_PBA, channel._request->_mt,
 				channel._request->_curr_gen,
-				local_mtr.pba);
+				local_mtr.pba,
+				local_mtr.pba,
+				channel._generated_req_success);
 
 			return true;
 		}
@@ -962,12 +950,10 @@ void Free_tree::generated_request_complete(Module_request &mod_req)
 			class Exception_5 { };
 			throw Exception_5 { };
 		}
-		Meta_tree_request &mt_req { *static_cast<Meta_tree_request *>(&mod_req) };
-		if (!mt_req.success()) {
+		if (!_channels[id]._generated_req_success) {
 			class Exception_6 { };
 			throw Exception_6 { };
 		}
-		local_req.pba = mt_req.new_pba();
 		local_req.state = Local_meta_tree_request::COMPLETE;
 		break;
 	}

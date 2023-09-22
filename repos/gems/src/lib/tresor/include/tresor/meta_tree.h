@@ -14,6 +14,9 @@
 #ifndef _TRESOR__META_TREE_H_
 #define _TRESOR__META_TREE_H_
 
+/* base includes */
+#include <util/reconstructible.h>
+
 /* tresor includes */
 #include <tresor/types.h>
 #include <tresor/module.h>
@@ -29,60 +32,26 @@ class Tresor::Meta_tree_request : public Module_request
 {
 	public:
 
-		enum Type { INVALID = 0, UPDATE = 1 };
+		enum Type { ALLOC_PBA };
 
 	private:
 
 		friend class Meta_tree;
 		friend class Meta_tree_channel;
 
-		Type     _type             { INVALID };
-		addr_t   _mt_root_pba_ptr  { 0 };
-		addr_t   _mt_root_gen_ptr  { 0 };
-		addr_t   _mt_root_hash_ptr { 0 };
-		uint64_t _mt_max_lvl       { 0 };
-		uint64_t _mt_edges         { 0 };
-		uint64_t _mt_leaves        { 0 };
-		uint64_t _current_gen      { 0 };
-		uint64_t _old_pba          { INVALID_PBA };
-		uint64_t _new_pba          { INVALID_PBA };
-		bool     _success          { false };
+		Type _type;
+		Meta_tree_root &_mt;
+		Generation _curr_gen;
+		Physical_block_address _old_pba;
+		Physical_block_address &_new_pba;
+		bool _success;
 
 	public:
 
-		Meta_tree_request() { }
-
-		Meta_tree_request(Module_id         src_module_id,
-		                  Module_request_id src_request_id);
-
-		static void create(void     *buf_ptr,
-		                   size_t    buf_size,
-		                   uint64_t  src_module_id,
-		                   uint64_t  src_request_id,
-		                   size_t    req_type,
-		                   void     *mt_root_pba_ptr,
-		                   void     *mt_root_gen_ptr,
-		                   void     *mt_root_hash_ptr,
-		                   uint64_t  mt_max_lvl,
-		                   uint64_t  mt_edges,
-		                   uint64_t  mt_leaves,
-		                   uint64_t  curr_gen,
-		                   uint64_t  old_pba);
-
-		uint64_t new_pba() { return _new_pba; }
-
-		Type type() const { return _type; }
-
-		bool success() const { return _success; }
+		Meta_tree_request(Module_id, Module_channel_id, Type, Meta_tree_root &, Generation,
+		                  Physical_block_address, Physical_block_address &, bool &success);
 
 		static char const *type_to_string(Type type);
-
-		char const *type_name() const { return type_to_string(_type); }
-
-
-		/********************
-		 ** Module_request **
-		 ********************/
 
 		void print(Output &out) const override { Genode::print(out, type_to_string(_type)); }
 };
@@ -160,7 +129,7 @@ class Tresor::Meta_tree_channel
 		};
 
 		State _state { INVALID };
-		Meta_tree_request _request { };
+		Constructible<Meta_tree_request> _request { };
 		Hash _dummy_hash { };
 		Local_cache_request _cache_request { };
 		Type_2_info _level_1_node { };
