@@ -101,12 +101,8 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		enum State {
 			SCAN,
-			SCAN_COMPLETE,
 			UPDATE,
-			UPDATE_COMPLETE,
-			COMPLETE,
-			NOT_ENOUGH_FREE_BLOCKS,
-			TREE_HASH_MISMATCH
+			COMPLETE
 		};
 
 		enum Gen_req_state {
@@ -341,6 +337,9 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		bool _request_complete() override { return _state == COMPLETE; }
 
+
+		void _mark_req_failed(bool &, char const *);
+
 	public:
 
 		Free_tree_channel(Module_channel_id id) : Module_channel { FREE_TREE, id } { }
@@ -370,10 +369,6 @@ class Tresor::Free_tree : public Module
 		                           Generation         gen,
 		                           Block       const &block_data,
 		                           Type_1_node_block &entries);
-
-		void _mark_req_failed(Channel    &chan,
-		                      bool       &progress,
-		                      char const *str);
 
 		void _mark_req_successful(Channel &chan,
 		                          bool    &progress);
