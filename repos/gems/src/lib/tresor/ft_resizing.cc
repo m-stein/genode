@@ -722,16 +722,20 @@ bool Ft_resizing::_peek_generated_request(uint8_t *buf_ptr,
 
 		case Channel::State::ALLOC_PBA_PENDING:
 
-			Meta_tree_request::create(
-				buf_ptr, buf_size, FT_RESIZING, id, Meta_tree_request::UPDATE,
-				(void *)req._mt_root_pba_ptr,
-				(void *)req._mt_root_gen_ptr,
-				(void *)req._mt_root_hash_ptr,
+			ASSERT(buf_size >= sizeof(Meta_tree_request));
+			chan._mt.construct(
+				*(Physical_block_address *)req._mt_root_pba_ptr,
+				*(Generation *)req._mt_root_gen_ptr,
+				*(Hash *)req._mt_root_hash_ptr,
 				req._mt_max_level,
 				req._mt_degree,
-				req._mt_leaves,
+				req._mt_leaves);
+			construct_at<Meta_tree_request>(
+				buf_ptr, FT_RESIZING, id, Meta_tree_request::ALLOC_PBA, *chan._mt,
 				req._curr_gen,
-				chan._old_pbas.pbas[chan._alloc_lvl_idx]);
+				chan._old_pbas.pbas[chan._alloc_lvl_idx],
+				chan._new_pbas.pbas[chan._alloc_lvl_idx],
+				chan._generated_prim.succ);
 
 			return true;
 
@@ -801,11 +805,8 @@ void Ft_resizing::generated_request_complete(Module_request &mod_req)
 	}
 	case META_TREE:
 	{
-		Meta_tree_request &mt_req { *static_cast<Meta_tree_request *>(&mod_req) };
-		chan._generated_prim.succ = mt_req.success();
 		switch (chan._state) {
 		case Channel::ALLOC_PBA_IN_PROGRESS:
-			chan._new_pbas.pbas[chan._alloc_lvl_idx] = mt_req.new_pba();
 			chan._state = Channel::ALLOC_PBA_COMPLETED;
 			break;
 		default:

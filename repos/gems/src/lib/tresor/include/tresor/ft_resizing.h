@@ -183,6 +183,7 @@ class Tresor::Ft_resizing_channel
 		Block _encoded_blk { };
 		Number_of_leaves _nr_of_leaves { 0 };
 		Hash _dummy_hash { };
+		Constructible<Meta_tree_root> _mt { };
 };
 
 class Tresor::Ft_resizing : public Module
