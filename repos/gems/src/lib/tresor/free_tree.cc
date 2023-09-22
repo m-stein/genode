@@ -34,9 +34,7 @@ vbd_node_lowest_vba(Tree_degree_log_2     vbd_degree_log_2,
                     Tree_level_index      vbd_level,
                     Virtual_block_address vbd_leaf_vba)
 {
-	return vbd_leaf_vba &
-		(0xffff'ffff'ffff'ffff <<
-			((uint32_t)vbd_degree_log_2 * (uint32_t)vbd_level));
+	return vbd_leaf_vba & (~(Physical_block_address)0 << ((uint32_t)vbd_degree_log_2 * (uint32_t)vbd_level));
 }
 
 
@@ -57,10 +55,6 @@ vbd_node_highest_vba(Tree_degree_log_2     vbd_degree_log_2,
 		(vbd_node_nr_of_vbas(vbd_degree_log_2, vbd_level) - 1);
 }
 
-
-/***********************
- ** Free_tree_request **
- ***********************/
 
 char const *Free_tree_request::type_to_string(Type type)
 {
@@ -118,20 +112,13 @@ Free_tree_request::Free_tree_request(Module_id src_module_id,
 { }
 
 
-/***************
- ** Free_tree **
- ***************/
-
 void Free_tree::execute(bool &progress)
 {
-	for (Channel &channel : _channels) {
-		if (!channel._req_ptr)
-			continue;
-
-		_execute(
-			channel, channel._req_ptr->_snapshots,
-			channel._req_ptr->_last_secured_gen, progress);
-	}
+	for_each_channel<Channel>([&] (Channel &chan) {
+		if (!chan._req_ptr)
+			return;
+		_execute(chan, chan._req_ptr->_snapshots, chan._req_ptr->_last_secured_gen, progress);
+	});
 }
 
 
@@ -752,4 +739,14 @@ void Free_tree_channel::_request_submitted(Module_request &mod_req)
 	_level_n_stacks[req._ft.max_lvl].push({ Type_1_info::INVALID, root_node, 0, root_node.is_volatile(req._curr_gen) });
 	_state = SCAN;
 	_vbd_degree_log_2 = log2<Tree_degree_log_2>(req._vbd_degree);
+}
+
+
+Free_tree::Free_tree()
+{
+	Module_channel_id id { 0 };
+	for (Constructible<Channel> &chan : _channels) {
+		chan.construct(id++);
+		add_channel(*chan);
+	}
 }
