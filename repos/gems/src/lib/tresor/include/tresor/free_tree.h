@@ -59,6 +59,8 @@ class Tresor::Free_tree_request : public Module_request
 		Snapshots const &_snapshots;
 		Generation _last_secured_gen;
 
+		NONCOPYABLE(Free_tree_request);
+
 	public:
 
 		Free_tree_request(Module_id src_module_id,
@@ -320,6 +322,8 @@ class Tresor::Free_tree_channel : public Module_channel
 			return node;
 		}
 
+		NONCOPYABLE(Free_tree_channel);
+
 		void _generated_req_completed(State_uint) override;
 
 		template <typename REQUEST, typename... ARGS>
@@ -336,6 +340,10 @@ class Tresor::Free_tree_channel : public Module_channel
 		void _request_submitted(Module_request &) override;
 
 		bool _request_complete() override { return _state == COMPLETE; }
+
+	public:
+
+		Free_tree_channel(Module_channel_id id) : Module_channel { FREE_TREE, id } { }
 };
 
 class Tresor::Free_tree : public Module
@@ -353,9 +361,10 @@ class Tresor::Free_tree : public Module
 		enum { FIRST_LVL_N_STACKS_IDX = 1 };
 		enum { MAX_LVL_N_STACKS_IDX = TREE_MAX_LEVEL };
 		enum { FIRST_LVL_N_NODES_IDX = 1 };
-		enum { NR_OF_CHANNELS = 1 };
 
-		Channel _channels[NR_OF_CHANNELS] { };
+		Constructible<Channel> _channels[1] { };
+
+		NONCOPYABLE(Free_tree);
 
 		void _update_upper_n_stack(Type_1_info const &t,
 		                           Generation         gen,
@@ -433,9 +442,7 @@ class Tresor::Free_tree : public Module
 
 	public:
 
-		Free_tree() {
-			register_channels<Channel>(_channels, NR_OF_CHANNELS, FREE_TREE);
-		}
+		Free_tree();
 };
 
 #endif /* _TRESOR__FREE_TREE_H_ */
