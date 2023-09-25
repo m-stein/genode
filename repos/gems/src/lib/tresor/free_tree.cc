@@ -137,7 +137,7 @@ void Free_tree_channel::_populate_lower_n_stack(Type_1_info_stack &stack,
 		if (entries.nodes[idx].pba != 0) {
 
 			stack.push({
-				Type_1_info::INVALID, entries.nodes[idx], idx,
+				SUBTREE_NOT_TRAVERSED, entries.nodes[idx], idx,
 				entries.nodes[idx].is_volatile(current_gen) });
 		}
 	}
@@ -225,7 +225,7 @@ void Free_tree_channel::_generated_req_completed(State_uint state_uint)
 		{
 			Type_1_info n { _level_n_stacks[_generated_req_lvl].peek_top() };
 			if (check_hash(_cache_block_data, n.node.hash)) {
-				n.state = Type_1_info::AVAILABLE;
+				n.state = SUBTREE_ROOT_BLK_READ;
 				_level_n_stacks[_generated_req_lvl].update_top(n);
 			} else {
 				error(Request::type_to_string(_req_ptr->_type), " request failed, reason: \"node hash mismatch\"");
@@ -237,7 +237,7 @@ void Free_tree_channel::_generated_req_completed(State_uint state_uint)
 		case WRITE_COMPLETE:
 		{
 			Type_1_info n { _level_n_stacks[_generated_req_lvl].peek_top() };
-			n.state = Type_1_info::COMPLETE;
+			n.state = SUBTREE_TRAVERSED;
 			_level_n_stacks[_generated_req_lvl].update_top(n);
 			break;
 		}
@@ -279,11 +279,8 @@ void Free_tree_channel::_alloc(bool &progress)
 		_level_0_stack = { };
 		_level_n_node = { };
 		_level_0_node = { };
-		Type_1_node root_node { };
-		root_node.pba = req._ft.pba;
-		root_node.gen = req._ft.gen;
-		root_node.hash = req._ft.hash;
-		_level_n_stacks[req._ft.max_lvl].push({ Type_1_info::INVALID, root_node, 0, root_node.is_volatile(req._curr_gen) });
+		Type_1_node root_node { req._ft.pba, req._ft.gen, req._ft.hash };
+		_level_n_stacks[req._ft.max_lvl].push({ SUBTREE_NOT_TRAVERSED, root_node, 0, root_node.is_volatile(req._curr_gen) });
 		_state = SCAN_READ_BLK_SUCCEEDED;
 		_vbd_degree_log_2 = log2<Tree_degree_log_2>(req._vbd_degree);
 		_generate_cache_req<Block_io::Read>(
@@ -297,7 +294,7 @@ void Free_tree_channel::_alloc(bool &progress)
 			_mark_req_failed(progress, "hash mismatch");
 			break;
 		}
-		t1_info.state = Type_1_info::AVAILABLE;
+		t1_info.state = SUBTREE_ROOT_BLK_READ;
 		_level_n_stacks[_generated_req_lvl].update_top(t1_info);
 		_traverse_tree(progress);
 		break;
@@ -305,6 +302,7 @@ void Free_tree_channel::_alloc(bool &progress)
 	default: break;
 	}
 }
+
 
 void Free_tree_channel::_traverse_tree(bool &progress)
 {
@@ -321,26 +319,20 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 			}
 			ASSERT(!_level_n_stacks[1].empty());
 			Type_1_info t1_info { _level_n_stacks[1].peek_top() };
+			t1_info.state = SUBTREE_TRAVERSED;
+			_level_n_stacks[1].update_top(t1_info);
 
-			/*
-			 * Only when the node is in read state we actually have to acknowledge
-			 * checking the leaf nodes.
-			 */
-			if (t1_info.state == Type_1_info::READ) {
-				t1_info.state = Type_1_info::COMPLETE;
-				_level_n_stacks[1].update_top(t1_info);
-			}
 		} else {
 
 			Type_1_info t1_info = _level_n_stacks[lvl].peek_top();
 			switch (t1_info.state) {
-			case Type_1_info::INVALID:
+			case SUBTREE_NOT_TRAVERSED:
 
 				_generate_cache_req<Block_io::Read>(
 					SCAN_READ_BLK_SUCCEEDED, progress, lvl, t1_info.node.pba, _cache_block_data);
 				return;
 
-			case Type_1_info::AVAILABLE:
+			case SUBTREE_ROOT_BLK_READ:
 
 				if (lvl >= 2) {
 					_populate_lower_n_stack(
@@ -355,17 +347,11 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 						req._rekeying, req._prev_key_id,
 						req._rekeying_vba);
 				}
-				t1_info.state = Type_1_info::READ;
+				t1_info.state = SUBTREE_TRAVERSED;
 				_level_n_stacks[lvl].update_top(t1_info);
 				break;
 
-			case Type_1_info::READ:
-
-				t1_info.state = Type_1_info::COMPLETE;
-				_level_n_stacks[lvl].update_top(t1_info);
-				break;
-
-			case Type_1_info::COMPLETE:
+			case SUBTREE_TRAVERSED:
 
 				if (_found_blocks >= _needed_blocks) {
 
@@ -378,7 +364,7 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 
 					_level_n_stacks[req._ft.max_lvl].push(
 						Type_1_info {
-							Type_1_info::INVALID, _root_node(), 0,
+							SUBTREE_NOT_TRAVERSED, _root_node(), 0,
 							_root_node().is_volatile(req._curr_gen) });
 
 					_state = UPDATE;
@@ -564,7 +550,7 @@ void Free_tree::_execute_update(Channel         &chan,
 				chan._exchanged_blocks += exchanged;
 			} else {
 				Type_1_info n { chan._level_n_stacks[FIRST_LVL_N_STACKS_IDX].peek_top() };
-				n.state = Type_1_info::COMPLETE;
+				n.state = Channel::SUBTREE_TRAVERSED;
 				chan._level_n_stacks[FIRST_LVL_N_STACKS_IDX].update_top(n);
 			}
 		}
@@ -581,14 +567,14 @@ void Free_tree::_execute_update(Channel         &chan,
 
 			Type_1_info n { stack.peek_top() };
 			switch (n.state) {
-			case Type_1_info::INVALID:
+			case Channel::SUBTREE_NOT_TRAVERSED:
 
 				ASSERT(chan._generated_req_state == Channel::REQ_INVALID);
 				chan._generate_cache_req<Block_io::Read>(
 					Channel::READ_COMPLETE, progress, l, n.node.pba, chan._cache_block_data);
 				break;
 
-			case Type_1_info::AVAILABLE:
+			case Channel::SUBTREE_ROOT_BLK_READ:
 
 				chan._generated_req_state = Channel::REQ_INVALID;
 				if (l >= 2) {
@@ -599,9 +585,9 @@ void Free_tree::_execute_update(Channel         &chan,
 						req._curr_gen);
 
 					if (!chan._level_n_stacks[l - 1].empty())
-						n.state = Type_1_info::WRITE;
+						n.state = Channel::X_WRITE;
 					else
-						n.state = Type_1_info::COMPLETE;
+						n.state = Channel::SUBTREE_TRAVERSED;
 
 				} else {
 
@@ -612,20 +598,15 @@ void Free_tree::_execute_update(Channel         &chan,
 						req._rekeying_vba);
 
 					if (!chan._level_0_stack.empty())
-						n.state = Type_1_info::WRITE;
+						n.state = Channel::X_WRITE;
 					else
-						n.state = Type_1_info::COMPLETE;
+						n.state = Channel::SUBTREE_TRAVERSED;
 				}
 				stack.update_top(n);
 				progress = true;
 				break;
 
-			case Type_1_info::READ:
-
-				class Exception_2 { };
-				throw Exception_2 { };
-
-			case Type_1_info::WRITE:
+			case Channel::X_WRITE:
 
 				if (!n.volatil) {
 
@@ -674,7 +655,7 @@ void Free_tree::_execute_update(Channel         &chan,
 					Channel::WRITE_COMPLETE, progress, l, n.node.pba, chan._cache_block_data);
 				break;
 
-			case Type_1_info::COMPLETE:
+			case Channel::SUBTREE_TRAVERSED:
 
 				chan._generated_req_state = Channel::REQ_INVALID;
 				stack.pop();
