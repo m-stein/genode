@@ -379,6 +379,8 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		void _traverse_tree(bool &);
 
+		void _alloc(bool &);
+
 	public:
 
 		Free_tree_channel(Module_channel_id id) : Module_channel { FREE_TREE, id } { }
@@ -434,8 +436,6 @@ class Tresor::Free_tree : public Module
 		                     Snapshots const &active_snaps,
 		                     Generation       last_secured_gen,
 		                     bool            &progress);
-
-		void _alloc(Channel &, Snapshots const &, Generation,bool &);
 
 		void _execute(Channel         &chan,
 		              Snapshots const &active_snaps,
