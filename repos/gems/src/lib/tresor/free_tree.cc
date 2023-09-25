@@ -124,7 +124,7 @@ void Free_tree::execute(bool &progress)
 
 
 
-void Free_tree::_populate_lower_n_stack(Type_1_info_stack &stack,
+void Free_tree_channel::_populate_lower_n_stack(Type_1_info_stack &stack,
                                         Type_1_node_block &entries,
                                         Block      const  &block_data,
                                         Generation         current_gen)
@@ -145,7 +145,7 @@ void Free_tree::_populate_lower_n_stack(Type_1_info_stack &stack,
 
 
 bool
-Free_tree::_check_type_2_leaf_usable(Snapshots       const &snapshots,
+Free_tree_channel::_check_type_2_leaf_usable(Snapshots       const &snapshots,
                                      Generation             last_secured_gen,
                                      Type_2_node     const &node,
                                      bool                   rekeying,
@@ -175,7 +175,7 @@ Free_tree::_check_type_2_leaf_usable(Snapshots       const &snapshots,
 }
 
 
-void Free_tree::_populate_level_0_stack(Type_2_info_stack     &stack,
+void Free_tree_channel::_populate_level_0_stack(Type_2_info_stack     &stack,
                                         Type_2_node_block     &entries,
                                         Block           const &block_data,
                                         Snapshots       const &active_snaps,
@@ -278,8 +278,8 @@ Tree_level_index Free_tree_channel::_lowest_non_empty_lvl() const
 
 
 void Free_tree::_alloc(Channel &chan,
-                       Snapshots const &snapshots,
-                       Generation last_secured_gen,
+                       Snapshots const &,
+                       Generation,
                        bool &progress)
 {
 	Request &req { *chan._req_ptr };
@@ -310,18 +310,29 @@ void Free_tree::_alloc(Channel &chan,
 	}
 	case Channel::SCAN_READ_BLK_SUCCEEDED:
 	{
-		Tree_level_index lvl { chan._lowest_non_empty_lvl() };
+		chan._traverse_tree(progress);
+		break;
+	}
+	default: break;
+	}
+}
+
+void Free_tree_channel::_traverse_tree(bool &progress)
+{
+	Request &req { *_req_ptr };
+	while (1) {
+		Tree_level_index lvl { _lowest_non_empty_lvl() };
 		if (!lvl) {
 
-			while (!chan._level_0_stack.empty()) {
-				Type_2_info info { chan._level_0_stack.peek_top() };
-				if (!chan._type_2_leafs.full())
-					chan._type_2_leafs.enqueue(info);
-				chan._found_blocks++;
-				chan._level_0_stack.pop();
+			while (!_level_0_stack.empty()) {
+				Type_2_info info { _level_0_stack.peek_top() };
+				if (!_type_2_leafs.full())
+					_type_2_leafs.enqueue(info);
+				_found_blocks++;
+				_level_0_stack.pop();
 			}
-			ASSERT(!chan._level_n_stacks[1].empty());
-			Type_1_info n { chan._level_n_stacks[1].peek_top() };
+			ASSERT(!_level_n_stacks[1].empty());
+			Type_1_info n { _level_n_stacks[1].peek_top() };
 
 			/*
 			 * Only when the node is in read state we actually have to acknowledge
@@ -329,84 +340,77 @@ void Free_tree::_alloc(Channel &chan,
 			 */
 			if (n.state == Type_1_info::READ) {
 				n.state = Type_1_info::COMPLETE;
-				chan._level_n_stacks[1].update_top(n);
+				_level_n_stacks[1].update_top(n);
 			}
-			progress = true;
-
 		} else {
 
-			Type_1_info t1_info = chan._level_n_stacks[lvl].peek_top();
+			Type_1_info t1_info = _level_n_stacks[lvl].peek_top();
 			switch (t1_info.state) {
 			case Type_1_info::INVALID:
 
-				chan._generate_cache_req<Block_io::Read>(
-					Channel::SCAN_READ_BLK_SUCCEEDED, progress, lvl, t1_info.node.pba, chan._cache_block_data);
-				break;
+				_generate_cache_req<Block_io::Read>(
+					SCAN_READ_BLK_SUCCEEDED, progress, lvl, t1_info.node.pba, _cache_block_data);
+				return;
 
 			case Type_1_info::AVAILABLE:
 
 				if (lvl >= 2) {
 					_populate_lower_n_stack(
-						chan._level_n_stacks[lvl - 1],
-						chan._level_n_node, chan._cache_block_data,
+						_level_n_stacks[lvl - 1],
+						_level_n_node, _cache_block_data,
 						req._curr_gen);
 				} else {
 					_populate_level_0_stack(
-						chan._level_0_stack,
-						chan._level_0_node, chan._cache_block_data,
-						snapshots, last_secured_gen,
+						_level_0_stack,
+						_level_0_node, _cache_block_data,
+						req._snapshots, req._last_secured_gen,
 						req._rekeying, req._prev_key_id,
 						req._rekeying_vba);
 				}
 				t1_info.state = Type_1_info::READ;
-				chan._level_n_stacks[lvl].update_top(t1_info);
-				progress = true;
+				_level_n_stacks[lvl].update_top(t1_info);
 				break;
 
 			case Type_1_info::READ:
 
 				t1_info.state = Type_1_info::COMPLETE;
-				chan._level_n_stacks[lvl].update_top(t1_info);
-				progress = true;
+				_level_n_stacks[lvl].update_top(t1_info);
 				break;
 
 			case Type_1_info::COMPLETE:
 
-				if (chan._found_blocks >= chan._needed_blocks) {
+				if (_found_blocks >= _needed_blocks) {
 
 					/* enough free pbas were found */
-					for (Type_1_info_stack &stack : chan._level_n_stacks)
+					for (Type_1_info_stack &stack : _level_n_stacks)
 						stack = { };
 
-					for (Type_1_node_block &blk : chan._level_n_nodes)
+					for (Type_1_node_block &blk : _level_n_nodes)
 						blk = { };
 
-					chan._level_n_stacks[req._ft.max_lvl].push(
+					_level_n_stacks[req._ft.max_lvl].push(
 						Type_1_info {
-							Type_1_info::INVALID, chan._root_node(), 0,
-							chan._root_node().is_volatile(req._curr_gen) });
+							Type_1_info::INVALID, _root_node(), 0,
+							_root_node().is_volatile(req._curr_gen) });
 
-					chan._state = Channel::UPDATE;
+					_state = UPDATE;
 					progress = true;
+					return;
 
-				} else if (lvl == req._ft.max_lvl)
+				} else if (lvl == req._ft.max_lvl) {
 
 					/* there are not enough free pbas in the entire free tree */
-					chan._mark_req_failed(progress, "not enough free blocks");
+					_mark_req_failed(progress, "not enough free blocks");
+					return;
 
-				else {
+				} else
+					_level_n_stacks[lvl].pop();
 
-					chan._level_n_stacks[lvl].pop();
-					progress = true;
-				}
 				break;
 
 			default: ASSERT_NEVER_REACHED;
 			}
 		}
-		break;
-	}
-	default: break;
 	}
 }
 
@@ -601,7 +605,7 @@ void Free_tree::_execute_update(Channel         &chan,
 				chan._generated_req_state = Channel::REQ_INVALID;
 				if (l >= 2) {
 
-					_populate_lower_n_stack(
+					chan._populate_lower_n_stack(
 						chan._level_n_stacks[l - 1],
 						chan._level_n_nodes[l - 1], chan._cache_block_data,
 						req._curr_gen);
@@ -613,7 +617,7 @@ void Free_tree::_execute_update(Channel         &chan,
 
 				} else {
 
-					_populate_level_0_stack(
+					chan._populate_level_0_stack(
 						chan._level_0_stack, chan._level_0_node,
 						chan._cache_block_data, active_snaps, last_secured_gen,
 						req._rekeying, req._prev_key_id,

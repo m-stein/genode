@@ -354,6 +354,31 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		Tree_level_index _lowest_non_empty_lvl() const;
 
+		bool
+		_check_type_2_leaf_usable(Snapshots       const &snapshots,
+		                          Generation             last_secured_gen,
+		                          Type_2_node     const &node,
+		                          bool                   rekeying,
+		                          Key_id                 previous_key_id,
+		                          Virtual_block_address  rekeying_vba);
+
+		void _populate_level_0_stack(Type_2_info_stack     &stack,
+		                             Type_2_node_block     &entries,
+		                             Block           const &block_data,
+		                             Snapshots       const &active_snaps,
+		                             Generation             secured_gen,
+		                             bool                   rekeying,
+		                             Key_id                 previous_key_id,
+		                             Virtual_block_address  rekeying_vba);
+
+
+		void _populate_lower_n_stack(Type_1_info_stack &stack,
+		                             Type_1_node_block &entries,
+		                             Block      const  &block_data,
+		                             Generation         current_gen);
+
+		void _traverse_tree(bool &);
+
 	public:
 
 		Free_tree_channel(Module_channel_id id) : Module_channel { FREE_TREE, id } { }
@@ -404,28 +429,6 @@ class Tresor::Free_tree : public Module
 		                        Key_id                  previous_key_id,
 		                        Key_id                  current_key_id,
 		                        Virtual_block_address   rekeying_vba);
-
-		void _populate_lower_n_stack(Type_1_info_stack &stack,
-		                             Type_1_node_block &entries,
-		                             Block      const  &block_data,
-		                             Generation         current_gen);
-
-		bool
-		_check_type_2_leaf_usable(Snapshots       const &snapshots,
-		                          Generation             last_secured_gen,
-		                          Type_2_node     const &node,
-		                          bool                   rekeying,
-		                          Key_id                 previous_key_id,
-		                          Virtual_block_address  rekeying_vba);
-
-		void _populate_level_0_stack(Type_2_info_stack     &stack,
-		                             Type_2_node_block     &entries,
-		                             Block           const &block_data,
-		                             Snapshots       const &active_snaps,
-		                             Generation             secured_gen,
-		                             bool                   rekeying,
-		                             Key_id                 previous_key_id,
-		                             Virtual_block_address  rekeying_vba);
 
 		void _execute_update(Channel         &chan,
 		                     Snapshots const &active_snaps,
