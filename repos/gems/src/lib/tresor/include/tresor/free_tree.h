@@ -115,12 +115,12 @@ class Tresor::Free_tree_channel : public Module_channel
 			ALLOC_COMPLETE
 		};
 
+		enum Type_1_info_state {
+			SUBTREE_NOT_TRAVERSED, SUBTREE_ROOT_BLK_READ, X_WRITE, SUBTREE_TRAVERSED };
+
 		struct Type_1_info
 		{
-			enum State {
-				INVALID, AVAILABLE, READ, WRITE, COMPLETE };
-
-			State           state   { INVALID };
+			Type_1_info_state state { SUBTREE_NOT_TRAVERSED };
 			Type_1_node     node    { };
 			Tree_node_index index   { INVALID_NODE_INDEX };
 			bool            volatil { false };
