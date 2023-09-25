@@ -100,9 +100,9 @@ class Tresor::Free_tree_channel : public Module_channel
 		using Request = Free_tree_request;
 
 		enum State {
-			SCAN_REQ_INVALID,
-			SCAN_REQ_GENERATED,
-			SCAN_READ_COMPLETE,
+			REQ_SUBMITTED,
+			REQ_GENERATED,
+			SCAN_READ_BLK_SUCCEEDED,
 			UPDATE,
 			COMPLETE
 		};
@@ -328,12 +328,10 @@ class Tresor::Free_tree_channel : public Module_channel
 		void _generate_cache_req(State_uint state, bool &progress, Tree_level_index lvl, ARGS &&... args)
 		{
 			switch (_state) {
-			case SCAN_REQ_INVALID:
-			case SCAN_REQ_GENERATED:
-			case SCAN_READ_COMPLETE:
-				ASSERT(_state == SCAN_REQ_INVALID);
+			case REQ_GENERATED: ASSERT_NEVER_REACHED;
+			case SCAN_READ_BLK_SUCCEEDED:
 				_generated_req_lvl = lvl;
-				_state = SCAN_REQ_GENERATED;
+				_state = REQ_GENERATED;
 				generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 				break;
 			default:
@@ -432,10 +430,7 @@ class Tresor::Free_tree : public Module
 		                     Generation       last_secured_gen,
 		                     bool            &progress);
 
-		void _execute_scan(Channel         &chan,
-		                   Snapshots const &active_snaps,
-		                   Generation       last_secured_gen,
-		                   bool            &progress);
+		void _alloc(Channel &, Snapshots const &, Generation,bool &);
 
 		void _execute(Channel         &chan,
 		              Snapshots const &active_snaps,
