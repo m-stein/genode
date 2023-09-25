@@ -340,64 +340,57 @@ void Free_tree::_alloc(Channel &chan,
 		}
 
 		// handle level 1 - n
-		for (Tree_level_index lvl = FIRST_LVL_N_STACKS_IDX; lvl <= MAX_LVL_N_STACKS_IDX; lvl++) {
+		Tree_level_index lvl = FIRST_LVL_N_STACKS_IDX;
+		for (; lvl <= req._ft.max_lvl && chan._level_n_stacks[lvl].empty(); lvl++) ;
 
-			if (!chan._level_n_stacks[lvl].empty()) {
+		Type_1_info t1_info = chan._level_n_stacks[lvl].peek_top();
+		switch (t1_info.state) {
+		case Type_1_info::INVALID:
 
-				Type_1_info t1_info = chan._level_n_stacks[lvl].peek_top();
-				switch (t1_info.state) {
-				case Type_1_info::INVALID:
+			chan._generate_cache_req<Block_io::Read>(
+				Channel::SCAN_READ_BLK_SUCCEEDED, progress, lvl, t1_info.node.pba, chan._cache_block_data);
+			break;
 
-					chan._generate_cache_req<Block_io::Read>(
-						Channel::SCAN_READ_BLK_SUCCEEDED, progress, lvl, t1_info.node.pba, chan._cache_block_data);
-					break;
+		case Type_1_info::AVAILABLE:
 
-				case Type_1_info::AVAILABLE:
-
-					if (lvl >= 2) {
-						_populate_lower_n_stack(
-							chan._level_n_stacks[lvl - 1],
-							chan._level_n_node, chan._cache_block_data,
-							req._curr_gen);
-					} else {
-						_populate_level_0_stack(
-							chan._level_0_stack,
-							chan._level_0_node, chan._cache_block_data,
-							snapshots, last_secured_gen,
-							req._rekeying, req._prev_key_id,
-							req._rekeying_vba);
-					}
-					t1_info.state = Type_1_info::READ;
-					chan._level_n_stacks[lvl].update_top(t1_info);
-					progress = true;
-					break;
-
-				case Type_1_info::READ:
-
-					t1_info.state = Type_1_info::COMPLETE;
-					chan._level_n_stacks[lvl].update_top(t1_info);
-					progress = true;
-					break;
-
-				case Type_1_info::WRITE:
-
-					class Exception_1 { };
-					throw Exception_1 { };
-
-				case Type_1_info::COMPLETE:
-
-					if (lvl == req._ft.max_lvl)
-						end_of_tree = true;
-
-					if (chan._found_blocks >= chan._needed_blocks)
-						enough_found = true;
-
-					chan._level_n_stacks[lvl].pop();
-					progress = true;
-					break;
-				}
-				break;
+			if (lvl >= 2) {
+				_populate_lower_n_stack(
+					chan._level_n_stacks[lvl - 1],
+					chan._level_n_node, chan._cache_block_data,
+					req._curr_gen);
+			} else {
+				_populate_level_0_stack(
+					chan._level_0_stack,
+					chan._level_0_node, chan._cache_block_data,
+					snapshots, last_secured_gen,
+					req._rekeying, req._prev_key_id,
+					req._rekeying_vba);
 			}
+			t1_info.state = Type_1_info::READ;
+			chan._level_n_stacks[lvl].update_top(t1_info);
+			progress = true;
+			break;
+
+		case Type_1_info::READ:
+
+			t1_info.state = Type_1_info::COMPLETE;
+			chan._level_n_stacks[lvl].update_top(t1_info);
+			progress = true;
+			break;
+
+		case Type_1_info::COMPLETE:
+
+			if (lvl == req._ft.max_lvl)
+				end_of_tree = true;
+
+			if (chan._found_blocks >= chan._needed_blocks)
+				enough_found = true;
+
+			chan._level_n_stacks[lvl].pop();
+			progress = true;
+			break;
+
+		default: ASSERT_NEVER_REACHED;
 		}
 
 		ASSERT(chan._state == Channel::SCAN_READ_BLK_SUCCEEDED || chan._state == Channel::REQ_GENERATED);
