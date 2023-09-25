@@ -100,7 +100,9 @@ class Tresor::Free_tree_channel : public Module_channel
 		using Request = Free_tree_request;
 
 		enum State {
-			SCAN,
+			SCAN_REQ_INVALID,
+			SCAN_REQ_GENERATED,
+			SCAN_READ_COMPLETE,
 			UPDATE,
 			COMPLETE
 		};
@@ -325,10 +327,22 @@ class Tresor::Free_tree_channel : public Module_channel
 		template <typename REQUEST, typename... ARGS>
 		void _generate_cache_req(State_uint state, bool &progress, Tree_level_index lvl, ARGS &&... args)
 		{
-			ASSERT(_generated_req_state == REQ_INVALID);
-			_generated_req_lvl = lvl;
-			_generated_req_state = REQ_IN_PROGRESS;
-			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
+			switch (_state) {
+			case SCAN_REQ_INVALID:
+			case SCAN_REQ_GENERATED:
+			case SCAN_READ_COMPLETE:
+				ASSERT(_state == SCAN_REQ_INVALID);
+				_generated_req_lvl = lvl;
+				_state = SCAN_REQ_GENERATED;
+				generate_req<REQUEST>(state, progress, args..., _generated_req_success);
+				break;
+			default:
+				ASSERT(_generated_req_state == REQ_INVALID);
+				_generated_req_lvl = lvl;
+				_generated_req_state = REQ_IN_PROGRESS;
+				generate_req<REQUEST>(state, progress, args..., _generated_req_success);
+				break;
+			}
 		}
 
 		void _generate_mt_req(State_uint state, bool &progress, Physical_block_address pba);
