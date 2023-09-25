@@ -210,22 +210,6 @@ void Free_tree_channel::_generated_req_completed(State_uint state_uint)
 			return;
 		}
 		_state = (State)state_uint;
-		switch (_state) {
-		case SCAN_READ_BLK_SUCCEEDED:
-		{
-			Type_1_info n { _level_n_stacks[_generated_req_lvl].peek_top() };
-			if (check_hash(_cache_block_data, n.node.hash)) {
-				n.state = Type_1_info::AVAILABLE;
-				_level_n_stacks[_generated_req_lvl].update_top(n);
-			} else {
-				error(Request::type_to_string(_req_ptr->_type), " request failed, reason: \"node hash mismatch\"");
-				_req_ptr->_success = false;
-				_state = COMPLETE;
-			}
-			break;
-		}
-		default: ASSERT_NEVER_REACHED;
-		}
 		break;
 	default:
 		ASSERT(_generated_req_state == REQ_IN_PROGRESS);
@@ -277,40 +261,45 @@ Tree_level_index Free_tree_channel::_lowest_non_empty_lvl() const
 }
 
 
-void Free_tree::_alloc(Channel &chan,
-                       Snapshots const &,
-                       Generation,
-                       bool &progress)
+void Free_tree_channel::_alloc(bool &progress)
 {
-	Request &req { *chan._req_ptr };
-	switch (chan._state) {
-	case Channel::REQ_SUBMITTED:
+	Request &req { *_req_ptr };
+	switch (_state) {
+	case REQ_SUBMITTED:
 	{
-		chan._exchanged_blocks = 0;
-		chan._needed_blocks = req._num_requested_blks;
-		chan._found_blocks = 0;
-		for (Type_1_info_stack &stack : chan._level_n_stacks)
+		_exchanged_blocks = 0;
+		_needed_blocks = req._num_requested_blks;
+		_found_blocks = 0;
+		for (Type_1_info_stack &stack : _level_n_stacks)
 			stack = { };
 
-		for (Type_1_node_block &blk : chan._level_n_nodes)
+		for (Type_1_node_block &blk : _level_n_nodes)
 			blk = { };
 
-		chan._level_0_stack = { };
-		chan._level_n_node = { };
-		chan._level_0_node = { };
+		_level_0_stack = { };
+		_level_n_node = { };
+		_level_0_node = { };
 		Type_1_node root_node { };
 		root_node.pba = req._ft.pba;
 		root_node.gen = req._ft.gen;
 		root_node.hash = req._ft.hash;
-		chan._level_n_stacks[req._ft.max_lvl].push({ Type_1_info::INVALID, root_node, 0, root_node.is_volatile(req._curr_gen) });
-		chan._state = Channel::SCAN_READ_BLK_SUCCEEDED;
-		chan._vbd_degree_log_2 = log2<Tree_degree_log_2>(req._vbd_degree);
-		progress = true;
+		_level_n_stacks[req._ft.max_lvl].push({ Type_1_info::INVALID, root_node, 0, root_node.is_volatile(req._curr_gen) });
+		_state = SCAN_READ_BLK_SUCCEEDED;
+		_vbd_degree_log_2 = log2<Tree_degree_log_2>(req._vbd_degree);
+		_generate_cache_req<Block_io::Read>(
+			SCAN_READ_BLK_SUCCEEDED, progress, req._ft.max_lvl, req._ft.pba, _cache_block_data);
 		break;
 	}
-	case Channel::SCAN_READ_BLK_SUCCEEDED:
+	case SCAN_READ_BLK_SUCCEEDED:
 	{
-		chan._traverse_tree(progress);
+		Type_1_info t1_info { _level_n_stacks[_generated_req_lvl].peek_top() };
+		if (!check_hash(_cache_block_data, t1_info.node.hash)) {
+			_mark_req_failed(progress, "hash mismatch");
+			break;
+		}
+		t1_info.state = Type_1_info::AVAILABLE;
+		_level_n_stacks[_generated_req_lvl].update_top(t1_info);
+		_traverse_tree(progress);
 		break;
 	}
 	default: break;
@@ -739,9 +728,7 @@ void Free_tree::_execute(Channel &chan,
 
 	switch (chan._state) {
 	case Channel::REQ_SUBMITTED:
-	case Channel::SCAN_READ_BLK_SUCCEEDED:
-		_alloc(chan, snapshots, last_secured_gen, progress);
-		break;
+	case Channel::SCAN_READ_BLK_SUCCEEDED: chan._alloc(progress); break;
 	case Channel::UPDATE:
 		_execute_update(chan, snapshots, last_secured_gen, progress);
 		break;
