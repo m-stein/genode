@@ -325,22 +325,21 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 		if (!lvl) {
 
 			while (!_level_0_stack.empty()) {
-				Type_2_info info { _level_0_stack.peek_top() };
 				if (!_type_2_leafs.full())
-					_type_2_leafs.enqueue(info);
+					_type_2_leafs.enqueue(_level_0_stack.peek_top());
 				_found_blocks++;
 				_level_0_stack.pop();
 			}
 			ASSERT(!_level_n_stacks[1].empty());
-			Type_1_info n { _level_n_stacks[1].peek_top() };
+			Type_1_info t1_info { _level_n_stacks[1].peek_top() };
 
 			/*
 			 * Only when the node is in read state we actually have to acknowledge
 			 * checking the leaf nodes.
 			 */
-			if (n.state == Type_1_info::READ) {
-				n.state = Type_1_info::COMPLETE;
-				_level_n_stacks[1].update_top(n);
+			if (t1_info.state == Type_1_info::READ) {
+				t1_info.state = Type_1_info::COMPLETE;
+				_level_n_stacks[1].update_top(t1_info);
 			}
 		} else {
 
