@@ -352,6 +352,8 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		void _mark_req_failed(bool &, char const *);
 
+		Tree_level_index _lowest_non_empty_lvl() const;
+
 	public:
 
 		Free_tree_channel(Module_channel_id id) : Module_channel { FREE_TREE, id } { }
