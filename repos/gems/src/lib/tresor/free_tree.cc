@@ -337,11 +337,9 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 }
 
 
-void Free_tree_channel::_alloc_pbas_and_update_t2_nodes(Number_of_blocks &exchanged, bool &handled)
+void Free_tree_channel::_try_alloc_pbas_from_lvl_0_stack()
 {
 	Request &req { *_req_ptr };
-	Number_of_blocks num_allocated_pbas { 0 };
-	handled = false;
 	Virtual_block_address rkg_vba { req._rekeying_vba };
 	for (Tree_level_index lvl = 0; lvl <= req._max_lvl && !_level_0_stack.empty(); lvl++) {
 		if (req._new_blocks.pbas[lvl] != 0)
@@ -393,22 +391,17 @@ void Free_tree_channel::_alloc_pbas_and_update_t2_nodes(Number_of_blocks &exchan
 		}
 		default: ASSERT_NEVER_REACHED;
 		}
-		num_allocated_pbas++;
+		_num_allocated_pbas++;
 		_level_0_stack.pop();
-		handled = true;
 	}
-	exchanged = num_allocated_pbas;
 }
 
 
-void Free_tree_channel::_update_upper_n_stack(Type_1_info const &t,
-                                      Generation         gen,
-                                      Block       const &block_data,
-                                      Type_1_node_block &entries)
+void Free_tree_channel::_update_t1_node(Type_1_node &t1_node, Type_1_info &t1_info)
 {
-	entries.nodes[t.index].pba = t.node.pba;
-	entries.nodes[t.index].gen = gen;
-	calc_hash(block_data, entries.nodes[t.index].hash);
+	t1_node.pba = t1_info.node.pba;
+	t1_node.gen = _req_ptr->_curr_gen;
+	calc_hash(_cache_block_data, t1_node.hash);
 }
 
 
@@ -417,27 +410,14 @@ void Free_tree_channel::_execute_update(bool &progress)
 	Request &req { *_req_ptr };
 	bool exchange_finished { false };
 	bool update_finished { false };
-	Number_of_blocks num_allocated_pbas;
 
-	/* handle level 0 */
-	if (!_level_0_stack.empty()) {
-		bool handled;
-		_alloc_pbas_and_update_t2_nodes(num_allocated_pbas, handled);
-		if (handled) {
-			if (num_allocated_pbas > 0) {
-				_num_allocated_pbas += num_allocated_pbas;
-			} else {
-				Type_1_info n { _level_n_stacks[FIRST_LVL_N_STACKS_IDX].peek_top() };
-				n.state = SUBTREE_TRAVERSED;
-				_level_n_stacks[FIRST_LVL_N_STACKS_IDX].update_top(n);
-			}
-		}
-	}
-	if (_num_allocated_pbas == req._num_required_pbas) {
+	_try_alloc_pbas_from_lvl_0_stack();
+
+	if (_num_allocated_pbas == req._num_required_pbas)
 		exchange_finished = true;
-	}
+
 	/* handle level 1..N */
-	for (Tree_level_index lvl { FIRST_LVL_N_STACKS_IDX }; lvl <= MAX_LVL_N_STACKS_IDX; lvl++) {
+	for (Tree_level_index lvl { 1 }; lvl <= req._ft.max_lvl; lvl++) {
 
 		Type_1_info_stack &stack { _level_n_stacks[lvl] };
 		if (!stack.empty()) {
@@ -471,7 +451,7 @@ void Free_tree_channel::_execute_update(bool &progress)
 				break;
 
 			case X_WRITE:
-
+			{
 				if (!t1_info.volatil) {
 
 					if (_state == UPDATE_REQ_INVALID) {
@@ -486,39 +466,29 @@ void Free_tree_channel::_execute_update(bool &progress)
 						t1_info.node.pba = _generated_req_pba;
 						stack.update_top(t1_info);
 
-					} else {
-
-						class Exception_3 { };
-						throw Exception_3 { };
-					}
+					} else
+						ASSERT_NEVER_REACHED;
 				}
+				Type_1_node &t1_node { _level_n_nodes[lvl].nodes[t1_info.index] };
 				if (lvl >= 2) {
 
 					_level_n_nodes[lvl - 1].encode_to_blk(_cache_block_data);
 
-					if (lvl < req._ft.max_lvl) {
-						_update_upper_n_stack(
-							t1_info, req._curr_gen, _cache_block_data,
-							_level_n_nodes[lvl]);
-					} else {
-						calc_hash(_cache_block_data,
-						                    req._ft.hash);
-
+					if (lvl < req._ft.max_lvl)
+						_update_t1_node(t1_node, t1_info);
+					else {
+						calc_hash(_cache_block_data, req._ft.hash);
 						req._ft.gen = req._curr_gen;
-						req._ft.pba =
-							t1_info.node.pba;
+						req._ft.pba = t1_info.node.pba;
 					}
 				} else {
 					_level_0_node.encode_to_blk(_cache_block_data);
-
-					_update_upper_n_stack(
-						t1_info, req._curr_gen, _cache_block_data,
-						_level_n_nodes[lvl]);
+					_update_t1_node(t1_node, t1_info);
 				}
 				_generate_cache_req<Block_io::Write>(
 					UPDATE_WRITE_BLK_SUCCEEDED, progress, lvl, t1_info.node.pba, _cache_block_data);
 				break;
-
+			}
 			case SUBTREE_TRAVERSED:
 
 				_state = UPDATE_REQ_INVALID;
