@@ -507,15 +507,6 @@ void Free_tree_channel::_execute_update(bool &progress)
 			break;
 		}
 	}
-	switch (_state) {
-	case UPDATE_REQ_INVALID:
-	case UPDATE_REQ_GENERATED:
-	case UPDATE_READ_BLK_SUCCEEDED:
-	case UPDATE_ALLOC_PBA_SUCCEEDED:
-	case UPDATE_WRITE_BLK_SUCCEEDED: break;
-	default: return;
-	}
-
 	if (exchange_finished && update_finished)
 		_mark_req_successful(progress);
 }
