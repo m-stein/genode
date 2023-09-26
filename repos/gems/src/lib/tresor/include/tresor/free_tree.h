@@ -301,7 +301,6 @@ class Tresor::Free_tree_channel : public Module_channel
 		Type_1_info_stack _level_n_stacks[TREE_MAX_NR_OF_LEVELS] { };
 		Type_2_info_stack _level_0_stack { };
 		Type_1_node_block _level_n_nodes[TREE_MAX_NR_OF_LEVELS]  { };
-		Type_1_node_block _level_n_node { };
 		Type_2_node_block _level_0_node { };
 		Node_queue _type_2_leafs { };
 		Tree_degree_log_2 _vbd_degree_log_2 { 0 };
@@ -354,28 +353,9 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		Tree_level_index _lowest_non_empty_lvl() const;
 
-		bool
-		_check_type_2_leaf_usable(Snapshots       const &snapshots,
-		                          Generation             last_secured_gen,
-		                          Type_2_node     const &node,
-		                          bool                   rekeying,
-		                          Key_id                 previous_key_id,
-		                          Virtual_block_address  rekeying_vba);
+		bool _t2_node_allocable(Type_2_node &node);
 
-		void _populate_level_0_stack(Type_2_info_stack     &stack,
-		                             Type_2_node_block     &entries,
-		                             Block           const &block_data,
-		                             Snapshots       const &active_snaps,
-		                             Generation             secured_gen,
-		                             bool                   rekeying,
-		                             Key_id                 previous_key_id,
-		                             Virtual_block_address  rekeying_vba);
-
-
-		void _populate_lower_n_stack(Type_1_info_stack &stack,
-		                             Type_1_node_block &entries,
-		                             Block      const  &block_data,
-		                             Generation         current_gen);
+		void _init_info_stack_from_blk_data(Tree_level_index);
 
 		void _traverse_tree(bool &);
 
@@ -432,15 +412,9 @@ class Tresor::Free_tree : public Module
 		                        Key_id                  current_key_id,
 		                        Virtual_block_address   rekeying_vba);
 
-		void _execute_update(Channel         &chan,
-		                     Snapshots const &active_snaps,
-		                     Generation       last_secured_gen,
-		                     bool            &progress);
+		void _execute_update(Channel &, bool &);
 
-		void _execute(Channel         &chan,
-		              Snapshots const &active_snaps,
-		              Generation       last_secured_gen,
-		              bool            &progress);
+		void _execute(Channel &, bool &);
 
 		void _check_type_2_stack(Type_2_info_stack &stack,
 		                         Type_1_info_stack &stack_next,
