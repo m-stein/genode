@@ -115,10 +115,7 @@ Free_tree_request::Free_tree_request(Module_id src_module_id,
 void Free_tree::execute(bool &progress)
 {
 	for_each_channel<Channel>([&] (Channel &chan) {
-		if (!chan._req_ptr)
-			return;
-		_execute(chan, progress);
-	});
+		chan.execute(progress); });
 }
 
 
@@ -341,8 +338,7 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 }
 
 
-void
-Free_tree::_exchange_type_2_leaves(Generation              free_gen,
+void Free_tree_channel::_exchange_type_2_leaves(Generation              free_gen,
                                    Tree_level_index        max_lvl,
                                    Type_1_node_walk const &old_blocks,
                                    Tree_walk_pbas         &new_blocks,
@@ -463,7 +459,7 @@ Free_tree::_exchange_type_2_leaves(Generation              free_gen,
 }
 
 
-void Free_tree::_update_upper_n_stack(Type_1_info const &t,
+void Free_tree_channel::_update_upper_n_stack(Type_1_info const &t,
                                       Generation         gen,
                                       Block       const &block_data,
                                       Type_1_node_block &entries)
@@ -474,9 +470,9 @@ void Free_tree::_update_upper_n_stack(Type_1_info const &t,
 }
 
 
-void Free_tree::_execute_update(Channel &chan, bool &progress)
+void Free_tree_channel::_execute_update(bool &progress)
 {
-	Request &req { *chan._req_ptr };
+	Request &req { *_req_ptr };
 	bool exchange_finished { false };
 	bool update_finished { false };
 	Number_of_blocks exchanged;
@@ -489,73 +485,72 @@ void Free_tree::_execute_update(Channel &chan, bool &progress)
 			req._free_gen, req._max_lvl,
 			req._old_blocks,
 			req._new_blocks,
-			req._vba, chan._vbd_degree_log_2, req._type, chan._level_0_stack,
-			chan._level_0_node, exchanged, handled, req._vbd_highest_vba,
+			req._vba, _vbd_degree_log_2, req._type, _level_0_stack,
+			_level_0_node, exchanged, handled, req._vbd_highest_vba,
 			req._rekeying, req._prev_key_id, req._curr_key_id,
 			req._rekeying_vba);
 
 		if (handled) {
 			if (exchanged > 0) {
-				chan._exchanged_blocks += exchanged;
+				_exchanged_blocks += exchanged;
 			} else {
-				Type_1_info n { chan._level_n_stacks[FIRST_LVL_N_STACKS_IDX].peek_top() };
-				n.state = Channel::SUBTREE_TRAVERSED;
-				chan._level_n_stacks[FIRST_LVL_N_STACKS_IDX].update_top(n);
+				Type_1_info n { _level_n_stacks[FIRST_LVL_N_STACKS_IDX].peek_top() };
+				n.state = SUBTREE_TRAVERSED;
+				_level_n_stacks[FIRST_LVL_N_STACKS_IDX].update_top(n);
 			}
 		}
 	}
-	if (chan._exchanged_blocks == chan._needed_blocks) {
+	if (_exchanged_blocks == _needed_blocks) {
 		exchange_finished = true;
 	}
 	/* handle level 1..N */
 	for (Tree_level_index lvl { FIRST_LVL_N_STACKS_IDX }; lvl <= MAX_LVL_N_STACKS_IDX; lvl++) {
 
-		Type_1_info_stack &stack { chan._level_n_stacks[lvl] };
-
+		Type_1_info_stack &stack { _level_n_stacks[lvl] };
 		if (!stack.empty()) {
 
 			Type_1_info t1_info { stack.peek_top() };
 			switch (t1_info.state) {
-			case Channel::SUBTREE_NOT_TRAVERSED:
+			case SUBTREE_NOT_TRAVERSED:
 
-				ASSERT(chan._state == Channel::UPDATE_REQ_INVALID);
-				chan._generate_cache_req<Block_io::Read>(
-					Channel::UPDATE_READ_BLK_SUCCEEDED, progress, lvl, t1_info.node.pba, chan._cache_block_data);
+				ASSERT(_state == UPDATE_REQ_INVALID);
+				_generate_cache_req<Block_io::Read>(
+					UPDATE_READ_BLK_SUCCEEDED, progress, lvl, t1_info.node.pba, _cache_block_data);
 				break;
 
-			case Channel::SUBTREE_ROOT_BLK_READ:
+			case SUBTREE_ROOT_BLK_READ:
 
-				chan._state = Channel::UPDATE_REQ_INVALID;
-				chan._init_info_stack_from_blk_data(lvl - 1);
+				_state = UPDATE_REQ_INVALID;
+				_init_info_stack_from_blk_data(lvl - 1);
 				if (lvl > 1) {
-					if (!chan._level_n_stacks[lvl - 1].empty())
-						t1_info.state = Channel::X_WRITE;
+					if (!_level_n_stacks[lvl - 1].empty())
+						t1_info.state = X_WRITE;
 					else
-						t1_info.state = Channel::SUBTREE_TRAVERSED;
+						t1_info.state = SUBTREE_TRAVERSED;
 				} else {
-					if (!chan._level_0_stack.empty())
-						t1_info.state = Channel::X_WRITE;
+					if (!_level_0_stack.empty())
+						t1_info.state = X_WRITE;
 					else
-						t1_info.state = Channel::SUBTREE_TRAVERSED;
+						t1_info.state = SUBTREE_TRAVERSED;
 				}
 				stack.update_top(t1_info);
 				progress = true;
 				break;
 
-			case Channel::X_WRITE:
+			case X_WRITE:
 
 				if (!t1_info.volatil) {
 
-					if (chan._state == Channel::UPDATE_REQ_INVALID) {
+					if (_state == UPDATE_REQ_INVALID) {
 
-						chan._generate_mt_req(Channel::UPDATE_ALLOC_PBA_SUCCEEDED, progress, t1_info.node.pba);
+						_generate_mt_req(UPDATE_ALLOC_PBA_SUCCEEDED, progress, t1_info.node.pba);
 						break;
 
-					} else if (chan._state == Channel::UPDATE_ALLOC_PBA_SUCCEEDED) {
+					} else if (_state == UPDATE_ALLOC_PBA_SUCCEEDED) {
 
-						chan._state = Channel::UPDATE_REQ_INVALID;
+						_state = UPDATE_REQ_INVALID;
 						t1_info.volatil = true;
-						t1_info.node.pba = chan._generated_req_pba;
+						t1_info.node.pba = _generated_req_pba;
 						stack.update_top(t1_info);
 
 					} else {
@@ -566,14 +561,14 @@ void Free_tree::_execute_update(Channel &chan, bool &progress)
 				}
 				if (lvl >= 2) {
 
-					chan._level_n_nodes[lvl - 1].encode_to_blk(chan._cache_block_data);
+					_level_n_nodes[lvl - 1].encode_to_blk(_cache_block_data);
 
 					if (lvl < req._ft.max_lvl) {
 						_update_upper_n_stack(
-							t1_info, req._curr_gen, chan._cache_block_data,
-							chan._level_n_nodes[lvl]);
+							t1_info, req._curr_gen, _cache_block_data,
+							_level_n_nodes[lvl]);
 					} else {
-						calc_hash(chan._cache_block_data,
+						calc_hash(_cache_block_data,
 						                    req._ft.hash);
 
 						req._ft.gen = req._curr_gen;
@@ -581,19 +576,19 @@ void Free_tree::_execute_update(Channel &chan, bool &progress)
 							t1_info.node.pba;
 					}
 				} else {
-					chan._level_0_node.encode_to_blk(chan._cache_block_data);
+					_level_0_node.encode_to_blk(_cache_block_data);
 
 					_update_upper_n_stack(
-						t1_info, req._curr_gen, chan._cache_block_data,
-						chan._level_n_nodes[lvl]);
+						t1_info, req._curr_gen, _cache_block_data,
+						_level_n_nodes[lvl]);
 				}
-				chan._generate_cache_req<Block_io::Write>(
-					Channel::UPDATE_WRITE_BLK_SUCCEEDED, progress, lvl, t1_info.node.pba, chan._cache_block_data);
+				_generate_cache_req<Block_io::Write>(
+					UPDATE_WRITE_BLK_SUCCEEDED, progress, lvl, t1_info.node.pba, _cache_block_data);
 				break;
 
-			case Channel::SUBTREE_TRAVERSED:
+			case SUBTREE_TRAVERSED:
 
-				chan._state = Channel::UPDATE_REQ_INVALID;
+				_state = UPDATE_REQ_INVALID;
 				stack.pop();
 
 				if (exchange_finished)
@@ -609,17 +604,17 @@ void Free_tree::_execute_update(Channel &chan, bool &progress)
 			break;
 		}
 	}
-	switch (chan._state) {
-	case Channel::UPDATE_REQ_INVALID:
-	case Channel::UPDATE_REQ_GENERATED:
-	case Channel::UPDATE_READ_BLK_SUCCEEDED:
-	case Channel::UPDATE_ALLOC_PBA_SUCCEEDED:
-	case Channel::UPDATE_WRITE_BLK_SUCCEEDED: break;
+	switch (_state) {
+	case UPDATE_REQ_INVALID:
+	case UPDATE_REQ_GENERATED:
+	case UPDATE_READ_BLK_SUCCEEDED:
+	case UPDATE_ALLOC_PBA_SUCCEEDED:
+	case UPDATE_WRITE_BLK_SUCCEEDED: break;
 	default: return;
 	}
 
 	if (exchange_finished && update_finished)
-		_mark_req_successful(chan, progress);
+		_mark_req_successful(progress);
 }
 
 
@@ -632,28 +627,29 @@ void Free_tree_channel::_mark_req_failed(bool &progress, char const *str)
 }
 
 
-void Free_tree::_mark_req_successful(Channel &channel,
-                                     bool &progress)
+void Free_tree_channel::_mark_req_successful(bool &progress)
 {
-	channel._req_ptr->_success = true;
-	channel._state = Channel::COMPLETE;
+	_req_ptr->_success = true;
+	_state = COMPLETE;
 	progress = true;
 }
 
 
-void Free_tree::_execute(Channel &chan, bool &progress)
+void Free_tree_channel::execute(bool &progress)
 {
-	if (chan._state == Channel::UPDATE_REQ_GENERATED)
+	if (!_req_ptr)
 		return;
 
-	switch (chan._state) {
-	case Channel::REQ_SUBMITTED:
-	case Channel::SCAN_READ_BLK_SUCCEEDED: chan._alloc(progress); break;
-	case Channel::UPDATE_READ_BLK_SUCCEEDED:
-	case Channel::UPDATE_WRITE_BLK_SUCCEEDED:
-	case Channel::UPDATE_ALLOC_PBA_SUCCEEDED:
-	case Channel::UPDATE_REQ_INVALID:
-		_execute_update(chan, progress); break;
+	if (_state == UPDATE_REQ_GENERATED)
+		return;
+
+	switch (_state) {
+	case REQ_SUBMITTED:
+	case SCAN_READ_BLK_SUCCEEDED: _alloc(progress); break;
+	case UPDATE_READ_BLK_SUCCEEDED:
+	case UPDATE_WRITE_BLK_SUCCEEDED:
+	case UPDATE_ALLOC_PBA_SUCCEEDED:
+	case UPDATE_REQ_INVALID: _execute_update(progress); break;
 	default: break;
 	}
 }

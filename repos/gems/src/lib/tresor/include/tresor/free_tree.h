@@ -95,9 +95,11 @@ class Tresor::Free_tree_channel : public Module_channel
 {
 	private:
 
-		friend class Free_tree;
-
 		using Request = Free_tree_request;
+
+		enum { FIRST_LVL_N_STACKS_IDX = 1 };
+		enum { MAX_LVL_N_STACKS_IDX = TREE_MAX_LEVEL };
+		enum { FIRST_LVL_N_NODES_IDX = 1 };
 
 		enum State {
 			REQ_SUBMITTED,
@@ -356,38 +358,7 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		void _alloc(bool &);
 
-	public:
-
-		Free_tree_channel(Module_channel_id id) : Module_channel { FREE_TREE, id } { }
-};
-
-class Tresor::Free_tree : public Module
-{
-	private:
-
-		using Request = Free_tree_request;
-		using Channel = Free_tree_channel;
-		using Type_1_info = Channel::Type_1_info;
-		using Type_2_info = Channel::Type_2_info;
-		using Type_1_info_stack = Channel::Type_1_info_stack;
-		using Type_2_info_stack = Channel::Type_2_info_stack;
-		using Node_queue = Channel::Node_queue;
-
-		enum { FIRST_LVL_N_STACKS_IDX = 1 };
-		enum { MAX_LVL_N_STACKS_IDX = TREE_MAX_LEVEL };
-		enum { FIRST_LVL_N_NODES_IDX = 1 };
-
-		Constructible<Channel> _channels[1] { };
-
-		NONCOPYABLE(Free_tree);
-
-		void _update_upper_n_stack(Type_1_info const &t,
-		                           Generation         gen,
-		                           Block       const &block_data,
-		                           Type_1_node_block &entries);
-
-		void _mark_req_successful(Channel &chan,
-		                          bool    &progress);
+		void _execute_update(bool &);
 
 		void
 		_exchange_type_2_leaves(Generation              free_gen,
@@ -407,14 +378,29 @@ class Tresor::Free_tree : public Module
 		                        Key_id                  current_key_id,
 		                        Virtual_block_address   rekeying_vba);
 
-		void _execute_update(Channel &, bool &);
+		void _update_upper_n_stack(Type_1_info const &t,
+		                           Generation         gen,
+		                           Block       const &block_data,
+		                           Type_1_node_block &entries);
 
-		void _execute(Channel &, bool &);
+		void _mark_req_successful(bool &);
 
-		void _check_type_2_stack(Type_2_info_stack &stack,
-		                         Type_1_info_stack &stack_next,
-		                         Node_queue        &leaves,
-		                         Number_of_blocks  &found);
+	public:
+
+		Free_tree_channel(Module_channel_id id) : Module_channel { FREE_TREE, id } { }
+
+		void execute(bool &);
+};
+
+class Tresor::Free_tree : public Module
+{
+	private:
+
+		using Channel = Free_tree_channel;
+
+		Constructible<Channel> _channels[1] { };
+
+		NONCOPYABLE(Free_tree);
 
 		void execute(bool &) override;
 
