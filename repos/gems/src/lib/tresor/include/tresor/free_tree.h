@@ -343,7 +343,6 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		bool _request_complete() override { return _state == COMPLETE; }
 
-
 		void _mark_req_failed(bool &, char const *);
 
 		Tree_level_index _lowest_non_empty_lvl() const;
@@ -358,12 +357,9 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		void _execute_update(bool &);
 
-		void _alloc_pbas_and_update_t2_nodes(Number_of_blocks &, bool &);
+		void _try_alloc_pbas_from_lvl_0_stack();
 
-		void _update_upper_n_stack(Type_1_info const &t,
-		                           Generation         gen,
-		                           Block       const &block_data,
-		                           Type_1_node_block &entries);
+		void _update_t1_node(Type_1_node &, Type_1_info &);
 
 		void _mark_req_successful(bool &);
 
