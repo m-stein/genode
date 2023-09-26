@@ -30,7 +30,7 @@ void Free_tree_channel::_generate_mt_req(State_uint state, bool &progress, Physi
 
 
 static Virtual_block_address
-vbd_node_lowest_vba(Tree_degree_log_2     vbd_degree_log_2,
+vbd_node_min_vba(Tree_degree_log_2     vbd_degree_log_2,
                     Tree_level_index      vbd_level,
                     Virtual_block_address vbd_leaf_vba)
 {
@@ -46,12 +46,12 @@ static Number_of_blocks vbd_node_nr_of_vbas(Tree_degree_log_2 vbd_degree_log_2,
 
 
 static Virtual_block_address
-vbd_node_highest_vba(Tree_degree_log_2     vbd_degree_log_2,
+vbd_node_max_vba(Tree_degree_log_2     vbd_degree_log_2,
                      Tree_level_index      vbd_level,
                      Virtual_block_address vbd_leaf_vba)
 {
 	return
-		vbd_node_lowest_vba(vbd_degree_log_2, vbd_level, vbd_leaf_vba) +
+		vbd_node_min_vba(vbd_degree_log_2, vbd_level, vbd_leaf_vba) +
 		(vbd_node_nr_of_vbas(vbd_degree_log_2, vbd_level) - 1);
 }
 
@@ -76,13 +76,13 @@ Free_tree_request::Free_tree_request(Module_id src_module_id,
                   Generation last_secured_gen,
                   Generation curr_gen,
                   Generation free_gen,
-                  Number_of_blocks num_requested_blks,
+                  Number_of_blocks num_required_pbas,
                   Tree_walk_pbas &new_blocks,
                   Type_1_node_walk const &old_blocks,
                   Tree_level_index max_lvl,
                   Virtual_block_address vba,
                   Tree_degree vbd_degree,
-                  Virtual_block_address vbd_highest_vba,
+                  Virtual_block_address vbd_max_vba,
                   bool rekeying,
                   Key_id prev_key_id,
                   Key_id curr_key_id,
@@ -95,13 +95,13 @@ Free_tree_request::Free_tree_request(Module_id src_module_id,
 	_mt { mt },
 	_curr_gen { curr_gen },
 	_free_gen { free_gen },
-	_num_requested_blks { num_requested_blks },
+	_num_required_pbas { num_required_pbas },
 	_new_blocks { new_blocks },
 	_old_blocks { old_blocks },
 	_max_lvl { max_lvl },
 	_vba { vba },
 	_vbd_degree { vbd_degree },
-	_vbd_highest_vba { vbd_highest_vba },
+	_vbd_max_vba { vbd_max_vba },
 	_rekeying { rekeying },
 	_prev_key_id { prev_key_id },
 	_curr_key_id { curr_key_id },
@@ -231,8 +231,7 @@ void Free_tree_channel::_alloc(bool &progress)
 	switch (_state) {
 	case REQ_SUBMITTED:
 	{
-		_exchanged_blocks = 0;
-		_needed_blocks = req._num_requested_blks;
+		_num_allocated_pbas = 0;
 		_found_blocks = 0;
 		for (Type_1_info_stack &stack : _level_n_stacks)
 			stack = { };
@@ -304,7 +303,7 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 
 			case SUBTREE_TRAVERSED:
 
-				if (_found_blocks >= _needed_blocks) {
+				if (_found_blocks >= req._num_required_pbas) {
 
 					/* enough free pbas were found */
 					for (Type_1_info_stack &stack : _level_n_stacks)
@@ -338,95 +337,67 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 }
 
 
-void Free_tree_channel::_exchange_type_2_leaves(Number_of_blocks &exchanged, bool &handled)
+void Free_tree_channel::_alloc_pbas_and_update_t2_nodes(Number_of_blocks &exchanged, bool &handled)
 {
 	Request &req { *_req_ptr };
-	Number_of_blocks local_exchanged { 0 };
+	Number_of_blocks num_allocated_pbas { 0 };
 	handled = false;
+	Virtual_block_address rkg_vba { req._rekeying_vba };
+	for (Tree_level_index lvl = 0; lvl <= req._max_lvl && !_level_0_stack.empty(); lvl++) {
+		if (req._new_blocks.pbas[lvl] != 0)
+			continue;
 
-	for (Tree_level_index lvl = 0; lvl <= req._max_lvl; lvl++) {
+		Type_2_info t2_info { _level_0_stack.peek_top() };
+		Type_2_node &t2_node { _level_0_node.nodes[t2_info.index] };
+		ASSERT(t2_node.pba == t2_info.node.pba);
+		Virtual_block_address node_min_vba { vbd_node_min_vba(_vbd_degree_log_2, lvl, req._vba) };
+		req._new_blocks.pbas[lvl] = t2_node.pba;
+		t2_node.alloc_gen = req._old_blocks.nodes[lvl].gen;
+		t2_node.free_gen = req._free_gen;
+		switch (req._type) {
+		case Request::ALLOC_FOR_NON_RKG:
 
-		if (req._new_blocks.pbas[lvl] == 0) {
-
-			if (!_level_0_stack.empty()) {
-
-				Type_2_info t2_info { _level_0_stack.peek_top() };
-				Type_2_node &t2_node { _level_0_node.nodes[t2_info.index] };
-				ASSERT(t2_node.pba == t2_info.node.pba);
-				switch (req._type) {
-				case Request::ALLOC_FOR_NON_RKG:
-
-					req._new_blocks.pbas[lvl] = t2_node.pba;
-					t2_node.pba       = req._old_blocks.nodes[lvl].pba;
-					t2_node.alloc_gen = req._old_blocks.nodes[lvl].gen;
-					t2_node.free_gen  = req._free_gen;
-					t2_node.last_vba  =
-						vbd_node_lowest_vba(_vbd_degree_log_2, lvl, req._vba);
-
-					if (req._rekeying) {
-
-						if (req._vba < req._rekeying_vba)
-							t2_node.last_key_id = req._curr_key_id;
-						else
-							t2_node.last_key_id = req._prev_key_id;
-
-					} else {
-
-						t2_node.last_key_id = req._curr_key_id;
-					}
-					t2_node.reserved = true;
-					break;
-
-				case Request::ALLOC_FOR_RKG_CURR_GEN_BLKS:
-
-					req._new_blocks.pbas[lvl] = t2_node.pba;
-
-					t2_node.pba       = req._old_blocks.nodes[lvl].pba;
-					t2_node.alloc_gen = req._old_blocks.nodes[lvl].gen;
-					t2_node.free_gen  = req._free_gen;
-					t2_node.last_vba  =
-						vbd_node_lowest_vba(_vbd_degree_log_2, lvl, req._vba);
-
+			t2_node.reserved = true;
+			t2_node.pba = req._old_blocks.nodes[lvl].pba;
+			t2_node.last_vba = node_min_vba;
+			if (req._rekeying) {
+				if (req._vba < rkg_vba)
+					t2_node.last_key_id = req._curr_key_id;
+				else
 					t2_node.last_key_id = req._prev_key_id;
-					t2_node.reserved = false;
-					break;
-
-				case Request::ALLOC_FOR_RKG_OLD_GEN_BLKS:
-				{
-					req._new_blocks.pbas[lvl] = t2_node.pba;
-
-					t2_node.alloc_gen = req._old_blocks.nodes[lvl].gen;
-					t2_node.free_gen  = req._free_gen;
-
-					Virtual_block_address node_highest_vba {
-						vbd_node_highest_vba(_vbd_degree_log_2, lvl, req._vba) };
-
-					if (req._rekeying_vba < node_highest_vba &&
-					    req._rekeying_vba < req._vbd_highest_vba)
-					{
-						t2_node.last_key_id = req._prev_key_id;
-						t2_node.last_vba    = req._rekeying_vba + 1;
-
-					} else if (req._rekeying_vba == node_highest_vba ||
-					           req._rekeying_vba == req._vbd_highest_vba) {
-
-						t2_node.last_key_id = req._curr_key_id;
-						t2_node.last_vba = vbd_node_lowest_vba (_vbd_degree_log_2, lvl, req._vba);
-					} else
-						ASSERT_NEVER_REACHED;
-					t2_node.reserved = true;
-					break;
-				}
-				default: ASSERT_NEVER_REACHED;
-				}
-				local_exchanged = local_exchanged + 1;
-				_level_0_stack.pop();
-				handled = true;
 			} else
-				break;
+				t2_node.last_key_id = req._curr_key_id;
+			break;
+
+		case Request::ALLOC_FOR_RKG_CURR_GEN_BLKS:
+
+			t2_node.reserved = false;
+			t2_node.pba = req._old_blocks.nodes[lvl].pba;
+			t2_node.last_vba = node_min_vba;
+			t2_node.last_key_id = req._prev_key_id;
+			break;
+
+		case Request::ALLOC_FOR_RKG_OLD_GEN_BLKS:
+		{
+			t2_node.reserved = true;
+			Virtual_block_address node_max_vba { vbd_node_max_vba(_vbd_degree_log_2, lvl, req._vba) };
+			if (rkg_vba < node_max_vba && rkg_vba < req._vbd_max_vba) {
+				t2_node.last_key_id = req._prev_key_id;
+				t2_node.last_vba = rkg_vba + 1;
+			} else if (rkg_vba == node_max_vba || rkg_vba == req._vbd_max_vba) {
+				t2_node.last_key_id = req._curr_key_id;
+				t2_node.last_vba = node_min_vba;
+			} else
+				ASSERT_NEVER_REACHED;
+			break;
 		}
+		default: ASSERT_NEVER_REACHED;
+		}
+		num_allocated_pbas++;
+		_level_0_stack.pop();
+		handled = true;
 	}
-	exchanged = local_exchanged;
+	exchanged = num_allocated_pbas;
 }
 
 
@@ -446,15 +417,15 @@ void Free_tree_channel::_execute_update(bool &progress)
 	Request &req { *_req_ptr };
 	bool exchange_finished { false };
 	bool update_finished { false };
-	Number_of_blocks exchanged;
+	Number_of_blocks num_allocated_pbas;
 
 	/* handle level 0 */
-	{
+	if (!_level_0_stack.empty()) {
 		bool handled;
-		_exchange_type_2_leaves(exchanged, handled);
+		_alloc_pbas_and_update_t2_nodes(num_allocated_pbas, handled);
 		if (handled) {
-			if (exchanged > 0) {
-				_exchanged_blocks += exchanged;
+			if (num_allocated_pbas > 0) {
+				_num_allocated_pbas += num_allocated_pbas;
 			} else {
 				Type_1_info n { _level_n_stacks[FIRST_LVL_N_STACKS_IDX].peek_top() };
 				n.state = SUBTREE_TRAVERSED;
@@ -462,7 +433,7 @@ void Free_tree_channel::_execute_update(bool &progress)
 			}
 		}
 	}
-	if (_exchanged_blocks == _needed_blocks) {
+	if (_num_allocated_pbas == req._num_required_pbas) {
 		exchange_finished = true;
 	}
 	/* handle level 1..N */
