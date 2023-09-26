@@ -103,16 +103,12 @@ class Tresor::Free_tree_channel : public Module_channel
 			REQ_SUBMITTED,
 			REQ_GENERATED,
 			SCAN_READ_BLK_SUCCEEDED,
-			UPDATE,
+			UPDATE_REQ_INVALID,
+			UPDATE_REQ_GENERATED,
+			UPDATE_READ_BLK_SUCCEEDED,
+			UPDATE_ALLOC_PBA_SUCCEEDED,
+			UPDATE_WRITE_BLK_SUCCEEDED,
 			COMPLETE
-		};
-
-		enum Gen_req_state {
-			REQ_INVALID,
-			REQ_IN_PROGRESS,
-			READ_COMPLETE,
-			WRITE_COMPLETE,
-			ALLOC_COMPLETE
 		};
 
 		enum Type_1_info_state {
@@ -305,7 +301,6 @@ class Tresor::Free_tree_channel : public Module_channel
 		Node_queue _type_2_leafs { };
 		Tree_degree_log_2 _vbd_degree_log_2 { 0 };
 		bool _wb_data_prim_success { false };
-		Gen_req_state _generated_req_state { REQ_INVALID };
 		Tree_level_index _generated_req_lvl { 0 };
 		Physical_block_address _generated_req_pba { 0 };
 		bool _generated_req_success { false };
@@ -334,9 +329,9 @@ class Tresor::Free_tree_channel : public Module_channel
 				generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 				break;
 			default:
-				ASSERT(_generated_req_state == REQ_INVALID);
+				ASSERT(_state == UPDATE_REQ_INVALID);
 				_generated_req_lvl = lvl;
-				_generated_req_state = REQ_IN_PROGRESS;
+				_state = UPDATE_REQ_GENERATED;
 				generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 				break;
 			}

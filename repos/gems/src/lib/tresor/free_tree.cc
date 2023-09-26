@@ -21,8 +21,8 @@ using namespace Tresor;
 
 void Free_tree_channel::_generate_mt_req(State_uint state, bool &progress, Physical_block_address pba)
 {
-	ASSERT(_generated_req_state == REQ_INVALID);
-	_generated_req_state = REQ_IN_PROGRESS;
+	ASSERT(_state == UPDATE_REQ_INVALID);
+	_state = UPDATE_REQ_GENERATED;
 	generate_req<Meta_tree_request>(
 		state, progress, Meta_tree_request::ALLOC_PBA, _req_ptr->_mt, _req_ptr->_curr_gen, pba, _generated_req_pba,
 		_generated_req_success);
@@ -179,16 +179,16 @@ void Free_tree_channel::_generated_req_completed(State_uint state_uint)
 		_state = (State)state_uint;
 		break;
 	default:
-		ASSERT(_generated_req_state == REQ_IN_PROGRESS);
+		ASSERT(_state == UPDATE_REQ_GENERATED);
 		if (!_generated_req_success) {
 			error("free tree: request (", *_req_ptr, ") failed because generated request failed)");
 			_req_ptr->_success = false;
 			_state = COMPLETE;
 			return;
 		}
-		_generated_req_state = (Gen_req_state)state_uint;
-		switch (_generated_req_state) {
-		case READ_COMPLETE:
+		_state = (State)state_uint;
+		switch (_state) {
+		case UPDATE_READ_BLK_SUCCEEDED:
 		{
 			Type_1_info n { _level_n_stacks[_generated_req_lvl].peek_top() };
 			if (check_hash(_cache_block_data, n.node.hash)) {
@@ -201,14 +201,14 @@ void Free_tree_channel::_generated_req_completed(State_uint state_uint)
 			}
 			break;
 		}
-		case WRITE_COMPLETE:
+		case UPDATE_WRITE_BLK_SUCCEEDED:
 		{
 			Type_1_info n { _level_n_stacks[_generated_req_lvl].peek_top() };
 			n.state = SUBTREE_TRAVERSED;
 			_level_n_stacks[_generated_req_lvl].update_top(n);
 			break;
 		}
-		case ALLOC_COMPLETE: break;
+		case UPDATE_ALLOC_PBA_SUCCEEDED: break;
 		default: ASSERT_NEVER_REACHED;
 		}
 		break;
@@ -317,11 +317,9 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 						blk = { };
 
 					_level_n_stacks[req._ft.max_lvl].push(
-						Type_1_info {
-							SUBTREE_NOT_TRAVERSED, _root_node(), 0,
-							_root_node().is_volatile(req._curr_gen) });
+						Type_1_info {SUBTREE_NOT_TRAVERSED, _root_node(), 0, _root_node().is_volatile(req._curr_gen) });
 
-					_state = UPDATE;
+					_state = UPDATE_REQ_INVALID;
 					progress = true;
 					return;
 
@@ -520,14 +518,14 @@ void Free_tree::_execute_update(Channel &chan, bool &progress)
 			switch (t1_info.state) {
 			case Channel::SUBTREE_NOT_TRAVERSED:
 
-				ASSERT(chan._generated_req_state == Channel::REQ_INVALID);
+				ASSERT(chan._state == Channel::UPDATE_REQ_INVALID);
 				chan._generate_cache_req<Block_io::Read>(
-					Channel::READ_COMPLETE, progress, lvl, t1_info.node.pba, chan._cache_block_data);
+					Channel::UPDATE_READ_BLK_SUCCEEDED, progress, lvl, t1_info.node.pba, chan._cache_block_data);
 				break;
 
 			case Channel::SUBTREE_ROOT_BLK_READ:
 
-				chan._generated_req_state = Channel::REQ_INVALID;
+				chan._state = Channel::UPDATE_REQ_INVALID;
 				chan._init_info_stack_from_blk_data(lvl - 1);
 				if (lvl > 1) {
 					if (!chan._level_n_stacks[lvl - 1].empty())
@@ -548,14 +546,14 @@ void Free_tree::_execute_update(Channel &chan, bool &progress)
 
 				if (!t1_info.volatil) {
 
-					if (chan._generated_req_state == Channel::REQ_INVALID) {
+					if (chan._state == Channel::UPDATE_REQ_INVALID) {
 
-						chan._generate_mt_req(Channel::ALLOC_COMPLETE, progress, t1_info.node.pba);
+						chan._generate_mt_req(Channel::UPDATE_ALLOC_PBA_SUCCEEDED, progress, t1_info.node.pba);
 						break;
 
-					} else if (chan._generated_req_state == Channel::ALLOC_COMPLETE) {
+					} else if (chan._state == Channel::UPDATE_ALLOC_PBA_SUCCEEDED) {
 
-						chan._generated_req_state = Channel::REQ_INVALID;
+						chan._state = Channel::UPDATE_REQ_INVALID;
 						t1_info.volatil = true;
 						t1_info.node.pba = chan._generated_req_pba;
 						stack.update_top(t1_info);
@@ -590,12 +588,12 @@ void Free_tree::_execute_update(Channel &chan, bool &progress)
 						chan._level_n_nodes[lvl]);
 				}
 				chan._generate_cache_req<Block_io::Write>(
-					Channel::WRITE_COMPLETE, progress, lvl, t1_info.node.pba, chan._cache_block_data);
+					Channel::UPDATE_WRITE_BLK_SUCCEEDED, progress, lvl, t1_info.node.pba, chan._cache_block_data);
 				break;
 
 			case Channel::SUBTREE_TRAVERSED:
 
-				chan._generated_req_state = Channel::REQ_INVALID;
+				chan._state = Channel::UPDATE_REQ_INVALID;
 				stack.pop();
 
 				if (exchange_finished)
@@ -611,8 +609,14 @@ void Free_tree::_execute_update(Channel &chan, bool &progress)
 			break;
 		}
 	}
-	if (chan._state != Channel::UPDATE)
-		return;
+	switch (chan._state) {
+	case Channel::UPDATE_REQ_INVALID:
+	case Channel::UPDATE_REQ_GENERATED:
+	case Channel::UPDATE_READ_BLK_SUCCEEDED:
+	case Channel::UPDATE_ALLOC_PBA_SUCCEEDED:
+	case Channel::UPDATE_WRITE_BLK_SUCCEEDED: break;
+	default: return;
+	}
 
 	if (exchange_finished && update_finished)
 		_mark_req_successful(chan, progress);
@@ -639,13 +643,17 @@ void Free_tree::_mark_req_successful(Channel &channel,
 
 void Free_tree::_execute(Channel &chan, bool &progress)
 {
-	if (chan._generated_req_state == Channel::REQ_IN_PROGRESS)
+	if (chan._state == Channel::UPDATE_REQ_GENERATED)
 		return;
 
 	switch (chan._state) {
 	case Channel::REQ_SUBMITTED:
 	case Channel::SCAN_READ_BLK_SUCCEEDED: chan._alloc(progress); break;
-	case Channel::UPDATE: _execute_update(chan, progress); break;
+	case Channel::UPDATE_READ_BLK_SUCCEEDED:
+	case Channel::UPDATE_WRITE_BLK_SUCCEEDED:
+	case Channel::UPDATE_ALLOC_PBA_SUCCEEDED:
+	case Channel::UPDATE_REQ_INVALID:
+		_execute_update(chan, progress); break;
 	default: break;
 	}
 }
