@@ -30,34 +30,33 @@ namespace Tresor {
 
 class Tresor::Free_tree_request : public Module_request
 {
+	friend class Free_tree_channel;
+
 	public:
 
 		enum Type { ALLOC_FOR_NON_RKG, ALLOC_FOR_RKG_CURR_GEN_BLKS, ALLOC_FOR_RKG_OLD_GEN_BLKS };
 
 	private:
 
-		friend class Free_tree;
-		friend class Free_tree_channel;
-
-		Type _type;
+		Type const _type;
 		Free_tree_root &_ft;
 		Meta_tree_root &_mt;
-		Generation _curr_gen;
-		Generation _free_gen;
-		Number_of_blocks _num_requested_blks;
+		Generation const _curr_gen;
+		Generation const _free_gen;
+		Number_of_blocks const _num_required_pbas;
 		Tree_walk_pbas &_new_blocks;
 		Type_1_node_walk const &_old_blocks;
-		Tree_level_index _max_lvl;
-		Virtual_block_address _vba;
-		Tree_degree _vbd_degree;
-		Virtual_block_address _vbd_highest_vba;
-		bool _rekeying;
-		Key_id _prev_key_id;
-		Key_id _curr_key_id;
-		Virtual_block_address _rekeying_vba;
+		Tree_level_index const _max_lvl;
+		Virtual_block_address const _vba;
+		Tree_degree const _vbd_degree;
+		Virtual_block_address const _vbd_max_vba;
+		bool const _rekeying;
+		Key_id const _prev_key_id;
+		Key_id const _curr_key_id;
+		Virtual_block_address const _rekeying_vba;
 		bool &_success;
 		Snapshots const &_snapshots;
-		Generation _last_secured_gen;
+		Generation const _last_secured_gen;
 
 		NONCOPYABLE(Free_tree_request);
 
@@ -72,13 +71,13 @@ class Tresor::Free_tree_request : public Module_request
 		                  Generation last_secured_gen,
 		                  Generation curr_gen,
 		                  Generation free_gen,
-		                  Number_of_blocks num_requested_blks,
+		                  Number_of_blocks num_required_pbas,
 		                  Tree_walk_pbas &new_blocks,
 		                  Type_1_node_walk const &old_blocks,
 		                  Tree_level_index max_lvl,
 		                  Virtual_block_address vba,
 		                  Tree_degree vbd_degree,
-		                  Virtual_block_address vbd_highest_vba,
+		                  Virtual_block_address vbd_max_vba,
 		                  bool rekeying,
 		                  Key_id prev_key_id,
 		                  Key_id curr_key_id,
@@ -292,9 +291,8 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		State _state { COMPLETE };
 		Request *_req_ptr { nullptr };
-		uint64_t _needed_blocks { 0 };
-		uint64_t _found_blocks { 0 };
-		uint64_t _exchanged_blocks { 0 };
+		Number_of_blocks _found_blocks { 0 };
+		Number_of_blocks _num_allocated_pbas { 0 };
 		Block _cache_block_data { };
 		Type_1_info_stack _level_n_stacks[TREE_MAX_NR_OF_LEVELS] { };
 		Type_2_info_stack _level_0_stack { };
@@ -360,7 +358,7 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		void _execute_update(bool &);
 
-		void _exchange_type_2_leaves(Number_of_blocks &, bool &);
+		void _alloc_pbas_and_update_t2_nodes(Number_of_blocks &, bool &);
 
 		void _update_upper_n_stack(Type_1_info const &t,
 		                           Generation         gen,
