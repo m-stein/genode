@@ -360,23 +360,7 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		void _execute_update(bool &);
 
-		void
-		_exchange_type_2_leaves(Generation              free_gen,
-		                        Tree_level_index        max_level,
-		                        Type_1_node_walk const &old_blocks,
-		                        Tree_walk_pbas         &new_blocks,
-		                        Virtual_block_address   vba,
-		                        Tree_degree_log_2       vbd_degree_log_2,
-		                        Request::Type           req_type,
-		                        Type_2_info_stack      &stack,
-		                        Type_2_node_block      &entries,
-		                        Number_of_blocks       &exchanged,
-		                        bool                   &handled,
-		                        Virtual_block_address   vbd_highest_vba,
-		                        bool                    rekeying,
-		                        Key_id                  previous_key_id,
-		                        Key_id                  current_key_id,
-		                        Virtual_block_address   rekeying_vba);
+		void _exchange_type_2_leaves(Number_of_blocks &, bool &);
 
 		void _update_upper_n_stack(Type_1_info const &t,
 		                           Generation         gen,

@@ -338,121 +338,92 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 }
 
 
-void Free_tree_channel::_exchange_type_2_leaves(Generation              free_gen,
-                                   Tree_level_index        max_lvl,
-                                   Type_1_node_walk const &old_blocks,
-                                   Tree_walk_pbas         &new_blocks,
-                                   Virtual_block_address   vba,
-                                   Tree_degree_log_2       vbd_degree_log_2,
-                                   Request::Type           req_type,
-                                   Type_2_info_stack      &stack,
-                                   Type_2_node_block      &entries,
-                                   Number_of_blocks       &exchanged,
-                                   bool                   &handled,
-                                   Virtual_block_address   vbd_highest_vba,
-                                   bool                    rekeying,
-                                   Key_id                  prev_key_id,
-                                   Key_id                  curr_key_id,
-                                   Virtual_block_address   rekeying_vba)
+void Free_tree_channel::_exchange_type_2_leaves(Number_of_blocks &exchanged, bool &handled)
 {
+	Request &req { *_req_ptr };
 	Number_of_blocks local_exchanged { 0 };
 	handled = false;
 
-	for (Tree_level_index i = 0; i <= max_lvl; i++) {
+	for (Tree_level_index lvl = 0; lvl <= req._max_lvl; lvl++) {
 
-		if (new_blocks.pbas[i] == 0) {
+		if (req._new_blocks.pbas[lvl] == 0) {
 
-			if (!stack.empty()) {
+			if (!_level_0_stack.empty()) {
 
-				Type_2_info const info { stack.peek_top() };
-				Type_2_node &t2_node { entries.nodes[info.index] };
-				if (t2_node.pba != info.node.pba) {
-					class Exception_1 { };
-					throw Exception_1 { };
-				}
-				switch (req_type) {
+				Type_2_info t2_info { _level_0_stack.peek_top() };
+				Type_2_node &t2_node { _level_0_node.nodes[t2_info.index] };
+				ASSERT(t2_node.pba == t2_info.node.pba);
+				switch (req._type) {
 				case Request::ALLOC_FOR_NON_RKG:
 
-					new_blocks.pbas[i] = t2_node.pba;
-					t2_node.pba       = old_blocks.nodes[i].pba;
-					t2_node.alloc_gen = old_blocks.nodes[i].gen;
-					t2_node.free_gen  = free_gen;
+					req._new_blocks.pbas[lvl] = t2_node.pba;
+					t2_node.pba       = req._old_blocks.nodes[lvl].pba;
+					t2_node.alloc_gen = req._old_blocks.nodes[lvl].gen;
+					t2_node.free_gen  = req._free_gen;
 					t2_node.last_vba  =
-						vbd_node_lowest_vba(vbd_degree_log_2, i, vba);
+						vbd_node_lowest_vba(_vbd_degree_log_2, lvl, req._vba);
 
-					if (rekeying) {
+					if (req._rekeying) {
 
-						if (vba < rekeying_vba)
-							t2_node.last_key_id = curr_key_id;
+						if (req._vba < req._rekeying_vba)
+							t2_node.last_key_id = req._curr_key_id;
 						else
-							t2_node.last_key_id = prev_key_id;
+							t2_node.last_key_id = req._prev_key_id;
 
 					} else {
 
-						t2_node.last_key_id = curr_key_id;
+						t2_node.last_key_id = req._curr_key_id;
 					}
 					t2_node.reserved = true;
 					break;
 
 				case Request::ALLOC_FOR_RKG_CURR_GEN_BLKS:
 
-					new_blocks.pbas[i] = t2_node.pba;
+					req._new_blocks.pbas[lvl] = t2_node.pba;
 
-					t2_node.pba       = old_blocks.nodes[i].pba;
-					t2_node.alloc_gen = old_blocks.nodes[i].gen;
-					t2_node.free_gen  = free_gen;
+					t2_node.pba       = req._old_blocks.nodes[lvl].pba;
+					t2_node.alloc_gen = req._old_blocks.nodes[lvl].gen;
+					t2_node.free_gen  = req._free_gen;
 					t2_node.last_vba  =
-						vbd_node_lowest_vba (vbd_degree_log_2, i, vba);
+						vbd_node_lowest_vba(_vbd_degree_log_2, lvl, req._vba);
 
-					t2_node.last_key_id = prev_key_id;
+					t2_node.last_key_id = req._prev_key_id;
 					t2_node.reserved = false;
 					break;
 
 				case Request::ALLOC_FOR_RKG_OLD_GEN_BLKS:
 				{
-					new_blocks.pbas[i] = t2_node.pba;
+					req._new_blocks.pbas[lvl] = t2_node.pba;
 
-					t2_node.alloc_gen = old_blocks.nodes[i].gen;
-					t2_node.free_gen  = free_gen;
+					t2_node.alloc_gen = req._old_blocks.nodes[lvl].gen;
+					t2_node.free_gen  = req._free_gen;
 
-					Virtual_block_address const node_highest_vba {
-						vbd_node_highest_vba(vbd_degree_log_2, i, vba) };
+					Virtual_block_address node_highest_vba {
+						vbd_node_highest_vba(_vbd_degree_log_2, lvl, req._vba) };
 
-					if (rekeying_vba < node_highest_vba &&
-					    rekeying_vba < vbd_highest_vba)
+					if (req._rekeying_vba < node_highest_vba &&
+					    req._rekeying_vba < req._vbd_highest_vba)
 					{
-						t2_node.last_key_id = prev_key_id;
-						t2_node.last_vba    = rekeying_vba + 1;
+						t2_node.last_key_id = req._prev_key_id;
+						t2_node.last_vba    = req._rekeying_vba + 1;
 
-					} else if (rekeying_vba == node_highest_vba ||
-					           rekeying_vba == vbd_highest_vba) {
+					} else if (req._rekeying_vba == node_highest_vba ||
+					           req._rekeying_vba == req._vbd_highest_vba) {
 
-						t2_node.last_key_id = curr_key_id;
-						t2_node.last_vba    =
-							vbd_node_lowest_vba (vbd_degree_log_2, i, vba);
-
-					} else {
-
-						class Exception_1 { };
-						throw Exception_1 { };
-					}
+						t2_node.last_key_id = req._curr_key_id;
+						t2_node.last_vba = vbd_node_lowest_vba (_vbd_degree_log_2, lvl, req._vba);
+					} else
+						ASSERT_NEVER_REACHED;
 					t2_node.reserved = true;
 					break;
 				}
-				default:
-
-					class Exception_2 { };
-					throw Exception_2 { };
+				default: ASSERT_NEVER_REACHED;
 				}
-
 				local_exchanged = local_exchanged + 1;
-				stack.pop();
+				_level_0_stack.pop();
 				handled = true;
-
-			} else {
-
+			} else
 				break;
-			}
 		}
 	}
 	exchanged = local_exchanged;
@@ -480,16 +451,7 @@ void Free_tree_channel::_execute_update(bool &progress)
 	/* handle level 0 */
 	{
 		bool handled;
-
-		_exchange_type_2_leaves(
-			req._free_gen, req._max_lvl,
-			req._old_blocks,
-			req._new_blocks,
-			req._vba, _vbd_degree_log_2, req._type, _level_0_stack,
-			_level_0_node, exchanged, handled, req._vbd_highest_vba,
-			req._rekeying, req._prev_key_id, req._curr_key_id,
-			req._rekeying_vba);
-
+		_exchange_type_2_leaves(exchanged, handled);
 		if (handled) {
 			if (exchanged > 0) {
 				_exchanged_blocks += exchanged;
