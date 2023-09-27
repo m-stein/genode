@@ -112,89 +112,42 @@ class Tresor::Free_tree_channel : public Module_channel
 			COMPLETE
 		};
 
-		enum Type_1_info_state {
+		enum Node_info_state {
 			SUBTREE_NOT_TRAVERSED, SUBTREE_ROOT_BLK_READ, X_WRITE, SUBTREE_TRAVERSED };
 
-		struct Type_1_info
+		template <typename NODE>
+		struct Node_info
 		{
-			Type_1_info_state state { SUBTREE_NOT_TRAVERSED };
-			Type_1_node     node    { };
-			Tree_node_index index   { INVALID_NODE_INDEX };
-			bool            volatil { false };
-		};
-
-		struct Type_2_info
-		{
-			enum State {
-				INVALID, AVAILABLE, READ, WRITE, COMPLETE };
-
-			State           state { INVALID };
-			Type_2_node     node  { };
+			Node_info_state state { SUBTREE_NOT_TRAVERSED };
+			NODE node { };
 			Tree_node_index index { INVALID_NODE_INDEX };
+			bool volatil { false };
 		};
 
-		class Type_1_info_stack
+		using Type_1_info = Node_info<Type_1_node>;
+		using Type_2_info = Node_info<Type_2_node>;
+
+		template <typename T>
+		class Node_info_stack
 		{
 			private:
 
-				enum { MIN = 1, MAX = TREE_MAX_DEGREE,  };
+				enum { MIN = 1, MAX = TREE_MAX_DEGREE };
 
-				Type_1_info _container[MAX + 1] { };
-				uint64_t    _top                { MIN - 1 };
+				T _container[MAX + 1] { };
+				uint64_t _top { MIN - 1 };
+
+				NONCOPYABLE(Node_info_stack);
 
 			public:
+
+				Node_info_stack() { }
 
 				bool empty() const { return _top < MIN; }
 
 				bool full() const { return _top >= MAX; }
 
-				Type_1_info &top()
-				{
-					if (empty()) {
-						class Exception_1 { };
-						throw Exception_1 { };
-					}
-					return _container[_top];
-				}
-
-				void reset() { _top = MIN - 1; }
-
-				void pop()
-				{
-					if (empty()) {
-						class Exception_1 { };
-						throw Exception_1 { };
-					}
-					_top--;
-				}
-
-				void push(Type_1_info val)
-				{
-					if (full()) {
-						class Exception_1 { };
-						throw Exception_1 { };
-					}
-					_top++;
-					_container[_top] = val;
-				}
-		};
-
-		class Type_2_info_stack
-		{
-			private:
-
-				enum { MIN = 1, MAX = TREE_MAX_DEGREE,  };
-
-				Type_2_info _container[MAX + 1] { };
-				uint64_t    _top                { MIN - 1 };
-
-			public:
-
-				bool empty() const { return _top < MIN; }
-
-				bool full() const { return _top >= MAX; }
-
-				Type_2_info &top()
+				T &top()
 				{
 					ASSERT(!empty());
 					return _container[_top];
@@ -208,11 +161,11 @@ class Tresor::Free_tree_channel : public Module_channel
 					_top--;
 				}
 
-				void push(Type_2_info val)
+				void push(T obj)
 				{
 					ASSERT(!full());
 					_top++;
-					_container[_top] = val;
+					_container[_top] = obj;
 				}
 		};
 
@@ -221,8 +174,8 @@ class Tresor::Free_tree_channel : public Module_channel
 		Number_of_blocks _found_blocks { 0 };
 		Number_of_blocks _num_allocated_pbas { 0 };
 		Block _cache_block_data { };
-		Type_1_info_stack _level_n_stacks[TREE_MAX_NR_OF_LEVELS] { };
-		Type_2_info_stack _level_0_stack { };
+		Node_info_stack<Type_1_info> _level_n_stacks[TREE_MAX_NR_OF_LEVELS] { };
+		Node_info_stack<Type_2_info> _level_0_stack { };
 		Type_1_node_block _level_n_nodes[TREE_MAX_NR_OF_LEVELS]  { };
 		Type_2_node_block _level_0_node { };
 		Tree_degree_log_2 _vbd_degree_log_2 { 0 };

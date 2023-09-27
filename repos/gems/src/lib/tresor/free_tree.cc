@@ -122,8 +122,8 @@ void Free_tree::execute(bool &progress)
 void Free_tree_channel::_init_info_stack_from_blk_data(Tree_level_index lvl)
 {
 	if (lvl) {
-		_level_n_stacks[lvl].reset();
 		_level_n_nodes[lvl].decode_from_blk(_cache_block_data);
+		_level_n_stacks[lvl].reset();
 		for (Tree_node_index idx = 0; idx < NR_OF_T1_NODES_PER_BLK; idx++) {
 			if (_level_n_nodes[lvl].nodes[idx].pba != 0) {
 				_level_n_stacks[lvl].push({
@@ -132,11 +132,11 @@ void Free_tree_channel::_init_info_stack_from_blk_data(Tree_level_index lvl)
 			}
 		}
 	} else {
-		_level_0_stack.reset();
 		_level_0_node.decode_from_blk(_cache_block_data);
+		_level_0_stack.reset();
 		for (Tree_node_index idx = 0; idx < NR_OF_T1_NODES_PER_BLK; idx++) {
 			if (_t2_node_allocable(_level_0_node.nodes[idx]))
-				_level_0_stack.push({ Type_2_info::INVALID, _level_0_node.nodes[idx], idx });
+				_level_0_stack.push({ SUBTREE_NOT_TRAVERSED, _level_0_node.nodes[idx], idx });
 		}
 	}
 }
@@ -234,10 +234,10 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 				if (++_found_blocks < req._num_required_pbas)
 					continue;
 
-				_level_0_stack = { };
+				_level_0_stack.reset();
 				_level_0_node = { };
-				for (Type_1_info_stack &stack : _level_n_stacks)
-					stack = { };
+				for (Node_info_stack<Type_1_info> &stack : _level_n_stacks)
+					stack.reset();
 
 				for (Type_1_node_block &blk : _level_n_nodes)
 					blk = { };
@@ -377,13 +377,13 @@ void Free_tree_channel::execute(bool &progress)
 	{
 		_num_allocated_pbas = 0;
 		_found_blocks = 0;
-		for (Type_1_info_stack &stack : _level_n_stacks)
-			stack = { };
+		for (Node_info_stack<Type_1_info> &stack : _level_n_stacks)
+			stack.reset();
 
 		for (Type_1_node_block &blk : _level_n_nodes)
 			blk = { };
 
-		_level_0_stack = { };
+		_level_0_stack.reset();
 		_level_0_node = { };
 		Type_1_node root_node { req._ft.pba, req._ft.gen, req._ft.hash };
 		_level_n_stacks[req._ft.max_lvl].push({ SUBTREE_NOT_TRAVERSED, root_node, 0, root_node.is_volatile(req._curr_gen) });
