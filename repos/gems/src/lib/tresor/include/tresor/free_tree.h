@@ -298,7 +298,6 @@ class Tresor::Free_tree_channel : public Module_channel
 		Type_2_info_stack _level_0_stack { };
 		Type_1_node_block _level_n_nodes[TREE_MAX_NR_OF_LEVELS]  { };
 		Type_2_node_block _level_0_node { };
-		Node_queue _type_2_leafs { };
 		Tree_degree_log_2 _vbd_degree_log_2 { 0 };
 		bool _wb_data_prim_success { false };
 		Tree_level_index _generated_req_lvl { 0 };
@@ -352,10 +351,6 @@ class Tresor::Free_tree_channel : public Module_channel
 		void _init_info_stack_from_blk_data(Tree_level_index);
 
 		void _traverse_tree(bool &);
-
-		void _alloc(bool &);
-
-		void _execute_update(bool &);
 
 		void _try_alloc_pbas_from_lvl_0_stack();
 
