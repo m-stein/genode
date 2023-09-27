@@ -133,8 +133,8 @@ class Tresor::Free_tree_channel : public Module_channel
 			Tree_node_index index { INVALID_NODE_INDEX };
 		};
 
-		class Type_1_info_stack {
-
+		class Type_1_info_stack
+		{
 			private:
 
 				enum { MIN = 1, MAX = TREE_MAX_DEGREE,  };
@@ -148,7 +148,7 @@ class Tresor::Free_tree_channel : public Module_channel
 
 				bool full() const { return _top >= MAX; }
 
-				Type_1_info peek_top() const
+				Type_1_info &top()
 				{
 					if (empty()) {
 						class Exception_1 { };
@@ -177,19 +177,10 @@ class Tresor::Free_tree_channel : public Module_channel
 					_top++;
 					_container[_top] = val;
 				}
-
-				void update_top(Type_1_info val)
-				{
-					if (empty()) {
-						class Exception_1 { };
-						throw Exception_1 { };
-					}
-					_container[_top] = val;
-				}
 		};
 
-		class Type_2_info_stack {
-
+		class Type_2_info_stack
+		{
 			private:
 
 				enum { MIN = 1, MAX = TREE_MAX_DEGREE,  };
@@ -203,12 +194,9 @@ class Tresor::Free_tree_channel : public Module_channel
 
 				bool full() const { return _top >= MAX; }
 
-				Type_2_info peek_top() const
+				Type_2_info &top()
 				{
-					if (empty()) {
-						class Exception_1 { };
-						throw Exception_1 { };
-					}
+					ASSERT(!empty());
 					return _container[_top];
 				}
 
@@ -216,77 +204,16 @@ class Tresor::Free_tree_channel : public Module_channel
 
 				void pop()
 				{
-					if (empty()) {
-						class Exception_1 { };
-						throw Exception_1 { };
-					}
+					ASSERT(!empty());
 					_top--;
 				}
 
 				void push(Type_2_info val)
 				{
-					if (full()) {
-						class Exception_1 { };
-						throw Exception_1 { };
-					}
+					ASSERT(!full());
 					_top++;
 					_container[_top] = val;
 				}
-
-				void update_top(Type_2_info val)
-				{
-					if (empty()) {
-						class Exception_1 { };
-						throw Exception_1 { };
-					}
-					_container[_top] = val;
-				}
-		};
-
-		class Node_queue
-		{
-			private:
-
-				enum {
-					FIRST_CONTAINER_IDX = 1,
-					MAX_CONTAINER_IDX = TREE_MAX_DEGREE,
-					MAX_USED_VALUE = TREE_MAX_DEGREE - 1,
-					FIRST_USED_VALUE = 0,
-				};
-
-				uint64_t    _head                             { FIRST_CONTAINER_IDX };
-				uint64_t    _tail                             { FIRST_CONTAINER_IDX };
-				Type_2_info _container[MAX_CONTAINER_IDX + 1] { };
-				uint64_t    _used                             { FIRST_USED_VALUE };
-
-			public:
-
-				void enqueue(Type_2_info const &node)
-				{
-					_container[_tail] = node;
-					if (_tail < MAX_CONTAINER_IDX)
-						_tail++;
-					else
-						_tail = FIRST_CONTAINER_IDX;
-
-					_used++;
-				}
-
-				void dequeue_head()
-				{
-					if (_head < MAX_CONTAINER_IDX)
-						_head++;
-					else
-						_head = FIRST_CONTAINER_IDX;
-
-					_used--;
-				}
-
-				Type_2_info const &head() const { return _container[_head]; }
-
-				bool empty() const { return _used == FIRST_USED_VALUE; };
-
-				bool full() const { return _used == MAX_USED_VALUE; };
 		};
 
 		State _state { COMPLETE };
@@ -300,7 +227,7 @@ class Tresor::Free_tree_channel : public Module_channel
 		Type_2_node_block _level_0_node { };
 		Tree_degree_log_2 _vbd_degree_log_2 { 0 };
 		bool _wb_data_prim_success { false };
-		Tree_level_index _generated_req_lvl { 0 };
+		Tree_level_index _lvl { 0 };
 		Physical_block_address _generated_req_pba { 0 };
 		bool _generated_req_success { false };
 
@@ -323,13 +250,13 @@ class Tresor::Free_tree_channel : public Module_channel
 			switch (_state) {
 			case REQ_GENERATED: ASSERT_NEVER_REACHED;
 			case SCAN_READ_BLK_SUCCEEDED:
-				_generated_req_lvl = lvl;
+				_lvl = lvl;
 				_state = REQ_GENERATED;
 				generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 				break;
 			default:
 				ASSERT(_state == UPDATE_REQ_INVALID);
-				_generated_req_lvl = lvl;
+				_lvl = lvl;
 				_state = UPDATE_REQ_GENERATED;
 				generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 				break;
