@@ -35,12 +35,11 @@ Meta_tree_request::Meta_tree_request(Module_id src_module_id,
                                      Type type,
                                      Meta_tree_root &mt,
                                      Generation curr_gen,
-                                     Physical_block_address old_pba,
-                                     Physical_block_address &new_pba,
+                                     Physical_block_address &pba,
                                      bool &success)
 :
 	Module_request { src_module_id, src_channel_id, META_TREE }, _type { type }, _mt { mt },
-	_curr_gen { curr_gen }, _old_pba { old_pba }, _new_pba { new_pba }, _success { success }
+	_curr_gen { curr_gen }, _pba { pba }, _success { success }
 { }
 
 
@@ -117,7 +116,6 @@ void Meta_tree::generated_request_complete(Module_request &mod_req)
 	if (!channel._generated_req_success) {
 
 		channel._request->_success = false;
-		channel._request->_new_pba = INVALID_PBA;
 		channel._state = Channel::COMPLETE;
 		return;
 
@@ -275,10 +273,11 @@ void Meta_tree::_exchange_request_pba(Channel     &channel,
 {
 	Request &req { *channel._request };
 	req._success = true;
-	req._new_pba = t2_entry.pba;
+	Physical_block_address old_pba = req._pba;
+	req._pba = t2_entry.pba;
 	channel._finished = true;
 
-	t2_entry.pba       = req._old_pba;
+	t2_entry.pba       = old_pba;
 	t2_entry.alloc_gen = req._curr_gen;
 	t2_entry.free_gen  = req._curr_gen;
 	t2_entry.reserved  = false;
@@ -448,8 +447,7 @@ bool Meta_tree::_peek_completed_request(uint8_t *buf_ptr,
 
 			Request &r { *channel._request };
 			construct_at<Request>(buf_ptr, r.src_module_id(), r.src_chan_id(), r._type,
-				r._mt, r._curr_gen, r._old_pba,
-				r._new_pba, r._success);
+				r._mt, r._curr_gen, r._pba, r._success);
 			(*(Request*)buf_ptr).dst_request_id(r.dst_chan_id());
 			return true;
 		}
@@ -501,8 +499,7 @@ void Meta_tree::submit_request(Module_request &mod_req)
 
 			Request &r { *static_cast<Request *>(&mod_req) };
 			chan._request.construct(
-				r.src_module_id(), r.src_chan_id(), r._type, r._mt, r._curr_gen, r._old_pba,
-				r._new_pba, r._success);
+				r.src_module_id(), r.src_chan_id(), r._type, r._mt, r._curr_gen, r._pba, r._success);
 			chan._request->dst_request_id(id);
 
 			chan._finished = false;

@@ -19,12 +19,12 @@
 
 using namespace Tresor;
 
-void Free_tree_channel::_generate_mt_req(State_uint state, bool &progress, Physical_block_address pba)
+void Free_tree_channel::_generate_mt_req(State_uint state, bool &progress, Physical_block_address &pba)
 {
 	ASSERT(_state == UPDATE_REQ_INVALID);
 	_state = UPDATE_REQ_GENERATED;
 	generate_req<Meta_tree_request>(
-		state, progress, Meta_tree_request::ALLOC_PBA, _req_ptr->_mt, _req_ptr->_curr_gen, pba, _pba, _generated_req_success);
+		state, progress, Meta_tree_request::ALLOC_PBA, _req_ptr->_mt, _req_ptr->_curr_gen, pba, _generated_req_success);
 }
 
 
@@ -426,7 +426,6 @@ void Free_tree_channel::_traverse_tree_to_alloc_pbas(bool &progress)
 			if (!t1_info.volatil) {
 				_state = UPDATE_REQ_INVALID;
 				t1_info.volatil = true;
-				t1_info.node.pba = _pba;
 			}
 			Type_1_node &t1_node { _t1_blks[lvl].nodes[t1_info.index] };
 			if (lvl > 1) {
