@@ -62,27 +62,10 @@ class Tresor::Free_tree_request : public Module_request
 
 	public:
 
-		Free_tree_request(Module_id src_module_id,
-		                  Module_request_id src_request_id,
-		                  Type type,
-		                  Free_tree_root &ft,
-		                  Meta_tree_root &mt,
-		                  Snapshots const &snapshots,
-		                  Generation last_secured_gen,
-		                  Generation curr_gen,
-		                  Generation free_gen,
-		                  Number_of_blocks num_required_pbas,
-		                  Tree_walk_pbas &new_blocks,
-		                  Type_1_node_walk const &old_blocks,
-		                  Tree_level_index max_lvl,
-		                  Virtual_block_address vba,
-		                  Tree_degree vbd_degree,
-		                  Virtual_block_address vbd_max_vba,
-		                  bool rekeying,
-		                  Key_id prev_key_id,
-		                  Key_id curr_key_id,
-		                  Virtual_block_address rekeying_vba,
-		                  bool &success);
+		Free_tree_request(Module_id, Module_request_id, Type, Free_tree_root &, Meta_tree_root &, Snapshots const &,
+		                  Generation, Generation, Generation, Number_of_blocks, Tree_walk_pbas &, Type_1_node_walk const &,
+		                  Tree_level_index, Virtual_block_address, Tree_degree, Virtual_block_address,
+		                  bool, Key_id, Key_id, Virtual_block_address, bool &);
 
 		static char const *type_to_string(Type type);
 
@@ -109,7 +92,8 @@ class Tresor::Free_tree_channel : public Module_channel
 		};
 
 		enum Node_info_state {
-			SUBTREE_NOT_TRAVERSED, SUBTREE_ROOT_BLK_READ, SUBTREE_ROOT_BLK_MODIFIED, SUBTREE_ROOT_BLK_READY_FOR_WRITE, SUBTREE_TRAVERSED };
+			SUBTREE_NOT_TRAVERSED, SUBTREE_ROOT_BLK_READ, SUBTREE_ROOT_BLK_MODIFIED, SUBTREE_ROOT_BLK_READY_FOR_WRITE,
+			SUBTREE_TRAVERSED };
 
 		template <typename NODE>
 		struct Node_info
@@ -119,9 +103,6 @@ class Tresor::Free_tree_channel : public Module_channel
 			Tree_node_index index { INVALID_NODE_INDEX };
 			bool volatil { false };
 		};
-
-		using Type_1_info = Node_info<Type_1_node>;
-		using Type_2_info = Node_info<Type_2_node>;
 
 		template <typename T>
 		class Node_info_stack
@@ -149,6 +130,8 @@ class Tresor::Free_tree_channel : public Module_channel
 
 				void reset() { _top_idx = 0; }
 
+				Number_of_blocks num_items() { return _top_idx; }
+
 				void pop()
 				{
 					ASSERT(!empty());
@@ -163,27 +146,22 @@ class Tresor::Free_tree_channel : public Module_channel
 				}
 		};
 
+		using Type_1_info = Node_info<Type_1_node>;
+		using Type_2_info = Node_info<Type_2_node>;
+		using Type_1_info_stack = Node_info_stack<Type_1_info>;
+		using Type_2_info_stack = Node_info_stack<Type_2_info>;
+
 		State _state { COMPLETE };
 		Request *_req_ptr { nullptr };
-		Number_of_blocks _num_found_pbas { 0 };
-		Number_of_blocks _num_allocated_pbas { 0 };
+		Number_of_blocks _num_pbas { 0 };
 		Block _blk { };
-		Node_info_stack<Type_1_info> _t1_info_stacks[TREE_MAX_NR_OF_LEVELS] { };
-		Node_info_stack<Type_2_info> _t2_info_stack { };
-		Type_1_node_block _t1_blks[TREE_MAX_NR_OF_LEVELS]  { };
+		Type_1_info_stack _t1_info_stacks[TREE_MAX_NR_OF_LEVELS] { };
+		Type_2_info_stack _t2_info_stack { };
+		Type_1_node_block _t1_blks[TREE_MAX_NR_OF_LEVELS] { };
 		Type_2_node_block _t2_blk { };
 		Tree_degree_log_2 _vbd_degree_log_2 { 0 };
 		Tree_level_index _lvl { 0 };
 		bool _generated_req_success { false };
-
-		Type_1_node _root_node() const
-		{
-			Type_1_node node { };
-			node.pba = _req_ptr->_ft.pba;
-			node.gen = _req_ptr->_ft.gen;
-			node.hash = _req_ptr->_ft.hash;
-			return node;
-		}
 
 		NONCOPYABLE(Free_tree_channel);
 
