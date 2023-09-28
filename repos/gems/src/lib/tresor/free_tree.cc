@@ -58,47 +58,20 @@ char const *Free_tree_request::type_to_string(Type type)
 }
 
 
-Free_tree_request::Free_tree_request(Module_id src_module_id,
-                  Module_request_id src_request_id,
-                  Type type,
-                  Free_tree_root &ft,
-                  Meta_tree_root &mt,
-                  Snapshots const &snapshots,
-                  Generation last_secured_gen,
-                  Generation curr_gen,
-                  Generation free_gen,
-                  Number_of_blocks num_required_pbas,
-                  Tree_walk_pbas &new_blocks,
-                  Type_1_node_walk const &old_blocks,
-                  Tree_level_index max_lvl,
-                  Virtual_block_address vba,
-                  Tree_degree vbd_degree,
-                  Virtual_block_address vbd_max_vba,
-                  bool rekeying,
-                  Key_id prev_key_id,
-                  Key_id curr_key_id,
-                  Virtual_block_address rekeying_vba,
-                  bool &success)
+Free_tree_request::Free_tree_request(Module_id src_module_id, Module_request_id src_request_id, Type type,
+                                     Free_tree_root &ft, Meta_tree_root &mt, Snapshots const &snapshots, Generation last_secured_gen,
+                                     Generation curr_gen, Generation free_gen, Number_of_blocks num_required_pbas,
+                                     Tree_walk_pbas &new_blocks, Type_1_node_walk const &old_blocks,
+                                     Tree_level_index max_lvl, Virtual_block_address vba, Tree_degree vbd_degree,
+                                     Virtual_block_address vbd_max_vba, bool rekeying, Key_id prev_key_id,
+                                     Key_id curr_key_id, Virtual_block_address rekeying_vba, bool &success)
+
 :
-	Module_request { src_module_id, src_request_id, FREE_TREE },
-	_type { type },
-	_ft { ft },
-	_mt { mt },
-	_curr_gen { curr_gen },
-	_free_gen { free_gen },
-	_num_required_pbas { num_required_pbas },
-	_new_blocks { new_blocks },
-	_old_blocks { old_blocks },
-	_max_lvl { max_lvl },
-	_vba { vba },
-	_vbd_degree { vbd_degree },
-	_vbd_max_vba { vbd_max_vba },
-	_rekeying { rekeying },
-	_prev_key_id { prev_key_id },
-	_curr_key_id { curr_key_id },
-	_rekeying_vba { rekeying_vba },
-	_success { success },
-	_snapshots { snapshots },
+	Module_request { src_module_id, src_request_id, FREE_TREE }, _type { type }, _ft { ft }, _mt { mt },
+	_curr_gen { curr_gen }, _free_gen { free_gen }, _num_required_pbas { num_required_pbas }, _new_blocks { new_blocks },
+	_old_blocks { old_blocks }, _max_lvl { max_lvl }, _vba { vba }, _vbd_degree { vbd_degree }, _vbd_max_vba { vbd_max_vba },
+	_rekeying { rekeying }, _prev_key_id { prev_key_id }, _curr_key_id { curr_key_id }, _rekeying_vba { rekeying_vba },
+	_success { success }, _snapshots { snapshots },
 	_last_secured_gen { last_secured_gen }
 { }
 
@@ -239,7 +212,7 @@ void Free_tree_channel::_traverse_tree(bool &progress, bool alloc_pbas)
 						_mark_req_failed(progress, "not enough free blocks");
 					return;
 				}
-				if (alloc_pbas && _num_allocated_pbas == req._num_required_pbas)
+				if (alloc_pbas && _num_pbas == req._num_required_pbas)
 					_t1_info_stacks[lvl].reset();
 				else
 					_t1_info_stacks[lvl].pop();
@@ -250,18 +223,12 @@ void Free_tree_channel::_traverse_tree(bool &progress, bool alloc_pbas)
 				_alloc_pbas_from_t2_info_stack();
 				_t2_info_stack.reset();
 			} else {
-				while (!_t2_info_stack.empty()) {
-					_t2_info_stack.pop();
-					if (++_num_found_pbas < req._num_required_pbas)
-						continue;
-
-					_t2_info_stack.reset();
-					_t2_blk = { };
-					for (Node_info_stack<Type_1_info> &stack : _t1_info_stacks)
+				_num_pbas += _t2_info_stack.num_items();
+				_t2_info_stack.reset();
+				if (_num_pbas >= req._num_required_pbas) {
+					_num_pbas = 0;
+					for (Type_1_info_stack &stack : _t1_info_stacks)
 						stack.reset();
-
-					for (Type_1_node_block &blk : _t1_blks)
-						blk = { };
 
 					Type_1_node root_node { req._ft.pba, req._ft.gen, req._ft.hash };
 					_t1_info_stacks[req._ft.max_lvl].push({ SUBTREE_NOT_TRAVERSED, root_node, 0, root_node.is_volatile(req._curr_gen) });
@@ -269,7 +236,6 @@ void Free_tree_channel::_traverse_tree(bool &progress, bool alloc_pbas)
 					progress = true;
 					return;
 				}
-				_t1_info_stacks[1].top().state = SUBTREE_TRAVERSED;
 			}
 		}
 	}
@@ -328,7 +294,7 @@ void Free_tree_channel::_alloc_pbas_from_t2_info_stack()
 		}
 		default: ASSERT_NEVER_REACHED;
 		}
-		_num_allocated_pbas++;
+		_num_pbas++;
 		_t2_info_stack.pop();
 	}
 }
@@ -368,9 +334,8 @@ void Free_tree_channel::execute(bool &progress)
 	switch (_state) {
 	case REQ_SUBMITTED:
 	{
-		_num_allocated_pbas = 0;
-		_num_found_pbas = 0;
-		for (Node_info_stack<Type_1_info> &stack : _t1_info_stacks)
+		_num_pbas = 0;
+		for (Type_1_info_stack &stack : _t1_info_stacks)
 			stack.reset();
 
 		for (Type_1_node_block &blk : _t1_blks)
