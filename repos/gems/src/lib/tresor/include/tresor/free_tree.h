@@ -201,7 +201,6 @@ class Tresor::Free_tree_channel : public Module_channel
 				generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 				break;
 			default:
-				ASSERT(_state == UPDATE_REQ_INVALID);
 				_lvl = lvl;
 				_state = UPDATE_REQ_GENERATED;
 				generate_req<REQUEST>(state, progress, args..., _generated_req_success);
@@ -223,13 +222,17 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		void _init_info_stack_from_blk_data(Tree_level_index);
 
-		void _traverse_tree(bool &);
+		void _traverse_tree_to_find_pbas(bool &);
+
+		void _traverse_tree_to_alloc_pbas(bool &);
 
 		void _try_alloc_pbas_from_lvl_0_stack();
 
 		void _update_t1_node(Type_1_node &, Type_1_info &);
 
 		void _mark_req_successful(bool &);
+
+		bool _info_stack_empty(Tree_level_index lvl) const { return lvl ? _t1_info_stacks[lvl].empty() : _t2_info_stack.empty(); }
 
 	public:
 
