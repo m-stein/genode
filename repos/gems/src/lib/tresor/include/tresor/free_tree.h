@@ -83,9 +83,8 @@ class Tresor::Free_tree_channel : public Module_channel
 			REQ_SUBMITTED,
 			REQ_GENERATED,
 			READ_BLK_SUCCEEDED,
-			UPDATE_STARTED,
-			UPDATE_ALLOC_PBA_SUCCEEDED,
-			UPDATE_WRITE_BLK_SUCCEEDED,
+			ALLOC_PBA_SUCCEEDED,
+			WRITE_BLK_SUCCEEDED,
 			COMPLETE
 		};
 
@@ -194,6 +193,8 @@ class Tresor::Free_tree_channel : public Module_channel
 		void _mark_req_successful(bool &);
 
 		bool _info_stack_empty(Tree_level_index lvl) const { return lvl ? _t1_info_stacks[lvl].empty() : _t2_info_stack.empty(); }
+
+		void _start_tree_traversal(bool &progress);
 
 	public:
 
