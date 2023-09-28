@@ -39,12 +39,12 @@ class Tresor::Meta_tree_request : public Module_request
 		friend class Meta_tree;
 		friend class Meta_tree_channel;
 
-		Type _type;
+		Type const _type;
 		Meta_tree_root &_mt;
-		Generation _curr_gen;
-		Physical_block_address _old_pba;
+		Generation const _curr_gen;
+		Physical_block_address const _old_pba;
 		Physical_block_address &_new_pba;
-		bool _success;
+		bool &_success;
 
 	public:
 
