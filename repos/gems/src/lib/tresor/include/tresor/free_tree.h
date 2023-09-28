@@ -80,13 +80,7 @@ class Tresor::Free_tree_channel : public Module_channel
 		using Request = Free_tree_request;
 
 		enum State {
-			REQ_SUBMITTED,
-			REQ_GENERATED,
-			READ_BLK_SUCCEEDED,
-			ALLOC_PBA_SUCCEEDED,
-			WRITE_BLK_SUCCEEDED,
-			COMPLETE
-		};
+			REQ_SUBMITTED, REQ_GENERATED, READ_BLK_SUCCEEDED, ALLOC_PBA_SUCCEEDED, WRITE_BLK_SUCCEEDED, COMPLETE };
 
 		enum Node_info_state {
 			SUBTREE_NOT_TRAVERSED, SUBTREE_ROOT_BLK_READ, SUBTREE_ROOT_BLK_MODIFIED, SUBTREE_ROOT_BLK_READY_FOR_WRITE,
@@ -96,7 +90,6 @@ class Tresor::Free_tree_channel : public Module_channel
 		struct Node_info
 		{
 			Node_info_state state { SUBTREE_NOT_TRAVERSED };
-			NODE node { };
 			Tree_node_index index { INVALID_NODE_INDEX };
 			bool volatil { false };
 		};
@@ -187,8 +180,6 @@ class Tresor::Free_tree_channel : public Module_channel
 		void _traverse_tree(bool &progress);
 
 		void _alloc_pbas_from_t2_info_stack();
-
-		void _update_t1_node(Type_1_node &, Type_1_info &);
 
 		void _mark_req_successful(bool &);
 
