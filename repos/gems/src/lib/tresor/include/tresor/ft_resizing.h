@@ -172,6 +172,7 @@ class Tresor::Ft_resizing_channel
 		Ft_resizing_request _request { };
 		State _state { SUBMITTED };
 		Generated_prim _generated_prim { };
+		Physical_block_address _alloc_pba { 0 };
 		Type_1_node_blocks _t1_blks { };
 		Type_2_node_block _t2_blk { };
 		Tree_level_index _lvl_idx { 0 };

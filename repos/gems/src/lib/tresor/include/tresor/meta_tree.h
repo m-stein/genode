@@ -42,14 +42,13 @@ class Tresor::Meta_tree_request : public Module_request
 		Type const _type;
 		Meta_tree_root &_mt;
 		Generation const _curr_gen;
-		Physical_block_address const _old_pba;
-		Physical_block_address &_new_pba;
+		Physical_block_address &_pba;
 		bool &_success;
 
 	public:
 
 		Meta_tree_request(Module_id, Module_channel_id, Type, Meta_tree_root &, Generation,
-		                  Physical_block_address, Physical_block_address &, bool &success);
+		                  Physical_block_address &, bool &success);
 
 		static char const *type_to_string(Type type);
 

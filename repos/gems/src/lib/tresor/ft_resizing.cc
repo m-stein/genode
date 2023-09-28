@@ -730,11 +730,11 @@ bool Ft_resizing::_peek_generated_request(uint8_t *buf_ptr,
 				req._mt_max_level,
 				req._mt_degree,
 				req._mt_leaves);
+			chan._alloc_pba = chan._old_pbas.pbas[chan._alloc_lvl_idx];
 			construct_at<Meta_tree_request>(
 				buf_ptr, FT_RESIZING, id, Meta_tree_request::ALLOC_PBA, *chan._mt,
 				req._curr_gen,
-				chan._old_pbas.pbas[chan._alloc_lvl_idx],
-				chan._new_pbas.pbas[chan._alloc_lvl_idx],
+				chan._alloc_pba,
 				chan._generated_prim.succ);
 
 			return true;
@@ -808,6 +808,7 @@ void Ft_resizing::generated_request_complete(Module_request &mod_req)
 		switch (chan._state) {
 		case Channel::ALLOC_PBA_IN_PROGRESS:
 			chan._state = Channel::ALLOC_PBA_COMPLETED;
+			chan._new_pbas.pbas[chan._alloc_lvl_idx] = chan._alloc_pba;
 			break;
 		default:
 			class Exception_7 { };

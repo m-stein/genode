@@ -174,7 +174,6 @@ class Tresor::Free_tree_channel : public Module_channel
 		Type_2_node_block _t2_blk { };
 		Tree_degree_log_2 _vbd_degree_log_2 { 0 };
 		Tree_level_index _lvl { 0 };
-		Physical_block_address _pba { 0 };
 		bool _generated_req_success { false };
 
 		Type_1_node _root_node() const
@@ -208,7 +207,7 @@ class Tresor::Free_tree_channel : public Module_channel
 			}
 		}
 
-		void _generate_mt_req(State_uint state, bool &progress, Physical_block_address pba);
+		void _generate_mt_req(State_uint state, bool &progress, Physical_block_address &pba);
 
 		void _request_submitted(Module_request &) override;
 
