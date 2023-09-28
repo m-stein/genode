@@ -225,7 +225,7 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		void _traverse_tree_to_alloc_pbas(bool &);
 
-		void _try_alloc_pbas_from_lvl_0_stack();
+		void _alloc_pbas_from_t2_info_stack();
 
 		void _update_t1_node(Type_1_node &, Type_1_info &);
 
