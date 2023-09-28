@@ -96,10 +96,6 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		using Request = Free_tree_request;
 
-		enum { FIRST_LVL_N_STACKS_IDX = 1 };
-		enum { MAX_LVL_N_STACKS_IDX = TREE_MAX_LEVEL };
-		enum { FIRST_LVL_N_NODES_IDX = 1 };
-
 		enum State {
 			REQ_SUBMITTED,
 			REQ_GENERATED,
@@ -132,10 +128,10 @@ class Tresor::Free_tree_channel : public Module_channel
 		{
 			private:
 
-				enum { MIN = 1, MAX = TREE_MAX_DEGREE };
+				using Index = uint64_t;
 
-				T _container[MAX + 1] { };
-				uint64_t _top { MIN - 1 };
+				T _slots[TREE_MAX_DEGREE + 1] { };
+				Index _top_idx { 0 };
 
 				NONCOPYABLE(Node_info_stack);
 
@@ -143,45 +139,42 @@ class Tresor::Free_tree_channel : public Module_channel
 
 				Node_info_stack() { }
 
-				bool empty() const { return _top < MIN; }
-
-				bool full() const { return _top >= MAX; }
+				bool empty() const { return !_top_idx; }
 
 				T &top()
 				{
 					ASSERT(!empty());
-					return _container[_top];
+					return _slots[_top_idx];
 				}
 
-				void reset() { _top = MIN - 1; }
+				void reset() { _top_idx = 0; }
 
 				void pop()
 				{
 					ASSERT(!empty());
-					_top--;
+					_top_idx--;
 				}
 
 				void push(T obj)
 				{
-					ASSERT(!full());
-					_top++;
-					_container[_top] = obj;
+					ASSERT(_top_idx < TREE_MAX_DEGREE);
+					_top_idx++;
+					_slots[_top_idx] = obj;
 				}
 		};
 
 		State _state { COMPLETE };
 		Request *_req_ptr { nullptr };
-		Number_of_blocks _found_blocks { 0 };
+		Number_of_blocks _num_found_pbas { 0 };
 		Number_of_blocks _num_allocated_pbas { 0 };
-		Block _cache_block_data { };
-		Node_info_stack<Type_1_info> _level_n_stacks[TREE_MAX_NR_OF_LEVELS] { };
-		Node_info_stack<Type_2_info> _level_0_stack { };
-		Type_1_node_block _level_n_nodes[TREE_MAX_NR_OF_LEVELS]  { };
-		Type_2_node_block _level_0_node { };
+		Block _blk { };
+		Node_info_stack<Type_1_info> _t1_info_stacks[TREE_MAX_NR_OF_LEVELS] { };
+		Node_info_stack<Type_2_info> _t2_info_stack { };
+		Type_1_node_block _t1_blks[TREE_MAX_NR_OF_LEVELS]  { };
+		Type_2_node_block _t2_blk { };
 		Tree_degree_log_2 _vbd_degree_log_2 { 0 };
-		bool _wb_data_prim_success { false };
 		Tree_level_index _lvl { 0 };
-		Physical_block_address _generated_req_pba { 0 };
+		Physical_block_address _pba { 0 };
 		bool _generated_req_success { false };
 
 		Type_1_node _root_node() const
