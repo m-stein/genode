@@ -30,12 +30,12 @@ static bool check_level_0_usable(Generation   gen,
 }
 
 
-Meta_tree_request::Meta_tree_request(Module_id               src_module_id,
-                                     Module_channel_id       src_channel_id,
-                                     Type                    type,
-                                     Meta_tree_root         &mt,
-                                     Generation              curr_gen,
-                                     Physical_block_address  old_pba,
+Meta_tree_request::Meta_tree_request(Module_id src_module_id,
+                                     Module_channel_id src_channel_id,
+                                     Type type,
+                                     Meta_tree_root &mt,
+                                     Generation curr_gen,
+                                     Physical_block_address old_pba,
                                      Physical_block_address &new_pba,
                                      bool &success)
 :
