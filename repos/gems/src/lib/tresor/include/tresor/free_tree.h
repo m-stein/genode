@@ -168,17 +168,15 @@ class Tresor::Free_tree_channel : public Module_channel
 		void _generated_req_completed(State_uint) override;
 
 		template <typename REQUEST, typename... ARGS>
-		void _generate_cache_req(State_uint state, bool &progress, Tree_level_index lvl, ARGS &&... args)
+		void _generate_cache_req(State_uint state, bool &progress, ARGS &&... args)
 		{
 			switch (_state) {
 			case REQ_GENERATED: ASSERT_NEVER_REACHED;
 			case SCAN_READ_BLK_SUCCEEDED:
-				_lvl = lvl;
 				_state = REQ_GENERATED;
 				generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 				break;
 			default:
-				_lvl = lvl;
 				_state = UPDATE_REQ_GENERATED;
 				generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 				break;
@@ -193,11 +191,9 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		void _mark_req_failed(bool &, char const *);
 
-		Tree_level_index _lowest_non_empty_lvl() const;
-
 		bool _t2_node_allocable(Type_2_node &node);
 
-		void _init_info_stack_from_blk_data(Tree_level_index);
+		void _init_next_lower_stack_from_blk();
 
 		void _traverse_tree(bool &progress, bool alloc_pbas);
 
