@@ -82,10 +82,8 @@ class Tresor::Free_tree_channel : public Module_channel
 		enum State {
 			REQ_SUBMITTED,
 			REQ_GENERATED,
-			SCAN_READ_BLK_SUCCEEDED,
-			UPDATE_REQ_INVALID,
-			UPDATE_REQ_GENERATED,
-			UPDATE_READ_BLK_SUCCEEDED,
+			READ_BLK_SUCCEEDED,
+			UPDATE_STARTED,
 			UPDATE_ALLOC_PBA_SUCCEEDED,
 			UPDATE_WRITE_BLK_SUCCEEDED,
 			COMPLETE
@@ -155,6 +153,7 @@ class Tresor::Free_tree_channel : public Module_channel
 		Request *_req_ptr { nullptr };
 		Number_of_blocks _num_pbas { 0 };
 		Block _blk { };
+		bool _alloc_pbas { false };
 		Type_1_info_stack _t1_info_stacks[TREE_MAX_NR_OF_LEVELS] { };
 		Type_2_info_stack _t2_info_stack { };
 		Type_1_node_block _t1_blks[TREE_MAX_NR_OF_LEVELS] { };
@@ -170,17 +169,8 @@ class Tresor::Free_tree_channel : public Module_channel
 		template <typename REQUEST, typename... ARGS>
 		void _generate_cache_req(State_uint state, bool &progress, ARGS &&... args)
 		{
-			switch (_state) {
-			case REQ_GENERATED: ASSERT_NEVER_REACHED;
-			case SCAN_READ_BLK_SUCCEEDED:
-				_state = REQ_GENERATED;
-				generate_req<REQUEST>(state, progress, args..., _generated_req_success);
-				break;
-			default:
-				_state = UPDATE_REQ_GENERATED;
-				generate_req<REQUEST>(state, progress, args..., _generated_req_success);
-				break;
-			}
+			_state = REQ_GENERATED;
+			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 		}
 
 		void _generate_mt_req(State_uint state, bool &progress, Physical_block_address &pba);
@@ -195,7 +185,7 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		void _init_next_lower_stack_from_blk();
 
-		void _traverse_tree(bool &progress, bool alloc_pbas);
+		void _traverse_tree(bool &progress);
 
 		void _alloc_pbas_from_t2_info_stack();
 
