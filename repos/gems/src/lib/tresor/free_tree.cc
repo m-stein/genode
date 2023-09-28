@@ -92,8 +92,7 @@ void Free_tree_channel::_init_next_lower_stack_from_blk()
 		for (Tree_node_index idx = 0; idx < NR_OF_T1_NODES_PER_BLK; idx++) {
 			if (_t1_blks[_lvl].nodes[idx].pba != 0) {
 				_t1_info_stacks[_lvl].push({
-					SUBTREE_NOT_TRAVERSED, _t1_blks[_lvl].nodes[idx], idx,
-					_t1_blks[_lvl].nodes[idx].is_volatile(_req_ptr->_curr_gen) });
+					SUBTREE_NOT_TRAVERSED, idx, _t1_blks[_lvl].nodes[idx].is_volatile(_req_ptr->_curr_gen) });
 			}
 		}
 	} else {
@@ -101,7 +100,7 @@ void Free_tree_channel::_init_next_lower_stack_from_blk()
 		_t2_info_stack.reset();
 		for (Tree_node_index idx = 0; idx < NR_OF_T1_NODES_PER_BLK; idx++) {
 			if (_t2_node_allocable(_t2_blk.nodes[idx]))
-				_t2_info_stack.push({ SUBTREE_NOT_TRAVERSED, _t2_blk.nodes[idx], idx });
+				_t2_info_stack.push({ SUBTREE_NOT_TRAVERSED, idx });
 		}
 	}
 	if (_info_stack_empty(_lvl))
@@ -147,10 +146,11 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 	while (1) {
 		if (_lvl) {
 			Type_1_info &t1_info = _t1_info_stacks[_lvl].top();
+			Type_1_node &t1_node = _t1_blks[_lvl].nodes[t1_info.index];
 			switch (t1_info.state) {
 			case SUBTREE_NOT_TRAVERSED:
 
-				_generate_cache_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, t1_info.node.pba, _blk);
+				_generate_cache_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, t1_node.pba, _blk);
 				return;
 
 			case SUBTREE_ROOT_BLK_READ:
@@ -165,7 +165,7 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 				ASSERT(_alloc_pbas);
 				t1_info.state = SUBTREE_ROOT_BLK_READY_FOR_WRITE;
 				if (!t1_info.volatil) {
-					_generate_mt_req(ALLOC_PBA_SUCCEEDED, progress, t1_info.node.pba);
+					_generate_mt_req(ALLOC_PBA_SUCCEEDED, progress, t1_node.pba);
 					return;
 				}
 				break;
@@ -174,29 +174,30 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 			{
 				ASSERT(_alloc_pbas);
 				t1_info.volatil = true;
-				Type_1_node &t1_node { _t1_blks[_lvl].nodes[t1_info.index] };
 				if (_lvl > 1) {
 					_t1_blks[_lvl - 1].encode_to_blk(_blk);
-					if (_lvl < req._ft.max_lvl)
-						_update_t1_node(t1_node, t1_info);
-					else {
+					if (_lvl < req._ft.max_lvl) {
+						t1_node.gen = req._curr_gen;
+						calc_hash(_blk, t1_node.hash);
+					} else {
 						calc_hash(_blk, req._ft.hash);
 						req._ft.gen = req._curr_gen;
-						req._ft.pba = t1_info.node.pba;
+						req._ft.pba = t1_node.pba;
 					}
 				} else {
 					_t2_blk.encode_to_blk(_blk);
-					_update_t1_node(t1_node, t1_info);
+					t1_node.gen = req._curr_gen;
+					calc_hash(_blk, t1_node.hash);
 				}
-				_generate_cache_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, t1_info.node.pba, _blk);
+				_generate_cache_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, t1_node.pba, _blk);
 				return;
 			}
 			case SUBTREE_TRAVERSED:
 
 				if (_lvl == req._ft.max_lvl) {
-					if (_alloc_pbas)
+					if (_alloc_pbas) {
 						_mark_req_successful(progress);
-					else
+					} else
 						_mark_req_failed(progress, "not enough free blocks");
 					return;
 				}
@@ -292,14 +293,6 @@ void Free_tree_channel::_alloc_pbas_from_t2_info_stack()
 }
 
 
-void Free_tree_channel::_update_t1_node(Type_1_node &t1_node, Type_1_info &t1_info)
-{
-	t1_node.pba = t1_info.node.pba;
-	t1_node.gen = _req_ptr->_curr_gen;
-	calc_hash(_blk, t1_node.hash);
-}
-
-
 void Free_tree_channel::_mark_req_failed(bool &progress, char const *str)
 {
 	error(Request::type_to_string(_req_ptr->_type), " request failed, reason: \"", str, "\"");
@@ -326,8 +319,10 @@ void Free_tree_channel::_start_tree_traversal(bool &progress)
 	for (Type_1_info_stack &stack : _t1_info_stacks)
 		stack.reset();
 
-	Type_1_node root_node { req._ft.pba, req._ft.gen, req._ft.hash };
-	_t1_info_stacks[req._ft.max_lvl].push({ SUBTREE_NOT_TRAVERSED, root_node, 0, root_node.is_volatile(req._curr_gen) });
+	Tree_node_index idx { 0 };
+	Type_1_node &t1_node { _t1_blks[_lvl].nodes[idx] };
+	t1_node = { req._ft.pba, req._ft.gen, req._ft.hash };
+	_t1_info_stacks[req._ft.max_lvl].push({ SUBTREE_NOT_TRAVERSED, idx, t1_node.is_volatile(req._curr_gen) });
 	_generate_cache_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, req._ft.pba, _blk);
 }
 
@@ -337,10 +332,11 @@ void Free_tree_channel::execute(bool &progress)
 	if (!_req_ptr)
 		return;
 
+	Request &req { *_req_ptr };
 	switch (_state) {
 	case REQ_SUBMITTED:
 
-		_vbd_degree_log_2 = log2<Tree_degree_log_2>(_req_ptr->_vbd_degree);
+		_vbd_degree_log_2 = log2<Tree_degree_log_2>(req._vbd_degree);
 		_alloc_pbas = false;
 		_start_tree_traversal(progress);
 		break;
@@ -348,7 +344,7 @@ void Free_tree_channel::execute(bool &progress)
 	case READ_BLK_SUCCEEDED:
 	{
 		Type_1_info &t1_info { _t1_info_stacks[_lvl].top() };
-		if (!check_hash(_blk, t1_info.node.hash)) {
+		if (!check_hash(_blk, _t1_blks[_lvl].nodes[t1_info.index].hash)) {
 			_mark_req_failed(progress, "hash mismatch");
 			break;
 		}
