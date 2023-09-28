@@ -221,9 +221,7 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		void _init_info_stack_from_blk_data(Tree_level_index);
 
-		void _traverse_tree_to_find_pbas(bool &);
-
-		void _traverse_tree_to_alloc_pbas(bool &);
+		void _traverse_tree(bool &progress, bool alloc_pbas);
 
 		void _alloc_pbas_from_t2_info_stack();
 
