@@ -109,7 +109,7 @@ class Tresor::Free_tree_channel : public Module_channel
 		};
 
 		enum Node_info_state {
-			SUBTREE_NOT_TRAVERSED, SUBTREE_ROOT_BLK_READ, X_WRITE, SUBTREE_TRAVERSED };
+			SUBTREE_NOT_TRAVERSED, SUBTREE_ROOT_BLK_READ, SUBTREE_ROOT_BLK_MODIFIED, SUBTREE_ROOT_BLK_READY_FOR_WRITE, SUBTREE_TRAVERSED };
 
 		template <typename NODE>
 		struct Node_info
