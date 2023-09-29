@@ -84,8 +84,7 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		enum Tree_node_state {
 			SUBTREE_NOT_TRAVERSED,
-			SUBTREE_MODIFIED,
-			SUBTREE_TRAVERSED };
+			SUBTREE_MODIFIED};
 
 		State _state { COMPLETE };
 		Request *_req_ptr { nullptr };
