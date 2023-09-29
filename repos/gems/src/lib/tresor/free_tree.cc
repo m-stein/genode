@@ -89,8 +89,7 @@ void Free_tree_channel::_init_stack_from_blk(Tree_level_index lvl)
 		_t1_blks[lvl].decode_from_blk(_blk);
 		_t1_info_stacks[lvl].reset();
 		for (Tree_node_index idx = 0; idx < NR_OF_T1_NODES_PER_BLK; idx++)
-			if (_t1_blks[lvl].nodes[idx].pba != 0)
-				_t1_info_stacks[lvl].push({ idx });
+			_t1_info_stacks[lvl].push({ idx });
 	} else {
 		_t2_blk.decode_from_blk(_blk);
 		_t2_info_stack.reset();
@@ -143,6 +142,10 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 			switch (_node_state[_lvl]) {
 			case SUBTREE_NOT_TRAVERSED:
 
+				if (!t1_node.pba) {
+					_node_state[_lvl] = SUBTREE_TRAVERSED;
+					break;
+				}
 				_generate_cache_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, t1_node.pba, _blk);
 				return;
 
@@ -201,7 +204,6 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 				break;
 			}
 		} else {
-//log(_lvl, " ", (int)_node_state[_lvl]);
 			if (_alloc_pbas) {
 				_alloc_pbas_from_t2_info_stack();
 				if (!_t2_info_stack.empty()) {
