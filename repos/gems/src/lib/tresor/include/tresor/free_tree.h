@@ -123,8 +123,6 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		bool _can_alloc_pba_of(Type_2_node &);
 
-		void _init_stack_from_blk(Tree_level_index);
-
 		void _traverse_tree(bool &progress);
 
 		void _alloc_pba_of(Type_2_node &);

@@ -83,18 +83,6 @@ void Free_tree::execute(bool &progress)
 }
 
 
-void Free_tree_channel::_init_stack_from_blk(Tree_level_index lvl)
-{
-	if (lvl) {
-		_t1_blks[lvl].decode_from_blk(_blk);
-		_node_idx[lvl] = NR_OF_T1_NODES_PER_BLK - 1;
-	} else {
-		_t2_blk.decode_from_blk(_blk);
-		_node_idx[lvl] = NR_OF_T2_NODES_PER_BLK - 1;
-	}
-}
-
-
 bool Free_tree_channel::_can_alloc_pba_of(Type_2_node &node)
 {
 	Request &req { *_req_ptr };
@@ -145,10 +133,14 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 
 			case SUBTREE_ROOT_BLK_READ:
 
-				_init_stack_from_blk(_lvl - 1);
 				_node_state[_lvl] = _alloc_pbas ? SUBTREE_MODIFIED : SUBTREE_TRAVERSED;
-				_node_state[_lvl - 1] = SUBTREE_NOT_TRAVERSED;
 				_lvl--;
+				if (_lvl)
+					_t1_blks[_lvl].decode_from_blk(_blk);
+				else
+					_t2_blk.decode_from_blk(_blk);
+				_node_idx[_lvl] = req._ft.degree - 1;
+				_node_state[_lvl] = SUBTREE_NOT_TRAVERSED;
 				break;
 
 			case SUBTREE_MODIFIED:
