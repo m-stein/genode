@@ -113,7 +113,7 @@ class Tresor::Free_tree_channel : public Module_channel
 			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 		}
 
-		void _generate_mt_req(State_uint state, bool &progress, Physical_block_address &pba);
+		void _generate_mt_req(State_uint, bool &, Physical_block_address &);
 
 		void _request_submitted(Module_request &) override;
 
@@ -121,17 +121,17 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		void _mark_req_failed(bool &, char const *);
 
-		bool _t2_node_allocable(Type_2_node &node);
+		bool _can_alloc_pba_of(Type_2_node &);
 
 		void _init_stack_from_blk(Tree_level_index);
 
 		void _traverse_tree(bool &progress);
 
-		void _alloc_pba_of_curr_t2_node();
+		void _alloc_pba_of(Type_2_node &);
 
 		void _mark_req_successful(bool &);
 
-		void _start_tree_traversal(bool &progress);
+		void _start_tree_traversal(bool &);
 
 		void _advance_to_next_node();
 
