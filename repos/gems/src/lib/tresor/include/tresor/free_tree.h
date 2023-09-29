@@ -181,7 +181,7 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		void _traverse_tree(bool &progress);
 
-		void _alloc_pbas_from_t2_info_stack(bool &);
+		void _alloc_t2_info_stack_top();
 
 		void _mark_req_successful(bool &);
 

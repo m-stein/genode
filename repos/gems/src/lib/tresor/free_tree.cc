@@ -186,35 +186,39 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 
 				if (_lvl == req._ft.max_lvl) {
 					if (!_alloc_pbas) {
-						if (_num_pbas == req._num_required_pbas) {
+						if (_num_pbas < req._num_required_pbas)
+							_mark_req_failed(progress, "not enough free pbas");
+						else {
 							_alloc_pbas = true;
 							_start_tree_traversal(progress);
-						} else
-							_mark_req_failed(progress, "not enough free pbas");
+						}
 					} else {
 						req._ft.t1_node(t1_node);
 						_mark_req_successful(progress);
 					}
 					return;
 				}
-				if (_num_pbas == req._num_required_pbas) {
-					_t1_info_stacks[_lvl].reset();
-					_lvl++;
-				} else {
+				if (_num_pbas < req._num_required_pbas) {
 					_t1_info_stacks[_lvl].pop();
 					_node_state[_lvl] = SUBTREE_NOT_TRAVERSED;
 					if (_info_stack_empty(_lvl))
 						_lvl++;
+				} else {
+					_t1_info_stacks[_lvl].reset();
+					_lvl++;
 				}
 				break;
 			}
 		} else {
-			if (_alloc_pbas) {
-				_alloc_pbas_from_t2_info_stack(progress);
-				_t2_info_stack.reset();
-				_lvl++;
+			if (_num_pbas < req._num_required_pbas) {
+				if (_alloc_pbas)
+					_alloc_t2_info_stack_top();
+				_num_pbas++;
+				_t2_info_stack.pop();
+				_node_state[_lvl] = SUBTREE_NOT_TRAVERSED;
+				if (_info_stack_empty(_lvl))
+					_lvl++;
 			} else {
-				_num_pbas += min(_t2_info_stack.num_items(), req._num_required_pbas - _num_pbas);
 				_t2_info_stack.reset();
 				_lvl++;
 			}
@@ -222,62 +226,56 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 	}
 }
 
-
-void Free_tree_channel::_alloc_pbas_from_t2_info_stack(bool &)
+void Free_tree_channel::_alloc_t2_info_stack_top()
 {
 	Request &req { *_req_ptr };
+	Tree_level_index vbd_lvl { 0 };
+	for (; vbd_lvl <= req._max_lvl && req._new_blocks.pbas[vbd_lvl]; vbd_lvl++);
+
+	Type_2_node &t2_node { _t2_blk.nodes[_t2_info_stack.top().index] };
+	Virtual_block_address node_min_vba { vbd_node_min_vba(_vbd_degree_log_2, vbd_lvl, req._vba) };
+	req._new_blocks.pbas[vbd_lvl] = t2_node.pba;
+	t2_node.alloc_gen = req._old_blocks.nodes[vbd_lvl].gen;
+	t2_node.free_gen = req._free_gen;
 	Virtual_block_address rkg_vba { req._rekeying_vba };
-	for (Tree_level_index lvl = 0; lvl <= req._max_lvl && !_t2_info_stack.empty(); lvl++) {
-		if (req._new_blocks.pbas[lvl] != 0)
-			continue;
+	switch (req._type) {
+	case Request::ALLOC_FOR_NON_RKG:
 
-		Type_2_node &t2_node { _t2_blk.nodes[_t2_info_stack.top().index] };
-		Virtual_block_address node_min_vba { vbd_node_min_vba(_vbd_degree_log_2, lvl, req._vba) };
-		req._new_blocks.pbas[lvl] = t2_node.pba;
-		t2_node.alloc_gen = req._old_blocks.nodes[lvl].gen;
-		t2_node.free_gen = req._free_gen;
-		switch (req._type) {
-		case Request::ALLOC_FOR_NON_RKG:
-
-			t2_node.reserved = true;
-			t2_node.pba = req._old_blocks.nodes[lvl].pba;
-			t2_node.last_vba = node_min_vba;
-			if (req._rekeying) {
-				if (req._vba < rkg_vba)
-					t2_node.last_key_id = req._curr_key_id;
-				else
-					t2_node.last_key_id = req._prev_key_id;
-			} else
+		t2_node.reserved = true;
+		t2_node.pba = req._old_blocks.nodes[vbd_lvl].pba;
+		t2_node.last_vba = node_min_vba;
+		if (req._rekeying) {
+			if (req._vba < rkg_vba)
 				t2_node.last_key_id = req._curr_key_id;
-			break;
-
-		case Request::ALLOC_FOR_RKG_CURR_GEN_BLKS:
-
-			t2_node.reserved = false;
-			t2_node.pba = req._old_blocks.nodes[lvl].pba;
-			t2_node.last_vba = node_min_vba;
-			t2_node.last_key_id = req._prev_key_id;
-			break;
-
-		case Request::ALLOC_FOR_RKG_OLD_GEN_BLKS:
-		{
-			t2_node.reserved = true;
-			Virtual_block_address node_max_vba { vbd_node_max_vba(_vbd_degree_log_2, lvl, req._vba) };
-			if (rkg_vba < node_max_vba && rkg_vba < req._vbd_max_vba) {
+			else
 				t2_node.last_key_id = req._prev_key_id;
-				t2_node.last_vba = rkg_vba + 1;
-			} else if (rkg_vba == node_max_vba || rkg_vba == req._vbd_max_vba) {
-				t2_node.last_key_id = req._curr_key_id;
-				t2_node.last_vba = node_min_vba;
-			} else
-				ASSERT_NEVER_REACHED;
-			break;
-		}
-		default: ASSERT_NEVER_REACHED;
-		}
-		_num_pbas++;
-		_t2_info_stack.pop();
-		_node_state[_lvl] = SUBTREE_NOT_TRAVERSED;
+		} else
+			t2_node.last_key_id = req._curr_key_id;
+		break;
+
+	case Request::ALLOC_FOR_RKG_CURR_GEN_BLKS:
+
+		t2_node.reserved = false;
+		t2_node.pba = req._old_blocks.nodes[vbd_lvl].pba;
+		t2_node.last_vba = node_min_vba;
+		t2_node.last_key_id = req._prev_key_id;
+		break;
+
+	case Request::ALLOC_FOR_RKG_OLD_GEN_BLKS:
+	{
+		t2_node.reserved = true;
+		Virtual_block_address node_max_vba { vbd_node_max_vba(_vbd_degree_log_2, vbd_lvl, req._vba) };
+		if (rkg_vba < node_max_vba && rkg_vba < req._vbd_max_vba) {
+			t2_node.last_key_id = req._prev_key_id;
+			t2_node.last_vba = rkg_vba + 1;
+		} else if (rkg_vba == node_max_vba || rkg_vba == req._vbd_max_vba) {
+			t2_node.last_key_id = req._curr_key_id;
+			t2_node.last_vba = node_min_vba;
+		} else
+			ASSERT_NEVER_REACHED;
+		break;
+	}
+	default: ASSERT_NEVER_REACHED;
 	}
 }
 
