@@ -185,14 +185,19 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 			case SUBTREE_TRAVERSED:
 
 				if (_lvl == req._ft.max_lvl) {
-					if (_alloc_pbas) {
+					if (!_alloc_pbas) {
+						if (_num_pbas == req._num_required_pbas) {
+							_alloc_pbas = true;
+							_start_tree_traversal(progress);
+						} else
+							_mark_req_failed(progress, "not enough free pbas");
+					} else {
 						req._ft.t1_node(t1_node);
 						_mark_req_successful(progress);
-					} else
-						_mark_req_failed(progress, "not enough free blocks");
+					}
 					return;
 				}
-				if (_alloc_pbas && _num_pbas == req._num_required_pbas) {
+				if (_num_pbas == req._num_required_pbas) {
 					_t1_info_stacks[_lvl].reset();
 					_lvl++;
 				} else {
@@ -205,27 +210,20 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 			}
 		} else {
 			if (_alloc_pbas) {
-				_alloc_pbas_from_t2_info_stack();
-				if (!_t2_info_stack.empty()) {
-					_t2_info_stack.reset();
-					_lvl++;
-				}
-			} else {
-				_num_pbas += _t2_info_stack.num_items();
+				_alloc_pbas_from_t2_info_stack(progress);
 				_t2_info_stack.reset();
 				_lvl++;
-				if (_num_pbas >= req._num_required_pbas) {
-					_alloc_pbas = true;
-					_start_tree_traversal(progress);
-					return;
-				}
+			} else {
+				_num_pbas += min(_t2_info_stack.num_items(), req._num_required_pbas - _num_pbas);
+				_t2_info_stack.reset();
+				_lvl++;
 			}
 		}
 	}
 }
 
 
-void Free_tree_channel::_alloc_pbas_from_t2_info_stack()
+void Free_tree_channel::_alloc_pbas_from_t2_info_stack(bool &)
 {
 	Request &req { *_req_ptr };
 	Virtual_block_address rkg_vba { req._rekeying_vba };
@@ -280,8 +278,6 @@ void Free_tree_channel::_alloc_pbas_from_t2_info_stack()
 		_num_pbas++;
 		_t2_info_stack.pop();
 		_node_state[_lvl] = SUBTREE_NOT_TRAVERSED;
-		if (_t2_info_stack.empty())
-			_lvl++;
 	}
 }
 
