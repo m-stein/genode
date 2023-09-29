@@ -122,7 +122,7 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		bool _can_alloc_pba_of(Type_2_node &);
 
-		void _traverse_tree(bool &progress);
+		void _traverse_t1_lvls(bool &progress);
 
 		void _alloc_pba_of(Type_2_node &);
 

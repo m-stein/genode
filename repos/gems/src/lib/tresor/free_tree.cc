@@ -115,71 +115,61 @@ void Free_tree_channel::_generated_req_completed(State_uint state_uint)
 }
 
 
-void Free_tree_channel::_traverse_tree(bool &progress)
+void Free_tree_channel::_traverse_t1_lvls(bool &progress)
 {
 	Request &req { *_req_ptr };
 	while (1) {
-		if (_lvl) {
-			Type_1_node &t1_node = _t1_blks[_lvl].nodes[_node_idx[_lvl]];
-			switch (_node_state[_lvl]) {
-			case SUBTREE_NOT_TRAVERSED:
+		Type_1_node &t1_node = _t1_blks[_lvl].nodes[_node_idx[_lvl]];
+		switch (_node_state[_lvl]) {
+		case SUBTREE_NOT_TRAVERSED:
 
-				if (!t1_node.pba) {
-					_node_state[_lvl] = SUBTREE_TRAVERSED;
-					break;
-				}
-				_generate_cache_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, t1_node.pba, _blk);
-				return;
-
-			case SUBTREE_MODIFIED:
-			{
-				ASSERT(_alloc_pbas);
-				_node_state[_lvl] = SUBTREE_ROOT_BLK_READY_FOR_WRITE;
-				if (!t1_node.is_volatile(req._curr_gen)) {
-					_generate_mt_req(ALLOC_PBA_SUCCEEDED, progress, t1_node.pba);
-					return;
-				}
+			if (!t1_node.pba) {
+				_node_state[_lvl] = SUBTREE_TRAVERSED;
 				break;
 			}
-			case SUBTREE_ROOT_BLK_READY_FOR_WRITE:
-			{
-				ASSERT(_alloc_pbas);
-				if (_lvl > 1)
-					_t1_blks[_lvl - 1].encode_to_blk(_blk);
-				else
-					_t2_blk.encode_to_blk(_blk);
-				t1_node.gen = req._curr_gen;
-				calc_hash(_blk, t1_node.hash);
-				_generate_cache_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, t1_node.pba, _blk);
+			_generate_cache_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, t1_node.pba, _blk);
+			return;
+
+		case SUBTREE_MODIFIED:
+		{
+			ASSERT(_alloc_pbas);
+			_node_state[_lvl] = SUBTREE_ROOT_BLK_READY_FOR_WRITE;
+			if (!t1_node.is_volatile(req._curr_gen)) {
+				_generate_mt_req(ALLOC_PBA_SUCCEEDED, progress, t1_node.pba);
 				return;
 			}
-			case SUBTREE_TRAVERSED:
+			break;
+		}
+		case SUBTREE_ROOT_BLK_READY_FOR_WRITE:
+		{
+			ASSERT(_alloc_pbas);
+			if (_lvl > 1)
+				_t1_blks[_lvl - 1].encode_to_blk(_blk);
+			else
+				_t2_blk.encode_to_blk(_blk);
+			t1_node.gen = req._curr_gen;
+			calc_hash(_blk, t1_node.hash);
+			_generate_cache_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, t1_node.pba, _blk);
+			return;
+		}
+		case SUBTREE_TRAVERSED:
 
-				if (_lvl == req._ft.max_lvl) {
-					if (!_alloc_pbas) {
-						if (_num_pbas < req._num_required_pbas)
-							_mark_req_failed(progress, "not enough free pbas");
-						else {
-							_alloc_pbas = true;
-							_start_tree_traversal(progress);
-						}
-					} else {
-						req._ft.t1_node(t1_node);
-						_mark_req_successful(progress);
+			if (_lvl == req._ft.max_lvl) {
+				if (!_alloc_pbas) {
+					if (_num_pbas < req._num_required_pbas)
+						_mark_req_failed(progress, "not enough free pbas");
+					else {
+						_alloc_pbas = true;
+						_start_tree_traversal(progress);
 					}
-					return;
+				} else {
+					req._ft.t1_node(t1_node);
+					_mark_req_successful(progress);
 				}
-				_advance_to_next_node();
-				break;
-			}
-		} else {
-			Type_2_node &t2_node { _t2_blk.nodes[_node_idx[_lvl]] };
-			if (_num_pbas < req._num_required_pbas && _can_alloc_pba_of(t2_node)) {
-				if (_alloc_pbas)
-					_alloc_pba_of(t2_node);
-				_num_pbas++;
+				return;
 			}
 			_advance_to_next_node();
+			break;
 		}
 	}
 }
@@ -301,20 +291,30 @@ void Free_tree_channel::execute(bool &progress)
 		_lvl--;
 		if (_lvl)
 			_t1_blks[_lvl].decode_from_blk(_blk);
-		else
+		else {
 			_t2_blk.decode_from_blk(_blk);
+		}
 		_node_idx[_lvl] = req._ft.degree - 1;
 		_node_state[_lvl] = SUBTREE_NOT_TRAVERSED;
-		_traverse_tree(progress);
+		while(!_lvl) {
+			Type_2_node &t2_node { _t2_blk.nodes[_node_idx[_lvl]] };
+			if (_num_pbas < req._num_required_pbas && _can_alloc_pba_of(t2_node)) {
+				if (_alloc_pbas)
+					_alloc_pba_of(t2_node);
+				_num_pbas++;
+			}
+			_advance_to_next_node();
+		}
+		_traverse_t1_lvls(progress);
 		break;
 	}
 	case WRITE_BLK_SUCCEEDED:
 
 		_node_state[_lvl] = SUBTREE_TRAVERSED;
-		_traverse_tree(progress);
+		_traverse_t1_lvls(progress);
 		break;
 
-	case ALLOC_PBA_SUCCEEDED: _traverse_tree(progress); break;
+	case ALLOC_PBA_SUCCEEDED: _traverse_t1_lvls(progress); break;
 	default: break;
 	}
 }
