@@ -131,18 +131,6 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 				_generate_cache_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, t1_node.pba, _blk);
 				return;
 
-			case SUBTREE_ROOT_BLK_READ:
-
-				_node_state[_lvl] = _alloc_pbas ? SUBTREE_MODIFIED : SUBTREE_TRAVERSED;
-				_lvl--;
-				if (_lvl)
-					_t1_blks[_lvl].decode_from_blk(_blk);
-				else
-					_t2_blk.decode_from_blk(_blk);
-				_node_idx[_lvl] = req._ft.degree - 1;
-				_node_state[_lvl] = SUBTREE_NOT_TRAVERSED;
-				break;
-
 			case SUBTREE_MODIFIED:
 			{
 				ASSERT(_alloc_pbas);
@@ -309,7 +297,14 @@ void Free_tree_channel::execute(bool &progress)
 			_mark_req_failed(progress, "hash mismatch");
 			break;
 		}
-		_node_state[_lvl] = SUBTREE_ROOT_BLK_READ;
+		_node_state[_lvl] = _alloc_pbas ? SUBTREE_MODIFIED : SUBTREE_TRAVERSED;
+		_lvl--;
+		if (_lvl)
+			_t1_blks[_lvl].decode_from_blk(_blk);
+		else
+			_t2_blk.decode_from_blk(_blk);
+		_node_idx[_lvl] = req._ft.degree - 1;
+		_node_state[_lvl] = SUBTREE_NOT_TRAVERSED;
 		_traverse_tree(progress);
 		break;
 	}
