@@ -95,7 +95,7 @@ void Free_tree_channel::_init_stack_from_blk(Tree_level_index lvl)
 }
 
 
-bool Free_tree_channel::_t2_node_allocable(Type_2_node &node)
+bool Free_tree_channel::_can_alloc_pba_of(Type_2_node &node)
 {
 	Request &req { *_req_ptr };
 	if (node.pba == 0 || node.pba == INVALID_PBA || node.free_gen > req._last_secured_gen)
@@ -193,9 +193,10 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 				break;
 			}
 		} else {
-			if (_num_pbas < req._num_required_pbas && _t2_node_allocable(_t2_blk.nodes[_node_idx[_lvl]])) {
+			Type_2_node &t2_node { _t2_blk.nodes[_node_idx[_lvl]] };
+			if (_num_pbas < req._num_required_pbas && _can_alloc_pba_of(t2_node)) {
 				if (_alloc_pbas)
-					_alloc_pba_of_curr_t2_node();
+					_alloc_pba_of(t2_node);
 				_num_pbas++;
 			}
 			_advance_to_next_node();
@@ -214,13 +215,12 @@ void Free_tree_channel::_advance_to_next_node()
 }
 
 
-void Free_tree_channel::_alloc_pba_of_curr_t2_node()
+void Free_tree_channel::_alloc_pba_of(Type_2_node &t2_node)
 {
 	Request &req { *_req_ptr };
 	Tree_level_index vbd_lvl { 0 };
 	for (; vbd_lvl <= req._max_lvl && req._new_blocks.pbas[vbd_lvl]; vbd_lvl++);
 
-	Type_2_node &t2_node { _t2_blk.nodes[_node_idx[_lvl]] };
 	Virtual_block_address node_min_vba { vbd_node_min_vba(_vbd_degree_log_2, vbd_lvl, req._vba) };
 	req._new_blocks.pbas[vbd_lvl] = t2_node.pba;
 	t2_node.alloc_gen = req._old_blocks.nodes[vbd_lvl].gen;
