@@ -82,74 +82,20 @@ class Tresor::Free_tree_channel : public Module_channel
 		enum State {
 			REQ_SUBMITTED, REQ_GENERATED, READ_BLK_SUCCEEDED, ALLOC_PBA_SUCCEEDED, WRITE_BLK_SUCCEEDED, COMPLETE };
 
-		enum Node_info_state {
+		enum Tree_node_state {
 			SUBTREE_NOT_TRAVERSED,
 			SUBTREE_ROOT_BLK_READ,
 			SUBTREE_MODIFIED,
 			SUBTREE_ROOT_BLK_READY_FOR_WRITE,
 			SUBTREE_TRAVERSED };
 
-		template <typename NODE>
-		struct Node_info
-		{
-			Tree_node_index index { INVALID_NODE_INDEX };
-		};
-
-		template <typename T>
-		class Node_info_stack
-		{
-			private:
-
-				using Index = uint64_t;
-
-				T _slots[TREE_MAX_DEGREE + 1] { };
-				Index _top_idx { 0 };
-
-				NONCOPYABLE(Node_info_stack);
-
-			public:
-
-				Node_info_stack() { }
-
-				bool empty() const { return !_top_idx; }
-
-				T &top()
-				{
-					ASSERT(!empty());
-					return _slots[_top_idx];
-				}
-
-				void reset() { _top_idx = 0; }
-
-				Number_of_blocks num_items() { return _top_idx; }
-
-				void pop()
-				{
-					ASSERT(!empty());
-					_top_idx--;
-				}
-
-				void push(T obj)
-				{
-					ASSERT(_top_idx < TREE_MAX_DEGREE);
-					_top_idx++;
-					_slots[_top_idx] = obj;
-				}
-		};
-
-		using Type_1_info = Node_info<Type_1_node>;
-		using Type_2_info = Node_info<Type_2_node>;
-		using Type_1_info_stack = Node_info_stack<Type_1_info>;
-		using Type_2_info_stack = Node_info_stack<Type_2_info>;
-
 		State _state { COMPLETE };
 		Request *_req_ptr { nullptr };
 		Number_of_blocks _num_pbas { 0 };
 		Block _blk { };
-		Node_info_state _node_state[TREE_MAX_NR_OF_LEVELS] { };
+		Tree_node_state _node_state[TREE_MAX_NR_OF_LEVELS] { };
+		Tree_node_index _node_idx[TREE_MAX_NR_OF_LEVELS] { };
 		bool _alloc_pbas { false };
-		Type_1_info_stack _t1_info_stacks[TREE_MAX_NR_OF_LEVELS] { };
-		Type_2_info_stack _t2_info_stack { };
 		Type_1_node_block _t1_blks[TREE_MAX_NR_OF_LEVELS] { };
 		Type_2_node_block _t2_blk { };
 		Tree_degree_log_2 _vbd_degree_log_2 { 0 };
@@ -181,13 +127,13 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		void _traverse_tree(bool &progress);
 
-		void _alloc_t2_info_stack_top();
+		void _alloc_pba_of_curr_t2_node();
 
 		void _mark_req_successful(bool &);
 
-		bool _info_stack_empty(Tree_level_index lvl) const { return lvl ? _t1_info_stacks[lvl].empty() : _t2_info_stack.empty(); }
-
 		void _start_tree_traversal(bool &progress);
+
+		void _advance_to_next_node();
 
 	public:
 

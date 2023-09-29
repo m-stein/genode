@@ -87,14 +87,10 @@ void Free_tree_channel::_init_stack_from_blk(Tree_level_index lvl)
 {
 	if (lvl) {
 		_t1_blks[lvl].decode_from_blk(_blk);
-		_t1_info_stacks[lvl].reset();
-		for (Tree_node_index idx = 0; idx < NR_OF_T1_NODES_PER_BLK; idx++)
-			_t1_info_stacks[lvl].push({ idx });
+		_node_idx[lvl] = NR_OF_T1_NODES_PER_BLK - 1;
 	} else {
 		_t2_blk.decode_from_blk(_blk);
-		_t2_info_stack.reset();
-		for (Tree_node_index idx = 0; idx < NR_OF_T1_NODES_PER_BLK; idx++)
-			_t2_info_stack.push({ idx });
+		_node_idx[lvl] = NR_OF_T2_NODES_PER_BLK - 1;
 	}
 }
 
@@ -136,8 +132,7 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 	Request &req { *_req_ptr };
 	while (1) {
 		if (_lvl) {
-			Type_1_info &t1_info = _t1_info_stacks[_lvl].top();
-			Type_1_node &t1_node = _t1_blks[_lvl].nodes[t1_info.index];
+			Type_1_node &t1_node = _t1_blks[_lvl].nodes[_node_idx[_lvl]];
 			switch (_node_state[_lvl]) {
 			case SUBTREE_NOT_TRAVERSED:
 
@@ -151,12 +146,9 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 			case SUBTREE_ROOT_BLK_READ:
 
 				_init_stack_from_blk(_lvl - 1);
-				if (!_info_stack_empty(_lvl - 1)) {
-					_node_state[_lvl] = _alloc_pbas ? SUBTREE_MODIFIED : SUBTREE_TRAVERSED;
-					_node_state[_lvl - 1] = SUBTREE_NOT_TRAVERSED;
-					_lvl--;
-				} else
-					_node_state[_lvl] = SUBTREE_TRAVERSED;
+				_node_state[_lvl] = _alloc_pbas ? SUBTREE_MODIFIED : SUBTREE_TRAVERSED;
+				_node_state[_lvl - 1] = SUBTREE_NOT_TRAVERSED;
+				_lvl--;
 				break;
 
 			case SUBTREE_MODIFIED:
@@ -197,43 +189,38 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 					}
 					return;
 				}
-				if (_num_pbas < req._num_required_pbas) {
-					_t1_info_stacks[_lvl].pop();
-					_node_state[_lvl] = SUBTREE_NOT_TRAVERSED;
-					if (_info_stack_empty(_lvl))
-						_lvl++;
-				} else {
-					_t1_info_stacks[_lvl].reset();
-					_lvl++;
-				}
+				_advance_to_next_node();
 				break;
 			}
 		} else {
-			if (_num_pbas < req._num_required_pbas) {
-				if (_t2_node_allocable(_t2_blk.nodes[_t2_info_stack.top().index])) {
-					if (_alloc_pbas)
-						_alloc_t2_info_stack_top();
-					_num_pbas++;
-				}
-				_t2_info_stack.pop();
-				_node_state[_lvl] = SUBTREE_NOT_TRAVERSED;
-				if (_info_stack_empty(_lvl))
-					_lvl++;
-			} else {
-				_t2_info_stack.reset();
-				_lvl++;
+			if (_num_pbas < req._num_required_pbas && _t2_node_allocable(_t2_blk.nodes[_node_idx[_lvl]])) {
+				if (_alloc_pbas)
+					_alloc_pba_of_curr_t2_node();
+				_num_pbas++;
 			}
+			_advance_to_next_node();
 		}
 	}
 }
 
-void Free_tree_channel::_alloc_t2_info_stack_top()
+
+void Free_tree_channel::_advance_to_next_node()
+{
+	if (_node_idx[_lvl] && _num_pbas < _req_ptr->_num_required_pbas) {
+		_node_idx[_lvl]--;
+		_node_state[_lvl] = SUBTREE_NOT_TRAVERSED;
+	} else
+		_lvl++;
+}
+
+
+void Free_tree_channel::_alloc_pba_of_curr_t2_node()
 {
 	Request &req { *_req_ptr };
 	Tree_level_index vbd_lvl { 0 };
 	for (; vbd_lvl <= req._max_lvl && req._new_blocks.pbas[vbd_lvl]; vbd_lvl++);
 
-	Type_2_node &t2_node { _t2_blk.nodes[_t2_info_stack.top().index] };
+	Type_2_node &t2_node { _t2_blk.nodes[_node_idx[_lvl]] };
 	Virtual_block_address node_min_vba { vbd_node_min_vba(_vbd_degree_log_2, vbd_lvl, req._vba) };
 	req._new_blocks.pbas[vbd_lvl] = t2_node.pba;
 	t2_node.alloc_gen = req._old_blocks.nodes[vbd_lvl].gen;
@@ -302,13 +289,9 @@ void Free_tree_channel::_start_tree_traversal(bool &progress)
 {
 	Request &req { *_req_ptr };
 	_num_pbas = 0;
-	_t2_info_stack.reset();
-	for (Type_1_info_stack &stack : _t1_info_stacks)
-		stack.reset();
-
 	_lvl = req._ft.max_lvl;
-	_t1_blks[_lvl].nodes[0] = req._ft.t1_node();
-	_t1_info_stacks[_lvl].push({ 0 });
+	_node_idx[_lvl] = 0;
+	_t1_blks[_lvl].nodes[_node_idx[_lvl]] = req._ft.t1_node();
 	_node_state[_lvl] = SUBTREE_NOT_TRAVERSED;
 	_generate_cache_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, req._ft.pba, _blk);
 }
@@ -330,8 +313,7 @@ void Free_tree_channel::execute(bool &progress)
 
 	case READ_BLK_SUCCEEDED:
 	{
-		Type_1_info &t1_info { _t1_info_stacks[_lvl].top() };
-		if (!check_hash(_blk, _t1_blks[_lvl].nodes[t1_info.index].hash)) {
+		if (!check_hash(_blk, _t1_blks[_lvl].nodes[_node_idx[_lvl]].hash)) {
 			_mark_req_failed(progress, "hash mismatch");
 			break;
 		}
