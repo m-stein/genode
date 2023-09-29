@@ -83,13 +83,15 @@ class Tresor::Free_tree_channel : public Module_channel
 			REQ_SUBMITTED, REQ_GENERATED, READ_BLK_SUCCEEDED, ALLOC_PBA_SUCCEEDED, WRITE_BLK_SUCCEEDED, COMPLETE };
 
 		enum Node_info_state {
-			SUBTREE_NOT_TRAVERSED, SUBTREE_ROOT_BLK_READ, SUBTREE_MODIFIED, SUBTREE_ROOT_BLK_READY_FOR_WRITE,
+			SUBTREE_NOT_TRAVERSED,
+			SUBTREE_ROOT_BLK_READ,
+			SUBTREE_MODIFIED,
+			SUBTREE_ROOT_BLK_READY_FOR_WRITE,
 			SUBTREE_TRAVERSED };
 
 		template <typename NODE>
 		struct Node_info
 		{
-			Node_info_state state { SUBTREE_NOT_TRAVERSED };
 			Tree_node_index index { INVALID_NODE_INDEX };
 		};
 
@@ -144,6 +146,7 @@ class Tresor::Free_tree_channel : public Module_channel
 		Request *_req_ptr { nullptr };
 		Number_of_blocks _num_pbas { 0 };
 		Block _blk { };
+		Node_info_state _node_state[TREE_MAX_NR_OF_LEVELS] { };
 		bool _alloc_pbas { false };
 		Type_1_info_stack _t1_info_stacks[TREE_MAX_NR_OF_LEVELS] { };
 		Type_2_info_stack _t2_info_stack { };
@@ -174,7 +177,7 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		bool _t2_node_allocable(Type_2_node &node);
 
-		void _init_next_lower_stack_from_blk();
+		void _init_stack_from_blk(Tree_level_index);
 
 		void _traverse_tree(bool &progress);
 
