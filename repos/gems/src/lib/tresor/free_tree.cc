@@ -94,8 +94,7 @@ void Free_tree_channel::_init_stack_from_blk(Tree_level_index lvl)
 		_t2_blk.decode_from_blk(_blk);
 		_t2_info_stack.reset();
 		for (Tree_node_index idx = 0; idx < NR_OF_T1_NODES_PER_BLK; idx++)
-			if (_t2_node_allocable(_t2_blk.nodes[idx]))
-				_t2_info_stack.push({ idx });
+			_t2_info_stack.push({ idx });
 	}
 }
 
@@ -211,9 +210,11 @@ void Free_tree_channel::_traverse_tree(bool &progress)
 			}
 		} else {
 			if (_num_pbas < req._num_required_pbas) {
-				if (_alloc_pbas)
-					_alloc_t2_info_stack_top();
-				_num_pbas++;
+				if (_t2_node_allocable(_t2_blk.nodes[_t2_info_stack.top().index])) {
+					if (_alloc_pbas)
+						_alloc_t2_info_stack_top();
+					_num_pbas++;
+				}
 				_t2_info_stack.pop();
 				_node_state[_lvl] = SUBTREE_NOT_TRAVERSED;
 				if (_info_stack_empty(_lvl))
