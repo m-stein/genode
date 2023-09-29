@@ -84,7 +84,6 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		enum Tree_node_state {
 			SUBTREE_NOT_TRAVERSED,
-			SUBTREE_ROOT_BLK_READ,
 			SUBTREE_MODIFIED,
 			SUBTREE_ROOT_BLK_READY_FOR_WRITE,
 			SUBTREE_TRAVERSED };
