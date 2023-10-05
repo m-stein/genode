@@ -19,34 +19,6 @@
 
 using namespace Tresor;
 
-void Free_tree_channel::_generate_mt_req(State_uint state, bool &progress, Physical_block_address &pba)
-{
-	_state = REQ_GENERATED;
-	generate_req<Meta_tree_request>(
-		state, progress, Meta_tree_request::ALLOC_PBA, _req_ptr->_mt, _req_ptr->_curr_gen, pba, _generated_req_success);
-}
-
-
-static Virtual_block_address
-vbd_node_min_vba(Tree_degree_log_2 vbd_degr_log_2, Tree_level_index vbd_lvl, Virtual_block_address vbd_leaf_vba)
-{
-	return vbd_leaf_vba & (~(Physical_block_address)0 << ((Physical_block_address)vbd_degr_log_2 * vbd_lvl));
-}
-
-
-static Number_of_blocks vbd_node_num_vbas(Tree_degree_log_2 vbd_degr_log_2, Tree_level_index vbd_lvl)
-{
-	return (Number_of_blocks)1 << ((Number_of_blocks)vbd_degr_log_2 * vbd_lvl);
-}
-
-
-static Virtual_block_address
-vbd_node_max_vba(Tree_degree_log_2 vbd_degr_log_2, Tree_level_index vbd_lvl, Virtual_block_address vbd_leaf_vba)
-{
-	return vbd_node_num_vbas(vbd_degr_log_2, vbd_lvl) - 1 + vbd_node_min_vba(vbd_degr_log_2, vbd_lvl, vbd_leaf_vba);
-}
-
-
 char const *Free_tree_request::type_to_string(Type type)
 {
 	switch (type) {
@@ -112,44 +84,6 @@ void Free_tree_channel::_generated_req_completed(State_uint state_uint)
 		return;
 	}
 	_state = (State)state_uint;
-}
-
-
-void Free_tree_channel::_traverse_t1_lvls(bool &progress)
-{
-	Request &req { *_req_ptr };
-	while (1) {
-		Type_1_node &t1_node = _t1_blks[_lvl].nodes[_node_idx[_lvl]];
-		switch (_node_state[_lvl]) {
-		case SUBTREE_NOT_TRAVERSED:
-
-			if (!t1_node.pba) {
-				_advance_to_next_node();
-				break;
-			}
-			_generate_cache_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, t1_node.pba, _blk);
-			return;
-
-		case SUBTREE_MODIFIED:
-
-			if (!_alloc_pbas || t1_node.is_volatile(req._curr_gen)) {
-				_state = ALLOC_PBA_SUCCEEDED;
-				progress = true;
-			} else
-				_generate_mt_req(ALLOC_PBA_SUCCEEDED, progress, t1_node.pba);
-			return;
-		}
-	}
-}
-
-
-void Free_tree_channel::_advance_to_next_node()
-{
-	if (_node_idx[_lvl] && _num_pbas < _req_ptr->_num_required_pbas) {
-		_node_idx[_lvl]--;
-		_node_state[_lvl] = SUBTREE_NOT_TRAVERSED;
-	} else
-		_lvl++;
 }
 
 
@@ -230,8 +164,30 @@ void Free_tree_channel::_start_tree_traversal(bool &progress)
 	_lvl = req._ft.max_lvl;
 	_node_idx[_lvl] = 0;
 	_t1_blks[_lvl].nodes[_node_idx[_lvl]] = req._ft.t1_node();
-	_node_state[_lvl] = SUBTREE_NOT_TRAVERSED;
-	_generate_cache_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, req._ft.pba, _blk);
+	_generate_req<Block_io::Read>(SEEK_DOWN, progress, req._ft.pba, _blk);
+}
+
+
+void Free_tree_channel::_traverse_curr_node(bool &progress)
+{
+	if (_lvl) {
+		Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
+		if (t1_node.pba)
+			_generate_req<Block_io::Read>(SEEK_DOWN, progress, t1_node.pba, _blk);
+		else {
+			_state = SEEK_LEFT_OR_UP;
+			progress = true;
+		}
+	} else {
+		Type_2_node &t2_node { _t2_blk.nodes[_node_idx[_lvl]] };
+		if (_num_pbas < _req_ptr->_num_required_pbas && _can_alloc_pba_of(t2_node)) {
+			if (_alloc_pbas)
+				_alloc_pba_of(t2_node);
+			_num_pbas++;
+		}
+		_state = SEEK_LEFT_OR_UP;
+		progress = true;
+	}
 }
 
 
@@ -249,69 +205,66 @@ void Free_tree_channel::execute(bool &progress)
 		_start_tree_traversal(progress);
 		break;
 
-	case READ_BLK_SUCCEEDED:
+	case SEEK_DOWN:
 	{
 		if (!check_hash(_blk, _t1_blks[_lvl].nodes[_node_idx[_lvl]].hash)) {
 			_mark_req_failed(progress, "hash mismatch");
 			break;
 		}
-		_node_state[_lvl] = SUBTREE_MODIFIED;
 		_lvl--;
+		_node_idx[_lvl] = req._ft.degree - 1;
 		if (_lvl)
 			_t1_blks[_lvl].decode_from_blk(_blk);
 		else
 			_t2_blk.decode_from_blk(_blk);
-		_node_idx[_lvl] = req._ft.degree - 1;
-		_node_state[_lvl] = SUBTREE_NOT_TRAVERSED;
-		while(!_lvl) {
-			Type_2_node &t2_node { _t2_blk.nodes[_node_idx[_lvl]] };
-			if (_num_pbas < req._num_required_pbas && _can_alloc_pba_of(t2_node)) {
-				if (_alloc_pbas)
-					_alloc_pba_of(t2_node);
-				_num_pbas++;
-			}
-			_advance_to_next_node();
-		}
-		_traverse_t1_lvls(progress);
+		_traverse_curr_node(progress);
 		break;
 	}
-	case WRITE_BLK_SUCCEEDED:
-	{
-		Type_1_node &t1_node = _t1_blks[_lvl].nodes[_node_idx[_lvl]];
-		if (_lvl == req._ft.max_lvl) {
-			if (!_alloc_pbas) {
+	case SEEK_LEFT_OR_UP:
+
+		if (_lvl < req._ft.max_lvl) {
+			if (_node_idx[_lvl] && _num_pbas < _req_ptr->_num_required_pbas) {
+				_node_idx[_lvl]--;
+				_traverse_curr_node(progress);
+			} else {
+				_lvl++;
+				Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
+				if (_alloc_pbas)
+					if (t1_node.is_volatile(req._curr_gen)) {
+						_state = WRITE_BLK;
+						progress = true;
+					} else
+						_generate_req<Meta_tree::Alloc_pba>(WRITE_BLK, progress, req._mt, req._curr_gen, t1_node.pba);
+				else {
+					_state = SEEK_LEFT_OR_UP;
+					progress = true;
+				}
+			}
+		} else {
+			if (_alloc_pbas) {
+				req._ft.t1_node(_t1_blks[_lvl].nodes[_node_idx[_lvl]]);
+				_mark_req_successful(progress);
+			} else {
 				if (_num_pbas < req._num_required_pbas)
 					_mark_req_failed(progress, "not enough free pbas");
 				else {
 					_alloc_pbas = true;
 					_start_tree_traversal(progress);
 				}
-			} else {
-				req._ft.t1_node(t1_node);
-				_mark_req_successful(progress);
 			}
-			return;
 		}
-		_advance_to_next_node();
-		_traverse_t1_lvls(progress);
 		break;
-	}
-	case ALLOC_PBA_SUCCEEDED:
-	{
-		if (_alloc_pbas) {
-			if (_lvl > 1)
-				_t1_blks[_lvl - 1].encode_to_blk(_blk);
-			else
-				_t2_blk.encode_to_blk(_blk);
 
-			Type_1_node &t1_node = _t1_blks[_lvl].nodes[_node_idx[_lvl]];
-			t1_node.gen = req._curr_gen;
-			calc_hash(_blk, t1_node.hash);
-			_generate_cache_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, t1_node.pba, _blk);
-		} else {
-			_state = WRITE_BLK_SUCCEEDED;
-			progress = true;
-		}
+	case WRITE_BLK:
+	{
+		if (_lvl > 1)
+			_t1_blks[_lvl - 1].encode_to_blk(_blk);
+		else
+			_t2_blk.encode_to_blk(_blk);
+		Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
+		t1_node.gen = req._curr_gen;
+		calc_hash(_blk, t1_node.hash);
+		_generate_req<Block_io::Write>(SEEK_LEFT_OR_UP, progress, t1_node.pba, _blk);
 		break;
 	}
 	default: break;

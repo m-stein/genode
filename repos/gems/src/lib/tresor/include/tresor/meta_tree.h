@@ -219,6 +219,12 @@ class Tresor::Meta_tree : public Module
 
 	public:
 
+		struct Alloc_pba : Request
+		{
+			Alloc_pba(Module_id m, Module_channel_id c, Meta_tree_root &t, Generation g, Physical_block_address &a, bool &s)
+			: Request(m, c, Request::ALLOC_PBA, t, g, a, s) { }
+		};
+
 		Meta_tree();
 };
 
