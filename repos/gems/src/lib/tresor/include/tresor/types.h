@@ -157,6 +157,25 @@ namespace Tresor {
 		uint64_t const degr_mask  { ((uint64_t)1 << degr_log_2) - 1 };
 		return (Tree_node_index)((uint64_t)vba & degr_mask);
 	}
+
+	inline Virtual_block_address vbd_node_min_vba(Tree_degree_log_2 vbd_degr_log_2,
+	                                              Tree_level_index vbd_lvl,
+	                                              Virtual_block_address vbd_leaf_vba)
+	{
+		return vbd_leaf_vba & (~(Physical_block_address)0 << ((Physical_block_address)vbd_degr_log_2 * vbd_lvl));
+	}
+
+	inline Number_of_blocks vbd_node_num_vbas(Tree_degree_log_2 vbd_degr_log_2, Tree_level_index vbd_lvl)
+	{
+		return (Number_of_blocks)1 << ((Number_of_blocks)vbd_degr_log_2 * vbd_lvl);
+	}
+
+	inline Virtual_block_address vbd_node_max_vba(Tree_degree_log_2 vbd_degr_log_2,
+	                                              Tree_level_index vbd_lvl,
+	                                              Virtual_block_address vbd_leaf_vba)
+	{
+		return vbd_node_num_vbas(vbd_degr_log_2, vbd_lvl) - 1 + vbd_node_min_vba(vbd_degr_log_2, vbd_lvl, vbd_leaf_vba);
+	}
 }
 
 

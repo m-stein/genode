@@ -79,18 +79,12 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		using Request = Free_tree_request;
 
-		enum State {
-			REQ_SUBMITTED, REQ_GENERATED, READ_BLK_SUCCEEDED, ALLOC_PBA_SUCCEEDED, WRITE_BLK_SUCCEEDED, COMPLETE };
-
-		enum Tree_node_state {
-			SUBTREE_NOT_TRAVERSED,
-			SUBTREE_MODIFIED};
+		enum State { REQ_SUBMITTED, REQ_GENERATED, SEEK_DOWN, SEEK_LEFT_OR_UP, WRITE_BLK, COMPLETE };
 
 		State _state { COMPLETE };
 		Request *_req_ptr { nullptr };
 		Number_of_blocks _num_pbas { 0 };
 		Block _blk { };
-		Tree_node_state _node_state[TREE_MAX_NR_OF_LEVELS] { };
 		Tree_node_index _node_idx[TREE_MAX_NR_OF_LEVELS] { };
 		bool _alloc_pbas { false };
 		Type_1_node_block _t1_blks[TREE_MAX_NR_OF_LEVELS] { };
@@ -104,13 +98,11 @@ class Tresor::Free_tree_channel : public Module_channel
 		void _generated_req_completed(State_uint) override;
 
 		template <typename REQUEST, typename... ARGS>
-		void _generate_cache_req(State_uint state, bool &progress, ARGS &&... args)
+		void _generate_req(State_uint state, bool &progress, ARGS &&... args)
 		{
 			_state = REQ_GENERATED;
 			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 		}
-
-		void _generate_mt_req(State_uint, bool &, Physical_block_address &);
 
 		void _request_submitted(Module_request &) override;
 
@@ -120,9 +112,9 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		bool _can_alloc_pba_of(Type_2_node &);
 
-		void _traverse_t1_lvls(bool &progress);
-
 		void _alloc_pba_of(Type_2_node &);
+
+		void _traverse_curr_node(bool &);
 
 		void _mark_req_successful(bool &);
 
