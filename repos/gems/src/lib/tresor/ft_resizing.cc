@@ -171,10 +171,11 @@ void Ft_resizing::_execute_ft_ext_step_read_inner_node_completed(Channel        
 					.blk_nr = 0,
 					.idx    = job_idx
 				};
-
-				channel._state = Channel::State::ALLOC_PBA_PENDING;
-				progress       = true;
-
+				channel._alloc_pba = channel._old_pbas.pbas[channel._alloc_lvl_idx];
+				channel.generate_req<Meta_tree_request>(
+					Channel::ALLOC_PBA_COMPLETED, progress, Meta_tree_request::ALLOC_PBA, *channel._mt,
+					req._curr_gen, channel._alloc_pba, channel._generated_prim.succ);
+				channel._state = Channel::REQ_GENERATED;
 			}
 		}
 	} else {
@@ -224,9 +225,11 @@ void Ft_resizing::_execute_ft_ext_step_read_inner_node_completed(Channel        
 				.blk_nr = 0,
 				.idx    = job_idx
 			};
-
-			channel._state = Channel::State::ALLOC_PBA_PENDING;
-			progress       = true;
+			channel._alloc_pba = channel._old_pbas.pbas[channel._alloc_lvl_idx];
+			channel.generate_req<Meta_tree_request>(
+				Channel::ALLOC_PBA_COMPLETED, progress, Meta_tree_request::ALLOC_PBA, *channel._mt,
+				req._curr_gen, channel._alloc_pba, channel._generated_prim.succ);
+			channel._state = Channel::REQ_GENERATED;
 		}
 	}
 }
@@ -411,6 +414,14 @@ void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
 		chan._old_pbas.pbas[chan._lvl_idx]         = req._ft_root().pba;
 		chan._old_generations.items[chan._lvl_idx] = req._ft_root().gen;
 
+		chan._mt.construct(
+			*(Physical_block_address *)req._mt_root_pba_ptr,
+			*(Generation *)req._mt_root_gen_ptr,
+			*(Hash *)req._mt_root_hash_ptr,
+			req._mt_max_level,
+			req._mt_degree,
+			req._mt_leaves);
+
 		if (chan._vba <= tree_max_max_vba(req._ft_degree, req._ft_max_lvl())) {
 
 			chan._generated_prim = {
@@ -474,6 +485,8 @@ void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
 		_execute_ft_ext_step_read_inner_node_completed(chan, chan_idx, progress);
 		break;
 	case Channel::State::ALLOC_PBA_COMPLETED:
+
+		chan._new_pbas.pbas[chan._alloc_lvl_idx] = chan._alloc_pba;
 		if (chan._alloc_lvl_idx < req._ft_max_lvl()) {
 
 			chan._alloc_lvl_idx = chan._alloc_lvl_idx + 1;
@@ -494,10 +507,11 @@ void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
 					.blk_nr = 0,
 					.idx    = chan_idx
 				};
-
-				chan._state = Channel::State::ALLOC_PBA_PENDING;
-				progress       = true;
-
+				chan._alloc_pba = chan._old_pbas.pbas[chan._alloc_lvl_idx];
+				chan.generate_req<Meta_tree_request>(
+					Channel::ALLOC_PBA_COMPLETED, progress, Meta_tree_request::ALLOC_PBA, *chan._mt,
+					req._curr_gen, chan._alloc_pba, chan._generated_prim.succ);
+				chan._state = Channel::REQ_GENERATED;
 			}
 
 		} else {
@@ -720,25 +734,6 @@ bool Ft_resizing::_peek_generated_request(uint8_t *buf_ptr,
 
 			return true;
 
-		case Channel::State::ALLOC_PBA_PENDING:
-
-			ASSERT(buf_size >= sizeof(Meta_tree_request));
-			chan._mt.construct(
-				*(Physical_block_address *)req._mt_root_pba_ptr,
-				*(Generation *)req._mt_root_gen_ptr,
-				*(Hash *)req._mt_root_hash_ptr,
-				req._mt_max_level,
-				req._mt_degree,
-				req._mt_leaves);
-			chan._alloc_pba = chan._old_pbas.pbas[chan._alloc_lvl_idx];
-			construct_at<Meta_tree_request>(
-				buf_ptr, FT_RESIZING, id, Meta_tree_request::ALLOC_PBA, *chan._mt,
-				req._curr_gen,
-				chan._alloc_pba,
-				chan._generated_prim.succ);
-
-			return true;
-
 		case Channel::EXTEND_MT_BY_ONE_LEAF_PENDING:
 
 			class Exception_10 { };
@@ -764,7 +759,6 @@ void Ft_resizing::_drop_generated_request(Module_request &mod_req)
 	case Channel::READ_INNER_NODE_PENDING: chan._state = Channel::READ_INNER_NODE_IN_PROGRESS; break;
 	case Channel::WRITE_ROOT_NODE_PENDING: chan._state = Channel::WRITE_ROOT_NODE_IN_PROGRESS; break;
 	case Channel::WRITE_INNER_NODE_PENDING: chan._state = Channel::WRITE_INNER_NODE_IN_PROGRESS; break;
-	case Channel::ALLOC_PBA_PENDING: chan._state = Channel::ALLOC_PBA_IN_PROGRESS; break;
 	default:
 		class Exception_2 { };
 		throw Exception_2 { };
@@ -800,19 +794,6 @@ void Ft_resizing::generated_request_complete(Module_request &mod_req)
 		default:
 			class Exception_4 { };
 			throw Exception_4 { };
-		}
-		break;
-	}
-	case META_TREE:
-	{
-		switch (chan._state) {
-		case Channel::ALLOC_PBA_IN_PROGRESS:
-			chan._state = Channel::ALLOC_PBA_COMPLETED;
-			chan._new_pbas.pbas[chan._alloc_lvl_idx] = chan._alloc_pba;
-			break;
-		default:
-			class Exception_7 { };
-			throw Exception_7 { };
 		}
 		break;
 	}

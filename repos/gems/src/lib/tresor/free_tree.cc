@@ -26,7 +26,7 @@ char const *Free_tree_request::type_to_string(Type type)
 	case ALLOC_FOR_RKG_CURR_GEN_BLKS: return "alloc_for_rkg_curr_gen_blks";
 	case ALLOC_FOR_RKG_OLD_GEN_BLKS: return "alloc_for_rkg_old_gen_blks";
 	}
-	return "?";
+	ASSERT_NEVER_REACHED;
 }
 
 
