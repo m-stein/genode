@@ -1,5 +1,5 @@
 /*
- * \brief  Module for doing free tree COW allocations on the meta tree
+ * \brief  Module for doing VBD COW allocations on the meta tree
  * \author Martin Stein
  * \date   2023-02-13
  */
@@ -30,14 +30,13 @@ namespace Tresor {
 
 class Tresor::Meta_tree_request : public Module_request
 {
+	friend class Meta_tree_channel;
+
 	public:
 
 		enum Type { ALLOC_PBA };
 
 	private:
-
-		friend class Meta_tree;
-		friend class Meta_tree_channel;
 
 		Type const _type;
 		Meta_tree_root &_mt;
@@ -45,10 +44,12 @@ class Tresor::Meta_tree_request : public Module_request
 		Physical_block_address &_pba;
 		bool &_success;
 
+		NONCOPYABLE(Meta_tree_request);
+
 	public:
 
 		Meta_tree_request(Module_id, Module_channel_id, Type, Meta_tree_root &, Generation,
-		                  Physical_block_address &, bool &success);
+		                  Physical_block_address &, bool &);
 
 		static char const *type_to_string(Type type);
 
@@ -56,173 +57,78 @@ class Tresor::Meta_tree_request : public Module_request
 };
 
 
-class Tresor::Meta_tree_channel
+class Tresor::Meta_tree_channel : public Module_channel
 {
 	private:
 
-		friend class Meta_tree;
+		using Request = Meta_tree_request;
 
-		enum State {
-			INVALID,
-			UPDATE,
-			COMPLETE,
-			TREE_HASH_MISMATCH
-		};
+		enum State { REQ_SUBMITTED, REQ_GENERATED, SEEK_DOWN, SEEK_LEFT_OR_UP, WRITE_BLK, COMPLETE };
 
-		struct Type_1_info
-		{
-			enum State {
-				INVALID, READ, READ_COMPLETE, WRITE, WRITE_COMPLETE, COMPLETE };
-
-			State             state   { INVALID };
-			Type_1_node       node    { };
-			Type_1_node_block entries { };
-			uint8_t           index   { INVALID_NODE_INDEX };
-			bool              dirty   { false };
-			bool              volatil { false };
-		};
-
-		struct Type_2_info
-		{
-			enum State {
-				INVALID, READ, READ_COMPLETE, WRITE, WRITE_COMPLETE, COMPLETE };
-
-			State             state   { INVALID };
-			Type_1_node       node    { };
-			Type_2_node_block entries { };
-			uint8_t           index   { INVALID_NODE_INDEX };
-			bool              volatil { false };
-		};
-
-		struct Local_cache_request
-		{
-			enum State { INVALID, PENDING, IN_PROGRESS };
-			enum Op { READ, WRITE, SYNC };
-
-			State    state      { INVALID };
-			Op       op         { READ };
-			bool     success    { false };
-			uint64_t pba        { 0 };
-			uint64_t level      { 0 };
-			Block    block_data { };
-
-			Local_cache_request(State        state,
-			                    Op           op,
-			                    bool         success,
-			                    uint64_t     pba,
-			                    uint64_t     level,
-			                    Block const *blk_ptr)
-			:
-				state   { state },
-				op      { op },
-				success { success },
-				pba     { pba },
-				level   { level }
-			{
-				if (blk_ptr != nullptr) {
-					block_data = *blk_ptr;
-				}
-			}
-
-			Local_cache_request() { }
-		};
-
-		State _state { INVALID };
-		Constructible<Meta_tree_request> _request { };
-		Hash _dummy_hash { };
-		Local_cache_request _cache_request { };
-		Type_2_info _level_1_node { };
-		Type_1_info _level_n_nodes[TREE_MAX_NR_OF_LEVELS] { }; /* index starts at 2 */
-		bool _finished { false };
-		bool _root_dirty { false };
+		State _state { COMPLETE };
+		Request *_req_ptr { nullptr };
+		bool _pba_allocated { false };
+		Block _blk { };
+		Tree_node_index _node_idx[TREE_MAX_NR_OF_LEVELS] { };
+		Type_1_node_block _t1_blks[TREE_MAX_NR_OF_LEVELS] { };
+		Type_2_node_block _t2_blk { };
+		Tree_level_index _lvl { 0 };
 		bool _generated_req_success { false };
+
+		NONCOPYABLE(Meta_tree_channel);
+
+		void _generated_req_completed(State_uint) override;
+
+		template <typename REQUEST, typename... ARGS>
+		void _generate_req(State_uint state, bool &progress, ARGS &&... args)
+		{
+			_state = REQ_GENERATED;
+			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
+		}
+
+		void _request_submitted(Module_request &) override;
+
+		bool _request_complete() override { return _state == COMPLETE; }
+
+		void _mark_req_failed(bool &, char const *);
+
+		bool _can_alloc_pba_of(Type_2_node &);
+
+		void _alloc_pba_of(Type_2_node &, Physical_block_address &);
+
+		void _traverse_curr_node(bool &);
+
+		void _mark_req_successful(bool &);
+
+		void _start_tree_traversal(bool &);
+
+		void _advance_to_next_node();
+
+	public:
+
+		Meta_tree_channel(Module_channel_id id) : Module_channel { META_TREE, id } { }
+
+		void execute(bool &);
 };
 
 class Tresor::Meta_tree : public Module
 {
 	private:
 
-		using Request = Meta_tree_request;
 		using Channel = Meta_tree_channel;
-		using Local_cache_request = Channel::Local_cache_request;
-		using Type_1_info = Channel::Type_1_info;
-		using Type_2_info = Channel::Type_2_info;
 
-		enum { NR_OF_CHANNELS = 1 };
+		Constructible<Channel> _channels[1] { };
 
-		Channel _channels[NR_OF_CHANNELS] { };
-
-		void _handle_level_n_nodes(Channel &channel,
-		                           bool    &handled);
-
-		void _handle_level_1_node(Channel &channel,
-		                          bool    &handled);
-
-		void _exchange_request_pba(Channel     &channel,
-		                           Type_2_node &t2_entry);
-
-		void _exchange_nv_inner_nodes(Channel     &channel,
-		                              Type_2_node &t2_entry,
-		                              bool        &exchanged);
-
-		void _exchange_nv_level_1_node(Channel     &channel,
-		                               Type_2_node &t2_entry,
-		                               bool        &exchanged);
-
-		bool _node_volatile(Type_1_node const &node,
-		                    uint64_t           gen);
-
-		void _handle_level_0_nodes(Channel &channel,
-		                           bool    &handled);
-
-		void _update_parent(Type_1_node   &node,
-		                    Block   const &blk,
-		                    uint64_t       gen,
-		                    uint64_t       pba);
-
-		void _handle_level_0_nodes(bool &handled);
-
-		void _execute_update(Channel &channel,
-		                     bool    &progress);
-
-		void _mark_req_failed(Channel    &channel,
-		                      bool       &progress,
-		                      char const *str);
-
-		void _mark_req_successful(Channel &channel,
-		                          bool    &progress);
-
-
-		/************
-		 ** Module **
-		 ************/
-
-		bool ready_to_submit_request() override;
-
-		void submit_request(Module_request &req) override;
-
-		bool _peek_completed_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_completed_request(Module_request &req) override;
+		NONCOPYABLE(Meta_tree);
 
 		void execute(bool &) override;
 
-		bool _peek_generated_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_generated_request(Module_request &mod_req) override;
-
-		void generated_request_complete(Module_request &req) override;
-
-		bool new_submit_request() override { return false; }
-
 	public:
 
-		struct Alloc_pba : Request
+		struct Alloc_pba : Meta_tree_request
 		{
 			Alloc_pba(Module_id m, Module_channel_id c, Meta_tree_root &t, Generation g, Physical_block_address &a, bool &s)
-			: Request(m, c, Request::ALLOC_PBA, t, g, a, s) { }
+			: Meta_tree_request(m, c, Meta_tree_request::ALLOC_PBA, t, g, a, s) { }
 		};
 
 		Meta_tree();

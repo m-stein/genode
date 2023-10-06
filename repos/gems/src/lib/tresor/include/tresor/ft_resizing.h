@@ -105,7 +105,7 @@ class Tresor::Ft_resizing_request : public Module_request
 		}
 };
 
-class Tresor::Ft_resizing_channel
+class Tresor::Ft_resizing_channel : public Module_channel
 {
 	private:
 
@@ -122,8 +122,6 @@ class Tresor::Ft_resizing_channel
 			READ_INNER_NODE_IN_PROGRESS,
 			READ_INNER_NODE_COMPLETED,
 
-			ALLOC_PBA_PENDING,
-			ALLOC_PBA_IN_PROGRESS,
 			ALLOC_PBA_COMPLETED,
 
 			EXTEND_MT_BY_ONE_LEAF_PENDING,
@@ -138,7 +136,7 @@ class Tresor::Ft_resizing_channel
 			WRITE_ROOT_NODE_IN_PROGRESS,
 			WRITE_ROOT_NODE_COMPLETED,
 
-			COMPLETED
+			REQ_GENERATED, COMPLETED
 		};
 
 		enum Tag_type
@@ -185,6 +183,12 @@ class Tresor::Ft_resizing_channel
 		Number_of_leaves _nr_of_leaves { 0 };
 		Hash _dummy_hash { };
 		Constructible<Meta_tree_root> _mt { };
+
+		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
+
+		void _generated_req_completed(State_uint state_uint) override { ASSERT(_generated_prim.succ); _state = (State)state_uint; }
+
+		bool _request_complete() override { ASSERT_NEVER_REACHED; }
 };
 
 class Tresor::Ft_resizing : public Module
@@ -263,6 +267,8 @@ class Tresor::Ft_resizing : public Module
 		void submit_request(Module_request &req) override;
 
 		void execute(bool &) override;
+
+		Ft_resizing() { register_channels<Channel>(_channels, NR_OF_CHANNELS, FT_RESIZING); }
 };
 
 #endif /* _TRESOR__FT_RESIZING_H_ */
