@@ -165,7 +165,7 @@ class Tresor::Meta_tree : public Module
 
 		void _exchange_nv_inner_nodes(Channel     &channel,
 		                              Type_2_node &t2_entry,
-		                              bool        &exchanged);
+		                              bool        &exchanged, uint64_t lvl);
 
 		void _exchange_nv_level_1_node(Channel     &channel,
 		                               Type_2_node &t2_entry,

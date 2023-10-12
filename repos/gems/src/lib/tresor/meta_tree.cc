@@ -17,7 +17,7 @@
 #include <tresor/hash.h>
 
 using namespace Tresor;
-
+enum{VERBOSE=0};
 
 /***************
  ** Utilities **
@@ -63,8 +63,10 @@ bool Meta_tree::_peek_generated_request(uint8_t *buf_ptr,
 
 			Block_io_request::Type blk_io_req_type;
 			switch(local_req.op) {
-			case Local_cache_request::READ: blk_io_req_type = Block_io_request::READ; break;
-			case Local_cache_request::WRITE: blk_io_req_type = Block_io_request::WRITE; break;
+			case Local_cache_request::READ: blk_io_req_type = Block_io_request::READ;
+break;
+			case Local_cache_request::WRITE: blk_io_req_type = Block_io_request::WRITE;
+break;
 			default: ASSERT_NEVER_REACHED;
 			}
 			ASSERT(sizeof(Block_io_request) <= buf_size);
@@ -217,7 +219,7 @@ void Meta_tree::_update_parent(Type_1_node &node,
 
 void Meta_tree::_exchange_nv_inner_nodes(Channel     &channel,
                                          Type_2_node &t2_entry,
-                                         bool        &exchanged)
+                                         bool        &exchanged, uint64_t idx)
 {
 	Request &req { *channel._request };
 	uint64_t pba;
@@ -239,6 +241,8 @@ void Meta_tree::_exchange_nv_inner_nodes(Channel     &channel,
 			t2_entry.reserved  = false;
 
 			exchanged = true;
+
+if (VERBOSE) log("    ", idx, ": lvl ", lvl);
 			break;
 		}
 	}
@@ -296,6 +300,7 @@ void Meta_tree::_handle_level_0_nodes(Channel &channel,
 
 	for(unsigned i = 0; i <= req._mt.degree - 1; i++) {
 
+
 		tmp_t2_entry = channel._level_1_node.entries.nodes[i];
 
 		if (tmp_t2_entry.valid() &&
@@ -306,13 +311,18 @@ void Meta_tree::_handle_level_0_nodes(Channel &channel,
 			bool exchanged_request_pba { false };
 
 			if (!channel._started_exchange_request_pba) {
+Type_2_node ot2 = tmp_t2_entry;
 				channel._started_exchange_request_pba = true;
 				_exchange_request_pba(channel, tmp_t2_entry);
 				exchanged_request_pba = true;
+if (VERBOSE) log("  1.", i, " a ", ot2, " -> ", tmp_t2_entry);
 			}
 			if (!exchanged_request_pba)
 				_exchange_nv_level_1_node(
 					channel, tmp_t2_entry, exchanged_level_1);
+
+if (exchanged_level_1)
+if (VERBOSE) log("    ", i, ": lvl ", 1);
 
 			if (!exchanged_request_pba && !exchanged_level_1) {
 				channel._started_exchange_level_n = true;
@@ -325,6 +335,9 @@ void Meta_tree::_handle_level_0_nodes(Channel &channel,
 
 			if (channel._started_exchange_level_n && !exchanged_level_n)
 				return;
+		} else {
+
+if (VERBOSE) log("    ", i, ": ", tmp_t2_entry.valid(), " ", tmp_t2_entry.alloc_gen, " ", req._curr_gen);
 		}
 	}
 }
@@ -345,6 +358,7 @@ void Meta_tree::_handle_level_1_node(Channel &channel,
 
 	case Type_2_info::READ:
 
+if (VERBOSE) log("  1.", t1_info.index, " r ", t1_info.entries.nodes[t1_info.index].pba, " ", t1_info.entries.nodes[t1_info.index].gen);
 		channel._cache_request = Local_cache_request {
 			Local_cache_request::PENDING, Local_cache_request::READ, false,
 			t2_info.node.pba, 1, nullptr };
@@ -372,6 +386,7 @@ void Meta_tree::_handle_level_1_node(Channel &channel,
 			t1_info.entries.nodes[t1_info.index], block_data,
 			req._curr_gen, t2_info.node.pba);
 
+if (VERBOSE) log("  1.", t1_info.index, " w ", t1_info.entries.nodes[t1_info.index].pba, " ", t1_info.entries.nodes[t1_info.index].gen);
 		channel._cache_request = Local_cache_request {
 			Local_cache_request::PENDING, Local_cache_request::WRITE, false,
 			t2_info.node.pba, 1, &block_data };
@@ -489,7 +504,7 @@ bool Meta_tree::ready_to_submit_request()
 bool Meta_tree::_node_volatile(Type_1_node const &node,
                                uint64_t           gen)
 {
-   return node.gen == INITIAL_GENERATION || node.gen == gen;
+   return node.gen == 0 || node.gen == gen;
 }
 
 
@@ -527,6 +542,7 @@ void Meta_tree::submit_request(Module_request &mod_req)
 
 			chan._started_exchange_request_pba = false;
 			chan._started_exchange_level_n = false;
+if (VERBOSE) log("submit mt ", req._mt.pba, " ", req._mt.gen, " pba ", r._pba, " gen ", req._curr_gen);
 
 			return;
 		}
@@ -553,6 +569,7 @@ void Meta_tree::_handle_level_n_nodes(Channel &channel,
 
 		case Type_1_info::READ:
 
+if (VERBOSE) log("  ", lvl, ".", t1_info.index, " r ", t1_info.node.pba, " ", t1_info.node.gen);
 			channel._cache_request = Local_cache_request {
 				Local_cache_request::PENDING, Local_cache_request::READ, false,
 				t1_info.node.pba, lvl, nullptr };
@@ -610,6 +627,7 @@ void Meta_tree::_handle_level_n_nodes(Channel &channel,
 				req._mt.hash = root_node.hash;
 
 				channel._root_dirty = true;
+if (VERBOSE) log("  ", lvl, ".", 0 , " w ", req._mt.pba, " ", req._mt.gen);
 
 			} else {
 
@@ -619,6 +637,7 @@ void Meta_tree::_handle_level_n_nodes(Channel &channel,
 					req._curr_gen, t1_info.node.pba);
 
 				parent.dirty = true;
+if (VERBOSE) log("  ", lvl, ".", parent.index, " w ", parent.entries.nodes[parent.index].pba, " ", parent.entries.nodes[parent.index].gen);
 			}
 			channel._cache_request = Local_cache_request {
 				Local_cache_request::PENDING, Local_cache_request::WRITE,
