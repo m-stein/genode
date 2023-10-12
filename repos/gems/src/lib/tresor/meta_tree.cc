@@ -161,7 +161,7 @@ void Meta_tree_channel::execute(bool &progress)
 				_lvl++;
 				Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
 				if (_pba_allocated)
-					if (t1_node.is_volatile(req._curr_gen)) {
+					if (t1_node.gen == INITIAL_GENERATION || t1_node.gen != req._curr_gen) {
 						_state = WRITE_BLK;
 						progress = true;
 					} else {
@@ -169,6 +169,7 @@ void Meta_tree_channel::execute(bool &progress)
 						for (Type_2_node &t2_node : _t2_blk.nodes)
 							if (_can_alloc_pba_of(t2_node)) {
 								_alloc_pba_of(t2_node, t1_node.pba);
+								t1_node.gen = req._curr_gen;
 								pba_allocated = true;
 								break;
 							}
@@ -197,7 +198,6 @@ void Meta_tree_channel::execute(bool &progress)
 		else
 			_t2_blk.encode_to_blk(_blk);
 		Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
-		t1_node.gen = req._curr_gen;
 		calc_hash(_blk, t1_node.hash);
 		_generate_req<Block_io::Write>(SEEK_LEFT_OR_UP, progress, t1_node.pba, _blk);
 		break;
