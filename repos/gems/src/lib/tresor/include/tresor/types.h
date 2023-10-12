@@ -583,9 +583,7 @@ struct Tresor::Type_2_node
 
 	void print(Output &out) const
 	{
-		Genode::print(
-			out, "pba ", pba, " last_vba ", last_vba, " alloc_gen ",
-			alloc_gen, " free_gen ", free_gen, " last_key ", last_key_id);
+		Genode::print(out, pba, " ", alloc_gen);
 	}
 };
 
