@@ -485,7 +485,7 @@ bool Meta_tree::ready_to_submit_request()
 bool Meta_tree::_node_volatile(Type_1_node const &node,
                                uint64_t           gen)
 {
-   return node.gen == 0 || node.gen != gen;
+   return node.gen == INITIAL_GENERATION || node.gen == gen;
 }
 
 
@@ -515,6 +515,7 @@ void Meta_tree::submit_request(Module_request &mod_req)
 			root_node.gen = req._mt.gen;
 			root_node.hash = req._mt.hash;
 
+			chan._level_n_nodes[req._mt.max_lvl].index = 0;
 			chan._level_n_nodes[req._mt.max_lvl].node = root_node;
 			chan._level_n_nodes[req._mt.max_lvl].state = Type_1_info::READ;
 			chan._level_n_nodes[req._mt.max_lvl].volatil =
