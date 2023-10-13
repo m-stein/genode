@@ -17,7 +17,8 @@
 #include <tresor/hash.h>
 
 using namespace Tresor;
-enum{VERBOSE=0};
+enum{VERBOSE=1};
+enum{VERBOSE_X=0};
 
 /***************
  ** Utilities **
@@ -242,7 +243,7 @@ void Meta_tree::_exchange_nv_inner_nodes(Channel     &channel,
 
 			exchanged = true;
 
-if (VERBOSE) log("    ", idx, ": lvl ", lvl);
+if (VERBOSE_X) log("    ", idx, ": lvl ", lvl);
 			break;
 		}
 	}
@@ -315,14 +316,14 @@ Type_2_node ot2 = tmp_t2_entry;
 				channel._started_exchange_request_pba = true;
 				_exchange_request_pba(channel, tmp_t2_entry);
 				exchanged_request_pba = true;
-if (VERBOSE) log("  1.", i, " a ", ot2, " -> ", tmp_t2_entry);
+if (VERBOSE) log("  0.", i, " a ", ot2, " -> ", tmp_t2_entry);
 			}
 			if (!exchanged_request_pba)
 				_exchange_nv_level_1_node(
 					channel, tmp_t2_entry, exchanged_level_1);
 
 if (exchanged_level_1)
-if (VERBOSE) log("    ", i, ": lvl ", 1);
+if (VERBOSE_X) log("    ", i, ": lvl ", 1);
 
 			if (!exchanged_request_pba && !exchanged_level_1) {
 				channel._started_exchange_level_n = true;
@@ -337,7 +338,7 @@ if (VERBOSE) log("    ", i, ": lvl ", 1);
 				return;
 		} else {
 
-if (VERBOSE) log("    ", i, ": ", tmp_t2_entry.valid(), " ", tmp_t2_entry.alloc_gen, " ", req._curr_gen);
+if (VERBOSE_X) log("    ", i, ": ", tmp_t2_entry.valid(), " ", tmp_t2_entry.alloc_gen, " ", req._curr_gen);
 		}
 	}
 }
