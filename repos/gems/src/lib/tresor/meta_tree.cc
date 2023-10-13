@@ -328,7 +328,7 @@ if (VERBOSE_X) log("    ", i, ": lvl ", 1);
 			if (!exchanged_request_pba && !exchanged_level_1) {
 				channel._started_exchange_level_n = true;
 				_exchange_nv_inner_nodes(
-					channel, tmp_t2_entry, exchanged_level_n);
+					channel, tmp_t2_entry, exchanged_level_n, i);
 			}
 
 			channel._level_1_node.entries.nodes[i] = tmp_t2_entry;
