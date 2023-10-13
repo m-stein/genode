@@ -136,6 +136,8 @@ class Tresor::Meta_tree_channel
 		bool _finished { false };
 		bool _root_dirty { false };
 		bool _generated_req_success { false };
+		bool _started_exchange_request_pba { false };
+		bool _started_exchange_level_n { false };
 };
 
 class Tresor::Meta_tree : public Module

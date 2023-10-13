@@ -287,6 +287,9 @@ void Meta_tree::_exchange_request_pba(Channel     &channel,
 void Meta_tree::_handle_level_0_nodes(Channel &channel,
                                       bool    &handled)
 {
+	ASSERT(!channel._started_exchange_request_pba);
+	ASSERT(!channel._started_exchange_level_n);
+
 	Request &req { *channel._request };
 	Type_2_node tmp_t2_entry;
 	handled = false;
@@ -298,28 +301,29 @@ void Meta_tree::_handle_level_0_nodes(Channel &channel,
 		if (tmp_t2_entry.valid() &&
 			check_level_0_usable(req._curr_gen, tmp_t2_entry))
 		{
-			bool exchanged_level_1;
+			bool exchanged_level_1 { false };
 			bool exchanged_level_n { false };
 			bool exchanged_request_pba { false };
 
-			// first try to exchange the level 1 node ...
-			_exchange_nv_level_1_node(
-				channel, tmp_t2_entry, exchanged_level_1);
-
-			// ... next the inner level n nodes ...
-			if (!exchanged_level_1)
-				_exchange_nv_inner_nodes(
-					channel, tmp_t2_entry, exchanged_level_n);
-
-			// ... and than satisfy the original mt request
-			if (!exchanged_level_1 && !exchanged_level_n) {
+			if (!channel._started_exchange_request_pba) {
+				channel._started_exchange_request_pba = true;
 				_exchange_request_pba(channel, tmp_t2_entry);
 				exchanged_request_pba = true;
 			}
+			if (!exchanged_request_pba)
+				_exchange_nv_level_1_node(
+					channel, tmp_t2_entry, exchanged_level_1);
+
+			if (!exchanged_request_pba && !exchanged_level_1) {
+				channel._started_exchange_level_n = true;
+				_exchange_nv_inner_nodes(
+					channel, tmp_t2_entry, exchanged_level_n);
+			}
+
 			channel._level_1_node.entries.nodes[i] = tmp_t2_entry;
 			handled = true;
 
-			if (exchanged_request_pba)
+			if (channel._started_exchange_level_n && !exchanged_level_n)
 				return;
 		}
 	}
@@ -520,6 +524,9 @@ void Meta_tree::submit_request(Module_request &mod_req)
 			chan._level_n_nodes[req._mt.max_lvl].state = Type_1_info::READ;
 			chan._level_n_nodes[req._mt.max_lvl].volatil =
 				_node_volatile(root_node, req._curr_gen);
+
+			chan._started_exchange_request_pba = false;
+			chan._started_exchange_level_n = false;
 
 			return;
 		}
