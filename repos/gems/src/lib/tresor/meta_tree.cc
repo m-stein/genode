@@ -556,7 +556,7 @@ void Meta_tree::submit_request(Module_request &mod_req)
 
 			chan._started_exchange_request_pba = false;
 			chan._started_exchange_level_n = false;
-if (VERBOSE) log("submit mt ", req._mt.pba, " ", req._mt, " pba ", r._pba, " gen ", req._curr_gen);
+if (VERBOSE) log("submit mt ", req._mt, " pba ", r._pba, " gen ", req._curr_gen);
 
 			return;
 		}
