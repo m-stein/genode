@@ -103,6 +103,7 @@ void Meta_tree_channel::_start_tree_traversal(bool &progress)
 
 void Meta_tree_channel::_traverse_curr_node(bool &progress)
 {
+	Request &req { *_req_ptr };
 	if (_lvl) {
 		Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
 		if (t1_node.pba)
@@ -117,6 +118,20 @@ void Meta_tree_channel::_traverse_curr_node(bool &progress)
 		if (_can_alloc_pba_of(t2_node)) {
 			_alloc_pba_of(t2_node, _req_ptr->_pba);
 			_pba_allocated = true;
+		}
+		for (Tree_level_index lvl { 1 }; lvl <= req._mt.max_lvl; lvl++) {
+			Type_1_node &t1_node { _t1_blks[lvl].nodes[_node_idx[lvl]] };
+			if (!t1_node.is_volatile(req._curr_gen)) {
+				bool pba_allocated { false };
+				for (Type_2_node &t2_node : _t2_blk.nodes) {
+					if (_can_alloc_pba_of(t2_node)) {
+						_alloc_pba_of(t2_node, t1_node.pba);
+						pba_allocated = true;
+						break;
+					}
+				}
+				ASSERT(pba_allocated);
+			}
 		}
 		_state = SEEK_LEFT_OR_UP;
 		progress = true;
@@ -159,27 +174,8 @@ void Meta_tree_channel::execute(bool &progress)
 				_traverse_curr_node(progress);
 			} else {
 				_lvl++;
-				Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
-				if (_pba_allocated)
-					if (t1_node.is_volatile(req._curr_gen)) {
-						_state = WRITE_BLK;
-						progress = true;
-					} else {
-						bool pba_allocated { false };
-						for (Type_2_node &t2_node : _t2_blk.nodes)
-							if (_can_alloc_pba_of(t2_node)) {
-								_alloc_pba_of(t2_node, t1_node.pba);
-								pba_allocated = true;
-								break;
-							}
-						ASSERT(pba_allocated);
-						_state = WRITE_BLK;
-						progress = true;
-					}
-				else {
-					_state = SEEK_LEFT_OR_UP;
-					progress = true;
-				}
+				_state = _pba_allocated ? WRITE_BLK : SEEK_LEFT_OR_UP;
+				progress = true;
 			}
 		} else {
 			if (_pba_allocated) {
