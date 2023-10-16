@@ -88,6 +88,7 @@ void Meta_tree_channel::_mark_req_successful(bool &progress)
 	_req_ptr->_success = true;
 	_state = COMPLETE;
 	progress = true;
+log("  complete mt ", _req_ptr->_mt);
 }
 
 
@@ -201,7 +202,10 @@ if (VERBOSE) log(_t2_blk);
 		if (_lvl > 1)
 			_t1_blks[_lvl - 1].encode_to_blk(_blk);
 		else
+{
 			_t2_blk.encode_to_blk(_blk);
+if (VERBOSE) log(_t2_blk);
+}
 		Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
 		t1_node.gen = req._curr_gen;
 		calc_hash(_blk, t1_node.hash);
