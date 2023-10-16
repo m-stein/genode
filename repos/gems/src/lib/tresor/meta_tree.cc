@@ -641,7 +641,7 @@ if (VERBOSE) log("  ", lvl, ".", t1_info.index, " r ", t1_info.node);
 				req._mt.hash = root_node.hash;
 
 				channel._root_dirty = true;
-if (VERBOSE) log("  ", lvl, ".", 0 , " w ", req._mt);
+if (VERBOSE) log("  ", lvl, ".", 0 , " w ", root_node);
 
 			} else {
 
