@@ -187,6 +187,11 @@ struct Tresor::Meta_tree_root
 	Tree_level_index max_lvl;
 	Tree_degree degree;
 	Number_of_leaves num_leaves;
+
+	void print(Output &out) const
+	{
+		Genode::print(out, pba, " ", gen, " ", max_lvl, " ", degree, " ", num_leaves);
+	}
 };
 
 
