@@ -113,24 +113,24 @@ void Meta_tree_channel::_traverse_curr_node(bool &progress)
 			progress = true;
 		}
 	} else {
-		Type_2_node &t2_node { _t2_blk.nodes[_node_idx[_lvl]] };
+		Type_2_node &t2_node_1 { _t2_blk.nodes[_node_idx[_lvl]] };
 		ASSERT(!_pba_allocated);
-		if (_can_alloc_pba_of(t2_node)) {
-			_alloc_pba_of(t2_node, _req_ptr->_pba);
+		if (_can_alloc_pba_of(t2_node_1)) {
+			_alloc_pba_of(t2_node_1, _req_ptr->_pba);
 			_pba_allocated = true;
-		}
-		for (Tree_level_index lvl { 1 }; lvl <= req._mt.max_lvl; lvl++) {
-			Type_1_node &t1_node { _t1_blks[lvl].nodes[_node_idx[lvl]] };
-			if (!t1_node.is_volatile(req._curr_gen)) {
-				bool pba_allocated { false };
-				for (Type_2_node &t2_node : _t2_blk.nodes) {
-					if (_can_alloc_pba_of(t2_node)) {
-						_alloc_pba_of(t2_node, t1_node.pba);
-						pba_allocated = true;
-						break;
+			for (Tree_level_index lvl { 1 }; lvl <= req._mt.max_lvl; lvl++) {
+				Type_1_node &t1_node { _t1_blks[lvl].nodes[_node_idx[lvl]] };
+				if (!t1_node.is_volatile(req._curr_gen)) {
+					bool pba_allocated { false };
+					for (Type_2_node &t2_node_2 : _t2_blk.nodes) {
+						if (_can_alloc_pba_of(t2_node_2)) {
+							_alloc_pba_of(t2_node_2, t1_node.pba);
+							pba_allocated = true;
+							break;
+						}
 					}
+					ASSERT(pba_allocated);
 				}
-				ASSERT(pba_allocated);
 			}
 		}
 		_state = SEEK_LEFT_OR_UP;
