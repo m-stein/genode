@@ -390,6 +390,9 @@ if (VERBOSE) log(channel._level_1_node.entries);
 	case Type_2_info::WRITE:
 	{
 		Block block_data { };
+
+if (VERBOSE) log(channel._level_1_node.entries);
+
 		t2_info.entries.encode_to_blk(block_data);
 
 		_update_parent(
@@ -477,6 +480,7 @@ bool Meta_tree::_peek_completed_request(uint8_t *buf_ptr,
 			Request &r { *channel._request };
 			construct_at<Request>(buf_ptr, r.src_module_id(), r.src_chan_id(), r._type,
 				r._mt, r._curr_gen, r._pba, r._success);
+log("  complete mt ", r._mt);
 			(*(Request*)buf_ptr).dst_request_id(r.dst_chan_id());
 			return true;
 		}
