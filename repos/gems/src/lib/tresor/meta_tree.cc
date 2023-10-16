@@ -153,7 +153,10 @@ void Meta_tree_channel::execute(bool &progress)
 		if (_lvl)
 			_t1_blks[_lvl].decode_from_blk(_blk);
 		else
+{
 			_t2_blk.decode_from_blk(_blk);
+log(_t2_blk);
+}
 		_traverse_curr_node(progress);
 		break;
 	}
