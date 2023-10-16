@@ -366,7 +366,7 @@ void Meta_tree::_handle_level_1_node(Channel &channel,
 
 	case Type_2_info::READ:
 
-if (VERBOSE) log("  1.", t1_info.index, " r ", t1_info.entries.nodes[t1_info.index].pba, " ", t1_info.entries.nodes[t1_info.index].gen);
+if (VERBOSE) log("  1.", t1_info.index, " r ", t1_info.entries.nodes[t1_info.index]);
 		channel._cache_request = Local_cache_request {
 			Local_cache_request::PENDING, Local_cache_request::READ, false,
 			t2_info.node.pba, 1, nullptr };
@@ -399,7 +399,7 @@ if (VERBOSE) log(channel._level_1_node.entries);
 			t1_info.entries.nodes[t1_info.index], block_data,
 			req._curr_gen, t2_info.node.pba);
 
-if (VERBOSE) log("  1.", t1_info.index, " w ", t1_info.entries.nodes[t1_info.index].pba, " ", t1_info.entries.nodes[t1_info.index].gen);
+if (VERBOSE) log("  1.", t1_info.index, " w ", t1_info.entries.nodes[t1_info.index]);
 		channel._cache_request = Local_cache_request {
 			Local_cache_request::PENDING, Local_cache_request::WRITE, false,
 			t2_info.node.pba, 1, &block_data };
@@ -480,7 +480,7 @@ bool Meta_tree::_peek_completed_request(uint8_t *buf_ptr,
 			Request &r { *channel._request };
 			construct_at<Request>(buf_ptr, r.src_module_id(), r.src_chan_id(), r._type,
 				r._mt, r._curr_gen, r._pba, r._success);
-log("  complete mt ", r._mt);
+if (VERBOSE) log("  complete mt ", r._mt);
 			(*(Request*)buf_ptr).dst_request_id(r.dst_chan_id());
 			return true;
 		}
@@ -556,7 +556,7 @@ void Meta_tree::submit_request(Module_request &mod_req)
 
 			chan._started_exchange_request_pba = false;
 			chan._started_exchange_level_n = false;
-if (VERBOSE) log("submit mt ", req._mt.pba, " ", req._mt.gen, " pba ", r._pba, " gen ", req._curr_gen);
+if (VERBOSE) log("submit mt ", req._mt.pba, " ", req._mt, " pba ", r._pba, " gen ", req._curr_gen);
 
 			return;
 		}
@@ -583,7 +583,7 @@ void Meta_tree::_handle_level_n_nodes(Channel &channel,
 
 		case Type_1_info::READ:
 
-if (VERBOSE) log("  ", lvl, ".", t1_info.index, " r ", t1_info.node.pba, " ", t1_info.node.gen);
+if (VERBOSE) log("  ", lvl, ".", t1_info.index, " r ", t1_info.node);
 			channel._cache_request = Local_cache_request {
 				Local_cache_request::PENDING, Local_cache_request::READ, false,
 				t1_info.node.pba, lvl, nullptr };
@@ -641,7 +641,7 @@ if (VERBOSE) log("  ", lvl, ".", t1_info.index, " r ", t1_info.node.pba, " ", t1
 				req._mt.hash = root_node.hash;
 
 				channel._root_dirty = true;
-if (VERBOSE) log("  ", lvl, ".", 0 , " w ", req._mt.pba, " ", req._mt.gen);
+if (VERBOSE) log("  ", lvl, ".", 0 , " w ", req._mt);
 
 			} else {
 
@@ -651,7 +651,7 @@ if (VERBOSE) log("  ", lvl, ".", 0 , " w ", req._mt.pba, " ", req._mt.gen);
 					req._curr_gen, t1_info.node.pba);
 
 				parent.dirty = true;
-if (VERBOSE) log("  ", lvl, ".", parent.index, " w ", parent.entries.nodes[parent.index].pba, " ", parent.entries.nodes[parent.index].gen);
+if (VERBOSE) log("  ", lvl, ".", parent.index, " w ", parent.entries.nodes[parent.index]);
 			}
 			channel._cache_request = Local_cache_request {
 				Local_cache_request::PENDING, Local_cache_request::WRITE,
