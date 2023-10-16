@@ -158,7 +158,7 @@ void Meta_tree_channel::execute(bool &progress)
 			break;
 		}
 		_lvl--;
-		_node_idx[_lvl] = req._mt.degree - 1;
+		_node_idx[_lvl] = 0;
 		if (_lvl)
 			_t1_blks[_lvl].decode_from_blk(_blk);
 		else
@@ -169,8 +169,8 @@ void Meta_tree_channel::execute(bool &progress)
 	case SEEK_LEFT_OR_UP:
 
 		if (_lvl < req._mt.max_lvl) {
-			if (_node_idx[_lvl] && !_pba_allocated) {
-				_node_idx[_lvl]--;
+			if (_node_idx[_lvl] < req._mt.degree - 1 && !_pba_allocated) {
+				_node_idx[_lvl]++;
 				_traverse_curr_node(progress);
 			} else {
 				_lvl++;
