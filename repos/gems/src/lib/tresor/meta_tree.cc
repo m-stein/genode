@@ -233,6 +233,8 @@ void Meta_tree::_exchange_nv_inner_nodes(Channel     &channel,
 		if (t1_info.node.valid() && !t1_info.volatil) {
 
 			pba = t1_info.node.pba;
+
+Type_2_node ot2 = t2_entry;
 			t1_info.node.pba   = t2_entry.pba;
 			t1_info.node.gen   = req._curr_gen;
 			t1_info.volatil    = true;
@@ -243,6 +245,8 @@ void Meta_tree::_exchange_nv_inner_nodes(Channel     &channel,
 
 			exchanged = true;
 
+if (VERBOSE) log("  0.", idx, " a ", ot2, " -> ", t2_entry);
+
 if (VERBOSE_X) log("    ", idx, ": lvl ", lvl);
 			break;
 		}
@@ -252,7 +256,7 @@ if (VERBOSE_X) log("    ", idx, ": lvl ", lvl);
 
 void Meta_tree::_exchange_nv_level_1_node(Channel     &channel,
                                           Type_2_node &t2_entry,
-                                          bool        &exchanged)
+                                          bool        &exchanged, uint64_t idx)
 {
 	Request &req { *channel._request };
 	uint64_t pba { channel._level_1_node.node.pba };
@@ -263,10 +267,13 @@ void Meta_tree::_exchange_nv_level_1_node(Channel     &channel,
 		channel._level_1_node.node.pba = t2_entry.pba;
 		channel._level_1_node.volatil  = true;
 
+Type_2_node ot2 = t2_entry;
 		t2_entry.pba       = pba;
 		t2_entry.alloc_gen = req._curr_gen;
 		t2_entry.free_gen  = req._curr_gen;
 		t2_entry.reserved  = false;
+
+if (VERBOSE) log("  0.", idx, " a ", ot2, " -> ", t2_entry);
 
 		exchanged = true;
 	}
@@ -320,7 +327,7 @@ if (VERBOSE) log("  0.", i, " a ", ot2, " -> ", tmp_t2_entry);
 			}
 			if (!exchanged_request_pba)
 				_exchange_nv_level_1_node(
-					channel, tmp_t2_entry, exchanged_level_1);
+					channel, tmp_t2_entry, exchanged_level_1, i);
 
 if (exchanged_level_1)
 if (VERBOSE_X) log("    ", i, ": lvl ", 1);

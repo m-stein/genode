@@ -169,7 +169,7 @@ class Tresor::Meta_tree : public Module
 
 		void _exchange_nv_level_1_node(Channel     &channel,
 		                               Type_2_node &t2_entry,
-		                               bool        &exchanged);
+		                               bool        &exchanged, uint64_t idx);
 
 		bool _node_volatile(Type_1_node const &node,
 		                    uint64_t           gen);
