@@ -369,6 +369,8 @@ if (VERBOSE) log("  1.", t1_info.index, " r ", t1_info.entries.nodes[t1_info.ind
 
 	case Type_2_info::READ_COMPLETE:
 
+if (VERBOSE) log(channel._level_1_node.entries);
+
 		_handle_level_0_nodes(channel, handled);
 		if (handled) {
 			t2_info.state = Type_2_info::WRITE;
