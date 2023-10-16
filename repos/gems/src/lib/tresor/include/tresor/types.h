@@ -509,6 +509,11 @@ struct Tresor::Meta_tree_root
 	Type_1_node t1_node() const { return { pba, gen, hash }; }
 
 	void t1_node(Type_1_node const &node) { pba = node.pba; gen = node.gen; hash = node.hash; }
+
+	void print(Output &out) const
+	{
+		Genode::print(out, pba, " ", gen, " ", max_lvl, " ", degree, " ", num_leaves);
+	}
 };
 
 
