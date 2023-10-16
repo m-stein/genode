@@ -161,7 +161,7 @@ void Meta_tree_channel::execute(bool &progress)
 				_lvl++;
 				Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
 				if (_pba_allocated)
-					if (t1_node.gen == INITIAL_GENERATION || t1_node.gen != req._curr_gen) {
+					if (t1_node.is_volatile(req._curr_gen)) {
 						_state = WRITE_BLK;
 						progress = true;
 					} else {
