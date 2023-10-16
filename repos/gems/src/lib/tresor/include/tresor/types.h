@@ -512,7 +512,7 @@ struct Tresor::Meta_tree_root
 
 	void print(Output &out) const
 	{
-		Genode::print(out, pba, " ", gen, " ", max_lvl, " ", degree, " ", num_leaves);
+		Genode::print(out, pba, " ", gen, " ", hash, " ", max_lvl, " ", degree, " ", num_leaves);
 	}
 };
 
