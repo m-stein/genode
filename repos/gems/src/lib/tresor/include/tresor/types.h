@@ -601,6 +601,13 @@ struct Tresor::Type_2_node_block
 		for (Type_2_node const &node : nodes)
 			node.encode_to_blk(generator);
 	}
+
+	void print(Output &out) const
+	{
+		Genode::print(out, "   ");
+		for (int i = 0; i < 16; i++)
+			Genode::print(out, " [",i, "] ", nodes[i]);
+	}
 };
 
 
