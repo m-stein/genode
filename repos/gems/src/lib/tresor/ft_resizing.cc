@@ -156,9 +156,7 @@ void Ft_resizing::_execute_ft_ext_step_read_inner_node_completed(Channel        
 
 			if (channel._old_generations.items[channel._alloc_lvl_idx] == req._curr_gen) {
 
-				channel._new_pbas.pbas[channel._alloc_lvl_idx] =
-				   channel._old_pbas.pbas[channel._alloc_lvl_idx];
-
+				channel._alloc_pba = channel._old_pbas.pbas[channel._alloc_lvl_idx];
 				channel._state = Channel::State::ALLOC_PBA_COMPLETED;
 				progress       = true;
 
@@ -493,8 +491,7 @@ void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
 
 			if (chan._old_generations.items[chan._alloc_lvl_idx] == req._curr_gen) {
 
-				chan._new_pbas.pbas[chan._alloc_lvl_idx] = chan._old_pbas.pbas[chan._alloc_lvl_idx];
-
+				chan._alloc_pba = chan._old_pbas.pbas[chan._alloc_lvl_idx];
 				chan._state = Channel::State::ALLOC_PBA_COMPLETED;
 				progress = true;
 
