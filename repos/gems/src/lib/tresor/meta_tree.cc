@@ -93,7 +93,6 @@ void Meta_tree_channel::_mark_req_successful(bool &progress)
 void Meta_tree_channel::_start_tree_traversal(bool &progress)
 {
 	Request &req { *_req_ptr };
-	_pba_allocated = false;
 	_lvl = req._mt.max_lvl;
 	_node_idx[_lvl] = 0;
 	_t1_blks[_lvl].nodes[_node_idx[_lvl]] = req._mt.t1_node();
@@ -113,18 +112,16 @@ void Meta_tree_channel::_traverse_curr_node(bool &progress)
 			progress = true;
 		}
 	} else {
-		Type_2_node &t2_node_1 { _t2_blk.nodes[_node_idx[_lvl]] };
-		ASSERT(!_pba_allocated);
-		if (_can_alloc_pba_of(t2_node_1)) {
-			_alloc_pba_of(t2_node_1, _req_ptr->_pba);
-			_pba_allocated = true;
+		Type_2_node &t2_node { _t2_blk.nodes[_node_idx[_lvl]] };
+		if (_can_alloc_pba_of(t2_node)) {
+			_alloc_pba_of(t2_node, _req_ptr->_pba);
 			for (Tree_level_index lvl { 1 }; lvl <= req._mt.max_lvl; lvl++) {
 				Type_1_node &t1_node { _t1_blks[lvl].nodes[_node_idx[lvl]] };
 				if (!t1_node.is_volatile(req._curr_gen)) {
 					bool pba_allocated { false };
-					for (Type_2_node &t2_node_2 : _t2_blk.nodes) {
-						if (_can_alloc_pba_of(t2_node_2)) {
-							_alloc_pba_of(t2_node_2, t1_node.pba);
+					for (Type_2_node &t2_node : _t2_blk.nodes) {
+						if (_can_alloc_pba_of(t2_node)) {
+							_alloc_pba_of(t2_node, t1_node.pba);
 							pba_allocated = true;
 							break;
 						}
@@ -132,8 +129,9 @@ void Meta_tree_channel::_traverse_curr_node(bool &progress)
 					ASSERT(pba_allocated);
 				}
 			}
-		}
-		_state = SEEK_LEFT_OR_UP;
+			_state = WRITE_BLK;
+		} else
+			_state = SEEK_LEFT_OR_UP;
 		progress = true;
 	}
 }
@@ -152,7 +150,7 @@ void Meta_tree_channel::execute(bool &progress)
 		break;
 
 	case SEEK_DOWN:
-	{
+
 		if (!check_hash(_blk, _t1_blks[_lvl].nodes[_node_idx[_lvl]].hash)) {
 			_mark_req_failed(progress, "hash mismatch");
 			break;
@@ -165,39 +163,40 @@ void Meta_tree_channel::execute(bool &progress)
 			_t2_blk.decode_from_blk(_blk);
 		_traverse_curr_node(progress);
 		break;
-	}
+
 	case SEEK_LEFT_OR_UP:
 
 		if (_lvl < req._mt.max_lvl) {
-			if (_node_idx[_lvl] < req._mt.degree - 1 && !_pba_allocated) {
+			if (_node_idx[_lvl] < req._mt.degree - 1) {
 				_node_idx[_lvl]++;
 				_traverse_curr_node(progress);
 			} else {
 				_lvl++;
-				_state = _pba_allocated ? WRITE_BLK : SEEK_LEFT_OR_UP;
+				_state = SEEK_LEFT_OR_UP;
 				progress = true;
 			}
-		} else {
-			if (_pba_allocated) {
-				req._mt.t1_node(_t1_blks[_lvl].nodes[_node_idx[_lvl]]);
-				_mark_req_successful(progress);
-			} else
-				_mark_req_failed(progress, "not enough free pbas");
-		}
+		} else
+			_mark_req_failed(progress, "not enough free pbas");
 		break;
 
 	case WRITE_BLK:
-	{
-		if (_lvl > 1)
-			_t1_blks[_lvl - 1].encode_to_blk(_blk);
-		else
-			_t2_blk.encode_to_blk(_blk);
-		Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
-		t1_node.gen = req._curr_gen;
-		calc_hash(_blk, t1_node.hash);
-		_generate_req<Block_io::Write>(SEEK_LEFT_OR_UP, progress, t1_node.pba, _blk);
+
+		if (_lvl < req._mt.max_lvl) {
+			if (_lvl)
+				_t1_blks[_lvl].encode_to_blk(_blk);
+			else
+				_t2_blk.encode_to_blk(_blk);
+			_lvl++;
+			Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
+			t1_node.gen = req._curr_gen;
+			calc_hash(_blk, t1_node.hash);
+			_generate_req<Block_io::Write>(WRITE_BLK, progress, t1_node.pba, _blk);
+		} else {
+			req._mt.t1_node(_t1_blks[_lvl].nodes[_node_idx[_lvl]]);
+			_mark_req_successful(progress);
+		}
 		break;
-	}
+
 	default: break;
 	}
 }

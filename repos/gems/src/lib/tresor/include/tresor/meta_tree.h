@@ -48,14 +48,12 @@ class Tresor::Meta_tree_request : public Module_request
 
 	public:
 
-		Meta_tree_request(Module_id, Module_channel_id, Type, Meta_tree_root &, Generation,
-		                  Physical_block_address &, bool &);
+		Meta_tree_request(Module_id, Module_channel_id, Type, Meta_tree_root &, Generation, Physical_block_address &, bool &);
 
 		static char const *type_to_string(Type type);
 
 		void print(Output &out) const override { Genode::print(out, type_to_string(_type)); }
 };
-
 
 class Tresor::Meta_tree_channel : public Module_channel
 {
@@ -67,7 +65,6 @@ class Tresor::Meta_tree_channel : public Module_channel
 
 		State _state { COMPLETE };
 		Request *_req_ptr { nullptr };
-		bool _pba_allocated { false };
 		Block _blk { };
 		Tree_node_index _node_idx[TREE_MAX_NR_OF_LEVELS] { };
 		Type_1_node_block _t1_blks[TREE_MAX_NR_OF_LEVELS] { };
@@ -102,8 +99,6 @@ class Tresor::Meta_tree_channel : public Module_channel
 
 		void _start_tree_traversal(bool &);
 
-		void _advance_to_next_node();
-
 	public:
 
 		Meta_tree_channel(Module_channel_id id) : Module_channel { META_TREE, id } { }
@@ -127,8 +122,8 @@ class Tresor::Meta_tree : public Module
 
 		struct Alloc_pba : Meta_tree_request
 		{
-			Alloc_pba(Module_id m, Module_channel_id c, Meta_tree_root &t, Generation g, Physical_block_address &a, bool &s)
-			: Meta_tree_request(m, c, Meta_tree_request::ALLOC_PBA, t, g, a, s) { }
+			Alloc_pba(Module_id src_mod, Module_channel_id src_chan, Meta_tree_root &mt, Generation gen, Physical_block_address &pba, bool &succ)
+			: Meta_tree_request(src_mod, src_chan, Meta_tree_request::ALLOC_PBA, mt, gen, pba, succ) { }
 		};
 
 		Meta_tree();
