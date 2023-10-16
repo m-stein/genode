@@ -17,7 +17,7 @@
 #include <tresor/hash.h>
 
 using namespace Tresor;
-enum{VERBOSE= 1};
+enum{VERBOSE= 0};
 
 char const *Meta_tree_request::type_to_string(Type type)
 {
