@@ -99,7 +99,7 @@ void Meta_tree_channel::_start_tree_traversal(bool &progress)
 	_lvl = req._mt.max_lvl;
 	_node_idx[_lvl] = 0;
 	_t1_blks[_lvl].nodes[_node_idx[_lvl]] = req._mt.t1_node();
-if (VERBOSE) log("  ", _lvl,".", _node_idx[_lvl],  " r ", req._mt);
+if (VERBOSE) log("  ", _lvl,".", _node_idx[_lvl],  " r ", _t1_blks[_lvl].nodes[_node_idx[_lvl]]);
 	_generate_req<Block_io::Read>(SEEK_DOWN, progress, req._mt.pba, _blk);
 }
 
