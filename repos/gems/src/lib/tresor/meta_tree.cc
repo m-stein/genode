@@ -88,7 +88,7 @@ void Meta_tree_channel::_mark_req_successful(bool &progress)
 	_req_ptr->_success = true;
 	_state = COMPLETE;
 	progress = true;
-log("  complete mt ", _req_ptr->_mt);
+if (VERBOSE) log("  complete mt ", _req_ptr->_mt);
 }
 
 
@@ -99,7 +99,7 @@ void Meta_tree_channel::_start_tree_traversal(bool &progress)
 	_lvl = req._mt.max_lvl;
 	_node_idx[_lvl] = 0;
 	_t1_blks[_lvl].nodes[_node_idx[_lvl]] = req._mt.t1_node();
-if (VERBOSE) log("  ", _lvl,".", _node_idx[_lvl],  " r ", req._mt.pba, " ", req._mt.gen);
+if (VERBOSE) log("  ", _lvl,".", _node_idx[_lvl],  " r ", req._mt);
 	_generate_req<Block_io::Read>(SEEK_DOWN, progress, req._mt.pba, _blk);
 }
 
@@ -111,7 +111,7 @@ void Meta_tree_channel::_traverse_curr_node(bool &progress)
 		Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
 		if (t1_node.pba)
 {
-if (VERBOSE) log("  ", _lvl,".", _node_idx[_lvl],  " r ", t1_node.pba, " ", t1_node.gen);
+if (VERBOSE) log("  ", _lvl,".", _node_idx[_lvl],  " r ", t1_node);
 			_generate_req<Block_io::Read>(SEEK_DOWN, progress, t1_node.pba, _blk);
 }
 		else {
@@ -209,7 +209,7 @@ if (VERBOSE) log(_t2_blk);
 		Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
 		t1_node.gen = req._curr_gen;
 		calc_hash(_blk, t1_node.hash);
-if (VERBOSE) log("  ", _lvl,".", _node_idx[_lvl], " w ", t1_node.pba, " ", t1_node.gen);
+if (VERBOSE) log("  ", _lvl,".", _node_idx[_lvl], " w ", t1_node);
 		_generate_req<Block_io::Write>(SEEK_LEFT_OR_UP, progress, t1_node.pba, _blk);
 		break;
 	}
@@ -222,7 +222,7 @@ void Meta_tree_channel::_request_submitted(Module_request &mod_req)
 {
 	_req_ptr = static_cast<Request *>(&mod_req);
 	_state = REQ_SUBMITTED;
-if (VERBOSE) log("submit mt ", _req_ptr->_mt.pba, " ", _req_ptr->_mt.gen, " pba ", _req_ptr->_pba, " gen ", _req_ptr->_curr_gen);
+if (VERBOSE) log("submit mt ", _req_ptr->_mt, " pba ", _req_ptr->_pba, " gen ", _req_ptr->_curr_gen);
 }
 
 
