@@ -97,7 +97,7 @@ void Meta_tree_channel::_start_tree_traversal(bool &progress)
 	_lvl = req._mt.max_lvl;
 	_node_idx[_lvl] = 0;
 	_t1_blks[_lvl].nodes[_node_idx[_lvl]] = req._mt.t1_node();
-log("  ", _lvl-1, " r ", req._mt.pba, " ", req._mt.gen);
+log("  ", _lvl,".", _node_idx[_lvl],  " r ", req._mt.pba, " ", req._mt.gen);
 	_generate_req<Block_io::Read>(SEEK_DOWN, progress, req._mt.pba, _blk);
 }
 
@@ -108,7 +108,7 @@ void Meta_tree_channel::_traverse_curr_node(bool &progress)
 		Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
 		if (t1_node.pba)
 {
-log("  ", _lvl-1, " r ", t1_node.pba, " ", t1_node.gen);
+log("  ", _lvl,".", _node_idx[_lvl],  " r ", t1_node.pba, " ", t1_node.gen);
 			_generate_req<Block_io::Read>(SEEK_DOWN, progress, t1_node.pba, _blk);
 }
 		else {
@@ -121,7 +121,7 @@ log("  ", _lvl-1, " r ", t1_node.pba, " ", t1_node.gen);
 		if (_can_alloc_pba_of(t2_node)) {
 Type_2_node ot2 = t2_node;
 			_alloc_pba_of(t2_node, _req_ptr->_pba);
-log("  a ", ot2, " -> ", t2_node);
+log("  ",_lvl,".", _node_idx[_lvl], " a ", ot2, " -> ", t2_node);
 			_pba_allocated = true;
 		}
 		_state = SEEK_LEFT_OR_UP;
@@ -205,7 +205,7 @@ void Meta_tree_channel::execute(bool &progress)
 		Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
 		t1_node.gen = req._curr_gen;
 		calc_hash(_blk, t1_node.hash);
-log("  ", _lvl-1," w ", t1_node.pba, " ", t1_node.gen);
+log("  ", _lvl,".", _node_idx[_lvl], " w ", t1_node.pba, " ", t1_node.gen);
 		_generate_req<Block_io::Write>(SEEK_LEFT_OR_UP, progress, t1_node.pba, _blk);
 		break;
 	}
@@ -218,7 +218,7 @@ void Meta_tree_channel::_request_submitted(Module_request &mod_req)
 {
 	_req_ptr = static_cast<Request *>(&mod_req);
 	_state = REQ_SUBMITTED;
-log("submit mt ", _req_ptr->_mt.pba, " ", _req_ptr->_mt.gen, " pba ", _req_ptr->_pba);
+log("submit mt ", _req_ptr->_mt.pba, " ", _req_ptr->_mt.gen, " pba ", _req_ptr->_pba, " gen ", _req_ptr->_curr_gen);
 }
 
 
