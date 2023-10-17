@@ -186,9 +186,16 @@ class Tresor::Ft_resizing_channel : public Module_channel
 
 		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
 
-		void _generated_req_completed(State_uint state_uint) override { ASSERT(_generated_prim.succ); _state = (State)state_uint; }
+		void _generated_req_completed(State_uint) override;
 
 		bool _request_complete() override { ASSERT_NEVER_REACHED; }
+
+		template <typename REQUEST, typename... ARGS>
+		void _generate_req(State_uint state, bool &progress, ARGS &&... args)
+		{
+			_state = REQ_GENERATED;
+			generate_req<REQUEST>(state, progress, args..., _generated_prim.succ);
+		}
 };
 
 class Tresor::Ft_resizing : public Module

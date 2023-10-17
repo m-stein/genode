@@ -393,6 +393,18 @@ void Ft_resizing::_add_new_branch_to_ft_using_pba_contingent(Tree_level_index   
 }
 
 
+void Ft_resizing_channel::_generated_req_completed(State_uint state_uint)
+{
+	if (!_generated_prim.succ) {
+		error("free tree: request (", _request, ") failed because generated request failed)");
+		*(bool *)_request._success_ptr = false;
+		_state = COMPLETED;
+		return;
+	}
+	_state = (State)state_uint;
+}
+
+
 void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
                                              unsigned const  chan_idx,
                                              bool           &progress)
@@ -436,8 +448,7 @@ void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
 				    " max lvl ", req._ft_max_lvl(),
 				    "): load to lvl ", chan._lvl_idx);
 
-			chan._state = Channel::State::READ_ROOT_NODE_PENDING;
-			progress       = true;
+			chan._generate_req<Block_io::Read>(Channel::READ_ROOT_NODE_COMPLETED, progress, req._ft_root().pba, chan._encoded_blk);
 
 		} else {
 
@@ -477,6 +488,7 @@ void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
 
 		break;
 	case Channel::State::READ_ROOT_NODE_COMPLETED:
+		chan._t1_blks.items[chan._lvl_idx].decode_from_blk(chan._encoded_blk);
 		_execute_ft_ext_step_read_inner_node_completed(chan, chan_idx, progress);
 		break;
 	case Channel::State::READ_INNER_NODE_COMPLETED:
@@ -709,17 +721,6 @@ bool Ft_resizing::_peek_generated_request(uint8_t *buf_ptr,
 
 			return true;
 
-		case Channel::READ_ROOT_NODE_PENDING:
-
-			ASSERT(sizeof(Block_io_request) <= buf_size);
-			construct_at<Block_io_request>(
-				buf_ptr, FT_RESIZING, id,
-				Block_io_request::READ, 0, 0, 0,
-				chan._generated_prim.blk_nr, 0, 1,
-				chan._encoded_blk, chan._dummy_hash, chan._generated_prim.succ);
-
-			return true;
-
 		case Channel::READ_INNER_NODE_PENDING:
 
 			ASSERT(sizeof(Block_io_request) <= buf_size);
@@ -752,7 +753,6 @@ void Ft_resizing::_drop_generated_request(Module_request &mod_req)
 	}
 	Channel &chan { _channels[id] };
 	switch (chan._state) {
-	case Channel::READ_ROOT_NODE_PENDING: chan._state = Channel::READ_ROOT_NODE_IN_PROGRESS; break;
 	case Channel::READ_INNER_NODE_PENDING: chan._state = Channel::READ_INNER_NODE_IN_PROGRESS; break;
 	case Channel::WRITE_ROOT_NODE_PENDING: chan._state = Channel::WRITE_ROOT_NODE_IN_PROGRESS; break;
 	case Channel::WRITE_INNER_NODE_PENDING: chan._state = Channel::WRITE_INNER_NODE_IN_PROGRESS; break;
@@ -775,10 +775,6 @@ void Ft_resizing::generated_request_complete(Module_request &mod_req)
 	case BLOCK_IO:
 	{
 		switch (chan._state) {
-		case Channel::READ_ROOT_NODE_IN_PROGRESS:
-			chan._t1_blks.items[chan._lvl_idx].decode_from_blk(chan._encoded_blk);
-			chan._state = Channel::READ_ROOT_NODE_COMPLETED;
-			break;
 		case Channel::READ_INNER_NODE_IN_PROGRESS:
 			if (chan._lvl_idx > 1)
 				chan._t1_blks.items[chan._lvl_idx].decode_from_blk(chan._encoded_blk);
