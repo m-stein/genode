@@ -408,7 +408,7 @@ if {[ui_is menu_view]} {
 	puts $fd "<focus label=\"file_vault -> \"/>"
 	close $fd
 
-	append qemu_args " -display gtk "
+	append qemu_args " -display sdl "
 	build_boot_image $boot_modules
 	run_genode_until forever
 }
