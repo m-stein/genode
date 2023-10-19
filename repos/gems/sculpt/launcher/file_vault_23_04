@@ -1,0 +1,19 @@
+<launcher name="file_vault_23_04" pkg="file_vault_23_04">
+	<route>
+		<service name="File_system" label="data">
+			<child name="recall_fs"/>
+		</service>
+		<service name="File_system" label="trust_anchor">
+			<child name="recall_fs"/>
+		</service>
+		<service name="File_system" label="fonts">
+			<child name="fonts_fs"/>
+		</service>
+		<service name="RM">
+			<parent/>
+		</service>
+		<service name="Gui">
+			<child name="themed_wm"/>
+		</service>
+	</route>
+</launcher>
