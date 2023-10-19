@@ -1,0 +1,109 @@
+<runtime ram="76M" caps="1000" binary="init">
+
+	<requires>
+		<file_system label="file_vault_23_04" writeable="no"/>
+		<file_system label="file_vault" writeable="yes"/>
+		<timer/>
+		<rm/>
+	</requires>
+
+	<content>
+		<rom label="ld.lib.so"/>
+		<rom label="libc.lib.so"/>
+		<rom label="libm.lib.so"/>
+		<rom label="init"/>
+		<rom label="vfs"/>
+		<rom label="vfs_pipe.lib.so"/>
+		<rom label="cached_fs_rom"/>
+		<rom label="terminal"/>
+		<rom label="posix.lib.so"/>
+		<rom label="ncurses.lib.so"/>
+		<rom label="bash-minimal.tar"/>
+		<rom label="coreutils-minimal.tar"/>
+		<rom label="vim-minimal.tar"/>
+		<rom label="vfs.lib.so"/>
+		<rom label=".profile"/>
+	</content>
+
+	<config>
+		<parent-provides>
+			<service name="ROM"/>
+			<service name="PD"/>
+			<service name="RM"/>
+			<service name="CPU"/>
+			<service name="LOG"/>
+			<service name="Timer"/>
+			<service name="File_system"/>
+			<service name="Gui"/>
+			<service name="Report"/>
+		</parent-provides>
+
+		<default-route> <any-service> <parent/> <any-child/> </any-service> </default-route>
+
+		<default caps="100"/>
+
+		<start name="vfs" caps="150">
+			<resource name="RAM" quantum="12M"/>
+			<provides><service name="File_system"/></provides>
+			<config>
+				<vfs>
+					<tar name="bash-minimal.tar" />
+					<tar name="coreutils-minimal.tar" />
+					<tar name="vim-minimal.tar" />
+					<dir name="dev">
+						<zero/> <log/> <null/>
+						<inline name="rtc">2018-01-01 00:01</inline>
+					</dir>
+					<dir name="pipe"> <pipe/> </dir>
+					<dir name="file_vault">       <fs label="file_vault"/> </dir>
+					<dir name="file_vault_23_04"> <fs label="file_vault_23_04"/> </dir>
+					<dir name="tmp"> <ram /> </dir>
+					<rom name=".profile" label=".profile"/>
+				</vfs>
+
+				<policy label_prefix="vfs_rom" root="/"/>
+				<default-policy root="/" writeable="yes"/>
+			</config>
+			<route>
+				<service name="File_system" label="file_vault"> <parent label="file_vault"/> </service>
+				<service name="File_system" label="file_vault_23_04"> <parent label="file_vault_23_04"/> </service>
+				<any-service> <parent/> </any-service>
+			</route>
+		</start>
+
+		<start name="vfs_rom">
+			<resource name="RAM" quantum="16M"/>
+			<binary name="cached_fs_rom"/>
+			<provides> <service name="ROM"/> </provides>
+			<config/>
+			<route>
+				<service name="File_system"> <child name="vfs"/> </service>
+				<any-service> <parent/> </any-service>
+			</route>
+		</start>
+
+		<start name="/bin/bash" caps="450">
+			<resource name="RAM" quantum="28M" />
+			<exit propagate="yes"/>
+			<config>
+				<libc stdin="/dev/null" stdout="/dev/log" stderr="/dev/log" rtc="/dev/rtc" pipe="/pipe"/>
+				<vfs> <fs/> </vfs>
+				<arg value="bash"/>
+				<arg value="--login"/>
+				<env key="TERM" value="screen"/>
+				<env key="PATH" value="/bin" />
+				<env key="PS1"  value="system:$PWD> " />
+				<env key="HOME" value="/"/>
+			</config>
+			<route>
+				<service name="File_system"> <child name="vfs"/> </service>
+				<service name="ROM" label_suffix=".lib.so"> <parent/> </service>
+				<service name="ROM" label_last="/bin/bash"> <child name="vfs_rom"/> </service>
+				<service name="ROM" label_prefix="/bin">    <child name="vfs_rom"/> </service>
+				<any-service> <parent/> <any-child/> </any-service>
+			</route>
+		</start>
+
+	</config>
+
+</runtime>
