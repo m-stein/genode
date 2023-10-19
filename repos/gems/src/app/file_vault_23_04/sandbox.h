@@ -155,7 +155,7 @@ namespace File_vault {
 
 			xml.node("config", [&] () {
 				xml.attribute("xpos", "100");
-				xml.attribute("ypos", "50");
+				xml.attribute("ypos", "350");
 
 				xml.node("report", [&] () {
 					xml.attribute("hover", "yes"); });
