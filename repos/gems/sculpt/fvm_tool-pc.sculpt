@@ -1,0 +1,10 @@
+# configuration decisions
+drivers: pc
+ram_fs: depot
+
+# selection of launcher-menu entries
+launcher: file_vault file_vault_23_04 fvm_tool
+deploy: fvm_tool
+
+# supplemental depot content added to the system image
+import: pkg/drivers_managed-pc

@@ -1,0 +1,34 @@
+<launcher name="fvm_tool" pkg="fvm_tool">
+	<route>
+		<service name="Gui">
+			<child name="themed_wm"/>
+		</service>
+		<service name="File_system" label="config">
+			<parent label="config"/>
+		</service>
+		<service name="File_system" label="report">
+			<parent label="report"/>
+		</service>
+		<service name="File_system" label="file_vault">
+			<child name="file_vault"/>
+		</service>
+		<service name="File_system" label="file_vault_23_04">
+			<child name="file_vault_23_04"/>
+		</service>
+		<service name="File_system" label="fonts">
+			<child name="fonts_fs"/>
+		</service>
+		<service name="ROM" label="vimrc">
+			<parent label="config -> vimrc"/>
+		</service>
+		<service name="ROM" label="clipboard">
+			<child name="themed_wm"/>
+		</service>
+		<service name="Report" label="clipboard">
+			<child name="themed_wm"/>
+		</service>
+		<service name="RM">
+			<parent/>
+		</service>
+	</route>
+</launcher>
