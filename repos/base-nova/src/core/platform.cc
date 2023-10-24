@@ -632,10 +632,12 @@ Core::Platform::Platform()
 	 * special role because ACPICA explicitly requests this physical range.
 	 */
 	{
-		addr_t const start = 0x10bf00000, size = 0x1000;
+#ifdef __x86_64__
+		addr_t const start = 0x1'0bf0'0000, size = 0x1000;
 
 		_io_mem_alloc.add_range(start, size);
 		ram_alloc().remove_range(start, size);
+#endif
 	}
 
 	/*
