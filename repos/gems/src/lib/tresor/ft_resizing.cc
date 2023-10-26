@@ -233,11 +233,11 @@ void Ft_resizing::_execute_ft_ext_step_read_inner_node_completed(Channel        
 }
 
 
-void Ft_resizing::_set_args_for_write_back_of_inner_lvl(Tree_level_index       const  max_lvl_idx,
+void Ft_resizing::_set_args_for_write_back_of_inner_lvl(Channel &chan, Tree_level_index       const  max_lvl_idx,
                                                         Tree_level_index       const  lvl_idx,
                                                         Physical_block_address const  pba,
                                                         unsigned               const  prim_idx,
-                                                        Channel::State               &job_state,
+                                                        Channel::State               &,
                                                         bool                         &progress,
                                                         Channel::Generated_prim      &prim)
 {
@@ -262,13 +262,8 @@ void Ft_resizing::_set_args_for_write_back_of_inner_lvl(Tree_level_index       c
 	if (VERBOSE_FT_EXTENSION)
 		log("  lvl ", lvl_idx, " write to pba ", pba);
 
-	if (lvl_idx < max_lvl_idx) {
-		job_state = Channel::State::WRITE_INNER_NODE_PENDING;
-		progress  = true;
-	} else {
-		job_state = Channel::State::WRITE_ROOT_NODE_PENDING;
-		progress  = true;
-	}
+	chan._generate_req<Block_io::Write>(
+		lvl_idx < max_lvl_idx ? Channel::WRITE_INNER_NODE_COMPLETED : Channel::WRITE_ROOT_NODE_COMPLETED, progress, pba, chan._encoded_blk);
 }
 
 
@@ -476,13 +471,17 @@ void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
 			if (VERBOSE_FT_EXTENSION)
 				log("  pbas allocated: curr gen ", req._curr_gen);
 
-			_set_args_for_write_back_of_inner_lvl(req._ft_max_lvl(),
+			_set_args_for_write_back_of_inner_lvl(chan, req._ft_max_lvl(),
 			                                      chan._lvl_idx,
 			                                      chan._new_pbas.pbas[chan._lvl_idx],
 			                                      chan_idx,
 			                                      chan._state,
 			                                      progress,
 			                                      chan._generated_prim);
+			if (chan._lvl_idx > 1)
+				chan._t1_blks.items[chan._lvl_idx].encode_to_blk(chan._encoded_blk);
+			else
+				chan._t2_blk.encode_to_blk(chan._encoded_blk);
 
 		}
 
@@ -528,22 +527,21 @@ void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
 			if (VERBOSE_FT_EXTENSION)
 				log("  pbas allocated: curr gen ", req._curr_gen);
 
-			_set_args_for_write_back_of_inner_lvl(req._ft_max_lvl(),
+			_set_args_for_write_back_of_inner_lvl(chan, req._ft_max_lvl(),
 			                                      chan._lvl_idx,
 			                                      chan._new_pbas.pbas[chan._lvl_idx],
 			                                      chan_idx,
 			                                      chan._state,
 			                                      progress,
 			                                      chan._generated_prim);
+			if (chan._lvl_idx > 1)
+				chan._t1_blks.items[chan._lvl_idx].encode_to_blk(chan._encoded_blk);
+			else
+				chan._t2_blk.encode_to_blk(chan._encoded_blk);
 
 		}
 		break;
 	case Channel::State::WRITE_INNER_NODE_COMPLETED:
-
-		if (not chan._generated_prim.succ) {
-			class Primitive_not_successfull_ft_resizing_write_inner { };
-			throw Primitive_not_successfull_ft_resizing_write_inner { };
-		}
 
 		if (chan._lvl_idx > 1) {
 
@@ -566,7 +564,7 @@ void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
 				log("  set lvl a ", parent_lvl_idx, " child ", child_idx,
 				    ": ", child);
 
-			_set_args_for_write_back_of_inner_lvl(req._ft_max_lvl(),
+			_set_args_for_write_back_of_inner_lvl(chan, req._ft_max_lvl(),
 			                                      parent_lvl_idx,
 			                                      chan._new_pbas.pbas[parent_lvl_idx],
 			                                      chan_idx,
@@ -593,7 +591,7 @@ void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
 				log("  set lvl b ", parent_lvl_idx, " child ", child_idx,
 				    ": ", child);
 
-			_set_args_for_write_back_of_inner_lvl(req._ft_max_lvl(),
+			_set_args_for_write_back_of_inner_lvl(chan, req._ft_max_lvl(),
 			                                      parent_lvl_idx,
 			                                      chan._new_pbas.pbas[parent_lvl_idx],
 			                                      chan_idx,
@@ -604,13 +602,14 @@ void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
 			chan._lvl_idx += 1; // = 2
 
 		}
+
+
+			if (chan._lvl_idx > 1)
+				chan._t1_blks.items[chan._lvl_idx].encode_to_blk(chan._encoded_blk);
+			else
+				chan._t2_blk.encode_to_blk(chan._encoded_blk);
 		break;
 	case Channel::State::WRITE_ROOT_NODE_COMPLETED: {
-
-		if (not chan._generated_prim.succ) {
-			class Primitive_not_successfull_ft_resizing_write_root { };
-			throw Primitive_not_successfull_ft_resizing_write_root { };
-		}
 
 		Tree_level_index const child_lvl_idx = chan._lvl_idx;
 		Physical_block_address const child_pba = chan._new_pbas.pbas[child_lvl_idx];
@@ -704,23 +703,6 @@ bool Ft_resizing::_peek_generated_request(uint8_t *buf_ptr,
 			continue;
 
 		switch (chan._state) {
-		case Channel::WRITE_ROOT_NODE_PENDING:
-		case Channel::WRITE_INNER_NODE_PENDING:
-
-			if (chan._lvl_idx > 1)
-				chan._t1_blks.items[chan._lvl_idx].encode_to_blk(chan._encoded_blk);
-			else
-				chan._t2_blk.encode_to_blk(chan._encoded_blk);
-
-			ASSERT(sizeof(Block_io_request) <= buf_size);
-			construct_at<Block_io_request>(
-				buf_ptr, FT_RESIZING, id,
-				Block_io_request::WRITE, 0, 0, 0,
-				chan._generated_prim.blk_nr, 0, 1,
-				chan._encoded_blk, chan._dummy_hash, chan._generated_prim.succ);
-
-			return true;
-
 		case Channel::READ_INNER_NODE_PENDING:
 
 			ASSERT(sizeof(Block_io_request) <= buf_size);
@@ -754,8 +736,6 @@ void Ft_resizing::_drop_generated_request(Module_request &mod_req)
 	Channel &chan { _channels[id] };
 	switch (chan._state) {
 	case Channel::READ_INNER_NODE_PENDING: chan._state = Channel::READ_INNER_NODE_IN_PROGRESS; break;
-	case Channel::WRITE_ROOT_NODE_PENDING: chan._state = Channel::WRITE_ROOT_NODE_IN_PROGRESS; break;
-	case Channel::WRITE_INNER_NODE_PENDING: chan._state = Channel::WRITE_INNER_NODE_IN_PROGRESS; break;
 	default:
 		class Exception_2 { };
 		throw Exception_2 { };
@@ -782,8 +762,6 @@ void Ft_resizing::generated_request_complete(Module_request &mod_req)
 				chan._t2_blk.decode_from_blk(chan._encoded_blk);
 			chan._state = Channel::READ_INNER_NODE_COMPLETED;
 			break;
-		case Channel::WRITE_ROOT_NODE_IN_PROGRESS: chan._state = Channel::WRITE_ROOT_NODE_COMPLETED; break;
-		case Channel::WRITE_INNER_NODE_IN_PROGRESS: chan._state = Channel::WRITE_INNER_NODE_COMPLETED; break;
 		default:
 			class Exception_4 { };
 			throw Exception_4 { };

@@ -209,7 +209,7 @@ class Tresor::Ft_resizing : public Module
 
 		Channel _channels[NR_OF_CHANNELS] { };
 
-		void _set_args_for_write_back_of_inner_lvl(Tree_level_index const,
+		void _set_args_for_write_back_of_inner_lvl(Channel &, Tree_level_index const,
 		                                           Tree_level_index const,
 		                                           Physical_block_address const,
 		                                           unsigned const prim_idx,
