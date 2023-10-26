@@ -113,13 +113,7 @@ class Tresor::Ft_resizing_channel : public Module_channel
 
 		enum State {
 			SUBMITTED,
-
-			READ_ROOT_NODE_PENDING,
-			READ_ROOT_NODE_IN_PROGRESS,
 			READ_ROOT_NODE_COMPLETED,
-
-			READ_INNER_NODE_PENDING,
-			READ_INNER_NODE_IN_PROGRESS,
 			READ_INNER_NODE_COMPLETED,
 
 			ALLOC_PBA_COMPLETED,
@@ -128,14 +122,8 @@ class Tresor::Ft_resizing_channel : public Module_channel
 			EXTEND_MT_BY_ONE_LEAF_IN_PROGRESS,
 			EXTEND_MT_BY_ONE_LEAF_COMPLETED,
 
-			WRITE_INNER_NODE_PENDING,
-			WRITE_INNER_NODE_IN_PROGRESS,
 			WRITE_INNER_NODE_COMPLETED,
-
-			WRITE_ROOT_NODE_PENDING,
-			WRITE_ROOT_NODE_IN_PROGRESS,
 			WRITE_ROOT_NODE_COMPLETED,
-
 			REQ_GENERATED, COMPLETED
 		};
 
@@ -252,13 +240,6 @@ class Tresor::Ft_resizing : public Module
 		                             size_t   buf_size) override;
 
 		void _drop_completed_request(Module_request &req) override;
-
-		bool _peek_generated_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_generated_request(Module_request &mod_req) override;
-
-		void generated_request_complete(Module_request &req) override;
 
 		bool new_submit_request() override { return false; }
 

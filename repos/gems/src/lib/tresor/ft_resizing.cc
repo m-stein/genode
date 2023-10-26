@@ -78,21 +78,21 @@ char const *Ft_resizing_request::type_to_string(Type op)
  ** Ft_resizing_request **
  *************************/
 
-void Ft_resizing::_execute_ft_ext_step_read_inner_node_completed(Channel        &channel,
+void Ft_resizing::_execute_ft_ext_step_read_inner_node_completed(Channel        &chan,
                                                                  unsigned const  job_idx,
                                                                  bool           &progress)
 {
-	Request &req { channel._request };
-	if (not channel._generated_prim.succ) {
+	Request &req { chan._request };
+	if (not chan._generated_prim.succ) {
 		class Primitive_not_successfull_ft_resizing { };
 		throw Primitive_not_successfull_ft_resizing { };
 	}
 
-	if (channel._lvl_idx > 1) {
+	if (chan._lvl_idx > 1) {
 
-		if (channel._lvl_idx == req._ft_max_lvl()) {
+		if (chan._lvl_idx == req._ft_max_lvl()) {
 
-			if (not check_hash(channel._encoded_blk,
+			if (not check_hash(chan._encoded_blk,
                                          req._ft_root().hash)) {
 				class Program_error_ft_resizing_hash_mismatch { };
 				throw Program_error_ft_resizing_hash_mismatch { };
@@ -100,11 +100,11 @@ void Ft_resizing::_execute_ft_ext_step_read_inner_node_completed(Channel        
 
 		} else {
 
-			Tree_level_index const parent_lvl_idx = channel._lvl_idx + 1;
-			Tree_node_index const child_idx = t1_node_idx_for_vba(channel._vba, parent_lvl_idx, req._ft_degree);
-			Type_1_node const &child = channel._t1_blks.items[parent_lvl_idx].nodes[child_idx];
+			Tree_level_index const parent_lvl_idx = chan._lvl_idx + 1;
+			Tree_node_index const child_idx = t1_node_idx_for_vba(chan._vba, parent_lvl_idx, req._ft_degree);
+			Type_1_node const &child = chan._t1_blks.items[parent_lvl_idx].nodes[child_idx];
 
-			if (not check_hash(channel._encoded_blk,
+			if (not check_hash(chan._encoded_blk,
 			                             child.hash)) {
 				class Program_error_ft_resizing_hash_mismatch_2 { };
 				throw Program_error_ft_resizing_hash_mismatch_2 { };
@@ -112,18 +112,18 @@ void Ft_resizing::_execute_ft_ext_step_read_inner_node_completed(Channel        
 
 		}
 
-		Tree_level_index const parent_lvl_idx = channel._lvl_idx;
-		Tree_level_index const child_lvl_idx = channel._lvl_idx - 1;
-		Tree_node_index const child_idx = t1_node_idx_for_vba(channel._vba, parent_lvl_idx, req._ft_degree);
-		Type_1_node const &child = channel._t1_blks.items[parent_lvl_idx].nodes[child_idx];
+		Tree_level_index const parent_lvl_idx = chan._lvl_idx;
+		Tree_level_index const child_lvl_idx = chan._lvl_idx - 1;
+		Tree_node_index const child_idx = t1_node_idx_for_vba(chan._vba, parent_lvl_idx, req._ft_degree);
+		Type_1_node const &child = chan._t1_blks.items[parent_lvl_idx].nodes[child_idx];
 
 		if (child.valid()) {
 
-			channel._lvl_idx                              = child_lvl_idx;
-			channel._old_pbas.pbas        [child_lvl_idx] = child.pba;
-			channel._old_generations.items[child_lvl_idx] = child.gen;
+			chan._lvl_idx                              = child_lvl_idx;
+			chan._old_pbas.pbas        [child_lvl_idx] = child.pba;
+			chan._old_generations.items[child_lvl_idx] = child.gen;
 
-			channel._generated_prim = {
+			chan._generated_prim = {
 				.op     = Channel::Generated_prim::Type::READ,
 				.succ   = false,
 				.tg     = Channel::Tag_type::TAG_FT_RSZG_CACHE,
@@ -131,12 +131,11 @@ void Ft_resizing::_execute_ft_ext_step_read_inner_node_completed(Channel        
 				.idx    = job_idx
 			};
 
-			channel._state = Channel::State::READ_INNER_NODE_PENDING;
-			progress       = true;
+			chan._generate_req<Block_io::Read>(Channel::READ_INNER_NODE_COMPLETED, progress, child.pba, chan._encoded_blk);
 
 			if (VERBOSE_FT_EXTENSION)
 				log("  lvl ", parent_lvl_idx, " child ", child_idx,
-				    " (", child, "): load to lvl ", channel._lvl_idx);
+				    " (", child, "): load to lvl ", chan._lvl_idx);
 
 		} else {
 
@@ -146,53 +145,53 @@ void Ft_resizing::_execute_ft_ext_step_read_inner_node_completed(Channel        
 			                                           req._curr_gen,
 			                                           req._pba(),
 			                                           req._nr_of_pbas(),
-			                                           channel._t1_blks,
-			                                           channel._t2_blk,
-			                                           channel._new_pbas,
-			                                           channel._lvl_idx,
-			                                           channel._nr_of_leaves);
+			                                           chan._t1_blks,
+			                                           chan._t2_blk,
+			                                           chan._new_pbas,
+			                                           chan._lvl_idx,
+			                                           chan._nr_of_leaves);
 
-			channel._alloc_lvl_idx = parent_lvl_idx;
+			chan._alloc_lvl_idx = parent_lvl_idx;
 
-			if (channel._old_generations.items[channel._alloc_lvl_idx] == req._curr_gen) {
+			if (chan._old_generations.items[chan._alloc_lvl_idx] == req._curr_gen) {
 
-				channel._alloc_pba = channel._old_pbas.pbas[channel._alloc_lvl_idx];
-				channel._state = Channel::State::ALLOC_PBA_COMPLETED;
+				chan._alloc_pba = chan._old_pbas.pbas[chan._alloc_lvl_idx];
+				chan._state = Channel::State::ALLOC_PBA_COMPLETED;
 				progress       = true;
 
 			} else {
 
-				channel._generated_prim = {
+				chan._generated_prim = {
 					.op     = Channel::Generated_prim::Type::READ,
 					.succ   = false,
 					.tg     = Channel::Tag_type::TAG_FT_RSZG_MT_ALLOC,
 					.blk_nr = 0,
 					.idx    = job_idx
 				};
-				channel._alloc_pba = channel._old_pbas.pbas[channel._alloc_lvl_idx];
-				channel.generate_req<Meta_tree_request>(
-					Channel::ALLOC_PBA_COMPLETED, progress, Meta_tree_request::ALLOC_PBA, *channel._mt,
-					req._curr_gen, channel._alloc_pba, channel._generated_prim.succ);
-				channel._state = Channel::REQ_GENERATED;
+				chan._alloc_pba = chan._old_pbas.pbas[chan._alloc_lvl_idx];
+				chan.generate_req<Meta_tree_request>(
+					Channel::ALLOC_PBA_COMPLETED, progress, Meta_tree_request::ALLOC_PBA, *chan._mt,
+					req._curr_gen, chan._alloc_pba, chan._generated_prim.succ);
+				chan._state = Channel::REQ_GENERATED;
 			}
 		}
 	} else {
 
 		{
-			Tree_level_index const parent_lvl_idx = channel._lvl_idx + 1;
-			Tree_node_index const child_idx = t1_node_idx_for_vba(channel._vba, parent_lvl_idx, req._ft_degree);
+			Tree_level_index const parent_lvl_idx = chan._lvl_idx + 1;
+			Tree_node_index const child_idx = t1_node_idx_for_vba(chan._vba, parent_lvl_idx, req._ft_degree);
 
-			if (not check_hash(channel._encoded_blk,
-			                             channel._t1_blks.items[parent_lvl_idx].nodes[child_idx].hash)) {
+			if (not check_hash(chan._encoded_blk,
+			                             chan._t1_blks.items[parent_lvl_idx].nodes[child_idx].hash)) {
 				class Program_error_ft_resizing_hash_mismatch_3 { };
 				throw Program_error_ft_resizing_hash_mismatch_3 { };
 			}
 		}
 
 		{
-			Tree_level_index const parent_lvl_idx = channel._lvl_idx;
-			Tree_node_index const child_idx = t2_child_idx_for_vba(channel._vba, req._ft_degree);
-			Type_2_node const &child = channel._t2_blk.nodes[child_idx];
+			Tree_level_index const parent_lvl_idx = chan._lvl_idx;
+			Tree_node_index const child_idx = t2_child_idx_for_vba(chan._vba, req._ft_degree);
+			Type_2_node const &child = chan._t2_blk.nodes[child_idx];
 
 			if (child.valid()) {
 				class Program_error_ft_resizing_t2_valid { };
@@ -205,29 +204,29 @@ void Ft_resizing::_execute_ft_ext_step_read_inner_node_completed(Channel        
 			                                           req._curr_gen,
 			                                           req._pba(),
 			                                           req._nr_of_pbas(),
-			                                           channel._t1_blks,
-			                                           channel._t2_blk,
-			                                           channel._new_pbas,
-			                                           channel._lvl_idx,
-			                                           channel._nr_of_leaves);
+			                                           chan._t1_blks,
+			                                           chan._t2_blk,
+			                                           chan._new_pbas,
+			                                           chan._lvl_idx,
+			                                           chan._nr_of_leaves);
 
-			channel._alloc_lvl_idx = parent_lvl_idx;
+			chan._alloc_lvl_idx = parent_lvl_idx;
 
 			if (VERBOSE_FT_EXTENSION)
-				log("  alloc lvl ", channel._alloc_lvl_idx);
+				log("  alloc lvl ", chan._alloc_lvl_idx);
 
-			channel._generated_prim = {
+			chan._generated_prim = {
 				.op     = Channel::Generated_prim::Type::READ,
 				.succ   = false,
 				.tg     = Channel::Tag_type::TAG_FT_RSZG_MT_ALLOC,
 				.blk_nr = 0,
 				.idx    = job_idx
 			};
-			channel._alloc_pba = channel._old_pbas.pbas[channel._alloc_lvl_idx];
-			channel.generate_req<Meta_tree_request>(
-				Channel::ALLOC_PBA_COMPLETED, progress, Meta_tree_request::ALLOC_PBA, *channel._mt,
-				req._curr_gen, channel._alloc_pba, channel._generated_prim.succ);
-			channel._state = Channel::REQ_GENERATED;
+			chan._alloc_pba = chan._old_pbas.pbas[chan._alloc_lvl_idx];
+			chan.generate_req<Meta_tree_request>(
+				Channel::ALLOC_PBA_COMPLETED, progress, Meta_tree_request::ALLOC_PBA, *chan._mt,
+				req._curr_gen, chan._alloc_pba, chan._generated_prim.succ);
+			chan._state = Channel::REQ_GENERATED;
 		}
 	}
 }
@@ -491,6 +490,10 @@ void Ft_resizing::_execute_ft_extension_step(Channel        &chan,
 		_execute_ft_ext_step_read_inner_node_completed(chan, chan_idx, progress);
 		break;
 	case Channel::State::READ_INNER_NODE_COMPLETED:
+		if (chan._lvl_idx > 1)
+			chan._t1_blks.items[chan._lvl_idx].decode_from_blk(chan._encoded_blk);
+		else
+			chan._t2_blk.decode_from_blk(chan._encoded_blk);
 		_execute_ft_ext_step_read_inner_node_completed(chan, chan_idx, progress);
 		break;
 	case Channel::State::ALLOC_PBA_COMPLETED:
@@ -640,14 +643,14 @@ void Ft_resizing::execute(bool &progress)
 {
 	for (unsigned idx = 0; idx < NR_OF_CHANNELS; idx++) {
 
-		Channel &channel = _channels[idx];
-		Request &request { channel._request };
+		Channel &chan = _channels[idx];
+		Request &request { chan._request };
 
 		switch (request._type) {
 		case Request::INVALID:
 			break;
 		case Request::FT_EXTENSION_STEP:
-			_execute_ft_extension_step(channel, idx, progress);
+			_execute_ft_extension_step(chan, idx, progress);
 			break;
 		}
 	}
@@ -657,15 +660,15 @@ void Ft_resizing::execute(bool &progress)
 bool Ft_resizing::_peek_completed_request(uint8_t *buf_ptr,
                                           size_t   buf_size)
 {
-	for (Channel &channel : _channels) {
-		if (channel._request._type != Request::INVALID &&
-		    channel._state == Channel::COMPLETED) {
+	for (Channel &chan : _channels) {
+		if (chan._request._type != Request::INVALID &&
+		    chan._state == Channel::COMPLETED) {
 
-			if (sizeof(channel._request) > buf_size) {
+			if (sizeof(chan._request) > buf_size) {
 				class Exception_1 { };
 				throw Exception_1 { };
 			}
-			memcpy(buf_ptr, &channel._request, sizeof(channel._request));
+			memcpy(buf_ptr, &chan._request, sizeof(chan._request));
 			return true;
 		}
 	}
@@ -692,93 +695,10 @@ void Ft_resizing::_drop_completed_request(Module_request &req)
 }
 
 
-bool Ft_resizing::_peek_generated_request(uint8_t *buf_ptr,
-                                          size_t   buf_size)
-{
-	for (uint32_t id { 0 }; id < NR_OF_CHANNELS; id++) {
-
-		Channel &chan { _channels[id] };
-		Request &req { chan._request };
-		if (req._type == Request::INVALID)
-			continue;
-
-		switch (chan._state) {
-		case Channel::READ_INNER_NODE_PENDING:
-
-			ASSERT(sizeof(Block_io_request) <= buf_size);
-			construct_at<Block_io_request>(
-				buf_ptr, FT_RESIZING, id,
-				Block_io_request::READ, 0, 0, 0,
-				chan._generated_prim.blk_nr, 0, 1, chan._encoded_blk,
-				chan._dummy_hash, chan._generated_prim.succ);
-
-			return true;
-
-		case Channel::EXTEND_MT_BY_ONE_LEAF_PENDING:
-
-			class Exception_10 { };
-			throw Exception_10 { };
-
-		default: break;
-		}
-	}
-	return false;
-}
-
-
-void Ft_resizing::_drop_generated_request(Module_request &mod_req)
-{
-	Module_request_id const id { mod_req.src_request_id() };
-	if (id >= NR_OF_CHANNELS) {
-		class Exception_1 { };
-		throw Exception_1 { };
-	}
-	Channel &chan { _channels[id] };
-	switch (chan._state) {
-	case Channel::READ_INNER_NODE_PENDING: chan._state = Channel::READ_INNER_NODE_IN_PROGRESS; break;
-	default:
-		class Exception_2 { };
-		throw Exception_2 { };
-	}
-}
-
-
-void Ft_resizing::generated_request_complete(Module_request &mod_req)
-{
-	Module_request_id const id { mod_req.src_request_id() };
-	if (id >= NR_OF_CHANNELS) {
-		class Exception_1 { };
-		throw Exception_1 { };
-	}
-	Channel &chan { _channels[id] };
-	switch (mod_req.dst_module_id()) {
-	case BLOCK_IO:
-	{
-		switch (chan._state) {
-		case Channel::READ_INNER_NODE_IN_PROGRESS:
-			if (chan._lvl_idx > 1)
-				chan._t1_blks.items[chan._lvl_idx].decode_from_blk(chan._encoded_blk);
-			else
-				chan._t2_blk.decode_from_blk(chan._encoded_blk);
-			chan._state = Channel::READ_INNER_NODE_COMPLETED;
-			break;
-		default:
-			class Exception_4 { };
-			throw Exception_4 { };
-		}
-		break;
-	}
-	default:
-		class Exception_5 { };
-		throw Exception_5 { };
-	}
-}
-
-
 bool Ft_resizing::ready_to_submit_request()
 {
-	for (Channel &channel : _channels) {
-		if (channel._request._type == Request::INVALID)
+	for (Channel &chan : _channels) {
+		if (chan._request._type == Request::INVALID)
 			return true;
 	}
 	return false;
