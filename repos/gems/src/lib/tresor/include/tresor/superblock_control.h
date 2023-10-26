@@ -92,7 +92,6 @@ class Tresor::Superblock_control_channel : public Module_channel
 		Hash _hash { };
 		Physical_block_address _pba { INVALID_PBA };
 		Number_of_blocks _nr_of_leaves { 0 };
-		Type_1_node _ft_root { };
 		Request *_req_ptr { nullptr };
 		bool _gen_req_success { false };
 		Superblock &_sb;

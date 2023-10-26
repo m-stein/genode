@@ -188,13 +188,17 @@ void Superblock_control_channel::_tree_ext_step(Superblock::State sb_state, bool
 
 			} else if (tree_name == "ft") {
 
-				_ft_root = Type_1_node { _sb.free_number, _sb.free_gen, _sb.free_hash };
+				_mt.construct(
+					_sb.free_number, _sb.free_gen, _sb.free_hash, _sb.free_max_level, _sb.free_degree,
+					_sb.free_leaves);
+
+				_mt.construct(
+					_sb.meta_number, _sb.meta_gen, _sb.meta_hash, _sb.meta_max_level, _sb.meta_degree,
+					_sb.meta_leaves);
+
 				_generate_req<Ft_resizing_request>(
 					TREE_EXT_STEP_IN_TREE_SUCCEEDED, progress,
-					Ft_resizing_request::FT_EXTENSION_STEP, _curr_gen, _ft_root,
-					_sb.free_max_level, _sb.free_leaves, _sb.free_degree, _sb.meta_number,
-					_sb.meta_gen, _sb.meta_hash, _sb.meta_max_level, _sb.meta_degree,
-					_sb.meta_leaves, _pba, req._nr_of_blks);
+					Ft_resizing_request::EXTENSION_STEP, _curr_gen, *_ft, *_mt, _pba, req._nr_of_blks);
 			}
 		} else
 			_mark_req_failed(progress, "check superblock state");
@@ -219,11 +223,6 @@ void Superblock_control_channel::_tree_ext_step(Superblock::State sb_state, bool
 
 		if (tree_name == "vbd")
 			_sb.curr_snap_idx = _sb.snapshots.newest_snap_idx();
-		else if (tree_name == "ft") {
-			_sb.free_gen = _ft_root.gen;
-			_sb.free_number = _ft_root.pba;
-			_sb.free_hash = _ft_root.hash;
-		}
 
 		if (!req._nr_of_blks) {
 			_sb.state = Superblock::NORMAL;

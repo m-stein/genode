@@ -487,13 +487,15 @@ struct Tresor::Free_tree_root
 	Physical_block_address &pba;
 	Generation &gen;
 	Hash &hash;
-	Tree_level_index max_lvl;
-	Tree_degree degree;
-	Number_of_leaves num_leaves;
+	Tree_level_index &max_lvl;
+	Tree_degree &degree;
+	Number_of_leaves &num_leaves;
 
 	Type_1_node t1_node() const { return { pba, gen, hash }; }
 
 	void t1_node(Type_1_node const &node) { pba = node.pba; gen = node.gen; hash = node.hash; }
+
+	void print(Output &out) const { Genode::print(out, t1_node(), " maxlvl ", max_lvl, " degr ", degree, " leaves ", num_leaves); }
 };
 
 
@@ -502,13 +504,15 @@ struct Tresor::Meta_tree_root
 	Physical_block_address &pba;
 	Generation &gen;
 	Hash &hash;
-	Tree_level_index max_lvl;
-	Tree_degree degree;
-	Number_of_leaves num_leaves;
+	Tree_level_index &max_lvl;
+	Tree_degree &degree;
+	Number_of_leaves &num_leaves;
 
 	Type_1_node t1_node() const { return { pba, gen, hash }; }
 
 	void t1_node(Type_1_node const &node) { pba = node.pba; gen = node.gen; hash = node.hash; }
+
+	void print(Output &out) const { Genode::print(out, t1_node(), " maxlvl ", max_lvl, " degr ", degree, " leaves ", num_leaves); }
 };
 
 

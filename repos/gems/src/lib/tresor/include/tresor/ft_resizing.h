@@ -31,101 +31,45 @@ class Tresor::Ft_resizing_request : public Module_request
 {
 	public:
 
-		enum Type { INVALID = 0, FT_EXTENSION_STEP = 1 };
+		enum Type { EXTENSION_STEP };
 
 	private:
 
 		friend class Ft_resizing;
 		friend class Ft_resizing_channel;
 
-		Type _type { INVALID };
-		Generation _curr_gen { INVALID_GENERATION };
-		addr_t _ft_root_ptr { };
-		addr_t _ft_max_lvl_ptr { 0 };
-		addr_t _ft_nr_of_leaves_ptr { 0 };
-		Tree_degree _ft_degree { TREE_MIN_DEGREE };
-		addr_t _mt_root_pba_ptr { 0 };
-		addr_t _mt_root_gen_ptr { 0 };
-		addr_t _mt_root_hash_ptr { 0 };
-		Tree_level_index _mt_max_level { 0 };
-		Tree_degree _mt_degree { 0 };
-		Number_of_leaves _mt_leaves { 0 };
-		addr_t _pba_ptr { 0 };
-		addr_t _nr_of_pbas_ptr { 0 };
-		addr_t _success_ptr { 0 };
+		Type const _type;
+		Generation const _curr_gen;
+		Free_tree_root &_ft;
+		Meta_tree_root &_mt;
+		Physical_block_address &_pba;
+		Number_of_blocks &_num_pbas;
+		bool &_success;
 
-		Number_of_leaves &_ft_nr_of_leaves() { return *(Number_of_leaves*)_ft_nr_of_leaves_ptr; }
-		Tree_level_index &_ft_max_lvl() { return *(Tree_level_index*)_ft_max_lvl_ptr; }
-		Type_1_node &_ft_root() { return *(Type_1_node*)_ft_root_ptr; }
-		bool &_success() { return *(bool*)_success_ptr; }
-		Physical_block_address &_pba() { return *(Physical_block_address*)_pba_ptr; }
-		Number_of_blocks &_nr_of_pbas() { return *(Number_of_blocks*)_nr_of_pbas_ptr; }
-
-		Number_of_leaves const &_ft_nr_of_leaves() const { return *(Number_of_leaves*)_ft_nr_of_leaves_ptr; }
-		Tree_level_index const &_ft_max_lvl() const { return *(Tree_level_index*)_ft_max_lvl_ptr; }
-		Type_1_node const &_ft_root() const { return *(Type_1_node*)_ft_root_ptr; }
-		bool const &_success() const { return *(bool*)_success_ptr; }
-		Physical_block_address const &_pba() const { return *(Physical_block_address*)_pba_ptr; }
-		Number_of_blocks const &_nr_of_pbas() const { return *(Number_of_blocks*)_nr_of_pbas_ptr; }
+		NONCOPYABLE(Ft_resizing_request);
 
 	public:
 
-		Ft_resizing_request() { }
+		Ft_resizing_request(Module_id, Module_channel_id, Type, Generation, Free_tree_root &,
+		                    Meta_tree_root &, Physical_block_address &, Number_of_blocks &, bool &);
 
-		Ft_resizing_request(Module_id src_module_id,
-		                    Module_channel_id src_request_id,
-		                    Type type,
-		                    Generation curr_gen,
-		                    Type_1_node &ft_root,
-		                    Tree_level_index &ft_max_lvl,
-		                    Number_of_leaves &ft_nr_of_leaves,
-		                    Tree_degree ft_degree,
-		                    Physical_block_address &mt_root_pba,
-		                    Generation &mt_root_gen,
-		                    Hash &mt_root_hash,
-		                    Tree_level_index mt_max_level,
-		                    Tree_degree mt_degree,
-		                    Number_of_leaves mt_leaves,
-		                    Physical_block_address &pba,
-		                    Number_of_blocks &nr_of_pbas,
-		                    bool &success);
+		static char const *type_to_string(Type);
 
-		Type type() const { return _type; }
-
-		static char const *type_to_string(Type type);
-
-
-		/********************
-		 ** Module_request **
-		 ********************/
-
-		void print(Output &out) const override
-		{
-			Genode::print(out, type_to_string(_type), " root ", _ft_root(), " leaves ", _ft_nr_of_leaves(), " max_lvl ", _ft_max_lvl());
-		}
+		void print(Output &) const override;
 };
 
 class Tresor::Ft_resizing_channel : public Module_channel
 {
+	friend class Ft_resizing;
+
 	private:
 
-		friend class Ft_resizing;
+		using Request = Ft_resizing_request;
 
 		enum State {
-			SUBMITTED,
-			READ_ROOT_NODE_COMPLETED,
-			READ_INNER_NODE_COMPLETED,
-
-			ALLOC_PBA_COMPLETED,
-
-			EXTEND_MT_BY_ONE_LEAF_PENDING,
-			EXTEND_MT_BY_ONE_LEAF_IN_PROGRESS,
-			EXTEND_MT_BY_ONE_LEAF_COMPLETED,
-
-			WRITE_INNER_NODE_COMPLETED,
-			WRITE_ROOT_NODE_COMPLETED,
-			REQ_GENERATED, COMPLETED
-		};
+			REQ_SUBMITTED, READ_ROOT_NODE_COMPLETED, READ_INNER_NODE_COMPLETED,
+			ALLOC_PBA_COMPLETED, WRITE_INNER_NODE_COMPLETED, WRITE_ROOT_NODE_COMPLETED,
+			REQ_GENERATED, REQ_COMPLETE };
 
 		enum Tag_type
 		{
@@ -155,8 +99,8 @@ class Tresor::Ft_resizing_channel : public Module_channel
 			Generation items[TREE_MAX_LEVEL + 1] { };
 		};
 
-		Ft_resizing_request _request { };
-		State _state { SUBMITTED };
+		Request *_req_ptr { nullptr };
+		State _state { REQ_COMPLETE };
 		Generated_prim _generated_prim { };
 		Physical_block_address _alloc_pba { 0 };
 		Type_1_node_blocks _t1_blks { };
@@ -170,13 +114,8 @@ class Tresor::Ft_resizing_channel : public Module_channel
 		Block _encoded_blk { };
 		Number_of_leaves _nr_of_leaves { 0 };
 		Hash _dummy_hash { };
-		Constructible<Meta_tree_root> _mt { };
-
-		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
 
 		void _generated_req_completed(State_uint) override;
-
-		bool _request_complete() override { ASSERT_NEVER_REACHED; }
 
 		template <typename REQUEST, typename... ARGS>
 		void _generate_req(State_uint state, bool &progress, ARGS &&... args)
@@ -184,6 +123,10 @@ class Tresor::Ft_resizing_channel : public Module_channel
 			_state = REQ_GENERATED;
 			generate_req<REQUEST>(state, progress, args..., _generated_prim.succ);
 		}
+
+		void _request_submitted(Module_request &) override;
+
+		bool _request_complete() override { return _state == REQ_COMPLETE; }
 };
 
 class Tresor::Ft_resizing : public Module
@@ -205,9 +148,7 @@ class Tresor::Ft_resizing : public Module
 		                                           bool &progress,
 		                                           Channel::Generated_prim &);
 
-		void _add_new_root_lvl_to_ft_using_pba_contingent(Type_1_node &,
-		                                                  Tree_level_index &,
-		                                                  Number_of_leaves const,
+		void _add_new_root_lvl_to_ft_using_pba_contingent(Free_tree_root &,
 		                                                  Generation const,
 		                                                  Channel::Type_1_node_blocks &,
 		                                                  Tree_walk_pbas &,
@@ -226,33 +167,13 @@ class Tresor::Ft_resizing : public Module
 		                                                Tree_level_index &,
 		                                                Number_of_leaves &);
 
-		void _execute_ft_extension_step(Channel &, unsigned const idx, bool &);
+		void _extension_step(Channel &, unsigned const idx, bool &);
 
-		void _execute_ft_ext_step_read_inner_node_completed(Channel &,
+		void _ext_step_read_inner_node_completed(Channel &,
 		                                                    unsigned const job_idx,
 		                                                    bool &progress);
 
-		/************
-		 ** Module **
-		 ************/
-
-		bool _peek_completed_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_completed_request(Module_request &req) override;
-
-		bool new_submit_request() override { return false; }
-
-
 	public:
-
-		/************
-		 ** Module **
-		 ************/
-
-		bool ready_to_submit_request() override;
-
-		void submit_request(Module_request &req) override;
 
 		void execute(bool &) override;
 
