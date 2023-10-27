@@ -71,24 +71,6 @@ class Tresor::Ft_resizing_channel : public Module_channel
 			ALLOC_PBA_COMPLETED, WRITE_INNER_NODE_COMPLETED, WRITE_ROOT_NODE_COMPLETED,
 			REQ_GENERATED, REQ_COMPLETE };
 
-		enum Tag_type
-		{
-			TAG_INVALID,
-			TAG_FT_RSZG_CACHE,
-			TAG_FT_RSZG_MT_ALLOC,
-		};
-
-		struct Generated_prim
-		{
-			enum Type { READ, WRITE };
-
-			Type     op     { READ };
-			bool     succ   { false };
-			Tag_type tg     { TAG_INVALID };
-			uint64_t blk_nr { 0 };
-			uint64_t idx    { 0 };
-		};
-
 		struct Type_1_node_blocks
 		{
 			Type_1_node_block items[TREE_MAX_LEVEL] { };
@@ -101,7 +83,6 @@ class Tresor::Ft_resizing_channel : public Module_channel
 
 		Request *_req_ptr { nullptr };
 		State _state { REQ_COMPLETE };
-		Generated_prim _generated_prim { };
 		Physical_block_address _alloc_pba { 0 };
 		Type_1_node_blocks _t1_blks { };
 		Type_2_node_block _t2_blk { };
@@ -127,6 +108,35 @@ class Tresor::Ft_resizing_channel : public Module_channel
 		void _request_submitted(Module_request &) override;
 
 		bool _request_complete() override { return _state == REQ_COMPLETE; }
+
+		void _add_new_branch_to_ft_using_pba_contingent(Tree_level_index const,
+		                                                Tree_node_index const,
+		                                                Tree_degree const,
+		                                                Generation const,
+		                                                Physical_block_address &,
+		                                                Number_of_blocks &,
+		                                                Type_1_node_blocks &,
+		                                                Type_2_node_block &,
+		                                                Tree_walk_pbas &,
+		                                                Tree_level_index &,
+		                                                Number_of_leaves &);
+
+		void _add_new_root_lvl_to_ft_using_pba_contingent(Free_tree_root &,
+		                                                  Generation const,
+		                                                  Type_1_node_blocks &,
+		                                                  Tree_walk_pbas &,
+		                                                  Physical_block_address &,
+		                                                  Number_of_blocks &);
+
+		void _set_args_for_write_back_of_inner_lvl(Tree_level_index const,
+		                                           Tree_level_index const,
+		                                           Physical_block_address const,
+		                                           unsigned const prim_idx,
+		                                           State &,
+		                                           bool &progress,
+		                                           Generated_prim &);
+
+		void _extension_step(unsigned const idx, bool &);
 };
 
 class Tresor::Ft_resizing : public Module
@@ -139,39 +149,6 @@ class Tresor::Ft_resizing : public Module
 		enum { NR_OF_CHANNELS = 1 };
 
 		Channel _channels[NR_OF_CHANNELS] { };
-
-		void _set_args_for_write_back_of_inner_lvl(Channel &, Tree_level_index const,
-		                                           Tree_level_index const,
-		                                           Physical_block_address const,
-		                                           unsigned const prim_idx,
-		                                           Channel::State &,
-		                                           bool &progress,
-		                                           Channel::Generated_prim &);
-
-		void _add_new_root_lvl_to_ft_using_pba_contingent(Free_tree_root &,
-		                                                  Generation const,
-		                                                  Channel::Type_1_node_blocks &,
-		                                                  Tree_walk_pbas &,
-		                                                  Physical_block_address &,
-		                                                  Number_of_blocks &);
-
-		void _add_new_branch_to_ft_using_pba_contingent(Tree_level_index const,
-		                                                Tree_node_index const,
-		                                                Tree_degree const,
-		                                                Generation const,
-		                                                Physical_block_address &,
-		                                                Number_of_blocks &,
-		                                                Channel::Type_1_node_blocks &,
-		                                                Type_2_node_block &,
-		                                                Tree_walk_pbas &,
-		                                                Tree_level_index &,
-		                                                Number_of_leaves &);
-
-		void _extension_step(Channel &, unsigned const idx, bool &);
-
-		void _ext_step_read_inner_node_completed(Channel &,
-		                                                    unsigned const job_idx,
-		                                                    bool &progress);
 
 	public:
 
