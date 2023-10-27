@@ -66,7 +66,7 @@ void Ft_resizing_channel::_set_args_for_write_back_of_inner_lvl(Tree_level_index
 
 void Ft_resizing_channel::_add_new_root_lvl_to_ft_using_pba_contingent(Free_tree_root              &ft,
                                                                Generation            const  curr_gen,
-                                                               Type_1_node_blocks &t1_blks,
+                                                               Type_1_node_block_walk &t1_blks,
                                                                Tree_walk_pbas              &new_pbas,
                                                                Physical_block_address      &first_pba,
                                                                Number_of_blocks            &nr_of_pbas)
@@ -93,7 +93,7 @@ void Ft_resizing_channel::_add_new_branch_to_ft_using_pba_contingent(Tree_level_
                                                              Generation            const  curr_gen,
                                                              Physical_block_address      &first_pba,
                                                              Number_of_blocks            &nr_of_pbas,
-                                                             Type_1_node_blocks &t1_blks,
+                                                             Type_1_node_block_walk &t1_blks,
                                                              Type_2_node_block           &t2_blk,
                                                              Tree_walk_pbas              &new_pbas,
                                                              Tree_level_index            &stopped_at_lvl_idx,

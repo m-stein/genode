@@ -105,6 +105,7 @@ namespace Tresor {
 	struct Type_2_node;
 	struct Type_2_node_block;
 	struct Tree_walk_pbas;
+	struct Tree_walk_generations;
 	struct Level_indent;
 	struct Free_tree_root;
 	struct Meta_tree_root;
@@ -976,6 +977,12 @@ struct Tresor::Tree_walk_pbas
 			first = false;
 		}
 	}
+};
+
+
+struct Tresor::Tree_walk_generations
+{
+	Generation items[TREE_MAX_NR_OF_LEVELS] { };
 };
 
 

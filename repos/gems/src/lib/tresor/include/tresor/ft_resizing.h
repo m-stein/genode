@@ -68,26 +68,16 @@ class Tresor::Ft_resizing_channel : public Module_channel
 			ALLOC_PBA_COMPLETED, WRITE_INNER_NODE_COMPLETED, WRITE_ROOT_NODE_COMPLETED,
 			REQ_GENERATED, REQ_COMPLETE };
 
-		struct Type_1_node_blocks
-		{
-			Type_1_node_block items[TREE_MAX_LEVEL] { };
-		};
-
-		struct Generations
-		{
-			Generation items[TREE_MAX_LEVEL + 1] { };
-		};
-
 		Request *_req_ptr { nullptr };
 		State _state { REQ_COMPLETE };
 		Physical_block_address _alloc_pba { 0 };
-		Type_1_node_blocks _t1_blks { };
+		Type_1_node_block_walk _t1_blks { };
 		Type_2_node_block _t2_blk { };
 		Tree_level_index _lvl_idx { 0 };
 		Tree_level_index _alloc_lvl_idx { 0 };
 		Virtual_block_address _vba { };
 		Tree_walk_pbas _old_pbas { };
-		Generations _old_generations { };
+		Tree_walk_generations _old_generations { };
 		Tree_walk_pbas _new_pbas { };
 		Block _encoded_blk { };
 		Number_of_leaves _nr_of_leaves { 0 };
@@ -115,7 +105,7 @@ class Tresor::Ft_resizing_channel : public Module_channel
 		                                                Generation const,
 		                                                Physical_block_address &,
 		                                                Number_of_blocks &,
-		                                                Type_1_node_blocks &,
+		                                                Type_1_node_block_walk &,
 		                                                Type_2_node_block &,
 		                                                Tree_walk_pbas &,
 		                                                Tree_level_index &,
@@ -123,7 +113,7 @@ class Tresor::Ft_resizing_channel : public Module_channel
 
 		void _add_new_root_lvl_to_ft_using_pba_contingent(Free_tree_root &,
 		                                                  Generation const,
-		                                                  Type_1_node_blocks &,
+		                                                  Type_1_node_block_walk &,
 		                                                  Tree_walk_pbas &,
 		                                                  Physical_block_address &,
 		                                                  Number_of_blocks &);
