@@ -73,7 +73,7 @@ class Tresor::Ft_resizing_channel : public Module_channel
 		Physical_block_address _alloc_pba { 0 };
 		Type_1_node_block_walk _t1_blks { };
 		Type_2_node_block _t2_blk { };
-		Tree_level_index _lvl_idx { 0 };
+		Tree_level_index _lvl { 0 };
 		Tree_level_index _alloc_lvl_idx { 0 };
 		Virtual_block_address _vba { };
 		Tree_walk_pbas _old_pbas { };

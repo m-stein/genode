@@ -195,14 +195,14 @@ void Ft_resizing_channel::_extension_step(bool           &progress)
 		_old_generations = { };
 		_new_pbas        = { };
 
-		_lvl_idx                              = req._ft.max_lvl;
-		_old_pbas.pbas[_lvl_idx]         = req._ft.pba;
-		_old_generations.items[_lvl_idx] = req._ft.gen;
+		_lvl                              = req._ft.max_lvl;
+		_old_pbas.pbas[_lvl]         = req._ft.pba;
+		_old_generations.items[_lvl] = req._ft.gen;
 
 		if (_vba <= tree_max_max_vba(req._ft.degree, req._ft.max_lvl)) {
 
 			if (VERBOSE_FT_EXTENSION)
-				log("  root (", req._ft, "): load to lvl ", _lvl_idx);
+				log("  root (", req._ft, "): load to lvl ", _lvl);
 
 			_generate_req<Block_io::Read>(READ_ROOT_NODE_COMPLETED, progress, req._ft.pba, _encoded_blk);
 
@@ -224,18 +224,18 @@ void Ft_resizing_channel::_extension_step(bool           &progress)
 			                                           _t1_blks,
 			                                           _t2_blk,
 			                                           _new_pbas,
-			                                           _lvl_idx,
+			                                           _lvl,
 			                                           _nr_of_leaves);
 
 			if (VERBOSE_FT_EXTENSION)
 				log("  pbas allocated: curr gen ", req._curr_gen);
 
 			_set_args_for_write_back_of_inner_lvl(req._ft.max_lvl,
-			                                      _lvl_idx,
-			                                      _new_pbas.pbas[_lvl_idx],
+			                                      _lvl,
+			                                      _new_pbas.pbas[_lvl],
 			                                      progress);
-			if (_lvl_idx > 1)
-				_t1_blks.items[_lvl_idx].encode_to_blk(_encoded_blk);
+			if (_lvl > 1)
+				_t1_blks.items[_lvl].encode_to_blk(_encoded_blk);
 			else
 				_t2_blk.encode_to_blk(_encoded_blk);
 
@@ -245,8 +245,8 @@ void Ft_resizing_channel::_extension_step(bool           &progress)
 	case READ_ROOT_NODE_COMPLETED:
 	case READ_INNER_NODE_COMPLETED:
 	{
-		if (_lvl_idx > 1)
-			_t1_blks.items[_lvl_idx].decode_from_blk(_encoded_blk);
+		if (_lvl > 1)
+			_t1_blks.items[_lvl].decode_from_blk(_encoded_blk);
 		else
 			_t2_blk.decode_from_blk(_encoded_blk);
 
@@ -255,9 +255,9 @@ void Ft_resizing_channel::_extension_step(bool           &progress)
 			throw Primitive_not_successfull_ft_resizing { };
 		}
 
-		if (_lvl_idx > 1) {
+		if (_lvl > 1) {
 
-			if (_lvl_idx == req._ft.max_lvl) {
+			if (_lvl == req._ft.max_lvl) {
 
 				if (not check_hash(_encoded_blk, req._ft.hash)) {
 					class Program_error_ft_resizing_hash_mismatch { };
@@ -266,7 +266,7 @@ void Ft_resizing_channel::_extension_step(bool           &progress)
 
 			} else {
 
-				Tree_level_index const parent_lvl_idx = _lvl_idx + 1;
+				Tree_level_index const parent_lvl_idx = _lvl + 1;
 				Tree_node_index const child_idx = t1_node_idx_for_vba(_vba, parent_lvl_idx, req._ft.degree);
 				Type_1_node const &child = _t1_blks.items[parent_lvl_idx].nodes[child_idx];
 
@@ -278,14 +278,14 @@ void Ft_resizing_channel::_extension_step(bool           &progress)
 
 			}
 
-			Tree_level_index const parent_lvl_idx = _lvl_idx;
-			Tree_level_index const child_lvl_idx = _lvl_idx - 1;
+			Tree_level_index const parent_lvl_idx = _lvl;
+			Tree_level_index const child_lvl_idx = _lvl - 1;
 			Tree_node_index const child_idx = t1_node_idx_for_vba(_vba, parent_lvl_idx, req._ft.degree);
 			Type_1_node const &child = _t1_blks.items[parent_lvl_idx].nodes[child_idx];
 
 			if (child.valid()) {
 
-				_lvl_idx                              = child_lvl_idx;
+				_lvl                              = child_lvl_idx;
 				_old_pbas.pbas        [child_lvl_idx] = child.pba;
 				_old_generations.items[child_lvl_idx] = child.gen;
 
@@ -293,7 +293,7 @@ void Ft_resizing_channel::_extension_step(bool           &progress)
 
 				if (VERBOSE_FT_EXTENSION)
 					log("  lvl ", parent_lvl_idx, " child ", child_idx,
-						" (", child, "): load to lvl ", _lvl_idx);
+						" (", child, "): load to lvl ", _lvl);
 
 			} else {
 
@@ -306,7 +306,7 @@ void Ft_resizing_channel::_extension_step(bool           &progress)
 														   _t1_blks,
 														   _t2_blk,
 														   _new_pbas,
-														   _lvl_idx,
+														   _lvl,
 														   _nr_of_leaves);
 
 				_alloc_lvl_idx = parent_lvl_idx;
@@ -329,7 +329,7 @@ void Ft_resizing_channel::_extension_step(bool           &progress)
 		} else {
 
 			{
-				Tree_level_index const parent_lvl_idx = _lvl_idx + 1;
+				Tree_level_index const parent_lvl_idx = _lvl + 1;
 				Tree_node_index const child_idx = t1_node_idx_for_vba(_vba, parent_lvl_idx, req._ft.degree);
 
 				if (not check_hash(_encoded_blk,
@@ -340,7 +340,7 @@ void Ft_resizing_channel::_extension_step(bool           &progress)
 			}
 
 			{
-				Tree_level_index const parent_lvl_idx = _lvl_idx;
+				Tree_level_index const parent_lvl_idx = _lvl;
 				Tree_node_index const child_idx = t2_child_idx_for_vba(_vba, req._ft.degree);
 				Type_2_node const &child = _t2_blk.nodes[child_idx];
 
@@ -358,7 +358,7 @@ void Ft_resizing_channel::_extension_step(bool           &progress)
 														   _t1_blks,
 														   _t2_blk,
 														   _new_pbas,
-														   _lvl_idx,
+														   _lvl,
 														   _nr_of_leaves);
 
 				_alloc_lvl_idx = parent_lvl_idx;
@@ -403,11 +403,11 @@ void Ft_resizing_channel::_extension_step(bool           &progress)
 				log("  pbas allocated: curr gen ", req._curr_gen);
 
 			_set_args_for_write_back_of_inner_lvl(req._ft.max_lvl,
-			                                      _lvl_idx,
-			                                      _new_pbas.pbas[_lvl_idx],
+			                                      _lvl,
+			                                      _new_pbas.pbas[_lvl],
 			                                      progress);
-			if (_lvl_idx > 1)
-				_t1_blks.items[_lvl_idx].encode_to_blk(_encoded_blk);
+			if (_lvl > 1)
+				_t1_blks.items[_lvl].encode_to_blk(_encoded_blk);
 			else
 				_t2_blk.encode_to_blk(_encoded_blk);
 
@@ -415,10 +415,10 @@ void Ft_resizing_channel::_extension_step(bool           &progress)
 		break;
 	case WRITE_INNER_NODE_COMPLETED:
 
-		if (_lvl_idx > 1) {
+		if (_lvl > 1) {
 
-			Tree_level_index const parent_lvl_idx = _lvl_idx + 1;
-			Tree_level_index const child_lvl_idx  = _lvl_idx;
+			Tree_level_index const parent_lvl_idx = _lvl + 1;
+			Tree_level_index const child_lvl_idx  = _lvl;
 			Tree_node_index const child_idx = t1_node_idx_for_vba(_vba, parent_lvl_idx, req._ft.degree);
 
 			Type_1_node &child {
@@ -441,12 +441,12 @@ void Ft_resizing_channel::_extension_step(bool           &progress)
 			                                      _new_pbas.pbas[parent_lvl_idx],
 			                                      progress);
 
-			_lvl_idx += 1;
+			_lvl += 1;
 
 		} else {
 
-			Tree_level_index const parent_lvl_idx = _lvl_idx + 1;
-			Tree_level_index const child_lvl_idx = _lvl_idx;
+			Tree_level_index const parent_lvl_idx = _lvl + 1;
+			Tree_level_index const child_lvl_idx = _lvl;
 			Tree_node_index const child_idx = t1_node_idx_for_vba(_vba, parent_lvl_idx, req._ft.degree);
 			Type_1_node &child = _t1_blks.items[parent_lvl_idx].nodes[child_idx];
 			child = {
@@ -465,17 +465,17 @@ void Ft_resizing_channel::_extension_step(bool           &progress)
 			                                      _new_pbas.pbas[parent_lvl_idx],
 			                                      progress);
 
-			_lvl_idx += 1; // = 2
+			_lvl += 1; // = 2
 		}
-		if (_lvl_idx > 1)
-			_t1_blks.items[_lvl_idx].encode_to_blk(_encoded_blk);
+		if (_lvl > 1)
+			_t1_blks.items[_lvl].encode_to_blk(_encoded_blk);
 		else
 			_t2_blk.encode_to_blk(_encoded_blk);
 		break;
 
 	case WRITE_ROOT_NODE_COMPLETED: {
 
-		req._ft.t1_node({ _new_pbas.pbas[_lvl_idx], req._curr_gen });
+		req._ft.t1_node({ _new_pbas.pbas[_lvl], req._curr_gen });
 		calc_hash(_encoded_blk, req._ft.hash);
 		req._ft.num_leaves += _nr_of_leaves;
 		req._success = true;
