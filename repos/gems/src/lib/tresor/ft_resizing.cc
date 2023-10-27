@@ -41,26 +41,20 @@ char const *Ft_resizing_request::type_to_string(Type op)
 }
 
 
-void Ft_resizing_channel::_set_args_for_write_back_of_inner_lvl(Tree_level_index       const  max_lvl_idx,
-                                                        Tree_level_index       const  lvl_idx,
-                                                        Physical_block_address const  pba,
-                                                        bool                         &progress)
+void Ft_resizing_channel::_generate_write_blk_req(bool &progress)
 {
-	if (lvl_idx == 0) {
-		class Program_error_ft_resizing_lvl_idx_zero { };
-		throw Program_error_ft_resizing_lvl_idx_zero { };
-	}
-
-	if (lvl_idx > max_lvl_idx) {
-		class Program_error_ft_resizing_lvl_idx_large { };
-		throw Program_error_ft_resizing_lvl_idx_large { };
-	}
-
+	Request &req { *_req_ptr };
 	if (VERBOSE_FT_EXTENSION)
-		log("  lvl ", lvl_idx, " write to pba ", pba);
+		log("  lvl ", _lvl, " write to pba ", _new_pbas.pbas[_lvl]);
+
+	if (_lvl > 1)
+		_t1_blks.items[_lvl].encode_to_blk(_encoded_blk);
+	else
+		_t2_blk.encode_to_blk(_encoded_blk);
 
 	_generate_req<Block_io::Write>(
-		lvl_idx < max_lvl_idx ? WRITE_INNER_NODE_COMPLETED : WRITE_ROOT_NODE_COMPLETED, progress, pba, _encoded_blk);
+		_lvl < req._ft.max_lvl ? WRITE_INNER_NODE_COMPLETED : WRITE_ROOT_NODE_COMPLETED, progress,
+		_new_pbas.pbas[_lvl], _encoded_blk);
 }
 
 
@@ -230,15 +224,7 @@ void Ft_resizing_channel::_extension_step(bool           &progress)
 			if (VERBOSE_FT_EXTENSION)
 				log("  pbas allocated: curr gen ", req._curr_gen);
 
-			_set_args_for_write_back_of_inner_lvl(req._ft.max_lvl,
-			                                      _lvl,
-			                                      _new_pbas.pbas[_lvl],
-			                                      progress);
-			if (_lvl > 1)
-				_t1_blks.items[_lvl].encode_to_blk(_encoded_blk);
-			else
-				_t2_blk.encode_to_blk(_encoded_blk);
-
+			_generate_write_blk_req(progress);
 		}
 
 		break;
@@ -402,15 +388,7 @@ void Ft_resizing_channel::_extension_step(bool           &progress)
 			if (VERBOSE_FT_EXTENSION)
 				log("  pbas allocated: curr gen ", req._curr_gen);
 
-			_set_args_for_write_back_of_inner_lvl(req._ft.max_lvl,
-			                                      _lvl,
-			                                      _new_pbas.pbas[_lvl],
-			                                      progress);
-			if (_lvl > 1)
-				_t1_blks.items[_lvl].encode_to_blk(_encoded_blk);
-			else
-				_t2_blk.encode_to_blk(_encoded_blk);
-
+			_generate_write_blk_req(progress);
 		}
 		break;
 	case WRITE_INNER_NODE_COMPLETED:
@@ -436,12 +414,8 @@ void Ft_resizing_channel::_extension_step(bool           &progress)
 				log("  set lvl ", parent_lvl_idx, " child ", child_idx,
 				    ": ", child);
 
-			_set_args_for_write_back_of_inner_lvl(req._ft.max_lvl,
-			                                      parent_lvl_idx,
-			                                      _new_pbas.pbas[parent_lvl_idx],
-			                                      progress);
-
-			_lvl += 1;
+			_lvl++;
+			_generate_write_blk_req(progress);
 
 		} else {
 
@@ -460,17 +434,9 @@ void Ft_resizing_channel::_extension_step(bool           &progress)
 				log("  set lvl ", parent_lvl_idx, " child ", child_idx,
 				    ": ", child);
 
-			_set_args_for_write_back_of_inner_lvl(req._ft.max_lvl,
-			                                      parent_lvl_idx,
-			                                      _new_pbas.pbas[parent_lvl_idx],
-			                                      progress);
-
-			_lvl += 1; // = 2
+			_lvl++;
+			_generate_write_blk_req(progress);
 		}
-		if (_lvl > 1)
-			_t1_blks.items[_lvl].encode_to_blk(_encoded_blk);
-		else
-			_t2_blk.encode_to_blk(_encoded_blk);
 		break;
 
 	case WRITE_ROOT_NODE_COMPLETED: {

@@ -118,10 +118,7 @@ class Tresor::Ft_resizing_channel : public Module_channel
 		                                                  Physical_block_address &,
 		                                                  Number_of_blocks &);
 
-		void _set_args_for_write_back_of_inner_lvl(Tree_level_index const,
-		                                           Tree_level_index const,
-		                                           Physical_block_address const,
-		                                           bool &progress);
+		void _generate_write_blk_req(bool &);
 
 		void _extension_step(bool &);
 
