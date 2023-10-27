@@ -58,26 +58,18 @@ void Ft_resizing_channel::_generate_write_blk_req(bool &progress)
 }
 
 
-void Ft_resizing_channel::_add_new_root_lvl_to_ft_using_pba_contingent(Free_tree_root              &ft,
-                                                               Generation            const  curr_gen,
-                                                               Type_1_node_block_walk &t1_blks,
-                                                               Tree_walk_pbas              &new_pbas,
-                                                               Physical_block_address      &first_pba,
-                                                               Number_of_blocks            &nr_of_pbas)
+void Ft_resizing_channel::_add_new_root_lvl()
 {
-	if (ft.max_lvl >= TREE_MAX_LEVEL) {
-		class Program_error_ft_resizing_max_level { };
-		throw Program_error_ft_resizing_max_level { };
-	}
-	ft.max_lvl++;
-	t1_blks.items[ft.max_lvl] = { };
-	t1_blks.items[ft.max_lvl].nodes[0] = ft.t1_node();
-	new_pbas.pbas[ft.max_lvl] = alloc_pba_from_resizing_contingent(first_pba, nr_of_pbas);
-	ft.t1_node({ new_pbas.pbas[ft.max_lvl], curr_gen });
-	if (VERBOSE_FT_EXTENSION) {
-		log("  set ft root: ", ft);
-		log("  set lvl ", ft.max_lvl, " child 0: ", t1_blks.items[ft.max_lvl].nodes[0]);
-	}
+	Request &req { *_req_ptr };
+	ASSERT(req._ft.max_lvl < TREE_MAX_LEVEL);
+	req._ft.max_lvl++;
+	_t1_blks.items[req._ft.max_lvl] = { };
+	_t1_blks.items[req._ft.max_lvl].nodes[0] = req._ft.t1_node();
+	_new_pbas.pbas[req._ft.max_lvl] = alloc_pba_from_resizing_contingent(req._pba, req._num_pbas);
+	req._ft.t1_node({ _new_pbas.pbas[req._ft.max_lvl], req._curr_gen });
+	if (VERBOSE_FT_EXTENSION)
+		log("  set root: ", req._ft, "\n  set lvl ", req._ft.max_lvl, " child 0: ",
+		    _t1_blks.items[req._ft.max_lvl].nodes[0]);
 }
 
 
@@ -176,7 +168,7 @@ void Ft_resizing_channel::_generated_req_completed(State_uint state_uint)
 }
 
 
-void Ft_resizing_channel::_extension_step(bool           &progress)
+void Ft_resizing_channel::_extension_step(bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
@@ -202,13 +194,7 @@ void Ft_resizing_channel::_extension_step(bool           &progress)
 
 		} else {
 
-			_add_new_root_lvl_to_ft_using_pba_contingent(req._ft,
-			                                             req._curr_gen,
-			                                             _t1_blks,
-			                                             _new_pbas,
-			                                             req._pba,
-			                                             req._num_pbas);
-
+			_add_new_root_lvl();
 			_add_new_branch_to_ft_using_pba_contingent(req._ft.max_lvl,
 			                                           1,
 			                                           req._ft.degree,

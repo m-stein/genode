@@ -111,12 +111,7 @@ class Tresor::Ft_resizing_channel : public Module_channel
 		                                                Tree_level_index &,
 		                                                Number_of_leaves &);
 
-		void _add_new_root_lvl_to_ft_using_pba_contingent(Free_tree_root &,
-		                                                  Generation const,
-		                                                  Type_1_node_block_walk &,
-		                                                  Tree_walk_pbas &,
-		                                                  Physical_block_address &,
-		                                                  Number_of_blocks &);
+		void _add_new_root_lvl();
 
 		void _generate_write_blk_req(bool &);
 
