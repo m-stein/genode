@@ -29,14 +29,13 @@ namespace Tresor {
 
 class Tresor::Ft_resizing_request : public Module_request
 {
+	friend class Ft_resizing_channel;
+
 	public:
 
 		enum Type { EXTENSION_STEP };
 
 	private:
-
-		friend class Ft_resizing;
-		friend class Ft_resizing_channel;
 
 		Type const _type;
 		Generation const _curr_gen;
@@ -55,13 +54,11 @@ class Tresor::Ft_resizing_request : public Module_request
 
 		static char const *type_to_string(Type);
 
-		void print(Output &) const override;
+		void print(Output &out) const override { Genode::print(out, type_to_string(_type), " root ", _ft); }
 };
 
 class Tresor::Ft_resizing_channel : public Module_channel
 {
-	friend class Ft_resizing;
-
 	private:
 
 		using Request = Ft_resizing_request;
@@ -95,6 +92,9 @@ class Tresor::Ft_resizing_channel : public Module_channel
 		Block _encoded_blk { };
 		Number_of_leaves _nr_of_leaves { 0 };
 		Hash _dummy_hash { };
+		bool _generated_req_success { };
+
+		NONCOPYABLE(Ft_resizing_channel);
 
 		void _generated_req_completed(State_uint) override;
 
@@ -102,7 +102,7 @@ class Tresor::Ft_resizing_channel : public Module_channel
 		void _generate_req(State_uint state, bool &progress, ARGS &&... args)
 		{
 			_state = REQ_GENERATED;
-			generate_req<REQUEST>(state, progress, args..., _generated_prim.succ);
+			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 		}
 
 		void _request_submitted(Module_request &) override;
@@ -131,30 +131,32 @@ class Tresor::Ft_resizing_channel : public Module_channel
 		void _set_args_for_write_back_of_inner_lvl(Tree_level_index const,
 		                                           Tree_level_index const,
 		                                           Physical_block_address const,
-		                                           unsigned const prim_idx,
-		                                           State &,
-		                                           bool &progress,
-		                                           Generated_prim &);
+		                                           bool &progress);
 
-		void _extension_step(unsigned const idx, bool &);
+		void _extension_step(bool &);
+
+	public:
+
+		void execute(bool &);
+
+		Ft_resizing_channel(Module_channel_id id) : Module_channel { FT_RESIZING, id } { }
 };
 
 class Tresor::Ft_resizing : public Module
 {
 	private:
 
-		using Request = Ft_resizing_request;
 		using Channel = Ft_resizing_channel;
 
-		enum { NR_OF_CHANNELS = 1 };
+		Constructible<Channel> _channels[1] { };
 
-		Channel _channels[NR_OF_CHANNELS] { };
+		NONCOPYABLE(Ft_resizing);
 
 	public:
 
 		void execute(bool &) override;
 
-		Ft_resizing() { register_channels<Channel>(_channels, NR_OF_CHANNELS, FT_RESIZING); }
+		Ft_resizing();
 };
 
 #endif /* _TRESOR__FT_RESIZING_H_ */

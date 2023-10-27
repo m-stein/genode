@@ -22,12 +22,6 @@
 
 using namespace Tresor;
 
-void Ft_resizing_request::print(Output &out) const
-{
-	Genode::print(out, type_to_string(_type), " root ", _ft);
-}
-
-
 Ft_resizing_request::
 Ft_resizing_request(Module_id src_module_id, Module_channel_id src_request_id, Type type, Generation curr_gen,
                     Free_tree_root &ft, Meta_tree_root &mt, Physical_block_address &pba,
@@ -36,6 +30,7 @@ Ft_resizing_request(Module_id src_module_id, Module_channel_id src_request_id, T
 	Module_request { src_module_id, src_request_id, FT_RESIZING }, _type { type }, _curr_gen { curr_gen },
 	_ft { ft }, _mt { mt }, _pba { pba }, _num_pbas { num_pbas }, _success { success }
 { }
+
 
 char const *Ft_resizing_request::type_to_string(Type op)
 {
@@ -49,10 +44,7 @@ char const *Ft_resizing_request::type_to_string(Type op)
 void Ft_resizing_channel::_set_args_for_write_back_of_inner_lvl(Tree_level_index       const  max_lvl_idx,
                                                         Tree_level_index       const  lvl_idx,
                                                         Physical_block_address const  pba,
-                                                        unsigned               const  prim_idx,
-                                                        State               &,
-                                                        bool                         &progress,
-                                                        Generated_prim      &prim)
+                                                        bool                         &progress)
 {
 	if (lvl_idx == 0) {
 		class Program_error_ft_resizing_lvl_idx_zero { };
@@ -63,14 +55,6 @@ void Ft_resizing_channel::_set_args_for_write_back_of_inner_lvl(Tree_level_index
 		class Program_error_ft_resizing_lvl_idx_large { };
 		throw Program_error_ft_resizing_lvl_idx_large { };
 	}
-
-	prim = {
-		.op     = Generated_prim::Type::WRITE,
-		.succ   = false,
-		.tg     = Tag_type::TAG_FT_RSZG_CACHE,
-		.blk_nr = pba,
-		.idx    = prim_idx
-	};
 
 	if (VERBOSE_FT_EXTENSION)
 		log("  lvl ", lvl_idx, " write to pba ", pba);
@@ -188,7 +172,7 @@ void Ft_resizing_channel::_add_new_branch_to_ft_using_pba_contingent(Tree_level_
 
 void Ft_resizing_channel::_generated_req_completed(State_uint state_uint)
 {
-	if (!_generated_prim.succ) {
+	if (!_generated_req_success) {
 		error("free tree: request (", *_req_ptr, ") failed because generated request failed)");
 		_req_ptr->_success = false;
 		_state = REQ_COMPLETE;
@@ -198,8 +182,7 @@ void Ft_resizing_channel::_generated_req_completed(State_uint state_uint)
 }
 
 
-void Ft_resizing_channel::_extension_step(unsigned const  chan_idx,
-                                             bool           &progress)
+void Ft_resizing_channel::_extension_step(bool           &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
@@ -250,10 +233,7 @@ void Ft_resizing_channel::_extension_step(unsigned const  chan_idx,
 			_set_args_for_write_back_of_inner_lvl(req._ft.max_lvl,
 			                                      _lvl_idx,
 			                                      _new_pbas.pbas[_lvl_idx],
-			                                      chan_idx,
-			                                      _state,
-			                                      progress,
-			                                      _generated_prim);
+			                                      progress);
 			if (_lvl_idx > 1)
 				_t1_blks.items[_lvl_idx].encode_to_blk(_encoded_blk);
 			else
@@ -270,7 +250,7 @@ void Ft_resizing_channel::_extension_step(unsigned const  chan_idx,
 		else
 			_t2_blk.decode_from_blk(_encoded_blk);
 
-		if (not _generated_prim.succ) {
+		if (not _generated_req_success) {
 			class Primitive_not_successfull_ft_resizing { };
 			throw Primitive_not_successfull_ft_resizing { };
 		}
@@ -309,14 +289,6 @@ void Ft_resizing_channel::_extension_step(unsigned const  chan_idx,
 				_old_pbas.pbas        [child_lvl_idx] = child.pba;
 				_old_generations.items[child_lvl_idx] = child.gen;
 
-				_generated_prim = {
-					.op     = Generated_prim::Type::READ,
-					.succ   = false,
-					.tg     = Tag_type::TAG_FT_RSZG_CACHE,
-					.blk_nr = child.pba,
-					.idx    = chan_idx
-				};
-
 				_generate_req<Block_io::Read>(READ_INNER_NODE_COMPLETED, progress, child.pba, _encoded_blk);
 
 				if (VERBOSE_FT_EXTENSION)
@@ -347,17 +319,10 @@ void Ft_resizing_channel::_extension_step(unsigned const  chan_idx,
 
 				} else {
 
-					_generated_prim = {
-						.op     = Generated_prim::Type::READ,
-						.succ   = false,
-						.tg     = Tag_type::TAG_FT_RSZG_MT_ALLOC,
-						.blk_nr = 0,
-						.idx    = chan_idx
-					};
 					_alloc_pba = _old_pbas.pbas[_alloc_lvl_idx];
 					generate_req<Meta_tree_request>(
 						ALLOC_PBA_COMPLETED, progress, Meta_tree_request::ALLOC_PBA, req._mt,
-						req._curr_gen, _alloc_pba, _generated_prim.succ);
+						req._curr_gen, _alloc_pba, _generated_req_success);
 					_state = REQ_GENERATED;
 				}
 			}
@@ -401,17 +366,10 @@ void Ft_resizing_channel::_extension_step(unsigned const  chan_idx,
 				if (VERBOSE_FT_EXTENSION)
 					log("  alloc lvl ", _alloc_lvl_idx);
 
-				_generated_prim = {
-					.op     = Generated_prim::Type::READ,
-					.succ   = false,
-					.tg     = Tag_type::TAG_FT_RSZG_MT_ALLOC,
-					.blk_nr = 0,
-					.idx    = chan_idx
-				};
 				_alloc_pba = _old_pbas.pbas[_alloc_lvl_idx];
 				generate_req<Meta_tree_request>(
 					ALLOC_PBA_COMPLETED, progress, Meta_tree_request::ALLOC_PBA, req._mt,
-					req._curr_gen, _alloc_pba, _generated_prim.succ);
+					req._curr_gen, _alloc_pba, _generated_req_success);
 				_state = REQ_GENERATED;
 			}
 		}
@@ -435,7 +393,7 @@ void Ft_resizing_channel::_extension_step(unsigned const  chan_idx,
 				_alloc_pba = _old_pbas.pbas[_alloc_lvl_idx];
 				generate_req<Meta_tree_request>(
 					ALLOC_PBA_COMPLETED, progress, Meta_tree_request::ALLOC_PBA, req._mt,
-					req._curr_gen, _alloc_pba, _generated_prim.succ);
+					req._curr_gen, _alloc_pba, _generated_req_success);
 				_state = REQ_GENERATED;
 			}
 
@@ -447,10 +405,7 @@ void Ft_resizing_channel::_extension_step(unsigned const  chan_idx,
 			_set_args_for_write_back_of_inner_lvl(req._ft.max_lvl,
 			                                      _lvl_idx,
 			                                      _new_pbas.pbas[_lvl_idx],
-			                                      chan_idx,
-			                                      _state,
-			                                      progress,
-			                                      _generated_prim);
+			                                      progress);
 			if (_lvl_idx > 1)
 				_t1_blks.items[_lvl_idx].encode_to_blk(_encoded_blk);
 			else
@@ -484,10 +439,7 @@ void Ft_resizing_channel::_extension_step(unsigned const  chan_idx,
 			_set_args_for_write_back_of_inner_lvl(req._ft.max_lvl,
 			                                      parent_lvl_idx,
 			                                      _new_pbas.pbas[parent_lvl_idx],
-			                                      chan_idx,
-			                                      _state,
-			                                      progress,
-			                                      _generated_prim);
+			                                      progress);
 
 			_lvl_idx += 1;
 
@@ -511,10 +463,7 @@ void Ft_resizing_channel::_extension_step(unsigned const  chan_idx,
 			_set_args_for_write_back_of_inner_lvl(req._ft.max_lvl,
 			                                      parent_lvl_idx,
 			                                      _new_pbas.pbas[parent_lvl_idx],
-			                                      chan_idx,
-			                                      _state,
-			                                      progress,
-			                                      _generated_prim);
+			                                      progress);
 
 			_lvl_idx += 1; // = 2
 		}
@@ -539,17 +488,21 @@ void Ft_resizing_channel::_extension_step(unsigned const  chan_idx,
 }
 
 
+void Ft_resizing_channel::execute(bool &progress)
+{
+	if (!_req_ptr)
+		return;
+
+	switch (_req_ptr->_type) {
+	case Request::EXTENSION_STEP: _extension_step(progress); break;
+	}
+}
+
+
 void Ft_resizing::execute(bool &progress)
 {
-	for (unsigned idx = 0; idx < NR_OF_CHANNELS; idx++) {
-		Channel &chan = _channels[idx];
-		if (!chan._req_ptr)
-			continue;
-
-		switch (chan._req_ptr->_type) {
-		case Request::EXTENSION_STEP: chan._extension_step(idx, progress); break;
-		}
-	}
+	for_each_channel<Channel>([&] (Channel &chan) {
+		chan.execute(progress); });
 }
 
 
@@ -557,4 +510,13 @@ void Ft_resizing_channel::_request_submitted(Module_request &mod_req)
 {
 	_req_ptr = static_cast<Request *>(&mod_req);
 	_state = REQ_SUBMITTED;
+}
+
+Ft_resizing::Ft_resizing()
+{
+	Module_channel_id id { 0 };
+	for (Constructible<Channel> &chan : _channels) {
+		chan.construct(id++);
+		add_channel(*chan);
+	}
 }
