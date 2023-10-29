@@ -500,18 +500,12 @@ void Virtual_block_device_channel::_add_new_root_lvl_to_snap()
 		if (VERBOSE_VBD_EXTENSION)
 			log("  new snap ", idx);
 	}
-	snap[idx] = { { }, _alloc_pba_for_resizing(), req._curr_gen, snap[old_idx].nr_of_leaves, new_lvl, true, 0, false };
+	snap[idx] = {
+		{ }, alloc_pba_from_range(req._pba, req._num_pbas), req._curr_gen, snap[old_idx].nr_of_leaves,
+		new_lvl, true, 0, false };
+
 	if (VERBOSE_VBD_EXTENSION)
 		log("  update snap ", idx, " ", snap[idx], "\n  update lvl ", new_lvl, " child 0 ", _t1_blks.items[new_lvl].nodes[0]);
-}
-
-
-Physical_block_address Virtual_block_device_channel::_alloc_pba_for_resizing()
-{
-	ASSERT(_req_ptr->_num_pbas);
-	_req_ptr->_pba++;
-	_req_ptr->_num_pbas--;
-	return _req_ptr->_pba - 1;
 }
 
 
@@ -535,7 +529,7 @@ void Virtual_block_device_channel::_add_new_branch_to_snap(Tree_level_index moun
 				return false;
 
 			Type_1_node &node { _t1_blks.items[lvl].nodes[node_idx] };
-			node = { _alloc_pba_for_resizing(), INITIAL_GENERATION, { } };
+			node = { alloc_pba_from_range(req._pba, req._num_pbas), INITIAL_GENERATION, { } };
 			if (VERBOSE_VBD_EXTENSION)
 				log("  update lvl ", lvl, " node ", node_idx, " ", node);
 

@@ -149,8 +149,6 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		void _add_new_branch_to_snap(Tree_level_index, Tree_node_index);
 
-		Physical_block_address _alloc_pba_for_resizing();
-
 		void _set_new_pbas_identical_to_curr_pbas();
 
 		void _generate_ft_alloc_req_for_resizing(Tree_level_index, bool &);

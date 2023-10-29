@@ -123,18 +123,12 @@ namespace Tresor {
 		return to_the_power_of<Virtual_block_address>(degree, max_lvl) - 1;
 	}
 
-	inline Physical_block_address
-	alloc_pba_from_resizing_contingent(Physical_block_address &first_pba,
-	                                   Number_of_blocks       &nr_of_pbas)
+	inline Physical_block_address alloc_pba_from_range(Physical_block_address &first_pba, Number_of_blocks &num_pbas)
 	{
-		if (nr_of_pbas == 0) {
-			class Exception_1 { };
-			throw Exception_1 { };
-		}
-		Physical_block_address const allocated_pba { first_pba };
-		first_pba  = first_pba  + 1;
-		nr_of_pbas = nr_of_pbas - 1;
-		return allocated_pba;
+		ASSERT(num_pbas);
+		first_pba++;
+		num_pbas--;
+		return first_pba - 1;
 	}
 
 	inline Tree_node_index

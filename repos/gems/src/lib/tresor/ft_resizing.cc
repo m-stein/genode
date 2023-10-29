@@ -61,7 +61,7 @@ void Ft_resizing_channel::_add_new_root_lvl()
 	req._ft.max_lvl++;
 	_t1_blks.items[req._ft.max_lvl] = { };
 	_t1_blks.items[req._ft.max_lvl].nodes[0] = req._ft.t1_node();
-	_new_pbas.pbas[req._ft.max_lvl] = alloc_pba_from_resizing_contingent(req._pba, req._num_pbas);
+	_new_pbas.pbas[req._ft.max_lvl] = alloc_pba_from_range(req._pba, req._num_pbas);
 	req._ft.t1_node({ _new_pbas.pbas[req._ft.max_lvl], req._curr_gen });
 	if (VERBOSE_FT_EXTENSION)
 		log("  set root: ", req._ft, "\n  set lvl ", req._ft.max_lvl, " child 0: ",
@@ -97,7 +97,7 @@ void Ft_resizing_channel::_add_new_branch_at(Tree_level_index dst_lvl, Tree_node
 				Tree_node_index const node_idx = (lvl == dst_lvl) ? dst_node_idx : 0;
 				Tree_level_index const child_lvl_idx = lvl - 1;
 
-				_new_pbas.pbas[child_lvl_idx] = alloc_pba_from_resizing_contingent(req._pba, req._num_pbas);
+				_new_pbas.pbas[child_lvl_idx] = alloc_pba_from_range(req._pba, req._num_pbas);
 				_t1_blks.items[lvl].nodes[node_idx] = { _new_pbas.pbas[child_lvl_idx], req._curr_gen };
 				if (VERBOSE_FT_EXTENSION)
 					log("  set lvl d ", lvl, " child ", node_idx,
@@ -111,7 +111,7 @@ void Ft_resizing_channel::_add_new_branch_at(Tree_level_index dst_lvl, Tree_node
 					if (req._num_pbas == 0)
 						break;
 
-					Physical_block_address child_pba = alloc_pba_from_resizing_contingent(req._pba, req._num_pbas);
+					Physical_block_address child_pba = alloc_pba_from_range(req._pba, req._num_pbas);
 
 					_t2_blk.nodes[node_idx] = { child_pba };
 
