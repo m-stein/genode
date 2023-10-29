@@ -64,7 +64,7 @@ void Ft_resizing_channel::_add_new_root_lvl()
 	_new_pbas.pbas[req._ft.max_lvl] = alloc_pba_from_range(req._pba, req._num_pbas);
 	req._ft.t1_node({ _new_pbas.pbas[req._ft.max_lvl], req._curr_gen });
 	if (VERBOSE_FT_EXTENSION)
-		log("  set root: ", req._ft, "\n  set lvl ", req._ft.max_lvl, " child 0: ",
+		log("  set root: ", req._ft, "\n  set lvl ", req._ft.max_lvl, " node 0: ",
 		    _t1_blks.items[req._ft.max_lvl].nodes[0]);
 }
 
@@ -85,32 +85,25 @@ void Ft_resizing_channel::_add_new_branch_at(Tree_level_index dst_lvl, Tree_node
 				log("  reset lvl ", lvl);
 		}
 	}
-	if (!req._num_pbas)
-		return;
-
-	for (Tree_level_index lvl = dst_lvl; lvl; lvl--) {
-		_lvl = lvl;
-		Tree_node_index node_idx = (lvl == dst_lvl) ? dst_node_idx : 0;
-		if (lvl > 1) {
-			if (!req._num_pbas)
-				return;
-
-			_new_pbas.pbas[lvl - 1] = alloc_pba_from_range(req._pba, req._num_pbas);
-			_t1_blks.items[lvl].nodes[node_idx] = { _new_pbas.pbas[lvl - 1], req._curr_gen };
+	for (; _lvl && req._num_pbas; _lvl--) {
+		Tree_node_index node_idx = (_lvl == dst_lvl) ? dst_node_idx : 0;
+		if (_lvl > 1) {
+			_new_pbas.pbas[_lvl - 1] = alloc_pba_from_range(req._pba, req._num_pbas);
+			_t1_blks.items[_lvl].nodes[node_idx] = { _new_pbas.pbas[_lvl - 1], req._curr_gen };
 			if (VERBOSE_FT_EXTENSION)
-				log("  set lvl d ", lvl, " child ", node_idx,
-				    ": ", _t1_blks.items[lvl].nodes[node_idx]);
+				log("  set _lvl d ", _lvl, " node ", node_idx, ": ", _t1_blks.items[_lvl].nodes[node_idx]);
 
 		} else {
 			for (; node_idx < req._ft.degree && req._num_pbas; node_idx++) {
 				_t2_blk.nodes[node_idx] = { alloc_pba_from_range(req._pba, req._num_pbas) };
 				_num_leaves++;
 				if (VERBOSE_FT_EXTENSION)
-					log("  set lvl e ", lvl, " child ", node_idx,
-					    ": ", _t2_blk.nodes[node_idx]);
+					log("  set _lvl e ", _lvl, " node ", node_idx, ": ", _t2_blk.nodes[node_idx]);
 			}
 		}
 	}
+	if (!_lvl)
+		_lvl = 1;
 }
 
 
