@@ -43,18 +43,14 @@ char const *Ft_resizing_request::type_to_string(Type op)
 
 void Ft_resizing_channel::_generate_write_blk_req(bool &progress)
 {
-	Request &req { *_req_ptr };
-	if (VERBOSE_FT_EXTENSION)
-		log("  lvl ", _lvl, " write to pba ", _new_pbas.pbas[_lvl]);
-
 	if (_lvl > 1)
 		_t1_blks.items[_lvl].encode_to_blk(_encoded_blk);
 	else
 		_t2_blk.encode_to_blk(_encoded_blk);
 
-	_generate_req<Block_io::Write>(
-		_lvl < req._ft.max_lvl ? WRITE_INNER_NODE_COMPLETED : WRITE_ROOT_NODE_COMPLETED, progress,
-		_new_pbas.pbas[_lvl], _encoded_blk);
+	_generate_req<Block_io::Write>(WRITE_BLK_COMPLETED, progress, _new_pbas.pbas[_lvl], _encoded_blk);
+	if (VERBOSE_FT_EXTENSION)
+		log("  lvl ", _lvl, " write to pba ", _new_pbas.pbas[_lvl]);
 }
 
 
@@ -73,82 +69,57 @@ void Ft_resizing_channel::_add_new_root_lvl()
 }
 
 
-void Ft_resizing_channel::_add_new_branch_to_ft_using_pba_contingent(Tree_level_index      const  mount_point_lvl_idx,
-                                                             Tree_node_index       const  mount_point_child_idx,
-                                                             Tree_degree           const  ft_degree,
-                                                             Generation            const  curr_gen,
-                                                             Physical_block_address      &first_pba,
-                                                             Number_of_blocks            &nr_of_pbas,
-                                                             Type_1_node_block_walk &t1_blks,
-                                                             Type_2_node_block           &t2_blk,
-                                                             Tree_walk_pbas              &new_pbas,
-                                                             Tree_level_index            &stopped_at_lvl_idx,
-                                                             Number_of_leaves            &nr_of_leaves)
+void Ft_resizing_channel::_add_new_branch_at(Tree_level_index dst_lvl, Tree_node_index dst_node_idx)
 {
-	nr_of_leaves       = 0;
-	stopped_at_lvl_idx = mount_point_lvl_idx;
-
-	if (mount_point_lvl_idx > 1) {
-		for (unsigned lvl_idx = 1; lvl_idx <= mount_point_lvl_idx - 1; lvl_idx++) {
-			if (lvl_idx > 1)
-				t1_blks.items[lvl_idx] = Type_1_node_block { };
+	Request &req { *_req_ptr };
+	_num_leaves = 0;
+	_lvl = dst_lvl;
+	if (dst_lvl > 1) {
+		for (Tree_level_index lvl = 1; lvl <= dst_lvl - 1; lvl++) {
+			if (lvl > 1)
+				_t1_blks.items[lvl] = Type_1_node_block { };
 			else
-				t2_blk = Type_2_node_block { };
+				_t2_blk = Type_2_node_block { };
 
 			if (VERBOSE_FT_EXTENSION)
-				log("  reset lvl ", lvl_idx);
+				log("  reset lvl ", lvl);
 		}
 	}
+	if (req._num_pbas > 0) {
 
-	if (nr_of_pbas > 0) {
+		for (Tree_level_index lvl = dst_lvl; lvl >= 1; lvl--) {
+			_lvl = lvl;
+			if (lvl > 1) {
 
-		for (unsigned lvl_idx = mount_point_lvl_idx; lvl_idx >= 1; lvl_idx --) {
-			stopped_at_lvl_idx = lvl_idx;
-
-			if (lvl_idx > 1) {
-
-				if (nr_of_pbas == 0)
+				if (req._num_pbas == 0)
 					break;
 
-				Tree_node_index const child_idx = (lvl_idx == mount_point_lvl_idx) ? mount_point_child_idx : 0;
-				Tree_level_index const child_lvl_idx = lvl_idx - 1;
+				Tree_node_index const node_idx = (lvl == dst_lvl) ? dst_node_idx : 0;
+				Tree_level_index const child_lvl_idx = lvl - 1;
 
-				new_pbas.pbas[child_lvl_idx] = alloc_pba_from_resizing_contingent(first_pba, nr_of_pbas);
-
-				t1_blks.items[lvl_idx].nodes[child_idx] = {
-					.pba  = new_pbas.pbas[child_lvl_idx],
-					.gen  = curr_gen,
-					.hash = { }
-				};
-
+				_new_pbas.pbas[child_lvl_idx] = alloc_pba_from_resizing_contingent(req._pba, req._num_pbas);
+				_t1_blks.items[lvl].nodes[node_idx] = { _new_pbas.pbas[child_lvl_idx], req._curr_gen };
 				if (VERBOSE_FT_EXTENSION)
-					log("  set lvl d ", lvl_idx, " child ", child_idx,
-					    ": ", t1_blks.items[lvl_idx].nodes[child_idx]);
+					log("  set lvl d ", lvl, " child ", node_idx,
+					    ": ", _t1_blks.items[lvl].nodes[node_idx]);
 
 			} else {
-				Tree_node_index const first_child_idx = (lvl_idx == mount_point_lvl_idx) ? mount_point_child_idx : 0;
+				Tree_node_index const first_child_idx = (lvl == dst_lvl) ? dst_node_idx : 0;
 
-				for (Tree_node_index child_idx = first_child_idx; child_idx <= ft_degree - 1; child_idx++) {
+				for (Tree_node_index node_idx = first_child_idx; node_idx <= req._ft.degree - 1; node_idx++) {
 
-					if (nr_of_pbas == 0)
+					if (req._num_pbas == 0)
 						break;
 
-					Physical_block_address child_pba = alloc_pba_from_resizing_contingent(first_pba, nr_of_pbas);
+					Physical_block_address child_pba = alloc_pba_from_resizing_contingent(req._pba, req._num_pbas);
 
-					t2_blk.nodes[child_idx] = {
-						.pba         = child_pba,
-						.last_vba    = INVALID_VBA,
-						.alloc_gen   = INITIAL_GENERATION,
-						.free_gen    = INITIAL_GENERATION,
-						.last_key_id = INVALID_KEY_ID,
-						.reserved    = false
-					};
+					_t2_blk.nodes[node_idx] = { child_pba };
 
 					if (VERBOSE_FT_EXTENSION)
-						log("  set lvl e ", lvl_idx, " child ", child_idx,
-						    ": ", t2_blk.nodes[child_idx]);
+						log("  set lvl e ", lvl, " child ", node_idx,
+						    ": ", _t2_blk.nodes[node_idx]);
 
-					nr_of_leaves = nr_of_leaves + 1;
+					_num_leaves++;
 				}
 			}
 		}
@@ -168,275 +139,182 @@ void Ft_resizing_channel::_generated_req_completed(State_uint state_uint)
 }
 
 
+void Ft_resizing_channel::_mark_req_failed(bool &progress, char const *str)
+{
+	error(Request::type_to_string(_req_ptr->_type), " request failed, reason: \"", str, "\"");
+	_req_ptr->_success = false;
+	_state = REQ_COMPLETE;
+	progress = true;
+}
+
+
 void Ft_resizing_channel::_extension_step(bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
 	case REQ_SUBMITTED:
 
-		_nr_of_leaves = 0;
-		_vba          = req._ft.num_leaves;
-
-		_old_pbas        = { };
+		_num_leaves = 0;
+		_vba = req._ft.num_leaves;
+		_old_pbas = { };
 		_old_generations = { };
-		_new_pbas        = { };
-
-		_lvl                              = req._ft.max_lvl;
-		_old_pbas.pbas[_lvl]         = req._ft.pba;
+		_new_pbas = { };
+		_lvl = req._ft.max_lvl;
+		_old_pbas.pbas[_lvl] = req._ft.pba;
 		_old_generations.items[_lvl] = req._ft.gen;
-
 		if (_vba <= tree_max_max_vba(req._ft.degree, req._ft.max_lvl)) {
 
+			_generate_req<Block_io::Read>(READ_BLK_COMPLETED, progress, req._ft.pba, _encoded_blk);
 			if (VERBOSE_FT_EXTENSION)
 				log("  root (", req._ft, "): load to lvl ", _lvl);
 
-			_generate_req<Block_io::Read>(READ_ROOT_NODE_COMPLETED, progress, req._ft.pba, _encoded_blk);
-
 		} else {
-
 			_add_new_root_lvl();
-			_add_new_branch_to_ft_using_pba_contingent(req._ft.max_lvl,
-			                                           1,
-			                                           req._ft.degree,
-			                                           req._curr_gen,
-			                                           req._pba,
-			                                           req._num_pbas,
-			                                           _t1_blks,
-			                                           _t2_blk,
-			                                           _new_pbas,
-			                                           _lvl,
-			                                           _nr_of_leaves);
-
+			_add_new_branch_at(req._ft.max_lvl, 1);
+			_generate_write_blk_req(progress);
 			if (VERBOSE_FT_EXTENSION)
 				log("  pbas allocated: curr gen ", req._curr_gen);
-
-			_generate_write_blk_req(progress);
 		}
-
 		break;
-	case READ_ROOT_NODE_COMPLETED:
-	case READ_INNER_NODE_COMPLETED:
-	{
-		if (_lvl > 1)
-			_t1_blks.items[_lvl].decode_from_blk(_encoded_blk);
-		else
-			_t2_blk.decode_from_blk(_encoded_blk);
 
-		if (not _generated_req_success) {
-			class Primitive_not_successfull_ft_resizing { };
-			throw Primitive_not_successfull_ft_resizing { };
-		}
+	case READ_BLK_COMPLETED:
 
 		if (_lvl > 1) {
 
-			if (_lvl == req._ft.max_lvl) {
+			_t1_blks.items[_lvl].decode_from_blk(_encoded_blk);
+			if (_lvl < req._ft.max_lvl) {
+				Tree_node_index node_idx = t1_node_idx_for_vba(_vba, _lvl + 1, req._ft.degree);
+				if (!check_hash(_encoded_blk, _t1_blks.items[_lvl + 1].nodes[node_idx].hash))
+					_mark_req_failed(progress, "hash mismatch");
+			} else
+				if (!check_hash(_encoded_blk, req._ft.hash))
+					_mark_req_failed(progress, "hash mismatch");
 
-				if (not check_hash(_encoded_blk, req._ft.hash)) {
-					class Program_error_ft_resizing_hash_mismatch { };
-					throw Program_error_ft_resizing_hash_mismatch { };
-				}
+			Tree_node_index node_idx = t1_node_idx_for_vba(_vba, _lvl, req._ft.degree);
+			Type_1_node &t1_node = _t1_blks.items[_lvl].nodes[node_idx];
+			if (t1_node.valid()) {
 
-			} else {
-
-				Tree_level_index const parent_lvl_idx = _lvl + 1;
-				Tree_node_index const child_idx = t1_node_idx_for_vba(_vba, parent_lvl_idx, req._ft.degree);
-				Type_1_node const &child = _t1_blks.items[parent_lvl_idx].nodes[child_idx];
-
-				if (not check_hash(_encoded_blk,
-											 child.hash)) {
-					class Program_error_ft_resizing_hash_mismatch_2 { };
-					throw Program_error_ft_resizing_hash_mismatch_2 { };
-				}
-
-			}
-
-			Tree_level_index const parent_lvl_idx = _lvl;
-			Tree_level_index const child_lvl_idx = _lvl - 1;
-			Tree_node_index const child_idx = t1_node_idx_for_vba(_vba, parent_lvl_idx, req._ft.degree);
-			Type_1_node const &child = _t1_blks.items[parent_lvl_idx].nodes[child_idx];
-
-			if (child.valid()) {
-
-				_lvl                              = child_lvl_idx;
-				_old_pbas.pbas        [child_lvl_idx] = child.pba;
-				_old_generations.items[child_lvl_idx] = child.gen;
-
-				_generate_req<Block_io::Read>(READ_INNER_NODE_COMPLETED, progress, child.pba, _encoded_blk);
-
+				_lvl--;
+				_old_pbas.pbas [_lvl] = t1_node.pba;
+				_old_generations.items[_lvl] = t1_node.gen;
+				_generate_req<Block_io::Read>(READ_BLK_COMPLETED, progress, t1_node.pba, _encoded_blk);
 				if (VERBOSE_FT_EXTENSION)
-					log("  lvl ", parent_lvl_idx, " child ", child_idx,
-						" (", child, "): load to lvl ", _lvl);
+					log("  lvl ", _lvl + 1, " node ", node_idx, " (", t1_node, "): load to lvl ", _lvl);
 
 			} else {
 
-				_add_new_branch_to_ft_using_pba_contingent(parent_lvl_idx,
-														   child_idx,
-														   req._ft.degree,
-														   req._curr_gen,
-														   req._pba,
-														   req._num_pbas,
-														   _t1_blks,
-														   _t2_blk,
-														   _new_pbas,
-														   _lvl,
-														   _nr_of_leaves);
+				_alloc_lvl = _lvl;
+				_add_new_branch_at(_lvl, node_idx);
+				if (_old_generations.items[_alloc_lvl] == req._curr_gen) {
 
-				_alloc_lvl_idx = parent_lvl_idx;
-
-				if (_old_generations.items[_alloc_lvl_idx] == req._curr_gen) {
-
-					_alloc_pba = _old_pbas.pbas[_alloc_lvl_idx];
+					_alloc_pba = _old_pbas.pbas[_alloc_lvl];
 					_state = ALLOC_PBA_COMPLETED;
 					progress       = true;
 
 				} else {
 
-					_alloc_pba = _old_pbas.pbas[_alloc_lvl_idx];
-					generate_req<Meta_tree_request>(
-						ALLOC_PBA_COMPLETED, progress, Meta_tree_request::ALLOC_PBA, req._mt,
-						req._curr_gen, _alloc_pba, _generated_req_success);
-					_state = REQ_GENERATED;
+					_alloc_pba = _old_pbas.pbas[_alloc_lvl];
+					_generate_req<Meta_tree_request>(
+						ALLOC_PBA_COMPLETED, progress, Meta_tree_request::ALLOC_PBA, req._mt, req._curr_gen, _alloc_pba);
 				}
 			}
 		} else {
 
+			_t2_blk.decode_from_blk(_encoded_blk);
 			{
 				Tree_level_index const parent_lvl_idx = _lvl + 1;
-				Tree_node_index const child_idx = t1_node_idx_for_vba(_vba, parent_lvl_idx, req._ft.degree);
+				Tree_node_index const node_idx = t1_node_idx_for_vba(_vba, parent_lvl_idx, req._ft.degree);
 
-				if (not check_hash(_encoded_blk,
-											 _t1_blks.items[parent_lvl_idx].nodes[child_idx].hash)) {
-					class Program_error_ft_resizing_hash_mismatch_3 { };
-					throw Program_error_ft_resizing_hash_mismatch_3 { };
-				}
+				if (!check_hash(_encoded_blk, _t1_blks.items[parent_lvl_idx].nodes[node_idx].hash))
+					_mark_req_failed(progress, "hash mismatch");
 			}
 
 			{
 				Tree_level_index const parent_lvl_idx = _lvl;
-				Tree_node_index const child_idx = t2_child_idx_for_vba(_vba, req._ft.degree);
-				Type_2_node const &child = _t2_blk.nodes[child_idx];
+				Tree_node_index const node_idx = t2_child_idx_for_vba(_vba, req._ft.degree);
+				Type_2_node const &child = _t2_blk.nodes[node_idx];
+				if (child.valid())
+					_mark_req_failed(progress, "t2 node valid");
 
-				if (child.valid()) {
-					class Program_error_ft_resizing_t2_valid { };
-					throw Program_error_ft_resizing_t2_valid { };
-				}
-
-				_add_new_branch_to_ft_using_pba_contingent(parent_lvl_idx,
-														   child_idx,
-														   req._ft.degree,
-														   req._curr_gen,
-														   req._pba,
-														   req._num_pbas,
-														   _t1_blks,
-														   _t2_blk,
-														   _new_pbas,
-														   _lvl,
-														   _nr_of_leaves);
-
-				_alloc_lvl_idx = parent_lvl_idx;
-
+				_add_new_branch_at(parent_lvl_idx, node_idx);
+				_alloc_lvl = parent_lvl_idx;
 				if (VERBOSE_FT_EXTENSION)
-					log("  alloc lvl ", _alloc_lvl_idx);
+					log("  alloc lvl ", _alloc_lvl);
 
-				_alloc_pba = _old_pbas.pbas[_alloc_lvl_idx];
-				generate_req<Meta_tree_request>(
-					ALLOC_PBA_COMPLETED, progress, Meta_tree_request::ALLOC_PBA, req._mt,
-					req._curr_gen, _alloc_pba, _generated_req_success);
-				_state = REQ_GENERATED;
+				_alloc_pba = _old_pbas.pbas[_alloc_lvl];
+				_generate_req<Meta_tree_request>(
+					ALLOC_PBA_COMPLETED, progress, Meta_tree_request::ALLOC_PBA, req._mt, req._curr_gen, _alloc_pba);
 			}
 		}
 		break;
-	}
+
 	case ALLOC_PBA_COMPLETED:
 
-		_new_pbas.pbas[_alloc_lvl_idx] = _alloc_pba;
-		if (_alloc_lvl_idx < req._ft.max_lvl) {
+		_new_pbas.pbas[_alloc_lvl] = _alloc_pba;
+		if (_alloc_lvl < req._ft.max_lvl) {
 
-			_alloc_lvl_idx = _alloc_lvl_idx + 1;
+			_alloc_lvl++;
+			if (_old_generations.items[_alloc_lvl] == req._curr_gen) {
 
-			if (_old_generations.items[_alloc_lvl_idx] == req._curr_gen) {
-
-				_alloc_pba = _old_pbas.pbas[_alloc_lvl_idx];
+				_alloc_pba = _old_pbas.pbas[_alloc_lvl];
 				_state = ALLOC_PBA_COMPLETED;
 				progress = true;
 
 			} else {
 
-				_alloc_pba = _old_pbas.pbas[_alloc_lvl_idx];
-				generate_req<Meta_tree_request>(
-					ALLOC_PBA_COMPLETED, progress, Meta_tree_request::ALLOC_PBA, req._mt,
-					req._curr_gen, _alloc_pba, _generated_req_success);
-				_state = REQ_GENERATED;
+				_alloc_pba = _old_pbas.pbas[_alloc_lvl];
+				_generate_req<Meta_tree_request>(
+					ALLOC_PBA_COMPLETED, progress, Meta_tree_request::ALLOC_PBA, req._mt, req._curr_gen, _alloc_pba);
 			}
-
 		} else {
-
+			_generate_write_blk_req(progress);
 			if (VERBOSE_FT_EXTENSION)
 				log("  pbas allocated: curr gen ", req._curr_gen);
-
-			_generate_write_blk_req(progress);
 		}
 		break;
-	case WRITE_INNER_NODE_COMPLETED:
 
-		if (_lvl > 1) {
+	case WRITE_BLK_COMPLETED:
 
-			Tree_level_index const parent_lvl_idx = _lvl + 1;
-			Tree_level_index const child_lvl_idx  = _lvl;
-			Tree_node_index const child_idx = t1_node_idx_for_vba(_vba, parent_lvl_idx, req._ft.degree);
+		if (_lvl < req._ft.max_lvl) {
+			if (_lvl > 1) {
+				Tree_node_index node_idx = t1_node_idx_for_vba(_vba, _lvl + 1, req._ft.degree);
+				Type_1_node &t1_node { _t1_blks.items[_lvl + 1].nodes[node_idx] };
+				t1_node = { _new_pbas.pbas[_lvl], req._curr_gen };
+				calc_hash(_encoded_blk, t1_node.hash);
+				if (VERBOSE_FT_EXTENSION)
+					log("  set lvl ", _lvl + 1, " node ", node_idx, ": ", t1_node);
 
-			Type_1_node &child {
-				_t1_blks.items[parent_lvl_idx].nodes[child_idx] };
+				_lvl++;
+				_generate_write_blk_req(progress);
+			} else {
+				Tree_node_index node_idx = t1_node_idx_for_vba(_vba, _lvl + 1, req._ft.degree);
+				Type_1_node &t1_node = _t1_blks.items[_lvl + 1].nodes[node_idx];
+				t1_node = { _new_pbas.pbas[_lvl], req._curr_gen };
+				calc_hash(_encoded_blk, t1_node.hash);
+				if (VERBOSE_FT_EXTENSION)
+					log("  set lvl ", _lvl + 1, " t1_node ", node_idx, ": ", t1_node);
 
-			child = {
-				.pba     = _new_pbas.pbas[child_lvl_idx],
-				.gen     = req._curr_gen,
-				.hash    = { },
-			};
-
-			calc_hash(_encoded_blk, child.hash);
-
-			if (VERBOSE_FT_EXTENSION)
-				log("  set lvl ", parent_lvl_idx, " child ", child_idx,
-				    ": ", child);
-
-			_lvl++;
-			_generate_write_blk_req(progress);
-
+				_lvl++;
+				_generate_write_blk_req(progress);
+			}
 		} else {
-
-			Tree_level_index const parent_lvl_idx = _lvl + 1;
-			Tree_level_index const child_lvl_idx = _lvl;
-			Tree_node_index const child_idx = t1_node_idx_for_vba(_vba, parent_lvl_idx, req._ft.degree);
-			Type_1_node &child = _t1_blks.items[parent_lvl_idx].nodes[child_idx];
-			child = {
-				.pba = _new_pbas.pbas[child_lvl_idx],
-				.gen = req._curr_gen,
-			};
-
-			calc_hash(_encoded_blk, child.hash);
-
-			if (VERBOSE_FT_EXTENSION)
-				log("  set lvl ", parent_lvl_idx, " child ", child_idx,
-				    ": ", child);
-
-			_lvl++;
-			_generate_write_blk_req(progress);
+			req._ft.t1_node({ _new_pbas.pbas[_lvl], req._curr_gen });
+			calc_hash(_encoded_blk, req._ft.hash);
+			req._ft.num_leaves += _num_leaves;
+			_mark_req_successful(progress);
 		}
 		break;
 
-	case WRITE_ROOT_NODE_COMPLETED: {
-
-		req._ft.t1_node({ _new_pbas.pbas[_lvl], req._curr_gen });
-		calc_hash(_encoded_blk, req._ft.hash);
-		req._ft.num_leaves += _nr_of_leaves;
-		req._success = true;
-		_state = REQ_COMPLETE;
-		progress = true;
-		break;
-	}
 	default: break;
 	}
+}
+
+
+void Ft_resizing_channel::_mark_req_successful(bool &progress)
+{
+	_req_ptr->_success = true;
+	_state = REQ_COMPLETE;
+	progress = true;
 }
 
 

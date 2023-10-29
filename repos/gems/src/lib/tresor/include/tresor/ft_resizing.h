@@ -64,23 +64,21 @@ class Tresor::Ft_resizing_channel : public Module_channel
 		using Request = Ft_resizing_request;
 
 		enum State {
-			REQ_SUBMITTED, READ_ROOT_NODE_COMPLETED, READ_INNER_NODE_COMPLETED,
-			ALLOC_PBA_COMPLETED, WRITE_INNER_NODE_COMPLETED, WRITE_ROOT_NODE_COMPLETED,
-			REQ_GENERATED, REQ_COMPLETE };
+			REQ_SUBMITTED, READ_BLK_COMPLETED, REQ_GENERATED, REQ_COMPLETE, ALLOC_PBA_COMPLETED, WRITE_BLK_COMPLETED };
 
 		Request *_req_ptr { nullptr };
 		State _state { REQ_COMPLETE };
 		Physical_block_address _alloc_pba { 0 };
+		Tree_level_index _alloc_lvl { 0 };
 		Type_1_node_block_walk _t1_blks { };
 		Type_2_node_block _t2_blk { };
 		Tree_level_index _lvl { 0 };
-		Tree_level_index _alloc_lvl_idx { 0 };
 		Virtual_block_address _vba { };
 		Tree_walk_pbas _old_pbas { };
 		Tree_walk_generations _old_generations { };
 		Tree_walk_pbas _new_pbas { };
 		Block _encoded_blk { };
-		Number_of_leaves _nr_of_leaves { 0 };
+		Number_of_leaves _num_leaves { 0 };
 		Hash _dummy_hash { };
 		bool _generated_req_success { };
 
@@ -99,23 +97,17 @@ class Tresor::Ft_resizing_channel : public Module_channel
 
 		bool _request_complete() override { return _state == REQ_COMPLETE; }
 
-		void _add_new_branch_to_ft_using_pba_contingent(Tree_level_index const,
-		                                                Tree_node_index const,
-		                                                Tree_degree const,
-		                                                Generation const,
-		                                                Physical_block_address &,
-		                                                Number_of_blocks &,
-		                                                Type_1_node_block_walk &,
-		                                                Type_2_node_block &,
-		                                                Tree_walk_pbas &,
-		                                                Tree_level_index &,
-		                                                Number_of_leaves &);
+		void _add_new_branch_at(Tree_level_index, Tree_node_index);
 
 		void _add_new_root_lvl();
 
 		void _generate_write_blk_req(bool &);
 
 		void _extension_step(bool &);
+
+		void _mark_req_failed(bool &, char const *);
+
+		void _mark_req_successful(bool &);
 
 	public:
 
