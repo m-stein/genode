@@ -34,7 +34,7 @@ class Tresor::Free_tree_request : public Module_request
 
 	public:
 
-		enum Type { ALLOC_FOR_NON_RKG, ALLOC_FOR_RKG_CURR_GEN_BLKS, ALLOC_FOR_RKG_OLD_GEN_BLKS };
+		enum Type { ALLOC_FOR_NON_RKG, ALLOC_FOR_RKG_CURR_GEN_BLKS, ALLOC_FOR_RKG_OLD_GEN_BLKS, EXTENSION_STEP };
 
 	private:
 
@@ -57,15 +57,17 @@ class Tresor::Free_tree_request : public Module_request
 		bool &_success;
 		Snapshots const &_snapshots;
 		Generation const _last_secured_gen;
+		Physical_block_address &_pba;
+		Number_of_blocks &_num_pbas;
 
 		NONCOPYABLE(Free_tree_request);
 
 	public:
 
-		Free_tree_request(Module_id, Module_request_id, Type, Free_tree_root &, Meta_tree_root &, Snapshots const &,
+		Free_tree_request(Module_id, Module_channel_id, Type, Free_tree_root &, Meta_tree_root &, Snapshots const &,
 		                  Generation, Generation, Generation, Number_of_blocks, Tree_walk_pbas &, Type_1_node_walk const &,
 		                  Tree_level_index, Virtual_block_address, Tree_degree, Virtual_block_address,
-		                  bool, Key_id, Key_id, Virtual_block_address, bool &);
+		                  bool, Key_id, Key_id, Virtual_block_address, Physical_block_address &, Number_of_blocks &, bool &);
 
 		static char const *type_to_string(Type type);
 
@@ -79,14 +81,23 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		using Request = Free_tree_request;
 
-		enum State { REQ_SUBMITTED, REQ_GENERATED, SEEK_DOWN, SEEK_LEFT_OR_UP, WRITE_BLK, COMPLETE };
+		enum State {
+			REQ_SUBMITTED, REQ_GENERATED, SEEK_DOWN, SEEK_LEFT_OR_UP, WRITE_BLK, READ_BLK_SUCCEEDED,
+			ALLOC_PBA_SUCCEEDED, WRITE_BLK_SUCCEEDED, REQ_COMPLETE };
 
-		State _state { COMPLETE };
 		Request *_req_ptr { nullptr };
+		State _state { REQ_COMPLETE };
+		Virtual_block_address _vba { };
+		Tree_walk_pbas _old_pbas { };
+		Tree_walk_pbas _new_pbas { };
+		Tree_walk_generations _old_generations { };
+		Number_of_leaves _num_leaves { 0 };
+		Physical_block_address _alloc_pba { 0 };
+		Tree_level_index _alloc_lvl { 0 };
 		Number_of_blocks _num_pbas { 0 };
 		Block _blk { };
 		Tree_node_index _node_idx[TREE_MAX_NR_OF_LEVELS] { };
-		bool _alloc_pbas { false };
+		bool _apply_allocation { false };
 		Type_1_node_block _t1_blks[TREE_MAX_NR_OF_LEVELS] { };
 		Type_2_node_block _t2_blk { };
 		Tree_degree_log_2 _vbd_degree_log_2 { 0 };
@@ -106,7 +117,7 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		void _request_submitted(Module_request &) override;
 
-		bool _request_complete() override { return _state == COMPLETE; }
+		bool _request_complete() override { return _state == REQ_COMPLETE; }
 
 		void _mark_req_failed(bool &, char const *);
 
@@ -122,6 +133,16 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		void _advance_to_next_node();
 
+		void _add_new_branch_at(Tree_level_index, Tree_node_index);
+
+		void _add_new_root_lvl();
+
+		void _generate_write_blk_req(bool &);
+
+		void _extension_step(bool &);
+
+		void _alloc_pbas(bool &);
+
 	public:
 
 		Free_tree_channel(Module_channel_id id) : Module_channel { FREE_TREE, id } { }
@@ -134,6 +155,7 @@ class Tresor::Free_tree : public Module
 	private:
 
 		using Channel = Free_tree_channel;
+		using Request = Free_tree_request;
 
 		Constructible<Channel> _channels[1] { };
 
@@ -142,6 +164,13 @@ class Tresor::Free_tree : public Module
 		void execute(bool &) override;
 
 	public:
+
+		struct Extension_step : Request {
+			Extension_step(Module_id mod_id, Module_channel_id chan_id, Generation curr_gen, Free_tree_root &ft, Meta_tree_root &mt,
+			               Physical_block_address &pba, Number_of_blocks &num_pbas, bool &succ)
+			: Request(mod_id, chan_id, Request::EXTENSION_STEP, ft, mt, *(Snapshots *)0, 0, curr_gen, 0, 0, *(Tree_walk_pbas*)0,
+			                    *(Type_1_node_walk*)0, 0, 0, 0, 0, 0, 0, 0, 0, pba, num_pbas, succ) { }
+		};
 
 		Free_tree();
 };

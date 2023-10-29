@@ -196,9 +196,8 @@ void Superblock_control_channel::_tree_ext_step(Superblock::State sb_state, bool
 					_sb.meta_number, _sb.meta_gen, _sb.meta_hash, _sb.meta_max_level, _sb.meta_degree,
 					_sb.meta_leaves);
 
-				_generate_req<Ft_resizing_request>(
-					TREE_EXT_STEP_IN_TREE_SUCCEEDED, progress,
-					Ft_resizing_request::EXTENSION_STEP, _curr_gen, *_ft, *_mt, _pba, req._nr_of_blks);
+				_generate_req<Free_tree::Extension_step>(
+					TREE_EXT_STEP_IN_TREE_SUCCEEDED, progress, _curr_gen, *_ft, *_mt, _pba, req._nr_of_blks);
 			}
 		} else
 			_mark_req_failed(progress, "check superblock state");

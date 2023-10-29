@@ -748,7 +748,8 @@ void Virtual_block_device_channel::_generate_ft_req(State complete_state, bool p
 	_generate_req<Free_tree_request>(
 		complete_state, progress, type, req._ft, req._mt, req._snapshots, req._last_secured_gen, req._curr_gen,
 		_free_gen, _num_blks, _new_pbas, _t1_nodes, req._snapshots.items[_snap_idx].max_level, _vba, req._vbd_degree,
-		req._vbd_highest_vba, req._rekeying, req._prev_key_id, req._curr_key_id, _vba);
+		req._vbd_highest_vba, req._rekeying, req._prev_key_id, req._curr_key_id, _vba, *(Physical_block_address*)0,
+		*(Number_of_blocks*)0);
 }
 
 
