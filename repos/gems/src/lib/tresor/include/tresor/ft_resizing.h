@@ -79,7 +79,6 @@ class Tresor::Ft_resizing_channel : public Module_channel
 		Tree_walk_pbas _new_pbas { };
 		Block _encoded_blk { };
 		Number_of_leaves _num_leaves { 0 };
-		Hash _dummy_hash { };
 		bool _generated_req_success { };
 
 		NONCOPYABLE(Ft_resizing_channel);

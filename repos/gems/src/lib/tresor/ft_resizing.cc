@@ -147,7 +147,6 @@ void Ft_resizing_channel::_extension_step(bool &progress)
 			_generate_req<Block_io::Read>(READ_BLK_COMPLETED, progress, req._ft.pba, _encoded_blk);
 			if (VERBOSE_FT_EXTENSION)
 				log("  root (", req._ft, "): load to lvl ", _lvl);
-
 		} else {
 			_add_new_root_lvl();
 			_add_new_branch_at(req._ft.max_lvl, 1);
@@ -180,51 +179,38 @@ void Ft_resizing_channel::_extension_step(bool &progress)
 				_generate_req<Block_io::Read>(READ_BLK_COMPLETED, progress, t1_node.pba, _encoded_blk);
 				if (VERBOSE_FT_EXTENSION)
 					log("  lvl ", _lvl + 1, " node ", node_idx, " (", t1_node, "): load to lvl ", _lvl);
-
 			} else {
-
 				_alloc_lvl = _lvl;
 				_add_new_branch_at(_lvl, node_idx);
 				if (_old_generations.items[_alloc_lvl] == req._curr_gen) {
 
 					_alloc_pba = _old_pbas.pbas[_alloc_lvl];
 					_state = ALLOC_PBA_COMPLETED;
-					progress       = true;
-
+					progress = true;
 				} else {
-
 					_alloc_pba = _old_pbas.pbas[_alloc_lvl];
 					_generate_req<Meta_tree_request>(
 						ALLOC_PBA_COMPLETED, progress, Meta_tree_request::ALLOC_PBA, req._mt, req._curr_gen, _alloc_pba);
 				}
 			}
 		} else {
-
 			_t2_blk.decode_from_blk(_encoded_blk);
-			{
-				Tree_level_index const parent_lvl_idx = _lvl + 1;
-				Tree_node_index const node_idx = t1_node_idx_for_vba(_vba, parent_lvl_idx, req._ft.degree);
+			Tree_node_index t1_node_idx = t1_node_idx_for_vba(_vba, _lvl + 1, req._ft.degree);
+			if (!check_hash(_encoded_blk, _t1_blks.items[_lvl + 1].nodes[t1_node_idx].hash))
+				_mark_req_failed(progress, "hash mismatch");
 
-				if (!check_hash(_encoded_blk, _t1_blks.items[parent_lvl_idx].nodes[node_idx].hash))
-					_mark_req_failed(progress, "hash mismatch");
-			}
+			Tree_node_index t2_node_idx = t2_node_idx_for_vba(_vba, req._ft.degree);
+			if (_t2_blk.nodes[t2_node_idx].valid())
+				_mark_req_failed(progress, "t2 node valid");
 
-			{
-				Tree_level_index const parent_lvl_idx = _lvl;
-				Tree_node_index const node_idx = t2_child_idx_for_vba(_vba, req._ft.degree);
-				Type_2_node const &child = _t2_blk.nodes[node_idx];
-				if (child.valid())
-					_mark_req_failed(progress, "t2 node valid");
+			_add_new_branch_at(_lvl, t2_node_idx);
+			_alloc_lvl = _lvl;
+			if (VERBOSE_FT_EXTENSION)
+				log("  alloc lvl ", _alloc_lvl);
 
-				_add_new_branch_at(parent_lvl_idx, node_idx);
-				_alloc_lvl = parent_lvl_idx;
-				if (VERBOSE_FT_EXTENSION)
-					log("  alloc lvl ", _alloc_lvl);
-
-				_alloc_pba = _old_pbas.pbas[_alloc_lvl];
-				_generate_req<Meta_tree_request>(
-					ALLOC_PBA_COMPLETED, progress, Meta_tree_request::ALLOC_PBA, req._mt, req._curr_gen, _alloc_pba);
-			}
+			_alloc_pba = _old_pbas.pbas[_alloc_lvl];
+			_generate_req<Meta_tree_request>(
+				ALLOC_PBA_COMPLETED, progress, Meta_tree_request::ALLOC_PBA, req._mt, req._curr_gen, _alloc_pba);
 		}
 		break;
 
@@ -239,9 +225,7 @@ void Ft_resizing_channel::_extension_step(bool &progress)
 				_alloc_pba = _old_pbas.pbas[_alloc_lvl];
 				_state = ALLOC_PBA_COMPLETED;
 				progress = true;
-
 			} else {
-
 				_alloc_pba = _old_pbas.pbas[_alloc_lvl];
 				_generate_req<Meta_tree_request>(
 					ALLOC_PBA_COMPLETED, progress, Meta_tree_request::ALLOC_PBA, req._mt, req._curr_gen, _alloc_pba);
@@ -321,6 +305,7 @@ void Ft_resizing_channel::_request_submitted(Module_request &mod_req)
 	_req_ptr = static_cast<Request *>(&mod_req);
 	_state = REQ_SUBMITTED;
 }
+
 
 Ft_resizing::Ft_resizing()
 {
