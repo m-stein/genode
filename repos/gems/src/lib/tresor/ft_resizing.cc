@@ -75,7 +75,7 @@ void Ft_resizing_channel::_add_new_branch_at(Tree_level_index dst_lvl, Tree_node
 	_num_leaves = 0;
 	_lvl = dst_lvl;
 	if (dst_lvl > 1) {
-		for (Tree_level_index lvl = 1; lvl <= dst_lvl - 1; lvl++) {
+		for (Tree_level_index lvl = 1; lvl < dst_lvl; lvl++) {
 			if (lvl > 1)
 				_t1_blks.items[lvl] = Type_1_node_block { };
 			else
@@ -85,42 +85,29 @@ void Ft_resizing_channel::_add_new_branch_at(Tree_level_index dst_lvl, Tree_node
 				log("  reset lvl ", lvl);
 		}
 	}
-	if (req._num_pbas > 0) {
+	if (!req._num_pbas)
+		return;
 
-		for (Tree_level_index lvl = dst_lvl; lvl >= 1; lvl--) {
-			_lvl = lvl;
-			if (lvl > 1) {
+	for (Tree_level_index lvl = dst_lvl; lvl; lvl--) {
+		_lvl = lvl;
+		Tree_node_index node_idx = (lvl == dst_lvl) ? dst_node_idx : 0;
+		if (lvl > 1) {
+			if (!req._num_pbas)
+				return;
 
-				if (req._num_pbas == 0)
-					break;
+			_new_pbas.pbas[lvl - 1] = alloc_pba_from_range(req._pba, req._num_pbas);
+			_t1_blks.items[lvl].nodes[node_idx] = { _new_pbas.pbas[lvl - 1], req._curr_gen };
+			if (VERBOSE_FT_EXTENSION)
+				log("  set lvl d ", lvl, " child ", node_idx,
+				    ": ", _t1_blks.items[lvl].nodes[node_idx]);
 
-				Tree_node_index const node_idx = (lvl == dst_lvl) ? dst_node_idx : 0;
-				Tree_level_index const child_lvl_idx = lvl - 1;
-
-				_new_pbas.pbas[child_lvl_idx] = alloc_pba_from_range(req._pba, req._num_pbas);
-				_t1_blks.items[lvl].nodes[node_idx] = { _new_pbas.pbas[child_lvl_idx], req._curr_gen };
+		} else {
+			for (; node_idx < req._ft.degree && req._num_pbas; node_idx++) {
+				_t2_blk.nodes[node_idx] = { alloc_pba_from_range(req._pba, req._num_pbas) };
+				_num_leaves++;
 				if (VERBOSE_FT_EXTENSION)
-					log("  set lvl d ", lvl, " child ", node_idx,
-					    ": ", _t1_blks.items[lvl].nodes[node_idx]);
-
-			} else {
-				Tree_node_index const first_child_idx = (lvl == dst_lvl) ? dst_node_idx : 0;
-
-				for (Tree_node_index node_idx = first_child_idx; node_idx <= req._ft.degree - 1; node_idx++) {
-
-					if (req._num_pbas == 0)
-						break;
-
-					Physical_block_address child_pba = alloc_pba_from_range(req._pba, req._num_pbas);
-
-					_t2_blk.nodes[node_idx] = { child_pba };
-
-					if (VERBOSE_FT_EXTENSION)
-						log("  set lvl e ", lvl, " child ", node_idx,
-						    ": ", _t2_blk.nodes[node_idx]);
-
-					_num_leaves++;
-				}
+					log("  set lvl e ", lvl, " child ", node_idx,
+					    ": ", _t2_blk.nodes[node_idx]);
 			}
 		}
 	}

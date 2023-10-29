@@ -186,10 +186,7 @@ struct Tresor::Byte_range
 		enum { MAX_BYTES_PER_LINE = 64 };
 		enum { MAX_BYTES_PER_WORD = 4 };
 
-		if (size > 0xffff) {
-			class Exception_1 { };
-			throw Exception_1 { };
-		}
+		ASSERT(size <= 0xffff);
 		if (size > MAX_BYTES_PER_LINE) {
 
 			for (size_t idx { 0 }; idx < size; idx++) {
