@@ -48,6 +48,8 @@ class Tresor::Block_io_request : public Module_request
 		Hash &_hash;
 		bool &_success;
 
+		NONCOPYABLE(Block_io_request);
+
 	public:
 
 		Block_io_request(Module_id, Module_channel_id, Type, Request_offset, Request_tag, Key_id,
@@ -62,7 +64,11 @@ class Tresor::Block_io_channel : public Module_channel
 {
 	private:
 
-		friend class Block_io;
+		using Request = Block_io_request;
+		using Read_result = Vfs::File_io_service::Read_result;
+		using Write_result = Vfs::File_io_service::Write_result;
+		using file_size = Vfs::file_size;
+		using file_offset = Vfs::file_offset;
 
 		enum State {
 			INACTIVE, SUBMITTED, PENDING, IN_PROGRESS, COMPLETE,
@@ -76,13 +82,16 @@ class Tresor::Block_io_channel : public Module_channel
 		};
 
 		State _state { INACTIVE };
-		Key_value _dummy_key { };
-		Hash _dummy_hash { };
 		Vfs::file_offset _nr_of_processed_bytes { 0 };
 		size_t _nr_of_remaining_bytes { 0 };
 		Block _blk_buf { };
 		bool _generated_req_success { false };
-		Constructible<Block_io_request> _request { };
+		Block_io_request *_req_ptr { };
+		Vfs::Env &_vfs_env;
+		String<32> const _path;
+		Vfs::Vfs_handle &_vfs_handle { vfs_open_rw(_vfs_env, _path) };
+
+		NONCOPYABLE(Block_io_channel);
 
 		void _generated_req_completed(State_uint) override;
 
@@ -93,13 +102,29 @@ class Tresor::Block_io_channel : public Module_channel
 			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 		}
 
-		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
+		void _request_submitted(Module_request &) override;
 
 		bool _request_complete() override { return _state == COMPLETE; }
 
+		void _execute_read(bool &);
+
+		void _execute_write(bool &);
+
+		void _execute_read_client_data(bool &);
+
+		void _execute_write_client_data(bool &);
+
+		void _execute_sync(bool &);
+
+		void _mark_req_failed(bool &, char const *);
+
+		void _mark_req_successful(bool &);
+
 	public:
 
-		Block_io_channel(Module_channel_id id) : Module_channel { BLOCK_IO, id } { }
+		Block_io_channel(Module_channel_id, Vfs::Env &, Xml_node const &);
+
+		void execute(bool &);
 };
 
 class Tresor::Block_io : public Module
@@ -108,52 +133,10 @@ class Tresor::Block_io : public Module
 
 		using Request = Block_io_request;
 		using Channel = Block_io_channel;
-		using Read_result = Vfs::File_io_service::Read_result;
-		using Write_result = Vfs::File_io_service::Write_result;
-		using file_size = Vfs::file_size;
-		using file_offset = Vfs::file_offset;
 
-		enum { NR_OF_CHANNELS = 1 };
-
-		String<32> const _path;
-		Vfs::Env &_vfs_env;
-		Vfs::Vfs_handle &_vfs_handle { vfs_open_rw(_vfs_env, _path) };
 		Constructible<Channel> _channels[1] { };
 
-		void _execute_read(Channel &channel,
-		                   bool    &progress);
-
-		void _execute_write(Channel &channel,
-		                    bool    &progress);
-
-		void _execute_read_client_data(Channel &channel,
-		                               bool    &progress);
-
-		void _execute_write_client_data(Channel &channel,
-		                                bool    &progress);
-
-		void _execute_sync(Channel &channel,
-		                   bool    &progress);
-
-		void _mark_req_failed(Channel    &channel,
-		                      bool       &progress,
-		                      char const *str);
-
-		void _mark_req_successful(Channel &channel,
-		                          bool    &progress);
-
-		bool ready_to_submit_request() override;
-
-		void submit_request(Module_request &req) override;
-
-		bool _peek_completed_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_completed_request(Module_request &req) override;
-
-		void execute(bool &) override;
-
-		bool new_submit_request() override { return false; }
+		NONCOPYABLE(Block_io);
 
 	public:
 
@@ -190,6 +173,8 @@ class Tresor::Block_io : public Module
 		};
 
 		Block_io(Vfs::Env &, Xml_node const &);
+
+		void execute(bool &) override;
 };
 
 #endif /* _TRESOR__BLOCK_IO_H_ */

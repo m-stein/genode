@@ -342,7 +342,7 @@ void Trust_anchor_channel::execute(bool &progress)
 
 Trust_anchor_channel::Trust_anchor_channel(Module_channel_id id, Vfs::Env &vfs_env, Xml_node const &xml_node)
 :
-	Module_channel { TRUST_ANCHOR, id }, _vfs_env { vfs_env }, _path { xml_node.attribute_value("path", String<128>()) }
+	Module_channel { TRUST_ANCHOR, id }, _vfs_env { vfs_env }, _path { xml_node.attribute_value("path", Path()) }
 { }
 
 
