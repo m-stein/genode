@@ -28,13 +28,14 @@ namespace Tresor {
 
 class Tresor::Block_io_request : public Module_request
 {
+	friend class Block_io;
+	friend class Block_io_channel;
+
 	public:
 
 		enum Type { READ, WRITE, SYNC, READ_CLIENT_DATA, WRITE_CLIENT_DATA };
 
 	private:
-
-		friend class Block_io;
 
 		Type _type;
 		Request_offset _client_req_offset;
@@ -57,7 +58,7 @@ class Tresor::Block_io_request : public Module_request
 		void print(Output &out) const override;
 };
 
-class Tresor::Block_io_channel
+class Tresor::Block_io_channel : public Module_channel
 {
 	private:
 
@@ -70,7 +71,8 @@ class Tresor::Block_io_channel
 			ENCRYPT_CLIENT_DATA_COMPLETE,
 			DECRYPT_CLIENT_DATA_PENDING,
 			DECRYPT_CLIENT_DATA_IN_PROGRESS,
-			DECRYPT_CLIENT_DATA_COMPLETE
+			DECRYPT_CLIENT_DATA_COMPLETE,
+			REQ_GENERATED
 		};
 
 		State _state { INACTIVE };
@@ -81,6 +83,23 @@ class Tresor::Block_io_channel
 		Block _blk_buf { };
 		bool _generated_req_success { false };
 		Constructible<Block_io_request> _request { };
+
+		void _generated_req_completed(State_uint) override;
+
+		template <typename REQUEST, typename... ARGS>
+		void _generate_req(State_uint state, bool &progress, ARGS &&... args)
+		{
+			_state = REQ_GENERATED;
+			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
+		}
+
+		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
+
+		bool _request_complete() override { return _state == COMPLETE; }
+
+	public:
+
+		Block_io_channel(Module_channel_id id) : Module_channel { BLOCK_IO, id } { }
 };
 
 class Tresor::Block_io : public Module
@@ -96,10 +115,10 @@ class Tresor::Block_io : public Module
 
 		enum { NR_OF_CHANNELS = 1 };
 
-		String<32> const  _path;
-		Vfs::Env         &_vfs_env;
-		Vfs::Vfs_handle  &_vfs_handle               { vfs_open_rw(_vfs_env, _path) };
-		Channel           _channels[NR_OF_CHANNELS] { };
+		String<32> const _path;
+		Vfs::Env &_vfs_env;
+		Vfs::Vfs_handle &_vfs_handle { vfs_open_rw(_vfs_env, _path) };
+		Constructible<Channel> _channels[1] { };
 
 		void _execute_read(Channel &channel,
 		                   bool    &progress);

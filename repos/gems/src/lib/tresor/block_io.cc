@@ -23,10 +23,6 @@
 using namespace Tresor;
 
 
-/**********************
- ** Block_io_request **
- **********************/
-
 Block_io_request::Block_io_request(Module_id src_module_id, Module_channel_id src_chan_id, Type type,
                                    Request_offset client_req_offset, Request_tag client_req_tag, Key_id key_id,
                                    Physical_block_address pba, Virtual_block_address vba,
@@ -61,16 +57,12 @@ char const *Block_io_request::type_to_string(Type type)
 }
 
 
-/**************
- ** Block_io **
- **************/
-
 bool Block_io::_peek_generated_request(uint8_t *buf_ptr,
                                        size_t   buf_size)
 {
 	for (uint32_t id { 0 }; id < NR_OF_CHANNELS; id++) {
 
-		Channel &channel { _channels[id] };
+		Channel &channel { *_channels[id] };
 		Crypto_request::Type crypto_req_type;
 		switch (channel._state) {
 		case Channel::DECRYPT_CLIENT_DATA_PENDING: crypto_req_type = Crypto_request::DECRYPT_CLIENT_DATA; break;
@@ -81,7 +73,7 @@ bool Block_io::_peek_generated_request(uint8_t *buf_ptr,
 		ASSERT(sizeof(Crypto_request) <= buf_size);
 		construct_at<Crypto_request>(
 			buf_ptr, BLOCK_IO, id, crypto_req_type, req._client_req_offset, req._client_req_tag, req._key_id,
-			channel._dummy_key, req._pba, req._vba, channel._blk_buf, channel._blk_buf, _channels[id]._generated_req_success);
+			*(Key_value *)0, req._pba, req._vba, channel._blk_buf, channel._blk_buf, _channels[id]->_generated_req_success);
 
 		return true;
 	}
@@ -96,9 +88,9 @@ void Block_io::_drop_generated_request(Module_request &req)
 		class Bad_id { };
 		throw Bad_id { };
 	}
-	switch (_channels[id]._state) {
-	case Channel::DECRYPT_CLIENT_DATA_PENDING: _channels[id]._state = Channel::DECRYPT_CLIENT_DATA_IN_PROGRESS; break;
-	case Channel::ENCRYPT_CLIENT_DATA_PENDING: _channels[id]._state = Channel::ENCRYPT_CLIENT_DATA_IN_PROGRESS; break;
+	switch (_channels[id]->_state) {
+	case Channel::DECRYPT_CLIENT_DATA_PENDING: _channels[id]->_state = Channel::DECRYPT_CLIENT_DATA_IN_PROGRESS; break;
+	case Channel::ENCRYPT_CLIENT_DATA_PENDING: _channels[id]->_state = Channel::ENCRYPT_CLIENT_DATA_IN_PROGRESS; break;
 	default: ASSERT_NEVER_REACHED;
 	}
 }
@@ -111,9 +103,9 @@ void Block_io::generated_request_complete(Module_request &mod_req)
 		class Exception_1 { };
 		throw Exception_1 { };
 	}
-	switch (_channels[id]._state) {
-	case Channel::DECRYPT_CLIENT_DATA_IN_PROGRESS: _channels[id]._state = Channel::DECRYPT_CLIENT_DATA_COMPLETE; break;
-	case Channel::ENCRYPT_CLIENT_DATA_IN_PROGRESS: _channels[id]._state = Channel::ENCRYPT_CLIENT_DATA_COMPLETE; break;
+	switch (_channels[id]->_state) {
+	case Channel::DECRYPT_CLIENT_DATA_IN_PROGRESS: _channels[id]->_state = Channel::DECRYPT_CLIENT_DATA_COMPLETE; break;
+	case Channel::ENCRYPT_CLIENT_DATA_IN_PROGRESS: _channels[id]->_state = Channel::ENCRYPT_CLIENT_DATA_COMPLETE; break;
 	default: ASSERT_NEVER_REACHED;
 	}
 }
@@ -276,8 +268,9 @@ void Block_io::_execute_read_client_data(Channel &channel,
 
 			if (channel._nr_of_remaining_bytes == 0) {
 
-				channel._state = Channel::DECRYPT_CLIENT_DATA_PENDING;
-				progress = true;
+				channel._generate_req<Crypto_request>(
+					Channel::DECRYPT_CLIENT_DATA_COMPLETE, progress, Crypto_request::DECRYPT_CLIENT_DATA, req._client_req_offset,
+					req._client_req_tag, req._key_id, *(Key_value *)0, req._pba, req._vba, channel._blk_buf, channel._blk_buf);
 				return;
 
 			} else {
@@ -312,6 +305,18 @@ void Block_io::_execute_read_client_data(Channel &channel,
 
 	default: return;
 	}
+}
+
+
+void Block_io_channel::_generated_req_completed(State_uint state_uint)
+{
+	if (!_generated_req_success) {
+		error("free tree: request (", *_request, ") failed because generated request failed)");
+		_request->_success = false;
+		_state = COMPLETE;
+		return;
+	}
+	_state = (State)state_uint;
 }
 
 
@@ -516,7 +521,8 @@ void Block_io::_execute_sync(Channel &channel,
 
 void Block_io::execute(bool &progress)
 {
-	for (Channel &channel : _channels) {
+	for (Constructible<Channel> &channel_con : _channels) {
+		Channel &channel { *channel_con };
 
 		if (channel._state == Channel::INACTIVE)
 			continue;
@@ -549,18 +555,11 @@ void Block_io::execute(bool &progress)
 }
 
 
-Block_io::Block_io(Vfs::Env       &vfs_env,
-                   Xml_node const &xml_node)
-:
-	_path    { xml_node.attribute_value("path", String<32> { "" } ) },
-	_vfs_env { vfs_env }
-{ }
-
-
 bool Block_io::_peek_completed_request(uint8_t *buf_ptr,
                                        size_t   buf_size)
 {
-	for (Channel &channel : _channels) {
+	for (Constructible<Channel> &channel_con : _channels) {
+		Channel &channel { *channel_con };
 		if (channel._state == Channel::COMPLETE) {
 			Request &req { *channel._request };
 			if (sizeof(req) > buf_size) {
@@ -615,17 +614,18 @@ void Block_io::_drop_completed_request(Module_request &req)
 		class Exception_1 { };
 		throw Exception_1 { };
 	}
-	if (_channels[id]._state != Channel::COMPLETE) {
+	if (_channels[id]->_state != Channel::COMPLETE) {
 		class Exception_2 { };
 		throw Exception_2 { };
 	}
-	_channels[id]._state = Channel::INACTIVE;
+	_channels[id]->_state = Channel::INACTIVE;
 }
 
 
 bool Block_io::ready_to_submit_request()
 {
-	for (Channel &channel : _channels) {
+	for (Constructible<Channel> &channel_con : _channels) {
+		Channel &channel { *channel_con };
 		if (channel._state == Channel::INACTIVE)
 			return true;
 	}
@@ -635,19 +635,33 @@ bool Block_io::ready_to_submit_request()
 void Block_io::submit_request(Module_request &req)
 {
 	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
-		if (_channels[id]._state == Channel::INACTIVE) {
+		if (_channels[id]->_state == Channel::INACTIVE) {
 			req.dst_request_id(id);
 			Request &r { *static_cast<Request *>(&req) };
-			_channels[id]._request.construct(r.src_module_id(), r.src_chan_id(),
+			_channels[id]->_request.construct(r.src_module_id(), r.src_chan_id(),
 				r._type,
 				r._client_req_offset, r._client_req_tag, r._key_id,
 				r._pba, r._vba,
 				r._blk_count, r._blk, r._hash, r._success);
-			_channels[id]._request->dst_request_id(id);
-			_channels[id]._state = Channel::SUBMITTED;
+			_channels[id]->_request->dst_request_id(id);
+			_channels[id]->_state = Channel::SUBMITTED;
 			return;
 		}
 	}
 	class Invalid_call { };
 	throw Invalid_call { };
+}
+
+
+Block_io::Block_io(Vfs::Env       &vfs_env,
+                   Xml_node const &xml_node)
+:
+	_path    { xml_node.attribute_value("path", String<32> { "" } ) },
+	_vfs_env { vfs_env }
+{
+	Module_channel_id id { 0 };
+	for (Constructible<Channel> &chan : _channels) {
+		chan.construct(id++);
+		add_channel(*chan);
+	}
 }
