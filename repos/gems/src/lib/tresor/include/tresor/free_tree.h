@@ -165,7 +165,8 @@ class Tresor::Free_tree : public Module
 
 	public:
 
-		struct Extension_step : Request {
+		struct Extension_step : Request
+		{
 			Extension_step(Module_id mod_id, Module_channel_id chan_id, Generation curr_gen, Free_tree_root &ft, Meta_tree_root &mt,
 			               Physical_block_address &pba, Number_of_blocks &num_pbas, bool &succ)
 			: Request(mod_id, chan_id, Request::EXTENSION_STEP, ft, mt, *(Snapshots *)0, 0, curr_gen, 0, 0, *(Tree_walk_pbas*)0,

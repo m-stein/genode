@@ -39,7 +39,6 @@
 #include <tresor/ft_check.h>
 #include <tresor/virtual_block_device.h>
 #include <tresor/superblock_control.h>
-#include <tresor/ft_resizing.h>
 
 using namespace Genode;
 using namespace Tresor;
@@ -649,7 +648,6 @@ class Tresor_tester::Main
 		Constructible<Virtual_block_device> _vbd { };
 		Constructible<Superblock_control> _sb_control { };
 		Constructible<Request_pool> _request_pool { };
-		Constructible<Ft_resizing> _ft_resizing { };
 		Constructible<Client_data> _client_data { };
 		Constructible<Meta_tree> _meta_tree { };
 		Trust_anchor _trust_anchor { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
@@ -970,14 +968,12 @@ class Tresor_tester::Main
 			_vbd.construct();
 			_sb_control.construct();
 			_request_pool.construct();
-			_ft_resizing.construct();
 			_client_data.construct(*this);
 			_meta_tree.construct();
 			add_module(FREE_TREE, *_free_tree);
 			add_module(VIRTUAL_BLOCK_DEVICE, *_vbd);
 			add_module(SUPERBLOCK_CONTROL, *_sb_control);
 			add_module(REQUEST_POOL, *_request_pool);
-			add_module(FT_RESIZING, *_ft_resizing);
 			add_module(CLIENT_DATA, *_client_data);
 			add_module(META_TREE, *_meta_tree);
 		}
@@ -986,14 +982,12 @@ class Tresor_tester::Main
 		{
 			remove_module(META_TREE);
 			remove_module(CLIENT_DATA);
-			remove_module(FT_RESIZING);
 			remove_module(REQUEST_POOL);
 			remove_module(SUPERBLOCK_CONTROL);
 			remove_module(VIRTUAL_BLOCK_DEVICE);
 			remove_module(FREE_TREE);
 			_meta_tree.destruct();
 			_client_data.destruct();
-			_ft_resizing.destruct();
 			_request_pool.destruct();
 			_sb_control.destruct();
 			_vbd.destruct();

@@ -14,7 +14,7 @@
 /* tresor includes */
 #include <tresor/superblock_control.h>
 #include <tresor/crypto.h>
-#include <tresor/ft_resizing.h>
+#include <tresor/free_tree.h>
 #include <tresor/hash.h>
 
 using namespace Tresor;

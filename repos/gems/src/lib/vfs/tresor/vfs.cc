@@ -24,7 +24,6 @@
 #include <tresor/client_data.h>
 #include <tresor/crypto.h>
 #include <tresor/free_tree.h>
-#include <tresor/ft_resizing.h>
 #include <tresor/meta_tree.h>
 #include <tresor/request_pool.h>
 #include <tresor/superblock_control.h>
@@ -201,7 +200,6 @@ class Vfs_tresor::Wrapper
 
 		Constructible<Request_pool>            _request_pool { };
 		Constructible<Tresor::Free_tree>       _free_tree    { };
-		Constructible<Tresor::Ft_resizing>     _ft_resizing  { };
 		Constructible<Virtual_block_device>    _vbd          { };
 		Constructible<Superblock_control>      _sb_control   { };
 		Tresor::Meta_tree                      _meta_tree    { };
@@ -596,13 +594,11 @@ class Vfs_tresor::Wrapper
 
 		void _initialize_tresor()
 		{
-			_ft_resizing.construct();
 			_free_tree.construct();
 			_vbd.construct();
 			_sb_control.construct();
 			_request_pool.construct();
 
-			add_module(FT_RESIZING, *_ft_resizing);
 			add_module(FREE_TREE, *_free_tree);
 			add_module(VIRTUAL_BLOCK_DEVICE, *_vbd);
 			add_module(SUPERBLOCK_CONTROL, *_sb_control);
