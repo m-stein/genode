@@ -142,11 +142,6 @@ class Tresor::Block_io : public Module
 		void _mark_req_successful(Channel &channel,
 		                          bool    &progress);
 
-
-		/************
-		 ** Module **
-		 ************/
-
 		bool ready_to_submit_request() override;
 
 		void submit_request(Module_request &req) override;
@@ -157,13 +152,6 @@ class Tresor::Block_io : public Module
 		void _drop_completed_request(Module_request &req) override;
 
 		void execute(bool &) override;
-
-		bool _peek_generated_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_generated_request(Module_request &mod_req) override;
-
-		void generated_request_complete(Module_request &req) override;
 
 		bool new_submit_request() override { return false; }
 
@@ -201,8 +189,7 @@ class Tresor::Block_io : public Module
 			: Request(m, c, Request::READ_CLIENT_DATA, o, t, k, p, v, 1, b, *(Hash*)0, s) { }
 		};
 
-		Block_io(Vfs::Env       &vfs_env,
-		         Xml_node const &xml_node);
+		Block_io(Vfs::Env &, Xml_node const &);
 };
 
 #endif /* _TRESOR__BLOCK_IO_H_ */

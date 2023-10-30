@@ -57,60 +57,6 @@ char const *Block_io_request::type_to_string(Type type)
 }
 
 
-bool Block_io::_peek_generated_request(uint8_t *buf_ptr,
-                                       size_t   buf_size)
-{
-	for (uint32_t id { 0 }; id < NR_OF_CHANNELS; id++) {
-
-		Channel &channel { *_channels[id] };
-		Crypto_request::Type crypto_req_type;
-		switch (channel._state) {
-		case Channel::DECRYPT_CLIENT_DATA_PENDING: crypto_req_type = Crypto_request::DECRYPT_CLIENT_DATA; break;
-		case Channel::ENCRYPT_CLIENT_DATA_PENDING: crypto_req_type = Crypto_request::ENCRYPT_CLIENT_DATA; break;
-		default: continue;
-		}
-		Request &req { *channel._request };
-		ASSERT(sizeof(Crypto_request) <= buf_size);
-		construct_at<Crypto_request>(
-			buf_ptr, BLOCK_IO, id, crypto_req_type, req._client_req_offset, req._client_req_tag, req._key_id,
-			*(Key_value *)0, req._pba, req._vba, channel._blk_buf, channel._blk_buf, _channels[id]->_generated_req_success);
-
-		return true;
-	}
-	return false;
-}
-
-
-void Block_io::_drop_generated_request(Module_request &req)
-{
-	Module_request_id const id { req.src_request_id() };
-	if (id >= NR_OF_CHANNELS) {
-		class Bad_id { };
-		throw Bad_id { };
-	}
-	switch (_channels[id]->_state) {
-	case Channel::DECRYPT_CLIENT_DATA_PENDING: _channels[id]->_state = Channel::DECRYPT_CLIENT_DATA_IN_PROGRESS; break;
-	case Channel::ENCRYPT_CLIENT_DATA_PENDING: _channels[id]->_state = Channel::ENCRYPT_CLIENT_DATA_IN_PROGRESS; break;
-	default: ASSERT_NEVER_REACHED;
-	}
-}
-
-
-void Block_io::generated_request_complete(Module_request &mod_req)
-{
-	Module_request_id const id { mod_req.src_request_id() };
-	if (id >= NR_OF_CHANNELS) {
-		class Exception_1 { };
-		throw Exception_1 { };
-	}
-	switch (_channels[id]->_state) {
-	case Channel::DECRYPT_CLIENT_DATA_IN_PROGRESS: _channels[id]->_state = Channel::DECRYPT_CLIENT_DATA_COMPLETE; break;
-	case Channel::ENCRYPT_CLIENT_DATA_IN_PROGRESS: _channels[id]->_state = Channel::ENCRYPT_CLIENT_DATA_COMPLETE; break;
-	default: ASSERT_NEVER_REACHED;
-	}
-}
-
-
 void Block_io::_mark_req_failed(Channel    &channel,
                                 bool       &progress,
                                 char const *str)
@@ -294,15 +240,7 @@ void Block_io::_execute_read_client_data(Channel &channel,
 			throw Bad_complete_read_result { };
 		}
 	}
-	case Channel::DECRYPT_CLIENT_DATA_COMPLETE:
-
-		if (!channel._generated_req_success) {
-			_mark_req_failed(channel, progress, "decrypt client data");
-			return;
-		}
-		_mark_req_successful(channel, progress);
-		return;
-
+	case Channel::DECRYPT_CLIENT_DATA_COMPLETE: _mark_req_successful(channel, progress); return;
 	default: return;
 	}
 }
@@ -329,16 +267,13 @@ void Block_io::_execute_write_client_data(Channel &channel,
 	switch (channel._state) {
 	case Channel::PENDING:
 
-		channel._state = Channel::ENCRYPT_CLIENT_DATA_PENDING;
-		progress = true;
+		channel._generate_req<Crypto_request>(
+			Channel::ENCRYPT_CLIENT_DATA_COMPLETE, progress, Crypto_request::ENCRYPT_CLIENT_DATA, req._client_req_offset,
+			req._client_req_tag, req._key_id, *(Key_value *)0, req._pba, req._vba, channel._blk_buf, channel._blk_buf);
 		return;
 
 	case Channel::ENCRYPT_CLIENT_DATA_COMPLETE:
 
-		if (!channel._generated_req_success) {
-			_mark_req_failed(channel, progress, "encrypt client data");
-			return;
-		}
 		calc_hash(channel._blk_buf, req._hash);
 		_vfs_handle.seek(req._pba * BLOCK_SIZE +
 		                 channel._nr_of_processed_bytes);
