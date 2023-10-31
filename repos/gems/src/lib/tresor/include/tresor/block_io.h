@@ -28,7 +28,6 @@ namespace Tresor {
 
 class Tresor::Block_io_request : public Module_request
 {
-	friend class Block_io;
 	friend class Block_io_channel;
 
 	public:
@@ -37,13 +36,13 @@ class Tresor::Block_io_request : public Module_request
 
 	private:
 
-		Type _type;
-		Request_offset _client_req_offset;
-		Request_tag _client_req_tag;
-		Key_id _key_id;
-		Physical_block_address _pba;
-		Virtual_block_address _vba;
-		Number_of_blocks _blk_count;
+		Type const _type;
+		Request_offset const _client_req_offset;
+		Request_tag const _client_req_tag;
+		Key_id const _key_id;
+		Physical_block_address const _pba;
+		Virtual_block_address const _vba;
+		Number_of_blocks const _blk_count;
 		Block &_blk;
 		Hash &_hash;
 		bool &_success;
@@ -64,31 +63,24 @@ class Tresor::Block_io_channel : public Module_channel
 {
 	private:
 
+		using Path = String<128>;
 		using Request = Block_io_request;
 		using Read_result = Vfs::File_io_service::Read_result;
 		using Write_result = Vfs::File_io_service::Write_result;
-		using file_size = Vfs::file_size;
-		using file_offset = Vfs::file_offset;
+		using Sync_result = Vfs::File_io_service::Sync_result;
 
 		enum State {
-			INACTIVE, SUBMITTED, PENDING, IN_PROGRESS, COMPLETE,
-			ENCRYPT_CLIENT_DATA_PENDING,
-			ENCRYPT_CLIENT_DATA_IN_PROGRESS,
-			ENCRYPT_CLIENT_DATA_COMPLETE,
-			DECRYPT_CLIENT_DATA_PENDING,
-			DECRYPT_CLIENT_DATA_IN_PROGRESS,
-			DECRYPT_CLIENT_DATA_COMPLETE,
-			REQ_GENERATED
-		};
+			REQ_SUBMITTED, QUEUE_READ, SEEK, QUEUE_SYNC, REQ_COMPLETE, ENCRYPT_CLIENT_DATA, ENCRYPT_CLIENT_DATA_COMPLETE,
+			DECRYPT_CLIENT_DATA_COMPLETE, WRITE, COMPLETE_READ, COMPLETE_SYNC, REQ_GENERATED };
 
-		State _state { INACTIVE };
-		Vfs::file_offset _nr_of_processed_bytes { 0 };
-		size_t _nr_of_remaining_bytes { 0 };
+		State _state { REQ_COMPLETE };
+		Vfs::file_offset _num_processed_bytes { 0 };
+		size_t _num_remaining_bytes { 0 };
 		Block _blk_buf { };
 		bool _generated_req_success { false };
 		Block_io_request *_req_ptr { };
 		Vfs::Env &_vfs_env;
-		String<32> const _path;
+		Path const _path;
 		Vfs::Vfs_handle &_vfs_handle { vfs_open_rw(_vfs_env, _path) };
 
 		NONCOPYABLE(Block_io_channel);
@@ -104,7 +96,7 @@ class Tresor::Block_io_channel : public Module_channel
 
 		void _request_submitted(Module_request &) override;
 
-		bool _request_complete() override { return _state == COMPLETE; }
+		bool _request_complete() override { return _state == REQ_COMPLETE; }
 
 		void _execute_read(bool &);
 
@@ -119,6 +111,8 @@ class Tresor::Block_io_channel : public Module_channel
 		void _mark_req_failed(bool &, char const *);
 
 		void _mark_req_successful(bool &);
+
+		void _reset(State, bool &);
 
 	public:
 
