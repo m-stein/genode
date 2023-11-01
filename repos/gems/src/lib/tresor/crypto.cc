@@ -53,36 +53,6 @@ char const *Crypto_request::type_to_string(Type type)
 }
 
 
-/************
- ** Crypto **
- ************/
-
-bool Crypto::_peek_generated_request(uint8_t *buf_ptr,
-                                     size_t   buf_size)
-{
-	for (Module_channel_id id { 0 }; id < NR_OF_CHANNELS; id++) {
-
-		Channel &chan { _channels[id] };
-		Client_data_request::Type cd_req_type;
-
-		if (chan._state == Channel::SUPPLY_PLAINTEXT_BLK_PENDING)
-			cd_req_type = Client_data_request::SUPPLY_PLAINTEXT_BLK;
-		else
-			continue;
-
-		if (sizeof(Client_data_request) > buf_size) {
-			class Exception_1 { };
-			throw Exception_1 { };
-		}
-		Request const &req { *chan._request };
-		construct_at<Client_data_request>(buf_ptr, CRYPTO, id, cd_req_type, req._client_req_offset,
-			req._client_req_tag, req._pba, req._vba, chan._blk, chan._generated_req_success);;
-		return true;
-	}
-	return false;
-}
-
-
 void Crypto_channel::_generated_req_completed(State_uint state_uint)
 {
 	if (!_generated_req_success) {
@@ -92,24 +62,6 @@ void Crypto_channel::_generated_req_completed(State_uint state_uint)
 		return;
 	}
 	_state = (State)state_uint;
-}
-
-
-void Crypto::_drop_generated_request(Module_request &req)
-{
-	Module_request_id const id { req.src_request_id() };
-	if (id >= NR_OF_CHANNELS) {
-		class Bad_id { };
-		throw Bad_id { };
-	}
-	switch (_channels[id]._state) {
-	case Channel::SUPPLY_PLAINTEXT_BLK_PENDING:
-		_channels[id]._state = Channel::SUPPLY_PLAINTEXT_BLK_IN_PROGRESS;
-		break;
-	default:
-		class Exception_1 { };
-		throw Exception_1 { };
-	}
 }
 
 
@@ -524,36 +476,28 @@ void Crypto::_execute_decrypt_client_data(Channel &channel,
 		switch (result) {
 		case Read_result::READ_OK:
 
-			channel._state = Channel::SUPPLY_PLAINTEXT_BLK_PENDING;
-			progress = true;
+			channel._generate_req<Client_data_request>(
+				Channel::SUPPLY_PLAINTEXT_BLK_COMPLETE, progress, Client_data_request::SUPPLY_PLAINTEXT_BLK,
+				req._client_req_offset, req._client_req_tag, req._pba, req._vba, channel._blk);;
 			return;
 
 		case Read_result::READ_QUEUED:
-		case Read_result::READ_ERR_WOULD_BLOCK:
-
-			return;
-
+		case Read_result::READ_ERR_WOULD_BLOCK: return;
 		case Read_result::READ_ERR_IO:
-		case Read_result::READ_ERR_INVALID:
-
-			_mark_req_failed(channel, progress, "read plaintext data");
-			return;
+		case Read_result::READ_ERR_INVALID: _mark_req_failed(channel, progress, "read plaintext data"); return;
 		}
 		return;
 	}
 	case Channel::SUPPLY_PLAINTEXT_BLK_COMPLETE:
 
 		if (!channel._generated_req_success) {
-
 			_mark_req_failed(channel, progress, "supply plaintext block");
 			return;
 		}
 		_mark_req_successful(channel, progress);
 		return;
 
-	default:
-
-		return;
+	default: return;
 	}
 }
 
@@ -589,33 +533,6 @@ Crypto::Crypto(Vfs::Env       &vfs_env,
 	_remove_key_handle { vfs_open_wo(_vfs_env, { _path.string(), "/remove_key" }) }
 {
 	register_channels(_channels, NR_OF_CHANNELS, CRYPTO);
-}
-
-
-void Crypto::generated_request_complete(Module_request &mod_req)
-{
-	Module_request_id const id { mod_req.src_request_id() };
-	if (id >= NR_OF_CHANNELS) {
-		class Exception_1 { };
-		throw Exception_1 { };
-	}
-	switch (mod_req.dst_module_id()) {
-	case CLIENT_DATA:
-	{
-		switch (_channels[id]._state) {
-		case Channel::SUPPLY_PLAINTEXT_BLK_IN_PROGRESS:
-			_channels[id]._state = Channel::SUPPLY_PLAINTEXT_BLK_COMPLETE;
-			break;
-		default:
-			class Exception_2 { };
-			throw Exception_2 { };
-		}
-		break;
-	}
-	default:
-		class Exception_3 { };
-		throw Exception_3 { };
-	}
 }
 
 

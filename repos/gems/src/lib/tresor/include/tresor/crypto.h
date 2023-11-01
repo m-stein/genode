@@ -171,11 +171,6 @@ class Tresor::Crypto : public Module
 		void _mark_req_successful(Channel &channel,
 		                          bool    &progress);
 
-
-		/************
-		 ** Module **
-		 ************/
-
 		bool ready_to_submit_request() override;
 
 		void submit_request(Module_request &req) override;
@@ -186,13 +181,6 @@ class Tresor::Crypto : public Module
 		void _drop_completed_request(Module_request &req) override;
 
 		void execute(bool &) override;
-
-		bool _peek_generated_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_generated_request(Module_request &mod_req) override;
-
-		void generated_request_complete(Module_request &req) override;
 
 		bool new_submit_request() override { return false; }
 
