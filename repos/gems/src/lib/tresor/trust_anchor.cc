@@ -19,11 +19,6 @@
 
 using namespace Tresor;
 
-
-/**************************
- ** Trust_anchor_request **
- **************************/
-
 Trust_anchor_request::Trust_anchor_request(Module_id src_module_id, Module_channel_id src_chan_id,
                                            Type type, Key_value &key_plaintext, Key_value &key_ciphertext,
                                            Hash &hash, Passphrase passphrase, bool &success)

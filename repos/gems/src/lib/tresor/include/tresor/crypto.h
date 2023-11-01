@@ -28,7 +28,6 @@ namespace Tresor {
 
 class Tresor::Crypto_request : public Module_request
 {
-	friend class Crypto;
 	friend class Crypto_channel;
 
 	public:
@@ -48,62 +47,60 @@ class Tresor::Crypto_request : public Module_request
 		Block &_ciphertext_blk;
 		bool &_success;
 
+		NONCOPYABLE(Crypto_request);
+
 	public:
 
 		Crypto_request(Module_id, Module_channel_id, Type, Request_offset, Request_tag, Key_id,
 		               Key_value const &, Physical_block_address, Virtual_block_address, Block &,
 		               Block &, bool &);
 
-
 		static const char *type_to_string(Type type);
 
-
-		/********************
-		 ** Module_request **
-		 ********************/
-
-		void print(Output &out) const override
-		{
-			Genode::print(out, type_to_string(_type));
-			switch (_type) {
-			case ADD_KEY:
-			case REMOVE_KEY:
-				Genode::print(out, " ", _key_id);
-				break;
-			case DECRYPT:
-			case ENCRYPT:
-			case DECRYPT_CLIENT_DATA:
-			case ENCRYPT_CLIENT_DATA:
-				Genode::print(out, " pba ", _pba);
-				break;
-			default:
-				break;
-			}
-		}
+		void print(Output &out) const override;
 };
 
 class Tresor::Crypto_channel : public Module_channel
 {
+	friend class Crypto;
+
 	private:
 
-		friend class Crypto;
+		using Request = Crypto_request;
+		using Path = String<128>;
+		using Write_result = Vfs::File_io_service::Write_result;
+		using Read_result = Vfs::File_io_service::Read_result;
 
 		enum State {
-			INACTIVE, SUBMITTED, COMPLETE, OBTAIN_PLAINTEXT_BLK_PENDING,
+			SUBMITTED, COMPLETE, OBTAIN_PLAINTEXT_BLK_PENDING,
 			OBTAIN_PLAINTEXT_BLK_IN_PROGRESS, OBTAIN_PLAINTEXT_BLK_COMPLETE,
 			SUPPLY_PLAINTEXT_BLK_PENDING, SUPPLY_PLAINTEXT_BLK_IN_PROGRESS,
 			SUPPLY_PLAINTEXT_BLK_COMPLETE, OP_WRITTEN_TO_VFS_HANDLE,
 			QUEUE_READ_SUCCEEDED, REQ_GENERATED };
 
-		State _state { INACTIVE };
+		struct Key_directory
+		{
+			Vfs::Vfs_handle *encrypt_handle { };
+			Vfs::Vfs_handle *decrypt_handle { };
+			Key_id key_id { };
+		};
+
+		Vfs::Env &_vfs_env;
+		Path const _path;
+		Vfs::Vfs_handle &_add_key_handle { vfs_open_wo(_vfs_env, { _path, "/add_key" }) };
+		Vfs::Vfs_handle &_remove_key_handle { vfs_open_wo(_vfs_env, { _path, "/remove_key" }) };
+		Key_directory _key_dirs[2] { };
+		State _state { COMPLETE };
 		bool _generated_req_success { false };
 		Vfs::Vfs_handle *_vfs_handle { nullptr };
 		Block _blk { };
-		Constructible<Crypto_request> _request { };
+		Crypto_request *_req_ptr { };
+
+		NONCOPYABLE(Crypto_channel);
 
 		void _generated_req_completed(State_uint) override;
 
-		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
+		void _request_submitted(Module_request &) override;
 
 		bool _request_complete() override { return _state == COMPLETE; }
 
@@ -114,9 +111,29 @@ class Tresor::Crypto_channel : public Module_channel
 			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 		}
 
+		void _add_key(bool &);
+
+		void _remove_key(bool &);
+
+		void _decrypt(bool &);
+
+		void _encrypt(bool &);
+
+		void _encrypt_client_data(bool &);
+
+		void _decrypt_client_data(bool &);
+
+		void _mark_req_failed(bool &, char const *);
+
+		void _mark_req_successful(bool &);
+
+		Key_directory &_lookup_key_dir(uint32_t key_id);
+
 	public:
 
-		Crypto_request const &request() const { return *_request; }
+		Crypto_channel(Module_channel_id, Vfs::Env &, Xml_node const &);
+
+		void execute(bool &);
 };
 
 class Tresor::Crypto : public Module
@@ -125,64 +142,10 @@ class Tresor::Crypto : public Module
 
 		using Request = Crypto_request;
 		using Channel = Crypto_channel;
-		using Write_result = Vfs::File_io_service::Write_result;
-		using Read_result = Vfs::File_io_service::Read_result;
 
-		enum { NR_OF_CHANNELS = 4 };
+		Constructible<Channel> _channels[1] { };
 
-		struct Key_directory
-		{
-			Vfs::Vfs_handle  *encrypt_handle { nullptr };
-			Vfs::Vfs_handle  *decrypt_handle { nullptr };
-			uint32_t          key_id         { 0 };
-		};
-
-		Vfs::Env         &_vfs_env;
-		String<32> const  _path;
-		Vfs::Vfs_handle  &_add_key_handle;
-		Vfs::Vfs_handle  &_remove_key_handle;
-		Channel           _channels[NR_OF_CHANNELS] { };
-		Key_directory     _key_dirs[2]              { };
-
-		Key_directory &_lookup_key_dir(uint32_t key_id);
-
-		void _execute_add_key(Channel &channel,
-		                      bool    &progress);
-
-		void _execute_remove_key(Channel &channel,
-		                         bool    &progress);
-
-		void _execute_decrypt(Channel &channel,
-		                      bool    &progress);
-
-		void _execute_encrypt(Channel &channel,
-		                      bool    &progress);
-
-		void _execute_encrypt_client_data(Channel &channel,
-		                                  bool    &progress);
-
-		void _execute_decrypt_client_data(Channel &channel,
-		                                  bool    &progress);
-
-		void _mark_req_failed(Channel    &channel,
-		                      bool       &progress,
-		                      char const *str);
-
-		void _mark_req_successful(Channel &channel,
-		                          bool    &progress);
-
-		bool ready_to_submit_request() override;
-
-		void submit_request(Module_request &req) override;
-
-		bool _peek_completed_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_completed_request(Module_request &req) override;
-
-		void execute(bool &) override;
-
-		bool new_submit_request() override { return false; }
+		NONCOPYABLE(Crypto);
 
 	public:
 
@@ -210,8 +173,9 @@ class Tresor::Crypto : public Module
 			: Request(m, c, Request::ENCRYPT, 0, 0, k, *(Key_value*)0, pa, 0, b, b, s) { }
 		};
 
-		Crypto(Vfs::Env       &vfs_env,
-		       Xml_node const &xml_node);
+		Crypto(Vfs::Env &, Xml_node const &);
+
+		void execute(bool &) override;
 };
 
 #endif /* _TRESOR__CRYPTO_H_ */
