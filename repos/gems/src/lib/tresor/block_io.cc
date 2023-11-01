@@ -182,7 +182,7 @@ void Block_io_channel::_execute_read_client_data(bool &progress)
 			if (!_num_remaining_bytes) {
 				_generate_req<Crypto_request>(
 					DECRYPT_CLIENT_DATA_COMPLETE, progress, Crypto_request::DECRYPT_CLIENT_DATA, req._client_req_offset,
-					req._client_req_tag, req._key_id, *(Key_value *)0, req._pba, req._vba, _blk_buf, _blk_buf);
+					req._client_req_tag, req._key_id, *(Key_value *)0, req._pba, req._vba, _blk_buf);
 				return;
 			} else {
 				_state = QUEUE_READ;
@@ -209,7 +209,7 @@ void Block_io_channel::_execute_write_client_data(bool &progress)
 
 		_generate_req<Crypto_request>(
 			ENCRYPT_CLIENT_DATA_COMPLETE, progress, Crypto_request::ENCRYPT_CLIENT_DATA, req._client_req_offset,
-			req._client_req_tag, req._key_id, *(Key_value *)0, req._pba, req._vba, _blk_buf, _blk_buf);
+			req._client_req_tag, req._key_id, *(Key_value *)0, req._pba, req._vba, _blk_buf);
 		return;
 
 	case ENCRYPT_CLIENT_DATA_COMPLETE:

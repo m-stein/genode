@@ -43,8 +43,7 @@ class Tresor::Crypto_request : public Module_request
 		Virtual_block_address const _vba;
 		Key_id const _key_id;
 		Key_value const &_key_plaintext;
-		Block &_plaintext_blk;
-		Block &_ciphertext_blk;
+		Block &_blk;
 		bool &_success;
 
 		NONCOPYABLE(Crypto_request);
@@ -52,8 +51,7 @@ class Tresor::Crypto_request : public Module_request
 	public:
 
 		Crypto_request(Module_id, Module_channel_id, Type, Request_offset, Request_tag, Key_id,
-		               Key_value const &, Physical_block_address, Virtual_block_address, Block &,
-		               Block &, bool &);
+		               Key_value const &, Physical_block_address, Virtual_block_address, Block &, bool &);
 
 		static const char *type_to_string(Type type);
 
@@ -72,11 +70,8 @@ class Tresor::Crypto_channel : public Module_channel
 		using Read_result = Vfs::File_io_service::Read_result;
 
 		enum State {
-			SUBMITTED, COMPLETE, OBTAIN_PLAINTEXT_BLK_PENDING,
-			OBTAIN_PLAINTEXT_BLK_IN_PROGRESS, OBTAIN_PLAINTEXT_BLK_COMPLETE,
-			SUPPLY_PLAINTEXT_BLK_PENDING, SUPPLY_PLAINTEXT_BLK_IN_PROGRESS,
-			SUPPLY_PLAINTEXT_BLK_COMPLETE, OP_WRITTEN_TO_VFS_HANDLE,
-			QUEUE_READ_SUCCEEDED, REQ_GENERATED };
+			SUBMITTED, COMPLETE, OBTAIN_PLAINTEXT_BLK_COMPLETE, SUPPLY_PLAINTEXT_BLK_COMPLETE,
+			OP_WRITTEN_TO_VFS_HANDLE, QUEUE_READ_SUCCEEDED, REQ_GENERATED };
 
 		struct Key_directory
 		{
@@ -127,7 +122,7 @@ class Tresor::Crypto_channel : public Module_channel
 
 		void _mark_req_successful(bool &);
 
-		Key_directory &_lookup_key_dir(uint32_t key_id);
+		Key_directory &_lookup_key_dir(Key_id key_id);
 
 	public:
 
@@ -151,26 +146,26 @@ class Tresor::Crypto : public Module
 
 		struct Add_key : Request
 		{
-			Add_key(Module_id m, Module_channel_id c, Key &k, bool &s)
-			: Request(m, c, Request::ADD_KEY, 0, 0, k.id, k.value, 0, 0, *(Block*)0, *(Block*)0, s) { }
+			Add_key(Module_id src_mod, Module_channel_id src_chan, Key &key, bool &succ)
+			: Request(src_mod, src_chan, Request::ADD_KEY, 0, 0, key.id, key.value, 0, 0, *(Block*)0, succ) { }
 		};
 
 		struct Remove_key : Request
 		{
-			Remove_key(Module_id m, Module_channel_id c, Key_id k, bool &s)
-			: Request(m, c, Request::REMOVE_KEY, 0, 0, k, *(Key_value*)0, 0, 0, *(Block*)0, *(Block*)0, s) { }
+			Remove_key(Module_id src_mod, Module_channel_id src_chan, Key_id key, bool &succ)
+			: Request(src_mod, src_chan, Request::REMOVE_KEY, 0, 0, key, *(Key_value*)0, 0, 0, *(Block*)0, succ) { }
 		};
 
 		struct Decrypt : Request
 		{
-			Decrypt(Module_id m, Module_channel_id c, Key_id k, Physical_block_address pa, Block &b, bool &s)
-			: Request(m, c, Request::DECRYPT, 0, 0, k, *(Key_value*)0, pa, 0, b, b, s) { }
+			Decrypt(Module_id src_mod, Module_channel_id src_chan, Key_id key, Physical_block_address pba, Block &blk, bool &succ)
+			: Request(src_mod, src_chan, Request::DECRYPT, 0, 0, key, *(Key_value*)0, pba, 0, blk, succ) { }
 		};
 
 		struct Encrypt : Request
 		{
-			Encrypt(Module_id m, Module_channel_id c, Key_id k, Physical_block_address pa, Block &b, bool &s)
-			: Request(m, c, Request::ENCRYPT, 0, 0, k, *(Key_value*)0, pa, 0, b, b, s) { }
+			Encrypt(Module_id src_mod, Module_channel_id src_chan, Key_id key, Physical_block_address pba, Block &blk, bool &succ)
+			: Request(src_mod, src_chan, Request::ENCRYPT, 0, 0, key, *(Key_value*)0, pba, 0, blk, succ) { }
 		};
 
 		Crypto(Vfs::Env &, Xml_node const &);
