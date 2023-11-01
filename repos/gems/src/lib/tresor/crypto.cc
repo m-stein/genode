@@ -60,28 +60,26 @@ char const *Crypto_request::type_to_string(Type type)
 bool Crypto::_peek_generated_request(uint8_t *buf_ptr,
                                      size_t   buf_size)
 {
-	for (uint32_t id { 0 }; id < NR_OF_CHANNELS; id++) {
+	for (Module_channel_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 
-		Channel const &chan { _channels[id] };
-		Client_data_request::Type cd_req_type {
-			chan._state == Channel::OBTAIN_PLAINTEXT_BLK_PENDING ?
-			   Client_data_request::OBTAIN_PLAINTEXT_BLK :
-			chan._state == Channel::SUPPLY_PLAINTEXT_BLK_PENDING ?
-			   Client_data_request::SUPPLY_PLAINTEXT_BLK :
-			   Client_data_request::INVALID };
+		Channel &chan { _channels[id] };
+		Client_data_request::Type cd_req_type;
 
-		if (cd_req_type != Client_data_request::INVALID) {
+		if (chan._state == Channel::OBTAIN_PLAINTEXT_BLK_PENDING)
+			cd_req_type = Client_data_request::OBTAIN_PLAINTEXT_BLK;
+		else if (chan._state == Channel::SUPPLY_PLAINTEXT_BLK_PENDING)
+			cd_req_type = Client_data_request::SUPPLY_PLAINTEXT_BLK;
+		else
+			continue;
 
-			if (sizeof(Client_data_request) > buf_size) {
-				class Exception_1 { };
-				throw Exception_1 { };
-			}
-			Request const &req { *chan._request };
-			construct_at<Client_data_request>(buf_ptr, CRYPTO, id, cd_req_type, req._client_req_offset,
-				req._client_req_tag, req._pba, req._vba,
-				(addr_t)&chan._blk_buf);;
-			return true;
+		if (sizeof(Client_data_request) > buf_size) {
+			class Exception_1 { };
+			throw Exception_1 { };
 		}
+		Request const &req { *chan._request };
+		construct_at<Client_data_request>(buf_ptr, CRYPTO, id, cd_req_type, req._client_req_offset,
+			req._client_req_tag, req._pba, req._vba, chan._blk, chan._generated_req_success);;
+		return true;
 	}
 	return false;
 }
@@ -270,7 +268,7 @@ void Crypto::_execute_encrypt_client_data(Channel &channel,
 		size_t nr_of_written_bytes { 0 };
 
 		Const_byte_range_ptr dst {
-			(char *)&channel._blk_buf, BLOCK_SIZE };
+			(char *)&channel._blk, BLOCK_SIZE };
 
 		channel._vfs_handle->fs().write(
 			channel._vfs_handle, dst, nr_of_written_bytes);
@@ -509,7 +507,7 @@ void Crypto::_execute_decrypt_client_data(Channel &channel,
 	{
 		size_t nr_of_read_bytes { 0 };
 		Byte_range_ptr dst {
-			(char *)&channel._blk_buf, BLOCK_SIZE };
+			(char *)&channel._blk, BLOCK_SIZE };
 
 		Read_result const result {
 			channel._vfs_handle->fs().complete_read(
@@ -594,15 +592,12 @@ void Crypto::generated_request_complete(Module_request &mod_req)
 	switch (mod_req.dst_module_id()) {
 	case CLIENT_DATA:
 	{
-		Client_data_request const &gen_req { *static_cast<Client_data_request *>(&mod_req) };
 		switch (_channels[id]._state) {
 		case Channel::OBTAIN_PLAINTEXT_BLK_IN_PROGRESS:
 			_channels[id]._state = Channel::OBTAIN_PLAINTEXT_BLK_COMPLETE;
-			_channels[id]._generated_req_success = gen_req.success();
 			break;
 		case Channel::SUPPLY_PLAINTEXT_BLK_IN_PROGRESS:
 			_channels[id]._state = Channel::SUPPLY_PLAINTEXT_BLK_COMPLETE;
-			_channels[id]._generated_req_success = gen_req.success();
 			break;
 		default:
 			class Exception_2 { };
@@ -635,14 +630,14 @@ bool Crypto::_peek_completed_request(uint8_t *buf_ptr,
 
 			if (VERBOSE_WRITE_VBA && req._type == Request::ENCRYPT_CLIENT_DATA) {
 
-				log("  encrypt leaf data: plaintext ", channel._blk_buf, " hash ", hash(channel._blk_buf));
+				log("  encrypt leaf data: plaintext ", channel._blk, " hash ", hash(channel._blk));
 				log("  update branch:");
 				log("    ", Branch_lvl_prefix("leaf data: "), req._ciphertext_blk);
 			}
 			if (VERBOSE_READ_VBA && req._type == Request::DECRYPT_CLIENT_DATA) {
 
 				log("    ", Branch_lvl_prefix("leaf data: "), req._ciphertext_blk);
-				log("  decrypt leaf data: plaintext ", channel._blk_buf, " hash ", hash(channel._blk_buf));
+				log("  decrypt leaf data: plaintext ", channel._blk, " hash ", hash(channel._blk));
 			}
 			if (VERBOSE_CRYPTO) {
 
@@ -653,7 +648,7 @@ bool Crypto::_peek_completed_request(uint8_t *buf_ptr,
 					log("crypto: ", req.type_to_string(req._type),
 					    " pba ", req._pba,
 					    " vba ", req._vba,
-					    " plain ", channel._blk_buf,
+					    " plain ", channel._blk,
 					    " cipher ", req._ciphertext_blk);
 
 					break;

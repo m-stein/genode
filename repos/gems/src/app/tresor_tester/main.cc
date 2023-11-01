@@ -601,7 +601,7 @@ class Tresor_tester::Client_data : public Tresor::Module
 	private:
 
 		Main &_main;
-		Client_data_request _request { };
+		Constructible<Client_data_request> _request { };
 
 
 		/********************
@@ -1022,54 +1022,44 @@ class Tresor_tester::Main
 
 bool Tresor_tester::Client_data::ready_to_submit_request()
 {
-	return _request._type == Client_data_request::INVALID;
+	return !_request.constructed();
 }
 
-void Tresor_tester::Client_data::submit_request(Module_request &req)
+void Tresor_tester::Client_data::submit_request(Module_request &mod_req)
 {
-	ASSERT(_request._type == Client_data_request::INVALID);
-	req.dst_request_id(0);
-	_request = *static_cast<Client_data_request *>(&req);
-	switch (_request._type) {
+	ASSERT(!_request.constructed());
+	Client_data_request &req { *static_cast<Client_data_request *>(&mod_req) };
+	req.dst_chan_id(0);
+	_request.construct(req.src_module_id(), req.src_chan_id(), req._type, req._req_off, req._req_tag, req._pba, req._vba, req._blk, req._success);
+	_request->dst_chan_id(0);
+	switch (_request->_type) {
 	case Client_data_request::OBTAIN_PLAINTEXT_BLK:
-
-		_main.generate_blk_data(
-			_request._client_req_tag,
-			_request._vba,
-			*(Tresor::Block *)_request._plaintext_blk_ptr);
-
-		_request._success = true;
+		_main.generate_blk_data(_request->_req_tag, _request->_vba, _request->_blk);
 		break;
-
 	case Client_data_request::SUPPLY_PLAINTEXT_BLK:
-
-		_main.verify_blk_data(
-			_request._client_req_tag,
-			_request._vba,
-			*(Tresor::Block *)_request._plaintext_blk_ptr);
-
-		_request._success = true;
+		_main.verify_blk_data(_request->_req_tag, _request->_vba, _request->_blk);
 		break;
-
-	case Client_data_request::INVALID: ASSERT_NEVER_REACHED;
 	}
+	_request->_success = true;
 }
 
 bool Tresor_tester::Client_data::_peek_completed_request(Genode::uint8_t *buf_ptr,
                                                          Genode::size_t buf_size)
 {
-	if (_request._type == Client_data_request::INVALID)
+	if (!_request.constructed())
 		return false;
 
-	ASSERT(sizeof(_request) <= buf_size);
-	Genode::memcpy(buf_ptr, &_request, sizeof(_request));;
+	ASSERT(sizeof(Client_data_request) <= buf_size);
+	construct_at<Client_data_request>(
+		buf_ptr, _request->src_module_id(), _request->src_chan_id(), _request->_type, _request->_req_off, _request->_req_tag,
+		_request->_pba, _request->_vba, _request->_blk, _request->_success);;
 	return true;
 }
 
 void Tresor_tester::Client_data::_drop_completed_request(Module_request &)
 {
-	ASSERT(_request._type != Client_data_request::INVALID);
-	_request._type = Client_data_request::INVALID;
+	ASSERT(_request.constructed());
+	_request.destruct();
 }
 
 

@@ -97,7 +97,7 @@ class Tresor::Crypto_channel
 		State _state { INACTIVE };
 		bool _generated_req_success { false };
 		Vfs::Vfs_handle *_vfs_handle { nullptr };
-		Block _blk_buf { };
+		Block _blk { };
 		Constructible<Crypto_request> _request { };
 
 	public:
