@@ -28,13 +28,14 @@ namespace Tresor {
 
 class Tresor::Crypto_request : public Module_request
 {
+	friend class Crypto;
+	friend class Crypto_channel;
+
 	public:
 
 		enum Type { ADD_KEY, REMOVE_KEY, DECRYPT, ENCRYPT, DECRYPT_CLIENT_DATA, ENCRYPT_CLIENT_DATA };
 
 	private:
-
-		friend class Crypto;
 
 		Type const _type;
 		Request_offset const _client_req_offset;
@@ -81,7 +82,7 @@ class Tresor::Crypto_request : public Module_request
 		}
 };
 
-class Tresor::Crypto_channel
+class Tresor::Crypto_channel : public Module_channel
 {
 	private:
 
@@ -92,13 +93,26 @@ class Tresor::Crypto_channel
 			OBTAIN_PLAINTEXT_BLK_IN_PROGRESS, OBTAIN_PLAINTEXT_BLK_COMPLETE,
 			SUPPLY_PLAINTEXT_BLK_PENDING, SUPPLY_PLAINTEXT_BLK_IN_PROGRESS,
 			SUPPLY_PLAINTEXT_BLK_COMPLETE, OP_WRITTEN_TO_VFS_HANDLE,
-			QUEUE_READ_SUCCEEDED };
+			QUEUE_READ_SUCCEEDED, REQ_GENERATED };
 
 		State _state { INACTIVE };
 		bool _generated_req_success { false };
 		Vfs::Vfs_handle *_vfs_handle { nullptr };
 		Block _blk { };
 		Constructible<Crypto_request> _request { };
+
+		void _generated_req_completed(State_uint) override;
+
+		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
+
+		bool _request_complete() override { return _state == COMPLETE; }
+
+		template <typename REQUEST, typename... ARGS>
+		void _generate_req(State_uint state, bool &progress, ARGS &&... args)
+		{
+			_state = REQ_GENERATED;
+			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
+		}
 
 	public:
 

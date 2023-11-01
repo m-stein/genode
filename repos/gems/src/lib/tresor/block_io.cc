@@ -60,7 +60,7 @@ char const *Block_io_request::type_to_string(Type type)
 void Block_io_channel::_generated_req_completed(State_uint state_uint)
 {
 	if (!_generated_req_success) {
-		error("free tree: request (", *_req_ptr, ") failed because generated request failed)");
+		error("block io: request (", *_req_ptr, ") failed because generated request failed)");
 		_req_ptr->_success = false;
 		_state = REQ_COMPLETE;
 		return;

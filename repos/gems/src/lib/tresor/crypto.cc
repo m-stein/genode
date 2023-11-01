@@ -65,9 +65,7 @@ bool Crypto::_peek_generated_request(uint8_t *buf_ptr,
 		Channel &chan { _channels[id] };
 		Client_data_request::Type cd_req_type;
 
-		if (chan._state == Channel::OBTAIN_PLAINTEXT_BLK_PENDING)
-			cd_req_type = Client_data_request::OBTAIN_PLAINTEXT_BLK;
-		else if (chan._state == Channel::SUPPLY_PLAINTEXT_BLK_PENDING)
+		if (chan._state == Channel::SUPPLY_PLAINTEXT_BLK_PENDING)
 			cd_req_type = Client_data_request::SUPPLY_PLAINTEXT_BLK;
 		else
 			continue;
@@ -85,6 +83,18 @@ bool Crypto::_peek_generated_request(uint8_t *buf_ptr,
 }
 
 
+void Crypto_channel::_generated_req_completed(State_uint state_uint)
+{
+	if (!_generated_req_success) {
+		error("crypto: request (", *_request, ") failed because generated request failed)");
+		_request->_success = false;
+		_state = COMPLETE;
+		return;
+	}
+	_state = (State)state_uint;
+}
+
+
 void Crypto::_drop_generated_request(Module_request &req)
 {
 	Module_request_id const id { req.src_request_id() };
@@ -93,9 +103,6 @@ void Crypto::_drop_generated_request(Module_request &req)
 		throw Bad_id { };
 	}
 	switch (_channels[id]._state) {
-	case Channel::OBTAIN_PLAINTEXT_BLK_PENDING:
-		_channels[id]._state = Channel::OBTAIN_PLAINTEXT_BLK_IN_PROGRESS;
-		break;
 	case Channel::SUPPLY_PLAINTEXT_BLK_PENDING:
 		_channels[id]._state = Channel::SUPPLY_PLAINTEXT_BLK_IN_PROGRESS;
 		break;
@@ -252,8 +259,9 @@ void Crypto::_execute_encrypt_client_data(Channel &channel,
 	switch (channel._state) {
 	case Channel::SUBMITTED:
 
-		channel._state = Channel::OBTAIN_PLAINTEXT_BLK_PENDING;
-		progress = true;
+		channel._generate_req<Client_data_request>(
+			Channel::OBTAIN_PLAINTEXT_BLK_COMPLETE, progress, Client_data_request::OBTAIN_PLAINTEXT_BLK,
+			req._client_req_offset, req._client_req_tag, req._pba, req._vba, channel._blk);;
 		return;
 
 	case Channel::OBTAIN_PLAINTEXT_BLK_COMPLETE:
@@ -579,7 +587,9 @@ Crypto::Crypto(Vfs::Env       &vfs_env,
 	_path              { xml_node.attribute_value("path", String<32>()) },
 	_add_key_handle    { vfs_open_wo(_vfs_env, { _path.string(), "/add_key" }) },
 	_remove_key_handle { vfs_open_wo(_vfs_env, { _path.string(), "/remove_key" }) }
-{ }
+{
+	register_channels(_channels, NR_OF_CHANNELS, CRYPTO);
+}
 
 
 void Crypto::generated_request_complete(Module_request &mod_req)
@@ -593,9 +603,6 @@ void Crypto::generated_request_complete(Module_request &mod_req)
 	case CLIENT_DATA:
 	{
 		switch (_channels[id]._state) {
-		case Channel::OBTAIN_PLAINTEXT_BLK_IN_PROGRESS:
-			_channels[id]._state = Channel::OBTAIN_PLAINTEXT_BLK_COMPLETE;
-			break;
 		case Channel::SUPPLY_PLAINTEXT_BLK_IN_PROGRESS:
 			_channels[id]._state = Channel::SUPPLY_PLAINTEXT_BLK_COMPLETE;
 			break;
