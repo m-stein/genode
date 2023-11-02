@@ -83,15 +83,13 @@ class Tresor::Vbd_initializer_request : public Module_request
 };
 
 
-class Tresor::Vbd_initializer_channel
+class Tresor::Vbd_initializer_channel : public Module_channel
 {
 	private:
 
 		friend class Vbd_initializer;
 
-		enum State {
-			INACTIVE, SUBMITTED, PENDING, IN_PROGRESS, COMPLETE,
-			BLOCK_IO_PENDING, BLOCK_IO_IN_PROGRESS, BLOCK_IO_COMPLETE };
+		enum State { REQ_GENERATED, INACTIVE, SUBMITTED, PENDING, IN_PROGRESS, COMPLETE, BLOCK_IO_COMPLETE };
 
 		enum Child_state { DONE, INIT_BLOCK, INIT_NODE, WRITE_BLOCK, };
 
@@ -116,6 +114,14 @@ class Tresor::Vbd_initializer_channel
 		bool _generated_req_success { false };
 		Block _encoded_blk { };
 		Hash _dummy_hash { };
+
+		void _generated_req_completed(State_uint) override;
+
+		bool _request_complete() override { return _state == COMPLETE; }
+
+		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
+
+		void _generate_blk_io_write(bool &progress);
 
 		static void reset_node(Type_1_node &node)
 		{
@@ -191,13 +197,6 @@ class Tresor::Vbd_initializer : public Module
 		                             size_t   buf_size) override;
 
 		void _drop_completed_request(Module_request &req) override;
-
-		bool _peek_generated_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_generated_request(Module_request &mod_req) override;
-
-		void generated_request_complete(Module_request &req) override;
 
 		bool new_submit_request() override { return false; }
 

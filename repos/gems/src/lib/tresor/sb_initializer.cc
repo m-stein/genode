@@ -227,6 +227,7 @@ void Sb_initializer_channel::_generated_req_completed(State_uint state_uint)
 		error("free tree: request (", _request, ") failed because generated request failed)");
 		_request._success = false;
 		_state = COMPLETE;
+		//_req_ptr = nullptr;
 		return;
 	}
 	_state = (State)state_uint;
