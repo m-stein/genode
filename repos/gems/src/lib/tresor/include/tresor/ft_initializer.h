@@ -30,7 +30,6 @@ namespace Tresor {
 
 class Tresor::Ft_initializer_request : public Module_request
 {
-	friend class Ft_initializer;
 	friend class Ft_initializer_channel;
 
 	private:
@@ -39,7 +38,7 @@ class Tresor::Ft_initializer_request : public Module_request
 		Pba_allocator &_pba_alloc;
 		bool &_success;
 
-		NONCOPYABLE(Ft_initializer_request)
+		NONCOPYABLE(Ft_initializer_request);
 
 	public:
 
@@ -51,13 +50,11 @@ class Tresor::Ft_initializer_request : public Module_request
 
 class Tresor::Ft_initializer_channel : public Module_channel
 {
-	friend class Ft_initializer;
-
 	private:
 
 		using Request = Ft_initializer_request;
 
-		enum State { INACTIVE, REQ_GENERATED, SUBMITTED, PENDING, IN_PROGRESS, COMPLETE, BLOCK_IO_COMPLETE };
+		enum State { REQ_GENERATED, SUBMITTED, PENDING, IN_PROGRESS, COMPLETE, BLOCK_IO_COMPLETE };
 
 		enum Child_state { DONE, INIT_BLOCK, INIT_NODE, WRITE_BLOCK, };
 
@@ -79,8 +76,8 @@ class Tresor::Ft_initializer_channel : public Module_channel
 			Child_state state { DONE };
 		};
 
-		State _state { INACTIVE };
-		Constructible<Ft_initializer_request> _req_ptr { };
+		State _state { COMPLETE };
+		Request *_req_ptr { };
 		Root_node _root_node { };
 		Type_1_level _t1_levels[TREE_MAX_LEVEL] { };
 		Type_2_level _t2_level { };
@@ -90,30 +87,20 @@ class Tresor::Ft_initializer_channel : public Module_channel
 		bool _generated_req_success { false };
 		Block _encoded_blk { };
 
-		static void reset_node(Tresor::Type_1_node &node)
-		{
-			memset(&node, 0, sizeof(Type_1_node));
-		}
+		NONCOPYABLE(Ft_initializer_channel);
 
-		static void reset_node(Tresor::Type_2_node &node)
-		{
-			memset(&node, 0, sizeof(Type_2_node));
-		}
-
-		static void reset_level(Type_1_level &level,
-		                        Child_state   state)
+		static void reset_level(Type_1_level &level, Child_state state)
 		{
 			for (unsigned int i = 0; i < NR_OF_T1_NODES_PER_BLK; i++) {
-				reset_node(level.children.nodes[i]);
+				level.children.nodes[i] = { };
 				level.children_state[i] = state;
 			}
 		}
 
-		static void reset_level(Type_2_level &level,
-		                        Child_state   state)
+		static void reset_level(Type_2_level &level, Child_state state)
 		{
 			for (unsigned int i = 0; i < NR_OF_T2_NODES_PER_BLK; i++) {
-				reset_node(level.children.nodes[i]);
+				level.children.nodes[i] = { };
 				level.children_state[i] = state;
 			}
 		}
@@ -124,42 +111,27 @@ class Tresor::Ft_initializer_channel : public Module_channel
 
 		bool _request_complete() override { return _state == COMPLETE; }
 
-		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
+		void _request_submitted(Module_request &) override;
 
-		void _execute_leaf_child(bool                                &progress,
-		                         uint64_t                            &nr_of_leaves,
-		                         Tresor::Type_2_node                 &child,
-		                         Ft_initializer_channel::Child_state &child_state,
-		                         uint64_t                             child_index);
+		void _execute_leaf_child(bool &, uint64_t &, Type_2_node &, Child_state &, uint64_t);
 
-		void _execute_inner_t2_child(bool                                 &progress,
-		                             uint64_t                              nr_of_leaves,
-		                             uint64_t                             &level_to_write,
-		                             Tresor::Type_1_node                  &child,
-		                             Ft_initializer_channel::Type_2_level &child_level,
-		                             Ft_initializer_channel::Child_state  &child_state,
-		                             uint64_t                              level_index,
-		                             uint64_t                              child_index);
+		void _execute_inner_t2_child(bool &, uint64_t, uint64_t &, Type_1_node &, Type_2_level &,
+		                             Child_state &, uint64_t, uint64_t);
 
-		void _execute_inner_t1_child(bool                                 &progress,
-		                             uint64_t                              nr_of_leaves,
-		                             uint64_t                             &level_to_write,
-		                             Tresor::Type_1_node                  &child,
-		                             Ft_initializer_channel::Type_1_level &child_level,
-		                             Ft_initializer_channel::Child_state  &child_state,
-		                             uint64_t                              level_index,
-		                             uint64_t                              child_index);
+		void _execute_inner_t1_child(bool &, uint64_t, uint64_t &, Type_1_node &, Type_1_level &,
+		                             Child_state &, uint64_t, uint64_t);
 
-		void _mark_req_failed(bool       &progress,
-		                      char const *str);
+		void _mark_req_failed(bool &, char const *);
 
-		void _mark_req_successful(bool    &progress);
+		void _mark_req_successful(bool &);
 
-		void _execute(bool    &progress);
+		void _execute(bool &);
 
-		void _execute_init(bool    &progress);
+		void _execute_init(bool &);
 
 	public:
+
+		Ft_initializer_channel(Module_channel_id id) : Module_channel { FT_INITIALIZER, id } { }
 
 		void execute(bool &);
 };
@@ -169,27 +141,15 @@ class Tresor::Ft_initializer : public Module
 {
 	private:
 
-		using Request = Ft_initializer_request;
 		using Channel = Ft_initializer_channel;
 
-		enum { NR_OF_CHANNELS = 1 };
+		Constructible<Channel> _channels[1] { };
 
-		Channel _channels[NR_OF_CHANNELS] { };
-
-		bool _peek_completed_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_completed_request(Module_request &req) override;
-
-		bool new_submit_request() override { return false; }
+		NONCOPYABLE(Ft_initializer);
 
 	public:
 
 		Ft_initializer();
-
-		bool ready_to_submit_request() override;
-
-		void submit_request(Module_request &req) override;
 
 		void execute(bool &) override;
 

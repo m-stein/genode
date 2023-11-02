@@ -49,7 +49,7 @@ void Ft_initializer_channel::_execute_leaf_child(bool                           
 				log("[ft_init] node: ", 1, " ", child_index,
 				    " assign pba 0, leaf unused");
 
-			Ft_initializer_channel::reset_node(child);
+			child = { };
 			child_state = DONE;
 			progress = true;
 		} else {
@@ -57,7 +57,7 @@ void Ft_initializer_channel::_execute_leaf_child(bool                           
 			switch (_state) {
 			case IN_PROGRESS:
 
-				Ft_initializer_channel::reset_node(child);
+				child = { };
 				if (!_req_ptr->_pba_alloc.alloc(child.pba)) {
 					_mark_req_failed(progress, "allocate pba");
 					break;
@@ -101,7 +101,7 @@ void Ft_initializer_channel::_execute_inner_t2_child(bool                       
 				log("[ft_init] node: ", level_index, " ", child_index,
 				    " assign pba 0, inner node unused");
 
-			Ft_initializer_channel::reset_node(child);
+			child = { };
 			child_state = DONE;
 			progress = true;
 			return;
@@ -123,7 +123,7 @@ void Ft_initializer_channel::_execute_inner_t2_child(bool                       
 		switch (_state) {
 		case IN_PROGRESS:
 		{
-			Ft_initializer_channel::reset_node(child);
+			child = { };
 			if (!_req_ptr->_pba_alloc.alloc(child.pba)) {
 				_mark_req_failed(progress, "allocate pba");
 				break;
@@ -193,7 +193,7 @@ void Ft_initializer_channel::_execute_inner_t1_child(bool                       
 				log("[ft_init] node: ", level_index, " ", child_index,
 				    " assign pba 0, inner node unused");
 
-			Ft_initializer_channel::reset_node(child);
+			child = { };
 			child_state = DONE;
 			progress = true;
 			return;
@@ -215,7 +215,7 @@ void Ft_initializer_channel::_execute_inner_t1_child(bool                       
 		switch (_state) {
 		case IN_PROGRESS:
 		{
-			Ft_initializer_channel::reset_node(child);
+			child = { };
 			if (!_req_ptr->_pba_alloc.alloc(child.pba)) {
 				_mark_req_failed(progress, "allocate pba");
 				break;
@@ -272,7 +272,7 @@ void Ft_initializer_channel::_generated_req_completed(State_uint state_uint)
 		error("ft initializer: request (", *_req_ptr, ") failed because generated request failed)");
 		_req_ptr->_success = false;
 		_state = COMPLETE;
-		//_req_ptr = nullptr;
+		_req_ptr = nullptr;
 		return;
 	}
 	_state = (State)state_uint;
@@ -399,22 +399,9 @@ void Ft_initializer_channel::_execute_init(bool    &progress)
 		progress = true;
 		return;
 
-	case IN_PROGRESS:
-
-		_execute(progress);
-		return;
-
-	case BLOCK_IO_COMPLETE:
-
-		_execute(progress);
-		return;
-
-	default:
-		/*
-		 * Omit other states related to ALLOC and IO as those
-		 * are handled via Module API.
-		 */
-		return;
+	case IN_PROGRESS: _execute(progress); return;
+	case BLOCK_IO_COMPLETE: _execute(progress); return;
+	default: return;
 	}
 }
 
@@ -425,63 +412,34 @@ void Ft_initializer_channel::_mark_req_failed(bool       &progress,
 	error("request failed: failed to ", str);
 	_req_ptr->_success = false;
 	_state = COMPLETE;
+	_req_ptr = nullptr;
 	progress = true;
 }
 
 
 void Ft_initializer_channel::_mark_req_successful(bool    &progress)
 {
-	Request &req { *_req_ptr };
-
-	req._ft.t1_node(_root_node.node);
-	req._success = true;
-
+	_req_ptr->_ft.t1_node(_root_node.node);
+	_req_ptr->_success = true;
 	_state = COMPLETE;
+	_req_ptr = nullptr;
 	progress = true;
 }
 
 
 void Ft_initializer_channel::execute(bool &progress)
 {
-	if (_state == INACTIVE)
+	if (!_req_ptr)
 		return;
 
 	_execute_init(progress);
 }
 
 
-bool Ft_initializer::_peek_completed_request(uint8_t *buf_ptr,
-                                             size_t   buf_size)
+void Ft_initializer_channel::_request_submitted(Module_request &mod_req)
 {
-	for (Channel &channel : _channels) {
-		if (channel._state == Channel::COMPLETE) {
-			if (sizeof(Request) > buf_size) {
-				class Exception_1 { };
-				throw Exception_1 { };
-			}
-			Request &req { *channel._req_ptr };
-			construct_at<Ft_initializer_request>(buf_ptr, req.src_module_id(), req.src_chan_id(), req._ft, req._pba_alloc, req._success);
-			(*(Request*)buf_ptr).dst_chan_id(req.dst_chan_id());
-			return true;
-		}
-	}
-	return false;
-}
-
-
-void Ft_initializer::_drop_completed_request(Module_request &req)
-{
-	Module_request_id id { 0 };
-	id = req.dst_request_id();
-	if (id >= NR_OF_CHANNELS) {
-		class Exception_1 { };
-		throw Exception_1 { };
-	}
-	if (_channels[id]._state != Channel::COMPLETE) {
-		class Exception_2 { };
-		throw Exception_2 { };
-	}
-	_channels[id]._state = Channel::INACTIVE;
+	_req_ptr = static_cast<Request *>(&mod_req);
+	_state = SUBMITTED;
 }
 
 
@@ -499,34 +457,11 @@ void Ft_initializer_channel::_generate_blk_io_write(bool &progress)
 
 Ft_initializer::Ft_initializer()
 {
-	register_channels(_channels, NR_OF_CHANNELS, FT_INITIALIZER);
-}
-
-
-bool Ft_initializer::ready_to_submit_request()
-{
-	for (Channel &channel : _channels) {
-		if (channel._state == Channel::INACTIVE)
-			return true;
+	Module_channel_id id { 0 };
+	for (Constructible<Channel> &chan : _channels) {
+		chan.construct(id++);
+		add_channel(*chan);
 	}
-	return false;
-}
-
-
-void Ft_initializer::submit_request(Module_request &mod_req)
-{
-	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
-		if (_channels[id]._state == Channel::INACTIVE) {
-			Request &req { *static_cast<Request*>(&mod_req) };
-			req.dst_chan_id(id);
-			_channels[id]._req_ptr.construct(req.src_module_id(), req.src_chan_id(), req._ft, req._pba_alloc, req._success);
-			_channels[id]._req_ptr->dst_chan_id(id);
-			_channels[id]._state = Channel::SUBMITTED;
-			return;
-		}
-	}
-	class Invalid_call { };
-	throw Invalid_call { };
 }
 
 
