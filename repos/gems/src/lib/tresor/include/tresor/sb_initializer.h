@@ -89,7 +89,7 @@ class Tresor::Sb_initializer_request : public Module_request
 };
 
 
-class Tresor::Sb_initializer_channel
+class Tresor::Sb_initializer_channel : public Module_channel
 {
 	private:
 
@@ -107,8 +107,6 @@ class Tresor::Sb_initializer_channel
 			SYNC_REQUEST_IN_PROGRESS,
 			SYNC_REQUEST_PENDING,
 			TA_REQUEST_CREATE_KEY_COMPLETE,
-			TA_REQUEST_CREATE_KEY_IN_PROGRESS,
-			TA_REQUEST_CREATE_KEY_PENDING,
 			TA_REQUEST_ENCRYPT_KEY_COMPLETE,
 			TA_REQUEST_ENCRYPT_KEY_IN_PROGRESS,
 			TA_REQUEST_ENCRYPT_KEY_PENDING,
@@ -121,6 +119,7 @@ class Tresor::Sb_initializer_channel
 			WRITE_REQUEST_COMPLETE,
 			WRITE_REQUEST_IN_PROGRESS,
 			WRITE_REQUEST_PENDING,
+			REQ_GENERATED
 		};
 
 		State _state { INACTIVE };
@@ -136,6 +135,12 @@ class Tresor::Sb_initializer_channel
 		Type_1_node _ft_node { };
 		Type_1_node _mt_node { };
 		bool _generated_req_success { false };
+
+		void _generated_req_completed(State_uint) override;
+
+		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
+
+		bool _request_complete() override { return _state == COMPLETE; }
 
 		void clean_data()
 		{

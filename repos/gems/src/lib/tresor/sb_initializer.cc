@@ -163,8 +163,9 @@ void Sb_initializer::_execute(Channel &channel,
 
 	case CS::MT_REQUEST_COMPLETE:
 
-		channel._state = CS::TA_REQUEST_CREATE_KEY_PENDING;
-		progress = true;
+		channel.generate_req<Trust_anchor::Create_key>(
+			CS::TA_REQUEST_CREATE_KEY_COMPLETE, progress, channel._key_plain.value, channel._generated_req_success);
+		channel._state = Channel::REQ_GENERATED;
 		break;
 
 	case CS::TA_REQUEST_CREATE_KEY_COMPLETE:
@@ -215,6 +216,18 @@ void Sb_initializer::_execute(Channel &channel,
 	/* finished */
 	if (channel._sb_slot_index == NR_OF_SUPERBLOCK_SLOTS)
 		_mark_req_successful(channel, progress);
+}
+
+
+void Sb_initializer_channel::_generated_req_completed(State_uint state_uint)
+{
+	if (!_generated_req_success) {
+		error("free tree: request (", _request, ") failed because generated request failed)");
+		_request._success = false;
+		_state = COMPLETE;
+		return;
+	}
+	_state = (State)state_uint;
 }
 
 
@@ -450,15 +463,6 @@ bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
 
 			return true;
 		}
-		case CS::TA_REQUEST_CREATE_KEY_PENDING:
-		{
-			ASSERT(sizeof(Trust_anchor_request) <= buf_size);
-			construct_at<Trust_anchor_request>(
-				buf_ptr, SB_INITIALIZER, id, Trust_anchor_request::CREATE_KEY,
-				channel._key_plain.value, channel._key_cipher.value, channel._sb_hash, Passphrase { }, channel._generated_req_success);
-
-			return true;
-		}
 		case CS::TA_REQUEST_ENCRYPT_KEY_PENDING:
 		{
 			ASSERT(sizeof(Trust_anchor_request) <= buf_size);
@@ -507,9 +511,6 @@ void Sb_initializer::_drop_generated_request(Module_request &req)
 		break;
 	case Channel::SYNC_REQUEST_PENDING:
 		_channels[id]._state = Channel::SYNC_REQUEST_IN_PROGRESS;
-		break;
-	case Channel::TA_REQUEST_CREATE_KEY_PENDING:
-		_channels[id]._state = Channel::TA_REQUEST_CREATE_KEY_IN_PROGRESS;
 		break;
 	case Channel::TA_REQUEST_ENCRYPT_KEY_PENDING:
 		_channels[id]._state = Channel::TA_REQUEST_ENCRYPT_KEY_IN_PROGRESS;
@@ -581,7 +582,6 @@ void Sb_initializer::generated_request_complete(Module_request &req)
 			ft_initializer_req->success();
 		break;
 	}
-	case Channel::TA_REQUEST_CREATE_KEY_IN_PROGRESS: channel._state = Channel::TA_REQUEST_CREATE_KEY_COMPLETE; break;
 	case Channel::TA_REQUEST_ENCRYPT_KEY_IN_PROGRESS: channel._state = Channel::TA_REQUEST_ENCRYPT_KEY_COMPLETE; break;
 	case Channel::TA_REQUEST_SECURE_SB_IN_PROGRESS: channel._state = Channel::TA_REQUEST_SECURE_SB_COMPLETE; break;
 	case Channel::WRITE_REQUEST_IN_PROGRESS:
@@ -610,7 +610,7 @@ void Sb_initializer::generated_request_complete(Module_request &req)
 
 
 Sb_initializer::Sb_initializer()
-{ }
+{ register_channels(_channels, NR_OF_CHANNELS, SB_INITIALIZER); }
 
 
 bool Sb_initializer::ready_to_submit_request()
