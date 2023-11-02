@@ -41,13 +41,13 @@ class Tresor::Sb_initializer_request : public Module_request
 
 		Type             _type              { INVALID };
 		Tree_level_index _vbd_max_level_idx { 0 };
-		Tree_degree      _vbd_max_child_idx { 0 };
+		Tree_degree      _vbd_degree { 0 };
 		Number_of_leaves _vbd_nr_of_leaves  { 0 };
 		Tree_level_index _ft_max_level_idx  { 0 };
-		Tree_degree      _ft_max_child_idx  { 0 };
+		Tree_degree      _ft_degree  { 0 };
 		Number_of_leaves _ft_nr_of_leaves   { 0 };
 		Tree_level_index _mt_max_level_idx  { 0 };
-		Tree_degree      _mt_max_child_idx  { 0 };
+		Tree_degree      _mt_degree  { 0 };
 		Number_of_leaves _mt_nr_of_leaves   { 0 };
 		addr_t           _pba_alloc_ptr     { 0 };
 		bool             _success           { false };
@@ -67,13 +67,13 @@ class Tresor::Sb_initializer_request : public Module_request
 		                   uint64_t          src_request_id,
 		                   size_t            req_type,
 		                   Tree_level_index  vbd_max_level_idx,
-		                   Tree_degree       vbd_max_child_idx,
+		                   Tree_degree       vbd_degree,
 		                   Number_of_leaves  vbd_nr_of_leaves,
 		                   Tree_level_index  ft_max_level_idx,
-		                   Tree_degree       ft_max_child_idx,
+		                   Tree_degree       ft_degree,
 		                   Number_of_leaves  ft_nr_of_leaves,
 		                   Tree_level_index  mt_max_level_idx,
-		                   Tree_degree       mt_max_child_idx,
+		                   Tree_degree       mt_degree,
 		                   Number_of_leaves  mt_nr_of_leaves,
 		                   Pba_allocator &pba_alloc);
 

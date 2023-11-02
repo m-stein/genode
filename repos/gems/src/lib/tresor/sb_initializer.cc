@@ -38,13 +38,13 @@ void Sb_initializer_request::create(void             *buf_ptr,
                                     uint64_t          src_request_id,
                                     size_t            req_type,
                                     Tree_level_index  vbd_max_level_idx,
-                                    Tree_degree       vbd_max_child_idx,
+                                    Tree_degree       vbd_degree,
                                     Number_of_leaves  vbd_nr_of_leaves,
                                     Tree_level_index  ft_max_level_idx,
-                                    Tree_degree       ft_max_child_idx,
+                                    Tree_degree       ft_degree,
                                     Number_of_leaves  ft_nr_of_leaves,
                                     Tree_level_index  mt_max_level_idx,
-                                    Tree_degree       mt_max_child_idx,
+                                    Tree_degree       mt_degree,
                                     Number_of_leaves  mt_nr_of_leaves,
                                     Pba_allocator &pba_alloc)
 {
@@ -52,13 +52,13 @@ void Sb_initializer_request::create(void             *buf_ptr,
 
 	req._type              = (Type)req_type;
 	req._vbd_max_level_idx = vbd_max_level_idx;
-	req._vbd_max_child_idx = vbd_max_child_idx;
+	req._vbd_degree = vbd_degree;
 	req._vbd_nr_of_leaves  = vbd_nr_of_leaves;
 	req._ft_max_level_idx  = ft_max_level_idx;
-	req._ft_max_child_idx  = ft_max_child_idx;
+	req._ft_degree  = ft_degree;
 	req._ft_nr_of_leaves   = ft_nr_of_leaves;
 	req._mt_max_level_idx  = mt_max_level_idx;
-	req._mt_max_child_idx  = mt_max_child_idx;
+	req._mt_degree  = mt_degree;
 	req._mt_nr_of_leaves   = mt_nr_of_leaves;
 	req._pba_alloc_ptr   = (addr_t)&pba_alloc;
 
@@ -109,7 +109,7 @@ void Sb_initializer::_populate_sb_slot(Channel &channel,
 	memset(&sb.previous_key, 0, sizeof(sb.previous_key));
 	sb.current_key             = channel._key_cipher;
 	sb.curr_snap_idx           = 0;
-	sb.degree                  = req._vbd_max_child_idx;
+	sb.degree                  = req._vbd_degree;
 	sb.first_pba               = first;
 	sb.nr_of_pbas              = num;
 	sb.last_secured_generation = 0;
@@ -117,13 +117,13 @@ void Sb_initializer::_populate_sb_slot(Channel &channel,
 	sb.free_number             = ft_node.pba;
 	sb.free_hash               = ft_node.hash;
 	sb.free_max_level          = req._ft_max_level_idx;
-	sb.free_degree             = req._ft_max_child_idx;
+	sb.free_degree             = req._ft_degree;
 	sb.free_leaves             = req._ft_nr_of_leaves;
 	sb.meta_gen                = 0;
 	sb.meta_number             = mt_node.pba;
 	sb.meta_hash               = mt_node.hash;
 	sb.meta_max_level          = req._mt_max_level_idx;
-	sb.meta_degree             = req._mt_max_child_idx;
+	sb.meta_degree             = req._mt_degree;
 	sb.meta_leaves             = req._mt_nr_of_leaves;
 }
 
@@ -403,7 +403,7 @@ bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
 				buf_ptr, buf_size, SB_INITIALIZER, id,
 				vbd_initializer_req_type,
 				channel._request._vbd_max_level_idx,
-				channel._request._vbd_max_child_idx - 1,
+				channel._request._vbd_degree - 1,
 				channel._request._vbd_nr_of_leaves, channel._request._pba_alloc());
 
 			return true;
@@ -417,7 +417,7 @@ bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
 				buf_ptr, buf_size, SB_INITIALIZER, id,
 				ft_initializer_req_type,
 				channel._request._ft_max_level_idx,
-				channel._request._ft_max_child_idx - 1,
+				channel._request._ft_degree - 1,
 				channel._request._ft_nr_of_leaves, channel._request._pba_alloc());
 
 			return true;
@@ -431,7 +431,7 @@ bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
 				buf_ptr, buf_size, SB_INITIALIZER, id,
 				ft_initializer_req_type,
 				channel._request._ft_max_level_idx,
-				channel._request._ft_max_child_idx - 1,
+				channel._request._ft_degree - 1,
 				channel._request._ft_nr_of_leaves, channel._request._pba_alloc());
 
 			return true;
