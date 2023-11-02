@@ -192,7 +192,7 @@ void Sb_initializer::_execute(Channel &channel,
 
 	case CS::WRITE_REQUEST_COMPLETE:
 
-		channel._state = CS::SYNC_REQUEST_PENDING;
+		channel._generate_req<Block_io::Sync>(CS::SYNC_REQUEST_COMPLETE, progress);
 		progress = true;
 		break;
 
@@ -356,22 +356,7 @@ bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
 
 			return true;
 		}
-		case CS::SYNC_REQUEST_PENDING:
-		{
-			Block_io_request::Type const block_io_req_type {
-				Block_io_request::SYNC };
-
-			ASSERT(sizeof(Block_io_request) <= buf_size);
-			construct_at<Block_io_request>(
-				buf_ptr, SB_INITIALIZER, id,
-				block_io_req_type, 0, 0, 0,
-				channel._sb_slot_index, 0,
-				0, channel._encoded_blk, channel._dummy_hash, channel._generated_req_success);
-
-			return true;
-		}
-		default:
-			break;
+		default: break;
 		}
 	}
 	return false;
@@ -388,9 +373,6 @@ void Sb_initializer::_drop_generated_request(Module_request &req)
 	switch (_channels[id]._state) {
 	case Channel::VBD_REQUEST_PENDING:
 		_channels[id]._state = Channel::VBD_REQUEST_IN_PROGRESS;
-		break;
-	case Channel::SYNC_REQUEST_PENDING:
-		_channels[id]._state = Channel::SYNC_REQUEST_IN_PROGRESS;
 		break;
 	default:
 		class Exception_1 { };
@@ -422,15 +404,6 @@ void Sb_initializer::generated_request_complete(Module_request &req)
 		       const_cast<Vbd_initializer_request*>(vbd_initializer_req)->root_node(),
 		       sizeof(Type_1_node));
 
-		break;
-	}
-	case Channel::SYNC_REQUEST_IN_PROGRESS:
-	{
-		if (req.dst_module_id() != BLOCK_IO) {
-			class Exception_10 { };
-			throw Exception_10 { };
-		}
-		channel._state = Channel::SYNC_REQUEST_COMPLETE;
 		break;
 	}
 	default:
