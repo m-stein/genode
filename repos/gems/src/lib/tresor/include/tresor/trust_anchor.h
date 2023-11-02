@@ -146,6 +146,12 @@ class Tresor::Trust_anchor : public Module
 			: Request(m, c, Request::GET_LAST_SB_HASH, *(Key_value*)0, *(Key_value*)0, h, Passphrase(), s) { }
 		};
 
+		struct Initialize : Request
+		{
+			Initialize(Module_id src_mod, Module_channel_id src_chan, Passphrase pass, bool &succ)
+			: Request(src_mod, src_chan, Request::INITIALIZE, *(Key_value*)0, *(Key_value*)0, *(Hash*)0, pass, succ) { }
+		};
+
 		Trust_anchor(Vfs::Env &, Xml_node const &);
 
 		void execute(bool &) override;

@@ -660,8 +660,6 @@ class Tresor_tester::Main
 		Sb_check _sb_check { };
 		Vbd_check _vbd_check { };
 		Ft_check _ft_check { };
-		Key_value _dummy_key { };
-		Hash _dummy_hash { };
 		bool _generated_req_success { false };
 
 		static void _generate_blk_data(Tresor::Block &blk_data,
@@ -765,16 +763,6 @@ class Tresor_tester::Main
 				enum Result { NO_CMD, CMD_IN_BUF } result { NO_CMD };
 				_with_first_processable_cmd([&] (Command &cmd) {
 					switch (cmd.type()) {
-					case Command::TRUST_ANCHOR:
-						{
-							ASSERT(sizeof(Trust_anchor_request) <= buf_size);
-							construct_at<Trust_anchor_request>(
-								buf_ptr, COMMAND_POOL, cmd.id(), Trust_anchor_request::INITIALIZE,
-								_dummy_key, _dummy_key, _dummy_hash, cmd.trust_anchor_node().passphrase(), _generated_req_success);
-
-							result = CMD_IN_BUF;
-							break;
-						}
 					case Command::INITIALIZE:
 						{
 							reset_snap_refs();
@@ -819,7 +807,6 @@ class Tresor_tester::Main
 		bool _req_success(Module_request &mod_req) const
 		{
 			switch (mod_req.dst_module_id()) {
-			case TRUST_ANCHOR: return _generated_req_success;
 			case SB_INITIALIZER: return static_cast<Sb_initializer_request *>(&mod_req)->success();
 			case SB_CHECK: return static_cast<Sb_check_request *>(&mod_req)->success();
 			default: break;
@@ -1102,24 +1089,32 @@ void Command::execute(bool &progress)
 {
 	switch (type()) {
 	case REQUEST:
-		{
-			Request_node node { request_node() };
-			State state { COMPLETED };
-			_gen = INVALID_GENERATION;
-			if (node.op() == Request::DISCARD_SNAPSHOT) {
-				_gen = _main.snap_id_to_gen(node.snap_id());
-				state = DISCARD_SNAP_COMPLETED;
-			}
-			if (node.op() == Request::CREATE_SNAPSHOT)
-				state = CREATE_SNAP_COMPLETED;
-
-			generate_req<Tresor::Request>(
-				state, progress, node.op(), _success, node.has_attr_vba() ? node.vba() : 0,
-				0, node.has_attr_count() ? node.count() : 0, 0, id(), _gen);
-
-			_main.mark_command_in_progress(id());
-			break;
+	{
+		Request_node node { request_node() };
+		State state { COMPLETED };
+		_gen = INVALID_GENERATION;
+		if (node.op() == Request::DISCARD_SNAPSHOT) {
+			_gen = _main.snap_id_to_gen(node.snap_id());
+			state = DISCARD_SNAP_COMPLETED;
 		}
+		if (node.op() == Request::CREATE_SNAPSHOT)
+			state = CREATE_SNAP_COMPLETED;
+
+		generate_req<Tresor::Request>(
+			state, progress, node.op(), _success, node.has_attr_vba() ? node.vba() : 0,
+			0, node.has_attr_count() ? node.count() : 0, 0, id(), _gen);
+
+		_main.mark_command_in_progress(id());
+		break;
+	}
+	case Command::TRUST_ANCHOR:
+	{
+		Trust_anchor_node node { trust_anchor_node() };
+		ASSERT(node.op() == Trust_anchor_request::INITIALIZE);
+		generate_req<Trust_anchor::Initialize>(COMPLETED, progress, node.passphrase(), _success);
+		_main.mark_command_in_progress(id());
+		break;
+	}
 	case LOG:
 		log("\n", log_node().string(), "\n");
 		_main.mark_command_in_progress(id());
