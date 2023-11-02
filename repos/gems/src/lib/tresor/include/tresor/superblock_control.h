@@ -84,7 +84,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 		State _state { INACTIVE };
 		Constructible<Free_tree_root> _ft { };
-		Constructible<Meta_tree_root> _mt { };
+		Constructible<Free_tree_root> _mt { };
 		Secure_sb_state _secure_sb_state { SECURE_SB_INACTIVE };
 		Superblock _sb_ciphertext { };
 		Block _blk { };

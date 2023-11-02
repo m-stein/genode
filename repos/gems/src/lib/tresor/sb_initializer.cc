@@ -88,8 +88,6 @@ void Sb_initializer::_populate_sb_slot(Channel &channel,
 
 	Request     const &req      = channel._request;
 	Type_1_node const &vbd_node = channel._vbd_node;
-	Type_1_node const &ft_node  = channel._ft_node;
-	Type_1_node const &mt_node  = channel._mt_node;
 
 	sb.state = Superblock::NORMAL;
 	sb.snapshots.items[0] = Snapshot {
@@ -113,18 +111,22 @@ void Sb_initializer::_populate_sb_slot(Channel &channel,
 	sb.first_pba               = first;
 	sb.nr_of_pbas              = num;
 	sb.last_secured_generation = 0;
-	sb.free_gen                = 0;
-	sb.free_number             = ft_node.pba;
-	sb.free_hash               = ft_node.hash;
-	sb.free_max_level          = req._ft_max_level_idx;
-	sb.free_degree             = req._ft_degree;
-	sb.free_leaves             = req._ft_nr_of_leaves;
-	sb.meta_gen                = 0;
-	sb.meta_number             = mt_node.pba;
-	sb.meta_hash               = mt_node.hash;
-	sb.meta_max_level          = req._mt_max_level_idx;
-	sb.meta_degree             = req._mt_degree;
-	sb.meta_leaves             = req._mt_nr_of_leaves;
+/*
+	sb.free_number             = channel._ft->pba;
+	sb.free_gen                = channel._ft->gen;
+	sb.free_hash               = channel._ft->hash;
+*/
+	sb.free_max_level          = channel._ft->max_lvl;
+	sb.free_degree             = channel._ft->degree;
+	sb.free_leaves             = channel._ft->num_leaves;
+/*
+	sb.meta_number             = channel._mt->pba;
+	sb.meta_gen                = channel._mt->gen;
+	sb.meta_hash               = channel._mt->hash;
+*/
+	sb.meta_max_level          = channel._mt->max_lvl;
+	sb.meta_degree             = channel._mt->degree;
+	sb.meta_leaves             = channel._mt->num_leaves;
 }
 
 
@@ -389,6 +391,8 @@ bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
 	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 
 		Channel &channel { _channels[id] };
+		Request &req { channel._request };
+		Superblock &sb { channel._sb };
 
 		if (channel._state == CS::INACTIVE)
 			continue;
@@ -410,30 +414,15 @@ bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
 		}
 		case CS::FT_REQUEST_PENDING:
 		{
-			Ft_initializer_request::Type const ft_initializer_req_type {
-				Ft_initializer_request::INIT };
-
-			Ft_initializer_request::create(
-				buf_ptr, buf_size, SB_INITIALIZER, id,
-				ft_initializer_req_type,
-				channel._request._ft_max_level_idx,
-				channel._request._ft_degree - 1,
-				channel._request._ft_nr_of_leaves, channel._request._pba_alloc());
-
+			ASSERT(sizeof(Ft_initializer_request) <= buf_size);
+			channel._ft.construct(sb.free_number, sb.free_gen, sb.free_hash, req._ft_max_level_idx, req._ft_degree, req._ft_nr_of_leaves);
+			construct_at<Ft_initializer_request>(buf_ptr, SB_INITIALIZER, id, *channel._ft, channel._request._pba_alloc(), channel._generated_req_success);
 			return true;
 		}
 		case CS::MT_REQUEST_PENDING:
 		{
-			Ft_initializer_request::Type const ft_initializer_req_type {
-				Ft_initializer_request::INIT };
-
-			Ft_initializer_request::create(
-				buf_ptr, buf_size, SB_INITIALIZER, id,
-				ft_initializer_req_type,
-				channel._request._ft_max_level_idx,
-				channel._request._ft_degree - 1,
-				channel._request._ft_nr_of_leaves, channel._request._pba_alloc());
-
+			channel._mt.construct(sb.meta_number, sb.meta_gen, sb.meta_hash, req._ft_max_level_idx, req._ft_degree, req._ft_nr_of_leaves);
+			construct_at<Ft_initializer_request>(buf_ptr, SB_INITIALIZER, id, *channel._mt, channel._request._pba_alloc(), channel._generated_req_success);
 			return true;
 		}
 		case CS::WRITE_REQUEST_PENDING:
@@ -532,13 +521,7 @@ void Sb_initializer::generated_request_complete(Module_request &req)
 			class Exception_4 { };
 			throw Exception_4 { };
 		}
-		Ft_initializer_request const *ft_initializer_req = static_cast<Ft_initializer_request const*>(&req);
 		channel._state = Channel::FT_REQUEST_COMPLETE;
-		channel._generated_req_success = ft_initializer_req->success();
-		memcpy(&channel._ft_node,
-		       const_cast<Ft_initializer_request*>(ft_initializer_req)->root_node(),
-		       sizeof(Type_1_node));
-
 		break;
 	}
 	case Channel::MT_REQUEST_IN_PROGRESS:
@@ -548,14 +531,6 @@ void Sb_initializer::generated_request_complete(Module_request &req)
 			throw Exception_5 { };
 		}
 		channel._state = Channel::MT_REQUEST_COMPLETE;
-		Ft_initializer_request const *ft_initializer_req = static_cast<Ft_initializer_request const*>(&req);
-
-		memcpy(&channel._mt_node,
-		       const_cast<Ft_initializer_request*>(ft_initializer_req)->root_node(),
-		       sizeof(Type_1_node));
-
-		channel._generated_req_success =
-			ft_initializer_req->success();
 		break;
 	}
 	case Channel::WRITE_REQUEST_IN_PROGRESS:

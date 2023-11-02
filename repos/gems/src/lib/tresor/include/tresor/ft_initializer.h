@@ -30,51 +30,22 @@ namespace Tresor {
 
 class Tresor::Ft_initializer_request : public Module_request
 {
-	public:
-
-		enum Type { INVALID = 0, INIT = 1, };
-
 	private:
 
 		friend class Ft_initializer;
 		friend class Ft_initializer_channel;
 
-		Type     _type                           { INVALID };
-		uint8_t  _root_node[sizeof(Type_1_node)] { 0 };
-		uint64_t _max_level_idx                  { 0 };
-		uint64_t _max_child_idx                  { 0 };
-		uint64_t _nr_of_leaves                   { 0 };
-		addr_t   _pba_alloc_ptr                  { 0 };
-		bool     _success                        { false };
+		Free_tree_root &_ft;
+		Pba_allocator &_pba_alloc;
+		bool &_success;
 
-		Pba_allocator &_pba_alloc() { return *(Pba_allocator *)_pba_alloc_ptr; }
+		NONCOPYABLE(Ft_initializer_request)
 
 	public:
 
-		Ft_initializer_request() { }
+		Ft_initializer_request(Module_id, Module_channel_id, Free_tree_root &, Pba_allocator &, bool &);
 
-		Ft_initializer_request(Module_id         src_module_id,
-		                        Module_request_id src_request_id);
-
-		static void create(void     *buf_ptr,
-		                   size_t    buf_size,
-		                   uint64_t  src_module_id,
-		                   uint64_t  src_request_id,
-		                   size_t    req_type,
-		                   uint64_t  max_level_idx,
-		                   uint64_t  max_child_idx,
-		                   uint64_t  nr_of_leaves,
-		                   Pba_allocator &pba_alloc);
-
-		void *root_node() { return _root_node; }
-
-		Type type() const { return _type; }
-
-		bool success() const { return _success; }
-
-		static char const *type_to_string(Type type);
-
-		void print(Output &out) const override { Genode::print(out, type_to_string(_type)); }
+		void print(Output &out) const override { Genode::print(out, "init"); }
 };
 
 
@@ -107,12 +78,13 @@ class Tresor::Ft_initializer_channel : public Module_channel
 		};
 
 		State _state { INACTIVE };
-		Ft_initializer_request _request { };
+		Constructible<Ft_initializer_request> _req_ptr { };
 		Root_node _root_node { };
 		Type_1_level _t1_levels[TREE_MAX_LEVEL] { };
 		Type_2_level _t2_level { };
 		uint64_t _level_to_write { 0 };
 		uint64_t _child_pba { 0 };
+		Number_of_leaves _num_remaining_leaves { 0 };
 		bool _generated_req_success { false };
 		Block _encoded_blk { };
 

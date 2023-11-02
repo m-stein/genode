@@ -23,48 +23,11 @@ using namespace Tresor;
 
 static constexpr bool DEBUG = false;
 
-
-Ft_initializer_request::Ft_initializer_request(Module_id         src_module_id,
-                                               Module_request_id src_request_id)
+Ft_initializer_request::Ft_initializer_request(Module_id src_mod, Module_channel_id src_chan,
+                                               Free_tree_root &ft, Pba_allocator &pba_alloc, bool &success)
 :
-	Module_request { src_module_id, src_request_id, FT_INITIALIZER }
+	Module_request { src_mod, src_chan, FT_INITIALIZER }, _ft { ft }, _pba_alloc { pba_alloc }, _success { success }
 { }
-
-
-void Ft_initializer_request::create(void     *buf_ptr,
-                                    size_t    buf_size,
-                                    uint64_t  src_module_id,
-                                    uint64_t  src_request_id,
-                                    size_t    req_type,
-                                    uint64_t  max_level_idx,
-                                    uint64_t  max_child_idx,
-                                    uint64_t  nr_of_leaves,
-                                    Pba_allocator &pba_alloc)
-{
-	Ft_initializer_request req { src_module_id, src_request_id };
-
-	req._type          = (Type)req_type;
-	req._max_level_idx = max_level_idx;
-	req._max_child_idx = max_child_idx;
-	req._nr_of_leaves  = nr_of_leaves;
-	req._pba_alloc_ptr = (addr_t)&pba_alloc;
-
-	if (sizeof(req) > buf_size) {
-		class Bad_size_0 { };
-		throw Bad_size_0 { };
-	}
-	memcpy(buf_ptr, &req, sizeof(req));
-}
-
-
-char const *Ft_initializer_request::type_to_string(Type type)
-{
-	switch (type) {
-	case INVALID: return "invalid";
-	case INIT:    return "init";
-	}
-	return "?";
-}
 
 
 void Ft_initializer::_execute_leaf_child(Channel                              &channel,
@@ -98,7 +61,7 @@ void Ft_initializer::_execute_leaf_child(Channel                              &c
 			case Channel::IN_PROGRESS:
 
 				Ft_initializer_channel::reset_node(child);
-				if (!channel._request._pba_alloc().alloc(child.pba)) {
+				if (!channel._req_ptr->_pba_alloc.alloc(child.pba)) {
 					_mark_req_failed(channel, progress, "allocate pba");
 					break;
 				}
@@ -167,7 +130,7 @@ void Ft_initializer::_execute_inner_t2_child(Channel                            
 		case Channel::IN_PROGRESS:
 		{
 			Ft_initializer_channel::reset_node(child);
-			if (!channel._request._pba_alloc().alloc(child.pba)) {
+			if (!channel._req_ptr->_pba_alloc.alloc(child.pba)) {
 				_mark_req_failed(channel, progress, "allocate pba");
 				break;
 			}
@@ -262,7 +225,7 @@ void Ft_initializer::_execute_inner_t1_child(Channel                            
 		case Channel::IN_PROGRESS:
 		{
 			Ft_initializer_channel::reset_node(child);
-			if (!channel._request._pba_alloc().alloc(child.pba)) {
+			if (!channel._req_ptr->_pba_alloc.alloc(child.pba)) {
 				_mark_req_failed(channel, progress, "allocate pba");
 				break;
 			}
@@ -315,8 +278,8 @@ void Ft_initializer::_execute_inner_t1_child(Channel                            
 void Ft_initializer_channel::_generated_req_completed(State_uint state_uint)
 {
 	if (!_generated_req_success) {
-		error("ft initializer: request (", _request, ") failed because generated request failed)");
-		_request._success = false;
+		error("ft initializer: request (", *_req_ptr, ") failed because generated request failed)");
+		_req_ptr->_success = false;
 		_state = COMPLETE;
 		//_req_ptr = nullptr;
 		return;
@@ -328,13 +291,13 @@ void Ft_initializer_channel::_generated_req_completed(State_uint state_uint)
 void Ft_initializer::_execute(Channel &channel,
                                bool    &progress)
 {
-	Request &req { channel._request };
+	Request &req { *channel._req_ptr };
 
 	/*
 	 * First handle all leaf child nodes that starts after
 	 * triggering the inner T2 nodes below.
 	 */
-	for (uint64_t child_idx = 0; child_idx <= req._max_child_idx; child_idx++) {
+	for (uint64_t child_idx = 0; child_idx < req._ft.degree; child_idx++) {
 
 		Ft_initializer_channel::Child_state &state =
 			channel._t2_level.children_state[child_idx];
@@ -344,7 +307,7 @@ void Ft_initializer::_execute(Channel &channel,
 			Type_2_node &child =
 				channel._t2_level.children.nodes[child_idx];
 
-			_execute_leaf_child(channel, progress, req._nr_of_leaves,
+			_execute_leaf_child(channel, progress, channel._num_remaining_leaves,
 			                    child, state, child_idx);
 		}
 	}
@@ -355,9 +318,9 @@ void Ft_initializer::_execute(Channel &channel,
 	 * Second handle all inner child nodes that starts after
 	 * triggering the root node below.
 	 */
-	for (uint64_t level_idx = 1; level_idx <= req._max_level_idx; level_idx++) {
+	for (uint64_t level_idx = 1; level_idx <= req._ft.max_lvl; level_idx++) {
 
-		for (uint64_t child_idx = 0; child_idx <= req._max_child_idx; child_idx++) {
+		for (uint64_t child_idx = 0; child_idx < req._ft.degree; child_idx++) {
 
 			Ft_initializer_channel::Child_state &state =
 				channel._t1_levels[level_idx].children_state[child_idx];
@@ -372,7 +335,7 @@ void Ft_initializer::_execute(Channel &channel,
 						channel._t2_level;
 
 					_execute_inner_t2_child(channel, progress,
-					                        req._nr_of_leaves,
+					                        channel._num_remaining_leaves,
 					                        channel._level_to_write,
 					                        child, t2_level, state,
 					                        level_idx, child_idx);
@@ -382,7 +345,7 @@ void Ft_initializer::_execute(Channel &channel,
 						channel._t1_levels[level_idx - 1];
 
 					_execute_inner_t1_child(channel, progress,
-					                        req._nr_of_leaves,
+					                        channel._num_remaining_leaves,
 					                        channel._level_to_write,
 					                        child, t1_level, state,
 					                        level_idx, child_idx);
@@ -399,20 +362,20 @@ void Ft_initializer::_execute(Channel &channel,
 	if (channel._root_node.state != Ft_initializer_channel::Child_state::DONE) {
 
 		Ft_initializer_channel::Type_1_level &t1_level =
-			channel._t1_levels[req._max_level_idx];
+			channel._t1_levels[req._ft.max_lvl];
 
 		_execute_inner_t1_child(channel, progress,
-		                        req._nr_of_leaves,
+		                        channel._num_remaining_leaves,
 		                        channel._level_to_write,
 		                        channel._root_node.node, t1_level, channel._root_node.state,
-		                        req._max_level_idx + 1, 0);
+		                        req._ft.max_lvl + 1, 0);
 		return;
 	}
 
 	/*
 	 * We will end up here when the root state is 'DONE'.
 	 */
-	if (req._nr_of_leaves == 0)
+	if (channel._num_remaining_leaves == 0)
 		_mark_req_successful(channel, progress);
 	else
 		_mark_req_failed(channel, progress, "initialize FT");
@@ -422,8 +385,11 @@ void Ft_initializer::_execute(Channel &channel,
 void Ft_initializer::_execute_init(Channel &channel,
                                     bool    &progress)
 {
+	Request &req { *channel._req_ptr };
 	switch (channel._state) {
 	case Channel::SUBMITTED:
+
+		channel._num_remaining_leaves = req._ft.num_leaves;
 
 		/* clean residual state */
 		for (unsigned int i = 0; i < TREE_MAX_LEVEL; i++) {
@@ -469,7 +435,7 @@ void Ft_initializer::_mark_req_failed(Channel    &channel,
                                        char const *str)
 {
 	error("request failed: failed to ", str);
-	channel._request._success = false;
+	channel._req_ptr->_success = false;
 	channel._state = Channel::COMPLETE;
 	progress = true;
 }
@@ -478,9 +444,9 @@ void Ft_initializer::_mark_req_failed(Channel    &channel,
 void Ft_initializer::_mark_req_successful(Channel &channel,
                                            bool    &progress)
 {
-	Request &req { channel._request };
+	Request &req { *channel._req_ptr };
 
-	memcpy(req._root_node, &channel._root_node.node, sizeof (req._root_node));
+	req._ft.t1_node(channel._root_node.node);
 	req._success = true;
 
 	channel._state = Channel::COMPLETE;
@@ -493,11 +459,13 @@ bool Ft_initializer::_peek_completed_request(uint8_t *buf_ptr,
 {
 	for (Channel &channel : _channels) {
 		if (channel._state == Channel::COMPLETE) {
-			if (sizeof(channel._request) > buf_size) {
+			if (sizeof(Request) > buf_size) {
 				class Exception_1 { };
 				throw Exception_1 { };
 			}
-			memcpy(buf_ptr, &channel._request, sizeof(channel._request));
+			Request &req { *channel._req_ptr };
+			construct_at<Ft_initializer_request>(buf_ptr, req.src_module_id(), req.src_chan_id(), req._ft, req._pba_alloc, req._success);
+			(*(Request*)buf_ptr).dst_chan_id(req.dst_chan_id());
 			return true;
 		}
 	}
@@ -549,12 +517,14 @@ bool Ft_initializer::ready_to_submit_request()
 }
 
 
-void Ft_initializer::submit_request(Module_request &req)
+void Ft_initializer::submit_request(Module_request &mod_req)
 {
 	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 		if (_channels[id]._state == Channel::INACTIVE) {
-			req.dst_request_id(id);
-			_channels[id]._request = *static_cast<Request *>(&req);
+			Request &req { *static_cast<Request*>(&mod_req) };
+			req.dst_chan_id(id);
+			_channels[id]._req_ptr.construct(req.src_module_id(), req.src_chan_id(), req._ft, req._pba_alloc, req._success);
+			_channels[id]._req_ptr->dst_chan_id(id);
 			_channels[id]._state = Channel::SUBMITTED;
 			return;
 		}
@@ -571,17 +541,6 @@ void Ft_initializer::execute(bool &progress)
 		if (channel._state == Channel::INACTIVE)
 			continue;
 
-		Request &req { channel._request };
-		switch (req._type) {
-		case Request::INIT:
-
-			_execute_init(channel, progress);
-
-			break;
-		default:
-
-			class Exception_1 { };
-			throw Exception_1 { };
-		}
+		_execute_init(channel, progress);
 	}
 }

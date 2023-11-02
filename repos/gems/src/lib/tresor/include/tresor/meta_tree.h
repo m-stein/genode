@@ -39,7 +39,7 @@ class Tresor::Meta_tree_request : public Module_request
 	private:
 
 		Type const _type;
-		Meta_tree_root &_mt;
+		Free_tree_root &_mt;
 		Generation const _curr_gen;
 		Physical_block_address &_pba;
 		bool &_success;
@@ -48,7 +48,7 @@ class Tresor::Meta_tree_request : public Module_request
 
 	public:
 
-		Meta_tree_request(Module_id, Module_channel_id, Type, Meta_tree_root &, Generation, Physical_block_address &, bool &);
+		Meta_tree_request(Module_id, Module_channel_id, Type, Free_tree_root &, Generation, Physical_block_address &, bool &);
 
 		static char const *type_to_string(Type type);
 
@@ -122,7 +122,7 @@ class Tresor::Meta_tree : public Module
 
 		struct Alloc_pba : Meta_tree_request
 		{
-			Alloc_pba(Module_id src_mod, Module_channel_id src_chan, Meta_tree_root &mt, Generation gen, Physical_block_address &pba, bool &succ)
+			Alloc_pba(Module_id src_mod, Module_channel_id src_chan, Free_tree_root &mt, Generation gen, Physical_block_address &pba, bool &succ)
 			: Meta_tree_request(src_mod, src_chan, Meta_tree_request::ALLOC_PBA, mt, gen, pba, succ) { }
 		};
 

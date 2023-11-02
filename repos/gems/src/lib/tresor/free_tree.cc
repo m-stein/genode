@@ -32,7 +32,7 @@ char const *Free_tree_request::type_to_string(Type type)
 
 
 Free_tree_request::Free_tree_request(Module_id src_module_id, Module_channel_id src_chan_id, Type type,
-                                     Free_tree_root &ft, Meta_tree_root &mt, Snapshots const &snapshots, Generation last_secured_gen,
+                                     Free_tree_root &ft, Free_tree_root &mt, Snapshots const &snapshots, Generation last_secured_gen,
                                      Generation curr_gen, Generation free_gen, Number_of_blocks num_required_pbas,
                                      Tree_walk_pbas &new_blocks, Type_1_node_walk const &old_blocks,
                                      Tree_level_index max_lvl, Virtual_block_address vba, Tree_degree vbd_degree,

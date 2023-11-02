@@ -40,7 +40,7 @@ class Tresor::Free_tree_request : public Module_request
 
 		Type const _type;
 		Free_tree_root &_ft;
-		Meta_tree_root &_mt;
+		Free_tree_root &_mt;
 		Generation const _curr_gen;
 		Generation const _free_gen;
 		Number_of_blocks const _num_required_pbas;
@@ -64,7 +64,7 @@ class Tresor::Free_tree_request : public Module_request
 
 	public:
 
-		Free_tree_request(Module_id, Module_channel_id, Type, Free_tree_root &, Meta_tree_root &, Snapshots const &,
+		Free_tree_request(Module_id, Module_channel_id, Type, Free_tree_root &, Free_tree_root &, Snapshots const &,
 		                  Generation, Generation, Generation, Number_of_blocks, Tree_walk_pbas &, Type_1_node_walk const &,
 		                  Tree_level_index, Virtual_block_address, Tree_degree, Virtual_block_address,
 		                  bool, Key_id, Key_id, Virtual_block_address, Physical_block_address &, Number_of_blocks &, bool &);
@@ -167,7 +167,7 @@ class Tresor::Free_tree : public Module
 
 		struct Extension_step : Request
 		{
-			Extension_step(Module_id mod_id, Module_channel_id chan_id, Generation curr_gen, Free_tree_root &ft, Meta_tree_root &mt,
+			Extension_step(Module_id mod_id, Module_channel_id chan_id, Generation curr_gen, Free_tree_root &ft, Free_tree_root &mt,
 			               Physical_block_address &pba, Number_of_blocks &num_pbas, bool &succ)
 			: Request(mod_id, chan_id, Request::EXTENSION_STEP, ft, mt, *(Snapshots *)0, 0, curr_gen, 0, 0, *(Tree_walk_pbas*)0,
 			                    *(Type_1_node_walk*)0, 0, 0, 0, 0, 0, 0, 0, 0, pba, num_pbas, succ) { }
