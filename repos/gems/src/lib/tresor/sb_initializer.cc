@@ -145,7 +145,7 @@ void Sb_initializer::_execute(Channel &channel,
 			channel._state = CS::VBD_REQUEST_PENDING;
 		} else {
 			channel._sb.encode_to_blk(channel._encoded_blk);
-			channel._state = CS::WRITE_REQUEST_PENDING;
+			channel._generate_req<Block_io::Write>(CS::WRITE_REQUEST_COMPLETE, progress, channel._sb_slot_index, channel._encoded_blk);
 		}
 		progress = true;
 		break;
@@ -187,9 +187,7 @@ void Sb_initializer::_execute(Channel &channel,
 
 		channel._sb.encode_to_blk(channel._encoded_blk);
 		calc_hash(channel._encoded_blk, channel._sb_hash);
-
-		channel._state = CS::WRITE_REQUEST_PENDING;
-		progress = true;
+		channel._generate_req<Block_io::Write>(CS::WRITE_REQUEST_COMPLETE, progress, channel._sb_slot_index, channel._encoded_blk);
 		break;
 
 	case CS::WRITE_REQUEST_COMPLETE:
@@ -237,39 +235,22 @@ void Sb_initializer_channel::_generated_req_completed(State_uint state_uint)
 void Sb_initializer::_execute_init(Channel &channel,
                                    bool    &progress)
 {
-	using CS = Channel::State;
-
 	switch (channel._state) {
-	case CS::SUBMITTED:
+	case Channel::SUBMITTED:
 
-		/*
-		 * Reset the index on every new job as it is
-		 * indicator for a finished job.
-		 */
 		channel._sb_slot_index = 0;
-
 		channel._state = Channel::PENDING;
 		progress = true;
 		return;
 
-	case CS::PENDING:
+	case Channel::PENDING:
 
-		/*
-		 * Remove residual data here as we will end up
-		 * here for every SB slot.
-		 */
 		channel.clean_data();
-
 		channel._state = Channel::IN_PROGRESS;
 		progress = true;
 		return;
 
-	case CS::IN_PROGRESS:
-
-		_execute(channel, progress);
-		return;
-
-	case CS::SLOT_COMPLETE:
+	case Channel::SLOT_COMPLETE:
 
 		if (channel._sb_slot_index < NR_OF_SUPERBLOCK_SLOTS - 1) {
 			++channel._sb_slot_index;
@@ -279,52 +260,16 @@ void Sb_initializer::_execute_init(Channel &channel,
 			_mark_req_successful(channel, progress);
 		return;
 
-	case CS::FT_REQUEST_COMPLETE:
-
-		_execute(channel, progress);
-		return;
-
-	case CS::MT_REQUEST_COMPLETE:
-
-		_execute(channel, progress);
-		return;
-
-	case CS::VBD_REQUEST_COMPLETE:
-
-		_execute(channel, progress);
-		return;
-
-	case CS::SYNC_REQUEST_COMPLETE:
-
-		_execute(channel, progress);
-		return;
-
-	case CS::TA_REQUEST_CREATE_KEY_COMPLETE:
-
-		_execute(channel, progress);
-		return;
-
-	case CS::TA_REQUEST_ENCRYPT_KEY_COMPLETE:
-
-		_execute(channel, progress);
-		return;
-
-	case CS::TA_REQUEST_SECURE_SB_COMPLETE:
-
-		_execute(channel, progress);
-		return;
-
-	case CS::WRITE_REQUEST_COMPLETE:
-
-		_execute(channel, progress);
-		return;
-
-	default:
-		/*
-		 * Omit other states related to FT/MT/VBD as
-		 * those are handled via Module API.
-		 */
-		return;
+	case Channel::IN_PROGRESS:
+	case Channel::FT_REQUEST_COMPLETE:
+	case Channel::MT_REQUEST_COMPLETE:
+	case Channel::VBD_REQUEST_COMPLETE:
+	case Channel::SYNC_REQUEST_COMPLETE:
+	case Channel::TA_REQUEST_CREATE_KEY_COMPLETE:
+	case Channel::TA_REQUEST_ENCRYPT_KEY_COMPLETE:
+	case Channel::TA_REQUEST_SECURE_SB_COMPLETE:
+	case Channel::WRITE_REQUEST_COMPLETE: _execute(channel, progress); return;
+	default: return;
 	}
 }
 
@@ -411,19 +356,6 @@ bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
 
 			return true;
 		}
-		case CS::WRITE_REQUEST_PENDING:
-		{
-			Block_io_request::Type const block_io_req_type {
-				Block_io_request::WRITE };
-
-			ASSERT(sizeof(Block_io_request) <= buf_size);
-			construct_at<Block_io_request>(
-				buf_ptr, SB_INITIALIZER, id, block_io_req_type, 0, 0,
-				0, channel._sb_slot_index, 0, 1, channel._encoded_blk,
-				channel._dummy_hash, channel._generated_req_success);
-
-			return true;
-		}
 		case CS::SYNC_REQUEST_PENDING:
 		{
 			Block_io_request::Type const block_io_req_type {
@@ -456,9 +388,6 @@ void Sb_initializer::_drop_generated_request(Module_request &req)
 	switch (_channels[id]._state) {
 	case Channel::VBD_REQUEST_PENDING:
 		_channels[id]._state = Channel::VBD_REQUEST_IN_PROGRESS;
-		break;
-	case Channel::WRITE_REQUEST_PENDING:
-		_channels[id]._state = Channel::WRITE_REQUEST_IN_PROGRESS;
 		break;
 	case Channel::SYNC_REQUEST_PENDING:
 		_channels[id]._state = Channel::SYNC_REQUEST_IN_PROGRESS;
@@ -493,15 +422,6 @@ void Sb_initializer::generated_request_complete(Module_request &req)
 		       const_cast<Vbd_initializer_request*>(vbd_initializer_req)->root_node(),
 		       sizeof(Type_1_node));
 
-		break;
-	}
-	case Channel::WRITE_REQUEST_IN_PROGRESS:
-	{
-		if (req.dst_module_id() != BLOCK_IO) {
-			class Exception_9 { };
-			throw Exception_9 { };
-		}
-		channel._state = Channel::WRITE_REQUEST_COMPLETE;
 		break;
 	}
 	case Channel::SYNC_REQUEST_IN_PROGRESS:

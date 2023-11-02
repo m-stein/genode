@@ -110,10 +110,7 @@ class Tresor::Sb_initializer_channel : public Module_channel
 			VBD_REQUEST_COMPLETE,
 			VBD_REQUEST_IN_PROGRESS,
 			VBD_REQUEST_PENDING,
-			WRITE_REQUEST_COMPLETE,
-			WRITE_REQUEST_IN_PROGRESS,
-			WRITE_REQUEST_PENDING,
-			REQ_GENERATED
+			WRITE_REQUEST_COMPLETE, REQ_GENERATED
 		};
 
 		State _state { INACTIVE };
@@ -135,6 +132,13 @@ class Tresor::Sb_initializer_channel : public Module_channel
 		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
 
 		bool _request_complete() override { return _state == COMPLETE; }
+
+		template <typename REQUEST, typename... ARGS>
+		void _generate_req(State_uint state, bool &progress, ARGS &&... args)
+		{
+			_state = REQ_GENERATED;
+			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
+		}
 
 		void clean_data()
 		{
