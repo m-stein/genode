@@ -198,7 +198,9 @@ void Sb_initializer::_execute(Channel &channel,
 	case CS::SYNC_REQUEST_COMPLETE:
 
 		if (channel._sb_slot_index == 0) {
-			channel._state = CS::TA_REQUEST_SECURE_SB_PENDING;
+			channel.generate_req<Trust_anchor::Write_hash>(
+				CS::TA_REQUEST_SECURE_SB_COMPLETE, progress, channel._sb_hash, channel._generated_req_success);
+			channel._state = Channel::REQ_GENERATED;
 		} else {
 			channel._state = CS::SLOT_COMPLETE;
 		}
@@ -464,15 +466,6 @@ bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
 
 			return true;
 		}
-		case CS::TA_REQUEST_SECURE_SB_PENDING:
-		{
-			ASSERT(sizeof(Trust_anchor_request) <= buf_size);
-			construct_at<Trust_anchor_request>(
-				buf_ptr, SB_INITIALIZER, id, Trust_anchor_request::SECURE_SUPERBLOCK,
-				channel._key_plain.value, channel._key_cipher.value, channel._sb_hash, Passphrase { }, channel._generated_req_success);
-
-			return true;
-		}
 		default:
 			break;
 		}
@@ -503,9 +496,6 @@ void Sb_initializer::_drop_generated_request(Module_request &req)
 		break;
 	case Channel::SYNC_REQUEST_PENDING:
 		_channels[id]._state = Channel::SYNC_REQUEST_IN_PROGRESS;
-		break;
-	case Channel::TA_REQUEST_SECURE_SB_PENDING:
-		_channels[id]._state = Channel::TA_REQUEST_SECURE_SB_IN_PROGRESS;
 		break;
 	default:
 		class Exception_1 { };
@@ -571,7 +561,6 @@ void Sb_initializer::generated_request_complete(Module_request &req)
 			ft_initializer_req->success();
 		break;
 	}
-	case Channel::TA_REQUEST_SECURE_SB_IN_PROGRESS: channel._state = Channel::TA_REQUEST_SECURE_SB_COMPLETE; break;
 	case Channel::WRITE_REQUEST_IN_PROGRESS:
 	{
 		if (req.dst_module_id() != BLOCK_IO) {
