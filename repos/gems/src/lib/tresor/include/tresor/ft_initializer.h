@@ -30,10 +30,10 @@ namespace Tresor {
 
 class Tresor::Ft_initializer_request : public Module_request
 {
-	private:
+	friend class Ft_initializer;
+	friend class Ft_initializer_channel;
 
-		friend class Ft_initializer;
-		friend class Ft_initializer_channel;
+	private:
 
 		Free_tree_root &_ft;
 		Pba_allocator &_pba_alloc;
@@ -51,9 +51,11 @@ class Tresor::Ft_initializer_request : public Module_request
 
 class Tresor::Ft_initializer_channel : public Module_channel
 {
+	friend class Ft_initializer;
+
 	private:
 
-		friend class Ft_initializer;
+		using Request = Ft_initializer_request;
 
 		enum State { INACTIVE, REQ_GENERATED, SUBMITTED, PENDING, IN_PROGRESS, COMPLETE, BLOCK_IO_COMPLETE };
 
@@ -123,6 +125,43 @@ class Tresor::Ft_initializer_channel : public Module_channel
 		bool _request_complete() override { return _state == COMPLETE; }
 
 		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
+
+		void _execute_leaf_child(bool                                &progress,
+		                         uint64_t                            &nr_of_leaves,
+		                         Tresor::Type_2_node                 &child,
+		                         Ft_initializer_channel::Child_state &child_state,
+		                         uint64_t                             child_index);
+
+		void _execute_inner_t2_child(bool                                 &progress,
+		                             uint64_t                              nr_of_leaves,
+		                             uint64_t                             &level_to_write,
+		                             Tresor::Type_1_node                  &child,
+		                             Ft_initializer_channel::Type_2_level &child_level,
+		                             Ft_initializer_channel::Child_state  &child_state,
+		                             uint64_t                              level_index,
+		                             uint64_t                              child_index);
+
+		void _execute_inner_t1_child(bool                                 &progress,
+		                             uint64_t                              nr_of_leaves,
+		                             uint64_t                             &level_to_write,
+		                             Tresor::Type_1_node                  &child,
+		                             Ft_initializer_channel::Type_1_level &child_level,
+		                             Ft_initializer_channel::Child_state  &child_state,
+		                             uint64_t                              level_index,
+		                             uint64_t                              child_index);
+
+		void _mark_req_failed(bool       &progress,
+		                      char const *str);
+
+		void _mark_req_successful(bool    &progress);
+
+		void _execute(bool    &progress);
+
+		void _execute_init(bool    &progress);
+
+	public:
+
+		void execute(bool &);
 };
 
 
@@ -136,46 +175,6 @@ class Tresor::Ft_initializer : public Module
 		enum { NR_OF_CHANNELS = 1 };
 
 		Channel _channels[NR_OF_CHANNELS] { };
-
-		void _execute_leaf_child(Channel                             &channel,
-		                         bool                                &progress,
-                               uint64_t                            &nr_of_leaves,
-		                         Tresor::Type_2_node                 &child,
-		                         Ft_initializer_channel::Child_state &child_state,
-		                         uint64_t                             child_index);
-
-		void _execute_inner_t2_child(Channel                              &channel,
-		                             bool                                 &progress,
-		                             uint64_t                              nr_of_leaves,
-		                             uint64_t                             &level_to_write,
-		                             Tresor::Type_1_node                  &child,
-		                             Ft_initializer_channel::Type_2_level &child_level,
-		                             Ft_initializer_channel::Child_state  &child_state,
-		                             uint64_t                              level_index,
-		                             uint64_t                              child_index);
-
-		void _execute_inner_t1_child(Channel                              &channel,
-		                             bool                                 &progress,
-		                             uint64_t                              nr_of_leaves,
-		                             uint64_t                             &level_to_write,
-		                             Tresor::Type_1_node                  &child,
-		                             Ft_initializer_channel::Type_1_level &child_level,
-		                             Ft_initializer_channel::Child_state  &child_state,
-		                             uint64_t                              level_index,
-		                             uint64_t                              child_index);
-
-		void _execute(Channel &channel,
-		              bool    &progress);
-
-		void _execute_init(Channel &channel,
-		                   bool    &progress);
-
-		void _mark_req_failed(Channel    &channel,
-		                      bool       &progress,
-		                      char const *str);
-
-		void _mark_req_successful(Channel &channel,
-		                          bool    &progress);
 
 		bool _peek_completed_request(uint8_t *buf_ptr,
 		                             size_t   buf_size) override;
