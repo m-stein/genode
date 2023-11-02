@@ -16,7 +16,6 @@
 
 /* tresor includes */
 #include <tresor/hash.h>
-#include <tresor/block_allocator.h>
 #include <tresor/block_io.h>
 #include <tresor/vbd_initializer.h>
 #include <tresor/ft_initializer.h>
@@ -46,7 +45,8 @@ void Sb_initializer_request::create(void             *buf_ptr,
                                     Number_of_leaves  ft_nr_of_leaves,
                                     Tree_level_index  mt_max_level_idx,
                                     Tree_degree       mt_max_child_idx,
-                                    Number_of_leaves  mt_nr_of_leaves)
+                                    Number_of_leaves  mt_nr_of_leaves,
+                                    Pba_allocator &pba_alloc)
 {
 	Sb_initializer_request req { src_module_id, src_request_id };
 
@@ -60,6 +60,7 @@ void Sb_initializer_request::create(void             *buf_ptr,
 	req._mt_max_level_idx  = mt_max_level_idx;
 	req._mt_max_child_idx  = mt_max_child_idx;
 	req._mt_nr_of_leaves   = mt_nr_of_leaves;
+	req._pba_alloc_ptr   = (addr_t)&pba_alloc;
 
 	if (sizeof(req) > buf_size) {
 		class Bad_size_0 { };
@@ -127,10 +128,6 @@ void Sb_initializer::_populate_sb_slot(Channel &channel,
 }
 
 
-extern uint64_t block_allocator_first_block();
-extern uint64_t block_allocator_nr_of_blks();
-
-
 void Sb_initializer::_execute(Channel &channel,
                               bool    &progress)
 {
@@ -179,8 +176,8 @@ void Sb_initializer::_execute(Channel &channel,
 
 		channel._key_cipher.id = 1;
 		_populate_sb_slot(channel,
-		                  Physical_block_address { block_allocator_first_block() } - NR_OF_SUPERBLOCK_SLOTS,
-		                  Number_of_blocks       { (uint32_t)block_allocator_nr_of_blks() + NR_OF_SUPERBLOCK_SLOTS });
+			channel._request._pba_alloc().first_pba() - NR_OF_SUPERBLOCK_SLOTS,
+			channel._request._pba_alloc().num_used_pbas() + NR_OF_SUPERBLOCK_SLOTS);
 
 		channel._sb.encode_to_blk(channel._encoded_blk);
 		calc_hash(channel._encoded_blk, channel._sb_hash);
@@ -407,7 +404,7 @@ bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
 				vbd_initializer_req_type,
 				channel._request._vbd_max_level_idx,
 				channel._request._vbd_max_child_idx - 1,
-				channel._request._vbd_nr_of_leaves);
+				channel._request._vbd_nr_of_leaves, channel._request._pba_alloc());
 
 			return true;
 		}
@@ -421,7 +418,7 @@ bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
 				ft_initializer_req_type,
 				channel._request._ft_max_level_idx,
 				channel._request._ft_max_child_idx - 1,
-				channel._request._ft_nr_of_leaves);
+				channel._request._ft_nr_of_leaves, channel._request._pba_alloc());
 
 			return true;
 		}
@@ -435,7 +432,7 @@ bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
 				ft_initializer_req_type,
 				channel._request._ft_max_level_idx,
 				channel._request._ft_max_child_idx - 1,
-				channel._request._ft_nr_of_leaves);
+				channel._request._ft_nr_of_leaves, channel._request._pba_alloc());
 
 			return true;
 		}

@@ -30,7 +30,6 @@
 #include <tresor/meta_tree.h>
 #include <tresor/free_tree.h>
 #include <tresor/request_pool.h>
-#include <tresor/block_allocator.h>
 #include <tresor/vbd_initializer.h>
 #include <tresor/ft_initializer.h>
 #include <tresor/sb_initializer.h>
@@ -579,23 +578,6 @@ struct Snapshot_reference_tree : public Avl_tree<Snapshot_reference>
 };
 
 
-static Block_allocator *_block_allocator_ptr;
-
-
-Genode::uint64_t block_allocator_first_block()
-{
-	ASSERT(_block_allocator_ptr);
-	return _block_allocator_ptr->first_block();
-}
-
-
-Genode::uint64_t block_allocator_nr_of_blks()
-{
-	ASSERT(_block_allocator_ptr);
-	return _block_allocator_ptr->nr_of_blks();
-}
-
-
 class Tresor_tester::Client_data : public Tresor::Module
 {
 	private:
@@ -653,7 +635,7 @@ class Tresor_tester::Main
 		Trust_anchor _trust_anchor { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
 		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto") };
 		Block_io _block_io { _vfs_env, _config_rom.xml().sub_node("block-io") };
-		Block_allocator _block_allocator { NR_OF_SUPERBLOCK_SLOTS };
+		Pba_allocator _pba_alloc { NR_OF_SUPERBLOCK_SLOTS };
 		Vbd_initializer _vbd_initializer { };
 		Ft_initializer _ft_initializer { };
 		Sb_initializer _sb_initializer { };
@@ -778,7 +760,7 @@ class Tresor_tester::Main
 								cfg.ft_nr_of_leafs(),
 								(Tree_level_index)cfg.ft_nr_of_lvls() - 1,
 								(Tree_degree)cfg.ft_nr_of_children(),
-								cfg.ft_nr_of_leafs());
+								cfg.ft_nr_of_leafs(), _pba_alloc);
 
 							result = CMD_IN_BUF;
 							break;
@@ -839,15 +821,12 @@ class Tresor_tester::Main
 			add_module(TRUST_ANCHOR, _trust_anchor);
 			add_module(COMMAND_POOL, *this);
 			add_module(BLOCK_IO, _block_io);
-			add_module(BLOCK_ALLOCATOR, _block_allocator);
 			add_module(VBD_INITIALIZER, _vbd_initializer);
 			add_module(FT_INITIALIZER, _ft_initializer);
 			add_module(SB_INITIALIZER, _sb_initializer);
 			add_module(SB_CHECK, _sb_check);
 			add_module(VBD_CHECK, _vbd_check);
 			add_module(FT_CHECK, _ft_check);
-
-			_block_allocator_ptr = &_block_allocator;
 
 			_config_rom.xml().sub_node("commands").for_each_sub_node([&] (Xml_node const &node) {
 				add_channel(*new (_heap) Command(node, *this, _next_command_id++));
@@ -1159,9 +1138,6 @@ void Component::construct(Genode::Env &env)
 	env.exec_static_constructors();
 
 	static Tresor_tester::Main main(env);
-
-	(void)block_allocator_first_block();
-	(void)block_allocator_nr_of_blks();
 }
 
 extern "C" int memcmp(const void *p0, const void *p1, Genode::size_t size)

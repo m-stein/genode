@@ -109,6 +109,7 @@ namespace Tresor {
 	struct Level_indent;
 	struct Free_tree_root;
 	struct Meta_tree_root;
+	class Pba_allocator;
 
 	template <size_t LEN>
 	class Fixed_length;
@@ -172,6 +173,33 @@ namespace Tresor {
 		return vbd_node_num_vbas(vbd_degr_log_2, vbd_lvl) - 1 + vbd_node_min_vba(vbd_degr_log_2, vbd_lvl, vbd_leaf_vba);
 	}
 }
+
+
+class Tresor::Pba_allocator
+{
+	private:
+
+		Physical_block_address const _first_pba;
+		Number_of_blocks _num_used_pbas { 0 };
+
+	public:
+
+		Pba_allocator(Physical_block_address const first_pba) : _first_pba { first_pba } { }
+
+		Number_of_blocks num_used_pbas() { return _num_used_pbas; }
+
+		Physical_block_address first_pba() { return _first_pba; }
+
+		bool alloc(Physical_block_address &pba)
+		{
+			if (_num_used_pbas > MAX_PBA - _first_pba)
+				return false;
+
+			pba = _first_pba + _num_used_pbas;
+			_num_used_pbas++;
+			return true;
+		}
+};
 
 
 struct Tresor::Byte_range

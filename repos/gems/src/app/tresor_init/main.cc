@@ -23,7 +23,6 @@
 #include <vfs/simple_env.h>
 
 /* tresor includes */
-#include <tresor/block_allocator.h>
 #include <tresor/block_io.h>
 #include <tresor/crypto.h>
 #include <tresor/ft_initializer.h>
@@ -38,31 +37,6 @@ enum { VERBOSE = 0 };
 
 using namespace Genode;
 using namespace Tresor;
-
-static Block_allocator *_block_allocator_ptr;
-
-
-Genode::uint64_t block_allocator_first_block()
-{
-	if (!_block_allocator_ptr) {
-		struct Exception_1 { };
-		throw Exception_1();
-	}
-
-	return _block_allocator_ptr->first_block();
-}
-
-
-Genode::uint64_t block_allocator_nr_of_blks()
-{
-	if (!_block_allocator_ptr) {
-		struct Exception_1 { };
-		throw Exception_1();
-	}
-
-	return _block_allocator_ptr->nr_of_blks();
-}
-
 
 class Main
 :
@@ -89,13 +63,13 @@ class Main
 
 		Constructible<Tresor_init::Configuration> _cfg { };
 
-		Trust_anchor    _trust_anchor    { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
-		Crypto          _crypto          { _vfs_env, _config_rom.xml().sub_node("crypto") };
-		Block_io        _block_io        { _vfs_env, _config_rom.xml().sub_node("block-io") };
-		Block_allocator _block_allocator { NR_OF_SUPERBLOCK_SLOTS };
+		Trust_anchor _trust_anchor { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
+		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto") };
+		Block_io _block_io { _vfs_env, _config_rom.xml().sub_node("block-io") };
+		Pba_allocator _pba_alloc { NR_OF_SUPERBLOCK_SLOTS };
 		Vbd_initializer _vbd_initializer { };
-		Ft_initializer  _ft_initializer  { };
-		Sb_initializer  _sb_initializer  { };
+		Ft_initializer _ft_initializer { };
+		Sb_initializer _sb_initializer { };
 
 		/**
 		 * Vfs::Env::User interface
@@ -145,7 +119,7 @@ class Main
 				_cfg->ft_nr_of_leafs(),
 				(Tree_level_index)_cfg->ft_nr_of_lvls() - 1,
 				(Tree_degree)_cfg->ft_nr_of_children(),
-				_cfg->ft_nr_of_leafs());
+				_cfg->ft_nr_of_leafs(), _pba_alloc);
 
 			return true;
 		}
@@ -192,12 +166,9 @@ class Main
 			add_module(CRYPTO,           _crypto);
 			add_module(TRUST_ANCHOR,     _trust_anchor);
 			add_module(BLOCK_IO,         _block_io);
-			add_module(BLOCK_ALLOCATOR,  _block_allocator);
 			add_module(VBD_INITIALIZER,  _vbd_initializer);
 			add_module(FT_INITIALIZER,   _ft_initializer);
 			add_module(SB_INITIALIZER,   _sb_initializer);
-
-			_block_allocator_ptr = &_block_allocator;
 
 			Xml_node const &config { _config_rom.xml() };
 			try {

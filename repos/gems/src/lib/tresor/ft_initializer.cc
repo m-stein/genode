@@ -15,7 +15,6 @@
 #include <base/log.h>
 
 /* tresor includes */
-#include <tresor/block_allocator.h>
 #include <tresor/block_io.h>
 #include <tresor/hash.h>
 #include <tresor/ft_initializer.h>
@@ -39,7 +38,8 @@ void Ft_initializer_request::create(void     *buf_ptr,
                                     size_t    req_type,
                                     uint64_t  max_level_idx,
                                     uint64_t  max_child_idx,
-                                    uint64_t  nr_of_leaves)
+                                    uint64_t  nr_of_leaves,
+                                    Pba_allocator &pba_alloc)
 {
 	Ft_initializer_request req { src_module_id, src_request_id };
 
@@ -47,6 +47,7 @@ void Ft_initializer_request::create(void     *buf_ptr,
 	req._max_level_idx = max_level_idx;
 	req._max_child_idx = max_child_idx;
 	req._nr_of_leaves  = nr_of_leaves;
+	req._pba_alloc_ptr = (addr_t)&pba_alloc;
 
 	if (sizeof(req) > buf_size) {
 		class Bad_size_0 { };
@@ -95,35 +96,19 @@ void Ft_initializer::_execute_leaf_child(Channel                              &c
 
 			switch (channel._state) {
 			case Channel::IN_PROGRESS:
-				channel._state = Channel::BLOCK_ALLOC_PENDING;
-				progress = true;
-				break;
-
-			case Channel::BLOCK_ALLOC_PENDING:
-				break;
-
-			case Channel::BLOCK_ALLOC_IN_PROGRESS:
-				break;
-
-			case Channel::BLOCK_ALLOC_COMPLETE:
-				/* bail early in case the allocator failed */
-				if (!channel._generated_req_success) {
-					_mark_req_failed(channel, progress,
-					                 "allocate block for FT initialization");
-					break;
-				}
-				channel._state = Channel::IN_PROGRESS;
 
 				Ft_initializer_channel::reset_node(child);
-
-				child.pba = channel._blk_nr;
+				if (!channel._request._pba_alloc().alloc(child.pba)) {
+					_mark_req_failed(channel, progress, "allocate pba");
+					break;
+				}
 				child_state = CS::DONE;
 				--nr_of_leaves;
 				progress = true;
 
 				if (DEBUG)
 					log("[ft_init] node: ", 1, " ", child_index,
-					    " assign pba: ", channel._blk_nr, " leaves left: ",
+					    " assign pba: ", child.pba, " leaves left: ",
 					    nr_of_leaves);
 				break;
 
@@ -180,29 +165,12 @@ void Ft_initializer::_execute_inner_t2_child(Channel                            
 
 		switch (channel._state) {
 		case Channel::IN_PROGRESS:
-			channel._state = Channel::BLOCK_ALLOC_PENDING;
-			progress = true;
-			break;
-
-		case Channel::BLOCK_ALLOC_PENDING:
-			break;
-
-		case Channel::BLOCK_ALLOC_IN_PROGRESS:
-			break;
-
-		case Channel::BLOCK_ALLOC_COMPLETE:
 		{
-			/* bail early in case the allocator failed */
-			if (!channel._generated_req_success) {
-				_mark_req_failed(channel, progress,
-				                 "allocate block for FT initialization");
+			Ft_initializer_channel::reset_node(child);
+			if (!channel._request._pba_alloc().alloc(child.pba)) {
+				_mark_req_failed(channel, progress, "allocate pba");
 				break;
 			}
-			channel._state = Channel::IN_PROGRESS;
-
-			Ft_initializer_channel::reset_node(child);
-			child.pba = channel._blk_nr;
-
 			Block blk { };
 			child_level.children.encode_to_blk(blk);
 			calc_hash(blk, child.hash);
@@ -212,7 +180,7 @@ void Ft_initializer::_execute_inner_t2_child(Channel                            
 
 			if (DEBUG)
 				log("[ft_init] node: ", level_index, " ", child_index,
-				    " assign pba: ", channel._blk_nr);
+				    " assign pba: ", child.pba);
 			break;
 		}
 		default:
@@ -310,29 +278,12 @@ void Ft_initializer::_execute_inner_t1_child(Channel                            
 
 		switch (channel._state) {
 		case Channel::IN_PROGRESS:
-			channel._state = Channel::BLOCK_ALLOC_PENDING;
-			progress = true;
-			break;
-
-		case Channel::BLOCK_ALLOC_PENDING:
-			break;
-
-		case Channel::BLOCK_ALLOC_IN_PROGRESS:
-			break;
-
-		case Channel::BLOCK_ALLOC_COMPLETE:
 		{
-			/* bail early in case the allocator failed */
-			if (!channel._generated_req_success) {
-				_mark_req_failed(channel, progress,
-				                 "allocate block for FT initialization");
+			Ft_initializer_channel::reset_node(child);
+			if (!channel._request._pba_alloc().alloc(child.pba)) {
+				_mark_req_failed(channel, progress, "allocate pba");
 				break;
 			}
-			channel._state = Channel::IN_PROGRESS;
-
-			Ft_initializer_channel::reset_node(child);
-			child.pba = channel._blk_nr;
-
 			Block blk { };
 			child_level.children.encode_to_blk(blk);
 			calc_hash(blk, child.hash);
@@ -342,7 +293,7 @@ void Ft_initializer::_execute_inner_t1_child(Channel                            
 
 			if (DEBUG)
 				log("[ft_init] node: ", level_index, " ", child_index,
-				    " assign pba: ", channel._blk_nr);
+				    " assign pba: ", child.pba);
 			break;
 		}
 		default:
@@ -420,6 +371,8 @@ void Ft_initializer::_execute(Channel &channel,
 			                    child, state, child_idx);
 		}
 	}
+	if (progress)
+		return;
 
 	/*
 	 * Second handle all inner child nodes that starts after
@@ -519,11 +472,6 @@ void Ft_initializer::_execute_init(Channel &channel,
 		_execute(channel, progress);
 		return;
 
-	case Channel::BLOCK_ALLOC_COMPLETE:
-
-		_execute(channel, progress);
-		return;
-
 	case Channel::BLOCK_IO_COMPLETE:
 
 		_execute(channel, progress);
@@ -606,17 +554,6 @@ bool Ft_initializer::_peek_generated_request(uint8_t *buf_ptr,
 		if (channel._state != Ft_initializer_channel::State::INACTIVE)
 
 		switch (channel._state) {
-		case Ft_initializer_channel::State::BLOCK_ALLOC_PENDING:
-		{
-			Block_allocator_request::Type const block_allocator_req_type {
-				Block_allocator_request::GET };
-
-			Block_allocator_request::create(
-				buf_ptr, buf_size, FT_INITIALIZER, id,
-				block_allocator_req_type);
-
-			return true;
-		}
 		case Ft_initializer_channel::State::BLOCK_IO_PENDING:
 		{
 			Block_io_request::Type const block_io_req_type {
@@ -659,9 +596,6 @@ void Ft_initializer::_drop_generated_request(Module_request &req)
 		throw Bad_id { };
 	}
 	switch (_channels[id]._state) {
-	case Ft_initializer_channel::State::BLOCK_ALLOC_PENDING:
-		_channels[id]._state = Ft_initializer_channel::State::BLOCK_ALLOC_IN_PROGRESS;
-		break;
 	case Ft_initializer_channel::State::BLOCK_IO_PENDING:
 		_channels[id]._state = Ft_initializer_channel::State::BLOCK_IO_IN_PROGRESS;
 		break;
@@ -680,18 +614,6 @@ void Ft_initializer::generated_request_complete(Module_request &req)
 		throw Exception_1 { };
 	}
 	switch (_channels[id]._state) {
-	case Channel::BLOCK_ALLOC_IN_PROGRESS:
-	{
-		if (req.dst_module_id() != BLOCK_ALLOCATOR) {
-			class Exception_3 { };
-			throw Exception_3 { };
-		}
-		Block_allocator_request const *block_allocator_req = static_cast<Block_allocator_request const*>(&req);
-		_channels[id]._state = Channel::BLOCK_ALLOC_COMPLETE;
-		_channels[id]._blk_nr = block_allocator_req->blk_nr();
-		_channels[id]._generated_req_success = block_allocator_req->success();
-		break;
-	}
 	case Channel::BLOCK_IO_IN_PROGRESS:
 	{
 		if (req.dst_module_id() != BLOCK_IO) {

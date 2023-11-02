@@ -49,8 +49,10 @@ class Tresor::Sb_initializer_request : public Module_request
 		Tree_level_index _mt_max_level_idx  { 0 };
 		Tree_degree      _mt_max_child_idx  { 0 };
 		Number_of_leaves _mt_nr_of_leaves   { 0 };
+		addr_t           _pba_alloc_ptr     { 0 };
 		bool             _success           { false };
 
+		Pba_allocator &_pba_alloc() { return *(Pba_allocator *)_pba_alloc_ptr; }
 
 	public:
 
@@ -72,7 +74,8 @@ class Tresor::Sb_initializer_request : public Module_request
 		                   Number_of_leaves  ft_nr_of_leaves,
 		                   Tree_level_index  mt_max_level_idx,
 		                   Tree_degree       mt_max_child_idx,
-		                   Number_of_leaves  mt_nr_of_leaves);
+		                   Number_of_leaves  mt_nr_of_leaves,
+		                   Pba_allocator &pba_alloc);
 
 		Type type() const { return _type; }
 

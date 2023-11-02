@@ -10,7 +10,6 @@ SRC_CC += virtual_block_device.cc
 SRC_CC += superblock_control.cc
 SRC_CC += free_tree.cc
 SRC_CC += module.cc
-SRC_CC += block_allocator.cc
 SRC_CC += vbd_initializer.cc
 SRC_CC += ft_initializer.cc
 SRC_CC += sb_initializer.cc

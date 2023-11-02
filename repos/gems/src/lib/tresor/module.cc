@@ -61,7 +61,6 @@ char const *Tresor::module_name(Module_id id)
 	case CLIENT_DATA: return "client_data";
 	case TRUST_ANCHOR: return "trust_anchor";
 	case COMMAND_POOL: return "command_pool";
-	case BLOCK_ALLOCATOR: return "block_allocator";
 	case VBD_INITIALIZER: return "vbd_initializer";
 	case FT_INITIALIZER: return "ft_initializer";
 	case SB_INITIALIZER: return "sb_initializer";

@@ -44,8 +44,10 @@ class Tresor::Vbd_initializer_request : public Module_request
 		uint64_t _max_level_idx                  { 0 };
 		uint64_t _max_child_idx                  { 0 };
 		uint64_t _nr_of_leaves                   { 0 };
+		addr_t   _pba_alloc_ptr                  { 0 };
 		bool     _success                        { false };
 
+		Pba_allocator &_pba_alloc() { return *(Pba_allocator *)_pba_alloc_ptr; }
 
 	public:
 
@@ -61,7 +63,8 @@ class Tresor::Vbd_initializer_request : public Module_request
 		                   size_t    req_type,
 		                   uint64_t  max_level_idx,
 		                   uint64_t  max_child_idx,
-		                   uint64_t  nr_of_leaves);
+		                   uint64_t  nr_of_leaves,
+		                   Pba_allocator &pba_alloc);
 
 		void *root_node() { return _root_node; }
 
@@ -88,13 +91,7 @@ class Tresor::Vbd_initializer_channel
 
 		enum State {
 			INACTIVE, SUBMITTED, PENDING, IN_PROGRESS, COMPLETE,
-			BLOCK_ALLOC_PENDING,
-			BLOCK_ALLOC_IN_PROGRESS,
-			BLOCK_ALLOC_COMPLETE,
-			BLOCK_IO_PENDING,
-			BLOCK_IO_IN_PROGRESS,
-			BLOCK_IO_COMPLETE,
-		};
+			BLOCK_IO_PENDING, BLOCK_IO_IN_PROGRESS, BLOCK_IO_COMPLETE };
 
 		enum Child_state { DONE, INIT_BLOCK, INIT_NODE, WRITE_BLOCK, };
 
@@ -115,7 +112,6 @@ class Tresor::Vbd_initializer_channel
 		Root_node _root_node { };
 		Type_1_level _t1_levels[TREE_MAX_LEVEL] { };
 		uint64_t _level_to_write { 0 };
-		uint64_t _blk_nr { 0 };
 		uint64_t _child_pba { 0 };
 		bool _generated_req_success { false };
 		Block _encoded_blk { };
