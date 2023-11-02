@@ -63,6 +63,7 @@ void Block_io_channel::_generated_req_completed(State_uint state_uint)
 		error("block io: request (", *_req_ptr, ") failed because generated request failed)");
 		_req_ptr->_success = false;
 		_state = REQ_COMPLETE;
+		_req_ptr = nullptr;
 		return;
 	}
 	_state = (State)state_uint;
@@ -75,6 +76,7 @@ void Block_io_channel::_mark_req_failed(bool &progress,
 	error("request failed: failed to ", str);
 	_req_ptr->_success = false;
 	_state = REQ_COMPLETE;
+	_req_ptr = nullptr;
 	progress = true;
 }
 
@@ -84,6 +86,7 @@ void Block_io_channel::_mark_req_successful(bool &progress)
 	Request &req { *_req_ptr };
 	req._success = true;
 	_state = REQ_COMPLETE;
+	_req_ptr = nullptr;
 	progress = true;
 	if (VERBOSE_BLOCK_IO && (!VERBOSE_BLOCK_IO_PBA_FILTER || VERBOSE_BLOCK_IO_PBA == req._pba)) {
 		switch (req._type) {

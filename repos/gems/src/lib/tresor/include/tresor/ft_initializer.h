@@ -74,24 +74,17 @@ class Tresor::Ft_initializer_request : public Module_request
 
 		static char const *type_to_string(Type type);
 
-
-		/********************
-		 ** Module_request **
-		 ********************/
-
 		void print(Output &out) const override { Genode::print(out, type_to_string(_type)); }
 };
 
 
-class Tresor::Ft_initializer_channel
+class Tresor::Ft_initializer_channel : public Module_channel
 {
 	private:
 
 		friend class Ft_initializer;
 
-		enum State {
-			INACTIVE, SUBMITTED, PENDING, IN_PROGRESS, COMPLETE,
-			BLOCK_IO_PENDING, BLOCK_IO_IN_PROGRESS, BLOCK_IO_COMPLETE };
+		enum State { INACTIVE, REQ_GENERATED, SUBMITTED, PENDING, IN_PROGRESS, COMPLETE, BLOCK_IO_COMPLETE };
 
 		enum Child_state { DONE, INIT_BLOCK, INIT_NODE, WRITE_BLOCK, };
 
@@ -122,7 +115,6 @@ class Tresor::Ft_initializer_channel
 		uint64_t _child_pba { 0 };
 		bool _generated_req_success { false };
 		Block _encoded_blk { };
-		Hash _dummy_hash { };
 
 		static void reset_node(Tresor::Type_1_node &node)
 		{
@@ -152,21 +144,13 @@ class Tresor::Ft_initializer_channel
 			}
 		}
 
-		static void dump(Type_1_node_block const &node_block)
-		{
-			for (auto v : node_block.nodes) {
-				if (v.pba != 0)
-					log(v);
-			}
-		}
+		void _generate_blk_io_write(bool &progress);
 
-		static void dump(Type_2_node_block const &node_block)
-		{
-			for (auto v : node_block.nodes) {
-				if (v.pba != 0)
-					log(v);
-			}
-		}
+		void _generated_req_completed(State_uint) override;
+
+		bool _request_complete() override { return _state == COMPLETE; }
+
+		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
 };
 
 
@@ -221,33 +205,16 @@ class Tresor::Ft_initializer : public Module
 		void _mark_req_successful(Channel &channel,
 		                          bool    &progress);
 
-
-		/************
-		 ** Module **
-		 ************/
-
 		bool _peek_completed_request(uint8_t *buf_ptr,
 		                             size_t   buf_size) override;
 
 		void _drop_completed_request(Module_request &req) override;
 
-		bool _peek_generated_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_generated_request(Module_request &mod_req) override;
-
-		void generated_request_complete(Module_request &req) override;
-
 		bool new_submit_request() override { return false; }
-
 
 	public:
 
 		Ft_initializer();
-
-		/************
-		 ** Module **
-		 ************/
 
 		bool ready_to_submit_request() override;
 

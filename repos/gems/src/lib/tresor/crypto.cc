@@ -68,6 +68,7 @@ void Crypto_channel::_generated_req_completed(State_uint state_uint)
 		error("crypto: request (", *_req_ptr, ") failed because generated request failed)");
 		_req_ptr->_success = false;
 		_state = COMPLETE;
+		_req_ptr = nullptr;
 		return;
 	}
 	_state = (State)state_uint;
@@ -88,6 +89,7 @@ void Crypto_channel::_mark_req_failed(bool &progress, char const *str)
 	error("crypto: request (", *_req_ptr, ") failed at step \"", str, "\"");
 	_req_ptr->_success = false;
 	_state = COMPLETE;
+	_req_ptr = nullptr;
 	progress = true;
 }
 
@@ -97,6 +99,7 @@ void Crypto_channel::_mark_req_successful(bool &progress)
 	Request &req { *_req_ptr };
 	req._success = true;
 	_state = COMPLETE;
+	_req_ptr = nullptr;
 	progress = true;
 	if (VERBOSE_WRITE_VBA && req._type == Request::ENCRYPT_CLIENT_DATA)
 		log("  encrypt leaf data: plaintext ", _blk, " hash ", hash(_blk),

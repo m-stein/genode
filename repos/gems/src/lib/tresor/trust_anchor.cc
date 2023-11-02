@@ -79,6 +79,7 @@ _write_read_file(Vfs::Vfs_handle &file, char const *write_buf, char *read_buf, s
 			req._success = false;
 			error("failed to write file");
 			_state = REQ_COMPLETE;
+			_req_ptr = nullptr;
 			progress = true;
 			return;
 		}
@@ -111,6 +112,7 @@ _write_read_file(Vfs::Vfs_handle &file, char const *write_buf, char *read_buf, s
 				return;
 			}
 			_state = REQ_COMPLETE;
+			_req_ptr = nullptr;
 			progress = true;
 			return;
 
@@ -118,6 +120,7 @@ _write_read_file(Vfs::Vfs_handle &file, char const *write_buf, char *read_buf, s
 			req._success = false;
 			error("failed to read file");
 			_state = REQ_COMPLETE;
+			_req_ptr = nullptr;
 			return;
 		}
 	}
@@ -166,6 +169,7 @@ _write_file(Vfs::Vfs_handle &file, char const *write_buf, bool &progress, bool r
 			req._success = false;
 			error("failed to write file");
 			_state = REQ_COMPLETE;
+			_req_ptr = nullptr;
 			progress = true;
 			return;
 		}
@@ -198,6 +202,7 @@ _write_file(Vfs::Vfs_handle &file, char const *write_buf, bool &progress, bool r
 			}
 			req._success = result_via_read ? !strcmp(_read_buf, "ok", 3) : true;
 			_state = REQ_COMPLETE;
+			_req_ptr = nullptr;
 			progress = true;
 			return;
 
@@ -205,6 +210,7 @@ _write_file(Vfs::Vfs_handle &file, char const *write_buf, bool &progress, bool r
 			req._success = false;
 			error("failed to read file");
 			_state = REQ_COMPLETE;
+			_req_ptr = nullptr;
 			return;
 		}
 	}
@@ -246,6 +252,7 @@ void Trust_anchor_channel::_read_file(Vfs::Vfs_handle &file, char *read_buf, boo
 				return;
 			}
 			_state = REQ_COMPLETE;
+			_req_ptr = nullptr;
 			progress = true;
 			return;
 
@@ -253,6 +260,7 @@ void Trust_anchor_channel::_read_file(Vfs::Vfs_handle &file, char *read_buf, boo
 			req._success = false;
 			error("failed to read file");
 			_state = REQ_COMPLETE;
+			_req_ptr = nullptr;
 			return;
 		}
 	}

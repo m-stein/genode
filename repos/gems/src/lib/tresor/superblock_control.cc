@@ -58,6 +58,7 @@ void Superblock_control_channel::_mark_req_failed(bool &progress, char const *st
 	error("sb control: request (", *_req_ptr, ") failed at step \"", str, "\"");
 	_req_ptr->_success = false;
 	_state = REQ_COMPLETE;
+	_req_ptr = nullptr;
 	progress = true;
 }
 
@@ -66,6 +67,7 @@ void Superblock_control_channel::_mark_req_successful(bool &progress)
 {
 	_req_ptr->_success = true;
 	_state = REQ_COMPLETE;
+	_req_ptr = nullptr;
 	progress = true;
 }
 

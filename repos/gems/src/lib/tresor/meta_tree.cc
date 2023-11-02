@@ -55,6 +55,7 @@ void Meta_tree_channel::_generated_req_completed(State_uint state_uint)
 		error("meta tree: request (", *_req_ptr, ") failed because generated request failed)");
 		_req_ptr->_success = false;
 		_state = COMPLETE;
+		_req_ptr = nullptr;
 		return;
 	}
 	_state = (State)state_uint;
@@ -78,6 +79,7 @@ void Meta_tree_channel::_mark_req_failed(bool &progress, char const *str)
 	error(Request::type_to_string(_req_ptr->_type), " request failed, reason: \"", str, "\"");
 	_req_ptr->_success = false;
 	_state = COMPLETE;
+	_req_ptr = nullptr;
 	progress = true;
 }
 
@@ -86,6 +88,7 @@ void Meta_tree_channel::_mark_req_successful(bool &progress)
 {
 	_req_ptr->_success = true;
 	_state = COMPLETE;
+	_req_ptr = nullptr;
 	progress = true;
 }
 

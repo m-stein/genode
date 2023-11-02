@@ -192,45 +192,27 @@ void Ft_initializer::_execute_inner_t2_child(Channel                            
 
 		switch (channel._state) {
 		case Channel::IN_PROGRESS:
-		{
-			channel._state = Channel::BLOCK_IO_PENDING;
+
 			channel._child_pba = child.pba;
 			level_to_write = level_index - 1;
-			progress = true;
-			break;
-		}
-
-		case Channel::BLOCK_IO_PENDING:
-			break;
-
-		case Channel::BLOCK_IO_IN_PROGRESS:
+			channel._generate_blk_io_write(progress);
 			break;
 
 		case Channel::BLOCK_IO_COMPLETE:
-			/* bail early in case the allocator failed */
-			if (!channel._generated_req_success) {
-				_mark_req_failed(channel, progress,
-				                 "write block for FT initialization");
-				break;
-			}
-			channel._state = Channel::IN_PROGRESS;
 
+			channel._state = Channel::IN_PROGRESS;
 			child_state = CS::DONE;
 			progress = true;
-
 			if (DEBUG)
-				log("[ft_init] node: ", level_index, " ", child_index,
-				    " write pba: ", channel._child_pba, " level: ",
+				log("[ft_init] node: ", level_index, " ", child_index, " write pba: ", channel._child_pba, " level: ",
 				    level_index -1, " (child: ", child, ")");
 			break;
-		default:
-			break;
+
+		default: break;
 		}
-
 		break;
 
-	default:
-		break;
+	default: break;
 	}
 }
 
@@ -305,46 +287,41 @@ void Ft_initializer::_execute_inner_t1_child(Channel                            
 
 		switch (channel._state) {
 		case Channel::IN_PROGRESS:
-		{
-			channel._state = Channel::BLOCK_IO_PENDING;
+
 			channel._child_pba = child.pba;
 			level_to_write = level_index - 1;
-			progress = true;
-			break;
-		}
-
-		case Channel::BLOCK_IO_PENDING:
-			break;
-
-		case Channel::BLOCK_IO_IN_PROGRESS:
+			channel._generate_blk_io_write(progress);
 			break;
 
 		case Channel::BLOCK_IO_COMPLETE:
-			/* bail early in case the allocator failed */
-			if (!channel._generated_req_success) {
-				_mark_req_failed(channel, progress,
-				                 "write block for FT initialization");
-				break;
-			}
-			channel._state = Channel::IN_PROGRESS;
 
+			channel._state = Channel::IN_PROGRESS;
 			child_state = CS::DONE;
 			progress = true;
-
 			if (DEBUG)
-				log("[ft_init] node: ", level_index, " ", child_index,
-				    " write pba: ", channel._child_pba, " level: ",
+				log("[ft_init] node: ", level_index, " ", child_index, " write pba: ", channel._child_pba, " level: ",
 				    level_index -1, " (child: ", child, ")");
 			break;
-		default:
-			break;
+
+		default: break;
 		}
-
 		break;
 
-	default:
-		break;
+	default: break;
 	}
+}
+
+
+void Ft_initializer_channel::_generated_req_completed(State_uint state_uint)
+{
+	if (!_generated_req_success) {
+		error("ft initializer: request (", _request, ") failed because generated request failed)");
+		_request._success = false;
+		_state = COMPLETE;
+		//_req_ptr = nullptr;
+		return;
+	}
+	_state = (State)state_uint;
 }
 
 
@@ -544,94 +521,22 @@ void Ft_initializer::_drop_completed_request(Module_request &req)
 }
 
 
-bool Ft_initializer::_peek_generated_request(uint8_t *buf_ptr,
-                                             size_t   buf_size)
+void Ft_initializer_channel::_generate_blk_io_write(bool &progress)
 {
-	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
+	if (_level_to_write == 1)
+		_t2_level.children.encode_to_blk(_encoded_blk);
+	else
+		_t1_levels[_level_to_write].children.encode_to_blk(_encoded_blk);
 
-		Channel &channel { _channels[id] };
-
-		if (channel._state != Ft_initializer_channel::State::INACTIVE)
-
-		switch (channel._state) {
-		case Ft_initializer_channel::State::BLOCK_IO_PENDING:
-		{
-			Block_io_request::Type const block_io_req_type {
-				Block_io_request::WRITE };
-
-			if (channel._level_to_write == 1)
-				channel._t2_level.children.encode_to_blk(channel._encoded_blk);
-			else
-				channel._t1_levels[channel._level_to_write].children.encode_to_blk(channel._encoded_blk);
-
-			ASSERT(sizeof(Block_io_request) <= buf_size);
-			construct_at<Block_io_request>(
-				buf_ptr, FT_INITIALIZER, id, block_io_req_type, 0,
-				0, 0, channel._child_pba, 0, 1,
-				channel._encoded_blk, channel._dummy_hash, channel._generated_req_success);
-
-			if (DEBUG) {
-				log("BLOCK_IO_PENDING write ", channel._child_pba);
-				if (channel._level_to_write == 1)
-					Ft_initializer_channel::dump(channel._t2_level.children);
-				else
-					Ft_initializer_channel::dump(channel._t1_levels[channel._level_to_write].children);
-			}
-
-			return true;
-		}
-		default:
-			break;
-		}
-	}
-	return false;
-}
-
-
-void Ft_initializer::_drop_generated_request(Module_request &req)
-{
-	Module_request_id const id { req.src_request_id() };
-	if (id >= NR_OF_CHANNELS) {
-		class Bad_id { };
-		throw Bad_id { };
-	}
-	switch (_channels[id]._state) {
-	case Ft_initializer_channel::State::BLOCK_IO_PENDING:
-		_channels[id]._state = Ft_initializer_channel::State::BLOCK_IO_IN_PROGRESS;
-		break;
-	default:
-		class Exception_1 { };
-		throw Exception_1 { };
-	}
-}
-
-
-void Ft_initializer::generated_request_complete(Module_request &req)
-{
-	Module_request_id const id { req.src_request_id() };
-	if (id >= NR_OF_CHANNELS) {
-		class Exception_1 { };
-		throw Exception_1 { };
-	}
-	switch (_channels[id]._state) {
-	case Channel::BLOCK_IO_IN_PROGRESS:
-	{
-		if (req.dst_module_id() != BLOCK_IO) {
-			class Exception_4 { };
-			throw Exception_4 { };
-		}
-		_channels[id]._state = Channel::BLOCK_IO_COMPLETE;
-		break;
-	}
-	default:
-		class Exception_2 { };
-		throw Exception_2 { };
-	}
+	generate_req<Block_io::Write>(BLOCK_IO_COMPLETE, progress, _child_pba, _encoded_blk, _generated_req_success);
+	_state = REQ_GENERATED;
 }
 
 
 Ft_initializer::Ft_initializer()
-{ }
+{
+	register_channels(_channels, NR_OF_CHANNELS, FT_INITIALIZER);
+}
 
 
 bool Ft_initializer::ready_to_submit_request()
