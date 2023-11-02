@@ -31,6 +31,23 @@ Vbd_initializer_request::Vbd_initializer_request(Module_id         src_module_id
 { }
 
 
+Vbd_initializer_request::Vbd_initializer_request(Module_id         src_module_id,
+                        Module_request_id src_request_id,
+                   Type    req_type,
+                   Tree_level_index  max_level_idx,
+                   Tree_node_index  max_child_idx,
+                   Number_of_leaves  nr_of_leaves,
+                   Pba_allocator &pba_alloc)
+:
+	Module_request { src_module_id, src_request_id, VBD_INITIALIZER },
+	_type { (Type)req_type },
+	_max_level_idx { max_level_idx },
+	_max_child_idx { max_child_idx },
+	_nr_of_leaves  { nr_of_leaves },
+	_pba_alloc_ptr { (addr_t)&pba_alloc }
+{ }
+
+
 void Vbd_initializer_request::create(void     *buf_ptr,
                                      size_t    buf_size,
                                      uint64_t  src_module_id,
@@ -43,7 +60,6 @@ void Vbd_initializer_request::create(void     *buf_ptr,
 {
 	Vbd_initializer_request req { src_module_id, src_request_id };
 	req._type = (Type)req_type;
-
 	req._max_level_idx = max_level_idx;
 	req._max_child_idx = max_child_idx;
 	req._nr_of_leaves  = nr_of_leaves;

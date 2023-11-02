@@ -56,6 +56,14 @@ class Tresor::Vbd_initializer_request : public Module_request
 		Vbd_initializer_request(Module_id         src_module_id,
 		                        Module_request_id src_request_id);
 
+		Vbd_initializer_request(Module_id         src_module_id,
+		                        Module_request_id src_request_id,
+		                   Type    req_type,
+		                   Tree_level_index  max_level_idx,
+		                   Tree_node_index  max_child_idx,
+		                   Number_of_leaves  nr_of_leaves,
+		                   Pba_allocator &pba_alloc);
+
 		static void create(void     *buf_ptr,
 		                   size_t    buf_size,
 		                   uint64_t  src_module_id,
