@@ -77,7 +77,7 @@ class Tresor::Vbd_check_request : public Module_request
 };
 
 
-class Tresor::Vbd_check_channel
+class Tresor::Vbd_check_channel : public Module_channel
 {
 	private:
 
@@ -117,9 +117,17 @@ class Tresor::Vbd_check_channel
 		Child_state _root_state { DONE };
 		Block _leaf_lvl { };
 		Block _encoded_blk { };
-		Hash _dummy_hash { };
 		Type_1_level _t1_lvls[TREE_MAX_LEVEL] { };
 		Request _request { };
+		bool _generated_req_success { false };
+
+		void _generated_req_completed(State_uint) override;
+
+		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
+
+		bool _request_complete() override { return false; }
+
+		void _reset();
 };
 
 
@@ -173,17 +181,13 @@ class Tresor::Vbd_check : public Module
 
 		void _drop_completed_request(Module_request &req) override;
 
-		bool _peek_generated_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_generated_request(Module_request &mod_req) override;
-
-		void generated_request_complete(Module_request &req) override;
-
 		bool new_submit_request() override { return false; }
 
 
 	public:
+
+		Vbd_check() { register_channels(_channels, NR_OF_CHANNELS, VBD_CHECK); }
+
 
 		/************
 		 ** Module **

@@ -53,6 +53,35 @@ char const *Vbd_check_request::type_to_string(Type type)
 }
 
 
+void Vbd_check_channel::_generated_req_completed(State_uint)
+{
+	if (!_generated_req_success) {
+		error("vbd check: request (", _request, ") failed because generated request failed)");
+		_request._success = false;
+		_root_state = DONE;
+		return;
+	}
+	_gen_prim.success = true;
+	if (_gen_prim.tag == BLOCK_IO)
+		if (_lvl_to_read > 0)
+			_t1_lvls[_lvl_to_read].children.decode_from_blk(_encoded_blk);
+}
+
+
+void Vbd_check_channel::_reset()
+{
+	_gen_prim = { };
+	_lvl_to_read = 0;
+	_root_state = DONE;
+	_leaf_lvl = { };
+	_encoded_blk = { };
+	for (Type_1_level &t1_lvl : _t1_lvls)
+		t1_lvl = { };
+	_request = { };
+	_generated_req_success = false;
+}
+
+
 /***************
  ** Vbd_check **
  ***************/
@@ -98,7 +127,10 @@ void Vbd_check::_execute_inner_t1_child(Channel           &chan,
 				.dropped = false };
 
 			chan._lvl_to_read = lvl - 1;
-			progress = true;
+			chan.generate_req<Block_io::Read>(
+				Channel::INVALID, progress, chan._gen_prim.blk_nr,
+				chan._lvl_to_read == 0 ? chan._leaf_lvl : chan._encoded_blk, chan._generated_req_success);
+			chan._gen_prim.dropped = true;
 
 			if (VERBOSE_CHECK)
 				log(Level_indent { lvl, req._max_lvl },
@@ -202,7 +234,10 @@ void Vbd_check::_execute_leaf_child(Channel           &chan,
 				.dropped = false };
 
 			chan._lvl_to_read = lvl - 1;
-			progress = true;
+			chan.generate_req<Block_io::Read>(
+				Channel::INVALID, progress, chan._gen_prim.blk_nr,
+				chan._lvl_to_read == 0 ? chan._leaf_lvl : chan._encoded_blk, chan._generated_req_success);
+			chan._gen_prim.dropped = true;
 
 			if (VERBOSE_CHECK)
 				log(Level_indent { lvl, req._max_lvl },
@@ -336,76 +371,7 @@ void Vbd_check::_drop_completed_request(Module_request &req)
 		class Exception_2 { };
 		throw Exception_2 { };
 	}
-	chan = Channel { };
-}
-
-
-bool Vbd_check::_peek_generated_request(uint8_t *buf_ptr,
-                                        size_t   buf_size)
-{
-	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
-
-		Channel &chan { _channels[id] };
-
-		if (!chan._gen_prim.valid() || chan._gen_prim.dropped)
-			continue;
-
-		switch (chan._gen_prim.tag) {
-		case Channel::BLOCK_IO:
-
-			ASSERT(sizeof(Block_io_request) <= buf_size);
-			construct_at<Block_io_request>(
-				buf_ptr, VBD_CHECK, id,
-				Block_io_request::READ, 0, 0, 0,
-				chan._gen_prim.blk_nr, 0, 1,
-				chan._lvl_to_read == 0 ?
-					chan._leaf_lvl :
-					chan._encoded_blk,
-				chan._dummy_hash, chan._gen_prim.success);
-
-			return true;
-
-		default:
-
-			class Exception_1 { };
-			throw Exception_1 { };
-		}
-	}
-	return false;
-}
-
-
-void Vbd_check::_drop_generated_request(Module_request &req)
-{
-	Module_request_id const id { req.src_request_id() };
-	if (id >= NR_OF_CHANNELS) {
-		class Exception_0 { };
-		throw Exception_0 { };
-	}
-	Channel &chan { _channels[id] };
-	chan._gen_prim.dropped = true;
-}
-
-
-void Vbd_check::generated_request_complete(Module_request &mod_req)
-{
-	Module_request_id const id { mod_req.src_request_id() };
-	if (id >= NR_OF_CHANNELS) {
-		class Exception_1 { };
-		throw Exception_1 { };
-	}
-	Channel &chan { _channels[id] };
-	switch (mod_req.dst_module_id()) {
-	case BLOCK_IO:
-	{
-		if (chan._lvl_to_read > 0)
-			chan._t1_lvls[chan._lvl_to_read].children.decode_from_blk(chan._encoded_blk);
-		break;
-	}
-	default:
-		class Exception_8 { };
-		throw Exception_8 { };
-	}
+	chan._reset();
 }
 
 
