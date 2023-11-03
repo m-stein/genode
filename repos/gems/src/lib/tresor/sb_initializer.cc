@@ -32,6 +32,37 @@ Sb_initializer_request::Sb_initializer_request(Module_id         src_module_id,
 { }
 
 
+Sb_initializer_request::Sb_initializer_request(Module_id         src_mod,
+                        Module_request_id src_chan,
+  Type            type,
+                   Tree_level_index  vbd_max_level_idx,
+                   Tree_degree       vbd_degree,
+                   Number_of_leaves  vbd_nr_of_leaves,
+                   Tree_level_index  ft_max_level_idx,
+                   Tree_degree       ft_degree,
+                   Number_of_leaves  ft_nr_of_leaves,
+                   Tree_level_index  mt_max_level_idx,
+                   Tree_degree       mt_degree,
+                   Number_of_leaves  mt_nr_of_leaves,
+                   Pba_allocator &pba_alloc,
+                   bool &success)
+:
+	Module_request { src_mod, src_chan, SB_INITIALIZER },
+	_type              { type },
+	_vbd_max_level_idx { vbd_max_level_idx },
+	_vbd_degree { vbd_degree },
+	_vbd_nr_of_leaves  { vbd_nr_of_leaves },
+	_ft_max_level_idx  { ft_max_level_idx },
+	_ft_degree  { ft_degree },
+	_ft_nr_of_leaves   { ft_nr_of_leaves },
+	_mt_max_level_idx  { mt_max_level_idx },
+	_mt_degree  { mt_degree },
+	_mt_nr_of_leaves   { mt_nr_of_leaves },
+	_pba_alloc_ptr   { (addr_t)&pba_alloc },
+	_success_ptr { (addr_t)&success }
+{ }
+
+
 void Sb_initializer_request::create(void             *buf_ptr,
                                     size_t            buf_size,
                                     uint64_t          src_module_id,
@@ -46,7 +77,8 @@ void Sb_initializer_request::create(void             *buf_ptr,
                                     Tree_level_index  mt_max_level_idx,
                                     Tree_degree       mt_degree,
                                     Number_of_leaves  mt_nr_of_leaves,
-                                    Pba_allocator &pba_alloc)
+                                    Pba_allocator &pba_alloc,
+                   bool &success)
 {
 	Sb_initializer_request req { src_module_id, src_request_id };
 
@@ -61,6 +93,7 @@ void Sb_initializer_request::create(void             *buf_ptr,
 	req._mt_degree  = mt_degree;
 	req._mt_nr_of_leaves   = mt_nr_of_leaves;
 	req._pba_alloc_ptr   = (addr_t)&pba_alloc;
+	req._success_ptr = (addr_t)&success;
 
 	if (sizeof(req) > buf_size) {
 		class Bad_size_0 { };
@@ -223,7 +256,7 @@ void Sb_initializer_channel::_generated_req_completed(State_uint state_uint)
 {
 	if (!_generated_req_success) {
 		error("free tree: request (", _request, ") failed because generated request failed)");
-		_request._success = false;
+		_request._success() = false;
 		_state = COMPLETE;
 		//_req_ptr = nullptr;
 		return;
@@ -279,7 +312,7 @@ void Sb_initializer::_mark_req_failed(Channel    &channel,
                                        char const *str)
 {
 	error("request failed: failed to ", str);
-	channel._request._success = false;
+	channel._request._success() = false;
 	channel._state = Channel::COMPLETE;
 	progress = true;
 }
@@ -290,7 +323,7 @@ void Sb_initializer::_mark_req_successful(Channel &channel,
 {
 	Request &req { channel._request };
 
-	req._success = true;
+	req._success() = true;
 
 	channel._state = Channel::COMPLETE;
 	progress = true;

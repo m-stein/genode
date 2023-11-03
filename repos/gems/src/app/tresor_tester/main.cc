@@ -745,26 +745,6 @@ class Tresor_tester::Main
 				enum Result { NO_CMD, CMD_IN_BUF } result { NO_CMD };
 				_with_first_processable_cmd([&] (Command &cmd) {
 					switch (cmd.type()) {
-					case Command::INITIALIZE:
-						{
-							reset_snap_refs();
-							Tresor_init::Configuration const &cfg { cmd.initialize() };
-							Sb_initializer_request::create(
-								buf_ptr, buf_size, COMMAND_POOL, cmd.id(),
-								Sb_initializer_request::INIT,
-								(Tree_level_index)(cfg.vbd_nr_of_lvls() - 1),
-								(Tree_degree)cfg.vbd_nr_of_children(),
-								cfg.vbd_nr_of_leafs(),
-								(Tree_level_index)cfg.ft_nr_of_lvls() - 1,
-								(Tree_degree)cfg.ft_nr_of_children(),
-								cfg.ft_nr_of_leafs(),
-								(Tree_level_index)cfg.ft_nr_of_lvls() - 1,
-								(Tree_degree)cfg.ft_nr_of_children(),
-								cfg.ft_nr_of_leafs(), _pba_alloc);
-
-							result = CMD_IN_BUF;
-							break;
-						}
 					case Command::CHECK:
 						Sb_check_request::create(
 							buf_ptr, buf_size, COMMAND_POOL, cmd.id(),
@@ -789,7 +769,6 @@ class Tresor_tester::Main
 		bool _req_success(Module_request &mod_req) const
 		{
 			switch (mod_req.dst_module_id()) {
-			case SB_INITIALIZER: return static_cast<Sb_initializer_request *>(&mod_req)->success();
 			case SB_CHECK: return static_cast<Sb_check_request *>(&mod_req)->success();
 			default: break;
 			}
@@ -893,6 +872,8 @@ class Tresor_tester::Main
 			while (_snap_refs.first())
 				_remove_snap_ref(*_snap_refs.first());
 		}
+
+		Pba_allocator &pba_alloc() { return _pba_alloc; }
 
 		void generate_blk_data(uint64_t tresor_req_tag,
 		                       Virtual_block_address vba,
@@ -1081,6 +1062,24 @@ void Command::execute(bool &progress)
 		Trust_anchor_node node { trust_anchor_node() };
 		ASSERT(node.op() == Trust_anchor_request::INITIALIZE);
 		generate_req<Trust_anchor::Initialize>(COMPLETED, progress, node.passphrase(), _success);
+		_main.mark_command_in_progress(id());
+		break;
+	}
+	case Command::INITIALIZE:
+	{
+		_main.reset_snap_refs();
+		Tresor_init::Configuration const &cfg { initialize() };
+		generate_req<Sb_initializer_request>(COMPLETED, progress,
+			Sb_initializer_request::INIT,
+			(Tree_level_index)(cfg.vbd_nr_of_lvls() - 1),
+			(Tree_degree)cfg.vbd_nr_of_children(),
+			cfg.vbd_nr_of_leafs(),
+			(Tree_level_index)cfg.ft_nr_of_lvls() - 1,
+			(Tree_degree)cfg.ft_nr_of_children(),
+			cfg.ft_nr_of_leafs(),
+			(Tree_level_index)cfg.ft_nr_of_lvls() - 1,
+			(Tree_degree)cfg.ft_nr_of_children(),
+			cfg.ft_nr_of_leafs(), _main.pba_alloc(), _success);
 		_main.mark_command_in_progress(id());
 		break;
 	}

@@ -50,9 +50,11 @@ class Tresor::Sb_initializer_request : public Module_request
 		Tree_degree      _mt_degree  { 0 };
 		Number_of_leaves _mt_nr_of_leaves   { 0 };
 		addr_t           _pba_alloc_ptr     { 0 };
-		bool             _success           { false };
+		addr_t           _success_ptr           { };
 
 		Pba_allocator &_pba_alloc() { return *(Pba_allocator *)_pba_alloc_ptr; }
+
+		bool &_success() { return *(bool*)_success_ptr; }
 
 	public:
 
@@ -60,6 +62,21 @@ class Tresor::Sb_initializer_request : public Module_request
 
 		Sb_initializer_request(Module_id         src_module_id,
 		                        Module_request_id src_request_id);
+
+		Sb_initializer_request(Module_id         src_mod,
+		                        Module_request_id src_chan,
+		  Type            type,
+		                   Tree_level_index  vbd_max_level_idx,
+		                   Tree_degree       vbd_degree,
+		                   Number_of_leaves  vbd_nr_of_leaves,
+		                   Tree_level_index  ft_max_level_idx,
+		                   Tree_degree       ft_degree,
+		                   Number_of_leaves  ft_nr_of_leaves,
+		                   Tree_level_index  mt_max_level_idx,
+		                   Tree_degree       mt_degree,
+		                   Number_of_leaves  mt_nr_of_leaves,
+		                   Pba_allocator &pba_alloc,
+		                   bool &success);
 
 		static void create(void             *buf_ptr,
 		                   size_t            buf_size,
@@ -75,11 +92,8 @@ class Tresor::Sb_initializer_request : public Module_request
 		                   Tree_level_index  mt_max_level_idx,
 		                   Tree_degree       mt_degree,
 		                   Number_of_leaves  mt_nr_of_leaves,
-		                   Pba_allocator &pba_alloc);
-
-		Type type() const { return _type; }
-
-		bool success() const { return _success; }
+		                   Pba_allocator &pba_alloc,
+		                   bool &success);
 
 		static char const *type_to_string(Type type);
 
