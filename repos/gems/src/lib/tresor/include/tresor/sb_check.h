@@ -72,7 +72,7 @@ class Tresor::Sb_check_request : public Module_request
 };
 
 
-class Tresor::Sb_check_channel
+class Tresor::Sb_check_channel : public Module_channel
 {
 	private:
 
@@ -82,9 +82,8 @@ class Tresor::Sb_check_channel
 
 		enum State { INSPECT_SBS, CHECK_SB };
 
-		enum Sb_slot_state {
-			INACTIVE, INIT, DONE,
-			READ_STARTED, READ_DROPPED, READ_DONE,
+		enum Sb_slot_state : State_uint {
+			INACTIVE, INIT, DONE, READ_DONE, REQ_GENERATED,
 			VBD_CHECK_STARTED, VBD_CHECK_DROPPED, VBD_CHECK_DONE,
 			FT_CHECK_STARTED, FT_CHECK_DROPPED, FT_CHECK_DONE,
 			MT_CHECK_STARTED, MT_CHECK_DROPPED, MT_CHECK_DONE };
@@ -100,10 +99,24 @@ class Tresor::Sb_check_channel
 		Type_1_node _vbd { };
 		Type_1_node _ft { };
 		Type_1_node _mt { };
-		Hash _dummy_hash { };
 		Physical_block_address _gen_prim_blk_nr { 0 };
 		bool _gen_prim_success { false };
 		Block _encoded_blk { };
+
+		void _reset();
+
+		void _generated_req_completed(State_uint) override;
+
+		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
+
+		bool _request_complete() override { return false; }
+
+		template <typename REQUEST, typename... ARGS>
+		void _generate_req(State_uint state, bool &progress, ARGS &&... args)
+		{
+			_sb_slot_state = REQ_GENERATED;
+			generate_req<REQUEST>(state, progress, args..., _gen_prim_success);
+		}
 };
 
 
@@ -154,6 +167,8 @@ class Tresor::Sb_check : public Module
 
 
 	public:
+
+		Sb_check() { register_channels(_channels, NR_OF_CHANNELS, SB_CHECK); }
 
 		/************
 		 ** Module **

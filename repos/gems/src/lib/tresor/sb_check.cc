@@ -61,6 +61,18 @@ char const *Sb_check_request::type_to_string(Type type)
 }
 
 
+void Sb_check_channel::_generated_req_completed(State_uint state_uint)
+{
+	if (!_gen_prim_success) {
+		error("sb check: request (", _request, ") failed because generated request failed)");
+		_request._success = false;
+		_sb_slot_state = DONE;
+		return;
+	}
+	_sb_slot_state = (Sb_slot_state)state_uint;
+}
+
+
 /**************
  ** Sb_check **
  **************/
@@ -90,6 +102,7 @@ bool Sb_check::_handle_failed_generated_req(Channel &chan,
 	return true;
 }
 
+
 void Sb_check::_execute_check(Channel &chan,
                               bool    &progress)
 {
@@ -99,16 +112,13 @@ void Sb_check::_execute_check(Channel &chan,
 		switch (chan._sb_slot_state) {
 		case Channel::INIT:
 
-			chan._sb_slot_state = Channel::READ_STARTED;
 			chan._gen_prim_blk_nr = chan._sb_slot_idx;
-			progress = true;
+			chan._generate_req<Block_io::Read>(Channel::READ_DONE, progress, chan._gen_prim_blk_nr, chan._encoded_blk);
 			break;
 
 		case Channel::READ_DONE:
 		{
-			if (_handle_failed_generated_req(chan, progress))
-				break;
-
+			chan._sb_slot.decode_from_blk(chan._encoded_blk);
 			Snapshot &snap { chan._sb_slot.curr_snap() };
 			if (chan._sb_slot.valid() &&
 			    snap.gen > chan._highest_gen) {
@@ -145,10 +155,8 @@ void Sb_check::_execute_check(Channel &chan,
 		switch (chan._sb_slot_state) {
 		case Channel::INIT:
 
-			chan._sb_slot_state = Channel::READ_STARTED;
 			chan._gen_prim_blk_nr = chan._sb_slot_idx;
-			progress = true;
-
+			chan._generate_req<Block_io::Read>(Channel::READ_DONE, progress, chan._gen_prim_blk_nr, chan._encoded_blk);
 			if (VERBOSE_CHECK)
 				log("  read superblock");
 
@@ -156,9 +164,7 @@ void Sb_check::_execute_check(Channel &chan,
 
 		case Channel::READ_DONE:
 
-			if (_handle_failed_generated_req(chan, progress))
-				break;
-
+			chan._sb_slot.decode_from_blk(chan._encoded_blk);
 			if (chan._sb_slot.valid()) {
 
 				Snapshot &snap {
@@ -318,17 +324,6 @@ bool Sb_check::_peek_generated_request(uint8_t *buf_ptr,
 			continue;
 
 		switch (chan._sb_slot_state) {
-		case Channel::READ_STARTED:
-
-			ASSERT(sizeof(Block_io_request) <= buf_size);
-			construct_at<Block_io_request>(
-				buf_ptr, SB_CHECK, id,
-				Block_io_request::READ, 0, 0, 0,
-				chan._gen_prim_blk_nr, 0, 1, chan._encoded_blk,
-				chan._dummy_hash, chan._gen_prim_success);
-
-			return true;
-
 		case Channel::VBD_CHECK_STARTED:
 		{
 			Snapshot const &snap {
@@ -390,7 +385,6 @@ void Sb_check::_drop_generated_request(Module_request &req)
 	}
 	Channel &chan { _channels[id] };
 	switch (chan._sb_slot_state) {
-	case Channel::READ_STARTED: chan._sb_slot_state = Channel::READ_DROPPED; break;
 	case Channel::VBD_CHECK_STARTED: chan._sb_slot_state = Channel::VBD_CHECK_DROPPED; break;
 	case Channel::FT_CHECK_STARTED: chan._sb_slot_state = Channel::FT_CHECK_DROPPED; break;
 	case Channel::MT_CHECK_STARTED: chan._sb_slot_state = Channel::MT_CHECK_DROPPED; break;
@@ -410,19 +404,6 @@ void Sb_check::generated_request_complete(Module_request &mod_req)
 	}
 	Channel &chan { _channels[id] };
 	switch (mod_req.dst_module_id()) {
-	case BLOCK_IO:
-	{
-		switch (chan._sb_slot_state) {
-		case Channel::READ_DROPPED:
-			chan._sb_slot.decode_from_blk(chan._encoded_blk);
-			chan._sb_slot_state = Channel::READ_DONE;
-			break;
-		default:
-			class Exception_2 { };
-			throw Exception_2 { };
-		}
-		break;
-	}
 	case VBD_CHECK:
 	{
 		Vbd_check_request &gen_req { *static_cast<Vbd_check_request*>(&mod_req) };
@@ -465,13 +446,32 @@ bool Sb_check::ready_to_submit_request()
 }
 
 
+void Sb_check_channel::_reset()
+{
+	_state = INSPECT_SBS;
+	_request = { };
+	_highest_gen = 0;
+	_last_sb_slot_idx = 0;
+	_sb_slot_state = INACTIVE;
+	_sb_slot_idx = 0;
+	_sb_slot = { };
+	_snap_idx = 0;
+	_vbd = { };
+	_ft = { };
+	_mt = { };
+	_gen_prim_blk_nr = 0;
+	_gen_prim_success = false;
+	_encoded_blk = { };
+}
+
+
 void Sb_check::submit_request(Module_request &req)
 {
 	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 		Channel &chan { _channels[id] };
 		if (chan._sb_slot_state == Channel::INACTIVE) {
 			req.dst_request_id(id);
-			chan = Channel { };
+			chan._reset();
 			chan._request = *static_cast<Request *>(&req);
 			chan._sb_slot_state = Channel::INIT;
 			return;
