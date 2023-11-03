@@ -1025,7 +1025,6 @@ void Command::execute(bool &progress)
 		_main.reset_snap_refs();
 		Tresor_init::Configuration const &cfg { initialize() };
 		generate_req<Sb_initializer_request>(COMPLETED, progress,
-			Sb_initializer_request::INIT,
 			(Tree_level_index)(cfg.vbd_nr_of_lvls() - 1),
 			(Tree_degree)cfg.vbd_nr_of_children(),
 			cfg.vbd_nr_of_leafs(),

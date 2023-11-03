@@ -109,18 +109,15 @@ class Main
 			if (_state != PENDING)
 				return false;
 
-			Sb_initializer_request::create(
-				buf_ptr, buf_size, COMMAND_POOL, 0,
-				(unsigned long)Sb_initializer_request::INIT,
-				(Tree_level_index)_cfg->vbd_nr_of_lvls() - 1,
-				(Tree_degree)_cfg->vbd_nr_of_children(),
-				_cfg->vbd_nr_of_leafs(),
+			ASSERT(sizeof(Sb_initializer_request) <= buf_size);
+			construct_at<Sb_initializer_request>(
+				buf_ptr, COMMAND_POOL, 0, (Tree_level_index)_cfg->vbd_nr_of_lvls() - 1,
+				(Tree_degree)_cfg->vbd_nr_of_children(), _cfg->vbd_nr_of_leafs(),
 				(Tree_level_index)_cfg->ft_nr_of_lvls() - 1,
-				(Tree_degree)_cfg->ft_nr_of_children(),
-				_cfg->ft_nr_of_leafs(),
+				(Tree_degree)_cfg->ft_nr_of_children(), _cfg->ft_nr_of_leafs(),
 				(Tree_level_index)_cfg->ft_nr_of_lvls() - 1,
-				(Tree_degree)_cfg->ft_nr_of_children(),
-				_cfg->ft_nr_of_leafs(), _pba_alloc, _generated_req_success);
+				(Tree_degree)_cfg->ft_nr_of_children(), _cfg->ft_nr_of_leafs(), _pba_alloc,
+				_generated_req_success);
 
 			return true;
 		}

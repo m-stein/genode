@@ -30,79 +30,30 @@ namespace Tresor {
 
 class Tresor::Sb_initializer_request : public Module_request
 {
-	public:
-
-		enum Type { INVALID = 0, INIT = 1, };
-
 	private:
 
 		friend class Sb_initializer;
 		friend class Sb_initializer_channel;
 
-		Type             _type              { INVALID };
-		Tree_level_index _vbd_max_level_idx { 0 };
-		Tree_degree      _vbd_degree { 0 };
-		Number_of_leaves _vbd_nr_of_leaves  { 0 };
-		Tree_level_index _ft_max_level_idx  { 0 };
-		Tree_degree      _ft_degree  { 0 };
-		Number_of_leaves _ft_nr_of_leaves   { 0 };
-		Tree_level_index _mt_max_level_idx  { 0 };
-		Tree_degree      _mt_degree  { 0 };
-		Number_of_leaves _mt_nr_of_leaves   { 0 };
-		addr_t           _pba_alloc_ptr     { 0 };
-		addr_t           _success_ptr           { };
-
-		Pba_allocator &_pba_alloc() { return *(Pba_allocator *)_pba_alloc_ptr; }
-
-		bool &_success() { return *(bool*)_success_ptr; }
+		Tree_level_index const _vbd_max_level_idx;
+		Tree_degree const _vbd_degree;
+		Number_of_leaves const _vbd_nr_of_leaves;
+		Tree_level_index _ft_max_level_idx;
+		Tree_degree _ft_degree;
+		Number_of_leaves _ft_nr_of_leaves;
+		Tree_level_index _mt_max_level_idx;
+		Tree_degree _mt_degree;
+		Number_of_leaves _mt_nr_of_leaves;
+		Pba_allocator &_pba_alloc;
+		bool &_success;
 
 	public:
 
-		Sb_initializer_request() { }
+		Sb_initializer_request(Module_id , Module_request_id , Tree_level_index , Tree_degree , Number_of_leaves ,
+		                       Tree_level_index , Tree_degree , Number_of_leaves , Tree_level_index , Tree_degree ,
+		                       Number_of_leaves , Pba_allocator &, bool &);
 
-		Sb_initializer_request(Module_id         src_module_id,
-		                        Module_request_id src_request_id);
-
-		Sb_initializer_request(Module_id         src_mod,
-		                        Module_request_id src_chan,
-		  Type            type,
-		                   Tree_level_index  vbd_max_level_idx,
-		                   Tree_degree       vbd_degree,
-		                   Number_of_leaves  vbd_nr_of_leaves,
-		                   Tree_level_index  ft_max_level_idx,
-		                   Tree_degree       ft_degree,
-		                   Number_of_leaves  ft_nr_of_leaves,
-		                   Tree_level_index  mt_max_level_idx,
-		                   Tree_degree       mt_degree,
-		                   Number_of_leaves  mt_nr_of_leaves,
-		                   Pba_allocator &pba_alloc,
-		                   bool &success);
-
-		static void create(void             *buf_ptr,
-		                   size_t            buf_size,
-		                   uint64_t          src_module_id,
-		                   uint64_t          src_request_id,
-		                   size_t            req_type,
-		                   Tree_level_index  vbd_max_level_idx,
-		                   Tree_degree       vbd_degree,
-		                   Number_of_leaves  vbd_nr_of_leaves,
-		                   Tree_level_index  ft_max_level_idx,
-		                   Tree_degree       ft_degree,
-		                   Number_of_leaves  ft_nr_of_leaves,
-		                   Tree_level_index  mt_max_level_idx,
-		                   Tree_degree       mt_degree,
-		                   Number_of_leaves  mt_nr_of_leaves,
-		                   Pba_allocator &pba_alloc,
-		                   bool &success);
-
-		static char const *type_to_string(Type type);
-
-
-		/********************
-		 ** Module_request **
-		 ********************/
-
-		void print(Output &out) const override { Genode::print(out, type_to_string(_type)); }
+		void print(Output &out) const override { Genode::print(out, "init"); }
 };
 
 
@@ -128,7 +79,7 @@ class Tresor::Sb_initializer_channel : public Module_channel
 		};
 
 		State _state { INACTIVE };
-		Sb_initializer_request _request { };
+		Constructible<Sb_initializer_request> _req_ptr { };
 		Superblock_index _sb_slot_index { 0 };
 		Superblock _sb { };
 		Block _encoded_blk { };
