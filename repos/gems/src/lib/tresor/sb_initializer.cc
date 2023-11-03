@@ -214,10 +214,6 @@ void Sb_initializer::_execute(Channel &channel,
 	default:
 		break;
 	}
-
-	/* finished */
-	if (channel._sb_slot_index == NR_OF_SUPERBLOCK_SLOTS)
-		_mark_req_successful(channel, progress);
 }
 
 
@@ -271,11 +267,12 @@ void Sb_initializer::_execute_init(Channel &channel,
 
 	case CS::SLOT_COMPLETE:
 
-		if (channel._sb_slot_index < NR_OF_SUPERBLOCK_SLOTS) {
+		if (channel._sb_slot_index < NR_OF_SUPERBLOCK_SLOTS - 1) {
 			++channel._sb_slot_index;
 			channel._state = Channel::PENDING;
 			progress = true;
-		}
+		} else
+			_mark_req_successful(channel, progress);
 		return;
 
 	case CS::FT_REQUEST_COMPLETE:
