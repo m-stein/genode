@@ -738,51 +738,6 @@ class Tresor_tester::Main
 				cmd.execute(progress); });
 		}
 
-		bool _peek_generated_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t buf_size) override
-		{
-			while (true) {
-				enum Result { NO_CMD, CMD_IN_BUF } result { NO_CMD };
-				_with_first_processable_cmd([&] (Command &cmd) {
-					switch (cmd.type()) {
-					case Command::CHECK:
-						Sb_check_request::create(
-							buf_ptr, buf_size, COMMAND_POOL, cmd.id(),
-							Sb_check_request::CHECK);
-
-							result = CMD_IN_BUF;
-							break;
-					default: break;
-					}
-				});
-				switch(result) {
-				case CMD_IN_BUF: return true;
-				case NO_CMD: return false; }
-			}
-		}
-
-		void _drop_generated_request(Module_request &mod_req) override
-		{
-			mark_command_in_progress(mod_req.src_request_id());
-		}
-
-		bool _req_success(Module_request &mod_req) const
-		{
-			switch (mod_req.dst_module_id()) {
-			case SB_CHECK: return static_cast<Sb_check_request *>(&mod_req)->success();
-			default: break;
-			}
-			ASSERT_NEVER_REACHED;
-		}
-
-		void generated_request_complete(Module_request &mod_req) override
-		{
-			if (mod_req.dst_module_id() == REQUEST_POOL)
-				ASSERT_NEVER_REACHED;
-
-			mark_command_completed(mod_req.src_request_id(), _req_success(mod_req));
-		}
-
 		bool new_submit_request() override { return false; }
 
 		void _remove_snap_ref(Snapshot_reference &ref)
@@ -1083,6 +1038,10 @@ void Command::execute(bool &progress)
 		_main.mark_command_in_progress(id());
 		break;
 	}
+	case Command::CHECK:
+		generate_req<Sb_check_request>(COMPLETED, progress, Sb_check_request::CHECK, _success);
+		_main.mark_command_in_progress(id());
+		break;
 	case LOG:
 		log("\n", log_node().string(), "\n");
 		_main.mark_command_in_progress(id());

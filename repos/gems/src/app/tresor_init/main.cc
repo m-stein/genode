@@ -70,6 +70,7 @@ class Main
 		Vbd_initializer _vbd_initializer { };
 		Ft_initializer _ft_initializer { };
 		Sb_initializer _sb_initializer { };
+		bool _generated_req_success { };
 
 		/**
 		 * Vfs::Env::User interface
@@ -84,7 +85,7 @@ class Main
 		void _try_end_program()
 		{
 			if (_state == COMPLETE)
-				_env.parent().exit(0);
+				_env.parent().exit(_generated_req_success ? 0 : -1);
 		}
 
 		void _execute()
@@ -119,7 +120,7 @@ class Main
 				_cfg->ft_nr_of_leafs(),
 				(Tree_level_index)_cfg->ft_nr_of_lvls() - 1,
 				(Tree_degree)_cfg->ft_nr_of_children(),
-				_cfg->ft_nr_of_leafs(), _pba_alloc);
+				_cfg->ft_nr_of_leafs(), _pba_alloc, _generated_req_success);
 
 			return true;
 		}

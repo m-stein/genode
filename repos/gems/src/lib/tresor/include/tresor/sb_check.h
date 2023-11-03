@@ -41,8 +41,9 @@ class Tresor::Sb_check_request : public Module_request
 		friend class Sb_check_channel;
 
 		Type _type    { INVALID };
-		bool _success { false };
+		addr_t _success_ptr { };
 
+		bool &_success() { return *(bool*)_success_ptr; }
 
 	public:
 
@@ -51,15 +52,13 @@ class Tresor::Sb_check_request : public Module_request
 		Sb_check_request(Module_id         src_module_id,
 		                        Module_request_id src_request_id);
 
+		Sb_check_request(Module_id, Module_request_id, Type, bool &);
+
 		static void create(void     *buf_ptr,
 		                   size_t    buf_size,
 		                   uint64_t  src_module_id,
 		                   uint64_t  src_request_id,
-		                   size_t    req_type);
-
-		Type type() const { return _type; }
-
-		bool success() const { return _success; }
+		                   size_t    req_type, bool &);
 
 		static char const *type_to_string(Type type);
 

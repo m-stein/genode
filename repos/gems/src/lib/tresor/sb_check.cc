@@ -34,14 +34,21 @@ Sb_check_request::Sb_check_request(Module_id         src_module_id,
 { }
 
 
+Sb_check_request::Sb_check_request(Module_id src_mod, Module_request_id src_chan, Type type, bool &success)
+:
+	Module_request { src_mod, src_chan, SB_CHECK }, _type { type }, _success_ptr { (addr_t)&success }
+{ }
+
+
 void Sb_check_request::create(void     *buf_ptr,
                               size_t    buf_size,
                               uint64_t  src_module_id,
                               uint64_t  src_request_id,
-                              size_t    req_type)
+                              size_t    req_type, bool &success)
 {
 	Sb_check_request req { src_module_id, src_request_id };
 	req._type = (Type)req_type;
+	req._success_ptr = (addr_t)&success;
 
 	if (sizeof(req) > buf_size) {
 		class Bad_size_0 { };
@@ -65,7 +72,7 @@ void Sb_check_channel::_generated_req_completed(State_uint state_uint)
 {
 	if (!_gen_prim_success) {
 		error("sb check: request (", _request, ") failed because generated request failed)");
-		_request._success = false;
+		_request._success() = false;
 		_sb_slot_state = DONE;
 		return;
 	}
@@ -264,7 +271,7 @@ void Sb_check::_mark_req_failed(Channel    &chan,
                                 char const *str)
 {
 	error("sb check: request (", chan._request, ") failed at step \"", str, "\"");
-	chan._request._success = false;
+	chan._request._success() = false;
 	chan._sb_slot_state = Channel::DONE;
 	progress = true;
 }
@@ -274,7 +281,7 @@ void Sb_check::_mark_req_successful(Channel &chan,
                                     bool    &progress)
 {
 	Request &req { chan._request };
-	req._success = true;
+	req._success() = true;
 	chan._sb_slot_state = Channel::DONE;
 	progress = true;
 }
