@@ -82,19 +82,18 @@ class Tresor::Ft_initializer_channel : public Module_channel
 
 		NONCOPYABLE(Ft_initializer_channel);
 
-		static void reset_level(Type_1_level &level, Node_state state)
+		void _reset_level(Tree_level_index lvl, Node_state node_state)
 		{
-			for (unsigned int i = 0; i < NR_OF_T1_NODES_PER_BLK; i++) {
-				level.children.nodes[i] = { };
-				level.children_state[i] = state;
-			}
-		}
-
-		static void reset_level(Type_2_level &level, Node_state state)
-		{
-			for (unsigned int i = 0; i < NR_OF_T2_NODES_PER_BLK; i++) {
-				level.children.nodes[i] = { };
-				level.children_state[i] = state;
+			if (lvl == 1) {
+				for (Tree_node_index idx = 0; idx < NR_OF_T2_NODES_PER_BLK; idx++) {
+					_t2_level.children.nodes[idx] = { };
+					_t2_level.children_state[idx] = node_state;
+				}
+			} else {
+				for (Tree_node_index idx = 0; idx < NR_OF_T1_NODES_PER_BLK; idx++) {
+					_t1_levels[lvl].children.nodes[idx] = { };
+					_t1_levels[lvl].children_state[idx] = node_state;
+				}
 			}
 		}
 
