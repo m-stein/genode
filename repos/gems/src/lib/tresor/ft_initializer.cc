@@ -1,5 +1,6 @@
 /*
  * \brief  Module for initializing the free tree
+ * \author Martin Stein
  * \author Josef Soentgen
  * \date   2023-03-09
  */
@@ -10,9 +11,6 @@
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
  */
-
-/* base includes */
-#include <base/log.h>
 
 /* tresor includes */
 #include <tresor/block_io.h>
@@ -32,8 +30,8 @@ Ft_initializer_request::Ft_initializer_request(Module_id src_mod, Module_channel
 
 void Ft_initializer_channel::_execute_t2_node(Tree_node_index node_idx, bool &progress)
 {
-	Node_state &node_state { _t2_level.children_state[node_idx] };
-	Type_2_node &node { _t2_level.children.nodes[node_idx] };
+	Node_state &node_state { _t2_node_states[node_idx] };
+	Type_2_node &node { _t2_blk.nodes[node_idx] };
 	switch (node_state) {
 	case INIT_BLOCK:
 
@@ -73,8 +71,8 @@ void Ft_initializer_channel::_execute_t2_node(Tree_node_index node_idx, bool &pr
 
 void Ft_initializer_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
 {
-	Type_1_node &node { _t1_levels[lvl].children.nodes[node_idx] };
-	Node_state &node_state { _t1_levels[lvl].children_state[node_idx] };
+	Type_1_node &node { _t1_blks.items[lvl].nodes[node_idx] };
+	Node_state &node_state { _t1_node_states[lvl][node_idx] };
 	switch (node_state) {
 	case INIT_BLOCK:
 
@@ -89,7 +87,7 @@ void Ft_initializer_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_in
 			node_state = DONE;
 			progress = true;
 			if (DEBUG)
-				log("[ft_init] node: ", lvl, " ", node_idx, " assign pba 0, inner node unused");
+				log("[ft_init] node: ", lvl, " ", node_idx, " assign pba 0, unused");
 		}
 		break;
 
@@ -103,30 +101,29 @@ void Ft_initializer_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_in
 			_mark_req_failed(progress, "allocate pba");
 			break;
 		}
-		_level_to_write = lvl - 1;
-		if (_level_to_write == 1)
-			_t2_level.children.encode_to_blk(_blk);
+		if (lvl == 2)
+			_t2_blk.encode_to_blk(_blk);
 		else
-			_t1_levels[_level_to_write].children.encode_to_blk(_blk);
+			_t1_blks.items[lvl - 1].encode_to_blk(_blk);
 		calc_hash(_blk, node.hash);
-		node_state = WRITE_BLOCK;
-		_pba = node.pba;
-		_generate_blk_io_write(progress);
+		generate_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, node.pba, _blk, _generated_req_success);
+		_state = REQ_GENERATED;
+		node_state = WRITE_BLK;
 		progress = true;
 		if (DEBUG)
 			log("[ft_init] node: ", lvl, " ", node_idx, " assign pba: ", node.pba);
 		break;
 	}
-	case WRITE_BLOCK:
+	case WRITE_BLK:
 
-		if (_state != BLOCK_IO_COMPLETE)
+		if (_state != WRITE_BLK_SUCCEEDED)
 			break;
 
 		_state = IN_PROGRESS;
 		node_state = DONE;
 		progress = true;
 		if (DEBUG)
-			log("[ft_init] node: ", lvl, " ", node_idx, " write pba: ", _pba, " level: ", lvl -1, " (node: ", node, ")");
+			log("[ft_init] node: ", lvl, " ", node_idx, " write pba: ", node.pba, " level: ", lvl -1, " (node: ", node, ")");
 		break;
 
 	default: break;
@@ -139,7 +136,7 @@ void Ft_initializer_channel::_generated_req_completed(State_uint state_uint)
 	if (!_generated_req_success) {
 		error("ft initializer: request (", *_req_ptr, ") failed because generated request failed)");
 		_req_ptr->_success = false;
-		_state = COMPLETE;
+		_state = REQ_COMPLETE;
 		_req_ptr = nullptr;
 		return;
 	}
@@ -147,81 +144,39 @@ void Ft_initializer_channel::_generated_req_completed(State_uint state_uint)
 }
 
 
-void Ft_initializer_channel::_execute(bool    &progress)
-{
-	Request &req { *_req_ptr };
-	for (Tree_node_index node_idx = 0; node_idx < req._ft.degree; node_idx++)
-		_execute_t2_node(node_idx, progress);
-
-	if (progress)
-		return;
-
-	for (Tree_level_index lvl = 1; lvl <= req._ft.max_lvl; lvl++) {
-		for (Tree_node_index node_idx = 0; node_idx < req._ft.degree; node_idx++) {
-			_execute_t1_node(lvl, node_idx, progress);
-			if (progress)
-				return;
-		}
-	}
-	_execute_t1_node(req._ft.max_lvl + 1, 0, progress);
-	if (progress)
-		return;
-
-	if (_num_remaining_leaves) {
-		_mark_req_failed(progress, "initialize FT");
-		return;
-	}
-	_mark_req_successful(progress);
-}
-
-
-void Ft_initializer_channel::_execute_init(bool    &progress)
-{
-	Request &req { *_req_ptr };
-	switch (_state) {
-	case SUBMITTED:
-
-		_num_remaining_leaves = req._ft.num_leaves;
-		for (Tree_level_index lvl = 0; lvl < TREE_MAX_LEVEL; lvl++)
-			_reset_level(lvl, DONE);
-
-		_level_to_write = 0;
-		_state = PENDING;
-		_t1_levels[req._ft.max_lvl + 1].children_state[0] = INIT_BLOCK;
-		progress = true;
-		return;
-
-	case PENDING:
-
-		_state = IN_PROGRESS;
-		progress = true;
-		return;
-
-	case IN_PROGRESS: _execute(progress); return;
-	case BLOCK_IO_COMPLETE: _execute(progress); return;
-	default: return;
-	}
-}
-
-
-void Ft_initializer_channel::_mark_req_failed(bool       &progress,
-                                       char const *str)
+void Ft_initializer_channel::_mark_req_failed(bool &progress,  char const *str)
 {
 	error("request failed: failed to ", str);
 	_req_ptr->_success = false;
-	_state = COMPLETE;
+	_state = REQ_COMPLETE;
 	_req_ptr = nullptr;
 	progress = true;
 }
 
 
-void Ft_initializer_channel::_mark_req_successful(bool    &progress)
+void Ft_initializer_channel::_mark_req_successful(bool &progress)
 {
-	_req_ptr->_ft.t1_node(_t1_levels[_req_ptr->_ft.max_lvl + 1].children.nodes[0]);
+	_req_ptr->_ft.t1_node(_t1_blks.items[_req_ptr->_ft.max_lvl + 1].nodes[0]);
 	_req_ptr->_success = true;
-	_state = COMPLETE;
+	_state = REQ_COMPLETE;
 	_req_ptr = nullptr;
 	progress = true;
+}
+
+
+void Ft_initializer_channel::_reset_level(Tree_level_index lvl, Node_state node_state)
+{
+	if (lvl == 1) {
+		for (Tree_node_index idx = 0; idx < NR_OF_T2_NODES_PER_BLK; idx++) {
+			_t2_blk.nodes[idx] = { };
+			_t2_node_states[idx] = node_state;
+		}
+	} else {
+		for (Tree_node_index idx = 0; idx < NR_OF_T1_NODES_PER_BLK; idx++) {
+			_t1_blks.items[lvl].nodes[idx] = { };
+			_t1_node_states[lvl][idx] = node_state;
+		}
+	}
 }
 
 
@@ -230,26 +185,56 @@ void Ft_initializer_channel::execute(bool &progress)
 	if (!_req_ptr)
 		return;
 
-	_execute_init(progress);
+	Request &req { *_req_ptr };
+	switch (_state) {
+	case REQ_SUBMITTED:
+
+		_num_remaining_leaves = req._ft.num_leaves;
+		for (Tree_level_index lvl = 0; lvl < TREE_MAX_LEVEL; lvl++)
+			_reset_level(lvl, DONE);
+
+		_state = IN_PROGRESS;
+		_t1_node_states[req._ft.max_lvl + 1][0] = INIT_BLOCK;
+		progress = true;
+		return;
+
+	case IN_PROGRESS:
+	case WRITE_BLK_SUCCEEDED:
+	{
+		Request &req { *_req_ptr };
+		for (Tree_node_index node_idx = 0; node_idx < req._ft.degree; node_idx++)
+			_execute_t2_node(node_idx, progress);
+
+		if (progress)
+			return;
+
+		for (Tree_level_index lvl = 1; lvl <= req._ft.max_lvl; lvl++) {
+			for (Tree_node_index node_idx = 0; node_idx < req._ft.degree; node_idx++) {
+				_execute_t1_node(lvl, node_idx, progress);
+				if (progress)
+					return;
+			}
+		}
+		_execute_t1_node(req._ft.max_lvl + 1, 0, progress);
+		if (progress)
+			return;
+
+		if (_num_remaining_leaves) {
+			_mark_req_failed(progress, "leaves remaining");
+			return;
+		}
+		_mark_req_successful(progress);
+		return;
+	}
+	default: return;
+	}
 }
 
 
 void Ft_initializer_channel::_request_submitted(Module_request &mod_req)
 {
 	_req_ptr = static_cast<Request *>(&mod_req);
-	_state = SUBMITTED;
-}
-
-
-void Ft_initializer_channel::_generate_blk_io_write(bool &progress)
-{
-	if (_level_to_write == 1)
-		_t2_level.children.encode_to_blk(_blk);
-	else
-		_t1_levels[_level_to_write].children.encode_to_blk(_blk);
-
-	generate_req<Block_io::Write>(BLOCK_IO_COMPLETE, progress, _pba, _blk, _generated_req_success);
-	_state = REQ_GENERATED;
+	_state = REQ_SUBMITTED;
 }
 
 

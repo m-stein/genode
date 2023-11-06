@@ -1,5 +1,6 @@
 /*
  * \brief  Module for initializing the FT
+ * \author Martin Stein
  * \author Josef Soentgen
  * \date   2023-03-09
  */
@@ -13,9 +14,6 @@
 
 #ifndef _TRESOR__FT_INITIALIZER_H_
 #define _TRESOR__FT_INITIALIZER_H_
-
-/* base includes */
-#include <base/output.h>
 
 /* tresor includes */
 #include <tresor/module.h>
@@ -54,54 +52,27 @@ class Tresor::Ft_initializer_channel : public Module_channel
 
 		using Request = Ft_initializer_request;
 
-		enum State { REQ_GENERATED, SUBMITTED, PENDING, IN_PROGRESS, COMPLETE, BLOCK_IO_COMPLETE };
+		enum State { REQ_GENERATED, REQ_SUBMITTED, IN_PROGRESS, REQ_COMPLETE, WRITE_BLK_SUCCEEDED };
 
-		enum Node_state { DONE, INIT_BLOCK, INIT_NODE, WRITE_BLOCK };
+		enum Node_state { DONE, INIT_BLOCK, INIT_NODE, WRITE_BLK };
 
-		struct Type_1_level
-		{
-			Type_1_node_block children { };
-			Node_state children_state[NR_OF_T1_NODES_PER_BLK] { DONE };
-		};
-
-		struct Type_2_level
-		{
-			Type_2_node_block children { };
-			Node_state children_state[NR_OF_T2_NODES_PER_BLK] { DONE };
-		};
-
-		State _state { COMPLETE };
+		State _state { REQ_COMPLETE };
 		Request *_req_ptr { };
-		Type_1_level _t1_levels[TREE_MAX_NR_OF_LEVELS] { };
-		Type_2_level _t2_level { };
-		Tree_level_index _level_to_write { 0 };
-		Physical_block_address _pba { 0 };
+		Type_2_node_block _t2_blk { };
+		Type_1_node_block_walk _t1_blks { };
+		Node_state _t1_node_states[TREE_MAX_NR_OF_LEVELS][NR_OF_T1_NODES_PER_BLK] { };
+		Node_state _t2_node_states[NR_OF_T2_NODES_PER_BLK] { };
 		Number_of_leaves _num_remaining_leaves { 0 };
 		bool _generated_req_success { false };
 		Block _blk { };
 
 		NONCOPYABLE(Ft_initializer_channel);
 
-		void _reset_level(Tree_level_index lvl, Node_state node_state)
-		{
-			if (lvl == 1) {
-				for (Tree_node_index idx = 0; idx < NR_OF_T2_NODES_PER_BLK; idx++) {
-					_t2_level.children.nodes[idx] = { };
-					_t2_level.children_state[idx] = node_state;
-				}
-			} else {
-				for (Tree_node_index idx = 0; idx < NR_OF_T1_NODES_PER_BLK; idx++) {
-					_t1_levels[lvl].children.nodes[idx] = { };
-					_t1_levels[lvl].children_state[idx] = node_state;
-				}
-			}
-		}
-
-		void _generate_blk_io_write(bool &progress);
+		void _reset_level(Tree_level_index, Node_state);
 
 		void _generated_req_completed(State_uint) override;
 
-		bool _request_complete() override { return _state == COMPLETE; }
+		bool _request_complete() override { return _state == REQ_COMPLETE; }
 
 		void _request_submitted(Module_request &) override;
 
@@ -112,10 +83,6 @@ class Tresor::Ft_initializer_channel : public Module_channel
 		void _mark_req_failed(bool &, char const *);
 
 		void _mark_req_successful(bool &);
-
-		void _execute(bool &);
-
-		void _execute_init(bool &);
 
 	public:
 
