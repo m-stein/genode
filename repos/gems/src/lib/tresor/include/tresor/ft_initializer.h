@@ -81,11 +81,11 @@ class Tresor::Ft_initializer_channel : public Module_channel
 		Root_node _root_node { };
 		Type_1_level _t1_levels[TREE_MAX_LEVEL] { };
 		Type_2_level _t2_level { };
-		uint64_t _level_to_write { 0 };
-		uint64_t _child_pba { 0 };
+		Tree_level_index _level_to_write { 0 };
+		Physical_block_address _pba { 0 };
 		Number_of_leaves _num_remaining_leaves { 0 };
 		bool _generated_req_success { false };
-		Block _encoded_blk { };
+		Block _blk { };
 
 		NONCOPYABLE(Ft_initializer_channel);
 
@@ -113,13 +113,12 @@ class Tresor::Ft_initializer_channel : public Module_channel
 
 		void _request_submitted(Module_request &) override;
 
-		void _execute_t2_node(bool &, Tree_node_index);
+		void _execute_t2_node(Tree_node_index, bool &);
 
-		void _execute_inner_t2_child(bool &, uint64_t, uint64_t &, Type_1_node &, Type_2_level &,
-		                             Node_state &, uint64_t, uint64_t);
+		void _execute_lowest_t1_node(Tree_level_index, Tree_node_index, bool &);
 
-		void _execute_inner_t1_child(bool &, uint64_t, uint64_t &, Type_1_node &, Type_1_level &,
-		                             Node_state &, uint64_t, uint64_t);
+		void _execute_inner_t1_child(bool &, Type_1_node &, Type_1_level &,
+		                             Node_state &, Tree_level_index, Tree_node_index);
 
 		void _mark_req_failed(bool &, char const *);
 
