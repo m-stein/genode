@@ -141,35 +141,32 @@ void Ft_initializer_channel::_execute_lowest_t1_node(Tree_level_index lvl, Tree_
 }
 
 
-void Ft_initializer_channel::_execute_inner_t1_child(bool                                 &progress,
-                                              Type_1_node                          &child,
-                                              Ft_initializer_channel::Type_1_level &child_level,
-                                              Node_state  &child_state,
-                                              Tree_level_index                              level_index,
-                                              Tree_node_index                              child_index)
-
+void Ft_initializer_channel::_execute_inner_t1_node(Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
 {
-	switch (child_state) {
+	Type_1_node &node {  _t1_levels[lvl].children.nodes[node_idx] };
+	Node_state &node_state { _t1_levels[lvl].children_state[node_idx] };
+	Type_1_level &child_level { _t1_levels[lvl - 1] };
+	switch (node_state) {
 	case INIT_BLOCK:
 
 		if (_num_remaining_leaves == 0) {
 
 			if (DEBUG)
-				log("[ft_init] node: ", level_index, " ", child_index,
+				log("[ft_init] node: ", lvl, " ", node_idx,
 				    " assign pba 0, inner node unused");
 
-			child = { };
-			child_state = DONE;
+			node = { };
+			node_state = DONE;
 			progress = true;
 			return;
 		} else {
 
 			if (DEBUG)
-				log("[ft_init] node: ", level_index, " ", child_index,
-				    " reset level: ", level_index - 1);
+				log("[ft_init] node: ", lvl, " ", node_idx,
+				    " reset level: ", lvl - 1);
 
 			reset_level(child_level, INIT_BLOCK);
-			child_state = INIT_NODE;
+			node_state = INIT_NODE;
 			progress = true;
 			return;
 		}
@@ -180,21 +177,21 @@ void Ft_initializer_channel::_execute_inner_t1_child(bool                       
 		switch (_state) {
 		case IN_PROGRESS:
 		{
-			child = { };
-			if (!_req_ptr->_pba_alloc.alloc(child.pba)) {
+			node = { };
+			if (!_req_ptr->_pba_alloc.alloc(node.pba)) {
 				_mark_req_failed(progress, "allocate pba");
 				break;
 			}
 			Block blk { };
 			child_level.children.encode_to_blk(blk);
-			calc_hash(blk, child.hash);
+			calc_hash(blk, node.hash);
 
-			child_state = WRITE_BLOCK;
+			node_state = WRITE_BLOCK;
 			progress = true;
 
 			if (DEBUG)
-				log("[ft_init] node: ", level_index, " ", child_index,
-				    " assign pba: ", child.pba);
+				log("[ft_init] node: ", lvl, " ", node_idx,
+				    " assign pba: ", node.pba);
 			break;
 		}
 		default:
@@ -207,19 +204,19 @@ void Ft_initializer_channel::_execute_inner_t1_child(bool                       
 		switch (_state) {
 		case IN_PROGRESS:
 
-			_pba = child.pba;
-			_level_to_write = level_index - 1;
+			_pba = node.pba;
+			_level_to_write = lvl - 1;
 			_generate_blk_io_write(progress);
 			break;
 
 		case BLOCK_IO_COMPLETE:
 
 			_state = IN_PROGRESS;
-			child_state = DONE;
+			node_state = DONE;
 			progress = true;
 			if (DEBUG)
-				log("[ft_init] node: ", level_index, " ", child_index, " write pba: ", _pba, " level: ",
-				    level_index -1, " (child: ", child, ")");
+				log("[ft_init] node: ", lvl, " ", node_idx, " write pba: ", _pba, " level: ",
+				    lvl - 1, " (node: ", node, ")");
 			break;
 
 		default: break;
@@ -257,37 +254,21 @@ void Ft_initializer_channel::_execute(bool    &progress)
 		for (Tree_node_index node_idx = 0; node_idx < req._ft.degree; node_idx++) {
 			if (lvl == 2)
 				_execute_lowest_t1_node(lvl, node_idx, progress);
-			else {
-				_execute_inner_t1_child(progress, _t1_levels[lvl].children.nodes[node_idx], _t1_levels[lvl - 1], _t1_levels[lvl].children_state[node_idx],
-				                        lvl, node_idx);
-			}
+			else
+				_execute_inner_t1_node(lvl, node_idx, progress);
 			if (progress)
 				return;
 		}
 	}
+	_execute_inner_t1_node(req._ft.max_lvl + 1, 0, progress);
+	if (progress)
+		return;
 
-	/*
-	 * Checking the root node will trigger the initialization process as
-	 * well as will finish it.
-	 */
-	if (_root_node.state != DONE) {
-
-		Ft_initializer_channel::Type_1_level &t1_level =
-			_t1_levels[req._ft.max_lvl];
-
-		_execute_inner_t1_child(progress,
-		                        _root_node.node, t1_level, _root_node.state,
-		                        req._ft.max_lvl + 1, 0);
+	if (_num_remaining_leaves) {
+		_mark_req_failed(progress, "initialize FT");
 		return;
 	}
-
-	/*
-	 * We will end up here when the root state is 'DONE'.
-	 */
-	if (_num_remaining_leaves == 0)
-		_mark_req_successful(progress);
-	else
-		_mark_req_failed(progress, "initialize FT");
+	_mark_req_successful(progress);
 }
 
 
@@ -305,7 +286,7 @@ void Ft_initializer_channel::_execute_init(bool    &progress)
 
 		_level_to_write = 0;
 		_state = PENDING;
-		_root_node.state = INIT_BLOCK;
+		_t1_levels[req._ft.max_lvl + 1].children_state[0] = INIT_BLOCK;
 		progress = true;
 		return;
 
@@ -335,7 +316,7 @@ void Ft_initializer_channel::_mark_req_failed(bool       &progress,
 
 void Ft_initializer_channel::_mark_req_successful(bool    &progress)
 {
-	_req_ptr->_ft.t1_node(_root_node.node);
+	_req_ptr->_ft.t1_node(_t1_levels[_req_ptr->_ft.max_lvl + 1].children.nodes[0]);
 	_req_ptr->_success = true;
 	_state = COMPLETE;
 	_req_ptr = nullptr;

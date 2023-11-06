@@ -70,16 +70,9 @@ class Tresor::Ft_initializer_channel : public Module_channel
 			Node_state children_state[NR_OF_T2_NODES_PER_BLK] { DONE };
 		};
 
-		struct Root_node
-		{
-			Type_1_node node { };
-			Node_state state { DONE };
-		};
-
 		State _state { COMPLETE };
 		Request *_req_ptr { };
-		Root_node _root_node { };
-		Type_1_level _t1_levels[TREE_MAX_LEVEL] { };
+		Type_1_level _t1_levels[TREE_MAX_NR_OF_LEVELS] { };
 		Type_2_level _t2_level { };
 		Tree_level_index _level_to_write { 0 };
 		Physical_block_address _pba { 0 };
@@ -117,8 +110,7 @@ class Tresor::Ft_initializer_channel : public Module_channel
 
 		void _execute_lowest_t1_node(Tree_level_index, Tree_node_index, bool &);
 
-		void _execute_inner_t1_child(bool &, Type_1_node &, Type_1_level &,
-		                             Node_state &, Tree_level_index, Tree_node_index);
+		void _execute_inner_t1_node(Tree_level_index, Tree_node_index, bool &);
 
 		void _mark_req_failed(bool &, char const *);
 
