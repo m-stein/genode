@@ -107,9 +107,7 @@ class Tresor::Ft_initializer_channel : public Module_channel
 
 		void _execute_t2_node(Tree_node_index, bool &);
 
-		void _execute_lowest_t1_node(Tree_level_index, Tree_node_index, bool &);
-
-		void _execute_inner_t1_node(Tree_level_index, Tree_node_index, bool &);
+		void _execute_t1_node(Tree_level_index, Tree_node_index, bool &);
 
 		void _mark_req_failed(bool &, char const *);
 
