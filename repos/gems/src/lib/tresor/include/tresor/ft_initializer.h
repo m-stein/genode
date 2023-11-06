@@ -56,24 +56,24 @@ class Tresor::Ft_initializer_channel : public Module_channel
 
 		enum State { REQ_GENERATED, SUBMITTED, PENDING, IN_PROGRESS, COMPLETE, BLOCK_IO_COMPLETE };
 
-		enum Child_state { DONE, INIT_BLOCK, INIT_NODE, WRITE_BLOCK, };
+		enum Node_state { DONE, INIT_BLOCK, INIT_NODE, WRITE_BLOCK };
 
 		struct Type_1_level
 		{
 			Type_1_node_block children { };
-			Child_state       children_state[NR_OF_T1_NODES_PER_BLK] { DONE };
+			Node_state children_state[NR_OF_T1_NODES_PER_BLK] { DONE };
 		};
 
 		struct Type_2_level
 		{
 			Type_2_node_block children { };
-			Child_state       children_state[NR_OF_T2_NODES_PER_BLK] { DONE };
+			Node_state children_state[NR_OF_T2_NODES_PER_BLK] { DONE };
 		};
 
 		struct Root_node
 		{
-			Type_1_node node  { };
-			Child_state state { DONE };
+			Type_1_node node { };
+			Node_state state { DONE };
 		};
 
 		State _state { COMPLETE };
@@ -89,7 +89,7 @@ class Tresor::Ft_initializer_channel : public Module_channel
 
 		NONCOPYABLE(Ft_initializer_channel);
 
-		static void reset_level(Type_1_level &level, Child_state state)
+		static void reset_level(Type_1_level &level, Node_state state)
 		{
 			for (unsigned int i = 0; i < NR_OF_T1_NODES_PER_BLK; i++) {
 				level.children.nodes[i] = { };
@@ -97,7 +97,7 @@ class Tresor::Ft_initializer_channel : public Module_channel
 			}
 		}
 
-		static void reset_level(Type_2_level &level, Child_state state)
+		static void reset_level(Type_2_level &level, Node_state state)
 		{
 			for (unsigned int i = 0; i < NR_OF_T2_NODES_PER_BLK; i++) {
 				level.children.nodes[i] = { };
@@ -113,13 +113,13 @@ class Tresor::Ft_initializer_channel : public Module_channel
 
 		void _request_submitted(Module_request &) override;
 
-		void _execute_leaf_child(bool &, uint64_t &, Type_2_node &, Child_state &, uint64_t);
+		void _execute_t2_node(bool &, Tree_node_index);
 
 		void _execute_inner_t2_child(bool &, uint64_t, uint64_t &, Type_1_node &, Type_2_level &,
-		                             Child_state &, uint64_t, uint64_t);
+		                             Node_state &, uint64_t, uint64_t);
 
 		void _execute_inner_t1_child(bool &, uint64_t, uint64_t &, Type_1_node &, Type_1_level &,
-		                             Child_state &, uint64_t, uint64_t);
+		                             Node_state &, uint64_t, uint64_t);
 
 		void _mark_req_failed(bool &, char const *);
 

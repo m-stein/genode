@@ -30,54 +30,43 @@ Ft_initializer_request::Ft_initializer_request(Module_id src_mod, Module_channel
 { }
 
 
-void Ft_initializer_channel::_execute_leaf_child(bool                                &progress,
-                                          uint64_t                            &nr_of_leaves,
-                                          Type_2_node                         &child,
-                                          Ft_initializer_channel::Child_state &child_state,
-                                          uint64_t                             child_index)
+void Ft_initializer_channel::_execute_t2_node(bool &progress, Tree_node_index node_idx)
 {
-	switch (child_state) {
+	Node_state &node_state { _t2_level.children_state[node_idx] };
+	Type_2_node &node { _t2_level.children.nodes[node_idx] };
+	switch (node_state) {
 	case INIT_BLOCK:
-		child_state = INIT_NODE;
+
+		node_state = INIT_NODE;
 		progress = true;
-		return;
+		break;
 
 	case INIT_NODE:
-		if (nr_of_leaves == 0) {
 
-			if (DEBUG)
-				log("[ft_init] node: ", 1, " ", child_index,
-				    " assign pba 0, leaf unused");
-
-			child = { };
-			child_state = DONE;
-			progress = true;
-		} else {
-
-			switch (_state) {
-			case IN_PROGRESS:
-
-				child = { };
-				if (!_req_ptr->_pba_alloc.alloc(child.pba)) {
-					_mark_req_failed(progress, "allocate pba");
-					break;
-				}
-				child_state = DONE;
-				--nr_of_leaves;
-				progress = true;
-
-				if (DEBUG)
-					log("[ft_init] node: ", 1, " ", child_index,
-					    " assign pba: ", child.pba, " leaves left: ",
-					    nr_of_leaves);
+		if (_num_remaining_leaves) {
+			if (_state != IN_PROGRESS)
 				break;
 
-			default:
+			node = { };
+			if (!_req_ptr->_pba_alloc.alloc(node.pba)) {
+				_mark_req_failed(progress, "allocate pba");
 				break;
 			}
+			node_state = DONE;
+			_num_remaining_leaves--;
+			progress = true;
+			if (DEBUG)
+				log("[ft_init] node: ", 1, " ", node_idx, " assign pba: ", node.pba, " leaves left: ", _num_remaining_leaves);
+		} else {
+			node = { };
+			node_state = DONE;
+			progress = true;
+			if (DEBUG)
+				log("[ft_init] node: ", 1, " ", node_idx, " assign pba 0, leaf unused");
 		}
-	default:
 		break;
+
+	default: break;
 	}
 }
 
@@ -87,7 +76,7 @@ void Ft_initializer_channel::_execute_inner_t2_child(bool                       
                                               uint64_t                             &level_to_write,
                                               Type_1_node                          &child,
                                               Ft_initializer_channel::Type_2_level &child_level,
-                                              Ft_initializer_channel::Child_state  &child_state,
+                                              Ft_initializer_channel::Node_state  &child_state,
                                               uint64_t                              level_index,
                                               uint64_t                              child_index)
 
@@ -179,7 +168,7 @@ void Ft_initializer_channel::_execute_inner_t1_child(bool                       
                                               uint64_t                             &level_to_write,
                                               Type_1_node                          &child,
                                               Ft_initializer_channel::Type_1_level &child_level,
-                                              Ft_initializer_channel::Child_state  &child_state,
+                                              Ft_initializer_channel::Node_state  &child_state,
                                               uint64_t                              level_index,
                                               uint64_t                              child_index)
 
@@ -282,25 +271,9 @@ void Ft_initializer_channel::_generated_req_completed(State_uint state_uint)
 void Ft_initializer_channel::_execute(bool    &progress)
 {
 	Request &req { *_req_ptr };
+	for (uint64_t child_idx = 0; child_idx < req._ft.degree; child_idx++)
+		_execute_t2_node(progress, child_idx);
 
-	/*
-	 * First handle all leaf child nodes that starts after
-	 * triggering the inner T2 nodes below.
-	 */
-	for (uint64_t child_idx = 0; child_idx < req._ft.degree; child_idx++) {
-
-		Ft_initializer_channel::Child_state &state =
-			_t2_level.children_state[child_idx];
-
-		if (state != Ft_initializer_channel::Child_state::DONE) {
-
-			Type_2_node &child =
-				_t2_level.children.nodes[child_idx];
-
-			_execute_leaf_child(progress, _num_remaining_leaves,
-			                    child, state, child_idx);
-		}
-	}
 	if (progress)
 		return;
 
@@ -312,10 +285,10 @@ void Ft_initializer_channel::_execute(bool    &progress)
 
 		for (uint64_t child_idx = 0; child_idx < req._ft.degree; child_idx++) {
 
-			Ft_initializer_channel::Child_state &state =
+			Ft_initializer_channel::Node_state &state =
 				_t1_levels[level_idx].children_state[child_idx];
 
-			if (state != Ft_initializer_channel::Child_state::DONE) {
+			if (state != Ft_initializer_channel::Node_state::DONE) {
 
 				Type_1_node &child =
 					_t1_levels[level_idx].children.nodes[child_idx];
@@ -349,7 +322,7 @@ void Ft_initializer_channel::_execute(bool    &progress)
 	 * Checking the root node will trigger the initialization process as
 	 * well as will finish it.
 	 */
-	if (_root_node.state != Ft_initializer_channel::Child_state::DONE) {
+	if (_root_node.state != Ft_initializer_channel::Node_state::DONE) {
 
 		Ft_initializer_channel::Type_1_level &t1_level =
 			_t1_levels[req._ft.max_lvl];
@@ -383,12 +356,12 @@ void Ft_initializer_channel::_execute_init(bool    &progress)
 		/* clean residual state */
 		for (unsigned int i = 0; i < TREE_MAX_LEVEL; i++) {
 			Ft_initializer_channel::reset_level(_t1_levels[i],
-			                                     Ft_initializer_channel::Child_state::DONE);
+			                                     Ft_initializer_channel::Node_state::DONE);
 		}
 		_level_to_write = 0;
 
 		_state = PENDING;
-		_root_node.state = Ft_initializer_channel::Child_state::INIT_BLOCK;
+		_root_node.state = Ft_initializer_channel::Node_state::INIT_BLOCK;
 		progress = true;
 
 		return;
