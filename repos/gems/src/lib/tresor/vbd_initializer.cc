@@ -280,7 +280,7 @@ void Vbd_initializer::_execute(Channel &channel,
 					channel._t1_levels[level_idx].children.nodes[child_idx];
 
 				if (level_idx == 1) {
-					_execute_leaf_child(channel, progress, req._nr_of_leaves,
+					_execute_leaf_child(channel, progress, channel._num_remaining_leaves,
 					                    child, state, level_idx, child_idx);
 				} else {
 
@@ -288,7 +288,7 @@ void Vbd_initializer::_execute(Channel &channel,
 						channel._t1_levels[level_idx - 1];
 
 					_execute_inner_t1_child(channel, progress,
-					                        req._nr_of_leaves,
+					                        channel._num_remaining_leaves,
 					                        channel._level_to_write,
 					                        child, t1_level, state,
 					                        level_idx, child_idx);
@@ -308,7 +308,7 @@ void Vbd_initializer::_execute(Channel &channel,
 			channel._t1_levels[req._max_level_idx];
 
 		_execute_inner_t1_child(channel, progress,
-		                        req._nr_of_leaves,
+		                        channel._num_remaining_leaves,
 		                        channel._level_to_write,
 		                        channel._root_node.node, t1_level, channel._root_node.state,
 		                        req._max_level_idx + 1, 0);
@@ -318,7 +318,7 @@ void Vbd_initializer::_execute(Channel &channel,
 	/*
 	 * We will end up here when the root state is 'DONE'.
 	 */
-	if (req._nr_of_leaves == 0)
+	if (channel._num_remaining_leaves == 0)
 		_mark_req_successful(channel, progress);
 	else
 		_mark_req_failed(channel, progress, "initialize VBD");
@@ -337,6 +337,7 @@ void Vbd_initializer::_execute_init(Channel &channel,
 			                                     Vbd_initializer_channel::Child_state::DONE);
 		}
 		channel._level_to_write = 0;
+		channel._num_remaining_leaves = channel._request._nr_of_leaves;
 
 		channel._state = Channel::PENDING;
 		channel._root_node.state = Vbd_initializer_channel::Child_state::INIT_BLOCK;

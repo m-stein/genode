@@ -122,6 +122,7 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 		bool _generated_req_success { false };
 		Block _encoded_blk { };
 		Hash _dummy_hash { };
+		Number_of_leaves _num_remaining_leaves { };
 
 		void _generated_req_completed(State_uint) override;
 
