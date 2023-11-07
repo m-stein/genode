@@ -78,7 +78,7 @@ void Vbd_initializer::_execute_leaf_child(Channel                              &
 			case Channel::IN_PROGRESS:
 
 				Vbd_initializer_channel::reset_node(child);
-				if (!channel._request._pba_alloc().alloc(child.pba)) {
+				if (!channel._req_ptr->_pba_alloc().alloc(child.pba)) {
 					_mark_req_failed(channel, progress, "allocate pba");
 					break;
 				}
@@ -147,7 +147,7 @@ void Vbd_initializer::_execute_inner_t1_child(Channel                           
 		case Channel::IN_PROGRESS:
 		{
 			Vbd_initializer_channel::reset_node(child);
-			if (!channel._request._pba_alloc().alloc(child.pba)) {
+			if (!channel._req_ptr->_pba_alloc().alloc(child.pba)) {
 				_mark_req_failed(channel, progress, "allocate pba");
 				break;
 			}
@@ -201,8 +201,8 @@ void Vbd_initializer::_execute_inner_t1_child(Channel                           
 void Vbd_initializer_channel::_generated_req_completed(State_uint state_uint)
 {
 	if (!_generated_req_success) {
-		error("vbd initializer: request (", _request, ") failed because generated request failed)");
-		_request._success() = false;
+		error("vbd initializer: request (", *_req_ptr, ") failed because generated request failed)");
+		_req_ptr->_success() = false;
 		_state = COMPLETE;
 		//_req_ptr = nullptr;
 		return;
@@ -222,7 +222,7 @@ void Vbd_initializer_channel::_generate_blk_io_write(bool &progress)
 void Vbd_initializer::_execute(Channel &channel,
                                bool    &progress)
 {
-	Request &req { channel._request };
+	Request &req { *channel._req_ptr };
 
 	/*
 	 * First handle all child nodes (leaves and inner nodes) that starts after
@@ -298,7 +298,7 @@ void Vbd_initializer::_execute_init(Channel &channel,
 			                                     Vbd_initializer_channel::Child_state::DONE);
 		}
 		channel._level_to_write = 0;
-		channel._num_remaining_leaves = channel._request._vbd().num_leaves;
+		channel._num_remaining_leaves = channel._req_ptr->_vbd().num_leaves;
 
 		channel._state = Channel::PENDING;
 		channel._root_node.state = Vbd_initializer_channel::Child_state::INIT_BLOCK;
@@ -337,7 +337,7 @@ void Vbd_initializer::_mark_req_failed(Channel    &channel,
                                        char const *str)
 {
 	error("request failed: failed to ", str);
-	channel._request._success() = false;
+	channel._req_ptr->_success() = false;
 	channel._state = Channel::COMPLETE;
 	progress = true;
 }
@@ -346,7 +346,7 @@ void Vbd_initializer::_mark_req_failed(Channel    &channel,
 void Vbd_initializer::_mark_req_successful(Channel &channel,
                                            bool    &progress)
 {
-	Request &req { channel._request };
+	Request &req { *channel._req_ptr };
 	req._vbd().t1_node(channel._root_node.node);
 	req._success() = true;
 	channel._state = Channel::COMPLETE;
@@ -359,11 +359,11 @@ bool Vbd_initializer::_peek_completed_request(uint8_t *buf_ptr,
 {
 	for (Channel &channel : _channels) {
 		if (channel._state == Channel::COMPLETE) {
-			if (sizeof(channel._request) > buf_size) {
+			if (sizeof(Request) > buf_size) {
 				class Exception_1 { };
 				throw Exception_1 { };
 			}
-			memcpy(buf_ptr, &channel._request, sizeof(channel._request));
+			memcpy(buf_ptr, &channel._req_ptr, sizeof(Request));
 			return true;
 		}
 	}
@@ -401,12 +401,15 @@ bool Vbd_initializer::ready_to_submit_request()
 }
 
 
-void Vbd_initializer::submit_request(Module_request &req)
+void Vbd_initializer::submit_request(Module_request &mod_req)
 {
 	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 		if (_channels[id]._state == Channel::INACTIVE) {
+			Request &req{ *static_cast<Request *>(&mod_req)};
 			req.dst_request_id(id);
-			_channels[id]._request = *static_cast<Request *>(&req);
+			_channels[id]._req_ptr.construct(req.src_module_id(), req.src_chan_id(), req._vbd(),
+				req._pba_alloc(), req._success());
+			_channels[id]._req_ptr->dst_chan_id(id);
 			_channels[id]._state = Channel::SUBMITTED;
 			return;
 		}
@@ -423,7 +426,7 @@ void Vbd_initializer::execute(bool &progress)
 		if (channel._state == Channel::INACTIVE)
 			continue;
 
-		Request &req { channel._request };
+		Request &req { *channel._req_ptr };
 		switch (req._type) {
 		case Request::INIT:
 

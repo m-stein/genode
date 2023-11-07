@@ -92,7 +92,7 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 		};
 
 		State _state { INACTIVE };
-		Vbd_initializer_request _request { };
+		Constructible<Vbd_initializer_request> _req_ptr { };
 		Root_node _root_node { };
 		Type_1_level _t1_levels[TREE_MAX_LEVEL] { };
 		uint64_t _level_to_write { 0 };
