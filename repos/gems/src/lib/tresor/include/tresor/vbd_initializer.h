@@ -40,16 +40,14 @@ class Tresor::Vbd_initializer_request : public Module_request
 		friend class Vbd_initializer_channel;
 
 		Type     _type                           { INVALID };
-		uint8_t  _root_node[sizeof(Type_1_node)] { 0 };
-		uint64_t _max_level_idx                  { 0 };
-		uint64_t _degree                  { 0 };
-		uint64_t _nr_of_leaves                   { 0 };
+		addr_t   _vbd_ptr { };
 		addr_t   _pba_alloc_ptr                  { 0 };
 		addr_t   _success_ptr                        { };
 
 		Pba_allocator &_pba_alloc() { return *(Pba_allocator *)_pba_alloc_ptr; }
 
 		bool &_success() { return *(bool *)_success_ptr; }
+		Tree_root &_vbd() { return *(Tree_root *)_vbd_ptr; }
 
 	public:
 
@@ -57,13 +55,8 @@ class Tresor::Vbd_initializer_request : public Module_request
 
 		Vbd_initializer_request(Module_id         src_module_id,
 		                        Module_request_id src_request_id,
-		                   Type    req_type,
-		                   Tree_level_index  max_level_idx,
-		                   Tree_degree  degree,
-		                   Number_of_leaves  nr_of_leaves,
+		                   Tree_root &vbd,
 		                   Pba_allocator &pba_alloc, bool &success);
-
-		void *root_node() { return _root_node; }
 
 		static char const *type_to_string(Type type);
 

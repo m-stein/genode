@@ -35,9 +35,9 @@ class Tresor::Sb_initializer_request : public Module_request
 		friend class Sb_initializer;
 		friend class Sb_initializer_channel;
 
-		Tree_level_index const _vbd_max_level_idx;
-		Tree_degree const _vbd_degree;
-		Number_of_leaves const _vbd_nr_of_leaves;
+		Tree_level_index _vbd_max_level_idx;
+		Tree_degree _vbd_degree;
+		Number_of_leaves _vbd_nr_of_leaves;
 		Tree_level_index _ft_max_level_idx;
 		Tree_degree _ft_degree;
 		Number_of_leaves _ft_nr_of_leaves;
@@ -87,7 +87,7 @@ class Tresor::Sb_initializer_channel : public Module_channel
 		Key _key_cipher { };
 		Hash _sb_hash { };
 		Hash _dummy_hash { };
-		Type_1_node _vbd_node { };
+		Constructible<Tree_root> _vbd { };
 		Constructible<Tree_root> _mt { };
 		Constructible<Tree_root> _ft { };
 		bool _generated_req_success { false };
@@ -113,7 +113,7 @@ class Tresor::Sb_initializer_channel : public Module_channel
 			memset(&_key_cipher,  0, sizeof(_key_cipher));
 			memset(&_sb_hash,     0, sizeof(_sb_hash));
 
-			memset(&_vbd_node, 0, sizeof(_vbd_node));
+			_vbd.destruct();
 			_ft.destruct();
 			_mt.destruct();
 		}
@@ -157,13 +157,6 @@ class Tresor::Sb_initializer : public Module
 		                             size_t   buf_size) override;
 
 		void _drop_completed_request(Module_request &req) override;
-
-		bool _peek_generated_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_generated_request(Module_request &mod_req) override;
-
-		void generated_request_complete(Module_request &req) override;
 
 		bool new_submit_request() override { return false; }
 

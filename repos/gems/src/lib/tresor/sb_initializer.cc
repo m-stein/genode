@@ -28,7 +28,7 @@ Sb_initializer_request::
 Sb_initializer_request(Module_id src_mod, Module_request_id src_chan, Tree_level_index vbd_max_level_idx,
                        Tree_degree vbd_degree, Number_of_leaves vbd_nr_of_leaves, Tree_level_index ft_max_level_idx,
                        Tree_degree ft_degree, Number_of_leaves ft_nr_of_leaves, Tree_level_index mt_max_level_idx,
-                       Tree_degree mt_degree, Number_of_leaves mt_nr_of_leaves, Pba_allocator &pba_alloc,  bool &success)
+                       Tree_degree mt_degree, Number_of_leaves mt_nr_of_leaves, Pba_allocator &pba_alloc, bool &success)
 :
 	Module_request { src_mod, src_chan, SB_INITIALIZER }, _vbd_max_level_idx { vbd_max_level_idx },
 	_vbd_degree { vbd_degree }, _vbd_nr_of_leaves { vbd_nr_of_leaves }, _ft_max_level_idx { ft_max_level_idx },
@@ -43,19 +43,14 @@ void Sb_initializer::_populate_sb_slot(Channel &channel,
 {
 	Superblock &sb = channel._sb;
 	Request &req { *channel._req_ptr };
-	Type_1_node &vbd_node = channel._vbd_node;
-
 	sb.state = Superblock::NORMAL;
-	sb.snapshots.items[0] = Snapshot {
-		.hash         = vbd_node.hash,
-		.pba          = vbd_node.pba,
-		.gen          = 0,
-		.nr_of_leaves = req._vbd_nr_of_leaves,
-		.max_level    = req._vbd_max_level_idx,
-		.valid        = true,
-		.id           = 0,
-		.keep         = false
-	};
+	Snapshot &snap = sb.snapshots.items[0];
+	snap.gen = 0;
+	snap.nr_of_leaves = req._vbd_nr_of_leaves;
+	snap.max_level = req._vbd_max_level_idx;
+	snap.valid = true;
+	snap.id = 0;
+	snap.keep = false;
 
 	sb.rekeying_vba            = 0;
 	sb.resizing_nr_of_pbas     = 0;
@@ -67,19 +62,9 @@ void Sb_initializer::_populate_sb_slot(Channel &channel,
 	sb.first_pba               = first;
 	sb.nr_of_pbas              = num;
 	sb.last_secured_generation = 0;
-/*
-	sb.free_number             = channel._ft->pba;
-	sb.free_gen                = channel._ft->gen;
-	sb.free_hash               = channel._ft->hash;
-*/
 	sb.free_max_level          = channel._ft->max_lvl;
 	sb.free_degree             = channel._ft->degree;
 	sb.free_leaves             = channel._ft->num_leaves;
-/*
-	sb.meta_number             = channel._mt->pba;
-	sb.meta_gen                = channel._mt->gen;
-	sb.meta_hash               = channel._mt->hash;
-*/
 	sb.meta_max_level          = channel._mt->max_lvl;
 	sb.meta_degree             = channel._mt->degree;
 	sb.meta_leaves             = channel._mt->num_leaves;
@@ -98,7 +83,10 @@ void Sb_initializer::_execute(Channel &channel,
 	case CS::IN_PROGRESS:
 
 		if (channel._sb_slot_index == 0) {
-			channel._state = CS::VBD_REQUEST_PENDING;
+			Snapshot &snap = sb.snapshots.items[0];
+			channel._vbd.construct(snap.pba, snap.gen, snap.hash, req._vbd_max_level_idx, req._vbd_degree, req._vbd_nr_of_leaves);
+			channel.generate_req<Vbd_initializer_request>(CS::VBD_REQUEST_COMPLETE, progress, *channel._vbd, req._pba_alloc, channel._generated_req_success);
+			channel._state = Channel::REQ_GENERATED;
 		} else {
 			channel._sb.encode_to_blk(channel._encoded_blk);
 			channel._generate_req<Block_io::Write>(CS::WRITE_REQUEST_COMPLETE, progress, channel._sb_slot_index, channel._encoded_blk);
@@ -284,90 +272,6 @@ void Sb_initializer::_drop_completed_request(Module_request &req)
 	}
 	_channels[id]._state = Channel::INACTIVE;
 	_channels[id]._req_ptr.destruct();
-}
-
-
-bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
-                                             size_t   buf_size)
-{
-	using CS = Channel::State;
-
-	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
-
-		Channel &channel { _channels[id] };
-		if (channel._state == CS::INACTIVE)
-			continue;
-
-		switch (channel._state) {
-		case CS::VBD_REQUEST_PENDING:
-		{
-			Vbd_initializer_request::Type const vbd_initializer_req_type {
-				Vbd_initializer_request::INIT };
-
-			Request &req { *channel._req_ptr };
-			ASSERT(sizeof(Vbd_initializer_request) <= buf_size);
-			construct_at<Vbd_initializer_request>(
-				buf_ptr, SB_INITIALIZER, id,
-				vbd_initializer_req_type,
-				req._vbd_max_level_idx,
-				req._vbd_degree,
-				req._vbd_nr_of_leaves, req._pba_alloc, channel._generated_req_success);
-
-			return true;
-		}
-		default: break;
-		}
-	}
-	return false;
-}
-
-
-void Sb_initializer::_drop_generated_request(Module_request &req)
-{
-	Module_request_id const id { req.src_request_id() };
-	if (id >= NR_OF_CHANNELS) {
-		class Bad_id { };
-		throw Bad_id { };
-	}
-	switch (_channels[id]._state) {
-	case Channel::VBD_REQUEST_PENDING:
-		_channels[id]._state = Channel::VBD_REQUEST_IN_PROGRESS;
-		break;
-	default:
-		class Exception_1 { };
-		throw Exception_1 { };
-	}
-}
-
-
-void Sb_initializer::generated_request_complete(Module_request &req)
-{
-	Module_request_id const id { req.src_request_id() };
-	if (id >= NR_OF_CHANNELS) {
-		class Exception_1 { };
-		throw Exception_1 { };
-	}
-	Channel &channel = _channels[id];
-
-	switch (channel._state) {
-	case Channel::VBD_REQUEST_IN_PROGRESS:
-	{
-		if (req.dst_module_id() != VBD_INITIALIZER) {
-			class Exception_3 { };
-			throw Exception_3 { };
-		}
-		Vbd_initializer_request const *vbd_initializer_req = static_cast<Vbd_initializer_request const*>(&req);
-		channel._state = Channel::VBD_REQUEST_COMPLETE;
-		memcpy(&channel._vbd_node,
-		       const_cast<Vbd_initializer_request*>(vbd_initializer_req)->root_node(),
-		       sizeof(Type_1_node));
-
-		break;
-	}
-	default:
-		class Exception_2 { };
-		throw Exception_2 { };
-	}
 }
 
 
