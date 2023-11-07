@@ -774,8 +774,8 @@ struct Tresor::Superblock
 	Key                    previous_key            { };                 // offset 25
 	Key                    current_key             { };                 // offset 61
 	Snapshots              snapshots               { };                 // offset 97
-	Generation             last_secured_generation { };                 // offset 3553
-	Snapshot_index         curr_snap_idx           { };                 // offset 3561
+	Generation             last_secured_generation { 0 };               // offset 3553
+	Snapshot_index         curr_snap_idx           { 0 };               // offset 3561
 	Tree_degree            degree                  { TREE_MIN_DEGREE }; // offset 3565
 	Physical_block_address first_pba               { 0 };               // offset 3569
 	Number_of_blocks       nr_of_pbas              { 0 };               // offset 3577

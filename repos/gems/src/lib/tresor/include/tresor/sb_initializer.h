@@ -1,5 +1,6 @@
 /*
  * \brief  Module for initializing the superblocks of a new Tresor
+ * \author Martin Stein
  * \author Josef Soentgen
  * \date   2023-03-14
  */
@@ -13,9 +14,6 @@
 
 #ifndef _TRESOR__SB_INITIALIZER_H_
 #define _TRESOR__SB_INITIALIZER_H_
-
-/* base includes */
-#include <base/output.h>
 
 /* tresor includes */
 #include <tresor/module.h>
@@ -65,18 +63,16 @@ class Tresor::Sb_initializer_channel : public Module_channel
 		using Request = Sb_initializer_request;
 
 		enum State {
-			REQ_SUBMITTED, START_NEW_SB, SB_COMPLETE, REQ_COMPLETE, INIT_FT_SUCCEEDED, INIT_MT_SUCCEEDED,
-			SYNC_BLK_IO_SUCCEEDED, CREATE_KEY_SUCCEEDED, ENCRYPT_KEY_SUCCEEDED, SECURE_SB_SUCCEEDED,
-			INIT_VBD_SUCCEEDED, WRITE_BLK_SUCCEEDED, REQ_GENERATED };
+			REQ_SUBMITTED, START_NEXT_SB, SB_COMPLETE, REQ_COMPLETE, INIT_FT_SUCCEEDED, INIT_MT_SUCCEEDED,
+			WRITE_HASH_TO_TA, CREATE_KEY_SUCCEEDED, ENCRYPT_KEY_SUCCEEDED, SECURE_SB_SUCCEEDED, INIT_VBD_SUCCEEDED,
+			WRITE_BLK_SUCCEEDED, REQ_GENERATED };
 
 		State _state { REQ_COMPLETE };
 		Request *_req_ptr { };
 		Superblock_index _sb_idx { 0 };
 		Superblock _sb { };
-		Block _encoded_blk { };
-		Key _key_plain { };
-		Key _key_cipher { };
-		Hash _sb_hash { };
+		Block _blk { };
+		Hash _hash { };
 		Constructible<Tree_root> _vbd { };
 		Constructible<Tree_root> _mt { };
 		Constructible<Tree_root> _ft { };
@@ -96,12 +92,6 @@ class Tresor::Sb_initializer_channel : public Module_channel
 			_state = REQ_GENERATED;
 			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 		}
-
-		void _reset_sb_data();
-
-		void _initialize_sb();
-
-		void _mark_req_failed(bool &, char const *);
 
 		void _mark_req_successful(bool &);
 
@@ -128,7 +118,6 @@ class Tresor::Sb_initializer : public Module
 		Sb_initializer();
 
 		void execute(bool &) override;
-
 };
 
 #endif /* _TRESOR__SB_INITIALIZER_H_ */

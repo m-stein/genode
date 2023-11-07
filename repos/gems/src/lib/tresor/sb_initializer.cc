@@ -11,9 +11,6 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-/* base includes */
-#include <base/log.h>
-
 /* tresor includes */
 #include <tresor/hash.h>
 #include <tresor/block_io.h>
@@ -37,48 +34,6 @@ Sb_initializer_request(Module_id src_mod, Module_request_id src_chan, Tree_level
 { }
 
 
-void Sb_initializer_channel::_initialize_sb()
-{
-	Request &req { *_req_ptr };
-	Snapshot &snap = _sb.snapshots.items[0];
-	snap.gen = 0;
-	snap.nr_of_leaves = req._vbd_num_leaves;
-	snap.max_level = req._vbd_max_lvl;
-	snap.valid = true;
-	snap.id = 0;
-	snap.keep = false;
-	_sb.state = Superblock::NORMAL;
-	_sb.rekeying_vba = 0;
-	_sb.resizing_nr_of_pbas = 0;
-	_sb.resizing_nr_of_leaves = 0;
-	_sb.previous_key = { };
-	_sb.current_key = _key_cipher;
-	_sb.curr_snap_idx = 0;
-	_sb.degree = req._vbd_degree;
-	_sb.first_pba = req._pba_alloc.first_pba() - NR_OF_SUPERBLOCK_SLOTS;
-	_sb.nr_of_pbas = req._pba_alloc.num_used_pbas() + NR_OF_SUPERBLOCK_SLOTS;
-	_sb.last_secured_generation = 0;
-	_sb.free_max_level = _ft->max_lvl;
-	_sb.free_degree = _ft->degree;
-	_sb.free_leaves = _ft->num_leaves;
-	_sb.meta_max_level = _mt->max_lvl;
-	_sb.meta_degree = _mt->degree;
-	_sb.meta_leaves = _mt->num_leaves;
-}
-
-
-void Sb_initializer_channel::_reset_sb_data()
-{
-	_sb = Superblock { };
-	memset(&_key_plain, 0, sizeof(_key_plain));
-	memset(&_key_cipher, 0, sizeof(_key_cipher));
-	memset(&_sb_hash, 0, sizeof(_sb_hash));
-	_vbd.destruct();
-	_ft.destruct();
-	_mt.destruct();
-}
-
-
 void Sb_initializer_channel::_generated_req_completed(State_uint state_uint)
 {
 	if (!_generated_req_success) {
@@ -89,17 +44,6 @@ void Sb_initializer_channel::_generated_req_completed(State_uint state_uint)
 		return;
 	}
 	_state = (State)state_uint;
-}
-
-
-void Sb_initializer_channel::_mark_req_failed(bool &progress,
-                                       char const *str)
-{
-	error("request failed: failed to ", str);
-	_req_ptr->_success = false;
-	_state = REQ_COMPLETE;
-	_req_ptr = nullptr;
-	progress = true;
 }
 
 
@@ -127,26 +71,15 @@ void Sb_initializer_channel::execute(bool &progress)
 	Request &req { *_req_ptr };
 	switch (_state) {
 	case REQ_SUBMITTED:
-
+	{
 		_sb_idx = 0;
-		_reset_sb_data();
-		_state = START_NEW_SB;
+		_sb = { };
+		Snapshot &snap = _sb.snapshots.items[0];
+		_vbd.construct(snap.pba, snap.gen, snap.hash, req._vbd_max_lvl, req._vbd_degree, req._vbd_num_leaves);
+		_generate_req<Vbd_initializer_request>(INIT_VBD_SUCCEEDED, progress, *_vbd, req._pba_alloc);
 		progress = true;
 		break;
-
-	case START_NEW_SB:
-
-		if (_sb_idx) {
-			_sb.encode_to_blk(_encoded_blk);
-			_generate_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, _sb_idx, _encoded_blk);
-		} else {
-			Snapshot &snap = _sb.snapshots.items[0];
-			_vbd.construct(snap.pba, snap.gen, snap.hash, req._vbd_max_lvl, req._vbd_degree, req._vbd_num_leaves);
-			_generate_req<Vbd_initializer_request>(INIT_VBD_SUCCEEDED, progress, *_vbd, req._pba_alloc);
-		}
-		progress = true;
-		break;
-
+	}
 	case INIT_VBD_SUCCEEDED:
 
 		_ft.construct(_sb.free_number, _sb.free_gen, _sb.free_hash, req._ft_max_lvl, req._ft_degree, req._ft_num_leaves);
@@ -161,45 +94,56 @@ void Sb_initializer_channel::execute(bool &progress)
 
 	case INIT_MT_SUCCEEDED:
 
-		_generate_req<Trust_anchor::Create_key>(CREATE_KEY_SUCCEEDED, progress, _key_plain.value);
+		_generate_req<Trust_anchor::Create_key>(CREATE_KEY_SUCCEEDED, progress, _sb.current_key.value);
 		break;
 
 	case CREATE_KEY_SUCCEEDED:
 
-		_generate_req<Trust_anchor::Encrypt_key>(ENCRYPT_KEY_SUCCEEDED, progress, _key_plain.value, _key_cipher.value);
+		_generate_req<Trust_anchor::Encrypt_key>(ENCRYPT_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb.current_key.value);
 		break;
 
 	case ENCRYPT_KEY_SUCCEEDED:
-
-		_key_cipher.id = 1;
-		_initialize_sb();
-		_sb.encode_to_blk(_encoded_blk);
-		calc_hash(_encoded_blk, _sb_hash);
-		_generate_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, _sb_idx, _encoded_blk);
+	{
+		Snapshot &snap = _sb.snapshots.items[0];
+		snap.gen = 0;
+		snap.nr_of_leaves = req._vbd_num_leaves;
+		snap.max_level = req._vbd_max_lvl;
+		snap.valid = true;
+		snap.id = 0;
+		_sb.current_key.id = 1;
+		_sb.state = Superblock::NORMAL;
+		_sb.degree = req._vbd_degree;
+		_sb.first_pba = req._pba_alloc.first_pba() - NR_OF_SUPERBLOCK_SLOTS;
+		_sb.nr_of_pbas = req._pba_alloc.num_used_pbas() + NR_OF_SUPERBLOCK_SLOTS;
+		_sb.free_max_level = _ft->max_lvl;
+		_sb.free_degree = _ft->degree;
+		_sb.free_leaves = _ft->num_leaves;
+		_sb.meta_max_level = _mt->max_lvl;
+		_sb.meta_degree = _mt->degree;
+		_sb.meta_leaves = _mt->num_leaves;
+		_sb.encode_to_blk(_blk);
+		_generate_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, _sb_idx, _blk);
 		break;
-
+	}
 	case WRITE_BLK_SUCCEEDED:
 
-		_generate_req<Block_io::Sync>(SYNC_BLK_IO_SUCCEEDED, progress);
+		_generate_req<Block_io::Sync>(_sb_idx ? SB_COMPLETE : WRITE_HASH_TO_TA, progress);
 		progress = true;
 		break;
 
-	case SYNC_BLK_IO_SUCCEEDED:
+	case WRITE_HASH_TO_TA:
 
-		if (_sb_idx) {
-			_state = SB_COMPLETE;
-			progress = true;
-		} else
-			_generate_req<Trust_anchor::Write_hash>(SB_COMPLETE, progress, _sb_hash);
+		calc_hash(_blk, _hash);
+		_generate_req<Trust_anchor::Write_hash>(SB_COMPLETE, progress, _hash);
 		break;
 
 	case SB_COMPLETE:
 
 		if (_sb_idx < NR_OF_SUPERBLOCK_SLOTS - 1) {
-			++_sb_idx;
-			_reset_sb_data();
-			_state = START_NEW_SB;
-			progress = true;
+			_sb_idx++;
+			_sb = { };
+			_sb.encode_to_blk(_blk);
+			_generate_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, _sb_idx, _blk);
 		} else
 			_mark_req_successful(progress);
 		break;
