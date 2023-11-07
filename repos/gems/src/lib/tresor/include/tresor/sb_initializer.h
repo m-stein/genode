@@ -30,10 +30,9 @@ namespace Tresor {
 
 class Tresor::Sb_initializer_request : public Module_request
 {
-	private:
+	friend class Sb_initializer_channel;
 
-		friend class Sb_initializer;
-		friend class Sb_initializer_channel;
+	private:
 
 		Tree_level_index _vbd_max_lvl;
 		Tree_degree _vbd_degree;
@@ -46,6 +45,8 @@ class Tresor::Sb_initializer_request : public Module_request
 		Number_of_leaves _mt_num_leaves;
 		Pba_allocator &_pba_alloc;
 		bool &_success;
+
+		NONCOPYABLE(Sb_initializer_request);
 
 	public:
 
@@ -61,12 +62,10 @@ class Tresor::Sb_initializer_channel : public Module_channel
 {
 	private:
 
-		friend class Sb_initializer;
-
 		using Request = Sb_initializer_request;
 
 		enum State {
-			INACTIVE, SUBMITTED, PENDING, IN_PROGRESS, SLOT_COMPLETE, COMPLETE,
+			SUBMITTED, PENDING, IN_PROGRESS, SLOT_COMPLETE, COMPLETE,
 			FT_REQUEST_COMPLETE, MT_REQUEST_COMPLETE,
 			SYNC_REQUEST_COMPLETE,
 			SYNC_REQUEST_IN_PROGRESS,
@@ -80,7 +79,7 @@ class Tresor::Sb_initializer_channel : public Module_channel
 			WRITE_REQUEST_COMPLETE, REQ_GENERATED
 		};
 
-		State _state { INACTIVE };
+		State _state { COMPLETE };
 		Request *_req_ptr { };
 		Superblock_index _sb_slot_index { 0 };
 		Superblock _sb { };
@@ -93,6 +92,8 @@ class Tresor::Sb_initializer_channel : public Module_channel
 		Constructible<Tree_root> _mt { };
 		Constructible<Tree_root> _ft { };
 		bool _generated_req_success { false };
+
+		NONCOPYABLE(Sb_initializer_channel);
 
 		void _generated_req_completed(State_uint) override;
 
@@ -119,6 +120,22 @@ class Tresor::Sb_initializer_channel : public Module_channel
 			_ft.destruct();
 			_mt.destruct();
 		}
+
+		void _populate_sb_slot(Physical_block_address, Number_of_blocks);
+
+		void _execute(bool &);
+
+		void _execute_init(bool &);
+
+		void _mark_req_failed(bool &, char const *);
+
+		void _mark_req_successful(bool &);
+
+	public:
+
+		Sb_initializer_channel(Module_channel_id id) : Module_channel { SB_INITIALIZER, id } { }
+
+		void execute(bool &);
 };
 
 
@@ -126,29 +143,11 @@ class Tresor::Sb_initializer : public Module
 {
 	private:
 
-		using Request = Sb_initializer_request;
 		using Channel = Sb_initializer_channel;
 
-		enum { NR_OF_CHANNELS = 1 };
+		Constructible<Channel> _channels[1] { };
 
-		Channel _channels[NR_OF_CHANNELS] { };
-
-		void _populate_sb_slot(Channel                &channel,
-		                       Physical_block_address  first,
-		                       Number_of_blocks        num);
-
-		void _execute(Channel &channel,
-		              bool    &progress);
-
-		void _execute_init(Channel &channel,
-		                   bool    &progress);
-
-		void _mark_req_failed(Channel    &channel,
-		                      bool       &progress,
-		                      char const *str);
-
-		void _mark_req_successful(Channel &channel,
-		                          bool    &progress);
+		NONCOPYABLE(Sb_initializer);
 
 	public:
 

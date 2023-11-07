@@ -37,12 +37,11 @@ Sb_initializer_request(Module_id src_mod, Module_request_id src_chan, Tree_level
 { }
 
 
-void Sb_initializer::_populate_sb_slot(Channel &channel,
-                                       Physical_block_address first,
+void Sb_initializer_channel::_populate_sb_slot(Physical_block_address first,
                                        Number_of_blocks       num)
 {
-	Superblock &sb = channel._sb;
-	Request &req { *channel._req_ptr };
+	Superblock &sb = _sb;
+	Request &req { *_req_ptr };
 	sb.state = Superblock::NORMAL;
 	Snapshot &snap = sb.snapshots.items[0];
 	snap.gen = 0;
@@ -56,105 +55,103 @@ void Sb_initializer::_populate_sb_slot(Channel &channel,
 	sb.resizing_nr_of_pbas     = 0;
 	sb.resizing_nr_of_leaves   = 0;
 	memset(&sb.previous_key, 0, sizeof(sb.previous_key));
-	sb.current_key             = channel._key_cipher;
+	sb.current_key             = _key_cipher;
 	sb.curr_snap_idx           = 0;
 	sb.degree                  = req._vbd_degree;
 	sb.first_pba               = first;
 	sb.nr_of_pbas              = num;
 	sb.last_secured_generation = 0;
-	sb.free_max_level          = channel._ft->max_lvl;
-	sb.free_degree             = channel._ft->degree;
-	sb.free_leaves             = channel._ft->num_leaves;
-	sb.meta_max_level          = channel._mt->max_lvl;
-	sb.meta_degree             = channel._mt->degree;
-	sb.meta_leaves             = channel._mt->num_leaves;
+	sb.free_max_level          = _ft->max_lvl;
+	sb.free_degree             = _ft->degree;
+	sb.free_leaves             = _ft->num_leaves;
+	sb.meta_max_level          = _mt->max_lvl;
+	sb.meta_degree             = _mt->degree;
+	sb.meta_leaves             = _mt->num_leaves;
 }
 
 
-void Sb_initializer::_execute(Channel &channel,
-                              bool    &progress)
+void Sb_initializer_channel::_execute(bool &progress)
 {
 
-	using CS = Channel::State;
-	Superblock &sb { channel._sb };
-	Request &req { *channel._req_ptr };
+	using CS = State;
+	Superblock &sb { _sb };
+	Request &req { *_req_ptr };
 
-	switch (channel._state) {
+	switch (_state) {
 	case CS::IN_PROGRESS:
 
-		if (channel._sb_slot_index == 0) {
+		if (_sb_slot_index == 0) {
 			Snapshot &snap = sb.snapshots.items[0];
-			channel._vbd.construct(snap.pba, snap.gen, snap.hash, req._vbd_max_lvl, req._vbd_degree, req._vbd_num_leaves);
-			channel.generate_req<Vbd_initializer_request>(CS::VBD_REQUEST_COMPLETE, progress, *channel._vbd, req._pba_alloc, channel._generated_req_success);
-			channel._state = Channel::REQ_GENERATED;
+			_vbd.construct(snap.pba, snap.gen, snap.hash, req._vbd_max_lvl, req._vbd_degree, req._vbd_num_leaves);
+			generate_req<Vbd_initializer_request>(CS::VBD_REQUEST_COMPLETE, progress, *_vbd, req._pba_alloc, _generated_req_success);
+			_state = REQ_GENERATED;
 		} else {
-			channel._sb.encode_to_blk(channel._encoded_blk);
-			channel._generate_req<Block_io::Write>(CS::WRITE_REQUEST_COMPLETE, progress, channel._sb_slot_index, channel._encoded_blk);
+			_sb.encode_to_blk(_encoded_blk);
+			_generate_req<Block_io::Write>(CS::WRITE_REQUEST_COMPLETE, progress, _sb_slot_index, _encoded_blk);
 		}
 		progress = true;
 		break;
 
 	case CS::VBD_REQUEST_COMPLETE:
 
-		channel._ft.construct(sb.free_number, sb.free_gen, sb.free_hash, req._ft_max_lvl, req._ft_degree, req._ft_num_leaves);
-		channel.generate_req<Ft_initializer_request>(CS::FT_REQUEST_COMPLETE, progress, *channel._ft, req._pba_alloc, channel._generated_req_success);
-		channel._state = Channel::REQ_GENERATED;
+		_ft.construct(sb.free_number, sb.free_gen, sb.free_hash, req._ft_max_lvl, req._ft_degree, req._ft_num_leaves);
+		generate_req<Ft_initializer_request>(CS::FT_REQUEST_COMPLETE, progress, *_ft, req._pba_alloc, _generated_req_success);
+		_state = REQ_GENERATED;
 		break;
 
 	case CS::FT_REQUEST_COMPLETE:
 
-		channel._mt.construct(sb.meta_number, sb.meta_gen, sb.meta_hash, req._ft_max_lvl, req._ft_degree, req._ft_num_leaves);
-		channel.generate_req<Ft_initializer_request>(CS::MT_REQUEST_COMPLETE, progress, *channel._mt, req._pba_alloc, channel._generated_req_success);
-		channel._state = Channel::REQ_GENERATED;
+		_mt.construct(sb.meta_number, sb.meta_gen, sb.meta_hash, req._ft_max_lvl, req._ft_degree, req._ft_num_leaves);
+		generate_req<Ft_initializer_request>(CS::MT_REQUEST_COMPLETE, progress, *_mt, req._pba_alloc, _generated_req_success);
+		_state = REQ_GENERATED;
 		break;
 
 	case CS::MT_REQUEST_COMPLETE:
 
-		channel.generate_req<Trust_anchor::Create_key>(
-			CS::TA_REQUEST_CREATE_KEY_COMPLETE, progress, channel._key_plain.value, channel._generated_req_success);
-		channel._state = Channel::REQ_GENERATED;
+		generate_req<Trust_anchor::Create_key>(
+			CS::TA_REQUEST_CREATE_KEY_COMPLETE, progress, _key_plain.value, _generated_req_success);
+		_state = REQ_GENERATED;
 		break;
 
 	case CS::TA_REQUEST_CREATE_KEY_COMPLETE:
 
-		channel.generate_req<Trust_anchor::Encrypt_key>(
-			CS::TA_REQUEST_ENCRYPT_KEY_COMPLETE, progress, channel._key_plain.value, channel._key_cipher.value, channel._generated_req_success);
-		channel._state = Channel::REQ_GENERATED;
+		generate_req<Trust_anchor::Encrypt_key>(
+			CS::TA_REQUEST_ENCRYPT_KEY_COMPLETE, progress, _key_plain.value, _key_cipher.value, _generated_req_success);
+		_state = REQ_GENERATED;
 		break;
 
 	case CS::TA_REQUEST_ENCRYPT_KEY_COMPLETE:
 
-		channel._key_cipher.id = 1;
-		_populate_sb_slot(channel,
-			req._pba_alloc.first_pba() - NR_OF_SUPERBLOCK_SLOTS,
+		_key_cipher.id = 1;
+		_populate_sb_slot(req._pba_alloc.first_pba() - NR_OF_SUPERBLOCK_SLOTS,
 			req._pba_alloc.num_used_pbas() + NR_OF_SUPERBLOCK_SLOTS);
 
-		channel._sb.encode_to_blk(channel._encoded_blk);
-		calc_hash(channel._encoded_blk, channel._sb_hash);
-		channel._generate_req<Block_io::Write>(CS::WRITE_REQUEST_COMPLETE, progress, channel._sb_slot_index, channel._encoded_blk);
+		_sb.encode_to_blk(_encoded_blk);
+		calc_hash(_encoded_blk, _sb_hash);
+		_generate_req<Block_io::Write>(CS::WRITE_REQUEST_COMPLETE, progress, _sb_slot_index, _encoded_blk);
 		break;
 
 	case CS::WRITE_REQUEST_COMPLETE:
 
-		channel._generate_req<Block_io::Sync>(CS::SYNC_REQUEST_COMPLETE, progress);
+		_generate_req<Block_io::Sync>(CS::SYNC_REQUEST_COMPLETE, progress);
 		progress = true;
 		break;
 
 	case CS::SYNC_REQUEST_COMPLETE:
 
-		if (channel._sb_slot_index == 0) {
-			channel.generate_req<Trust_anchor::Write_hash>(
-				CS::TA_REQUEST_SECURE_SB_COMPLETE, progress, channel._sb_hash, channel._generated_req_success);
-			channel._state = Channel::REQ_GENERATED;
+		if (_sb_slot_index == 0) {
+			generate_req<Trust_anchor::Write_hash>(
+				CS::TA_REQUEST_SECURE_SB_COMPLETE, progress, _sb_hash, _generated_req_success);
+			_state = REQ_GENERATED;
 		} else {
-			channel._state = CS::SLOT_COMPLETE;
+			_state = CS::SLOT_COMPLETE;
 		}
 		progress = true;
 		break;
 
 	case CS::TA_REQUEST_SECURE_SB_COMPLETE:
 
-		channel._state = CS::SLOT_COMPLETE;
+		_state = CS::SLOT_COMPLETE;
 		progress = true;
 		break;
 	default:
@@ -176,55 +173,53 @@ void Sb_initializer_channel::_generated_req_completed(State_uint state_uint)
 }
 
 
-void Sb_initializer::_execute_init(Channel &channel,
-                                   bool    &progress)
+void Sb_initializer_channel::_execute_init(bool &progress)
 {
-	switch (channel._state) {
-	case Channel::SUBMITTED:
+	switch (_state) {
+	case SUBMITTED:
 
-		channel._sb_slot_index = 0;
-		channel._state = Channel::PENDING;
+		_sb_slot_index = 0;
+		_state = PENDING;
 		progress = true;
 		return;
 
-	case Channel::PENDING:
+	case PENDING:
 
-		channel.clean_data();
-		channel._state = Channel::IN_PROGRESS;
+		clean_data();
+		_state = IN_PROGRESS;
 		progress = true;
 		return;
 
-	case Channel::SLOT_COMPLETE:
+	case SLOT_COMPLETE:
 
-		if (channel._sb_slot_index < NR_OF_SUPERBLOCK_SLOTS - 1) {
-			++channel._sb_slot_index;
-			channel._state = Channel::PENDING;
+		if (_sb_slot_index < NR_OF_SUPERBLOCK_SLOTS - 1) {
+			++_sb_slot_index;
+			_state = PENDING;
 			progress = true;
 		} else
-			_mark_req_successful(channel, progress);
+			_mark_req_successful(progress);
 		return;
 
-	case Channel::IN_PROGRESS:
-	case Channel::FT_REQUEST_COMPLETE:
-	case Channel::MT_REQUEST_COMPLETE:
-	case Channel::VBD_REQUEST_COMPLETE:
-	case Channel::SYNC_REQUEST_COMPLETE:
-	case Channel::TA_REQUEST_CREATE_KEY_COMPLETE:
-	case Channel::TA_REQUEST_ENCRYPT_KEY_COMPLETE:
-	case Channel::TA_REQUEST_SECURE_SB_COMPLETE:
-	case Channel::WRITE_REQUEST_COMPLETE: _execute(channel, progress); return;
+	case IN_PROGRESS:
+	case FT_REQUEST_COMPLETE:
+	case MT_REQUEST_COMPLETE:
+	case VBD_REQUEST_COMPLETE:
+	case SYNC_REQUEST_COMPLETE:
+	case TA_REQUEST_CREATE_KEY_COMPLETE:
+	case TA_REQUEST_ENCRYPT_KEY_COMPLETE:
+	case TA_REQUEST_SECURE_SB_COMPLETE:
+	case WRITE_REQUEST_COMPLETE: _execute(progress); return;
 	default: return;
 	}
 }
 
 
-void Sb_initializer::_mark_req_failed(Channel    &channel,
-                                       bool       &progress,
+void Sb_initializer_channel::_mark_req_failed(bool &progress,
                                        char const *str)
 {
 	error("request failed: failed to ", str);
-	channel._req_ptr->_success = false;
-	channel._state = Channel::COMPLETE;
+	_req_ptr->_success = false;
+	_state = COMPLETE;
 	progress = true;
 }
 
@@ -236,28 +231,38 @@ void Sb_initializer_channel::_request_submitted(Module_request &mod_req)
 }
 
 
-void Sb_initializer::_mark_req_successful(Channel &channel,
-                                           bool    &progress)
+void Sb_initializer_channel::_mark_req_successful(bool &progress)
 {
-	Request &req { *channel._req_ptr };
+	Request &req { *_req_ptr };
 
 	req._success = true;
 
-	channel._state = Channel::COMPLETE;
+	_state = COMPLETE;
 	progress = true;
 }
 
 
-Sb_initializer::Sb_initializer() { register_channels(_channels, NR_OF_CHANNELS, SB_INITIALIZER); }
+void Sb_initializer_channel::execute(bool &progress)
+{
+	if (!_req_ptr)
+		return;
+
+	_execute_init(progress);
+}
+
+
+Sb_initializer::Sb_initializer()
+{
+	Module_channel_id id { 0 };
+	for (Constructible<Channel> &chan : _channels) {
+		chan.construct(id++);
+		add_channel(*chan);
+	}
+}
 
 
 void Sb_initializer::execute(bool &progress)
 {
-	for (Channel &channel : _channels) {
-
-		if (channel._state == Channel::INACTIVE)
-			continue;
-
-		_execute_init(channel, progress);
-	}
+	for_each_channel<Channel>([&] (Channel &chan) {
+		chan.execute(progress); });
 }
