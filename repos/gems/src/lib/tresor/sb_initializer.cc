@@ -305,8 +305,9 @@ bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
 				Vbd_initializer_request::INIT };
 
 			Request &req { *channel._req_ptr };
-			Vbd_initializer_request::create(
-				buf_ptr, buf_size, SB_INITIALIZER, id,
+			ASSERT(sizeof(Vbd_initializer_request) <= buf_size);
+			construct_at<Vbd_initializer_request>(
+				buf_ptr, SB_INITIALIZER, id,
 				vbd_initializer_req_type,
 				req._vbd_max_level_idx,
 				req._vbd_degree - 1,

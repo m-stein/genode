@@ -23,14 +23,6 @@ using namespace Tresor;
 
 static constexpr bool DEBUG = false;
 
-
-Vbd_initializer_request::Vbd_initializer_request(Module_id         src_module_id,
-                                                 Module_request_id src_request_id)
-:
-	Module_request { src_module_id, src_request_id, VBD_INITIALIZER }
-{ }
-
-
 Vbd_initializer_request::Vbd_initializer_request(Module_id         src_module_id,
                         Module_request_id src_request_id,
                    Type    req_type,
@@ -47,32 +39,6 @@ Vbd_initializer_request::Vbd_initializer_request(Module_id         src_module_id
 	_pba_alloc_ptr { (addr_t)&pba_alloc },
 	_success_ptr { (addr_t)&success }
 { }
-
-
-void Vbd_initializer_request::create(void     *buf_ptr,
-                                     size_t    buf_size,
-                                     uint64_t  src_module_id,
-                                     uint64_t  src_request_id,
-                                     size_t    req_type,
-                                     uint64_t  max_level_idx,
-                                     uint64_t  max_child_idx,
-                                     uint64_t  nr_of_leaves,
-                                     Pba_allocator &pba_alloc, bool &success)
-{
-	Vbd_initializer_request req { src_module_id, src_request_id };
-	req._type = (Type)req_type;
-	req._max_level_idx = max_level_idx;
-	req._max_child_idx = max_child_idx;
-	req._nr_of_leaves  = nr_of_leaves;
-	req._pba_alloc_ptr   = (addr_t)&pba_alloc;
-	req._success_ptr = (addr_t)&success;
-
-	if (sizeof(req) > buf_size) {
-		class Bad_size_0 { };
-		throw Bad_size_0 { };
-	}
-	memcpy(buf_ptr, &req, sizeof(req));
-}
 
 
 char const *Vbd_initializer_request::type_to_string(Type type)
