@@ -28,7 +28,7 @@ Vbd_initializer_request::Vbd_initializer_request(Module_id src_mod, Module_chann
 void Vbd_initializer_channel::_execute_leaf_child(bool &progress,
                                           uint64_t                             &nr_of_leaves,
                                           Type_1_node                          &child,
-                                          Vbd_initializer_channel::Child_state &child_state,
+                                          Node_state &child_state,
                                           uint64_t                              level_index,
                                           uint64_t                              child_index)
 {
@@ -45,7 +45,7 @@ void Vbd_initializer_channel::_execute_leaf_child(bool &progress,
 				log("[vbd_init] node: ", level_index, " ", child_index,
 				    " assign pba 0, leaf unused");
 
-			_reset_node(child);
+			child = { };
 			child_state = DONE;
 			progress = true;
 		} else {
@@ -53,7 +53,7 @@ void Vbd_initializer_channel::_execute_leaf_child(bool &progress,
 			switch (_state) {
 			case IN_PROGRESS:
 
-				_reset_node(child);
+				child = { };
 				if (!_req_ptr->_pba_alloc.alloc(child.pba)) {
 					_mark_req_failed(progress, "allocate pba");
 					break;
@@ -82,8 +82,8 @@ void Vbd_initializer_channel::_execute_inner_t1_child(bool &progress,
                                               uint64_t                               nr_of_leaves,
                                               uint64_t                              &level_to_write,
                                               Type_1_node                           &child,
-                                              Vbd_initializer_channel::Type_1_level &child_level,
-                                              Vbd_initializer_channel::Child_state  &child_state,
+                                              Type_1_level &child_level,
+                                              Node_state  &child_state,
                                               uint64_t                               level_index,
                                               uint64_t                               child_index)
 
@@ -97,7 +97,7 @@ void Vbd_initializer_channel::_execute_inner_t1_child(bool &progress,
 				log("[vbd_init] node: ", level_index, " ", child_index,
 				    " assign pba 0, inner node unused");
 
-			_reset_node(child);
+			child = { };
 			child_state = DONE;
 			progress = true;
 			return;
@@ -119,7 +119,7 @@ void Vbd_initializer_channel::_execute_inner_t1_child(bool &progress,
 		switch (_state) {
 		case IN_PROGRESS:
 		{
-			_reset_node(child);
+			child = { };
 			if (!_req_ptr->_pba_alloc.alloc(child.pba)) {
 				_mark_req_failed(progress, "allocate pba");
 				break;
@@ -146,9 +146,10 @@ void Vbd_initializer_channel::_execute_inner_t1_child(bool &progress,
 		switch (_state) {
 		case IN_PROGRESS:
 
-			_child_pba = child.pba;
 			level_to_write = level_index - 1;
-			_generate_blk_io_write(progress);
+			_t1_levels[_level_to_write].children.encode_to_blk(_blk);
+			generate_req<Block_io::Write>(BLOCK_IO_COMPLETE, progress, child.pba, _blk, _generated_req_success);
+			_state = REQ_GENERATED;
 			break;
 
 		case BLOCK_IO_COMPLETE:
@@ -158,7 +159,7 @@ void Vbd_initializer_channel::_execute_inner_t1_child(bool &progress,
 			progress = true;
 			if (VERBOSE_VBD_INIT)
 				log("[vbd_init] node: ", level_index, " ", child_index,
-				    " write pba: ", _child_pba, " level: ",
+				    " write pba: ", child.pba, " level: ",
 				    level_index -1, " (child: ", child, ")");
 			break;
 
@@ -181,14 +182,6 @@ void Vbd_initializer_channel::_generated_req_completed(State_uint state_uint)
 		return;
 	}
 	_state = (State)state_uint;
-}
-
-
-void Vbd_initializer_channel::_generate_blk_io_write(bool &progress)
-{
-	_t1_levels[_level_to_write].children.encode_to_blk(_encoded_blk);
-	generate_req<Block_io::Write>(BLOCK_IO_COMPLETE, progress, _child_pba, _encoded_blk, _generated_req_success);
-	_state = REQ_GENERATED;
 }
 
 
@@ -249,7 +242,7 @@ void Vbd_initializer_channel::execute(bool &progress)
 
 			for (uint64_t child_idx = 0; child_idx < req._vbd.degree; child_idx++) {
 
-				Vbd_initializer_channel::Child_state &state =
+				Node_state &state =
 					_t1_levels[level_idx].children_state[child_idx];
 
 				if (state != Vbd_initializer_channel::DONE) {
@@ -262,7 +255,7 @@ void Vbd_initializer_channel::execute(bool &progress)
 											child, state, level_idx, child_idx);
 					} else {
 
-						Vbd_initializer_channel::Type_1_level &t1_level =
+						Type_1_level &t1_level =
 							_t1_levels[level_idx - 1];
 
 						_execute_inner_t1_child(progress,
@@ -277,7 +270,7 @@ void Vbd_initializer_channel::execute(bool &progress)
 		}
 		if (_root_node.state != Vbd_initializer_channel::DONE) {
 
-			Vbd_initializer_channel::Type_1_level &t1_level =
+			Type_1_level &t1_level =
 				_t1_levels[req._vbd.max_lvl];
 
 			_execute_inner_t1_child(progress,

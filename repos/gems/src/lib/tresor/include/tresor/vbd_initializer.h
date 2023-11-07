@@ -55,18 +55,18 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 
 		enum State { REQ_GENERATED, SUBMITTED, PENDING, IN_PROGRESS, COMPLETE, BLOCK_IO_COMPLETE };
 
-		enum Child_state { DONE, INIT_BLOCK, INIT_NODE, WRITE_BLOCK, };
+		enum Node_state { DONE, INIT_BLOCK, INIT_NODE, WRITE_BLOCK, };
 
 		struct Type_1_level
 		{
 			Type_1_node_block children { };
-			Child_state       children_state[NR_OF_T1_NODES_PER_BLK] { DONE };
+			Node_state       children_state[NR_OF_T1_NODES_PER_BLK] { DONE };
 		};
 
 		struct Root_node
 		{
 			Type_1_node node  { };
-			Child_state state { DONE };
+			Node_state state { DONE };
 		};
 
 		State _state { COMPLETE };
@@ -74,10 +74,8 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 		Root_node _root_node { };
 		Type_1_level _t1_levels[TREE_MAX_LEVEL] { };
 		uint64_t _level_to_write { 0 };
-		uint64_t _child_pba { 0 };
 		bool _generated_req_success { false };
-		Block _encoded_blk { };
-		Hash _dummy_hash { };
+		Block _blk { };
 		Number_of_leaves _num_remaining_leaves { };
 
 		NONCOPYABLE(Vbd_initializer_channel);
@@ -88,15 +86,11 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 
 		void _request_submitted(Module_request &) override;
 
-		void _generate_blk_io_write(bool &progress);
-
-		static void _reset_node(Type_1_node &node) { memset(&node, 0, sizeof(Type_1_node)); }
-
 		static void _reset_level(Type_1_level &level,
-		                        Child_state   state)
+		                        Node_state   state)
 		{
 			for (unsigned int i = 0; i < NR_OF_T1_NODES_PER_BLK; i++) {
-				_reset_node(level.children.nodes[i]);
+				level.children.nodes[i] = { };
 				level.children_state[i] = state;
 			}
 		}
@@ -104,7 +98,7 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 		void _execute_leaf_child(bool &,
 		                         uint64_t                             &,
 		                         Type_1_node                          &,
-		                         Vbd_initializer_channel::Child_state &,
+		                         Node_state &,
 		                         uint64_t                              ,
 		                         uint64_t                              );
 
@@ -112,8 +106,8 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 		                             uint64_t                               ,
 		                             uint64_t                              &,
 		                             Type_1_node                           &,
-		                             Vbd_initializer_channel::Type_1_level &,
-		                             Vbd_initializer_channel::Child_state  &,
+		                             Type_1_level &,
+		                             Node_state  &,
 		                             uint64_t                               ,
 		                             uint64_t                               );
 
