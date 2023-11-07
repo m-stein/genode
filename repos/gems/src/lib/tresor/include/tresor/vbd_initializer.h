@@ -27,7 +27,6 @@ namespace Tresor {
 
 class Tresor::Vbd_initializer_request : public Module_request
 {
-	friend class Vbd_initializer;
 	friend class Vbd_initializer_channel;
 
 	private:
@@ -35,6 +34,8 @@ class Tresor::Vbd_initializer_request : public Module_request
 		Tree_root &_vbd;
 		Pba_allocator &_pba_alloc;
 		bool &_success;
+
+		NONCOPYABLE(Vbd_initializer_request);
 
 	public:
 
@@ -79,6 +80,8 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 		Hash _dummy_hash { };
 		Number_of_leaves _num_remaining_leaves { };
 
+		NONCOPYABLE(Vbd_initializer_channel);
+
 		void _generated_req_completed(State_uint) override;
 
 		bool _request_complete() override { return _state == COMPLETE; }
@@ -87,26 +90,46 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 
 		void _generate_blk_io_write(bool &progress);
 
-		static void reset_node(Type_1_node &node)
-		{
-			memset(&node, 0, sizeof(Type_1_node));
-		}
+		static void _reset_node(Type_1_node &node) { memset(&node, 0, sizeof(Type_1_node)); }
 
-		static void reset_level(Type_1_level &level,
+		static void _reset_level(Type_1_level &level,
 		                        Child_state   state)
 		{
 			for (unsigned int i = 0; i < NR_OF_T1_NODES_PER_BLK; i++) {
-				reset_node(level.children.nodes[i]);
+				_reset_node(level.children.nodes[i]);
 				level.children_state[i] = state;
 			}
 		}
 
-		static void dump(Type_1_node_block const &node_block)
-		{
-			for (auto v : node_block.nodes) {
-				log(v);
-			}
-		}
+		void _execute_leaf_child(bool &,
+		                         uint64_t                             &,
+		                         Type_1_node                          &,
+		                         Vbd_initializer_channel::Child_state &,
+		                         uint64_t                              ,
+		                         uint64_t                              );
+
+		void _execute_inner_t1_child(bool &,
+		                             uint64_t                               ,
+		                             uint64_t                              &,
+		                             Type_1_node                           &,
+		                             Vbd_initializer_channel::Type_1_level &,
+		                             Vbd_initializer_channel::Child_state  &,
+		                             uint64_t                               ,
+		                             uint64_t                               );
+
+		void _execute(bool &);
+
+		void _execute_init(bool &);
+
+		void _mark_req_failed(bool &, char const *);
+
+		void _mark_req_successful(bool &);
+
+	public:
+
+		Vbd_initializer_channel(Module_channel_id id) : Module_channel { VBD_INITIALIZER, id } { }
+
+		void execute(bool &);
 };
 
 
@@ -114,50 +137,17 @@ class Tresor::Vbd_initializer : public Module
 {
 	private:
 
-		using Request = Vbd_initializer_request;
 		using Channel = Vbd_initializer_channel;
 
-		enum { NR_OF_CHANNELS = 1 };
+		Constructible<Channel> _channels[1] { };
 
-		Channel _channels[NR_OF_CHANNELS] { };
-
-		void _execute_leaf_child(Channel                              &channel,
-		                         bool                                 &progress,
-		                         uint64_t                             &nr_of_leaves,
-		                         Type_1_node                          &child,
-		                         Vbd_initializer_channel::Child_state &child_state,
-		                         uint64_t                              level_index,
-		                         uint64_t                              child_index);
-
-		void _execute_inner_t1_child(Channel                               &channel,
-		                             bool                                  &progress,
-		                             uint64_t                               nr_of_leaves,
-		                             uint64_t                              &level_to_write,
-		                             Type_1_node                           &child,
-		                             Vbd_initializer_channel::Type_1_level &child_level,
-		                             Vbd_initializer_channel::Child_state  &child_state,
-		                             uint64_t                               level_index,
-		                             uint64_t                               child_index);
-
-		void _execute(Channel &channel,
-		              bool    &progress);
-
-		void _execute_init(Channel &channel,
-		                   bool    &progress);
-
-		void _mark_req_failed(Channel    &channel,
-		                      bool       &progress,
-		                      char const *str);
-
-		void _mark_req_successful(Channel &channel,
-		                          bool    &progress);
+		NONCOPYABLE(Vbd_initializer);
 
 	public:
 
 		Vbd_initializer();
 
 		void execute(bool &) override;
-
 };
 
 #endif /* _TRESOR__VBD_INITIALIZER_H_ */
