@@ -30,42 +30,20 @@ namespace Tresor {
 
 class Tresor::Vbd_initializer_request : public Module_request
 {
-	public:
-
-		enum Type { INVALID = 0, INIT = 1, };
+	friend class Vbd_initializer;
+	friend class Vbd_initializer_channel;
 
 	private:
 
-		friend class Vbd_initializer;
-		friend class Vbd_initializer_channel;
-
-		Type     _type                           { INVALID };
-		addr_t   _vbd_ptr { };
-		addr_t   _pba_alloc_ptr                  { 0 };
-		addr_t   _success_ptr                        { };
-
-		Pba_allocator &_pba_alloc() { return *(Pba_allocator *)_pba_alloc_ptr; }
-
-		bool &_success() { return *(bool *)_success_ptr; }
-		Tree_root &_vbd() { return *(Tree_root *)_vbd_ptr; }
+		Tree_root &_vbd;
+		Pba_allocator &_pba_alloc;
+		bool &_success;
 
 	public:
 
-		Vbd_initializer_request() { }
+		Vbd_initializer_request(Module_id, Module_request_id, Tree_root &, Pba_allocator &, bool &);
 
-		Vbd_initializer_request(Module_id         src_module_id,
-		                        Module_request_id src_request_id,
-		                   Tree_root &vbd,
-		                   Pba_allocator &pba_alloc, bool &success);
-
-		static char const *type_to_string(Type type);
-
-
-		/********************
-		 ** Module_request **
-		 ********************/
-
-		void print(Output &out) const override { Genode::print(out, type_to_string(_type)); }
+		void print(Output &out) const override { Genode::print(out, "init"); }
 };
 
 
