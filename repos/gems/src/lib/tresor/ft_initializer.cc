@@ -22,7 +22,7 @@ using namespace Tresor;
 static constexpr bool DEBUG = false;
 
 Ft_initializer_request::Ft_initializer_request(Module_id src_mod, Module_channel_id src_chan,
-                                               Free_tree_root &ft, Pba_allocator &pba_alloc, bool &success)
+                                               Tree_root &ft, Pba_allocator &pba_alloc, bool &success)
 :
 	Module_request { src_mod, src_chan, FT_INITIALIZER }, _ft { ft }, _pba_alloc { pba_alloc }, _success { success }
 { }

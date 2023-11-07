@@ -28,7 +28,7 @@ char const *Meta_tree_request::type_to_string(Type type)
 
 
 Meta_tree_request::Meta_tree_request(Module_id src_module_id, Module_channel_id src_channel_id,
-                                     Type type, Free_tree_root &mt, Generation curr_gen,
+                                     Type type, Tree_root &mt, Generation curr_gen,
                                      Physical_block_address &pba, bool &success)
 :
 	Module_request { src_module_id, src_channel_id, META_TREE }, _type { type }, _mt { mt },

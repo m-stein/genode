@@ -22,7 +22,7 @@ using namespace Tresor;
 Virtual_block_device_request::
 Virtual_block_device_request(Module_id src_module_id, Module_channel_id src_chan_id, Type type,
                              Request_offset client_req_offset, Request_tag client_req_tag,
-                             Generation last_secured_gen, Free_tree_root &ft, Free_tree_root &mt,
+                             Generation last_secured_gen, Tree_root &ft, Tree_root &mt,
                              Tree_degree vbd_degree, Virtual_block_address vbd_highest_vba, bool rekeying,
                              Virtual_block_address vba, Snapshot_index curr_snap_idx, Snapshots &snapshots,
                              Tree_degree snap_degr, Key_id prev_key_id, Key_id curr_key_id,

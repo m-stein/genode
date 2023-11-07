@@ -107,8 +107,7 @@ namespace Tresor {
 	struct Tree_walk_pbas;
 	struct Tree_walk_generations;
 	struct Level_indent;
-	struct Free_tree_root;
-	struct Free_tree_root;
+	struct Tree_root;
 	class Pba_allocator;
 
 	template <size_t LEN>
@@ -502,7 +501,7 @@ struct Tresor::Type_1_node
 };
 
 
-struct Tresor::Free_tree_root
+struct Tresor::Tree_root
 {
 	Physical_block_address &pba;
 	Generation &gen;

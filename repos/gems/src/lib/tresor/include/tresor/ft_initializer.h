@@ -32,7 +32,7 @@ class Tresor::Ft_initializer_request : public Module_request
 
 	private:
 
-		Free_tree_root &_ft;
+		Tree_root &_ft;
 		Pba_allocator &_pba_alloc;
 		bool &_success;
 
@@ -40,7 +40,7 @@ class Tresor::Ft_initializer_request : public Module_request
 
 	public:
 
-		Ft_initializer_request(Module_id, Module_channel_id, Free_tree_root &, Pba_allocator &, bool &);
+		Ft_initializer_request(Module_id, Module_channel_id, Tree_root &, Pba_allocator &, bool &);
 
 		void print(Output &out) const override { Genode::print(out, "init"); }
 };

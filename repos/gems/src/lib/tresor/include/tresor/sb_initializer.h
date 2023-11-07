@@ -88,8 +88,8 @@ class Tresor::Sb_initializer_channel : public Module_channel
 		Hash _sb_hash { };
 		Hash _dummy_hash { };
 		Type_1_node _vbd_node { };
-		Constructible<Free_tree_root> _mt { };
-		Constructible<Free_tree_root> _ft { };
+		Constructible<Tree_root> _mt { };
+		Constructible<Tree_root> _ft { };
 		bool _generated_req_success { false };
 
 		void _generated_req_completed(State_uint) override;

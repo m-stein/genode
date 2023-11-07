@@ -83,8 +83,8 @@ class Tresor::Superblock_control_channel : public Module_channel
 			WRITE_SB_SUCCEEDED, SYNC_BLK_IO_SUCCEEDED, WRITE_SB_HASH_SUCCEEDED };
 
 		State _state { INACTIVE };
-		Constructible<Free_tree_root> _ft { };
-		Constructible<Free_tree_root> _mt { };
+		Constructible<Tree_root> _ft { };
+		Constructible<Tree_root> _mt { };
 		Secure_sb_state _secure_sb_state { SECURE_SB_INACTIVE };
 		Superblock _sb_ciphertext { };
 		Block _blk { };

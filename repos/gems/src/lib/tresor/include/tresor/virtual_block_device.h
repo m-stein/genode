@@ -47,8 +47,8 @@ class Tresor::Virtual_block_device_request : public Module_request
 		Generation const _curr_gen;
 		Key_id const _curr_key_id;
 		Key_id const _prev_key_id;
-		Free_tree_root &_ft;
-		Free_tree_root &_mt;
+		Tree_root &_ft;
+		Tree_root &_mt;
 		Tree_degree const _vbd_degree;
 		Virtual_block_address const _vbd_highest_vba;
 		bool const _rekeying;
@@ -65,7 +65,7 @@ class Tresor::Virtual_block_device_request : public Module_request
 	public:
 
 		Virtual_block_device_request(Module_id, Module_channel_id, Type, Request_offset, Request_tag, Generation,
-		                             Free_tree_root &, Free_tree_root &, Tree_degree, Virtual_block_address, bool,
+		                             Tree_root &, Tree_root &, Tree_degree, Virtual_block_address, bool,
 		                             Virtual_block_address, Snapshot_index, Snapshots &, Tree_degree, Key_id,
 		                             Key_id, Generation, Physical_block_address &, bool &, Number_of_leaves &,
 		                             Number_of_blocks &);
