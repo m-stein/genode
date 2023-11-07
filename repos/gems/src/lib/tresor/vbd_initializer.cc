@@ -11,17 +11,12 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-/* base includes */
-#include <base/log.h>
-
 /* tresor includes */
 #include <tresor/block_io.h>
 #include <tresor/hash.h>
 #include <tresor/vbd_initializer.h>
 
 using namespace Tresor;
-
-static constexpr bool DEBUG = false;
 
 Vbd_initializer_request::Vbd_initializer_request(Module_id src_mod, Module_channel_id src_chan, Tree_root &vbd,
                                                  Pba_allocator &pba_alloc, bool &success)
@@ -49,7 +44,7 @@ void Vbd_initializer::_execute_leaf_child(Channel                              &
 	case CS::INIT_NODE:
 		if (nr_of_leaves == 0) {
 
-			if (DEBUG)
+			if (VERBOSE_VBD_INIT)
 				log("[vbd_init] node: ", level_index, " ", child_index,
 				    " assign pba 0, leaf unused");
 
@@ -70,7 +65,7 @@ void Vbd_initializer::_execute_leaf_child(Channel                              &
 				--nr_of_leaves;
 				progress = true;
 
-				if (DEBUG)
+				if (VERBOSE_VBD_INIT)
 					log("[vbd_init] node: ", level_index, " ", child_index,
 					    " assign pba: ", child.pba, " leaves left: ",
 					    nr_of_leaves);
@@ -104,7 +99,7 @@ void Vbd_initializer::_execute_inner_t1_child(Channel                           
 
 		if (nr_of_leaves == 0) {
 
-			if (DEBUG)
+			if (VERBOSE_VBD_INIT)
 				log("[vbd_init] node: ", level_index, " ", child_index,
 				    " assign pba 0, inner node unused");
 
@@ -114,7 +109,7 @@ void Vbd_initializer::_execute_inner_t1_child(Channel                           
 			return;
 		} else {
 
-			if (DEBUG)
+			if (VERBOSE_VBD_INIT)
 				log("[vbd_init] node: ", level_index, " ", child_index,
 				    " reset level: ", level_index - 1);
 
@@ -142,7 +137,7 @@ void Vbd_initializer::_execute_inner_t1_child(Channel                           
 			child_state = CS::WRITE_BLOCK;
 			progress = true;
 
-			if (DEBUG)
+			if (VERBOSE_VBD_INIT)
 				log("[vbd_init] node: ", level_index, " ", child_index,
 				    " assign pba: ", child.pba);
 			break;
@@ -167,7 +162,7 @@ void Vbd_initializer::_execute_inner_t1_child(Channel                           
 			channel._state = Channel::IN_PROGRESS;
 			child_state = CS::DONE;
 			progress = true;
-			if (DEBUG)
+			if (VERBOSE_VBD_INIT)
 				log("[vbd_init] node: ", level_index, " ", child_index,
 				    " write pba: ", channel._child_pba, " level: ",
 				    level_index -1, " (child: ", child, ")");
@@ -338,76 +333,21 @@ void Vbd_initializer::_mark_req_successful(Channel &channel,
 }
 
 
-bool Vbd_initializer::_peek_completed_request(uint8_t *buf_ptr,
-                                              size_t   buf_size)
+void Vbd_initializer_channel::_request_submitted(Module_request &mod_req)
 {
-	for (Channel &channel : _channels) {
-		if (channel._state == Channel::COMPLETE) {
-			if (sizeof(Request) > buf_size) {
-				class Exception_1 { };
-				throw Exception_1 { };
-			}
-			memcpy(buf_ptr, &channel._req_ptr, sizeof(Request));
-			return true;
-		}
-	}
-	return false;
+	_req_ptr = static_cast<Request *>(&mod_req);
+	_state = SUBMITTED;
 }
 
 
-void Vbd_initializer::_drop_completed_request(Module_request &req)
-{
-	Module_request_id id { 0 };
-	id = req.dst_request_id();
-	if (id >= NR_OF_CHANNELS) {
-		class Exception_1 { };
-		throw Exception_1 { };
-	}
-	if (_channels[id]._state != Channel::COMPLETE) {
-		class Exception_2 { };
-		throw Exception_2 { };
-	}
-	_channels[id]._state = Channel::INACTIVE;
-}
-
-
-Vbd_initializer::Vbd_initializer()
-{ register_channels(_channels, NR_OF_CHANNELS, VBD_INITIALIZER); }
-
-
-bool Vbd_initializer::ready_to_submit_request()
-{
-	for (Channel &channel : _channels) {
-		if (channel._state == Channel::INACTIVE)
-			return true;
-	}
-	return false;
-}
-
-
-void Vbd_initializer::submit_request(Module_request &mod_req)
-{
-	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
-		if (_channels[id]._state == Channel::INACTIVE) {
-			Request &req{ *static_cast<Request *>(&mod_req)};
-			req.dst_request_id(id);
-			_channels[id]._req_ptr.construct(req.src_module_id(), req.src_chan_id(), req._vbd,
-				req._pba_alloc, req._success);
-			_channels[id]._req_ptr->dst_chan_id(id);
-			_channels[id]._state = Channel::SUBMITTED;
-			return;
-		}
-	}
-	class Invalid_call { };
-	throw Invalid_call { };
-}
+Vbd_initializer::Vbd_initializer() { register_channels(_channels, NR_OF_CHANNELS, VBD_INITIALIZER); }
 
 
 void Vbd_initializer::execute(bool &progress)
 {
 	for (Channel &channel : _channels) {
 
-		if (channel._state == Channel::INACTIVE)
+		if (!channel._req_ptr)
 			continue;
 
 		_execute_init(channel, progress);

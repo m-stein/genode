@@ -14,9 +14,6 @@
 #ifndef _TRESOR__VBD_INITIALIZER_H_
 #define _TRESOR__VBD_INITIALIZER_H_
 
-/* base includes */
-#include <base/output.h>
-
 /* tresor includes */
 #include <tresor/module.h>
 
@@ -49,11 +46,13 @@ class Tresor::Vbd_initializer_request : public Module_request
 
 class Tresor::Vbd_initializer_channel : public Module_channel
 {
+	friend class Vbd_initializer;
+
 	private:
 
-		friend class Vbd_initializer;
+		using Request = Vbd_initializer_request;
 
-		enum State { REQ_GENERATED, INACTIVE, SUBMITTED, PENDING, IN_PROGRESS, COMPLETE, BLOCK_IO_COMPLETE };
+		enum State { REQ_GENERATED, SUBMITTED, PENDING, IN_PROGRESS, COMPLETE, BLOCK_IO_COMPLETE };
 
 		enum Child_state { DONE, INIT_BLOCK, INIT_NODE, WRITE_BLOCK, };
 
@@ -69,8 +68,8 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 			Child_state state { DONE };
 		};
 
-		State _state { INACTIVE };
-		Constructible<Vbd_initializer_request> _req_ptr { };
+		State _state { COMPLETE };
+		Vbd_initializer_request *_req_ptr { };
 		Root_node _root_node { };
 		Type_1_level _t1_levels[TREE_MAX_LEVEL] { };
 		uint64_t _level_to_write { 0 };
@@ -84,7 +83,7 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 
 		bool _request_complete() override { return _state == COMPLETE; }
 
-		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
+		void _request_submitted(Module_request &) override;
 
 		void _generate_blk_io_write(bool &progress);
 
@@ -153,30 +152,9 @@ class Tresor::Vbd_initializer : public Module
 		void _mark_req_successful(Channel &channel,
 		                          bool    &progress);
 
-
-		/************
-		 ** Module **
-		 ************/
-
-		bool _peek_completed_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_completed_request(Module_request &req) override;
-
-		bool new_submit_request() override { return false; }
-
-
 	public:
 
 		Vbd_initializer();
-
-		/************
-		 ** Module **
-		 ************/
-
-		bool ready_to_submit_request() override;
-
-		void submit_request(Module_request &req) override;
 
 		void execute(bool &) override;
 
