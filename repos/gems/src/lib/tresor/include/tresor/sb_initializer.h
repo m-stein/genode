@@ -63,6 +63,8 @@ class Tresor::Sb_initializer_channel : public Module_channel
 
 		friend class Sb_initializer;
 
+		using Request = Sb_initializer_request;
+
 		enum State {
 			INACTIVE, SUBMITTED, PENDING, IN_PROGRESS, SLOT_COMPLETE, COMPLETE,
 			FT_REQUEST_COMPLETE, MT_REQUEST_COMPLETE,
@@ -79,7 +81,7 @@ class Tresor::Sb_initializer_channel : public Module_channel
 		};
 
 		State _state { INACTIVE };
-		Constructible<Sb_initializer_request> _req_ptr { };
+		Request *_req_ptr { };
 		Superblock_index _sb_slot_index { 0 };
 		Superblock _sb { };
 		Block _encoded_blk { };
@@ -94,7 +96,7 @@ class Tresor::Sb_initializer_channel : public Module_channel
 
 		void _generated_req_completed(State_uint) override;
 
-		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
+		void _request_submitted(Module_request &) override;
 
 		bool _request_complete() override { return _state == COMPLETE; }
 
@@ -148,30 +150,9 @@ class Tresor::Sb_initializer : public Module
 		void _mark_req_successful(Channel &channel,
 		                          bool    &progress);
 
-
-		/************
-		 ** Module **
-		 ************/
-
-		bool _peek_completed_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_completed_request(Module_request &req) override;
-
-		bool new_submit_request() override { return false; }
-
-
 	public:
 
 		Sb_initializer();
-
-		/************
-		 ** Module **
-		 ************/
-
-		bool ready_to_submit_request() override;
-
-		void submit_request(Module_request &req) override;
 
 		void execute(bool &) override;
 

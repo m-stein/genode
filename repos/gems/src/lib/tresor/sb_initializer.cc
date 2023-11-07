@@ -229,6 +229,13 @@ void Sb_initializer::_mark_req_failed(Channel    &channel,
 }
 
 
+void Sb_initializer_channel::_request_submitted(Module_request &mod_req)
+{
+	_req_ptr = static_cast<Request *>(&mod_req);
+	_state = SUBMITTED;
+}
+
+
 void Sb_initializer::_mark_req_successful(Channel &channel,
                                            bool    &progress)
 {
@@ -241,73 +248,7 @@ void Sb_initializer::_mark_req_successful(Channel &channel,
 }
 
 
-bool Sb_initializer::_peek_completed_request(uint8_t *buf_ptr,
-                                             size_t   buf_size)
-{
-	for (Channel &channel : _channels) {
-		if (channel._state == Channel::COMPLETE) {
-			if (sizeof(Request) > buf_size) {
-				class Exception_1 { };
-				throw Exception_1 { };
-			}
-			memcpy(buf_ptr, &(*channel._req_ptr), sizeof(Request));
-			return true;
-		}
-	}
-	return false;
-}
-
-
-void Sb_initializer::_drop_completed_request(Module_request &req)
-{
-	Module_request_id id { 0 };
-	id = req.dst_request_id();
-	if (id >= NR_OF_CHANNELS) {
-		class Exception_1 { };
-		throw Exception_1 { };
-	}
-	if (_channels[id]._state != Channel::COMPLETE) {
-		class Exception_2 { };
-		throw Exception_2 { };
-	}
-	_channels[id]._state = Channel::INACTIVE;
-	_channels[id]._req_ptr.destruct();
-}
-
-
-Sb_initializer::Sb_initializer()
-{ register_channels(_channels, NR_OF_CHANNELS, SB_INITIALIZER); }
-
-
-bool Sb_initializer::ready_to_submit_request()
-{
-	for (Channel &channel : _channels) {
-		if (channel._state == Channel::INACTIVE)
-			return true;
-	}
-	return false;
-}
-
-
-void Sb_initializer::submit_request(Module_request &mod_req)
-{
-	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
-		if (_channels[id]._state == Channel::INACTIVE) {
-			Request &req { *static_cast<Request*>(&mod_req) };
-			req.dst_request_id(id);
-			_channels[id]._req_ptr.construct(
-				req.src_module_id(), req.src_chan_id(), req._vbd_max_level_idx,
-				req._vbd_degree, req._vbd_nr_of_leaves, req._ft_max_level_idx, req._ft_degree,
-				req._ft_nr_of_leaves, req._mt_max_level_idx, req._mt_degree,
-				req._mt_nr_of_leaves, req._pba_alloc, req._success);
-			_channels[id]._req_ptr->dst_request_id(id);
-			_channels[id]._state = Channel::SUBMITTED;
-			return;
-		}
-	}
-	class Invalid_call { };
-	throw Invalid_call { };
-}
+Sb_initializer::Sb_initializer() { register_channels(_channels, NR_OF_CHANNELS, SB_INITIALIZER); }
 
 
 void Sb_initializer::execute(bool &progress)
