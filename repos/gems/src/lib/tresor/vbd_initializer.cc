@@ -192,112 +192,6 @@ void Vbd_initializer_channel::_generate_blk_io_write(bool &progress)
 }
 
 
-void Vbd_initializer_channel::_execute(bool &progress)
-{
-	Request &req { *_req_ptr };
-
-	/*
-	 * First handle all child nodes (leaves and inner nodes) that starts after
-	 * triggering the root node below.
-	 */
-	for (uint64_t level_idx = 0; level_idx <= req._vbd.max_lvl; level_idx++) {
-
-		for (uint64_t child_idx = 0; child_idx < req._vbd.degree; child_idx++) {
-
-			Vbd_initializer_channel::Child_state &state =
-				_t1_levels[level_idx].children_state[child_idx];
-
-			if (state != Vbd_initializer_channel::DONE) {
-
-				Type_1_node &child =
-					_t1_levels[level_idx].children.nodes[child_idx];
-
-				if (level_idx == 1) {
-					_execute_leaf_child(progress, _num_remaining_leaves,
-					                    child, state, level_idx, child_idx);
-				} else {
-
-					Vbd_initializer_channel::Type_1_level &t1_level =
-						_t1_levels[level_idx - 1];
-
-					_execute_inner_t1_child(progress,
-					                        _num_remaining_leaves,
-					                        _level_to_write,
-					                        child, t1_level, state,
-					                        level_idx, child_idx);
-				}
-				return;
-			}
-		}
-	}
-
-	/*
-	 * Checking the root node will trigger the initialization process as
-	 * well as will finish it.
-	 */
-	if (_root_node.state != Vbd_initializer_channel::DONE) {
-
-		Vbd_initializer_channel::Type_1_level &t1_level =
-			_t1_levels[req._vbd.max_lvl];
-
-		_execute_inner_t1_child(progress,
-		                        _num_remaining_leaves,
-		                        _level_to_write,
-		                        _root_node.node, t1_level, _root_node.state,
-		                        req._vbd.max_lvl + 1, 0);
-		return;
-	}
-
-	/*
-	 * We will end up here when the root state is 'DONE'.
-	 */
-	if (_num_remaining_leaves == 0)
-		_mark_req_successful(progress);
-	else
-		_mark_req_failed(progress, "initialize VBD");
-}
-
-
-void Vbd_initializer_channel::_execute_init(bool &progress)
-{
-	switch (_state) {
-	case SUBMITTED:
-
-		/* clean residual state */
-		for (unsigned int i = 0; i < TREE_MAX_LEVEL; i++) {
-			_reset_level(_t1_levels[i],
-			                                     Vbd_initializer_channel::DONE);
-		}
-		_level_to_write = 0;
-		_num_remaining_leaves = _req_ptr->_vbd.num_leaves;
-
-		_state = PENDING;
-		_root_node.state = Vbd_initializer_channel::INIT_BLOCK;
-		progress = true;
-
-		return;
-
-	case PENDING:
-
-		_state = IN_PROGRESS;
-		progress = true;
-		return;
-
-	case IN_PROGRESS:
-
-		_execute(progress);
-		return;
-
-	case BLOCK_IO_COMPLETE:
-
-		_execute(progress);
-		return;
-
-	default: return;
-	}
-}
-
-
 void Vbd_initializer_channel::_mark_req_failed(bool &progress, char const *str)
 {
 	error("request failed: failed to ", str);
@@ -329,7 +223,79 @@ void Vbd_initializer_channel::execute(bool &progress)
 	if (!_req_ptr)
 		return;
 
-	_execute_init(progress);
+	Request &req { *_req_ptr };
+	switch (_state) {
+	case SUBMITTED:
+
+		for (unsigned int i = 0; i < TREE_MAX_LEVEL; i++)
+			_reset_level(_t1_levels[i], Vbd_initializer_channel::DONE);
+		_level_to_write = 0;
+		_num_remaining_leaves = req._vbd.num_leaves;
+		_state = PENDING;
+		_root_node.state = Vbd_initializer_channel::INIT_BLOCK;
+		progress = true;
+		break;
+
+	case PENDING:
+
+		_state = IN_PROGRESS;
+		progress = true;
+		break;
+
+	case IN_PROGRESS:
+	case BLOCK_IO_COMPLETE:
+
+		for (uint64_t level_idx = 0; level_idx <= req._vbd.max_lvl; level_idx++) {
+
+			for (uint64_t child_idx = 0; child_idx < req._vbd.degree; child_idx++) {
+
+				Vbd_initializer_channel::Child_state &state =
+					_t1_levels[level_idx].children_state[child_idx];
+
+				if (state != Vbd_initializer_channel::DONE) {
+
+					Type_1_node &child =
+						_t1_levels[level_idx].children.nodes[child_idx];
+
+					if (level_idx == 1) {
+						_execute_leaf_child(progress, _num_remaining_leaves,
+											child, state, level_idx, child_idx);
+					} else {
+
+						Vbd_initializer_channel::Type_1_level &t1_level =
+							_t1_levels[level_idx - 1];
+
+						_execute_inner_t1_child(progress,
+												_num_remaining_leaves,
+												_level_to_write,
+												child, t1_level, state,
+												level_idx, child_idx);
+					}
+					return;
+				}
+			}
+		}
+		if (_root_node.state != Vbd_initializer_channel::DONE) {
+
+			Vbd_initializer_channel::Type_1_level &t1_level =
+				_t1_levels[req._vbd.max_lvl];
+
+			_execute_inner_t1_child(progress,
+									_num_remaining_leaves,
+									_level_to_write,
+									_root_node.node, t1_level, _root_node.state,
+									req._vbd.max_lvl + 1, 0);
+			return;
+		}
+
+		if (_num_remaining_leaves == 0)
+			_mark_req_successful(progress);
+		else
+			_mark_req_failed(progress, "initialize VBD");
+		break;
+
+	default: break;
+	}
 }
 
 

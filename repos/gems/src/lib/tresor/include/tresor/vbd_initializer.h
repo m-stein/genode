@@ -117,10 +117,6 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 		                             uint64_t                               ,
 		                             uint64_t                               );
 
-		void _execute(bool &);
-
-		void _execute_init(bool &);
-
 		void _mark_req_failed(bool &, char const *);
 
 		void _mark_req_successful(bool &);
