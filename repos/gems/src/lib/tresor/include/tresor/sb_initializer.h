@@ -65,29 +65,18 @@ class Tresor::Sb_initializer_channel : public Module_channel
 		using Request = Sb_initializer_request;
 
 		enum State {
-			SUBMITTED, PENDING, IN_PROGRESS, SLOT_COMPLETE, COMPLETE,
-			FT_REQUEST_COMPLETE, MT_REQUEST_COMPLETE,
-			SYNC_REQUEST_COMPLETE,
-			SYNC_REQUEST_IN_PROGRESS,
-			SYNC_REQUEST_PENDING,
-			TA_REQUEST_CREATE_KEY_COMPLETE,
-			TA_REQUEST_ENCRYPT_KEY_COMPLETE,
-			TA_REQUEST_SECURE_SB_COMPLETE,
-			VBD_REQUEST_COMPLETE,
-			VBD_REQUEST_IN_PROGRESS,
-			VBD_REQUEST_PENDING,
-			WRITE_REQUEST_COMPLETE, REQ_GENERATED
-		};
+			REQ_SUBMITTED, START_NEW_SB, SB_COMPLETE, REQ_COMPLETE, INIT_FT_SUCCEEDED, INIT_MT_SUCCEEDED,
+			SYNC_BLK_IO_SUCCEEDED, CREATE_KEY_SUCCEEDED, ENCRYPT_KEY_SUCCEEDED, SECURE_SB_SUCCEEDED,
+			INIT_VBD_SUCCEEDED, WRITE_BLK_SUCCEEDED, REQ_GENERATED };
 
-		State _state { COMPLETE };
+		State _state { REQ_COMPLETE };
 		Request *_req_ptr { };
-		Superblock_index _sb_slot_index { 0 };
+		Superblock_index _sb_idx { 0 };
 		Superblock _sb { };
 		Block _encoded_blk { };
 		Key _key_plain { };
 		Key _key_cipher { };
 		Hash _sb_hash { };
-		Hash _dummy_hash { };
 		Constructible<Tree_root> _vbd { };
 		Constructible<Tree_root> _mt { };
 		Constructible<Tree_root> _ft { };
@@ -99,7 +88,7 @@ class Tresor::Sb_initializer_channel : public Module_channel
 
 		void _request_submitted(Module_request &) override;
 
-		bool _request_complete() override { return _state == COMPLETE; }
+		bool _request_complete() override { return _state == REQ_COMPLETE; }
 
 		template <typename REQUEST, typename... ARGS>
 		void _generate_req(State_uint state, bool &progress, ARGS &&... args)
@@ -108,24 +97,9 @@ class Tresor::Sb_initializer_channel : public Module_channel
 			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 		}
 
-		void clean_data()
-		{
-			_sb = Superblock { };
+		void _reset_sb_data();
 
-			memset(&_key_plain,   0, sizeof(_key_plain));
-			memset(&_key_cipher,  0, sizeof(_key_cipher));
-			memset(&_sb_hash,     0, sizeof(_sb_hash));
-
-			_vbd.destruct();
-			_ft.destruct();
-			_mt.destruct();
-		}
-
-		void _populate_sb_slot(Physical_block_address, Number_of_blocks);
-
-		void _execute(bool &);
-
-		void _execute_init(bool &);
+		void _initialize_sb();
 
 		void _mark_req_failed(bool &, char const *);
 
