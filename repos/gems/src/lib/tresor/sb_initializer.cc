@@ -25,15 +25,15 @@
 using namespace Tresor;
 
 Sb_initializer_request::
-Sb_initializer_request(Module_id src_mod, Module_request_id src_chan, Tree_level_index vbd_max_level_idx,
-                       Tree_degree vbd_degree, Number_of_leaves vbd_nr_of_leaves, Tree_level_index ft_max_level_idx,
-                       Tree_degree ft_degree, Number_of_leaves ft_nr_of_leaves, Tree_level_index mt_max_level_idx,
-                       Tree_degree mt_degree, Number_of_leaves mt_nr_of_leaves, Pba_allocator &pba_alloc, bool &success)
+Sb_initializer_request(Module_id src_mod, Module_request_id src_chan, Tree_level_index vbd_max_lvl,
+                       Tree_degree vbd_degree, Number_of_leaves vbd_num_leaves, Tree_level_index ft_max_lvl,
+                       Tree_degree ft_degree, Number_of_leaves ft_num_leaves, Tree_level_index mt_max_lvl,
+                       Tree_degree mt_degree, Number_of_leaves mt_num_leaves, Pba_allocator &pba_alloc, bool &success)
 :
-	Module_request { src_mod, src_chan, SB_INITIALIZER }, _vbd_max_level_idx { vbd_max_level_idx },
-	_vbd_degree { vbd_degree }, _vbd_nr_of_leaves { vbd_nr_of_leaves }, _ft_max_level_idx { ft_max_level_idx },
-	_ft_degree { ft_degree }, _ft_nr_of_leaves { ft_nr_of_leaves }, _mt_max_level_idx { mt_max_level_idx },
-	_mt_degree { mt_degree }, _mt_nr_of_leaves { mt_nr_of_leaves }, _pba_alloc { pba_alloc }, _success { success }
+	Module_request { src_mod, src_chan, SB_INITIALIZER }, _vbd_max_lvl { vbd_max_lvl },
+	_vbd_degree { vbd_degree }, _vbd_num_leaves { vbd_num_leaves }, _ft_max_lvl { ft_max_lvl },
+	_ft_degree { ft_degree }, _ft_num_leaves { ft_num_leaves }, _mt_max_lvl { mt_max_lvl },
+	_mt_degree { mt_degree }, _mt_num_leaves { mt_num_leaves }, _pba_alloc { pba_alloc }, _success { success }
 { }
 
 
@@ -46,8 +46,8 @@ void Sb_initializer::_populate_sb_slot(Channel &channel,
 	sb.state = Superblock::NORMAL;
 	Snapshot &snap = sb.snapshots.items[0];
 	snap.gen = 0;
-	snap.nr_of_leaves = req._vbd_nr_of_leaves;
-	snap.max_level = req._vbd_max_level_idx;
+	snap.nr_of_leaves = req._vbd_num_leaves;
+	snap.max_level = req._vbd_max_lvl;
 	snap.valid = true;
 	snap.id = 0;
 	snap.keep = false;
@@ -84,7 +84,7 @@ void Sb_initializer::_execute(Channel &channel,
 
 		if (channel._sb_slot_index == 0) {
 			Snapshot &snap = sb.snapshots.items[0];
-			channel._vbd.construct(snap.pba, snap.gen, snap.hash, req._vbd_max_level_idx, req._vbd_degree, req._vbd_nr_of_leaves);
+			channel._vbd.construct(snap.pba, snap.gen, snap.hash, req._vbd_max_lvl, req._vbd_degree, req._vbd_num_leaves);
 			channel.generate_req<Vbd_initializer_request>(CS::VBD_REQUEST_COMPLETE, progress, *channel._vbd, req._pba_alloc, channel._generated_req_success);
 			channel._state = Channel::REQ_GENERATED;
 		} else {
@@ -96,14 +96,14 @@ void Sb_initializer::_execute(Channel &channel,
 
 	case CS::VBD_REQUEST_COMPLETE:
 
-		channel._ft.construct(sb.free_number, sb.free_gen, sb.free_hash, req._ft_max_level_idx, req._ft_degree, req._ft_nr_of_leaves);
+		channel._ft.construct(sb.free_number, sb.free_gen, sb.free_hash, req._ft_max_lvl, req._ft_degree, req._ft_num_leaves);
 		channel.generate_req<Ft_initializer_request>(CS::FT_REQUEST_COMPLETE, progress, *channel._ft, req._pba_alloc, channel._generated_req_success);
 		channel._state = Channel::REQ_GENERATED;
 		break;
 
 	case CS::FT_REQUEST_COMPLETE:
 
-		channel._mt.construct(sb.meta_number, sb.meta_gen, sb.meta_hash, req._ft_max_level_idx, req._ft_degree, req._ft_nr_of_leaves);
+		channel._mt.construct(sb.meta_number, sb.meta_gen, sb.meta_hash, req._ft_max_lvl, req._ft_degree, req._ft_num_leaves);
 		channel.generate_req<Ft_initializer_request>(CS::MT_REQUEST_COMPLETE, progress, *channel._mt, req._pba_alloc, channel._generated_req_success);
 		channel._state = Channel::REQ_GENERATED;
 		break;

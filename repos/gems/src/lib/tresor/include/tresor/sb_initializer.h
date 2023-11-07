@@ -35,15 +35,15 @@ class Tresor::Sb_initializer_request : public Module_request
 		friend class Sb_initializer;
 		friend class Sb_initializer_channel;
 
-		Tree_level_index _vbd_max_level_idx;
+		Tree_level_index _vbd_max_lvl;
 		Tree_degree _vbd_degree;
-		Number_of_leaves _vbd_nr_of_leaves;
-		Tree_level_index _ft_max_level_idx;
+		Number_of_leaves _vbd_num_leaves;
+		Tree_level_index _ft_max_lvl;
 		Tree_degree _ft_degree;
-		Number_of_leaves _ft_nr_of_leaves;
-		Tree_level_index _mt_max_level_idx;
+		Number_of_leaves _ft_num_leaves;
+		Tree_level_index _mt_max_lvl;
 		Tree_degree _mt_degree;
-		Number_of_leaves _mt_nr_of_leaves;
+		Number_of_leaves _mt_num_leaves;
 		Pba_allocator &_pba_alloc;
 		bool &_success;
 
