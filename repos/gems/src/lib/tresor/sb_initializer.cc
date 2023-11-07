@@ -310,7 +310,7 @@ bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
 				vbd_initializer_req_type,
 				req._vbd_max_level_idx,
 				req._vbd_degree - 1,
-				req._vbd_nr_of_leaves, req._pba_alloc);
+				req._vbd_nr_of_leaves, req._pba_alloc, channel._generated_req_success);
 
 			return true;
 		}
@@ -357,7 +357,6 @@ void Sb_initializer::generated_request_complete(Module_request &req)
 		}
 		Vbd_initializer_request const *vbd_initializer_req = static_cast<Vbd_initializer_request const*>(&req);
 		channel._state = Channel::VBD_REQUEST_COMPLETE;
-		channel._generated_req_success = vbd_initializer_req->success();
 		memcpy(&channel._vbd_node,
 		       const_cast<Vbd_initializer_request*>(vbd_initializer_req)->root_node(),
 		       sizeof(Type_1_node));

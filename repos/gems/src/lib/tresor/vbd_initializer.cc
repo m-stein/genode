@@ -37,14 +37,15 @@ Vbd_initializer_request::Vbd_initializer_request(Module_id         src_module_id
                    Tree_level_index  max_level_idx,
                    Tree_node_index  max_child_idx,
                    Number_of_leaves  nr_of_leaves,
-                   Pba_allocator &pba_alloc)
+                   Pba_allocator &pba_alloc, bool &success)
 :
 	Module_request { src_module_id, src_request_id, VBD_INITIALIZER },
 	_type { (Type)req_type },
 	_max_level_idx { max_level_idx },
 	_max_child_idx { max_child_idx },
 	_nr_of_leaves  { nr_of_leaves },
-	_pba_alloc_ptr { (addr_t)&pba_alloc }
+	_pba_alloc_ptr { (addr_t)&pba_alloc },
+	_success_ptr { (addr_t)&success }
 { }
 
 
@@ -56,7 +57,7 @@ void Vbd_initializer_request::create(void     *buf_ptr,
                                      uint64_t  max_level_idx,
                                      uint64_t  max_child_idx,
                                      uint64_t  nr_of_leaves,
-                                     Pba_allocator &pba_alloc)
+                                     Pba_allocator &pba_alloc, bool &success)
 {
 	Vbd_initializer_request req { src_module_id, src_request_id };
 	req._type = (Type)req_type;
@@ -64,6 +65,7 @@ void Vbd_initializer_request::create(void     *buf_ptr,
 	req._max_child_idx = max_child_idx;
 	req._nr_of_leaves  = nr_of_leaves;
 	req._pba_alloc_ptr   = (addr_t)&pba_alloc;
+	req._success_ptr = (addr_t)&success;
 
 	if (sizeof(req) > buf_size) {
 		class Bad_size_0 { };
@@ -239,7 +241,7 @@ void Vbd_initializer_channel::_generated_req_completed(State_uint state_uint)
 {
 	if (!_generated_req_success) {
 		error("vbd initializer: request (", _request, ") failed because generated request failed)");
-		_request._success = false;
+		_request._success() = false;
 		_state = COMPLETE;
 		//_req_ptr = nullptr;
 		return;
@@ -373,7 +375,7 @@ void Vbd_initializer::_mark_req_failed(Channel    &channel,
                                        char const *str)
 {
 	error("request failed: failed to ", str);
-	channel._request._success = false;
+	channel._request._success() = false;
 	channel._state = Channel::COMPLETE;
 	progress = true;
 }
@@ -385,7 +387,7 @@ void Vbd_initializer::_mark_req_successful(Channel &channel,
 	Request &req { channel._request };
 
 	memcpy(req._root_node, &channel._root_node.node, sizeof (req._root_node));
-	req._success = true;
+	req._success() = true;
 
 	channel._state = Channel::COMPLETE;
 	progress = true;

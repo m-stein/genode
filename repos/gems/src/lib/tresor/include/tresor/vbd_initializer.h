@@ -45,9 +45,11 @@ class Tresor::Vbd_initializer_request : public Module_request
 		uint64_t _max_child_idx                  { 0 };
 		uint64_t _nr_of_leaves                   { 0 };
 		addr_t   _pba_alloc_ptr                  { 0 };
-		bool     _success                        { false };
+		addr_t   _success_ptr                        { };
 
 		Pba_allocator &_pba_alloc() { return *(Pba_allocator *)_pba_alloc_ptr; }
+
+		bool &_success() { return *(bool *)_success_ptr; }
 
 	public:
 
@@ -62,7 +64,7 @@ class Tresor::Vbd_initializer_request : public Module_request
 		                   Tree_level_index  max_level_idx,
 		                   Tree_node_index  max_child_idx,
 		                   Number_of_leaves  nr_of_leaves,
-		                   Pba_allocator &pba_alloc);
+		                   Pba_allocator &pba_alloc, bool &success);
 
 		static void create(void     *buf_ptr,
 		                   size_t    buf_size,
@@ -72,13 +74,11 @@ class Tresor::Vbd_initializer_request : public Module_request
 		                   uint64_t  max_level_idx,
 		                   uint64_t  max_child_idx,
 		                   uint64_t  nr_of_leaves,
-		                   Pba_allocator &pba_alloc);
+		                   Pba_allocator &pba_alloc, bool &success);
 
 		void *root_node() { return _root_node; }
 
 		Type type() const { return _type; }
-
-		bool success() const { return _success; }
 
 		static char const *type_to_string(Type type);
 
