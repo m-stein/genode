@@ -27,14 +27,14 @@ Vbd_initializer_request::Vbd_initializer_request(Module_id         src_module_id
                         Module_request_id src_request_id,
                    Type    req_type,
                    Tree_level_index  max_level_idx,
-                   Tree_node_index  max_child_idx,
+                   Tree_degree  degree,
                    Number_of_leaves  nr_of_leaves,
                    Pba_allocator &pba_alloc, bool &success)
 :
 	Module_request { src_module_id, src_request_id, VBD_INITIALIZER },
 	_type { (Type)req_type },
 	_max_level_idx { max_level_idx },
-	_max_child_idx { max_child_idx },
+	_degree { degree },
 	_nr_of_leaves  { nr_of_leaves },
 	_pba_alloc_ptr { (addr_t)&pba_alloc },
 	_success_ptr { (addr_t)&success }
@@ -235,7 +235,7 @@ void Vbd_initializer::_execute(Channel &channel,
 	 */
 	for (uint64_t level_idx = 0; level_idx <= req._max_level_idx; level_idx++) {
 
-		for (uint64_t child_idx = 0; child_idx <= req._max_child_idx; child_idx++) {
+		for (uint64_t child_idx = 0; child_idx < req._degree; child_idx++) {
 
 			Vbd_initializer_channel::Child_state &state =
 				channel._t1_levels[level_idx].children_state[child_idx];

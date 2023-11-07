@@ -42,7 +42,7 @@ class Tresor::Vbd_initializer_request : public Module_request
 		Type     _type                           { INVALID };
 		uint8_t  _root_node[sizeof(Type_1_node)] { 0 };
 		uint64_t _max_level_idx                  { 0 };
-		uint64_t _max_child_idx                  { 0 };
+		uint64_t _degree                  { 0 };
 		uint64_t _nr_of_leaves                   { 0 };
 		addr_t   _pba_alloc_ptr                  { 0 };
 		addr_t   _success_ptr                        { };
@@ -59,7 +59,7 @@ class Tresor::Vbd_initializer_request : public Module_request
 		                        Module_request_id src_request_id,
 		                   Type    req_type,
 		                   Tree_level_index  max_level_idx,
-		                   Tree_node_index  max_child_idx,
+		                   Tree_degree  degree,
 		                   Number_of_leaves  nr_of_leaves,
 		                   Pba_allocator &pba_alloc, bool &success);
 

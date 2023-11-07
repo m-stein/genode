@@ -310,7 +310,7 @@ bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
 				buf_ptr, SB_INITIALIZER, id,
 				vbd_initializer_req_type,
 				req._vbd_max_level_idx,
-				req._vbd_degree - 1,
+				req._vbd_degree,
 				req._vbd_nr_of_leaves, req._pba_alloc, channel._generated_req_success);
 
 			return true;
