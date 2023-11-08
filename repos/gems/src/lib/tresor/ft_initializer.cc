@@ -43,9 +43,6 @@ bool Ft_initializer_channel::_execute_t2_node(Tree_node_index node_idx, bool &pr
 	case INIT_NODE:
 
 		if (_num_remaining_leaves) {
-			if (_state != IN_PROGRESS)
-				break;
-
 			node = { };
 			if (!_req_ptr->_pba_alloc.alloc(node.pba)) {
 				_mark_req_failed(progress, "allocate pba");
@@ -96,9 +93,6 @@ bool Ft_initializer_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_in
 
 	case INIT_NODE:
 	{
-		if (_state != IN_PROGRESS)
-			break;
-
 		node = { };
 		if (!_req_ptr->_pba_alloc.alloc(node.pba)) {
 			_mark_req_failed(progress, "allocate pba");
@@ -109,7 +103,7 @@ bool Ft_initializer_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_in
 		else
 			_t1_blks.items[lvl - 1].encode_to_blk(_blk);
 		calc_hash(_blk, node.hash);
-		generate_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, node.pba, _blk, _generated_req_success);
+		generate_req<Block_io::Write>(EXECUTE_NODES, progress, node.pba, _blk, _generated_req_success);
 		_state = REQ_GENERATED;
 		node_state = WRITE_BLK;
 		progress = true;
@@ -119,10 +113,6 @@ bool Ft_initializer_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_in
 	}
 	case WRITE_BLK:
 
-		if (_state != WRITE_BLK_SUCCEEDED)
-			break;
-
-		_state = IN_PROGRESS;
 		node_state = DONE;
 		progress = true;
 		if (DEBUG)
@@ -194,12 +184,12 @@ void Ft_initializer_channel::execute(bool &progress)
 		for (Tree_level_index lvl = 0; lvl < TREE_MAX_LEVEL; lvl++)
 			_reset_level(lvl, DONE);
 
-		_state = IN_PROGRESS;
 		_t1_node_states[req._ft.max_lvl + 1][0] = INIT_BLOCK;
+		_state = EXECUTE_NODES;
 		progress = true;
 		return;
 
-	case IN_PROGRESS:
+	case EXECUTE_NODES:
 
 		for (Tree_node_index node_idx = 0; node_idx < req._ft.degree; node_idx++)
 			if (_execute_t2_node(node_idx, progress))

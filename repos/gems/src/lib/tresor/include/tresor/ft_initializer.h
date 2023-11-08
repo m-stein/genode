@@ -52,7 +52,7 @@ class Tresor::Ft_initializer_channel : public Module_channel
 
 		using Request = Ft_initializer_request;
 
-		enum State { REQ_GENERATED, REQ_SUBMITTED, IN_PROGRESS, REQ_COMPLETE, WRITE_BLK_SUCCEEDED };
+		enum State { REQ_GENERATED, REQ_SUBMITTED, EXECUTE_NODES, REQ_COMPLETE };
 
 		enum Node_state { DONE, INIT_BLOCK, INIT_NODE, WRITE_BLK };
 
