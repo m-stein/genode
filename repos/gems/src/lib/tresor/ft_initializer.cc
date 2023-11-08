@@ -19,8 +19,6 @@
 
 using namespace Tresor;
 
-static constexpr bool DEBUG = false;
-
 Ft_initializer_request::Ft_initializer_request(Module_id src_mod, Module_channel_id src_chan,
                                                Tree_root &ft, Pba_allocator &pba_alloc, bool &success)
 :
@@ -51,13 +49,13 @@ bool Ft_initializer_channel::_execute_t2_node(Tree_node_index node_idx, bool &pr
 			node_state = DONE;
 			_num_remaining_leaves--;
 			progress = true;
-			if (DEBUG)
+			if (VERBOSE_FT_INIT)
 				log("[ft_init] node: ", 1, " ", node_idx, " assign pba: ", node.pba, " leaves left: ", _num_remaining_leaves);
 		} else {
 			node = { };
 			node_state = DONE;
 			progress = true;
-			if (DEBUG)
+			if (VERBOSE_FT_INIT)
 				log("[ft_init] node: ", 1, " ", node_idx, " assign pba 0, leaf unused");
 		}
 		break;
@@ -80,13 +78,13 @@ bool Ft_initializer_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_in
 			_reset_level(lvl - 1, INIT_BLOCK);
 			node_state = INIT_NODE;
 			progress = true;
-			if (DEBUG)
+			if (VERBOSE_FT_INIT)
 				log("[ft_init] node: ", lvl, " ", node_idx, " reset level: ", lvl - 1);
 		} else {
 			node = { };
 			node_state = DONE;
 			progress = true;
-			if (DEBUG)
+			if (VERBOSE_FT_INIT)
 				log("[ft_init] node: ", lvl, " ", node_idx, " assign pba 0, unused");
 		}
 		break;
@@ -107,7 +105,7 @@ bool Ft_initializer_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_in
 		_state = REQ_GENERATED;
 		node_state = WRITE_BLK;
 		progress = true;
-		if (DEBUG)
+		if (VERBOSE_FT_INIT)
 			log("[ft_init] node: ", lvl, " ", node_idx, " assign pba: ", node.pba);
 		break;
 	}
@@ -115,7 +113,7 @@ bool Ft_initializer_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_in
 
 		node_state = DONE;
 		progress = true;
-		if (DEBUG)
+		if (VERBOSE_FT_INIT)
 			log("[ft_init] node: ", lvl, " ", node_idx, " write pba: ", node.pba, " level: ", lvl -1, " (node: ", node, ")");
 		break;
 	}
