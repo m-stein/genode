@@ -114,7 +114,7 @@ bool Ft_initializer_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_in
 		node_state = DONE;
 		progress = true;
 		if (VERBOSE_FT_INIT)
-			log("[ft_init] node: ", lvl, " ", node_idx, " write pba: ", node.pba, " level: ", lvl -1, " (node: ", node, ")");
+			log("[ft_init] node: ", lvl, " ", node_idx, " write pba: ", node.pba, " level: ", lvl - 1, " (node: ", node, ")");
 		break;
 	}
 	return true;
@@ -124,7 +124,7 @@ bool Ft_initializer_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_in
 void Ft_initializer_channel::_generated_req_completed(State_uint state_uint)
 {
 	if (!_generated_req_success) {
-		error("ft initializer: request (", *_req_ptr, ") failed because generated request failed)");
+		error("ft initializer request (", *_req_ptr, ") failed because generated request failed");
 		_req_ptr->_success = false;
 		_state = REQ_COMPLETE;
 		_req_ptr = nullptr;
@@ -136,7 +136,7 @@ void Ft_initializer_channel::_generated_req_completed(State_uint state_uint)
 
 void Ft_initializer_channel::_mark_req_failed(bool &progress,  char const *str)
 {
-	error("request failed: failed to ", str);
+	error("ft initializer request (", *_req_ptr, ") failed because: ", str);
 	_req_ptr->_success = false;
 	_state = REQ_COMPLETE;
 	_req_ptr = nullptr;
@@ -193,19 +193,15 @@ void Ft_initializer_channel::execute(bool &progress)
 			if (_execute_t2_node(node_idx, progress))
 				return;
 
-		for (Tree_level_index lvl = 1; lvl <= req._ft.max_lvl; lvl++)
+		for (Tree_level_index lvl = 1; lvl <= req._ft.max_lvl + 1; lvl++)
 			for (Tree_node_index node_idx = 0; node_idx < req._ft.degree; node_idx++)
 				if (_execute_t1_node(lvl, node_idx, progress))
 					return;
 
-		if (_execute_t1_node(req._ft.max_lvl + 1, 0, progress))
-			return;
-
-		if (_num_remaining_leaves) {
+		if (_num_remaining_leaves)
 			_mark_req_failed(progress, "leaves remaining");
-			return;
-		}
-		_mark_req_successful(progress);
+		else
+			_mark_req_successful(progress);
 		return;
 
 	default: return;
