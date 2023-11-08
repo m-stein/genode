@@ -73,7 +73,6 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 		Vbd_initializer_request *_req_ptr { };
 		Root_node _root_node { };
 		Type_1_level _t1_levels[TREE_MAX_LEVEL] { };
-		uint64_t _level_to_write { 0 };
 		bool _generated_req_success { false };
 		Block _blk { };
 		Number_of_leaves _num_remaining_leaves { };

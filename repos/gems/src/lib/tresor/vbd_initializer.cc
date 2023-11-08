@@ -87,11 +87,11 @@ bool Vbd_initializer_channel::_execute_node(Tree_level_index lvl, Tree_node_inde
 				_mark_req_failed(progress, "allocate pba");
 				break;
 			}
-			Block blk { };
-			_t1_levels[lvl - 1].children.encode_to_blk(blk);
-			calc_hash(blk, node.hash);
+			_t1_levels[lvl - 1].children.encode_to_blk(_blk);
+			calc_hash(_blk, node.hash);
 			node_state = WRITE_BLOCK;
-			progress = true;
+			generate_req<Block_io::Write>(BLOCK_IO_COMPLETE, progress, node.pba, _blk, _generated_req_success);
+			_state = REQ_GENERATED;
 			if (VERBOSE_VBD_INIT)
 				log("[vbd_init] node: ", lvl, " ", node_idx, " assign pba: ", node.pba);
 		}
@@ -100,27 +100,15 @@ bool Vbd_initializer_channel::_execute_node(Tree_level_index lvl, Tree_node_inde
 	case WRITE_BLOCK:
 
 		ASSERT(lvl > 1);
-		switch (_state) {
-		case IN_PROGRESS:
-
-			_level_to_write = lvl - 1;
-			_t1_levels[_level_to_write].children.encode_to_blk(_blk);
-			generate_req<Block_io::Write>(BLOCK_IO_COMPLETE, progress, node.pba, _blk, _generated_req_success);
-			_state = REQ_GENERATED;
+		if (_state != BLOCK_IO_COMPLETE)
 			break;
 
-		case BLOCK_IO_COMPLETE:
-
-			_state = IN_PROGRESS;
-			node_state = DONE;
-			progress = true;
-			if (VERBOSE_VBD_INIT)
-				log("[vbd_init] node: ", lvl, " ", node_idx, " write pba: ", node.pba, " level: ",
-				    lvl -1, " (node: ", node, ")");
-			break;
-
-		default: break;
-		}
+		_state = IN_PROGRESS;
+		node_state = DONE;
+		progress = true;
+		if (VERBOSE_VBD_INIT)
+			log("[vbd_init] node: ", lvl, " ", node_idx, " write pba: ", node.pba, " level: ",
+				lvl -1, " (node: ", node, ")");
 		break;
 	}
 	return true;
@@ -177,18 +165,11 @@ void Vbd_initializer_channel::execute(bool &progress)
 	switch (_state) {
 	case SUBMITTED:
 
-		for (unsigned int i = 0; i < TREE_MAX_LEVEL; i++)
-			_reset_level(_t1_levels[i], Vbd_initializer_channel::DONE);
-		_level_to_write = 0;
+		for (Tree_level_index lvl = 0; lvl < TREE_MAX_LEVEL; lvl++)
+			_reset_level(_t1_levels[lvl], Vbd_initializer_channel::DONE);
 		_num_remaining_leaves = req._vbd.num_leaves;
-		_state = PENDING;
-		_root_node.state = Vbd_initializer_channel::INIT_BLOCK;
-		progress = true;
-		return;
-
-	case PENDING:
-
 		_state = IN_PROGRESS;
+		_root_node.state = Vbd_initializer_channel::INIT_BLOCK;
 		progress = true;
 		return;
 
