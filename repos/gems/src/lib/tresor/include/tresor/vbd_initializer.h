@@ -95,7 +95,7 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 			}
 		}
 
-		void _execute_node(Tree_level_index, Tree_node_index, bool &);
+		bool _execute_node(Tree_level_index, Tree_node_index, bool &);
 
 		void _mark_req_failed(bool &, char const *);
 

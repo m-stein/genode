@@ -25,12 +25,13 @@ Vbd_initializer_request::Vbd_initializer_request(Module_id src_mod, Module_chann
 { }
 
 
-void Vbd_initializer_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
+bool Vbd_initializer_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
 {
 	Request &req { *_req_ptr };
 	Type_1_node &node = lvl == req._vbd.max_lvl + 1 ? _root_node.node : _t1_levels[lvl].children.nodes[node_idx];
 	Node_state &node_state = lvl == req._vbd.max_lvl + 1 ? _root_node.state : _t1_levels[lvl].children_state[node_idx];
 	switch (node_state) {
+	case DONE: return false;
 	case INIT_BLOCK:
 
 		if (lvl == 1) {
@@ -121,9 +122,8 @@ void Vbd_initializer_channel::_execute_node(Tree_level_index lvl, Tree_node_inde
 		default: break;
 		}
 		break;
-
-	default: break;
 	}
+	return true;
 }
 
 
@@ -184,34 +184,33 @@ void Vbd_initializer_channel::execute(bool &progress)
 		_state = PENDING;
 		_root_node.state = Vbd_initializer_channel::INIT_BLOCK;
 		progress = true;
-		break;
+		return;
 
 	case PENDING:
 
 		_state = IN_PROGRESS;
 		progress = true;
-		break;
+		return;
 
 	case IN_PROGRESS:
 	case BLOCK_IO_COMPLETE:
 
 		for (Tree_level_index lvl = 0; lvl <= req._vbd.max_lvl; lvl++)
 			for (Tree_node_index node_idx = 0; node_idx < req._vbd.degree; node_idx++)
-				if (_t1_levels[lvl].children_state[node_idx] != Vbd_initializer_channel::DONE) {
-					_execute_node(lvl, node_idx, progress);
+				if (_execute_node(lvl, node_idx, progress))
 					return;
-				}
-		if (_root_node.state != Vbd_initializer_channel::DONE) {
-			_execute_node(req._vbd.max_lvl + 1, 0, progress);
-			break;
-		}
-		if (_num_remaining_leaves)
-			_mark_req_failed(progress, "leaves remaining");
-		else
-			_mark_req_successful(progress);
-		break;
 
-	default: break;
+		if (_execute_node(req._vbd.max_lvl + 1, 0, progress))
+			return;
+
+		if (_num_remaining_leaves) {
+			_mark_req_failed(progress, "leaves remaining");
+			return;
+		}
+		_mark_req_successful(progress);
+		return;
+
+	default: return;
 	}
 }
 
