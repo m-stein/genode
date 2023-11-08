@@ -53,15 +53,9 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 
 		using Request = Vbd_initializer_request;
 
-		enum State { REQ_GENERATED, SUBMITTED, PENDING, IN_PROGRESS, COMPLETE, BLOCK_IO_COMPLETE };
+		enum State { REQ_GENERATED, SUBMITTED, COMPLETE, EXECUTE_NODES };
 
 		enum Node_state { DONE, INIT_BLOCK, INIT_NODE, WRITE_BLOCK, };
-
-		struct Type_1_level
-		{
-			Type_1_node_block children { };
-			Node_state       children_state[NR_OF_T1_NODES_PER_BLK] { DONE };
-		};
 
 		struct Root_node
 		{
@@ -72,7 +66,8 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 		State _state { COMPLETE };
 		Vbd_initializer_request *_req_ptr { };
 		Root_node _root_node { };
-		Type_1_level _t1_levels[TREE_MAX_LEVEL] { };
+		Type_1_node_block_walk _t1_blks { };
+		Node_state _node_states[TREE_MAX_LEVEL][NR_OF_T1_NODES_PER_BLK] { DONE };
 		bool _generated_req_success { false };
 		Block _blk { };
 		Number_of_leaves _num_remaining_leaves { };
@@ -85,12 +80,11 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 
 		void _request_submitted(Module_request &) override;
 
-		static void _reset_level(Type_1_level &level,
-		                        Node_state   state)
+		void _reset_level(Tree_level_index lvl, Node_state state)
 		{
-			for (unsigned int i = 0; i < NR_OF_T1_NODES_PER_BLK; i++) {
-				level.children.nodes[i] = { };
-				level.children_state[i] = state;
+			for (unsigned int idx = 0; idx < NR_OF_T1_NODES_PER_BLK; idx++) {
+				_t1_blks.items[lvl].nodes[idx] = { };
+				_node_states[lvl][idx] = state;
 			}
 		}
 
