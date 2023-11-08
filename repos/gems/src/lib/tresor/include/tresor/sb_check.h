@@ -49,11 +49,6 @@ class Tresor::Sb_check_request : public Module_request
 
 		Sb_check_request(Module_id, Module_request_id, bool &);
 
-		static void create(void     *buf_ptr,
-		                   size_t    buf_size,
-		                   uint64_t  src_module_id,
-		                   uint64_t  src_request_id, bool &);
-
 		void print(Output &out) const override { Genode::print(out, "check"); }
 };
 
@@ -132,11 +127,6 @@ class Tresor::Sb_check : public Module
 		void _mark_req_successful(Channel &channel,
 		                          bool    &progress);
 
-
-		/************
-		 ** Module **
-		 ************/
-
 		bool _peek_completed_request(uint8_t *buf_ptr,
 		                             size_t   buf_size) override;
 
@@ -155,10 +145,6 @@ class Tresor::Sb_check : public Module
 	public:
 
 		Sb_check() { register_channels(_channels, NR_OF_CHANNELS, SB_CHECK); }
-
-		/************
-		 ** Module **
-		 ************/
 
 		bool ready_to_submit_request() override;
 

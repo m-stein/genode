@@ -22,11 +22,6 @@
 
 using namespace Tresor;
 
-
-/**********************
- ** Sb_check_request **
- **********************/
-
 Sb_check_request::Sb_check_request(Module_id         src_module_id,
                                    Module_request_id src_request_id)
 :
@@ -38,22 +33,6 @@ Sb_check_request::Sb_check_request(Module_id src_mod, Module_request_id src_chan
 :
 	Module_request { src_mod, src_chan, SB_CHECK }, _success_ptr { (addr_t)&success }
 { }
-
-
-void Sb_check_request::create(void     *buf_ptr,
-                              size_t    buf_size,
-                              uint64_t  src_module_id,
-                              uint64_t  src_request_id, bool &success)
-{
-	Sb_check_request req { src_module_id, src_request_id };
-	req._success_ptr = (addr_t)&success;
-
-	if (sizeof(req) > buf_size) {
-		class Bad_size_0 { };
-		throw Bad_size_0 { };
-	}
-	memcpy(buf_ptr, &req, sizeof(req));
-}
 
 
 void Sb_check_channel::_generated_req_completed(State_uint state_uint)
@@ -68,32 +47,13 @@ void Sb_check_channel::_generated_req_completed(State_uint state_uint)
 }
 
 
-/**************
- ** Sb_check **
- **************/
-
-char const *Sb_check::_state_to_step_label(Channel::Sb_slot_state state)
-{
-	switch (state) {
-	case Channel::READ_DONE: return "read";
-	case Channel::VBD_CHECK_DONE: return "vbd check";
-	case Channel::FT_CHECK_DONE: return "ft check";
-	case Channel::MT_CHECK_DONE: return "mt check";
-	default: break;
-	}
-	return "?";
-}
-
-
 bool Sb_check::_handle_failed_generated_req(Channel &chan,
                                             bool    &progress)
 {
 	if (chan._gen_prim_success)
 		return false;
 
-	_mark_req_failed(
-		chan, progress, _state_to_step_label(chan._sb_slot_state));
-
+	_mark_req_failed(chan, progress, "?");
 	return true;
 }
 
