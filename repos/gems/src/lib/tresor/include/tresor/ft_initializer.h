@@ -60,7 +60,7 @@ class Tresor::Ft_initializer_channel : public Module_channel
 		Request *_req_ptr { };
 		Type_2_node_block _t2_blk { };
 		Type_1_node_block_walk _t1_blks { };
-		Node_state _t1_node_states[TREE_MAX_NR_OF_LEVELS + 1][NR_OF_T1_NODES_PER_BLK] { };
+		Node_state _t1_node_states[TREE_MAX_NR_OF_LEVELS][NR_OF_T1_NODES_PER_BLK] { };
 		Node_state _t2_node_states[NR_OF_T2_NODES_PER_BLK] { };
 		Number_of_leaves _num_remaining_leaves { 0 };
 		bool _generated_req_success { false };

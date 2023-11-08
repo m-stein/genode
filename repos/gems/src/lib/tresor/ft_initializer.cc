@@ -30,8 +30,6 @@ bool Ft_initializer_channel::_execute_t2_node(Tree_node_index node_idx, bool &pr
 {
 	Node_state &node_state { _t2_node_states[node_idx] };
 	Type_2_node &node { _t2_blk.nodes[node_idx] };
-	if (node_state != DONE)
-		log("execute t2 lvl 0");
 	switch (node_state) {
 	case DONE: return false;
 	case INIT_BLOCK:
@@ -72,8 +70,6 @@ bool Ft_initializer_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_in
 {
 	Type_1_node &node { _t1_blks.items[lvl].nodes[node_idx] };
 	Node_state &node_state { _t1_node_states[lvl][node_idx] };
-	if (node_state != DONE)
-		log("execute t1 lvl ", lvl);
 	switch (node_state) {
 	case DONE: return false;
 	case INIT_BLOCK:
@@ -100,10 +96,10 @@ bool Ft_initializer_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_in
 			_mark_req_failed(progress, "allocate pba");
 			break;
 		}
-		if (lvl - 1)
-			_t1_blks.items[lvl - 1].encode_to_blk(_blk);
-		else
+		if (lvl == 2)
 			_t2_blk.encode_to_blk(_blk);
+		else
+			_t1_blks.items[lvl - 1].encode_to_blk(_blk);
 		calc_hash(_blk, node.hash);
 		generate_req<Block_io::Write>(EXECUTE_NODES, progress, node.pba, _blk, _generated_req_success);
 		_state = REQ_GENERATED;
@@ -118,7 +114,7 @@ bool Ft_initializer_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_in
 		node_state = DONE;
 		progress = true;
 		if (VERBOSE_FT_INIT)
-			log("[ft_init] node: ", lvl, " ", node_idx, " write pba: ", node.pba, " level: ", lvl - 1, " (node: ", node, ")");
+			log("[ft_init] node: ", lvl, " ", node_idx, " write pba: ", node.pba, " level: ", lvl -1, " (node: ", node, ")");
 		break;
 	}
 	return true;
@@ -160,16 +156,15 @@ void Ft_initializer_channel::_mark_req_successful(bool &progress)
 
 void Ft_initializer_channel::_reset_level(Tree_level_index lvl, Node_state node_state)
 {
-	log("reset lvl ", lvl, " maxlvl ", _req_ptr->_ft.max_lvl, " MAXLVL ", (int)TREE_MAX_LEVEL);
-	if (lvl)
-		for (Tree_node_index idx = 0; idx < NR_OF_T1_NODES_PER_BLK; idx++) {
-			_t1_blks.items[lvl].nodes[idx] = { };
-			_t1_node_states[lvl][idx] = node_state;
-		}
-	else
+	if (lvl == 1)
 		for (Tree_node_index idx = 0; idx < NR_OF_T2_NODES_PER_BLK; idx++) {
 			_t2_blk.nodes[idx] = { };
 			_t2_node_states[idx] = node_state;
+		}
+	else
+		for (Tree_node_index idx = 0; idx < NR_OF_T1_NODES_PER_BLK; idx++) {
+			_t1_blks.items[lvl].nodes[idx] = { };
+			_t1_node_states[lvl][idx] = node_state;
 		}
 }
 
@@ -184,7 +179,7 @@ void Ft_initializer_channel::execute(bool &progress)
 	case REQ_SUBMITTED:
 
 		_num_remaining_leaves = req._ft.num_leaves;
-		for (Tree_level_index lvl = 0; lvl <= TREE_MAX_LEVEL + 1; lvl++)
+		for (Tree_level_index lvl = 0; lvl < TREE_MAX_LEVEL; lvl++)
 			_reset_level(lvl, DONE);
 
 		_t1_node_states[req._ft.max_lvl + 1][0] = INIT_BLOCK;
@@ -198,15 +193,19 @@ void Ft_initializer_channel::execute(bool &progress)
 			if (_execute_t2_node(node_idx, progress))
 				return;
 
-		for (Tree_level_index lvl = 1; lvl <= req._ft.max_lvl + 1; lvl++)
+		for (Tree_level_index lvl = 1; lvl <= req._ft.max_lvl; lvl++)
 			for (Tree_node_index node_idx = 0; node_idx < req._ft.degree; node_idx++)
 				if (_execute_t1_node(lvl, node_idx, progress))
 					return;
 
-		if (_num_remaining_leaves)
+		if (_execute_t1_node(req._ft.max_lvl + 1, 0, progress))
+			return;
+
+		if (_num_remaining_leaves) {
 			_mark_req_failed(progress, "leaves remaining");
-		else
-			_mark_req_successful(progress);
+			return;
+		}
+		_mark_req_successful(progress);
 		return;
 
 	default: return;
