@@ -57,17 +57,10 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 
 		enum Node_state { DONE, INIT_BLOCK, INIT_NODE, WRITE_BLOCK, };
 
-		struct Root_node
-		{
-			Type_1_node node  { };
-			Node_state state { DONE };
-		};
-
 		State _state { COMPLETE };
 		Vbd_initializer_request *_req_ptr { };
-		Root_node _root_node { };
 		Type_1_node_block_walk _t1_blks { };
-		Node_state _node_states[TREE_MAX_LEVEL][NR_OF_T1_NODES_PER_BLK] { DONE };
+		Node_state _node_states[TREE_MAX_NR_OF_LEVELS][NR_OF_T1_NODES_PER_BLK] { DONE };
 		bool _generated_req_success { false };
 		Block _blk { };
 		Number_of_leaves _num_remaining_leaves { };
