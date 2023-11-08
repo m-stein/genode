@@ -25,55 +25,43 @@ Vbd_initializer_request::Vbd_initializer_request(Module_id src_mod, Module_chann
 { }
 
 
-void Vbd_initializer_channel::_execute_leaf_child(bool &progress,
-                                          uint64_t                             &nr_of_leaves,
-                                          Type_1_node                          &child,
-                                          Node_state &child_state,
-                                          uint64_t                              level_index,
-                                          uint64_t                              child_index)
+void Vbd_initializer_channel::_execute_leaf_child(Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
 {
-	switch (child_state) {
+	Type_1_node &node = _t1_levels[lvl].children.nodes[node_idx];
+	Node_state &node_state = _t1_levels[lvl].children_state[node_idx];
+	switch (node_state) {
 	case INIT_BLOCK:
-		child_state = INIT_NODE;
+
+		node_state = INIT_NODE;
 		progress = true;
-		return;
+		break;
 
 	case INIT_NODE:
-		if (nr_of_leaves == 0) {
 
-			if (VERBOSE_VBD_INIT)
-				log("[vbd_init] node: ", level_index, " ", child_index,
-				    " assign pba 0, leaf unused");
-
-			child = { };
-			child_state = DONE;
-			progress = true;
-		} else {
-
-			switch (_state) {
-			case IN_PROGRESS:
-
-				child = { };
-				if (!_req_ptr->_pba_alloc.alloc(child.pba)) {
-					_mark_req_failed(progress, "allocate pba");
-					break;
-				}
-				child_state = DONE;
-				--nr_of_leaves;
-				progress = true;
-
-				if (VERBOSE_VBD_INIT)
-					log("[vbd_init] node: ", level_index, " ", child_index,
-					    " assign pba: ", child.pba, " leaves left: ",
-					    nr_of_leaves);
+		if (_num_remaining_leaves) {
+			if (_state != IN_PROGRESS)
 				break;
 
-			default:
+			node = { };
+			if (!_req_ptr->_pba_alloc.alloc(node.pba)) {
+				_mark_req_failed(progress, "allocate pba");
 				break;
 			}
+			node_state = DONE;
+			_num_remaining_leaves--;
+			progress = true;
+			if (VERBOSE_VBD_INIT)
+				log("[vbd_init] node: ", lvl, " ", node_idx, " assign pba: ", node.pba, " leaves left: ", _num_remaining_leaves);
+		} else {
+			node = { };
+			node_state = DONE;
+			progress = true;
+			if (VERBOSE_VBD_INIT)
+				log("[vbd_init] node: ", lvl, " ", node_idx, " assign pba 0, leaf unused");
 		}
-	default:
 		break;
+
+	default: break;
 	}
 }
 
@@ -238,9 +226,9 @@ void Vbd_initializer_channel::execute(bool &progress)
 	case IN_PROGRESS:
 	case BLOCK_IO_COMPLETE:
 
-		for (uint64_t level_idx = 0; level_idx <= req._vbd.max_lvl; level_idx++) {
+		for (Tree_level_index level_idx = 0; level_idx <= req._vbd.max_lvl; level_idx++) {
 
-			for (uint64_t child_idx = 0; child_idx < req._vbd.degree; child_idx++) {
+			for (Tree_node_index child_idx = 0; child_idx < req._vbd.degree; child_idx++) {
 
 				Node_state &state =
 					_t1_levels[level_idx].children_state[child_idx];
@@ -250,10 +238,9 @@ void Vbd_initializer_channel::execute(bool &progress)
 					Type_1_node &child =
 						_t1_levels[level_idx].children.nodes[child_idx];
 
-					if (level_idx == 1) {
-						_execute_leaf_child(progress, _num_remaining_leaves,
-											child, state, level_idx, child_idx);
-					} else {
+					if (level_idx == 1)
+						_execute_leaf_child(level_idx, child_idx, progress);
+					else {
 
 						Type_1_level &t1_level =
 							_t1_levels[level_idx - 1];
@@ -281,10 +268,10 @@ void Vbd_initializer_channel::execute(bool &progress)
 			return;
 		}
 
-		if (_num_remaining_leaves == 0)
-			_mark_req_successful(progress);
+		if (_num_remaining_leaves)
+			_mark_req_failed(progress, "leaves remaining");
 		else
-			_mark_req_failed(progress, "initialize VBD");
+			_mark_req_successful(progress);
 		break;
 
 	default: break;
