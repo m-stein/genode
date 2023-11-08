@@ -1038,7 +1038,7 @@ void Command::execute(bool &progress)
 		break;
 	}
 	case Command::CHECK:
-		generate_req<Sb_check_request>(COMPLETED, progress, Sb_check_request::CHECK, _success);
+		generate_req<Sb_check_request>(COMPLETED, progress, _success);
 		_main.mark_command_in_progress(id());
 		break;
 	case LOG:

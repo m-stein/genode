@@ -34,20 +34,18 @@ Sb_check_request::Sb_check_request(Module_id         src_module_id,
 { }
 
 
-Sb_check_request::Sb_check_request(Module_id src_mod, Module_request_id src_chan, Type type, bool &success)
+Sb_check_request::Sb_check_request(Module_id src_mod, Module_request_id src_chan, bool &success)
 :
-	Module_request { src_mod, src_chan, SB_CHECK }, _type { type }, _success_ptr { (addr_t)&success }
+	Module_request { src_mod, src_chan, SB_CHECK }, _success_ptr { (addr_t)&success }
 { }
 
 
 void Sb_check_request::create(void     *buf_ptr,
                               size_t    buf_size,
                               uint64_t  src_module_id,
-                              uint64_t  src_request_id,
-                              size_t    req_type, bool &success)
+                              uint64_t  src_request_id, bool &success)
 {
 	Sb_check_request req { src_module_id, src_request_id };
-	req._type = (Type)req_type;
 	req._success_ptr = (addr_t)&success;
 
 	if (sizeof(req) > buf_size) {
@@ -55,16 +53,6 @@ void Sb_check_request::create(void     *buf_ptr,
 		throw Bad_size_0 { };
 	}
 	memcpy(buf_ptr, &req, sizeof(req));
-}
-
-
-char const *Sb_check_request::type_to_string(Type type)
-{
-	switch (type) {
-	case INVALID: return "invalid";
-	case CHECK:   return "check";
-	}
-	return "?";
 }
 
 
@@ -496,17 +484,6 @@ void Sb_check::execute(bool &progress)
 		if (chan._sb_slot_state == Channel::INACTIVE)
 			continue;
 
-		Request &req { chan._request };
-		switch (req._type) {
-		case Request::CHECK:
-
-			_execute_check(chan, progress);
-			break;
-
-		default:
-
-			class Exception_1 { };
-			throw Exception_1 { };
-		}
+		_execute_check(chan, progress);
 	}
 }

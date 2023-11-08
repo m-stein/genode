@@ -47,15 +47,13 @@ class Tresor::Vbd_initializer_request : public Module_request
 
 class Tresor::Vbd_initializer_channel : public Module_channel
 {
-	friend class Vbd_initializer;
-
 	private:
 
 		using Request = Vbd_initializer_request;
 
 		enum State { REQ_GENERATED, SUBMITTED, COMPLETE, EXECUTE_NODES };
 
-		enum Node_state { DONE, INIT_BLOCK, INIT_NODE, WRITE_BLOCK, };
+		enum Node_state { DONE, INIT_BLOCK, INIT_NODE, WRITE_BLOCK };
 
 		State _state { COMPLETE };
 		Vbd_initializer_request *_req_ptr { };
@@ -73,13 +71,7 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 
 		void _request_submitted(Module_request &) override;
 
-		void _reset_level(Tree_level_index lvl, Node_state state)
-		{
-			for (unsigned int idx = 0; idx < NR_OF_T1_NODES_PER_BLK; idx++) {
-				_t1_blks.items[lvl].nodes[idx] = { };
-				_node_states[lvl][idx] = state;
-			}
-		}
+		void _reset_level(Tree_level_index, Node_state);
 
 		bool _execute_node(Tree_level_index, Tree_node_index, bool &);
 

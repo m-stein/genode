@@ -31,16 +31,11 @@ namespace Tresor {
 
 class Tresor::Sb_check_request : public Module_request
 {
-	public:
-
-		enum Type { INVALID = 0, CHECK = 1, };
-
 	private:
 
 		friend class Sb_check;
 		friend class Sb_check_channel;
 
-		Type _type    { INVALID };
 		addr_t _success_ptr { };
 
 		bool &_success() { return *(bool*)_success_ptr; }
@@ -52,22 +47,14 @@ class Tresor::Sb_check_request : public Module_request
 		Sb_check_request(Module_id         src_module_id,
 		                        Module_request_id src_request_id);
 
-		Sb_check_request(Module_id, Module_request_id, Type, bool &);
+		Sb_check_request(Module_id, Module_request_id, bool &);
 
 		static void create(void     *buf_ptr,
 		                   size_t    buf_size,
 		                   uint64_t  src_module_id,
-		                   uint64_t  src_request_id,
-		                   size_t    req_type, bool &);
+		                   uint64_t  src_request_id, bool &);
 
-		static char const *type_to_string(Type type);
-
-
-		/********************
-		 ** Module_request **
-		 ********************/
-
-		void print(Output &out) const override { Genode::print(out, type_to_string(_type)); }
+		void print(Output &out) const override { Genode::print(out, "check"); }
 };
 
 
