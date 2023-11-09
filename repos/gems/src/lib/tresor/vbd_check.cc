@@ -76,7 +76,7 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 			} else if (_state == REQ_SUBMITTED) {
 
 				_lvl_to_read = lvl - 1;
-				generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _lvl_to_read == 0 ? _leaf_lvl : _blk, _generated_req_success);
+				generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _blk, _generated_req_success);
 				_state = REQ_GENERATED;
 				if (VERBOSE_CHECK)
 					log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
@@ -91,7 +91,7 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 		}
 		case CHECK_HASH: {
 
-			if (check_hash(_leaf_lvl, node.hash)) {
+			if (check_hash(_blk, node.hash)) {
 				_num_remaining_leaves--;
 				node_state = DONE;
 				progress = true;
@@ -100,7 +100,7 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 			} else {
 				_mark_req_failed(progress, "check leaf hash");
 				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node, "): bad hash ", hash(_leaf_lvl));
+					log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node, "): bad hash ", hash(_blk));
 			}
 			break;
 		}
@@ -128,7 +128,7 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 
 			} else if (_state == REQ_SUBMITTED) {
 				_lvl_to_read = lvl - 1;
-				generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _lvl_to_read == 0 ? _leaf_lvl : _blk, _generated_req_success);
+				generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _blk, _generated_req_success);
 				_state = REQ_GENERATED;
 				if (VERBOSE_CHECK)
 					log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
@@ -202,7 +202,6 @@ void Vbd_check_channel::_request_submitted(Module_request &mod_req)
 	_req_ptr = static_cast<Request *>(&mod_req);
 	_lvl_to_read = 0;
 	_node_states[_req_ptr->_vbd.max_lvl + 1][0] = DONE;
-	_leaf_lvl = { };
 	for (Tree_level_index lvl { 1 }; lvl <= _req_ptr->_vbd.max_lvl + 1; lvl++)
 		for (Tree_node_index node_idx { 0 }; node_idx < _req_ptr->_vbd.degree; node_idx++)
 			_node_states[lvl][node_idx] = DONE;
