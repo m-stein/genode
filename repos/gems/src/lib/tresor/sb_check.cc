@@ -22,39 +22,22 @@
 
 using namespace Tresor;
 
-Sb_check_request::Sb_check_request(Module_id         src_module_id,
-                                   Module_request_id src_request_id)
-:
-	Module_request { src_module_id, src_request_id, SB_CHECK }
-{ }
-
-
 Sb_check_request::Sb_check_request(Module_id src_mod, Module_request_id src_chan, bool &success)
 :
-	Module_request { src_mod, src_chan, SB_CHECK }, _success_ptr { (addr_t)&success }
+	Module_request { src_mod, src_chan, SB_CHECK }, _success { success }
 { }
 
 
 void Sb_check_channel::_generated_req_completed(State_uint state_uint)
 {
 	if (!_gen_prim_success) {
-		error("sb check: request (", _request, ") failed because generated request failed)");
-		_request._success() = false;
+		error("sb check: request (", *_req_ptr, ") failed because generated request failed)");
+		_req_ptr->_success = false;
 		_sb_slot_state = DONE;
+		_req_ptr = nullptr;
 		return;
 	}
 	_sb_slot_state = (Sb_slot_state)state_uint;
-}
-
-
-bool Sb_check::_handle_failed_generated_req(Channel &chan,
-                                            bool    &progress)
-{
-	if (chan._gen_prim_success)
-		return false;
-
-	_mark_req_failed(chan, progress, "?");
-	return true;
 }
 
 
@@ -148,6 +131,7 @@ void Sb_check::_execute_check(Channel &chan,
 			} else {
 
 				chan._sb_slot_state = Channel::DONE;
+				chan._req_ptr = nullptr;
 				progress = true;
 
 				if (VERBOSE_CHECK)
@@ -201,9 +185,10 @@ void Sb_check::_mark_req_failed(Channel    &chan,
                                 bool       &progress,
                                 char const *str)
 {
-	error("sb check: request (", chan._request, ") failed at step \"", str, "\"");
-	chan._request._success() = false;
+	error("sb check: request (", *chan._req_ptr, ") failed at step \"", str, "\"");
+	chan._req_ptr->_success = false;
 	chan._sb_slot_state = Channel::DONE;
+	chan._req_ptr = nullptr;
 	progress = true;
 }
 
@@ -211,63 +196,19 @@ void Sb_check::_mark_req_failed(Channel    &chan,
 void Sb_check::_mark_req_successful(Channel &chan,
                                     bool    &progress)
 {
-	Request &req { chan._request };
-	req._success() = true;
+	Request &req { *chan._req_ptr };
+	req._success = true;
 	chan._sb_slot_state = Channel::DONE;
+	chan._req_ptr = nullptr;
 	progress = true;
-}
-
-
-bool Sb_check::_peek_completed_request(uint8_t *buf_ptr,
-                                       size_t   buf_size)
-{
-	for (Channel &channel : _channels) {
-		if (channel._sb_slot_state == Channel::DONE) {
-			if (sizeof(channel._request) > buf_size) {
-				class Exception_1 { };
-				throw Exception_1 { };
-			}
-			memcpy(buf_ptr, &channel._request, sizeof(channel._request));
-			return true;
-		}
-	}
-	return false;
-}
-
-
-void Sb_check::_drop_completed_request(Module_request &req)
-{
-	Module_request_id id { 0 };
-	id = req.dst_request_id();
-	if (id >= NR_OF_CHANNELS) {
-		class Exception_1 { };
-		throw Exception_1 { };
-	}
-	if (_channels[id]._sb_slot_state != Channel::DONE) {
-		class Exception_2 { };
-		throw Exception_2 { };
-	}
-	_channels[id]._sb_slot_state = Channel::INACTIVE;
-}
-
-
-bool Sb_check::ready_to_submit_request()
-{
-	for (Channel &chan : _channels) {
-		if (chan._sb_slot_state == Channel::INACTIVE)
-			return true;
-	}
-	return false;
 }
 
 
 void Sb_check_channel::_reset()
 {
 	_state = INSPECT_SBS;
-	_request = { };
 	_highest_gen = 0;
 	_last_sb_slot_idx = 0;
-	_sb_slot_state = INACTIVE;
 	_sb_slot_idx = 0;
 	_sb_slot = { };
 	_snap_idx = 0;
@@ -280,20 +221,11 @@ void Sb_check_channel::_reset()
 }
 
 
-void Sb_check::submit_request(Module_request &req)
+void Sb_check_channel::_request_submitted(Module_request &mod_req)
 {
-	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
-		Channel &chan { _channels[id] };
-		if (chan._sb_slot_state == Channel::INACTIVE) {
-			req.dst_request_id(id);
-			chan._reset();
-			chan._request = *static_cast<Request *>(&req);
-			chan._sb_slot_state = Channel::INIT;
-			return;
-		}
-	}
-	class Exception_1 { };
-	throw Exception_1 { };
+	_reset();
+	_req_ptr = static_cast<Request *>(&mod_req);
+	_sb_slot_state = INIT;
 }
 
 
@@ -301,7 +233,7 @@ void Sb_check::execute(bool &progress)
 {
 	for (Channel &chan : _channels) {
 
-		if (chan._sb_slot_state == Channel::INACTIVE)
+		if (!chan._req_ptr)
 			continue;
 
 		_execute_check(chan, progress);
