@@ -254,8 +254,11 @@ void Vbd_check_channel::_execute_leaf_child(Type_1_node const &child,
 }
 
 
-void Vbd_check_channel::_execute_check(bool &progress)
+void Vbd_check_channel::execute(bool &progress)
 {
+	if (!_req_ptr)
+		return;
+
 	Request &req { *_req_ptr };
 	for (Tree_level_index lvl { VBD_LOWEST_T1_LVL }; lvl <= req._vbd.max_lvl; lvl++) {
 		for (Tree_node_index child_idx { 0 }; child_idx < req._vbd.degree; child_idx++) {
@@ -306,13 +309,18 @@ void Vbd_check_channel::_request_submitted(Module_request &mod_req)
 }
 
 
+Vbd_check::Vbd_check()
+{
+	Module_channel_id id { 0 };
+	for (Constructible<Channel> &chan : _channels) {
+		chan.construct(id++);
+		add_channel(*chan);
+	}
+}
+
+
 void Vbd_check::execute(bool &progress)
 {
-	for (Channel &chan : _channels) {
-
-		if (!chan._req_ptr)
-			continue;
-
-		chan._execute_check(progress);
-	}
+	for_each_channel<Channel>([&] (Channel &chan) {
+		chan.execute(progress); });
 }

@@ -15,7 +15,7 @@
 #define _TRESOR__VBD_CHECK_H_
 
 /* base includes */
-#include <base/output.h>
+#include <util/reconstructible.h>
 
 /* tresor includes */
 #include <tresor/types.h>
@@ -31,7 +31,6 @@ namespace Tresor {
 
 class Tresor::Vbd_check_request : public Module_request
 {
-	friend class Vbd_check;
 	friend class Vbd_check_channel;
 
 	private:
@@ -52,8 +51,6 @@ class Tresor::Vbd_check_request : public Module_request
 class Tresor::Vbd_check_channel : public Module_channel
 {
 	private:
-
-		friend class Vbd_check;
 
 		using Request = Vbd_check_request;
 
@@ -94,6 +91,8 @@ class Tresor::Vbd_check_channel : public Module_channel
 		Number_of_leaves _num_remaining_leaves { 0 };
 		bool _generated_req_success { false };
 
+		NONCOPYABLE(Vbd_check_channel);
+
 		void _generated_req_completed(State_uint) override;
 
 		void _request_submitted(Module_request &) override;
@@ -101,8 +100,6 @@ class Tresor::Vbd_check_channel : public Module_channel
 		bool _request_complete() override { return _root_state == DONE; }
 
 		void _reset();
-
-		void _execute_check(bool    &progress);
 
 		void _mark_req_failed(bool       &progress,
 		                      char const *str);
@@ -123,6 +120,12 @@ class Tresor::Vbd_check_channel : public Module_channel
 		                         Tree_level_index   lvl,
 		                         Tree_node_index    child_idx,
 		                         bool              &progress);
+
+	public:
+
+		Vbd_check_channel(Module_channel_id id) : Module_channel { VBD_CHECK, id } { }
+
+		void execute(bool &);
 };
 
 
@@ -130,21 +133,17 @@ class Tresor::Vbd_check : public Module
 {
 	private:
 
-		using Request = Vbd_check_request;
 		using Channel = Vbd_check_channel;
-		using Child_state = Vbd_check_channel::Child_state;
-		using Type_1_level = Vbd_check_channel::Type_1_level;
 
-		enum { NR_OF_CHANNELS = 1 };
+		Constructible<Channel> _channels[1] { };
 
-		Channel _channels[NR_OF_CHANNELS] { };
+		NONCOPYABLE(Vbd_check);
 
 	public:
 
-		Vbd_check() { register_channels(_channels, NR_OF_CHANNELS, VBD_CHECK); }
+		Vbd_check();
 
 		void execute(bool &) override;
-
 };
 
 #endif /* _TRESOR__VBD_CHECK_H_ */
