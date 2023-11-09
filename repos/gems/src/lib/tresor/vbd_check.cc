@@ -63,8 +63,7 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 				if (node.valid()) {
 
 					if (VERBOSE_CHECK)
-						log(Level_indent { lvl, req._vbd.max_lvl },
-							"    lvl ", lvl, " node ", node_idx, " (", node, "): unexpectedly valid");
+						log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node, "): unexpectedly valid");
 
 					_mark_req_failed(progress, "check for unused node");
 
@@ -74,8 +73,7 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 					progress = true;
 
 					if (VERBOSE_CHECK)
-						log(Level_indent { lvl, req._vbd.max_lvl },
-							"    lvl ", lvl, " node ", node_idx, ": expectedly invalid");
+						log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": expectedly invalid");
 				}
 
 			} else if (node.gen == INITIAL_GENERATION) {
@@ -85,8 +83,7 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 				progress = true;
 
 				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, req._vbd.max_lvl },
-						"    lvl ", lvl, " node ", node_idx, ": uninitialized");
+					log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": uninitialized");
 
 			} else if (!_gen_prim.valid()) {
 
@@ -98,23 +95,11 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 
 				_lvl_to_read = lvl - 1;
 				generate_req<Block_io::Read>(
-					INVALID, progress, _gen_prim.blk_nr,
-					_lvl_to_read == 0 ? _leaf_lvl : _encoded_blk, _generated_req_success);
-				_gen_prim.dropped = true;
-
+					INVALID, progress, node.pba, _lvl_to_read == 0 ? _leaf_lvl : _encoded_blk, _generated_req_success);
 				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, req._vbd.max_lvl },
-						"    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
+					log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
 
-			} else if (_gen_prim.tag != BLOCK_IO ||
-					   _gen_prim.blk_nr != node.pba) {
-
-				class Exception_1 { };
-				throw Exception_1 { };
-
-			} else if (!_gen_prim.success) {
-
-			} else {
+			} else if (_gen_prim.success) {
 
 				_gen_prim = { };
 				node_state = CHECK_HASH;
@@ -125,22 +110,15 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 		case CHECK_HASH: {
 
 			if (check_hash(_leaf_lvl, node.hash)) {
-
 				_num_remaining_leaves--;
 				node_state = DONE;
 				progress = true;
-
 				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, req._vbd.max_lvl },
-						"    lvl ", lvl, " node ", node_idx, ": good hash");
-
+					log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": good hash");
 			} else {
-
-				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, req._vbd.max_lvl },
-						"    lvl ", lvl, " node ", node_idx, " (", node, "): bad hash ", hash(_leaf_lvl));
-
 				_mark_req_failed(progress, "check leaf hash");
+				if (VERBOSE_CHECK)
+					log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node, "): bad hash ", hash(_leaf_lvl));
 			}
 			break;
 		}
@@ -182,24 +160,12 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 					.dropped = false };
 
 				_lvl_to_read = lvl - 1;
-				generate_req<Block_io::Read>(
-					INVALID, progress, _gen_prim.blk_nr,
-					_lvl_to_read == 0 ? _leaf_lvl : _encoded_blk, _generated_req_success);
-				_gen_prim.dropped = true;
-
+				generate_req<Block_io::Read>(INVALID, progress, node.pba, _lvl_to_read == 0 ? _leaf_lvl : _encoded_blk, _generated_req_success);
 				if (VERBOSE_CHECK)
 					log(Level_indent { lvl, req._vbd.max_lvl },
 						"    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
 
-			} else if (_gen_prim.tag != BLOCK_IO ||
-					   _gen_prim.blk_nr != node.pba) {
-
-				class Exception_1 { };
-				throw Exception_1 { };
-
-			} else if (!_gen_prim.success) {
-
-			} else {
+			} else if (_gen_prim.success) {
 
 				for (Node_state &state : _t1_lvls[lvl - 1].children_state)
 					state = READ_BLOCK;
