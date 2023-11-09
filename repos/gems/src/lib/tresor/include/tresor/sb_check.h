@@ -14,6 +14,9 @@
 #ifndef _TRESOR__SB_CHECK_H_
 #define _TRESOR__SB_CHECK_H_
 
+/* base includes */
+#include <util/reconstructible.h>
+
 /* tresor includes */
 #include <tresor/types.h>
 #include <tresor/module.h>
@@ -47,19 +50,13 @@ class Tresor::Sb_check_request : public Module_request
 
 class Tresor::Sb_check_channel : public Module_channel
 {
-	friend class Sb_check;
-
 	private:
 
 		using Request = Sb_check_request;
 
 		enum State { INSPECT_SBS, CHECK_SB };
 
-		enum Sb_slot_state : State_uint {
-			INIT, DONE, READ_DONE, REQ_GENERATED,
-			VBD_CHECK_STARTED, VBD_CHECK_DROPPED, VBD_CHECK_DONE,
-			FT_CHECK_STARTED, FT_CHECK_DROPPED, FT_CHECK_DONE,
-			MT_CHECK_STARTED, MT_CHECK_DROPPED, MT_CHECK_DONE };
+		enum Sb_slot_state : State_uint { INIT, DONE, READ_DONE, REQ_GENERATED, VBD_CHECK_DONE, FT_CHECK_DONE, MT_CHECK_DONE };
 
 		State _state { INSPECT_SBS };
 		Request *_req_ptr { };
@@ -76,6 +73,8 @@ class Tresor::Sb_check_channel : public Module_channel
 		bool _gen_prim_success { false };
 		Block _encoded_blk { };
 
+		NONCOPYABLE(Sb_check_channel);
+
 		void _reset();
 
 		void _generated_req_completed(State_uint) override;
@@ -91,11 +90,15 @@ class Tresor::Sb_check_channel : public Module_channel
 			generate_req<REQUEST>(state, progress, args..., _gen_prim_success);
 		}
 
-		void _execute_check(bool &);
-
 		void _mark_req_failed(bool &, char const *);
 
 		void _mark_req_successful(bool &);
+
+	public:
+
+		Sb_check_channel(Module_channel_id id) : Module_channel { SB_CHECK, id } { }
+
+		void execute(bool &);
 };
 
 
@@ -103,19 +106,17 @@ class Tresor::Sb_check : public Module
 {
 	private:
 
-		using Request = Sb_check_request;
 		using Channel = Sb_check_channel;
 
-		enum { NR_OF_CHANNELS = 1 };
+		Constructible<Channel> _channels[1] { };
 
-		Channel _channels[NR_OF_CHANNELS] { };
+		NONCOPYABLE(Sb_check);
 
 	public:
 
-		Sb_check() { register_channels(_channels, NR_OF_CHANNELS, SB_CHECK); }
+		Sb_check();
 
 		void execute(bool &) override;
-
 };
 
 #endif /* _TRESOR__SB_CHECK_H_ */

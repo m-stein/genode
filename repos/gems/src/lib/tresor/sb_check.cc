@@ -38,8 +38,11 @@ void Sb_check_channel::_generated_req_completed(State_uint state_uint)
 }
 
 
-void Sb_check_channel::_execute_check(bool &progress)
+void Sb_check_channel::execute(bool &progress)
 {
+	if (!_req_ptr)
+		return;
+
 	switch (_state) {
 	case INSPECT_SBS:
 
@@ -208,13 +211,18 @@ void Sb_check_channel::_request_submitted(Module_request &mod_req)
 }
 
 
+Sb_check::Sb_check()
+{
+	Module_channel_id id { 0 };
+	for (Constructible<Channel> &chan : _channels) {
+		chan.construct(id++);
+		add_channel(*chan);
+	}
+}
+
+
 void Sb_check::execute(bool &progress)
 {
-	for (Channel &chan : _channels) {
-
-		if (!chan._req_ptr)
-			continue;
-
-		chan._execute_check(progress);
-	}
+	for_each_channel<Channel>([&] (Channel &chan) {
+		chan.execute(progress); });
 }
