@@ -104,15 +104,7 @@ class Tresor::Vbd_check_channel : public Module_channel
 
 		void _mark_req_successful(bool &);
 
-		void _execute_inner_t1_child(Type_1_node const &child,
-		                             Type_1_level      &child_lvl,
-		                             Child_state       &child_state,
-		                             Tree_level_index   lvl,
-		                             Tree_node_index    child_idx,
-		                             bool              &);
-
-
-		void _execute_leaf_child(Tree_level_index, Tree_node_index, bool &);
+		bool _execute_node(Tree_level_index, Tree_node_index, bool &);
 
 	public:
 
