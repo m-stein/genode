@@ -58,36 +58,12 @@ class Tresor::Vbd_check_channel : public Module_channel
 
 		enum Node_state { READ_BLOCK = 0, CHECK_HASH = 1, DONE = 2 };
 
-		struct Type_1_level
-		{
-			Node_state       children_state[NR_OF_T1_NODES_PER_BLK] { };
-			Type_1_node_block children                                   { };
-
-			Type_1_level()
-			{
-				for (Node_state &state : children_state)
-					state = DONE;
-			}
-		};
-
-		enum Primitive_tag { INVALID, BLOCK_IO };
-
-		struct Generated_primitive
-		{
-			bool                   success { false };
-			Primitive_tag          tag     { INVALID };
-			Physical_block_address blk_nr  { 0 };
-			bool                   dropped { false };
-
-			bool valid() const { return tag != INVALID; }
-		};
-
 		State _state { REQ_COMPLETE };
-		Generated_primitive _gen_prim { };
 		Tree_level_index _lvl_to_read { 0 };
 		Block _leaf_lvl { };
-		Block _encoded_blk { };
-		Type_1_level _t1_lvls[TREE_MAX_NR_OF_LEVELS] { };
+		Type_1_node_block_walk _t1_blks { };
+		Node_state _node_states[TREE_MAX_NR_OF_LEVELS][NR_OF_T1_NODES_PER_BLK] { };
+		Block _blk { };
 		Request *_req_ptr { };
 		Number_of_leaves _num_remaining_leaves { 0 };
 		bool _generated_req_success { false };

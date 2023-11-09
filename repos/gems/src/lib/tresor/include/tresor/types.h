@@ -71,7 +71,6 @@ namespace Tresor {
 	enum { TREE_MAX_LEVEL = 6 };
 	enum { TREE_MAX_NR_OF_LEVELS = TREE_MAX_LEVEL + 1 };
 	enum { T2_NODE_LVL = 1 };
-	enum { VBD_LOWEST_T1_LVL = 1 };
 	enum { FT_LOWEST_T1_LVL = 2 };
 	enum { MT_LOWEST_T1_LVL = 2 };
 	enum { KEY_SIZE = 32 };
