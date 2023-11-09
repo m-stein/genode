@@ -54,8 +54,9 @@ class Tresor::Vbd_check_channel : public Module_channel
 
 		using Request = Vbd_check_request;
 
-		enum Child_state {
-			READ_BLOCK = 0, CHECK_HASH = 1, DONE = 2 };
+		enum State { REQ_SUBMITTED, REQ_COMPLETE, REQ_GENERATED };
+
+		enum Child_state { READ_BLOCK = 0, CHECK_HASH = 1, DONE = 2 };
 
 		struct Type_1_level
 		{
@@ -81,12 +82,12 @@ class Tresor::Vbd_check_channel : public Module_channel
 			bool valid() const { return tag != INVALID; }
 		};
 
+		State _state { REQ_COMPLETE };
 		Generated_primitive _gen_prim { };
 		Tree_level_index _lvl_to_read { 0 };
-		Child_state _root_state { DONE };
 		Block _leaf_lvl { };
 		Block _encoded_blk { };
-		Type_1_level _t1_lvls[TREE_MAX_LEVEL] { };
+		Type_1_level _t1_lvls[TREE_MAX_NR_OF_LEVELS] { };
 		Request *_req_ptr { };
 		Number_of_leaves _num_remaining_leaves { 0 };
 		bool _generated_req_success { false };
@@ -97,29 +98,21 @@ class Tresor::Vbd_check_channel : public Module_channel
 
 		void _request_submitted(Module_request &) override;
 
-		bool _request_complete() override { return _root_state == DONE; }
+		bool _request_complete() override { return _state == REQ_COMPLETE; }
 
-		void _reset();
+		void _mark_req_failed(bool &, char const *str);
 
-		void _mark_req_failed(bool       &progress,
-		                      char const *str);
-
-		void _mark_req_successful(bool    &progress);
+		void _mark_req_successful(bool &);
 
 		void _execute_inner_t1_child(Type_1_node const &child,
 		                             Type_1_level      &child_lvl,
 		                             Child_state       &child_state,
 		                             Tree_level_index   lvl,
 		                             Tree_node_index    child_idx,
-		                             bool              &progress);
+		                             bool              &);
 
 
-		void _execute_leaf_child(Type_1_node const &child,
-		                         Block       const &child_lvl,
-		                         Child_state       &child_state,
-		                         Tree_level_index   lvl,
-		                         Tree_node_index    child_idx,
-		                         bool              &progress);
+		void _execute_leaf_child(Tree_level_index, Tree_node_index, bool &);
 
 	public:
 
