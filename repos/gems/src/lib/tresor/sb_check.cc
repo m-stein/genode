@@ -27,7 +27,7 @@ Sb_check_request::Sb_check_request(Module_id src_mod, Module_request_id src_chan
 
 void Sb_check_channel::_generated_req_completed(State_uint state_uint)
 {
-	if (!_gen_prim_success) {
+	if (!_generated_req_success) {
 		error("sb check: request (", *_req_ptr, ") failed because generated request failed)");
 		_req_ptr->_success = false;
 		_sb_slot_state = DONE;
@@ -44,75 +44,61 @@ void Sb_check_channel::execute(bool &progress)
 		return;
 
 	switch (_state) {
-	case INSPECT_SBS:
+	case FIND_HIGHEST_GEN_SB:
 
 		switch (_sb_slot_state) {
 		case INIT:
 
-			_gen_prim_blk_nr = _sb_slot_idx;
-			_generate_req<Block_io::Read>(READ_DONE, progress, _gen_prim_blk_nr, _encoded_blk);
+			_highest_gen = 0;
+			_last_sb_slot_idx = 0;
+			_sb_slot_idx = 0;
+			_generate_req<Block_io::Read>(READ_SUCCESSFUL, progress, _sb_slot_idx, _blk);
 			break;
 
-		case READ_DONE:
+		case READ_SUCCESSFUL:
 		{
-			_sb_slot.decode_from_blk(_encoded_blk);
+			_sb_slot.decode_from_blk(_blk);
 			Snapshot &snap { _sb_slot.curr_snap() };
-			if (_sb_slot.valid() &&
-			    snap.gen > _highest_gen) {
-
+			if (_sb_slot.valid() && snap.gen > _highest_gen) {
 				_highest_gen = snap.gen;
 				_last_sb_slot_idx = _sb_slot_idx;
 			}
 			if (_sb_slot_idx < MAX_SUPERBLOCK_INDEX) {
-
 				_sb_slot_idx++;
-				_sb_slot_state = INIT;
+				_generate_req<Block_io::Read>(READ_SUCCESSFUL, progress, _sb_slot_idx, _blk);
 				progress = true;
-
 			} else {
-
-				_state = CHECK_SB;
 				_sb_slot_idx = _last_sb_slot_idx;
-				_sb_slot_state = INIT;
-				progress = true;
-
+				_snap_idx = 0;
+				_state = CHECK_SB;
+				_generate_req<Block_io::Read>(READ_SUCCESSFUL, progress, _sb_slot_idx, _blk);
 				if (VERBOSE_CHECK)
-					log("check superblock ", _sb_slot_idx);
+					log("check superblock ", _sb_slot_idx, "\n  read superblock");
+
 			}
 			break;
 		}
-		default:
-
-			break;
+		default: break;
 		}
 		break;
 
 	case CHECK_SB:
 
 		switch (_sb_slot_state) {
-		case INIT:
+		case READ_SUCCESSFUL:
 
-			_gen_prim_blk_nr = _sb_slot_idx;
-			_generate_req<Block_io::Read>(READ_DONE, progress, _gen_prim_blk_nr, _encoded_blk);
-			if (VERBOSE_CHECK)
-				log("  read superblock");
-			break;
-
-		case READ_DONE:
-
-			_sb_slot.decode_from_blk(_encoded_blk);
+			_sb_slot.decode_from_blk(_blk);
 			if (_sb_slot.valid()) {
 				Snapshot &snap { _sb_slot.snapshots.items[_snap_idx] };
 				if (snap.valid) {
 					Snapshot &snap { _sb_slot.snapshots.items[_snap_idx] };
-					_gen_prim_blk_nr = snap.pba;
 					_generate_req<Vbd_check_request>(
-						VBD_CHECK_DONE, progress, snap.max_level, _sb_slot.degree - 1,
+						VBD_CHECK_SUCCESSFUL, progress, snap.max_level, _sb_slot.degree - 1,
 						snap.nr_of_leaves, Type_1_node { snap.pba, snap.gen, snap.hash });
 					if (VERBOSE_CHECK)
 						log("  check snap ", _snap_idx, " (", snap, ")");
 				} else {
-					_sb_slot_state = VBD_CHECK_DONE;
+					_sb_slot_state = VBD_CHECK_SUCCESSFUL;
 					progress = true;
 
 					if (VERBOSE_CHECK)
@@ -128,17 +114,16 @@ void Sb_check_channel::execute(bool &progress)
 			}
 			break;
 
-		case VBD_CHECK_DONE:
+		case VBD_CHECK_SUCCESSFUL:
 
 			if (_snap_idx < MAX_SNAP_IDX) {
 				_snap_idx++;
-				_sb_slot_state = READ_DONE;
+				_sb_slot_state = READ_SUCCESSFUL;
 				progress = true;
 			} else {
 				_snap_idx = 0;
-				_gen_prim_blk_nr = _sb_slot.free_number;
 				_generate_req<Ft_check_request>(
-					FT_CHECK_DONE, progress, (Tree_level_index)_sb_slot.free_max_level,
+					FT_CHECK_SUCCESSFUL, progress, (Tree_level_index)_sb_slot.free_max_level,
 					(Tree_degree)_sb_slot.free_degree - 1, (Number_of_leaves)_sb_slot.free_leaves,
 					Type_1_node { _sb_slot.free_number, _sb_slot.free_gen, _sb_slot.free_hash });
 				if (VERBOSE_CHECK)
@@ -146,17 +131,17 @@ void Sb_check_channel::execute(bool &progress)
 			}
 			break;
 
-		case FT_CHECK_DONE:
+		case FT_CHECK_SUCCESSFUL:
 
 			_generate_req<Ft_check_request>(
-				MT_CHECK_DONE, progress, (Tree_level_index)_sb_slot.meta_max_level,
+				MT_CHECK_SUCCESSFUL, progress, (Tree_level_index)_sb_slot.meta_max_level,
 				(Tree_degree)_sb_slot.meta_degree - 1, (Number_of_leaves)_sb_slot.meta_leaves,
 				Type_1_node { _sb_slot.meta_number, _sb_slot.meta_gen, _sb_slot.meta_hash });
 			if (VERBOSE_CHECK)
 				log("  check meta tree");
 			break;
 
-		case MT_CHECK_DONE: _mark_req_successful(progress); break;
+		case MT_CHECK_SUCCESSFUL: _mark_req_successful(progress); break;
 		default: break;
 		}
 		break;
@@ -186,27 +171,10 @@ void Sb_check_channel::_mark_req_successful(bool &progress)
 }
 
 
-void Sb_check_channel::_reset()
-{
-	_state = INSPECT_SBS;
-	_highest_gen = 0;
-	_last_sb_slot_idx = 0;
-	_sb_slot_idx = 0;
-	_sb_slot = { };
-	_snap_idx = 0;
-	_vbd = { };
-	_ft = { };
-	_mt = { };
-	_gen_prim_blk_nr = 0;
-	_gen_prim_success = false;
-	_encoded_blk = { };
-}
-
-
 void Sb_check_channel::_request_submitted(Module_request &mod_req)
 {
-	_reset();
 	_req_ptr = static_cast<Request *>(&mod_req);
+	_state = FIND_HIGHEST_GEN_SB;
 	_sb_slot_state = INIT;
 }
 

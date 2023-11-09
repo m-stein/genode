@@ -54,11 +54,11 @@ class Tresor::Sb_check_channel : public Module_channel
 
 		using Request = Sb_check_request;
 
-		enum State { INSPECT_SBS, CHECK_SB };
+		enum State { FIND_HIGHEST_GEN_SB, CHECK_SB };
 
-		enum Sb_slot_state : State_uint { INIT, DONE, READ_DONE, REQ_GENERATED, VBD_CHECK_DONE, FT_CHECK_DONE, MT_CHECK_DONE };
+		enum Sb_slot_state : State_uint { INIT, DONE, READ_SUCCESSFUL, REQ_GENERATED, VBD_CHECK_SUCCESSFUL, FT_CHECK_SUCCESSFUL, MT_CHECK_SUCCESSFUL };
 
-		State _state { INSPECT_SBS };
+		State _state { FIND_HIGHEST_GEN_SB };
 		Request *_req_ptr { };
 		Generation _highest_gen { 0 };
 		Superblock_index _last_sb_slot_idx { 0 };
@@ -69,13 +69,10 @@ class Tresor::Sb_check_channel : public Module_channel
 		Type_1_node _vbd { };
 		Type_1_node _ft { };
 		Type_1_node _mt { };
-		Physical_block_address _gen_prim_blk_nr { 0 };
-		bool _gen_prim_success { false };
-		Block _encoded_blk { };
+		bool _generated_req_success { false };
+		Block _blk { };
 
 		NONCOPYABLE(Sb_check_channel);
-
-		void _reset();
 
 		void _generated_req_completed(State_uint) override;
 
@@ -87,7 +84,7 @@ class Tresor::Sb_check_channel : public Module_channel
 		void _generate_req(State_uint state, bool &progress, ARGS &&... args)
 		{
 			_sb_slot_state = REQ_GENERATED;
-			generate_req<REQUEST>(state, progress, args..., _gen_prim_success);
+			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 		}
 
 		void _mark_req_failed(bool &, char const *);
