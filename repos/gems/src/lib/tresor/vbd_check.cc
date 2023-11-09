@@ -56,22 +56,21 @@ void Vbd_check_channel::_reset()
 }
 
 
-void Vbd_check::_execute_inner_t1_child(Channel           &chan,
-                                        Type_1_node const &child,
+void Vbd_check_channel::_execute_inner_t1_child(Type_1_node const &child,
                                         Type_1_level      &child_lvl,
                                         Child_state       &child_state,
                                         Tree_level_index   lvl,
                                         Tree_node_index  child_idx,
-                                        bool              &progress)
+                                        bool &progress)
 {
-	Request &req { *chan._req_ptr };
-	if (child_state == Channel::READ_BLOCK) {
+	Request &req { *_req_ptr };
+	if (child_state == READ_BLOCK) {
 
 		if (!child.valid()) {
 
-			if (chan._num_remaining_leaves == 0) {
+			if (_num_remaining_leaves == 0) {
 
-				child_state = Channel::DONE;
+				child_state = DONE;
 				progress = true;
 
 				if (VERBOSE_CHECK)
@@ -85,46 +84,46 @@ void Vbd_check::_execute_inner_t1_child(Channel           &chan,
 					log(Level_indent { lvl, req._vbd.max_lvl },
 					    "    lvl ", lvl, " child ", child_idx, " (", child,"): unexpectedly invalid");
 
-				_mark_req_failed(chan, progress, "check for valid child");
+				_mark_req_failed(progress, "check for valid child");
 			}
 
-		} else if (!chan._gen_prim.valid()) {
+		} else if (!_gen_prim.valid()) {
 
-			chan._gen_prim = {
+			_gen_prim = {
 				.success = false,
-				.tag = Channel::BLOCK_IO,
+				.tag = BLOCK_IO,
 				.blk_nr = child.pba,
 				.dropped = false };
 
-			chan._lvl_to_read = lvl - 1;
-			chan.generate_req<Block_io::Read>(
-				Channel::INVALID, progress, chan._gen_prim.blk_nr,
-				chan._lvl_to_read == 0 ? chan._leaf_lvl : chan._encoded_blk, chan._generated_req_success);
-			chan._gen_prim.dropped = true;
+			_lvl_to_read = lvl - 1;
+			generate_req<Block_io::Read>(
+				INVALID, progress, _gen_prim.blk_nr,
+				_lvl_to_read == 0 ? _leaf_lvl : _encoded_blk, _generated_req_success);
+			_gen_prim.dropped = true;
 
 			if (VERBOSE_CHECK)
 				log(Level_indent { lvl, req._vbd.max_lvl },
 				    "    lvl ", lvl, " child ", child_idx, " (", child, "): load to lvl ", lvl - 1);
 
-		} else if (chan._gen_prim.tag != Channel::BLOCK_IO ||
-		           chan._gen_prim.blk_nr != child.pba) {
+		} else if (_gen_prim.tag != BLOCK_IO ||
+		           _gen_prim.blk_nr != child.pba) {
 
 			class Exception_1 { };
 			throw Exception_1 { };
 
-		} else if (!chan._gen_prim.success) {
+		} else if (!_gen_prim.success) {
 
 		} else {
 
 			for (Child_state &state : child_lvl.children_state) {
-				state = Channel::READ_BLOCK;
+				state = READ_BLOCK;
 			}
-			chan._gen_prim = { };
-			child_state = Channel::CHECK_HASH;
+			_gen_prim = { };
+			child_state = CHECK_HASH;
 			progress = true;
 		}
 
-	} else if (child_state == Channel::CHECK_HASH) {
+	} else if (child_state == CHECK_HASH) {
 
 		Block blk { };
 		child_lvl.children.encode_to_blk(blk);
@@ -132,9 +131,9 @@ void Vbd_check::_execute_inner_t1_child(Channel           &chan,
 		if (child.gen == INITIAL_GENERATION ||
 		    check_hash(blk, child.hash)) {
 
-			child_state = Channel::DONE;
-			if (&child_state == &chan._root_state) {
-				chan._req_ptr->_success = true;
+			child_state = DONE;
+			if (&child_state == &_root_state) {
+				_req_ptr->_success = true;
 			}
 			progress = true;
 
@@ -142,8 +141,8 @@ void Vbd_check::_execute_inner_t1_child(Channel           &chan,
 				log(Level_indent { lvl, req._vbd.max_lvl },
 				    "    lvl ", lvl, " child ", child_idx, ": good hash");
 
-			if (&child_state == &chan._root_state) {
-				chan._req_ptr = nullptr;
+			if (&child_state == &_root_state) {
+				_req_ptr = nullptr;
 			}
 
 		} else {
@@ -152,24 +151,23 @@ void Vbd_check::_execute_inner_t1_child(Channel           &chan,
 				log(Level_indent { lvl, req._vbd.max_lvl },
 				    "    lvl ", lvl, " child ", child_idx, " (", child, "): bad hash ", hash(blk));
 
-			_mark_req_failed(chan, progress, "check inner hash");
+			_mark_req_failed(progress, "check inner hash");
 		}
 	}
 }
 
 
-void Vbd_check::_execute_leaf_child(Channel           &chan,
-                                    Type_1_node const &child,
+void Vbd_check_channel::_execute_leaf_child(Type_1_node const &child,
                                     Block       const &child_lvl,
                                     Child_state       &child_state,
                                     Tree_level_index   lvl,
                                     Tree_node_index  child_idx,
-                                    bool              &progress)
+                                    bool &progress)
 {
-	Request &req { *chan._req_ptr };
-	if (child_state == Channel::READ_BLOCK) {
+	Request &req { *_req_ptr };
+	if (child_state == READ_BLOCK) {
 
-		if (chan._num_remaining_leaves == 0) {
+		if (_num_remaining_leaves == 0) {
 
 			if (child.valid()) {
 
@@ -177,11 +175,11 @@ void Vbd_check::_execute_leaf_child(Channel           &chan,
 					log(Level_indent { lvl, req._vbd.max_lvl },
 					    "    lvl ", lvl, " child ", child_idx, " (", child, "): unexpectedly valid");
 
-				_mark_req_failed(chan, progress, "check for unused child");
+				_mark_req_failed(progress, "check for unused child");
 
 			} else {
 
-				child_state = Channel::DONE;
+				child_state = DONE;
 				progress = true;
 
 				if (VERBOSE_CHECK)
@@ -191,53 +189,53 @@ void Vbd_check::_execute_leaf_child(Channel           &chan,
 
 		} else if (child.gen == INITIAL_GENERATION) {
 
-			chan._num_remaining_leaves--;
-			child_state = Channel::DONE;
+			_num_remaining_leaves--;
+			child_state = DONE;
 			progress = true;
 
 			if (VERBOSE_CHECK)
 				log(Level_indent { lvl, req._vbd.max_lvl },
 				    "    lvl ", lvl, " child ", child_idx, ": uninitialized");
 
-		} else if (!chan._gen_prim.valid()) {
+		} else if (!_gen_prim.valid()) {
 
-			chan._gen_prim = {
+			_gen_prim = {
 				.success = false,
-				.tag = Channel::BLOCK_IO,
+				.tag = BLOCK_IO,
 				.blk_nr = child.pba,
 				.dropped = false };
 
-			chan._lvl_to_read = lvl - 1;
-			chan.generate_req<Block_io::Read>(
-				Channel::INVALID, progress, chan._gen_prim.blk_nr,
-				chan._lvl_to_read == 0 ? chan._leaf_lvl : chan._encoded_blk, chan._generated_req_success);
-			chan._gen_prim.dropped = true;
+			_lvl_to_read = lvl - 1;
+			generate_req<Block_io::Read>(
+				INVALID, progress, _gen_prim.blk_nr,
+				_lvl_to_read == 0 ? _leaf_lvl : _encoded_blk, _generated_req_success);
+			_gen_prim.dropped = true;
 
 			if (VERBOSE_CHECK)
 				log(Level_indent { lvl, req._vbd.max_lvl },
 				    "    lvl ", lvl, " child ", child_idx, " (", child, "): load to lvl ", lvl - 1);
 
-		} else if (chan._gen_prim.tag != Channel::BLOCK_IO ||
-		           chan._gen_prim.blk_nr != child.pba) {
+		} else if (_gen_prim.tag != BLOCK_IO ||
+		           _gen_prim.blk_nr != child.pba) {
 
 			class Exception_1 { };
 			throw Exception_1 { };
 
-		} else if (!chan._gen_prim.success) {
+		} else if (!_gen_prim.success) {
 
 		} else {
 
-			chan._gen_prim = { };
-			child_state = Channel::CHECK_HASH;
+			_gen_prim = { };
+			child_state = CHECK_HASH;
 			progress = true;
 		}
 
-	} else if (child_state == Channel::CHECK_HASH) {
+	} else if (child_state == CHECK_HASH) {
 
 		if (check_hash(child_lvl, child.hash)) {
 
-			chan._num_remaining_leaves--;
-			child_state = Channel::DONE;
+			_num_remaining_leaves--;
+			child_state = DONE;
 			progress = true;
 
 			if (VERBOSE_CHECK)
@@ -250,59 +248,51 @@ void Vbd_check::_execute_leaf_child(Channel           &chan,
 				log(Level_indent { lvl, req._vbd.max_lvl },
 				    "    lvl ", lvl, " child ", child_idx, " (", child, "): bad hash ", hash(child_lvl));
 
-			_mark_req_failed(chan, progress, "check leaf hash");
+			_mark_req_failed(progress, "check leaf hash");
 		}
 	}
 }
 
 
-void Vbd_check::_execute_check(Channel &chan,
-                               bool    &progress)
+void Vbd_check_channel::_execute_check(bool &progress)
 {
-	Request &req { *chan._req_ptr };
+	Request &req { *_req_ptr };
 	for (Tree_level_index lvl { VBD_LOWEST_T1_LVL }; lvl <= req._vbd.max_lvl; lvl++) {
 		for (Tree_node_index child_idx { 0 }; child_idx < req._vbd.degree; child_idx++) {
-			Type_1_level &t1_lvl { chan._t1_lvls[lvl] };
-			if (t1_lvl.children_state[child_idx] != Channel::DONE) {
-
+			Type_1_level &t1_lvl { _t1_lvls[lvl] };
+			if (t1_lvl.children_state[child_idx] != DONE) {
 				if (lvl == VBD_LOWEST_T1_LVL)
 					_execute_leaf_child(
-						chan,
-						chan._t1_lvls[lvl].children.nodes[child_idx],
-						chan._leaf_lvl,
-						chan._t1_lvls[lvl].children_state[child_idx],
+						_t1_lvls[lvl].children.nodes[child_idx],
+						_leaf_lvl,
+						_t1_lvls[lvl].children_state[child_idx],
 						lvl, child_idx, progress);
 				else
 					_execute_inner_t1_child(
-						chan,
-						chan._t1_lvls[lvl].children.nodes[child_idx],
-						chan._t1_lvls[lvl - 1],
-						chan._t1_lvls[lvl].children_state[child_idx],
+						_t1_lvls[lvl].children.nodes[child_idx],
+						_t1_lvls[lvl - 1],
+						_t1_lvls[lvl].children_state[child_idx],
 						lvl, child_idx, progress);
 
 				return;
 			}
 		}
 	}
-	if (chan._root_state != Channel::DONE) {
-
+	if (_root_state != DONE) {
 		_execute_inner_t1_child(
-			chan, req._vbd.t1_node(), chan._t1_lvls[req._vbd.max_lvl], chan._root_state,
+			req._vbd.t1_node(), _t1_lvls[req._vbd.max_lvl], _root_state,
 			req._vbd.max_lvl + 1, 0, progress);
-
 		return;
 	}
 }
 
 
-void Vbd_check::_mark_req_failed(Channel    &chan,
-                                 bool       &progress,
-                                 char const *str)
+void Vbd_check_channel::_mark_req_failed(bool &progress, char const *str)
 {
-	error("vbd check: request (", *chan._req_ptr, ") failed at step \"", str, "\"");
-	chan._req_ptr->_success = false;
-	chan._root_state = Channel::DONE;
-	chan._req_ptr = nullptr;
+	error("vbd check: request (", *_req_ptr, ") failed at step \"", str, "\"");
+	_req_ptr->_success = false;
+	_root_state = DONE;
+	_req_ptr = nullptr;
 	progress = true;
 }
 
@@ -323,6 +313,6 @@ void Vbd_check::execute(bool &progress)
 		if (!chan._req_ptr)
 			continue;
 
-		_execute_check(chan, progress);
+		chan._execute_check(progress);
 	}
 }

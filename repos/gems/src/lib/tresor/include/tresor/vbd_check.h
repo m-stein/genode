@@ -101,6 +101,28 @@ class Tresor::Vbd_check_channel : public Module_channel
 		bool _request_complete() override { return _root_state == DONE; }
 
 		void _reset();
+
+		void _execute_check(bool    &progress);
+
+		void _mark_req_failed(bool       &progress,
+		                      char const *str);
+
+		void _mark_req_successful(bool    &progress);
+
+		void _execute_inner_t1_child(Type_1_node const &child,
+		                             Type_1_level      &child_lvl,
+		                             Child_state       &child_state,
+		                             Tree_level_index   lvl,
+		                             Tree_node_index    child_idx,
+		                             bool              &progress);
+
+
+		void _execute_leaf_child(Type_1_node const &child,
+		                         Block       const &child_lvl,
+		                         Child_state       &child_state,
+		                         Tree_level_index   lvl,
+		                         Tree_node_index    child_idx,
+		                         bool              &progress);
 };
 
 
@@ -116,34 +138,6 @@ class Tresor::Vbd_check : public Module
 		enum { NR_OF_CHANNELS = 1 };
 
 		Channel _channels[NR_OF_CHANNELS] { };
-
-		void _execute_check(Channel &channel,
-		                    bool    &progress);
-
-		void _mark_req_failed(Channel    &channel,
-		                      bool       &progress,
-		                      char const *str);
-
-		void _mark_req_successful(Channel &channel,
-		                          bool    &progress);
-
-		void _execute_inner_t1_child(Channel           &chan,
-		                             Type_1_node const &child,
-		                             Type_1_level      &child_lvl,
-		                             Child_state       &child_state,
-		                             Tree_level_index   lvl,
-		                             Tree_node_index    child_idx,
-		                             bool              &progress);
-
-
-		void _execute_leaf_child(Channel           &chan,
-		                         Type_1_node const &child,
-		                         Block       const &child_lvl,
-		                         Child_state       &child_state,
-		                         Tree_level_index   lvl,
-		                         Tree_node_index    child_idx,
-		                         bool              &progress);
-
 
 	public:
 
