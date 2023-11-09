@@ -59,13 +59,13 @@ class Tresor::Sb_check_channel : public Module_channel
 		State _state { REQ_COMPLETE };
 		Request *_req_ptr { };
 		Generation _highest_gen { 0 };
-		Superblock_index _last_sb_slot_idx { 0 };
-		Superblock_index _sb_slot_idx { 0 };
-		Superblock _sb_slot { };
-		Snapshot_index _snap_idx { 0 };
-		bool _generated_req_success { false };
+		Superblock_index _highest_gen_sb_idx { 0 };
 		bool _scan_for_highest_gen_sb_done { false };
+		Superblock_index _sb_idx { 0 };
+		Superblock _sb { };
+		Snapshot_index _snap_idx { 0 };
 		Block _blk { };
+		bool _generated_req_success { false };
 
 		NONCOPYABLE(Sb_check_channel);
 

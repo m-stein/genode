@@ -47,26 +47,26 @@ void Sb_check_channel::execute(bool &progress)
 	case REQ_SUBMITTED:
 
 		_highest_gen = 0;
-		_last_sb_slot_idx = 0;
+		_highest_gen_sb_idx = 0;
 		_snap_idx = 0;
-		_sb_slot_idx = 0;
+		_sb_idx = 0;
 		_scan_for_highest_gen_sb_done = false;
-		_generate_req<Block_io::Read>(READ_BLK_SUCCESSFUL, progress, _sb_slot_idx, _blk);
+		_generate_req<Block_io::Read>(READ_BLK_SUCCESSFUL, progress, _sb_idx, _blk);
 		break;
 
 	case READ_BLK_SUCCESSFUL:
 
-		_sb_slot.decode_from_blk(_blk);
+		_sb.decode_from_blk(_blk);
 		if (_scan_for_highest_gen_sb_done) {
-			if (!_sb_slot.valid()) {
+			if (!_sb.valid()) {
 				_mark_req_failed(progress, "no valid superblock");;
 				break;
 			}
-			Snapshot &snap { _sb_slot.snapshots.items[_snap_idx] };
+			Snapshot &snap { _sb.snapshots.items[_snap_idx] };
 			if (snap.valid) {
-				Snapshot &snap { _sb_slot.snapshots.items[_snap_idx] };
+				Snapshot &snap { _sb.snapshots.items[_snap_idx] };
 				_generate_req<Vbd_check_request>(
-					CHECK_VBD_SUCCESSFUL, progress, snap.max_level, _sb_slot.degree - 1,
+					CHECK_VBD_SUCCESSFUL, progress, snap.max_level, _sb.degree - 1,
 					snap.nr_of_leaves, Type_1_node { snap.pba, snap.gen, snap.hash });
 				if (VERBOSE_CHECK)
 					log("  check snap ", _snap_idx, " (", snap, ")");
@@ -77,21 +77,20 @@ void Sb_check_channel::execute(bool &progress)
 					log("  skip snap ", _snap_idx, " as it is unused");
 			}
 		} else {
-			Snapshot &snap { _sb_slot.curr_snap() };
-			if (_sb_slot.valid() && snap.gen > _highest_gen) {
+			Snapshot &snap { _sb.curr_snap() };
+			if (_sb.valid() && snap.gen > _highest_gen) {
 				_highest_gen = snap.gen;
-				_last_sb_slot_idx = _sb_slot_idx;
+				_highest_gen_sb_idx = _sb_idx;
 			}
-			if (_sb_slot_idx < MAX_SUPERBLOCK_INDEX) {
-				_sb_slot_idx++;
-				_generate_req<Block_io::Read>(READ_BLK_SUCCESSFUL, progress, _sb_slot_idx, _blk);
+			if (_sb_idx < MAX_SUPERBLOCK_INDEX) {
+				_sb_idx++;
+				_generate_req<Block_io::Read>(READ_BLK_SUCCESSFUL, progress, _sb_idx, _blk);
 				progress = true;
 			} else {
-				_sb_slot_idx = _last_sb_slot_idx;
 				_scan_for_highest_gen_sb_done = true;
-				_generate_req<Block_io::Read>(READ_BLK_SUCCESSFUL, progress, _sb_slot_idx, _blk);
+				_generate_req<Block_io::Read>(READ_BLK_SUCCESSFUL, progress, _highest_gen_sb_idx, _blk);
 				if (VERBOSE_CHECK)
-					log("check superblock ", _sb_slot_idx, "\n  read superblock");
+					log("check superblock ", _highest_gen_sb_idx, "\n  read superblock");
 			}
 		}
 		break;
@@ -105,9 +104,9 @@ void Sb_check_channel::execute(bool &progress)
 		} else {
 			_snap_idx = 0;
 			_generate_req<Ft_check_request>(
-				CHECK_FT_SUCCESSFUL, progress, (Tree_level_index)_sb_slot.free_max_level,
-				(Tree_degree)_sb_slot.free_degree - 1, (Number_of_leaves)_sb_slot.free_leaves,
-				Type_1_node { _sb_slot.free_number, _sb_slot.free_gen, _sb_slot.free_hash });
+				CHECK_FT_SUCCESSFUL, progress, (Tree_level_index)_sb.free_max_level,
+				(Tree_degree)_sb.free_degree - 1, (Number_of_leaves)_sb.free_leaves,
+				Type_1_node { _sb.free_number, _sb.free_gen, _sb.free_hash });
 			if (VERBOSE_CHECK)
 				log("  check free tree");
 		}
@@ -116,9 +115,9 @@ void Sb_check_channel::execute(bool &progress)
 	case CHECK_FT_SUCCESSFUL:
 
 		_generate_req<Ft_check_request>(
-			CHECK_MT_SUCCESSFUL, progress, (Tree_level_index)_sb_slot.meta_max_level,
-			(Tree_degree)_sb_slot.meta_degree - 1, (Number_of_leaves)_sb_slot.meta_leaves,
-			Type_1_node { _sb_slot.meta_number, _sb_slot.meta_gen, _sb_slot.meta_hash });
+			CHECK_MT_SUCCESSFUL, progress, (Tree_level_index)_sb.meta_max_level,
+			(Tree_degree)_sb.meta_degree - 1, (Number_of_leaves)_sb.meta_leaves,
+			Type_1_node { _sb.meta_number, _sb.meta_gen, _sb.meta_hash });
 		if (VERBOSE_CHECK)
 			log("  check meta tree");
 		break;
