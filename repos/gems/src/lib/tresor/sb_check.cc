@@ -282,14 +282,13 @@ bool Sb_check::_peek_generated_request(uint8_t *buf_ptr,
 
 			construct_in_buf<Ft_check_request>(
 				buf_ptr, buf_size, SB_CHECK, id,
-				Ft_check_request::CHECK,
 				(Tree_level_index)chan._sb_slot.free_max_level,
 				(Tree_degree)chan._sb_slot.free_degree - 1,
 				(Number_of_leaves)chan._sb_slot.free_leaves,
 				Type_1_node {
 					chan._sb_slot.free_number,
 					chan._sb_slot.free_gen,
-					chan._sb_slot.free_hash });
+					chan._sb_slot.free_hash }, chan._gen_prim_success);
 
 			return true;
 
@@ -297,14 +296,13 @@ bool Sb_check::_peek_generated_request(uint8_t *buf_ptr,
 
 			construct_in_buf<Ft_check_request>(
 				buf_ptr, buf_size, SB_CHECK, id,
-				Ft_check_request::CHECK,
 				(Tree_level_index)chan._sb_slot.meta_max_level,
 				(Tree_degree)chan._sb_slot.meta_degree - 1,
 				(Number_of_leaves)chan._sb_slot.meta_leaves,
 				Type_1_node {
 					chan._sb_slot.meta_number,
 					chan._sb_slot.meta_gen,
-					chan._sb_slot.meta_hash });
+					chan._sb_slot.meta_hash }, chan._gen_prim_success);
 
 			return true;
 
@@ -345,8 +343,6 @@ void Sb_check::generated_request_complete(Module_request &mod_req)
 	switch (mod_req.dst_module_id()) {
 	case FT_CHECK:
 	{
-		Ft_check_request &gen_req { *static_cast<Ft_check_request*>(&mod_req) };
-		chan._gen_prim_success = gen_req.success();
 		switch (chan._sb_slot_state) {
 		case Channel::FT_CHECK_DROPPED: chan._sb_slot_state = Channel::FT_CHECK_DONE; break;
 		case Channel::MT_CHECK_DROPPED: chan._sb_slot_state = Channel::MT_CHECK_DONE; break;

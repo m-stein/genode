@@ -26,31 +26,14 @@ using namespace Tresor;
  ** Ft_check_request **
  **********************/
 
-Ft_check_request::Ft_check_request(uint64_t          src_module_id,
-                                   uint64_t          src_request_id,
-                                   Type              type,
-                                   Tree_level_index  max_lvl,
-                                   Tree_node_index   max_child_idx,
-                                   Number_of_leaves  nr_of_leaves,
-                                   Type_1_node       root)
+Ft_check_request::
+Ft_check_request(Module_id src_mod, Module_channel_id src_chan, Tree_level_index max_lvl,
+                 Tree_node_index max_child_idx, Number_of_leaves nr_of_leaves, Type_1_node root, bool &success)
+
 :
-	Module_request { src_module_id, src_request_id, FT_CHECK },
-	_type          { type },
-	_max_lvl       { max_lvl },
-	_max_child_idx { max_child_idx },
-	_nr_of_leaves  { nr_of_leaves },
-	_root          { root }
+	Module_request { src_mod, src_chan, FT_CHECK }, _max_lvl { max_lvl }, _max_child_idx { max_child_idx },
+	_nr_of_leaves { nr_of_leaves }, _root { root }, _success_ptr { (addr_t)&success }
 { }
-
-
-char const *Ft_check_request::type_to_string(Type type)
-{
-	switch (type) {
-	case INVALID: return "invalid";
-	case CHECK:   return "check";
-	}
-	return "?";
-}
 
 
 /**************
@@ -227,7 +210,7 @@ void Ft_check::_execute_inner_t1_child(Channel           &chan,
 
 			child_state = Channel::DONE;
 			if (&child_state == &chan._root_state) {
-				chan._request._success = true;
+				chan._request._success() = true;
 			}
 			progress = true;
 
@@ -345,7 +328,7 @@ void Ft_check_channel::_generated_req_completed(State_uint)
 {
 	if (!_generated_req_success) {
 		error("ft check: request (", _request, ") failed because generated request failed)");
-		_request._success = false;
+		_request._success() = false;
 		_root_state = DONE;
 		return;
 	}
@@ -379,7 +362,7 @@ void Ft_check::_mark_req_failed(Channel    &chan,
                                 char const *str)
 {
 	error("ft check: request (", chan._request, ") failed at step \"", str, "\"");
-	chan._request._success = false;
+	chan._request._success() = false;
 	chan._root_state = Channel::DONE;
 	progress = true;
 }
@@ -390,7 +373,7 @@ bool Ft_check::_peek_completed_request(uint8_t *buf_ptr,
 {
 	for (Channel &chan : _channels) {
 
-		if (chan._request._type != Request::INVALID &&
+		if (chan._request._nr_of_leaves &&
 		    chan._root_state == Channel::DONE) {
 
 			if (sizeof(chan._request) > buf_size) {
@@ -415,7 +398,7 @@ void Ft_check::_drop_completed_request(Module_request &req)
 		throw Exception_1 { };
 	}
 	Channel &chan { _channels[id] };
-	if (chan._request._type == Request::INVALID &&
+	if (!chan._request._nr_of_leaves &&
 	    chan._root_state != Channel::DONE) {
 
 		class Exception_2 { };
@@ -428,7 +411,7 @@ void Ft_check::_drop_completed_request(Module_request &req)
 bool Ft_check::ready_to_submit_request()
 {
 	for (Channel &chan : _channels) {
-		if (chan._request._type == Request::INVALID)
+		if (!chan._request._nr_of_leaves)
 			return true;
 	}
 	return false;
@@ -439,7 +422,7 @@ void Ft_check::submit_request(Module_request &req)
 {
 	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 		Channel &chan { _channels[id] };
-		if (chan._request._type == Request::INVALID) {
+		if (!chan._request._nr_of_leaves) {
 			req.dst_request_id(id);
 			chan._request = *static_cast<Request *>(&req);
 			chan._nr_of_leaves = chan._request._nr_of_leaves;
@@ -457,15 +440,9 @@ void Ft_check::execute(bool &progress)
 	for (Channel &chan : _channels) {
 
 		Request &req { chan._request };
-		switch (req._type) {
-		case Request::CHECK:
+		if (!req._nr_of_leaves)
+			continue;
 
-			_execute_check(chan, progress);
-			break;
-
-		default:
-
-			break;
-		}
+		_execute_check(chan, progress);
 	}
 }

@@ -31,49 +31,27 @@ namespace Tresor {
 
 class Tresor::Ft_check_request : public Module_request
 {
-	public:
-
-		enum Type { INVALID = 0, CHECK = 1, };
+	friend class Ft_check;
+	friend class Ft_check_channel;
 
 	private:
 
-		friend class Ft_check;
-		friend class Ft_check_channel;
+		Tree_level_index _max_lvl { 0 };
+		Tree_node_index _max_child_idx { 0 };
+		Number_of_leaves _nr_of_leaves { 0 };
+		Type_1_node _root { };
+		addr_t _success_ptr { };
 
-		Type              _type          { INVALID };
-		Tree_level_index  _max_lvl       { 0 };
-		Tree_node_index   _max_child_idx { 0 };
-		Number_of_leaves  _nr_of_leaves  { 0 };
-		Type_1_node       _root          { };
-		bool              _success       { false };
+		bool &_success() { return *(bool*)_success_ptr; }
 
 	public:
 
 		Ft_check_request() { }
 
-		Ft_check_request(uint64_t          src_module_id,
-		                 uint64_t          src_request_id,
-		                 Type              type,
-		                 Tree_level_index  max_lvl,
-		                 Tree_node_index   max_child_idx,
-		                 Number_of_leaves  nr_of_leaves,
-		                 Type_1_node       root);
+		Ft_check_request(Module_id, Module_channel_id, Tree_level_index, Tree_node_index, Number_of_leaves,
+		                 Type_1_node, bool &);
 
-		Type type() const { return _type; }
-
-		bool success() const { return _success; }
-
-		static char const *type_to_string(Type type);
-
-
-		/********************
-		 ** Module_request **
-		 ********************/
-
-		void print(Output &out) const override
-		{
-			Genode::print(out, type_to_string(_type), " root ", _root);
-		}
+		void print(Output &out) const override { Genode::print(out, "check root ", _root); }
 };
 
 
