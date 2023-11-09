@@ -27,7 +27,7 @@ Vbd_check_request::Vbd_check_request(Module_id src_mod, Module_channel_id src_ch
 { }
 
 
-void Vbd_check_channel::_generated_req_completed(State_uint)
+void Vbd_check_channel::_generated_req_completed(State_uint state_uint)
 {
 	if (!_generated_req_success) {
 		error("vbd check: request (", *_req_ptr, ") failed because generated request failed)");
@@ -37,10 +37,7 @@ void Vbd_check_channel::_generated_req_completed(State_uint)
 		_req_ptr = nullptr;
 		return;
 	}
-	_gen_prim.success = true;
-	if (_gen_prim.tag == BLOCK_IO)
-		if (_lvl_to_read > 0)
-			_t1_lvls[_lvl_to_read].children.decode_from_blk(_encoded_blk);
+	_state = (State)state_uint;
 }
 
 
@@ -94,14 +91,15 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 					.dropped = false };
 
 				_lvl_to_read = lvl - 1;
-				generate_req<Block_io::Read>(
-					INVALID, progress, node.pba, _lvl_to_read == 0 ? _leaf_lvl : _encoded_blk, _generated_req_success);
+				generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _lvl_to_read == 0 ? _leaf_lvl : _encoded_blk, _generated_req_success);
+				_state = REQ_GENERATED;
 				if (VERBOSE_CHECK)
 					log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
 
-			} else if (_gen_prim.success) {
+			} else if (_state == READ_BLK_SUCCEEDED) {
 
 				_gen_prim = { };
+				_state = REQ_SUBMITTED;
 				node_state = CHECK_HASH;
 				progress = true;
 			}
@@ -160,17 +158,20 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 					.dropped = false };
 
 				_lvl_to_read = lvl - 1;
-				generate_req<Block_io::Read>(INVALID, progress, node.pba, _lvl_to_read == 0 ? _leaf_lvl : _encoded_blk, _generated_req_success);
+				generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _lvl_to_read == 0 ? _leaf_lvl : _encoded_blk, _generated_req_success);
+				_state = REQ_GENERATED;
 				if (VERBOSE_CHECK)
 					log(Level_indent { lvl, req._vbd.max_lvl },
 						"    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
 
-			} else if (_gen_prim.success) {
+			} else if (_state == READ_BLK_SUCCEEDED) {
 
+				_t1_lvls[_lvl_to_read].children.decode_from_blk(_encoded_blk);
 				for (Node_state &state : _t1_lvls[lvl - 1].children_state)
 					state = READ_BLOCK;
 
 				_gen_prim = { };
+				_state = REQ_SUBMITTED;
 				node_state = CHECK_HASH;
 				progress = true;
 			}

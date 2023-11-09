@@ -54,7 +54,7 @@ class Tresor::Vbd_check_channel : public Module_channel
 
 		using Request = Vbd_check_request;
 
-		enum State { REQ_SUBMITTED, REQ_COMPLETE, REQ_GENERATED };
+		enum State : State_uint { REQ_SUBMITTED, REQ_COMPLETE, REQ_GENERATED, READ_BLK_SUCCEEDED };
 
 		enum Node_state { READ_BLOCK = 0, CHECK_HASH = 1, DONE = 2 };
 
