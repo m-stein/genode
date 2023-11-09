@@ -167,9 +167,10 @@ void Sb_check::_execute_check(Channel &chan,
 
 				chan._snap_idx = 0;
 				chan._gen_prim_blk_nr = chan._sb_slot.free_number;
-				chan._sb_slot_state = Channel::FT_CHECK_STARTED;
-				progress = true;
-
+				chan._generate_req<Ft_check_request>(
+					Channel::FT_CHECK_DONE, progress, (Tree_level_index)chan._sb_slot.free_max_level,
+					(Tree_degree)chan._sb_slot.free_degree - 1, (Number_of_leaves)chan._sb_slot.free_leaves,
+					Type_1_node { chan._sb_slot.free_number, chan._sb_slot.free_gen, chan._sb_slot.free_hash });
 				if (VERBOSE_CHECK)
 					log("  check free tree");
 			}
@@ -177,38 +178,21 @@ void Sb_check::_execute_check(Channel &chan,
 
 		case Channel::FT_CHECK_DONE:
 
-			if (_handle_failed_generated_req(chan, progress))
-				break;
-
-			chan._sb_slot_state = Channel::MT_CHECK_STARTED;
-			progress = true;
-
+			chan._generate_req<Ft_check_request>(
+				Channel::MT_CHECK_DONE, progress, (Tree_level_index)chan._sb_slot.meta_max_level,
+				(Tree_degree)chan._sb_slot.meta_degree - 1, (Number_of_leaves)chan._sb_slot.meta_leaves,
+				Type_1_node { chan._sb_slot.meta_number, chan._sb_slot.meta_gen, chan._sb_slot.meta_hash });
 			if (VERBOSE_CHECK)
 				log("  check meta tree");
 
 			break;
 
-		case Channel::MT_CHECK_DONE:
-
-			if (_handle_failed_generated_req(chan, progress))
-				break;
-
-			_mark_req_successful(chan, progress);
-			break;
-
-		case Channel::DONE:
-
-			break;
-
-		default:
-
-			break;
+		case Channel::MT_CHECK_DONE: _mark_req_successful(chan, progress); break;
+		default: break;
 		}
 		break;
 
-	default:
-
-		break;
+	default: break;
 	}
 }
 
@@ -264,98 +248,6 @@ void Sb_check::_drop_completed_request(Module_request &req)
 		throw Exception_2 { };
 	}
 	_channels[id]._sb_slot_state = Channel::INACTIVE;
-}
-
-
-bool Sb_check::_peek_generated_request(uint8_t *buf_ptr,
-                                       size_t   buf_size)
-{
-	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
-
-		Channel &chan { _channels[id] };
-
-		if (chan._sb_slot_state == Channel::INACTIVE)
-			continue;
-
-		switch (chan._sb_slot_state) {
-		case Channel::FT_CHECK_STARTED:
-
-			construct_in_buf<Ft_check_request>(
-				buf_ptr, buf_size, SB_CHECK, id,
-				(Tree_level_index)chan._sb_slot.free_max_level,
-				(Tree_degree)chan._sb_slot.free_degree - 1,
-				(Number_of_leaves)chan._sb_slot.free_leaves,
-				Type_1_node {
-					chan._sb_slot.free_number,
-					chan._sb_slot.free_gen,
-					chan._sb_slot.free_hash }, chan._gen_prim_success);
-
-			return true;
-
-		case Channel::MT_CHECK_STARTED:
-
-			construct_in_buf<Ft_check_request>(
-				buf_ptr, buf_size, SB_CHECK, id,
-				(Tree_level_index)chan._sb_slot.meta_max_level,
-				(Tree_degree)chan._sb_slot.meta_degree - 1,
-				(Number_of_leaves)chan._sb_slot.meta_leaves,
-				Type_1_node {
-					chan._sb_slot.meta_number,
-					chan._sb_slot.meta_gen,
-					chan._sb_slot.meta_hash }, chan._gen_prim_success);
-
-			return true;
-
-		default:
-			break;
-		}
-	}
-	return false;
-}
-
-
-void Sb_check::_drop_generated_request(Module_request &req)
-{
-	Module_request_id const id { req.src_request_id() };
-	if (id >= NR_OF_CHANNELS) {
-		class Exception_0 { };
-		throw Exception_0 { };
-	}
-	Channel &chan { _channels[id] };
-	switch (chan._sb_slot_state) {
-	case Channel::FT_CHECK_STARTED: chan._sb_slot_state = Channel::FT_CHECK_DROPPED; break;
-	case Channel::MT_CHECK_STARTED: chan._sb_slot_state = Channel::MT_CHECK_DROPPED; break;
-	default:
-		class Exception_4 { };
-		throw Exception_4 { };
-	}
-}
-
-
-void Sb_check::generated_request_complete(Module_request &mod_req)
-{
-	Module_request_id const id { mod_req.src_request_id() };
-	if (id >= NR_OF_CHANNELS) {
-		class Exception_1 { };
-		throw Exception_1 { };
-	}
-	Channel &chan { _channels[id] };
-	switch (mod_req.dst_module_id()) {
-	case FT_CHECK:
-	{
-		switch (chan._sb_slot_state) {
-		case Channel::FT_CHECK_DROPPED: chan._sb_slot_state = Channel::FT_CHECK_DONE; break;
-		case Channel::MT_CHECK_DROPPED: chan._sb_slot_state = Channel::MT_CHECK_DONE; break;
-		default:
-			class Exception_3 { };
-			throw Exception_3 { };
-		}
-		break;
-	}
-	default:
-		class Exception_8 { };
-		throw Exception_8 { };
-	}
 }
 
 

@@ -132,13 +132,6 @@ class Tresor::Sb_check : public Module
 
 		void _drop_completed_request(Module_request &req) override;
 
-		bool _peek_generated_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_generated_request(Module_request &mod_req) override;
-
-		void generated_request_complete(Module_request &req) override;
-
 		bool new_submit_request() override { return false; }
 
 
