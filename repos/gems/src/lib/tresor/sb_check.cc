@@ -127,10 +127,12 @@ void Sb_check::_execute_check(Channel &chan,
 
 				if (snap.valid) {
 
-					chan._sb_slot_state = Channel::VBD_CHECK_STARTED;
-					chan._gen_prim_blk_nr = snap.pba;
-					progress = true;
 
+					Snapshot &snap { chan._sb_slot.snapshots.items[chan._snap_idx] };
+					chan._gen_prim_blk_nr = snap.pba;
+					chan._generate_req<Vbd_check_request>(
+						Channel::VBD_CHECK_DONE, progress, snap.max_level, chan._sb_slot.degree - 1,
+						snap.nr_of_leaves, Type_1_node { snap.pba, snap.gen, snap.hash });
 					if (VERBOSE_CHECK)
 						log("  check snap ", chan._snap_idx, " (", snap, ")");
 
@@ -154,9 +156,6 @@ void Sb_check::_execute_check(Channel &chan,
 			break;
 
 		case Channel::VBD_CHECK_DONE:
-
-			if (_handle_failed_generated_req(chan, progress))
-				break;
 
 			if (chan._snap_idx < MAX_SNAP_IDX) {
 
@@ -279,20 +278,6 @@ bool Sb_check::_peek_generated_request(uint8_t *buf_ptr,
 			continue;
 
 		switch (chan._sb_slot_state) {
-		case Channel::VBD_CHECK_STARTED:
-		{
-			Snapshot const &snap {
-				chan._sb_slot.snapshots.items[chan._snap_idx] };
-
-			construct_in_buf<Vbd_check_request>(
-				buf_ptr, buf_size, SB_CHECK, id,
-				snap.max_level,
-				chan._sb_slot.degree - 1,
-				snap.nr_of_leaves,
-				Type_1_node { snap.pba, snap.gen, snap.hash }, chan._gen_prim_success);
-
-			return true;
-		}
 		case Channel::FT_CHECK_STARTED:
 
 			construct_in_buf<Ft_check_request>(
@@ -340,7 +325,6 @@ void Sb_check::_drop_generated_request(Module_request &req)
 	}
 	Channel &chan { _channels[id] };
 	switch (chan._sb_slot_state) {
-	case Channel::VBD_CHECK_STARTED: chan._sb_slot_state = Channel::VBD_CHECK_DROPPED; break;
 	case Channel::FT_CHECK_STARTED: chan._sb_slot_state = Channel::FT_CHECK_DROPPED; break;
 	case Channel::MT_CHECK_STARTED: chan._sb_slot_state = Channel::MT_CHECK_DROPPED; break;
 	default:
@@ -359,16 +343,6 @@ void Sb_check::generated_request_complete(Module_request &mod_req)
 	}
 	Channel &chan { _channels[id] };
 	switch (mod_req.dst_module_id()) {
-	case VBD_CHECK:
-	{
-		switch (chan._sb_slot_state) {
-		case Channel::VBD_CHECK_DROPPED: chan._sb_slot_state = Channel::VBD_CHECK_DONE; break;
-		default:
-			class Exception_3 { };
-			throw Exception_3 { };
-		}
-		break;
-	}
 	case FT_CHECK:
 	{
 		Ft_check_request &gen_req { *static_cast<Ft_check_request*>(&mod_req) };
