@@ -36,20 +36,16 @@ class Tresor::Vbd_check_request : public Module_request
 
 	private:
 
-		addr_t _vbd_ptr { };
-		addr_t _success_ptr { };
+		Tree_root const &_vbd;
+		bool &_success;
 
-		bool &_success() { return *(bool*)_success_ptr; }
-
-		Tree_root const &_vbd() const { return *(Tree_root*)_vbd_ptr; }
+		NONCOPYABLE(Vbd_check_request);
 
 	public:
 
-		Vbd_check_request() { }
-
 		Vbd_check_request(Module_id, Module_channel_id, Tree_root const &, bool &);
 
-		void print(Output &out) const override { Genode::print(out, "check ", _vbd()); }
+		void print(Output &out) const override { Genode::print(out, "check ", _vbd); }
 };
 
 
@@ -94,15 +90,15 @@ class Tresor::Vbd_check_channel : public Module_channel
 		Block _leaf_lvl { };
 		Block _encoded_blk { };
 		Type_1_level _t1_lvls[TREE_MAX_LEVEL] { };
-		Request _request { };
+		Request *_req_ptr { };
 		Number_of_leaves _num_remaining_leaves { 0 };
 		bool _generated_req_success { false };
 
 		void _generated_req_completed(State_uint) override;
 
-		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
+		void _request_submitted(Module_request &) override;
 
-		bool _request_complete() override { return false; }
+		bool _request_complete() override { return _root_state == DONE; }
 
 		void _reset();
 };
@@ -149,30 +145,9 @@ class Tresor::Vbd_check : public Module
 		                         bool              &progress);
 
 
-		/************
-		 ** Module **
-		 ************/
-
-		bool _peek_completed_request(uint8_t *buf_ptr,
-		                             size_t   buf_size) override;
-
-		void _drop_completed_request(Module_request &req) override;
-
-		bool new_submit_request() override { return false; }
-
-
 	public:
 
 		Vbd_check() { register_channels(_channels, NR_OF_CHANNELS, VBD_CHECK); }
-
-
-		/************
-		 ** Module **
-		 ************/
-
-		bool ready_to_submit_request() override;
-
-		void submit_request(Module_request &req) override;
 
 		void execute(bool &) override;
 
