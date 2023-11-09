@@ -56,16 +56,16 @@ class Tresor::Vbd_check_channel : public Module_channel
 
 		enum State { REQ_SUBMITTED, REQ_COMPLETE, REQ_GENERATED };
 
-		enum Child_state { READ_BLOCK = 0, CHECK_HASH = 1, DONE = 2 };
+		enum Node_state { READ_BLOCK = 0, CHECK_HASH = 1, DONE = 2 };
 
 		struct Type_1_level
 		{
-			Child_state       children_state[NR_OF_T1_NODES_PER_BLK] { };
+			Node_state       children_state[NR_OF_T1_NODES_PER_BLK] { };
 			Type_1_node_block children                                   { };
 
 			Type_1_level()
 			{
-				for (Child_state &state : children_state)
+				for (Node_state &state : children_state)
 					state = DONE;
 			}
 		};
