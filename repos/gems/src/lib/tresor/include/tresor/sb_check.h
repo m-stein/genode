@@ -14,9 +14,6 @@
 #ifndef _TRESOR__SB_CHECK_H_
 #define _TRESOR__SB_CHECK_H_
 
-/* base includes */
-#include <base/output.h>
-
 /* tresor includes */
 #include <tresor/types.h>
 #include <tresor/module.h>
@@ -93,6 +90,12 @@ class Tresor::Sb_check_channel : public Module_channel
 			_sb_slot_state = REQ_GENERATED;
 			generate_req<REQUEST>(state, progress, args..., _gen_prim_success);
 		}
+
+		void _execute_check(bool &);
+
+		void _mark_req_failed(bool &, char const *);
+
+		void _mark_req_successful(bool &);
 };
 
 
@@ -106,16 +109,6 @@ class Tresor::Sb_check : public Module
 		enum { NR_OF_CHANNELS = 1 };
 
 		Channel _channels[NR_OF_CHANNELS] { };
-
-		void _execute_check(Channel &channel,
-		                    bool    &progress);
-
-		void _mark_req_failed(Channel    &channel,
-		                      bool       &progress,
-		                      char const *str);
-
-		void _mark_req_successful(Channel &channel,
-		                          bool    &progress);
 
 	public:
 
