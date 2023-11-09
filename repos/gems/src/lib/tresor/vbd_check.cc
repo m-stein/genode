@@ -26,38 +26,21 @@ using namespace Tresor;
  ** Vbd_check_request **
  ***********************/
 
-Vbd_check_request::Vbd_check_request(uint64_t          src_module_id,
-                                     uint64_t          src_request_id,
-                                     Type              type,
-                                     Tree_level_index  max_lvl,
-                                     Tree_node_index max_child_idx,
-                                     Number_of_leaves  nr_of_leaves,
-                                     Type_1_node       root)
+Vbd_check_request::
+Vbd_check_request(Module_id src_mod, Module_channel_id src_chan, Tree_level_index max_lvl,
+                  Tree_node_index max_child_idx, Number_of_leaves nr_of_leaves, Type_1_node root, bool &success)
+
 :
-	Module_request { src_module_id, src_request_id, VBD_CHECK },
-	_type          { type },
-	_max_lvl       { max_lvl },
-	_max_child_idx { max_child_idx },
-	_nr_of_leaves  { nr_of_leaves },
-	_root          { root }
+	Module_request { src_mod, src_chan, VBD_CHECK }, _max_lvl { max_lvl }, _max_child_idx { max_child_idx },
+	_nr_of_leaves { nr_of_leaves }, _root { root }, _success_ptr { (addr_t)&success }
 { }
-
-
-char const *Vbd_check_request::type_to_string(Type type)
-{
-	switch (type) {
-	case INVALID: return "invalid";
-	case CHECK:   return "check";
-	}
-	return "?";
-}
 
 
 void Vbd_check_channel::_generated_req_completed(State_uint)
 {
 	if (!_generated_req_success) {
 		error("vbd check: request (", _request, ") failed because generated request failed)");
-		_request._success = false;
+		_request._success() = false;
 		_root_state = DONE;
 		return;
 	}
@@ -99,7 +82,7 @@ void Vbd_check::_execute_inner_t1_child(Channel           &chan,
 
 		if (!child.valid()) {
 
-			if (req._nr_of_leaves == 0) {
+			if (chan._num_remaining_leaves == 0) {
 
 				child_state = Channel::DONE;
 				progress = true;
@@ -164,7 +147,7 @@ void Vbd_check::_execute_inner_t1_child(Channel           &chan,
 
 			child_state = Channel::DONE;
 			if (&child_state == &chan._root_state) {
-				chan._request._success = true;
+				chan._request._success() = true;
 			}
 			progress = true;
 
@@ -195,7 +178,7 @@ void Vbd_check::_execute_leaf_child(Channel           &chan,
 	Request &req { chan._request };
 	if (child_state == Channel::READ_BLOCK) {
 
-		if (req._nr_of_leaves == 0) {
+		if (chan._num_remaining_leaves == 0) {
 
 			if (child.valid()) {
 
@@ -217,7 +200,7 @@ void Vbd_check::_execute_leaf_child(Channel           &chan,
 
 		} else if (child.gen == INITIAL_GENERATION) {
 
-			req._nr_of_leaves--;
+			chan._num_remaining_leaves--;
 			child_state = Channel::DONE;
 			progress = true;
 
@@ -262,7 +245,7 @@ void Vbd_check::_execute_leaf_child(Channel           &chan,
 
 		if (check_hash(child_lvl, child.hash)) {
 
-			req._nr_of_leaves--;
+			chan._num_remaining_leaves--;
 			child_state = Channel::DONE;
 			progress = true;
 
@@ -329,7 +312,7 @@ void Vbd_check::_mark_req_failed(Channel    &chan,
                                  char const *str)
 {
 	error("vbd check: request (", chan._request, ") failed at step \"", str, "\"");
-	chan._request._success = false;
+	chan._request._success() = false;
 	chan._root_state = Channel::DONE;
 	progress = true;
 }
@@ -340,9 +323,7 @@ bool Vbd_check::_peek_completed_request(uint8_t *buf_ptr,
 {
 	for (Channel &chan : _channels) {
 
-		if (chan._request._type != Request::INVALID &&
-		    chan._root_state == Channel::DONE) {
-
+		if (chan._request._nr_of_leaves && chan._root_state == Channel::DONE) {
 			if (sizeof(chan._request) > buf_size) {
 				class Exception_1 { };
 				throw Exception_1 { };
@@ -365,9 +346,7 @@ void Vbd_check::_drop_completed_request(Module_request &req)
 		throw Exception_1 { };
 	}
 	Channel &chan { _channels[id] };
-	if (chan._request._type == Request::INVALID &&
-	    chan._root_state != Channel::DONE) {
-
+	if (!chan._request._nr_of_leaves && chan._root_state != Channel::DONE) {
 		class Exception_2 { };
 		throw Exception_2 { };
 	}
@@ -378,7 +357,7 @@ void Vbd_check::_drop_completed_request(Module_request &req)
 bool Vbd_check::ready_to_submit_request()
 {
 	for (Channel &chan : _channels) {
-		if (chan._request._type == Request::INVALID)
+		if (!chan._request._nr_of_leaves)
 			return true;
 	}
 	return false;
@@ -389,10 +368,11 @@ void Vbd_check::submit_request(Module_request &req)
 {
 	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 		Channel &chan { _channels[id] };
-		if (chan._request._type == Request::INVALID) {
+		if (!chan._request._nr_of_leaves) {
 			req.dst_request_id(id);
 			chan._request = *static_cast<Request *>(&req);
 			chan._root_state = Channel::READ_BLOCK;
+			chan._num_remaining_leaves = chan._request._nr_of_leaves;
 			return;
 		}
 	}
@@ -406,15 +386,9 @@ void Vbd_check::execute(bool &progress)
 	for (Channel &chan : _channels) {
 
 		Request &req { chan._request };
-		switch (req._type) {
-		case Request::CHECK:
+		if (!req._nr_of_leaves)
+			continue;
 
-			_execute_check(chan, progress);
-			break;
-
-		default:
-
-			break;
-		}
+		_execute_check(chan, progress);
 	}
 }

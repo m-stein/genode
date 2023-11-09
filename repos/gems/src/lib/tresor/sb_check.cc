@@ -286,10 +286,10 @@ bool Sb_check::_peek_generated_request(uint8_t *buf_ptr,
 
 			construct_in_buf<Vbd_check_request>(
 				buf_ptr, buf_size, SB_CHECK, id,
-				Vbd_check_request::CHECK, snap.max_level,
+				snap.max_level,
 				chan._sb_slot.degree - 1,
 				snap.nr_of_leaves,
-				Type_1_node { snap.pba, snap.gen, snap.hash });
+				Type_1_node { snap.pba, snap.gen, snap.hash }, chan._gen_prim_success);
 
 			return true;
 		}
@@ -361,8 +361,6 @@ void Sb_check::generated_request_complete(Module_request &mod_req)
 	switch (mod_req.dst_module_id()) {
 	case VBD_CHECK:
 	{
-		Vbd_check_request &gen_req { *static_cast<Vbd_check_request*>(&mod_req) };
-		chan._gen_prim_success = gen_req.success();
 		switch (chan._sb_slot_state) {
 		case Channel::VBD_CHECK_DROPPED: chan._sb_slot_state = Channel::VBD_CHECK_DONE; break;
 		default:
