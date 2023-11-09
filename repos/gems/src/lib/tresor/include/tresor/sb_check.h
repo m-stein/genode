@@ -31,7 +31,6 @@ namespace Tresor {
 
 class Tresor::Sb_check_request : public Module_request
 {
-	friend class Sb_check;
 	friend class Sb_check_channel;
 
 	private:
@@ -64,7 +63,7 @@ class Tresor::Sb_check_channel : public Module_channel
 		Superblock_index _sb_idx { 0 };
 		Superblock _sb { };
 		Snapshot_index _snap_idx { 0 };
-		Constructible<Tree_root> _vbd { };
+		Constructible<Tree_root> _tree_root { };
 		Block _blk { };
 		bool _generated_req_success { false };
 

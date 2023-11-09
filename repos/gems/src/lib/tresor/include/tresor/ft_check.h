@@ -36,22 +36,20 @@ class Tresor::Ft_check_request : public Module_request
 
 	private:
 
-		Tree_level_index _max_lvl { 0 };
-		Tree_node_index _max_child_idx { 0 };
-		Number_of_leaves _nr_of_leaves { 0 };
-		Type_1_node _root { };
+		addr_t _ft_ptr { };
 		addr_t _success_ptr { };
 
 		bool &_success() { return *(bool*)_success_ptr; }
+
+		Tree_root const &_ft() const { return *(Tree_root*)_ft_ptr; }
 
 	public:
 
 		Ft_check_request() { }
 
-		Ft_check_request(Module_id, Module_channel_id, Tree_level_index, Tree_node_index, Number_of_leaves,
-		                 Type_1_node, bool &);
+		Ft_check_request(Module_id, Module_channel_id, Tree_root const &, bool &);
 
-		void print(Output &out) const override { Genode::print(out, "check root ", _root); }
+		void print(Output &out) const override { Genode::print(out, "check root ", _ft()); }
 };
 
 

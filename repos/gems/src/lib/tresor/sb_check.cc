@@ -65,8 +65,8 @@ void Sb_check_channel::execute(bool &progress)
 			Snapshot &snap { _sb.snapshots.items[_snap_idx] };
 			if (snap.valid) {
 				Snapshot &snap { _sb.snapshots.items[_snap_idx] };
-				_vbd.construct(snap.pba, snap.gen, snap.hash, snap.max_level, _sb.degree, snap.nr_of_leaves);
-				_generate_req<Vbd_check_request>(CHECK_VBD_SUCCESSFUL, progress, *_vbd);
+				_tree_root.construct(snap.pba, snap.gen, snap.hash, snap.max_level, _sb.degree, snap.nr_of_leaves);
+				_generate_req<Vbd_check_request>(CHECK_VBD_SUCCESSFUL, progress, *_tree_root);
 				if (VERBOSE_CHECK)
 					log("  check snap ", _snap_idx, " (", snap, ")");
 			} else {
@@ -102,10 +102,8 @@ void Sb_check_channel::execute(bool &progress)
 			progress = true;
 		} else {
 			_snap_idx = 0;
-			_generate_req<Ft_check_request>(
-				CHECK_FT_SUCCESSFUL, progress, (Tree_level_index)_sb.free_max_level,
-				(Tree_degree)_sb.free_degree - 1, (Number_of_leaves)_sb.free_leaves,
-				Type_1_node { _sb.free_number, _sb.free_gen, _sb.free_hash });
+			_tree_root.construct(_sb.free_number, _sb.free_gen, _sb.free_hash, _sb.free_max_level, _sb.free_degree, _sb.free_leaves);
+			_generate_req<Ft_check_request>(CHECK_FT_SUCCESSFUL, progress, *_tree_root);
 			if (VERBOSE_CHECK)
 				log("  check free tree");
 		}
@@ -113,10 +111,8 @@ void Sb_check_channel::execute(bool &progress)
 
 	case CHECK_FT_SUCCESSFUL:
 
-		_generate_req<Ft_check_request>(
-			CHECK_MT_SUCCESSFUL, progress, (Tree_level_index)_sb.meta_max_level,
-			(Tree_degree)_sb.meta_degree - 1, (Number_of_leaves)_sb.meta_leaves,
-			Type_1_node { _sb.meta_number, _sb.meta_gen, _sb.meta_hash });
+		_tree_root.construct(_sb.meta_number, _sb.meta_gen, _sb.meta_hash, _sb.meta_max_level, _sb.meta_degree, _sb.meta_leaves);
+		_generate_req<Ft_check_request>(CHECK_MT_SUCCESSFUL, progress, *_tree_root);
 		if (VERBOSE_CHECK)
 			log("  check meta tree");
 		break;

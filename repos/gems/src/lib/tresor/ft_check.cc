@@ -26,13 +26,9 @@ using namespace Tresor;
  ** Ft_check_request **
  **********************/
 
-Ft_check_request::
-Ft_check_request(Module_id src_mod, Module_channel_id src_chan, Tree_level_index max_lvl,
-                 Tree_node_index max_child_idx, Number_of_leaves nr_of_leaves, Type_1_node root, bool &success)
-
+Ft_check_request::Ft_check_request(Module_id src_mod, Module_channel_id src_chan, Tree_root const &ft, bool &success)
 :
-	Module_request { src_mod, src_chan, FT_CHECK }, _max_lvl { max_lvl }, _max_child_idx { max_child_idx },
-	_nr_of_leaves { nr_of_leaves }, _root { root }, _success_ptr { (addr_t)&success }
+	Module_request { src_mod, src_chan, FT_CHECK }, _ft_ptr { (addr_t)&ft }, _success_ptr { (addr_t)&success }
 { }
 
 
@@ -60,13 +56,13 @@ void Ft_check::_execute_inner_t2_child(Channel          &chan,
 				progress = true;
 
 				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, req._max_lvl },
+					log(Level_indent { lvl, req._ft().max_lvl },
 					    "    lvl ", lvl, " child ", child_idx, " unused");
 
 			} else {
 
 				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, req._max_lvl },
+					log(Level_indent { lvl, req._ft().max_lvl },
 					    "    lvl ", lvl, " child ", child_idx, " unexpectedly in use");
 
 				_mark_req_failed(chan, progress, "check for valid child");
@@ -86,7 +82,7 @@ void Ft_check::_execute_inner_t2_child(Channel          &chan,
 			chan._gen_prim.dropped = true;
 
 			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, req._max_lvl },
+				log(Level_indent { lvl, req._ft().max_lvl },
 				    "    lvl ", lvl, " child ", child_idx, " (", child, "): load to lvl ", lvl - 1);
 
 		} else if (chan._gen_prim.tag != Channel::BLOCK_IO ||
@@ -119,13 +115,13 @@ void Ft_check::_execute_inner_t2_child(Channel          &chan,
 			progress = true;
 
 			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, req._max_lvl },
+				log(Level_indent { lvl, req._ft().max_lvl },
 				    "    lvl ", lvl, " child ", child_idx, " has good hash");
 
 		} else {
 
 			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, req._max_lvl },
+				log(Level_indent { lvl, req._ft().max_lvl },
 				    "    lvl ", lvl, " child ", child_idx, " has bad hash");
 
 			_mark_req_failed(chan, progress, "check inner hash");
@@ -153,13 +149,13 @@ void Ft_check::_execute_inner_t1_child(Channel           &chan,
 				progress = true;
 
 				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, req._max_lvl },
+					log(Level_indent { lvl, req._ft().max_lvl },
 					    "    lvl ", lvl, " child ", child_idx, " unused");
 
 			} else {
 
 				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, req._max_lvl },
+					log(Level_indent { lvl, req._ft().max_lvl },
 					    "    lvl ", lvl, " child ", child_idx, " unexpectedly in use");
 
 				_mark_req_failed(chan, progress, "check for valid child");
@@ -179,7 +175,7 @@ void Ft_check::_execute_inner_t1_child(Channel           &chan,
 			chan._gen_prim.dropped = true;
 
 			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, req._max_lvl },
+				log(Level_indent { lvl, req._ft().max_lvl },
 				    "    lvl ", lvl, " child ", child_idx, " (", child, "): load to lvl ", lvl - 1);
 
 		} else if (chan._gen_prim.tag != Channel::BLOCK_IO ||
@@ -215,13 +211,13 @@ void Ft_check::_execute_inner_t1_child(Channel           &chan,
 			progress = true;
 
 			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, req._max_lvl },
+				log(Level_indent { lvl, req._ft().max_lvl },
 				    "    lvl ", lvl, " child ", child_idx, " has good hash");
 
 		} else {
 
 			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, req._max_lvl },
+				log(Level_indent { lvl, req._ft().max_lvl },
 				    "    lvl ", lvl, " child ", child_idx, " has bad hash");
 
 			_mark_req_failed(chan, progress, "check inner hash");
@@ -245,7 +241,7 @@ void Ft_check::_execute_leaf_child(Channel         &chan,
 			if (child.valid()) {
 
 				if (VERBOSE_CHECK)
-					log(Level_indent { 1, req._max_lvl },
+					log(Level_indent { 1, req._ft().max_lvl },
 					    "    lvl 1 child ", child_idx, " unexpectedly in use");
 
 				_mark_req_failed(chan, progress, "check for unused child");
@@ -256,7 +252,7 @@ void Ft_check::_execute_leaf_child(Channel         &chan,
 				progress = true;
 
 				if (VERBOSE_CHECK)
-					log(Level_indent { 1, req._max_lvl },
+					log(Level_indent { 1, req._ft().max_lvl },
 					    "    lvl 1 child ", child_idx, " unused");
 			}
 
@@ -267,7 +263,7 @@ void Ft_check::_execute_leaf_child(Channel         &chan,
 			progress = true;
 
 			if (VERBOSE_CHECK)
-				log(Level_indent { 1, req._max_lvl },
+				log(Level_indent { 1, req._ft().max_lvl },
 				    "    lvl 1 child ", child_idx, " done");
 
 		}
@@ -280,7 +276,7 @@ void Ft_check::_execute_check(Channel &chan,
 {
 	Request &req { chan._request };
 	for (Tree_node_index child_idx { 0 };
-	     child_idx <= req._max_child_idx;
+	     child_idx < req._ft().degree;
 	     child_idx++) {
 
 		if (chan._t2_lvl.children_state[child_idx] != Channel::DONE) {
@@ -289,10 +285,10 @@ void Ft_check::_execute_check(Channel &chan,
 			return;
 		}
 	}
-	for (Tree_level_index lvl { FT_LOWEST_T1_LVL }; lvl <= req._max_lvl; lvl++) {
+	for (Tree_level_index lvl { FT_LOWEST_T1_LVL }; lvl <= req._ft().max_lvl; lvl++) {
 
 		for (Tree_node_index child_idx { 0 };
-		     child_idx <= req._max_child_idx;
+		     child_idx < req._ft().degree;
 		     child_idx++) {
 
 			Type_1_level &t1_lvl { chan._t1_lvls[lvl] };
@@ -316,8 +312,8 @@ void Ft_check::_execute_check(Channel &chan,
 	if (chan._root_state != Channel::DONE) {
 
 		_execute_inner_t1_child(
-			chan, req._root, chan._t1_lvls[req._max_lvl], chan._root_state,
-			req._max_lvl + 1, 0, progress);
+			chan, req._ft().t1_node(), chan._t1_lvls[req._ft().max_lvl], chan._root_state,
+			req._ft().max_lvl + 1, 0, progress);
 
 		return;
 	}
@@ -373,7 +369,7 @@ bool Ft_check::_peek_completed_request(uint8_t *buf_ptr,
 {
 	for (Channel &chan : _channels) {
 
-		if (chan._request._nr_of_leaves &&
+		if (chan._request._ft_ptr &&
 		    chan._root_state == Channel::DONE) {
 
 			if (sizeof(chan._request) > buf_size) {
@@ -398,7 +394,7 @@ void Ft_check::_drop_completed_request(Module_request &req)
 		throw Exception_1 { };
 	}
 	Channel &chan { _channels[id] };
-	if (!chan._request._nr_of_leaves &&
+	if (!chan._request._ft_ptr &&
 	    chan._root_state != Channel::DONE) {
 
 		class Exception_2 { };
@@ -411,7 +407,7 @@ void Ft_check::_drop_completed_request(Module_request &req)
 bool Ft_check::ready_to_submit_request()
 {
 	for (Channel &chan : _channels) {
-		if (!chan._request._nr_of_leaves)
+		if (!chan._request._ft_ptr)
 			return true;
 	}
 	return false;
@@ -422,10 +418,10 @@ void Ft_check::submit_request(Module_request &req)
 {
 	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 		Channel &chan { _channels[id] };
-		if (!chan._request._nr_of_leaves) {
+		if (!chan._request._ft_ptr) {
 			req.dst_request_id(id);
 			chan._request = *static_cast<Request *>(&req);
-			chan._nr_of_leaves = chan._request._nr_of_leaves;
+			chan._nr_of_leaves = chan._request._ft().num_leaves;
 			chan._root_state = Channel::READ_BLOCK;
 			return;
 		}
@@ -440,7 +436,7 @@ void Ft_check::execute(bool &progress)
 	for (Channel &chan : _channels) {
 
 		Request &req { chan._request };
-		if (!req._nr_of_leaves)
+		if (!req._ft_ptr)
 			continue;
 
 		_execute_check(chan, progress);
