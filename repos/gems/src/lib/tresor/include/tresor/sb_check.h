@@ -64,6 +64,7 @@ class Tresor::Sb_check_channel : public Module_channel
 		Superblock_index _sb_idx { 0 };
 		Superblock _sb { };
 		Snapshot_index _snap_idx { 0 };
+		Constructible<Tree_root> _vbd { };
 		Block _blk { };
 		bool _generated_req_success { false };
 

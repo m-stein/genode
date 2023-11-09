@@ -65,9 +65,8 @@ void Sb_check_channel::execute(bool &progress)
 			Snapshot &snap { _sb.snapshots.items[_snap_idx] };
 			if (snap.valid) {
 				Snapshot &snap { _sb.snapshots.items[_snap_idx] };
-				_generate_req<Vbd_check_request>(
-					CHECK_VBD_SUCCESSFUL, progress, snap.max_level, _sb.degree - 1,
-					snap.nr_of_leaves, Type_1_node { snap.pba, snap.gen, snap.hash });
+				_vbd.construct(snap.pba, snap.gen, snap.hash, snap.max_level, _sb.degree, snap.nr_of_leaves);
+				_generate_req<Vbd_check_request>(CHECK_VBD_SUCCESSFUL, progress, *_vbd);
 				if (VERBOSE_CHECK)
 					log("  check snap ", _snap_idx, " (", snap, ")");
 			} else {
