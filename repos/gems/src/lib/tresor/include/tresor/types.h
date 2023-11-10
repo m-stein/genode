@@ -68,9 +68,6 @@ namespace Tresor {
 	enum { TREE_MAX_DEGREE = 1 << TREE_MAX_DEGREE_LOG_2 };
 	enum { TREE_MAX_LEVEL = 6 };
 	enum { TREE_MAX_NR_OF_LEVELS = TREE_MAX_LEVEL + 1 };
-	enum { T2_NODE_LVL = 1 };
-	enum { FT_LOWEST_T1_LVL = 2 };
-	enum { MT_LOWEST_T1_LVL = 2 };
 	enum { KEY_SIZE = 32 };
 	enum { MAX_NR_OF_SNAPSHOTS = 48 };
 	enum { MAX_SNAP_IDX = MAX_NR_OF_SNAPSHOTS - 1 };

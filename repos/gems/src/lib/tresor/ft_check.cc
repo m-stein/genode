@@ -28,34 +28,34 @@ Ft_check_request::Ft_check_request(Module_id src_mod, Module_channel_id src_chan
 
 
 void Ft_check_channel::_execute_inner_t2_child(Tree_level_index  lvl,
-                                       Tree_node_index   child_idx,
+                                       Tree_node_index   node_idx,
                                        bool             &progress)
 {
 	Request &req { *_req_ptr };
-	Child_state &child_state { _t1_lvls[lvl].children_state[child_idx] };
-	Type_1_node const &child { _t1_lvls[lvl].children.nodes[child_idx] };
+	Node_state &node_state { _t1_lvls[lvl].children_state[node_idx] };
+	Type_1_node const &node { _t1_lvls[lvl].children.nodes[node_idx] };
 	Type_2_level &child_lvl { _t2_lvl };
 
-	if (child_state == READ_BLOCK) {
+	if (node_state == READ_BLOCK) {
 
-		if (!child.valid()) {
+		if (!node.valid()) {
 
 			if (_nr_of_leaves == 0) {
 
-				child_state = DONE;
+				node_state = DONE;
 				progress = true;
 
 				if (VERBOSE_CHECK)
 					log(Level_indent { lvl, req._ft.max_lvl },
-					    "    lvl ", lvl, " child ", child_idx, " unused");
+					    "    lvl ", lvl, " node ", node_idx, " unused");
 
 			} else {
 
 				if (VERBOSE_CHECK)
 					log(Level_indent { lvl, req._ft.max_lvl },
-					    "    lvl ", lvl, " child ", child_idx, " unexpectedly in use");
+					    "    lvl ", lvl, " node ", node_idx, " unexpectedly in use");
 
-				_mark_req_failed(progress, "check for valid child");
+				_mark_req_failed(progress, "check for valid node");
 			}
 
 		} else if (!_gen_prim.valid()) {
@@ -63,7 +63,7 @@ void Ft_check_channel::_execute_inner_t2_child(Tree_level_index  lvl,
 			_gen_prim = {
 				.success = false,
 				.tag = BLOCK_IO,
-				.blk_nr = child.pba,
+				.blk_nr = node.pba,
 				.dropped = false };
 
 			_lvl_to_read = lvl - 1;
@@ -73,10 +73,10 @@ void Ft_check_channel::_execute_inner_t2_child(Tree_level_index  lvl,
 
 			if (VERBOSE_CHECK)
 				log(Level_indent { lvl, req._ft.max_lvl },
-				    "    lvl ", lvl, " child ", child_idx, " (", child, "): load to lvl ", lvl - 1);
+				    "    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
 
 		} else if (_gen_prim.tag != BLOCK_IO ||
-		           _gen_prim.blk_nr != child.pba) {
+		           _gen_prim.blk_nr != node.pba) {
 
 			class Exception_1 { };
 			throw Exception_1 { };
@@ -85,34 +85,34 @@ void Ft_check_channel::_execute_inner_t2_child(Tree_level_index  lvl,
 
 		} else {
 
-			for (Child_state &state : child_lvl.children_state) {
+			for (Node_state &state : child_lvl.children_state) {
 				state = READ_BLOCK;
 			}
 			_gen_prim = { };
-			child_state = CHECK_HASH;
+			node_state = CHECK_HASH;
 			progress = true;
 		}
 
-	} else if (child_state == CHECK_HASH) {
+	} else if (node_state == CHECK_HASH) {
 
 		Block blk { };
 		child_lvl.children.encode_to_blk(blk);
 
-		if (child.gen == INITIAL_GENERATION ||
-		    check_hash(blk, child.hash)) {
+		if (node.gen == INITIAL_GENERATION ||
+		    check_hash(blk, node.hash)) {
 
-			child_state = DONE;
+			node_state = DONE;
 			progress = true;
 
 			if (VERBOSE_CHECK)
 				log(Level_indent { lvl, req._ft.max_lvl },
-				    "    lvl ", lvl, " child ", child_idx, " has good hash");
+				    "    lvl ", lvl, " node ", node_idx, " has good hash");
 
 		} else {
 
 			if (VERBOSE_CHECK)
 				log(Level_indent { lvl, req._ft.max_lvl },
-				    "    lvl ", lvl, " child ", child_idx, " has bad hash");
+				    "    lvl ", lvl, " node ", node_idx, " has bad hash");
 
 			_mark_req_failed(progress, "check inner hash");
 		}
@@ -120,34 +120,34 @@ void Ft_check_channel::_execute_inner_t2_child(Tree_level_index  lvl,
 }
 
 
-void Ft_check_channel::_execute_inner_t1_child(Type_1_node const &child,
+void Ft_check_channel::_execute_inner_t1_child(Type_1_node const &node,
                                        Type_1_level      &child_lvl,
-                                       Child_state       &child_state,
+                                       Node_state       &node_state,
                                        Tree_level_index   lvl,
-                                       Tree_node_index    child_idx,
+                                       Tree_node_index    node_idx,
                                        bool              &progress)
 {
 	Request &req { *_req_ptr };
-	if (child_state == READ_BLOCK) {
+	if (node_state == READ_BLOCK) {
 
-		if (!child.valid()) {
+		if (!node.valid()) {
 
 			if (_nr_of_leaves == 0) {
 
-				child_state = DONE;
+				node_state = DONE;
 				progress = true;
 
 				if (VERBOSE_CHECK)
 					log(Level_indent { lvl, req._ft.max_lvl },
-					    "    lvl ", lvl, " child ", child_idx, " unused");
+					    "    lvl ", lvl, " node ", node_idx, " unused");
 
 			} else {
 
 				if (VERBOSE_CHECK)
 					log(Level_indent { lvl, req._ft.max_lvl },
-					    "    lvl ", lvl, " child ", child_idx, " unexpectedly in use");
+					    "    lvl ", lvl, " node ", node_idx, " unexpectedly in use");
 
-				_mark_req_failed(progress, "check for valid child");
+				_mark_req_failed(progress, "check for valid node");
 			}
 
 		} else if (!_gen_prim.valid()) {
@@ -155,7 +155,7 @@ void Ft_check_channel::_execute_inner_t1_child(Type_1_node const &child,
 			_gen_prim = {
 				.success = false,
 				.tag = BLOCK_IO,
-				.blk_nr = child.pba,
+				.blk_nr = node.pba,
 				.dropped = false };
 
 			_lvl_to_read = lvl - 1;
@@ -165,10 +165,10 @@ void Ft_check_channel::_execute_inner_t1_child(Type_1_node const &child,
 
 			if (VERBOSE_CHECK)
 				log(Level_indent { lvl, req._ft.max_lvl },
-				    "    lvl ", lvl, " child ", child_idx, " (", child, "): load to lvl ", lvl - 1);
+				    "    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
 
 		} else if (_gen_prim.tag != BLOCK_IO ||
-		           _gen_prim.blk_nr != child.pba) {
+		           _gen_prim.blk_nr != node.pba) {
 
 			class Exception_1 { };
 			throw Exception_1 { };
@@ -177,34 +177,34 @@ void Ft_check_channel::_execute_inner_t1_child(Type_1_node const &child,
 
 		} else {
 
-			for (Child_state &state : child_lvl.children_state) {
+			for (Node_state &state : child_lvl.children_state) {
 				state = READ_BLOCK;
 			}
 			_gen_prim = { };
-			child_state = CHECK_HASH;
+			node_state = CHECK_HASH;
 			progress = true;
 		}
 
-	} else if (child_state == CHECK_HASH) {
+	} else if (node_state == CHECK_HASH) {
 
 		Block blk { };
 		child_lvl.children.encode_to_blk(blk);
 
-		if (child.gen == INITIAL_GENERATION ||
-		    check_hash(blk, child.hash)) {
+		if (node.gen == INITIAL_GENERATION ||
+		    check_hash(blk, node.hash)) {
 
-			child_state = DONE;
+			node_state = DONE;
 			progress = true;
 
 			if (VERBOSE_CHECK)
 				log(Level_indent { lvl, req._ft.max_lvl },
-				    "    lvl ", lvl, " child ", child_idx, " has good hash");
+				    "    lvl ", lvl, " node ", node_idx, " has good hash");
 
 		} else {
 
 			if (VERBOSE_CHECK)
 				log(Level_indent { lvl, req._ft.max_lvl },
-				    "    lvl ", lvl, " child ", child_idx, " has bad hash");
+				    "    lvl ", lvl, " node ", node_idx, " has bad hash");
 
 			_mark_req_failed(progress, "check inner hash");
 		}
@@ -212,44 +212,44 @@ void Ft_check_channel::_execute_inner_t1_child(Type_1_node const &child,
 }
 
 
-void Ft_check_channel::_execute_leaf_child(Tree_node_index  child_idx,
+void Ft_check_channel::_execute_t2_node(Tree_node_index  node_idx,
                                    bool            &progress)
 {
 	Request &req { *_req_ptr };
-	Type_2_node const &child { _t2_lvl.children.nodes[child_idx] };
-	Child_state &child_state { _t2_lvl.children_state[child_idx] };
+	Type_2_node const &node { _t2_lvl.children.nodes[node_idx] };
+	Node_state &node_state { _t2_lvl.children_state[node_idx] };
 
-	if (child_state == READ_BLOCK) {
+	if (node_state == READ_BLOCK) {
 
 		if (_nr_of_leaves == 0) {
 
-			if (child.valid()) {
+			if (node.valid()) {
 
 				if (VERBOSE_CHECK)
 					log(Level_indent { 1, req._ft.max_lvl },
-					    "    lvl 1 child ", child_idx, " unexpectedly in use");
+					    "    lvl 1 node ", node_idx, " unexpectedly in use");
 
-				_mark_req_failed(progress, "check for unused child");
+				_mark_req_failed(progress, "check for unused node");
 
 			} else {
 
-				child_state = DONE;
+				node_state = DONE;
 				progress = true;
 
 				if (VERBOSE_CHECK)
 					log(Level_indent { 1, req._ft.max_lvl },
-					    "    lvl 1 child ", child_idx, " unused");
+					    "    lvl 1 node ", node_idx, " unused");
 			}
 
 		} else {
 
 			_nr_of_leaves--;
-			child_state = DONE;
+			node_state = DONE;
 			progress = true;
 
 			if (VERBOSE_CHECK)
 				log(Level_indent { 1, req._ft.max_lvl },
-				    "    lvl 1 child ", child_idx, " done");
+				    "    lvl 1 node ", node_idx, " done");
 
 		}
 	}
@@ -262,34 +262,34 @@ void Ft_check_channel::execute(bool &progress)
 		return;
 
 	Request &req { *_req_ptr };
-	for (Tree_node_index child_idx { 0 };
-	     child_idx < req._ft.degree;
-	     child_idx++) {
+	for (Tree_node_index node_idx { 0 };
+	     node_idx < req._ft.degree;
+	     node_idx++) {
 
-		if (_t2_lvl.children_state[child_idx] != DONE) {
+		if (_t2_lvl.children_state[node_idx] != DONE) {
 
-			_execute_leaf_child(child_idx, progress);
+			_execute_t2_node(node_idx, progress);
 			return;
 		}
 	}
-	for (Tree_level_index lvl { FT_LOWEST_T1_LVL }; lvl <= req._ft.max_lvl; lvl++) {
+	for (Tree_level_index lvl { 2 }; lvl <= req._ft.max_lvl; lvl++) {
 
-		for (Tree_node_index child_idx { 0 };
-		     child_idx < req._ft.degree;
-		     child_idx++) {
+		for (Tree_node_index node_idx { 0 };
+		     node_idx < req._ft.degree;
+		     node_idx++) {
 
 			Type_1_level &t1_lvl { _t1_lvls[lvl] };
-			if (t1_lvl.children_state[child_idx] != DONE) {
+			if (t1_lvl.children_state[node_idx] != DONE) {
 
-				if (lvl == FT_LOWEST_T1_LVL)
+				if (lvl == 2)
 					_execute_inner_t2_child(
-						lvl, child_idx, progress);
+						lvl, node_idx, progress);
 				else
 					_execute_inner_t1_child(
-						_t1_lvls[lvl].children.nodes[child_idx],
+						_t1_lvls[lvl].children.nodes[node_idx],
 						_t1_lvls[lvl - 1],
-						_t1_lvls[lvl].children_state[child_idx],
-						lvl, child_idx, progress);
+						_t1_lvls[lvl].children_state[node_idx],
+						lvl, node_idx, progress);
 
 				return;
 			}

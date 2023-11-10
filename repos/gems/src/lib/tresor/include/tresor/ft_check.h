@@ -27,7 +27,6 @@ namespace Tresor {
 
 class Tresor::Ft_check_request : public Module_request
 {
-	friend class Ft_check;
 	friend class Ft_check_channel;
 
 	private:
@@ -49,35 +48,33 @@ class Tresor::Ft_check_channel : public Module_channel
 {
 	private:
 
-		friend class Ft_check;
-
 		using Request = Ft_check_request;
 
 		enum State : State_uint { REQ_SUBMITTED, REQ_IN_PROGRESS, REQ_COMPLETE, REQ_GENERATED, READ_BLK_SUCCEEDED };
 
-		enum Child_state {
+		enum Node_state {
 			READ_BLOCK = 0, CHECK_HASH = 1, DONE = 2 };
 
 		struct Type_1_level
 		{
-			Child_state       children_state[NR_OF_T1_NODES_PER_BLK] { };
+			Node_state       children_state[NR_OF_T1_NODES_PER_BLK] { };
 			Type_1_node_block children                                   { };
 
 			Type_1_level()
 			{
-				for (Child_state &state : children_state)
+				for (Node_state &state : children_state)
 					state = DONE;
 			}
 		};
 
 		struct Type_2_level
 		{
-			Child_state       children_state[NR_OF_T1_NODES_PER_BLK] { };
+			Node_state       children_state[NR_OF_T1_NODES_PER_BLK] { };
 			Type_2_node_block children                                   { };
 
 			Type_2_level()
 			{
-				for (Child_state &state : children_state)
+				for (Node_state &state : children_state)
 					state = DONE;
 			}
 		};
@@ -97,7 +94,7 @@ class Tresor::Ft_check_channel : public Module_channel
 		State _state { REQ_COMPLETE };
 		Generated_primitive _gen_prim { };
 		Tree_level_index _lvl_to_read { 0 };
-		Child_state _root_state { DONE };
+		Node_state _root_state { DONE };
 		Type_2_level _t2_lvl { };
 		Type_1_level _t1_lvls[TREE_MAX_LEVEL] { };
 		Hash _dummy_hash { };
@@ -115,7 +112,7 @@ class Tresor::Ft_check_channel : public Module_channel
 		bool _request_complete() override { return _root_state == DONE; }
 
 		void _execute_inner_t2_child(Tree_level_index  lvl,
-		                             Tree_node_index   child_idx,
+		                             Tree_node_index   node_idx,
 		                             bool             &progress);
 
 		void _execute_check(bool    &progress);
@@ -125,15 +122,15 @@ class Tresor::Ft_check_channel : public Module_channel
 
 		void _mark_req_successful(bool    &progress);
 
-		void _execute_inner_t1_child(Type_1_node const &child,
+		void _execute_inner_t1_child(Type_1_node const &node,
 		                             Type_1_level      &child_lvl,
-		                             Child_state       &child_state,
+		                             Node_state       &node_state,
 		                             Tree_level_index   lvl,
-		                             Tree_node_index    child_idx,
+		                             Tree_node_index    node_idx,
 		                             bool              &progress);
 
 
-		void _execute_leaf_child(Tree_node_index    child_idx,
+		void _execute_t2_node(Tree_node_index    node_idx,
 		                         bool              &progress);
 
 		template <typename REQUEST, typename... ARGS>
