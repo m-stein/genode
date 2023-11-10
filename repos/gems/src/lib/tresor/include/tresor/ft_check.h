@@ -57,7 +57,7 @@ class Tresor::Ft_check_channel : public Module_channel
 
 		struct Type_1_level
 		{
-			Node_state       children_state[NR_OF_T1_NODES_PER_BLK] { };
+			Node_state       children_state[NUM_NODES_PER_BLK] { };
 			Type_1_node_block children                                   { };
 
 			Type_1_level()
@@ -69,7 +69,7 @@ class Tresor::Ft_check_channel : public Module_channel
 
 		struct Type_2_level
 		{
-			Node_state       children_state[NR_OF_T1_NODES_PER_BLK] { };
+			Node_state       children_state[NUM_NODES_PER_BLK] { };
 			Type_2_node_block children                                   { };
 
 			Type_2_level()

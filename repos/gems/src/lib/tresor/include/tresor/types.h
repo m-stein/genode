@@ -60,10 +60,8 @@ namespace Tresor {
 	enum { MAX_GENERATION = 0xffff'ffff'ffff'ffff };
 	enum { MAX_SNAP_ID = 0xffff'ffff };
 	enum { HASH_SIZE = 32 };
-	enum { T1_NODE_STORAGE_SIZE = 64 };
-	enum { T2_NODE_STORAGE_SIZE = 64 };
-	enum { NR_OF_T2_NODES_PER_BLK = (size_t)BLOCK_SIZE / (size_t)T2_NODE_STORAGE_SIZE };
-	enum { NR_OF_T1_NODES_PER_BLK = (size_t)BLOCK_SIZE / (size_t)T1_NODE_STORAGE_SIZE };
+	enum { ON_DISC_NODE_SIZE = 64 };
+	enum { NUM_NODES_PER_BLK = (size_t)BLOCK_SIZE / (size_t)ON_DISC_NODE_SIZE };
 	enum { TREE_MAX_DEGREE_LOG_2 = 6 };
 	enum { TREE_MAX_DEGREE = 1 << TREE_MAX_DEGREE_LOG_2 };
 	enum { TREE_MAX_LEVEL = 6 };
@@ -514,7 +512,7 @@ struct Tresor::Tree_root
 
 struct Tresor::Type_1_node_block
 {
-	Type_1_node nodes[NR_OF_T1_NODES_PER_BLK] { };
+	Type_1_node nodes[NUM_NODES_PER_BLK] { };
 
 	void decode_from_blk(Block const &blk)
 	{
@@ -592,7 +590,7 @@ struct Tresor::Type_2_node
 
 struct Tresor::Type_2_node_block
 {
-	Type_2_node nodes[NR_OF_T2_NODES_PER_BLK] { };
+	Type_2_node nodes[NUM_NODES_PER_BLK] { };
 
 	void decode_from_blk(Block const &blk)
 	{

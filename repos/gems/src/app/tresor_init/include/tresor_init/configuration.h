@@ -70,13 +70,13 @@ class Tresor_init::Configuration
 			ASSERT(_vbd_nr_of_lvls <= TREE_MAX_NR_OF_LEVELS);
 			ASSERT(_vbd_nr_of_leafs);
 			ASSERT(is_power_of_2(_vbd_nr_of_children));
-			ASSERT(_vbd_nr_of_children <= NR_OF_T1_NODES_PER_BLK);
+			ASSERT(_vbd_nr_of_children <= NUM_NODES_PER_BLK);
 			ASSERT(_ft_nr_of_lvls);
 			ASSERT(_ft_nr_of_lvls <= TREE_MAX_NR_OF_LEVELS);
 			ASSERT(_ft_nr_of_leafs);
 			ASSERT(is_power_of_2(_ft_nr_of_children));
-			ASSERT(_ft_nr_of_children <= NR_OF_T1_NODES_PER_BLK);
-			ASSERT(_ft_nr_of_children <= NR_OF_T2_NODES_PER_BLK);
+			ASSERT(_ft_nr_of_children <= NUM_NODES_PER_BLK);
+			ASSERT(_ft_nr_of_children <= NUM_NODES_PER_BLK);
 		}
 
 		Configuration (Configuration const &other)

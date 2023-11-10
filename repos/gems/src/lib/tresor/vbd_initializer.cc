@@ -180,7 +180,7 @@ void Vbd_initializer_channel::execute(bool &progress)
 
 void Vbd_initializer_channel::_reset_level(Tree_level_index lvl, Node_state state)
 {
-	for (unsigned int idx = 0; idx < NR_OF_T1_NODES_PER_BLK; idx++) {
+	for (unsigned int idx = 0; idx < NUM_NODES_PER_BLK; idx++) {
 		_t1_blks.items[lvl].nodes[idx] = { };
 		_node_states[lvl][idx] = state;
 	}

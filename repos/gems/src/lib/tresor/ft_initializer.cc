@@ -157,12 +157,12 @@ void Ft_initializer_channel::_mark_req_successful(bool &progress)
 void Ft_initializer_channel::_reset_level(Tree_level_index lvl, Node_state node_state)
 {
 	if (lvl == 1)
-		for (Tree_node_index idx = 0; idx < NR_OF_T2_NODES_PER_BLK; idx++) {
+		for (Tree_node_index idx = 0; idx < NUM_NODES_PER_BLK; idx++) {
 			_t2_blk.nodes[idx] = { };
 			_t2_node_states[idx] = node_state;
 		}
 	else
-		for (Tree_node_index idx = 0; idx < NR_OF_T1_NODES_PER_BLK; idx++) {
+		for (Tree_node_index idx = 0; idx < NUM_NODES_PER_BLK; idx++) {
 			_t1_blks.items[lvl].nodes[idx] = { };
 			_t1_node_states[lvl][idx] = node_state;
 		}
