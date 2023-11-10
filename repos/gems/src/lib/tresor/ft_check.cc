@@ -28,7 +28,7 @@ using namespace Tresor;
 
 Ft_check_request::Ft_check_request(Module_id src_mod, Module_channel_id src_chan, Tree_root const &ft, bool &success)
 :
-	Module_request { src_mod, src_chan, FT_CHECK }, _ft_ptr { (addr_t)&ft }, _success_ptr { (addr_t)&success }
+	Module_request { src_mod, src_chan, FT_CHECK }, _ft { ft }, _success { success }
 { }
 
 
@@ -41,7 +41,7 @@ void Ft_check::_execute_inner_t2_child(Channel          &chan,
                                        Tree_node_index   child_idx,
                                        bool             &progress)
 {
-	Request &req { chan._request };
+	Request &req { *chan._req_ptr };
 	Child_state &child_state { chan._t1_lvls[lvl].children_state[child_idx] };
 	Type_1_node const &child { chan._t1_lvls[lvl].children.nodes[child_idx] };
 	Type_2_level &child_lvl { chan._t2_lvl };
@@ -56,13 +56,13 @@ void Ft_check::_execute_inner_t2_child(Channel          &chan,
 				progress = true;
 
 				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, req._ft().max_lvl },
+					log(Level_indent { lvl, req._ft.max_lvl },
 					    "    lvl ", lvl, " child ", child_idx, " unused");
 
 			} else {
 
 				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, req._ft().max_lvl },
+					log(Level_indent { lvl, req._ft.max_lvl },
 					    "    lvl ", lvl, " child ", child_idx, " unexpectedly in use");
 
 				_mark_req_failed(chan, progress, "check for valid child");
@@ -82,7 +82,7 @@ void Ft_check::_execute_inner_t2_child(Channel          &chan,
 			chan._gen_prim.dropped = true;
 
 			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, req._ft().max_lvl },
+				log(Level_indent { lvl, req._ft.max_lvl },
 				    "    lvl ", lvl, " child ", child_idx, " (", child, "): load to lvl ", lvl - 1);
 
 		} else if (chan._gen_prim.tag != Channel::BLOCK_IO ||
@@ -115,13 +115,13 @@ void Ft_check::_execute_inner_t2_child(Channel          &chan,
 			progress = true;
 
 			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, req._ft().max_lvl },
+				log(Level_indent { lvl, req._ft.max_lvl },
 				    "    lvl ", lvl, " child ", child_idx, " has good hash");
 
 		} else {
 
 			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, req._ft().max_lvl },
+				log(Level_indent { lvl, req._ft.max_lvl },
 				    "    lvl ", lvl, " child ", child_idx, " has bad hash");
 
 			_mark_req_failed(chan, progress, "check inner hash");
@@ -138,7 +138,7 @@ void Ft_check::_execute_inner_t1_child(Channel           &chan,
                                        Tree_node_index    child_idx,
                                        bool              &progress)
 {
-	Request &req { chan._request };
+	Request &req { *chan._req_ptr };
 	if (child_state == Channel::READ_BLOCK) {
 
 		if (!child.valid()) {
@@ -149,13 +149,13 @@ void Ft_check::_execute_inner_t1_child(Channel           &chan,
 				progress = true;
 
 				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, req._ft().max_lvl },
+					log(Level_indent { lvl, req._ft.max_lvl },
 					    "    lvl ", lvl, " child ", child_idx, " unused");
 
 			} else {
 
 				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, req._ft().max_lvl },
+					log(Level_indent { lvl, req._ft.max_lvl },
 					    "    lvl ", lvl, " child ", child_idx, " unexpectedly in use");
 
 				_mark_req_failed(chan, progress, "check for valid child");
@@ -175,7 +175,7 @@ void Ft_check::_execute_inner_t1_child(Channel           &chan,
 			chan._gen_prim.dropped = true;
 
 			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, req._ft().max_lvl },
+				log(Level_indent { lvl, req._ft.max_lvl },
 				    "    lvl ", lvl, " child ", child_idx, " (", child, "): load to lvl ", lvl - 1);
 
 		} else if (chan._gen_prim.tag != Channel::BLOCK_IO ||
@@ -205,19 +205,16 @@ void Ft_check::_execute_inner_t1_child(Channel           &chan,
 		    check_hash(blk, child.hash)) {
 
 			child_state = Channel::DONE;
-			if (&child_state == &chan._root_state) {
-				chan._request._success() = true;
-			}
 			progress = true;
 
 			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, req._ft().max_lvl },
+				log(Level_indent { lvl, req._ft.max_lvl },
 				    "    lvl ", lvl, " child ", child_idx, " has good hash");
 
 		} else {
 
 			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, req._ft().max_lvl },
+				log(Level_indent { lvl, req._ft.max_lvl },
 				    "    lvl ", lvl, " child ", child_idx, " has bad hash");
 
 			_mark_req_failed(chan, progress, "check inner hash");
@@ -230,7 +227,7 @@ void Ft_check::_execute_leaf_child(Channel         &chan,
                                    Tree_node_index  child_idx,
                                    bool            &progress)
 {
-	Request &req { chan._request };
+	Request &req { *chan._req_ptr };
 	Type_2_node const &child { chan._t2_lvl.children.nodes[child_idx] };
 	Child_state &child_state { chan._t2_lvl.children_state[child_idx] };
 
@@ -241,7 +238,7 @@ void Ft_check::_execute_leaf_child(Channel         &chan,
 			if (child.valid()) {
 
 				if (VERBOSE_CHECK)
-					log(Level_indent { 1, req._ft().max_lvl },
+					log(Level_indent { 1, req._ft.max_lvl },
 					    "    lvl 1 child ", child_idx, " unexpectedly in use");
 
 				_mark_req_failed(chan, progress, "check for unused child");
@@ -252,7 +249,7 @@ void Ft_check::_execute_leaf_child(Channel         &chan,
 				progress = true;
 
 				if (VERBOSE_CHECK)
-					log(Level_indent { 1, req._ft().max_lvl },
+					log(Level_indent { 1, req._ft.max_lvl },
 					    "    lvl 1 child ", child_idx, " unused");
 			}
 
@@ -263,7 +260,7 @@ void Ft_check::_execute_leaf_child(Channel         &chan,
 			progress = true;
 
 			if (VERBOSE_CHECK)
-				log(Level_indent { 1, req._ft().max_lvl },
+				log(Level_indent { 1, req._ft.max_lvl },
 				    "    lvl 1 child ", child_idx, " done");
 
 		}
@@ -274,9 +271,9 @@ void Ft_check::_execute_leaf_child(Channel         &chan,
 void Ft_check::_execute_check(Channel &chan,
                               bool    &progress)
 {
-	Request &req { chan._request };
+	Request &req { *chan._req_ptr };
 	for (Tree_node_index child_idx { 0 };
-	     child_idx < req._ft().degree;
+	     child_idx < req._ft.degree;
 	     child_idx++) {
 
 		if (chan._t2_lvl.children_state[child_idx] != Channel::DONE) {
@@ -285,10 +282,10 @@ void Ft_check::_execute_check(Channel &chan,
 			return;
 		}
 	}
-	for (Tree_level_index lvl { FT_LOWEST_T1_LVL }; lvl <= req._ft().max_lvl; lvl++) {
+	for (Tree_level_index lvl { FT_LOWEST_T1_LVL }; lvl <= req._ft.max_lvl; lvl++) {
 
 		for (Tree_node_index child_idx { 0 };
-		     child_idx < req._ft().degree;
+		     child_idx < req._ft.degree;
 		     child_idx++) {
 
 			Type_1_level &t1_lvl { chan._t1_lvls[lvl] };
@@ -312,20 +309,23 @@ void Ft_check::_execute_check(Channel &chan,
 	if (chan._root_state != Channel::DONE) {
 
 		_execute_inner_t1_child(
-			chan, req._ft().t1_node(), chan._t1_lvls[req._ft().max_lvl], chan._root_state,
-			req._ft().max_lvl + 1, 0, progress);
+			chan, req._ft.t1_node(), chan._t1_lvls[req._ft.max_lvl], chan._root_state,
+			req._ft.max_lvl + 1, 0, progress);
 
 		return;
 	}
+	chan._req_ptr->_success = true;
+	chan._req_ptr = nullptr;
 }
 
 
 void Ft_check_channel::_generated_req_completed(State_uint)
 {
 	if (!_generated_req_success) {
-		error("ft check: request (", _request, ") failed because generated request failed)");
-		_request._success() = false;
+		error("ft check: request (", *_req_ptr, ") failed because generated request failed)");
+		_req_ptr->_success = false;
 		_root_state = DONE;
+		_req_ptr = nullptr;
 		return;
 	}
 	_gen_prim.success = true;
@@ -338,96 +338,30 @@ void Ft_check_channel::_generated_req_completed(State_uint)
 }
 
 
-void Ft_check_channel::_reset()
-{
-	_gen_prim = { };
-	_lvl_to_read = 0;
-	_root_state = DONE;
-	_t2_lvl = { };
-	for (Type_1_level &t1_lvl : _t1_lvls)
-		t1_lvl = { };
-	_nr_of_leaves = 0;
-	_request = { };
-	_encoded_blk = { };
-	_generated_req_success = false;
-}
-
-
 void Ft_check::_mark_req_failed(Channel    &chan,
                                 bool       &progress,
                                 char const *str)
 {
-	error("ft check: request (", chan._request, ") failed at step \"", str, "\"");
-	chan._request._success() = false;
+	error("ft check: request (", *chan._req_ptr, ") failed at step \"", str, "\"");
+	chan._req_ptr->_success = false;
 	chan._root_state = Channel::DONE;
+	chan._req_ptr = nullptr;
 	progress = true;
 }
 
 
-bool Ft_check::_peek_completed_request(uint8_t *buf_ptr,
-                                       size_t   buf_size)
+void Ft_check_channel::_request_submitted(Module_request &mod_req)
 {
-	for (Channel &chan : _channels) {
-
-		if (chan._request._ft_ptr &&
-		    chan._root_state == Channel::DONE) {
-
-			if (sizeof(chan._request) > buf_size) {
-				class Exception_1 { };
-				throw Exception_1 { };
-			}
-			memcpy(buf_ptr, &chan._request, sizeof(chan._request));
-			return true;
-		}
-	}
-	return false;
-}
-
-
-void Ft_check::_drop_completed_request(Module_request &req)
-{
-	Module_request_id id { 0 };
-	id = req.dst_request_id();
-	if (id >= NR_OF_CHANNELS) {
-
-		class Exception_1 { };
-		throw Exception_1 { };
-	}
-	Channel &chan { _channels[id] };
-	if (!chan._request._ft_ptr &&
-	    chan._root_state != Channel::DONE) {
-
-		class Exception_2 { };
-		throw Exception_2 { };
-	}
-	chan._reset();
-}
-
-
-bool Ft_check::ready_to_submit_request()
-{
-	for (Channel &chan : _channels) {
-		if (!chan._request._ft_ptr)
-			return true;
-	}
-	return false;
-}
-
-
-void Ft_check::submit_request(Module_request &req)
-{
-	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
-		Channel &chan { _channels[id] };
-		if (!chan._request._ft_ptr) {
-			req.dst_request_id(id);
-			chan._request = *static_cast<Request *>(&req);
-			chan._nr_of_leaves = chan._request._ft().num_leaves;
-			chan._root_state = Channel::READ_BLOCK;
-			return;
-		}
-	}
-	class Exception_1 { };
-	throw Exception_1 { };
+	_req_ptr = static_cast<Request *>(&mod_req);
+	_gen_prim = { };
+	_lvl_to_read = 0;
+	_t2_lvl = { };
+	for (Type_1_level &t1_lvl : _t1_lvls)
+		t1_lvl = { };
+	_encoded_blk = { };
+	_generated_req_success = false;
+	_nr_of_leaves = _req_ptr->_ft.num_leaves;
+	_root_state = READ_BLOCK;
 }
 
 
@@ -435,8 +369,7 @@ void Ft_check::execute(bool &progress)
 {
 	for (Channel &chan : _channels) {
 
-		Request &req { chan._request };
-		if (!req._ft_ptr)
+		if (!chan._req_ptr)
 			continue;
 
 		_execute_check(chan, progress);
