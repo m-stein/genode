@@ -32,12 +32,11 @@ bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_
 		return false;
 
 	Request &req { *_req_ptr };
-	if (lvl == 1) {
+	switch (_state) {
+	case REQ_SUBMITTED:
 
-		Type_2_node const &node { _t2_blk.nodes[node_idx] };
-		switch (_state) {
-		case REQ_SUBMITTED:
-
+		if (lvl == 1) {
+			Type_2_node const &node { _t2_blk.nodes[node_idx] };
 			if (!_num_remaining_leaves) {
 
 				if (node.valid()) {
@@ -61,17 +60,9 @@ bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_
 				if (VERBOSE_CHECK)
 					log(Level_indent { 1, req._ft.max_lvl }, "    lvl 1 node ", node_idx, " done");
 			}
-			break;
+		} else if (lvl == 2) {
 
-		default: break;
-		}
-
-	} else if (lvl == 2) {
-
-		Type_1_node const &node { _t1_blks.items[lvl].nodes[node_idx] };
-		switch (_state) {
-		case REQ_SUBMITTED:
-
+			Type_1_node const &node { _t1_blks.items[lvl].nodes[node_idx] };
 			if (!node.valid()) {
 				if (!_num_remaining_leaves) {
 
@@ -93,10 +84,41 @@ bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_
 			_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _blk);
 			if (VERBOSE_CHECK)
 				log(Level_indent { lvl, req._ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
-			break;
 
-		case READ_BLK_SUCCEEDED:
+		} else if (lvl > 2) {
 
+			Type_1_node const &node { _t1_blks.items[lvl].nodes[node_idx] };
+			if (!node.valid()) {
+
+				if (!_num_remaining_leaves) {
+
+					check_node = false;
+					progress = true;
+					if (VERBOSE_CHECK)
+						log(Level_indent { lvl, req._ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " unused");
+
+				} else {
+
+					if (VERBOSE_CHECK)
+						log(Level_indent { lvl, req._ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " unexpectedly in use");
+					_mark_req_failed(progress, "check for valid node");
+				}
+				break;
+			}
+
+			_lvl_to_read = lvl - 1;
+			_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _blk);
+			if (VERBOSE_CHECK)
+				log(Level_indent { lvl, req._ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
+
+		}
+		break;
+
+	case READ_BLK_SUCCEEDED:
+
+		if (lvl == 2) {
+
+			Type_1_node const &node { _t1_blks.items[lvl].nodes[node_idx] };
 			for (bool &cn : _check_node[lvl - 1])
 				cn = true;
 
@@ -114,42 +136,9 @@ bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_
 					log(Level_indent { lvl, req._ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " has bad hash");
 				_mark_req_failed(progress, "check inner hash");
 			}
-			break;
+		} else if (lvl > 2) {
 
-		default: break;
-		}
-	} else {
-
-		Type_1_node const &node = _t1_blks.items[lvl].nodes[node_idx];
-		switch (_state) {
-		case REQ_SUBMITTED:
-
-			if (!node.valid()) {
-
-				if (!_num_remaining_leaves) {
-
-					check_node = false;
-					progress = true;
-					if (VERBOSE_CHECK)
-						log(Level_indent { lvl, req._ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " unused");
-
-				} else {
-
-					if (VERBOSE_CHECK)
-						log(Level_indent { lvl, req._ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " unexpectedly in use");
-					_mark_req_failed(progress, "check for valid node");
-				}
-				break;
-			}
-
-			_lvl_to_read = lvl - 1;
-			_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _blk);
-			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, req._ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
-			break;
-
-		case READ_BLK_SUCCEEDED:
-
+			Type_1_node const &node { _t1_blks.items[lvl].nodes[node_idx] };
 			for (bool &cn : _check_node[lvl - 1])
 				cn = true;
 
@@ -167,10 +156,11 @@ bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_
 					log(Level_indent { lvl, req._ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " has bad hash");
 				_mark_req_failed(progress, "check inner hash");
 			}
-			break;
-
-		default: break;
 		}
+		break;
+
+	default: break;
+
 	}
 	return true;
 }
