@@ -52,18 +52,9 @@ class Tresor::Ft_check_channel : public Module_channel
 
 		enum State : State_uint { REQ_SUBMITTED, REQ_IN_PROGRESS, REQ_COMPLETE, REQ_GENERATED, READ_BLK_SUCCEEDED };
 
-		enum Node_state { READ_BLOCK = 0, CHECK_HASH = 1, DONE = 2 };
-
-		enum Primitive_tag { INVALID, BLOCK_IO };
-
-		struct Generated_primitive
-		{
-			Primitive_tag          tag     { INVALID };
-			bool valid() const { return tag != INVALID; }
-		};
+		enum Node_state { READ_BLOCK, CHECK_HASH, DONE };
 
 		State _state { REQ_COMPLETE };
-		Generated_primitive _gen_prim { };
 		Tree_level_index _lvl_to_read { 0 };
 		Type_1_node_block_walk _t1_blks { };
 		Type_2_node_block _t2_blk { };

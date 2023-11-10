@@ -100,12 +100,10 @@ bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_
 					_mark_req_failed(progress, "check for valid node");
 				}
 
-			} else if (!_gen_prim.valid()) {
-
-				_gen_prim = { .tag = BLOCK_IO};
+			} else if (_state == REQ_SUBMITTED) {
 
 				_lvl_to_read = lvl - 1;
-				generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _blk, _generated_req_success);
+				_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _blk);
 
 				if (VERBOSE_CHECK)
 					log(Level_indent { lvl, req._ft.max_lvl },
@@ -116,7 +114,6 @@ bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_
 				for (Node_state &state : _node_states[lvl - 1]) {
 					state = READ_BLOCK;
 				}
-				_gen_prim = { };
 				node_state = CHECK_HASH;
 				_state = REQ_SUBMITTED;
 				progress = true;
@@ -176,12 +173,10 @@ bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_
 					_mark_req_failed(progress, "check for valid node");
 				}
 
-			} else if (!_gen_prim.valid()) {
-
-				_gen_prim = { .tag = BLOCK_IO};
+			} else if (_state == REQ_SUBMITTED) {
 
 				_lvl_to_read = lvl - 1;
-				generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _blk, _generated_req_success);
+				_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _blk);
 
 				if (VERBOSE_CHECK)
 					log(Level_indent { lvl, req._ft.max_lvl },
@@ -192,7 +187,6 @@ bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_
 				for (Node_state &state : _node_states[lvl - 1]) {
 					state = READ_BLOCK;
 				}
-				_gen_prim = { };
 				node_state = CHECK_HASH;
 				_state = REQ_SUBMITTED;
 				progress = true;
@@ -285,7 +279,6 @@ void Ft_check_channel::_mark_req_successful(bool &progress)
 void Ft_check_channel::_request_submitted(Module_request &mod_req)
 {
 	_req_ptr = static_cast<Request *>(&mod_req);
-	_gen_prim = { };
 	_lvl_to_read = 0;
 	for (Tree_level_index lvl { 1 }; lvl <= _req_ptr->_ft.max_lvl + 1; lvl++)
 		for (Tree_node_index node_idx { 0 }; node_idx < _req_ptr->_ft.degree; node_idx++)
