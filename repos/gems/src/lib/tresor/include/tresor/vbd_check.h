@@ -54,14 +54,12 @@ class Tresor::Vbd_check_channel : public Module_channel
 
 		using Request = Vbd_check_request;
 
-		enum State : State_uint { REQ_SUBMITTED, REQ_COMPLETE, REQ_GENERATED, READ_BLK_SUCCEEDED };
-
-		enum Node_state { IN_PROGRESS, DONE };
+		enum State : State_uint { REQ_SUBMITTED, REQ_IN_PROGRESS, REQ_COMPLETE, REQ_GENERATED, READ_BLK_SUCCEEDED };
 
 		State _state { REQ_COMPLETE };
-		Tree_level_index _lvl_to_read { 0 };
+		Tree_level_index _lvl { 0 };
 		Type_1_node_block_walk _t1_blks { };
-		bool _node_checked[TREE_MAX_NR_OF_LEVELS][NR_OF_T1_NODES_PER_BLK] { };
+		bool _check_node[TREE_MAX_NR_OF_LEVELS][NR_OF_T1_NODES_PER_BLK] { };
 		Block _blk { };
 		Request *_req_ptr { };
 		Number_of_leaves _num_remaining_leaves { 0 };
