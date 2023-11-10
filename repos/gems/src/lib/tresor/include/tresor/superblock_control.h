@@ -16,7 +16,6 @@
 
 /* tresor includes */
 #include <tresor/types.h>
-#include <tresor/module.h>
 #include <tresor/virtual_block_device.h>
 #include <tresor/trust_anchor.h>
 #include <tresor/block_io.h>

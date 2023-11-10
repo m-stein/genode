@@ -14,12 +14,8 @@
 #ifndef _TRESOR__SB_CHECK_H_
 #define _TRESOR__SB_CHECK_H_
 
-/* base includes */
-#include <util/reconstructible.h>
-
 /* tresor includes */
 #include <tresor/types.h>
-#include <tresor/module.h>
 
 namespace Tresor {
 

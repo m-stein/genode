@@ -15,9 +15,7 @@
 #define _TRESOR__REQUEST_POOL_H_
 
 /* tresor includes */
-#include <tresor/module.h>
 #include <tresor/types.h>
-#include <tresor/vfs_utilities.h>
 #include <tresor/superblock_control.h>
 
 namespace Tresor {

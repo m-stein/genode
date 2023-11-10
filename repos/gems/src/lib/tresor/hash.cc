@@ -15,9 +15,6 @@
 #include <tresor/hash.h>
 #include <tresor/types.h>
 
-/* base includes */
-#include <util/string.h>
-
 /* libcrypto */
 #include <openssl/sha.h>
 

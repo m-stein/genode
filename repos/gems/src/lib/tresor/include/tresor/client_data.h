@@ -16,7 +16,6 @@
 
 /* tresor includes */
 #include <tresor/types.h>
-#include <tresor/module.h>
 
 namespace Tresor { class Client_data_request; }
 

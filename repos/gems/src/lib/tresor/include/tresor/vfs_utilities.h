@@ -18,18 +18,10 @@
 #include <vfs/vfs_handle.h>
 #include <vfs/simple_env.h>
 
+Vfs::Vfs_handle &vfs_open(Vfs::Env &, Genode::String<128>, Vfs::Directory_service::Open_mode);
 
-Vfs::Vfs_handle &vfs_open(Vfs::Env                          &vfs_env,
-                          Genode::String<128>                path,
-                          Vfs::Directory_service::Open_mode  mode);
+Vfs::Vfs_handle &vfs_open_wo(Vfs::Env &, Genode::String<128>);
 
-
-Vfs::Vfs_handle &vfs_open_wo(Vfs::Env            &vfs_env,
-                             Genode::String<128>  path);
-
-
-Vfs::Vfs_handle &vfs_open_rw(Vfs::Env            &vfs_env,
-                             Genode::String<128>  path);
-
+Vfs::Vfs_handle &vfs_open_rw(Vfs::Env &, Genode::String<128>);
 
 #endif /* _TRESOR__VFS_UTILITIES_H_ */

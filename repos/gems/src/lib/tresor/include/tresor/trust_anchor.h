@@ -14,12 +14,8 @@
 #ifndef _TRESOR__TRUST_ANCHOR_H_
 #define _TRESOR__TRUST_ANCHOR_H_
 
-/* base includes */
-#include <util/reconstructible.h>
-
 /* tresor includes */
 #include <tresor/types.h>
-#include <tresor/module.h>
 #include <tresor/vfs_utilities.h>
 
 namespace Tresor {

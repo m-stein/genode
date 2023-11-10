@@ -16,7 +16,7 @@
 #define _TRESOR__FT_INITIALIZER_H_
 
 /* tresor includes */
-#include <tresor/module.h>
+#include <tresor/types.h>
 
 namespace Tresor {
 

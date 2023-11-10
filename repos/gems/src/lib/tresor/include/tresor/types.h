@@ -16,17 +16,13 @@
 #define _TRESOR__TYPES_H_
 
 /* base includes */
-#include <base/output.h>
-#include <util/string.h>
 #include <util/reconstructible.h>
 
 /* os includes */
 #include <util/formatted_output.h>
 
 /* tresor includes */
-#include <tresor/verbosity.h>
 #include <tresor/math.h>
-#include <tresor/assertion.h>
 #include <tresor/module.h>
 
 namespace Tresor {

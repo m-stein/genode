@@ -14,11 +14,7 @@
 #ifndef _TRESOR__VIRTUAL_BLOCK_DEVICE_H_
 #define _TRESOR__VIRTUAL_BLOCK_DEVICE_H_
 
-/* base includes */
-#include <util/reconstructible.h>
-
 /* tresor includes */
-#include <tresor/module.h>
 #include <tresor/types.h>
 #include <tresor/free_tree.h>
 
