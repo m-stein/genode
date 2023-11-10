@@ -34,7 +34,6 @@ void Ft_check_channel::_execute_inner_t2_child(Tree_level_index  lvl,
 	Request &req { *_req_ptr };
 	Node_state &node_state { _t1_lvls[lvl].children_state[node_idx] };
 	Type_1_node const &node { _t1_lvls[lvl].children.nodes[node_idx] };
-	Type_2_level &child_lvl { _t2_lvl };
 
 	if (node_state == READ_BLOCK) {
 
@@ -85,7 +84,7 @@ void Ft_check_channel::_execute_inner_t2_child(Tree_level_index  lvl,
 
 		} else {
 
-			for (Node_state &state : child_lvl.children_state) {
+			for (Node_state &state : _t2_lvl.children_state) {
 				state = READ_BLOCK;
 			}
 			_gen_prim = { };
@@ -96,7 +95,7 @@ void Ft_check_channel::_execute_inner_t2_child(Tree_level_index  lvl,
 	} else if (node_state == CHECK_HASH) {
 
 		Block blk { };
-		child_lvl.children.encode_to_blk(blk);
+		_t2_lvl.children.encode_to_blk(blk);
 
 		if (node.gen == INITIAL_GENERATION ||
 		    check_hash(blk, node.hash)) {
@@ -262,25 +261,16 @@ void Ft_check_channel::execute(bool &progress)
 		return;
 
 	Request &req { *_req_ptr };
-	for (Tree_node_index node_idx { 0 };
-	     node_idx < req._ft.degree;
-	     node_idx++) {
-
+	for (Tree_node_index node_idx { 0 }; node_idx < req._ft.degree; node_idx++) {
 		if (_t2_lvl.children_state[node_idx] != DONE) {
-
 			_execute_t2_node(node_idx, progress);
 			return;
 		}
 	}
 	for (Tree_level_index lvl { 2 }; lvl <= req._ft.max_lvl; lvl++) {
-
-		for (Tree_node_index node_idx { 0 };
-		     node_idx < req._ft.degree;
-		     node_idx++) {
-
+		for (Tree_node_index node_idx { 0 }; node_idx < req._ft.degree; node_idx++) {
 			Type_1_level &t1_lvl { _t1_lvls[lvl] };
 			if (t1_lvl.children_state[node_idx] != DONE) {
-
 				if (lvl == 2)
 					_execute_inner_t2_child(
 						lvl, node_idx, progress);
@@ -295,15 +285,18 @@ void Ft_check_channel::execute(bool &progress)
 			}
 		}
 	}
-	if (_root_state != DONE) {
-
+	Tree_level_index lvl = req._ft.max_lvl + 1;
+	Tree_node_index node_idx = 0;
+	if (_t1_lvls[lvl].children_state[node_idx] != DONE) {
 		_execute_inner_t1_child(
-			req._ft.t1_node(), _t1_lvls[req._ft.max_lvl], _root_state,
-			req._ft.max_lvl + 1, 0, progress);
-
+			_t1_lvls[lvl].children.nodes[node_idx],
+			_t1_lvls[lvl - 1],
+			_t1_lvls[lvl].children_state[node_idx],
+			lvl, node_idx, progress);
 		return;
 	}
 	_req_ptr->_success = true;
+	_state = REQ_COMPLETE;
 	_req_ptr = nullptr;
 }
 
@@ -313,7 +306,8 @@ void Ft_check_channel::_generated_req_completed(State_uint)
 	if (!_generated_req_success) {
 		error("ft check: request (", *_req_ptr, ") failed because generated request failed)");
 		_req_ptr->_success = false;
-		_root_state = DONE;
+		_t1_lvls[_req_ptr->_ft.max_lvl + 1].children_state[0] = DONE;
+		_state = REQ_COMPLETE;
 		_req_ptr = nullptr;
 		return;
 	}
@@ -332,7 +326,8 @@ void Ft_check_channel::_mark_req_failed(bool       &progress,
 {
 	error("ft check: request (", *_req_ptr, ") failed at step \"", str, "\"");
 	_req_ptr->_success = false;
-	_root_state = DONE;
+	_t1_lvls[_req_ptr->_ft.max_lvl + 1].children_state[0] = DONE;
+	_state = REQ_COMPLETE;
 	_req_ptr = nullptr;
 	progress = true;
 }
@@ -349,7 +344,9 @@ void Ft_check_channel::_request_submitted(Module_request &mod_req)
 	_encoded_blk = { };
 	_generated_req_success = false;
 	_nr_of_leaves = _req_ptr->_ft.num_leaves;
-	_root_state = READ_BLOCK;
+	_t1_lvls[_req_ptr->_ft.max_lvl + 1].children.nodes[0] = _req_ptr->_ft.t1_node();
+	_t1_lvls[_req_ptr->_ft.max_lvl + 1].children_state[0] = READ_BLOCK;
+	_state = REQ_SUBMITTED;
 }
 
 

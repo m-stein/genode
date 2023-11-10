@@ -94,9 +94,8 @@ class Tresor::Ft_check_channel : public Module_channel
 		State _state { REQ_COMPLETE };
 		Generated_primitive _gen_prim { };
 		Tree_level_index _lvl_to_read { 0 };
-		Node_state _root_state { DONE };
 		Type_2_level _t2_lvl { };
-		Type_1_level _t1_lvls[TREE_MAX_LEVEL] { };
+		Type_1_level _t1_lvls[TREE_MAX_NR_OF_LEVELS] { };
 		Hash _dummy_hash { };
 		Number_of_leaves _nr_of_leaves { 0 };
 		Request *_req_ptr { };
@@ -109,7 +108,7 @@ class Tresor::Ft_check_channel : public Module_channel
 
 		void _request_submitted(Module_request &) override;
 
-		bool _request_complete() override { return _root_state == DONE; }
+		bool _request_complete() override { return _state == REQ_COMPLETE; }
 
 		void _execute_inner_t2_child(Tree_level_index  lvl,
 		                             Tree_node_index   node_idx,

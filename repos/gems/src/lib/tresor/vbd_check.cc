@@ -142,9 +142,7 @@ void Vbd_check_channel::execute(bool &progress)
 			if (_execute_node(lvl, node_idx, progress))
 				return;
 
-	req._success = true;
-	_state = REQ_COMPLETE;
-	_req_ptr = nullptr;
+	_mark_req_successful(progress);
 }
 
 
@@ -152,6 +150,15 @@ void Vbd_check_channel::_mark_req_failed(bool &progress, char const *str)
 {
 	error("vbd check: request (", *_req_ptr, ") failed at step \"", str, "\"");
 	_req_ptr->_success = false;
+	_state = REQ_COMPLETE;
+	_req_ptr = nullptr;
+	progress = true;
+}
+
+
+void Vbd_check_channel::_mark_req_successful(bool &progress)
+{
+	_req_ptr->_success = true;
 	_state = REQ_COMPLETE;
 	_req_ptr = nullptr;
 	progress = true;
