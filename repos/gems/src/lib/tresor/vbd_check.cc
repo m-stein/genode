@@ -39,13 +39,12 @@ void Vbd_check_channel::_generated_req_completed(State_uint state_uint)
 
 bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
 {
-	Type_1_node const &node = _t1_blks.items[lvl].nodes[node_idx];
 	bool &check_node = _check_node[lvl][node_idx];
-
 	if (!check_node)
 		return false;
 
 	Request &req { *_req_ptr };
+	Type_1_node const &node = _t1_blks.items[lvl].nodes[node_idx];
 	switch (_state) {
 	case REQ_IN_PROGRESS:
 
@@ -96,17 +95,15 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 			}
 			_num_remaining_leaves--;
 		} else {
-			_t1_blks.items[lvl - 1].decode_from_blk(_blk);
-			for (bool &cn : _check_node[lvl - 1])
-				cn = true;
-
-			_t1_blks.items[lvl - 1].encode_to_blk(_blk);
 			if (node.gen != INITIAL_GENERATION && !check_hash(_blk, node.hash)) {
 				_mark_req_failed(progress, "check inner hash");
 				if (VERBOSE_CHECK)
 					log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node, "): bad hash ", hash(_blk));
 				break;
 			}
+			_t1_blks.items[lvl - 1].decode_from_blk(_blk);
+			for (bool &cn : _check_node[lvl - 1])
+				cn = true;
 		}
 		check_node = false;
 		_state = REQ_IN_PROGRESS;
