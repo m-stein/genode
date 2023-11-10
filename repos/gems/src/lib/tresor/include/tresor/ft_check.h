@@ -14,12 +14,8 @@
 #ifndef _TRESOR__FT_CHECK_H_
 #define _TRESOR__FT_CHECK_H_
 
-/* base includes */
-#include <base/output.h>
-
 /* tresor includes */
 #include <tresor/types.h>
-#include <tresor/module.h>
 
 namespace Tresor {
 
@@ -56,6 +52,8 @@ class Tresor::Ft_check_channel : public Module_channel
 		friend class Ft_check;
 
 		using Request = Ft_check_request;
+
+		enum State : State_uint { REQ_SUBMITTED, REQ_IN_PROGRESS, REQ_COMPLETE, REQ_GENERATED, READ_BLK_SUCCEEDED };
 
 		enum Child_state {
 			READ_BLOCK = 0, CHECK_HASH = 1, DONE = 2 };
@@ -96,6 +94,7 @@ class Tresor::Ft_check_channel : public Module_channel
 			bool valid() const { return tag != INVALID; }
 		};
 
+		State _state { REQ_COMPLETE };
 		Generated_primitive _gen_prim { };
 		Tree_level_index _lvl_to_read { 0 };
 		Child_state _root_state { DONE };
@@ -106,6 +105,8 @@ class Tresor::Ft_check_channel : public Module_channel
 		Request *_req_ptr { };
 		Block _encoded_blk { };
 		bool _generated_req_success { false };
+
+		NONCOPYABLE(Ft_check_channel);
 
 		void _generated_req_completed(State_uint) override;
 
@@ -134,6 +135,19 @@ class Tresor::Ft_check_channel : public Module_channel
 
 		void _execute_leaf_child(Tree_node_index    child_idx,
 		                         bool              &progress);
+
+		template <typename REQUEST, typename... ARGS>
+		void _generate_req(State_uint state, bool &progress, ARGS &&... args)
+		{
+			_state = REQ_GENERATED;
+			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
+		}
+
+	public:
+
+		Ft_check_channel(Module_channel_id id) : Module_channel { FT_CHECK, id } { }
+
+		void execute(bool &);
 };
 
 
@@ -143,16 +157,15 @@ class Tresor::Ft_check : public Module
 
 		using Channel = Ft_check_channel;
 
-		enum { NR_OF_CHANNELS = 1 };
+		Constructible<Channel> _channels[1] { };
 
-		Channel _channels[NR_OF_CHANNELS] { };
+		NONCOPYABLE(Ft_check);
 
 	public:
 
-		Ft_check() { register_channels(_channels, NR_OF_CHANNELS, FT_CHECK); }
+		Ft_check();
 
 		void execute(bool &) override;
-
 };
 
 #endif /* _TRESOR__FT_CHECK_H_ */

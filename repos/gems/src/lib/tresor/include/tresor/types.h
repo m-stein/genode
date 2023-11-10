@@ -18,6 +18,7 @@
 /* base includes */
 #include <base/output.h>
 #include <util/string.h>
+#include <util/reconstructible.h>
 
 /* os includes */
 #include <util/formatted_output.h>
@@ -26,6 +27,7 @@
 #include <tresor/verbosity.h>
 #include <tresor/math.h>
 #include <tresor/assertion.h>
+#include <tresor/module.h>
 
 namespace Tresor {
 
