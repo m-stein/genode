@@ -38,83 +38,72 @@ bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_
 		if (lvl == 1) {
 			Type_2_node const &node { _t2_blk.nodes[node_idx] };
 			if (!_num_remaining_leaves) {
-
 				if (node.valid()) {
-
 					if (VERBOSE_CHECK)
 						log(Level_indent { 1, req._ft.max_lvl }, "    lvl 1 node ", node_idx, " unexpectedly in use");
 					_mark_req_failed(progress, "check for unused node");
-
-				} else {
-
-					check_node = false;
-					progress = true;
-					if (VERBOSE_CHECK)
-						log(Level_indent { 1, req._ft.max_lvl }, "    lvl 1 node ", node_idx, " unused");
+					break;
 				}
-
-			} else {
-				_num_remaining_leaves--;
 				check_node = false;
 				progress = true;
 				if (VERBOSE_CHECK)
-					log(Level_indent { 1, req._ft.max_lvl }, "    lvl 1 node ", node_idx, " done");
+					log(Level_indent { 1, req._ft.max_lvl }, "    lvl 1 node ", node_idx, " unused");
+				break;
 			}
-		} else if (lvl == 2) {
-
+			_num_remaining_leaves--;
+			check_node = false;
+			progress = true;
+			if (VERBOSE_CHECK)
+				log(Level_indent { 1, req._ft.max_lvl }, "    lvl 1 node ", node_idx, " done");
+		}
+		if (lvl == 2) {
 			Type_1_node const &node { _t1_blks.items[lvl].nodes[node_idx] };
 			if (!node.valid()) {
-				if (!_num_remaining_leaves) {
-
-					check_node = false;
-					progress = true;
-					if (VERBOSE_CHECK)
-						log(Level_indent { lvl, req._ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " unused");
-
-				} else {
-
+				if (_num_remaining_leaves) {
 					if (VERBOSE_CHECK)
 						log(Level_indent { lvl, req._ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " unexpectedly in use");
 					_mark_req_failed(progress, "check for valid node");
+					break;
 				}
+				check_node = false;
+				progress = true;
+				if (VERBOSE_CHECK)
+					log(Level_indent { lvl, req._ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " unused");
 				break;
 			}
-
 			_lvl_to_read = lvl - 1;
 			_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _blk);
 			if (VERBOSE_CHECK)
 				log(Level_indent { lvl, req._ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
-
-		} else if (lvl > 2) {
-
+		}
+		if (lvl > 2) {
 			Type_1_node const &node { _t1_blks.items[lvl].nodes[node_idx] };
 			if (!node.valid()) {
-
-				if (!_num_remaining_leaves) {
-
-					check_node = false;
-					progress = true;
-					if (VERBOSE_CHECK)
-						log(Level_indent { lvl, req._ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " unused");
-
-				} else {
-
+				if (_num_remaining_leaves) {
 					if (VERBOSE_CHECK)
 						log(Level_indent { lvl, req._ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " unexpectedly in use");
 					_mark_req_failed(progress, "check for valid node");
+					break;
 				}
+				check_node = false;
+				progress = true;
+				if (VERBOSE_CHECK)
+					log(Level_indent { lvl, req._ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " unused");
 				break;
 			}
-
 			_lvl_to_read = lvl - 1;
 			_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _blk);
 			if (VERBOSE_CHECK)
 				log(Level_indent { lvl, req._ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
-
 		}
 		break;
 
 	case READ_BLK_SUCCEEDED:
+
+		if (_lvl_to_read == 1)
+			_t2_blk.decode_from_blk(_blk);
+		else
+			_t1_blks.items[_lvl_to_read].decode_from_blk(_blk);
 
 		if (lvl == 2) {
 
@@ -160,7 +149,6 @@ bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_
 		break;
 
 	default: break;
-
 	}
 	return true;
 }
@@ -191,12 +179,6 @@ void Ft_check_channel::_generated_req_completed(State_uint state_uint)
 		return;
 	}
 	_state = (State)state_uint;
-	if (_state == READ_BLK_SUCCEEDED) {
-		if (_lvl_to_read == 1)
-			_t2_blk.decode_from_blk(_blk);
-		else
-			_t1_blks.items[_lvl_to_read].decode_from_blk(_blk);
-	}
 }
 
 
