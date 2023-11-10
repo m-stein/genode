@@ -27,185 +27,182 @@ Ft_check_request::Ft_check_request(Module_id src_mod, Module_channel_id src_chan
 { }
 
 
-void Ft_check_channel::_execute_inner_t2_child(Tree_level_index  lvl,
-                                       Tree_node_index   node_idx,
-                                       bool             &progress)
+void Ft_check_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
 {
-	Request &req { *_req_ptr };
-	Node_state &node_state { _t1_lvls[lvl].children_state[node_idx] };
-	Type_1_node const &node { _t1_lvls[lvl].children.nodes[node_idx] };
 
-	if (node_state == READ_BLOCK) {
+	if (lvl == 2) {
 
-		if (!node.valid()) {
+		Request &req { *_req_ptr };
+		Node_state &node_state { _t1_lvls[lvl].children_state[node_idx] };
+		Type_1_node const &node { _t1_lvls[lvl].children.nodes[node_idx] };
 
-			if (_nr_of_leaves == 0) {
+		if (node_state == READ_BLOCK) {
+
+			if (!node.valid()) {
+
+				if (!_num_remaining_leaves) {
+
+					node_state = DONE;
+					progress = true;
+
+					if (VERBOSE_CHECK)
+						log(Level_indent { lvl, req._ft.max_lvl },
+							"    lvl ", lvl, " node ", node_idx, " unused");
+
+				} else {
+
+					if (VERBOSE_CHECK)
+						log(Level_indent { lvl, req._ft.max_lvl },
+							"    lvl ", lvl, " node ", node_idx, " unexpectedly in use");
+
+					_mark_req_failed(progress, "check for valid node");
+				}
+
+			} else if (!_gen_prim.valid()) {
+
+				_gen_prim = {
+					.success = false,
+					.tag = BLOCK_IO,
+					.blk_nr = node.pba,
+					.dropped = false };
+
+				_lvl_to_read = lvl - 1;
+				generate_req<Block_io::Read>(
+					INVALID, progress, _gen_prim.blk_nr, _blk, _generated_req_success);
+				_gen_prim.dropped = true;
+
+				if (VERBOSE_CHECK)
+					log(Level_indent { lvl, req._ft.max_lvl },
+						"    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
+
+			} else if (_gen_prim.tag != BLOCK_IO ||
+					   _gen_prim.blk_nr != node.pba) {
+
+				class Exception_1 { };
+				throw Exception_1 { };
+
+			} else if (!_gen_prim.success) {
+
+			} else {
+
+				for (Node_state &state : _t2_lvl.children_state) {
+					state = READ_BLOCK;
+				}
+				_gen_prim = { };
+				node_state = CHECK_HASH;
+				progress = true;
+			}
+
+		} else if (node_state == CHECK_HASH) {
+
+			Block blk { };
+			_t2_lvl.children.encode_to_blk(blk);
+
+			if (node.gen == INITIAL_GENERATION ||
+				check_hash(blk, node.hash)) {
 
 				node_state = DONE;
 				progress = true;
 
 				if (VERBOSE_CHECK)
 					log(Level_indent { lvl, req._ft.max_lvl },
-					    "    lvl ", lvl, " node ", node_idx, " unused");
+						"    lvl ", lvl, " node ", node_idx, " has good hash");
 
 			} else {
 
 				if (VERBOSE_CHECK)
 					log(Level_indent { lvl, req._ft.max_lvl },
-					    "    lvl ", lvl, " node ", node_idx, " unexpectedly in use");
+						"    lvl ", lvl, " node ", node_idx, " has bad hash");
 
-				_mark_req_failed(progress, "check for valid node");
+				_mark_req_failed(progress, "check inner hash");
+			}
+		}
+	} else {
+		Type_1_node const &node = _t1_lvls[lvl].children.nodes[node_idx];
+		Type_1_level      &child_lvl = _t1_lvls[lvl - 1];
+		Node_state       &node_state = _t1_lvls[lvl].children_state[node_idx];
+
+		Request &req { *_req_ptr };
+		if (node_state == READ_BLOCK) {
+
+			if (!node.valid()) {
+
+				if (!_num_remaining_leaves) {
+
+					node_state = DONE;
+					progress = true;
+
+					if (VERBOSE_CHECK)
+						log(Level_indent { lvl, req._ft.max_lvl },
+							"    lvl ", lvl, " node ", node_idx, " unused");
+
+				} else {
+
+					if (VERBOSE_CHECK)
+						log(Level_indent { lvl, req._ft.max_lvl },
+							"    lvl ", lvl, " node ", node_idx, " unexpectedly in use");
+
+					_mark_req_failed(progress, "check for valid node");
+				}
+
+			} else if (!_gen_prim.valid()) {
+
+				_gen_prim = {
+					.success = false,
+					.tag = BLOCK_IO,
+					.blk_nr = node.pba,
+					.dropped = false };
+
+				_lvl_to_read = lvl - 1;
+				generate_req<Block_io::Read>(
+					INVALID, progress, _gen_prim.blk_nr, _blk, _generated_req_success);
+				_gen_prim.dropped = true;
+
+				if (VERBOSE_CHECK)
+					log(Level_indent { lvl, req._ft.max_lvl },
+						"    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
+
+			} else if (_gen_prim.tag != BLOCK_IO ||
+					   _gen_prim.blk_nr != node.pba) {
+
+				class Exception_1 { };
+				throw Exception_1 { };
+
+			} else if (!_gen_prim.success) {
+
+			} else {
+
+				for (Node_state &state : child_lvl.children_state) {
+					state = READ_BLOCK;
+				}
+				_gen_prim = { };
+				node_state = CHECK_HASH;
+				progress = true;
 			}
 
-		} else if (!_gen_prim.valid()) {
+		} else if (node_state == CHECK_HASH) {
 
-			_gen_prim = {
-				.success = false,
-				.tag = BLOCK_IO,
-				.blk_nr = node.pba,
-				.dropped = false };
+			Block blk { };
+			child_lvl.children.encode_to_blk(blk);
 
-			_lvl_to_read = lvl - 1;
-			generate_req<Block_io::Read>(
-				INVALID, progress, _gen_prim.blk_nr, _encoded_blk, _generated_req_success);
-			_gen_prim.dropped = true;
-
-			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, req._ft.max_lvl },
-				    "    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
-
-		} else if (_gen_prim.tag != BLOCK_IO ||
-		           _gen_prim.blk_nr != node.pba) {
-
-			class Exception_1 { };
-			throw Exception_1 { };
-
-		} else if (!_gen_prim.success) {
-
-		} else {
-
-			for (Node_state &state : _t2_lvl.children_state) {
-				state = READ_BLOCK;
-			}
-			_gen_prim = { };
-			node_state = CHECK_HASH;
-			progress = true;
-		}
-
-	} else if (node_state == CHECK_HASH) {
-
-		Block blk { };
-		_t2_lvl.children.encode_to_blk(blk);
-
-		if (node.gen == INITIAL_GENERATION ||
-		    check_hash(blk, node.hash)) {
-
-			node_state = DONE;
-			progress = true;
-
-			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, req._ft.max_lvl },
-				    "    lvl ", lvl, " node ", node_idx, " has good hash");
-
-		} else {
-
-			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, req._ft.max_lvl },
-				    "    lvl ", lvl, " node ", node_idx, " has bad hash");
-
-			_mark_req_failed(progress, "check inner hash");
-		}
-	}
-}
-
-
-void Ft_check_channel::_execute_inner_t1_child(Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
-{
-
-	Type_1_node const &node = _t1_lvls[lvl].children.nodes[node_idx];
-	Type_1_level      &child_lvl = _t1_lvls[lvl - 1];
-	Node_state       &node_state = _t1_lvls[lvl].children_state[node_idx];
-
-	Request &req { *_req_ptr };
-	if (node_state == READ_BLOCK) {
-
-		if (!node.valid()) {
-
-			if (_nr_of_leaves == 0) {
+			if (node.gen == INITIAL_GENERATION ||
+				check_hash(blk, node.hash)) {
 
 				node_state = DONE;
 				progress = true;
 
 				if (VERBOSE_CHECK)
 					log(Level_indent { lvl, req._ft.max_lvl },
-					    "    lvl ", lvl, " node ", node_idx, " unused");
+						"    lvl ", lvl, " node ", node_idx, " has good hash");
 
 			} else {
 
 				if (VERBOSE_CHECK)
 					log(Level_indent { lvl, req._ft.max_lvl },
-					    "    lvl ", lvl, " node ", node_idx, " unexpectedly in use");
+						"    lvl ", lvl, " node ", node_idx, " has bad hash");
 
-				_mark_req_failed(progress, "check for valid node");
+				_mark_req_failed(progress, "check inner hash");
 			}
-
-		} else if (!_gen_prim.valid()) {
-
-			_gen_prim = {
-				.success = false,
-				.tag = BLOCK_IO,
-				.blk_nr = node.pba,
-				.dropped = false };
-
-			_lvl_to_read = lvl - 1;
-			generate_req<Block_io::Read>(
-				INVALID, progress, _gen_prim.blk_nr, _encoded_blk, _generated_req_success);
-			_gen_prim.dropped = true;
-
-			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, req._ft.max_lvl },
-				    "    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
-
-		} else if (_gen_prim.tag != BLOCK_IO ||
-		           _gen_prim.blk_nr != node.pba) {
-
-			class Exception_1 { };
-			throw Exception_1 { };
-
-		} else if (!_gen_prim.success) {
-
-		} else {
-
-			for (Node_state &state : child_lvl.children_state) {
-				state = READ_BLOCK;
-			}
-			_gen_prim = { };
-			node_state = CHECK_HASH;
-			progress = true;
-		}
-
-	} else if (node_state == CHECK_HASH) {
-
-		Block blk { };
-		child_lvl.children.encode_to_blk(blk);
-
-		if (node.gen == INITIAL_GENERATION ||
-		    check_hash(blk, node.hash)) {
-
-			node_state = DONE;
-			progress = true;
-
-			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, req._ft.max_lvl },
-				    "    lvl ", lvl, " node ", node_idx, " has good hash");
-
-		} else {
-
-			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, req._ft.max_lvl },
-				    "    lvl ", lvl, " node ", node_idx, " has bad hash");
-
-			_mark_req_failed(progress, "check inner hash");
 		}
 	}
 }
@@ -220,7 +217,7 @@ void Ft_check_channel::_execute_t2_node(Tree_node_index  node_idx,
 
 	if (node_state == READ_BLOCK) {
 
-		if (_nr_of_leaves == 0) {
+		if (!_num_remaining_leaves) {
 
 			if (node.valid()) {
 
@@ -242,7 +239,7 @@ void Ft_check_channel::_execute_t2_node(Tree_node_index  node_idx,
 
 		} else {
 
-			_nr_of_leaves--;
+			_num_remaining_leaves--;
 			node_state = DONE;
 			progress = true;
 
@@ -271,12 +268,7 @@ void Ft_check_channel::execute(bool &progress)
 		for (Tree_node_index node_idx { 0 }; node_idx < req._ft.degree; node_idx++) {
 			Type_1_level &t1_lvl { _t1_lvls[lvl] };
 			if (t1_lvl.children_state[node_idx] != DONE) {
-				if (lvl == 2)
-					_execute_inner_t2_child(
-						lvl, node_idx, progress);
-				else
-					_execute_inner_t1_child(lvl, node_idx, progress);
-
+				_execute_t1_node(lvl, node_idx, progress);
 				return;
 			}
 		}
@@ -284,7 +276,7 @@ void Ft_check_channel::execute(bool &progress)
 	Tree_level_index lvl = req._ft.max_lvl + 1;
 	Tree_node_index node_idx = 0;
 	if (_t1_lvls[lvl].children_state[node_idx] != DONE) {
-		_execute_inner_t1_child(lvl, node_idx, progress);
+		_execute_t1_node(lvl, node_idx, progress);
 		return;
 	}
 	_req_ptr->_success = true;
@@ -306,9 +298,9 @@ void Ft_check_channel::_generated_req_completed(State_uint)
 	_gen_prim.success = true;
 	if (_gen_prim.tag == BLOCK_IO) {
 		if (_lvl_to_read == 1)
-			_t2_lvl.children.decode_from_blk(_encoded_blk);
+			_t2_lvl.children.decode_from_blk(_blk);
 		else
-			_t1_lvls[_lvl_to_read].children.decode_from_blk(_encoded_blk);
+			_t1_lvls[_lvl_to_read].children.decode_from_blk(_blk);
 	}
 }
 
@@ -333,9 +325,9 @@ void Ft_check_channel::_request_submitted(Module_request &mod_req)
 	_t2_lvl = { };
 	for (Type_1_level &t1_lvl : _t1_lvls)
 		t1_lvl = { };
-	_encoded_blk = { };
+	_blk = { };
 	_generated_req_success = false;
-	_nr_of_leaves = _req_ptr->_ft.num_leaves;
+	_num_remaining_leaves = _req_ptr->_ft.num_leaves;
 	_t1_lvls[_req_ptr->_ft.max_lvl + 1].children.nodes[0] = _req_ptr->_ft.t1_node();
 	_t1_lvls[_req_ptr->_ft.max_lvl + 1].children_state[0] = READ_BLOCK;
 	_state = REQ_SUBMITTED;

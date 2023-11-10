@@ -97,9 +97,9 @@ class Tresor::Ft_check_channel : public Module_channel
 		Type_2_level _t2_lvl { };
 		Type_1_level _t1_lvls[TREE_MAX_NR_OF_LEVELS] { };
 		Hash _dummy_hash { };
-		Number_of_leaves _nr_of_leaves { 0 };
+		Number_of_leaves _num_remaining_leaves { 0 };
 		Request *_req_ptr { };
-		Block _encoded_blk { };
+		Block _blk { };
 		bool _generated_req_success { false };
 
 		NONCOPYABLE(Ft_check_channel);
@@ -110,18 +110,11 @@ class Tresor::Ft_check_channel : public Module_channel
 
 		bool _request_complete() override { return _state == REQ_COMPLETE; }
 
-		void _execute_inner_t2_child(Tree_level_index  lvl,
-		                             Tree_node_index   node_idx,
-		                             bool             &);
-
-		void _execute_check(bool    &);
-
-		void _mark_req_failed(bool       &,
-		                      char const *str);
+		void _mark_req_failed(bool &, char const *);
 
 		void _mark_req_successful(bool    &);
 
-		void _execute_inner_t1_child(Tree_level_index, Tree_node_index, bool &);
+		void _execute_t1_node(Tree_level_index, Tree_node_index, bool &);
 
 		void _execute_t2_node(Tree_node_index, bool &);
 
