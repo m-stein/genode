@@ -47,6 +47,7 @@ namespace Tresor {
 	using Request_offset         = uint64_t;
 	using Request_tag            = uint32_t;
 	using Passphrase             = String<64>;
+	using Error_string           = String<128>;
 
 	enum { BLOCK_SIZE = 4096 };
 	enum { INVALID_KEY_ID = 0 };
