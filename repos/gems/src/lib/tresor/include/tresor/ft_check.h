@@ -52,31 +52,7 @@ class Tresor::Ft_check_channel : public Module_channel
 
 		enum State : State_uint { REQ_SUBMITTED, REQ_IN_PROGRESS, REQ_COMPLETE, REQ_GENERATED, READ_BLK_SUCCEEDED };
 
-		enum Node_state {
-			READ_BLOCK = 0, CHECK_HASH = 1, DONE = 2 };
-
-		struct Type_1_level
-		{
-			Node_state       children_state[NUM_NODES_PER_BLK] { };
-
-			Type_1_level()
-			{
-				for (Node_state &state : children_state)
-					state = DONE;
-			}
-		};
-
-		struct Type_2_level
-		{
-			Node_state       children_state[NUM_NODES_PER_BLK] { };
-			Type_2_node_block children                                   { };
-
-			Type_2_level()
-			{
-				for (Node_state &state : children_state)
-					state = DONE;
-			}
-		};
+		enum Node_state { READ_BLOCK = 0, CHECK_HASH = 1, DONE = 2 };
 
 		enum Primitive_tag { INVALID, BLOCK_IO };
 
@@ -94,9 +70,8 @@ class Tresor::Ft_check_channel : public Module_channel
 		Generated_primitive _gen_prim { };
 		Tree_level_index _lvl_to_read { 0 };
 		Type_1_node_block_walk _t1_blks { };
-		Type_2_level _t2_lvl { };
-		Type_1_level _t1_lvls[TREE_MAX_NR_OF_LEVELS] { };
-		Hash _dummy_hash { };
+		Type_2_node_block _t2_blk { };
+		Node_state _node_states[TREE_MAX_NR_OF_LEVELS + 1][NUM_NODES_PER_BLK] { };
 		Number_of_leaves _num_remaining_leaves { 0 };
 		Request *_req_ptr { };
 		Block _blk { };
