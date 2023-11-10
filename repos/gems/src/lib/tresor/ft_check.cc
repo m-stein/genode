@@ -119,13 +119,13 @@ void Ft_check_channel::_execute_inner_t2_child(Tree_level_index  lvl,
 }
 
 
-void Ft_check_channel::_execute_inner_t1_child(Type_1_node const &node,
-                                       Type_1_level      &child_lvl,
-                                       Node_state       &node_state,
-                                       Tree_level_index   lvl,
-                                       Tree_node_index    node_idx,
-                                       bool              &progress)
+void Ft_check_channel::_execute_inner_t1_child(Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
 {
+
+	Type_1_node const &node = _t1_lvls[lvl].children.nodes[node_idx];
+	Type_1_level      &child_lvl = _t1_lvls[lvl - 1];
+	Node_state       &node_state = _t1_lvls[lvl].children_state[node_idx];
+
 	Request &req { *_req_ptr };
 	if (node_state == READ_BLOCK) {
 
@@ -275,11 +275,7 @@ void Ft_check_channel::execute(bool &progress)
 					_execute_inner_t2_child(
 						lvl, node_idx, progress);
 				else
-					_execute_inner_t1_child(
-						_t1_lvls[lvl].children.nodes[node_idx],
-						_t1_lvls[lvl - 1],
-						_t1_lvls[lvl].children_state[node_idx],
-						lvl, node_idx, progress);
+					_execute_inner_t1_child(lvl, node_idx, progress);
 
 				return;
 			}
@@ -288,11 +284,7 @@ void Ft_check_channel::execute(bool &progress)
 	Tree_level_index lvl = req._ft.max_lvl + 1;
 	Tree_node_index node_idx = 0;
 	if (_t1_lvls[lvl].children_state[node_idx] != DONE) {
-		_execute_inner_t1_child(
-			_t1_lvls[lvl].children.nodes[node_idx],
-			_t1_lvls[lvl - 1],
-			_t1_lvls[lvl].children_state[node_idx],
-			lvl, node_idx, progress);
+		_execute_inner_t1_child(lvl, node_idx, progress);
 		return;
 	}
 	_req_ptr->_success = true;
