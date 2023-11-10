@@ -27,7 +27,7 @@ Ft_check_request::Ft_check_request(Module_id src_mod, Module_channel_id src_chan
 { }
 
 
-void Ft_check_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
+bool Ft_check_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
 {
 
 	if (lvl == 2) {
@@ -35,6 +35,9 @@ void Ft_check_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_index no
 		Request &req { *_req_ptr };
 		Node_state &node_state { _t1_lvls[lvl].children_state[node_idx] };
 		Type_1_node const &node { _t1_lvls[lvl].children.nodes[node_idx] };
+
+		if (node_state == DONE)
+			return false;
 
 		if (node_state == READ_BLOCK) {
 
@@ -122,6 +125,9 @@ void Ft_check_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_index no
 		Type_1_level      &child_lvl = _t1_lvls[lvl - 1];
 		Node_state       &node_state = _t1_lvls[lvl].children_state[node_idx];
 
+		if (node_state == DONE)
+			return false;
+
 		Request &req { *_req_ptr };
 		if (node_state == READ_BLOCK) {
 
@@ -205,15 +211,19 @@ void Ft_check_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_index no
 			}
 		}
 	}
+	return true;
 }
 
 
-void Ft_check_channel::_execute_t2_node(Tree_node_index  node_idx,
+bool Ft_check_channel::_execute_t2_node(Tree_node_index  node_idx,
                                    bool            &progress)
 {
 	Request &req { *_req_ptr };
 	Type_2_node const &node { _t2_lvl.children.nodes[node_idx] };
 	Node_state &node_state { _t2_lvl.children_state[node_idx] };
+
+	if (node_state == DONE)
+		return false;
 
 	if (node_state == READ_BLOCK) {
 
@@ -249,6 +259,7 @@ void Ft_check_channel::_execute_t2_node(Tree_node_index  node_idx,
 
 		}
 	}
+	return true;
 }
 
 
@@ -258,27 +269,15 @@ void Ft_check_channel::execute(bool &progress)
 		return;
 
 	Request &req { *_req_ptr };
-	for (Tree_node_index node_idx { 0 }; node_idx < req._ft.degree; node_idx++) {
-		if (_t2_lvl.children_state[node_idx] != DONE) {
-			_execute_t2_node(node_idx, progress);
+	for (Tree_node_index node_idx { 0 }; node_idx < req._ft.degree; node_idx++)
+		if (_execute_t2_node(node_idx, progress))
 			return;
-		}
-	}
-	for (Tree_level_index lvl { 2 }; lvl <= req._ft.max_lvl; lvl++) {
-		for (Tree_node_index node_idx { 0 }; node_idx < req._ft.degree; node_idx++) {
-			Type_1_level &t1_lvl { _t1_lvls[lvl] };
-			if (t1_lvl.children_state[node_idx] != DONE) {
-				_execute_t1_node(lvl, node_idx, progress);
+
+	for (Tree_level_index lvl { 2 }; lvl <= req._ft.max_lvl + 1; lvl++)
+		for (Tree_node_index node_idx { 0 }; node_idx < req._ft.degree; node_idx++)
+			if (_execute_t1_node(lvl, node_idx, progress))
 				return;
-			}
-		}
-	}
-	Tree_level_index lvl = req._ft.max_lvl + 1;
-	Tree_node_index node_idx = 0;
-	if (_t1_lvls[lvl].children_state[node_idx] != DONE) {
-		_execute_t1_node(lvl, node_idx, progress);
-		return;
-	}
+
 	_req_ptr->_success = true;
 	_state = REQ_COMPLETE;
 	_req_ptr = nullptr;
