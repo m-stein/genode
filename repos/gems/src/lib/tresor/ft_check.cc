@@ -11,9 +11,6 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-/* base includes */
-#include <base/log.h>
-
 /* tresor includes */
 #include <tresor/ft_check.h>
 #include <tresor/block_io.h>
@@ -27,12 +24,54 @@ Ft_check_request::Ft_check_request(Module_id src_mod, Module_channel_id src_chan
 { }
 
 
-bool Ft_check_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
+bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
 {
+	Request &req { *_req_ptr };
+	if (lvl == 1) {
 
-	if (lvl == 2) {
+		Type_2_node const &node { _t2_lvl.children.nodes[node_idx] };
+		Node_state &node_state { _t2_lvl.children_state[node_idx] };
 
-		Request &req { *_req_ptr };
+		if (node_state == DONE)
+			return false;
+
+		if (node_state == READ_BLOCK) {
+
+			if (!_num_remaining_leaves) {
+
+				if (node.valid()) {
+
+					if (VERBOSE_CHECK)
+						log(Level_indent { 1, req._ft.max_lvl },
+							"    lvl 1 node ", node_idx, " unexpectedly in use");
+
+					_mark_req_failed(progress, "check for unused node");
+
+				} else {
+
+					node_state = DONE;
+					progress = true;
+
+					if (VERBOSE_CHECK)
+						log(Level_indent { 1, req._ft.max_lvl },
+							"    lvl 1 node ", node_idx, " unused");
+				}
+
+			} else {
+
+				_num_remaining_leaves--;
+				node_state = DONE;
+				progress = true;
+
+				if (VERBOSE_CHECK)
+					log(Level_indent { 1, req._ft.max_lvl },
+						"    lvl 1 node ", node_idx, " done");
+
+			}
+		}
+
+	} else if (lvl == 2) {
+
 		Node_state &node_state { _t1_lvls[lvl].children_state[node_idx] };
 		Type_1_node const &node { _t1_lvls[lvl].children.nodes[node_idx] };
 
@@ -121,6 +160,7 @@ bool Ft_check_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_index no
 			}
 		}
 	} else {
+
 		Type_1_node const &node = _t1_lvls[lvl].children.nodes[node_idx];
 		Type_1_level      &child_lvl = _t1_lvls[lvl - 1];
 		Node_state       &node_state = _t1_lvls[lvl].children_state[node_idx];
@@ -128,7 +168,6 @@ bool Ft_check_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_index no
 		if (node_state == DONE)
 			return false;
 
-		Request &req { *_req_ptr };
 		if (node_state == READ_BLOCK) {
 
 			if (!node.valid()) {
@@ -215,72 +254,17 @@ bool Ft_check_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_index no
 }
 
 
-bool Ft_check_channel::_execute_t2_node(Tree_node_index  node_idx,
-                                   bool            &progress)
-{
-	Request &req { *_req_ptr };
-	Type_2_node const &node { _t2_lvl.children.nodes[node_idx] };
-	Node_state &node_state { _t2_lvl.children_state[node_idx] };
-
-	if (node_state == DONE)
-		return false;
-
-	if (node_state == READ_BLOCK) {
-
-		if (!_num_remaining_leaves) {
-
-			if (node.valid()) {
-
-				if (VERBOSE_CHECK)
-					log(Level_indent { 1, req._ft.max_lvl },
-					    "    lvl 1 node ", node_idx, " unexpectedly in use");
-
-				_mark_req_failed(progress, "check for unused node");
-
-			} else {
-
-				node_state = DONE;
-				progress = true;
-
-				if (VERBOSE_CHECK)
-					log(Level_indent { 1, req._ft.max_lvl },
-					    "    lvl 1 node ", node_idx, " unused");
-			}
-
-		} else {
-
-			_num_remaining_leaves--;
-			node_state = DONE;
-			progress = true;
-
-			if (VERBOSE_CHECK)
-				log(Level_indent { 1, req._ft.max_lvl },
-				    "    lvl 1 node ", node_idx, " done");
-
-		}
-	}
-	return true;
-}
-
-
 void Ft_check_channel::execute(bool &progress)
 {
 	if (!_req_ptr)
 		return;
 
-	Request &req { *_req_ptr };
-	for (Tree_node_index node_idx { 0 }; node_idx < req._ft.degree; node_idx++)
-		if (_execute_t2_node(node_idx, progress))
-			return;
-
-	for (Tree_level_index lvl { 2 }; lvl <= req._ft.max_lvl + 1; lvl++)
-		for (Tree_node_index node_idx { 0 }; node_idx < req._ft.degree; node_idx++)
-			if (_execute_t1_node(lvl, node_idx, progress))
+	for (Tree_level_index lvl { 1 }; lvl <= _req_ptr->_ft.max_lvl + 1; lvl++)
+		for (Tree_node_index node_idx { 0 }; node_idx < _req_ptr->_ft.degree; node_idx++)
+			if (_execute_node(lvl, node_idx, progress))
 				return;
 
-	_req_ptr->_success = true;
-	_state = REQ_COMPLETE;
-	_req_ptr = nullptr;
+	_mark_req_successful(progress);
 }
 
 
@@ -304,11 +288,20 @@ void Ft_check_channel::_generated_req_completed(State_uint)
 }
 
 
-void Ft_check_channel::_mark_req_failed(bool       &progress,
-                                char const *str)
+void Ft_check_channel::_mark_req_failed(bool &progress, char const *str)
 {
 	error("ft check: request (", *_req_ptr, ") failed at step \"", str, "\"");
 	_req_ptr->_success = false;
+	_t1_lvls[_req_ptr->_ft.max_lvl + 1].children_state[0] = DONE;
+	_state = REQ_COMPLETE;
+	_req_ptr = nullptr;
+	progress = true;
+}
+
+
+void Ft_check_channel::_mark_req_successful(bool &progress)
+{
+	_req_ptr->_success = true;
 	_t1_lvls[_req_ptr->_ft.max_lvl + 1].children_state[0] = DONE;
 	_state = REQ_COMPLETE;
 	_req_ptr = nullptr;

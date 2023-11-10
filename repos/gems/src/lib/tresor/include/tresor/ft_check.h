@@ -112,11 +112,9 @@ class Tresor::Ft_check_channel : public Module_channel
 
 		void _mark_req_failed(bool &, char const *);
 
-		void _mark_req_successful(bool    &);
+		void _mark_req_successful(bool &);
 
-		bool _execute_t1_node(Tree_level_index, Tree_node_index, bool &);
-
-		bool _execute_t2_node(Tree_node_index, bool &);
+		bool _execute_node(Tree_level_index, Tree_node_index, bool &);
 
 		template <typename REQUEST, typename... ARGS>
 		void _generate_req(State_uint state, bool &progress, ARGS &&... args)
