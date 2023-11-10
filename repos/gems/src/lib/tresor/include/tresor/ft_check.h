@@ -112,40 +112,19 @@ class Tresor::Ft_check_channel : public Module_channel
 		void _request_submitted(Module_request &) override;
 
 		bool _request_complete() override { return _root_state == DONE; }
-};
 
-
-class Tresor::Ft_check : public Module
-{
-	private:
-
-		using Request = Ft_check_request;
-		using Channel = Ft_check_channel;
-		using Child_state = Ft_check_channel::Child_state;
-		using Type_1_level = Ft_check_channel::Type_1_level;
-		using Type_2_level = Ft_check_channel::Type_2_level;
-
-		enum { NR_OF_CHANNELS = 1 };
-
-		Channel _channels[NR_OF_CHANNELS] { };
-
-		void _execute_inner_t2_child(Channel          &chan,
-		                             Tree_level_index  lvl,
+		void _execute_inner_t2_child(Tree_level_index  lvl,
 		                             Tree_node_index   child_idx,
 		                             bool             &progress);
 
-		void _execute_check(Channel &channel,
-		                    bool    &progress);
+		void _execute_check(bool    &progress);
 
-		void _mark_req_failed(Channel    &channel,
-		                      bool       &progress,
+		void _mark_req_failed(bool       &progress,
 		                      char const *str);
 
-		void _mark_req_successful(Channel &channel,
-		                          bool    &progress);
+		void _mark_req_successful(bool    &progress);
 
-		void _execute_inner_t1_child(Channel           &chan,
-		                             Type_1_node const &child,
+		void _execute_inner_t1_child(Type_1_node const &child,
 		                             Type_1_level      &child_lvl,
 		                             Child_state       &child_state,
 		                             Tree_level_index   lvl,
@@ -153,9 +132,20 @@ class Tresor::Ft_check : public Module
 		                             bool              &progress);
 
 
-		void _execute_leaf_child(Channel           &chan,
-		                         Tree_node_index    child_idx,
+		void _execute_leaf_child(Tree_node_index    child_idx,
 		                         bool              &progress);
+};
+
+
+class Tresor::Ft_check : public Module
+{
+	private:
+
+		using Channel = Ft_check_channel;
+
+		enum { NR_OF_CHANNELS = 1 };
+
+		Channel _channels[NR_OF_CHANNELS] { };
 
 	public:
 
