@@ -80,7 +80,6 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 				log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": expectedly invalid");
 			break;
 		}
-		_lvl = lvl - 1;
 		_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _blk);
 		if (VERBOSE_CHECK)
 			log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
@@ -97,7 +96,7 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 			}
 			_num_remaining_leaves--;
 		} else {
-			_t1_blks.items[_lvl].decode_from_blk(_blk);
+			_t1_blks.items[lvl - 1].decode_from_blk(_blk);
 			for (bool &cn : _check_node[lvl - 1])
 				cn = true;
 

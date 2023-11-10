@@ -58,7 +58,6 @@ class Tresor::Ft_check_channel : public Module_channel
 		struct Type_1_level
 		{
 			Node_state       children_state[NUM_NODES_PER_BLK] { };
-			Type_1_node_block children                                   { };
 
 			Type_1_level()
 			{
@@ -94,6 +93,7 @@ class Tresor::Ft_check_channel : public Module_channel
 		State _state { REQ_COMPLETE };
 		Generated_primitive _gen_prim { };
 		Tree_level_index _lvl_to_read { 0 };
+		Type_1_node_block_walk _t1_blks { };
 		Type_2_level _t2_lvl { };
 		Type_1_level _t1_lvls[TREE_MAX_NR_OF_LEVELS] { };
 		Hash _dummy_hash { };

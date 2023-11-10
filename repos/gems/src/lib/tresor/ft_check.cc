@@ -73,7 +73,7 @@ bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_
 	} else if (lvl == 2) {
 
 		Node_state &node_state { _t1_lvls[lvl].children_state[node_idx] };
-		Type_1_node const &node { _t1_lvls[lvl].children.nodes[node_idx] };
+		Type_1_node const &node { _t1_blks.items[lvl].nodes[node_idx] };
 
 		if (node_state == DONE)
 			return false;
@@ -161,7 +161,7 @@ bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_
 		}
 	} else {
 
-		Type_1_node const &node = _t1_lvls[lvl].children.nodes[node_idx];
+		Type_1_node const &node = _t1_blks.items[lvl].nodes[node_idx];
 		Type_1_level      &child_lvl = _t1_lvls[lvl - 1];
 		Node_state       &node_state = _t1_lvls[lvl].children_state[node_idx];
 
@@ -228,7 +228,7 @@ bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_
 		} else if (node_state == CHECK_HASH) {
 
 			Block blk { };
-			child_lvl.children.encode_to_blk(blk);
+			_t1_blks.items[lvl - 1].encode_to_blk(blk);
 
 			if (node.gen == INITIAL_GENERATION ||
 				check_hash(blk, node.hash)) {
@@ -283,7 +283,7 @@ void Ft_check_channel::_generated_req_completed(State_uint)
 		if (_lvl_to_read == 1)
 			_t2_lvl.children.decode_from_blk(_blk);
 		else
-			_t1_lvls[_lvl_to_read].children.decode_from_blk(_blk);
+			_t1_blks.items[_lvl_to_read].decode_from_blk(_blk);
 	}
 }
 
@@ -320,7 +320,7 @@ void Ft_check_channel::_request_submitted(Module_request &mod_req)
 	_blk = { };
 	_generated_req_success = false;
 	_num_remaining_leaves = _req_ptr->_ft.num_leaves;
-	_t1_lvls[_req_ptr->_ft.max_lvl + 1].children.nodes[0] = _req_ptr->_ft.t1_node();
+	_t1_blks.items[_req_ptr->_ft.max_lvl + 1].nodes[0] = _req_ptr->_ft.t1_node();
 	_t1_lvls[_req_ptr->_ft.max_lvl + 1].children_state[0] = READ_BLOCK;
 	_state = REQ_SUBMITTED;
 }
