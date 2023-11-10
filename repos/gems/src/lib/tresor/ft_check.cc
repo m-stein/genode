@@ -102,36 +102,23 @@ bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_
 
 			} else if (!_gen_prim.valid()) {
 
-				_gen_prim = {
-					.success = false,
-					.tag = BLOCK_IO,
-					.blk_nr = node.pba,
-					.dropped = false };
+				_gen_prim = { .tag = BLOCK_IO};
 
 				_lvl_to_read = lvl - 1;
-				generate_req<Block_io::Read>(
-					INVALID, progress, _gen_prim.blk_nr, _blk, _generated_req_success);
-				_gen_prim.dropped = true;
+				generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _blk, _generated_req_success);
 
 				if (VERBOSE_CHECK)
 					log(Level_indent { lvl, req._ft.max_lvl },
 						"    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
 
-			} else if (_gen_prim.tag != BLOCK_IO ||
-					   _gen_prim.blk_nr != node.pba) {
-
-				class Exception_1 { };
-				throw Exception_1 { };
-
-			} else if (!_gen_prim.success) {
-
-			} else {
+			} else if (_state == READ_BLK_SUCCEEDED) {
 
 				for (Node_state &state : _node_states[lvl - 1]) {
 					state = READ_BLOCK;
 				}
 				_gen_prim = { };
 				node_state = CHECK_HASH;
+				_state = REQ_SUBMITTED;
 				progress = true;
 			}
 
@@ -191,36 +178,23 @@ bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_
 
 			} else if (!_gen_prim.valid()) {
 
-				_gen_prim = {
-					.success = false,
-					.tag = BLOCK_IO,
-					.blk_nr = node.pba,
-					.dropped = false };
+				_gen_prim = { .tag = BLOCK_IO};
 
 				_lvl_to_read = lvl - 1;
-				generate_req<Block_io::Read>(
-					INVALID, progress, _gen_prim.blk_nr, _blk, _generated_req_success);
-				_gen_prim.dropped = true;
+				generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _blk, _generated_req_success);
 
 				if (VERBOSE_CHECK)
 					log(Level_indent { lvl, req._ft.max_lvl },
 						"    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
 
-			} else if (_gen_prim.tag != BLOCK_IO ||
-					   _gen_prim.blk_nr != node.pba) {
-
-				class Exception_1 { };
-				throw Exception_1 { };
-
-			} else if (!_gen_prim.success) {
-
-			} else {
+			} else if (_state == READ_BLK_SUCCEEDED) {
 
 				for (Node_state &state : _node_states[lvl - 1]) {
 					state = READ_BLOCK;
 				}
 				_gen_prim = { };
 				node_state = CHECK_HASH;
+				_state = REQ_SUBMITTED;
 				progress = true;
 			}
 
@@ -267,7 +241,7 @@ void Ft_check_channel::execute(bool &progress)
 }
 
 
-void Ft_check_channel::_generated_req_completed(State_uint)
+void Ft_check_channel::_generated_req_completed(State_uint state_uint)
 {
 	if (!_generated_req_success) {
 		error("ft check: request (", *_req_ptr, ") failed because generated request failed)");
@@ -277,8 +251,8 @@ void Ft_check_channel::_generated_req_completed(State_uint)
 		_req_ptr = nullptr;
 		return;
 	}
-	_gen_prim.success = true;
-	if (_gen_prim.tag == BLOCK_IO) {
+	_state = (State)state_uint;
+	if (_state == READ_BLK_SUCCEEDED) {
 		if (_lvl_to_read == 1)
 			_t2_blk.decode_from_blk(_blk);
 		else

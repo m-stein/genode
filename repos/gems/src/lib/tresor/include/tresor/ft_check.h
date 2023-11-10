@@ -58,11 +58,7 @@ class Tresor::Ft_check_channel : public Module_channel
 
 		struct Generated_primitive
 		{
-			bool                   success { false };
 			Primitive_tag          tag     { INVALID };
-			Physical_block_address blk_nr  { 0 };
-			bool                   dropped { false };
-
 			bool valid() const { return tag != INVALID; }
 		};
 
