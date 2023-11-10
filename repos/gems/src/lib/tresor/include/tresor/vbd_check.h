@@ -68,7 +68,7 @@ class Tresor::Vbd_check_channel : public Module_channel
 
 		bool _request_complete() override { return _state == REQ_COMPLETE; }
 
-		void _mark_req_failed(bool &, char const *str);
+		void _mark_req_failed(bool &, Error_string);
 
 		void _mark_req_successful(bool &);
 

@@ -51,7 +51,8 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 		if (lvl == 1) {
 			if (!_num_remaining_leaves) {
 				if (node.valid()) {
-					_mark_req_failed(progress, "check for unused node");
+					_mark_req_failed(progress, { "lvl ", lvl, " node ", node_idx, " (", node,
+					                             ") valid but no leaves remaining" });
 					break;
 				}
 				check_node = false;
@@ -68,39 +69,35 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 					log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": uninitialized");
 				break;
 			}
-		} else if (!node.valid()) {
-			if (_num_remaining_leaves) {
-				_mark_req_failed(progress, "check for valid node");
+		} else {
+			if (!node.valid()) {
+				if (_num_remaining_leaves) {
+					_mark_req_failed(progress, { "lvl ", lvl, " node ", node_idx, " invalid but ",
+					                             _num_remaining_leaves, " leaves remaining" });
+					break;
+				}
+				check_node = false;
+				progress = true;
+				if (VERBOSE_CHECK)
+					log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": expectedly invalid");
 				break;
 			}
-			check_node = false;
-			progress = true;
-			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": expectedly invalid");
-			break;
 		}
 		_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _blk);
 		if (VERBOSE_CHECK)
-			log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node, "): load to lvl ", lvl - 1);
+			log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node,
+			    "): load to lvl ", lvl - 1);
 		break;
 
 	case READ_BLK_SUCCEEDED:
 
-		if (lvl == 1) {
-			if (!check_hash(_blk, node.hash)) {
-				_mark_req_failed(progress, "check leaf hash");
-				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node, "): bad hash ", hash(_blk));
-				break;
-			}
+		if (!(lvl > 1 && node.gen == INITIAL_GENERATION) && !check_hash(_blk, node.hash)) {
+			_mark_req_failed(progress, { "lvl ", lvl, " node ", node_idx, " (", node, ") has bad hash" });
+			break;
+		}
+		if (lvl == 1)
 			_num_remaining_leaves--;
-		} else {
-			if (node.gen != INITIAL_GENERATION && !check_hash(_blk, node.hash)) {
-				_mark_req_failed(progress, "check inner hash");
-				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node, "): bad hash ", hash(_blk));
-				break;
-			}
+		else {
 			_t1_blks.items[lvl - 1].decode_from_blk(_blk);
 			for (bool &cn : _check_node[lvl - 1])
 				cn = true;
@@ -125,12 +122,13 @@ void Vbd_check_channel::execute(bool &progress)
 
 	Request &req { *_req_ptr };
 	if (_state == REQ_SUBMITTED) {
-		_num_remaining_leaves = req._vbd.num_leaves;
-		_t1_blks.items[req._vbd.max_lvl + 1].nodes[0] = req._vbd.t1_node();
-		_check_node[req._vbd.max_lvl + 1][0] = true;
 		for (Tree_level_index lvl { 1 }; lvl <= req._vbd.max_lvl + 1; lvl++)
 			for (Tree_node_index node_idx { 0 }; node_idx < req._vbd.degree; node_idx++)
 				_check_node[lvl][node_idx] = false;
+
+		_num_remaining_leaves = req._vbd.num_leaves;
+		_t1_blks.items[req._vbd.max_lvl + 1].nodes[0] = req._vbd.t1_node();
+		_check_node[req._vbd.max_lvl + 1][0] = true;
 		_state = REQ_IN_PROGRESS;
 	}
 	for (Tree_level_index lvl { 1 }; lvl <= req._vbd.max_lvl + 1; lvl++)
@@ -142,9 +140,9 @@ void Vbd_check_channel::execute(bool &progress)
 }
 
 
-void Vbd_check_channel::_mark_req_failed(bool &progress, char const *str)
+void Vbd_check_channel::_mark_req_failed(bool &progress, Error_string str)
 {
-	error("vbd check: request (", *_req_ptr, ") failed at step \"", str, "\"");
+	error("vbd check request (", *_req_ptr, ") failed: ", str);
 	_req_ptr->_success = false;
 	_state = REQ_COMPLETE;
 	_req_ptr = nullptr;

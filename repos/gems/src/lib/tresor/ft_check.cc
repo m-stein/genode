@@ -33,7 +33,7 @@ bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_
 
 	Request &req { *_req_ptr };
 	switch (_state) {
-	case REQ_SUBMITTED:
+	case REQ_IN_PROGRESS:
 
 		if (lvl == 1) {
 			Type_2_node const &node { _t2_blk.nodes[node_idx] };
@@ -89,7 +89,7 @@ bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_
 		for (bool &cn : _check_node[lvl - 1])
 			cn = true;
 
-		_state = REQ_SUBMITTED;
+		_state = REQ_IN_PROGRESS;
 		check_node = false;
 		progress = true;
 		if (VERBOSE_CHECK)
@@ -107,6 +107,16 @@ void Ft_check_channel::execute(bool &progress)
 	if (!_req_ptr)
 		return;
 
+	if (_state == REQ_SUBMITTED) {
+		for (Tree_level_index lvl { 1 }; lvl <= _req_ptr->_ft.max_lvl + 1; lvl++)
+			for (Tree_node_index node_idx { 0 }; node_idx < _req_ptr->_ft.degree; node_idx++)
+				_check_node[lvl][node_idx] = false;
+
+		_num_remaining_leaves = _req_ptr->_ft.num_leaves;
+		_t1_blks.items[_req_ptr->_ft.max_lvl + 1].nodes[0] = _req_ptr->_ft.t1_node();
+		_check_node[_req_ptr->_ft.max_lvl + 1][0] = true;
+		_state = REQ_IN_PROGRESS;
+	}
 	for (Tree_level_index lvl { 1 }; lvl <= _req_ptr->_ft.max_lvl + 1; lvl++)
 		for (Tree_node_index node_idx { 0 }; node_idx < _req_ptr->_ft.degree; node_idx++)
 			if (_execute_node(lvl, node_idx, progress))
@@ -121,7 +131,6 @@ void Ft_check_channel::_generated_req_completed(State_uint state_uint)
 	if (!_generated_req_success) {
 		error("ft check: request (", *_req_ptr, ") failed because generated request failed)");
 		_req_ptr->_success = false;
-		_check_node[_req_ptr->_ft.max_lvl + 1][0] = false;
 		_state = REQ_COMPLETE;
 		_req_ptr = nullptr;
 		return;
@@ -132,9 +141,8 @@ void Ft_check_channel::_generated_req_completed(State_uint state_uint)
 
 void Ft_check_channel::_mark_req_failed(bool &progress, Error_string str)
 {
-	error("ft check: request (", *_req_ptr, ") failed at step \"", str, "\"");
+	error("ft check request (", *_req_ptr, ") failed: ", str);
 	_req_ptr->_success = false;
-	_check_node[_req_ptr->_ft.max_lvl + 1][0] = false;
 	_state = REQ_COMPLETE;
 	_req_ptr = nullptr;
 	progress = true;
@@ -144,7 +152,6 @@ void Ft_check_channel::_mark_req_failed(bool &progress, Error_string str)
 void Ft_check_channel::_mark_req_successful(bool &progress)
 {
 	_req_ptr->_success = true;
-	_check_node[_req_ptr->_ft.max_lvl + 1][0] = false;
 	_state = REQ_COMPLETE;
 	_req_ptr = nullptr;
 	progress = true;
@@ -154,14 +161,6 @@ void Ft_check_channel::_mark_req_successful(bool &progress)
 void Ft_check_channel::_request_submitted(Module_request &mod_req)
 {
 	_req_ptr = static_cast<Request *>(&mod_req);
-	for (Tree_level_index lvl { 1 }; lvl <= _req_ptr->_ft.max_lvl + 1; lvl++)
-		for (Tree_node_index node_idx { 0 }; node_idx < _req_ptr->_ft.degree; node_idx++)
-			_check_node[lvl][node_idx] = false;
-	_blk = { };
-	_generated_req_success = false;
-	_num_remaining_leaves = _req_ptr->_ft.num_leaves;
-	_t1_blks.items[_req_ptr->_ft.max_lvl + 1].nodes[0] = _req_ptr->_ft.t1_node();
-	_check_node[_req_ptr->_ft.max_lvl + 1][0] = true;
 	_state = REQ_SUBMITTED;
 }
 
