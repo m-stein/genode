@@ -80,8 +80,6 @@ class Tresor::Trust_anchor_channel : public Module_channel
 
 		NONCOPYABLE(Trust_anchor_channel);
 
-		void _generated_req_completed(State_uint) override { ASSERT_NEVER_REACHED; }
-
 		void _request_submitted(Module_request &) override;
 
 		bool _request_complete() override { return _state == REQ_COMPLETE; }

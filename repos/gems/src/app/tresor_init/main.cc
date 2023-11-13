@@ -71,10 +71,6 @@ class Main : private Vfs::Env::User, private Tresor::Module_composition, public 
 			_state = (State)state_uint;
 		}
 
-		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
-
-		bool _request_complete() override { return false; }
-
 		void wakeup_vfs_user() override { _sigh.local_submit(); }
 
 		void _wakeup_back_end_services() { _vfs_env.io().commit(); }

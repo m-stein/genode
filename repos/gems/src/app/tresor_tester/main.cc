@@ -406,10 +406,6 @@ class Command : public Module_channel
 
 		void _generated_req_completed(State_uint state_uint) override;
 
-		void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
-
-		bool _request_complete() override { return false; }
-
 		char const *_state_to_string() const
 		{
 			switch (_state) {
@@ -587,8 +583,6 @@ class Tresor_tester::Client_data : public Tresor::Module, public Tresor::Module_
 		Main &_main;
 
 		NONCOPYABLE(Client_data);
-
-		void _generated_req_completed(State_uint) override { ASSERT_NEVER_REACHED; }
 
 		void _request_submitted(Module_request &) override;
 

@@ -17,7 +17,6 @@
 /* base includes */
 #include <util/string.h>
 #include <util/avl_tree.h>
-#include <base/log.h>
 
 /* tresor includes */
 #include <tresor/verbosity.h>
@@ -36,9 +35,8 @@ namespace Tresor {
 
 	enum Module_id_enum : Module_id {
 		CRYPTO = 0, CLIENT_DATA = 1, TRUST_ANCHOR = 2, COMMAND_POOL = 3, BLOCK_IO = 4, CACHE = 5, META_TREE = 6,
-		FREE_TREE = 7, VIRTUAL_BLOCK_DEVICE = 8, SUPERBLOCK_CONTROL = 9, VBD_INITIALIZER = 10,
-		FT_INITIALIZER = 11, SB_INITIALIZER = 12, REQUEST_POOL = 13, SB_CHECK = 14, VBD_CHECK = 15,
-		FT_CHECK = 16, SPLITTER = 17, MAX_MODULE_ID = 17 };
+		FREE_TREE = 7, VIRTUAL_BLOCK_DEVICE = 8, SUPERBLOCK_CONTROL = 9, VBD_INITIALIZER = 10, FT_INITIALIZER = 11,
+		SB_INITIALIZER = 12, REQUEST_POOL = 13, SB_CHECK = 14, VBD_CHECK = 15, FT_CHECK = 16, SPLITTER = 17, MAX_MODULE_ID = 17 };
 
 	char const *module_name(Module_id module_id);
 
@@ -76,11 +74,6 @@ class Tresor::Module_request : public Interface
 
 		virtual ~Module_request() { }
 
-
-		/***************
-		 ** Accessors **
-		 ***************/
-
 		Module_id src_module_id() const { return _src_module_id; }
 		Module_channel_id src_chan_id() const { return _src_chan_id; }
 		Module_id dst_module_id() const { return _dst_module_id; }
@@ -113,12 +106,6 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 
 		NONCOPYABLE(Module_channel);
 
-		virtual void _generated_req_completed(State_uint state_uint) = 0;
-
-		virtual void _request_submitted(Module_request &req) = 0;
-
-		virtual bool _request_complete() = 0;
-
 		template <typename CHAN, typename FUNC>
 		void _with_channel(Module_channel_id id, FUNC && func)
 		{
@@ -143,11 +130,13 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 
 		bool higher(Module_channel *ptr) { return ptr->_id > _id; }
 
-	public:
+		virtual void _generated_req_completed(State_uint) { ASSERT_NEVER_REACHED; }
 
-		/* FIXME: deprecated, only kept for transitioning phase */
-		Module_channel() { }
-		bool req_valid() { return _req_ptr; }
+		virtual void _request_submitted(Module_request &) { ASSERT_NEVER_REACHED; }
+
+		virtual bool _request_complete() { ASSERT_NEVER_REACHED; }
+
+	public:
 
 		Module_channel(Module_id module_id, Module_channel_id id) : _module_id { module_id }, _id { id } { };
 
@@ -211,8 +200,6 @@ class Tresor::Module : public Interface
 			return success;
 		}
 
-		virtual void execute(bool &) { }
-
 		template <typename FUNC>
 		void for_each_generated_request(FUNC && handle_request)
 		{
@@ -263,25 +250,13 @@ class Tresor::Module : public Interface
 			return;
 		}
 
-		void add_channel(Module_channel &chan)
-		{
-			_channels.insert(&chan);
-		}
-
-		template <typename T>
-		void register_channels(T *channels_ptr, unsigned long num_channels, Module_id module_id)
-		{
-			for (Module_channel_id id { 0 }; id < num_channels; id++) {
-				Module_channel &chan { *static_cast<Module_channel *>(&channels_ptr[id]) };
-				chan._module_id = module_id;
-				chan._id = id;
-				_channels.insert(&chan);
-			}
-		}
+		void add_channel(Module_channel &chan) { _channels.insert(&chan); }
 
 		Module() { }
 
 		virtual ~Module() { }
+
+		virtual void execute(bool &) { }
 };
 
 
@@ -293,8 +268,7 @@ class Tresor::Module_composition
 
 	public:
 
-		void add_module(Module_id module_id,
-		                Module &mod)
+		void add_module(Module_id module_id, Module &mod)
 		{
 			ASSERT(module_id <= MAX_MODULE_ID);
 			ASSERT(!_module_ptrs[module_id]);
@@ -315,7 +289,6 @@ class Tresor::Module_composition
 
 				progress = false;
 				for (Module_id id { 0 }; id <= MAX_MODULE_ID; id++) {
-
 					if (!_module_ptrs[id])
 						continue;
 

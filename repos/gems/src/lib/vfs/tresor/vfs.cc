@@ -128,8 +128,6 @@ class Vfs_tresor::Client_data : public Tresor::Module, public Tresor::Module_cha
 			} }
 		}
 
-		void _generated_req_completed(State_uint) override { ASSERT_NEVER_REACHED; }
-
 		bool _request_complete() override { return true; }
 
 	public:
@@ -188,14 +186,6 @@ class Vfs_tresor::Wrapper
 
 				State _state { IDLE };
 				bool  _success { false };
-
-				/************************
-				 ** Module_channel API **
-				 ************************/
-
-				void _request_submitted(Module_request &) override { ASSERT_NEVER_REACHED; }
-
-				bool _request_complete() override { return false; }
 
 				void _generated_req_completed(State_uint) override { _main.mark_command_completed(id()); }
 
