@@ -735,7 +735,6 @@ class Tresor_tester::Main
 			add_module(SB_CHECK, _sb_check);
 			add_module(VBD_CHECK, _vbd_check);
 			add_module(FT_CHECK, _ft_check);
-
 			_config_rom.xml().sub_node("commands").for_each_sub_node([&] (Xml_node const &node) {
 				add_channel(*new (_heap) Command(node, *this, _next_command_id++));
 				_nr_of_uncompleted_cmds++;
@@ -743,7 +742,7 @@ class Tresor_tester::Main
 			_handle_signal();
 		}
 
-		void mark_command_in_progress(Module_request_id cmd_id)
+		void mark_command_in_progress(Module_channel_id cmd_id)
 		{
 			with_channel<Command>(cmd_id, [&] (Command &cmd) {
 				ASSERT(cmd.state() == Command::PENDING);
@@ -751,8 +750,7 @@ class Tresor_tester::Main
 			});
 		}
 
-		void mark_command_completed(Module_request_id cmd_id,
-		                            bool success)
+		void mark_command_completed(Module_channel_id cmd_id, bool success)
 		{
 			with_channel<Command>(cmd_id, [&] (Command &cmd) {
 				ASSERT(cmd.state() == Command::IN_PROGRESS);

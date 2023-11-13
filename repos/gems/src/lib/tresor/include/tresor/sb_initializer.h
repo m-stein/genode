@@ -48,9 +48,9 @@ class Tresor::Sb_initializer_request : public Module_request
 
 	public:
 
-		Sb_initializer_request(Module_id , Module_request_id , Tree_level_index , Tree_degree , Number_of_leaves ,
-		                       Tree_level_index , Tree_degree , Number_of_leaves , Tree_level_index , Tree_degree ,
-		                       Number_of_leaves , Pba_allocator &, bool &);
+		Sb_initializer_request(Module_id, Module_channel_id, Tree_level_index, Tree_degree, Number_of_leaves,
+		                       Tree_level_index, Tree_degree, Number_of_leaves, Tree_level_index, Tree_degree,
+		                       Number_of_leaves, Pba_allocator &, bool &);
 
 		void print(Output &out) const override { Genode::print(out, "init"); }
 };

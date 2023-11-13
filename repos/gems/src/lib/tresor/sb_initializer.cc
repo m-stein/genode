@@ -22,7 +22,7 @@
 using namespace Tresor;
 
 Sb_initializer_request::
-Sb_initializer_request(Module_id src_mod, Module_request_id src_chan, Tree_level_index vbd_max_lvl,
+Sb_initializer_request(Module_id src_mod, Module_channel_id src_chan, Tree_level_index vbd_max_lvl,
                        Tree_degree vbd_degree, Number_of_leaves vbd_num_leaves, Tree_level_index ft_max_lvl,
                        Tree_degree ft_degree, Number_of_leaves ft_num_leaves, Tree_level_index mt_max_lvl,
                        Tree_degree mt_degree, Number_of_leaves mt_num_leaves, Pba_allocator &pba_alloc, bool &success)

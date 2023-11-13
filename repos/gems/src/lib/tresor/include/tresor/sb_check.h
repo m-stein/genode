@@ -37,7 +37,7 @@ class Tresor::Sb_check_request : public Module_request
 
 	public:
 
-		Sb_check_request(Module_id, Module_request_id, bool &);
+		Sb_check_request(Module_id, Module_channel_id, bool &);
 
 		void print(Output &out) const override { Genode::print(out, "check"); }
 };

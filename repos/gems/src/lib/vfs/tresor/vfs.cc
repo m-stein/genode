@@ -336,11 +336,7 @@ class Vfs_tresor::Wrapper
 		enum { MAX_NUM_COMMANDS = 16 };
 		Constructible<Command> _commands[MAX_NUM_COMMANDS] { };
 
-		/************************
-		 ** Tresor::Module API **
-		 ************************/
-
-		bool ready_to_submit_request() override
+		bool ready_to_submit_request()
 		{
 			bool result = false;
 			for_each_channel<Command>([&] (Command const &cmd) {
@@ -731,14 +727,14 @@ class Vfs_tresor::Wrapper
 			_initialize_tresor();
 		}
 
-		void mark_command_in_progress(Module_request_id cmd_id)
+		void mark_command_in_progress(Module_channel_id cmd_id)
 		{
 			with_channel<Command>(cmd_id, [&] (Command &cmd) {
 				cmd.state(Command::IN_PROGRESS);
 			});
 		}
 
-		void mark_command_completed(Module_request_id cmd_id)
+		void mark_command_completed(Module_channel_id cmd_id)
 		{
 			with_channel<Command>(cmd_id, [&] (Command &cmd) {
 				cmd.state(Command::COMPLETED);

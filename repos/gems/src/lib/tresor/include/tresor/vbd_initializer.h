@@ -39,7 +39,7 @@ class Tresor::Vbd_initializer_request : public Module_request
 
 	public:
 
-		Vbd_initializer_request(Module_id, Module_request_id, Tree_root &, Pba_allocator &, bool &);
+		Vbd_initializer_request(Module_id, Module_channel_id, Tree_root &, Pba_allocator &, bool &);
 
 		void print(Output &out) const override { Genode::print(out, "init"); }
 };

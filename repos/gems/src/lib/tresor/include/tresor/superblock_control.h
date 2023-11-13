@@ -52,7 +52,7 @@ class Tresor::Superblock_control_request : Module_request, Noncopyable
 
 	public:
 
-		Superblock_control_request(Module_id, Module_request_id, Type, Request_offset,
+		Superblock_control_request(Module_id, Module_channel_id, Type, Request_offset,
 		                           Request_tag, Number_of_blocks, Virtual_block_address,
 		                           bool &, bool &, Superblock::State &, Generation &);
 
