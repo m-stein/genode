@@ -90,77 +90,51 @@ namespace Vfs_tresor {
 } /* namespace Vfs_tresor */
 
 
-class Vfs_tresor::Client_data : public Tresor::Module
+class Vfs_tresor::Client_data : public Tresor::Module, public Tresor::Module_channel
 {
 	private:
 
+		using Request = Client_data_request;
+
 		Lookup_buffer &_lookup;
-		Constructible<Client_data_request> _request { };
 
-		/************************
-		 ** Tresor::Module API **
-		 ************************/
+		NONCOPYABLE(Client_data);
 
-		bool ready_to_submit_request() override
+		void _request_submitted(Module_request &mod_req) override
 		{
-			return !_request.constructed();
-		}
-
-		void submit_request(Module_request &mod_req) override
-		{
-			ASSERT(!_request.constructed());
-			Client_data_request &req { *static_cast<Client_data_request *>(&mod_req) };
-			req.dst_chan_id(0);
-			_request.construct(req.src_module_id(), req.src_chan_id(), req._type, req._req_off, req._req_tag, req._pba, req._vba, req._blk, req._success);
-			_request->dst_chan_id(0);
-			switch (_request->_type) {
-			case Client_data_request::OBTAIN_PLAINTEXT_BLK:
+			Request &req { *static_cast<Request *>(&mod_req) };
+			switch (req._type) {
+			case Request::OBTAIN_PLAINTEXT_BLK:
 			{
-				void const *src = _lookup.write_buffer(_request->_req_tag, _request->_vba);
+				void const *src = _lookup.write_buffer(req._req_tag, req._vba);
 				if (!src) {
-					_request->_success = false;
+					req._success = false;
 					break;
 				}
-				memcpy(&_request->_blk, src, Tresor::BLOCK_SIZE);
-				_request->_success = true;
+				memcpy(&req._blk, src, Tresor::BLOCK_SIZE);
+				req._success = true;
 				break;
 			}
-			case Client_data_request::SUPPLY_PLAINTEXT_BLK:
+			case Request::SUPPLY_PLAINTEXT_BLK:
 			{
-				void *dst = _lookup.read_buffer(_request->_req_tag, _request->_vba);
+				void *dst = _lookup.read_buffer(req._req_tag, req._vba);
 				if (dst == nullptr) {
-					_request->_success = false;
+					req._success = false;
 					break;
 				}
-				memcpy(dst, &_request->_blk, Tresor::BLOCK_SIZE);
-				_request->_success = true;
+				memcpy(dst, &req._blk, Tresor::BLOCK_SIZE);
+				req._success = true;
 				break;
 			} }
 		}
 
-		bool _peek_completed_request(Genode::uint8_t *buf_ptr, Genode::size_t buf_size) override
-		{
-			if (!_request.constructed())
-				return false;
+		void _generated_req_completed(State_uint) override { ASSERT_NEVER_REACHED; }
 
-			ASSERT(sizeof(Client_data_request) <= buf_size);
-			construct_at<Client_data_request>(
-				buf_ptr, _request->src_module_id(), _request->src_chan_id(), _request->_type, _request->_req_off,
-				_request->_req_tag, _request->_pba, _request->_vba, _request->_blk, _request->_success);;
-			return true;
-		}
-
-		void _drop_completed_request(Module_request &) override
-		{
-			ASSERT(_request.constructed());
-			_request.destruct();
-		}
-
-		bool new_submit_request() override { return false; }
+		bool _request_complete() override { return true; }
 
 	public:
 
-		Client_data(Lookup_buffer &lb) : _lookup { lb } { }
+		Client_data(Lookup_buffer &lb) : Module_channel { CLIENT_DATA, 0 }, _lookup { lb } { add_channel(*this);}
 };
 
 
@@ -223,8 +197,7 @@ class Vfs_tresor::Wrapper
 
 				bool _request_complete() override { return false; }
 
-				void _generated_req_completed(State_uint) override {
-					_main.mark_command_completed(id()); }
+				void _generated_req_completed(State_uint) override { _main.mark_command_completed(id()); }
 
 			public:
 
@@ -685,15 +658,6 @@ class Vfs_tresor::Wrapper
 				break;
 			} /* switch */
 		}
-
-		/*****************************
-		 ** COMMAND_POOL Module API **
-		 *****************************/
-
-		bool _peek_generated_request(Genode::uint8_t *, Genode::size_t) override {
-			return false; }
-
-		void _drop_generated_request(Module_request &) override { }
 
 		void _snapshots_fs_update_snapshot_registry();
 

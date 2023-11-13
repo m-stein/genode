@@ -578,32 +578,25 @@ struct Snapshot_reference_tree : public Avl_tree<Snapshot_reference>
 };
 
 
-class Tresor_tester::Client_data : public Tresor::Module
+class Tresor_tester::Client_data : public Tresor::Module, public Tresor::Module_channel
 {
 	private:
 
+		using Request = Client_data_request;
+
 		Main &_main;
-		Constructible<Client_data_request> _request { };
 
+		NONCOPYABLE(Client_data);
 
-		/********************
-		 ** Tresor::Module **
-		 ********************/
+		void _generated_req_completed(State_uint) override { ASSERT_NEVER_REACHED; }
 
-		bool ready_to_submit_request() override;
+		void _request_submitted(Module_request &) override;
 
-		void submit_request(Module_request &req) override;
-
-		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t buf_size) override;
-
-		void _drop_completed_request(Module_request &) override;
-
-		bool new_submit_request() override { return false; }
+		bool _request_complete() override { return true; }
 
 	public:
 
-		Client_data(Main &main) : _main { main } { }
+		Client_data(Main &main) : Module_channel { CLIENT_DATA, 0 }, _main { main } { add_channel(*this); }
 };
 
 
@@ -931,50 +924,14 @@ class Tresor_tester::Main
 };
 
 
-/********************************
- ** Tresor_tester::Client_data **
- ********************************/
-
-bool Tresor_tester::Client_data::ready_to_submit_request()
+void Tresor_tester::Client_data::_request_submitted(Module_request &mod_req)
 {
-	return !_request.constructed();
-}
-
-void Tresor_tester::Client_data::submit_request(Module_request &mod_req)
-{
-	ASSERT(!_request.constructed());
-	Client_data_request &req { *static_cast<Client_data_request *>(&mod_req) };
-	req.dst_chan_id(0);
-	_request.construct(req.src_module_id(), req.src_chan_id(), req._type, req._req_off, req._req_tag, req._pba, req._vba, req._blk, req._success);
-	_request->dst_chan_id(0);
-	switch (_request->_type) {
-	case Client_data_request::OBTAIN_PLAINTEXT_BLK:
-		_main.generate_blk_data(_request->_req_tag, _request->_vba, _request->_blk);
-		break;
-	case Client_data_request::SUPPLY_PLAINTEXT_BLK:
-		_main.verify_blk_data(_request->_req_tag, _request->_vba, _request->_blk);
-		break;
+	Request &req { *static_cast<Request *>(&mod_req) };
+	switch (req._type) {
+	case Request::OBTAIN_PLAINTEXT_BLK: _main.generate_blk_data(req._req_tag, req._vba, req._blk); break;
+	case Request::SUPPLY_PLAINTEXT_BLK: _main.verify_blk_data(req._req_tag, req._vba, req._blk); break;
 	}
-	_request->_success = true;
-}
-
-bool Tresor_tester::Client_data::_peek_completed_request(Genode::uint8_t *buf_ptr,
-                                                         Genode::size_t buf_size)
-{
-	if (!_request.constructed())
-		return false;
-
-	ASSERT(sizeof(Client_data_request) <= buf_size);
-	construct_at<Client_data_request>(
-		buf_ptr, _request->src_module_id(), _request->src_chan_id(), _request->_type, _request->_req_off, _request->_req_tag,
-		_request->_pba, _request->_vba, _request->_blk, _request->_success);;
-	return true;
-}
-
-void Tresor_tester::Client_data::_drop_completed_request(Module_request &)
-{
-	ASSERT(_request.constructed());
-	_request.destruct();
+	req._success = true;
 }
 
 
