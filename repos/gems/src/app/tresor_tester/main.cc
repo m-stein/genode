@@ -637,6 +637,8 @@ class Tresor_tester::Main
 		Ft_check _ft_check { };
 		bool _generated_req_success { false };
 
+		NONCOPYABLE(Main);
+
 		static void _generate_blk_data(Tresor::Block &blk_data,
 		                               Virtual_block_address vba,
 		                               uint64_t salt)
@@ -704,34 +706,13 @@ class Tresor_tester::Main
 			_wakeup_back_end_services();
 		}
 
-
-		/****************************
-		 ** Make class noncopyable **
-		 ****************************/
-
-		Main(Main const &) = delete;
-
-		Main &operator = (Main const &) = delete;
-
-
-		/********************
-		 ** Vfs::Env::User **
-		 ********************/
-
 		void wakeup_vfs_user() override { _signal_handler.local_submit(); }
-
-
-		/********************
-		 ** Tresor::Module **
-		 ********************/
 
 		void execute(bool &progress) override
 		{
 			_with_first_processable_cmd([&] (Command &cmd) {
 				cmd.execute(progress); });
 		}
-
-		bool new_submit_request() override { return false; }
 
 		void _remove_snap_ref(Snapshot_reference &ref)
 		{
