@@ -129,99 +129,9 @@ _write_read_file(Vfs::Vfs_handle &file, char const *write_buf, char *read_buf, s
 }
 
 
-void Trust_anchor_channel::
-_write_file(Vfs::Vfs_handle &file, char const *write_buf, bool &progress, bool result_via_read)
+void Trust_anchor_channel::_mark_req_failed(bool &progress, Error_string str)
 {
-	Request &req { *_req_ptr };
-	switch (_state) {
-	case WRITE_PENDING:
-
-		file.seek(_file_offset);
-		_state = WRITE_IN_PROGRESS;
-		progress = true;
-		return;
-
-	case WRITE_IN_PROGRESS:
-	{
-		size_t nr_of_written_bytes { 0 };
-		Const_byte_range_ptr src { write_buf + _file_offset, _file_size };
-		switch (file.fs().write(&file, src, nr_of_written_bytes)) {
-		case Write_result::WRITE_ERR_WOULD_BLOCK: return;
-		case Write_result::WRITE_OK:
-
-			_file_offset += nr_of_written_bytes;
-			_file_size -= nr_of_written_bytes;
-
-			if (_file_size > 0) {
-
-				_state = WRITE_PENDING;
-				progress = true;
-				return;
-			}
-			_state = READ_PENDING;
-			_file_offset = 0;
-			_file_size = result_via_read ? sizeof(_read_buf) : 0;
-			progress = true;
-			return;
-
-		default:
-
-			req._success = false;
-			error("failed to write file");
-			_state = REQ_COMPLETE;
-			_req_ptr = nullptr;
-			progress = true;
-			return;
-		}
-	}
-	case READ_PENDING:
-
-		file.seek(_file_offset);
-		if (!file.fs().queue_read(&file, _file_size))
-			return;
-
-		_state = READ_IN_PROGRESS;
-		progress = true;
-		return;
-
-	case READ_IN_PROGRESS:
-	{
-		size_t nr_of_read_bytes { 0 };
-		Byte_range_ptr dst { _read_buf + _file_offset, _file_size };
-		switch (file.fs().complete_read(&file, dst, nr_of_read_bytes)) {
-		case Read_result::READ_QUEUED:
-		case Read_result::READ_ERR_WOULD_BLOCK: return;
-		case Read_result::READ_OK:
-
-			_file_offset += nr_of_read_bytes;
-			_file_size -= nr_of_read_bytes;
-			if (_file_size > 0) {
-				_state = READ_PENDING;
-				progress = true;
-				return;
-			}
-			req._success = result_via_read ? !strcmp(_read_buf, "ok", 3) : true;
-			_state = REQ_COMPLETE;
-			_req_ptr = nullptr;
-			progress = true;
-			return;
-
-		default:
-			req._success = false;
-			error("failed to read file");
-			_state = REQ_COMPLETE;
-			_req_ptr = nullptr;
-			return;
-		}
-	}
-	default: return;
-	}
-}
-
-
-void Trust_anchor_channel::_mark_req_failed(bool &progress, char const *str)
-{
-	error("trust_anchor: request (", *_req_ptr, ") failed at step \"", str, "\"");
+	error("trust_anchor: request (", *_req_ptr, ") failed: ", str);
 	_req_ptr->_success = false;
 	_state = REQ_COMPLETE;
 	_req_ptr = nullptr;
@@ -241,10 +151,11 @@ void Trust_anchor_channel::_mark_req_successful(bool &progress)
 
 void Trust_anchor_channel::_get_last_sb_hash(bool &progress)
 {
+	Request &req { *_req_ptr };
 	switch (_state) {
-	case REQ_SUBMITTED: _hashsum_file.read(_state, READ_SUCCEEDED, FAILED, 0, { (char *)&_req_ptr->_hash, HASH_SIZE }, progress); break;
-	case READ_SUCCEEDED: _mark_req_successful(progress); break;
-	case FAILED: _mark_req_failed(progress, "file operation failed"); break;
+	case REQ_SUBMITTED: _hashsum_file.read(_state, READ_OK, FILE_ERR, 0, { (char *)&req._hash, HASH_SIZE }, progress); break;
+	case READ_OK: _mark_req_successful(progress); break;
+	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
 	default: break;
 	}
 }
@@ -252,10 +163,44 @@ void Trust_anchor_channel::_get_last_sb_hash(bool &progress)
 
 void Trust_anchor_channel::_create_key(bool &progress)
 {
+	Request &req { *_req_ptr };
 	switch (_state) {
-	case REQ_SUBMITTED: _generate_key_file.read(_state, READ_SUCCEEDED, FAILED, 0, { (char *)&_req_ptr->_key_plaintext, KEY_SIZE }, progress); break;
-	case READ_SUCCEEDED: _mark_req_successful(progress); break;
-	case FAILED: _mark_req_failed(progress, "file operation failed"); break;
+	case REQ_SUBMITTED: _generate_key_file.read(_state, READ_OK, FILE_ERR, 0, { (char *)&req._key_plaintext, KEY_SIZE }, progress); break;
+	case READ_OK: _mark_req_successful(progress); break;
+	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
+	default: break;
+	}
+}
+
+
+void Trust_anchor_channel::_initialize(bool &progress)
+{
+	Request &req { *_req_ptr };
+	switch (_state) {
+	case REQ_SUBMITTED: _initialize_file.write(_state, WRITE_OK, FILE_ERR, 0, { req._passphrase.string(), req._passphrase.length() - 1 }, progress); break;
+	case WRITE_OK: _initialize_file.read(_state, READ_OK, FILE_ERR, 0, { _read_buf, sizeof(_read_buf) }, progress); break;
+	case READ_OK:
+
+		if (strcmp(_read_buf, "ok", 3))
+			_mark_req_failed(progress, { "trust anchor did not return \"ok\""});
+		else
+			_mark_req_successful(progress);
+		break;
+
+	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
+	default: break;
+	}
+}
+
+
+void Trust_anchor_channel::_secure_sb(bool &progress)
+{
+	Request &req { *_req_ptr };
+	switch (_state) {
+	case REQ_SUBMITTED: _hashsum_file.write(_state, WRITE_OK, FILE_ERR, 0, { (char *)&req._hash, HASH_SIZE }, progress); break;
+	case WRITE_OK: _hashsum_file.read(_state, READ_OK, FILE_ERR, 0, { _read_buf, 0 }, progress); break;
+	case READ_OK: _mark_req_successful(progress); break;
+	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
 	default: break;
 	}
 }
@@ -268,26 +213,8 @@ void Trust_anchor_channel::execute(bool &progress)
 
 	Request &req { *_req_ptr };
 	switch (req._type) {
-	case Request::INITIALIZE:
-
-		if (_state == REQ_SUBMITTED) {
-			_state = WRITE_PENDING;
-			_file_offset = 0;
-			_file_size = req._passphrase.length() - 1;
-		}
-		_write_file(_initialize_file, req._passphrase.string(), progress, true);
-		break;
-
-	case Request::SECURE_SUPERBLOCK:
-
-		if (_state == REQ_SUBMITTED) {
-			_state = WRITE_PENDING;
-			_file_offset = 0;
-			_file_size = sizeof(req._hash);
-		}
-		_write_file(_hashsum_file.handle(), (char const *)&req._hash, progress, false);
-		break;
-
+	case Request::INITIALIZE: _initialize(progress); break;
+	case Request::SECURE_SUPERBLOCK: _secure_sb(progress); break;
 	case Request::GET_LAST_SB_HASH: _get_last_sb_hash(progress); break;
 	case Request::CREATE_KEY: _create_key(progress); break;
 	case Request::ENCRYPT_KEY:
