@@ -72,9 +72,9 @@ class Tresor::Trust_anchor_channel : public Module_channel
 		Path const _path;
 		Vfs::Vfs_handle &_decrypt_file { vfs_open_rw(_vfs_env, { _path, "/decrypt" }) };
 		Vfs::Vfs_handle &_encrypt_file { vfs_open_rw(_vfs_env, { _path, "/encrypt" }) };
-		Read_write_file<State> _generate_key_file { _vfs_env, { _path, "/generate_key" } };
-		Read_write_file<State> _initialize_file { _vfs_env, { _path, "/initialize" } };
-		Read_write_file<State> _hashsum_file { _vfs_env, { _path, "/hashsum" } };
+		Read_write_file<State> _generate_key_file { _state, _vfs_env, { _path, "/generate_key" } };
+		Read_write_file<State> _initialize_file { _state, _vfs_env, { _path, "/initialize" } };
+		Read_write_file<State> _hashsum_file { _state, _vfs_env, { _path, "/hashsum" } };
 		Trust_anchor_request *_req_ptr { nullptr };
 		Vfs::file_offset _file_offset { 0 };
 		size_t _file_size { 0 };

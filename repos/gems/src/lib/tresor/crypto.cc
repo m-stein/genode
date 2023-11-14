@@ -294,13 +294,13 @@ void Crypto_channel::_decrypt(bool &progress)
 	switch (_state) {
 	case SUBMITTED:
 
-		_file.construct(*_lookup_key_dir(req._key_id).decrypt_handle);
+		_file.construct(_state, *_lookup_key_dir(req._key_id).decrypt_handle);
 		_state = WRITE;
 		progress = true;
 		break;
 
-	case WRITE: _file->write(_state, WRITE_SUCCEEDED, FILE_OP_FAILED, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress); break;
-	case WRITE_SUCCEEDED: _file->read(_state, READ_SUCCEEDED, FILE_OP_FAILED, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress); break;
+	case WRITE: _file->write(WRITE_SUCCEEDED, FILE_OP_FAILED, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress); break;
+	case WRITE_SUCCEEDED: _file->read(READ_SUCCEEDED, FILE_OP_FAILED, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress); break;
 	case READ_SUCCEEDED: _mark_req_successful(progress); break;
 	case FILE_OP_FAILED: _mark_req_failed(progress, "file operation"); break;
 	default: break;
@@ -314,13 +314,13 @@ void Crypto_channel::_decrypt_client_data(bool &progress)
 	switch (_state) {
 	case SUBMITTED:
 
-		_file.construct(*_lookup_key_dir(req._key_id).decrypt_handle);
+		_file.construct(_state, *_lookup_key_dir(req._key_id).decrypt_handle);
 		_state = WRITE;
 		progress = true;
 		break;
 
-	case WRITE: _file->write(_state, WRITE_SUCCEEDED, FILE_OP_FAILED, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress); break;
-	case WRITE_SUCCEEDED: _file->read(_state, READ_SUCCEEDED, FILE_OP_FAILED, req._pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress); break;
+	case WRITE: _file->write(WRITE_SUCCEEDED, FILE_OP_FAILED, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress); break;
+	case WRITE_SUCCEEDED: _file->read(READ_SUCCEEDED, FILE_OP_FAILED, req._pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress); break;
 	case READ_SUCCEEDED:
 
 		_generate_req<Client_data_request>(

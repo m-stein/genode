@@ -153,7 +153,7 @@ void Trust_anchor_channel::_get_last_sb_hash(bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
-	case REQ_SUBMITTED: _hashsum_file.read(_state, READ_OK, FILE_ERR, 0, { (char *)&req._hash, HASH_SIZE }, progress); break;
+	case REQ_SUBMITTED: _hashsum_file.read(READ_OK, FILE_ERR, 0, { (char *)&req._hash, HASH_SIZE }, progress); break;
 	case READ_OK: _mark_req_successful(progress); break;
 	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
 	default: break;
@@ -165,7 +165,7 @@ void Trust_anchor_channel::_create_key(bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
-	case REQ_SUBMITTED: _generate_key_file.read(_state, READ_OK, FILE_ERR, 0, { (char *)&req._key_plaintext, KEY_SIZE }, progress); break;
+	case REQ_SUBMITTED: _generate_key_file.read(READ_OK, FILE_ERR, 0, { (char *)&req._key_plaintext, KEY_SIZE }, progress); break;
 	case READ_OK: _mark_req_successful(progress); break;
 	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
 	default: break;
@@ -177,8 +177,8 @@ void Trust_anchor_channel::_initialize(bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
-	case REQ_SUBMITTED: _initialize_file.write(_state, WRITE_OK, FILE_ERR, 0, { req._passphrase.string(), req._passphrase.length() - 1 }, progress); break;
-	case WRITE_OK: _initialize_file.read(_state, READ_OK, FILE_ERR, 0, { _read_buf, sizeof(_read_buf) }, progress); break;
+	case REQ_SUBMITTED: _initialize_file.write(WRITE_OK, FILE_ERR, 0, { req._passphrase.string(), req._passphrase.length() - 1 }, progress); break;
+	case WRITE_OK: _initialize_file.read(READ_OK, FILE_ERR, 0, { _read_buf, sizeof(_read_buf) }, progress); break;
 	case READ_OK:
 
 		if (strcmp(_read_buf, "ok", 3))
@@ -197,8 +197,8 @@ void Trust_anchor_channel::_secure_sb(bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
-	case REQ_SUBMITTED: _hashsum_file.write(_state, WRITE_OK, FILE_ERR, 0, { (char *)&req._hash, HASH_SIZE }, progress); break;
-	case WRITE_OK: _hashsum_file.read(_state, READ_OK, FILE_ERR, 0, { _read_buf, 0 }, progress); break;
+	case REQ_SUBMITTED: _hashsum_file.write(WRITE_OK, FILE_ERR, 0, { (char *)&req._hash, HASH_SIZE }, progress); break;
+	case WRITE_OK: _hashsum_file.read(READ_OK, FILE_ERR, 0, { _read_buf, 0 }, progress); break;
 	case READ_OK: _mark_req_successful(progress); break;
 	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
 	default: break;

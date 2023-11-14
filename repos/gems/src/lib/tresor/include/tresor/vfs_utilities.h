@@ -40,7 +40,7 @@ Vfs::Vfs_handle &vfs_open_wo(Vfs::Env &, Genode::String<128>);
 
 Vfs::Vfs_handle &vfs_open_rw(Vfs::Env &, Genode::String<128>);
 
-template <typename STATE>
+template <typename HOST_STATE>
 class Tresor::File
 {
 	private:
@@ -51,6 +51,7 @@ class Tresor::File
 
 		enum State { IDLE, READ_QUEUED, READ_INITIALIZED, WRITE_INITIALIZED, WRITE_OFFSET_APPLIED };
 
+		HOST_STATE &_host_state;
 		State _state { IDLE };
 		Vfs::Vfs_handle &_handle;
 		Vfs::file_offset _file_offset { 0 };
@@ -70,23 +71,14 @@ class Tresor::File
 
 	public:
 
-		File(Vfs::Vfs_handle &handle) : _handle { handle } { }
+		File(HOST_STATE &host_state, Vfs::Vfs_handle &handle) : _host_state { host_state }, _handle { handle } { }
 
-		File(Vfs::Env &env, Tresor::Path path, Vfs::Directory_service::Open_mode mode) : _handle { _open(env, path, mode) } { }
+		File(HOST_STATE &host_state, Vfs::Env &env, Tresor::Path path, Vfs::Directory_service::Open_mode mode)
+		: _host_state { host_state }, _handle { _open(env, path, mode) } { }
 
 		~File() { ASSERT(_state == IDLE); }
 
-		/* XXX */
-		/* XXX */
-		/* XXX */
-		/* XXX */
-		Vfs::Vfs_handle &handle() { return _handle; }
-		/* XXX */
-		/* XXX */
-		/* XXX */
-		/* XXX */
-
-		void read(STATE &caller_state, STATE succeeded, STATE failed, Vfs::file_offset off, Byte_range_ptr dst, bool &progress)
+		void read(HOST_STATE succeeded, HOST_STATE failed, Vfs::file_offset off, Byte_range_ptr dst, bool &progress)
 		{
 			switch (_state) {
 			case IDLE:
@@ -123,14 +115,14 @@ class Tresor::File
 						break;
 					}
 					_state = IDLE;
-					caller_state = succeeded;
+					_host_state = succeeded;
 					progress = true;
 					break;
 
 				default:
 
 					error("read failed");
-					caller_state = failed;
+					_host_state = failed;
 					_state = IDLE;
 					progress = true;
 					break;
@@ -141,7 +133,7 @@ class Tresor::File
 			}
 		}
 
-		void write(STATE &caller_state, STATE succeeded, STATE failed, Vfs::file_offset off, Const_byte_range_ptr src, bool &progress)
+		void write(HOST_STATE succeeded, HOST_STATE failed, Vfs::file_offset off, Const_byte_range_ptr src, bool &progress)
 		{
 			switch (_state) {
 			case IDLE:
@@ -174,14 +166,14 @@ class Tresor::File
 						return;
 					}
 					_state = IDLE;
-					caller_state = succeeded;
+					_host_state = succeeded;
 					progress = true;
 					break;
 
 				default:
 
 					error("write failed");
-					caller_state = failed;
+					_host_state = failed;
 					_state = IDLE;
 					progress = true;
 					break;
@@ -193,10 +185,11 @@ class Tresor::File
 		}
 };
 
-template <typename STATE>
-struct Tresor::Read_write_file : public File<STATE>
+template <typename HOST_STATE>
+struct Tresor::Read_write_file : public File<HOST_STATE>
 {
-	Read_write_file(Vfs::Env &env, Tresor::Path path) : File<STATE> { env, path, Vfs::Directory_service::OPEN_MODE_RDWR } { }
+	Read_write_file(HOST_STATE &host_state, Vfs::Env &env, Tresor::Path path)
+	: File<HOST_STATE> { host_state, env, path, Vfs::Directory_service::OPEN_MODE_RDWR } { }
 };
 
 #endif /* _TRESOR__VFS_UTILITIES_H_ */
