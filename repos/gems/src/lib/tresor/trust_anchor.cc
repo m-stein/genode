@@ -242,14 +242,7 @@ void Trust_anchor_channel::_mark_req_successful(bool &progress)
 void Trust_anchor_channel::_get_last_sb_hash(bool &progress)
 {
 	switch (_state) {
-	case REQ_SUBMITTED:
-
-		_file.construct(_hashsum_file);
-		_state = READ;
-		progress = true;
-		break;
-
-	case READ: _file->read(_state, READ_SUCCEEDED, FAILED, 0, { (char *)&_req_ptr->_hash, HASH_SIZE }, progress); break;
+	case REQ_SUBMITTED: _hashsum_file.read(_state, READ_SUCCEEDED, FAILED, 0, { (char *)&_req_ptr->_hash, HASH_SIZE }, progress); break;
 	case READ_SUCCEEDED: _mark_req_successful(progress); break;
 	case FAILED: _mark_req_failed(progress, "file operation failed"); break;
 	default: break;
@@ -260,14 +253,7 @@ void Trust_anchor_channel::_get_last_sb_hash(bool &progress)
 void Trust_anchor_channel::_create_key(bool &progress)
 {
 	switch (_state) {
-	case REQ_SUBMITTED:
-
-		_file.construct(_generate_key_file);
-		_state = READ;
-		progress = true;
-		break;
-
-	case READ: _file->read(_state, READ_SUCCEEDED, FAILED, 0, { (char *)&_req_ptr->_key_plaintext, KEY_SIZE }, progress); break;
+	case REQ_SUBMITTED: _generate_key_file.read(_state, READ_SUCCEEDED, FAILED, 0, { (char *)&_req_ptr->_key_plaintext, KEY_SIZE }, progress); break;
 	case READ_SUCCEEDED: _mark_req_successful(progress); break;
 	case FAILED: _mark_req_failed(progress, "file operation failed"); break;
 	default: break;
@@ -299,7 +285,7 @@ void Trust_anchor_channel::execute(bool &progress)
 			_file_offset = 0;
 			_file_size = sizeof(req._hash);
 		}
-		_write_file(_hashsum_file, (char const *)&req._hash, progress, false);
+		_write_file(_hashsum_file.handle(), (char const *)&req._hash, progress, false);
 		break;
 
 	case Request::GET_LAST_SB_HASH: _get_last_sb_hash(progress); break;

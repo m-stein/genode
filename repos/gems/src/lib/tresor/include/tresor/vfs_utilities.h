@@ -28,7 +28,10 @@ namespace Tresor {
 
 	using namespace Genode;
 
+	using Path = String<128>;
+
 	template <typename> class File;
+	template <typename> class Read_write_file;
 }
 
 Vfs::Vfs_handle &vfs_open(Vfs::Env &, Genode::String<128>, Vfs::Directory_service::Open_mode);
@@ -44,6 +47,7 @@ class Tresor::File
 
 		using Read_result = Vfs::File_io_service::Read_result;
 		using Write_result = Vfs::File_io_service::Write_result;
+		using Open_result = Vfs::Directory_service::Open_result;
 
 		enum State { IDLE, READ_QUEUED, READ_INITIALIZED, WRITE_INITIALIZED, WRITE_OFFSET_APPLIED };
 
@@ -52,11 +56,35 @@ class Tresor::File
 		Vfs::file_offset _file_offset { 0 };
 		Vfs::file_size _file_size { 0 };
 
+		static Vfs::Vfs_handle &_open(Vfs::Env &env, Tresor::Path path, Vfs::Directory_service::Open_mode mode)
+		{
+			Vfs::Vfs_handle *handle { nullptr };
+			Open_result result { env.root_dir().open(path.string(), mode, &handle, env.alloc()) };
+			if (result != Open_result::OPEN_OK) {
+				error("failed to open file ", path.string());
+				class Failed { };
+				throw Failed { };
+			}
+			return *handle;
+		}
+
 	public:
 
 		File(Vfs::Vfs_handle &handle) : _handle { handle } { }
 
+		File(Vfs::Env &env, Tresor::Path path, Vfs::Directory_service::Open_mode mode) : _handle { _open(env, path, mode) } { }
+
 		~File() { ASSERT(_state == IDLE); }
+
+		/* XXX */
+		/* XXX */
+		/* XXX */
+		/* XXX */
+		Vfs::Vfs_handle &handle() { return _handle; }
+		/* XXX */
+		/* XXX */
+		/* XXX */
+		/* XXX */
 
 		void read(STATE &caller_state, STATE succeeded, STATE failed, Vfs::file_offset off, Byte_range_ptr dst, bool &progress)
 		{
@@ -163,6 +191,12 @@ class Tresor::File
 			default: ASSERT_NEVER_REACHED;
 			}
 		}
+};
+
+template <typename STATE>
+struct Tresor::Read_write_file : public File<STATE>
+{
+	Read_write_file(Vfs::Env &env, Tresor::Path path) : File<STATE> { env, path, Vfs::Directory_service::OPEN_MODE_RDWR } { }
 };
 
 #endif /* _TRESOR__VFS_UTILITIES_H_ */
