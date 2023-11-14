@@ -54,8 +54,7 @@ class Tresor::File
 		HOST_STATE &_host_state;
 		State _state { IDLE };
 		Vfs::Vfs_handle &_handle;
-		Vfs::file_offset _file_offset { 0 };
-		Vfs::file_size _file_size { 0 };
+		Vfs::file_size _num_processed_bytes { 0 };
 
 		static Vfs::Vfs_handle &_open(Vfs::Env &env, Tresor::Path path, Vfs::Directory_service::Open_mode mode)
 		{
@@ -83,16 +82,15 @@ class Tresor::File
 			switch (_state) {
 			case IDLE:
 
-				_file_offset = 0;
-				_file_size = dst.num_bytes;
+				_num_processed_bytes = 0;
 				_state = READ_INITIALIZED;
 				progress = true;
 				break;
 
 			case READ_INITIALIZED:
 
-				_handle.seek(off + _file_offset);
-				if (!_handle.fs().queue_read(&_handle, _file_size))
+				_handle.seek(off + _num_processed_bytes);
+				if (!_handle.fs().queue_read(&_handle, dst.num_bytes - _num_processed_bytes))
 					return;
 
 				_state = READ_QUEUED;
@@ -102,18 +100,19 @@ class Tresor::File
 			case READ_QUEUED:
 			{
 				size_t num_read_bytes { 0 };
-				switch (_handle.fs().complete_read(&_handle, { dst.start + _file_offset, _file_size }, num_read_bytes)) {
+				Byte_range_ptr curr_dst { dst.start + _num_processed_bytes, dst.num_bytes - _num_processed_bytes };
+				switch (_handle.fs().complete_read(&_handle, curr_dst, num_read_bytes)) {
 				case Read_result::READ_QUEUED:
 				case Read_result::READ_ERR_WOULD_BLOCK: break;
 				case Read_result::READ_OK:
 
-					_file_offset += num_read_bytes;
-					_file_size -= num_read_bytes;
-					if (_file_size) {
+					_num_processed_bytes += num_read_bytes;
+					if (_num_processed_bytes < dst.num_bytes) {
 						_state = READ_INITIALIZED;
 						progress = true;
 						break;
 					}
+					ASSERT(_num_processed_bytes == dst.num_bytes);
 					_state = IDLE;
 					_host_state = succeeded;
 					progress = true;
@@ -138,15 +137,14 @@ class Tresor::File
 			switch (_state) {
 			case IDLE:
 
-				_file_offset = 0;
-				_file_size = src.num_bytes;
+				_num_processed_bytes = 0;
 				_state = WRITE_INITIALIZED;
 				progress = true;
 				break;
 
 			case WRITE_INITIALIZED:
 
-				_handle.seek(off + _file_offset);
+				_handle.seek(off + _num_processed_bytes);
 				_state = WRITE_OFFSET_APPLIED;
 				progress = true;
 				return;
@@ -154,21 +152,22 @@ class Tresor::File
 			case WRITE_OFFSET_APPLIED:
 			{
 				size_t num_written_bytes { 0 };
-				switch (_handle.fs().write(&_handle, { src.start + _file_offset, _file_size }, num_written_bytes)) {
+				Const_byte_range_ptr curr_src { src.start + _num_processed_bytes, src.num_bytes - _num_processed_bytes };
+				switch (_handle.fs().write(&_handle, curr_src, num_written_bytes)) {
 				case Write_result::WRITE_ERR_WOULD_BLOCK: return;
 				case Write_result::WRITE_OK:
 
-					_file_offset += num_written_bytes;
-					_file_size -= num_written_bytes;
-					if (_file_size) {
+					_num_processed_bytes += num_written_bytes;
+					if (_num_processed_bytes < src.num_bytes) {
 						_state = WRITE_INITIALIZED;
 						progress = true;
-						return;
+						break;
 					}
+					ASSERT(_num_processed_bytes == src.num_bytes);
 					_state = IDLE;
 					_host_state = succeeded;
 					progress = true;
-					break;
+					break;;
 
 				default:
 
