@@ -45,7 +45,7 @@ class Tresor::File
 		using Read_result = Vfs::File_io_service::Read_result;
 		using Write_result = Vfs::File_io_service::Write_result;
 
-		enum State { IDLE, READ_QUEUED, WRITE_INITIALIZED, WRITE_OFFSET_APPLIED };
+		enum State { IDLE, READ_QUEUED, READ_INITIALIZED, WRITE_INITIALIZED, WRITE_OFFSET_APPLIED };
 
 		State _state { IDLE };
 		Vfs::Vfs_handle &_handle;
@@ -56,15 +56,23 @@ class Tresor::File
 
 		File(Vfs::Vfs_handle &handle) : _handle { handle } { }
 
-		Vfs::Vfs_handle &handle() { return _handle; }
+		~File() { ASSERT(_state == IDLE); }
 
 		void read(STATE &caller_state, STATE succeeded, STATE failed, Vfs::file_offset off, Byte_range_ptr dst, bool &progress)
 		{
 			switch (_state) {
 			case IDLE:
 
-				_handle.seek(off);
-				if (!_handle.fs().queue_read(&_handle, dst.num_bytes))
+				_file_offset = 0;
+				_file_size = dst.num_bytes;
+				_state = READ_INITIALIZED;
+				progress = true;
+				break;
+
+			case READ_INITIALIZED:
+
+				_handle.seek(off + _file_offset);
+				if (!_handle.fs().queue_read(&_handle, _file_size))
 					return;
 
 				_state = READ_QUEUED;
@@ -74,11 +82,18 @@ class Tresor::File
 			case READ_QUEUED:
 			{
 				size_t num_read_bytes { 0 };
-				switch (_handle.fs().complete_read(&_handle, dst, num_read_bytes)) {
+				switch (_handle.fs().complete_read(&_handle, { dst.start + _file_offset, _file_size }, num_read_bytes)) {
 				case Read_result::READ_QUEUED:
 				case Read_result::READ_ERR_WOULD_BLOCK: break;
 				case Read_result::READ_OK:
 
+					_file_offset += num_read_bytes;
+					_file_size -= num_read_bytes;
+					if (_file_size) {
+						_state = READ_INITIALIZED;
+						progress = true;
+						break;
+					}
 					_state = IDLE;
 					caller_state = succeeded;
 					progress = true;
@@ -119,14 +134,13 @@ class Tresor::File
 			case WRITE_OFFSET_APPLIED:
 			{
 				size_t num_written_bytes { 0 };
-				Const_byte_range_ptr src1 { src.start + _file_offset, _file_size };
-				switch (_handle.fs().write(&_handle, src1, num_written_bytes)) {
+				switch (_handle.fs().write(&_handle, { src.start + _file_offset, _file_size }, num_written_bytes)) {
 				case Write_result::WRITE_ERR_WOULD_BLOCK: return;
 				case Write_result::WRITE_OK:
 
 					_file_offset += num_written_bytes;
 					_file_size -= num_written_bytes;
-					if (_file_size > 0) {
+					if (_file_size) {
 						_state = WRITE_INITIALIZED;
 						progress = true;
 						return;

@@ -63,7 +63,9 @@ class Tresor::Trust_anchor_channel : public Module_channel
 		using Read_result = Vfs::File_io_service::Read_result;
 		using Write_result = Vfs::File_io_service::Write_result;
 
-		enum State { REQ_SUBMITTED, WRITE_PENDING, WRITE_IN_PROGRESS, READ_PENDING, READ_IN_PROGRESS, REQ_COMPLETE };
+		enum State {
+			REQ_SUBMITTED, WRITE_PENDING, WRITE_IN_PROGRESS, READ_PENDING, READ_IN_PROGRESS, REQ_COMPLETE,
+			READ, READ_SUCCEEDED, FAILED  };
 
 		State _state { REQ_COMPLETE };
 		Vfs::Env &_vfs_env;
@@ -77,6 +79,7 @@ class Tresor::Trust_anchor_channel : public Module_channel
 		Trust_anchor_request *_req_ptr { nullptr };
 		Vfs::file_offset _file_offset { 0 };
 		size_t _file_size { 0 };
+		Constructible<Tresor::File<State> > _file { };
 
 		NONCOPYABLE(Trust_anchor_channel);
 
@@ -88,7 +91,13 @@ class Tresor::Trust_anchor_channel : public Module_channel
 
 		void _write_file(Vfs::Vfs_handle &, char const *, bool &, bool);
 
-		void _read_file(Vfs::Vfs_handle &, char *, bool &);
+		void _create_key(bool &);
+
+		void _get_last_sb_hash(bool &);
+
+		void _mark_req_failed(bool &, char const *);
+
+		void _mark_req_successful(bool &);
 
 	public:
 
