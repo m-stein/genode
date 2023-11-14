@@ -70,7 +70,7 @@ class Tresor::Crypto_channel : public Module_channel
 
 		enum State {
 			SUBMITTED, COMPLETE, OBTAIN_PLAINTEXT_BLK_COMPLETE, SUPPLY_PLAINTEXT_BLK_COMPLETE,
-			OP_WRITTEN_TO_VFS_HANDLE, QUEUE_READ_SUCCEEDED, REQ_GENERATED };
+			OP_WRITTEN_TO_VFS_HANDLE, QUEUE_READ_SUCCEEDED, REQ_GENERATED, READ, READ_SUCCEEDED, FILE_OP_FAILED, WRITE, WRITE_SUCCEEDED };
 
 		struct Key_directory
 		{
@@ -87,6 +87,7 @@ class Tresor::Crypto_channel : public Module_channel
 		State _state { COMPLETE };
 		bool _generated_req_success { false };
 		Vfs::Vfs_handle *_vfs_handle { nullptr };
+		Constructible<Tresor::File<State> > _file { };
 		Block _blk { };
 		Crypto_request *_req_ptr { };
 

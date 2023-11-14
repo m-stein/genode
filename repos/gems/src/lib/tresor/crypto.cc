@@ -293,40 +293,17 @@ void Crypto_channel::_decrypt(bool &progress)
 	Request &req { *_req_ptr };
 	switch (_state) {
 	case SUBMITTED:
-	{
-		_vfs_handle = _lookup_key_dir(req._key_id).decrypt_handle;
-		_vfs_handle->seek(req._pba * BLOCK_SIZE);
-		size_t nr_of_written_bytes { 0 };
-		Const_byte_range_ptr src { (char *)&req._blk, BLOCK_SIZE };
-		_vfs_handle->fs().write(_vfs_handle, src, nr_of_written_bytes);
-		_state = OP_WRITTEN_TO_VFS_HANDLE;
+
+		_file.construct(*_lookup_key_dir(req._key_id).decrypt_handle);
+		_state = WRITE;
 		progress = true;
-		return;
-	}
-	case OP_WRITTEN_TO_VFS_HANDLE:
+		break;
 
-		_vfs_handle->seek(req._pba * BLOCK_SIZE);
-		if (!_vfs_handle->fs().queue_read(_vfs_handle, BLOCK_SIZE))
-			return;
-
-		_state = QUEUE_READ_SUCCEEDED;
-		progress = true;
-		return;
-
-	case QUEUE_READ_SUCCEEDED:
-	{
-		size_t nr_of_read_bytes { 0 };
-		Byte_range_ptr dst { (char *)&req._blk, BLOCK_SIZE };
-		switch (_vfs_handle->fs().complete_read(_vfs_handle, dst, nr_of_read_bytes)) {
-		case Read_result::READ_OK: _mark_req_successful(progress); return;
-		case Read_result::READ_QUEUED:
-		case Read_result::READ_ERR_WOULD_BLOCK: return;
-		case Read_result::READ_ERR_IO:
-		case Read_result::READ_ERR_INVALID: _mark_req_failed(progress, "read plaintext data"); return;
-		}
-		return;
-	}
-	default: return;
+	case WRITE: _file->write(_state, WRITE_SUCCEEDED, FILE_OP_FAILED, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress); break;
+	case WRITE_SUCCEEDED: _file->read(_state, READ_SUCCEEDED, FILE_OP_FAILED, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress); break;
+	case READ_SUCCEEDED: _mark_req_successful(progress); break;
+	case FILE_OP_FAILED: _mark_req_failed(progress, "file operation"); break;
+	default: break;
 	}
 }
 
