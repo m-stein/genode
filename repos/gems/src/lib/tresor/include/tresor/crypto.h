@@ -70,7 +70,7 @@ class Tresor::Crypto_channel : public Module_channel
 
 		enum State {
 			SUBMITTED, COMPLETE, OBTAIN_PLAINTEXT_BLK_COMPLETE, SUPPLY_PLAINTEXT_BLK_COMPLETE,
-			OP_WRITTEN_TO_VFS_HANDLE, QUEUE_READ_SUCCEEDED, REQ_GENERATED, READ, READ_SUCCEEDED, FILE_OP_FAILED, WRITE, WRITE_SUCCEEDED };
+			OP_WRITTEN_TO_VFS_HANDLE, QUEUE_READ_SUCCEEDED, REQ_GENERATED, READ, READ_OK, FILE_ERR, WRITE, WRITE_OK };
 
 		struct Key_directory
 		{
@@ -81,7 +81,8 @@ class Tresor::Crypto_channel : public Module_channel
 
 		Vfs::Env &_vfs_env;
 		Path const _path;
-		Vfs::Vfs_handle &_add_key_handle { vfs_open_wo(_vfs_env, { _path, "/add_key" }) };
+		char _add_key_buf[sizeof(Key_id) + KEY_SIZE] { };
+		Write_only_file<State> _add_key_file { _state, _vfs_env, { _path, "/add_key" } };
 		Vfs::Vfs_handle &_remove_key_handle { vfs_open_wo(_vfs_env, { _path, "/remove_key" }) };
 		Key_directory _key_dirs[2] { };
 		State _state { COMPLETE };

@@ -127,37 +127,30 @@ void Crypto_channel::_add_key(bool &progress)
 	Request &req { *_req_ptr };
 	switch (_state) {
 	case SUBMITTED:
+
+		memcpy(_add_key_buf, &req._key_id, sizeof(Key_id));
+		memcpy(_add_key_buf + sizeof(Key_id), &req._key_plaintext, KEY_SIZE);
+		_add_key_file.write(WRITE_OK, FILE_ERR, 0, { _add_key_buf, sizeof(_add_key_buf) }, progress);
+		break;
+
+	case WRITE_OK:
 	{
-		_add_key_handle.seek(0);
-		char buf[sizeof(req._key_id) + KEY_SIZE] { };
-		memcpy(buf, &req._key_id, sizeof(req._key_id));
-		memcpy(buf + sizeof(req._key_id), &req._key_plaintext, KEY_SIZE);
-		Const_byte_range_ptr const src(buf, sizeof(buf));
-		size_t nr_of_written_bytes { 0 };
-		switch (_add_key_handle.fs().write(&_add_key_handle, src, nr_of_written_bytes)) {
-		case Write_result::WRITE_OK:
-		{
-			Key_directory *key_dir_ptr { nullptr };
-			for (Key_directory &key_dir : _key_dirs)
-				if (!key_dir.key_id)
-					key_dir_ptr = &key_dir;
-			if (!key_dir_ptr) {
-				_mark_req_failed(progress, "find unused key dir");
-				return;
-			}
-			key_dir_ptr->key_id = req._key_id;
-			key_dir_ptr->encrypt_handle = &vfs_open_rw(_vfs_env, { _path.string(), "/keys/", req._key_id, "/encrypt" });
-			key_dir_ptr->decrypt_handle = &vfs_open_rw(_vfs_env, { _path.string(), "/keys/", req._key_id, "/decrypt" });
-			_mark_req_successful(progress);
-			return;
+		Key_directory *key_dir_ptr { nullptr };
+		for (Key_directory &key_dir : _key_dirs)
+			if (!key_dir.key_id)
+				key_dir_ptr = &key_dir;
+		if (!key_dir_ptr) {
+			_mark_req_failed(progress, "find unused key dir");
+			break;
 		}
-		case Write_result::WRITE_ERR_WOULD_BLOCK:
-		case Write_result::WRITE_ERR_INVALID:
-		case Write_result::WRITE_ERR_IO: _mark_req_failed(progress, "write command"); return;
-		}
-		return;
+		key_dir_ptr->key_id = req._key_id;
+		key_dir_ptr->encrypt_handle = &vfs_open_rw(_vfs_env, { _path.string(), "/keys/", req._key_id, "/encrypt" });
+		key_dir_ptr->decrypt_handle = &vfs_open_rw(_vfs_env, { _path.string(), "/keys/", req._key_id, "/decrypt" });
+		_mark_req_successful(progress);
+		break;
 	}
-	default: return;
+	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
+	default: break;
 	}
 }
 
@@ -299,10 +292,10 @@ void Crypto_channel::_decrypt(bool &progress)
 		progress = true;
 		break;
 
-	case WRITE: _file->write(WRITE_SUCCEEDED, FILE_OP_FAILED, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress); break;
-	case WRITE_SUCCEEDED: _file->read(READ_SUCCEEDED, FILE_OP_FAILED, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress); break;
-	case READ_SUCCEEDED: _mark_req_successful(progress); break;
-	case FILE_OP_FAILED: _mark_req_failed(progress, "file operation"); break;
+	case WRITE: _file->write(WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress); break;
+	case WRITE_OK: _file->read(READ_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress); break;
+	case READ_OK: _mark_req_successful(progress); break;
+	case FILE_ERR: _mark_req_failed(progress, "file operation"); break;
 	default: break;
 	}
 }
@@ -319,16 +312,16 @@ void Crypto_channel::_decrypt_client_data(bool &progress)
 		progress = true;
 		break;
 
-	case WRITE: _file->write(WRITE_SUCCEEDED, FILE_OP_FAILED, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress); break;
-	case WRITE_SUCCEEDED: _file->read(READ_SUCCEEDED, FILE_OP_FAILED, req._pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress); break;
-	case READ_SUCCEEDED:
+	case WRITE: _file->write(WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress); break;
+	case WRITE_OK: _file->read(READ_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress); break;
+	case READ_OK:
 
 		_generate_req<Client_data_request>(
 			SUPPLY_PLAINTEXT_BLK_COMPLETE, progress, Client_data_request::SUPPLY_PLAINTEXT_BLK,
 			req._client_req_offset, req._client_req_tag, req._pba, req._vba, _blk);;
 		break;
 
-	case FILE_OP_FAILED: _mark_req_failed(progress, "file operation failed"); break;
+	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
 	case SUPPLY_PLAINTEXT_BLK_COMPLETE: _mark_req_successful(progress); break;
 	default: break;
 	}
