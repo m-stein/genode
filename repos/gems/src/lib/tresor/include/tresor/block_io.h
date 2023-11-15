@@ -41,7 +41,6 @@ class Tresor::Block_io_request : public Module_request
 		Key_id const _key_id;
 		Physical_block_address const _pba;
 		Virtual_block_address const _vba;
-		Number_of_blocks const _blk_count;
 		Block &_blk;
 		Hash &_hash;
 		bool &_success;
@@ -51,11 +50,11 @@ class Tresor::Block_io_request : public Module_request
 	public:
 
 		Block_io_request(Module_id, Module_channel_id, Type, Request_offset, Request_tag, Key_id,
-		                 Physical_block_address, Virtual_block_address, Number_of_blocks, Block &, Hash &, bool &);
+		                 Physical_block_address, Virtual_block_address, Block &, Hash &, bool &);
 
 		static char const *type_to_string(Type type);
 
-		void print(Output &out) const override;
+		void print(Output &out) const override { Genode::print(out, type_to_string(_type), " pba ", _pba); }
 };
 
 class Tresor::Block_io_channel : public Module_channel
@@ -70,16 +69,17 @@ class Tresor::Block_io_channel : public Module_channel
 
 		enum State {
 			REQ_SUBMITTED, QUEUE_READ, SEEK, QUEUE_SYNC, REQ_COMPLETE, ENCRYPT_CLIENT_DATA, ENCRYPT_CLIENT_DATA_COMPLETE,
-			DECRYPT_CLIENT_DATA_COMPLETE, WRITE, COMPLETE_READ, COMPLETE_SYNC, REQ_GENERATED };
+			DECRYPT_CLIENT_DATA_COMPLETE, WRITE, COMPLETE_READ, COMPLETE_SYNC, REQ_GENERATED, READ_OK, WRITE_OK, FILE_ERR };
 
 		State _state { REQ_COMPLETE };
 		Vfs::file_offset _num_processed_bytes { 0 };
 		size_t _num_remaining_bytes { 0 };
-		Block _blk_buf { };
+		Block _blk { };
 		bool _generated_req_success { false };
 		Block_io_request *_req_ptr { };
 		Vfs::Env &_vfs_env;
 		Path const _path;
+		Read_write_file<State> _file { _state, _vfs_env, _path };
 		Vfs::Vfs_handle &_vfs_handle { vfs_open_rw(_vfs_env, _path) };
 
 		NONCOPYABLE(Block_io_channel);
@@ -97,15 +97,15 @@ class Tresor::Block_io_channel : public Module_channel
 
 		bool _request_complete() override { return _state == REQ_COMPLETE; }
 
-		void _execute_read(bool &);
+		void _read(bool &);
 
-		void _execute_write(bool &);
+		void _write(bool &);
 
-		void _execute_read_client_data(bool &);
+		void _read_client_data(bool &);
 
-		void _execute_write_client_data(bool &);
+		void _write_client_data(bool &);
 
-		void _execute_sync(bool &);
+		void _sync(bool &);
 
 		void _mark_req_failed(bool &, char const *);
 
@@ -136,33 +136,33 @@ class Tresor::Block_io : public Module
 		struct Read : Request
 		{
 			Read(Module_id m, Module_channel_id c, Physical_block_address a, Block &b, bool &s)
-			: Request(m, c, Request::READ, 0, 0, 0, a, 0, 1, b, *(Hash*)0, s) { }
+			: Request(m, c, Request::READ, 0, 0, 0, a, 0, b, *(Hash*)0, s) { }
 		};
 
 		struct Write : Request
 		{
 			Write(Module_id m, Module_channel_id c, Physical_block_address a, Block const &b, bool &s)
-			: Request(m, c, Request::WRITE, 0, 0, 0, a, 0, 1, *const_cast<Block*>(&b), *(Hash*)0, s) { }
+			: Request(m, c, Request::WRITE, 0, 0, 0, a, 0, *const_cast<Block*>(&b), *(Hash*)0, s) { }
 		};
 
 		struct Sync : Request
 		{
 			Sync(Module_id m, Module_channel_id c, bool &s)
-			: Request(m, c, Request::SYNC, 0, 0, 0, 0, 0, 0, *(Block*)0, *(Hash*)0, s) { }
+			: Request(m, c, Request::SYNC, 0, 0, 0, 0, 0, *(Block*)0, *(Hash*)0, s) { }
 		};
 
 		struct Write_client_data : Request
 		{
 			Write_client_data(Module_id m, Module_channel_id c, Physical_block_address p, Virtual_block_address v,
 			                  Key_id k, Request_tag t, Request_offset o, Block const &b, Hash &h, bool &s)
-			: Request(m, c, Request::WRITE_CLIENT_DATA, o, t, k, p, v, 1, *const_cast<Block*>(&b), h, s) { }
+			: Request(m, c, Request::WRITE_CLIENT_DATA, o, t, k, p, v, *const_cast<Block*>(&b), h, s) { }
 		};
 
 		struct Read_client_data : Request
 		{
 			Read_client_data(Module_id m, Module_channel_id c, Physical_block_address p, Virtual_block_address v,
 			                  Key_id k, Request_tag t, Request_offset o, Block &b, bool &s)
-			: Request(m, c, Request::READ_CLIENT_DATA, o, t, k, p, v, 1, b, *(Hash*)0, s) { }
+			: Request(m, c, Request::READ_CLIENT_DATA, o, t, k, p, v, b, *(Hash*)0, s) { }
 		};
 
 		Block_io(Vfs::Env &, Xml_node const &);

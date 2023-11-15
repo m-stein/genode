@@ -25,23 +25,13 @@ using namespace Tresor;
 
 Block_io_request::Block_io_request(Module_id src_module_id, Module_channel_id src_chan_id, Type type,
                                    Request_offset client_req_offset, Request_tag client_req_tag, Key_id key_id,
-                                   Physical_block_address pba, Virtual_block_address vba,
-                                   Number_of_blocks blk_count, Block &blk, Hash &hash, bool &success)
+                                   Physical_block_address pba, Virtual_block_address vba, Block &blk, Hash &hash,
+                                   bool &success)
 :
 	Module_request { src_module_id, src_chan_id, BLOCK_IO }, _type { type },
 	_client_req_offset { client_req_offset }, _client_req_tag { client_req_tag },
-	_key_id { key_id }, _pba { pba }, _vba { vba }, _blk_count { blk_count }, _blk { blk },
-	_hash { hash }, _success { success }
+	_key_id { key_id }, _pba { pba }, _vba { vba }, _blk { blk }, _hash { hash }, _success { success }
 { }
-
-
-void Block_io_request::print(Output &out) const
-{
-	if (_blk_count > 1)
-		Genode::print(out, type_to_string(_type), " pbas ", _pba, "..", _pba + _blk_count - 1);
-	else
-		Genode::print(out, type_to_string(_type), " pba ", _pba);
-}
 
 
 char const *Block_io_request::type_to_string(Type type)
@@ -103,107 +93,39 @@ void Block_io_channel::_mark_req_successful(bool &progress)
 }
 
 
-void Block_io_channel::_execute_read(bool &progress)
+void Block_io_channel::_read(bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
-	case REQ_SUBMITTED: _reset(QUEUE_READ, progress); return;
-	case QUEUE_READ:
-
-		enum : uint64_t { MAX_FILE_OFFSET = 0x7fffffffffffffff };
-		if (req._pba > (uint64_t)MAX_FILE_OFFSET / (uint64_t)BLOCK_SIZE) {
-			_mark_req_failed(progress, "bad file offset");
-			return;
-		}
-		_vfs_handle.seek(req._pba * BLOCK_SIZE + _num_processed_bytes);
-		if (!_vfs_handle.fs().queue_read(&_vfs_handle, _num_remaining_bytes))
-			return;
-
-		_state = COMPLETE_READ;
-		progress = true;
-		return;
-
-	case COMPLETE_READ:
-	{
-		size_t nr_of_read_bytes { 0 };
-		Byte_range_ptr dst { (char *)&req._blk + _num_processed_bytes, _num_remaining_bytes };
-		switch (_vfs_handle.fs().complete_read(&_vfs_handle, dst, nr_of_read_bytes)) {
-		case Read_result::READ_QUEUED:
-		case Read_result::READ_ERR_WOULD_BLOCK: return;
-		case Read_result::READ_OK:
-
-			if (!nr_of_read_bytes) {
-				_mark_req_failed(progress, "have read 0 bytes");
-				return;
-			}
-			_num_processed_bytes += nr_of_read_bytes;
-			_num_remaining_bytes -= nr_of_read_bytes;
-			if (!_num_remaining_bytes) {
-				_mark_req_successful(progress);
-				return;
-			}
-			_state = QUEUE_READ;
-			progress = true;
-			return;
-
-		case Read_result::READ_ERR_IO:
-		case Read_result::READ_ERR_INVALID: _mark_req_failed(progress, "read error"); return;
-		default: ASSERT_NEVER_REACHED;
-		}
-	}
-	default: return;
+	case REQ_SUBMITTED: _file.read(READ_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress); break;
+	case READ_OK: _mark_req_successful(progress); break;
+	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
+	default: break;
 	}
 }
 
 
-void Block_io_channel::_execute_read_client_data(bool &progress)
+void Block_io_channel::_read_client_data(bool &progress)
 {
+
 	Request &req { *_req_ptr };
 	switch (_state) {
-	case REQ_SUBMITTED: _reset(QUEUE_READ, progress); return;
-	case QUEUE_READ:
+	case REQ_SUBMITTED: _file.read(READ_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress); break;
+	case READ_OK:
 
-		_vfs_handle.seek(req._pba * BLOCK_SIZE + _num_processed_bytes);
-		if (!_vfs_handle.fs().queue_read(&_vfs_handle, _num_remaining_bytes))
-			return;
-
-		_state = COMPLETE_READ;
-		progress = true;
+		_generate_req<Crypto_request>(
+			DECRYPT_CLIENT_DATA_COMPLETE, progress, Crypto_request::DECRYPT_CLIENT_DATA, req._client_req_offset,
+			req._client_req_tag, req._key_id, *(Key_value *)0, req._pba, req._vba, _blk);
 		return;
 
-	case COMPLETE_READ:
-	{
-		size_t nr_of_read_bytes { 0 };
-		Byte_range_ptr dst { (char *)&_blk_buf + _num_processed_bytes, _num_remaining_bytes };
-		switch (_vfs_handle.fs().complete_read(&_vfs_handle, dst, nr_of_read_bytes)) {
-		case Read_result::READ_QUEUED:
-		case Read_result::READ_ERR_WOULD_BLOCK: return;
-		case Read_result::READ_OK:
-
-			_num_processed_bytes += nr_of_read_bytes;
-			_num_remaining_bytes -= nr_of_read_bytes;
-			if (!_num_remaining_bytes) {
-				_generate_req<Crypto_request>(
-					DECRYPT_CLIENT_DATA_COMPLETE, progress, Crypto_request::DECRYPT_CLIENT_DATA, req._client_req_offset,
-					req._client_req_tag, req._key_id, *(Key_value *)0, req._pba, req._vba, _blk_buf);
-				return;
-			} else {
-				_state = QUEUE_READ;
-				progress = true;
-				return;
-			}
-		case Read_result::READ_ERR_IO:
-		case Read_result::READ_ERR_INVALID: _mark_req_failed(progress, "read error"); return;
-		default: ASSERT_NEVER_REACHED;
-		}
-	}
-	case DECRYPT_CLIENT_DATA_COMPLETE: _mark_req_successful(progress); return;
-	default: return;
+	case DECRYPT_CLIENT_DATA_COMPLETE: _mark_req_successful(progress); break;
+	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
+	default: break;
 	}
 }
 
 
-void Block_io_channel::_execute_write_client_data(bool &progress)
+void Block_io_channel::_write_client_data(bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
@@ -212,12 +134,12 @@ void Block_io_channel::_execute_write_client_data(bool &progress)
 
 		_generate_req<Crypto_request>(
 			ENCRYPT_CLIENT_DATA_COMPLETE, progress, Crypto_request::ENCRYPT_CLIENT_DATA, req._client_req_offset,
-			req._client_req_tag, req._key_id, *(Key_value *)0, req._pba, req._vba, _blk_buf);
+			req._client_req_tag, req._key_id, *(Key_value *)0, req._pba, req._vba, _blk);
 		return;
 
 	case ENCRYPT_CLIENT_DATA_COMPLETE:
 
-		calc_hash(_blk_buf, req._hash);
+		calc_hash(_blk, req._hash);
 		_vfs_handle.seek(req._pba * BLOCK_SIZE + _num_processed_bytes);
 		_state = WRITE;
 		progress = true;
@@ -226,7 +148,7 @@ void Block_io_channel::_execute_write_client_data(bool &progress)
 	case WRITE:
 	{
 		size_t nr_of_written_bytes { 0 };
-		Const_byte_range_ptr src { (char const *)&_blk_buf + _num_processed_bytes, _num_remaining_bytes };
+		Const_byte_range_ptr src { (char const *)&_blk + _num_processed_bytes, _num_remaining_bytes };
 		switch (_vfs_handle.fs().write(&_vfs_handle, src, nr_of_written_bytes)) {
 		case Write_result::WRITE_ERR_WOULD_BLOCK: return;
 		case Write_result::WRITE_OK:
@@ -252,7 +174,7 @@ void Block_io_channel::_execute_write_client_data(bool &progress)
 }
 
 
-void Block_io_channel::_execute_write(bool &progress)
+void Block_io_channel::_write(bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
@@ -292,7 +214,7 @@ void Block_io_channel::_execute_write(bool &progress)
 }
 
 
-void Block_io_channel::_execute_sync(bool &progress)
+void Block_io_channel::_sync(bool &progress)
 {
 	switch (_state) {
 	case REQ_SUBMITTED: _reset(QUEUE_SYNC, progress); return;
@@ -321,7 +243,7 @@ void Block_io_channel::_execute_sync(bool &progress)
 void Block_io_channel::_reset(State state, bool &progress)
 {
 	_num_processed_bytes = 0;
-	_num_remaining_bytes = (size_t)_req_ptr->_blk_count * BLOCK_SIZE;
+	_num_remaining_bytes = BLOCK_SIZE;
 	_state = state;
 	progress = true;
 }
@@ -333,11 +255,11 @@ void Block_io_channel::execute(bool &progress)
 		return;
 
 	switch (_req_ptr->_type) {
-	case Request::READ: _execute_read(progress); break;
-	case Request::WRITE: _execute_write(progress); break;
-	case Request::SYNC: _execute_sync(progress); break;
-	case Request::READ_CLIENT_DATA: _execute_read_client_data(progress); break;
-	case Request::WRITE_CLIENT_DATA: _execute_write_client_data(progress); break;
+	case Request::READ: _read(progress); break;
+	case Request::WRITE: _write(progress); break;
+	case Request::SYNC: _sync(progress); break;
+	case Request::READ_CLIENT_DATA: _read_client_data(progress); break;
+	case Request::WRITE_CLIENT_DATA: _write_client_data(progress); break;
 	}
 }
 
