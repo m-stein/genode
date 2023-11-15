@@ -27,27 +27,26 @@ namespace Tresor {
 
 class Tresor::Trust_anchor_request : public Module_request
 {
+	friend class Trust_anchor_channel;
+
 	public:
 
-		enum Type { CREATE_KEY, ENCRYPT_KEY, DECRYPT_KEY, SECURE_SUPERBLOCK, GET_LAST_SB_HASH, INITIALIZE };
+		enum Type { CREATE_KEY, ENCRYPT_KEY, DECRYPT_KEY, WRITE_HASH, READ_HASH, INITIALIZE };
 
 	private:
-
-		friend class Trust_anchor_channel;
 
 		Type const _type;
 		Key_value &_key_plaintext;
 		Key_value &_key_ciphertext;
 		Hash &_hash;
-		Passphrase const _passphrase;
+		Passphrase const _pass;
 		bool &_success;
 
 		NONCOPYABLE(Trust_anchor_request);
 
 	public:
 
-		Trust_anchor_request(Module_id src, Module_channel_id, Type, Key_value &, Key_value &, Hash &,
-		                     Passphrase, bool &);
+		Trust_anchor_request(Module_id src, Module_channel_id, Type, Key_value &, Key_value &, Hash &, Passphrase, bool &);
 
 		static char const *type_to_string(Type type);
 
@@ -58,7 +57,6 @@ class Tresor::Trust_anchor_channel : public Module_channel
 {
 	private:
 
-		using Path = String<128>;
 		using Request = Trust_anchor_request;
 		using Read_result = Vfs::File_io_service::Read_result;
 		using Write_result = Vfs::File_io_service::Write_result;
@@ -68,16 +66,14 @@ class Tresor::Trust_anchor_channel : public Module_channel
 
 		State _state { REQ_COMPLETE };
 		Vfs::Env &_vfs_env;
-		char _read_buf[64];
-		Path const _path;
-		Vfs::Vfs_handle &_decrypt_file { vfs_open_rw(_vfs_env, { _path, "/decrypt" }) };
-		Vfs::Vfs_handle &_encrypt_file { vfs_open_rw(_vfs_env, { _path, "/encrypt" }) };
+		char _result_buf[3];
+		Tresor::Path const _path;
+		Read_write_file<State> _decrypt_file { _state, _vfs_env, { _path, "/decrypt" } };
+		Read_write_file<State> _encrypt_file { _state, _vfs_env, { _path, "/encrypt" } };
 		Read_write_file<State> _generate_key_file { _state, _vfs_env, { _path, "/generate_key" } };
 		Read_write_file<State> _initialize_file { _state, _vfs_env, { _path, "/initialize" } };
 		Read_write_file<State> _hashsum_file { _state, _vfs_env, { _path, "/hashsum" } };
 		Trust_anchor_request *_req_ptr { nullptr };
-		Vfs::file_offset _file_offset { 0 };
-		size_t _file_size { 0 };
 
 		NONCOPYABLE(Trust_anchor_channel);
 
@@ -85,15 +81,17 @@ class Tresor::Trust_anchor_channel : public Module_channel
 
 		bool _request_complete() override { return _state == REQ_COMPLETE; }
 
-		void _write_read_file(Vfs::Vfs_handle &, char const *, char *, size_t, bool &);
-
 		void _create_key(bool &);
 
-		void _get_last_sb_hash(bool &);
+		void _read_hash(bool &);
 
 		void _initialize(bool &);
 
-		void _secure_sb(bool &);
+		void _write_hash(bool &);
+
+		void _encrypt_key(bool &);
+
+		void _decrypt_key(bool &);
 
 		void _mark_req_failed(bool &, Error_string);
 
@@ -103,7 +101,7 @@ class Tresor::Trust_anchor_channel : public Module_channel
 
 		void execute(bool &);
 
-		Trust_anchor_channel(Module_channel_id id, Vfs::Env &, Xml_node const &);
+		Trust_anchor_channel(Module_channel_id, Vfs::Env &, Xml_node const &);
 };
 
 class Tresor::Trust_anchor : public Module
@@ -140,13 +138,13 @@ class Tresor::Trust_anchor : public Module
 		struct Write_hash : Request
 		{
 			Write_hash(Module_id m, Module_channel_id c, Hash const &h, bool &s)
-			: Request(m, c, Request::SECURE_SUPERBLOCK, *(Key_value*)0, *(Key_value*)0, *const_cast<Hash*>(&h), Passphrase(), s) { }
+			: Request(m, c, Request::WRITE_HASH, *(Key_value*)0, *(Key_value*)0, *const_cast<Hash*>(&h), Passphrase(), s) { }
 		};
 
 		struct Read_hash : Request
 		{
 			Read_hash(Module_id m, Module_channel_id c, Hash &h, bool &s)
-			: Request(m, c, Request::GET_LAST_SB_HASH, *(Key_value*)0, *(Key_value*)0, h, Passphrase(), s) { }
+			: Request(m, c, Request::READ_HASH, *(Key_value*)0, *(Key_value*)0, h, Passphrase(), s) { }
 		};
 
 		struct Initialize : Request
