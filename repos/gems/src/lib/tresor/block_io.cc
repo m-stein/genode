@@ -129,87 +129,35 @@ void Block_io_channel::_write_client_data(bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
-	case REQ_SUBMITTED: _reset(ENCRYPT_CLIENT_DATA, progress); return;
-	case ENCRYPT_CLIENT_DATA:
+	case REQ_SUBMITTED:
 
 		_generate_req<Crypto_request>(
 			ENCRYPT_CLIENT_DATA_COMPLETE, progress, Crypto_request::ENCRYPT_CLIENT_DATA, req._client_req_offset,
 			req._client_req_tag, req._key_id, *(Key_value *)0, req._pba, req._vba, _blk);
-		return;
+		break;
 
 	case ENCRYPT_CLIENT_DATA_COMPLETE:
 
 		calc_hash(_blk, req._hash);
-		_vfs_handle.seek(req._pba * BLOCK_SIZE + _num_processed_bytes);
-		_state = WRITE;
-		progress = true;
-		return;
+		_file.write(WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress); break;
+		break;
 
-	case WRITE:
-	{
-		size_t nr_of_written_bytes { 0 };
-		Const_byte_range_ptr src { (char const *)&_blk + _num_processed_bytes, _num_remaining_bytes };
-		switch (_vfs_handle.fs().write(&_vfs_handle, src, nr_of_written_bytes)) {
-		case Write_result::WRITE_ERR_WOULD_BLOCK: return;
-		case Write_result::WRITE_OK:
-
-			_num_processed_bytes += nr_of_written_bytes;
-			_num_remaining_bytes -= nr_of_written_bytes;
-			if (!_num_remaining_bytes) {
-				_mark_req_successful(progress);
-				return;
-			} else {
-				_state = ENCRYPT_CLIENT_DATA;
-				progress = true;
-				return;
-			}
-		case Write_result::WRITE_ERR_IO:
-		case Write_result::WRITE_ERR_INVALID: _mark_req_failed(progress, "write error"); return;
-		default: ASSERT_NEVER_REACHED;
-		}
-
-	}
-	default: return;
+	case WRITE_OK: _mark_req_successful(progress); break;
+	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
+	default: break;
 	}
 }
 
 
 void Block_io_channel::_write(bool &progress)
 {
+
 	Request &req { *_req_ptr };
 	switch (_state) {
-	case REQ_SUBMITTED: _reset(SEEK, progress); return;
-	case SEEK:
-
-		_vfs_handle.seek(req._pba * BLOCK_SIZE + _num_processed_bytes);
-		_state = WRITE;
-		progress = true;
-		break;
-
-	case WRITE:
-	{
-		size_t nr_of_written_bytes { 0 };
-		Const_byte_range_ptr src { (char const *)&req._blk + _num_processed_bytes, _num_remaining_bytes };
-		switch (_vfs_handle.fs().write(&_vfs_handle, src, nr_of_written_bytes)) {
-		case Write_result::WRITE_ERR_WOULD_BLOCK: return;
-		case Write_result::WRITE_OK:
-
-			_num_processed_bytes += nr_of_written_bytes;
-			_num_remaining_bytes -= nr_of_written_bytes;
-			if (!_num_remaining_bytes) {
-				_mark_req_successful(progress);
-				return;
-			} else {
-				_state = SEEK;
-				progress = true;
-				return;
-			}
-		case Write_result::WRITE_ERR_IO:
-		case Write_result::WRITE_ERR_INVALID: _mark_req_failed(progress, "write error"); return;
-		default: ASSERT_NEVER_REACHED;
-		}
-	}
-	default: return;
+	case REQ_SUBMITTED: _file.write(WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress); break;
+	case WRITE_OK: _mark_req_successful(progress); break;
+	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
+	default: break;
 	}
 }
 
