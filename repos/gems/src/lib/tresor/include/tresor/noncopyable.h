@@ -18,12 +18,4 @@
 	class_name(class_name const &) = delete; \
 	class_name &operator = (class_name const &) = delete; \
 
-/*
-	class_name &operator = (class_name const &) = delete; \
-	class_name(class_name const &) = delete; \
-
-	void operator=(class_name&&) = delete; \
-	class_name(class_name&&) = delete;\
-*/
-
 #endif /* _TRESOR__NONCOPYABLE_H_ */

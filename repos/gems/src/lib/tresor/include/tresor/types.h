@@ -45,7 +45,7 @@ namespace Tresor {
 	using Superblock_index       = uint8_t;
 	using On_disc_bool           = uint8_t;
 	using Request_offset         = uint64_t;
-	using Request_tag            = uint32_t;
+	using Request_tag            = uint64_t;
 	using Passphrase             = String<64>;
 	using Error_string           = String<128>;
 

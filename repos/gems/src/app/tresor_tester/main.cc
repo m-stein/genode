@@ -12,14 +12,13 @@
  */
 
 /* base includes */
-#include <util/avl_tree.h>
 #include <base/attached_rom_dataspace.h>
 #include <base/component.h>
 #include <base/heap.h>
 #include <timer_session/connection.h>
 #include <vfs/simple_env.h>
 
-/* tresor init configuration */
+/* tresor init includes */
 #include <tresor_init/configuration.h>
 
 /* tresor includes */
@@ -39,112 +38,78 @@
 #include <tresor/virtual_block_device.h>
 #include <tresor/superblock_control.h>
 
-using namespace Genode;
-using namespace Tresor;
-using namespace Vfs;
-
 namespace Tresor_tester {
 
+	using namespace Genode;
+	using namespace Tresor;
+
+	using Salt = uint64_t;
+
+	class Log_node;
+	class Benchmark_node;
+	class Benchmark;
+	class Trust_anchor_node;
+	class Request_node;
+	class Command;
+	class Snapshot_reference;
+	class Snapshot_reference_tree;
 	class Client_data;
 	class Main;
+
+	template <typename T>
+	T read_attribute(Xml_node const &node, char const *attr)
+	{
+		T value { };
+		ASSERT(node.has_attribute(attr));
+		ASSERT(node.attribute(attr).value(value));
+		return value;
+	}
 }
 
 
-template <typename T>
-T read_attribute(Xml_node const &node,
-                 char const *attr)
+struct Tresor_tester::Log_node
 {
-	T value { };
-	ASSERT(node.has_attribute(attr));
-	ASSERT(node.attribute(attr).value(value));
-	return value;
-}
+	using String = Genode::String<128>;
 
+	String const string;
 
-class Log_node
-{
-	private:
+	NONCOPYABLE(Log_node);
 
-		String<128> const _string;
-
-	public:
-
-		Log_node(Xml_node const &node)
-		:
-			_string { node.attribute_value("string", String<128> { }) }
-		{ }
-
-		String<128> const &string() const { return _string; }
-
-		void print(Genode::Output &out) const
-		{
-			Genode::print(out, "string=\"", _string, "\"");
-		}
+	Log_node(Xml_node const &node) : string { node.attribute_value("string", String { }) } { }
 };
 
 
-class Benchmark_node
+struct Tresor_tester::Benchmark_node
 {
-	public:
+	using Label = String<128>;
 
-		using Label = String<128>;
+	enum Operation { START, STOP };
 
-		enum Operation { START, STOP };
+	Operation const op;
+	bool const label_avail;
+	Label const label;
 
-	private:
+	NONCOPYABLE(Benchmark_node);
 
-		Operation const _op;
-		bool const _label_avail;
-		Label const _label;
+	Operation read_op_attr(Xml_node const &node)
+	{
+		ASSERT(node.has_attribute("op"));
+		if (node.attribute("op").has_value("start")) return START;
+		if (node.attribute("op").has_value("stop")) return STOP;
+		ASSERT_NEVER_REACHED;
+	}
 
-		Operation _read_op_attr(Xml_node const &node)
-		{
-			ASSERT(node.has_attribute("op"));
-			if (node.attribute("op").has_value("start")) return Operation::START;
-			if (node.attribute("op").has_value("stop")) return Operation::STOP;
-			ASSERT_NEVER_REACHED;
-		}
+	Benchmark_node(Xml_node const &node)
+	:
+		op { read_op_attr(node) }, label_avail { op == START && node.has_attribute("label") },
+		label { label_avail ? node.attribute_value("label", Label { }) : Label { } }
+	{ }
 
-		static char const *_op_to_string(Operation op)
-		{
-			switch (op) {
-			case START: return "start";
-			case STOP: return "stop";
-			}
-			return "?";
-		}
-
-	public:
-
-		bool has_attr_label() const
-		{
-			return _op == Operation::START;
-		}
-
-		Benchmark_node(Xml_node const &node)
-		:
-			_op { _read_op_attr(node) },
-			_label_avail { has_attr_label() && node.has_attribute("label") },
-			_label { _label_avail ?
-			               node.attribute_value("label", Label { }) :
-			               Label { } }
-		{ }
-
-		Operation op() const { return _op; }
-		bool label_avail() const { return _label_avail; }
-		Label const &label() const { return _label; }
-
-		void print(Genode::Output &out) const
-		{
-			Genode::print(out, "op=", _op_to_string(_op));
-			if (_label_avail) {
-				Genode::print(out, " label=", _label);
-			}
-		}
+	Benchmark_node(Operation op, bool label_avail, Label label) : op(op), label_avail(label_avail), label(label) { }
 };
 
 
-class Benchmark
+class Tresor_tester::Benchmark
 {
 	private:
 
@@ -154,10 +119,11 @@ class Benchmark
 		Timer::Connection _timer { _env };
 		State _state { STOPPED };
 		Microseconds _start_time { 0 };
-		uint64_t _nr_of_virt_blks_read { 0 };
-		uint64_t _nr_of_virt_blks_written { 0 };
-		Constructible<Benchmark_node> _start_node { };
-		uint64_t _id { 0 };
+		Number_of_blocks _num_virt_blks_read { 0 };
+		Number_of_blocks _num_virt_blks_written { 0 };
+		Benchmark_node const *_start_node_ptr { };
+
+		NONCOPYABLE(Benchmark);
 
 	public:
 
@@ -165,64 +131,47 @@ class Benchmark
 
 		void execute_cmd(Benchmark_node const &node)
 		{
-			switch (node.op()) {
+			switch (node.op) {
 			case Benchmark_node::START:
 
 				ASSERT(_state == STOPPED);
-				_id++;
-				_nr_of_virt_blks_read = 0;
-				_nr_of_virt_blks_written = 0;
+				_num_virt_blks_read = 0;
+				_num_virt_blks_written = 0;
 				_state = STARTED;
-				_start_node.construct(node);
+				_start_node_ptr = &node;
 				_start_time = _timer.curr_time().trunc_to_plain_us();
 				break;
 
 			case Benchmark_node::STOP:
 
 				ASSERT(_state == STARTED);
-				uint64_t const stop_time_us {
-					_timer.curr_time().trunc_to_plain_us().value };
-
+				uint64_t const stop_time_us { _timer.curr_time().trunc_to_plain_us().value };
 				log("");
-				if (_start_node->label_avail()) {
-					log("Benchmark result \"", _start_node->label(), "\"");
-				} else {
-					log("Benchmark result (command ID ", _id, ")");
-				}
+				if (_start_node_ptr->label_avail)
+					log("Benchmark result \"", _start_node_ptr->label, "\"");
+				else
+					log("Benchmark result");
 
-				double const passed_time_sec {
-					(double)(stop_time_us - _start_time.value) /
-					(double)(1000 * 1000) };
-
+				double const passed_time_sec { (double)(stop_time_us - _start_time.value) / (double)(1000 * 1000) };
 				log("   Ran ", passed_time_sec, " seconds.");
 
-				if (_nr_of_virt_blks_read != 0) {
+				if (_num_virt_blks_read) {
 
-					uint64_t const bytes_read {
-						_nr_of_virt_blks_read * Tresor::BLOCK_SIZE };
-
-					double const mibyte_read {
-						(double)bytes_read / (double)(1024 * 1024) };
-
+					size_t const bytes_read { _num_virt_blks_read * Tresor::BLOCK_SIZE };
+					double const mibyte_read { (double)bytes_read / (double)(1024 * 1024) };
 					double const mibyte_per_sec_read {
-						(double)bytes_read / (double)passed_time_sec /
-						(double)(1024 * 1024) };
+						(double)bytes_read / (double)passed_time_sec / (double)(1024 * 1024) };
 
 					log("   Have read ", mibyte_read, " mebibyte in total.");
 					log("   Have read ", mibyte_per_sec_read, " mebibyte per second.");
 				}
 
-				if (_nr_of_virt_blks_written != 0) {
+				if (_num_virt_blks_written) {
 
-					uint64_t bytes_written {
-						_nr_of_virt_blks_written * Tresor::BLOCK_SIZE };
-
-					double const mibyte_written {
-						(double)bytes_written / (double)(1024 * 1024) };
-
+					size_t bytes_written { _num_virt_blks_written * Tresor::BLOCK_SIZE };
+					double const mibyte_written { (double)bytes_written / (double)(1024 * 1024) };
 					double const mibyte_per_sec_written {
-						(double)bytes_written / (double)passed_time_sec /
-						(double)(1024 * 1024) };
+						(double)bytes_written / (double)passed_time_sec / (double)(1024 * 1024) };
 
 					log("   Have written ", mibyte_written, " mebibyte in total.");
 					log("   Have written ", mibyte_per_sec_written, " mebibyte per second.");
@@ -233,167 +182,107 @@ class Benchmark
 			}
 		}
 
-		void raise_nr_of_virt_blks_read() { _nr_of_virt_blks_read++; }
-		void raise_nr_of_virt_blks_written() { _nr_of_virt_blks_written++; }
+		void raise_num_virt_blks_read() { _num_virt_blks_read++; }
+		void raise_num_virt_blks_written() { _num_virt_blks_written++; }
 };
 
 
-class Trust_anchor_node
+struct Tresor_tester::Trust_anchor_node
 {
-	private:
+	using Operation = Trust_anchor_request::Type;
 
-		using Operation = Trust_anchor_request::Type;
+	Operation const op;
+	Passphrase const passphrase;
 
-		Operation const _op;
-		Passphrase const _passphrase;
+	NONCOPYABLE(Trust_anchor_node);
 
-		Operation _read_op_attr(Xml_node const &node)
-		{
-			ASSERT(node.has_attribute("op"));
-			if (node.attribute("op").has_value("initialize")) return Operation::INITIALIZE;
-			ASSERT_NEVER_REACHED;
-		}
+	Operation read_op_attr(Xml_node const &node)
+	{
+		ASSERT(node.has_attribute("op"));
+		if (node.attribute("op").has_value("initialize"))
+			return Operation::INITIALIZE;
+		ASSERT_NEVER_REACHED;
+	}
 
-	public:
-
-		Trust_anchor_node(Xml_node const &node)
-		:
-			_op { _read_op_attr(node) },
-			_passphrase { has_attr_passphrase() ?
-			              node.attribute_value("passphrase", Passphrase()) :
-			              Passphrase() }
-		{ }
-
-		Operation op() const { return _op; }
-		Passphrase const &passphrase() const { return _passphrase; }
-
-		bool has_attr_passphrase() const
-		{
-			return _op == Operation::INITIALIZE;
-		}
-
-		void print(Genode::Output &out) const
-		{
-			Genode::print(out, "op=",
-				Trust_anchor_request::type_to_string(_op));
-
-			if (has_attr_passphrase()) {
-				Genode::print(out, " passphrase=", _passphrase);
-			}
-		}
+	Trust_anchor_node(Xml_node const &node)
+	:
+		op { read_op_attr(node) },
+		passphrase { op == Operation::INITIALIZE ? node.attribute_value("passphrase", Passphrase()) : Passphrase() }
+	{ }
 };
 
 
-class Request_node
+struct Tresor_tester::Request_node
 {
-	private:
+	using Operation = Tresor::Request::Operation;
 
-		using Operation = Tresor::Request::Operation;
+	Operation const op;
+	Virtual_block_address const vba;
+	Number_of_blocks const count;
+	bool const sync;
+	bool const salt_avail;
+	Salt const salt;
+	Snapshot_id const snap_id;
 
-		Operation const _op;
-		Virtual_block_address const _vba;
-		Number_of_blocks const _count;
-		bool const _sync;
-		bool const _salt_avail;
-		uint64_t const _salt;
-		Snapshot_id const _snap_id;
+	NONCOPYABLE(Request_node);
 
-		Operation _read_op_attr(Xml_node const &node)
-		{
-			ASSERT(node.has_attribute("op"));
-			if (node.attribute("op").has_value("read")) return Operation::READ;
-			if (node.attribute("op").has_value("write")) return Operation::WRITE;
-			if (node.attribute("op").has_value("sync")) return Operation::SYNC;
-			if (node.attribute("op").has_value("create_snapshot")) return Operation::CREATE_SNAPSHOT;
-			if (node.attribute("op").has_value("discard_snapshot")) return Operation::DISCARD_SNAPSHOT;
-			if (node.attribute("op").has_value("extend_ft")) return Operation::EXTEND_FT;
-			if (node.attribute("op").has_value("extend_vbd")) return Operation::EXTEND_VBD;
-			if (node.attribute("op").has_value("rekey")) return Operation::REKEY;
-			if (node.attribute("op").has_value("deinitialize")) return Operation::DEINITIALIZE;
-			ASSERT_NEVER_REACHED;
-		}
+	Operation read_op_attr(Xml_node const &node)
+	{
+		ASSERT(node.has_attribute("op"));
+		if (node.attribute("op").has_value("read")) return Operation::READ;
+		if (node.attribute("op").has_value("write")) return Operation::WRITE;
+		if (node.attribute("op").has_value("sync")) return Operation::SYNC;
+		if (node.attribute("op").has_value("create_snapshot")) return Operation::CREATE_SNAPSHOT;
+		if (node.attribute("op").has_value("discard_snapshot")) return Operation::DISCARD_SNAPSHOT;
+		if (node.attribute("op").has_value("extend_ft")) return Operation::EXTEND_FT;
+		if (node.attribute("op").has_value("extend_vbd")) return Operation::EXTEND_VBD;
+		if (node.attribute("op").has_value("rekey")) return Operation::REKEY;
+		if (node.attribute("op").has_value("deinitialize")) return Operation::DEINITIALIZE;
+		ASSERT_NEVER_REACHED;
+	}
 
-	public:
+	Request_node(Xml_node const &node)
+	:
+		op { read_op_attr(node) },
+		vba { has_vba() ? read_attribute<Virtual_block_address>(node, "vba") : 0 },
+		count { has_count() ? read_attribute<Number_of_blocks>(node, "count") : 0 },
+		sync { read_attribute<bool>(node, "sync") },
+		salt_avail { has_salt() ? node.has_attribute("salt") : false },
+		salt { has_salt() && salt_avail ? read_attribute<Salt>(node, "salt") : 0 },
+		snap_id { has_snap_id() ? read_attribute<Snapshot_id>(node, "id") : 0 }
+	{ }
 
-		Request_node(Xml_node const &node)
-		:
-			_op { _read_op_attr(node) },
-			_vba { has_attr_vba() ? read_attribute<uint64_t>(node, "vba") : 0 },
-			_count { has_attr_count() ? read_attribute<uint64_t>(node, "count") : 0 },
-			_sync { read_attribute<bool>(node, "sync") },
-			_salt_avail { has_attr_salt() ? node.has_attribute("salt") : false },
-			_salt { has_attr_salt() && _salt_avail ? read_attribute<uint64_t>(node, "salt") : 0 },
-			_snap_id { has_attr_snap_id() ? read_attribute<Snapshot_id>(node, "id") : 0 }
-		{ }
+	bool has_vba() const { return op == Operation::READ || op == Operation::WRITE || op == Operation::SYNC; }
 
-		Operation op() const { return _op; }
-		Virtual_block_address vba() const { return _vba; }
-		Number_of_blocks count() const { return _count; }
-		bool sync() const { return _sync; }
-		bool salt_avail() const { return _salt_avail; }
-		uint64_t salt() const { return _salt; }
-		Snapshot_id snap_id() const { return _snap_id; }
+	bool has_salt() const { return op == Operation::READ || op == Operation::WRITE; }
 
-		bool has_attr_vba() const
-		{
-			return _op == Operation::READ ||
-			       _op == Operation::WRITE ||
-			       _op == Operation::SYNC;
-		}
+	bool has_count() const
+	{
+		return op == Operation::READ || op == Operation::WRITE || op == Operation::SYNC ||
+		       op == Operation::EXTEND_FT || op == Operation::EXTEND_VBD;
+	}
 
-		bool has_attr_salt() const
-		{
-			return _op == Operation::READ ||
-			       _op == Operation::WRITE;
-		}
+	bool has_snap_id() const { return op == Operation::DISCARD_SNAPSHOT || op == Operation::CREATE_SNAPSHOT; }
 
-		bool has_attr_count() const
-		{
-			return _op == Operation::READ ||
-			       _op == Operation::WRITE ||
-			       _op == Operation::SYNC ||
-			       _op == Operation::EXTEND_FT ||
-			       _op == Operation::EXTEND_VBD;
-		}
-
-		bool has_attr_snap_id() const
-		{
-			return _op == Operation::DISCARD_SNAPSHOT ||
-			       _op == Operation::CREATE_SNAPSHOT;
-		}
-
-		void print(Genode::Output &out) const
-		{
-			Genode::print(out, "op=", Request::op_to_string(_op));
-			if (has_attr_vba()) {
-				Genode::print(out, " vba=", _vba);
-			}
-			if (has_attr_count()) {
-				Genode::print(out, " count=", _count);
-			}
-			Genode::print(out, " sync=", _sync);
-			if (_salt_avail) {
-				Genode::print(out, " salt=", _salt);
-			}
-		}
+	void print(Genode::Output &out) const { Genode::print(out, "op ", Tresor::Request::op_to_string(op)); }
 };
 
 
-class Command : public Module_channel
+class Tresor_tester::Command : public Module_channel
 {
 	public:
 
-		enum Type {
-			INVALID, REQUEST, TRUST_ANCHOR, BENCHMARK, CONSTRUCT, DESTRUCT, INITIALIZE,
-			CHECK, CHECK_SNAPSHOTS, LOG };
+		enum Type { INVALID, REQUEST, TRUST_ANCHOR, BENCHMARK, CONSTRUCT, DESTRUCT, INITIALIZE, CHECK, CHECK_SNAPSHOTS, LOG };
 
 		enum State { PENDING, IN_PROGRESS, CREATE_SNAP_COMPLETED, DISCARD_SNAP_COMPLETED, COMPLETED };
 
 	private:
 
+		using Type_string = String<64>;
+
 		Tresor_tester::Main &_main;
 		Type _type { INVALID };
-		uint32_t _id { 0 };
+		Module_channel_id _id { 0 };
 		State _state { PENDING };
 		bool _success { false };
 		Generation _gen { INVALID_GENERATION };
@@ -404,22 +293,13 @@ class Command : public Module_channel
 		Constructible<Log_node> _log_node { };
 		Constructible<Tresor_init::Configuration> _initialize { };
 
+		NONCOPYABLE(Command);
+
 		void _generated_req_completed(State_uint state_uint) override;
 
-		char const *_state_to_string() const
+		static char const *_type_to_string(Type type)
 		{
-			switch (_state) {
-			case PENDING: return "pending";
-			case IN_PROGRESS: return "in_progress";
-			case COMPLETED: return "completed";
-			default: break;
-			}
-			return "?";
-		}
-
-		char const *_type_to_string() const
-		{
-			switch (_type) {
+			switch (type) {
 			case INITIALIZE: return "initialize";
 			case INVALID: return "invalid";
 			case REQUEST: return "request";
@@ -431,10 +311,10 @@ class Command : public Module_channel
 			case CHECK_SNAPSHOTS: return "check_snapshots";
 			case LOG: return "log";
 			}
-			return "?";
+			ASSERT_NEVER_REACHED;
 		}
 
-		static Type _type_from_string(String<64> str)
+		static Type _type_from_string(Type_string str)
 		{
 			if (str == "initialize") { return INITIALIZE; }
 			if (str == "request") { return REQUEST; }
@@ -450,7 +330,7 @@ class Command : public Module_channel
 
 	public:
 
-		Command(Xml_node const &node, Tresor_tester::Main &main, uint32_t id)
+		Command(Xml_node const &node, Tresor_tester::Main &main, Module_channel_id id)
 		:
 			Module_channel { COMMAND_POOL, id }, _main { main }, _type { _type_from_string(node.type()) }, _id { id }
 		{
@@ -464,61 +344,38 @@ class Command : public Module_channel
 			}
 		}
 
-		bool has_attr_data_mismatch() const
+		bool may_have_data_mismatch() const
 		{
-			return _type == REQUEST && _request_node->op() == Tresor::Request::Operation::READ &&
-			       _request_node->salt_avail();
+			return _type == REQUEST && _request_node->op == Tresor::Request::READ && _request_node->salt_avail;
 		}
 
 		bool synchronize() const
 		{
 			switch (_type) {
-			case INITIALIZE: return true;
-			case BENCHMARK: return true;
-			case CONSTRUCT: return true;
-			case DESTRUCT: return true;
-			case CHECK: return true;
-			case TRUST_ANCHOR: return true;
-			case CHECK_SNAPSHOTS: return true;
-			case LOG: return true;
-			case REQUEST: return _request_node->sync();
-			case INVALID: break;
+			case REQUEST: return _request_node->sync;
+			case INVALID: ASSERT_NEVER_REACHED;
+			default: return true;
 			}
 			ASSERT_NEVER_REACHED;
 		}
 
 		void print(Genode::Output &out) const
 		{
-			Genode::print(out, "id=", _id, " type=", _type_to_string());
-			switch (_type) {
-			case INITIALIZE: Genode::print(out, " cfg=(", *_initialize, ")"); break;
-			case REQUEST: Genode::print(out, " cfg=(", *_request_node, ")"); break;
-			case TRUST_ANCHOR: Genode::print(out, " cfg=(", *_trust_anchor_node, ")"); break;
-			case BENCHMARK: Genode::print(out, " cfg=(", *_benchmark_node, ")"); break;
-			case LOG: Genode::print(out, " cfg=(", *_log_node, ")"); break;
-			case INVALID: break;
-			case CHECK: break;
-			case CONSTRUCT: break;
-			case DESTRUCT: break;
-			case CHECK_SNAPSHOTS: break;
-			}
-			Genode::print(out, " succ=", _success);
-			if (has_attr_data_mismatch())
-				Genode::print(out, " bad_data=", _data_mismatch);
-
-			Genode::print(out, " state=", _state_to_string());
+			Genode::print(out, "id ", _id, " type ", _type_to_string(_type));
+			if (_type == REQUEST)
+				Genode::print(out, " ", *_request_node);
 		}
 
-		Type type () const { return _type ; }
-		State state () const { return _state ; }
-		uint32_t id () const { return _id ; }
-		bool success () const { return _success ; }
-		bool data_mismatch () const { return _data_mismatch ; }
-		Request_node const &request_node () const { return *_request_node ; }
-		Trust_anchor_node const &trust_anchor_node () const { return *_trust_anchor_node; }
-		Benchmark_node const &benchmark_node () const { return *_benchmark_node ; }
-		Log_node const &log_node () const { return *_log_node ; }
-		Tresor_init::Configuration const &initialize () const { return *_initialize ; }
+		Type type() const { return _type ; }
+		State state() const { return _state ; }
+		Module_channel_id id() const { return _id ; }
+		bool success() const { return _success ; }
+		bool data_mismatch() const { return _data_mismatch ; }
+		Request_node const &request_node() const { return *_request_node ; }
+		Trust_anchor_node const &trust_anchor_node() const { return *_trust_anchor_node; }
+		Benchmark_node const &benchmark_node() const { return *_benchmark_node ; }
+		Log_node const &log_node() const { return *_log_node ; }
+		Tresor_init::Configuration const &initialize() const { return *_initialize ; }
 
 		void state (State state) { _state = state; }
 		void success (bool success) { _success = success; }
@@ -528,40 +385,35 @@ class Command : public Module_channel
 };
 
 
-class Snapshot_reference : public Genode::Avl_node<Snapshot_reference>
+struct Tresor_tester::Snapshot_reference : public Genode::Avl_node<Snapshot_reference>
 {
-	private:
+	Snapshot_id const id;
+	Generation const gen;
 
-		Snapshot_id const _id;
-		Generation const _gen;
+	NONCOPYABLE(Snapshot_reference);
 
-	public:
+	Snapshot_reference(Snapshot_id id, Generation gen) : id { id }, gen { gen } { }
 
-		Snapshot_reference(Snapshot_id id, Generation gen) : _id { id }, _gen { gen } { }
+	template <typename FUNC>
+	void with_ref(Snapshot_id target_id, FUNC && func) const
+	{
+		if (target_id != id) {
+			Snapshot_reference *child_ptr { Avl_node<Snapshot_reference>::child(target_id > id) };
+			if (child_ptr)
+				child_ptr->with_ref(target_id, func);
+			else
+				ASSERT_NEVER_REACHED;
+		} else
+			func(*this);
+	}
 
-		template <typename FUNC>
-		void with_ref(Snapshot_id id, FUNC && func) const
-		{
-			if (id != _id) {
-				Snapshot_reference *child_ptr { Avl_node<Snapshot_reference>::child(id > _id) };
-				if (child_ptr)
-					child_ptr->with_ref(id, func);
-				else
-					ASSERT_NEVER_REACHED;
-			} else
-				func(*this);
-		}
+	void print(Genode::Output &out) const { Genode::print(out, "id ", id, " gen ", gen); }
 
-		void print(Genode::Output &out) const { Genode::print(out, "id ", _id, " gen ", _gen); }
-
-		bool higher(Snapshot_reference *other_ptr) { return other_ptr->_id > _id; }
-
-		Snapshot_id id() const { return _id; }
-		Generation gen() const { return _gen; }
+	bool higher(Snapshot_reference *other_ptr) { return other_ptr->id > id; }
 };
 
 
-struct Snapshot_reference_tree : public Avl_tree<Snapshot_reference>
+struct Tresor_tester::Snapshot_reference_tree : public Avl_tree<Snapshot_reference>
 {
 	template <typename FUNC>
 	void with_ref(Snapshot_id id, FUNC && func) const
@@ -574,7 +426,7 @@ struct Snapshot_reference_tree : public Avl_tree<Snapshot_reference>
 };
 
 
-class Tresor_tester::Client_data : public Tresor::Module, public Tresor::Module_channel
+class Tresor_tester::Client_data : public Module, public Module_channel
 {
 	private:
 
@@ -594,11 +446,7 @@ class Tresor_tester::Client_data : public Tresor::Module, public Tresor::Module_
 };
 
 
-class Tresor_tester::Main
-:
-	private Vfs::Env::User,
-	private Tresor::Module_composition,
-	public Tresor::Module
+class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, public Module
 {
 	private:
 
@@ -608,9 +456,9 @@ class Tresor_tester::Main
 		Vfs::Simple_env _vfs_env { _env, _heap, _config_rom.xml().sub_node("vfs"), *this };
 		Signal_handler<Main> _signal_handler { _env.ep(), *this, &Main::_handle_signal };
 		Benchmark _benchmark { _env };
-		uint32_t _next_command_id { 0 };
-		unsigned long _nr_of_uncompleted_cmds { 0 };
-		unsigned long _nr_of_errors { 0 };
+		Module_channel_id _next_command_id { 0 };
+		unsigned long _num_uncompleted_cmds { 0 };
+		unsigned long _num_errors { 0 };
 		Tresor::Block _blk_data { };
 		Snapshot_reference_tree _snap_refs { };
 		Constructible<Free_tree> _free_tree { };
@@ -633,9 +481,7 @@ class Tresor_tester::Main
 
 		NONCOPYABLE(Main);
 
-		static void _generate_blk_data(Tresor::Block &blk_data,
-		                               Virtual_block_address vba,
-		                               uint64_t salt)
+		static void _generate_blk_data(Tresor::Block &blk_data, Virtual_block_address vba, Salt salt)
 		{
 			for (uint64_t idx { 0 }; idx + sizeof(vba) + sizeof(salt) <= BLOCK_SIZE; ) {
 
@@ -674,13 +520,13 @@ class Tresor_tester::Main
 
 		void _try_end_program()
 		{
-			if (_nr_of_uncompleted_cmds == 0) {
-				if (_nr_of_errors > 0) {
+			if (_num_uncompleted_cmds == 0) {
+				if (_num_errors > 0) {
 					for_each_channel<Command>([&] (Command &cmd) {
 						if (cmd.state() != Command::COMPLETED)
 							return;
 
-						if (cmd.success() && (!cmd.has_attr_data_mismatch() || !cmd.data_mismatch()))
+						if (cmd.success() && (!cmd.may_have_data_mismatch() || !cmd.data_mismatch()))
 							return;
 
 						log("cmd failed: ", cmd);
@@ -731,7 +577,7 @@ class Tresor_tester::Main
 			add_module(FT_CHECK, _ft_check);
 			_config_rom.xml().sub_node("commands").for_each_sub_node([&] (Xml_node const &node) {
 				add_channel(*new (_heap) Command(node, *this, _next_command_id++));
-				_nr_of_uncompleted_cmds++;
+				_num_uncompleted_cmds++;
 			});
 			_handle_signal();
 		}
@@ -749,11 +595,11 @@ class Tresor_tester::Main
 			with_channel<Command>(cmd_id, [&] (Command &cmd) {
 				ASSERT(cmd.state() == Command::IN_PROGRESS);
 				cmd.state(Command::COMPLETED);
-				_nr_of_uncompleted_cmds--;
+				_num_uncompleted_cmds--;
 				cmd.success(success);
 				if (!cmd.success()) {
 					warning("cmd ", cmd, " failed");
-					_nr_of_errors++;
+					_num_errors++;
 				}
 			});
 		}
@@ -762,15 +608,12 @@ class Tresor_tester::Main
 		{
 			Generation gen { INVALID_GENERATION };
 			_snap_refs.with_ref(id, [&] (Snapshot_reference const &ref) {
-				gen = ref.gen(); });
+				gen = ref.gen; });
 
 			return gen;
 		}
 
-		void add_snap_ref(Snapshot_id id, Generation gen)
-		{
-			_snap_refs.insert(new (_heap) Snapshot_reference { id, gen });
-		}
+		void add_snap_ref(Snapshot_id id, Generation gen) { _snap_refs.insert(new (_heap) Snapshot_reference { id, gen }); }
 
 		void remove_snap_refs_with_same_gen(Snapshot_id id)
 		{
@@ -778,7 +621,7 @@ class Tresor_tester::Main
 			while (1) {
 				Snapshot_reference *ref_ptr { nullptr };
 				_snap_refs.for_each([&] (Snapshot_reference const &ref) {
-					if (!ref_ptr && ref.gen() == gen)
+					if (!ref_ptr && ref.gen == gen)
 						ref_ptr = const_cast<Snapshot_reference *>(&ref);
 				});
 				if (ref_ptr)
@@ -796,38 +639,34 @@ class Tresor_tester::Main
 
 		Pba_allocator &pba_alloc() { return _pba_alloc; }
 
-		void generate_blk_data(uint64_t tresor_req_tag,
-		                       Virtual_block_address vba,
-		                       Tresor::Block &blk_data)
+		void generate_blk_data(Request_tag tresor_req_tag, Virtual_block_address vba, Tresor::Block &blk_data)
 		{
 			with_channel<Command>(tresor_req_tag, [&] (Command &cmd) {
 				ASSERT(cmd.type() == Command::REQUEST);
 				Request_node const &req_node { cmd.request_node() };
-				if (req_node.salt_avail())
-					_generate_blk_data(blk_data, vba, req_node.salt());
+				if (req_node.salt_avail)
+					_generate_blk_data(blk_data, vba, req_node.salt);
 			});
-			_benchmark.raise_nr_of_virt_blks_written();
+			_benchmark.raise_num_virt_blks_written();
 		}
 
-		void verify_blk_data(uint64_t tresor_req_tag,
-		                     Virtual_block_address vba,
-		                     Tresor::Block &blk_data)
+		void verify_blk_data(Request_tag tresor_req_tag, Virtual_block_address vba, Tresor::Block &blk_data)
 		{
 			with_channel<Command>(tresor_req_tag, [&] (Command &cmd) {
 				ASSERT(cmd.type() == Command::REQUEST);
 				Request_node const &req_node { cmd.request_node() };
-				if (req_node.salt_avail()) {
+				if (req_node.salt_avail) {
 					Tresor::Block gen_blk_data { };
-					_generate_blk_data(gen_blk_data, vba, req_node.salt());
+					_generate_blk_data(gen_blk_data, vba, req_node.salt);
 
 					if (memcmp(&blk_data, &gen_blk_data, BLOCK_SIZE)) {
 						cmd.data_mismatch(true);
 						warning("client data mismatch: vba=", vba, " req_tag=", tresor_req_tag);
-						_nr_of_errors++;
+						_num_errors++;
 					}
 				}
 			});
-			_benchmark.raise_nr_of_virt_blks_read();
+			_benchmark.raise_num_virt_blks_read();
 		}
 
 		void construct_tresor_modules()
@@ -871,21 +710,21 @@ class Tresor_tester::Main
 			_snap_refs.for_each([&] (Snapshot_reference const &snap_ref) {
 				bool snap_ref_ok { false };
 				for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++) {
-					if (snap_info.generations[idx] == snap_ref.gen()) {
+					if (snap_info.generations[idx] == snap_ref.gen) {
 						snap_ref_ok = true;
 						snap_gen_ok[idx] = true;
 					}
 				}
 				if (!snap_ref_ok) {
 					warning("snap (", snap_ref, ") not known to tresor");
-					_nr_of_errors++;
+					_num_errors++;
 					success = false;
 				}
 			});
 			for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++) {
 				if (snap_info.generations[idx] != INVALID_GENERATION && !snap_gen_ok[idx]) {
 					warning("snap (idx ", idx, " gen ", snap_info.generations[idx], ") not known to tester");
-					_nr_of_errors++;
+					_num_errors++;
 					success = false;
 				}
 			}
@@ -908,45 +747,45 @@ void Tresor_tester::Client_data::_request_submitted(Module_request &mod_req)
 }
 
 
-void Command::_generated_req_completed(State_uint state_uint)
+void Tresor_tester::Command::_generated_req_completed(State_uint state_uint)
 {
 	if (state_uint == CREATE_SNAP_COMPLETED)
-		_main.add_snap_ref(request_node().snap_id(), _gen);
+		_main.add_snap_ref(request_node().snap_id, _gen);
 
 	if (state_uint == DISCARD_SNAP_COMPLETED)
-		_main.remove_snap_refs_with_same_gen(request_node().snap_id());
+		_main.remove_snap_refs_with_same_gen(request_node().snap_id);
 
 	_main.mark_command_completed(id(), _success);
 }
 
 
-void Command::execute(bool &progress)
+void Tresor_tester::Command::execute(bool &progress)
 {
 	switch (type()) {
 	case REQUEST:
 	{
-		Request_node node { request_node() };
+		Request_node const &node { request_node() };
 		State state { COMPLETED };
 		_gen = INVALID_GENERATION;
-		if (node.op() == Request::DISCARD_SNAPSHOT) {
-			_gen = _main.snap_id_to_gen(node.snap_id());
+		if (node.op == Request::DISCARD_SNAPSHOT) {
+			_gen = _main.snap_id_to_gen(node.snap_id);
 			state = DISCARD_SNAP_COMPLETED;
 		}
-		if (node.op() == Request::CREATE_SNAPSHOT)
+		if (node.op == Request::CREATE_SNAPSHOT)
 			state = CREATE_SNAP_COMPLETED;
 
 		generate_req<Tresor::Request>(
-			state, progress, node.op(), _success, node.has_attr_vba() ? node.vba() : 0,
-			0, node.has_attr_count() ? node.count() : 0, 0, id(), _gen);
+			state, progress, node.op, _success, node.has_vba() ? node.vba : 0,
+			0, node.has_count() ? node.count : 0, 0, id(), _gen);
 
 		_main.mark_command_in_progress(id());
 		break;
 	}
 	case Command::TRUST_ANCHOR:
 	{
-		Trust_anchor_node node { trust_anchor_node() };
-		ASSERT(node.op() == Trust_anchor_request::INITIALIZE);
-		generate_req<Trust_anchor::Initialize>(COMPLETED, progress, node.passphrase(), _success);
+		Trust_anchor_node const &node { trust_anchor_node() };
+		ASSERT(node.op == Trust_anchor_request::INITIALIZE);
+		generate_req<Trust_anchor::Initialize>(COMPLETED, progress, node.passphrase, _success);
 		_main.mark_command_in_progress(id());
 		break;
 	}
@@ -956,14 +795,11 @@ void Command::execute(bool &progress)
 		Tresor_init::Configuration const &cfg { initialize() };
 		generate_req<Sb_initializer_request>(COMPLETED, progress,
 			(Tree_level_index)(cfg.vbd_nr_of_lvls() - 1),
-			(Tree_degree)cfg.vbd_nr_of_children(),
-			cfg.vbd_nr_of_leafs(),
+			(Tree_degree)cfg.vbd_nr_of_children(), cfg.vbd_nr_of_leafs(),
 			(Tree_level_index)cfg.ft_nr_of_lvls() - 1,
-			(Tree_degree)cfg.ft_nr_of_children(),
-			cfg.ft_nr_of_leafs(),
+			(Tree_degree)cfg.ft_nr_of_children(), cfg.ft_nr_of_leafs(),
 			(Tree_level_index)cfg.ft_nr_of_lvls() - 1,
-			(Tree_degree)cfg.ft_nr_of_children(),
-			cfg.ft_nr_of_leafs(), _main.pba_alloc(), _success);
+			(Tree_degree)cfg.ft_nr_of_children(), cfg.ft_nr_of_leafs(), _main.pba_alloc(), _success);
 		_main.mark_command_in_progress(id());
 		break;
 	}
@@ -972,7 +808,7 @@ void Command::execute(bool &progress)
 		_main.mark_command_in_progress(id());
 		break;
 	case LOG:
-		log("\n", log_node().string(), "\n");
+		log("\n", log_node().string, "\n");
 		_main.mark_command_in_progress(id());
 		_main.mark_command_completed(id(), true);
 		progress = true;
@@ -1001,33 +837,12 @@ void Command::execute(bool &progress)
 }
 
 
-/*********************
- ** Libc::Component **
- *********************/
-
 namespace Libc {
 
 	struct Env;
 
-	struct Component
-	{
-		void construct(Libc::Env &) { }
-	};
+	struct Component { void construct(Libc::Env &) { } };
 }
 
 
-/***********************
- ** Genode::Component **
- ***********************/
-
-void Component::construct(Genode::Env &env)
-{
-	env.exec_static_constructors();
-
-	static Tresor_tester::Main main(env);
-}
-
-extern "C" int memcmp(const void *p0, const void *p1, Genode::size_t size)
-{
-	return Genode::memcmp(p0, p1, size);
-}
+void Component::construct(Genode::Env &env) { static Tresor_tester::Main main(env); }
