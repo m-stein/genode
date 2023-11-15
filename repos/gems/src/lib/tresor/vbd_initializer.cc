@@ -1,5 +1,6 @@
 /*
  * \brief  Module for initializing the VBD
+ * \author Martin Stein
  * \author Josef Soentgen
  * \date   2023-03-03
  */

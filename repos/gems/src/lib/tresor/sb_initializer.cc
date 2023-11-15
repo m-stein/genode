@@ -1,5 +1,6 @@
 /*
  * \brief  Module for initializing the superblocks of a new Tresor
+ * \author Martin Stein
  * \author Josef Soentgen
  * \date   2023-03-14
  */
