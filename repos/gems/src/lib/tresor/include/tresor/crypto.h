@@ -74,17 +74,34 @@ class Tresor::Crypto_channel : public Module_channel
 
 		struct Key_directory
 		{
-			Vfs::Vfs_handle *encrypt_handle { };
-			Vfs::Vfs_handle *decrypt_handle { };
-			Key_id key_id { };
+			Vfs::Env &env;
+			Key_id key_id;
+			Vfs::Vfs_handle *encrypt_handle;
+			Vfs::Vfs_handle *decrypt_handle;
+
+			NONCOPYABLE(Key_directory);
+
+			Key_directory(Vfs::Env &env, Tresor::Path path, Key_id key_id)
+			:
+				env { env },
+				key_id { key_id },
+				encrypt_handle { &vfs_open_rw(env, { path, "/keys/", key_id, "/encrypt" }) },
+				decrypt_handle { &vfs_open_rw(env, { path, "/keys/", key_id, "/decrypt" }) }
+			{ }
+
+			~Key_directory()
+			{
+				env.root_dir().close(encrypt_handle);
+				env.root_dir().close(decrypt_handle);
+			}
 		};
 
 		Vfs::Env &_vfs_env;
 		Path const _path;
 		char _add_key_buf[sizeof(Key_id) + KEY_SIZE] { };
 		Write_only_file<State> _add_key_file { _state, _vfs_env, { _path, "/add_key" } };
-		Vfs::Vfs_handle &_remove_key_handle { vfs_open_wo(_vfs_env, { _path, "/remove_key" }) };
-		Key_directory _key_dirs[2] { };
+		Write_only_file<State> _remove_key_file { _state, _vfs_env, { _path, "/remove_key" } };
+		Constructible<Key_directory> _key_dirs[2] { };
 		State _state { COMPLETE };
 		bool _generated_req_success { false };
 		Vfs::Vfs_handle *_vfs_handle { nullptr };
@@ -123,7 +140,7 @@ class Tresor::Crypto_channel : public Module_channel
 
 		void _mark_req_successful(bool &);
 
-		Key_directory &_lookup_key_dir(Key_id key_id);
+		Constructible<Key_directory> &_lookup_key_dir(Key_id key_id);
 
 	public:
 

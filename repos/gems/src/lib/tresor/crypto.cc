@@ -75,10 +75,10 @@ void Crypto_channel::_generated_req_completed(State_uint state_uint)
 }
 
 
-Crypto_channel::Key_directory &Crypto_channel::_lookup_key_dir(Key_id key_id)
+Constructible<Crypto_channel::Key_directory> &Crypto_channel::_lookup_key_dir(Key_id key_id)
 {
-	for (Key_directory &key_dir : _key_dirs)
-		if (key_dir.key_id == key_id)
+	for (Constructible<Key_directory> &key_dir : _key_dirs)
+		if (key_dir.constructed() && key_dir->key_id == key_id)
 			return key_dir;
 	ASSERT_NEVER_REACHED;
 }
@@ -135,17 +135,15 @@ void Crypto_channel::_add_key(bool &progress)
 
 	case WRITE_OK:
 	{
-		Key_directory *key_dir_ptr { nullptr };
-		for (Key_directory &key_dir : _key_dirs)
-			if (!key_dir.key_id)
+		Constructible<Key_directory> *key_dir_ptr { nullptr };
+		for (Constructible<Key_directory> &key_dir : _key_dirs)
+			if (!key_dir.constructed())
 				key_dir_ptr = &key_dir;
 		if (!key_dir_ptr) {
 			_mark_req_failed(progress, "find unused key dir");
 			break;
 		}
-		key_dir_ptr->key_id = req._key_id;
-		key_dir_ptr->encrypt_handle = &vfs_open_rw(_vfs_env, { _path.string(), "/keys/", req._key_id, "/encrypt" });
-		key_dir_ptr->decrypt_handle = &vfs_open_rw(_vfs_env, { _path.string(), "/keys/", req._key_id, "/decrypt" });
+		key_dir_ptr->construct(_vfs_env, _path, req._key_id);
 		_mark_req_successful(progress);
 		break;
 	}
@@ -159,28 +157,14 @@ void Crypto_channel::_remove_key(bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
-	case SUBMITTED:
-	{
-		_remove_key_handle.seek(0);
-		Const_byte_range_ptr src { (char const*)&req._key_id, sizeof(req._key_id) };
-		size_t nr_of_written_bytes { 0 };
-		switch (_remove_key_handle.fs().write(&_remove_key_handle, src, nr_of_written_bytes)) {
-		case Write_result::WRITE_OK:
-		{
-			Key_directory &key_dir { _lookup_key_dir(req._key_id) };
-			_vfs_env.root_dir().close(key_dir.encrypt_handle);
-			_vfs_env.root_dir().close(key_dir.decrypt_handle);
-			key_dir.encrypt_handle = nullptr;
-			key_dir.decrypt_handle = nullptr;
-			key_dir.key_id = 0;
-			_mark_req_successful(progress);
-			return;
-		}
-		case Write_result::WRITE_ERR_WOULD_BLOCK:
-		case Write_result::WRITE_ERR_INVALID:
-		case Write_result::WRITE_ERR_IO: _mark_req_failed(progress, "write command"); return;
-		}
-	}
+	case SUBMITTED: _remove_key_file.write(WRITE_OK, FILE_ERR, 0, { (char *)&req._key_id, sizeof(Key_id) }, progress); break;
+	case WRITE_OK:
+
+		_lookup_key_dir(req._key_id).destruct();
+		_mark_req_successful(progress);
+		break;
+
+	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
 	default: return;
 	}
 }
@@ -199,7 +183,7 @@ void Crypto_channel::_encrypt_client_data(bool &progress)
 
 	case OBTAIN_PLAINTEXT_BLK_COMPLETE:
 	{
-		_vfs_handle = _lookup_key_dir(req._key_id).encrypt_handle;
+		_vfs_handle = _lookup_key_dir(req._key_id)->encrypt_handle;
 		_vfs_handle->seek(req._pba * BLOCK_SIZE);
 		size_t nr_of_written_bytes { 0 };
 		Const_byte_range_ptr dst { (char *)&_blk, BLOCK_SIZE };
@@ -243,7 +227,7 @@ void Crypto_channel::_encrypt(bool &progress)
 	switch (_state) {
 	case SUBMITTED:
 	{
-		_vfs_handle = _lookup_key_dir(req._key_id).encrypt_handle;
+		_vfs_handle = _lookup_key_dir(req._key_id)->encrypt_handle;
 		_vfs_handle->seek(req._pba * BLOCK_SIZE);
 		size_t nr_of_written_bytes { 0 };
 		Const_byte_range_ptr src { (char *)&req._blk, BLOCK_SIZE };
@@ -287,7 +271,7 @@ void Crypto_channel::_decrypt(bool &progress)
 	switch (_state) {
 	case SUBMITTED:
 
-		_file.construct(_state, *_lookup_key_dir(req._key_id).decrypt_handle);
+		_file.construct(_state, *_lookup_key_dir(req._key_id)->decrypt_handle);
 		_state = WRITE;
 		progress = true;
 		break;
@@ -307,7 +291,7 @@ void Crypto_channel::_decrypt_client_data(bool &progress)
 	switch (_state) {
 	case SUBMITTED:
 
-		_file.construct(_state, *_lookup_key_dir(req._key_id).decrypt_handle);
+		_file.construct(_state, *_lookup_key_dir(req._key_id)->decrypt_handle);
 		_state = WRITE;
 		progress = true;
 		break;
