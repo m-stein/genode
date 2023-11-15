@@ -18,7 +18,6 @@
 
 using namespace Tresor;
 
-
 Block_io_request::Block_io_request(Module_id src_module_id, Module_channel_id src_chan_id, Type type,
                                    Request_offset client_req_offset, Request_tag client_req_tag, Key_id key_id,
                                    Physical_block_address pba, Virtual_block_address vba, Block &blk, Hash &hash,

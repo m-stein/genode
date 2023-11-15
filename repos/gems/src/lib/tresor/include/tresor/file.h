@@ -1,5 +1,5 @@
 /*
- * \brief  Utilities for a more convenient use of the VFS
+ * \brief  Tresor-local utilities for accessing VFS files
  * \author Martin Stein
  * \date   2020-10-29
  */
@@ -11,8 +11,8 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-#ifndef _TRESOR__VFS_UTILITIES_H_
-#define _TRESOR__VFS_UTILITIES_H_
+#ifndef _TRESOR__FILE_H_
+#define _TRESOR__FILE_H_
 
 /* base includes */
 #include <util/string.h>
@@ -34,12 +34,6 @@ namespace Tresor {
 	template <typename> class Read_write_file;
 	template <typename> class Write_only_file;
 }
-
-Vfs::Vfs_handle &vfs_open(Vfs::Env &, Genode::String<128>, Vfs::Directory_service::Open_mode);
-
-Vfs::Vfs_handle &vfs_open_wo(Vfs::Env &, Genode::String<128>);
-
-Vfs::Vfs_handle &vfs_open_rw(Vfs::Env &, Genode::String<128>);
 
 template <typename HOST_STATE>
 class Tresor::File
@@ -240,4 +234,4 @@ struct Tresor::Write_only_file : public File<HOST_STATE>
 	: File<HOST_STATE> { host_state, env, path, Vfs::Directory_service::OPEN_MODE_WRONLY } { }
 };
 
-#endif /* _TRESOR__VFS_UTILITIES_H_ */
+#endif /* _TRESOR__FILE_H_ */

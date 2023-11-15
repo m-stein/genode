@@ -16,7 +16,7 @@
 
 /* tresor includes */
 #include <tresor/types.h>
-#include <tresor/vfs_utilities.h>
+#include <tresor/file.h>
 
 namespace Tresor {
 

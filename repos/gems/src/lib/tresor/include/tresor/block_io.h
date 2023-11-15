@@ -16,7 +16,7 @@
 
 /* tresor includes */
 #include <tresor/types.h>
-#include <tresor/vfs_utilities.h>
+#include <tresor/file.h>
 
 namespace Tresor {
 
@@ -74,7 +74,6 @@ class Tresor::Block_io_channel : public Module_channel
 		Vfs::Env &_vfs_env;
 		Tresor::Path const _path;
 		Read_write_file<State> _file { _state, _vfs_env, _path };
-		Vfs::Vfs_handle &_vfs_handle { vfs_open_rw(_vfs_env, _path) };
 
 		NONCOPYABLE(Block_io_channel);
 
