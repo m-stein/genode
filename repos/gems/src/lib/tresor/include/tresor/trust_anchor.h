@@ -58,11 +58,8 @@ class Tresor::Trust_anchor_channel : public Module_channel
 	private:
 
 		using Request = Trust_anchor_request;
-		using Read_result = Vfs::File_io_service::Read_result;
-		using Write_result = Vfs::File_io_service::Write_result;
 
-		enum State {
-			REQ_SUBMITTED, WRITE_PENDING, WRITE_IN_PROGRESS, READ_PENDING, READ_IN_PROGRESS, REQ_COMPLETE, READ_OK, WRITE_OK, FILE_ERR  };
+		enum State { REQ_SUBMITTED, REQ_COMPLETE, READ_OK, WRITE_OK, FILE_ERR  };
 
 		State _state { REQ_COMPLETE };
 		Vfs::Env &_vfs_env;

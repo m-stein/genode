@@ -11,10 +11,6 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-/* base includes */
-#include <base/log.h>
-#include <util/construct_at.h>
-
 /* tresor includes */
 #include <tresor/crypto.h>
 #include <tresor/block_io.h>
@@ -60,8 +56,7 @@ void Block_io_channel::_generated_req_completed(State_uint state_uint)
 }
 
 
-void Block_io_channel::_mark_req_failed(bool &progress,
-                                char const *str)
+void Block_io_channel::_mark_req_failed(bool &progress, Error_string str)
 {
 	error("request failed: failed to ", str);
 	_req_ptr->_success = false;
@@ -114,11 +109,11 @@ void Block_io_channel::_read_client_data(bool &progress)
 	case READ_OK:
 
 		_generate_req<Crypto_request>(
-			DECRYPT_CLIENT_DATA_COMPLETE, progress, Crypto_request::DECRYPT_CLIENT_DATA, req._client_req_offset,
+			PLAINTEXT_BLK_SUPPLIED, progress, Crypto_request::DECRYPT_CLIENT_DATA, req._client_req_offset,
 			req._client_req_tag, req._key_id, *(Key_value *)0, req._pba, req._vba, _blk);
 		return;
 
-	case DECRYPT_CLIENT_DATA_COMPLETE: _mark_req_successful(progress); break;
+	case PLAINTEXT_BLK_SUPPLIED: _mark_req_successful(progress); break;
 	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
 	default: break;
 	}
@@ -132,11 +127,11 @@ void Block_io_channel::_write_client_data(bool &progress)
 	case REQ_SUBMITTED:
 
 		_generate_req<Crypto_request>(
-			ENCRYPT_CLIENT_DATA_COMPLETE, progress, Crypto_request::ENCRYPT_CLIENT_DATA, req._client_req_offset,
+			CIPHERTEXT_BLK_OBTAINED, progress, Crypto_request::ENCRYPT_CLIENT_DATA, req._client_req_offset,
 			req._client_req_tag, req._key_id, *(Key_value *)0, req._pba, req._vba, _blk);
 		break;
 
-	case ENCRYPT_CLIENT_DATA_COMPLETE:
+	case CIPHERTEXT_BLK_OBTAINED:
 
 		calc_hash(_blk, req._hash);
 		_file.write(WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress); break;
@@ -165,35 +160,11 @@ void Block_io_channel::_write(bool &progress)
 void Block_io_channel::_sync(bool &progress)
 {
 	switch (_state) {
-	case REQ_SUBMITTED: _reset(QUEUE_SYNC, progress); return;
-	case QUEUE_SYNC:
-
-		if (!_vfs_handle.fs().queue_sync(&_vfs_handle))
-			return;
-
-		_state = COMPLETE_SYNC;
-		progress = true;
-		break;;
-
-	case COMPLETE_SYNC:
-
-		switch (_vfs_handle.fs().complete_sync(&_vfs_handle)) {
-		case Sync_result::SYNC_QUEUED: return;
-		case Sync_result::SYNC_ERR_INVALID: _mark_req_failed(progress, "sync error"); return;
-		case Sync_result::SYNC_OK: _mark_req_successful(progress); return;
-		default: ASSERT_NEVER_REACHED;
-		}
-	default: return;
+	case REQ_SUBMITTED: _file.sync(SYNC_OK, FILE_ERR, progress); break;
+	case SYNC_OK: _mark_req_successful(progress); break;
+	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
+	default: break;
 	}
-}
-
-
-void Block_io_channel::_reset(State state, bool &progress)
-{
-	_num_processed_bytes = 0;
-	_num_remaining_bytes = BLOCK_SIZE;
-	_state = state;
-	progress = true;
 }
 
 
@@ -228,7 +199,7 @@ void Block_io_channel::_request_submitted(Module_request &mod_req)
 
 Block_io_channel::Block_io_channel(Module_channel_id id, Vfs::Env &vfs_env, Xml_node const &xml_node)
 :
-	Module_channel { BLOCK_IO, id }, _vfs_env { vfs_env }, _path { xml_node.attribute_value("path", String<32>()) }
+	Module_channel { BLOCK_IO, id }, _vfs_env { vfs_env }, _path { xml_node.attribute_value("path", Tresor::Path()) }
 { }
 
 

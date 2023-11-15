@@ -48,9 +48,10 @@ class Tresor::File
 
 		using Read_result = Vfs::File_io_service::Read_result;
 		using Write_result = Vfs::File_io_service::Write_result;
+		using Sync_result = Vfs::File_io_service::Sync_result;
 		using Open_result = Vfs::Directory_service::Open_result;
 
-		enum State { IDLE, READ_QUEUED, READ_INITIALIZED, WRITE_INITIALIZED, WRITE_OFFSET_APPLIED };
+		enum State { IDLE, SYNC_QUEUED, READ_QUEUED, READ_INITIALIZED, WRITE_INITIALIZED, WRITE_OFFSET_APPLIED };
 
 		Vfs::Env &_env;
 		HOST_STATE &_host_state;
@@ -97,7 +98,7 @@ class Tresor::File
 
 				_handle.seek(off + _num_processed_bytes);
 				if (!_handle.fs().queue_read(&_handle, dst.num_bytes - _num_processed_bytes))
-					return;
+					break;
 
 				_state = READ_QUEUED;
 				progress = true;
@@ -153,14 +154,14 @@ class Tresor::File
 				_handle.seek(off + _num_processed_bytes);
 				_state = WRITE_OFFSET_APPLIED;
 				progress = true;
-				return;
+				break;
 
 			case WRITE_OFFSET_APPLIED:
 			{
 				size_t num_written_bytes { 0 };
 				Const_byte_range_ptr curr_src { src.start + _num_processed_bytes, src.num_bytes - _num_processed_bytes };
 				switch (_handle.fs().write(&_handle, curr_src, num_written_bytes)) {
-				case Write_result::WRITE_ERR_WOULD_BLOCK: return;
+				case Write_result::WRITE_ERR_WOULD_BLOCK: break;
 				case Write_result::WRITE_OK:
 
 					_num_processed_bytes += num_written_bytes;
@@ -173,7 +174,7 @@ class Tresor::File
 					_state = IDLE;
 					_host_state = succeeded;
 					progress = true;
-					break;;
+					break;
 
 				default:
 
@@ -186,6 +187,41 @@ class Tresor::File
 				break;
 			}
 			default: ASSERT_NEVER_REACHED;
+			}
+		}
+
+		void sync(HOST_STATE succeeded, HOST_STATE failed, bool &progress)
+		{
+			switch (_state) {
+			case IDLE:
+
+				if (!_handle.fs().queue_sync(&_handle))
+					break;
+
+				_state = SYNC_QUEUED;
+				progress = true;
+				break;
+
+			case SYNC_QUEUED:
+
+				switch (_handle.fs().complete_sync(&_handle)) {
+				case Sync_result::SYNC_QUEUED: break;
+				case Sync_result::SYNC_OK:
+
+					_state = IDLE;
+					_host_state = succeeded;
+					progress = true;
+					break;
+
+				default:
+
+					error("sync failed");
+					_host_state = failed;
+					_state = IDLE;
+					progress = true;
+					break;
+				}
+			default: break;
 			}
 		}
 };

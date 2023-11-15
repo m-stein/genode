@@ -59,17 +59,13 @@ class Tresor::Crypto_request : public Module_request
 
 class Tresor::Crypto_channel : public Module_channel
 {
-	friend class Crypto;
-
 	private:
 
 		using Request = Crypto_request;
-		using Path = String<128>;
-		using Write_result = Vfs::File_io_service::Write_result;
-		using Read_result = Vfs::File_io_service::Read_result;
 
 		enum State {
-			REQ_SUBMITTED, REQ_COMPLETE, PLAINTEXT_BLK_OBTAINED, PLAINTEXT_BLK_SUPPLIED, REQ_GENERATED, READ_OK, WRITE_OK, FILE_ERR };
+			REQ_SUBMITTED, REQ_COMPLETE, PLAINTEXT_BLK_OBTAINED, PLAINTEXT_BLK_SUPPLIED, REQ_GENERATED,
+			READ_OK, WRITE_OK, FILE_ERR };
 
 		struct Key_directory
 		{
@@ -84,7 +80,7 @@ class Tresor::Crypto_channel : public Module_channel
 		};
 
 		Vfs::Env &_vfs_env;
-		Path const _path;
+		Tresor::Path const _path;
 		char _add_key_buf[sizeof(Key_id) + KEY_SIZE] { };
 		Write_only_file<State> _add_key_file { _state, _vfs_env, { _path, "/add_key" } };
 		Write_only_file<State> _remove_key_file { _state, _vfs_env, { _path, "/remove_key" } };

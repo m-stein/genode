@@ -61,24 +61,18 @@ class Tresor::Block_io_channel : public Module_channel
 {
 	private:
 
-		using Path = String<128>;
 		using Request = Block_io_request;
-		using Read_result = Vfs::File_io_service::Read_result;
-		using Write_result = Vfs::File_io_service::Write_result;
-		using Sync_result = Vfs::File_io_service::Sync_result;
 
 		enum State {
-			REQ_SUBMITTED, QUEUE_READ, SEEK, QUEUE_SYNC, REQ_COMPLETE, ENCRYPT_CLIENT_DATA, ENCRYPT_CLIENT_DATA_COMPLETE,
-			DECRYPT_CLIENT_DATA_COMPLETE, WRITE, COMPLETE_READ, COMPLETE_SYNC, REQ_GENERATED, READ_OK, WRITE_OK, FILE_ERR };
+			REQ_SUBMITTED, REQ_COMPLETE, CIPHERTEXT_BLK_OBTAINED, PLAINTEXT_BLK_SUPPLIED, REQ_GENERATED,
+			READ_OK, WRITE_OK, SYNC_OK, FILE_ERR };
 
 		State _state { REQ_COMPLETE };
-		Vfs::file_offset _num_processed_bytes { 0 };
-		size_t _num_remaining_bytes { 0 };
 		Block _blk { };
 		bool _generated_req_success { false };
 		Block_io_request *_req_ptr { };
 		Vfs::Env &_vfs_env;
-		Path const _path;
+		Tresor::Path const _path;
 		Read_write_file<State> _file { _state, _vfs_env, _path };
 		Vfs::Vfs_handle &_vfs_handle { vfs_open_rw(_vfs_env, _path) };
 
@@ -107,11 +101,9 @@ class Tresor::Block_io_channel : public Module_channel
 
 		void _sync(bool &);
 
-		void _mark_req_failed(bool &, char const *);
+		void _mark_req_failed(bool &, Error_string);
 
 		void _mark_req_successful(bool &);
-
-		void _reset(State, bool &);
 
 	public:
 

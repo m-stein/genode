@@ -11,10 +11,6 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-/* base includes */
-#include <base/log.h>
-#include <util/construct_at.h>
-
 /* tresor includes */
 #include <tresor/crypto.h>
 #include <tresor/client_data.h>
@@ -308,7 +304,7 @@ void Crypto::execute(bool &progress)
 
 Crypto_channel::Crypto_channel(Module_channel_id id, Vfs::Env &vfs_env, Xml_node const &xml_node)
 :
-	Module_channel { CRYPTO, id }, _vfs_env { vfs_env }, _path { xml_node.attribute_value("path", Path()) }
+	Module_channel { CRYPTO, id }, _vfs_env { vfs_env }, _path { xml_node.attribute_value("path", Tresor::Path()) }
 { }
 
 

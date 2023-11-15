@@ -11,9 +11,6 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-/* base includes */
-#include <base/log.h>
-
 /* tresor includes */
 #include <tresor/trust_anchor.h>
 
