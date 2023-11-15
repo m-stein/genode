@@ -52,15 +52,16 @@ class Tresor::File
 
 		enum State { IDLE, READ_QUEUED, READ_INITIALIZED, WRITE_INITIALIZED, WRITE_OFFSET_APPLIED };
 
+		Vfs::Env &_env;
 		HOST_STATE &_host_state;
 		State _state { IDLE };
 		Vfs::Vfs_handle &_handle;
 		Vfs::file_size _num_processed_bytes { 0 };
 
-		static Vfs::Vfs_handle &_open(Vfs::Env &env, Tresor::Path path, Vfs::Directory_service::Open_mode mode)
+		Vfs::Vfs_handle &_open(Tresor::Path path, Vfs::Directory_service::Open_mode mode)
 		{
 			Vfs::Vfs_handle *handle { nullptr };
-			Open_result result { env.root_dir().open(path.string(), mode, &handle, env.alloc()) };
+			Open_result result { _env.root_dir().open(path.string(), mode, &handle, _env.alloc()) };
 			if (result != Open_result::OPEN_OK) {
 				error("failed to open file ", path.string());
 				class Failed { };
@@ -74,9 +75,13 @@ class Tresor::File
 		File(HOST_STATE &host_state, Vfs::Vfs_handle &handle) : _host_state { host_state }, _handle { handle } { }
 
 		File(HOST_STATE &host_state, Vfs::Env &env, Tresor::Path path, Vfs::Directory_service::Open_mode mode)
-		: _host_state { host_state }, _handle { _open(env, path, mode) } { }
+		: _env { env }, _host_state { host_state }, _handle { _open(path, mode) } { }
 
-		~File() { ASSERT(_state == IDLE); }
+		~File()
+		{
+			ASSERT(_state == IDLE);
+			_env.root_dir().close(&_handle);
+		}
 
 		void read(HOST_STATE succeeded, HOST_STATE failed, Vfs::file_offset off, Byte_range_ptr dst, bool &progress)
 		{

@@ -69,31 +69,18 @@ class Tresor::Crypto_channel : public Module_channel
 		using Read_result = Vfs::File_io_service::Read_result;
 
 		enum State {
-			SUBMITTED, COMPLETE, OBTAIN_PLAINTEXT_BLK_COMPLETE, SUPPLY_PLAINTEXT_BLK_COMPLETE,
-			OP_WRITTEN_TO_VFS_HANDLE, QUEUE_READ_SUCCEEDED, REQ_GENERATED, READ, READ_OK, FILE_ERR, WRITE, WRITE_OK };
+			REQ_SUBMITTED, REQ_COMPLETE, PLAINTEXT_BLK_OBTAINED, PLAINTEXT_BLK_SUPPLIED, REQ_GENERATED, READ_OK, WRITE_OK, FILE_ERR };
 
 		struct Key_directory
 		{
-			Vfs::Env &env;
+			Crypto_channel &chan;
 			Key_id key_id;
-			Vfs::Vfs_handle *encrypt_handle;
-			Vfs::Vfs_handle *decrypt_handle;
+			Read_write_file<State> encrypt_file { chan._state, chan._vfs_env, { chan._path, "/keys/", key_id, "/encrypt" } };
+			Read_write_file<State> decrypt_file { chan._state, chan._vfs_env, { chan._path, "/keys/", key_id, "/decrypt" } };
 
 			NONCOPYABLE(Key_directory);
 
-			Key_directory(Vfs::Env &env, Tresor::Path path, Key_id key_id)
-			:
-				env { env },
-				key_id { key_id },
-				encrypt_handle { &vfs_open_rw(env, { path, "/keys/", key_id, "/encrypt" }) },
-				decrypt_handle { &vfs_open_rw(env, { path, "/keys/", key_id, "/decrypt" }) }
-			{ }
-
-			~Key_directory()
-			{
-				env.root_dir().close(encrypt_handle);
-				env.root_dir().close(decrypt_handle);
-			}
+			Key_directory(Crypto_channel &chan, Key_id key_id) : chan { chan }, key_id { key_id } { }
 		};
 
 		Vfs::Env &_vfs_env;
@@ -102,12 +89,10 @@ class Tresor::Crypto_channel : public Module_channel
 		Write_only_file<State> _add_key_file { _state, _vfs_env, { _path, "/add_key" } };
 		Write_only_file<State> _remove_key_file { _state, _vfs_env, { _path, "/remove_key" } };
 		Constructible<Key_directory> _key_dirs[2] { };
-		State _state { COMPLETE };
+		State _state { REQ_COMPLETE };
 		bool _generated_req_success { false };
-		Vfs::Vfs_handle *_vfs_handle { nullptr };
-		Constructible<Tresor::File<State> > _file { };
 		Block _blk { };
-		Crypto_request *_req_ptr { };
+		Request *_req_ptr { };
 
 		NONCOPYABLE(Crypto_channel);
 
@@ -115,7 +100,7 @@ class Tresor::Crypto_channel : public Module_channel
 
 		void _request_submitted(Module_request &) override;
 
-		bool _request_complete() override { return _state == COMPLETE; }
+		bool _request_complete() override { return _state == REQ_COMPLETE; }
 
 		template <typename REQUEST, typename... ARGS>
 		void _generate_req(State_uint state, bool &progress, ARGS &&... args)
@@ -140,7 +125,7 @@ class Tresor::Crypto_channel : public Module_channel
 
 		void _mark_req_successful(bool &);
 
-		Constructible<Key_directory> &_lookup_key_dir(Key_id key_id);
+		Constructible<Key_directory> &_key_dir(Key_id key_id);
 
 	public:
 

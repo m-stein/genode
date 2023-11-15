@@ -67,7 +67,7 @@ void Crypto_channel::_generated_req_completed(State_uint state_uint)
 	if (!_generated_req_success) {
 		error("crypto: request (", *_req_ptr, ") failed because generated request failed)");
 		_req_ptr->_success = false;
-		_state = COMPLETE;
+		_state = REQ_COMPLETE;
 		_req_ptr = nullptr;
 		return;
 	}
@@ -75,7 +75,7 @@ void Crypto_channel::_generated_req_completed(State_uint state_uint)
 }
 
 
-Constructible<Crypto_channel::Key_directory> &Crypto_channel::_lookup_key_dir(Key_id key_id)
+Constructible<Crypto_channel::Key_directory> &Crypto_channel::_key_dir(Key_id key_id)
 {
 	for (Constructible<Key_directory> &key_dir : _key_dirs)
 		if (key_dir.constructed() && key_dir->key_id == key_id)
@@ -88,7 +88,7 @@ void Crypto_channel::_mark_req_failed(bool &progress, char const *str)
 {
 	error("crypto: request (", *_req_ptr, ") failed at step \"", str, "\"");
 	_req_ptr->_success = false;
-	_state = COMPLETE;
+	_state = REQ_COMPLETE;
 	_req_ptr = nullptr;
 	progress = true;
 }
@@ -98,7 +98,7 @@ void Crypto_channel::_mark_req_successful(bool &progress)
 {
 	Request &req { *_req_ptr };
 	req._success = true;
-	_state = COMPLETE;
+	_state = REQ_COMPLETE;
 	_req_ptr = nullptr;
 	progress = true;
 	if (VERBOSE_WRITE_VBA && req._type == Request::ENCRYPT_CLIENT_DATA)
@@ -126,7 +126,7 @@ void Crypto_channel::_add_key(bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
-	case SUBMITTED:
+	case REQ_SUBMITTED:
 
 		memcpy(_add_key_buf, &req._key_id, sizeof(Key_id));
 		memcpy(_add_key_buf + sizeof(Key_id), &req._key_plaintext, KEY_SIZE);
@@ -143,7 +143,7 @@ void Crypto_channel::_add_key(bool &progress)
 			_mark_req_failed(progress, "find unused key dir");
 			break;
 		}
-		key_dir_ptr->construct(_vfs_env, _path, req._key_id);
+		key_dir_ptr->construct(*this, req._key_id);
 		_mark_req_successful(progress);
 		break;
 	}
@@ -157,10 +157,10 @@ void Crypto_channel::_remove_key(bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
-	case SUBMITTED: _remove_key_file.write(WRITE_OK, FILE_ERR, 0, { (char *)&req._key_id, sizeof(Key_id) }, progress); break;
+	case REQ_SUBMITTED: _remove_key_file.write(WRITE_OK, FILE_ERR, 0, { (char *)&req._key_id, sizeof(Key_id) }, progress); break;
 	case WRITE_OK:
 
-		_lookup_key_dir(req._key_id).destruct();
+		_key_dir(req._key_id).destruct();
 		_mark_req_successful(progress);
 		break;
 
@@ -174,49 +174,28 @@ void Crypto_channel::_encrypt_client_data(bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
-	case SUBMITTED:
+	case REQ_SUBMITTED:
 
 		_generate_req<Client_data_request>(
-			OBTAIN_PLAINTEXT_BLK_COMPLETE, progress, Client_data_request::OBTAIN_PLAINTEXT_BLK,
+			PLAINTEXT_BLK_OBTAINED, progress, Client_data_request::OBTAIN_PLAINTEXT_BLK,
 			req._client_req_offset, req._client_req_tag, req._pba, req._vba, _blk);;
-		return;
+		break;
 
-	case OBTAIN_PLAINTEXT_BLK_COMPLETE:
-	{
-		_vfs_handle = _lookup_key_dir(req._key_id)->encrypt_handle;
-		_vfs_handle->seek(req._pba * BLOCK_SIZE);
-		size_t nr_of_written_bytes { 0 };
-		Const_byte_range_ptr dst { (char *)&_blk, BLOCK_SIZE };
-		_vfs_handle->fs().write(_vfs_handle, dst, nr_of_written_bytes);
-		_state = OP_WRITTEN_TO_VFS_HANDLE;
-		progress = true;
-		return;
-	}
-	case OP_WRITTEN_TO_VFS_HANDLE:
-	{
-		_vfs_handle->seek(req._pba * BLOCK_SIZE);
-		if (!_vfs_handle->fs().queue_read(_vfs_handle, BLOCK_SIZE))
-			return;
+	case PLAINTEXT_BLK_OBTAINED:
 
-		_state = QUEUE_READ_SUCCEEDED;
-		progress = true;
-		return;
-	}
-	case QUEUE_READ_SUCCEEDED:
-	{
-		size_t nr_of_read_bytes { 0 };
-		Byte_range_ptr dst { (char *)&req._blk, BLOCK_SIZE };
-		switch (_vfs_handle->fs().complete_read(_vfs_handle, dst, nr_of_read_bytes)) {
-		case Read_result::READ_OK: _mark_req_successful(progress); return;
-		case Read_result::READ_QUEUED:
-		case Read_result::READ_ERR_WOULD_BLOCK: return;
-		case Read_result::READ_ERR_IO:
-		case Read_result::READ_ERR_INVALID: _mark_req_failed(progress, "read ciphertext data"); return;
-		}
-	}
-	default:
+		_key_dir(req._key_id)->encrypt_file.write(
+			WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress);
+		break;
 
-		return;
+	case WRITE_OK:
+
+		_key_dir(req._key_id)->encrypt_file.read(
+			READ_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress);
+		break;
+
+	case READ_OK: _mark_req_successful(progress); break;
+	case FILE_ERR: _mark_req_failed(progress, "file operation"); break;
+	default: break;
 	}
 }
 
@@ -225,42 +204,21 @@ void Crypto_channel::_encrypt(bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
-	case SUBMITTED:
-	{
-		_vfs_handle = _lookup_key_dir(req._key_id)->encrypt_handle;
-		_vfs_handle->seek(req._pba * BLOCK_SIZE);
-		size_t nr_of_written_bytes { 0 };
-		Const_byte_range_ptr src { (char *)&req._blk, BLOCK_SIZE };
-		_vfs_handle->fs().write(_vfs_handle, src, nr_of_written_bytes);
-		_state = OP_WRITTEN_TO_VFS_HANDLE;
-		progress = true;
-		return;
-	}
-	case OP_WRITTEN_TO_VFS_HANDLE:
+	case REQ_SUBMITTED:
 
-		_vfs_handle->seek(req._pba * BLOCK_SIZE);
-		if (!_vfs_handle->fs().queue_read(_vfs_handle, BLOCK_SIZE))
-			return;
+		_key_dir(req._key_id)->encrypt_file.write(
+			WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress);
+		break;
 
-		_state = QUEUE_READ_SUCCEEDED;
-		progress = true;
-		return;
+	case WRITE_OK:
 
-	case QUEUE_READ_SUCCEEDED:
-	{
-		size_t nr_of_read_bytes { 0 };
-		Byte_range_ptr dst { (char *)&req._blk, BLOCK_SIZE };
-		switch (_vfs_handle->fs().complete_read(_vfs_handle, dst, nr_of_read_bytes)) {
-		case Read_result::READ_OK: _mark_req_successful(progress); return;
-		case Read_result::READ_QUEUED:
-		case Read_result::READ_ERR_WOULD_BLOCK: return;
-		case Read_result::READ_ERR_IO:
-		case Read_result::READ_ERR_INVALID: _mark_req_failed(progress, "read ciphertext data"); return;
-		}
-	}
-	default:
+		_key_dir(req._key_id)->encrypt_file.read(
+			READ_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress);
+		break;
 
-		return;
+	case READ_OK: _mark_req_successful(progress); break;
+	case FILE_ERR: _mark_req_failed(progress, "file operation"); break;
+	default: break;
 	}
 }
 
@@ -269,15 +227,18 @@ void Crypto_channel::_decrypt(bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
-	case SUBMITTED:
+	case REQ_SUBMITTED:
 
-		_file.construct(_state, *_lookup_key_dir(req._key_id)->decrypt_handle);
-		_state = WRITE;
-		progress = true;
+		_key_dir(req._key_id)->decrypt_file.write(
+			WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress);
 		break;
 
-	case WRITE: _file->write(WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress); break;
-	case WRITE_OK: _file->read(READ_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress); break;
+	case WRITE_OK:
+
+		_key_dir(req._key_id)->decrypt_file.read(
+			READ_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress);
+		break;
+
 	case READ_OK: _mark_req_successful(progress); break;
 	case FILE_ERR: _mark_req_failed(progress, "file operation"); break;
 	default: break;
@@ -289,24 +250,27 @@ void Crypto_channel::_decrypt_client_data(bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
-	case SUBMITTED:
+	case REQ_SUBMITTED:
 
-		_file.construct(_state, *_lookup_key_dir(req._key_id)->decrypt_handle);
-		_state = WRITE;
-		progress = true;
+		_key_dir(req._key_id)->decrypt_file.write(
+			WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress);
 		break;
 
-	case WRITE: _file->write(WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress); break;
-	case WRITE_OK: _file->read(READ_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress); break;
+	case WRITE_OK:
+
+		_key_dir(req._key_id)->decrypt_file.read(
+			READ_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress);
+		break;
+
 	case READ_OK:
 
 		_generate_req<Client_data_request>(
-			SUPPLY_PLAINTEXT_BLK_COMPLETE, progress, Client_data_request::SUPPLY_PLAINTEXT_BLK,
+			PLAINTEXT_BLK_SUPPLIED, progress, Client_data_request::SUPPLY_PLAINTEXT_BLK,
 			req._client_req_offset, req._client_req_tag, req._pba, req._vba, _blk);;
 		break;
 
+	case PLAINTEXT_BLK_SUPPLIED: _mark_req_successful(progress); break;
 	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
-	case SUPPLY_PLAINTEXT_BLK_COMPLETE: _mark_req_successful(progress); break;
 	default: break;
 	}
 }
@@ -315,7 +279,7 @@ void Crypto_channel::_decrypt_client_data(bool &progress)
 void Crypto_channel::_request_submitted(Module_request &mod_req)
 {
 	_req_ptr = static_cast<Request *>(&mod_req);
-	_state = SUBMITTED;
+	_state = REQ_SUBMITTED;
 }
 
 
