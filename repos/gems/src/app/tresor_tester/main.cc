@@ -837,12 +837,11 @@ void Tresor_tester::Command::execute(bool &progress)
 }
 
 
+void Component::construct(Genode::Env &env) { static Tresor_tester::Main main(env); }
+
+
 namespace Libc {
 
 	struct Env;
-
 	struct Component { void construct(Libc::Env &) { } };
 }
-
-
-void Component::construct(Genode::Env &env) { static Tresor_tester::Main main(env); }

@@ -46,25 +46,17 @@ class Tresor_init::Configuration
 
 		Configuration (Xml_node const &node)
 		{
-			node.with_optional_sub_node("virtual-block-device",
-			                   [&] (Xml_node const &vbd)
+			node.with_optional_sub_node("virtual-block-device", [&] (Xml_node const &vbd)
 			{
-				_vbd_nr_of_lvls =
-					vbd.attribute_value("nr_of_levels", (uint64_t)0);
-				_vbd_nr_of_children =
-					vbd.attribute_value("nr_of_children", (uint64_t)0);
-				_vbd_nr_of_leafs =
-					vbd.attribute_value("nr_of_leafs", (uint64_t)0);
+				_vbd_nr_of_lvls = vbd.attribute_value("nr_of_levels", (uint64_t)0);
+				_vbd_nr_of_children = vbd.attribute_value("nr_of_children", (uint64_t)0);
+				_vbd_nr_of_leafs = vbd.attribute_value("nr_of_leafs", (uint64_t)0);
 			});
-			node.with_optional_sub_node("free-tree",
-			                   [&] (Xml_node const &ft)
+			node.with_optional_sub_node("free-tree", [&] (Xml_node const &ft)
 			{
-				_ft_nr_of_lvls =
-					ft.attribute_value("nr_of_levels", (uint64_t)0);
-				_ft_nr_of_children =
-					ft.attribute_value("nr_of_children", (uint64_t)0);
-				_ft_nr_of_leafs =
-					ft.attribute_value("nr_of_leafs", (uint64_t)0);
+				_ft_nr_of_lvls = ft.attribute_value("nr_of_levels", (uint64_t)0);
+				_ft_nr_of_children = ft.attribute_value("nr_of_children", (uint64_t)0);
+				_ft_nr_of_leafs = ft.attribute_value("nr_of_leafs", (uint64_t)0);
 			});
 			ASSERT(_vbd_nr_of_lvls);
 			ASSERT(_vbd_nr_of_lvls <= TREE_MAX_NR_OF_LEVELS);
@@ -95,17 +87,6 @@ class Tresor_init::Configuration
 		uint64_t ft_nr_of_lvls      () const { return _ft_nr_of_lvls     ; }
 		uint64_t ft_nr_of_children  () const { return _ft_nr_of_children ; }
 		uint64_t ft_nr_of_leafs     () const { return _ft_nr_of_leafs    ; }
-
-		void print(Output &out) const
-		{
-			Genode::print(out,
-				"vbd=(lvls=", _vbd_nr_of_lvls,
-				" children=", _vbd_nr_of_children,
-				" leafs=",    _vbd_nr_of_leafs, ")",
-				" ft=(lvls=", _ft_nr_of_lvls,
-				" children=", _ft_nr_of_children,
-				" leafs=",    _ft_nr_of_leafs, ")");
-		}
 };
 
 #endif /* _TRESOR_INIT__CONFIGURATION_H_ */

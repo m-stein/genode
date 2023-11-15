@@ -16,18 +16,14 @@
 #include <base/attached_rom_dataspace.h>
 #include <base/component.h>
 #include <base/heap.h>
-#include <block_session/connection.h>
-#include <os/path.h>
-#include <vfs/dir_file_system.h>
-#include <vfs/file_system_factory.h>
 #include <vfs/simple_env.h>
 
 /* tresor includes */
 #include <tresor/block_io.h>
 #include <tresor/crypto.h>
+#include <tresor/trust_anchor.h>
 #include <tresor/ft_initializer.h>
 #include <tresor/sb_initializer.h>
-#include <tresor/trust_anchor.h>
 #include <tresor/vbd_initializer.h>
 
 /* tresor init includes */
@@ -36,7 +32,9 @@
 using namespace Genode;
 using namespace Tresor;
 
-class Main : private Vfs::Env::User, private Tresor::Module_composition, public  Tresor::Module, public Module_channel
+namespace Tresor_init { class Main; }
+
+class Tresor_init::Main : private Vfs::Env::User, private Tresor::Module_composition, public  Tresor::Module, public Module_channel
 {
 	private:
 
@@ -46,9 +44,8 @@ class Main : private Vfs::Env::User, private Tresor::Module_composition, public 
 		Heap  _heap { _env.ram(), _env.rm() };
 		Attached_rom_dataspace _config_rom { _env, "config" };
 		Vfs::Simple_env _vfs_env { _env, _heap, _config_rom.xml().sub_node("vfs"), *this };
-		Vfs::File_system &_vfs { _vfs_env.root_dir() };
 		Signal_handler<Main> _sigh { _env.ep(), *this, &Main::_handle_signal };
-		Constructible<Tresor_init::Configuration> _cfg { };
+		Constructible<Configuration> _cfg { };
 		Trust_anchor _trust_anchor { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
 		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto") };
 		Block_io _block_io { _vfs_env, _config_rom.xml().sub_node("block-io") };
@@ -119,20 +116,10 @@ class Main : private Vfs::Env::User, private Tresor::Module_composition, public 
 		}
 };
 
+void Component::construct(Genode::Env &env) { static Tresor_init::Main main { env }; }
 
-void Component::construct(Genode::Env &env) { static Main main { env }; }
-
-
-/*
- * XXX Needed for linking libcrypto because it depends on the libc but does not
- *     need to be executed.
- */
 namespace Libc {
 
 	struct Env;
-
-	struct Component
-	{
-		void construct(Libc::Env &) { }
-	};
+	struct Component { void construct(Libc::Env &) { } };
 }
