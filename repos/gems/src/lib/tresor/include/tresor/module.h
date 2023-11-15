@@ -15,14 +15,12 @@
 #define _TRESOR__MODULE_H_
 
 /* base includes */
-#include <util/string.h>
 #include <util/avl_tree.h>
 
 /* tresor includes */
 #include <tresor/verbosity.h>
 #include <tresor/noncopyable.h>
 #include <tresor/assertion.h>
-#include <tresor/construct_in_buf.h>
 
 namespace Tresor {
 
@@ -51,33 +49,27 @@ class Tresor::Module_request : public Interface
 {
 	private:
 
-		Module_id _src_module_id { INVALID_MODULE_ID };
-		Module_channel_id _src_chan_id { INVALID_MODULE_CHANNEL_ID };
-		Module_id _dst_module_id { INVALID_MODULE_ID };
+		Module_id _src_module_id;
+		Module_channel_id _src_chan_id;
+		Module_id _dst_module_id;
 		Module_channel_id _dst_chan_id { INVALID_MODULE_CHANNEL_ID };
 
 		NONCOPYABLE(Module_request);
 
 	public:
 
-		Module_request() { }
-
 		Module_request(Module_id, Module_channel_id, Module_id);
 
 		void dst_chan_id(Module_channel_id id) { _dst_chan_id = id; }
-
-		String<32> src_chan_id_str() const;
-
-		String<32> dst_chan_id_str() const;
-
-		virtual void print(Output &) const = 0;
-
-		virtual ~Module_request() { }
 
 		Module_id src_module_id() const { return _src_module_id; }
 		Module_channel_id src_chan_id() const { return _src_chan_id; }
 		Module_id dst_module_id() const { return _dst_module_id; }
 		Module_channel_id dst_chan_id() const { return _dst_chan_id; }
+
+		virtual void print(Output &) const = 0;
+
+		virtual ~Module_request() { }
 };
 
 
@@ -95,38 +87,16 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 
 		enum { GEN_REQ_BUF_SIZE = 4000 };
 
-		enum Generated_request_state { NONE = 0, PENDING = 1, IN_PROGRESS = 2 };
+		enum Generated_request_state { NONE, PENDING, IN_PROGRESS };
 
 		Module_request *_req_ptr { nullptr };
-		Module_id _module_id { INVALID_MODULE_ID };
-		Module_channel_id _id { INVALID_MODULE_CHANNEL_ID };
+		Module_id _module_id;
+		Module_channel_id _id;
 		Generated_request_state _gen_req_state { NONE };
 		uint8_t _gen_req_buf[GEN_REQ_BUF_SIZE] { };
 		State_uint _gen_req_complete_state { 0 };
 
 		NONCOPYABLE(Module_channel);
-
-		template <typename CHAN, typename FUNC>
-		void _with_channel(Module_channel_id id, FUNC && func)
-		{
-			if (id != _id) {
-				Module_channel *chan_ptr { Avl_node<Module_channel>::child(id > _id) };
-				ASSERT(chan_ptr);
-				chan_ptr->_with_channel<CHAN>(id, func);
-			} else
-				func(*static_cast<CHAN *>(this));
-		}
-
-		bool _try_submit_request(Module_request &req)
-		{
-			if (_req_ptr)
-				return false;
-
-			req.dst_chan_id(_id);
-			_req_ptr = &req;
-			_request_submitted(req);
-			return true;
-		}
 
 		bool higher(Module_channel *ptr) { return ptr->_id > _id; }
 
@@ -151,6 +121,21 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 			progress = true;
 		}
 
+		template <typename CHAN, typename FUNC>
+		void with_channel(Module_channel_id id, FUNC && func)
+		{
+			if (id != _id) {
+				Module_channel *chan_ptr { Avl_node<Module_channel>::child(id > _id) };
+				ASSERT(chan_ptr);
+				chan_ptr->with_channel<CHAN>(id, func);
+			} else
+				func(*static_cast<CHAN *>(this));
+		}
+
+		void generated_req_completed();
+
+		bool try_submit_request(Module_request &);
+
 		Module_channel_id id() const { return _id; }
 
 		virtual ~Module_channel() { }
@@ -159,8 +144,6 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 
 class Tresor::Module : public Interface
 {
-	friend class Module_channel;
-
 	private:
 
 		Avl_tree<Module_channel> _channels { };
@@ -169,15 +152,11 @@ class Tresor::Module : public Interface
 
 	public:
 
-		enum Handle_request_result { REQUEST_HANDLED, REQUEST_NOT_HANDLED };
-
-		typedef Handle_request_result (*Handle_request_function)(Module_request &req);
-
 		template <typename CHAN = Module_channel, typename FUNC>
 		void with_channel(Module_channel_id id, FUNC && func)
 		{
 			ASSERT(_channels.first());
-			_channels.first()->_with_channel<CHAN>(id, func);
+			_channels.first()->with_channel<CHAN>(id, func);
 		}
 
 		template <typename CHAN = Module_channel, typename FUNC>
@@ -185,19 +164,6 @@ class Tresor::Module : public Interface
 		{
 			_channels.for_each([&] (Module_channel const &const_chan) {
 				func(*static_cast<CHAN *>(const_cast<Module_channel *>(&const_chan))); });
-		}
-
-		bool try_submit_request(Module_request &req)
-		{
-			bool success { false };
-			for_each_channel([&] (Module_channel &chan) {
-				if (success)
-					return;
-
-				if (chan._try_submit_request(req))
-					success = true;
-			});
-			return success;
 		}
 
 		template <typename FUNC>
@@ -208,34 +174,11 @@ class Tresor::Module : public Interface
 					return;
 
 				Module_request &req = *(Module_request *)chan._gen_req_buf;
-				switch (handle_request(req)) {
-				case Module::REQUEST_HANDLED:
-
+				if (handle_request(req)) {
 					chan._gen_req_state = Module_channel::IN_PROGRESS;
 					return;
-
-				case Module::REQUEST_NOT_HANDLED: return;
 				}
 			});
-		}
-
-		bool new_generated_request_complete(Module_request &req)
-		{
-			bool result { false };
-			if (!_channels.first())
-				return result;
-
-			Module_channel_id const chan_id { req.src_chan_id() };
-			with_channel(chan_id, [&] (Module_channel &chan) {
-				if (chan._gen_req_state == Module_channel::NONE)
-					return;
-
-				ASSERT(chan._gen_req_state == Module_channel::IN_PROGRESS);
-				chan._gen_req_state = Module_channel::NONE;
-				chan._generated_req_completed(chan._gen_req_complete_state);
-				result = true;
-			});
-			return result;
 		}
 
 		template <typename FUNC>
@@ -249,6 +192,8 @@ class Tresor::Module : public Interface
 			});
 			return;
 		}
+
+		bool try_submit_request(Module_request &);
 
 		void add_channel(Module_channel &chan) { _channels.insert(&chan); }
 
@@ -268,64 +213,11 @@ class Tresor::Module_composition
 
 	public:
 
-		void add_module(Module_id module_id, Module &mod)
-		{
-			ASSERT(module_id <= MAX_MODULE_ID);
-			ASSERT(!_module_ptrs[module_id]);
-			_module_ptrs[module_id] = &mod;
-		}
+		void add_module(Module_id module_id, Module &mod);
 
-		void remove_module(Module_id module_id)
-		{
-			ASSERT(module_id <= MAX_MODULE_ID);
-			ASSERT(_module_ptrs[module_id]);
-			_module_ptrs[module_id] = nullptr;
-		}
+		void remove_module(Module_id module_id);
 
-		void execute_modules()
-		{
-			bool progress { true };
-			while (progress) {
-
-				progress = false;
-				for (Module_id id { 0 }; id <= MAX_MODULE_ID; id++) {
-					if (!_module_ptrs[id])
-						continue;
-
-					Module *module_ptr { _module_ptrs[id] };
-					module_ptr->execute(progress);
-					module_ptr->for_each_generated_request([&] (Module_request &req) {
-						ASSERT(req.dst_module_id() <= MAX_MODULE_ID);
-						ASSERT(_module_ptrs[req.dst_module_id()]);
-						Module &dst_module { *_module_ptrs[req.dst_module_id()] };
-						if (dst_module.try_submit_request(req)) {
-							if (VERBOSE_MODULE_COMMUNICATION)
-								log(module_name(id), " ", req.src_chan_id_str(), " --", req, "--> ",
-								    module_name(req.dst_module_id()), " ", req.dst_chan_id_str());
-
-							progress = true;
-							return Module::REQUEST_HANDLED;
-						}
-						if (VERBOSE_MODULE_COMMUNICATION)
-							log(module_name(id), " ", req.src_chan_id_str(), " --", req, "-| ", module_name(req.dst_module_id()));
-
-						return Module::REQUEST_NOT_HANDLED;
-					});
-					module_ptr->for_each_completed_request([&] (Module_request &req) {
-						ASSERT(req.src_module_id() <= MAX_MODULE_ID);
-						if (VERBOSE_MODULE_COMMUNICATION)
-							log(module_name(req.src_module_id()), " ", req.src_chan_id_str(), " <--", req,
-							    "-- ", module_name(id), " ", req.dst_chan_id_str());
-
-						Module &src_module { *_module_ptrs[req.src_module_id()] };
-						if (!src_module.new_generated_request_complete(req))
-							ASSERT_NEVER_REACHED;
-
-						progress = true;
-					});
-				}
-			};
-		}
+		void execute_modules();
 };
 
 #endif /* _TRESOR__MODULE_H_ */
