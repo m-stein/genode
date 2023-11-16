@@ -3,7 +3,7 @@ drivers: pc
 ram_fs: depot
 
 # selection of launcher-menu entries
-launcher: file_vault_23_04 file_vault fvm_tool fv2304_shell fv_shell
+launcher: file_vault
 deploy: fvm_tool
 
 # supplemental depot content added to the system image
