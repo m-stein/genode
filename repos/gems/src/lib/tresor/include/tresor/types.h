@@ -533,7 +533,7 @@ struct Tresor::Type_1_node_block
 
 struct Tresor::Type_1_node_block_walk
 {
-	Type_1_node_block items[TREE_MAX_LEVEL] { };
+	Type_1_node_block items[TREE_MAX_NR_OF_LEVELS] { };
 };
 
 
