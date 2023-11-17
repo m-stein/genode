@@ -43,10 +43,11 @@ char const *Tresor::module_name(Module_id id)
 	case SB_CHECK: return "sb_check";
 	case VBD_CHECK: return "vbd_check";
 	case FT_CHECK: return "ft_check";
+	case SPLITTER: return "splitter";
 	case REQUEST_POOL: return "request_pool";
 	default: break;
 	}
-	return "?";
+	ASSERT_NEVER_REACHED;
 }
 
 
