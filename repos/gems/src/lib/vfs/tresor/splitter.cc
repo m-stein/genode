@@ -199,7 +199,7 @@ void Tresor::Splitter_channel::_generated_req_completed(State_uint state_uint)
 		return;
 	}
 
-	_vba   = _offset / Tresor::BLOCK_SIZE;
+	_vba   = offset / Tresor::BLOCK_SIZE;
 	_count = (uint32_t)left / Tresor::BLOCK_SIZE;
 
 	bool const uneven = (left % Tresor::BLOCK_SIZE) != 0;
