@@ -153,6 +153,8 @@ class Tresor::Splitter_channel : public Tresor::Module_channel
 		/* used temporarily for lopsided requests */
 		Tresor::Block _block_data  { };
 
+		void _prepare_handling_of_next_offset(uint64_t, size_t);
+
 		void _reset()
 		{
 			state(Splitter_channel::IDLE);

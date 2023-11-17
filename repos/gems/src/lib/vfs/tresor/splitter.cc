@@ -185,12 +185,20 @@ void Tresor::Splitter_channel::_generated_req_completed(State_uint state_uint)
 		state(State::COMPLETE);
 		return;
 	}
+	_prepare_handling_of_next_offset(req._offset + _offset, req._buffer_num_bytes - _total_bytes);
+}
 
-	/* XXX consolidate below with _request_submitted */
 
-	Genode::uint64_t const offset = req._offset + _offset;
-	size_t const left = req._buffer_num_bytes - _total_bytes;
-
+void Tresor::Splitter_channel::_prepare_handling_of_next_offset(uint64_t offset, size_t num_bytes)
+{
+	/*
+	 * Prepare the request depending on the given characteristics,
+	 * e.g, if it is unaligned and/or uneven.
+	 *
+	 * Requests that do not start at a BLOCK_SIZE boundary are handled
+	 * first where the unaligned bytes from the containing block will be
+	 * read and mixed with the buffer.
+	 */
 	bool const unaligned = (offset % Tresor::BLOCK_SIZE) != 0;
 	if (unaligned) {
 		_vba = offset / Tresor::BLOCK_SIZE;
@@ -200,9 +208,9 @@ void Tresor::Splitter_channel::_generated_req_completed(State_uint state_uint)
 	}
 
 	_vba   = offset / Tresor::BLOCK_SIZE;
-	_count = (uint32_t)left / Tresor::BLOCK_SIZE;
+	_count = (uint32_t)num_bytes / Tresor::BLOCK_SIZE;
 
-	bool const uneven = (left % Tresor::BLOCK_SIZE) != 0;
+	bool const uneven = (num_bytes % Tresor::BLOCK_SIZE) != 0;
 	if (!_count && uneven) {
 		_count = 1;
 		state(Splitter_channel::POST_REQUEST_PENDING);
@@ -216,39 +224,9 @@ void Tresor::Splitter_channel::_generated_req_completed(State_uint state_uint)
 void Tresor::Splitter_channel::_request_submitted(Module_request &module_req)
 {
 	_reset();
-
 	_req_ptr = static_cast<Splitter_request*>(&module_req);
-
 	Splitter_request &req = *_req_ptr;
-
-
-	/*
-	 * Prepare the request depending on the given characteristics,
-	 * e.g, if it is unaligned and/or uneven.
-	 *
-	 * Requests that do not start at a BLOCK_SIZE boundary are handled
-	 * first where the unaligned bytes from the containing block will be
-	 * read and mixed with the buffer.
-	 */
-	bool const unaligned = (req._offset % Tresor::BLOCK_SIZE) != 0;
-	if (unaligned) {
-		_vba = req._offset / Tresor::BLOCK_SIZE;
-
-		state(Splitter_channel::PRE_REQUEST_PENDING);
-		return;
-	}
-
-	_vba   = req._offset / Tresor::BLOCK_SIZE;
-	_count = (uint32_t)req._buffer_num_bytes / Tresor::BLOCK_SIZE;
-
-	bool const uneven = (req._buffer_num_bytes % Tresor::BLOCK_SIZE) != 0;
-	if (!_count && uneven) {
-		_count = 1;
-		state(Splitter_channel::POST_REQUEST_PENDING);
-		return;
-	}
-
-	state(Splitter_channel::PENDING);
+	_prepare_handling_of_next_offset(req._offset, req._buffer_num_bytes);
 }
 
 
