@@ -30,6 +30,7 @@
 #include <tresor/superblock_control.h>
 #include <tresor/trust_anchor.h>
 #include <tresor/virtual_block_device.h>
+#include <openssl/sha.h>
 
 
 namespace Vfs_tresor {
@@ -238,7 +239,7 @@ class Vfs_tresor::Wrapper
 
 			Virtual_block_address max_vba;
 			Virtual_block_address rekeying_vba;
-			uint64_t percent_done;
+			Genode::uint64_t percent_done;
 
 			bool idle()        const { return state == IDLE; }
 			bool in_progress() const { return state == IN_PROGRESS; }
@@ -286,7 +287,7 @@ class Vfs_tresor::Wrapper
 			Result last_result;
 
 			Virtual_block_address resizing_nr_of_pbas;
-			uint64_t percent_done;
+			Genode::uint64_t percent_done;
 
 			bool idle()        const { return state == IDLE; }
 			bool in_progress() const { return state == IN_PROGRESS; }
@@ -573,7 +574,7 @@ class Vfs_tresor::Wrapper
 							Tresor::Request::Operation::WRITE,
 							false,
 							_helper_read_request.tresor_request.block_number(),
-							(uint64_t) &_helper_write_request.block_data,
+							(Genode::uint64_t) &_helper_write_request.block_data,
 							_helper_read_request.tresor_request.count(),
 							_helper_read_request.tresor_request.key_id(),
 							_helper_read_request.tresor_request.tag(),
@@ -873,8 +874,8 @@ class Vfs_tresor::Wrapper
 			size_t           count          { 0 };
 			Tresor::Request  tresor_request { };
 			void            *data           { nullptr };
-			uint64_t         offset         { 0 };
-			uint64_t         helper_offset  { 0 };
+			Genode::uint64_t         offset         { 0 };
+			Genode::uint64_t         helper_offset  { 0 };
 
 			bool pending()     const { return state == PENDING; }
 			bool in_progress() const { return state == IN_PROGRESS; }
@@ -894,9 +895,9 @@ class Vfs_tresor::Wrapper
 			}
 		};
 
-		uint64_t _next_client_request_tag()
+		Genode::uint64_t _next_client_request_tag()
 		{
-			static uint64_t _client_request_tag { 0 };
+			static Genode::uint64_t _client_request_tag { 0 };
 			return _client_request_tag++;
 		}
 
@@ -943,7 +944,7 @@ class Vfs_tresor::Wrapper
 				return false;
 			}
 
-			uint64_t const tag = _next_client_request_tag();
+			Genode::uint64_t const tag = _next_client_request_tag();
 
 			/* short-cut for SYNC requests */
 			if (op == Tresor::Request::Operation::SYNC) {
@@ -986,7 +987,7 @@ class Vfs_tresor::Wrapper
 					Tresor::Request::Operation::READ,
 					false,
 					offset / Tresor::BLOCK_SIZE,
-					(uint64_t)&_helper_read_request.block_data,
+					(Genode::uint64_t)&_helper_read_request.block_data,
 					1,
 					0,
 					(Genode::uint32_t)tag,
@@ -997,7 +998,7 @@ class Vfs_tresor::Wrapper
 				_frontend_request.helper_offset = (offset % Tresor::BLOCK_SIZE);
 				if (count >= (Tresor::BLOCK_SIZE - _frontend_request.helper_offset)) {
 
-					uint64_t const count_u64 {
+					Genode::uint64_t const count_u64 {
 						Tresor::BLOCK_SIZE - _frontend_request.helper_offset };
 
 					if (count_u64 > ~(size_t)0) {
@@ -1023,7 +1024,7 @@ class Vfs_tresor::Wrapper
 				op,
 				false,
 				offset / Tresor::BLOCK_SIZE,
-				(uint64_t)data.start,
+				(Genode::uint64_t)data.start,
 				(uint32_t)(count / Tresor::BLOCK_SIZE),
 				0,
 				(Genode::uint32_t)tag,
@@ -1106,7 +1107,7 @@ class Vfs_tresor::Wrapper
 					_extend_obj.resizing_nr_of_pbas = current_nr_of_pbas;
 
 				/* update user-facing state */
-				uint64_t const last_percent_done = _extend_obj.percent_done;
+				Genode::uint64_t const last_percent_done = _extend_obj.percent_done;
 				_extend_obj.percent_done =
 					(_extend_obj.resizing_nr_of_pbas - current_nr_of_pbas)
 					* 100 / _extend_obj.resizing_nr_of_pbas;
@@ -1127,7 +1128,7 @@ class Vfs_tresor::Wrapper
 				_rekey_obj.rekeying_vba = _sb_control->rekeying_vba();
 
 				/* update user-facing state */
-				uint64_t const last_percent_done = _rekey_obj.percent_done;
+				Genode::uint64_t const last_percent_done = _rekey_obj.percent_done;
 				_rekey_obj.percent_done =
 					_rekey_obj.rekeying_vba * 100 / _rekey_obj.max_vba;
 
@@ -1400,6 +1401,18 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 				}
 
 				if (state == State::COMPLETE) {
+Hash hash;
+SHA256_CTX context { };
+ASSERT(SHA256_Init(&context));
+ASSERT(SHA256_Update(&context, dst.start, dst.num_bytes));
+ASSERT(SHA256_Final((unsigned char *)(&hash), &context));
+
+Genode::uint64_t end = (Genode::uint64_t)seek() + dst.num_bytes;
+bool aligned_base = (((Genode::uint64_t)seek() % BLOCK_SIZE) == 0);
+bool aligned_end = ((end % BLOCK_SIZE) == 0);
+log("R", aligned_base, aligned_end, " range ", seek(), " ", end, " size ", dst.num_bytes, " hash ", hash);
+//log("        ", Tresor::Byte_range{ (uint8_t*)dst.start, 32 });
+
 					out_count = _w.frontend_request().count;
 					_w.ack_frontend_request(*this);
 					return READ_OK;
@@ -1453,6 +1466,18 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 				}
 
 				if (state == State::COMPLETE) {
+
+Hash hash;
+SHA256_CTX context { };
+ASSERT(SHA256_Init(&context));
+ASSERT(SHA256_Update(&context, src.start, src.num_bytes));
+ASSERT(SHA256_Final((unsigned char *)(&hash), &context));
+
+Genode::uint64_t end = (Genode::uint64_t)seek() + src.num_bytes;
+bool aligned_base = (((Genode::uint64_t)seek() % BLOCK_SIZE) == 0);
+bool aligned_end = ((end % BLOCK_SIZE) == 0);
+log("W", aligned_base, aligned_end, " range ", seek(), " ", end, " size ", src.num_bytes, " hash ", hash);
+
 					out_count = _w.frontend_request().count;
 					_w.ack_frontend_request(*this);
 					return WRITE_OK;
@@ -2777,9 +2802,9 @@ class Vfs_tresor::Snapshots_file_system : public Vfs::File_system
 
 			uint32_t number_of_snapshots() const { return _number_of_snapshots; }
 
-			Snapshot_file_system const &by_index(uint64_t idx) const
+			Snapshot_file_system const &by_index(Genode::uint64_t idx) const
 			{
-				uint64_t i = 0;
+				Genode::uint64_t i = 0;
 				Snapshot_file_system const *fsp { nullptr };
 				auto lookup = [&] (Snapshot_file_system const &fs) {
 					if (i == idx) {
