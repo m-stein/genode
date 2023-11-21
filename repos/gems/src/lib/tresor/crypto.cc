@@ -18,6 +18,7 @@
 /* tresor includes */
 #include <tresor/crypto.h>
 #include <tresor/client_data.h>
+#include <tresor/sha256_4k_hash.h>
 
 using namespace Tresor;
 
@@ -281,6 +282,9 @@ void Crypto::_execute_encrypt_client_data(Channel &channel,
 			_mark_req_failed(channel, progress, "obtain plaintext block");
 			return;
 		}
+Hash hash;
+calc_sha256_4k_hash(*(Block*)channel._blk_buf, hash);
+log("W ", req._vba, " ", hash);
 		channel._vfs_handle = _lookup_key_dir(req._key_id).encrypt_handle;
 		channel._vfs_handle->seek(req._pba * BLOCK_SIZE);
 		size_t nr_of_written_bytes { 0 };
@@ -540,11 +544,14 @@ void Crypto::_execute_decrypt_client_data(Channel &channel,
 
 		switch (result) {
 		case Read_result::READ_OK:
-
+{
+Hash hash;
+calc_sha256_4k_hash(*(Block*)channel._blk_buf, hash);
+log("R ", req._vba, " ", hash);
 			channel._state = Channel::SUPPLY_PLAINTEXT_BLK_PENDING;
 			progress = true;
 			return;
-
+}
 		case Read_result::READ_QUEUED:
 		case Read_result::READ_ERR_WOULD_BLOCK:
 
