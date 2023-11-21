@@ -21,6 +21,7 @@
 #include <tresor/block_io.h>
 #include <tresor/crypto.h>
 #include <tresor/free_tree.h>
+#include <tresor/client_data.h>
 
 using namespace Tresor;
 
@@ -252,22 +253,43 @@ void Virtual_block_device::_execute_read_vba_read_inner_node_completed (Channel 
 		Type_1_node const &child {
 			channel._t1_blks.items[parent_lvl].nodes[child_idx] };
 
-		channel._generated_prim = {
-			.op     = Channel::Generated_prim::Type::READ,
-			.succ   = false,
-			.tg     = Channel::Tag_type::TAG_VBD_BLK_IO_READ_CLIENT_DATA,
-			.blk_nr = child.pba,
-			.idx    = job_idx
-		};
-		if (VERBOSE_VBA_ACCESS) {
-			log(
-				"  lvl ", 0,
-				": read data blk: pba ", channel._generated_prim.blk_nr,
-				" key ", channel._request._new_key_id);
-		}
+		if (child.gen == INITIAL_GENERATION) {
 
-		channel._state = Channel::State::READ_CLIENT_DATA_FROM_LEAF_NODE_PENDING;
-		progress       = true;
+			memset(&channel._data_blk, 0, BLOCK_SIZE);
+			channel._generated_prim = {
+				.op     = Channel::Generated_prim::Type::READ,
+				.succ   = false,
+				.tg     = Channel::Tag_type::TAG_VBD_BLK_IO_SUPPLY_CLIENT_DATA,
+				.blk_nr = child.pba,
+				.idx    = job_idx
+			};
+
+			channel._state = Channel::SUPPLY_CLIENT_DATA_FROM_LEAF_NODE_PENDING;
+			progress       = true;
+
+Hash hash;
+calc_sha256_4k_hash(channel._data_blk, hash);
+log("R ", channel._vba, " ", hash, " *");
+
+		} else {
+
+			channel._generated_prim = {
+				.op     = Channel::Generated_prim::Type::READ,
+				.succ   = false,
+				.tg     = Channel::Tag_type::TAG_VBD_BLK_IO_READ_CLIENT_DATA,
+				.blk_nr = child.pba,
+				.idx    = job_idx
+			};
+			if (VERBOSE_VBA_ACCESS) {
+				log(
+					"  lvl ", 0,
+					": read data blk: pba ", channel._generated_prim.blk_nr,
+					" key ", channel._request._new_key_id);
+			}
+
+			channel._state = Channel::State::READ_CLIENT_DATA_FROM_LEAF_NODE_PENDING;
+			progress       = true;
+		}
 	}
 }
 
@@ -313,6 +335,7 @@ void Virtual_block_device::_execute_read_vba(Channel &channel,
 		break;
 
 	case Channel::State::READ_CLIENT_DATA_FROM_LEAF_NODE_COMPLETED:
+	case Channel::State::SUPPLY_CLIENT_DATA_FROM_LEAF_NODE_COMPLETED:
 
 		_check_that_primitive_was_successful(channel._generated_prim);
 		channel._request._success = channel._generated_prim.succ;
@@ -767,6 +790,7 @@ char const *Virtual_block_device::_state_to_step_label(Channel::State state)
 	case Channel::READ_INNER_NODE_COMPLETED: return "read inner node";
 	case Channel::READ_LEAF_NODE_COMPLETED: return "read leaf node";
 	case Channel::READ_CLIENT_DATA_FROM_LEAF_NODE_COMPLETED: return "read client data from leaf node";
+	case Channel::SUPPLY_CLIENT_DATA_FROM_LEAF_NODE_COMPLETED: return "supply client data from leaf node";
 	case Channel::WRITE_CLIENT_DATA_TO_LEAF_NODE_COMPLETED: return "write client data to leaf node";
 	case Channel::DECRYPT_LEAF_NODE_COMPLETED: return "decrypt leaf node";
 	case Channel::ALLOC_PBAS_AT_LEAF_LVL_COMPLETED: return "alloc pbas at leaf lvl";
@@ -1883,6 +1907,15 @@ bool Virtual_block_device::_peek_generated_request(uint8_t *buf_ptr,
 
 			return true;
 
+		case Channel::SUPPLY_CLIENT_DATA_FROM_LEAF_NODE_PENDING:
+
+			construct_in_buf<Client_data_request>(
+				buf_ptr, buf_size, VIRTUAL_BLOCK_DEVICE, id,
+				Client_data_request::SUPPLY_PLAINTEXT_BLK, req._client_req_offset, req._client_req_tag,
+				chan._generated_prim.blk_nr, chan._vba, (addr_t)&chan._data_blk);
+
+			return true;
+
 		case Channel::DECRYPT_LEAF_NODE_PENDING:
 
 			construct_in_buf<Crypto_request>(
@@ -1958,6 +1991,7 @@ void Virtual_block_device::_drop_generated_request(Module_request &mod_req)
 	case Channel::WRITE_INNER_NODE_PENDING: chan._state = Channel::WRITE_INNER_NODE_IN_PROGRESS; break;
 	case Channel::READ_LEAF_NODE_PENDING: chan._state = Channel::READ_LEAF_NODE_IN_PROGRESS; break;
 	case Channel::READ_CLIENT_DATA_FROM_LEAF_NODE_PENDING: chan._state = Channel::READ_CLIENT_DATA_FROM_LEAF_NODE_IN_PROGRESS; break;
+	case Channel::SUPPLY_CLIENT_DATA_FROM_LEAF_NODE_PENDING: chan._state = Channel::SUPPLY_CLIENT_DATA_FROM_LEAF_NODE_IN_PROGRESS; break;
 	case Channel::WRITE_LEAF_NODE_PENDING: chan._state = Channel::WRITE_LEAF_NODE_IN_PROGRESS; break;
 	case Channel::WRITE_CLIENT_DATA_TO_LEAF_NODE_PENDING: chan._state = Channel::WRITE_CLIENT_DATA_TO_LEAF_NODE_IN_PROGRESS; break;
 	case Channel::DECRYPT_LEAF_NODE_PENDING: chan._state = Channel::DECRYPT_LEAF_NODE_IN_PROGRESS; break;
@@ -2011,11 +2045,24 @@ void Virtual_block_device::generated_request_complete(Module_request &mod_req)
 		case Channel::WRITE_INNER_NODE_IN_PROGRESS: chan._state = Channel::WRITE_INNER_NODE_COMPLETED; break;
 		case Channel::READ_LEAF_NODE_IN_PROGRESS: chan._state = Channel::READ_LEAF_NODE_COMPLETED; break;
 		case Channel::READ_CLIENT_DATA_FROM_LEAF_NODE_IN_PROGRESS: chan._state = Channel::READ_CLIENT_DATA_FROM_LEAF_NODE_COMPLETED; break;
+		case Channel::SUPPLY_CLIENT_DATA_FROM_LEAF_NODE_IN_PROGRESS: chan._state = Channel::SUPPLY_CLIENT_DATA_FROM_LEAF_NODE_COMPLETED; break;
 		case Channel::WRITE_LEAF_NODE_IN_PROGRESS: chan._state = Channel::WRITE_LEAF_NODE_COMPLETED; break;
 		case Channel::WRITE_CLIENT_DATA_TO_LEAF_NODE_IN_PROGRESS: chan._state = Channel::WRITE_CLIENT_DATA_TO_LEAF_NODE_COMPLETED; break;
 		default:
 			class Exception_4 { };
 			throw Exception_4 { };
+		}
+		break;
+	}
+	case CLIENT_DATA:
+	{
+		Client_data_request &blk_io_req { *static_cast<Client_data_request *>(&mod_req) };
+		chan._generated_prim.succ = blk_io_req.success();
+		switch (chan._state) {
+		case Channel::SUPPLY_CLIENT_DATA_FROM_LEAF_NODE_IN_PROGRESS: chan._state = Channel::SUPPLY_CLIENT_DATA_FROM_LEAF_NODE_COMPLETED; break;
+		default:
+			class Exception_9 { };
+			throw Exception_9 { };
 		}
 		break;
 	}
