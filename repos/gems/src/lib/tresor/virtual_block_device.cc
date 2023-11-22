@@ -16,6 +16,7 @@
 #include <tresor/hash.h>
 #include <tresor/block_io.h>
 #include <tresor/crypto.h>
+#include <tresor/client_data.h>
 
 using namespace Tresor;
 
@@ -104,9 +105,15 @@ void Virtual_block_device_channel::_read_vba(bool &progress)
 		if (_lvl > 1)
 			_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _encoded_blk);
 		else
-			_generate_req<Block_io::Read_client_data>(
-				READ_BLK_SUCCEEDED, progress, node.pba, _vba, req._curr_key_id,
-				req._client_req_tag, req._client_req_offset, _data_blk);
+			if (node.gen == INITIAL_GENERATION) {
+				memset(&_data_blk, 0, BLOCK_SIZE);
+				_generate_req<Client_data_request>(
+					READ_BLK_SUCCEEDED, progress, Client_data_request::SUPPLY_PLAINTEXT_BLK,
+					req._client_req_offset, req._client_req_tag, node.pba, _vba, _data_blk);
+			} else
+				_generate_req<Block_io::Read_client_data>(
+					READ_BLK_SUCCEEDED, progress, node.pba, _vba, req._curr_key_id,
+					req._client_req_tag, req._client_req_offset, _data_blk);
 		_lvl--;
 		break;
 	}
