@@ -20,6 +20,7 @@
 #include <trace/timestamp.h>
 
 /* tresor includes */
+#include <tresor/types.h>
 #include <tresor/block_io.h>
 #include <tresor/client_data.h>
 #include <tresor/crypto.h>
@@ -31,6 +32,8 @@
 #include <tresor/virtual_block_device.h>
 
 #include "splitter.h"
+#include <openssl/sha.h>
+
 
 namespace Vfs_tresor {
 	using namespace Vfs;
@@ -106,23 +109,13 @@ class Vfs_tresor::Client_data : public Tresor::Module, public Tresor::Module_cha
 			switch (req._type) {
 			case Request::OBTAIN_PLAINTEXT_BLK:
 			{
-				void const *src = _lookup.write_buffer(req._req_tag, req._vba);
-				if (!src) {
-					req._success = false;
-					break;
-				}
-				memcpy(&req._blk, src, Tresor::BLOCK_SIZE);
+				req._blk = _lookup.src_for_writing_vba(req._req_tag, req._vba);
 				req._success = true;
 				break;
 			}
 			case Request::SUPPLY_PLAINTEXT_BLK:
 			{
-				void *dst = _lookup.read_buffer(req._req_tag, req._vba);
-				if (dst == nullptr) {
-					req._success = false;
-					break;
-				}
-				memcpy(dst, &req._blk, Tresor::BLOCK_SIZE);
+				_lookup.dst_for_reading_vba(req._req_tag, req._vba) = req._blk;
 				req._success = true;
 				break;
 			} }
@@ -245,18 +238,16 @@ class Vfs_tresor::Wrapper
 					case Command::Operation::READ:
 						generate_req<Splitter_request>(State::COMPLETED,
 							progress, Splitter_request::Operation::READ, _success,
-							offset, buffer_start, buffer_num_bytes, key_id, gen);
+							offset, Byte_range_ptr(buffer_start, buffer_num_bytes), key_id, gen);
 						break;
 					case Command::Operation::WRITE:
 						generate_req<Splitter_request>(State::COMPLETED,
 							progress, Splitter_request::Operation::WRITE, _success,
-							offset, buffer_start, buffer_num_bytes, key_id, gen);
+							offset, Byte_range_ptr(buffer_start, buffer_num_bytes), key_id, gen);
 						break;
 					default:
 						generate_req<Tresor::Request>(State::COMPLETED,
-							progress, op, _success, 0 /* vba */, 0 /* offset */, count, key_id,
-							(uint32_t)id(), // FIXME proper tag instead of Module_id?
-							gen);
+							progress, op, 0, 0, count, key_id, id(), gen, _success);
 						break;
 					}
 
@@ -375,7 +366,7 @@ class Vfs_tresor::Wrapper
 			uint32_t              key_id;
 			Virtual_block_address max_vba;
 			Virtual_block_address rekeying_vba;
-			uint64_t              percent_done;
+			Genode::uint64_t              percent_done;
 
 			Rekeying() : Control_request { }, key_id { 0 }, max_vba { 0 },
 			             rekeying_vba { 0 }, percent_done { 0 } { }
@@ -405,7 +396,7 @@ class Vfs_tresor::Wrapper
 
 			Type                  type;
 			Virtual_block_address resizing_nr_of_pbas;
-			uint64_t              percent_done;
+			Genode::uint64_t              percent_done;
 
 			Extending() : Control_request { }, type { Type::INVALID},
 			              resizing_nr_of_pbas { 0 }, percent_done { 0 } { }
@@ -828,7 +819,7 @@ class Vfs_tresor::Wrapper
 					_extend_obj.resizing_nr_of_pbas = current_nr_of_pbas;
 
 				/* update user-facing state */
-				uint64_t const last_percent_done = _extend_obj.percent_done;
+				Genode::uint64_t const last_percent_done = _extend_obj.percent_done;
 				_extend_obj.percent_done =
 					(_extend_obj.resizing_nr_of_pbas - current_nr_of_pbas)
 					* 100 / _extend_obj.resizing_nr_of_pbas;
@@ -849,7 +840,7 @@ class Vfs_tresor::Wrapper
 				_rekey_obj.rekeying_vba = _sb_control->rekeying_vba();
 
 				/* update user-facing state */
-				uint64_t const last_percent_done = _rekey_obj.percent_done;
+				Genode::uint64_t const last_percent_done = _rekey_obj.percent_done;
 				_rekey_obj.percent_done =
 					_rekey_obj.rekeying_vba * 100 / _rekey_obj.max_vba;
 
@@ -1217,6 +1208,19 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 				_w.handle_io_request(*this, dst, OP::READ, _snap_gen,
 					[&] { result = READ_QUEUED; },
 					[&] (FR fresult, size_t count) {
+
+Hash hash;
+SHA256_CTX context { };
+ASSERT(SHA256_Init(&context));
+ASSERT(SHA256_Update(&context, dst.start, dst.num_bytes));
+ASSERT(SHA256_Final((unsigned char *)(&hash), &context));
+
+Genode::uint64_t end = (Genode::uint64_t)seek() + dst.num_bytes;
+bool aligned_base = (((Genode::uint64_t)seek() % BLOCK_SIZE) == 0);
+bool aligned_end = ((end % BLOCK_SIZE) == 0);
+log("R", aligned_base, aligned_end, " range ", seek(), " ", end, " size ", dst.num_bytes, " hash ", hash);
+//log("        ", Tresor::Byte_range{ (uint8_t*)dst.start, 32 });
+
 						result    = read_result(fresult);
 						out_count = count;
 					}
@@ -1234,6 +1238,17 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 				                     OP::WRITE, _snap_gen,
 					[&] { result = WRITE_ERR_WOULD_BLOCK; },
 					[&] (FR fresult, size_t count) {
+
+Hash hash;
+SHA256_CTX context { };
+ASSERT(SHA256_Init(&context));
+ASSERT(SHA256_Update(&context, src.start, src.num_bytes));
+ASSERT(SHA256_Final((unsigned char *)(&hash), &context));
+Genode::uint64_t end = (Genode::uint64_t)seek() + src.num_bytes;
+bool aligned_base = (((Genode::uint64_t)seek() % BLOCK_SIZE) == 0);
+bool aligned_end = ((end % BLOCK_SIZE) == 0);
+log("W", aligned_base, aligned_end, " range ", seek(), " ", end, " size ", src.num_bytes, " hash ", hash);
+
 						result    = write_result(fresult);
 						out_count = count;
 					}
@@ -2463,9 +2478,9 @@ class Vfs_tresor::Snapshots_file_system : public Vfs::File_system
 
 			uint32_t number_of_snapshots() const { return _number_of_snapshots; }
 
-			Snapshot_file_system const &by_index(uint64_t idx) const
+			Snapshot_file_system const &by_index(Genode::uint64_t idx) const
 			{
-				uint64_t i = 0;
+				Genode::uint64_t i = 0;
 				Snapshot_file_system const *fsp { nullptr };
 				auto lookup = [&] (Snapshot_file_system const &fs) {
 					if (i == idx) {

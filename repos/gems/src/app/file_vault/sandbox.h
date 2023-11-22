@@ -276,6 +276,8 @@ namespace File_vault {
 			gen_provides_service(xml, "File_system");
 			xml.node("config", [&] () {
 
+				xml.attribute("ld_verbose", "yes");
+
 				xml.node("vfs", [&] () {
 
 					xml.node("fs", [&] () {

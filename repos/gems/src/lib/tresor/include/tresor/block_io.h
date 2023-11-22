@@ -52,7 +52,7 @@ class Tresor::Block_io_request : public Module_request
 		Block_io_request(Module_id, Module_channel_id, Type, Request_offset, Request_tag, Key_id,
 		                 Physical_block_address, Virtual_block_address, Block &, Hash &, bool &);
 
-		static char const *type_to_string(Type type);
+		static char const *type_to_string(Type);
 
 		void print(Output &out) const override { Genode::print(out, type_to_string(_type), " pba ", _pba); }
 };

@@ -18,6 +18,8 @@
 
 using namespace Tresor;
 
+enum { VERBOSE_X=1 };
+
 Crypto_request::Crypto_request(Module_id src_module_id, Module_channel_id src_chan_id, Type type,
                                Request_offset client_req_offset, Request_tag client_req_tag, Key_id key_id,
                                Key_value const &key_plaintext, Physical_block_address pba, Virtual_block_address vba,
@@ -173,11 +175,23 @@ void Crypto_channel::_encrypt_client_data(bool &progress)
 	case REQ_SUBMITTED:
 
 		_generate_req<Client_data_request>(
-			PLAINTEXT_BLK_OBTAINED, progress, Client_data_request::OBTAIN_PLAINTEXT_BLK,
+			PLAINTEXT_BLK_OBTAINED1, progress, Client_data_request::OBTAIN_PLAINTEXT_BLK,
 			req._client_req_offset, req._client_req_tag, req._pba, req._vba, _blk);;
 		break;
 
-	case PLAINTEXT_BLK_OBTAINED:
+	case PLAINTEXT_BLK_OBTAINED1:
+
+if (VERBOSE_X)
+{
+Hash hash;
+calc_hash(_blk, hash);
+log("W ", req._vba, " ", hash);
+}
+_state = PLAINTEXT_BLK_OBTAINED2;
+progress=true;
+break;
+
+	case PLAINTEXT_BLK_OBTAINED2:
 
 		_key_dir(req._key_id)->encrypt_file.write(
 			WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress);
@@ -259,6 +273,12 @@ void Crypto_channel::_decrypt_client_data(bool &progress)
 		break;
 
 	case READ_OK:
+if (VERBOSE_X)
+{
+Hash hash;
+calc_hash(_blk, hash);
+log("R ", req._vba, " ", hash);
+}
 
 		_generate_req<Client_data_request>(
 			PLAINTEXT_BLK_SUPPLIED, progress, Client_data_request::SUPPLY_PLAINTEXT_BLK,

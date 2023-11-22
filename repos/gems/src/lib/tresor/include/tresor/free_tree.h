@@ -65,7 +65,7 @@ class Tresor::Free_tree_request : public Module_request
 		                  Tree_level_index, Virtual_block_address, Tree_degree, Virtual_block_address,
 		                  bool, Key_id, Key_id, Virtual_block_address, Physical_block_address &, Number_of_blocks &, bool &);
 
-		static char const *type_to_string(Type type);
+		static char const *type_to_string(Type);
 
 		void print(Output &out) const override { Genode::print(out, type_to_string(_type)); }
 };
