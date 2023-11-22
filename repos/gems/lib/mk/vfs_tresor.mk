@@ -6,6 +6,6 @@ INC_DIR += $(LIB_DIR)
 
 vpath % $(LIB_DIR)
 
-LIBS += tresor
+LIBS += tresor ldso_so_support
 
 SHARED_LIB := yes
