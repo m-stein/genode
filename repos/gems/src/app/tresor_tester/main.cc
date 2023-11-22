@@ -775,8 +775,8 @@ void Tresor_tester::Command::execute(bool &progress)
 			state = CREATE_SNAP_COMPLETED;
 
 		generate_req<Tresor::Request>(
-			state, progress, node.op, _success, node.has_vba() ? node.vba : 0,
-			0, node.has_count() ? node.count : 0, 0, id(), _gen);
+			state, progress, node.op, node.has_vba() ? node.vba : 0,
+			0, node.has_count() ? node.count : 0, 0, id(), _gen, _success);
 
 		_main.mark_command_in_progress(id());
 		break;

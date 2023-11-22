@@ -53,8 +53,8 @@ class Tresor::Request : public Module_request
 
 		static char const *op_to_string(Operation);
 
-		Request(Module_id, Module_channel_id, Operation, bool &, Virtual_block_address, Request_offset,
-		        Number_of_blocks, Key_id, Request_tag, Generation &);
+		Request(Module_id, Module_channel_id, Operation, Virtual_block_address, Request_offset,
+		        Number_of_blocks, Key_id, Request_tag, Generation &, bool &);
 
 		void print(Output &) const override;
 };
@@ -166,7 +166,7 @@ class Tresor::Request_pool : public Module
 
 		bool _init_success { false };
 		Generation _init_gen { INVALID_GENERATION };
-		Request _init_req { INVALID_MODULE_ID, INVALID_MODULE_CHANNEL_ID, Request::INITIALIZE, _init_success, 0, 0, 0, 0, 0, _init_gen };
+		Request _init_req { INVALID_MODULE_ID, INVALID_MODULE_CHANNEL_ID, Request::INITIALIZE, 0, 0, 0, 0, 0, _init_gen, _init_success };
 		Constructible<Channel> _channels[NUM_CHANNELS] { };
 		Request_pool_channel_queue _chan_queue { };
 
