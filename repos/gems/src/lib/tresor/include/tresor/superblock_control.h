@@ -56,9 +56,9 @@ class Tresor::Superblock_control_request : Module_request, Noncopyable
 		                           Request_tag, Number_of_blocks, Virtual_block_address,
 		                           bool &, bool &, Superblock::State &, Generation &);
 
-		static char const *type_to_string(Type);
+		static char const *type_to_string(Type type);
 
-		void print(Output &) const override;
+		void print(Output &out) const override;
 };
 
 

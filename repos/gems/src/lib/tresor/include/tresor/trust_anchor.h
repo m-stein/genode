@@ -48,7 +48,7 @@ class Tresor::Trust_anchor_request : public Module_request
 
 		Trust_anchor_request(Module_id src, Module_channel_id, Type, Key_value &, Key_value &, Hash &, Passphrase, bool &);
 
-		static char const *type_to_string(Type);
+		static char const *type_to_string(Type type);
 
 		void print(Output &out) const override { Genode::print(out, type_to_string(_type)); }
 };

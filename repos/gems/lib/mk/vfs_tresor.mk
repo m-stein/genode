@@ -6,7 +6,6 @@ INC_DIR += $(LIB_DIR)
 
 vpath % $(LIB_DIR)
 
-LIBS += libcrypto
 LIBS += tresor
 
 SHARED_LIB := yes

@@ -46,7 +46,7 @@ class Tresor::Meta_tree_request : public Module_request
 
 		Meta_tree_request(Module_id, Module_channel_id, Type, Tree_root &, Generation, Physical_block_address &, bool &);
 
-		static char const *type_to_string(Type);
+		static char const *type_to_string(Type type);
 
 		void print(Output &out) const override { Genode::print(out, type_to_string(_type)); }
 };

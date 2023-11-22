@@ -52,9 +52,9 @@ class Tresor::Crypto_request : public Module_request
 		Crypto_request(Module_id, Module_channel_id, Type, Request_offset, Request_tag, Key_id,
 		               Key_value const &, Physical_block_address, Virtual_block_address, Block &, bool &);
 
-		static const char *type_to_string(Type);
+		static const char *type_to_string(Type type);
 
-		void print(Output &) const override;
+		void print(Output &out) const override;
 };
 
 class Tresor::Crypto_channel : public Module_channel
@@ -64,7 +64,7 @@ class Tresor::Crypto_channel : public Module_channel
 		using Request = Crypto_request;
 
 		enum State {
-			REQ_SUBMITTED, REQ_COMPLETE, PLAINTEXT_BLK_OBTAINED1, PLAINTEXT_BLK_OBTAINED2, PLAINTEXT_BLK_SUPPLIED, REQ_GENERATED,
+			REQ_SUBMITTED, REQ_COMPLETE, PLAINTEXT_BLK_OBTAINED, PLAINTEXT_BLK_SUPPLIED, REQ_GENERATED,
 			READ_OK, WRITE_OK, FILE_ERR };
 
 		struct Key_directory

@@ -1,6 +1,5 @@
 /*
  * \brief  Module for splitting unaligned/uneven I/O requests
- * \author Martin Stein
  * \author Josef Soentgen
  * \date   2023-09-11
  */
@@ -12,239 +11,283 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-/* vfs tresor includes */
-#include <splitter.h>
-
-using namespace Tresor;
-
-enum { VERBOSE_Y = 0 };
+/* tresor includes */
+#include "splitter.h"
 
 
-Splitter_request::Splitter_request(Module_id src_mod, Module_channel_id src_chan, Operation op, bool &success,
-                                   Request_offset off, Byte_range_ptr const &buf, Key_id key_id, Generation gen)
-:
-	Module_request { src_mod, src_chan, SPLITTER }, _op { op }, _off { off }, _key_id { key_id }, _gen { gen },
-	_buf { buf.start, buf.num_bytes }, _success { success }
-{ }
-
-
-char const *Splitter_request::op_to_string(Operation op)
+void *Tresor::Splitter_channel::_calculate_data_ptr(Virtual_block_address vba)
 {
-	switch (op) {
-	case Operation::READ: return "read";
-	case Operation::WRITE: return "write";
-	}
-	ASSERT_NEVER_REACHED;
+	ASSERT(state() == State::REQUEST);
+
+	Splitter_request &req = *_req_ptr;
+
+	Virtual_block_address const start_vba = req._offset / Tresor::BLOCK_SIZE;
+	size_t const buffer_offset = (vba - start_vba) * Tresor::BLOCK_SIZE;
+
+	return _req_ptr->_buffer_start + _offset + buffer_offset;
 }
 
 
-void Splitter_channel::_generated_req_completed(State_uint state_uint)
+void Tresor::Splitter_channel::_handle_io(bool &progress)
 {
-	if (!_generated_req_success) {
-		error("splitter: request (", *_req_ptr, ") failed because generated request failed)");
-		_req_ptr->_success = false;
-		_state = REQ_COMPLETE;
-		_req_ptr = nullptr;
+	ASSERT(state() != State::IDLE);
+
+	Splitter_request &req = *_req_ptr;
+
+	switch (_state) {
+	case State::PENDING:
+	{
+		using TRO = Tresor::Request::Operation;
+		using SRO = Splitter_request::Operation;
+
+		TRO const op = req._op == SRO::READ ? TRO::READ
+		                                    : TRO::WRITE;
+
+		generate_req<Tresor::Request>(State::COMPLETE,
+			progress, op, req._success, _vba,
+			0 /* offset */, _count, req._key_id, (uint32_t)id(),
+			*const_cast<Tresor::Generation*>(&req._gen));
+
+		state(State::REQUEST);
+		break;
+	}
+
+	case State::PRE_REQUEST_PENDING:
+
+		generate_req<Tresor::Request>(State::COMPLETE,
+			progress, Tresor::Request::READ, req._success, _vba,
+			0 /* offset */, 1, req._key_id, (uint32_t)id(),
+			*const_cast<Tresor::Generation*>(&req._gen));
+
+		state(State::PRE_REQUEST);
+		break;
+
+	case State::PRE_REQUEST_WRITE_PENDING:
+
+		generate_req<Tresor::Request>(State::COMPLETE,
+			progress, Tresor::Request::WRITE, req._success, _vba,
+			0 /* offset */, 1, req._key_id, (uint32_t)id(),
+			*const_cast<Tresor::Generation*>(&req._gen));
+
+		state(State::PRE_REQUEST_WRITE);
+		break;
+
+	case State::POST_REQUEST_PENDING:
+
+		generate_req<Tresor::Request>(State::COMPLETE,
+			progress, Tresor::Request::READ, req._success, _vba,
+			0 /* offset */, 1, req._key_id, (uint32_t)id(),
+			*const_cast<Tresor::Generation*>(&req._gen));
+
+		state(State::POST_REQUEST);
+		break;
+
+	case State::POST_REQUEST_WRITE_PENDING:
+
+		generate_req<Tresor::Request>(State::COMPLETE,
+			progress, Tresor::Request::WRITE, req._success, _vba,
+			0 /* offset */, 1, req._key_id, (uint32_t)id(),
+			*const_cast<Tresor::Generation*>(&req._gen));
+
+		state(State::POST_REQUEST_WRITE);
+		break;
+
+	/* not required here */
+	case State::REQUEST:            [[fallthrough]];
+	case State::PRE_REQUEST:        [[fallthrough]];
+	case State::PRE_REQUEST_WRITE:  [[fallthrough]];
+	case State::POST_REQUEST:       [[fallthrough]];
+	case State::POST_REQUEST_WRITE: [[fallthrough]];
+	case State::COMPLETE:           [[fallthrough]];
+	case State::IDLE:
+		break;
+	}
+}
+
+
+void Tresor::Splitter_channel::_generated_req_completed(State_uint state_uint)
+{
+	ASSERT(state_uint == State::COMPLETE);
+
+	Splitter_request &req = *_req_ptr;
+
+	bool const read = req._op == Splitter_request::Operation::READ;
+
+	switch (_state) {
+	case State::REQUEST:
+	{
+		Genode::uint64_t const bytes = _count * Tresor::BLOCK_SIZE;
+		_total_bytes += bytes;
+		_offset      += bytes;
+		break;
+	}
+	case State::PRE_REQUEST:
+	{
+		Genode::uint64_t const block_offset = req._offset % Tresor::BLOCK_SIZE;
+		Genode::uint64_t const block_bytes  = Tresor::BLOCK_SIZE - block_offset;
+		size_t const copy_length = Genode::min(block_bytes, req._buffer_num_bytes);
+
+		_total_bytes += copy_length;
+		_offset      += copy_length;
+
+		if (read) {
+			Genode::memcpy((void*)req._buffer_start,
+			               (char*)&_block_data + block_offset,
+			               copy_length);
+		} else {
+			Genode::memcpy((char*)&_block_data + block_offset,
+			               (void*)req._buffer_start, copy_length);
+
+			/* leave here as we have to write the block back first */
+			state(State::PRE_REQUEST_WRITE_PENDING);
+			return;
+		}
+
+		break;
+	}
+	case State::POST_REQUEST:
+	{
+		Genode::uint64_t const copy_length = req._buffer_num_bytes - _total_bytes;
+
+		_total_bytes += copy_length;
+		_offset      += copy_length;
+
+		if (read) {
+			Genode::memcpy((char*)req._buffer_start + _offset,
+			               (void*)&_block_data,
+			               copy_length);
+		} else {
+			Genode::memcpy((void*)&_block_data,
+			               (char*)req._buffer_start + _offset, copy_length);
+
+			/* leave here as we have to write the block back first */
+			state(State::POST_REQUEST_WRITE_PENDING);
+			return;
+		}
+
+		break;
+	}
+	/* not required here */
+	case State::PENDING:                    [[fallthrough]];
+	case State::PRE_REQUEST_PENDING:        [[fallthrough]];
+	case State::PRE_REQUEST_WRITE_PENDING:  [[fallthrough]];
+	case State::PRE_REQUEST_WRITE:          [[fallthrough]];
+	case State::POST_REQUEST_PENDING:       [[fallthrough]];
+	case State::POST_REQUEST_WRITE_PENDING: [[fallthrough]];
+	case State::POST_REQUEST_WRITE:         [[fallthrough]];
+	case State::COMPLETE:                   [[fallthrough]];
+	case State::IDLE:
+		break;
+	}
+
+	/* we are done */
+	if (_total_bytes == req._buffer_num_bytes) {
+		state(State::COMPLETE);
 		return;
 	}
-	_state = (State)state_uint;
+	_prepare_handling_of_next_offset(req._offset + _offset, req._buffer_num_bytes - _total_bytes);
 }
 
 
-void Splitter_channel::_mark_req_successful(bool &progress)
+void Tresor::Splitter_channel::_prepare_handling_of_next_offset(uint64_t offset, size_t num_bytes)
 {
-	Request &req { *_req_ptr };
-	req._success = true;
-	_state = REQ_COMPLETE;
-	_req_ptr = nullptr;
-	progress = true;
+	/*
+	 * Prepare the request depending on the given characteristics,
+	 * e.g, if it is unaligned and/or uneven.
+	 *
+	 * Requests that do not start at a BLOCK_SIZE boundary are handled
+	 * first where the unaligned bytes from the containing block will be
+	 * read and mixed with the buffer.
+	 */
+	bool const unaligned = (offset % Tresor::BLOCK_SIZE) != 0;
+	if (unaligned) {
+		_vba = offset / Tresor::BLOCK_SIZE;
+
+		state(Splitter_channel::PRE_REQUEST_PENDING);
+		return;
+	}
+
+	_vba   = offset / Tresor::BLOCK_SIZE;
+	_count = (uint32_t)num_bytes / Tresor::BLOCK_SIZE;
+
+	bool const uneven = (num_bytes % Tresor::BLOCK_SIZE) != 0;
+	if (!_count && uneven) {
+		_count = 1;
+		state(Splitter_channel::POST_REQUEST_PENDING);
+		return;
+	}
+
+	state(Splitter_channel::PENDING);
 }
 
 
-void Splitter_channel::_request_submitted(Module_request &req)
+void Tresor::Splitter_channel::_request_submitted(Module_request &module_req)
 {
-	_req_ptr = static_cast<Request*>(&req);
-	_state = REQ_SUBMITTED;
-if (VERBOSE_Y) { log("splitter: submit req buf ", (void *)_req_ptr->_buf.start, " size ", _req_ptr->_buf.num_bytes); }
+	_reset();
+	_req_ptr = static_cast<Splitter_request*>(&module_req);
+	Splitter_request &req = *_req_ptr;
+	_prepare_handling_of_next_offset(req._offset, req._buffer_num_bytes);
 }
 
 
-void Splitter_channel::_advance_curr_off(addr_t advance, Tresor::Request::Operation op, bool &progress)
+bool Tresor::Splitter_channel::_request_complete()
 {
-	Splitter_request &req { *_req_ptr };
-	_curr_off += advance;
-	if (!_num_remaining_bytes()) {
-		_mark_req_successful(progress);
-	} else if (_curr_off % BLOCK_SIZE) {
-		_curr_buf_addr = (addr_t)&_blk;
-		_generate_req<Tresor::Request>(
-			PROTRUDING_FIRST_BLK_READ, progress, Tresor::Request::READ, _curr_vba(), 0, 1, req._key_id, id(), _gen);
-	} else if (_num_remaining_bytes() < BLOCK_SIZE) {
-		_curr_buf_addr = (addr_t)&_blk;
-		_generate_req<Tresor::Request>(
-			PROTRUDING_LAST_BLK_READ, progress, Tresor::Request::READ, _curr_vba(), 0, 1, req._key_id, id(), _gen);
-	} else {
-		_curr_buf_addr = (addr_t)req._buf.start + _curr_buf_off();
-		_generate_req<Tresor::Request>(
-			INSIDE_BLKS_ACCESSED, progress, op, _curr_vba(), 0, _num_remaining_bytes() / BLOCK_SIZE, req._key_id, id(), _gen);
-	}
+	return state() == State::COMPLETE;
 }
 
 
-void Splitter_channel::_write(bool &progress)
+void Tresor::Splitter_channel::execute(bool &progress)
 {
-	Splitter_request &req { *_req_ptr };
-	switch (_state) {
-	case REQ_SUBMITTED:
-
-		_curr_off = 0;
-		_gen = req._gen;
-		_advance_curr_off(req._off, Tresor::Request::WRITE, progress);
-		break;
-
-	case PROTRUDING_FIRST_BLK_READ:
-	{
-		size_t num_outside_bytes { _curr_off % BLOCK_SIZE };
-		size_t num_inside_bytes { min(_num_remaining_bytes(), BLOCK_SIZE - num_outside_bytes) };
-
-if (VERBOSE_Y) { log("splitter: copy1 ", (void *)((addr_t)&_blk + num_outside_bytes), " ", (void *)req._buf.start, " ", num_inside_bytes); }
-
-		memcpy((void *)((addr_t)&_blk + num_outside_bytes), req._buf.start, num_inside_bytes);
-		_curr_buf_addr = (addr_t)&_blk;
-		_generate_req<Tresor::Request>(
-			PROTRUDING_FIRST_BLK_WRITTEN, progress, Tresor::Request::WRITE, _curr_vba(), 0, 1, req._key_id, id(), _gen);
-		break;
-	}
-	case PROTRUDING_FIRST_BLK_WRITTEN:
-	{
-		size_t num_outside_bytes { _curr_off % BLOCK_SIZE };
-		size_t num_inside_bytes { min(_num_remaining_bytes(), BLOCK_SIZE - num_outside_bytes) };
-		_advance_curr_off(num_inside_bytes, Tresor::Request::WRITE, progress);
-		break;
-	}
-	case INSIDE_BLKS_ACCESSED:
-
-		_advance_curr_off((_num_remaining_bytes() / BLOCK_SIZE) * BLOCK_SIZE, Tresor::Request::WRITE, progress);
-		break;
-
-	case PROTRUDING_LAST_BLK_READ:
-
-if (VERBOSE_Y) { log("splitter: copy2 ", &_blk, " ", (void *)((addr_t)req._buf.start + _curr_buf_off()), " ", _num_remaining_bytes()); }
-
-		memcpy(&_blk, (void *)((addr_t)req._buf.start + _curr_buf_off()), _num_remaining_bytes());
-		_curr_buf_addr = (addr_t)&_blk;
-		_generate_req<Tresor::Request>(
-			PROTRUDING_LAST_BLK_WRITTEN, progress, Tresor::Request::WRITE, _curr_vba(), 0, 1, req._key_id, id(), _gen);
-		break;
-
-	case PROTRUDING_LAST_BLK_WRITTEN: _advance_curr_off(_num_remaining_bytes(), Tresor::Request::WRITE, progress); break;
-	default: break;
-	}
-}
-
-
-void Splitter_channel::_read(bool &progress)
-{
-	Splitter_request &req { *_req_ptr };
-	switch (_state) {
-	case REQ_SUBMITTED:
-
-		_curr_off = 0;
-		_gen = req._gen;
-		_advance_curr_off(req._off, Tresor::Request::READ, progress);
-		break;
-
-	case PROTRUDING_FIRST_BLK_READ:
-	{
-		size_t num_outside_bytes { _curr_off % BLOCK_SIZE };
-		size_t num_inside_bytes { min(_num_remaining_bytes(), BLOCK_SIZE - num_outside_bytes) };
-
-if (VERBOSE_Y) { log("splitter: copy3 ", (void*)req._buf.start, " ", (void *)((addr_t)&_blk + num_outside_bytes), " ", num_inside_bytes); }
-
-		memcpy(req._buf.start, (void *)((addr_t)&_blk + num_outside_bytes), num_inside_bytes);
-		_advance_curr_off(num_inside_bytes, Tresor::Request::READ, progress);
-		break;
-	}
-	case INSIDE_BLKS_ACCESSED:
-
-		_advance_curr_off((_num_remaining_bytes() / BLOCK_SIZE) * BLOCK_SIZE, Tresor::Request::READ, progress);
-		break;
-
-	case PROTRUDING_LAST_BLK_READ:
-
-if (VERBOSE_Y) { log("splitter: copy4 ", (void *)((addr_t)req._buf.start + _curr_buf_off()), " ", &_blk, " ", _num_remaining_bytes()); }
-
-		memcpy((void *)((addr_t)req._buf.start + _curr_buf_off()), &_blk, _num_remaining_bytes());
-		_advance_curr_off(_num_remaining_bytes(), Tresor::Request::READ, progress);
-		break;
-
-	default: break;
-	}
-}
-
-
-void Splitter_channel::execute(bool &progress)
-{
-	if (!_req_ptr)
+	if (state() == State::IDLE)
 		return;
 
-	switch (_req_ptr->_op) {
-	case Request::READ: _read(progress); break;
-	case Request::WRITE: _write(progress); break;
+	_handle_io(progress);
+}
+
+
+void *Tresor::Splitter_channel::query_data(Virtual_block_address vba)
+{
+	switch (_state) {
+	/*
+	 * A normal request might cover multiple blocks while
+	 * PRE and POST correspond to exactly one.
+	 */
+	case State::REQUEST:
+		return _calculate_data_ptr(vba);
+
+	/*
+	 * Always use the same temporary block for every
+	 * lopsided request as each step is performed in
+	 * sequence.
+	 */
+	case State::PRE_REQUEST:        [[fallthrough]];
+	case State::PRE_REQUEST_WRITE:  [[fallthrough]];
+	case State::POST_REQUEST:       [[fallthrough]];
+	case State::POST_REQUEST_WRITE:
+		return _vba == vba ? (void*)&_block_data : nullptr;
+	default:
+		break;
+	}
+
+	struct Invalid_state_for_query_data { };
+	throw Invalid_state_for_query_data();
+
+	return nullptr;
+}
+
+
+Tresor::Splitter::Splitter()
+{
+	for (Module_channel_id id = 0; id < NUM_CHANNELS; id++) {
+		_channels[id].construct(id);
+		add_channel(*_channels[id]);
 	}
 }
 
 
-Block const &Splitter_channel::src_for_writing_vba(Virtual_block_address vba)
-{
-	ASSERT(_state == REQ_GENERATED);
-Block const &blk = *(Block *)(_curr_buf_addr + (vba - _curr_vba()) * BLOCK_SIZE);
-if (VERBOSE_Y) { log("splitter: access data of req buf ", (void *)_req_ptr->_buf.start, " size ", _req_ptr->_buf.num_bytes, " at ", &blk); }
-	return blk;
-}
-
-
-Block &Splitter_channel::dst_for_reading_vba(Virtual_block_address vba)
-{
-	ASSERT(_state == REQ_GENERATED);
-Block &blk = *(Block *)(_curr_buf_addr + (vba - _curr_vba()) * BLOCK_SIZE);
-if (VERBOSE_Y) { log("splitter: access data of req buf ", (void *)_req_ptr->_buf.start, " size ", _req_ptr->_buf.num_bytes, " at ", &blk); }
-	return blk;
-}
-
-
-Block const &Splitter::src_for_writing_vba(Request_tag tag, Virtual_block_address vba)
-{
-	Block const *blk_ptr { };
-	with_channel<Splitter_channel>(tag, [&] (Splitter_channel &chan) {
-		blk_ptr = &chan.src_for_writing_vba(vba); });
-	ASSERT(blk_ptr);
-	return *blk_ptr;
-}
-
-
-Block &Splitter::dst_for_reading_vba(Request_tag tag, Virtual_block_address vba)
-{
-	Block *blk_ptr { };
-	with_channel<Splitter_channel>(tag, [&] (Splitter_channel &chan) {
-		blk_ptr = &chan.dst_for_reading_vba(vba); });
-	ASSERT(blk_ptr);
-	return *blk_ptr;
-}
-
-
-Splitter::Splitter()
-{
-	Module_channel_id id { 0 };
-	for (Constructible<Channel> &chan : _channels) {
-		chan.construct(id++);
-		add_channel(*chan);
-	}
-}
-
-
-void Splitter::execute(bool &progress)
+void Tresor::Splitter::execute(bool &progress)
 {
 	for_each_channel<Splitter_channel>([&] (Splitter_channel &chan) {
-		chan.execute(progress); });
+		chan.execute(progress);
+	});
 }
