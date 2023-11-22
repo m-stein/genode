@@ -188,7 +188,7 @@ append_if [ui_is config_and_report] config {
 						<ui_config version="step_1_wait"/>
 
 					</inline>
-					<sleep milliseconds="6000"/>
+					<sleep milliseconds="1000"/>
 					<inline>
 
 						<ui_config version="step_2_init" passphrase="abcdefgh"
