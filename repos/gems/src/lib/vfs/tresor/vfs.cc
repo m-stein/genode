@@ -106,23 +106,13 @@ class Vfs_tresor::Client_data : public Tresor::Module, public Tresor::Module_cha
 			switch (req._type) {
 			case Request::OBTAIN_PLAINTEXT_BLK:
 			{
-				void const *src = _lookup.write_buffer(req._req_tag, req._vba);
-				if (!src) {
-					req._success = false;
-					break;
-				}
-				memcpy(&req._blk, src, Tresor::BLOCK_SIZE);
+				req._blk = _lookup.src_for_writing_vba(req._req_tag, req._vba);
 				req._success = true;
 				break;
 			}
 			case Request::SUPPLY_PLAINTEXT_BLK:
 			{
-				void *dst = _lookup.read_buffer(req._req_tag, req._vba);
-				if (dst == nullptr) {
-					req._success = false;
-					break;
-				}
-				memcpy(dst, &req._blk, Tresor::BLOCK_SIZE);
+				_lookup.dst_for_reading_vba(req._req_tag, req._vba) = req._blk;
 				req._success = true;
 				break;
 			} }
@@ -245,18 +235,16 @@ class Vfs_tresor::Wrapper
 					case Command::Operation::READ:
 						generate_req<Splitter_request>(State::COMPLETED,
 							progress, Splitter_request::Operation::READ, _success,
-							offset, buffer_start, buffer_num_bytes, key_id, gen);
+							offset, Byte_range_ptr(buffer_start, buffer_num_bytes), key_id, gen);
 						break;
 					case Command::Operation::WRITE:
 						generate_req<Splitter_request>(State::COMPLETED,
 							progress, Splitter_request::Operation::WRITE, _success,
-							offset, buffer_start, buffer_num_bytes, key_id, gen);
+							offset, Byte_range_ptr(buffer_start, buffer_num_bytes), key_id, gen);
 						break;
 					default:
 						generate_req<Tresor::Request>(State::COMPLETED,
-							progress, op, _success, 0 /* vba */, 0 /* offset */, count, key_id,
-							(uint32_t)id(), // FIXME proper tag instead of Module_id?
-							gen);
+							progress, op, 0, 0, count, key_id, id(), gen, _success);
 						break;
 					}
 
