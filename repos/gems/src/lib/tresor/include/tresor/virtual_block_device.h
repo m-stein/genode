@@ -66,7 +66,7 @@ class Tresor::Virtual_block_device_request : public Module_request
 		                             Key_id, Generation, Physical_block_address &, bool &, Number_of_leaves &,
 		                             Number_of_blocks &);
 
-		static char const *type_to_string(Type type);
+		static char const *type_to_string(Type);
 
 		void print(Output &out) const override { Genode::print(out, type_to_string(_type)); }
 };

@@ -52,9 +52,9 @@ class Tresor::Crypto_request : public Module_request
 		Crypto_request(Module_id, Module_channel_id, Type, Request_offset, Request_tag, Key_id,
 		               Key_value const &, Physical_block_address, Virtual_block_address, Block &, bool &);
 
-		static const char *type_to_string(Type type);
+		static const char *type_to_string(Type);
 
-		void print(Output &out) const override;
+		void print(Output &) const override;
 };
 
 class Tresor::Crypto_channel : public Module_channel
