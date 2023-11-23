@@ -56,12 +56,7 @@ class Tresor::File
 		Vfs::Vfs_handle &_open(Tresor::Path path, Vfs::Directory_service::Open_mode mode)
 		{
 			Vfs::Vfs_handle *handle { nullptr };
-			Open_result result { _env.root_dir().open(path.string(), mode, &handle, _env.alloc()) };
-			if (result != Open_result::OPEN_OK) {
-				error("failed to open file ", path.string());
-				class Failed { };
-				throw Failed { };
-			}
+			ASSERT(_env.root_dir().open(path.string(), mode, &handle, _env.alloc()) == Open_result::OPEN_OK);
 			return *handle;
 		}
 
