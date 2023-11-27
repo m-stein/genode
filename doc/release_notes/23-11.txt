@@ -361,41 +361,98 @@ Date:   Sat Sep 30 14:36:48 2023 +0200
 Ported 3rd-party software
 =========================
 
-; @cnuke
+Linphone SIP client
+-------------------
 
-; Linphone
+The "Linphone Console Client" and the "SIP Client for Ubuntu Touch" got ported
+to Genode to expand the available features on the PinePhone when it comes to
+mobile communication. Sculpt on the PinePhone only provided support for
+making and receiving regular phone-calls but did not yet provide any VoIP
+functionality.
 
-commit 4bef85d7bc5632cba303710df105f0f295093a91
-Author: Christian Prochaska <christian.prochaska@genode-labs.com>
-Date:   Mon Aug 28 11:23:24 2023 +0200
+It was decided to port the [https://linphone.org - Linphone-SDK], the console
+client in particular, to Genode because it seems to be a well used solution
+on a range of OSes. Furthermore it uses the [https://cmake.org - cmake]
+build-system, which makes it the ideal candidate for stressing
+[https://github.com/genodelabs/goa - goa] with a reasonably complex project.
+Using goa itself turned out to be straight-forward and by re-using the already
+existing back ends for POSIX-like systems, e.g. OSS for handling audio via the
+mediastreamer library, we only had to tweak the build-system here and there.
+That being said, at the same time, however, we were made aware of existing
+short-comings within in goa when it comes to the handling of shared-libraries
+in cmake based projects. We were happy to address these and the fixes are
+part of the current goa release.
 
-    ports: add socat
-    
-    Fixes #5007
+Since the user-interface of the console client is not comfortable to use
+on the PinePhone it had to be complemented by a GUI application that handles
+the user interaction. While looking for such an application we noticed the
+[https://gitlab.com/ubports-linphone/linphone-simple/ - SIP Client for Ubuntu Touch]
+that utilizes the Ubuntu Touch UI Toolkit for which a port to Genode already
+exists. We adapted that project for our needs and with the major components
+now in place created a preset for Sculpt on the PinePhone.
 
-commit 51875b89fdc1bef7a84e8b7a64506bc82087a3e7
-Author: Christian Prochaska <christian.prochaska@genode-labs.com>
-Date:   Fri Sep 29 12:30:26 2023 +0200
+The preset's structure is depicted by the following chart.
 
-    ports: add `socat_tcp` pkg
-    
-    Issue #5007
+[image linphone_preset] Structure of the linphone preset
 
-commit 70fbd671c8ed40b36fec3dd7b9c53487ffbeded7
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Tue Sep 19 11:00:04 2023 +0200
+Both components each have their own requirements:
 
-    Add SDL2_mixer-2.6.3
-    
-    Issue #341.
+The client needs access to the network, has to store its configuration, and
+requires access to the audio subsystem. It is the driving force behind the
+operation while it receives its instructions from the GUI.
 
-commit 936a3cc3f93bcfc0f50523037a2c211c2e3c2d61
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Tue Sep 19 11:52:21 2023 +0200
+The GUI needs access to the GPU driver, as required for fluent rendering of
+QML on the PinePhone, as well as access to input events for user
+interaction.
 
-    Add SDL2_net-2.2.0
-    
-    Issue #341.
+Naturally these requirements are satisfied by other components also
+incorporated into the preset:
+
+* The _Dynamic chroot_ component selects and limits the file-system access of
+  the client to the configured directory. In case of the PinePhone it points
+  to the '/recall/linphone' directory on the SD-card.
+
+* The _SNTP_ component provides the client with a correct real-time clock
+  value. Note that the SNTP component uses a different TCP/IP-stack then the
+  client itself.
+
+* The _Audio driver_ component makes the speaker as well as the mic available
+  to the client.
+
+* The _GPU driver_ component allows the GUI to render the interface via OpenGL
+  on the GPU.
+
+* The _Touch keyboard_ collects the touch events and translates them into key
+  events that are then consumed by the GUI.
+
+The client and the GUI themselves are connected via the _Terminal crosslink_
+component where the control channel is formed by connecting stdout from the
+GUI to stdin from the client and vice versa.
+
+As denoted by the chart, the client actually functions as a _Daemon_
+that is running in the background, while the GUI is the _App_ the user
+interacts with.
+
+For more information and a usage guide please read the corresponding
+[https://genodians.org/jws/2023-11-16-sip-client-for-genode - Genodians article]
+that provides more information.
+
+
+Socat
+-----
+
+We ported socat, a multipurpose relay (SOcket CAT), to Genode and created a
+ready-to-use pkg archive that allows for making a Terminal session available
+on port '5555'.
+
+
+SDL libraries
+-------------
+
+This release also makes more SDL-related libraries available on Genode.
+The common helper libraries like SDL2-image, SDL2-mixer, SDL2-net and SDL2-ttf
+complement the SDL2 support, while the SDL-gfx library enhances the support
+of SDL1.2. All these libraries are located in the _genode-world_ repository.
 
 
 Device drivers
