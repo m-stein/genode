@@ -381,6 +381,10 @@ void Popup_dialog::click(Clicked_at const &at)
 
 			unsigned count = 0;
 			_launchers.for_each([&] (Launchers::Info const &info) {
+
+				if (_runtime_info.present_in_runtime(info.path))
+					return;
+
 				if (id == launcher_id(count++))
 					_action.launch_global(info.path); });
 		}
