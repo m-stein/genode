@@ -404,152 +404,123 @@ Device drivers
 USB device drivers updated to Linux 6.1.20
 ==========================================
 
-; @ssumpf
+With our ongoing effort to apply our previous device-driver porting approach
+to our new
+[https://genode.org/documentation/release-notes/21.08#Linux-device-driver_environment_re-imagined - device-driver environment],
+USB-device drivers where subject to this porting effort during this release
+cycle. This includes the HID driver for keyboard, mouse, and touch support, the
+network driver, that supports USB NICs like AX88179 or the PinePhone's CDC
+Ether profile of its LTE Modem, as well as the USB Modem driver that offers basic
+LTE-modem access for modems relying on the
+[https://www.usb.org/document-library/mobile-broadband-interface-model-v10-errata-1-and-adopters-agreement - MBIM]
+configuration.
 
-commit c5a55e5af45af019a669b95b9d3bc6c920ba5666
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Fri Jun 16 21:31:44 2023 +0200
 
-    genode_c_api/usb_client: API USB clients
-    
-    Through this API C-code can connect to an USB service.
-    
-    issue #4958
+Architecture
+------------
 
-commit f9e70b0300a1d7cb5721c7a6038c5bf79fc995af
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Tue Jul 4 20:51:31 2023 +0200
+The major difference of USB-device drivers to the USB-host-controller drivers is
+that the former do not communicate with the hardware directly, but only send
+messages to the USB-host controller through Genode's USB-session interface. So,
+in Genode point of view they can be classified as protocol stacks. Therefore, we
+based these drivers not on the DDE Linux version that offers direct hardware
+access, but on 'virt_linux' as described in release
+[https://genode.org/documentation/release-notes/23.05#WireGuard_improvements - 23.05].
 
-    genode_c_api/event: add wheel events
-    
-    issue #4958
+We replaced the actual Linux calls that create USB messages (like control, bulk,
+or IRQ transfers) by custom implementations that forward these messages through an
+USB-client session to the host controller. The client-session implementation is
+written in C++ and because we do not allow calling C++ from C-code anymore, we
+introduced a USB-client C-API that can be called directly by the replacement
+functions.
 
-commit 57d2b7235dc42cda4cbfd861166c64686795cb38
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Tue Jun 13 22:33:23 2023 +0200
+The same goes for the services the USB drivers offer/use which are accessed
+through the respective C-APIs. For example, the HID driver communicates with
+Genode's event session through the event C-API and the NIC driver through the
+Uplink C-API.
 
-    virt_linux: add USB HID/NET/MBIM to kernel configuration
-    
-    issue #4958
 
-commit 71c32f2923b751df4dda5940b65b6d8f8a5f7b24
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Jun 22 20:07:32 2023 +0200
+USB-HID driver
+--------------
 
-    virt_linux: add init calls for USB HID/NET
-    
-    issue #4958
+The HID driver is a drop-in replacement of its predecessor. It still offers
+support to handle multiple devices at once, and the configuration remains
+unchanged.
 
-commit 22231c0604706ff2d615efd3f7fd3cf193ab137e
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed Jun 14 15:34:33 2023 +0200
+Note that we have dropped support for multi-touch devices, like Wacom, because
+touch was merely in a proof of concept state that should be redesigned and
+rethought for Genode if needed.
 
-    virt_lx_emul: adjust dummies for usb_hid/net
-    
-    issue #4958
 
-commit d27e0a8fe69060611768690d1093985c0318d6e0
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Tue Jun 20 18:01:04 2023 +0200
+USB modem
+---------
 
-    virt_lx_emul: add shadow 'vmalloc.c'
-    
-    issue #4958
+The LTE-modem driver (usb_modem_drv) has been integrated into the network driver
+(see below).
 
-commit 5eff895f9d735a6334407677ee5edcf640a631b8
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Sun Jun 18 21:28:18 2023 +0200
 
-    virt/lx_emul: shadow urb handling for USB clients
-    
-    allocate, free, and submit urbs to an USB service using Genode's USB
-    client C-API.
-    
-    issue #4958
+USB net
+-------
 
-commit 3925c7ec607b292eef6e8666189a1940e2bc9fde
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed Jul 5 18:51:42 2023 +0200
+The 'usb_net_drv' is also a drop-in replacement for its predecessor with the
+exception that an additional config attribute is available:
 
-    virt/lx_emul: add usb_client.c
-    
-    This registers C-API USB-client device handle (i.e., USB::Connection) as
-    Linux 'usb_device' and probes all the initialized drivers.
-    
-    issue #4958
+!<config mac="2e:60:90:0c:4e:01 configuration="2" />
 
-commit c4ec847680587ca409065d999672b01f49771b86
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed Jun 14 15:35:02 2023 +0200
+Next to the 'mac' address (like in the previous version), the USB configuration
+profile can be specified with the 'configuration' attribute. For USB devices
+that provide multiple configuration profiles, the Linux code will always select
+the first non-vendor-specific configuration profile found. This may not be the
+desired behavior, and therefore, can now be specified.
 
-    lx_emul/shadow/uaccess_64: add 'clear_user'
-    
-    issue #4958
+The available configuration profile of a device can be found out under Linux using:
 
-commit 6ac68494db77c46393eb2c9b6812d660d2e88752
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Jun 29 18:01:53 2023 +0200
+! lsusb -s<bus>:<device> -vvv
 
-    lx_emul/arm: add 'pteval_t'
-    
-    issue #4958
+The following USB networking devices are supported:
 
-commit c835993ac37e520ccded19cffd8605d8c7cca455
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Jun 22 19:56:36 2023 +0200
+* NICs containing an AX88179A chip
+* NICs that support the NCM profile (e.g., RTL8156)
+* NICs that offer the ECM profile
 
-    lx_emul: add wheel events to shadow evdev.c
-    
-    issue #4958
+Support for the SMSC95XX line of devices has been dropped, but may be re-enabled
+if required.
 
-commit 5bce4dac815aa9ed91f513fcb5f0d01b92e269ff
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Mon Jul 3 22:26:50 2023 +0200
+As mentioned above the LTE-modem support for MBIM based modems has been merged
+into this drivers because a LTE-modem is just a USB networking device (for
+data) plus a control channel. In case the driver discovers a LTE-modem it will
+announce a Genode-Terminal session as a control channel.
 
-    recipe: virt_linux api
-    
-    for x86_32, x86_64, arm, arm_64
-    
-    issue #4958
+Example configuration for the Huawai ME906s modem:
 
-commit f4d7455a9f2e515f34a27907e0fc0314f242c5aa
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Tue Jul 4 12:30:51 2023 +0200
+!<start name="usb_net_drv">
+!  <resource name="RAM" quantum="10M"/>
+!  <provides>
+!    <service name="Terminal"/>
+!  </provides>
+!  <config mac="02:00:00:00:01:01" configuration="3"/>
+!  <route>
+!    <service name="Uplink"><child name="nic_router"/></service/>
+!    ....
+!  </route>
+!</start>
 
-    recipe: wireguard use virt_linux api
-    
-    issue #4958
+The MBIM interface is enabled using configuration profile "3" and the service
+"Terminal" is provided.
 
-commit e1b463082a0955d99ae7247fd087860ff8368fb5
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed Jul 5 13:15:00 2023 +0200
+The following LTE-modems that are mainly used in Lenovo Thinkpads have been
+tested, but different modems might work as well:
 
-    usb_net.run: enable Qemu device pass-through
-    
-    issue #4958
+* Huawai ME906s
+* Fibocom L830-EB-00
 
-commit f668aea42af216b0b3b3885dafbf5a7190310bde
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed Jun 14 15:33:25 2023 +0200
 
-    dde_linux: update usb_hid driver to Linux 6.1.20
-    
-    The drivers uses the 'virt_linux' api and the current lx_kit
-    implementation. It is a drop-in replacement for the Linux 4.16.3 based
-    version.
-    
-    issue #4958
+Current limitations
+-------------------
 
-commit d5cf77539a0019ee6c02282cf2af953e5a4190ce
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed Jul 5 18:01:10 2023 +0200
-
-    dde_linux: update usb_net driver to Linux 6.1.20
-    
-    Driver for network-interface cards and LTE modems with MBIM support
-    connected via USB.
-    
-    issue #4958
+The current version of 'virt_linux' does not support arm_v6 platforms like
+Raspberry PI (Zero). We will address this shortcoming with the next release and
+update the drivers accordingly.
 
 
 Platforms
