@@ -78,100 +78,139 @@ Date:   Wed Oct 18 16:54:05 2023 +0200
 Modernized virtualization interface
 ===================================
 
-; @atopia, @chelmuth
+When we introduced a
+[https://genode.org/documentation/release-notes/19.05#Kernel-agnostic_virtual-machine_monitors - generic Virtual Machine Monitor (VMM) interface]
+for x86 virtualization in in Genode OS 19.05, it was largely modelled after our
+Genode VMM API for ARM:
 
-commit daafe3f4e29c57c71f48e7e0867568e528b42c94
-Author: Benjamin Lamowski <benjamin.lamowski@genode-labs.com>
-Date:   Tue Jun 6 15:57:38 2023 +0200
+* A vCPU's state could be requested, evaluated and modified with the 'state()'
+  method.
+* The vCPU can be started with the 'run()' method.
+* A synchronization point where the vCPU is stopped can be requested with the
+  'pause()' method.
 
-    base: rework vmm library API
-    
-    The new API emphasizes control over the vCPU data by granting access
-    through the Vcpu::with_state() method, which makes sure that the vCPU is
-    stopped, invokes the supplied function with a reference to the VM state
-    and resumes the vCPU if the function returns true.
-    
-    The old Vcpu::run(), Vcpu::pause() and Vcpu::state() methods are removed
-    in favor of the new API. Execution of the vCPU is now interrupted by
-    sending a native Genode Signal to its Vcpu_handler, which will run the
-    VMM's exit handling method. When this method retrieves the vCPU state by
-    calling Vcpu::with_state(), the outside interruption is detected and on
-    x86 a recall exit is injected into the state to signal the vCPU
-    interruption / pause request to the VMM's vCPU handler.
-    
-    Ref #4968
+However, this ostensibly uniform interface for ARM and x86 virtualization
+obscures two significant differences between the architectures:
 
-commit 9489bf41a5892291a0491891d27862a0fc06e615
-Author: Benjamin Lamowski <benjamin.lamowski@genode-labs.com>
-Date:   Wed Jun 7 11:43:20 2023 +0200
 
-    base-hw: port to new VMM library API
-    
-    Ref #4968
+*Hardware and generic vCPU state:*
 
-commit 85012d5eddb168328c8a36e39bb33f3ce38ab6de
-Author: Benjamin Lamowski <benjamin.lamowski@genode-labs.com>
-Date:   Wed Sep 13 13:34:27 2023 +0200
+On ARM, the VMM directly handles the hardware virtualization state, i.e. the
+vCPU state is directly passed to the VMM.
 
-    base-nova: port to new VMM library API
-    
-    Ref #4968
+In contrast, what is passed to the VMM on x86 is a generic _Vcpu_state_. This is
+due to two aspects of x86 virtualization: First, there are two competing
+implementations of virtualization on x86: AMD's _Secure Virtual Machine (SVM)_ /
+_AMD-V_ and Intel's _Virtual Machine Extensions (VMX)_.
+Second, neither interface lends itself to passing the vCPU state directly
+to the VMM: VMX requires privileged instructions to access fields in the
+_Virtual Machine Control Structure (VMCS)_. While SVM supports directly
+accessing fields in its _Virtual Machine Control Block (VMCB)_, the VMCB does
+not represent the whole state of the vCPU. Notably, both the VMCS and the VMCB
+do not include the CPU's General Purpose Registers, thereby warranting a
+separate data structure to synchronize the vCPU state with a VMM.
 
-commit 5136883deda53374ae5b027d80c34d832c191e59
-Author: Benjamin Lamowski <benjamin.lamowski@genode-labs.com>
-Date:   Tue Aug 8 14:14:30 2023 +0200
 
-    base-foc: port to new VMM library API
-    
-    Ref #4968
+*vCPU pause and state synchronization:*
 
-commit 1515a0a51e3c8027b15d05bf64c03d30b57d212f
-Author: Benjamin Lamowski <benjamin.lamowski@genode-labs.com>
-Date:   Wed Aug 9 16:21:12 2023 +0200
+On ARM, the 'pause()' method simply stopped the vCPU kernel thread from being
+scheduled. Since the VMM's vCPU handler runs on the same CPU core we can be
+sure that the vCPU is not running while the VMM's vCPU handler VMM is
+executing, and calling 'pause()' made sure the vCPU wasn't rescheduled while the
+VMM was modifying its state.
 
-    base-sel4: port to new VMM library API
-    
-    Ref #4968
+In contrast, calling 'pause()' on x86 has a different semantic. It requests
+a synchronization point from the hypervisor which responds by issuing a generic
+_PAUSE_ or _RECALL_ exit to signal the VMM that state can be injected into the
+vCPU. The mechanism is woven deeply into the device models of our x86 VMMs, and
+therefore asynchronous state synchronization from the VMM needed to be available
+in the VMM.
 
-commit 9f054635bde851e5a1fe7f367e7f9e9cf68ff133
-Author: Benjamin Lamowski <benjamin.lamowski@genode-labs.com>
-Date:   Tue Jun 20 17:37:56 2023 +0200
 
-    virtualbox6: port to new VMM library API
-    
-    Ref #4968
+API shortcomings and improvements
+---------------------------------
 
-commit 7e79128c032b5006eae34e148beaaa53fcf53fb1
-Author: Benjamin Lamowski <benjamin.lamowski@genode-labs.com>
-Date:   Mon Jun 26 16:39:40 2023 +0200
+On ARM, unconditionally making the hardware vCPU state available to the VMM via
+the 'state()' method meant that the API did not enforce any synchronization
+between hypervisor / hardware and VMM accesses to the vCPU state. On x86, the
+asynchronous semantics of the 'pause()' method required complex state tracking
+on the hypervisor side of the interface.
 
-    vmm_x86: port to new VMM library API
-    
-    Ref #4968
+To address both shortcomings, the previous API was replaced with a single
+method: The 'with_state()' method takes a function as an argument. It makes sure
+that the vCPU is stopped and passes the vCPU state to the supplied lamdba or
+function. If that function returns 'true', the vCPU is resumed with its state
+updated by the VMM. If the lambda returns 'false', the vCPU remains stopped.
 
-commit cfab4e74a93a74d63ca31aba9e6a854aefbfea53
-Author: Benjamin Lamowski <benjamin.lamowski@genode-labs.com>
-Date:   Thu Aug 10 19:08:04 2023 +0200
+As a result, the API enforces that the vCPU state is only available when the
+vCPU is not running. Moreover, we were able to replace the ambiguous 'pause()'
+method by a generic signal to the VMM library's vCPU handler, which will itself
+create the necessary synchronization point by calling 'with_state()'.
+Finally, resuming of the vCPU is controlled by the return value of the
+handler function passed to 'with_state()', removing the need for an explicit
+resume  via 'run()'.
 
-    vmm: port to new VMM library API
-    
-    Ref #4968
 
-commit 6b676d55c9af04aae74acd3d988f2a5b56af3de9
-Author: Benjamin Lamowski <benjamin.lamowski@genode-labs.com>
-Date:   Wed Jun 7 14:59:45 2023 +0200
+Porting hypervisors and VMMs
+----------------------------
 
-    seoul: port to new VMM library API
-    
-    Ref genodelabs/genode#4968
+The new API was first implemented for *hw*'s x86 SVM virtualization, recently
+[https://genode.org/documentation/release-notes/23.05#Base-HW_microkernel - introduced]
+as part of the 23.05 release. The reduction of complexity was significant:
+explicitly requesting the vCPU state via 'with_state()' did away with a vast
+amount vCPU state tracking in the kernel. Instead, the VMM library explicitly
+requests updates to the vCPU state as part of the 'pause()' and 'run()' kernel
+system calls. The new interface requires an implicit start of the vCPUs, which
+on ARM made it necessary to implement generic startup exception codes to trigger
+the initial setup of the vCPU state in the VMM.
 
-commit 7cb7ef26078344a0ac927b3a0773ed9495dac62b
-Author: Benjamin Lamowski <benjamin.lamowski@genode-labs.com>
-Date:   Tue Jul 25 14:49:45 2023 +0200
+With a first hypervisor ported, we were curious to see how easily our tried and
+tested interface to the *NOVA* hypervisor could be transformed to the new
+interface. At first, we also encountered a pleasant reduction in complex state
+handling in base-nova's VMM library. However, after some unsuccessful attempts
+at finding a solution on the library level, it became clear that there was no
+way to match NOVA's execution model to the new library interface: the
+asynchronous nature of the 'with_state()' interface meant that we needed a way
+to synchronize the vCPU state with the VMM that could be initiated from the VMM.
+Since NOVA's execution model is based on the hypervisor calling into the VMM on
+exits, we had to extend NOVA's system call interface to allow for explicit
+setting and getting the vCPU state. This was needed because the 'with_state()'
+interface requires that the vCPU state is made available to the caller within
+the method call, so the old model of requesting a _RECALL_ or _PAUSE_ exit that
+would be processed asynchronously couldn't be used here. For the same reason,
+the vCPU exit reason had to be passed with the rest of the vCPU state in the
+UTCB, since in this case it wasn't provided through the VMM portal called from
+the hypervisor. The new 'ec_ctrl' system call variants proved to be a simple
+addition and allowed us to adapt to the new interface while still using NOVA's
+execution model for processing regular exits.
 
-    seoul: enable SMP on base-hw
-    
-    Ref genodelabs/genode#4968
+The "blocking system call into the hypervisor" execution model of *Fiasco.OC*
+and *seL4* offered its own unique set of challenges to the new library
+interface in the interplay between asynchronous 'with_state()' triggers and the
+synchronous vCPU run loop. Fortunately, we were able to implement the new
+interface in the VMM library without kernel changes and the solution first
+implemented for Fiasco.OC was then easily adapted to seL4.
+
+Adapting the VMM side we found varying degrees of dependency on permanently
+accessible vCPU state. Adapting our little *tz_vmm* and the *Seoul* VMM were
+most pleasant in that we managed to pass state down from the handler method and
+eliminate all permanent accessors to the vCPU state. On the other end of the
+spectrum, our port of *Virtualbox 6* relies on a global _Constructible_ that is
+constructed in the lambda passed to 'with_state()' and destructed before the
+lambda returns. The reason is that control passes through a lot of upstream code
+and it would be too tedious to rewrite the port to pass the vCPU state along.
+Dereferencing the constructible outside the scope of 'with_state()' would cause
+a runtime exception. Since the release of
+[https://genode.org/documentation/articles/sculpt-23-10 - Sculpt OS 23.10], the
+new interface is used in production. We haven't experienced any runtime vCPU
+state access violations and can now be certain that there aren't any silent
+concurrent accesses of the vCPU state. Finally, our ARM *vmm* was mostly adapted
+to pass down the state, but in some places accesses the vCPU state through a
+Constructible.
+
+All in all, the new VMM library interface has succeeded in reducing complexity
+while providing more robust access to vCPU state shared between our various
+hypervisors and VMMs.
 
 
 Dialog API for low-complexity interactive applications
