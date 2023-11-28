@@ -274,77 +274,26 @@ API changes
 Simplified list-model utility
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-; @nfeske
+The so-called 'List_model' utility located at _base/include/list_model.h_ has
+become an established pattern in Genode components that need to maintain an
+internal data model for XML input data. It is particularly useful whenever XML
+data changes over time, in particular when reconfiguring a component at
+runtime.
 
-commit a2e83ca068a7080caef0bad1ba56e4c664259e09
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Oct 26 15:25:26 2023 +0200
+The original utility as introduced in version
+[https://genode.org/documentation/release-notes/18.02#API_changes - 18.02]
+relied on a policy-based programming pattern, which is more ceremonial than it
+needs to be, especially with recent versions of C++. The current release
+replaces the original policy-based 'update_from_xml' by a new method that
+takes three functors for creating, destroying, and updating elements as
+arguments. XML nodes are associated with their corresponding internal data
+models by annotating the element type with the 'type_matches' class function
+and the 'matches' method.
 
-    drivers/platform: use modern list-model interface
-    
-    Issue #4317
-
-commit 81283050920c2e773a93faa703a8936f92f0e7b6
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Oct 26 17:16:40 2023 +0200
-
-    pci_decode: use modern list-model interface
-    
-    Issue #4317
-
-commit 80199ffe6a2fe85559b4da9a0393e860dfb47066
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Oct 26 17:39:46 2023 +0200
-
-    vmm: use modern list-model interface
-    
-    Issue #4317
-
-commit ddc86a612ee16858232ef959493f2329cfec517f
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Oct 26 17:50:07 2023 +0200
-
-    wireguard: use modern list-model interface
-    
-    Issue #4317
-
-    ....
-
-commit 56e9b0eadae63f8ace67dc4da2a41975b92f7595
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Oct 27 16:01:23 2023 +0200
-
-    Simplify 'List_model'
-    
-    This patch replaces the original policy-based 'update_from_xml' by a new
-    method that takes three functors for creating, destroying, and updating
-    elements as arguments. XML nodes are associated with their corresponding
-    internal data models by annotating the element type with the
-    'type_matches' class function and the 'matches' method.
-    
-    The patch also improves safety by enforcing that list-model elements can
-    never be copied.
-    
-    Fixes #4317
-
-commit 2d444821985f4f9f6af585f840753a00469ff00d
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Sat Oct 28 12:22:54 2023 +0200
-
-    list_model.h: retire 'update_list_model_from_xml'
-    
-    This transition vehicle to the modern interface has now been replaced by
-    the new 'List_model::update_from_xml' method.
-    
-    Issue #4317
-
-commit 586e647897fa23e13675c968826958bdc21ed5f7
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Sat Oct 28 12:30:40 2023 +0200
-
-    list_model.h: rename 'apply_first' to 'with_first'
-    
-    Issue #4317
+Besides the interface change, two minor aspects are worth noting.
+First, to improve safety, list model elements can no longer be copied.
+Second, to foster consistency with other parts of Genode's API, the
+'apply_first' method has been renamed to 'with_first'.
 
 
 Libraries and applications
