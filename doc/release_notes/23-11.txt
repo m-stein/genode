@@ -683,40 +683,66 @@ method both in the Genode build system and for the 'dbg' depot archives.
 Discharged implicit trigger of shared-library builds
 ====================================================
 
-; @nfeske
+Since the very first version, Genode's build system automatically managed
+inter-library dependencies, which allowed us to cleanly separate different
+concerns (like CPU-architecture-specific optimizations) as small static
+libraries, which were automatically visited by the build system whenever
+building a dependent target.
 
-commit 3ebb715c5cb422c6b6065ca94dfeda7a75c4f54f
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Sep 12 16:21:03 2023 +0200
+When we later
+[https://genode.org/documentation/release-notes/9.11#Completed_support_for_dynamic_linking - introduced]
+the support for shared libraries, we maintained the existing notion of
+libraries but merely considered shared objects as a special case.
+Hence, whenever a target depends on a shared library, the build system
+would automatically build the shared library before linking it to the target.
 
-    libports: use [build_artifacts] in run scripts
-    
-    ...except for the run scripts related to Qt and the NIC router.
-    
-    Issue #4860
+With the later introduction of Genode's ABI's in version
+[https://genode.org/documentation/release-notes/17.02#Genode_Application_Binary_Interface - 17.02],
+we effectively dissolved the link-time dependency of targets from shared
+objects, which ultimately paved the ground for Genode's package management.
+However, our build-system retained the original policy of building shared
+libraries before linking dependent targets. Even though this is arguably
+convenient when using many small inter-dependent libraries, with complex
+shared libraries as dependencies, one always needs to locally build those
+complex libraries even though the library internals are rarely touched or the
+library is readily available as a pre-built binary archive.
+In the presence of large 3rd-party libraries, the build system's traditional
+policy starts to stand in the way of quick development-test cycles.
 
-commit 12462d63ac9bf90d96657c6bd3c0e3ad801fd5b9
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Sat Nov 18 12:50:46 2023 +0100
+With the current release, we discharge the implicit built-time dependency
+of targets from shared libraries. Shared libraries must now be explicitly
+listed in the 'build' command of run scripts. For example, for run
+scripts that build Genode's base system along withe the C runtime, the
+build command usually contains the following targets.
 
-    run: check consistency of build_boot_image args
+! core lib/ld init timer lib/libc lib/libm lib/vfs lib/posix
 
-commit 85681bf8e843a4ba5e0d9ca619c71b92b5b9e6cf
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Nov 20 14:53:05 2023 +0100
+However, in practice most run scripts incorporate those basic ingredient as
+depot archives. So those targets need to be built only if they are touched by
+the development work.
+To incorporate the results of all explicitly built targets into a system
+image, the 'build_boot_image' command can be used as follows. Note that
+the manual listing of boot modules does not need to be maintained manually any
+more.
 
-    mk: remove implicit build of shared libraries
-    
-    This patch removes the implicit build of all shared libraries a target
-    depends on. Targets only depend on the respective ABIs instead. This
-    alleviates the need to locally build complex shared libraries (think of
-    Qt) when developing applications. Instead, application developers can
-    use binary depot archives.
-    
-    The implementation splits the mk/lib.mk file into three files:
-    - mk/a.mk   for building one static library (.lib.a)
-    - mk/so.mk  for building one shared object  (.lib.so)
-    - mk/abi.mk for building one ABI stub       (.abi.so)
-    
-    Fixes #5061
+! build_boot_image [build_artifacts]
 
+During the release cycle of version 23.11, we have now revisited all run
+scripts in this respect, and we encourage Genode users to follow suit.
+The run tool tries to give aid to implement this change whenever it detects
+the presence of a .lib.so 'build_boot_image' argument that is not covered by
+the prior build command. For example, on the attempt to integrate 'ld.lib.so'
+without having built 'lib/ld', the following diagnostic message tries to
+guide you.
+
+! Error: missing build argument for: ld.lib.so
+!
+!   The build_boot_image argument may be superfluous or
+!   the build step lacks the argument: lib/ld
+!
+!   Consider using [build_artifacts] as build_boot_image argument to
+!   maintain consistency beween the build and build_boot_image steps.
+
+The inconvenience of the need to adopt existing run scripts notwithstanding,
+developers will certainly notice a welcome boost of their work flow,
+especially when working with complex 3rd-party libraries.
