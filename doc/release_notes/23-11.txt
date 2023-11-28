@@ -15,8 +15,94 @@
 Kernel-agnostic DMA protection
 ##############################
 
-; @jschlatow
+On our quest towards a PC version of Sculpt OS on the base-hw kernel, we were
+able to move an essential chunk away to clear another section of the path.
+Based on the preparatory changes to the platform driver w.r.t. IOMMU handling
+introduced in
+[https://genode.org/documentation/release-notes/23.05#Towards_kernel-agnostic_DMA_protection - release 23.05],
+we were able to enable kernel-agnostic DMA protection on Intel platforms.
 
+Similar to how the MMU protects the system against unintended CPU-initiated
+memory transactions, the IOMMU protects the system against unintended DMA
+transactions. Since components allocate DMA buffers via the platform driver,
+the latter sits in the perfect spot to manage DMA remapping tables for its
+clients and let the IOMMU know about them.
+
+; Figure
+
+The above figure illustrates how we added this to the PC version of Sculpt OS.
+IOMMUs are announced in the ACPI DMAR table, which is parsed by our ACPI driver
+component. It particularly evaluates the
+_DMA Remapping Hardware Unit Defintions_ (DRHDs) and
+_Reserved Memory Region Reporting_ (RMRRs) structures and reports the essential
+details in form of an _acpi_ report. There are typically multiple DRHDs with
+different device scopes. The RMRRs specify memory regions that may be DMA
+targets for certain devices.
+
+The _acpi_ report is used by our PCI decode component, which creates a
+_devices_ report. It adds the DRHDs as devices to this report and annotates
+the found PCI devices with corresponding '<io_mmu name="drhdX"/>' nodes
+according to the DRHDs' device scopes. Moreover, it adds
+'<reserved_memory .../>' nodes to the particular devices as specified by the
+RMRRs.
+
+By evaluating the _devices_ report, the platform driver has a complete picture
+about the DMA remapping hardware units and which PCI devices fall into their
+scopes. It takes control over the mentioned _drhdX_ devices on its own and sets
+up the necessary structures that are shared between all sessions and devices.
+For every Platform session and used _drhdX_ device, it creates an
+'Io_mmu::Domain' object that comprises a DMA remapping table. As shown in the
+figure, Client A, which acquires devices in the scope of drhd0 and drhd1, the
+platform driver sets up two DMA remapping tables. The tables are populated with
+the DMA buffers allocated via Client A's platform session. For every acquired
+device, the platform driver maps the corresponding remapping table. Note that
+DMA buffers are allocated on a per-session basis so that all devices in the
+same session will get access to all DMA buffers. To further restrict this,
+Client A could open separate platform sessions for every DMA-capable device.
+
+A subtle implementation detail (not shown in the figure) concerns the
+aforementioned reserved memory. The reserved memory regions of a device must be
+added to the corresponding DMA remapping table. Moreover, these regions must
+be accessible at all times, i.e. even before the device was acquired by any
+client. For this purpose, the platform driver creates a default remapping table.
+This table is filled with the reserved memory regions and mapped for every
+unused device that requires access to any reserved memory region.
+
+A particular benefit of moving DMA remapping into the platform driver (apart
+from becoming kernel-agnostic) is that DMA remapping tables are now properly
+allocated from the session's quota. In consequence, this may increase the RAM
+and cap requirements for certain drivers.
+
+The platform driver's support for Intel IOMMUs is enabled by default.
+Nevertheless, we also kept NOVA's IOMMU enablement intact for several reasons:
+- To protect the boot-up process from DMA attacks, the IOMMU should be enabled
+  as early as possible. The platform driver simply takes over control when it
+  is ready.
+- The platform driver is not (yet) able to manage interrupt remapping because
+  this requires access to the _I/O Advanced Programmable Interrupt Controller_
+  (IOAPIC) controlled by the kernel. Thus, in this release, we still let NOVA
+  manage the interrupt remapping table.
+- As we have not implemented support for AMD IOMMUs yet, we simply keep NOVA
+  in charge of this. If there is no Intel IOMMU present, the platform driver
+  falls back to the device PD for controlling the kernel-managed IOMMU.
+
+Along with the DMA remapping support, we added an _iommu_ report to the platform
+driver. On the PC version of Sculpt OS, this is enabled by default and routed
+to _/report/drivers/iommu_. The report summarizes the enable state of each DRHD.
+When the platform driver takes over control, it also logs a message like
+"enabled IOMMU drhd0 with default mappings". The platform driver can
+be prevented from touching the IOMMU by removing the DRHD info from the _acpi_
+report. This is achieved by supplying the ACPI driver with the following config.
+Note that the ACPI driver does not handle config updates.
+
+! <config ignore_drhd="yes"/>
+
+Orthogonal to the DMA remapping support, we changed the allocation policy for
+DMA buffers in the generic part of the platform driver. The new policy leaves an
+unmapped page (guard page) between DMA buffers in the virtual I/O memory space.
+This makes sure that a simple DMA buffer overflow does not corrupt other DMA
+buffers. Since this is only a matter of virtual address allocation, it does not
+cost any additional RAM.
 
 
 Base framework and OS-level infrastructure
