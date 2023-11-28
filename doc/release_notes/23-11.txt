@@ -25,56 +25,47 @@ Base framework and OS-level infrastructure
 PC power, frequency, temperature sensing and control
 ====================================================
 
-; @alex-ab
+PC CPU vendors provide various CPU features for the operating system to influence
+frequency and power consumption, like Intel HWP or AMD pstate to name just
+some of them. Some of the features require at the lowest level access to
+various MSR CPU registers, which can solely accessed by privileged rdmsr and
+wrmsr instructions.
 
-commit 916bd88e5e49df7458505d38bfdabc64b15bd085
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Tue Sep 26 10:55:06 2023 +0200
+Up to now, this feature was provided in a static way, namely before the Genode
+boot. It was possible to set a fixed desired target power consumption
+via the pre-boot chainloader bender. The feature got introduced with the
+[https://genode.org/documentation/release-notes/20.11#Hardware_P-State_support_on_PC_hardware - Genode framework 20.11]
+release and was refined with Genode
+[https://genode.org/documentation/release-notes/22.11#Configurable_Intel_HWP_mode - Genode framework 22.11].
 
-    base: extend PD session by system_control_cap
-    
-    Per Affinity::Location a system control cap can be requested. The capability
-    provides an RPC interface to request and set Cpu_state, as provided by the
-    former Pd::managing_system(Cpu_state) method. Invocation of those system
-    control capabilities then *can* (see below) be executed on the desired CPU
-    as described by Affinity::Location.
-    
-    The system control cap will be invalid for kernels that don't support
-    system_control/managing_system functionality at all.
-    
-    The system control cap will be ever by the same, e.g. ignoring the
-    Affinity::Location parameter, if the used kernel doesn't support or doesn't
-    require the feature to execute the system control per CPU.
-    
-    The commit is a preparation step to add guarded and selective x86 MSR
-    access per CPU.
-    
-    Fixes #5009
+Another and desired approach is, to permit to adjust the desired power
+consumption depending on the current load of the system. This dynamic way of
+adjusting and reading power and frequency was developed casually since 2021
+and got presented in one [https://genodians.org/alex-ab/2023-05-29-freq_power - sneak peak]
+Genodian article and in a polished version with the
+the [https://genodians.org/alex-ab/2023-10-23-msr - Sculpt 23.10] release.
 
-commit e36170c997b07889ac9bed67a285623a918bad85
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed Oct 4 11:32:42 2023 +0200
+With this Genode release we added finally the general support to
+the framework, to permit guarded access to selected MSRs via Genode's
+system_control RPC of the protection domain (PD) session. If the underlying
+kernel supports this feature, as now done for the NOVA kernel, read and write
+requests are forwarded by Genode's 'core' roottask to the kernel. A component
+needs the explicit [https://genode.org/documentation/release-notes/22.02#Restricting_physical_memory_information_to_device_drivers_only - managing_system] configuration role to get
+access to this functionality, which is by default not granted.
 
-    nova: add guarded access to MSRs
+The actual knowledge about how to manage Intel HWP and AMD pstate is provided
+as a native Genode component, which uses the new Pd::system_control
+interface. The component monitors and reports changes of MSR registers for
+temperature (Intel) and frequency (AMD & Intel) and power consumption
+(Intel RAPL). Additionally, the component can be instructed by configuration
+changes to write some of the registers. Beside the quite low level MSR
+component, a Genode package with a GUI component is provided to make the
+interactive usage of the feature more user friendly. For Sculpt we added
+an interactive dialog to assign the system-control role to
+to a component like the graphical MSR package via the resource dialog.
+The feature is described best by the [https://genodians.org/alex-ab/2023-10-23-msr - Genodians article]
+for the Sculpt 23.10 release.
     
-    via Genode Pd::system_control interface
-    
-    Issue #5009
-
-commit 94d04b724a8d098e16c231b7b33a9a65c7c4b8dd
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Oct 18 16:54:05 2023 +0200
-
-    sculpt: add system-control in resource dialog
-    
-    This patch allows for the interactive assignment of the system-control role
-    to a new component via the resource dialog. This is useful for integrating
-    low-level components like the Intel frequency/power monitoring tool.
-    
-    Fixes #5033
-
-
-
 Modernized virtualization interface
 ===================================
 
