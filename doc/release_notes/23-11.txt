@@ -406,22 +406,46 @@ Libraries and applications
 Seoul virtual machine monitor
 =============================
 
-; @alex-ab
+The Seoul/Vancouver VMM - introduced to Genode with release 11.11 - is an
+x86 based VMM which runs on Genode@NOVA, Genode@seL4, and Genode@Fiasco.OC and
+Genode@hw on Intel and on AMD hardware. It is up to now solely used with
+32-bit and special crafted VMs. With the addition of
+[https://genode.org/documentation/release-notes/22.11#Seoul_VMM -
+VirtIO support] for GPU, input and audio the usage as specialized tailored
+[https://genodians.org/alex-ab/2023-05-09-seoul-23-04 - disposal VMs] became
+quite comfortable.
 
-commit 85c6d9e7258b683b8ebc1eb81a0f0013b92e85f6
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Sat Jan 7 21:04:58 2023 +0100
+However, the 32bit time of x86 is ticking down and some features aren't
+provided in the same quality as for 64bit VMs. During usage of the disposal
+Firefox VM, the video playback on some webpages denied to work in the native
+32bit installation, but did work on 64bit uncomplainingly. So, the time came
+to extend the Seoul VMM by 64bit guest support to be fit for the future and
+avoid further hassle.
 
-    seoul: add 64bit guest support
+Over the year 2023 the Seoul VMM got extended by enabling the
+instruction emulator, called Halifax, to decode the 
+[https://wiki.osdev.org/X86-64_Instruction_Encoding - x86_64 instructions]
+with the additional prefixes and additional 8 general purpose registers. Beside
+the necessary deep dive through this special topic, the Seoul VMM required
+extensions to handle more than 4G guest physical memory. Several changes
+to the guest memory layout handling and the memory layout reporting, e.g.
+[https://wiki.osdev.org/Detecting_Memory_(x86) - VBios e820], were
+necessary.
 
-commit 5dc98a681785de7602e2bcdf83f2dd007810593d
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Sat Sep 30 14:36:48 2023 +0200
+With a first early prototype booted up successfully a 64bit Linux
+kernel, the initial user task of some Linux distributions failed to start. They
+complained about unsupported CPUs. As it turned out, glibc based software and
+later also llvm based, have several detection mechanism to identify the
+running CPU - and if they feel uncomfortable, deny to work. So, we had to
+extend the support to report more of the native CPUID values of the host and
+as an after-effect, have to emulate more MSR accesses by the 64bit Linux
+guests. Unfortunately, the MSRs between Intel and AMD may differ subtle, so a
+per CPU differentiation became necessary in the vCPU model.
 
-    seoul: support more guest memory
-    
-    for 64bit VMs having more than 3G
-
+Additionally, during testing of the native 64bit Debian VM installation with
+the Seoul VMM several improvements during early boot, especially for the
+interactive usage of the GRUB bootloader were made. Ready to use packages
+to test drive the 64bit Seoul VMM are available via alex-ab's depot.
 
 Ported 3rd-party software
 =========================
