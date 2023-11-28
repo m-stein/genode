@@ -201,83 +201,80 @@ hypervisors and VMMs.
 Dialog API for low-complexity interactive applications
 ======================================================
 
-; @nfeske
+Since version
+[https://genode.org/documentation/release-notes/14.11#New_menu_view_application - 14.11],
+Genode features a custom UI widget renderer in the form of a stand-alone
+component called _menu view_.
+It was designated for use cases where the complexity of commodity GUI tool
+kits like Qt is unwanted. Menu-view-based applications merely consume hover
+reports and produce dialog descriptions in XML. In contrast to GUI toolkit
+libraries, the widget rendering happens outside the address space of the
+application.
 
-commit 4fdc999087b6ce5099b5db4ae2e87a0f9d0e8896
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Mar 27 00:28:49 2023 +0200
+Today, it is used by a number of simple interactive Genode applications, the
+most prominent being the administrative user interface of Sculpt OS.
+Other examples are the touch keyboard, file vault, text area, and interactive
+[https://genodians.org/alex-ab/2023-10-23-msr - system monitoring tools].
 
-    Dialog API
-    
-    The new API at gems/include/dialog/ aids the creation of simple GUI
-    applications based on the menu-view widget renderer. Its use is
-    illustrated by the simple test application at src/test/dialog/
-    that is accompanied with the dialog.run script.
-    
-    Issue #5008
+In each application, the XML processing used to be implemented via a rather
+ad-hoc-designed set of utilities. These utilities and patterns started to stand
+in the way when applications become more complex - as we experienced while
+crafting the
+[https://genodians.org/nfeske/2023-01-05-mobile-user-interface - mobile variant]
+of Sculpt OS.
+This observations prompted us to formalize the implementation of menu-view
+based applications through a new framework called dialog API. The key ideas are
+as follows.
 
-commit 0c40d52010526684b5c8fb54180b1e16f4ef29d6
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Jul 19 17:08:01 2023 +0200
+First, applications are to be relieved from the technicalities of driving a
+sandboxed menu-view component, or the distinction of touch from pointer-based
+input, or the hovering of GUI elements. These concerns are to be covered by
+a runtime library. The application developer can thereby focus solely on the
+application logic, the UI representation (view) of its state (model), and the
+response to user interaction (controller).
 
-    sculpt: add Dialog::Distant_runtime
-    
-    The so-called 'Distant_runtime' implements GUI dialogs via menu_view
-    components hosted at a distant init instance as opposed to child
-    components (as implemented by the 'Sandboxed_runtime'). This is
-    particular the case in Sculpt OS where the sculpt manager is not the
-    parent of the menu_view instances.
-    
-    Issue #5008
+Second, the dialog API promotes an immediate translation of the application's
+internal state to its UI representation without the need to create an object
+for each GUI element. The 'view' (const) method implemented by the application
+is tasked to generate a view of the application's state.
+The 'view' method operates on a so-called 'Scope', which loosely corresponds
+to Genode's 'Xml_generator', but it expresses the generated structure using
+C++ types, not strings. A scope can host sub scopes similar to how an XML node
+can host sub nodes. Hence, the _view_ method produces a composition of scopes
+such as frames, labels, vbox, or hbox.
 
-commit ffc25fde538d316f52dd073a89f20276672f23ec
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Jul 19 17:08:27 2023 +0200
+Third, user interaction is induced into the application by three callbacks
+'click', 'clack', and 'drag', each taking a location as argument. The location
+is not merely a position but entails the structural location of the user
+interaction within the dialog. For for interpretation of the location, the
+application uses the same C++ types as for generating the view. Hence, the C++
+type system is leveraged to attain the consistency of the view and the
+controller, so to speak.
 
-    sculpt: apply Dialog API to diag, panel, and graph
-    
-    This patch partially converts the Sculpt manager to the dialog API.
-    At this stage, both the old utilities and the new dialog API are still
-    used simultaneously.
-    
-    Issue #5008
+Structural UI patterns - made out of nested scopes - can be combined into
+reusable building blocks called widgets. In contrast to scopes, widgets can
+have state. Widgets can host other widgets, and thereby allow for the
+implementation of higher-level GUI parts out of lower-level elements.
 
-commit 3d026fbd52d07218073f408343f1965b282342c1
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Oct 30 12:43:19 2023 +0100
+The API resides at _gems/include/dialog/_ and is accompanied by the dialog
+library that implements the runtime needed for the interplay with the menu-view
+widget renderer.
 
-    sculpt_manager: use dialog API
-    
-    Issue #5053
+Note that the API is specifically designed for the needs of Sculpt's UI
+and similar bare-bones utilities. It is not intended to become a desktop-grade
+general-purpose widget set. E.g., complex topics like multi-language support
+are out of scope. During the release cycle, the administrative user interface
+of Sculpt OS - for both the desktop and mobile variants - has been converted
+to the new API. Also the text-area application and the touch keyboard are
+using the new API now.
 
-commit a3f8827f6d3280348781600795522c4fae3c6462
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Nov 15 16:12:42 2023 +0100
-
-    dialog: add text-area widget
-    
-    This patch moves the text-editing facility of app/text_area to a
-    text-area widget as part of the dialog library. This has two benefits.
-    First, it simplifies app/text_area by using the dialog API. Second, the
-    editor can now easily be reused by other dialog-API-based applications.
-    
-    Fixes #5058
-
-commit 78062f6f3a0e3d5c306707342ac7e9f7dfdf0342
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Nov 16 19:16:03 2023 +0100
-
-    touch_keyboard: use dialog API
-    
-    Fixes #5059
-
-commit b9011b46b16e28b8b9f098b6025e762fe45a8a3b
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Jul 21 13:51:01 2023 +0200
-
-    phone_manager: transition to Dialog API
-    
-    Issue genodelabs/genode#5008
+Given that the new API has been confronted with the variety of use cases
+found in Sculpt's administrative user interface, it can now be considered for
+other basic applications. Since we target Genode-internal use for now, proper
+documentation is still missing. However, for the curious, an illustrative
+example can be found at _gems/src/test/dialog/_. For a real-world application,
+you may consider studying the _app/sculpt_manager/view/_ sub directory of the
+gems repository.
 
 
 API changes
