@@ -364,43 +364,43 @@ Ported 3rd-party software
 Linphone SIP client
 -------------------
 
-The "Linphone Console Client" and the "SIP Client for Ubuntu Touch" got ported
-to Genode to expand the available features on the PinePhone when it comes to
-mobile communication. Sculpt on the PinePhone only provided support for
+Sculpt on the PinePhone used to provide only support for
 making and receiving regular phone-calls but did not yet provide any VoIP
 functionality.
+Now, the "Linphone Console Client" and the "SIP Client for Ubuntu Touch" got ported
+to Genode to expand the available features on the PinePhone when it comes to
+mobile communication.
 
 It was decided to port the [https://linphone.org - Linphone-SDK], the console
-client in particular, to Genode because it seems to be a well used solution
+client in particular, to Genode because it seems to be a time-tested solution
 on a range of OSes. Furthermore it uses the [https://cmake.org - cmake]
 build-system, which makes it the ideal candidate for stressing
 [https://github.com/genodelabs/goa - goa] with a reasonably complex project.
 Using goa itself turned out to be straight-forward and by re-using the already
 existing back ends for POSIX-like systems, e.g. OSS for handling audio via the
-mediastreamer library, we only had to tweak the build-system here and there.
+mediastreamer library, we only had to tweak the build-system in very few places.
 That being said, at the same time, however, we were made aware of existing
-short-comings within in goa when it comes to the handling of shared-libraries
-in cmake based projects. We were happy to address these and the fixes are
+short-comings within goa when it came to the handling of shared libraries
+in cmake-based projects. We were happy to address these and the fixes are
 part of the current goa release.
 
-Since the user-interface of the console client is not comfortable to use
-on the PinePhone it had to be complemented by a GUI application that handles
+Since the user interface of the console client is not comfortable to use
+on the PinePhone, it had to be complemented by a GUI application that handles
 the user interaction. While looking for such an application we noticed the
 [https://gitlab.com/ubports-linphone/linphone-simple/ - SIP Client for Ubuntu Touch]
-that utilizes the Ubuntu Touch UI Toolkit for which a port to Genode already
-exists. We adapted that project for our needs and with the major components
-now in place created a preset for Sculpt on the PinePhone.
+that utilizes the Ubuntu Touch UI Toolkit, for which a port to Genode already
+exists. We adapted that project for our needs and - with the major components
+now in place - created a preset for Sculpt on the PinePhone.
 
 The preset's structure is depicted by the following chart.
 
-[image linphone_preset] Structure of the linphone preset
+[image linphone_preset]
+  Structure of the linphone preset
 
-Both components each have their own requirements:
-
+Each of both components has its own requirements:
 The client needs access to the network, has to store its configuration, and
 requires access to the audio subsystem. It is the driving force behind the
 operation while it receives its instructions from the GUI.
-
 The GUI needs access to the GPU driver, as required for fluent rendering of
 QML on the PinePhone, as well as access to input events for user
 interaction.
@@ -425,15 +425,15 @@ incorporated into the preset:
 * The _Touch keyboard_ collects the touch events and translates them into key
   events that are then consumed by the GUI.
 
-The client and the GUI themselves are connected via the _Terminal crosslink_
+The client and the GUI themselves are connected via the _terminal crosslink_
 component where the control channel is formed by connecting stdout from the
 GUI to stdin from the client and vice versa.
 
-As denoted by the chart, the client actually functions as a _Daemon_
-that is running in the background, while the GUI is the _App_ the user
+As denoted by the chart, the client actually functions as a _daemon_
+that is running in the background, whereas the GUI is the _app_ the user
 interacts with.
 
-For more information and a usage guide please read the corresponding
+For more information and a usage guide, please refer to the corresponding
 [https://genodians.org/jws/2023-11-16-sip-client-for-genode - Genodians article]
 that provides more information.
 
@@ -442,7 +442,7 @@ Socat
 -----
 
 We ported socat, a multipurpose relay (SOcket CAT), to Genode and created a
-ready-to-use pkg archive that allows for making a Terminal session available
+ready-to-use pkg archive that allows for making a terminal session available
 on port '5555'.
 
 
