@@ -404,13 +404,13 @@ Device drivers
 USB device drivers updated to Linux 6.1.20
 ==========================================
 
-With our ongoing effort to apply our previous device-driver porting approach
-to our new
+With our ongoing effort to replace our traditional device-driver porting approach
+by our new
 [https://genode.org/documentation/release-notes/21.08#Linux-device-driver_environment_re-imagined - device-driver environment],
 USB-device drivers where subject to this porting effort during this release
 cycle. This includes the HID driver for keyboard, mouse, and touch support, the
-network driver, that supports USB NICs like AX88179 or the PinePhone's CDC
-Ether profile of its LTE Modem, as well as the USB Modem driver that offers basic
+network driver, which supports USB NICs like AX88179 or the PinePhone's CDC
+Ether profile of its LTE Modem, as well as the USB modem driver that offers basic
 LTE-modem access for modems relying on the
 [https://www.usb.org/document-library/mobile-broadband-interface-model-v10-errata-1-and-adopters-agreement - MBIM]
 configuration.
@@ -419,28 +419,28 @@ configuration.
 Architecture
 ------------
 
-The major difference of USB-device drivers to the USB-host-controller drivers is
-that the former do not communicate with the hardware directly, but only send
-messages to the USB-host controller through Genode's USB-session interface. So,
-in Genode point of view they can be classified as protocol stacks. Therefore, we
+In constrast to the USB host-controller drivers, USB device drivers do not
+communicate with the hardware directly, but only send
+messages to the USB host controller through Genode's USB-session interface. So,
+from Genode's point of view, they can be classified as protocol stacks. Therefore, we
 based these drivers not on the DDE Linux version that offers direct hardware
 access, but on 'virt_linux' as described in release
 [https://genode.org/documentation/release-notes/23.05#WireGuard_improvements - 23.05].
 
 We replaced the actual Linux calls that create USB messages (like control, bulk,
 or IRQ transfers) by custom implementations that forward these messages through an
-USB-client session to the host controller. The client-session implementation is
-written in C++ and because we do not allow calling C++ from C-code anymore, we
+USB client session to the host controller. The client-session implementation is
+written in C++. Since our DDE Linux strictly separates C++ from C-code, we
 introduced a USB-client C-API that can be called directly by the replacement
 functions.
 
-The same goes for the services the USB drivers offer/use which are accessed
+The same goes for the services the USB drivers offer/use. These services are accessed
 through the respective C-APIs. For example, the HID driver communicates with
 Genode's event session through the event C-API and the NIC driver through the
-Uplink C-API.
+uplink C-API.
 
 
-USB-HID driver
+USB HID driver
 --------------
 
 The HID driver is a drop-in replacement of its predecessor. It still offers
@@ -462,12 +462,12 @@ The LTE-modem driver (usb_modem_drv) has been integrated into the network driver
 USB net
 -------
 
-The 'usb_net_drv' is also a drop-in replacement for its predecessor with the
+The 'usb_net_drv' is a drop-in replacement for its predecessor with the
 exception that an additional config attribute is available:
 
 !<config mac="2e:60:90:0c:4e:01 configuration="2" />
 
-Next to the 'mac' address (like in the previous version), the USB configuration
+Next to the MAC address (like in the previous version), the USB configuration
 profile can be specified with the 'configuration' attribute. For USB devices
 that provide multiple configuration profiles, the Linux code will always select
 the first non-vendor-specific configuration profile found. This may not be the
@@ -486,10 +486,10 @@ The following USB networking devices are supported:
 Support for the SMSC95XX line of devices has been dropped, but may be re-enabled
 if required.
 
-As mentioned above the LTE-modem support for MBIM based modems has been merged
-into this drivers because a LTE-modem is just a USB networking device (for
-data) plus a control channel. In case the driver discovers a LTE-modem it will
-announce a Genode-Terminal session as a control channel.
+As mentioned above, the LTE modem support for MBIM-based modems has been merged
+into this driver because a LTE modem is merely a USB networking device (for
+data) plus a control channel. In case the driver discovers an LTE modem, it will
+announce a Genode terminal session as a control channel.
 
 Example configuration for the Huawai ME906s modem:
 
