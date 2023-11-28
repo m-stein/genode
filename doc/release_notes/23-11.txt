@@ -599,14 +599,9 @@ The available configuration profile of a device can be found out under Linux usi
 
 ! lsusb -s<bus>:<device> -vvv
 
-The following USB networking devices are supported:
-
-* NICs containing an AX88179A chip
-* NICs that support the NCM profile (e.g., RTL8156)
-* NICs that offer the ECM profile
-
-Support for the SMSC95XX line of devices has been dropped, but may be re-enabled
-if required.
+Currently the driver supports NICs containing an AX88179A chip and that offer
+NCM or the ECM profile.  Support for the SMSC95XX line of devices has been
+dropped, but may be re-enabled if required.
 
 As mentioned above, the LTE modem support for MBIM-based modems have been merged
 into this driver because an LTE modem is merely a USB networking device (for
@@ -630,11 +625,8 @@ Example configuration for the Huawai ME906s modem:
 The MBIM interface is enabled using configuration profile "3" and the service
 "Terminal" is provided.
 
-The following LTE-modems that are mainly used in Lenovo Thinkpads have been
-tested, but different modems might work as well:
-
-* Huawai ME906s
-* Fibocom L830-EB-00
+The driver has been tested mainly on Lenove Thinkpad notebooks using Huawai's
+ME906e and Fibocoms's L830-EB-00 modems, but different modems might work as well.
 
 
 Current limitations
