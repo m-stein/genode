@@ -663,36 +663,21 @@ Date:   Thu Sep 21 17:44:21 2023 +0200
 Build system and tools
 ######################
 
-Split of debug information from executable binaries
-===================================================
+Debug information for depot binaries
+====================================
 
-; @cproc
+So far, the Genode build system created symbolic links to unstripped binaries
+in the 'debug' directory to provide useful debug information, but binaries
+from depot archives did not have this information available.
 
-commit b7da39f6bb6225764f25f1cffb21d08803290246
-Author: Christian Prochaska <christian.prochaska@genode-labs.com>
-Date:   Wed Oct 18 08:52:24 2023 +0200
+With this release, the 'create', 'publish' and 'download' depot tools got
+an optional 'DBG=1' argument to create, publish and download 'dbg' depot
+archives with debug info files in addition to the corresponding 'bin'
+depot archives.
 
-    mk: create separate debug info files
-    
-    Commit also adapts Qt5 libraries.
-    
-    Issue #5015
-
-commit 14e1704435a6177ff434617f72633882cedd2cd5
-Author: Christian Prochaska <christian.prochaska@genode-labs.com>
-Date:   Mon Oct 30 07:43:02 2023 +0100
-
-    ports: adapt GDB test to separate debug info files
-    
-    Fixes #5044
-
-commit 7ae726e7a6b7e66eca0a8822ed36e0cc59942f88
-Author: Christian Prochaska <christian.prochaska@genode-labs.com>
-Date:   Wed Oct 18 05:35:27 2023 +0200
-
-    create separate debug info files for Qt5 libraries
-    
-    Fixes #347
+To avoid the space overhead from duplicated code with archived unstripped
+binaries, we now create separate debug info files using the "GNU debug link"
+method both in the Genode build system and for the 'dbg' depot archives.
 
 
 Discharged implicit trigger of shared-library builds
