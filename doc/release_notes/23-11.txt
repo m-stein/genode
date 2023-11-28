@@ -667,15 +667,15 @@ Debug information for depot binaries
 ====================================
 
 So far, the Genode build system created symbolic links to unstripped binaries
-in the 'debug' directory to provide useful debug information, but binaries
+in the _debug/_ directory to provide useful debug information, but binaries
 from depot archives did not have this information available.
 
-With this release, the 'create', 'publish' and 'download' depot tools got
-an optional 'DBG=1' argument to create, publish and download 'dbg' depot
-archives with debug info files in addition to the corresponding 'bin'
+With this release, the 'create', 'publish' and 'download' depot tools received
+an optional 'DBG=1' argument to create, publish, and download 'dbg' depot
+archives with debug-info files in addition to the corresponding 'bin'
 depot archives.
 
-To avoid the space overhead from duplicated code with archived unstripped
+To avoid the storage overhead from duplicated code with archived unstripped
 binaries, we now create separate debug info files using the "GNU debug link"
 method both in the Genode build system and for the 'dbg' depot archives.
 
