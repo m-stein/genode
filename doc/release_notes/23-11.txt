@@ -381,6 +381,24 @@ First, to improve safety, list model elements can no longer be copied.
 Second, to foster consistency with other parts of Genode's API, the
 'apply_first' method has been renamed to 'with_first'.
 
+Pruned IRQ-session arguments
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+So far, we have used the 'device_config_phys' argument of the IRQ session to
+implicitly request the use of _Message-Signalled Interrupts_ (MSI) to core.
+This argument specifies the address to the PCI configuration space. However,
+with the addition of Intel IOMMU support to the platform driver, we encountered
+an instance where we need an MSI for a non-PCI device in order to receive fault
+IRQs from the IOMMU. We therefore added an 'irq_type' argument to the IRQ
+session, which allows the explicit specification of whether a LEGACY interrupt
+or an MSI is requested.
+
+Yet, as we exceeded the character limit by adding another argument, we pruned
+the IRQ-session arguments: Since 'device_config_phys' is not relevant for LEGACY
+interrupts, we removed this from the default _Irq_connection_ constructor.
+We further added an alternative constructor for MSI, which sets
+'device_config_phys' but omits the 'irq_trigger' and 'irq_polarity' arguments.
+
 
 Libraries and applications
 ##########################
