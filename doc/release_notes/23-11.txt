@@ -128,7 +128,7 @@ Another and desired approach is, to permit to adjust the desired power
 consumption depending on the current load of the system. This dynamic way of
 adjusting and reading power and frequency was developed casually since 2021
 and got presented in one [https://genodians.org/alex-ab/2023-05-29-freq_power - sneak peak]
-Genodian article and in a polished version with the
+Genodian article and in a polished version with
 the [https://genodians.org/alex-ab/2023-10-23-msr - Sculpt 23.10] release.
 
 With this Genode release we added finally the general support to
@@ -146,8 +146,8 @@ temperature (Intel) and frequency (AMD & Intel) and power consumption
 (Intel RAPL). Additionally, the component can be instructed by configuration
 changes to write some of the registers. Beside the quite low level MSR
 component, a Genode package with a GUI component is provided to make the
-interactive usage of the feature more user friendly. For Sculpt we added
-an interactive dialog to assign the system-control role to
+interactive usage of the feature more user-friendly. For Sculpt we added
+an interactive dialog to assign the system-control role
 to a component like the graphical MSR package via the resource dialog.
 The feature is described best by the [https://genodians.org/alex-ab/2023-10-23-msr - Genodians article]
 for the Sculpt 23.10 release.
@@ -299,7 +299,7 @@ in the way when applications become more complex - as we experienced while
 crafting the
 [https://genodians.org/nfeske/2023-01-05-mobile-user-interface - mobile variant]
 of Sculpt OS.
-This observations prompted us to formalize the implementation of menu-view
+These observations prompted us to formalize the implementation of menu-view
 based applications through a new framework called dialog API. The key ideas are
 as follows.
 
@@ -323,7 +323,7 @@ such as frames, labels, vbox, or hbox.
 Third, user interaction is induced into the application by three callbacks
 'click', 'clack', and 'drag', each taking a location as argument. The location
 is not merely a position but entails the structural location of the user
-interaction within the dialog. For for interpretation of the location, the
+interaction within the dialog. For interpretation of the location, the
 application uses the same C++ types as for generating the view. Hence, the C++
 type system is leveraged to attain the consistency of the view and the
 controller, so to speak.
@@ -342,7 +342,7 @@ and similar bare-bones utilities. It is not intended to become a desktop-grade
 general-purpose widget set. E.g., complex topics like multi-language support
 are out of scope. During the release cycle, the administrative user interface
 of Sculpt OS - for both the desktop and mobile variants - has been converted
-to the new API. Also the text-area application and the touch keyboard are
+to the new API. Also, the text-area application and the touch keyboard are
 using the new API now.
 
 Given that the new API has been confronted with the variety of use cases
@@ -541,7 +541,7 @@ configuration.
 Architecture
 ------------
 
-In constrast to the USB host-controller drivers, USB device drivers do not
+In contrast to the USB host-controller drivers, USB device drivers do not
 communicate with the hardware directly, but only send
 messages to the USB host controller through Genode's USB-session interface. So,
 from Genode's point of view, they can be classified as protocol stacks. Therefore, we
@@ -550,7 +550,7 @@ access, but on 'virt_linux' as described in release
 [https://genode.org/documentation/release-notes/23.05#WireGuard_improvements - 23.05].
 
 We replaced the actual Linux calls that create USB messages (like control, bulk,
-or IRQ transfers) by custom implementations that forward these messages through an
+or IRQ transfers) by custom implementations that forward these messages through a
 USB client session to the host controller. The client-session implementation is
 written in C++. Since our DDE Linux strictly separates C++ from C-code, we
 introduced a USB-client C-API that can be called directly by the replacement
@@ -608,8 +608,8 @@ The following USB networking devices are supported:
 Support for the SMSC95XX line of devices has been dropped, but may be re-enabled
 if required.
 
-As mentioned above, the LTE modem support for MBIM-based modems has been merged
-into this driver because a LTE modem is merely a USB networking device (for
+As mentioned above, the LTE modem support for MBIM-based modems have been merged
+into this driver because an LTE modem is merely a USB networking device (for
 data) plus a control channel. In case the driver discovers an LTE modem, it will
 announce a Genode terminal session as a control channel.
 
@@ -712,12 +712,12 @@ policy starts to stand in the way of quick development-test cycles.
 With the current release, we discharge the implicit built-time dependency
 of targets from shared libraries. Shared libraries must now be explicitly
 listed in the 'build' command of run scripts. For example, for run
-scripts that build Genode's base system along withe the C runtime, the
+scripts that build Genode's base system along with the C runtime, the
 build command usually contains the following targets.
 
 ! core lib/ld init timer lib/libc lib/libm lib/vfs lib/posix
 
-However, in practice most run scripts incorporate those basic ingredient as
+However, in practice most run scripts incorporate those basic ingredients as
 depot archives. So those targets need to be built only if they are touched by
 the development work.
 To incorporate the results of all explicitly built targets into a system
@@ -741,7 +741,7 @@ guide you.
 !   the build step lacks the argument: lib/ld
 !
 !   Consider using [build_artifacts] as build_boot_image argument to
-!   maintain consistency beween the build and build_boot_image steps.
+!   maintain consistency between the build and build_boot_image steps.
 
 The inconvenience of the need to adopt existing run scripts notwithstanding,
 developers will certainly notice a welcome boost of their work flow,
