@@ -607,54 +607,13 @@ Platforms
 Linux
 =====
 
-; @chelmuth
-
-commit 9799adda792e9c5f05203d93a53c8b4fb7aa81d8
-Author: Robin Eklind <rnd0x00@gmail.com>
-Date:   Thu Sep 7 18:18:02 2023 +0200
-
-    fb_sdl: update to use sdl2
-    
-    Following the official migration guide of SDL [1], the
-    fb_sdl framebuffer driver was update from SDL1 to SDL2.
-    
-    The sdl2 port in world/src/lib/sdl2 is used.
-    
-    Since SDL1 is in maintenance mode [2], support for other
-    display servers than X11 will never be implemented. In
-    particular, support for Wayland is missing from SDL1.
-    
-    Fortunately, a port of sdl2 is maintained in genode-world.
-    
-    As SDL2 is actively developed, it will provide support for
-    modern hardware architectures, and has mature support for
-    Wayland [3].
-    
-    [1]: https://wiki.libsdl.org/SDL2/MigrationGuide
-    [2]: https://wiki.debian.org/Wayland#SDL1_.28unsupported.29
-    [3]: https://wiki.debian.org/Wayland#SDL2_.28supported_since_2.0.2.2B-.29
-    
-    Issue #4993
-
-commit d3d822cd9d6e9ed917c13a430aa71464af4d311d
-Author: Robin Eklind <rnd0x00@gmail.com>
-Date:   Thu Sep 21 17:44:21 2023 +0200
-
-    fb_sdl: refactor to only construct window once
-    
-    In SDL2, support has been added for multiple windows.
-    
-    As such, prior to this commit, invoking _sdl_screen.construct
-    would create a new window each time the original window was
-    resized.
-    
-    To avoid this, refactor to only construct the window once, and
-    upon resize events, reconstruct the SDL_Surface and SDL_Texture
-    of Sdl_screen to the new window dimensions.
-    
-    Issue identified by @chelmuth in https://github.com/genodelabs/genode/pull/4993#issuecomment-1729530634
-    
-    Fixes #4993
+Following the official [https://wiki.libsdl.org/SDL2/MigrationGuide -
+migration guide] of SDL, the fb_sdl framebuffer driver was updated from SDL1
+to SDL2 by Robin Eklind. Thanks to this valuable contribution, fb_sdl is now
+ready to run on modern Linux installations especially in environments that
+use the Wayland display server. Note to compile the component from source,
+the installation of libsdl2 development packages (e.g., libsdl2-dev on
+Ubuntu/Debian) is required.
 
 
 Build system and tools
