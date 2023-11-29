@@ -649,10 +649,9 @@ struct Tresor::Snapshot
 			Genode::print(out, "<invalid>");
 	}
 
-	bool contains_vba(Virtual_block_address vba) const
-	{
-		return vba <= nr_of_leaves - 1;
-	}
+	bool contains_vba(Virtual_block_address vba) const { return vba <= nr_of_leaves - 1; }
+
+	Type_1_node t1_node() const { return { pba, gen, hash }; }
 };
 
 

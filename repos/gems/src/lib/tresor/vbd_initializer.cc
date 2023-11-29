@@ -57,7 +57,7 @@ bool Vbd_initializer_channel::_execute_node(Tree_level_index lvl, Tree_node_inde
 
 		if (lvl == 1)
 			if (_num_remaining_leaves) {
-				node = { };
+				node = { 0, INITIAL_GENERATION, _leaf_hash };
 				if (!_req_ptr->_pba_alloc.alloc(node.pba)) {
 					_mark_req_failed(progress, "allocate pba");
 					break;
@@ -152,6 +152,8 @@ void Vbd_initializer_channel::execute(bool &progress)
 	switch (_state) {
 	case SUBMITTED:
 
+		memset(&_blk, 0, BLOCK_SIZE);
+		calc_hash(_blk, _leaf_hash);
 		_num_remaining_leaves = req._vbd.num_leaves;
 		for (Tree_level_index lvl = 0; lvl < TREE_MAX_LEVEL; lvl++)
 			_reset_level(lvl, Vbd_initializer_channel::DONE);

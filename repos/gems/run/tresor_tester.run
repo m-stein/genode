@@ -259,6 +259,7 @@ append config {
 
 					<request op="write" vba="1"   count="1"   sync="yes" salt="1234"/>
 					<request op="read"  vba="1"   count="1"   sync="yes" salt="1234"/>
+					<request op="read"  vba="2"   count="2"   sync="yes"/>
 					<request op="write" vba="12"  count="10"  sync="yes"/>
 					<request op="read"  vba="12"  count="10"  sync="yes"/>
 					<request op="write" vba="24"  count="40" sync="yes"/>

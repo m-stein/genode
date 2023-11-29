@@ -90,7 +90,7 @@ void Virtual_block_device_channel::_read_vba(bool &progress)
 
 	case READ_BLK_SUCCEEDED:
 	{
-		if (!_check_and_decode_read_blk(progress, false))
+		if (!_check_and_decode_read_blk(progress))
 			break;
 
 		if (!_lvl) {
@@ -113,7 +113,7 @@ void Virtual_block_device_channel::_read_vba(bool &progress)
 			} else
 				_generate_req<Block_io::Read_client_data>(
 					READ_BLK_SUCCEEDED, progress, node.pba, _vba, req._curr_key_id,
-					req._client_req_tag, req._client_req_offset);
+					req._client_req_tag, req._client_req_offset, _hash);
 		_lvl--;
 		break;
 	}
@@ -150,16 +150,20 @@ void Virtual_block_device_channel::_update_nodes_of_branch_of_written_vba()
 }
 
 
-bool Virtual_block_device_channel::_check_and_decode_read_blk(bool &progress, bool check_leaf_data = true)
+bool Virtual_block_device_channel::_check_and_decode_read_blk(bool &progress)
 {
-	if (!check_leaf_data && !_lvl)
+	Type_1_node node { _lvl < snap().max_level ?
+		_t1_blks.items[_lvl + 1].nodes[t1_node_idx_for_vba(_vba, _lvl + 1, _req_ptr->_snap_degr)] :
+		snap().t1_node() };
+
+	if (_req_ptr->_type == Request::READ_VBA && !_lvl && node.gen != INITIAL_GENERATION) {
+		if (_hash != node.hash) {
+			_mark_req_failed(progress, "check hash of read block");
+			return false;
+		}
 		return true;
-
-	Hash &hash { _lvl < snap().max_level ?
-		_t1_blks.items[_lvl + 1].nodes[t1_node_idx_for_vba(_vba, _lvl + 1, _req_ptr->_snap_degr)].hash :
-		snap().hash };
-
-	if (!check_hash(_lvl ? _encoded_blk : _data_blk, hash)) {
+	}
+	if (!check_hash(_lvl ? _encoded_blk : _data_blk, node.hash)) {
 		_mark_req_failed(progress, "check hash of read block");
 		return false;
 	}

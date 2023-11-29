@@ -62,11 +62,20 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 				break;
 			}
 			if (node.gen == INITIAL_GENERATION) {
+				if (VERBOSE_CHECK)
+					log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node,
+					    "): initial gen, assume lvl ", lvl - 1, " to be 0");
+
+				memset(&_blk, 0, BLOCK_SIZE);
+				if (!check_hash(_blk, node.hash)) {
+					_mark_req_failed(progress, { "lvl ", lvl, " node ", node_idx, " (", node, ") has bad hash" });
+					break;
+				}
 				_num_remaining_leaves--;
 				check_node = false;
 				progress = true;
 				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": uninitialized");
+					log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": good hash");
 				break;
 			}
 		} else {

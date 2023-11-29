@@ -62,6 +62,7 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 		Node_state _node_states[TREE_MAX_NR_OF_LEVELS][NUM_NODES_PER_BLK] { DONE };
 		bool _generated_req_success { false };
 		Block _blk { };
+		Hash _leaf_hash { };
 		Number_of_leaves _num_remaining_leaves { };
 
 		NONCOPYABLE(Vbd_initializer_channel);

@@ -123,7 +123,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		void _read_vba(bool &);
 
-		bool _check_and_decode_read_blk(bool &, bool);
+		bool _check_and_decode_read_blk(bool &);
 
 		void _mark_req_successful(bool &);
 
