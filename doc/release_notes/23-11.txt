@@ -28,7 +28,7 @@ transactions. Since components allocate DMA buffers via the platform driver,
 the latter sits in the perfect spot to manage DMA remapping tables for its
 clients and let the IOMMU know about them.
 
-; Figure
+[image dma_remap]
 
 The above figure illustrates how we added this to the PC version of Sculpt OS.
 IOMMUs are announced in the ACPI DMAR table, which is parsed by our ACPI driver
