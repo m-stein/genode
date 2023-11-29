@@ -17,10 +17,10 @@ Kernel-agnostic DMA protection
 
 On our quest towards a PC version of Sculpt OS on our custom (base-hw) microkernel, we were
 able to move an essential chunk away to clear another section of the path.
-Based on the preparatory changes to the platform driver w.r.t. IOMMU handling
-introduced in
+Based on the preparatory changes to the platform driver regarding IOMMU
+handling introduced in
 [https://genode.org/documentation/release-notes/23.05#Towards_kernel-agnostic_DMA_protection - release 23.05],
-we were able to enable kernel-agnostic DMA protection on Intel platforms.
+we managed to enable kernel-agnostic DMA protection on Intel platforms.
 
 Similar to how the MMU protects the system against unintended CPU-initiated
 memory transactions, the IOMMU protects the system against unintended DMA
@@ -71,7 +71,7 @@ unused device that requires access to any reserved memory region.
 A particular benefit of moving DMA remapping into the platform driver (apart
 from becoming kernel-agnostic) is that DMA remapping tables are now properly
 allocated from the session's quota. In consequence, this may increase the RAM
-and cap requirements for certain drivers.
+and capability requirements for certain drivers.
 
 The platform driver's support for Intel IOMMUs is enabled by default.
 Nevertheless, we also kept NOVA's IOMMU enablement intact for several reasons:
@@ -92,10 +92,11 @@ to _/report/drivers/iommu_. The report summarizes the state of each DRHD.
 When the platform driver takes over control, it also logs a message like
 "enabled IOMMU drhd0 with default mappings". The platform driver can
 be prevented from touching the IOMMU by removing the DRHD info from the _acpi_
-report. This can be achieved by supplying the ACPI driver with the following config.
-Note that the ACPI driver does not handle config updates.
+report. This can be achieved by supplying the ACPI driver with the following config:
 
 ! <config ignore_drhd="yes"/>
+
+Note that the ACPI driver does not handle config updates.
 
 Orthogonal to the DMA remapping support, we changed the allocation policy for
 DMA buffers in the generic part of the platform driver. The new policy leaves an
@@ -111,7 +112,7 @@ Base framework and OS-level infrastructure
 PC power, frequency, temperature sensing and control
 ====================================================
 
-PC CPU vendors provide various CPU features for the operating system to influence
+PC CPU-vendors provide various CPU features for the operating system to influence
 frequency and power consumption, like Intel HWP or AMD pstate to name just
 some of them. Some of the features require at the lowest level access to
 various MSR CPU registers, which can solely be accessed by privileged rdmsr and
@@ -142,9 +143,9 @@ access to this functionality, which is denied by default.
 The actual knowledge about how to manage Intel HWP and AMD pstate is provided
 as a native Genode component, which uses the new 'Pd::system_control'
 interface. The component monitors and reports changes of MSR registers for
-temperature (Intel) and frequency (AMD & Intel) and power consumption
+temperature (Intel), frequency (AMD & Intel), and power consumption
 (Intel RAPL). Additionally, it can be instructed - by the means of configuration
-changes - to write some of the registers. Besides the quite low level MSR
+changes - to write some of the registers. Besides the low-level MSR
 component, a Genode package with a GUI component is provided to make the
 interactive usage of the feature more user-friendly. For Sculpt, we added
 an interactive dialog to assign the system-control role
@@ -206,7 +207,7 @@ in the VMM.
 API shortcomings and improvements
 ---------------------------------
 
-On ARM, unconditionally making the hardware vCPU state available to the VMM via
+On ARM, making the hardware vCPU state unconditionally available to the VMM via
 the 'state()' method meant that the API did not enforce any synchronization
 between hypervisor / hardware and VMM accesses to the vCPU state. On x86, the
 asynchronous semantics of the 'pause()' method required complex state tracking
@@ -225,7 +226,7 @@ vCPU is not running. Moreover, we were able to replace the ambiguous 'pause()'
 method by a generic mechanism to unblock the vCPU handler, which then
 uses 'with_state()' to update the vCPU state.
 Finally, resuming of the vCPU is controlled by the return value of the
-lambda function exclusively and, thus, remove the error-prone explicit
+lambda function exclusively and, thus, removes the error-prone explicit
 'run()' method.
 
 
@@ -236,7 +237,7 @@ The new API was first implemented for *base-hw*'s x86 SVM virtualization, recent
 [https://genode.org/documentation/release-notes/23.05#Base-HW_microkernel - introduced]
 as part of the 23.05 release. The reduction of complexity was significant:
 explicitly requesting the vCPU state via 'with_state()' did away with a vast
-amount vCPU state tracking in the kernel. Instead, the VMM library explicitly
+amount of vCPU-state tracking in the kernel. Instead, the VMM library explicitly
 requests updates to the vCPU state.
 
 With a first hypervisor ported, we were curious to see how easily our tried
@@ -467,18 +468,17 @@ Now, the "Linphone Console Client" and the "SIP Client for Ubuntu Touch" got por
 to Genode to expand the available features on the PinePhone when it comes to
 mobile communication.
 
-It was decided to port the [https://linphone.org - Linphone-SDK], the console
-client in particular, to Genode because it seems to be a time-tested solution
+We decided to port the [https://linphone.org - Linphone-SDK] - the console
+client in particular - because it seems to be a time-tested solution
 on a range of OSes. Furthermore it uses the [https://cmake.org - cmake]
 build-system, which makes it the ideal candidate for stressing
 [https://github.com/genodelabs/goa - goa] with a reasonably complex project.
 Using goa itself turned out to be straight-forward and by re-using the already
 existing back ends for POSIX-like systems, e.g. OSS for handling audio via the
 mediastreamer library, we only had to tweak the build-system in very few places.
-That being said, at the same time, however, we were made aware of existing
-short-comings within goa when it came to the handling of shared libraries
-in cmake-based projects. We were happy to address these and the fixes are
-part of the current goa release.
+In the process we merely stumbled over some short-comings regarding
+the handling of shared libraries in cmake-based goa projects. We were happy to
+address these and the fixes are part of the current goa release.
 
 Since the user interface of the console client is not comfortable to use
 on the PinePhone, it had to be complemented by a GUI application that handles
@@ -698,9 +698,9 @@ an optional 'DBG=1' argument to create, publish, and download 'dbg' depot
 archives with debug-info files in addition to the corresponding 'bin'
 depot archives.
 
-To avoid the storage overhead from duplicated code with archived unstripped
+To avoid the storage overhead from duplicated code with archived, unstripped
 binaries, we now create separate debug info files using the "GNU debug link"
-method both in the Genode build system and for the 'dbg' depot archives.
+method in both the Genode build system and the 'dbg' depot archives.
 
 
 Discharged implicit trigger of shared-library builds
@@ -750,7 +750,7 @@ more.
 
 ! build_boot_image [build_artifacts]
 
-During the release cycle of version 23.11, we have now revisited all run
+During the release cycle of version 23.11, we have revisited all run
 scripts in this respect, and we encourage Genode users to follow suit.
 The run tool tries to give aid to implement this change whenever it detects
 the presence of a .lib.so 'build_boot_image' argument that is not covered by
