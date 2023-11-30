@@ -125,6 +125,10 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		bool _check_and_decode_read_blk(bool &, bool);
 
+		Tree_node_index _node_idx(Tree_level_index, Virtual_block_address) const;
+
+		Type_1_node &_node(Tree_level_index, Virtual_block_address);
+
 		void _mark_req_successful(bool &);
 
 		void _mark_req_failed(bool &, char const *);
