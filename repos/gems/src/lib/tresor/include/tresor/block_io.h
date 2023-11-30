@@ -17,6 +17,7 @@
 /* tresor includes */
 #include <tresor/types.h>
 #include <tresor/file.h>
+#include <tresor/hash.h>
 
 namespace Tresor {
 
@@ -54,7 +55,12 @@ class Tresor::Block_io_request : public Module_request
 
 		static char const *type_to_string(Type);
 
-		void print(Output &out) const override { Genode::print(out, type_to_string(_type), " pba ", _pba); }
+		void print(Output &out) const override
+		{
+			Genode::print(out, type_to_string(_type), " pba ", _pba);
+			if (_type == WRITE)
+				Genode::print(out, " hash ", hash(_blk));
+		}
 };
 
 class Tresor::Block_io_channel : public Module_channel

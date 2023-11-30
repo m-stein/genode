@@ -761,6 +761,7 @@ void Tresor_tester::Command::_generated_req_completed(State_uint state_uint)
 
 void Tresor_tester::Command::execute(bool &progress)
 {
+static unsigned idx =0;
 	switch (type()) {
 	case REQUEST:
 	{
@@ -804,6 +805,7 @@ void Tresor_tester::Command::execute(bool &progress)
 		break;
 	}
 	case Command::CHECK:
+		log("check #", ++idx);
 		generate_req<Sb_check_request>(COMPLETED, progress, _success);
 		_main.mark_command_in_progress(id());
 		break;
