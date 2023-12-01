@@ -13,7 +13,17 @@ proc jent_avail_attr { } {
 
 proc bash_profile { } { return file_vault_client_2.sh }
 
-proc lx_fs_dir { } { return file_vault_client_dir }
+proc get_obligatory_env_var { var_name } {
+	if {[info exists ::env($var_name)]} {
+		return $::env($var_name)
+	}
+	puts "Error: Please define env variable $var_name!"
+	exit -1
+}
+
+proc fv_version { } { return [get_obligatory_env_var FILE_VAULT_VERSION] }
+
+proc lx_fs_dir { } { return file_vault_client_dir_[fv_version] }
 
 build { app/file_vault server/log_terminal server/fs_rom lib/vfs_pipe }
 
