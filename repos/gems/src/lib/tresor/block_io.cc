@@ -76,10 +76,7 @@ void Block_io_channel::_mark_req_successful(bool &progress)
 		switch (req._type) {
 		case Request::READ:
 		case Request::WRITE:
-		case Request::READ_CLIENT_DATA:
-		case Request::WRITE_CLIENT_DATA:
-			log("block_io: ", req.type_to_string(req._type), " pba ", req._pba,
-			    " data ", req._blk, " hash ", hash(req._blk));
+			log("block_io: ", req.type_to_string(req._type), " pba ", req._pba, " hash ", hash(req._blk));
 			break;
 		default: break;
 		}
