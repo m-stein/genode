@@ -384,7 +384,7 @@ if {[have_board linux]} {
 }
 
 append boot_modules [build_artifacts]
-append boot_modules { file_vault_client.sh }
+lappend boot_modules [bash_profile]
 
 lappend_if [have_board linux] boot_modules [lx_fs_dir]
 
