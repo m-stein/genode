@@ -267,10 +267,6 @@ void Virtual_block_device::_execute_read_vba_read_inner_node_completed (Channel 
 			channel._state = Channel::SUPPLY_CLIENT_DATA_FROM_LEAF_NODE_PENDING;
 			progress       = true;
 
-Hash hash;
-calc_sha256_4k_hash(channel._data_blk, hash);
-log("R ", channel._vba, " ", hash, " *");
-
 		} else {
 
 			channel._generated_prim = {
