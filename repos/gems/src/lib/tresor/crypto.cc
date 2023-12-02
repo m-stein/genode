@@ -115,16 +115,14 @@ void Crypto_channel::_mark_req_successful(bool &progress)
 		default: break;
 		}
 	}
-	if (VERBOSE_BLOCK_IO && (!VERBOSE_BLOCK_IO_PBA_FILTER || VERBOSE_BLOCK_IO_PBA == req._pba)) {
-		switch (req._type) {
-		case Request::DECRYPT_CLIENT_DATA:
-			log("block_io: read pba ", req._pba, " hash ", hash(req._blk), " (plaintext hash ", hash(_blk), ")");
-			break;
-		case Request::ENCRYPT_CLIENT_DATA:
-			log("block_io: write pba ", req._pba, " hash ", hash(req._blk), " (plaintext hash ", hash(_blk), ")");
-			break;
-		default: break;
-		}
+	switch (req._type) {
+	case Request::DECRYPT_CLIENT_DATA:
+		log("read vba ", req._vba, " hash ", hash(req._blk), " (pba ", req._pba, " key ", req._key_id, " data hash ", hash(_blk), ")");
+		break;
+	case Request::ENCRYPT_CLIENT_DATA:
+		log("write vba ", req._vba, " hash ", hash(req._blk), " (pba ", req._pba, " key ", req._key_id, " data hash ", hash(_blk), ")");
+		break;
+	default: break;
 	}
 }
 
@@ -135,6 +133,7 @@ void Crypto_channel::_add_key(bool &progress)
 	switch (_state) {
 	case REQ_SUBMITTED:
 
+log("add key ", req._key_id, " ", req._key_plaintext);
 		memcpy(_add_key_buf, &req._key_id, sizeof(Key_id));
 		memcpy(_add_key_buf + sizeof(Key_id), &req._key_plaintext, KEY_SIZE);
 		_add_key_file.write(WRITE_OK, FILE_ERR, 0, { _add_key_buf, sizeof(_add_key_buf) }, progress);
