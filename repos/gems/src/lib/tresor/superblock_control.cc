@@ -496,6 +496,7 @@ void Superblock_control_channel::_initialize(bool &progress)
 
 		_sb_ciphertext.decode_from_blk(_blk);
 		if (check_hash(_blk, _hash)) {
+log("sb encrypted key ", _sb_ciphertext.current_key.value);
 			_gen = _sb_ciphertext.snapshots.items[_sb_ciphertext.snapshots.newest_snap_idx()].gen;
 			_sb.copy_all_but_key_values_from(_sb_ciphertext);
 			_generate_req<Trust_anchor::Decrypt_key>(
@@ -510,6 +511,7 @@ void Superblock_control_channel::_initialize(bool &progress)
 
 	case DECRYPT_CURR_KEY_SUCCEEDED:
 
+log("sb decrypted key ", _sb.current_key.value);
 		_generate_req<Crypto::Add_key>(ADD_CURR_KEY_SUCCEEDED, progress, _sb.current_key);
 		break;
 
