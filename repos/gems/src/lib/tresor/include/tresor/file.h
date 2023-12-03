@@ -102,7 +102,6 @@ class Tresor::File
 				case Read_result::READ_ERR_WOULD_BLOCK: break;
 				case Read_result::READ_OK:
 
-log("ta create key b ", *(char const*)dst.start);
 					_num_processed_bytes += num_read_bytes;
 					if (_num_processed_bytes < dst.num_bytes) {
 						_state = READ_INITIALIZED;
