@@ -76,7 +76,9 @@ void Trust_anchor_channel::_create_key(bool &progress)
 	Request &req { *_req_ptr };
 	switch (_state) {
 	case REQ_SUBMITTED: _generate_key_file.read(READ_OK, FILE_ERR, 0, { (char *)&req._key_plaintext, KEY_SIZE }, progress); break;
-	case READ_OK: _mark_req_successful(progress); break;
+	case READ_OK:
+log("ta create key a ", req._key_plaintext);
+_mark_req_successful(progress); break;
 	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
 	default: break;
 	}

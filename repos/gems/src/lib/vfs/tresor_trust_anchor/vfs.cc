@@ -236,6 +236,8 @@ class Trust_anchor
 				               _jitterentropy_io_job_buffer.base,
 				               _jitterentropy_io_job_buffer.size);
 
+Genode::log("ta create key a ", key.value);
+
 				_job_state = Job_state::COMPLETE;
 				_job_success = true;
 				progress = true;
@@ -1457,6 +1459,8 @@ class Vfs_tresor_trust_anchor::Generate_key_file_system : public Vfs::Single_fil
 
 				_state = State::NONE;
 				out_count = dst.num_bytes;
+
+log("ta create key b ", *(char const*)dst.start);
 				return cr.success ? READ_OK : READ_ERR_IO;
 			}
 
