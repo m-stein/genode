@@ -18,6 +18,7 @@
 /* tresor includes */
 #include <tresor/crypto.h>
 #include <tresor/client_data.h>
+#include <tresor/sha256_4k_hash.h>
 
 using namespace Tresor;
 
@@ -153,6 +154,16 @@ void Crypto::_mark_req_successful(Channel &channel,
 	channel._request._success = true;
 	channel._state = Channel::COMPLETE;
 	progress = true;
+	Request &req { channel._request };
+	switch (req._type) {
+	case Request::DECRYPT_CLIENT_DATA:
+		log("read vba ", req._vba, " hash ", hash(*(Block*)req._ciphertext_blk_ptr), " (pba ", req._pba, " key ", req._key_id, " data hash ", hash(*(Block*)channel._blk_buf), ")");
+		break;
+	case Request::ENCRYPT_CLIENT_DATA:
+		log("write vba ", req._vba, " hash ", hash(*(Block*)req._ciphertext_blk_ptr), " (pba ", req._pba, " key ", req._key_id , " data hash ", hash(*(Block*)channel._blk_buf), ")");
+		break;
+	default: break;
+	}
 }
 
 
@@ -163,6 +174,7 @@ void Crypto::_execute_add_key(Channel &channel,
 	switch (channel._state) {
 	case Channel::SUBMITTED:
 	{
+log("add key ", req._key_id, " ", *(Key_value*)req._key_plaintext_ptr);
 		_add_key_handle.seek(0);
 
 		char buf[sizeof(req._key_id) + KEY_SIZE] { };

@@ -1108,6 +1108,7 @@ void Superblock_control::_execute_initialize(Channel           &channel,
 			throw Execute_initialize_decrypt_current_key_error { };
 		}
 
+log("sb decrypt curr key b ", channel._curr_key_plaintext.value);
 		channel._curr_key_plaintext.id = channel._sb_ciphertext.current_key.id;
 
 		channel._generated_prim = {
@@ -1499,6 +1500,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 
 		case Channel::DECRYPT_CURRENT_KEY_PENDING:
 
+log("sb decrypt curr key a ", chan._sb_ciphertext.current_key.value);
 			Trust_anchor_request::create(
 				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
 				Trust_anchor_request::DECRYPT_KEY,

@@ -26,10 +26,55 @@
 
 /* local includes */
 #include <aes_256.h>
+#include <tresor/assertion.h>
 
+enum { KEY_SIZE = 32 };
 enum { PRIVATE_KEY_SIZE = 32 };
 enum { PASSPHRASE_HASH_SIZE = 32 };
 enum { VERBOSE = 0 };
+
+struct Byte_range
+{
+	uint8_t const *ptr;
+	size_t size;
+
+	void print(Genode::Output &out) const
+	{
+		using Genode::Hex;
+		using Genode::print;
+		enum { MAX_BYTES_PER_LINE = 64 };
+		enum { MAX_BYTES_PER_WORD = 4 };
+		ASSERT(size <= 0xffff);
+		if (size > MAX_BYTES_PER_LINE) {
+			for (size_t idx { 0 }; idx < size; idx++) {
+				if (idx % MAX_BYTES_PER_LINE == 0)
+					print(out, "\n  ", Hex((uint16_t)idx, Hex::PREFIX, Hex::PAD), ": ");
+
+				else if (idx % MAX_BYTES_PER_WORD == 0)
+					print(out, " ");
+
+				print(out, Hex(ptr[idx], Hex::OMIT_PREFIX, Hex::PAD));
+			}
+		} else {
+			for (size_t idx { 0 }; idx < size; idx++) {
+				if (idx % MAX_BYTES_PER_WORD == 0 && idx != 0)
+					print(out, " ");
+
+				print(out, Hex(ptr[idx], Hex::OMIT_PREFIX, Hex::PAD));
+			}
+		}
+	}
+};
+
+struct Key_value
+{
+	uint8_t bytes[KEY_SIZE];
+
+	void print(Genode::Output &out) const
+	{
+		Genode::print(out, Byte_range { bytes, KEY_SIZE });
+	}
+};
 
 
 namespace Vfs_tresor_trust_anchor {
@@ -1250,6 +1295,7 @@ class Trust_anchor
 			}
 
 			Genode::memcpy(dst.start, _generated_key.value, len);
+Genode::log("ta gen key a ", *(Key_value*)_generated_key.value);
 			Genode::memset(_generated_key.value, 0, sizeof (_generated_key.value));
 
 			_job       = Job::NONE;

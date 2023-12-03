@@ -596,6 +596,7 @@ void Sb_initializer::generated_request_complete(Module_request &req)
 			throw Exception_6 { };
 		}
 		Trust_anchor_request const *trust_anchor_req = static_cast<Trust_anchor_request const*>(&req);
+log("ta create key z ", *(Key_value*)const_cast<Trust_anchor_request*>(trust_anchor_req)->key_plaintext_ptr());
 		channel._state = Channel::TA_REQUEST_CREATE_KEY_COMPLETE;
 		channel._generated_req_success = trust_anchor_req->success();
 		memcpy(&channel._key_plain.value,

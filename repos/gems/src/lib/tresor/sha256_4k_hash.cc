@@ -21,6 +21,12 @@
 /* libcrypto */
 #include <openssl/sha.h>
 
+Tresor::Hash Tresor::hash(Block const &blk) {
+	Hash my_hash;
+	calc_sha256_4k_hash(blk, my_hash);
+	return my_hash;
+}
+
 
 bool Tresor::check_sha256_4k_hash(Block const &blk,
                                   Hash  const &expected_hash)

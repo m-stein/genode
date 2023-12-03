@@ -25,6 +25,8 @@ namespace Tresor {
 
 	bool check_sha256_4k_hash(Block const &blk,
 	                          Hash  const &expected_hash);
+
+	Hash hash(Block const &blk);
 }
 
 #endif /* _TRESOR__SHAE256_4K_HASH_ */

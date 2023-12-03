@@ -152,37 +152,26 @@ namespace Tresor {
 struct Tresor::Byte_range
 {
 	uint8_t const *ptr;
-	size_t         size;
+	size_t size;
 
 	void print(Output &out) const
 	{
 		using Genode::print;
-
 		enum { MAX_BYTES_PER_LINE = 64 };
 		enum { MAX_BYTES_PER_WORD = 4 };
-
-		if (size > 0xffff) {
-			class Exception_1 { };
-			throw Exception_1 { };
-		}
+		ASSERT(size <= 0xffff);
 		if (size > MAX_BYTES_PER_LINE) {
-
 			for (size_t idx { 0 }; idx < size; idx++) {
-
 				if (idx % MAX_BYTES_PER_LINE == 0)
-					print(out, "\n  ",
-					      Hex((uint16_t)idx, Hex::PREFIX, Hex::PAD), ": ");
+					print(out, "\n  ", Hex((uint16_t)idx, Hex::PREFIX, Hex::PAD), ": ");
 
 				else if (idx % MAX_BYTES_PER_WORD == 0)
 					print(out, " ");
 
 				print(out, Hex(ptr[idx], Hex::OMIT_PREFIX, Hex::PAD));
 			}
-
 		} else {
-
 			for (size_t idx { 0 }; idx < size; idx++) {
-
 				if (idx % MAX_BYTES_PER_WORD == 0 && idx != 0)
 					print(out, " ");
 
