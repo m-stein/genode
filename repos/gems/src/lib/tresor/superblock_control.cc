@@ -1313,7 +1313,7 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 
 		break;
 	case Channel::State::SYNC_CACHE_COMPLETED:
-
+{
 		if (!channel._generated_prim.succ) {
 			class Deinitialize_sync_cache_error { };
 			throw Deinitialize_sync_cache_error { };
@@ -1331,6 +1331,7 @@ void Superblock_control::_execute_deinitialize(Channel           &channel,
 		progress       = true;
 
 		break;
+}
 	case Channel::State::WRITE_SB_COMPLETED:
 
 		if (!channel._generated_prim.succ) {
@@ -1522,6 +1523,7 @@ log("sb decrypt curr key a ", chan._sb_ciphertext.current_key.value);
 
 		case Channel::SECURE_SB_PENDING:
 
+log("secure sb x hash ", chan._hash);
 			Trust_anchor_request::create(
 				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
 				Trust_anchor_request::SECURE_SUPERBLOCK,
@@ -1670,8 +1672,12 @@ log("sb decrypt curr key a ", chan._sb_ciphertext.current_key.value);
 			return true;
 
 		case Channel::WRITE_SB_PENDING:
-
+{
 			chan._sb_ciphertext.encode_to_blk(chan._encoded_blk);
+
+Hash hash;
+calc_sha256_4k_hash(chan._encoded_blk, hash);
+log("write sb x pba ", chan._generated_prim.blk_nr, " hash ", hash);
 			construct_in_buf<Block_io_request>(
 				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
 				Block_io_request::WRITE, 0, 0, 0,
@@ -1679,7 +1685,7 @@ log("sb decrypt curr key a ", chan._sb_ciphertext.current_key.value);
 				nullptr);
 
 			return true;
-
+}
 		case Channel::REKEY_VBA_IN_VBD_PENDING:
 
 			Virtual_block_device_request::create(
