@@ -87,6 +87,12 @@ append config {
 						<ui_config version="step_2_init" passphrase="abcdefgh" client_fs_size="1M" journaling_buf_size="1M"/>
 
 					</inline>
+					<sleep milliseconds="12000"/>
+					<inline>
+
+						<ui_config version="step_3_lock"/>
+
+					</inline>
 					<sleep milliseconds="3600000"/>
 
 				</rom>
@@ -220,7 +226,7 @@ append config {
 				<service name="ROM" />
 				<service name="Report" />
 			</provides>
-			<config/>
+			<config verbose="yes"/>
 			<route>
 				<service name="LOG"> <parent/> </service>
 				<service name="PD">  <parent/> </service>
@@ -388,7 +394,7 @@ lappend_if [have_board linux] boot_modules [lx_fs_dir]
 build_boot_image $boot_modules
 
 append qemu_args " -display none "
-run_genode_until "child \"bash\" exited with exit value 0.*\n" 60
+run_genode_until "<ui_report version=\"step_3_lock\" state=\"locked\"/>.*\n" 60
 
 grep_output {\[init -> dynamic_init -> log_terminal\].*}
 compare_output_to {
