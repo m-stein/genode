@@ -282,7 +282,7 @@ struct Tresor::Block
 class Tresor::Block_scanner
 {
 	private:
-
+public:
 		Block const &_blk;
 		size_t       _offset { 0 };
 
@@ -811,8 +811,11 @@ struct Tresor::Superblock
 		scanner.fetch(rekeying_vba);
 		scanner.fetch(resizing_nr_of_pbas);
 		scanner.fetch(resizing_nr_of_leaves);
+log("decode sb off 1 ", scanner._offset);
 		previous_key.decode_from_blk(scanner);
+log("decode sb off 2 ", scanner._offset);
 		current_key.decode_from_blk(scanner);
+log("decode sb off 3 ", scanner._offset);
 		snapshots.decode_from_blk(scanner);
 		scanner.fetch(last_secured_generation);
 		scanner.fetch(curr_snap_idx);
