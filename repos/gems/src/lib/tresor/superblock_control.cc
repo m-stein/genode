@@ -687,6 +687,7 @@ void Superblock_control::_secure_sb_sync_cache_compl(Channel  &chan,
 		.blk_nr = _sb_idx,
 		.idx    = chan_idx
 	};
+log("write sb pba ", _sb_idx);
 	chan._state = Channel::WRITE_SB_PENDING;
 	progress = true;
 }

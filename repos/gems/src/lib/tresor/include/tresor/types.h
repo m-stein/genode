@@ -313,6 +313,7 @@ class Tresor::Block_generator
 {
 	private:
 
+public:
 		Block  &_blk;
 		size_t  _offset { 0 };
 
@@ -762,8 +763,11 @@ struct Tresor::Superblock
 		generator.append(rekeying_vba);
 		generator.append(resizing_nr_of_pbas);
 		generator.append(resizing_nr_of_leaves);
+log("encode sb off 1 ", generator._offset);
 		previous_key.encode_to_blk(generator);
+log("encode sb off 2 ", generator._offset);
 		current_key.encode_to_blk(generator);
+log("encode sb off 3 ", generator._offset);
 		snapshots.encode_to_blk(generator);
 		generator.append(last_secured_generation);
 		generator.append(curr_snap);
