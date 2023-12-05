@@ -8,4 +8,9 @@ INC_DIR += $(REP_DIR)/src/lib/tresor/include
 
 LIBS += aes_cbc_4k
 
+INC_DIR += $(REP_DIR)/src/lib/tresor/include
+LIBS += libcrypto
+SRC_CC  += hash.cc
+vpath hash.cc $(REP_DIR)/src/lib/tresor
+
 SHARED_LIB = yes

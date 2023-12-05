@@ -3,6 +3,11 @@ SRC_CC += aes_cbc.cc
 
 LIBS += aes_cbc_4k
 
+INC_DIR += $(REP_DIR)/src/lib/tresor/include
+LIBS += libcrypto
+SRC_CC  += hash.cc
+vpath hash.cc $(REP_DIR)/src/lib/tresor
+
 vpath vfs.cc $(REP_DIR)/src/lib/vfs/cbe_crypto/
 vpath %      $(REP_DIR)/src/lib/vfs/cbe_crypto/aes_cbc
 

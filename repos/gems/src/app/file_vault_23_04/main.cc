@@ -368,7 +368,7 @@ class File_vault::Main
 		Child_state                            _menu_view                          { _children, "menu_view", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 200 } };
 		Child_state                            _mke2fs                             { _children, "mke2fs", Ram_quota { 100 * 1024 * 1024 }, Cap_quota { 500 } };
 		Child_state                            _resize2fs                          { _children, "resize2fs", Ram_quota { 100 * 1024 * 1024 }, Cap_quota { 500 } };
-		Child_state                            _cbe_vfs                            { _children, "cbe_vfs", "vfs", Ram_quota { 64 * 1024 * 1024 }, Cap_quota { 200 } };
+		Child_state                            _cbe_vfs                            { _children, "tresor_vfs", "vfs", Ram_quota { 64 * 1024 * 1024 }, Cap_quota { 200 } };
 		Child_state                            _cbe_trust_anchor_vfs               { _children, "cbe_trust_anchor_vfs", "vfs", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _rump_vfs                           { _children, "rump_vfs", "vfs", Ram_quota { 32 * 1024 * 1024 }, Cap_quota { 200 } };
 		Child_state                            _sync_to_cbe_vfs_init               { _children, "sync_to_cbe_vfs_init", "file_vault-sync_to_cbe_vfs_init", Ram_quota { 8 * 1024 * 1024 }, Cap_quota { 100 } };

@@ -406,7 +406,7 @@ append config {
 				<service name="File_system" label="cbe"> <child name="data_fs" label="file_vault -> data"/> </service>
 				<service name="File_system" label="fs_query -> "> <child name="data_fs" label="file_vault -> data"/> </service>
 				<service name="File_system" label="image_fs_query -> "> <child name="data_fs" label="file_vault -> data"/> </service>
-				<service name="File_system" label="cbe_vfs -> cbe_fs"> <child name="data_fs" label="file_vault -> data"/> </service>
+				<service name="File_system" label="tresor_vfs -> cbe_fs"> <child name="data_fs" label="file_vault -> data"/> </service>
 				<service name="File_system" label="truncate_file -> cbe"> <child name="data_fs" label="file_vault -> data"/> </service>
 				<service name="Timer"> <child name="timer"/> </service>
 				<service name="PD"> <parent/> </service>

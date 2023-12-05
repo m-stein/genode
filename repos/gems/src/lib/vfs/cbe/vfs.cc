@@ -25,7 +25,7 @@
 
 /* local includes */
 #include <io_job.h>
-
+#include <hash.h>
 
 namespace Vfs_cbe {
 	using namespace Vfs;
@@ -980,6 +980,7 @@ class Vfs_cbe::Wrapper
 						data,
 						sizeof (Cbe::Block_data));
 
+log("write vba ", vba);
 					_cbe->client_transfer_write_data_in_progress(
 						plain_buf_idx);
 
@@ -1469,6 +1470,7 @@ class Vfs_cbe::Wrapper
 				using Op = Crypto_job::Operation;
 				file_offset const offset = request.block_number() * Cbe::BLOCK_SIZE;
 				_crypto_job.submit_request<Op::ENCRYPT>(cf, data_index.value, offset);
+
 				progress |= true;
 			}
 
@@ -1499,6 +1501,9 @@ class Vfs_cbe::Wrapper
 
 			Crypto_job::Result const result = _crypto_job.execute(cbe, cipher, plain);
 			progress |= result.progress;
+
+if (_crypto_job.op == Crypto_job::Operation::ENCRYPT && result.complete)
+	log("      c-hash ", Tresor::hash(cipher.item(_crypto_job.cipher_index)), " p-hash ", Tresor::hash(plain.item(_crypto_job.plain_index)));
 
 			return progress;
 		}

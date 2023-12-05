@@ -21,6 +21,23 @@
 #include <base/exception.h>
 #include <util/string.h>
 
+#include <base/log.h>
+#include <base/sleep.h>
+
+#define ASSERT(condition) \
+	do { \
+		if (!(condition)) { \
+			Genode::error(__FILE__, ":", __LINE__, ": ", " assertion \"", #condition, "\" failed "); \
+			Genode::sleep_forever(); \
+		} \
+	} while (false)
+
+#define ASSERT_NEVER_REACHED \
+	do { \
+		Genode::error(__FILE__, ":", __LINE__, ": ", " should have never been reached"); \
+		Genode::sleep_forever(); \
+	} while (false)
+
 namespace Cbe {
 
 	enum { INVALID_GENERATION = 0 };
@@ -296,6 +313,38 @@ namespace Cbe {
 	} __attribute__((packed));
 
 
+	struct Byte_range
+	{
+		uint8_t const *ptr;
+		size_t size;
+
+		void print(Output &out) const
+		{
+			using Genode::print;
+			enum { MAX_BYTES_PER_LINE = 64 };
+			enum { MAX_BYTES_PER_WORD = 4 };
+			ASSERT(size <= 0xffff);
+			if (size > MAX_BYTES_PER_LINE) {
+				for (size_t idx { 0 }; idx < size; idx++) {
+					if (idx % MAX_BYTES_PER_LINE == 0)
+						print(out, "\n  ", Hex((uint16_t)idx, Hex::PREFIX, Hex::PAD), ": ");
+
+					else if (idx % MAX_BYTES_PER_WORD == 0)
+						print(out, " ");
+
+					print(out, Hex(ptr[idx], Hex::OMIT_PREFIX, Hex::PAD));
+				}
+			} else {
+				for (size_t idx { 0 }; idx < size; idx++) {
+					if (idx % MAX_BYTES_PER_WORD == 0 && idx != 0)
+						print(out, " ");
+
+					print(out, Hex(ptr[idx], Hex::OMIT_PREFIX, Hex::PAD));
+				}
+			}
+		}
+	};
+
 	/*
 	 * The Hash contains the hash of a node.
 	 */
@@ -307,25 +356,9 @@ namespace Cbe {
 		/* hash as hex value plus "0x" prefix and terminating null */
 		using String = Genode::String<sizeof(values) * 2 + 3>;
 
-		/* debug */
-		void print(Genode::Output &out) const
+		void print(Output &out) const
 		{
-			using namespace Genode;
-			Genode::print(out, "0x");
-			bool leading_zero = true;
-			for (char const c : values) {
-				if (leading_zero) {
-					if (c) {
-						leading_zero = false;
-						Genode::print(out, Hex(c, Hex::OMIT_PREFIX));
-					}
-				} else {
-					Genode::print(out, Hex(c, Hex::OMIT_PREFIX, Hex::PAD));
-				}
-			}
-			if (leading_zero) {
-				Genode::print(out, "0");
-			}
+			Genode::print(out, Byte_range { (uint8_t*)values, 4 }, "…");
 		}
 	};
 
