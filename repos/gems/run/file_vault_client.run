@@ -448,6 +448,13 @@ if {[container_initialized]} {
 [init -> dynamic_init -> log_terminal] Eine weitere Datei.
 [init -> dynamic_init -> log_terminal] Mit mehr Inhalt.
 [init -> dynamic_init -> log_terminal] Und Sonderzeichen: /§($)=%!
+[init -> dynamic_init -> log_terminal] total 1
+[init -> dynamic_init -> log_terminal] -rwx------ 1 root 0 50 Jan  1  1970 file_3
+[init -> dynamic_init -> log_terminal] Ein zweiter Test.
+[init -> dynamic_init -> log_terminal] Ein bisschen angefügter Inhalt. %&$§(
+[init -> dynamic_init -> log_terminal] Ein ganz neuer Inhalt.
+[init -> dynamic_init -> log_terminal] Und sogar eine neue Datei.
+[init -> dynamic_init -> log_terminal] In einem neuen Ordner.
 	}
 } else {
 	compare_output_to {
