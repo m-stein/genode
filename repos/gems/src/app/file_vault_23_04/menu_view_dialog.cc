@@ -26,7 +26,8 @@ void File_vault::gen_normal_font_attribute(Xml_generator &xml)
 
 void File_vault::gen_frame_title(Xml_generator &xml,
                                  char    const *name,
-                                 unsigned long  min_width)
+                                 unsigned long  min_width,
+                                 bool           jent_avail)
 {
 
 	xml.node("float", [&] () {
@@ -34,19 +35,35 @@ void File_vault::gen_frame_title(Xml_generator &xml,
 		xml.attribute("west", "yes");
 		xml.attribute("north", "yes");
 
-		xml.node("label", [&] () {
-			xml.attribute("text", "" );
-			xml.attribute("min_ex", min_width);
-		});
+		if (jent_avail) {
+			xml.node("label", [&] () {
+				xml.attribute("text", "" );
+				xml.attribute("min_ex", min_width);
+			});
+		} else {
+			xml.node("vbox", [&] () {
+				xml.node("label", [&] () {
+					xml.attribute("name", "warning_0");
+					xml.attribute("font", "title/regular");
+					xml.attribute("text", " Warning: Insecure mode, no entropy source! " );
+					xml.attribute("min_ex", min_width);
+				});
+				xml.node("label", [&] () {
+					xml.attribute("name", "warning_1");
+					xml.attribute("text", " " );
+				});
+			});
+		}
 	});
 }
 
 void File_vault::gen_info_frame(Xml_generator &xml,
+                                bool           jent_avail,
                                 char const    *name,
                                 char const    *info,
                                 unsigned long  min_width)
 {
-	gen_main_frame(xml, name, min_width, [&] (Xml_generator &xml) {
+	gen_main_frame(xml, jent_avail, name, min_width, [&] (Xml_generator &xml) {
 
 		gen_centered_info_line(xml, "info", info);
 		gen_info_line(xml, "pad_1", "");
@@ -363,8 +380,8 @@ void File_vault::gen_global_controls(Xml_generator &xml,
                                      size_t         cbe_image_size,
                                      size_t         client_fs_size,
                                      size_t         nr_of_clients,
-                                     bool           shut_down_button_hovered,
-                                     bool           shut_down_button_selected)
+                                     bool           lock_button_hovered,
+                                     bool           lock_button_selected)
 {
 	gen_empty_line(xml, "Status 0", min_width);
 	gen_centered_info_line(xml, "Status 1",
@@ -382,8 +399,6 @@ void File_vault::gen_global_controls(Xml_generator &xml,
 
 	xml.node("hbox", [&] () {
 		gen_action_button(
-			xml, "Shut down", "Shut down",
-			shut_down_button_hovered,
-			shut_down_button_selected);
+			xml, "Lock", "Lock", lock_button_hovered, lock_button_selected);
 	});
 }

@@ -1,5 +1,5 @@
 /*
- * \brief  Helps synchronizing the CBE manager to the CBE-driver initialization
+ * \brief  Synchronize the File Vault to the Cbe VFS initialization
  * \author Martin Stein
  * \date   2021-03-19
  */

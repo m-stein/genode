@@ -1,5 +1,5 @@
 /*
- * \brief  Graphical front end for controlling CBE devices
+ * \brief  Graphical front end for controlling Cbe devices
  * \author Martin Stein
  * \author Norman Feske
  * \date   2021-02-24
@@ -42,9 +42,40 @@ namespace File_vault {
 	enum { SHOW_CONTROLS_SECURITY_MASTER_KEY = 0 };
 	enum { SHOW_CONTROLS_SECURITY_USER_PASSPHRASE = 0 };
 	enum { RENAME_SNAPSHOT_BUFFER_JOURNALING_BUFFER = 1 };
+	enum { PASSPHRASE_MIN_NR_OF_CHARS = 8 };
 
+	class Ui_config;
 	class Main;
 }
+
+struct File_vault::Ui_config
+{
+	using Version_string = String<80>;
+
+	Version_string const version { };
+	Passphrase const passphrase { };
+	Number_of_bytes const client_fs_size { 0 };
+	Number_of_bytes const journaling_buf_size { 0 };
+
+	Ui_config() { }
+
+	Ui_config(Xml_node const &node,
+	          bool            verbose)
+	:
+		version             { node.attribute_value("version",             Version_string { }) },
+		passphrase          { node.attribute_value("passphrase",          Passphrase { }) },
+		client_fs_size      { node.attribute_value("client_fs_size",      Number_of_bytes { 0 }) },
+		journaling_buf_size { node.attribute_value("journaling_buf_size", Number_of_bytes { 0 }) }
+	{
+		if (verbose)
+			log("ui_config: version \"", version,
+			    "\" passphrase ", passphrase_suitable() ? "<" : "<not ",
+			    "suitable> client_fs_size ", client_fs_size,
+			    " journaling_buf_size ", journaling_buf_size);
+	}
+
+	bool passphrase_suitable() const { return passphrase.length() >= PASSPHRASE_MIN_NR_OF_CHARS + 1; }
+};
 
 class File_vault::Main
 :
@@ -67,6 +98,8 @@ class File_vault::Main
 			CBE_NR_OF_SUPERBLOCKS = 8,
 		};
 
+		enum Version { INVALID, VERSION_21_05, VERSION_23_05 };
+
 		enum class State
 		{
 			INVALID,
@@ -76,10 +109,11 @@ class File_vault::Main
 			SETUP_RUN_CBE_INIT,
 			SETUP_START_CBE_VFS,
 			SETUP_FORMAT_CBE,
-			STARTUP_OBTAIN_PARAMETERS,
-			STARTUP_RUN_CBE_INIT_TRUST_ANCHOR,
-			STARTUP_START_CBE_VFS,
-			STARTUP_DETERMINE_CLIENT_FS_SIZE,
+			SETUP_DETERMINE_CLIENT_FS_SIZE,
+			UNLOCK_OBTAIN_PARAMETERS,
+			UNLOCK_RUN_CBE_INIT_TRUST_ANCHOR,
+			UNLOCK_START_CBE_VFS,
+			UNLOCK_DETERMINE_CLIENT_FS_SIZE,
 			CONTROLS_ROOT,
 			CONTROLS_SNAPSHOTS,
 			CONTROLS_DIMENSIONS,
@@ -89,8 +123,19 @@ class File_vault::Main
 			CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY,
 			CONTROLS_SECURITY_MASTER_KEY,
 			CONTROLS_SECURITY_USER_PASSPHRASE,
-			SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE,
-			SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE
+			LOCK_ISSUE_DEINIT_REQUEST_AT_CBE,
+			LOCK_WAIT_TILL_DEINIT_REQUEST_IS_DONE
+		};
+
+		enum class Reported_state
+		{
+			INVALID,
+			UNINITIALIZED,
+			INITIALIZING,
+			LOCKED,
+			UNLOCKING,
+			UNLOCKED,
+			LOCKING
 		};
 
 		enum class Setup_obtain_params_hover
@@ -116,7 +161,7 @@ class File_vault::Main
 		enum class Controls_root_select
 		{
 			NONE,
-			SHUT_DOWN_BUTTON,
+			LOCK_BUTTON,
 		};
 
 		enum class Controls_root_hover
@@ -125,13 +170,13 @@ class File_vault::Main
 			SNAPSHOTS_EXPAND_BUTTON,
 			DIMENSIONS_BUTTON,
 			SECURITY_EXPAND_BUTTON,
-			SHUT_DOWN_BUTTON,
+			LOCK_BUTTON,
 		};
 
 		enum class Controls_snapshots_select
 		{
 			NONE,
-			SHUT_DOWN_BUTTON,
+			LOCK_BUTTON,
 			CREATE_BUTTON,
 			GENERATION_DISCARD_BUTTON,
 		};
@@ -139,7 +184,7 @@ class File_vault::Main
 		enum class Controls_snapshots_hover
 		{
 			NONE,
-			SHUT_DOWN_BUTTON,
+			LOCK_BUTTON,
 			LEAVE_BUTTON,
 			CREATE_BUTTON,
 			GENERATION_LEAVE_BUTTON,
@@ -151,7 +196,7 @@ class File_vault::Main
 			NONE,
 			EXPAND_CLIENT_FS_EXPAND_BUTTON,
 			EXPAND_SNAP_BUF_EXPAND_BUTTON,
-			SHUT_DOWN_BUTTON,
+			LOCK_BUTTON,
 		};
 
 		enum class Dimensions_hover
@@ -160,7 +205,7 @@ class File_vault::Main
 			LEAVE_BUTTON,
 			EXPAND_CLIENT_FS_BUTTON,
 			EXPAND_SNAPSHOT_BUF_BUTTON,
-			SHUT_DOWN_BUTTON,
+			LOCK_BUTTON,
 		};
 
 		enum class Expand_client_fs_select
@@ -168,7 +213,7 @@ class File_vault::Main
 			NONE,
 			CONTINGENT_INPUT,
 			START_BUTTON,
-			SHUT_DOWN_BUTTON,
+			LOCK_BUTTON,
 		};
 
 		enum class Expand_client_fs_hover
@@ -177,7 +222,7 @@ class File_vault::Main
 			LEAVE_BUTTON,
 			CONTINGENT_INPUT,
 			START_BUTTON,
-			SHUT_DOWN_BUTTON,
+			LOCK_BUTTON,
 		};
 
 		enum class Expand_snapshot_buf_select
@@ -185,7 +230,7 @@ class File_vault::Main
 			NONE,
 			CONTINGENT_INPUT,
 			START_BUTTON,
-			SHUT_DOWN_BUTTON,
+			LOCK_BUTTON,
 		};
 
 		enum class Expand_snapshot_buf_hover
@@ -194,14 +239,14 @@ class File_vault::Main
 			LEAVE_BUTTON,
 			CONTINGENT_INPUT,
 			START_BUTTON,
-			SHUT_DOWN_BUTTON,
+			LOCK_BUTTON,
 		};
 
 		enum class Controls_security_block_encryption_key_select
 		{
 			NONE,
 			REPLACE_BUTTON,
-			SHUT_DOWN_BUTTON,
+			LOCK_BUTTON,
 		};
 
 		enum class Controls_security_block_encryption_key_hover
@@ -209,33 +254,33 @@ class File_vault::Main
 			NONE,
 			LEAVE_BUTTON,
 			REPLACE_BUTTON,
-			SHUT_DOWN_BUTTON,
+			LOCK_BUTTON,
 		};
 
 		enum class Controls_security_master_key_select
 		{
 			NONE,
-			SHUT_DOWN_BUTTON,
+			LOCK_BUTTON,
 		};
 
 		enum class Controls_security_master_key_hover
 		{
 			NONE,
 			LEAVE_BUTTON,
-			SHUT_DOWN_BUTTON,
+			LOCK_BUTTON,
 		};
 
 		enum class Controls_security_user_passphrase_select
 		{
 			NONE,
-			SHUT_DOWN_BUTTON,
+			LOCK_BUTTON,
 		};
 
 		enum class Controls_security_user_passphrase_hover
 		{
 			NONE,
 			LEAVE_BUTTON,
-			SHUT_DOWN_BUTTON,
+			LOCK_BUTTON,
 		};
 
 		enum class Controls_security_select
@@ -244,7 +289,7 @@ class File_vault::Main
 			BLOCK_ENCRYPTION_KEY_EXPAND_BUTTON,
 			MASTER_KEY_EXPAND_BUTTON,
 			USER_PASSPHRASE_EXPAND_BUTTON,
-			SHUT_DOWN_BUTTON,
+			LOCK_BUTTON,
 		};
 
 		enum class Controls_security_hover
@@ -254,7 +299,7 @@ class File_vault::Main
 			BLOCK_ENCRYPTION_KEY_EXPAND_BUTTON,
 			MASTER_KEY_EXPAND_BUTTON,
 			USER_PASSPHRASE_EXPAND_BUTTON,
-			SHUT_DOWN_BUTTON,
+			LOCK_BUTTON,
 		};
 
 		enum class Resizing_type
@@ -295,6 +340,12 @@ class File_vault::Main
 			ISSUE_REQUEST_AT_DEVICE,
 		};
 
+		enum User_interface
+		{
+			MENU_VIEW,
+			CONFIG_AND_REPORT,
+		};
+
 		using Report_service     = Sandbox::Local_service<Report::Session_component>;
 		using Gui_service        = Sandbox::Local_service<Gui::Session_component>;
 		using Rom_service        = Sandbox::Local_service<Dynamic_rom_session>;
@@ -307,17 +358,21 @@ class File_vault::Main
 		State                                  _state                              { State::INVALID };
 		Heap                                   _heap                               { _env.ram(), _env.rm() };
 		Timer::Connection                      _timer                              { _env };
-		Attached_rom_dataspace                 _config                             { _env, "config" };
-		Root_directory                         _vfs                                { _env, _heap, _config.xml().sub_node("vfs") };
+		Attached_rom_dataspace                 _config_rom                         { _env, "config" };
+		User_interface                         _user_interface                     { _user_interface_from_config(_config_rom.xml()) };
+		bool                                   _verbose_state                      { _config_rom.xml().attribute_value("verbose_state", false) };
+		bool                                   _verbose_ui_config                  { _config_rom.xml().attribute_value("verbose_ui_config", false) };
+		bool                                   _jent_avail                         { _config_rom.xml().attribute_value("jitterentropy_available", true) };
+		Root_directory                         _vfs                                { _env, _heap, _config_rom.xml().sub_node("vfs") };
 		Registry<Child_state>                  _children                           { };
 		Child_state                            _menu_view                          { _children, "menu_view", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 200 } };
 		Child_state                            _mke2fs                             { _children, "mke2fs", Ram_quota { 100 * 1024 * 1024 }, Cap_quota { 500 } };
 		Child_state                            _resize2fs                          { _children, "resize2fs", Ram_quota { 100 * 1024 * 1024 }, Cap_quota { 500 } };
 		Child_state                            _cbe_vfs                            { _children, "cbe_vfs", "vfs", Ram_quota { 64 * 1024 * 1024 }, Cap_quota { 200 } };
 		Child_state                            _cbe_trust_anchor_vfs               { _children, "cbe_trust_anchor_vfs", "vfs", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
-		Child_state                            _rump_vfs                           { _children, "rump_vfs", "vfs", Ram_quota { 16 * 1024 * 1024 }, Cap_quota { 200 } };
-		Child_state                            _sync_to_cbe_vfs_init               { _children, "sync_to_cbe_vfs_init", "file_vault_23_04-sync_to_cbe_vfs_init", Ram_quota { 8 * 1024 * 1024 }, Cap_quota { 100 } };
-		Child_state                            _truncate_file                      { _children, "truncate_file", "file_vault_23_04-truncate_file", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _rump_vfs                           { _children, "rump_vfs", "vfs", Ram_quota { 32 * 1024 * 1024 }, Cap_quota { 200 } };
+		Child_state                            _sync_to_cbe_vfs_init               { _children, "sync_to_cbe_vfs_init", "file_vault-sync_to_cbe_vfs_init", Ram_quota { 8 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _truncate_file                      { _children, "truncate_file", "file_vault-truncate_file", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _cbe_vfs_block                      { _children, "vfs_block", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _fs_query                           { _children, "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _image_fs_query                     { _children, "image_fs_query", "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
@@ -330,8 +385,8 @@ class File_vault::Main
 		Child_state                            _resizing_fs_query                  { _children, "resizing_fs_query", "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _rekeying_fs_tool                   { _children, "rekeying_fs_tool", "fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
 		Child_state                            _rekeying_fs_query                  { _children, "rekeying_fs_query", "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
-		Child_state                            _shut_down_fs_tool                  { _children, "shut_down_fs_tool", "fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
-		Child_state                            _shut_down_fs_query                 { _children, "shut_down_fs_query", "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
+		Child_state                            _lock_fs_tool                       { _children, "lock_fs_tool", "fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
+		Child_state                            _lock_fs_query                      { _children, "lock_fs_query", "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _create_snap_fs_tool                { _children, "create_snap_fs_tool", "fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
 		Child_state                            _discard_snap_fs_tool               { _children, "discard_snap_fs_tool", "fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
 		Xml_report_handler                     _fs_query_listing_handler           { *this, &Main::_handle_fs_query_listing };
@@ -340,7 +395,7 @@ class File_vault::Main
 		Xml_report_handler                     _snapshots_fs_query_listing_handler { *this, &Main::_handle_snapshots_fs_query_listing };
 		Xml_report_handler                     _resizing_fs_query_listing_handler  { *this, &Main::_handle_resizing_fs_query_listing };
 		Xml_report_handler                     _rekeying_fs_query_listing_handler  { *this, &Main::_handle_rekeying_fs_query_listing };
-		Xml_report_handler                     _shut_down_fs_query_listing_handler { *this, &Main::_handle_shut_down_fs_query_listing };
+		Xml_report_handler                     _lock_fs_query_listing_handler      { *this, &Main::_handle_lock_fs_query_listing };
 		Sandbox                                _sandbox                            { _env, *this };
 		Gui_service                            _gui_service                        { _sandbox, *this };
 		Rom_service                            _rom_service                        { _sandbox, *this };
@@ -355,7 +410,7 @@ class File_vault::Main
 		Dynamic_rom_session                    _dialog                             { _env.ep(), _env.ram(), _env.rm(), *this };
 		Input_passphrase                       _setup_obtain_params_passphrase     { };
 		Input_number_of_bytes                  _client_fs_size_input               { };
-		Input_number_of_bytes                  _snapshot_buf_size_input            { };
+		Input_number_of_bytes                  _journaling_buf_size_input          { };
 		Setup_obtain_params_hover              _setup_obtain_params_hover          { Setup_obtain_params_hover::NONE };
 		Setup_obtain_params_select             _setup_obtain_params_select         { Setup_obtain_params_select::PASSPHRASE_INPUT };
 		Controls_root_hover                    _controls_root_hover                { Controls_root_hover::NONE };
@@ -391,10 +446,65 @@ class File_vault::Main
 		Snapshot_pointer                       _snapshots_select                   { };
 		bool                                   _snapshots_expanded                 { false };
 		bool                                   _dimensions_expanded                { false };
-		Timer::One_shot_timeout<Main>          _startup_retry_delay                { _timer, *this, &Main::_handle_startup_retry_delay };
-		size_t                                 _cbe_image_size                     { 0 };
+		Timer::One_shot_timeout<Main>          _unlock_retry_delay                 { _timer, *this, &Main::_handle_unlock_retry_delay };
+		size_t                                 _cbe_image_size                  { 0 };
+		File_path                              _cbe_image_file_name             { "cbe.img" };
 		size_t                                 _client_fs_size                     { 0 };
 		bool                                   _nr_of_clients                      { 0 };
+		Constructible<Attached_rom_dataspace>  _ui_config_rom                      { };
+		Signal_handler<Main>                   _ui_config_handler                  { _env.ep(), *this, &Main::_handle_ui_config };
+		Constructible<Ui_config>               _ui_config                          { };
+		Constructible<Expanding_reporter>      _ui_report                          { };
+
+		static User_interface
+		_user_interface_from_config(Xml_node const &config)
+		{
+			using Ui_string = String<32>;
+
+			Ui_string const ui_str {
+				config.attribute_value("user_interface", Ui_string { }) };
+
+			if (ui_str == "config_and_report")
+				return CONFIG_AND_REPORT;
+
+			return MENU_VIEW;
+		}
+
+		void _gen_menu_view_start_node_if_required(Xml_generator &xml) const
+		{
+			if (_user_interface == MENU_VIEW)
+				gen_menu_view_start_node(xml, _menu_view);
+		}
+
+		size_t _ui_client_fs_size() const
+		{
+			switch (_user_interface) {
+			case MENU_VIEW:         return _client_fs_size_input.value();
+			case CONFIG_AND_REPORT: return _ui_config->client_fs_size;
+			}
+			class Exception_1 { };
+			throw Exception_1 { };
+		}
+
+		size_t _ui_journaling_buf_size() const
+		{
+			switch (_user_interface) {
+			case MENU_VIEW:         return _journaling_buf_size_input.value();
+			case CONFIG_AND_REPORT: return _ui_config->journaling_buf_size;
+			}
+			class Exception_1 { };
+			throw Exception_1 { };
+		}
+
+		Passphrase _ui_setup_obtain_params_passphrase() const
+		{
+			switch (_user_interface) {
+			case MENU_VIEW:         return _setup_obtain_params_passphrase.plaintext().string();
+			case CONFIG_AND_REPORT: return _ui_config->passphrase;
+			}
+			class Exception_1 { };
+			throw Exception_1 { };
+		}
 
 		static bool _has_name(Xml_node  const &node,
 		                      Node_name const &name)
@@ -402,13 +512,26 @@ class File_vault::Main
 			return node.attribute_value("name", Node_name { }) == name;
 		}
 
-		size_t _min_snapshot_buf_size() const
+		size_t _min_journaling_buf_size() const
 		{
-			size_t result { _client_fs_size_input.value() >> 8 };
+			size_t result { _ui_client_fs_size() >> 8 };
 			if (result < MIN_CLIENT_FS_SIZE) {
 				result = MIN_CLIENT_FS_SIZE;
 			}
 			return result;
+		}
+
+		bool _ui_setup_obtain_params_passphrase_suitable() const
+		{
+			return _ui_setup_obtain_params_passphrase().length() >= PASSPHRASE_MIN_NR_OF_CHARS + 1;
+		}
+
+		bool _ui_setup_obtain_params_suitable() const
+		{
+			return
+				_ui_client_fs_size() >= MIN_CLIENT_FS_SIZE &&
+				_ui_journaling_buf_size() >= _min_journaling_buf_size() &&
+				_ui_setup_obtain_params_passphrase_suitable();
 		}
 
 		template <typename FUNCTOR>
@@ -435,13 +558,17 @@ class File_vault::Main
 		                                             Child_state const &child_state,
 		                                             String<64>  const &service_name);
 
-		void _handle_startup_retry_delay(Duration);
+		void _handle_unlock_retry_delay(Duration);
 
-		static State _state_from_string(State_string const &str);
+		static State
+		_state_and_version_from_string(State_string const &state_str,
+		                               Version            &version);
 
 		static State_string _state_to_string(State state);
 
-		static State _state_from_fs_query_listing(Xml_node const &node);
+		static State
+		_state_and_version_from_fs_query_listing(Xml_node const &node,
+		                                         Version        &version);
 
 		void _write_to_state_file(State state);
 
@@ -459,15 +586,44 @@ class File_vault::Main
 
 		void _handle_rekeying_fs_query_listing(Xml_node const &node);
 
-		void _handle_shut_down_fs_query_listing(Xml_node const &node);
+		void _handle_lock_fs_query_listing(Xml_node const &node);
 
 		void _handle_hover(Xml_node const &node);
 
 		void _handle_config();
 
+		void _handle_ui_config();
+
+		void _handle_ui_config_and_report();
+
 		void _handle_state();
 
 		void _update_sandbox_config();
+
+		void _adapt_to_version(Version version);
+
+		Reported_state _reported_state() const;
+
+		static char const *_reported_state_to_string(Reported_state state);
+
+		void _set_state(State state)
+		{
+			Reported_state old_reported_state { _reported_state() };
+			_state = state;
+			Reported_state new_reported_state { _reported_state() };
+
+			if (_verbose_state)
+				log("state: ", _state_to_string(_state), " ", old_reported_state != new_reported_state, " ", _user_interface == CONFIG_AND_REPORT);
+
+			if (old_reported_state != new_reported_state &&
+			    _user_interface == CONFIG_AND_REPORT) {
+
+				_ui_report->generate([&] (Xml_generator &xml) {
+					xml.attribute("version", _ui_config->version);
+					xml.attribute("state",   _reported_state_to_string(new_reported_state));
+				});
+			}
+		}
 
 		static size_t _cbe_tree_nr_of_leaves(size_t payload_size);
 
@@ -479,15 +635,15 @@ class File_vault::Main
 		size_t _cbe_size() const;
 
 		static size_t _cbe_nr_of_blocks(size_t nr_of_superblocks,
-		                                size_t nr_of_vbd_lvls,
-		                                size_t nr_of_vbd_children,
-		                                size_t nr_of_vbd_leafs,
-		                                size_t nr_of_ft_lvls,
-		                                size_t nr_of_ft_children,
-		                                size_t nr_of_ft_leafs);
+		                                   size_t nr_of_vbd_lvls,
+		                                   size_t nr_of_vbd_children,
+		                                   size_t nr_of_vbd_leafs,
+		                                   size_t nr_of_ft_lvls,
+		                                   size_t nr_of_ft_children,
+		                                   size_t nr_of_ft_leafs);
 
 		static bool cbe_control_file_yields_state_idle(Xml_node const &fs_query_listing,
-		                                               char     const *file_name);
+		                                                  char     const *file_name);
 
 
 		/***************************************************
@@ -531,13 +687,21 @@ using namespace File_vault;
 
 void Main::_handle_config()
 {
-	_config.update();
+	_config_rom.update();
 	_initial_config = false;
 }
 
 
+void Main::_handle_ui_config()
+{
+	_ui_config_rom->update();
+	_ui_config.construct(_ui_config_rom->xml(), _verbose_ui_config);
+	_handle_ui_config_and_report();
+}
+
+
 bool Main::cbe_control_file_yields_state_idle(Xml_node const &fs_query_listing,
-                                              char     const *file_name)
+                                                 char     const *file_name)
 {
 	bool result { false };
 	bool done   { false };
@@ -568,8 +732,30 @@ void Main::_update_sandbox_config()
 }
 
 
-Main::State Main::_state_from_string(State_string const &str)
+void Main::_adapt_to_version(Version version)
 {
+	switch (version) {
+	case VERSION_21_05:
+
+		_cbe_image_file_name = "cbe.img";
+		break;
+
+	case VERSION_23_05:
+
+		break;
+
+	default:
+
+		class Invalid_version { };
+		throw Invalid_version { };
+	}
+}
+
+
+Main::State Main::_state_and_version_from_string(State_string const &str,
+                                                 Version            &version)
+{
+	version = VERSION_23_05;
 	if (str == "invalid") { return State::INVALID; }
 	if (str == "setup_obtain_parameters") { return State::SETUP_OBTAIN_PARAMETERS; }
 	if (str == "setup_run_cbe_init_trust_anchor") { return State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR; }
@@ -577,6 +763,7 @@ Main::State Main::_state_from_string(State_string const &str)
 	if (str == "setup_run_cbe_init") { return State::SETUP_RUN_CBE_INIT; }
 	if (str == "setup_start_cbe_vfs") { return State::SETUP_START_CBE_VFS; }
 	if (str == "setup_format_cbe") { return State::SETUP_FORMAT_CBE; }
+	if (str == "setup_determine_client_fs_size") { return State::SETUP_DETERMINE_CLIENT_FS_SIZE; }
 	if (str == "controls_root") { return State::CONTROLS_ROOT; }
 	if (str == "controls_snapshots") { return State::CONTROLS_SNAPSHOTS; }
 	if (str == "controls_dimensions") { return State::CONTROLS_DIMENSIONS; }
@@ -586,12 +773,16 @@ Main::State Main::_state_from_string(State_string const &str)
 	if (str == "controls_security_block_encryption_key") { return State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY; }
 	if (str == "controls_security_master_key") { return State::CONTROLS_SECURITY_MASTER_KEY; }
 	if (str == "controls_security_user_passphrase") { return State::CONTROLS_SECURITY_USER_PASSPHRASE; }
-	if (str == "startup_obtain_parameters") { return State::STARTUP_OBTAIN_PARAMETERS; }
-	if (str == "startup_run_cbe_init_trust_anchor") { return State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR; }
-	if (str == "startup_start_cbe_vfs") { return State::STARTUP_START_CBE_VFS; }
-	if (str == "startup_determine_client_fs_size") { return State::STARTUP_DETERMINE_CLIENT_FS_SIZE; }
-	if (str == "shutdown_issue_deinit_request_at_cbe") { return State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE; }
-	if (str == "shutdown_wait_till_deinit_request_is_done") { return State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE; }
+	if (str == "unlock_obtain_parameters") { return State::UNLOCK_OBTAIN_PARAMETERS; }
+	if (str == "unlock_run_cbe_init_trust_anchor") { return State::UNLOCK_RUN_CBE_INIT_TRUST_ANCHOR; }
+	if (str == "unlock_start_cbe_vfs") { return State::UNLOCK_START_CBE_VFS; }
+	if (str == "unlock_determine_client_fs_size") { return State::UNLOCK_DETERMINE_CLIENT_FS_SIZE; }
+	if (str == "lock_issue_deinit_request_at_cbe") { return State::LOCK_ISSUE_DEINIT_REQUEST_AT_CBE; }
+	if (str == "lock_wait_till_deinit_request_is_done") { return State::LOCK_WAIT_TILL_DEINIT_REQUEST_IS_DONE; }
+
+	version = VERSION_21_05;
+	if (str == "startup_obtain_parameters") { return State::UNLOCK_OBTAIN_PARAMETERS; }
+
 	class Invalid_state_string { };
 	throw Invalid_state_string { };
 }
@@ -600,45 +791,102 @@ Main::State Main::_state_from_string(State_string const &str)
 Main::State_string Main::_state_to_string(State state)
 {
 	switch (state) {
-	case State::INVALID:                                   return "invalid";
-	case State::SETUP_OBTAIN_PARAMETERS:                   return "setup_obtain_parameters";
-	case State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR:           return "setup_run_cbe_init_trust_anchor";
-	case State::SETUP_CREATE_CBE_IMAGE_FILE:               return "setup_create_cbe_image_file";
-	case State::SETUP_RUN_CBE_INIT:                        return "setup_run_cbe_init";
-	case State::SETUP_START_CBE_VFS:                       return "setup_start_cbe_vfs";
-	case State::SETUP_FORMAT_CBE:                          return "setup_format_cbe";
-	case State::CONTROLS_ROOT:                             return "controls_root";
-	case State::CONTROLS_SNAPSHOTS:                        return "controls_snapshots";
-	case State::CONTROLS_DIMENSIONS:                       return "controls_dimensions";
-	case State::CONTROLS_EXPAND_CLIENT_FS:                 return "controls_expand_client_fs";
-	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:              return "controls_expand_snapshot_buf";
-	case State::CONTROLS_SECURITY:                         return "controls_security";
-	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:    return "controls_security_block_encryption_key";
-	case State::CONTROLS_SECURITY_MASTER_KEY:              return "controls_security_master_key";
-	case State::CONTROLS_SECURITY_USER_PASSPHRASE:         return "controls_security_user_passphrase";
-	case State::STARTUP_OBTAIN_PARAMETERS:                 return "startup_obtain_parameters";
-	case State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR:         return "startup_run_cbe_init_trust_anchor";
-	case State::STARTUP_START_CBE_VFS:                     return "startup_start_cbe_vfs";
-	case State::STARTUP_DETERMINE_CLIENT_FS_SIZE:          return "startup_determine_client_fs_size";
-	case State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE:      return "shutdown_issue_deinit_request_at_cbe";
-	case State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE: return "shutdown_wait_till_deinit_request_is_done";
+	case State::INVALID:                                return "invalid";
+	case State::SETUP_OBTAIN_PARAMETERS:                return "setup_obtain_parameters";
+	case State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR:     return "setup_run_cbe_init_trust_anchor";
+	case State::SETUP_CREATE_CBE_IMAGE_FILE:         return "setup_create_cbe_image_file";
+	case State::SETUP_RUN_CBE_INIT:                  return "setup_run_cbe_init";
+	case State::SETUP_START_CBE_VFS:                 return "setup_start_cbe_vfs";
+	case State::SETUP_FORMAT_CBE:                    return "setup_format_cbe";
+	case State::SETUP_DETERMINE_CLIENT_FS_SIZE:         return "setup_determine_client_fs_size";
+	case State::CONTROLS_ROOT:                          return "controls_root";
+	case State::CONTROLS_SNAPSHOTS:                     return "controls_snapshots";
+	case State::CONTROLS_DIMENSIONS:                    return "controls_dimensions";
+	case State::CONTROLS_EXPAND_CLIENT_FS:              return "controls_expand_client_fs";
+	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:           return "controls_expand_snapshot_buf";
+	case State::CONTROLS_SECURITY:                      return "controls_security";
+	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY: return "controls_security_block_encryption_key";
+	case State::CONTROLS_SECURITY_MASTER_KEY:           return "controls_security_master_key";
+	case State::CONTROLS_SECURITY_USER_PASSPHRASE:      return "controls_security_user_passphrase";
+	case State::UNLOCK_OBTAIN_PARAMETERS:               return "unlock_obtain_parameters";
+	case State::UNLOCK_RUN_CBE_INIT_TRUST_ANCHOR:    return "unlock_run_cbe_init_trust_anchor";
+	case State::UNLOCK_START_CBE_VFS:                return "unlock_start_cbe_vfs";
+	case State::UNLOCK_DETERMINE_CLIENT_FS_SIZE:        return "unlock_determine_client_fs_size";
+	case State::LOCK_ISSUE_DEINIT_REQUEST_AT_CBE:    return "lock_issue_deinit_request_at_cbe";
+	case State::LOCK_WAIT_TILL_DEINIT_REQUEST_IS_DONE:  return "lock_wait_till_deinit_request_is_done";
 	}
 	class Invalid_state { };
 	throw Invalid_state { };
 }
 
 
-Main::State Main::_state_from_fs_query_listing(Xml_node const &node)
+char const *Main::_reported_state_to_string(Reported_state state)
+{
+	switch (state) {
+	case Reported_state::INVALID: return "invalid";
+	case Reported_state::UNINITIALIZED: return "uninitialized";
+	case Reported_state::INITIALIZING: return "initializing";
+	case Reported_state::LOCKED: return "locked";
+	case Reported_state::UNLOCKING: return "unlocking";
+	case Reported_state::UNLOCKED: return "unlocked";
+	case Reported_state::LOCKING: return "locking";
+	}
+	class Invalid_state { };
+	throw Invalid_state { };
+}
+
+
+Main::Reported_state Main::_reported_state() const
+{
+	switch (_state) {
+	case State::INVALID:                                return Reported_state::INVALID;
+	case State::SETUP_OBTAIN_PARAMETERS:                return Reported_state::UNINITIALIZED;
+	case State::SETUP_CREATE_CBE_IMAGE_FILE:         return Reported_state::INITIALIZING;
+	case State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR:     return Reported_state::INITIALIZING;
+	case State::SETUP_RUN_CBE_INIT:                  return Reported_state::INITIALIZING;
+	case State::SETUP_START_CBE_VFS:                 return Reported_state::INITIALIZING;
+	case State::SETUP_FORMAT_CBE:                    return Reported_state::INITIALIZING;
+	case State::SETUP_DETERMINE_CLIENT_FS_SIZE:         return Reported_state::INITIALIZING;
+	case State::CONTROLS_ROOT:                          return Reported_state::UNLOCKED;
+	case State::CONTROLS_SNAPSHOTS:                     return Reported_state::UNLOCKED;
+	case State::CONTROLS_DIMENSIONS:                    return Reported_state::UNLOCKED;
+	case State::CONTROLS_EXPAND_CLIENT_FS:              return Reported_state::UNLOCKED;
+	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:           return Reported_state::UNLOCKED;
+	case State::CONTROLS_SECURITY:                      return Reported_state::UNLOCKED;
+	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY: return Reported_state::UNLOCKED;
+	case State::CONTROLS_SECURITY_MASTER_KEY:           return Reported_state::UNLOCKED;
+	case State::CONTROLS_SECURITY_USER_PASSPHRASE:      return Reported_state::UNLOCKED;
+	case State::UNLOCK_OBTAIN_PARAMETERS:               return Reported_state::LOCKED;
+	case State::UNLOCK_RUN_CBE_INIT_TRUST_ANCHOR:    return Reported_state::UNLOCKING;
+	case State::UNLOCK_START_CBE_VFS:                return Reported_state::UNLOCKING;
+	case State::UNLOCK_DETERMINE_CLIENT_FS_SIZE:        return Reported_state::UNLOCKING;
+	case State::LOCK_ISSUE_DEINIT_REQUEST_AT_CBE:    return Reported_state::LOCKING;
+	case State::LOCK_WAIT_TILL_DEINIT_REQUEST_IS_DONE:  return Reported_state::LOCKING;
+	}
+	class Invalid_state { };
+	throw Invalid_state { };
+}
+
+
+Main::State
+Main::_state_and_version_from_fs_query_listing(Xml_node const &node,
+                                               Version        &version)
 {
 	State state { State::INVALID };
+	bool state_file_found { false };
 	node.with_optional_sub_node("dir", [&] (Xml_node const &node_0) {
 		node_0.with_optional_sub_node("file", [&] (Xml_node const &node_1) {
 			if (_has_name(node_1, "state")) {
-				state = _state_from_string(
-					node_1.decoded_content<State_string>());
+				state_file_found = true;
+				state =_state_and_version_from_string(
+					node_1.decoded_content<State_string>(), version);
+				
 			}
 		});
 	});
+	if (!state_file_found)
+		version = VERSION_23_05;
+
 	return state;
 }
 
@@ -693,7 +941,7 @@ void Main::_handle_resizing_fs_query_listing(Xml_node const &node)
 		switch (_resizing_state) {
 		case Resizing_state::WAIT_TILL_DEVICE_IS_READY:
 
-			if (cbe_control_file_yields_state_idle(node, "extend")) {
+			if (cbe_control_file_yields_state_idle(node, "extend_progress")) {
 
 				_resizing_state = Resizing_state::ISSUE_REQUEST_AT_DEVICE;
 				Signal_transmitter(_state_handler).submit();
@@ -702,7 +950,7 @@ void Main::_handle_resizing_fs_query_listing(Xml_node const &node)
 
 		case Resizing_state::IN_PROGRESS_AT_DEVICE:
 
-			if (cbe_control_file_yields_state_idle(node, "extend")) {
+			if (cbe_control_file_yields_state_idle(node, "extend_progress")) {
 
 				switch (_resizing_type) {
 				case Resizing_type::EXPAND_CLIENT_FS:
@@ -740,14 +988,17 @@ void Main::_handle_resizing_fs_query_listing(Xml_node const &node)
 }
 
 
-void Main::_handle_shut_down_fs_query_listing(Xml_node const &node)
+void Main::_handle_lock_fs_query_listing(Xml_node const &node)
 {
 	switch (_state) {
-	case State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE:
+	case State::LOCK_WAIT_TILL_DEINIT_REQUEST_IS_DONE:
 
 		if (cbe_control_file_yields_state_idle(node, "deinitialize")) {
 
-			_env.parent().exit(0);
+			_set_state(State::UNLOCK_OBTAIN_PARAMETERS);
+			_setup_obtain_params_passphrase = Input_passphrase { };
+			_setup_obtain_params_select = Setup_obtain_params_select::PASSPHRASE_INPUT;
+			Signal_transmitter(_state_handler).submit();
 		}
 		break;
 
@@ -774,7 +1025,7 @@ void Main::_handle_rekeying_fs_query_listing(Xml_node const &node)
 		switch (_rekeying_state) {
 		case Rekeying_state::WAIT_TILL_DEVICE_IS_READY:
 
-			if (cbe_control_file_yields_state_idle(node, "rekey")) {
+			if (cbe_control_file_yields_state_idle(node, "rekey_progress")) {
 
 				_rekeying_state = Rekeying_state::ISSUE_REQUEST_AT_DEVICE;
 				Signal_transmitter(_state_handler).submit();
@@ -783,7 +1034,7 @@ void Main::_handle_rekeying_fs_query_listing(Xml_node const &node)
 
 		case Rekeying_state::IN_PROGRESS_AT_DEVICE:
 
-			if (cbe_control_file_yields_state_idle(node, "rekey")) {
+			if (cbe_control_file_yields_state_idle(node, "rekey_progress")) {
 
 				_rekeying_state = Rekeying_state::INACTIVE;
 				Signal_transmitter(_state_handler).submit();
@@ -898,17 +1149,20 @@ void Main::_handle_fs_query_listing(Xml_node const &node)
 	switch (_state) {
 	case State::INVALID:
 	{
-		State const state { _state_from_fs_query_listing(node) };
+		Version version { INVALID };
+		State const state { _state_and_version_from_fs_query_listing(node, version) };
+		_adapt_to_version(version);
+
 		switch (state) {
 		case State::INVALID:
 
-			_state = State::SETUP_OBTAIN_PARAMETERS;
+			_set_state(State::SETUP_OBTAIN_PARAMETERS);
 			Signal_transmitter(_state_handler).submit();
 			break;
 
-		case State::STARTUP_OBTAIN_PARAMETERS:
+		case State::UNLOCK_OBTAIN_PARAMETERS:
 
-			_state = State::STARTUP_OBTAIN_PARAMETERS;
+			_set_state(State::UNLOCK_OBTAIN_PARAMETERS);
 			Signal_transmitter(_state_handler).submit();
 			break;
 
@@ -929,7 +1183,8 @@ void Main::_handle_fs_query_listing(Xml_node const &node)
 void Main::_handle_client_fs_fs_query_listing(Xml_node const &node)
 {
 	switch (_state) {
-	case State::STARTUP_DETERMINE_CLIENT_FS_SIZE:
+	case State::SETUP_DETERMINE_CLIENT_FS_SIZE:
+	case State::UNLOCK_DETERMINE_CLIENT_FS_SIZE:
 
 		node.with_optional_sub_node("dir", [&] (Xml_node const &node_0) {
 			node_0.with_optional_sub_node("file", [&] (Xml_node const &node_1) {
@@ -937,7 +1192,7 @@ void Main::_handle_client_fs_fs_query_listing(Xml_node const &node)
 				if (_has_name(node_1, "data")) {
 
 					_client_fs_size = node_1.attribute_value("size", (size_t)0);
-					_state = State::CONTROLS_ROOT;
+					_set_state(State::CONTROLS_ROOT);
 					Signal_transmitter(_state_handler).submit();
 				}
 			});
@@ -1012,7 +1267,7 @@ void Main::_handle_image_fs_query_listing(Xml_node const &node)
 		size_t size { 0 };
 		node.with_optional_sub_node("dir", [&] (Xml_node const &node_0) {
 			node_0.with_optional_sub_node("file", [&] (Xml_node const &node_1) {
-				if (_has_name(node_1, "cbe.img")) {
+				if (_has_name(node_1, _cbe_image_file_name)) {
 					size = node_1.attribute_value("size", (size_t)0);
 				}
 			});
@@ -1037,7 +1292,59 @@ void Main::_handle_image_fs_query_listing(Xml_node const &node)
 void Main::_handle_state()
 {
 	_update_sandbox_config();
-	_dialog.trigger_update();
+
+	switch (_user_interface) {
+	case MENU_VIEW:         _dialog.trigger_update();       break;
+	case CONFIG_AND_REPORT: _handle_ui_config_and_report(); break;
+	}
+}
+
+
+void Main::_handle_ui_config_and_report()
+{
+	bool update_sandbox_config { false };
+
+	switch (_state) {
+	case State::SETUP_OBTAIN_PARAMETERS:
+
+		if(_ui_setup_obtain_params_suitable()) {
+
+			_set_state(State::SETUP_CREATE_CBE_IMAGE_FILE);
+			update_sandbox_config = true;
+		}
+		break;
+
+	case State::UNLOCK_OBTAIN_PARAMETERS:
+
+		if (_ui_setup_obtain_params_passphrase_suitable()) {
+
+			_set_state(State::UNLOCK_RUN_CBE_INIT_TRUST_ANCHOR);
+			update_sandbox_config = true;
+		}
+		break;
+
+	case State::CONTROLS_ROOT:
+	case State::CONTROLS_SNAPSHOTS:
+	case State::CONTROLS_DIMENSIONS:
+	case State::CONTROLS_EXPAND_CLIENT_FS:
+	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:
+	case State::CONTROLS_SECURITY:
+	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:
+	case State::CONTROLS_SECURITY_MASTER_KEY:
+	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
+
+		if (!_ui_setup_obtain_params_passphrase_suitable()) {
+
+			_set_state(State::LOCK_ISSUE_DEINIT_REQUEST_AT_CBE);
+			update_sandbox_config = true;
+		}
+		break;
+
+	default: break;
+	}
+	if (update_sandbox_config) {
+		_update_sandbox_config();
+	}
 }
 
 
@@ -1046,9 +1353,17 @@ Main::Main(Env &env)
 	Xml_producer { "dialog" },
 	_env         { env }
 {
-	_config.sigh(_config_handler);
+	_config_rom.sigh(_config_handler);
 	_handle_config();
 	_update_sandbox_config();
+
+	if (_user_interface == CONFIG_AND_REPORT) {
+		_ui_config_rom.construct(_env, "ui_config");
+		_ui_config_rom->sigh(_ui_config_handler);
+		_ui_report.construct(_env, "ui_report", "ui_report");
+		_handle_ui_config();
+		_set_state(State::INVALID);
+	}
 }
 
 
@@ -1097,13 +1412,13 @@ bool File_vault::Main::_child_succeeded(Xml_node    const &sandbox_state,
 	return false;
 }
 
-void File_vault::Main::_handle_startup_retry_delay(Duration)
+void File_vault::Main::_handle_unlock_retry_delay(Duration)
 {
-	_state = State::STARTUP_OBTAIN_PARAMETERS;
+	_set_state(State::UNLOCK_OBTAIN_PARAMETERS);
+	_ui_config.construct();
 	_setup_obtain_params_passphrase = Input_passphrase { };
 	_setup_obtain_params_select = Setup_obtain_params_select::PASSPHRASE_INPUT;
-	_dialog.trigger_update();
-	_update_sandbox_config();
+	Signal_transmitter(_state_handler).submit();
 }
 
 
@@ -1125,7 +1440,7 @@ void File_vault::Main::handle_sandbox_state()
 
 			if (_child_succeeded(sandbox_state, _cbe_init_trust_anchor)) {
 
-				_state = State::SETUP_RUN_CBE_INIT;
+				_set_state(State::SETUP_RUN_CBE_INIT);
 				update_dialog = true;
 				update_sandbox = true;
 			}
@@ -1135,25 +1450,25 @@ void File_vault::Main::handle_sandbox_state()
 
 			if (_child_succeeded(sandbox_state, _truncate_file)) {
 
-				_state = State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR;
+				_set_state(State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR);
 				update_dialog = true;
 				update_sandbox = true;
 			}
 			break;
 
-		case State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR:
+		case State::UNLOCK_RUN_CBE_INIT_TRUST_ANCHOR:
 
 			_if_child_exited(sandbox_state, _cbe_init_trust_anchor, [&] (int exit_code) {
 
 				if (exit_code == 0) {
 
-					_state = State::STARTUP_START_CBE_VFS;
+					_set_state(State::UNLOCK_START_CBE_VFS);
 					update_dialog = true;
 					update_sandbox = true;
 
 				} else {
 
-					_startup_retry_delay.schedule(Microseconds { 3000000 });
+					_unlock_retry_delay.schedule(Microseconds { 3000000 });
 				}
 			});
 			break;
@@ -1162,7 +1477,7 @@ void File_vault::Main::handle_sandbox_state()
 
 			if (_child_succeeded(sandbox_state, _cbe_init)) {
 
-				_state = State::SETUP_START_CBE_VFS;
+				_set_state(State::SETUP_START_CBE_VFS);
 				update_dialog = true;
 				update_sandbox = true;
 			}
@@ -1172,17 +1487,17 @@ void File_vault::Main::handle_sandbox_state()
 
 			if (_child_succeeded(sandbox_state, _sync_to_cbe_vfs_init)) {
 
-				_state = State::SETUP_FORMAT_CBE;
+				_set_state(State::SETUP_FORMAT_CBE);
 				update_dialog = true;
 				update_sandbox = true;
 			}
 			break;
 
-		case State::STARTUP_START_CBE_VFS:
+		case State::UNLOCK_START_CBE_VFS:
 
 			if (_child_succeeded(sandbox_state, _sync_to_cbe_vfs_init)) {
 
-				_state = State::STARTUP_DETERMINE_CLIENT_FS_SIZE;
+				_set_state(State::UNLOCK_DETERMINE_CLIENT_FS_SIZE);
 				update_dialog = true;
 				update_sandbox = true;
 			}
@@ -1192,8 +1507,8 @@ void File_vault::Main::handle_sandbox_state()
 
 			if (_child_succeeded(sandbox_state, _mke2fs)) {
 
-				_write_to_state_file(State::STARTUP_OBTAIN_PARAMETERS);
-				_state = State::STARTUP_DETERMINE_CLIENT_FS_SIZE;
+				_write_to_state_file(State::UNLOCK_OBTAIN_PARAMETERS);
+				_set_state(State::SETUP_DETERMINE_CLIENT_FS_SIZE);
 				update_dialog = true;
 				update_sandbox = true;
 			}
@@ -1303,11 +1618,11 @@ void File_vault::Main::handle_sandbox_state()
 
 			break;
 
-		case State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE:
+		case State::LOCK_ISSUE_DEINIT_REQUEST_AT_CBE:
 
-			if (_child_succeeded(sandbox_state, _shut_down_fs_tool)) {
+			if (_child_succeeded(sandbox_state, _lock_fs_tool)) {
 
-				_state = State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE;
+				_set_state(State::LOCK_WAIT_TILL_DEINIT_REQUEST_IS_DONE);
 				update_dialog = true;
 				update_sandbox = true;
 			}
@@ -1346,12 +1661,12 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 	switch (_state) {
 	case State::INVALID:
 
-		gen_info_frame(xml, "1", "Please wait...", MAIN_FRAME_WIDTH);
+		gen_info_frame(xml, _jent_avail, "1", "Please wait...", MAIN_FRAME_WIDTH);
 		break;
 
 	case State::SETUP_OBTAIN_PARAMETERS:
 
-		gen_main_frame(xml, "1", MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
+		gen_main_frame(xml, _jent_avail, "1", MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
 			bool gen_start_button { true };
 			bool gen_image_size_info { true };
@@ -1362,7 +1677,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 				_setup_obtain_params_hover == Setup_obtain_params_hover::PASSPHRASE_SHOW_HIDE_BUTTON,
 				_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_SHOW_HIDE_BUTTON);
 
-			if (!_setup_obtain_params_passphrase.suitable()) {
+			if (!_ui_setup_obtain_params_passphrase_suitable()) {
 
 				gen_start_button = false;
 				gen_info_line(xml, "info_1", "Must have at least 8 characters");
@@ -1373,7 +1688,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 				_client_fs_size_input,
 				_setup_obtain_params_select == Setup_obtain_params_select::CLIENT_FS_SIZE_INPUT);
 
-			if (_client_fs_size_input.value() < MIN_CLIENT_FS_SIZE) {
+			if (_ui_client_fs_size() < MIN_CLIENT_FS_SIZE) {
 
 				gen_image_size_info = false;
 				gen_start_button = false;
@@ -1389,17 +1704,17 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 				RENAME_SNAPSHOT_BUFFER_JOURNALING_BUFFER ?
 					"Journaling buffer size" :
 					"Snapshot buffer size",
-				_snapshot_buf_size_input,
+				_journaling_buf_size_input,
 				_setup_obtain_params_select == Setup_obtain_params_select::SNAPSHOT_BUFFER_SIZE_INPUT);
 
-			if (_snapshot_buf_size_input.value() < _min_snapshot_buf_size()) {
+			if (_ui_journaling_buf_size() < _min_journaling_buf_size()) {
 
 				gen_image_size_info = false;
 				gen_start_button = false;
 				gen_info_line(xml, "info_3",
 					String<128> {
 						"Must be at least ",
-						Number_of_bytes { _min_snapshot_buf_size() } }.string());
+						Number_of_bytes { _min_journaling_buf_size() } }.string());
 			}
 			if (gen_image_size_info) {
 
@@ -1419,9 +1734,9 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 		});
 		break;
 
-	case State::STARTUP_OBTAIN_PARAMETERS:
+	case State::UNLOCK_OBTAIN_PARAMETERS:
 
-		gen_main_frame(xml, "1", MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
+		gen_main_frame(xml, _jent_avail, "1", MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
 
 			bool gen_start_button { true };
 			gen_input_passphrase(
@@ -1431,7 +1746,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 				_setup_obtain_params_hover == Setup_obtain_params_hover::PASSPHRASE_SHOW_HIDE_BUTTON,
 				_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_SHOW_HIDE_BUTTON);
 
-			if (!_setup_obtain_params_passphrase.suitable()) {
+			if (!_ui_setup_obtain_params_passphrase_suitable()) {
 
 				gen_start_button = false;
 			}
@@ -1439,7 +1754,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 			if (gen_start_button) {
 
 				gen_action_button_at_bottom(
-					xml, "ok", "Start",
+					xml, "ok", "Unlock",
 					_setup_obtain_params_hover == Setup_obtain_params_hover::START_BUTTON,
 					_setup_obtain_params_select == Setup_obtain_params_select::START_BUTTON);
 			}
@@ -1451,16 +1766,17 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 	case State::SETUP_RUN_CBE_INIT:
 	case State::SETUP_START_CBE_VFS:
 	case State::SETUP_FORMAT_CBE:
-	case State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR:
-	case State::STARTUP_START_CBE_VFS:
-	case State::STARTUP_DETERMINE_CLIENT_FS_SIZE:
+	case State::SETUP_DETERMINE_CLIENT_FS_SIZE:
+	case State::UNLOCK_RUN_CBE_INIT_TRUST_ANCHOR:
+	case State::UNLOCK_START_CBE_VFS:
+	case State::UNLOCK_DETERMINE_CLIENT_FS_SIZE:
 
-		gen_info_frame(xml, "1", "Please wait...", MAIN_FRAME_WIDTH);
+		gen_info_frame(xml, _jent_avail, "1", "Please wait...", MAIN_FRAME_WIDTH);
 		break;
 
 	case State::CONTROLS_ROOT:
 
-		gen_controls_frame(xml, "app", [&] (Xml_generator &xml) {
+		gen_controls_frame(xml, _jent_avail, "app", [&] (Xml_generator &xml) {
 
 			xml.node("frame", [&] () {
 
@@ -1483,14 +1799,14 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 			});
 			gen_global_controls(
 				xml, MAIN_FRAME_WIDTH, _cbe_image_size, _client_fs_size, _nr_of_clients,
-				_controls_root_hover  == Controls_root_hover::SHUT_DOWN_BUTTON,
-				_controls_root_select == Controls_root_select::SHUT_DOWN_BUTTON);
+				_controls_root_hover  == Controls_root_hover::LOCK_BUTTON,
+				_controls_root_select == Controls_root_select::LOCK_BUTTON);
 		});
 		break;
 
 	case State::CONTROLS_SNAPSHOTS:
 
-		gen_controls_frame(xml, "app", [&] (Xml_generator &xml) {
+		gen_controls_frame(xml, _jent_avail, "app", [&] (Xml_generator &xml) {
 
 			xml.node("frame", [&] () {
 
@@ -1575,14 +1891,14 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 			});
 			gen_global_controls(
 				xml, MAIN_FRAME_WIDTH, _cbe_image_size, _client_fs_size, _nr_of_clients,
-				_controls_snapshots_hover  == Controls_snapshots_hover::SHUT_DOWN_BUTTON,
-				_controls_snapshots_select == Controls_snapshots_select::SHUT_DOWN_BUTTON);
+				_controls_snapshots_hover  == Controls_snapshots_hover::LOCK_BUTTON,
+				_controls_snapshots_select == Controls_snapshots_select::LOCK_BUTTON);
 		});
 		break;
 
 	case State::CONTROLS_DIMENSIONS:
 
-		gen_controls_frame(xml, "app", [&] (Xml_generator &xml) {
+		gen_controls_frame(xml, _jent_avail, "app", [&] (Xml_generator &xml) {
 
 			xml.node("frame", [&] () {
 
@@ -1606,14 +1922,14 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 			});
 			gen_global_controls(
 				xml, MAIN_FRAME_WIDTH, _cbe_image_size, _client_fs_size, _nr_of_clients,
-				_dimensions_hover  == Dimensions_hover::SHUT_DOWN_BUTTON,
-				_dimensions_select == Dimensions_select::SHUT_DOWN_BUTTON);
+				_dimensions_hover  == Dimensions_hover::LOCK_BUTTON,
+				_dimensions_select == Dimensions_select::LOCK_BUTTON);
 		});
 		break;
 
 	case State::CONTROLS_EXPAND_CLIENT_FS:
 
-		gen_controls_frame(xml, "app", [&] (Xml_generator &xml) {
+		gen_controls_frame(xml, _jent_avail, "app", [&] (Xml_generator &xml) {
 
 			xml.node("frame", [&] () {
 
@@ -1692,14 +2008,14 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 			});
 			gen_global_controls(
 				xml, MAIN_FRAME_WIDTH, _cbe_image_size, _client_fs_size, _nr_of_clients,
-				_expand_client_fs_hover  == Expand_client_fs_hover::SHUT_DOWN_BUTTON,
-				_expand_client_fs_select == Expand_client_fs_select::SHUT_DOWN_BUTTON);
+				_expand_client_fs_hover  == Expand_client_fs_hover::LOCK_BUTTON,
+				_expand_client_fs_select == Expand_client_fs_select::LOCK_BUTTON);
 		});
 		break;
 
 	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:
 
-		gen_controls_frame(xml, "app", [&] (Xml_generator &xml) {
+		gen_controls_frame(xml, _jent_avail, "app", [&] (Xml_generator &xml) {
 
 			xml.node("frame", [&] () {
 
@@ -1773,14 +2089,14 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 			});
 			gen_global_controls(
 				xml, MAIN_FRAME_WIDTH, _cbe_image_size, _client_fs_size, _nr_of_clients,
-				_expand_snapshot_buf_hover  == Expand_snapshot_buf_hover::SHUT_DOWN_BUTTON,
-				_expand_snapshot_buf_select == Expand_snapshot_buf_select::SHUT_DOWN_BUTTON);
+				_expand_snapshot_buf_hover  == Expand_snapshot_buf_hover::LOCK_BUTTON,
+				_expand_snapshot_buf_select == Expand_snapshot_buf_select::LOCK_BUTTON);
 		});
 		break;
 
 	case State::CONTROLS_SECURITY:
 
-		gen_controls_frame(xml, "app", [&] (Xml_generator &xml) {
+		gen_controls_frame(xml, _jent_avail, "app", [&] (Xml_generator &xml) {
 
 			xml.node("frame", [&] () {
 
@@ -1809,14 +2125,14 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 			});
 			gen_global_controls(
 				xml, MAIN_FRAME_WIDTH, _cbe_image_size, _client_fs_size, _nr_of_clients,
-				_controls_security_hover  == Controls_security_hover::SHUT_DOWN_BUTTON,
-				_controls_security_select == Controls_security_select::SHUT_DOWN_BUTTON);
+				_controls_security_hover  == Controls_security_hover::LOCK_BUTTON,
+				_controls_security_select == Controls_security_select::LOCK_BUTTON);
 		});
 		break;
 
 	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:
 
-		gen_controls_frame(xml, "app", [&] (Xml_generator &xml) {
+		gen_controls_frame(xml, _jent_avail, "app", [&] (Xml_generator &xml) {
 
 			xml.node("frame", [&] () {
 
@@ -1848,14 +2164,14 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 			});
 			gen_global_controls(
 				xml, MAIN_FRAME_WIDTH, _cbe_image_size, _client_fs_size, _nr_of_clients,
-				_controls_security_block_encryption_key_hover  == Controls_security_block_encryption_key_hover::SHUT_DOWN_BUTTON,
-				_controls_security_block_encryption_key_select == Controls_security_block_encryption_key_select::SHUT_DOWN_BUTTON);
+				_controls_security_block_encryption_key_hover  == Controls_security_block_encryption_key_hover::LOCK_BUTTON,
+				_controls_security_block_encryption_key_select == Controls_security_block_encryption_key_select::LOCK_BUTTON);
 		});
 		break;
 
 	case State::CONTROLS_SECURITY_MASTER_KEY:
 
-		gen_controls_frame(xml, "app", [&] (Xml_generator &xml) {
+		gen_controls_frame(xml, _jent_avail, "app", [&] (Xml_generator &xml) {
 
 			xml.node("frame", [&] () {
 
@@ -1871,14 +2187,14 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 			});
 			gen_global_controls(
 				xml, MAIN_FRAME_WIDTH, _cbe_image_size, _client_fs_size, _nr_of_clients,
-				_controls_security_master_key_hover  == Controls_security_master_key_hover::SHUT_DOWN_BUTTON,
-				_controls_security_master_key_select == Controls_security_master_key_select::SHUT_DOWN_BUTTON);
+				_controls_security_master_key_hover  == Controls_security_master_key_hover::LOCK_BUTTON,
+				_controls_security_master_key_select == Controls_security_master_key_select::LOCK_BUTTON);
 		});
 		break;
 
 	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
 
-		gen_controls_frame(xml, "app", [&] (Xml_generator &xml) {
+		gen_controls_frame(xml, _jent_avail, "app", [&] (Xml_generator &xml) {
 
 			xml.node("frame", [&] () {
 
@@ -1894,15 +2210,15 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 			});
 			gen_global_controls(
 				xml, MAIN_FRAME_WIDTH, _cbe_image_size, _client_fs_size, _nr_of_clients,
-				_controls_security_user_passphrase_hover  == Controls_security_user_passphrase_hover::SHUT_DOWN_BUTTON,
-				_controls_security_user_passphrase_select == Controls_security_user_passphrase_select::SHUT_DOWN_BUTTON);
+				_controls_security_user_passphrase_hover  == Controls_security_user_passphrase_hover::LOCK_BUTTON,
+				_controls_security_user_passphrase_select == Controls_security_user_passphrase_select::LOCK_BUTTON);
 		});
 		break;
 
-	case State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE:
-	case State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE:
+	case State::LOCK_ISSUE_DEINIT_REQUEST_AT_CBE:
+	case State::LOCK_WAIT_TILL_DEINIT_REQUEST_IS_DONE:
 
-		gen_info_frame(xml, "1", "Please wait...", MAIN_FRAME_WIDTH);
+		gen_info_frame(xml, _jent_avail, "1", "Please wait...", MAIN_FRAME_WIDTH);
 		break;
 	}
 }
@@ -1974,18 +2290,18 @@ void File_vault::Main::wakeup_local_service()
 
 			request.deliver_session(session);
 
-		} else if (request.label == "shut_down_fs_query -> listing") {
+		} else if (request.label == "lock_fs_query -> listing") {
 
 			Report::Session_component &session { *new (_heap)
 				Report::Session_component(
-					_env, _shut_down_fs_query_listing_handler, _env.ep(),
+					_env, _lock_fs_query_listing_handler, _env.ep(),
 					request.resources, "", request.diag) };
 
 			request.deliver_session(session);
 
 		} else {
 
-			error("failed to deliver Report session");
+			error("failed to deliver Report session with label ", request.label);
 		}
 	});
 
@@ -2045,76 +2361,78 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 	case State::INVALID:
 
 		gen_parent_provides_and_report_nodes(xml);
-		gen_menu_view_start_node(xml, _menu_view);
+		_gen_menu_view_start_node_if_required(xml);
 		gen_fs_query_start_node(xml, _fs_query);
 		break;
 
 	case State::SETUP_OBTAIN_PARAMETERS:
 
 		gen_parent_provides_and_report_nodes(xml);
-		gen_menu_view_start_node(xml, _menu_view);
+		_gen_menu_view_start_node_if_required(xml);
 		break;
 
-	case State::STARTUP_OBTAIN_PARAMETERS:
+	case State::UNLOCK_OBTAIN_PARAMETERS:
 
 		gen_parent_provides_and_report_nodes(xml);
-		gen_menu_view_start_node(xml, _menu_view);
+		_gen_menu_view_start_node_if_required(xml);
 		break;
 
 	case State::SETUP_RUN_CBE_INIT_TRUST_ANCHOR:
 
 		gen_parent_provides_and_report_nodes(xml);
-		gen_menu_view_start_node(xml, _menu_view);
-		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs);
+		_gen_menu_view_start_node_if_required(xml);
+		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs, _jent_avail);
 		gen_cbe_init_trust_anchor_start_node(
-			xml, _cbe_init_trust_anchor, _setup_obtain_params_passphrase);
+			xml, _cbe_init_trust_anchor, _ui_setup_obtain_params_passphrase());
 
 		break;
 
-	case State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR:
+	case State::UNLOCK_RUN_CBE_INIT_TRUST_ANCHOR:
 
 		gen_parent_provides_and_report_nodes(xml);
-		gen_menu_view_start_node(xml, _menu_view);
-		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs);
+		_gen_menu_view_start_node_if_required(xml);
+		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs, _jent_avail);
 		gen_cbe_init_trust_anchor_start_node(
-			xml, _cbe_init_trust_anchor, _setup_obtain_params_passphrase);
+			xml, _cbe_init_trust_anchor, _ui_setup_obtain_params_passphrase());
 
 		break;
 
-	case State::STARTUP_START_CBE_VFS:
+	case State::UNLOCK_START_CBE_VFS:
 
 		gen_parent_provides_and_report_nodes(xml);
-		gen_menu_view_start_node(xml, _menu_view);
-		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs);
-		gen_cbe_vfs_start_node(xml, _cbe_vfs);
+		_gen_menu_view_start_node_if_required(xml);
+		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs, _jent_avail);
+		gen_cbe_vfs_start_node(xml, _cbe_vfs, _cbe_image_file_name);
 		gen_sync_to_cbe_vfs_init_start_node(xml, _sync_to_cbe_vfs_init);
 		break;
 
-	case State::STARTUP_DETERMINE_CLIENT_FS_SIZE:
+	case State::SETUP_DETERMINE_CLIENT_FS_SIZE:
+	case State::UNLOCK_DETERMINE_CLIENT_FS_SIZE:
 
 		gen_parent_provides_and_report_nodes(xml);
-		gen_menu_view_start_node(xml, _menu_view);
-		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs);
-		gen_cbe_vfs_start_node(xml, _cbe_vfs);
+		_gen_menu_view_start_node_if_required(xml);
+		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs, _jent_avail);
+		gen_cbe_vfs_start_node(xml, _cbe_vfs, _cbe_image_file_name);
 		gen_client_fs_fs_query_start_node(xml, _client_fs_fs_query);
 		break;
 
 	case State::SETUP_CREATE_CBE_IMAGE_FILE:
 
 		gen_parent_provides_and_report_nodes(xml);
-		gen_menu_view_start_node(xml, _menu_view);
-		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs);
+		_gen_menu_view_start_node_if_required(xml);
+		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs, _jent_avail);
 		gen_truncate_file_start_node(
-			xml, _truncate_file, "/cbe/cbe.img",
+			xml, _truncate_file,
+			File_path { "/cbe/", _cbe_image_file_name }.string(),
 			CBE_BLOCK_SIZE *
 				_cbe_nr_of_blocks(
 					CBE_NR_OF_SUPERBLOCKS,
 					CBE_VBD_TREE_NR_OF_LEVELS,
 					CBE_VBD_TREE_NR_OF_CHILDREN,
-					_cbe_tree_nr_of_leaves(_client_fs_size_input.value()),
+					_cbe_tree_nr_of_leaves(_ui_client_fs_size()),
 					CBE_FREE_TREE_NR_OF_LEVELS,
 					CBE_FREE_TREE_NR_OF_CHILDREN,
-					_cbe_tree_nr_of_leaves(_snapshot_buf_size_input.value())));
+					_cbe_tree_nr_of_leaves(_ui_journaling_buf_size())));
 
 		break;
 
@@ -2123,16 +2441,16 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		Tree_geometry const vbd_tree_geom {
 			CBE_VBD_TREE_NR_OF_LEVELS,
 			CBE_VBD_TREE_NR_OF_CHILDREN,
-			_cbe_tree_nr_of_leaves(_client_fs_size_input.value()) };
+			_cbe_tree_nr_of_leaves(_ui_client_fs_size()) };
 
 		Tree_geometry const free_tree_geom {
 			CBE_VBD_TREE_NR_OF_LEVELS,
 			CBE_VBD_TREE_NR_OF_CHILDREN,
-			_cbe_tree_nr_of_leaves(_snapshot_buf_size_input.value()) };
+			_cbe_tree_nr_of_leaves(_ui_journaling_buf_size()) };
 
 		gen_parent_provides_and_report_nodes(xml);
-		gen_menu_view_start_node(xml, _menu_view);
-		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs);
+		_gen_menu_view_start_node_if_required(xml);
+		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs, _jent_avail);
 		gen_cbe_image_vfs_block_start_node(xml, _cbe_image_vfs_block);
 		gen_cbe_init_start_node(xml, _cbe_init, vbd_tree_geom, free_tree_geom);
 		break;
@@ -2140,18 +2458,18 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 	case State::SETUP_START_CBE_VFS:
 
 		gen_parent_provides_and_report_nodes(xml);
-		gen_menu_view_start_node(xml, _menu_view);
-		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs);
-		gen_cbe_vfs_start_node(xml, _cbe_vfs);
+		_gen_menu_view_start_node_if_required(xml);
+		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs, _jent_avail);
+		gen_cbe_vfs_start_node(xml, _cbe_vfs, _cbe_image_file_name);
 		gen_sync_to_cbe_vfs_init_start_node(xml, _sync_to_cbe_vfs_init);
 		break;
 
 	case State::SETUP_FORMAT_CBE:
 
 		gen_parent_provides_and_report_nodes(xml);
-		gen_menu_view_start_node(xml, _menu_view);
-		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs);
-		gen_cbe_vfs_start_node(xml, _cbe_vfs);
+		_gen_menu_view_start_node_if_required(xml);
+		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs, _jent_avail);
+		gen_cbe_vfs_start_node(xml, _cbe_vfs, _cbe_image_file_name);
 		gen_cbe_vfs_block_start_node(xml, _cbe_vfs_block);
 		gen_mke2fs_start_node(xml, _mke2fs);
 		break;
@@ -2167,9 +2485,9 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
 	{
 		gen_parent_provides_and_report_nodes(xml);
-		gen_menu_view_start_node(xml, _menu_view);
-		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs);
-		gen_cbe_vfs_start_node(xml, _cbe_vfs);
+		_gen_menu_view_start_node_if_required(xml);
+		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs, _jent_avail);
+		gen_cbe_vfs_start_node(xml, _cbe_vfs, _cbe_image_file_name);
 		gen_cbe_vfs_block_start_node(xml, _cbe_vfs_block);
 		gen_snapshots_fs_query_start_node(xml, _snapshots_fs_query);
 		gen_image_fs_query_start_node(xml, _image_fs_query);
@@ -2191,7 +2509,8 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 					bytes - (bytes % CBE_BLOCK_SIZE) };
 
 				gen_truncate_file_start_node(
-					xml, _truncate_file, "/cbe/cbe.img",
+					xml, _truncate_file,
+					File_path { "/cbe/", _cbe_image_file_name }.string(),
 					_cbe_image_size + effective_bytes);
 
 				break;
@@ -2205,7 +2524,8 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 					bytes - (bytes % CBE_BLOCK_SIZE) };
 
 				gen_truncate_file_start_node(
-					xml, _truncate_file, "/cbe/cbe.img",
+					xml, _truncate_file,
+					File_path { "/cbe/", _cbe_image_file_name }.string(),
 					_cbe_image_size + effective_bytes);
 
 				break;
@@ -2317,28 +2637,28 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		}
 		break;
 	}
-	case State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE:
+	case State::LOCK_ISSUE_DEINIT_REQUEST_AT_CBE:
 
 		gen_parent_provides_and_report_nodes(xml);
 		gen_policy_for_child_service(xml, "File_system", _rump_vfs);
-		gen_menu_view_start_node(xml, _menu_view);
-		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs);
-		gen_cbe_vfs_start_node(xml, _cbe_vfs);
+		_gen_menu_view_start_node_if_required(xml);
+		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs, _jent_avail);
+		gen_cbe_vfs_start_node(xml, _cbe_vfs, _cbe_image_file_name);
 		gen_cbe_vfs_block_start_node(xml, _cbe_vfs_block);
 		gen_snapshots_fs_query_start_node(xml, _snapshots_fs_query);
-		gen_shut_down_fs_tool_start_node(xml, _shut_down_fs_tool);
+		gen_lock_fs_tool_start_node(xml, _lock_fs_tool);
 		break;
 
-	case State::SHUTDOWN_WAIT_TILL_DEINIT_REQUEST_IS_DONE:
+	case State::LOCK_WAIT_TILL_DEINIT_REQUEST_IS_DONE:
 
 		gen_parent_provides_and_report_nodes(xml);
 		gen_policy_for_child_service(xml, "File_system", _rump_vfs);
-		gen_menu_view_start_node(xml, _menu_view);
-		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs);
-		gen_cbe_vfs_start_node(xml, _cbe_vfs);
+		_gen_menu_view_start_node_if_required(xml);
+		gen_cbe_trust_anchor_vfs_start_node(xml, _cbe_trust_anchor_vfs, _jent_avail);
+		gen_cbe_vfs_start_node(xml, _cbe_vfs, _cbe_image_file_name);
 		gen_cbe_vfs_block_start_node(xml, _cbe_vfs_block);
 		gen_snapshots_fs_query_start_node(xml, _snapshots_fs_query);
-		gen_shut_down_fs_query_start_node(xml, _shut_down_fs_query);
+		gen_lock_fs_query_start_node(xml, _lock_fs_query);
 		break;
 	}
 }
@@ -2369,10 +2689,10 @@ size_t Main::_cbe_size() const
 			CBE_NR_OF_SUPERBLOCKS,
 			CBE_VBD_TREE_NR_OF_LEVELS,
 			CBE_VBD_TREE_NR_OF_CHILDREN,
-			_cbe_tree_nr_of_leaves(_client_fs_size_input.value()),
+			_cbe_tree_nr_of_leaves(_ui_client_fs_size()),
 			CBE_FREE_TREE_NR_OF_LEVELS,
 			CBE_FREE_TREE_NR_OF_CHILDREN,
-			_cbe_tree_nr_of_leaves(_snapshot_buf_size_input.value()))
+			_cbe_tree_nr_of_leaves(_ui_journaling_buf_size()))
 		* CBE_BLOCK_SIZE;
 }
 
@@ -2400,8 +2720,8 @@ size_t Main::_cbe_nr_of_blocks(size_t nr_of_superblocks,
 	/* FIXME
 	 *
 	 * This would be the correct way to calculate the number of MT blocks
-	 * but the CBE still uses an MT the same size as the FT for simplicity
-	 * reasons. As soon as the CBE does it right we should fix also this path.
+	 * but the Cbe still uses an MT the same size as the FT for simplicity
+	 * reasons. As soon as the Cbe does it right we should fix also this path.
 	 *
 	 *	size_t const nr_of_mt_leafs {
 	 *		nr_of_ft_blks - nr_of_ft_leafs };
@@ -2476,9 +2796,7 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 
 			} else if (key == Input::KEY_ENTER) {
 
-				if (_client_fs_size_input.value() >= MIN_CLIENT_FS_SIZE &&
-				    _snapshot_buf_size_input.value() >= _min_snapshot_buf_size() &&
-				    _setup_obtain_params_passphrase.suitable() &&
+				if (_ui_setup_obtain_params_suitable() &&
 				    _setup_obtain_params_select != Setup_obtain_params_select::START_BUTTON) {
 
 					_setup_obtain_params_select = Setup_obtain_params_select::START_BUTTON;
@@ -2541,27 +2859,27 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 					}
 				} else if (_setup_obtain_params_select == Setup_obtain_params_select::SNAPSHOT_BUFFER_SIZE_INPUT) {
 
-					if (_snapshot_buf_size_input.appendable_character(code)) {
+					if (_journaling_buf_size_input.appendable_character(code)) {
 
-						_snapshot_buf_size_input.append_character(code);
+						_journaling_buf_size_input.append_character(code);
 						update_dialog = true;
 
 					} else if (code.value == CODEPOINT_BACKSPACE) {
 
-						_snapshot_buf_size_input.remove_last_character();
+						_journaling_buf_size_input.remove_last_character();
 						update_dialog = true;
 
 					}
 				} else if (_setup_obtain_params_select == Setup_obtain_params_select::SNAPSHOT_BUFFER_SIZE_INPUT) {
 
-					if (_snapshot_buf_size_input.appendable_character(code)) {
+					if (_journaling_buf_size_input.appendable_character(code)) {
 
-						_snapshot_buf_size_input.append_character(code);
+						_journaling_buf_size_input.append_character(code);
 						update_dialog = true;
 
 					} else if (code.value == CODEPOINT_BACKSPACE) {
 
-						_snapshot_buf_size_input.remove_last_character();
+						_journaling_buf_size_input.remove_last_character();
 						update_dialog = true;
 
 					}
@@ -2587,12 +2905,9 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 
 				case Setup_obtain_params_select::START_BUTTON:
 
-					if(_client_fs_size_input.value() >= MIN_CLIENT_FS_SIZE &&
-					   _snapshot_buf_size_input.value() >= _min_snapshot_buf_size() &&
-					   _setup_obtain_params_passphrase.suitable()) {
-
+					if(_ui_setup_obtain_params_suitable()) {
 						_setup_obtain_params_select = Setup_obtain_params_select::NONE;
-						_state = State::SETUP_CREATE_CBE_IMAGE_FILE;
+						_set_state(State::SETUP_CREATE_CBE_IMAGE_FILE);
 						update_sandbox_config = true;
 						update_dialog = true;
 					}
@@ -2606,7 +2921,7 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 		});
 		break;
 
-	case State::STARTUP_OBTAIN_PARAMETERS:
+	case State::UNLOCK_OBTAIN_PARAMETERS:
 
 		event.handle_press([&] (Input::Keycode key, Codepoint code) {
 
@@ -2654,7 +2969,7 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 
 			} else if (key == Input::KEY_ENTER) {
 
-				if (_setup_obtain_params_passphrase.suitable() &&
+				if (_ui_setup_obtain_params_passphrase_suitable() &&
 				    _setup_obtain_params_select != Setup_obtain_params_select::START_BUTTON) {
 
 					_setup_obtain_params_select = Setup_obtain_params_select::START_BUTTON;
@@ -2697,10 +3012,10 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 
 				case Setup_obtain_params_select::START_BUTTON:
 
-					if (_setup_obtain_params_passphrase.suitable()) {
+					if (_ui_setup_obtain_params_passphrase_suitable()) {
 
 						_setup_obtain_params_select = Setup_obtain_params_select::NONE;
-						_state = State::STARTUP_RUN_CBE_INIT_TRUST_ANCHOR;
+						_set_state(State::UNLOCK_RUN_CBE_INIT_TRUST_ANCHOR);
 						update_sandbox_config = true;
 						update_dialog = true;
 					}
@@ -2726,25 +3041,25 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 				switch (_controls_root_hover) {
 				case Controls_root_hover::SNAPSHOTS_EXPAND_BUTTON:
 
-					_state = State::CONTROLS_SNAPSHOTS;
+					_set_state(State::CONTROLS_SNAPSHOTS);
 					update_dialog = true;
 					break;
 
 				case Controls_root_hover::DIMENSIONS_BUTTON:
 
-					_state = State::CONTROLS_DIMENSIONS;
+					_set_state(State::CONTROLS_DIMENSIONS);
 					update_dialog = true;
 					break;
 
 				case Controls_root_hover::SECURITY_EXPAND_BUTTON:
 
-					_state = State::CONTROLS_SECURITY;
+					_set_state(State::CONTROLS_SECURITY);
 					update_dialog = true;
 					break;
 
-				case Controls_root_hover::SHUT_DOWN_BUTTON:
+				case Controls_root_hover::LOCK_BUTTON:
 
-					next_select = Controls_root_select::SHUT_DOWN_BUTTON;
+					next_select = Controls_root_select::LOCK_BUTTON;
 					break;
 
 				case Controls_root_hover::NONE:
@@ -2764,10 +3079,10 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 			if (key == Input::BTN_LEFT) {
 
 				switch (_controls_root_select) {
-				case Controls_root_select::SHUT_DOWN_BUTTON:
+				case Controls_root_select::LOCK_BUTTON:
 
 					_controls_root_select = Controls_root_select::NONE;
-					_state = State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE;
+					_set_state(State::LOCK_ISSUE_DEINIT_REQUEST_AT_CBE);
 
 					update_sandbox_config = true;
 					update_dialog = true;
@@ -2793,13 +3108,13 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 				switch (_controls_snapshots_hover) {
 				case Controls_snapshots_hover::LEAVE_BUTTON:
 
-					_state = State::CONTROLS_ROOT;
+					_set_state(State::CONTROLS_ROOT);
 					update_dialog = true;
 					break;
 
-				case Controls_snapshots_hover::SHUT_DOWN_BUTTON:
+				case Controls_snapshots_hover::LOCK_BUTTON:
 
-					next_select = Controls_snapshots_select::SHUT_DOWN_BUTTON;
+					next_select = Controls_snapshots_select::LOCK_BUTTON;
 					break;
 
 				case Controls_snapshots_hover::CREATE_BUTTON:
@@ -2847,10 +3162,10 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 			if (key == Input::BTN_LEFT) {
 
 				switch (_controls_snapshots_select) {
-				case Controls_snapshots_select::SHUT_DOWN_BUTTON:
+				case Controls_snapshots_select::LOCK_BUTTON:
 
 					_controls_snapshots_select = Controls_snapshots_select::NONE;
-					_state = State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE;
+					_set_state(State::LOCK_ISSUE_DEINIT_REQUEST_AT_CBE);
 
 					update_sandbox_config = true;
 					update_dialog = true;
@@ -2897,27 +3212,27 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 				switch (_dimensions_hover) {
 				case Dimensions_hover::LEAVE_BUTTON:
 
-					_state = State::CONTROLS_ROOT;
+					_set_state(State::CONTROLS_ROOT);
 					update_dialog = true;
 					break;
 
 				case Dimensions_hover::EXPAND_CLIENT_FS_BUTTON:
 
-					_state = State::CONTROLS_EXPAND_CLIENT_FS;
+					_set_state(State::CONTROLS_EXPAND_CLIENT_FS);
 					_expand_client_fs_select = Expand_client_fs_select::CONTINGENT_INPUT;
 					update_dialog = true;
 					break;
 
 				case Dimensions_hover::EXPAND_SNAPSHOT_BUF_BUTTON:
 
-					_state = State::CONTROLS_EXPAND_SNAPSHOT_BUF;
+					_set_state(State::CONTROLS_EXPAND_SNAPSHOT_BUF);
 					_expand_snapshot_buf_select = Expand_snapshot_buf_select::CONTINGENT_INPUT;
 					update_dialog = true;
 					break;
 
-				case Dimensions_hover::SHUT_DOWN_BUTTON:
+				case Dimensions_hover::LOCK_BUTTON:
 
-					next_select = Dimensions_select::SHUT_DOWN_BUTTON;
+					next_select = Dimensions_select::LOCK_BUTTON;
 					break;
 
 				case Dimensions_hover::NONE:
@@ -2937,10 +3252,10 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 			if (key == Input::BTN_LEFT) {
 
 				switch (_dimensions_select) {
-				case Dimensions_select::SHUT_DOWN_BUTTON:
+				case Dimensions_select::LOCK_BUTTON:
 
 					_dimensions_select = Dimensions_select::NONE;
-					_state = State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE;
+					_set_state(State::LOCK_ISSUE_DEINIT_REQUEST_AT_CBE);
 
 					update_sandbox_config = true;
 					update_dialog = true;
@@ -2968,13 +3283,13 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 					switch (_expand_client_fs_hover) {
 					case Expand_client_fs_hover::LEAVE_BUTTON:
 
-						_state = State::CONTROLS_DIMENSIONS;
+						_set_state(State::CONTROLS_DIMENSIONS);
 						update_dialog = true;
 						break;
 
-					case Expand_client_fs_hover::SHUT_DOWN_BUTTON:
+					case Expand_client_fs_hover::LOCK_BUTTON:
 
-						next_select = Expand_client_fs_select::SHUT_DOWN_BUTTON;
+						next_select = Expand_client_fs_select::LOCK_BUTTON;
 						break;
 
 					case Expand_client_fs_hover::START_BUTTON:
@@ -3005,10 +3320,10 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 
 						break;
 
-					case Expand_client_fs_select::SHUT_DOWN_BUTTON:
+					case Expand_client_fs_select::LOCK_BUTTON:
 
 						_expand_client_fs_select = Expand_client_fs_select::NONE;
-						_state = State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE;
+						_set_state(State::LOCK_ISSUE_DEINIT_REQUEST_AT_CBE);
 
 						update_sandbox_config = true;
 						update_dialog = true;
@@ -3033,13 +3348,13 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 					switch (_expand_client_fs_hover) {
 					case Expand_client_fs_hover::LEAVE_BUTTON:
 
-						_state = State::CONTROLS_DIMENSIONS;
+						_set_state(State::CONTROLS_DIMENSIONS);
 						update_dialog = true;
 						break;
 
-					case Expand_client_fs_hover::SHUT_DOWN_BUTTON:
+					case Expand_client_fs_hover::LOCK_BUTTON:
 
-						next_select = Expand_client_fs_select::SHUT_DOWN_BUTTON;
+						next_select = Expand_client_fs_select::LOCK_BUTTON;
 						break;
 
 					case Expand_client_fs_hover::START_BUTTON:
@@ -3109,10 +3424,10 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 
 						break;
 
-					case Expand_client_fs_select::SHUT_DOWN_BUTTON:
+					case Expand_client_fs_select::LOCK_BUTTON:
 
 						_expand_client_fs_select = Expand_client_fs_select::NONE;
-						_state = State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE;
+						_set_state(State::LOCK_ISSUE_DEINIT_REQUEST_AT_CBE);
 
 						update_sandbox_config = true;
 						update_dialog = true;
@@ -3139,13 +3454,13 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 				switch (_expand_snapshot_buf_hover) {
 				case Expand_snapshot_buf_hover::LEAVE_BUTTON:
 
-					_state = State::CONTROLS_DIMENSIONS;
+					_set_state(State::CONTROLS_DIMENSIONS);
 					update_dialog = true;
 					break;
 
-				case Expand_snapshot_buf_hover::SHUT_DOWN_BUTTON:
+				case Expand_snapshot_buf_hover::LOCK_BUTTON:
 
-					next_select = Expand_snapshot_buf_select::SHUT_DOWN_BUTTON;
+					next_select = Expand_snapshot_buf_select::LOCK_BUTTON;
 					break;
 
 				case Expand_snapshot_buf_hover::START_BUTTON:
@@ -3209,16 +3524,16 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 
 					_expand_snapshot_buf_select = Expand_snapshot_buf_select::NONE;
 					_resizing_type = Resizing_type::EXPAND_SNAPSHOT_BUF;
-					_resizing_state = Resizing_state::WAIT_TILL_DEVICE_IS_READY;
+					_resizing_state = Resizing_state::ADAPT_CBE_IMAGE_SIZE;
 
 					update_sandbox_config = true;
 					update_dialog = true;
 					break;
 
-				case Expand_snapshot_buf_select::SHUT_DOWN_BUTTON:
+				case Expand_snapshot_buf_select::LOCK_BUTTON:
 
 					_expand_snapshot_buf_select = Expand_snapshot_buf_select::NONE;
-					_state = State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE;
+					_set_state(State::LOCK_ISSUE_DEINIT_REQUEST_AT_CBE);
 
 					update_sandbox_config = true;
 					update_dialog = true;
@@ -3244,31 +3559,31 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 				switch (_controls_security_hover) {
 				case Controls_security_hover::SECURITY_EXPAND_BUTTON:
 
-					_state = State::CONTROLS_ROOT;
+					_set_state(State::CONTROLS_ROOT);
 					update_dialog = true;
 					break;
 
 				case Controls_security_hover::BLOCK_ENCRYPTION_KEY_EXPAND_BUTTON:
 
-					_state = State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY;
+					_set_state(State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY);
 					update_dialog = true;
 					break;
 
 				case Controls_security_hover::MASTER_KEY_EXPAND_BUTTON:
 
-					_state = State::CONTROLS_SECURITY_MASTER_KEY;
+					_set_state(State::CONTROLS_SECURITY_MASTER_KEY);
 					update_dialog = true;
 					break;
 
 				case Controls_security_hover::USER_PASSPHRASE_EXPAND_BUTTON:
 
-					_state = State::CONTROLS_SECURITY_USER_PASSPHRASE;
+					_set_state(State::CONTROLS_SECURITY_USER_PASSPHRASE);
 					update_dialog = true;
 					break;
 
-				case Controls_security_hover::SHUT_DOWN_BUTTON:
+				case Controls_security_hover::LOCK_BUTTON:
 
-					next_select = Controls_security_select::SHUT_DOWN_BUTTON;
+					next_select = Controls_security_select::LOCK_BUTTON;
 					break;
 
 				case Controls_security_hover::NONE:
@@ -3288,10 +3603,10 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 			if (key == Input::BTN_LEFT) {
 
 				switch (_controls_security_select) {
-				case Controls_security_select::SHUT_DOWN_BUTTON:
+				case Controls_security_select::LOCK_BUTTON:
 
 					_controls_security_select = Controls_security_select::NONE;
-					_state = State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE;
+					_set_state(State::LOCK_ISSUE_DEINIT_REQUEST_AT_CBE);
 
 					update_sandbox_config = true;
 					update_dialog = true;
@@ -3317,7 +3632,7 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 				switch (_controls_security_block_encryption_key_hover) {
 				case Controls_security_block_encryption_key_hover::LEAVE_BUTTON:
 
-					_state = State::CONTROLS_SECURITY;
+					_set_state(State::CONTROLS_SECURITY);
 					update_dialog = true;
 					break;
 
@@ -3326,9 +3641,9 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 					next_select = Controls_security_block_encryption_key_select::REPLACE_BUTTON;
 					break;
 
-				case Controls_security_block_encryption_key_hover::SHUT_DOWN_BUTTON:
+				case Controls_security_block_encryption_key_hover::LOCK_BUTTON:
 
-					next_select = Controls_security_block_encryption_key_select::SHUT_DOWN_BUTTON;
+					next_select = Controls_security_block_encryption_key_select::LOCK_BUTTON;
 					break;
 
 				case Controls_security_block_encryption_key_hover::NONE:
@@ -3357,10 +3672,10 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 					update_dialog = true;
 					break;
 
-				case Controls_security_block_encryption_key_select::SHUT_DOWN_BUTTON:
+				case Controls_security_block_encryption_key_select::LOCK_BUTTON:
 
 					_controls_security_block_encryption_key_select = Controls_security_block_encryption_key_select::NONE;
-					_state = State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE;
+					_set_state(State::LOCK_ISSUE_DEINIT_REQUEST_AT_CBE);
 
 					update_sandbox_config = true;
 					update_dialog = true;
@@ -3386,13 +3701,13 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 				switch (_controls_security_master_key_hover) {
 				case Controls_security_master_key_hover::LEAVE_BUTTON:
 
-					_state = State::CONTROLS_SECURITY;
+					_set_state(State::CONTROLS_SECURITY);
 					update_dialog = true;
 					break;
 
-				case Controls_security_master_key_hover::SHUT_DOWN_BUTTON:
+				case Controls_security_master_key_hover::LOCK_BUTTON:
 
-					next_select = Controls_security_master_key_select::SHUT_DOWN_BUTTON;
+					next_select = Controls_security_master_key_select::LOCK_BUTTON;
 					break;
 
 				case Controls_security_master_key_hover::NONE:
@@ -3412,10 +3727,10 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 			if (key == Input::BTN_LEFT) {
 
 				switch (_controls_security_master_key_select) {
-				case Controls_security_master_key_select::SHUT_DOWN_BUTTON:
+				case Controls_security_master_key_select::LOCK_BUTTON:
 
 					_controls_security_master_key_select = Controls_security_master_key_select::NONE;
-					_state = State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE;
+					_set_state(State::LOCK_ISSUE_DEINIT_REQUEST_AT_CBE);
 
 					update_sandbox_config = true;
 					update_dialog = true;
@@ -3441,13 +3756,13 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 				switch (_controls_security_user_passphrase_hover) {
 				case Controls_security_user_passphrase_hover::LEAVE_BUTTON:
 
-					_state = State::CONTROLS_SECURITY;
+					_set_state(State::CONTROLS_SECURITY);
 					update_dialog = true;
 					break;
 
-				case Controls_security_user_passphrase_hover::SHUT_DOWN_BUTTON:
+				case Controls_security_user_passphrase_hover::LOCK_BUTTON:
 
-					next_select = Controls_security_user_passphrase_select::SHUT_DOWN_BUTTON;
+					next_select = Controls_security_user_passphrase_select::LOCK_BUTTON;
 					break;
 
 				case Controls_security_user_passphrase_hover::NONE:
@@ -3467,10 +3782,10 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 			if (key == Input::BTN_LEFT) {
 
 				switch (_controls_security_user_passphrase_select) {
-				case Controls_security_user_passphrase_select::SHUT_DOWN_BUTTON:
+				case Controls_security_user_passphrase_select::LOCK_BUTTON:
 
 					_controls_security_user_passphrase_select = Controls_security_user_passphrase_select::NONE;
-					_state = State::SHUTDOWN_ISSUE_DEINIT_REQUEST_AT_CBE;
+					_set_state(State::LOCK_ISSUE_DEINIT_REQUEST_AT_CBE);
 
 					update_sandbox_config = true;
 					update_dialog = true;
@@ -3551,7 +3866,7 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 		}
 		break;
 	}
-	case State::STARTUP_OBTAIN_PARAMETERS:
+	case State::UNLOCK_OBTAIN_PARAMETERS:
 	{
 		Setup_obtain_params_hover const prev_hover { _setup_obtain_params_hover };
 		Setup_obtain_params_hover       next_hover { Setup_obtain_params_hover::NONE };
@@ -3602,9 +3917,9 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 					node_2.with_optional_sub_node("hbox", [&] (Xml_node const &node_3) {
 						node_3.with_optional_sub_node("button", [&] (Xml_node const &node_4) {
 
-							if (_has_name(node_4, "Shut down")) {
+							if (_has_name(node_4, "Lock")) {
 
-								next_hover = Controls_root_hover::SHUT_DOWN_BUTTON;
+								next_hover = Controls_root_hover::LOCK_BUTTON;
 
 							}
 						});
@@ -3652,9 +3967,9 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 					node_2.with_optional_sub_node("hbox", [&] (Xml_node const &node_3) {
 						node_3.with_optional_sub_node("button", [&] (Xml_node const &node_4) {
 
-							if (_has_name(node_4, "Shut down")) {
+							if (_has_name(node_4, "Lock")) {
 
-								next_hover = Controls_snapshots_hover::SHUT_DOWN_BUTTON;
+								next_hover = Controls_snapshots_hover::LOCK_BUTTON;
 							}
 						});
 					});
@@ -3747,9 +4062,9 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 					node_2.with_optional_sub_node("hbox", [&] (Xml_node const &node_3) {
 						node_3.with_optional_sub_node("button", [&] (Xml_node const &node_4) {
 
-							if (_has_name(node_4, "Shut down")) {
+							if (_has_name(node_4, "Lock")) {
 
-								next_hover = Dimensions_hover::SHUT_DOWN_BUTTON;
+								next_hover = Dimensions_hover::LOCK_BUTTON;
 							}
 						});
 					});
@@ -3799,9 +4114,9 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 					node_2.with_optional_sub_node("hbox", [&] (Xml_node const &node_3) {
 						node_3.with_optional_sub_node("button", [&] (Xml_node const &node_4) {
 
-							if (_has_name(node_4, "Shut down")) {
+							if (_has_name(node_4, "Lock")) {
 
-								next_hover = Expand_client_fs_hover::SHUT_DOWN_BUTTON;
+								next_hover = Expand_client_fs_hover::LOCK_BUTTON;
 
 							}
 						});
@@ -3855,9 +4170,9 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 
 						node_3.with_optional_sub_node("button", [&] (Xml_node const &node_4) {
 
-							if (_has_name(node_4, "Shut down")) {
+							if (_has_name(node_4, "Lock")) {
 
-								next_hover = Expand_snapshot_buf_hover::SHUT_DOWN_BUTTON;
+								next_hover = Expand_snapshot_buf_hover::LOCK_BUTTON;
 
 							}
 						});
@@ -3911,9 +4226,9 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 					node_2.with_optional_sub_node("hbox", [&] (Xml_node const &node_3) {
 						node_3.with_optional_sub_node("button", [&] (Xml_node const &node_4) {
 
-							if (_has_name(node_4, "Shut down")) {
+							if (_has_name(node_4, "Lock")) {
 
-								next_hover = Controls_security_hover::SHUT_DOWN_BUTTON;
+								next_hover = Controls_security_hover::LOCK_BUTTON;
 
 							}
 						});
@@ -3965,9 +4280,9 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 					node_2.with_optional_sub_node("hbox", [&] (Xml_node const &node_3) {
 						node_3.with_optional_sub_node("button", [&] (Xml_node const &node_4) {
 
-							if (_has_name(node_4, "Shut down")) {
+							if (_has_name(node_4, "Lock")) {
 
-								next_hover = Controls_security_block_encryption_key_hover::SHUT_DOWN_BUTTON;
+								next_hover = Controls_security_block_encryption_key_hover::LOCK_BUTTON;
 
 							}
 						});
@@ -4011,9 +4326,9 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 					node_2.with_optional_sub_node("hbox", [&] (Xml_node const &node_3) {
 						node_3.with_optional_sub_node("button", [&] (Xml_node const &node_4) {
 
-							if (_has_name(node_4, "Shut down")) {
+							if (_has_name(node_4, "Lock")) {
 
-								next_hover = Controls_security_master_key_hover::SHUT_DOWN_BUTTON;
+								next_hover = Controls_security_master_key_hover::LOCK_BUTTON;
 
 							}
 						});
@@ -4050,9 +4365,9 @@ void File_vault::Main::_handle_hover(Xml_node const &node)
 					node_2.with_optional_sub_node("hbox", [&] (Xml_node const &node_3) {
 						node_3.with_optional_sub_node("button", [&] (Xml_node const &node_4) {
 
-							if (_has_name(node_4, "Shut down")) {
+							if (_has_name(node_4, "Lock")) {
 
-								next_hover = Controls_security_user_passphrase_hover::SHUT_DOWN_BUTTON;
+								next_hover = Controls_security_user_passphrase_hover::LOCK_BUTTON;
 
 							}
 						});

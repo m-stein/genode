@@ -155,7 +155,7 @@ namespace File_vault {
 
 			xml.node("config", [&] () {
 				xml.attribute("xpos", "100");
-				xml.attribute("ypos", "350");
+				xml.attribute("ypos", "50");
 
 				xml.node("report", [&] () {
 					xml.attribute("hover", "yes"); });
@@ -268,7 +268,8 @@ namespace File_vault {
 	}
 
 	void gen_cbe_vfs_start_node(Xml_generator     &xml,
-	                            Child_state const &child)
+	                               Child_state const &child,
+	                               File_path   const &cbe_img_file_name)
 	{
 		child.gen_start_node(xml, [&] () {
 
@@ -299,7 +300,7 @@ namespace File_vault {
 							xml.attribute("name", "cbe");
 							xml.attribute("verbose", "no");
 							xml.attribute("debug", "no");
-							xml.attribute("block", "/cbe.img");
+							xml.attribute("block", File_path { "/", cbe_img_file_name });
 							xml.attribute("crypto", "/crypto");
 							xml.attribute("trust_anchor", "/trust_anchor");
 						});
@@ -317,7 +318,7 @@ namespace File_vault {
 					xml.attribute("writeable", "yes");
 				});
 				xml.node("policy", [&] () {
-					xml.attribute("label", "shut_down_fs_tool -> ");
+					xml.attribute("label", "lock_fs_tool -> ");
 					xml.attribute("root", "/dev");
 					xml.attribute("writeable", "yes");
 				});
@@ -347,7 +348,7 @@ namespace File_vault {
 					xml.attribute("writeable", "yes");
 				});
 				xml.node("policy", [&] () {
-					xml.attribute("label", "shut_down_fs_query -> ");
+					xml.attribute("label", "lock_fs_query -> ");
 					xml.attribute("root", "/dev");
 					xml.attribute("writeable", "yes");
 				});
@@ -376,7 +377,8 @@ namespace File_vault {
 	}
 
 	void gen_cbe_trust_anchor_vfs_start_node(Xml_generator     &xml,
-	                                         Child_state const &child)
+	                                            Child_state const &child,
+	                                            bool               jent_avail)
 	{
 		child.gen_start_node(xml, [&] () {
 
@@ -401,9 +403,17 @@ namespace File_vault {
 							xml.attribute("storage_dir", "/storage_dir");
 						});
 
-						xml.node("jitterentropy", [&] () {
-							xml.attribute("name", "jitterentropy");
-						});
+						if (jent_avail) {
+							xml.node("jitterentropy", [&] () {
+								xml.attribute("name", "jitterentropy");
+							});
+						} else {
+							xml.node("inline", [&] () {
+								xml.attribute("name", "jitterentropy");
+								xml.append_content(String<33> { "0123456789abcdefghijklmnopqrstuv" });
+							});
+							warning("Insecure mode, no entropy source!");
+						}
 					});
 				});
 				xml.node("policy", [&] () {
@@ -440,7 +450,7 @@ namespace File_vault {
 				xml.node("vfs", [&] () {
 					xml.node("rump", [&] () {
 						xml.attribute("fs", "ext2fs");
-						xml.attribute("ram", "10M");
+						xml.attribute("ram", "20M");
 					});
 				});
 
@@ -632,15 +642,15 @@ namespace File_vault {
 		});
 	}
 
-	void gen_cbe_init_trust_anchor_start_node(Xml_generator          &xml,
-	                                          Child_state      const &child,
-	                                          Input_passphrase const &passphrase)
+	void gen_cbe_init_trust_anchor_start_node(Xml_generator &xml,
+	                                             Child_state const &child,
+	                                             Passphrase const &passphrase)
 	{
 		child.gen_start_node(xml, [&] () {
 
 			xml.node("config", [&] () {
 
-				xml.attribute("passphrase", passphrase.plaintext().string());
+				xml.attribute("passphrase", passphrase);
 				xml.attribute("trust_anchor_dir", "/trust_anchor");
 				xml.node("vfs", [&] () {
 					xml.node("dir", [&] () {
@@ -819,7 +829,7 @@ namespace File_vault {
 		});
 	}
 
-	void gen_shut_down_fs_tool_start_node(Xml_generator     &xml,
+	void gen_lock_fs_tool_start_node(Xml_generator     &xml,
 	                                      Child_state const &child)
 	{
 		child.gen_start_node(xml, [&] () {
@@ -881,8 +891,8 @@ namespace File_vault {
 		});
 	}
 
-	void gen_shut_down_fs_query_start_node(Xml_generator     &xml,
-	                                       Child_state const &child)
+	void gen_lock_fs_query_start_node(Xml_generator     &xml,
+	                                  Child_state const &child)
 	{
 		child.gen_start_node(xml, [&] () {
 
