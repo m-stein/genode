@@ -16,6 +16,11 @@ proc lx_fs_dir { } { return bin/file_vault_client_dir }
 
 proc lx_fs_dir_template { } { return $::env(LX_FS_DIR_TEMPLATE) }
 
+proc use_fv_23_04 { } {
+	if {[info exists ::env(USE_FV_23_04)]} { return $::env(USE_FV_23_04) }
+	return 0
+}
+
 proc lx_fs_dir_template_set { } { return [info exists ::env(LX_FS_DIR_TEMPLATE)] }
 
 proc container_initialized { } { return [expr [have_board linux] && [lx_fs_dir_template_set]] }
@@ -39,9 +44,25 @@ if {[have_board linux]} {
 	}
 }
 
-build {
-	lib/tresor lib/vfs_tresor_trust_anchor lib/vfs_tresor_crypto_aes_cbc
-	lib/vfs_tresor app/tresor_init_trust_anchor app/tresor_init app/file_vault }
+if {[use_fv_23_04]} {
+	exec rm -rf var/libcache/cbe_cxx_common
+	exec rm -rf var/libcache/cbe_cxx
+	exec rm -rf var/libcache/cbe_common
+	exec rm -rf var/libcache/cbe
+	exec rm -rf var/libcache/spark
+	exec rm -rf var/libcache/sha256_4k
+	exec rm -rf var/libcache/libsparkcrypto
+	append target_dirs {
+		lib/spark lib/libsparkcrypto lib/sha256_4k lib/cbe lib/cbe_cxx lib/cbe_init_cxx
+		lib/vfs_cbe_trust_anchor lib/vfs_cbe_crypto_aes_cbc lib/vfs_cbe
+		app/cbe_init_trust_anchor app/cbe_init app/file_vault_23_04 }
+} else {
+	append target_dirs {
+		lib/tresor lib/vfs_tresor_trust_anchor lib/vfs_tresor_crypto_aes_cbc
+		lib/vfs_tresor app/tresor_init_trust_anchor app/tresor_init app/file_vault }
+}
+
+build $target_dirs
 
 create_boot_directory
 
@@ -360,6 +381,43 @@ if {[have_board linux]} {
 		</start>
 	}
 }
+
+if {[use_fv_23_04]} {
+append config {
+
+		<start name="file_vault" caps="2000">
+			<resource name="RAM" quantum="200M"/>
+			<binary name="file_vault_23_04"/>
+			<provides>
+				<service name="File_system"/>
+			</provides>
+			<config user_interface="config_and_report" jitterentropy_available="} [jent_avail_attr] {">
+				<vfs>
+					<dir name="cbe">
+						<fs label="cbe"/>
+					</dir>
+				</vfs>
+			</config>
+			<route>
+				<service name="ROM" label="ui_config"> <child name="dynamic_rom" label="file_vault_ui_config"/> </service>
+				<service name="Report" label="ui_report"> <child name="report_rom"/> </service>
+				<service name="File_system" label="cbe_trust_anchor_vfs -> storage_dir"> <child name="trust_anchor_fs" label="file_vault -> trust_anchor"/> </service>
+				<service name="File_system" label="vfs_block -> "> <child name="data_fs" label="file_vault -> data"/> </service>
+				<service name="File_system" label="cbe"> <child name="data_fs" label="file_vault -> data"/> </service>
+				<service name="File_system" label="fs_query -> "> <child name="data_fs" label="file_vault -> data"/> </service>
+				<service name="File_system" label="image_fs_query -> "> <child name="data_fs" label="file_vault -> data"/> </service>
+				<service name="File_system" label="cbe_vfs -> cbe_fs"> <child name="data_fs" label="file_vault -> data"/> </service>
+				<service name="File_system" label="truncate_file -> cbe"> <child name="data_fs" label="file_vault -> data"/> </service>
+				<service name="Timer"> <child name="timer"/> </service>
+				<service name="PD"> <parent/> </service>
+				<service name="ROM"> <parent/> </service>
+				<service name="CPU"> <parent/> </service>
+				<service name="LOG"> <parent/> </service>
+				<service name="RM"> <parent/> </service>
+			</route>
+		</start>}
+
+} else {
 append config {
 
 		<start name="file_vault" caps="2000">
@@ -391,7 +449,9 @@ append config {
 				<service name="LOG"> <parent/> </service>
 				<service name="RM"> <parent/> </service>
 			</route>
-		</start>
+		</start>}
+}
+append config {
 
 		<start name="dynamic_init" caps="1500">
 			<resource name="RAM" quantum="200M"/>
