@@ -427,7 +427,7 @@ namespace File_vault {
 					xml.attribute("writeable", "yes");
 				});
 				xml.node("policy", [&] () {
-					xml.attribute("label", "tresor_vfs -> trust_anchor");
+					xml.attribute("label", "cbe_vfs -> trust_anchor");
 					xml.attribute("root", "/dev/cbe_trust_anchor");
 					xml.attribute("writeable", "yes");
 				});
@@ -524,7 +524,7 @@ namespace File_vault {
 				});
 			});
 			xml.node("route", [&] () {
-				route_to_child_service(xml, "tresor_vfs", "File_system");
+				route_to_child_service(xml, "cbe_vfs", "File_system");
 				gen_parent_routes_for_pd_rom_cpu_log(xml);
 			});
 		});
@@ -562,7 +562,7 @@ namespace File_vault {
 				});
 			});
 			xml.node("route", [&] () {
-				route_to_child_service(xml, "tresor_vfs", "File_system");
+				route_to_child_service(xml, "cbe_vfs", "File_system");
 				gen_parent_routes_for_pd_rom_cpu_log(xml);
 			});
 		});
@@ -612,7 +612,7 @@ namespace File_vault {
 			});
 			xml.node("route", [&] () {
 				route_to_local_service(xml, "Report");
-				route_to_child_service(xml, "tresor_vfs", "File_system");
+				route_to_child_service(xml, "cbe_vfs", "File_system");
 				gen_parent_routes_for_pd_rom_cpu_log(xml);
 			});
 		});
@@ -766,7 +766,7 @@ namespace File_vault {
 			});
 			xml.node("route", [&] () {
 				route_to_local_service(xml, "Report");
-				route_to_child_service(xml, "tresor_vfs", "File_system");
+				route_to_child_service(xml, "cbe_vfs", "File_system");
 				gen_parent_routes_for_pd_rom_cpu_log(xml);
 			});
 		});
@@ -799,7 +799,7 @@ namespace File_vault {
 			});
 			xml.node("route", [&] () {
 
-				route_to_child_service(xml, "tresor_vfs", "File_system");
+				route_to_child_service(xml, "cbe_vfs", "File_system");
 				gen_parent_routes_for_pd_rom_cpu_log(xml);
 			});
 		});
@@ -823,7 +823,7 @@ namespace File_vault {
 			});
 			xml.node("route", [&] () {
 				route_to_local_service(xml, "Report");
-				route_to_child_service(xml, "tresor_vfs", "File_system");
+				route_to_child_service(xml, "cbe_vfs", "File_system");
 				gen_parent_routes_for_pd_rom_cpu_log(xml);
 			});
 		});
@@ -854,7 +854,7 @@ namespace File_vault {
 			});
 			xml.node("route", [&] () {
 
-				route_to_child_service(xml, "tresor_vfs", "File_system");
+				route_to_child_service(xml, "cbe_vfs", "File_system");
 				gen_parent_routes_for_pd_rom_cpu_log(xml);
 			});
 		});
@@ -885,7 +885,7 @@ namespace File_vault {
 			});
 			xml.node("route", [&] () {
 
-				route_to_child_service(xml, "tresor_vfs", "File_system");
+				route_to_child_service(xml, "cbe_vfs", "File_system");
 				gen_parent_routes_for_pd_rom_cpu_log(xml);
 			});
 		});
@@ -909,7 +909,7 @@ namespace File_vault {
 			});
 			xml.node("route", [&] () {
 				route_to_local_service(xml, "Report");
-				route_to_child_service(xml, "tresor_vfs", "File_system");
+				route_to_child_service(xml, "cbe_vfs", "File_system");
 				gen_parent_routes_for_pd_rom_cpu_log(xml);
 			});
 		});
@@ -933,7 +933,7 @@ namespace File_vault {
 			});
 			xml.node("route", [&] () {
 				route_to_local_service(xml, "Report");
-				route_to_child_service(xml, "tresor_vfs", "File_system");
+				route_to_child_service(xml, "cbe_vfs", "File_system");
 				gen_parent_routes_for_pd_rom_cpu_log(xml);
 			});
 		});
@@ -964,7 +964,7 @@ namespace File_vault {
 			});
 			xml.node("route", [&] () {
 
-				route_to_child_service(xml, "tresor_vfs", "File_system");
+				route_to_child_service(xml, "cbe_vfs", "File_system");
 				gen_parent_routes_for_pd_rom_cpu_log(xml);
 			});
 		});
@@ -996,7 +996,7 @@ namespace File_vault {
 			});
 			xml.node("route", [&] () {
 
-				route_to_child_service(xml, "tresor_vfs", "File_system");
+				route_to_child_service(xml, "cbe_vfs", "File_system");
 				gen_parent_routes_for_pd_rom_cpu_log(xml);
 			});
 		});

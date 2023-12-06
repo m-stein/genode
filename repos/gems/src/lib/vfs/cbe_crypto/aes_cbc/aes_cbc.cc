@@ -17,8 +17,6 @@
 
 #include <aes_cbc_4k/aes_cbc_4k.h>
 
-#include <tresor/types.h>
-#include <tresor/hash.h>
 #include <cbe/types.h>
 #include <cbe/crypto/interface.h>
 
@@ -179,15 +177,14 @@ struct Crypto : Cbe_crypto::Interface
 
 				uint64_t block_id = job.request.block_number();
 
-				Aes_cbc_4k::Block_number     aes_block_number { block_id };
+				Aes_cbc_4k::Block_number     block_number { block_id };
 				Aes_cbc_4k::Plaintext const &plaintext  = *reinterpret_cast<Aes_cbc_4k::Plaintext const *>(src.start);
 				Aes_cbc_4k::Ciphertext      &ciphertext = *reinterpret_cast<Aes_cbc_4k::Ciphertext *>(&job.data);
 
 				/* paranoia */
 				static_assert(sizeof(plaintext) == sizeof(job.data), "size mismatch");
 
-log("      blknr ", aes_block_number.value, " key ", *(Tresor::Key_value*)&meta.key);
-				Aes_cbc_4k::encrypt(meta.key, aes_block_number, plaintext, ciphertext);
+				Aes_cbc_4k::encrypt(meta.key, block_number, plaintext, ciphertext);
 			});
 		});
 	}

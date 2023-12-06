@@ -115,11 +115,16 @@ void Crypto_channel::_mark_req_successful(bool &progress)
 		default: break;
 		}
 	}
-	switch (req._type) {
-	case Request::ENCRYPT_CLIENT_DATA:
-		log("      c-hash ", hash(req._blk), " p-hash ", hash(_blk));
-		break;
-	default: break;
+	if (VERBOSE_BLOCK_IO && (!VERBOSE_BLOCK_IO_PBA_FILTER || VERBOSE_BLOCK_IO_PBA == req._pba)) {
+		switch (req._type) {
+		case Request::DECRYPT_CLIENT_DATA:
+			log("block_io: read pba ", req._pba, " hash ", hash(req._blk), " (plaintext hash ", hash(_blk), ")");
+			break;
+		case Request::ENCRYPT_CLIENT_DATA:
+			log("block_io: write pba ", req._pba, " hash ", hash(req._blk), " (plaintext hash ", hash(_blk), ")");
+			break;
+		default: break;
+		}
 	}
 }
 
@@ -184,12 +189,7 @@ void Crypto_channel::_encrypt_client_data(bool &progress)
 		break;
 
 	case PLAINTEXT_BLK_OBTAINED:
-		log("write vba ", req._vba);
-		_state = PLAINTEXT_BLK_OBTAINED1;
-		progress = true;
-		break;
 
-	case PLAINTEXT_BLK_OBTAINED1:
 		_key_dir(req._key_id)->encrypt_file.write(
 			WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress);
 		break;

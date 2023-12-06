@@ -1,9 +1,8 @@
-SRC_CC += vfs.cc
-SRC_CC += hash.cc
+SRC_CC = vfs.cc
 
 INC_DIR += $(REP_DIR)/src/lib/vfs/cbe
 
-LIBS += cbe_cxx libcrypto
+LIBS += cbe_cxx
 
 vpath % $(REP_DIR)/src/lib/vfs/cbe
 
