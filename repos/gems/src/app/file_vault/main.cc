@@ -363,6 +363,7 @@ class File_vault::Main
 		bool                                   _verbose_state                      { _config_rom.xml().attribute_value("verbose_state", false) };
 		bool                                   _verbose_ui_config                  { _config_rom.xml().attribute_value("verbose_ui_config", false) };
 		bool                                   _jent_avail                         { _config_rom.xml().attribute_value("jitterentropy_available", true) };
+		bool                                   _vfs_cbe_21_05_mode                 { false };
 		Root_directory                         _vfs                                { _env, _heap, _config_rom.xml().sub_node("vfs") };
 		Registry<Child_state>                  _children                           { };
 		Child_state                            _menu_view                          { _children, "menu_view", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 200 } };
@@ -737,6 +738,7 @@ void Main::_adapt_to_version(Version version)
 	case VERSION_21_05:
 
 		_tresor_image_file_name = "cbe.img";
+		_vfs_cbe_21_05_mode = true;
 		break;
 
 	case VERSION_23_05:
@@ -2401,7 +2403,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_parent_provides_and_report_nodes(xml);
 		_gen_menu_view_start_node_if_required(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
-		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name);
+		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name, _vfs_cbe_21_05_mode);
 		gen_sync_to_tresor_vfs_init_start_node(xml, _sync_to_tresor_vfs_init);
 		break;
 
@@ -2411,7 +2413,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_parent_provides_and_report_nodes(xml);
 		_gen_menu_view_start_node_if_required(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
-		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name);
+		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name, _vfs_cbe_21_05_mode);
 		gen_client_fs_fs_query_start_node(xml, _client_fs_fs_query);
 		break;
 
@@ -2458,7 +2460,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_parent_provides_and_report_nodes(xml);
 		_gen_menu_view_start_node_if_required(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
-		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name);
+		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name, _vfs_cbe_21_05_mode);
 		gen_sync_to_tresor_vfs_init_start_node(xml, _sync_to_tresor_vfs_init);
 		break;
 
@@ -2467,7 +2469,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_parent_provides_and_report_nodes(xml);
 		_gen_menu_view_start_node_if_required(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
-		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name);
+		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name, _vfs_cbe_21_05_mode);
 		gen_tresor_vfs_block_start_node(xml, _tresor_vfs_block);
 		gen_mke2fs_start_node(xml, _mke2fs);
 		break;
@@ -2485,7 +2487,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_parent_provides_and_report_nodes(xml);
 		_gen_menu_view_start_node_if_required(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
-		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name);
+		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name, _vfs_cbe_21_05_mode);
 		gen_tresor_vfs_block_start_node(xml, _tresor_vfs_block);
 		gen_snapshots_fs_query_start_node(xml, _snapshots_fs_query);
 		gen_image_fs_query_start_node(xml, _image_fs_query);
@@ -2641,7 +2643,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_policy_for_child_service(xml, "File_system", _rump_vfs);
 		_gen_menu_view_start_node_if_required(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
-		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name);
+		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name, _vfs_cbe_21_05_mode);
 		gen_tresor_vfs_block_start_node(xml, _tresor_vfs_block);
 		gen_snapshots_fs_query_start_node(xml, _snapshots_fs_query);
 		gen_lock_fs_tool_start_node(xml, _lock_fs_tool);
@@ -2653,7 +2655,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_policy_for_child_service(xml, "File_system", _rump_vfs);
 		_gen_menu_view_start_node_if_required(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
-		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name);
+		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name, _vfs_cbe_21_05_mode);
 		gen_tresor_vfs_block_start_node(xml, _tresor_vfs_block);
 		gen_snapshots_fs_query_start_node(xml, _snapshots_fs_query);
 		gen_lock_fs_query_start_node(xml, _lock_fs_query);

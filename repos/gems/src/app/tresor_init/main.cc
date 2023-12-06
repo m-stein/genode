@@ -47,7 +47,7 @@ class Tresor_init::Main : private Vfs::Env::User, private Tresor::Module_composi
 		Signal_handler<Main> _sigh { _env.ep(), *this, &Main::_handle_signal };
 		Constructible<Configuration> _cfg { };
 		Trust_anchor _trust_anchor { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
-		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto") };
+		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto"), false };
 		Block_io _block_io { _vfs_env, _config_rom.xml().sub_node("block-io") };
 		Pba_allocator _pba_alloc { NR_OF_SUPERBLOCK_SLOTS };
 		Vbd_initializer _vbd_initializer { };

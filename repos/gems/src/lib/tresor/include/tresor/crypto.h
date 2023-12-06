@@ -89,6 +89,7 @@ class Tresor::Crypto_channel : public Module_channel
 		bool _generated_req_success { false };
 		Block _blk { };
 		Request *_req_ptr { };
+		bool const _vfs_cbe_21_05_mode;
 
 		NONCOPYABLE(Crypto_channel);
 
@@ -104,6 +105,8 @@ class Tresor::Crypto_channel : public Module_channel
 			_state = REQ_GENERATED;
 			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 		}
+
+		size_t _file_off(Physical_block_address pba) const { return _vfs_cbe_21_05_mode ? 0 : pba * BLOCK_SIZE; }
 
 		void _add_key(bool &);
 
@@ -125,7 +128,7 @@ class Tresor::Crypto_channel : public Module_channel
 
 	public:
 
-		Crypto_channel(Module_channel_id, Vfs::Env &, Xml_node const &);
+		Crypto_channel(Module_channel_id, Vfs::Env &, Xml_node const &, bool);
 
 		void execute(bool &);
 };
@@ -167,7 +170,7 @@ class Tresor::Crypto : public Module
 			: Request(src_mod, src_chan, Request::ENCRYPT, 0, 0, key, *(Key_value*)0, pba, 0, blk, succ) { }
 		};
 
-		Crypto(Vfs::Env &, Xml_node const &);
+		Crypto(Vfs::Env &, Xml_node const &, bool);
 
 		void execute(bool &) override;
 };
