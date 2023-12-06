@@ -1304,13 +1304,13 @@ class Vfs_cbe::Wrapper
 			}
 
 			template <Crypto_job::Operation OP>
-			void submit_request(Crypto_file *cf, uint32_t data_index, file_offset offset_arg)
+			void submit_request(Crypto_file *cf, uint32_t data_index, file_offset offset)
 			{
 				file       = cf;
 				state      = Crypto_job::State::SUBMITTED;
 				op         = OP;
 				data_index = data_index;
-				offset     = offset_arg;
+				offset     = offset;
 
 				/* store both in regardless of operation */
 				cipher_index.value = data_index;
