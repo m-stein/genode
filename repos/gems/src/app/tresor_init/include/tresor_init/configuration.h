@@ -58,17 +58,6 @@ class Tresor_init::Configuration
 				_ft_nr_of_children = ft.attribute_value("nr_of_children", (uint64_t)0);
 				_ft_nr_of_leafs = ft.attribute_value("nr_of_leafs", (uint64_t)0);
 			});
-			ASSERT(_vbd_nr_of_lvls);
-			ASSERT(_vbd_nr_of_lvls <= TREE_MAX_NR_OF_LEVELS);
-			ASSERT(_vbd_nr_of_leafs);
-			ASSERT(is_power_of_2(_vbd_nr_of_children));
-			ASSERT(_vbd_nr_of_children <= NUM_NODES_PER_BLK);
-			ASSERT(_ft_nr_of_lvls);
-			ASSERT(_ft_nr_of_lvls <= TREE_MAX_NR_OF_LEVELS);
-			ASSERT(_ft_nr_of_leafs);
-			ASSERT(is_power_of_2(_ft_nr_of_children));
-			ASSERT(_ft_nr_of_children <= NUM_NODES_PER_BLK);
-			ASSERT(_ft_nr_of_children <= NUM_NODES_PER_BLK);
 		}
 
 		Configuration (Configuration const &other)

@@ -64,9 +64,12 @@ namespace Tresor {
 	enum { ON_DISC_NODE_SIZE = 64 };
 	enum { NUM_NODES_PER_BLK = (size_t)BLOCK_SIZE / (size_t)ON_DISC_NODE_SIZE };
 	enum { TREE_MAX_DEGREE_LOG_2 = 6 };
+	enum { TREE_MIN_DEGREE = 1 };
 	enum { TREE_MAX_DEGREE = 1 << TREE_MAX_DEGREE_LOG_2 };
+	enum { TREE_MIN_LEVEL = 1 };
 	enum { TREE_MAX_LEVEL = 6 };
 	enum { TREE_MAX_NR_OF_LEVELS = TREE_MAX_LEVEL + 1 };
+	enum { TREE_MIN_NUM_LEAVES = 1 };
 	enum { KEY_SIZE = 32 };
 	enum { MAX_NR_OF_SNAPSHOTS = 48 };
 	enum { MAX_SNAP_IDX = MAX_NR_OF_SNAPSHOTS - 1 };
@@ -77,7 +80,6 @@ namespace Tresor {
 	enum { FREE_TREE_MIN_MAX_LEVEL = 2 };
 	enum { TREE_MAX_NR_OF_LEAVES = to_the_power_of<Number_of_leaves>(TREE_MAX_DEGREE, (TREE_MAX_LEVEL - 1)) };
 	enum { INVALID_VBA = to_the_power_of<Virtual_block_address>(TREE_MAX_DEGREE, TREE_MAX_LEVEL - 1) };
-	enum { TREE_MIN_DEGREE = 1 };
 
 	struct Byte_range;
 	struct Key_value;
@@ -494,6 +496,31 @@ struct Tresor::Tree_root
 	Tree_level_index &max_lvl;
 	Tree_degree &degree;
 	Number_of_leaves &num_leaves;
+
+	bool has_valid_dimensions() const
+	{
+		auto bad_dimensions = [] (char const *str) {
+			error(str);
+			return false;
+		};
+		if (!is_power_of_2(degree))
+			return bad_dimensions("degree is not power of 2");
+		if (degree > NUM_NODES_PER_BLK)
+			return bad_dimensions("degree is greater than number of nodes per block");
+		if (max_lvl < TREE_MIN_LEVEL)
+			return bad_dimensions("max level is too small");
+		if (degree < TREE_MIN_DEGREE)
+			return bad_dimensions("degree is too small");
+		if (num_leaves < TREE_MIN_NUM_LEAVES)
+			return bad_dimensions("number of leaves is too small");
+		if (max_lvl > TREE_MAX_LEVEL)
+			return bad_dimensions("max level is too big");
+		if (degree > TREE_MAX_DEGREE)
+			return bad_dimensions("degree is too big");
+		if (num_leaves > tree_max_max_vba(degree, max_lvl) + 1)
+			return bad_dimensions("number of leaves is too big");
+		return true;
+	}
 
 	Type_1_node t1_node() const { return { pba, gen, hash }; }
 

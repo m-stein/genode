@@ -152,6 +152,9 @@ void Vbd_initializer_channel::execute(bool &progress)
 	switch (_state) {
 	case SUBMITTED:
 
+		if (!req._vbd.has_valid_dimensions())
+			_mark_req_failed(progress, "invalid tree dimensions");
+
 		_num_remaining_leaves = req._vbd.num_leaves;
 		for (Tree_level_index lvl = 0; lvl < TREE_MAX_LEVEL; lvl++)
 			_reset_level(lvl, Vbd_initializer_channel::DONE);

@@ -178,6 +178,9 @@ void Ft_initializer_channel::execute(bool &progress)
 	switch (_state) {
 	case REQ_SUBMITTED:
 
+		if (!req._ft.has_valid_dimensions())
+			_mark_req_failed(progress, "invalid tree dimensions");
+
 		_num_remaining_leaves = req._ft.num_leaves;
 		for (Tree_level_index lvl = 0; lvl < TREE_MAX_LEVEL; lvl++)
 			_reset_level(lvl, DONE);
