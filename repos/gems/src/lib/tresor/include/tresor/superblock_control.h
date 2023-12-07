@@ -156,12 +156,10 @@ class Tresor::Superblock_control : public Module
 
 		using Channel = Superblock_control_channel;
 
-		enum { NUM_CHANNELS = 1 };
-
 		Superblock _sb { };
 		Superblock_index _sb_idx { INVALID_SB_IDX };
 		Generation _curr_gen { INVALID_GENERATION };
-		Constructible<Channel> _channels[NUM_CHANNELS] { };
+		Constructible<Channel> _channels[1] { };
 
 		void execute(bool &) override;
 
