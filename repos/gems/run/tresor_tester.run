@@ -398,7 +398,7 @@ append config {
 						<free-tree
 							nr_of_levels="4"
 							nr_of_children="8"
-							nr_of_leafs="100" />
+							nr_of_leafs="512" />
 
 					</initialize>
 					<construct/>
