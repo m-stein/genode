@@ -191,13 +191,13 @@ void Crypto_channel::_encrypt_client_data(bool &progress)
 	case PLAINTEXT_BLK_OBTAINED:
 
 		_key_dir(req._key_id)->encrypt_file.write(
-			WRITE_OK, FILE_ERR, _file_off(req._pba), { (char *)&_blk, BLOCK_SIZE }, progress);
+			WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress);
 		break;
 
 	case WRITE_OK:
 
 		_key_dir(req._key_id)->encrypt_file.read(
-			READ_OK, FILE_ERR, _file_off(req._pba), { (char *)&req._blk, BLOCK_SIZE }, progress);
+			READ_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress);
 		break;
 
 	case READ_OK: _mark_req_successful(progress); break;
@@ -214,13 +214,13 @@ void Crypto_channel::_encrypt(bool &progress)
 	case REQ_SUBMITTED:
 
 		_key_dir(req._key_id)->encrypt_file.write(
-			WRITE_OK, FILE_ERR, _file_off(req._pba), { (char *)&req._blk, BLOCK_SIZE }, progress);
+			WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress);
 		break;
 
 	case WRITE_OK:
 
 		_key_dir(req._key_id)->encrypt_file.read(
-			READ_OK, FILE_ERR, _file_off(req._pba), { (char *)&req._blk, BLOCK_SIZE }, progress);
+			READ_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress);
 		break;
 
 	case READ_OK: _mark_req_successful(progress); break;
@@ -237,13 +237,13 @@ void Crypto_channel::_decrypt(bool &progress)
 	case REQ_SUBMITTED:
 
 		_key_dir(req._key_id)->decrypt_file.write(
-			WRITE_OK, FILE_ERR, _file_off(req._pba), { (char *)&req._blk, BLOCK_SIZE }, progress);
+			WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress);
 		break;
 
 	case WRITE_OK:
 
 		_key_dir(req._key_id)->decrypt_file.read(
-			READ_OK, FILE_ERR, _file_off(req._pba), { (char *)&req._blk, BLOCK_SIZE }, progress);
+			READ_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress);
 		break;
 
 	case READ_OK: _mark_req_successful(progress); break;
@@ -260,13 +260,13 @@ void Crypto_channel::_decrypt_client_data(bool &progress)
 	case REQ_SUBMITTED:
 
 		_key_dir(req._key_id)->decrypt_file.write(
-			WRITE_OK, FILE_ERR, _file_off(req._pba), { (char *)&req._blk, BLOCK_SIZE }, progress);
+			WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress);
 		break;
 
 	case WRITE_OK:
 
 		_key_dir(req._key_id)->decrypt_file.read(
-			READ_OK, FILE_ERR, _file_off(req._pba), { (char *)&_blk, BLOCK_SIZE }, progress);
+			READ_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress);
 		break;
 
 	case READ_OK:
@@ -313,18 +313,17 @@ void Crypto::execute(bool &progress)
 }
 
 
-Crypto_channel::Crypto_channel(Module_channel_id id, Vfs::Env &vfs_env, Xml_node const &xml_node, bool vfs_cbe_21_05_mode)
+Crypto_channel::Crypto_channel(Module_channel_id id, Vfs::Env &vfs_env, Xml_node const &xml_node)
 :
-	Module_channel { CRYPTO, id }, _vfs_env { vfs_env }, _path { xml_node.attribute_value("path", Tresor::Path()) },
-	_vfs_cbe_21_05_mode { vfs_cbe_21_05_mode }
+	Module_channel { CRYPTO, id }, _vfs_env { vfs_env }, _path { xml_node.attribute_value("path", Tresor::Path()) }
 { }
 
 
-Crypto::Crypto(Vfs::Env &vfs_env, Xml_node const &xml_node, bool vfs_cbe_21_05_mode)
+Crypto::Crypto(Vfs::Env &vfs_env, Xml_node const &xml_node)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {
-		chan.construct(id++, vfs_env, xml_node, vfs_cbe_21_05_mode);
+		chan.construct(id++, vfs_env, xml_node);
 		add_channel(*chan);
 	}
 }

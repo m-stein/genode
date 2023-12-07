@@ -504,15 +504,13 @@ class Vfs_tresor::Wrapper
 		Pointer<Deinitialize_file_system>    _deinit_fs          { };
 
 		/* configuration options */
-		bool _verbose { false };
-		bool _debug { false };
-		bool _vfs_cbe_21_05_mode { false };
+		bool _verbose       { false };
+		bool _debug         { false };
 
 		void _read_config(Xml_node config)
 		{
-			_verbose = config.attribute_value("verbose", _verbose);
-			_debug = config.attribute_value("debug", _debug);
-			_vfs_cbe_21_05_mode = config.attribute_value("vfs_cbe_21_05_mode", _vfs_cbe_21_05_mode);
+			_verbose      = config.attribute_value("verbose", _verbose);
+			_debug        = config.attribute_value("debug",   _debug);
 		}
 
 		struct Could_not_open_block_backend : Genode::Exception { };
@@ -690,7 +688,7 @@ class Vfs_tresor::Wrapper
 			if (crypto_path.valid())
 				_with_node("crypto", crypto_path.string(),
 					[&] (Xml_node const &node) {
-						_crypto.construct(vfs_env, node, _vfs_cbe_21_05_mode);
+						_crypto.construct(vfs_env, node);
 					});
 
 			_splitter.construct();
