@@ -796,9 +796,9 @@ void Tresor_tester::Command::execute(bool &progress)
 		generate_req<Sb_initializer_request>(COMPLETED, progress,
 			(Tree_level_index)(cfg.vbd_nr_of_lvls()),
 			(Tree_degree)cfg.vbd_nr_of_children(), cfg.vbd_nr_of_leafs(),
-			(Tree_level_index)cfg.ft_nr_of_lvls() - 1,
+			(Tree_level_index)cfg.ft_nr_of_lvls(),
 			(Tree_degree)cfg.ft_nr_of_children(), cfg.ft_nr_of_leafs(),
-			(Tree_level_index)cfg.ft_nr_of_lvls() - 1,
+			(Tree_level_index)cfg.ft_nr_of_lvls(),
 			(Tree_degree)cfg.ft_nr_of_children(), cfg.ft_nr_of_leafs(), _main.pba_alloc(), _success);
 		_main.mark_command_in_progress(id());
 		break;
