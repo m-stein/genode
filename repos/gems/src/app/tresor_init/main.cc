@@ -100,7 +100,7 @@ class Tresor_init::Main : private Vfs::Env::User, private Tresor::Module_composi
 			case INIT:
 
 				generate_req<Sb_initializer_request>(
-					INIT_SBS_SUCCEEDED, progress, (Tree_level_index)_cfg->vbd_nr_of_lvls() - 1,
+					INIT_SBS_SUCCEEDED, progress, (Tree_level_index)_cfg->vbd_nr_of_lvls(),
 					(Tree_degree)_cfg->vbd_nr_of_children(), _cfg->vbd_nr_of_leafs(),
 					(Tree_level_index)_cfg->ft_nr_of_lvls() - 1,
 					(Tree_degree)_cfg->ft_nr_of_children(), _cfg->ft_nr_of_leafs(),
