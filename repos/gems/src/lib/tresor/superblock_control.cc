@@ -469,7 +469,6 @@ void Superblock_control_request::print(Output &out) const
 {
 	Genode::print(out, type_to_string(_type));
 	switch (_type) {
-	case REKEY_VBA:
 	case READ_VBA:
 	case WRITE_VBA: Genode::print(out, " ", _vba); break;
 	default: break;
