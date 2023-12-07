@@ -635,9 +635,10 @@ void Superblock_control_channel::_request_submitted(Module_request &req)
 
 Superblock_control::Superblock_control()
 {
-	for (Module_channel_id id { 0 }; id < NUM_CHANNELS; id++) {
-		_channels[id].construct(id, _sb, _sb_idx, _curr_gen);
-		add_channel(*_channels[id]);
+	Module_channel_id id { 0 };
+	for (Constructible<Channel> &chan : _channels) {
+		chan.construct(id++, _sb, _sb_idx, _curr_gen);
+		add_channel(*chan);
 	}
 }
 
