@@ -240,8 +240,17 @@ append config {
 
 					<trust-anchor op="initialize" passphrase="foobar"/>
 					<initialize>
-						<virtual-block-device levels="5" degree="64" leaves="100000" />
-						<free-tree levels="5" degree="64" leaves="100000" />
+
+						<virtual-block-device
+							nr_of_levels="1"
+							nr_of_children="1"
+							nr_of_leafs="1" />
+
+						<free-tree
+							nr_of_levels="4"
+							nr_of_children="8"
+							nr_of_leafs="100" />
+
 					</initialize>
 					<check/>
 					<construct/>
