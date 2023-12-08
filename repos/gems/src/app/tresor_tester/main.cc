@@ -18,9 +18,6 @@
 #include <timer_session/connection.h>
 #include <vfs/simple_env.h>
 
-/* tresor init includes */
-#include <tresor_init/configuration.h>
-
 /* tresor includes */
 #include <tresor/crypto.h>
 #include <tresor/trust_anchor.h>
@@ -291,7 +288,7 @@ class Tresor_tester::Command : public Module_channel
 		Constructible<Trust_anchor_node> _trust_anchor_node { };
 		Constructible<Benchmark_node> _benchmark_node { };
 		Constructible<Log_node> _log_node { };
-		Constructible<Tresor_init::Configuration> _initialize { };
+		Constructible<Init_config> _initialize { };
 
 		NONCOPYABLE(Command);
 
@@ -375,7 +372,7 @@ class Tresor_tester::Command : public Module_channel
 		Trust_anchor_node const &trust_anchor_node() const { return *_trust_anchor_node; }
 		Benchmark_node const &benchmark_node() const { return *_benchmark_node ; }
 		Log_node const &log_node() const { return *_log_node ; }
-		Tresor_init::Configuration const &initialize() const { return *_initialize ; }
+		Init_config const &initialize() const { return *_initialize ; }
 
 		void state (State state) { _state = state; }
 		void success (bool success) { _success = success; }
@@ -792,14 +789,10 @@ void Tresor_tester::Command::execute(bool &progress)
 	case Command::INITIALIZE:
 	{
 		_main.reset_snap_refs();
-		Tresor_init::Configuration const &cfg { initialize() };
+		Init_config const &cfg { initialize() };
 		generate_req<Sb_initializer_request>(COMPLETED, progress,
-			(Tree_level_index)(cfg.vbd_nr_of_lvls()),
-			(Tree_degree)cfg.vbd_nr_of_children(), cfg.vbd_nr_of_leafs(),
-			(Tree_level_index)cfg.ft_nr_of_lvls(),
-			(Tree_degree)cfg.ft_nr_of_children(), cfg.ft_nr_of_leafs(),
-			(Tree_level_index)cfg.ft_nr_of_lvls(),
-			(Tree_degree)cfg.ft_nr_of_children(), cfg.ft_nr_of_leafs(), _main.pba_alloc(), _success);
+			cfg.vbd.levels, cfg.vbd.degree, cfg.vbd.leaves, cfg.ft.levels, cfg.ft.degree, cfg.ft.leaves,
+			cfg.ft.levels, cfg.ft.degree, cfg.ft.leaves, _main.pba_alloc(), _success);
 		_main.mark_command_in_progress(id());
 		break;
 	}

@@ -17,6 +17,7 @@
 
 /* base includes */
 #include <util/reconstructible.h>
+#include <util/xml_node.h>
 
 /* os includes */
 #include <util/formatted_output.h>
@@ -103,6 +104,7 @@ namespace Tresor {
 	struct Tree_walk_generations;
 	struct Level_indent;
 	struct Tree_root;
+	struct Init_config;
 	class Pba_allocator;
 
 	template <size_t LEN>
@@ -167,6 +169,30 @@ namespace Tresor {
 		return vbd_node_num_vbas(vbd_degr_log_2, vbd_lvl) - 1 + vbd_node_min_vba(vbd_degr_log_2, vbd_lvl, vbd_leaf_vba);
 	}
 }
+
+
+struct Tresor::Init_config
+{
+	struct Tree
+	{
+		Tree_level_index levels { 0 };
+		Tree_degree degree { 0 };
+		Number_of_leaves leaves { 0 };
+
+		Tree(Xml_node const &node)
+		:
+			levels { node.attribute_value("levels", (Tree_level_index)0) },
+			degree { node.attribute_value("degree", (Tree_degree)0) },
+			leaves { node.attribute_value("leaves", (Number_of_leaves)0) }
+		{ }
+	};
+
+	Tree vbd;
+	Tree ft;
+
+	Init_config(Xml_node const &node)
+	: vbd { node.sub_node("virtual-block-device") }, ft { node.sub_node("free-tree") } { }
+};
 
 
 class Tresor::Pba_allocator

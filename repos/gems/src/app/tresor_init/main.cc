@@ -27,7 +27,6 @@
 #include <tresor/vbd_initializer.h>
 
 /* tresor init includes */
-#include <tresor_init/configuration.h>
 
 using namespace Genode;
 using namespace Tresor;
@@ -45,7 +44,7 @@ class Tresor_init::Main : private Vfs::Env::User, private Tresor::Module_composi
 		Attached_rom_dataspace _config_rom { _env, "config" };
 		Vfs::Simple_env _vfs_env { _env, _heap, _config_rom.xml().sub_node("vfs"), *this };
 		Signal_handler<Main> _sigh { _env.ep(), *this, &Main::_handle_signal };
-		Constructible<Configuration> _cfg { };
+		Constructible<Init_config> _cfg { };
 		Trust_anchor _trust_anchor { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
 		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto") };
 		Block_io _block_io { _vfs_env, _config_rom.xml().sub_node("block-io") };
@@ -100,13 +99,9 @@ class Tresor_init::Main : private Vfs::Env::User, private Tresor::Module_composi
 			case INIT:
 
 				generate_req<Sb_initializer_request>(
-					INIT_SBS_SUCCEEDED, progress, (Tree_level_index)_cfg->vbd_nr_of_lvls(),
-					(Tree_degree)_cfg->vbd_nr_of_children(), _cfg->vbd_nr_of_leafs(),
-					(Tree_level_index)_cfg->ft_nr_of_lvls(),
-					(Tree_degree)_cfg->ft_nr_of_children(), _cfg->ft_nr_of_leafs(),
-					(Tree_level_index)_cfg->ft_nr_of_lvls(),
-					(Tree_degree)_cfg->ft_nr_of_children(), _cfg->ft_nr_of_leafs(), _pba_alloc,
-					_generated_req_success);
+					INIT_SBS_SUCCEEDED, progress, _cfg->vbd.levels, _cfg->vbd.degree, _cfg->vbd.leaves,
+					_cfg->ft.levels, _cfg->ft.degree, _cfg->ft.leaves, _cfg->ft.levels, _cfg->ft.degree,
+					_cfg->ft.leaves, _pba_alloc, _generated_req_success);
 				_state = REQ_GENERATED;
 				break;
 
