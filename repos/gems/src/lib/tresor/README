@@ -1,0 +1,20 @@
+
+
+On-disc data-structures
+-----------------------
+
+The PBAs 0-7 each contain a Superblock. The Tresor cycles through these PBAs
+whenever it stores its current Superblock. When opening a Tresor container, the
+current Superblock can be determined via its hash, that gets written to the
+Trust Anchor after having written back the Superblock
+
+ containing references to the VBD-Snapshots, the Free Tree,
+and the Meta Tree.
+
+A VBD tree configured by the user to have N levels looks as follows:
+
+* Level #N+1: Root node (Part of a Superblock)
+* Level #1..#N: Blocks of Type-1 nodes
+* Level #0: User Data blocks
+
+The depicted tree level indices are used 
