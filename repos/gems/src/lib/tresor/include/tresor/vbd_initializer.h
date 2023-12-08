@@ -58,8 +58,8 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 
 		State _state { COMPLETE };
 		Vbd_initializer_request *_req_ptr { };
-		Type_1_node_block_walk _t1_blks { };
-		Node_state _node_states[TREE_MAX_NR_OF_LEVELS][NUM_NODES_PER_BLK] { DONE };
+		Type_1_node_block _t1_blks[TREE_MAX_NR_OF_LEVELS + 1] { };
+		Node_state _node_states[TREE_MAX_NR_OF_LEVELS + 1][NUM_NODES_PER_BLK] { DONE };
 		bool _generated_req_success { false };
 		Block _blk { };
 		Number_of_leaves _num_remaining_leaves { };

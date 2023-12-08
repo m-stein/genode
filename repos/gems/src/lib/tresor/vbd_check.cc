@@ -44,7 +44,7 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 		return false;
 
 	Request &req { *_req_ptr };
-	Type_1_node const &node = _t1_blks.items[lvl].nodes[node_idx];
+	Type_1_node const &node = _t1_blks[lvl].nodes[node_idx];
 	switch (_state) {
 	case REQ_IN_PROGRESS:
 
@@ -98,7 +98,7 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 		if (lvl == 1)
 			_num_remaining_leaves--;
 		else {
-			_t1_blks.items[lvl - 1].decode_from_blk(_blk);
+			_t1_blks[lvl - 1].decode_from_blk(_blk);
 			for (bool &cn : _check_node[lvl - 1])
 				cn = true;
 		}
@@ -127,7 +127,7 @@ void Vbd_check_channel::execute(bool &progress)
 				_check_node[lvl][node_idx] = false;
 
 		_num_remaining_leaves = req._vbd.num_leaves;
-		_t1_blks.items[req._vbd.max_lvl + 1].nodes[0] = req._vbd.t1_node();
+		_t1_blks[req._vbd.max_lvl + 1].nodes[0] = req._vbd.t1_node();
 		_check_node[req._vbd.max_lvl + 1][0] = true;
 		_state = REQ_IN_PROGRESS;
 	}

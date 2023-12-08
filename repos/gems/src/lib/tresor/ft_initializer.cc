@@ -162,10 +162,13 @@ void Ft_initializer_channel::_reset_level(Tree_level_index lvl, Node_state node_
 			_t2_node_states[idx] = node_state;
 		}
 	else
+{
+//log("r ", lvl, " ", sizeof(_t1_blks.items)/sizeof(_t1_blks.items[0]));
 		for (Tree_node_index idx = 0; idx < NUM_NODES_PER_BLK; idx++) {
 			_t1_blks.items[lvl].nodes[idx] = { };
 			_t1_node_states[lvl][idx] = node_state;
 		}
+}
 }
 
 
@@ -182,7 +185,7 @@ void Ft_initializer_channel::execute(bool &progress)
 			_mark_req_failed(progress, "invalid tree dimensions");
 
 		_num_remaining_leaves = req._ft.num_leaves;
-		for (Tree_level_index lvl = 0; lvl < TREE_MAX_LEVEL; lvl++)
+		for (Tree_level_index lvl = 0; lvl < TREE_MAX_LEVEL + 1; lvl++)
 			_reset_level(lvl, DONE);
 
 		_t1_node_states[req._ft.max_lvl + 1][0] = INIT_BLOCK;

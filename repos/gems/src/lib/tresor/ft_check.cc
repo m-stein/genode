@@ -55,7 +55,7 @@ bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_
 			if (VERBOSE_CHECK)
 				log(Level_indent { lvl, req._ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " done");
 		} else {
-			Type_1_node const &node { _t1_blks.items[lvl].nodes[node_idx] };
+			Type_1_node const &node { _t1_blks[lvl].nodes[node_idx] };
 			if (!node.valid()) {
 				if (_num_remaining_leaves) {
 					_mark_req_failed(progress, { "lvl ", lvl, " node ", node_idx, " invalid but ",
@@ -77,7 +77,7 @@ bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_
 
 	case READ_BLK_SUCCEEDED:
 	{
-		Type_1_node const &node { _t1_blks.items[lvl].nodes[node_idx] };
+		Type_1_node const &node { _t1_blks[lvl].nodes[node_idx] };
 		if (node.gen != INITIAL_GENERATION && !check_hash(_blk, node.hash)) {
 			_mark_req_failed(progress, { "lvl ", lvl, " node ", node_idx, " (", node, ") has bad hash" });
 			break;
@@ -85,7 +85,7 @@ bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_
 		if (lvl == 2)
 			_t2_blk.decode_from_blk(_blk);
 		else
-			_t1_blks.items[lvl - 1].decode_from_blk(_blk);
+			_t1_blks[lvl - 1].decode_from_blk(_blk);
 		for (bool &cn : _check_node[lvl - 1])
 			cn = true;
 
@@ -113,7 +113,7 @@ void Ft_check_channel::execute(bool &progress)
 				_check_node[lvl][node_idx] = false;
 
 		_num_remaining_leaves = _req_ptr->_ft.num_leaves;
-		_t1_blks.items[_req_ptr->_ft.max_lvl + 1].nodes[0] = _req_ptr->_ft.t1_node();
+		_t1_blks[_req_ptr->_ft.max_lvl + 1].nodes[0] = _req_ptr->_ft.t1_node();
 		_check_node[_req_ptr->_ft.max_lvl + 1][0] = true;
 		_state = REQ_IN_PROGRESS;
 	}

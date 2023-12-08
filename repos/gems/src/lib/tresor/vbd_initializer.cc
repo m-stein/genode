@@ -28,7 +28,7 @@ Vbd_initializer_request::Vbd_initializer_request(Module_id src_mod, Module_chann
 
 bool Vbd_initializer_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
 {
-	Type_1_node &node = _t1_blks.items[lvl].nodes[node_idx];
+	Type_1_node &node = _t1_blks[lvl].nodes[node_idx];
 	Node_state &node_state = _node_states[lvl][node_idx];
 	switch (node_state) {
 	case DONE: return false;
@@ -80,7 +80,7 @@ bool Vbd_initializer_channel::_execute_node(Tree_level_index lvl, Tree_node_inde
 				_mark_req_failed(progress, "allocate pba");
 				break;
 			}
-			_t1_blks.items[lvl - 1].encode_to_blk(_blk);
+			_t1_blks[lvl - 1].encode_to_blk(_blk);
 			calc_hash(_blk, node.hash);
 			node_state = WRITE_BLOCK;
 			generate_req<Block_io::Write>(EXECUTE_NODES, progress, node.pba, _blk, _generated_req_success);
@@ -128,7 +128,7 @@ void Vbd_initializer_channel::_mark_req_failed(bool &progress, char const *str)
 
 void Vbd_initializer_channel::_mark_req_successful(bool &progress)
 {
-	_req_ptr->_vbd.t1_node(_t1_blks.items[_req_ptr->_vbd.max_lvl + 1].nodes[0]);
+	_req_ptr->_vbd.t1_node(_t1_blks[_req_ptr->_vbd.max_lvl + 1].nodes[0]);
 	_req_ptr->_success = true;
 	_state = COMPLETE;
 	_req_ptr = nullptr;
@@ -156,7 +156,7 @@ void Vbd_initializer_channel::execute(bool &progress)
 			_mark_req_failed(progress, "invalid tree dimensions");
 
 		_num_remaining_leaves = req._vbd.num_leaves;
-		for (Tree_level_index lvl = 0; lvl < TREE_MAX_LEVEL; lvl++)
+		for (Tree_level_index lvl = 1; lvl <= req._vbd.max_lvl + 1; lvl++)
 			_reset_level(lvl, Vbd_initializer_channel::DONE);
 
 		_node_states[req._vbd.max_lvl + 1][0] = Vbd_initializer_channel::INIT_BLOCK;
@@ -166,7 +166,7 @@ void Vbd_initializer_channel::execute(bool &progress)
 
 	case EXECUTE_NODES:
 
-		for (Tree_level_index lvl = 0; lvl <= req._vbd.max_lvl + 1; lvl++)
+		for (Tree_level_index lvl = 1; lvl <= req._vbd.max_lvl + 1; lvl++)
 			for (Tree_node_index node_idx = 0; node_idx < req._vbd.degree; node_idx++)
 				if (_execute_node(lvl, node_idx, progress))
 					return;
@@ -185,7 +185,7 @@ void Vbd_initializer_channel::execute(bool &progress)
 void Vbd_initializer_channel::_reset_level(Tree_level_index lvl, Node_state state)
 {
 	for (unsigned int idx = 0; idx < NUM_NODES_PER_BLK; idx++) {
-		_t1_blks.items[lvl].nodes[idx] = { };
+		_t1_blks[lvl].nodes[idx] = { };
 		_node_states[lvl][idx] = state;
 	}
 }

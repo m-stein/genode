@@ -53,7 +53,7 @@ class Tresor::Ft_check_channel : public Module_channel
 		enum State : State_uint { REQ_SUBMITTED, REQ_IN_PROGRESS, REQ_COMPLETE, REQ_GENERATED, READ_BLK_SUCCEEDED };
 
 		State _state { REQ_COMPLETE };
-		Type_1_node_block_walk _t1_blks { };
+		Type_1_node_block _t1_blks[TREE_MAX_NR_OF_LEVELS + 1] { };
 		Type_2_node_block _t2_blk { };
 		bool _check_node[TREE_MAX_NR_OF_LEVELS + 1][NUM_NODES_PER_BLK] { };
 		Number_of_leaves _num_remaining_leaves { 0 };
