@@ -68,7 +68,7 @@ namespace Tresor {
 	enum { TREE_MIN_DEGREE = 1 };
 	enum { TREE_MAX_DEGREE = 1 << TREE_MAX_DEGREE_LOG_2 };
 	enum { TREE_MIN_LEVEL = 1 };
-	enum { TREE_MAX_LEVEL = 6 };
+	enum { TREE_MAX_LEVEL = 5 };
 	enum { TREE_MAX_NR_OF_LEVELS = TREE_MAX_LEVEL + 1 };
 	enum { TREE_MIN_NUM_LEAVES = 1 };
 	enum { KEY_SIZE = 32 };
