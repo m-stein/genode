@@ -240,17 +240,8 @@ append config {
 
 					<trust-anchor op="initialize" passphrase="foobar"/>
 					<initialize>
-
-						<virtual-block-device
-							nr_of_levels="3"
-							nr_of_children="8"
-							nr_of_leafs="64" />
-
-						<free-tree
-							nr_of_levels="4"
-							nr_of_children="8"
-							nr_of_leafs="100" />
-
+						<virtual-block-device levels="3" degree="8" leaves="64"/>
+						<free-tree levels="4" degree="8" leaves="100"/>
 					</initialize>
 					<check/>
 					<construct/>
@@ -389,17 +380,8 @@ append config {
 					<request op="deinitialize" sync="no"/>
 					<destruct/>
 					<initialize>
-
-						<virtual-block-device
-							nr_of_levels="4"
-							nr_of_children="8"
-							nr_of_leafs="100" />
-
-						<free-tree
-							nr_of_levels="4"
-							nr_of_children="8"
-							nr_of_leafs="512" />
-
+						<virtual-block-device levels="4" degree="8" leaves="100"/>
+						<free-tree levels="4" degree="8" leaves="512"/>
 					</initialize>
 					<construct/>
 
@@ -594,17 +576,8 @@ append config {
 					<request op="deinitialize" sync="no"/>
 					<destruct/>
 					<initialize>
-
-						<virtual-block-device
-							nr_of_levels="4"
-							nr_of_children="64"
-							nr_of_leafs="25600" />
-
-						<free-tree
-							nr_of_levels="4"
-							nr_of_children="64"
-							nr_of_leafs="25600" />
-
+						<virtual-block-device levels="4" degree="64" leaves="25600"/>
+						<free-tree levels="4" degree="64" leaves="25600"/>
 					</initialize>
 					<construct/>
 }

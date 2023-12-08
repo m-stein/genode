@@ -702,14 +702,14 @@ namespace File_vault {
 					});
 				});
 				xml.node("virtual-block-device", [&] () {
-					xml.attribute("nr_of_levels",   vbd_geom.nr_of_levels());
-					xml.attribute("nr_of_children", vbd_geom.nr_of_children());
-					xml.attribute("nr_of_leafs",    vbd_geom.nr_of_leaves());
+					xml.attribute("levels", vbd_geom.levels());
+					xml.attribute("degree", vbd_geom.degree());
+					xml.attribute("leaves", vbd_geom.nr_of_leaves());
 				});
 				xml.node("free-tree", [&] () {
-					xml.attribute("nr_of_levels",   ft_geom.nr_of_levels());
-					xml.attribute("nr_of_children", ft_geom.nr_of_children());
-					xml.attribute("nr_of_leafs",    ft_geom.nr_of_leaves());
+					xml.attribute("levels", ft_geom.levels());
+					xml.attribute("degree", ft_geom.degree());
+					xml.attribute("leaves", ft_geom.nr_of_leaves());
 				});
 			});
 			xml.node("route", [&] () {
