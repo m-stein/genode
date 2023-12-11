@@ -78,7 +78,7 @@ class Tresor::Sb_check_channel : public Module_channel
 			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 		}
 
-		void _check_snap(bool &);
+		bool _check_snap(bool &);
 
 		void _mark_req_failed(bool &, char const *);
 
