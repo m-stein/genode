@@ -49,18 +49,18 @@ class Tresor::Sb_check_channel : public Module_channel
 
 		using Request = Sb_check_request;
 
-		enum State { REQ_SUBMITTED, REQ_COMPLETE, READ_BLK_SUCCESSFUL, REQ_GENERATED, CHECK_VBD_SUCCESSFUL, CHECK_FT_SUCCESSFUL, CHECK_MT_SUCCESSFUL};
+		enum State {
+			REQ_SUBMITTED, REQ_COMPLETE, READ_BLK_SUCCESSFUL, REQ_GENERATED, CHECK_SNAP_SUCCESSFUL, CHECK_FT_SUCCESSFUL,
+			READ_SB_HASH_SUCCEEDED, CHECK_MT_SUCCESSFUL};
 
 		State _state { REQ_COMPLETE };
 		Request *_req_ptr { };
-		Generation _highest_gen { 0 };
-		Superblock_index _highest_gen_sb_idx { 0 };
-		bool _scan_for_highest_gen_sb_done { false };
 		Superblock_index _sb_idx { 0 };
 		Superblock _sb { };
 		Snapshot_index _snap_idx { 0 };
 		Constructible<Tree_root> _tree_root { };
 		Block _blk { };
+		Hash _hash { };
 		bool _generated_req_success { false };
 
 		NONCOPYABLE(Sb_check_channel);
@@ -77,6 +77,8 @@ class Tresor::Sb_check_channel : public Module_channel
 			_state = REQ_GENERATED;
 			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 		}
+
+		void _check_snap(bool &);
 
 		void _mark_req_failed(bool &, char const *);
 
