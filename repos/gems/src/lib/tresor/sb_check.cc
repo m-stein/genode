@@ -16,6 +16,8 @@
 #include <tresor/vbd_check.h>
 #include <tresor/ft_check.h>
 #include <tresor/block_io.h>
+#include <tresor/trust_anchor.h>
+#include <tresor/hash.h>
 
 using namespace Tresor;
 
@@ -38,6 +40,24 @@ void Sb_check_channel::_generated_req_completed(State_uint state_uint)
 }
 
 
+void Sb_check_channel::_check_snap(bool &progress)
+{
+	Snapshot &snap { _sb.snapshots.items[_snap_idx] };
+	if (snap.valid) {
+		Snapshot &snap { _sb.snapshots.items[_snap_idx] };
+		_tree_root.construct(snap.pba, snap.gen, snap.hash, snap.max_level, _sb.degree, snap.nr_of_leaves);
+		_generate_req<Vbd_check_request>(CHECK_SNAP_SUCCESSFUL, progress, *_tree_root);
+		if (VERBOSE_CHECK)
+			log("  check snap ", _snap_idx, " (", snap, ")");
+	} else {
+		_state = CHECK_SNAP_SUCCESSFUL;
+		progress = true;
+		if (VERBOSE_CHECK)
+			log("  skip snap ", _snap_idx, " as it is unused");
+	}
+}
+
+
 void Sb_check_channel::execute(bool &progress)
 {
 	if (!_req_ptr)
@@ -46,62 +66,38 @@ void Sb_check_channel::execute(bool &progress)
 	switch (_state) {
 	case REQ_SUBMITTED:
 
-		_highest_gen = 0;
-		_highest_gen_sb_idx = 0;
-		_snap_idx = 0;
 		_sb_idx = 0;
-		_scan_for_highest_gen_sb_done = false;
-		_generate_req<Block_io::Read>(READ_BLK_SUCCESSFUL, progress, _sb_idx, _blk);
+		_generate_req<Trust_anchor::Read_hash>(READ_SB_HASH_SUCCEEDED, progress, _hash);
 		break;
 
+	case READ_SB_HASH_SUCCEEDED: _generate_req<Block_io::Read>(READ_BLK_SUCCESSFUL, progress, _sb_idx, _blk); break;
 	case READ_BLK_SUCCESSFUL:
 
-		_sb.decode_from_blk(_blk);
-		if (_scan_for_highest_gen_sb_done) {
+		if (check_hash(_blk, _hash)) {
+			_sb.decode_from_blk(_blk);
+			if (VERBOSE_CHECK)
+				log("check superblock ", _sb_idx, " hash ", _hash, "\n  read superblock");
+
 			if (!_sb.valid()) {
-				_mark_req_failed(progress, "no valid superblock");;
+				_mark_req_failed(progress, "superblock marked invalid");;
 				break;
 			}
-			Snapshot &snap { _sb.snapshots.items[_snap_idx] };
-			if (snap.valid) {
-				Snapshot &snap { _sb.snapshots.items[_snap_idx] };
-				_tree_root.construct(snap.pba, snap.gen, snap.hash, snap.max_level, _sb.degree, snap.nr_of_leaves);
-				_generate_req<Vbd_check_request>(CHECK_VBD_SUCCESSFUL, progress, *_tree_root);
-				if (VERBOSE_CHECK)
-					log("  check snap ", _snap_idx, " (", snap, ")");
-			} else {
-				_state = CHECK_VBD_SUCCESSFUL;
-				progress = true;
-				if (VERBOSE_CHECK)
-					log("  skip snap ", _snap_idx, " as it is unused");
-			}
-		} else {
-			Snapshot &snap { _sb.curr_snap() };
-			if (_sb.valid() && snap.gen > _highest_gen) {
-				_highest_gen = snap.gen;
-				_highest_gen_sb_idx = _sb_idx;
-			}
+			_snap_idx = 0;
+			_check_snap(progress);
+		} else
 			if (_sb_idx < MAX_SUPERBLOCK_INDEX) {
 				_sb_idx++;
 				_generate_req<Block_io::Read>(READ_BLK_SUCCESSFUL, progress, _sb_idx, _blk);
-				progress = true;
-			} else {
-				_scan_for_highest_gen_sb_done = true;
-				_generate_req<Block_io::Read>(READ_BLK_SUCCESSFUL, progress, _highest_gen_sb_idx, _blk);
-				if (VERBOSE_CHECK)
-					log("check superblock ", _highest_gen_sb_idx, "\n  read superblock");
-			}
-		}
+			} else
+				_mark_req_failed(progress, "superblock not found");
 		break;
 
-	case CHECK_VBD_SUCCESSFUL:
+	case CHECK_SNAP_SUCCESSFUL:
 
 		if (_snap_idx < MAX_SNAP_IDX) {
 			_snap_idx++;
-			_state = READ_BLK_SUCCESSFUL;
-			progress = true;
+			_check_snap(progress);
 		} else {
-			_snap_idx = 0;
 			_tree_root.construct(_sb.free_number, _sb.free_gen, _sb.free_hash, _sb.free_max_level, _sb.free_degree, _sb.free_leaves);
 			_generate_req<Ft_check_request>(CHECK_FT_SUCCESSFUL, progress, *_tree_root);
 			if (VERBOSE_CHECK)
