@@ -28,7 +28,7 @@ namespace Tresor {
 	enum { VERBOSE_BLOCK_IO             = 0 };
 	enum { VERBOSE_BLOCK_IO_PBA_FILTER  = 0 };
 	enum { VERBOSE_BLOCK_IO_PBA         = 0 };
-	enum { VERBOSE_CHECK                = 0 };
+	enum { VERBOSE_CHECK                = 1 };
 }
 
 #endif /* _TRESOR__VERBOSITY_H_ */
