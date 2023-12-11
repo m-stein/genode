@@ -44,7 +44,6 @@ bool Sb_check_channel::_check_snap(bool &progress)
 {
 	Snapshot &snap { _sb.snapshots.items[_snap_idx] };
 	if (snap.valid) {
-		log(snap);
 		if (snap.gen > _sb.last_secured_generation) {
 			_mark_req_failed(progress, "snap generation newer than last secured generation");;
 			return false;
