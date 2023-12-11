@@ -493,8 +493,8 @@ void Superblock_control_channel::_initialize(bool &progress)
 
 	case READ_SB_SUCCEEDED:
 
-		_sb_ciphertext.decode_from_blk(_blk);
 		if (check_hash(_blk, _hash)) {
+			_sb_ciphertext.decode_from_blk(_blk);
 			_gen = _sb_ciphertext.snapshots.items[_sb_ciphertext.snapshots.newest_snap_idx()].gen;
 			_sb.copy_all_but_key_values_from(_sb_ciphertext);
 			_generate_req<Trust_anchor::Decrypt_key>(
