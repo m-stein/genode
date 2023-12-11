@@ -146,7 +146,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		void _generate_ft_alloc_req_for_rekeying(Tree_level_index, bool &);
 
-		void _add_new_root_lvl_to_snap();
+		bool _add_new_root_lvl_to_snap();
 
 		void _add_new_branch_to_snap(Tree_level_index, Tree_node_index);
 
