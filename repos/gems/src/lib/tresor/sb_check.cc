@@ -40,10 +40,14 @@ void Sb_check_channel::_generated_req_completed(State_uint state_uint)
 }
 
 
-void Sb_check_channel::_check_snap(bool &progress)
+bool Sb_check_channel::_check_snap(bool &progress)
 {
 	Snapshot &snap { _sb.snapshots.items[_snap_idx] };
 	if (snap.valid) {
+		if (snap.gen > _sb.last_secured_generation) {
+			_mark_req_failed(progress, "snap generation newer than last secured generation");;
+			return false;
+		}
 		Snapshot &snap { _sb.snapshots.items[_snap_idx] };
 		_tree_root.construct(snap.pba, snap.gen, snap.hash, snap.max_level, _sb.degree, snap.nr_of_leaves);
 		_generate_req<Vbd_check_request>(CHECK_SNAP_SUCCESSFUL, progress, *_tree_root);
@@ -55,6 +59,7 @@ void Sb_check_channel::_check_snap(bool &progress)
 		if (VERBOSE_CHECK)
 			log("  skip snap ", _snap_idx, " as it is unused");
 	}
+	return true;
 }
 
 
@@ -83,7 +88,8 @@ void Sb_check_channel::execute(bool &progress)
 				break;
 			}
 			_snap_idx = 0;
-			_check_snap(progress);
+			if (_check_snap(progress))
+				break;
 		} else
 			if (_sb_idx < MAX_SUPERBLOCK_INDEX) {
 				_sb_idx++;
@@ -96,7 +102,8 @@ void Sb_check_channel::execute(bool &progress)
 
 		if (_snap_idx < MAX_SNAP_IDX) {
 			_snap_idx++;
-			_check_snap(progress);
+			if (_check_snap(progress))
+				break;
 		} else {
 			_tree_root.construct(_sb.free_number, _sb.free_gen, _sb.free_hash, _sb.free_max_level, _sb.free_degree, _sb.free_leaves);
 			_generate_req<Ft_check_request>(CHECK_FT_SUCCESSFUL, progress, *_tree_root);
