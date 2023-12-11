@@ -723,9 +723,10 @@ void Virtual_block_device_channel::_extension_step(bool &progress)
 			Number_of_leaves num_leaves { old_snap.nr_of_leaves + req._num_leaves };
 			snap() = { { }, _new_pbas.pbas[_lvl], req._curr_gen, num_leaves, old_snap.max_level, true, 0, false };
 			calc_hash(_encoded_blk, snap().hash);
-			_mark_req_successful(progress);
 			if (VERBOSE_VBD_EXTENSION)
 				log("  update snap ", _snap_idx, " ", snap());
+
+			_mark_req_successful(progress);
 		}
 		break;
 	}
