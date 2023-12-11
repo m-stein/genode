@@ -65,8 +65,9 @@ namespace Tresor {
 	enum { ON_DISC_NODE_SIZE = 64 };
 	enum { NUM_NODES_PER_BLK = (size_t)BLOCK_SIZE / (size_t)ON_DISC_NODE_SIZE };
 	enum { TREE_MAX_DEGREE_LOG_2 = 6 };
-	enum { TREE_MIN_DEGREE = 1 };
 	enum { TREE_MAX_DEGREE = 1 << TREE_MAX_DEGREE_LOG_2 };
+	enum { TREE_MIN_DEGREE_LOG_2 = 1 };
+	enum { TREE_MIN_DEGREE = 1 << TREE_MIN_DEGREE_LOG_2 };
 	enum { TREE_MIN_LEVEL = 1 };
 	enum { TREE_MAX_LEVEL = 5 };
 	enum { TREE_MAX_NR_OF_LEVELS = TREE_MAX_LEVEL + 1 };
@@ -81,6 +82,9 @@ namespace Tresor {
 	enum { FREE_TREE_MIN_MAX_LEVEL = 2 };
 	enum { TREE_MAX_NR_OF_LEAVES = to_the_power_of<Number_of_leaves>(TREE_MAX_DEGREE, (TREE_MAX_LEVEL - 1)) };
 	enum { INVALID_VBA = to_the_power_of<Virtual_block_address>(TREE_MAX_DEGREE, TREE_MAX_LEVEL - 1) };
+
+	static_assert((Tree_degree)TREE_MAX_DEGREE == (Tree_degree)NUM_NODES_PER_BLK);
+	static_assert((Tree_degree)TREE_MIN_DEGREE <= (Tree_degree)NUM_NODES_PER_BLK);
 
 	struct Byte_range;
 	struct Key_value;
@@ -525,26 +529,25 @@ struct Tresor::Tree_root
 
 	bool has_valid_dimensions() const
 	{
-		auto bad_dimensions = [] (char const *str) {
-			error(str);
+		using Error = String<64>;
+		auto bad_dimensions = [] (Error err) {
+			error(err);
 			return false;
 		};
 		if (!is_power_of_2(degree))
-			return bad_dimensions("degree is not power of 2");
-		if (degree > NUM_NODES_PER_BLK)
-			return bad_dimensions("degree is greater than number of nodes per block");
+			return bad_dimensions("degree is not a power of 2");
 		if (max_lvl < TREE_MIN_LEVEL)
-			return bad_dimensions("max level is too small");
+			return bad_dimensions({ "max level must be at least ", (Tree_level_index)TREE_MIN_LEVEL });
 		if (degree < TREE_MIN_DEGREE)
-			return bad_dimensions("degree is too small");
+			return bad_dimensions({ "degree must be at least ", (Tree_degree)TREE_MIN_DEGREE });
 		if (num_leaves < TREE_MIN_NUM_LEAVES)
-			return bad_dimensions("number of leaves is too small");
+			return bad_dimensions({ "number of leaves must be at least ", (Number_of_leaves)TREE_MIN_NUM_LEAVES });
 		if (max_lvl > TREE_MAX_LEVEL)
-			return bad_dimensions("max level is too big");
+			return bad_dimensions({ "max level must be at most ", (Tree_level_index)TREE_MAX_LEVEL });
 		if (degree > TREE_MAX_DEGREE)
-			return bad_dimensions("degree is too big");
+			return bad_dimensions({ "degree must be at most ", (Tree_degree)TREE_MAX_DEGREE });
 		if (num_leaves > tree_max_max_vba(degree, max_lvl) + 1)
-			return bad_dimensions("number of leaves is too big");
+			return bad_dimensions({ "number of leaves can be at most ", tree_max_max_vba(degree, max_lvl) + 1, " with this tree config" });
 		return true;
 	}
 
