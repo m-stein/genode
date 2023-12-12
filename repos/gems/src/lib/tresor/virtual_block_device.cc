@@ -249,7 +249,7 @@ void Virtual_block_device_channel::_write_vba(bool &progress)
 		_lvl = snap().max_level;
 		_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
 		if (VERBOSE_WRITE_VBA)
-			log("  load branch:\n    ", Branch_lvl_prefix("root: "), snap());
+			log("write vba ", _vba, "\n  load branch:\n    ", Branch_lvl_prefix("root: "), snap());
 		break;
 
 	case READ_BLK_SUCCEEDED:

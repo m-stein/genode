@@ -242,12 +242,13 @@ append config {
 
 					<initialize>
 						<virtual-block-device levels="1" degree="2" leaves="1"/>
-						<free-tree levels="2" degree="64" leaves="4096"/>
+						<free-tree levels="1" degree="2" leaves="2"/>
 					</initialize>
 					<construct/>
 					<request op="extend_vbd" count="1" sync="no"/>
+					<request op="write" vba="0" count="1" sync="yes" salt="4321"/>
 					<check/>
-					<!--<request op="sync" vba="0" count="32" sync="no"/>-->
+					<check-snapshots/>
 
 				</commands>
 
