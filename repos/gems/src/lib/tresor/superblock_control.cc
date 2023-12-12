@@ -115,7 +115,6 @@ void Superblock_control_channel::_access_vba(Virtual_block_device_request::Type 
 	switch (_state) {
 	case REQ_SUBMITTED:
 	{
-		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
 		if (req._vba > _sb.max_vba()) {
 			_mark_req_failed(progress, "VBA greater than max VBA");
 			break;
@@ -147,7 +146,6 @@ void Superblock_control_channel::_tree_ext_step(Superblock::State sb_state, bool
 	switch (_state) {
 	case REQ_SUBMITTED:
 	{
-		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
 		Physical_block_address const last_used_pba { _sb.first_pba + (_sb.nr_of_pbas - 1) };
 		Number_of_blocks const nr_of_unused_pbas { MAX_PBA - last_used_pba };
 
@@ -163,9 +161,8 @@ void Superblock_control_channel::_tree_ext_step(Superblock::State sb_state, bool
 			_sb.resizing_nr_of_leaves = 0;
 			_pba = last_used_pba + 1;
 			if (verbose)
-				log(tree_name, " ext init: pbas ", _pba, "..",
-				    _pba + (Number_of_blocks)_sb.resizing_nr_of_pbas - 1,
-				    " leaves ", (Number_of_blocks)_sb.resizing_nr_of_leaves);
+				log(tree_name, " extension init: pbas ", _pba, "..", _pba + (Number_of_blocks)_sb.resizing_nr_of_pbas - 1,
+				    " leaves ", (Number_of_blocks)_sb.resizing_nr_of_leaves, "\n  secure sb (gen ", _curr_gen, ")");
 
 			_start_secure_sb(progress);
 			break;
@@ -176,8 +173,7 @@ void Superblock_control_channel::_tree_ext_step(Superblock::State sb_state, bool
 			req._nr_of_blks = _sb.resizing_nr_of_pbas;
 
 			if (verbose)
-				log(tree_name, " ext step: pbas ", _pba, "..",
-				    _pba + (Number_of_blocks)_sb.resizing_nr_of_pbas - 1,
+				log(tree_name, " extension step: pbas ", _pba, "..", _pba + (Number_of_blocks)_sb.resizing_nr_of_pbas - 1,
 				    " leaves ", (Number_of_blocks)_sb.resizing_nr_of_leaves);
 
 			req._nr_of_blks = _sb.resizing_nr_of_pbas;
@@ -229,6 +225,8 @@ void Superblock_control_channel::_tree_ext_step(Superblock::State sb_state, bool
 			_sb.state = Superblock::NORMAL;
 			req._client_req_finished = true;
 		}
+		if (verbose)
+			log("  secure sb (gen ", _curr_gen, ")");
 		_start_secure_sb(progress);
 		break;
 	}
@@ -244,7 +242,6 @@ void Superblock_control_channel::_rekey_vba(bool &progress)
 	switch (_state) {
 	case REQ_SUBMITTED:
 
-		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
 		if (_sb.state != Superblock::REKEYING) {
 			_mark_req_failed(progress, "check superblock state");
 			break;
@@ -310,7 +307,8 @@ void Superblock_control_channel::_secure_sb(bool &progress)
 	switch (_secure_sb_state) {
 	case STARTED:
 
-		_sb.curr_snap().gen = _curr_gen;
+		_sb.curr_snap().gen = _sb.last_secured_generation = _curr_gen;
+		_sb.discard_disposable_snapshots();
 		_sb_ciphertext.copy_all_but_key_values_from(_sb);
 		_generate_req<Trust_anchor::Encrypt_key>(
 			ENCRYPT_CURR_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb_ciphertext.current_key.value);
@@ -349,7 +347,6 @@ void Superblock_control_channel::_secure_sb(bool &progress)
 	}
 	case WRITE_SB_HASH_SUCCEEDED:
 
-		_sb.last_secured_generation = _gen;
 		_state = SECURE_SB_SUCCEEDED;
 		break;
 
@@ -363,7 +360,6 @@ void Superblock_control_channel::_init_rekeying(bool &progress)
 	switch (_state) {
 	case REQ_SUBMITTED:
 
-		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
 		if (_sb.state != Superblock::NORMAL) {
 			_mark_req_failed(progress, "check superblock state");
 			break;
@@ -405,7 +401,6 @@ void Superblock_control_channel::_discard_snap(bool &progress)
 			if (snap.valid && snap.gen == _req_ptr->_gen && snap.keep)
 				snap.keep = false;
 
-		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
 		_start_secure_sb(progress);
 		break;
 
@@ -431,7 +426,6 @@ void Superblock_control_channel::_create_snap(bool &progress)
 			_mark_req_successful(progress);
 		} else {
 			_sb.curr_snap().keep = true;
-			_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
 			_start_secure_sb(progress);
 		}
 		break;
@@ -453,7 +447,6 @@ void Superblock_control_channel::_sync(bool &progress)
 	switch (_state) {
 	case REQ_SUBMITTED:
 
-		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
 		_sb.last_secured_generation = _curr_gen;
 		_start_secure_sb(progress);
 		break;
@@ -481,7 +474,6 @@ void Superblock_control_channel::_initialize(bool &progress)
 	switch (_state) {
 	case REQ_SUBMITTED:
 
-		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
 		_generate_req<Trust_anchor::Read_hash>(READ_SB_HASH_SUCCEEDED, progress, _hash);
 		break;
 
@@ -546,7 +538,6 @@ void Superblock_control_channel::_deinitialize(bool &progress)
 	switch (_state) {
 	case REQ_SUBMITTED:
 
-		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
 		_sb.last_secured_generation = _curr_gen;
 		_start_secure_sb(progress);
 		break;
