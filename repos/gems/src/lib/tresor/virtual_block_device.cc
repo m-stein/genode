@@ -249,7 +249,7 @@ void Virtual_block_device_channel::_write_vba(bool &progress)
 		_lvl = snap().max_level;
 		_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
 		if (VERBOSE_WRITE_VBA)
-			log("  load branch:\n    ", Branch_lvl_prefix("root: "), snap());
+			log("write vba ", _vba, "\n  load branch:\n    ", Branch_lvl_prefix("root: "), snap());
 		break;
 
 	case READ_BLK_SUCCEEDED:
@@ -506,27 +506,23 @@ void Virtual_block_device_channel::_rekey_vba(bool &progress)
 bool Virtual_block_device_channel::_add_new_root_lvl_to_snap()
 {
 	Request &req { *_req_ptr };
-	Snapshot_index old_idx { _snap_idx };
-	Snapshot_index &idx { _snap_idx };
-	Snapshot *snap { req._snapshots.items };
-	if (snap[idx].max_level >= TREE_MAX_LEVEL)
+	Snapshot const &old_snap { req._snapshots.items[_snap_idx] };
+	if (old_snap.max_level >= TREE_MAX_LEVEL)
 		return false;
 
-	Tree_level_index new_lvl { snap[old_idx].max_level + 1 };
+	Tree_level_index new_lvl { old_snap.max_level + 1 };
 	_t1_blks.items[new_lvl] = { };
-	_t1_blks.items[new_lvl].nodes[0] = { snap[idx].pba, snap[idx].gen, snap[idx].hash };
+	_t1_blks.items[new_lvl].nodes[0] = { old_snap.pba, old_snap.gen, old_snap.hash };
+	if (old_snap.gen < req._curr_gen)
+		_snap_idx = req._snapshots.alloc_idx(req._curr_gen, req._last_secured_gen);
 
-	if (snap[idx].gen < req._curr_gen) {
-		idx = req._snapshots.alloc_idx(req._curr_gen, req._last_secured_gen);
-		if (VERBOSE_VBD_EXTENSION)
-			log("  new snap ", idx);
-	}
-	snap[idx] = {
-		{ }, alloc_pba_from_range(req._pba, req._num_pbas), req._curr_gen, snap[old_idx].nr_of_leaves,
+	Snapshot &new_snap { req._snapshots.items[_snap_idx] };
+	new_snap = {
+		{ }, alloc_pba_from_range(req._pba, req._num_pbas), req._curr_gen, old_snap.nr_of_leaves,
 		new_lvl, true, 0, false };
 
 	if (VERBOSE_VBD_EXTENSION)
-		log("  update snap ", idx, " ", snap[idx], "\n  update lvl ", new_lvl, " child 0 ", _t1_blks.items[new_lvl].nodes[0]);
+		log("  update snap ", _snap_idx, " (", new_snap, ")\n  update lvl ", new_lvl, " child 0 ", _t1_blks.items[new_lvl].nodes[0]);
 
 	return true;
 }
@@ -554,7 +550,7 @@ void Virtual_block_device_channel::_add_new_branch_to_snap(Tree_level_index moun
 			Type_1_node &node { _t1_blks.items[lvl].nodes[node_idx] };
 			node = { alloc_pba_from_range(req._pba, req._num_pbas), INITIAL_GENERATION, { } };
 			if (VERBOSE_VBD_EXTENSION)
-				log("  update lvl ", lvl, " node ", node_idx, " ", node);
+				log("  alloc pba ", node.pba, " from resizing contingent\n  update lvl ", lvl, " node ", node_idx, " (", node, ")");
 
 			return true;
 		};
@@ -651,7 +647,7 @@ void Virtual_block_device_channel::_extension_step(bool &progress)
 		if (_vba <= tree_max_max_vba(req._snap_degr, snap().max_level)) {
 			_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
 			if (VERBOSE_VBD_EXTENSION)
-				log("  read lvl ", _lvl, " parent snap ", _snap_idx, " ", snap());
+				log("  load snap ", _snap_idx, " (", snap(), ") to lvl ", _lvl);
 		} else {
 			if (!_add_new_root_lvl_to_snap()) {
 				_mark_req_failed(progress, "add new root level");
@@ -661,24 +657,15 @@ void Virtual_block_device_channel::_extension_step(bool &progress)
 			_set_new_pbas_identical_to_curr_pbas();
 			_generate_write_blk_req(progress);
 			if (VERBOSE_VBD_EXTENSION)
-				log("  write 1 lvl ", _lvl, " pba ", _new_pbas.pbas[_lvl]);
+				log("  write back lvl ", _lvl, " to pba ", _new_pbas.pbas[_lvl]);
 		}
 		break;
 
 	case READ_BLK_SUCCEEDED:
 	{
-		_t1_blks.items[_lvl].decode_from_blk(_encoded_blk);
-		if (_lvl == snap().max_level) {
-			if (!check_hash(_encoded_blk, snap().hash)) {
-				_mark_req_failed(progress, "check root node hash");
-				break;
-			}
-		} else {
-			if (!check_hash(_encoded_blk, _node(_lvl + 1, _vba).hash)) {
-				_mark_req_failed(progress, "check inner node hash");
-				break;
-			}
-		}
+		if (!_check_and_decode_read_blk(progress))
+			break;
+
 		Tree_node_index node_idx { _node_idx(_lvl, _vba) };
 		if (_lvl > 1) {
 			Type_1_node &node { _node(_lvl, _vba) };
@@ -686,7 +673,7 @@ void Virtual_block_device_channel::_extension_step(bool &progress)
 				_old_pbas.pbas[_lvl - 1] = node.pba;
 				_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _encoded_blk);
 				if (VERBOSE_VBD_EXTENSION)
-					log("  read lvl ", _lvl - 1, " parent lvl ", _lvl, " node ", node_idx, " ", node);
+					log("  load lvl ", _lvl, " node ", node_idx, " (", node, ") to lvl ", _lvl - 1);
 				_lvl--;
 			} else {
 				_add_new_branch_to_snap(_lvl, node_idx);
@@ -701,11 +688,12 @@ void Virtual_block_device_channel::_extension_step(bool &progress)
 	case ALLOC_PBAS_SUCCEEDED:
 	{
 		if (VERBOSE_VBD_EXTENSION) {
-			log("  allocated ", _num_blks, " pbas");
-			for (Tree_level_index lvl { 0 }; lvl < snap().max_level; lvl++)
-				log("    lvl ", lvl, " ", _t1_nodes.nodes[lvl], " -> pba ", _new_pbas.pbas[lvl]);
+			log("  allocated ", _num_blks, " pba", _num_blks > 1 ? "s" : "", " at free tree");
+			for (Tree_level_index lvl { 0 }; lvl <= snap().max_level; lvl++)
+				if (_t1_nodes.nodes[lvl].pba != _new_pbas.pbas[lvl])
+					log("    lvl ", lvl, ": pba ", _new_pbas.pbas[lvl]);
 
-			log("  write 1 lvl ", _lvl, " pba ", _new_pbas.pbas[_lvl]);
+			log("  write back lvl ", _lvl, " to pba ", _new_pbas.pbas[_lvl]);
 		}
 		_generate_write_blk_req(progress);
 		break;
@@ -719,19 +707,17 @@ void Virtual_block_device_channel::_extension_step(bool &progress)
 			node.pba = _new_pbas.pbas[_lvl - 1];
 			_generate_write_blk_req(progress);
 			if (VERBOSE_VBD_EXTENSION)
-				log("  update lvl ", _lvl, " node ", _node_idx(_lvl, _vba), " ", node, "\n  write 2 lvl ", _lvl, " pba ", _new_pbas.pbas[_lvl]);
+				log("  update lvl ", _lvl, " node ", _node_idx(_lvl, _vba), " (", node, ")\n  write back lvl ", _lvl,
+				    " to pba ", _new_pbas.pbas[_lvl], ")");
 		} else {
 			Snapshot &old_snap { snap() };
-			if (snap().gen < req._curr_gen) {
+			if (snap().gen < req._curr_gen)
 				_snap_idx = req._snapshots.alloc_idx(req._curr_gen, req._last_secured_gen);
-				if (VERBOSE_VBD_EXTENSION)
-					log("  new snap ", _snap_idx);
-			}
 			Number_of_leaves num_leaves { old_snap.nr_of_leaves + req._num_leaves };
 			snap() = { { }, _new_pbas.pbas[_lvl], req._curr_gen, num_leaves, old_snap.max_level, true, 0, false };
 			calc_hash(_encoded_blk, snap().hash);
 			if (VERBOSE_VBD_EXTENSION)
-				log("  update snap ", _snap_idx, " ", snap());
+				log("  update snap ", _snap_idx, " (", snap(), ")");
 
 			_mark_req_successful(progress);
 		}
