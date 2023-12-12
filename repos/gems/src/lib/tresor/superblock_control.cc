@@ -163,9 +163,8 @@ void Superblock_control_channel::_tree_ext_step(Superblock::State sb_state, bool
 			_sb.resizing_nr_of_leaves = 0;
 			_pba = last_used_pba + 1;
 			if (verbose)
-				log(tree_name, " ext init: pbas ", _pba, "..",
-				    _pba + (Number_of_blocks)_sb.resizing_nr_of_pbas - 1,
-				    " leaves ", (Number_of_blocks)_sb.resizing_nr_of_leaves);
+				log(tree_name, " extension init: pbas ", _pba, "..", _pba + (Number_of_blocks)_sb.resizing_nr_of_pbas - 1,
+				    " leaves ", (Number_of_blocks)_sb.resizing_nr_of_leaves, "\n  secure sb (gen ", _curr_gen, ")");
 
 			_start_secure_sb(progress);
 			break;
@@ -176,8 +175,7 @@ void Superblock_control_channel::_tree_ext_step(Superblock::State sb_state, bool
 			req._nr_of_blks = _sb.resizing_nr_of_pbas;
 
 			if (verbose)
-				log(tree_name, " ext step: pbas ", _pba, "..",
-				    _pba + (Number_of_blocks)_sb.resizing_nr_of_pbas - 1,
+				log(tree_name, " extension step: pbas ", _pba, "..", _pba + (Number_of_blocks)_sb.resizing_nr_of_pbas - 1,
 				    " leaves ", (Number_of_blocks)_sb.resizing_nr_of_leaves);
 
 			req._nr_of_blks = _sb.resizing_nr_of_pbas;
@@ -229,6 +227,8 @@ void Superblock_control_channel::_tree_ext_step(Superblock::State sb_state, bool
 			_sb.state = Superblock::NORMAL;
 			req._client_req_finished = true;
 		}
+		if (verbose)
+			log("  secure sb (gen ", _curr_gen, ")");
 		_start_secure_sb(progress);
 		break;
 	}
