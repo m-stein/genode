@@ -87,7 +87,6 @@ class Tresor::Superblock_control_channel : public Module_channel
 		Secure_sb_state _secure_sb_state { SECURE_SB_INACTIVE };
 		Superblock _sb_ciphertext { };
 		Block _blk { };
-		Generation _gen { INVALID_GENERATION };
 		Hash _hash { };
 		Physical_block_address _pba { INVALID_PBA };
 		Number_of_blocks _nr_of_leaves { 0 };

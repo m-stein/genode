@@ -310,7 +310,7 @@ void Superblock_control_channel::_secure_sb(bool &progress)
 	switch (_secure_sb_state) {
 	case STARTED:
 
-		_sb.curr_snap().gen = _curr_gen;
+		_sb.curr_snap().gen = _sb.last_secured_generation = _curr_gen;
 		_sb_ciphertext.copy_all_but_key_values_from(_sb);
 		_generate_req<Trust_anchor::Encrypt_key>(
 			ENCRYPT_CURR_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb_ciphertext.current_key.value);
@@ -342,17 +342,10 @@ void Superblock_control_channel::_secure_sb(bool &progress)
 			_sb_idx++;
 		else
 			_sb_idx = 0;
-
-		_gen = _curr_gen;
 		_curr_gen++;
 		break;
 	}
-	case WRITE_SB_HASH_SUCCEEDED:
-
-		_sb.last_secured_generation = _gen;
-		_state = SECURE_SB_SUCCEEDED;
-		break;
-
+	case WRITE_SB_HASH_SUCCEEDED: _state = SECURE_SB_SUCCEEDED; break;
 	default: break;
 	}
 }
@@ -406,16 +399,12 @@ void Superblock_control_channel::_discard_snap(bool &progress)
 				snap.keep = false;
 
 		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
+		_req_ptr->_gen = _curr_gen;
 		_start_secure_sb(progress);
 		break;
 
 	case SECURE_SB: _secure_sb(progress); break;
-	case SECURE_SB_SUCCEEDED:
-
-		_req_ptr->_gen = _gen;
-		_mark_req_successful(progress);
-		break;
-
+	case SECURE_SB_SUCCEEDED: _mark_req_successful(progress); break;
 	default: break;
 	}
 }
@@ -426,10 +415,10 @@ void Superblock_control_channel::_create_snap(bool &progress)
 	switch (_state) {
 	case REQ_SUBMITTED:
 
-		if (_sb.curr_snap().keep) {
-			_req_ptr->_gen = _sb.curr_snap().gen;
+		_req_ptr->_gen = _sb.curr_snap().gen;
+		if (_sb.curr_snap().keep)
 			_mark_req_successful(progress);
-		} else {
+		else {
 			_sb.curr_snap().keep = true;
 			_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
 			_start_secure_sb(progress);
@@ -437,12 +426,7 @@ void Superblock_control_channel::_create_snap(bool &progress)
 		break;
 
 	case SECURE_SB: _secure_sb(progress); break;
-	case SECURE_SB_SUCCEEDED:
-
-		_req_ptr->_gen = _gen;
-		_mark_req_successful(progress);
-		break;
-
+	case SECURE_SB_SUCCEEDED: _mark_req_successful(progress); break;
 	default: break;
 	}
 }
@@ -495,8 +479,9 @@ void Superblock_control_channel::_initialize(bool &progress)
 
 		if (check_hash(_blk, _hash)) {
 			_sb_ciphertext.decode_from_blk(_blk);
-			_gen = _sb_ciphertext.snapshots.items[_sb_ciphertext.snapshots.newest_snap_idx()].gen;
 			_sb.copy_all_but_key_values_from(_sb_ciphertext);
+			_curr_gen = _sb.snapshots.items[_sb.snapshots.newest_snap_idx()].gen + 1;
+			_req_ptr->_sb_state = _sb.state;
 			_generate_req<Trust_anchor::Decrypt_key>(
 				DECRYPT_CURR_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb_ciphertext.current_key.value);
 		} else
@@ -517,11 +502,8 @@ void Superblock_control_channel::_initialize(bool &progress)
 		if (_sb_ciphertext.state == Superblock::REKEYING)
 			_generate_req<Trust_anchor::Decrypt_key>(
 				DECRYPT_PREV_KEY_SUCCEEDED, progress, _sb.previous_key.value, _sb_ciphertext.previous_key.value);
-		else {
-			_curr_gen = _gen + 1;
-			_req_ptr->_sb_state = _sb.state;
+		else
 			_mark_req_successful(progress);
-		}
 		break;
 
 	case DECRYPT_PREV_KEY_SUCCEEDED:
@@ -529,13 +511,7 @@ void Superblock_control_channel::_initialize(bool &progress)
 		_generate_req<Crypto::Add_key>(ADD_PREV_KEY_SUCCEEDED, progress, _sb.previous_key);
 		break;
 
-	case ADD_PREV_KEY_SUCCEEDED:
-
-		_curr_gen = _gen + 1;
-		_req_ptr->_sb_state = _sb.state;
-		_mark_req_successful(progress);
-		break;
-
+	case ADD_PREV_KEY_SUCCEEDED: _mark_req_successful(progress); break;
 	default: break;
 	}
 }
