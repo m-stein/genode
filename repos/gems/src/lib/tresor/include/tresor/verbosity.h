@@ -17,18 +17,18 @@
 namespace Tresor {
 
 	enum { VERBOSE_MODULE_COMMUNICATION = 0 };
-	enum { VERBOSE_VBD_EXTENSION        = 1 };
+	enum { VERBOSE_VBD_EXTENSION        = 0 };
 	enum { VERBOSE_FT_EXTENSION         = 0 };
 	enum { VERBOSE_VBD_INIT             = 0 };
 	enum { VERBOSE_FT_INIT              = 0 };
 	enum { VERBOSE_REKEYING             = 0 };
 	enum { VERBOSE_READ_VBA             = 0 };
-	enum { VERBOSE_WRITE_VBA            = 1 };
+	enum { VERBOSE_WRITE_VBA            = 0 };
 	enum { VERBOSE_CRYPTO               = 0 };
-	enum { VERBOSE_BLOCK_IO             = 1 };
-	enum { VERBOSE_BLOCK_IO_PBA_FILTER  = 1 };
-	enum { VERBOSE_BLOCK_IO_PBA         = 9 };
-	enum { VERBOSE_CHECK                = 1 };
+	enum { VERBOSE_BLOCK_IO             = 0 };
+	enum { VERBOSE_BLOCK_IO_PBA_FILTER  = 0 };
+	enum { VERBOSE_BLOCK_IO_PBA         = 0 };
+	enum { VERBOSE_CHECK                = 0 };
 }
 
 #endif /* _TRESOR__VERBOSITY_H_ */

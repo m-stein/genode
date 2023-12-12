@@ -115,8 +115,6 @@ void Superblock_control_channel::_access_vba(Virtual_block_device_request::Type 
 	switch (_state) {
 	case REQ_SUBMITTED:
 	{
-
-{ unsigned x = 0; for(Snapshot const &snap : _sb.snapshots.items) if (snap.valid) log("+ snap ", x++, ": ", snap); }
 		if (req._vba > _sb.max_vba()) {
 			_mark_req_failed(progress, "VBA greater than max VBA");
 			break;
@@ -233,10 +231,7 @@ void Superblock_control_channel::_tree_ext_step(Superblock::State sb_state, bool
 		break;
 	}
 	case SECURE_SB: _secure_sb(progress); break;
-	case SECURE_SB_SUCCEEDED:
-{ unsigned x = 0; for(Snapshot const &snap : _sb.snapshots.items) if (snap.valid) log("+ snap ", x++, ": ", snap); }
-
-_mark_req_successful(progress); break;
+	case SECURE_SB_SUCCEEDED: _mark_req_successful(progress); break;
 	default: break;
 	}
 }
