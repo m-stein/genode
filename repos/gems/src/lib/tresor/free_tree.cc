@@ -58,9 +58,13 @@ void Free_tree::execute(bool &progress)
 
 bool Free_tree_channel::_can_alloc_pba_of(Type_2_node &node)
 {
+log("-----");
 	Request &req { *_req_ptr };
+{ unsigned x = 0; for(Snapshot const &snap : req._snapshots.items) if (snap.valid) log("+ snap ", x++, ": ", snap); }
 	if (node.pba == 0 || node.pba == INVALID_PBA || node.free_gen > req._last_secured_gen)
+{
 		return false;
+}
 
 	if (!node.reserved)
 		return true;
@@ -69,9 +73,18 @@ bool Free_tree_channel::_can_alloc_pba_of(Type_2_node &node)
 		return true;
 
 	for (Snapshot const &snap : req._snapshots.items)
-		if (snap.valid && node.free_gen > snap.gen && node.alloc_gen < snap.gen + 1)
-			return false;
+{
+if (snap.valid)
+	log("can alloc a: node (", node, ") snap (", snap, ")");
 
+		if (snap.valid && node.free_gen > snap.gen && node.alloc_gen < snap.gen + 1)
+{
+
+			return false;
+}
+}
+
+		log("can alloc b: node (", node, ") lsg ", req._last_secured_gen);
 	return true;
 }
 
@@ -102,7 +115,8 @@ void Free_tree_channel::_alloc_pba_of(Type_2_node &t2_node)
 	Virtual_block_address rkg_vba { req._rekeying_vba };
 	switch (req._type) {
 	case Request::ALLOC_FOR_NON_RKG:
-
+{
+Type_2_node n = t2_node;
 		t2_node.reserved = true;
 		t2_node.pba = req._old_blocks.nodes[vbd_lvl].pba;
 		t2_node.last_vba = node_min_vba;
@@ -113,8 +127,9 @@ void Free_tree_channel::_alloc_pba_of(Type_2_node &t2_node)
 				t2_node.last_key_id = req._prev_key_id;
 		} else
 			t2_node.last_key_id = req._curr_key_id;
+log("alloc: ", n, " -> ", t2_node);
 		break;
-
+}
 	case Request::ALLOC_FOR_RKG_CURR_GEN_BLKS:
 
 		t2_node.reserved = false;
