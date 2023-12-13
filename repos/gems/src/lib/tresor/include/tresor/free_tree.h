@@ -117,6 +117,8 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		void _mark_req_failed(bool &, char const *);
 
+		bool _check_and_decode_read_blk(bool &progress);
+
 		bool _can_alloc_pba_of(Type_2_node &);
 
 		void _alloc_pba_of(Type_2_node &);

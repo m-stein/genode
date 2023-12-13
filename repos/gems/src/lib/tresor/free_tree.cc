@@ -246,12 +246,12 @@ void Free_tree_channel::_alloc_pbas(bool &progress)
 				req._ft.t1_node(_t1_blks[_lvl].nodes[_node_idx[_lvl]]);
 				_mark_req_successful(progress);
 			} else {
-				if (_num_pbas < req._num_required_pbas)
+				if (_num_pbas < req._num_required_pbas) {
 					_mark_req_failed(progress, "not enough free pbas");
-				else {
-					_apply_allocation = true;
-					_start_tree_traversal(progress);
+					break;
 				}
+				_apply_allocation = true;
+				_start_tree_traversal(progress);
 			}
 		}
 		break;
@@ -353,6 +353,38 @@ void Free_tree_channel::_add_new_branch_at(Tree_level_index dst_lvl, Tree_node_i
 }
 
 
+bool Free_tree_channel::_check_and_decode_read_blk(bool &progress)
+{
+	Request &req { *_req_ptr };
+	if (_lvl == req._ft.max_lvl) {
+		if (!check_hash(_blk, req._ft.hash)) {
+			_mark_req_failed(progress, "hash mismatch");
+			return false;
+		}
+		_t1_blks[_lvl].decode_from_blk(_blk);
+		return true;
+	}
+	Type_1_node &node = _t1_blks[_lvl + 1].nodes[t1_node_idx_for_vba(_vba, _lvl + 1, req._ft.degree)];
+	if (_lvl > 1) {
+		if (!check_hash(_blk, node.hash)) {
+			_mark_req_failed(progress, "hash mismatch");
+			return false;
+		}
+		_t1_blks[_lvl].decode_from_blk(_blk);
+		return true;
+	}
+	if (_lvl == 1) {
+		if (!check_hash(_blk, node.hash)) {
+			_mark_req_failed(progress, "hash mismatch");
+			return false;
+		}
+		_t2_blk.decode_from_blk(_blk);
+		return true;
+	}
+	ASSERT_NEVER_REACHED;
+}
+
+
 void Free_tree_channel::_extension_step(bool &progress)
 {
 	Request &req { *_req_ptr };
@@ -383,17 +415,10 @@ void Free_tree_channel::_extension_step(bool &progress)
 
 	case READ_BLK_SUCCEEDED:
 
+		if (!_check_and_decode_read_blk(progress))
+			break;
+
 		if (_lvl > 1) {
-
-			_t1_blks[_lvl].decode_from_blk(_blk);
-			if (_lvl < req._ft.max_lvl) {
-				Tree_node_index node_idx = t1_node_idx_for_vba(_vba, _lvl + 1, req._ft.degree);
-				if (!check_hash(_blk, _t1_blks[_lvl + 1].nodes[node_idx].hash))
-					_mark_req_failed(progress, "hash mismatch");
-			} else
-				if (!check_hash(_blk, req._ft.hash))
-					_mark_req_failed(progress, "hash mismatch");
-
 			Tree_node_index node_idx = t1_node_idx_for_vba(_vba, _lvl, req._ft.degree);
 			Type_1_node &t1_node = _t1_blks[_lvl].nodes[node_idx];
 			if (t1_node.valid()) {
@@ -408,7 +433,6 @@ void Free_tree_channel::_extension_step(bool &progress)
 				_alloc_lvl = _lvl;
 				_add_new_branch_at(_lvl, node_idx);
 				if (_old_generations.items[_alloc_lvl] == req._curr_gen) {
-
 					_alloc_pba = _old_pbas.pbas[_alloc_lvl];
 					_state = ALLOC_PBA_SUCCEEDED;
 					progress = true;
@@ -419,16 +443,12 @@ void Free_tree_channel::_extension_step(bool &progress)
 				}
 			}
 		} else {
-			_t2_blk.decode_from_blk(_blk);
-			Tree_node_index t1_node_idx = t1_node_idx_for_vba(_vba, _lvl + 1, req._ft.degree);
-			if (!check_hash(_blk, _t1_blks[_lvl + 1].nodes[t1_node_idx].hash))
-				_mark_req_failed(progress, "hash mismatch");
-
-			Tree_node_index t2_node_idx = t2_node_idx_for_vba(_vba, req._ft.degree);
-			if (_t2_blk.nodes[t2_node_idx].valid())
+			Tree_node_index node_idx = t2_node_idx_for_vba(_vba, req._ft.degree);
+			if (_t2_blk.nodes[node_idx].valid()) {
 				_mark_req_failed(progress, "t2 node valid");
-
-			_add_new_branch_at(_lvl, t2_node_idx);
+				break;
+			}
+			_add_new_branch_at(_lvl, node_idx);
 			_alloc_lvl = _lvl;
 			if (VERBOSE_FT_EXTENSION)
 				log("  alloc lvl ", _alloc_lvl);
