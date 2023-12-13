@@ -296,7 +296,7 @@ void Free_tree_channel::_generate_write_blk_req(bool &progress)
 
 	_generate_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _blk);
 	if (VERBOSE_FT_EXTENSION)
-		log("  lvl ", _lvl, " write to pba ", _new_pbas.pbas[_lvl]);
+		log("  write lvl ", _lvl, " to pba ", _new_pbas.pbas[_lvl]);
 }
 
 
@@ -304,14 +304,17 @@ void Free_tree_channel::_add_new_root_lvl()
 {
 	Request &req { *_req_ptr };
 	ASSERT(req._ft.max_lvl < TREE_MAX_LEVEL);
+	if (VERBOSE_FT_EXTENSION)
+		log("  abandon old root (", req._ft, ")");
+
 	req._ft.max_lvl++;
 	_t1_blks[req._ft.max_lvl] = { };
 	_t1_blks[req._ft.max_lvl].nodes[0] = req._ft.t1_node();
 	_new_pbas.pbas[req._ft.max_lvl] = alloc_pba_from_range(req._pba, req._num_pbas);
 	req._ft.t1_node({ _new_pbas.pbas[req._ft.max_lvl], req._curr_gen });
 	if (VERBOSE_FT_EXTENSION)
-		log("  set root: ", req._ft, "\n  set lvl ", req._ft.max_lvl, " node 0: ",
-		    _t1_blks[req._ft.max_lvl].nodes[0]);
+		log("  alloc pba ", req._ft.pba, " at resizing contingent\n  set root (", req._ft, ")\n  set lvl ",
+		    req._ft.max_lvl, " node 0 (", _t1_blks[req._ft.max_lvl].nodes[0], ")");
 }
 
 
@@ -337,14 +340,16 @@ void Free_tree_channel::_add_new_branch_at(Tree_level_index dst_lvl, Tree_node_i
 			_new_pbas.pbas[_lvl - 1] = alloc_pba_from_range(req._pba, req._num_pbas);
 			_t1_blks[_lvl].nodes[node_idx] = { _new_pbas.pbas[_lvl - 1], req._curr_gen };
 			if (VERBOSE_FT_EXTENSION)
-				log("  set _lvl d ", _lvl, " node ", node_idx, ": ", _t1_blks[_lvl].nodes[node_idx]);
+				log("  alloc pba ", _t1_blks[_lvl].nodes[node_idx].pba, " at resizing contingent\n  set lvl ",
+				    _lvl, " node ", node_idx, " (", _t1_blks[_lvl].nodes[node_idx], ")");
 
 		} else {
 			for (; node_idx < req._ft.degree && req._num_pbas; node_idx++) {
 				_t2_blk.nodes[node_idx] = { alloc_pba_from_range(req._pba, req._num_pbas) };
 				_num_leaves++;
 				if (VERBOSE_FT_EXTENSION)
-					log("  set _lvl e ", _lvl, " node ", node_idx, ": ", _t2_blk.nodes[node_idx]);
+					log("  alloc pba ", _t2_blk.nodes[node_idx].pba, " at resizing contingent\n  set lvl ",
+					    _lvl, " node ", node_idx, " (", _t2_blk.nodes[node_idx], ")");
 			}
 		}
 	}
@@ -403,13 +408,11 @@ void Free_tree_channel::_extension_step(bool &progress)
 
 			_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, req._ft.pba, _blk);
 			if (VERBOSE_FT_EXTENSION)
-				log("  root (", req._ft, "): load to lvl ", _lvl);
+				log("  load root (", req._ft, ") to lvl ", _lvl);
 		} else {
 			_add_new_root_lvl();
 			_add_new_branch_at(req._ft.max_lvl, 1);
 			_generate_write_blk_req(progress);
-			if (VERBOSE_FT_EXTENSION)
-				log("  pbas allocated: curr gen ", req._curr_gen);
 		}
 		break;
 
@@ -428,7 +431,7 @@ void Free_tree_channel::_extension_step(bool &progress)
 				_old_generations.items[_lvl] = t1_node.gen;
 				_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, t1_node.pba, _blk);
 				if (VERBOSE_FT_EXTENSION)
-					log("  lvl ", _lvl + 1, " node ", node_idx, " (", t1_node, "): load to lvl ", _lvl);
+					log("  load lvl ", _lvl + 1, " node ", node_idx, " (", t1_node, ") to lvl ", _lvl);
 			} else {
 				_alloc_lvl = _lvl;
 				_add_new_branch_at(_lvl, node_idx);
@@ -450,9 +453,6 @@ void Free_tree_channel::_extension_step(bool &progress)
 			}
 			_add_new_branch_at(_lvl, node_idx);
 			_alloc_lvl = _lvl;
-			if (VERBOSE_FT_EXTENSION)
-				log("  alloc lvl ", _alloc_lvl);
-
 			_alloc_pba = _old_pbas.pbas[_alloc_lvl];
 			_generate_req<Meta_tree_request>(
 				ALLOC_PBA_SUCCEEDED, progress, Meta_tree_request::ALLOC_PBA, req._mt, req._curr_gen, _alloc_pba);
@@ -462,6 +462,9 @@ void Free_tree_channel::_extension_step(bool &progress)
 	case ALLOC_PBA_SUCCEEDED:
 
 		_new_pbas.pbas[_alloc_lvl] = _alloc_pba;
+		if (VERBOSE_FT_EXTENSION)
+			log("  alloc pba (", _old_pbas.pbas[_alloc_lvl], " -> ", _alloc_pba, ") at meta tree");
+
 		if (_alloc_lvl < req._ft.max_lvl) {
 
 			_alloc_lvl++;
@@ -475,11 +478,8 @@ void Free_tree_channel::_extension_step(bool &progress)
 				_generate_req<Meta_tree_request>(
 					ALLOC_PBA_SUCCEEDED, progress, Meta_tree_request::ALLOC_PBA, req._mt, req._curr_gen, _alloc_pba);
 			}
-		} else {
+		} else
 			_generate_write_blk_req(progress);
-			if (VERBOSE_FT_EXTENSION)
-				log("  pbas allocated: curr gen ", req._curr_gen);
-		}
 		break;
 
 	case WRITE_BLK_SUCCEEDED:
@@ -491,7 +491,7 @@ void Free_tree_channel::_extension_step(bool &progress)
 				t1_node = { _new_pbas.pbas[_lvl], req._curr_gen };
 				calc_hash(_blk, t1_node.hash);
 				if (VERBOSE_FT_EXTENSION)
-					log("  set lvl ", _lvl + 1, " node ", node_idx, ": ", t1_node);
+					log("  set lvl ", _lvl + 1, " node ", node_idx, " (", t1_node, ")");
 
 				_lvl++;
 				_generate_write_blk_req(progress);
@@ -501,7 +501,7 @@ void Free_tree_channel::_extension_step(bool &progress)
 				t1_node = { _new_pbas.pbas[_lvl], req._curr_gen };
 				calc_hash(_blk, t1_node.hash);
 				if (VERBOSE_FT_EXTENSION)
-					log("  set lvl ", _lvl + 1, " t1_node ", node_idx, ": ", t1_node);
+					log("  set lvl ", _lvl + 1, " t1_node ", node_idx, " (", t1_node, ")");
 
 				_lvl++;
 				_generate_write_blk_req(progress);
@@ -510,6 +510,9 @@ void Free_tree_channel::_extension_step(bool &progress)
 			req._ft.t1_node({ _new_pbas.pbas[_lvl], req._curr_gen });
 			calc_hash(_blk, req._ft.hash);
 			req._ft.num_leaves += _num_leaves;
+			if (VERBOSE_FT_EXTENSION)
+				log("  set root (", req._ft, ")");
+
 			_mark_req_successful(progress);
 		}
 		break;
