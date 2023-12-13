@@ -411,11 +411,12 @@ void Superblock_control_channel::_create_snap(bool &progress)
 	switch (_state) {
 	case REQ_SUBMITTED:
 
-		_req_ptr->_gen = _sb.curr_snap().gen;
-		if (_sb.curr_snap().keep)
+		if (_sb.curr_snap().keep) {
+			_req_ptr->_gen = _sb.curr_snap().gen;
 			_mark_req_successful(progress);
-		else {
+		} else {
 			_sb.curr_snap().keep = true;
+			_req_ptr->_gen = _curr_gen;
 			_start_secure_sb(progress);
 		}
 		break;
