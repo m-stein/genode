@@ -119,12 +119,9 @@ void Superblock_control_channel::_access_vba(Virtual_block_device_request::Type 
 			_mark_req_failed(progress, "VBA greater than max VBA");
 			break;
 		}
-		if (type == Virtual_block_device_request::WRITE_VBA && _sb.curr_snap().gen != _curr_gen) {
-			Snapshot &snap { _sb.curr_snap() };
-			_sb.curr_snap_idx = _sb.snapshots.alloc_idx(_curr_gen, _sb.last_secured_generation);
-			_sb.curr_snap() = snap;
-			_sb.curr_snap().keep = false;
-		}
+		if (type == Virtual_block_device_request::WRITE_VBA)
+			_sb.prepare_for_modificatications_to_curr_snap();
+
 		Key_id key_id { _sb.state == Superblock::REKEYING && req._vba >= _sb.rekeying_vba ?
 			_sb.previous_key.id : _sb.current_key.id };
 
@@ -309,6 +306,7 @@ void Superblock_control_channel::_secure_sb(bool &progress)
 
 		_sb.curr_snap().gen = _sb.last_secured_generation = _curr_gen;
 		_sb.discard_disposable_snapshots();
+log("----"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);
 		_sb_ciphertext.copy_all_but_key_values_from(_sb);
 		_generate_req<Trust_anchor::Encrypt_key>(
 			ENCRYPT_CURR_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb_ciphertext.current_key.value);
@@ -413,10 +411,12 @@ void Superblock_control_channel::_create_snap(bool &progress)
 
 		if (_sb.curr_snap().keep) {
 			_req_ptr->_gen = _sb.curr_snap().gen;
+log("---2"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);
 			_mark_req_successful(progress);
 		} else {
 			_sb.curr_snap().keep = true;
 			_req_ptr->_gen = _curr_gen;
+log("---1"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);
 			_start_secure_sb(progress);
 		}
 		break;

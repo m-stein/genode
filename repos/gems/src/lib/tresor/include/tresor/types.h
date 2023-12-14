@@ -974,6 +974,17 @@ struct Tresor::Superblock
 			if (snap.valid && snap.gen < last_secured_generation && !snap.keep)
 				snap.valid = false;
 	}
+
+	void prepare_for_modifications_to_curr_snap()
+	{
+		if (curr_snap().gen > last_secured_generation)
+			return;
+
+		Snapshot &snap { curr_snap() };
+		curr_snap_idx = snapshots.alloc_idx(_sb.last_secured_generation + 1, _sb.last_secured_generation);
+		curr_snap() = snap;
+		curr_snap().keep = false;
+	}
 };
 
 
