@@ -746,31 +746,31 @@ struct Tresor::Superblock
 	enum State {
 		INVALID, NORMAL, REKEYING, EXTENDING_VBD, EXTENDING_FT };
 
-	State                  state                   { INVALID };         // offset 0
-	Virtual_block_address  rekeying_vba            { 0 };               // offset 1
-	Number_of_blocks       resizing_nr_of_pbas     { 0 };               // offset 9
-	Number_of_leaves       resizing_nr_of_leaves   { 0 };               // offset 17
-	Key                    previous_key            { };                 // offset 25
-	Key                    current_key             { };                 // offset 61
-	Snapshots              snapshots               { };                 // offset 97
-	Generation             last_secured_generation { 0 };               // offset 3553
-	Snapshot_index         curr_snap_idx           { 0 };               // offset 3561
-	Tree_degree            degree                  { TREE_MIN_DEGREE }; // offset 3565
-	Physical_block_address first_pba               { 0 };               // offset 3569
-	Number_of_blocks       nr_of_pbas              { 0 };               // offset 3577
-	Generation             free_gen                { 0 };               // offset 3585
-	Physical_block_address free_number             { 0 };               // offset 3593
-	Hash                   free_hash               { };                 // offset 3601
-	Tree_level_index       free_max_level          { 0 };               // offset 3633
-	Tree_degree            free_degree             { TREE_MIN_DEGREE }; // offset 3637
-	Number_of_leaves       free_leaves             { 0 };               // offset 3641
-	Generation             meta_gen                { 0 };               // offset 3649
-	Physical_block_address meta_number             { 0 };               // offset 3657
-	Hash                   meta_hash               { };                 // offset 3665
-	Tree_level_index       meta_max_level          { 0 };               // offset 3697
-	Tree_degree            meta_degree             { TREE_MIN_DEGREE }; // offset 3701
-	Number_of_leaves       meta_leaves             { 0 };               // offset 3705
-	                                                                    // offset 3713
+	State                  state                   { INVALID };         /* offset 0 */
+	Virtual_block_address  rekeying_vba            { 0 };               /* offset 1 */
+	Number_of_blocks       resizing_nr_of_pbas     { 0 };               /* offset 9 */
+	Number_of_leaves       resizing_nr_of_leaves   { 0 };               /* offset 17 */
+	Key                    previous_key            { };                 /* offset 25 */
+	Key                    current_key             { };                 /* offset 61 */
+	Snapshots              snapshots               { };                 /* offset 97 */
+	Generation             last_secured_generation { 0 };               /* offset 3553 */
+	Snapshot_index         curr_snap_idx           { 0 };               /* offset 3561 */
+	Tree_degree            degree                  { TREE_MIN_DEGREE }; /* offset 3565 */
+	Physical_block_address first_pba               { 0 };               /* offset 3569 */
+	Number_of_blocks       nr_of_pbas              { 0 };               /* offset 3577 */
+	Generation             free_gen                { 0 };               /* offset 3585 */
+	Physical_block_address free_number             { 0 };               /* offset 3593 */
+	Hash                   free_hash               { };                 /* offset 3601 */
+	Tree_level_index       free_max_level          { 0 };               /* offset 3633 */
+	Tree_degree            free_degree             { TREE_MIN_DEGREE }; /* offset 3637 */
+	Number_of_leaves       free_leaves             { 0 };               /* offset 3641 */
+	Generation             meta_gen                { 0 };               /* offset 3649 */
+	Physical_block_address meta_number             { 0 };               /* offset 3657 */
+	Hash                   meta_hash               { };                 /* offset 3665 */
+	Tree_level_index       meta_max_level          { 0 };               /* offset 3697 */
+	Tree_degree            meta_degree             { TREE_MIN_DEGREE }; /* offset 3701 */
+	Number_of_leaves       meta_leaves             { 0 };               /* offset 3705 */
+	                                                                    /* offset 3713 */
 
 	static State decode_state(On_disc_state val)
 	{
