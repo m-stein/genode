@@ -20,7 +20,7 @@ using namespace Tresor;
 
 Vbd_check_request::Vbd_check_request(Module_id src_mod, Module_channel_id src_chan, Tree_root const &vbd, bool &success)
 :
-	Module_request { src_mod, src_chan, VBD_CHECK }, _vbd { vbd }, _success { success }
+	Module_request(src_mod, src_chan, VBD_CHECK), _vbd(vbd), _success(success)
 { }
 
 

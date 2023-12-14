@@ -20,8 +20,8 @@ using namespace Tresor;
 Splitter_request::Splitter_request(Module_id src_mod, Module_channel_id src_chan, Operation op, bool &success,
                                    Request_offset off, Byte_range_ptr const &buf, Key_id key_id, Generation gen)
 :
-	Module_request { src_mod, src_chan, SPLITTER }, _op { op }, _off { off }, _key_id { key_id }, _gen { gen },
-	_buf { buf.start, buf.num_bytes }, _success { success }
+	Module_request(src_mod, src_chan, SPLITTER), _op(op), _off(off), _key_id(key_id), _gen(gen),
+	_buf(buf.start, buf.num_bytes), _success(success)
 { }
 
 

@@ -97,7 +97,7 @@ class Tresor::Meta_tree_channel : public Module_channel
 
 	public:
 
-		Meta_tree_channel(Module_channel_id id) : Module_channel { META_TREE, id } { }
+		Meta_tree_channel(Module_channel_id id) : Module_channel(META_TREE, id) { }
 
 		void execute(bool &);
 };

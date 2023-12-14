@@ -50,8 +50,8 @@ class Tresor::Client_data_request : public Module_request
 		                    Request_offset req_off, Request_tag req_tag, Physical_block_address pba,
 		                    Virtual_block_address vba, Block &blk, bool &success)
 		:
-			Module_request { src_mod_id, src_chan_id, CLIENT_DATA }, _type { type }, _req_off { req_off },
-			_req_tag { req_tag }, _pba { pba }, _vba { vba }, _blk { blk }, _success { success }
+			Module_request(src_mod_id, src_chan_id, CLIENT_DATA), _type(type), _req_off(req_off),
+			_req_tag(req_tag), _pba(pba), _vba(vba), _blk(blk), _success(success)
 		{ }
 
 		static char const *type_to_string(Type type)

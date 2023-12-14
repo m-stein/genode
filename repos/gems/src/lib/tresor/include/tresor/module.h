@@ -108,7 +108,7 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 
 	public:
 
-		Module_channel(Module_id module_id, Module_channel_id id) : _module_id { module_id }, _id { id } { };
+		Module_channel(Module_id module_id, Module_channel_id id) : _module_id(module_id), _id(id) { };
 
 		template <typename REQUEST, typename... ARGS>
 		void generate_req(State_uint complete_state, bool &progress, ARGS &&... args)
