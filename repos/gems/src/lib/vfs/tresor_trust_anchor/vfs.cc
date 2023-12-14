@@ -712,7 +712,7 @@ class Trust_anchor
 				return true;
 			}
 
-			// XXX trigger sync
+			/* XXX trigger sync */
 
 			bool const progress  = _private_key_io_job->execute();
 			bool const completed = _private_key_io_job->completed();
@@ -731,7 +731,7 @@ class Trust_anchor
 				return true;
 			}
 
-			// XXX trigger sync
+			/* XXX trigger sync */
 
 			bool const progress  = _jitterentropy_io_job->execute();
 			bool const completed = _jitterentropy_io_job->completed();
@@ -750,7 +750,7 @@ class Trust_anchor
 				return true;
 			}
 
-			// XXX trigger sync
+			/* XXX trigger sync */
 
 			bool const progress  = _key_io_job->execute();
 			bool const completed = _key_io_job->completed();
