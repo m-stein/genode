@@ -20,8 +20,8 @@ Trust_anchor_request::Trust_anchor_request(Module_id src_module_id, Module_chann
                                            Type type, Key_value &key_plaintext, Key_value &key_ciphertext,
                                            Hash &hash, Passphrase passphrase, bool &success)
 :
-	Module_request { src_module_id, src_chan_id, TRUST_ANCHOR }, _type { type }, _key_plaintext { key_plaintext },
-	_key_ciphertext { key_ciphertext }, _hash { hash }, _pass { passphrase }, _success { success }
+	Module_request(src_module_id, src_chan_id, TRUST_ANCHOR), _type(type), _key_plaintext(key_plaintext),
+	_key_ciphertext(key_ciphertext), _hash(hash), _pass(passphrase), _success(success)
 { }
 
 
@@ -161,7 +161,7 @@ void Trust_anchor_channel::execute(bool &progress)
 
 Trust_anchor_channel::Trust_anchor_channel(Module_channel_id id, Vfs::Env &vfs_env, Xml_node const &xml_node)
 :
-	Module_channel { TRUST_ANCHOR, id }, _vfs_env { vfs_env }, _path { xml_node.attribute_value("path", Tresor::Path()) }
+	Module_channel(TRUST_ANCHOR, id), _vfs_env(vfs_env), _path(xml_node.attribute_value("path", Tresor::Path()))
 { }
 
 

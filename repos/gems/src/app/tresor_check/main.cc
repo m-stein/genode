@@ -75,7 +75,7 @@ class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_compos
 
 	public:
 
-		Main(Env &env) : Module_channel { COMMAND_POOL, 0 }, _env { env }
+		Main(Env &env) : Module_channel(COMMAND_POOL, 0), _env(env)
 		{
 			add_module(COMMAND_POOL, *this);
 			add_module(CRYPTO, _crypto);

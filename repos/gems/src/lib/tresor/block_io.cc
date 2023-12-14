@@ -23,9 +23,8 @@ Block_io_request::Block_io_request(Module_id src_module_id, Module_channel_id sr
                                    Physical_block_address pba, Virtual_block_address vba, Block &blk, Hash &hash,
                                    bool &success)
 :
-	Module_request { src_module_id, src_chan_id, BLOCK_IO }, _type { type },
-	_client_req_offset { client_req_offset }, _client_req_tag { client_req_tag },
-	_key_id { key_id }, _pba { pba }, _vba { vba }, _blk { blk }, _hash { hash }, _success { success }
+	Module_request(src_module_id, src_chan_id, BLOCK_IO), _type(type), _client_req_offset(client_req_offset),
+	_client_req_tag(client_req_tag), _key_id(key_id), _pba(pba), _vba(vba), _blk(blk), _hash(hash), _success(success)
 { }
 
 
@@ -196,7 +195,7 @@ void Block_io_channel::_request_submitted(Module_request &mod_req)
 
 Block_io_channel::Block_io_channel(Module_channel_id id, Vfs::Env &vfs_env, Xml_node const &xml_node)
 :
-	Module_channel { BLOCK_IO, id }, _vfs_env { vfs_env }, _path { xml_node.attribute_value("path", Tresor::Path()) }
+	Module_channel(BLOCK_IO, id), _vfs_env(vfs_env), _path(xml_node.attribute_value("path", Tresor::Path()))
 { }
 
 

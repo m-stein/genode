@@ -84,7 +84,7 @@ class Tresor::Ft_check_channel : public Module_channel
 
 	public:
 
-		Ft_check_channel(Module_channel_id id) : Module_channel { FT_CHECK, id } { }
+		Ft_check_channel(Module_channel_id id) : Module_channel(FT_CHECK, id) { }
 
 		void execute(bool &);
 };

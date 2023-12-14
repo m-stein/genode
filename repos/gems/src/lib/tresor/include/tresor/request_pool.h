@@ -107,7 +107,7 @@ class Tresor::Request_pool_channel : public Module_channel
 
 	public:
 
-		Request_pool_channel(Module_channel_id id, Request_pool_channel_queue &chan_queue) : Module_channel { REQUEST_POOL, id }, _chan_queue { chan_queue } { }
+		Request_pool_channel(Module_channel_id id, Request_pool_channel_queue &chan_queue) : Module_channel(REQUEST_POOL, id), _chan_queue(chan_queue) { }
 
 		void execute(bool &);
 };

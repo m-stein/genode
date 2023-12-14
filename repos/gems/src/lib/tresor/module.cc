@@ -20,7 +20,7 @@ using namespace Tresor;
 
 Module_request::Module_request(Module_id src_module_id, Module_channel_id src_chan_id, Module_id dst_module_id)
 :
-	_src_module_id { src_module_id }, _src_chan_id { src_chan_id }, _dst_module_id { dst_module_id }
+	_src_module_id(src_module_id), _src_chan_id(src_chan_id), _dst_module_id(dst_module_id)
 { }
 
 

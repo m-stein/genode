@@ -122,7 +122,7 @@ class Vfs_tresor::Client_data : public Tresor::Module, public Tresor::Module_cha
 
 	public:
 
-		Client_data(Lookup_buffer &lb) : Module_channel { CLIENT_DATA, 0 }, _lookup { lb } { add_channel(*this);}
+		Client_data(Lookup_buffer &lb) : Module_channel(CLIENT_DATA, 0), _lookup(lb) { add_channel(*this); }
 };
 
 
@@ -192,8 +192,7 @@ class Vfs_tresor::Wrapper
 				char             *buffer_start     { nullptr };
 				size_t            buffer_num_bytes { 0 };
 
-				Command(Vfs_tresor::Wrapper &main, Module_channel_id id)
-				: Module_channel { COMMAND_POOL, id }, _main { main } { }
+				Command(Vfs_tresor::Wrapper &main, Module_channel_id id) : Module_channel(COMMAND_POOL, id), _main(main) { }
 
 				void reset()
 				{
@@ -334,7 +333,7 @@ class Vfs_tresor::Wrapper
 			State  state;
 			Result last_result;
 
-			Control_request() : state { State::UNKNOWN }, last_result { Result::NONE } { }
+			Control_request() : state(State::UNKNOWN), last_result(Result::NONE) { }
 
 			bool idle()        const { return state == IDLE; }
 			bool in_progress() const { return state == IN_PROGRESS; }
@@ -365,8 +364,7 @@ class Vfs_tresor::Wrapper
 			Virtual_block_address rekeying_vba;
 			uint64_t              percent_done;
 
-			Rekeying() : Control_request { }, key_id { 0 }, max_vba { 0 },
-			             rekeying_vba { 0 }, percent_done { 0 } { }
+			Rekeying() : key_id(0), max_vba(0), rekeying_vba(0), percent_done(0) { }
 
 			void mark_in_progress(Virtual_block_address max,
 			                      Virtual_block_address rekeying)
@@ -381,10 +379,7 @@ class Vfs_tresor::Wrapper
 		{
 			uint32_t key_id;
 
-			Deinitialize() : Control_request { }, key_id { 0 }
-			{
-				state = State::IDLE;
-			}
+			Deinitialize() : key_id(0) { state = State::IDLE; }
 		};
 
 		struct Extending : Control_request
@@ -395,8 +390,7 @@ class Vfs_tresor::Wrapper
 			Virtual_block_address resizing_nr_of_pbas;
 			uint64_t              percent_done;
 
-			Extending() : Control_request { }, type { Type::INVALID},
-			              resizing_nr_of_pbas { 0 }, percent_done { 0 } { }
+			Extending() : type(Type::INVALID), resizing_nr_of_pbas(0), percent_done(0) { }
 
 			void mark_in_progress(Type type, Virtual_block_address resizing_nr_of_pbas)
 			{
@@ -661,7 +655,7 @@ class Vfs_tresor::Wrapper
 
 	public:
 
-		Wrapper(Vfs::Env &vfs_env, Xml_node config) : _vfs_env { vfs_env }
+		Wrapper(Vfs::Env &vfs_env, Xml_node config) : _vfs_env(vfs_env)
 		{
 			_read_config(config);
 
@@ -2442,9 +2436,7 @@ class Vfs_tresor::Snapshots_file_system : public Vfs::File_system
 			                  Wrapper               &wrapper,
 			                  Snapshots_file_system &snapshots_fs)
 			:
-				_alloc        { alloc },
-				_wrapper      { wrapper },
-				_snapshots_fs { snapshots_fs }
+				_alloc(alloc), _wrapper(wrapper), _snapshots_fs(snapshots_fs)
 			{ }
 
 			void update(Vfs::Env &vfs_env);
@@ -2692,9 +2684,7 @@ class Vfs_tresor::Snapshots_file_system : public Vfs::File_system
 		                      Genode::Xml_node  /* node */,
 		                      Wrapper          &wrapper)
 		:
-			_vfs_env  { vfs_env },
-			_snap_reg { vfs_env.alloc(), wrapper, *this },
-			_wrapper  { wrapper }
+			_vfs_env(vfs_env), _snap_reg(vfs_env.alloc(), wrapper, *this), _wrapper(wrapper)
 		{
 			_wrapper.manage_snapshots_file_system(*this);
 		}

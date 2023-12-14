@@ -22,7 +22,7 @@ using namespace Tresor;
 Vbd_initializer_request::Vbd_initializer_request(Module_id src_mod, Module_channel_id src_chan, Tree_root &vbd,
                                                  Pba_allocator &pba_alloc, bool &success)
 :
-	Module_request { src_mod, src_chan, VBD_INITIALIZER }, _vbd { vbd }, _pba_alloc { pba_alloc }, _success { success }
+	Module_request(src_mod, src_chan, VBD_INITIALIZER), _vbd(vbd), _pba_alloc(pba_alloc), _success(success)
 { }
 
 

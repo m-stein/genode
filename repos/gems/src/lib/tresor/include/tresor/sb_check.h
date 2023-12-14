@@ -84,7 +84,7 @@ class Tresor::Sb_check_channel : public Module_channel
 
 	public:
 
-		Sb_check_channel(Module_channel_id id) : Module_channel { SB_CHECK, id } { }
+		Sb_check_channel(Module_channel_id id) : Module_channel(SB_CHECK, id) { }
 
 		void execute(bool &);
 };
