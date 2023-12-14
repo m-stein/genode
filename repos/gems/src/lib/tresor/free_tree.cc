@@ -41,11 +41,11 @@ Free_tree_request::Free_tree_request(Module_id src_module_id, Module_channel_id 
                                      Number_of_blocks &num_pbas, bool &success)
 
 :
-	Module_request { src_module_id, src_chan_id, FREE_TREE }, _type { type }, _ft { ft }, _mt { mt },
-	_curr_gen { curr_gen }, _free_gen { free_gen }, _num_required_pbas { num_required_pbas }, _new_blocks { new_blocks },
-	_old_blocks { old_blocks }, _max_lvl { max_lvl }, _vba { vba }, _vbd_degree { vbd_degree }, _vbd_max_vba { vbd_max_vba },
-	_rekeying { rekeying }, _prev_key_id { prev_key_id }, _curr_key_id { curr_key_id }, _rekeying_vba { rekeying_vba },
-	_success { success }, _snapshots { snapshots }, _last_secured_gen { last_secured_gen }, _pba { pba }, _num_pbas { num_pbas }
+	Module_request(src_module_id, src_chan_id, FREE_TREE), _type(type), _ft(ft), _mt(mt),
+	_curr_gen(curr_gen), _free_gen(free_gen), _num_required_pbas(num_required_pbas), _new_blocks(new_blocks),
+	_old_blocks(old_blocks), _max_lvl(max_lvl), _vba(vba), _vbd_degree(vbd_degree), _vbd_max_vba(vbd_max_vba),
+	_rekeying(rekeying), _prev_key_id(prev_key_id), _curr_key_id(curr_key_id), _rekeying_vba(rekeying_vba),
+	_success(success), _snapshots(snapshots), _last_secured_gen(last_secured_gen), _pba(pba), _num_pbas(num_pbas)
 { }
 
 

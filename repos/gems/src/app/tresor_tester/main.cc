@@ -75,7 +75,7 @@ struct Tresor_tester::Log_node
 
 	NONCOPYABLE(Log_node);
 
-	Log_node(Xml_node const &node) : string { node.attribute_value("string", String { }) } { }
+	Log_node(Xml_node const &node) : string(node.attribute_value("string", String())) { }
 };
 
 
@@ -101,8 +101,8 @@ struct Tresor_tester::Benchmark_node
 
 	Benchmark_node(Xml_node const &node)
 	:
-		op { read_op_attr(node) }, label_avail { op == START && node.has_attribute("label") },
-		label { label_avail ? node.attribute_value("label", Label { }) : Label { } }
+		op(read_op_attr(node)), label_avail(op == START && node.has_attribute("label")),
+		label (label_avail ? node.attribute_value("label", Label()) : Label())
 	{ }
 
 	Benchmark_node(Operation op, bool label_avail, Label label) : op(op), label_avail(label_avail), label(label) { }
@@ -127,7 +127,7 @@ class Tresor_tester::Benchmark
 
 	public:
 
-		Benchmark(Genode::Env &env) : _env { env } { }
+		Benchmark(Genode::Env &env) : _env(env) { }
 
 		void execute_cmd(Benchmark_node const &node)
 		{
@@ -206,8 +206,8 @@ struct Tresor_tester::Trust_anchor_node
 
 	Trust_anchor_node(Xml_node const &node)
 	:
-		op { read_op_attr(node) },
-		passphrase { op == Operation::INITIALIZE ? node.attribute_value("passphrase", Passphrase()) : Passphrase() }
+		op(read_op_attr(node)),
+		passphrase(op == Operation::INITIALIZE ? node.attribute_value("passphrase", Passphrase()) : Passphrase())
 	{ }
 };
 
@@ -243,13 +243,13 @@ struct Tresor_tester::Request_node
 
 	Request_node(Xml_node const &node)
 	:
-		op { read_op_attr(node) },
-		vba { has_vba() ? read_attribute<Virtual_block_address>(node, "vba") : 0 },
-		count { has_count() ? read_attribute<Number_of_blocks>(node, "count") : 0 },
-		sync { read_attribute<bool>(node, "sync") },
-		salt_avail { has_salt() ? node.has_attribute("salt") : false },
-		salt { has_salt() && salt_avail ? read_attribute<Salt>(node, "salt") : 0 },
-		snap_id { has_snap_id() ? read_attribute<Snapshot_id>(node, "id") : 0 }
+		op(read_op_attr(node)),
+		vba(has_vba() ? read_attribute<Virtual_block_address>(node, "vba") : 0),
+		count(has_count() ? read_attribute<Number_of_blocks>(node, "count") : 0),
+		sync(read_attribute<bool>(node, "sync")),
+		salt_avail(has_salt() ? node.has_attribute("salt") : false),
+		salt(has_salt() && salt_avail ? read_attribute<Salt>(node, "salt") : 0),
+		snap_id(has_snap_id() ? read_attribute<Snapshot_id>(node, "id") : 0)
 	{ }
 
 	bool has_vba() const { return op == Operation::READ || op == Operation::WRITE || op == Operation::SYNC; }
@@ -332,7 +332,7 @@ class Tresor_tester::Command : public Module_channel
 
 		Command(Xml_node const &node, Tresor_tester::Main &main, Module_channel_id id)
 		:
-			Module_channel { COMMAND_POOL, id }, _main { main }, _type { _type_from_string(node.type()) }, _id { id }
+			Module_channel(COMMAND_POOL, id), _main(main), _type(_type_from_string(node.type())), _id(id)
 		{
 			switch (_type) {
 			case INITIALIZE: _initialize.construct(node); break;
@@ -392,7 +392,7 @@ struct Tresor_tester::Snapshot_reference : public Genode::Avl_node<Snapshot_refe
 
 	NONCOPYABLE(Snapshot_reference);
 
-	Snapshot_reference(Snapshot_id id, Generation gen) : id { id }, gen { gen } { }
+	Snapshot_reference(Snapshot_id id, Generation gen) : id(id), gen(gen) { }
 
 	template <typename FUNC>
 	void with_ref(Snapshot_id target_id, FUNC && func) const
@@ -442,7 +442,7 @@ class Tresor_tester::Client_data : public Module, public Module_channel
 
 	public:
 
-		Client_data(Main &main) : Module_channel { CLIENT_DATA, 0 }, _main { main } { add_channel(*this); }
+		Client_data(Main &main) : Module_channel(CLIENT_DATA, 0), _main(main) { add_channel(*this); }
 };
 
 
@@ -563,7 +563,7 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 
 	public:
 
-		Main(Genode::Env &env) : _env { env }
+		Main(Genode::Env &env) : _env(env)
 		{
 			add_module(CRYPTO, _crypto);
 			add_module(TRUST_ANCHOR, _trust_anchor);

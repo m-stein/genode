@@ -27,10 +27,9 @@ Superblock_control_request(Module_id src_module_id, Module_channel_id src_channe
                            bool &client_req_finished, Superblock::State &sb_state,
                            Generation &gen)
 :
-	Module_request { src_module_id, src_channel_id, SUPERBLOCK_CONTROL }, _type { type },
-	_client_req_offset { client_req_offset }, _client_req_tag { client_req_tag },
-	_nr_of_blks { nr_of_blks }, _vba { vba }, _success { success },
-	_client_req_finished { client_req_finished }, _sb_state { sb_state }, _gen { gen }
+	Module_request(src_module_id, src_channel_id, SUPERBLOCK_CONTROL), _type(type), _client_req_offset(client_req_offset),
+	_client_req_tag(client_req_tag), _nr_of_blks(nr_of_blks), _vba(vba), _success(success),
+	_client_req_finished(client_req_finished), _sb_state(sb_state), _gen(gen)
 { }
 
 
@@ -646,5 +645,5 @@ Superblock_control::Superblock_control()
 Superblock_control_channel::
 Superblock_control_channel(Module_channel_id id, Superblock &sb, Superblock_index &sb_idx, Generation &curr_gen)
 :
-	Module_channel { SUPERBLOCK_CONTROL, id }, _sb { sb }, _sb_idx { sb_idx }, _curr_gen { curr_gen }
+	Module_channel(SUPERBLOCK_CONTROL, id), _sb(sb), _sb_idx(sb_idx), _curr_gen(curr_gen)
 { }

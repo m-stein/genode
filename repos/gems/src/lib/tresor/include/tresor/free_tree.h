@@ -141,7 +141,7 @@ class Tresor::Free_tree_channel : public Module_channel
 
 	public:
 
-		Free_tree_channel(Module_channel_id id) : Module_channel { FREE_TREE, id } { }
+		Free_tree_channel(Module_channel_id id) : Module_channel(FREE_TREE, id) { }
 
 		void execute(bool &);
 };

@@ -176,7 +176,7 @@ class Tresor::Pba_allocator
 
 	public:
 
-		Pba_allocator(Physical_block_address const first_pba) : _first_pba { first_pba } { }
+		Pba_allocator(Physical_block_address const first_pba) : _first_pba(first_pba) { }
 
 		Number_of_blocks num_used_pbas() { return _num_used_pbas; }
 
@@ -317,10 +317,7 @@ class Tresor::Block_scanner
 
 	public:
 
-		Block_scanner(Block const &blk)
-		:
-			_blk { blk }
-		{ }
+		Block_scanner(Block const &blk) : _blk(blk) { }
 
 		template<typename T>
 		void fetch(T &dst);
@@ -387,10 +384,7 @@ class Tresor::Block_generator
 
 	public:
 
-		Block_generator(Block &blk)
-		:
-			_blk { blk }
-		{ }
+		Block_generator(Block &blk) : _blk(blk) { }
 
 		template<typename T>
 		void append(T const &src);
@@ -1028,8 +1022,7 @@ class Tresor::Pba_allocation {
 		Pba_allocation(Type_1_node_walk const &t1_node_walk,
 		               Tree_walk_pbas const &new_pbas)
 		:
-			_t1_node_walk { t1_node_walk },
-			_new_pbas { new_pbas }
+			_t1_node_walk(t1_node_walk), _new_pbas(new_pbas)
 		{ }
 
 		void print(Output &out) const

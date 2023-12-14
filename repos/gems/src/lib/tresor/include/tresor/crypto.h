@@ -76,7 +76,7 @@ class Tresor::Crypto_channel : public Module_channel
 
 			NONCOPYABLE(Key_directory);
 
-			Key_directory(Crypto_channel &chan, Key_id key_id) : chan { chan }, key_id { key_id } { }
+			Key_directory(Crypto_channel &chan, Key_id key_id) : chan(chan), key_id(key_id) { }
 		};
 
 		Vfs::Env &_vfs_env;
