@@ -158,7 +158,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 	public:
 
-		Virtual_block_device_channel(Module_channel_id id) : Module_channel { VIRTUAL_BLOCK_DEVICE, id } { }
+		Virtual_block_device_channel(Module_channel_id id) : Module_channel(VIRTUAL_BLOCK_DEVICE, id) { }
 
 		void execute(bool &);
 };

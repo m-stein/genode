@@ -28,10 +28,9 @@ Sb_initializer_request(Module_id src_mod, Module_channel_id src_chan, Tree_level
                        Tree_degree ft_degree, Number_of_leaves ft_num_leaves, Tree_level_index mt_max_lvl,
                        Tree_degree mt_degree, Number_of_leaves mt_num_leaves, Pba_allocator &pba_alloc, bool &success)
 :
-	Module_request { src_mod, src_chan, SB_INITIALIZER }, _vbd_max_lvl { vbd_max_lvl },
-	_vbd_degree { vbd_degree }, _vbd_num_leaves { vbd_num_leaves }, _ft_max_lvl { ft_max_lvl },
-	_ft_degree { ft_degree }, _ft_num_leaves { ft_num_leaves }, _mt_max_lvl { mt_max_lvl },
-	_mt_degree { mt_degree }, _mt_num_leaves { mt_num_leaves }, _pba_alloc { pba_alloc }, _success { success }
+	Module_request(src_mod, src_chan, SB_INITIALIZER), _vbd_max_lvl(vbd_max_lvl), _vbd_degree(vbd_degree),
+	_vbd_num_leaves(vbd_num_leaves), _ft_max_lvl(ft_max_lvl), _ft_degree(ft_degree), _ft_num_leaves(ft_num_leaves),
+	_mt_max_lvl(mt_max_lvl), _mt_degree(mt_degree), _mt_num_leaves(mt_num_leaves), _pba_alloc(pba_alloc), _success(success)
 { }
 
 

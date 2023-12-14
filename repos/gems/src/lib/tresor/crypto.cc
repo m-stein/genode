@@ -23,9 +23,9 @@ Crypto_request::Crypto_request(Module_id src_module_id, Module_channel_id src_ch
                                Key_value const &key_plaintext, Physical_block_address pba, Virtual_block_address vba,
                                Block &blk, bool &success)
 :
-	Module_request { src_module_id, src_chan_id, CRYPTO }, _type { type }, _client_req_offset { client_req_offset },
-	_client_req_tag { client_req_tag }, _pba { pba }, _vba { vba }, _key_id { key_id }, _key_plaintext { key_plaintext },
-	_blk { blk }, _success { success }
+	Module_request(src_module_id, src_chan_id, CRYPTO), _type(type), _client_req_offset(client_req_offset),
+	_client_req_tag(client_req_tag), _pba(pba), _vba(vba), _key_id(key_id), _key_plaintext(key_plaintext),
+	_blk(blk), _success(success)
 { }
 
 
@@ -315,7 +315,7 @@ void Crypto::execute(bool &progress)
 
 Crypto_channel::Crypto_channel(Module_channel_id id, Vfs::Env &vfs_env, Xml_node const &xml_node)
 :
-	Module_channel { CRYPTO, id }, _vfs_env { vfs_env }, _path { xml_node.attribute_value("path", Tresor::Path()) }
+	Module_channel(CRYPTO, id), _vfs_env(vfs_env), _path(xml_node.attribute_value("path", Tresor::Path()))
 { }
 
 

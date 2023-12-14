@@ -31,8 +31,8 @@ Meta_tree_request::Meta_tree_request(Module_id src_module_id, Module_channel_id 
                                      Type type, Tree_root &mt, Generation curr_gen,
                                      Physical_block_address &pba, bool &success)
 :
-	Module_request { src_module_id, src_channel_id, META_TREE }, _type { type }, _mt { mt },
-	_curr_gen { curr_gen }, _pba { pba }, _success { success }
+	Module_request(src_module_id, src_channel_id, META_TREE), _type(type), _mt(mt),
+	_curr_gen(curr_gen), _pba(pba), _success(success)
 { }
 
 

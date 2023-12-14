@@ -82,7 +82,7 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 
 	public:
 
-		Vbd_initializer_channel(Module_channel_id id) : Module_channel { VBD_INITIALIZER, id } { }
+		Vbd_initializer_channel(Module_channel_id id) : Module_channel(VBD_INITIALIZER, id) { }
 
 		void execute(bool &);
 };

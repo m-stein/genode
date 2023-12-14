@@ -121,7 +121,7 @@ class Tresor::Splitter_channel : public Tresor::Module_channel
 
 	public:
 
-		Splitter_channel(Module_channel_id id) : Module_channel { SPLITTER, id } { }
+		Splitter_channel(Module_channel_id id) : Module_channel(SPLITTER, id) { }
 
 		void execute(bool &progress);
 

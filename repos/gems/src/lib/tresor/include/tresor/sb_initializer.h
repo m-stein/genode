@@ -97,7 +97,7 @@ class Tresor::Sb_initializer_channel : public Module_channel
 
 	public:
 
-		Sb_initializer_channel(Module_channel_id id) : Module_channel { SB_INITIALIZER, id } { }
+		Sb_initializer_channel(Module_channel_id id) : Module_channel(SB_INITIALIZER, id) { }
 
 		void execute(bool &);
 };
