@@ -590,7 +590,7 @@ class Vfs_tresor::Wrapper
 			}
 			case Command::Operation::CREATE_SNAPSHOT:
 			{
-				// FIXME more TODO here?
+				/* FIXME more TODO here? */
 				_snapshots_fs_update_snapshot_registry();
 
 				cmd.state(Command::IDLE);
@@ -598,7 +598,7 @@ class Vfs_tresor::Wrapper
 			}
 			case Command::Operation::DISCARD_SNAPSHOT:
 			{
-				// FIXME more TODO here?
+				/* FIXME more TODO here? */
 				_snapshots_fs_update_snapshot_registry();
 
 				cmd.state(Command::IDLE);
@@ -3126,10 +3126,12 @@ class Vfs_tresor::File_system : private Local_factory,
 
 		~File_system()
 		{
-			// XXX rather then destroying the wrapper here, it should be
-			//     done on the out-side where it was allocated in the first
-			//     place but the factory interface does not support that yet
-			// destroy(vfs_env.alloc().alloc()), &_wrapper);
+			/*
+			 * XXX rather then destroying the wrapper here, it should be
+			 *     done on the out-side where it was allocated in the first
+			 *     place but the factory interface does not support that yet
+			 *     destroy(vfs_env.alloc().alloc()), &_wrapper);
+			 */
 		}
 };
 
