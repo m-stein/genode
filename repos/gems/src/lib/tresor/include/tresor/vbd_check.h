@@ -83,7 +83,7 @@ class Tresor::Vbd_check_channel : public Module_channel
 
 	public:
 
-		Vbd_check_channel(Module_channel_id id) : Module_channel { VBD_CHECK, id } { }
+		Vbd_check_channel(Module_channel_id id) : Module_channel(VBD_CHECK, id) { }
 
 		void execute(bool &);
 };

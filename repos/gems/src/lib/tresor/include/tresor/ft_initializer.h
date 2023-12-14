@@ -86,7 +86,7 @@ class Tresor::Ft_initializer_channel : public Module_channel
 
 	public:
 
-		Ft_initializer_channel(Module_channel_id id) : Module_channel { FT_INITIALIZER, id } { }
+		Ft_initializer_channel(Module_channel_id id) : Module_channel(FT_INITIALIZER, id) { }
 
 		void execute(bool &);
 };

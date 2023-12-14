@@ -62,10 +62,10 @@ class Tresor::File
 
 	public:
 
-		File(HOST_STATE &host_state, Vfs::Vfs_handle &handle) : _host_state { host_state }, _handle { handle } { }
+		File(HOST_STATE &host_state, Vfs::Vfs_handle &handle) : _host_state(host_state), _handle(handle) { }
 
 		File(HOST_STATE &host_state, Vfs::Env &env, Tresor::Path path, Vfs::Directory_service::Open_mode mode)
-		: _env { env }, _host_state { host_state }, _handle { _open(path, mode) } { }
+		: _env(env), _host_state(host_state), _handle(_open(path, mode)) { }
 
 		~File()
 		{
@@ -219,14 +219,14 @@ template <typename HOST_STATE>
 struct Tresor::Read_write_file : public File<HOST_STATE>
 {
 	Read_write_file(HOST_STATE &host_state, Vfs::Env &env, Tresor::Path path)
-	: File<HOST_STATE> { host_state, env, path, Vfs::Directory_service::OPEN_MODE_RDWR } { }
+	: File<HOST_STATE>(host_state, env, path, Vfs::Directory_service::OPEN_MODE_RDWR) { }
 };
 
 template <typename HOST_STATE>
 struct Tresor::Write_only_file : public File<HOST_STATE>
 {
 	Write_only_file(HOST_STATE &host_state, Vfs::Env &env, Tresor::Path path)
-	: File<HOST_STATE> { host_state, env, path, Vfs::Directory_service::OPEN_MODE_WRONLY } { }
+	: File<HOST_STATE>(host_state, env, path, Vfs::Directory_service::OPEN_MODE_WRONLY) { }
 };
 
 #endif /* _TRESOR__FILE_H_ */

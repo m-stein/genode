@@ -30,12 +30,12 @@ Virtual_block_device_request(Module_id src_module_id, Module_channel_id src_chan
                              Generation curr_gen, Physical_block_address &pba, bool &success,
                              Number_of_leaves &num_leaves, Number_of_blocks &num_pbas, Virtual_block_address rekeying_vba)
 :
-	Module_request { src_module_id, src_chan_id, VIRTUAL_BLOCK_DEVICE }, _type { type }, _vba { vba },
-	_snapshots { snapshots }, _curr_snap_idx { curr_snap_idx }, _snap_degr { snap_degr }, _curr_gen { curr_gen },
-	_curr_key_id { curr_key_id }, _prev_key_id { prev_key_id }, _ft { ft }, _mt { mt }, _vbd_degree { vbd_degree },
-	_vbd_highest_vba { vbd_highest_vba }, _rekeying { rekeying }, _client_req_offset { client_req_offset },
-	_client_req_tag { client_req_tag }, _last_secured_gen { last_secured_gen }, _pba { pba },
-	_num_pbas { num_pbas }, _num_leaves { num_leaves }, _rekeying_vba { rekeying_vba }, _success { success }
+	Module_request(src_module_id, src_chan_id, VIRTUAL_BLOCK_DEVICE), _type(type), _vba(vba),
+	_snapshots(snapshots), _curr_snap_idx(curr_snap_idx), _snap_degr(snap_degr), _curr_gen(curr_gen),
+	_curr_key_id(curr_key_id), _prev_key_id(prev_key_id), _ft(ft), _mt(mt), _vbd_degree(vbd_degree),
+	_vbd_highest_vba(vbd_highest_vba), _rekeying(rekeying), _client_req_offset(client_req_offset),
+	_client_req_tag(client_req_tag), _last_secured_gen(last_secured_gen), _pba(pba),
+	_num_pbas(num_pbas), _num_leaves(num_leaves), _rekeying_vba(rekeying_vba), _success(success)
 { }
 
 
