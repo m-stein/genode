@@ -303,7 +303,7 @@ void Superblock_control_channel::_secure_sb(bool &progress)
 
 		_sb.last_secured_generation = _sb.curr_snap().gen;
 		_sb.discard_disposable_snapshots();
-//log("----"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);
+log("---3"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);
 		_sb_ciphertext.copy_all_but_key_values_from(_sb);
 		_generate_req<Trust_anchor::Encrypt_key>(
 			ENCRYPT_CURR_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb_ciphertext.current_key.value);
@@ -406,12 +406,12 @@ void Superblock_control_channel::_create_snap(bool &progress)
 
 		if (_sb.curr_snap().keep) {
 			_req_ptr->_gen = _sb.curr_snap().gen;
-//log("---2"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);
+log("---1"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);
 			_mark_req_successful(progress);
 		} else {
 			_sb.curr_snap().keep = true;
 			_req_ptr->_gen = _sb.curr_snap().gen;
-//log("---1"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);
+log("---2"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);
 			_start_secure_sb(progress);
 		}
 		break;
