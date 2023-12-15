@@ -220,6 +220,7 @@ struct Tresor_tester::Request_node
 	bool const salt_avail;
 	Salt const salt;
 	Snapshot_id const snap_id;
+	bool const uninitialized;
 
 	NONCOPYABLE(Request_node);
 
@@ -246,7 +247,8 @@ struct Tresor_tester::Request_node
 		sync { read_attribute<bool>(node, "sync") },
 		salt_avail { has_salt() ? node.has_attribute("salt") : false },
 		salt { has_salt() && salt_avail ? read_attribute<Salt>(node, "salt") : 0 },
-		snap_id { has_snap_id() ? read_attribute<Snapshot_id>(node, "id") : 0 }
+		snap_id { has_snap_id() ? read_attribute<Snapshot_id>(node, "id") : 0 },
+		uninitialized { node.attribute_value("uninitialized", false) }
 	{ }
 
 	bool has_vba() const { return op == Operation::READ || op == Operation::WRITE || op == Operation::SYNC; }
@@ -652,15 +654,17 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 			with_channel<Command>(tresor_req_tag, [&] (Command &cmd) {
 				ASSERT(cmd.type() == Command::REQUEST);
 				Request_node const &req_node { cmd.request_node() };
-				if (req_node.salt_avail) {
-					Tresor::Block gen_blk_data { };
+				Tresor::Block gen_blk_data { };
+				if (req_node.salt_avail)
 					_generate_blk_data(gen_blk_data, vba, req_node.salt);
-
-					if (memcmp(&blk_data, &gen_blk_data, BLOCK_SIZE)) {
-						cmd.data_mismatch(true);
-						warning("client data mismatch: vba=", vba, " req_tag=", tresor_req_tag);
-						_num_errors++;
-					}
+				else if (req_node.uninitialized)
+					memset(&gen_blk_data, 0, BLOCK_SIZE);
+				else
+					return;
+				if (memcmp(&blk_data, &gen_blk_data, BLOCK_SIZE)) {
+					cmd.data_mismatch(true);
+					warning("client data mismatch: vba=", vba, " req_tag=", tresor_req_tag);
+					_num_errors++;
 				}
 			});
 			_benchmark.raise_num_virt_blks_read();
