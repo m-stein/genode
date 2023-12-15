@@ -120,7 +120,7 @@ void Superblock_control_channel::_access_vba(Virtual_block_device_request::Type 
 			break;
 		}
 		if (type == Virtual_block_device_request::WRITE_VBA)
-			_sb.prepare_for_modifications_to_curr_snap();
+			_sb.ensure_that_curr_snap_is_volatile();
 
 		Key_id key_id { _sb.state == Superblock::REKEYING && req._vba >= _sb.rekeying_vba ?
 			_sb.previous_key.id : _sb.current_key.id };
@@ -143,6 +143,7 @@ void Superblock_control_channel::_tree_ext_step(Superblock::State sb_state, bool
 	switch (_state) {
 	case REQ_SUBMITTED:
 	{
+		_sb.ensure_that_curr_snap_is_volatile();
 		Physical_block_address const last_used_pba { _sb.first_pba + (_sb.nr_of_pbas - 1) };
 		Number_of_blocks const nr_of_unused_pbas { MAX_PBA - last_used_pba };
 
@@ -385,7 +386,7 @@ void Superblock_control_channel::_discard_snap(bool &progress)
 	case REQ_SUBMITTED:
 
 		for (Snapshot &snap : _sb.snapshots.items)
-			if (snap.valid && snap.gen == _req_ptr->_gen && snap.keep)
+			if (snap.valid && snap.gen == _req_ptr->_gen)
 				snap.keep = false;
 
 		_start_secure_sb(progress);
@@ -408,7 +409,6 @@ void Superblock_control_channel::_create_snap(bool &progress)
 //log("---2"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);
 			_mark_req_successful(progress);
 		} else {
-			_sb.prepare_for_modifications_to_curr_snap();
 			_sb.curr_snap().keep = true;
 			_req_ptr->_gen = _sb.curr_snap().gen;
 //log("---1"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);

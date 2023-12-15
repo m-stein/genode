@@ -932,7 +932,7 @@ struct Tresor::Superblock
 				snap.valid = false;
 	}
 
-	void prepare_for_modifications_to_curr_snap()
+	void ensure_that_curr_snap_is_volatile()
 	{
 		if (curr_snap().gen > last_secured_generation)
 			return;
