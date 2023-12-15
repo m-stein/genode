@@ -740,50 +740,6 @@ struct Tresor::Snapshots
 		for (Snapshot const &snap : items)
 			snap.encode_to_blk(generator);
 	}
-
-	Snapshot_index newest_snap_idx() const
-	{
-		Snapshot_index result { INVALID_SNAP_IDX };
-		for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx ++) {
-			if (!items[idx].valid)
-				continue;
-
-			if (result != INVALID_SNAP_IDX && items[idx].gen <= items[result].gen)
-				continue;
-
-			result = idx;
-		}
-		ASSERT(result != INVALID_SNAP_IDX);
-		return result;
-	}
-
-	/**
-	 * Returns the index of an unused slot or, if all are used, of the slot
-	 * that contains the lowest-generation evictable snapshot (no "keep" flag).
-	 */
-	Snapshot_index alloc_idx(Generation curr_gen, Generation last_secured_gen) const
-	{
-		Snapshot_index result { INVALID_SNAP_IDX };
-		for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx ++) {
-
-			Snapshot const &snap { items[idx] };
-			if (!snap.valid)
-				return idx;
-
-			if (snap.keep ||
-			    snap.gen == curr_gen ||
-			    snap.gen == last_secured_gen)
-				continue;
-
-			if (result != INVALID_SNAP_IDX &&
-			    snap.gen >= items[result].gen)
-				continue;
-
-			result = idx;
-		}
-		ASSERT(result != INVALID_SNAP_IDX);
-		return result;
-	}
 };
 
 
@@ -791,8 +747,7 @@ struct Tresor::Superblock
 {
 	using On_disc_state = uint8_t;
 
-	enum State {
-		INVALID, NORMAL, REKEYING, EXTENDING_VBD, EXTENDING_FT };
+	enum State { INVALID, NORMAL, REKEYING, EXTENDING_VBD, EXTENDING_FT };
 
 	State                  state                   { INVALID };         // offset 0
 	Virtual_block_address  rekeying_vba            { 0 };               // offset 1
@@ -802,7 +757,6 @@ struct Tresor::Superblock
 	Key                    current_key             { };                 // offset 61
 	Snapshots              snapshots               { };                 // offset 97
 	Generation             last_secured_generation { 0 };               // offset 3553
-	Snapshot_index         curr_snap_idx           { 0 };               // offset 3561
 	Tree_degree            degree                  { TREE_MIN_DEGREE }; // offset 3565
 	Physical_block_address first_pba               { 0 };               // offset 3569
 	Number_of_blocks       nr_of_pbas              { 0 };               // offset 3577
@@ -857,7 +811,7 @@ struct Tresor::Superblock
 		current_key.decode_from_blk(scanner);
 		snapshots.decode_from_blk(scanner);
 		scanner.fetch(last_secured_generation);
-		scanner.fetch(curr_snap_idx);
+		scanner.skip_bytes(4); /* was curr_snap_idx that is not used anymore */
 		scanner.fetch(degree);
 		scanner.fetch(first_pba);
 		scanner.fetch(nr_of_pbas);
@@ -887,7 +841,7 @@ struct Tresor::Superblock
 		current_key.encode_to_blk(generator);
 		snapshots.encode_to_blk(generator);
 		generator.append(last_secured_generation);
-		generator.append(curr_snap_idx);
+		generator.append_zero_bytes(4); /* was curr_snap_idx that is not used anymore */
 		generator.append(degree);
 		generator.append(first_pba);
 		generator.append(nr_of_pbas);
@@ -918,21 +872,25 @@ struct Tresor::Superblock
 		case EXTENDING_FT:  return "EXTENDING_FT"; }
 	}
 
-	void print(Output &out) const
+	Snapshot_index curr_snap_idx() const
 	{
-		Genode::print(
-			out, "state ", state_to_str(state), " last_secured_gen ",
-			last_secured_generation, " curr_snap ", curr_snap_idx, " degr ",
-			degree, " first_pba ", first_pba, " pbas ", nr_of_pbas,
-			" snapshots");
+		Snapshot_index result { INVALID_SNAP_IDX };
+		for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++) {
+			if (!snapshots.items[idx].valid)
+				continue;
 
-		for (Snapshot const &snap : snapshots.items)
-			if (snap.valid)
-				Genode::print(out, " ", snap);
+			if (result != INVALID_SNAP_IDX && snapshots.items[idx].gen <= snapshots.items[result].gen)
+				continue;
+
+			result = idx;
+		}
+		ASSERT(result != INVALID_SNAP_IDX);
+		return result;
 	}
 
-	Snapshot &curr_snap() { return snapshots.items[curr_snap_idx]; }
-	Snapshot const &curr_snap() const { return snapshots.items[curr_snap_idx]; }
+	Snapshot &curr_snap() { return snapshots.items[curr_snap_idx()]; }
+
+	Snapshot const &curr_snap() const { return snapshots.items[curr_snap_idx()]; }
 
 	Virtual_block_address max_vba() const
 	{
@@ -952,7 +910,6 @@ struct Tresor::Superblock
 		current_key.id = sb.current_key.id;
 		snapshots = sb.snapshots;
 		last_secured_generation = sb.last_secured_generation;
-		curr_snap_idx = sb.curr_snap_idx;
 		degree = sb.degree;
 		free_gen = sb.free_gen;
 		free_number = sb.free_number;
@@ -980,10 +937,25 @@ struct Tresor::Superblock
 		if (curr_snap().gen > last_secured_generation)
 			return;
 
-		Snapshot &snap { curr_snap() };
-		curr_snap_idx = snapshots.alloc_idx(_sb.last_secured_generation + 1, _sb.last_secured_generation);
-		curr_snap() = snap;
-		curr_snap().keep = false;
+		Snapshot *new_snap_ptr { 0 };
+		for (Snapshot &snap : snapshots.items) {
+			if (!snap.valid) {
+				new_snap_ptr = &snap;
+				break;
+			}
+			if (snap.keep || snap.gen == last_secured_generation)
+				continue;
+
+			if (new_snap_ptr && snap.gen >= new_snap_ptr->gen)
+				continue;
+
+			new_snap_ptr = &snap;
+		}
+		ASSERT(new_snap_ptr);
+		Snapshot &new_snap = *new_snap_ptr;
+		new_snap = curr_snap();
+		new_snap.gen = last_secured_generation + 1;
+		new_snap.keep = false;
 	}
 };
 

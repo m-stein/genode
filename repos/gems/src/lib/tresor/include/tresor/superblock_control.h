@@ -94,7 +94,6 @@ class Tresor::Superblock_control_channel : public Module_channel
 		bool _gen_req_success { false };
 		Superblock &_sb;
 		Superblock_index &_sb_idx;
-		Generation &_curr_gen;
 
 		NONCOPYABLE(Superblock_control_channel);
 
@@ -146,7 +145,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 		void execute(bool &);
 
-		Superblock_control_channel(Module_channel_id, Superblock &, Superblock_index &, Generation &);
+		Superblock_control_channel(Module_channel_id, Superblock &, Superblock_index &);
 };
 
 class Tresor::Superblock_control : public Module
@@ -157,7 +156,6 @@ class Tresor::Superblock_control : public Module
 
 		Superblock _sb { };
 		Superblock_index _sb_idx { INVALID_SB_IDX };
-		Generation _curr_gen { INVALID_GENERATION };
 		Constructible<Channel> _channels[1] { };
 
 		void execute(bool &) override;

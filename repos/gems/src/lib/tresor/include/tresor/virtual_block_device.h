@@ -38,7 +38,7 @@ class Tresor::Virtual_block_device_request : public Module_request
 		Type const _type;
 		Virtual_block_address const _vba;
 		Snapshots &_snapshots;
-		Snapshot_index const _curr_snap_idx;
+		Snapshot_index const _snap_idx;
 		Tree_degree const _snap_degr;
 		Generation const _curr_gen;
 		Key_id const _curr_key_id;

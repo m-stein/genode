@@ -104,8 +104,8 @@ _generate_vbd_req(Virtual_block_device_request::Type type, State_uint complete_s
 	generate_req<Virtual_block_device_request>(
 		complete_state, progress, type, _req_ptr->_client_req_offset, _req_ptr->_client_req_tag,
 		_sb.last_secured_generation, *_ft, *_mt, _sb.degree, _sb.max_vba(), _sb.state == Superblock::REKEYING,
-		vba, _sb.curr_snap_idx, _sb.snapshots, _sb.degree, _sb.previous_key.id, key_id,
-		_curr_gen, _pba, _gen_req_success, _nr_of_leaves, _req_ptr->_nr_of_blks, _sb.rekeying_vba);
+		vba, _sb.curr_snap_idx(), _sb.snapshots, _sb.degree, _sb.previous_key.id, key_id,
+		_sb.curr_snap().gen, _pba, _gen_req_success, _nr_of_leaves, _req_ptr->_nr_of_blks, _sb.rekeying_vba);
 }
 
 
@@ -120,14 +120,14 @@ void Superblock_control_channel::_access_vba(Virtual_block_device_request::Type 
 			break;
 		}
 		if (type == Virtual_block_device_request::WRITE_VBA)
-			_sb.prepare_for_modificatications_to_curr_snap();
+			_sb.prepare_for_modifications_to_curr_snap();
 
 		Key_id key_id { _sb.state == Superblock::REKEYING && req._vba >= _sb.rekeying_vba ?
 			_sb.previous_key.id : _sb.current_key.id };
 
 		_generate_vbd_req(type, ACCESS_VBA_AT_VBD_SUCCEEDED, progress, key_id, req._vba);
 		if (VERBOSE_READ_VBA)
-			log("read vba ", req._vba, ": snap ", _sb.curr_snap_idx, " key ", key_id, " gen ", _curr_gen);
+			log("read vba ", req._vba, ": snap ", _sb.curr_snap_idx(), " key ", key_id);
 
 		break;
 	}
@@ -159,7 +159,7 @@ void Superblock_control_channel::_tree_ext_step(Superblock::State sb_state, bool
 			_pba = last_used_pba + 1;
 			if (verbose)
 				log(tree_name, " extension init: pbas ", _pba, "..", _pba + (Number_of_blocks)_sb.resizing_nr_of_pbas - 1,
-				    " leaves ", (Number_of_blocks)_sb.resizing_nr_of_leaves, "\n  secure sb (gen ", _curr_gen, ")");
+				    " leaves ", (Number_of_blocks)_sb.resizing_nr_of_leaves, "\n  secure sb (gen ", _sb.curr_snap().gen, ")");
 
 			_start_secure_sb(progress);
 			break;
@@ -192,7 +192,7 @@ void Superblock_control_channel::_tree_ext_step(Superblock::State sb_state, bool
 					_sb.meta_leaves);
 
 				_generate_req<Free_tree::Extension_step>(
-					TREE_EXT_STEP_IN_TREE_SUCCEEDED, progress, _curr_gen, *_ft, *_mt, _pba, req._nr_of_blks);
+					TREE_EXT_STEP_IN_TREE_SUCCEEDED, progress, _sb.curr_snap().gen, *_ft, *_mt, _pba, req._nr_of_blks);
 			}
 		} else
 			_mark_req_failed(progress, "check superblock state");
@@ -214,16 +214,12 @@ void Superblock_control_channel::_tree_ext_step(Superblock::State sb_state, bool
 		_sb.nr_of_pbas = _sb.nr_of_pbas + nr_of_added_pbas;
 		_sb.resizing_nr_of_pbas = req._nr_of_blks;
 		_sb.resizing_nr_of_leaves += _nr_of_leaves;
-
-		if (tree_name == "vbd")
-			_sb.curr_snap_idx = _sb.snapshots.newest_snap_idx();
-
 		if (!req._nr_of_blks) {
 			_sb.state = Superblock::NORMAL;
 			req._client_req_finished = true;
 		}
 		if (verbose)
-			log("  secure sb (gen ", _curr_gen, ")");
+			log("  secure sb (gen ", _sb.curr_snap().gen, ")");
 		_start_secure_sb(progress);
 		break;
 	}
@@ -250,7 +246,7 @@ void Superblock_control_channel::_rekey_vba(bool &progress)
 		_state = REQ_GENERATED;
 		if (VERBOSE_REKEYING) {
 			log("rekey vba ", _sb.rekeying_vba, ":");
-			log("  update vbd: keys ", _sb.previous_key.id, ",", _sb.current_key.id, " generations ", _sb.last_secured_generation, ",", _curr_gen);
+			log("  update vbd: keys ", _sb.previous_key.id, ",", _sb.current_key.id, " gen ", _sb.curr_snap().gen);
 		}
 		break;
 
@@ -266,7 +262,7 @@ void Superblock_control_channel::_rekey_vba(bool &progress)
 			_req_ptr->_client_req_finished = false;
 			_start_secure_sb(progress);
 			if (VERBOSE_REKEYING)
-				log("  secure sb: gen ", _curr_gen);
+				log("  secure sb: gen ", _sb.curr_snap().gen);
 		} else {
 			_generate_req<Crypto::Remove_key>(REMOVE_PREV_KEY_SUCCEEDED, progress, _sb.previous_key.id);
 			if (VERBOSE_REKEYING)
@@ -281,7 +277,7 @@ void Superblock_control_channel::_rekey_vba(bool &progress)
 		_req_ptr->_client_req_finished = true;
 		_start_secure_sb(progress);
 		if (VERBOSE_REKEYING)
-			log("  secure sb: gen ", _curr_gen);
+			log("  secure sb: gen ", _sb.curr_snap().gen);
 		break;
 
 	case SECURE_SB: _secure_sb(progress); break;
@@ -304,9 +300,9 @@ void Superblock_control_channel::_secure_sb(bool &progress)
 	switch (_secure_sb_state) {
 	case STARTED:
 
-		_sb.curr_snap().gen = _sb.last_secured_generation = _curr_gen;
+		_sb.last_secured_generation = _sb.curr_snap().gen;
 		_sb.discard_disposable_snapshots();
-log("----"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);
+//log("----"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);
 		_sb_ciphertext.copy_all_but_key_values_from(_sb);
 		_generate_req<Trust_anchor::Encrypt_key>(
 			ENCRYPT_CURR_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb_ciphertext.current_key.value);
@@ -325,6 +321,10 @@ log("----"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);
 	case SYNC_CACHE_SUCCEEDED:
 
 		_sb_ciphertext.encode_to_blk(_blk);
+		if (_sb_idx < MAX_SUPERBLOCK_INDEX)
+			_sb_idx++;
+		else
+			_sb_idx = 0;
 		_generate_req<Block_io::Write>(WRITE_SB_SUCCEEDED, progress, _sb_idx, _blk);
 		break;
 
@@ -334,11 +334,6 @@ log("----"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);
 		_sb_ciphertext.encode_to_blk(_blk);
 		calc_hash(_blk, _hash);
 		_generate_req<Trust_anchor::Write_hash>(WRITE_SB_HASH_SUCCEEDED, progress, _hash);
-		if (_sb_idx < MAX_SUPERBLOCK_INDEX)
-			_sb_idx++;
-		else
-			_sb_idx = 0;
-		_curr_gen++;
 		break;
 	}
 	case WRITE_SB_HASH_SUCCEEDED: _state = SECURE_SB_SUCCEEDED; break;
@@ -373,7 +368,7 @@ void Superblock_control_channel::_init_rekeying(bool &progress)
 	case ADD_CURR_KEY_SUCCEEDED:
 
 		if (VERBOSE_REKEYING)
-			log("  secure sb: gen ", _curr_gen);
+			log("  secure sb: gen ", _sb.curr_snap().gen);
 		_start_secure_sb(progress);
 		break;
 
@@ -393,7 +388,6 @@ void Superblock_control_channel::_discard_snap(bool &progress)
 			if (snap.valid && snap.gen == _req_ptr->_gen && snap.keep)
 				snap.keep = false;
 
-		_req_ptr->_gen = _curr_gen;
 		_start_secure_sb(progress);
 		break;
 
@@ -411,12 +405,13 @@ void Superblock_control_channel::_create_snap(bool &progress)
 
 		if (_sb.curr_snap().keep) {
 			_req_ptr->_gen = _sb.curr_snap().gen;
-log("---2"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);
+//log("---2"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);
 			_mark_req_successful(progress);
 		} else {
+			_sb.prepare_for_modifications_to_curr_snap();
 			_sb.curr_snap().keep = true;
-			_req_ptr->_gen = _curr_gen;
-log("---1"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);
+			_req_ptr->_gen = _sb.curr_snap().gen;
+//log("---1"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);
 			_start_secure_sb(progress);
 		}
 		break;
@@ -431,12 +426,7 @@ log("---1"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);
 void Superblock_control_channel::_sync(bool &progress)
 {
 	switch (_state) {
-	case REQ_SUBMITTED:
-
-		_sb.last_secured_generation = _curr_gen;
-		_start_secure_sb(progress);
-		break;
-
+	case REQ_SUBMITTED: _start_secure_sb(progress); break;
 	case SECURE_SB: _secure_sb(progress); break;
 	case SECURE_SB_SUCCEEDED: _mark_req_successful(progress); break;
 	default: break;
@@ -474,7 +464,6 @@ void Superblock_control_channel::_initialize(bool &progress)
 		if (check_hash(_blk, _hash)) {
 			_sb_ciphertext.decode_from_blk(_blk);
 			_sb.copy_all_but_key_values_from(_sb_ciphertext);
-			_curr_gen = _sb.snapshots.items[_sb.snapshots.newest_snap_idx()].gen + 1;
 			_req_ptr->_sb_state = _sb.state;
 			_generate_req<Trust_anchor::Decrypt_key>(
 				DECRYPT_CURR_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb_ciphertext.current_key.value);
@@ -514,12 +503,7 @@ void Superblock_control_channel::_initialize(bool &progress)
 void Superblock_control_channel::_deinitialize(bool &progress)
 {
 	switch (_state) {
-	case REQ_SUBMITTED:
-
-		_sb.last_secured_generation = _curr_gen;
-		_start_secure_sb(progress);
-		break;
-
+	case REQ_SUBMITTED: _start_secure_sb(progress); break;
 	case SECURE_SB: _secure_sb(progress); break;
 	case SECURE_SB_SUCCEEDED: _generate_req<Crypto::Remove_key>(REMOVE_CURR_KEY_SUCCEEDED, progress, _sb.current_key.id); break;
 	case REMOVE_CURR_KEY_SUCCEEDED:
@@ -605,14 +589,11 @@ Superblock_control::Superblock_control()
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {
-		chan.construct(id++, _sb, _sb_idx, _curr_gen);
+		chan.construct(id++, _sb, _sb_idx);
 		add_channel(*chan);
 	}
 }
 
 
-Superblock_control_channel::
-Superblock_control_channel(Module_channel_id id, Superblock &sb, Superblock_index &sb_idx, Generation &curr_gen)
-:
-	Module_channel { SUPERBLOCK_CONTROL, id }, _sb { sb }, _sb_idx { sb_idx }, _curr_gen { curr_gen }
-{ }
+Superblock_control_channel::Superblock_control_channel(Module_channel_id id, Superblock &sb, Superblock_index &sb_idx)
+: Module_channel { SUPERBLOCK_CONTROL, id }, _sb { sb }, _sb_idx { sb_idx } { }
