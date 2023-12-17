@@ -131,7 +131,10 @@ void Superblock_control_channel::_access_vba(Virtual_block_device_request::Type 
 
 		break;
 	}
-	case ACCESS_VBA_AT_VBD_SUCCEEDED: _mark_req_successful(progress); break;
+	case ACCESS_VBA_AT_VBD_SUCCEEDED:
+
+log("---w"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);
+_mark_req_successful(progress); break;
 	default: break;
 	}
 }
@@ -302,8 +305,18 @@ void Superblock_control_channel::_secure_sb(bool &progress)
 	case STARTED:
 
 		_sb.last_secured_generation = _sb.curr_snap().gen;
-		_sb.discard_disposable_snapshots();
 log("---3"); for(auto s:_sb.snapshots.items) if (s.valid) log(s);
+for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++) {
+	Snapshot const &snap { _sb.snapshots.items[idx] };
+	if (snap.valid && idx < MAX_NR_OF_SNAPSHOTS-1)
+		for (Snapshot_index idx1 { idx + 1 }; idx1 < MAX_NR_OF_SNAPSHOTS; idx1++) {
+			Snapshot const &snap1 { _sb.snapshots.items[idx1] };
+			if (snap1.valid)
+				if (snap.gen == snap1.gen || snap.pba == snap1.pba || snap.hash == snap1.hash)
+					error("similar snapshots ", idx, " and ", idx1);
+		}
+}
+		_sb.discard_disposable_snapshots();
 		_sb_ciphertext.copy_all_but_key_values_from(_sb);
 		_generate_req<Trust_anchor::Encrypt_key>(
 			ENCRYPT_CURR_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb_ciphertext.current_key.value);
