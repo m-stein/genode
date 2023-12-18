@@ -63,7 +63,7 @@ class Tresor::Sb_check_channel : public Module_channel
 		Constructible<Tree_root> _tree_root { };
 		Block _blk { };
 		Constructible<Vbd_check_request> _check_vbd { };
-		State _generated_req_complete { REQ_COMPLETE };
+		State _generated_req_succeeded { REQ_COMPLETE };
 		bool _generated_req_success { false };
 
 		NONCOPYABLE(Sb_check_channel);
@@ -82,11 +82,11 @@ class Tresor::Sb_check_channel : public Module_channel
 		}
 
 		template <typename REQUEST, typename... ARGS>
-		void _generate_req_new(Constructible<REQUEST> &req, State req_complete, bool &progress, ARGS &&... args)
+		void _generate_req_new(Constructible<REQUEST> &req, State req_succeeded, bool &progress, ARGS &&... args)
 		{
 			_state = REQ_GENERATED_NEW;
-			req.construct(args..., _generated_req_success);
-			_generated_req_complete = req_complete;
+			req.construct(typename REQUEST::Attr { args..., _generated_req_success });
+			_generated_req_succeeded = req_succeeded;
 			progress = true;
 		}
 
@@ -95,10 +95,18 @@ class Tresor::Sb_check_channel : public Module_channel
 			if (_state != REQ_GENERATED_NEW)
 				return;
 
+			bool complete { false };
 			if (_check_vbd.constructed()) {
 				progress |= vbd_chk.execute_check(*_check_vbd, blk_io);
-				if (_check_vbd->complete())
-					_state = _generated_req_complete;
+				complete = _check_vbd->complete();
+			}
+			if (complete) {
+				if (!_generated_req_success) {
+					_mark_req_failed(progress, "generated request");
+					return;
+				}
+				_state = _generated_req_succeeded;
+				progress = true;
 			}
 		}
 

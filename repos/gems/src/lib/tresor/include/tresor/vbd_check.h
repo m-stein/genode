@@ -26,29 +26,44 @@ namespace Tresor {
 
 class Tresor::Vbd_check_request
 {
+	public:
+
+		struct Attr
+		{
+			Tree_root const &in_vbd;
+			bool &out_success;
+		};
+
 	private:
 
-		enum State { REQ_SUBMITTED, REQ_IN_PROGRESS, REQ_COMPLETE, REQ_GENERATED, READ_BLK_SUCCEEDED };
+		enum State { INIT, IN_PROGRESS, COMPLETE, REQ_GENERATED, READ_BLK_SUCCEEDED };
 
-		Tree_root const &_vbd;
-		bool &_success;
-		State _state { REQ_COMPLETE };
+		Attr _attr;
+		State _state { INIT };
 		Type_1_node_block_walk _t1_blks { };
 		bool _check_node[TREE_MAX_NR_OF_LEVELS][NUM_NODES_PER_BLK] { };
 		Block _blk { };
 		Number_of_leaves _num_remaining_leaves { 0 };
-		bool _generated_req_success { false };
-		State _generated_req_complete { REQ_COMPLETE };
+		bool _generated_req_success { };
+		State _generated_req_succeeded { COMPLETE };
 		Constructible<Block_io_read> _read_blk { };
 
 		NONCOPYABLE(Vbd_check_request);
 
+		/*
+		 * FIXME
+		 *
+		 * Methoden '_generate_req', 'complete' und '_execute_generated_req'
+		 * bzw. der Aufruf von letzterem sind strukturell gleich für alle
+		 * Module.
+		 */
+
 		template <typename REQUEST, typename... ARGS>
-		void _generate_req(Constructible<REQUEST> &req, State req_complete, bool &progress, ARGS &&... args)
+		void _generate_req(Constructible<REQUEST> &req, State req_succeeded, bool &progress, ARGS &&... args)
 		{
 			_state = REQ_GENERATED;
-			req.construct(args..., _generated_req_success);
-			_generated_req_complete = req_complete;
+			req.construct(typename REQUEST::Attr { args..., _generated_req_success });
+			_generated_req_succeeded = req_succeeded;
 			progress = true;
 		}
 
@@ -57,21 +72,28 @@ class Tresor::Vbd_check_request
 			if (_state != REQ_GENERATED)
 				return;
 
-			if (_read_blk.constructed()) {
-				progress |= blk_io.execute_read(*_read_blk);
-				if (_read_blk->complete())
-					_state = _generated_req_complete;
-			}
 			/*
 			 * FIXME
 			 *
-			 * Das wird eine recht lange repetitive Liste bei einigen Modulen
-			 * aber ich weiß nicht wie ich es ohne Vererbung abmildern soll.
+			 * Wird eine recht lange, repetitive Liste bei einigen Modulen.
 			 *
 			 * Beispiele:
 			 *   * VBD > 10 Request-Typen
 			 *   * Superblock Control > 20 Request-Typen
 			 */
+			if (_read_blk.constructed()) {
+				progress |= blk_io.execute_read(*_read_blk);
+				if (_read_blk->complete()) {
+					_read_blk.destruct();
+					if (!_generated_req_success) {
+						_mark_req_failed(progress, "generated request");
+						return;
+					}
+					_state = _generated_req_succeeded;
+					progress = true;
+					return;
+				}
+			}
 		}
 
 		void _mark_req_failed(bool &, Error_string);
@@ -82,14 +104,15 @@ class Tresor::Vbd_check_request
 
 	public:
 
-		Vbd_check_request(Tree_root const &vbd, bool &success) : _vbd(vbd), _success(success) { }
+		Vbd_check_request(Attr attr) : _attr(attr) { }
 
-		void print(Output &out) const { Genode::print(out, "check ", _vbd); }
+		void print(Output &out) const { Genode::print(out, "check ", _attr.in_vbd); }
 
 		/*
 		 * FIXME
 		 *
-		 * Pro (indirekt) angesprochenem Module ein Argument.
+		 * Pro (indirekt) angesprochenem Module kommt ein Argument bei
+		 * MODULE::execute_REQUEST(..) und REQUEST::execute(..) hinzu.
 		 *
 		 * Beispiele:
 		 *   * VBD: 5 Module
@@ -97,7 +120,7 @@ class Tresor::Vbd_check_request
 		 */
 		bool execute(Block_io &);
 
-		bool complete() const { return _state == REQ_COMPLETE; }
+		bool complete() const { return _state == COMPLETE; }
 };
 
 class Tresor::Vbd_check

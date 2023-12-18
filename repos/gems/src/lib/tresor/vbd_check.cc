@@ -26,7 +26,7 @@ bool Vbd_check_request::_execute_node(Tree_level_index lvl, Tree_node_index node
 
 	Type_1_node const &node = _t1_blks.items[lvl].nodes[node_idx];
 	switch (_state) {
-	case REQ_IN_PROGRESS:
+	case IN_PROGRESS:
 
 		if (lvl == 1) {
 			if (!_num_remaining_leaves) {
@@ -38,7 +38,7 @@ bool Vbd_check_request::_execute_node(Tree_level_index lvl, Tree_node_index node
 				check_node = false;
 				progress = true;
 				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, _vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": expectedly invalid");
+					log(Level_indent { lvl, _attr.in_vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": expectedly invalid");
 				break;
 			}
 			if (node.gen == INITIAL_GENERATION) {
@@ -46,7 +46,7 @@ bool Vbd_check_request::_execute_node(Tree_level_index lvl, Tree_node_index node
 				check_node = false;
 				progress = true;
 				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, _vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": uninitialized");
+					log(Level_indent { lvl, _attr.in_vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": uninitialized");
 				break;
 			}
 		} else {
@@ -59,13 +59,13 @@ bool Vbd_check_request::_execute_node(Tree_level_index lvl, Tree_node_index node
 				check_node = false;
 				progress = true;
 				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, _vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": expectedly invalid");
+					log(Level_indent { lvl, _attr.in_vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": expectedly invalid");
 				break;
 			}
 		}
 		_generate_req(_read_blk, READ_BLK_SUCCEEDED, progress, node.pba, _blk);
 		if (VERBOSE_CHECK)
-			log(Level_indent { lvl, _vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node,
+			log(Level_indent { lvl, _attr.in_vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node,
 			    "): load to lvl ", lvl - 1);
 		break;
 
@@ -83,10 +83,10 @@ bool Vbd_check_request::_execute_node(Tree_level_index lvl, Tree_node_index node
 				cn = true;
 		}
 		check_node = false;
-		_state = REQ_IN_PROGRESS;
+		_state = IN_PROGRESS;
 		progress = true;
 		if (VERBOSE_CHECK)
-			log(Level_indent { lvl, _vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": good hash");
+			log(Level_indent { lvl, _attr.in_vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": good hash");
 		break;
 
 	default: break;
@@ -100,18 +100,18 @@ bool Vbd_check_request::execute(Block_io &blk_io)
 	bool progress;
 	_execute_generated_req(blk_io, progress);
 
-	if (_state == REQ_SUBMITTED) {
-		for (Tree_level_index lvl { 1 }; lvl <= _vbd.max_lvl + 1; lvl++)
-			for (Tree_node_index node_idx { 0 }; node_idx < _vbd.degree; node_idx++)
+	if (_state == INIT) {
+		for (Tree_level_index lvl { 1 }; lvl <= _attr.in_vbd.max_lvl + 1; lvl++)
+			for (Tree_node_index node_idx { 0 }; node_idx < _attr.in_vbd.degree; node_idx++)
 				_check_node[lvl][node_idx] = false;
 
-		_num_remaining_leaves = _vbd.num_leaves;
-		_t1_blks.items[_vbd.max_lvl + 1].nodes[0] = _vbd.t1_node();
-		_check_node[_vbd.max_lvl + 1][0] = true;
-		_state = REQ_IN_PROGRESS;
+		_num_remaining_leaves = _attr.in_vbd.num_leaves;
+		_t1_blks.items[_attr.in_vbd.max_lvl + 1].nodes[0] = _attr.in_vbd.t1_node();
+		_check_node[_attr.in_vbd.max_lvl + 1][0] = true;
+		_state = IN_PROGRESS;
 	}
-	for (Tree_level_index lvl { 1 }; lvl <= _vbd.max_lvl + 1; lvl++)
-		for (Tree_node_index node_idx { 0 }; node_idx < _vbd.degree; node_idx++)
+	for (Tree_level_index lvl { 1 }; lvl <= _attr.in_vbd.max_lvl + 1; lvl++)
+		for (Tree_node_index node_idx { 0 }; node_idx < _attr.in_vbd.degree; node_idx++)
 			if (_execute_node(lvl, node_idx, progress))
 				return progress;
 
@@ -123,13 +123,15 @@ bool Vbd_check_request::execute(Block_io &blk_io)
 void Vbd_check_request::_mark_req_failed(bool &progress, Error_string str)
 {
 	error("vbd check request failed: ", str);
-	_state = REQ_COMPLETE;
+	_attr.out_success = false;
+	_state = COMPLETE;
 	progress = true;
 }
 
 
 void Vbd_check_request::_mark_req_successful(bool &progress)
 {
-	_state = REQ_COMPLETE;
+	_attr.out_success = true;
+	_state = COMPLETE;
 	progress = true;
 }

@@ -23,10 +23,10 @@ bool Block_io_read::execute(Vfs::Env &vfs_env, Xml_node const &xml_node)
 {
 	bool progress = false;
 	switch (_state) {
-	case REQ_SUBMITTED:
+	case INIT:
 
 		_file.construct(_state, vfs_env, xml_node.attribute_value("path", Tresor::Path()));
-		_file->read(READ_OK, FILE_ERR, _pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress);
+		_file->read(READ_OK, FILE_ERR, _attr.in_pba * BLOCK_SIZE, { (char *)&_attr.out_blk, BLOCK_SIZE }, progress);
 		break;
 
 	case READ_OK: _mark_req_successful(progress); break;
@@ -40,18 +40,19 @@ bool Block_io_read::execute(Vfs::Env &vfs_env, Xml_node const &xml_node)
 void Block_io_read::_mark_req_failed(bool &progress, Error_string str)
 {
 	error("request failed: failed to ", str);
-	_state = REQ_COMPLETE;
+	_attr.out_success = false;
+	_state = COMPLETE;
 	progress = true;
 }
 
 
 void Block_io_read::_mark_req_successful(bool &progress)
 {
-	_success = true;
-	_state = REQ_COMPLETE;
+	_attr.out_success = true;
+	_state = COMPLETE;
 	progress = true;
-	if (VERBOSE_BLOCK_IO && (!VERBOSE_BLOCK_IO_PBA_FILTER || VERBOSE_BLOCK_IO_PBA == _pba))
-		log("block_io: read pba ", _pba, " hash ", hash(_blk));
+	if (VERBOSE_BLOCK_IO && (!VERBOSE_BLOCK_IO_PBA_FILTER || VERBOSE_BLOCK_IO_PBA == _attr.in_pba))
+		log("block_io: read pba ", _attr.in_pba, " hash ", hash(_attr.out_blk));
 }
 
 

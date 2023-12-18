@@ -28,15 +28,21 @@ namespace Tresor {
 
 class Tresor::Block_io_read
 {
+	public:
+
+		struct Attr
+		{
+			Physical_block_address const in_pba;
+			Block &out_blk;
+			bool &out_success;
+		};
+
 	private:
 
-		enum State { REQ_SUBMITTED, REQ_COMPLETE, REQ_GENERATED, READ_OK, WRITE_OK, SYNC_OK, FILE_ERR };
+		enum State { INIT, COMPLETE, READ_OK, FILE_ERR };
 
-		Physical_block_address const _pba;
-		Block &_blk;
-		bool &_success;
-
-		State _state { REQ_COMPLETE };
+		Attr _attr;
+		State _state { INIT };
 		Constructible<Read_write_file<State> > _file { };
 
 		NONCOPYABLE(Block_io_read);
@@ -47,13 +53,13 @@ class Tresor::Block_io_read
 
 	public:
 
-		Block_io_read(Physical_block_address pba, Block &blk, bool &success) : _pba(pba), _blk(blk), _success(success) { }
+		Block_io_read(Attr attr) : _attr(attr) { }
 
-		void print(Output &out) const { Genode::print(out, "read pba ", _pba); }
+		void print(Output &out) const { Genode::print(out, "read pba ", _attr.in_pba); }
 
 		bool execute(Vfs::Env &, Xml_node const &);
 
-		bool complete() const { return _state == REQ_COMPLETE; }
+		bool complete() const { return _state == COMPLETE; }
 };
 
 class Tresor::Block_io_request : public Module_request
