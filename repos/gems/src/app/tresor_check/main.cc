@@ -35,7 +35,7 @@ class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_compos
 {
 	private:
 
-		enum State { INIT, REQ_GENERATED, CHECK_SBS_SUCCEEDED };
+		enum State { INIT, CHK_SB, CHK_SB_SUCCEEDED };
 
 		Env  &_env;
 		Heap  _heap { _env.ram(), _env.rm() };
@@ -44,24 +44,16 @@ class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_compos
 		Signal_handler<Main> _sigh { _env.ep(), *this, &Main::_handle_signal };
 		Trust_anchor _trust_anchor { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
 		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto") };
-		Block_io _block_io { _vfs_env, _config_rom.xml().sub_node("block-io") };
-		Vbd_check _vbd_check { };
-		Ft_check _ft_check { };
-		Sb_check _sb_check { };
+		Block_io _blk_io { _vfs_env, _config_rom.xml().sub_node("block-io") };
+		Vbd_check _vbd_chk { };
+		Ft_check _ft_chk { };
+		Sb_check _sb_chk { };
 		bool _generated_req_success { };
+		State _generated_req_succeeded { INIT };
 		State _state { INIT };
+		Generated_request<Main, Sb_check::Check, State> _chk_sb { *this, _state, INIT };
 
 		NONCOPYABLE(Main);
-
-		void _generated_req_completed(State_uint state_uint) override
-		{
-			if (!_generated_req_success) {
-				error("command pool: request failed because generated request failed)");
-				_env.parent().exit(-1);
-				return;
-			}
-			_state = (State)state_uint;
-		}
 
 		void wakeup_vfs_user() override { _sigh.local_submit(); }
 
@@ -80,24 +72,19 @@ class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_compos
 			add_module(COMMAND_POOL, *this);
 			add_module(CRYPTO, _crypto);
 			add_module(TRUST_ANCHOR, _trust_anchor);
-			add_module(BLOCK_IO, _block_io);
-			add_module(VBD_CHECK, _vbd_check);
-			add_module(FT_CHECK, _ft_check);
-			add_module(SB_CHECK, _sb_check);
+			add_module(BLOCK_IO, _blk_io);
 			add_channel(*this);
 			_handle_signal();
 		}
 
+		void mark_failed(bool &, Error_string) { _env.parent().exit(-1); }
+
 		void execute(bool &progress) override
 		{
 			switch(_state) {
-			case INIT:
-
-				generate_req<Sb_check_request>(CHECK_SBS_SUCCEEDED, progress, _generated_req_success);
-				_state = REQ_GENERATED;
-				break;
-
-			case CHECK_SBS_SUCCEEDED: _env.parent().exit(0); break;
+			case INIT: _chk_sb.generate(CHK_SB, CHK_SB_SUCCEEDED, progress); break;
+			case CHK_SB: progress |= _chk_sb.execute(_sb_chk, _vbd_chk, _ft_chk, _blk_io); break;
+			case CHK_SB_SUCCEEDED: _env.parent().exit(0); break;
 			default: break;
 			}
 		}

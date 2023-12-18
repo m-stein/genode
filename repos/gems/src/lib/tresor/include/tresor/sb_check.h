@@ -16,95 +16,79 @@
 
 /* tresor includes */
 #include <tresor/types.h>
+#include <tresor/vbd_check.h>
+#include <tresor/ft_check.h>
+#include <tresor/block_io.h>
 
-namespace Tresor {
+namespace Tresor { class Sb_check; }
 
-	class Sb_check;
-	class Sb_check_request;
-	class Sb_check_channel;
-}
-
-
-class Tresor::Sb_check_request : public Module_request
-{
-	friend class Sb_check_channel;
-
-	private:
-
-		bool &_success;
-
-		NONCOPYABLE(Sb_check_request);
-
-	public:
-
-		Sb_check_request(Module_id, Module_channel_id, bool &);
-
-		void print(Output &out) const override { Genode::print(out, "check"); }
-};
-
-
-class Tresor::Sb_check_channel : public Module_channel
+class Tresor::Sb_check
 {
 	private:
-
-		using Request = Sb_check_request;
-
-		enum State { REQ_SUBMITTED, REQ_COMPLETE, READ_BLK_SUCCESSFUL, REQ_GENERATED, CHECK_VBD_SUCCESSFUL, CHECK_FT_SUCCESSFUL, CHECK_MT_SUCCESSFUL};
-
-		State _state { REQ_COMPLETE };
-		Request *_req_ptr { };
-		Generation _highest_gen { 0 };
-		Superblock_index _highest_gen_sb_idx { 0 };
-		bool _scan_for_highest_gen_sb_done { false };
-		Superblock_index _sb_idx { 0 };
-		Superblock _sb { };
-		Snapshot_index _snap_idx { 0 };
-		Constructible<Tree_root> _tree_root { };
-		Block _blk { };
-		bool _generated_req_success { false };
-
-		NONCOPYABLE(Sb_check_channel);
-
-		void _generated_req_completed(State_uint) override;
-
-		void _request_submitted(Module_request &) override;
-
-		bool _request_complete() override { return _state == REQ_COMPLETE; }
-
-		template <typename REQUEST, typename... ARGS>
-		void _generate_req(State_uint state, bool &progress, ARGS &&... args)
-		{
-			_state = REQ_GENERATED;
-			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
-		}
-
-		void _mark_req_failed(bool &, char const *);
-
-		void _mark_req_successful(bool &);
-
-	public:
-
-		Sb_check_channel(Module_channel_id id) : Module_channel(SB_CHECK, id) { }
-
-		void execute(bool &);
-};
-
-
-class Tresor::Sb_check : public Module
-{
-	private:
-
-		using Channel = Sb_check_channel;
-
-		Constructible<Channel> _channels[1] { };
 
 		NONCOPYABLE(Sb_check);
 
 	public:
 
-		Sb_check();
+		class Check
+		{
+			public:
 
-		void execute(bool &) override;
+				using Module = Sb_check;
+
+				struct Attr { bool &out_success; };
+
+			private:
+
+				enum State {
+					INIT, COMPLETE, READ_BLK, READ_BLK_SUCCEEDED, CHK_VBD, CHK_VBD_SUCCEEDED, CHK_FT, CHK_FT_SUCCEEDED,
+					CHK_MT, CHK_MT_SUCCEEDED};
+
+				Attr _attr;
+				State _state { INIT };
+				Generation _highest_gen { 0 };
+				Superblock_index _highest_gen_sb_idx { 0 };
+				bool _scan_for_highest_gen_sb_done { false };
+				Superblock_index _sb_idx { 0 };
+				Superblock _sb { };
+				Snapshot_index _snap_idx { 0 };
+				Constructible<Tree_root> _tree_root { };
+				Block _blk { };
+				Generated_request<Check, Vbd_check::Check, State> _chk_vbd { *this, _state, INIT };
+				Generated_request<Check, Ft_check::Check, State> _chk_ft { *this, _state, INIT };
+				Generated_request<Check, Block_io_read, State> _read_blk { *this, _state, INIT };
+
+				NONCOPYABLE(Check);
+
+				void _mark_succeeded(bool &);
+
+			public:
+
+				Check(Attr attr) : _attr(attr) { }
+
+				void print(Output &out) const { Genode::print(out, "check"); }
+
+				void mark_failed(bool &, Error_string);
+
+				bool execute(Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &blk_io);
+
+				bool complete() const { return _state == COMPLETE; }
+		};
+
+		Sb_check() { }
+
+		/*
+		 * ANMERKUNG
+		 *
+		 * Pro (indirekt) angesprochenem Modul kommt ein Argument bei
+		 * MODULE::execute(..) und REQUEST::execute(..) sowie diversen
+		 * Sub-Calls hinzu (Beispiele: VBD: 5 Module, Superblock Control:
+		 * 7 Module). Dies könnte durch eine Übergabe am Modul-Konstruktor und
+		 * entsprechenden Member weniger invasiv gemacht werden (insofern man
+		 * Requests Zugriff auf diese Member gewährt.
+		 */
+
+		bool execute(Check &chk, Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &blk_io) { return chk.execute(vbd_chk, ft_chk, blk_io); };
 };
 
 #endif /* _TRESOR__SB_CHECK_H_ */

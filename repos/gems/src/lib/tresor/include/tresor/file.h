@@ -48,6 +48,7 @@ class Tresor::File
 		enum State { IDLE, SYNC_QUEUED, READ_QUEUED, READ_INITIALIZED, WRITE_INITIALIZED, WRITE_OFFSET_APPLIED };
 
 		Vfs::Env &_env;
+		Tresor::Path const &_path;
 		HOST_STATE &_host_state;
 		State _state { IDLE };
 		Vfs::Vfs_handle &_handle;
@@ -64,8 +65,8 @@ class Tresor::File
 
 		File(HOST_STATE &host_state, Vfs::Vfs_handle &handle) : _host_state(host_state), _handle(handle) { }
 
-		File(HOST_STATE &host_state, Vfs::Env &env, Tresor::Path path, Vfs::Directory_service::Open_mode mode)
-		: _env(env), _host_state(host_state), _handle(_open(path, mode)) { }
+		File(HOST_STATE &host_state, Vfs::Env &env, Tresor::Path const &path, Vfs::Directory_service::Open_mode mode)
+		: _env(env), _path(path), _host_state(host_state), _handle(_open(_path, mode)) { }
 
 		~File()
 		{
@@ -116,7 +117,7 @@ class Tresor::File
 
 				default:
 
-					error("read failed");
+					error("file \"", _path ,"\": read failed");
 					_host_state = failed;
 					_state = IDLE;
 					progress = true;
@@ -167,7 +168,7 @@ class Tresor::File
 
 				default:
 
-					error("write failed");
+					error("file \"", _path ,"\": write failed");
 					_host_state = failed;
 					_state = IDLE;
 					progress = true;
@@ -204,7 +205,7 @@ class Tresor::File
 
 				default:
 
-					error("sync failed");
+					error("file \"", _path ,"\": sync failed");
 					_host_state = failed;
 					_state = IDLE;
 					progress = true;
@@ -218,14 +219,14 @@ class Tresor::File
 template <typename HOST_STATE>
 struct Tresor::Read_write_file : public File<HOST_STATE>
 {
-	Read_write_file(HOST_STATE &host_state, Vfs::Env &env, Tresor::Path path)
+	Read_write_file(HOST_STATE &host_state, Vfs::Env &env, Tresor::Path const &path)
 	: File<HOST_STATE>(host_state, env, path, Vfs::Directory_service::OPEN_MODE_RDWR) { }
 };
 
 template <typename HOST_STATE>
 struct Tresor::Write_only_file : public File<HOST_STATE>
 {
-	Write_only_file(HOST_STATE &host_state, Vfs::Env &env, Tresor::Path path)
+	Write_only_file(HOST_STATE &host_state, Vfs::Env &env, Tresor::Path const &path)
 	: File<HOST_STATE>(host_state, env, path, Vfs::Directory_service::OPEN_MODE_WRONLY) { }
 };
 

@@ -103,6 +103,9 @@ namespace Tresor {
 	struct Tree_root;
 	class Pba_allocator;
 
+	template <typename, typename, typename>
+	class Generated_request;
+
 	template <size_t LEN>
 	class Fixed_length;
 
@@ -165,6 +168,55 @@ namespace Tresor {
 		return vbd_node_num_vbas(vbd_degr_log_2, vbd_lvl) - 1 + vbd_node_min_vba(vbd_degr_log_2, vbd_lvl, vbd_leaf_vba);
 	}
 }
+
+
+template <typename SRC_REQ, typename DST_REQ, typename STATE>
+class Tresor::Generated_request
+{
+	private:
+
+		using Dst_module = DST_REQ::Module;
+
+		SRC_REQ &_src_req;
+		STATE &_state;
+		STATE _succeeded;
+		Constructible<DST_REQ> _dst_req { };
+		bool _success { false };
+
+	public:
+
+		Generated_request(SRC_REQ &src_req, STATE &state, STATE init)
+		:
+			_src_req(src_req), _state(state), _succeeded(init)
+		{ }
+
+		template <typename... ARGS>
+		void generate(STATE generated, STATE succeeded, bool &progress, ARGS &&... args)
+		{
+			_state = generated;
+			_dst_req.construct(typename DST_REQ::Attr { args..., _success });
+			_succeeded = succeeded;
+			progress = true;
+		}
+
+		template <typename... ARGS>
+		bool execute(Dst_module &dst_mod, ARGS &&... args)
+		{
+			bool progress = false;
+			ASSERT(_dst_req.constructed());
+			progress |= dst_mod.execute(*_dst_req, args...);
+			if (_dst_req->complete()) {
+				_dst_req.destruct();
+				if (!_success) {
+					_src_req.mark_failed(progress, "generated request failed");
+					return progress;
+				}
+				progress = true;
+				_state = _succeeded;
+			}
+			return progress;
+		}
+};
 
 
 class Tresor::Pba_allocator

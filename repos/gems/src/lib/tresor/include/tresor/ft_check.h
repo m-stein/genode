@@ -16,95 +16,65 @@
 
 /* tresor includes */
 #include <tresor/types.h>
+#include <tresor/block_io.h>
 
-namespace Tresor {
+namespace Tresor { class Ft_check; }
 
-	class Ft_check;
-	class Ft_check_request;
-	class Ft_check_channel;
-}
-
-
-class Tresor::Ft_check_request : public Module_request
-{
-	friend class Ft_check_channel;
-
-	private:
-
-		Tree_root const &_ft;
-		bool &_success;
-
-		NONCOPYABLE(Ft_check_request);
-
-	public:
-
-		Ft_check_request(Module_id, Module_channel_id, Tree_root const &, bool &);
-
-		void print(Output &out) const override { Genode::print(out, "check ", _ft); }
-};
-
-
-class Tresor::Ft_check_channel : public Module_channel
+class Tresor::Ft_check
 {
 	private:
-
-		using Request = Ft_check_request;
-
-		enum State : State_uint { REQ_SUBMITTED, REQ_IN_PROGRESS, REQ_COMPLETE, REQ_GENERATED, READ_BLK_SUCCEEDED };
-
-		State _state { REQ_COMPLETE };
-		Type_1_node_block_walk _t1_blks { };
-		Type_2_node_block _t2_blk { };
-		bool _check_node[TREE_MAX_NR_OF_LEVELS + 1][NUM_NODES_PER_BLK] { };
-		Number_of_leaves _num_remaining_leaves { 0 };
-		Request *_req_ptr { };
-		Block _blk { };
-		bool _generated_req_success { false };
-
-		NONCOPYABLE(Ft_check_channel);
-
-		void _generated_req_completed(State_uint) override;
-
-		void _request_submitted(Module_request &) override;
-
-		bool _request_complete() override { return _state == REQ_COMPLETE; }
-
-		void _mark_req_failed(bool &, Error_string);
-
-		void _mark_req_successful(bool &);
-
-		bool _execute_node(Tree_level_index, Tree_node_index, bool &);
-
-		template <typename REQUEST, typename... ARGS>
-		void _generate_req(State_uint state, bool &progress, ARGS &&... args)
-		{
-			_state = REQ_GENERATED;
-			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
-		}
-
-	public:
-
-		Ft_check_channel(Module_channel_id id) : Module_channel(FT_CHECK, id) { }
-
-		void execute(bool &);
-};
-
-
-class Tresor::Ft_check : public Module
-{
-	private:
-
-		using Channel = Ft_check_channel;
-
-		Constructible<Channel> _channels[1] { };
 
 		NONCOPYABLE(Ft_check);
 
 	public:
 
-		Ft_check();
+		class Check
+		{
+			public:
 
-		void execute(bool &) override;
+				using Module = Ft_check;
+
+				struct Attr
+				{
+					Tree_root const &in_ft;
+					bool &out_success;
+				};
+
+			private:
+
+				enum State { INIT, IN_PROGRESS, COMPLETE, READ_BLK, READ_BLK_SUCCEEDED };
+
+				Attr const _attr;
+				State _state { INIT };
+				Type_1_node_block_walk _t1_blks { };
+				Type_2_node_block _t2_blk { };
+				bool _check_node[TREE_MAX_NR_OF_LEVELS + 1][NUM_NODES_PER_BLK] { };
+				Number_of_leaves _num_remaining_leaves { 0 };
+				Block _blk { };
+				Generated_request<Check, Block_io_read, State> _read_blk { *this, _state, INIT };
+
+				NONCOPYABLE(Check);
+
+				void _mark_succeeded(bool &);
+
+				bool _execute_node(Block_io &, Tree_level_index, Tree_node_index, bool &);
+
+			public:
+
+				Check(Attr attr) : _attr(attr) { }
+
+				void print(Output &out) const { Genode::print(out, "check ", _attr.in_ft); }
+
+				void mark_failed(bool &, Error_string);
+
+				bool execute(Block_io &);
+
+				bool complete() const { return _state == COMPLETE; }
+		};
+
+		Ft_check() { }
+
+		bool execute(Check &req, Block_io &blk_io) { return req.execute(blk_io); }
 };
 
 #endif /* _TRESOR__FT_CHECK_H_ */
