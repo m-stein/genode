@@ -18,6 +18,57 @@
 
 using namespace Tresor;
 
+
+bool Block_io_read::execute(Vfs::Env &vfs_env, Path const &path)
+{
+	bool progress = false;
+	switch (_state) {
+	case INIT:
+
+		/*
+		 * ANMERKUNG
+		 *
+		 * Da es keine Channel mehr gibt, gibt es keinen Ort mehr für State
+		 * der zwecks Parallelität mehrfach
+		 * für die Abarbeitung von Requests vorhanden sein aber nicht mit
+		 * jedem Request neu initialisiert werden soll. So wie die Dateien,
+		 * welche die Back-Ends (block_io, trust_anchor, crypto) verwenden.
+		 * Als Übergangslösung öffne ich diese nun für jedes Request neu, was
+		 * wahrscheinlich performance-technisch nicht ideal ist.
+		 */
+		_file.construct(_state, vfs_env, path);
+		_state = READ;
+		progress = true;
+		break;
+
+	case READ: _file->read(READ_OK, FILE_ERR, _attr.in_pba * BLOCK_SIZE, { (char *)&_attr.out_blk, BLOCK_SIZE }, progress); break;
+	case READ_OK: _mark_req_successful(progress); break;
+	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
+	default: break;
+	}
+	return progress;
+}
+
+
+void Block_io_read::_mark_req_failed(bool &progress, Error_string str)
+{
+	error("block_io: ", *this, " failed: ", str);
+	_attr.out_success = false;
+	_state = COMPLETE;
+	progress = true;
+}
+
+
+void Block_io_read::_mark_req_successful(bool &progress)
+{
+	_attr.out_success = true;
+	_state = COMPLETE;
+	progress = true;
+	if (VERBOSE_BLOCK_IO && (!VERBOSE_BLOCK_IO_PBA_FILTER || VERBOSE_BLOCK_IO_PBA == _attr.in_pba))
+		log("block_io: ", *this, " hash ", hash(_attr.out_blk));
+}
+
+
 Block_io_request::Block_io_request(Module_id src_module_id, Module_channel_id src_chan_id, Type type,
                                    Request_offset client_req_offset, Request_tag client_req_tag, Key_id key_id,
                                    Physical_block_address pba, Virtual_block_address vba, Block &blk, Hash &hash,
@@ -200,6 +251,8 @@ Block_io_channel::Block_io_channel(Module_channel_id id, Vfs::Env &vfs_env, Xml_
 
 
 Block_io::Block_io(Vfs::Env &vfs_env, Xml_node const &xml_node)
+:
+	_vfs_env(vfs_env), _path(xml_node.attribute_value("path", Path()))
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {

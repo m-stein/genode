@@ -21,9 +21,48 @@
 namespace Tresor {
 
 	class Block_io;
+	class Block_io_read;
 	class Block_io_request;
 	class Block_io_channel;
 }
+
+class Tresor::Block_io_read
+{
+	public:
+
+		struct Attr
+		{
+			Physical_block_address const in_pba;
+			Block &out_blk;
+			bool &out_success;
+		};
+
+	private:
+
+		enum State { INIT, COMPLETE, READ, READ_OK, FILE_ERR };
+
+		Attr _attr;
+		State _state { INIT };
+		Constructible<Read_write_file<State> > _file { };
+
+		NONCOPYABLE(Block_io_read);
+
+		void _mark_req_failed(bool &, Error_string);
+
+		void _mark_req_successful(bool &);
+
+	public:
+
+		using Module = Block_io;
+
+		Block_io_read(Attr attr) : _attr(attr) { }
+
+		void print(Output &out) const { Genode::print(out, "read pba ", _attr.in_pba); }
+
+		bool execute(Vfs::Env &, Path const &);
+
+		bool complete() const { return _state == COMPLETE; }
+};
 
 class Tresor::Block_io_request : public Module_request
 {
@@ -120,6 +159,9 @@ class Tresor::Block_io : public Module
 
 		Constructible<Channel> _channels[1] { };
 
+		Vfs::Env &_vfs_env;
+		Path const _path;
+
 		NONCOPYABLE(Block_io);
 
 	public:
@@ -159,6 +201,8 @@ class Tresor::Block_io : public Module
 		Block_io(Vfs::Env &, Xml_node const &);
 
 		void execute(bool &) override;
+
+		bool execute(Block_io_read &req) { return req.execute(_vfs_env, _path); }
 };
 
 #endif /* _TRESOR__BLOCK_IO_H_ */

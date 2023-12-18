@@ -16,94 +16,99 @@
 
 /* tresor includes */
 #include <tresor/types.h>
+#include <tresor/block_io.h>
 
-namespace Tresor {
+namespace Tresor { class Vbd_check; }
 
-	class Vbd_check;
-	class Vbd_check_request;
-	class Vbd_check_channel;
-}
-
-
-class Tresor::Vbd_check_request : public Module_request
-{
-	friend class Vbd_check_channel;
-
-	private:
-
-		Tree_root const &_vbd;
-		bool &_success;
-
-		NONCOPYABLE(Vbd_check_request);
-
-	public:
-
-		Vbd_check_request(Module_id, Module_channel_id, Tree_root const &, bool &);
-
-		void print(Output &out) const override { Genode::print(out, "check ", _vbd); }
-};
-
-
-class Tresor::Vbd_check_channel : public Module_channel
+class Tresor::Vbd_check
 {
 	private:
-
-		using Request = Vbd_check_request;
-
-		enum State : State_uint { REQ_SUBMITTED, REQ_IN_PROGRESS, REQ_COMPLETE, REQ_GENERATED, READ_BLK_SUCCEEDED };
-
-		State _state { REQ_COMPLETE };
-		Type_1_node_block_walk _t1_blks { };
-		bool _check_node[TREE_MAX_NR_OF_LEVELS][NUM_NODES_PER_BLK] { };
-		Block _blk { };
-		Request *_req_ptr { };
-		Number_of_leaves _num_remaining_leaves { 0 };
-		bool _generated_req_success { false };
-
-		NONCOPYABLE(Vbd_check_channel);
-
-		void _generated_req_completed(State_uint) override;
-
-		void _request_submitted(Module_request &) override;
-
-		bool _request_complete() override { return _state == REQ_COMPLETE; }
-
-		void _mark_req_failed(bool &, Error_string);
-
-		void _mark_req_successful(bool &);
-
-		bool _execute_node(Tree_level_index, Tree_node_index, bool &);
-
-		template <typename REQUEST, typename... ARGS>
-		void _generate_req(State_uint state, bool &progress, ARGS &&... args)
-		{
-			_state = REQ_GENERATED;
-			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
-		}
-
-	public:
-
-		Vbd_check_channel(Module_channel_id id) : Module_channel(VBD_CHECK, id) { }
-
-		void execute(bool &);
-};
-
-
-class Tresor::Vbd_check : public Module
-{
-	private:
-
-		using Channel = Vbd_check_channel;
-
-		Constructible<Channel> _channels[1] { };
 
 		NONCOPYABLE(Vbd_check);
 
 	public:
 
-		Vbd_check();
+		class Check
+		{
+			public:
 
-		void execute(bool &) override;
+				using Module = Vbd_check;
+
+				struct Attr
+				{
+					Tree_root const &in_vbd;
+					bool &out_success;
+				};
+
+			private:
+
+				enum State { INIT, IN_PROGRESS, COMPLETE, READ_BLK, READ_BLK_SUCCEEDED };
+
+				Attr _attr;
+				State _state { INIT };
+				Type_1_node_block_walk _t1_blks { };
+				bool _check_node[TREE_MAX_NR_OF_LEVELS][NUM_NODES_PER_BLK] { };
+				Block _blk { };
+				Number_of_leaves _num_remaining_leaves { 0 };
+				Generated_request<Check, Block_io_read, State> _read_blk { *this, _state, INIT };
+
+				/*
+				 * ANMERKUNG
+				 *
+				 * Statt wie bislang eine feste Anzahl von Channels im
+				 * jeweiligen Ziel-Modul zu halten, hat jetzt jedes
+				 * Quell-Modul ein Request+Channel-Member
+				 * pro benötigtem Request-Typ. Das wird definitiv
+				 * mehr RAM benötigen. Beispiel:
+				 * Free-Tree Request+Channel > 32K
+				 *
+				 * Der Tresor-Tester muß diesbezüglich umgebaut werden, da er
+				 * für jedes User-Command ein Command-Objekt mit einem union
+				 * über mögliche Requests (check request, tresor request,
+				 * init request, etc.) hält und das über die gesamte Laufzeit.
+				 * Siehe stark gestiegener RAM/CAP Verbrauch in tresor_tester.run.
+				 */
+
+				NONCOPYABLE(Check);
+
+				void _mark_succeeded(bool &);
+
+				bool _execute_node(Block_io &, Tree_level_index, Tree_node_index, bool &);
+
+			public:
+
+				Check(Attr attr) : _attr(attr) { }
+
+				void print(Output &out) const { Genode::print(out, "check ", _attr.in_vbd); }
+
+				void mark_failed(bool &, Error_string);
+
+				bool execute(Block_io &);
+
+				bool complete() const { return _state == COMPLETE; }
+		};
+
+		Vbd_check() { }
+
+		/*
+		 * ANMERKUNG
+		 *
+		 * Mit dieser Mechanik kann ein Modul nicht mehr, wie vorher,
+		 * eigenes Policies auf die Annahme von Requests beziehungsweise
+		 * die Reihenfolge der Abarbeitung anwenden. Beziehungen zwischen
+		 * Requests eines Moduls können nicht mehr lokal umgesetzt werden
+		 * sondern müssen vom Top-Level-Modul durch das grob-granularere
+		 * Scheduling verwirklicht werden. Hier habe ich noch kein Beispiel, da
+		 * wir bislang die Fähigkeit der Tresor-Lib zur Parallelität nicht
+		 * ausreizen.
+		 *
+		 * Zudem bedingt das, daß das Top-Level Modul immer der Scheduler ist
+		 * welcher dann nicht über die übliche Modul-Mechanik getrieben werden
+		 * kann. Daraus resultiert Anpassungensbedarf, da "über" dem Scheduler
+		 * derzeit noch das Command-Modul mit eigener Logik (VFS: Splitter,
+		 * Tester: Test-Auswertung) liegt.
+		 */
+		bool execute(Check &req, Block_io &blk_io) { return req.execute(blk_io); }
 };
 
 #endif /* _TRESOR__VBD_CHECK_H_ */
