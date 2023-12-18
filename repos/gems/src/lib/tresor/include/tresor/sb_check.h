@@ -16,6 +16,7 @@
 
 /* tresor includes */
 #include <tresor/types.h>
+#include <tresor/vbd_check.h>
 
 namespace Tresor {
 
@@ -49,7 +50,7 @@ class Tresor::Sb_check_channel : public Module_channel
 
 		using Request = Sb_check_request;
 
-		enum State { REQ_SUBMITTED, REQ_COMPLETE, READ_BLK_SUCCESSFUL, REQ_GENERATED, CHECK_VBD_SUCCESSFUL, CHECK_FT_SUCCESSFUL, CHECK_MT_SUCCESSFUL};
+		enum State { REQ_SUBMITTED, REQ_COMPLETE, READ_BLK_SUCCESSFUL, REQ_GENERATED, REQ_GENERATED_NEW, CHECK_VBD_SUCCESSFUL, CHECK_FT_SUCCESSFUL, CHECK_MT_SUCCESSFUL};
 
 		State _state { REQ_COMPLETE };
 		Request *_req_ptr { };
@@ -61,6 +62,8 @@ class Tresor::Sb_check_channel : public Module_channel
 		Snapshot_index _snap_idx { 0 };
 		Constructible<Tree_root> _tree_root { };
 		Block _blk { };
+		Constructible<Vbd_check_request> _check_vbd { };
+		State _generated_req_complete { REQ_COMPLETE };
 		bool _generated_req_success { false };
 
 		NONCOPYABLE(Sb_check_channel);
@@ -78,6 +81,27 @@ class Tresor::Sb_check_channel : public Module_channel
 			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 		}
 
+		template <typename REQUEST, typename... ARGS>
+		void _generate_req_new(Constructible<REQUEST> &req, State req_complete, bool &progress, ARGS &&... args)
+		{
+			_state = REQ_GENERATED_NEW;
+			req.construct(args..., _generated_req_success);
+			_generated_req_complete = req_complete;
+			progress = true;
+		}
+
+		void _execute_generated_req(Vbd_check &vbd_chk, Block_io &blk_io, bool &progress)
+		{
+			if (_state != REQ_GENERATED_NEW)
+				return;
+
+			if (_check_vbd.constructed()) {
+				progress |= vbd_chk.execute_check(*_check_vbd, blk_io);
+				if (_check_vbd->complete())
+					_state = _generated_req_complete;
+			}
+		}
+
 		void _mark_req_failed(bool &, char const *);
 
 		void _mark_req_successful(bool &);
@@ -86,7 +110,7 @@ class Tresor::Sb_check_channel : public Module_channel
 
 		Sb_check_channel(Module_channel_id id) : Module_channel(SB_CHECK, id) { }
 
-		void execute(bool &);
+		void execute(Vbd_check &vbd_chk, Block_io &blk_io, bool &);
 };
 
 
@@ -97,12 +121,14 @@ class Tresor::Sb_check : public Module
 		using Channel = Sb_check_channel;
 
 		Constructible<Channel> _channels[1] { };
+		Vbd_check &_vbd_chk;
+		Block_io &_blk_io;
 
 		NONCOPYABLE(Sb_check);
 
 	public:
 
-		Sb_check();
+		Sb_check(Vbd_check &vbd_check, Block_io &blk_io);
 
 		void execute(bool &) override;
 };

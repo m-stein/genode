@@ -16,57 +16,63 @@
 
 /* tresor includes */
 #include <tresor/types.h>
+#include <tresor/block_io.h>
 
 namespace Tresor {
 
 	class Vbd_check;
 	class Vbd_check_request;
-	class Vbd_check_channel;
 }
 
-
-class Tresor::Vbd_check_request : public Module_request
+class Tresor::Vbd_check_request
 {
-	friend class Vbd_check_channel;
-
 	private:
+
+		enum State { REQ_SUBMITTED, REQ_IN_PROGRESS, REQ_COMPLETE, REQ_GENERATED, READ_BLK_SUCCEEDED };
 
 		Tree_root const &_vbd;
 		bool &_success;
-
-		NONCOPYABLE(Vbd_check_request);
-
-	public:
-
-		Vbd_check_request(Module_id, Module_channel_id, Tree_root const &, bool &);
-
-		void print(Output &out) const override { Genode::print(out, "check ", _vbd); }
-};
-
-
-class Tresor::Vbd_check_channel : public Module_channel
-{
-	private:
-
-		using Request = Vbd_check_request;
-
-		enum State : State_uint { REQ_SUBMITTED, REQ_IN_PROGRESS, REQ_COMPLETE, REQ_GENERATED, READ_BLK_SUCCEEDED };
-
 		State _state { REQ_COMPLETE };
 		Type_1_node_block_walk _t1_blks { };
 		bool _check_node[TREE_MAX_NR_OF_LEVELS][NUM_NODES_PER_BLK] { };
 		Block _blk { };
-		Request *_req_ptr { };
 		Number_of_leaves _num_remaining_leaves { 0 };
 		bool _generated_req_success { false };
+		State _generated_req_complete { REQ_COMPLETE };
+		Constructible<Block_io_read> _read_blk { };
 
-		NONCOPYABLE(Vbd_check_channel);
+		NONCOPYABLE(Vbd_check_request);
 
-		void _generated_req_completed(State_uint) override;
+		template <typename REQUEST, typename... ARGS>
+		void _generate_req(Constructible<REQUEST> &req, State req_complete, bool &progress, ARGS &&... args)
+		{
+			_state = REQ_GENERATED;
+			req.construct(args..., _generated_req_success);
+			_generated_req_complete = req_complete;
+			progress = true;
+		}
 
-		void _request_submitted(Module_request &) override;
+		void _execute_generated_req(Block_io &blk_io, bool &progress)
+		{
+			if (_state != REQ_GENERATED)
+				return;
 
-		bool _request_complete() override { return _state == REQ_COMPLETE; }
+			if (_read_blk.constructed()) {
+				progress |= blk_io.execute_read(*_read_blk);
+				if (_read_blk->complete())
+					_state = _generated_req_complete;
+			}
+			/*
+			 * FIXME
+			 *
+			 * Das wird eine recht lange repetitive Liste bei einigen Modulen
+			 * aber ich weiß nicht wie ich es ohne Vererbung abmildern soll.
+			 *
+			 * Beispiele:
+			 *   * VBD > 10 Request-Typen
+			 *   * Superblock Control > 20 Request-Typen
+			 */
+		}
 
 		void _mark_req_failed(bool &, Error_string);
 
@@ -74,36 +80,37 @@ class Tresor::Vbd_check_channel : public Module_channel
 
 		bool _execute_node(Tree_level_index, Tree_node_index, bool &);
 
-		template <typename REQUEST, typename... ARGS>
-		void _generate_req(State_uint state, bool &progress, ARGS &&... args)
-		{
-			_state = REQ_GENERATED;
-			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
-		}
-
 	public:
 
-		Vbd_check_channel(Module_channel_id id) : Module_channel(VBD_CHECK, id) { }
+		Vbd_check_request(Tree_root const &vbd, bool &success) : _vbd(vbd), _success(success) { }
 
-		void execute(bool &);
+		void print(Output &out) const { Genode::print(out, "check ", _vbd); }
+
+		/*
+		 * FIXME
+		 *
+		 * Pro (indirekt) angesprochenem Module ein Argument.
+		 *
+		 * Beispiele:
+		 *   * VBD: 5 Module
+		 *   * Superblock Control: 7 Module
+		 */
+		bool execute(Block_io &);
+
+		bool complete() const { return _state == REQ_COMPLETE; }
 };
 
-
-class Tresor::Vbd_check : public Module
+class Tresor::Vbd_check
 {
 	private:
-
-		using Channel = Vbd_check_channel;
-
-		Constructible<Channel> _channels[1] { };
 
 		NONCOPYABLE(Vbd_check);
 
 	public:
 
-		Vbd_check();
+		Vbd_check() { }
 
-		void execute(bool &) override;
+		bool execute_check(Vbd_check_request &req, Block_io &blk_io) { return req.execute(blk_io); }
 };
 
 #endif /* _TRESOR__VBD_CHECK_H_ */

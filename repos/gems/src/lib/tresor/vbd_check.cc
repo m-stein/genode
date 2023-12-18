@@ -18,32 +18,12 @@
 
 using namespace Tresor;
 
-Vbd_check_request::Vbd_check_request(Module_id src_mod, Module_channel_id src_chan, Tree_root const &vbd, bool &success)
-:
-	Module_request(src_mod, src_chan, VBD_CHECK), _vbd(vbd), _success(success)
-{ }
-
-
-void Vbd_check_channel::_generated_req_completed(State_uint state_uint)
-{
-	if (!_generated_req_success) {
-		error("vbd check: request (", *_req_ptr, ") failed because generated request failed)");
-		_req_ptr->_success = false;
-		_state = REQ_COMPLETE;
-		_req_ptr = nullptr;
-		return;
-	}
-	_state = (State)state_uint;
-}
-
-
-bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
+bool Vbd_check_request::_execute_node(Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
 {
 	bool &check_node = _check_node[lvl][node_idx];
 	if (!check_node)
 		return false;
 
-	Request &req { *_req_ptr };
 	Type_1_node const &node = _t1_blks.items[lvl].nodes[node_idx];
 	switch (_state) {
 	case REQ_IN_PROGRESS:
@@ -58,7 +38,7 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 				check_node = false;
 				progress = true;
 				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": expectedly invalid");
+					log(Level_indent { lvl, _vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": expectedly invalid");
 				break;
 			}
 			if (node.gen == INITIAL_GENERATION) {
@@ -66,7 +46,7 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 				check_node = false;
 				progress = true;
 				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": uninitialized");
+					log(Level_indent { lvl, _vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": uninitialized");
 				break;
 			}
 		} else {
@@ -79,13 +59,13 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 				check_node = false;
 				progress = true;
 				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": expectedly invalid");
+					log(Level_indent { lvl, _vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": expectedly invalid");
 				break;
 			}
 		}
-		_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _blk);
+		_generate_req(_read_blk, READ_BLK_SUCCEEDED, progress, node.pba, _blk);
 		if (VERBOSE_CHECK)
-			log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node,
+			log(Level_indent { lvl, _vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node,
 			    "): load to lvl ", lvl - 1);
 		break;
 
@@ -106,7 +86,7 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 		_state = REQ_IN_PROGRESS;
 		progress = true;
 		if (VERBOSE_CHECK)
-			log(Level_indent { lvl, req._vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": good hash");
+			log(Level_indent { lvl, _vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, ": good hash");
 		break;
 
 	default: break;
@@ -115,69 +95,41 @@ bool Vbd_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node
 }
 
 
-void Vbd_check_channel::execute(bool &progress)
+bool Vbd_check_request::execute(Block_io &blk_io)
 {
-	if (!_req_ptr)
-		return;
+	bool progress;
+	_execute_generated_req(blk_io, progress);
 
-	Request &req { *_req_ptr };
 	if (_state == REQ_SUBMITTED) {
-		for (Tree_level_index lvl { 1 }; lvl <= req._vbd.max_lvl + 1; lvl++)
-			for (Tree_node_index node_idx { 0 }; node_idx < req._vbd.degree; node_idx++)
+		for (Tree_level_index lvl { 1 }; lvl <= _vbd.max_lvl + 1; lvl++)
+			for (Tree_node_index node_idx { 0 }; node_idx < _vbd.degree; node_idx++)
 				_check_node[lvl][node_idx] = false;
 
-		_num_remaining_leaves = req._vbd.num_leaves;
-		_t1_blks.items[req._vbd.max_lvl + 1].nodes[0] = req._vbd.t1_node();
-		_check_node[req._vbd.max_lvl + 1][0] = true;
+		_num_remaining_leaves = _vbd.num_leaves;
+		_t1_blks.items[_vbd.max_lvl + 1].nodes[0] = _vbd.t1_node();
+		_check_node[_vbd.max_lvl + 1][0] = true;
 		_state = REQ_IN_PROGRESS;
 	}
-	for (Tree_level_index lvl { 1 }; lvl <= req._vbd.max_lvl + 1; lvl++)
-		for (Tree_node_index node_idx { 0 }; node_idx < req._vbd.degree; node_idx++)
+	for (Tree_level_index lvl { 1 }; lvl <= _vbd.max_lvl + 1; lvl++)
+		for (Tree_node_index node_idx { 0 }; node_idx < _vbd.degree; node_idx++)
 			if (_execute_node(lvl, node_idx, progress))
-				return;
+				return progress;
 
 	_mark_req_successful(progress);
+	return progress;
 }
 
 
-void Vbd_check_channel::_mark_req_failed(bool &progress, Error_string str)
+void Vbd_check_request::_mark_req_failed(bool &progress, Error_string str)
 {
-	error("vbd check request (", *_req_ptr, ") failed: ", str);
-	_req_ptr->_success = false;
+	error("vbd check request failed: ", str);
 	_state = REQ_COMPLETE;
-	_req_ptr = nullptr;
 	progress = true;
 }
 
 
-void Vbd_check_channel::_mark_req_successful(bool &progress)
+void Vbd_check_request::_mark_req_successful(bool &progress)
 {
-	_req_ptr->_success = true;
 	_state = REQ_COMPLETE;
-	_req_ptr = nullptr;
 	progress = true;
-}
-
-
-void Vbd_check_channel::_request_submitted(Module_request &mod_req)
-{
-	_req_ptr = static_cast<Request *>(&mod_req);
-	_state = REQ_SUBMITTED;
-}
-
-
-Vbd_check::Vbd_check()
-{
-	Module_channel_id id { 0 };
-	for (Constructible<Channel> &chan : _channels) {
-		chan.construct(id++);
-		add_channel(*chan);
-	}
-}
-
-
-void Vbd_check::execute(bool &progress)
-{
-	for_each_channel<Channel>([&] (Channel &chan) {
-		chan.execute(progress); });
 }

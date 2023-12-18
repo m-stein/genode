@@ -18,6 +18,43 @@
 
 using namespace Tresor;
 
+
+bool Block_io_read::execute(Vfs::Env &vfs_env, Xml_node const &xml_node)
+{
+	bool progress = false;
+	switch (_state) {
+	case REQ_SUBMITTED:
+
+		_file.construct(_state, vfs_env, xml_node.attribute_value("path", Tresor::Path()));
+		_file->read(READ_OK, FILE_ERR, _pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress);
+		break;
+
+	case READ_OK: _mark_req_successful(progress); break;
+	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
+	default: break;
+	}
+	return progress;
+}
+
+
+void Block_io_read::_mark_req_failed(bool &progress, Error_string str)
+{
+	error("request failed: failed to ", str);
+	_state = REQ_COMPLETE;
+	progress = true;
+}
+
+
+void Block_io_read::_mark_req_successful(bool &progress)
+{
+	_success = true;
+	_state = REQ_COMPLETE;
+	progress = true;
+	if (VERBOSE_BLOCK_IO && (!VERBOSE_BLOCK_IO_PBA_FILTER || VERBOSE_BLOCK_IO_PBA == _pba))
+		log("block_io: read pba ", _pba, " hash ", hash(_blk));
+}
+
+
 Block_io_request::Block_io_request(Module_id src_module_id, Module_channel_id src_chan_id, Type type,
                                    Request_offset client_req_offset, Request_tag client_req_tag, Key_id key_id,
                                    Physical_block_address pba, Virtual_block_address vba, Block &blk, Hash &hash,
@@ -200,6 +237,8 @@ Block_io_channel::Block_io_channel(Module_channel_id id, Vfs::Env &vfs_env, Xml_
 
 
 Block_io::Block_io(Vfs::Env &vfs_env, Xml_node const &xml_node)
+:
+	_vfs_env(vfs_env), _xml_node(xml_node)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {

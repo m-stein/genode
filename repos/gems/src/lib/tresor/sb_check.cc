@@ -38,8 +38,10 @@ void Sb_check_channel::_generated_req_completed(State_uint state_uint)
 }
 
 
-void Sb_check_channel::execute(bool &progress)
+void Sb_check_channel::execute(Vbd_check &vbd_chk, Block_io &blk_io, bool &progress)
 {
+	_execute_generated_req(vbd_chk, blk_io, progress);
+
 	if (!_req_ptr)
 		return;
 
@@ -66,7 +68,7 @@ void Sb_check_channel::execute(bool &progress)
 			if (snap.valid) {
 				Snapshot &snap { _sb.snapshots.items[_snap_idx] };
 				_tree_root.construct(snap.pba, snap.gen, snap.hash, snap.max_level, _sb.degree, snap.nr_of_leaves);
-				_generate_req<Vbd_check_request>(CHECK_VBD_SUCCESSFUL, progress, *_tree_root);
+				_generate_req_new<Vbd_check_request>(_check_vbd, CHECK_VBD_SUCCESSFUL, progress, *_tree_root);
 				if (VERBOSE_CHECK)
 					log("  check snap ", _snap_idx, " (", snap, ")");
 			} else {
@@ -150,7 +152,7 @@ void Sb_check_channel::_request_submitted(Module_request &mod_req)
 }
 
 
-Sb_check::Sb_check()
+Sb_check::Sb_check(Vbd_check &vbd_chk, Block_io &blk_io) : _vbd_chk(vbd_chk), _blk_io(blk_io)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {
@@ -163,5 +165,5 @@ Sb_check::Sb_check()
 void Sb_check::execute(bool &progress)
 {
 	for_each_channel<Channel>([&] (Channel &chan) {
-		chan.execute(progress); });
+		chan.execute(_vbd_chk, _blk_io, progress); });
 }

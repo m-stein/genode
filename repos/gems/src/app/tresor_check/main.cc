@@ -47,7 +47,7 @@ class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_compos
 		Block_io _block_io { _vfs_env, _config_rom.xml().sub_node("block-io") };
 		Vbd_check _vbd_check { };
 		Ft_check _ft_check { };
-		Sb_check _sb_check { };
+		Sb_check _sb_check { _vbd_check, _block_io };
 		bool _generated_req_success { };
 		State _state { INIT };
 
@@ -81,7 +81,6 @@ class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_compos
 			add_module(CRYPTO, _crypto);
 			add_module(TRUST_ANCHOR, _trust_anchor);
 			add_module(BLOCK_IO, _block_io);
-			add_module(VBD_CHECK, _vbd_check);
 			add_module(FT_CHECK, _ft_check);
 			add_module(SB_CHECK, _sb_check);
 			add_channel(*this);
