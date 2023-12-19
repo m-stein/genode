@@ -25,6 +25,17 @@ bool Block_io_read::execute(Vfs::Env &vfs_env, Path const &path)
 	switch (_state) {
 	case INIT:
 
+		/*
+		 * ANMERKUNG
+		 *
+		 * Da es keine Channel mehr gibt, gibt es keinen Ort mehr für State
+		 * der zwecks Parallelität mehrfach
+		 * für die Abarbeitung von Requests vorhanden sein soll aber nicht mit
+		 * jedem Request neu initialisiert werden soll. So wie die Dateien,
+		 * welche die Back-Ends (block_io, trust_anchor, crypto) verwenden.
+		 * Als Übergangslösung öffne ich diese nun für jedes Request neu, was
+		 * wahrscheinlich performance-technisch nicht ideal ist.
+		 */
 		_file.construct(_state, vfs_env, path);
 		_state = READ;
 		progress = true;

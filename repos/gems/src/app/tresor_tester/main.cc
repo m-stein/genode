@@ -475,8 +475,8 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 		Ft_initializer _ft_initializer { };
 		Sb_initializer _sb_initializer { };
 		Vbd_check _vbd_check { };
-		Sb_check _sb_check { _vbd_check, _block_io };
 		Ft_check _ft_check { };
+		Sb_check _sb_check { _vbd_check, _ft_check, _block_io };
 		bool _generated_req_success { false };
 
 		NONCOPYABLE(Main);
@@ -573,7 +573,6 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 			add_module(FT_INITIALIZER, _ft_initializer);
 			add_module(SB_INITIALIZER, _sb_initializer);
 			add_module(SB_CHECK, _sb_check);
-			add_module(FT_CHECK, _ft_check);
 			_config_rom.xml().sub_node("commands").for_each_sub_node([&] (Xml_node const &node) {
 				add_channel(*new (_heap) Command(node, *this, _next_command_id++));
 				_num_uncompleted_cmds++;

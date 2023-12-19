@@ -13,7 +13,6 @@
 
 /* tresor includes */
 #include <tresor/vbd_check.h>
-#include <tresor/block_io.h>
 #include <tresor/hash.h>
 
 using namespace Tresor;
@@ -99,7 +98,6 @@ bool Vbd_check::Check::execute(Block_io &blk_io)
 {
 	bool progress = false;
 	_execute_generated_req(blk_io, progress);
-
 	if (_state == INIT) {
 		for (Tree_level_index lvl { 1 }; lvl <= _attr.in_vbd.max_lvl + 1; lvl++)
 			for (Tree_node_index node_idx { 0 }; node_idx < _attr.in_vbd.degree; node_idx++)

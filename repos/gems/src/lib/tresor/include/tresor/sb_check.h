@@ -17,6 +17,8 @@
 /* tresor includes */
 #include <tresor/types.h>
 #include <tresor/vbd_check.h>
+#include <tresor/ft_check.h>
+#include <tresor/block_io.h>
 
 namespace Tresor {
 
@@ -63,6 +65,7 @@ class Tresor::Sb_check_channel : public Module_channel
 		Constructible<Tree_root> _tree_root { };
 		Block _blk { };
 		Constructible<Vbd_check::Check> _check_vbd { };
+		Constructible<Ft_check::Check> _check_ft { };
 		State _generated_req_succeeded { REQ_COMPLETE };
 		bool _generated_req_success { false };
 
@@ -90,7 +93,7 @@ class Tresor::Sb_check_channel : public Module_channel
 			progress = true;
 		}
 
-		void _execute_generated_req(Vbd_check &vbd_chk, Block_io &blk_io, bool &progress)
+		void _execute_generated_req(Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &blk_io, bool &progress)
 		{
 			if (_state != REQ_GENERATED_NEW)
 				return;
@@ -99,6 +102,14 @@ class Tresor::Sb_check_channel : public Module_channel
 			if (_check_vbd.constructed()) {
 				progress |= vbd_chk.execute_check(*_check_vbd, blk_io);
 				complete = _check_vbd->complete();
+				if (complete)
+					_check_vbd.destruct();
+			}
+			if (_check_ft.constructed()) {
+				progress |= ft_chk.execute_check(*_check_ft, blk_io);
+				complete = _check_ft->complete();
+				if (complete)
+					_check_ft.destruct();
 			}
 			if (complete) {
 				if (!_generated_req_success) {
@@ -118,7 +129,7 @@ class Tresor::Sb_check_channel : public Module_channel
 
 		Sb_check_channel(Module_channel_id id) : Module_channel(SB_CHECK, id) { }
 
-		void execute(Vbd_check &vbd_chk, Block_io &blk_io, bool &);
+		void execute(Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &blk_io, bool &);
 };
 
 
@@ -130,13 +141,14 @@ class Tresor::Sb_check : public Module
 
 		Constructible<Channel> _channels[1] { };
 		Vbd_check &_vbd_chk;
+		Ft_check &_ft_chk;
 		Block_io &_blk_io;
 
 		NONCOPYABLE(Sb_check);
 
 	public:
 
-		Sb_check(Vbd_check &vbd_check, Block_io &blk_io);
+		Sb_check(Vbd_check &, Ft_check &, Block_io &);
 
 		void execute(bool &) override;
 };

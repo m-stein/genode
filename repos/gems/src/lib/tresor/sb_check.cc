@@ -13,9 +13,6 @@
 
 /* tresor includes */
 #include <tresor/sb_check.h>
-#include <tresor/vbd_check.h>
-#include <tresor/ft_check.h>
-#include <tresor/block_io.h>
 
 using namespace Tresor;
 
@@ -38,13 +35,12 @@ void Sb_check_channel::_generated_req_completed(State_uint state_uint)
 }
 
 
-void Sb_check_channel::execute(Vbd_check &vbd_chk, Block_io &blk_io, bool &progress)
+void Sb_check_channel::execute(Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &blk_io, bool &progress)
 {
-	_execute_generated_req(vbd_chk, blk_io, progress);
-
 	if (!_req_ptr)
 		return;
 
+	_execute_generated_req(vbd_chk, ft_chk, blk_io, progress);
 	switch (_state) {
 	case REQ_SUBMITTED:
 
@@ -105,7 +101,7 @@ void Sb_check_channel::execute(Vbd_check &vbd_chk, Block_io &blk_io, bool &progr
 		} else {
 			_snap_idx = 0;
 			_tree_root.construct(_sb.free_number, _sb.free_gen, _sb.free_hash, _sb.free_max_level, _sb.free_degree, _sb.free_leaves);
-			_generate_req<Ft_check_request>(CHECK_FT_SUCCESSFUL, progress, *_tree_root);
+			_generate_req_new(_check_ft, CHECK_FT_SUCCESSFUL, progress, *_tree_root);
 			if (VERBOSE_CHECK)
 				log("  check free tree");
 		}
@@ -114,7 +110,7 @@ void Sb_check_channel::execute(Vbd_check &vbd_chk, Block_io &blk_io, bool &progr
 	case CHECK_FT_SUCCESSFUL:
 
 		_tree_root.construct(_sb.meta_number, _sb.meta_gen, _sb.meta_hash, _sb.meta_max_level, _sb.meta_degree, _sb.meta_leaves);
-		_generate_req<Ft_check_request>(CHECK_MT_SUCCESSFUL, progress, *_tree_root);
+		_generate_req_new(_check_ft, CHECK_MT_SUCCESSFUL, progress, *_tree_root);
 		if (VERBOSE_CHECK)
 			log("  check meta tree");
 		break;
@@ -152,7 +148,7 @@ void Sb_check_channel::_request_submitted(Module_request &mod_req)
 }
 
 
-Sb_check::Sb_check(Vbd_check &vbd_chk, Block_io &blk_io) : _vbd_chk(vbd_chk), _blk_io(blk_io)
+Sb_check::Sb_check(Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &blk_io) : _vbd_chk(vbd_chk), _ft_chk(ft_chk), _blk_io(blk_io)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {
@@ -165,5 +161,5 @@ Sb_check::Sb_check(Vbd_check &vbd_chk, Block_io &blk_io) : _vbd_chk(vbd_chk), _b
 void Sb_check::execute(bool &progress)
 {
 	for_each_channel<Channel>([&] (Channel &chan) {
-		chan.execute(_vbd_chk, _blk_io, progress); });
+		chan.execute(_vbd_chk, _ft_chk, _blk_io, progress); });
 }

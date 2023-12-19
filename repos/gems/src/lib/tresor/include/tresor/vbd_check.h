@@ -50,12 +50,23 @@ class Tresor::Vbd_check
 				Number_of_leaves _num_remaining_leaves { 0 };
 				bool _generated_req_success { };
 				State _generated_req_succeeded { INIT };
+
+				/*
+				 * ANMERKUNG
+				 *
+				 * Statt wie bislang eine feste Anzahl von Channels pro
+				 * Ziel-Modul, hat jetzt jedes Quell-Modul ein
+				 * Request+Channel-Member
+				 * pro benötigtem Request-Typ. Das wird definitiv
+				 * mehr RAM benötigen. Request+Channel sind mitunter relativ
+				 * groß. Beispiel: Free-Tree Request+Channel > 32K
+				 */
 				Constructible<Block_io_read> _read_blk { };
 
 				NONCOPYABLE(Check);
 
 				/*
-				 * FIXME
+				 * ANMERKUNG
 				 *
 				 * Methoden '_generate_req', 'complete' und '_execute_generated_req'
 				 * bzw. der Aufruf von letzterem sind strukturell gleich für alle
@@ -77,7 +88,7 @@ class Tresor::Vbd_check
 						return;
 
 					/*
-					 * FIXME
+					 * ANMERKUNG
 					 *
 					 * Wird eine recht lange, repetitive Liste bei diversen Modulen.
 					 *
@@ -115,7 +126,7 @@ class Tresor::Vbd_check
 				void print(Output &out) const { Genode::print(out, "check ", _attr.in_vbd); }
 
 				/*
-				 * FIXME
+		 		 * ANMERKUNG
 				 *
 				 * Pro (indirekt) angesprochenem Module kommt ein Argument bei
 				 * MODULE::execute_REQUEST(..) und REQUEST::execute(..) hinzu.
@@ -131,6 +142,23 @@ class Tresor::Vbd_check
 
 		Vbd_check() { }
 
+		/*
+		 * ANMERKUNG
+		 *
+		 * Mit dieser Mechanik kann ein Modul nicht mehr, wie vorher,
+		 * eigenes Policies auf die Annahme von Requests beziehungsweise
+		 * die Reihenfolge der Abarbeitung anwenden. Beziehungen zwischen
+		 * Requests eines Moduls können nicht mehr lokal umgesetzt werden
+		 * sondern müssen vom Top-Level-Modul durch das grob-granularere
+		 * Scheduling verwirklicht werden. Hier habe ich noch kein Beispiel, da
+		 * wir bislang die Fähigkeit von Tresor zur Parallelität nicht
+		 * ausreizen.
+		 *
+		 * Zudem bedingt das, daß das Top-Level Modul immer der Scheduler ist
+		 * und nicht über die übliche Modul-Mechanik getrieben wird. Derzeit
+		 * ist das nicht der Fall, da über dem Scheduler noch der Command-Pool
+		 * mit eigener Logik (VFS: Splitter, Tester: Test-Auswertung) liegt.
+		 */
 		bool execute_check(Check &req, Block_io &blk_io) { return req.execute(blk_io); }
 };
 
