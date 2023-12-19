@@ -18,12 +18,6 @@
 
 using namespace Tresor;
 
-Ft_check_request::Ft_check_request(Module_id src_mod, Module_channel_id src_chan, Tree_root const &ft, bool &success)
-:
-	Module_request(src_mod, src_chan, FT_CHECK), _ft(ft), _success(success)
-{ }
-
-
 bool Ft_check_channel::_execute_node(Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
 {
 	bool &check_node { _check_node[lvl][node_idx] };

@@ -31,27 +31,15 @@ class Tresor::Ft_check_request : public Module_request
 
 	private:
 
-		Tree_root const &_ft;
-		bool &_success;
-
-		NONCOPYABLE(Ft_check_request);
-
-	public:
-
-		Ft_check_request(Module_id, Module_channel_id, Tree_root const &, bool &);
-
-		void print(Output &out) const override { Genode::print(out, "check ", _ft); }
-};
-
-
-class Tresor::Ft_check_channel : public Module_channel
-{
-	private:
-
-		using Request = Ft_check_request;
+		struct Attr
+		{
+			Tree_root const &in_ft;
+			bool &out_success;
+		};
 
 		enum State : State_uint { REQ_SUBMITTED, REQ_IN_PROGRESS, REQ_COMPLETE, REQ_GENERATED, READ_BLK_SUCCEEDED };
 
+		Attr const _attr;
 		State _state { REQ_COMPLETE };
 		Type_1_node_block_walk _t1_blks { };
 		Type_2_node_block _t2_blk { };
@@ -61,9 +49,7 @@ class Tresor::Ft_check_channel : public Module_channel
 		Block _blk { };
 		bool _generated_req_success { false };
 
-		NONCOPYABLE(Ft_check_channel);
-
-		void _generated_req_completed(State_uint) override;
+		NONCOPYABLE(Ft_check_request);
 
 		void _request_submitted(Module_request &) override;
 
@@ -84,13 +70,14 @@ class Tresor::Ft_check_channel : public Module_channel
 
 	public:
 
-		Ft_check_channel(Module_channel_id id) : Module_channel(FT_CHECK, id) { }
+		Ft_check_request(Attr attr) : _attr(attr) { }
 
-		void execute(bool &);
+		void print(Output &out) const override { Genode::print(out, "check ", _ft); }
+
+		bool execute();
 };
 
-
-class Tresor::Ft_check : public Module
+class Tresor::Ft_check
 {
 	private:
 
