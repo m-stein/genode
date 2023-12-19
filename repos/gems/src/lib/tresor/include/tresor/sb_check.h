@@ -62,7 +62,7 @@ class Tresor::Sb_check_channel : public Module_channel
 		Snapshot_index _snap_idx { 0 };
 		Constructible<Tree_root> _tree_root { };
 		Block _blk { };
-		Constructible<Vbd_check_request> _check_vbd { };
+		Constructible<Vbd_check::Check> _check_vbd { };
 		State _generated_req_succeeded { REQ_COMPLETE };
 		bool _generated_req_success { false };
 

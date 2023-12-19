@@ -39,7 +39,7 @@ class Tresor::Block_io_read
 
 	private:
 
-		enum State { INIT, COMPLETE, READ_OK, FILE_ERR };
+		enum State { INIT, COMPLETE, READ, READ_OK, FILE_ERR };
 
 		Attr _attr;
 		State _state { INIT };
@@ -57,7 +57,7 @@ class Tresor::Block_io_read
 
 		void print(Output &out) const { Genode::print(out, "read pba ", _attr.in_pba); }
 
-		bool execute(Vfs::Env &, Xml_node const &);
+		bool execute(Vfs::Env &, Path const &);
 
 		bool complete() const { return _state == COMPLETE; }
 };
@@ -158,7 +158,7 @@ class Tresor::Block_io : public Module
 		Constructible<Channel> _channels[1] { };
 
 		Vfs::Env &_vfs_env;
-		Xml_node const &_xml_node;
+		Path const _path;
 
 		NONCOPYABLE(Block_io);
 
@@ -200,7 +200,7 @@ class Tresor::Block_io : public Module
 
 		void execute(bool &) override;
 
-		bool execute_read(Block_io_read &req) { return req.execute(_vfs_env, _xml_node); }
+		bool execute_read(Block_io_read &req) { return req.execute(_vfs_env, _path); }
 };
 
 #endif /* _TRESOR__BLOCK_IO_H_ */

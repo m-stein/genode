@@ -18,7 +18,7 @@
 
 using namespace Tresor;
 
-bool Vbd_check_request::_execute_node(Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
+bool Vbd_check::Check::_execute_node(Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
 {
 	bool &check_node = _check_node[lvl][node_idx];
 	if (!check_node)
@@ -95,7 +95,7 @@ bool Vbd_check_request::_execute_node(Tree_level_index lvl, Tree_node_index node
 }
 
 
-bool Vbd_check_request::execute(Block_io &blk_io)
+bool Vbd_check::Check::execute(Block_io &blk_io)
 {
 	bool progress;
 	_execute_generated_req(blk_io, progress);
@@ -120,7 +120,7 @@ bool Vbd_check_request::execute(Block_io &blk_io)
 }
 
 
-void Vbd_check_request::_mark_req_failed(bool &progress, Error_string str)
+void Vbd_check::Check::_mark_req_failed(bool &progress, Error_string str)
 {
 	error("vbd check request failed: ", str);
 	_attr.out_success = false;
@@ -129,7 +129,7 @@ void Vbd_check_request::_mark_req_failed(bool &progress, Error_string str)
 }
 
 
-void Vbd_check_request::_mark_req_successful(bool &progress)
+void Vbd_check::Check::_mark_req_successful(bool &progress)
 {
 	_attr.out_success = true;
 	_state = COMPLETE;
