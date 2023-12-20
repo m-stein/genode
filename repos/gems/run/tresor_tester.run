@@ -216,10 +216,10 @@ append config {
 			</route>
 		</start>
 
-		<start name="test" caps="200">
+		<start name="test" caps="1000">
 
 			<binary name="tresor_tester"/>
-			<resource name="RAM" quantum="20M"/>
+			<resource name="RAM" quantum="100M"/>
 			<config ld_verbose="yes">
 
 				<block-io type="vfs" path="/} [tresor_image_name] {"/>

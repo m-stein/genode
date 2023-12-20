@@ -274,7 +274,7 @@ class Tresor_tester::Command : public Module_channel
 
 		enum Type { INVALID, REQUEST, TRUST_ANCHOR, BENCHMARK, CONSTRUCT, DESTRUCT, INITIALIZE, CHECK, CHECK_SNAPSHOTS, LOG };
 
-		enum State { PENDING, IN_PROGRESS, CREATE_SNAP_COMPLETED, DISCARD_SNAP_COMPLETED, COMPLETED };
+		enum State { PENDING, REQ_GENERATED, IN_PROGRESS, CREATE_SNAP_COMPLETED, DISCARD_SNAP_COMPLETED, COMPLETED };
 
 	private:
 
@@ -292,6 +292,8 @@ class Tresor_tester::Command : public Module_channel
 		Constructible<Benchmark_node> _benchmark_node { };
 		Constructible<Log_node> _log_node { };
 		Constructible<Tresor_init::Configuration> _initialize { };
+		Constructible<Sb_check::Check> _chk_sb { };
+		State _generated_req_succeeded { PENDING };
 
 		NONCOPYABLE(Command);
 
@@ -326,6 +328,33 @@ class Tresor_tester::Command : public Module_channel
 			if (str == "check-snapshots") { return CHECK_SNAPSHOTS; }
 			if (str == "log") { return LOG; }
 			ASSERT_NEVER_REACHED;
+		}
+
+		template <typename REQUEST, typename... ARGS>
+		void _generate_req(Constructible<REQUEST> &req, State req_succeeded, bool &progress, ARGS &&... args)
+		{
+			_state = REQ_GENERATED;
+			req.construct(typename REQUEST::Attr { args..., _success });
+			_generated_req_succeeded = req_succeeded;
+			progress = true;
+		}
+
+		void _execute_generated_req(Sb_check &sb_chk, Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &blk_io, bool &progress)
+		{
+			if (_state != REQ_GENERATED)
+				return;
+
+			bool complete { false };
+			if (_chk_sb.constructed()) {
+				progress |= sb_chk.execute_check(*_chk_sb, vbd_chk, ft_chk, blk_io);
+				complete = _chk_sb->complete();
+				if (complete)
+					_chk_sb.destruct();
+			}
+			if (complete) {
+				_state = _generated_req_succeeded;
+				progress = true;
+			}
 		}
 
 	public:
@@ -381,7 +410,7 @@ class Tresor_tester::Command : public Module_channel
 		void success (bool success) { _success = success; }
 		void data_mismatch (bool data_mismatch) { _data_mismatch = data_mismatch; }
 
-		void execute(bool &progress);
+		void execute(Sb_check &sb_chk, Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &blk_io, bool &progress);
 };
 
 
@@ -469,15 +498,14 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 		Constructible<Meta_tree> _meta_tree { };
 		Trust_anchor _trust_anchor { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
 		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto") };
-		Block_io _block_io { _vfs_env, _config_rom.xml().sub_node("block-io") };
+		Block_io _blk_io { _vfs_env, _config_rom.xml().sub_node("block-io") };
 		Pba_allocator _pba_alloc { NR_OF_SUPERBLOCK_SLOTS };
 		Vbd_initializer _vbd_initializer { };
 		Ft_initializer _ft_initializer { };
 		Sb_initializer _sb_initializer { };
-		Vbd_check _vbd_check { };
-		Ft_check _ft_check { };
-		Sb_check _sb_check { _vbd_check, _ft_check, _block_io };
-		bool _generated_req_success { false };
+		Vbd_check _vbd_chk { };
+		Ft_check _ft_chk { };
+		Sb_check _sb_chk { };
 
 		NONCOPYABLE(Main);
 
@@ -551,7 +579,7 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 		void execute(bool &progress) override
 		{
 			_with_first_processable_cmd([&] (Command &cmd) {
-				cmd.execute(progress); });
+				cmd.execute(_sb_chk, _vbd_chk,_ft_chk, _blk_io, progress); });
 		}
 
 		void _remove_snap_ref(Snapshot_reference &ref)
@@ -568,11 +596,10 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 			add_module(CRYPTO, _crypto);
 			add_module(TRUST_ANCHOR, _trust_anchor);
 			add_module(COMMAND_POOL, *this);
-			add_module(BLOCK_IO, _block_io);
+			add_module(BLOCK_IO, _blk_io);
 			add_module(VBD_INITIALIZER, _vbd_initializer);
 			add_module(FT_INITIALIZER, _ft_initializer);
 			add_module(SB_INITIALIZER, _sb_initializer);
-			add_module(SB_CHECK, _sb_check);
 			_config_rom.xml().sub_node("commands").for_each_sub_node([&] (Xml_node const &node) {
 				add_channel(*new (_heap) Command(node, *this, _next_command_id++));
 				_num_uncompleted_cmds++;
@@ -757,8 +784,9 @@ void Tresor_tester::Command::_generated_req_completed(State_uint state_uint)
 }
 
 
-void Tresor_tester::Command::execute(bool &progress)
+void Tresor_tester::Command::execute(Sb_check &sb_chk, Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &blk_io, bool &progress)
 {
+	_execute_generated_req(sb_chk, vbd_chk, ft_chk, blk_io, progress);
 	switch (type()) {
 	case REQUEST:
 	{
@@ -802,8 +830,7 @@ void Tresor_tester::Command::execute(bool &progress)
 		break;
 	}
 	case Command::CHECK:
-		generate_req<Sb_check_request>(COMPLETED, progress, _success);
-		_main.mark_command_in_progress(id());
+		_generate_req(_chk_sb, COMPLETED, progress);
 		break;
 	case LOG:
 		log("\n", log_node().string, "\n");

@@ -38,7 +38,7 @@ class Tresor::Sb_check
 
 			private:
 
-				enum State { INIT, COMPLETE, READ_BLK_SUCCEEDED, REQ_GENERATED, CHK_VBD_SUCCESSFUL, CHK_FT_SUCCESSFUL, CHK_MT_SUCCESSFUL};
+				enum State { INIT, COMPLETE, READ_BLK_SUCCEEDED, REQ_GENERATED, CHK_VBD_SUCCEEDED, CHK_FT_SUCCEEDED, CHK_MT_SUCCEEDED};
 
 				Attr _attr;
 				State _state { INIT };
@@ -59,7 +59,7 @@ class Tresor::Sb_check
 				NONCOPYABLE(Check);
 
 				template <typename REQUEST, typename... ARGS>
-				void _generate_req_new(Constructible<REQUEST> &req, State req_succeeded, bool &progress, ARGS &&... args)
+				void _generate_req(Constructible<REQUEST> &req, State req_succeeded, bool &progress, ARGS &&... args)
 				{
 					_state = REQ_GENERATED;
 					req.construct(typename REQUEST::Attr { args..., _generated_req_success });
@@ -69,7 +69,7 @@ class Tresor::Sb_check
 
 				void _execute_generated_req(Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &blk_io, bool &progress)
 				{
-					if (_state != REQ_GENERATED_NEW)
+					if (_state != REQ_GENERATED)
 						return;
 
 					bool complete { false };
@@ -107,18 +107,18 @@ class Tresor::Sb_check
 
 			public:
 
-				Check(Attr attr) : _attr(attr);
+				Check(Attr attr) : _attr(attr) { }
 
-				void print(Output &out) const override { Genode::print(out, "check"); }
+				void print(Output &out) const { Genode::print(out, "check"); }
 
 				bool execute(Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &blk_io);
 
 				bool complete() const { return _state == COMPLETE; }
 		};
 
-		Sb_check();
+		Sb_check() { }
 
-		bool execute(Vbd_check &, Ft_check &, Block_io &) override;
+		bool execute_check(Check &chk, Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &blk_io) { return chk.execute(vbd_chk, ft_chk, blk_io); };
 };
 
 #endif /* _TRESOR__SB_CHECK_H_ */
