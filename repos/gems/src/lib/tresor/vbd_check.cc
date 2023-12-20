@@ -97,7 +97,7 @@ bool Vbd_check::Check::_execute_node(Tree_level_index lvl, Tree_node_index node_
 
 bool Vbd_check::Check::execute(Block_io &blk_io)
 {
-	bool progress;
+	bool progress = false;
 	_execute_generated_req(blk_io, progress);
 
 	if (_state == INIT) {
