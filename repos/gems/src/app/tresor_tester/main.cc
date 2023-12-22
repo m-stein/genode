@@ -274,7 +274,7 @@ class Tresor_tester::Command : public Module_channel
 
 		enum Type { INVALID, REQUEST, TRUST_ANCHOR, BENCHMARK, CONSTRUCT, DESTRUCT, INITIALIZE, CHECK, CHECK_SNAPSHOTS, LOG };
 
-		enum State { PENDING, REQ_GENERATED, IN_PROGRESS, CREATE_SNAP_COMPLETED, DISCARD_SNAP_COMPLETED, COMPLETED };
+		enum State { PENDING, CHK_SB, CHK_SB_SUCCEEDED, IN_PROGRESS, CREATE_SNAP_COMPLETED, DISCARD_SNAP_COMPLETED, COMPLETED };
 
 	private:
 
@@ -292,7 +292,7 @@ class Tresor_tester::Command : public Module_channel
 		Constructible<Benchmark_node> _benchmark_node { };
 		Constructible<Log_node> _log_node { };
 		Constructible<Tresor_init::Configuration> _initialize { };
-		Constructible<Sb_check::Check> _chk_sb { };
+		Generated_request<Command, Sb_check::Check, State> _chk_sb { *this, _state, PENDING };
 
 		NONCOPYABLE(Command);
 
@@ -329,15 +329,6 @@ class Tresor_tester::Command : public Module_channel
 			ASSERT_NEVER_REACHED;
 		}
 
-		template <typename REQUEST, typename... ARGS>
-		void _generate_req(Constructible<REQUEST> &req, bool &progress, ARGS &&... args)
-		{
-			_state = REQ_GENERATED;
-			req.construct(typename REQUEST::Attr { args..., _success });
-			progress = true;
-		}
-
-
 	public:
 
 		Command(Xml_node const &node, Tresor_tester::Main &main, Module_channel_id id)
@@ -354,7 +345,11 @@ class Tresor_tester::Command : public Module_channel
 			}
 		}
 
-		void execute_generated_req(Sb_check &, Vbd_check &, Ft_check &, Block_io &, bool &);
+		bool new_execute(Sb_check &, Vbd_check &, Ft_check &, Block_io &);
+
+		void mark_failed(bool &, Error_string);
+
+		void mark_succeeded(bool &);
 
 		bool may_have_data_mismatch() const
 		{
@@ -520,7 +515,10 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 					if (first_uncompleted_cmd || !cmd.synchronize())
 						func(cmd);
 				}
-				if (cmd.state() == Command::IN_PROGRESS || cmd.state() == Command::REQ_GENERATED) {
+				if (cmd.state() == Command::IN_PROGRESS ||
+				    cmd.state() == Command::CHK_SB ||
+				    cmd.state() == Command::CHK_SB_SUCCEEDED) {
+
 					if (cmd.synchronize())
 						done = true;
 					else
@@ -562,7 +560,7 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 		void execute(bool &progress) override
 		{
 			for_each_channel<Command>([&] (Command &cmd) {
-				cmd.execute_generated_req(_sb_chk, _vbd_chk, _ft_chk, _blk_io, progress); });
+				progress |= cmd.new_execute(_sb_chk, _vbd_chk, _ft_chk, _blk_io); });
 
 			_with_first_processable_cmd([&] (Command &cmd) {
 				cmd.execute(progress); });
@@ -604,7 +602,9 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 		void mark_command_completed(Module_channel_id cmd_id, bool success)
 		{
 			with_channel<Command>(cmd_id, [&] (Command &cmd) {
-				ASSERT(cmd.state() == Command::IN_PROGRESS || cmd.state() == Command::REQ_GENERATED);
+				ASSERT(cmd.state() == Command::IN_PROGRESS ||
+				       cmd.state() == Command::CHK_SB ||
+				       cmd.state() == Command::CHK_SB_SUCCEEDED);
 				cmd.state(Command::COMPLETED);
 				_num_uncompleted_cmds--;
 				cmd.success(success);
@@ -770,20 +770,30 @@ void Tresor_tester::Command::_generated_req_completed(State_uint state_uint)
 }
 
 
-void Tresor_tester::Command::execute_generated_req(Sb_check &sb_chk, Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &blk_io, bool &progress)
+bool Tresor_tester::Command::new_execute(Sb_check &sb_chk, Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &blk_io)
 {
-	if (_state != REQ_GENERATED)
-		return;
-
-	bool complete { false };
-	if (_chk_sb.constructed()) {
-		progress |= sb_chk.execute_check(*_chk_sb, vbd_chk, ft_chk, blk_io);
-		complete = _chk_sb->complete();
-		if (complete)
-			_chk_sb.destruct();
+	bool progress = false;
+	switch (_state) {
+	case CHK_SB: progress |= _chk_sb.execute(sb_chk, vbd_chk, ft_chk, blk_io); break;
+	case CHK_SB_SUCCEEDED: mark_succeeded(progress); break;
+	default: break;
 	}
-	if (complete)
-		_main.mark_command_completed(id(), _success);
+	return progress;
+}
+
+
+void Tresor_tester::Command::mark_failed(bool &progress, Error_string str)
+{
+	error("command failed: ", str);
+	_main.mark_command_completed(id(), false);
+	progress = true;
+}
+
+
+void Tresor_tester::Command::mark_succeeded(bool &progress)
+{
+	_main.mark_command_completed(id(), true);
+	progress = true;
 }
 
 
@@ -832,7 +842,7 @@ void Tresor_tester::Command::execute(bool &progress)
 		_main.mark_command_in_progress(id());
 		break;
 	}
-	case CHECK: _generate_req(_chk_sb, progress); break;
+	case CHECK: _chk_sb.generate(CHK_SB, CHK_SB_SUCCEEDED, progress); break;
 	case LOG:
 		log("\n", log_node().string, "\n");
 		_main.mark_command_in_progress(id());

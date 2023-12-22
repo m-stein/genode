@@ -35,7 +35,7 @@ class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_compos
 {
 	private:
 
-		enum State { INIT, REQ_GENERATED, CHECK_SB_SUCCEEDED };
+		enum State { INIT, CHK_SB, CHK_SB_SUCCEEDED };
 
 		Env  &_env;
 		Heap  _heap { _env.ram(), _env.rm() };
@@ -51,19 +51,9 @@ class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_compos
 		bool _generated_req_success { };
 		State _generated_req_succeeded { INIT };
 		State _state { INIT };
-		Constructible<Sb_check::Check> _chk_sb { };
+		Generated_request<Main, Sb_check::Check, State> _chk_sb { *this, _state, INIT };
 
 		NONCOPYABLE(Main);
-
-		void _generated_req_completed(State_uint state_uint) override
-		{
-			if (!_generated_req_success) {
-				error("command pool: request failed because generated request failed)");
-				_env.parent().exit(-1);
-				return;
-			}
-			_state = (State)state_uint;
-		}
 
 		void wakeup_vfs_user() override { _sigh.local_submit(); }
 
@@ -73,38 +63,6 @@ class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_compos
 		{
 			execute_modules();
 			_wakeup_back_end_services();
-		}
-
-		template <typename REQUEST, typename... ARGS>
-		void _generate_req(Constructible<REQUEST> &req, State req_succeeded, bool &progress, ARGS &&... args)
-		{
-			_state = REQ_GENERATED;
-			req.construct(typename REQUEST::Attr { args..., _generated_req_success });
-			_generated_req_succeeded = req_succeeded;
-			progress = true;
-		}
-
-		void _execute_generated_req(Sb_check &sb_chk, Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &blk_io, bool &progress)
-		{
-			if (_state != REQ_GENERATED)
-				return;
-
-			bool complete { false };
-			if (_chk_sb.constructed()) {
-				progress |= sb_chk.execute_check(*_chk_sb, vbd_chk, ft_chk, blk_io);
-				complete = _chk_sb->complete();
-				if (complete)
-					_chk_sb.destruct();
-			}
-			if (complete) {
-				if (!_generated_req_success) {
-					error("request failed: generated request failed");
-					_env.parent().exit(-1);
-					return;
-				}
-				_state = _generated_req_succeeded;
-				progress = true;
-			}
 		}
 
 	public:
@@ -119,12 +77,14 @@ class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_compos
 			_handle_signal();
 		}
 
+		void mark_failed(bool &, Error_string) { _env.parent().exit(-1); }
+
 		void execute(bool &progress) override
 		{
-			_execute_generated_req(_sb_chk, _vbd_chk, _ft_chk, _blk_io, progress);
 			switch(_state) {
-			case INIT: _generate_req(_chk_sb, CHECK_SB_SUCCEEDED, progress); break;
-			case CHECK_SB_SUCCEEDED: _env.parent().exit(0); break;
+			case INIT: _chk_sb.generate(CHK_SB, CHK_SB_SUCCEEDED, progress); break;
+			case CHK_SB: progress |= _chk_sb.execute(_sb_chk, _vbd_chk, _ft_chk, _blk_io); break;
+			case CHK_SB_SUCCEEDED: _env.parent().exit(0); break;
 			default: break;
 			}
 		}

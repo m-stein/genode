@@ -17,7 +17,7 @@
 
 using namespace Tresor;
 
-bool Ft_check::Check::_execute_node(Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
+bool Ft_check::Check::_execute_node(Block_io &blk_io, Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
 {
 	bool &check_node { _check_node[lvl][node_idx] };
 
@@ -31,7 +31,7 @@ bool Ft_check::Check::_execute_node(Tree_level_index lvl, Tree_node_index node_i
 			Type_2_node const &node { _t2_blk.nodes[node_idx] };
 			if (!_num_remaining_leaves) {
 				if (node.valid()) {
-					_mark_req_failed(progress, { "lvl ", lvl, " node ", node_idx, " (", node,
+					mark_failed(progress, { "lvl ", lvl, " node ", node_idx, " (", node,
 					                             ") valid but no leaves remaining" });
 					break;
 				}
@@ -50,7 +50,7 @@ bool Ft_check::Check::_execute_node(Tree_level_index lvl, Tree_node_index node_i
 			Type_1_node const &node { _t1_blks.items[lvl].nodes[node_idx] };
 			if (!node.valid()) {
 				if (_num_remaining_leaves) {
-					_mark_req_failed(progress, { "lvl ", lvl, " node ", node_idx, " invalid but ",
+					mark_failed(progress, { "lvl ", lvl, " node ", node_idx, " invalid but ",
 					                             _num_remaining_leaves, " leaves remaining" });
 					break;
 				}
@@ -60,18 +60,19 @@ bool Ft_check::Check::_execute_node(Tree_level_index lvl, Tree_node_index node_i
 					log(Level_indent { lvl, _attr.in_ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " unused");
 				break;
 			}
-			_generate_req(_read_blk, READ_BLK_SUCCEEDED, progress, node.pba, _blk);
+			_read_blk.generate(READ_BLK, READ_BLK_SUCCEEDED, progress, node.pba, _blk);
 			if (VERBOSE_CHECK)
 				log(Level_indent { lvl, _attr.in_ft.max_lvl }, "    lvl ", lvl, " node ", node_idx,
 				    " (", node, "): load to lvl ", lvl - 1);
 		}
 		break;
 
+	case READ_BLK: progress |= _read_blk.execute(blk_io); break;
 	case READ_BLK_SUCCEEDED:
 	{
 		Type_1_node const &node { _t1_blks.items[lvl].nodes[node_idx] };
 		if (node.gen != INITIAL_GENERATION && !check_hash(_blk, node.hash)) {
-			_mark_req_failed(progress, { "lvl ", lvl, " node ", node_idx, " (", node, ") has bad hash" });
+			mark_failed(progress, { "lvl ", lvl, " node ", node_idx, " (", node, ") has bad hash" });
 			break;
 		}
 		if (lvl == 2)
@@ -97,7 +98,6 @@ bool Ft_check::Check::_execute_node(Tree_level_index lvl, Tree_node_index node_i
 bool Ft_check::Check::execute(Block_io &blk_io)
 {
 	bool progress = false;
-	_execute_generated_req(blk_io, progress);
 	if (_state == INIT) {
 		for (Tree_level_index lvl { 1 }; lvl <= _attr.in_ft.max_lvl + 1; lvl++)
 			for (Tree_node_index node_idx { 0 }; node_idx < _attr.in_ft.degree; node_idx++)
@@ -110,15 +110,15 @@ bool Ft_check::Check::execute(Block_io &blk_io)
 	}
 	for (Tree_level_index lvl { 1 }; lvl <= _attr.in_ft.max_lvl + 1; lvl++)
 		for (Tree_node_index node_idx { 0 }; node_idx < _attr.in_ft.degree; node_idx++)
-			if (_execute_node(lvl, node_idx, progress))
+			if (_execute_node(blk_io, lvl, node_idx, progress))
 				return progress;
 
-	_mark_req_successful(progress);
+	_mark_succeeded(progress);
 	return progress;
 }
 
 
-void Ft_check::Check::_mark_req_failed(bool &progress, Error_string str)
+void Ft_check::Check::mark_failed(bool &progress, Error_string str)
 {
 	error("ft check: request ", *this, " failed: ", str);
 	_attr.out_success = false;
@@ -127,7 +127,7 @@ void Ft_check::Check::_mark_req_failed(bool &progress, Error_string str)
 }
 
 
-void Ft_check::Check::_mark_req_successful(bool &progress)
+void Ft_check::Check::_mark_succeeded(bool &progress)
 {
 	_attr.out_success = true;
 	_state = COMPLETE;

@@ -32,6 +32,8 @@ class Tresor::Vbd_check
 		{
 			public:
 
+				using Module = Vbd_check;
+
 				struct Attr
 				{
 					Tree_root const &in_vbd;
@@ -40,7 +42,7 @@ class Tresor::Vbd_check
 
 			private:
 
-				enum State { INIT, IN_PROGRESS, COMPLETE, REQ_GENERATED, READ_BLK_SUCCEEDED };
+				enum State { INIT, IN_PROGRESS, COMPLETE, READ_BLK, READ_BLK_SUCCEEDED };
 
 				Attr _attr;
 				State _state { INIT };
@@ -48,8 +50,7 @@ class Tresor::Vbd_check
 				bool _check_node[TREE_MAX_NR_OF_LEVELS][NUM_NODES_PER_BLK] { };
 				Block _blk { };
 				Number_of_leaves _num_remaining_leaves { 0 };
-				bool _generated_req_success { };
-				State _generated_req_succeeded { INIT };
+				Generated_request<Check, Block_io_read, State> _read_blk { *this, _state, INIT };
 
 				/*
 				 * ANMERKUNG
@@ -60,70 +61,27 @@ class Tresor::Vbd_check
 				 * pro benötigtem Request-Typ. Das wird definitiv
 				 * mehr RAM benötigen. Request+Channel sind mitunter relativ
 				 * groß. Beispiel: Free-Tree Request+Channel > 32K
+				 *
+				 * Der Tresor-Tester muß diesbezüglich umgebaut werden, da er
+				 * für jedes User-Command ein Command-Objekt mit einem union
+				 * über mögliche Requests (check request, tresor request,
+				 * init request, etc.) hält und das über die gesamte Laufzeit.
+				 * Siehe stark gestiegener RAM/CAP Verbrauch in tresor_tester.run.
 				 */
-				Constructible<Block_io_read> _read_blk { };
 
 				NONCOPYABLE(Check);
 
-				/*
-				 * ANMERKUNG
-				 *
-				 * Methoden '_generate_req', 'complete' und '_execute_generated_req'
-				 * bzw. der Aufruf von letzterem sind strukturell gleich für alle
-				 * Module.
-				 */
+				void _mark_succeeded(bool &);
 
-				template <typename REQUEST, typename... ARGS>
-				void _generate_req(Constructible<REQUEST> &req, State req_succeeded, bool &progress, ARGS &&... args)
-				{
-					_state = REQ_GENERATED;
-					req.construct(typename REQUEST::Attr { args..., _generated_req_success });
-					_generated_req_succeeded = req_succeeded;
-					progress = true;
-				}
-
-				void _execute_generated_req(Block_io &blk_io, bool &progress)
-				{
-					if (_state != REQ_GENERATED)
-						return;
-
-					/*
-					 * ANMERKUNG
-					 *
-					 * Wird eine recht lange, repetitive Liste bei diversen Modulen.
-					 *
-					 * Beispiele:
-					 *   * VBD > 10 Request-Typen
-					 *   * Superblock Control > 20 Request-Typen
-					 */
-					bool complete = false;
-					if (_read_blk.constructed()) {
-						progress |= blk_io.execute_read(*_read_blk);
-						complete = _read_blk->complete();
-						if (complete)
-							_read_blk.destruct();
-					}
-					if (complete) {
-						if (!_generated_req_success) {
-							_mark_req_failed(progress, "generated request");
-							return;
-						}
-						_state = _generated_req_succeeded;
-						progress = true;
-					}
-				}
-
-				void _mark_req_failed(bool &, Error_string);
-
-				void _mark_req_successful(bool &);
-
-				bool _execute_node(Tree_level_index, Tree_node_index, bool &);
+				bool _execute_node(Block_io &, Tree_level_index, Tree_node_index, bool &);
 
 			public:
 
 				Check(Attr attr) : _attr(attr) { }
 
 				void print(Output &out) const { Genode::print(out, "check ", _attr.in_vbd); }
+
+				void mark_failed(bool &, Error_string);
 
 				/*
 		 		 * ANMERKUNG
@@ -159,7 +117,7 @@ class Tresor::Vbd_check
 		 * ist das nicht der Fall, da über dem Scheduler noch der Command-Pool
 		 * mit eigener Logik (VFS: Splitter, Tester: Test-Auswertung) liegt.
 		 */
-		bool execute_check(Check &req, Block_io &blk_io) { return req.execute(blk_io); }
+		bool execute(Check &req, Block_io &blk_io) { return req.execute(blk_io); }
 };
 
 #endif /* _TRESOR__VBD_CHECK_H_ */

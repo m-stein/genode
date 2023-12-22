@@ -53,6 +53,8 @@ class Tresor::Block_io_read
 
 	public:
 
+		using Module = Block_io;
+
 		Block_io_read(Attr attr) : _attr(attr) { }
 
 		void print(Output &out) const { Genode::print(out, "read pba ", _attr.in_pba); }
@@ -200,7 +202,7 @@ class Tresor::Block_io : public Module
 
 		void execute(bool &) override;
 
-		bool execute_read(Block_io_read &req) { return req.execute(_vfs_env, _path); }
+		bool execute(Block_io_read &req) { return req.execute(_vfs_env, _path); }
 };
 
 #endif /* _TRESOR__BLOCK_IO_H_ */
