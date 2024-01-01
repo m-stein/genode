@@ -139,7 +139,7 @@ struct Board::Vmcb_state_save_area
 struct alignas(Genode::get_page_size()) Board::Vmcb
 :
 	Board::Vmcb_control_area,
-	public Genode::Mmio,
+	public Genode::Mmio<Genode::get_page_size()>,
 	Board::Vmcb_reserved_for_host,
 	Board::Vmcb_state_save_area
 {

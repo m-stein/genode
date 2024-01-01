@@ -22,7 +22,7 @@
 
 namespace Genode { class Bios_data_area; }
 
-class Genode::Bios_data_area : Mmio
+class Genode::Bios_data_area : Mmio<0x100>
 {
 	friend Unmanaged_singleton_constructor;
 
@@ -36,7 +36,7 @@ class Genode::Bios_data_area : Mmio
 
 		static addr_t _mmio_base_virt();
 
-		Bios_data_area() : Mmio({(char *)(_mmio_base_virt() + 0x400), 0x100}) { }
+		Bios_data_area() : Mmio({(char *)(_mmio_base_virt() + 0x400), REGISTER_SET_SIZE}) { }
 
 	public:
 

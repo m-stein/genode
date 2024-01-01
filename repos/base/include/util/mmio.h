@@ -21,7 +21,7 @@
 namespace Genode {
 
 	class Mmio_plain_access;
-	class Mmio;
+	template <size_t> class Mmio;
 }
 
 /**
@@ -82,7 +82,8 @@ class Genode::Mmio_plain_access
  *
  * For further details refer to the documentation of the 'Register_set' class.
  */
-struct Genode::Mmio : Mmio_plain_access, Register_set<Mmio_plain_access>
+template <Genode::size_t SIZE>
+struct Genode::Mmio : Mmio_plain_access, Register_set<Mmio_plain_access, SIZE>
 {
 	/**
 	 * Constructor
@@ -92,7 +93,13 @@ struct Genode::Mmio : Mmio_plain_access, Register_set<Mmio_plain_access>
 	Mmio(Byte_range_ptr const &range)
 	:
 		Mmio_plain_access(range),
-		Register_set(*static_cast<Mmio_plain_access *>(this)) { }
+		Register_set<Mmio_plain_access, SIZE>(*static_cast<Mmio_plain_access *>(this))
+	{
+		if (range.num_bytes > SIZE) {
+			class Bad_size { };
+			throw Bad_size { };
+		}
+	}
 };
 
 #endif /* _INCLUDE__UTIL__MMIO_H_ */

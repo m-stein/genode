@@ -23,7 +23,7 @@
 namespace Genode {
 
 	struct Register_set_plain_access;
-	template <typename> class Register_set;
+	template <typename, size_t> class Register_set;
 }
 
 
@@ -83,9 +83,13 @@ struct Genode::Register_set_plain_access
  * must not define members named 'Register_base', 'Bitfield_base',
  * 'Register_array_base' or 'Array_bitfield_base'.
  */
-template <typename PLAIN_ACCESS>
+template <typename PLAIN_ACCESS, Genode::size_t SIZE>
 class Genode::Register_set : Noncopyable
 {
+	public:
+
+		enum { REGISTER_SET_SIZE = SIZE };
+
 	private:
 
 		using Plain_access = Register_set_plain_access;
@@ -224,6 +228,8 @@ class Genode::Register_set : Noncopyable
 
 			typedef typename Genode::Register<_ACCESS_WIDTH>::access_t
 				access_t;
+
+			static_assert(OFFSET + (ACCESS_WIDTH >> BYTE_WIDTH_LOG2) <= REGISTER_SET_SIZE);
 
 			/**
 			 * A region within a register
