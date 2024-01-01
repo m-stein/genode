@@ -15,6 +15,7 @@
 #define _INCLUDE__UTIL__MMIO_H_
 
 /* Genode includes */
+#include <util/string.h>
 #include <util/register_set.h>
 
 namespace Genode {
@@ -32,7 +33,7 @@ class Genode::Mmio_plain_access
 
 	private:
 
-		addr_t const _base;
+		Byte_range_ptr const _range;
 
 		/**
 		 * Write '_ACCESS_T' typed 'value' to MMIO base + 'offset'
@@ -40,7 +41,11 @@ class Genode::Mmio_plain_access
 		template <typename ACCESS_T>
 		inline void _write(off_t const offset, ACCESS_T const value)
 		{
-			addr_t const dst = _base + offset;
+			if (offset + sizeof(ACCESS_T) > _range.num_bytes) {
+				class Bad_offset { };
+				throw Bad_offset { };
+			}
+			addr_t const dst = (addr_t)_range.start + offset;
 			*(ACCESS_T volatile *)dst = value;
 		}
 
@@ -50,7 +55,11 @@ class Genode::Mmio_plain_access
 		template <typename ACCESS_T>
 		inline ACCESS_T _read(off_t const &offset) const
 		{
-			addr_t const dst = _base + offset;
+			if (offset + sizeof(ACCESS_T) > _range.num_bytes) {
+				class Bad_offset { };
+				throw Bad_offset { };
+			}
+			addr_t const dst = (addr_t)_range.start + offset;
 			ACCESS_T const value = *(ACCESS_T volatile *)dst;
 			return value;
 		}
@@ -62,9 +71,9 @@ class Genode::Mmio_plain_access
 		 *
 		 * \param base  base address of targeted MMIO region
 		 */
-		Mmio_plain_access(addr_t const base) : _base(base) { }
+		Mmio_plain_access(addr_t const base) : _range((char *)base, ~0) { }
 
-		addr_t base() const { return _base; }
+		addr_t base() const { return (addr_t)_range.start; }
 };
 
 

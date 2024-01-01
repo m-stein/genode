@@ -55,7 +55,7 @@ Board::Iopm
 struct Board::Vmcb_control_area
 {
 	enum : Genode::size_t {
-		total_size      = 1024U,
+		total_size      = 1032U,
 		used_guest_size = 0x3E0U
 	};
 
@@ -71,7 +71,7 @@ struct Board::Vmcb_control_area
 
 /*
  * Part of the VMCB control area that is reserved for host data.
- * This uses 16 bytes less to accomodate for the size of the Mmio class.
+ * This uses 24 bytes less to accomodate for the size of the Mmio class.
  */
 struct Board::Vmcb_reserved_for_host
 {
