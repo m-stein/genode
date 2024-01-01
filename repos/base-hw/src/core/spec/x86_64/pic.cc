@@ -40,7 +40,7 @@ enum {
 Local_interrupt_controller::
 Local_interrupt_controller(Global_interrupt_controller &global_irq_ctrl)
 :
-	Mmio             { Platform::mmio_to_virt(Hw::Cpu_memory_map::lapic_phys_base()) },
+	Mmio             { {(char *)Platform::mmio_to_virt(Hw::Cpu_memory_map::lapic_phys_base()), Hw::Cpu_memory_map::LAPIC_SIZE} },
 	_global_irq_ctrl { global_irq_ctrl }
 {
 	init();
@@ -236,7 +236,7 @@ Global_interrupt_controller::_create_irt_entry(unsigned const irq)
 
 Global_interrupt_controller::Global_interrupt_controller()
 :
-	Mmio(Platform::mmio_to_virt(Hw::Cpu_memory_map::MMIO_IOAPIC_BASE))
+	Mmio({(char *)Platform::mmio_to_virt(Hw::Cpu_memory_map::MMIO_IOAPIC_BASE), Hw::Cpu_memory_map::MMIO_IOAPIC_SIZE})
 {
 	write<Ioregsel>(IOAPICVER);
 	_irte_count = read<Iowin::Maximum_redirection_entry>() + 1;

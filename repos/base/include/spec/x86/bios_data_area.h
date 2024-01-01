@@ -28,15 +28,15 @@ class Genode::Bios_data_area : Mmio
 
 	private:
 
-		struct Serial_base_com1 : Register<0x400, 16> { };
-		struct Equipment        : Register<0x410, 16>
+		struct Serial_base_com1 : Register<0x0, 16> { };
+		struct Equipment        : Register<0x10, 16>
 		{
 			struct Serial_count : Bitfield<9, 3> { };
 		};
 
 		static addr_t _mmio_base_virt();
 
-		Bios_data_area() : Mmio(_mmio_base_virt()) { }
+		Bios_data_area() : Mmio({(char *)(_mmio_base_virt() + 0x400), 0x100}) { }
 
 	public:
 

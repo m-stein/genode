@@ -65,14 +65,14 @@ struct Hw::Apic_madt
 		struct Paddr    : Register <0x04, 32> { };
 		struct Gsi_base : Register <0x08, 32> { };
 
-		Ioapic(Apic_madt const * a) : Mmio(reinterpret_cast<Genode::addr_t>(a)) { }
+		Ioapic(Apic_madt const * a) : Mmio({(char *)a, 12}) { }
 	};
 
 	struct Lapic : Genode::Mmio
 	{
 		struct Flags : Register <0x04, 32> { enum { VALID = 1 }; };
 
-		Lapic(Apic_madt const * a) : Mmio(reinterpret_cast<Genode::addr_t>(a)) { }
+		Lapic(Apic_madt const * a) : Mmio({(char *)a, 8}) { }
 
 		bool valid() { return read<Flags>() & Flags::VALID; };
 	};
@@ -174,7 +174,7 @@ struct Hw::Acpi_fadt : Genode::Mmio
 		asm volatile ("outl %0, %w1" : : "a"(val), "Nd"(port));
 	}
 
-	Acpi_fadt(Acpi_generic const * a) : Mmio(Genode::addr_t(a)) { }
+	Acpi_fadt(Acpi_generic const * a) : Mmio({(char *)a, 276}) { }
 
 	addr_t facs() const
 	{
@@ -362,7 +362,7 @@ struct Hw::Acpi_facs : Genode::Mmio
 			write<Fw_wake_vector_ext>(0);
 	}
 
-	Acpi_facs(addr_t const mmio) : Mmio(mmio) { }
+	Acpi_facs(addr_t const mmio) : Mmio({(char *)mmio, 64}) { }
 };
 
 

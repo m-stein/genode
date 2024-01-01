@@ -71,7 +71,7 @@ class Genode::Mmio_plain_access
 		 *
 		 * \param base  base address of targeted MMIO region
 		 */
-		Mmio_plain_access(addr_t const base) : _range((char *)base, ~0) { }
+		Mmio_plain_access(Byte_range_ptr const &range) : _range(range.start, range.num_bytes) { }
 
 		addr_t base() const { return (addr_t)_range.start; }
 };
@@ -89,9 +89,9 @@ struct Genode::Mmio : Mmio_plain_access, Register_set<Mmio_plain_access>
 	 *
 	 * \param base  base address of targeted MMIO region
 	 */
-	Mmio(addr_t const base)
+	Mmio(Byte_range_ptr const &range)
 	:
-		Mmio_plain_access(base),
+		Mmio_plain_access(range),
 		Register_set(*static_cast<Mmio_plain_access *>(this)) { }
 };
 

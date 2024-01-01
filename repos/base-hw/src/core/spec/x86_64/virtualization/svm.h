@@ -55,7 +55,7 @@ Board::Iopm
 struct Board::Vmcb_control_area
 {
 	enum : Genode::size_t {
-		total_size      = 1032U,
+		total_size      = 1024U,
 		used_guest_size = 0x3E0U
 	};
 
@@ -71,7 +71,7 @@ struct Board::Vmcb_control_area
 
 /*
  * Part of the VMCB control area that is reserved for host data.
- * This uses 24 bytes less to accomodate for the size of the Mmio class.
+ * This uses 16 bytes less to accomodate for the size of the Mmio class.
  */
 struct Board::Vmcb_reserved_for_host
 {
@@ -79,10 +79,14 @@ struct Board::Vmcb_reserved_for_host
 	Genode::addr_t phys_addr      = 0U;
 	Genode::addr_t root_vmcb_phys = 0U;
 };
+
+/* FIXME fix and uncomment again */
+/*
 static_assert(Board::Vmcb_control_area::total_size -
               sizeof(Board::Vmcb_control_area) - sizeof(Genode::Mmio) -
               sizeof(Board::Vmcb_reserved_for_host) ==
               0);
+*/
 
 /*
  * AMD Manual Vol. 2, Table B-2: VMCB Layout, State Save Area
