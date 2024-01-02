@@ -229,7 +229,7 @@ class Genode::Register_set : Noncopyable
 			typedef typename Genode::Register<_ACCESS_WIDTH>::access_t
 				access_t;
 
-			static_assert(OFFSET + (ACCESS_WIDTH >> BYTE_WIDTH_LOG2) <= REGISTER_SET_SIZE);
+			static_assert(OFFSET + sizeof(access_t) <= REGISTER_SET_SIZE);
 
 			/**
 			 * A region within a register
@@ -316,6 +316,10 @@ class Genode::Register_set : Noncopyable
 
 			typedef typename Register<OFFSET, ACCESS_WIDTH, STRICT_WRITE>::
 			                 access_t access_t;
+
+			enum { MAX_ITEM_BIT_OFF = MAX_INDEX << ITEM_WIDTH_LOG2 };
+			enum { MAX_ACCESS_OFF = (MAX_ITEM_BIT_OFF >> BYTE_WIDTH_LOG2) & ~(sizeof(access_t) - 1) };
+			static_assert(OFFSET + (off_t)MAX_ACCESS_OFF + sizeof(access_t) <= REGISTER_SET_SIZE);
 
 			/**
 			 * A bit region within a register array item
