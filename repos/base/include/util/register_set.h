@@ -318,8 +318,8 @@ class Genode::Register_set : Noncopyable
 			                 access_t access_t;
 
 			static constexpr off_t LAST_BIT = MAX_INDEX << ITEM_WIDTH_LOG2;
-			static constexpr off_t MAX_ACCESS_OFFSET = (LAST_BIT >> BYTE_WIDTH_LOG2) & ~(sizeof(access_t) - 1);
-			static_assert(OFFSET + MAX_ACCESS_OFFSET + sizeof(access_t) <= REGISTER_SET_SIZE);
+			static constexpr off_t LAST_ACCESS_OFFSET = (LAST_BIT >> BYTE_WIDTH_LOG2) & ~(sizeof(access_t) - 1);
+			static_assert(OFFSET + LAST_ACCESS_OFFSET + sizeof(access_t) <= REGISTER_SET_SIZE);
 
 			/**
 			 * A bit region within a register array item
