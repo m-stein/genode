@@ -62,13 +62,13 @@ bool Vbd_check::Check::_execute_node(Block_io &block_io, Tree_level_index lvl, T
 				break;
 			}
 		}
-		_read_blk.generate(READ_BLK, READ_BLK_SUCCEEDED, progress, node.pba, _blk);
+		_read_block.generate(READ_BLK, READ_BLK_SUCCEEDED, progress, node.pba, _blk);
 		if (VERBOSE_CHECK)
 			log(Level_indent { lvl, _attr.in_vbd.max_lvl }, "    lvl ", lvl, " node ", node_idx, " (", node,
 			    "): load to lvl ", lvl - 1);
 		break;
 
-	case READ_BLK: progress |= _read_blk.execute(block_io); break;
+	case READ_BLK: progress |= _read_block.execute(block_io); break;
 	case READ_BLK_SUCCEEDED:
 
 		if (!(lvl > 1 && node.gen == INITIAL_GENERATION) && !check_hash(_blk, node.hash)) {

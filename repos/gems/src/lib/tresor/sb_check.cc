@@ -27,10 +27,10 @@ bool Sb_check::Check::execute(Vbd_check &vbd_check, Ft_check &ft_check, Block_io
 		_snap_idx = 0;
 		_sb_idx = 0;
 		_scan_for_highest_gen_sb_done = false;
-		_read_blk.generate(READ_BLK, READ_BLK_SUCCEEDED, progress, _sb_idx, _blk);
+		_read_block.generate(READ_BLK, READ_BLK_SUCCEEDED, progress, _sb_idx, _blk);
 		break;
 
-	case READ_BLK: progress |= _read_blk.execute(block_io); break;
+	case READ_BLK: progress |= _read_block.execute(block_io); break;
 	case READ_BLK_SUCCEEDED:
 
 		_sb.decode_from_blk(_blk);
@@ -60,11 +60,11 @@ bool Sb_check::Check::execute(Vbd_check &vbd_check, Ft_check &ft_check, Block_io
 			}
 			if (_sb_idx < MAX_SUPERBLOCK_INDEX) {
 				_sb_idx++;
-				_read_blk.generate(READ_BLK, READ_BLK_SUCCEEDED, progress, _sb_idx, _blk);
+				_read_block.generate(READ_BLK, READ_BLK_SUCCEEDED, progress, _sb_idx, _blk);
 				progress = true;
 			} else {
 				_scan_for_highest_gen_sb_done = true;
-				_read_blk.generate(READ_BLK, READ_BLK_SUCCEEDED, progress, _highest_gen_sb_idx, _blk);
+				_read_block.generate(READ_BLK, READ_BLK_SUCCEEDED, progress, _highest_gen_sb_idx, _blk);
 				if (VERBOSE_CHECK)
 					log("check superblock ", _highest_gen_sb_idx, "\n  read superblock");
 			}

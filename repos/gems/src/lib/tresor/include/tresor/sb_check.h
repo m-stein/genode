@@ -56,7 +56,7 @@ class Tresor::Sb_check
 				Block _blk { };
 				Generated_request<Check, Vbd_check::Check, State> _check_vbd { *this, _state, INIT };
 				Generated_request<Check, Ft_check::Check, State> _check_ft { *this, _state, INIT };
-				Generated_request<Check, Block_io_read, State> _read_blk { *this, _state, INIT };
+				Generated_request<Check, Block_io_read, State> _read_block { *this, _state, INIT };
 
 				NONCOPYABLE(Check);
 
