@@ -41,7 +41,7 @@ bool Block_io_read::execute(Vfs::Env &vfs_env, Path const &path)
 		progress = true;
 		break;
 
-	case READ: _file->read(READ_OK, FILE_ERR, _attr.in_pba * BLOCK_SIZE, { (char *)&_attr.out_blk, BLOCK_SIZE }, progress); break;
+	case READ: _file->read(READ_OK, FILE_ERR, _attr.in_pba * BLOCK_SIZE, { (char *)&_attr.out_block, BLOCK_SIZE }, progress); break;
 	case READ_OK: _mark_req_successful(progress); break;
 	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
 	default: break;
@@ -65,7 +65,7 @@ void Block_io_read::_mark_req_successful(bool &progress)
 	_state = COMPLETE;
 	progress = true;
 	if (VERBOSE_BLOCK_IO && (!VERBOSE_BLOCK_IO_PBA_FILTER || VERBOSE_BLOCK_IO_PBA == _attr.in_pba))
-		log("block_io: ", *this, " hash ", hash(_attr.out_blk));
+		log("block_io: ", *this, " hash ", hash(_attr.out_block));
 }
 
 

@@ -33,7 +33,7 @@ class Tresor::Block_io_read
 		struct Attr
 		{
 			Physical_block_address const in_pba;
-			Block &out_blk;
+			Block &out_block;
 			bool &out_success;
 		};
 

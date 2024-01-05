@@ -799,7 +799,6 @@ void Tresor_tester::Command::mark_succeeded(bool &progress)
 
 void Tresor_tester::Command::execute(bool &progress)
 {
-
 	switch (type()) {
 	case REQUEST:
 	{
