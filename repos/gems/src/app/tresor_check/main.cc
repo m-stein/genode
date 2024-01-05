@@ -45,13 +45,13 @@ class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_compos
 		Trust_anchor _trust_anchor { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
 		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto") };
 		Block_io _blk_io { _vfs_env, _config_rom.xml().sub_node("block-io") };
-		Vbd_check _vbd_chk { };
-		Ft_check _ft_chk { };
-		Sb_check _sb_chk { };
+		Vbd_check _vbd_check { };
+		Ft_check _ft_check { };
+		Sb_check _sb_check { };
 		bool _generated_req_success { };
 		State _generated_req_succeeded { INIT };
 		State _state { INIT };
-		Generated_request<Main, Sb_check::Check, State> _chk_sb { *this, _state, INIT };
+		Generated_request<Main, Sb_check::Check, State> _check_sb { *this, _state, INIT };
 
 		NONCOPYABLE(Main);
 
@@ -82,8 +82,8 @@ class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_compos
 		void execute(bool &progress) override
 		{
 			switch(_state) {
-			case INIT: _chk_sb.generate(CHECK_SB, CHECK_SB_SUCCEEDED, progress); break;
-			case CHECK_SB: progress |= _chk_sb.execute(_sb_chk, _vbd_chk, _ft_chk, _blk_io); break;
+			case INIT: _check_sb.generate(CHECK_SB, CHECK_SB_SUCCEEDED, progress); break;
+			case CHECK_SB: progress |= _check_sb.execute(_sb_check, _vbd_check, _ft_check, _blk_io); break;
 			case CHECK_SB_SUCCEEDED: _env.parent().exit(0); break;
 			default: break;
 			}

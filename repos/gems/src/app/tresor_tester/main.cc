@@ -292,7 +292,7 @@ class Tresor_tester::Command : public Module_channel
 		Constructible<Benchmark_node> _benchmark_node { };
 		Constructible<Log_node> _log_node { };
 		Constructible<Tresor_init::Configuration> _initialize { };
-		Generated_request<Command, Sb_check::Check, State> _chk_sb { *this, _state, PENDING };
+		Generated_request<Command, Sb_check::Check, State> _check_sb { *this, _state, PENDING };
 
 		NONCOPYABLE(Command);
 
@@ -481,9 +481,9 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 		Vbd_initializer _vbd_initializer { };
 		Ft_initializer _ft_initializer { };
 		Sb_initializer _sb_initializer { };
-		Vbd_check _vbd_chk { };
-		Ft_check _ft_chk { };
-		Sb_check _sb_chk { };
+		Vbd_check _vbd_check { };
+		Ft_check _ft_check { };
+		Sb_check _sb_check { };
 
 		NONCOPYABLE(Main);
 
@@ -560,7 +560,7 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 		void execute(bool &progress) override
 		{
 			for_each_channel<Command>([&] (Command &cmd) {
-				progress |= cmd.new_execute(_sb_chk, _vbd_chk, _ft_chk, _blk_io); });
+				progress |= cmd.new_execute(_sb_check, _vbd_check, _ft_check, _blk_io); });
 
 			_with_first_processable_cmd([&] (Command &cmd) {
 				cmd.execute(progress); });
@@ -770,11 +770,11 @@ void Tresor_tester::Command::_generated_req_completed(State_uint state_uint)
 }
 
 
-bool Tresor_tester::Command::new_execute(Sb_check &sb_chk, Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &blk_io)
+bool Tresor_tester::Command::new_execute(Sb_check &sb_check, Vbd_check &vbd_check, Ft_check &ft_check, Block_io &blk_io)
 {
 	bool progress = false;
 	switch (_state) {
-	case CHECK_SB: progress |= _chk_sb.execute(sb_chk, vbd_chk, ft_chk, blk_io); break;
+	case CHECK_SB: progress |= _check_sb.execute(sb_check, vbd_check, ft_check, blk_io); break;
 	case CHECK_SB_SUCCEEDED: mark_succeeded(progress); break;
 	default: break;
 	}
@@ -842,7 +842,7 @@ void Tresor_tester::Command::execute(bool &progress)
 		_main.mark_command_in_progress(id());
 		break;
 	}
-	case CHECK: _chk_sb.generate(CHECK_SB, CHECK_SB_SUCCEEDED, progress); break;
+	case CHECK: _check_sb.generate(CHECK_SB, CHECK_SB_SUCCEEDED, progress); break;
 	case LOG:
 		log("\n", log_node().string, "\n");
 		_main.mark_command_in_progress(id());
