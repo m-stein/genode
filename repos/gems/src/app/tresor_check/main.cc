@@ -44,7 +44,7 @@ class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_compos
 		Signal_handler<Main> _sigh { _env.ep(), *this, &Main::_handle_signal };
 		Trust_anchor _trust_anchor { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
 		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto") };
-		Block_io _blk_io { _vfs_env, _config_rom.xml().sub_node("block-io") };
+		Block_io _block_io { _vfs_env, _config_rom.xml().sub_node("block-io") };
 		Vbd_check _vbd_check { };
 		Ft_check _ft_check { };
 		Sb_check _sb_check { };
@@ -72,7 +72,7 @@ class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_compos
 			add_module(COMMAND_POOL, *this);
 			add_module(CRYPTO, _crypto);
 			add_module(TRUST_ANCHOR, _trust_anchor);
-			add_module(BLOCK_IO, _blk_io);
+			add_module(BLOCK_IO, _block_io);
 			add_channel(*this);
 			_handle_signal();
 		}
@@ -83,7 +83,7 @@ class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_compos
 		{
 			switch(_state) {
 			case INIT: _check_sb.generate(CHECK_SB, CHECK_SB_SUCCEEDED, progress); break;
-			case CHECK_SB: progress |= _check_sb.execute(_sb_check, _vbd_check, _ft_check, _blk_io); break;
+			case CHECK_SB: progress |= _check_sb.execute(_sb_check, _vbd_check, _ft_check, _block_io); break;
 			case CHECK_SB_SUCCEEDED: _env.parent().exit(0); break;
 			default: break;
 			}

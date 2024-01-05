@@ -74,7 +74,7 @@ class Tresor::Ft_check
 
 		Ft_check() { }
 
-		bool execute(Check &req, Block_io &blk_io) { return req.execute(blk_io); }
+		bool execute(Check &req, Block_io &block_io) { return req.execute(block_io); }
 };
 
 #endif /* _TRESOR__FT_CHECK_H_ */

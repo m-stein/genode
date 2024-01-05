@@ -476,7 +476,7 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 		Constructible<Meta_tree> _meta_tree { };
 		Trust_anchor _trust_anchor { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
 		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto") };
-		Block_io _blk_io { _vfs_env, _config_rom.xml().sub_node("block-io") };
+		Block_io _block_io { _vfs_env, _config_rom.xml().sub_node("block-io") };
 		Pba_allocator _pba_alloc { NR_OF_SUPERBLOCK_SLOTS };
 		Vbd_initializer _vbd_initializer { };
 		Ft_initializer _ft_initializer { };
@@ -560,7 +560,7 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 		void execute(bool &progress) override
 		{
 			for_each_channel<Command>([&] (Command &cmd) {
-				progress |= cmd.new_execute(_sb_check, _vbd_check, _ft_check, _blk_io); });
+				progress |= cmd.new_execute(_sb_check, _vbd_check, _ft_check, _block_io); });
 
 			_with_first_processable_cmd([&] (Command &cmd) {
 				cmd.execute(progress); });
@@ -580,7 +580,7 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 			add_module(CRYPTO, _crypto);
 			add_module(TRUST_ANCHOR, _trust_anchor);
 			add_module(COMMAND_POOL, *this);
-			add_module(BLOCK_IO, _blk_io);
+			add_module(BLOCK_IO, _block_io);
 			add_module(VBD_INITIALIZER, _vbd_initializer);
 			add_module(FT_INITIALIZER, _ft_initializer);
 			add_module(SB_INITIALIZER, _sb_initializer);
@@ -770,11 +770,11 @@ void Tresor_tester::Command::_generated_req_completed(State_uint state_uint)
 }
 
 
-bool Tresor_tester::Command::new_execute(Sb_check &sb_check, Vbd_check &vbd_check, Ft_check &ft_check, Block_io &blk_io)
+bool Tresor_tester::Command::new_execute(Sb_check &sb_check, Vbd_check &vbd_check, Ft_check &ft_check, Block_io &block_io)
 {
 	bool progress = false;
 	switch (_state) {
-	case CHECK_SB: progress |= _check_sb.execute(sb_check, vbd_check, ft_check, blk_io); break;
+	case CHECK_SB: progress |= _check_sb.execute(sb_check, vbd_check, ft_check, block_io); break;
 	case CHECK_SB_SUCCEEDED: mark_succeeded(progress); break;
 	default: break;
 	}
