@@ -43,11 +43,11 @@ bool Sb_check::Check::execute(Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &bl
 			if (snap.valid) {
 				Snapshot &snap { _sb.snapshots.items[_snap_idx] };
 				_tree_root.construct(snap.pba, snap.gen, snap.hash, snap.max_level, _sb.degree, snap.nr_of_leaves);
-				_chk_vbd.generate(CHK_VBD, CHK_VBD_SUCCEEDED, progress, *_tree_root);
+				_chk_vbd.generate(CHECK_VBD, CHECK_VBD_SUCCEEDED, progress, *_tree_root);
 				if (VERBOSE_CHECK)
 					log("  check snap ", _snap_idx, " (", snap, ")");
 			} else {
-				_state = CHK_VBD_SUCCEEDED;
+				_state = CHECK_VBD_SUCCEEDED;
 				progress = true;
 				if (VERBOSE_CHECK)
 					log("  skip snap ", _snap_idx, " as it is unused");
@@ -71,8 +71,8 @@ bool Sb_check::Check::execute(Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &bl
 		}
 		break;
 
-	case CHK_VBD: progress |= _chk_vbd.execute(vbd_chk, blk_io); break;
-	case CHK_VBD_SUCCEEDED:
+	case CHECK_VBD: progress |= _chk_vbd.execute(vbd_chk, blk_io); break;
+	case CHECK_VBD_SUCCEEDED:
 
 		if (_snap_idx < MAX_SNAP_IDX) {
 			_snap_idx++;
@@ -81,23 +81,23 @@ bool Sb_check::Check::execute(Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &bl
 		} else {
 			_snap_idx = 0;
 			_tree_root.construct(_sb.free_number, _sb.free_gen, _sb.free_hash, _sb.free_max_level, _sb.free_degree, _sb.free_leaves);
-			_chk_ft.generate(CHK_FT, CHK_FT_SUCCEEDED, progress, *_tree_root);
+			_chk_ft.generate(CHECK_FT, CHECK_FT_SUCCEEDED, progress, *_tree_root);
 			if (VERBOSE_CHECK)
 				log("  check free tree");
 		}
 		break;
 
-	case CHK_FT: progress |= _chk_ft.execute(ft_chk, blk_io); break;
-	case CHK_FT_SUCCEEDED:
+	case CHECK_FT: progress |= _chk_ft.execute(ft_chk, blk_io); break;
+	case CHECK_FT_SUCCEEDED:
 
 		_tree_root.construct(_sb.meta_number, _sb.meta_gen, _sb.meta_hash, _sb.meta_max_level, _sb.meta_degree, _sb.meta_leaves);
-		_chk_ft.generate(CHK_MT, CHK_MT_SUCCEEDED, progress, *_tree_root);
+		_chk_ft.generate(CHECK_MT, CHECK_MT_SUCCEEDED, progress, *_tree_root);
 		if (VERBOSE_CHECK)
 			log("  check meta tree");
 		break;
 
-	case CHK_MT: progress |= _chk_ft.execute(ft_chk, blk_io); break;
-	case CHK_MT_SUCCEEDED: _mark_succeeded(progress); break;
+	case CHECK_MT: progress |= _chk_ft.execute(ft_chk, blk_io); break;
+	case CHECK_MT_SUCCEEDED: _mark_succeeded(progress); break;
 	default: break;
 	}
 	return progress;
