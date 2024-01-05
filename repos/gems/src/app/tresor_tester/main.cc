@@ -274,7 +274,7 @@ class Tresor_tester::Command : public Module_channel
 
 		enum Type { INVALID, REQUEST, TRUST_ANCHOR, BENCHMARK, CONSTRUCT, DESTRUCT, INITIALIZE, CHECK, CHECK_SNAPSHOTS, LOG };
 
-		enum State { PENDING, CHK_SB, CHK_SB_SUCCEEDED, IN_PROGRESS, CREATE_SNAP_COMPLETED, DISCARD_SNAP_COMPLETED, COMPLETED };
+		enum State { PENDING, CHECK_SB, CHECK_SB_SUCCEEDED, IN_PROGRESS, CREATE_SNAP_COMPLETED, DISCARD_SNAP_COMPLETED, COMPLETED };
 
 	private:
 
@@ -516,8 +516,8 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 						func(cmd);
 				}
 				if (cmd.state() == Command::IN_PROGRESS ||
-				    cmd.state() == Command::CHK_SB ||
-				    cmd.state() == Command::CHK_SB_SUCCEEDED) {
+				    cmd.state() == Command::CHECK_SB ||
+				    cmd.state() == Command::CHECK_SB_SUCCEEDED) {
 
 					if (cmd.synchronize())
 						done = true;
@@ -603,8 +603,8 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 		{
 			with_channel<Command>(cmd_id, [&] (Command &cmd) {
 				ASSERT(cmd.state() == Command::IN_PROGRESS ||
-				       cmd.state() == Command::CHK_SB ||
-				       cmd.state() == Command::CHK_SB_SUCCEEDED);
+				       cmd.state() == Command::CHECK_SB ||
+				       cmd.state() == Command::CHECK_SB_SUCCEEDED);
 				cmd.state(Command::COMPLETED);
 				_num_uncompleted_cmds--;
 				cmd.success(success);
@@ -774,8 +774,8 @@ bool Tresor_tester::Command::new_execute(Sb_check &sb_chk, Vbd_check &vbd_chk, F
 {
 	bool progress = false;
 	switch (_state) {
-	case CHK_SB: progress |= _chk_sb.execute(sb_chk, vbd_chk, ft_chk, blk_io); break;
-	case CHK_SB_SUCCEEDED: mark_succeeded(progress); break;
+	case CHECK_SB: progress |= _chk_sb.execute(sb_chk, vbd_chk, ft_chk, blk_io); break;
+	case CHECK_SB_SUCCEEDED: mark_succeeded(progress); break;
 	default: break;
 	}
 	return progress;
@@ -842,7 +842,7 @@ void Tresor_tester::Command::execute(bool &progress)
 		_main.mark_command_in_progress(id());
 		break;
 	}
-	case CHECK: _chk_sb.generate(CHK_SB, CHK_SB_SUCCEEDED, progress); break;
+	case CHECK: _chk_sb.generate(CHECK_SB, CHECK_SB_SUCCEEDED, progress); break;
 	case LOG:
 		log("\n", log_node().string, "\n");
 		_main.mark_command_in_progress(id());

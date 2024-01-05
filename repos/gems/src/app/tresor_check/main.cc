@@ -35,7 +35,7 @@ class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_compos
 {
 	private:
 
-		enum State { INIT, CHK_SB, CHK_SB_SUCCEEDED };
+		enum State { INIT, CHECK_SB, CHECK_SB_SUCCEEDED };
 
 		Env  &_env;
 		Heap  _heap { _env.ram(), _env.rm() };
@@ -82,9 +82,9 @@ class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_compos
 		void execute(bool &progress) override
 		{
 			switch(_state) {
-			case INIT: _chk_sb.generate(CHK_SB, CHK_SB_SUCCEEDED, progress); break;
-			case CHK_SB: progress |= _chk_sb.execute(_sb_chk, _vbd_chk, _ft_chk, _blk_io); break;
-			case CHK_SB_SUCCEEDED: _env.parent().exit(0); break;
+			case INIT: _chk_sb.generate(CHECK_SB, CHECK_SB_SUCCEEDED, progress); break;
+			case CHECK_SB: progress |= _chk_sb.execute(_sb_chk, _vbd_chk, _ft_chk, _blk_io); break;
+			case CHECK_SB_SUCCEEDED: _env.parent().exit(0); break;
 			default: break;
 			}
 		}
