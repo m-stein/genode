@@ -16,7 +16,7 @@
 
 using namespace Tresor;
 
-bool Sb_check::Check::execute(Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &blk_io)
+bool Sb_check::Check::execute(Vbd_check &vbd_check, Ft_check &ft_check, Block_io &blk_io)
 {
 	bool progress = false;
 	switch (_state) {
@@ -43,7 +43,7 @@ bool Sb_check::Check::execute(Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &bl
 			if (snap.valid) {
 				Snapshot &snap { _sb.snapshots.items[_snap_idx] };
 				_tree_root.construct(snap.pba, snap.gen, snap.hash, snap.max_level, _sb.degree, snap.nr_of_leaves);
-				_chk_vbd.generate(CHECK_VBD, CHECK_VBD_SUCCEEDED, progress, *_tree_root);
+				_check_vbd.generate(CHECK_VBD, CHECK_VBD_SUCCEEDED, progress, *_tree_root);
 				if (VERBOSE_CHECK)
 					log("  check snap ", _snap_idx, " (", snap, ")");
 			} else {
@@ -71,7 +71,7 @@ bool Sb_check::Check::execute(Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &bl
 		}
 		break;
 
-	case CHECK_VBD: progress |= _chk_vbd.execute(vbd_chk, blk_io); break;
+	case CHECK_VBD: progress |= _check_vbd.execute(vbd_check, blk_io); break;
 	case CHECK_VBD_SUCCEEDED:
 
 		if (_snap_idx < MAX_SNAP_IDX) {
@@ -81,22 +81,22 @@ bool Sb_check::Check::execute(Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &bl
 		} else {
 			_snap_idx = 0;
 			_tree_root.construct(_sb.free_number, _sb.free_gen, _sb.free_hash, _sb.free_max_level, _sb.free_degree, _sb.free_leaves);
-			_chk_ft.generate(CHECK_FT, CHECK_FT_SUCCEEDED, progress, *_tree_root);
+			_check_ft.generate(CHECK_FT, CHECK_FT_SUCCEEDED, progress, *_tree_root);
 			if (VERBOSE_CHECK)
 				log("  check free tree");
 		}
 		break;
 
-	case CHECK_FT: progress |= _chk_ft.execute(ft_chk, blk_io); break;
+	case CHECK_FT: progress |= _check_ft.execute(ft_check, blk_io); break;
 	case CHECK_FT_SUCCEEDED:
 
 		_tree_root.construct(_sb.meta_number, _sb.meta_gen, _sb.meta_hash, _sb.meta_max_level, _sb.meta_degree, _sb.meta_leaves);
-		_chk_ft.generate(CHECK_MT, CHECK_MT_SUCCEEDED, progress, *_tree_root);
+		_check_ft.generate(CHECK_MT, CHECK_MT_SUCCEEDED, progress, *_tree_root);
 		if (VERBOSE_CHECK)
 			log("  check meta tree");
 		break;
 
-	case CHECK_MT: progress |= _chk_ft.execute(ft_chk, blk_io); break;
+	case CHECK_MT: progress |= _check_ft.execute(ft_check, blk_io); break;
 	case CHECK_MT_SUCCEEDED: _mark_succeeded(progress); break;
 	default: break;
 	}

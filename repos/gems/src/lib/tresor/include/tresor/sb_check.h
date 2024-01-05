@@ -54,8 +54,8 @@ class Tresor::Sb_check
 				Snapshot_index _snap_idx { 0 };
 				Constructible<Tree_root> _tree_root { };
 				Block _blk { };
-				Generated_request<Check, Vbd_check::Check, State> _chk_vbd { *this, _state, INIT };
-				Generated_request<Check, Ft_check::Check, State> _chk_ft { *this, _state, INIT };
+				Generated_request<Check, Vbd_check::Check, State> _check_vbd { *this, _state, INIT };
+				Generated_request<Check, Ft_check::Check, State> _check_ft { *this, _state, INIT };
 				Generated_request<Check, Block_io_read, State> _read_blk { *this, _state, INIT };
 
 				NONCOPYABLE(Check);
@@ -70,7 +70,7 @@ class Tresor::Sb_check
 
 				void mark_failed(bool &, Error_string);
 
-				bool execute(Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &blk_io);
+				bool execute(Vbd_check &vbd_check, Ft_check &ft_check, Block_io &blk_io);
 
 				bool complete() const { return _state == COMPLETE; }
 		};
@@ -88,7 +88,7 @@ class Tresor::Sb_check
 		 * Requests Zugriff auf diese Member gewährt.
 		 */
 
-		bool execute(Check &chk, Vbd_check &vbd_chk, Ft_check &ft_chk, Block_io &blk_io) { return chk.execute(vbd_chk, ft_chk, blk_io); };
+		bool execute(Check &check, Vbd_check &vbd_check, Ft_check &ft_check, Block_io &blk_io) { return check.execute(vbd_check, ft_check, blk_io); };
 };
 
 #endif /* _TRESOR__SB_CHECK_H_ */
