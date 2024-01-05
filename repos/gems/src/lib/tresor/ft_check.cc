@@ -17,7 +17,7 @@
 
 using namespace Tresor;
 
-bool Ft_check::Check::_execute_node(Block_io &blk_io, Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
+bool Ft_check::Check::_execute_node(Block_io &block_io, Tree_level_index lvl, Tree_node_index node_idx, bool &progress)
 {
 	bool &check_node { _check_node[lvl][node_idx] };
 
@@ -67,7 +67,7 @@ bool Ft_check::Check::_execute_node(Block_io &blk_io, Tree_level_index lvl, Tree
 		}
 		break;
 
-	case READ_BLK: progress |= _read_blk.execute(blk_io); break;
+	case READ_BLK: progress |= _read_blk.execute(block_io); break;
 	case READ_BLK_SUCCEEDED:
 	{
 		Type_1_node const &node { _t1_blks.items[lvl].nodes[node_idx] };
@@ -95,7 +95,7 @@ bool Ft_check::Check::_execute_node(Block_io &blk_io, Tree_level_index lvl, Tree
 }
 
 
-bool Ft_check::Check::execute(Block_io &blk_io)
+bool Ft_check::Check::execute(Block_io &block_io)
 {
 	bool progress = false;
 	if (_state == INIT) {
@@ -110,7 +110,7 @@ bool Ft_check::Check::execute(Block_io &blk_io)
 	}
 	for (Tree_level_index lvl { 1 }; lvl <= _attr.in_ft.max_lvl + 1; lvl++)
 		for (Tree_node_index node_idx { 0 }; node_idx < _attr.in_ft.degree; node_idx++)
-			if (_execute_node(blk_io, lvl, node_idx, progress))
+			if (_execute_node(block_io, lvl, node_idx, progress))
 				return progress;
 
 	_mark_succeeded(progress);

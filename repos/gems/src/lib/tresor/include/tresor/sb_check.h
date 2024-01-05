@@ -70,7 +70,7 @@ class Tresor::Sb_check
 
 				void mark_failed(bool &, Error_string);
 
-				bool execute(Vbd_check &vbd_check, Ft_check &ft_check, Block_io &blk_io);
+				bool execute(Vbd_check &vbd_check, Ft_check &ft_check, Block_io &block_io);
 
 				bool complete() const { return _state == COMPLETE; }
 		};
@@ -88,7 +88,7 @@ class Tresor::Sb_check
 		 * Requests Zugriff auf diese Member gewährt.
 		 */
 
-		bool execute(Check &check, Vbd_check &vbd_check, Ft_check &ft_check, Block_io &blk_io) { return check.execute(vbd_check, ft_check, blk_io); };
+		bool execute(Check &check, Vbd_check &vbd_check, Ft_check &ft_check, Block_io &block_io) { return check.execute(vbd_check, ft_check, block_io); };
 };
 
 #endif /* _TRESOR__SB_CHECK_H_ */

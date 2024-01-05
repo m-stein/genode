@@ -16,7 +16,7 @@
 
 using namespace Tresor;
 
-bool Sb_check::Check::execute(Vbd_check &vbd_check, Ft_check &ft_check, Block_io &blk_io)
+bool Sb_check::Check::execute(Vbd_check &vbd_check, Ft_check &ft_check, Block_io &block_io)
 {
 	bool progress = false;
 	switch (_state) {
@@ -30,7 +30,7 @@ bool Sb_check::Check::execute(Vbd_check &vbd_check, Ft_check &ft_check, Block_io
 		_read_blk.generate(READ_BLK, READ_BLK_SUCCEEDED, progress, _sb_idx, _blk);
 		break;
 
-	case READ_BLK: progress |= _read_blk.execute(blk_io); break;
+	case READ_BLK: progress |= _read_blk.execute(block_io); break;
 	case READ_BLK_SUCCEEDED:
 
 		_sb.decode_from_blk(_blk);
@@ -71,7 +71,7 @@ bool Sb_check::Check::execute(Vbd_check &vbd_check, Ft_check &ft_check, Block_io
 		}
 		break;
 
-	case CHECK_VBD: progress |= _check_vbd.execute(vbd_check, blk_io); break;
+	case CHECK_VBD: progress |= _check_vbd.execute(vbd_check, block_io); break;
 	case CHECK_VBD_SUCCEEDED:
 
 		if (_snap_idx < MAX_SNAP_IDX) {
@@ -87,7 +87,7 @@ bool Sb_check::Check::execute(Vbd_check &vbd_check, Ft_check &ft_check, Block_io
 		}
 		break;
 
-	case CHECK_FT: progress |= _check_ft.execute(ft_check, blk_io); break;
+	case CHECK_FT: progress |= _check_ft.execute(ft_check, block_io); break;
 	case CHECK_FT_SUCCEEDED:
 
 		_tree_root.construct(_sb.meta_number, _sb.meta_gen, _sb.meta_hash, _sb.meta_max_level, _sb.meta_degree, _sb.meta_leaves);
@@ -96,7 +96,7 @@ bool Sb_check::Check::execute(Vbd_check &vbd_check, Ft_check &ft_check, Block_io
 			log("  check meta tree");
 		break;
 
-	case CHECK_MT: progress |= _check_ft.execute(ft_check, blk_io); break;
+	case CHECK_MT: progress |= _check_ft.execute(ft_check, block_io); break;
 	case CHECK_MT_SUCCEEDED: _mark_succeeded(progress); break;
 	default: break;
 	}
