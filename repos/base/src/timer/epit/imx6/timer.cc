@@ -20,14 +20,13 @@
 enum {
 	EPIT_2_IRQ       = 89,
 	EPIT_2_MMIO_BASE = 0x020d4000,
-	EPIT_2_MMIO_SIZE = 0x00004000
 };
 
 using namespace Genode;
 
 Timer::Time_source::Time_source(Env &env)
 :
-	Attached_mmio(env, EPIT_2_MMIO_BASE, EPIT_2_MMIO_SIZE),
+	Attached_mmio(env, {(char *)EPIT_2_MMIO_BASE, MMIO_SIZE}),
 	Signalled_time_source(env),
 	_timer_irq(env, unsigned(EPIT_2_IRQ))
 {
