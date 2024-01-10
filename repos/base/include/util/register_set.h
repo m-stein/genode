@@ -83,12 +83,12 @@ struct Genode::Register_set_plain_access
  * must not define members named 'Register_base', 'Bitfield_base',
  * 'Register_array_base' or 'Array_bitfield_base'.
  */
-template <typename PLAIN_ACCESS, Genode::size_t SIZE>
+template <typename PLAIN_ACCESS, Genode::size_t REGISTER_SET_SIZE>
 class Genode::Register_set : Noncopyable
 {
 	public:
 
-		enum { REGISTER_SET_SIZE = SIZE };
+		static constexpr size_t SIZE = REGISTER_SET_SIZE;
 
 	private:
 
@@ -317,9 +317,9 @@ class Genode::Register_set : Noncopyable
 			typedef typename Register<OFFSET, ACCESS_WIDTH, STRICT_WRITE>::
 			                 access_t access_t;
 
-			enum { MAX_ITEM_BIT_OFF = MAX_INDEX << ITEM_WIDTH_LOG2 };
-			enum { MAX_ACCESS_OFF = (MAX_ITEM_BIT_OFF >> BYTE_WIDTH_LOG2) & ~(sizeof(access_t) - 1) };
-			static_assert(OFFSET + (off_t)MAX_ACCESS_OFF + sizeof(access_t) <= REGISTER_SET_SIZE);
+			static constexpr off_t LAST_BIT = MAX_INDEX << ITEM_WIDTH_LOG2;
+			static constexpr off_t MAX_ACCESS_OFFSET = (LAST_BIT >> BYTE_WIDTH_LOG2) & ~(sizeof(access_t) - 1);
+			static_assert(OFFSET + MAX_ACCESS_OFFSET + sizeof(access_t) <= REGISTER_SET_SIZE);
 
 			/**
 			 * A bit region within a register array item
