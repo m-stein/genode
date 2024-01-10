@@ -92,7 +92,7 @@ struct Genode::Mmio : Mmio_plain_access, Register_set<Mmio_plain_access, MMIO_SI
 		Mmio_plain_access(range),
 		Register_set<Mmio_plain_access, SIZE>(*static_cast<Mmio_plain_access *>(this))
 	{
-		if (range.num_bytes > SIZE) {
+		if (range.num_bytes < SIZE) {
 			error("MMIO range is unexpectedly too small");
 			throw Range_violation { };
 		}
