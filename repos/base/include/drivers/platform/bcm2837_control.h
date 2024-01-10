@@ -21,7 +21,7 @@
 namespace Genode { class Bcm2837_control; }
 
 
-class Genode::Bcm2837_control : Mmio
+class Genode::Bcm2837_control : Mmio<0xc>
 {
 	public:
 
@@ -43,7 +43,7 @@ class Genode::Bcm2837_control : Mmio
 
 Genode::Bcm2837_control::Bcm2837_control(addr_t const base)
 :
-	Mmio(base)
+	Mmio({(char *)base, Mmio::SIZE})
 { }
 
 
