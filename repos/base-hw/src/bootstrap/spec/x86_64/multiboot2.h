@@ -64,10 +64,10 @@ class Genode::Multiboot2_info : Mmio<4>
 			struct Size : Register <0x08, 64> { };
 			struct Type : Register <0x10, 32> { enum { MEMORY = 1 }; };
 
-			Memory(addr_t mmap = 0) : Mmio({(char *)mmap, MMIO_SIZE}) { }
+			Memory(addr_t mmap = 0) : Mmio({(char *)mmap, Mmio::SIZE}) { }
 		};
 
-		Multiboot2_info(addr_t mbi) : Mmio({(char *)mbi, MMIO_SIZE}) { }
+		Multiboot2_info(addr_t mbi) : Mmio({(char *)mbi, Mmio::SIZE}) { }
 
 		template <typename FUNC_MEM,
 		          typename FUNC_ACPI,

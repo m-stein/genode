@@ -39,7 +39,7 @@ class Genode::Multiboot_info : Mmio<116>
 			MAGIC = 0x2badb002,
 		};
 
-		Multiboot_info(addr_t mbi) : Mmio({(char *)mbi, MMIO_SIZE}) { }
+		Multiboot_info(addr_t mbi) : Mmio({(char *)mbi, Mmio::SIZE}) { }
 		Multiboot_info(addr_t mbi, bool strip);
 
 		struct Mmap : Genode::Mmio<22>
@@ -49,7 +49,7 @@ class Genode::Multiboot_info : Mmio<116>
 			struct Length : Register <0x0c, 64> { };
 			struct Type   : Register <0x14,  8> { enum { MEMORY = 1 }; };
 
-			Mmap(addr_t mmap = 0) : Mmio({(char *)mmap, MMIO_SIZE}) { }
+			Mmap(addr_t mmap = 0) : Mmio({(char *)mmap, Mmio::SIZE}) { }
 		};
 
 		/**

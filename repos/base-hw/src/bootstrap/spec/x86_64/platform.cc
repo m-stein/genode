@@ -299,7 +299,7 @@ struct Lapic : Mmio<Hw::Cpu_memory_map::LAPIC_SIZE>
 		struct Destination : Bitfield<24, 8> { };
 	};
 
-	Lapic(addr_t const addr) : Mmio({(char *)addr, MMIO_SIZE}) { }
+	Lapic(addr_t const addr) : Mmio({(char *)addr, Mmio::SIZE}) { }
 };
 
 

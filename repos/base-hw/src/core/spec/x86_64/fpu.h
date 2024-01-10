@@ -40,9 +40,9 @@ class Genode::Fpu_context
 		struct Fcw   : Register<0, 16>  { };
 		struct Mxcsr : Register<24, 32> { };
 
-		Context(addr_t const base) : Mmio({(char *)base, MMIO_SIZE})
+		Context(addr_t const base) : Mmio({(char *)base, Mmio::SIZE})
 		{
-			memset((void *)base, 0, MMIO_SIZE);
+			memset((void *)base, 0, Mmio::SIZE);
 			write<Fcw>(0x37f);    /* mask exceptions SysV ABI */
 			write<Mxcsr>(0x1f80);
 		}
