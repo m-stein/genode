@@ -15,12 +15,14 @@
 #define _INCLUDE__UTIL__MMIO_H_
 
 /* Genode includes */
+#include <base/log.h>
+#include <util/string.h>
 #include <util/register_set.h>
 
 namespace Genode {
 
 	class Mmio_plain_access;
-	class Mmio;
+	template <size_t> class Mmio;
 }
 
 /**
@@ -30,9 +32,13 @@ class Genode::Mmio_plain_access
 {
 	friend Register_set_plain_access;
 
+	public:
+
+		class Range_violation : Exception { };
+
 	private:
 
-		addr_t const _base;
+		Byte_range_ptr const _range;
 
 		/**
 		 * Write '_ACCESS_T' typed 'value' to MMIO base + 'offset'
@@ -40,7 +46,11 @@ class Genode::Mmio_plain_access
 		template <typename ACCESS_T>
 		inline void _write(off_t const offset, ACCESS_T const value)
 		{
-			addr_t const dst = _base + offset;
+			if (offset + sizeof(ACCESS_T) > _range.num_bytes) {
+				error("attempt to write to MMIO with invalid offset");
+				throw Range_violation { };
+			}
+			addr_t const dst = (addr_t)_range.start + offset;
 			*(ACCESS_T volatile *)dst = value;
 		}
 
@@ -50,7 +60,11 @@ class Genode::Mmio_plain_access
 		template <typename ACCESS_T>
 		inline ACCESS_T _read(off_t const &offset) const
 		{
-			addr_t const dst = _base + offset;
+			if (offset + sizeof(ACCESS_T) > _range.num_bytes) {
+				error("attempt to read from MMIO with invalid offset");
+				throw Range_violation { };
+			}
+			addr_t const dst = (addr_t)_range.start + offset;
 			ACCESS_T const value = *(ACCESS_T volatile *)dst;
 			return value;
 		}
@@ -62,9 +76,9 @@ class Genode::Mmio_plain_access
 		 *
 		 * \param base  base address of targeted MMIO region
 		 */
-		Mmio_plain_access(addr_t const base) : _base(base) { }
+		Mmio_plain_access(Byte_range_ptr const &range) : _range(range.start, range.num_bytes) { }
 
-		addr_t base() const { return _base; }
+		addr_t base() const { return (addr_t)_range.start; }
 };
 
 
@@ -73,17 +87,26 @@ class Genode::Mmio_plain_access
  *
  * For further details refer to the documentation of the 'Register_set' class.
  */
-struct Genode::Mmio : Mmio_plain_access, Register_set<Mmio_plain_access>
+template <Genode::size_t SIZE>
+struct Genode::Mmio : Mmio_plain_access, Register_set<Mmio_plain_access, SIZE>
 {
+	enum { MMIO_SIZE = SIZE };
+
 	/**
 	 * Constructor
 	 *
 	 * \param base  base address of targeted MMIO region
 	 */
-	Mmio(addr_t const base)
+	Mmio(Byte_range_ptr const &range)
 	:
-		Mmio_plain_access(base),
-		Register_set(*static_cast<Mmio_plain_access *>(this)) { }
+		Mmio_plain_access(range),
+		Register_set<Mmio_plain_access, SIZE>(*static_cast<Mmio_plain_access *>(this))
+	{
+		if (range.num_bytes > SIZE) {
+			error("dynamically set size of MMIO type exceeds its statically declared size");
+			throw Range_violation { };
+		}
+	}
 };
 
 #endif /* _INCLUDE__UTIL__MMIO_H_ */
