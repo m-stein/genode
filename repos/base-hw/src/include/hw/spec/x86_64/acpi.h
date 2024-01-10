@@ -65,14 +65,14 @@ struct Hw::Apic_madt
 		struct Paddr    : Register <0x04, 32> { };
 		struct Gsi_base : Register <0x08, 32> { };
 
-		Ioapic(Apic_madt const * a) : Mmio({(char *)a, MMIO_SIZE}) { }
+		Ioapic(Apic_madt const * a) : Mmio({(char *)a, Mmio::SIZE}) { }
 	};
 
 	struct Lapic : Genode::Mmio<0x8>
 	{
 		struct Flags : Register <0x04, 32> { enum { VALID = 1 }; };
 
-		Lapic(Apic_madt const * a) : Mmio({(char *)a, MMIO_SIZE}) { }
+		Lapic(Apic_madt const * a) : Mmio({(char *)a, Mmio::SIZE}) { }
 
 		bool valid() { return read<Flags>() & Flags::VALID; };
 	};
@@ -174,7 +174,7 @@ struct Hw::Acpi_fadt : Genode::Mmio<276>
 		asm volatile ("outl %0, %w1" : : "a"(val), "Nd"(port));
 	}
 
-	Acpi_fadt(Acpi_generic const * a) : Mmio({(char *)a, MMIO_SIZE}) { }
+	Acpi_fadt(Acpi_generic const * a) : Mmio({(char *)a, Mmio::SIZE}) { }
 
 	addr_t facs() const
 	{
@@ -362,7 +362,7 @@ struct Hw::Acpi_facs : Genode::Mmio<64>
 			write<Fw_wake_vector_ext>(0);
 	}
 
-	Acpi_facs(addr_t const mmio) : Mmio({(char *)mmio, MMIO_SIZE}) { }
+	Acpi_facs(addr_t const mmio) : Mmio({(char *)mmio, Mmio::SIZE}) { }
 };
 
 
