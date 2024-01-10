@@ -32,10 +32,6 @@ class Genode::Mmio_plain_access
 {
 	friend Register_set_plain_access;
 
-	public:
-
-		class Range_violation : Exception { };
-
 	private:
 
 		Byte_range_ptr const _range;
@@ -46,10 +42,6 @@ class Genode::Mmio_plain_access
 		template <typename ACCESS_T>
 		inline void _write(off_t const offset, ACCESS_T const value)
 		{
-			if (offset + sizeof(ACCESS_T) > _range.num_bytes) {
-				error("attempt to write to MMIO with invalid offset");
-				throw Range_violation { };
-			}
 			addr_t const dst = (addr_t)_range.start + offset;
 			*(ACCESS_T volatile *)dst = value;
 		}
@@ -60,10 +52,6 @@ class Genode::Mmio_plain_access
 		template <typename ACCESS_T>
 		inline ACCESS_T _read(off_t const &offset) const
 		{
-			if (offset + sizeof(ACCESS_T) > _range.num_bytes) {
-				error("attempt to read from MMIO with invalid offset");
-				throw Range_violation { };
-			}
 			addr_t const dst = (addr_t)_range.start + offset;
 			ACCESS_T const value = *(ACCESS_T volatile *)dst;
 			return value;
@@ -87,10 +75,12 @@ class Genode::Mmio_plain_access
  *
  * For further details refer to the documentation of the 'Register_set' class.
  */
-template <Genode::size_t SIZE>
-struct Genode::Mmio : Mmio_plain_access, Register_set<Mmio_plain_access, SIZE>
+template <Genode::size_t MMIO_SIZE>
+struct Genode::Mmio : Mmio_plain_access, Register_set<Mmio_plain_access, MMIO_SIZE>
 {
-	enum { MMIO_SIZE = SIZE };
+	static constexpr size_t SIZE = MMIO_SIZE;
+
+	class Range_violation : Exception { };
 
 	/**
 	 * Constructor
@@ -103,7 +93,7 @@ struct Genode::Mmio : Mmio_plain_access, Register_set<Mmio_plain_access, SIZE>
 		Register_set<Mmio_plain_access, SIZE>(*static_cast<Mmio_plain_access *>(this))
 	{
 		if (range.num_bytes > SIZE) {
-			error("dynamically set size of MMIO type exceeds its statically declared size");
+			error("MMIO range is unexpectedly too small");
 			throw Range_violation { };
 		}
 	}
