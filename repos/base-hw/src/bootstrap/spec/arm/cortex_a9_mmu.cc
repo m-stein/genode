@@ -52,7 +52,7 @@ class Cpu_counter
 };
 
 
-struct Scu : Genode::Mmio
+struct Scu : Genode::Mmio<0x10>
 {
 	struct Cr : Register<0x0, 32>
 	{

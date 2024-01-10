@@ -29,7 +29,7 @@ namespace Bootstrap {
 }
 
 
-class Bootstrap::Aipstz : public Genode::Mmio
+class Bootstrap::Aipstz : public Genode::Mmio<0x54>
 {
 	private:
 

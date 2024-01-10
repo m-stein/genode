@@ -42,7 +42,7 @@ class Hw::Pic
 		static constexpr unsigned min_spi     = 32;
 		static constexpr unsigned spurious_id = 1023;
 
-		struct Distributor : Genode::Mmio
+		struct Distributor : Genode::Mmio<0x7fe0>
 		{
 			static constexpr unsigned nr_of_irq = 1024;
 
@@ -107,7 +107,7 @@ class Hw::Pic
 			{ }
 		};
 
-		struct Redistributor : Genode::Mmio
+		struct Redistributor : Genode::Mmio<0x4>
 		{
 			struct Ctlr : Register<0x0, 32>
 			{
@@ -126,7 +126,7 @@ class Hw::Pic
 			}
 		};
 
-		struct Redistributor_sgi_ppi : Genode::Mmio
+		struct Redistributor_sgi_ppi : Genode::Mmio<0xc08>
 		{
 			struct Igroupr0   : Register<0x80, 32> { };
 
