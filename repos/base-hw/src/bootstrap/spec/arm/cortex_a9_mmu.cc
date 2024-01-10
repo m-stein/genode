@@ -72,7 +72,7 @@ struct Scu : Genode::Mmio
 		struct Cpu3_way : Bitfield<12, 4> { };
 	};
 
-	Scu() : Genode::Mmio(Board::Cpu_mmio::SCU_MMIO_BASE) { }
+	Scu() : Genode::Mmio({(char *)Board::Cpu_mmio::SCU_MMIO_BASE, Mmio::SIZE}) { }
 
 	void invalidate()
 	{
