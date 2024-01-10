@@ -26,7 +26,7 @@ using namespace Genode;
 
 Timer::Time_source::Time_source(Env &env)
 :
-	Attached_mmio(env, {(char *)EPIT_2_MMIO_BASE, MMIO_SIZE}),
+	Attached_mmio(env, {(char *)EPIT_2_MMIO_BASE, Mmio::SIZE}),
 	Signalled_time_source(env),
 	_timer_irq(env, unsigned(EPIT_2_IRQ))
 {

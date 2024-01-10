@@ -36,7 +36,7 @@ class Genode::Bios_data_area : Mmio<0x100>
 
 		static addr_t _mmio_base_virt();
 
-		Bios_data_area() : Mmio({(char *)(_mmio_base_virt() + 0x400), MMIO_SIZE}) { }
+		Bios_data_area() : Mmio({(char *)(_mmio_base_virt() + 0x400), Mmio::SIZE}) { }
 
 	public:
 
