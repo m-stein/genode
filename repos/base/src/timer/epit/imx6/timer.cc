@@ -20,6 +20,7 @@
 enum {
 	EPIT_2_IRQ       = 89,
 	EPIT_2_MMIO_BASE = 0x020d4000,
+	EPIT_2_MMIO_SIZE = 0x00004000
 };
 
 using namespace Genode;
