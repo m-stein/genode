@@ -19,13 +19,14 @@
 
 namespace Genode { class Multiboot2_info; }
 
-class Genode::Multiboot2_info : Mmio<4>
+class Genode::Multiboot2_info : Mmio<0x4>
 {
 	private:
 
 		struct Size : Register <0x0, 32> { };
 
-		struct Tag : Genode::Mmio<16>
+		template <size_t SIZE>
+		struct Tag : Genode::Mmio<SIZE>
 		{
 			enum { LOG2_SIZE = 3 };
 
@@ -42,14 +43,14 @@ class Genode::Multiboot2_info : Mmio<4>
 			};
 			struct Size : Register <0x04, 32> { };
 
-			Tag(addr_t addr, size_t ext_size = 0) : Mmio({(char *)addr, 8 + ext_size}) { }
+			Tag(addr_t addr) : Mmio({(char *)addr, Mmio::SIZE}) { }
 		};
 
-		struct Efi_system_table_64 : Tag
+		struct Efi_system_table_64 : Tag<0x10>
 		{
 			struct Pointer : Register <0x08, 64> { };
 
-			Efi_system_table_64(addr_t addr) : Tag(addr, 8) { }
+			Efi_system_table_64(addr_t addr) : Tag(addr) { }
 		};
 
 	public:
@@ -83,7 +84,7 @@ class Genode::Multiboot2_info : Mmio<4>
 			for (addr_t tag_addr = base() + (1UL << Tag::LOG2_SIZE);
 			     tag_addr < base() + size;)
 			{
-				Tag tag(tag_addr);
+				Tag<0x8> tag(tag_addr);
 
 				if (tag.read<Tag::Type>() == Tag::Type::END)
 					return;
