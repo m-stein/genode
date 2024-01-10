@@ -86,10 +86,6 @@ struct Genode::Register_set_plain_access
 template <typename PLAIN_ACCESS, Genode::size_t REGISTER_SET_SIZE>
 class Genode::Register_set : Noncopyable
 {
-	public:
-
-		static constexpr size_t SIZE = REGISTER_SET_SIZE;
-
 	private:
 
 		using Plain_access = Register_set_plain_access;
