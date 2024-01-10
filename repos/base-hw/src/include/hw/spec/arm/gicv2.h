@@ -27,7 +27,7 @@ class Hw::Gicv2
 		/**
 		 * Distributor of the ARM generic interrupt controller
 		 */
-		struct Distributor : Genode::Mmio
+		struct Distributor : Genode::Mmio<0x1000>
 		{
 			static constexpr unsigned nr_of_irq = 1024;
 
@@ -125,7 +125,7 @@ class Hw::Gicv2
 		/**
 		 * CPU interface of the ARM generic interrupt controller
 		 */
-		struct Cpu_interface : Genode::Mmio
+		struct Cpu_interface : Genode::Mmio<>
 		{
 			/**
 			 * Control register
