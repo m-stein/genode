@@ -34,7 +34,7 @@ class Genode::Mmio_plain_access
 
 	private:
 
-		Byte_range_ptr const _range;
+		addr_t const _base;
 
 		/**
 		 * Write 'ACCESS_T' typed 'value' to MMIO base + 'offset'
@@ -42,7 +42,7 @@ class Genode::Mmio_plain_access
 		template <typename ACCESS_T>
 		inline void _write(off_t const offset, ACCESS_T const value)
 		{
-			addr_t const dst = (addr_t)_range.start + offset;
+			addr_t const dst = _base + offset;
 			*(ACCESS_T volatile *)dst = value;
 		}
 
@@ -52,7 +52,7 @@ class Genode::Mmio_plain_access
 		template <typename ACCESS_T>
 		inline ACCESS_T _read(off_t const &offset) const
 		{
-			addr_t const dst = (addr_t)_range.start + offset;
+			addr_t const dst = _base + offset;
 			ACCESS_T const value = *(ACCESS_T volatile *)dst;
 			return value;
 		}
@@ -62,11 +62,11 @@ class Genode::Mmio_plain_access
 		/**
 		 * Constructor
 		 *
-		 * \param range  byte range of targeted MMIO region
+		 * \param base  base address of targeted MMIO region
 		 */
-		Mmio_plain_access(Byte_range_ptr const &range) : _range(range.start, range.num_bytes) { }
+		Mmio_plain_access(addr_t const base) : _base(base) { }
 
-		addr_t base() const { return (addr_t)_range.start; }
+		addr_t base() const { return _base; }
 };
 
 
@@ -89,7 +89,7 @@ struct Genode::Mmio : Mmio_plain_access, Register_set<Mmio_plain_access, MMIO_SI
 	 */
 	Mmio(Byte_range_ptr const &range)
 	:
-		Mmio_plain_access(range),
+		Mmio_plain_access((addr_t)range.start),
 		Register_set<Mmio_plain_access, SIZE>(*static_cast<Mmio_plain_access *>(this))
 	{
 		if (range.num_bytes < SIZE) {
