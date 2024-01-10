@@ -232,7 +232,7 @@ void Board::Cpu::wake_up_all_cpus(void * const ip)
 		struct Gpr3 : Register<0x7c, 32> {}; /* ep core 1 */
 		struct Gpr4 : Register<0x80, 32> {}; /* ep core 1 */
 
-		Src(void * const entry) : Genode::Mmio(SRC_MMIO_BASE)
+		Src(void * const entry) : Genode::Mmio({(char *)SRC_MMIO_BASE, Mmio::SIZE})
 		{
 			write<Gpr3>((Gpr3::access_t)entry);
 			write<Gpr4>((Gpr4::access_t)entry);
