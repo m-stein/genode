@@ -26,7 +26,7 @@ using Board::Vmcb;
 
 Vmcb::Vmcb(Genode::uint32_t id, Genode::addr_t addr)
 :
-	Mmio({(char *)this, Genode::get_page_size()})
+	Mmio({(char *)this, Mmio::SIZE})
 {
 	write<Guest_asid>(id);
 	write<Msrpm_base_pa>(dummy_msrpm());
