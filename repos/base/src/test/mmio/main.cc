@@ -60,7 +60,7 @@ struct Cpu_state : Register<16>
  */
 struct Test_mmio : public Mmio<MMIO_SIZE>
 {
-	Test_mmio(addr_t const base) : Mmio({(char *)base, MMIO_SIZE}) { }
+	Test_mmio(addr_t const base) : Mmio({(char *)base, Mmio::SIZE}) { }
 
 	struct Reg_64 : Register<0x00, 64>
 	{
