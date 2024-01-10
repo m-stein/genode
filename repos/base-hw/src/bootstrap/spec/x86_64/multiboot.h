@@ -21,7 +21,7 @@
 namespace Genode { class Multiboot_info; }
 
 
-class Genode::Multiboot_info : Mmio<116>
+class Genode::Multiboot_info : Mmio<0x34>
 {
 	private:
 
@@ -42,7 +42,7 @@ class Genode::Multiboot_info : Mmio<116>
 		Multiboot_info(addr_t mbi) : Mmio({(char *)mbi, Mmio::SIZE}) { }
 		Multiboot_info(addr_t mbi, bool strip);
 
-		struct Mmap : Genode::Mmio<22>
+		struct Mmap : Genode::Mmio<0x1c>
 		{
 			struct Size   : Register <0x00, 32> { };
 			struct Addr   : Register <0x04, 64> { };
