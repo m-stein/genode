@@ -20,7 +20,7 @@
 namespace Bootstrap { struct Csu; }
 
 
-struct Bootstrap::Csu : Genode::Mmio
+struct Bootstrap::Csu : Genode::Mmio<0x36c>
 {
 	template <Genode::off_t OFF>
 	struct Csl : public Register<OFF, 32>
