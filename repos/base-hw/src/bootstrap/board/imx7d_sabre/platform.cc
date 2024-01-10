@@ -218,7 +218,7 @@ unsigned Bootstrap::Platform::enable_mmu()
 
 void Board::Cpu::wake_up_all_cpus(void * const ip)
 {
-	struct Src : Genode::Mmio
+	struct Src : Genode::Mmio<0x84>
 	{
 		struct A7_cr0 : Register<0x4,  32>
 		{

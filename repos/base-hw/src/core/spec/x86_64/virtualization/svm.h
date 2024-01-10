@@ -79,14 +79,10 @@ struct Board::Vmcb_reserved_for_host
 	Genode::addr_t phys_addr      = 0U;
 	Genode::addr_t root_vmcb_phys = 0U;
 };
-
-/* FIXME fix and uncomment again */
-/*
 static_assert(Board::Vmcb_control_area::total_size -
               sizeof(Board::Vmcb_control_area) - sizeof(Genode::Mmio) -
               sizeof(Board::Vmcb_reserved_for_host) ==
               0);
-*/
 
 /*
  * AMD Manual Vol. 2, Table B-2: VMCB Layout, State Save Area
