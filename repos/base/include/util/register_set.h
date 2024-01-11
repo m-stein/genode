@@ -23,6 +23,7 @@
 namespace Genode {
 
 	struct Register_set_plain_access;
+	struct Register_set_base;
 	template <typename, size_t> class Register_set;
 }
 
@@ -68,6 +69,108 @@ struct Genode::Register_set_plain_access
 };
 
 
+struct Genode::Register_set_base : Noncopyable
+{
+	/*********************************
+	 ** Polling for bitfield states **
+	 *********************************/
+
+	struct Polling_timeout : Exception { };
+
+	struct Attempts
+	{
+		unsigned value;
+		explicit Attempts(unsigned value) : value(value) { }
+	};
+
+	struct Microseconds
+	{
+		uint64_t value;
+		explicit Microseconds(uint64_t value) : value(value) { }
+	};
+
+	/**
+	 * Interface for delaying the execution of a calling thread
+	 */
+	struct Delayer : Interface
+	{
+		/**
+		 * Delay execution of the caller for 'us' microseconds
+		 */
+		virtual void usleep(uint64_t us) = 0;
+	};
+
+
+	/**
+	 * Wait until a list of IO conditions is met
+	 *
+	 * \param CONDITIONS    Types of the of conditions in the condition
+	 *                      list. Condition subtypes of the IO types. For
+	 *                      example the Bitfield::Equal type.
+	 * \param attempts      maximum number of probing attempts
+	 * \param us            number of microseconds between attempts
+	 * \param delayer       Sleeping facility to be used when the
+	 *                      conditions are not met
+	 * \param conditions    condition list
+	 *
+	 * \throw Polling_timeout
+	 */
+	template <typename... CONDITIONS>
+	inline void wait_for(Attempts       attempts,
+	                     Microseconds   us,
+	                     Delayer       &delayer,
+	                     CONDITIONS...  conditions)
+	{
+		for (unsigned i = 0; i < attempts.value; i++,
+		     delayer.usleep(us.value))
+		{
+			if (_conditions_met(conditions...)) {
+				return; }
+		}
+		throw Polling_timeout();
+	}
+
+	/**
+	 * Shortcut for 'wait_for' with 'attempts = 500' and 'us = 1000'
+	 */
+	template <typename... CONDITIONS>
+	inline void wait_for(Delayer &delayer, CONDITIONS... conditions)
+	{
+		wait_for<CONDITIONS...>(Attempts(500), Microseconds(1000),
+		                        delayer, conditions...);
+	}
+
+	/**
+	 * Same as 'wait_for' but wait until one condition in a list of IO
+	 * conditions is met
+	 */
+	template <typename... CONDITIONS>
+	inline void wait_for_any(Attempts       attempts,
+	                         Microseconds   us,
+	                         Delayer       &delayer,
+	                         CONDITIONS...  conditions)
+	{
+		for (unsigned i = 0; i < attempts.value; i++,
+		     delayer.usleep(us.value))
+		{
+			if (_one_condition_met(conditions...)) {
+				return; }
+		}
+		throw Polling_timeout();
+	}
+
+	/**
+	 * Shortcut for 'wait_for' with 'attempts = 500' and 'us = 1000'
+	 */
+	template <typename... CONDITIONS>
+	inline void wait_for_any(Delayer &delayer, CONDITIONS... conditions)
+	{
+		wait_for_any<CONDITIONS...>(Attempts(500), Microseconds(1000),
+		                            delayer, conditions...);
+	}
+};
+
+
 /**
  * Set of fine-grained and typesafe accessible registers with offsets
  *
@@ -84,7 +187,7 @@ struct Genode::Register_set_plain_access
  * 'Register_array_base' or 'Array_bitfield_base'.
  */
 template <typename PLAIN_ACCESS, Genode::size_t REGISTER_SET_SIZE>
-class Genode::Register_set : Noncopyable
+class Genode::Register_set : public Register_set_base
 {
 	private:
 
@@ -658,105 +761,6 @@ class Genode::Register_set : Noncopyable
 			write<Bitset_2<Bits_0, Bits_1> >(v);
 			write<Bits_2>(v >> (Bits_0::BITFIELD_WIDTH +
 			                    Bits_1::BITFIELD_WIDTH));
-		}
-
-
-		/*********************************
-		 ** Polling for bitfield states **
-		 *********************************/
-
-		struct Polling_timeout : Exception { };
-
-		struct Attempts
-		{
-			unsigned value;
-			explicit Attempts(unsigned value) : value(value) { }
-		};
-
-		struct Microseconds
-		{
-			uint64_t value;
-			explicit Microseconds(uint64_t value) : value(value) { }
-		};
-
-		/**
-		 * Interface for delaying the execution of a calling thread
-		 */
-		struct Delayer : Interface
-		{
-			/**
-			 * Delay execution of the caller for 'us' microseconds
-			 */
-			virtual void usleep(uint64_t us) = 0;
-		};
-
-
-		/**
-		 * Wait until a list of IO conditions is met
-		 *
-		 * \param CONDITIONS    Types of the of conditions in the condition
-		 *                      list. Condition subtypes of the IO types. For
-		 *                      example the Bitfield::Equal type.
-		 * \param attempts      maximum number of probing attempts
-		 * \param us            number of microseconds between attempts
-		 * \param delayer       Sleeping facility to be used when the
-		 *                      conditions are not met
-		 * \param conditions    condition list
-		 *
-		 * \throw Polling_timeout
-		 */
-		template <typename... CONDITIONS>
-		inline void wait_for(Attempts       attempts,
-		                     Microseconds   us,
-		                     Delayer       &delayer,
-		                     CONDITIONS...  conditions)
-		{
-			for (unsigned i = 0; i < attempts.value; i++,
-			     delayer.usleep(us.value))
-			{
-				if (_conditions_met(conditions...)) {
-					return; }
-			}
-			throw Polling_timeout();
-		}
-
-		/**
-		 * Shortcut for 'wait_for' with 'attempts = 500' and 'us = 1000'
-		 */
-		template <typename... CONDITIONS>
-		inline void wait_for(Delayer &delayer, CONDITIONS... conditions)
-		{
-			wait_for<CONDITIONS...>(Attempts(500), Microseconds(1000),
-			                        delayer, conditions...);
-		}
-
-		/**
-		 * Same as 'wait_for' but wait until one condition in a list of IO
-		 * conditions is met
-		 */
-		template <typename... CONDITIONS>
-		inline void wait_for_any(Attempts       attempts,
-		                         Microseconds   us,
-		                         Delayer       &delayer,
-		                         CONDITIONS...  conditions)
-		{
-			for (unsigned i = 0; i < attempts.value; i++,
-			     delayer.usleep(us.value))
-			{
-				if (_one_condition_met(conditions...)) {
-					return; }
-			}
-			throw Polling_timeout();
-		}
-
-		/**
-		 * Shortcut for 'wait_for' with 'attempts = 500' and 'us = 1000'
-		 */
-		template <typename... CONDITIONS>
-		inline void wait_for_any(Delayer &delayer, CONDITIONS... conditions)
-		{
-			wait_for_any<CONDITIONS...>(Attempts(500), Microseconds(1000),
-			                            delayer, conditions...);
 		}
 };
 
