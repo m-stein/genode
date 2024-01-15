@@ -23,6 +23,7 @@
 namespace Genode {
 
 	struct Register_set_plain_access;
+	struct Register_set_base;
 	template <typename, size_t> class Register_set;
 }
 
@@ -68,6 +69,21 @@ struct Genode::Register_set_plain_access
 };
 
 
+struct Genode::Register_set_base : Noncopyable
+{
+	/**
+	 * Interface for delaying the execution of a calling thread
+	 */
+	struct Delayer : Interface
+	{
+		/**
+		 * Delay execution of the caller for 'us' microseconds
+		 */
+		virtual void usleep(uint64_t us) = 0;
+	};
+};
+
+
 /**
  * Set of fine-grained and typesafe accessible registers with offsets
  *
@@ -84,7 +100,7 @@ struct Genode::Register_set_plain_access
  * 'Register_array_base' or 'Array_bitfield_base'.
  */
 template <typename PLAIN_ACCESS, Genode::size_t REGISTER_SET_SIZE>
-class Genode::Register_set : Noncopyable
+class Genode::Register_set : public Register_set_base
 {
 	private:
 
@@ -677,17 +693,6 @@ class Genode::Register_set : Noncopyable
 		{
 			uint64_t value;
 			explicit Microseconds(uint64_t value) : value(value) { }
-		};
-
-		/**
-		 * Interface for delaying the execution of a calling thread
-		 */
-		struct Delayer : Interface
-		{
-			/**
-			 * Delay execution of the caller for 'us' microseconds
-			 */
-			virtual void usleep(uint64_t us) = 0;
 		};
 
 
