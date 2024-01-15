@@ -80,7 +80,7 @@ struct Board::Vmcb_reserved_for_host
 	Genode::addr_t root_vmcb_phys = 0U;
 };
 static_assert(Board::Vmcb_control_area::total_size -
-              sizeof(Board::Vmcb_control_area) - sizeof(Genode::Mmio) -
+              sizeof(Board::Vmcb_control_area) - sizeof(Genode::Mmio<0>) -
               sizeof(Board::Vmcb_reserved_for_host) ==
               0);
 
