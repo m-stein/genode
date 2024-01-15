@@ -561,8 +561,8 @@ struct Pci::Config : Genode::Mmio<0x45>
 	Genode::Constructible<Pci_express_capability>              pci_e_cap   {};
 	Genode::Constructible<Advanced_error_reporting_capability> adv_err_cap {};
 
-	Base_address bar0 { {(char *)(base() + BASE_ADDRESS_0      ), 0x8} };
-	Base_address bar1 { {(char *)(base() + BASE_ADDRESS_0 + 0x4), 0x8} };
+	Base_address bar0;
+	Base_address bar1;
 
 	void clear_errors() {
 		if (adv_err_cap.constructed()) adv_err_cap->clear(); }
@@ -580,7 +580,7 @@ struct Pci::Config : Genode::Mmio<0x45>
 			Capability_header cap({(char *)(base() + off), 0x2});
 			switch(cap.read<Capability_header::Id>()) {
 			case Capability_header::Id::POWER_MANAGEMENT:
-				power_cap.construct(base()+off); break;
+				power_cap.construct({base()+off, }); break;
 			case Capability_header::Id::MSI:
 				msi_cap.construct(base()+off);   break;
 			case Capability_header::Id::MSI_X:
@@ -614,7 +614,15 @@ struct Pci::Config : Genode::Mmio<0x45>
 		}
 	}
 
-	using Mmio::Mmio;
+	enum { BAR0_OFFSET = BASE_ADDRESS_0 };
+	enum { BAR1_OFFSET = BASE_ADDRESS_0 + 0x4 };
+
+	Config(Genode::Byte_range_ptr const &range)
+	:
+		Mmio(range),
+		bar0({(char *)((addr_t)range.start + BAR0_OFFSET), range.num_bytes - BAR0_OFFSET}),
+		bar1({(char *)((addr_t)range.start + BAR1_OFFSET), range.num_bytes - BAR1_OFFSET})
+	{ }
 
 	bool valid() {
 		return read<Vendor>() != Vendor::INVALID; }
