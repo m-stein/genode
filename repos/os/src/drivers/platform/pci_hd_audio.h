@@ -15,11 +15,12 @@
 #include <device.h>
 
 namespace Driver {
-	static void pci_hd_audio_quirks(Device::Pci_config const &, Pci::Config &);
+	static void pci_hd_audio_quirks(Device::Pci_config const &, Pci::Config &, Byte_range_ptr const &);
 }
 
 
-void Driver::pci_hd_audio_quirks(Device::Pci_config const & cfg, Pci::Config & config)
+void Driver::pci_hd_audio_quirks(Device::Pci_config const & cfg, Pci::Config & config,
+                                 Byte_range_ptr const &config_io_mem)
 {
 	enum { HDAUDIO_CLASS_CODE = 0x40300 };
 
@@ -27,7 +28,7 @@ void Driver::pci_hd_audio_quirks(Device::Pci_config const & cfg, Pci::Config & c
 		return;
 
 	/* PCI configuration register for HDAUDIO */
-	struct Hdaudio : Mmio
+	struct Hdaudio : Mmio<0x7a>
 	{
 		struct Traffic_class_select : Register<0x44, 8> {};
 
@@ -46,7 +47,7 @@ void Driver::pci_hd_audio_quirks(Device::Pci_config const & cfg, Pci::Config & c
 
 	config.write<Pci::Config::Command::Fast_back_to_back_enable>(1);
 
-	Hdaudio audio(config.base());
+	Hdaudio audio(config_io_mem);
 	audio.write<Hdaudio::Traffic_class_select>(0);
 
 	if (cfg.vendor_id == 0x8086)

@@ -52,8 +52,10 @@ struct Config_helper
 	Driver::Device             const & _dev;
 	Driver::Device::Pci_config const & _cfg;
 
-	Attached_io_mem_dataspace _io_mem { _env, _cfg.addr, 0x1000            };
-	Config                    _config { (addr_t)_io_mem.local_addr<void>() };
+	enum { IO_MEM_SIZE = 0x1000 };
+
+	Attached_io_mem_dataspace _io_mem { _env, _cfg.addr, IO_MEM_SIZE };
+	Config                    _config { {(char *)_io_mem.local_addr<void>(), IO_MEM_SIZE} };
 
 	Config_helper(Env                              & env,
 	              Driver::Device             const & dev,
@@ -125,9 +127,10 @@ struct Config_helper
 		_config.write<Config::Command>(cmd);
 
 		/* apply different PCI quirks, bios handover etc. */
-		Driver::pci_uhci_quirks(_env, _dev, _cfg, _config.base());
-		Driver::pci_ehci_quirks(_env, _dev, _cfg, _config.base());
-		Driver::pci_hd_audio_quirks(_cfg, _config);
+		Byte_range_ptr config_io_mem {(char *)_config.base(), IO_MEM_SIZE};
+		Driver::pci_uhci_quirks(_env, _dev, _cfg, config_io_mem);
+		Driver::pci_ehci_quirks(_env, _dev, _cfg, config_io_mem);
+		Driver::pci_hd_audio_quirks(_cfg, _config, config_io_mem);
 
 		_config.write<Config::Command>(cmd_old);
 	}
@@ -163,8 +166,9 @@ void Driver::pci_msi_enable(Env                   & env,
                             Irq_session::Info const info,
                             Irq_session::Type       type)
 {
-	Attached_io_mem_dataspace io_mem { env, cfg_space, 0x1000 };
-	Config config { (addr_t)io_mem.local_addr<void>() };
+	enum { IO_MEM_SIZE = 0x1000 };
+	Attached_io_mem_dataspace io_mem { env, cfg_space, IO_MEM_SIZE };
+	Config config { {(char *)io_mem.local_addr<void>(), IO_MEM_SIZE} };
 	config.scan();
 
 	if (type == Irq_session::TYPE_MSIX && config.msi_x_cap.constructed()) {
@@ -179,9 +183,11 @@ void Driver::pci_msi_enable(Env                   & env,
 
 			/* disable all msi-x table entries beside the first one */
 			unsigned slots = config.msi_x_cap->slots();
+			size_t msix_table_size = range.size - config.msi_x_cap->table_offset();
 			for (unsigned i = 0; i < slots; i++) {
 				using Entry = Config::Msi_x_capability::Table_entry;
-				Entry e (msix_table_start + Entry::SIZE * i);
+				off_t entry_off = Entry::SIZE * i;
+				Entry e ({(char *)(msix_table_start + entry_off), msix_table_size - entry_off});
 				if (!i) {
 					uint32_t lower = info.address & 0xfffffffc;
 					uint32_t upper = sizeof(info.address) > 4 ?

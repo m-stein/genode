@@ -17,14 +17,14 @@
 
 namespace Driver {
 	static void pci_uhci_quirks(Env &, Device const &,
-	                            Device::Pci_config const &, addr_t);
+	                            Device::Pci_config const &, Byte_range_ptr const &);
 }
 
 
 void Driver::pci_uhci_quirks(Env                      & env,
                              Device             const & dev,
                              Device::Pci_config const & cfg,
-                             addr_t                     base)
+                             Byte_range_ptr     const & config_io_mem)
 {
 	enum { UHCI_CLASS_CODE = 0xc0300 };
 
@@ -32,7 +32,7 @@ void Driver::pci_uhci_quirks(Env                      & env,
 		return;
 
 	/* PCI configuration register for UHCI */
-	struct Uhci : Mmio
+	struct Uhci : Mmio<0xc6>
 	{
 		struct Usb_legacy_support : Register<0xc0, 16>
 		{
@@ -56,7 +56,7 @@ void Driver::pci_uhci_quirks(Env                      & env,
 		if (!range.size) range = r; });
 
 	Io_port_connection io_ports(env, range.addr, range.size);
-	Uhci config(base);
+	Uhci config(config_io_mem);
 
 	bool have_to_reset = false;
 	uint16_t UHCI_CMD  = range.addr;
