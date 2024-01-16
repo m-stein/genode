@@ -69,6 +69,8 @@ class Genode::Mmio_plain_access
 		Byte_range_ptr range_at(off_t offset) const { return {(char *)((addr_t)_range.start + offset), _range.num_bytes - offset}; }
 
 		Byte_range_ptr range() const { return range_at(0); }
+
+		addr_t base() const { return (addr_t)range().start; }
 };
 
 
