@@ -561,8 +561,8 @@ struct Pci::Config : Genode::Mmio<0x45>
 	Genode::Constructible<Pci_express_capability>              pci_e_cap   {};
 	Genode::Constructible<Advanced_error_reporting_capability> adv_err_cap {};
 
-	Base_address bar0;
-	Base_address bar1;
+	Base_address bar0 { Mmio::range_at(BASE_ADDRESS_0) };
+	Base_address bar1 { Mmio::range_at(BASE_ADDRESS_0 + 0x4) };
 
 	void clear_errors() {
 		if (adv_err_cap.constructed()) adv_err_cap->clear(); }
@@ -577,16 +577,16 @@ struct Pci::Config : Genode::Mmio<0x45>
 		uint16_t off = read<Capability_pointer>();
 		while (off) {
 			using Capability_header = Pci_capability_header;
-			Capability_header cap({(char *)(base() + off), 0x2});
+			Capability_header cap(Mmio::range_at(off));
 			switch(cap.read<Capability_header::Id>()) {
 			case Capability_header::Id::POWER_MANAGEMENT:
-				power_cap.construct({base()+off, }); break;
+				power_cap.construct(Mmio::range_at(off)); break;
 			case Capability_header::Id::MSI:
-				msi_cap.construct(base()+off);   break;
+				msi_cap.construct(Mmio::range_at(off));   break;
 			case Capability_header::Id::MSI_X:
-				msi_x_cap.construct(base()+off); break;
+				msi_x_cap.construct(Mmio::range_at(off)); break;
 			case Capability_header::Id::PCI_E:
-				pci_e_cap.construct(base()+off); break;
+				pci_e_cap.construct(Mmio::range_at(off)); break;
 
 			default:
 				/* ignore unhandled capability */ ;
@@ -600,12 +600,12 @@ struct Pci::Config : Genode::Mmio<0x45>
 		off = PCI_E_EXTENDED_CAPS_OFFSET;
 		while (off) {
 			using Capability_header = Pci_express_extended_capability_header;
-			Capability_header cap({(char *)(base() + off), 0x4});
+			Capability_header cap(Mmio::range_at(off));
 			switch (cap.read<Capability_header::Id>()) {
 			case Capability_header::Id::INVALID:
 				return;
 			case Capability_header::Id::ADVANCED_ERROR_REPORTING:
-				adv_err_cap.construct(base() + off); break;
+				adv_err_cap.construct(Mmio::range_at(off)); break;
 
 			default:
 				/* ignore unhandled extended capability */ ;
@@ -614,15 +614,7 @@ struct Pci::Config : Genode::Mmio<0x45>
 		}
 	}
 
-	enum { BAR0_OFFSET = BASE_ADDRESS_0 };
-	enum { BAR1_OFFSET = BASE_ADDRESS_0 + 0x4 };
-
-	Config(Genode::Byte_range_ptr const &range)
-	:
-		Mmio(range),
-		bar0({(char *)((addr_t)range.start + BAR0_OFFSET), range.num_bytes - BAR0_OFFSET}),
-		bar1({(char *)((addr_t)range.start + BAR1_OFFSET), range.num_bytes - BAR1_OFFSET})
-	{ }
+	using Mmio::Mmio;
 
 	bool valid() {
 		return read<Vendor>() != Vendor::INVALID; }
@@ -636,13 +628,12 @@ struct Pci::Config : Genode::Mmio<0x45>
 	template <typename MEM_FN, typename IO_FN>
 	void for_each_bar(MEM_FN const & memory, IO_FN const & io)
 	{
-		Genode::addr_t const reg_addr = base() + BASE_ADDRESS_0;
 		Genode::size_t const reg_cnt  =
 			(read<Header_type::Type>()) ? BASE_ADDRESS_COUNT_TYPE_1
 			                            : BASE_ADDRESS_COUNT_TYPE_0;
 
 		for (unsigned i = 0; i < reg_cnt; i++) {
-			Base_address reg0 { (char *)(reg_addr + i*0x4), 0x8 };
+			Base_address reg0 { Mmio::range_at(BASE_ADDRESS_0 + i*0x4) };
 			if (!reg0.valid())
 				continue;
 			if (reg0.memory()) {
@@ -658,7 +649,7 @@ struct Pci::Config : Genode::Mmio<0x45>
 		if (idx > 5 || (idx > 1 && bridge()))
 			return;
 
-		Base_address bar { {(char *)(base() + BASE_ADDRESS_0 + idx*0x4), 0x8} };
+		Base_address bar { Mmio::range_at(BASE_ADDRESS_0 + idx*0x4) };
 		bar.set(addr);
 	}
 
@@ -684,10 +675,10 @@ struct Pci::Config_type0 : Pci::Config
 
 	using Pci::Config::Config;
 
-	Base_address bar2 { {(char *)(base() + BASE_ADDRESS_0 + 0x8 ), 0x8} };
-	Base_address bar3 { {(char *)(base() + BASE_ADDRESS_0 + 0xc ), 0x8} };
-	Base_address bar4 { {(char *)(base() + BASE_ADDRESS_0 + 0x10), 0x8} };
-	Base_address bar5 { {(char *)(base() + BASE_ADDRESS_0 + 0x14), 0x8} };
+	Base_address bar2 { Mmio::range_at(BASE_ADDRESS_0 + 0x8 ) };
+	Base_address bar3 { Mmio::range_at(BASE_ADDRESS_0 + 0xc ) };
+	Base_address bar4 { Mmio::range_at(BASE_ADDRESS_0 + 0x10) };
+	Base_address bar5 { Mmio::range_at(BASE_ADDRESS_0 + 0x14) };
 
 	struct Subsystem_vendor : Register<0x2c, 16> { };
 	struct Subsystem_device : Register<0x2e, 16> { };

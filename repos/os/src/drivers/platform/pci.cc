@@ -127,10 +127,9 @@ struct Config_helper
 		_config.write<Config::Command>(cmd);
 
 		/* apply different PCI quirks, bios handover etc. */
-		Byte_range_ptr config_io_mem {(char *)_config.base(), IO_MEM_SIZE};
-		Driver::pci_uhci_quirks(_env, _dev, _cfg, config_io_mem);
-		Driver::pci_ehci_quirks(_env, _dev, _cfg, config_io_mem);
-		Driver::pci_hd_audio_quirks(_cfg, _config, config_io_mem);
+		Driver::pci_uhci_quirks(_env, _dev, _cfg, _config.range());
+		Driver::pci_ehci_quirks(_env, _dev, _cfg, _config.range());
+		Driver::pci_hd_audio_quirks(_cfg, _config);
 
 		_config.write<Config::Command>(cmd_old);
 	}
@@ -178,16 +177,15 @@ void Driver::pci_msi_enable(Env                   & env,
 			unsigned idx = dc.io_mem_index({config.msi_x_cap->bar()});
 			Io_mem_session_client dsc(dc.io_mem(idx, range));
 			Attached_dataspace msix_table_ds(env.rm(), dsc.dataspace());
-			addr_t msix_table_start = (addr_t)msix_table_ds.local_addr<void>()
-			                          + config.msi_x_cap->table_offset();
+			Byte_range_ptr msix_table = {
+				(char *)((addr_t)msix_table_ds.local_addr<void>() + config.msi_x_cap->table_offset()),
+				msix_table_ds.size() - config.msi_x_cap->table_offset() };
 
 			/* disable all msi-x table entries beside the first one */
 			unsigned slots = config.msi_x_cap->slots();
-			size_t msix_table_size = range.size - config.msi_x_cap->table_offset();
 			for (unsigned i = 0; i < slots; i++) {
 				using Entry = Config::Msi_x_capability::Table_entry;
-				off_t entry_off = Entry::SIZE * i;
-				Entry e ({(char *)(msix_table_start + entry_off), msix_table_size - entry_off});
+				Entry e ({(char *)((addr_t)msix_table.start + Entry::SIZE*i), msix_table.num_bytes - Entry::SIZE*i});
 				if (!i) {
 					uint32_t lower = info.address & 0xfffffffc;
 					uint32_t upper = sizeof(info.address) > 4 ?

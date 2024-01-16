@@ -93,15 +93,14 @@ void Driver::pci_virtio_info(Device             const & dev,
 		}
 
 		void for_each_capability(Driver::Device const & dev,
-		                         Xml_generator        & xml,
-		                         size_t                 io_mem_size)
+		                         Xml_generator        & xml)
 		{
 			if (!read<Status::Capabilities>())
 				return;
 
 			uint16_t off = read<Capability_pointer>();
 			while (off) {
-				Capability cap({(char *)(base() + off), io_mem_size - off});
+				Capability cap(Mmio::range_at(off));
 				if (cap.read<Capability::Id>() ==
 				    Capability::Id::VENDOR &&
 				    cap.valid())
@@ -114,6 +113,6 @@ void Driver::pci_virtio_info(Device             const & dev,
 	enum { IO_MEM_SIZE = 0x1000 };
 	Attached_io_mem_dataspace io_mem(env, cfg.addr, IO_MEM_SIZE);
 	Virtio                    config({(char *)io_mem.local_addr<void>(), IO_MEM_SIZE});
-	config.for_each_capability(dev, xml, IO_MEM_SIZE);
+	config.for_each_capability(dev, xml);
 }
 

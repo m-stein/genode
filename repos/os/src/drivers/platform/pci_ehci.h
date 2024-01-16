@@ -16,14 +16,14 @@
 
 namespace Driver {
 	static void pci_ehci_quirks(Env &, Device const &,
-	                            Device::Pci_config const &, Byte_range_ptr const &);
+	                            Device::Pci_config const &, Pci::Config const &);
 }
 
 
 void Driver::pci_ehci_quirks(Env                      & env,
                              Device             const & dev,
                              Device::Pci_config const & cfg,
-                             Byte_range_ptr     const & config_io_mem)
+                             Pci::Config        const & pci_config)
 {
 	enum { EHCI_CLASS_CODE = 0xc0320 };
 
@@ -72,7 +72,7 @@ void Driver::pci_ehci_quirks(Env                      & env,
 		if (!bar.valid() || bar.number != 0)
 			return;
 
-		Ehci_pci pw(config_io_mem);
+		Ehci_pci pw(pci_config.range());
 		enum { IO_MEM_SIZE = 0x1000 };
 
 		Attached_io_mem_dataspace iomem(env, range.start, IO_MEM_SIZE);
@@ -82,7 +82,7 @@ void Driver::pci_ehci_quirks(Env                      & env,
 
 		/* iterate over EHCI extended capabilities */
 		while (offset) {
-			Cap cap({(char *)((addr_t)config_io_mem.start + offset), config_io_mem.num_bytes - offset});
+			Cap cap(pci_config.range_at(offset));
 			if (cap.read<Cap::Pointer::Id>() != Cap::Pointer::Id::SYNC)
 				break;
 
