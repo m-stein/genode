@@ -53,7 +53,7 @@ class Ahci::Driver : Noncopyable
 		Dispatch &_dispatch;
 
 
-		struct Timer_delayer : Mmio::Delayer, Timer::Connection
+		struct Timer_delayer : Mmio<0>::Delayer, Timer::Connection
 		{
 			using Timer::Connection::Connection;
 
