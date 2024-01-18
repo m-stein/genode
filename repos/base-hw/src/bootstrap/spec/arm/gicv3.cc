@@ -15,8 +15,8 @@
 
 Hw::Pic::Pic()
 :
-	_distr(Board::Cpu_mmio::IRQ_CONTROLLER_DISTR_BASE),
-	_redistr(Board::Cpu_mmio::IRQ_CONTROLLER_REDIST_BASE),
+	_distr({(char *)Board::Cpu_mmio::IRQ_CONTROLLER_DISTR_BASE, Mmio::SIZE}),
+	_redistr({(char *)Board::Cpu_mmio::IRQ_CONTROLLER_REDIST_BASE, Mmio::SIZE}),
 	_redistr_sgi(Board::Cpu_mmio::IRQ_CONTROLLER_REDIST_BASE +
 	             Board::Cpu_mmio::IRQ_CONTROLLER_REDIST_SIZE / 2),
 	_max_irq(_distr.max_irq())

@@ -19,13 +19,14 @@
 
 namespace Genode { class Multiboot2_info; }
 
-class Genode::Multiboot2_info : Mmio
+class Genode::Multiboot2_info : Mmio<0x4>
 {
 	private:
 
 		struct Size : Register <0x0, 32> { };
 
-		struct Tag : Genode::Mmio
+		template <size_t SIZE>
+		struct Tag : Genode::Mmio<SIZE>
 		{
 			enum { LOG2_SIZE = 3 };
 
@@ -42,10 +43,10 @@ class Genode::Multiboot2_info : Mmio
 			};
 			struct Size : Register <0x04, 32> { };
 
-			Tag(addr_t addr) : Mmio(addr) { }
+			Tag(addr_t addr) : Mmio({(char *)addr, Mmio::SIZE}) { }
 		};
 
-		struct Efi_system_table_64 : Tag
+		struct Efi_system_table_64 : Tag<0x10>
 		{
 			struct Pointer : Register <0x08, 64> { };
 
@@ -56,7 +57,7 @@ class Genode::Multiboot2_info : Mmio
 
 		enum { MAGIC = 0x36d76289UL };
 
-		struct Memory : Genode::Mmio
+		struct Memory : Genode::Mmio<0x14>
 		{
 			enum { SIZE = 3 * 8 };
 
@@ -64,10 +65,10 @@ class Genode::Multiboot2_info : Mmio
 			struct Size : Register <0x08, 64> { };
 			struct Type : Register <0x10, 32> { enum { MEMORY = 1 }; };
 
-			Memory(addr_t mmap = 0) : Mmio(mmap) { }
+			Memory(addr_t mmap = 0) : Mmio({(char *)mmap, Mmio::SIZE}) { }
 		};
 
-		Multiboot2_info(addr_t mbi) : Mmio(mbi) { }
+		Multiboot2_info(addr_t mbi) : Mmio({(char *)mbi, Mmio::SIZE}) { }
 
 		template <typename FUNC_MEM,
 		          typename FUNC_ACPI,
@@ -83,7 +84,7 @@ class Genode::Multiboot2_info : Mmio
 			for (addr_t tag_addr = base() + (1UL << Tag::LOG2_SIZE);
 			     tag_addr < base() + size;)
 			{
-				Tag tag(tag_addr);
+				Tag<0x8> tag(tag_addr);
 
 				if (tag.read<Tag::Type>() == Tag::Type::END)
 					return;
