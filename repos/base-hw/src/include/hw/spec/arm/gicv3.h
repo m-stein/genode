@@ -103,8 +103,7 @@ class Hw::Pic
 
 			unsigned max_irq() { return 32 * (read<Typer::It_lines_number>() + 1) - 1; }
 
-			Distributor(Genode::addr_t const base) : Genode::Mmio({(char *)base, Mmio::SIZE})
-			{ }
+			using Mmio::Mmio;
 		};
 
 		struct Redistributor : Genode::Mmio<0x4>
@@ -114,8 +113,7 @@ class Hw::Pic
 				struct Uwp : Bitfield<31, 1> { };
 			};
 
-			Redistributor(Genode::addr_t const base) : Genode::Mmio({(char *)base, Mmio::SIZE})
-			{ }
+			using Mmio::Mmio;
 
 			/* wait for upstream writes */
 			void wait_for_uwp()
@@ -143,8 +141,7 @@ class Hw::Pic
 
 			struct Icfgr1 : Register<0xc04, 32> { };
 
-			Redistributor_sgi_ppi(Genode::addr_t const base) : Genode::Mmio({(char *)base, Mmio::SIZE})
-			{ }
+			using Mmio::Mmio;
 		};
 
 		struct Cpu_interface

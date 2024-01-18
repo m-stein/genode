@@ -99,7 +99,7 @@ struct Bootstrap::Csu : Genode::Mmio<0x36c>
 	    bool secure_uart,
 	    bool secure_gpio,
 	    bool secure_esdhc,
-	    bool secure_i2c) : Genode::Mmio({(char *)base, Mmio::SIZE})
+	    bool secure_i2c) : Mmio({(char *)base, Mmio::SIZE})
 	{
 		/* Power (CCM, SRC, DPLLIP1-4, GPC and OWIRE) */
 		write<Csl09::Slave_a>(Csl00::UNSECURE);

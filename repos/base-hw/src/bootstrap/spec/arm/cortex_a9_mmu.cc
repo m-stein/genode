@@ -52,7 +52,7 @@ class Cpu_counter
 };
 
 
-struct Scu : Genode::Mmio<0x10>
+struct Scu : Genode::Mmio<0x34>
 {
 	struct Cr : Register<0x0, 32>
 	{
@@ -72,7 +72,7 @@ struct Scu : Genode::Mmio<0x10>
 		struct Cpu3_way : Bitfield<12, 4> { };
 	};
 
-	Scu() : Genode::Mmio({(char *)Board::Cpu_mmio::SCU_MMIO_BASE, Mmio::SIZE}) { }
+	Scu() : Mmio({(char *)Board::Cpu_mmio::SCU_MMIO_BASE, Mmio::SIZE}) { }
 
 	void invalidate()
 	{

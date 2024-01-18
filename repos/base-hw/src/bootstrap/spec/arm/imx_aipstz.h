@@ -66,7 +66,7 @@ class Bootstrap::Aipstz : public Genode::Mmio<0x54>
 		/**
 		 * Configure this module appropriately for the first kernel run
 		 */
-		Aipstz(Genode::addr_t const base) : Genode::Mmio({(char *)base, Mmio::SIZE})
+		Aipstz(Genode::addr_t const base) : Mmio({(char *)base, Mmio::SIZE})
 		{
 			/* avoid AIPS intervention at any memory access */
 			write<Mpr1>(Mpr::ALL_UNBUFFERED_AND_FULLY_TRUSTED);

@@ -19,7 +19,7 @@
 namespace Hw { class Pic; }
 
 
-class Hw::Pic : public Genode::Mmio<0xdf0>
+class Hw::Pic : public Genode::Mmio<0xf04>
 {
 	public:
 
