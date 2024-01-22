@@ -292,7 +292,17 @@ class Tresor_tester::Command : public Module_channel
 		Constructible<Benchmark_node> _benchmark_node { };
 		Constructible<Log_node> _log_node { };
 		Constructible<Tresor_init::Configuration> _initialize { };
-		Generated_request<Command, Sb_check::Check, State> _check_sb { *this, _state, PENDING };
+		void *_request_ptr { nullptr };
+
+		template <typename DST_REQ> bool _type_matches();
+
+		template <typename DST_REQ, typename FN>
+		void _with_request(FN && fn)
+		{
+			ASSERT(_type_matches<DST_REQ>());
+			ASSERT(_request_ptr != nullptr);
+			fn(*(Generated_request<Command, DST_REQ, State> *)_request_ptr);
+		};
 
 		NONCOPYABLE(Command);
 
@@ -390,6 +400,9 @@ class Tresor_tester::Command : public Module_channel
 
 		void execute(bool &progress);
 };
+
+
+template <> bool Tresor_tester::Command::_type_matches<Tresor::Sb_check::Check>() { return _type == CHECK; }
 
 
 struct Tresor_tester::Snapshot_reference : public Genode::Avl_node<Snapshot_reference>
@@ -744,6 +757,9 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 		}
 
 		Benchmark &benchmark() { return _benchmark; }
+
+		template <typename FN>
+		void with_alloc(FN && fn) { fn(_heap); }
 };
 
 
@@ -774,8 +790,15 @@ bool Tresor_tester::Command::new_execute(Sb_check &sb_check, Vbd_check &vbd_chec
 {
 	bool progress = false;
 	switch (_state) {
-	case CHECK_SB: progress |= _check_sb.execute(sb_check, vbd_check, ft_check, block_io); break;
-	case CHECK_SB_SUCCEEDED: mark_succeeded(progress); break;
+	case CHECK_SB: _with_request<Sb_check::Check>([&] (auto &req) { progress |= req.execute(sb_check, vbd_check, ft_check, block_io); }); break;
+	case CHECK_SB_SUCCEEDED:
+		mark_succeeded(progress);
+		_with_request<Sb_check::Check>([&] (auto &req) {
+			_main.with_alloc([&] (Allocator &alloc) {
+				destroy(alloc, &req);
+			});
+		});
+		break;
 	default: break;
 	}
 	return progress;
@@ -841,7 +864,16 @@ void Tresor_tester::Command::execute(bool &progress)
 		_main.mark_command_in_progress(id());
 		break;
 	}
-	case CHECK: _check_sb.generate(CHECK_SB, CHECK_SB_SUCCEEDED, progress); break;
+	case CHECK:
+
+		_main.with_alloc([&] (Allocator &alloc) {
+			_request_ptr = new (alloc) Generated_request<Command, Sb_check::Check, State>(*this, _state, PENDING);
+		});
+		_with_request<Sb_check::Check>([&] (auto &req) {
+			req.generate(CHECK_SB, CHECK_SB_SUCCEEDED, progress);
+		});
+		break;
+
 	case LOG:
 		log("\n", log_node().string, "\n");
 		_main.mark_command_in_progress(id());
