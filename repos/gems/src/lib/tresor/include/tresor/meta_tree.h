@@ -58,7 +58,8 @@ class Tresor::Meta_tree_channel : public Module_channel
 
 		using Request = Meta_tree_request;
 
-		enum State { REQ_SUBMITTED, REQ_GENERATED, READ_BLK, SEEK_DOWN, SEEK_LEFT_OR_UP, WRITE_BLK, COMPLETE };
+		enum State {
+			REQ_SUBMITTED, REQ_GENERATED, READ_BLK, SEEK_DOWN, SEEK_LEFT_OR_UP, WRITE_BLK, WRITE_BLK_SUCCEEDED, COMPLETE, INIT };
 
 		State _state { COMPLETE };
 		Request *_req_ptr { nullptr };
@@ -67,19 +68,12 @@ class Tresor::Meta_tree_channel : public Module_channel
 		Type_1_node_block _t1_blks[TREE_MAX_NR_OF_LEVELS] { };
 		Type_2_node_block _t2_blk { };
 		Tree_level_index _lvl { 0 };
-		bool _generated_req_success { false };
-		Generated_request<Meta_tree_channel, Block_io_read, State> _read_block { *this, _state, COMPLETE };
+		Generated_request<Meta_tree_channel, Block_io_read, State> _read_block { *this, _state, INIT };
+		Generated_request<Meta_tree_channel, Block_io_write, State> _write_block { *this, _state, INIT };
 
 		NONCOPYABLE(Meta_tree_channel);
 
-		void _generated_req_completed(State_uint) override;
-
-		template <typename REQUEST, typename... ARGS>
-		void _generate_req(State_uint state, bool &progress, ARGS &&... args)
-		{
-			_state = REQ_GENERATED;
-			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
-		}
+		void _generated_req_completed(State_uint) override { };
 
 		void _request_submitted(Module_request &) override;
 

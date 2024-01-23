@@ -48,19 +48,6 @@ bool Meta_tree_channel::_can_alloc_pba_of(Type_2_node &node)
 }
 
 
-void Meta_tree_channel::_generated_req_completed(State_uint state_uint)
-{
-	if (!_generated_req_success) {
-		error("meta tree: request (", *_req_ptr, ") failed because generated request failed)");
-		_req_ptr->_success = false;
-		_state = COMPLETE;
-		_req_ptr = nullptr;
-		return;
-	}
-	_state = (State)state_uint;
-}
-
-
 void Meta_tree_channel::_alloc_pba_of(Type_2_node &t2_node, Physical_block_address &pba)
 {
 	Request &req { *_req_ptr };
@@ -131,7 +118,7 @@ void Meta_tree_channel::_traverse_curr_node(bool &progress)
 					ASSERT(pba_allocated);
 				}
 			}
-			_state = WRITE_BLK;
+			_state = WRITE_BLK_SUCCEEDED;
 		} else
 			_state = SEEK_LEFT_OR_UP;
 		progress = true;
@@ -182,7 +169,8 @@ void Meta_tree_channel::execute(bool &progress, Block_io &block_io)
 			_mark_req_failed(progress, "not enough free pbas");
 		break;
 
-	case WRITE_BLK:
+	case WRITE_BLK: progress |= _write_block.execute(block_io); break;
+	case WRITE_BLK_SUCCEEDED:
 
 		if (_lvl < req._mt.max_lvl) {
 			if (_lvl)
@@ -193,7 +181,7 @@ void Meta_tree_channel::execute(bool &progress, Block_io &block_io)
 			Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
 			t1_node.gen = req._curr_gen;
 			calc_hash(_blk, t1_node.hash);
-			_generate_req<Block_io::Write>(WRITE_BLK, progress, t1_node.pba, _blk);
+			_write_block.generate(WRITE_BLK, WRITE_BLK_SUCCEEDED, progress, t1_node.pba, _blk);
 		} else {
 			req._mt.t1_node(_t1_blks[_lvl].nodes[_node_idx[_lvl]]);
 			_mark_req_successful(progress);
