@@ -103,6 +103,9 @@ namespace Tresor {
 	struct Tree_root;
 	class Pba_allocator;
 
+	template <typename, typename>
+	class Request_helper;
+
 	template <typename, typename, typename>
 	class Generated_request;
 
@@ -168,6 +171,44 @@ namespace Tresor {
 		return vbd_node_num_vbas(vbd_degr_log_2, vbd_lvl) - 1 + vbd_node_min_vba(vbd_degr_log_2, vbd_lvl, vbd_leaf_vba);
 	}
 }
+
+
+template <typename STATE, typename ATTR>
+class Tresor::Request_helper
+{
+	private:
+
+		NONCOPYABLE(Request_helper);
+
+	public:
+
+		STATE state { STATE::INIT };
+		char const *module_name;
+		char const *req_type;
+		ATTR attr;
+
+		Request_helper(char const *module_name, char const *req_type, ATTR const &attr)
+		:
+			module_name(module_name), req_type(req_type), attr(attr)
+		{ }
+
+		bool complete() const { return state == STATE::COMPLETE; }
+
+		void mark_failed(bool &progress, Error_string const &err_str)
+		{
+			error(module_name, ": ", req_type, " failed: ", err_str);
+			attr.out_success = false;
+			state = STATE::COMPLETE;
+			progress = true;
+		}
+
+		void mark_successful(bool &progress)
+		{
+			attr.out_success = true;
+			state = STATE::COMPLETE;
+			progress = true;
+		}
+};
 
 
 template <typename SRC_REQ, typename DST_REQ, typename STATE>

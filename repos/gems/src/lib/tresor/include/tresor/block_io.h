@@ -42,27 +42,22 @@ class Tresor::Block_io_read
 
 		enum State { INIT, COMPLETE, READ, READ_OK, FILE_ERR };
 
-		Attr _attr;
-		State _state { INIT };
+		Request_helper<State, Attr> _helper;
 		Constructible<Read_write_file<State> > _file { };
 
 		NONCOPYABLE(Block_io_read);
-
-		void _mark_req_failed(bool &, Error_string);
-
-		void _mark_req_successful(bool &);
 
 	public:
 
 		using Module = Block_io;
 
-		Block_io_read(Attr attr) : _attr(attr) { }
+		Block_io_read(Attr attr) : _helper("block_io", "read", attr) { }
 
-		void print(Output &out) const { Genode::print(out, "read pba ", _attr.in_pba); }
+		void print(Output &out) const { Genode::print(out, "read pba ", _helper.attr.in_pba); }
 
 		bool execute(Vfs::Env &, Path const &);
 
-		bool complete() const { return _state == COMPLETE; }
+		bool complete() const { return _helper.complete(); }
 };
 
 class Tresor::Block_io_write
@@ -80,27 +75,22 @@ class Tresor::Block_io_write
 
 		enum State { INIT, COMPLETE, WRITE, WRITE_OK, FILE_ERR };
 
-		Attr _attr;
-		State _state { INIT };
+		Request_helper<State, Attr> _helper;
 		Constructible<Read_write_file<State> > _file { };
 
 		NONCOPYABLE(Block_io_write);
-
-		void _mark_req_failed(bool &, Error_string);
-
-		void _mark_req_successful(bool &);
 
 	public:
 
 		using Module = Block_io;
 
-		Block_io_write(Attr attr) : _attr(attr) { }
+		Block_io_write(Attr attr) : _helper("block_io", "write", attr) { }
 
-		void print(Output &out) const { Genode::print(out, "write pba ", _attr.in_pba); }
+		void print(Output &out) const { Genode::print(out, "write pba ", _helper.attr.in_pba); }
 
 		bool execute(Vfs::Env &, Path const &);
 
-		bool complete() const { return _state == COMPLETE; }
+		bool complete() const { return _helper.complete(); }
 };
 
 class Tresor::Block_io_request : public Module_request
