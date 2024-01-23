@@ -22,78 +22,52 @@ using namespace Tresor;
 bool Block_io_read::execute(Vfs::Env &vfs_env, Path const &path)
 {
 	bool progress = false;
-	switch (_state) {
+	switch (_helper.state) {
 	case INIT:
 
-		_file.construct(_state, vfs_env, path);
-		_state = READ;
+		_file.construct(_helper.state, vfs_env, path);
+		_helper.state = READ;
 		progress = true;
 		break;
 
-	case READ: _file->read(READ_OK, FILE_ERR, _attr.in_pba * BLOCK_SIZE, { (char *)&_attr.out_block, BLOCK_SIZE }, progress); break;
-	case READ_OK: _mark_req_successful(progress); break;
-	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
+	case READ: _file->read(READ_OK, FILE_ERR, _helper.attr.in_pba * BLOCK_SIZE, { (char *)&_helper.attr.out_block, BLOCK_SIZE }, progress); break;
+	case READ_OK:
+
+		_helper.mark_successful(progress);
+		if (VERBOSE_BLOCK_IO && (!VERBOSE_BLOCK_IO_PBA_FILTER || VERBOSE_BLOCK_IO_PBA == _helper.attr.in_pba))
+			log("block_io: ", *this, " hash ", hash(_helper.attr.out_block));
+		break;
+
+	case FILE_ERR: _helper.mark_failed(progress, "file operation failed"); break;
 	default: break;
 	}
 	return progress;
-}
-
-
-void Block_io_read::_mark_req_failed(bool &progress, Error_string str)
-{
-	error("block_io: ", *this, " failed: ", str);
-	_attr.out_success = false;
-	_state = COMPLETE;
-	progress = true;
-}
-
-
-void Block_io_read::_mark_req_successful(bool &progress)
-{
-	_attr.out_success = true;
-	_state = COMPLETE;
-	progress = true;
-	if (VERBOSE_BLOCK_IO && (!VERBOSE_BLOCK_IO_PBA_FILTER || VERBOSE_BLOCK_IO_PBA == _attr.in_pba))
-		log("block_io: ", *this, " hash ", hash(_attr.out_block));
 }
 
 
 bool Block_io_write::execute(Vfs::Env &vfs_env, Path const &path)
 {
 	bool progress = false;
-	switch (_state) {
+	switch (_helper.state) {
 	case INIT:
 
-		_file.construct(_state, vfs_env, path);
-		_state = WRITE;
+		_file.construct(_helper.state, vfs_env, path);
+		_helper.state = WRITE;
 		progress = true;
 		break;
 
-	case WRITE: _file->read(WRITE_OK, FILE_ERR, _attr.in_pba * BLOCK_SIZE, { (char *)&_attr.in_block, BLOCK_SIZE }, progress); break;
-	case WRITE_OK: _mark_req_successful(progress); break;
-	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
+	case WRITE: _file->read(WRITE_OK, FILE_ERR, _helper.attr.in_pba * BLOCK_SIZE, { (char *)&_helper.attr.in_block, BLOCK_SIZE }, progress); break;
+	case WRITE_OK:
+
+		_helper.mark_successful(progress);
+		if (VERBOSE_BLOCK_IO && (!VERBOSE_BLOCK_IO_PBA_FILTER || VERBOSE_BLOCK_IO_PBA == _helper.attr.in_pba))
+			log("block_io: ", *this, " hash ", hash(_helper.attr.in_block));
+		break;
+
+	case FILE_ERR: _helper.mark_failed(progress, "file operation failed"); break;
 	default: break;
 	}
 	return progress;
-}
-
-
-void Block_io_write::_mark_req_failed(bool &progress, Error_string str)
-{
-	error("block_io: ", *this, " failed: ", str);
-	_attr.out_success = false;
-	_state = COMPLETE;
-	progress = true;
-}
-
-
-void Block_io_write::_mark_req_successful(bool &progress)
-{
-	_attr.out_success = true;
-	_state = COMPLETE;
-	progress = true;
-	if (VERBOSE_BLOCK_IO && (!VERBOSE_BLOCK_IO_PBA_FILTER || VERBOSE_BLOCK_IO_PBA == _attr.in_pba))
-		log("block_io: ", *this, " hash ", hash(_attr.in_block));
 }
 
 
