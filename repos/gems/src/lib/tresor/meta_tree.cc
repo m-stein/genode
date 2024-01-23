@@ -13,7 +13,6 @@
 
 /* tresor includes */
 #include <tresor/meta_tree.h>
-#include <tresor/block_io.h>
 #include <tresor/hash.h>
 
 using namespace Tresor;
@@ -39,7 +38,7 @@ Meta_tree_request::Meta_tree_request(Module_id src_module_id, Module_channel_id 
 void Meta_tree::execute(bool &progress)
 {
 	for_each_channel<Channel>([&] (Channel &chan) {
-		chan.execute(progress); });
+		chan.execute(progress, _block_io); });
 }
 
 
@@ -99,7 +98,7 @@ void Meta_tree_channel::_start_tree_traversal(bool &progress)
 	_lvl = req._mt.max_lvl;
 	_node_idx[_lvl] = 0;
 	_t1_blks[_lvl].nodes[_node_idx[_lvl]] = req._mt.t1_node();
-	_generate_req<Block_io::Read>(SEEK_DOWN, progress, req._mt.pba, _blk);
+	_read_block.generate(READ_BLK, SEEK_DOWN, progress, req._mt.pba, _blk);
 }
 
 
@@ -109,7 +108,7 @@ void Meta_tree_channel::_traverse_curr_node(bool &progress)
 	if (_lvl) {
 		Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
 		if (t1_node.pba)
-			_generate_req<Block_io::Read>(SEEK_DOWN, progress, t1_node.pba, _blk);
+			_read_block.generate(READ_BLK, SEEK_DOWN, progress, t1_node.pba, _blk);
 		else {
 			_state = SEEK_LEFT_OR_UP;
 			progress = true;
@@ -140,7 +139,7 @@ void Meta_tree_channel::_traverse_curr_node(bool &progress)
 }
 
 
-void Meta_tree_channel::execute(bool &progress)
+void Meta_tree_channel::execute(bool &progress, Block_io &block_io)
 {
 	if (!_req_ptr)
 		return;
@@ -152,6 +151,7 @@ void Meta_tree_channel::execute(bool &progress)
 		_start_tree_traversal(progress);
 		break;
 
+	case READ_BLK: progress |= _read_block.execute(block_io); break;
 	case SEEK_DOWN:
 
 		if (!check_hash(_blk, _t1_blks[_lvl].nodes[_node_idx[_lvl]].hash)) {
@@ -212,7 +212,7 @@ void Meta_tree_channel::_request_submitted(Module_request &mod_req)
 }
 
 
-Meta_tree::Meta_tree()
+Meta_tree::Meta_tree(Block_io &block_io) : _block_io(block_io)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {
