@@ -16,6 +16,7 @@
 
 /* tresor includes */
 #include <tresor/types.h>
+#include <tresor/block_io.h>
 
 namespace Tresor {
 
@@ -57,7 +58,7 @@ class Tresor::Meta_tree_channel : public Module_channel
 
 		using Request = Meta_tree_request;
 
-		enum State { REQ_SUBMITTED, REQ_GENERATED, SEEK_DOWN, SEEK_LEFT_OR_UP, WRITE_BLK, COMPLETE };
+		enum State { REQ_SUBMITTED, REQ_GENERATED, READ_BLK, SEEK_DOWN, SEEK_LEFT_OR_UP, WRITE_BLK, COMPLETE };
 
 		State _state { COMPLETE };
 		Request *_req_ptr { nullptr };
@@ -67,6 +68,7 @@ class Tresor::Meta_tree_channel : public Module_channel
 		Type_2_node_block _t2_blk { };
 		Tree_level_index _lvl { 0 };
 		bool _generated_req_success { false };
+		Generated_request<Meta_tree_channel, Block_io_read, State> _read_block { *this, _state, COMPLETE };
 
 		NONCOPYABLE(Meta_tree_channel);
 
@@ -99,7 +101,9 @@ class Tresor::Meta_tree_channel : public Module_channel
 
 		Meta_tree_channel(Module_channel_id id) : Module_channel(META_TREE, id) { }
 
-		void execute(bool &);
+		void execute(bool &, Block_io &);
+
+		void mark_failed(bool &progress, Error_string const &err_str) { _mark_req_failed(progress, err_str.string()); }
 };
 
 class Tresor::Meta_tree : public Module
@@ -109,6 +113,7 @@ class Tresor::Meta_tree : public Module
 		using Channel = Meta_tree_channel;
 
 		Constructible<Channel> _channels[1] { };
+		Block_io &_block_io;
 
 		NONCOPYABLE(Meta_tree);
 
@@ -122,7 +127,7 @@ class Tresor::Meta_tree : public Module
 			: Meta_tree_request(src_mod, src_chan, Meta_tree_request::ALLOC_PBA, mt, gen, pba, succ) { }
 		};
 
-		Meta_tree();
+		Meta_tree(Block_io &block_io);
 };
 
 #endif /* _TRESOR__META_TREE_H_ */

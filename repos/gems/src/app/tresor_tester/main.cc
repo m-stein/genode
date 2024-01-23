@@ -700,7 +700,7 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 			_sb_control.construct();
 			_request_pool.construct();
 			_client_data.construct(*this);
-			_meta_tree.construct();
+			_meta_tree.construct(_block_io);
 			add_module(FREE_TREE, *_free_tree);
 			add_module(VIRTUAL_BLOCK_DEVICE, *_vbd);
 			add_module(SUPERBLOCK_CONTROL, *_sb_control);
