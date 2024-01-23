@@ -54,9 +54,11 @@ class Tresor::Sb_check
 				Snapshot_index _snap_idx { 0 };
 				Constructible<Tree_root> _tree_root { };
 				Block _blk { };
-				Generated_request<Check, Vbd_check::Check, State> _check_vbd { *this, _state, INIT };
-				Generated_request<Check, Ft_check::Check, State> _check_ft { *this, _state, INIT };
-				Generated_request<Check, Block_io_read, State> _read_block { *this, _state, INIT };
+				union {
+					Generated_request<Check, Vbd_check::Check, State> _check_vbd;
+					Generated_request<Check, Ft_check::Check, State> _check_ft;
+					Generated_request<Check, Block_io_read, State> _read_block;
+				};
 
 				NONCOPYABLE(Check);
 
@@ -65,6 +67,8 @@ class Tresor::Sb_check
 			public:
 
 				Check(Attr attr) : _attr(attr) { }
+
+				~Check() { }
 
 				void print(Output &out) const { Genode::print(out, "check"); }
 

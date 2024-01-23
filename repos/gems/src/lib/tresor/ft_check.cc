@@ -60,14 +60,14 @@ bool Ft_check::Check::_execute_node(Block_io &block_io, Tree_level_index lvl, Tr
 					log(Level_indent { lvl, _attr.in_ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " unused");
 				break;
 			}
-			_read_block.generate(READ_BLK, READ_BLK_SUCCEEDED, progress, node.pba, _blk);
+			_read_block.construct(*this, _state, READ_BLK, READ_BLK_SUCCEEDED, progress, node.pba, _blk);
 			if (VERBOSE_CHECK)
 				log(Level_indent { lvl, _attr.in_ft.max_lvl }, "    lvl ", lvl, " node ", node_idx,
 				    " (", node, "): load to lvl ", lvl - 1);
 		}
 		break;
 
-	case READ_BLK: progress |= _read_block.execute(block_io); break;
+	case READ_BLK: progress |= _read_block->execute(block_io); break;
 	case READ_BLK_SUCCEEDED:
 	{
 		Type_1_node const &node { _t1_blks.items[lvl].nodes[node_idx] };

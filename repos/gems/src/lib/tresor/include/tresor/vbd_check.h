@@ -50,7 +50,7 @@ class Tresor::Vbd_check
 				bool _check_node[TREE_MAX_NR_OF_LEVELS][NUM_NODES_PER_BLK] { };
 				Block _blk { };
 				Number_of_leaves _num_remaining_leaves { 0 };
-				Generated_request<Check, Block_io_read, State> _read_block { *this, _state, INIT };
+				Generated_request<Check, Block_io_read, State> _read_block { };
 
 				/*
 				 * ANMERKUNG

@@ -51,7 +51,7 @@ class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_compos
 		bool _generated_req_success { };
 		State _generated_req_succeeded { INIT };
 		State _state { INIT };
-		Generated_request<Main, Sb_check::Check, State> _check_sb { *this, _state, INIT };
+		Generated_request<Main, Sb_check::Check, State> _check_sb { };
 
 		NONCOPYABLE(Main);
 
@@ -82,8 +82,8 @@ class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_compos
 		void execute(bool &progress) override
 		{
 			switch(_state) {
-			case INIT: _check_sb.generate(CHECK_SB, CHECK_SB_SUCCEEDED, progress); break;
-			case CHECK_SB: progress |= _check_sb.execute(_sb_check, _vbd_check, _ft_check, _block_io); break;
+			case INIT: _check_sb.construct(*this, _state, CHECK_SB, CHECK_SB_SUCCEEDED, progress); break;
+			case CHECK_SB: progress |= _check_sb->execute(_sb_check, _vbd_check, _ft_check, _block_io); break;
 			case CHECK_SB_SUCCEEDED: _env.parent().exit(0); break;
 			default: break;
 			}

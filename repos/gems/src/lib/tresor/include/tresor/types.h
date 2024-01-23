@@ -107,7 +107,10 @@ namespace Tresor {
 	class Request_helper;
 
 	template <typename, typename, typename>
-	class Generated_request;
+	class Generated_request_base;
+
+	template <typename SRC_REQ, typename DST_REQ, typename STATE>
+	using Generated_request = Constructible<Generated_request_base<SRC_REQ, DST_REQ, STATE> >;
 
 	template <size_t LEN>
 	class Fixed_length;
@@ -212,7 +215,7 @@ class Tresor::Request_helper
 
 
 template <typename SRC_REQ, typename DST_REQ, typename STATE>
-class Tresor::Generated_request
+class Tresor::Generated_request_base
 {
 	private:
 
@@ -221,22 +224,17 @@ class Tresor::Generated_request
 		SRC_REQ &_src_req;
 		STATE &_state;
 		STATE _succeeded;
-		Constructible<DST_REQ> _dst_req { };
+		Reconstructible<DST_REQ> _dst_req;
 		bool _success { false };
 
 	public:
 
-		Generated_request(SRC_REQ &src_req, STATE &state, STATE init)
-		:
-			_src_req(src_req), _state(state), _succeeded(init)
-		{ }
-
 		template <typename... ARGS>
-		void generate(STATE generated, STATE succeeded, bool &progress, ARGS &&... args)
+		Generated_request_base(SRC_REQ &src_req, STATE &state, STATE generated, STATE succeeded, bool &progress, ARGS &&... args)
+		:
+			_src_req(src_req), _state(state), _succeeded(succeeded), _dst_req(typename DST_REQ::Attr { args..., _success })
 		{
 			_state = generated;
-			_dst_req.construct(typename DST_REQ::Attr { args..., _success });
-			_succeeded = succeeded;
 			progress = true;
 		}
 
@@ -244,7 +242,6 @@ class Tresor::Generated_request
 		bool execute(Dst_module &dst_mod, ARGS &&... args)
 		{
 			bool progress = false;
-			ASSERT(_dst_req.constructed());
 			progress |= dst_mod.execute(*_dst_req, args...);
 			if (_dst_req->complete()) {
 				_dst_req.destruct();
