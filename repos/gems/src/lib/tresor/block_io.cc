@@ -56,7 +56,7 @@ bool Block_io_write::execute(Vfs::Env &vfs_env, Path const &path)
 		progress = true;
 		break;
 
-	case WRITE: _file->read(WRITE_OK, FILE_ERR, _helper.attr.in_pba * BLOCK_SIZE, { (char *)&_helper.attr.in_block, BLOCK_SIZE }, progress); break;
+	case WRITE: _file->write(WRITE_OK, FILE_ERR, _helper.attr.in_pba * BLOCK_SIZE, { (char *)&_helper.attr.in_block, BLOCK_SIZE }, progress); break;
 	case WRITE_OK:
 
 		_helper.mark_successful(progress);
