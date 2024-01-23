@@ -548,10 +548,10 @@ struct Nvme::Sq : Nvme::Queue
 
 	Byte_range_ptr next()
 	{
-		addr_t a = (addr_t)local_addr<void>() + (tail * SQE_LEN);
-		Genode::memset((void*)a, 0, SQE_LEN);
+		char *a = local_addr<char>() + (tail * SQE_LEN);
+		Genode::memset(a, 0, SQE_LEN);
 		tail = (tail + 1) % max_entries;
-		return {(char *)a, size()};
+		return {a, size()};
 	}
 };
 
@@ -988,7 +988,7 @@ class Nvme::Controller : Platform::Device,
 	 */
 	Byte_range_ptr _admin_command(Opcode opc, uint32_t nsid, uint32_t cid)
 	{
-		if (_queue_full(*_admin_sq, *_admin_cq)) { return {(char *)0ul, 0ul}; }
+		if (_queue_full(*_admin_sq, *_admin_cq)) { return {nullptr, 0ul}; }
 
 		Sqe_header b(_admin_sq->next());
 		b.write<Nvme::Sqe_header::Cdw0::Opc>(opc);
@@ -1128,7 +1128,7 @@ class Nvme::Controller : Platform::Device,
 			throw Initialization_failed();
 		}
 
-		Identify_ns_data nsdata({(char *)_nvme_query_ns[id]->local_addr<void>(), _nvme_query_ns[id]->size()});
+		Identify_ns_data nsdata({_nvme_query_ns[id]->local_addr<char>(), _nvme_query_ns[id]->size()});
 		uint32_t const flbas = nsdata.read<Nvme::Identify_ns_data::Flbas::Formats>();
 
 		/* use array subscription, omit first entry */
@@ -1156,7 +1156,7 @@ class Nvme::Controller : Platform::Device,
 		}
 
 		_identify_data.construct(
-			Byte_range_ptr((char *)_nvme_identify.local_addr<void>(), _nvme_identify.size()));
+			Byte_range_ptr(_nvme_identify.local_addr<char>(), _nvme_identify.size()));
 
 		/* store information */
 		_info.version = Genode::String<8>(read<Vs::Mjr>(), ".",
@@ -1244,7 +1244,7 @@ class Nvme::Controller : Platform::Device,
 		_hmb_chunk_registry.construct(_hmb_alloc);
 
 		Reconstructible<Byte_range_ptr> list
-			{(char *)_hmb_descr_list_buffer->local_addr<addr_t>(), _hmb_descr_list_buffer->size()};
+			{_hmb_descr_list_buffer->local_addr<char>(), _hmb_descr_list_buffer->size()};
 
 		for (uint32_t i = 0; i < num_entries; i++) {
 			try {
@@ -1253,7 +1253,7 @@ class Nvme::Controller : Platform::Device,
 					                           _platform, HMB_CHUNK_SIZE);
 
 				Hmb_de e(*list, c->dma_buffer.dma_addr(), HMB_CHUNK_UNITS);
-				list.construct((char *)((addr_t)list->start + Hmb_de::SIZE), list->num_bytes - Hmb_de::SIZE);
+				list.construct(list->start + Hmb_de::SIZE, list->num_bytes - Hmb_de::SIZE);
 
 			} catch (... /* intentional catch-all */) {
 				warning("could not allocate HMB chunk");

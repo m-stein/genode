@@ -856,8 +856,8 @@ class Igd::Rcs_context
 		Rcs_context(Byte_range_ptr const &map_range)
 		:
 			_hw_status_page  (map_range),
-			_execlist_context({(char *)map_range.start + HW_STATUS_PAGE_SIZE, map_range.num_bytes - HW_STATUS_PAGE_SIZE}),
-			_ppgtt_context   ({(char *)map_range.start + HW_STATUS_PAGE_SIZE, map_range.num_bytes - HW_STATUS_PAGE_SIZE})
+			_execlist_context({map_range.start + HW_STATUS_PAGE_SIZE, map_range.num_bytes - HW_STATUS_PAGE_SIZE}),
+			_ppgtt_context   ({map_range.start + HW_STATUS_PAGE_SIZE, map_range.num_bytes - HW_STATUS_PAGE_SIZE})
 		{ }
 
 		void setup(addr_t     const ring_buffer_start,

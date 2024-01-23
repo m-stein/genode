@@ -108,7 +108,7 @@ void Driver::pci_intel_graphics_info(Device::Pci_config const & cfg,
 			static constexpr size_t IO_MEM_SIZE = 0x1000;
 
 			Attached_io_mem_dataspace io_mem(env, cfg.addr, IO_MEM_SIZE);
-			Host_bridge               config({(char *)io_mem.local_addr<void>(), IO_MEM_SIZE});
+			Host_bridge               config({io_mem.local_addr<char>(), IO_MEM_SIZE});
 			unsigned gen  = pci_intel_graphics_generation(cfg.device_id);
 			uint16_t gmch = 0;
 

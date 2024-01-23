@@ -386,7 +386,7 @@ class Platform::Resources : Noncopyable
 			if (!_gmadr.constructed() || !_gmadr_mem.constructed())
 				return false;
 
-			fn({(char *)_gmadr_mem->local_addr<addr_t>() + offset, _gmadr->size() - offset });
+			fn({_gmadr_mem->local_addr<char>() + offset, _gmadr->size() - offset });
 			return true;
 		}
 

@@ -42,8 +42,7 @@ class Genode::Mmio_plain_access
 		template <typename ACCESS_T>
 		inline void _write(off_t const offset, ACCESS_T const value)
 		{
-			addr_t const dst = (addr_t)_range.start + offset;
-			*(ACCESS_T volatile *)dst = value;
+			*(ACCESS_T volatile *)(_range.start + offset) = value;
 		}
 
 		/**
@@ -52,9 +51,7 @@ class Genode::Mmio_plain_access
 		template <typename ACCESS_T>
 		inline ACCESS_T _read(off_t const &offset) const
 		{
-			addr_t const dst = (addr_t)_range.start + offset;
-			ACCESS_T const value = *(ACCESS_T volatile *)dst;
-			return value;
+			return *(ACCESS_T volatile *)(_range.start + offset);
 		}
 
 	public:
@@ -68,7 +65,7 @@ class Genode::Mmio_plain_access
 
 		Byte_range_ptr range_at(off_t offset) const
 		{
-			return {(char *)((addr_t)_range.start + offset), _range.num_bytes - offset};
+			return {_range.start + offset, _range.num_bytes - offset};
 		}
 
 		Byte_range_ptr range() const { return range_at(0); }

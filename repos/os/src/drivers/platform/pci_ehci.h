@@ -77,7 +77,7 @@ void Driver::pci_ehci_quirks(Env                      & env,
 		static constexpr size_t IO_MEM_SIZE = 0x1000;
 
 		Attached_io_mem_dataspace iomem(env, range.start, IO_MEM_SIZE);
-		Ehci ehci({(char *)iomem.local_addr<void>(), IO_MEM_SIZE});
+		Ehci ehci({iomem.local_addr<char>(), IO_MEM_SIZE});
 		addr_t offset =
 			ehci.read<Ehci::Capability_parameters::Extended_cap_pointer>();
 

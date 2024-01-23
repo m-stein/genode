@@ -55,7 +55,7 @@ struct Config_helper
 	static constexpr size_t IO_MEM_SIZE = 0x1000;
 
 	Attached_io_mem_dataspace _io_mem { _env, _cfg.addr, IO_MEM_SIZE };
-	Config                    _config { {(char *)_io_mem.local_addr<void>(), IO_MEM_SIZE} };
+	Config                    _config { {_io_mem.local_addr<char>(), IO_MEM_SIZE} };
 
 	Config_helper(Env                              & env,
 	              Driver::Device             const & dev,
@@ -168,7 +168,7 @@ void Driver::pci_msi_enable(Env                   & env,
 	static constexpr size_t IO_MEM_SIZE = 0x1000;
 
 	Attached_io_mem_dataspace io_mem { env, cfg_space, IO_MEM_SIZE };
-	Config config { {(char *)io_mem.local_addr<void>(), IO_MEM_SIZE} };
+	Config config { {io_mem.local_addr<char>(), IO_MEM_SIZE} };
 	config.scan();
 
 	if (type == Irq_session::TYPE_MSIX && config.msi_x_cap.constructed()) {
@@ -179,14 +179,14 @@ void Driver::pci_msi_enable(Env                   & env,
 			Io_mem_session_client dsc(dc.io_mem(idx, range));
 			Attached_dataspace msix_table_ds(env.rm(), dsc.dataspace());
 			Byte_range_ptr msix_table = {
-				(char *)((addr_t)msix_table_ds.local_addr<void>() + config.msi_x_cap->table_offset()),
+				msix_table_ds.local_addr<char>() + config.msi_x_cap->table_offset(),
 				msix_table_ds.size() - config.msi_x_cap->table_offset() };
 
 			/* disable all msi-x table entries beside the first one */
 			unsigned slots = config.msi_x_cap->slots();
 			for (unsigned i = 0; i < slots; i++) {
 				using Entry = Config::Msi_x_capability::Table_entry;
-				Entry e ({(char *)((addr_t)msix_table.start + Entry::SIZE*i), msix_table.num_bytes - Entry::SIZE*i});
+				Entry e ({msix_table.start + Entry::SIZE*i, msix_table.num_bytes - Entry::SIZE*i});
 				if (!i) {
 					uint32_t lower = info.address & 0xfffffffc;
 					uint32_t upper = sizeof(info.address) > 4 ?

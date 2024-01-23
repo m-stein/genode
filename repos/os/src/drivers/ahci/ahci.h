@@ -880,7 +880,7 @@ struct Ahci::Port : private Port_base_tpl<0x3c>
 	{
 		/* command list 1K */
 		addr_t phys = device_dma.dma_addr();
-		cmd_list.construct((char *)device_dma.local_addr<addr_t>(), device_dma.size());
+		cmd_list.construct(device_dma.local_addr<char>(), device_dma.size());
 		command_list_base(phys);
 
 		/* receive FIS base 256 byte */
@@ -896,7 +896,7 @@ struct Ahci::Port : private Port_base_tpl<0x3c>
 		fis_rcv_base(phys + 1024);
 
 		/* command table */
-		cmd_table.construct((char *)cmd_dma.local_addr<addr_t>(), cmd_dma.size());
+		cmd_table.construct(cmd_dma.local_addr<char>(), cmd_dma.size());
 		phys      = cmd_dma.dma_addr();
 
 		/* set command table addresses in command list */

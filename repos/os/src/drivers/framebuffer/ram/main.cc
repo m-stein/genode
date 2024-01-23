@@ -58,7 +58,7 @@ class Main
 		Platform::Connection      _platform { _env };
 		Platform::Device          _fw_dev { _platform, Type { "qemu,fw-cfg-mmio" } };
 		Platform::Device::Mmio<0> _fw_mem { _fw_dev };
-		Fw                        _fw { {(char *)_fw_mem.local_addr<void>(), _fw_mem.size()} };
+		Fw                        _fw { {_fw_mem.local_addr<char>(), _fw_mem.size()} };
 
 		Platform::Dma_buffer _fb_dma     { _platform, SCR_HEIGHT * SCR_STRIDE, UNCACHED };
 		Platform::Dma_buffer _config_dma { _platform, 0x1000, UNCACHED };

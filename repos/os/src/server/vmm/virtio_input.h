@@ -217,7 +217,7 @@ class Vmm::Virtio_input_device : public Virtio_device<Virtio_split_queue, 2>
 					return 0UL;
 				}
 
-				Virtio_input_event vie({(char *)data.start, data.num_bytes});
+				Virtio_input_event vie(data);
 
 				if (_state == IN_MOTION) {
 					vie.write<Virtio_input_event::Type>(Linux_evdev::EV_ABS);

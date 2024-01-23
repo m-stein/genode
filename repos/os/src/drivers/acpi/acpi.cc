@@ -459,7 +459,7 @@ class Pci_config_space : public List<Pci_config_space>::Element
 				Attached_io_mem_dataspace pci_config(env, e->_base +
 				                                     config_offset * config_size,
 				                                     config_size);
-				Config_space device({(char *)pci_config.local_addr<void>(), config_size});
+				Config_space device({pci_config.local_addr<char>(), config_size});
 
 				if ((device.read<Config_space::Vendor>() != Config_space::Vendor::INTEL) ||
 				    (device.read<Config_space::Class>()  != Config_space::Class::DISPLAY))
@@ -477,7 +477,7 @@ class Pci_config_space : public List<Pci_config_space>::Element
 
 				{
 					Attached_io_mem_dataspace map_asls(env, phys_asls, asls_size);
-					Opregion opregion({(char *)map_asls.local_addr<void>(), asls_size});
+					Opregion opregion({map_asls.local_addr<char>(), asls_size});
 
 					auto const rvda = opregion.read<Opregion::Asle_rvda>();
 					auto const rvds = opregion.read<Opregion::Asle_rvds>();

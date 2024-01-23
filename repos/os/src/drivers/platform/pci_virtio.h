@@ -113,7 +113,7 @@ void Driver::pci_virtio_info(Device             const & dev,
 	static constexpr size_t IO_MEM_SIZE = 0x1000;
 
 	Attached_io_mem_dataspace io_mem(env, cfg.addr, IO_MEM_SIZE);
-	Virtio                    config({(char *)io_mem.local_addr<void>(), IO_MEM_SIZE});
+	Virtio                    config({io_mem.local_addr<char>(), IO_MEM_SIZE});
 	config.for_each_capability(dev, xml);
 }
 
