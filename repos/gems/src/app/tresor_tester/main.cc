@@ -301,7 +301,7 @@ class Tresor_tester::Command : public Module_channel
 		{
 			ASSERT(_type_matches<DST_REQ>());
 			ASSERT(_request_ptr != nullptr);
-			fn(*(Generated_request<Command, DST_REQ, State> *)_request_ptr);
+			fn(*(Generated_request_base<Command, DST_REQ, State> *)_request_ptr);
 		};
 
 		NONCOPYABLE(Command);
@@ -867,10 +867,7 @@ void Tresor_tester::Command::execute(bool &progress)
 	case CHECK:
 
 		_main.with_alloc([&] (Allocator &alloc) {
-			_request_ptr = new (alloc) Generated_request<Command, Sb_check::Check, State>(*this, _state, PENDING);
-		});
-		_with_request<Sb_check::Check>([&] (auto &req) {
-			req.generate(CHECK_SB, CHECK_SB_SUCCEEDED, progress);
+			_request_ptr = new (alloc) Generated_request_base<Command, Sb_check::Check, State>(*this, _state, CHECK_SB, CHECK_SB_SUCCEEDED, progress);
 		});
 		break;
 

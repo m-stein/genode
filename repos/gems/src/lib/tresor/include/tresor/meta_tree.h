@@ -68,8 +68,10 @@ class Tresor::Meta_tree_channel : public Module_channel
 		Type_1_node_block _t1_blks[TREE_MAX_NR_OF_LEVELS] { };
 		Type_2_node_block _t2_blk { };
 		Tree_level_index _lvl { 0 };
-		Generated_request<Meta_tree_channel, Block_io_read, State> _read_block { *this, _state, INIT };
-		Generated_request<Meta_tree_channel, Block_io_write, State> _write_block { *this, _state, INIT };
+		union {
+			Generated_request<Meta_tree_channel, Block_io_read, State> _read_block;
+			Generated_request<Meta_tree_channel, Block_io_write, State> _write_block;
+		};
 
 		NONCOPYABLE(Meta_tree_channel);
 
@@ -94,6 +96,8 @@ class Tresor::Meta_tree_channel : public Module_channel
 	public:
 
 		Meta_tree_channel(Module_channel_id id) : Module_channel(META_TREE, id) { }
+
+		~Meta_tree_channel() { }
 
 		void execute(bool &, Block_io &);
 

@@ -85,7 +85,7 @@ void Meta_tree_channel::_start_tree_traversal(bool &progress)
 	_lvl = req._mt.max_lvl;
 	_node_idx[_lvl] = 0;
 	_t1_blks[_lvl].nodes[_node_idx[_lvl]] = req._mt.t1_node();
-	_read_block.generate(READ_BLK, SEEK_DOWN, progress, req._mt.pba, _blk);
+	_read_block.construct(*this, _state, READ_BLK, SEEK_DOWN, progress, req._mt.pba, _blk);
 }
 
 
@@ -95,7 +95,7 @@ void Meta_tree_channel::_traverse_curr_node(bool &progress)
 	if (_lvl) {
 		Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
 		if (t1_node.pba)
-			_read_block.generate(READ_BLK, SEEK_DOWN, progress, t1_node.pba, _blk);
+			_read_block.construct(*this, _state, READ_BLK, SEEK_DOWN, progress, t1_node.pba, _blk);
 		else {
 			_state = SEEK_LEFT_OR_UP;
 			progress = true;
@@ -138,7 +138,7 @@ void Meta_tree_channel::execute(bool &progress, Block_io &block_io)
 		_start_tree_traversal(progress);
 		break;
 
-	case READ_BLK: progress |= _read_block.execute(block_io); break;
+	case READ_BLK: progress |= _read_block->execute(block_io); break;
 	case SEEK_DOWN:
 
 		if (!check_hash(_blk, _t1_blks[_lvl].nodes[_node_idx[_lvl]].hash)) {
@@ -169,7 +169,7 @@ void Meta_tree_channel::execute(bool &progress, Block_io &block_io)
 			_mark_req_failed(progress, "not enough free pbas");
 		break;
 
-	case WRITE_BLK: progress |= _write_block.execute(block_io); break;
+	case WRITE_BLK: progress |= _write_block->execute(block_io); break;
 	case WRITE_BLK_SUCCEEDED:
 
 		if (_lvl < req._mt.max_lvl) {
@@ -181,7 +181,7 @@ void Meta_tree_channel::execute(bool &progress, Block_io &block_io)
 			Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
 			t1_node.gen = req._curr_gen;
 			calc_hash(_blk, t1_node.hash);
-			_write_block.generate(WRITE_BLK, WRITE_BLK_SUCCEEDED, progress, t1_node.pba, _blk);
+			_write_block.construct(*this, _state, WRITE_BLK, WRITE_BLK_SUCCEEDED, progress, t1_node.pba, _blk);
 		} else {
 			req._mt.t1_node(_t1_blks[_lvl].nodes[_node_idx[_lvl]]);
 			_mark_req_successful(progress);
