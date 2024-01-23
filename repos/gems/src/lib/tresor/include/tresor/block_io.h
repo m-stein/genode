@@ -22,6 +22,7 @@ namespace Tresor {
 
 	class Block_io;
 	class Block_io_read;
+	class Block_io_write;
 	class Block_io_request;
 	class Block_io_channel;
 }
@@ -58,6 +59,44 @@ class Tresor::Block_io_read
 		Block_io_read(Attr attr) : _attr(attr) { }
 
 		void print(Output &out) const { Genode::print(out, "read pba ", _attr.in_pba); }
+
+		bool execute(Vfs::Env &, Path const &);
+
+		bool complete() const { return _state == COMPLETE; }
+};
+
+class Tresor::Block_io_write
+{
+	public:
+
+		struct Attr
+		{
+			Physical_block_address const in_pba;
+			Block const &in_block;
+			bool &out_success;
+		};
+
+	private:
+
+		enum State { INIT, COMPLETE, WRITE, WRITE_OK, FILE_ERR };
+
+		Attr _attr;
+		State _state { INIT };
+		Constructible<Read_write_file<State> > _file { };
+
+		NONCOPYABLE(Block_io_write);
+
+		void _mark_req_failed(bool &, Error_string);
+
+		void _mark_req_successful(bool &);
+
+	public:
+
+		using Module = Block_io;
+
+		Block_io_write(Attr attr) : _attr(attr) { }
+
+		void print(Output &out) const { Genode::print(out, "write pba ", _attr.in_pba); }
 
 		bool execute(Vfs::Env &, Path const &);
 
@@ -203,6 +242,8 @@ class Tresor::Block_io : public Module
 		void execute(bool &) override;
 
 		bool execute(Block_io_read &req) { return req.execute(_vfs_env, _path); }
+
+		bool execute(Block_io_write &req) { return req.execute(_vfs_env, _path); }
 };
 
 #endif /* _TRESOR__BLOCK_IO_H_ */
