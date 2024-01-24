@@ -33,7 +33,7 @@ bool Block_io_read::execute(Vfs::Env &vfs_env, Path const &path)
 	case READ: _file->read(READ_OK, FILE_ERR, _helper.attr.in_pba * BLOCK_SIZE, { (char *)&_helper.attr.out_block, BLOCK_SIZE }, progress); break;
 	case READ_OK:
 
-		_helper.mark_successful(progress);
+		_helper.mark_succeeded(progress);
 		if (VERBOSE_BLOCK_IO && (!VERBOSE_BLOCK_IO_PBA_FILTER || VERBOSE_BLOCK_IO_PBA == _helper.attr.in_pba))
 			log("block_io: ", *this, " hash ", hash(_helper.attr.out_block));
 		break;
@@ -59,7 +59,7 @@ bool Block_io_write::execute(Vfs::Env &vfs_env, Path const &path)
 	case WRITE: _file->write(WRITE_OK, FILE_ERR, _helper.attr.in_pba * BLOCK_SIZE, { (char *)&_helper.attr.in_block, BLOCK_SIZE }, progress); break;
 	case WRITE_OK:
 
-		_helper.mark_successful(progress);
+		_helper.mark_succeeded(progress);
 		if (VERBOSE_BLOCK_IO && (!VERBOSE_BLOCK_IO_PBA_FILTER || VERBOSE_BLOCK_IO_PBA == _helper.attr.in_pba))
 			log("block_io: ", *this, " hash ", hash(_helper.attr.in_block));
 		break;

@@ -31,11 +31,12 @@ class Tresor::Block_io_read
 {
 	public:
 
+		using Module = Block_io;
+
 		struct Attr
 		{
 			Physical_block_address const in_pba;
 			Block &out_block;
-			bool &out_success;
 		};
 
 	private:
@@ -49,8 +50,6 @@ class Tresor::Block_io_read
 
 	public:
 
-		using Module = Block_io;
-
 		Block_io_read(Attr const &attr) : _helper(*this, attr) { }
 
 		void print(Output &out) const { Genode::print(out, "read pba ", _helper.attr.in_pba); }
@@ -58,17 +57,19 @@ class Tresor::Block_io_read
 		bool execute(Vfs::Env &, Path const &);
 
 		bool complete() const { return _helper.complete(); }
+		bool success() const { return _helper.success(); }
 };
 
 class Tresor::Block_io_write
 {
 	public:
 
+		using Module = Block_io;
+
 		struct Attr
 		{
 			Physical_block_address const in_pba;
 			Block const &in_block;
-			bool &out_success;
 		};
 
 	private:
@@ -82,8 +83,6 @@ class Tresor::Block_io_write
 
 	public:
 
-		using Module = Block_io;
-
 		Block_io_write(Attr const &attr) : _helper(*this, attr) { }
 
 		void print(Output &out) const { Genode::print(out, "write pba ", _helper.attr.in_pba); }
@@ -91,6 +90,7 @@ class Tresor::Block_io_write
 		bool execute(Vfs::Env &, Path const &);
 
 		bool complete() const { return _helper.complete(); }
+		bool success() const { return _helper.success(); }
 };
 
 class Tresor::Block_io_request : public Module_request

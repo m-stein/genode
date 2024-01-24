@@ -64,7 +64,7 @@ void Meta_tree_channel::_mark_req_failed(bool &progress, char const *str)
 {
 	error(Request::type_to_string(_req_ptr->_type), " request failed, reason: \"", str, "\"");
 	_req_ptr->_success = false;
-	_state = COMPLETE;
+	_helper.state = COMPLETE;
 	_req_ptr = nullptr;
 	progress = true;
 }
@@ -73,7 +73,7 @@ void Meta_tree_channel::_mark_req_failed(bool &progress, char const *str)
 void Meta_tree_channel::_mark_req_successful(bool &progress)
 {
 	_req_ptr->_success = true;
-	_state = COMPLETE;
+	_helper.state = COMPLETE;
 	_req_ptr = nullptr;
 	progress = true;
 }
@@ -85,7 +85,7 @@ void Meta_tree_channel::_start_tree_traversal(bool &progress)
 	_lvl = req._mt.max_lvl;
 	_node_idx[_lvl] = 0;
 	_t1_blks[_lvl].nodes[_node_idx[_lvl]] = req._mt.t1_node();
-	_read_block.construct(*this, _state, READ_BLK, SEEK_DOWN, progress, req._mt.pba, _blk);
+	_read_block.construct(_helper, READ_BLK, SEEK_DOWN, progress, req._mt.pba, _blk);
 }
 
 
@@ -95,9 +95,9 @@ void Meta_tree_channel::_traverse_curr_node(bool &progress)
 	if (_lvl) {
 		Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
 		if (t1_node.pba)
-			_read_block.construct(*this, _state, READ_BLK, SEEK_DOWN, progress, t1_node.pba, _blk);
+			_read_block.construct(_helper, READ_BLK, SEEK_DOWN, progress, t1_node.pba, _blk);
 		else {
-			_state = SEEK_LEFT_OR_UP;
+			_helper.state = SEEK_LEFT_OR_UP;
 			progress = true;
 		}
 	} else {
@@ -118,9 +118,9 @@ void Meta_tree_channel::_traverse_curr_node(bool &progress)
 					ASSERT(pba_allocated);
 				}
 			}
-			_state = WRITE_BLK_SUCCEEDED;
+			_helper.state = WRITE_BLK_SUCCEEDED;
 		} else
-			_state = SEEK_LEFT_OR_UP;
+			_helper.state = SEEK_LEFT_OR_UP;
 		progress = true;
 	}
 }
@@ -132,7 +132,7 @@ void Meta_tree_channel::execute(bool &progress, Block_io &block_io)
 		return;
 
 	Request &req { *_req_ptr };
-	switch (_state) {
+	switch (_helper.state) {
 	case REQ_SUBMITTED:
 
 		_start_tree_traversal(progress);
@@ -162,7 +162,7 @@ void Meta_tree_channel::execute(bool &progress, Block_io &block_io)
 				_traverse_curr_node(progress);
 			} else {
 				_lvl++;
-				_state = SEEK_LEFT_OR_UP;
+				_helper.state = SEEK_LEFT_OR_UP;
 				progress = true;
 			}
 		} else
@@ -181,7 +181,7 @@ void Meta_tree_channel::execute(bool &progress, Block_io &block_io)
 			Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
 			t1_node.gen = req._curr_gen;
 			calc_hash(_blk, t1_node.hash);
-			_write_block.construct(*this, _state, WRITE_BLK, WRITE_BLK_SUCCEEDED, progress, t1_node.pba, _blk);
+			_write_block.construct(_helper, WRITE_BLK, WRITE_BLK_SUCCEEDED, progress, t1_node.pba, _blk);
 		} else {
 			req._mt.t1_node(_t1_blks[_lvl].nodes[_node_idx[_lvl]]);
 			_mark_req_successful(progress);
@@ -196,7 +196,7 @@ void Meta_tree_channel::execute(bool &progress, Block_io &block_io)
 void Meta_tree_channel::_request_submitted(Module_request &mod_req)
 {
 	_req_ptr = static_cast<Request *>(&mod_req);
-	_state = REQ_SUBMITTED;
+	_helper.state = REQ_SUBMITTED;
 }
 
 

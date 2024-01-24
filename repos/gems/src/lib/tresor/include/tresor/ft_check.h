@@ -34,42 +34,36 @@ class Tresor::Ft_check
 
 				using Module = Ft_check;
 
-				struct Attr
-				{
-					Tree_root const &in_ft;
-					bool &out_success;
-				};
+				struct Attr { Tree_root const &in_ft; };
 
 			private:
 
 				enum State { INIT, IN_PROGRESS, COMPLETE, READ_BLK, READ_BLK_SUCCEEDED };
 
-				Attr const _attr;
-				State _state { INIT };
+				using Helper = Request_helper<Check, State>;
+
+				Helper _helper;
 				Type_1_node_block_walk _t1_blks { };
 				Type_2_node_block _t2_blk { };
 				bool _check_node[TREE_MAX_NR_OF_LEVELS + 1][NUM_NODES_PER_BLK] { };
 				Number_of_leaves _num_remaining_leaves { 0 };
 				Block _blk { };
-				Generated_request<Check, Block_io_read, State> _read_block { };
+				Generated_request<Helper, Block_io_read, State> _read_block { };
 
 				NONCOPYABLE(Check);
-
-				void _mark_succeeded(bool &);
 
 				bool _execute_node(Block_io &, Tree_level_index, Tree_node_index, bool &);
 
 			public:
 
-				Check(Attr attr) : _attr(attr) { }
+				Check(Attr const &attr) : _helper(*this, attr) { }
 
-				void print(Output &out) const { Genode::print(out, "check ", _attr.in_ft); }
-
-				void mark_failed(bool &, Error_string);
+				void print(Output &out) const { Genode::print(out, "check ", _helper.attr.in_ft); }
 
 				bool execute(Block_io &);
 
-				bool complete() const { return _state == COMPLETE; }
+				bool complete() const { return _helper.complete(); }
+				bool success() const { return _helper.success(); }
 		};
 
 		Ft_check() { }

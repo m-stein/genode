@@ -328,7 +328,7 @@ void Superblock_control_channel::_secure_sb(Block_io &block_io, bool &progress)
 	case SYNC_CACHE_SUCCEEDED:
 
 		_sb_ciphertext.encode_to_blk(_blk);
-		_write_block.construct(*this, _secure_sb_state, WRITE_BLOCK, WRITE_SB_SUCCEEDED, progress, _sb_idx, _blk);
+		_write_block.construct(*this, WRITE_BLOCK, WRITE_SB_SUCCEEDED, progress, _sb_idx, _blk);
 		break;
 
 	case WRITE_BLOCK: progress |= _write_block->execute(block_io); break;
@@ -489,7 +489,7 @@ void Superblock_control_channel::_initialize(Block_io &block_io, bool &progress)
 	case READ_SB_HASH_SUCCEEDED:
 
 		_sb_idx = 0;
-		_read_block.construct(*this, _state, READ_BLOCK, READ_SB_SUCCEEDED, progress, _sb_idx, _blk);
+		_read_block.construct(*this, READ_BLOCK, READ_SB_SUCCEEDED, progress, _sb_idx, _blk);
 		break;
 
 	case READ_BLOCK: progress |= _read_block->execute(block_io); break;
