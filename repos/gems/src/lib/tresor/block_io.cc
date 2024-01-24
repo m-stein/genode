@@ -19,13 +19,13 @@
 using namespace Tresor;
 
 
-bool Block_io_read::execute(Vfs::Env &vfs_env, Path const &path)
+bool Block_io_read::execute(Vfs::Vfs_handle &file_handle)
 {
 	bool progress = false;
 	switch (_helper.state) {
 	case INIT:
 
-		_file.construct(_helper.state, vfs_env, path);
+		_file.construct(_helper.state, file_handle);
 		_helper.state = READ;
 		progress = true;
 		break;
@@ -45,13 +45,13 @@ bool Block_io_read::execute(Vfs::Env &vfs_env, Path const &path)
 }
 
 
-bool Block_io_write::execute(Vfs::Env &vfs_env, Path const &path)
+bool Block_io_write::execute(Vfs::Vfs_handle &file_handle)
 {
 	bool progress = false;
 	switch (_helper.state) {
 	case INIT:
 
-		_file.construct(_helper.state, vfs_env, path);
+		_file.construct(_helper.state, file_handle);
 		_helper.state = WRITE;
 		progress = true;
 		break;
@@ -252,9 +252,9 @@ Block_io_channel::Block_io_channel(Module_channel_id id, Vfs::Env &vfs_env, Xml_
 { }
 
 
-Block_io::Block_io(Vfs::Env &vfs_env, Xml_node const &xml_node)
+Block_io::Block_io(Vfs::Env &vfs_env, Xml_node const &xml_node, Vfs::Vfs_handle &file_handle)
 :
-	_vfs_env(vfs_env), _path(xml_node.attribute_value("path", Path()))
+	_vfs_env(vfs_env), _path(xml_node.attribute_value("path", Path())), _file_handle(file_handle)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {
