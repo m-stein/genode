@@ -44,7 +44,8 @@ class Tresor::Block_io_read
 		enum State { INIT, COMPLETE, READ, READ_OK, FILE_ERR };
 
 		Request_helper<Block_io_read, State> _helper;
-		Constructible<Read_write_file<State> > _file { };
+		Constructible<File<State> > _file { };
+
 
 		NONCOPYABLE(Block_io_read);
 
@@ -54,7 +55,7 @@ class Tresor::Block_io_read
 
 		void print(Output &out) const { Genode::print(out, "read pba ", _helper.attr.in_pba); }
 
-		bool execute(Vfs::Env &, Path const &);
+		bool execute(Vfs::Vfs_handle &);
 
 		bool complete() const { return _helper.complete(); }
 		bool success() const { return _helper.success(); }
@@ -77,7 +78,7 @@ class Tresor::Block_io_write
 		enum State { INIT, COMPLETE, WRITE, WRITE_OK, FILE_ERR };
 
 		Request_helper<Block_io_write, State> _helper;
-		Constructible<Read_write_file<State> > _file { };
+		Constructible<File<State> > _file { };
 
 		NONCOPYABLE(Block_io_write);
 
@@ -87,7 +88,7 @@ class Tresor::Block_io_write
 
 		void print(Output &out) const { Genode::print(out, "write pba ", _helper.attr.in_pba); }
 
-		bool execute(Vfs::Env &, Path const &);
+		bool execute(Vfs::Vfs_handle &);
 
 		bool complete() const { return _helper.complete(); }
 		bool success() const { return _helper.success(); }
@@ -190,6 +191,8 @@ class Tresor::Block_io : public Module
 
 		Vfs::Env &_vfs_env;
 		Path const _path;
+		Vfs::Vfs_handle &_file_handle;
+		addr_t _file_user { };
 
 		NONCOPYABLE(Block_io);
 
@@ -227,13 +230,25 @@ class Tresor::Block_io : public Module
 			: Request(m, c, Request::READ_CLIENT_DATA, o, t, k, p, v, *(Block*)0, h, s) { }
 		};
 
-		Block_io(Vfs::Env &, Xml_node const &);
+		Block_io(Vfs::Env &, Xml_node const &, Vfs::Vfs_handle &);
 
 		void execute(bool &) override;
 
-		bool execute(Block_io_read &req) { return req.execute(_vfs_env, _path); }
+		template <typename REQ>
+		bool execute(REQ &req)
+		{
+			if (!_file_user)
+				_file_user = (addr_t)&req;
 
-		bool execute(Block_io_write &req) { return req.execute(_vfs_env, _path); }
+			if (_file_user != (addr_t)&req)
+				return false;
+
+			bool progress = req.execute(_file_handle);
+			if (req.complete())
+				_file_user = 0;
+
+			return progress;
+		}
 
 		static constexpr char const *name() { return "block_io"; }
 };

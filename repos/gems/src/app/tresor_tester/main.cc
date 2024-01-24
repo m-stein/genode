@@ -38,6 +38,20 @@
 #include <tresor/virtual_block_device.h>
 #include <tresor/superblock_control.h>
 
+/*
+Vfs::Directory_service::OPEN_MODE_RDWR
+Vfs::Directory_service::OPEN_MODE_WRONLY
+
+		Vfs::Vfs_handle &_open(Tresor::Path path, Vfs::Directory_service::Open_mode mode)
+		{
+			Vfs::Vfs_handle *handle { nullptr };
+			ASSERT(_env.root_dir().open(path.string(), mode, &handle, _env.alloc()) == Open_result::OPEN_OK);
+			return *handle;
+		}
+
+			_env.root_dir().close(&_handle);
+*/
+
 namespace Tresor_tester {
 
 	using namespace Genode;
@@ -505,7 +519,9 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 		Constructible<Meta_tree> _meta_tree { };
 		Trust_anchor _trust_anchor { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
 		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto") };
-		Block_io _block_io { _vfs_env, _config_rom.xml().sub_node("block-io") };
+		Tresor::Path const _block_io_path { _config_rom.xml().sub_node("block-io").attribute_value("path", Tresor::Path()) };
+		Vfs::Vfs_handle &_block_io_file { open_file(_vfs_env, _block_io_path, Vfs::Directory_service::OPEN_MODE_RDWR) };
+		Block_io _block_io { _vfs_env, _config_rom.xml().sub_node("block-io"), _block_io_file };
 		Pba_allocator _pba_alloc { NR_OF_SUPERBLOCK_SLOTS };
 		Vbd_initializer _vbd_initializer { };
 		Ft_initializer _ft_initializer { };
