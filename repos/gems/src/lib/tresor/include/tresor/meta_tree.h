@@ -54,6 +54,12 @@ class Tresor::Meta_tree_request : public Module_request
 
 class Tresor::Meta_tree_channel : public Module_channel
 {
+	public:
+
+		using Module = Meta_tree;
+
+		struct Attr { };
+
 	private:
 
 		using Request = Meta_tree_request;
@@ -61,7 +67,9 @@ class Tresor::Meta_tree_channel : public Module_channel
 		enum State {
 			REQ_SUBMITTED, REQ_GENERATED, READ_BLK, SEEK_DOWN, SEEK_LEFT_OR_UP, WRITE_BLK, WRITE_BLK_SUCCEEDED, COMPLETE, INIT };
 
-		State _state { COMPLETE };
+		using Helper = Request_helper<Meta_tree_channel, State>;
+
+		Helper _helper;
 		Request *_req_ptr { nullptr };
 		Block _blk { };
 		Tree_node_index _node_idx[TREE_MAX_NR_OF_LEVELS] { };
@@ -69,8 +77,8 @@ class Tresor::Meta_tree_channel : public Module_channel
 		Type_2_node_block _t2_blk { };
 		Tree_level_index _lvl { 0 };
 		union {
-			Generated_request<Meta_tree_channel, Block_io_read, State> _read_block;
-			Generated_request<Meta_tree_channel, Block_io_write, State> _write_block;
+			Generated_request<Helper, Block_io_read, State> _read_block;
+			Generated_request<Helper, Block_io_write, State> _write_block;
 		};
 
 		NONCOPYABLE(Meta_tree_channel);
@@ -79,7 +87,7 @@ class Tresor::Meta_tree_channel : public Module_channel
 
 		void _request_submitted(Module_request &) override;
 
-		bool _request_complete() override { return _state == COMPLETE; }
+		bool _request_complete() override { return _helper.state == COMPLETE; }
 
 		void _mark_req_failed(bool &, char const *);
 
@@ -95,15 +103,13 @@ class Tresor::Meta_tree_channel : public Module_channel
 
 	public:
 
-		Meta_tree_channel(Module_channel_id id) : Module_channel(META_TREE, id) { }
+		Meta_tree_channel(Module_channel_id id) : Module_channel(META_TREE, id), _helper(*this, Attr()) { }
 
 		~Meta_tree_channel() { }
 
 		void execute(bool &, Block_io &);
 
-		void mark_failed(bool &progress, Error_string const &err_str) { _mark_req_failed(progress, err_str.string()); }
-
-		using Module = Meta_tree;
+		void print(Output &out) const { ASSERT(_req_ptr); Genode::print(out, *_req_ptr); }
 };
 
 class Tresor::Meta_tree : public Module

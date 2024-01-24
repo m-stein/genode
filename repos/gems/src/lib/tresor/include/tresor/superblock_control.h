@@ -155,9 +155,33 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 		~Superblock_control_channel() { }
 
-		void mark_failed(bool &progress, Error_string const &err_str) { _mark_req_failed(progress, err_str.string()); }
-
 		using Module = Superblock_control;
+
+		void generated_req_failed(bool &progress) { _mark_req_failed(progress, "generated request failed"); }
+
+		void generated_req_succeeded(State target_state, bool &progress)
+		{
+			_state = target_state;
+			progress = true;
+		}
+
+		void req_generated(State target_state, bool &progress)
+		{
+			_state = target_state;
+			progress = true;
+		}
+
+		void generated_req_succeeded(Secure_sb_state target_state, bool &progress)
+		{
+			_secure_sb_state = target_state;
+			progress = true;
+		}
+
+		void req_generated(Secure_sb_state target_state, bool &progress)
+		{
+			_secure_sb_state = target_state;
+			progress = true;
+		}
 };
 
 class Tresor::Superblock_control : public Module

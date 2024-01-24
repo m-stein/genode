@@ -36,7 +36,7 @@ class Tresor::Sb_check
 
 				using Module = Sb_check;
 
-				struct Attr { bool &out_success; };
+				struct Attr { };
 
 			private:
 
@@ -44,8 +44,9 @@ class Tresor::Sb_check
 					INIT, COMPLETE, READ_BLK, READ_BLK_SUCCEEDED, CHECK_VBD, CHECK_VBD_SUCCEEDED, CHECK_FT, CHECK_FT_SUCCEEDED,
 					CHECK_MT, CHECK_MT_SUCCEEDED};
 
-				Attr _attr;
-				State _state { INIT };
+				using Helper = Request_helper<Check, State>;
+
+				Helper _helper;
 				Generation _highest_gen { 0 };
 				Superblock_index _highest_gen_sb_idx { 0 };
 				bool _scan_for_highest_gen_sb_done { false };
@@ -55,42 +56,28 @@ class Tresor::Sb_check
 				Constructible<Tree_root> _tree_root { };
 				Block _blk { };
 				union {
-					Generated_request<Check, Vbd_check::Check, State> _check_vbd;
-					Generated_request<Check, Ft_check::Check, State> _check_ft;
-					Generated_request<Check, Block_io_read, State> _read_block;
+					Generated_request<Helper, Vbd_check::Check, State> _check_vbd;
+					Generated_request<Helper, Ft_check::Check, State> _check_ft;
+					Generated_request<Helper, Block_io_read, State> _read_block;
 				};
 
 				NONCOPYABLE(Check);
 
-				void _mark_succeeded(bool &);
-
 			public:
 
-				Check(Attr attr) : _attr(attr) { }
+				Check(Attr const &attr) : _helper(*this, attr) { }
 
 				~Check() { }
 
 				void print(Output &out) const { Genode::print(out, "check"); }
 
-				void mark_failed(bool &, Error_string);
-
 				bool execute(Vbd_check &vbd_check, Ft_check &ft_check, Block_io &block_io);
 
-				bool complete() const { return _state == COMPLETE; }
+				bool complete() const { return _helper.complete(); }
+				bool success() const { return _helper.success(); }
 		};
 
 		Sb_check() { }
-
-		/*
-		 * ANMERKUNG
-		 *
-		 * Pro (indirekt) angesprochenem Modul kommt ein Argument bei
-		 * MODULE::execute(..) und REQUEST::execute(..) sowie diversen
-		 * Sub-Calls hinzu (Beispiele: VBD: 5 Module, Superblock Control:
-		 * 7 Module). Dies könnte durch eine Übergabe am Modul-Konstruktor und
-		 * entsprechenden Member weniger invasiv gemacht werden (insofern man
-		 * Requests Zugriff auf diese Member gewährt.
-		 */
 
 		bool execute(Check &check, Vbd_check &vbd_check, Ft_check &ft_check, Block_io &block_io) { return check.execute(vbd_check, ft_check, block_io); };
 

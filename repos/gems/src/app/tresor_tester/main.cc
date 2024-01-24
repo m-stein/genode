@@ -401,6 +401,20 @@ class Tresor_tester::Command : public Module_channel
 		void execute(bool &progress);
 
 		using Module = Main;
+
+		void generated_req_failed(bool &progress) { mark_failed(progress, "generated request failed"); }
+
+		void generated_req_succeeded(State target_state, bool &progress)
+		{
+			_state = target_state;
+			progress = true;
+		}
+
+		void req_generated(State target_state, bool &progress)
+		{
+			_state = target_state;
+			progress = true;
+		}
 };
 
 
@@ -794,8 +808,13 @@ bool Tresor_tester::Command::new_execute(Sb_check &sb_check, Vbd_check &vbd_chec
 {
 	bool progress = false;
 	switch (_state) {
-	case CHECK_SB: _with_request<Sb_check::Check>([&] (auto &req) { progress |= req.execute(sb_check, vbd_check, ft_check, block_io); }); break;
+	case CHECK_SB:
+
+		_with_request<Sb_check::Check>([&] (auto &req) { progress |= req.execute(sb_check, vbd_check, ft_check, block_io); });
+		break;
+
 	case CHECK_SB_SUCCEEDED:
+
 		mark_succeeded(progress);
 		_with_request<Sb_check::Check>([&] (auto &req) {
 			_main.with_alloc([&] (Allocator &alloc) {
@@ -803,6 +822,7 @@ bool Tresor_tester::Command::new_execute(Sb_check &sb_check, Vbd_check &vbd_chec
 			});
 		});
 		break;
+
 	default: break;
 	}
 	return progress;
@@ -871,7 +891,7 @@ void Tresor_tester::Command::execute(bool &progress)
 	case CHECK:
 
 		_main.with_alloc([&] (Allocator &alloc) {
-			_request_ptr = new (alloc) Generated_request_base<Command, Sb_check::Check, State>(*this, _state, CHECK_SB, CHECK_SB_SUCCEEDED, progress);
+			_request_ptr = new (alloc) Generated_request_base<Command, Sb_check::Check, State>(*this, CHECK_SB, CHECK_SB_SUCCEEDED, progress);
 		});
 		break;
 
