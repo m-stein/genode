@@ -88,6 +88,10 @@ class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_compos
 			default: break;
 			}
 		}
+
+		using Module = Main;
+
+		static constexpr char const *name() { return "tresor_check"; }
 };
 
 void Component::construct(Genode::Env &env) { static Tresor_check::Main main { env }; }

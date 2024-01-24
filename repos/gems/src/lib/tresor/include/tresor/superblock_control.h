@@ -156,6 +156,8 @@ class Tresor::Superblock_control_channel : public Module_channel
 		~Superblock_control_channel() { }
 
 		void mark_failed(bool &progress, Error_string const &err_str) { _mark_req_failed(progress, err_str.string()); }
+
+		using Module = Superblock_control;
 };
 
 class Tresor::Superblock_control : public Module
@@ -185,6 +187,8 @@ class Tresor::Superblock_control : public Module
 		Superblock_info sb_info() const;
 
 		Superblock_control(Block_io &block_io);
+
+		static constexpr char const *name() { return "sb_control"; }
 };
 
 #endif /* _TRESOR__SUPERBLOCK_CONTROL_H_ */

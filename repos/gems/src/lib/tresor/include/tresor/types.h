@@ -109,8 +109,8 @@ namespace Tresor {
 	template <typename, typename, typename>
 	class Generated_request_base;
 
-	template <typename SRC_REQ, typename DST_REQ, typename STATE>
-	using Generated_request = Constructible<Generated_request_base<SRC_REQ, DST_REQ, STATE> >;
+	template <typename SRC_REQ, typename REQ, typename STATE>
+	using Generated_request = Constructible<Generated_request_base<SRC_REQ, REQ, STATE> >;
 
 	template <size_t LEN>
 	class Fixed_length;
@@ -176,7 +176,7 @@ namespace Tresor {
 }
 
 
-template <typename STATE, typename ATTR>
+template <typename REQ, typename STATE>
 class Tresor::Request_helper
 {
 	private:
@@ -185,21 +185,20 @@ class Tresor::Request_helper
 
 	public:
 
+		REQ const &req;
+		typename REQ::Attr const attr;
 		STATE state { STATE::INIT };
-		char const *module_name;
-		char const *req_type;
-		ATTR attr;
 
-		Request_helper(char const *module_name, char const *req_type, ATTR const &attr)
+		Request_helper(REQ &req, REQ::Attr const &attr)
 		:
-			module_name(module_name), req_type(req_type), attr(attr)
+			req(req), attr(attr)
 		{ }
 
 		bool complete() const { return state == STATE::COMPLETE; }
 
 		void mark_failed(bool &progress, Error_string const &err_str)
 		{
-			error(module_name, ": ", req_type, " failed: ", err_str);
+			error(REQ::Module::name(), ": request (", req, ") failed: ", err_str);
 			attr.out_success = false;
 			state = STATE::COMPLETE;
 			progress = true;
@@ -214,17 +213,15 @@ class Tresor::Request_helper
 };
 
 
-template <typename SRC_REQ, typename DST_REQ, typename STATE>
+template <typename SRC_REQ, typename REQ, typename STATE>
 class Tresor::Generated_request_base
 {
 	private:
 
-		using Dst_module = DST_REQ::Module;
-
 		SRC_REQ &_src_req;
 		STATE &_state;
 		STATE _succeeded;
-		Reconstructible<DST_REQ> _dst_req;
+		Reconstructible<REQ> _req;
 		bool _success { false };
 
 	public:
@@ -232,19 +229,24 @@ class Tresor::Generated_request_base
 		template <typename... ARGS>
 		Generated_request_base(SRC_REQ &src_req, STATE &state, STATE generated, STATE succeeded, bool &progress, ARGS &&... args)
 		:
-			_src_req(src_req), _state(state), _succeeded(succeeded), _dst_req(typename DST_REQ::Attr { args..., _success })
+			_src_req(src_req), _state(state), _succeeded(succeeded), _req(typename REQ::Attr { args..., _success })
 		{
+			if (VERBOSE_MODULE_COMMUNICATION)
+				log(SRC_REQ::Module::name(), " --", *_req, "--> ", REQ::Module::name());
+
 			_state = generated;
 			progress = true;
 		}
 
 		template <typename... ARGS>
-		bool execute(Dst_module &dst_mod, ARGS &&... args)
+		bool execute(REQ::Module &dst_mod, ARGS &&... args)
 		{
 			bool progress = false;
-			progress |= dst_mod.execute(*_dst_req, args...);
-			if (_dst_req->complete()) {
-				_dst_req.destruct();
+			progress |= dst_mod.execute(*_req, args...);
+			if (_req->complete()) {
+				if (VERBOSE_MODULE_COMMUNICATION)
+					log(SRC_REQ::Module::name(), " <--", *_req, "-- ", REQ::Module::name());
+
 				if (!_success) {
 					_src_req.mark_failed(progress, "generated request failed");
 					return progress;

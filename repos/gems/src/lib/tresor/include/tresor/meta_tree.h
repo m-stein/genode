@@ -102,6 +102,8 @@ class Tresor::Meta_tree_channel : public Module_channel
 		void execute(bool &, Block_io &);
 
 		void mark_failed(bool &progress, Error_string const &err_str) { _mark_req_failed(progress, err_str.string()); }
+
+		using Module = Meta_tree;
 };
 
 class Tresor::Meta_tree : public Module
@@ -126,6 +128,8 @@ class Tresor::Meta_tree : public Module
 		};
 
 		Meta_tree(Block_io &block_io);
+
+		static constexpr char const *name() { return "meta_tree"; }
 };
 
 #endif /* _TRESOR__META_TREE_H_ */

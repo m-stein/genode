@@ -399,6 +399,8 @@ class Tresor_tester::Command : public Module_channel
 		void data_mismatch (bool data_mismatch) { _data_mismatch = data_mismatch; }
 
 		void execute(bool &progress);
+
+		using Module = Main;
 };
 
 
@@ -760,6 +762,8 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 
 		template <typename FN>
 		void with_alloc(FN && fn) { fn(_heap); }
+
+		static constexpr char const *name() { return "tresor_tester"; }
 };
 
 
