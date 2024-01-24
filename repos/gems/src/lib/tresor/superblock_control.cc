@@ -140,7 +140,7 @@ void Superblock_control_channel::_access_vba(Virtual_block_device_request::Type 
 }
 
 
-void Superblock_control_channel::_tree_ext_step(Superblock::State sb_state, bool verbose, String<4> tree_name, bool &progress)
+void Superblock_control_channel::_tree_ext_step(Block_io &block_io, Superblock::State sb_state, bool verbose, String<4> tree_name, bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
@@ -231,14 +231,14 @@ void Superblock_control_channel::_tree_ext_step(Superblock::State sb_state, bool
 		_start_secure_sb(progress);
 		break;
 	}
-	case SECURE_SB: _secure_sb(progress); break;
+	case SECURE_SB: _secure_sb(block_io, progress); break;
 	case SECURE_SB_SUCCEEDED: _mark_req_successful(progress); break;
 	default: break;
 	}
 }
 
 
-void Superblock_control_channel::_rekey_vba(bool &progress)
+void Superblock_control_channel::_rekey_vba(Block_io &block_io, bool &progress)
 {
 	switch (_state) {
 	case REQ_SUBMITTED:
@@ -289,7 +289,7 @@ void Superblock_control_channel::_rekey_vba(bool &progress)
 			log("  secure sb: gen ", _curr_gen);
 		break;
 
-	case SECURE_SB: _secure_sb(progress); break;
+	case SECURE_SB: _secure_sb(block_io, progress); break;
 	case SECURE_SB_SUCCEEDED: _mark_req_successful(progress); break;
 	default: break;
 	}
@@ -304,7 +304,7 @@ void Superblock_control_channel::_start_secure_sb(bool &progress)
 }
 
 
-void Superblock_control_channel::_secure_sb(bool &progress)
+void Superblock_control_channel::_secure_sb(Block_io &block_io, bool &progress)
 {
 	switch (_secure_sb_state) {
 	case STARTED:
@@ -328,9 +328,10 @@ void Superblock_control_channel::_secure_sb(bool &progress)
 	case SYNC_CACHE_SUCCEEDED:
 
 		_sb_ciphertext.encode_to_blk(_blk);
-		_generate_req<Block_io::Write>(WRITE_SB_SUCCEEDED, progress, _sb_idx, _blk);
+		_write_block.construct(*this, _secure_sb_state, WRITE_BLOCK, WRITE_SB_SUCCEEDED, progress, _sb_idx, _blk);
 		break;
 
+	case WRITE_BLOCK: progress |= _write_block->execute(block_io); break;
 	case WRITE_SB_SUCCEEDED: _generate_req<Block_io::Sync>(SYNC_BLK_IO_SUCCEEDED, progress); break;
 	case SYNC_BLK_IO_SUCCEEDED:
 	{
@@ -357,7 +358,7 @@ void Superblock_control_channel::_secure_sb(bool &progress)
 }
 
 
-void Superblock_control_channel::_init_rekeying(bool &progress)
+void Superblock_control_channel::_init_rekeying(Block_io &block_io, bool &progress)
 {
 	switch (_state) {
 	case REQ_SUBMITTED:
@@ -388,14 +389,14 @@ void Superblock_control_channel::_init_rekeying(bool &progress)
 		_start_secure_sb(progress);
 		break;
 
-	case SECURE_SB: _secure_sb(progress); break;
+	case SECURE_SB: _secure_sb(block_io, progress); break;
 	case SECURE_SB_SUCCEEDED: _mark_req_successful(progress); break;
 	default: break;
 	}
 }
 
 
-void Superblock_control_channel::_discard_snap(bool &progress)
+void Superblock_control_channel::_discard_snap(Block_io &block_io, bool &progress)
 {
 	switch (_state) {
 	case REQ_SUBMITTED:
@@ -408,7 +409,7 @@ void Superblock_control_channel::_discard_snap(bool &progress)
 		_start_secure_sb(progress);
 		break;
 
-	case SECURE_SB: _secure_sb(progress); break;
+	case SECURE_SB: _secure_sb(block_io, progress); break;
 	case SECURE_SB_SUCCEEDED:
 
 		_req_ptr->_gen = _gen;
@@ -420,7 +421,7 @@ void Superblock_control_channel::_discard_snap(bool &progress)
 }
 
 
-void Superblock_control_channel::_create_snap(bool &progress)
+void Superblock_control_channel::_create_snap(Block_io &block_io, bool &progress)
 {
 	switch (_state) {
 	case REQ_SUBMITTED:
@@ -435,7 +436,7 @@ void Superblock_control_channel::_create_snap(bool &progress)
 		}
 		break;
 
-	case SECURE_SB: _secure_sb(progress); break;
+	case SECURE_SB: _secure_sb(block_io, progress); break;
 	case SECURE_SB_SUCCEEDED:
 
 		_req_ptr->_gen = _gen;
@@ -447,7 +448,7 @@ void Superblock_control_channel::_create_snap(bool &progress)
 }
 
 
-void Superblock_control_channel::_sync(bool &progress)
+void Superblock_control_channel::_sync(Block_io &block_io, bool &progress)
 {
 	switch (_state) {
 	case REQ_SUBMITTED:
@@ -457,7 +458,7 @@ void Superblock_control_channel::_sync(bool &progress)
 		_start_secure_sb(progress);
 		break;
 
-	case SECURE_SB: _secure_sb(progress); break;
+	case SECURE_SB: _secure_sb(block_io, progress); break;
 	case SECURE_SB_SUCCEEDED: _mark_req_successful(progress); break;
 	default: break;
 	}
@@ -476,7 +477,7 @@ void Superblock_control_request::print(Output &out) const
 }
 
 
-void Superblock_control_channel::_initialize(bool &progress)
+void Superblock_control_channel::_initialize(Block_io &block_io, bool &progress)
 {
 	switch (_state) {
 	case REQ_SUBMITTED:
@@ -488,9 +489,10 @@ void Superblock_control_channel::_initialize(bool &progress)
 	case READ_SB_HASH_SUCCEEDED:
 
 		_sb_idx = 0;
-		_generate_req<Block_io::Read>(READ_SB_SUCCEEDED, progress, _sb_idx, _blk);
+		_read_block.construct(*this, _state, READ_BLOCK, READ_SB_SUCCEEDED, progress, _sb_idx, _blk);
 		break;
 
+	case READ_BLOCK: progress |= _read_block->execute(block_io); break;
 	case READ_SB_SUCCEEDED:
 
 		_sb_ciphertext.decode_from_blk(_blk);
@@ -541,7 +543,7 @@ void Superblock_control_channel::_initialize(bool &progress)
 }
 
 
-void Superblock_control_channel::_deinitialize(bool &progress)
+void Superblock_control_channel::_deinitialize(Block_io &block_io, bool &progress)
 {
 	switch (_state) {
 	case REQ_SUBMITTED:
@@ -551,7 +553,7 @@ void Superblock_control_channel::_deinitialize(bool &progress)
 		_start_secure_sb(progress);
 		break;
 
-	case SECURE_SB: _secure_sb(progress); break;
+	case SECURE_SB: _secure_sb(block_io, progress); break;
 	case SECURE_SB_SUCCEEDED: _generate_req<Crypto::Remove_key>(REMOVE_CURR_KEY_SUCCEEDED, progress, _sb.current_key.id); break;
 	case REMOVE_CURR_KEY_SUCCEEDED:
 
@@ -572,7 +574,7 @@ void Superblock_control_channel::_deinitialize(bool &progress)
 }
 
 
-void Superblock_control_channel::execute(bool &progress)
+void Superblock_control_channel::execute(Block_io &block_io, bool &progress)
 {
 	if (!_req_ptr)
 		return;
@@ -580,15 +582,15 @@ void Superblock_control_channel::execute(bool &progress)
 	switch (_req_ptr->_type) {
 	case Request::READ_VBA: _access_vba(Virtual_block_device_request::READ_VBA, progress); break;
 	case Request::WRITE_VBA: _access_vba(Virtual_block_device_request::WRITE_VBA, progress); break;
-	case Request::SYNC: _sync(progress); break;
-	case Request::INITIALIZE_REKEYING: _init_rekeying(progress); break;
-	case Request::REKEY_VBA: _rekey_vba(progress); break;
-	case Request::VBD_EXTENSION_STEP: _tree_ext_step(Superblock::EXTENDING_VBD, VERBOSE_VBD_EXTENSION, "vbd", progress); break;
-	case Request::FT_EXTENSION_STEP: _tree_ext_step(Superblock::EXTENDING_FT, VERBOSE_FT_EXTENSION, "ft", progress); break;
-	case Request::CREATE_SNAPSHOT: _create_snap(progress); break;
-	case Request::DISCARD_SNAPSHOT: _discard_snap(progress); break;
-	case Request::INITIALIZE: _initialize(progress); break;
-	case Request::DEINITIALIZE: _deinitialize (progress); break;
+	case Request::SYNC: _sync(block_io, progress); break;
+	case Request::INITIALIZE_REKEYING: _init_rekeying(block_io, progress); break;
+	case Request::REKEY_VBA: _rekey_vba(block_io, progress); break;
+	case Request::VBD_EXTENSION_STEP: _tree_ext_step(block_io, Superblock::EXTENDING_VBD, VERBOSE_VBD_EXTENSION, "vbd", progress); break;
+	case Request::FT_EXTENSION_STEP: _tree_ext_step(block_io, Superblock::EXTENDING_FT, VERBOSE_FT_EXTENSION, "ft", progress); break;
+	case Request::CREATE_SNAPSHOT: _create_snap(block_io, progress); break;
+	case Request::DISCARD_SNAPSHOT: _discard_snap(block_io, progress); break;
+	case Request::INITIALIZE: _initialize(block_io, progress); break;
+	case Request::DEINITIALIZE: _deinitialize(block_io, progress); break;
 	}
 }
 
@@ -596,7 +598,7 @@ void Superblock_control_channel::execute(bool &progress)
 void Superblock_control::execute(bool &progress)
 {
 	for_each_channel<Channel>([&] (Channel &chan) {
-		chan.execute(progress); });
+		chan.execute(_block_io, progress); });
 }
 
 
@@ -632,7 +634,9 @@ void Superblock_control_channel::_request_submitted(Module_request &req)
 }
 
 
-Superblock_control::Superblock_control()
+Superblock_control::Superblock_control(Block_io &block_io)
+:
+	_block_io(block_io)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {
