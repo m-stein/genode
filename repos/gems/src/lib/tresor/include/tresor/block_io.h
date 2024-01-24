@@ -42,7 +42,7 @@ class Tresor::Block_io_read
 
 		enum State { INIT, COMPLETE, READ, READ_OK, FILE_ERR };
 
-		Request_helper<State, Attr> _helper;
+		Request_helper<Block_io_read, State> _helper;
 		Constructible<Read_write_file<State> > _file { };
 
 		NONCOPYABLE(Block_io_read);
@@ -51,7 +51,7 @@ class Tresor::Block_io_read
 
 		using Module = Block_io;
 
-		Block_io_read(Attr attr) : _helper("block_io", "read", attr) { }
+		Block_io_read(Attr const &attr) : _helper(*this, attr) { }
 
 		void print(Output &out) const { Genode::print(out, "read pba ", _helper.attr.in_pba); }
 
@@ -75,7 +75,7 @@ class Tresor::Block_io_write
 
 		enum State { INIT, COMPLETE, WRITE, WRITE_OK, FILE_ERR };
 
-		Request_helper<State, Attr> _helper;
+		Request_helper<Block_io_write, State> _helper;
 		Constructible<Read_write_file<State> > _file { };
 
 		NONCOPYABLE(Block_io_write);
@@ -84,7 +84,7 @@ class Tresor::Block_io_write
 
 		using Module = Block_io;
 
-		Block_io_write(Attr attr) : _helper("block_io", "write", attr) { }
+		Block_io_write(Attr const &attr) : _helper(*this, attr) { }
 
 		void print(Output &out) const { Genode::print(out, "write pba ", _helper.attr.in_pba); }
 
@@ -234,6 +234,8 @@ class Tresor::Block_io : public Module
 		bool execute(Block_io_read &req) { return req.execute(_vfs_env, _path); }
 
 		bool execute(Block_io_write &req) { return req.execute(_vfs_env, _path); }
+
+		static constexpr char const *name() { return "block_io"; }
 };
 
 #endif /* _TRESOR__BLOCK_IO_H_ */

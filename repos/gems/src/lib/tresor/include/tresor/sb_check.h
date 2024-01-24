@@ -93,6 +93,8 @@ class Tresor::Sb_check
 		 */
 
 		bool execute(Check &check, Vbd_check &vbd_check, Ft_check &ft_check, Block_io &block_io) { return check.execute(vbd_check, ft_check, block_io); };
+
+		static constexpr char const *name() { return "sb_check"; }
 };
 
 #endif /* _TRESOR__SB_CHECK_H_ */

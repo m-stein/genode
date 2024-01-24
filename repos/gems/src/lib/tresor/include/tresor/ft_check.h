@@ -75,6 +75,8 @@ class Tresor::Ft_check
 		Ft_check() { }
 
 		bool execute(Check &req, Block_io &block_io) { return req.execute(block_io); }
+
+		static constexpr char const *name() { return "ft_check"; }
 };
 
 #endif /* _TRESOR__FT_CHECK_H_ */

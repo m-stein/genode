@@ -109,6 +109,8 @@ class Tresor::Vbd_check
 		 * Tester: Test-Auswertung) liegt.
 		 */
 		bool execute(Check &req, Block_io &block_io) { return req.execute(block_io); }
+
+		static constexpr char const *name() { return "vbd_check"; }
 };
 
 #endif /* _TRESOR__VBD_CHECK_H_ */
