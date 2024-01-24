@@ -74,12 +74,12 @@ class Tresor::Superblock_control_channel : public Module_channel
 			TREE_EXT_STEP_IN_TREE_SUCCEEDED, DECRYPT_CURR_KEY_SUCCEEDED,
 			DECRYPT_PREV_KEY_SUCCEEDED, READ_SB_HASH_SUCCEEDED, ADD_PREV_KEY_SUCCEEDED,
 			ADD_CURR_KEY_SUCCEEDED, REMOVE_PREV_KEY_SUCCEEDED, REMOVE_CURR_KEY_SUCCEEDED,
-			READ_SB_SUCCEEDED, REQ_COMPLETE, REQ_GENERATED, SECURE_SB, SECURE_SB_SUCCEEDED };
+			READ_BLOCK, READ_SB_SUCCEEDED, REQ_COMPLETE, REQ_GENERATED, SECURE_SB, SECURE_SB_SUCCEEDED };
 
 		enum Secure_sb_state : State_uint {
 			SECURE_SB_INACTIVE, STARTED, ENCRYPT_CURR_KEY_SUCCEEDED,
 			SECURE_SB_REQ_GENERATED, ENCRYPT_PREV_KEY_SUCCEEDED, SYNC_CACHE_SUCCEEDED,
-			WRITE_SB_SUCCEEDED, SYNC_BLK_IO_SUCCEEDED, WRITE_SB_HASH_SUCCEEDED };
+			WRITE_BLOCK, WRITE_SB_SUCCEEDED, SYNC_BLK_IO_SUCCEEDED, WRITE_SB_HASH_SUCCEEDED };
 
 		State _state { INACTIVE };
 		Constructible<Tree_root> _ft { };
@@ -96,6 +96,10 @@ class Tresor::Superblock_control_channel : public Module_channel
 		Superblock &_sb;
 		Superblock_index &_sb_idx;
 		Generation &_curr_gen;
+		union {
+			Generated_request<Superblock_control_channel, Block_io_read, State> _read_block;
+			Generated_request<Superblock_control_channel, Block_io_write, Secure_sb_state> _write_block;
+		};
 
 		NONCOPYABLE(Superblock_control_channel);
 
@@ -125,29 +129,33 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 		void _start_secure_sb(bool &);
 
-		void _secure_sb(bool &);
+		void _secure_sb(Block_io &, bool &);
 
-		void _tree_ext_step(Superblock::State, bool, String<4>, bool &);
+		void _tree_ext_step(Block_io &, Superblock::State, bool, String<4>, bool &);
 
-		void _rekey_vba(bool &);
+		void _rekey_vba(Block_io &, bool &);
 
-		void _init_rekeying(bool &);
+		void _init_rekeying(Block_io &, bool &);
 
-		void _discard_snap(bool &);
+		void _discard_snap(Block_io &, bool &);
 
-		void _create_snap(bool &);
+		void _create_snap(Block_io &, bool &);
 
-		void _sync(bool &);
+		void _sync(Block_io &, bool &);
 
-		void _initialize(bool &);
+		void _initialize(Block_io &, bool &);
 
-		void _deinitialize(bool &);
+		void _deinitialize(Block_io &, bool &);
 
 	public:
 
-		void execute(bool &);
+		void execute(Block_io &, bool &);
 
 		Superblock_control_channel(Module_channel_id, Superblock &, Superblock_index &, Generation &);
+
+		~Superblock_control_channel() { }
+
+		void mark_failed(bool &progress, Error_string const &err_str) { _mark_req_failed(progress, err_str.string()); }
 };
 
 class Tresor::Superblock_control : public Module
@@ -160,6 +168,7 @@ class Tresor::Superblock_control : public Module
 		Superblock_index _sb_idx { INVALID_SB_IDX };
 		Generation _curr_gen { INVALID_GENERATION };
 		Constructible<Channel> _channels[1] { };
+		Block_io &_block_io;
 
 		void execute(bool &) override;
 
@@ -175,7 +184,7 @@ class Tresor::Superblock_control : public Module
 
 		Superblock_info sb_info() const;
 
-		Superblock_control();
+		Superblock_control(Block_io &block_io);
 };
 
 #endif /* _TRESOR__SUPERBLOCK_CONTROL_H_ */
