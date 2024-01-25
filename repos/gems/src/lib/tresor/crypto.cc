@@ -177,18 +177,19 @@ void Crypto_channel::_remove_key(bool &progress)
 }
 
 
-void Crypto_channel::_encrypt_client_data(bool &progress)
+void Crypto_channel::_encrypt_client_data(Client_datx &client_data, bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
 	case REQ_SUBMITTED:
 
-		_generate_req<Client_data_request>(
-			PLAINTEXT_BLK_OBTAINED, progress, Client_data_request::OBTAIN_PLAINTEXT_BLK,
+		_obtain_client_data.construct(
+			*this, OBTAIN_CLIENT_DATA, OBTAIN_CLIENT_DATA_SUCCEEDED, progress,
 			req._client_req_offset, req._client_req_tag, req._pba, req._vba, _blk);;
 		break;
 
-	case PLAINTEXT_BLK_OBTAINED:
+	case OBTAIN_CLIENT_DATA: progress |= _obtain_client_data->execute(client_data); break;
+	case OBTAIN_CLIENT_DATA_SUCCEEDED:
 
 		_key_dir(req._key_id)->encrypt_file.write(
 			WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress);
@@ -290,7 +291,7 @@ void Crypto_channel::_request_submitted(Module_request &mod_req)
 }
 
 
-void Crypto_channel::execute(bool &progress)
+void Crypto_channel::execute(Client_datx &client_data, bool &progress)
 {
 	if (!_req_ptr)
 		return;
@@ -301,7 +302,7 @@ void Crypto_channel::execute(bool &progress)
 	case Request::DECRYPT: _decrypt(progress); break;
 	case Request::ENCRYPT: _encrypt(progress); break;
 	case Request::DECRYPT_CLIENT_DATA: _decrypt_client_data(progress); break;
-	case Request::ENCRYPT_CLIENT_DATA: _encrypt_client_data(progress); break;
+	case Request::ENCRYPT_CLIENT_DATA: _encrypt_client_data(client_data, progress); break;
 	}
 }
 
@@ -309,7 +310,7 @@ void Crypto_channel::execute(bool &progress)
 void Crypto::execute(bool &progress)
 {
 	for_each_channel<Channel>([&] (Channel &chan) {
-		chan.execute(progress); });
+		chan.execute(_client_data, progress); });
 }
 
 
@@ -319,7 +320,9 @@ Crypto_channel::Crypto_channel(Module_channel_id id, Vfs::Env &vfs_env, Xml_node
 { }
 
 
-Crypto::Crypto(Vfs::Env &vfs_env, Xml_node const &xml_node)
+Crypto::Crypto(Vfs::Env &vfs_env, Xml_node const &xml_node, Client_datx &client_data)
+:
+	_client_data(client_data)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {

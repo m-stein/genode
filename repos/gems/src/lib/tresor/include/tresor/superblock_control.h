@@ -79,7 +79,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 		enum Secure_sb_state : State_uint {
 			SECURE_SB_INACTIVE, STARTED, ENCRYPT_CURR_KEY_SUCCEEDED,
 			SECURE_SB_REQ_GENERATED, ENCRYPT_PREV_KEY_SUCCEEDED, SYNC_CACHE_SUCCEEDED,
-			WRITE_BLOCK, WRITE_SB_SUCCEEDED, SYNC_BLK_IO_SUCCEEDED, WRITE_SB_HASH_SUCCEEDED };
+			WRITE_BLOCK, WRITE_SB_SUCCEEDED, SYNC_BLOCK_IO, SYNC_BLOCK_IO_SUCCEEDED, WRITE_SB_HASH_SUCCEEDED };
 
 		State _state { INACTIVE };
 		Constructible<Tree_root> _ft { };
@@ -99,6 +99,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 		union {
 			Generated_request<Superblock_control_channel, Block_io_read, State> _read_block;
 			Generated_request<Superblock_control_channel, Block_io_write, Secure_sb_state> _write_block;
+			Generated_request<Superblock_control_channel, Block_io_sync, Secure_sb_state> _sync_block_io;
 		};
 
 		NONCOPYABLE(Superblock_control_channel);
