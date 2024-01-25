@@ -476,7 +476,7 @@ struct Tresor_tester::Snapshot_reference_tree : public Avl_tree<Snapshot_referen
 };
 
 
-class Tresor_tester::Client_data : public Module, public Module_channel
+class Tresor_tester::Client_data : public Module, public Module_channel, public Client_datx
 {
 	private:
 
@@ -493,6 +493,8 @@ class Tresor_tester::Client_data : public Module, public Module_channel
 	public:
 
 		Client_data(Main &main) : Module_channel(CLIENT_DATA, 0), _main(main) { add_channel(*this); }
+
+		void obtain_client_data(Client_data_obtain::Attr const &attr) override;
 };
 
 
@@ -515,10 +517,10 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 		Constructible<Virtual_block_device> _vbd { };
 		Constructible<Superblock_control> _sb_control { };
 		Constructible<Request_pool> _request_pool { };
-		Constructible<Client_data> _client_data { };
+		Client_data _client_data { *this };
 		Constructible<Meta_tree> _meta_tree { };
 		Trust_anchor _trust_anchor { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
-		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto") };
+		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto"), _client_data };
 		Tresor::Path const _block_io_path { _config_rom.xml().sub_node("block-io").attribute_value("path", Tresor::Path()) };
 		Vfs::Vfs_handle &_block_io_file { open_file(_vfs_env, _block_io_path, Vfs::Directory_service::OPEN_MODE_RDWR) };
 		Block_io _block_io { _vfs_env, _config_rom.xml().sub_node("block-io"), _block_io_file };
@@ -624,6 +626,7 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 		{
 			add_module(CRYPTO, _crypto);
 			add_module(TRUST_ANCHOR, _trust_anchor);
+			add_module(CLIENT_DATA, _client_data);
 			add_module(COMMAND_POOL, *this);
 			add_module(BLOCK_IO, _block_io);
 			add_module(VBD_INITIALIZER, _vbd_initializer);
@@ -731,26 +734,22 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 			_vbd.construct();
 			_sb_control.construct(_block_io);
 			_request_pool.construct();
-			_client_data.construct(*this);
 			_meta_tree.construct(_block_io);
 			add_module(FREE_TREE, *_free_tree);
 			add_module(VIRTUAL_BLOCK_DEVICE, *_vbd);
 			add_module(SUPERBLOCK_CONTROL, *_sb_control);
 			add_module(REQUEST_POOL, *_request_pool);
-			add_module(CLIENT_DATA, *_client_data);
 			add_module(META_TREE, *_meta_tree);
 		}
 
 		void destruct_tresor_modules()
 		{
 			remove_module(META_TREE);
-			remove_module(CLIENT_DATA);
 			remove_module(REQUEST_POOL);
 			remove_module(SUPERBLOCK_CONTROL);
 			remove_module(VIRTUAL_BLOCK_DEVICE);
 			remove_module(FREE_TREE);
 			_meta_tree.destruct();
-			_client_data.destruct();
 			_request_pool.destruct();
 			_sb_control.destruct();
 			_vbd.destruct();
@@ -805,6 +804,12 @@ void Tresor_tester::Client_data::_request_submitted(Module_request &mod_req)
 	case Request::SUPPLY_PLAINTEXT_BLK: _main.verify_blk_data(req._req_tag, req._vba, req._blk); break;
 	}
 	req._success = true;
+}
+
+
+void Tresor_tester::Client_data::obtain_client_data(Client_data_obtain::Attr const &attr)
+{
+	_main.generate_blk_data(attr.in_req_tag, attr.in_vba, attr.out_blk);
 }
 
 

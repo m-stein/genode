@@ -17,6 +17,7 @@
 /* tresor includes */
 #include <tresor/types.h>
 #include <tresor/file.h>
+#include <tresor/client_data.h>
 
 namespace Tresor {
 
@@ -64,8 +65,8 @@ class Tresor::Crypto_channel : public Module_channel
 		using Request = Crypto_request;
 
 		enum State {
-			REQ_SUBMITTED, REQ_COMPLETE, PLAINTEXT_BLK_OBTAINED, PLAINTEXT_BLK_SUPPLIED, REQ_GENERATED,
-			READ_OK, WRITE_OK, FILE_ERR };
+			REQ_SUBMITTED, REQ_COMPLETE, OBTAIN_CLIENT_DATA, OBTAIN_CLIENT_DATA_SUCCEEDED, PLAINTEXT_BLK_SUPPLIED,
+			REQ_GENERATED, READ_OK, WRITE_OK, FILE_ERR };
 
 		struct Key_directory
 		{
@@ -89,6 +90,7 @@ class Tresor::Crypto_channel : public Module_channel
 		bool _generated_req_success { false };
 		Block _blk { };
 		Request *_req_ptr { };
+		Generated_request<Crypto_channel, Client_data_obtain, State> _obtain_client_data { };
 
 		NONCOPYABLE(Crypto_channel);
 
@@ -113,7 +115,7 @@ class Tresor::Crypto_channel : public Module_channel
 
 		void _encrypt(bool &);
 
-		void _encrypt_client_data(bool &);
+		void _encrypt_client_data(Client_datx &, bool &);
 
 		void _decrypt_client_data(bool &);
 
@@ -127,7 +129,23 @@ class Tresor::Crypto_channel : public Module_channel
 
 		Crypto_channel(Module_channel_id, Vfs::Env &, Xml_node const &);
 
-		void execute(bool &);
+		void execute(Client_datx &, bool &);
+
+		using Module = Crypto;
+
+		void generated_req_failed(bool &progress) { _mark_req_failed(progress, "generated request failed"); }
+
+		void generated_req_succeeded(State target_state, bool &progress)
+		{
+			_state = target_state;
+			progress = true;
+		}
+
+		void req_generated(State target_state, bool &progress)
+		{
+			_state = target_state;
+			progress = true;
+		}
 };
 
 class Tresor::Crypto : public Module
@@ -138,6 +156,7 @@ class Tresor::Crypto : public Module
 		using Channel = Crypto_channel;
 
 		Constructible<Channel> _channels[1] { };
+		Client_datx &_client_data;
 
 		NONCOPYABLE(Crypto);
 
@@ -167,9 +186,11 @@ class Tresor::Crypto : public Module
 			: Request(src_mod, src_chan, Request::ENCRYPT, 0, 0, key, *(Key_value*)0, pba, 0, blk, succ) { }
 		};
 
-		Crypto(Vfs::Env &, Xml_node const &);
+		Crypto(Vfs::Env &, Xml_node const &, Client_datx &);
 
 		void execute(bool &) override;
+
+		static constexpr char const *name() { return "crypto"; }
 };
 
 #endif /* _TRESOR__CRYPTO_H_ */

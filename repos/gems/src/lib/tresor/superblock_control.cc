@@ -332,8 +332,9 @@ void Superblock_control_channel::_secure_sb(Block_io &block_io, bool &progress)
 		break;
 
 	case WRITE_BLOCK: progress |= _write_block->execute(block_io); break;
-	case WRITE_SB_SUCCEEDED: _generate_req<Block_io::Sync>(SYNC_BLK_IO_SUCCEEDED, progress); break;
-	case SYNC_BLK_IO_SUCCEEDED:
+	case WRITE_SB_SUCCEEDED: _sync_block_io.construct(*this, SYNC_BLOCK_IO, SYNC_BLOCK_IO_SUCCEEDED, progress); break;
+	case SYNC_BLOCK_IO: progress |= _sync_block_io->execute(block_io); break;
+	case SYNC_BLOCK_IO_SUCCEEDED:
 	{
 		_sb_ciphertext.encode_to_blk(_blk);
 		calc_hash(_blk, _hash);

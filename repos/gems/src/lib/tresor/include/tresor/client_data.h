@@ -17,11 +17,83 @@
 /* tresor includes */
 #include <tresor/types.h>
 
-namespace Tresor { class Client_data_request; }
+namespace Tresor {
+
+	class Client_datx;
+	class Client_data_obtain;
+	class Client_data_request;
+}
 
 namespace Vfs_tresor { class Client_data; }
 
 namespace Tresor_tester { class Client_data; }
+
+class Tresor::Client_data_obtain
+{
+	public:
+
+		using Module = Client_datx;
+
+		struct Attr
+		{
+			Request_offset const in_req_off;
+			Request_tag const in_req_tag;
+			Physical_block_address const in_pba;
+			Virtual_block_address const in_vba;
+			Block &out_blk;
+		};
+
+		struct Back_end : Interface
+		{
+			virtual void obtain_client_data(Attr const &attr) = 0;
+		};
+
+	private:
+
+		enum State { INIT, COMPLETE };
+
+		Request_helper<Client_data_obtain, State> _helper;
+
+		NONCOPYABLE(Client_data_obtain);
+
+	public:
+
+		Client_data_obtain(Attr const &attr) : _helper(*this, attr) { }
+
+		void print(Output &out) const { Genode::print(out, "obtain client data"); }
+
+		bool execute(Back_end &back_end)
+		{
+			bool progress { false };
+			switch(_helper.state) {
+			case INIT:
+				back_end.obtain_client_data(_helper.attr);
+				_helper.mark_succeeded(progress);
+				break;
+			default: break;
+			}
+			return progress;
+		}
+
+		bool complete() const { return _helper.complete(); }
+		bool success() const { return _helper.success(); }
+};
+
+class Tresor::Client_datx : public Client_data_obtain::Back_end
+{
+	private:
+
+		NONCOPYABLE(Client_datx);
+
+	public:
+
+		Client_datx() { }
+
+		template <typename REQ>
+		bool execute(REQ &req) { return req.execute(*this); }
+
+		static constexpr char const *name() { return "client_data"; }
+};
 
 class Tresor::Client_data_request : public Module_request
 {

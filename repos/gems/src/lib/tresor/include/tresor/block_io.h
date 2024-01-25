@@ -47,7 +47,6 @@ class Tresor::Block_io_read
 		Request_helper<Block_io_read, State> _helper;
 		Constructible<File<State> > _file { };
 
-
 		NONCOPYABLE(Block_io_read);
 
 	public:
