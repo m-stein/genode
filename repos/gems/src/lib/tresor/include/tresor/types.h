@@ -265,6 +265,7 @@ class Tresor::Generated_request_base
 					return progress;
 				}
 				_src_req.generated_req_succeeded(_succeeded, progress);
+				_req.destruct();
 			}
 			return progress;
 		}
