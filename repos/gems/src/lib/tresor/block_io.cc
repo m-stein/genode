@@ -19,6 +19,25 @@
 using namespace Tresor;
 
 
+bool Block_io_sync::execute(Vfs::Vfs_handle &file_handle)
+{
+	bool progress = false;
+	switch (_helper.state) {
+	case INIT:
+
+		_file.construct(_helper.state, file_handle);
+		_helper.state = SYNC;
+		progress = true;
+		break;
+
+	case SYNC: _file->sync(SYNC_OK, FILE_ERR, progress); break;
+	case SYNC_OK: _helper.mark_succeeded(progress); break;
+	case FILE_ERR: _helper.mark_failed(progress, "file operation failed"); break;
+	default: break;
+	}
+	return progress;
+}
+
 bool Block_io_read::execute(Vfs::Vfs_handle &file_handle)
 {
 	bool progress = false;

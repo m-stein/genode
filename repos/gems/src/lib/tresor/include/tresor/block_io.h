@@ -23,6 +23,7 @@ namespace Tresor {
 	class Block_io;
 	class Block_io_read;
 	class Block_io_write;
+	class Block_io_sync;
 	class Block_io_request;
 	class Block_io_channel;
 }
@@ -87,6 +88,35 @@ class Tresor::Block_io_write
 		Block_io_write(Attr const &attr) : _helper(*this, attr) { }
 
 		void print(Output &out) const { Genode::print(out, "write pba ", _helper.attr.in_pba); }
+
+		bool execute(Vfs::Vfs_handle &);
+
+		bool complete() const { return _helper.complete(); }
+		bool success() const { return _helper.success(); }
+};
+
+class Tresor::Block_io_sync
+{
+	public:
+
+		using Module = Block_io;
+
+		struct Attr { };
+
+	private:
+
+		enum State { INIT, COMPLETE, SYNC, SYNC_OK, FILE_ERR };
+
+		Request_helper<Block_io_sync, State> _helper;
+		Constructible<File<State> > _file { };
+
+		NONCOPYABLE(Block_io_sync);
+
+	public:
+
+		Block_io_sync(Attr const &attr) : _helper(*this, attr) { }
+
+		void print(Output &out) const { Genode::print(out, "sync"); }
 
 		bool execute(Vfs::Vfs_handle &);
 

@@ -209,7 +209,7 @@ class Tresor::File
 
 				default:
 
-					error("file \"", _path ,"\": sync failed");
+					error("file: sync failed");
 					_host_state = failed;
 					_state = IDLE;
 					progress = true;
