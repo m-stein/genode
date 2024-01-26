@@ -476,7 +476,7 @@ struct Tresor_tester::Snapshot_reference_tree : public Avl_tree<Snapshot_referen
 };
 
 
-class Tresor_tester::Client_data : public Module, public Module_channel, public Client_datx
+class Tresor_tester::Client_data : public Module, public Module_channel, public Client_data_interface
 {
 	private:
 
@@ -494,7 +494,7 @@ class Tresor_tester::Client_data : public Module, public Module_channel, public 
 
 		Client_data(Main &main) : Module_channel(CLIENT_DATA, 0), _main(main) { add_channel(*this); }
 
-		void obtain_client_data(Client_data_obtain::Attr const &attr) override;
+		void obtain(Obtain_attr const &attr) override;
 };
 
 
@@ -807,7 +807,7 @@ void Tresor_tester::Client_data::_request_submitted(Module_request &mod_req)
 }
 
 
-void Tresor_tester::Client_data::obtain_client_data(Client_data_obtain::Attr const &attr)
+void Tresor_tester::Client_data::obtain(Obtain_attr const &attr)
 {
 	_main.generate_blk_data(attr.in_req_tag, attr.in_vba, attr.out_blk);
 }

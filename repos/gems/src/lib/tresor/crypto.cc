@@ -177,20 +177,13 @@ void Crypto_channel::_remove_key(bool &progress)
 }
 
 
-void Crypto_channel::_encrypt_client_data(Client_datx &client_data, bool &progress)
+void Crypto_channel::_encrypt_client_data(Client_data_interface &client_data, bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
 	case REQ_SUBMITTED:
 
-		_obtain_client_data.construct(
-			*this, OBTAIN_CLIENT_DATA, OBTAIN_CLIENT_DATA_SUCCEEDED, progress,
-			req._client_req_offset, req._client_req_tag, req._pba, req._vba, _blk);;
-		break;
-
-	case OBTAIN_CLIENT_DATA: progress |= _obtain_client_data->execute(client_data); break;
-	case OBTAIN_CLIENT_DATA_SUCCEEDED:
-
+		client_data.obtain({req._client_req_offset, req._client_req_tag, req._pba, req._vba, _blk});
 		_key_dir(req._key_id)->encrypt_file.write(
 			WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress);
 		break;
@@ -291,7 +284,7 @@ void Crypto_channel::_request_submitted(Module_request &mod_req)
 }
 
 
-void Crypto_channel::execute(Client_datx &client_data, bool &progress)
+void Crypto_channel::execute(Client_data_interface &client_data, bool &progress)
 {
 	if (!_req_ptr)
 		return;
@@ -320,7 +313,7 @@ Crypto_channel::Crypto_channel(Module_channel_id id, Vfs::Env &vfs_env, Xml_node
 { }
 
 
-Crypto::Crypto(Vfs::Env &vfs_env, Xml_node const &xml_node, Client_datx &client_data)
+Crypto::Crypto(Vfs::Env &vfs_env, Xml_node const &xml_node, Client_data_interface &client_data)
 :
 	_client_data(client_data)
 {
