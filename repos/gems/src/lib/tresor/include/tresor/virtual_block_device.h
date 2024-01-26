@@ -17,6 +17,7 @@
 /* tresor includes */
 #include <tresor/types.h>
 #include <tresor/free_tree.h>
+#include <tresor/block_io.h>
 #include <tresor/client_data_interface.h>
 
 namespace Tresor {
@@ -80,7 +81,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		using Request = Virtual_block_device_request;
 
 		enum State {
-			SUBMITTED, REQ_GENERATED, REQ_COMPLETE, READ_BLK_SUCCEEDED, WRITE_BLK_SUCCEEDED,
+			SUBMITTED, REQ_GENERATED, REQ_COMPLETE, READ_BLK, READ_BLK_SUCCEEDED, WRITE_BLK_SUCCEEDED,
 			DECRYPT_BLOCK_SUCCEEDED, ENCRYPT_BLOCK_SUCCEEDED, ALLOC_PBAS_SUCCEEDED };
 
 		Request *_req_ptr { nullptr };
@@ -99,6 +100,9 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		Block _data_blk { };
 		bool _first_snapshot { false };
 		bool _gen_req_success { false };
+		union {
+			Generated_request<Virtual_block_device_channel, Block_io_read, State> _read_block;
+		};
 
 		NONCOPYABLE(Virtual_block_device_channel);
 
@@ -123,7 +127,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		bool _find_next_snap_to_rekey_vba_at(Snapshot_index &) const;
 
-		void _read_vba(Client_data_interface &, bool &);
+		void _read_vba(Client_data_interface &, Block_io &, bool &);
 
 		bool _check_and_decode_read_blk(bool &);
 
@@ -139,11 +143,11 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		void _generate_ft_alloc_req_for_write_vba(bool &);
 
-		void _write_vba(Client_data_interface &, bool &);
+		void _write_vba(Client_data_interface &, Block_io &, bool &);
 
 		void _update_nodes_of_branch_of_written_vba();
 
-		void _rekey_vba(bool &);
+		void _rekey_vba(Block_io &, bool &);
 
 		void _generate_ft_alloc_req_for_rekeying(Tree_level_index, bool &);
 
@@ -155,13 +159,31 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		void _generate_ft_alloc_req_for_resizing(Tree_level_index, bool &);
 
-		void _extension_step(bool &);
+		void _extension_step(Block_io &, bool &);
 
 	public:
 
 		Virtual_block_device_channel(Module_channel_id id) : Module_channel(VIRTUAL_BLOCK_DEVICE, id) { }
 
-		void execute(Client_data_interface &, bool &);
+		~Virtual_block_device_channel() { }
+
+		void execute(Client_data_interface &, Block_io &, bool &);
+
+		using Module = Virtual_block_device;
+
+		void generated_req_failed(bool &progress) { _mark_req_failed(progress, "generated request failed"); }
+
+		void generated_req_succeeded(State target_state, bool &progress)
+		{
+			_state = target_state;
+			progress = true;
+		}
+
+		void req_generated(State target_state, bool &progress)
+		{
+			_state = target_state;
+			progress = true;
+		}
 };
 
 class Tresor::Virtual_block_device : public Module
@@ -172,6 +194,7 @@ class Tresor::Virtual_block_device : public Module
 
 		Constructible<Channel> _channels[1] { };
 		Client_data_interface &_client_data;
+		Block_io &_block_io;
 
 		NONCOPYABLE(Virtual_block_device);
 
@@ -179,7 +202,9 @@ class Tresor::Virtual_block_device : public Module
 
 	public:
 
-		Virtual_block_device(Client_data_interface &);
+		Virtual_block_device(Client_data_interface &, Block_io &);
+
+		static constexpr char const *name() { return "vbd"; }
 };
 
 #endif /* _TRESOR__VIRTUAL_BLOCK_DEVICE_H_ */

@@ -14,7 +14,6 @@
 /* tresor includes */
 #include <tresor/virtual_block_device.h>
 #include <tresor/hash.h>
-#include <tresor/block_io.h>
 #include <tresor/crypto.h>
 
 using namespace Tresor;
@@ -73,7 +72,7 @@ void Virtual_block_device_channel::_generate_write_blk_req(bool &progress)
 }
 
 
-void Virtual_block_device_channel::_read_vba(Client_data_interface &client_data, bool &progress)
+void Virtual_block_device_channel::_read_vba(Client_data_interface &client_data, Block_io &block_io, bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
@@ -82,11 +81,12 @@ void Virtual_block_device_channel::_read_vba(Client_data_interface &client_data,
 		_snap_idx = req._curr_snap_idx;
 		_vba = req._vba;
 		_lvl = snap().max_level;
-		_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
+		_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
 		if (VERBOSE_READ_VBA)
 			log("  load branch:\n    ", Branch_lvl_prefix("root: "), snap());
 		break;
 
+	case READ_BLK: progress |= _read_block->execute(block_io); break;
 	case READ_BLK_SUCCEEDED:
 	{
 		if (!_check_and_decode_read_blk(progress))
@@ -106,14 +106,14 @@ void Virtual_block_device_channel::_read_vba(Client_data_interface &client_data,
 		_lvl--;
 		_new_pbas.pbas[_lvl] = node.pba;
 		if (_lvl)
-			_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _encoded_blk);
+			_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _encoded_blk);
 		else
 			if (node.gen == INITIAL_GENERATION) {
 				memset(&_data_blk, 0, BLOCK_SIZE);
 				_state = DECRYPT_BLOCK_SUCCEEDED;
 				progress = true;
 			} else
-				_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _data_blk);
+				_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _data_blk);
 		break;
 	}
 	case DECRYPT_BLOCK_SUCCEEDED:
@@ -245,7 +245,7 @@ void Virtual_block_device_channel::_generate_ft_alloc_req_for_write_vba(bool &pr
 }
 
 
-void Virtual_block_device_channel::_write_vba(Client_data_interface &client_data, bool &progress)
+void Virtual_block_device_channel::_write_vba(Client_data_interface &client_data, Block_io &block_io, bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
@@ -254,11 +254,12 @@ void Virtual_block_device_channel::_write_vba(Client_data_interface &client_data
 		_snap_idx = req._curr_snap_idx;
 		_vba = req._vba;
 		_lvl = snap().max_level;
-		_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
+		_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
 		if (VERBOSE_WRITE_VBA)
 			log("  load branch:\n    ", Branch_lvl_prefix("root: "), snap());
 		break;
 
+	case READ_BLK: progress |= _read_block->execute(block_io); break;
 	case READ_BLK_SUCCEEDED:
 
 		if (!_check_and_decode_read_blk(progress))
@@ -268,7 +269,7 @@ void Virtual_block_device_channel::_write_vba(Client_data_interface &client_data
 			log("    ", Branch_lvl_prefix("lvl ", _lvl, " node ", _node_idx(_lvl, _vba), ": "), _node(_lvl, _vba));
 
 		if (_lvl > 1)
-			_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, _node(_lvl, _vba).pba, _encoded_blk);
+			_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, _node(_lvl, _vba).pba, _encoded_blk);
 		else {
 			_set_new_pbas_and_num_blks_for_alloc();
 			if (_num_blks)
@@ -387,7 +388,7 @@ void Virtual_block_device_channel::_generate_ft_alloc_req_for_rekeying(Tree_leve
 }
 
 
-void Virtual_block_device_channel::_rekey_vba(bool &progress)
+void Virtual_block_device_channel::_rekey_vba(Block_io &block_io, bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
@@ -398,12 +399,13 @@ void Virtual_block_device_channel::_rekey_vba(bool &progress)
 		_first_snapshot = true;
 		_lvl = snap().max_level;
 		_old_pbas.pbas[_lvl] = snap().pba;
-		_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
+		_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
 		if (VERBOSE_REKEYING)
 			log("    snapshot ", _snap_idx, ":\n      load branch:\n        ",
 			    Branch_lvl_prefix("root: "), snap());
 		break;
 
+	case READ_BLK: progress |= _read_block->execute(block_io); break;
 	case READ_BLK_SUCCEEDED:
 
 		if (!_check_and_decode_read_blk(progress))
@@ -431,7 +433,7 @@ void Virtual_block_device_channel::_rekey_vba(bool &progress)
 			} else {
 				_lvl--;
 				_old_pbas.pbas[_lvl] = node.pba;
-				_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _lvl ? _encoded_blk : _data_blk);
+				_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, node.pba, _lvl ? _encoded_blk : _data_blk);
 			}
 		} else {
 			_generate_req<Crypto::Decrypt>(
@@ -499,7 +501,7 @@ void Virtual_block_device_channel::_rekey_vba(bool &progress)
 					progress = true;
 				else {
 					_old_pbas.pbas[_lvl] = snap().pba;
-					_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
+					_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
 					if (VERBOSE_REKEYING)
 						log("    snapshot ", _snap_idx, ":\n      load branch:\n        ",
 						    Branch_lvl_prefix("root: "), snap());
@@ -644,7 +646,7 @@ void Virtual_block_device_channel::_request_submitted(Module_request &req)
 }
 
 
-void Virtual_block_device_channel::_extension_step(bool &progress)
+void Virtual_block_device_channel::_extension_step(Block_io &block_io, bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
@@ -656,7 +658,7 @@ void Virtual_block_device_channel::_extension_step(bool &progress)
 		_lvl = snap().max_level;
 		_old_pbas.pbas[_lvl] = snap().pba;
 		if (_vba <= tree_max_max_vba(req._snap_degr, snap().max_level)) {
-			_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
+			_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
 			if (VERBOSE_VBD_EXTENSION)
 				log("  read lvl ", _lvl, " parent snap ", _snap_idx, " ", snap());
 		} else {
@@ -669,6 +671,7 @@ void Virtual_block_device_channel::_extension_step(bool &progress)
 		}
 		break;
 
+	case READ_BLK: progress |= _read_block->execute(block_io); break;
 	case READ_BLK_SUCCEEDED:
 	{
 		_t1_blks.items[_lvl].decode_from_blk(_encoded_blk);
@@ -688,7 +691,7 @@ void Virtual_block_device_channel::_extension_step(bool &progress)
 			Type_1_node &node { _node(_lvl, _vba) };
 			if (node.valid()) {
 				_old_pbas.pbas[_lvl - 1] = node.pba;
-				_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _encoded_blk);
+				_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, node.pba, _encoded_blk);
 				if (VERBOSE_VBD_EXTENSION)
 					log("  read lvl ", _lvl - 1, " parent lvl ", _lvl, " node ", node_idx, " ", node);
 				_lvl--;
@@ -745,16 +748,16 @@ void Virtual_block_device_channel::_extension_step(bool &progress)
 }
 
 
-void Virtual_block_device_channel::execute(Client_data_interface &client_data, bool &progress)
+void Virtual_block_device_channel::execute(Client_data_interface &client_data, Block_io &block_io, bool &progress)
 {
 	if (!_req_ptr)
 		return;
 
 	switch (_req_ptr->_type) {
-	case Request::READ_VBA: _read_vba(client_data, progress); break;
-	case Request::WRITE_VBA: _write_vba(client_data, progress); break;
-	case Request::REKEY_VBA: _rekey_vba(progress); break;
-	case Request::EXTENSION_STEP: _extension_step(progress); break;
+	case Request::READ_VBA: _read_vba(client_data, block_io, progress); break;
+	case Request::WRITE_VBA: _write_vba(client_data, block_io, progress); break;
+	case Request::REKEY_VBA: _rekey_vba(block_io, progress); break;
+	case Request::EXTENSION_STEP: _extension_step(block_io, progress); break;
 	}
 }
 
@@ -762,7 +765,7 @@ void Virtual_block_device_channel::execute(Client_data_interface &client_data, b
 void Virtual_block_device::execute(bool &progress)
 {
 	for_each_channel<Channel>([&] (Channel &chan) {
-		chan.execute(_client_data, progress); });
+		chan.execute(_client_data, _block_io, progress); });
 }
 
 
@@ -777,9 +780,10 @@ void Virtual_block_device_channel::_generate_ft_req(State complete_state, bool p
 }
 
 
-Virtual_block_device::Virtual_block_device(Client_data_interface &client_data)
+Virtual_block_device::Virtual_block_device(Client_data_interface &client_data, Block_io &block_io)
 :
-	_client_data(client_data)
+	_client_data(client_data),
+	_block_io(block_io)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {
