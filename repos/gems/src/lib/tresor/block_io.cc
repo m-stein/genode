@@ -12,7 +12,6 @@
  */
 
 /* tresor includes */
-#include <tresor/crypto.h>
 #include <tresor/block_io.h>
 #include <tresor/hash.h>
 
@@ -91,12 +90,9 @@ bool Block_io_write::execute(Vfs::Vfs_handle &file_handle)
 
 
 Block_io_request::Block_io_request(Module_id src_module_id, Module_channel_id src_chan_id, Type type,
-                                   Request_offset client_req_offset, Request_tag client_req_tag, Key_id key_id,
-                                   Physical_block_address pba, Virtual_block_address vba, Block &blk, Hash &hash,
-                                   bool &success)
+                                   Physical_block_address pba, Block &blk, bool &success)
 :
-	Module_request(src_module_id, src_chan_id, BLOCK_IO), _type(type), _client_req_offset(client_req_offset),
-	_client_req_tag(client_req_tag), _key_id(key_id), _pba(pba), _vba(vba), _blk(blk), _hash(hash), _success(success)
+	Module_request(src_module_id, src_chan_id, BLOCK_IO), _type(type), _pba(pba), _blk(blk), _success(success)
 { }
 
 
@@ -106,8 +102,6 @@ char const *Block_io_request::type_to_string(Type type)
 	case READ: return "read";
 	case WRITE: return "write";
 	case SYNC: return "sync";
-	case READ_CLIENT_DATA: return "read_client_data";
-	case WRITE_CLIENT_DATA: return "write_client_data";
 	}
 	ASSERT_NEVER_REACHED;
 }
@@ -167,51 +161,6 @@ void Block_io_channel::_read(bool &progress)
 }
 
 
-void Block_io_channel::_read_client_data(bool &progress)
-{
-
-	Request &req { *_req_ptr };
-	switch (_state) {
-	case REQ_SUBMITTED: _file.read(READ_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress); break;
-	case READ_OK:
-
-		calc_hash(_blk, req._hash);
-		_generate_req<Crypto_request>(
-			PLAINTEXT_BLK_SUPPLIED, progress, Crypto_request::DECRYPT_CLIENT_DATA, req._client_req_offset,
-			req._client_req_tag, req._key_id, *(Key_value *)0, req._pba, req._vba, _blk);
-		return;
-
-	case PLAINTEXT_BLK_SUPPLIED: _mark_req_successful(progress); break;
-	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
-	default: break;
-	}
-}
-
-
-void Block_io_channel::_write_client_data(bool &progress)
-{
-	Request &req { *_req_ptr };
-	switch (_state) {
-	case REQ_SUBMITTED:
-
-		_generate_req<Crypto_request>(
-			CIPHERTEXT_BLK_OBTAINED, progress, Crypto_request::ENCRYPT_CLIENT_DATA, req._client_req_offset,
-			req._client_req_tag, req._key_id, *(Key_value *)0, req._pba, req._vba, _blk);
-		break;
-
-	case CIPHERTEXT_BLK_OBTAINED:
-
-		calc_hash(_blk, req._hash);
-		_file.write(WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress); break;
-		break;
-
-	case WRITE_OK: _mark_req_successful(progress); break;
-	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
-	default: break;
-	}
-}
-
-
 void Block_io_channel::_write(bool &progress)
 {
 
@@ -245,8 +194,6 @@ void Block_io_channel::execute(bool &progress)
 	case Request::READ: _read(progress); break;
 	case Request::WRITE: _write(progress); break;
 	case Request::SYNC: _sync(progress); break;
-	case Request::READ_CLIENT_DATA: _read_client_data(progress); break;
-	case Request::WRITE_CLIENT_DATA: _write_client_data(progress); break;
 	}
 }
 

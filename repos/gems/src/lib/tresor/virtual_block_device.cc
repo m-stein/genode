@@ -93,6 +93,9 @@ void Virtual_block_device_channel::_read_vba(Client_data_interface &client_data,
 			break;
 
 		if (!_lvl) {
+			if (VERBOSE_READ_VBA)
+				log("    ", Branch_lvl_prefix("ciphertext: "), _data_blk, " ", hash(_data_blk));
+
 			_generate_req<Crypto::Decrypt>(DECRYPT_BLOCK_SUCCEEDED, progress, req._curr_key_id, _new_pbas.pbas[_lvl], _data_blk);
 			break;
 		}
@@ -114,6 +117,9 @@ void Virtual_block_device_channel::_read_vba(Client_data_interface &client_data,
 		break;
 	}
 	case DECRYPT_BLOCK_SUCCEEDED:
+
+		if (VERBOSE_READ_VBA)
+			log("    ", Branch_lvl_prefix("plaintext:  "), _data_blk, " ", hash(_data_blk));
 
 		client_data.supply_data({req._client_req_offset, req._client_req_tag, _new_pbas.pbas[_lvl], _vba, _data_blk});
 		_mark_req_successful(progress);

@@ -17,14 +17,12 @@
 
 using namespace Tresor;
 
-Crypto_request::Crypto_request(Module_id src_module_id, Module_channel_id src_chan_id, Type type,
-                               Request_offset client_req_offset, Request_tag client_req_tag, Key_id key_id,
-                               Key_value const &key_plaintext, Physical_block_address pba, Virtual_block_address vba,
+Crypto_request::Crypto_request(Module_id src_module_id, Module_channel_id src_chan_id, Type type, Key_id key_id,
+                               Key_value const &key_plaintext, Physical_block_address pba,
                                Block &blk, bool &success)
 :
-	Module_request(src_module_id, src_chan_id, CRYPTO), _type(type), _client_req_offset(client_req_offset),
-	_client_req_tag(client_req_tag), _pba(pba), _vba(vba), _key_id(key_id), _key_plaintext(key_plaintext),
-	_blk(blk), _success(success)
+	Module_request(src_module_id, src_chan_id, CRYPTO), _type(type), _pba(pba), _key_id(key_id),
+	_key_plaintext(key_plaintext), _blk(blk), _success(success)
 { }
 
 
@@ -36,8 +34,6 @@ void Crypto_request::print(Output &out) const
 	case REMOVE_KEY: Genode::print(out, " ", _key_id); break;
 	case DECRYPT:
 	case ENCRYPT:
-	case DECRYPT_CLIENT_DATA:
-	case ENCRYPT_CLIENT_DATA: Genode::print(out, " pba ", _pba); break;
 	default: break;
 	}
 }
@@ -48,8 +44,6 @@ char const *Crypto_request::type_to_string(Type type)
 	switch (type) {
 	case ADD_KEY: return "add_key";
 	case REMOVE_KEY: return "remove_key";
-	case ENCRYPT_CLIENT_DATA: return "encrypt_client_data";
-	case DECRYPT_CLIENT_DATA: return "decrypt_client_data";
 	case ENCRYPT: return "encrypt";
 	case DECRYPT: return "decrypt";
 	}
@@ -96,35 +90,6 @@ void Crypto_channel::_mark_req_successful(bool &progress)
 	_state = REQ_COMPLETE;
 	_req_ptr = nullptr;
 	progress = true;
-	if (VERBOSE_WRITE_VBA && req._type == Request::ENCRYPT_CLIENT_DATA)
-		log("  encrypt leaf data: plaintext ", _blk, " hash ", hash(_blk),
-		    "\n  update branch:\n    ", Branch_lvl_prefix("leaf data: "), req._blk);
-
-	if (VERBOSE_READ_VBA && req._type == Request::DECRYPT_CLIENT_DATA)
-		log("    ", Branch_lvl_prefix("leaf data: "), req._blk,
-		    "\n  decrypt leaf data: plaintext ", _blk, " hash ", hash(_blk));
-
-	if (VERBOSE_CRYPTO) {
-		switch (req._type) {
-		case Request::DECRYPT_CLIENT_DATA:
-		case Request::ENCRYPT_CLIENT_DATA:
-			log("crypto: ", req.type_to_string(req._type), " pba ", req._pba, " vba ", req._vba,
-			    " plain ", _blk, " cipher ", req._blk);
-			break;
-		default: break;
-		}
-	}
-	if (VERBOSE_BLOCK_IO && (!VERBOSE_BLOCK_IO_PBA_FILTER || VERBOSE_BLOCK_IO_PBA == req._pba)) {
-		switch (req._type) {
-		case Request::DECRYPT_CLIENT_DATA:
-			log("block_io: read pba ", req._pba, " hash ", hash(req._blk), " (plaintext hash ", hash(_blk), ")");
-			break;
-		case Request::ENCRYPT_CLIENT_DATA:
-			log("block_io: write pba ", req._pba, " hash ", hash(req._blk), " (plaintext hash ", hash(_blk), ")");
-			break;
-		default: break;
-		}
-	}
 }
 
 
@@ -176,30 +141,6 @@ void Crypto_channel::_remove_key(bool &progress)
 }
 
 
-void Crypto_channel::_encrypt_client_data(Client_data_interface &client_data, bool &progress)
-{
-	Request &req { *_req_ptr };
-	switch (_state) {
-	case REQ_SUBMITTED:
-
-		client_data.obtain_data({req._client_req_offset, req._client_req_tag, req._pba, req._vba, _blk});
-		_key_dir(req._key_id)->encrypt_file.write(
-			WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress);
-		break;
-
-	case WRITE_OK:
-
-		_key_dir(req._key_id)->encrypt_file.read(
-			READ_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress);
-		break;
-
-	case READ_OK: _mark_req_successful(progress); break;
-	case FILE_ERR: _mark_req_failed(progress, "file operation"); break;
-	default: break;
-	}
-}
-
-
 void Crypto_channel::_encrypt(bool &progress)
 {
 	Request &req { *_req_ptr };
@@ -246,34 +187,6 @@ void Crypto_channel::_decrypt(bool &progress)
 }
 
 
-void Crypto_channel::_decrypt_client_data(Client_data_interface &client_data, bool &progress)
-{
-	Request &req { *_req_ptr };
-	switch (_state) {
-	case REQ_SUBMITTED:
-
-		_key_dir(req._key_id)->decrypt_file.write(
-			WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress);
-		break;
-
-	case WRITE_OK:
-
-		_key_dir(req._key_id)->decrypt_file.read(
-			READ_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress);
-		break;
-
-	case READ_OK:
-
-		client_data.supply_data({req._client_req_offset, req._client_req_tag, req._pba, req._vba, _blk});
-		_mark_req_successful(progress);
-		break;
-
-	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
-	default: break;
-	}
-}
-
-
 void Crypto_channel::_request_submitted(Module_request &mod_req)
 {
 	_req_ptr = static_cast<Request *>(&mod_req);
@@ -281,7 +194,7 @@ void Crypto_channel::_request_submitted(Module_request &mod_req)
 }
 
 
-void Crypto_channel::execute(Client_data_interface &client_data, bool &progress)
+void Crypto_channel::execute(bool &progress)
 {
 	if (!_req_ptr)
 		return;
@@ -291,8 +204,6 @@ void Crypto_channel::execute(Client_data_interface &client_data, bool &progress)
 	case Request::REMOVE_KEY: _remove_key(progress); break;
 	case Request::DECRYPT: _decrypt(progress); break;
 	case Request::ENCRYPT: _encrypt(progress); break;
-	case Request::DECRYPT_CLIENT_DATA: _decrypt_client_data(client_data, progress); break;
-	case Request::ENCRYPT_CLIENT_DATA: _encrypt_client_data(client_data, progress); break;
 	}
 }
 
@@ -300,7 +211,7 @@ void Crypto_channel::execute(Client_data_interface &client_data, bool &progress)
 void Crypto::execute(bool &progress)
 {
 	for_each_channel<Channel>([&] (Channel &chan) {
-		chan.execute(_client_data, progress); });
+		chan.execute(progress); });
 }
 
 
@@ -310,9 +221,7 @@ Crypto_channel::Crypto_channel(Module_channel_id id, Vfs::Env &vfs_env, Xml_node
 { }
 
 
-Crypto::Crypto(Vfs::Env &vfs_env, Xml_node const &xml_node, Client_data_interface &client_data)
-:
-	_client_data(client_data)
+Crypto::Crypto(Vfs::Env &vfs_env, Xml_node const &xml_node)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {

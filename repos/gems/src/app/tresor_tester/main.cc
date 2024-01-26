@@ -496,7 +496,7 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 		Constructible<Request_pool> _request_pool { };
 		Constructible<Meta_tree> _meta_tree { };
 		Trust_anchor _trust_anchor { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
-		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto"), *this };
+		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto") };
 		Tresor::Path const _block_io_path { _config_rom.xml().sub_node("block-io").attribute_value("path", Tresor::Path()) };
 		Vfs::Vfs_handle &_block_io_file { open_file(_vfs_env, _block_io_path, Vfs::Directory_service::OPEN_MODE_RDWR) };
 		Block_io _block_io { _vfs_env, _config_rom.xml().sub_node("block-io"), _block_io_file };
