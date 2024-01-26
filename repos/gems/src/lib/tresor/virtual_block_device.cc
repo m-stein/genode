@@ -66,9 +66,9 @@ void Virtual_block_device_channel::_generate_write_blk_req(bool &progress)
 {
 	if (_lvl) {
 		_t1_blks.items[_lvl].encode_to_blk(_encoded_blk);
-		_generate_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _encoded_blk);
+		_write_block.construct(*this, WRITE_BLK, WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _encoded_blk);
 	} else
-		_generate_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _data_blk);
+		_write_block.construct(*this, WRITE_BLK, WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _data_blk);
 }
 
 
@@ -297,6 +297,7 @@ void Virtual_block_device_channel::_write_vba(Client_data_interface &client_data
 		_generate_write_blk_req(progress);
 		break;
 
+	case WRITE_BLK: progress |= _write_block->execute(block_io); break;
 	case WRITE_BLK_SUCCEEDED:
 
 		if (!_lvl)
@@ -476,6 +477,7 @@ void Virtual_block_device_channel::_rekey_vba(Block_io &block_io, bool &progress
 			log("      update branch:\n        ", Branch_lvl_prefix("leaf data: "), _data_blk);
 		break;
 
+	case WRITE_BLK: progress |= _write_block->execute(block_io); break;
 	case WRITE_BLK_SUCCEEDED:
 
 		if (_lvl < snap().max_level) {
@@ -717,6 +719,7 @@ void Virtual_block_device_channel::_extension_step(Block_io &block_io, bool &pro
 		_generate_write_blk_req(progress);
 		break;
 	}
+	case WRITE_BLK: progress |= _write_block->execute(block_io); break;
 	case WRITE_BLK_SUCCEEDED:
 	{
 		if (_lvl < snap().max_level) {

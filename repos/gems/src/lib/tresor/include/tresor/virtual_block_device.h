@@ -81,7 +81,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		using Request = Virtual_block_device_request;
 
 		enum State {
-			SUBMITTED, REQ_GENERATED, REQ_COMPLETE, READ_BLK, READ_BLK_SUCCEEDED, WRITE_BLK_SUCCEEDED,
+			SUBMITTED, REQ_GENERATED, REQ_COMPLETE, READ_BLK, READ_BLK_SUCCEEDED, WRITE_BLK, WRITE_BLK_SUCCEEDED,
 			DECRYPT_BLOCK_SUCCEEDED, ENCRYPT_BLOCK_SUCCEEDED, ALLOC_PBAS_SUCCEEDED };
 
 		Request *_req_ptr { nullptr };
@@ -102,6 +102,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		bool _gen_req_success { false };
 		union {
 			Generated_request<Virtual_block_device_channel, Block_io_read, State> _read_block;
+			Generated_request<Virtual_block_device_channel, Block_io_write, State> _write_block;
 		};
 
 		NONCOPYABLE(Virtual_block_device_channel);
