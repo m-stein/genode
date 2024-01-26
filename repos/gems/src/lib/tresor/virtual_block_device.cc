@@ -93,28 +93,32 @@ void Virtual_block_device_channel::_read_vba(Client_data_interface &client_data,
 			break;
 
 		if (!_lvl) {
-			_mark_req_successful(progress);
+			_generate_req<Crypto::Decrypt>(DECRYPT_BLOCK_SUCCEEDED, progress, req._curr_key_id, _new_pbas.pbas[_lvl], _data_blk);
 			break;
 		}
 		Type_1_node &node { _node(_lvl, req._vba) };
 		if (VERBOSE_READ_VBA)
 			log("    ", Branch_lvl_prefix("lvl ", _lvl, " node ", _node_idx(_lvl, req._vba), ": "), node);
 
-		if (_lvl > 1)
-			_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, node.pba, _encoded_blk);
+		_lvl--;
+		_new_pbas.pbas[_lvl] = node.pba;
+		if (_lvl)
+			_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _encoded_blk);
 		else
 			if (node.gen == INITIAL_GENERATION) {
 				memset(&_data_blk, 0, BLOCK_SIZE);
-				client_data.supply_data({req._client_req_offset, req._client_req_tag, node.pba, _vba, _data_blk});
-				_state = READ_BLK_SUCCEEDED;
+				_state = DECRYPT_BLOCK_SUCCEEDED;
 				progress = true;
 			} else
-				_generate_req<Block_io::Read_client_data>(
-					READ_BLK_SUCCEEDED, progress, node.pba, _vba, req._curr_key_id,
-					req._client_req_tag, req._client_req_offset, _hash);
-		_lvl--;
+				_generate_req<Block_io::Read>(READ_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _data_blk);
 		break;
 	}
+	case DECRYPT_BLOCK_SUCCEEDED:
+
+		client_data.supply_data({req._client_req_offset, req._client_req_tag, _new_pbas.pbas[_lvl], _vba, _data_blk});
+		_mark_req_successful(progress);
+		break;
+
 	default: break;
 	}
 }
@@ -158,12 +162,10 @@ bool Virtual_block_device_channel::_check_and_decode_read_blk(bool &progress)
 			node_hash_ptr = &snap().hash;
 	} else {
 		Type_1_node &node { _node(_lvl + 1, _vba) };
-		if (req._type == Request::READ_VBA) {
-			if (node.gen == INITIAL_GENERATION)
-				return true;
-		} else
-			calc_hash(_data_blk, _hash);
+		if (req._type == Request::READ_VBA && node.gen == INITIAL_GENERATION)
+			return true;
 
+		calc_hash(_data_blk, _hash);
 		node_hash_ptr = &node.hash;
 	}
 	if (_hash != *node_hash_ptr) {
