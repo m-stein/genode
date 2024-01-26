@@ -72,16 +72,17 @@ class Tresor::Block_io::Read
 
 		enum State { INIT, COMPLETE, READ, READ_OK, FILE_ERR };
 
-		Request_helper<Block_io::Read, State> _helper;
+		Request_helper<Read, State> _helper;
+		Attr const _attr;
 		Constructible<File<State> > _file { };
 
 		NONCOPYABLE(Read);
 
 	public:
 
-		Read(Attr const &attr) : _helper(*this, attr) { }
+		Read(Attr const &attr) : _helper(*this), _attr(attr) { }
 
-		void print(Output &out) const { Genode::print(out, "read pba ", _helper.attr.in_pba); }
+		void print(Output &out) const { Genode::print(out, "read pba ", _attr.in_pba); }
 
 		bool execute(Vfs::Vfs_handle &);
 
@@ -105,16 +106,17 @@ class Tresor::Block_io::Write
 
 		enum State { INIT, COMPLETE, WRITE, WRITE_OK, FILE_ERR };
 
-		Request_helper<Block_io::Write, State> _helper;
+		Request_helper<Write, State> _helper;
+		Attr const _attr;
 		Constructible<File<State> > _file { };
 
 		NONCOPYABLE(Write);
 
 	public:
 
-		Write(Attr const &attr) : _helper(*this, attr) { }
+		Write(Attr const &attr) : _helper(*this), _attr(attr) { }
 
-		void print(Output &out) const { Genode::print(out, "write pba ", _helper.attr.in_pba); }
+		void print(Output &out) const { Genode::print(out, "write pba ", _attr.in_pba); }
 
 		bool execute(Vfs::Vfs_handle &);
 
@@ -134,14 +136,15 @@ class Tresor::Block_io::Sync
 
 		enum State { INIT, COMPLETE, SYNC, SYNC_OK, FILE_ERR };
 
-		Request_helper<Block_io::Sync, State> _helper;
+		Request_helper<Sync, State> _helper;
+		Attr const _attr;
 		Constructible<File<State> > _file { };
 
 		NONCOPYABLE(Sync);
 
 	public:
 
-		Sync(Attr const &attr) : _helper(*this, attr) { }
+		Sync(Attr const &attr) : _helper(*this), _attr(attr) { }
 
 		void print(Output &out) const { Genode::print(out, "sync"); }
 

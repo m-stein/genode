@@ -190,10 +190,9 @@ class Tresor::Request_helper
 
 		using Module = REQ::Module;
 
-		typename REQ::Attr const attr;
 		STATE state { STATE::INIT };
 
-		Request_helper(REQ &req, REQ::Attr const &attr) : _req(req), attr(attr) { }
+		Request_helper(REQ &req) : _req(req) { }
 
 		bool complete() const { return state == STATE::COMPLETE; }
 

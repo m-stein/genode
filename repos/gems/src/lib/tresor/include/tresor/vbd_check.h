@@ -41,6 +41,7 @@ class Tresor::Vbd_check
 				enum State { INIT, IN_PROGRESS, COMPLETE, READ_BLK, READ_BLK_SUCCEEDED };
 
 				Request_helper<Check, State> _helper;
+				Attr const _attr;
 				Type_1_node_block_walk _t1_blks { };
 				bool _check_node[TREE_MAX_NR_OF_LEVELS][NUM_NODES_PER_BLK] { };
 				Block _blk { };
@@ -53,9 +54,9 @@ class Tresor::Vbd_check
 
 			public:
 
-				Check(Attr const &attr) : _helper(*this, attr) { }
+				Check(Attr const &attr) : _helper(*this), _attr(attr) { }
 
-				void print(Output &out) const { Genode::print(out, "check ", _helper.attr.in_vbd); }
+				void print(Output &out) const { Genode::print(out, "check ", _attr.in_vbd); }
 
 				bool execute(Block_io &);
 

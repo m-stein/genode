@@ -47,6 +47,7 @@ class Tresor::Sb_check
 				using Helper = Request_helper<Check, State>;
 
 				Helper _helper;
+				Attr const _attr;
 				Generation _highest_gen { 0 };
 				Superblock_index _highest_gen_sb_idx { 0 };
 				bool _scan_for_highest_gen_sb_done { false };
@@ -65,7 +66,7 @@ class Tresor::Sb_check
 
 			public:
 
-				Check(Attr const &attr) : _helper(*this, attr) { }
+				Check(Attr const &attr) : _helper(*this), _attr(attr) { }
 
 				~Check() { }
 

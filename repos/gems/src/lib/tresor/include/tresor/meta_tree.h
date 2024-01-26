@@ -58,8 +58,6 @@ class Tresor::Meta_tree_channel : public Module_channel
 
 		using Module = Meta_tree;
 
-		struct Attr { };
-
 	private:
 
 		using Request = Meta_tree_request;
@@ -103,7 +101,7 @@ class Tresor::Meta_tree_channel : public Module_channel
 
 	public:
 
-		Meta_tree_channel(Module_channel_id id) : Module_channel(META_TREE, id), _helper(*this, Attr()) { }
+		Meta_tree_channel(Module_channel_id id) : Module_channel(META_TREE, id), _helper(*this) { }
 
 		~Meta_tree_channel() { }
 
