@@ -17,7 +17,7 @@
 /* tresor includes */
 #include <tresor/types.h>
 #include <tresor/file.h>
-#include <tresor/client_data.h>
+#include <tresor/client_data_interface.h>
 
 namespace Tresor {
 
@@ -115,7 +115,7 @@ class Tresor::Crypto_channel : public Module_channel
 
 		void _encrypt_client_data(Client_data_interface &, bool &);
 
-		void _decrypt_client_data(bool &);
+		void _decrypt_client_data(Client_data_interface &, bool &);
 
 		void _mark_req_failed(bool &, char const *);
 

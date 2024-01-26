@@ -17,6 +17,7 @@
 /* tresor includes */
 #include <tresor/types.h>
 #include <tresor/free_tree.h>
+#include <tresor/client_data_interface.h>
 
 namespace Tresor {
 
@@ -122,7 +123,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		bool _find_next_snap_to_rekey_vba_at(Snapshot_index &) const;
 
-		void _read_vba(bool &);
+		void _read_vba(Client_data_interface &, bool &);
 
 		bool _check_and_decode_read_blk(bool &);
 
@@ -160,7 +161,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		Virtual_block_device_channel(Module_channel_id id) : Module_channel(VIRTUAL_BLOCK_DEVICE, id) { }
 
-		void execute(bool &);
+		void execute(Client_data_interface &, bool &);
 };
 
 class Tresor::Virtual_block_device : public Module
@@ -170,6 +171,7 @@ class Tresor::Virtual_block_device : public Module
 		using Channel = Virtual_block_device_channel;
 
 		Constructible<Channel> _channels[1] { };
+		Client_data_interface &_client_data;
 
 		NONCOPYABLE(Virtual_block_device);
 
@@ -177,7 +179,7 @@ class Tresor::Virtual_block_device : public Module
 
 	public:
 
-		Virtual_block_device();
+		Virtual_block_device(Client_data_interface &);
 };
 
 #endif /* _TRESOR__VIRTUAL_BLOCK_DEVICE_H_ */
