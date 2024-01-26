@@ -499,7 +499,7 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto") };
 		Tresor::Path const _block_io_path { _config_rom.xml().sub_node("block-io").attribute_value("path", Tresor::Path()) };
 		Vfs::Vfs_handle &_block_io_file { open_file(_vfs_env, _block_io_path, Vfs::Directory_service::OPEN_MODE_RDWR) };
-		Block_io _block_io { _vfs_env, _config_rom.xml().sub_node("block-io"), _block_io_file };
+		Block_io _block_io { _block_io_file };
 		Pba_allocator _pba_alloc { NR_OF_SUPERBLOCK_SLOTS };
 		Vbd_initializer _vbd_initializer { _block_io };
 		Ft_initializer _ft_initializer { _block_io };
@@ -603,7 +603,6 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 			add_module(CRYPTO, _crypto);
 			add_module(TRUST_ANCHOR, _trust_anchor);
 			add_module(COMMAND_POOL, *this);
-			add_module(BLOCK_IO, _block_io);
 			add_module(VBD_INITIALIZER, _vbd_initializer);
 			add_module(FT_INITIALIZER, _ft_initializer);
 			add_module(SB_INITIALIZER, _sb_initializer);
