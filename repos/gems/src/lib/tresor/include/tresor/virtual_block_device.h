@@ -101,8 +101,8 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		bool _first_snapshot { false };
 		bool _gen_req_success { false };
 		union {
-			Generated_request<Virtual_block_device_channel, Block_io_read, State> _read_block;
-			Generated_request<Virtual_block_device_channel, Block_io_write, State> _write_block;
+			Generated_request<Virtual_block_device_channel, Block_io::Read, State> _read_block;
+			Generated_request<Virtual_block_device_channel, Block_io::Write, State> _write_block;
 		};
 
 		NONCOPYABLE(Virtual_block_device_channel);

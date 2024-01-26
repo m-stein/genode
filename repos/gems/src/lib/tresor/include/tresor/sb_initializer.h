@@ -79,8 +79,8 @@ class Tresor::Sb_initializer_channel : public Module_channel
 		Constructible<Tree_root> _ft { };
 		bool _generated_req_success { false };
 		union {
-			Generated_request<Sb_initializer_channel, Block_io_write, State> _write_block;
-			Generated_request<Sb_initializer_channel, Block_io_sync, State> _sync_block_io;
+			Generated_request<Sb_initializer_channel, Block_io::Write, State> _write_block;
+			Generated_request<Sb_initializer_channel, Block_io::Sync, State> _sync_block_io;
 		};
 
 		NONCOPYABLE(Sb_initializer_channel);

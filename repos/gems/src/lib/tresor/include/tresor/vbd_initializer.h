@@ -64,7 +64,7 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 		bool _generated_req_success { false };
 		Block _blk { };
 		Number_of_leaves _num_remaining_leaves { };
-		Generated_request<Vbd_initializer_channel, Block_io_write, State> _write_block { };
+		Generated_request<Vbd_initializer_channel, Block_io::Write, State> _write_block { };
 
 		NONCOPYABLE(Vbd_initializer_channel);
 

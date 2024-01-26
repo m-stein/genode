@@ -66,7 +66,7 @@ class Tresor::Ft_initializer_channel : public Module_channel
 		Number_of_leaves _num_remaining_leaves { 0 };
 		bool _generated_req_success { false };
 		Block _blk { };
-		Generated_request<Ft_initializer_channel, Block_io_write, State> _write_block { };
+		Generated_request<Ft_initializer_channel, Block_io::Write, State> _write_block { };
 
 		NONCOPYABLE(Ft_initializer_channel);
 
