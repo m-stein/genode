@@ -17,7 +17,6 @@
 /* tresor includes */
 #include <tresor/types.h>
 #include <tresor/file.h>
-#include <tresor/client_data_interface.h>
 
 namespace Tresor {
 
@@ -32,15 +31,12 @@ class Tresor::Crypto_request : public Module_request
 
 	public:
 
-		enum Type { ADD_KEY, REMOVE_KEY, DECRYPT, ENCRYPT, DECRYPT_CLIENT_DATA, ENCRYPT_CLIENT_DATA };
+		enum Type { ADD_KEY, REMOVE_KEY, DECRYPT, ENCRYPT };
 
 	private:
 
 		Type const _type;
-		Request_offset const _client_req_offset;
-		Request_tag const _client_req_tag;
 		Physical_block_address const _pba;
-		Virtual_block_address const _vba;
 		Key_id const _key_id;
 		Key_value const &_key_plaintext;
 		Block &_blk;
@@ -50,8 +46,7 @@ class Tresor::Crypto_request : public Module_request
 
 	public:
 
-		Crypto_request(Module_id, Module_channel_id, Type, Request_offset, Request_tag, Key_id,
-		               Key_value const &, Physical_block_address, Virtual_block_address, Block &, bool &);
+		Crypto_request(Module_id, Module_channel_id, Type, Key_id, Key_value const &, Physical_block_address, Block &, bool &);
 
 		static const char *type_to_string(Type);
 
@@ -113,10 +108,6 @@ class Tresor::Crypto_channel : public Module_channel
 
 		void _encrypt(bool &);
 
-		void _encrypt_client_data(Client_data_interface &, bool &);
-
-		void _decrypt_client_data(Client_data_interface &, bool &);
-
 		void _mark_req_failed(bool &, char const *);
 
 		void _mark_req_successful(bool &);
@@ -127,7 +118,7 @@ class Tresor::Crypto_channel : public Module_channel
 
 		Crypto_channel(Module_channel_id, Vfs::Env &, Xml_node const &);
 
-		void execute(Client_data_interface &, bool &);
+		void execute(bool &);
 
 		using Module = Crypto;
 
@@ -154,7 +145,6 @@ class Tresor::Crypto : public Module
 		using Channel = Crypto_channel;
 
 		Constructible<Channel> _channels[1] { };
-		Client_data_interface &_client_data;
 
 		NONCOPYABLE(Crypto);
 
@@ -163,28 +153,28 @@ class Tresor::Crypto : public Module
 		struct Add_key : Request
 		{
 			Add_key(Module_id src_mod, Module_channel_id src_chan, Key &key, bool &succ)
-			: Request(src_mod, src_chan, Request::ADD_KEY, 0, 0, key.id, key.value, 0, 0, *(Block*)0, succ) { }
+			: Request(src_mod, src_chan, Request::ADD_KEY, key.id, key.value, 0, *(Block*)0, succ) { }
 		};
 
 		struct Remove_key : Request
 		{
 			Remove_key(Module_id src_mod, Module_channel_id src_chan, Key_id key, bool &succ)
-			: Request(src_mod, src_chan, Request::REMOVE_KEY, 0, 0, key, *(Key_value*)0, 0, 0, *(Block*)0, succ) { }
+			: Request(src_mod, src_chan, Request::REMOVE_KEY, key, *(Key_value*)0, 0, *(Block*)0, succ) { }
 		};
 
 		struct Decrypt : Request
 		{
 			Decrypt(Module_id src_mod, Module_channel_id src_chan, Key_id key, Physical_block_address pba, Block &blk, bool &succ)
-			: Request(src_mod, src_chan, Request::DECRYPT, 0, 0, key, *(Key_value*)0, pba, 0, blk, succ) { }
+			: Request(src_mod, src_chan, Request::DECRYPT, key, *(Key_value*)0, pba, blk, succ) { }
 		};
 
 		struct Encrypt : Request
 		{
 			Encrypt(Module_id src_mod, Module_channel_id src_chan, Key_id key, Physical_block_address pba, Block &blk, bool &succ)
-			: Request(src_mod, src_chan, Request::ENCRYPT, 0, 0, key, *(Key_value*)0, pba, 0, blk, succ) { }
+			: Request(src_mod, src_chan, Request::ENCRYPT, key, *(Key_value*)0, pba, blk, succ) { }
 		};
 
-		Crypto(Vfs::Env &, Xml_node const &, Client_data_interface &);
+		Crypto(Vfs::Env &, Xml_node const &);
 
 		void execute(bool &) override;
 

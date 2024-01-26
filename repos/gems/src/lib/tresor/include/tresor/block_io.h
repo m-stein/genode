@@ -129,26 +129,20 @@ class Tresor::Block_io_request : public Module_request
 
 	public:
 
-		enum Type { READ, WRITE, SYNC, READ_CLIENT_DATA, WRITE_CLIENT_DATA };
+		enum Type { READ, WRITE, SYNC };
 
 	private:
 
 		Type const _type;
-		Request_offset const _client_req_offset;
-		Request_tag const _client_req_tag;
-		Key_id const _key_id;
 		Physical_block_address const _pba;
-		Virtual_block_address const _vba;
 		Block &_blk;
-		Hash &_hash;
 		bool &_success;
 
 		NONCOPYABLE(Block_io_request);
 
 	public:
 
-		Block_io_request(Module_id, Module_channel_id, Type, Request_offset, Request_tag, Key_id,
-		                 Physical_block_address, Virtual_block_address, Block &, Hash &, bool &);
+		Block_io_request(Module_id, Module_channel_id, Type, Physical_block_address, Block &, bool &);
 
 		static char const *type_to_string(Type);
 
@@ -192,10 +186,6 @@ class Tresor::Block_io_channel : public Module_channel
 
 		void _write(bool &);
 
-		void _read_client_data(bool &);
-
-		void _write_client_data(bool &);
-
 		void _sync(bool &);
 
 		void _mark_req_failed(bool &, Error_string);
@@ -230,33 +220,19 @@ class Tresor::Block_io : public Module
 		struct Read : Request
 		{
 			Read(Module_id m, Module_channel_id c, Physical_block_address a, Block &b, bool &s)
-			: Request(m, c, Request::READ, 0, 0, 0, a, 0, b, *(Hash*)0, s) { }
+			: Request(m, c, Request::READ, a, b, s) { }
 		};
 
 		struct Write : Request
 		{
 			Write(Module_id m, Module_channel_id c, Physical_block_address a, Block const &b, bool &s)
-			: Request(m, c, Request::WRITE, 0, 0, 0, a, 0, *const_cast<Block*>(&b), *(Hash*)0, s) { }
+			: Request(m, c, Request::WRITE, a, *const_cast<Block*>(&b), s) { }
 		};
 
 		struct Sync : Request
 		{
 			Sync(Module_id m, Module_channel_id c, bool &s)
-			: Request(m, c, Request::SYNC, 0, 0, 0, 0, 0, *(Block*)0, *(Hash*)0, s) { }
-		};
-
-		struct Write_client_data : Request
-		{
-			Write_client_data(Module_id m, Module_channel_id c, Physical_block_address p, Virtual_block_address v,
-			                  Key_id k, Request_tag t, Request_offset o, Hash &h, bool &s)
-			: Request(m, c, Request::WRITE_CLIENT_DATA, o, t, k, p, v, *(Block*)0, h, s) { }
-		};
-
-		struct Read_client_data : Request
-		{
-			Read_client_data(Module_id m, Module_channel_id c, Physical_block_address p, Virtual_block_address v,
-			                 Key_id k, Request_tag t, Request_offset o, Hash &h, bool &s)
-			: Request(m, c, Request::READ_CLIENT_DATA, o, t, k, p, v, *(Block*)0, h, s) { }
+			: Request(m, c, Request::SYNC, 0, *(Block*)0, s) { }
 		};
 
 		Block_io(Vfs::Env &, Xml_node const &, Vfs::Vfs_handle &);
