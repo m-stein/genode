@@ -30,7 +30,7 @@ struct Tresor::Client_data_interface : Interface
 		Block &out_blk;
 	};
 
-	virtual void obtain_data(Obtain_data_attr const &attr) = 0;
+	virtual void obtain_data(Obtain_data_attr const &) = 0;
 
 	struct Supply_data_attr
 	{
@@ -41,7 +41,7 @@ struct Tresor::Client_data_interface : Interface
 		Block const &in_blk;
 	};
 
-	virtual void supply_data(Supply_data_attr const &attr) = 0;
+	virtual void supply_data(Supply_data_attr const &) = 0;
 };
 
 #endif /* _TRESOR__CLIENT_DATA_INTERFACE_H_ */

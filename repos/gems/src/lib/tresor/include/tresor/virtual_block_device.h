@@ -81,7 +81,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		enum State {
 			SUBMITTED, REQ_GENERATED, REQ_COMPLETE, READ_BLK_SUCCEEDED, WRITE_BLK_SUCCEEDED,
-			DECRYPT_LEAF_DATA_SUCCEEDED, ENCRYPT_LEAF_DATA_SUCCEEDED, ALLOC_PBAS_SUCCEEDED };
+			DECRYPT_BLOCK_SUCCEEDED, ENCRYPT_BLOCK_SUCCEEDED, ALLOC_PBAS_SUCCEEDED };
 
 		Request *_req_ptr { nullptr };
 		State _state { REQ_COMPLETE };
@@ -139,7 +139,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		void _generate_ft_alloc_req_for_write_vba(bool &);
 
-		void _write_vba(bool &);
+		void _write_vba(Client_data_interface &, bool &);
 
 		void _update_nodes_of_branch_of_written_vba();
 

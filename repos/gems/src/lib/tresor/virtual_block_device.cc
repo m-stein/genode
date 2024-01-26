@@ -237,7 +237,7 @@ void Virtual_block_device_channel::_generate_ft_alloc_req_for_write_vba(bool &pr
 }
 
 
-void Virtual_block_device_channel::_write_vba(bool &progress)
+void Virtual_block_device_channel::_write_vba(Client_data_interface &client_data, bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
@@ -265,10 +265,10 @@ void Virtual_block_device_channel::_write_vba(bool &progress)
 			_set_new_pbas_and_num_blks_for_alloc();
 			if (_num_blks)
 				_generate_ft_alloc_req_for_write_vba(progress);
-			else
-				_generate_req<Block_io::Write_client_data>(
-					WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[0], _vba,
-					req._curr_key_id, req._client_req_tag, req._client_req_offset, _hash);
+			else {
+				client_data.obtain_data({req._client_req_offset, req._client_req_tag, _new_pbas.pbas[0], _vba, _data_blk});
+				_generate_req<Crypto::Encrypt>(ENCRYPT_BLOCK_SUCCEEDED, progress, req._curr_key_id, _new_pbas.pbas[0], _data_blk);
+			}
 		}
 		_lvl--;
 		break;
@@ -278,10 +278,14 @@ void Virtual_block_device_channel::_write_vba(bool &progress)
 		if (VERBOSE_WRITE_VBA)
 			log("  alloc pba", _num_blks > 1 ? "s" : "", ": ", Pba_allocation(_t1_nodes, _new_pbas));
 
-		_generate_req<Block_io::Write_client_data>(
-			WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[0], _vba, req._curr_key_id,
-			req._client_req_tag, req._client_req_offset, _hash);
+		client_data.obtain_data({req._client_req_offset, req._client_req_tag, _new_pbas.pbas[0], _vba, _data_blk});
+		_generate_req<Crypto::Encrypt>(ENCRYPT_BLOCK_SUCCEEDED, progress, req._curr_key_id, _new_pbas.pbas[0], _data_blk);
+		break;
 
+	case ENCRYPT_BLOCK_SUCCEEDED:
+
+		calc_hash(_data_blk, _hash);
+		_generate_write_blk_req(progress);
 		break;
 
 	case WRITE_BLK_SUCCEEDED:
@@ -423,13 +427,13 @@ void Virtual_block_device_channel::_rekey_vba(bool &progress)
 			}
 		} else {
 			_generate_req<Crypto::Decrypt>(
-				DECRYPT_LEAF_DATA_SUCCEEDED, progress, req._prev_key_id, _old_pbas.pbas[_lvl], _data_blk);
+				DECRYPT_BLOCK_SUCCEEDED, progress, req._prev_key_id, _old_pbas.pbas[_lvl], _data_blk);
 			if (VERBOSE_REKEYING)
 				log("        ", Branch_lvl_prefix("leaf data: "), _data_blk);
 		}
 		break;
 
-	case DECRYPT_LEAF_DATA_SUCCEEDED:
+	case DECRYPT_BLOCK_SUCCEEDED:
 
 		_generate_ft_alloc_req_for_rekeying(_lvl, progress);
 		if (VERBOSE_REKEYING)
@@ -452,10 +456,10 @@ void Virtual_block_device_channel::_rekey_vba(bool &progress)
 				_t1_blks.items[_lvl].encode_to_blk(_encoded_blk);
 		} else
 			_generate_req<Crypto::Encrypt>(
-				ENCRYPT_LEAF_DATA_SUCCEEDED, progress, req._curr_key_id, _new_pbas.pbas[0], _data_blk);
+				ENCRYPT_BLOCK_SUCCEEDED, progress, req._curr_key_id, _new_pbas.pbas[0], _data_blk);
 		break;
 
-	case ENCRYPT_LEAF_DATA_SUCCEEDED:
+	case ENCRYPT_BLOCK_SUCCEEDED:
 
 		_generate_write_blk_req(progress);
 		if (VERBOSE_REKEYING)
@@ -740,7 +744,7 @@ void Virtual_block_device_channel::execute(Client_data_interface &client_data, b
 
 	switch (_req_ptr->_type) {
 	case Request::READ_VBA: _read_vba(client_data, progress); break;
-	case Request::WRITE_VBA: _write_vba(progress); break;
+	case Request::WRITE_VBA: _write_vba(client_data, progress); break;
 	case Request::REKEY_VBA: _rekey_vba(progress); break;
 	case Request::EXTENSION_STEP: _extension_step(progress); break;
 	}
