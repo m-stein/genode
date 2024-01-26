@@ -77,8 +77,8 @@ class Tresor::Meta_tree_channel : public Module_channel
 		Type_2_node_block _t2_blk { };
 		Tree_level_index _lvl { 0 };
 		union {
-			Generated_request<Helper, Block_io_read, State> _read_block;
-			Generated_request<Helper, Block_io_write, State> _write_block;
+			Generated_request<Helper, Block_io::Read, State> _read_block;
+			Generated_request<Helper, Block_io::Write, State> _write_block;
 		};
 
 		NONCOPYABLE(Meta_tree_channel);

@@ -18,7 +18,7 @@
 using namespace Tresor;
 
 
-bool Block_io_sync::execute(Vfs::Vfs_handle &file_handle)
+bool Block_io::Sync::execute(Vfs::Vfs_handle &file_handle)
 {
 	bool progress = false;
 	switch (_helper.state) {
@@ -38,7 +38,7 @@ bool Block_io_sync::execute(Vfs::Vfs_handle &file_handle)
 }
 
 
-bool Block_io_read::execute(Vfs::Vfs_handle &file_handle)
+bool Block_io::Read::execute(Vfs::Vfs_handle &file_handle)
 {
 	bool progress = false;
 	switch (_helper.state) {
@@ -64,7 +64,7 @@ bool Block_io_read::execute(Vfs::Vfs_handle &file_handle)
 }
 
 
-bool Block_io_write::execute(Vfs::Vfs_handle &file_handle)
+bool Block_io::Write::execute(Vfs::Vfs_handle &file_handle)
 {
 	bool progress = false;
 	switch (_helper.state) {

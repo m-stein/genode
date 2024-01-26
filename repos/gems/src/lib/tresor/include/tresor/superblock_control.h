@@ -97,9 +97,9 @@ class Tresor::Superblock_control_channel : public Module_channel
 		Superblock_index &_sb_idx;
 		Generation &_curr_gen;
 		union {
-			Generated_request<Superblock_control_channel, Block_io_read, State> _read_block;
-			Generated_request<Superblock_control_channel, Block_io_write, Secure_sb_state> _write_block;
-			Generated_request<Superblock_control_channel, Block_io_sync, Secure_sb_state> _sync_block_io;
+			Generated_request<Superblock_control_channel, Block_io::Read, State> _read_block;
+			Generated_request<Superblock_control_channel, Block_io::Write, Secure_sb_state> _write_block;
+			Generated_request<Superblock_control_channel, Block_io::Sync, Secure_sb_state> _sync_block_io;
 		};
 
 		NONCOPYABLE(Superblock_control_channel);

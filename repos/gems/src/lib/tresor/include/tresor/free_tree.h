@@ -101,8 +101,8 @@ class Tresor::Free_tree_channel : public Module_channel
 		Tree_level_index _lvl { 0 };
 		bool _generated_req_success { false };
 		union {
-			Generated_request<Free_tree_channel, Block_io_read, State> _read_block;
-			Generated_request<Free_tree_channel, Block_io_write, State> _write_block;
+			Generated_request<Free_tree_channel, Block_io::Read, State> _read_block;
+			Generated_request<Free_tree_channel, Block_io::Write, State> _write_block;
 		};
 
 		NONCOPYABLE(Free_tree_channel);
