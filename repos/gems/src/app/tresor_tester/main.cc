@@ -24,7 +24,7 @@
 /* tresor includes */
 #include <tresor/crypto.h>
 #include <tresor/trust_anchor.h>
-#include <tresor/client_data.h>
+#include <tresor/client_data_interface.h>
 #include <tresor/block_io.h>
 #include <tresor/meta_tree.h>
 #include <tresor/free_tree.h>
@@ -67,7 +67,6 @@ namespace Tresor_tester {
 	class Command;
 	class Snapshot_reference;
 	class Snapshot_reference_tree;
-	class Client_data;
 	class Main;
 
 	template <typename T>
@@ -476,29 +475,7 @@ struct Tresor_tester::Snapshot_reference_tree : public Avl_tree<Snapshot_referen
 };
 
 
-class Tresor_tester::Client_data : public Module, public Module_channel, public Client_data_interface
-{
-	private:
-
-		using Request = Client_data_request;
-
-		Main &_main;
-
-		NONCOPYABLE(Client_data);
-
-		void _request_submitted(Module_request &) override;
-
-		bool _request_complete() override { return true; }
-
-	public:
-
-		Client_data(Main &main) : Module_channel(CLIENT_DATA, 0), _main(main) { add_channel(*this); }
-
-		void obtain(Obtain_attr const &attr) override;
-};
-
-
-class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, public Module
+class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, public Module, public Client_data_interface
 {
 	private:
 
@@ -517,10 +494,9 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 		Constructible<Virtual_block_device> _vbd { };
 		Constructible<Superblock_control> _sb_control { };
 		Constructible<Request_pool> _request_pool { };
-		Client_data _client_data { *this };
 		Constructible<Meta_tree> _meta_tree { };
 		Trust_anchor _trust_anchor { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
-		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto"), _client_data };
+		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto"), *this };
 		Tresor::Path const _block_io_path { _config_rom.xml().sub_node("block-io").attribute_value("path", Tresor::Path()) };
 		Vfs::Vfs_handle &_block_io_file { open_file(_vfs_env, _block_io_path, Vfs::Directory_service::OPEN_MODE_RDWR) };
 		Block_io _block_io { _vfs_env, _config_rom.xml().sub_node("block-io"), _block_io_file };
@@ -626,7 +602,6 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 		{
 			add_module(CRYPTO, _crypto);
 			add_module(TRUST_ANCHOR, _trust_anchor);
-			add_module(CLIENT_DATA, _client_data);
 			add_module(COMMAND_POOL, *this);
 			add_module(BLOCK_IO, _block_io);
 			add_module(VBD_INITIALIZER, _vbd_initializer);
@@ -698,29 +673,29 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 
 		Pba_allocator &pba_alloc() { return _pba_alloc; }
 
-		void generate_blk_data(Request_tag tresor_req_tag, Virtual_block_address vba, Tresor::Block &blk_data)
+		void obtain_data(Obtain_data_attr const &attr) override
 		{
-			with_channel<Command>(tresor_req_tag, [&] (Command &cmd) {
+			with_channel<Command>(attr.in_req_tag, [&] (Command &cmd) {
 				ASSERT(cmd.type() == Command::REQUEST);
 				Request_node const &req_node { cmd.request_node() };
 				if (req_node.salt_avail)
-					_generate_blk_data(blk_data, vba, req_node.salt);
+					_generate_blk_data(attr.out_blk, attr.in_vba, req_node.salt);
 			});
 			_benchmark.raise_num_virt_blks_written();
 		}
 
-		void verify_blk_data(Request_tag tresor_req_tag, Virtual_block_address vba, Tresor::Block &blk_data)
+		void supply_data(Supply_data_attr const &attr) override
 		{
-			with_channel<Command>(tresor_req_tag, [&] (Command &cmd) {
+			with_channel<Command>(attr.in_req_tag, [&] (Command &cmd) {
 				ASSERT(cmd.type() == Command::REQUEST);
 				Request_node const &req_node { cmd.request_node() };
 				if (req_node.salt_avail) {
 					Tresor::Block gen_blk_data { };
-					_generate_blk_data(gen_blk_data, vba, req_node.salt);
+					_generate_blk_data(gen_blk_data, attr.in_vba, req_node.salt);
 
-					if (memcmp(&blk_data, &gen_blk_data, BLOCK_SIZE)) {
+					if (memcmp(&attr.in_blk, &gen_blk_data, BLOCK_SIZE)) {
 						cmd.data_mismatch(true);
-						warning("client data mismatch: vba=", vba, " req_tag=", tresor_req_tag);
+						warning("client data mismatch: vba=", attr.in_vba, " req_tag=", attr.in_req_tag);
 						_num_errors++;
 					}
 				}
@@ -731,7 +706,7 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 		void construct_tresor_modules()
 		{
 			_free_tree.construct();
-			_vbd.construct();
+			_vbd.construct(*this);
 			_sb_control.construct(_block_io);
 			_request_pool.construct();
 			_meta_tree.construct(_block_io);
@@ -794,23 +769,6 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 
 		static constexpr char const *name() { return "tresor_tester"; }
 };
-
-
-void Tresor_tester::Client_data::_request_submitted(Module_request &mod_req)
-{
-	Request &req { *static_cast<Request *>(&mod_req) };
-	switch (req._type) {
-	case Request::OBTAIN_PLAINTEXT_BLK: _main.generate_blk_data(req._req_tag, req._vba, req._blk); break;
-	case Request::SUPPLY_PLAINTEXT_BLK: _main.verify_blk_data(req._req_tag, req._vba, req._blk); break;
-	}
-	req._success = true;
-}
-
-
-void Tresor_tester::Client_data::obtain(Obtain_attr const &attr)
-{
-	_main.generate_blk_data(attr.in_req_tag, attr.in_vba, attr.out_blk);
-}
 
 
 void Tresor_tester::Command::_generated_req_completed(State_uint state_uint)

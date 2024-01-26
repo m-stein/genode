@@ -16,7 +16,6 @@
 #include <tresor/hash.h>
 #include <tresor/block_io.h>
 #include <tresor/crypto.h>
-#include <tresor/client_data.h>
 
 using namespace Tresor;
 
@@ -74,7 +73,7 @@ void Virtual_block_device_channel::_generate_write_blk_req(bool &progress)
 }
 
 
-void Virtual_block_device_channel::_read_vba(bool &progress)
+void Virtual_block_device_channel::_read_vba(Client_data_interface &client_data, bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
@@ -106,9 +105,9 @@ void Virtual_block_device_channel::_read_vba(bool &progress)
 		else
 			if (node.gen == INITIAL_GENERATION) {
 				memset(&_data_blk, 0, BLOCK_SIZE);
-				_generate_req<Client_data_request>(
-					READ_BLK_SUCCEEDED, progress, Client_data_request::SUPPLY_PLAINTEXT_BLK,
-					req._client_req_offset, req._client_req_tag, node.pba, _vba, _data_blk);
+				client_data.supply_data({req._client_req_offset, req._client_req_tag, node.pba, _vba, _data_blk});
+				_state = READ_BLK_SUCCEEDED;
+				progress = true;
 			} else
 				_generate_req<Block_io::Read_client_data>(
 					READ_BLK_SUCCEEDED, progress, node.pba, _vba, req._curr_key_id,
@@ -734,13 +733,13 @@ void Virtual_block_device_channel::_extension_step(bool &progress)
 }
 
 
-void Virtual_block_device_channel::execute(bool &progress)
+void Virtual_block_device_channel::execute(Client_data_interface &client_data, bool &progress)
 {
 	if (!_req_ptr)
 		return;
 
 	switch (_req_ptr->_type) {
-	case Request::READ_VBA: _read_vba(progress); break;
+	case Request::READ_VBA: _read_vba(client_data, progress); break;
 	case Request::WRITE_VBA: _write_vba(progress); break;
 	case Request::REKEY_VBA: _rekey_vba(progress); break;
 	case Request::EXTENSION_STEP: _extension_step(progress); break;
@@ -751,7 +750,7 @@ void Virtual_block_device_channel::execute(bool &progress)
 void Virtual_block_device::execute(bool &progress)
 {
 	for_each_channel<Channel>([&] (Channel &chan) {
-		chan.execute(progress); });
+		chan.execute(_client_data, progress); });
 }
 
 
@@ -766,7 +765,9 @@ void Virtual_block_device_channel::_generate_ft_req(State complete_state, bool p
 }
 
 
-Virtual_block_device::Virtual_block_device()
+Virtual_block_device::Virtual_block_device(Client_data_interface &client_data)
+:
+	_client_data(client_data)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {

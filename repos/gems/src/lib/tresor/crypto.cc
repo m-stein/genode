@@ -13,7 +13,6 @@
 
 /* tresor includes */
 #include <tresor/crypto.h>
-#include <tresor/client_data.h>
 #include <tresor/hash.h>
 
 using namespace Tresor;
@@ -183,7 +182,7 @@ void Crypto_channel::_encrypt_client_data(Client_data_interface &client_data, bo
 	switch (_state) {
 	case REQ_SUBMITTED:
 
-		client_data.obtain({req._client_req_offset, req._client_req_tag, req._pba, req._vba, _blk});
+		client_data.obtain_data({req._client_req_offset, req._client_req_tag, req._pba, req._vba, _blk});
 		_key_dir(req._key_id)->encrypt_file.write(
 			WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&_blk, BLOCK_SIZE }, progress);
 		break;
@@ -247,7 +246,7 @@ void Crypto_channel::_decrypt(bool &progress)
 }
 
 
-void Crypto_channel::_decrypt_client_data(bool &progress)
+void Crypto_channel::_decrypt_client_data(Client_data_interface &client_data, bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
@@ -265,12 +264,10 @@ void Crypto_channel::_decrypt_client_data(bool &progress)
 
 	case READ_OK:
 
-		_generate_req<Client_data_request>(
-			PLAINTEXT_BLK_SUPPLIED, progress, Client_data_request::SUPPLY_PLAINTEXT_BLK,
-			req._client_req_offset, req._client_req_tag, req._pba, req._vba, _blk);;
+		client_data.supply_data({req._client_req_offset, req._client_req_tag, req._pba, req._vba, _blk});
+		_mark_req_successful(progress);
 		break;
 
-	case PLAINTEXT_BLK_SUPPLIED: _mark_req_successful(progress); break;
 	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
 	default: break;
 	}
@@ -294,7 +291,7 @@ void Crypto_channel::execute(Client_data_interface &client_data, bool &progress)
 	case Request::REMOVE_KEY: _remove_key(progress); break;
 	case Request::DECRYPT: _decrypt(progress); break;
 	case Request::ENCRYPT: _encrypt(progress); break;
-	case Request::DECRYPT_CLIENT_DATA: _decrypt_client_data(progress); break;
+	case Request::DECRYPT_CLIENT_DATA: _decrypt_client_data(client_data, progress); break;
 	case Request::ENCRYPT_CLIENT_DATA: _encrypt_client_data(client_data, progress); break;
 	}
 }
