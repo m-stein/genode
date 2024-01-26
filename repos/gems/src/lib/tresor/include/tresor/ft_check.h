@@ -43,6 +43,7 @@ class Tresor::Ft_check
 				using Helper = Request_helper<Check, State>;
 
 				Helper _helper;
+				Attr const _attr;
 				Type_1_node_block_walk _t1_blks { };
 				Type_2_node_block _t2_blk { };
 				bool _check_node[TREE_MAX_NR_OF_LEVELS + 1][NUM_NODES_PER_BLK] { };
@@ -56,9 +57,9 @@ class Tresor::Ft_check
 
 			public:
 
-				Check(Attr const &attr) : _helper(*this, attr) { }
+				Check(Attr const &attr) : _helper(*this), _attr(attr) { }
 
-				void print(Output &out) const { Genode::print(out, "check ", _helper.attr.in_ft); }
+				void print(Output &out) const { Genode::print(out, "check ", _attr.in_ft); }
 
 				bool execute(Block_io &);
 

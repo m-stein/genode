@@ -38,14 +38,14 @@ bool Ft_check::Check::_execute_node(Block_io &block_io, Tree_level_index lvl, Tr
 				check_node = false;
 				progress = true;
 				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, _helper.attr.in_ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " unused");
+					log(Level_indent { lvl, _attr.in_ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " unused");
 				break;
 			}
 			_num_remaining_leaves--;
 			check_node = false;
 			progress = true;
 			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, _helper.attr.in_ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " done");
+				log(Level_indent { lvl, _attr.in_ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " done");
 		} else {
 			Type_1_node const &node { _t1_blks.items[lvl].nodes[node_idx] };
 			if (!node.valid()) {
@@ -57,12 +57,12 @@ bool Ft_check::Check::_execute_node(Block_io &block_io, Tree_level_index lvl, Tr
 				check_node = false;
 				progress = true;
 				if (VERBOSE_CHECK)
-					log(Level_indent { lvl, _helper.attr.in_ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " unused");
+					log(Level_indent { lvl, _attr.in_ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " unused");
 				break;
 			}
 			_read_block.construct(_helper, READ_BLK, READ_BLK_SUCCEEDED, progress, node.pba, _blk);
 			if (VERBOSE_CHECK)
-				log(Level_indent { lvl, _helper.attr.in_ft.max_lvl }, "    lvl ", lvl, " node ", node_idx,
+				log(Level_indent { lvl, _attr.in_ft.max_lvl }, "    lvl ", lvl, " node ", node_idx,
 				    " (", node, "): load to lvl ", lvl - 1);
 		}
 		break;
@@ -86,7 +86,7 @@ bool Ft_check::Check::_execute_node(Block_io &block_io, Tree_level_index lvl, Tr
 		check_node = false;
 		progress = true;
 		if (VERBOSE_CHECK)
-			log(Level_indent { lvl, _helper.attr.in_ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " has good hash");
+			log(Level_indent { lvl, _attr.in_ft.max_lvl }, "    lvl ", lvl, " node ", node_idx, " has good hash");
 		break;
 	}
 	default: break;
@@ -99,17 +99,17 @@ bool Ft_check::Check::execute(Block_io &block_io)
 {
 	bool progress = false;
 	if (_helper.state == INIT) {
-		for (Tree_level_index lvl { 1 }; lvl <= _helper.attr.in_ft.max_lvl + 1; lvl++)
-			for (Tree_node_index node_idx { 0 }; node_idx < _helper.attr.in_ft.degree; node_idx++)
+		for (Tree_level_index lvl { 1 }; lvl <= _attr.in_ft.max_lvl + 1; lvl++)
+			for (Tree_node_index node_idx { 0 }; node_idx < _attr.in_ft.degree; node_idx++)
 				_check_node[lvl][node_idx] = false;
 
-		_num_remaining_leaves = _helper.attr.in_ft.num_leaves;
-		_t1_blks.items[_helper.attr.in_ft.max_lvl + 1].nodes[0] = _helper.attr.in_ft.t1_node();
-		_check_node[_helper.attr.in_ft.max_lvl + 1][0] = true;
+		_num_remaining_leaves = _attr.in_ft.num_leaves;
+		_t1_blks.items[_attr.in_ft.max_lvl + 1].nodes[0] = _attr.in_ft.t1_node();
+		_check_node[_attr.in_ft.max_lvl + 1][0] = true;
 		_helper.state = IN_PROGRESS;
 	}
-	for (Tree_level_index lvl { 1 }; lvl <= _helper.attr.in_ft.max_lvl + 1; lvl++)
-		for (Tree_node_index node_idx { 0 }; node_idx < _helper.attr.in_ft.degree; node_idx++)
+	for (Tree_level_index lvl { 1 }; lvl <= _attr.in_ft.max_lvl + 1; lvl++)
+		for (Tree_node_index node_idx { 0 }; node_idx < _attr.in_ft.degree; node_idx++)
 			if (_execute_node(block_io, lvl, node_idx, progress))
 				return progress;
 
