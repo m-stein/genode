@@ -14,7 +14,6 @@
 
 /* tresor includes */
 #include <tresor/hash.h>
-#include <tresor/block_io.h>
 #include <tresor/vbd_initializer.h>
 #include <tresor/ft_initializer.h>
 #include <tresor/trust_anchor.h>
@@ -63,7 +62,17 @@ void Sb_initializer_channel::_mark_req_successful(bool &progress)
 }
 
 
-void Sb_initializer_channel::execute(bool &progress)
+void Sb_initializer_channel::_mark_req_failed(bool &progress, char const *str)
+{
+	error("sb_initializer request (", *_req_ptr, ") failed because: ", str);
+	_req_ptr->_success = false;
+	_state = REQ_COMPLETE;
+	_req_ptr = nullptr;
+	progress = true;
+}
+
+
+void Sb_initializer_channel::execute(Block_io &block_io, bool &progress)
 {
 	if (!_req_ptr)
 		return;
@@ -122,15 +131,16 @@ void Sb_initializer_channel::execute(bool &progress)
 		_sb.meta_degree = _mt->degree;
 		_sb.meta_leaves = _mt->num_leaves;
 		_sb.encode_to_blk(_blk);
-		_generate_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, _sb_idx, _blk);
+		_write_block.construct(*this, WRITE_BLK, WRITE_BLK_SUCCEEDED, progress, _sb_idx, _blk);
 		break;
 	}
+	case WRITE_BLK: progress |= _write_block->execute(block_io); break;
 	case WRITE_BLK_SUCCEEDED:
 
-		_generate_req<Block_io::Sync>(_sb_idx ? SB_COMPLETE : WRITE_HASH_TO_TA, progress);
-		progress = true;
+		_sync_block_io.construct(*this, SYNC_BLOCK_IO, _sb_idx ? SB_COMPLETE : WRITE_HASH_TO_TA, progress);
 		break;
 
+	case SYNC_BLOCK_IO: progress |= _sync_block_io->execute(block_io); break;
 	case WRITE_HASH_TO_TA:
 
 		calc_hash(_blk, _hash);
@@ -143,7 +153,7 @@ void Sb_initializer_channel::execute(bool &progress)
 			_sb_idx++;
 			_sb = { };
 			_sb.encode_to_blk(_blk);
-			_generate_req<Block_io::Write>(WRITE_BLK_SUCCEEDED, progress, _sb_idx, _blk);
+			_write_block.construct(*this, WRITE_BLK, WRITE_BLK_SUCCEEDED, progress, _sb_idx, _blk);
 		} else
 			_mark_req_successful(progress);
 		break;
@@ -153,7 +163,9 @@ void Sb_initializer_channel::execute(bool &progress)
 }
 
 
-Sb_initializer::Sb_initializer()
+Sb_initializer::Sb_initializer(Block_io &block_io)
+:
+	_block_io(block_io)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {
@@ -166,5 +178,5 @@ Sb_initializer::Sb_initializer()
 void Sb_initializer::execute(bool &progress)
 {
 	for_each_channel<Channel>([&] (Channel &chan) {
-		chan.execute(progress); });
+		chan.execute(_block_io, progress); });
 }

@@ -501,9 +501,9 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 		Vfs::Vfs_handle &_block_io_file { open_file(_vfs_env, _block_io_path, Vfs::Directory_service::OPEN_MODE_RDWR) };
 		Block_io _block_io { _vfs_env, _config_rom.xml().sub_node("block-io"), _block_io_file };
 		Pba_allocator _pba_alloc { NR_OF_SUPERBLOCK_SLOTS };
-		Vbd_initializer _vbd_initializer { };
-		Ft_initializer _ft_initializer { };
-		Sb_initializer _sb_initializer { };
+		Vbd_initializer _vbd_initializer { _block_io };
+		Ft_initializer _ft_initializer { _block_io };
+		Sb_initializer _sb_initializer { _block_io };
 		Vbd_check _vbd_check { };
 		Ft_check _ft_check { };
 		Sb_check _sb_check { };
@@ -705,7 +705,7 @@ class Tresor_tester::Main : private Vfs::Env::User, private Module_composition, 
 
 		void construct_tresor_modules()
 		{
-			_free_tree.construct();
+			_free_tree.construct(_block_io);
 			_vbd.construct(*this, _block_io);
 			_sb_control.construct(_block_io);
 			_request_pool.construct();
