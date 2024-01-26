@@ -13,7 +13,6 @@
  */
 
 /* tresor includes */
-#include <tresor/block_io.h>
 #include <tresor/hash.h>
 #include <tresor/ft_initializer.h>
 
@@ -60,7 +59,7 @@ bool Ft_initializer_channel::_execute_t2_node(Tree_node_index node_idx, bool &pr
 		}
 		break;
 
-	case WRITE_BLK: ASSERT_NEVER_REACHED;
+	case WRITING_BLOCK: ASSERT_NEVER_REACHED;
 	}
 	return true;
 }
@@ -101,15 +100,13 @@ bool Ft_initializer_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_in
 		else
 			_t1_blks.items[lvl - 1].encode_to_blk(_blk);
 		calc_hash(_blk, node.hash);
-		generate_req<Block_io::Write>(EXECUTE_NODES, progress, node.pba, _blk, _generated_req_success);
-		_state = REQ_GENERATED;
-		node_state = WRITE_BLK;
-		progress = true;
+		_write_block.construct(*this, WRITE_BLOCK, EXECUTE_NODES, progress, node.pba, _blk);
+		node_state = WRITING_BLOCK;
 		if (VERBOSE_FT_INIT)
 			log("[ft_init] node: ", lvl, " ", node_idx, " assign pba: ", node.pba);
 		break;
 	}
-	case WRITE_BLK:
+	case WRITING_BLOCK:
 
 		node_state = DONE;
 		progress = true;
@@ -169,7 +166,7 @@ void Ft_initializer_channel::_reset_level(Tree_level_index lvl, Node_state node_
 }
 
 
-void Ft_initializer_channel::execute(bool &progress)
+void Ft_initializer_channel::execute(Block_io &block_io, bool &progress)
 {
 	if (!_req_ptr)
 		return;
@@ -204,6 +201,7 @@ void Ft_initializer_channel::execute(bool &progress)
 			_mark_req_successful(progress);
 		return;
 
+	case WRITE_BLOCK: progress |= _write_block->execute(block_io); break;
 	default: return;
 	}
 }
@@ -216,7 +214,9 @@ void Ft_initializer_channel::_request_submitted(Module_request &mod_req)
 }
 
 
-Ft_initializer::Ft_initializer()
+Ft_initializer::Ft_initializer(Block_io &block_io)
+:
+	_block_io(block_io)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {
@@ -229,5 +229,5 @@ Ft_initializer::Ft_initializer()
 void Ft_initializer::execute(bool &progress)
 {
 	for_each_channel<Channel>([&] (Channel &chan) {
-		chan.execute(progress); });
+		chan.execute(_block_io, progress); });
 }

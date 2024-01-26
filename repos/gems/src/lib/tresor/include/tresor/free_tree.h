@@ -16,6 +16,7 @@
 
 /* tresor includes */
 #include <tresor/types.h>
+#include <tresor/block_io.h>
 
 namespace Tresor {
 
@@ -78,8 +79,8 @@ class Tresor::Free_tree_channel : public Module_channel
 		using Request = Free_tree_request;
 
 		enum State {
-			REQ_SUBMITTED, REQ_GENERATED, SEEK_DOWN, SEEK_LEFT_OR_UP, WRITE_BLK, READ_BLK_SUCCEEDED,
-			ALLOC_PBA_SUCCEEDED, WRITE_BLK_SUCCEEDED, REQ_COMPLETE };
+			REQ_SUBMITTED, REQ_GENERATED, SEEK_DOWN, SEEK_LEFT_OR_UP, READ_BLK, READ_BLK_SUCCEEDED,
+			ALLOC_PBA_SUCCEEDED, WRITE_BLK, WRITE_BLK_SUCCEEDED, REQ_COMPLETE };
 
 		Request *_req_ptr { nullptr };
 		State _state { REQ_COMPLETE };
@@ -99,6 +100,10 @@ class Tresor::Free_tree_channel : public Module_channel
 		Tree_degree_log_2 _vbd_degree_log_2 { 0 };
 		Tree_level_index _lvl { 0 };
 		bool _generated_req_success { false };
+		union {
+			Generated_request<Free_tree_channel, Block_io_read, State> _read_block;
+			Generated_request<Free_tree_channel, Block_io_write, State> _write_block;
+		};
 
 		NONCOPYABLE(Free_tree_channel);
 
@@ -135,15 +140,33 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		void _generate_write_blk_req(bool &);
 
-		void _extension_step(bool &);
+		void _extension_step(Block_io &, bool &);
 
-		void _alloc_pbas(bool &);
+		void _alloc_pbas(Block_io &, bool &);
 
 	public:
 
 		Free_tree_channel(Module_channel_id id) : Module_channel(FREE_TREE, id) { }
 
-		void execute(bool &);
+		~Free_tree_channel() { }
+
+		void execute(Block_io &, bool &);
+
+		using Module = Free_tree;
+
+		void generated_req_failed(bool &progress) { _mark_req_failed(progress, "generated request failed"); }
+
+		void generated_req_succeeded(State target_state, bool &progress)
+		{
+			_state = target_state;
+			progress = true;
+		}
+
+		void req_generated(State target_state, bool &progress)
+		{
+			_state = target_state;
+			progress = true;
+		}
 };
 
 class Tresor::Free_tree : public Module
@@ -154,6 +177,7 @@ class Tresor::Free_tree : public Module
 		using Request = Free_tree_request;
 
 		Constructible<Channel> _channels[1] { };
+		Block_io &_block_io;
 
 		NONCOPYABLE(Free_tree);
 
@@ -169,7 +193,9 @@ class Tresor::Free_tree : public Module
 			                    *(Type_1_node_walk*)0, 0, 0, 0, 0, 0, 0, 0, 0, pba, num_pbas, succ) { }
 		};
 
-		Free_tree();
+		Free_tree(Block_io &);
+
+		static constexpr char const *name() { return "free_tree"; }
 };
 
 #endif /* _TRESOR__FREE_TREE_H_ */

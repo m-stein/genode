@@ -17,6 +17,7 @@
 
 /* tresor includes */
 #include <tresor/types.h>
+#include <tresor/block_io.h>
 
 namespace Tresor {
 
@@ -52,9 +53,9 @@ class Tresor::Ft_initializer_channel : public Module_channel
 
 		using Request = Ft_initializer_request;
 
-		enum State { REQ_GENERATED, REQ_SUBMITTED, EXECUTE_NODES, REQ_COMPLETE };
+		enum State { REQ_GENERATED, REQ_SUBMITTED, EXECUTE_NODES, WRITE_BLOCK, REQ_COMPLETE };
 
-		enum Node_state { DONE, INIT_BLOCK, INIT_NODE, WRITE_BLK };
+		enum Node_state { DONE, INIT_BLOCK, INIT_NODE, WRITING_BLOCK };
 
 		State _state { REQ_COMPLETE };
 		Request *_req_ptr { };
@@ -65,6 +66,7 @@ class Tresor::Ft_initializer_channel : public Module_channel
 		Number_of_leaves _num_remaining_leaves { 0 };
 		bool _generated_req_success { false };
 		Block _blk { };
+		Generated_request<Ft_initializer_channel, Block_io_write, State> _write_block { };
 
 		NONCOPYABLE(Ft_initializer_channel);
 
@@ -88,7 +90,23 @@ class Tresor::Ft_initializer_channel : public Module_channel
 
 		Ft_initializer_channel(Module_channel_id id) : Module_channel(FT_INITIALIZER, id) { }
 
-		void execute(bool &);
+		void execute(Block_io &block_io, bool &);
+
+		using Module = Ft_initializer;
+
+		void generated_req_failed(bool &progress) { _mark_req_failed(progress, "generated request failed"); }
+
+		void generated_req_succeeded(State target_state, bool &progress)
+		{
+			_state = target_state;
+			progress = true;
+		}
+
+		void req_generated(State target_state, bool &progress)
+		{
+			_state = target_state;
+			progress = true;
+		}
 };
 
 
@@ -99,15 +117,17 @@ class Tresor::Ft_initializer : public Module
 		using Channel = Ft_initializer_channel;
 
 		Constructible<Channel> _channels[1] { };
+		Block_io &_block_io;
 
 		NONCOPYABLE(Ft_initializer);
 
 	public:
 
-		Ft_initializer();
+		Ft_initializer(Block_io &);
 
 		void execute(bool &) override;
 
+		static constexpr char const *name() { return "ft_initializer"; }
 };
 
 #endif /* _TRESOR__FT_INITIALIZER_H_ */

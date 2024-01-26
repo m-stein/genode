@@ -320,12 +320,13 @@ void Superblock_control_channel::_secure_sb(Block_io &block_io, bool &progress)
 		if (_sb.state == Superblock::REKEYING)
 			_generate_req<Trust_anchor::Encrypt_key>(
 				ENCRYPT_PREV_KEY_SUCCEEDED, progress, _sb.previous_key.value, _sb_ciphertext.previous_key.value);
-		else
-			_generate_req<Block_io::Sync>(SYNC_CACHE_SUCCEEDED, progress);
+		else {
+			_sb_ciphertext.encode_to_blk(_blk);
+			_write_block.construct(*this, WRITE_BLOCK, WRITE_SB_SUCCEEDED, progress, _sb_idx, _blk);
+		}
 		break;
 
-	case ENCRYPT_PREV_KEY_SUCCEEDED: _generate_req<Block_io::Sync>(SYNC_CACHE_SUCCEEDED, progress); break;
-	case SYNC_CACHE_SUCCEEDED:
+	case ENCRYPT_PREV_KEY_SUCCEEDED:
 
 		_sb_ciphertext.encode_to_blk(_blk);
 		_write_block.construct(*this, WRITE_BLOCK, WRITE_SB_SUCCEEDED, progress, _sb_idx, _blk);
@@ -505,7 +506,7 @@ void Superblock_control_channel::_initialize(Block_io &block_io, bool &progress)
 		} else
 			if (_sb_idx < MAX_SUPERBLOCK_INDEX) {
 				_sb_idx++;
-				_generate_req<Block_io::Read>(READ_SB_SUCCEEDED, progress, _sb_idx, _blk);
+				_read_block.construct(*this, READ_BLOCK, READ_SB_SUCCEEDED, progress, _sb_idx, _blk);
 			} else
 				_mark_req_failed(progress, "superblock not found");
 		break;

@@ -17,6 +17,7 @@
 
 /* tresor includes */
 #include <tresor/types.h>
+#include <tresor/block_io.h>
 
 namespace Tresor {
 
@@ -52,9 +53,9 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 
 		using Request = Vbd_initializer_request;
 
-		enum State { REQ_GENERATED, SUBMITTED, COMPLETE, EXECUTE_NODES };
+		enum State { REQ_GENERATED, SUBMITTED, COMPLETE, WRITE_BLOCK, EXECUTE_NODES };
 
-		enum Node_state { DONE, INIT_BLOCK, INIT_NODE, WRITE_BLOCK };
+		enum Node_state { DONE, INIT_BLOCK, INIT_NODE, WRITING_BLOCK };
 
 		State _state { COMPLETE };
 		Vbd_initializer_request *_req_ptr { };
@@ -63,6 +64,7 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 		bool _generated_req_success { false };
 		Block _blk { };
 		Number_of_leaves _num_remaining_leaves { };
+		Generated_request<Vbd_initializer_channel, Block_io_write, State> _write_block { };
 
 		NONCOPYABLE(Vbd_initializer_channel);
 
@@ -84,7 +86,23 @@ class Tresor::Vbd_initializer_channel : public Module_channel
 
 		Vbd_initializer_channel(Module_channel_id id) : Module_channel(VBD_INITIALIZER, id) { }
 
-		void execute(bool &);
+		void execute(Block_io &, bool &);
+
+		using Module = Vbd_initializer;
+
+		void generated_req_failed(bool &progress) { _mark_req_failed(progress, "generated request failed"); }
+
+		void generated_req_succeeded(State target_state, bool &progress)
+		{
+			_state = target_state;
+			progress = true;
+		}
+
+		void req_generated(State target_state, bool &progress)
+		{
+			_state = target_state;
+			progress = true;
+		}
 };
 
 
@@ -95,14 +113,17 @@ class Tresor::Vbd_initializer : public Module
 		using Channel = Vbd_initializer_channel;
 
 		Constructible<Channel> _channels[1] { };
+		Block_io &_block_io;
 
 		NONCOPYABLE(Vbd_initializer);
 
 	public:
 
-		Vbd_initializer();
+		Vbd_initializer(Block_io &);
 
 		void execute(bool &) override;
+
+		static constexpr char const *name() { return "vbd_initializer"; }
 };
 
 #endif /* _TRESOR__VBD_INITIALIZER_H_ */

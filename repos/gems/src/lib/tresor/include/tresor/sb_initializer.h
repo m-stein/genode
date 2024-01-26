@@ -17,6 +17,7 @@
 
 /* tresor includes */
 #include <tresor/types.h>
+#include <tresor/block_io.h>
 
 namespace Tresor {
 
@@ -65,7 +66,7 @@ class Tresor::Sb_initializer_channel : public Module_channel
 		enum State {
 			REQ_SUBMITTED, START_NEXT_SB, SB_COMPLETE, REQ_COMPLETE, INIT_FT_SUCCEEDED, INIT_MT_SUCCEEDED,
 			WRITE_HASH_TO_TA, CREATE_KEY_SUCCEEDED, ENCRYPT_KEY_SUCCEEDED, SECURE_SB_SUCCEEDED, INIT_VBD_SUCCEEDED,
-			WRITE_BLK_SUCCEEDED, REQ_GENERATED };
+			WRITE_BLK, WRITE_BLK_SUCCEEDED, SYNC_BLOCK_IO, REQ_GENERATED };
 
 		State _state { REQ_COMPLETE };
 		Request *_req_ptr { };
@@ -77,6 +78,10 @@ class Tresor::Sb_initializer_channel : public Module_channel
 		Constructible<Tree_root> _mt { };
 		Constructible<Tree_root> _ft { };
 		bool _generated_req_success { false };
+		union {
+			Generated_request<Sb_initializer_channel, Block_io_write, State> _write_block;
+			Generated_request<Sb_initializer_channel, Block_io_sync, State> _sync_block_io;
+		};
 
 		NONCOPYABLE(Sb_initializer_channel);
 
@@ -93,13 +98,33 @@ class Tresor::Sb_initializer_channel : public Module_channel
 			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
 		}
 
+		void _mark_req_failed(bool &, char const *);
+
 		void _mark_req_successful(bool &);
 
 	public:
 
 		Sb_initializer_channel(Module_channel_id id) : Module_channel(SB_INITIALIZER, id) { }
 
-		void execute(bool &);
+		~Sb_initializer_channel() { }
+
+		void execute(Block_io &block_io, bool &);
+
+		using Module = Sb_initializer;
+
+		void generated_req_failed(bool &progress) { _mark_req_failed(progress, "generated request failed"); }
+
+		void generated_req_succeeded(State target_state, bool &progress)
+		{
+			_state = target_state;
+			progress = true;
+		}
+
+		void req_generated(State target_state, bool &progress)
+		{
+			_state = target_state;
+			progress = true;
+		}
 };
 
 
@@ -110,14 +135,17 @@ class Tresor::Sb_initializer : public Module
 		using Channel = Sb_initializer_channel;
 
 		Constructible<Channel> _channels[1] { };
+		Block_io &_block_io;
 
 		NONCOPYABLE(Sb_initializer);
 
 	public:
 
-		Sb_initializer();
+		Sb_initializer(Block_io &);
 
 		void execute(bool &) override;
+
+		static constexpr char const *name() { return "sb_initializer"; }
 };
 
 #endif /* _TRESOR__SB_INITIALIZER_H_ */
