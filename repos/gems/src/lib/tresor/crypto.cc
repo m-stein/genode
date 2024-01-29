@@ -17,215 +17,97 @@
 
 using namespace Tresor;
 
-Crypto_request::Crypto_request(Module_id src_module_id, Module_channel_id src_chan_id, Type type, Key_id key_id,
-                               Key_value const &key_plaintext, Physical_block_address pba,
-                               Block &blk, bool &success)
-:
-	Module_request(src_module_id, src_chan_id, CRYPTO), _type(type), _pba(pba), _key_id(key_id),
-	_key_plaintext(key_plaintext), _blk(blk), _success(success)
-{ }
-
-
-void Crypto_request::print(Output &out) const
+bool Crypto::Add_key::execute(Crypto::Attr const &crypto_attr)
 {
-	Genode::print(out, type_to_string(_type));
-	switch (_type) {
-	case ADD_KEY:
-	case REMOVE_KEY: Genode::print(out, " ", _key_id); break;
-	case DECRYPT:
-	case ENCRYPT:
-	default: break;
-	}
-}
+	bool progress { false };
+	switch (_helper.state) {
+	case INIT:
 
-
-char const *Crypto_request::type_to_string(Type type)
-{
-	switch (type) {
-	case ADD_KEY: return "add_key";
-	case REMOVE_KEY: return "remove_key";
-	case ENCRYPT: return "encrypt";
-	case DECRYPT: return "decrypt";
-	}
-	ASSERT_NEVER_REACHED;
-}
-
-
-void Crypto_channel::_generated_req_completed(State_uint state_uint)
-{
-	if (!_generated_req_success) {
-		error("crypto: request (", *_req_ptr, ") failed because generated request failed)");
-		_req_ptr->_success = false;
-		_state = REQ_COMPLETE;
-		_req_ptr = nullptr;
-		return;
-	}
-	_state = (State)state_uint;
-}
-
-
-Constructible<Crypto_channel::Key_directory> &Crypto_channel::_key_dir(Key_id key_id)
-{
-	for (Constructible<Key_directory> &key_dir : _key_dirs)
-		if (key_dir.constructed() && key_dir->key_id == key_id)
-			return key_dir;
-	ASSERT_NEVER_REACHED;
-}
-
-
-void Crypto_channel::_mark_req_failed(bool &progress, char const *str)
-{
-	error("crypto: request (", *_req_ptr, ") failed at step \"", str, "\"");
-	_req_ptr->_success = false;
-	_state = REQ_COMPLETE;
-	_req_ptr = nullptr;
-	progress = true;
-}
-
-
-void Crypto_channel::_mark_req_successful(bool &progress)
-{
-	Request &req { *_req_ptr };
-	req._success = true;
-	_state = REQ_COMPLETE;
-	_req_ptr = nullptr;
-	progress = true;
-}
-
-
-void Crypto_channel::_add_key(bool &progress)
-{
-	Request &req { *_req_ptr };
-	switch (_state) {
-	case REQ_SUBMITTED:
-
-		memcpy(_add_key_buf, &req._key_id, sizeof(Key_id));
-		memcpy(_add_key_buf + sizeof(Key_id), &req._key_plaintext, KEY_SIZE);
-		_add_key_file.write(WRITE_OK, FILE_ERR, 0, { _add_key_buf, sizeof(_add_key_buf) }, progress);
+		_file.construct(_helper.state, crypto_attr.add_key_file);
+		memcpy(_write_buf, &_attr.in_key.id, sizeof(Key_id));
+		memcpy(_write_buf + sizeof(Key_id), &_attr.in_key.value, sizeof(Key_value));
+		_helper.state = WRITE;
+		progress = true;
 		break;
 
-	case WRITE_OK:
-	{
-		Constructible<Key_directory> *key_dir_ptr { nullptr };
-		for (Constructible<Key_directory> &key_dir : _key_dirs)
-			if (!key_dir.constructed())
-				key_dir_ptr = &key_dir;
-		if (!key_dir_ptr) {
-			_mark_req_failed(progress, "find unused key dir");
-			break;
-		}
-		key_dir_ptr->construct(*this, req._key_id);
-		_mark_req_successful(progress);
-		break;
-	}
-	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
-	default: break;
-	}
-}
-
-
-void Crypto_channel::_remove_key(bool &progress)
-{
-	Request &req { *_req_ptr };
-	switch (_state) {
-	case REQ_SUBMITTED: _remove_key_file.write(WRITE_OK, FILE_ERR, 0, { (char *)&req._key_id, sizeof(Key_id) }, progress); break;
+	case WRITE: _file->write(WRITE_OK, FILE_ERR, 0, { _write_buf, sizeof(_write_buf) }, progress); break;
 	case WRITE_OK:
 
-		_key_dir(req._key_id).destruct();
-		_mark_req_successful(progress);
+		crypto_attr.key_files.add_crypto_key(_attr.in_key.id);
+		_helper.mark_succeeded(progress);
 		break;
 
-	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
-	default: return;
-	}
-}
-
-
-void Crypto_channel::_encrypt(bool &progress)
-{
-	Request &req { *_req_ptr };
-	switch (_state) {
-	case REQ_SUBMITTED:
-
-		_key_dir(req._key_id)->encrypt_file.write(
-			WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress);
-		break;
-
-	case WRITE_OK:
-
-		_key_dir(req._key_id)->encrypt_file.read(
-			READ_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress);
-		break;
-
-	case READ_OK: _mark_req_successful(progress); break;
-	case FILE_ERR: _mark_req_failed(progress, "file operation"); break;
+	case FILE_ERR: _helper.mark_failed(progress, "file operation failed"); break;
 	default: break;
 	}
+	return progress;
 }
 
 
-void Crypto_channel::_decrypt(bool &progress)
+bool Crypto::Remove_key::execute(Crypto::Attr const &crypto_attr)
 {
-	Request &req { *_req_ptr };
-	switch (_state) {
-	case REQ_SUBMITTED:
+	bool progress { false };
+	switch (_helper.state) {
+	case INIT:
 
-		_key_dir(req._key_id)->decrypt_file.write(
-			WRITE_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress);
+		_file.construct(_helper.state, crypto_attr.remove_key_file);
+		_helper.state = WRITE;
+		progress = true;
 		break;
 
+	case WRITE: _file->write(WRITE_OK, FILE_ERR, 0, { (char *)&_attr.in_key_id, sizeof(Key_id) }, progress); break;
 	case WRITE_OK:
 
-		_key_dir(req._key_id)->decrypt_file.read(
-			READ_OK, FILE_ERR, req._pba * BLOCK_SIZE, { (char *)&req._blk, BLOCK_SIZE }, progress);
+		crypto_attr.key_files.remove_crypto_key(_attr.in_key_id);
+		_helper.mark_succeeded(progress);
 		break;
 
-	case READ_OK: _mark_req_successful(progress); break;
-	case FILE_ERR: _mark_req_failed(progress, "file operation"); break;
+	case FILE_ERR: _helper.mark_failed(progress, "file operation failed"); break;
 	default: break;
 	}
+	return progress;
 }
 
 
-void Crypto_channel::_request_submitted(Module_request &mod_req)
+bool Crypto::Encrypt::execute(Crypto::Attr const &crypto_attr)
 {
-	_req_ptr = static_cast<Request *>(&mod_req);
-	_state = REQ_SUBMITTED;
-}
+	bool progress { false };
+	switch (_helper.state) {
+	case INIT:
 
+		_file.construct(_helper.state, crypto_attr.key_files.encrypt_file(_attr.in_key_id));
+		_offset = _attr.in_pba * BLOCK_SIZE;
+		_helper.state = WRITE;
+		progress = true;
+		break;
 
-void Crypto_channel::execute(bool &progress)
-{
-	if (!_req_ptr)
-		return;
-
-	switch (_req_ptr->_type) {
-	case Request::ADD_KEY: _add_key(progress); break;
-	case Request::REMOVE_KEY: _remove_key(progress); break;
-	case Request::DECRYPT: _decrypt(progress); break;
-	case Request::ENCRYPT: _encrypt(progress); break;
+	case WRITE: _file->write(WRITE_OK, FILE_ERR, _offset, { (char *)&_attr.in_out_blk, BLOCK_SIZE }, progress); break;
+	case WRITE_OK: _file->read(READ_OK, FILE_ERR, _offset, { (char *)&_attr.in_out_blk, BLOCK_SIZE }, progress); break;
+	case READ_OK: _helper.mark_succeeded(progress); break;
+	case FILE_ERR: _helper.mark_failed(progress, "file-operation error"); break;
+	default: break;
 	}
+	return progress;
 }
 
 
-void Crypto::execute(bool &progress)
+bool Crypto::Decrypt::execute(Crypto::Attr const &crypto_attr)
 {
-	for_each_channel<Channel>([&] (Channel &chan) {
-		chan.execute(progress); });
-}
+	bool progress { false };
+	switch (_helper.state) {
+	case INIT:
 
+		_file.construct(_helper.state, crypto_attr.key_files.decrypt_file(_attr.in_key_id));
+		_offset = _attr.in_pba * BLOCK_SIZE;
+		_helper.state = WRITE;
+		progress = true;
+		break;
 
-Crypto_channel::Crypto_channel(Module_channel_id id, Vfs::Env &vfs_env, Xml_node const &xml_node)
-:
-	Module_channel(CRYPTO, id), _vfs_env(vfs_env), _path(xml_node.attribute_value("path", Tresor::Path()))
-{ }
-
-
-Crypto::Crypto(Vfs::Env &vfs_env, Xml_node const &xml_node)
-{
-	Module_channel_id id { 0 };
-	for (Constructible<Channel> &chan : _channels) {
-		chan.construct(id++, vfs_env, xml_node);
-		add_channel(*chan);
+	case WRITE: _file->write(WRITE_OK, FILE_ERR, _offset, { (char *)&_attr.in_out_blk, BLOCK_SIZE }, progress); break;
+	case WRITE_OK: _file->read(READ_OK, FILE_ERR, _offset, { (char *)&_attr.in_out_blk, BLOCK_SIZE }, progress); break;
+	case READ_OK: _helper.mark_succeeded(progress); break;
+	case FILE_ERR: _helper.mark_failed(progress, "file-operation error"); break;
+	default: break;
 	}
+	return progress;
 }
