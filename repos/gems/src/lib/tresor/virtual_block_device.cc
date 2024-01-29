@@ -14,7 +14,6 @@
 /* tresor includes */
 #include <tresor/virtual_block_device.h>
 #include <tresor/hash.h>
-#include <tresor/crypto.h>
 
 using namespace Tresor;
 
@@ -72,7 +71,7 @@ void Virtual_block_device_channel::_generate_write_blk_req(bool &progress)
 }
 
 
-void Virtual_block_device_channel::_read_vba(Client_data_interface &client_data, Block_io &block_io, bool &progress)
+void Virtual_block_device_channel::_read_vba(Client_data_interface &client_data, Block_io &block_io, Crypto &crypto, bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
@@ -96,7 +95,7 @@ void Virtual_block_device_channel::_read_vba(Client_data_interface &client_data,
 			if (VERBOSE_READ_VBA)
 				log("    ", Branch_lvl_prefix("ciphertext: "), _data_blk, " ", hash(_data_blk));
 
-			_generate_req<Crypto::Decrypt>(DECRYPT_BLOCK_SUCCEEDED, progress, req._curr_key_id, _new_pbas.pbas[_lvl], _data_blk);
+			_decrypt_block.construct(*this, DECRYPT_BLOCK, DECRYPT_BLOCK_SUCCEEDED, progress, req._curr_key_id, _new_pbas.pbas[_lvl], _data_blk);
 			break;
 		}
 		Type_1_node &node { _node(_lvl, req._vba) };
@@ -116,6 +115,7 @@ void Virtual_block_device_channel::_read_vba(Client_data_interface &client_data,
 				_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _data_blk);
 		break;
 	}
+	case DECRYPT_BLOCK: progress |= _decrypt_block->execute(crypto); break;
 	case DECRYPT_BLOCK_SUCCEEDED:
 
 		if (VERBOSE_READ_VBA)
@@ -245,7 +245,7 @@ void Virtual_block_device_channel::_generate_ft_alloc_req_for_write_vba(bool &pr
 }
 
 
-void Virtual_block_device_channel::_write_vba(Client_data_interface &client_data, Block_io &block_io, bool &progress)
+void Virtual_block_device_channel::_write_vba(Client_data_interface &client_data, Block_io &block_io, Crypto &crypto, bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
@@ -276,7 +276,8 @@ void Virtual_block_device_channel::_write_vba(Client_data_interface &client_data
 				_generate_ft_alloc_req_for_write_vba(progress);
 			else {
 				client_data.obtain_data({req._client_req_offset, req._client_req_tag, _new_pbas.pbas[0], _vba, _data_blk});
-				_generate_req<Crypto::Encrypt>(ENCRYPT_BLOCK_SUCCEEDED, progress, req._curr_key_id, _new_pbas.pbas[0], _data_blk);
+				_encrypt_block.construct(
+					*this, ENCRYPT_BLOCK, ENCRYPT_BLOCK_SUCCEEDED, progress, req._curr_key_id, _new_pbas.pbas[0], _data_blk);
 			}
 		}
 		_lvl--;
@@ -288,9 +289,11 @@ void Virtual_block_device_channel::_write_vba(Client_data_interface &client_data
 			log("  alloc pba", _num_blks > 1 ? "s" : "", ": ", Pba_allocation(_t1_nodes, _new_pbas));
 
 		client_data.obtain_data({req._client_req_offset, req._client_req_tag, _new_pbas.pbas[0], _vba, _data_blk});
-		_generate_req<Crypto::Encrypt>(ENCRYPT_BLOCK_SUCCEEDED, progress, req._curr_key_id, _new_pbas.pbas[0], _data_blk);
+		_encrypt_block.construct(
+			*this, ENCRYPT_BLOCK, ENCRYPT_BLOCK_SUCCEEDED, progress, req._curr_key_id, _new_pbas.pbas[0], _data_blk);
 		break;
 
+	case ENCRYPT_BLOCK: progress |= _encrypt_block->execute(crypto); break;
 	case ENCRYPT_BLOCK_SUCCEEDED:
 
 		calc_hash(_data_blk, _hash);
@@ -389,7 +392,7 @@ void Virtual_block_device_channel::_generate_ft_alloc_req_for_rekeying(Tree_leve
 }
 
 
-void Virtual_block_device_channel::_rekey_vba(Block_io &block_io, bool &progress)
+void Virtual_block_device_channel::_rekey_vba(Block_io &block_io, Crypto &crypto, bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
@@ -437,13 +440,13 @@ void Virtual_block_device_channel::_rekey_vba(Block_io &block_io, bool &progress
 				_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, node.pba, _lvl ? _encoded_blk : _data_blk);
 			}
 		} else {
-			_generate_req<Crypto::Decrypt>(
-				DECRYPT_BLOCK_SUCCEEDED, progress, req._prev_key_id, _old_pbas.pbas[_lvl], _data_blk);
+			_decrypt_block.construct(*this, DECRYPT_BLOCK, DECRYPT_BLOCK_SUCCEEDED, progress, req._prev_key_id, _old_pbas.pbas[_lvl], _data_blk);
 			if (VERBOSE_REKEYING)
 				log("        ", Branch_lvl_prefix("leaf data: "), _data_blk);
 		}
 		break;
 
+	case DECRYPT_BLOCK: progress |= _decrypt_block->execute(crypto); break;
 	case DECRYPT_BLOCK_SUCCEEDED:
 
 		_generate_ft_alloc_req_for_rekeying(_lvl, progress);
@@ -466,10 +469,11 @@ void Virtual_block_device_channel::_rekey_vba(Block_io &block_io, bool &progress
 			if (_lvl)
 				_t1_blks.items[_lvl].encode_to_blk(_encoded_blk);
 		} else
-			_generate_req<Crypto::Encrypt>(
-				ENCRYPT_BLOCK_SUCCEEDED, progress, req._curr_key_id, _new_pbas.pbas[0], _data_blk);
+			_encrypt_block.construct(
+				*this, ENCRYPT_BLOCK, ENCRYPT_BLOCK_SUCCEEDED, progress, req._curr_key_id, _new_pbas.pbas[0], _data_blk);
 		break;
 
+	case ENCRYPT_BLOCK: progress |= _encrypt_block->execute(crypto); break;
 	case ENCRYPT_BLOCK_SUCCEEDED:
 
 		_generate_write_blk_req(progress);
@@ -751,15 +755,15 @@ void Virtual_block_device_channel::_extension_step(Block_io &block_io, bool &pro
 }
 
 
-void Virtual_block_device_channel::execute(Client_data_interface &client_data, Block_io &block_io, bool &progress)
+void Virtual_block_device_channel::execute(Client_data_interface &client_data, Block_io &block_io, Crypto &crypto, bool &progress)
 {
 	if (!_req_ptr)
 		return;
 
 	switch (_req_ptr->_type) {
-	case Request::READ_VBA: _read_vba(client_data, block_io, progress); break;
-	case Request::WRITE_VBA: _write_vba(client_data, block_io, progress); break;
-	case Request::REKEY_VBA: _rekey_vba(block_io, progress); break;
+	case Request::READ_VBA: _read_vba(client_data, block_io, crypto, progress); break;
+	case Request::WRITE_VBA: _write_vba(client_data, block_io, crypto, progress); break;
+	case Request::REKEY_VBA: _rekey_vba(block_io, crypto, progress); break;
 	case Request::EXTENSION_STEP: _extension_step(block_io, progress); break;
 	}
 }
@@ -768,7 +772,7 @@ void Virtual_block_device_channel::execute(Client_data_interface &client_data, B
 void Virtual_block_device::execute(bool &progress)
 {
 	for_each_channel<Channel>([&] (Channel &chan) {
-		chan.execute(_client_data, _block_io, progress); });
+		chan.execute(_client_data, _block_io, _crypto, progress); });
 }
 
 
@@ -783,10 +787,11 @@ void Virtual_block_device_channel::_generate_ft_req(State complete_state, bool p
 }
 
 
-Virtual_block_device::Virtual_block_device(Client_data_interface &client_data, Block_io &block_io)
+Virtual_block_device::Virtual_block_device(Client_data_interface &client_data, Block_io &block_io, Crypto &crypto)
 :
 	_client_data(client_data),
-	_block_io(block_io)
+	_block_io(block_io),
+	_crypto(crypto)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {
