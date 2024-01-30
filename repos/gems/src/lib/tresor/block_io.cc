@@ -18,13 +18,13 @@
 using namespace Tresor;
 
 
-bool Block_io::Sync::execute(Vfs::Vfs_handle &file_handle)
+bool Block_io::Sync::execute(Vfs::Vfs_handle &file)
 {
 	bool progress = false;
 	switch (_helper.state) {
 	case INIT:
 
-		_file.construct(_helper.state, file_handle);
+		_file.construct(_helper.state, file);
 		_helper.state = SYNC;
 		progress = true;
 		break;
@@ -38,13 +38,13 @@ bool Block_io::Sync::execute(Vfs::Vfs_handle &file_handle)
 }
 
 
-bool Block_io::Read::execute(Vfs::Vfs_handle &file_handle)
+bool Block_io::Read::execute(Vfs::Vfs_handle &file)
 {
 	bool progress = false;
 	switch (_helper.state) {
 	case INIT:
 
-		_file.construct(_helper.state, file_handle);
+		_file.construct(_helper.state, file);
 		_helper.state = READ;
 		progress = true;
 		break;
@@ -64,13 +64,13 @@ bool Block_io::Read::execute(Vfs::Vfs_handle &file_handle)
 }
 
 
-bool Block_io::Write::execute(Vfs::Vfs_handle &file_handle)
+bool Block_io::Write::execute(Vfs::Vfs_handle &file)
 {
 	bool progress = false;
 	switch (_helper.state) {
 	case INIT:
 
-		_file.construct(_helper.state, file_handle);
+		_file.construct(_helper.state, file);
 		_helper.state = WRITE;
 		progress = true;
 		break;
