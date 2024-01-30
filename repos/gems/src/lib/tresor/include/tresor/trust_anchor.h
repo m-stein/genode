@@ -103,12 +103,24 @@ class Tresor::Trust_anchor_channel : public Module_channel
 
 class Tresor::Trust_anchor : public Module
 {
+	public:
+
+		struct Attr
+		{
+			Vfs::Vfs_handle &decrypt_file;
+			Vfs::Vfs_handle &encrypt_file;
+			Vfs::Vfs_handle &generate_key_file;
+			Vfs::Vfs_handle &initialize_file;
+			Vfs::Vfs_handle &hashsum_file;
+		};
+
 	private:
 
 		using Request = Trust_anchor_request;
 		using Channel = Trust_anchor_channel;
 
 		Constructible<Channel> _channels[1] { };
+		Attr const _attr;
 
 		NONCOPYABLE(Trust_anchor);
 
@@ -150,7 +162,7 @@ class Tresor::Trust_anchor : public Module
 			: Request(src_mod, src_chan, Request::INITIALIZE, *(Key_value*)0, *(Key_value*)0, *(Hash*)0, pass, succ) { }
 		};
 
-		Trust_anchor(Vfs::Env &, Xml_node const &);
+		Trust_anchor(Vfs::Env &, Xml_node const &, Attr const &);
 
 		void execute(bool &) override;
 };
