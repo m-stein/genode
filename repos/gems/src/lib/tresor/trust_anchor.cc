@@ -165,7 +165,9 @@ Trust_anchor_channel::Trust_anchor_channel(Module_channel_id id, Vfs::Env &vfs_e
 { }
 
 
-Trust_anchor::Trust_anchor(Vfs::Env &vfs_env, Xml_node const &xml_node)
+Trust_anchor::Trust_anchor(Vfs::Env &vfs_env, Xml_node const &xml_node, Attr const &attr)
+:
+	_attr(attr)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {
