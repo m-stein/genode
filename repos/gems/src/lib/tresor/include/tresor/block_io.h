@@ -24,8 +24,8 @@ class Tresor::Block_io
 {
 	private:
 
-		Vfs::Vfs_handle &_file_handle;
-		addr_t _file_user { };
+		Vfs::Vfs_handle &_file;
+		addr_t _user { };
 
 		NONCOPYABLE(Block_io);
 
@@ -35,20 +35,20 @@ class Tresor::Block_io
 		class Write;
 		class Sync;
 
-		Block_io(Vfs::Vfs_handle &file_handle) : _file_handle(file_handle) { }
+		Block_io(Vfs::Vfs_handle &file) : _file(file) { }
 
 		template <typename REQ>
 		bool execute(REQ &req)
 		{
-			if (!_file_user)
-				_file_user = (addr_t)&req;
+			if (!_user)
+				_user = (addr_t)&req;
 
-			if (_file_user != (addr_t)&req)
+			if (_user != (addr_t)&req)
 				return false;
 
-			bool progress = req.execute(_file_handle);
+			bool progress = req.execute(_file);
 			if (req.complete())
-				_file_user = 0;
+				_user = 0;
 
 			return progress;
 		}
