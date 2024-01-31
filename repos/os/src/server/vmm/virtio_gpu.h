@@ -56,11 +56,13 @@ class Vmm::Virtio_gpu_control_request
 		using Descriptor       = Virtio_gpu_queue::Descriptor;
 		using Descriptor_array = Virtio_gpu_queue::Descriptor_array;
 
-		struct Control_header : Mmio
+		template <size_t MMIO_SIZE>
+		struct Control_header_tpl : Mmio
 		{
+			using Base = Mmio;
 			enum { SIZE = 24 };
 
-			struct Type : Register<0,  32>
+			struct Type : Base::template Register<0,  32>
 			{
 				enum Commands {
 					/* 2D commands */
@@ -95,14 +97,16 @@ class Vmm::Virtio_gpu_control_request
 					ERR_INVALID_PARAMETER,
 				};
 			};
-			struct Flags    : Register<0x4,  32> {};
-			struct Fence_id : Register<0x8,  64> {};
-			struct Ctx_id   : Register<0x10, 32> {};
+			struct Flags    : Base::template Register<0x4,  32> {};
+			struct Fence_id : Base::template Register<0x8,  64> {};
+			struct Ctx_id   : Base::template Register<0x10, 32> {};
 
-			using Mmio::Mmio;
+			Control_header_tpl(Byte_range_ptr const &range) : Mmio((addr_t)range.start) { }
 		};
 
-		struct Display_info_response : Control_header
+		using Control_header = Control_header_tpl<24>;
+
+		struct Display_info_response : Control_header_tpl<Control_header::SIZE + 24*16>
 		{
 			enum { SIZE = Control_header::SIZE + 24*16 };
 
@@ -113,10 +117,10 @@ class Vmm::Virtio_gpu_control_request
 			struct Enabled : Register<0x28, 32> {};
 			struct Flags   : Register<0x2c, 32> {};
 
-			using Control_header::Control_header;
+			using Control_header_tpl::Control_header_tpl;
 		};
 
-		struct Resource_create_2d : Control_header
+		struct Resource_create_2d : Control_header_tpl<Control_header::SIZE + 16>
 		{
 			enum { SIZE = Control_header::SIZE + 16 };
 
@@ -139,19 +143,19 @@ class Vmm::Virtio_gpu_control_request
 			struct Width       : Register<0x20, 32> {};
 			struct Height      : Register<0x24, 32> {};
 
-			using Control_header::Control_header;
+			using Control_header_tpl::Control_header_tpl;
 		};
 
-		struct Resource_unref : Control_header
+		struct Resource_unref : Control_header_tpl<Control_header::SIZE + 8>
 		{
 			enum { SIZE = Control_header::SIZE + 8 };
 
 			struct Resource_id : Register<0x18, 32> {};
 
-			using Control_header::Control_header;
+			using Control_header_tpl::Control_header_tpl;
 		};
 
-		struct Resource_attach_backing : Control_header
+		struct Resource_attach_backing : Control_header_tpl<Control_header::SIZE + 8>
 		{
 			enum { SIZE = Control_header::SIZE + 8 };
 
@@ -168,10 +172,10 @@ class Vmm::Virtio_gpu_control_request
 				using Mmio::Mmio;
 			};
 
-			using Control_header::Control_header;
+			using Control_header_tpl::Control_header_tpl;
 		};
 
-		struct Set_scanout : Control_header
+		struct Set_scanout : Control_header_tpl<Control_header::SIZE + 24>
 		{
 			enum { SIZE = Control_header::SIZE + 24 };
 
@@ -182,10 +186,10 @@ class Vmm::Virtio_gpu_control_request
 			struct Scanout_id  : Register<0x28, 32> {};
 			struct Resource_id : Register<0x2c, 32> {};
 
-			using Control_header::Control_header;
+			using Control_header_tpl::Control_header_tpl;
 		};
 
-		struct Resource_flush : Control_header
+		struct Resource_flush : Control_header_tpl<Control_header::SIZE + 24>
 		{
 			enum { SIZE = Control_header::SIZE + 24 };
 
@@ -195,10 +199,10 @@ class Vmm::Virtio_gpu_control_request
 			struct Height      : Register<0x24, 32> {};
 			struct Resource_id : Register<0x28, 32> {};
 
-			using Control_header::Control_header;
+			using Control_header_tpl::Control_header_tpl;
 		};
 
-		struct Transfer_to_host_2d :Control_header
+		struct Transfer_to_host_2d :Control_header_tpl<Control_header::SIZE + 32>
 		{
 			enum { SIZE = Control_header::SIZE + 32 };
 
@@ -209,7 +213,7 @@ class Vmm::Virtio_gpu_control_request
 			struct Offset      : Register<0x28, 64> {};
 			struct Resource_id : Register<0x30, 32> {};
 
-			using Control_header::Control_header;
+			using Control_header_tpl::Control_header_tpl;
 		};
 
 		Descriptor_array  & _array;
@@ -232,14 +236,14 @@ class Vmm::Virtio_gpu_control_request
 			return _array.get(idx);
 		}
 
-		addr_t _desc_addr(unsigned i)
+		Byte_range_ptr _desc_range(unsigned i)
 		{
 			Descriptor d = _desc(i);
 			/* we only support 32-bit ram addresses by now */
-			return _ram.local_address((addr_t)d.address(), d.length());
+			return {(char *)_ram.local_address((addr_t)d.address(), d.length()), d.length()};
 		}
 
-		Control_header _ctrl_hdr { _desc_addr(0) };
+		Control_header _ctrl_hdr { _desc_range(0) };
 
 		void _get_display_info();
 		void _resource_create_2d();
