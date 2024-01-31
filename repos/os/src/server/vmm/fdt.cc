@@ -26,7 +26,7 @@ class Mmio_big_endian_access
 
 	private:
 
-		addr_t const _base;
+		Byte_range_ptr const _range;
 
 		/**
 		 * Write '_ACCESS_T' typed 'value' to MMIO base + 'offset'
@@ -34,8 +34,7 @@ class Mmio_big_endian_access
 		template <typename ACCESS_T>
 		inline void _write(off_t const offset, ACCESS_T const value)
 		{
-			addr_t const dst = _base + offset;
-			*(ACCESS_T volatile *)dst = host_to_big_endian(value);
+			*(ACCESS_T volatile *)(_range.start + offset) = host_to_big_endian(value);
 		}
 
 		/**
@@ -44,16 +43,21 @@ class Mmio_big_endian_access
 		template <typename ACCESS_T>
 		inline ACCESS_T _read(off_t const &offset) const
 		{
-			addr_t const dst = _base + offset;
-			ACCESS_T const value = *(ACCESS_T volatile *)dst;
-			return host_to_big_endian(value);
+			return host_to_big_endian(*(ACCESS_T volatile *)(_range.start + offset));
 		}
 
 	public:
 
-		Mmio_big_endian_access(addr_t const base) : _base(base) { }
+		Mmio_big_endian_access(addr_t const base) : _range((char *)base, ~0) { }
 
-		addr_t base() const { return _base; }
+		Byte_range_ptr range_at(off_t offset) const
+		{
+			return {_range.start + offset, _range.num_bytes - offset};
+		}
+
+		Byte_range_ptr range() const { return range_at(0); }
+
+		addr_t base() const { return (addr_t)range().start; }
 };
 
 
