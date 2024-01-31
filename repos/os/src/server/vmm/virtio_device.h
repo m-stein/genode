@@ -157,19 +157,21 @@ class Vmm::Virtio_split_queue
 
 		struct Descriptor_array
 		{
-			size_t   const elem_size { 16 };
-			unsigned const max;
-			addr_t   const start;
+			size_t         const elem_size { 16 };
+			unsigned       const max;
+			Byte_range_ptr const guest_range;
+			Byte_range_ptr const local_range;
 
 			Descriptor_array(Ram & ram, addr_t base, unsigned const max)
 			:
 				max(max),
-				start(ram.local_address(base, max * elem_size)) {}
+				guest_range((char *)base, max * elem_size),
+				local_range((char *)ram.local_address((addr_t)guest_range.start, guest_range.num_bytes), guest_range.num_bytes) {}
 
 			Descriptor get(Descriptor_index idx)
 			{
 				if (idx.idx() >= max) error("Descriptor_index out of bounds");
-				return Descriptor(start + (elem_size * idx.idx()));
+				return Descriptor((addr_t)local_range.start + (elem_size * idx.idx()));
 			}
 		} _descriptors;
 
