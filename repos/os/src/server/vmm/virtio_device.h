@@ -166,7 +166,9 @@ class Vmm::Virtio_split_queue
 			:
 				max(max),
 				guest_range((char *)base, max * elem_size),
-				local_range((char *)ram.local_address((addr_t)guest_range.start, guest_range.num_bytes), guest_range.num_bytes) {}
+				local_range(
+					ram.to_local_range(guest_range).start,
+					ram.to_local_range(guest_range).num_bytes) {}
 
 			Descriptor get(Descriptor_index idx)
 			{
@@ -187,8 +189,8 @@ class Vmm::Virtio_split_queue
 		                   uint16_t const queue_num,
 		                   Ram          & ram)
 		:
-			_avail({(char *)ram.local_address(driver_area, 6+2*queue_num), ~0UL}, queue_num),
-			_used({(char *)ram.local_address(device_area, 6+8*queue_num), ~0UL}, queue_num),
+			_avail(ram.to_local_range({(char *)driver_area, 6+2*(size_t)queue_num}), queue_num),
+			_used(ram.to_local_range({(char *)device_area, 6+8*(size_t)queue_num}), queue_num),
 			_descriptors(ram, descriptor_area, queue_num),
 			_ram(ram) { }
 
