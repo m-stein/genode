@@ -73,21 +73,24 @@ class Vmm::Virtio_split_queue
 		using Descriptor_index = Index<MAX_SIZE_LOG2>;
 
 
+		template <size_t SIZE>
 		struct Queue_base : Mmio
 		{
+			using Base = Mmio;
+
 			uint16_t const max;
 
-			Queue_base(addr_t base, uint16_t max)
-			: Mmio(base), max(max) {}
+			Queue_base(Byte_range_ptr const &range, uint16_t max)
+			: Base((addr_t)range.start), max(max) {}
 
-			struct Flags : Register<0x0, 16> { };
-			struct Idx   : Register<0x2, 16> { };
+			struct Flags : Base::template Register<0x0, 16> { };
+			struct Idx   : Base::template Register<0x2, 16> { };
 
-			Ring_index current() { return read<Idx>(); }
+			Ring_index current() { return Base::template read<Idx>(); }
 		};
 
 
-		struct Avail_queue : Queue_base
+		struct Avail_queue : Queue_base<0x4 + MAX_SIZE * 2>
 		{
 			using Queue_base::Queue_base;
 
@@ -105,7 +108,7 @@ class Vmm::Virtio_split_queue
 		} _avail;
 
 
-		struct Used_queue : Queue_base
+		struct Used_queue : Queue_base<0x4 + MAX_SIZE * 8>
 		{
 			using Queue_base::Queue_base;
 
@@ -182,8 +185,8 @@ class Vmm::Virtio_split_queue
 		                   uint16_t const queue_num,
 		                   Ram          & ram)
 		:
-			_avail(ram.local_address(driver_area, 6+2*queue_num), queue_num),
-			_used(ram.local_address(device_area, 6+8*queue_num), queue_num),
+			_avail({(char *)ram.local_address(driver_area, 6+2*queue_num), ~0UL}, queue_num),
+			_used({(char *)ram.local_address(device_area, 6+8*queue_num), ~0UL}, queue_num),
 			_descriptors(ram, descriptor_area, queue_num),
 			_ram(ram) { }
 
