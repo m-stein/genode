@@ -173,7 +173,8 @@ class Vmm::Virtio_split_queue
 			Descriptor get(Descriptor_index idx)
 			{
 				if (idx.idx() >= max) error("Descriptor_index out of bounds");
-				return Descriptor((addr_t)local_range.start + (elem_size * idx.idx()));
+				off_t offset = elem_size * idx.idx();
+				return Descriptor((addr_t)local_range.start + offset);
 			}
 		} _descriptors;
 
