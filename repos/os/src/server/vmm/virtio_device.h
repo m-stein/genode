@@ -213,8 +213,7 @@ class Vmm::Virtio_split_queue
 				if (!address || !size) { break; }
 
 				try {
-					addr_t data     = (addr_t)_ram.to_local_range({(char *)address, size}).start;
-					size_t consumed = func({(char *)data, size});
+					size_t consumed = func(_ram.to_local_range({(char *)address, size}));
 					if (!consumed) { break; }
 					_used.add(_cur_idx, id, consumed);
 					written = true;
