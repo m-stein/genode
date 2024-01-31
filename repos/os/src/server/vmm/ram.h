@@ -51,23 +51,10 @@ class Ram {
 			return {_local_range.start + offset, _local_range.num_bytes - offset};
 		}
 
-		Ram(Genode::addr_t const addr,
-		    Genode::size_t const sz,
-		    Genode::addr_t const local)
-		: _guest_base(addr), _local_range((char *)local, sz) { }
-
-		Genode::addr_t base()  const { return _guest_base;  }
-		Genode::addr_t local() const { return (addr_t)_local_range.start; }
-
-		Genode::addr_t local_address(Genode::addr_t guest, Genode::size_t size1)
-		{
-			if (guest < _guest_base || guest >= _guest_base + size() ||
-			    size1 == 0 || guest + size1 >= _guest_base + size())
-				throw Vmm::Exception("Invalid guest physical address: ",
-				                     Genode::Hex(guest), " size: ", Genode::Hex(size1));
-
-			return (addr_t)_local_range.start + (guest - _guest_base);
-		}
+		Ram(Genode::addr_t const addr, Genode::size_t const sz, Genode::addr_t const local) : Ram(addr, {(char *)local, sz}) { }
+		Genode::addr_t base()  const { return guest_base();  }
+		Genode::addr_t local() const { return local_base(); }
+		Genode::addr_t local_address(Genode::addr_t guest, Genode::size_t sz) { return (addr_t)to_local_range({(char *)guest, sz}).start; }
 };
 
 #endif /* _SRC__SERVER__VMM__RAM_H_ */
