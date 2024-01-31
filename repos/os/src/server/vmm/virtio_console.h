@@ -52,7 +52,7 @@ class Vmm::Virtio_console : public Virtio_device<Virtio_split_queue, 2>
 		{
 			if (idx != TX) return;
 
-			auto write = [&] (Byte_range_ptr const data)
+			auto write = [&] (Byte_range_ptr const &data)
 			{
 				_terminal.write((void *)data.start, data.num_bytes);
 				return data.num_bytes;

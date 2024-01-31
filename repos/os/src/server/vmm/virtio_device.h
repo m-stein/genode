@@ -166,15 +166,12 @@ class Vmm::Virtio_split_queue
 			:
 				max(max),
 				guest_range((char *)base, max * elem_size),
-				local_range(
-					ram.to_local_range(guest_range).start,
-					ram.to_local_range(guest_range).num_bytes) {}
+				local_range((char *)ram.local_address((addr_t)guest_range.start, guest_range.num_bytes), guest_range.num_bytes) {}
 
 			Descriptor get(Descriptor_index idx)
 			{
 				if (idx.idx() >= max) error("Descriptor_index out of bounds");
-				off_t offset = elem_size * idx.idx();
-				return Descriptor((addr_t)local_range.start + offset);
+				return Descriptor((addr_t)local_range.start + (elem_size * idx.idx()));
 			}
 		} _descriptors;
 
@@ -190,8 +187,8 @@ class Vmm::Virtio_split_queue
 		                   uint16_t const queue_num,
 		                   Ram          & ram)
 		:
-			_avail(ram.to_local_range({(char *)driver_area, 6+2*(size_t)queue_num}), queue_num),
-			_used(ram.to_local_range({(char *)device_area, 6+8*(size_t)queue_num}), queue_num),
+			_avail({(char *)ram.local_address(driver_area, 6+2*queue_num), ~0UL}, queue_num),
+			_used({(char *)ram.local_address(device_area, 6+8*queue_num), ~0UL}, queue_num),
 			_descriptors(ram, descriptor_area, queue_num),
 			_ram(ram) { }
 
@@ -213,7 +210,8 @@ class Vmm::Virtio_split_queue
 				if (!address || !size) { break; }
 
 				try {
-					size_t consumed = func(_ram.to_local_range({(char *)address, size}));
+					addr_t data     = _ram.local_address((addr_t)address, size);
+					size_t consumed = func({(char *)data, size});
 					if (!consumed) { break; }
 					_used.add(_cur_idx, id, consumed);
 					written = true;
