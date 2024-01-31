@@ -48,7 +48,7 @@ class Ram {
 				                     Genode::Hex(guest_base), " size: ", Genode::Hex(guest_range.num_bytes));
 
 			Genode::off_t offset = guest_base - _guest_base;
-			return {_local_range.start + offset, _local_range.num_bytes - offset};
+			return {_local_range.start + offset, guest_range.num_bytes};
 		}
 };
 

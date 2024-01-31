@@ -288,7 +288,7 @@ struct Ivrs : Genode::Mmio<0x28>
 
 	void parse(Allocator &alloc)
 	{
-		off_t offset = 0x30;
+		uint32_t offset = 0x30;
 		while (offset < read<Ivrs::Length>()) {
 			bool dmar = Ivinfo::Dmar::get(read<Ivinfo::Dmar>());
 			if (dmar)
