@@ -48,7 +48,7 @@ class Mmio_big_endian_access
 
 	public:
 
-		Mmio_big_endian_access(addr_t const base) : _range((char *)base, ~0) { }
+		Mmio_big_endian_access(Byte_range_ptr const &range) : _range(range.start, range.num_bytes) { }
 
 		Byte_range_ptr range_at(off_t offset) const
 		{
@@ -61,17 +61,20 @@ class Mmio_big_endian_access
 };
 
 
+template <size_t MMIO_SIZE>
 struct Mmio : Mmio_big_endian_access,
               Register_set<Mmio_big_endian_access>
 {
+	static constexpr size_t SIZE = MMIO_SIZE;
+
 	Mmio(addr_t const base)
 	:
-		Mmio_big_endian_access(base),
-		Register_set(*static_cast<Mmio_big_endian_access *>(this)) { }
+		Mmio_big_endian_access({(char *)base, SIZE}),
+		Register_set<Mmio_big_endian_access>(*static_cast<Mmio_big_endian_access *>(this)) { }
 };
 
 
-struct Fdt_header : Mmio
+struct Fdt_header : Mmio<10*4>
 {
 	struct Magic             : Register<0x0,  32> {};
 	struct Totalsize         : Register<0x4,  32> {};
@@ -90,7 +93,7 @@ struct Fdt_header : Mmio
 };
 
 
-struct Fdt_reserve_entry : Mmio
+struct Fdt_reserve_entry : Mmio<2*8>
 {
 	struct Address : Register<0, 64> {};
 	struct Size    : Register<8, 64> {};
@@ -110,7 +113,7 @@ enum Fdt_tokens {
 };
 
 
-struct Fdt_token : Mmio
+struct Fdt_token : Mmio<~0UL>
 {
 	struct Type : Register<0, 32> {};
 
