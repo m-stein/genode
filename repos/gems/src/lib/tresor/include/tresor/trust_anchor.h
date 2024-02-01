@@ -121,6 +121,7 @@ class Tresor::Trust_anchor : public Module
 
 		Constructible<Channel> _channels[1] { };
 		Attr const _attr;
+		addr_t _user { };
 
 		NONCOPYABLE(Trust_anchor);
 
@@ -156,15 +157,60 @@ class Tresor::Trust_anchor : public Module
 			: Request(m, c, Request::READ_HASH, *(Key_value*)0, *(Key_value*)0, h, Passphrase(), s) { }
 		};
 
-		struct Initialize : Request
-		{
-			Initialize(Module_id src_mod, Module_channel_id src_chan, Passphrase pass, bool &succ)
-			: Request(src_mod, src_chan, Request::INITIALIZE, *(Key_value*)0, *(Key_value*)0, *(Hash*)0, pass, succ) { }
-		};
+		class Initialize;
 
 		Trust_anchor(Vfs::Env &, Xml_node const &, Attr const &);
 
 		void execute(bool &) override;
+
+		template <typename REQ>
+		bool execute(REQ &req)
+		{
+			if (!_user)
+				_user = (addr_t)&req;
+
+			if (_user != (addr_t)&req)
+				return false;
+
+			bool progress = req.execute(_attr);
+			if (req.complete())
+				_user = 0;
+
+			return progress;
+		}
+
+		static constexpr char const *name() { return "trust_anchor"; }
+};
+
+class Tresor::Trust_anchor::Initialize
+{
+	public:
+
+		using Module = Trust_anchor;
+
+		struct Attr { Passphrase const &passphrase; };
+
+	private:
+
+		enum State { INIT, COMPLETE, WRITE, WRITE_OK, READ_OK, FILE_ERR };
+
+		Request_helper<Initialize, State> _helper;
+		Attr const _attr;
+		Constructible<File<State> > _file { };
+		char _result_buf[3];
+
+		NONCOPYABLE(Initialize);
+
+	public:
+
+		Initialize(Attr const &attr) : _helper(*this), _attr(attr) { }
+
+		void print(Output &out) const { Genode::print(out, "initialize"); }
+
+		bool execute(Trust_anchor::Attr const &);
+
+		bool complete() const { return _helper.complete(); }
+		bool success() const { return _helper.success(); }
 };
 
 #endif /* _TRESOR__TRUST_ANCHOR_H_ */

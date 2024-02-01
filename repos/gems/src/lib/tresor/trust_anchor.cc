@@ -83,6 +83,34 @@ void Trust_anchor_channel::_create_key(bool &progress)
 }
 
 
+bool Trust_anchor::Initialize::execute(Trust_anchor::Attr const &ta_attr)
+{
+	bool progress = false;
+	switch (_helper.state) {
+	case INIT:
+
+		_file.construct(_helper.state, ta_attr.initialize_file);
+		_helper.state = WRITE;
+		progress = true;
+		break;
+
+	case WRITE: _file->write(WRITE_OK, FILE_ERR, 0, { _attr.passphrase.string(), _attr.passphrase.length() - 1 }, progress); break;
+	case WRITE_OK: _file->read(READ_OK, FILE_ERR, 0, { _result_buf, sizeof(_result_buf) }, progress); break;
+	case READ_OK:
+
+		if (strcmp(_result_buf, "ok", sizeof(_result_buf)))
+			_helper.mark_failed(progress, {"trust anchor did not return \"ok\""});
+		else
+			_helper.mark_succeeded(progress);
+		break;
+
+	case FILE_ERR: _helper.mark_failed(progress, "file operation failed"); break;
+	default: break;
+	}
+	return progress;
+}
+
+
 void Trust_anchor_channel::_initialize(bool &progress)
 {
 	Request &req { *_req_ptr };

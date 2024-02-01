@@ -287,7 +287,7 @@ class Tresor_tester::Command : public Module_channel
 
 		enum Type { INVALID, REQUEST, TRUST_ANCHOR, BENCHMARK, CONSTRUCT, DESTRUCT, INITIALIZE, CHECK, CHECK_SNAPSHOTS, LOG };
 
-		enum State { PENDING, CHECK_SB, CHECK_SB_SUCCEEDED, IN_PROGRESS, CREATE_SNAP_COMPLETED, DISCARD_SNAP_COMPLETED, COMPLETED };
+		enum State { PENDING, INIT_TRUST_ANCHOR, INIT_TRUST_ANCHOR_SUCCEEDED, CHECK_SB, CHECK_SB_SUCCEEDED, IN_PROGRESS, CREATE_SNAP_COMPLETED, DISCARD_SNAP_COMPLETED, COMPLETED };
 
 	private:
 
@@ -368,7 +368,20 @@ class Tresor_tester::Command : public Module_channel
 			}
 		}
 
-		bool new_execute(Sb_check &, Vbd_check &, Ft_check &, Block_io &);
+		bool in_progress()
+		{
+			switch(_state) {
+			case IN_PROGRESS:
+			case INIT_TRUST_ANCHOR:
+			case INIT_TRUST_ANCHOR_SUCCEEDED:
+			case CHECK_SB:
+			case CHECK_SB_SUCCEEDED: return true;
+			default: break;
+			}
+			return false;
+		}
+
+		bool new_execute(Sb_check &, Vbd_check &, Ft_check &, Block_io &, Trust_anchor &);
 
 		void mark_failed(bool &, Error_string);
 
@@ -432,6 +445,7 @@ class Tresor_tester::Command : public Module_channel
 
 
 template <> bool Tresor_tester::Command::_type_matches<Tresor::Sb_check::Check>() { return _type == CHECK; }
+template <> bool Tresor_tester::Command::_type_matches<Tresor::Trust_anchor::Initialize>() { return _type == TRUST_ANCHOR; }
 
 
 struct Tresor_tester::Snapshot_reference : public Genode::Avl_node<Snapshot_reference>
@@ -590,10 +604,7 @@ class Tresor_tester::Main
 					if (first_uncompleted_cmd || !cmd.synchronize())
 						func(cmd);
 				}
-				if (cmd.state() == Command::IN_PROGRESS ||
-				    cmd.state() == Command::CHECK_SB ||
-				    cmd.state() == Command::CHECK_SB_SUCCEEDED) {
-
+				if (cmd.in_progress()) {
 					if (cmd.synchronize())
 						done = true;
 					else
@@ -635,7 +646,7 @@ class Tresor_tester::Main
 		void execute(bool &progress) override
 		{
 			for_each_channel<Command>([&] (Command &cmd) {
-				progress |= cmd.new_execute(_sb_check, _vbd_check, _ft_check, _block_io); });
+				progress |= cmd.new_execute(_sb_check, _vbd_check, _ft_check, _block_io, _trust_anchor); });
 
 			_with_first_processable_cmd([&] (Command &cmd) {
 				cmd.execute(progress); });
@@ -675,9 +686,7 @@ class Tresor_tester::Main
 		void mark_command_completed(Module_channel_id cmd_id, bool success)
 		{
 			with_channel<Command>(cmd_id, [&] (Command &cmd) {
-				ASSERT(cmd.state() == Command::IN_PROGRESS ||
-				       cmd.state() == Command::CHECK_SB ||
-				       cmd.state() == Command::CHECK_SB_SUCCEEDED);
+				ASSERT(cmd.in_progress());
 				cmd.state(Command::COMPLETED);
 				_num_uncompleted_cmds--;
 				cmd.success(success);
@@ -833,7 +842,7 @@ void Tresor_tester::Command::_generated_req_completed(State_uint state_uint)
 }
 
 
-bool Tresor_tester::Command::new_execute(Sb_check &sb_check, Vbd_check &vbd_check, Ft_check &ft_check, Block_io &block_io)
+bool Tresor_tester::Command::new_execute(Sb_check &sb_check, Vbd_check &vbd_check, Ft_check &ft_check, Block_io &block_io, Trust_anchor &trust_anchor)
 {
 	bool progress = false;
 	switch (_state) {
@@ -846,6 +855,21 @@ bool Tresor_tester::Command::new_execute(Sb_check &sb_check, Vbd_check &vbd_chec
 
 		mark_succeeded(progress);
 		_with_request<Sb_check::Check>([&] (auto &req) {
+			_main.with_alloc([&] (Allocator &alloc) {
+				destroy(alloc, &req);
+			});
+		});
+		break;
+
+	case INIT_TRUST_ANCHOR:
+
+		_with_request<Trust_anchor::Initialize>([&] (auto &req) { progress |= req.execute(trust_anchor); });
+		break;
+
+	case INIT_TRUST_ANCHOR_SUCCEEDED:
+
+		mark_succeeded(progress);
+		_with_request<Trust_anchor::Initialize>([&] (auto &req) {
 			_main.with_alloc([&] (Allocator &alloc) {
 				destroy(alloc, &req);
 			});
@@ -899,8 +923,10 @@ void Tresor_tester::Command::execute(bool &progress)
 	{
 		Trust_anchor_node const &node { trust_anchor_node() };
 		ASSERT(node.op == Trust_anchor_request::INITIALIZE);
-		generate_req<Trust_anchor::Initialize>(COMPLETED, progress, node.passphrase, _success);
-		_main.mark_command_in_progress(id());
+		_main.with_alloc([&] (Allocator &alloc) {
+			_request_ptr = new (alloc)
+				Generated_request_base<Command, Trust_anchor::Initialize, State>(*this, INIT_TRUST_ANCHOR, INIT_TRUST_ANCHOR_SUCCEEDED, progress, node.passphrase);
+		});
 		break;
 	}
 	case INITIALIZE:
