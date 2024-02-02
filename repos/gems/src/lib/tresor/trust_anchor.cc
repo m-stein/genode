@@ -83,6 +83,27 @@ void Trust_anchor_channel::_create_key(bool &progress)
 }
 
 
+bool Trust_anchor::Decrypt_key::execute(Trust_anchor::Attr const &ta_attr)
+{
+	bool progress = false;
+	switch (_helper.state) {
+	case INIT:
+
+		_file.construct(_helper.state, ta_attr.decrypt_file);
+		_helper.state = WRITE;
+		progress = true;
+		break;
+
+	case WRITE: _file->write(WRITE_OK, FILE_ERR, 0, { (char *)&_attr.in_key_ciphertext, KEY_SIZE }, progress); break;
+	case WRITE_OK: _file->read(READ_OK, FILE_ERR, 0, { (char *)&_attr.out_key_plaintext, KEY_SIZE }, progress); break;
+	case READ_OK: _helper.mark_succeeded(progress); break;
+	case FILE_ERR: _helper.mark_failed(progress, "file operation failed"); break;
+	default: break;
+	}
+	return progress;
+}
+
+
 bool Trust_anchor::Write_hash::execute(Trust_anchor::Attr const &ta_attr)
 {
 	bool progress = false;

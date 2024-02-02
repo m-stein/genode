@@ -355,6 +355,7 @@ void Superblock_control_channel::_secure_sb(Block_io &block_io, Trust_anchor &tr
 
 		_sb.last_secured_generation = _gen;
 		_state = SECURE_SB_SUCCEEDED;
+		progress = true;
 		break;
 
 	default: break;
@@ -506,8 +507,7 @@ void Superblock_control_channel::_initialize(Block_io &block_io, Crypto &crypto,
 		if (check_hash(_blk, _hash)) {
 			_gen = _sb_ciphertext.snapshots.items[_sb_ciphertext.snapshots.newest_snap_idx()].gen;
 			_sb.copy_all_but_key_values_from(_sb_ciphertext);
-			_generate_req<Trust_anchor::Decrypt_key>(
-				DECRYPT_CURR_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb_ciphertext.current_key.value);
+			_decrypt_key.construct(*this, DECRYPT_KEY, DECRYPT_CURR_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb_ciphertext.current_key.value);
 		} else
 			if (_sb_idx < MAX_SUPERBLOCK_INDEX) {
 				_sb_idx++;
@@ -516,13 +516,13 @@ void Superblock_control_channel::_initialize(Block_io &block_io, Crypto &crypto,
 				_mark_req_failed(progress, "superblock not found");
 		break;
 
+	case DECRYPT_KEY: progress |= _decrypt_key->execute(trust_anchor); break;
 	case DECRYPT_CURR_KEY_SUCCEEDED: _add_key.construct(*this, ADD_KEY, ADD_CURR_KEY_SUCCEEDED, progress, _sb.current_key); break;
 	case ADD_KEY: progress |= _add_key->execute(crypto); break;
 	case ADD_CURR_KEY_SUCCEEDED:
 
 		if (_sb_ciphertext.state == Superblock::REKEYING)
-			_generate_req<Trust_anchor::Decrypt_key>(
-				DECRYPT_PREV_KEY_SUCCEEDED, progress, _sb.previous_key.value, _sb_ciphertext.previous_key.value);
+			_decrypt_key.construct(*this, DECRYPT_KEY, DECRYPT_PREV_KEY_SUCCEEDED, progress, _sb.previous_key.value, _sb_ciphertext.previous_key.value);
 		else {
 			_curr_gen = _gen + 1;
 			_req_ptr->_sb_state = _sb.state;
