@@ -1363,11 +1363,11 @@ class Vfs_tresor_trust_anchor::Hashsum_file_system : public Vfs::Single_file_sys
 
 		Hashsum_file_system(Trust_anchor &ta)
 		:
-			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(), Node_rwx::ro(), Xml_node("<hashsum/>")),
+			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(), Node_rwx::ro(), Xml_node("<hash/>")),
 			_trust_anchor(ta)
 		{ }
 
-		static char const *type_name() { return "hashsum"; }
+		static char const *type_name() { return "hash"; }
 
 		char const *type() override { return type_name(); }
 
@@ -1972,7 +1972,7 @@ class Vfs_tresor_trust_anchor::File_system : private Local_factory,
 				xml.node("decrypt",      [&] () { });
 				xml.node("encrypt",      [&] () { });
 				xml.node("generate_key", [&] () { });
-				xml.node("hashsum",      [&] () { });
+				xml.node("hash",      [&] () { });
 				xml.node("initialize",   [&] () { });
 			});
 

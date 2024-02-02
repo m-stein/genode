@@ -517,7 +517,7 @@ class Tresor_tester::Main
 		Vfs::Vfs_handle &_ta_encrypt_file { open_file(_vfs_env, { _trust_anchor_path, "/encrypt" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
 		Vfs::Vfs_handle &_ta_generate_key_file { open_file(_vfs_env, { _trust_anchor_path, "/generate_key" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
 		Vfs::Vfs_handle &_ta_initialize_file { open_file(_vfs_env, { _trust_anchor_path, "/initialize" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
-		Vfs::Vfs_handle &_ta_hashsum_file { open_file(_vfs_env, { _trust_anchor_path, "/hashsum" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
+		Vfs::Vfs_handle &_ta_hash_file { open_file(_vfs_env, { _trust_anchor_path, "/hash" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
 		Signal_handler<Main> _signal_handler { _env.ep(), *this, &Main::_handle_signal };
 		Benchmark _benchmark { _env };
 		Module_channel_id _next_command_id { 0 };
@@ -530,7 +530,7 @@ class Tresor_tester::Main
 		Constructible<Superblock_control> _sb_control { };
 		Constructible<Request_pool> _request_pool { };
 		Constructible<Meta_tree> _meta_tree { };
-		Trust_anchor _trust_anchor { _vfs_env, _config_rom.xml().sub_node("trust-anchor"), { _ta_decrypt_file, _ta_encrypt_file, _ta_generate_key_file, _ta_initialize_file, _ta_hashsum_file } };
+		Trust_anchor _trust_anchor { _vfs_env, _config_rom.xml().sub_node("trust-anchor"), { _ta_decrypt_file, _ta_encrypt_file, _ta_generate_key_file, _ta_initialize_file, _ta_hash_file } };
 		Crypto _crypto { {*this, _crypto_add_key_file, _crypto_remove_key_file} };
 		Block_io _block_io { _block_io_file };
 		Pba_allocator _pba_alloc { NR_OF_SUPERBLOCK_SLOTS };

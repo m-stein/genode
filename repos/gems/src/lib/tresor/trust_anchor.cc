@@ -63,7 +63,7 @@ void Trust_anchor_channel::_read_hash(bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
-	case REQ_SUBMITTED: _hashsum_file.read(READ_OK, FILE_ERR, 0, { (char *)&req._hash, HASH_SIZE }, progress); break;
+	case REQ_SUBMITTED: _hash_file.read(READ_OK, FILE_ERR, 0, { (char *)&req._hash, HASH_SIZE }, progress); break;
 	case READ_OK: _mark_req_successful(progress); break;
 	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
 	default: break;
@@ -89,7 +89,7 @@ bool Trust_anchor::Read_hash::execute(Trust_anchor::Attr const &ta_attr)
 	switch (_helper.state) {
 	case INIT:
 
-		_file.construct(_helper.state, ta_attr.hashsum_file);
+		_file.construct(_helper.state, ta_attr.hash_file);
 		_helper.state = READ;
 		progress = true;
 		break;
@@ -175,8 +175,8 @@ void Trust_anchor_channel::_write_hash(bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
-	case REQ_SUBMITTED: _hashsum_file.write(WRITE_OK, FILE_ERR, 0, { (char *)&req._hash, HASH_SIZE }, progress); break;
-	case WRITE_OK: _hashsum_file.read(READ_OK, FILE_ERR, 0, { _result_buf, 0 }, progress); break;
+	case REQ_SUBMITTED: _hash_file.write(WRITE_OK, FILE_ERR, 0, { (char *)&req._hash, HASH_SIZE }, progress); break;
+	case WRITE_OK: _hash_file.read(READ_OK, FILE_ERR, 0, { _result_buf, 0 }, progress); break;
 	case READ_OK: _mark_req_successful(progress); break;
 	case FILE_ERR: _mark_req_failed(progress, "file operation failed"); break;
 	default: break;
