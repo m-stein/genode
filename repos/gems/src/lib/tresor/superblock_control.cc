@@ -482,15 +482,16 @@ void Superblock_control_request::print(Output &out) const
 }
 
 
-void Superblock_control_channel::_initialize(Block_io &block_io, Crypto &crypto, bool &progress)
+void Superblock_control_channel::_initialize(Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor, bool &progress)
 {
 	switch (_state) {
 	case REQ_SUBMITTED:
 
 		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
-		_generate_req<Trust_anchor::Read_hash>(READ_SB_HASH_SUCCEEDED, progress, _hash);
+		_read_sb_hash.construct(*this, READ_SB_HASH, READ_SB_HASH_SUCCEEDED, progress, _hash);
 		break;
 
+	case READ_SB_HASH: progress |= _read_sb_hash->execute(trust_anchor); break;
 	case READ_SB_HASH_SUCCEEDED:
 
 		_sb_idx = 0;
@@ -588,7 +589,7 @@ void Superblock_control_channel::execute(Block_io &block_io, Crypto &crypto, Tru
 	case Request::FT_EXTENSION_STEP: _tree_ext_step(block_io, Superblock::EXTENDING_FT, VERBOSE_FT_EXTENSION, "ft", progress); break;
 	case Request::CREATE_SNAPSHOT: _create_snap(block_io, progress); break;
 	case Request::DISCARD_SNAPSHOT: _discard_snap(block_io, progress); break;
-	case Request::INITIALIZE: _initialize(block_io, crypto, progress); break;
+	case Request::INITIALIZE: _initialize(block_io, crypto, trust_anchor, progress); break;
 	case Request::DEINITIALIZE: _deinitialize(block_io, crypto, progress); break;
 	}
 }
