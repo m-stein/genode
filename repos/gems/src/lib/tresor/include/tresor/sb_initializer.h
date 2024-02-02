@@ -65,7 +65,7 @@ class Tresor::Sb_initializer_channel : public Module_channel
 
 		enum State {
 			REQ_SUBMITTED, START_NEXT_SB, SB_COMPLETE, REQ_COMPLETE, INIT_FT_SUCCEEDED, INIT_MT_SUCCEEDED,
-			WRITE_HASH_TO_TA, CREATE_KEY_SUCCEEDED, ENCRYPT_KEY_SUCCEEDED, SECURE_SB_SUCCEEDED, INIT_VBD_SUCCEEDED,
+			WRITE_HASH_TO_TA, GENERATE_KEY, GENERATE_KEY_SUCCEEDED, ENCRYPT_KEY_SUCCEEDED, SECURE_SB_SUCCEEDED, INIT_VBD_SUCCEEDED,
 			WRITE_BLK, WRITE_BLK_SUCCEEDED, SYNC_BLOCK_IO, REQ_GENERATED };
 
 		State _state { REQ_COMPLETE };
@@ -81,6 +81,7 @@ class Tresor::Sb_initializer_channel : public Module_channel
 		union {
 			Generated_request<Sb_initializer_channel, Block_io::Write, State> _write_block;
 			Generated_request<Sb_initializer_channel, Block_io::Sync, State> _sync_block_io;
+			Generated_request<Sb_initializer_channel, Trust_anchor::Generate_key, State> _generate_key;
 		};
 
 		NONCOPYABLE(Sb_initializer_channel);
@@ -108,7 +109,7 @@ class Tresor::Sb_initializer_channel : public Module_channel
 
 		~Sb_initializer_channel() { }
 
-		void execute(Block_io &block_io, bool &);
+		void execute(Block_io &, Trust_anchor &, bool &);
 
 		using Module = Sb_initializer;
 
@@ -136,12 +137,13 @@ class Tresor::Sb_initializer : public Module
 
 		Constructible<Channel> _channels[1] { };
 		Block_io &_block_io;
+		Trust_anchor &_trust_anchor;
 
 		NONCOPYABLE(Sb_initializer);
 
 	public:
 
-		Sb_initializer(Block_io &);
+		Sb_initializer(Block_io &, Trust_anchor &);
 
 		void execute(bool &) override;
 

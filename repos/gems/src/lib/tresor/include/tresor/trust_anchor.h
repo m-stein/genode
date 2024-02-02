@@ -127,12 +127,6 @@ class Tresor::Trust_anchor : public Module
 
 	public:
 
-		struct Create_key : Request
-		{
-			Create_key(Module_id m, Module_channel_id c, Key_value &k, bool &s)
-			: Request(m, c, Request::CREATE_KEY, k, *(Key_value*)0, *(Hash*)0, Passphrase(), s) { }
-		};
-
 		struct Encrypt_key : Request
 		{
 			Encrypt_key(Module_id m, Module_channel_id c, Key_value const &kp, Key_value &kc, bool &s)
@@ -157,6 +151,7 @@ class Tresor::Trust_anchor : public Module
 			: Request(m, c, Request::READ_HASH, *(Key_value*)0, *(Key_value*)0, h, Passphrase(), s) { }
 		};
 
+		class Generate_key;
 		class Initialize;
 
 		Trust_anchor(Vfs::Env &, Xml_node const &, Attr const &);
@@ -188,7 +183,7 @@ class Tresor::Trust_anchor::Initialize
 
 		using Module = Trust_anchor;
 
-		struct Attr { Passphrase const &passphrase; };
+		struct Attr { Passphrase const &in_passphrase; };
 
 	private:
 
@@ -206,6 +201,36 @@ class Tresor::Trust_anchor::Initialize
 		Initialize(Attr const &attr) : _helper(*this), _attr(attr) { }
 
 		void print(Output &out) const { Genode::print(out, "initialize"); }
+
+		bool execute(Trust_anchor::Attr const &);
+
+		bool complete() const { return _helper.complete(); }
+		bool success() const { return _helper.success(); }
+};
+
+class Tresor::Trust_anchor::Generate_key
+{
+	public:
+
+		using Module = Trust_anchor;
+
+		struct Attr { Key_value &out_key_plaintext; };
+
+	private:
+
+		enum State { INIT, COMPLETE, READ, READ_OK, FILE_ERR };
+
+		Request_helper<Generate_key, State> _helper;
+		Attr const _attr;
+		Constructible<File<State> > _file { };
+
+		NONCOPYABLE(Generate_key);
+
+	public:
+
+		Generate_key(Attr const &attr) : _helper(*this), _attr(attr) { }
+
+		void print(Output &out) const { Genode::print(out, "create key"); }
 
 		bool execute(Trust_anchor::Attr const &);
 
