@@ -145,9 +145,10 @@ void Sb_initializer_channel::execute(Block_io &block_io, Trust_anchor &trust_anc
 	case WRITE_HASH_TO_TA:
 
 		calc_hash(_blk, _hash);
-		_generate_req<Trust_anchor::Write_hash>(SB_COMPLETE, progress, _hash);
+		_write_sb_hash.construct(*this, WRITE_SB_HASH, SB_COMPLETE, progress, _hash);
 		break;
 
+	case WRITE_SB_HASH: progress |= _write_sb_hash->execute(trust_anchor); break;
 	case SB_COMPLETE:
 
 		if (_sb_idx < NR_OF_SUPERBLOCK_SLOTS - 1) {

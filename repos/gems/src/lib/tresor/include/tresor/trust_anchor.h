@@ -139,15 +139,10 @@ class Tresor::Trust_anchor : public Module
 			: Request(m, c, Request::DECRYPT_KEY, kp, *const_cast<Key_value*>(&kc), *(Hash*)0, Passphrase(), s) { }
 		};
 
-		struct Write_hash : Request
-		{
-			Write_hash(Module_id m, Module_channel_id c, Hash const &h, bool &s)
-			: Request(m, c, Request::WRITE_HASH, *(Key_value*)0, *(Key_value*)0, *const_cast<Hash*>(&h), Passphrase(), s) { }
-		};
-
 		class Generate_key;
 		class Initialize;
 		class Read_hash;
+		class Write_hash;
 
 		Trust_anchor(Vfs::Env &, Xml_node const &, Attr const &);
 
@@ -226,6 +221,37 @@ class Tresor::Trust_anchor::Generate_key
 		Generate_key(Attr const &attr) : _helper(*this), _attr(attr) { }
 
 		void print(Output &out) const { Genode::print(out, "create key"); }
+
+		bool execute(Trust_anchor::Attr const &);
+
+		bool complete() const { return _helper.complete(); }
+		bool success() const { return _helper.success(); }
+};
+
+class Tresor::Trust_anchor::Write_hash
+{
+	public:
+
+		using Module = Trust_anchor;
+
+		struct Attr { Hash const &in_hash; };
+
+	private:
+
+		enum State { INIT, COMPLETE, WRITE, WRITE_OK, READ_OK, FILE_ERR };
+
+		Request_helper<Write_hash, State> _helper;
+		Attr const _attr;
+		Constructible<File<State> > _file { };
+		char _result_buf[3];
+
+		NONCOPYABLE(Write_hash);
+
+	public:
+
+		Write_hash(Attr const &attr) : _helper(*this), _attr(attr) { }
+
+		void print(Output &out) const { Genode::print(out, "write hash"); }
 
 		bool execute(Trust_anchor::Attr const &);
 

@@ -79,7 +79,8 @@ class Tresor::Superblock_control_channel : public Module_channel
 		enum Secure_sb_state : State_uint {
 			SECURE_SB_INACTIVE, STARTED, ENCRYPT_CURR_KEY_SUCCEEDED,
 			SECURE_SB_REQ_GENERATED, ENCRYPT_PREV_KEY_SUCCEEDED, SYNC_CACHE_SUCCEEDED,
-			WRITE_BLOCK, WRITE_SB_SUCCEEDED, SYNC_BLOCK_IO, SYNC_BLOCK_IO_SUCCEEDED, WRITE_SB_HASH_SUCCEEDED };
+			WRITE_BLOCK, WRITE_SB_SUCCEEDED, SYNC_BLOCK_IO, SYNC_BLOCK_IO_SUCCEEDED, WRITE_SB_HASH,
+			WRITE_SB_HASH_SUCCEEDED };
 
 		State _state { INACTIVE };
 		Constructible<Tree_root> _ft { };
@@ -104,6 +105,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 			Generated_request<Superblock_control_channel, Crypto::Add_key, State> _add_key;
 			Generated_request<Superblock_control_channel, Trust_anchor::Generate_key, State> _generate_key;
 			Generated_request<Superblock_control_channel, Trust_anchor::Read_hash, State> _read_sb_hash;
+			Generated_request<Superblock_control_channel, Trust_anchor::Write_hash, Secure_sb_state> _write_sb_hash;
 		};
 
 		NONCOPYABLE(Superblock_control_channel);
@@ -134,23 +136,23 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 		void _start_secure_sb(bool &);
 
-		void _secure_sb(Block_io &, bool &);
+		void _secure_sb(Block_io &, Trust_anchor &, bool &);
 
-		void _tree_ext_step(Block_io &, Superblock::State, bool, String<4>, bool &);
+		void _tree_ext_step(Block_io &, Trust_anchor &, Superblock::State, bool, String<4>, bool &);
 
-		void _rekey_vba(Block_io &, Crypto &, bool &);
+		void _rekey_vba(Block_io &, Crypto &, Trust_anchor &, bool &);
 
 		void _init_rekeying(Block_io &, Crypto &, Trust_anchor &, bool &);
 
-		void _discard_snap(Block_io &, bool &);
+		void _discard_snap(Block_io &, Trust_anchor &, bool &);
 
-		void _create_snap(Block_io &, bool &);
+		void _create_snap(Block_io &, Trust_anchor &, bool &);
 
-		void _sync(Block_io &, bool &);
+		void _sync(Block_io &, Trust_anchor &, bool &);
 
 		void _initialize(Block_io &, Crypto &, Trust_anchor &, bool &);
 
-		void _deinitialize(Block_io &, Crypto &, bool &);
+		void _deinitialize(Block_io &, Crypto &, Trust_anchor &, bool &);
 
 	public:
 
