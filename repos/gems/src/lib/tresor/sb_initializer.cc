@@ -72,7 +72,7 @@ void Sb_initializer_channel::_mark_req_failed(bool &progress, char const *str)
 }
 
 
-void Sb_initializer_channel::execute(Block_io &block_io, bool &progress)
+void Sb_initializer_channel::execute(Block_io &block_io, Trust_anchor &trust_anchor, bool &progress)
 {
 	if (!_req_ptr)
 		return;
@@ -103,10 +103,11 @@ void Sb_initializer_channel::execute(Block_io &block_io, bool &progress)
 
 	case INIT_MT_SUCCEEDED:
 
-		_generate_req<Trust_anchor::Create_key>(CREATE_KEY_SUCCEEDED, progress, _sb.current_key.value);
+		_generate_key.construct(*this, GENERATE_KEY, GENERATE_KEY_SUCCEEDED, progress, _sb.current_key.value);
 		break;
 
-	case CREATE_KEY_SUCCEEDED:
+	case GENERATE_KEY: progress |= _generate_key->execute(trust_anchor); break;
+	case GENERATE_KEY_SUCCEEDED:
 
 		_generate_req<Trust_anchor::Encrypt_key>(ENCRYPT_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb.current_key.value);
 		break;
@@ -163,9 +164,10 @@ void Sb_initializer_channel::execute(Block_io &block_io, bool &progress)
 }
 
 
-Sb_initializer::Sb_initializer(Block_io &block_io)
+Sb_initializer::Sb_initializer(Block_io &block_io, Trust_anchor &trust_anchor)
 :
-	_block_io(block_io)
+	_block_io(block_io),
+	_trust_anchor(trust_anchor)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {
@@ -178,5 +180,5 @@ Sb_initializer::Sb_initializer(Block_io &block_io)
 void Sb_initializer::execute(bool &progress)
 {
 	for_each_channel<Channel>([&] (Channel &chan) {
-		chan.execute(_block_io, progress); });
+		chan.execute(_block_io, _trust_anchor, progress); });
 }

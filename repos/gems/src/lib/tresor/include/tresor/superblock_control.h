@@ -70,7 +70,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 		enum State : State_uint {
 			INACTIVE, REQ_SUBMITTED, ACCESS_VBA_AT_VBD_SUCCEEDED,
-			REKEY_VBA_AT_VBD_SUCCEEDED, CREATE_KEY_SUCCEEDED,
+			REKEY_VBA_AT_VBD_SUCCEEDED, GENERATE_KEY, GENERATE_KEY_SUCCEEDED,
 			TREE_EXT_STEP_IN_TREE_SUCCEEDED, DECRYPT_CURR_KEY_SUCCEEDED,
 			DECRYPT_PREV_KEY_SUCCEEDED, READ_SB_HASH_SUCCEEDED, ADD_KEY, ADD_PREV_KEY_SUCCEEDED,
 			ADD_CURR_KEY_SUCCEEDED, REMOVE_KEY, REMOVE_PREV_KEY_SUCCEEDED, REMOVE_CURR_KEY_SUCCEEDED,
@@ -102,6 +102,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 			Generated_request<Superblock_control_channel, Block_io::Sync, Secure_sb_state> _sync_block_io;
 			Generated_request<Superblock_control_channel, Crypto::Remove_key, State> _remove_key;
 			Generated_request<Superblock_control_channel, Crypto::Add_key, State> _add_key;
+			Generated_request<Superblock_control_channel, Trust_anchor::Generate_key, State> _generate_key;
 		};
 
 		NONCOPYABLE(Superblock_control_channel);
@@ -138,7 +139,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 		void _rekey_vba(Block_io &, Crypto &, bool &);
 
-		void _init_rekeying(Block_io &, Crypto &, bool &);
+		void _init_rekeying(Block_io &, Crypto &, Trust_anchor &, bool &);
 
 		void _discard_snap(Block_io &, bool &);
 
@@ -152,7 +153,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 	public:
 
-		void execute(Block_io &, Crypto &, bool &);
+		void execute(Block_io &, Crypto &, Trust_anchor &, bool &);
 
 		Superblock_control_channel(Module_channel_id, Superblock &, Superblock_index &, Generation &);
 
@@ -199,6 +200,7 @@ class Tresor::Superblock_control : public Module
 		Constructible<Channel> _channels[1] { };
 		Block_io &_block_io;
 		Crypto &_crypto;
+		Trust_anchor &_trust_anchor;
 
 		void execute(bool &) override;
 
@@ -214,7 +216,7 @@ class Tresor::Superblock_control : public Module
 
 		Superblock_info sb_info() const;
 
-		Superblock_control(Block_io &, Crypto &);
+		Superblock_control(Block_io &, Crypto &, Trust_anchor &);
 
 		static constexpr char const *name() { return "sb_control"; }
 };

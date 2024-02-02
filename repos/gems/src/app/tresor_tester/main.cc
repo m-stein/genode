@@ -536,7 +536,7 @@ class Tresor_tester::Main
 		Pba_allocator _pba_alloc { NR_OF_SUPERBLOCK_SLOTS };
 		Vbd_initializer _vbd_initializer { _block_io };
 		Ft_initializer _ft_initializer { _block_io };
-		Sb_initializer _sb_initializer { _block_io };
+		Sb_initializer _sb_initializer { _block_io, _trust_anchor };
 		Vbd_check _vbd_check { };
 		Ft_check _ft_check { };
 		Sb_check _sb_check { };
@@ -766,7 +766,7 @@ class Tresor_tester::Main
 		{
 			_free_tree.construct(_block_io);
 			_vbd.construct(*this, _block_io, _crypto);
-			_sb_control.construct(_block_io, _crypto);
+			_sb_control.construct(_block_io, _crypto, _trust_anchor);
 			_request_pool.construct();
 			_meta_tree.construct(_block_io);
 			add_module(FREE_TREE, *_free_tree);

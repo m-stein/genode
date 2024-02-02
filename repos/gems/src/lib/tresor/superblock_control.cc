@@ -361,7 +361,7 @@ void Superblock_control_channel::_secure_sb(Block_io &block_io, bool &progress)
 }
 
 
-void Superblock_control_channel::_init_rekeying(Block_io &block_io, Crypto &crypto, bool &progress)
+void Superblock_control_channel::_init_rekeying(Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor, bool &progress)
 {
 	switch (_state) {
 	case REQ_SUBMITTED:
@@ -375,10 +375,11 @@ void Superblock_control_channel::_init_rekeying(Block_io &block_io, Crypto &cryp
 		_sb.rekeying_vba = 0;
 		_sb.previous_key = _sb.current_key;
 		_sb.current_key.id++;
-		_generate_req<Trust_anchor::Create_key>(CREATE_KEY_SUCCEEDED, progress, _sb.current_key.value);
+		_generate_key.construct(*this, GENERATE_KEY, GENERATE_KEY_SUCCEEDED, progress, _sb.current_key.value);
 		break;
 
-	case CREATE_KEY_SUCCEEDED:
+	case GENERATE_KEY: progress |= _generate_key->execute(trust_anchor); break;
+	case GENERATE_KEY_SUCCEEDED:
 
 		_add_key.construct(*this, ADD_KEY, ADD_CURR_KEY_SUCCEEDED, progress, _sb.current_key);
 		if (VERBOSE_REKEYING)
@@ -572,7 +573,7 @@ void Superblock_control_channel::_deinitialize(Block_io &block_io, Crypto &crypt
 }
 
 
-void Superblock_control_channel::execute(Block_io &block_io, Crypto &crypto, bool &progress)
+void Superblock_control_channel::execute(Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor, bool &progress)
 {
 	if (!_req_ptr)
 		return;
@@ -581,7 +582,7 @@ void Superblock_control_channel::execute(Block_io &block_io, Crypto &crypto, boo
 	case Request::READ_VBA: _access_vba(Virtual_block_device_request::READ_VBA, progress); break;
 	case Request::WRITE_VBA: _access_vba(Virtual_block_device_request::WRITE_VBA, progress); break;
 	case Request::SYNC: _sync(block_io, progress); break;
-	case Request::INITIALIZE_REKEYING: _init_rekeying(block_io, crypto, progress); break;
+	case Request::INITIALIZE_REKEYING: _init_rekeying(block_io, crypto, trust_anchor, progress); break;
 	case Request::REKEY_VBA: _rekey_vba(block_io, crypto, progress); break;
 	case Request::VBD_EXTENSION_STEP: _tree_ext_step(block_io, Superblock::EXTENDING_VBD, VERBOSE_VBD_EXTENSION, "vbd", progress); break;
 	case Request::FT_EXTENSION_STEP: _tree_ext_step(block_io, Superblock::EXTENDING_FT, VERBOSE_FT_EXTENSION, "ft", progress); break;
@@ -596,7 +597,7 @@ void Superblock_control_channel::execute(Block_io &block_io, Crypto &crypto, boo
 void Superblock_control::execute(bool &progress)
 {
 	for_each_channel<Channel>([&] (Channel &chan) {
-		chan.execute(_block_io, _crypto, progress); });
+		chan.execute(_block_io, _crypto, _trust_anchor, progress); });
 }
 
 
@@ -632,10 +633,11 @@ void Superblock_control_channel::_request_submitted(Module_request &req)
 }
 
 
-Superblock_control::Superblock_control(Block_io &block_io, Crypto &crypto)
+Superblock_control::Superblock_control(Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor)
 :
 	_block_io(block_io),
-	_crypto(crypto)
+	_crypto(crypto),
+	_trust_anchor(trust_anchor)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {
