@@ -69,7 +69,7 @@ class Tresor::Trust_anchor_channel : public Module_channel
 		Read_write_file<State> _encrypt_file { _state, _vfs_env, { _path, "/encrypt" } };
 		Read_write_file<State> _generate_key_file { _state, _vfs_env, { _path, "/generate_key" } };
 		Read_write_file<State> _initialize_file { _state, _vfs_env, { _path, "/initialize" } };
-		Read_write_file<State> _hashsum_file { _state, _vfs_env, { _path, "/hashsum" } };
+		Read_write_file<State> _hash_file { _state, _vfs_env, { _path, "/hash" } };
 		Trust_anchor_request *_req_ptr { nullptr };
 
 		NONCOPYABLE(Trust_anchor_channel);
@@ -111,7 +111,7 @@ class Tresor::Trust_anchor : public Module
 			Vfs::Vfs_handle &encrypt_file;
 			Vfs::Vfs_handle &generate_key_file;
 			Vfs::Vfs_handle &initialize_file;
-			Vfs::Vfs_handle &hashsum_file;
+			Vfs::Vfs_handle &hash_file;
 		};
 
 	private:
