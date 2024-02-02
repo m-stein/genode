@@ -83,6 +83,26 @@ void Trust_anchor_channel::_create_key(bool &progress)
 }
 
 
+bool Trust_anchor::Read_hash::execute(Trust_anchor::Attr const &ta_attr)
+{
+	bool progress = false;
+	switch (_helper.state) {
+	case INIT:
+
+		_file.construct(_helper.state, ta_attr.hashsum_file);
+		_helper.state = READ;
+		progress = true;
+		break;
+
+	case READ: _file->read(READ_OK, FILE_ERR, 0, { (char *)&_attr.out_hash, HASH_SIZE }, progress); break;
+	case READ_OK: _helper.mark_succeeded(progress); break;
+	case FILE_ERR: _helper.mark_failed(progress, "file operation failed"); break;
+	default: break;
+	}
+	return progress;
+}
+
+
 bool Trust_anchor::Generate_key::execute(Trust_anchor::Attr const &ta_attr)
 {
 	bool progress = false;
