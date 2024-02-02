@@ -71,7 +71,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 		enum State : State_uint {
 			INACTIVE, REQ_SUBMITTED, ACCESS_VBA_AT_VBD_SUCCEEDED,
 			REKEY_VBA_AT_VBD_SUCCEEDED, GENERATE_KEY, GENERATE_KEY_SUCCEEDED,
-			TREE_EXT_STEP_IN_TREE_SUCCEEDED, DECRYPT_CURR_KEY_SUCCEEDED,
+			TREE_EXT_STEP_IN_TREE_SUCCEEDED, DECRYPT_KEY, DECRYPT_CURR_KEY_SUCCEEDED,
 			DECRYPT_PREV_KEY_SUCCEEDED, READ_SB_HASH, READ_SB_HASH_SUCCEEDED, ADD_KEY, ADD_PREV_KEY_SUCCEEDED,
 			ADD_CURR_KEY_SUCCEEDED, REMOVE_KEY, REMOVE_PREV_KEY_SUCCEEDED, REMOVE_CURR_KEY_SUCCEEDED,
 			READ_BLOCK, READ_SB_SUCCEEDED, REQ_COMPLETE, REQ_GENERATED, SECURE_SB, SECURE_SB_SUCCEEDED };
@@ -105,6 +105,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 			Generated_request<Superblock_control_channel, Crypto::Add_key, State> _add_key;
 			Generated_request<Superblock_control_channel, Trust_anchor::Generate_key, State> _generate_key;
 			Generated_request<Superblock_control_channel, Trust_anchor::Read_hash, State> _read_sb_hash;
+			Generated_request<Superblock_control_channel, Trust_anchor::Decrypt_key, State> _decrypt_key;
 			Generated_request<Superblock_control_channel, Trust_anchor::Write_hash, Secure_sb_state> _write_sb_hash;
 		};
 

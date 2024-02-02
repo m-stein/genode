@@ -133,12 +133,7 @@ class Tresor::Trust_anchor : public Module
 			: Request(m, c, Request::ENCRYPT_KEY, *const_cast<Key_value*>(&kp), kc, *(Hash*)0, Passphrase(), s) { }
 		};
 
-		struct Decrypt_key : Request
-		{
-			Decrypt_key(Module_id m, Module_channel_id c, Key_value &kp, Key_value const &kc, bool &s)
-			: Request(m, c, Request::DECRYPT_KEY, kp, *const_cast<Key_value*>(&kc), *(Hash*)0, Passphrase(), s) { }
-		};
-
+		class Decrypt_key;
 		class Generate_key;
 		class Initialize;
 		class Read_hash;
@@ -165,6 +160,40 @@ class Tresor::Trust_anchor : public Module
 		}
 
 		static constexpr char const *name() { return "trust_anchor"; }
+};
+
+class Tresor::Trust_anchor::Decrypt_key
+{
+	public:
+
+		using Module = Trust_anchor;
+
+		struct Attr
+		{
+			Key_value &out_key_plaintext;
+			Key_value const &in_key_ciphertext;
+		};
+
+	private:
+
+		enum State { INIT, COMPLETE, WRITE, WRITE_OK, READ_OK, FILE_ERR };
+
+		Request_helper<Decrypt_key, State> _helper;
+		Attr const _attr;
+		Constructible<File<State> > _file { };
+
+		NONCOPYABLE(Decrypt_key);
+
+	public:
+
+		Decrypt_key(Attr const &attr) : _helper(*this), _attr(attr) { }
+
+		void print(Output &out) const { Genode::print(out, "decrypt key"); }
+
+		bool execute(Trust_anchor::Attr const &);
+
+		bool complete() const { return _helper.complete(); }
+		bool success() const { return _helper.success(); }
 };
 
 class Tresor::Trust_anchor::Initialize
@@ -220,7 +249,7 @@ class Tresor::Trust_anchor::Generate_key
 
 		Generate_key(Attr const &attr) : _helper(*this), _attr(attr) { }
 
-		void print(Output &out) const { Genode::print(out, "create key"); }
+		void print(Output &out) const { Genode::print(out, "generate key"); }
 
 		bool execute(Trust_anchor::Attr const &);
 
