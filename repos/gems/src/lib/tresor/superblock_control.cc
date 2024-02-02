@@ -140,7 +140,7 @@ void Superblock_control_channel::_access_vba(Virtual_block_device_request::Type 
 }
 
 
-void Superblock_control_channel::_tree_ext_step(Block_io &block_io, Superblock::State sb_state, bool verbose, String<4> tree_name, bool &progress)
+void Superblock_control_channel::_tree_ext_step(Block_io &block_io, Trust_anchor &trust_anchor, Superblock::State sb_state, bool verbose, String<4> tree_name, bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
@@ -231,14 +231,14 @@ void Superblock_control_channel::_tree_ext_step(Block_io &block_io, Superblock::
 		_start_secure_sb(progress);
 		break;
 	}
-	case SECURE_SB: _secure_sb(block_io, progress); break;
+	case SECURE_SB: _secure_sb(block_io, trust_anchor, progress); break;
 	case SECURE_SB_SUCCEEDED: _mark_req_successful(progress); break;
 	default: break;
 	}
 }
 
 
-void Superblock_control_channel::_rekey_vba(Block_io &block_io, Crypto &crypto, bool &progress)
+void Superblock_control_channel::_rekey_vba(Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor, bool &progress)
 {
 	switch (_state) {
 	case REQ_SUBMITTED:
@@ -290,7 +290,7 @@ void Superblock_control_channel::_rekey_vba(Block_io &block_io, Crypto &crypto, 
 			log("  secure sb: gen ", _curr_gen);
 		break;
 
-	case SECURE_SB: _secure_sb(block_io, progress); break;
+	case SECURE_SB: _secure_sb(block_io, trust_anchor, progress); break;
 	case SECURE_SB_SUCCEEDED: _mark_req_successful(progress); break;
 	default: break;
 	}
@@ -305,7 +305,7 @@ void Superblock_control_channel::_start_secure_sb(bool &progress)
 }
 
 
-void Superblock_control_channel::_secure_sb(Block_io &block_io, bool &progress)
+void Superblock_control_channel::_secure_sb(Block_io &block_io, Trust_anchor &trust_anchor, bool &progress)
 {
 	switch (_secure_sb_state) {
 	case STARTED:
@@ -340,7 +340,7 @@ void Superblock_control_channel::_secure_sb(Block_io &block_io, bool &progress)
 	{
 		_sb_ciphertext.encode_to_blk(_blk);
 		calc_hash(_blk, _hash);
-		_generate_req<Trust_anchor::Write_hash>(WRITE_SB_HASH_SUCCEEDED, progress, _hash);
+		_write_sb_hash.construct(*this, WRITE_SB_HASH, WRITE_SB_HASH_SUCCEEDED, progress, _hash);
 		if (_sb_idx < MAX_SUPERBLOCK_INDEX)
 			_sb_idx++;
 		else
@@ -350,6 +350,7 @@ void Superblock_control_channel::_secure_sb(Block_io &block_io, bool &progress)
 		_curr_gen++;
 		break;
 	}
+	case WRITE_SB_HASH: progress |= _write_sb_hash->execute(trust_anchor); break;
 	case WRITE_SB_HASH_SUCCEEDED:
 
 		_sb.last_secured_generation = _gen;
@@ -394,14 +395,14 @@ void Superblock_control_channel::_init_rekeying(Block_io &block_io, Crypto &cryp
 		_start_secure_sb(progress);
 		break;
 
-	case SECURE_SB: _secure_sb(block_io, progress); break;
+	case SECURE_SB: _secure_sb(block_io, trust_anchor, progress); break;
 	case SECURE_SB_SUCCEEDED: _mark_req_successful(progress); break;
 	default: break;
 	}
 }
 
 
-void Superblock_control_channel::_discard_snap(Block_io &block_io, bool &progress)
+void Superblock_control_channel::_discard_snap(Block_io &block_io, Trust_anchor &trust_anchor, bool &progress)
 {
 	switch (_state) {
 	case REQ_SUBMITTED:
@@ -414,7 +415,7 @@ void Superblock_control_channel::_discard_snap(Block_io &block_io, bool &progres
 		_start_secure_sb(progress);
 		break;
 
-	case SECURE_SB: _secure_sb(block_io, progress); break;
+	case SECURE_SB: _secure_sb(block_io, trust_anchor, progress); break;
 	case SECURE_SB_SUCCEEDED:
 
 		_req_ptr->_gen = _gen;
@@ -426,7 +427,7 @@ void Superblock_control_channel::_discard_snap(Block_io &block_io, bool &progres
 }
 
 
-void Superblock_control_channel::_create_snap(Block_io &block_io, bool &progress)
+void Superblock_control_channel::_create_snap(Block_io &block_io, Trust_anchor &trust_anchor, bool &progress)
 {
 	switch (_state) {
 	case REQ_SUBMITTED:
@@ -441,7 +442,7 @@ void Superblock_control_channel::_create_snap(Block_io &block_io, bool &progress
 		}
 		break;
 
-	case SECURE_SB: _secure_sb(block_io, progress); break;
+	case SECURE_SB: _secure_sb(block_io, trust_anchor, progress); break;
 	case SECURE_SB_SUCCEEDED:
 
 		_req_ptr->_gen = _gen;
@@ -453,7 +454,7 @@ void Superblock_control_channel::_create_snap(Block_io &block_io, bool &progress
 }
 
 
-void Superblock_control_channel::_sync(Block_io &block_io, bool &progress)
+void Superblock_control_channel::_sync(Block_io &block_io, Trust_anchor &trust_anchor, bool &progress)
 {
 	switch (_state) {
 	case REQ_SUBMITTED:
@@ -463,7 +464,7 @@ void Superblock_control_channel::_sync(Block_io &block_io, bool &progress)
 		_start_secure_sb(progress);
 		break;
 
-	case SECURE_SB: _secure_sb(block_io, progress); break;
+	case SECURE_SB: _secure_sb(block_io, trust_anchor, progress); break;
 	case SECURE_SB_SUCCEEDED: _mark_req_successful(progress); break;
 	default: break;
 	}
@@ -542,7 +543,7 @@ void Superblock_control_channel::_initialize(Block_io &block_io, Crypto &crypto,
 }
 
 
-void Superblock_control_channel::_deinitialize(Block_io &block_io, Crypto &crypto, bool &progress)
+void Superblock_control_channel::_deinitialize(Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor, bool &progress)
 {
 	switch (_state) {
 	case REQ_SUBMITTED:
@@ -552,7 +553,7 @@ void Superblock_control_channel::_deinitialize(Block_io &block_io, Crypto &crypt
 		_start_secure_sb(progress);
 		break;
 
-	case SECURE_SB: _secure_sb(block_io, progress); break;
+	case SECURE_SB: _secure_sb(block_io, trust_anchor, progress); break;
 	case SECURE_SB_SUCCEEDED: _remove_key.construct(*this, REMOVE_KEY, REMOVE_CURR_KEY_SUCCEEDED, progress, _sb.current_key.id); break;
 	case REMOVE_CURR_KEY_SUCCEEDED:
 
@@ -582,15 +583,15 @@ void Superblock_control_channel::execute(Block_io &block_io, Crypto &crypto, Tru
 	switch (_req_ptr->_type) {
 	case Request::READ_VBA: _access_vba(Virtual_block_device_request::READ_VBA, progress); break;
 	case Request::WRITE_VBA: _access_vba(Virtual_block_device_request::WRITE_VBA, progress); break;
-	case Request::SYNC: _sync(block_io, progress); break;
+	case Request::SYNC: _sync(block_io, trust_anchor, progress); break;
 	case Request::INITIALIZE_REKEYING: _init_rekeying(block_io, crypto, trust_anchor, progress); break;
-	case Request::REKEY_VBA: _rekey_vba(block_io, crypto, progress); break;
-	case Request::VBD_EXTENSION_STEP: _tree_ext_step(block_io, Superblock::EXTENDING_VBD, VERBOSE_VBD_EXTENSION, "vbd", progress); break;
-	case Request::FT_EXTENSION_STEP: _tree_ext_step(block_io, Superblock::EXTENDING_FT, VERBOSE_FT_EXTENSION, "ft", progress); break;
-	case Request::CREATE_SNAPSHOT: _create_snap(block_io, progress); break;
-	case Request::DISCARD_SNAPSHOT: _discard_snap(block_io, progress); break;
+	case Request::REKEY_VBA: _rekey_vba(block_io, crypto, trust_anchor, progress); break;
+	case Request::VBD_EXTENSION_STEP: _tree_ext_step(block_io, trust_anchor, Superblock::EXTENDING_VBD, VERBOSE_VBD_EXTENSION, "vbd", progress); break;
+	case Request::FT_EXTENSION_STEP: _tree_ext_step(block_io, trust_anchor, Superblock::EXTENDING_FT, VERBOSE_FT_EXTENSION, "ft", progress); break;
+	case Request::CREATE_SNAPSHOT: _create_snap(block_io, trust_anchor, progress); break;
+	case Request::DISCARD_SNAPSHOT: _discard_snap(block_io, trust_anchor, progress); break;
 	case Request::INITIALIZE: _initialize(block_io, crypto, trust_anchor, progress); break;
-	case Request::DEINITIALIZE: _deinitialize(block_io, crypto, progress); break;
+	case Request::DEINITIALIZE: _deinitialize(block_io, crypto, trust_anchor, progress); break;
 	}
 }
 
