@@ -202,7 +202,7 @@ class Tresor_tester::Benchmark
 
 struct Tresor_tester::Trust_anchor_node
 {
-	using Operation = Trust_anchor_request::Type;
+	enum Operation { INITIALIZE, READ_HASH, WRITE_HASH, ENCRYPT_KEY, DECRYPT_KEY, GENERATE_KEY };
 
 	Operation const op;
 	Passphrase const passphrase;
@@ -530,7 +530,7 @@ class Tresor_tester::Main
 		Constructible<Superblock_control> _sb_control { };
 		Constructible<Request_pool> _request_pool { };
 		Constructible<Meta_tree> _meta_tree { };
-		Trust_anchor _trust_anchor { _vfs_env, _config_rom.xml().sub_node("trust-anchor"), { _ta_decrypt_file, _ta_encrypt_file, _ta_generate_key_file, _ta_initialize_file, _ta_hash_file } };
+		Trust_anchor _trust_anchor { { _ta_decrypt_file, _ta_encrypt_file, _ta_generate_key_file, _ta_initialize_file, _ta_hash_file } };
 		Crypto _crypto { {*this, _crypto_add_key_file, _crypto_remove_key_file} };
 		Block_io _block_io { _block_io_file };
 		Pba_allocator _pba_alloc { NR_OF_SUPERBLOCK_SLOTS };
@@ -663,7 +663,6 @@ class Tresor_tester::Main
 
 		Main(Genode::Env &env) : _env(env)
 		{
-			add_module(TRUST_ANCHOR, _trust_anchor);
 			add_module(COMMAND_POOL, *this);
 			add_module(VBD_INITIALIZER, _vbd_initializer);
 			add_module(FT_INITIALIZER, _ft_initializer);
@@ -922,7 +921,7 @@ void Tresor_tester::Command::execute(bool &progress)
 	case TRUST_ANCHOR:
 	{
 		Trust_anchor_node const &node { trust_anchor_node() };
-		ASSERT(node.op == Trust_anchor_request::INITIALIZE);
+		ASSERT(node.op == Trust_anchor_node::INITIALIZE);
 		_main.with_alloc([&] (Allocator &alloc) {
 			_request_ptr = new (alloc)
 				Generated_request_base<Command, Trust_anchor::Initialize, State>(*this, INIT_TRUST_ANCHOR, INIT_TRUST_ANCHOR_SUCCEEDED, progress, node.passphrase);
