@@ -312,15 +312,16 @@ void Superblock_control_channel::_secure_sb(Block_io &block_io, Trust_anchor &tr
 
 		_sb.curr_snap().gen = _curr_gen;
 		_sb_ciphertext.copy_all_but_key_values_from(_sb);
-		_generate_req<Trust_anchor::Encrypt_key>(
-			ENCRYPT_CURR_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb_ciphertext.current_key.value);
+		_encrypt_key.construct(
+			*this, ENCRYPT_KEY, ENCRYPT_CURR_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb_ciphertext.current_key.value);
 		break;
 
+	case ENCRYPT_KEY: progress |= _encrypt_key->execute(trust_anchor); break;
 	case ENCRYPT_CURR_KEY_SUCCEEDED:
 
 		if (_sb.state == Superblock::REKEYING)
-			_generate_req<Trust_anchor::Encrypt_key>(
-				ENCRYPT_PREV_KEY_SUCCEEDED, progress, _sb.previous_key.value, _sb_ciphertext.previous_key.value);
+			_encrypt_key.construct(
+				*this, ENCRYPT_KEY, ENCRYPT_PREV_KEY_SUCCEEDED, progress, _sb.previous_key.value, _sb_ciphertext.previous_key.value);
 		else {
 			_sb_ciphertext.encode_to_blk(_blk);
 			_write_block.construct(*this, WRITE_BLOCK, WRITE_SB_SUCCEEDED, progress, _sb_idx, _blk);

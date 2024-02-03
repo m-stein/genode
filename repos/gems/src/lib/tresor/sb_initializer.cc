@@ -109,9 +109,11 @@ void Sb_initializer_channel::execute(Block_io &block_io, Trust_anchor &trust_anc
 	case GENERATE_KEY: progress |= _generate_key->execute(trust_anchor); break;
 	case GENERATE_KEY_SUCCEEDED:
 
-		_generate_req<Trust_anchor::Encrypt_key>(ENCRYPT_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb.current_key.value);
+		_encrypt_key.construct(
+			*this, ENCRYPT_KEY, ENCRYPT_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb.current_key.value);
 		break;
 
+	case ENCRYPT_KEY: progress |= _encrypt_key->execute(trust_anchor); break;
 	case ENCRYPT_KEY_SUCCEEDED:
 	{
 		Snapshot &snap = _sb.snapshots.items[0];

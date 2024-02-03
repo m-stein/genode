@@ -18,90 +18,9 @@
 #include <tresor/types.h>
 #include <tresor/file.h>
 
-namespace Tresor {
+namespace Tresor { class Trust_anchor; }
 
-	class Trust_anchor;
-	class Trust_anchor_request;
-	class Trust_anchor_channel;
-}
-
-class Tresor::Trust_anchor_request : public Module_request
-{
-	friend class Trust_anchor_channel;
-
-	public:
-
-		enum Type { CREATE_KEY, ENCRYPT_KEY, DECRYPT_KEY, WRITE_HASH, READ_HASH, INITIALIZE };
-
-	private:
-
-		Type const _type;
-		Key_value &_key_plaintext;
-		Key_value &_key_ciphertext;
-		Hash &_hash;
-		Passphrase const _pass;
-		bool &_success;
-
-		NONCOPYABLE(Trust_anchor_request);
-
-	public:
-
-		Trust_anchor_request(Module_id src, Module_channel_id, Type, Key_value &, Key_value &, Hash &, Passphrase, bool &);
-
-		static char const *type_to_string(Type);
-
-		void print(Output &out) const override { Genode::print(out, type_to_string(_type)); }
-};
-
-class Tresor::Trust_anchor_channel : public Module_channel
-{
-	private:
-
-		using Request = Trust_anchor_request;
-
-		enum State { REQ_SUBMITTED, REQ_COMPLETE, READ_OK, WRITE_OK, FILE_ERR  };
-
-		State _state { REQ_COMPLETE };
-		Vfs::Env &_vfs_env;
-		char _result_buf[3];
-		Tresor::Path const _path;
-		Read_write_file<State> _decrypt_file { _state, _vfs_env, { _path, "/decrypt" } };
-		Read_write_file<State> _encrypt_file { _state, _vfs_env, { _path, "/encrypt" } };
-		Read_write_file<State> _generate_key_file { _state, _vfs_env, { _path, "/generate_key" } };
-		Read_write_file<State> _initialize_file { _state, _vfs_env, { _path, "/initialize" } };
-		Read_write_file<State> _hash_file { _state, _vfs_env, { _path, "/hash" } };
-		Trust_anchor_request *_req_ptr { nullptr };
-
-		NONCOPYABLE(Trust_anchor_channel);
-
-		void _request_submitted(Module_request &) override;
-
-		bool _request_complete() override { return _state == REQ_COMPLETE; }
-
-		void _create_key(bool &);
-
-		void _read_hash(bool &);
-
-		void _initialize(bool &);
-
-		void _write_hash(bool &);
-
-		void _encrypt_key(bool &);
-
-		void _decrypt_key(bool &);
-
-		void _mark_req_failed(bool &, Error_string);
-
-		void _mark_req_successful(bool &);
-
-	public:
-
-		void execute(bool &);
-
-		Trust_anchor_channel(Module_channel_id, Vfs::Env &, Xml_node const &);
-};
-
-class Tresor::Trust_anchor : public Module
+class Tresor::Trust_anchor
 {
 	public:
 
@@ -116,10 +35,6 @@ class Tresor::Trust_anchor : public Module
 
 	private:
 
-		using Request = Trust_anchor_request;
-		using Channel = Trust_anchor_channel;
-
-		Constructible<Channel> _channels[1] { };
 		Attr const _attr;
 		addr_t _user { };
 
@@ -127,21 +42,14 @@ class Tresor::Trust_anchor : public Module
 
 	public:
 
-		struct Encrypt_key : Request
-		{
-			Encrypt_key(Module_id m, Module_channel_id c, Key_value const &kp, Key_value &kc, bool &s)
-			: Request(m, c, Request::ENCRYPT_KEY, *const_cast<Key_value*>(&kp), kc, *(Hash*)0, Passphrase(), s) { }
-		};
-
+		class Encrypt_key;
 		class Decrypt_key;
 		class Generate_key;
 		class Initialize;
 		class Read_hash;
 		class Write_hash;
 
-		Trust_anchor(Vfs::Env &, Xml_node const &, Attr const &);
-
-		void execute(bool &) override;
+		Trust_anchor(Attr const &attr) : _attr(attr) { }
 
 		template <typename REQ>
 		bool execute(REQ &req)
@@ -160,6 +68,40 @@ class Tresor::Trust_anchor : public Module
 		}
 
 		static constexpr char const *name() { return "trust_anchor"; }
+};
+
+class Tresor::Trust_anchor::Encrypt_key
+{
+	public:
+
+		using Module = Trust_anchor;
+
+		struct Attr
+		{
+			Key_value &out_key_ciphertext;
+			Key_value const &in_key_plaintext;
+		};
+
+	private:
+
+		enum State { INIT, COMPLETE, WRITE, WRITE_OK, READ_OK, FILE_ERR };
+
+		Request_helper<Encrypt_key, State> _helper;
+		Attr const _attr;
+		Constructible<File<State> > _file { };
+
+		NONCOPYABLE(Encrypt_key);
+
+	public:
+
+		Encrypt_key(Attr const &attr) : _helper(*this), _attr(attr) { }
+
+		void print(Output &out) const { Genode::print(out, "encrypt key"); }
+
+		bool execute(Trust_anchor::Attr const &);
+
+		bool complete() const { return _helper.complete(); }
+		bool success() const { return _helper.success(); }
 };
 
 class Tresor::Trust_anchor::Decrypt_key

@@ -77,7 +77,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 			READ_BLOCK, READ_SB_SUCCEEDED, REQ_COMPLETE, REQ_GENERATED, SECURE_SB, SECURE_SB_SUCCEEDED };
 
 		enum Secure_sb_state : State_uint {
-			SECURE_SB_INACTIVE, STARTED, ENCRYPT_CURR_KEY_SUCCEEDED,
+			SECURE_SB_INACTIVE, STARTED, ENCRYPT_KEY, ENCRYPT_CURR_KEY_SUCCEEDED,
 			SECURE_SB_REQ_GENERATED, ENCRYPT_PREV_KEY_SUCCEEDED, SYNC_CACHE_SUCCEEDED,
 			WRITE_BLOCK, WRITE_SB_SUCCEEDED, SYNC_BLOCK_IO, SYNC_BLOCK_IO_SUCCEEDED, WRITE_SB_HASH,
 			WRITE_SB_HASH_SUCCEEDED };
@@ -106,6 +106,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 			Generated_request<Superblock_control_channel, Trust_anchor::Generate_key, State> _generate_key;
 			Generated_request<Superblock_control_channel, Trust_anchor::Read_hash, State> _read_sb_hash;
 			Generated_request<Superblock_control_channel, Trust_anchor::Decrypt_key, State> _decrypt_key;
+			Generated_request<Superblock_control_channel, Trust_anchor::Encrypt_key, Secure_sb_state> _encrypt_key;
 			Generated_request<Superblock_control_channel, Trust_anchor::Write_hash, Secure_sb_state> _write_sb_hash;
 		};
 
