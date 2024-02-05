@@ -763,11 +763,11 @@ class Tresor_tester::Main
 
 		void construct_tresor_modules()
 		{
-			_free_tree.construct(_block_io);
+			_meta_tree.construct();
+			_free_tree.construct(_block_io, *_meta_tree);
 			_vbd.construct(*this, _block_io, _crypto);
 			_sb_control.construct(_block_io, _crypto, _trust_anchor);
 			_request_pool.construct();
-			_meta_tree.construct(_block_io);
 			add_module(FREE_TREE, *_free_tree);
 			add_module(VIRTUAL_BLOCK_DEVICE, *_vbd);
 			add_module(SUPERBLOCK_CONTROL, *_sb_control);
