@@ -13,7 +13,6 @@
 
 /* tresor includes */
 #include <tresor/free_tree.h>
-#include <tresor/meta_tree.h>
 #include <tresor/hash.h>
 
 using namespace Tresor;
@@ -51,7 +50,7 @@ Free_tree_request::Free_tree_request(Module_id src_module_id, Module_channel_id 
 void Free_tree::execute(bool &progress)
 {
 	for_each_channel<Channel>([&] (Channel &chan) {
-		chan.execute(_block_io, progress); });
+		chan.execute(_block_io, _meta_tree, progress); });
 }
 
 
@@ -194,7 +193,7 @@ void Free_tree_channel::_traverse_curr_node(bool &progress)
 }
 
 
-void Free_tree_channel::_alloc_pbas(Block_io &block_io, bool &progress)
+void Free_tree_channel::_alloc_pbas(Block_io &block_io, Meta_tree &meta_tree, bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
@@ -235,7 +234,7 @@ void Free_tree_channel::_alloc_pbas(Block_io &block_io, bool &progress)
 						_state = ALLOC_PBA_SUCCEEDED;
 						progress = true;
 					} else
-						_generate_req<Meta_tree::Alloc_pba>(ALLOC_PBA_SUCCEEDED, progress, req._mt, req._curr_gen, t1_node.pba);
+						_allocate_pba.construct(*this, ALLOC_PBA, ALLOC_PBA_SUCCEEDED, progress, req._mt, req._curr_gen, t1_node.pba);
 				else {
 					_state = SEEK_LEFT_OR_UP;
 					progress = true;
@@ -256,6 +255,7 @@ void Free_tree_channel::_alloc_pbas(Block_io &block_io, bool &progress)
 		}
 		break;
 
+	case ALLOC_PBA: progress |= _allocate_pba->execute(meta_tree, block_io); break;
 	case ALLOC_PBA_SUCCEEDED:
 	{
 		if (_lvl > 1)
@@ -274,7 +274,7 @@ void Free_tree_channel::_alloc_pbas(Block_io &block_io, bool &progress)
 }
 
 
-void Free_tree_channel::execute(Block_io &block_io, bool &progress)
+void Free_tree_channel::execute(Block_io &block_io, Meta_tree &meta_tree, bool &progress)
 {
 	if (!_req_ptr)
 		return;
@@ -282,8 +282,8 @@ void Free_tree_channel::execute(Block_io &block_io, bool &progress)
 	switch(_req_ptr->_type) {
 	case Request::ALLOC_FOR_NON_RKG:
 	case Request::ALLOC_FOR_RKG_CURR_GEN_BLKS:
-	case Request::ALLOC_FOR_RKG_OLD_GEN_BLKS: _alloc_pbas(block_io, progress); break;
-	case Request::EXTENSION_STEP: _extension_step(block_io, progress); break;
+	case Request::ALLOC_FOR_RKG_OLD_GEN_BLKS: _alloc_pbas(block_io, meta_tree, progress); break;
+	case Request::EXTENSION_STEP: _extension_step(block_io, meta_tree, progress); break;
 	}
 }
 
@@ -354,7 +354,7 @@ void Free_tree_channel::_add_new_branch_at(Tree_level_index dst_lvl, Tree_node_i
 }
 
 
-void Free_tree_channel::_extension_step(Block_io &block_io, bool &progress)
+void Free_tree_channel::_extension_step(Block_io &block_io, Meta_tree &meta_tree, bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
@@ -416,8 +416,7 @@ void Free_tree_channel::_extension_step(Block_io &block_io, bool &progress)
 					progress = true;
 				} else {
 					_alloc_pba = _old_pbas.pbas[_alloc_lvl];
-					_generate_req<Meta_tree_request>(
-						ALLOC_PBA_SUCCEEDED, progress, Meta_tree_request::ALLOC_PBA, req._mt, req._curr_gen, _alloc_pba);
+					_allocate_pba.construct(*this, ALLOC_PBA, ALLOC_PBA_SUCCEEDED, progress, req._mt, req._curr_gen, _alloc_pba);
 				}
 			}
 		} else {
@@ -436,11 +435,11 @@ void Free_tree_channel::_extension_step(Block_io &block_io, bool &progress)
 				log("  alloc lvl ", _alloc_lvl);
 
 			_alloc_pba = _old_pbas.pbas[_alloc_lvl];
-			_generate_req<Meta_tree_request>(
-				ALLOC_PBA_SUCCEEDED, progress, Meta_tree_request::ALLOC_PBA, req._mt, req._curr_gen, _alloc_pba);
+			_allocate_pba.construct(*this, ALLOC_PBA, ALLOC_PBA_SUCCEEDED, progress, req._mt, req._curr_gen, _alloc_pba);
 		}
 		break;
 
+	case ALLOC_PBA: progress |= _allocate_pba->execute(meta_tree, block_io); break;
 	case ALLOC_PBA_SUCCEEDED:
 
 		_new_pbas.pbas[_alloc_lvl] = _alloc_pba;
@@ -454,8 +453,7 @@ void Free_tree_channel::_extension_step(Block_io &block_io, bool &progress)
 				progress = true;
 			} else {
 				_alloc_pba = _old_pbas.pbas[_alloc_lvl];
-				_generate_req<Meta_tree_request>(
-					ALLOC_PBA_SUCCEEDED, progress, Meta_tree_request::ALLOC_PBA, req._mt, req._curr_gen, _alloc_pba);
+				_allocate_pba.construct(*this, ALLOC_PBA, ALLOC_PBA_SUCCEEDED, progress, req._mt, req._curr_gen, _alloc_pba);
 			}
 		} else {
 			_generate_write_blk_req(progress);
@@ -509,9 +507,10 @@ void Free_tree_channel::_request_submitted(Module_request &mod_req)
 }
 
 
-Free_tree::Free_tree(Block_io &block_io)
+Free_tree::Free_tree(Block_io &block_io, Meta_tree &meta_tree)
 :
-	_block_io(block_io)
+	_block_io(block_io),
+	_meta_tree(meta_tree)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {

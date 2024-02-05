@@ -17,6 +17,7 @@
 /* tresor includes */
 #include <tresor/types.h>
 #include <tresor/block_io.h>
+#include <tresor/meta_tree.h>
 
 namespace Tresor {
 
@@ -80,7 +81,7 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		enum State {
 			REQ_SUBMITTED, REQ_GENERATED, SEEK_DOWN, SEEK_LEFT_OR_UP, READ_BLK, READ_BLK_SUCCEEDED,
-			ALLOC_PBA_SUCCEEDED, WRITE_BLK, WRITE_BLK_SUCCEEDED, REQ_COMPLETE };
+			ALLOC_PBA, ALLOC_PBA_SUCCEEDED, WRITE_BLK, WRITE_BLK_SUCCEEDED, REQ_COMPLETE };
 
 		Request *_req_ptr { nullptr };
 		State _state { REQ_COMPLETE };
@@ -103,6 +104,7 @@ class Tresor::Free_tree_channel : public Module_channel
 		union {
 			Generated_request<Free_tree_channel, Block_io::Read, State> _read_block;
 			Generated_request<Free_tree_channel, Block_io::Write, State> _write_block;
+			Generated_request<Free_tree_channel, Meta_tree::Allocate_pba, State> _allocate_pba;
 		};
 
 		NONCOPYABLE(Free_tree_channel);
@@ -140,9 +142,9 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		void _generate_write_blk_req(bool &);
 
-		void _extension_step(Block_io &, bool &);
+		void _extension_step(Block_io &, Meta_tree &, bool &);
 
-		void _alloc_pbas(Block_io &, bool &);
+		void _alloc_pbas(Block_io &, Meta_tree &, bool &);
 
 	public:
 
@@ -150,7 +152,7 @@ class Tresor::Free_tree_channel : public Module_channel
 
 		~Free_tree_channel() { }
 
-		void execute(Block_io &, bool &);
+		void execute(Block_io &, Meta_tree &, bool &);
 
 		using Module = Free_tree;
 
@@ -178,6 +180,7 @@ class Tresor::Free_tree : public Module
 
 		Constructible<Channel> _channels[1] { };
 		Block_io &_block_io;
+		Meta_tree &_meta_tree;
 
 		NONCOPYABLE(Free_tree);
 
@@ -193,7 +196,7 @@ class Tresor::Free_tree : public Module
 			                    *(Type_1_node_walk*)0, 0, 0, 0, 0, 0, 0, 0, 0, pba, num_pbas, succ) { }
 		};
 
-		Free_tree(Block_io &);
+		Free_tree(Block_io &, Meta_tree &);
 
 		static constexpr char const *name() { return "free_tree"; }
 };
