@@ -79,7 +79,7 @@ class Ahci::Driver : Noncopyable
 
 			unsigned port_count = 0;
 
-			for (unsigned index = 0; index < MAX_PORTS; index++) {
+			for (unsigned index = 0; index < _hba.port_count(); index++) {
 
 				Port_base port(index, plat, hba, _delayer);
 
