@@ -193,6 +193,192 @@ void Free_tree_channel::_traverse_curr_node(bool &progress)
 }
 
 
+bool Free_tree::execute(Allocate_pbas &req, Block_io &block_io, Meta_tree &meta_tree) { return req.execute(block_io, meta_tree); }
+
+
+bool Free_tree::Allocate_pbas::_can_alloc_pba_of(Type_2_node &node)
+{
+	if (node.pba == 0 || node.pba == INVALID_PBA || node.free_gen > _attr.in_last_secured_gen)
+		return false;
+
+	if (!node.reserved)
+		return true;
+
+	if (_attr.in_rekeying && node.last_key_id == _attr.in_prev_key_id && node.last_vba < _attr.in_rekeying_vba)
+		return true;
+
+	for (Snapshot const &snap : _attr.in_snapshots.items)
+		if (snap.valid && node.free_gen > snap.gen && node.alloc_gen < snap.gen + 1)
+			return false;
+
+	return true;
+}
+
+
+void Free_tree::Allocate_pbas::_alloc_pba_of(Type_2_node &t2_node)
+{
+	Tree_level_index vbd_lvl { 0 };
+	for (; vbd_lvl <= _attr.in_max_lvl && _attr.in_out_new_blocks.pbas[vbd_lvl]; vbd_lvl++);
+
+	Virtual_block_address node_min_vba { vbd_node_min_vba(_vbd_degree_log_2, vbd_lvl, _attr.in_vba) };
+	_attr.in_out_new_blocks.pbas[vbd_lvl] = t2_node.pba;
+	t2_node.alloc_gen = _attr.in_old_blocks.nodes[vbd_lvl].gen;
+	t2_node.free_gen = _attr.in_free_gen;
+	Virtual_block_address rkg_vba { _attr.in_rekeying_vba };
+	switch (_attr.in_application) {
+	case NON_REKEYING:
+
+		t2_node.reserved = true;
+		t2_node.pba = _attr.in_old_blocks.nodes[vbd_lvl].pba;
+		t2_node.last_vba = node_min_vba;
+		if (_attr.in_rekeying) {
+			if (_attr.in_vba < rkg_vba)
+				t2_node.last_key_id = _attr.in_curr_key_id;
+			else
+				t2_node.last_key_id = _attr.in_prev_key_id;
+		} else
+			t2_node.last_key_id = _attr.in_curr_key_id;
+		break;
+
+	case REKEYING_IN_CURRENT_GENERATION:
+
+		t2_node.reserved = false;
+		t2_node.pba = _attr.in_old_blocks.nodes[vbd_lvl].pba;
+		t2_node.last_vba = node_min_vba;
+		t2_node.last_key_id = _attr.in_prev_key_id;
+		break;
+
+	case REKEYING_IN_OLDER_GENERATION:
+	{
+		t2_node.reserved = true;
+		Virtual_block_address node_max_vba { vbd_node_max_vba(_vbd_degree_log_2, vbd_lvl, _attr.in_vba) };
+		if (rkg_vba < node_max_vba && rkg_vba < _attr.in_vbd_max_vba) {
+			t2_node.last_key_id = _attr.in_prev_key_id;
+			t2_node.last_vba = rkg_vba + 1;
+		} else if (rkg_vba == node_max_vba || rkg_vba == _attr.in_vbd_max_vba) {
+			t2_node.last_key_id = _attr.in_curr_key_id;
+			t2_node.last_vba = node_min_vba;
+		} else
+			ASSERT_NEVER_REACHED;
+		break;
+	}
+	default: ASSERT_NEVER_REACHED;
+	}
+}
+
+void Free_tree::Allocate_pbas::_traverse_curr_node(bool &progress)
+{
+	if (_lvl) {
+		Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
+		if (t1_node.pba)
+			_read_block.construct(_helper, READ_BLK, SEEK_DOWN, progress, t1_node.pba, _blk);
+		else {
+			_helper.state = SEEK_LEFT_OR_UP;
+			progress = true;
+		}
+	} else {
+		Type_2_node &t2_node { _t2_blk.nodes[_node_idx[_lvl]] };
+		if (_num_pbas < _attr.in_num_required_pbas && _can_alloc_pba_of(t2_node)) {
+			if (_apply_allocation)
+				_alloc_pba_of(t2_node);
+			_num_pbas++;
+		}
+		_helper.state = SEEK_LEFT_OR_UP;
+		progress = true;
+	}
+}
+
+void Free_tree::Allocate_pbas::_start_tree_traversal(bool &progress)
+{
+	_num_pbas = 0;
+	_lvl = _attr.in_out_ft.max_lvl;
+	_node_idx[_lvl] = 0;
+	_t1_blks[_lvl].nodes[_node_idx[_lvl]] = _attr.in_out_ft.t1_node();
+	_read_block.construct(_helper, READ_BLK, SEEK_DOWN, progress, _attr.in_out_ft.pba, _blk);
+}
+
+bool Free_tree::Allocate_pbas::execute(Block_io &block_io, Meta_tree &meta_tree)
+{
+	bool progress = false;
+	switch (_helper.state) {
+	case INIT:
+
+		_vbd_degree_log_2 = log2<Tree_degree_log_2>(_attr.in_vbd_degree);
+		_apply_allocation = false;
+		_start_tree_traversal(progress);
+		break;
+
+	case READ_BLK: progress |= _read_block->execute(block_io); break;
+	case SEEK_DOWN:
+	{
+		if (!check_hash(_blk, _t1_blks[_lvl].nodes[_node_idx[_lvl]].hash)) {
+			_helper.mark_failed(progress, "hash mismatch");
+			break;
+		}
+		_lvl--;
+		_node_idx[_lvl] = _attr.in_out_ft.degree - 1;
+		if (_lvl)
+			_t1_blks[_lvl].decode_from_blk(_blk);
+		else
+			_t2_blk.decode_from_blk(_blk);
+		_traverse_curr_node(progress);
+		break;
+	}
+	case SEEK_LEFT_OR_UP:
+
+		if (_lvl < _attr.in_out_ft.max_lvl) {
+			if (_node_idx[_lvl] && _num_pbas < _attr.in_num_required_pbas) {
+				_node_idx[_lvl]--;
+				_traverse_curr_node(progress);
+			} else {
+				_lvl++;
+				Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
+				if (_apply_allocation)
+					if (t1_node.is_volatile(_attr.in_curr_gen)) {
+						_helper.state = ALLOC_PBA_SUCCEEDED;
+						progress = true;
+					} else
+						_allocate_pba.construct(_helper, ALLOC_PBA, ALLOC_PBA_SUCCEEDED, progress, _attr.in_out_mt, _attr.in_curr_gen, t1_node.pba);
+				else {
+					_helper.state = SEEK_LEFT_OR_UP;
+					progress = true;
+				}
+			}
+		} else {
+			if (_apply_allocation) {
+				_attr.in_out_ft.t1_node(_t1_blks[_lvl].nodes[_node_idx[_lvl]]);
+				_helper.mark_succeeded(progress);
+			} else {
+				if (_num_pbas < _attr.in_num_required_pbas)
+					_helper.mark_failed(progress, "not enough free pbas");
+				else {
+					_apply_allocation = true;
+					_start_tree_traversal(progress);
+				}
+			}
+		}
+		break;
+
+	case ALLOC_PBA: progress |= _allocate_pba->execute(meta_tree, block_io); break;
+	case ALLOC_PBA_SUCCEEDED:
+	{
+		if (_lvl > 1)
+			_t1_blks[_lvl - 1].encode_to_blk(_blk);
+		else
+			_t2_blk.encode_to_blk(_blk);
+		Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
+		t1_node.gen = _attr.in_curr_gen;
+		calc_hash(_blk, t1_node.hash);
+		_write_block.construct(_helper, WRITE_BLK, SEEK_LEFT_OR_UP, progress, t1_node.pba, _blk);
+		break;
+	}
+	case WRITE_BLK: progress |= _write_block->execute(block_io); break;
+	default: break;
+	}
+	return progress;
+}
+
+
 void Free_tree_channel::_alloc_pbas(Block_io &block_io, Meta_tree &meta_tree, bool &progress)
 {
 	Request &req { *_req_ptr };
