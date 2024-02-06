@@ -83,7 +83,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		enum State {
 			SUBMITTED, REQ_GENERATED, REQ_COMPLETE, READ_BLK, READ_BLK_SUCCEEDED, WRITE_BLK, WRITE_BLK_SUCCEEDED,
-			DECRYPT_BLOCK, DECRYPT_BLOCK_SUCCEEDED, ENCRYPT_BLOCK, ENCRYPT_BLOCK_SUCCEEDED, ALLOC_PBAS_SUCCEEDED };
+			DECRYPT_BLOCK, DECRYPT_BLOCK_SUCCEEDED, ENCRYPT_BLOCK, ENCRYPT_BLOCK_SUCCEEDED, ALLOC_PBAS, ALLOC_PBAS_SUCCEEDED };
 
 		Request *_req_ptr { nullptr };
 		State _state { REQ_COMPLETE };
@@ -106,6 +106,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 			Generated_request<Virtual_block_device_channel, Block_io::Write, State> _write_block;
 			Generated_request<Virtual_block_device_channel, Crypto::Encrypt, State> _encrypt_block;
 			Generated_request<Virtual_block_device_channel, Crypto::Decrypt, State> _decrypt_block;
+			Generated_request<Virtual_block_device_channel, Free_tree::Allocate_pbas, State> _alloc_pbas;
 		};
 
 		NONCOPYABLE(Virtual_block_device_channel);
@@ -123,7 +124,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		void _generated_req_completed(State_uint) override;
 
-		void _generate_ft_req(State, bool, Free_tree_request::Type);
+		void _start_alloc_pbas(bool &, Free_tree::Allocate_pbas::Application);
 
 		Snapshot &snap() { return _req_ptr->_snapshots.items[_snap_idx]; }
 
@@ -147,11 +148,11 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		void _generate_ft_alloc_req_for_write_vba(bool &);
 
-		void _write_vba(Client_data_interface &, Block_io &, Crypto &, bool &);
+		void _write_vba(Client_data_interface &, Block_io &, Free_tree &, Meta_tree &, Crypto &, bool &);
 
 		void _update_nodes_of_branch_of_written_vba();
 
-		void _rekey_vba(Block_io &, Crypto &, bool &);
+		void _rekey_vba(Block_io &, Crypto &, Free_tree &, Meta_tree &, bool &);
 
 		void _generate_ft_alloc_req_for_rekeying(Tree_level_index, bool &);
 
@@ -163,7 +164,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		void _generate_ft_alloc_req_for_resizing(Tree_level_index, bool &);
 
-		void _extension_step(Block_io &, bool &);
+		void _extension_step(Block_io &, Free_tree &, Meta_tree &, bool &);
 
 	public:
 
@@ -171,7 +172,7 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 
 		~Virtual_block_device_channel() { }
 
-		void execute(Client_data_interface &, Block_io &, Crypto &, bool &);
+		void execute(Client_data_interface &, Block_io &, Crypto &, Free_tree &, Meta_tree &, bool &);
 
 		using Module = Virtual_block_device;
 
@@ -200,6 +201,8 @@ class Tresor::Virtual_block_device : public Module
 		Client_data_interface &_client_data;
 		Block_io &_block_io;
 		Crypto &_crypto;
+		Free_tree &_free_tree;
+		Meta_tree &_meta_tree;
 
 		NONCOPYABLE(Virtual_block_device);
 
@@ -207,7 +210,7 @@ class Tresor::Virtual_block_device : public Module
 
 	public:
 
-		Virtual_block_device(Client_data_interface &, Block_io &, Crypto &);
+		Virtual_block_device(Client_data_interface &, Block_io &, Crypto &, Free_tree &, Meta_tree &);
 
 		static constexpr char const *name() { return "vbd"; }
 };

@@ -241,11 +241,11 @@ void Virtual_block_device_channel::_generate_ft_alloc_req_for_write_vba(bool &pr
 			_t1_nodes.nodes[lvl] = _node(lvl + 1, _vba);
 
 	_free_gen = _req_ptr->_curr_gen;
-	_generate_ft_req(ALLOC_PBAS_SUCCEEDED, progress, Free_tree_request::ALLOC_FOR_NON_RKG);
+	_start_alloc_pbas(progress, Free_tree::Allocate_pbas::NON_REKEYING);
 }
 
 
-void Virtual_block_device_channel::_write_vba(Client_data_interface &client_data, Block_io &block_io, Crypto &crypto, bool &progress)
+void Virtual_block_device_channel::_write_vba(Client_data_interface &client_data, Block_io &block_io, Free_tree &free_tree, Meta_tree &meta_tree, Crypto &crypto, bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
@@ -283,6 +283,7 @@ void Virtual_block_device_channel::_write_vba(Client_data_interface &client_data
 		_lvl--;
 		break;
 
+	case ALLOC_PBAS: progress |= _alloc_pbas->execute(free_tree, block_io, meta_tree); break;
 	case ALLOC_PBAS_SUCCEEDED:
 
 		if (VERBOSE_WRITE_VBA)
@@ -386,13 +387,13 @@ void Virtual_block_device_channel::_generate_ft_alloc_req_for_rekeying(Tree_leve
 			_t1_nodes.nodes[lvl] = { _new_pbas.pbas[lvl], node.gen, node.hash};
 		}
 
-	_generate_ft_req(ALLOC_PBAS_SUCCEEDED, progress, _first_snapshot ?
-		Free_tree_request::ALLOC_FOR_RKG_CURR_GEN_BLKS :
-		Free_tree_request::ALLOC_FOR_RKG_OLD_GEN_BLKS);
+	_start_alloc_pbas(progress, _first_snapshot ?
+		Free_tree::Allocate_pbas::REKEYING_IN_CURRENT_GENERATION :
+		Free_tree::Allocate_pbas::REKEYING_IN_OLDER_GENERATION);
 }
 
 
-void Virtual_block_device_channel::_rekey_vba(Block_io &block_io, Crypto &crypto, bool &progress)
+void Virtual_block_device_channel::_rekey_vba(Block_io &block_io, Crypto &crypto, Free_tree &free_tree, Meta_tree &meta_tree, bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
@@ -454,6 +455,7 @@ void Virtual_block_device_channel::_rekey_vba(Block_io &block_io, Crypto &crypto
 			log("      re-encrypt leaf data: plaintext ", _data_blk, " hash ", hash(_data_blk));
 		break;
 
+	case ALLOC_PBAS: progress |= _alloc_pbas->execute(free_tree, block_io, meta_tree); break;
 	case ALLOC_PBAS_SUCCEEDED:
 
 		if (VERBOSE_REKEYING)
@@ -641,7 +643,7 @@ void Virtual_block_device_channel::_generate_ft_alloc_req_for_resizing(Tree_leve
 			}
 		}
 	}
-	_generate_ft_req(ALLOC_PBAS_SUCCEEDED, progress, Free_tree_request::ALLOC_FOR_NON_RKG);
+	_start_alloc_pbas(progress, Free_tree::Allocate_pbas::NON_REKEYING);
 }
 
 
@@ -652,7 +654,7 @@ void Virtual_block_device_channel::_request_submitted(Module_request &req)
 }
 
 
-void Virtual_block_device_channel::_extension_step(Block_io &block_io, bool &progress)
+void Virtual_block_device_channel::_extension_step(Block_io &block_io, Free_tree &free_tree, Meta_tree &meta_tree, bool &progress)
 {
 	Request &req { *_req_ptr };
 	switch (_state) {
@@ -711,6 +713,7 @@ void Virtual_block_device_channel::_extension_step(Block_io &block_io, bool &pro
 		}
 		break;
 	}
+	case ALLOC_PBAS: progress |= _alloc_pbas->execute(free_tree, block_io, meta_tree); break;
 	case ALLOC_PBAS_SUCCEEDED:
 	{
 		if (VERBOSE_VBD_EXTENSION) {
@@ -755,16 +758,16 @@ void Virtual_block_device_channel::_extension_step(Block_io &block_io, bool &pro
 }
 
 
-void Virtual_block_device_channel::execute(Client_data_interface &client_data, Block_io &block_io, Crypto &crypto, bool &progress)
+void Virtual_block_device_channel::execute(Client_data_interface &client_data, Block_io &block_io, Crypto &crypto, Free_tree &free_tree, Meta_tree &meta_tree, bool &progress)
 {
 	if (!_req_ptr)
 		return;
 
 	switch (_req_ptr->_type) {
 	case Request::READ_VBA: _read_vba(client_data, block_io, crypto, progress); break;
-	case Request::WRITE_VBA: _write_vba(client_data, block_io, crypto, progress); break;
-	case Request::REKEY_VBA: _rekey_vba(block_io, crypto, progress); break;
-	case Request::EXTENSION_STEP: _extension_step(block_io, progress); break;
+	case Request::WRITE_VBA: _write_vba(client_data, block_io, free_tree, meta_tree, crypto, progress); break;
+	case Request::REKEY_VBA: _rekey_vba(block_io, crypto, free_tree, meta_tree, progress); break;
+	case Request::EXTENSION_STEP: _extension_step(block_io, free_tree, meta_tree, progress); break;
 	}
 }
 
@@ -772,26 +775,27 @@ void Virtual_block_device_channel::execute(Client_data_interface &client_data, B
 void Virtual_block_device::execute(bool &progress)
 {
 	for_each_channel<Channel>([&] (Channel &chan) {
-		chan.execute(_client_data, _block_io, _crypto, progress); });
+		chan.execute(_client_data, _block_io, _crypto, _free_tree, _meta_tree, progress); });
 }
 
 
-void Virtual_block_device_channel::_generate_ft_req(State complete_state, bool progress, Free_tree_request::Type type)
+void Virtual_block_device_channel::_start_alloc_pbas(bool &progress, Free_tree::Allocate_pbas::Application application)
 {
 	Request &req { *_req_ptr };
-	_generate_req<Free_tree_request>(
-		complete_state, progress, type, req._ft, req._mt, req._snapshots, req._last_secured_gen, req._curr_gen,
-		_free_gen, _num_blks, _new_pbas, _t1_nodes, req._snapshots.items[_snap_idx].max_level, _vba, req._vbd_degree,
-		req._vbd_highest_vba, req._rekeying, req._prev_key_id, req._curr_key_id, req._rekeying_vba, *(Physical_block_address*)0,
-		*(Number_of_blocks*)0);
+	_alloc_pbas.construct(
+		*this, ALLOC_PBAS, ALLOC_PBAS_SUCCEEDED, progress, req._ft, req._mt, req._snapshots,
+		req._last_secured_gen, req._curr_gen, _free_gen, _num_blks, _new_pbas, _t1_nodes,
+		req._snapshots.items[_snap_idx].max_level, _vba, req._vbd_degree, req._vbd_highest_vba, req._rekeying,
+		req._prev_key_id, req._curr_key_id, req._rekeying_vba, application);
 }
 
 
-Virtual_block_device::Virtual_block_device(Client_data_interface &client_data, Block_io &block_io, Crypto &crypto)
+Virtual_block_device::Virtual_block_device(Client_data_interface &client_data, Block_io &block_io, Crypto &crypto, Free_tree &free_tree, Meta_tree &meta_tree)
 :
 	_client_data(client_data),
 	_block_io(block_io),
-	_crypto(crypto)
+	_crypto(crypto),
+	_free_tree(free_tree), _meta_tree(meta_tree)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {
