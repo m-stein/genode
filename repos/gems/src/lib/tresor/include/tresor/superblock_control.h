@@ -98,16 +98,16 @@ class Tresor::Superblock_control_channel : public Module_channel
 		Superblock_index &_sb_idx;
 		Generation &_curr_gen;
 		union {
-			Generated_request<Superblock_control_channel, Block_io::Read, State> _read_block;
-			Generated_request<Superblock_control_channel, Block_io::Write, Secure_sb_state> _write_block;
-			Generated_request<Superblock_control_channel, Block_io::Sync, Secure_sb_state> _sync_block_io;
-			Generated_request<Superblock_control_channel, Crypto::Remove_key, State> _remove_key;
-			Generated_request<Superblock_control_channel, Crypto::Add_key, State> _add_key;
-			Generated_request<Superblock_control_channel, Trust_anchor::Generate_key, State> _generate_key;
-			Generated_request<Superblock_control_channel, Trust_anchor::Read_hash, State> _read_sb_hash;
-			Generated_request<Superblock_control_channel, Trust_anchor::Decrypt_key, State> _decrypt_key;
-			Generated_request<Superblock_control_channel, Trust_anchor::Encrypt_key, Secure_sb_state> _encrypt_key;
-			Generated_request<Superblock_control_channel, Trust_anchor::Write_hash, Secure_sb_state> _write_sb_hash;
+			Generatable_request<Superblock_control_channel, State, Block_io::Read> _read_block;
+			Generatable_request<Superblock_control_channel, Secure_sb_state, Block_io::Write> _write_block;
+			Generatable_request<Superblock_control_channel, Secure_sb_state, Block_io::Sync> _sync_block_io;
+			Generatable_request<Superblock_control_channel, State, Crypto::Remove_key> _remove_key;
+			Generatable_request<Superblock_control_channel, State, Crypto::Add_key> _add_key;
+			Generatable_request<Superblock_control_channel, State, Trust_anchor::Generate_key> _generate_key;
+			Generatable_request<Superblock_control_channel, State, Trust_anchor::Read_hash> _read_sb_hash;
+			Generatable_request<Superblock_control_channel, State, Trust_anchor::Decrypt_key> _decrypt_key;
+			Generatable_request<Superblock_control_channel, Secure_sb_state, Trust_anchor::Encrypt_key> _encrypt_key;
+			Generatable_request<Superblock_control_channel, Secure_sb_state, Trust_anchor::Write_hash> _write_sb_hash;
 		};
 
 		NONCOPYABLE(Superblock_control_channel);

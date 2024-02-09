@@ -314,7 +314,7 @@ class Tresor_tester::Command : public Module_channel
 		{
 			ASSERT(_type_matches<DST_REQ>());
 			ASSERT(_request_ptr != nullptr);
-			fn(*(Generated_request_base<Command, DST_REQ, State> *)_request_ptr);
+			fn(*(Generatable_request<Command, State, DST_REQ> *)_request_ptr);
 		};
 
 		NONCOPYABLE(Command);
@@ -923,8 +923,9 @@ void Tresor_tester::Command::execute(bool &progress)
 		Trust_anchor_node const &node { trust_anchor_node() };
 		ASSERT(node.op == Trust_anchor_node::INITIALIZE);
 		_main.with_alloc([&] (Allocator &alloc) {
-			_request_ptr = new (alloc)
-				Generated_request_base<Command, Trust_anchor::Initialize, State>(*this, INIT_TRUST_ANCHOR, INIT_TRUST_ANCHOR_SUCCEEDED, progress, node.passphrase);
+			auto req = new (alloc) Generatable_request<Command, State, Trust_anchor::Initialize>();
+			req->generate(*this, INIT_TRUST_ANCHOR, INIT_TRUST_ANCHOR_SUCCEEDED, progress, node.passphrase);
+			_request_ptr = req;
 		});
 		break;
 	}
@@ -945,7 +946,9 @@ void Tresor_tester::Command::execute(bool &progress)
 	case CHECK:
 
 		_main.with_alloc([&] (Allocator &alloc) {
-			_request_ptr = new (alloc) Generated_request_base<Command, Sb_check::Check, State>(*this, CHECK_SB, CHECK_SB_SUCCEEDED, progress);
+			auto req = new (alloc) Generatable_request<Command, State, Sb_check::Check>();
+			req->generate(*this, CHECK_SB, CHECK_SB_SUCCEEDED, progress);
+			_request_ptr = req;
 		});
 		break;
 

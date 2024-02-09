@@ -102,9 +102,9 @@ class Tresor::Free_tree_channel : public Module_channel
 		Tree_level_index _lvl { 0 };
 		bool _generated_req_success { false };
 		union {
-			Generated_request<Free_tree_channel, Block_io::Read, State> _read_block;
-			Generated_request<Free_tree_channel, Block_io::Write, State> _write_block;
-			Generated_request<Free_tree_channel, Meta_tree::Allocate_pba, State> _allocate_pba;
+			Generatable_request<Free_tree_channel, State, Block_io::Read> _read_block;
+			Generatable_request<Free_tree_channel, State, Block_io::Write> _write_block;
+			Generatable_request<Free_tree_channel, State, Meta_tree::Allocate_pba> _allocate_pba;
 		};
 
 		NONCOPYABLE(Free_tree_channel);
@@ -258,9 +258,9 @@ class Tresor::Free_tree::Allocate_pbas
 		Tree_degree_log_2 _vbd_degree_log_2 { 0 };
 		Tree_level_index _lvl { 0 };
 		union {
-			Generated_request<Helper, Block_io::Read, State> _read_block;
-			Generated_request<Helper, Block_io::Write, State> _write_block;
-			Generated_request<Helper, Meta_tree::Allocate_pba, State> _allocate_pba;
+			Generatable_request<Helper, State, Block_io::Read> _read_block;
+			Generatable_request<Helper, State, Block_io::Write> _write_block;
+			Generatable_request<Helper, State, Meta_tree::Allocate_pba> _allocate_pba;
 		};
 
 		NONCOPYABLE(Allocate_pbas);

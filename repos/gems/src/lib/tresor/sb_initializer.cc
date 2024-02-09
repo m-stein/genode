@@ -103,17 +103,17 @@ void Sb_initializer_channel::execute(Block_io &block_io, Trust_anchor &trust_anc
 
 	case INIT_MT_SUCCEEDED:
 
-		_generate_key.construct(*this, GENERATE_KEY, GENERATE_KEY_SUCCEEDED, progress, _sb.current_key.value);
+		_generate_key.generate(*this, GENERATE_KEY, GENERATE_KEY_SUCCEEDED, progress, _sb.current_key.value);
 		break;
 
-	case GENERATE_KEY: progress |= _generate_key->execute(trust_anchor); break;
+	case GENERATE_KEY: progress |= _generate_key.execute(trust_anchor); break;
 	case GENERATE_KEY_SUCCEEDED:
 
-		_encrypt_key.construct(
+		_encrypt_key.generate(
 			*this, ENCRYPT_KEY, ENCRYPT_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb.current_key.value);
 		break;
 
-	case ENCRYPT_KEY: progress |= _encrypt_key->execute(trust_anchor); break;
+	case ENCRYPT_KEY: progress |= _encrypt_key.execute(trust_anchor); break;
 	case ENCRYPT_KEY_SUCCEEDED:
 	{
 		Snapshot &snap = _sb.snapshots.items[0];
@@ -134,30 +134,30 @@ void Sb_initializer_channel::execute(Block_io &block_io, Trust_anchor &trust_anc
 		_sb.meta_degree = _mt->degree;
 		_sb.meta_leaves = _mt->num_leaves;
 		_sb.encode_to_blk(_blk);
-		_write_block.construct(*this, WRITE_BLK, WRITE_BLK_SUCCEEDED, progress, _sb_idx, _blk);
+		_write_block.generate(*this, WRITE_BLK, WRITE_BLK_SUCCEEDED, progress, _sb_idx, _blk);
 		break;
 	}
-	case WRITE_BLK: progress |= _write_block->execute(block_io); break;
+	case WRITE_BLK: progress |= _write_block.execute(block_io); break;
 	case WRITE_BLK_SUCCEEDED:
 
-		_sync_block_io.construct(*this, SYNC_BLOCK_IO, _sb_idx ? SB_COMPLETE : WRITE_HASH_TO_TA, progress);
+		_sync_block_io.generate(*this, SYNC_BLOCK_IO, _sb_idx ? SB_COMPLETE : WRITE_HASH_TO_TA, progress);
 		break;
 
-	case SYNC_BLOCK_IO: progress |= _sync_block_io->execute(block_io); break;
+	case SYNC_BLOCK_IO: progress |= _sync_block_io.execute(block_io); break;
 	case WRITE_HASH_TO_TA:
 
 		calc_hash(_blk, _hash);
-		_write_sb_hash.construct(*this, WRITE_SB_HASH, SB_COMPLETE, progress, _hash);
+		_write_sb_hash.generate(*this, WRITE_SB_HASH, SB_COMPLETE, progress, _hash);
 		break;
 
-	case WRITE_SB_HASH: progress |= _write_sb_hash->execute(trust_anchor); break;
+	case WRITE_SB_HASH: progress |= _write_sb_hash.execute(trust_anchor); break;
 	case SB_COMPLETE:
 
 		if (_sb_idx < NR_OF_SUPERBLOCK_SLOTS - 1) {
 			_sb_idx++;
 			_sb = { };
 			_sb.encode_to_blk(_blk);
-			_write_block.construct(*this, WRITE_BLK, WRITE_BLK_SUCCEEDED, progress, _sb_idx, _blk);
+			_write_block.generate(*this, WRITE_BLK, WRITE_BLK_SUCCEEDED, progress, _sb_idx, _blk);
 		} else
 			_mark_req_successful(progress);
 		break;

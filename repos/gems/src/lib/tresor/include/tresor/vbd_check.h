@@ -46,7 +46,7 @@ class Tresor::Vbd_check
 				bool _check_node[TREE_MAX_NR_OF_LEVELS][NUM_NODES_PER_BLK] { };
 				Block _blk { };
 				Number_of_leaves _num_remaining_leaves { 0 };
-				Generated_request<Request_helper<Check, State>, Block_io::Read, State> _read_block { };
+				Generatable_request<Request_helper<Check, State>, State, Block_io::Read> _read_block { };
 
 				NONCOPYABLE(Check);
 

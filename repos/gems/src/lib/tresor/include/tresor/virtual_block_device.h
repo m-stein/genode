@@ -102,11 +102,11 @@ class Tresor::Virtual_block_device_channel : public Module_channel
 		bool _first_snapshot { false };
 		bool _gen_req_success { false };
 		union {
-			Generated_request<Virtual_block_device_channel, Block_io::Read, State> _read_block;
-			Generated_request<Virtual_block_device_channel, Block_io::Write, State> _write_block;
-			Generated_request<Virtual_block_device_channel, Crypto::Encrypt, State> _encrypt_block;
-			Generated_request<Virtual_block_device_channel, Crypto::Decrypt, State> _decrypt_block;
-			Generated_request<Virtual_block_device_channel, Free_tree::Allocate_pbas, State> _alloc_pbas;
+			Generatable_request<Virtual_block_device_channel, State, Block_io::Read> _read_block;
+			Generatable_request<Virtual_block_device_channel, State, Block_io::Write> _write_block;
+			Generatable_request<Virtual_block_device_channel, State, Crypto::Encrypt> _encrypt_block;
+			Generatable_request<Virtual_block_device_channel, State, Crypto::Decrypt> _decrypt_block;
+			Generatable_request<Virtual_block_device_channel, State, Free_tree::Allocate_pbas> _alloc_pbas;
 		};
 
 		NONCOPYABLE(Virtual_block_device_channel);

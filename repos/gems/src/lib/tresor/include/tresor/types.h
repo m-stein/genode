@@ -107,10 +107,7 @@ namespace Tresor {
 	class Request_helper;
 
 	template <typename, typename, typename>
-	class Generated_request_base;
-
-	template <typename SRC_REQ, typename REQ, typename STATE>
-	using Generated_request = Constructible<Generated_request_base<SRC_REQ, REQ, STATE> >;
+	class Generatable_request;
 
 	template <size_t LEN>
 	class Fixed_length;
@@ -229,43 +226,71 @@ class Tresor::Request_helper
 };
 
 
-template <typename SRC_REQ, typename REQ, typename STATE>
-class Tresor::Generated_request_base
+template <typename OWNER, typename OWNER_STATE, typename REQUEST>
+class Tresor::Generatable_request
 {
 	private:
 
-		SRC_REQ &_src_req;
-		STATE _succeeded;
-		Reconstructible<REQ> _req;
+		struct Generated_request
+		{
+			OWNER &owner;
+			OWNER_STATE succeeded_state;
+			REQUEST req;
+
+			template <typename... ARGS>
+			Generated_request(OWNER &owner, OWNER_STATE generated_state, OWNER_STATE succeeded_state,
+			                  bool &progress, ARGS &&... args)
+			:
+				owner(owner), succeeded_state(succeeded_state), req(typename REQUEST::Attr(args...))
+			{
+				owner.req_generated(generated_state, progress);
+				if (VERBOSE_MODULE_COMMUNICATION)
+					log(OWNER::Module::name(), " --", req, "--> ", REQUEST::Module::name());
+			}
+
+			template <typename... ARGS>
+			bool execute(REQUEST::Module &dst_mod, ARGS &&... args)
+			{
+				bool progress = false;
+				progress |= dst_mod.execute(req, args...);
+				if (req.complete()) {
+					if (VERBOSE_MODULE_COMMUNICATION)
+						log(OWNER::Module::name(), " <--", req, "-- ", REQUEST::Module::name());
+
+					if (!req.success()) {
+						owner.generated_req_failed(progress);
+						return progress;
+					}
+					owner.generated_req_succeeded(succeeded_state, progress);
+				}
+				return progress;
+			}
+		};
+
+		Constructible<Generated_request> _generated_req { };
 
 	public:
 
 		template <typename... ARGS>
-		Generated_request_base(SRC_REQ &src_req, STATE generated, STATE succeeded, bool &progress, ARGS &&... args)
-		:
-			_src_req(src_req), _succeeded(succeeded), _req(typename REQ::Attr(args...))
+		void generate(ARGS &&... args)
 		{
-			_src_req.req_generated(generated, progress);
-			if (VERBOSE_MODULE_COMMUNICATION)
-				log(SRC_REQ::Module::name(), " --", *_req, "--> ", REQ::Module::name());
+			/*
+			 * Ensure that the constructed flag of our member is reset because
+			 * this class is used in unions with other generatable requests
+			 * that might falsely override the constructed flag of our member.
+			 */
+			construct_at<Constructible<Generated_request> >(&_generated_req);
+
+			_generated_req.construct(args...);
 		}
 
 		template <typename... ARGS>
-		bool execute(REQ::Module &dst_mod, ARGS &&... args)
+		bool execute(REQUEST::Module &dst_mod, ARGS &&... args)
 		{
-			bool progress = false;
-			progress |= dst_mod.execute(*_req, args...);
-			if (_req->complete()) {
-				if (VERBOSE_MODULE_COMMUNICATION)
-					log(SRC_REQ::Module::name(), " <--", *_req, "-- ", REQ::Module::name());
+			bool progress = _generated_req->execute(dst_mod, args...);
+			if (_generated_req->req.complete())
+				_generated_req.destruct();
 
-				if (!_req->success()) {
-					_src_req.generated_req_failed(progress);
-					return progress;
-				}
-				_src_req.generated_req_succeeded(_succeeded, progress);
-				_req.destruct();
-			}
 			return progress;
 		}
 };

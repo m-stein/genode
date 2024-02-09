@@ -65,9 +65,9 @@ void Virtual_block_device_channel::_generate_write_blk_req(bool &progress)
 {
 	if (_lvl) {
 		_t1_blks.items[_lvl].encode_to_blk(_encoded_blk);
-		_write_block.construct(*this, WRITE_BLK, WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _encoded_blk);
+		_write_block.generate(*this, WRITE_BLK, WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _encoded_blk);
 	} else
-		_write_block.construct(*this, WRITE_BLK, WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _data_blk);
+		_write_block.generate(*this, WRITE_BLK, WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _data_blk);
 }
 
 
@@ -80,12 +80,12 @@ void Virtual_block_device_channel::_read_vba(Client_data_interface &client_data,
 		_snap_idx = req._curr_snap_idx;
 		_vba = req._vba;
 		_lvl = snap().max_level;
-		_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
+		_read_block.generate(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
 		if (VERBOSE_READ_VBA)
 			log("  load branch:\n    ", Branch_lvl_prefix("root: "), snap());
 		break;
 
-	case READ_BLK: progress |= _read_block->execute(block_io); break;
+	case READ_BLK: progress |= _read_block.execute(block_io); break;
 	case READ_BLK_SUCCEEDED:
 	{
 		if (!_check_and_decode_read_blk(progress))
@@ -95,7 +95,7 @@ void Virtual_block_device_channel::_read_vba(Client_data_interface &client_data,
 			if (VERBOSE_READ_VBA)
 				log("    ", Branch_lvl_prefix("ciphertext: "), _data_blk, " ", hash(_data_blk));
 
-			_decrypt_block.construct(*this, DECRYPT_BLOCK, DECRYPT_BLOCK_SUCCEEDED, progress, req._curr_key_id, _new_pbas.pbas[_lvl], _data_blk);
+			_decrypt_block.generate(*this, DECRYPT_BLOCK, DECRYPT_BLOCK_SUCCEEDED, progress, req._curr_key_id, _new_pbas.pbas[_lvl], _data_blk);
 			break;
 		}
 		Type_1_node &node { _node(_lvl, req._vba) };
@@ -105,17 +105,17 @@ void Virtual_block_device_channel::_read_vba(Client_data_interface &client_data,
 		_lvl--;
 		_new_pbas.pbas[_lvl] = node.pba;
 		if (_lvl)
-			_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _encoded_blk);
+			_read_block.generate(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _encoded_blk);
 		else
 			if (node.gen == INITIAL_GENERATION) {
 				memset(&_data_blk, 0, BLOCK_SIZE);
 				_state = DECRYPT_BLOCK_SUCCEEDED;
 				progress = true;
 			} else
-				_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _data_blk);
+				_read_block.generate(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _data_blk);
 		break;
 	}
-	case DECRYPT_BLOCK: progress |= _decrypt_block->execute(crypto); break;
+	case DECRYPT_BLOCK: progress |= _decrypt_block.execute(crypto); break;
 	case DECRYPT_BLOCK_SUCCEEDED:
 
 		if (VERBOSE_READ_VBA)
@@ -254,12 +254,12 @@ void Virtual_block_device_channel::_write_vba(Client_data_interface &client_data
 		_snap_idx = req._curr_snap_idx;
 		_vba = req._vba;
 		_lvl = snap().max_level;
-		_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
+		_read_block.generate(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
 		if (VERBOSE_WRITE_VBA)
 			log("  load branch:\n    ", Branch_lvl_prefix("root: "), snap());
 		break;
 
-	case READ_BLK: progress |= _read_block->execute(block_io); break;
+	case READ_BLK: progress |= _read_block.execute(block_io); break;
 	case READ_BLK_SUCCEEDED:
 
 		if (!_check_and_decode_read_blk(progress))
@@ -269,39 +269,39 @@ void Virtual_block_device_channel::_write_vba(Client_data_interface &client_data
 			log("    ", Branch_lvl_prefix("lvl ", _lvl, " node ", _node_idx(_lvl, _vba), ": "), _node(_lvl, _vba));
 
 		if (_lvl > 1)
-			_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, _node(_lvl, _vba).pba, _encoded_blk);
+			_read_block.generate(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, _node(_lvl, _vba).pba, _encoded_blk);
 		else {
 			_set_new_pbas_and_num_blks_for_alloc();
 			if (_num_blks)
 				_generate_ft_alloc_req_for_write_vba(progress);
 			else {
 				client_data.obtain_data({req._client_req_offset, req._client_req_tag, _new_pbas.pbas[0], _vba, _data_blk});
-				_encrypt_block.construct(
+				_encrypt_block.generate(
 					*this, ENCRYPT_BLOCK, ENCRYPT_BLOCK_SUCCEEDED, progress, req._curr_key_id, _new_pbas.pbas[0], _data_blk);
 			}
 		}
 		_lvl--;
 		break;
 
-	case ALLOC_PBAS: progress |= _alloc_pbas->execute(free_tree, block_io, meta_tree); break;
+	case ALLOC_PBAS: progress |= _alloc_pbas.execute(free_tree, block_io, meta_tree); break;
 	case ALLOC_PBAS_SUCCEEDED:
 
 		if (VERBOSE_WRITE_VBA)
 			log("  alloc pba", _num_blks > 1 ? "s" : "", ": ", Pba_allocation(_t1_nodes, _new_pbas));
 
 		client_data.obtain_data({req._client_req_offset, req._client_req_tag, _new_pbas.pbas[0], _vba, _data_blk});
-		_encrypt_block.construct(
+		_encrypt_block.generate(
 			*this, ENCRYPT_BLOCK, ENCRYPT_BLOCK_SUCCEEDED, progress, req._curr_key_id, _new_pbas.pbas[0], _data_blk);
 		break;
 
-	case ENCRYPT_BLOCK: progress |= _encrypt_block->execute(crypto); break;
+	case ENCRYPT_BLOCK: progress |= _encrypt_block.execute(crypto); break;
 	case ENCRYPT_BLOCK_SUCCEEDED:
 
 		calc_hash(_data_blk, _hash);
 		_generate_write_blk_req(progress);
 		break;
 
-	case WRITE_BLK: progress |= _write_block->execute(block_io); break;
+	case WRITE_BLK: progress |= _write_block.execute(block_io); break;
 	case WRITE_BLK_SUCCEEDED:
 
 		if (!_lvl)
@@ -404,13 +404,13 @@ void Virtual_block_device_channel::_rekey_vba(Block_io &block_io, Crypto &crypto
 		_first_snapshot = true;
 		_lvl = snap().max_level;
 		_old_pbas.pbas[_lvl] = snap().pba;
-		_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
+		_read_block.generate(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
 		if (VERBOSE_REKEYING)
 			log("    snapshot ", _snap_idx, ":\n      load branch:\n        ",
 			    Branch_lvl_prefix("root: "), snap());
 		break;
 
-	case READ_BLK: progress |= _read_block->execute(block_io); break;
+	case READ_BLK: progress |= _read_block.execute(block_io); break;
 	case READ_BLK_SUCCEEDED:
 
 		if (!_check_and_decode_read_blk(progress))
@@ -438,16 +438,16 @@ void Virtual_block_device_channel::_rekey_vba(Block_io &block_io, Crypto &crypto
 			} else {
 				_lvl--;
 				_old_pbas.pbas[_lvl] = node.pba;
-				_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, node.pba, _lvl ? _encoded_blk : _data_blk);
+				_read_block.generate(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, node.pba, _lvl ? _encoded_blk : _data_blk);
 			}
 		} else {
-			_decrypt_block.construct(*this, DECRYPT_BLOCK, DECRYPT_BLOCK_SUCCEEDED, progress, req._prev_key_id, _old_pbas.pbas[_lvl], _data_blk);
+			_decrypt_block.generate(*this, DECRYPT_BLOCK, DECRYPT_BLOCK_SUCCEEDED, progress, req._prev_key_id, _old_pbas.pbas[_lvl], _data_blk);
 			if (VERBOSE_REKEYING)
 				log("        ", Branch_lvl_prefix("leaf data: "), _data_blk);
 		}
 		break;
 
-	case DECRYPT_BLOCK: progress |= _decrypt_block->execute(crypto); break;
+	case DECRYPT_BLOCK: progress |= _decrypt_block.execute(crypto); break;
 	case DECRYPT_BLOCK_SUCCEEDED:
 
 		_generate_ft_alloc_req_for_rekeying(_lvl, progress);
@@ -455,7 +455,7 @@ void Virtual_block_device_channel::_rekey_vba(Block_io &block_io, Crypto &crypto
 			log("      re-encrypt leaf data: plaintext ", _data_blk, " hash ", hash(_data_blk));
 		break;
 
-	case ALLOC_PBAS: progress |= _alloc_pbas->execute(free_tree, block_io, meta_tree); break;
+	case ALLOC_PBAS: progress |= _alloc_pbas.execute(free_tree, block_io, meta_tree); break;
 	case ALLOC_PBAS_SUCCEEDED:
 
 		if (VERBOSE_REKEYING)
@@ -471,11 +471,11 @@ void Virtual_block_device_channel::_rekey_vba(Block_io &block_io, Crypto &crypto
 			if (_lvl)
 				_t1_blks.items[_lvl].encode_to_blk(_encoded_blk);
 		} else
-			_encrypt_block.construct(
+			_encrypt_block.generate(
 				*this, ENCRYPT_BLOCK, ENCRYPT_BLOCK_SUCCEEDED, progress, req._curr_key_id, _new_pbas.pbas[0], _data_blk);
 		break;
 
-	case ENCRYPT_BLOCK: progress |= _encrypt_block->execute(crypto); break;
+	case ENCRYPT_BLOCK: progress |= _encrypt_block.execute(crypto); break;
 	case ENCRYPT_BLOCK_SUCCEEDED:
 
 		_generate_write_blk_req(progress);
@@ -483,7 +483,7 @@ void Virtual_block_device_channel::_rekey_vba(Block_io &block_io, Crypto &crypto
 			log("      update branch:\n        ", Branch_lvl_prefix("leaf data: "), _data_blk);
 		break;
 
-	case WRITE_BLK: progress |= _write_block->execute(block_io); break;
+	case WRITE_BLK: progress |= _write_block.execute(block_io); break;
 	case WRITE_BLK_SUCCEEDED:
 
 		if (_lvl < snap().max_level) {
@@ -509,7 +509,7 @@ void Virtual_block_device_channel::_rekey_vba(Block_io &block_io, Crypto &crypto
 					progress = true;
 				else {
 					_old_pbas.pbas[_lvl] = snap().pba;
-					_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
+					_read_block.generate(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
 					if (VERBOSE_REKEYING)
 						log("    snapshot ", _snap_idx, ":\n      load branch:\n        ",
 						    Branch_lvl_prefix("root: "), snap());
@@ -666,7 +666,7 @@ void Virtual_block_device_channel::_extension_step(Block_io &block_io, Free_tree
 		_lvl = snap().max_level;
 		_old_pbas.pbas[_lvl] = snap().pba;
 		if (_vba <= tree_max_max_vba(req._snap_degr, snap().max_level)) {
-			_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
+			_read_block.generate(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
 			if (VERBOSE_VBD_EXTENSION)
 				log("  read lvl ", _lvl, " parent snap ", _snap_idx, " ", snap());
 		} else {
@@ -679,7 +679,7 @@ void Virtual_block_device_channel::_extension_step(Block_io &block_io, Free_tree
 		}
 		break;
 
-	case READ_BLK: progress |= _read_block->execute(block_io); break;
+	case READ_BLK: progress |= _read_block.execute(block_io); break;
 	case READ_BLK_SUCCEEDED:
 	{
 		_t1_blks.items[_lvl].decode_from_blk(_encoded_blk);
@@ -699,7 +699,7 @@ void Virtual_block_device_channel::_extension_step(Block_io &block_io, Free_tree
 			Type_1_node &node { _node(_lvl, _vba) };
 			if (node.valid()) {
 				_old_pbas.pbas[_lvl - 1] = node.pba;
-				_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, node.pba, _encoded_blk);
+				_read_block.generate(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, node.pba, _encoded_blk);
 				if (VERBOSE_VBD_EXTENSION)
 					log("  read lvl ", _lvl - 1, " parent lvl ", _lvl, " node ", node_idx, " ", node);
 				_lvl--;
@@ -713,7 +713,7 @@ void Virtual_block_device_channel::_extension_step(Block_io &block_io, Free_tree
 		}
 		break;
 	}
-	case ALLOC_PBAS: progress |= _alloc_pbas->execute(free_tree, block_io, meta_tree); break;
+	case ALLOC_PBAS: progress |= _alloc_pbas.execute(free_tree, block_io, meta_tree); break;
 	case ALLOC_PBAS_SUCCEEDED:
 	{
 		if (VERBOSE_VBD_EXTENSION) {
@@ -726,7 +726,7 @@ void Virtual_block_device_channel::_extension_step(Block_io &block_io, Free_tree
 		_generate_write_blk_req(progress);
 		break;
 	}
-	case WRITE_BLK: progress |= _write_block->execute(block_io); break;
+	case WRITE_BLK: progress |= _write_block.execute(block_io); break;
 	case WRITE_BLK_SUCCEEDED:
 	{
 		if (_lvl < snap().max_level) {
@@ -782,7 +782,7 @@ void Virtual_block_device::execute(bool &progress)
 void Virtual_block_device_channel::_start_alloc_pbas(bool &progress, Free_tree::Allocate_pbas::Application application)
 {
 	Request &req { *_req_ptr };
-	_alloc_pbas.construct(
+	_alloc_pbas.generate(
 		*this, ALLOC_PBAS, ALLOC_PBAS_SUCCEEDED, progress, req._ft, req._mt, req._snapshots,
 		req._last_secured_gen, req._curr_gen, _free_gen, _num_blks, _new_pbas, _t1_nodes,
 		req._snapshots.items[_snap_idx].max_level, _vba, req._vbd_degree, req._vbd_highest_vba, req._rekeying,

@@ -57,9 +57,9 @@ class Tresor::Sb_check
 				Constructible<Tree_root> _tree_root { };
 				Block _blk { };
 				union {
-					Generated_request<Helper, Vbd_check::Check, State> _check_vbd;
-					Generated_request<Helper, Ft_check::Check, State> _check_ft;
-					Generated_request<Helper, Block_io::Read, State> _read_block;
+					Generatable_request<Helper, State, Vbd_check::Check> _check_vbd;
+					Generatable_request<Helper, State, Ft_check::Check> _check_ft;
+					Generatable_request<Helper, State, Block_io::Read> _read_block;
 				};
 
 				NONCOPYABLE(Check);
