@@ -64,8 +64,8 @@ class Tresor::Meta_tree::Allocate_pba
 		Type_2_node_block _t2_blk { };
 		Tree_level_index _lvl { 0 };
 		union {
-			Generated_request<Helper, Block_io::Read, State> _read_block;
-			Generated_request<Helper, Block_io::Write, State> _write_block;
+			Generatable_request<Helper, State, Block_io::Read> _read_block;
+			Generatable_request<Helper, State, Block_io::Write> _write_block;
 		};
 
 		NONCOPYABLE(Allocate_pba);

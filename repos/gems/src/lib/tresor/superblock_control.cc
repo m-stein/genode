@@ -273,13 +273,13 @@ void Superblock_control_channel::_rekey_vba(Block_io &block_io, Crypto &crypto, 
 			if (VERBOSE_REKEYING)
 				log("  secure sb: gen ", _curr_gen);
 		} else {
-			_remove_key.construct(*this, REMOVE_KEY, REMOVE_PREV_KEY_SUCCEEDED, progress, _sb.previous_key.id);
+			_remove_key.generate(*this, REMOVE_KEY, REMOVE_PREV_KEY_SUCCEEDED, progress, _sb.previous_key.id);
 			if (VERBOSE_REKEYING)
 				log("  remove key ", _sb.previous_key.id);
 		}
 		break;
 	}
-	case REMOVE_KEY: progress |= _remove_key->execute(crypto); break;
+	case REMOVE_KEY: progress |= _remove_key.execute(crypto); break;
 	case REMOVE_PREV_KEY_SUCCEEDED:
 
 		_sb.previous_key = { };
@@ -312,36 +312,36 @@ void Superblock_control_channel::_secure_sb(Block_io &block_io, Trust_anchor &tr
 
 		_sb.curr_snap().gen = _curr_gen;
 		_sb_ciphertext.copy_all_but_key_values_from(_sb);
-		_encrypt_key.construct(
+		_encrypt_key.generate(
 			*this, ENCRYPT_KEY, ENCRYPT_CURR_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb_ciphertext.current_key.value);
 		break;
 
-	case ENCRYPT_KEY: progress |= _encrypt_key->execute(trust_anchor); break;
+	case ENCRYPT_KEY: progress |= _encrypt_key.execute(trust_anchor); break;
 	case ENCRYPT_CURR_KEY_SUCCEEDED:
 
 		if (_sb.state == Superblock::REKEYING)
-			_encrypt_key.construct(
+			_encrypt_key.generate(
 				*this, ENCRYPT_KEY, ENCRYPT_PREV_KEY_SUCCEEDED, progress, _sb.previous_key.value, _sb_ciphertext.previous_key.value);
 		else {
 			_sb_ciphertext.encode_to_blk(_blk);
-			_write_block.construct(*this, WRITE_BLOCK, WRITE_SB_SUCCEEDED, progress, _sb_idx, _blk);
+			_write_block.generate(*this, WRITE_BLOCK, WRITE_SB_SUCCEEDED, progress, _sb_idx, _blk);
 		}
 		break;
 
 	case ENCRYPT_PREV_KEY_SUCCEEDED:
 
 		_sb_ciphertext.encode_to_blk(_blk);
-		_write_block.construct(*this, WRITE_BLOCK, WRITE_SB_SUCCEEDED, progress, _sb_idx, _blk);
+		_write_block.generate(*this, WRITE_BLOCK, WRITE_SB_SUCCEEDED, progress, _sb_idx, _blk);
 		break;
 
-	case WRITE_BLOCK: progress |= _write_block->execute(block_io); break;
-	case WRITE_SB_SUCCEEDED: _sync_block_io.construct(*this, SYNC_BLOCK_IO, SYNC_BLOCK_IO_SUCCEEDED, progress); break;
-	case SYNC_BLOCK_IO: progress |= _sync_block_io->execute(block_io); break;
+	case WRITE_BLOCK: progress |= _write_block.execute(block_io); break;
+	case WRITE_SB_SUCCEEDED: _sync_block_io.generate(*this, SYNC_BLOCK_IO, SYNC_BLOCK_IO_SUCCEEDED, progress); break;
+	case SYNC_BLOCK_IO: progress |= _sync_block_io.execute(block_io); break;
 	case SYNC_BLOCK_IO_SUCCEEDED:
 	{
 		_sb_ciphertext.encode_to_blk(_blk);
 		calc_hash(_blk, _hash);
-		_write_sb_hash.construct(*this, WRITE_SB_HASH, WRITE_SB_HASH_SUCCEEDED, progress, _hash);
+		_write_sb_hash.generate(*this, WRITE_SB_HASH, WRITE_SB_HASH_SUCCEEDED, progress, _hash);
 		if (_sb_idx < MAX_SUPERBLOCK_INDEX)
 			_sb_idx++;
 		else
@@ -351,7 +351,7 @@ void Superblock_control_channel::_secure_sb(Block_io &block_io, Trust_anchor &tr
 		_curr_gen++;
 		break;
 	}
-	case WRITE_SB_HASH: progress |= _write_sb_hash->execute(trust_anchor); break;
+	case WRITE_SB_HASH: progress |= _write_sb_hash.execute(trust_anchor); break;
 	case WRITE_SB_HASH_SUCCEEDED:
 
 		_sb.last_secured_generation = _gen;
@@ -378,18 +378,18 @@ void Superblock_control_channel::_init_rekeying(Block_io &block_io, Crypto &cryp
 		_sb.rekeying_vba = 0;
 		_sb.previous_key = _sb.current_key;
 		_sb.current_key.id++;
-		_generate_key.construct(*this, GENERATE_KEY, GENERATE_KEY_SUCCEEDED, progress, _sb.current_key.value);
+		_generate_key.generate(*this, GENERATE_KEY, GENERATE_KEY_SUCCEEDED, progress, _sb.current_key.value);
 		break;
 
-	case GENERATE_KEY: progress |= _generate_key->execute(trust_anchor); break;
+	case GENERATE_KEY: progress |= _generate_key.execute(trust_anchor); break;
 	case GENERATE_KEY_SUCCEEDED:
 
-		_add_key.construct(*this, ADD_KEY, ADD_CURR_KEY_SUCCEEDED, progress, _sb.current_key);
+		_add_key.generate(*this, ADD_KEY, ADD_CURR_KEY_SUCCEEDED, progress, _sb.current_key);
 		if (VERBOSE_REKEYING)
 			log("start rekeying:\n  update sb: keys ", _sb.previous_key.id, ",", _sb.current_key.id);
 		break;
 
-	case ADD_KEY: progress |= _add_key->execute(crypto); break;
+	case ADD_KEY: progress |= _add_key.execute(crypto); break;
 	case ADD_CURR_KEY_SUCCEEDED:
 
 		if (VERBOSE_REKEYING)
@@ -491,39 +491,39 @@ void Superblock_control_channel::_initialize(Block_io &block_io, Crypto &crypto,
 	case REQ_SUBMITTED:
 
 		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
-		_read_sb_hash.construct(*this, READ_SB_HASH, READ_SB_HASH_SUCCEEDED, progress, _hash);
+		_read_sb_hash.generate(*this, READ_SB_HASH, READ_SB_HASH_SUCCEEDED, progress, _hash);
 		break;
 
-	case READ_SB_HASH: progress |= _read_sb_hash->execute(trust_anchor); break;
+	case READ_SB_HASH: progress |= _read_sb_hash.execute(trust_anchor); break;
 	case READ_SB_HASH_SUCCEEDED:
 
 		_sb_idx = 0;
-		_read_block.construct(*this, READ_BLOCK, READ_SB_SUCCEEDED, progress, _sb_idx, _blk);
+		_read_block.generate(*this, READ_BLOCK, READ_SB_SUCCEEDED, progress, _sb_idx, _blk);
 		break;
 
-	case READ_BLOCK: progress |= _read_block->execute(block_io); break;
+	case READ_BLOCK: progress |= _read_block.execute(block_io); break;
 	case READ_SB_SUCCEEDED:
 
 		_sb_ciphertext.decode_from_blk(_blk);
 		if (check_hash(_blk, _hash)) {
 			_gen = _sb_ciphertext.snapshots.items[_sb_ciphertext.snapshots.newest_snap_idx()].gen;
 			_sb.copy_all_but_key_values_from(_sb_ciphertext);
-			_decrypt_key.construct(*this, DECRYPT_KEY, DECRYPT_CURR_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb_ciphertext.current_key.value);
+			_decrypt_key.generate(*this, DECRYPT_KEY, DECRYPT_CURR_KEY_SUCCEEDED, progress, _sb.current_key.value, _sb_ciphertext.current_key.value);
 		} else
 			if (_sb_idx < MAX_SUPERBLOCK_INDEX) {
 				_sb_idx++;
-				_read_block.construct(*this, READ_BLOCK, READ_SB_SUCCEEDED, progress, _sb_idx, _blk);
+				_read_block.generate(*this, READ_BLOCK, READ_SB_SUCCEEDED, progress, _sb_idx, _blk);
 			} else
 				_mark_req_failed(progress, "superblock not found");
 		break;
 
-	case DECRYPT_KEY: progress |= _decrypt_key->execute(trust_anchor); break;
-	case DECRYPT_CURR_KEY_SUCCEEDED: _add_key.construct(*this, ADD_KEY, ADD_CURR_KEY_SUCCEEDED, progress, _sb.current_key); break;
-	case ADD_KEY: progress |= _add_key->execute(crypto); break;
+	case DECRYPT_KEY: progress |= _decrypt_key.execute(trust_anchor); break;
+	case DECRYPT_CURR_KEY_SUCCEEDED: _add_key.generate(*this, ADD_KEY, ADD_CURR_KEY_SUCCEEDED, progress, _sb.current_key); break;
+	case ADD_KEY: progress |= _add_key.execute(crypto); break;
 	case ADD_CURR_KEY_SUCCEEDED:
 
 		if (_sb_ciphertext.state == Superblock::REKEYING)
-			_decrypt_key.construct(*this, DECRYPT_KEY, DECRYPT_PREV_KEY_SUCCEEDED, progress, _sb.previous_key.value, _sb_ciphertext.previous_key.value);
+			_decrypt_key.generate(*this, DECRYPT_KEY, DECRYPT_PREV_KEY_SUCCEEDED, progress, _sb.previous_key.value, _sb_ciphertext.previous_key.value);
 		else {
 			_curr_gen = _gen + 1;
 			_req_ptr->_sb_state = _sb.state;
@@ -531,7 +531,7 @@ void Superblock_control_channel::_initialize(Block_io &block_io, Crypto &crypto,
 		}
 		break;
 
-	case DECRYPT_PREV_KEY_SUCCEEDED: _add_key.construct(*this, ADD_KEY, ADD_PREV_KEY_SUCCEEDED, progress, _sb.previous_key); break;
+	case DECRYPT_PREV_KEY_SUCCEEDED: _add_key.generate(*this, ADD_KEY, ADD_PREV_KEY_SUCCEEDED, progress, _sb.previous_key); break;
 	case ADD_PREV_KEY_SUCCEEDED:
 
 		_curr_gen = _gen + 1;
@@ -555,16 +555,16 @@ void Superblock_control_channel::_deinitialize(Block_io &block_io, Crypto &crypt
 		break;
 
 	case SECURE_SB: _secure_sb(block_io, trust_anchor, progress); break;
-	case SECURE_SB_SUCCEEDED: _remove_key.construct(*this, REMOVE_KEY, REMOVE_CURR_KEY_SUCCEEDED, progress, _sb.current_key.id); break;
+	case SECURE_SB_SUCCEEDED: _remove_key.generate(*this, REMOVE_KEY, REMOVE_CURR_KEY_SUCCEEDED, progress, _sb.current_key.id); break;
 	case REMOVE_CURR_KEY_SUCCEEDED:
 
 		if (_sb.state == Superblock::REKEYING)
-			_remove_key.construct(*this, REMOVE_KEY, REMOVE_PREV_KEY_SUCCEEDED, progress, _sb.previous_key.id);
+			_remove_key.generate(*this, REMOVE_KEY, REMOVE_PREV_KEY_SUCCEEDED, progress, _sb.previous_key.id);
 		else
 			_mark_req_successful(progress);
 		break;
 
-	case REMOVE_KEY: progress |= _remove_key->execute(crypto); break;
+	case REMOVE_KEY: progress |= _remove_key.execute(crypto); break;
 	case REMOVE_PREV_KEY_SUCCEEDED:
 
 		_sb.state = Superblock::INVALID;

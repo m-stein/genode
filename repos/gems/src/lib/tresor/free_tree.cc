@@ -166,7 +166,7 @@ void Free_tree_channel::_start_tree_traversal(bool &progress)
 	_lvl = req._ft.max_lvl;
 	_node_idx[_lvl] = 0;
 	_t1_blks[_lvl].nodes[_node_idx[_lvl]] = req._ft.t1_node();
-	_read_block.construct(*this, READ_BLK, SEEK_DOWN, progress, req._ft.pba, _blk);
+	_read_block.generate(*this, READ_BLK, SEEK_DOWN, progress, req._ft.pba, _blk);
 }
 
 
@@ -175,7 +175,7 @@ void Free_tree_channel::_traverse_curr_node(bool &progress)
 	if (_lvl) {
 		Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
 		if (t1_node.pba)
-			_read_block.construct(*this, READ_BLK, SEEK_DOWN, progress, t1_node.pba, _blk);
+			_read_block.generate(*this, READ_BLK, SEEK_DOWN, progress, t1_node.pba, _blk);
 		else {
 			_state = SEEK_LEFT_OR_UP;
 			progress = true;
@@ -271,7 +271,7 @@ void Free_tree::Allocate_pbas::_traverse_curr_node(bool &progress)
 	if (_lvl) {
 		Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
 		if (t1_node.pba)
-			_read_block.construct(_helper, READ_BLK, SEEK_DOWN, progress, t1_node.pba, _blk);
+			_read_block.generate(_helper, READ_BLK, SEEK_DOWN, progress, t1_node.pba, _blk);
 		else {
 			_helper.state = SEEK_LEFT_OR_UP;
 			progress = true;
@@ -294,7 +294,7 @@ void Free_tree::Allocate_pbas::_start_tree_traversal(bool &progress)
 	_lvl = _attr.in_out_ft.max_lvl;
 	_node_idx[_lvl] = 0;
 	_t1_blks[_lvl].nodes[_node_idx[_lvl]] = _attr.in_out_ft.t1_node();
-	_read_block.construct(_helper, READ_BLK, SEEK_DOWN, progress, _attr.in_out_ft.pba, _blk);
+	_read_block.generate(_helper, READ_BLK, SEEK_DOWN, progress, _attr.in_out_ft.pba, _blk);
 }
 
 bool Free_tree::Allocate_pbas::execute(Block_io &block_io, Meta_tree &meta_tree)
@@ -308,7 +308,7 @@ bool Free_tree::Allocate_pbas::execute(Block_io &block_io, Meta_tree &meta_tree)
 		_start_tree_traversal(progress);
 		break;
 
-	case READ_BLK: progress |= _read_block->execute(block_io); break;
+	case READ_BLK: progress |= _read_block.execute(block_io); break;
 	case SEEK_DOWN:
 	{
 		if (!check_hash(_blk, _t1_blks[_lvl].nodes[_node_idx[_lvl]].hash)) {
@@ -338,7 +338,7 @@ bool Free_tree::Allocate_pbas::execute(Block_io &block_io, Meta_tree &meta_tree)
 						_helper.state = ALLOC_PBA_SUCCEEDED;
 						progress = true;
 					} else
-						_allocate_pba.construct(_helper, ALLOC_PBA, ALLOC_PBA_SUCCEEDED, progress, _attr.in_out_mt, _attr.in_curr_gen, t1_node.pba);
+						_allocate_pba.generate(_helper, ALLOC_PBA, ALLOC_PBA_SUCCEEDED, progress, _attr.in_out_mt, _attr.in_curr_gen, t1_node.pba);
 				else {
 					_helper.state = SEEK_LEFT_OR_UP;
 					progress = true;
@@ -359,7 +359,7 @@ bool Free_tree::Allocate_pbas::execute(Block_io &block_io, Meta_tree &meta_tree)
 		}
 		break;
 
-	case ALLOC_PBA: progress |= _allocate_pba->execute(meta_tree, block_io); break;
+	case ALLOC_PBA: progress |= _allocate_pba.execute(meta_tree, block_io); break;
 	case ALLOC_PBA_SUCCEEDED:
 	{
 		if (_lvl > 1)
@@ -369,10 +369,10 @@ bool Free_tree::Allocate_pbas::execute(Block_io &block_io, Meta_tree &meta_tree)
 		Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
 		t1_node.gen = _attr.in_curr_gen;
 		calc_hash(_blk, t1_node.hash);
-		_write_block.construct(_helper, WRITE_BLK, SEEK_LEFT_OR_UP, progress, t1_node.pba, _blk);
+		_write_block.generate(_helper, WRITE_BLK, SEEK_LEFT_OR_UP, progress, t1_node.pba, _blk);
 		break;
 	}
-	case WRITE_BLK: progress |= _write_block->execute(block_io); break;
+	case WRITE_BLK: progress |= _write_block.execute(block_io); break;
 	default: break;
 	}
 	return progress;
@@ -390,7 +390,7 @@ void Free_tree_channel::_alloc_pbas(Block_io &block_io, Meta_tree &meta_tree, bo
 		_start_tree_traversal(progress);
 		break;
 
-	case READ_BLK: progress |= _read_block->execute(block_io); break;
+	case READ_BLK: progress |= _read_block.execute(block_io); break;
 	case SEEK_DOWN:
 	{
 		if (!check_hash(_blk, _t1_blks[_lvl].nodes[_node_idx[_lvl]].hash)) {
@@ -420,7 +420,7 @@ void Free_tree_channel::_alloc_pbas(Block_io &block_io, Meta_tree &meta_tree, bo
 						_state = ALLOC_PBA_SUCCEEDED;
 						progress = true;
 					} else
-						_allocate_pba.construct(*this, ALLOC_PBA, ALLOC_PBA_SUCCEEDED, progress, req._mt, req._curr_gen, t1_node.pba);
+						_allocate_pba.generate(*this, ALLOC_PBA, ALLOC_PBA_SUCCEEDED, progress, req._mt, req._curr_gen, t1_node.pba);
 				else {
 					_state = SEEK_LEFT_OR_UP;
 					progress = true;
@@ -441,7 +441,7 @@ void Free_tree_channel::_alloc_pbas(Block_io &block_io, Meta_tree &meta_tree, bo
 		}
 		break;
 
-	case ALLOC_PBA: progress |= _allocate_pba->execute(meta_tree, block_io); break;
+	case ALLOC_PBA: progress |= _allocate_pba.execute(meta_tree, block_io); break;
 	case ALLOC_PBA_SUCCEEDED:
 	{
 		if (_lvl > 1)
@@ -451,10 +451,10 @@ void Free_tree_channel::_alloc_pbas(Block_io &block_io, Meta_tree &meta_tree, bo
 		Type_1_node &t1_node { _t1_blks[_lvl].nodes[_node_idx[_lvl]] };
 		t1_node.gen = req._curr_gen;
 		calc_hash(_blk, t1_node.hash);
-		_write_block.construct(*this, WRITE_BLK, SEEK_LEFT_OR_UP, progress, t1_node.pba, _blk);
+		_write_block.generate(*this, WRITE_BLK, SEEK_LEFT_OR_UP, progress, t1_node.pba, _blk);
 		break;
 	}
-	case WRITE_BLK: progress |= _write_block->execute(block_io); break;
+	case WRITE_BLK: progress |= _write_block.execute(block_io); break;
 	default: break;
 	}
 }
@@ -481,7 +481,7 @@ void Free_tree_channel::_generate_write_blk_req(bool &progress)
 	else
 		_t2_blk.encode_to_blk(_blk);
 
-	_write_block.construct(*this, WRITE_BLK, WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _blk);
+	_write_block.generate(*this, WRITE_BLK, WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _blk);
 	if (VERBOSE_FT_EXTENSION)
 		log("  lvl ", _lvl, " write to pba ", _new_pbas.pbas[_lvl]);
 }
@@ -556,7 +556,7 @@ void Free_tree_channel::_extension_step(Block_io &block_io, Meta_tree &meta_tree
 		_old_generations.items[_lvl] = req._ft.gen;
 		if (_vba <= tree_max_max_vba(req._ft.degree, req._ft.max_lvl)) {
 
-			_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, req._ft.pba, _blk);
+			_read_block.generate(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, req._ft.pba, _blk);
 			if (VERBOSE_FT_EXTENSION)
 				log("  root (", req._ft, "): load to lvl ", _lvl);
 		} else {
@@ -568,7 +568,7 @@ void Free_tree_channel::_extension_step(Block_io &block_io, Meta_tree &meta_tree
 		}
 		break;
 
-	case READ_BLK: progress |= _read_block->execute(block_io); break;
+	case READ_BLK: progress |= _read_block.execute(block_io); break;
 	case READ_BLK_SUCCEEDED:
 
 		if (_lvl > 1) {
@@ -589,7 +589,7 @@ void Free_tree_channel::_extension_step(Block_io &block_io, Meta_tree &meta_tree
 				_lvl--;
 				_old_pbas.pbas [_lvl] = t1_node.pba;
 				_old_generations.items[_lvl] = t1_node.gen;
-				_read_block.construct(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, t1_node.pba, _blk);
+				_read_block.generate(*this, READ_BLK, READ_BLK_SUCCEEDED, progress, t1_node.pba, _blk);
 				if (VERBOSE_FT_EXTENSION)
 					log("  lvl ", _lvl + 1, " node ", node_idx, " (", t1_node, "): load to lvl ", _lvl);
 			} else {
@@ -602,7 +602,7 @@ void Free_tree_channel::_extension_step(Block_io &block_io, Meta_tree &meta_tree
 					progress = true;
 				} else {
 					_alloc_pba = _old_pbas.pbas[_alloc_lvl];
-					_allocate_pba.construct(*this, ALLOC_PBA, ALLOC_PBA_SUCCEEDED, progress, req._mt, req._curr_gen, _alloc_pba);
+					_allocate_pba.generate(*this, ALLOC_PBA, ALLOC_PBA_SUCCEEDED, progress, req._mt, req._curr_gen, _alloc_pba);
 				}
 			}
 		} else {
@@ -621,11 +621,11 @@ void Free_tree_channel::_extension_step(Block_io &block_io, Meta_tree &meta_tree
 				log("  alloc lvl ", _alloc_lvl);
 
 			_alloc_pba = _old_pbas.pbas[_alloc_lvl];
-			_allocate_pba.construct(*this, ALLOC_PBA, ALLOC_PBA_SUCCEEDED, progress, req._mt, req._curr_gen, _alloc_pba);
+			_allocate_pba.generate(*this, ALLOC_PBA, ALLOC_PBA_SUCCEEDED, progress, req._mt, req._curr_gen, _alloc_pba);
 		}
 		break;
 
-	case ALLOC_PBA: progress |= _allocate_pba->execute(meta_tree, block_io); break;
+	case ALLOC_PBA: progress |= _allocate_pba.execute(meta_tree, block_io); break;
 	case ALLOC_PBA_SUCCEEDED:
 
 		_new_pbas.pbas[_alloc_lvl] = _alloc_pba;
@@ -639,7 +639,7 @@ void Free_tree_channel::_extension_step(Block_io &block_io, Meta_tree &meta_tree
 				progress = true;
 			} else {
 				_alloc_pba = _old_pbas.pbas[_alloc_lvl];
-				_allocate_pba.construct(*this, ALLOC_PBA, ALLOC_PBA_SUCCEEDED, progress, req._mt, req._curr_gen, _alloc_pba);
+				_allocate_pba.generate(*this, ALLOC_PBA, ALLOC_PBA_SUCCEEDED, progress, req._mt, req._curr_gen, _alloc_pba);
 			}
 		} else {
 			_generate_write_blk_req(progress);
@@ -648,7 +648,7 @@ void Free_tree_channel::_extension_step(Block_io &block_io, Meta_tree &meta_tree
 		}
 		break;
 
-	case WRITE_BLK: progress |= _write_block->execute(block_io); break;
+	case WRITE_BLK: progress |= _write_block.execute(block_io); break;
 	case WRITE_BLK_SUCCEEDED:
 
 		if (_lvl < req._ft.max_lvl) {

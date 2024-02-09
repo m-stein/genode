@@ -100,7 +100,7 @@ bool Ft_initializer_channel::_execute_t1_node(Tree_level_index lvl, Tree_node_in
 		else
 			_t1_blks.items[lvl - 1].encode_to_blk(_blk);
 		calc_hash(_blk, node.hash);
-		_write_block.construct(*this, WRITE_BLOCK, EXECUTE_NODES, progress, node.pba, _blk);
+		_write_block.generate(*this, WRITE_BLOCK, EXECUTE_NODES, progress, node.pba, _blk);
 		node_state = WRITING_BLOCK;
 		if (VERBOSE_FT_INIT)
 			log("[ft_init] node: ", lvl, " ", node_idx, " assign pba: ", node.pba);
@@ -201,7 +201,7 @@ void Ft_initializer_channel::execute(Block_io &block_io, bool &progress)
 			_mark_req_successful(progress);
 		return;
 
-	case WRITE_BLOCK: progress |= _write_block->execute(block_io); break;
+	case WRITE_BLOCK: progress |= _write_block.execute(block_io); break;
 	default: return;
 	}
 }

@@ -79,11 +79,11 @@ class Tresor::Sb_initializer_channel : public Module_channel
 		Constructible<Tree_root> _ft { };
 		bool _generated_req_success { false };
 		union {
-			Generated_request<Sb_initializer_channel, Block_io::Write, State> _write_block;
-			Generated_request<Sb_initializer_channel, Block_io::Sync, State> _sync_block_io;
-			Generated_request<Sb_initializer_channel, Trust_anchor::Generate_key, State> _generate_key;
-			Generated_request<Sb_initializer_channel, Trust_anchor::Write_hash, State> _write_sb_hash;
-			Generated_request<Sb_initializer_channel, Trust_anchor::Encrypt_key, State> _encrypt_key;
+			Generatable_request<Sb_initializer_channel, State, Block_io::Write> _write_block;
+			Generatable_request<Sb_initializer_channel, State, Block_io::Sync> _sync_block_io;
+			Generatable_request<Sb_initializer_channel, State, Trust_anchor::Generate_key> _generate_key;
+			Generatable_request<Sb_initializer_channel, State, Trust_anchor::Write_hash> _write_sb_hash;
+			Generatable_request<Sb_initializer_channel, State, Trust_anchor::Encrypt_key> _encrypt_key;
 		};
 
 		NONCOPYABLE(Sb_initializer_channel);
