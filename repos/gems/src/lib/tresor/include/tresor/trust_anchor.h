@@ -20,7 +20,7 @@
 
 namespace Tresor { class Trust_anchor; }
 
-class Tresor::Trust_anchor
+class Tresor::Trust_anchor : Noncopyable
 {
 	public:
 
@@ -37,8 +37,6 @@ class Tresor::Trust_anchor
 
 		Attr const _attr;
 		addr_t _user { };
-
-		NONCOPYABLE(Trust_anchor);
 
 	public:
 
@@ -70,7 +68,7 @@ class Tresor::Trust_anchor
 		static constexpr char const *name() { return "trust_anchor"; }
 };
 
-class Tresor::Trust_anchor::Encrypt_key
+class Tresor::Trust_anchor::Encrypt_key : Noncopyable
 {
 	public:
 
@@ -90,8 +88,6 @@ class Tresor::Trust_anchor::Encrypt_key
 		Attr const _attr;
 		Constructible<File<State> > _file { };
 
-		NONCOPYABLE(Encrypt_key);
-
 	public:
 
 		Encrypt_key(Attr const &attr) : _helper(*this), _attr(attr) { }
@@ -104,7 +100,7 @@ class Tresor::Trust_anchor::Encrypt_key
 		bool success() const { return _helper.success(); }
 };
 
-class Tresor::Trust_anchor::Decrypt_key
+class Tresor::Trust_anchor::Decrypt_key : Noncopyable
 {
 	public:
 
@@ -124,8 +120,6 @@ class Tresor::Trust_anchor::Decrypt_key
 		Attr const _attr;
 		Constructible<File<State> > _file { };
 
-		NONCOPYABLE(Decrypt_key);
-
 	public:
 
 		Decrypt_key(Attr const &attr) : _helper(*this), _attr(attr) { }
@@ -138,7 +132,7 @@ class Tresor::Trust_anchor::Decrypt_key
 		bool success() const { return _helper.success(); }
 };
 
-class Tresor::Trust_anchor::Initialize
+class Tresor::Trust_anchor::Initialize : Noncopyable
 {
 	public:
 
@@ -155,8 +149,6 @@ class Tresor::Trust_anchor::Initialize
 		Constructible<File<State> > _file { };
 		char _result_buf[3];
 
-		NONCOPYABLE(Initialize);
-
 	public:
 
 		Initialize(Attr const &attr) : _helper(*this), _attr(attr) { }
@@ -169,7 +161,7 @@ class Tresor::Trust_anchor::Initialize
 		bool success() const { return _helper.success(); }
 };
 
-class Tresor::Trust_anchor::Generate_key
+class Tresor::Trust_anchor::Generate_key : Noncopyable
 {
 	public:
 
@@ -185,8 +177,6 @@ class Tresor::Trust_anchor::Generate_key
 		Attr const _attr;
 		Constructible<File<State> > _file { };
 
-		NONCOPYABLE(Generate_key);
-
 	public:
 
 		Generate_key(Attr const &attr) : _helper(*this), _attr(attr) { }
@@ -199,7 +189,7 @@ class Tresor::Trust_anchor::Generate_key
 		bool success() const { return _helper.success(); }
 };
 
-class Tresor::Trust_anchor::Write_hash
+class Tresor::Trust_anchor::Write_hash : Noncopyable
 {
 	public:
 
@@ -216,8 +206,6 @@ class Tresor::Trust_anchor::Write_hash
 		Constructible<File<State> > _file { };
 		char _result_buf[3];
 
-		NONCOPYABLE(Write_hash);
-
 	public:
 
 		Write_hash(Attr const &attr) : _helper(*this), _attr(attr) { }
@@ -230,7 +218,7 @@ class Tresor::Trust_anchor::Write_hash
 		bool success() const { return _helper.success(); }
 };
 
-class Tresor::Trust_anchor::Read_hash
+class Tresor::Trust_anchor::Read_hash : Noncopyable
 {
 	public:
 
@@ -245,8 +233,6 @@ class Tresor::Trust_anchor::Read_hash
 		Request_helper<Read_hash, State> _helper;
 		Attr const _attr;
 		Constructible<File<State> > _file { };
-
-		NONCOPYABLE(Read_hash);
 
 	public:
 

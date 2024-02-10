@@ -35,7 +35,7 @@ struct Tresor::Crypto_key_files_interface : Interface
 	virtual Vfs::Vfs_handle &decrypt_file(Key_id) = 0;
 };
 
-class Tresor::Crypto
+class Tresor::Crypto : Noncopyable
 {
 	public:
 
@@ -50,8 +50,6 @@ class Tresor::Crypto
 
 		Attr const _attr;
 		addr_t _user { };
-
-		NONCOPYABLE(Crypto);
 
 	public:
 
@@ -81,7 +79,7 @@ class Tresor::Crypto
 		static constexpr char const *name() { return "crypto"; }
 };
 
-class Tresor::Crypto::Encrypt
+class Tresor::Crypto::Encrypt : Noncopyable
 {
 	public:
 
@@ -103,8 +101,6 @@ class Tresor::Crypto::Encrypt
 		off_t _offset { };
 		Constructible<File<State> > _file { };
 
-		NONCOPYABLE(Encrypt);
-
 	public:
 
 		Encrypt(Attr const &attr) : _helper(*this), _attr(attr) { }
@@ -117,7 +113,7 @@ class Tresor::Crypto::Encrypt
 		bool success() const { return _helper.success(); }
 };
 
-class Tresor::Crypto::Decrypt
+class Tresor::Crypto::Decrypt : Noncopyable
 {
 	public:
 
@@ -139,8 +135,6 @@ class Tresor::Crypto::Decrypt
 		off_t _offset { };
 		Constructible<File<State> > _file { };
 
-		NONCOPYABLE(Decrypt);
-
 	public:
 
 		Decrypt(Attr const &attr) : _helper(*this), _attr(attr) { }
@@ -153,7 +147,7 @@ class Tresor::Crypto::Decrypt
 		bool success() const { return _helper.success(); }
 };
 
-class Tresor::Crypto::Add_key
+class Tresor::Crypto::Add_key : Noncopyable
 {
 	public:
 
@@ -170,8 +164,6 @@ class Tresor::Crypto::Add_key
 		char _write_buf[sizeof(Key_id) + sizeof(Key_value)] { };
 		Constructible<File<State> > _file { };
 
-		NONCOPYABLE(Add_key);
-
 	public:
 
 		Add_key(Attr const &attr) : _helper(*this), _attr(attr) { }
@@ -184,7 +176,7 @@ class Tresor::Crypto::Add_key
 		bool success() const { return _helper.success(); }
 };
 
-class Tresor::Crypto::Remove_key
+class Tresor::Crypto::Remove_key : Noncopyable
 {
 	public:
 
@@ -199,8 +191,6 @@ class Tresor::Crypto::Remove_key
 		Request_helper<Remove_key, State> _helper;
 		Attr const _attr;
 		Constructible<File<State> > _file { };
-
-		NONCOPYABLE(Remove_key);
 
 	public:
 

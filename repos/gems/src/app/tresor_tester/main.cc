@@ -771,12 +771,10 @@ class Tresor_tester::Main
 			add_module(VIRTUAL_BLOCK_DEVICE, *_vbd);
 			add_module(SUPERBLOCK_CONTROL, *_sb_control);
 			add_module(REQUEST_POOL, *_request_pool);
-			add_module(META_TREE, *_meta_tree);
 		}
 
 		void destruct_tresor_modules()
 		{
-			remove_module(META_TREE);
 			remove_module(REQUEST_POOL);
 			remove_module(SUPERBLOCK_CONTROL);
 			remove_module(VIRTUAL_BLOCK_DEVICE);

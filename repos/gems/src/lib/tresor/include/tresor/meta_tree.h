@@ -18,26 +18,18 @@
 #include <tresor/types.h>
 #include <tresor/block_io.h>
 
-namespace Tresor { class Meta_tree; }
+namespace Tresor { struct Meta_tree; }
 
-class Tresor::Meta_tree : public Module
+struct Tresor::Meta_tree : Noncopyable
 {
-	private:
+	class Allocate_pba;
 
-		NONCOPYABLE(Meta_tree);
+	bool execute(Allocate_pba &, Block_io &);
 
-	public:
-
-		class Allocate_pba;
-
-		bool execute(Allocate_pba &, Block_io &);
-
-		Meta_tree() { }
-
-		static constexpr char const *name() { return "meta_tree"; }
+	static constexpr char const *name() { return "meta_tree"; }
 };
 
-class Tresor::Meta_tree::Allocate_pba
+class Tresor::Meta_tree::Allocate_pba : Noncopyable
 {
 	public:
 
@@ -67,8 +59,6 @@ class Tresor::Meta_tree::Allocate_pba
 			Generatable_request<Helper, State, Block_io::Read> _read_block;
 			Generatable_request<Helper, State, Block_io::Write> _write_block;
 		};
-
-		NONCOPYABLE(Allocate_pba);
 
 		bool _can_alloc_pba_of(Type_2_node &);
 
