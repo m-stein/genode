@@ -210,9 +210,94 @@ class Tresor::Virtual_block_device : public Module
 
 	public:
 
+		class Rekey_vba;
+
+		bool execute(Rekey_vba &, Block_io &, Crypto &, Free_tree &, Meta_tree &);
+
 		Virtual_block_device(Client_data_interface &, Block_io &, Crypto &, Free_tree &, Meta_tree &);
 
 		static constexpr char const *name() { return "vbd"; }
+};
+
+class Tresor::Virtual_block_device::Rekey_vba : Noncopyable
+{
+	public:
+
+		using Module = Virtual_block_device;
+
+		struct Attr
+		{
+			Snapshots &in_out_snapshots;
+			Tree_root &in_out_ft;
+			Tree_root &in_out_mt;
+			Virtual_block_address const in_vba;
+			Generation const in_curr_gen;
+			Generation const in_last_secured_gen;
+			Key_id const in_curr_key_id;
+			Key_id const in_prev_key_id;
+			Tree_degree const in_vbd_degree;
+			Virtual_block_address const in_vbd_highest_vba;
+		};
+
+	private:
+
+		enum State {
+			INIT, COMPLETE, READ_BLK, READ_BLK_SUCCEEDED, WRITE_BLK, WRITE_BLK_SUCCEEDED,
+			DECRYPT_BLOCK, DECRYPT_BLOCK_SUCCEEDED, ENCRYPT_BLOCK, ENCRYPT_BLOCK_SUCCEEDED,
+			ALLOC_PBAS, ALLOC_PBAS_SUCCEEDED };
+
+		using Helper = Request_helper<Rekey_vba, State>;
+
+		Helper _helper;
+		Attr const _attr;
+		Tree_level_index _lvl { 0 };
+		Type_1_node_block_walk _t1_blks { };
+		Block _encoded_blk { };
+		Block _data_blk { };
+		Generation _free_gen { 0 };
+		Tree_walk_pbas _old_pbas { };
+		Tree_walk_pbas _new_pbas { };
+		Snapshot_index _snap_idx { 0 };
+		Type_1_node_walk _t1_nodes { };
+		Number_of_blocks _num_blks { 0 };
+		Hash _hash { };
+		bool _first_snapshot { false };
+		union {
+			Generatable_request<Helper, State, Block_io::Read> _read_block;
+			Generatable_request<Helper, State, Block_io::Write> _write_block;
+			Generatable_request<Helper, State, Crypto::Encrypt> _encrypt_block;
+			Generatable_request<Helper, State, Crypto::Decrypt> _decrypt_block;
+			Generatable_request<Helper, State, Free_tree::Allocate_pbas> _alloc_pbas;
+		};
+
+		bool _check_and_decode_read_blk(bool &);
+
+		void _start_alloc_pbas(bool &, Free_tree::Allocate_pbas::Application);
+
+		void _generate_write_blk_req(bool &);
+
+		bool _find_next_snap_to_rekey_vba_at(Snapshot_index &) const;
+
+		void _generate_ft_alloc_req_for_rekeying(Tree_level_index, bool &);
+
+		Snapshot &snap() { return _attr.in_out_snapshots.items[_snap_idx]; }
+
+		Type_1_node &_node(Tree_level_index, Virtual_block_address);
+
+		Tree_node_index _node_idx(Tree_level_index, Virtual_block_address) const;
+
+	public:
+
+		Rekey_vba(Attr const &attr) : _helper(*this), _attr(attr) { }
+
+		~Rekey_vba() { }
+
+		void print(Output &out) const { Genode::print(out, "rekey vba"); }
+
+		bool execute(Block_io &, Crypto &, Free_tree &, Meta_tree &);
+
+		bool complete() const { return _helper.complete(); }
+		bool success() const { return _helper.success(); }
 };
 
 #endif /* _TRESOR__VIRTUAL_BLOCK_DEVICE_H_ */

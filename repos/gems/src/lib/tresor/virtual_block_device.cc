@@ -393,6 +393,257 @@ void Virtual_block_device_channel::_generate_ft_alloc_req_for_rekeying(Tree_leve
 }
 
 
+
+bool Virtual_block_device::execute(Rekey_vba &req, Block_io &block_io, Crypto &crypto, Free_tree &free_tree, Meta_tree &meta_tree)
+{
+	return req.execute(block_io, crypto, free_tree, meta_tree);
+}
+
+Tree_node_index Virtual_block_device::Rekey_vba::_node_idx(Tree_level_index lvl, Virtual_block_address vba) const
+{
+	return t1_node_idx_for_vba(vba, lvl, _attr.in_vbd_degree);
+}
+
+Type_1_node &Virtual_block_device::Rekey_vba::_node(Tree_level_index lvl, Virtual_block_address vba)
+{
+	return _t1_blks.items[lvl].nodes[_node_idx(lvl, vba)];
+}
+
+void Virtual_block_device::Rekey_vba::_start_alloc_pbas(bool &progress, Free_tree::Allocate_pbas::Application application)
+{
+	_alloc_pbas.generate(
+		_helper, ALLOC_PBAS, ALLOC_PBAS_SUCCEEDED, progress, _attr.in_out_ft, _attr.in_out_mt, _attr.in_out_snapshots,
+		_attr.in_last_secured_gen, _attr.in_curr_gen, _free_gen, _num_blks, _new_pbas, _t1_nodes,
+		_attr.in_out_snapshots.items[_snap_idx].max_level, _attr.in_vba, _attr.in_vbd_degree, _attr.in_vbd_highest_vba, true,
+		_attr.in_prev_key_id, _attr.in_curr_key_id, _attr.in_vba, application);
+}
+
+void Virtual_block_device::Rekey_vba::_generate_write_blk_req(bool &progress)
+{
+	if (_lvl) {
+		_t1_blks.items[_lvl].encode_to_blk(_encoded_blk);
+		_write_block.generate(_helper, WRITE_BLK, WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _encoded_blk);
+	} else
+		_write_block.generate(_helper, WRITE_BLK, WRITE_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _data_blk);
+}
+
+void Virtual_block_device::Rekey_vba::_generate_ft_alloc_req_for_rekeying(Tree_level_index min_lvl, bool &progress)
+{
+	ASSERT(min_lvl <= snap().max_level);
+	_num_blks = 0;
+	if (_first_snapshot)
+		_free_gen = _attr.in_curr_gen;
+	else
+		_free_gen = snap().gen + 1;
+
+	for (Tree_level_index lvl = 0; lvl < TREE_MAX_NR_OF_LEVELS; lvl++)
+		if (lvl > snap().max_level) {
+			_t1_nodes.nodes[lvl] = { };
+			_new_pbas.pbas[lvl] = 0;
+		} else if (lvl == snap().max_level) {
+			_num_blks++;
+			_new_pbas.pbas[lvl] = 0;
+			_t1_nodes.nodes[lvl] = { snap().pba, snap().gen, snap().hash };
+		} else if (lvl >= min_lvl) {
+			_num_blks++;
+			_new_pbas.pbas[lvl] = 0;
+			_t1_nodes.nodes[lvl] = _node(lvl + 1, _attr.in_vba);
+		} else {
+			Type_1_node &node { _node(lvl + 1, _attr.in_vba) };
+			_t1_nodes.nodes[lvl] = { _new_pbas.pbas[lvl], node.gen, node.hash};
+		}
+
+	_start_alloc_pbas(progress, _first_snapshot ?
+		Free_tree::Allocate_pbas::REKEYING_IN_CURRENT_GENERATION :
+		Free_tree::Allocate_pbas::REKEYING_IN_OLDER_GENERATION);
+}
+
+bool Virtual_block_device::Rekey_vba::_check_and_decode_read_blk(bool &progress)
+{
+	Hash const *node_hash_ptr;
+	if (_lvl) {
+		calc_hash(_encoded_blk, _hash);
+		if (_lvl < snap().max_level)
+			node_hash_ptr = &_node(_lvl + 1, _attr.in_vba).hash;
+		else
+			node_hash_ptr = &snap().hash;
+	} else {
+		Type_1_node &node { _node(_lvl + 1, _attr.in_vba) };
+		calc_hash(_data_blk, _hash);
+		node_hash_ptr = &node.hash;
+	}
+	if (_hash != *node_hash_ptr) {
+		_helper.mark_failed(progress, "check hash of read block");
+		return false;
+	}
+	if (_lvl)
+		_t1_blks.items[_lvl].decode_from_blk(_encoded_blk);
+
+	return true;
+}
+
+bool Virtual_block_device::Rekey_vba::execute(Block_io &block_io, Crypto &crypto, Free_tree &free_tree, Meta_tree &meta_tree)
+{
+	bool progress = false;
+	switch (_helper.state) {
+	case INIT:
+
+		_snap_idx = _attr.in_out_snapshots.newest_snap_idx();
+		_first_snapshot = true;
+		_lvl = snap().max_level;
+		_old_pbas.pbas[_lvl] = snap().pba;
+		_read_block.generate(_helper, READ_BLK, READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
+		if (VERBOSE_REKEYING)
+			log("    snapshot ", _snap_idx, ":\n      load branch:\n        ",
+			    Branch_lvl_prefix("root: "), snap());
+		break;
+
+	case READ_BLK: progress |= _read_block.execute(block_io); break;
+	case READ_BLK_SUCCEEDED:
+
+		if (!_check_and_decode_read_blk(progress))
+			break;
+
+		if (_lvl) {
+			Type_1_node &node { _node(_lvl, _attr.in_vba) };
+			if (VERBOSE_REKEYING)
+				log("        ", Branch_lvl_prefix("lvl ", _lvl, " node ", _node_idx(_lvl, _attr.in_vba), ": "), node);
+
+			if (!_first_snapshot && _old_pbas.pbas[_lvl - 1] == node.pba) {
+
+				/* skip rest of this branch as it was rekeyed while rekeying the vba at another snap */
+				_generate_ft_alloc_req_for_rekeying(_lvl, progress);
+				if (VERBOSE_REKEYING)
+					log("        [node already rekeyed at pba ", _new_pbas.pbas[_lvl - 1], "]");
+
+			} else if (_lvl == 1 && node.gen == INITIAL_GENERATION) {
+
+				/* skip yet unused leaf node because the lib will read its data as 0 regardless of the key */
+				_generate_ft_alloc_req_for_rekeying(_lvl - 1, progress);
+				if (VERBOSE_REKEYING)
+					log("        [node needs no rekeying]");
+
+			} else {
+				_lvl--;
+				_old_pbas.pbas[_lvl] = node.pba;
+				_read_block.generate(_helper, READ_BLK, READ_BLK_SUCCEEDED, progress, node.pba, _lvl ? _encoded_blk : _data_blk);
+			}
+		} else {
+			_decrypt_block.generate(_helper, DECRYPT_BLOCK, DECRYPT_BLOCK_SUCCEEDED, progress, _attr.in_prev_key_id, _old_pbas.pbas[_lvl], _data_blk);
+			if (VERBOSE_REKEYING)
+				log("        ", Branch_lvl_prefix("leaf data: "), _data_blk);
+		}
+		break;
+
+	case DECRYPT_BLOCK: progress |= _decrypt_block.execute(crypto); break;
+	case DECRYPT_BLOCK_SUCCEEDED:
+
+		_generate_ft_alloc_req_for_rekeying(_lvl, progress);
+		if (VERBOSE_REKEYING)
+			log("      re-encrypt leaf data: plaintext ", _data_blk, " hash ", hash(_data_blk));
+		break;
+
+	case ALLOC_PBAS: progress |= _alloc_pbas.execute(free_tree, block_io, meta_tree); break;
+	case ALLOC_PBAS_SUCCEEDED:
+
+		if (VERBOSE_REKEYING)
+			log("      alloc pba", _num_blks > 1 ? "s" : "", ": ", Pba_allocation { _t1_nodes, _new_pbas });
+
+		if (_lvl) {
+			if (VERBOSE_REKEYING)
+				log("      update branch:");
+
+			_lvl--;
+			_helper.state = WRITE_BLK_SUCCEEDED;
+			progress = true;
+			if (_lvl)
+				_t1_blks.items[_lvl].encode_to_blk(_encoded_blk);
+		} else
+			_encrypt_block.generate(
+				_helper, ENCRYPT_BLOCK, ENCRYPT_BLOCK_SUCCEEDED, progress, _attr.in_curr_key_id, _new_pbas.pbas[0], _data_blk);
+		break;
+
+	case ENCRYPT_BLOCK: progress |= _encrypt_block.execute(crypto); break;
+	case ENCRYPT_BLOCK_SUCCEEDED:
+
+		_generate_write_blk_req(progress);
+		if (VERBOSE_REKEYING)
+			log("      update branch:\n        ", Branch_lvl_prefix("leaf data: "), _data_blk);
+		break;
+
+	case WRITE_BLK: progress |= _write_block.execute(block_io); break;
+	case WRITE_BLK_SUCCEEDED:
+
+		if (_lvl < snap().max_level) {
+			Type_1_node &node { _node(_lvl + 1, _attr.in_vba) };
+			node.pba = _new_pbas.pbas[_lvl];
+			calc_hash(_lvl ? _encoded_blk : _data_blk, node.hash);
+			_lvl++;
+			_generate_write_blk_req(progress);
+			if (VERBOSE_REKEYING)
+				log("        ", Branch_lvl_prefix("lvl ", _lvl, " node ", _node_idx(_lvl + 1, _attr.in_vba), ": "), node);
+		} else {
+			snap().pba = _new_pbas.pbas[_lvl];
+			calc_hash(_encoded_blk, snap().hash);
+			if (VERBOSE_REKEYING)
+				log("        ", Branch_lvl_prefix("root: "), snap());
+
+			Snapshot_index snap_idx;
+			if (_find_next_snap_to_rekey_vba_at(snap_idx)) {
+				_snap_idx = snap_idx;
+				_first_snapshot = false;
+				_lvl = snap().max_level;
+				if (_old_pbas.pbas[_lvl] == snap().pba)
+					progress = true;
+				else {
+					_old_pbas.pbas[_lvl] = snap().pba;
+					_read_block.generate(_helper, READ_BLK, READ_BLK_SUCCEEDED, progress, snap().pba, _encoded_blk);
+					if (VERBOSE_REKEYING)
+						log("    snapshot ", _snap_idx, ":\n      load branch:\n        ",
+						    Branch_lvl_prefix("root: "), snap());
+				}
+			} else
+				_helper.mark_succeeded(progress);
+		}
+		break;
+
+	default: break;
+	}
+	return progress;
+}
+
+bool Virtual_block_device::Rekey_vba::_find_next_snap_to_rekey_vba_at(Snapshot_index &result) const
+{
+	bool result_valid { false };
+	Snapshot &curr_snap { _attr.in_out_snapshots.items[_snap_idx] };
+	for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++) {
+		Snapshot const &snap { _attr.in_out_snapshots.items[idx] };
+		if (snap.valid && snap.contains_vba(_attr.in_vba)) {
+			if (result_valid) {
+				if (snap.gen < curr_snap.gen && snap.gen > _attr.in_out_snapshots.items[result].gen)
+					result = idx;
+			} else
+				if (snap.gen < curr_snap.gen) {
+					result = idx;
+					result_valid = true;
+				}
+		}
+	}
+	return result_valid;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 void Virtual_block_device_channel::_rekey_vba(Block_io &block_io, Crypto &crypto, Free_tree &free_tree, Meta_tree &meta_tree, bool &progress)
 {
 	Request &req { *_req_ptr };
