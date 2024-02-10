@@ -238,7 +238,7 @@ void Superblock_control_channel::_tree_ext_step(Block_io &block_io, Trust_anchor
 }
 
 
-void Superblock_control_channel::_rekey_vba(Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor, bool &progress)
+void Superblock_control_channel::_do_rekey_vba(Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor, Free_tree &free_tree, Meta_tree &meta_tree, Virtual_block_device &vbd, bool &progress)
 {
 	switch (_state) {
 	case REQ_SUBMITTED:
@@ -248,18 +248,20 @@ void Superblock_control_channel::_rekey_vba(Block_io &block_io, Crypto &crypto, 
 			_mark_req_failed(progress, "check superblock state");
 			break;
 		}
-		_generate_vbd_req(
-			Virtual_block_device_request::REKEY_VBA, REKEY_VBA_AT_VBD_SUCCEEDED,
-			progress, _sb.current_key.id, _sb.rekeying_vba);
+		_ft.construct(_sb.free_number, _sb.free_gen, _sb.free_hash, _sb.free_max_level, _sb.free_degree, _sb.free_leaves);
+		_mt.construct(_sb.meta_number, _sb.meta_gen, _sb.meta_hash, _sb.meta_max_level, _sb.meta_degree, _sb.meta_leaves);
+		_rekey_vba.generate(
+			*this, REKEY_VBA, REKEY_VBA_SUCCEEDED, progress, _sb.snapshots, *_ft, *_mt, _sb.rekeying_vba,
+			_curr_gen, _sb.last_secured_generation, _sb.current_key.id, _sb.previous_key.id, _sb.degree, _sb.max_vba());
 
-		_state = REQ_GENERATED;
-		if (VERBOSE_REKEYING) {
-			log("rekey vba ", _sb.rekeying_vba, ":");
-			log("  update vbd: keys ", _sb.previous_key.id, ",", _sb.current_key.id, " generations ", _sb.last_secured_generation, ",", _curr_gen);
-		}
+
+		if (VERBOSE_REKEYING)
+			log("rekey vba ", _sb.rekeying_vba, ":\n  update vbd: keys ", _sb.previous_key.id, ",", _sb.current_key.id,
+			    " generations ", _sb.last_secured_generation, ",", _curr_gen);
 		break;
 
-	case REKEY_VBA_AT_VBD_SUCCEEDED:
+	case REKEY_VBA: progress |= _rekey_vba.execute(vbd, block_io, crypto, free_tree, meta_tree); break;
+	case REKEY_VBA_SUCCEEDED:
 	{
 		Number_of_leaves max_nr_of_leaves { 0 };
 		for (Snapshot const &snap : _sb.snapshots.items) {
@@ -576,7 +578,7 @@ void Superblock_control_channel::_deinitialize(Block_io &block_io, Crypto &crypt
 }
 
 
-void Superblock_control_channel::execute(Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor, Free_tree &free_tree, Meta_tree &meta_tree, bool &progress)
+void Superblock_control_channel::execute(Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor, Free_tree &free_tree, Meta_tree &meta_tree, Virtual_block_device &vbd, bool &progress)
 {
 	if (!_req_ptr)
 		return;
@@ -586,7 +588,7 @@ void Superblock_control_channel::execute(Block_io &block_io, Crypto &crypto, Tru
 	case Request::WRITE_VBA: _access_vba(Virtual_block_device_request::WRITE_VBA, progress); break;
 	case Request::SYNC: _sync(block_io, trust_anchor, progress); break;
 	case Request::INITIALIZE_REKEYING: _init_rekeying(block_io, crypto, trust_anchor, progress); break;
-	case Request::REKEY_VBA: _rekey_vba(block_io, crypto, trust_anchor, progress); break;
+	case Request::REKEY_VBA: _do_rekey_vba(block_io, crypto, trust_anchor, free_tree, meta_tree, vbd, progress); break;
 	case Request::VBD_EXTENSION_STEP: _tree_ext_step(block_io, trust_anchor, free_tree, meta_tree, Superblock::EXTENDING_VBD, VERBOSE_VBD_EXTENSION, "vbd", progress); break;
 	case Request::FT_EXTENSION_STEP: _tree_ext_step(block_io, trust_anchor, free_tree, meta_tree,  Superblock::EXTENDING_FT, VERBOSE_FT_EXTENSION, "ft", progress); break;
 	case Request::CREATE_SNAPSHOT: _create_snap(block_io, trust_anchor, progress); break;
@@ -600,7 +602,7 @@ void Superblock_control_channel::execute(Block_io &block_io, Crypto &crypto, Tru
 void Superblock_control::execute(bool &progress)
 {
 	for_each_channel<Channel>([&] (Channel &chan) {
-		chan.execute(_block_io, _crypto, _trust_anchor, _free_tree, _meta_tree, progress); });
+		chan.execute(_block_io, _crypto, _trust_anchor, _free_tree, _meta_tree, _vbd, progress); });
 }
 
 
@@ -636,13 +638,14 @@ void Superblock_control_channel::_request_submitted(Module_request &req)
 }
 
 
-Superblock_control::Superblock_control(Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor, Free_tree &free_tree, Meta_tree &meta_tree)
+Superblock_control::Superblock_control(Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor, Free_tree &free_tree, Meta_tree &meta_tree, Virtual_block_device &vbd)
 :
 	_block_io(block_io),
 	_crypto(crypto),
 	_trust_anchor(trust_anchor),
 	_free_tree(free_tree),
-	_meta_tree(meta_tree)
+	_meta_tree(meta_tree),
+	_vbd(vbd)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {
