@@ -20,14 +20,12 @@
 
 namespace Tresor { class Block_io; }
 
-class Tresor::Block_io
+class Tresor::Block_io : Noncopyable
 {
 	private:
 
 		Vfs::Vfs_handle &_file;
 		addr_t _user { };
-
-		NONCOPYABLE(Block_io);
 
 	public:
 
@@ -56,7 +54,7 @@ class Tresor::Block_io
 		static constexpr char const *name() { return "block_io"; }
 };
 
-class Tresor::Block_io::Read
+class Tresor::Block_io::Read : Noncopyable
 {
 	public:
 
@@ -76,8 +74,6 @@ class Tresor::Block_io::Read
 		Attr const _attr;
 		Constructible<File<State> > _file { };
 
-		NONCOPYABLE(Read);
-
 	public:
 
 		Read(Attr const &attr) : _helper(*this), _attr(attr) { }
@@ -90,7 +86,7 @@ class Tresor::Block_io::Read
 		bool success() const { return _helper.success(); }
 };
 
-class Tresor::Block_io::Write
+class Tresor::Block_io::Write : Noncopyable
 {
 	public:
 
@@ -110,8 +106,6 @@ class Tresor::Block_io::Write
 		Attr const _attr;
 		Constructible<File<State> > _file { };
 
-		NONCOPYABLE(Write);
-
 	public:
 
 		Write(Attr const &attr) : _helper(*this), _attr(attr) { }
@@ -124,7 +118,7 @@ class Tresor::Block_io::Write
 		bool success() const { return _helper.success(); }
 };
 
-class Tresor::Block_io::Sync
+class Tresor::Block_io::Sync : Noncopyable
 {
 	public:
 
@@ -139,8 +133,6 @@ class Tresor::Block_io::Sync
 		Request_helper<Sync, State> _helper;
 		Attr const _attr;
 		Constructible<File<State> > _file { };
-
-		NONCOPYABLE(Sync);
 
 	public:
 
