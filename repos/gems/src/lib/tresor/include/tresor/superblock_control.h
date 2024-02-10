@@ -71,7 +71,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 		enum State : State_uint {
 			INACTIVE, REQ_SUBMITTED, ACCESS_VBA_AT_VBD_SUCCEEDED,
 			REKEY_VBA_AT_VBD_SUCCEEDED, GENERATE_KEY, GENERATE_KEY_SUCCEEDED,
-			TREE_EXT_STEP_IN_TREE_SUCCEEDED, DECRYPT_KEY, DECRYPT_CURR_KEY_SUCCEEDED,
+			EXTEND_TREE, EXTEND_TREE_SUCCEEDED, DECRYPT_KEY, DECRYPT_CURR_KEY_SUCCEEDED,
 			DECRYPT_PREV_KEY_SUCCEEDED, READ_SB_HASH, READ_SB_HASH_SUCCEEDED, ADD_KEY, ADD_PREV_KEY_SUCCEEDED,
 			ADD_CURR_KEY_SUCCEEDED, REMOVE_KEY, REMOVE_PREV_KEY_SUCCEEDED, REMOVE_CURR_KEY_SUCCEEDED,
 			READ_BLOCK, READ_SB_SUCCEEDED, REQ_COMPLETE, REQ_GENERATED, SECURE_SB, SECURE_SB_SUCCEEDED };
@@ -108,6 +108,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 			Generatable_request<Superblock_control_channel, State, Trust_anchor::Decrypt_key> _decrypt_key;
 			Generatable_request<Superblock_control_channel, Secure_sb_state, Trust_anchor::Encrypt_key> _encrypt_key;
 			Generatable_request<Superblock_control_channel, Secure_sb_state, Trust_anchor::Write_hash> _write_sb_hash;
+			Generatable_request<Superblock_control_channel, State, Free_tree::Extend_tree> _extend_free_tree;
 		};
 
 		NONCOPYABLE(Superblock_control_channel);
@@ -140,7 +141,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 		void _secure_sb(Block_io &, Trust_anchor &, bool &);
 
-		void _tree_ext_step(Block_io &, Trust_anchor &, Superblock::State, bool, String<4>, bool &);
+		void _tree_ext_step(Block_io &, Trust_anchor &, Free_tree &, Meta_tree &, Superblock::State, bool, String<4>, bool &);
 
 		void _rekey_vba(Block_io &, Crypto &, Trust_anchor &, bool &);
 
@@ -158,7 +159,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 	public:
 
-		void execute(Block_io &, Crypto &, Trust_anchor &, bool &);
+		void execute(Block_io &, Crypto &, Trust_anchor &, Free_tree &, Meta_tree &, bool &);
 
 		Superblock_control_channel(Module_channel_id, Superblock &, Superblock_index &, Generation &);
 
@@ -206,6 +207,8 @@ class Tresor::Superblock_control : public Module
 		Block_io &_block_io;
 		Crypto &_crypto;
 		Trust_anchor &_trust_anchor;
+		Free_tree &_free_tree;
+		Meta_tree &_meta_tree;
 
 		void execute(bool &) override;
 
@@ -221,7 +224,7 @@ class Tresor::Superblock_control : public Module
 
 		Superblock_info sb_info() const;
 
-		Superblock_control(Block_io &, Crypto &, Trust_anchor &);
+		Superblock_control(Block_io &, Crypto &, Trust_anchor &, Free_tree &, Meta_tree &);
 
 		static constexpr char const *name() { return "sb_control"; }
 };
