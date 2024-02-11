@@ -71,6 +71,97 @@ void Virtual_block_device_channel::_generate_write_blk_req(bool &progress)
 }
 
 
+
+bool Virtual_block_device::Read_vba::_check_and_decode_read_blk(bool &progress)
+{
+	Hash const *node_hash_ptr;
+	calc_hash(_blk, _hash);
+	if (_lvl) {
+		if (_lvl < _attr.in_snap.max_level)
+			node_hash_ptr = &_t1_blks.node(_attr.in_vba, _lvl + 1, _attr.in_vbd_degree).hash;
+		else
+			node_hash_ptr = &_attr.in_snap.hash;
+	} else {
+		Type_1_node &node = _t1_blks.node(_attr.in_vba, _lvl + 1, _attr.in_vbd_degree);
+		if (node.gen == INITIAL_GENERATION)
+			return true;
+
+		node_hash_ptr = &node.hash;
+	}
+	if (_hash != *node_hash_ptr) {
+		_helper.mark_failed(progress, "check hash of read block");
+		return false;
+	}
+	if (_lvl)
+		_t1_blks.items[_lvl].decode_from_blk(_blk);
+
+	return true;
+}
+
+
+bool Virtual_block_device::Read_vba::execute(Client_data_interface &client_data, Block_io &block_io, Crypto &crypto)
+{
+	bool progress = false;
+	switch (_helper.state) {
+	case INIT:
+
+		_lvl = _attr.in_snap.max_level;
+		_read_block.generate(_helper, READ_BLK, READ_BLK_SUCCEEDED, progress, _attr.in_snap.pba, _blk);
+		if (VERBOSE_READ_VBA)
+			log("  load branch:\n    ", Branch_lvl_prefix("root: "), _attr.in_snap);
+		break;
+
+	case READ_BLK: progress |= _read_block.execute(block_io); break;
+	case READ_BLK_SUCCEEDED:
+	{
+		if (!_check_and_decode_read_blk(progress))
+			break;
+
+		if (!_lvl) {
+			if (VERBOSE_READ_VBA)
+				log("    ", Branch_lvl_prefix("ciphertext: "), _blk, " ", hash(_blk));
+
+			_decrypt_block.generate(
+				_helper, DECRYPT_BLOCK, DECRYPT_BLOCK_SUCCEEDED, progress, _attr.in_key_id, _new_pbas.pbas[_lvl], _blk);
+			break;
+		}
+		Type_1_node &node { _t1_blks.node(_attr.in_vba, _lvl, _attr.in_vbd_degree) };
+		if (VERBOSE_READ_VBA)
+			log("    ", Branch_lvl_prefix("lvl ", _lvl, " node ", tree_node_index(_attr.in_vba, _lvl, _attr.in_vbd_degree), ": "), node);
+
+		_lvl--;
+		_new_pbas.pbas[_lvl] = node.pba;
+		if (_lvl)
+			_read_block.generate(_helper, READ_BLK, READ_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _blk);
+		else
+			if (node.gen == INITIAL_GENERATION) {
+				memset(&_blk, 0, BLOCK_SIZE);
+				_helper.state = DECRYPT_BLOCK_SUCCEEDED;
+				progress = true;
+			} else
+				_read_block.generate(_helper, READ_BLK, READ_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _blk);
+		break;
+	}
+	case DECRYPT_BLOCK: progress |= _decrypt_block.execute(crypto); break;
+	case DECRYPT_BLOCK_SUCCEEDED:
+
+		if (VERBOSE_READ_VBA)
+			log("    ", Branch_lvl_prefix("plaintext:  "), _blk, " ", hash(_blk));
+
+		client_data.supply_data(
+			{_attr.in_client_req_offset, _attr.in_client_req_tag, _new_pbas.pbas[_lvl], _attr.in_vba, _blk});
+
+		_helper.mark_succeeded(progress);
+		break;
+
+	default: break;
+	}
+	return progress;
+}
+
+
+
+
 void Virtual_block_device_channel::_read_vba(Client_data_interface &client_data, Block_io &block_io, Crypto &crypto, bool &progress)
 {
 	Request &req { *_req_ptr };
@@ -187,7 +278,7 @@ bool Virtual_block_device_channel::_check_and_decode_read_blk(bool &progress)
 
 Tree_node_index Virtual_block_device_channel::_node_idx(Tree_level_index lvl, Virtual_block_address vba) const
 {
-	return t1_node_idx_for_vba(vba, lvl, _req_ptr->_snap_degr);
+	return tree_node_index(vba, lvl, _req_ptr->_snap_degr);
 }
 
 
@@ -399,9 +490,14 @@ bool Virtual_block_device::execute(Rekey_vba &req, Block_io &block_io, Crypto &c
 	return req.execute(block_io, crypto, free_tree, meta_tree);
 }
 
+bool Virtual_block_device::execute(Read_vba &req, Client_data_interface &client_data, Block_io &block_io, Crypto &crypto)
+{
+	return req.execute(client_data, block_io, crypto);
+}
+
 Tree_node_index Virtual_block_device::Rekey_vba::_node_idx(Tree_level_index lvl, Virtual_block_address vba) const
 {
-	return t1_node_idx_for_vba(vba, lvl, _attr.in_vbd_degree);
+	return tree_node_index(vba, lvl, _attr.in_vbd_degree);
 }
 
 Type_1_node &Virtual_block_device::Rekey_vba::_node(Tree_level_index lvl, Virtual_block_address vba)

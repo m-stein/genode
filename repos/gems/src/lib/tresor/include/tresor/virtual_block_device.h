@@ -211,8 +211,11 @@ class Tresor::Virtual_block_device : public Module
 	public:
 
 		class Rekey_vba;
+		class Read_vba;
 
 		bool execute(Rekey_vba &, Block_io &, Crypto &, Free_tree &, Meta_tree &);
+
+		bool execute(Read_vba &, Client_data_interface &, Block_io &, Crypto &);
 
 		Virtual_block_device(Client_data_interface &, Block_io &, Crypto &, Free_tree &, Meta_tree &);
 
@@ -295,6 +298,56 @@ class Tresor::Virtual_block_device::Rekey_vba : Noncopyable
 		void print(Output &out) const { Genode::print(out, "rekey vba"); }
 
 		bool execute(Block_io &, Crypto &, Free_tree &, Meta_tree &);
+
+		bool complete() const { return _helper.complete(); }
+		bool success() const { return _helper.success(); }
+};
+
+class Tresor::Virtual_block_device::Read_vba : Noncopyable
+{
+	public:
+
+		using Module = Virtual_block_device;
+
+		struct Attr
+		{
+			Snapshot const &in_snap;
+			Virtual_block_address const in_vba;
+			Key_id const in_key_id;
+			Tree_degree const in_vbd_degree;
+			Request_offset const in_client_req_offset;
+			Request_tag const in_client_req_tag;
+		};
+
+	private:
+
+		enum State { INIT, COMPLETE, READ_BLK, READ_BLK_SUCCEEDED, DECRYPT_BLOCK, DECRYPT_BLOCK_SUCCEEDED };
+
+		using Helper = Request_helper<Read_vba, State>;
+
+		Helper _helper;
+		Attr const _attr;
+		Tree_level_index _lvl { 0 };
+		Type_1_node_block_walk _t1_blks { };
+		Hash _hash { };
+		Block _blk { };
+		Tree_walk_pbas _new_pbas { };
+		union {
+			Generatable_request<Helper, State, Block_io::Read> _read_block;
+			Generatable_request<Helper, State, Crypto::Decrypt> _decrypt_block;
+		};
+
+		bool _check_and_decode_read_blk(bool &);
+
+	public:
+
+		Read_vba(Attr const &attr) : _helper(*this), _attr(attr) { }
+
+		~Read_vba() { }
+
+		void print(Output &out) const { Genode::print(out, "rekey vba"); }
+
+		bool execute(Client_data_interface &, Block_io &, Crypto &);
 
 		bool complete() const { return _helper.complete(); }
 		bool success() const { return _helper.success(); }

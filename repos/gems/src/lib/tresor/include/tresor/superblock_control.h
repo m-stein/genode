@@ -69,7 +69,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 		using Request = Superblock_control_request;
 
 		enum State : State_uint {
-			INACTIVE, REQ_SUBMITTED, ACCESS_VBA_AT_VBD_SUCCEEDED,
+			INACTIVE, REQ_SUBMITTED, READ_VBA, READ_VBA_SUCCEEDED, ACCESS_VBA_AT_VBD_SUCCEEDED,
 			REKEY_VBA, REKEY_VBA_SUCCEEDED, GENERATE_KEY, GENERATE_KEY_SUCCEEDED,
 			EXTEND_TREE, EXTEND_TREE_SUCCEEDED, DECRYPT_KEY, DECRYPT_CURR_KEY_SUCCEEDED,
 			DECRYPT_PREV_KEY_SUCCEEDED, READ_SB_HASH, READ_SB_HASH_SUCCEEDED, ADD_KEY, ADD_PREV_KEY_SUCCEEDED,
@@ -110,6 +110,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 			Generatable_request<Superblock_control_channel, Secure_sb_state, Trust_anchor::Write_hash> _write_sb_hash;
 			Generatable_request<Superblock_control_channel, State, Free_tree::Extend_tree> _extend_free_tree;
 			Generatable_request<Superblock_control_channel, State, Virtual_block_device::Rekey_vba> _rekey_vba;
+			Generatable_request<Superblock_control_channel, State, Virtual_block_device::Read_vba> _read_vba;
 		};
 
 		NONCOPYABLE(Superblock_control_channel);
@@ -125,6 +126,8 @@ class Tresor::Superblock_control_channel : public Module_channel
 		void _mark_req_failed(bool &, char const *);
 
 		void _access_vba(Virtual_block_device_request::Type, bool &);
+
+		void _do_read_vba(Virtual_block_device &, Client_data_interface &, Block_io &, Crypto &, bool &);
 
 		void _generate_vbd_req(Virtual_block_device_request::Type, State_uint, bool &, Key_id, Virtual_block_address);
 
@@ -160,7 +163,8 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 	public:
 
-		void execute(Block_io &, Crypto &, Trust_anchor &, Free_tree &, Meta_tree &, Virtual_block_device &, bool &);
+		void execute(Block_io &, Crypto &, Trust_anchor &, Free_tree &, Meta_tree &, Virtual_block_device &,
+		             Client_data_interface &, bool &);
 
 		Superblock_control_channel(Module_channel_id, Superblock &, Superblock_index &, Generation &);
 
@@ -211,6 +215,7 @@ class Tresor::Superblock_control : public Module
 		Free_tree &_free_tree;
 		Meta_tree &_meta_tree;
 		Virtual_block_device &_vbd;
+		Client_data_interface &_client_data;
 
 		void execute(bool &) override;
 
@@ -226,7 +231,7 @@ class Tresor::Superblock_control : public Module
 
 		Superblock_info sb_info() const;
 
-		Superblock_control(Block_io &, Crypto &, Trust_anchor &, Free_tree &, Meta_tree &, Virtual_block_device &);
+		Superblock_control(Block_io &, Crypto &, Trust_anchor &, Free_tree &, Meta_tree &, Virtual_block_device &, Client_data_interface &);
 
 		static constexpr char const *name() { return "sb_control"; }
 };
