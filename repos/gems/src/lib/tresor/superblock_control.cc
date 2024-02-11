@@ -140,6 +140,37 @@ void Superblock_control_channel::_access_vba(Virtual_block_device_request::Type 
 }
 
 
+void Superblock_control_channel::
+_do_read_vba(Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Crypto &crypto, bool &progress)
+{
+	Request &req { *_req_ptr };
+	switch (_state) {
+	case REQ_SUBMITTED:
+	{
+		_sb.snapshots.discard_disposable_snapshots(_sb.last_secured_generation, _curr_gen);
+		if (req._vba > _sb.max_vba()) {
+			_mark_req_failed(progress, "VBA greater than max VBA");
+			break;
+		}
+		Key_id key_id { _sb.state == Superblock::REKEYING && req._vba >= _sb.rekeying_vba ?
+			_sb.previous_key.id : _sb.current_key.id };
+
+		_read_vba.generate(
+			*this, READ_VBA, READ_VBA_SUCCEEDED, progress, _sb.snapshots.items[_sb.curr_snap_idx], req._vba, key_id,
+			_sb.degree, _req_ptr->_client_req_offset, _req_ptr->_client_req_tag);
+
+		if (VERBOSE_READ_VBA)
+			log("read vba ", req._vba, ": snap ", _sb.curr_snap_idx, " key ", key_id, " gen ", _curr_gen);
+
+		break;
+	}
+	case READ_VBA: progress |= _read_vba.execute(vbd, client_data, block_io, crypto); break;
+	case READ_VBA_SUCCEEDED: _mark_req_successful(progress); break;
+	default: break;
+	}
+}
+
+
 void Superblock_control_channel::_tree_ext_step(Block_io &block_io, Trust_anchor &trust_anchor, Free_tree &free_tree, Meta_tree &meta_tree, Superblock::State sb_state, bool verbose, String<4> tree_name, bool &progress)
 {
 	Request &req { *_req_ptr };
@@ -578,13 +609,13 @@ void Superblock_control_channel::_deinitialize(Block_io &block_io, Crypto &crypt
 }
 
 
-void Superblock_control_channel::execute(Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor, Free_tree &free_tree, Meta_tree &meta_tree, Virtual_block_device &vbd, bool &progress)
+void Superblock_control_channel::execute(Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor, Free_tree &free_tree, Meta_tree &meta_tree, Virtual_block_device &vbd, Client_data_interface &client_data, bool &progress)
 {
 	if (!_req_ptr)
 		return;
 
 	switch (_req_ptr->_type) {
-	case Request::READ_VBA: _access_vba(Virtual_block_device_request::READ_VBA, progress); break;
+	case Request::READ_VBA: _do_read_vba(vbd, client_data, block_io, crypto, progress); break;
 	case Request::WRITE_VBA: _access_vba(Virtual_block_device_request::WRITE_VBA, progress); break;
 	case Request::SYNC: _sync(block_io, trust_anchor, progress); break;
 	case Request::INITIALIZE_REKEYING: _init_rekeying(block_io, crypto, trust_anchor, progress); break;
@@ -602,7 +633,7 @@ void Superblock_control_channel::execute(Block_io &block_io, Crypto &crypto, Tru
 void Superblock_control::execute(bool &progress)
 {
 	for_each_channel<Channel>([&] (Channel &chan) {
-		chan.execute(_block_io, _crypto, _trust_anchor, _free_tree, _meta_tree, _vbd, progress); });
+		chan.execute(_block_io, _crypto, _trust_anchor, _free_tree, _meta_tree, _vbd, _client_data, progress); });
 }
 
 
@@ -638,14 +669,15 @@ void Superblock_control_channel::_request_submitted(Module_request &req)
 }
 
 
-Superblock_control::Superblock_control(Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor, Free_tree &free_tree, Meta_tree &meta_tree, Virtual_block_device &vbd)
+Superblock_control::Superblock_control(Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor, Free_tree &free_tree,
+                                       Meta_tree &meta_tree, Virtual_block_device &vbd, Client_data_interface &client_data)
 :
 	_block_io(block_io),
 	_crypto(crypto),
 	_trust_anchor(trust_anchor),
 	_free_tree(free_tree),
 	_meta_tree(meta_tree),
-	_vbd(vbd)
+	_vbd(vbd), _client_data(client_data)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {

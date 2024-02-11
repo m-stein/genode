@@ -130,26 +130,12 @@ namespace Tresor {
 		return first_pba - 1;
 	}
 
-	inline Tree_node_index
-	t1_node_idx_for_vba_typed(Virtual_block_address vba, Tree_level_index lvl, Tree_degree degr)
+	inline Tree_node_index tree_node_index(Virtual_block_address vba, Tree_level_index lvl, Tree_degree degr)
 	{
 		uint64_t const degr_log_2 { log2(degr) };
 		uint64_t const degr_mask  { ((uint64_t)1 << degr_log_2) - 1 };
 		uint64_t const vba_rshift { degr_log_2 * ((uint64_t)lvl - 1) };
 		return (Tree_node_index)(degr_mask & (vba >> vba_rshift));
-	}
-
-	template <typename T1, typename T2, typename T3>
-	inline Tree_node_index t1_node_idx_for_vba(T1 vba, T2 lvl, T3 degr)
-	{
-		return t1_node_idx_for_vba_typed((Virtual_block_address)vba, (Tree_level_index)lvl, (Tree_degree)degr);
-	}
-
-	inline Tree_node_index t2_node_idx_for_vba(Virtual_block_address vba, Tree_degree degr)
-	{
-		uint64_t const degr_log_2 { log2(degr) };
-		uint64_t const degr_mask  { ((uint64_t)1 << degr_log_2) - 1 };
-		return (Tree_node_index)((uint64_t)vba & degr_mask);
 	}
 
 	inline Virtual_block_address vbd_node_min_vba(Tree_degree_log_2 vbd_degr_log_2,
@@ -649,6 +635,11 @@ struct Tresor::Type_1_node_block
 struct Tresor::Type_1_node_block_walk
 {
 	Type_1_node_block items[TREE_MAX_NR_OF_LEVELS] { };
+
+	Type_1_node &node(Virtual_block_address vba, Tree_level_index lvl, Tree_degree degr)
+	{
+		return items[lvl].nodes[tree_node_index(vba, lvl, degr)];
+	}
 };
 
 

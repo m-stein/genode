@@ -302,14 +302,14 @@ bool Free_tree::Extend_tree::execute(Block_io &block_io, Meta_tree &meta_tree)
 
 			_t1_blks[_lvl].decode_from_blk(_blk);
 			if (_lvl < _attr.in_out_ft.max_lvl) {
-				Tree_node_index node_idx = t1_node_idx_for_vba(_vba, _lvl + 1, _attr.in_out_ft.degree);
+				Tree_node_index node_idx = tree_node_index(_vba, _lvl + 1, _attr.in_out_ft.degree);
 				if (!check_hash(_blk, _t1_blks[_lvl + 1].nodes[node_idx].hash))
 					_helper.mark_failed(progress, "hash mismatch");
 			} else
 				if (!check_hash(_blk, _attr.in_out_ft.hash))
 					_helper.mark_failed(progress, "hash mismatch");
 
-			Tree_node_index node_idx = t1_node_idx_for_vba(_vba, _lvl, _attr.in_out_ft.degree);
+			Tree_node_index node_idx = tree_node_index(_vba, _lvl, _attr.in_out_ft.degree);
 			Type_1_node &t1_node = _t1_blks[_lvl].nodes[node_idx];
 			if (t1_node.valid()) {
 
@@ -334,11 +334,11 @@ bool Free_tree::Extend_tree::execute(Block_io &block_io, Meta_tree &meta_tree)
 			}
 		} else {
 			_t2_blk.decode_from_blk(_blk);
-			Tree_node_index t1_node_idx = t1_node_idx_for_vba(_vba, _lvl + 1, _attr.in_out_ft.degree);
+			Tree_node_index t1_node_idx = tree_node_index(_vba, _lvl + 1, _attr.in_out_ft.degree);
 			if (!check_hash(_blk, _t1_blks[_lvl + 1].nodes[t1_node_idx].hash))
 				_helper.mark_failed(progress, "hash mismatch");
 
-			Tree_node_index t2_node_idx = t2_node_idx_for_vba(_vba, _attr.in_out_ft.degree);
+			Tree_node_index t2_node_idx = tree_node_index(_vba, _lvl, _attr.in_out_ft.degree);
 			if (_t2_blk.nodes[t2_node_idx].valid())
 				_helper.mark_failed(progress, "t2 node valid");
 
@@ -380,7 +380,7 @@ bool Free_tree::Extend_tree::execute(Block_io &block_io, Meta_tree &meta_tree)
 
 		if (_lvl < _attr.in_out_ft.max_lvl) {
 			if (_lvl > 1) {
-				Tree_node_index node_idx = t1_node_idx_for_vba(_vba, _lvl + 1, _attr.in_out_ft.degree);
+				Tree_node_index node_idx = tree_node_index(_vba, _lvl + 1, _attr.in_out_ft.degree);
 				Type_1_node &t1_node { _t1_blks[_lvl + 1].nodes[node_idx] };
 				t1_node = { _new_pbas.pbas[_lvl], _attr.in_curr_gen };
 				calc_hash(_blk, t1_node.hash);
@@ -390,7 +390,7 @@ bool Free_tree::Extend_tree::execute(Block_io &block_io, Meta_tree &meta_tree)
 				_lvl++;
 				_generate_write_blk_req(progress);
 			} else {
-				Tree_node_index node_idx = t1_node_idx_for_vba(_vba, _lvl + 1, _attr.in_out_ft.degree);
+				Tree_node_index node_idx = tree_node_index(_vba, _lvl + 1, _attr.in_out_ft.degree);
 				Type_1_node &t1_node = _t1_blks[_lvl + 1].nodes[node_idx];
 				t1_node = { _new_pbas.pbas[_lvl], _attr.in_curr_gen };
 				calc_hash(_blk, t1_node.hash);
