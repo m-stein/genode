@@ -212,10 +212,11 @@ class Tresor::Virtual_block_device : public Module
 
 		class Rekey_vba;
 		class Read_vba;
+		class Write_vba;
 
 		bool execute(Rekey_vba &, Block_io &, Crypto &, Free_tree &, Meta_tree &);
-
 		bool execute(Read_vba &, Client_data_interface &, Block_io &, Crypto &);
+		bool execute(Write_vba &, Client_data_interface &, Block_io &, Free_tree &, Meta_tree &, Crypto &);
 
 		Virtual_block_device(Client_data_interface &, Block_io &, Crypto &, Free_tree &, Meta_tree &);
 
@@ -348,6 +349,82 @@ class Tresor::Virtual_block_device::Read_vba : Noncopyable
 		void print(Output &out) const { Genode::print(out, "rekey vba"); }
 
 		bool execute(Client_data_interface &, Block_io &, Crypto &);
+
+		bool complete() const { return _helper.complete(); }
+		bool success() const { return _helper.success(); }
+};
+
+class Tresor::Virtual_block_device::Write_vba : Noncopyable
+{
+	public:
+
+		using Module = Virtual_block_device;
+
+		struct Attr
+		{
+			Snapshot &in_out_snap;
+			Snapshots const &in_snapshots;
+			Tree_root &in_out_ft;
+			Tree_root &in_out_mt;
+			Virtual_block_address const in_vba;
+			Key_id const in_curr_key_id;
+			Key_id const in_prev_key_id;
+			Tree_degree const in_vbd_degree;
+			Virtual_block_address const in_vbd_highest_vba;
+			Request_offset const in_client_req_offset;
+			Request_tag const in_client_req_tag;
+			Generation const in_curr_gen;
+			Generation const in_last_secured_gen;
+			bool in_rekeying;
+			Virtual_block_address const in_rekeying_vba;
+		};
+
+	private:
+
+		enum State {
+			INIT, COMPLETE, READ_BLK, READ_BLK_SUCCEEDED, DECRYPT_BLOCK, DECRYPT_BLOCK_SUCCEEDED,
+			WRITE_BLK, WRITE_BLK_SUCCEEDED, ENCRYPT_BLOCK, ENCRYPT_BLOCK_SUCCEEDED, ALLOC_PBAS, ALLOC_PBAS_SUCCEEDED };
+
+		using Helper = Request_helper<Write_vba, State>;
+
+		Helper _helper;
+		Attr const _attr;
+		Tree_level_index _lvl { 0 };
+		Type_1_node_block_walk _t1_blks { };
+		Hash _hash { };
+		Type_1_node_walk _t1_nodes { };
+		Block _data_blk { };
+		Block _encoded_blk { };
+		Tree_walk_pbas _new_pbas { };
+		Number_of_blocks _num_blks { 0 };
+		Generation _free_gen { 0 };
+		union {
+			Generatable_request<Helper, State, Block_io::Read> _read_block;
+			Generatable_request<Helper, State, Crypto::Decrypt> _decrypt_block;
+			Generatable_request<Helper, State, Crypto::Encrypt> _encrypt_block;
+			Generatable_request<Helper, State, Free_tree::Allocate_pbas> _alloc_pbas;
+			Generatable_request<Helper, State, Block_io::Write> _write_block;
+		};
+
+		bool _check_and_decode_read_blk(bool &);
+
+		void _set_new_pbas_and_num_blks_for_alloc();
+
+		void _update_nodes_of_branch_of_written_vba();
+
+		void _generate_ft_alloc_req_for_write_vba(bool &);
+
+		void _generate_write_blk_req(bool &);
+
+	public:
+
+		Write_vba(Attr const &attr) : _helper(*this), _attr(attr) { }
+
+		~Write_vba() { }
+
+		void print(Output &out) const { Genode::print(out, "rekey vba"); }
+
+		bool execute(Client_data_interface &, Block_io &, Free_tree &, Meta_tree &, Crypto &);
 
 		bool complete() const { return _helper.complete(); }
 		bool success() const { return _helper.success(); }
