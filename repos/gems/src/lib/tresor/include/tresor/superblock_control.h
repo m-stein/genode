@@ -71,7 +71,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 		enum State : State_uint {
 			INACTIVE, REQ_SUBMITTED, READ_VBA, READ_VBA_SUCCEEDED, WRITE_VBA, WRITE_VBA_SUCCEEDED,
 			REKEY_VBA, REKEY_VBA_SUCCEEDED, GENERATE_KEY, GENERATE_KEY_SUCCEEDED,
-			EXTEND_TREE, EXTEND_TREE_SUCCEEDED, DECRYPT_KEY, DECRYPT_CURR_KEY_SUCCEEDED,
+			EXTEND_VBD, EXTEND_FREE_TREE, EXTEND_TREE_SUCCEEDED, DECRYPT_KEY, DECRYPT_CURR_KEY_SUCCEEDED,
 			DECRYPT_PREV_KEY_SUCCEEDED, READ_SB_HASH, READ_SB_HASH_SUCCEEDED, ADD_KEY, ADD_PREV_KEY_SUCCEEDED,
 			ADD_CURR_KEY_SUCCEEDED, REMOVE_KEY, REMOVE_PREV_KEY_SUCCEEDED, REMOVE_CURR_KEY_SUCCEEDED,
 			READ_BLOCK, READ_SB_SUCCEEDED, REQ_COMPLETE, REQ_GENERATED, SECURE_SB, SECURE_SB_SUCCEEDED };
@@ -112,6 +112,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 			Generatable_request<Superblock_control_channel, State, Virtual_block_device::Rekey_vba> _rekey_vba;
 			Generatable_request<Superblock_control_channel, State, Virtual_block_device::Read_vba> _read_vba;
 			Generatable_request<Superblock_control_channel, State, Virtual_block_device::Write_vba> _write_vba;
+			Generatable_request<Superblock_control_channel, State, Virtual_block_device::Extend_tree> _extend_vbd;
 		};
 
 		NONCOPYABLE(Superblock_control_channel);
@@ -130,8 +131,6 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 		void _do_read_vba(Virtual_block_device &, Client_data_interface &, Block_io &, Crypto &, bool &);
 
-		void _generate_vbd_req(Virtual_block_device_request::Type, State_uint, bool &, Key_id, Virtual_block_address);
-
 		template <typename REQUEST, typename... ARGS>
 		void _generate_req(State_uint complete_state, bool &progress, ARGS &&... args)
 		{
@@ -146,7 +145,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 
 		void _secure_sb(Block_io &, Trust_anchor &, bool &);
 
-		void _tree_ext_step(Block_io &, Trust_anchor &, Free_tree &, Meta_tree &, Superblock::State, bool, String<4>, bool &);
+		void _tree_ext_step(Block_io &, Trust_anchor &, Free_tree &, Meta_tree &, Virtual_block_device &, Superblock::State, bool, bool &);
 
 		void _do_rekey_vba(Block_io &, Crypto &, Trust_anchor &, Free_tree &, Meta_tree &, Virtual_block_device &, bool &);
 
