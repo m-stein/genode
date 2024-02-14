@@ -87,27 +87,6 @@ void Superblock_control_channel::_generated_req_completed(State_uint state_uint)
 }
 
 
-void Superblock_control_channel::
-_generate_vbd_req(Virtual_block_device_request::Type type, State_uint complete_state, bool
-                  &progress, Key_id key_id, Virtual_block_address vba = INVALID_VBA)
-{
-	if (_state == SECURE_SB)
-		_secure_sb_state = SECURE_SB_REQ_GENERATED;
-	else
-		_state = REQ_GENERATED;
-
-	_state = REQ_GENERATED;
-	_pba = _sb.first_pba + _sb.nr_of_pbas;
-	_ft.construct(_sb.free_number, _sb.free_gen, _sb.free_hash, _sb.free_max_level, _sb.free_degree, _sb.free_leaves);
-	_mt.construct(_sb.meta_number, _sb.meta_gen, _sb.meta_hash, _sb.meta_max_level, _sb.meta_degree, _sb.meta_leaves);
-	generate_req<Virtual_block_device_request>(
-		complete_state, progress, type, _req_ptr->_client_req_offset, _req_ptr->_client_req_tag,
-		_sb.last_secured_generation, *_ft, *_mt, _sb.degree, _sb.max_vba(), _sb.state == Superblock::REKEYING,
-		vba, _sb.curr_snap_idx, _sb.snapshots, _sb.degree, _sb.previous_key.id, key_id,
-		_curr_gen, _pba, _gen_req_success, _nr_of_leaves, _req_ptr->_nr_of_blks, _sb.rekeying_vba);
-}
-
-
 void Superblock_control_channel::_do_write_vba(Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Free_tree &free_tree, Meta_tree &meta_tree, Crypto &crypto, bool &progress)
 {
 	Request &req { *_req_ptr };
@@ -179,9 +158,14 @@ _do_read_vba(Virtual_block_device &vbd, Client_data_interface &client_data, Bloc
 }
 
 
-void Superblock_control_channel::_tree_ext_step(Block_io &block_io, Trust_anchor &trust_anchor, Free_tree &free_tree, Meta_tree &meta_tree, Superblock::State sb_state, bool verbose, String<4> tree_name, bool &progress)
+void Superblock_control_channel::_tree_ext_step(Block_io &block_io, Trust_anchor &trust_anchor, Free_tree &free_tree, Meta_tree &meta_tree, Virtual_block_device &vbd, Superblock::State sb_state, bool verbose, bool &progress)
 {
 	Request &req { *_req_ptr };
+
+	String<4> const tree_name =
+		sb_state == Superblock::EXTENDING_VBD ? "vbd" :
+		sb_state == Superblock::EXTENDING_FT ? "ft" : "?";
+
 	switch (_state) {
 	case REQ_SUBMITTED:
 	{
@@ -193,6 +177,7 @@ void Superblock_control_channel::_tree_ext_step(Block_io &block_io, Trust_anchor
 			_mark_req_failed(progress, "check number of unused blocks");
 			break;
 		}
+
 		if (_sb.state == Superblock::NORMAL) {
 
 			req._client_req_finished = false;
@@ -220,30 +205,35 @@ void Superblock_control_channel::_tree_ext_step(Block_io &block_io, Trust_anchor
 
 			req._nr_of_blks = _sb.resizing_nr_of_pbas;
 			_pba = _sb.first_pba + _sb.nr_of_pbas;
-			if (tree_name == "vbd") {
 
-				_generate_vbd_req(
-					Virtual_block_device_request::EXTENSION_STEP,
-					EXTEND_TREE_SUCCEEDED, progress, _sb.current_key.id);
+			_mt.construct(
+				_sb.free_number, _sb.free_gen, _sb.free_hash, _sb.free_max_level, _sb.free_degree,
+				_sb.free_leaves);
 
-			} else if (tree_name == "ft") {
+			_mt.construct(
+				_sb.meta_number, _sb.meta_gen, _sb.meta_hash, _sb.meta_max_level, _sb.meta_degree,
+				_sb.meta_leaves);
 
-				_mt.construct(
-					_sb.free_number, _sb.free_gen, _sb.free_hash, _sb.free_max_level, _sb.free_degree,
-					_sb.free_leaves);
-
-				_mt.construct(
-					_sb.meta_number, _sb.meta_gen, _sb.meta_hash, _sb.meta_max_level, _sb.meta_degree,
-					_sb.meta_leaves);
-
-				_extend_free_tree.generate(*this, EXTEND_TREE, EXTEND_TREE_SUCCEEDED, progress, _curr_gen, *_ft, *_mt, _pba, req._nr_of_blks);
+			switch (sb_state) {
+			case Superblock::EXTENDING_VBD:
+				_extend_vbd.generate(
+					*this, EXTEND_VBD, EXTEND_TREE_SUCCEEDED, progress, _nr_of_leaves, _sb.snapshots,
+					_sb.degree, _curr_gen, _sb.last_secured_generation, _pba, req._nr_of_blks, *_ft,
+					*_mt, _sb.degree, _sb.max_vba(), _sb.previous_key.id, _sb.current_key.id,
+					_sb.state == Superblock::REKEYING, _sb.rekeying_vba);
+				break;
+			case Superblock::EXTENDING_FT:
+				_extend_free_tree.generate(*this, EXTEND_FREE_TREE, EXTEND_TREE_SUCCEEDED, progress, _curr_gen, *_ft, *_mt, _pba, req._nr_of_blks);
+				break;
+			default: ASSERT_NEVER_REACHED;
 			}
 		} else
 			_mark_req_failed(progress, "check superblock state");
 
 		break;
 	}
-	case EXTEND_TREE: progress |= _extend_free_tree.execute(free_tree, block_io, meta_tree); break;
+	case EXTEND_VBD: progress |= _extend_vbd.execute(vbd, block_io, free_tree, meta_tree); break;
+	case EXTEND_FREE_TREE: progress |= _extend_free_tree.execute(free_tree, block_io, meta_tree); break;
 	case EXTEND_TREE_SUCCEEDED:
 	{
 		if (req._nr_of_blks >= _sb.resizing_nr_of_pbas) {
@@ -628,8 +618,8 @@ void Superblock_control_channel::execute(Block_io &block_io, Crypto &crypto, Tru
 	case Request::SYNC: _sync(block_io, trust_anchor, progress); break;
 	case Request::INITIALIZE_REKEYING: _init_rekeying(block_io, crypto, trust_anchor, progress); break;
 	case Request::REKEY_VBA: _do_rekey_vba(block_io, crypto, trust_anchor, free_tree, meta_tree, vbd, progress); break;
-	case Request::VBD_EXTENSION_STEP: _tree_ext_step(block_io, trust_anchor, free_tree, meta_tree, Superblock::EXTENDING_VBD, VERBOSE_VBD_EXTENSION, "vbd", progress); break;
-	case Request::FT_EXTENSION_STEP: _tree_ext_step(block_io, trust_anchor, free_tree, meta_tree,  Superblock::EXTENDING_FT, VERBOSE_FT_EXTENSION, "ft", progress); break;
+	case Request::VBD_EXTENSION_STEP: _tree_ext_step(block_io, trust_anchor, free_tree, meta_tree, vbd, Superblock::EXTENDING_VBD, VERBOSE_VBD_EXTENSION, progress); break;
+	case Request::FT_EXTENSION_STEP: _tree_ext_step(block_io, trust_anchor, free_tree, meta_tree, vbd, Superblock::EXTENDING_FT, VERBOSE_FT_EXTENSION, progress); break;
 	case Request::CREATE_SNAPSHOT: _create_snap(block_io, trust_anchor, progress); break;
 	case Request::DISCARD_SNAPSHOT: _discard_snap(block_io, trust_anchor, progress); break;
 	case Request::INITIALIZE: _initialize(block_io, crypto, trust_anchor, progress); break;
