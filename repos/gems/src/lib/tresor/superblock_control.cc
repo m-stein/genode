@@ -158,6 +158,36 @@ _do_read_vba(Virtual_block_device &vbd, Client_data_interface &client_data, Bloc
 }
 
 
+bool Superblock_control::Read_vba::execute(Execute_attr const &attr)
+{
+	bool progress = false;
+	switch (_helper.state) {
+	case INIT:
+	{
+		if (_attr.in_vba > attr.sb.max_vba()) {
+			_helper.mark_failed(progress, "VBA greater than max VBA");
+			break;
+		}
+		Key_id key_id { attr.sb.state == Superblock::REKEYING && _attr.in_vba >= attr.sb.rekeying_vba ?
+			attr.sb.previous_key.id : attr.sb.current_key.id };
+
+		_read_vba.generate(
+			_helper, READ_VBA, READ_VBA_SUCCEEDED, progress, attr.sb.snapshots.items[attr.sb.curr_snap_idx], _attr.in_vba, key_id,
+			attr.sb.degree, _attr.in_client_req_offset, _attr.in_client_req_tag);
+
+		if (VERBOSE_READ_VBA)
+			log("read vba ", _attr.in_vba, ": snap ", attr.sb.curr_snap_idx, " key ", key_id, " gen ", attr.curr_gen);
+
+		break;
+	}
+	case READ_VBA: progress |= _read_vba.execute(attr.vbd, attr.client_data, attr.block_io, attr.crypto); break;
+	case READ_VBA_SUCCEEDED: _helper.mark_succeeded(progress); break;
+	default: break;
+	}
+	return progress;
+}
+
+
 void Superblock_control_channel::_tree_ext_step(Block_io &block_io, Trust_anchor &trust_anchor, Free_tree &free_tree, Meta_tree &meta_tree, Virtual_block_device &vbd, Superblock::State sb_state, bool verbose, bool &progress)
 {
 	Request &req { *_req_ptr };

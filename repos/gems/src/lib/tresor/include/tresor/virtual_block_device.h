@@ -153,7 +153,7 @@ class Tresor::Virtual_block_device::Read_vba : Noncopyable
 
 		~Read_vba() { }
 
-		void print(Output &out) const { Genode::print(out, "rekey vba"); }
+		void print(Output &out) const { Genode::print(out, "read vba"); }
 
 		bool execute(Client_data_interface &, Block_io &, Crypto &);
 
@@ -229,7 +229,7 @@ class Tresor::Virtual_block_device::Write_vba : Noncopyable
 
 		~Write_vba() { }
 
-		void print(Output &out) const { Genode::print(out, "rekey vba"); }
+		void print(Output &out) const { Genode::print(out, "write vba"); }
 
 		bool execute(Client_data_interface &, Block_io &, Free_tree &, Meta_tree &, Crypto &);
 
