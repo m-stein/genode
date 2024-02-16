@@ -221,6 +221,53 @@ class Tresor::Superblock_control : public Module
 
 	public:
 
+		class Read_vba : Noncopyable
+		{
+			public:
+
+				using Module = Superblock_control;
+
+				struct Attr
+				{
+					Virtual_block_address const in_vba;
+					Request_offset const in_client_req_offset;
+					Request_tag const in_client_req_tag;
+				};
+
+				struct Execute_attr
+				{
+					Virtual_block_device &vbd;
+					Client_data_interface &client_data;
+					Block_io &block_io;
+					Crypto &crypto;
+					Superblock const sb;
+					Generation const curr_gen;
+				};
+
+			private:
+
+				enum State { INIT, COMPLETE, READ_VBA, READ_VBA_SUCCEEDED };
+
+				using Helper = Request_helper<Read_vba, State>;
+
+				Helper _helper;
+				Attr const _attr;
+				Generatable_request<Helper, State, Virtual_block_device::Read_vba> _read_vba { };
+
+			public:
+
+				Read_vba(Attr const &attr) : _helper(*this), _attr(attr) { }
+
+				~Read_vba() { }
+
+				void print(Output &out) const { Genode::print(out, "read vba"); }
+
+				bool execute(Execute_attr const &);
+
+				bool complete() const { return _helper.complete(); }
+				bool success() const { return _helper.success(); }
+		};
+
 		Virtual_block_address max_vba() const { return _sb.valid() ? _sb.max_vba() : 0; };
 
 		Virtual_block_address resizing_nr_of_pbas() const { return _sb.resizing_nr_of_pbas; }
@@ -232,6 +279,11 @@ class Tresor::Superblock_control : public Module
 		Superblock_info sb_info() const;
 
 		Superblock_control(Block_io &, Crypto &, Trust_anchor &, Free_tree &, Meta_tree &, Virtual_block_device &, Client_data_interface &);
+
+		bool execute(Read_vba &req, Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Crypto &crypto)
+		{
+			return req.execute({ vbd, client_data, block_io, crypto, _sb, _curr_gen});
+		}
 
 		static constexpr char const *name() { return "sb_control"; }
 };

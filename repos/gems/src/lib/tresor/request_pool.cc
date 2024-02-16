@@ -87,6 +87,24 @@ void Request_pool_channel::_access_vbas(bool &progress, Superblock_control_reque
 }
 
 
+void Request_pool_channel::_read_vbas(Superblock_control &sb_control, Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Crypto &crypto, bool &progress)
+{
+	switch (_state) {
+	case REQ_SUBMITTED:
+		_read_vba.generate(*this, READ_VBA, READ_VBA_SUCCEEDED, progress, _req_ptr->_vba + _num_blks, _req_ptr->_offset, _req_ptr->_tag);
+		break;
+	case READ_VBA: progress |= _read_vba.execute(sb_control, vbd, client_data, block_io, crypto); break;
+	case READ_VBA_SUCCEEDED:
+		if (++_num_blks < _req_ptr->_count)
+			_read_vba.generate(*this, READ_VBA, READ_VBA_SUCCEEDED, progress, _req_ptr->_vba + _num_blks, _req_ptr->_offset, _req_ptr->_tag);
+		else
+			_mark_req_successful(progress);
+		break;
+	default: break;
+	}
+}
+
+
 void Request_pool_channel::_mark_req_successful(bool &progress)
 {
 	_req_ptr->_success = true;
@@ -238,14 +256,14 @@ void Request_pool_channel::_forward_to_sb_ctrl(bool &progress, Superblock_contro
 void Request_pool::execute(bool &progress)
 {
 	if (!_chan_queue.empty())
-		_chan_queue.head().execute(progress);
+		_chan_queue.head().execute(_sb_control, _vbd, _client_data, _block_io, _crypto, progress);
 }
 
 
-void Request_pool_channel::execute(bool &progress)
+void Request_pool_channel::execute(Superblock_control &sb_control, Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Crypto &crypto, bool &progress)
 {
 	switch (_req_ptr->_op) {
-	case Request::READ: _access_vbas(progress, Superblock_control_request::READ_VBA); break;
+	case Request::READ: _read_vbas(sb_control, vbd, client_data, block_io, crypto, progress); break;
 	case Request::WRITE: _access_vbas(progress, Superblock_control_request::WRITE_VBA); break;
 	case Request::SYNC: _forward_to_sb_ctrl(progress, Superblock_control_request::SYNC); break;
 	case Request::REKEY: _rekey(progress); break;
@@ -260,7 +278,10 @@ void Request_pool_channel::execute(bool &progress)
 }
 
 
-Request_pool::Request_pool()
+Request_pool::Request_pool(Superblock_control &sb_control, Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Crypto &crypto)
+:
+	_sb_control(sb_control), _vbd(vbd), _client_data(client_data), _block_io(block_io),
+	_crypto(crypto)
 {
 	for (Module_channel_id id { 0 }; id < NUM_CHANNELS; id++) {
 		_channels[id].construct(id, _chan_queue);
@@ -280,6 +301,17 @@ void Request_pool_channel::_generated_req_completed(State_uint state_uint)
 		_req_ptr = nullptr;
 	} else
 		_state = (State)state_uint;
+}
+
+
+void Request_pool_channel::generated_req_failed(bool &progress)
+{
+	error("request_pool: request (", *_req_ptr, ") failed because generated request failed)");
+	_req_ptr->_success = false;
+	_state = REQ_COMPLETE;
+	_chan_queue.dequeue(*this);
+	_req_ptr = nullptr;
+	progress = true;
 }
 
 

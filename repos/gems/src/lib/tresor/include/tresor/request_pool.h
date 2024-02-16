@@ -61,11 +61,15 @@ class Tresor::Request : public Module_request
 
 class Tresor::Request_pool_channel : public Module_channel
 {
+	public:
+
+		using Module = Request_pool;
+
 	private:
 
 		enum State : State_uint {
 			INVALID, REQ_SUBMITTED, REQ_RESUMED, REQ_GENERATED, REKEY_INIT_SUCCEEDED, PREPONED_REQUESTS_COMPLETE,
-			TREE_EXTENSION_STEP_SUCCEEDED, FORWARD_TO_SB_CTRL_SUCCEEDED, ACCESS_VBA_AT_SB_CTRL_SUCCEEDED,
+			TREE_EXTENSION_STEP_SUCCEEDED, FORWARD_TO_SB_CTRL_SUCCEEDED, READ_VBA, READ_VBA_SUCCEEDED, ACCESS_VBA_AT_SB_CTRL_SUCCEEDED,
 			REKEY_VBA_SUCCEEDED, INITIALIZE_SB_CTRL_SUCCEEDED, DEINITIALIZE_SB_CTRL_SUCCEEDED, REQ_COMPLETE };
 
 		State _state { INVALID };
@@ -76,6 +80,7 @@ class Tresor::Request_pool_channel : public Module_channel
 		bool _generated_req_success { false };
 		Request_pool_channel_queue &_chan_queue;
 		Request *_req_ptr { nullptr };
+		Generatable_request<Request_pool_channel, State, Superblock_control::Read_vba> _read_vba { };
 
 		NONCOPYABLE(Request_pool_channel);
 
@@ -86,6 +91,8 @@ class Tresor::Request_pool_channel : public Module_channel
 		bool _request_complete() override { return _state == REQ_COMPLETE; }
 
 		void _access_vbas(bool &, Superblock_control_request::Type);
+
+		void _read_vbas(Superblock_control &, Virtual_block_device &, Client_data_interface &, Block_io &, Crypto &, bool &);
 
 		void _forward_to_sb_ctrl(bool &, Superblock_control_request::Type);
 
@@ -109,7 +116,21 @@ class Tresor::Request_pool_channel : public Module_channel
 
 		Request_pool_channel(Module_channel_id id, Request_pool_channel_queue &chan_queue) : Module_channel(REQUEST_POOL, id), _chan_queue(chan_queue) { }
 
-		void execute(bool &);
+		void execute(Superblock_control &, Virtual_block_device &, Client_data_interface &, Block_io &, Crypto &, bool &);
+
+		void generated_req_failed(bool &progress);
+
+		void generated_req_succeeded(State target_state, bool &progress)
+		{
+			_state = target_state;
+			progress = true;
+		}
+
+		void req_generated(State target_state, bool &progress)
+		{
+			_state = target_state;
+			progress = true;
+		}
 };
 
 
@@ -169,12 +190,19 @@ class Tresor::Request_pool : public Module
 		Request _init_req { INVALID_MODULE_ID, INVALID_MODULE_CHANNEL_ID, Request::INITIALIZE, 0, 0, 0, 0, 0, _init_gen, _init_success };
 		Constructible<Channel> _channels[NUM_CHANNELS] { };
 		Request_pool_channel_queue _chan_queue { };
+		Superblock_control &_sb_control;
+		Virtual_block_device &_vbd;
+		Client_data_interface &_client_data;
+		Block_io &_block_io;
+		Crypto &_crypto;
 
 	public:
 
 		void execute(bool &) override;
 
-		Request_pool();
+		Request_pool(Superblock_control &, Virtual_block_device &, Client_data_interface &, Block_io &, Crypto &);
+
+		static constexpr char const *name() { return "request_pool"; }
 };
 
 #endif /* _TRESOR__REQUEST_POOL_H_ */
