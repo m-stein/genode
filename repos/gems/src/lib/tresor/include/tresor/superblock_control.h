@@ -205,6 +205,59 @@ class Tresor::Superblock_control : public Module
 
 		using Channel = Superblock_control_channel;
 
+		class Secure_superblock : Noncopyable
+		{
+			public:
+
+				using Module = Superblock_control;
+
+				struct Attr { };
+
+				struct Execute_attr
+				{
+					Superblock &sb;
+					Superblock_index &sb_idx;
+					Generation &curr_gen;
+					Block_io &block_io;
+					Trust_anchor &trust_anchor;
+				};
+
+			private:
+
+				enum State {
+					INIT, COMPLETE, WRITE_BLOCK, WRITE_BLOCK_SUCCEEDED, SYNC_BLOCK_IO, SYNC_BLOCK_IO_SUCCEEDED,
+					ENCRYPT_KEY, ENCRYPT_CURR_KEY_SUCCEEDED, ENCRYPT_PREV_KEY_SUCCEEDED, WRITE_SB_HASH,
+					WRITE_SB_HASH_SUCCEEDED };
+
+				using Helper = Request_helper<Secure_superblock, State>;
+
+				Helper _helper;
+				Attr const _attr;
+				Superblock _sb_ciphertext { };
+				Block _blk { };
+				Hash _hash { };
+				Generation _gen { };
+				union {
+					Generatable_request<Helper, State, Block_io::Write> _write_block;
+					Generatable_request<Helper, State, Block_io::Sync> _sync_block_io;
+					Generatable_request<Helper, State, Trust_anchor::Encrypt_key> _encrypt_key;
+					Generatable_request<Helper, State, Trust_anchor::Write_hash> _write_sb_hash;
+				};
+
+			public:
+
+				Secure_superblock(Attr const &attr) : _helper(*this), _attr(attr) { }
+
+				~Secure_superblock() { }
+
+				void print(Output &out) const { Genode::print(out, "secure sb"); }
+
+				bool execute(Execute_attr const &);
+
+				bool complete() const { return _helper.complete(); }
+				bool success() const { return _helper.success(); }
+		};
+
 		Superblock _sb { };
 		Superblock_index _sb_idx { INVALID_SB_IDX };
 		Generation _curr_gen { INVALID_GENERATION };
@@ -268,6 +321,50 @@ class Tresor::Superblock_control : public Module
 				bool success() const { return _helper.success(); }
 		};
 
+		class Discard_snapshot : Noncopyable
+		{
+			public:
+
+				using Module = Superblock_control;
+
+				struct Attr
+				{
+					Generation &in_out_gen;
+				};
+
+				struct Execute_attr
+				{
+					Superblock &sb;
+					Generation const curr_gen;
+					Block_io &block_io;
+					Trust_anchor &trust_anchor;
+					Superblock_control &sb_control;
+				};
+
+			private:
+
+				enum State { INIT, COMPLETE, SECURE_SB, SECURE_SB_SUCCEEDED };
+
+				using Helper = Request_helper<Discard_snapshot, State>;
+
+				Helper _helper;
+				Attr const _attr;
+				Generatable_request<Helper, State, Secure_superblock> _secure_sb { };
+
+			public:
+
+				Discard_snapshot(Attr const &attr) : _helper(*this), _attr(attr) { }
+
+				~Discard_snapshot() { }
+
+				void print(Output &out) const { Genode::print(out, "discard snapshot"); }
+
+				bool execute(Execute_attr const &);
+
+				bool complete() const { return _helper.complete(); }
+				bool success() const { return _helper.success(); }
+		};
+
 		Virtual_block_address max_vba() const { return _sb.valid() ? _sb.max_vba() : 0; };
 
 		Virtual_block_address resizing_nr_of_pbas() const { return _sb.resizing_nr_of_pbas; }
@@ -280,9 +377,19 @@ class Tresor::Superblock_control : public Module
 
 		Superblock_control(Block_io &, Crypto &, Trust_anchor &, Free_tree &, Meta_tree &, Virtual_block_device &, Client_data_interface &);
 
+		bool execute(Secure_superblock &req, Block_io &block_io, Trust_anchor &trust_anchor)
+		{
+			return req.execute({_sb, _sb_idx, _curr_gen, block_io, trust_anchor });
+		}
+
+		bool execute(Discard_snapshot &req, Block_io &block_io, Trust_anchor &trust_anchor)
+		{
+			return req.execute({_sb, _curr_gen, block_io, trust_anchor, *this });
+		}
+
 		bool execute(Read_vba &req, Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Crypto &crypto)
 		{
-			return req.execute({ vbd, client_data, block_io, crypto, _sb, _curr_gen});
+			return req.execute({ vbd, client_data, block_io, crypto, _sb, _curr_gen });
 		}
 
 		static constexpr char const *name() { return "sb_control"; }

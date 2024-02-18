@@ -366,6 +366,66 @@ void Superblock_control_channel::_start_secure_sb(bool &progress)
 }
 
 
+bool Superblock_control::Secure_superblock::execute(Execute_attr const &attr)
+{
+	bool progress = false;
+	switch (_helper.state) {
+	case INIT:
+
+		attr.sb.curr_snap().gen = attr.curr_gen;
+		_sb_ciphertext.copy_all_but_key_values_from(attr.sb);
+		_encrypt_key.generate(
+			_helper, ENCRYPT_KEY, ENCRYPT_CURR_KEY_SUCCEEDED, progress, attr.sb.current_key.value, _sb_ciphertext.current_key.value);
+		break;
+
+	case ENCRYPT_KEY: progress |= _encrypt_key.execute(attr.trust_anchor); break;
+	case ENCRYPT_CURR_KEY_SUCCEEDED:
+
+		if (attr.sb.state == Superblock::REKEYING)
+			_encrypt_key.generate(
+				_helper, ENCRYPT_KEY, ENCRYPT_PREV_KEY_SUCCEEDED, progress, attr.sb.previous_key.value, _sb_ciphertext.previous_key.value);
+		else {
+			_sb_ciphertext.encode_to_blk(_blk);
+			_write_block.generate(_helper, WRITE_BLOCK, WRITE_BLOCK_SUCCEEDED, progress, attr.sb_idx, _blk);
+		}
+		break;
+
+	case ENCRYPT_PREV_KEY_SUCCEEDED:
+
+		_sb_ciphertext.encode_to_blk(_blk);
+		_write_block.generate(_helper, WRITE_BLOCK, WRITE_BLOCK_SUCCEEDED, progress, attr.sb_idx, _blk);
+		break;
+
+	case WRITE_BLOCK: progress |= _write_block.execute(attr.block_io); break;
+	case WRITE_BLOCK_SUCCEEDED: _sync_block_io.generate(_helper, SYNC_BLOCK_IO, SYNC_BLOCK_IO_SUCCEEDED, progress); break;
+	case SYNC_BLOCK_IO: progress |= _sync_block_io.execute(attr.block_io); break;
+	case SYNC_BLOCK_IO_SUCCEEDED:
+	{
+		_sb_ciphertext.encode_to_blk(_blk);
+		calc_hash(_blk, _hash);
+		_write_sb_hash.generate(_helper, WRITE_SB_HASH, WRITE_SB_HASH_SUCCEEDED, progress, _hash);
+		if (attr.sb_idx < MAX_SUPERBLOCK_INDEX)
+			attr.sb_idx++;
+		else
+			attr.sb_idx = 0;
+
+		_gen = attr.curr_gen;
+		attr.curr_gen++;
+		break;
+	}
+	case WRITE_SB_HASH: progress |= _write_sb_hash.execute(attr.trust_anchor); break;
+	case WRITE_SB_HASH_SUCCEEDED:
+
+		attr.sb.last_secured_generation = _gen;
+		_helper.mark_succeeded(progress);
+		break;
+
+	default: break;
+	}
+	return progress;
+}
+
+
 void Superblock_control_channel::_secure_sb(Block_io &block_io, Trust_anchor &trust_anchor, bool &progress)
 {
 	switch (_secure_sb_state) {
@@ -462,6 +522,33 @@ void Superblock_control_channel::_init_rekeying(Block_io &block_io, Crypto &cryp
 	case SECURE_SB_SUCCEEDED: _mark_req_successful(progress); break;
 	default: break;
 	}
+}
+
+
+bool Superblock_control::Discard_snapshot::execute(Execute_attr const &attr)
+{
+	bool progress = false;
+	switch (_helper.state) {
+	case INIT:
+
+		for (Snapshot &snap : attr.sb.snapshots.items)
+			if (snap.valid && snap.gen == _attr.in_out_gen && snap.keep)
+				snap.keep = false;
+
+		attr.sb.snapshots.discard_disposable_snapshots(attr.sb.last_secured_generation, attr.curr_gen);
+		_secure_sb.generate(_helper, SECURE_SB, SECURE_SB_SUCCEEDED, progress);
+		break;
+
+	case SECURE_SB: progress |= _secure_sb.execute(attr.sb_control, attr.block_io, attr.trust_anchor); break;
+	case SECURE_SB_SUCCEEDED:
+
+		_attr.in_out_gen = attr.sb.last_secured_generation;
+		_helper.mark_succeeded(progress);
+		break;
+
+	default: break;
+	}
+	return progress;
 }
 
 

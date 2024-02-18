@@ -256,12 +256,13 @@ void Request_pool_channel::_forward_to_sb_ctrl(bool &progress, Superblock_contro
 void Request_pool::execute(bool &progress)
 {
 	if (!_chan_queue.empty())
-		_chan_queue.head().execute(_sb_control, _vbd, _client_data, _block_io, _crypto, progress);
+		_chan_queue.head().execute(_sb_control, _trust_anchor, _vbd, _client_data, _block_io, _crypto, progress);
 }
 
 
-void Request_pool_channel::execute(Superblock_control &sb_control, Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Crypto &crypto, bool &progress)
+void Request_pool_channel::execute(Superblock_control &sb_control, Trust_anchor &trust_anchor, Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Crypto &crypto, bool &progress)
 {
+	Request &req { *_req_ptr };
 	switch (_req_ptr->_op) {
 	case Request::READ: _read_vbas(sb_control, vbd, client_data, block_io, crypto, progress); break;
 	case Request::WRITE: _access_vbas(progress, Superblock_control_request::WRITE_VBA); break;
@@ -272,15 +273,24 @@ void Request_pool_channel::execute(Superblock_control &sb_control, Virtual_block
 	case Request::INITIALIZE: _initialize(progress); break;
 	case Request::DEINITIALIZE: _forward_to_sb_ctrl(progress, Superblock_control_request::DEINITIALIZE); break;
 	case Request::CREATE_SNAPSHOT: _forward_to_sb_ctrl(progress, Superblock_control_request::CREATE_SNAPSHOT); break;
-	case Request::DISCARD_SNAPSHOT: _forward_to_sb_ctrl(progress, Superblock_control_request::DISCARD_SNAPSHOT); break;
+	case Request::DISCARD_SNAPSHOT:
+
+		switch(_state) {
+		case REQ_SUBMITTED: _discard_snap.generate(*this, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress, req._gen); break;
+		case SB_CONTROL_REQ: progress |= _discard_snap.execute(sb_control, block_io, trust_anchor); break;
+		case SB_CONTROL_REQ_SUCCEEDED: _mark_req_successful(progress); break;
+		default: break;
+		}
+		break;
+
 	default: break;
 	}
 }
 
 
-Request_pool::Request_pool(Superblock_control &sb_control, Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Crypto &crypto)
+Request_pool::Request_pool(Superblock_control &sb_control, Trust_anchor &trust_anchor, Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Crypto &crypto)
 :
-	_sb_control(sb_control), _vbd(vbd), _client_data(client_data), _block_io(block_io),
+	_sb_control(sb_control), _trust_anchor(trust_anchor), _vbd(vbd), _client_data(client_data), _block_io(block_io),
 	_crypto(crypto)
 {
 	for (Module_channel_id id { 0 }; id < NUM_CHANNELS; id++) {
