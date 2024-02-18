@@ -650,6 +650,62 @@ void Superblock_control_request::print(Output &out) const
 }
 
 
+bool Superblock_control::Initialize::execute(Execute_attr const &attr)
+{
+	bool progress = false;
+	switch (_helper.state) {
+	case INIT: _read_sb_hash.generate(_helper, READ_SB_HASH, READ_SB_HASH_SUCCEEDED, progress, _hash); break;
+	case READ_SB_HASH: progress |= _read_sb_hash.execute(attr.trust_anchor); break;
+	case READ_SB_HASH_SUCCEEDED:
+
+		attr.sb_idx = 0;
+		_read_block.generate(_helper, READ_BLOCK, READ_BLOCK_SUCCEEDED, progress, attr.sb_idx, _blk);
+		break;
+
+	case READ_BLOCK: progress |= _read_block.execute(attr.block_io); break;
+	case READ_BLOCK_SUCCEEDED:
+
+		_sb_ciphertext.decode_from_blk(_blk);
+		if (check_hash(_blk, _hash)) {
+			_gen = _sb_ciphertext.snapshots.items[_sb_ciphertext.snapshots.newest_snap_idx()].gen;
+			attr.sb.copy_all_but_key_values_from(_sb_ciphertext);
+			_decrypt_key.generate(_helper, DECRYPT_KEY, DECRYPT_CURR_KEY_SUCCEEDED, progress, attr.sb.current_key.value, _sb_ciphertext.current_key.value);
+		} else
+			if (attr.sb_idx < MAX_SUPERBLOCK_INDEX) {
+				attr.sb_idx++;
+				_read_block.generate(_helper, READ_BLOCK, READ_BLOCK_SUCCEEDED, progress, attr.sb_idx, _blk);
+			} else
+				_helper.mark_failed(progress, "superblock not found");
+		break;
+
+	case DECRYPT_KEY: progress |= _decrypt_key.execute(attr.trust_anchor); break;
+	case DECRYPT_CURR_KEY_SUCCEEDED: _add_key.generate(_helper, ADD_KEY, ADD_CURR_KEY_SUCCEEDED, progress, attr.sb.current_key); break;
+	case ADD_KEY: progress |= _add_key.execute(attr.crypto); break;
+	case ADD_CURR_KEY_SUCCEEDED:
+
+		if (_sb_ciphertext.state == Superblock::REKEYING)
+			_decrypt_key.generate(_helper, DECRYPT_KEY, DECRYPT_PREV_KEY_SUCCEEDED, progress, attr.sb.previous_key.value, _sb_ciphertext.previous_key.value);
+		else {
+			attr.curr_gen = _gen + 1;
+			_attr.out_sb_state = attr.sb.state;
+			_helper.mark_succeeded(progress);
+		}
+		break;
+
+	case DECRYPT_PREV_KEY_SUCCEEDED: _add_key.generate(_helper, ADD_KEY, ADD_PREV_KEY_SUCCEEDED, progress, attr.sb.previous_key); break;
+	case ADD_PREV_KEY_SUCCEEDED:
+
+		attr.curr_gen = _gen + 1;
+		_attr.out_sb_state = attr.sb.state;
+		_helper.mark_succeeded(progress);
+		break;
+
+	default: break;
+	}
+	return progress;
+}
+
+
 void Superblock_control_channel::_initialize(Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor, bool &progress)
 {
 	switch (_state) {
