@@ -83,6 +83,7 @@ class Tresor::Request_pool_channel : public Module_channel
 		Request *_req_ptr { nullptr };
 		Generatable_request<Request_pool_channel, State, Superblock_control::Read_vba> _read_vba { };
 		Generatable_request<Request_pool_channel, State, Superblock_control::Discard_snapshot> _discard_snap { };
+		Generatable_request<Request_pool_channel, State, Superblock_control::Create_snapshot> _create_snap { };
 
 		NONCOPYABLE(Request_pool_channel);
 
