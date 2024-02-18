@@ -799,8 +799,8 @@ struct Tresor::Snapshots
 			snap.encode_to_blk(generator);
 	}
 
-	void discard_disposable_snapshots(Generation curr_gen,
-	                                  Generation last_secured_gen)
+	void discard_disposable_snapshots(Generation last_secured_gen,
+	                                  Generation curr_gen)
 	{
 		for (Snapshot &snap : items) {
 

@@ -70,7 +70,8 @@ class Tresor::Request_pool_channel : public Module_channel
 		enum State : State_uint {
 			INVALID, REQ_SUBMITTED, REQ_RESUMED, REQ_GENERATED, REKEY_INIT_SUCCEEDED, PREPONED_REQUESTS_COMPLETE,
 			TREE_EXTENSION_STEP_SUCCEEDED, FORWARD_TO_SB_CTRL_SUCCEEDED, READ_VBA, READ_VBA_SUCCEEDED, ACCESS_VBA_AT_SB_CTRL_SUCCEEDED,
-			REKEY_VBA_SUCCEEDED, INITIALIZE_SB_CTRL_SUCCEEDED, DEINITIALIZE_SB_CTRL_SUCCEEDED, REQ_COMPLETE };
+			REKEY_VBA_SUCCEEDED, INITIALIZE_SB_CTRL_SUCCEEDED, DEINITIALIZE_SB_CTRL_SUCCEEDED, REQ_COMPLETE,
+			SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED};
 
 		State _state { INVALID };
 		Number_of_blocks _num_blks { 0 };
@@ -81,6 +82,7 @@ class Tresor::Request_pool_channel : public Module_channel
 		Request_pool_channel_queue &_chan_queue;
 		Request *_req_ptr { nullptr };
 		Generatable_request<Request_pool_channel, State, Superblock_control::Read_vba> _read_vba { };
+		Generatable_request<Request_pool_channel, State, Superblock_control::Discard_snapshot> _discard_snap { };
 
 		NONCOPYABLE(Request_pool_channel);
 
@@ -116,7 +118,7 @@ class Tresor::Request_pool_channel : public Module_channel
 
 		Request_pool_channel(Module_channel_id id, Request_pool_channel_queue &chan_queue) : Module_channel(REQUEST_POOL, id), _chan_queue(chan_queue) { }
 
-		void execute(Superblock_control &, Virtual_block_device &, Client_data_interface &, Block_io &, Crypto &, bool &);
+		void execute(Superblock_control &, Trust_anchor &, Virtual_block_device &, Client_data_interface &, Block_io &, Crypto &, bool &);
 
 		void generated_req_failed(bool &progress);
 
@@ -191,6 +193,7 @@ class Tresor::Request_pool : public Module
 		Constructible<Channel> _channels[NUM_CHANNELS] { };
 		Request_pool_channel_queue _chan_queue { };
 		Superblock_control &_sb_control;
+		Trust_anchor &_trust_anchor;
 		Virtual_block_device &_vbd;
 		Client_data_interface &_client_data;
 		Block_io &_block_io;
@@ -200,7 +203,7 @@ class Tresor::Request_pool : public Module
 
 		void execute(bool &) override;
 
-		Request_pool(Superblock_control &, Virtual_block_device &, Client_data_interface &, Block_io &, Crypto &);
+		Request_pool(Superblock_control &, Trust_anchor &, Virtual_block_device &, Client_data_interface &, Block_io &, Crypto &);
 
 		static constexpr char const *name() { return "request_pool"; }
 };
