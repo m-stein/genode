@@ -321,21 +321,58 @@ class Tresor::Superblock_control : public Module
 				bool success() const { return _helper.success(); }
 		};
 
+		class Create_snapshot : Noncopyable
+		{
+			public:
+
+				using Module = Superblock_control;
+
+				struct Attr { Generation &out_gen; };
+
+				struct Execute_attr
+				{
+					Superblock &sb;
+					Block_io &block_io;
+					Trust_anchor &trust_anchor;
+					Superblock_control &sb_control;
+				};
+
+			private:
+
+				enum State { INIT, COMPLETE, SECURE_SB, SECURE_SB_SUCCEEDED };
+
+				using Helper = Request_helper<Create_snapshot, State>;
+
+				Helper _helper;
+				Attr const _attr;
+				Generation _gen { INVALID_GENERATION };
+				Generatable_request<Helper, State, Secure_superblock> _secure_sb { };
+
+			public:
+
+				Create_snapshot(Attr const &attr) : _helper(*this), _attr(attr) { }
+
+				~Create_snapshot() { }
+
+				void print(Output &out) const { Genode::print(out, "create snapshot"); }
+
+				bool execute(Execute_attr const &);
+
+				bool complete() const { return _helper.complete(); }
+				bool success() const { return _helper.success(); }
+		};
+
 		class Discard_snapshot : Noncopyable
 		{
 			public:
 
 				using Module = Superblock_control;
 
-				struct Attr
-				{
-					Generation &in_out_gen;
-				};
+				struct Attr { Generation const in_gen; };
 
 				struct Execute_attr
 				{
 					Superblock &sb;
-					Generation const curr_gen;
 					Block_io &block_io;
 					Trust_anchor &trust_anchor;
 					Superblock_control &sb_control;
@@ -382,9 +419,14 @@ class Tresor::Superblock_control : public Module
 			return req.execute({_sb, _sb_idx, _curr_gen, block_io, trust_anchor });
 		}
 
+		bool execute(Create_snapshot &req, Block_io &block_io, Trust_anchor &trust_anchor)
+		{
+			return req.execute({_sb, block_io, trust_anchor, *this });
+		}
+
 		bool execute(Discard_snapshot &req, Block_io &block_io, Trust_anchor &trust_anchor)
 		{
-			return req.execute({_sb, _curr_gen, block_io, trust_anchor, *this });
+			return req.execute({_sb, block_io, trust_anchor, *this });
 		}
 
 		bool execute(Read_vba &req, Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Crypto &crypto)

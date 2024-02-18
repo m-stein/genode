@@ -272,7 +272,16 @@ void Request_pool_channel::execute(Superblock_control &sb_control, Trust_anchor 
 	case Request::EXTEND_FT: _extend_tree(Superblock_control_request::FT_EXTENSION_STEP, progress); break;
 	case Request::INITIALIZE: _initialize(progress); break;
 	case Request::DEINITIALIZE: _forward_to_sb_ctrl(progress, Superblock_control_request::DEINITIALIZE); break;
-	case Request::CREATE_SNAPSHOT: _forward_to_sb_ctrl(progress, Superblock_control_request::CREATE_SNAPSHOT); break;
+	case Request::CREATE_SNAPSHOT:
+
+		switch(_state) {
+		case REQ_SUBMITTED: _create_snap.generate(*this, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress, req._gen); break;
+		case SB_CONTROL_REQ: progress |= _create_snap.execute(sb_control, block_io, trust_anchor); break;
+		case SB_CONTROL_REQ_SUCCEEDED: _mark_req_successful(progress); break;
+		default: break;
+		}
+		break;
+
 	case Request::DISCARD_SNAPSHOT:
 
 		switch(_state) {
