@@ -88,7 +88,7 @@ class Tresor::Superblock_control_channel : public Module_channel
 		Secure_sb_state _secure_sb_state { SECURE_SB_INACTIVE };
 		Superblock _sb_ciphertext { };
 		Block _blk { };
-		Generation _gen { INVALID_GENERATION };
+		Generation _gen { };
 		Hash _hash { };
 		Physical_block_address _pba { INVALID_PBA };
 		Number_of_blocks _nr_of_leaves { 0 };
@@ -260,7 +260,7 @@ class Tresor::Superblock_control : public Module
 
 		Superblock _sb { };
 		Superblock_index _sb_idx { INVALID_SB_IDX };
-		Generation _curr_gen { INVALID_GENERATION };
+		Generation _curr_gen { };
 		Constructible<Channel> _channels[1] { };
 		Block_io &_block_io;
 		Crypto &_crypto;
@@ -345,7 +345,7 @@ class Tresor::Superblock_control : public Module
 
 				Helper _helper;
 				Attr const _attr;
-				Generation _gen { INVALID_GENERATION };
+				Generation _gen { };
 				Generatable_request<Helper, State, Secure_superblock> _secure_sb { };
 
 			public:
@@ -355,6 +355,61 @@ class Tresor::Superblock_control : public Module
 				~Create_snapshot() { }
 
 				void print(Output &out) const { Genode::print(out, "create snapshot"); }
+
+				bool execute(Execute_attr const &);
+
+				bool complete() const { return _helper.complete(); }
+				bool success() const { return _helper.success(); }
+		};
+
+		class Initialize : Noncopyable
+		{
+			public:
+
+				using Module = Superblock_control;
+
+				struct Attr { Superblock::State &out_sb_state; };
+
+				struct Execute_attr
+				{
+					Superblock &sb;
+					Superblock_index &sb_idx;
+					Generation &curr_gen;
+					Block_io &block_io;
+					Crypto &crypto;
+					Trust_anchor &trust_anchor;
+					Superblock_control &sb_control;
+				};
+
+			private:
+
+				enum State {
+					INIT, COMPLETE, READ_SB_HASH, READ_SB_HASH_SUCCEEDED, READ_BLOCK, READ_BLOCK_SUCCEEDED,
+					DECRYPT_KEY, DECRYPT_CURR_KEY_SUCCEEDED, DECRYPT_PREV_KEY_SUCCEEDED, ADD_KEY,
+					ADD_CURR_KEY_SUCCEEDED, ADD_PREV_KEY_SUCCEEDED };
+
+				using Helper = Request_helper<Initialize, State>;
+
+				Helper _helper;
+				Attr const _attr;
+				Generation _gen { };
+				Hash _hash { };
+				Block _blk { };
+				Superblock _sb_ciphertext { };
+				union {
+					Generatable_request<Helper, State, Block_io::Read> _read_block;
+					Generatable_request<Helper, State, Trust_anchor::Read_hash> _read_sb_hash;
+					Generatable_request<Helper, State, Trust_anchor::Decrypt_key> _decrypt_key;
+					Generatable_request<Helper, State, Crypto::Add_key> _add_key;
+				};
+
+			public:
+
+				Initialize(Attr const &attr) : _helper(*this), _attr(attr) { }
+
+				~Initialize() { }
+
+				void print(Output &out) const { Genode::print(out, "initialize"); }
 
 				bool execute(Execute_attr const &);
 
@@ -417,6 +472,11 @@ class Tresor::Superblock_control : public Module
 		bool execute(Secure_superblock &req, Block_io &block_io, Trust_anchor &trust_anchor)
 		{
 			return req.execute({_sb, _sb_idx, _curr_gen, block_io, trust_anchor });
+		}
+
+		bool execute(Initialize &req, Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor)
+		{
+			return req.execute({_sb, _sb_idx, _curr_gen, block_io, crypto, trust_anchor, *this });
 		}
 
 		bool execute(Create_snapshot &req, Block_io &block_io, Trust_anchor &trust_anchor)

@@ -213,36 +213,6 @@ void Request_pool_channel::_resume_request(bool &progress, Request::Operation op
 }
 
 
-void Request_pool_channel::_initialize(bool &progress)
-{
-	switch (_state) {
-	case REQ_SUBMITTED:
-
-		_gen_sb_control_req(progress, Superblock_control_request::INITIALIZE, INITIALIZE_SB_CTRL_SUCCEEDED);
-		break;
-
-	case INITIALIZE_SB_CTRL_SUCCEEDED:
-
-		switch (_sb_state) {
-		case Superblock::INVALID: ASSERT_NEVER_REACHED;
-		case Superblock::NORMAL:
-
-			_chan_queue.dequeue(*this);
-			_reset();
-			progress = true;
-			break;
-
-		case Superblock::REKEYING: _resume_request(progress, Request::REKEY); break;
-		case Superblock::EXTENDING_VBD: _resume_request(progress, Request::EXTEND_VBD); break;
-		case Superblock::EXTENDING_FT: _resume_request(progress, Request::EXTEND_FT); break;
-		}
-		break;
-
-	default: break;
-	}
-}
-
-
 void Request_pool_channel::_forward_to_sb_ctrl(bool &progress, Superblock_control_request::Type type)
 {
 	switch (_state) {
@@ -270,7 +240,32 @@ void Request_pool_channel::execute(Superblock_control &sb_control, Trust_anchor 
 	case Request::REKEY: _rekey(progress); break;
 	case Request::EXTEND_VBD: _extend_tree(Superblock_control_request::VBD_EXTENSION_STEP, progress); break;
 	case Request::EXTEND_FT: _extend_tree(Superblock_control_request::FT_EXTENSION_STEP, progress); break;
-	case Request::INITIALIZE: _initialize(progress); break;
+	case Request::INITIALIZE:
+
+		switch (_state) {
+		case REQ_SUBMITTED: _init_sb_control.generate(*this, INIT_SB_CONTROL, INIT_SB_CONTROL_SUCCEEDED, progress, _sb_state); break;
+		case INIT_SB_CONTROL: progress |= _init_sb_control.execute(sb_control, block_io, crypto, trust_anchor); break;
+		case INIT_SB_CONTROL_SUCCEEDED:
+
+			switch (_sb_state) {
+			case Superblock::INVALID: ASSERT_NEVER_REACHED;
+			case Superblock::NORMAL:
+
+				_chan_queue.dequeue(*this);
+				_reset();
+				progress = true;
+				break;
+
+			case Superblock::REKEYING: _resume_request(progress, Request::REKEY); break;
+			case Superblock::EXTENDING_VBD: _resume_request(progress, Request::EXTEND_VBD); break;
+			case Superblock::EXTENDING_FT: _resume_request(progress, Request::EXTEND_FT); break;
+			}
+			break;
+
+		default: break;
+		}
+		break;
+
 	case Request::DEINITIALIZE: _forward_to_sb_ctrl(progress, Superblock_control_request::DEINITIALIZE); break;
 	case Request::CREATE_SNAPSHOT:
 
