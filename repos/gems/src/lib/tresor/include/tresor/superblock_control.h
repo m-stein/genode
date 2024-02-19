@@ -274,6 +274,57 @@ class Tresor::Superblock_control : public Module
 
 	public:
 
+		class Write_vba : Noncopyable
+		{
+			public:
+
+				using Module = Superblock_control;
+
+				struct Attr
+				{
+					Virtual_block_address const in_vba;
+					Request_offset const in_client_req_offset;
+					Request_tag const in_client_req_tag;
+				};
+
+				struct Execute_attr
+				{
+					Virtual_block_device &vbd;
+					Client_data_interface &client_data;
+					Block_io &block_io;
+					Free_tree &free_tree;
+					Meta_tree &meta_tree;
+					Crypto &crypto;
+					Superblock &sb;
+					Generation const &curr_gen;
+				};
+
+			private:
+
+				enum State { INIT, COMPLETE, WRITE_VBA, WRITE_VBA_SUCCEEDED };
+
+				using Helper = Request_helper<Write_vba, State>;
+
+				Helper _helper;
+				Attr const _attr;
+				Constructible<Tree_root> _ft { };
+				Constructible<Tree_root> _mt { };
+				Generatable_request<Helper, State, Virtual_block_device::Write_vba> _write_vba { };
+
+			public:
+
+				Write_vba(Attr const &attr) : _helper(*this), _attr(attr) { }
+
+				~Write_vba() { }
+
+				void print(Output &out) const { Genode::print(out, "write vba"); }
+
+				bool execute(Execute_attr const &);
+
+				bool complete() const { return _helper.complete(); }
+				bool success() const { return _helper.success(); }
+		};
+
 		class Read_vba : Noncopyable
 		{
 			public:
@@ -592,6 +643,11 @@ class Tresor::Superblock_control : public Module
 		bool execute(Read_vba &req, Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Crypto &crypto)
 		{
 			return req.execute({ vbd, client_data, block_io, crypto, _sb, _curr_gen });
+		}
+
+		bool execute(Write_vba &req, Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Free_tree &free_tree, Meta_tree &meta_tree, Crypto &crypto)
+		{
+			return req.execute({ vbd, client_data, block_io, free_tree, meta_tree, crypto, _sb, _curr_gen });
 		}
 
 		static constexpr char const *name() { return "sb_control"; }
