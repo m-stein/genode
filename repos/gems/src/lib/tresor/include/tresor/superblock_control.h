@@ -362,6 +362,53 @@ class Tresor::Superblock_control : public Module
 				bool success() const { return _helper.success(); }
 		};
 
+		class Deinitialize : Noncopyable
+		{
+			public:
+
+				using Module = Superblock_control;
+
+				struct Attr { };
+
+				struct Execute_attr
+				{
+					Superblock &sb;
+					Generation const curr_gen;
+					Block_io &block_io;
+					Crypto &crypto;
+					Trust_anchor &trust_anchor;
+					Superblock_control &sb_control;
+				};
+
+			private:
+
+				enum State {
+					INIT, COMPLETE, SECURE_SB, SECURE_SB_SUCCEEDED, REMOVE_KEY,
+					REMOVE_CURR_KEY_SUCCEEDED, REMOVE_PREV_KEY_SUCCEEDED };
+
+				using Helper = Request_helper<Deinitialize, State>;
+
+				Helper _helper;
+				Attr const _attr;
+				union {
+					Generatable_request<Helper, State, Secure_superblock> _secure_sb;
+					Generatable_request<Helper, State, Crypto::Remove_key> _remove_key;
+				};
+
+			public:
+
+				Deinitialize(Attr const &attr) : _helper(*this), _attr(attr) { }
+
+				~Deinitialize() { }
+
+				void print(Output &out) const { Genode::print(out, "deinitialize"); }
+
+				bool execute(Execute_attr const &);
+
+				bool complete() const { return _helper.complete(); }
+				bool success() const { return _helper.success(); }
+		};
+
 		class Initialize : Noncopyable
 		{
 			public:
@@ -472,6 +519,11 @@ class Tresor::Superblock_control : public Module
 		bool execute(Secure_superblock &req, Block_io &block_io, Trust_anchor &trust_anchor)
 		{
 			return req.execute({_sb, _sb_idx, _curr_gen, block_io, trust_anchor });
+		}
+
+		bool execute(Deinitialize &req, Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor)
+		{
+			return req.execute({_sb, _curr_gen, block_io, crypto, trust_anchor, *this });
 		}
 
 		bool execute(Initialize &req, Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor)

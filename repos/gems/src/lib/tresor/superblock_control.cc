@@ -796,6 +796,39 @@ void Superblock_control_channel::_deinitialize(Block_io &block_io, Crypto &crypt
 	}
 }
 
+bool Superblock_control::Deinitialize::execute(Execute_attr const &attr)
+{
+	bool progress = false;
+	switch (_helper.state) {
+	case INIT:
+
+		attr.sb.snapshots.discard_disposable_snapshots(attr.sb.last_secured_generation, attr.curr_gen);
+		attr.sb.last_secured_generation = attr.curr_gen;
+		_secure_sb.generate(_helper, SECURE_SB, SECURE_SB_SUCCEEDED, progress);
+		break;
+
+	case SECURE_SB: progress |= _secure_sb.execute(attr.sb_control, attr.block_io, attr.trust_anchor); break;
+	case SECURE_SB_SUCCEEDED: _remove_key.generate(_helper, REMOVE_KEY, REMOVE_CURR_KEY_SUCCEEDED, progress, attr.sb.current_key.id); break;
+	case REMOVE_CURR_KEY_SUCCEEDED:
+
+		if (attr.sb.state == Superblock::REKEYING)
+			_remove_key.generate(_helper, REMOVE_KEY, REMOVE_PREV_KEY_SUCCEEDED, progress, attr.sb.previous_key.id);
+		else
+			_helper.mark_succeeded(progress);
+		break;
+
+	case REMOVE_KEY: progress |= _remove_key.execute(attr.crypto); break;
+	case REMOVE_PREV_KEY_SUCCEEDED:
+
+		attr.sb.state = Superblock::INVALID;
+		_helper.mark_succeeded(progress);
+		break;
+
+	default: break;
+	}
+	return progress;
+}
+
 
 void Superblock_control_channel::execute(Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor, Free_tree &free_tree, Meta_tree &meta_tree, Virtual_block_device &vbd, Client_data_interface &client_data, bool &progress)
 {

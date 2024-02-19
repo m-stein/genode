@@ -266,7 +266,16 @@ void Request_pool_channel::execute(Superblock_control &sb_control, Trust_anchor 
 		}
 		break;
 
-	case Request::DEINITIALIZE: _forward_to_sb_ctrl(progress, Superblock_control_request::DEINITIALIZE); break;
+	case Request::DEINITIALIZE:
+
+		switch(_state) {
+		case REQ_SUBMITTED: _deinit_sb_control.generate(*this, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress); break;
+		case SB_CONTROL_REQ: progress |= _deinit_sb_control.execute(sb_control, block_io, crypto, trust_anchor); break;
+		case SB_CONTROL_REQ_SUCCEEDED: _mark_req_successful(progress); break;
+		default: break;
+		}
+		break;
+
 	case Request::CREATE_SNAPSHOT:
 
 		switch(_state) {
