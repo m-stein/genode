@@ -236,7 +236,16 @@ void Request_pool_channel::execute(Superblock_control &sb_control, Trust_anchor 
 	switch (_req_ptr->_op) {
 	case Request::READ: _read_vbas(sb_control, vbd, client_data, block_io, crypto, progress); break;
 	case Request::WRITE: _access_vbas(progress, Superblock_control_request::WRITE_VBA); break;
-	case Request::SYNC: _forward_to_sb_ctrl(progress, Superblock_control_request::SYNC); break;
+	case Request::SYNC:
+
+		switch(_state) {
+		case REQ_SUBMITTED: _sync_sb_control.generate(*this, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress); break;
+		case SB_CONTROL_REQ: progress |= _sync_sb_control.execute(sb_control, block_io, trust_anchor); break;
+		case SB_CONTROL_REQ_SUCCEEDED: _mark_req_successful(progress); break;
+		default: break;
+		}
+		break;
+
 	case Request::REKEY: _rekey(progress); break;
 	case Request::EXTEND_VBD: _extend_tree(Superblock_control_request::VBD_EXTENSION_STEP, progress); break;
 	case Request::EXTEND_FT: _extend_tree(Superblock_control_request::FT_EXTENSION_STEP, progress); break;
