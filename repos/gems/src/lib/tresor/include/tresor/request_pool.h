@@ -87,6 +87,7 @@ class Tresor::Request_pool_channel : public Module_channel
 			Generatable_request<Request_pool_channel, State, Superblock_control::Create_snapshot> _create_snap;
 			Generatable_request<Request_pool_channel, State, Superblock_control::Initialize> _init_sb_control;
 			Generatable_request<Request_pool_channel, State, Superblock_control::Deinitialize> _deinit_sb_control;
+			Generatable_request<Request_pool_channel, State, Superblock_control::Synchronize> _sync_sb_control;
 		};
 
 		NONCOPYABLE(Request_pool_channel);

@@ -372,7 +372,6 @@ bool Superblock_control::Secure_superblock::execute(Execute_attr const &attr)
 	switch (_helper.state) {
 	case INIT:
 
-		attr.sb.snapshots.discard_disposable_snapshots(attr.sb.last_secured_generation, attr.curr_gen);
 		attr.sb.curr_snap().gen = attr.curr_gen;
 		_sb_ciphertext.copy_all_but_key_values_from(attr.sb);
 		_encrypt_key.generate(
@@ -535,6 +534,7 @@ bool Superblock_control::Discard_snapshot::execute(Execute_attr const &attr)
 			if (snap.valid && snap.gen == _attr.in_gen && snap.keep)
 				snap.keep = false;
 
+		attr.sb.snapshots.discard_disposable_snapshots(attr.sb.last_secured_generation, attr.curr_gen);
 		_secure_sb.generate(_helper, SECURE_SB, SECURE_SB_SUCCEEDED, progress);
 		break;
 
@@ -578,17 +578,23 @@ bool Superblock_control::Create_snapshot::execute(Execute_attr const &attr)
 	case INIT:
 	{
 		Snapshot &snap = attr.sb.curr_snap();
-		_attr.out_gen = snap.gen;
-		if (snap.keep)
+		if (snap.keep) {
+			_attr.out_gen = snap.gen;
 			_helper.mark_succeeded(progress);
-		else {
+		} else {
 			snap.keep = true;
+			attr.sb.snapshots.discard_disposable_snapshots(attr.sb.last_secured_generation, attr.curr_gen);
 			_secure_sb.generate(_helper, SECURE_SB, SECURE_SB_SUCCEEDED, progress);
 		}
 		break;
 	}
 	case SECURE_SB: progress |= _secure_sb.execute(attr.sb_control, attr.block_io, attr.trust_anchor); break;
-	case SECURE_SB_SUCCEEDED: _helper.mark_succeeded(progress); break;
+	case SECURE_SB_SUCCEEDED:
+
+		_attr.out_gen = attr.sb.curr_snap().gen;
+		_helper.mark_succeeded(progress);
+		break;
+
 	default: break;
 	}
 	return progress;
@@ -618,6 +624,25 @@ void Superblock_control_channel::_create_snap(Block_io &block_io, Trust_anchor &
 
 	default: break;
 	}
+}
+
+
+bool Superblock_control::Synchronize::execute(Execute_attr const &attr)
+{
+	bool progress = false;
+	switch (_helper.state) {
+	case INIT:
+
+		attr.sb.snapshots.discard_disposable_snapshots(attr.sb.last_secured_generation, attr.curr_gen);
+		attr.sb.last_secured_generation = attr.curr_gen;
+		_secure_sb.generate(_helper, SECURE_SB, SECURE_SB_SUCCEEDED, progress);
+		break;
+
+	case SECURE_SB: progress |= _secure_sb.execute(attr.sb_control, attr.block_io, attr.trust_anchor); break;
+	case SECURE_SB_SUCCEEDED: _helper.mark_succeeded(progress); break;
+	default: break;
+	}
+	return progress;
 }
 
 

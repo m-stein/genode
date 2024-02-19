@@ -294,7 +294,7 @@ class Tresor::Superblock_control : public Module
 					Block_io &block_io;
 					Crypto &crypto;
 					Superblock const sb;
-					Generation const curr_gen;
+					Generation const &curr_gen;
 				};
 
 			private:
@@ -332,6 +332,7 @@ class Tresor::Superblock_control : public Module
 				struct Execute_attr
 				{
 					Superblock &sb;
+					Generation &curr_gen;
 					Block_io &block_io;
 					Trust_anchor &trust_anchor;
 					Superblock_control &sb_control;
@@ -362,6 +363,47 @@ class Tresor::Superblock_control : public Module
 				bool success() const { return _helper.success(); }
 		};
 
+		class Synchronize : Noncopyable
+		{
+			public:
+
+				using Module = Superblock_control;
+
+				struct Attr { };
+
+				struct Execute_attr
+				{
+					Superblock &sb;
+					Generation const &curr_gen;
+					Block_io &block_io;
+					Trust_anchor &trust_anchor;
+					Superblock_control &sb_control;
+				};
+
+			private:
+
+				enum State { INIT, COMPLETE, SECURE_SB, SECURE_SB_SUCCEEDED };
+
+				using Helper = Request_helper<Synchronize, State>;
+
+				Helper _helper;
+				Attr const _attr;
+				Generatable_request<Helper, State, Secure_superblock> _secure_sb { };
+
+			public:
+
+				Synchronize(Attr const &attr) : _helper(*this), _attr(attr) { }
+
+				~Synchronize() { }
+
+				void print(Output &out) const { Genode::print(out, "sync"); }
+
+				bool execute(Execute_attr const &);
+
+				bool complete() const { return _helper.complete(); }
+				bool success() const { return _helper.success(); }
+		};
+
 		class Deinitialize : Noncopyable
 		{
 			public:
@@ -373,7 +415,7 @@ class Tresor::Superblock_control : public Module
 				struct Execute_attr
 				{
 					Superblock &sb;
-					Generation const curr_gen;
+					Generation const &curr_gen;
 					Block_io &block_io;
 					Crypto &crypto;
 					Trust_anchor &trust_anchor;
@@ -475,6 +517,7 @@ class Tresor::Superblock_control : public Module
 				struct Execute_attr
 				{
 					Superblock &sb;
+					Generation &curr_gen;
 					Block_io &block_io;
 					Trust_anchor &trust_anchor;
 					Superblock_control &sb_control;
@@ -521,6 +564,11 @@ class Tresor::Superblock_control : public Module
 			return req.execute({_sb, _sb_idx, _curr_gen, block_io, trust_anchor });
 		}
 
+		bool execute(Synchronize &req, Block_io &block_io, Trust_anchor &trust_anchor)
+		{
+			return req.execute({_sb, _curr_gen, block_io, trust_anchor, *this });
+		}
+
 		bool execute(Deinitialize &req, Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor)
 		{
 			return req.execute({_sb, _curr_gen, block_io, crypto, trust_anchor, *this });
@@ -533,12 +581,12 @@ class Tresor::Superblock_control : public Module
 
 		bool execute(Create_snapshot &req, Block_io &block_io, Trust_anchor &trust_anchor)
 		{
-			return req.execute({_sb, block_io, trust_anchor, *this });
+			return req.execute({_sb, _curr_gen, block_io, trust_anchor, *this });
 		}
 
 		bool execute(Discard_snapshot &req, Block_io &block_io, Trust_anchor &trust_anchor)
 		{
-			return req.execute({_sb, block_io, trust_anchor, *this });
+			return req.execute({_sb, _curr_gen, block_io, trust_anchor, *this });
 		}
 
 		bool execute(Read_vba &req, Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Crypto &crypto)
