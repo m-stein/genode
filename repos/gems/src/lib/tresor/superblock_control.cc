@@ -87,6 +87,46 @@ void Superblock_control_channel::_generated_req_completed(State_uint state_uint)
 }
 
 
+bool Superblock_control::Write_vba::execute(Execute_attr const &attr)
+{
+	bool progress = false;
+	switch (_helper.state) {
+	case INIT:
+	{
+		attr.sb.snapshots.discard_disposable_snapshots(attr.sb.last_secured_generation, attr.curr_gen);
+		if (_attr.in_vba > attr.sb.max_vba()) {
+			_helper.mark_failed(progress, "VBA greater than max VBA");
+			break;
+		}
+		if (attr.sb.curr_snap().gen != attr.curr_gen) {
+			Snapshot &snap { attr.sb.curr_snap() };
+			attr.sb.curr_snap_idx = attr.sb.snapshots.alloc_idx(attr.curr_gen, attr.sb.last_secured_generation);
+			attr.sb.curr_snap() = snap;
+			attr.sb.curr_snap().keep = false;
+		}
+		Key_id key_id { attr.sb.state == Superblock::REKEYING && _attr.in_vba >= attr.sb.rekeying_vba ?
+			attr.sb.previous_key.id : attr.sb.current_key.id };
+
+		_ft.construct(attr.sb.free_number, attr.sb.free_gen, attr.sb.free_hash, attr.sb.free_max_level, attr.sb.free_degree, attr.sb.free_leaves);
+		_mt.construct(attr.sb.meta_number, attr.sb.meta_gen, attr.sb.meta_hash, attr.sb.meta_max_level, attr.sb.meta_degree, attr.sb.meta_leaves);
+		_write_vba.generate(
+			_helper, WRITE_VBA, WRITE_VBA_SUCCEEDED, progress, attr.sb.snapshots.items[attr.sb.curr_snap_idx], attr.sb.snapshots,
+			*_ft, *_mt, _attr.in_vba, key_id, attr.sb.previous_key.id, attr.sb.degree, attr.sb.max_vba(), _attr.in_client_req_offset,
+			_attr.in_client_req_tag, attr.curr_gen, attr.sb.last_secured_generation, attr.sb.state == Superblock::REKEYING,
+			attr.sb.rekeying_vba);
+
+		if (VERBOSE_WRITE_VBA)
+			log("write vba ", _attr.in_vba, ": snap ", attr.sb.curr_snap_idx, " key ", key_id, " gen ", attr.curr_gen);
+
+		break;
+	}
+	case WRITE_VBA: progress |= _write_vba.execute(attr.vbd, attr.client_data, attr.block_io, attr.free_tree, attr.meta_tree, attr.crypto); break;
+	case WRITE_VBA_SUCCEEDED: _helper.mark_succeeded(progress); break;
+	default: break;
+	}
+	return progress;
+}
+
 void Superblock_control_channel::_do_write_vba(Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Free_tree &free_tree, Meta_tree &meta_tree, Crypto &crypto, bool &progress)
 {
 	Request &req { *_req_ptr };

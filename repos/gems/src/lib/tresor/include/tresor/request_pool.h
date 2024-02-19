@@ -69,7 +69,8 @@ class Tresor::Request_pool_channel : public Module_channel
 
 		enum State : State_uint {
 			INVALID, REQ_SUBMITTED, REQ_RESUMED, REQ_GENERATED, REKEY_INIT_SUCCEEDED, PREPONED_REQUESTS_COMPLETE,
-			TREE_EXTENSION_STEP_SUCCEEDED, FORWARD_TO_SB_CTRL_SUCCEEDED, READ_VBA, READ_VBA_SUCCEEDED, ACCESS_VBA_AT_SB_CTRL_SUCCEEDED,
+			TREE_EXTENSION_STEP_SUCCEEDED, FORWARD_TO_SB_CTRL_SUCCEEDED, READ_VBA, READ_VBA_SUCCEEDED, WRITE_VBA, WRITE_VBA_SUCCEEDED,
+			ACCESS_VBA_AT_SB_CTRL_SUCCEEDED,
 			REKEY_VBA_SUCCEEDED, INIT_SB_CONTROL, INIT_SB_CONTROL_SUCCEEDED, DEINITIALIZE_SB_CTRL_SUCCEEDED, REQ_COMPLETE,
 			SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED};
 
@@ -83,6 +84,7 @@ class Tresor::Request_pool_channel : public Module_channel
 		Request *_req_ptr { nullptr };
 		union {
 			Generatable_request<Request_pool_channel, State, Superblock_control::Read_vba> _read_vba;
+			Generatable_request<Request_pool_channel, State, Superblock_control::Write_vba> _write_vba;
 			Generatable_request<Request_pool_channel, State, Superblock_control::Discard_snapshot> _discard_snap;
 			Generatable_request<Request_pool_channel, State, Superblock_control::Create_snapshot> _create_snap;
 			Generatable_request<Request_pool_channel, State, Superblock_control::Initialize> _init_sb_control;
@@ -97,8 +99,6 @@ class Tresor::Request_pool_channel : public Module_channel
 		void _request_submitted(Module_request &req) override;
 
 		bool _request_complete() override { return _state == REQ_COMPLETE; }
-
-		void _access_vbas(bool &, Superblock_control_request::Type);
 
 		void _read_vbas(Superblock_control &, Virtual_block_device &, Client_data_interface &, Block_io &, Crypto &, bool &);
 
@@ -124,7 +124,7 @@ class Tresor::Request_pool_channel : public Module_channel
 
 		Request_pool_channel(Module_channel_id id, Request_pool_channel_queue &chan_queue) : Module_channel(REQUEST_POOL, id), _chan_queue(chan_queue) { }
 
-		void execute(Superblock_control &, Trust_anchor &, Virtual_block_device &, Client_data_interface &, Block_io &, Crypto &, bool &);
+		void execute(Superblock_control &, Trust_anchor &, Virtual_block_device &, Client_data_interface &, Block_io &, Free_tree &, Meta_tree &, Crypto &, bool &);
 
 		void generated_req_failed(bool &progress);
 
@@ -203,13 +203,15 @@ class Tresor::Request_pool : public Module
 		Virtual_block_device &_vbd;
 		Client_data_interface &_client_data;
 		Block_io &_block_io;
+		Free_tree &_free_tree;
+		Meta_tree &_meta_tree;
 		Crypto &_crypto;
 
 	public:
 
 		void execute(bool &) override;
 
-		Request_pool(Superblock_control &, Trust_anchor &, Virtual_block_device &, Client_data_interface &, Block_io &, Crypto &);
+		Request_pool(Superblock_control &, Trust_anchor &, Virtual_block_device &, Client_data_interface &, Block_io &, Free_tree &, Meta_tree &, Crypto &);
 
 		static constexpr char const *name() { return "request_pool"; }
 };
