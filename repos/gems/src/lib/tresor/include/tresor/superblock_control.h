@@ -372,6 +372,55 @@ class Tresor::Superblock_control : public Module
 				bool success() const { return _helper.success(); }
 		};
 
+		class Start_rekeying : Noncopyable
+		{
+			public:
+
+				using Module = Superblock_control;
+
+				struct Attr { };
+
+				struct Execute_attr
+				{
+					Superblock &sb;
+					Generation const &curr_gen;
+					Block_io &block_io;
+					Crypto &crypto;
+					Trust_anchor &trust_anchor;
+					Superblock_control &sb_control;
+				};
+
+			private:
+
+				enum State {
+					INIT, COMPLETE, SECURE_SB, SECURE_SB_SUCCEEDED, GENERATE_KEY, GENERATE_KEY_SUCCEEDED,
+					ADD_KEY, ADD_KEY_SUCCEEDED };
+
+				using Helper = Request_helper<Start_rekeying, State>;
+
+				Helper _helper;
+				Attr const _attr;
+				Generation _gen { };
+				union {
+					Generatable_request<Helper, State, Secure_superblock> _secure_sb;
+					Generatable_request<Helper, State, Trust_anchor::Generate_key> _generate_key;
+					Generatable_request<Helper, State, Crypto::Add_key> _add_key;
+				};
+
+			public:
+
+				Start_rekeying(Attr const &attr) : _helper(*this), _attr(attr) { }
+
+				~Start_rekeying() { }
+
+				void print(Output &out) const { Genode::print(out, "start rekeying"); }
+
+				bool execute(Execute_attr const &);
+
+				bool complete() const { return _helper.complete(); }
+				bool success() const { return _helper.success(); }
+		};
+
 		class Create_snapshot : Noncopyable
 		{
 			public:
@@ -609,6 +658,11 @@ class Tresor::Superblock_control : public Module
 		Superblock_info sb_info() const;
 
 		Superblock_control(Block_io &, Crypto &, Trust_anchor &, Free_tree &, Meta_tree &, Virtual_block_device &, Client_data_interface &);
+
+		bool execute(Start_rekeying &req, Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor)
+		{
+			return req.execute({_sb, _curr_gen, block_io, crypto, trust_anchor, *this });
+		}
 
 		bool execute(Secure_superblock &req, Block_io &block_io, Trust_anchor &trust_anchor)
 		{

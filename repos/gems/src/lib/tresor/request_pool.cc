@@ -160,34 +160,6 @@ void Request_pool_channel::_extend_tree(Superblock_control_request::Type type, b
 }
 
 
-void Request_pool_channel::_rekey(bool &progress)
-{
-	switch (_state) {
-	case REQ_SUBMITTED:
-
-		_gen_sb_control_req(progress, Superblock_control_request::INITIALIZE_REKEYING, REKEY_INIT_SUCCEEDED);
-		break;
-
-	case REQ_RESUMED:
-	case REKEY_INIT_SUCCEEDED: _try_prepone_requests(progress); break;
-	case REKEY_VBA_SUCCEEDED:
-
-		if (_request_finished)
-			_mark_req_successful(progress);
-		else
-			_try_prepone_requests(progress);
-		break;
-
-	case PREPONED_REQUESTS_COMPLETE:
-
-		_gen_sb_control_req(progress, Superblock_control_request::REKEY_VBA, REKEY_VBA_SUCCEEDED);
-		break;
-
-	default: break;
-	}
-}
-
-
 void Request_pool_channel::_resume_request(bool &progress, Request::Operation op)
 {
 	_state = REQ_RESUMED;
@@ -233,6 +205,7 @@ void Request_pool_channel::execute(Superblock_control &sb_control, Trust_anchor 
 			break;
 		default: break;
 		}
+		break;
 
 	case Request::SYNC:
 
@@ -244,7 +217,30 @@ void Request_pool_channel::execute(Superblock_control &sb_control, Trust_anchor 
 		}
 		break;
 
-	case Request::REKEY: _rekey(progress); break;
+	case Request::REKEY:
+
+		switch (_state) {
+		case REQ_SUBMITTED: _start_rekeying.generate(*this, START_REKEYING, START_REKEYING_SUCCEEDED, progress); break;
+		case START_REKEYING: progress |= _start_rekeying.execute(sb_control, block_io, crypto, trust_anchor); break;
+		case START_REKEYING_SUCCEEDED:
+		case REQ_RESUMED: _try_prepone_requests(progress); break;
+		case REKEY_VBA_SUCCEEDED:
+
+			if (_request_finished)
+				_mark_req_successful(progress);
+			else
+				_try_prepone_requests(progress);
+			break;
+
+		case PREPONED_REQUESTS_COMPLETE:
+
+			_gen_sb_control_req(progress, Superblock_control_request::REKEY_VBA, REKEY_VBA_SUCCEEDED);
+			break;
+
+		default: break;
+		}
+		break;
+
 	case Request::EXTEND_VBD: _extend_tree(Superblock_control_request::VBD_EXTENSION_STEP, progress); break;
 	case Request::EXTEND_FT: _extend_tree(Superblock_control_request::FT_EXTENSION_STEP, progress); break;
 	case Request::INITIALIZE:
