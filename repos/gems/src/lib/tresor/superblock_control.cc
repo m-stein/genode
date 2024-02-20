@@ -524,6 +524,47 @@ void Superblock_control_channel::_secure_sb(Block_io &block_io, Trust_anchor &tr
 	}
 }
 
+bool Superblock_control::Start_rekeying::execute(Execute_attr const &attr)
+{
+	bool progress = false;
+	switch (_helper.state) {
+	case INIT:
+
+		attr.sb.snapshots.discard_disposable_snapshots(attr.sb.last_secured_generation, attr.curr_gen);
+		if (attr.sb.state != Superblock::NORMAL) {
+			_helper.mark_failed(progress, "check superblock state");
+			break;
+		}
+		attr.sb.state = Superblock::REKEYING;
+		attr.sb.rekeying_vba = 0;
+		attr.sb.previous_key = attr.sb.current_key;
+		attr.sb.current_key.id++;
+		_generate_key.generate(_helper, GENERATE_KEY, GENERATE_KEY_SUCCEEDED, progress, attr.sb.current_key.value);
+		break;
+
+	case GENERATE_KEY: progress |= _generate_key.execute(attr.trust_anchor); break;
+	case GENERATE_KEY_SUCCEEDED:
+
+		_add_key.generate(_helper, ADD_KEY, ADD_KEY_SUCCEEDED, progress, attr.sb.current_key);
+		if (VERBOSE_REKEYING)
+			log("start rekeying:\n  update sb: keys ", attr.sb.previous_key.id, ",", attr.sb.current_key.id);
+		break;
+
+	case ADD_KEY: progress |= _add_key.execute(attr.crypto); break;
+	case ADD_KEY_SUCCEEDED:
+
+		if (VERBOSE_REKEYING)
+			log("  secure sb: gen ", attr.curr_gen);
+		_secure_sb.generate(_helper, SECURE_SB, SECURE_SB_SUCCEEDED, progress);
+		break;
+
+	case SECURE_SB: progress |= _secure_sb.execute(attr.sb_control, attr.block_io, attr.trust_anchor); break;
+	case SECURE_SB_SUCCEEDED: _helper.mark_succeeded(progress); break;
+	default: break;
+	}
+	return progress;
+}
+
 
 void Superblock_control_channel::_init_rekeying(Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor, bool &progress)
 {
