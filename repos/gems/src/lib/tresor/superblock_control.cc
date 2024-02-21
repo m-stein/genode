@@ -228,6 +228,95 @@ bool Superblock_control::Read_vba::execute(Execute_attr const &attr)
 }
 
 
+bool Superblock_control::Extend_vbd::execute(Execute_attr const &attr)
+{
+	bool progress = false;
+	switch (_helper.state) {
+	case INIT:
+	{
+		_num_pbas = _attr.in_num_pbas;
+		attr.sb.snapshots.discard_disposable_snapshots(attr.sb.last_secured_generation, attr.curr_gen);
+		Physical_block_address last_used_pba { attr.sb.first_pba + (attr.sb.nr_of_pbas - 1) };
+		Number_of_blocks nr_of_unused_pbas { MAX_PBA - last_used_pba };
+
+		if (_num_pbas > nr_of_unused_pbas) {
+			_helper.mark_failed(progress, "check number of unused blocks");
+			break;
+		}
+		if (attr.sb.state == Superblock::NORMAL) {
+
+			_attr.out_extension_finished = false;
+			attr.sb.state = Superblock::EXTENDING_VBD;
+			attr.sb.resizing_nr_of_pbas = _num_pbas;
+			attr.sb.resizing_nr_of_leaves = 0;
+			_pba = last_used_pba + 1;
+			if (VERBOSE_VBD_EXTENSION)
+				log("vbd ext init: pbas ", _pba, "..",
+				    _pba + (Number_of_blocks)attr.sb.resizing_nr_of_pbas - 1,
+				    " leaves ", (Number_of_blocks)attr.sb.resizing_nr_of_leaves);
+
+			_secure_sb.generate(_helper, SECURE_SB, SECURE_SB_SUCCEEDED, progress);
+			break;
+
+		} else if (attr.sb.state == Superblock::EXTENDING_VBD) {
+
+			_pba = last_used_pba + 1;
+			_num_pbas = attr.sb.resizing_nr_of_pbas;
+
+			if (VERBOSE_VBD_EXTENSION)
+				log("vbd ext step: pbas ", _pba, "..",
+				    _pba + (Number_of_blocks)attr.sb.resizing_nr_of_pbas - 1,
+				    " leaves ", (Number_of_blocks)attr.sb.resizing_nr_of_leaves);
+
+			_num_pbas = attr.sb.resizing_nr_of_pbas;
+			_pba = attr.sb.first_pba + attr.sb.nr_of_pbas;
+
+			_ft.construct(attr.sb.free_number, attr.sb.free_gen, attr.sb.free_hash, attr.sb.free_max_level, attr.sb.free_degree, attr.sb.free_leaves);
+			_mt.construct(attr.sb.meta_number, attr.sb.meta_gen, attr.sb.meta_hash, attr.sb.meta_max_level, attr.sb.meta_degree, attr.sb.meta_leaves);
+			_extend_vbd.generate(
+				_helper, EXTEND_VBD, EXTEND_VBD_SUCCEEDED, progress, _nr_of_leaves, attr.sb.snapshots,
+				attr.sb.degree, attr.curr_gen, attr.sb.last_secured_generation, _pba, _num_pbas, *_ft,
+				*_mt, attr.sb.degree, attr.sb.max_vba(), attr.sb.previous_key.id, attr.sb.current_key.id,
+				attr.sb.state == Superblock::REKEYING, attr.sb.rekeying_vba);
+
+		} else
+			_helper.mark_failed(progress, "check superblock state");
+
+		break;
+	}
+	case EXTEND_VBD: progress |= _extend_vbd.execute(attr.vbd, attr.block_io, attr.free_tree, attr.meta_tree); break;
+	case EXTEND_VBD_SUCCEEDED:
+	{
+		if (_num_pbas >= attr.sb.resizing_nr_of_pbas) {
+			_helper.mark_failed(progress, "check number of pbas");
+			break;
+		}
+		Number_of_blocks const nr_of_added_pbas { attr.sb.resizing_nr_of_pbas - _num_pbas };
+		Physical_block_address const new_first_unused_pba { attr.sb.first_pba + (attr.sb.nr_of_pbas + nr_of_added_pbas) };
+		if (_pba != new_first_unused_pba) {
+			_helper.mark_failed(progress, "check new first unused pba");
+			break;
+		}
+		attr.sb.nr_of_pbas = attr.sb.nr_of_pbas + nr_of_added_pbas;
+		attr.sb.resizing_nr_of_pbas = _num_pbas;
+		attr.sb.resizing_nr_of_leaves += _nr_of_leaves;
+		attr.sb.curr_snap_idx = attr.sb.snapshots.newest_snap_idx();
+
+		if (!_num_pbas) {
+			attr.sb.state = Superblock::NORMAL;
+			_attr.out_extension_finished = true;
+		}
+		_secure_sb.generate(_helper, SECURE_SB, SECURE_SB_SUCCEEDED, progress);
+		break;
+	}
+	case SECURE_SB: progress |= _secure_sb.execute(attr.sb_control, attr.block_io, attr.trust_anchor); break;
+	case SECURE_SB_SUCCEEDED: _helper.mark_succeeded(progress); break;
+	default: break;
+	}
+	return progress;
+}
+
+
 void Superblock_control_channel::_tree_ext_step(Block_io &block_io, Trust_anchor &trust_anchor, Free_tree &free_tree, Meta_tree &meta_tree, Virtual_block_device &vbd, Superblock::State sb_state, bool verbose, bool &progress)
 {
 	Request &req { *_req_ptr };
