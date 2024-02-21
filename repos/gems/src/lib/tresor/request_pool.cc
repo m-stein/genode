@@ -224,7 +224,8 @@ void Request_pool_channel::execute(Superblock_control &sb_control, Trust_anchor 
 		case START_REKEYING: progress |= _start_rekeying.execute(sb_control, block_io, crypto, trust_anchor); break;
 		case START_REKEYING_SUCCEEDED:
 		case REQ_RESUMED: _try_prepone_requests(progress); break;
-		case REKEY_VBA_SUCCEEDED:
+		case CONTINUE_REKEYING: progress |= _continue_rekeying.execute(sb_control, vbd, free_tree, meta_tree, block_io, crypto, trust_anchor); break;
+		case CONTINUE_REKEYING_SUCCEEDED:
 
 			if (_request_finished)
 				_mark_req_successful(progress);
@@ -234,7 +235,7 @@ void Request_pool_channel::execute(Superblock_control &sb_control, Trust_anchor 
 
 		case PREPONED_REQUESTS_COMPLETE:
 
-			_gen_sb_control_req(progress, Superblock_control_request::REKEY_VBA, REKEY_VBA_SUCCEEDED);
+			_continue_rekeying.generate(*this, CONTINUE_REKEYING, CONTINUE_REKEYING_SUCCEEDED, progress, _request_finished);
 			break;
 
 		default: break;

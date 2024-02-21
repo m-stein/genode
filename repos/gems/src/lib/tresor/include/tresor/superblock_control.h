@@ -325,6 +325,59 @@ class Tresor::Superblock_control : public Module
 				bool success() const { return _helper.success(); }
 		};
 
+		class Continue_rekeying : Noncopyable
+		{
+			public:
+
+				using Module = Superblock_control;
+
+				struct Attr { bool &out_rekeying_finished; };
+
+				struct Execute_attr
+				{
+					Superblock &sb;
+					Generation const &curr_gen;
+					Block_io &block_io;
+					Crypto &crypto;
+					Trust_anchor &trust_anchor;
+					Free_tree &free_tree;
+					Meta_tree &meta_tree;
+					Virtual_block_device &vbd;
+					Superblock_control &sb_control;
+				};
+
+			private:
+
+				enum State {
+					INIT, COMPLETE, REKEY_VBA, REKEY_VBA_SUCCEEDED, SECURE_SB, SECURE_SB_SUCCEEDED,
+					REMOVE_KEY, REMOVE_KEY_SUCCEEDED };
+
+				using Helper = Request_helper<Continue_rekeying, State>;
+
+				Helper _helper;
+				Attr const _attr;
+				Constructible<Tree_root> _ft { };
+				Constructible<Tree_root> _mt { };
+				union {
+					Generatable_request<Helper, State, Virtual_block_device::Rekey_vba> _rekey_vba;
+					Generatable_request<Helper, State, Crypto::Remove_key> _remove_key;
+					Generatable_request<Helper, State, Secure_superblock> _secure_sb;
+				};
+
+			public:
+
+				Continue_rekeying(Attr const &attr) : _helper(*this), _attr(attr) { }
+
+				~Continue_rekeying() { }
+
+				void print(Output &out) const { Genode::print(out, "rekey vba"); }
+
+				bool execute(Execute_attr const &);
+
+				bool complete() const { return _helper.complete(); }
+				bool success() const { return _helper.success(); }
+		};
+
 		class Read_vba : Noncopyable
 		{
 			public:
@@ -662,6 +715,11 @@ class Tresor::Superblock_control : public Module
 		bool execute(Start_rekeying &req, Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor)
 		{
 			return req.execute({_sb, _curr_gen, block_io, crypto, trust_anchor, *this });
+		}
+
+		bool execute(Continue_rekeying &req, Virtual_block_device &vbd, Free_tree &free_tree, Meta_tree &meta_tree, Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor)
+		{
+			return req.execute({ _sb, _curr_gen, block_io, crypto, trust_anchor, free_tree, meta_tree, vbd, *this });
 		}
 
 		bool execute(Secure_superblock &req, Block_io &block_io, Trust_anchor &trust_anchor)
