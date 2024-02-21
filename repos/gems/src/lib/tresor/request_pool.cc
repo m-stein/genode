@@ -242,7 +242,24 @@ void Request_pool_channel::execute(Superblock_control &sb_control, Trust_anchor 
 		}
 		break;
 
-	case Request::EXTEND_VBD: _extend_tree(Superblock_control_request::VBD_EXTENSION_STEP, progress); break;
+	case Request::EXTEND_VBD:
+
+		switch (_state) {
+		case REQ_SUBMITTED: _extend_vbd.generate(*this, EXTEND_VBD, EXTEND_VBD_SUCCEEDED, progress, _req_ptr->_count, _request_finished); break;
+		case EXTEND_VBD: progress |= _extend_vbd.execute(sb_control, vbd, free_tree, meta_tree, block_io, trust_anchor); break;
+		case EXTEND_VBD_SUCCEEDED:
+
+			if (_request_finished)
+				_mark_req_successful(progress);
+			else
+				_try_prepone_requests(progress);
+			break;
+
+		case PREPONED_REQUESTS_COMPLETE: _extend_vbd.generate(*this, EXTEND_VBD, EXTEND_VBD_SUCCEEDED, progress, _req_ptr->_count, _request_finished); break;
+		default: break;
+		}
+		break;
+
 	case Request::EXTEND_FT: _extend_tree(Superblock_control_request::FT_EXTENSION_STEP, progress); break;
 	case Request::INITIALIZE:
 
