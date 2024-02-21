@@ -766,7 +766,7 @@ class Tresor_tester::Main
 			_meta_tree.construct();
 			_free_tree.construct();
 			_vbd.construct();
-			_sb_control.construct(_block_io, _crypto, _trust_anchor, *_free_tree, *_meta_tree, *_vbd, *this);
+			_sb_control.construct();
 			_request_pool.construct(*_sb_control, _trust_anchor, *_vbd, *this, _block_io, *_free_tree, *_meta_tree, _crypto);
 			add_module(SUPERBLOCK_CONTROL, *_sb_control);
 			add_module(REQUEST_POOL, *_request_pool);

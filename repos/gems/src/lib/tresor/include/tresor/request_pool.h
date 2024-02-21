@@ -104,19 +104,11 @@ class Tresor::Request_pool_channel : public Module_channel
 
 		bool _request_complete() override { return _state == REQ_COMPLETE; }
 
-		void _read_vbas(Superblock_control &, Virtual_block_device &, Client_data_interface &, Block_io &, Crypto &, bool &);
-
-		void _forward_to_sb_ctrl(bool &, Superblock_control_request::Type);
-
-		void _gen_sb_control_req(bool &, Superblock_control_request::Type, State, Virtual_block_address);
-
 		void _mark_req_successful(bool &);
 
 		void _reset();
 
 		void _try_prepone_requests(bool &);
-
-		void _extend_tree(Superblock_control_request::Type, bool &);
 
 		void _resume_request(bool &, Request::Operation);
 

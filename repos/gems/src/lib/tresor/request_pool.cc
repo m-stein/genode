@@ -60,34 +60,6 @@ char const *Request::op_to_string(Operation op)
 }
 
 
-void Request_pool_channel::_gen_sb_control_req(bool &progress, Superblock_control_request::Type type,
-                                               State complete_state, Virtual_block_address vba = 0)
-{
-	_state = REQ_GENERATED;
-	generate_req<Superblock_control_request>(
-		complete_state, progress, type, _req_ptr->_offset, _req_ptr->_tag, _req_ptr->_count, vba, _generated_req_success,
-		_request_finished, _sb_state, _req_ptr->_gen);
-}
-
-
-void Request_pool_channel::_read_vbas(Superblock_control &sb_control, Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Crypto &crypto, bool &progress)
-{
-	switch (_state) {
-	case REQ_SUBMITTED:
-		_read_vba.generate(*this, READ_VBA, READ_VBA_SUCCEEDED, progress, _req_ptr->_vba + _num_blks, _req_ptr->_offset, _req_ptr->_tag);
-		break;
-	case READ_VBA: progress |= _read_vba.execute(sb_control, vbd, client_data, block_io, crypto); break;
-	case READ_VBA_SUCCEEDED:
-		if (++_num_blks < _req_ptr->_count)
-			_read_vba.generate(*this, READ_VBA, READ_VBA_SUCCEEDED, progress, _req_ptr->_vba + _num_blks, _req_ptr->_offset, _req_ptr->_tag);
-		else
-			_mark_req_successful(progress);
-		break;
-	default: break;
-	}
-}
-
-
 void Request_pool_channel::_mark_req_successful(bool &progress)
 {
 	_req_ptr->_success = true;
@@ -134,47 +106,11 @@ void Request_pool_channel::_try_prepone_requests(bool &progress)
 }
 
 
-void Request_pool_channel::_extend_tree(Superblock_control_request::Type type, bool &progress)
-{
-	switch (_state) {
-	case REQ_SUBMITTED:
-
-		_gen_sb_control_req(progress, type, TREE_EXTENSION_STEP_SUCCEEDED);
-		break;
-
-	case TREE_EXTENSION_STEP_SUCCEEDED:
-
-		if (_request_finished)
-			_mark_req_successful(progress);
-		else
-			_try_prepone_requests(progress);
-		break;
-
-	case PREPONED_REQUESTS_COMPLETE:
-
-		_gen_sb_control_req(progress, type, TREE_EXTENSION_STEP_SUCCEEDED);
-		break;
-
-	default: break;
-	}
-}
-
-
 void Request_pool_channel::_resume_request(bool &progress, Request::Operation op)
 {
 	_state = REQ_RESUMED;
 	_req_ptr->_op = op;
 	progress = true;
-}
-
-
-void Request_pool_channel::_forward_to_sb_ctrl(bool &progress, Superblock_control_request::Type type)
-{
-	switch (_state) {
-	case REQ_SUBMITTED: _gen_sb_control_req(progress, type, FORWARD_TO_SB_CTRL_SUCCEEDED); break;
-	case FORWARD_TO_SB_CTRL_SUCCEEDED: _mark_req_successful(progress); break;
-	default: break;
-	}
 }
 
 
@@ -189,7 +125,23 @@ void Request_pool_channel::execute(Superblock_control &sb_control, Trust_anchor 
 {
 	Request &req { *_req_ptr };
 	switch (_req_ptr->_op) {
-	case Request::READ: _read_vbas(sb_control, vbd, client_data, block_io, crypto, progress); break;
+	case Request::READ:
+
+		switch (_state) {
+		case REQ_SUBMITTED:
+			_read_vba.generate(*this, READ_VBA, READ_VBA_SUCCEEDED, progress, _req_ptr->_vba + _num_blks, _req_ptr->_offset, _req_ptr->_tag);
+			break;
+		case READ_VBA: progress |= _read_vba.execute(sb_control, vbd, client_data, block_io, crypto); break;
+		case READ_VBA_SUCCEEDED:
+			if (++_num_blks < _req_ptr->_count)
+				_read_vba.generate(*this, READ_VBA, READ_VBA_SUCCEEDED, progress, _req_ptr->_vba + _num_blks, _req_ptr->_offset, _req_ptr->_tag);
+			else
+				_mark_req_successful(progress);
+			break;
+		default: break;
+		}
+		break;
+
 	case Request::WRITE:
 
 		switch (_state) {
