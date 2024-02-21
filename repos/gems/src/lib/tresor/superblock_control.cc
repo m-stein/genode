@@ -276,7 +276,7 @@ void Superblock_control_channel::_tree_ext_step(Block_io &block_io, Trust_anchor
 			req._nr_of_blks = _sb.resizing_nr_of_pbas;
 			_pba = _sb.first_pba + _sb.nr_of_pbas;
 
-			_mt.construct(
+			_ft.construct(
 				_sb.free_number, _sb.free_gen, _sb.free_hash, _sb.free_max_level, _sb.free_degree,
 				_sb.free_leaves);
 
@@ -334,6 +334,69 @@ void Superblock_control_channel::_tree_ext_step(Block_io &block_io, Trust_anchor
 	case SECURE_SB_SUCCEEDED: _mark_req_successful(progress); break;
 	default: break;
 	}
+}
+
+
+bool Superblock_control::Continue_rekeying::execute(Execute_attr const &attr)
+{
+	bool progress = false;
+	switch (_helper.state) {
+	case INIT:
+
+		attr.sb.snapshots.discard_disposable_snapshots(attr.sb.last_secured_generation, attr.curr_gen);
+		if (attr.sb.state != Superblock::REKEYING) {
+			_helper.mark_failed(progress, "check superblock state");
+			break;
+		}
+		_ft.construct(attr.sb.free_number, attr.sb.free_gen, attr.sb.free_hash, attr.sb.free_max_level, attr.sb.free_degree, attr.sb.free_leaves);
+		_mt.construct(attr.sb.meta_number, attr.sb.meta_gen, attr.sb.meta_hash, attr.sb.meta_max_level, attr.sb.meta_degree, attr.sb.meta_leaves);
+		_rekey_vba.generate(
+			_helper, REKEY_VBA, REKEY_VBA_SUCCEEDED, progress, attr.sb.snapshots, *_ft, *_mt, attr.sb.rekeying_vba,
+			attr.curr_gen, attr.sb.last_secured_generation, attr.sb.current_key.id, attr.sb.previous_key.id, attr.sb.degree, attr.sb.max_vba());
+
+
+		if (VERBOSE_REKEYING)
+			log("rekey vba ", attr.sb.rekeying_vba, ":\n  update vbd: keys ", attr.sb.previous_key.id, ",", attr.sb.current_key.id,
+			    " generations ", attr.sb.last_secured_generation, ",", attr.curr_gen);
+		break;
+
+	case REKEY_VBA: progress |= _rekey_vba.execute(attr.vbd, attr.block_io, attr.crypto, attr.free_tree, attr.meta_tree); break;
+	case REKEY_VBA_SUCCEEDED:
+	{
+		Number_of_leaves max_nr_of_leaves { 0 };
+		for (Snapshot const &snap : attr.sb.snapshots.items) {
+			if (snap.valid && max_nr_of_leaves < snap.nr_of_leaves)
+				max_nr_of_leaves = snap.nr_of_leaves;
+		}
+		if (attr.sb.rekeying_vba < max_nr_of_leaves - 1) {
+			attr.sb.rekeying_vba++;
+			_attr.out_rekeying_finished = false;
+			_secure_sb.generate(_helper, SECURE_SB, SECURE_SB_SUCCEEDED, progress);
+			if (VERBOSE_REKEYING)
+				log("  secure sb: gen ", attr.curr_gen);
+		} else {
+			_remove_key.generate(_helper, REMOVE_KEY, REMOVE_KEY_SUCCEEDED, progress, attr.sb.previous_key.id);
+			if (VERBOSE_REKEYING)
+				log("  remove key ", attr.sb.previous_key.id);
+		}
+		break;
+	}
+	case REMOVE_KEY: progress |= _remove_key.execute(attr.crypto); break;
+	case REMOVE_KEY_SUCCEEDED:
+
+		attr.sb.previous_key = { };
+		attr.sb.state = Superblock::NORMAL;
+		_attr.out_rekeying_finished = true;
+		_secure_sb.generate(_helper, SECURE_SB, SECURE_SB_SUCCEEDED, progress);
+		if (VERBOSE_REKEYING)
+			log("  secure sb: gen ", attr.curr_gen);
+		break;
+
+	case SECURE_SB: progress |= _secure_sb.execute(attr.sb_control, attr.block_io, attr.trust_anchor); break;
+	case SECURE_SB_SUCCEEDED: _helper.mark_succeeded(progress); break;
+	default: break;
+	}
+	return progress;
 }
 
 
