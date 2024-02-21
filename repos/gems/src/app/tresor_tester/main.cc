@@ -535,8 +535,8 @@ class Tresor_tester::Main
 		Block_io _block_io { _block_io_file };
 		Pba_allocator _pba_alloc { NR_OF_SUPERBLOCK_SLOTS };
 		Vbd_initializer _vbd_initializer { _block_io };
-		Ft_initializer _ft_initializer { _block_io };
-		Sb_initializer _sb_initializer { _block_io, _trust_anchor };
+		Ft_initializer _ft_initializer { };
+		Sb_initializer _sb_initializer { _block_io, _trust_anchor, _ft_initializer };
 		Vbd_check _vbd_check { };
 		Ft_check _ft_check { };
 		Sb_check _sb_check { };
@@ -665,7 +665,6 @@ class Tresor_tester::Main
 		{
 			add_module(COMMAND_POOL, *this);
 			add_module(VBD_INITIALIZER, _vbd_initializer);
-			add_module(FT_INITIALIZER, _ft_initializer);
 			add_module(SB_INITIALIZER, _sb_initializer);
 			_config_rom.xml().sub_node("commands").for_each_sub_node([&] (Xml_node const &node) {
 				add_channel(*new (_heap) Command(node, *this, _next_command_id++));
@@ -768,14 +767,12 @@ class Tresor_tester::Main
 			_vbd.construct();
 			_sb_control.construct();
 			_request_pool.construct(*_sb_control, _trust_anchor, *_vbd, *this, _block_io, *_free_tree, *_meta_tree, _crypto);
-			add_module(SUPERBLOCK_CONTROL, *_sb_control);
 			add_module(REQUEST_POOL, *_request_pool);
 		}
 
 		void destruct_tresor_modules()
 		{
 			remove_module(REQUEST_POOL);
-			remove_module(SUPERBLOCK_CONTROL);
 			_meta_tree.destruct();
 			_request_pool.destruct();
 			_sb_control.destruct();

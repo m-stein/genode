@@ -22,7 +22,7 @@
 
 namespace Tresor { class Superblock_control; }
 
-class Tresor::Superblock_control : public Module
+class Tresor::Superblock_control : Noncopyable
 {
 	private:
 

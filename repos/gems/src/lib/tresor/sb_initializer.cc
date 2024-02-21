@@ -72,7 +72,7 @@ void Sb_initializer_channel::_mark_req_failed(bool &progress, char const *str)
 }
 
 
-void Sb_initializer_channel::execute(Block_io &block_io, Trust_anchor &trust_anchor, bool &progress)
+void Sb_initializer_channel::execute(Block_io &block_io, Trust_anchor &trust_anchor, Ft_initializer &ft_initializer, bool &progress)
 {
 	if (!_req_ptr)
 		return;
@@ -92,13 +92,14 @@ void Sb_initializer_channel::execute(Block_io &block_io, Trust_anchor &trust_anc
 	case INIT_VBD_SUCCEEDED:
 
 		_ft.construct(_sb.free_number, _sb.free_gen, _sb.free_hash, req._ft_max_lvl, req._ft_degree, req._ft_num_leaves);
-		_generate_req<Ft_initializer_request>(INIT_FT_SUCCEEDED, progress, *_ft, req._pba_alloc);
+		_init_ft.generate(*this, INIT_FT, INIT_FT_SUCCEEDED, progress, *_ft, req._pba_alloc);
 		break;
 
+	case INIT_FT: progress |= _init_ft.execute(ft_initializer, block_io); break;
 	case INIT_FT_SUCCEEDED:
 
 		_mt.construct(_sb.meta_number, _sb.meta_gen, _sb.meta_hash, req._ft_max_lvl, req._ft_degree, req._ft_num_leaves);
-		_generate_req<Ft_initializer_request>(INIT_MT_SUCCEEDED, progress, *_mt, req._pba_alloc);
+		_init_ft.generate(*this, INIT_FT, INIT_MT_SUCCEEDED, progress, *_mt, req._pba_alloc);
 		break;
 
 	case INIT_MT_SUCCEEDED:
@@ -167,10 +168,11 @@ void Sb_initializer_channel::execute(Block_io &block_io, Trust_anchor &trust_anc
 }
 
 
-Sb_initializer::Sb_initializer(Block_io &block_io, Trust_anchor &trust_anchor)
+Sb_initializer::Sb_initializer(Block_io &block_io, Trust_anchor &trust_anchor, Ft_initializer &ft_initializer)
 :
 	_block_io(block_io),
-	_trust_anchor(trust_anchor)
+	_trust_anchor(trust_anchor),
+	_ft_initializer(ft_initializer)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {
@@ -183,5 +185,5 @@ Sb_initializer::Sb_initializer(Block_io &block_io, Trust_anchor &trust_anchor)
 void Sb_initializer::execute(bool &progress)
 {
 	for_each_channel<Channel>([&] (Channel &chan) {
-		chan.execute(_block_io, _trust_anchor, progress); });
+		chan.execute(_block_io, _trust_anchor, _ft_initializer, progress); });
 }
