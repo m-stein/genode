@@ -325,6 +325,61 @@ class Tresor::Superblock_control : public Module
 				bool success() const { return _helper.success(); }
 		};
 
+		class Extend_free_tree : Noncopyable
+		{
+			public:
+
+				using Module = Superblock_control;
+
+				struct Attr
+				{
+					Number_of_blocks const in_num_pbas;
+					bool &out_extension_finished;
+				};
+
+				struct Execute_attr
+				{
+					Superblock_control &sb_control;
+					Free_tree &free_tree;
+					Meta_tree &meta_tree;
+					Block_io &block_io;
+					Trust_anchor &trust_anchor;
+					Superblock &sb;
+					Generation const &curr_gen;
+				};
+
+			private:
+
+				enum State { INIT, COMPLETE, EXTEND_FREE_TREE, EXTEND_FREE_TREE_SUCCEEDED, SECURE_SB, SECURE_SB_SUCCEEDED };
+
+				using Helper = Request_helper<Extend_free_tree, State>;
+
+				Helper _helper;
+				Attr const _attr;
+				Number_of_blocks _num_pbas { };
+				Physical_block_address _pba { };
+				Number_of_blocks _nr_of_leaves { };
+				Constructible<Tree_root> _ft { };
+				Constructible<Tree_root> _mt { };
+				union {
+					Generatable_request<Helper, State, Secure_superblock> _secure_sb;
+					Generatable_request<Helper, State, Free_tree::Extend_tree> _extend_free_tree;
+				};
+
+			public:
+
+				Extend_free_tree(Attr const &attr) : _helper(*this), _attr(attr) { }
+
+				~Extend_free_tree() { }
+
+				void print(Output &out) const { Genode::print(out, "rekey vba"); }
+
+				bool execute(Execute_attr const &);
+
+				bool complete() const { return _helper.complete(); }
+				bool success() const { return _helper.success(); }
+		};
+
 		class Extend_vbd : Noncopyable
 		{
 			public:
@@ -351,8 +406,7 @@ class Tresor::Superblock_control : public Module
 
 			private:
 
-				enum State {
-					INIT, COMPLETE, EXTEND_VBD, EXTEND_VBD_SUCCEEDED, SECURE_SB, SECURE_SB_SUCCEEDED };
+				enum State { INIT, COMPLETE, EXTEND_VBD, EXTEND_VBD_SUCCEEDED, SECURE_SB, SECURE_SB_SUCCEEDED };
 
 				using Helper = Request_helper<Extend_vbd, State>;
 
@@ -374,7 +428,7 @@ class Tresor::Superblock_control : public Module
 
 				~Extend_vbd() { }
 
-				void print(Output &out) const { Genode::print(out, "rekey vba"); }
+				void print(Output &out) const { Genode::print(out, "extend vbd"); }
 
 				bool execute(Execute_attr const &);
 
@@ -427,7 +481,7 @@ class Tresor::Superblock_control : public Module
 
 				~Continue_rekeying() { }
 
-				void print(Output &out) const { Genode::print(out, "rekey vba"); }
+				void print(Output &out) const { Genode::print(out, "continue rekeying"); }
 
 				bool execute(Execute_attr const &);
 
@@ -772,6 +826,11 @@ class Tresor::Superblock_control : public Module
 		bool execute(Start_rekeying &req, Block_io &block_io, Crypto &crypto, Trust_anchor &trust_anchor)
 		{
 			return req.execute({_sb, _curr_gen, block_io, crypto, trust_anchor, *this });
+		}
+
+		bool execute(Extend_free_tree &req, Free_tree &free_tree, Meta_tree &meta_tree, Block_io &block_io, Trust_anchor &trust_anchor)
+		{
+			return req.execute({ *this, free_tree, meta_tree, block_io, trust_anchor, _sb, _curr_gen });
 		}
 
 		bool execute(Extend_vbd &req, Virtual_block_device &vbd, Free_tree &free_tree, Meta_tree &meta_tree, Block_io &block_io, Trust_anchor &trust_anchor)

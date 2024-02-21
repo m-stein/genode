@@ -260,7 +260,24 @@ void Request_pool_channel::execute(Superblock_control &sb_control, Trust_anchor 
 		}
 		break;
 
-	case Request::EXTEND_FT: _extend_tree(Superblock_control_request::FT_EXTENSION_STEP, progress); break;
+	case Request::EXTEND_FT:
+
+		switch (_state) {
+		case REQ_SUBMITTED: _extend_ft.generate(*this, EXTEND_FT, EXTEND_FT_SUCCEEDED, progress, _req_ptr->_count, _request_finished); break;
+		case EXTEND_FT: progress |= _extend_ft.execute(sb_control, free_tree, meta_tree, block_io, trust_anchor); break;
+		case EXTEND_FT_SUCCEEDED:
+
+			if (_request_finished)
+				_mark_req_successful(progress);
+			else
+				_try_prepone_requests(progress);
+			break;
+
+		case PREPONED_REQUESTS_COMPLETE: _extend_ft.generate(*this, EXTEND_FT, EXTEND_FT_SUCCEEDED, progress, _req_ptr->_count, _request_finished); break;
+		default: break;
+		}
+		break;
+
 	case Request::INITIALIZE:
 
 		switch (_state) {
