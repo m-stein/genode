@@ -534,9 +534,9 @@ class Tresor_tester::Main
 		Crypto _crypto { {*this, _crypto_add_key_file, _crypto_remove_key_file} };
 		Block_io _block_io { _block_io_file };
 		Pba_allocator _pba_alloc { NR_OF_SUPERBLOCK_SLOTS };
-		Vbd_initializer _vbd_initializer { _block_io };
+		Vbd_initializer _vbd_initializer { };
 		Ft_initializer _ft_initializer { };
-		Sb_initializer _sb_initializer { _block_io, _trust_anchor, _ft_initializer };
+		Sb_initializer _sb_initializer { _block_io, _trust_anchor, _vbd_initializer, _ft_initializer };
 		Vbd_check _vbd_check { };
 		Ft_check _ft_check { };
 		Sb_check _sb_check { };
@@ -664,7 +664,6 @@ class Tresor_tester::Main
 		Main(Genode::Env &env) : _env(env)
 		{
 			add_module(COMMAND_POOL, *this);
-			add_module(VBD_INITIALIZER, _vbd_initializer);
 			add_module(SB_INITIALIZER, _sb_initializer);
 			_config_rom.xml().sub_node("commands").for_each_sub_node([&] (Xml_node const &node) {
 				add_channel(*new (_heap) Command(node, *this, _next_command_id++));
