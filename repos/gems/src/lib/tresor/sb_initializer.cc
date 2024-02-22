@@ -72,7 +72,7 @@ void Sb_initializer_channel::_mark_req_failed(bool &progress, char const *str)
 }
 
 
-void Sb_initializer_channel::execute(Block_io &block_io, Trust_anchor &trust_anchor, Ft_initializer &ft_initializer, bool &progress)
+void Sb_initializer_channel::execute(Block_io &block_io, Trust_anchor &trust_anchor, Vbd_initializer &vbd_initializer, Ft_initializer &ft_initializer, bool &progress)
 {
 	if (!_req_ptr)
 		return;
@@ -85,10 +85,11 @@ void Sb_initializer_channel::execute(Block_io &block_io, Trust_anchor &trust_anc
 		_sb = { };
 		Snapshot &snap = _sb.snapshots.items[0];
 		_vbd.construct(snap.pba, snap.gen, snap.hash, req._vbd_max_lvl, req._vbd_degree, req._vbd_num_leaves);
-		_generate_req<Vbd_initializer_request>(INIT_VBD_SUCCEEDED, progress, *_vbd, req._pba_alloc);
+		_init_vbd.generate(*this, INIT_VBD, INIT_VBD_SUCCEEDED, progress, *_vbd, req._pba_alloc);
 		progress = true;
 		break;
 	}
+	case INIT_VBD: progress |= _init_vbd.execute(vbd_initializer, block_io); break;
 	case INIT_VBD_SUCCEEDED:
 
 		_ft.construct(_sb.free_number, _sb.free_gen, _sb.free_hash, req._ft_max_lvl, req._ft_degree, req._ft_num_leaves);
@@ -168,11 +169,12 @@ void Sb_initializer_channel::execute(Block_io &block_io, Trust_anchor &trust_anc
 }
 
 
-Sb_initializer::Sb_initializer(Block_io &block_io, Trust_anchor &trust_anchor, Ft_initializer &ft_initializer)
+Sb_initializer::Sb_initializer(Block_io &block_io, Trust_anchor &trust_anchor, Vbd_initializer &vbd_initializer, Ft_initializer &ft_initializer)
 :
 	_block_io(block_io),
 	_trust_anchor(trust_anchor),
-	_ft_initializer(ft_initializer)
+	_ft_initializer(ft_initializer),
+	_vbd_initializer(vbd_initializer)
 {
 	Module_channel_id id { 0 };
 	for (Constructible<Channel> &chan : _channels) {
@@ -185,5 +187,5 @@ Sb_initializer::Sb_initializer(Block_io &block_io, Trust_anchor &trust_anchor, F
 void Sb_initializer::execute(bool &progress)
 {
 	for_each_channel<Channel>([&] (Channel &chan) {
-		chan.execute(_block_io, _trust_anchor, _ft_initializer, progress); });
+		chan.execute(_block_io, _trust_anchor, _vbd_initializer, _ft_initializer, progress); });
 }

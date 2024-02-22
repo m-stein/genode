@@ -65,7 +65,7 @@ bool Ft_initializer::Initialize::execute(Block_io &block_io)
 			_attr.in_out_ft.t1_node(_t1_blks.items[_attr.in_out_ft.max_lvl + 1].nodes[0]);
 			_helper.mark_succeeded(progress);
 		}
-		return progress;
+		break;
 
 	case WRITE_BLOCK: progress |= _write_block.execute(block_io); break;
 	default: break;;

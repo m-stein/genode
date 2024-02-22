@@ -19,109 +19,60 @@
 #include <tresor/types.h>
 #include <tresor/block_io.h>
 
-namespace Tresor {
+namespace Tresor { class Vbd_initializer; }
 
-	class Vbd_initializer;
-	class Vbd_initializer_request;
-	class Vbd_initializer_channel;
-}
-
-
-class Tresor::Vbd_initializer_request : public Module_request
+class Tresor::Vbd_initializer : Noncopyable
 {
-	friend class Vbd_initializer_channel;
-
-	private:
-
-		Tree_root &_vbd;
-		Pba_allocator &_pba_alloc;
-		bool &_success;
-
-		NONCOPYABLE(Vbd_initializer_request);
-
 	public:
 
-		Vbd_initializer_request(Module_id, Module_channel_id, Tree_root &, Pba_allocator &, bool &);
-
-		void print(Output &out) const override { Genode::print(out, "init"); }
-};
-
-
-class Tresor::Vbd_initializer_channel : public Module_channel
-{
-	private:
-
-		using Request = Vbd_initializer_request;
-
-		enum State { REQ_GENERATED, SUBMITTED, COMPLETE, WRITE_BLOCK, EXECUTE_NODES };
-
-		enum Node_state { DONE, INIT_BLOCK, INIT_NODE, WRITING_BLOCK };
-
-		State _state { COMPLETE };
-		Vbd_initializer_request *_req_ptr { };
-		Type_1_node_block_walk _t1_blks { };
-		Node_state _node_states[TREE_MAX_NR_OF_LEVELS][NUM_NODES_PER_BLK] { DONE };
-		bool _generated_req_success { false };
-		Block _blk { };
-		Number_of_leaves _num_remaining_leaves { };
-		Generatable_request<Vbd_initializer_channel, State, Block_io::Write> _write_block { };
-
-		NONCOPYABLE(Vbd_initializer_channel);
-
-		void _generated_req_completed(State_uint) override;
-
-		bool _request_complete() override { return _state == COMPLETE; }
-
-		void _request_submitted(Module_request &) override;
-
-		void _reset_level(Tree_level_index, Node_state);
-
-		bool _execute_node(Tree_level_index, Tree_node_index, bool &);
-
-		void _mark_req_failed(bool &, char const *);
-
-		void _mark_req_successful(bool &);
-
-	public:
-
-		Vbd_initializer_channel(Module_channel_id id) : Module_channel(VBD_INITIALIZER, id) { }
-
-		void execute(Block_io &, bool &);
-
-		using Module = Vbd_initializer;
-
-		void generated_req_failed(bool &progress) { _mark_req_failed(progress, "generated request failed"); }
-
-		void generated_req_succeeded(State target_state, bool &progress)
+		class Initialize : Noncopyable
 		{
-			_state = target_state;
-			progress = true;
-		}
+			public:
 
-		void req_generated(State target_state, bool &progress)
-		{
-			_state = target_state;
-			progress = true;
-		}
-};
+				using Module = Vbd_initializer;
 
+				struct Attr
+				{
+					Tree_root &in_out_vbd;
+					Pba_allocator &in_out_pba_alloc;
+				};
 
-class Tresor::Vbd_initializer : public Module
-{
-	private:
+			private:
 
-		using Channel = Vbd_initializer_channel;
+				enum State { INIT, COMPLETE, WRITE_BLOCK, EXECUTE_NODES };
 
-		Constructible<Channel> _channels[1] { };
-		Block_io &_block_io;
+				enum Node_state { DONE, INIT_BLOCK, INIT_NODE, WRITING_BLOCK };
 
-		NONCOPYABLE(Vbd_initializer);
+				using Helper = Request_helper<Initialize, State>;
 
-	public:
+				Helper _helper;
+				Attr const _attr;
+				Type_1_node_block_walk _t1_blks { };
+				Node_state _node_states[TREE_MAX_NR_OF_LEVELS][NUM_NODES_PER_BLK] { DONE };
+				bool _generated_req_success { false };
+				Block _blk { };
+				Number_of_leaves _num_remaining_leaves { };
+				Generatable_request<Helper, State, Block_io::Write> _write_block { };
 
-		Vbd_initializer(Block_io &);
+				void _reset_level(Tree_level_index, Node_state);
 
-		void execute(bool &) override;
+				bool _execute_node(Tree_level_index, Tree_node_index, bool &);
+
+			public:
+
+				Initialize(Attr const &attr) : _helper(*this), _attr(attr) { }
+
+				~Initialize() { }
+
+				void print(Output &out) const { Genode::print(out, "initialize"); }
+
+				bool execute(Block_io &);
+
+				bool complete() const { return _helper.complete(); }
+				bool success() const { return _helper.success(); }
+		};
+
+		bool execute(Initialize &req, Block_io &block_io) { return req.execute(block_io); }
 
 		static constexpr char const *name() { return "vbd_initializer"; }
 };
