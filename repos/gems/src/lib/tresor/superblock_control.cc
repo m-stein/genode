@@ -264,27 +264,58 @@ bool Superblock_control::Extend_vbd::execute(Execute_attr const &attr)
 }
 
 
-bool Superblock_control::Continue_rekeying::execute(Execute_attr const &attr)
+bool Superblock_control::Rekey::execute(Execute_attr const &attr)
 {
 	bool progress = false;
 	switch (_helper.state) {
 	case INIT:
 
 		attr.sb.snapshots.discard_disposable_snapshots(attr.sb.last_secured_generation, attr.curr_gen);
-		if (attr.sb.state != Superblock::REKEYING) {
-			_helper.mark_failed(progress, "check superblock state");
+		_attr.out_rekeying_finished = false;
+		switch (attr.sb.state) {
+		case Superblock::NORMAL:
+
+			attr.sb.state = Superblock::REKEYING;
+			attr.sb.rekeying_vba = 0;
+			attr.sb.previous_key = attr.sb.current_key;
+			attr.sb.current_key.id++;
+			_generate_key.generate(_helper, GENERATE_KEY, GENERATE_KEY_SUCCEEDED, progress, attr.sb.current_key.value);
+			break;
+
+		case Superblock::REKEYING:
+
+			_ft.construct(attr.sb.free_number, attr.sb.free_gen, attr.sb.free_hash, attr.sb.free_max_level, attr.sb.free_degree, attr.sb.free_leaves);
+			_mt.construct(attr.sb.meta_number, attr.sb.meta_gen, attr.sb.meta_hash, attr.sb.meta_max_level, attr.sb.meta_degree, attr.sb.meta_leaves);
+			_rekey_vba.generate(
+				_helper, REKEY_VBA, REKEY_VBA_SUCCEEDED, progress, attr.sb.snapshots, *_ft, *_mt, attr.sb.rekeying_vba,
+				attr.curr_gen, attr.sb.last_secured_generation, attr.sb.current_key.id, attr.sb.previous_key.id, attr.sb.degree, attr.sb.max_vba());
+
+			if (VERBOSE_REKEYING)
+				log("rekey vba ", attr.sb.rekeying_vba, ":\n  update vbd: keys ", attr.sb.previous_key.id, ",", attr.sb.current_key.id,
+				    " generations ", attr.sb.last_secured_generation, ",", attr.curr_gen);
+			break;
+
+		default:
+
+			_helper.mark_failed(progress, "bad superblock state");
 			break;
 		}
-		_ft.construct(attr.sb.free_number, attr.sb.free_gen, attr.sb.free_hash, attr.sb.free_max_level, attr.sb.free_degree, attr.sb.free_leaves);
-		_mt.construct(attr.sb.meta_number, attr.sb.meta_gen, attr.sb.meta_hash, attr.sb.meta_max_level, attr.sb.meta_degree, attr.sb.meta_leaves);
-		_rekey_vba.generate(
-			_helper, REKEY_VBA, REKEY_VBA_SUCCEEDED, progress, attr.sb.snapshots, *_ft, *_mt, attr.sb.rekeying_vba,
-			attr.curr_gen, attr.sb.last_secured_generation, attr.sb.current_key.id, attr.sb.previous_key.id, attr.sb.degree, attr.sb.max_vba());
+		break;
 
+	case GENERATE_KEY: progress |= _generate_key.execute(attr.trust_anchor); break;
+	case GENERATE_KEY_SUCCEEDED:
+
+		_add_key.generate(_helper, ADD_KEY, ADD_KEY_SUCCEEDED, progress, attr.sb.current_key);
+		if (VERBOSE_REKEYING)
+			log("start rekeying:\n  update sb: keys ", attr.sb.previous_key.id, ",", attr.sb.current_key.id);
+		break;
+
+	case ADD_KEY: progress |= _add_key.execute(attr.crypto); break;
+	case ADD_KEY_SUCCEEDED:
 
 		if (VERBOSE_REKEYING)
-			log("rekey vba ", attr.sb.rekeying_vba, ":\n  update vbd: keys ", attr.sb.previous_key.id, ",", attr.sb.current_key.id,
-			    " generations ", attr.sb.last_secured_generation, ",", attr.curr_gen);
+			log("  secure sb: gen ", attr.curr_gen);
+		_secure_sb.generate(_helper, SECURE_SB, SECURE_SB_SUCCEEDED, progress);
 		break;
 
 	case REKEY_VBA: progress |= _rekey_vba.execute(attr.vbd, attr.block_io, attr.crypto, attr.free_tree, attr.meta_tree); break;
@@ -297,7 +328,6 @@ bool Superblock_control::Continue_rekeying::execute(Execute_attr const &attr)
 		}
 		if (attr.sb.rekeying_vba < max_nr_of_leaves - 1) {
 			attr.sb.rekeying_vba++;
-			_attr.out_rekeying_finished = false;
 			_secure_sb.generate(_helper, SECURE_SB, SECURE_SB_SUCCEEDED, progress);
 			if (VERBOSE_REKEYING)
 				log("  secure sb: gen ", attr.curr_gen);
@@ -381,48 +411,6 @@ bool Superblock_control::Secure_superblock::execute(Execute_attr const &attr)
 		_helper.mark_succeeded(progress);
 		break;
 
-	default: break;
-	}
-	return progress;
-}
-
-
-bool Superblock_control::Start_rekeying::execute(Execute_attr const &attr)
-{
-	bool progress = false;
-	switch (_helper.state) {
-	case INIT:
-
-		attr.sb.snapshots.discard_disposable_snapshots(attr.sb.last_secured_generation, attr.curr_gen);
-		if (attr.sb.state != Superblock::NORMAL) {
-			_helper.mark_failed(progress, "check superblock state");
-			break;
-		}
-		attr.sb.state = Superblock::REKEYING;
-		attr.sb.rekeying_vba = 0;
-		attr.sb.previous_key = attr.sb.current_key;
-		attr.sb.current_key.id++;
-		_generate_key.generate(_helper, GENERATE_KEY, GENERATE_KEY_SUCCEEDED, progress, attr.sb.current_key.value);
-		break;
-
-	case GENERATE_KEY: progress |= _generate_key.execute(attr.trust_anchor); break;
-	case GENERATE_KEY_SUCCEEDED:
-
-		_add_key.generate(_helper, ADD_KEY, ADD_KEY_SUCCEEDED, progress, attr.sb.current_key);
-		if (VERBOSE_REKEYING)
-			log("start rekeying:\n  update sb: keys ", attr.sb.previous_key.id, ",", attr.sb.current_key.id);
-		break;
-
-	case ADD_KEY: progress |= _add_key.execute(attr.crypto); break;
-	case ADD_KEY_SUCCEEDED:
-
-		if (VERBOSE_REKEYING)
-			log("  secure sb: gen ", attr.curr_gen);
-		_secure_sb.generate(_helper, SECURE_SB, SECURE_SB_SUCCEEDED, progress);
-		break;
-
-	case SECURE_SB: progress |= _secure_sb.execute(attr.sb_control, attr.block_io, attr.trust_anchor); break;
-	case SECURE_SB_SUCCEEDED: _helper.mark_succeeded(progress); break;
 	default: break;
 	}
 	return progress;

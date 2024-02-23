@@ -68,10 +68,10 @@ class Tresor::Request_pool_channel : public Module_channel
 	private:
 
 		enum State : State_uint {
-			INVALID, REQ_SUBMITTED, REQ_RESUMED, REQ_GENERATED, START_REKEYING, START_REKEYING_SUCCEEDED, PREPONED_REQUESTS_COMPLETE,
+			INVALID, REQ_SUBMITTED, REQ_RESUMED, REQ_GENERATED, PREPONED_REQUESTS_COMPLETE,
 			EXTEND_VBD, EXTEND_VBD_SUCCEEDED, EXTEND_FT, EXTEND_FT_SUCCEEDED, TREE_EXTENSION_STEP_SUCCEEDED, FORWARD_TO_SB_CTRL_SUCCEEDED, READ_VBA, READ_VBA_SUCCEEDED, WRITE_VBA, WRITE_VBA_SUCCEEDED,
 			ACCESS_VBA_AT_SB_CTRL_SUCCEEDED,
-			CONTINUE_REKEYING, CONTINUE_REKEYING_SUCCEEDED, INIT_SB_CONTROL, INIT_SB_CONTROL_SUCCEEDED, DEINITIALIZE_SB_CTRL_SUCCEEDED, REQ_COMPLETE,
+			STATE_REKEY, STATE_REKEY_SUCCEEDED, INIT_SB_CONTROL, INIT_SB_CONTROL_SUCCEEDED, DEINITIALIZE_SB_CTRL_SUCCEEDED, REQ_COMPLETE,
 			SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED};
 
 		State _state { INVALID };
@@ -90,8 +90,7 @@ class Tresor::Request_pool_channel : public Module_channel
 			Generatable_request<Request_pool_channel, State, Superblock_control::Initialize> _init_sb_control;
 			Generatable_request<Request_pool_channel, State, Superblock_control::Deinitialize> _deinit_sb_control;
 			Generatable_request<Request_pool_channel, State, Superblock_control::Synchronize> _sync_sb_control;
-			Generatable_request<Request_pool_channel, State, Superblock_control::Start_rekeying> _start_rekeying;
-			Generatable_request<Request_pool_channel, State, Superblock_control::Continue_rekeying> _continue_rekeying;
+			Generatable_request<Request_pool_channel, State, Superblock_control::Rekey> _rekey;
 			Generatable_request<Request_pool_channel, State, Superblock_control::Extend_vbd> _extend_vbd;
 			Generatable_request<Request_pool_channel, State, Superblock_control::Extend_free_tree> _extend_ft;
 		};

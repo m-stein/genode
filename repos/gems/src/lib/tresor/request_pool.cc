@@ -108,7 +108,7 @@ void Request_pool_channel::_try_prepone_requests(bool &progress)
 
 void Request_pool_channel::_resume_request(bool &progress, Request::Operation op)
 {
-	_state = REQ_RESUMED;
+	_state = REQ_SUBMITTED;
 	_req_ptr->_op = op;
 	progress = true;
 }
@@ -172,12 +172,9 @@ void Request_pool_channel::execute(Superblock_control &sb_control, Trust_anchor 
 	case Request::REKEY:
 
 		switch (_state) {
-		case REQ_SUBMITTED: _start_rekeying.generate(*this, START_REKEYING, START_REKEYING_SUCCEEDED, progress); break;
-		case START_REKEYING: progress |= _start_rekeying.execute(sb_control, block_io, crypto, trust_anchor); break;
-		case START_REKEYING_SUCCEEDED:
-		case REQ_RESUMED: _try_prepone_requests(progress); break;
-		case CONTINUE_REKEYING: progress |= _continue_rekeying.execute(sb_control, vbd, free_tree, meta_tree, block_io, crypto, trust_anchor); break;
-		case CONTINUE_REKEYING_SUCCEEDED:
+		case REQ_SUBMITTED: _rekey.generate(*this, STATE_REKEY, STATE_REKEY_SUCCEEDED, progress, _request_finished); break;
+		case STATE_REKEY: progress |= _rekey.execute(sb_control, vbd, free_tree, meta_tree, block_io, crypto, trust_anchor); break;
+		case STATE_REKEY_SUCCEEDED:
 
 			if (_request_finished)
 				_mark_req_successful(progress);
@@ -185,11 +182,7 @@ void Request_pool_channel::execute(Superblock_control &sb_control, Trust_anchor 
 				_try_prepone_requests(progress);
 			break;
 
-		case PREPONED_REQUESTS_COMPLETE:
-
-			_continue_rekeying.generate(*this, CONTINUE_REKEYING, CONTINUE_REKEYING_SUCCEEDED, progress, _request_finished);
-			break;
-
+		case PREPONED_REQUESTS_COMPLETE: _rekey.generate(*this, STATE_REKEY, STATE_REKEY_SUCCEEDED, progress, _request_finished); break;
 		default: break;
 		}
 		break;
