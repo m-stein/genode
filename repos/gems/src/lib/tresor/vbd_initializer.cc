@@ -100,26 +100,26 @@ bool Vbd_initializer::Initialize::execute(Block_io &block_io)
 	switch (_helper.state) {
 	case INIT:
 
-		_num_remaining_leaves = _attr.in_out_vbd.num_leaves;
+		_num_remaining_leaves = _attr.in_tree_cfg.num_leaves;
 		for (Tree_level_index lvl = 0; lvl < TREE_MAX_LEVEL; lvl++)
 			_reset_level(lvl, Vbd_initializer::Initialize::DONE);
 
-		_node_states[_attr.in_out_vbd.max_lvl + 1][0] = Vbd_initializer::Initialize::INIT_BLOCK;
+		_node_states[_attr.in_tree_cfg.max_lvl + 1][0] = Vbd_initializer::Initialize::INIT_BLOCK;
 		_helper.state = EXECUTE_NODES;
 		progress = true;
 		break;
 
 	case EXECUTE_NODES:
 
-		for (Tree_level_index lvl = 0; lvl <= _attr.in_out_vbd.max_lvl + 1; lvl++)
-			for (Tree_node_index node_idx = 0; node_idx < _attr.in_out_vbd.degree; node_idx++)
+		for (Tree_level_index lvl = 0; lvl <= _attr.in_tree_cfg.max_lvl + 1; lvl++)
+			for (Tree_node_index node_idx = 0; node_idx < _attr.in_tree_cfg.degree; node_idx++)
 				if (_execute_node(lvl, node_idx, progress))
 					return progress;
 
 		if (_num_remaining_leaves)
 			_helper.mark_failed(progress, "leaves remaining");
 		else {
-			_attr.in_out_vbd.t1_node(_t1_blks.items[_attr.in_out_vbd.max_lvl + 1].nodes[0]);
+			_attr.out_tree_root = _t1_blks.items[_attr.in_tree_cfg.max_lvl + 1].nodes[0];
 			_helper.mark_succeeded(progress);
 		}
 		break;
