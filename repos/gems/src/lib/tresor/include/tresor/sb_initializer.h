@@ -18,140 +18,77 @@
 /* tresor includes */
 #include <tresor/types.h>
 #include <tresor/block_io.h>
+#include <tresor/vbd_initializer.h>
+#include <tresor/ft_initializer.h>
+#include <tresor/trust_anchor.h>
 
-namespace Tresor {
+namespace Tresor { class Sb_initializer; }
 
-	class Sb_initializer;
-	class Sb_initializer_request;
-	class Sb_initializer_channel;
-}
-
-
-class Tresor::Sb_initializer_request : public Module_request
+class Tresor::Sb_initializer : Noncopyable
 {
-	friend class Sb_initializer_channel;
-
-	private:
-
-		Tree_level_index _vbd_max_lvl;
-		Tree_degree _vbd_degree;
-		Number_of_leaves _vbd_num_leaves;
-		Tree_level_index _ft_max_lvl;
-		Tree_degree _ft_degree;
-		Number_of_leaves _ft_num_leaves;
-		Tree_level_index _mt_max_lvl;
-		Tree_degree _mt_degree;
-		Number_of_leaves _mt_num_leaves;
-		Pba_allocator &_pba_alloc;
-		bool &_success;
-
-		NONCOPYABLE(Sb_initializer_request);
-
 	public:
 
-		Sb_initializer_request(Module_id, Module_channel_id, Tree_level_index, Tree_degree, Number_of_leaves,
-		                       Tree_level_index, Tree_degree, Number_of_leaves, Tree_level_index, Tree_degree,
-		                       Number_of_leaves, Pba_allocator &, bool &);
+		class Initialize : Noncopyable
+		{
+			public:
 
-		void print(Output &out) const override { Genode::print(out, "init"); }
-};
+				using Module = Sb_initializer;
 
+				struct Attr
+				{
+					Tree_configuration const in_vbd_cfg;
+					Tree_configuration const in_ft_cfg;
+					Tree_configuration const in_mt_cfg;
+					Pba_allocator &in_out_pba_alloc;
+				};
 
-class Tresor::Sb_initializer_channel : public Module_channel
-{
-	private:
+			private:
 
-		using Request = Sb_initializer_request;
+				enum State {
+					INIT, COMPLETE, START_NEXT_SB, SB_COMPLETE, INIT_FT, INIT_FT_SUCCEEDED, INIT_MT_SUCCEEDED,
+					WRITE_HASH_TO_TA, GENERATE_KEY, GENERATE_KEY_SUCCEEDED, ENCRYPT_KEY, ENCRYPT_KEY_SUCCEEDED,
+					SECURE_SB_SUCCEEDED, INIT_VBD, INIT_VBD_SUCCEEDED, WRITE_BLK, WRITE_BLK_SUCCEEDED,
+					SYNC_BLOCK_IO, WRITE_SB_HASH };
 
-		enum State {
-			REQ_SUBMITTED, START_NEXT_SB, SB_COMPLETE, REQ_COMPLETE, INIT_FT, INIT_FT_SUCCEEDED, INIT_MT_SUCCEEDED,
-			WRITE_HASH_TO_TA, GENERATE_KEY, GENERATE_KEY_SUCCEEDED, ENCRYPT_KEY, ENCRYPT_KEY_SUCCEEDED, SECURE_SB_SUCCEEDED, INIT_VBD, INIT_VBD_SUCCEEDED,
-			WRITE_BLK, WRITE_BLK_SUCCEEDED, SYNC_BLOCK_IO, WRITE_SB_HASH, REQ_GENERATED };
+				using Helper = Request_helper<Initialize, State>;
 
-		State _state { REQ_COMPLETE };
-		Request *_req_ptr { };
-		Superblock_index _sb_idx { 0 };
-		Superblock _sb { };
-		Block _blk { };
-		Hash _hash { };
-		Constructible<Tree_root> _vbd { };
-		Constructible<Tree_root> _mt { };
-		Constructible<Tree_root> _ft { };
-		bool _generated_req_success { false };
-		union {
-			Generatable_request<Sb_initializer_channel, State, Block_io::Write> _write_block;
-			Generatable_request<Sb_initializer_channel, State, Block_io::Sync> _sync_block_io;
-			Generatable_request<Sb_initializer_channel, State, Trust_anchor::Generate_key> _generate_key;
-			Generatable_request<Sb_initializer_channel, State, Trust_anchor::Write_hash> _write_sb_hash;
-			Generatable_request<Sb_initializer_channel, State, Trust_anchor::Encrypt_key> _encrypt_key;
-			Generatable_request<Sb_initializer_channel, State, Ft_initializer::Initialize> _init_ft;
-			Generatable_request<Sb_initializer_channel, State, Vbd_initializer::Initialize> _init_vbd;
+				Helper _helper;
+				Attr const _attr;
+				Superblock_index _sb_idx { 0 };
+				Superblock _sb { };
+				Block _blk { };
+				Hash _hash { };
+				Type_1_node _vbd_root { };
+				Type_1_node _ft_root { };
+				Type_1_node _mt_root { };
+				union {
+					Generatable_request<Helper, State, Block_io::Write> _write_block;
+					Generatable_request<Helper, State, Block_io::Sync> _sync_block_io;
+					Generatable_request<Helper, State, Trust_anchor::Generate_key> _generate_key;
+					Generatable_request<Helper, State, Trust_anchor::Write_hash> _write_sb_hash;
+					Generatable_request<Helper, State, Trust_anchor::Encrypt_key> _encrypt_key;
+					Generatable_request<Helper, State, Ft_initializer::Initialize> _init_ft;
+					Generatable_request<Helper, State, Vbd_initializer::Initialize> _init_vbd;
+				};
+
+			public:
+
+				Initialize(Attr const &attr) : _helper(*this), _attr(attr) { }
+
+				~Initialize() { }
+
+				void print(Output &out) const { Genode::print(out, "initialize"); }
+
+				bool execute(Block_io &, Trust_anchor &, Vbd_initializer &, Ft_initializer &);
+
+				bool complete() const { return _helper.complete(); }
+				bool success() const { return _helper.success(); }
 		};
 
-		NONCOPYABLE(Sb_initializer_channel);
-
-		void _generated_req_completed(State_uint) override;
-
-		void _request_submitted(Module_request &) override;
-
-		bool _request_complete() override { return _state == REQ_COMPLETE; }
-
-		template <typename REQUEST, typename... ARGS>
-		void _generate_req(State_uint state, bool &progress, ARGS &&... args)
+		bool execute(Initialize &req, Block_io &block_io, Trust_anchor &trust_anchor, Vbd_initializer &vbd_initializer, Ft_initializer &ft_initializer)
 		{
-			_state = REQ_GENERATED;
-			generate_req<REQUEST>(state, progress, args..., _generated_req_success);
+			return req.execute(block_io, trust_anchor, vbd_initializer, ft_initializer);
 		}
-
-		void _mark_req_failed(bool &, char const *);
-
-		void _mark_req_successful(bool &);
-
-	public:
-
-		Sb_initializer_channel(Module_channel_id id) : Module_channel(SB_INITIALIZER, id) { }
-
-		~Sb_initializer_channel() { }
-
-		void execute(Block_io &, Trust_anchor &, Vbd_initializer &, Ft_initializer &, bool &);
-
-		using Module = Sb_initializer;
-
-		void generated_req_failed(bool &progress) { _mark_req_failed(progress, "generated request failed"); }
-
-		void generated_req_succeeded(State target_state, bool &progress)
-		{
-			_state = target_state;
-			progress = true;
-		}
-
-		void req_generated(State target_state, bool &progress)
-		{
-			_state = target_state;
-			progress = true;
-		}
-};
-
-
-class Tresor::Sb_initializer : public Module
-{
-	private:
-
-		using Channel = Sb_initializer_channel;
-
-		Constructible<Channel> _channels[1] { };
-		Block_io &_block_io;
-		Trust_anchor &_trust_anchor;
-		Ft_initializer &_ft_initializer;
-		Vbd_initializer &_vbd_initializer;
-
-		NONCOPYABLE(Sb_initializer);
-
-	public:
-
-		Sb_initializer(Block_io &, Trust_anchor &, Vbd_initializer &, Ft_initializer &);
-
-		void execute(bool &) override;
 
 		static constexpr char const *name() { return "sb_initializer"; }
 };

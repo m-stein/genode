@@ -33,7 +33,8 @@ class Tresor::Ft_initializer : Noncopyable
 
 				struct Attr
 				{
-					Tree_root &in_out_ft;
+					Tree_configuration const in_tree_cfg;
+					Type_1_node &out_tree_root;
 					Pba_allocator &in_out_pba_alloc;
 				};
 

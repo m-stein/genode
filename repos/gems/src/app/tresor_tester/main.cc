@@ -287,7 +287,7 @@ class Tresor_tester::Command : public Module_channel
 
 		enum Type { INVALID, REQUEST, TRUST_ANCHOR, BENCHMARK, CONSTRUCT, DESTRUCT, INITIALIZE, CHECK, CHECK_SNAPSHOTS, LOG };
 
-		enum State { PENDING, INIT_TRUST_ANCHOR, INIT_TRUST_ANCHOR_SUCCEEDED, CHECK_SB, CHECK_SB_SUCCEEDED, IN_PROGRESS, CREATE_SNAP_COMPLETED, DISCARD_SNAP_COMPLETED, COMPLETED };
+		enum State { PENDING, INIT_SUPERBLOCKS, INIT_SUPERBLOCKS_SUCCEEDED, INIT_TRUST_ANCHOR, INIT_TRUST_ANCHOR_SUCCEEDED, CHECK_SB, CHECK_SB_SUCCEEDED, IN_PROGRESS, CREATE_SNAP_COMPLETED, DISCARD_SNAP_COMPLETED, COMPLETED };
 
 	private:
 
@@ -374,6 +374,8 @@ class Tresor_tester::Command : public Module_channel
 			case IN_PROGRESS:
 			case INIT_TRUST_ANCHOR:
 			case INIT_TRUST_ANCHOR_SUCCEEDED:
+			case INIT_SUPERBLOCKS:
+			case INIT_SUPERBLOCKS_SUCCEEDED:
 			case CHECK_SB:
 			case CHECK_SB_SUCCEEDED: return true;
 			default: break;
@@ -381,7 +383,7 @@ class Tresor_tester::Command : public Module_channel
 			return false;
 		}
 
-		bool new_execute(Sb_check &, Vbd_check &, Ft_check &, Block_io &, Trust_anchor &);
+		bool new_execute(Sb_check &, Vbd_check &, Ft_check &, Block_io &, Trust_anchor &, Sb_initializer &, Vbd_initializer &, Ft_initializer &);
 
 		void mark_failed(bool &, Error_string);
 
@@ -446,6 +448,7 @@ class Tresor_tester::Command : public Module_channel
 
 template <> bool Tresor_tester::Command::_type_matches<Tresor::Sb_check::Check>() { return _type == CHECK; }
 template <> bool Tresor_tester::Command::_type_matches<Tresor::Trust_anchor::Initialize>() { return _type == TRUST_ANCHOR; }
+template <> bool Tresor_tester::Command::_type_matches<Tresor::Sb_initializer::Initialize>() { return _type == INITIALIZE; }
 
 
 struct Tresor_tester::Snapshot_reference : public Genode::Avl_node<Snapshot_reference>
@@ -536,7 +539,7 @@ class Tresor_tester::Main
 		Pba_allocator _pba_alloc { NR_OF_SUPERBLOCK_SLOTS };
 		Vbd_initializer _vbd_initializer { };
 		Ft_initializer _ft_initializer { };
-		Sb_initializer _sb_initializer { _block_io, _trust_anchor, _vbd_initializer, _ft_initializer };
+		Sb_initializer _sb_initializer { };
 		Vbd_check _vbd_check { };
 		Ft_check _ft_check { };
 		Sb_check _sb_check { };
@@ -646,7 +649,7 @@ class Tresor_tester::Main
 		void execute(bool &progress) override
 		{
 			for_each_channel<Command>([&] (Command &cmd) {
-				progress |= cmd.new_execute(_sb_check, _vbd_check, _ft_check, _block_io, _trust_anchor); });
+				progress |= cmd.new_execute(_sb_check, _vbd_check, _ft_check, _block_io, _trust_anchor, _sb_initializer, _vbd_initializer, _ft_initializer); });
 
 			_with_first_processable_cmd([&] (Command &cmd) {
 				cmd.execute(progress); });
@@ -664,7 +667,6 @@ class Tresor_tester::Main
 		Main(Genode::Env &env) : _env(env)
 		{
 			add_module(COMMAND_POOL, *this);
-			add_module(SB_INITIALIZER, _sb_initializer);
 			_config_rom.xml().sub_node("commands").for_each_sub_node([&] (Xml_node const &node) {
 				add_channel(*new (_heap) Command(node, *this, _next_command_id++));
 				_num_uncompleted_cmds++;
@@ -831,7 +833,9 @@ void Tresor_tester::Command::_generated_req_completed(State_uint state_uint)
 }
 
 
-bool Tresor_tester::Command::new_execute(Sb_check &sb_check, Vbd_check &vbd_check, Ft_check &ft_check, Block_io &block_io, Trust_anchor &trust_anchor)
+bool Tresor_tester::Command::new_execute(
+	Sb_check &sb_check, Vbd_check &vbd_check, Ft_check &ft_check, Block_io &block_io, Trust_anchor &trust_anchor,
+	Sb_initializer &sb_initializer, Vbd_initializer &vbd_initializer, Ft_initializer &ft_initializer)
 {
 	bool progress = false;
 	switch (_state) {
@@ -859,9 +863,22 @@ bool Tresor_tester::Command::new_execute(Sb_check &sb_check, Vbd_check &vbd_chec
 
 		mark_succeeded(progress);
 		_with_request<Trust_anchor::Initialize>([&] (auto &req) {
-			_main.with_alloc([&] (Allocator &alloc) {
-				destroy(alloc, &req);
-			});
+			_main.with_alloc([&] (Allocator &alloc) { destroy(alloc, &req); });
+		});
+		break;
+
+	case INIT_SUPERBLOCKS:
+
+		_with_request<Sb_initializer::Initialize>([&] (auto &req) {
+			progress |= req.execute(sb_initializer, block_io, trust_anchor, vbd_initializer, ft_initializer);
+		});
+		break;
+
+	case INIT_SUPERBLOCKS_SUCCEEDED:
+
+		mark_succeeded(progress);
+		_with_request<Sb_initializer::Initialize>([&] (auto &req) {
+			_main.with_alloc([&] (Allocator &alloc) { destroy(alloc, &req); });
 		});
 		break;
 
@@ -923,14 +940,28 @@ void Tresor_tester::Command::execute(bool &progress)
 	{
 		_main.reset_snap_refs();
 		Tresor_init::Configuration const &cfg { initialize() };
-		generate_req<Sb_initializer_request>(COMPLETED, progress,
-			(Tree_level_index)(cfg.vbd_nr_of_lvls() - 1),
-			(Tree_degree)cfg.vbd_nr_of_children(), cfg.vbd_nr_of_leafs(),
-			(Tree_level_index)cfg.ft_nr_of_lvls() - 1,
-			(Tree_degree)cfg.ft_nr_of_children(), cfg.ft_nr_of_leafs(),
-			(Tree_level_index)cfg.ft_nr_of_lvls() - 1,
-			(Tree_degree)cfg.ft_nr_of_children(), cfg.ft_nr_of_leafs(), _main.pba_alloc(), _success);
-		_main.mark_command_in_progress(id());
+		_main.with_alloc([&] (Allocator &alloc) {
+			auto req = new (alloc) Generatable_request<Command, State, Sb_initializer::Initialize>();
+			req->generate(*this, INIT_SUPERBLOCKS, INIT_SUPERBLOCKS_SUCCEEDED, progress,
+				Tree_configuration {
+					(Tree_level_index)(cfg.vbd_nr_of_lvls() - 1),
+					(Tree_degree)cfg.vbd_nr_of_children(),
+					cfg.vbd_nr_of_leafs()
+				},
+				Tree_configuration {
+					(Tree_level_index)cfg.ft_nr_of_lvls() - 1,
+					(Tree_degree)cfg.ft_nr_of_children(),
+					cfg.ft_nr_of_leafs()
+				},
+				Tree_configuration {
+					(Tree_level_index)cfg.ft_nr_of_lvls() - 1,
+					(Tree_degree)cfg.ft_nr_of_children(),
+					cfg.ft_nr_of_leafs()
+				},
+				_main.pba_alloc()
+			);
+			_request_ptr = req;
+		});
 		break;
 	}
 	case CHECK:

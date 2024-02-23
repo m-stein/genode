@@ -101,6 +101,7 @@ namespace Tresor {
 	struct Tree_walk_generations;
 	struct Level_indent;
 	struct Tree_root;
+	struct Tree_configuration;
 	class Pba_allocator;
 
 	template <typename, typename>
@@ -609,6 +610,14 @@ struct Tresor::Tree_root
 	void t1_node(Type_1_node const &node) { pba = node.pba; gen = node.gen; hash = node.hash; }
 
 	void print(Output &out) const { Genode::print(out, t1_node(), " maxlvl ", max_lvl, " degr ", degree, " leaves ", num_leaves); }
+};
+
+
+struct Tresor::Tree_configuration
+{
+	Tree_level_index max_lvl;
+	Tree_degree degree;
+	Number_of_leaves num_leaves;
 };
 
 
