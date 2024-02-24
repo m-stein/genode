@@ -38,20 +38,6 @@
 #include <tresor/virtual_block_device.h>
 #include <tresor/superblock_control.h>
 
-/*
-Vfs::Directory_service::OPEN_MODE_RDWR
-Vfs::Directory_service::OPEN_MODE_WRONLY
-
-		Vfs::Vfs_handle &_open(Tresor::Path path, Vfs::Directory_service::Open_mode mode)
-		{
-			Vfs::Vfs_handle *handle { nullptr };
-			ASSERT(_env.root_dir().open(path.string(), mode, &handle, _env.alloc()) == Open_result::OPEN_OK);
-			return *handle;
-		}
-
-			_env.root_dir().close(&_handle);
-*/
-
 namespace Tresor_tester {
 
 	using namespace Genode;
@@ -287,7 +273,9 @@ class Tresor_tester::Command : public Module_channel
 
 		enum Type { INVALID, REQUEST, TRUST_ANCHOR, BENCHMARK, CONSTRUCT, DESTRUCT, INITIALIZE, CHECK, CHECK_SNAPSHOTS, LOG };
 
-		enum State { PENDING, INIT_SUPERBLOCKS, INIT_SUPERBLOCKS_SUCCEEDED, TRESOR_REQUEST, INIT_TRUST_ANCHOR, INIT_TRUST_ANCHOR_SUCCEEDED, CHECK_SB, CHECK_SB_SUCCEEDED, IN_PROGRESS, CREATE_SNAP_COMPLETED, DISCARD_SNAP_COMPLETED, COMPLETED };
+		enum State {
+			PENDING, INIT_SUPERBLOCKS = 13, INIT_SUPERBLOCKS_SUCCEEDED, TRESOR_REQUEST, INIT_TRUST_ANCHOR, INIT_TRUST_ANCHOR_SUCCEEDED,
+			CHECK_SB, CHECK_SB_SUCCEEDED, IN_PROGRESS, CREATE_SNAP_COMPLETED, DISCARD_SNAP_COMPLETED, COMPLETED = 12 };
 
 	private:
 
@@ -534,6 +522,9 @@ class Tresor_tester::Main
 		Constructible<Virtual_block_device> _vbd { };
 		Constructible<Superblock_control> _sb_control { };
 		Constructible<Request_scheduler> _request_scheduler { };
+		bool _init_tresor_success { };
+		Generation _init_tresor_gen { };
+		Constructible<Tresor::Request> _init_tresor { };
 		Constructible<Meta_tree> _meta_tree { };
 		Trust_anchor _trust_anchor { { _ta_decrypt_file, _ta_encrypt_file, _ta_generate_key_file, _ta_initialize_file, _ta_hash_file } };
 		Crypto _crypto { {*this, _crypto_add_key_file, _crypto_remove_key_file} };
@@ -781,6 +772,8 @@ class Tresor_tester::Main
 			_vbd.construct();
 			_sb_control.construct();
 			_request_scheduler.construct();
+			_init_tresor.construct(Request::INITIALIZE, 0, 0, 0, 0, 0, _init_tresor_gen, _init_tresor_success);
+			_request_scheduler->add_request(*_init_tresor);
 		}
 
 		void destruct_tresor_modules()
@@ -848,6 +841,7 @@ bool Tresor_tester::Command::new_execute(
 	Sb_check &sb_check, Vbd_check &vbd_check, Ft_check &ft_check, Block_io &block_io, Trust_anchor &trust_anchor,
 	Sb_initializer &sb_initializer, Vbd_initializer &vbd_initializer, Ft_initializer &ft_initializer)
 {
+log(__func__, __LINE__, " ", _id, " ", (int)_type, " ", (int)_state);
 	bool progress = false;
 	switch (_state) {
 	case CHECK_SB:

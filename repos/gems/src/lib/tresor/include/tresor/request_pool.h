@@ -87,6 +87,7 @@ class Tresor::Request : private List<Tresor::Request>::Element
 
 		bool execute(Execute_attr const &attr)
 		{
+log("Request::",__func__, __LINE__);
 			bool progress = false;
 			switch (_op) {
 			case Request::INITIALIZE:
@@ -240,6 +241,7 @@ class Tresor::Request_scheduler : Noncopyable
 
 		bool execute(Request::Execute_attr const &attr)
 		{
+log("Request_scheduler::",__func__, __LINE__);
 			bool progress = false;
 			_schedule.with_head([&] (Request &head) {
 				progress |= head.execute(attr);
