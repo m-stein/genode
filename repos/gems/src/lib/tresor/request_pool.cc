@@ -129,15 +129,10 @@ void Request_pool_channel::execute(Superblock_control &sb_control, Trust_anchor 
 
 		switch (_state) {
 		case REQ_SUBMITTED:
-			_read_vba.generate(*this, READ_VBA, READ_VBA_SUCCEEDED, progress, _req_ptr->_vba + _num_blks, _req_ptr->_offset, _req_ptr->_tag);
+			_read_vbas.generate(*this, READ_VBAS, READ_VBAS_SUCCEEDED, progress, req._vba, req._count, req._offset, req._tag);
 			break;
-		case READ_VBA: progress |= _read_vba.execute(sb_control, vbd, client_data, block_io, crypto); break;
-		case READ_VBA_SUCCEEDED:
-			if (++_num_blks < _req_ptr->_count)
-				_read_vba.generate(*this, READ_VBA, READ_VBA_SUCCEEDED, progress, _req_ptr->_vba + _num_blks, _req_ptr->_offset, _req_ptr->_tag);
-			else
-				_mark_req_successful(progress);
-			break;
+		case READ_VBAS: progress |= _read_vbas.execute(sb_control, vbd, client_data, block_io, crypto); break;
+		case READ_VBAS_SUCCEEDED: _mark_req_successful(progress); break;
 		default: break;
 		}
 		break;
@@ -146,12 +141,12 @@ void Request_pool_channel::execute(Superblock_control &sb_control, Trust_anchor 
 
 		switch (_state) {
 		case REQ_SUBMITTED:
-			_write_vba.generate(*this, WRITE_VBA, WRITE_VBA_SUCCEEDED, progress, _req_ptr->_vba + _num_blks, _req_ptr->_offset, _req_ptr->_tag);
+			_write_vba.generate(*this, WRITE_VBA, WRITE_VBA_SUCCEEDED, progress, req._vba + _num_blks, req._offset, req._tag);
 			break;
 		case WRITE_VBA: progress |= _write_vba.execute(sb_control, vbd, client_data, block_io, free_tree, meta_tree, crypto); break;
 		case WRITE_VBA_SUCCEEDED:
-			if (++_num_blks < _req_ptr->_count)
-				_write_vba.generate(*this, WRITE_VBA, WRITE_VBA_SUCCEEDED, progress, _req_ptr->_vba + _num_blks, _req_ptr->_offset, _req_ptr->_tag);
+			if (++_num_blks < req._count)
+				_write_vba.generate(*this, WRITE_VBA, WRITE_VBA_SUCCEEDED, progress, req._vba + _num_blks, req._offset, req._tag);
 			else
 				_mark_req_successful(progress);
 			break;
@@ -190,7 +185,7 @@ void Request_pool_channel::execute(Superblock_control &sb_control, Trust_anchor 
 	case Request::EXTEND_VBD:
 
 		switch (_state) {
-		case REQ_SUBMITTED: _extend_vbd.generate(*this, EXTEND_VBD, EXTEND_VBD_SUCCEEDED, progress, _req_ptr->_count, _request_finished); break;
+		case REQ_SUBMITTED: _extend_vbd.generate(*this, EXTEND_VBD, EXTEND_VBD_SUCCEEDED, progress, req._count, _request_finished); break;
 		case EXTEND_VBD: progress |= _extend_vbd.execute(sb_control, vbd, free_tree, meta_tree, block_io, trust_anchor); break;
 		case EXTEND_VBD_SUCCEEDED:
 
@@ -200,7 +195,7 @@ void Request_pool_channel::execute(Superblock_control &sb_control, Trust_anchor 
 				_try_prepone_requests(progress);
 			break;
 
-		case PREPONED_REQUESTS_COMPLETE: _extend_vbd.generate(*this, EXTEND_VBD, EXTEND_VBD_SUCCEEDED, progress, _req_ptr->_count, _request_finished); break;
+		case PREPONED_REQUESTS_COMPLETE: _extend_vbd.generate(*this, EXTEND_VBD, EXTEND_VBD_SUCCEEDED, progress, req._count, _request_finished); break;
 		default: break;
 		}
 		break;
@@ -208,7 +203,7 @@ void Request_pool_channel::execute(Superblock_control &sb_control, Trust_anchor 
 	case Request::EXTEND_FT:
 
 		switch (_state) {
-		case REQ_SUBMITTED: _extend_ft.generate(*this, EXTEND_FT, EXTEND_FT_SUCCEEDED, progress, _req_ptr->_count, _request_finished); break;
+		case REQ_SUBMITTED: _extend_ft.generate(*this, EXTEND_FT, EXTEND_FT_SUCCEEDED, progress, req._count, _request_finished); break;
 		case EXTEND_FT: progress |= _extend_ft.execute(sb_control, free_tree, meta_tree, block_io, trust_anchor); break;
 		case EXTEND_FT_SUCCEEDED:
 
@@ -218,7 +213,7 @@ void Request_pool_channel::execute(Superblock_control &sb_control, Trust_anchor 
 				_try_prepone_requests(progress);
 			break;
 
-		case PREPONED_REQUESTS_COMPLETE: _extend_ft.generate(*this, EXTEND_FT, EXTEND_FT_SUCCEEDED, progress, _req_ptr->_count, _request_finished); break;
+		case PREPONED_REQUESTS_COMPLETE: _extend_ft.generate(*this, EXTEND_FT, EXTEND_FT_SUCCEEDED, progress, req._count, _request_finished); break;
 		default: break;
 		}
 		break;
