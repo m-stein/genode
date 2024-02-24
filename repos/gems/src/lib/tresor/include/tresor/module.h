@@ -85,7 +85,7 @@ class Tresor::Module_channel : private Avl_node<Module_channel>
 
 	private:
 
-		enum { GEN_REQ_BUF_SIZE = 4000 };
+		enum { GEN_REQ_BUF_SIZE = 100000 };
 
 		enum Generated_request_state { NONE, PENDING, IN_PROGRESS };
 

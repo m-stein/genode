@@ -327,7 +327,7 @@ class Tresor::Superblock_control : Noncopyable
 					Client_data_interface &client_data;
 					Block_io &block_io;
 					Crypto &crypto;
-					Superblock const sb;
+					Superblock const &sb;
 					Generation const &curr_gen;
 				};
 
