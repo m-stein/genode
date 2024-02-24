@@ -69,7 +69,7 @@ class Tresor::Request_pool_channel : public Module_channel
 
 		enum State : State_uint {
 			INVALID, REQ_SUBMITTED, REQ_RESUMED, REQ_GENERATED, PREPONED_REQUESTS_COMPLETE,
-			EXTEND_VBD, EXTEND_VBD_SUCCEEDED, EXTEND_FT, EXTEND_FT_SUCCEEDED, TREE_EXTENSION_STEP_SUCCEEDED, FORWARD_TO_SB_CTRL_SUCCEEDED, READ_VBA, READ_VBA_SUCCEEDED, WRITE_VBA, WRITE_VBA_SUCCEEDED,
+			EXTEND_VBD, EXTEND_VBD_SUCCEEDED, EXTEND_FT, EXTEND_FT_SUCCEEDED, TREE_EXTENSION_STEP_SUCCEEDED, FORWARD_TO_SB_CTRL_SUCCEEDED, READ_VBAS, READ_VBAS_SUCCEEDED, WRITE_VBA, WRITE_VBA_SUCCEEDED,
 			ACCESS_VBA_AT_SB_CTRL_SUCCEEDED,
 			STATE_REKEY, STATE_REKEY_SUCCEEDED, INIT_SB_CONTROL, INIT_SB_CONTROL_SUCCEEDED, DEINITIALIZE_SB_CTRL_SUCCEEDED, REQ_COMPLETE,
 			SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED};
@@ -83,7 +83,7 @@ class Tresor::Request_pool_channel : public Module_channel
 		Request_pool_channel_queue &_chan_queue;
 		Request *_req_ptr { nullptr };
 		union {
-			Generatable_request<Request_pool_channel, State, Superblock_control::Read_vba> _read_vba;
+			Generatable_request<Request_pool_channel, State, Superblock_control::Read_vbas> _read_vbas;
 			Generatable_request<Request_pool_channel, State, Superblock_control::Write_vba> _write_vba;
 			Generatable_request<Request_pool_channel, State, Superblock_control::Discard_snapshot> _discard_snap;
 			Generatable_request<Request_pool_channel, State, Superblock_control::Create_snapshot> _create_snap;
