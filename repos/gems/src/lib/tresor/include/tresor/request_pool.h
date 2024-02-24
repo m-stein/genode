@@ -32,17 +32,29 @@ namespace Tresor {
 
 class Tresor::Request : public Module_request, private List<Tresor::Request>::Element
 {
-	NONCOPYABLE(Request);
-
 	friend class Request_pool_channel;
 	friend class Request_scheduler;
 	friend class List<Tresor::Request>;
 
 	public:
 
+		using Module = Request_scheduler;
+
 		enum Operation {
 			READ, WRITE, SYNC, CREATE_SNAPSHOT, DISCARD_SNAPSHOT, REKEY, EXTEND_VBD,
 			EXTEND_FT, RESUME_REKEYING, DEINITIALIZE, INITIALIZE, };
+
+		struct Execute_attr
+		{
+			Superblock_control &sb_control;
+			Client_data_interface &client_data;
+			Virtual_block_device &vbd;
+			Free_tree &free_tree;
+			Meta_tree &meta_tree;
+			Block_io &block_io;
+			Trust_anchor &trust_anchor;
+			Crypto &crypto;
+		};
 
 	private:
 
@@ -55,12 +67,60 @@ class Tresor::Request : public Module_request, private List<Tresor::Request>::El
 		Generation &_gen;
 		bool &_success;
 
+		enum State {
+			INIT, INIT_SB_CONTROL, INIT_SB_CONTROL_SUCCEEDED, COMPLETE };
+
+		using Helper = Request_helper<Tresor::Request, State>;
+
+		Helper _helper;
+		Superblock::State _sb_state { Superblock::INVALID };
+		union {
+			Generatable_request<Helper, State, Superblock_control::Read_vbas> _read_vbas;
+			Generatable_request<Helper, State, Superblock_control::Write_vbas> _write_vbas;
+			Generatable_request<Helper, State, Superblock_control::Discard_snapshot> _discard_snap;
+			Generatable_request<Helper, State, Superblock_control::Create_snapshot> _create_snap;
+			Generatable_request<Helper, State, Superblock_control::Initialize> _init_sb_control;
+			Generatable_request<Helper, State, Superblock_control::Deinitialize> _deinit_sb_control;
+			Generatable_request<Helper, State, Superblock_control::Synchronize> _sync_sb_control;
+			Generatable_request<Helper, State, Superblock_control::Rekey> _rekey;
+			Generatable_request<Helper, State, Superblock_control::Extend_vbd> _extend_vbd;
+			Generatable_request<Helper, State, Superblock_control::Extend_free_tree> _extend_ft;
+		};
+
+		bool execute(Execute_attr const &attr)
+		{
+			bool progress = false;
+			switch (_op) {
+			case Request::INITIALIZE:
+
+				switch (_helper.state) {
+				case INIT: _init_sb_control.generate(_helper, INIT_SB_CONTROL, INIT_SB_CONTROL_SUCCEEDED, progress, _sb_state); break;
+				case INIT_SB_CONTROL: progress |= _init_sb_control.execute(attr.sb_control, attr.block_io, attr.crypto, attr.trust_anchor); break;
+				case INIT_SB_CONTROL_SUCCEEDED:
+
+					switch (_sb_state) {
+					case Superblock::NORMAL: _helper.mark_succeeded(progress); break;
+					default: ASSERT_NEVER_REACHED;
+					}
+					break;
+
+				default: break;
+				}
+				break;
+
+			default: ASSERT_NEVER_REACHED;
+			}
+			return progress;
+		}
+
 	public:
 
 		static char const *op_to_string(Operation);
 
 		Request(Module_id, Module_channel_id, Operation, Virtual_block_address, Request_offset,
 		        Number_of_blocks, Key_id, Request_tag, Generation &, bool &);
+
+		~Request() { }
 
 		void print(Output &) const override;
 };
@@ -228,7 +288,7 @@ class Tresor::Request_scheduler : Noncopyable
 
 			public:
 
-				void insert(Request &request)
+				void add_tail(Request &request)
 				{
 					_list.insert(&request, _tail);
 					_tail = &request;
@@ -275,6 +335,26 @@ class Tresor::Request_scheduler : Noncopyable
 					_list.insert(head, insert_head_at);
 				}
 		};
+
+		Schedule _schedule;
+
+	public:
+
+		void add_request(Request &req)
+		{
+			_schedule.add_tail(req);
+		}
+
+		bool execute(Request::Execute_attr const &attr)
+		{
+			bool progress = false;
+			_schedule.with_head([&] (Request &head) {
+				progress |= head.execute(attr);
+			});
+			return progress;
+		}
+
+		static constexpr char const *name() { return "request_scheduler"; }
 };
 
 #endif /* _TRESOR__REQUEST_POOL_H_ */

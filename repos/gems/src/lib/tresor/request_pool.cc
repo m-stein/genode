@@ -20,7 +20,7 @@ Request::Request(Module_id src_module_id, Module_channel_id src_chan_id, Operati
                  Request_offset offset, Number_of_blocks count, Key_id key_id, Request_tag tag, Generation &gen, bool &success)
 :
 	Module_request(src_module_id, src_chan_id, REQUEST_POOL), _op(op), _vba(vba), _offset(offset),
-	_count(count), _key_id(key_id), _tag(tag), _gen(gen), _success(success)
+	_count(count), _key_id(key_id), _tag(tag), _gen(gen), _success(success), _helper(*this)
 { }
 
 
