@@ -14,6 +14,9 @@
 #ifndef _TRESOR__REQUEST_POOL_H_
 #define _TRESOR__REQUEST_POOL_H_
 
+/* base includes */
+#include <util/list.h>
+
 /* tresor includes */
 #include <tresor/types.h>
 #include <tresor/superblock_control.h>
@@ -22,15 +25,18 @@ namespace Tresor {
 
 	class Request;
 	class Request_pool;
+	class Request_scheduler;
 	class Request_pool_channel;
 	class Request_pool_channel_queue;
 }
 
-class Tresor::Request : public Module_request
+class Tresor::Request : public Module_request, private List<Tresor::Request>::Element
 {
 	NONCOPYABLE(Request);
 
 	friend class Request_pool_channel;
+	friend class Request_scheduler;
+	friend class List<Tresor::Request>;
 
 	public:
 
@@ -206,6 +212,69 @@ class Tresor::Request_pool : public Module
 		Request_pool(Superblock_control &, Trust_anchor &, Virtual_block_device &, Client_data_interface &, Block_io &, Free_tree &, Meta_tree &, Crypto &);
 
 		static constexpr char const *name() { return "request_pool"; }
+};
+
+
+class Tresor::Request_scheduler : Noncopyable
+{
+	private:
+
+		class Schedule : Noncopyable
+		{
+			private:
+
+				Request *_tail { };
+				List<Tresor::Request> _list { };
+
+			public:
+
+				void insert(Request &request)
+				{
+					_list.insert(&request, _tail);
+					_tail = &request;
+				}
+
+				template <typename FN>
+				void with_head(FN && fn)
+				{
+					if (_list.first())
+						fn(*_list.first());
+				}
+
+				void remove_head()
+				{
+					Request *head = _list.first();
+					if (!head)
+						return;
+
+					_list.remove(head);
+					if (_tail == head)
+						_tail = _list.first();
+				}
+
+				template <typename MOVE_BEHIND_FN>
+				void move_head_backwards(MOVE_BEHIND_FN && can_move_behind)
+				{
+					Request *head = _list.first();
+					if (!head)
+						return;
+
+					Request *next = head->List<Request>::Element::_next;
+					Request *insert_head_at { };
+					while (1) {
+						if (!next)
+							break;
+
+						if (!can_move_behind(next))
+							break;
+
+						insert_head_at = next;
+						next = next->List<Request>::Element::_next;
+					}
+					remove_head();
+					_list.insert(head, insert_head_at);
+				}
+		};
 };
 
 #endif /* _TRESOR__REQUEST_POOL_H_ */
