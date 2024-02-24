@@ -30,9 +30,8 @@ namespace Tresor {
 	class Request_pool_channel_queue;
 }
 
-class Tresor::Request : public Module_request, private List<Tresor::Request>::Element
+class Tresor::Request : private List<Tresor::Request>::Element
 {
-	friend class Request_pool_channel;
 	friend class Request_scheduler;
 	friend class List<Tresor::Request>;
 
@@ -67,8 +66,7 @@ class Tresor::Request : public Module_request, private List<Tresor::Request>::El
 		Generation &_gen;
 		bool &_success;
 
-		enum State {
-			INIT, INIT_SB_CONTROL, INIT_SB_CONTROL_SUCCEEDED, COMPLETE };
+		enum State { INIT, INIT_SB_CONTROL, INIT_SB_CONTROL_SUCCEEDED, COMPLETE };
 
 		using Helper = Request_helper<Tresor::Request, State>;
 
@@ -117,86 +115,15 @@ class Tresor::Request : public Module_request, private List<Tresor::Request>::El
 
 		static char const *op_to_string(Operation);
 
-		Request(Module_id, Module_channel_id, Operation, Virtual_block_address, Request_offset,
+		Request(Operation, Virtual_block_address, Request_offset,
 		        Number_of_blocks, Key_id, Request_tag, Generation &, bool &);
 
 		~Request() { }
 
-		void print(Output &) const override;
-};
+		void print(Output &) const;
 
-class Tresor::Request_pool_channel : public Module_channel
-{
-	public:
-
-		using Module = Request_pool;
-
-	private:
-
-		enum State : State_uint {
-			INVALID, REQ_SUBMITTED, REQ_RESUMED, REQ_GENERATED, PREPONED_REQUESTS_COMPLETE,
-			EXTEND_VBD, EXTEND_VBD_SUCCEEDED, EXTEND_FT, EXTEND_FT_SUCCEEDED, TREE_EXTENSION_STEP_SUCCEEDED, FORWARD_TO_SB_CTRL_SUCCEEDED, READ_VBAS, READ_VBAS_SUCCEEDED, WRITE_VBAS, WRITE_VBAS_SUCCEEDED,
-			ACCESS_VBA_AT_SB_CTRL_SUCCEEDED,
-			STATE_REKEY, STATE_REKEY_SUCCEEDED, INIT_SB_CONTROL, INIT_SB_CONTROL_SUCCEEDED, DEINITIALIZE_SB_CTRL_SUCCEEDED, REQ_COMPLETE,
-			SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED};
-
-		State _state { INVALID };
-		Superblock::State _sb_state { Superblock::INVALID };
-		uint32_t _num_requests_preponed { 0 };
-		bool _request_finished { false };
-		bool _generated_req_success { false };
-		Request_pool_channel_queue &_chan_queue;
-		Request *_req_ptr { nullptr };
-		union {
-			Generatable_request<Request_pool_channel, State, Superblock_control::Read_vbas> _read_vbas;
-			Generatable_request<Request_pool_channel, State, Superblock_control::Write_vbas> _write_vbas;
-			Generatable_request<Request_pool_channel, State, Superblock_control::Discard_snapshot> _discard_snap;
-			Generatable_request<Request_pool_channel, State, Superblock_control::Create_snapshot> _create_snap;
-			Generatable_request<Request_pool_channel, State, Superblock_control::Initialize> _init_sb_control;
-			Generatable_request<Request_pool_channel, State, Superblock_control::Deinitialize> _deinit_sb_control;
-			Generatable_request<Request_pool_channel, State, Superblock_control::Synchronize> _sync_sb_control;
-			Generatable_request<Request_pool_channel, State, Superblock_control::Rekey> _rekey;
-			Generatable_request<Request_pool_channel, State, Superblock_control::Extend_vbd> _extend_vbd;
-			Generatable_request<Request_pool_channel, State, Superblock_control::Extend_free_tree> _extend_ft;
-		};
-
-		NONCOPYABLE(Request_pool_channel);
-
-		void _generated_req_completed(State_uint) override;
-
-		void _request_submitted(Module_request &req) override;
-
-		bool _request_complete() override { return _state == REQ_COMPLETE; }
-
-		void _mark_req_successful(bool &);
-
-		void _reset();
-
-		void _try_prepone_requests(bool &);
-
-		void _resume_request(bool &, Request::Operation);
-
-	public:
-
-		~Request_pool_channel() { }
-
-		Request_pool_channel(Module_channel_id id, Request_pool_channel_queue &chan_queue) : Module_channel(REQUEST_POOL, id), _chan_queue(chan_queue) { }
-
-		void execute(Superblock_control &, Trust_anchor &, Virtual_block_device &, Client_data_interface &, Block_io &, Free_tree &, Meta_tree &, Crypto &, bool &);
-
-		void generated_req_failed(bool &progress);
-
-		void generated_req_succeeded(State target_state, bool &progress)
-		{
-			_state = target_state;
-			progress = true;
-		}
-
-		void req_generated(State target_state, bool &progress)
-		{
-			_state = target_state;
-			progress = true;
-		}
+		bool complete() const { return _helper.complete(); }
+		bool success() const { return _helper.success(); }
 };
 
 
@@ -238,40 +165,6 @@ class Tresor::Request_pool_channel_queue
 		Channel &next(Channel const &) const;
 
 		void dequeue(Channel const &);
-};
-
-
-class Tresor::Request_pool : public Module
-{
-	NONCOPYABLE(Request_pool);
-
-	private:
-
-		using Channel = Request_pool_channel;
-
-		enum { NUM_CHANNELS = Request_pool_channel_queue::NUM_SLOTS };
-
-		bool _init_success { false };
-		Generation _init_gen { INVALID_GENERATION };
-		Request _init_req { INVALID_MODULE_ID, INVALID_MODULE_CHANNEL_ID, Request::INITIALIZE, 0, 0, 0, 0, 0, _init_gen, _init_success };
-		Constructible<Channel> _channels[NUM_CHANNELS] { };
-		Request_pool_channel_queue _chan_queue { };
-		Superblock_control &_sb_control;
-		Trust_anchor &_trust_anchor;
-		Virtual_block_device &_vbd;
-		Client_data_interface &_client_data;
-		Block_io &_block_io;
-		Free_tree &_free_tree;
-		Meta_tree &_meta_tree;
-		Crypto &_crypto;
-
-	public:
-
-		void execute(bool &) override;
-
-		Request_pool(Superblock_control &, Trust_anchor &, Virtual_block_device &, Client_data_interface &, Block_io &, Free_tree &, Meta_tree &, Crypto &);
-
-		static constexpr char const *name() { return "request_pool"; }
 };
 
 
@@ -336,7 +229,7 @@ class Tresor::Request_scheduler : Noncopyable
 				}
 		};
 
-		Schedule _schedule;
+		Schedule _schedule { };
 
 	public:
 

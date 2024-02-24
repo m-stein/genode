@@ -518,7 +518,10 @@ bool Superblock_control::Initialize::execute(Execute_attr const &attr)
 {
 	bool progress = false;
 	switch (_helper.state) {
-	case INIT: _read_sb_hash.generate(_helper, READ_SB_HASH, READ_SB_HASH_SUCCEEDED, progress, _hash); break;
+	case INIT:
+
+log("start initialize");
+_read_sb_hash.generate(_helper, READ_SB_HASH, READ_SB_HASH_SUCCEEDED, progress, _hash); break;
 	case READ_SB_HASH: progress |= _read_sb_hash.execute(attr.trust_anchor); break;
 	case READ_SB_HASH_SUCCEEDED:
 
@@ -562,6 +565,7 @@ bool Superblock_control::Initialize::execute(Execute_attr const &attr)
 		attr.curr_gen = _gen + 1;
 		_attr.out_sb_state = attr.sb.state;
 		_helper.mark_succeeded(progress);
+log("finish initialize");
 		break;
 
 	default: break;

@@ -287,7 +287,7 @@ class Tresor_tester::Command : public Module_channel
 
 		enum Type { INVALID, REQUEST, TRUST_ANCHOR, BENCHMARK, CONSTRUCT, DESTRUCT, INITIALIZE, CHECK, CHECK_SNAPSHOTS, LOG };
 
-		enum State { PENDING, INIT_SUPERBLOCKS, INIT_SUPERBLOCKS_SUCCEEDED, INIT_TRUST_ANCHOR, INIT_TRUST_ANCHOR_SUCCEEDED, CHECK_SB, CHECK_SB_SUCCEEDED, IN_PROGRESS, CREATE_SNAP_COMPLETED, DISCARD_SNAP_COMPLETED, COMPLETED };
+		enum State { PENDING, INIT_SUPERBLOCKS, INIT_SUPERBLOCKS_SUCCEEDED, TRESOR_REQUEST, INIT_TRUST_ANCHOR, INIT_TRUST_ANCHOR_SUCCEEDED, CHECK_SB, CHECK_SB_SUCCEEDED, IN_PROGRESS, CREATE_SNAP_COMPLETED, DISCARD_SNAP_COMPLETED, COMPLETED };
 
 	private:
 
@@ -306,6 +306,7 @@ class Tresor_tester::Command : public Module_channel
 		Constructible<Log_node> _log_node { };
 		Constructible<Tresor_init::Configuration> _initialize { };
 		void *_request_ptr { nullptr };
+		Constructible<Tresor::Request> _request { };
 
 		template <typename DST_REQ> bool _type_matches();
 
@@ -372,6 +373,7 @@ class Tresor_tester::Command : public Module_channel
 		{
 			switch(_state) {
 			case IN_PROGRESS:
+			case TRESOR_REQUEST:
 			case INIT_TRUST_ANCHOR:
 			case INIT_TRUST_ANCHOR_SUCCEEDED:
 			case INIT_SUPERBLOCKS:
@@ -531,7 +533,7 @@ class Tresor_tester::Main
 		Constructible<Free_tree> _free_tree { };
 		Constructible<Virtual_block_device> _vbd { };
 		Constructible<Superblock_control> _sb_control { };
-		Constructible<Request_pool> _request_pool { };
+		Constructible<Request_scheduler> _request_scheduler { };
 		Constructible<Meta_tree> _meta_tree { };
 		Trust_anchor _trust_anchor { { _ta_decrypt_file, _ta_encrypt_file, _ta_generate_key_file, _ta_initialize_file, _ta_hash_file } };
 		Crypto _crypto { {*this, _crypto_add_key_file, _crypto_remove_key_file} };
@@ -674,6 +676,17 @@ class Tresor_tester::Main
 			_handle_signal();
 		}
 
+		bool execute_request_scheduler()
+		{
+			return _request_scheduler->execute({
+				*_sb_control, *this, *_vbd, *_free_tree, *_meta_tree, _block_io, _trust_anchor, _crypto });
+		}
+
+		void add_to_request_scheduler(Request &req)
+		{
+			_request_scheduler->add_request(req);
+		}
+
 		void mark_command_in_progress(Module_channel_id cmd_id)
 		{
 			with_channel<Command>(cmd_id, [&] (Command &cmd) {
@@ -767,15 +780,13 @@ class Tresor_tester::Main
 			_free_tree.construct();
 			_vbd.construct();
 			_sb_control.construct();
-			_request_pool.construct(*_sb_control, _trust_anchor, *_vbd, *this, _block_io, *_free_tree, *_meta_tree, _crypto);
-			add_module(REQUEST_POOL, *_request_pool);
+			_request_scheduler.construct();
 		}
 
 		void destruct_tresor_modules()
 		{
-			remove_module(REQUEST_POOL);
 			_meta_tree.destruct();
-			_request_pool.destruct();
+			_request_scheduler.destruct();
 			_sb_control.destruct();
 			_vbd.destruct();
 			_free_tree.destruct();
@@ -854,6 +865,23 @@ bool Tresor_tester::Command::new_execute(
 		});
 		break;
 
+	case TRESOR_REQUEST:
+	{
+		progress |= _main.execute_request_scheduler();
+		Tresor::Request &req = *(Tresor::Request*)_request_ptr;
+		if (req.complete()) {
+			if (VERBOSE_MODULE_COMMUNICATION)
+				log("command_pool <--", req, "-- scheduler");
+
+			if (!req.success()) {
+				mark_failed(progress, "generated request");
+			} else {
+				mark_succeeded(progress);
+			}
+			_main.with_alloc([&] (Allocator &alloc) { destroy(alloc, &req); });
+		}
+		break;
+	}
 	case INIT_TRUST_ANCHOR:
 
 		_with_request<Trust_anchor::Initialize>([&] (auto &req) { progress |= req.execute(trust_anchor); });
@@ -909,20 +937,16 @@ void Tresor_tester::Command::execute(bool &progress)
 	case REQUEST:
 	{
 		Request_node const &node { request_node() };
-		State state { COMPLETED };
-		_gen = INVALID_GENERATION;
-		if (node.op == Request::DISCARD_SNAPSHOT) {
-			_gen = _main.snap_id_to_gen(node.snap_id);
-			state = DISCARD_SNAP_COMPLETED;
-		}
-		if (node.op == Request::CREATE_SNAPSHOT)
-			state = CREATE_SNAP_COMPLETED;
+		_main.with_alloc([&] (Allocator &alloc) {
 
-		generate_req<Tresor::Request>(
-			state, progress, node.op, node.has_vba() ? node.vba : 0,
-			0, node.has_count() ? node.count : 0, 0, id(), _gen, _success);
+			_gen = node.op == Request::DISCARD_SNAPSHOT ? _main.snap_id_to_gen(node.snap_id) : 0;
+			_request_ptr = new (alloc) Request(
+				node.op, node.has_vba() ? node.vba : 0, 0, node.has_count() ? node.count : 0, 0, id(), _gen, _success);
 
-		_main.mark_command_in_progress(id());
+			_main.add_to_request_scheduler(*(Tresor::Request*)_request_ptr);
+		});
+		_state = TRESOR_REQUEST;
+		progress = true;
 		break;
 	}
 	case TRUST_ANCHOR:
