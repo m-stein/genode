@@ -85,7 +85,7 @@ class Tresor::Superblock_control : Noncopyable
 
 	public:
 
-		class Write_vba : Noncopyable
+		class Write_vbas : Noncopyable
 		{
 			public:
 
@@ -93,7 +93,8 @@ class Tresor::Superblock_control : Noncopyable
 
 				struct Attr
 				{
-					Virtual_block_address const in_vba;
+					Virtual_block_address const in_first_vba;
+					Number_of_blocks const in_num_vbas;
 					Request_offset const in_client_req_offset;
 					Request_tag const in_client_req_tag;
 				};
@@ -114,19 +115,22 @@ class Tresor::Superblock_control : Noncopyable
 
 				enum State { INIT, COMPLETE, WRITE_VBA, WRITE_VBA_SUCCEEDED };
 
-				using Helper = Request_helper<Write_vba, State>;
+				using Helper = Request_helper<Write_vbas, State>;
 
 				Helper _helper;
 				Attr const _attr;
+				Number_of_blocks _num_written_vbas { };
 				Constructible<Tree_root> _ft { };
 				Constructible<Tree_root> _mt { };
 				Generatable_request<Helper, State, Virtual_block_device::Write_vba> _write_vba { };
 
+				void _start_write_vba(Execute_attr const &, bool &);
+
 			public:
 
-				Write_vba(Attr const &attr) : _helper(*this), _attr(attr) { }
+				Write_vbas(Attr const &attr) : _helper(*this), _attr(attr) { }
 
-				~Write_vba() { }
+				~Write_vbas() { }
 
 				void print(Output &out) const { Genode::print(out, "write vba"); }
 
@@ -335,7 +339,7 @@ class Tresor::Superblock_control : Noncopyable
 
 				Helper _helper;
 				Attr const _attr;
-				Number_of_blocks _num_read_vbas { 0 };
+				Number_of_blocks _num_read_vbas { };
 				Generatable_request<Helper, State, Virtual_block_device::Read_vba> _read_vba { };
 
 				void _start_read_vba(Execute_attr const &, bool &progress);
@@ -640,7 +644,7 @@ class Tresor::Superblock_control : Noncopyable
 			return req.execute({ vbd, client_data, block_io, crypto, _sb, _curr_gen });
 		}
 
-		bool execute(Write_vba &req, Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Free_tree &free_tree, Meta_tree &meta_tree, Crypto &crypto)
+		bool execute(Write_vbas &req, Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Free_tree &free_tree, Meta_tree &meta_tree, Crypto &crypto)
 		{
 			return req.execute({ vbd, client_data, block_io, free_tree, meta_tree, crypto, _sb, _curr_gen });
 		}
