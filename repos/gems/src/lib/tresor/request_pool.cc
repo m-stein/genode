@@ -141,15 +141,10 @@ void Request_pool_channel::execute(Superblock_control &sb_control, Trust_anchor 
 
 		switch (_state) {
 		case REQ_SUBMITTED:
-			_write_vba.generate(*this, WRITE_VBA, WRITE_VBA_SUCCEEDED, progress, req._vba + _num_blks, req._offset, req._tag);
+			_write_vbas.generate(*this, WRITE_VBAS, WRITE_VBAS_SUCCEEDED, progress, req._vba, req._count, req._offset, req._tag);
 			break;
-		case WRITE_VBA: progress |= _write_vba.execute(sb_control, vbd, client_data, block_io, free_tree, meta_tree, crypto); break;
-		case WRITE_VBA_SUCCEEDED:
-			if (++_num_blks < req._count)
-				_write_vba.generate(*this, WRITE_VBA, WRITE_VBA_SUCCEEDED, progress, req._vba + _num_blks, req._offset, req._tag);
-			else
-				_mark_req_successful(progress);
-			break;
+		case WRITE_VBAS: progress |= _write_vbas.execute(sb_control, vbd, client_data, block_io, free_tree, meta_tree, crypto); break;
+		case WRITE_VBAS_SUCCEEDED: _mark_req_successful(progress); break;
 		default: break;
 		}
 		break;
@@ -320,7 +315,7 @@ void Request_pool_channel::_reset()
 {
 	_state = INVALID;
 	_sb_state = Superblock::INVALID;
-	_num_blks = _num_requests_preponed = 0;
+	_num_requests_preponed = 0;
 	_request_finished = false;
 }
 
