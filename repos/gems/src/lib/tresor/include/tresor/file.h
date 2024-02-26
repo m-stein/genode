@@ -83,7 +83,6 @@ class Tresor::File
 			switch (_state) {
 			case IDLE:
 
-log("file::read::",__func__,__LINE__);
 				_num_processed_bytes = 0;
 				_state = READ_INITIALIZED;
 				progress = true;
@@ -91,7 +90,6 @@ log("file::read::",__func__,__LINE__);
 
 			case READ_INITIALIZED:
 
-log("file::read::",__func__,__LINE__);
 				_handle.seek(off + _num_processed_bytes);
 				if (!_handle.fs().queue_read(&_handle, dst.num_bytes - _num_processed_bytes))
 					break;
@@ -102,21 +100,13 @@ log("file::read::",__func__,__LINE__);
 
 			case READ_QUEUED:
 			{
-log("file::read::",__func__,__LINE__);
 				size_t num_read_bytes { 0 };
 				Byte_range_ptr curr_dst { dst.start + _num_processed_bytes, dst.num_bytes - _num_processed_bytes };
 				switch (_handle.fs().complete_read(&_handle, curr_dst, num_read_bytes)) {
-				case Read_result::READ_QUEUED:
-
-log("file::read::",__func__,__LINE__);
-break;
-				case Read_result::READ_ERR_WOULD_BLOCK:
-
-log("file::read::",__func__,__LINE__);
-break;
+				case Read_result::READ_QUEUED: break;
+				case Read_result::READ_ERR_WOULD_BLOCK: break;
 				case Read_result::READ_OK:
 
-log("file::read::",__func__,__LINE__);
 					_num_processed_bytes += num_read_bytes;
 					if (_num_processed_bytes < dst.num_bytes) {
 						_state = READ_INITIALIZED;
@@ -131,7 +121,6 @@ log("file::read::",__func__,__LINE__);
 
 				default:
 
-log("file::read::",__func__,__LINE__);
 					error("file: read failed");
 					_host_state = failed;
 					_state = IDLE;

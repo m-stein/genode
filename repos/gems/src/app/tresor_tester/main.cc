@@ -40,6 +40,8 @@
 
 namespace Tresor_tester {
 
+	enum { VERBOSE = 1 };
+
 	using namespace Genode;
 	using namespace Tresor;
 
@@ -302,6 +304,7 @@ class Tresor_tester::Command : private Avl_node<Command>
 		Constructible<Log_node> _log_node { };
 		Constructible<Tresor_init::Configuration> _initialize { };
 		Trust_anchor::Initialize *_init_trust_anchor_ptr { };
+		Sb_check::Check *_check_superblocks_ptr { };
 		void *_request_ptr { nullptr };
 
 		template <typename DST_REQ> bool _type_matches();
@@ -638,6 +641,14 @@ class Tresor_tester::Main
 
 		void _wakeup_back_end_services() { _vfs_env.io().commit(); }
 
+		bool _synchronized_command(Command const &cmd)
+		{
+			if (cmd._type == Command::REQUEST)
+				return cmd._request_node->sync;
+
+			return false;
+		}
+
 		void _start_command(Command &cmd)
 		{
 			switch (cmd._type) {
@@ -647,11 +658,23 @@ class Tresor_tester::Main
 				ASSERT(node.op == Trust_anchor_node::INITIALIZE);
 				cmd._init_trust_anchor_ptr = new (_heap) Trust_anchor::Initialize({node.passphrase});
 				cmd._state = Command::NEW_IN_PROGRESS;
+				if (VERBOSE)
+					log("start command ", cmd._id, ": init trust anchor");
 				break;
 			}
+			case Command::CHECK:
+
+				cmd._check_superblocks_ptr = new (_heap) Sb_check::Check();
+				cmd._state = Command::NEW_IN_PROGRESS;
+				if (VERBOSE)
+					log("start command ", cmd._id, ": check");
+				break;
+
 			case Command::LOG:
 
 				cmd._state = Command::NEW_IN_PROGRESS;
+				if (VERBOSE)
+					log("start command ", cmd._id, ": log");
 				break;
 
 			default: ASSERT_NEVER_REACHED;
@@ -672,6 +695,8 @@ class Tresor_tester::Main
 					cmd_complete = true;
 					destroy(_heap, &req);
 					progress = true;
+					if (VERBOSE)
+						log("finish command ", cmd._id, ": init trust anchor");
 				}
 				break;
 			}
@@ -681,8 +706,24 @@ class Tresor_tester::Main
 				cmd._state = Command::NEW_COMPLETE;
 				cmd_complete = true;
 				progress = true;
+				if (VERBOSE)
+					log("finish command ", cmd._id, ": log");
 				break;
 
+			case Command::CHECK:
+			{
+				Sb_check::Check &req = *cmd._check_superblocks_ptr;
+				progress |= _sb_check.execute(req, _vbd_check, _ft_check, _block_io);
+				if (req.complete()) {
+					cmd._state = Command::NEW_COMPLETE;
+					cmd_complete = true;
+					destroy(_heap, &req);
+					progress = true;
+					if (VERBOSE)
+						log("finish command ", cmd._id, ": check");
+				}
+				break;
+			}
 			default: ASSERT_NEVER_REACHED;
 			}
 			return progress;
@@ -702,7 +743,7 @@ class Tresor_tester::Main
 				 * (tresor request scheduler, tresor initializer,
 				 * tresor check, trust anchor) must always be serialized.
 				 */
-				if (last_cmd_ptr && last_cmd_ptr->type() != cmd.type())
+				if (cmds_in_progress && last_cmd_ptr->type() != cmd.type())
 					ignore_remaining_cmds = true;
 
 				if (ignore_remaining_cmds)
@@ -712,12 +753,13 @@ class Tresor_tester::Main
 				case Command::NEW_INIT:
 
 					all_cmds_complete = false;
-					if (cmd.synchronize() && cmds_in_progress) {
+					if (_synchronized_command(cmd) && cmds_in_progress) {
 						ignore_remaining_cmds = true;
 						break;
 					}
 					_start_command(cmd);
 					progress = true;
+					cmds_in_progress = true;
 					break;
 
 				case Command::NEW_IN_PROGRESS:
@@ -1105,12 +1147,13 @@ void Tresor_tester::Command::execute(bool &progress)
 		break;
 	}
 	case CHECK:
-
+/*
 		_main.with_alloc([&] (Allocator &alloc) {
 			auto req = new (alloc) Generatable_request<Command, State, Sb_check::Check>();
 			req->generate(*this, CHECK_SB, CHECK_SB_SUCCEEDED, progress);
 			_request_ptr = req;
 		});
+*/
 		break;
 
 	case LOG:
