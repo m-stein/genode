@@ -67,7 +67,7 @@ class Tresor::Request : private List<Tresor::Request>::Element
 		Generation &_gen;
 		bool &_success;
 
-		enum State { INIT, INIT_SB_CONTROL, INIT_SB_CONTROL_SUCCEEDED, COMPLETE };
+		enum State { INIT, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, COMPLETE };
 
 		using Helper = Request_helper<Tresor::Request, State>;
 
@@ -93,16 +93,43 @@ class Tresor::Request : private List<Tresor::Request>::Element
 			case Request::INITIALIZE:
 
 				switch (_helper.state) {
-				case INIT: _init_sb_control.generate(_helper, INIT_SB_CONTROL, INIT_SB_CONTROL_SUCCEEDED, progress, _sb_state); break;
-				case INIT_SB_CONTROL: progress |= _init_sb_control.execute(attr.sb_control, attr.block_io, attr.crypto, attr.trust_anchor); break;
-				case INIT_SB_CONTROL_SUCCEEDED:
+				case INIT: _init_sb_control.generate(_helper, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress, _sb_state); break;
+				case SB_CONTROL_REQ: progress |= _init_sb_control.execute(attr.sb_control, attr.block_io, attr.crypto, attr.trust_anchor); break;
+				case SB_CONTROL_REQ_SUCCEEDED: _helper.mark_succeeded(progress); break;
+				default: break;
+				}
+				break;
 
-					switch (_sb_state) {
-					case Superblock::NORMAL: _helper.mark_succeeded(progress); break;
-					default: ASSERT_NEVER_REACHED;
-					}
+			case Request::READ:
+
+				switch (_helper.state) {
+				case INIT:
+					_read_vbas.generate(_helper, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress, _vba, _count, _offset, _tag);
 					break;
+				case SB_CONTROL_REQ: progress |= _read_vbas.execute(attr.sb_control, attr.vbd, attr.client_data, attr.block_io, attr.crypto); break;
+				case SB_CONTROL_REQ_SUCCEEDED: _helper.mark_succeeded(progress); break;
+				default: break;
+				}
+				break;
 
+			case Request::WRITE:
+
+				switch (_helper.state) {
+				case INIT:
+					_write_vbas.generate(_helper, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress, _vba, _count, _offset, _tag);
+					break;
+				case SB_CONTROL_REQ: progress |= _write_vbas.execute(attr.sb_control, attr.vbd, attr.client_data, attr.block_io, attr.free_tree, attr.meta_tree, attr.crypto); break;
+				case SB_CONTROL_REQ_SUCCEEDED: _helper.mark_succeeded(progress); break;
+				default: break;
+				}
+				break;
+
+			case Request::SYNC:
+
+				switch(_helper.state) {
+				case INIT: _sync_sb_control.generate(_helper, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress); break;
+				case SB_CONTROL_REQ: progress |= _sync_sb_control.execute(attr.sb_control, attr.block_io, attr.trust_anchor); break;
+				case SB_CONTROL_REQ_SUCCEEDED: _helper.mark_succeeded(progress); break;
 				default: break;
 				}
 				break;
@@ -125,6 +152,7 @@ class Tresor::Request : private List<Tresor::Request>::Element
 
 		bool complete() const { return _helper.complete(); }
 		bool success() const { return _helper.success(); }
+		Superblock::State sb_state() const { return _sb_state; }
 };
 
 
@@ -288,13 +316,18 @@ class Tresor::Initializing_request_scheduler
 				progress |= _scheduler.execute(attr);
 				if (_init_tresor->complete()) {
 					if (VERBOSE_MODULE_COMMUNICATION)
-						log("initializing_scheduler <--", *_init_tresor, "-- ", Request_scheduler.name());
+						log(name(), " <--", *_init_tresor, "-- ", Request_scheduler::name());
 
 					if (!_init_tresor->success()) {
 						error("initializing_scheduler: initialize tresor failed");
 						_state = INIT_TRESOR_FAILED;
 						progress = true;
 					} else {
+
+						switch (_init_tresor->sb_state()) {
+						case Superblock::NORMAL: break;
+						default: ASSERT_NEVER_REACHED;
+						}
 						_state = INIT_TRESOR_SUCCEEDED;
 						progress = true;
 					}
@@ -311,6 +344,8 @@ class Tresor::Initializing_request_scheduler
 			}
 			return progress;
 		}
+
+		static constexpr char const *name() { return "initializing_request_scheduler"; }
 };
 
 #endif /* _TRESOR__REQUEST_POOL_H_ */

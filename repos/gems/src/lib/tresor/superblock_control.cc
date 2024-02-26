@@ -562,7 +562,6 @@ bool Superblock_control::Initialize::execute(Execute_attr const &attr)
 		attr.curr_gen = _gen + 1;
 		_attr.out_sb_state = attr.sb.state;
 		_helper.mark_succeeded(progress);
-log("finish initialize");
 		break;
 
 	default: break;

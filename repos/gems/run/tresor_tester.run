@@ -263,6 +263,8 @@ append config {
 					<request op="read"  vba="12"  count="10"  sync="yes"/>
 					<request op="write" vba="24"  count="40" sync="yes"/>
 					<request op="read"  vba="24"  count="40" sync="yes"/>
+					<request op="sync"  vba="0"  count="256" sync="yes"/>
+					<check/>
 
 					<log string="Step 3: test synchronous write, read, compare"/>
 
