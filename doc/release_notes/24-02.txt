@@ -389,92 +389,63 @@ Date:   Mon Dec 4 14:22:49 2023 +0100
 Deferred unlinking of files in VFS RAM file systems
 ===================================================
 
-; @nfeske
+UNIX systems use to defer the physical deletion of a file until the last file
+descriptor referring to the file is closed. Since Genode's VFS does not (try
+to) implement this scheme, we encountered a few difficulties while porting
+3rd-party software to Genode. In some situations, a parent process of a
+Unix-like subsystem may pass the content of an unlinked file to a forked child
+process. This can be observed when using the 'exec' command in Tcl scripts.
+Another example is the use of the 'tmpfile()' POSIX function.
 
-commit 77b0e10e88f8f157b36c26f410daf3574ea5a846
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Dec 11 11:10:41 2023 +0100
-
-    vfs/ram_file_system: deferred unlink
-    
-    This patch changes the unlink operation of the ram fs to defer the
-    destruction of a file until it is no longer referenced by any VFS handle.
-    When unlinked, the file no longer appears in the directory. But it can
-    still be opened and accessed.
-    
-    With this change, a parent process of a Unix-like subsystem becomes able
-    to pass the content of an unlinked file to a forked child process. This
-    mechanism is required when using the 'exec' command in Tcl scripts.
-    
-    Another use case is the 'tmpfile()' function.
-    
-    Fixes #3577
+In the use cases we observed, the mechanism was merely used for /tmp files,
+which are usually backed by a '<ram>' file system in Genode's VFS. Hence, to
+accommodate these programs, we changed the unlink operation of the ram fs to
+defer the destruction of a file until it is no longer referenced by any VFS
+handle. When unlinked, the file no longer appears in the directory.
+But it can still be opened and accessed.
 
 
 Improved API safety of MMIO accesses
 ====================================
 
-; @nfeske, @m-stein
+The 'Register' respectively 'Mmio' APIs have become predominant in
+Genode's native drivers where the type-safe access to hardware registers has
+become a second nature. However, up until recently, one point of unsafety
+remained: Since the 'Mmio' utility evaluated only the base address of a
+memory-mapped I/O range, all associated register definitions were assumed
+to be fully contained within the corresponding local memory mapping.
+An accidental violation of this assumption would remain undetected.
 
-commit 1336b0a751c51b4a3e4efe00caf6fdf31d4b24d6
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Wed Jan 10 15:08:53 2024 +0100
+The current release replaces this optimistic assumption by a combination of
+two mandatory upper-bounds checks. Each 'Mmio' instance is now qualified with
+a 'size_t' template parameter denoting the size of the memory-mapped I/O range
+in bytes. Each register definition within the 'Mmio' is statically checked
+against this upper bound at compile time. At runtime, the local memory mapping
+of the I/O range is checked against the statically defined 'Mmio::SIZE'.
+A violation is considered a non-recoverable driver bug, prompting an error
+message along with a 'Range_violation' exception.
 
-    mmio: upper-bounds checks
-    
-    The classes Genode::Mmio, Genode::Register_set, Genode::Attached_mmio, and
-    Platform::Device::Mmio now receive a template parameter 'size_t SIZE'. In each
-    type that derives from one of these classes, it is now statically checked that
-    the range of each Genode::Register::Register- and
-    Genode::Register_set::Register_array-deriving sub-type is within [0..SIZE).
-    
-    That said, SIZE is the minimum size of the memory region provided to the above
-    mentioned Mmio classes in order to avoid page faults or memory corruption when
-    accessing the registers and register arrays declared inside.
-    
-    Note, that the range end of a register array is not the end of the last item
-    but the end of integer access that is used for accessing the last bit in the
-    last item.
-    
-    The constructors of Genode::Mmio, Genode::Attached_mmio, and
-    Platform::Device::Mmio now receive an argument 'Byte_range_ptr range' that is
-    expected to be the range of the backing memory region. In each type that derives
-    from on of these classes, it is now dynamically checked that 'range.num_bytes
-    >= SIZE', thereby implementing the above mention protection against page faults
-    and memory corruption.
-    
-    The rest of the commit adapts the code throughout the Genode Labs repositories
-    regarding the changes. Note that for that code inside Core, the commits mostly
-    uses a simplified approach by constructing MMIO objects with range
-    [base..base+SIZE) and not with a mapping- or specification-related range size.
-    This should be fixed in the future.
-    
-    Furthermore, there are types that derive from an MMIO class but don't declare
-    any registers or register arrays (especially with Platform::Device::Mmio). In
-    this case SIZE is set to 0. This way, the parameters must be actively corrected
-    by someone who later wants to add registers or register arrays, plus the places
-    can be easily found by grep'ing for Mmio<0>.
-    
-    Fix #4081
+This change modifies the API. Existing driver code must be adapted in two
+respects. First, each 'Mmio' definition must be annotated with the expected
+size in bytes as template argument. Second, the 'Mmio' constructor requires
+a 'Byte_range_ptr' argument instead of a plain 'attr_t' value.
 
 
 Application-level VFS file watching
 ===================================
 
-The convenience API at _os/vfs.h_ provides utilities for using the
-VFS as a stand-alone library without depending on the libc. Among its
-utilities, there exists the so-called watch handler that can be used
-to respond to file modifications. Until now, the
+The convenience API at _os/vfs.h_ provides utilities for using the VFS as
+a stand-alone library without depending on the libc. Among its utilities,
+there exists the so-called watch handler that can be used to monitor files
+for modifications. As watch handlers were primarily used by VFS plugins and
+the C runtime, they used to operate in the context of low-level I/O signal
+handlers. Code executed in this context should generally not involve any
+global side effects that depend on I/O signals themselves (like synchronous
+file access).
 
-; @nfeske
-
-commit 080d3b6b637653e80a54e3c2c65c2b03e179af5d
-Author: Christian Prochaska <christian.prochaska@genode-labs.com>
-Date:   Wed Feb 14 14:46:06 2024 +0100
-
-    vfs: support watch handlers on application signal level
-    
-    Fixes #4092
+With the current release, the 'Watch_handler' becomes safe to use at
+application level where global side effects are anticipated. The former use
+case is now covered by the dedicated 'Io::Watch_handler'.
 
 
 Device drivers
