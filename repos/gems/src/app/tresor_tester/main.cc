@@ -521,10 +521,7 @@ class Tresor_tester::Main
 		Constructible<Free_tree> _free_tree { };
 		Constructible<Virtual_block_device> _vbd { };
 		Constructible<Superblock_control> _sb_control { };
-		Constructible<Request_scheduler> _request_scheduler { };
-		bool _init_tresor_success { };
-		Generation _init_tresor_gen { };
-		Constructible<Tresor::Request> _init_tresor { };
+		Constructible<Initializing_request_scheduler> _request_scheduler { };
 		Constructible<Meta_tree> _meta_tree { };
 		Trust_anchor _trust_anchor { { _ta_decrypt_file, _ta_encrypt_file, _ta_generate_key_file, _ta_initialize_file, _ta_hash_file } };
 		Crypto _crypto { {*this, _crypto_add_key_file, _crypto_remove_key_file} };
@@ -772,8 +769,6 @@ class Tresor_tester::Main
 			_vbd.construct();
 			_sb_control.construct();
 			_request_scheduler.construct();
-			_init_tresor.construct(Request::INITIALIZE, 0, 0, 0, 0, 0, _init_tresor_gen, _init_tresor_success);
-			_request_scheduler->add_request(*_init_tresor);
 		}
 
 		void destruct_tresor_modules()
@@ -841,7 +836,6 @@ bool Tresor_tester::Command::new_execute(
 	Sb_check &sb_check, Vbd_check &vbd_check, Ft_check &ft_check, Block_io &block_io, Trust_anchor &trust_anchor,
 	Sb_initializer &sb_initializer, Vbd_initializer &vbd_initializer, Ft_initializer &ft_initializer)
 {
-log(__func__, __LINE__, " ", _id, " ", (int)_type, " ", (int)_state);
 	bool progress = false;
 	switch (_state) {
 	case CHECK_SB:

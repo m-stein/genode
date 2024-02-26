@@ -26,6 +26,7 @@ namespace Tresor {
 	class Request;
 	class Request_pool;
 	class Request_scheduler;
+	class Initializing_request_scheduler;
 	class Request_pool_channel;
 	class Request_pool_channel_queue;
 }
@@ -87,7 +88,6 @@ class Tresor::Request : private List<Tresor::Request>::Element
 
 		bool execute(Execute_attr const &attr)
 		{
-log("Request::",__func__, __LINE__);
 			bool progress = false;
 			switch (_op) {
 			case Request::INITIALIZE:
@@ -241,15 +241,76 @@ class Tresor::Request_scheduler : Noncopyable
 
 		bool execute(Request::Execute_attr const &attr)
 		{
-log("Request_scheduler::",__func__, __LINE__);
 			bool progress = false;
+			bool head_complete = false;
 			_schedule.with_head([&] (Request &head) {
 				progress |= head.execute(attr);
+				head_complete = head.complete();
 			});
+			if (head_complete)
+				_schedule.remove_head();
+
 			return progress;
 		}
 
 		static constexpr char const *name() { return "request_scheduler"; }
+};
+
+
+class Tresor::Initializing_request_scheduler
+{
+	private:
+
+			enum State { INIT_TRESOR, INIT_TRESOR_SUCCEEDED, INIT_TRESOR_FAILED };
+
+			State _state { INIT_TRESOR };
+			bool _init_tresor_success { };
+			Generation _init_tresor_gen { };
+			Constructible<Request> _init_tresor { };
+			Request_scheduler _scheduler { };
+
+	public:
+
+		Initializing_request_scheduler()
+		{
+			_init_tresor.construct(Request::INITIALIZE, 0, 0, 0, 0, 0, _init_tresor_gen, _init_tresor_success);
+			_scheduler.add_request(*_init_tresor);
+		}
+
+		void add_request(Request &req) { _scheduler.add_request(req); }
+
+		bool execute(Request::Execute_attr const &attr)
+		{
+			bool progress = false;
+			switch(_state) {
+			case INIT_TRESOR:
+			{
+				progress |= _scheduler.execute(attr);
+				if (_init_tresor->complete()) {
+					if (VERBOSE_MODULE_COMMUNICATION)
+						log("initializing_scheduler <--", *_init_tresor, "-- ", Request_scheduler.name());
+
+					if (!_init_tresor->success()) {
+						error("initializing_scheduler: initialize tresor failed");
+						_state = INIT_TRESOR_FAILED;
+						progress = true;
+					} else {
+						_state = INIT_TRESOR_SUCCEEDED;
+						progress = true;
+					}
+					_init_tresor.destruct();
+				}
+				break;
+			}
+			case INIT_TRESOR_SUCCEEDED:
+
+				progress |= _scheduler.execute(attr);
+				break;
+
+			default: break;
+			}
+			return progress;
+		}
 };
 
 #endif /* _TRESOR__REQUEST_POOL_H_ */
